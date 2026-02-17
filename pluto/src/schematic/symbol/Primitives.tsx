@@ -4658,9 +4658,8 @@ export interface StateMapping {
   color?: color.Crude;
 }
 
-export interface SelectSymbolProps
-  extends Omit<DivProps, "value" | "onChange">,
-    Pick<BaseInput.TextProps, "size"> {
+export interface SelectProps
+  extends Omit<DivProps, "value" | "onChange">, Pick<BaseInput.TextProps, "size"> {
   color?: color.Crude;
   value?: string;
   onChange: (key: string | null) => void;
@@ -4670,7 +4669,7 @@ export interface SelectSymbolProps
   inlineSize?: number;
 }
 
-export const SelectSymbol = ({
+export const Select = ({
   className,
   orientation = "left",
   color: colorVal,
@@ -4682,9 +4681,9 @@ export const SelectSymbol = ({
   disabled,
   inlineSize,
   ...rest
-}: SelectSymbolProps): ReactElement => {
+}: SelectProps): ReactElement => {
   const data = useMemo(
-    () => options.map((o) => ({ key: o.key, name: o.name })),
+    () => options.map((o) => ({ key: o.key, name: o.name || `Option ${o.value}` })),
     [options],
   );
   const matched = options.find((o) => o.key === value);
@@ -4720,18 +4719,22 @@ export const SelectSymbol = ({
           onChange={(key: string | null) => onChange(key)}
           disabled={disabled}
           resourceName="option"
+          triggerProps={{ color: colorVal, size }}
           style={{ minWidth: inlineSize }}
         />
-        <BaseButton.Button
-          variant="filled"
-          onClick={() => {
-            if (matched != null) onSend?.(matched.value);
-          }}
-          color={colorVal}
-          disabled={disabled}
-        >
-          Send
-        </BaseButton.Button>
+        {onSend != null && (
+          <BaseButton.Button
+            variant="filled"
+            size={size}
+            onClick={() => {
+              if (matched != null) onSend?.(matched.value);
+            }}
+            color={colorVal}
+            disabled={disabled}
+          >
+            Send
+          </BaseButton.Button>
+        )}
       </Flex.Box>
     </Div>
   );
@@ -4755,25 +4758,17 @@ export const StateIndicator = ({
 }: StateIndicatorProps): ReactElement => {
   const matched = options.find((o) => o.value === value);
   const stateColor = matched?.color;
-  const borderColor =
-    stateColor != null
-      ? color.cssString(stateColor)
-      : colorVal != null
-        ? color.cssString(colorVal)
-        : undefined;
+  const borderColor = colorVal != null ? color.cssString(colorVal) : undefined;
   const backgroundColor = stateColor != null ? color.cssString(stateColor) : undefined;
   const theme = Theming.use();
   const textColor =
     stateColor != null
       ? color.cssString(
-          color.pickByContrast(
-            stateColor,
-            theme.colors.gray.l0,
-            theme.colors.gray.l11,
-          ),
+          color.pickByContrast(stateColor, theme.colors.gray.l0, theme.colors.gray.l11),
         )
       : undefined;
-  const label = matched != null ? matched.name : `Unknown (${value})`;
+  const label =
+    matched != null ? matched.name || `Option ${matched.value}` : `Unknown (${value})`;
   return (
     <Div
       className={CSS(CSS.B("state-indicator"), className)}
@@ -4787,7 +4782,7 @@ export const StateIndicator = ({
         <Handle location="bottom" orientation="left" left={50} top={102} id="4" />
       </HandleBoundary>
       <div className={CSS.BE("state-indicator", "content")}>
-        <Text.Text level="p" color={textColor}>
+        <Text.Text level="p" color={textColor} variant="code">
           {label}
         </Text.Text>
       </div>

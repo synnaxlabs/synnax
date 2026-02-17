@@ -11,7 +11,21 @@
 
 .pluto-symbol-form {
     height: 100%;
+    overflow-y: auto;
     & > div {
         padding: 1.5rem 2rem;
+    }
+    .pluto-state-mapping-list {
+        padding: 0;
+        & > .pluto-btn {
+            margin-left: 1rem;
+        }
+    }
+    .pluto-list__item {
+        min-height: unset;
+        padding: 1rem 2rem;
+    }
+    .pluto-state-mapping-list__value {
+        width: 80px;
     }
 }

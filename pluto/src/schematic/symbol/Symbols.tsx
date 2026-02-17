@@ -1209,7 +1209,8 @@ export const TextBoxPreview = (props: Primitives.TextBoxProps): ReactElement => 
 );
 
 export interface SelectProps
-  extends Omit<Primitives.SelectSymbolProps, "value" | "onChange" | "onSend">,
+  extends
+    Omit<Primitives.SelectProps, "value" | "onChange" | "onSend">,
     Pick<BaseSetpoint.UseProps, "sink"> {
   label?: LabelExtensionProps;
   control?: ControlStateProps;
@@ -1253,7 +1254,7 @@ export const Select = ({
         onChange({ label: { ...label, orientation: loc } });
       }}
     >
-      <Primitives.SelectSymbol
+      <Primitives.Select
         value={selectedKey}
         onChange={handleSelectionChange}
         onSend={set}
@@ -1272,7 +1273,7 @@ export const SelectPreview = ({
   color: colorVal,
   className,
 }: SelectProps): ReactElement => (
-  <Primitives.SelectSymbol
+  <Primitives.Select
     onChange={() => {}}
     options={[]}
     color={colorVal}
@@ -1282,7 +1283,8 @@ export const SelectPreview = ({
 );
 
 export interface StateIndicatorProps
-  extends Omit<Primitives.StateIndicatorProps, "value">,
+  extends
+    Omit<Primitives.StateIndicatorProps, "value">,
     Omit<BaseStateIndicator.UseProps, "aetherKey"> {
   label?: LabelExtensionProps;
   options: Primitives.StateMapping[];

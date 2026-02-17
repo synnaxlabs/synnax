@@ -232,6 +232,19 @@
     .pluto-input {
         width: min-content;
     }
+    .pluto-dialog__frame {
+        border-top-right-radius: 0;
+        border-bottom-right-radius: 0;
+    }
+    .pluto-dialog__trigger {
+        border-top-right-radius: 0;
+        border-bottom-right-radius: 0;
+        border-width: 1px;
+    }
+    svg.pluto-caret-animated {
+        color: var(--pluto-gray-l9);
+        fill: currentColor;
+    }
 }
 
 .pluto-state-indicator {

@@ -30,6 +30,7 @@ import { Flex } from "@/flex";
 import { Form } from "@/form";
 import { Icon } from "@/icon";
 import { Input } from "@/input";
+import { List } from "@/list";
 import { StateOverrideControls } from "@/schematic/symbol/Custom";
 import { type StateMapping } from "@/schematic/symbol/Primitives";
 import { SelectOrientation } from "@/schematic/symbol/SelectOrientation";
@@ -41,7 +42,7 @@ import { Select } from "@/select";
 import { Tabs } from "@/tabs";
 import { telem } from "@/telem/aether";
 import { control } from "@/telem/control/aether";
-import { type Text } from "@/text";
+import { Text } from "@/text";
 import { Button as BaseButton } from "@/vis/button";
 import { type Input as BaseInput } from "@/vis/input";
 import { type Setpoint } from "@/vis/setpoint";
@@ -1185,56 +1186,105 @@ const StateMappingForm = ({
   path,
   showColor = false,
 }: StateMappingFormProps): ReactElement => {
-  const { value: options, onChange } =
-    Form.useField<StateMapping[]>(path);
-
-  const handleAdd = (): void => {
-    onChange([...options, { key: id.create(), name: "", value: 0 }]);
-  };
-
-  const handleRemove = (key: string): void => {
-    onChange(options.filter((o) => o.key !== key));
-  };
+  const { data, push, remove, set } = Form.useFieldList<string, StateMapping>(path);
+  const options = Form.useFieldValue<StateMapping[]>(path);
 
   const handleChange = (key: string, field: string, v: unknown): void => {
-    onChange(options.map((o) => (o.key === key ? { ...o, [field]: v } : o)));
+    set(options.map((o) => (o.key === key ? { ...o, [field]: v } : o)));
   };
 
+  const nextValue =
+    options.length === 0 ? 0 : Math.max(...options.map((o) => o.value)) + 1;
+
+  const duplicateValues = new Set(
+    options.map((o) => o.value).filter((v, i, arr) => arr.indexOf(v) !== i),
+  );
+
   return (
-    <Flex.Box y gap="small" align="stretch">
-      {options.map((option) => (
-        <Flex.Box key={option.key} x align="center" gap="small">
-          <Input.Text
-            value={option.name}
-            onChange={(v) => handleChange(option.key, "name", v)}
-            placeholder="Name"
-            style={{ flexGrow: 1 }}
-          />
-          <Input.Numeric
-            value={option.value}
-            onChange={(v) => handleChange(option.key, "value", v)}
-            style={{ width: 80 }}
-          />
-          {showColor && (
-            <Color.Swatch
-              value={option.color ?? color.ZERO}
-              onChange={(v) => handleChange(option.key, "color", v)}
-              bordered
-            />
-          )}
-          <Button.Button
-            onClick={() => handleRemove(option.key)}
-            size="small"
-            variant="text"
-          >
-            <Icon.Close />
-          </Button.Button>
-        </Flex.Box>
-      ))}
-      <Button.Button onClick={handleAdd} variant="text" size="small">
-        <Icon.Add />
-        Add Option
-      </Button.Button>
+    <Flex.Box
+      y
+      gap="small"
+      align="stretch"
+      grow={options.length === 0}
+      className={CSS.B("state-mapping-list")}
+    >
+      <List.Frame data={data}>
+        <List.Items
+          grow
+          emptyContent={
+            <Flex.Box center grow>
+              <Text.Text center status="disabled" gap="tiny">
+                No options added.
+                <Text.Text
+                  variant="link"
+                  onClick={() => push({ key: id.create(), name: "", value: nextValue })}
+                >
+                  Add an option
+                </Text.Text>
+              </Text.Text>
+            </Flex.Box>
+          }
+        >
+          {({ itemKey, index }) => {
+            const option = options[index];
+            if (option == null) return null;
+            return (
+              <List.Item
+                key={itemKey}
+                itemKey={itemKey}
+                index={index}
+                x
+                align="center"
+                gap="small"
+              >
+                <Input.Text
+                  value={option.name}
+                  onChange={(v) => handleChange(option.key, "name", v)}
+                  placeholder="Name"
+                  style={{ flexGrow: 1 }}
+                />
+                <Input.Numeric
+                  value={option.value}
+                  onChange={(v) => handleChange(option.key, "value", v)}
+                  className={CSS.BE("state-mapping-list", "value")}
+                  status={duplicateValues.has(option.value) ? "error" : undefined}
+                  showDragHandle={false}
+                  tooltip={
+                    duplicateValues.has(option.value) ? "Duplicate value" : undefined
+                  }
+                />
+                {showColor && (
+                  <Color.Swatch
+                    value={option.color ?? color.ZERO}
+                    onChange={(v) => handleChange(option.key, "color", v)}
+                    bordered
+                  />
+                )}
+                <Button.Button
+                  onClick={() => remove(option.key)}
+                  size="small"
+                  variant="text"
+                  ghost
+                  contrast={0}
+                >
+                  <Icon.Close />
+                </Button.Button>
+              </List.Item>
+            );
+          }}
+        </List.Items>
+      </List.Frame>
+      {options.length > 0 && (
+        <Button.Button
+          onClick={() => push({ key: id.create(), name: "", value: nextValue })}
+          variant="text"
+          size="small"
+          textColor={10}
+        >
+          <Icon.Add />
+          Add option
+        </Button.Button>
+      )}
     </Flex.Box>
   );
 };
@@ -1340,13 +1390,12 @@ export const SelectForm = (): ReactElement => {
     }
   }, []);
   const props = Tabs.useStatic({ tabs: SELECT_FORM_TABS, content });
-  return <Tabs.Tabs {...props} />;
+  return <Tabs.Tabs {...props} grow />;
 };
 
 const StateIndicatorTelemForm = ({ path }: { path: string }): ReactElement => {
-  const { value, onChange } = Form.useField<
-    Omit<BaseStateIndicator.UseProps, "aetherKey">
-  >(path);
+  const { value, onChange } =
+    Form.useField<Omit<BaseStateIndicator.UseProps, "aetherKey">>(path);
   const sourceP = telem.sourcePipelinePropsZ.parse(value.source?.props);
   const source = telem.streamChannelValuePropsZ.parse(
     sourceP.segments.valueStream.props,
@@ -1411,5 +1460,5 @@ export const StateIndicatorForm = (): ReactElement => {
     }
   }, []);
   const props = Tabs.useStatic({ tabs: STATE_INDICATOR_FORM_TABS, content });
-  return <Tabs.Tabs {...props} />;
+  return <Tabs.Tabs {...props} grow />;
 };

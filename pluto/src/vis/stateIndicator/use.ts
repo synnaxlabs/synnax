@@ -14,13 +14,17 @@ import { Aether } from "@/aether";
 import { useMemoDeepEqual } from "@/memo";
 import { stateIndicator } from "@/vis/stateIndicator/aether";
 
-export interface UseProps
-  extends Pick<z.input<typeof stateIndicator.stateZ>, "source"> {
+export interface UseProps extends Pick<
+  z.input<typeof stateIndicator.stateZ>,
+  "source"
+> {
   aetherKey: string;
 }
 
-export interface UseReturn
-  extends Pick<z.infer<typeof stateIndicator.stateZ>, "value"> {}
+export interface UseReturn extends Pick<
+  z.infer<typeof stateIndicator.stateZ>,
+  "value"
+> {}
 
 export const use = ({ aetherKey, source }: UseProps): UseReturn => {
   const memoProps = useMemoDeepEqual({ source });
