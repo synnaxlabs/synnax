@@ -24,12 +24,18 @@ namespace driver::http::device {
 
 /// @brief authentication configuration for HTTP connections.
 struct AuthConfig {
-    std::string type = "none"; ///< "none", "bearer", "basic", or "api_key".
-    std::string token; ///< Bearer token (when type == "bearer").
-    std::string username; ///< Basic auth username (when type == "basic").
-    std::string password; ///< Basic auth password (when type == "basic").
-    std::string header; ///< API key header name (when type == "api_key").
-    std::string key; ///< API key value (when type == "api_key").
+    /// @brief authentication type: "none", "bearer", "basic", or "api_key".
+    std::string type = "none";
+    /// @brief bearer token (when type == "bearer").
+    std::string token;
+    /// @brief basic auth username (when type == "basic").
+    std::string username;
+    /// @brief basic auth password (when type == "basic").
+    std::string password;
+    /// @brief API key header name (when type == "api_key").
+    std::string header;
+    /// @brief API key value (when type == "api_key").
+    std::string key;
 
     explicit AuthConfig(x::json::Parser parser):
         type(parser.field<std::string>("type", "none")) {
@@ -67,18 +73,22 @@ struct AuthConfig {
 
 /// @brief connection configuration for an HTTP device.
 struct ConnectionConfig {
-    std::string base_url; ///< Base URL (e.g., "http://192.168.1.100:8080").
-    x::telem::TimeSpan timeout; ///< Request timeout.
-    AuthConfig auth; ///< Authentication configuration.
-    std::map<std::string, std::string> headers; ///< Custom headers.
-    bool verify_ssl; ///< Whether to verify SSL certificates.
+    /// @brief base URL (e.g., "http://192.168.1.100:8080").
+    std::string base_url;
+    /// @brief request timeout.
+    x::telem::TimeSpan timeout;
+    /// @brief authentication configuration.
+    AuthConfig auth;
+    /// @brief custom headers.
+    std::map<std::string, std::string> headers;
+    /// @brief whether to verify SSL certificates.
+    bool verify_ssl;
 
     /// @param parser the JSON parser to read configuration from.
     /// @param verify_ssl whether to verify SSL certificates (false only in tests).
     explicit ConnectionConfig(x::json::Parser parser, const bool verify_ssl = true):
         base_url(parser.field<std::string>("base_url")),
-        timeout(parser.field<uint32_t>("timeout_ms", 1000) *
-                    x::telem::MILLISECOND),
+        timeout(parser.field<uint32_t>("timeout_ms", 1000) * x::telem::MILLISECOND),
         auth(AuthConfig(parser.optional_child("auth"))),
         headers(parser.field<std::map<std::string, std::string>>(
             "headers",
@@ -107,21 +117,28 @@ struct ConnectionConfig {
 
 /// @brief static request configuration, set once at task setup time.
 struct RequestConfig {
-    Method method; ///< HTTP method.
-    std::string path; ///< URL path (appended to base_url).
-    std::map<std::string, std::string> query_params; ///< Query parameters.
-    std::map<std::string, std::string> headers; ///< Per-request headers.
-    std::string
-        response_content_type; ///< Expected response Content-Type; also sent as Accept.
-    std::string
-        request_content_type; ///< Request body Content-Type; omitted when empty.
+    /// @brief HTTP method.
+    Method method;
+    /// @brief URL path (appended to base_url).
+    std::string path;
+    /// @brief query parameters.
+    std::map<std::string, std::string> query_params;
+    /// @brief per-request headers.
+    std::map<std::string, std::string> headers;
+    /// @brief expected response Content-Type; also sent as Accept.
+    std::string response_content_type;
+    /// @brief request body Content-Type; omitted when empty.
+    std::string request_content_type;
 };
 
 /// @brief an HTTP response.
 struct Response {
-    int status_code = 0; ///< HTTP status code.
-    std::string body; ///< Response body.
-    x::telem::TimeRange time_range; ///< Time range spanning the request.
+    /// @brief HTTP status code.
+    int status_code = 0;
+    /// @brief response body.
+    std::string body;
+    /// @brief time range spanning the request.
+    x::telem::TimeRange time_range;
 };
 
 /// @brief a handle to a curl request. Should not be constructed or used directly.

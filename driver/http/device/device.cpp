@@ -341,8 +341,11 @@ Client::request(const std::vector<std::string> &bodies) {
         }
         if (still_running > 0)
             curl_multi_poll(
-                multi, nullptr, 0,
-                static_cast<int>(config_.timeout.milliseconds()), nullptr
+                multi,
+                nullptr,
+                0,
+                static_cast<int>(config_.timeout.milliseconds()),
+                nullptr
             );
     } while (still_running > 0);
 

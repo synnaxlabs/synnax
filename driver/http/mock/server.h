@@ -22,30 +22,46 @@
 namespace driver::http::mock {
 /// @brief a single route to register on the mock server.
 struct Route {
-    Method method = Method::GET; ///< HTTP method.
-    std::string path; ///< URL path pattern (e.g., "/api/data").
-    int status_code = 200; ///< HTTP status code to respond with.
-    std::string response_body; ///< Response body content.
-    std::string content_type = "application/json"; ///< Content-Type header.
-    std::chrono::milliseconds delay{0}; ///< Delay before responding.
+    /// @brief HTTP method.
+    Method method = Method::GET;
+    /// @brief URL path pattern (e.g., "/api/data").
+    std::string path;
+    /// @brief HTTP status code to respond with.
+    int status_code = 200;
+    /// @brief response body content.
+    std::string response_body;
+    /// @brief Content-Type header.
+    std::string content_type = "application/json";
+    /// @brief delay before responding.
+    std::chrono::milliseconds delay{0};
 };
 
 /// @brief a received request logged by the mock server.
 struct ReceivedRequest {
-    Method method; ///< HTTP method.
-    std::string path; ///< Request path.
-    std::string body; ///< Request body.
-    std::multimap<std::string, std::string> headers; ///< Request headers.
-    std::multimap<std::string, std::string> query_params; ///< Decoded query params.
+    /// @brief HTTP method.
+    Method method;
+    /// @brief request path.
+    std::string path;
+    /// @brief request body.
+    std::string body;
+    /// @brief request headers.
+    std::multimap<std::string, std::string> headers;
+    /// @brief decoded query params.
+    std::multimap<std::string, std::string> query_params;
 };
 
 /// @brief configuration for the mock HTTP server.
 struct ServerConfig {
-    std::string host = "127.0.0.1"; ///< Bind address.
-    std::vector<Route> routes; ///< Routes to register.
-    bool secure = false; ///< Use HTTPS with self-signed certificate.
-    std::string cert_path; ///< Path to TLS certificate (when secure).
-    std::string key_path; ///< Path to TLS private key (when secure).
+    /// @brief bind address.
+    std::string host = "127.0.0.1";
+    /// @brief routes to register.
+    std::vector<Route> routes;
+    /// @brief use HTTPS with self-signed certificate.
+    bool secure = false;
+    /// @brief path to TLS certificate (when secure).
+    std::string cert_path;
+    /// @brief path to TLS private key (when secure).
+    std::string key_path;
 };
 
 /// @brief a mock HTTP server for testing, backed by cpp-httplib.

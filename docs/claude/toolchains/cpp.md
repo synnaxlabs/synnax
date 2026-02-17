@@ -137,13 +137,16 @@ Use Doxygen-style `///` comments with `@brief`, `@param`, and `@returns` tags:
 [[nodiscard]] constexpr int32_t days_from_civil(const Date &date);
 ```
 
-For struct/class members, use `///<` trailing comments:
+For struct/class members, use `/// @brief` comments above the field:
 
 ```cpp
 struct Date {
-    uint16_t year; ///< calendar year.
-    uint8_t month; ///< month of year [1, 12].
-    uint8_t day; ///< day of month [1, 31].
+    /// @brief calendar year.
+    uint16_t year;
+    /// @brief month of year [1, 12].
+    uint8_t month;
+    /// @brief day of month [1, 31].
+    uint8_t day;
 };
 ```
 
