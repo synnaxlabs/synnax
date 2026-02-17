@@ -9,28 +9,23 @@
 
 import argparse
 import threading
-from abc import ABC, abstractmethod
+from abc import abstractmethod
 
 import synnax as sy
+from examples.simulators.simulator import Simulator
 
 
-class SimDAQ(ABC):
-    """Base class for thread-based hardware simulators."""
+class SimDAQ(Simulator):
+    """Base class for thread-based hardware simulators that write to Synnax."""
 
     description: str = "Run simulator standalone"
     end_cmd_channel: str | None = None
 
     def __init__(self, client: sy.Synnax, verbose: bool = False):
+        super().__init__(verbose=verbose)
         self.client = client
-        self.verbose = verbose
-        self._running = False
         self._thread: threading.Thread | None = None
         self._end_cmd_thread: threading.Thread | None = None
-
-    def _log(self, message: str) -> None:
-        """Print message only when verbose mode is enabled."""
-        if self.verbose:
-            print(f"[{self.__class__.__name__}] {message}")
 
     def start(self) -> None:
         """Create channels and start simulation loop in background thread."""
@@ -58,17 +53,18 @@ class SimDAQ(ABC):
                         if hasattr(val, "item"):
                             val = val.item()
                         if val != 0:
-                            self._log(f"Received end command on {self.end_cmd_channel}")
+                            self.log(f"Received end command on {self.end_cmd_channel}")
                             self._running = False
                             return
 
-    def stop(self, timeout: float = 5.0) -> None:
+    def stop(self, timeout: sy.TimeSpan = 5 * sy.TimeSpan.SECOND) -> None:
         """Stop simulation and wait for threads to finish."""
         self._running = False
+        timeout_secs = float(timeout / sy.TimeSpan.SECOND)
         if self._end_cmd_thread:
-            self._end_cmd_thread.join(timeout=timeout)
+            self._end_cmd_thread.join(timeout=timeout_secs)
         if self._thread:
-            self._thread.join(timeout=timeout)
+            self._thread.join(timeout=timeout_secs)
 
     @abstractmethod
     def _create_channels(self) -> None:

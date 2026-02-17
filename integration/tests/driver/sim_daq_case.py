@@ -7,55 +7,59 @@
 #  License, use of this software will be governed by the Apache License, Version 2.0,
 #  included in the file licenses/APL.txt.
 
-from typing import Any
+"""
+SimDAQ lifecycle mixin.
+
+Provides automatic SimDAQ (thread-based simulator) start/stop management.
+Designed for multiple inheritance with TestCase subclasses.
+
+Usage standalone:
+
+    class SimplePress(SimDaqCase, TestCase):
+        sim_daq_class = PressSimDAQ
+
+        def run(self):
+            # simulator is already running via self.sim_daq
+            ...
+
+Usage with ConsoleCase:
+
+    class MyConsoleTest(SimDaqCase, ConsoleCase):
+        sim_daq_class = PressSimDAQ
+"""
+
+from examples.simulators.simdaq import SimDAQ
 
 from framework.test_case import SynnaxConnection, TestCase
 
 
-class SimDaqTestCase(TestCase):
-    """
-    TestCase with automatic SimDAQ lifecycle management.
+class SimDaqCase(TestCase):
+    """Mixin for SimDAQ lifecycle management.
 
-    Subclasses should define sim_daq_class as a class attribute to specify
-    which simulator to use. The simulator will be automatically started
-    during __init__ and stopped during teardown.
-
-    Example:
-        class MyTest(SimDaqTestCase):
-            sim_daq_class = PressSimDAQ
-
-            def run(self):
-                # simulator is already running via self.sim_daq
-                ...
-
-    For console tests, use multiple inheritance:
-
-        class MyConsoleTest(SimDaqTestCase, ConsoleCase):
-            sim_daq_class = PressSimDAQ
+    Class attributes:
+        sim_daq_class: SimDAQ subclass to instantiate
     """
 
-    sim_daq_class: type
-    sim_daq: Any
+    sim_daq_class: type[SimDAQ]
+    sim_daq: SimDAQ
 
     def __init__(
         self,
         synnax_connection: SynnaxConnection = SynnaxConnection(),
         *,
         name: str,
-        **params: Any,
+        **params: object,
     ) -> None:
         super().__init__(synnax_connection, name=name, **params)
-
         if not hasattr(self, "sim_daq_class") or self.sim_daq_class is None:
             raise TypeError(
                 f"{self.__class__.__name__} must define 'sim_daq_class' class attribute"
             )
-
         self.sim_daq = self.sim_daq_class(self.client)
         self.sim_daq.start()
 
     def teardown(self) -> None:
         """Stop the simulator during teardown."""
+        super().teardown()
         if hasattr(self, "sim_daq") and self.sim_daq is not None:
             self.sim_daq.stop()
-        super().teardown()

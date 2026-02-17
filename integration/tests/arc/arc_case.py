@@ -12,11 +12,11 @@ from abc import abstractmethod
 import synnax as sy
 
 from console.case import ConsoleCase
-from framework.sim_daq_case import SimDaqTestCase
 from framework.utils import get_random_name
+from tests.driver.sim_daq_case import SimDaqCase
 
 
-class ArcConsoleCase(SimDaqTestCase, ConsoleCase):
+class ArcConsoleCase(SimDaqCase, ConsoleCase):
     """Base class for Arc Console integration tests."""
 
     arc_source: str
