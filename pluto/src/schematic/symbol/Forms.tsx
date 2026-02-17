@@ -18,7 +18,7 @@ import {
   type location,
   type xy,
 } from "@synnaxlabs/x";
-import { type FC, type ReactElement, useCallback } from "react";
+import { type CSSProperties, type FC, type ReactElement, useCallback } from "react";
 
 import { Button } from "@/button";
 import { Channel } from "@/channel";
@@ -115,6 +115,8 @@ interface LabelControlsProps {
   omit?: string[];
 }
 
+const MAX_INLINE_SIZE_STYLE: CSSProperties = { maxWidth: 125 };
+
 const LabelControls = ({ path, omit = [] }: LabelControlsProps): ReactElement => (
   <Flex.Box x align="stretch">
     <Form.Field<string> path={`${path}.label`} label="Label" padHelpText={false} grow>
@@ -122,7 +124,7 @@ const LabelControls = ({ path, omit = [] }: LabelControlsProps): ReactElement =>
     </Form.Field>
     <Form.NumericField
       visible={!omit.includes("maxInlineSize")}
-      style={{ maxWidth: 125 }}
+      style={MAX_INLINE_SIZE_STYLE}
       path={`${path}.maxInlineSize`}
       hideIfNull
       label="Label Wrap Width"
@@ -1049,6 +1051,12 @@ export const InputForm = (): ReactElement => {
   return <Tabs.Tabs {...props} />;
 };
 
+const TEXT_BOX_AUTO_FIT_STYLE: CSSProperties = {
+  borderLeft: "var(--pluto-border-l5)",
+};
+
+const AUTO_FIT_BOUNDS: bounds.Bounds = { lower: 0, upper: 2000 };
+
 export const TextBoxForm = (): ReactElement => {
   const autoFit = Form.useField<boolean>("autoFit", { optional: true });
   return (
@@ -1085,7 +1093,7 @@ export const TextBoxForm = (): ReactElement => {
             {(p) => (
               <Input.Numeric
                 {...p}
-                bounds={{ lower: 0, upper: 2000 }}
+                bounds={AUTO_FIT_BOUNDS}
                 dragScale={5}
                 endContent="px"
               >
@@ -1093,7 +1101,7 @@ export const TextBoxForm = (): ReactElement => {
                   onClick={() => autoFit?.onChange(true)}
                   disabled={autoFit?.value === true}
                   variant="outlined"
-                  style={{ borderLeft: "var(--pluto-border-l5)" }}
+                  style={TEXT_BOX_AUTO_FIT_STYLE}
                   tooltip={
                     autoFit?.value === true
                       ? "Manually enter value to disable auto fit"
@@ -1241,7 +1249,7 @@ const StateMappingForm = ({
                   value={option.name}
                   onChange={(v) => handleChange(option.key, "name", v)}
                   placeholder="Name"
-                  style={{ flexGrow: 1 }}
+                  grow
                 />
                 <Input.Numeric
                   value={option.value}
