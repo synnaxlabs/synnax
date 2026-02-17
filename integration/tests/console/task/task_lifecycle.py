@@ -10,42 +10,51 @@
 import json
 import subprocess
 import sys
+from dataclasses import dataclass
 
 import synnax as sy
 from examples.opcua import OPCUASim
 
 from console.case import ConsoleCase
 from console.task_page import TaskPage
-from framework.utils import assert_link_format
+from framework.utils import assert_link_format, get_random_name
 from tests.driver.simulator_case import SimulatorCase
 
-RANGE_NAME = "Task Lifecycle Range"
+RANGE_NAME = f"Task Lifecycle Range {get_random_name()}"
 
-EXAMPLE_TASKS: dict[str, str] = {
-    "read_task": "OPC UA Py - Read Task",
-    "read_task_array": "OPC UA Py - Read Task (Array)",
-    "read_task_boolean": "OPC UA Py - Read Task (Boolean)",
-    "write_task": "OPC UA Write Task Example",
-}
 
-TASK_CONFIGS: dict[str, dict[str, str | list[str]]] = {
-    "OPC UA Py - Read Task": {
-        "type": "opc_read",
-        "channels": ["NS=2;I=8", "NS=2;I=9"],
-    },
-    "OPC UA Py - Read Task (Array)": {
-        "type": "opc_read",
-        "channels": ["NS=2;I=2", "NS=2;I=3"],
-    },
-    "OPC UA Py - Read Task (Boolean)": {
-        "type": "opc_read",
-        "channels": ["NS=2;I=13", "NS=2;I=14"],
-    },
-    "OPC UA Write Task Example": {
-        "type": "opc_write",
-        "channels": ["NS=2;I=18", "NS=2;I=19", "NS=2;I=20"],
-    },
-}
+@dataclass
+class TaskDef:
+    script: str
+    name: str
+    type: str
+    channels: list[str]
+
+
+TASKS = [
+    TaskDef("read_task", "OPC UA Py - Read Task", "opc_read", ["NS=2;I=8", "NS=2;I=9"]),
+    TaskDef(
+        "read_task_array",
+        "OPC UA Py - Read Task (Array)",
+        "opc_read",
+        ["NS=2;I=2", "NS=2;I=3"],
+    ),
+    TaskDef(
+        "read_task_boolean",
+        "OPC UA Py - Read Task (Boolean)",
+        "opc_read",
+        ["NS=2;I=13", "NS=2;I=14"],
+    ),
+    TaskDef(
+        "write_task",
+        "OPC UA Write Task Example",
+        "opc_write",
+        ["NS=2;I=18", "NS=2;I=19", "NS=2;I=20"],
+    ),
+]
+
+READ_TASKS = [t for t in TASKS if "read" in t.type]
+TASK_NAMES = [t.name for t in TASKS]
 
 
 class TaskLifecycle(SimulatorCase, ConsoleCase):
@@ -55,17 +64,17 @@ class TaskLifecycle(SimulatorCase, ConsoleCase):
     _cleanup_tasks: list[str]
 
     def setup_tasks(self) -> None:
-        self._cleanup_tasks = list(EXAMPLE_TASKS.values())
+        self._cleanup_tasks = list(TASK_NAMES)
         procs = [
             subprocess.Popen(
-                [sys.executable, "-m", f"examples.opcua.{script}"],
+                [sys.executable, "-m", f"examples.opcua.{t.script}"],
                 stdout=subprocess.DEVNULL,
                 stderr=subprocess.DEVNULL,
             )
-            for script in EXAMPLE_TASKS
+            for t in TASKS
         ]
-        for name in EXAMPLE_TASKS.values():
-            self.console.tasks.wait_for_task(name)
+        for t in TASKS:
+            self.console.tasks.wait_for_task(t.name)
         for proc in procs:
             proc.terminate()
 
@@ -113,31 +122,26 @@ class TaskLifecycle(SimulatorCase, ConsoleCase):
         """Stop and start each task (individually and in groups)."""
 
         self.log("Testing: Individual task stop/start")
-        task_names = list(EXAMPLE_TASKS.values())
-
-        for name in task_names:
+        for name in TASK_NAMES:
             self.console.tasks.stop_task(name)
 
-        for name in task_names:
+        for name in TASK_NAMES:
             self.console.tasks.start_task(name)
 
         self.log("Testing: Group task stop/start")
-        task_names = list(EXAMPLE_TASKS.values())
-
         # Set one task to stopped (1 stopped, 3 running)
-        self.console.tasks.stop_task(task_names[2])
-        self.console.tasks.stop_tasks(task_names)
+        self.console.tasks.stop_task(TASK_NAMES[2])
+        self.console.tasks.stop_tasks(TASK_NAMES)
 
         # Set one task to running (1 running, 3 stopped)
-        self.console.tasks.start_task(task_names[1])
-        self.console.tasks.start_tasks(task_names)
+        self.console.tasks.start_task(TASK_NAMES[1])
+        self.console.tasks.start_tasks(TASK_NAMES)
 
     def test_data_saving(self) -> None:
         """Enable and disable data saving (individually and in groups)."""
 
         self.log("Testing: Individual data saving disable/enable")
-        task_names = list(EXAMPLE_TASKS.values())
-        read_names = [n for n, c in TASK_CONFIGS.items() if "read" in c["type"]]
+        read_names = [t.name for t in READ_TASKS]
 
         for name in read_names:
             self.console.tasks.disable_data_saving(name)
@@ -153,46 +157,41 @@ class TaskLifecycle(SimulatorCase, ConsoleCase):
 
         # Set one read task to data saving disabled (1 disabled, rest enabled)
         self.console.tasks.disable_data_saving(read_names[2])
-        self.console.tasks.disable_data_saving_tasks(task_names)
+        self.console.tasks.disable_data_saving_tasks(TASK_NAMES)
         for name in read_names:
             self.assert_data_saving(name, False)
 
         # Set one read task to data saving enabled (1 enabled, rest disabled)
         self.console.tasks.enable_data_saving(read_names[1])
-        self.console.tasks.enable_data_saving_tasks(task_names)
+        self.console.tasks.enable_data_saving_tasks(TASK_NAMES)
         for name in read_names:
             self.assert_data_saving(name, True)
 
     def test_export_task(self) -> None:
         """Export a task via context menu and verify the JSON content."""
-        task_names = list(EXAMPLE_TASKS.values())
-        name = task_names[0]
-        self.log(f"Testing: Export task '{name}'")
-        exported = self.console.tasks.export_task(name)
+        t = TASKS[0]
+        self.log(f"Testing: Export task '{t.name}'")
+        exported = self.console.tasks.export_task(t.name)
         assert "type" in exported, "Exported JSON should contain a 'type' field"
         assert (
-            exported["type"] == "opc_read"
-        ), f"Exported type should be 'opc_read', got '{exported['type']}'"
+            exported["type"] == t.type
+        ), f"Exported type should be '{t.type}', got '{exported['type']}'"
         assert "channels" in exported, "Exported JSON should contain 'channels'"
         assert len(exported["channels"]) > 0, "Exported channels should not be empty"
 
     def test_open_task_config(self) -> None:
         """Open each task config via context menu and verify contents."""
-        for name, config in TASK_CONFIGS.items():
-            self.log(f"Testing: Open config for '{name}'")
-            toolbar_link = self.console.tasks.copy_link(name)
-            task = self.client.tasks.retrieve(names=[name])[0]
+        for t in TASKS:
+            self.log(f"Testing: Open config for '{t.name}'")
+            toolbar_link = self.console.tasks.copy_link(t.name)
+            task = self.client.tasks.retrieve(names=[t.name])[0]
             assert_link_format(toolbar_link, "task", str(task.key))
-            self.console.tasks.open_task_config(name)
-            pane = self.console.page.locator(
-                f".console-task-configure--{config['type']}"
-            )
+            self.console.tasks.open_task_config(t.name)
+            pane = self.console.page.locator(f".console-task-configure--{t.type}")
             task_page = TaskPage(
-                self.console.layout, self.client, name, pane_locator=pane
+                self.console.layout, self.client, t.name, pane_locator=pane
             )
-            channels = config["channels"]
-            assert isinstance(channels, list)
-            task_page.verify_config(channels)
+            task_page.verify_config(t.channels)
             page_link = task_page.copy_link()
             assert toolbar_link == page_link, (
                 f"Page link should match toolbar link. "
@@ -202,7 +201,7 @@ class TaskLifecycle(SimulatorCase, ConsoleCase):
 
     def test_open_task_via_search(self) -> None:
         """Open a task configuration via the search palette."""
-        name = EXAMPLE_TASKS["write_task"]
+        name = TASKS[3].name
         self.log(f"Testing: Open task config via search palette for '{name}'")
         task_page = self.console.workspace.open_from_search(TaskPage, name)
         assert (
@@ -216,18 +215,15 @@ class TaskLifecycle(SimulatorCase, ConsoleCase):
         self.console.ranges.favorite(RANGE_NAME)
         self.console.ranges.set_active(RANGE_NAME)
 
-        task_names = list(EXAMPLE_TASKS.values())
-
         self.log("Testing: Snapshot single task to active range")
-        self.console.tasks.snapshot_tasks([task_names[0]], RANGE_NAME)
+        self.console.tasks.snapshot_tasks([TASK_NAMES[0]], RANGE_NAME)
 
         self.log("Testing: Snapshot multiple tasks to active range")
-        self.console.tasks.snapshot_tasks(task_names[1:], RANGE_NAME)
+        self.console.tasks.snapshot_tasks(TASK_NAMES[1:], RANGE_NAME)
 
     def test_rename_task(self) -> None:
         """Rename a task and verify synchronization across UI elements."""
-        task_names = list(EXAMPLE_TASKS.values())
-        old_name = task_names[0]
+        old_name = TASK_NAMES[0]
         new_name = "Renamed Read Task"
         self._cleanup_tasks.append(new_name)
 
@@ -246,7 +242,7 @@ class TaskLifecycle(SimulatorCase, ConsoleCase):
 
     def test_delete_task(self) -> None:
         """Delete a single task and multiple tasks via context menu."""
-        remaining = list(EXAMPLE_TASKS.values())[1:] + ["Renamed Read Task"]
+        remaining = TASK_NAMES[1:] + ["Renamed Read Task"]
 
         self.log("Testing: Stop all tasks before deletion")
         self.console.tasks.stop_tasks(remaining)
