@@ -151,7 +151,6 @@ struct MultiHandle;
 /// pre-built at construction time from the connection and request configurations so the
 /// hot-path request() only needs to set the body, perform I/O, and read results.
 class Client {
-    ConnectionConfig config_;
     std::unique_ptr<MultiHandle> multi_handle_;
     std::vector<Handle> handles_;
 
@@ -177,9 +176,13 @@ public:
     /// @brief executes pre-configured requests with the given bodies.
     /// @param bodies one body per pre-configured request. For TRACE requests or
     /// requests without a body, pass an empty string.
+    /// @param poll_timeout maximum time to wait for socket activity between polls.
     /// @returns the per-request responses paired with a transfer-level error
     /// (non-nil when the entire batch fails, e.g. curl_multi_perform error).
     std::pair<std::vector<std::pair<Response, x::errors::Error>>, x::errors::Error>
-    execute_requests(const std::vector<std::string> &bodies);
+    execute_requests(
+        const std::vector<std::string> &bodies,
+        x::telem::TimeSpan poll_timeout = 1 * x::telem::SECOND
+    );
 };
 }

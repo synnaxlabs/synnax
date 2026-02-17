@@ -165,10 +165,9 @@ build_result(Handle &h, x::telem::TimeStamp start) {
 }
 }
 
-Client::Client(): config_(x::json::Parser(x::json::json{{"base_url", ""}})) {}
+Client::Client() = default;
 
 Client::Client(Client &&other) noexcept:
-    config_(std::move(other.config_)),
     multi_handle_(std::move(other.multi_handle_)),
     handles_(std::move(other.handles_)) {}
 
@@ -188,8 +187,7 @@ Client::create(ConnectionConfig config, const std::vector<RequestConfig> &reques
     return {Client(std::move(config), requests), x::errors::NIL};
 }
 
-Client::Client(ConnectionConfig config, const std::vector<RequestConfig> &requests):
-    config_(std::move(config)) {
+Client::Client(ConnectionConfig config, const std::vector<RequestConfig> &requests) {
     ensure_curl_initialized();
     multi_handle_ = std::make_unique<MultiHandle>();
     handles_.reserve(requests.size());
@@ -201,7 +199,7 @@ Client::Client(ConnectionConfig config, const std::vector<RequestConfig> &reques
 
         // URL (static per handle).
         CURLU *u = curl_url();
-        curl_url_set(u, CURLUPART_URL, config_.base_url.c_str(), 0);
+        curl_url_set(u, CURLUPART_URL, config.base_url.c_str(), 0);
         if (!req.path.empty()) {
             std::string path = req.path;
             if (path.front() != '/') path.insert(path.begin(), '/');
@@ -226,14 +224,14 @@ Client::Client(ConnectionConfig config, const std::vector<RequestConfig> &reques
         curl_easy_setopt(
             h.handle,
             CURLOPT_TIMEOUT_MS,
-            static_cast<long>(config_.timeout.milliseconds())
+            static_cast<long>(config.timeout.milliseconds())
         );
 
         // Write callback (static).
         curl_easy_setopt(h.handle, CURLOPT_WRITEFUNCTION, write_callback);
 
         // SSL verification (static).
-        if (!config_.verify_ssl) {
+        if (!config.verify_ssl) {
             curl_easy_setopt(h.handle, CURLOPT_SSL_VERIFYPEER, 0L);
             curl_easy_setopt(h.handle, CURLOPT_SSL_VERIFYHOST, 0L);
         }
@@ -248,21 +246,21 @@ Client::Client(ConnectionConfig config, const std::vector<RequestConfig> &reques
             curl_easy_setopt(h.handle, CURLOPT_CUSTOMREQUEST, to_string(h.method));
 
         // Auth headers (static).
-        if (config_.auth.type == "bearer") {
-            const std::string hdr = "Authorization: Bearer " + config_.auth.token;
+        if (config.auth.type == "bearer") {
+            const std::string hdr = "Authorization: Bearer " + config.auth.token;
             h.headers = curl_slist_append(h.headers, hdr.c_str());
-        } else if (config_.auth.type == "basic") {
+        } else if (config.auth.type == "basic") {
             curl_easy_setopt(h.handle, CURLOPT_HTTPAUTH, CURLAUTH_BASIC);
-            const std::string userpwd = config_.auth.username + ":" +
-                                        config_.auth.password;
+            const std::string userpwd = config.auth.username + ":" +
+                                        config.auth.password;
             curl_easy_setopt(h.handle, CURLOPT_USERPWD, userpwd.c_str());
-        } else if (config_.auth.type == "api_key") {
-            const std::string hdr = config_.auth.header + ": " + config_.auth.key;
+        } else if (config.auth.type == "api_key") {
+            const std::string hdr = config.auth.header + ": " + config.auth.key;
             h.headers = curl_slist_append(h.headers, hdr.c_str());
         }
 
         // Connection-level headers (static).
-        for (const auto &[k, v]: config_.headers) {
+        for (const auto &[k, v]: config.headers) {
             const std::string hdr = k + ": " + v;
             h.headers = curl_slist_append(h.headers, hdr.c_str());
         }
@@ -303,7 +301,10 @@ Client::Client(ConnectionConfig config, const std::vector<RequestConfig> &reques
 Client::~Client() = default;
 
 std::pair<std::vector<std::pair<Response, x::errors::Error>>, x::errors::Error>
-Client::execute_requests(const std::vector<std::string> &bodies) {
+Client::execute_requests(
+    const std::vector<std::string> &bodies,
+    const x::telem::TimeSpan poll_timeout
+) {
     static const std::string empty;
 
     // Single-handle fast path: use curl_easy_perform directly.
@@ -330,6 +331,7 @@ Client::execute_requests(const std::vector<std::string> &bodies) {
     const auto start = x::telem::TimeStamp::now();
 
     int still_running = 0;
+    const int timeout_ms = static_cast<int>(poll_timeout.milliseconds());
     do {
         const auto mc = curl_multi_perform(multi, &still_running);
         if (mc != CURLM_OK) {
@@ -340,14 +342,7 @@ Client::execute_requests(const std::vector<std::string> &bodies) {
                 x::errors::Error(http::errors::CLIENT_ERROR, curl_multi_strerror(mc)),
             };
         }
-        if (still_running > 0)
-            curl_multi_poll(
-                multi,
-                nullptr,
-                0,
-                static_cast<int>(config_.timeout.milliseconds()),
-                nullptr
-            );
+        if (still_running > 0) curl_multi_poll(multi, nullptr, 0, timeout_ms, nullptr);
     } while (still_running > 0);
 
     CURLMsg *msg;
