@@ -39,10 +39,11 @@ import {
 
 import { Button as BaseButton } from "@/button";
 import { CSS } from "@/css";
-import { type Flex } from "@/flex";
+import { Flex } from "@/flex";
 import { Input as BaseInput } from "@/input";
 import { useCustom } from "@/schematic/symbol/Custom";
 import { useRetrieve } from "@/schematic/symbol/queries";
+import { Select as BaseSelect } from "@/select";
 import { Text } from "@/text";
 import { Theming } from "@/theming";
 import { stopPropagation } from "@/util/event";
@@ -2144,6 +2145,8 @@ export interface SetpointProps
   disabled?: boolean;
 }
 
+const SETPOINT_STYLE: CSSProperties = { zIndex: 5 };
+
 export const Setpoint = ({
   orientation = "left",
   className,
@@ -2173,7 +2176,7 @@ export const Setpoint = ({
           top={50}
           id="2"
           // Filled button has a z-index of 4 so we need to set this higher to show handle above
-          style={{ zIndex: 5 }}
+          style={SETPOINT_STYLE}
         />
         <Handle location="top" orientation={orientation} left={50} top={-2} id="3" />
         <Handle
@@ -4649,3 +4652,141 @@ export const StrainerCone = ({
     </InternalSVG>
   </Div>
 );
+
+export interface StateMapping {
+  key: string;
+  name: string;
+  value: number;
+  color?: color.Crude;
+}
+
+export interface SelectProps
+  extends Omit<DivProps, "value" | "onChange">, Pick<BaseInput.TextProps, "size"> {
+  color?: color.Crude;
+  value?: string;
+  onChange: (key: string | null) => void;
+  onSend?: (value: number) => void;
+  options: StateMapping[];
+  disabled?: boolean;
+  inlineSize?: number;
+}
+
+export const Select = ({
+  className,
+  orientation = "left",
+  color: colorVal,
+  value,
+  onChange,
+  onSend,
+  options,
+  size,
+  disabled,
+  inlineSize,
+  ...rest
+}: SelectProps): ReactElement => {
+  const data = useMemo(
+    () => options.map((o) => ({ key: o.key, name: o.name || `Option ${o.value}` })),
+    [options],
+  );
+  const matched = options.find((o) => o.key === value);
+  return (
+    <Div
+      orientation={orientation}
+      className={CSS(CSS.B("select-symbol"), className)}
+      {...rest}
+    >
+      <HandleBoundary orientation={orientation}>
+        <Handle location="left" orientation={orientation} left={0.5} top={50} id="1" />
+        <Handle
+          location="right"
+          orientation={orientation}
+          left={100}
+          top={50}
+          id="2"
+          style={{ zIndex: 5 }}
+        />
+        <Handle location="top" orientation={orientation} left={50} top={-2} id="3" />
+        <Handle
+          location="bottom"
+          orientation={orientation}
+          left={50}
+          top={102}
+          id="4"
+        />
+      </HandleBoundary>
+      <Flex.Box x pack size={size}>
+        <BaseSelect.Static
+          data={data}
+          value={value}
+          onChange={(key: string | null) => onChange(key)}
+          disabled={disabled}
+          resourceName="option"
+          triggerProps={{ color: colorVal, size }}
+          style={{ minWidth: inlineSize }}
+        />
+        {onSend != null && (
+          <BaseButton.Button
+            variant="filled"
+            size={size}
+            onClick={() => {
+              if (matched != null) onSend?.(matched.value);
+            }}
+            color={colorVal}
+            disabled={disabled}
+          >
+            Send
+          </BaseButton.Button>
+        )}
+      </Flex.Box>
+    </Div>
+  );
+};
+
+export interface StateIndicatorProps extends DivProps {
+  matchedOptionKey: string | null;
+  options: StateMapping[];
+  color?: color.Crude;
+  inlineSize?: number;
+}
+
+export const StateIndicator = ({
+  className,
+  orientation = "left",
+  matchedOptionKey,
+  options,
+  color: colorVal,
+  inlineSize,
+  ...rest
+}: StateIndicatorProps): ReactElement => {
+  const matched = options.find((o) => o.key === matchedOptionKey);
+  const stateColor = matched?.color;
+  const borderColor = colorVal != null ? color.cssString(colorVal) : undefined;
+  const backgroundColor = stateColor != null ? color.cssString(stateColor) : undefined;
+  const theme = Theming.use();
+  const textColor =
+    stateColor != null
+      ? color.cssString(
+          color.pickByContrast(stateColor, theme.colors.gray.l0, theme.colors.gray.l11),
+        )
+      : undefined;
+  const label = matched != null ? matched.name || `Option ${matched.value}` : "Unknown";
+  return (
+    <Div
+      className={CSS(CSS.B("state-indicator"), className)}
+      {...rest}
+      style={{ borderColor, backgroundColor, minWidth: inlineSize }}
+    >
+      <HandleBoundary orientation={orientation}>
+        <Handle location="left" orientation="left" left={0} top={50} id="1" />
+        <Handle location="right" orientation="left" left={100} top={50} id="2" />
+        <Handle location="top" orientation="left" left={50} top={-2} id="3" />
+        <Handle location="bottom" orientation="left" left={50} top={102} id="4" />
+      </HandleBoundary>
+      <div className={CSS.BE("state-indicator", "content")}>
+        <Text.Text level="p" color={textColor} variant="code">
+          {label}
+        </Text.Text>
+      </div>
+    </Div>
+  );
+};

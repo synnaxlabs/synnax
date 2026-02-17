@@ -13,7 +13,7 @@ import (
 	"context"
 	"go/types"
 
-	"github.com/synnaxlabs/freighter/fgrpc"
+	"github.com/synnaxlabs/freighter/grpc"
 	"github.com/synnaxlabs/synnax/pkg/api"
 	gapi "github.com/synnaxlabs/synnax/pkg/api/grpc/v1"
 	"github.com/synnaxlabs/synnax/pkg/service/rack"
@@ -23,19 +23,19 @@ import (
 )
 
 type (
-	rackCreateServer = fgrpc.UnaryServer[
+	rackCreateServer = grpc.UnaryServer[
 		api.RackCreateRequest,
 		*gapi.RackCreateRequest,
 		api.RackCreateResponse,
 		*gapi.RackCreateResponse,
 	]
-	rackRetrieveServer = fgrpc.UnaryServer[
+	rackRetrieveServer = grpc.UnaryServer[
 		api.RackRetrieveRequest,
 		*gapi.RackRetrieveRequest,
 		api.RackRetrieveResponse,
 		*gapi.RackRetrieveResponse,
 	]
-	rackDeleteServer = fgrpc.UnaryServer[
+	rackDeleteServer = grpc.UnaryServer[
 		api.RackDeleteRequest,
 		*gapi.RackDeleteRequest,
 		types.Nil,
@@ -52,11 +52,11 @@ type (
 )
 
 var (
-	_ fgrpc.Translator[api.RackCreateRequest, *gapi.RackCreateRequest]       = rackCreateRequestTranslator{}
-	_ fgrpc.Translator[api.RackCreateResponse, *gapi.RackCreateResponse]     = rackCreateResponseTranslator{}
-	_ fgrpc.Translator[api.RackRetrieveRequest, *gapi.RackRetrieveRequest]   = rackRetrieveRequestTranslator{}
-	_ fgrpc.Translator[api.RackRetrieveResponse, *gapi.RackRetrieveResponse] = rackRetrieveResponseTranslator{}
-	_ fgrpc.Translator[api.RackDeleteRequest, *gapi.RackDeleteRequest]       = rackDeleteRequestTranslator{}
+	_ grpc.Translator[api.RackCreateRequest, *gapi.RackCreateRequest]       = rackCreateRequestTranslator{}
+	_ grpc.Translator[api.RackCreateResponse, *gapi.RackCreateResponse]     = rackCreateResponseTranslator{}
+	_ grpc.Translator[api.RackRetrieveRequest, *gapi.RackRetrieveRequest]   = rackRetrieveRequestTranslator{}
+	_ grpc.Translator[api.RackRetrieveResponse, *gapi.RackRetrieveResponse] = rackRetrieveResponseTranslator{}
+	_ grpc.Translator[api.RackDeleteRequest, *gapi.RackDeleteRequest]       = rackDeleteRequestTranslator{}
 )
 
 func translateRackForward(r *api.Rack) (*gapi.Rack, error) {
@@ -178,7 +178,7 @@ func (rackDeleteRequestTranslator) Backward(_ context.Context, req *gapi.RackDel
 	return api.RackDeleteRequest{Keys: unsafe.ReinterpretSlice[uint32, rack.Key](req.Keys)}, nil
 }
 
-func newRack(a *api.Transport) fgrpc.BindableTransport {
+func newRack(a *api.Transport) grpc.BindableTransport {
 	createRack := &rackCreateServer{
 		RequestTranslator:  rackCreateRequestTranslator{},
 		ResponseTranslator: rackCreateResponseTranslator{},
@@ -193,12 +193,12 @@ func newRack(a *api.Transport) fgrpc.BindableTransport {
 	a.RackRetrieve = retrieveRack
 	deleteRack := &rackDeleteServer{
 		RequestTranslator:  rackDeleteRequestTranslator{},
-		ResponseTranslator: fgrpc.EmptyTranslator{},
+		ResponseTranslator: grpc.EmptyTranslator{},
 		ServiceDesc:        &gapi.RackDeleteService_ServiceDesc,
 	}
 	a.RackDelete = deleteRack
 
-	return fgrpc.CompoundBindableTransport{
+	return grpc.CompoundBindableTransport{
 		createRack,
 		retrieveRack,
 		deleteRack,

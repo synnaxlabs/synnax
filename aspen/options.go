@@ -21,7 +21,7 @@ import (
 	"github.com/synnaxlabs/aspen/internal/cluster"
 	"github.com/synnaxlabs/aspen/internal/kv"
 	grpct "github.com/synnaxlabs/aspen/transport/grpc"
-	"github.com/synnaxlabs/freighter/fgrpc"
+	fgrpc "github.com/synnaxlabs/freighter/grpc"
 	"github.com/synnaxlabs/x/address"
 	xkv "github.com/synnaxlabs/x/kv"
 	"github.com/synnaxlabs/x/override"

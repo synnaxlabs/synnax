@@ -22,7 +22,7 @@ import (
 	arcsymbol "github.com/synnaxlabs/arc/symbol"
 	arctext "github.com/synnaxlabs/arc/text"
 	arctypes "github.com/synnaxlabs/arc/types"
-	"github.com/synnaxlabs/freighter/fgrpc"
+	"github.com/synnaxlabs/freighter/grpc"
 	"github.com/synnaxlabs/synnax/pkg/api"
 	gapi "github.com/synnaxlabs/synnax/pkg/api/grpc/v1"
 	"github.com/synnaxlabs/synnax/pkg/service/arc"
@@ -38,19 +38,19 @@ type (
 	arcRetrieveRequestTranslator  struct{}
 	arcRetrieveResponseTranslator struct{}
 	arcDeleteRequestTranslator    struct{}
-	arcCreateServer               = fgrpc.UnaryServer[
+	arcCreateServer               = grpc.UnaryServer[
 		api.ArcCreateRequest,
 		*gapi.ArcCreateRequest,
 		api.ArcCreateResponse,
 		*gapi.ArcCreateResponse,
 	]
-	arcRetrieveServer = fgrpc.UnaryServer[
+	arcRetrieveServer = grpc.UnaryServer[
 		api.ArcRetrieveRequest,
 		*gapi.ArcRetrieveRequest,
 		api.ArcRetrieveResponse,
 		*gapi.ArcRetrieveResponse,
 	]
-	arcDeleteServer = fgrpc.UnaryServer[
+	arcDeleteServer = grpc.UnaryServer[
 		api.ArcDeleteRequest,
 		*gapi.ArcDeleteRequest,
 		types.Nil,
@@ -59,11 +59,11 @@ type (
 )
 
 var (
-	_ fgrpc.Translator[api.ArcCreateRequest, *gapi.ArcCreateRequest]       = (*arcCreateRequestTranslator)(nil)
-	_ fgrpc.Translator[api.ArcCreateResponse, *gapi.ArcCreateResponse]     = (*arcCreateResponseTranslator)(nil)
-	_ fgrpc.Translator[api.ArcRetrieveRequest, *gapi.ArcRetrieveRequest]   = (*arcRetrieveRequestTranslator)(nil)
-	_ fgrpc.Translator[api.ArcRetrieveResponse, *gapi.ArcRetrieveResponse] = (*arcRetrieveResponseTranslator)(nil)
-	_ fgrpc.Translator[api.ArcDeleteRequest, *gapi.ArcDeleteRequest]       = (*arcDeleteRequestTranslator)(nil)
+	_ grpc.Translator[api.ArcCreateRequest, *gapi.ArcCreateRequest]       = (*arcCreateRequestTranslator)(nil)
+	_ grpc.Translator[api.ArcCreateResponse, *gapi.ArcCreateResponse]     = (*arcCreateResponseTranslator)(nil)
+	_ grpc.Translator[api.ArcRetrieveRequest, *gapi.ArcRetrieveRequest]   = (*arcRetrieveRequestTranslator)(nil)
+	_ grpc.Translator[api.ArcRetrieveResponse, *gapi.ArcRetrieveResponse] = (*arcRetrieveResponseTranslator)(nil)
+	_ grpc.Translator[api.ArcDeleteRequest, *gapi.ArcDeleteRequest]       = (*arcDeleteRequestTranslator)(nil)
 )
 
 func (t arcCreateRequestTranslator) Forward(
@@ -1011,7 +1011,7 @@ func translateStageFromPB(pb *arcir.PBStage) arcir.Stage {
 	}
 }
 
-func newArc(a *api.Transport) fgrpc.CompoundBindableTransport {
+func newArc(a *api.Transport) grpc.CompoundBindableTransport {
 	c := &arcCreateServer{
 		RequestTranslator:  arcCreateRequestTranslator{},
 		ResponseTranslator: arcCreateResponseTranslator{},
@@ -1024,13 +1024,13 @@ func newArc(a *api.Transport) fgrpc.CompoundBindableTransport {
 	}
 	d := &arcDeleteServer{
 		RequestTranslator:  arcDeleteRequestTranslator{},
-		ResponseTranslator: fgrpc.EmptyTranslator{},
+		ResponseTranslator: grpc.EmptyTranslator{},
 		ServiceDesc:        &gapi.ArcDeleteService_ServiceDesc,
 	}
 	a.ArcCreate = c
 	a.ArcRetrieve = r
 	a.ArcDelete = d
-	return []fgrpc.BindableTransport{c, r, d}
+	return []grpc.BindableTransport{c, r, d}
 }
 
 func unwrapTelemValue(v any) any {

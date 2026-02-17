@@ -178,12 +178,12 @@ type Layer struct {
 // If the returned error is nil, then the Layer must be closed after use. None of
 // the services in the Layer should be used after Close is called. It is the caller's
 // responsibility to ensure that the Layer is not accessed after it is closed.
-func Open(ctx context.Context, cfgs ...Config) (*Layer, error) {
+func Open(ctx context.Context, cfgs ...Config) (l *Layer, err error) {
 	cfg, err := config.New(DefaultConfig, cfgs...)
 	if err != nil {
 		return nil, err
 	}
-	l := &Layer{}
+	l = &Layer{}
 	cleanup, ok := service.NewOpener(ctx, &l.closer)
 	defer func() {
 		err = cleanup(err)

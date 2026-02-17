@@ -13,7 +13,7 @@ import (
 	"context"
 
 	"github.com/samber/lo"
-	"github.com/synnaxlabs/freighter/fgrpc"
+	"github.com/synnaxlabs/freighter/grpc"
 	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
 	"github.com/synnaxlabs/synnax/pkg/distribution/cluster"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer"
@@ -30,13 +30,13 @@ import (
 )
 
 var (
-	_ fgrpc.Translator[writer.Request, *framerv1.WriterRequest]       = (*writerRequestTranslator)(nil)
-	_ fgrpc.Translator[writer.Response, *framerv1.WriterResponse]     = (*writerResponseTranslator)(nil)
-	_ fgrpc.Translator[iterator.Request, *framerv1.IteratorRequest]   = (*iteratorRequestTranslator)(nil)
-	_ fgrpc.Translator[iterator.Response, *framerv1.IteratorResponse] = (*iteratorResponseTranslator)(nil)
-	_ fgrpc.Translator[relay.Request, *framerv1.RelayRequest]         = (*relayRequestTranslator)(nil)
-	_ fgrpc.Translator[relay.Response, *framerv1.RelayResponse]       = (*relayResponseTranslator)(nil)
-	_ fgrpc.Translator[deleter.Request, *framerv1.DeleteRequest]      = (*deleteRequestTranslator)(nil)
+	_ grpc.Translator[writer.Request, *framerv1.WriterRequest]       = (*writerRequestTranslator)(nil)
+	_ grpc.Translator[writer.Response, *framerv1.WriterResponse]     = (*writerResponseTranslator)(nil)
+	_ grpc.Translator[iterator.Request, *framerv1.IteratorRequest]   = (*iteratorRequestTranslator)(nil)
+	_ grpc.Translator[iterator.Response, *framerv1.IteratorResponse] = (*iteratorResponseTranslator)(nil)
+	_ grpc.Translator[relay.Request, *framerv1.RelayRequest]         = (*relayRequestTranslator)(nil)
+	_ grpc.Translator[relay.Response, *framerv1.RelayResponse]       = (*relayResponseTranslator)(nil)
+	_ grpc.Translator[deleter.Request, *framerv1.DeleteRequest]      = (*deleteRequestTranslator)(nil)
 )
 
 type writerRequestTranslator struct{}
@@ -175,7 +175,7 @@ func (iteratorResponseTranslator) Backward(
 		Ack:     res.Ack,
 		SeqNum:  int(res.SeqNum),
 		Command: iterator.Command(res.Command),
-		Error:   fgrpc.DecodeError(ctx, res.Error),
+		Error:   grpc.DecodeError(ctx, res.Error),
 		Frame:   translateFrameForward(res.Frame),
 	}, nil
 }
@@ -191,7 +191,7 @@ func (iteratorResponseTranslator) Forward(
 		Ack:     res.Ack,
 		SeqNum:  int32(res.SeqNum),
 		Command: int32(res.Command),
-		Error:   fgrpc.EncodeError(ctx, res.Error, true),
+		Error:   grpc.EncodeError(ctx, res.Error, true),
 		Frame:   translateFrameBackward(res.Frame),
 	}, nil
 }

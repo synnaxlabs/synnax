@@ -3,6 +3,7 @@ modules:
   - includes:
       - aspen
       - core
+      - freighter/go
       - freighter/integration
       - x/go
       - arc/go
