@@ -88,3 +88,6 @@ class ContextMenu:
     def close(self) -> None:
         """Close the context menu by pressing Escape."""
         self.page.keyboard.press("Escape")
+        self.page.locator(".pluto-menu-context").first.wait_for(
+            state="hidden", timeout=5000
+        )

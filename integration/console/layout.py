@@ -833,6 +833,19 @@ class LayoutClient:
         assert last_item is not None
         return last_item
 
+    def ctrl_select_items(
+        self, names: list[str], get_item_fn: Callable[[str], Locator]
+    ) -> Locator:
+        """Multi-select items via Ctrl+Click, return the last item."""
+        first = get_item_fn(names[0])
+        first.wait_for(state="visible", timeout=5000)
+        first.click()
+        for name in names[1:]:
+            item = get_item_fn(name)
+            item.wait_for(state="visible", timeout=5000)
+            item.click(modifiers=["ControlOrMeta"])
+        return get_item_fn(names[-1])
+
     def locator_exists(self, locator: Locator) -> bool:
         """Check if a locator is visible within 5 seconds."""
         try:
