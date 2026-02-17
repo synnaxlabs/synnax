@@ -14,6 +14,7 @@ import {
   type bounds,
   color,
   type direction,
+  id,
   type location,
   type xy,
 } from "@synnaxlabs/x";
@@ -30,6 +31,7 @@ import { Form } from "@/form";
 import { Icon } from "@/icon";
 import { Input } from "@/input";
 import { StateOverrideControls } from "@/schematic/symbol/Custom";
+import { type StateMapping } from "@/schematic/symbol/Primitives";
 import { SelectOrientation } from "@/schematic/symbol/SelectOrientation";
 import {
   type ControlStateProps,
@@ -43,6 +45,7 @@ import { type Text } from "@/text";
 import { Button as BaseButton } from "@/vis/button";
 import { type Input as BaseInput } from "@/vis/input";
 import { type Setpoint } from "@/vis/setpoint";
+import { type StateIndicator as BaseStateIndicator } from "@/vis/stateIndicator";
 import { type Toggle } from "@/vis/toggle";
 import { Value } from "@/vis/value";
 
@@ -1172,3 +1175,241 @@ export const BoxForm = (): ReactElement => (
 );
 
 export const SwitchForm = (): ReactElement => <CommonToggleForm hideInnerOrientation />;
+
+interface StateMappingFormProps {
+  path: string;
+  showColor?: boolean;
+}
+
+const StateMappingForm = ({
+  path,
+  showColor = false,
+}: StateMappingFormProps): ReactElement => {
+  const { value: options, onChange } =
+    Form.useField<StateMapping[]>(path);
+
+  const handleAdd = (): void => {
+    onChange([...options, { key: id.create(), name: "", value: 0 }]);
+  };
+
+  const handleRemove = (key: string): void => {
+    onChange(options.filter((o) => o.key !== key));
+  };
+
+  const handleChange = (key: string, field: string, v: unknown): void => {
+    onChange(options.map((o) => (o.key === key ? { ...o, [field]: v } : o)));
+  };
+
+  return (
+    <Flex.Box y gap="small" align="stretch">
+      {options.map((option) => (
+        <Flex.Box key={option.key} x align="center" gap="small">
+          <Input.Text
+            value={option.name}
+            onChange={(v) => handleChange(option.key, "name", v)}
+            placeholder="Name"
+            style={{ flexGrow: 1 }}
+          />
+          <Input.Numeric
+            value={option.value}
+            onChange={(v) => handleChange(option.key, "value", v)}
+            style={{ width: 80 }}
+          />
+          {showColor && (
+            <Color.Swatch
+              value={option.color ?? color.ZERO}
+              onChange={(v) => handleChange(option.key, "color", v)}
+              bordered
+            />
+          )}
+          <Button.Button
+            onClick={() => handleRemove(option.key)}
+            size="small"
+            variant="text"
+          >
+            <Icon.Close />
+          </Button.Button>
+        </Flex.Box>
+      ))}
+      <Button.Button onClick={handleAdd} variant="text" size="small">
+        <Icon.Add />
+        Add Option
+      </Button.Button>
+    </Flex.Box>
+  );
+};
+
+const SelectTelemForm = ({ path }: { path: string }): ReactElement => {
+  const { value, onChange } = Form.useField<
+    Pick<Setpoint.UseProps, "sink"> & {
+      control: ControlStateProps;
+      disabled?: boolean;
+    }
+  >(path);
+  const sinkP = telem.sinkPipelinePropsZ.parse(value.sink?.props);
+  const sink = control.setChannelValuePropsZ.parse(sinkP.segments.setter.props);
+
+  const handleSinkChange = (v: channel.Key | null): void => {
+    v ??= 0;
+    const t = telem.sinkPipeline("number", {
+      connections: [],
+      segments: { setter: control.setChannelValue({ channel: v }) },
+      inlet: "setter",
+    });
+
+    const authSource = control.authoritySource({ channel: v });
+
+    const controlChipSink = control.acquireChannelControl({
+      channel: v,
+      authority: 255,
+    });
+
+    onChange({
+      ...value,
+      sink: t,
+      control: {
+        ...value.control,
+        show: true,
+        showChip: true,
+        chip: { sink: controlChipSink, source: authSource },
+        showIndicator: true,
+        indicator: { statusSource: authSource },
+      },
+      disabled: v == 0,
+    });
+  };
+
+  return (
+    <FormWrapper x grow align="stretch">
+      <Input.Item label="Command Channel" grow>
+        <Channel.SelectSingle value={sink.channel} onChange={handleSinkChange} />
+      </Input.Item>
+      <Form.SwitchField
+        path="control.show"
+        label="Show Control Chip"
+        hideIfNull
+        optional
+      />
+    </FormWrapper>
+  );
+};
+
+const SELECT_FORM_TABS: Tabs.Tab[] = [
+  { tabKey: "style", name: "Style" },
+  { tabKey: "options", name: "Options" },
+  { tabKey: "control", name: "Control" },
+];
+
+export const SelectForm = (): ReactElement => {
+  const content: Tabs.RenderProp = useCallback(({ tabKey }) => {
+    switch (tabKey) {
+      case "control":
+        return <SelectTelemForm path="" />;
+      case "options":
+        return (
+          <FormWrapper y align="stretch">
+            <StateMappingForm path="options" />
+          </FormWrapper>
+        );
+      default:
+        return (
+          <FormWrapper y align="stretch">
+            <Flex.Box y align="stretch" grow gap="small">
+              <LabelControls path="label" />
+              <Flex.Box x>
+                <Form.Field<Component.Size>
+                  path="size"
+                  label="Size"
+                  hideIfNull
+                  padHelpText={false}
+                >
+                  {({ value, onChange }) => (
+                    <Component.SelectSize value={value} onChange={onChange} />
+                  )}
+                </Form.Field>
+                <ColorControl path="color" />
+                <Form.NumericField
+                  path="inlineSize"
+                  label="Width"
+                  inputProps={valueWidthInputProps}
+                />
+              </Flex.Box>
+            </Flex.Box>
+          </FormWrapper>
+        );
+    }
+  }, []);
+  const props = Tabs.useStatic({ tabs: SELECT_FORM_TABS, content });
+  return <Tabs.Tabs {...props} />;
+};
+
+const StateIndicatorTelemForm = ({ path }: { path: string }): ReactElement => {
+  const { value, onChange } = Form.useField<
+    Omit<BaseStateIndicator.UseProps, "aetherKey">
+  >(path);
+  const sourceP = telem.sourcePipelinePropsZ.parse(value.source?.props);
+  const source = telem.streamChannelValuePropsZ.parse(
+    sourceP.segments.valueStream.props,
+  );
+
+  const handleSourceChange = (v: channel.Key | null): void => {
+    v ??= 0;
+    const t = telem.sourcePipeline("number", {
+      connections: [],
+      segments: { valueStream: telem.streamChannelValue({ channel: v }) },
+      outlet: "valueStream",
+    });
+    onChange({ ...value, source: t });
+  };
+
+  return (
+    <FormWrapper x grow align="stretch">
+      <Input.Item label="Input Channel" grow>
+        <Channel.SelectSingle
+          value={source.channel as number}
+          onChange={handleSourceChange}
+        />
+      </Input.Item>
+    </FormWrapper>
+  );
+};
+
+const STATE_INDICATOR_FORM_TABS: Tabs.Tab[] = [
+  { tabKey: "style", name: "Style" },
+  { tabKey: "options", name: "Options" },
+  { tabKey: "telemetry", name: "Telemetry" },
+];
+
+export const StateIndicatorForm = (): ReactElement => {
+  const content: Tabs.RenderProp = useCallback(({ tabKey }) => {
+    switch (tabKey) {
+      case "telemetry":
+        return <StateIndicatorTelemForm path="" />;
+      case "options":
+        return (
+          <FormWrapper y align="stretch">
+            <StateMappingForm path="options" showColor />
+          </FormWrapper>
+        );
+      default:
+        return (
+          <FormWrapper y align="stretch">
+            <Flex.Box y align="stretch" grow gap="small">
+              <LabelControls path="label" />
+              <Flex.Box x>
+                <ColorControl path="color" />
+                <Form.NumericField
+                  path="inlineSize"
+                  label="Width"
+                  hideIfNull
+                  inputProps={valueWidthInputProps}
+                />
+              </Flex.Box>
+            </Flex.Box>
+          </FormWrapper>
+        );
+    }
+  }, []);
+  const props = Tabs.useStatic({ tabs: STATE_INDICATOR_FORM_TABS, content });
+  return <Tabs.Tabs {...props} />;
+};

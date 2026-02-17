@@ -37,6 +37,7 @@ import { line } from "@/vis/line/aether";
 import { measure } from "@/vis/measure/aether";
 import { rule } from "@/vis/rule/aether";
 import { setpoint } from "@/vis/setpoint/aether";
+import { stateIndicator } from "@/vis/stateIndicator/aether";
 import { toggle } from "@/vis/toggle/aether";
 import { value } from "@/vis/value/aether";
 
@@ -74,6 +75,7 @@ export const render = (): void => {
     ...range.REGISTRY,
     ...rule.REGISTRY,
     ...setpoint.REGISTRY,
+    ...stateIndicator.REGISTRY,
     ...status.REGISTRY,
     ...synnax.REGISTRY,
     ...telem.REGISTRY,

@@ -224,6 +224,32 @@
     }
 }
 
+.pluto-select-symbol {
+    --pluto-border-color: var(--pluto-gray-l7-40);
+    display: flex;
+    align-items: center;
+    gap: 0;
+    .pluto-input {
+        width: min-content;
+    }
+}
+
+.pluto-state-indicator {
+    display: flex;
+    flex-direction: row;
+    border: var(--pluto-border);
+    border-color: var(--pluto-gray-l11);
+    border-radius: var(--pluto-border-radius);
+    border-width: 2px;
+    padding: 0;
+    align-items: center;
+    justify-content: center;
+
+    & .pluto-state-indicator__content {
+        padding: 0.5rem 1.5rem;
+    }
+}
+
 .pluto-arrow {
     &.pluto--location-top {
         transform: rotate(-90deg);
