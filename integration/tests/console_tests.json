@@ -33,6 +33,7 @@
         { "case": "console/schematic/schematic_lifecycle" },
         { "case": "console/schematic/alignment" },
         { "case": "console/schematic/edit_props" },
+        { "case": "console/schematic/select_state_indicator" },
         { "case": "console/status/status_lifecycle" },
         { "case": "console/table/table_lifecycle" },
         { "case": "console/task/ni_analog_read_forms" },

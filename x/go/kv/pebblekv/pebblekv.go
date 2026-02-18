@@ -111,11 +111,8 @@ func (d db) Commit(context.Context, ...any) error { return nil }
 // NewReader implement kv.DB.
 func (d db) NewReader() kv.TxReader { return d.OpenTx().NewReader() }
 
-func (d db) withTx(ctx context.Context, f func(tx kv.Tx) error) error {
-	var (
-		err error
-		tx  = d.OpenTx()
-	)
+func (d db) withTx(ctx context.Context, f func(tx kv.Tx) error) (err error) {
+	tx := d.OpenTx()
 	defer func() {
 		err = errors.Combine(err, tx.Close())
 	}()

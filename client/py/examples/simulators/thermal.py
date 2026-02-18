@@ -10,7 +10,7 @@
 import random
 
 import synnax as sy
-from examples.simulators.base import SimDAQ
+from examples.simulators.simdaq import SimDAQ
 
 
 class ThermalSimDAQ(SimDAQ):
@@ -25,7 +25,7 @@ class ThermalSimDAQ(SimDAQ):
     NOISE = 0.1
 
     def _create_channels(self) -> None:
-        self._log("Creating channels...")
+        self.log("Creating channels...")
         client = self.client
 
         self.daq_time = client.channels.create(
@@ -101,10 +101,10 @@ class ThermalSimDAQ(SimDAQ):
                 "heater_state": [0],
             },
         )
-        self._log("Channels created successfully")
+        self.log("Channels created successfully")
 
     def _run_loop(self) -> None:
-        self._log("Starting simulation loop...")
+        self.log("Starting simulation loop...")
         loop = sy.Loop(sy.Rate.HZ * 100)
         loop_count = 0
 
@@ -134,7 +134,7 @@ class ThermalSimDAQ(SimDAQ):
                                 if hasattr(new_val, "item"):
                                     new_val = new_val.item()
                                 if new_val != state["heater_state"]:
-                                    self._log(
+                                    self.log(
                                         f"Heater: {state['heater_state']} -> {new_val}"
                                     )
                                 state["heater_state"] = new_val
@@ -146,7 +146,7 @@ class ThermalSimDAQ(SimDAQ):
                                     new_overheat = new_overheat.item()
                                 new_overheat = new_overheat == 1
                                 if new_overheat != force_overheat:
-                                    self._log(
+                                    self.log(
                                         f"Force overheat: {force_overheat} -> {new_overheat}"
                                     )
                                 force_overheat = new_overheat
@@ -167,13 +167,13 @@ class ThermalSimDAQ(SimDAQ):
 
                     loop_count += 1
                     if loop_count % 100 == 0:
-                        self._log(
+                        self.log(
                             f"temp={state['temp_sensor']:.2f}°C, "
                             f"heater={state['heater_state']}, "
                             f"overheat={force_overheat}"
                         )
 
-        self._log("Simulation loop stopped")
+        self.log("Simulation loop stopped")
 
 
 if __name__ == "__main__":
