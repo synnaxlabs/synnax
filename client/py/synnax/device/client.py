@@ -66,14 +66,14 @@ class Client:
         make: str = "",
         model: str = "",
         configured: bool = False,
-        properties: Any = None,
-    ): ...
+        properties: dict[str, Any] | None = None,
+    ) -> Device: ...
 
     @overload
-    def create(self, devices: Device): ...
+    def create(self, devices: Device) -> Device: ...
 
     @overload
-    def create(self, devices: list[Device]): ...
+    def create(self, devices: list[Device]) -> list[Device]: ...
 
     def create(
         self,
@@ -87,7 +87,7 @@ class Client:
         model: str = "",
         configured: bool = False,
         properties: dict[str, Any] | None = None,
-    ):
+    ) -> Device | list[Device]:
         is_single = not isinstance(devices, list)
         if properties is None:
             properties = dict()

@@ -185,7 +185,7 @@ def pure_tsconvert(
             for chunk in reader:
                 t0 = datetime.now()
                 converted = convert_time_units(
-                    chunk[input_channel], input_precision, output_precision
+                    chunk[input_channel].to_numpy(), input_precision, output_precision
                 )
                 chunk[output_channel] = converted
                 writer.write(chunk)
@@ -199,8 +199,8 @@ def pure_tsconvert(
 def ask_channel_and_check_exists(
     ctx: Context,
     reader: BaseReader,
-    question="Enter a channel name",
-    arg_name="channel",
+    question: str = "Enter a channel name",
+    arg_name: str = "channel",
     arg: str | None = None,
 ) -> str:
     _ch = ctx.console.ask(question, arg_name=arg_name, arg=arg)

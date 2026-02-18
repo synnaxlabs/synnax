@@ -389,7 +389,7 @@ class WriteTaskConfig(task.BaseWriteConfig):
     "A list of WriteChannel objects that specify which OPC UA nodes to write to."
 
     @field_validator("channels")
-    def validate_channels_not_empty(cls, v):
+    def validate_channels_not_empty(cls, v: list[WriteChannel]) -> list[WriteChannel]:
         """Validate that at least one channel is provided."""
         if len(v) == 0:
             raise ValueError("Task must have at least one channel")

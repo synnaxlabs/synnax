@@ -7,6 +7,8 @@
 #  License, use of this software will be governed by the Apache License, Version 2.0,
 #  included in the file licenses/APL.txt.
 
+from typing import cast
+
 import click
 import matplotlib.pyplot as plt
 import numpy as np
@@ -62,7 +64,9 @@ def collect_samples(
     client: sy.Synnax,
     time_channel: sy.channel.Key,
     span: sy.TimeSpan,
-):
+) -> tuple[
+    list[sy.TimeSpan], list[sy.TimeSpan], list[sy.TimeStamp], sy.TimeStamp, sy.TimeStamp
+]:
     # Tracks the offset between the local clock and the time channel
     offsets: list[sy.TimeSpan] = list()
     # Tracks the spacing between the samples inside individual reads
@@ -78,11 +82,13 @@ def collect_samples(
         while now < end:
             now = sy.TimeStamp.now()
             data = streamer.read()[time_channel]
-            offset = sy.TimeSpan(sy.TimeStamp.now() - sy.TimeStamp(data[-1]))
+            last = cast(int, data[-1])
+            second_last = cast(int, data[-2])
+            offset = sy.TimeSpan(sy.TimeStamp.now() - sy.TimeStamp(last))
             offsets.append(offset)
-            diff = sy.TimeSpan(data[-1] - data[-2])
+            diff = sy.TimeSpan(last - second_last)
             diffs.append(diff)
-            times.extend(data)
+            times.extend(data)  # type: ignore[arg-type]
 
     local_end = sy.TimeStamp.now()
     return offsets, diffs, times, local_start, local_end

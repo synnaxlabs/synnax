@@ -12,8 +12,8 @@ from __future__ import annotations
 
 import functools
 import warnings
-from collections.abc import Callable
-from typing import overload
+from collections.abc import Callable, Iterator
+from typing import Any, cast, overload
 from uuid import UUID
 
 import numpy as np
@@ -68,9 +68,9 @@ class _InternalScopedChannel(channel.Payload):
     __tasks: TaskClient | None = PrivateAttr(None)
     __ontology: OntologyClient | None = PrivateAttr(None)
 
-    def __new__(cls, *args, **kwargs):
+    def __new__(cls, *args: Any, **kwargs: Any) -> _InternalScopedChannel:
         cls = overload_comparison_operators(cls, "__array__")
-        return super().__new__(cls)
+        return super().__new__(cls)  # type: ignore[no-any-return]
 
     def __init__(
         self,
@@ -98,7 +98,7 @@ class _InternalScopedChannel(channel.Payload):
     def time_range(self) -> TimeRange:
         return self._range.time_range
 
-    def __array__(self, *args, **kwargs) -> np.ndarray:
+    def __array__(self, *args: Any, **kwargs: Any) -> np.ndarray:
         """Converts the channel to a numpy array. This method is necessary
         for numpy interop."""
         return self.read().__array__(*args, **kwargs)
@@ -123,13 +123,13 @@ class _InternalScopedChannel(channel.Payload):
             self.__cache = self._frame_client.read(self.time_range, self.key)
         return self.__cache
 
-    def set_alias(self, alias: str):
+    def set_alias(self, alias: str) -> None:
         self._range.set_alias(self.key, alias)
 
     def __str__(self) -> str:
         return f"{super().__str__()} between {self.time_range.start} and {self.time_range.end}"
 
-    def __len__(self):
+    def __len__(self) -> int:
         return len(self.read())
 
 
@@ -149,9 +149,9 @@ class ScopedChannel:
     __internal: list[_InternalScopedChannel]
     __query: str
 
-    def __new__(cls, *args, **kwargs):
+    def __new__(cls, *args: Any, **kwargs: Any) -> ScopedChannel:
         cls = overload_comparison_operators(cls, "__array__")
-        return super().__new__(cls)
+        return super().__new__(cls)  # type: ignore[no-any-return]
 
     def __init__(
         self,
@@ -161,13 +161,13 @@ class ScopedChannel:
         self.__internal = internal
         self.__query = query
 
-    def __guard(self):
+    def __guard(self) -> None:
         if len(self.__internal) > 1:
             raise QueryError(f"""Multiple channels found for query '{self.__query}':
             {[str(ch) for ch in self.__internal]}
             """)
 
-    def __array__(self, *args, **kwargs):
+    def __array__(self, *args: object, **kwargs: object) -> np.ndarray:
         """Converts the scoped channel to a numpy array. This method is necessary
         for numpy interop."""
         self.__guard()
@@ -212,14 +212,14 @@ class ScopedChannel:
         self.__guard()
         return self.__internal[0].leaseholder
 
-    def set_alias(self, alias: str):
+    def set_alias(self, alias: str) -> None:
         self.__guard()
         self.__internal[0].set_alias(alias)
 
-    def __iter__(self):
+    def __iter__(self) -> Iterator[_InternalScopedChannel]:
         return iter(self.__internal)
 
-    def __len__(self):
+    def __len__(self) -> int:
         return sum(len(ch) for ch in self.__internal)
 
 
@@ -300,7 +300,8 @@ class Range(Payload):
 
     def __getattr__(self, query: str) -> ScopedChannel:
         try:
-            return super().__getattr__(query)  # type: ignore[misc]
+            # BaseModel.__getattr__ exists at runtime but not in mypy stubs
+            return super().__getattr__(query)  # type: ignore[misc,no-any-return]
         except AttributeError:
             pass
         channels = self._channel_retriever.retrieve(query)
@@ -337,13 +338,13 @@ class Range(Payload):
         return ontology_id(self.key)
 
     @property
-    def meta_data(self):
+    def meta_data(self) -> kv.Client:
         if self._kv is None:
             raise _RANGE_NOT_CREATED
         return self._kv
 
     @property
-    def _aliaser(self):
+    def _aliaser(self) -> alias.Client:
         if self.__aliaser is None:
             raise _RANGE_NOT_CREATED
         return self.__aliaser
@@ -379,16 +380,16 @@ class Range(Payload):
         return self._channels
 
     @overload
-    def set_alias(self, channel: channel.Key | str, alias: str): ...
+    def set_alias(self, channel: channel.Key | str, alias: str) -> None: ...
 
     @overload
-    def set_alias(self, channel: dict[channel.Key | str, str]): ...
+    def set_alias(self, channel: dict[channel.Key | str, str]) -> None: ...
 
     def set_alias(
         self,
         channel: channel.Key | str | dict[channel.Key | str, str],
         alias: str | None = None,
-    ):
+    ) -> None:
         if not isinstance(channel, dict):
             if alias is None:
                 raise ValueError("Alias must be provided if channel is not a dict")
@@ -410,10 +411,10 @@ class Range(Payload):
     @overload
     def write(
         self, channels: channel.Params, series: CrudeSeries | list[CrudeSeries]
-    ): ...
+    ) -> None: ...
 
     @overload
-    def write(self, channels: framer.CrudeFrame): ...
+    def write(self, channels: framer.CrudeFrame) -> None: ...
 
     def write(
         self,
@@ -422,7 +423,7 @@ class Range(Payload):
     ) -> None:
         start = self.time_range.start
         if series is None:
-            self._frame_client.write(start, channels)
+            self._frame_client.write(start, cast(framer.CrudeFrame, channels))
             return
         if not isinstance(channels, (int, str, list, tuple, channel.Payload)):
             raise TypeError(
@@ -680,7 +681,7 @@ class Client:
         _ranges = self._retriever.search(term)
         return self.__sugar(_ranges)
 
-    def __sugar(self, ranges: list[Payload]):
+    def __sugar(self, ranges: list[Payload]) -> list[Range]:
         return [
             Range(
                 **r.model_dump(),
@@ -695,9 +696,9 @@ class Client:
             for r in ranges
         ]
 
-    def on_create(self, f: Callable[[Range], None]):
+    def on_create(self, f: Callable[[Range], None]) -> Callable[[LatestState], None]:
         @functools.wraps(f)
-        def wrapper(state: LatestState):
+        def wrapper(state: LatestState) -> None:
             d = state[RANGE_SET_CHANNEL]
             f(
                 Range(

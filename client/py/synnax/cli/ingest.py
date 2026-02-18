@@ -48,7 +48,7 @@ def pure_ingest(
     client: Synnax | None = None,
     ctx: Context = default.context(),
 ) -> None:
-    flow = Flow(ctx)
+    flow: Flow[Any] = Flow(ctx)
     flow.add("initialize_reader", initialize_reader)
     flow.add("connect_client", _connect_client)
     flow.add("ingest_all", ingest_all)
@@ -372,7 +372,7 @@ def assign_index_or_rate(
             k: [ch for ch in cli.not_found if ch.name in v] for k, v in groups.items()
         }
 
-    def assign_to_group(key: str, group: list[ChannelMeta]):
+    def assign_to_group(key: str, group: list[ChannelMeta]) -> Rate | int | None:
         if key != GROUP_ALL:
             ctx.console.info(f"Assigning data rate or index to {key}")
         _choice = ctx.console.ask("Enter the name of an index or a data rate")

@@ -21,11 +21,11 @@ from synnax.util.params import require_named_params
 
 class _SetRequest(BaseModel):
     parent: ID | None = None
-    statuses: list[Status]
+    statuses: list[Status[None]]
 
 
 class _SetResponse(BaseModel):
-    statuses: list[Status]
+    statuses: list[Status[None]]
 
 
 class _RetrieveRequest(BaseModel):
@@ -38,7 +38,7 @@ class _RetrieveRequest(BaseModel):
 
 
 class _RetrieveResponse(BaseModel):
-    statuses: list[Status] | None = None
+    statuses: list[Status[None]] | None = None
 
 
 class _DeleteRequest(BaseModel):
@@ -74,25 +74,25 @@ class Client:
     @overload
     def set(
         self,
-        status: Status,
+        status: Status[None],
         *,
         parent: ID | None = None,
-    ) -> Status: ...
+    ) -> Status[None]: ...
 
     @overload
     def set(
         self,
-        status: list[Status],
+        status: list[Status[None]],
         *,
         parent: ID | None = None,
-    ) -> list[Status]: ...
+    ) -> list[Status[None]]: ...
 
     def set(
         self,
-        status: Status | list[Status] | None = None,
+        status: Status[None] | list[Status[None]] | None = None,
         *,
         parent: ID | None = None,
-    ) -> Status | list[Status]:
+    ) -> Status[None] | list[Status[None]]:
         """Create or update a status.
 
         Args:
@@ -140,12 +140,12 @@ class Client:
         return res
 
     @overload
-    def retrieve(self, *, key: str, include_labels: bool = False) -> Status: ...
+    def retrieve(self, *, key: str, include_labels: bool = False) -> Status[None]: ...
 
     @overload
     def retrieve(
         self, *, keys: list[str], include_labels: bool = False
-    ) -> list[Status]: ...
+    ) -> list[Status[None]]: ...
 
     @overload
     def retrieve(
@@ -156,7 +156,7 @@ class Client:
         limit: int | None = None,
         include_labels: bool = False,
         has_labels: list[UUID] | None = None,
-    ) -> list[Status]: ...
+    ) -> list[Status[None]]: ...
 
     @require_named_params(example_params=("key", "'status-key-123'"))
     def retrieve(
@@ -169,7 +169,7 @@ class Client:
         limit: int | None = None,
         include_labels: bool = False,
         has_labels: list[UUID] | None = None,
-    ) -> Status | list[Status]:
+    ) -> Status[None] | list[Status[None]]:
         """Retrieve statuses from the cluster.
 
         Args:

@@ -121,7 +121,7 @@ class Client:
     def retrieve_parents(
         self,
         id: CrudeID | list[CrudeID],
-    ):
+    ) -> list[Resource]:
         normalized: list[CrudeID] = normalize(id)
         return self.__exec_retrieve(
             RetrieveReq(ids=[ID(i) for i in normalized], parents=True)

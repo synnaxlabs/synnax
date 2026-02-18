@@ -8,7 +8,7 @@
 #  included in the file licenses/APL.txt.
 
 import json
-from typing import Annotated, Literal
+from typing import Annotated, Any, Literal
 from uuid import uuid4
 
 from pydantic import BaseModel, Field, field_validator, validator
@@ -160,7 +160,7 @@ class BaseChan(BaseModel):
     key: str
     enabled: bool = True
 
-    def __init__(self, **data):
+    def __init__(self, **data: Any) -> None:
         if "key" not in data:
             data["key"] = str(uuid4())
         super().__init__(**data)
@@ -2416,7 +2416,7 @@ class AnalogReadTaskConfig(task.BaseReadConfig):
     channels: list[AIChan]
 
     @field_validator("channels")
-    def validate_channel_ports(cls, v, values):
+    def validate_channel_ports(cls, v: list[AIChan], values: Any) -> list[AIChan]:
         ports = {c.port for c in v}
         if len(ports) < len(v):
             used_ports = [c.port for c in v]
@@ -2454,7 +2454,7 @@ class CounterReadConfig(task.BaseReadConfig):
     channels: list[CIChan]
 
     @field_validator("channels")
-    def validate_channel_ports(cls, v):
+    def validate_channel_ports(cls, v: list[CIChan]) -> list[CIChan]:
         ports = {c.port for c in v}
         if len(ports) < len(v):
             used_ports = [c.port for c in v]

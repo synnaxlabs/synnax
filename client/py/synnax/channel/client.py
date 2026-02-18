@@ -111,6 +111,9 @@ class Channel(Payload):
             virtual=virtual,
             expression=expression,
             operations=operations,
+            concurrency=concurrency,
+            alias=alias,
+            status=status,
         )
         self.___frame_client = _frame_client
         self.__client = _client
@@ -179,7 +182,9 @@ class Channel(Payload):
     def __hash__(self) -> int:
         return hash(self.key)
 
-    def __eq__(self, other) -> bool:
+    def __eq__(self, other: object) -> bool:
+        if not isinstance(other, Channel):
+            return NotImplemented
         return self.key == other.key
 
     def to_payload(self) -> Payload:

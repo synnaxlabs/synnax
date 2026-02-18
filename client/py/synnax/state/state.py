@@ -22,7 +22,7 @@ class State:
         self._retriever = retriever
         self.value = dict()
 
-    def update(self, frame: Frame):
+    def update(self, frame: Frame) -> None:
         for key in frame.channels:
             if isinstance(key, int):
                 self.value[key] = frame[key]

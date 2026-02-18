@@ -86,7 +86,7 @@ class Client:
             return res.racks[0]
         return res.racks
 
-    def delete(self, keys: list[int]):
+    def delete(self, keys: list[int]) -> None:
         req = _DeleteRequest(keys=keys)
         send_required(self._client, "/rack/delete", req, Empty)
 

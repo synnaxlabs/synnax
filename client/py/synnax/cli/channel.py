@@ -17,7 +17,7 @@ from synnax.cli.flow import Context
 def channel_name_table(
     ctx: Context,
     names: list[str],
-):
+) -> None:
     """Creates a table containing names of the channels.
 
     :param ctx: The current flow context.
@@ -99,7 +99,7 @@ def group_channel_names(
     ctx: Context,
     options: list[str],
     matchers: list[str],
-):
+) -> dict[str, list[str]] | None:
     """Groups channel names by matching them against a list of matchers.
 
     :param ctx: The current flow Context.
