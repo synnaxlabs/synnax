@@ -38,7 +38,7 @@ export const CONFIGURE_LAYOUT: Omit<Layout.BaseState, "type"> = {
 };
 
 interface InternalProps<
-  Properties extends z.ZodType,
+  Properties extends z.ZodType<record.Unknown>,
   Make extends z.ZodType<string>,
   Model extends z.ZodType<string>,
 > extends Pick<Layout.RendererProps, "onClose"> {
@@ -50,7 +50,7 @@ const configurablePropertiesZ = z.object({ name: nameZ, identifier: identifierZ 
 type ConfigurablePropertiesZ = typeof configurablePropertiesZ;
 
 const Internal = <
-  Properties extends z.ZodType,
+  Properties extends z.ZodType<record.Unknown>,
   Make extends z.ZodType<string>,
   Model extends z.ZodType<string>,
 >({
@@ -73,8 +73,8 @@ const Internal = <
     configured: true,
     name: methods.get<string>("name").value,
     properties: {
-      ...deep.copy(initialProperties as record.Unknown),
-      ...(device.properties as record.Unknown),
+      ...deep.copy(initialProperties),
+      ...device.properties,
       identifier: methods.get<string>("identifier").value,
     },
   });
@@ -176,7 +176,7 @@ const Internal = <
 };
 
 export interface ConfigureProps<
-  Properties extends z.ZodType,
+  Properties extends z.ZodType<record.Unknown>,
   Make extends z.ZodType<string>,
   Model extends z.ZodType<string>,
 >
@@ -185,7 +185,7 @@ export interface ConfigureProps<
     Pick<InternalProps<Properties, Make, Model>, "initialProperties"> {}
 
 export const Configure = <
-  Properties extends z.ZodType,
+  Properties extends z.ZodType<record.Unknown>,
   Make extends z.ZodType<string>,
   Model extends z.ZodType<string>,
 >({

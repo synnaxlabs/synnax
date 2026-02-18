@@ -22,7 +22,7 @@ export const statusZ = status.statusZ(statusDetailsZ);
 export interface Status extends z.infer<typeof statusZ> {}
 
 export interface DeviceSchemas<
-  Properties extends z.ZodType = z.ZodType,
+  Properties extends z.ZodType<record.Unknown> = typeof record.unknownZ,
   Make extends z.ZodType<string> = z.ZodString,
   Model extends z.ZodType<string> = z.ZodString,
 > {
@@ -32,7 +32,7 @@ export interface DeviceSchemas<
 }
 
 export const deviceZ = <
-  Properties extends z.ZodType = z.ZodType,
+  Properties extends z.ZodType<record.Unknown> = typeof record.unknownZ,
   Make extends z.ZodType<string> = z.ZodString,
   Model extends z.ZodType<string> = z.ZodString,
 >({ properties, make, model }: DeviceSchemas<Properties, Make, Model> = {}) =>
@@ -50,7 +50,7 @@ export const deviceZ = <
   });
 
 export interface Device<
-  Properties extends z.ZodType = z.ZodType,
+  Properties extends z.ZodType<record.Unknown> = typeof record.unknownZ,
   Make extends z.ZodType<string> = z.ZodString,
   Model extends z.ZodType<string> = z.ZodString,
 > extends Omit<
@@ -64,7 +64,7 @@ export interface Device<
 }
 
 export const newZ = <
-  Properties extends z.ZodType = z.ZodType,
+  Properties extends z.ZodType<record.Unknown> = typeof record.unknownZ,
   Make extends z.ZodType<string> = z.ZodString,
   Model extends z.ZodType<string> = z.ZodString,
 >(
@@ -75,7 +75,7 @@ export const newZ = <
   });
 
 export interface New<
-  Properties extends z.ZodType = z.ZodType,
+  Properties extends z.ZodType<record.Unknown> = typeof record.unknownZ,
   Make extends z.ZodType<string> = z.ZodString,
   Model extends z.ZodType<string> = z.ZodString,
 > extends Omit<z.input<ReturnType<typeof newZ>>, "properties"> {

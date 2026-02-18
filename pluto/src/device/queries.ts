@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { device, ontology, type Synnax } from "@synnaxlabs/client";
-import { array, primitive, uuid } from "@synnaxlabs/x";
+import { array, primitive, record, uuid } from "@synnaxlabs/x";
 import { useEffect } from "react";
 import { type z } from "zod";
 
@@ -64,7 +64,7 @@ export interface RetrieveQuery extends device.RetrieveSingleParams {}
 const BASE_QUERY: Partial<RetrieveQuery> = { includeStatus: true };
 
 export const retrieveSingle = async <
-  Properties extends z.ZodType = z.ZodType,
+  Properties extends z.ZodType<record.Unknown> = typeof record.unknownZ,
   Make extends z.ZodType<string> = z.ZodString,
   Model extends z.ZodType<string> = z.ZodString,
 >({
@@ -107,7 +107,7 @@ export interface RetrieveMultipleQuery {
 }
 
 export const retrieveMultiple = async <
-  Properties extends z.ZodType = z.ZodType,
+  Properties extends z.ZodType<record.Unknown> = typeof record.unknownZ,
   Make extends z.ZodType<string> = z.ZodString,
   Model extends z.ZodType<string> = z.ZodString,
 >({
@@ -158,7 +158,7 @@ export const retrieveMultiple = async <
 };
 
 export const createRetrieve = <
-  Properties extends z.ZodType = z.ZodType,
+  Properties extends z.ZodType<record.Unknown> = typeof record.unknownZ,
   Make extends z.ZodType<string> = z.ZodString,
   Model extends z.ZodType<string> = z.ZodString,
 >(
@@ -262,7 +262,7 @@ export const { useUpdate: useDelete } = Flux.createUpdate<UseDeleteArgs, FluxSub
 });
 
 export const createCreate = <
-  Properties extends z.ZodType = z.ZodType,
+  Properties extends z.ZodType<record.Unknown> = typeof record.unknownZ,
   Make extends z.ZodType<string> = z.ZodString,
   Model extends z.ZodType<string> = z.ZodString,
 >(
@@ -343,7 +343,7 @@ const retrieveInitialRackKey = async (client: Synnax, store: FluxSubStore) => {
 export interface FormQuery extends RetrieveQuery {}
 
 export const createForm = <
-  Properties extends z.ZodType = z.ZodType,
+  Properties extends z.ZodType<record.Unknown> = typeof record.unknownZ,
   Make extends z.ZodType<string> = z.ZodString,
   Model extends z.ZodType<string> = z.ZodString,
 >(
