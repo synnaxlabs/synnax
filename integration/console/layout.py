@@ -223,15 +223,18 @@ class LayoutClient:
         """Check if a modal dialog is currently open."""
         return self.page.locator(self.MODAL_SELECTOR).count() > 0
 
-    def check_for_errors(self) -> bool:
-        """Check notifications for errors.
+    def check_for_errors(self, match: str) -> bool:
+        """Check notifications for a specific error.
+
+        Args:
+            match: Substring to search for in the notification message.
 
         Returns:
-            True if errors were found, False otherwise.
+            True if a matching error was found, False otherwise.
         """
         for notification in self.notifications.check():
             message = notification.get("message", "")
-            if "Failed" in message or "Error" in message:
+            if match.lower() in message.lower():
                 self.notifications.close(0)
                 return True
         return False

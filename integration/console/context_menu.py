@@ -47,6 +47,10 @@ class ContextMenu:
         )
         return self
 
+    def _visible_menu(self) -> Locator:
+        """Return the first visible context menu locator."""
+        return self.page.locator(f"{MENU_SELECTOR}:visible").first
+
     def click_option(self, text: str, *, exact: bool = True) -> None:
         """Click a menu option by searching within the context menu.
 
@@ -56,12 +60,12 @@ class ContextMenu:
             text: The text of the menu option to click.
             exact: Whether to match text exactly.
         """
-        menu = self.page.locator(MENU_SELECTOR)
+        menu = self._visible_menu()
         option = menu.get_by_text(text, exact=exact).first
         option.wait_for(state="visible", timeout=5000)
         option.click()
         try:
-            menu.first.wait_for(state="hidden", timeout=3000)
+            menu.wait_for(state="hidden", timeout=3000)
         except PlaywrightTimeoutError:
             pass
 
@@ -86,9 +90,17 @@ class ContextMenu:
         Returns:
             True if the option is visible and not disabled.
         """
-        menu = self.page.locator(MENU_SELECTOR)
+        menu = self._visible_menu()
         option = menu.get_by_text(text, exact=exact).first
-        if option.count() == 0 or not option.is_visible():
+        cnt = option.count()
+        vis = option.is_visible() if cnt > 0 else False
+        if cnt == 0 or not vis:
+            print(
+                f"[has_option] text={text!r} count={cnt} visible={vis} "
+                f"menu_visible={menu.is_visible()} "
+                f"all_menus={self.page.locator(MENU_SELECTOR).count()}",
+                flush=True,
+            )
             return False
         option_class = option.get_attribute("class") or ""
         return "disabled" not in option_class.lower()
@@ -98,9 +110,9 @@ class ContextMenu:
 
         Pluto's ContextMenu uses useClickOutside for dismissal.
         """
-        menu = self.page.locator(MENU_SELECTOR)
+        menu = self._visible_menu()
         self.page.locator("body").click(position={"x": 1, "y": 1})
         try:
-            menu.first.wait_for(state="hidden", timeout=3000)
+            menu.wait_for(state="hidden", timeout=3000)
         except PlaywrightTimeoutError:
             self.page.keyboard.press("Escape")

@@ -11,12 +11,14 @@
     {
       "sequence_name": "lifecycle",
       "sequence_order": "asynchronous",
-      "pool_size": 3,
+      "pool_size": 2,
       "tests": [
         { "case": "console/label/label_lifecycle" },
         { "case": "console/rack/rack_lifecycle" },
         { "case": "console/range/range_lifecycle" },
-        { "case": "console/schematic/custom_symbols" }
+        { "case": "console/status/status_lifecycle" },
+        { "case": "console/schematic/custom_symbols" },
+        { "case": "console/task/task_lifecycle" }
       ]
     },
     {
@@ -34,9 +36,7 @@
         { "case": "console/schematic/alignment" },
         { "case": "console/schematic/edit_props" },
         { "case": "console/schematic/select_state_indicator" },
-        { "case": "console/status/status_lifecycle" },
         { "case": "console/table/table_lifecycle" },
-        { "case": "console/task/task_lifecycle" },
         { "case": "console/task/ni_analog_read_forms" },
         { "case": "console/task/ni_analog_write_forms" },
         { "case": "console/task/ni_counter_read_forms" }

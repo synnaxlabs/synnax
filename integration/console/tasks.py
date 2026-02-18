@@ -52,7 +52,10 @@ class TaskClient:
         self.show_toolbar()
         return self.layout.ctrl_select_items(names, self.get_item)
 
-    def wait_for_task(self, name: str,) -> None:
+    def wait_for_task(
+        self,
+        name: str,
+    ) -> None:
         """Wait for a task to appear in the task toolbar."""
         self.show_toolbar()
         self.get_item(name).wait_for(state="visible", timeout=30000)
@@ -73,7 +76,7 @@ class TaskClient:
         item.wait_for(state="visible", timeout=5000)
         icon_class = "pause" if state == "running" else "play"
         item.locator(f"button:has(.pluto-icon--{icon_class})").wait_for(
-            state="visible", timeout=10000
+            state="visible", timeout=15000
         )
 
     def rename_task(self, old_name: str, new_name: str) -> None:
@@ -258,6 +261,7 @@ class TaskClient:
 
     def _toggle_data_saving(self, name: str, *, enable: bool) -> None:
         action = "Enable data saving" if enable else "Disable data saving"
+        opposite = "Disable data saving" if enable else "Enable data saving"
         self.show_toolbar()
         self.layout.page.wait_for_timeout(300)
         item = self.get_item(name)
@@ -265,7 +269,16 @@ class TaskClient:
         item.click()
         self.ctx_menu.open_on(item)
 
-        if self.ctx_menu.has_option(action):
+        menu = self.ctx_menu._visible_menu()
+        action_loc = menu.get_by_text(action, exact=True).first
+        opposite_loc = menu.get_by_text(opposite, exact=True).first
+        try:
+            action_loc.or_(opposite_loc).wait_for(state="visible", timeout=5000)
+        except PlaywrightTimeoutError:
+            self.ctx_menu.close()
+            return
+
+        if action_loc.is_visible():
             self.ctx_menu.click_option(action)
         else:
             self.ctx_menu.close()

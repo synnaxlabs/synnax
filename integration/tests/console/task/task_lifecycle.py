@@ -8,6 +8,7 @@
 #  included in the file licenses/APL.txt.
 
 import json
+import os
 import subprocess
 import sys
 from dataclasses import dataclass
@@ -65,16 +66,60 @@ class TaskLifecycle(SimulatorCase, ConsoleCase):
 
     def setup_tasks(self) -> None:
         self._cleanup_tasks = list(TASK_NAMES)
+        conn = self.synnax_connection
+        env = {
+            **os.environ,
+            "SYNNAX_HOST": conn.server_address,
+            "SYNNAX_PORT": str(conn.port),
+            "SYNNAX_USERNAME": conn.username,
+            "SYNNAX_PASSWORD": conn.password,
+        }
+        wrapper = (
+            "import os; "
+            "from synnax.options import SynnaxOptions; "
+            "import synnax.synnax as _syn; "
+            "_opts = SynnaxOptions("
+            "host=os.environ['SYNNAX_HOST'], "
+            "port=int(os.environ['SYNNAX_PORT']), "
+            "username=os.environ['SYNNAX_USERNAME'], "
+            "password=os.environ['SYNNAX_PASSWORD']); "
+            "_syn.try_load_options_if_none_provided = "
+            "lambda *a, **k: _opts; "
+            "from examples.opcua.{script} import *"
+        )
         procs = [
             subprocess.Popen(
-                [sys.executable, "-m", f"examples.opcua.{t.script}"],
+                [sys.executable, "-c", wrapper.format(script=t.script)],
                 stdout=subprocess.DEVNULL,
-                stderr=subprocess.DEVNULL,
+                stderr=subprocess.PIPE,
+                env=env,
             )
             for t in TASKS
         ]
-        for t in TASKS:
-            self.console.tasks.wait_for_task(t.name)
+        for i, t in enumerate(TASKS):
+            proc = procs[i]
+            if proc.poll() is not None:
+                stderr = proc.stderr.read().decode() if proc.stderr else ""
+                raise RuntimeError(
+                    f"Script '{t.script}' exited with code {proc.returncode} "
+                    f"before task could register.\nstderr: {stderr}"
+                )
+            try:
+                self.console.tasks.wait_for_task(t.name)
+            except Exception:
+                for j, p in enumerate(procs):
+                    rc = p.poll()
+                    err = ""
+                    if p.stderr:
+                        try:
+                            err = p.stderr.read().decode()
+                        except Exception:
+                            err = "<unreadable>"
+                    self.log(
+                        f"Subprocess '{TASKS[j].script}': "
+                        f"poll={rc}, stderr={err!r}"
+                    )
+                raise
         for proc in procs:
             proc.terminate()
 
@@ -107,10 +152,14 @@ class TaskLifecycle(SimulatorCase, ConsoleCase):
 
     def assert_data_saving(self, name: str, expected: bool) -> None:
         """Verify data saving state via the Python client, with polling."""
-        for _ in range(10):
+        for attempt in range(10):
             task = self.client.tasks.retrieve(names=[name])[0]
             config = json.loads(task.config)
             actual = config.get("dataSaving", config.get("data_saving"))
+            self.log(
+                f"[assert] '{name}' attempt={attempt} "
+                f"actual={actual} expected={expected}"
+            )
             if actual == expected:
                 return
             sy.sleep(0.5)
