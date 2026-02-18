@@ -235,45 +235,10 @@ I can successfully:
 
 I can successfully:
 
-- **Resources Toolbar**
-  - [ ] Open task configuration by double-clicking.
-  - **Context Menu**
-    - [ ] Snapshot a task to the active range.
-    - [ ] Snapshot multiple tasks to the active range.
-    - [ ] Rename a task.
-    - [ ] Group tasks.
-    - [ ] Export a task.
-    - [ ] Delete a task.
-    - [ ] Delete multiple tasks.
-    - [ ] Copy a link to a task.
-- **Tasks Toolbar**
-  - [ ] Pause and play a task.
-  - [ ] Open task configuration by double-clicking.
-  - **Context Menu**
-    - [ ] Pause a task. (individual and group)
-    - [ ] Start a task. (individual and group)
-    - [ ] Open task configuration.
-    - [ ] Copy a link to a task.
-    - [ ] Enable/Disable Data saving (individual and group)
-      - [ ] Different run states and verify state persistence
-      - [ ] Different task types (read/write)
-      - [ ] Different pre-configuration states
-- **Search and Command Palette**
-  - [ ] Open an existing task configuration.
 - [ ] Open a task configuration from a link.
 - [ ] Start a task on server boot up when the "Auto start" option is enabled.
 - [ ] Import a task from a file via the import task commands
 - [ ] Import a task from a file via drag-and-drop
-- [ ] Rename a task and ensure synchronization across:
-  - Resources Toolbar
-  - Task Toolbar
-  - Task Configuration Tab Name
-  - Task Configuration Title
-- [ ] Rename a task snapshot and ensure synchronization across:
-  - Resources Toolbar
-  - Task Toolbar
-  - Task Configuration Tab Name
-  - Task Configuration Title
 
 ### Users
 
