@@ -14,7 +14,6 @@ import (
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/cesium/internal/channel"
 	"github.com/synnaxlabs/cesium/internal/control"
-	"github.com/synnaxlabs/x/config"
 	xcontrol "github.com/synnaxlabs/x/control"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/telem"
@@ -182,7 +181,7 @@ var _ = Describe("Control", func() {
 					By("Getting an absolute gate on an uncontrolled region")
 					cfg1, _ := baseConfig(1)
 					cfg1.Subject.Key = "g1"
-					cfg1.ErrIfControlled = config.True()
+					cfg1.ErrIfControlled = new(true)
 					g1, t := MustSucceed2(c.OpenGate(cfg1))
 					Expect(t.Occurred()).To(BeTrue())
 					_, err := g1.Authorize()
@@ -204,7 +203,7 @@ var _ = Describe("Control", func() {
 					cfg1, createCount := baseConfig(1)
 					cfg1.Subject.Key = "g1"
 					cfg1.Authority = 0
-					cfg1.ErrIfControlled = config.True()
+					cfg1.ErrIfControlled = new(true)
 					g, t := MustSucceed2(c.OpenGate(cfg1))
 					Expect(t.Occurred()).To(BeTrue())
 					Expect(createCount()).To(Equal(1))
@@ -213,7 +212,7 @@ var _ = Describe("Control", func() {
 					cfg2, _ := baseConfig(1)
 					cfg2.Subject.Key = "g2"
 					cfg2.Authority = 0
-					cfg2.ErrIfControlled = config.True()
+					cfg2.ErrIfControlled = new(true)
 					g1, t, err := c.OpenGate(cfg2)
 					Expect(t.Occurred()).To(BeFalse())
 					Expect(g1).To(BeNil())
@@ -227,7 +226,7 @@ var _ = Describe("Control", func() {
 				It("Should return nil if gate is err on open", func() {
 					cfg, _ := baseConfig(1)
 					cfg.Authority = 0
-					cfg.ErrOnUnauthorizedOpen = config.True()
+					cfg.ErrOnUnauthorizedOpen = new(true)
 					g, t := MustSucceed2(c.OpenGate(cfg))
 					Expect(t.Occurred()).To(BeTrue())
 					Expect(t.IsAcquire()).To(BeTrue())
@@ -245,7 +244,7 @@ var _ = Describe("Control", func() {
 					cfg2, _ := baseConfig(1)
 					cfg2.Subject.Key = "g2"
 					cfg2.Authority = xcontrol.AuthorityAbsolute - 1
-					cfg2.ErrOnUnauthorizedOpen = config.True()
+					cfg2.ErrOnUnauthorizedOpen = new(true)
 					g2, t, err := c.OpenGate(cfg2)
 					Expect(t.Occurred()).To(BeFalse())
 					Expect(g2).To(BeNil())

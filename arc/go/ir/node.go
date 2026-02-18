@@ -33,7 +33,7 @@ func (n Node) String() string {
 // stringWithPrefix returns the string representation with tree formatting.
 func (n Node) stringWithPrefix(prefix string) string {
 	var b strings.Builder
-	b.WriteString(fmt.Sprintf("%s (type: %s)\n", n.Key, n.Type))
+	_, _ = fmt.Fprintf(&b, "%s (type: %s)\n", n.Key, n.Type)
 
 	hasConfig := len(n.Config) > 0
 	hasInputs := len(n.Inputs) > 0

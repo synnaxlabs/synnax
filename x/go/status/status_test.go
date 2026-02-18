@@ -144,14 +144,14 @@ var _ = Describe("Status", func() {
 			})
 
 			It("Should format status with map details", func() {
-				s := status.Status[map[string]interface{}]{
+				s := status.Status[map[string]any]{
 					Variant:     status.VariantError,
 					Key:         "sys.critical.db",
 					Name:        "Critical Database Failure",
 					Message:     "Unable to write to primary database",
 					Description: "The primary database cluster is unreachable. Failover to secondary cluster initiated. Data loss may have occurred for transactions between 14:30:00 and 14:30:45.",
 					Time:        telem.TimeStamp(1609459200000000000),
-					Details: map[string]interface{}{
+					Details: map[string]any{
 						"affected_tables": []string{"users", "sessions"},
 						"lost_records":    127,
 					},

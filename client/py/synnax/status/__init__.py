@@ -24,26 +24,25 @@ from synnax.status.types_gen import (
     Status,
     Variant,
 )
+from synnax.util.deprecation import deprecated_getattr
 
-# Backwards compatibility
-SUCCESS_VARIANT = VARIANT_SUCCESS
-INFO_VARIANT = VARIANT_INFO
-WARNING_VARIANT = VARIANT_WARNING
-ERROR_VARIANT = VARIANT_ERROR
-DISABLED_VARIANT = VARIANT_DISABLED
-LOADING_VARIANT = VARIANT_LOADING
+_DEPRECATED = {
+    "SUCCESS_VARIANT": "VARIANT_SUCCESS",
+    "INFO_VARIANT": "VARIANT_INFO",
+    "WARNING_VARIANT": "VARIANT_WARNING",
+    "ERROR_VARIANT": "VARIANT_ERROR",
+    "DISABLED_VARIANT": "VARIANT_DISABLED",
+    "LOADING_VARIANT": "VARIANT_LOADING",
+}
+
+__getattr__ = deprecated_getattr(__name__, _DEPRECATED, globals())
 
 __all__ = [
     "Client",
     "DELETE_CHANNEL",
-    "DISABLED_VARIANT",
-    "ERROR_VARIANT",
-    "INFO_VARIANT",
-    "LOADING_VARIANT",
     "ONTOLOGY_TYPE",
     "SET_CHANNEL",
     "Status",
-    "SUCCESS_VARIANT",
     "VARIANT_DISABLED",
     "VARIANT_ERROR",
     "VARIANT_INFO",

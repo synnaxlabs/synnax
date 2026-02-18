@@ -15,7 +15,7 @@ import (
 
 	"github.com/synnaxlabs/alamos"
 	"github.com/synnaxlabs/freighter"
-	"github.com/synnaxlabs/freighter/fgrpc"
+	fgrpc "github.com/synnaxlabs/freighter/grpc"
 	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
 	channelpb "github.com/synnaxlabs/synnax/pkg/distribution/channel/pb"
 	"google.golang.org/grpc"

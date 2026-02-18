@@ -9,7 +9,10 @@
 
 package types
 
-import "fmt"
+import (
+	"fmt"
+	"strings"
+)
 
 // Common dimension constants for base dimensions.
 var (
@@ -125,14 +128,14 @@ func (d Dimensions) String() string {
 		parts = append(parts, fmt.Sprintf("data^%d", d.Data))
 	}
 
-	result := ""
+	var result strings.Builder
 	for i, p := range parts {
 		if i > 0 {
-			result += " "
+			result.WriteString(" ")
 		}
-		result += p
+		result.WriteString(p)
 	}
-	return result
+	return result.String()
 }
 
 // Equal checks if two units are identical.

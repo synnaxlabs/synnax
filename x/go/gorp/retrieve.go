@@ -110,20 +110,19 @@ func (r Retrieve[K, E]) Exists(ctx context.Context, tx Tx) (bool, error) {
 // Count returns the number of records matching the query. If the WhereKeys method is
 // set on the query, Count will return the number of existing keys. If Where is set
 // on the query, Count will return the number of records that pass the Where filter.
-func (r Retrieve[K, E]) Count(ctx context.Context, tx Tx) (int, error) {
+func (r Retrieve[K, E]) Count(ctx context.Context, tx Tx) (count int, err error) {
 	checkForNilTx("Retriever.Count", tx)
 	if keys, ok := getWhereKeys[K](r.Params); ok {
 		// For key-based queries, we can optimize by only retrieving the keys
 		entries := make([]E, 0, len(keys))
 		SetEntries(r.Params, &entries)
-		if err := keysRetrieve[K, E](ctx, r.Params, tx); err != nil && !errors.Is(err, query.ErrNotFound) {
+		if err = keysRetrieve[K, E](ctx, r.Params, tx); err != nil && !errors.Is(err, query.ErrNotFound) {
 			return 0, err
 		}
 		return len(entries), nil
 	}
 
 	// For filter-based queries, we need to iterate through all records
-	var count int
 	f := getFilters[K, E](r.Params)
 	iter, err := WrapReader[K, E](tx).OpenIterator(IterOptions{
 		prefix: getWherePrefix(r.Params),
@@ -135,7 +134,8 @@ func (r Retrieve[K, E]) Count(ctx context.Context, tx Tx) (int, error) {
 		err = errors.Combine(err, iter.Close())
 	}()
 	for iter.First(); iter.Valid(); iter.Next() {
-		match, err := f.exec(Context{
+		var match bool
+		match, err = f.exec(Context{
 			Context: ctx,
 			Tx:      tx,
 		}, iter.Value(ctx))

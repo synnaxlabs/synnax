@@ -17,17 +17,17 @@ import (
 	"github.com/synnaxlabs/aspen/internal/cluster/clustermock"
 	"github.com/synnaxlabs/aspen/internal/kv"
 	"github.com/synnaxlabs/aspen/internal/node"
-	"github.com/synnaxlabs/freighter/fmock"
+	"github.com/synnaxlabs/freighter/mock"
 	xkv "github.com/synnaxlabs/x/kv"
 	"github.com/synnaxlabs/x/kv/memkv"
 )
 
 type Builder struct {
 	clustermock.Builder
-	OpNet       *fmock.Network[kv.TxRequest, kv.TxRequest]
-	FeedbackNet *fmock.Network[kv.FeedbackMessage, types.Nil]
-	LeaseNet    *fmock.Network[kv.TxRequest, types.Nil]
-	RecoveryNet *fmock.Network[kv.RecoveryRequest, kv.RecoveryResponse]
+	OpNet       *mock.Network[kv.TxRequest, kv.TxRequest]
+	FeedbackNet *mock.Network[kv.FeedbackMessage, types.Nil]
+	LeaseNet    *mock.Network[kv.TxRequest, types.Nil]
+	RecoveryNet *mock.Network[kv.RecoveryRequest, kv.RecoveryResponse]
 	KVs         map[node.Key]xkv.DB
 	BaseCfg     kv.Config
 }
@@ -36,10 +36,10 @@ func NewBuilder(baseKVCfg kv.Config, baseClusterCfg cluster.Config) *Builder {
 	return &Builder{
 		BaseCfg:     baseKVCfg,
 		Builder:     *clustermock.NewBuilder(baseClusterCfg),
-		OpNet:       fmock.NewNetwork[kv.TxRequest, kv.TxRequest](),
-		FeedbackNet: fmock.NewNetwork[kv.FeedbackMessage, types.Nil](),
-		LeaseNet:    fmock.NewNetwork[kv.TxRequest, types.Nil](),
-		RecoveryNet: fmock.NewNetwork[kv.RecoveryRequest, kv.RecoveryResponse](),
+		OpNet:       mock.NewNetwork[kv.TxRequest, kv.TxRequest](),
+		FeedbackNet: mock.NewNetwork[kv.FeedbackMessage, types.Nil](),
+		LeaseNet:    mock.NewNetwork[kv.TxRequest, types.Nil](),
+		RecoveryNet: mock.NewNetwork[kv.RecoveryRequest, kv.RecoveryResponse](),
 		KVs:         make(map[node.Key]xkv.DB),
 	}
 }

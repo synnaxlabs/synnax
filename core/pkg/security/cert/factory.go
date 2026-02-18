@@ -44,7 +44,7 @@ var (
 	DefaultFactoryConfig = FactoryConfig{
 		LoaderConfig:  DefaultLoaderConfig,
 		KeySize:       2048,
-		AllowKeyReuse: config.False(),
+		AllowKeyReuse: new(false),
 	}
 )
 
@@ -93,7 +93,7 @@ func (c *Factory) CreateCAPair() error {
 
 	var key crypto.PrivateKey
 	if !exists {
-		key, err = rsa.GenerateKey(rand.Reader, c.KeySize)
+		key, err = rsa.GenerateKey(nil, c.KeySize)
 		if err != nil {
 			return err
 		}
@@ -170,7 +170,7 @@ func (c *Factory) CreateNodePair() error {
 		return errors.Wrap(validate.ErrValidation, "[cert] - no hosts provided")
 	}
 
-	nodeKey, err := rsa.GenerateKey(rand.Reader, c.KeySize)
+	nodeKey, err := rsa.GenerateKey(nil, c.KeySize)
 	if err != nil {
 		return err
 	}

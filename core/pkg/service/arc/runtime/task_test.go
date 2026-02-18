@@ -33,7 +33,6 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/rack"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
 	"github.com/synnaxlabs/synnax/pkg/service/task"
-	"github.com/synnaxlabs/x/config"
 	"github.com/synnaxlabs/x/confluence"
 	"github.com/synnaxlabs/x/control"
 	"github.com/synnaxlabs/x/query"
@@ -154,7 +153,7 @@ var _ = Describe("Task", Ordered, func() {
 	) {
 		streamer := MustSucceed(dist.Framer.NewStreamer(ctx, framer.StreamerConfig{
 			Keys:        keys,
-			SendOpenAck: config.True(),
+			SendOpenAck: new(true),
 		}))
 		requests, res := confluence.Attach(streamer, bufferSize)
 		sCtx, cancel := signal.Isolated()
@@ -678,7 +677,7 @@ var _ = Describe("Task", Ordered, func() {
 				Keys:        channel.Keys{ch.Key()},
 				Start:       telem.Now(),
 				Authorities: []control.Authority{control.Authority(200)},
-				Sync:        config.True(),
+				Sync:        new(true),
 			}))
 			defer func() { Expect(w.Close()).To(Succeed()) }()
 			Expect(w.Write(frame.NewUnary(ch.Key(), telem.NewSeriesV[uint8](99)))).To(BeTrue())
@@ -710,7 +709,7 @@ var _ = Describe("Task", Ordered, func() {
 				Keys:        channel.Keys{ch.Key()},
 				Start:       telem.Now(),
 				Authorities: []control.Authority{control.Authority(100)},
-				Sync:        config.True(),
+				Sync:        new(true),
 			}))
 			defer func() { Expect(w.Close()).To(Succeed()) }()
 			Expect(w.Write(frame.NewUnary(ch.Key(), telem.NewSeriesV[uint8](99)))).To(BeFalse())
@@ -741,7 +740,7 @@ var _ = Describe("Task", Ordered, func() {
 				Keys:        channel.Keys{ch.Key()},
 				Start:       telem.Now(),
 				Authorities: []control.Authority{control.Authority(254)},
-				Sync:        config.True(),
+				Sync:        new(true),
 			}))
 			defer func() { Expect(w.Close()).To(Succeed()) }()
 			Expect(w.Write(frame.NewUnary(ch.Key(), telem.NewSeriesV[uint8](99)))).To(BeFalse())
@@ -775,7 +774,7 @@ var _ = Describe("Task", Ordered, func() {
 				Keys:        channel.Keys{ch1.Key()},
 				Start:       telem.Now(),
 				Authorities: []control.Authority{control.Authority(150)},
-				Sync:        config.True(),
+				Sync:        new(true),
 			}))
 			defer func() { Expect(wA.Close()).To(Succeed()) }()
 			Expect(wA.Write(frame.NewUnary(ch1.Key(), telem.NewSeriesV[uint8](99)))).To(BeFalse())
@@ -784,7 +783,7 @@ var _ = Describe("Task", Ordered, func() {
 				Keys:        channel.Keys{ch2.Key()},
 				Start:       telem.Now(),
 				Authorities: []control.Authority{control.Authority(150)},
-				Sync:        config.True(),
+				Sync:        new(true),
 			}))
 			defer func() { Expect(wB.Close()).To(Succeed()) }()
 			Expect(wB.Write(frame.NewUnary(ch2.Key(), telem.NewSeriesV[uint8](99)))).To(BeTrue())
@@ -863,7 +862,7 @@ var _ = Describe("Task", Ordered, func() {
 				Keys:        channel.Keys{dataCh.Key()},
 				Start:       telem.Now(),
 				Authorities: []control.Authority{control.Authority(150)},
-				Sync:        config.True(),
+				Sync:        new(true),
 			}))
 			defer func() { Expect(w.Close()).To(Succeed()) }()
 			Expect(w.Write(frame.NewUnary(dataCh.Key(), telem.NewSeriesV[uint8](99)))).To(BeFalse())
@@ -906,7 +905,7 @@ var _ = Describe("Task", Ordered, func() {
 				Keys:        channel.Keys{dataCh.Key()},
 				Start:       telem.Now(),
 				Authorities: []control.Authority{control.Authority(100)},
-				Sync:        config.True(),
+				Sync:        new(true),
 			}))
 			Expect(wBefore.Write(frame.NewUnary(dataCh.Key(), telem.NewSeriesV[uint8](99)))).To(BeFalse())
 			Expect(wBefore.Close()).To(Succeed())
@@ -926,7 +925,7 @@ var _ = Describe("Task", Ordered, func() {
 				Keys:        channel.Keys{dataCh.Key()},
 				Start:       telem.Now(),
 				Authorities: []control.Authority{control.Authority(100)},
-				Sync:        config.True(),
+				Sync:        new(true),
 			}))
 			defer func() { Expect(wAfter.Close()).To(Succeed()) }()
 			Expect(wAfter.Write(frame.NewUnary(dataCh.Key(), telem.NewSeriesV[uint8](99)))).To(BeTrue())

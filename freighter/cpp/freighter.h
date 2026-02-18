@@ -20,10 +20,7 @@ const std::string ERR_TYPE_UNREACHABLE = "freighter.unreachable";
 const std::string ERR_TYPE_NIL = "nil";
 const std::string ERR_TYPE_UNKNOWN = "unknown";
 
-const x::errors::Error STREAM_CLOSED = {
-    ERR_TYPE_UNREACHABLE + ".stream_closed",
-    "Stream closed"
-};
+const x::errors::Error STREAM_CLOSED = {"freighter.stream_closed",    "Stream closed"};
 const x::errors::Error ERR_EOF = {"freighter.eof", "EOF"};
 const x::errors::Error UNREACHABLE = {ERR_TYPE_UNREACHABLE, "Unreachable"};
 

@@ -13,7 +13,7 @@ import (
 	"context"
 
 	"github.com/samber/lo"
-	"github.com/synnaxlabs/freighter/fgrpc"
+	fgrpc "github.com/synnaxlabs/freighter/grpc"
 	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
 	"github.com/synnaxlabs/synnax/pkg/distribution/cluster"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer"
@@ -23,7 +23,6 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer/relay"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer/writer"
 	"github.com/synnaxlabs/synnax/pkg/storage/ts"
-	"github.com/synnaxlabs/x/config"
 	"github.com/synnaxlabs/x/control"
 	controlpb "github.com/synnaxlabs/x/control/pb"
 	"github.com/synnaxlabs/x/telem"
@@ -63,9 +62,9 @@ func (WriterRequestTranslator) Backward(
 			Authorities: lo.Map(req.Config.Authorities, func(auth uint32, _ int) control.Authority {
 				return control.Authority(auth)
 			}),
-			ErrOnUnauthorized:        config.Bool(req.Config.ErrOnUnauthorized),
+			ErrOnUnauthorized:        new(req.Config.ErrOnUnauthorized),
 			Mode:                     ts.WriterMode(req.Config.Mode),
-			EnableAutoCommit:         config.Bool(req.Config.EnableAutoCommit),
+			EnableAutoCommit:         new(req.Config.EnableAutoCommit),
 			AutoIndexPersistInterval: telem.TimeSpan(req.Config.AutoIndexPersistInterval),
 		},
 		Frame: fr,

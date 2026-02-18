@@ -10,18 +10,18 @@
 package mock
 
 import (
-	"github.com/synnaxlabs/freighter/fmock"
+	"github.com/synnaxlabs/freighter/mock"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer/relay"
 	"github.com/synnaxlabs/x/address"
 )
 
 type FramerRelayNetwork struct {
-	internal *fmock.Network[relay.Request, relay.Response]
+	internal *mock.Network[relay.Request, relay.Response]
 }
 
 func NewRelayNetwork() *FramerRelayNetwork {
 	return &FramerRelayNetwork{
-		internal: fmock.NewNetwork[relay.Request, relay.Response](),
+		internal: mock.NewNetwork[relay.Request, relay.Response](),
 	}
 }
 

@@ -12,6 +12,7 @@ package telem
 import (
 	"bytes"
 	"fmt"
+	"strings"
 
 	"github.com/onsi/gomega/types"
 	"github.com/synnaxlabs/x/errors"
@@ -151,14 +152,14 @@ func (m *seriesMatcher) NegatedFailureMessage(actual any) string {
 }
 
 func formatDifferences(differences []string) string {
-	var result string
+	var result strings.Builder
 	for i, diff := range differences {
 		if i > 0 {
-			result += "\n"
+			result.WriteString("\n")
 		}
-		result += diff
+		result.WriteString(diff)
 	}
-	return result
+	return result.String()
 }
 
 type frameMatcher[K xtypes.SizedNumeric] struct {

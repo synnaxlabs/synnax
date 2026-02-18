@@ -20,7 +20,7 @@ from synnax.arc import (
     Handle,
     Position,
 )
-from synnax.arc import Task as ArcTask
+from synnax.arc import Task as _ArcTask
 from synnax.arc import (
     Text,
 )
@@ -57,8 +57,8 @@ from synnax.rack import Rack
 from synnax.ranger import Range
 from synnax.status import Status
 from synnax.synnax import Synnax
-from synnax.task import Status as TaskStatus
-from synnax.task import StatusDetails as TaskStatusDetails
+from synnax.task import Status as _TaskStatus
+from synnax.task import StatusDetails as _TaskStatusDetails
 from synnax.task import Task
 from synnax.telem import (
     Alignment,
@@ -86,13 +86,20 @@ from synnax.telem import (
 )
 from synnax.timing import Loop, Timer, sleep
 from synnax.user.payload import User
+from synnax.util.deprecation import deprecated_getattr
 
-SynnaxOptions = Options
+_DEPRECATED: dict[str, str | tuple[str, str]] = {
+    "ArcTask": ("synnax.arc.Task", "_ArcTask"),
+    "TaskStatus": ("synnax.task.Status", "_TaskStatus"),
+    "TaskStatusDetails": ("synnax.task.StatusDetails", "_TaskStatusDetails"),
+    "SynnaxOptions": "Options",
+}
+
+__getattr__ = deprecated_getattr(__name__, _DEPRECATED, globals())
 
 __all__ = [
     "Alignment",
     "Arc",
-    "ArcTask",
     "AUTO_SPAN",
     "AuthError",
     "Authority",
@@ -143,10 +150,7 @@ __all__ = [
     "Status",
     "Streamer",
     "Synnax",
-    "SynnaxOptions",
     "Task",
-    "TaskStatus",
-    "TaskStatusDetails",
     "Text",
     "Timer",
     "TimeRange",

@@ -14,7 +14,7 @@ import (
 	"go/types"
 
 	"github.com/google/uuid"
-	"github.com/synnaxlabs/freighter/fgrpc"
+	fgrpc "github.com/synnaxlabs/freighter/grpc"
 	"github.com/synnaxlabs/synnax/pkg/api"
 	apikv "github.com/synnaxlabs/synnax/pkg/api/ranger/kv"
 	svckv "github.com/synnaxlabs/synnax/pkg/service/ranger/kv"

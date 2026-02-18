@@ -250,10 +250,14 @@ I can successfully:
   - [ ] Pause and play a task.
   - [ ] Open task configuration by double-clicking.
   - **Context Menu**
-    - [ ] Pause a task.
-    - [ ] Start a task.
+    - [ ] Pause a task. (individual and group)
+    - [ ] Start a task. (individual and group)
     - [ ] Open task configuration.
     - [ ] Copy a link to a task.
+    - [ ] Enable/Disable Data saving (individual and group)
+      - [ ] Different run states and verify state persistence
+      - [ ] Different task types (read/write)
+      - [ ] Different pre-configuration states
 - **Search and Command Palette**
   - [ ] Open an existing task configuration.
 - [ ] Open a task configuration from a link.
@@ -293,33 +297,6 @@ I can successfully:
 
 - **Arc Editor**
   - [ ] Create an alarm automation that changes statuses and includes the following blocks: channel source, constant, comparison, stable for, select, and status change.
-
-### Statuses
-
-I can successfully:
-
-- **Search and Command Palette**
-  - [ ] Open the status explorer.
-  - [ ] Open the status create modal.
-
-- **Status Create Modal**
-  - [ ] Create a new status.
-  - [ ] Create a new status with labels.
-
-- **Status Explorer**
-  - [ ] Filter statuses by labels.
-  - [ ] Delete a single status.
-  - [ ] Delete multiple statuses.
-  - [ ] Favorite a status.
-  - [ ] Unfavorite a status.
-
-- **Status Notifications**
-  - [ ] See status notifications in the bottom right corner when creating a new status.
-
-- **Status Toolbar**
-  - [ ] Unfavorite a status
-  - [ ] Delete a status
-  - [ ] Rename a status
 
 ### Version
 
@@ -464,9 +441,6 @@ I can successfully:
 - **Read Task**
   - **Single Sampling**
     - [ ] Read timestamps from the OPC UA server.
-    - **Test the following array sizes:**
-      - [ ] 10
-      - [ ] 100
     - [ ] Read timestamps from the OPC UA server.
   - [ ] Obtain recommended Synnax channels based on the configured OPC UA node.
   - [ ] Connect to and read data from a physical device.
@@ -487,10 +461,6 @@ I can successfully:
   - [ ] Apply scaling to register values.
   - [ ] Enable and disable data saving.
   - [ ] Handle device disconnection gracefully.
-  - **Reliable data reading at the following sample rates:**
-    - [ ] 1 Hz
-    - [ ] 10 Hz
-    - [ ] 100 Hz
 - **Write Task**
   - [ ] Write to holding registers on a Modbus server.
   - [ ] Write to coils on a Modbus server.

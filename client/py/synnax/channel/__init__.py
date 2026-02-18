@@ -10,6 +10,9 @@
 from synnax.channel.client import Channel, Client
 from synnax.channel.payload import (
     Key,
+    NormalizedKeyResult,
+    NormalizedNameResult,
+    Operation,
     Params,
     has_params,
     normalize_params,
@@ -22,14 +25,18 @@ from synnax.channel.retrieve import (
 )
 from synnax.channel.types_gen import Operation, Payload
 from synnax.channel.writer import Writer
+from synnax.util.deprecation import deprecated_getattr
 
-# Backwards compatibility
-ChannelClient = Client
-ChannelKey = Key
-ChannelParams = Params
-ChannelPayload = Payload
-ChannelRetriever = Retriever
-normalize_channel_params = normalize_params
+_DEPRECATED = {
+    "ChannelClient": "Client",
+    "ChannelKey": "Key",
+    "ChannelParams": "Params",
+    "ChannelPayload": "Payload",
+    "ChannelRetriever": "Retriever",
+    "normalize_channel_params": "normalize_params",
+}
+
+__getattr__ = deprecated_getattr(__name__, _DEPRECATED, globals())
 
 __all__ = [
     "Channel",
@@ -44,11 +51,7 @@ __all__ = [
     "Retriever",
     "retrieve_required",
     "Writer",
-    "ChannelClient",
-    "ChannelKey",
-    "ChannelParams",
-    "ChannelPayload",
-    "ChannelRetriever",
-    "normalize_channel_params",
     "has_params",
+    "NormalizedNameResult",
+    "NormalizedKeyResult",
 ]

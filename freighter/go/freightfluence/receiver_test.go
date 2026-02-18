@@ -15,20 +15,28 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/freighter"
-	"github.com/synnaxlabs/freighter/fmock"
 	"github.com/synnaxlabs/freighter/freightfluence"
+	"github.com/synnaxlabs/freighter/mock"
 	"github.com/synnaxlabs/x/confluence"
 	"github.com/synnaxlabs/x/signal"
 	. "github.com/synnaxlabs/x/testutil"
 )
 
+type errReceiver struct {
+	recvErr error
+}
+
+func (e *errReceiver) Receive() (int, error) { return 0, e.recvErr }
+
 var _ = Describe("Receiver", func() {
 	var (
+		ctx    context.Context
 		server freighter.StreamServer[int, int]
 		client freighter.StreamClient[int, int]
 	)
 	BeforeEach(func() {
-		server, client = fmock.NewStreamPair[int, int]()
+		ctx = context.Background()
+		server, client = mock.NewStreamPair[int, int]()
 	})
 	Describe("Receiver", func() {
 		It("Should operate correctly", func() {
@@ -44,17 +52,14 @@ var _ = Describe("Receiver", func() {
 				receivedValues = append(receivedValues, <-receiverStream.Outlet())
 				return sCtx.Wait()
 			})
-			stream, err := client.Stream(context.TODO(), "localhost:0")
-			Expect(err).ToNot(HaveOccurred())
+			stream := MustSucceed(client.Stream(ctx, "localhost:0"))
 			Expect(stream.Send(1)).To(Succeed())
 			Expect(stream.CloseSend()).To(Succeed())
 			By("Closing the network pipe on return")
-			_, err = stream.Receive()
-			Expect(err).To(Equal(freighter.EOF))
+			Expect(stream.Receive()).Error().To(MatchError(freighter.EOF))
 			Expect(receivedValues).To(Equal([]int{1}))
 			By("Closing the receive server on exit")
-			_, ok := <-receiverStream.Outlet()
-			Expect(ok).To(BeFalse())
+			Eventually(receiverStream.Outlet()).Should(BeClosed())
 		})
 		It("Should exit the receiver on context cancellation", func() {
 			receiverStream := confluence.NewStream[int](10)
@@ -67,19 +72,43 @@ var _ = Describe("Receiver", func() {
 				By("Receiving values from the input server")
 				return sCtx.Wait()
 			})
-			ctx, cancel := context.WithCancel(context.TODO())
-			stream, err := client.Stream(ctx, "localhost:0")
-			Expect(err).ToNot(HaveOccurred())
+			ctx, cancel := context.WithCancel(ctx)
+			stream := MustSucceed(client.Stream(ctx, "localhost:0"))
 			Expect(stream.Send(1)).To(Succeed())
 			By("Closing the network pipe")
 			v := <-receiverStream.Outlet()
 			Expect(v).To(Equal(1))
 			cancel()
-			_, err = stream.Receive()
-			Expect(err).To(HaveOccurredAs(context.Canceled))
+			Expect(stream.Receive()).Error().To(MatchError(context.Canceled))
 			By("Closing the receive server on exit")
-			_, ok := <-receiverStream.Outlet()
-			Expect(ok).To(BeFalse())
+			Eventually(receiverStream.Outlet()).Should(BeClosed())
+		})
+	})
+	Describe("Stream Closure", func() {
+		It("Should not treat ErrStreamClosed as a routine failure", func() {
+			sCtx, cancel := signal.WithCancel(ctx)
+			defer cancel()
+			mockReceiver := &errReceiver{recvErr: freighter.ErrStreamClosed}
+			receiver := &freightfluence.Receiver[int]{Receiver: mockReceiver}
+			outputStream := confluence.NewStream[int](1)
+			receiver.OutTo(outputStream)
+			receiver.Flow(sCtx, confluence.CloseOutputInletsOnExit(), confluence.CancelOnFail())
+			Expect(sCtx.Wait()).To(HaveOccurredAs(context.Canceled))
+			Eventually(outputStream.Outlet()).Should(BeClosed())
+		})
+		It("Should not treat TransformReceiver ErrStreamClosed as a routine failure", func() {
+			sCtx, cancel := signal.WithCancel(ctx)
+			defer cancel()
+			mockReceiver := &errReceiver{recvErr: freighter.ErrStreamClosed}
+			receiver := &freightfluence.TransformReceiver[int, int]{
+				Receiver:  mockReceiver,
+				Transform: func(_ context.Context, v int) (int, bool, error) { return v, true, nil },
+			}
+			outputStream := confluence.NewStream[int](1)
+			receiver.OutTo(outputStream)
+			receiver.Flow(sCtx, confluence.CloseOutputInletsOnExit(), confluence.CancelOnFail())
+			Expect(sCtx.Wait()).To(HaveOccurredAs(context.Canceled))
+			Eventually(outputStream.Outlet()).Should(BeClosed())
 		})
 	})
 	Describe("TransformReceiver", func() {
@@ -100,17 +129,14 @@ var _ = Describe("Receiver", func() {
 				receivedValues = append(receivedValues, <-receiverStream.Outlet())
 				return sCtx.Wait()
 			})
-			stream, err := client.Stream(context.TODO(), "localhost:0")
-			Expect(err).ToNot(HaveOccurred())
+			stream := MustSucceed(client.Stream(ctx, "localhost:0"))
 			Expect(stream.Send(1)).To(Succeed())
 			Expect(stream.CloseSend()).To(Succeed())
 			By("Closing the network pipe on return")
-			_, err = stream.Receive()
-			Expect(err).To(Equal(freighter.EOF))
+			Expect(stream.Receive()).Error().To(MatchError(freighter.EOF))
 			Expect(receivedValues).To(Equal([]int{2}))
 			By("Closing the receive server on exit")
-			_, ok := <-receiverStream.Outlet()
-			Expect(ok).To(BeFalse())
+			Eventually(receiverStream.Outlet()).Should(BeClosed())
 		})
 	})
 })

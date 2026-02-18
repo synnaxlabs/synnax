@@ -1,0 +1,23 @@
+syntax = "proto3";
+
+package freighter.grpc.v1;
+
+option go_package = "github.com/synnaxlabs/freighter/grpc/v1";
+
+message Request {
+  int32 id = 1;
+  string message = 2;
+}
+
+message Response {
+  int32 id = 1;
+  string message = 2;
+}
+
+service TestUnaryService {
+  rpc Exec(Request) returns (Response);
+}
+
+service TestStreamService {
+  rpc Exec(stream Request) returns (stream Response);
+}

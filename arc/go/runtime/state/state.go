@@ -21,11 +21,18 @@
 package state
 
 import (
+	"slices"
+
 	"github.com/samber/lo"
 	"github.com/synnaxlabs/arc/ir"
 	"github.com/synnaxlabs/arc/types"
 	"github.com/synnaxlabs/x/telem"
 )
+
+// clearReadsReallocThreshold is the backing array capacity above which ClearReads
+// allocates a fresh slice instead of re-slicing in place. Below this threshold,
+// slices.Delete zeroes old references (allowing GC) without allocating.
+const clearReadsReallocThreshold = 64
 
 type value struct {
 	data telem.Series
@@ -171,10 +178,11 @@ func (s *State) ClearReads() {
 		if len(ser.Series) <= 1 {
 			continue
 		}
-		// Keep only the last series to preserve the latest value for each channel.
-		last := ser.Series[len(ser.Series)-1]
-		ser.Series = ser.Series[:1]
-		ser.Series[0] = last
+		if cap(ser.Series) > clearReadsReallocThreshold {
+			ser.Series = []telem.Series{ser.Series[len(ser.Series)-1]}
+		} else {
+			ser.Series = slices.Delete(ser.Series, 0, len(ser.Series)-1)
+		}
 		s.channel.reads[key] = ser
 	}
 }

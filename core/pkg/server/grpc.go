@@ -11,7 +11,7 @@ package server
 
 import (
 	"github.com/cockroachdb/cmux"
-	"github.com/synnaxlabs/freighter/fgrpc"
+	fgrpc "github.com/synnaxlabs/freighter/grpc"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials/insecure"
 )

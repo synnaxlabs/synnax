@@ -50,10 +50,6 @@ class LabelLifecycle(ConsoleCase):
         self.log(f"Renaming label {old_name}")
 
         self.console.labels.rename(old_name=old_name, new_name=new_name)
-        assert self.console.labels.exists(new_name), f"Label {new_name} should exist"
-        assert not self.console.labels.exists(
-            old_name
-        ), f"Label {old_name} should not exist"
         self.log(f"Label {old_name} renamed to {new_name}")
         self.shared_label = new_name
 

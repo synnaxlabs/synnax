@@ -204,7 +204,7 @@ TEST(testGRPC, testSendMultipleMessages) {
     s.join();
 }
 
-/// @brief it should return an unreachable error when stream server is not available.
+/// @brief it should return an error when stream server is not available.
 TEST(testGRPC, testStreamError) {
     std::string target("localhost:8080");
     auto pool = std::make_shared<Pool>();
@@ -212,7 +212,7 @@ TEST(testGRPC, testStreamError) {
     auto mes = test::Message();
 
     auto streamer = ASSERT_NIL_P(client.stream(target));
-    ASSERT_OCCURRED_AS(streamer->send(mes), UNREACHABLE);
+    ASSERT_OCCURRED_AS(streamer->send(mes), STREAM_CLOSED);
 
     ASSERT_OCCURRED_AS_P(streamer->receive(), UNREACHABLE);
 }

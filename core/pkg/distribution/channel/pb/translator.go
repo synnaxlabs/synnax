@@ -12,7 +12,7 @@ package pb
 import (
 	"context"
 
-	"github.com/synnaxlabs/freighter/fgrpc"
+	"github.com/synnaxlabs/freighter/grpc"
 	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
 )
 
@@ -23,9 +23,9 @@ type (
 )
 
 var (
-	_ fgrpc.Translator[channel.CreateMessage, *CreateMessage] = (*CreateMessageTranslator)(nil)
-	_ fgrpc.Translator[channel.DeleteRequest, *DeleteRequest] = (*DeleteRequestTranslator)(nil)
-	_ fgrpc.Translator[channel.RenameRequest, *RenameRequest] = (*RenameMessageTranslator)(nil)
+	_ grpc.Translator[channel.CreateMessage, *CreateMessage] = (*CreateMessageTranslator)(nil)
+	_ grpc.Translator[channel.DeleteRequest, *DeleteRequest] = (*DeleteRequestTranslator)(nil)
+	_ grpc.Translator[channel.RenameRequest, *RenameRequest] = (*RenameMessageTranslator)(nil)
 )
 
 func translateOptionsForward(opts channel.CreateOptions) *CreateOptions {

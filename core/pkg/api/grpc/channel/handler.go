@@ -13,7 +13,7 @@ import (
 	"context"
 	"go/types"
 
-	"github.com/synnaxlabs/freighter/fgrpc"
+	"github.com/synnaxlabs/freighter/grpc"
 	"github.com/synnaxlabs/synnax/pkg/api"
 	apichannel "github.com/synnaxlabs/synnax/pkg/api/channel"
 	entitypb "github.com/synnaxlabs/synnax/pkg/api/channel/pb"
@@ -29,19 +29,19 @@ type (
 	retrieveRequestTranslator  struct{}
 	retrieveResponseTranslator struct{}
 	deleteRequestTranslator    struct{}
-	createServer               = fgrpc.UnaryServer[
+	createServer               = grpc.UnaryServer[
 		apichannel.CreateRequest,
 		*CreateRequest,
 		apichannel.CreateResponse,
 		*CreateResponse,
 	]
-	retrieveServer = fgrpc.UnaryServer[
+	retrieveServer = grpc.UnaryServer[
 		apichannel.RetrieveRequest,
 		*RetrieveRequest,
 		apichannel.RetrieveResponse,
 		*RetrieveResponse,
 	]
-	deleteServer = fgrpc.UnaryServer[
+	deleteServer = grpc.UnaryServer[
 		apichannel.DeleteRequest,
 		*DeleteRequest,
 		types.Nil,
@@ -50,11 +50,11 @@ type (
 )
 
 var (
-	_ fgrpc.Translator[apichannel.CreateRequest, *CreateRequest]       = (*createRequestTranslator)(nil)
-	_ fgrpc.Translator[apichannel.CreateResponse, *CreateResponse]     = (*createResponseTranslator)(nil)
-	_ fgrpc.Translator[apichannel.RetrieveRequest, *RetrieveRequest]   = (*retrieveRequestTranslator)(nil)
-	_ fgrpc.Translator[apichannel.RetrieveResponse, *RetrieveResponse] = (*retrieveResponseTranslator)(nil)
-	_ fgrpc.Translator[apichannel.DeleteRequest, *DeleteRequest]       = (*deleteRequestTranslator)(nil)
+	_ grpc.Translator[apichannel.CreateRequest, *CreateRequest]       = (*createRequestTranslator)(nil)
+	_ grpc.Translator[apichannel.CreateResponse, *CreateResponse]     = (*createResponseTranslator)(nil)
+	_ grpc.Translator[apichannel.RetrieveRequest, *RetrieveRequest]   = (*retrieveRequestTranslator)(nil)
+	_ grpc.Translator[apichannel.RetrieveResponse, *RetrieveResponse] = (*retrieveResponseTranslator)(nil)
+	_ grpc.Translator[apichannel.DeleteRequest, *DeleteRequest]       = (*deleteRequestTranslator)(nil)
 )
 
 func (t createRequestTranslator) Forward(
@@ -173,7 +173,7 @@ func (t deleteRequestTranslator) Backward(
 	}, nil
 }
 
-func New(a *api.Transport) fgrpc.BindableTransport {
+func New(a *api.Transport) grpc.BindableTransport {
 	c := &createServer{
 		RequestTranslator:  createRequestTranslator{},
 		ResponseTranslator: createResponseTranslator{},
@@ -186,11 +186,11 @@ func New(a *api.Transport) fgrpc.BindableTransport {
 	}
 	d := &deleteServer{
 		RequestTranslator:  deleteRequestTranslator{},
-		ResponseTranslator: fgrpc.EmptyTranslator{},
+		ResponseTranslator: grpc.EmptyTranslator{},
 		ServiceDesc:        &ChannelDeleteService_ServiceDesc,
 	}
 	a.ChannelCreate = c
 	a.ChannelRetrieve = r
 	a.ChannelDelete = d
-	return fgrpc.CompoundBindableTransport{c, r, d}
+	return grpc.CompoundBindableTransport{c, r, d}
 }

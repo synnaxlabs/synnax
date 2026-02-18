@@ -15,7 +15,7 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/samber/lo"
-	"github.com/synnaxlabs/freighter/fgrpc"
+	"github.com/synnaxlabs/freighter/grpc"
 	"github.com/synnaxlabs/synnax/pkg/api"
 	apiarc "github.com/synnaxlabs/synnax/pkg/api/arc"
 	"github.com/synnaxlabs/synnax/pkg/service/arc/pb"
@@ -28,19 +28,19 @@ type (
 	retrieveRequestTranslator  struct{}
 	retrieveResponseTranslator struct{}
 	deleteRequestTranslator    struct{}
-	createServer               = fgrpc.UnaryServer[
+	createServer               = grpc.UnaryServer[
 		apiarc.CreateRequest,
 		*CreateRequest,
 		apiarc.CreateResponse,
 		*CreateResponse,
 	]
-	retrieveServer = fgrpc.UnaryServer[
+	retrieveServer = grpc.UnaryServer[
 		apiarc.RetrieveRequest,
 		*RetrieveRequest,
 		apiarc.RetrieveResponse,
 		*RetrieveResponse,
 	]
-	deleteServer = fgrpc.UnaryServer[
+	deleteServer = grpc.UnaryServer[
 		apiarc.DeleteRequest,
 		*DeleteRequest,
 		types.Nil,
@@ -49,11 +49,11 @@ type (
 )
 
 var (
-	_ fgrpc.Translator[apiarc.CreateRequest, *CreateRequest]       = (*createRequestTranslator)(nil)
-	_ fgrpc.Translator[apiarc.CreateResponse, *CreateResponse]     = (*createResponseTranslator)(nil)
-	_ fgrpc.Translator[apiarc.RetrieveRequest, *RetrieveRequest]   = (*retrieveRequestTranslator)(nil)
-	_ fgrpc.Translator[apiarc.RetrieveResponse, *RetrieveResponse] = (*retrieveResponseTranslator)(nil)
-	_ fgrpc.Translator[apiarc.DeleteRequest, *DeleteRequest]       = (*deleteRequestTranslator)(nil)
+	_ grpc.Translator[apiarc.CreateRequest, *CreateRequest]       = (*createRequestTranslator)(nil)
+	_ grpc.Translator[apiarc.CreateResponse, *CreateResponse]     = (*createResponseTranslator)(nil)
+	_ grpc.Translator[apiarc.RetrieveRequest, *RetrieveRequest]   = (*retrieveRequestTranslator)(nil)
+	_ grpc.Translator[apiarc.RetrieveResponse, *RetrieveResponse] = (*retrieveResponseTranslator)(nil)
+	_ grpc.Translator[apiarc.DeleteRequest, *DeleteRequest]       = (*deleteRequestTranslator)(nil)
 )
 
 func (t createRequestTranslator) Forward(
@@ -184,7 +184,7 @@ func (t deleteRequestTranslator) Backward(
 	return apiarc.DeleteRequest{Keys: keys}, nil
 }
 
-func New(a *api.Transport) fgrpc.BindableTransport {
+func New(a *api.Transport) grpc.BindableTransport {
 	c := &createServer{
 		RequestTranslator:  createRequestTranslator{},
 		ResponseTranslator: createResponseTranslator{},
@@ -197,11 +197,11 @@ func New(a *api.Transport) fgrpc.BindableTransport {
 	}
 	d := &deleteServer{
 		RequestTranslator:  deleteRequestTranslator{},
-		ResponseTranslator: fgrpc.EmptyTranslator{},
+		ResponseTranslator: grpc.EmptyTranslator{},
 		ServiceDesc:        &ArcDeleteService_ServiceDesc,
 	}
 	a.ArcCreate = c
 	a.ArcRetrieve = r
 	a.ArcDelete = d
-	return fgrpc.CompoundBindableTransport{c, r, d}
+	return grpc.CompoundBindableTransport{c, r, d}
 }

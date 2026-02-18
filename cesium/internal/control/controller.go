@@ -118,8 +118,8 @@ var _ config.Config[GateConfig[Resource]] = GateConfig[Resource]{}
 // DefaultGateConfig is the default configuration for opening a Gate.
 func DefaultGateConfig[R Resource]() GateConfig[R] {
 	return GateConfig[R]{
-		ErrIfControlled:       config.False(),
-		ErrOnUnauthorizedOpen: config.False(),
+		ErrIfControlled:       new(false),
+		ErrOnUnauthorizedOpen: new(false),
 	}
 }
 
