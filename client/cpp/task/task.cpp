@@ -17,7 +17,11 @@ std::pair<Task, x::errors::Error> Task::from_proto(const api::v1::Task &task) {
     t.key = task.key();
     t.name = task.name();
     t.type = task.type();
-    t.config = task.config();
+    if (task.has_config()) {
+        auto [v, err] = x::json::from_struct(task.config());
+        if (err) return {t, err};
+        t.config = v;
+    }
     t.internal = task.internal();
     t.snapshot = task.snapshot();
     if (task.has_status()) {
@@ -32,7 +36,8 @@ void Task::to_proto(api::v1::Task *task) const {
     task->set_key(key);
     task->set_name(name);
     task->set_type(type);
-    task->set_config(config);
+    if (!config.is_null() && !config.empty())
+        x::json::to_struct(config, task->mutable_config());
     task->set_internal(internal);
     task->set_snapshot(snapshot);
     if (!status.is_zero()) status.to_proto(task->mutable_status());

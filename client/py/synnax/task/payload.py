@@ -8,6 +8,8 @@
 #  included in the file licenses/APL.txt.
 
 
+from typing import Any
+
 from pydantic import BaseModel
 
 from synnax import ontology, status
@@ -39,7 +41,7 @@ class Payload(BaseModel):
     key: int = 0
     name: str = ""
     type: str = ""
-    config: str = ""
+    config: dict[str, Any] = {}
     snapshot: bool = False
     status: Status | None = None
 

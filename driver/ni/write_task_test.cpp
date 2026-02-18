@@ -80,7 +80,6 @@ protected:
             .key = synnax::task::create_key(rack.key, 0),
             .name = "my_task",
             .type = "ni_analog_write",
-            .config = ""
         };
 
         const x::json::json j{

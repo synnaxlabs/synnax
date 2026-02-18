@@ -49,7 +49,7 @@ class Task(task.StarterStopperMixin, task.JSONConfigMixin, task.Protocol):
         """
         if internal is not None:
             self._internal = internal
-            self.config = TaskConfig.model_validate_json(internal.config)
+            self.config = TaskConfig.model_validate(internal.config)
             return
         if arc_key is None:
             raise ValueError("arc_key is required when creating a new ArcTask")

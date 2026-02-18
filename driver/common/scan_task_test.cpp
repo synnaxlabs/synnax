@@ -327,7 +327,7 @@ TEST(TestScanTask, TestNoRecreateOnExistingRemote) {
 }
 
 TEST(TestScanTask, TestRecreateWhenRackChanges) {
-    const std::string user_props = R"({"user_key":"user_value"})";
+    const x::json::json user_props = {{"user_key", "user_value"}};
 
     synnax::device::Device dev1;
     dev1.key = "device1";
@@ -339,13 +339,13 @@ TEST(TestScanTask, TestRecreateWhenRackChanges) {
     synnax::device::Device dev1_moved = dev1;
     dev1_moved.rack = 2;
     dev1_moved.name = "cat";
-    dev1_moved.properties = "";
+    dev1_moved.properties = x::json::json::object();
     dev1_moved.configured = false;
 
     synnax::device::Device dev1_moved_2 = dev1;
     dev1_moved_2.rack = 3;
     dev1_moved_2.name = "dog";
-    dev1_moved_2.properties = "";
+    dev1_moved_2.properties = x::json::json::object();
     dev1_moved_2.configured = false;
 
     std::vector<std::vector<synnax::device::Device>> devices = {
@@ -403,7 +403,7 @@ TEST(TestScanTask, TestRecreateWhenRackChanges) {
 }
 
 TEST(TestScanTask, TestUpdateWhenLocationChanges) {
-    const std::string user_props = R"({"user_key":"user_value"})";
+    const x::json::json user_props = {{"user_key", "user_value"}};
 
     synnax::device::Device dev1;
     dev1.key = "device1";
@@ -416,7 +416,7 @@ TEST(TestScanTask, TestUpdateWhenLocationChanges) {
     synnax::device::Device dev1_renamed = dev1;
     dev1_renamed.location = "new_location";
     dev1_renamed.name = "scanner_name";
-    dev1_renamed.properties = "";
+    dev1_renamed.properties = x::json::json::object();
     dev1_renamed.configured = false;
 
     std::vector<std::vector<synnax::device::Device>> devices = {{dev1_renamed}};
@@ -466,7 +466,7 @@ TEST(TestScanTask, TestUpdateWhenLocationChanges) {
 }
 
 TEST(TestScanTask, TestNoUpdateWhenLocationSame) {
-    const std::string user_props = R"({"user_key":"user_value"})";
+    const x::json::json user_props = {{"user_key", "user_value"}};
 
     synnax::device::Device dev1;
     dev1.key = "device1";
@@ -478,7 +478,7 @@ TEST(TestScanTask, TestNoUpdateWhenLocationSame) {
 
     synnax::device::Device dev1_scanned = dev1;
     dev1_scanned.name = "scanner_name";
-    dev1_scanned.properties = "";
+    dev1_scanned.properties = x::json::json::object();
     dev1_scanned.configured = false;
 
     std::vector<std::vector<synnax::device::Device>> devices = {{dev1_scanned}};
@@ -629,7 +629,7 @@ TEST(TestScanTask, TestDeduplicateKeepsLastOldSlot) {
 }
 
 TEST(TestScanTask, TestDeduplicateOnUpdate) {
-    const std::string user_props = R"({"user_key":"user_value"})";
+    const x::json::json user_props = {{"user_key", "user_value"}};
 
     synnax::device::Device existing_dev;
     existing_dev.key = "device1";

@@ -252,7 +252,6 @@ protected:
             .key = synnax::task::create_key(rack.key, 0),
             .name = "my_task",
             .type = "ni_analog_read",
-            .config = ""
         };
 
         x::json::json j{
@@ -557,7 +556,6 @@ protected:
             .key = synnax::task::create_key(rack.key, 0),
             .name = "digital_task",
             .type = "ni_digital_read",
-            .config = ""
         };
 
         x::json::json j{
@@ -720,7 +718,6 @@ protected:
             .key = synnax::task::create_key(rack.key, 0),
             .name = "counter_task",
             .type = "ni_counter_read",
-            .config = ""
         };
 
         x::json::json j{

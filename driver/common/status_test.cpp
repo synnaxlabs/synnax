@@ -20,7 +20,6 @@ TEST(TestTaskStateHandler, testStartCommunication) {
     const synnax::task::Task task{
         .name = "task1",
         .type = "ni_analog_read",
-        .config = ""
     };
     auto handler = StatusHandler(ctx, task);
 
@@ -54,7 +53,6 @@ TEST(TestTaskStateHandler, testSendWarning) {
     const synnax::task::Task task{
         .name = "task1",
         .type = "ni_analog_read",
-        .config = ""
     };
     auto handler = StatusHandler(ctx, task);
 
@@ -81,7 +79,6 @@ TEST(TestTaskStateHandle, testClearWarning) {
     const synnax::task::Task task{
         .name = "task1",
         .type = "ni_analog_read",
-        .config = ""
     };
     auto handler = StatusHandler(ctx, task);
 
@@ -120,7 +117,6 @@ TEST(TestTaskStateHandler, testSendError) {
     const synnax::task::Task task{
         .name = "task1",
         .type = "ni_analog_read",
-        .config = ""
     };
     auto handler = StatusHandler(ctx, task);
 
@@ -146,7 +142,6 @@ TEST(TestTaskStateHandler, testStopCommunication) {
     const synnax::task::Task task{
         .name = "task1",
         .type = "ni_analog_read",
-        .config = ""
     };
     auto handler = StatusHandler(ctx, task);
 

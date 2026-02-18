@@ -237,7 +237,6 @@ TEST(ReadTask, testBasicReadTask) {
         .key = synnax::task::create_key(rack.key, 0),
         .name = "my_task",
         .type = "modbus_read",
-        .config = ""
     };
 
     x::json::json j{
@@ -341,8 +340,7 @@ TEST_F(ModbusReadTest, testDiscreteInputRead) {
             .key = synnax::task::create_key(rack.key, 0),
             .name = "discrete_test",
             .type = "modbus_read",
-            .config = ""
-        },
+            },
         ctx,
         x::breaker::default_config("discrete_test"),
         std::make_unique<ReadTaskSource>(modbus_dev, std::move(*task_cfg)),
@@ -400,8 +398,7 @@ TEST_F(ModbusReadTest, testHoldingRegisterRead) {
             .key = synnax::task::create_key(rack.key, 0),
             .name = "holding_test",
             .type = "modbus_read",
-            .config = ""
-        },
+            },
         ctx,
         x::breaker::default_config("holding_test"),
         std::make_unique<ReadTaskSource>(modbus_dev, std::move(*task_cfg)),
@@ -478,8 +475,7 @@ TEST_F(ModbusReadTest, testMultiChannelRead) {
             .key = synnax::task::create_key(rack.key, 0),
             .name = "multi_test",
             .type = "modbus_read",
-            .config = ""
-        },
+            },
         ctx,
         x::breaker::default_config("multi_test"),
         std::make_unique<ReadTaskSource>(modbus_dev, std::move(*task_cfg)),
@@ -576,8 +572,7 @@ TEST_F(ModbusReadTest, testMultipleUint8InputRegisters) {
             .key = synnax::task::create_key(rack.key, 0),
             .name = "uint8_test",
             .type = "modbus_read",
-            .config = ""
-        },
+            },
         ctx,
         x::breaker::default_config("uint8_test"),
         std::make_unique<ReadTaskSource>(modbus_dev, std::move(*task_cfg)),
@@ -655,8 +650,7 @@ TEST_F(ModbusReadTest, testMultipleUint8HoldingRegisters) {
             .key = synnax::task::create_key(rack.key, 0),
             .name = "uint8_holding_test",
             .type = "modbus_read",
-            .config = ""
-        },
+            },
         ctx,
         x::breaker::default_config("uint8_holding_test"),
         std::make_unique<ReadTaskSource>(modbus_dev, std::move(*task_cfg)),
@@ -720,7 +714,7 @@ TEST_F(ModbusReadTest, testAutoStartTrue) {
         .key = synnax::task::create_key(rack.key, 0),
         .name = "test_task",
         .type = "modbus_read",
-        .config = config.dump()
+        .config = config
     };
 
     // Configure task through factory
@@ -787,7 +781,7 @@ TEST_F(ModbusReadTest, testAutoStartFalse) {
         .key = synnax::task::create_key(rack.key, 0),
         .name = "test_task_no_auto",
         .type = "modbus_read",
-        .config = config.dump()
+        .config = config
     };
 
     // Configure task through factory

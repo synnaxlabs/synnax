@@ -19,6 +19,7 @@
 #include "freighter/cpp/freighter.h"
 #include "x/cpp/errors/errors.h"
 #include "x/cpp/json/json.h"
+#include "x/cpp/json/struct.h"
 #include "x/cpp/status/status.h"
 
 #include "core/pkg/api/grpc/v1/core/pkg/api/grpc/v1/task.pb.h"
@@ -138,8 +139,8 @@ struct Task {
     std::string name;
     /// @brief The type of the task, which determines its behavior.
     std::string type;
-    /// @brief Configuration data for the task, typically in JSON format.
-    std::string config;
+    /// @brief Configuration data for the task as a JSON object.
+    x::json::json config;
     /// @brief Whether the task is internal to the system.
     bool internal = false;
     /// @brief Whether the task is a snapshot.

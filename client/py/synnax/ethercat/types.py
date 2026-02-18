@@ -38,7 +38,6 @@ Example:
     >>> client.tasks.configure(read_task)
 """
 
-import json
 from typing import Literal
 from uuid import uuid4
 
@@ -386,7 +385,7 @@ class ReadTask(task.StarterStopperMixin, task.JSONConfigMixin, task.Protocol):
     ) -> None:
         if internal is not None:
             self._internal = internal
-            self.config = ReadTaskConfig.model_validate_json(internal.config)
+            self.config = ReadTaskConfig.model_validate(internal.config)
             return
         self._internal = task.Task(name=name, type=self.TYPE)
         self.config = ReadTaskConfig(
@@ -473,7 +472,7 @@ class WriteTask(task.StarterStopperMixin, task.JSONConfigMixin, task.Protocol):
     ) -> None:
         if internal is not None:
             self._internal = internal
-            self.config = WriteTaskConfig.model_validate_json(internal.config)
+            self.config = WriteTaskConfig.model_validate(internal.config)
             return
         self._internal = task.Task(name=name, type=self.TYPE)
         self.config = WriteTaskConfig(
@@ -589,5 +588,5 @@ class Device(device.Device):
             make=MAKE,
             model=MODEL,
             configured=configured,
-            properties=json.dumps(props),
+            properties=props,
         )

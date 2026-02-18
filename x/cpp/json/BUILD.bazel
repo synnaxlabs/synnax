@@ -5,11 +5,13 @@ cc_library(
     name = "json",
     hdrs = [
         "json.h",
+        "struct.h",
     ],
     visibility = ["//visibility:public"],
     deps = [
         "//x/cpp/errors",
         "@nlohmann_json//:json",
+        "@protobuf",
     ],
 )
 

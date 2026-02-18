@@ -7,11 +7,11 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { binary, type observe, record, status } from "@synnaxlabs/x";
+import { type observe, record, status } from "@synnaxlabs/x";
 import { z } from "zod";
 
 import { type Key as RackKey } from "@/rack/payload";
-import { decodeJSONString } from "@/util/decodeJSONString";
+
 import { parseWithoutKeyConversion } from "@/util/parseWithoutKeyConversion";
 
 export const keyZ = z.union([
@@ -66,7 +66,7 @@ export const taskZ = <
     name: z.string(),
     type: schemas.typeSchema,
     internal: z.boolean().optional(),
-    config: z.string().transform(decodeJSONString).or(schemas.configSchema),
+    config: schemas.configSchema,
     status: statusZ(schemas.statusDataSchema).optional().nullable(),
     snapshot: z.boolean().optional(),
   });
@@ -106,7 +106,7 @@ export const newZ = <
     .omit({ key: true, status: true })
     .extend({
       key: keyZ.transform((k) => k.toString()).optional(),
-      config: z.unknown().transform((c) => binary.JSON_CODEC.encodeString(c)),
+      config: schemas?.configSchema ?? z.unknown(),
       status: newStatusZ(schemas?.statusDataSchema ?? z.unknown())
         .optional()
         .nullable(),
