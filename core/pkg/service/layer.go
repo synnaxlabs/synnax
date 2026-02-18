@@ -152,12 +152,12 @@ func (l *Layer) Close() error { return l.closer.Close() }
 // override the fields set in previous ones. If the configuration is invalid, or
 // any services fail to open, Open returns a nil layer and an error. If the returned
 // error is nil, the Layer must be closed by calling Close after use.
-func OpenLayer(ctx context.Context, cfgs ...LayerConfig) (*Layer, error) {
+func OpenLayer(ctx context.Context, cfgs ...LayerConfig) (l *Layer, err error) {
 	cfg, err := config.New(DefaultLayerConfig, cfgs...)
 	if err != nil {
 		return nil, err
 	}
-	l := &Layer{}
+	l = &Layer{}
 	cleanup, ok := service.NewOpener(ctx, &l.closer)
 	defer func() {
 		err = cleanup(err)

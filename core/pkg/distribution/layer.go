@@ -116,10 +116,10 @@ var (
 	// This configuration is not valid on its own and must be overridden by the
 	// required fields specific in Config.
 	DefaultLayerConfig = LayerConfig{
-		EnableSearch:         config.True(),
+		EnableSearch:         new(true),
 		GorpCodec:            &binary.MsgPackCodec{},
-		EnableServiceSignals: config.True(),
-		ValidateChannelNames: config.True(),
+		EnableServiceSignals: new(true),
+		ValidateChannelNames: new(true),
 	}
 )
 
@@ -197,12 +197,12 @@ type Layer struct {
 // If the returned error is nil, the Layer must be closed by calling Close after use.
 // None of the services in the Layer should be used after Close is called. It is the
 // caller's responsibility to ensure that the Layer is not accessed after it is closed.
-func OpenLayer(ctx context.Context, cfgs ...LayerConfig) (*Layer, error) {
+func OpenLayer(ctx context.Context, cfgs ...LayerConfig) (l *Layer, err error) {
 	cfg, err := config.New(DefaultLayerConfig, cfgs...)
 	if err != nil {
 		return nil, err
 	}
-	l := &Layer{}
+	l = &Layer{}
 	cleanup, ok := service.NewOpener(ctx, &l.closer)
 	defer func() {
 		err = cleanup(err)
@@ -322,7 +322,8 @@ func OpenLayer(ctx context.Context, cfgs ...LayerConfig) (*Layer, error) {
 		); !ok(err, channelSignalsCloser) {
 			return nil, err
 		}
-		if groupSignalsCloser, err := groupsignals.Publish(ctx, l.Signals, l.DB); !ok(err, groupSignalsCloser) {
+		var groupSignalsCloser io.Closer
+		if groupSignalsCloser, err = groupsignals.Publish(ctx, l.Signals, l.DB); !ok(err, groupSignalsCloser) {
 			return nil, err
 		}
 	}

@@ -71,6 +71,7 @@ markers = [
     "channel: mark test as a channel test",
     "cli: mark test as a cli test",
     "control: mark test as a control test",
+    "deprecation: mark test as a deprecation test",
     "device: mark test as a device test",
     "ethercat: mark test as an ethercat test",
     "framer: mark test as a framer test",

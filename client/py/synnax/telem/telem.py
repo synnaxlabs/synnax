@@ -650,15 +650,6 @@ class TimeRange(BaseModel):
         end = start if end is None else end
         super().__init__(start=TimeStamp(start), end=TimeStamp(end))
 
-    @classmethod
-    def validate(cls, value: Any) -> TimeRange:  # type: ignore[override]
-        """Implemented for pydantic validation. Should not be used externally."""
-        if isinstance(value, TimeRange):
-            return cls(value.start, value.end)
-        elif isinstance(value, dict):
-            return cls(**value)
-        return cls(start=value[0], end=value[1])
-
     @property
     def span(self) -> TimeSpan:
         """:returns: the TimeSpan between the start and end TimeStamps of the TimeRange."""

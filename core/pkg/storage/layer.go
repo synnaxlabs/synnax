@@ -110,7 +110,7 @@ var (
 	// DefaultLayerConfig returns the default configuration for the storage layer.
 	DefaultLayerConfig = LayerConfig{
 		Perm:     xfs.UserRWX,
-		InMemory: config.False(),
+		InMemory: new(false),
 		KVEngine: KVEnginePebble,
 		TSEngine: TSEngineCesium,
 	}
@@ -178,12 +178,12 @@ type Layer struct {
 // If the returned error is nil, then the Layer must be closed after use. None of
 // the services in the Layer should be used after Close is called. It is the caller's
 // responsibility to ensure that the Layer is not accessed after it is closed.
-func OpenLayer(ctx context.Context, cfgs ...LayerConfig) (*Layer, error) {
+func OpenLayer(ctx context.Context, cfgs ...LayerConfig) (l *Layer, err error) {
 	cfg, err := config.New(DefaultLayerConfig, cfgs...)
 	if err != nil {
 		return nil, err
 	}
-	l := &Layer{}
+	l = &Layer{}
 	cleanup, ok := service.NewOpener(ctx, &l.closer)
 	defer func() {
 		err = cleanup(err)

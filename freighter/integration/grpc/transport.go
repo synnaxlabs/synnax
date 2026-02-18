@@ -10,12 +10,12 @@
 package grpc
 
 import (
-	"github.com/synnaxlabs/freighter/fgrpc"
+	"github.com/synnaxlabs/freighter/grpc"
 	echov1 "github.com/synnaxlabs/freighter/integration/grpc/gen/proto/go/v1"
 	"github.com/synnaxlabs/freighter/integration/http"
 )
 
-type Server = fgrpc.UnaryServer[
+type Server = grpc.UnaryServer[
 	http.Message,
 	*echov1.Message,
 	http.Message,

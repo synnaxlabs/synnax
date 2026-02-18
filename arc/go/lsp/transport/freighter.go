@@ -181,7 +181,7 @@ func (c *connClient) SemanticTokensRefresh(ctx context.Context) error {
 	return protocol.Call(ctx, c.conn, protocol.MethodSemanticTokensRefresh, nil, nil)
 }
 
-func ServeFreighter(ctx context.Context, cfgs ...Config) error {
+func ServeFreighter(ctx context.Context, cfgs ...Config) (err error) {
 	cfg, err := config.New(DefaultConfig, cfgs...)
 	if err != nil {
 		return err

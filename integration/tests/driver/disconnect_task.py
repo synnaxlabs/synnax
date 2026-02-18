@@ -33,15 +33,17 @@ import synnax as sy
 
 from tests.driver.modbus_read import ModbusReadMixed
 from tests.driver.opcua_read import OPCUAReadMixed
-from tests.driver.simulator_task import SimulatorTaskCase
+from tests.driver.simulator_case import SimulatorCase
+from tests.driver.task import TaskCase
 
 
-class DisconnectTask(SimulatorTaskCase, ABC):
+class DisconnectTask(SimulatorCase, TaskCase, ABC):
     """
     Abstract base class providing disconnect/reconnect test behavior.
 
-    Inherits from SimulatorTaskCase to access simulator management and common test utilities.
-    Overrides the run() method to execute a disconnect/reconnect test sequence.
+    Inherits from SimulatorCase and TaskCase to access simulator management and
+    common test utilities. Overrides the run() method to execute a
+    disconnect/reconnect test sequence.
 
     Usage:
         class DisconnectModbus(DisconnectTask, ModbusRead):

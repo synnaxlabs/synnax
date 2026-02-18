@@ -17,7 +17,7 @@ import (
 	"io"
 	"reflect"
 
-	"github.com/synnaxlabs/freighter/fhttp"
+	fhttp "github.com/synnaxlabs/freighter/http"
 	"github.com/synnaxlabs/synnax/pkg/api/framer"
 	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer/codec"

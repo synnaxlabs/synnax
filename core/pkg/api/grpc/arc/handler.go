@@ -12,6 +12,7 @@ package arc
 import (
 	"context"
 	"go/types"
+	"maps"
 
 	"github.com/google/uuid"
 	"github.com/samber/lo"
@@ -22,7 +23,7 @@ import (
 	arcsymbol "github.com/synnaxlabs/arc/symbol"
 	arctext "github.com/synnaxlabs/arc/text"
 	arctypes "github.com/synnaxlabs/arc/types"
-	"github.com/synnaxlabs/freighter/fgrpc"
+	"github.com/synnaxlabs/freighter/grpc"
 	"github.com/synnaxlabs/synnax/pkg/api"
 	apiarc "github.com/synnaxlabs/synnax/pkg/api/arc"
 	gapi "github.com/synnaxlabs/synnax/pkg/api/grpc/v1"
@@ -39,19 +40,19 @@ type (
 	retrieveRequestTranslator  struct{}
 	retrieveResponseTranslator struct{}
 	deleteRequestTranslator    struct{}
-	createServer               = fgrpc.UnaryServer[
+	createServer               = grpc.UnaryServer[
 		apiarc.CreateRequest,
 		*gapi.ArcCreateRequest,
 		apiarc.CreateResponse,
 		*gapi.ArcCreateResponse,
 	]
-	retrieveServer = fgrpc.UnaryServer[
+	retrieveServer = grpc.UnaryServer[
 		apiarc.RetrieveRequest,
 		*gapi.ArcRetrieveRequest,
 		apiarc.RetrieveResponse,
 		*gapi.ArcRetrieveResponse,
 	]
-	deleteServer = fgrpc.UnaryServer[
+	deleteServer = grpc.UnaryServer[
 		apiarc.DeleteRequest,
 		*gapi.ArcDeleteRequest,
 		types.Nil,
@@ -60,11 +61,11 @@ type (
 )
 
 var (
-	_ fgrpc.Translator[apiarc.CreateRequest, *gapi.ArcCreateRequest]       = (*createRequestTranslator)(nil)
-	_ fgrpc.Translator[apiarc.CreateResponse, *gapi.ArcCreateResponse]     = (*createResponseTranslator)(nil)
-	_ fgrpc.Translator[apiarc.RetrieveRequest, *gapi.ArcRetrieveRequest]   = (*retrieveRequestTranslator)(nil)
-	_ fgrpc.Translator[apiarc.RetrieveResponse, *gapi.ArcRetrieveResponse] = (*retrieveResponseTranslator)(nil)
-	_ fgrpc.Translator[apiarc.DeleteRequest, *gapi.ArcDeleteRequest]       = (*deleteRequestTranslator)(nil)
+	_ grpc.Translator[apiarc.CreateRequest, *gapi.ArcCreateRequest]       = (*createRequestTranslator)(nil)
+	_ grpc.Translator[apiarc.CreateResponse, *gapi.ArcCreateResponse]     = (*createResponseTranslator)(nil)
+	_ grpc.Translator[apiarc.RetrieveRequest, *gapi.ArcRetrieveRequest]   = (*retrieveRequestTranslator)(nil)
+	_ grpc.Translator[apiarc.RetrieveResponse, *gapi.ArcRetrieveResponse] = (*retrieveResponseTranslator)(nil)
+	_ grpc.Translator[apiarc.DeleteRequest, *gapi.ArcDeleteRequest]       = (*deleteRequestTranslator)(nil)
 )
 
 func (t createRequestTranslator) Forward(
@@ -655,13 +656,9 @@ func translateDimensionsFromPB(pb *arctypes.PBDimensions) arctypes.Dimensions {
 // translateChannelsToPB converts symbol.Channels to *arcsymbol.PBChannels
 func translateChannelsToPB(c arcsymbol.Channels) *arcsymbol.PBChannels {
 	readMap := make(map[uint32]string)
-	for k, v := range c.Read {
-		readMap[k] = v
-	}
+	maps.Copy(readMap, c.Read)
 	writeMap := make(map[uint32]string)
-	for k, v := range c.Write {
-		writeMap[k] = v
-	}
+	maps.Copy(writeMap, c.Write)
 	return &arcsymbol.PBChannels{
 		Read:  readMap,
 		Write: writeMap,
@@ -674,12 +671,8 @@ func translateChannelsFromPB(pb *arcsymbol.PBChannels) arcsymbol.Channels {
 		return arcsymbol.NewChannels()
 	}
 	c := arcsymbol.NewChannels()
-	for k, v := range pb.Read {
-		c.Read[k] = v
-	}
-	for k, v := range pb.Write {
-		c.Write[k] = v
-	}
+	maps.Copy(c.Read, pb.Read)
+	maps.Copy(c.Write, pb.Write)
 	return c
 }
 
@@ -1012,7 +1005,7 @@ func translateStageFromPB(pb *arcir.PBStage) arcir.Stage {
 	}
 }
 
-func New(a *api.Transport) fgrpc.CompoundBindableTransport {
+func New(a *api.Transport) grpc.CompoundBindableTransport {
 	c := &createServer{
 		RequestTranslator:  createRequestTranslator{},
 		ResponseTranslator: createResponseTranslator{},
@@ -1025,13 +1018,13 @@ func New(a *api.Transport) fgrpc.CompoundBindableTransport {
 	}
 	d := &deleteServer{
 		RequestTranslator:  deleteRequestTranslator{},
-		ResponseTranslator: fgrpc.EmptyTranslator{},
+		ResponseTranslator: grpc.EmptyTranslator{},
 		ServiceDesc:        &gapi.ArcDeleteService_ServiceDesc,
 	}
 	a.ArcCreate = c
 	a.ArcRetrieve = r
 	a.ArcDelete = d
-	return []fgrpc.BindableTransport{c, r, d}
+	return []grpc.BindableTransport{c, r, d}
 }
 
 func unwrapTelemValue(v any) any {

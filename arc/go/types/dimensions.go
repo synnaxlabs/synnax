@@ -9,7 +9,10 @@
 
 package types
 
-import "fmt"
+import (
+	"fmt"
+	"strings"
+)
 
 // Dimensions represents dimension exponents as a vector for dimensional analysis.
 // Uses SI base dimensions plus pragmatic extensions for hardware telemetry.
@@ -142,14 +145,14 @@ func (d Dimensions) String() string {
 		parts = append(parts, fmt.Sprintf("data^%d", d.Data))
 	}
 
-	result := ""
+	var result strings.Builder
 	for i, p := range parts {
 		if i > 0 {
-			result += " "
+			result.WriteString(" ")
 		}
-		result += p
+		result.WriteString(p)
 	}
-	return result
+	return result.String()
 }
 
 // Unit holds unit metadata for numeric types.

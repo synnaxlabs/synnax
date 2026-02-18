@@ -73,9 +73,9 @@ var (
 	_ config.Config[Config] = Config{}
 	// DefaultConfig is the default server configuration.
 	DefaultConfig = Config{
-		Debug: config.False(),
+		Debug: new(false),
 		Security: SecurityConfig{
-			Insecure: config.False(),
+			Insecure: new(false),
 		},
 	}
 )
@@ -195,7 +195,6 @@ func (s *Server) startBranches(
 	}
 	bc := s.baseBranchContext()
 	for i, b := range branches {
-		b, i := b, i
 		sCtx.Go(func(context.Context) error {
 			bc.Lis = listeners[i]
 			return filterCloserError(b.Serve(bc))

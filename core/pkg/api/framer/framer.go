@@ -393,8 +393,8 @@ func (s *Service) openWriter(
 		Keys:                     req.Config.Keys,
 		Authorities:              authorities,
 		Mode:                     req.Config.Mode,
-		ErrOnUnauthorized:        xconfig.Bool(req.Config.ErrOnUnauthorized),
-		EnableAutoCommit:         xconfig.Bool(req.Config.EnableAutoCommit),
+		ErrOnUnauthorized:        new(req.Config.ErrOnUnauthorized),
+		EnableAutoCommit:         new(req.Config.EnableAutoCommit),
 		AutoIndexPersistInterval: req.Config.AutoIndexPersistInterval,
 	})
 	if err != nil {

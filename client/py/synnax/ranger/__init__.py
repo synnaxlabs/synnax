@@ -10,9 +10,13 @@
 from synnax.ranger.client import Client, Range
 from synnax.ranger.retrieve import Retriever
 from synnax.ranger.writer import Writer
+from synnax.util.deprecation import deprecated_getattr
 
-# Backwards compatibility
-RangeRetriever = Retriever
-RangeWriter = Writer
+_DEPRECATED = {
+    "RangeRetriever": "Retriever",
+    "RangeWriter": "Writer",
+}
 
-__all__ = ["Client", "Range", "Retriever", "Writer", "RangeRetriever", "RangeWriter"]
+__getattr__ = deprecated_getattr(__name__, _DEPRECATED, globals())
+
+__all__ = ["Client", "Range", "Retriever", "Writer"]

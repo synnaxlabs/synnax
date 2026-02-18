@@ -14,7 +14,6 @@ import (
 	"github.com/synnaxlabs/alamos"
 	"github.com/synnaxlabs/synnax/pkg/security/cert"
 	"github.com/synnaxlabs/x/address"
-	"github.com/synnaxlabs/x/config"
 )
 
 // BuildLoaderConfig builds a cert.LoaderConfig using the viper configuration.
@@ -36,7 +35,7 @@ func BuildCertFactoryConfig(
 ) cert.FactoryConfig {
 	return cert.FactoryConfig{
 		LoaderConfig:  BuildLoaderConfig(ins),
-		AllowKeyReuse: config.Bool(viper.GetBool(FlagAllowKeyReuse)),
+		AllowKeyReuse: new(viper.GetBool(FlagAllowKeyReuse)),
 		KeySize:       viper.GetInt(FlagKeySize),
 		Hosts:         hosts,
 	}

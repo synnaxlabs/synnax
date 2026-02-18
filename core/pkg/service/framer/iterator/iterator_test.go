@@ -25,7 +25,6 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/rack"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
 	"github.com/synnaxlabs/synnax/pkg/service/task"
-	"github.com/synnaxlabs/x/config"
 	"github.com/synnaxlabs/x/telem"
 	. "github.com/synnaxlabs/x/testutil"
 )
@@ -151,7 +150,7 @@ var _ = Describe("StreamIterator", Ordered, func() {
 				w := MustSucceed(dist.Framer.OpenWriter(ctx, framer.WriterConfig{
 					Start:            telem.SecondTS,
 					Keys:             keys,
-					EnableAutoCommit: config.True(),
+					EnableAutoCommit: new(true),
 				}))
 				idxData = telem.MultiSeries{Series: []telem.Series{
 					telem.NewSeriesSecondsTSV(1, 2, 3, 4, 5),
@@ -170,7 +169,7 @@ var _ = Describe("StreamIterator", Ordered, func() {
 				w = MustSucceed(dist.Framer.OpenWriter(ctx, framer.WriterConfig{
 					Start:            telem.SecondTS * 6,
 					Keys:             keys,
-					EnableAutoCommit: config.True(),
+					EnableAutoCommit: new(true),
 				}))
 				fr = frame.NewMulti(
 					keys,
@@ -508,7 +507,7 @@ var _ = Describe("StreamIterator", Ordered, func() {
 					w := MustSucceed(dist.Framer.OpenWriter(ctx, framer.WriterConfig{
 						Start:            telem.SecondTS,
 						Keys:             keys,
-						EnableAutoCommit: config.True(),
+						EnableAutoCommit: new(true),
 					}))
 					fr := frame.NewMulti(
 						keys,
@@ -524,7 +523,7 @@ var _ = Describe("StreamIterator", Ordered, func() {
 					w = MustSucceed(dist.Framer.OpenWriter(ctx, framer.WriterConfig{
 						Start:            telem.SecondTS * 5,
 						Keys:             keys,
-						EnableAutoCommit: config.True(),
+						EnableAutoCommit: new(true),
 					}))
 					fr = frame.NewMulti(
 						keys,
@@ -540,7 +539,7 @@ var _ = Describe("StreamIterator", Ordered, func() {
 					w = MustSucceed(dist.Framer.OpenWriter(ctx, framer.WriterConfig{
 						Start:            telem.SecondTS * 10,
 						Keys:             keys,
-						EnableAutoCommit: config.True(),
+						EnableAutoCommit: new(true),
 					}))
 					fr = frame.NewMulti(
 						keys,
@@ -768,7 +767,7 @@ var _ = Describe("StreamIterator", Ordered, func() {
 					w := MustSucceed(dist.Framer.OpenWriter(ctx, framer.WriterConfig{
 						Start:            telem.SecondTS,
 						Keys:             keys,
-						EnableAutoCommit: config.True(),
+						EnableAutoCommit: new(true),
 					}))
 					MustSucceed(w.Write(frame.NewMulti(
 						keys,
@@ -783,7 +782,7 @@ var _ = Describe("StreamIterator", Ordered, func() {
 					w = MustSucceed(dist.Framer.OpenWriter(ctx, framer.WriterConfig{
 						Start:            telem.SecondTS * 1000,
 						Keys:             keys,
-						EnableAutoCommit: config.True(),
+						EnableAutoCommit: new(true),
 					}))
 					MustSucceed(w.Write(frame.NewMulti(
 						keys,
@@ -888,6 +887,89 @@ var _ = Describe("StreamIterator", Ordered, func() {
 					Expect(iter.Close()).To(Succeed())
 				})
 			})
+			It("Should correctly handle interleaved channels with different indexes", func() {
+				// Two channels with different indexes, written by different writers.
+				// The distribution framer may return data and index for each channel
+				// in separate response frames. The calculation transform merges them
+				// before passing to the calculator.
+				idxA := &channel.Channel{
+					Name:     "interleaved_time_a",
+					DataType: telem.TimeStampT,
+					IsIndex:  true,
+				}
+				Expect(dist.Channel.Create(ctx, idxA)).To(Succeed())
+				idxB := &channel.Channel{
+					Name:     "interleaved_time_b",
+					DataType: telem.TimeStampT,
+					IsIndex:  true,
+				}
+				Expect(dist.Channel.Create(ctx, idxB)).To(Succeed())
+				dataA := &channel.Channel{
+					Name:       "interleaved_sensor_a",
+					DataType:   telem.Float32T,
+					LocalIndex: idxA.LocalKey,
+				}
+				Expect(dist.Channel.Create(ctx, dataA)).To(Succeed())
+				dataB := &channel.Channel{
+					Name:       "interleaved_sensor_b",
+					DataType:   telem.Float32T,
+					LocalIndex: idxB.LocalKey,
+				}
+				Expect(dist.Channel.Create(ctx, dataB)).To(Succeed())
+
+				// Write channel A with index A
+				keysA := []channel.Key{idxA.Key(), dataA.Key()}
+				wA := MustSucceed(dist.Framer.OpenWriter(ctx, framer.WriterConfig{
+					Start:            telem.SecondTS,
+					Keys:             keysA,
+					EnableAutoCommit: new(true),
+				}))
+				MustSucceed(wA.Write(frame.NewMulti(
+					keysA,
+					[]telem.Series{
+						telem.NewSeriesSecondsTSV(1, 2, 3),
+						telem.NewSeriesV[float32](10, 20, 30),
+					},
+				)))
+				Expect(wA.Close()).To(Succeed())
+
+				// Write channel B with index B
+				keysB := []channel.Key{idxB.Key(), dataB.Key()}
+				wB := MustSucceed(dist.Framer.OpenWriter(ctx, framer.WriterConfig{
+					Start:            telem.SecondTS,
+					Keys:             keysB,
+					EnableAutoCommit: new(true),
+				}))
+				MustSucceed(wB.Write(frame.NewMulti(
+					keysB,
+					[]telem.Series{
+						telem.NewSeriesSecondsTSV(1, 2, 3),
+						telem.NewSeriesV[float32](1, 2, 3),
+					},
+				)))
+				Expect(wB.Close()).To(Succeed())
+
+				calc := &channel.Channel{
+					Name:       "interleaved_calc",
+					DataType:   telem.Float32T,
+					Expression: "return interleaved_sensor_a + interleaved_sensor_b",
+				}
+				Expect(dist.Channel.Create(ctx, calc)).To(Succeed())
+
+				iter := MustSucceed(iteratorSvc.Open(ctx, iterator.Config{
+					Keys:   []channel.Key{calc.Key(), calc.Index()},
+					Bounds: telem.TimeRangeMax,
+				}))
+				Expect(iter.SeekFirst()).To(BeTrue())
+				Expect(iter.Next(iterator.AutoSpan)).To(BeTrue())
+
+				v := iter.Value().Get(calc.Key())
+				Expect(v.Series).To(HaveLen(1))
+				Expect(v.Series[0]).To(telem.MatchSeriesDataV[float32](11, 22, 33))
+
+				Expect(iter.Next(iterator.AutoSpan)).To(BeFalse())
+				Expect(iter.Close()).To(Succeed())
+			})
 		})
 	})
 
@@ -909,7 +991,7 @@ var _ = Describe("StreamIterator", Ordered, func() {
 			w := MustSucceed(dist.Framer.OpenWriter(ctx, framer.WriterConfig{
 				Start:            telem.SecondTS,
 				Keys:             keys,
-				EnableAutoCommit: config.True(),
+				EnableAutoCommit: new(true),
 			}))
 			fr := frame.NewMulti(
 				keys,
@@ -961,7 +1043,7 @@ var _ = Describe("StreamIterator", Ordered, func() {
 			w := MustSucceed(dist.Framer.OpenWriter(ctx, framer.WriterConfig{
 				Start:            telem.SecondTS,
 				Keys:             keys,
-				EnableAutoCommit: config.True(),
+				EnableAutoCommit: new(true),
 			}))
 			fr := frame.NewMulti(
 				keys,
@@ -1016,7 +1098,7 @@ var _ = Describe("StreamIterator", Ordered, func() {
 			w := MustSucceed(dist.Framer.OpenWriter(ctx, framer.WriterConfig{
 				Start:            telem.SecondTS,
 				Keys:             keys,
-				EnableAutoCommit: config.True(),
+				EnableAutoCommit: new(true),
 			}))
 			fr := frame.NewMulti(
 				keys,
@@ -1076,7 +1158,7 @@ var _ = Describe("StreamIterator", Ordered, func() {
 			w := MustSucceed(dist.Framer.OpenWriter(ctx, framer.WriterConfig{
 				Start:            telem.SecondTS,
 				Keys:             keys,
-				EnableAutoCommit: config.True(),
+				EnableAutoCommit: new(true),
 			}))
 			fr := frame.NewMulti(
 				keys,
@@ -1126,7 +1208,7 @@ var _ = Describe("StreamIterator", Ordered, func() {
 			w := MustSucceed(dist.Framer.OpenWriter(ctx, framer.WriterConfig{
 				Start:            telem.SecondTS,
 				Keys:             keys,
-				EnableAutoCommit: config.True(),
+				EnableAutoCommit: new(true),
 			}))
 			Expect(w.Write(frame.NewMulti(
 				keys,
@@ -1141,7 +1223,7 @@ var _ = Describe("StreamIterator", Ordered, func() {
 			w = MustSucceed(dist.Framer.OpenWriter(ctx, framer.WriterConfig{
 				Start:            telem.SecondTS * 10,
 				Keys:             keys,
-				EnableAutoCommit: config.True(),
+				EnableAutoCommit: new(true),
 			}))
 			Expect(w.Write(frame.NewMulti(
 				keys,

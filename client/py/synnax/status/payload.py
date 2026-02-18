@@ -79,10 +79,15 @@ class Status(BaseModel, Generic[D]):
         return ontology_id(self.key)
 
 
-# Backwards compatibility
-SUCCESS_VARIANT = VARIANT_SUCCESS
-INFO_VARIANT = VARIANT_INFO
-WARNING_VARIANT = VARIANT_WARNING
-ERROR_VARIANT = VARIANT_ERROR
-DISABLED_VARIANT = VARIANT_DISABLED
-LOADING_VARIANT = VARIANT_LOADING
+from synnax.util.deprecation import deprecated_getattr
+
+_DEPRECATED = {
+    "SUCCESS_VARIANT": "VARIANT_SUCCESS",
+    "INFO_VARIANT": "VARIANT_INFO",
+    "WARNING_VARIANT": "VARIANT_WARNING",
+    "ERROR_VARIANT": "VARIANT_ERROR",
+    "DISABLED_VARIANT": "VARIANT_DISABLED",
+    "LOADING_VARIANT": "VARIANT_LOADING",
+}
+
+__getattr__ = deprecated_getattr(__name__, _DEPRECATED, globals())

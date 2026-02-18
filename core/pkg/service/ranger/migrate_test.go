@@ -19,7 +19,6 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
 	"github.com/synnaxlabs/synnax/pkg/service/label"
 	"github.com/synnaxlabs/synnax/pkg/service/ranger"
-	"github.com/synnaxlabs/x/config"
 	"github.com/synnaxlabs/x/gorp"
 	xio "github.com/synnaxlabs/x/io"
 	"github.com/synnaxlabs/x/kv/memkv"
@@ -43,7 +42,7 @@ var _ = Describe("Migrate", func() {
 		ctx = context.Background()
 		otg = MustSucceed(ontology.Open(ctx, ontology.Config{
 			DB:           db,
-			EnableSearch: config.True(),
+			EnableSearch: new(true),
 		}))
 		gSvc = MustSucceed(group.OpenService(ctx, group.ServiceConfig{DB: db, Ontology: otg}))
 		lab = MustSucceed(label.OpenService(ctx, label.ServiceConfig{
@@ -101,7 +100,7 @@ var _ = Describe("Migrate", func() {
 			Ontology:       otg,
 			Group:          gSvc,
 			Label:          lab,
-			ForceMigration: config.True(),
+			ForceMigration: new(true),
 		}))
 
 		// The "Ranges" group and "Subgroup" should be deleted

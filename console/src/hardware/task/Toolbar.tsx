@@ -38,6 +38,7 @@ import { createLayout } from "@/hardware/task/layouts";
 import { SELECTOR_LAYOUT } from "@/hardware/task/Selector";
 import { getIcon, parseType } from "@/hardware/task/types";
 import { useRangeSnapshot } from "@/hardware/task/useRangeSnapshot";
+import { useSetDataSaving } from "@/hardware/task/useSetDataSaving";
 import { Layout } from "@/layout";
 import { Link } from "@/link";
 import { Modals } from "@/modals";
@@ -140,6 +141,17 @@ const Content = () => {
     (keys: string[]) => handleCommand(keys, "stop"),
     [handleCommand],
   );
+  const { update: setDataSaving } = useSetDataSaving();
+  const handleEnableDataSaving = useCallback(
+    (keys: task.Key[]) =>
+      keys.forEach((key) => setDataSaving({ key, dataSaving: true })),
+    [setDataSaving],
+  );
+  const handleDisableDataSaving = useCallback(
+    (keys: task.Key[]) =>
+      keys.forEach((key) => setDataSaving({ key, dataSaving: false })),
+    [setDataSaving],
+  );
   const handleEdit = useCallback(
     (key: task.Key) => {
       const task = getItem(key);
@@ -163,9 +175,17 @@ const Content = () => {
         onStart={handleStart}
         onStop={handleStop}
         onEdit={handleEdit}
+        onEnableDataSaving={handleEnableDataSaving}
+        onDisableDataSaving={handleDisableDataSaving}
       />
     ),
-    [handleDelete, handleStart, handleStop],
+    [
+      handleDelete,
+      handleStart,
+      handleStop,
+      handleEnableDataSaving,
+      handleDisableDataSaving,
+    ],
   );
   const handleListItemStopStart = useCallback(
     (command: Common.Task.Command, key: task.Key) => handleCommand([key], command),
@@ -291,6 +311,8 @@ interface ContextMenuProps {
   onStart: (keys: task.Key[]) => void;
   onStop: (keys: task.Key[]) => void;
   onEdit: (key: task.Key) => void;
+  onEnableDataSaving: (keys: task.Key[]) => void;
+  onDisableDataSaving: (keys: task.Key[]) => void;
   tasks: task.Task[];
 }
 
@@ -301,6 +323,8 @@ const ContextMenu = ({
   onStart,
   onStop,
   onEdit,
+  onEnableDataSaving,
+  onDisableDataSaving,
 }: ContextMenuProps) => {
   const activeRange = Range.useSelect();
   const snapshotToActiveRange = useRangeSnapshot();
@@ -314,6 +338,27 @@ const ContextMenu = ({
   const canStop = selectedTasks.some(({ status }) => status?.details.running === true);
   const someSelected = selectedTasks.length > 0;
   const isSingle = selectedTasks.length === 1;
+
+  // Only tasks with a dataSaving field in their config (primarily read tasks) are
+  // eligible for these menu items. Write tasks without this field are excluded.
+  const dataSavingTasks = selectedTasks.filter(
+    ({ config }) =>
+      config != null && typeof config === "object" && "dataSaving" in config,
+  );
+  const canEnableDataSaving = dataSavingTasks.some(
+    ({ config }) =>
+      config != null &&
+      typeof config === "object" &&
+      "dataSaving" in config &&
+      config.dataSaving === false,
+  );
+  const canDisableDataSaving = dataSavingTasks.some(
+    ({ config }) =>
+      config != null &&
+      typeof config === "object" &&
+      "dataSaving" in config &&
+      config.dataSaving === true,
+  );
 
   const addStatus = Status.useAdder();
   const copyLinkToClipboard = Cluster.useCopyLinkToClipboard();
@@ -336,6 +381,8 @@ const ContextMenu = ({
     () => ({
       start: () => onStart(keys),
       stop: () => onStop(keys),
+      enableDataSaving: () => onEnableDataSaving(keys),
+      disableDataSaving: () => onDisableDataSaving(keys),
       edit: () => onEdit(keys[0]),
       rename: () => Text.edit(`text-${keys[0]}`),
       link: () => handleLink(keys[0]),
@@ -349,6 +396,8 @@ const ContextMenu = ({
     [
       onStart,
       onStop,
+      onEnableDataSaving,
+      onDisableDataSaving,
       onEdit,
       handleLink,
       onDelete,
@@ -376,6 +425,19 @@ const ContextMenu = ({
             </PMenu.Item>
           )}
           {(canStart || canStop) && <PMenu.Divider />}
+          {canEnableDataSaving && (
+            <PMenu.Item itemKey="enableDataSaving">
+              <Icon.Save />
+              Enable data saving
+            </PMenu.Item>
+          )}
+          {canDisableDataSaving && (
+            <PMenu.Item itemKey="disableDataSaving">
+              <Icon.Disable />
+              Disable data saving
+            </PMenu.Item>
+          )}
+          {(canEnableDataSaving || canDisableDataSaving) && <PMenu.Divider />}
           {isSingle && (
             <>
               <PMenu.Item itemKey="edit">
