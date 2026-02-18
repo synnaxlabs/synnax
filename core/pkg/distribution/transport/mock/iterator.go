@@ -10,13 +10,13 @@
 package mock
 
 import (
-	"github.com/synnaxlabs/freighter/fmock"
+	"github.com/synnaxlabs/freighter/mock"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer/iterator"
 	"github.com/synnaxlabs/x/address"
 )
 
 type FramerIteratorNetwork struct {
-	Internal *fmock.Network[iterator.Request, iterator.Response]
+	Internal *mock.Network[iterator.Request, iterator.Response]
 }
 
 func (c *FramerIteratorNetwork) New(addr address.Address, buffers ...int) iterator.Transport {
@@ -27,7 +27,7 @@ func (c *FramerIteratorNetwork) New(addr address.Address, buffers ...int) iterat
 }
 
 func NewIteratorNetwork() *FramerIteratorNetwork {
-	return &FramerIteratorNetwork{Internal: fmock.NewNetwork[iterator.Request, iterator.Response]()}
+	return &FramerIteratorNetwork{Internal: mock.NewNetwork[iterator.Request, iterator.Response]()}
 }
 
 type FramerIteratorTransport struct {

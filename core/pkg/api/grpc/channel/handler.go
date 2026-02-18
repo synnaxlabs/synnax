@@ -14,7 +14,7 @@ import (
 	"go/types"
 
 	"github.com/samber/lo"
-	"github.com/synnaxlabs/freighter/fgrpc"
+	"github.com/synnaxlabs/freighter/grpc"
 	"github.com/synnaxlabs/synnax/pkg/api"
 	apichannel "github.com/synnaxlabs/synnax/pkg/api/channel"
 	gapi "github.com/synnaxlabs/synnax/pkg/api/grpc/v1"
@@ -31,19 +31,19 @@ type (
 	retrieveRequestTranslator  struct{}
 	retrieveResponseTranslator struct{}
 	deleteRequestTranslator    struct{}
-	createServer               = fgrpc.UnaryServer[
+	createServer               = grpc.UnaryServer[
 		apichannel.CreateRequest,
 		*gapi.ChannelCreateRequest,
 		apichannel.CreateResponse,
 		*gapi.ChannelCreateResponse,
 	]
-	retrieveServer = fgrpc.UnaryServer[
+	retrieveServer = grpc.UnaryServer[
 		apichannel.RetrieveRequest,
 		*gapi.ChannelRetrieveRequest,
 		apichannel.RetrieveResponse,
 		*gapi.ChannelRetrieveResponse,
 	]
-	deleteServer = fgrpc.UnaryServer[
+	deleteServer = grpc.UnaryServer[
 		apichannel.DeleteRequest,
 		*gapi.ChannelDeleteRequest,
 		types.Nil,
@@ -52,11 +52,11 @@ type (
 )
 
 var (
-	_ fgrpc.Translator[apichannel.CreateRequest, *gapi.ChannelCreateRequest]       = (*createRequestTranslator)(nil)
-	_ fgrpc.Translator[apichannel.CreateResponse, *gapi.ChannelCreateResponse]     = (*createResponseTranslator)(nil)
-	_ fgrpc.Translator[apichannel.RetrieveRequest, *gapi.ChannelRetrieveRequest]   = (*retrieveRequestTranslator)(nil)
-	_ fgrpc.Translator[apichannel.RetrieveResponse, *gapi.ChannelRetrieveResponse] = (*retrieveResponseTranslator)(nil)
-	_ fgrpc.Translator[apichannel.CreateRequest, *gapi.ChannelCreateRequest]       = (*createRequestTranslator)(nil)
+	_ grpc.Translator[apichannel.CreateRequest, *gapi.ChannelCreateRequest]       = (*createRequestTranslator)(nil)
+	_ grpc.Translator[apichannel.CreateResponse, *gapi.ChannelCreateResponse]     = (*createResponseTranslator)(nil)
+	_ grpc.Translator[apichannel.RetrieveRequest, *gapi.ChannelRetrieveRequest]   = (*retrieveRequestTranslator)(nil)
+	_ grpc.Translator[apichannel.RetrieveResponse, *gapi.ChannelRetrieveResponse] = (*retrieveResponseTranslator)(nil)
+	_ grpc.Translator[apichannel.CreateRequest, *gapi.ChannelCreateRequest]       = (*createRequestTranslator)(nil)
 )
 
 func TranslateKeysForward(keys []distchannel.Key) []uint32 {
@@ -193,7 +193,7 @@ func TranslateBackward(
 	}
 }
 
-func New(a *api.Transport) fgrpc.BindableTransport {
+func New(a *api.Transport) grpc.BindableTransport {
 	c := &createServer{
 		RequestTranslator:  createRequestTranslator{},
 		ResponseTranslator: createResponseTranslator{},
@@ -206,11 +206,11 @@ func New(a *api.Transport) fgrpc.BindableTransport {
 	}
 	d := &deleteServer{
 		RequestTranslator:  deleteRequestTranslator{},
-		ResponseTranslator: fgrpc.EmptyTranslator{},
+		ResponseTranslator: grpc.EmptyTranslator{},
 		ServiceDesc:        &gapi.ChannelDeleteService_ServiceDesc,
 	}
 	a.ChannelCreate = c
 	a.ChannelRetrieve = r
 	a.ChannelDelete = d
-	return fgrpc.CompoundBindableTransport{c, r, d}
+	return grpc.CompoundBindableTransport{c, r, d}
 }
