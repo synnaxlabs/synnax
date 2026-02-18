@@ -65,14 +65,12 @@ class Payload(BaseModel):
 @dataclass
 class NormalizedKeyResult:
     single: bool
-    variant: Literal["keys"]
     channels: list[Key] | tuple[Key]
 
 
 @dataclass
 class NormalizedNameResult:
     single: bool
-    variant: Literal["names"]
     channels: list[str]
 
 
@@ -87,31 +85,27 @@ def normalize_params(
     """Determine if a list of keys or names is a single key or name."""
     normalized = normalize(channels)
     if len(normalized) == 0:
-        return NormalizedKeyResult(single=False, variant="keys", channels=[])
+        return NormalizedKeyResult(single=False, channels=[])
     single = isinstance(channels, (Key, str))
     if isinstance(normalized[0], str):
         str_list = [s for s in normalized if isinstance(s, str)]
         try:
             return NormalizedKeyResult(
                 single=single,
-                variant="keys",
                 channels=[Key(s) for s in str_list],
             )
         except (ValueError, TypeError):
             return NormalizedNameResult(
                 single=single,
-                variant="names",
                 channels=str_list,
             )
     elif isinstance(normalized[0], Payload):
         return NormalizedKeyResult(
             single=single,
-            variant="keys",
             channels=[c.key for c in normalized if isinstance(c, Payload)],
         )
     return NormalizedKeyResult(
         single=single,
-        variant="keys",
         channels=[k for k in normalized if isinstance(k, int)],
     )
 

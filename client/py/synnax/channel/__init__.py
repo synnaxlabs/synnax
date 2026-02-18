@@ -10,6 +10,8 @@
 from synnax.channel.client import Channel, Client
 from synnax.channel.payload import (
     Key,
+    NormalizedKeyResult,
+    NormalizedNameResult,
     Operation,
     Params,
     Payload,
@@ -52,4 +54,6 @@ __all__ = [
     "ChannelRetriever",
     "normalize_channel_params",
     "has_params",
+    "NormalizedNameResult",
+    "NormalizedKeyResult"
 ]

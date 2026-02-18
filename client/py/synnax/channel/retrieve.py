@@ -176,24 +176,20 @@ class CacheRetriever:
         results: list[Payload] = []
         missed: list[int] = []
         if isinstance(normal, NormalizedNameResult):
-            for i, name in enumerate(normal.channels):
-                ch = self._get(name)
-                if ch is None:
-                    missed.append(i)
-                else:
-                    results.extend(ch)
-            if not missed:
-                return results
+            params: list[Key | str] = list(normal.channels)
+        else:
+            params = list(normal.channels)
+        for i, param in enumerate(params):
+            ch = self._get(param)
+            if ch is None:
+                missed.append(i)
+            else:
+                results.extend(ch)
+        if not missed:
+            return results
+        if isinstance(normal, NormalizedNameResult):
             to_retrieve: Params = [normal.channels[i] for i in missed]
         else:
-            for i, key in enumerate(normal.channels):
-                ch = self._get(key)
-                if ch is None:
-                    missed.append(i)
-                else:
-                    results.extend(ch)
-            if not missed:
-                return results
             to_retrieve = [normal.channels[i] for i in missed]
         retrieved = self._retriever.retrieve(to_retrieve)
         self.set(retrieved)

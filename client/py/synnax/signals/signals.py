@@ -36,7 +36,7 @@ class Registry:
         filter_f: Callable[[LatestState], bool],
     ) -> Callable[[Callable[[LatestState], None]], Callable[[LatestState], None]]:
         normal = channel.normalize_params(channels)
-        if normal.variant == "keys":
+        if isinstance(normal, channel.NormalizedKeyResult):
             self._channels.extend(normal.channels)
         else:
             resolved = self._channel_retriever.retrieve(channels)
