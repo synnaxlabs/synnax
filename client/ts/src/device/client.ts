@@ -138,7 +138,7 @@ export class Client {
     Make extends z.ZodType<string>,
     Model extends z.ZodType<string>,
   >(
-    device: New,
+    device: New<Properties, Make, Model>,
     schemas: DeviceSchemas<Properties, Make, Model>,
   ): Promise<Device<Properties, Make, Model>>;
 
@@ -149,7 +149,7 @@ export class Client {
     Make extends z.ZodType<string>,
     Model extends z.ZodType<string>,
   >(
-    devices: New[],
+    devices: New<Properties, Make, Model>[],
     schemas: DeviceSchemas<Properties, Make, Model>,
   ): Promise<Device<Properties, Make, Model>[]>;
 

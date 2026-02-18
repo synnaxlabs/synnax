@@ -40,15 +40,12 @@ export const deviceZ = <
     key: keyZ,
     rack: rackKeyZ.min(1, "Must select a location to connect from"),
     name: z.string().min(1, "Name is required"),
-    make: make ?? (z.string().min(1, "Make is required") as unknown as Make),
-    model: model ?? (z.string().min(1, "Model is required") as unknown as Model),
+    make: make ?? z.string().min(1, "Make is required"),
+    model: model ?? z.string().min(1, "Model is required"),
     location: z.string().min(1, "Location is required"),
     configured: z.boolean().optional(),
     properties:
-      properties ??
-      (record.unknownZ.or(
-        z.string().transform(decodeJSONString),
-      ) as unknown as Properties),
+      properties ?? record.unknownZ.or(z.string().transform(decodeJSONString)),
     status: zod.nullToUndefined(statusZ),
   });
 

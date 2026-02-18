@@ -36,12 +36,11 @@ export interface FluxSubStore extends Task.FluxSubStore {
   [Status.FLUX_STORE_KEY]: Status.FluxStore;
 }
 
-const SET_DEVICE_LISTENER: Flux.ChannelListener<
-  FluxSubStore,
-  ReturnType<typeof device.deviceZ>
-> = {
+const genericDeviceZ = device.deviceZ();
+
+const SET_DEVICE_LISTENER: Flux.ChannelListener<FluxSubStore, typeof genericDeviceZ> = {
   channel: device.SET_CHANNEL_NAME,
-  schema: device.deviceZ(),
+  schema: genericDeviceZ,
   onChange: ({ store, changed }) => store.devices.set(changed.key, changed),
 };
 
@@ -87,14 +86,20 @@ export const retrieveSingle = async <
     const dev: device.Device = { ...cached, status };
     return dev as unknown as device.Device<Properties, Make, Model>;
   }
-  const dev = await client.devices.retrieve({
-    ...BASE_QUERY,
-    ...query,
-    ...(schemas != null ? { schemas } : {}),
-  });
-  store.devices.set(dev);
+  const dev =
+    schemas != null
+      ? await client.devices.retrieve({
+          ...BASE_QUERY,
+          ...query,
+          schemas,
+        })
+      : await client.devices.retrieve({
+          ...BASE_QUERY,
+          ...query,
+        });
+  store.devices.set(dev.key, dev as unknown as device.Device);
   if (dev.status != null) store.statuses.set(dev.status);
-  return dev as unknown as device.Device<Properties, Make, Model>;
+  return dev as device.Device<Properties, Make, Model>;
 };
 
 export interface RetrieveMultipleQuery {
@@ -126,18 +131,24 @@ export const retrieveMultiple = async <
   const statusMap = new Map(statuses.map((s) => [s.key, s]));
   const cachedWithStatus = cached.map((d) => {
     const status = statusMap.get(device.statusKey(d.key));
-    return { ...d, status } as unknown as device.Device<Properties, Make, Model>;
+    return { ...d, status } as device.Device<Properties, Make, Model>;
   });
 
   const devices = [...cachedWithStatus];
   if (missingKeys.length > 0) {
-    const fetched = await client.devices.retrieve({
-      ...BASE_QUERY,
-      keys: missingKeys,
-      ...(schemas != null ? { schemas } : {}),
-    });
-    devices.push(...(fetched as unknown as device.Device<Properties, Make, Model>[]));
-    store.devices.set(fetched);
+    const fetched =
+      schemas != null
+        ? await client.devices.retrieve({
+            ...BASE_QUERY,
+            keys: missingKeys,
+            schemas,
+          })
+        : await client.devices.retrieve({
+            ...BASE_QUERY,
+            keys: missingKeys,
+          });
+    devices.push(...(fetched as device.Device<Properties, Make, Model>[]));
+    store.devices.set(fetched as unknown as device.Device[]);
     fetched.forEach((d) => {
       if (d.status != null) store.statuses.set(d.status);
     });
@@ -250,32 +261,31 @@ export const { useUpdate: useDelete } = Flux.createUpdate<UseDeleteArgs, FluxSub
   },
 });
 
-export interface CreateParams extends device.New {}
-
-export const createCreate = (schemas?: device.DeviceSchemas) =>
-  Flux.createUpdate<CreateParams, FluxSubStore, device.Device>({
+export const createCreate = <
+  Properties extends z.ZodType = z.ZodType,
+  Make extends z.ZodType<string> = z.ZodString,
+  Model extends z.ZodType<string> = z.ZodString,
+>(
+  schemas?: device.DeviceSchemas<Properties, Make, Model>,
+) =>
+  Flux.createUpdate<
+    device.New<Properties, Make, Model>,
+    FluxSubStore,
+    device.Device<Properties, Make, Model>
+  >({
     name: RESOURCE_NAME,
     verbs: Flux.CREATE_VERBS,
     update: async ({ data, client, rollbacks, store }) => {
-      const dev = await client.devices.create(data, schemas!);
-      rollbacks.push(store.devices.set(dev));
-      return dev;
+      const dev =
+        schemas != null
+          ? await client.devices.create(data, schemas)
+          : await client.devices.create(data as unknown as device.New);
+      rollbacks.push(store.devices.set(dev as unknown as device.Device));
+      return dev as device.Device<Properties, Make, Model>;
     },
   });
 
-export const { useUpdate: useCreate } = Flux.createUpdate<
-  CreateParams,
-  FluxSubStore,
-  device.Device
->({
-  name: RESOURCE_NAME,
-  verbs: Flux.CREATE_VERBS,
-  update: async ({ data, client, rollbacks, store }) => {
-    const dev = await client.devices.create(data);
-    rollbacks.push(store.devices.set(dev));
-    return dev;
-  },
-});
+export const { useUpdate: useCreate } = createCreate();
 
 export interface UseRetrieveGroupArgs {}
 
@@ -358,12 +368,24 @@ export const createForm = <
         set("key", uuid.create());
         return;
       }
-      const dev = await retrieveSingle({ client, store, query, schemas });
-      reset(dev);
+      const dev = await retrieveSingle<Properties, Make, Model>({
+        client,
+        store,
+        query,
+        schemas,
+      });
+      reset(dev as unknown as z.infer<typeof formSchema>);
     },
     update: async ({ value, client, store, rollbacks }) => {
-      const result = await client.devices.create(value());
-      rollbacks.push(store.devices.set(result));
+      const data = value();
+      const result =
+        schemas != null
+          ? await client.devices.create(
+              data as device.New<Properties, Make, Model>,
+              schemas,
+            )
+          : await client.devices.create(data);
+      rollbacks.push(store.devices.set(result.key, result as unknown as device.Device));
     },
     mountListeners: ({ store, query: { key }, reset, set, get }) => {
       if (primitive.isZero(key)) return [];
