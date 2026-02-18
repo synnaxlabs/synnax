@@ -23,12 +23,12 @@ import {
 } from "@/hardware/ethercat/device/queries";
 import {
   MAKE,
-  makeZ,
-  modelZ,
+  type makeZ,
+  type modelZ,
   SLAVE_MODEL,
   SLAVE_SCHEMAS,
   type SlaveProperties,
-  slavePropertiesZ,
+  type slavePropertiesZ,
   ZERO_SLAVE_PROPERTIES,
 } from "@/hardware/ethercat/device/types";
 import { type Channel } from "@/hardware/ethercat/task/types";

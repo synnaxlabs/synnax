@@ -193,6 +193,7 @@ const Form: FC<
     >
       canConfigure={!isSnapshot}
       configureLayout={Device.CONFIGURE_LAYOUT}
+      schemas={Device.SCHEMAS}
     >
       {({ device }) => <ChannelList device={device} />}
     </Common.Device.Provider>

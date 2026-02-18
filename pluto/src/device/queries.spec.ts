@@ -8,11 +8,11 @@
 // included in the file licenses/APL.txt.
 
 import { createTestClient, device, NotFoundError } from "@synnaxlabs/client";
-import { id, type record, status } from "@synnaxlabs/x";
-import { z } from "zod";
+import { id, status } from "@synnaxlabs/x";
 import { act, renderHook, waitFor } from "@testing-library/react";
 import { type PropsWithChildren } from "react";
 import { beforeEach, describe, expect, it } from "vitest";
+import { z } from "zod";
 
 import { Device } from "@/device";
 import { Flux } from "@/flux";

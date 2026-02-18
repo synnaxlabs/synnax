@@ -11,7 +11,6 @@ import { channel, type device } from "@synnaxlabs/client";
 import { z } from "zod";
 
 export const VERSION = "0.0.0";
-type Version = typeof VERSION;
 
 export const MAKE = "opc";
 export type Make = typeof MAKE;

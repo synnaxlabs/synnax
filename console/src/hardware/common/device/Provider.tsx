@@ -9,9 +9,9 @@
 
 import { type device } from "@synnaxlabs/client";
 import { Text } from "@synnaxlabs/pluto";
-import { record } from "@synnaxlabs/x";
-import { type z } from "zod";
+import { type record } from "@synnaxlabs/x";
 import { type ReactElement } from "react";
+import { type z } from "zod";
 
 import { EmptyAction } from "@/components";
 import { use } from "@/hardware/common/device/use";
@@ -40,6 +40,7 @@ export interface ProviderProps<
   children: (props: ProviderChildProps<Properties, Make, Model>) => ReactElement;
   configureLayout: Layout.BaseState;
   noneSelectedContent?: ReactElement;
+  schemas?: device.DeviceSchemas<Properties, Make, Model>;
 }
 
 export const Provider = <
@@ -51,8 +52,9 @@ export const Provider = <
   children,
   configureLayout,
   noneSelectedContent = DEFAULT_NONE_SELECTED_CONTENT,
+  schemas,
 }: ProviderProps<Properties, Make, Model>) => {
-  const device = use<Properties, Make, Model>();
+  const device = use<Properties, Make, Model>(schemas);
   const placeLayout = Layout.usePlacer();
   if (device == null) return noneSelectedContent;
   if (!device.configured) {

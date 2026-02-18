@@ -237,6 +237,7 @@ const Form: FC<
     >
       canConfigure={!isSnapshot}
       configureLayout={Device.CONFIGURE_LAYOUT}
+      schemas={Device.SCHEMAS}
     >
       {({ device }) => <ChannelsForm device={device} {...props} />}
     </Common.Device.Provider>

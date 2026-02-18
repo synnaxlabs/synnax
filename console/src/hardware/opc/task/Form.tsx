@@ -205,6 +205,7 @@ export const Form = <C extends Channel>({
     <Common.Device.Provider<typeof Device.propertiesZ, typeof Device.makeZ>
       canConfigure={!isSnapshot}
       configureLayout={Device.CONNECT_LAYOUT}
+      schemas={Device.SCHEMAS}
     >
       {({ device }) => (
         <>

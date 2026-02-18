@@ -34,6 +34,7 @@ import {
   type makeZ,
   NO_SECURITY_MODE,
   type propertiesZ,
+  SCHEMAS,
   type SecurityMode,
   type SecurityPolicy,
   ZERO_PROPERTIES,
@@ -54,7 +55,7 @@ export const CONNECT_LAYOUT: Layout.BaseState = {
   window: { resizable: false, size: { height: 720, width: 915 }, navTop: true },
 };
 
-const useForm = Device.createForm<typeof propertiesZ, typeof makeZ>();
+const useForm = Device.createForm<typeof propertiesZ, typeof makeZ>(SCHEMAS);
 
 const INITIAL_VALUES: device.Device<typeof propertiesZ, typeof makeZ> = {
   key: "",
