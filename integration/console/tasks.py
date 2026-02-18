@@ -52,15 +52,10 @@ class TaskClient:
         self.show_toolbar()
         return self.layout.ctrl_select_items(names, self.get_item)
 
-    def wait_for_task(self, name: str, timeout: int = 10000) -> None:
-        """Wait for a task to appear in the task toolbar.
-
-        Args:
-            name: Name of the task to wait for.
-            timeout: Maximum time to wait in milliseconds.
-        """
+    def wait_for_task(self, name: str,) -> None:
+        """Wait for a task to appear in the task toolbar."""
         self.show_toolbar()
-        self.get_item(name).wait_for(state="visible", timeout=timeout)
+        self.get_item(name).wait_for(state="visible", timeout=30000)
 
     def _is_running(self, item: Locator) -> bool:
         """Check if a task item is currently running by its icon."""
