@@ -264,6 +264,95 @@ var _ = Describe("Codec", func() {
 			Entry("negative float32", float32(-1.5)),
 		)
 	})
+	Describe("MsgpackEncodedJSON", func() {
+		It("Should round-trip through msgpack encoding and decoding", func() {
+			original := binary.MsgpackEncodedJSON{"key": "value", "count": int64(42)}
+			b := MustSucceed(msgpack.Marshal(original))
+			var result binary.MsgpackEncodedJSON
+			Expect(msgpack.Unmarshal(b, &result)).To(Succeed())
+			Expect(result["key"]).To(Equal("value"))
+			Expect(result["count"]).To(BeNumerically("==", 42))
+		})
+		It("Should decode a JSON string for backwards compatibility", func() {
+			jsonStr := `{"key":"value","count":42}`
+			b := MustSucceed(msgpack.Marshal(jsonStr))
+			var result binary.MsgpackEncodedJSON
+			Expect(msgpack.Unmarshal(b, &result)).To(Succeed())
+			Expect(result["key"]).To(Equal("value"))
+			Expect(result["count"]).To(BeNumerically("==", 42))
+		})
+		It("Should decode a struct field from a JSON string for backwards compatibility", func() {
+			type OldConfig struct {
+				Name   string `msgpack:"name"`
+				Schema string `msgpack:"schema"`
+			}
+			type NewConfig struct {
+				Name   string                    `msgpack:"name"`
+				Schema binary.MsgpackEncodedJSON `msgpack:"schema"`
+			}
+			old := OldConfig{
+				Name:   "test",
+				Schema: `{"field":"value"}`,
+			}
+			b := MustSucceed(msgpack.Marshal(old))
+			var result NewConfig
+			Expect(msgpack.Unmarshal(b, &result)).To(Succeed())
+			Expect(result.Name).To(Equal("test"))
+			Expect(result.Schema["field"]).To(Equal("value"))
+		})
+		It("Should decode nil to nil", func() {
+			b := MustSucceed(msgpack.Marshal(nil))
+			var result binary.MsgpackEncodedJSON
+			Expect(msgpack.Unmarshal(b, &result)).To(Succeed())
+			Expect(result).To(BeNil())
+		})
+		It("Should handle map[any]any with string keys", func() {
+			m := map[string]any{"key": "value"}
+			b := MustSucceed(msgpack.Marshal(m))
+			dec := msgpack.NewDecoder(bytes.NewReader(b))
+			dec.SetMapDecoder(func(dec *msgpack.Decoder) (interface{}, error) {
+				return dec.DecodeUntypedMap()
+			})
+			var result binary.MsgpackEncodedJSON
+			Expect(result.DecodeMsgpack(dec)).To(Succeed())
+			Expect(result["key"]).To(Equal("value"))
+		})
+		It("Should work as a struct field with map data", func() {
+			type Config struct {
+				Name   string                    `msgpack:"name"`
+				Schema binary.MsgpackEncodedJSON `msgpack:"schema"`
+			}
+			original := Config{
+				Name:   "test",
+				Schema: binary.MsgpackEncodedJSON{"field": "value"},
+			}
+			b := MustSucceed(msgpack.Marshal(original))
+			var result Config
+			Expect(msgpack.Unmarshal(b, &result)).To(Succeed())
+			Expect(result.Name).To(Equal("test"))
+			Expect(result.Schema["field"]).To(Equal("value"))
+		})
+		It("Should return an error for an invalid JSON string", func() {
+			b := MustSucceed(msgpack.Marshal("not valid json"))
+			var result binary.MsgpackEncodedJSON
+			Expect(msgpack.Unmarshal(b, &result)).To(MatchError(ContainSubstring("failed to unmarshal JSON string")))
+		})
+		It("Should return an error for unsupported types", func() {
+			b := MustSucceed(msgpack.Marshal(42))
+			var result binary.MsgpackEncodedJSON
+			Expect(msgpack.Unmarshal(b, &result)).To(MatchError(ContainSubstring("unsupported type")))
+		})
+		It("Should return an error for non-string map keys", func() {
+			m := map[int]string{1: "a"}
+			b := MustSucceed(msgpack.Marshal(m))
+			dec := msgpack.NewDecoder(bytes.NewReader(b))
+			dec.SetMapDecoder(func(dec *msgpack.Decoder) (interface{}, error) {
+				return dec.DecodeUntypedMap()
+			})
+			var result binary.MsgpackEncodedJSON
+			Expect(result.DecodeMsgpack(dec)).To(MatchError(ContainSubstring("non-string key")))
+		})
+	})
 	Describe("UnmarshalMsgpackUint32", func() {
 		DescribeTable("Should decode various types to uint32",
 			func(value any, expected uint32) {

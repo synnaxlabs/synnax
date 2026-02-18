@@ -28,6 +28,21 @@ cc_test(
     ],
 )
 
+cc_test(
+    name = "struct_test",
+    srcs = [
+        "struct_test.cpp",
+    ],
+    visibility = ["//visibility:public"],
+    deps = [
+        "//x/cpp/json",
+        "//x/cpp/test",
+        "@googletest//:gtest_main",
+        "@nlohmann_json//:json",
+        "@protobuf",
+    ],
+)
+
 cc_library(
     name = "convert",
     srcs = [
