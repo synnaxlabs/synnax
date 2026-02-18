@@ -55,5 +55,5 @@ __all__ = [
     "normalize_channel_params",
     "has_params",
     "NormalizedNameResult",
-    "NormalizedKeyResult"
+    "NormalizedKeyResult",
 ]
