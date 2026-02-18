@@ -104,7 +104,8 @@ Param struct {
         @doc value "is an optional default value."
     }
 
-    @doc value "is a named, typed parameter with optional default value."
+    @doc value    "is a named, typed parameter with optional default value."
+    @cpp methods  "[[nodiscard]] std::string to_string() const" "friend std::ostream& operator<<(std::ostream& os, const Param& p)"
 }
 
 Params Param[] {
@@ -112,7 +113,7 @@ Params Param[] {
         is a collection of named, typed parameters for function inputs, outputs,
         or configuration.
     """
-    @cpp methods "[[nodiscard]] const Param& operator[](const std::string& name) const"
+    @cpp methods  "[[nodiscard]] const Param& operator[](const std::string& name) const" "[[nodiscard]] std::string to_string() const" "friend std::ostream& operator<<(std::ostream& os, const Params& p)"
 }
 
 Channels struct {
@@ -123,9 +124,10 @@ Channels struct {
         @doc value "contains writable channel indices mapped to parameter names."
     }
 
-    @doc value """
+    @doc value    """
         contains channel declarations for reading from and writing to Synnax channels.
     """
+    @cpp methods  "[[nodiscard]] std::string to_string() const" "friend std::ostream& operator<<(std::ostream& os, const Channels& c)"
 }
 
 Dimensions struct {

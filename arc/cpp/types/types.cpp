@@ -7,16 +7,86 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+#include <algorithm>
+#include <sstream>
 #include <stdexcept>
 
 #include "arc/cpp/types/types.h"
 
 namespace arc::types {
 
+std::string Param::to_string() const {
+    std::ostringstream ss;
+    ss << this->name << " (" << this->type.to_string() << ")";
+    if (!this->value.is_null()) ss << " = " << this->value.dump();
+    return ss.str();
+}
+
+std::ostream &operator<<(std::ostream &os, const Param &p) {
+    return os << p.to_string();
+}
+
 const Param &Params::operator[](const std::string &name) const {
     for (const auto &p: *this)
         if (p.name == name) return p;
     throw std::runtime_error("param not found: " + name);
+}
+
+std::string Params::to_string() const {
+    if (this->empty()) return "(none)";
+    std::ostringstream ss;
+    bool first = true;
+    for (const auto &p: *this) {
+        if (!first) ss << ", ";
+        first = false;
+        ss << p.to_string();
+    }
+    return ss.str();
+}
+
+std::ostream &operator<<(std::ostream &os, const Params &p) {
+    return os << p.to_string();
+}
+
+std::string Channels::to_string() const {
+    if (this->read.empty() && this->write.empty()) return "(none)";
+    std::ostringstream ss;
+    if (!this->read.empty()) {
+        ss << "read [";
+        std::vector<std::pair<uint32_t, std::string>> pairs(
+            this->read.begin(),
+            this->read.end()
+        );
+        std::sort(pairs.begin(), pairs.end());
+        bool first = true;
+        for (const auto &[id, name]: pairs) {
+            if (!first) ss << ", ";
+            first = false;
+            ss << id << ": " << name;
+        }
+        ss << "]";
+    }
+    if (!this->write.empty()) {
+        if (!this->read.empty()) ss << ", ";
+        ss << "write [";
+        std::vector<std::pair<uint32_t, std::string>> pairs(
+            this->write.begin(),
+            this->write.end()
+        );
+        std::sort(pairs.begin(), pairs.end());
+        bool first = true;
+        for (const auto &[id, name]: pairs) {
+            if (!first) ss << ", ";
+            first = false;
+            ss << id << ": " << name;
+        }
+        ss << "]";
+    }
+    return ss.str();
+}
+
+std::ostream &operator<<(std::ostream &os, const Channels &c) {
+    return os << c.to_string();
 }
 
 bool Dimensions::operator==(const Dimensions &other) const {

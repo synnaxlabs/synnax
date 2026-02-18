@@ -81,6 +81,8 @@ struct Channels {
     [[nodiscard]] ::arc::types::pb::Channels to_proto() const;
     static std::pair<Channels, x::errors::Error>
     from_proto(const ::arc::types::pb::Channels &pb);
+    [[nodiscard]] std::string to_string() const;
+    friend std::ostream &operator<<(std::ostream &os, const Channels &c);
 };
 
 /// @brief Dimensions contains physical dimension exponents for dimensional analysis (SI
@@ -185,6 +187,8 @@ struct Params : private std::vector<Param> {
     static Params parse(x::json::Parser parser);
     [[nodiscard]] x::json::json to_json() const;
     [[nodiscard]] const Param &operator[](const std::string &name) const;
+    [[nodiscard]] std::string to_string() const;
+    friend std::ostream &operator<<(std::ostream &os, const Params &p);
 };
 
 /// @brief FunctionProperties contains common parameter definitions for function-like
@@ -254,5 +258,7 @@ struct Param {
     [[nodiscard]] ::arc::types::pb::Param to_proto() const;
     static std::pair<Param, x::errors::Error>
     from_proto(const ::arc::types::pb::Param &pb);
+    [[nodiscard]] std::string to_string() const;
+    friend std::ostream &operator<<(std::ostream &os, const Param &p);
 };
 }

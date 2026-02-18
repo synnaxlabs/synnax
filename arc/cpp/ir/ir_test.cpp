@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-#include <unordered_set>
+#include <sstream>
 
 #include "gtest/gtest.h"
 
@@ -185,15 +185,64 @@ TEST(IRTest, testEdgesTo) {
     ASSERT_TRUE(no_edges.empty());
 }
 
-/// @brief it should format a Stage as a string
+/// @brief it should format a Handle as "node.param"
+TEST(IRTest, testHandleToString) {
+    Handle h("node_a", "output");
+    ASSERT_EQ(h.to_string(), "node_a.output");
+}
+
+/// @brief it should format a continuous Edge
+TEST(IRTest, testEdgeToStringContinuous) {
+    Edge e(Handle("a", "out"), Handle("b", "in"), EdgeKind::Continuous);
+    const auto str = e.to_string();
+    ASSERT_EQ(str, "a.out -> b.in (continuous)");
+}
+
+/// @brief it should format a oneshot Edge
+TEST(IRTest, testEdgeToStringOneShot) {
+    Edge e(Handle("a", "out"), Handle("b", "in"), EdgeKind::OneShot);
+    const auto str = e.to_string();
+    ASSERT_EQ(str, "a.out => b.in (oneshot)");
+}
+
+/// @brief it should format a Stage with nodes as "key: [nodes]"
 TEST(IRTest, testStageToString) {
     Stage stage;
     stage.key = "stage_1";
     stage.nodes = {"node_a", "node_b"};
     const auto str = stage.to_string();
-    ASSERT_NE(str.find("stage_1"), std::string::npos);
-    ASSERT_NE(str.find("node_a"), std::string::npos);
-    ASSERT_NE(str.find("node_b"), std::string::npos);
+    ASSERT_EQ(str, "stage_1: [node_a, node_b]");
+}
+
+/// @brief it should format a Stage with strata
+TEST(IRTest, testStageToStringWithStrata) {
+    Stage stage;
+    stage.key = "run";
+    stage.nodes = {"a", "b"};
+    stage.strata.push_back({"a"});
+    stage.strata.push_back({"b"});
+    const auto str = stage.to_string();
+    ASSERT_NE(str.find("run: [a, b]"), std::string::npos);
+    ASSERT_NE(str.find("[0]: a"), std::string::npos);
+    ASSERT_NE(str.find("[1]: b"), std::string::npos);
+}
+
+/// @brief it should format a Stage with empty nodes
+TEST(IRTest, testStageToStringEmptyNodes) {
+    Stage stage;
+    stage.key = "terminal";
+    const auto str = stage.to_string();
+    ASSERT_EQ(str, "terminal: []");
+}
+
+/// @brief it should format Strata with tree prefixes
+TEST(IRTest, testStrataToString) {
+    Strata strata;
+    strata.push_back({"a", "b"});
+    strata.push_back({"c"});
+    const auto str = strata.to_string();
+    ASSERT_NE(str.find("[0]: a, b"), std::string::npos);
+    ASSERT_NE(str.find("[1]: c"), std::string::npos);
 }
 
 /// @brief it should access sequence stages by index
@@ -229,20 +278,54 @@ TEST(IRTest, testSequenceNext) {
     ASSERT_THROW((void) seq.next("nonexistent"), std::runtime_error);
 }
 
-/// @brief it should format a Sequence as a string
+/// @brief it should format a Sequence as a tree with stages
 TEST(IRTest, testSequenceToString) {
     Sequence seq;
     seq.key = "seq_1";
     Stage s0;
     s0.key = "init";
+    s0.nodes = {"a"};
     Stage s1;
     s1.key = "run";
+    s1.nodes = {"b", "c"};
     seq.stages.push_back(s0);
     seq.stages.push_back(s1);
     const auto str = seq.to_string();
     ASSERT_NE(str.find("seq_1"), std::string::npos);
-    ASSERT_NE(str.find("init"), std::string::npos);
-    ASSERT_NE(str.find("run"), std::string::npos);
+    ASSERT_NE(str.find("init: [a]"), std::string::npos);
+    ASSERT_NE(str.find("run: [b, c]"), std::string::npos);
+}
+
+/// @brief it should access params by name using operator[]
+TEST(IRTest, testParamsOperatorBracketByName) {
+    types::Params params;
+    types::Param p1;
+    p1.name = "alpha";
+    p1.value = 42;
+    types::Param p2;
+    p2.name = "beta";
+    p2.value = 3.14;
+    params.push_back(p1);
+    params.push_back(p2);
+    ASSERT_EQ(params["alpha"].value.get<int>(), 42);
+    ASSERT_DOUBLE_EQ(params["beta"].value.get<double>(), 3.14);
+}
+
+/// @brief it should access params by index using operator[]
+TEST(IRTest, testParamsOperatorBracketByIndex) {
+    types::Params params;
+    types::Param p1;
+    p1.name = "first";
+    p1.value = 100;
+    types::Param p2;
+    p2.name = "second";
+    p2.value = 200;
+    params.push_back(p1);
+    params.push_back(p2);
+    ASSERT_EQ(params[0].name, "first");
+    ASSERT_EQ(params[0].value.get<int>(), 100);
+    ASSERT_EQ(params[1].name, "second");
+    ASSERT_EQ(params[1].value.get<int>(), 200);
 }
 
 /// @brief it should access sequences by key from IR
@@ -257,5 +340,152 @@ TEST(IRTest, testIRSequenceAccess) {
     ASSERT_EQ(ir.sequence("main").key, "main");
     ASSERT_EQ(ir.sequence("cleanup").key, "cleanup");
     ASSERT_THROW((void) ir.sequence("nonexistent"), std::runtime_error);
+}
+
+/// @brief it should format a Param without a value
+TEST(IRTest, testParamToString) {
+    types::Param p;
+    p.name = "threshold";
+    p.type.kind = types::Kind::F64;
+    ASSERT_EQ(p.to_string(), "threshold (f64)");
+}
+
+/// @brief it should format a Param with a value
+TEST(IRTest, testParamToStringWithValue) {
+    types::Param p;
+    p.name = "threshold";
+    p.type.kind = types::Kind::F64;
+    p.value = 42.5;
+    ASSERT_EQ(p.to_string(), "threshold (f64) = 42.5");
+}
+
+/// @brief it should format Params as comma-separated list
+TEST(IRTest, testParamsToString) {
+    types::Params params;
+    types::Param p1;
+    p1.name = "x";
+    p1.type.kind = types::Kind::F32;
+    types::Param p2;
+    p2.name = "y";
+    p2.type.kind = types::Kind::I32;
+    params.push_back(p1);
+    params.push_back(p2);
+    ASSERT_EQ(params.to_string(), "x (f32), y (i32)");
+}
+
+/// @brief it should format empty Params as "(none)"
+TEST(IRTest, testParamsToStringEmpty) {
+    types::Params params;
+    ASSERT_EQ(params.to_string(), "(none)");
+}
+
+/// @brief it should format Channels with read and write
+TEST(IRTest, testChannelsToString) {
+    types::Channels ch;
+    ch.read[1] = "sensor";
+    ch.write[2] = "actuator";
+    const auto str = ch.to_string();
+    ASSERT_NE(str.find("read [1: sensor]"), std::string::npos);
+    ASSERT_NE(str.find("write [2: actuator]"), std::string::npos);
+}
+
+/// @brief it should format empty Channels as "(none)"
+TEST(IRTest, testChannelsToStringEmpty) {
+    types::Channels ch;
+    ASSERT_EQ(ch.to_string(), "(none)");
+}
+
+/// @brief it should format a Node with type and sections
+TEST(IRTest, testNodeToString) {
+    Node n;
+    n.key = "add_1";
+    n.type = "add";
+    types::Param inp;
+    inp.name = "lhs";
+    inp.type.kind = types::Kind::F64;
+    n.inputs.push_back(inp);
+    types::Param out;
+    out.name = "result";
+    out.type.kind = types::Kind::F64;
+    n.outputs.push_back(out);
+    const auto str = n.to_string();
+    ASSERT_NE(str.find("add_1 (type: add)"), std::string::npos);
+    ASSERT_NE(str.find("inputs: lhs (f64)"), std::string::npos);
+    ASSERT_NE(str.find("outputs: result (f64)"), std::string::npos);
+}
+
+/// @brief it should format a Function with channels and params
+TEST(IRTest, testFunctionToString) {
+    Function f;
+    f.key = "my_func";
+    f.channels.read[1] = "sensor";
+    types::Param out;
+    out.name = "result";
+    out.type.kind = types::Kind::F64;
+    f.outputs.push_back(out);
+    const auto str = f.to_string();
+    ASSERT_NE(str.find("my_func"), std::string::npos);
+    ASSERT_NE(str.find("channels:"), std::string::npos);
+    ASSERT_NE(str.find("read [1: sensor]"), std::string::npos);
+    ASSERT_NE(str.find("outputs: result (f64)"), std::string::npos);
+}
+
+/// @brief it should format a full IR tree
+TEST(IRTest, testIRToString) {
+    IR ir;
+
+    Function fn;
+    fn.key = "add";
+    types::Param fn_out;
+    fn_out.name = "result";
+    fn_out.type.kind = types::Kind::F64;
+    fn.outputs.push_back(fn_out);
+    ir.functions.push_back(fn);
+
+    Node n;
+    n.key = "add_1";
+    n.type = "add";
+    ir.nodes.push_back(n);
+
+    ir.edges.emplace_back(Handle("a", "out"), Handle("b", "in"), EdgeKind::Continuous);
+
+    ir.strata.push_back({"add_1"});
+
+    Sequence seq;
+    seq.key = "main";
+    Stage s;
+    s.key = "run";
+    s.nodes = {"add_1"};
+    seq.stages.push_back(s);
+    ir.sequences.push_back(seq);
+
+    const auto str = ir.to_string();
+    ASSERT_NE(str.find("IR"), std::string::npos);
+    ASSERT_NE(str.find("Functions"), std::string::npos);
+    ASSERT_NE(str.find("add"), std::string::npos);
+    ASSERT_NE(str.find("Nodes"), std::string::npos);
+    ASSERT_NE(str.find("add_1 (type: add)"), std::string::npos);
+    ASSERT_NE(str.find("Edges"), std::string::npos);
+    ASSERT_NE(str.find("a.out -> b.in (continuous)"), std::string::npos);
+    ASSERT_NE(str.find("Strata"), std::string::npos);
+    ASSERT_NE(str.find("[0]: add_1"), std::string::npos);
+    ASSERT_NE(str.find("Sequences"), std::string::npos);
+    ASSERT_NE(str.find("main"), std::string::npos);
+}
+
+/// @brief it should stream Handle via operator<<
+TEST(IRTest, testHandleStreamOperator) {
+    Handle h("node_a", "output");
+    std::ostringstream ss;
+    ss << h;
+    ASSERT_EQ(ss.str(), "node_a.output");
+}
+
+/// @brief it should stream Edge via operator<<
+TEST(IRTest, testEdgeStreamOperator) {
+    Edge e(Handle("a", "out"), Handle("b", "in"), EdgeKind::Continuous);
+    std::ostringstream ss;
+    ss << e;
+    ASSERT_EQ(ss.str(), "a.out -> b.in (continuous)");
 }
 }
