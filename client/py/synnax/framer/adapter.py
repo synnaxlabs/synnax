@@ -8,7 +8,7 @@
 #  included in the file licenses/APL.txt.
 
 import warnings
-from typing import Any
+from typing import Any, cast
 
 from pandas import DataFrame
 
@@ -34,7 +34,7 @@ class ReadFrameAdapter:
         self.keys = list()
         self.codec = Codec()
 
-    def update(self, channels: channel.Params):
+    def update(self, channels: channel.Params) -> None:
         normal = channel.normalize_params(channels)
         fetched = self.retriever.retrieve(normal.channels)
         self.codec.update(
@@ -55,7 +55,7 @@ class ReadFrameAdapter:
             self.__adapter[ch.key] = ch.name
         self.keys = list(self.__adapter.keys())
 
-    def adapt(self, fr: Frame):
+    def adapt(self, fr: Frame) -> Frame:
         if self.__adapter is None:
             return fr
 
@@ -66,14 +66,17 @@ class ReadFrameAdapter:
         for i, k in enumerate(fr.channels):
             try:
                 if isinstance(k, channel.Key):
-                    fr.channels[i] = self.__adapter[k]
+                    fr.channels[i] = self.__adapter[k]  # type: ignore[call-overload]
             except KeyError:
                 if to_purge is None:
                     to_purge = [i]
                 else:
                     to_purge.append(i)
         if to_purge is not None:
-            fr.channels = [k for i, k in enumerate(fr.channels) if i not in to_purge]
+            fr.channels = cast(
+                list[channel.Key] | list[str],
+                [k for i, k in enumerate(fr.channels) if i not in to_purge],
+            )
             fr.series = [s for i, s in enumerate(fr.series) if i not in to_purge]
 
         return fr
@@ -104,7 +107,7 @@ class WriteFrameAdapter:
         self._suppress_warnings = suppress_warnings
         self.codec = Codec()
 
-    def update(self, channels: channel.Params):
+    def update(self, channels: channel.Params) -> None:
         results = retrieve_required_channel(self.retriever, channels)
         self._adapter = {ch.name: ch.key for ch in results}
         self._keys = [ch.key for ch in results]
@@ -146,14 +149,14 @@ class WriteFrameAdapter:
             channel.Payload | list[channel.Payload] | channel.Params | CrudeFrame
         ),
         series: CrudeSeries | list[CrudeSeries] | None = None,
-    ):
+    ) -> Frame:
         frame = self._adapt(channels_or_data, series)
         extra = set(frame.channels) - set(self.keys)
         if extra:
             raise PathError("keys", ValidationError(f"frame has extra keys {extra}"))
 
         for i, (col, series) in enumerate(frame.items()):
-            ch = self.retriever.retrieve(col)[0]  # type: ignore
+            ch = self.retriever.retrieve(col)[0]
             if series.data_type != ch.data_type:
                 if self._strict_data_types:
                     raise PathError(
@@ -201,40 +204,43 @@ class WriteFrameAdapter:
                     """)
 
             pld = self.__adapt_ch(channels_or_data)
-            return Frame([pld.key], [series])
+            return Frame([pld.key], [Series(cast(CrudeSeries, series))])
 
         if isinstance(channels_or_data, list):
             if series is None:
                 raise ValidationError(f"""
                 Received {len(channels_or_data)} channels but no series.
                 """)
-            if not isinstance(series, list):
-                series = [series]
-            channels: list[channel.Key | str] = list()
-            o_series: list[CrudeSeries] = list()
+            series_list: list[CrudeSeries] = (
+                [series]
+                if not isinstance(series, list)
+                else cast(list[CrudeSeries], series)
+            )
+            channels: list[channel.Key] = list()
+            o_series: list[Series] = list()
             for i, ch in enumerate(channels_or_data):
                 pld = self.__adapt_ch(ch)
-                if i >= len(series):
+                if i >= len(series_list):
                     raise ValidationError(f"""
-                    Received {len(channels_or_data)} channels but only {len(series)} series.
+                    Received {len(channels_or_data)} channels but only {len(series_list)} series.
                     """)
                 channels.append(pld.key)
-                o_series.append(series[i])
+                o_series.append(Series(series_list[i]))
 
             return Frame(channels, o_series)
 
         if isinstance(channels_or_data, (Frame, DataFrame)):
             if isinstance(channels_or_data, Frame):
-                cols: list[channel.Key | str] = channels_or_data.channels
+                cols: list[channel.Key] | list[str] = channels_or_data.channels
             else:
-                cols = list(channels_or_data.columns)
+                cols = cast(list[str], list(channels_or_data.columns))
             if self._adapter is None:
                 return (
                     Frame(channels_or_data)
                     if isinstance(channels_or_data, DataFrame)
                     else channels_or_data
                 )
-            adapted_channels: list[channel.Key | str] = list()
+            adapted_channels: list[channel.Key] = list()
             adapted_series: list[Series] = list()
             for col in cols:
                 try:
@@ -251,7 +257,7 @@ class WriteFrameAdapter:
             return Frame(channels=adapted_channels, series=adapted_series)
 
         if isinstance(channels_or_data, dict):
-            dict_channels: list[channel.Key | str] = list()
+            dict_channels: list[channel.Key] = list()
             dict_series: list[Series] = list()
             for k, v in channels_or_data.items():
                 pld = self.__adapt_ch(k)

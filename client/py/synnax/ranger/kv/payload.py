@@ -20,7 +20,7 @@ class Pair(BaseModel):
     key: str
     value: str
 
-    def __init__(self, **kwargs):
+    def __init__(self, **kwargs: object) -> None:
         value = kwargs.get("value")
         if not isinstance(value, str):
             str_method = getattr(type(value), "__str__", None)

@@ -8,6 +8,8 @@
 #  included in the file licenses/APL.txt.
 
 
+from typing import Any
+
 from pydantic import BaseModel
 
 from synnax import ontology, status
@@ -24,7 +26,7 @@ class StatusDetails(BaseModel):
     """The key of the task."""
     running: bool = False
     """Whether the task is running."""
-    data: dict | None = None
+    data: dict[str, Any] | None = None
     """Arbitrary data about the task."""
     cmd: str | None = None
 

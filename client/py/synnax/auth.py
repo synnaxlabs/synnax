@@ -70,7 +70,7 @@ class Client:
         self.authenticated = True
 
     def middleware(self) -> Middleware:
-        def mw(ctx: Context, _next: Next):
+        def mw(ctx: Context, _next: Next) -> tuple[Context, Exception | None]:
             if not self.authenticated:
                 self.authenticate()
 
@@ -87,7 +87,9 @@ class Client:
         return mw
 
     def async_middleware(self) -> AsyncMiddleware:
-        async def mw(ctx: Context, _next: AsyncNext):
+        async def mw(
+            ctx: Context, _next: AsyncNext
+        ) -> tuple[Context, Exception | None]:
             if not self.authenticated:
                 self.authenticate()
 

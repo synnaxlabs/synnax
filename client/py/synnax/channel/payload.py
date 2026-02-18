@@ -55,7 +55,7 @@ class Payload(BaseModel):
     expression: str | None = ""
     operations: list[Operation] | None = None
 
-    def __str__(self):
+    def __str__(self) -> str:
         return f"Channel(name={self.name}, key={self.key})"
 
     def __hash__(self) -> int:

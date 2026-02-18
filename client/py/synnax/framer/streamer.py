@@ -7,7 +7,7 @@
 #  License, use of this software will be governed by the Apache License, Version 2.0,
 #  included in the file licenses/APL.txt.
 
-from typing import overload
+from typing import cast, overload
 
 from freighter import (
     EOF,
@@ -46,7 +46,7 @@ class WSStreamerCodec(WSFramerCodec):
         if data[0] == LOW_PERF_SPECIAL_CHAR:
             return self.lower_perf_codec.decode(data[1:], pld_t)
         frame = self.codec.decode(data, 1)
-        return Message(type="data", payload=_Response(frame=frame))  # type: ignore[return-value]
+        return cast(P, Message(type="data", payload=_Response(frame=frame)))
 
 
 _ENDPOINT = "/frame/stream"
@@ -145,7 +145,7 @@ class Streamer:
         except TimeoutError:
             return None
 
-    def update_channels(self, channels: channel.Params):
+    def update_channels(self, channels: channel.Params) -> None:
         """Updates the list of channels to stream. This method will replace the current
         list of channels with the new list, not add to it.
 
@@ -161,7 +161,7 @@ class Streamer:
             )
         )
 
-    def close(self, timeout: float | int | TimeSpan | None = None):
+    def close(self, timeout: float | int | TimeSpan | None = None) -> None:
         """Closes the streamer and frees all network resources.
 
         :param timeout: The maximum amount of time to wait for the server to acknowledge
@@ -187,22 +187,22 @@ class Streamer:
                 raise exc
             break
 
-    def __iter__(self):
+    def __iter__(self) -> Streamer:
         """Returns an iterator object that can be used to iterate over the frames of
         telemetry as they are received. This is useful when you want to process each
         frame as it is received.
         """
         return self
 
-    def __enter__(self):
+    def __enter__(self) -> Streamer:
         """Returns the streamer object when used as a context manager."""
         return self
 
-    def __next__(self):
+    def __next__(self) -> Frame:
         """Reads the next frame of telemetry from the streamer."""
         return self.read()
 
-    def __exit__(self, exc_type, exc_val, exc_tb):
+    def __exit__(self, exc_type: object, exc_val: object, exc_tb: object) -> None:
         self.close()
 
 
@@ -238,7 +238,7 @@ class AsyncStreamer:
         self._downsample_factor = downsample_factor
         self._throttle_rate = throttle_rate
 
-    async def _open(self):
+    async def _open(self) -> None:
         self._stream = await self._client.stream(_ENDPOINT, _Request, _Response)
         await self._stream.send(
             _Request(
@@ -261,7 +261,7 @@ class AsyncStreamer:
         assert res is not None
         return self._adapter.adapt(Frame(res.frame))
 
-    async def close_loop(self):
+    async def close_loop(self) -> None:
         """Closes the sending end of the streamer, requiring the caller to process all
         remaining frames and close acknowledgements by calling read. This method is
         useful for managing the lifecycle of a streamer within a separate event loop or
@@ -269,7 +269,7 @@ class AsyncStreamer:
         """
         await self._stream.close_send()
 
-    async def close(self):
+    async def close(self) -> None:
         """Close the streamer and free all network resources, waiting for the server to
         acknowledge the close request.
         """
@@ -285,24 +285,26 @@ class AsyncStreamer:
         elif not isinstance(exc, EOF):
             raise exc
 
-    async def __aenter__(self):
+    async def __aenter__(self) -> AsyncStreamer:
         """Returns the async streamer object when used as an async context manager."""
         return self
 
-    def __aiter__(self):
+    def __aiter__(self) -> AsyncStreamer:
         """Returns an async iterator object that can be used to iterate over the frames
         of telemetry as they are received. This is useful when you want to process each
         frame as it is received.
         """
         return self
 
-    async def __anext__(self):
+    async def __anext__(self) -> Frame:
         """Reads the next frame of telemetry from the streamer."""
         try:
             return await self.read()
         except EOF:
             raise StopAsyncIteration
 
-    async def __aexit__(self, exc_type, exc_val, exc_tb):
+    async def __aexit__(
+        self, exc_type: object, exc_val: object, exc_tb: object
+    ) -> None:
         """Closes the streamer when used as an async context manager"""
         await self.close()

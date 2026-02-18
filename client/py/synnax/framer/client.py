@@ -56,7 +56,7 @@ class Client:
         retriever: Retriever,
         deleter: Deleter,
         instrumentation: Instrumentation = NOOP,
-    ):
+    ) -> None:
         self.__stream_client = stream_client
         self.__async_client = async_client
         self.__unary_client = unary_client
@@ -166,7 +166,7 @@ class Client:
         channels: CrudeFrame,
         *,
         strict: bool = False,
-    ): ...
+    ) -> None: ...
 
     @overload
     def write(
@@ -176,7 +176,7 @@ class Client:
         series: CrudeSeries | list[CrudeSeries],
         *,
         strict: bool = False,
-    ): ...
+    ) -> None: ...
 
     def write(
         self,
@@ -204,7 +204,7 @@ class Client:
             err_on_unauthorized=True,
             auto_index_persist_interval=TimeSpan.MAX,
         ) as w:
-            w.write(channels, series)
+            w.write(channels, series)  # type: ignore[arg-type]
 
     @overload
     def read(

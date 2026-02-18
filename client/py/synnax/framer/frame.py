@@ -10,7 +10,7 @@
 from __future__ import annotations
 
 from collections.abc import Iterator, Sequence
-from typing import TypeAlias, overload
+from typing import TypeAlias, cast, overload
 
 from pandas import DataFrame
 from pydantic import BaseModel, Field
@@ -42,7 +42,7 @@ class Frame:
     can be keyed by channel name or channel key, but not both.
     """
 
-    channels: list[channel.Key | str]
+    channels: list[channel.Key] | list[str]
     series: list[Series] = Field(default_factory=list)
 
     def __init__(
@@ -71,13 +71,17 @@ class Frame:
             self.channels = channels.columns.to_list()
             self.series = [Series(data=channels[k]) for k in self.channels]
         elif isinstance(channels, dict):
-            self.channels = list(channels.keys())
+            self.channels = cast(list[channel.Key] | list[str], list(channels.keys()))
             self.series = [Series(d) for d in channels.values()]
         elif (series is None or isinstance(series, list)) and (
             channels is None or isinstance(channels, list)
         ):
             self.series = list() if series is None else [Series(d) for d in series]
-            self.channels = list(channels) if channels else list()
+            self.channels = (
+                cast(list[channel.Key] | list[str], list(channels))
+                if channels
+                else list()
+            )
         else:
             raise ValueError(f"""
                 [Frame] - invalid construction arguments. Received {channels}
@@ -117,12 +121,12 @@ class Frame:
         """
         if isinstance(col_or_frame, Frame):
             self.series.extend(col_or_frame.series)
-            self.channels.extend(col_or_frame.channels)
+            self.channels.extend(col_or_frame.channels)  # type: ignore[arg-type]
         else:
             if series is None:
                 raise ValueError("series must be provided when appending a channel")
             self.series.append(series)
-            self.channels.append(col_or_frame)
+            self.channels.append(col_or_frame)  # type: ignore[arg-type]
 
     def items(
         self,
@@ -152,7 +156,7 @@ class Frame:
         except ValueError:
             return default
 
-    def to_payload(self):
+    def to_payload(self) -> FramePayload:
         """Converts the frame to its payload representation for transport over the
         network. This method should typically only be used internally.
         :raises: ValidationError if the frame is keyed by channel name instead of key.
@@ -171,7 +175,8 @@ class Frame:
         corresponds to a channel in the frame.
         """
         base: dict[channel.Key | str, object] = dict()
-        for k in set(self.channels):
+        channels = cast(list[channel.Key | str], self.channels)
+        for k in set(channels):
             v = self.get(k)
             if v is None:
                 continue

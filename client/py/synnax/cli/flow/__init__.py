@@ -29,10 +29,10 @@ class Flow[T]():
         self.steps = {}
         self.context = ctx
 
-    def add(self, name: str, step: Callable[[Context, T], str | None]):
+    def add(self, name: str, step: Callable[[Context, T], str | None]) -> None:
         self.steps[name] = step
 
-    def run(self, req: T, root: str):
+    def run(self, req: T, root: str) -> None:
         root_step = self.steps[root]
         self._run(root_step, req)
 
@@ -40,7 +40,7 @@ class Flow[T]():
         self,
         step: Callable[[Context, T], str | None],
         request: T,
-    ):
+    ) -> None:
         next_step = step(self.context, request)
         if next_step is not None:
             self._run(self.steps[next_step], request)

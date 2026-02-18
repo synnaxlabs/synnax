@@ -136,13 +136,13 @@ class Controller:
         return self._receiver_opt
 
     @overload
-    def set(self, channel: channel_.Key | str, value: SampleValue): ...
+    def set(self, channel: channel_.Key | str, value: SampleValue) -> None: ...
 
     @overload
-    def set(self, channel: dict[channel_.Key, SampleValue]): ...
+    def set(self, channel: dict[channel_.Key, SampleValue]) -> None: ...
 
     @overload
-    def set(self, channel: dict[str, SampleValue]): ...
+    def set(self, channel: dict[str, SampleValue]) -> None: ...
 
     def set(
         self,
@@ -153,7 +153,7 @@ class Controller:
             | dict[str, SampleValue]
         ),
         value: SampleValue | None = None,
-    ):
+    ) -> None:
         """Sets the provided channel(s) to the provided value(s).
 
         :param channel: A single channel key or name, or a dictionary of channel keys and
@@ -183,10 +183,11 @@ class Controller:
             self._writer.write({**updated, **updated_idx})
             return
         ch = self._retriever.retrieve_one(channel)
-        to_write = {ch.key: value}
+        assert value is not None
+        to_write: dict[channel_.Key, SampleValue] = {ch.key: value}
         if not ch.virtual:
             to_write[ch.index] = TimeStamp.now()
-        self._writer.write(to_write)
+        self._writer.write(cast(framer.CrudeFrame, to_write))
 
     @overload
     def set_authority(
@@ -296,7 +297,7 @@ class Controller:
         cond: Callable[[Controller], bool],
         timeout: CrudeTimeSpan | None = None,
         reverse: bool = False,
-    ):
+    ) -> bool:
         if not callable(cond):
             raise ValueError("First argument to wait_until must be a callable.")
         processor = WaitUntil(cond, reverse)
@@ -312,7 +313,7 @@ class Controller:
             raise processor.exc
         return ok
 
-    def sleep(self, dur: float | int | TimeSpan, precise: bool = False):
+    def sleep(self, dur: float | int | TimeSpan, precise: bool = False) -> None:
         """Sleeps the controller for the provided duration.
 
         :param dur: The duration to sleep for. This can be a flot or int representing
@@ -386,7 +387,7 @@ class Controller:
             raise processor.exc
         return ok
 
-    def release(self):
+    def release(self) -> None:
         """Release control and shuts down the controller. No further control operations
         can be performed after calling this method.
         """
@@ -395,11 +396,11 @@ class Controller:
         if self._receiver_opt is not None:
             self._receiver.stop()
 
-    def __setitem__(self, ch: channel_.Key | str, value: int | float):
+    def __setitem__(self, ch: channel_.Key | str, value: int | float) -> None:
         self.set(ch, value)
 
     @property
-    def state(self) -> dict[channel_.Key, np.number]:
+    def state(self) -> dict[channel_.Key, np.number | int | float]:
         """
         :returns: The current state of all channels passed to read_from in the acquire
         method. This is a dictionary of channel keys to their most recent values. It's
@@ -408,7 +409,7 @@ class Controller:
         """
         return self._receiver.state
 
-    def __setattr__(self, key, value):
+    def __setattr__(self, key: str, value: Any) -> None:
         try:
             super().__setattr__(key, value)
         except AttributeError:
@@ -443,14 +444,14 @@ class Controller:
         self,
         *commands: ScheduledCommand,
     ) -> tuple[Callable[[], None], bool]:
-        def start():
+        def start() -> None:
             for cmd in commands:
                 self.sleep(cmd.delay, precise=True)
                 self.set(cmd.channel, cmd.value)
 
         return start, True
 
-    def __getitem__(self, item):
+    def __getitem__(self, item: channel_.Key | str) -> np.number | int | float:
         ch = self._retriever.retrieve_one(item)
         try:
             return self._receiver.state[ch.key]
@@ -466,7 +467,7 @@ class Controller:
             method.
             """)
 
-    def __getattr__(self, item):
+    def __getattr__(self, item: str) -> Any:
         try:
             return super().__getattribute__(item)
         except AttributeError:
@@ -475,12 +476,12 @@ class Controller:
     def __enter__(self) -> Controller:
         return self
 
-    def __exit__(self, exc_type, exc_value, traceback) -> None:
+    def __exit__(self, exc_type: object, exc_value: object, traceback: object) -> None:
         self.release()
 
 
 class _Receiver(AsyncThread):
-    state: dict[channel_.Key, np.number]
+    state: dict[channel_.Key, np.number | int | float]
     channels: channel_.Params
     client: framer.Client
     streamer: framer.AsyncStreamer
@@ -489,7 +490,7 @@ class _Receiver(AsyncThread):
     retriever: channel_.Retriever
     controller: Controller
     startup_ack: Event
-    shutdown_future: Future
+    shutdown_future: Future[None]
 
     def __init__(
         self,
@@ -497,7 +498,7 @@ class _Receiver(AsyncThread):
         channels: channel_.Params,
         retriever: channel_.Retriever,
         controller: Controller,
-    ):
+    ) -> None:
         super().__init__()
         self.channels = retriever.retrieve(channels)
         self.client = client
@@ -507,34 +508,37 @@ class _Receiver(AsyncThread):
         self.startup_ack = Event()
         self.processors = set()
 
-    def add_processor(self, processor: Processor):
+    def add_processor(self, processor: Processor) -> None:
         with self.processor_lock:
             self.processors.add(processor)
 
-    def remove_processor(self, processor: Processor):
+    def remove_processor(self, processor: Processor) -> None:
         with self.processor_lock:
             self.processors.remove(processor)
 
-    def _process(self):
+    def _process(self) -> None:
         with self.processor_lock:
             for p in self.processors:
                 p.process(self.controller)
 
-    async def _listen_for_close(self):
+    async def _listen_for_close(self) -> None:
         await self.shutdown_future
         await self.streamer.close_loop()
 
-    async def run_async(self):
+    async def run_async(self) -> None:
         self.streamer = await self.client.open_async_streamer(self.channels)
         self.shutdown_future = self.loop.create_future()
         self.loop.create_task(self._listen_for_close())
         self.startup_ack.set()
         async for frame in self.streamer:
             for i, key in enumerate(frame.channels):
-                self.state[key] = frame.series[i][-1]
+                if isinstance(key, int):
+                    v = frame.series[i][-1]
+                    if isinstance(v, (np.number, int, float)):
+                        self.state[key] = v
             self._process()
 
-    def stop(self):
+    def stop(self) -> None:
         self.loop.call_soon_threadsafe(self.shutdown_future.set_result, None)
         self.join()
 

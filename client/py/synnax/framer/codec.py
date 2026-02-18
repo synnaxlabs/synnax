@@ -103,7 +103,7 @@ class Codec:
         self._curr_state = CodecState(keys, data_types)
         self._states[self._seq_num] = self._curr_state
 
-    def throw_if_not_updated(self, op_name: str):
+    def throw_if_not_updated(self, op_name: str) -> None:
         if self._curr_state is None:
             raise ValueError(
                 "Codec has not been updated with keys and data types. "

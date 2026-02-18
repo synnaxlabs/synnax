@@ -74,10 +74,10 @@ class TDMSReader(TDMSMatcher):  # type: ignore
 
         return self._channels
 
-    def set_chunk_size(self, chunk_size: int):
+    def set_chunk_size(self, chunk_size: int) -> None:
         self.chunk_size = chunk_size
 
-    def set_keys(self, keys: list[str]):
+    def set_keys(self, keys: list[str]) -> None:
         self.channel_keys = set(keys)
 
     def set_keys_from_file(self) -> set[str]:
@@ -97,7 +97,7 @@ class TDMSReader(TDMSMatcher):  # type: ignore
         """:returns: the number of samples in the file."""
         return self.chunk_size * self.n_chunks * len(self.channels())
 
-    def seek_first(self):
+    def seek_first(self) -> None:
         """Seeks the reader to the first sample in the file."""
         self._current_chunk = 0
 

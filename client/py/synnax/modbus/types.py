@@ -8,7 +8,7 @@
 #  included in the file licenses/APL.txt.
 
 import json
-from typing import Annotated, Literal
+from typing import Annotated, Any, Literal
 from uuid import uuid4
 
 from pydantic import BaseModel, Field, field_validator
@@ -32,7 +32,7 @@ class BaseChan(BaseModel):
     address: int = Field(ge=0, le=65535)
     "The Modbus register address (0-65535)."
 
-    def __init__(self, **data):
+    def __init__(self, **data: Any) -> None:
         if "key" not in data or not data["key"]:
             data["key"] = str(uuid4())
         super().__init__(**data)
@@ -398,7 +398,7 @@ class ReadTaskConfig(task.BaseReadConfig):
     "A list of input channel configurations to acquire data from."
 
     @field_validator("channels")
-    def validate_channels_not_empty(cls, v):
+    def validate_channels_not_empty(cls, v: list[InputChan]) -> list[InputChan]:
         """Validate that at least one channel is provided."""
         if len(v) == 0:
             raise ValueError("Task must have at least one channel")
@@ -418,7 +418,7 @@ class WriteTaskConfig(task.BaseWriteConfig):
     "A list of output channel configurations to write to."
 
     @field_validator("channels")
-    def validate_channels_not_empty(cls, v):
+    def validate_channels_not_empty(cls, v: list[OutputChan]) -> list[OutputChan]:
         """Validate that at least one channel is provided."""
         if len(v) == 0:
             raise ValueError("Task must have at least one channel")

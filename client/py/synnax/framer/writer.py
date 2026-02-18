@@ -8,7 +8,7 @@
 #  included in the file licenses/APL.txt.
 
 from enum import Enum
-from typing import Literal, TypeAlias, overload
+from typing import Literal, TypeAlias, cast, overload
 from uuid import uuid4
 
 from freighter import (
@@ -102,7 +102,7 @@ class WSWriterCodec(WSFramerCodec):
         frame = self.codec.decode(data, 1)
         msg: Message[WriterRequest] = Message(type="data")
         msg.payload = WriterRequest(command=WriterCommand.WRITE, frame=frame)
-        return msg  # type: ignore[return-value]
+        return cast(P, msg)
 
 
 def parse_writer_mode(mode: CrudeWriterMode) -> WriterMode:
@@ -214,7 +214,9 @@ class Writer:
             raise exc
 
     @overload
-    def write(self, channels_or_data: channel.Key | str, series: CrudeSeries): ...
+    def write(
+        self, channels_or_data: channel.Key | str, series: CrudeSeries
+    ) -> None: ...
 
     @overload
     def write(
@@ -223,13 +225,13 @@ class Writer:
             list[channel.Key] | tuple[channel.Key] | list[str] | tuple[str]
         ),
         series: list[CrudeSeries],
-    ): ...
+    ) -> None: ...
 
     @overload
     def write(
         self,
         channels_or_data: CrudeFrame,
-    ): ...
+    ) -> None: ...
 
     def write(
         self,
@@ -409,7 +411,7 @@ class Writer:
             raise UnexpectedError("commit response missing end timestamp")
         return res.end
 
-    def close(self):
+    def close(self) -> None:
         """Closes the writer, raising any accumulated error encountered during
         operation. A writer MUST be closed after use, and this method should probably
         be placed in a 'finally' block.
@@ -457,8 +459,8 @@ class Writer:
             if res.command == req.command:
                 return res
 
-    def __enter__(self):
+    def __enter__(self) -> Writer:
         return self
 
-    def __exit__(self, exc_type, exc_value, traceback):
+    def __exit__(self, exc_type: object, exc_value: object, traceback: object) -> None:
         self.close()
