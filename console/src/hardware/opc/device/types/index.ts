@@ -14,6 +14,8 @@ import * as v1 from "@/hardware/opc/device/types/v1";
 
 export const MAKE = v0.MAKE;
 export type Make = v0.Make;
+export const makeZ = v0.makeZ;
+export const propertiesZ = v1.propertiesZ;
 
 export const NO_SECURITY_MODE = v0.NO_SECURITY_MODE;
 export const SIGN_SECURITY_MODE = v0.SIGN_SECURITY_MODE;

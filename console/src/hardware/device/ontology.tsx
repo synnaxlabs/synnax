@@ -19,7 +19,7 @@ import {
   Text,
   Tree,
 } from "@synnaxlabs/pluto";
-import { errors, status } from "@synnaxlabs/x";
+import { errors, type record, status } from "@synnaxlabs/x";
 import { useMemo } from "react";
 
 import { Menu } from "@/components";
@@ -80,7 +80,10 @@ const useHandleChangeIdentifier = () => {
         if (newIdentifier == null) return;
         await client.devices.create({
           ...device,
-          properties: { ...device.properties, identifier: newIdentifier },
+          properties: {
+            ...(device.properties as record.Unknown),
+            identifier: newIdentifier,
+          },
         });
       } catch (e) {
         if (e instanceof Error && errors.Canceled.matches(e)) return;

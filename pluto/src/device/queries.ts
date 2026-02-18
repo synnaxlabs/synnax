@@ -8,8 +8,9 @@
 // included in the file licenses/APL.txt.
 
 import { device, ontology, type Synnax } from "@synnaxlabs/client";
-import { array, primitive, type record, uuid } from "@synnaxlabs/x";
+import { array, primitive, uuid } from "@synnaxlabs/x";
 import { useEffect } from "react";
+import { type z } from "zod";
 
 import { Flux } from "@/flux";
 import { Ontology } from "@/ontology";
@@ -24,10 +25,8 @@ const PLURAL_RESOURCE_NAME = "devices";
 
 // Explicitly omit 'status' from the device type to make sure we aren't storing two
 // copies of the statuses in the flux store.
-export interface FluxStore extends Flux.UnaryStore<
-  string,
-  Omit<device.Device, "status">
-> {}
+export interface FluxStore
+  extends Flux.UnaryStore<string, Omit<device.Device, "status">> {}
 
 export interface FluxSubStore extends Task.FluxSubStore {
   [FLUX_STORE_KEY]: FluxStore;
@@ -35,9 +34,12 @@ export interface FluxSubStore extends Task.FluxSubStore {
   [Status.FLUX_STORE_KEY]: Status.FluxStore;
 }
 
-const SET_DEVICE_LISTENER: Flux.ChannelListener<FluxSubStore, typeof device.deviceZ> = {
+const SET_DEVICE_LISTENER: Flux.ChannelListener<
+  FluxSubStore,
+  ReturnType<typeof device.deviceZ>
+> = {
   channel: device.SET_CHANNEL_NAME,
-  schema: device.deviceZ,
+  schema: device.deviceZ(),
   onChange: ({ store, changed }) => store.devices.set(changed.key, changed),
 };
 
@@ -61,16 +63,17 @@ export interface RetrieveQuery extends device.RetrieveSingleParams {}
 const BASE_QUERY: Partial<RetrieveQuery> = { includeStatus: true };
 
 export const retrieveSingle = async <
-  Properties extends record.Unknown = record.Unknown,
-  Make extends string = string,
-  Model extends string = string,
+  Properties extends z.ZodType = z.ZodType,
+  Make extends z.ZodType<string> = z.ZodString,
+  Model extends z.ZodType<string> = z.ZodString,
 >({
   client,
   store,
   query,
-}: Flux.RetrieveParams<RetrieveQuery, FluxSubStore>): Promise<
-  device.Device<Properties, Make, Model>
-> => {
+  schemas,
+}: Flux.RetrieveParams<RetrieveQuery, FluxSubStore> & {
+  schemas?: device.DeviceSchemas<Properties, Make, Model>;
+}): Promise<device.Device<Properties, Make, Model>> => {
   const cached = store.devices.get(query.key);
   if (cached != null) {
     const status = await Status.retrieveSingle<typeof device.statusDetailsZ>({
@@ -80,15 +83,16 @@ export const retrieveSingle = async <
       detailsSchema: device.statusDetailsZ,
     });
     const dev: device.Device = { ...cached, status };
-    return dev as device.Device<Properties, Make, Model>;
+    return dev as unknown as device.Device<Properties, Make, Model>;
   }
-  const dev = await client.devices.retrieve<Properties, Make, Model>({
+  const dev = await client.devices.retrieve({
     ...BASE_QUERY,
     ...query,
+    ...(schemas != null ? { schemas } : {}),
   });
   store.devices.set(dev);
   if (dev.status != null) store.statuses.set(dev.status);
-  return dev;
+  return dev as unknown as device.Device<Properties, Make, Model>;
 };
 
 export interface RetrieveMultipleQuery {
@@ -96,16 +100,17 @@ export interface RetrieveMultipleQuery {
 }
 
 export const retrieveMultiple = async <
-  Properties extends record.Unknown = record.Unknown,
-  Make extends string = string,
-  Model extends string = string,
+  Properties extends z.ZodType = z.ZodType,
+  Make extends z.ZodType<string> = z.ZodString,
+  Model extends z.ZodType<string> = z.ZodString,
 >({
   client,
   store,
   query: { keys },
-}: Flux.RetrieveParams<RetrieveMultipleQuery, FluxSubStore>): Promise<
-  device.Device<Properties, Make, Model>[]
-> => {
+  schemas,
+}: Flux.RetrieveParams<RetrieveMultipleQuery, FluxSubStore> & {
+  schemas?: device.DeviceSchemas<Properties, Make, Model>;
+}): Promise<device.Device<Properties, Make, Model>[]> => {
   const cached = store.devices.get(keys);
   const cachedKeys = new Set(cached.map((d) => d.key));
   const missingKeys = keys.filter((key) => !cachedKeys.has(key));
@@ -119,16 +124,19 @@ export const retrieveMultiple = async <
   const statusMap = new Map(statuses.map((s) => [s.key, s]));
   const cachedWithStatus = cached.map((d) => {
     const status = statusMap.get(device.statusKey(d.key));
-    return { ...d, status } as device.Device<Properties, Make, Model>;
+    return { ...d, status } as unknown as device.Device<Properties, Make, Model>;
   });
 
   const devices = [...cachedWithStatus];
   if (missingKeys.length > 0) {
-    const fetched = await client.devices.retrieve<Properties, Make, Model>({
+    const fetched = await client.devices.retrieve({
       ...BASE_QUERY,
       keys: missingKeys,
+      ...(schemas != null ? { schemas } : {}),
     });
-    devices.push(...fetched);
+    devices.push(
+      ...(fetched as unknown as device.Device<Properties, Make, Model>[]),
+    );
     store.devices.set(fetched);
     fetched.forEach((d) => {
       if (d.status != null) store.statuses.set(d.status);
@@ -139,17 +147,20 @@ export const retrieveMultiple = async <
 };
 
 export const createRetrieve = <
-  Properties extends record.Unknown = record.Unknown,
-  Make extends string = string,
-  Model extends string = string,
->() =>
+  Properties extends z.ZodType = z.ZodType,
+  Make extends z.ZodType<string> = z.ZodString,
+  Model extends z.ZodType<string> = z.ZodString,
+>(
+  schemas?: device.DeviceSchemas<Properties, Make, Model>,
+) =>
   Flux.createRetrieve<
     RetrieveQuery,
     device.Device<Properties, Make, Model>,
     FluxSubStore
   >({
     name: RESOURCE_NAME,
-    retrieve: retrieveSingle<Properties, Make, Model>,
+    retrieve: (params) =>
+      retrieveSingle<Properties, Make, Model>({ ...params, schemas }),
     mountListeners: ({ store, onChange, query: { key } }) => [
       store.devices.onSet(
         (changed) =>
@@ -241,6 +252,17 @@ export const { useUpdate: useDelete } = Flux.createUpdate<UseDeleteArgs, FluxSub
 
 export interface CreateParams extends device.New {}
 
+export const createCreate = (schemas?: device.DeviceSchemas) =>
+  Flux.createUpdate<CreateParams, FluxSubStore, device.Device>({
+    name: RESOURCE_NAME,
+    verbs: Flux.CREATE_VERBS,
+    update: async ({ data, client, rollbacks, store }) => {
+      const dev = await client.devices.create(data, schemas!);
+      rollbacks.push(store.devices.set(dev));
+      return dev;
+    },
+  });
+
 export const { useUpdate: useCreate } = Flux.createUpdate<
   CreateParams,
   FluxSubStore,
@@ -294,7 +316,7 @@ export const { useUpdate: useRename } = Flux.createUpdate<RenameParams, FluxSubS
   },
 });
 
-export const formSchema = device.deviceZ;
+export const formSchema = device.deviceZ();
 
 const retrieveInitialRackKey = async (client: Synnax, store: FluxSubStore) => {
   let rack = store.racks.get(() => true)[0];
@@ -311,10 +333,12 @@ const retrieveInitialRackKey = async (client: Synnax, store: FluxSubStore) => {
 export interface FormQuery extends RetrieveQuery {}
 
 export const createForm = <
-  Properties extends record.Unknown = record.Unknown,
-  Make extends string = string,
-  Model extends string = string,
->() =>
+  Properties extends z.ZodType = z.ZodType,
+  Make extends z.ZodType<string> = z.ZodString,
+  Model extends z.ZodType<string> = z.ZodString,
+>(
+  schemas?: device.DeviceSchemas<Properties, Make, Model>,
+) =>
   Flux.createForm<FormQuery, typeof formSchema, FluxSubStore>({
     name: RESOURCE_NAME,
     schema: formSchema,
@@ -334,12 +358,8 @@ export const createForm = <
         set("key", uuid.create());
         return;
       }
-      const device = await retrieveSingle<Properties, Make, Model>({
-        client,
-        store,
-        query,
-      });
-      reset(device);
+      const dev = await retrieveSingle({ client, store, query, schemas });
+      reset(dev);
     },
     update: async ({ value, client, store, rollbacks }) => {
       const result = await client.devices.create(value());

@@ -9,6 +9,7 @@
 
 import { createTestClient, device, NotFoundError } from "@synnaxlabs/client";
 import { id, type record, status } from "@synnaxlabs/x";
+import { z } from "zod";
 import { act, renderHook, waitFor } from "@testing-library/react";
 import { type PropsWithChildren } from "react";
 import { beforeEach, describe, expect, it } from "vitest";
@@ -1159,22 +1160,22 @@ describe("queries", () => {
       });
 
       it("should support custom properties", async () => {
-        interface CustomProperties extends record.Unknown {
-          serialNumber: string;
-          calibrationDate: string;
-        }
+        const customPropertiesZ = z.object({
+          serialNumber: z.string(),
+          calibrationDate: z.string(),
+        });
 
         const rack = await client.racks.create({
           name: "test custom props rack",
         });
-        const useForm = Device.createForm<CustomProperties>();
+        const useForm = Device.createForm({ properties: customPropertiesZ });
         const { result } = renderHook(() => useForm({ query: { key: "" } }), {
           wrapper,
         });
 
         await waitFor(() => expect(result.current.variant).toBe("success"));
 
-        const customProps: CustomProperties = {
+        const customProps: z.infer<typeof customPropertiesZ> = {
           serialNumber: "SN123456",
           calibrationDate: "2024-01-01",
         };

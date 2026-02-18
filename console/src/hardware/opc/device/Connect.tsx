@@ -31,9 +31,9 @@ import { retrieveScanTask } from "@/hardware/opc/device/retrieveScanTask";
 import { SelectSecurityMode } from "@/hardware/opc/device/SelectSecurityMode";
 import { SelectSecurityPolicy } from "@/hardware/opc/device/SelectSecurityPolicy";
 import {
-  type Make,
+  type makeZ,
   NO_SECURITY_MODE,
-  type Properties,
+  type propertiesZ,
   type SecurityMode,
   type SecurityPolicy,
   ZERO_PROPERTIES,
@@ -54,9 +54,9 @@ export const CONNECT_LAYOUT: Layout.BaseState = {
   window: { resizable: false, size: { height: 720, width: 915 }, navTop: true },
 };
 
-const useForm = Device.createForm<Properties, Make>();
+const useForm = Device.createForm<typeof propertiesZ, typeof makeZ>();
 
-const INITIAL_VALUES: device.Device<Properties, Make> = {
+const INITIAL_VALUES: device.Device<typeof propertiesZ, typeof makeZ> = {
   key: "",
   name: "OPC UA Server",
   make: "opc",
