@@ -11,7 +11,6 @@ import { type observe, record, status } from "@synnaxlabs/x";
 import { z } from "zod";
 
 import { type Key as RackKey } from "@/rack/payload";
-
 import { parseWithoutKeyConversion } from "@/util/parseWithoutKeyConversion";
 
 export const keyZ = z.union([

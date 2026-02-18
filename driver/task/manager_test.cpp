@@ -794,7 +794,7 @@ TEST_F(ShutdownTest, WithPendingOps) {
             .key = synnax::task::create_key(rack.key, 0),
             .name = "t" + std::to_string(i),
             .type = "blocking",
-            };
+        };
         ASSERT_NIL(rack.tasks.create(task));
     }
     std::this_thread::sleep_for((50 * x::telem::MILLISECOND).chrono());
@@ -961,7 +961,7 @@ TEST_F(ShutdownTest, ParallelTaskStop) {
             .key = synnax::task::create_key(rack.key, 0),
             .name = "t" + std::to_string(i),
             .type = "slow_stop",
-            };
+        };
         ASSERT_NIL(rack.tasks.create(task));
     }
     std::this_thread::sleep_for((200 * x::telem::MILLISECOND).chrono());
