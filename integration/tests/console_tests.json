@@ -11,7 +11,7 @@
     {
       "sequence_name": "lifecycle",
       "sequence_order": "asynchronous",
-      "pool_size": 2,
+      "pool_size": 3,
       "tests": [
         { "case": "console/label/label_lifecycle" },
         { "case": "console/rack/rack_lifecycle" },
