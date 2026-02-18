@@ -17,7 +17,7 @@ import (
 	"github.com/gofiber/fiber/v2/middleware/cors"
 	"github.com/gofiber/fiber/v2/middleware/monitor"
 	"github.com/gofiber/fiber/v2/middleware/pprof"
-	"github.com/synnaxlabs/freighter/fhttp"
+	"github.com/synnaxlabs/freighter/http"
 	"github.com/synnaxlabs/x/telem"
 )
 
@@ -28,7 +28,7 @@ type SecureHTTPBranch struct {
 	// internal is the underlying fiber.App instance used to serve requests.
 	internal *fiber.App
 	// Transports is a list of transports that the Branch will serve.
-	Transports []fhttp.BindableTransport
+	Transports []http.BindableTransport
 }
 
 var _ Branch = (*SecureHTTPBranch)(nil)

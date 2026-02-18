@@ -20,7 +20,6 @@ import (
 	"github.com/synnaxlabs/cesium/internal/resource"
 	"github.com/synnaxlabs/cesium/internal/testutil"
 	"github.com/synnaxlabs/cesium/internal/unary"
-	"github.com/synnaxlabs/x/config"
 	"github.com/synnaxlabs/x/control"
 	"github.com/synnaxlabs/x/io/fs"
 	"github.com/synnaxlabs/x/telem"
@@ -472,14 +471,14 @@ var _ = Describe("Writer Behavior", Ordered, func() {
 							Start:                 10 * telem.SecondTS,
 							Authority:             control.AuthorityAbsolute,
 							Subject:               control.Subject{Key: "foo"},
-							ErrOnUnauthorizedOpen: config.True(),
+							ErrOnUnauthorizedOpen: new(true),
 						}))
 						Expect(t.Occurred()).To(BeTrue())
 						w2, t, err := db.OpenWriter(ctx, unary.WriterConfig{
 							Start:                 10 * telem.SecondTS,
 							Authority:             control.AuthorityAbsolute - 1,
 							Subject:               control.Subject{Key: "bar"},
-							ErrOnUnauthorizedOpen: config.True(),
+							ErrOnUnauthorizedOpen: new(true),
 						})
 						Expect(t.Occurred()).To(BeFalse())
 						Expect(err).To(HaveOccurredAs(control.ErrUnauthorized))

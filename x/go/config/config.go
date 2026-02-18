@@ -13,10 +13,10 @@ package config
 
 // Config is a configuration for a service that can be validated and override. Config is
 // a recursive type, meaning that the type argument to C must be the config itself.
-type Config[C any] interface {
+type Config[C Config[C]] interface {
 	// Override sets all non-zero values from override on the config and returns the
 	// merged result.
-	Override(other C) C
+	Override(C) C
 	// Validate checks if the configuration is valid. Returns an error if it is not.
 	Validate() error
 }
@@ -35,12 +35,3 @@ func New[C Config[C]](base C, overrides ...C) (C, error) {
 	}
 	return base, nil
 }
-
-// Bool returns a pointer to a boolean.
-func Bool(b bool) *bool { return &b }
-
-// True returns a pointer to a true boolean.
-func True() *bool { return Bool(true) }
-
-// False returns a pointer to a false boolean.
-func False() *bool { return Bool(false) }

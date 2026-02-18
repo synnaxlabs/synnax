@@ -58,7 +58,7 @@ class LabelClient:
         save_button.click()
         create_form.wait_for(state="hidden", timeout=5000)
 
-        label_item = self._find_label_item(name)
+        label_item = self._wait_for_label_item(name)
         if label_item is None:
             items = self._find_label_items()
             all_names = self._enumerate_label_names(items)
@@ -71,15 +71,31 @@ class LabelClient:
     def exists(self, name: str) -> bool:
         """Check if a label exists by name."""
         self._open_edit_modal()
-        label_item = self._find_label_item(name)
-        exists = label_item is not None
+        items_locator = self.layout.page.locator(
+            f"{_LABEL_ITEM_SELECTOR}:not(.console--create)"
+        )
+        try:
+            items_locator.first.wait_for(state="visible", timeout=5000)
+        except PlaywrightTimeoutError:
+            self._close_edit_modal()
+            return False
+        found = False
+        for item in items_locator.all():
+            if not item.is_visible():
+                continue
+            name_input = item.locator("input[placeholder='Label Name']").first
+            if name_input.count() == 0:
+                continue
+            if name_input.input_value().strip() == name.strip():
+                found = True
+                break
         self._close_edit_modal()
-        return exists
+        return found
 
     def get_color(self, name: str) -> str:
         """Get the color of a label by name."""
         self._open_edit_modal()
-        label_item = self._find_label_item(name)
+        label_item = self._wait_for_label_item(name)
         if label_item is None:
             raise ValueError(f"Label '{name}' not found")
         color_swatch = label_item.locator(".pluto-color-swatch").first
@@ -104,7 +120,7 @@ class LabelClient:
         """
         self._open_edit_modal()
 
-        label_item = self._find_label_item(old_name)
+        label_item = self._wait_for_label_item(old_name)
         if label_item is None:
             raise ValueError(f"Label '{old_name}' not found")
 
@@ -115,7 +131,7 @@ class LabelClient:
         name_input.press("Enter")
         expect(name_input).to_have_value(new_name, timeout=5000)
 
-        renamed_item = self._find_label_item(new_name)
+        renamed_item = self._wait_for_label_item(new_name)
 
         if renamed_item is None:
             all_items = self._find_label_items()
@@ -137,7 +153,7 @@ class LabelClient:
         """
         self._open_edit_modal()
 
-        label_item = self._find_label_item(name)
+        label_item = self._wait_for_label_item(name)
         if label_item is None:
             items = self._find_label_items()
             all_names = self._enumerate_label_names(items)
@@ -155,12 +171,6 @@ class LabelClient:
         self.layout.page.locator(f"[id='{element_id}']").wait_for(
             state="hidden", timeout=10000
         )
-
-        still_exists = self._find_label_item(name)
-        if still_exists is not None:
-            raise RuntimeError(
-                f"Failed to delete label '{name}' - still exists after clicking delete"
-            )
 
         self._close_edit_modal()
 
@@ -192,7 +202,7 @@ class LabelClient:
         """
         self._open_edit_modal()
 
-        label_item = self._find_label_item(name)
+        label_item = self._wait_for_label_item(name)
         if label_item is None:
             raise ValueError(f"Label '{name}' not found")
 
@@ -223,24 +233,27 @@ class LabelClient:
     def _close_edit_modal(self) -> None:
         self.layout.close_modal(_MODAL_SELECTOR)
 
-    def _find_label_item(self, name: str) -> Locator | None:
-        items_locator = self.layout.page.locator(
-            f"{_LABEL_ITEM_SELECTOR}:not(.console--create)"
-        )
+    def _wait_for_label_item(self, name: str) -> Locator | None:
+        """Wait for a label item to appear, polling for async state propagation."""
+        selector = f"{_LABEL_ITEM_SELECTOR}:not(.console--create)"
+        items_locator = self.layout.page.locator(selector)
         try:
             items_locator.first.wait_for(state="visible", timeout=5000)
         except PlaywrightTimeoutError:
             return None
-        for item in items_locator.all():
-            if not item.is_visible():
-                continue
-            name_input = item.locator("input[placeholder='Label Name']").first
-            if name_input.count() == 0:
-                continue
-            if name_input.input_value().strip() == name.strip():
-                element_id = item.get_attribute("id")
-                return self.layout.page.locator(f"[id='{element_id}']")
-        return None
+        item = items_locator.filter(
+            has=self.layout.page.locator(
+                f"input[placeholder='Label Name'][value='{name}']"
+            )
+        ).first
+        try:
+            item.wait_for(state="visible", timeout=5000)
+        except PlaywrightTimeoutError:
+            return None
+        element_id = item.get_attribute("id")
+        if not element_id:
+            return None
+        return self.layout.page.locator(f"[id='{element_id}']")
 
     def _find_label_items(self) -> list[Locator]:
         return self.layout.page.locator(

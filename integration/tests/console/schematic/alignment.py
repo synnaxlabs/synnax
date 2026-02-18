@@ -358,9 +358,7 @@ class Alignment(ConsoleCase):
     """
 
     def setup(self) -> None:
-
         super().setup()
-
         index_ch = self.client.channels.create(
             name=INDEX_NAME,
             is_index=True,
@@ -379,6 +377,7 @@ class Alignment(ConsoleCase):
         client = self.client
 
         schematic = console.workspace.create_schematic("set_output_schematic")
+        self._cleanup_pages.append(schematic.page_name)
 
         # Set up Symbols
         valve_threeway = schematic.create_symbol(

@@ -550,7 +550,7 @@ class ScheduledCommand:
 
     def __init__(
         self,
-        channel: int | str,
+        channel: channel_.Key | str,
         value: SampleValue,
         delay: float | int | TimeSpan,
     ):

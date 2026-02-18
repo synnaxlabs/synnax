@@ -173,7 +173,7 @@ var _ = Describe("Sequence", func() {
 		It("Should chain through all stages", func() {
 			current := "precheck"
 			expected := []string{"pressurization", "ignition", "complete"}
-			for i := 0; i < 3; i++ {
+			for i := range 3 {
 				next, ok := seq.NextStage(current)
 				Expect(ok).To(BeTrue())
 				Expect(next.Key).To(Equal(expected[i]))

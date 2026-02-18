@@ -27,6 +27,7 @@ class KeyboardShortcuts(ConsoleCase):
         # Create a page
         page_name = "Close Me"
         console.workspace.create_page("Line Plot", page_name)
+        self._cleanup_pages.append(page_name)
 
         # Verify tab exists
         tab = console.layout.get_tab(page_name)
@@ -55,6 +56,7 @@ class KeyboardShortcuts(ConsoleCase):
         # Create a page
         original_name = "Rename Via Shortcut"
         console.workspace.create_page("Line Plot", original_name)
+        self._cleanup_pages.append(original_name)
 
         # Verify tab exists
         tab = console.layout.get_tab(original_name)
@@ -69,6 +71,8 @@ class KeyboardShortcuts(ConsoleCase):
         self.page.keyboard.type(new_name)
         self.page.keyboard.press("Enter")
         self.page.wait_for_timeout(200)
+        self._cleanup_pages.remove(original_name)
+        self._cleanup_pages.append(new_name)
 
         # Verify new name is visible
         new_tab = console.layout.get_tab(new_name)
@@ -93,5 +97,9 @@ class KeyboardShortcuts(ConsoleCase):
         # Should see "New Component" or similar empty pane indicator
         new_component = self.page.get_by_text("New Component")
         assert new_component.count() > 0, "Cmd+T should create a 'New Component' pane"
+
+        # Close the new tab to clean up
+        self.page.keyboard.press("ControlOrMeta+w")
+        self.page.wait_for_timeout(300)
 
         self.log("test_new_tab_with_cmd_t: PASSED")
