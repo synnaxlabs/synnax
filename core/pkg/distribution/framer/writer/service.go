@@ -132,11 +132,11 @@ func DefaultConfig() Config {
 	return Config{
 		ControlSubject:           control.Subject{Key: uuid.New().String()},
 		Authorities:              []control.Authority{control.AuthorityAbsolute},
-		ErrOnUnauthorized:        config.False(),
+		ErrOnUnauthorized:        new(false),
 		Mode:                     ts.WriterModePersistStream,
-		EnableAutoCommit:         config.True(),
+		EnableAutoCommit:         new(true),
 		AutoIndexPersistInterval: 1 * telem.Second,
-		Sync:                     config.False(),
+		Sync:                     new(false),
 	}
 }
 

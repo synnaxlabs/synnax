@@ -13,7 +13,7 @@ import (
 	"context"
 	"go/types"
 
-	"github.com/synnaxlabs/freighter/fgrpc"
+	"github.com/synnaxlabs/freighter/grpc"
 	"github.com/synnaxlabs/synnax/pkg/api"
 	apiconnectivity "github.com/synnaxlabs/synnax/pkg/api/connectivity"
 	gapi "github.com/synnaxlabs/synnax/pkg/api/grpc/v1"
@@ -23,7 +23,7 @@ import (
 type responseTranslator struct{}
 
 type (
-	server = fgrpc.UnaryServer[
+	server = grpc.UnaryServer[
 		types.Nil,
 		*emptypb.Empty,
 		apiconnectivity.CheckResponse,
@@ -31,7 +31,7 @@ type (
 	]
 )
 
-var _ fgrpc.Translator[apiconnectivity.CheckResponse, *gapi.ConnectivityCheckResponse] = (*responseTranslator)(nil)
+var _ grpc.Translator[apiconnectivity.CheckResponse, *gapi.ConnectivityCheckResponse] = (*responseTranslator)(nil)
 
 func (c responseTranslator) Forward(
 	ctx context.Context,
@@ -53,9 +53,9 @@ func (c responseTranslator) Backward(
 	}, nil
 }
 
-func New(a *api.Transport) fgrpc.BindableTransport {
+func New(a *api.Transport) grpc.BindableTransport {
 	s := &server{
-		RequestTranslator:  fgrpc.EmptyTranslator{},
+		RequestTranslator:  grpc.EmptyTranslator{},
 		ResponseTranslator: responseTranslator{},
 		ServiceDesc:        &gapi.ConnectivityService_ServiceDesc,
 	}

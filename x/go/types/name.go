@@ -30,7 +30,7 @@ func Name[T any]() string {
 	if ct, ok := any(t).(CustomTypeName); ok {
 		return ct.CustomTypeName()
 	}
-	typ := reflect.TypeOf((*T)(nil)).Elem()
+	typ := reflect.TypeFor[T]()
 	if n := typ.Name(); n != "" {
 		return n
 	}

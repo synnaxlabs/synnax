@@ -14,7 +14,7 @@ import (
 	"go/types"
 
 	"github.com/google/uuid"
-	"github.com/synnaxlabs/freighter/fgrpc"
+	"github.com/synnaxlabs/freighter/grpc"
 	"github.com/synnaxlabs/synnax/pkg/api"
 	gapi "github.com/synnaxlabs/synnax/pkg/api/grpc/v1"
 	apistatus "github.com/synnaxlabs/synnax/pkg/api/status"
@@ -30,19 +30,19 @@ type (
 	retrieveRequestTranslator  struct{}
 	retrieveResponseTranslator struct{}
 	deleteRequestTranslator    struct{}
-	setServer                  = fgrpc.UnaryServer[
+	setServer                  = grpc.UnaryServer[
 		apistatus.SetRequest,
 		*gapi.StatusSetRequest,
 		apistatus.SetResponse,
 		*gapi.StatusSetResponse,
 	]
-	retrieveServer = fgrpc.UnaryServer[
+	retrieveServer = grpc.UnaryServer[
 		apistatus.RetrieveRequest,
 		*gapi.StatusRetrieveRequest,
 		apistatus.RetrieveResponse,
 		*gapi.StatusRetrieveResponse,
 	]
-	deleteServer = fgrpc.UnaryServer[
+	deleteServer = grpc.UnaryServer[
 		apistatus.DeleteRequest,
 		*gapi.StatusDeleteRequest,
 		types.Nil,
@@ -51,11 +51,11 @@ type (
 )
 
 var (
-	_ fgrpc.Translator[apistatus.SetRequest, *gapi.StatusSetRequest]             = (*setRequestTranslator)(nil)
-	_ fgrpc.Translator[apistatus.SetResponse, *gapi.StatusSetResponse]           = (*setResponseTranslator)(nil)
-	_ fgrpc.Translator[apistatus.RetrieveRequest, *gapi.StatusRetrieveRequest]   = (*retrieveRequestTranslator)(nil)
-	_ fgrpc.Translator[apistatus.RetrieveResponse, *gapi.StatusRetrieveResponse] = (*retrieveResponseTranslator)(nil)
-	_ fgrpc.Translator[apistatus.DeleteRequest, *gapi.StatusDeleteRequest]       = (*deleteRequestTranslator)(nil)
+	_ grpc.Translator[apistatus.SetRequest, *gapi.StatusSetRequest]             = (*setRequestTranslator)(nil)
+	_ grpc.Translator[apistatus.SetResponse, *gapi.StatusSetResponse]           = (*setResponseTranslator)(nil)
+	_ grpc.Translator[apistatus.RetrieveRequest, *gapi.StatusRetrieveRequest]   = (*retrieveRequestTranslator)(nil)
+	_ grpc.Translator[apistatus.RetrieveResponse, *gapi.StatusRetrieveResponse] = (*retrieveResponseTranslator)(nil)
+	_ grpc.Translator[apistatus.DeleteRequest, *gapi.StatusDeleteRequest]       = (*deleteRequestTranslator)(nil)
 )
 
 func translateManyForward(s []apistatus.Status) ([]*xstatus.PBStatus, error) {
@@ -212,7 +212,7 @@ func (t deleteRequestTranslator) Backward(
 	return apistatus.DeleteRequest{Keys: msg.Keys}, nil
 }
 
-func New(a *api.Transport) fgrpc.BindableTransport {
+func New(a *api.Transport) grpc.BindableTransport {
 	s := &setServer{
 		RequestTranslator:  setRequestTranslator{},
 		ResponseTranslator: setResponseTranslator{},
@@ -225,11 +225,11 @@ func New(a *api.Transport) fgrpc.BindableTransport {
 	}
 	d := &deleteServer{
 		RequestTranslator:  deleteRequestTranslator{},
-		ResponseTranslator: fgrpc.EmptyTranslator{},
+		ResponseTranslator: grpc.EmptyTranslator{},
 		ServiceDesc:        &gapi.StatusDeleteService_ServiceDesc,
 	}
 	a.StatusSet = s
 	a.StatusRetrieve = r
 	a.StatusDelete = d
-	return fgrpc.CompoundBindableTransport{s, r, d}
+	return grpc.CompoundBindableTransport{s, r, d}
 }

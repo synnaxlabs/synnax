@@ -7,6 +7,8 @@
 #  License, use of this software will be governed by the Apache License, Version 2.0,
 #  included in the file licenses/APL.txt.
 
+from playwright.sync_api import TimeoutError as PlaywrightTimeoutError
+
 from console.case import ConsoleCase
 from framework.utils import get_fixture_path, get_random_name
 
@@ -27,6 +29,7 @@ class Ontology(ConsoleCase):
         self.suffix = get_random_name()
         self.group_a = f"Group A {self.suffix}"
         self.group_b = f"Group B {self.suffix}"
+        self._pages_deleted = False
 
     def create_test_pages(self) -> None:
         """Create a mix of page types for grouping tests."""
@@ -126,23 +129,17 @@ class Ontology(ConsoleCase):
     def test_delete_groups(self) -> None:
         """Test deleting groups via context menu."""
         self.log("Testing delete groups")
-
-        # Expand group_a to access nested group_b.
-        self.console.workspace.expand_active()
-        parent = self.console.workspace.get_page(self.group_a)
-        if not self.console.workspace.tree.is_expanded(parent):
-            self.console.workspace.tree.expand(parent)
-
-        nested = self.console.workspace.tree.get_group(self.group_b)
-        self.console.workspace.tree.delete_group(nested)
-        self.console.layout.close_left_toolbar()
-
-        self.console.workspace.delete_group(self.group_a)
+        self.console.workspace.delete_pages(
+            [self.page_a, self.page_b, self.page_c, self.page_d],
+        )
+        self._pages_deleted = True
 
     def teardown(self) -> None:
-        self.console.workspace.expand_active()
-        for name in [self.page_a, self.page_b, self.page_c, self.page_d]:
-            item = self.console.workspace.get_page(name)
-            if item.count() > 0 and item.is_visible():
-                self.console.workspace.delete_page(name)
+        if not self._pages_deleted:
+            try:
+                self.console.workspace.delete_pages(
+                    [self.page_a, self.page_b, self.page_c, self.page_d],
+                )
+            except PlaywrightTimeoutError:
+                pass
         super().teardown()

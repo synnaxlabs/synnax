@@ -15,7 +15,7 @@ import (
 
 	"github.com/synnaxlabs/aspen/internal/cluster/store"
 	"github.com/synnaxlabs/aspen/internal/node"
-	"github.com/synnaxlabs/freighter/fmock"
+	"github.com/synnaxlabs/freighter/mock"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/signal"
 	. "github.com/synnaxlabs/x/testutil"
@@ -26,13 +26,13 @@ import (
 )
 
 var _ = Describe("OperationSender", func() {
-	var net *fmock.Network[gossip.Message, gossip.Message]
+	var net *mock.Network[gossip.Message, gossip.Message]
 	BeforeEach(func() {
-		net = fmock.NewNetwork[gossip.Message, gossip.Message]()
+		net = mock.NewNetwork[gossip.Message, gossip.Message]()
 	})
 	Describe("Two Node", func() {
 		var (
-			t1, t2, t3      *fmock.UnaryServer[gossip.Message, gossip.Message]
+			t1, t2, t3      *mock.UnaryServer[gossip.Message, gossip.Message]
 			nodes, nodesTwo node.Group
 			sOne            store.Store
 			g1              *gossip.Gossip

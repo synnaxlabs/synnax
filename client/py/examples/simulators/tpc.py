@@ -45,7 +45,7 @@ from examples.control.tpc.common import (
     SUPPLY_PT,
     VALVES,
 )
-from examples.simulators.base import SimDAQ
+from examples.simulators.simdaq import SimDAQ
 
 
 class TPCSimDAQ(SimDAQ):
@@ -55,7 +55,7 @@ class TPCSimDAQ(SimDAQ):
     end_cmd_channel = "end_tpc_test_cmd"
 
     def _create_channels(self) -> None:
-        self._log("Creating channels...")
+        self.log("Creating channels...")
         client = self.client
 
         self.daq_time = client.channels.create(
@@ -95,10 +95,10 @@ class TPCSimDAQ(SimDAQ):
         for sensor in SENSORS:
             initial_state[sensor] = [0.0]
         client.write(now, initial_state)
-        self._log("Channels created successfully")
+        self.log("Channels created successfully")
 
     def _run_loop(self) -> None:
-        self._log("Starting simulation loop...")
+        self.log("Starting simulation loop...")
         loop = sy.Loop(sy.Rate.HZ * 50, precise=True)
         loop_count = 0
 
@@ -169,7 +169,7 @@ class TPCSimDAQ(SimDAQ):
                         for ch in frame.channels:
                             val = frame[ch][0]
                             daq_state[ch] = val
-                            self._log(f"Received command: {ch}={val}")
+                            self.log(f"Received command: {ch}={val}")
 
                     # Track MPV open times
                     if daq_state[OX_MPV_CMD] == 1 and ox_mpv_last_open is None:
@@ -242,13 +242,13 @@ class TPCSimDAQ(SimDAQ):
 
                     loop_count += 1
                     if loop_count % 25 == 0:
-                        self._log(
+                        self.log(
                             f"OX_PT_1={daq_state[OX_PT_1]:.2f}, "
                             f"FUEL_PT_1={daq_state[FUEL_PT_1]:.2f}, "
                             f"PRESS_PT_1={daq_state[PRESS_PT_1]:.2f}"
                         )
 
-        self._log("Simulation loop stopped")
+        self.log("Simulation loop stopped")
 
 
 if __name__ == "__main__":

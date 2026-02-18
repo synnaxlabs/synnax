@@ -9,6 +9,6 @@
 
 """Modbus TCP example package."""
 
-from .server import run_server
+from .server import ModbusSim, run_server
 
-__all__ = ["run_server"]
+__all__ = ["run_server", "ModbusSim"]

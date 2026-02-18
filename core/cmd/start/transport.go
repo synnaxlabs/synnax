@@ -11,7 +11,7 @@ package start
 
 import (
 	"github.com/samber/lo"
-	"github.com/synnaxlabs/freighter/fgrpc"
+	fgrpc "github.com/synnaxlabs/freighter/grpc"
 	"github.com/synnaxlabs/synnax/pkg/security"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials"

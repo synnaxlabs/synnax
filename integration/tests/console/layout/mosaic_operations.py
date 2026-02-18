@@ -20,6 +20,7 @@ class MosaicOperations(ConsoleCase):
         super().setup()
         self.shared_page_name = "Shared Layout Plot"
         self.console.workspace.create_page("Line Plot", self.shared_page_name)
+        self._cleanup_pages.append(self.shared_page_name)
 
     def run(self) -> None:
         """Run all mosaic operation tests."""
@@ -49,10 +50,13 @@ class MosaicOperations(ConsoleCase):
         # Create a page
         original_name = "Original Tab Name"
         console.workspace.create_page("Line Plot", original_name)
+        self._cleanup_pages.append(original_name)
 
         # Rename the tab
         new_name = "Renamed Tab"
         console.layout.rename_tab(old_name=original_name, new_name=new_name)
+        self._cleanup_pages.remove(original_name)
+        self._cleanup_pages.append(new_name)
 
         # Verify the new name is visible
         new_tab = console.layout.get_tab(new_name)
@@ -73,7 +77,9 @@ class MosaicOperations(ConsoleCase):
         second_name = "Right Plot" if horizontal else "Bottom Plot"
 
         console.workspace.create_page("Line Plot", first_name)
+        self._cleanup_pages.append(first_name)
         console.workspace.create_page("Line Plot", second_name)
+        self._cleanup_pages.append(second_name)
 
         if horizontal:
             console.layout.split_horizontal(first_name)

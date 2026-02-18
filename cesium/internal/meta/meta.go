@@ -68,7 +68,7 @@ func Open(
 
 // Read reads the metadata file for a database whose data is kept in fs and is encoded
 // by the provided encoder.
-func Read(ctx context.Context, fs fs.FS, codec binary.Decoder) (channel.Channel, error) {
+func Read(ctx context.Context, fs fs.FS, codec binary.Decoder) (ch channel.Channel, err error) {
 	s, err := fs.Stat("")
 	if err != nil {
 		return channel.Channel{}, err
@@ -79,7 +79,6 @@ func Read(ctx context.Context, fs fs.FS, codec binary.Decoder) (channel.Channel,
 	}
 	defer func() { err = errors.Combine(err, metaF.Close()) }()
 
-	var ch channel.Channel
 	if err = codec.DecodeStream(ctx, metaF, &ch); err != nil {
 		err = errors.Wrapf(
 			err, "error decoding meta in folder for channel %s", s.Name(),
@@ -92,8 +91,8 @@ func Read(ctx context.Context, fs fs.FS, codec binary.Decoder) (channel.Channel,
 // Create creates the metadata file for a database whose data is kept in fs and is
 // encoded by the provided encoder. The provided channel should have all fields required
 // by the DB correctly set.
-func Create(ctx context.Context, fs fs.FS, codec binary.Encoder, ch channel.Channel) error {
-	if err := ch.Validate(); err != nil {
+func Create(ctx context.Context, fs fs.FS, codec binary.Encoder, ch channel.Channel) (err error) {
+	if err = ch.Validate(); err != nil {
 		return err
 	}
 	tempMetaF, err := fs.Open(
@@ -103,7 +102,11 @@ func Create(ctx context.Context, fs fs.FS, codec binary.Encoder, ch channel.Chan
 	if err != nil {
 		return err
 	}
-	defer func() { err = errors.Combine(err, fs.Remove(metaTempFile)) }()
+	defer func() {
+		if err != nil {
+			err = errors.Combine(err, fs.Remove(metaTempFile))
+		}
+	}()
 	if err = codec.EncodeStream(ctx, tempMetaF, ch); err != nil {
 		err = errors.Combine(err, tempMetaF.Close())
 		return err
@@ -111,9 +114,5 @@ func Create(ctx context.Context, fs fs.FS, codec binary.Encoder, ch channel.Chan
 	if err = tempMetaF.Close(); err != nil {
 		return err
 	}
-	if err = fs.Rename(metaTempFile, metaFile); err != nil {
-		return err
-	}
-	err = fs.Remove(metaTempFile)
-	return err
+	return fs.Rename(metaTempFile, metaFile)
 }

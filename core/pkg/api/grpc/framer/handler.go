@@ -13,7 +13,7 @@ import (
 	"context"
 	"go/types"
 
-	"github.com/synnaxlabs/freighter/fgrpc"
+	fgrpc "github.com/synnaxlabs/freighter/grpc"
 	"github.com/synnaxlabs/synnax/pkg/api"
 	apiframer "github.com/synnaxlabs/synnax/pkg/api/framer"
 	channelgrpc "github.com/synnaxlabs/synnax/pkg/api/grpc/channel"

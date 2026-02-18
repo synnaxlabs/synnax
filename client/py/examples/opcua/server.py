@@ -14,12 +14,16 @@ import random
 
 from asyncua import Server, ua
 
+import synnax as sy
+from examples.simulators.device_sim import DeviceSim
+from synnax import opcua
+
 # Configuration constants
 ARRAY_COUNT = 5
-ARRAY_SIZE = 5
+DEFAULT_ARRAY_SIZE = 5
 FLOAT_COUNT = 5
 BOOL_COUNT = 5
-RATE = 50  # Hz
+DEFAULT_RATE = 50  # Hz
 BOOL_OFFSET = 0.2  # seconds between each boolean transition
 
 # Error injection configuration
@@ -29,30 +33,30 @@ ERROR_FLOAT_INDEX = 2  # Which float to inject errors into
 
 
 # Initialization Functions
-async def create_array_variables(myobj, idx):
+async def create_array_variables(myobj, idx, array_size: int = DEFAULT_ARRAY_SIZE):
     """Create array variables with initial values."""
     arrays = []
     for i in range(ARRAY_COUNT):
-        initial_values = [float(j + i) for j in range(ARRAY_SIZE)]
+        initial_values = [float(j + i) for j in range(array_size)]
         arr = await myobj.add_variable(
             idx, f"my_array_{i}", initial_values, ua.VariantType.Float
         )
-        await arr.write_array_dimensions([ARRAY_SIZE])
+        await arr.write_array_dimensions([array_size])
         arrays.append(arr)
     return arrays
 
 
-async def create_time_array(myobj, idx):
+async def create_time_array(myobj, idx, array_size: int = DEFAULT_ARRAY_SIZE):
     """Create timestamp array variable."""
     now = datetime.datetime.now(datetime.timezone.utc)
     initial_times = [
-        now + datetime.timedelta(milliseconds=j) for j in range(ARRAY_SIZE)
+        now + datetime.timedelta(milliseconds=j) for j in range(array_size)
     ]
     mytimearray = await myobj.add_variable(
         idx, "my_time_array", initial_times, ua.VariantType.DateTime
     )
     await mytimearray.set_writable()
-    await mytimearray.write_array_dimensions([ARRAY_SIZE])
+    await mytimearray.write_array_dimensions([array_size])
     return mytimearray
 
 
@@ -116,7 +120,7 @@ def generate_sinewave_values(timestamps, start_ref):
 
 
 # Update Functions
-def inject_error(values):
+def inject_error(values, array_size: int = DEFAULT_ARRAY_SIZE):
     """
     Generate corrupted array data for error injection.
     """
@@ -129,7 +133,7 @@ def inject_error(values):
 
     # Array smaller than expected
     elif error_chance < 0.667:
-        size = random.randint(1, ARRAY_SIZE - 2)
+        size = random.randint(1, max(2, array_size - 2))
         return values[:size]
 
     # Array larger than expected
@@ -178,18 +182,24 @@ async def update_bools(bools, elapsed):
         await bool_var.set_value(square_wave, varianttype=ua.VariantType.Boolean)
 
 
-async def run_server() -> None:
+async def run_server(
+    endpoint: str = "",
+    rate: sy.Rate = DEFAULT_RATE * sy.Rate.HZ,
+    array_size: int = DEFAULT_ARRAY_SIZE,
+) -> None:
     # Initialize server
     server = Server()
     await server.init()
-    server.set_endpoint("opc.tcp://127.0.0.1:4841/freeopcua/server/")
+    if not endpoint:
+        endpoint = OPCUASim.endpoint
+    server.set_endpoint(endpoint)
     uri = "http://examples.freeopcua.github.io"
     idx = await server.register_namespace(uri)
 
     # Create OPC UA object and variables
     myobj = await server.nodes.objects.add_object(idx, "MyObject")
-    arrays = await create_array_variables(myobj, idx)
-    mytimearray = await create_time_array(myobj, idx)
+    arrays = await create_array_variables(myobj, idx, array_size)
+    mytimearray = await create_time_array(myobj, idx, array_size)
     floats = await create_float_variables(myobj, idx)
     bools = await create_bool_variables(myobj, idx)
     commands = await create_command_variables(myobj, idx)
@@ -224,7 +234,7 @@ async def run_server() -> None:
             elapsed = (start - start_ref).total_seconds()
 
             # Generate data
-            timestamps = generate_timestamps(start, RATE, ARRAY_SIZE)
+            timestamps = generate_timestamps(start, rate, array_size)
             sinewave_values = generate_sinewave_values(timestamps, start_ref)
 
             # Update all variables
@@ -237,7 +247,38 @@ async def run_server() -> None:
             duration = (
                 datetime.datetime.now(datetime.timezone.utc) - start
             ).total_seconds()
-            await asyncio.sleep((1 / RATE) - duration)
+            await asyncio.sleep(max(0, (1 / rate) - duration))
+
+
+class OPCUASim(DeviceSim):
+    """OPC UA device simulator on port 4841."""
+
+    description = "OPC UA simulator on port 4841"
+    host = "127.0.0.1"
+    port = 4841
+    device_name = "OPC UA Test Server"
+    endpoint = f"opc.tcp://{host}:{port}/freeopcua/server/"
+
+    def __init__(
+        self,
+        array_size: int = DEFAULT_ARRAY_SIZE,
+        rate: sy.Rate = 50 * sy.Rate.HZ,
+        verbose: bool = False,
+    ):
+        super().__init__(rate=rate, verbose=verbose)
+        self.array_size = array_size
+
+    async def _run_server(self) -> None:
+        await run_server(self.endpoint, self.rate, self.array_size)
+
+    @staticmethod
+    def create_device(rack_key: int) -> opcua.Device:
+        return opcua.Device(
+            endpoint=OPCUASim.endpoint,
+            name=OPCUASim.device_name,
+            location=OPCUASim.endpoint,
+            rack=rack_key,
+        )
 
 
 if __name__ == "__main__":

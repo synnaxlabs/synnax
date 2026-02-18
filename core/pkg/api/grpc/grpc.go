@@ -12,8 +12,8 @@ package grpc
 import (
 	"go/types"
 
-	"github.com/synnaxlabs/freighter/fgrpc"
-	"github.com/synnaxlabs/freighter/fnoop"
+	fgrpc "github.com/synnaxlabs/freighter/grpc"
+	fnoop "github.com/synnaxlabs/freighter/noop"
 	"github.com/synnaxlabs/synnax/pkg/api"
 	"github.com/synnaxlabs/synnax/pkg/api/access"
 	apiarc "github.com/synnaxlabs/synnax/pkg/api/arc"

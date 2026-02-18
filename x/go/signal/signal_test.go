@@ -33,6 +33,10 @@ func immediatelyPanic(ctx context.Context) error { panic("routine panicked") }
 func immediatelyReturnNil(ctx context.Context) error { return nil }
 
 var _ = Describe("Signal", func() {
+	var ctx context.Context
+	BeforeEach(func() {
+		ctx = context.Background()
+	})
 
 	Describe("Coordination", func() {
 		Describe("CancelOnFail", func() {
@@ -194,7 +198,7 @@ var _ = Describe("Signal", func() {
 		})
 
 		It("Should not send a value to the channel if the context is cancelled", func() {
-			ctx, cancel := signal.WithTimeout(context.TODO(), 500*time.Microsecond)
+			ctx, cancel := signal.WithTimeout(ctx, 500*time.Microsecond)
 			v := make(chan int)
 			_ = signal.SendUnderContext(ctx, v, 1)
 			cancel()
@@ -214,7 +218,7 @@ var _ = Describe("Signal", func() {
 		})
 
 		It("Should return context error if context is cancelled before receive", func() {
-			ctx, cancel := signal.WithTimeout(context.TODO(), 500*time.Microsecond)
+			ctx, cancel := signal.WithTimeout(ctx, 500*time.Microsecond)
 			v := make(chan int)
 			cancel()
 			val, err := signal.RecvUnderContext(ctx, v)
@@ -223,7 +227,7 @@ var _ = Describe("Signal", func() {
 		})
 
 		It("Should receive value even if context is cancelled after value is available", func() {
-			ctx, cancel := signal.WithTimeout(context.TODO(), 500*time.Microsecond)
+			ctx, cancel := signal.WithTimeout(ctx, 500*time.Microsecond)
 			v := make(chan int, 1)
 			v <- 1
 			val, err := signal.RecvUnderContext(ctx, v)
@@ -241,6 +245,15 @@ var _ = Describe("Signal", func() {
 		// in another goroutine. However, we have manually tested that it indeed
 		// panics the whole program.
 		// We can test all other cases where panics are recovered.
+
+		It("Should still propagate the panic error when there is no breaker even if the context is cancelled", func() {
+			ctx, cancel := signal.Isolated()
+			ctx.Go(func(ctx context.Context) error {
+				panic("important error")
+			}, signal.RecoverWithErrOnPanic())
+			cancel()
+			Expect(ctx.Wait()).To(MatchError(ContainSubstring("important error")))
+		})
 
 		It("Should error a panic when instructed", func() {
 			ctx, _ := signal.Isolated()
@@ -324,12 +337,11 @@ var _ = Describe("Signal", func() {
 			ctx, cancel := signal.Isolated()
 			ctx.Go(f, signal.WithBreaker(breaker.Config{MaxRetries: breaker.InfiniteRetries, BaseInterval: 1 * time.Millisecond, Scale: 1.01}))
 
-			wg.Add(1)
-			go func() {
-				defer wg.Done()
-				Expect(ctx.Wait()).To(Succeed())
+			wg.Go(func() {
+				defer GinkgoRecover()
+				Expect(ctx.Wait()).To(HaveOccurredAs(context.Canceled))
 				close(done)
-			}()
+			})
 
 			cancel()
 			wg.Wait()
@@ -357,6 +369,7 @@ var _ = Describe("Signal", func() {
 			)
 
 			go func() {
+				defer GinkgoRecover()
 				Expect(ctx.Wait()).ToNot(HaveOccurred())
 				close(done)
 			}()

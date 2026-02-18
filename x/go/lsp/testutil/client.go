@@ -67,9 +67,7 @@ func (m *MockClient) LogMessage(context.Context, *protocol.LogMessageParams) err
 	return nil
 }
 
-func (m *MockClient) Telemetry(context.Context, interface{}) error {
-	return nil
-}
+func (m *MockClient) Telemetry(context.Context, any) error { return nil }
 
 func (m *MockClient) RegisterCapability(context.Context, *protocol.RegistrationParams) error {
 	return nil
