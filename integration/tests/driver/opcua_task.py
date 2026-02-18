@@ -13,7 +13,6 @@ from abc import abstractmethod
 
 import synnax as sy
 from examples.opcua import OPCUASim
-from synnax import opcua
 
 from tests.driver.simulator_case import SimulatorCase
 from tests.driver.task import TaskCase
@@ -32,7 +31,7 @@ class OPCUATaskCase(SimulatorCase, TaskCase):
         super().setup()
 
     @abstractmethod
-    def create_channels(self) -> list[opcua.ReadChannel]: ...
+    def create_channels(self) -> list[sy.opcua.ReadChannel]: ...
 
     def create(
         self,
@@ -41,11 +40,11 @@ class OPCUATaskCase(SimulatorCase, TaskCase):
         task_name: str,
         sample_rate: sy.Rate,
         stream_rate: sy.Rate,
-    ) -> opcua.ReadTask:
+    ) -> sy.opcua.ReadTask:
         """Create an OPC UA read task."""
         channels = self.create_channels()
 
-        return opcua.ReadTask(
+        return sy.opcua.ReadTask(
             name=task_name,
             device=device.key,
             sample_rate=sample_rate,
