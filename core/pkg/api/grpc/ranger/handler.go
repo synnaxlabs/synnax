@@ -14,33 +14,33 @@ import (
 	"go/types"
 
 	"github.com/google/uuid"
-	fgrpc "github.com/synnaxlabs/freighter/grpc"
+	"github.com/synnaxlabs/freighter/grpc"
 	"github.com/synnaxlabs/synnax/pkg/api"
 	apiranger "github.com/synnaxlabs/synnax/pkg/api/ranger"
-	pb "github.com/synnaxlabs/synnax/pkg/api/ranger/pb"
+	"github.com/synnaxlabs/synnax/pkg/api/ranger/pb"
 	"google.golang.org/protobuf/types/known/emptypb"
 )
 
 type (
-	createServer = fgrpc.UnaryServer[
+	createServer = grpc.UnaryServer[
 		apiranger.CreateRequest,
 		*CreateRequest,
 		apiranger.CreateResponse,
 		*CreateResponse,
 	]
-	retrieveServer = fgrpc.UnaryServer[
+	retrieveServer = grpc.UnaryServer[
 		apiranger.RetrieveRequest,
 		*RetrieveRequest,
 		apiranger.RetrieveResponse,
 		*RetrieveResponse,
 	]
-	deleteServer = fgrpc.UnaryServer[
+	deleteServer = grpc.UnaryServer[
 		apiranger.DeleteRequest,
 		*DeleteRequest,
 		types.Nil,
 		*emptypb.Empty,
 	]
-	renameServer = fgrpc.UnaryServer[
+	renameServer = grpc.UnaryServer[
 		apiranger.RenameRequest,
 		*RenameRequest,
 		types.Nil,
@@ -58,12 +58,12 @@ type (
 )
 
 var (
-	_ fgrpc.Translator[apiranger.CreateRequest, *CreateRequest]       = (*createRequestTranslator)(nil)
-	_ fgrpc.Translator[apiranger.CreateResponse, *CreateResponse]     = (*createResponseTranslator)(nil)
-	_ fgrpc.Translator[apiranger.RetrieveRequest, *RetrieveRequest]   = (*retrieveRequestTranslator)(nil)
-	_ fgrpc.Translator[apiranger.RetrieveResponse, *RetrieveResponse] = (*retrieveResponseTranslator)(nil)
-	_ fgrpc.Translator[apiranger.DeleteRequest, *DeleteRequest]       = (*deleteRequestTranslator)(nil)
-	_ fgrpc.Translator[apiranger.RenameRequest, *RenameRequest]       = (*renameRequestTranslator)(nil)
+	_ grpc.Translator[apiranger.CreateRequest, *CreateRequest]       = (*createRequestTranslator)(nil)
+	_ grpc.Translator[apiranger.CreateResponse, *CreateResponse]     = (*createResponseTranslator)(nil)
+	_ grpc.Translator[apiranger.RetrieveRequest, *RetrieveRequest]   = (*retrieveRequestTranslator)(nil)
+	_ grpc.Translator[apiranger.RetrieveResponse, *RetrieveResponse] = (*retrieveResponseTranslator)(nil)
+	_ grpc.Translator[apiranger.DeleteRequest, *DeleteRequest]       = (*deleteRequestTranslator)(nil)
+	_ grpc.Translator[apiranger.RenameRequest, *RenameRequest]       = (*renameRequestTranslator)(nil)
 )
 
 func (t createRequestTranslator) Forward(
@@ -205,7 +205,7 @@ func (t renameRequestTranslator) Backward(
 	}, err
 }
 
-func New(a *api.Transport) fgrpc.BindableTransport {
+func New(a *api.Transport) grpc.BindableTransport {
 	create := &createServer{
 		RequestTranslator:  createRequestTranslator{},
 		ResponseTranslator: createResponseTranslator{},
@@ -220,17 +220,17 @@ func New(a *api.Transport) fgrpc.BindableTransport {
 	a.RangeRetrieve = retrieve
 	rangeDelete := &deleteServer{
 		RequestTranslator:  deleteRequestTranslator{},
-		ResponseTranslator: fgrpc.EmptyTranslator{},
+		ResponseTranslator: grpc.EmptyTranslator{},
 		ServiceDesc:        &RangeDeleteService_ServiceDesc,
 	}
 	a.RangeDelete = rangeDelete
 	rename := &renameServer{
 		RequestTranslator:  renameRequestTranslator{},
-		ResponseTranslator: fgrpc.EmptyTranslator{},
+		ResponseTranslator: grpc.EmptyTranslator{},
 		ServiceDesc:        &RangeRenameService_ServiceDesc,
 	}
 	a.RangeRename = rename
-	return fgrpc.CompoundBindableTransport{
+	return grpc.CompoundBindableTransport{
 		create,
 		retrieve,
 		rangeDelete,

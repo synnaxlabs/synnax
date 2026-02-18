@@ -14,7 +14,7 @@ import (
 	"go/types"
 
 	"github.com/google/uuid"
-	fgrpc "github.com/synnaxlabs/freighter/grpc"
+	"github.com/synnaxlabs/freighter/grpc"
 	"github.com/synnaxlabs/synnax/pkg/api"
 	apialias "github.com/synnaxlabs/synnax/pkg/api/ranger/alias"
 	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
@@ -23,31 +23,31 @@ import (
 )
 
 type (
-	setServer = fgrpc.UnaryServer[
+	setServer = grpc.UnaryServer[
 		apialias.SetRequest,
 		*SetRequest,
 		types.Nil,
 		*emptypb.Empty,
 	]
-	resolveServer = fgrpc.UnaryServer[
+	resolveServer = grpc.UnaryServer[
 		apialias.ResolveRequest,
 		*ResolveRequest,
 		apialias.ResolveResponse,
 		*ResolveResponse,
 	]
-	deleteServer = fgrpc.UnaryServer[
+	deleteServer = grpc.UnaryServer[
 		apialias.DeleteRequest,
 		*DeleteRequest,
 		types.Nil,
 		*emptypb.Empty,
 	]
-	listServer = fgrpc.UnaryServer[
+	listServer = grpc.UnaryServer[
 		apialias.ListRequest,
 		*ListRequest,
 		apialias.ListResponse,
 		*ListResponse,
 	]
-	retrieveServer = fgrpc.UnaryServer[
+	retrieveServer = grpc.UnaryServer[
 		apialias.RetrieveRequest,
 		*RetrieveRequest,
 		apialias.RetrieveResponse,
@@ -67,14 +67,14 @@ type (
 )
 
 var (
-	_ fgrpc.Translator[apialias.SetRequest, *SetRequest]             = (*setRequestTranslator)(nil)
-	_ fgrpc.Translator[apialias.ResolveRequest, *ResolveRequest]     = (*resolveRequestTranslator)(nil)
-	_ fgrpc.Translator[apialias.ResolveResponse, *ResolveResponse]   = (*resolveResponseTranslator)(nil)
-	_ fgrpc.Translator[apialias.DeleteRequest, *DeleteRequest]       = (*deleteRequestTranslator)(nil)
-	_ fgrpc.Translator[apialias.ListRequest, *ListRequest]           = (*listRequestTranslator)(nil)
-	_ fgrpc.Translator[apialias.ListResponse, *ListResponse]         = (*listResponseTranslator)(nil)
-	_ fgrpc.Translator[apialias.RetrieveRequest, *RetrieveRequest]   = (*retrieveRequestTranslator)(nil)
-	_ fgrpc.Translator[apialias.RetrieveResponse, *RetrieveResponse] = (*retrieveResponseTranslator)(nil)
+	_ grpc.Translator[apialias.SetRequest, *SetRequest]             = (*setRequestTranslator)(nil)
+	_ grpc.Translator[apialias.ResolveRequest, *ResolveRequest]     = (*resolveRequestTranslator)(nil)
+	_ grpc.Translator[apialias.ResolveResponse, *ResolveResponse]   = (*resolveResponseTranslator)(nil)
+	_ grpc.Translator[apialias.DeleteRequest, *DeleteRequest]       = (*deleteRequestTranslator)(nil)
+	_ grpc.Translator[apialias.ListRequest, *ListRequest]           = (*listRequestTranslator)(nil)
+	_ grpc.Translator[apialias.ListResponse, *ListResponse]         = (*listResponseTranslator)(nil)
+	_ grpc.Translator[apialias.RetrieveRequest, *RetrieveRequest]   = (*retrieveRequestTranslator)(nil)
+	_ grpc.Translator[apialias.RetrieveResponse, *RetrieveResponse] = (*retrieveResponseTranslator)(nil)
 )
 
 func (t setRequestTranslator) Forward(
@@ -234,10 +234,10 @@ func (t retrieveResponseTranslator) Backward(
 	}, nil
 }
 
-func New(a *api.Transport) fgrpc.BindableTransport {
+func New(a *api.Transport) grpc.BindableTransport {
 	set := &setServer{
 		RequestTranslator:  setRequestTranslator{},
-		ResponseTranslator: fgrpc.EmptyTranslator{},
+		ResponseTranslator: grpc.EmptyTranslator{},
 		ServiceDesc:        &AliasSetService_ServiceDesc,
 	}
 	a.AliasSet = set
@@ -249,7 +249,7 @@ func New(a *api.Transport) fgrpc.BindableTransport {
 	a.AliasResolve = resolve
 	del := &deleteServer{
 		RequestTranslator:  deleteRequestTranslator{},
-		ResponseTranslator: fgrpc.EmptyTranslator{},
+		ResponseTranslator: grpc.EmptyTranslator{},
 		ServiceDesc:        &AliasDeleteService_ServiceDesc,
 	}
 	a.AliasDelete = del
@@ -265,5 +265,5 @@ func New(a *api.Transport) fgrpc.BindableTransport {
 		ServiceDesc:        &AliasRetrieveService_ServiceDesc,
 	}
 	a.AliasRetrieve = retrieve
-	return fgrpc.CompoundBindableTransport{set, resolve, del, list, retrieve}
+	return grpc.CompoundBindableTransport{set, resolve, del, list, retrieve}
 }

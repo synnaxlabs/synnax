@@ -13,7 +13,7 @@ import (
 	"context"
 	"go/types"
 
-	fgrpc "github.com/synnaxlabs/freighter/grpc"
+	"github.com/synnaxlabs/freighter/grpc"
 	"github.com/synnaxlabs/synnax/pkg/api"
 	apitask "github.com/synnaxlabs/synnax/pkg/api/task"
 	"github.com/synnaxlabs/synnax/pkg/service/rack"
@@ -24,25 +24,25 @@ import (
 )
 
 type (
-	createServer = fgrpc.UnaryServer[
+	createServer = grpc.UnaryServer[
 		apitask.CreateRequest,
 		*CreateRequest,
 		apitask.CreateResponse,
 		*CreateResponse,
 	]
-	retrieveServer = fgrpc.UnaryServer[
+	retrieveServer = grpc.UnaryServer[
 		apitask.RetrieveRequest,
 		*RetrieveRequest,
 		apitask.RetrieveResponse,
 		*RetrieveResponse,
 	]
-	deleteServer = fgrpc.UnaryServer[
+	deleteServer = grpc.UnaryServer[
 		apitask.DeleteRequest,
 		*DeleteRequest,
 		types.Nil,
 		*emptypb.Empty,
 	]
-	copyServer = fgrpc.UnaryServer[
+	copyServer = grpc.UnaryServer[
 		apitask.CopyRequest,
 		*CopyRequest,
 		apitask.CopyResponse,
@@ -61,13 +61,13 @@ type (
 )
 
 var (
-	_ fgrpc.Translator[apitask.CreateRequest, *CreateRequest]       = createRequestTranslator{}
-	_ fgrpc.Translator[apitask.CreateResponse, *CreateResponse]     = createResponseTranslator{}
-	_ fgrpc.Translator[apitask.RetrieveRequest, *RetrieveRequest]   = retrieveRequestTranslator{}
-	_ fgrpc.Translator[apitask.RetrieveResponse, *RetrieveResponse] = retrieveResponseTranslator{}
-	_ fgrpc.Translator[apitask.DeleteRequest, *DeleteRequest]       = deleteRequestTranslator{}
-	_ fgrpc.Translator[apitask.CopyRequest, *CopyRequest]           = copyRequestTranslator{}
-	_ fgrpc.Translator[apitask.CopyResponse, *CopyResponse]         = copyResponseTranslator{}
+	_ grpc.Translator[apitask.CreateRequest, *CreateRequest]       = createRequestTranslator{}
+	_ grpc.Translator[apitask.CreateResponse, *CreateResponse]     = createResponseTranslator{}
+	_ grpc.Translator[apitask.RetrieveRequest, *RetrieveRequest]   = retrieveRequestTranslator{}
+	_ grpc.Translator[apitask.RetrieveResponse, *RetrieveResponse] = retrieveResponseTranslator{}
+	_ grpc.Translator[apitask.DeleteRequest, *DeleteRequest]       = deleteRequestTranslator{}
+	_ grpc.Translator[apitask.CopyRequest, *CopyRequest]           = copyRequestTranslator{}
+	_ grpc.Translator[apitask.CopyResponse, *CopyResponse]         = copyResponseTranslator{}
 )
 
 func (createRequestTranslator) Forward(ctx context.Context, req apitask.CreateRequest) (*CreateRequest, error) {
@@ -178,7 +178,7 @@ func (copyResponseTranslator) Backward(ctx context.Context, res *CopyResponse) (
 	return apitask.CopyResponse{Task: t}, nil
 }
 
-func New(a *api.Transport) fgrpc.BindableTransport {
+func New(a *api.Transport) grpc.BindableTransport {
 	create := &createServer{
 		RequestTranslator:  createRequestTranslator{},
 		ResponseTranslator: createResponseTranslator{},
@@ -193,7 +193,7 @@ func New(a *api.Transport) fgrpc.BindableTransport {
 	a.TaskRetrieve = retrieve
 	del := &deleteServer{
 		RequestTranslator:  deleteRequestTranslator{},
-		ResponseTranslator: fgrpc.EmptyTranslator{},
+		ResponseTranslator: grpc.EmptyTranslator{},
 		ServiceDesc:        &TaskDeleteService_ServiceDesc,
 	}
 	a.TaskDelete = del
@@ -204,7 +204,7 @@ func New(a *api.Transport) fgrpc.BindableTransport {
 	}
 	a.TaskCopy = cpy
 
-	return fgrpc.CompoundBindableTransport{
+	return grpc.CompoundBindableTransport{
 		create,
 		retrieve,
 		del,

@@ -14,7 +14,7 @@ import (
 	"go/types"
 
 	"github.com/google/uuid"
-	fgrpc "github.com/synnaxlabs/freighter/grpc"
+	"github.com/synnaxlabs/freighter/grpc"
 	"github.com/synnaxlabs/synnax/pkg/api"
 	apikv "github.com/synnaxlabs/synnax/pkg/api/ranger/kv"
 	svckv "github.com/synnaxlabs/synnax/pkg/service/ranger/kv"
@@ -23,19 +23,19 @@ import (
 )
 
 type (
-	getServer = fgrpc.UnaryServer[
+	getServer = grpc.UnaryServer[
 		apikv.GetRequest,
 		*GetRequest,
 		apikv.GetResponse,
 		*GetResponse,
 	]
-	setServer = fgrpc.UnaryServer[
+	setServer = grpc.UnaryServer[
 		apikv.SetRequest,
 		*SetRequest,
 		types.Nil,
 		*emptypb.Empty,
 	]
-	deleteServer = fgrpc.UnaryServer[
+	deleteServer = grpc.UnaryServer[
 		apikv.DeleteRequest,
 		*DeleteRequest,
 		types.Nil,
@@ -51,10 +51,10 @@ type (
 )
 
 var (
-	_ fgrpc.Translator[apikv.GetRequest, *GetRequest]       = (*getRequestTranslator)(nil)
-	_ fgrpc.Translator[apikv.GetResponse, *GetResponse]     = (*getResponseTranslator)(nil)
-	_ fgrpc.Translator[apikv.SetRequest, *SetRequest]       = (*setRequestTranslator)(nil)
-	_ fgrpc.Translator[apikv.DeleteRequest, *DeleteRequest] = (*deleteRequestTranslator)(nil)
+	_ grpc.Translator[apikv.GetRequest, *GetRequest]       = (*getRequestTranslator)(nil)
+	_ grpc.Translator[apikv.GetResponse, *GetResponse]     = (*getResponseTranslator)(nil)
+	_ grpc.Translator[apikv.SetRequest, *SetRequest]       = (*setRequestTranslator)(nil)
+	_ grpc.Translator[apikv.DeleteRequest, *DeleteRequest] = (*deleteRequestTranslator)(nil)
 )
 
 func translatePairsForward(ctx context.Context, p []svckv.Pair) ([]*kvpb.Pair, error) {
@@ -151,7 +151,7 @@ func (t deleteRequestTranslator) Backward(
 	}, err
 }
 
-func New(a *api.Transport) fgrpc.BindableTransport {
+func New(a *api.Transport) grpc.BindableTransport {
 	get := &getServer{
 		RequestTranslator:  getRequestTranslator{},
 		ResponseTranslator: getResponseTranslator{},
@@ -160,15 +160,15 @@ func New(a *api.Transport) fgrpc.BindableTransport {
 	a.KVGet = get
 	set := &setServer{
 		RequestTranslator:  setRequestTranslator{},
-		ResponseTranslator: fgrpc.EmptyTranslator{},
+		ResponseTranslator: grpc.EmptyTranslator{},
 		ServiceDesc:        &KVSetService_ServiceDesc,
 	}
 	a.KVSet = set
 	del := &deleteServer{
 		RequestTranslator:  deleteRequestTranslator{},
-		ResponseTranslator: fgrpc.EmptyTranslator{},
+		ResponseTranslator: grpc.EmptyTranslator{},
 		ServiceDesc:        &KVDeleteService_ServiceDesc,
 	}
 	a.KVDelete = del
-	return fgrpc.CompoundBindableTransport{get, set, del}
+	return grpc.CompoundBindableTransport{get, set, del}
 }

@@ -13,7 +13,7 @@ import (
 	"context"
 	"go/types"
 
-	fgrpc "github.com/synnaxlabs/freighter/grpc"
+	"github.com/synnaxlabs/freighter/grpc"
 	"github.com/synnaxlabs/synnax/pkg/api"
 	"github.com/synnaxlabs/synnax/pkg/api/device"
 	"github.com/synnaxlabs/synnax/pkg/service/device/pb"
@@ -23,19 +23,19 @@ import (
 )
 
 type (
-	createServer = fgrpc.UnaryServer[
+	createServer = grpc.UnaryServer[
 		device.CreateRequest,
 		*CreateRequest,
 		device.CreateResponse,
 		*CreateResponse,
 	]
-	retrieveServer = fgrpc.UnaryServer[
+	retrieveServer = grpc.UnaryServer[
 		device.RetrieveRequest,
 		*RetrieveRequest,
 		device.RetrieveResponse,
 		*RetrieveResponse,
 	]
-	deleteServer = fgrpc.UnaryServer[
+	deleteServer = grpc.UnaryServer[
 		device.DeleteRequest,
 		*DeleteRequest,
 		types.Nil,
@@ -52,11 +52,11 @@ type (
 )
 
 var (
-	_ fgrpc.Translator[device.CreateRequest, *CreateRequest]       = createRequestTranslator{}
-	_ fgrpc.Translator[device.CreateResponse, *CreateResponse]     = createResponseTranslator{}
-	_ fgrpc.Translator[device.RetrieveRequest, *RetrieveRequest]   = retrieveRequestTranslator{}
-	_ fgrpc.Translator[device.RetrieveResponse, *RetrieveResponse] = retrieveResponseTranslator{}
-	_ fgrpc.Translator[device.DeleteRequest, *DeleteRequest]       = deleteRequestTranslator{}
+	_ grpc.Translator[device.CreateRequest, *CreateRequest]       = createRequestTranslator{}
+	_ grpc.Translator[device.CreateResponse, *CreateResponse]     = createResponseTranslator{}
+	_ grpc.Translator[device.RetrieveRequest, *RetrieveRequest]   = retrieveRequestTranslator{}
+	_ grpc.Translator[device.RetrieveResponse, *RetrieveResponse] = retrieveResponseTranslator{}
+	_ grpc.Translator[device.DeleteRequest, *DeleteRequest]       = deleteRequestTranslator{}
 )
 
 func (createRequestTranslator) Forward(ctx context.Context, req device.CreateRequest) (*CreateRequest, error) {
@@ -147,7 +147,7 @@ func (deleteRequestTranslator) Backward(_ context.Context, req *DeleteRequest) (
 	return device.DeleteRequest{Keys: req.Keys}, nil
 }
 
-func New(a *api.Transport) fgrpc.BindableTransport {
+func New(a *api.Transport) grpc.BindableTransport {
 	create := &createServer{
 		RequestTranslator:  createRequestTranslator{},
 		ResponseTranslator: createResponseTranslator{},
@@ -162,12 +162,12 @@ func New(a *api.Transport) fgrpc.BindableTransport {
 	a.DeviceRetrieve = retrieve
 	del := &deleteServer{
 		RequestTranslator:  deleteRequestTranslator{},
-		ResponseTranslator: fgrpc.EmptyTranslator{},
+		ResponseTranslator: grpc.EmptyTranslator{},
 		ServiceDesc:        &DeviceDeleteService_ServiceDesc,
 	}
 	a.DeviceDelete = del
 
-	return fgrpc.CompoundBindableTransport{
+	return grpc.CompoundBindableTransport{
 		create,
 		retrieve,
 		del,
