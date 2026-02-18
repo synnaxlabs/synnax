@@ -86,7 +86,7 @@ class Scheduler:
         self._channel_retriever = channel_retriever
         self._state = State(channel_retriever)
 
-    async def start(self):
+    async def start(self) -> None:
         self._streamer = await self._frame_client.open_async_streamer(self._channels)
         async for frame in self._streamer:
             self._state.update(frame)
@@ -95,4 +95,4 @@ class Scheduler:
                 if res is not None:
                     res(LatestState(self._state))
 
-    def stop(self): ...
+    def stop(self) -> None: ...

@@ -11,8 +11,9 @@ from __future__ import annotations
 
 import json
 import warnings
+from collections.abc import Generator
 from contextlib import contextmanager
-from typing import Annotated
+from typing import TYPE_CHECKING, Annotated, Any
 from typing import Protocol as BaseProtocol
 from typing import overload
 from uuid import uuid4
@@ -111,7 +112,7 @@ class BaseReadConfig(BaseConfig):
     "The rate at which acquired data will be streamed to the Synnax cluster (Hz)."
 
     @field_validator("stream_rate")
-    def validate_stream_rate(cls, v, info):
+    def validate_stream_rate(cls, v: int, info: Any) -> int:
         """Validate that stream_rate is less than or equal to sample_rate."""
         if "sample_rate" in info.data and v > info.data["sample_rate"]:
             raise ValueError(
@@ -169,8 +170,7 @@ class Task:
     def _frame_client(self) -> FrameClient:
         if self.__frame_client is None:
             raise RuntimeError(
-                "Cannot execute commands on a task that has not been "
-                "created or retrieved from the cluster."
+                "Cannot execute commands on a task that has not been created or retrieved from the cluster."
             )
         return self.__frame_client
 
@@ -182,7 +182,7 @@ class Task:
             config=self.config,
         )
 
-    def set_internal(self, task: Task):
+    def set_internal(self, task: Task) -> None:
         self.key = task.key
         self.name = task.name
         self.type = task.type
@@ -206,7 +206,7 @@ class Task:
         """
         return None
 
-    def execute_command(self, type_: str, args: dict | None = None) -> str:
+    def execute_command(self, type_: str, args: dict[str, Any] | None = None) -> str:
         """Executes a command on the task and returns the unique key assigned to the
         command.
 
@@ -226,7 +226,7 @@ class Task:
     def execute_command_sync(
         self,
         type_: str,
-        args: dict | None = None,
+        args: dict[str, Any] | None = None,
         timeout: float | TimeSpan = 5,
     ) -> Status:
         """Executes a command on the task and waits for the driver to acknowledge the
@@ -268,7 +268,7 @@ class Protocol(BaseProtocol):
 
     def to_payload(self) -> Payload: ...
 
-    def set_internal(self, task: Task): ...
+    def set_internal(self, task: Task) -> None: ...
 
     def update_device_properties(self, device_client: DeviceClient) -> Device | None:
         """Update device properties before task configuration.
@@ -289,7 +289,7 @@ class Protocol(BaseProtocol):
 class StarterStopperMixin:
     _internal: Task
 
-    def start(self, timeout: float | TimeSpan = 5):
+    def start(self, timeout: float | TimeSpan = 5) -> None:
         """Starts the task and blocks until the Synnax cluster has acknowledged the
         command or the specified timeout has elapsed.
 
@@ -299,7 +299,7 @@ class StarterStopperMixin:
         """
         self._internal.execute_command_sync("start", timeout=timeout)
 
-    def stop(self, timeout: float | TimeSpan = 5):
+    def stop(self, timeout: float | TimeSpan = 5) -> None:
         """Stops the task and blocks until the Synnax cluster has acknowledged the
         command or the specified timeout has elapsed.
 
@@ -310,7 +310,7 @@ class StarterStopperMixin:
         self._internal.execute_command_sync("stop", timeout=timeout)
 
     @contextmanager
-    def run(self, timeout: float | TimeSpan = 5):
+    def run(self, timeout: float | TimeSpan = 5) -> Generator[None, None, None]:
         """Context manager that starts the task before entering the block and stops the
         task after exiting the block. This is useful for ensuring that the task is
         properly stopped even if an exception occurs during execution.
@@ -341,7 +341,7 @@ class JSONConfigMixin(Protocol):
         pld.config = json.dumps(self.config.model_dump())
         return pld
 
-    def set_internal(self, task: Task):
+    def set_internal(self, task: Task) -> None:
         """Implements TaskProtocol protocol"""
         self._internal = task
 
@@ -378,7 +378,7 @@ class Client:
         type: str = "",
         config: str = "",
         rack: int = 0,
-    ): ...
+    ) -> Task: ...
 
     @overload
     def create(self, tasks: Task) -> Task: ...
@@ -458,7 +458,7 @@ class Client:
                     raise ConfigurationError(status.message)
         return task
 
-    def delete(self, keys: int | list[int]):
+    def delete(self, keys: int | list[int]) -> None:
         req = _DeleteRequest(keys=normalize(keys))
         send_required(self._client, "/task/delete", req, Empty)
 

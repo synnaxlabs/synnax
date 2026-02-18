@@ -50,7 +50,7 @@ class Matcher(Protocol):
 class Closer(Protocol):
     """Closer is a closable buffer"""
 
-    def close(self):
+    def close(self) -> None:
         """Closes the buffer."""
         ...
 
@@ -96,7 +96,7 @@ class BaseReader(File, Protocol):
         """:returns: the number of samples in the file."""
         ...
 
-    def seek_first(self):
+    def seek_first(self) -> None:
         """Seeks the reader to the first sample in the file."""
         ...
 
@@ -108,7 +108,7 @@ class RowFileReader(BaseReader, Protocol):
     csv files).
     """
 
-    def set_chunk_size(self, chunk_size: int):
+    def set_chunk_size(self, chunk_size: int) -> None:
         """Set the chunk size for the reader. It's generally unsafe to assume the reader
         position after calling set_chunk_size, so it's recommended to call reset
         afterwards.

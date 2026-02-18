@@ -8,8 +8,6 @@
 #  included in the file licenses/APL.txt.
 
 
-from typing import TypeAlias
-
 from pydantic import BaseModel
 
 from synnax import ontology, status

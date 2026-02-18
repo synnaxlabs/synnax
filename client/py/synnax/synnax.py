@@ -190,7 +190,7 @@ class Synnax(framer.Client):
         )
         return self
 
-    def close(self):
+    def close(self) -> None:
         """Shuts down the client and closes all connections. All open iterators or
         writers must be closed before calling this method.
         """

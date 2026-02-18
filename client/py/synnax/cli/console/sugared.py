@@ -7,7 +7,7 @@
 #  License, use of this software will be governed by the Apache License, Version 2.0,
 #  included in the file licenses/APL.txt.
 
-from typing import Any, Generic, NotRequired, TypedDict
+from typing import Any, Generic, NotRequired, TypedDict, cast
 
 from synnax.cli.console.protocol import Print, Prompt, R
 from synnax.exceptions import ValidationError
@@ -52,7 +52,7 @@ class SugaredConsole:
         if self.enabled:
             self.print.error(message)
 
-    def table(self, columns: list[str], rows: list[dict]) -> None:
+    def table(self, columns: list[str], rows: list[dict[str, str]]) -> None:
         if self.enabled:
             self.print.table(columns, rows)
 
@@ -66,7 +66,7 @@ class SugaredConsole:
     ) -> R | None:
         v, default, should_return, has_default = self._validate(kwargs)
         if should_return:
-            return v
+            return cast(R, v)
         v = self.prompt.ask(
             question=question,
             type_=type_,
