@@ -509,13 +509,13 @@ class ScheduledCommand:
     command can be sent to the controller to be executed at a later time.
     """
 
-    channel: channel.Key | str
+    channel: channel_.Key | str
     value: SampleValue
     delay: TimeSpan
 
     def __init__(
         self,
-        channel: channel.Key | str,
+        channel: channel_.Key | str,
         value: SampleValue,
         delay: float | int | TimeSpan,
     ):
