@@ -264,17 +264,16 @@ class TaskClient:
     def _toggle_data_saving(self, name: str, *, enable: bool) -> None:
         action = "Enable data saving" if enable else "Disable data saving"
         self.show_toolbar()
+        self.layout.page.wait_for_timeout(300)
         item = self.get_item(name)
         item.wait_for(state="visible", timeout=5000)
         item.click()
         self.ctx_menu.open_on(item)
-        if not self.ctx_menu.has_option(action):
+
+        if self.ctx_menu.has_option(action):
+            self.ctx_menu.click_option(action)
+        else:
             self.ctx_menu.close()
-            return
-        self.ctx_menu.click_option(action)
-        self.layout.page.locator(".pluto-menu-context").first.wait_for(
-            state="hidden", timeout=5000
-        )
 
     def disable_data_saving_tasks(self, names: list[str]) -> None:
         """Disable data saving for multiple tasks via multi-select and context menu.

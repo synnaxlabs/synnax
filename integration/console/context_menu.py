@@ -10,6 +10,9 @@
 """Context menu helper for Console UI automation."""
 
 from playwright.sync_api import Locator, Page
+from playwright.sync_api import TimeoutError as PlaywrightTimeoutError
+
+MENU_SELECTOR = ".pluto-menu-context"
 
 
 class ContextMenu:
@@ -37,25 +40,30 @@ class ContextMenu:
             Self for method chaining.
         """
         element.click(button="right")
-        self.page.locator(".pluto-menu-context").first.wait_for(
-            state="visible", timeout=5000
+        menu = self.page.locator(MENU_SELECTOR).first
+        menu.wait_for(state="visible", timeout=5000)
+        menu.locator("[class*='menu-item']").first.wait_for(
+            state="visible", timeout=2000
         )
         return self
 
     def click_option(self, text: str, *, exact: bool = True) -> None:
         """Click a menu option by searching within the context menu.
 
-        Searches within the visible context menu for the text.
-        Waits for the option to be visible before clicking.
+        After clicking, waits for the context menu to be hidden.
 
         Args:
             text: The text of the menu option to click.
             exact: Whether to match text exactly.
         """
-        menu = self.page.locator(".pluto-menu-context")
+        menu = self.page.locator(MENU_SELECTOR)
         option = menu.get_by_text(text, exact=exact).first
-        option.wait_for(state="visible", timeout=2000)
+        option.wait_for(state="visible", timeout=5000)
         option.click()
+        try:
+            menu.first.wait_for(state="hidden", timeout=3000)
+        except PlaywrightTimeoutError:
+            pass
 
     def action(self, element: Locator, action_text: str, *, exact: bool = True) -> None:
         """Right-click element and click action in one call.
@@ -78,7 +86,7 @@ class ContextMenu:
         Returns:
             True if the option is visible and not disabled.
         """
-        menu = self.page.locator(".pluto-menu-context")
+        menu = self.page.locator(MENU_SELECTOR)
         option = menu.get_by_text(text, exact=exact).first
         if option.count() == 0 or not option.is_visible():
             return False
@@ -86,5 +94,13 @@ class ContextMenu:
         return "disabled" not in option_class.lower()
 
     def close(self) -> None:
-        """Close the context menu by pressing Escape."""
-        self.page.keyboard.press("Escape")
+        """Close the context menu by clicking outside it.
+
+        Pluto's ContextMenu uses useClickOutside for dismissal.
+        """
+        menu = self.page.locator(MENU_SELECTOR)
+        self.page.locator("body").click(position={"x": 1, "y": 1})
+        try:
+            menu.first.wait_for(state="hidden", timeout=3000)
+        except PlaywrightTimeoutError:
+            self.page.keyboard.press("Escape")
