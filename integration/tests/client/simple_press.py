@@ -10,10 +10,10 @@
 import synnax as sy
 from examples.simulators import PressSimDAQ
 
-from framework.sim_daq_case import SimDaqTestCase
+from tests.driver.sim_daq_case import SimDaqCase
 
 
-class SimplePress(SimDaqTestCase):
+class SimplePress(SimDaqCase):
     """
     Test a basic press control sequence
     """

@@ -19,14 +19,14 @@ import (
 	"github.com/synnaxlabs/alamos"
 	"github.com/synnaxlabs/arc/lsp"
 	"github.com/synnaxlabs/arc/lsp/transport"
-	"github.com/synnaxlabs/freighter/fmock"
+	"github.com/synnaxlabs/freighter/mock"
 	. "github.com/synnaxlabs/x/testutil"
 )
 
 var _ = Describe("Freighter Transport", func() {
 	var (
 		server       *lsp.Server
-		clientStream *fmock.ClientStream[transport.JSONRPCMessage, transport.JSONRPCMessage]
+		clientStream *mock.ClientStream[transport.JSONRPCMessage, transport.JSONRPCMessage]
 		ctx          context.Context
 		cancel       context.CancelFunc
 		errChan      chan error
@@ -78,8 +78,8 @@ var _ = Describe("Freighter Transport", func() {
 		server = MustSucceed(lsp.New(lsp.Config{
 			Instrumentation: alamos.New("test"),
 		}))
-		var serverStream *fmock.ServerStream[transport.JSONRPCMessage, transport.JSONRPCMessage]
-		clientStream, serverStream = fmock.NewStreams[transport.JSONRPCMessage, transport.JSONRPCMessage](ctx)
+		var serverStream *mock.ServerStream[transport.JSONRPCMessage, transport.JSONRPCMessage]
+		clientStream, serverStream = mock.NewStreams[transport.JSONRPCMessage, transport.JSONRPCMessage](ctx)
 		errChan = make(chan error, 1)
 		go func() {
 			errChan <- transport.ServeFreighter(ctx, transport.Config{

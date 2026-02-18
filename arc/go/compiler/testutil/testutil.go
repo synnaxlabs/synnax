@@ -218,11 +218,11 @@ func (m *opcodeMatcher) FailureMessage(actual any) string {
 			marker = " ✓"
 		}
 
-		b.WriteString(fmt.Sprintf("%-4d  %-30s  %-30s%s\n", i, expectedStr, actualStr, marker))
+		_, _ = fmt.Fprintf(&b, "%-4d  %-30s  %-30s%s\n", i, expectedStr, actualStr, marker)
 	}
 
-	b.WriteString(fmt.Sprintf("\nExpected: %s\n", m.expected.String()))
-	b.WriteString(fmt.Sprintf("Actual:   %s\n", actualOpcodes.String()))
+	_, _ = fmt.Fprintf(&b, "\nExpected: %s\n", m.expected.String())
+	_, _ = fmt.Fprintf(&b, "Actual:   %s\n", actualOpcodes.String())
 
 	return b.String()
 }

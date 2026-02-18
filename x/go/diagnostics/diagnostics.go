@@ -242,29 +242,29 @@ func (d Diagnostics) String() string {
 			sb.WriteString("\n")
 		}
 		if diag.Code != "" {
-			sb.WriteString(fmt.Sprintf(
+			_, _ = fmt.Fprintf(&sb,
 				"%d:%d %s [%s]: %s",
 				diag.Start.Line,
 				diag.Start.Col,
 				diag.Severity.String(),
 				diag.Code,
 				diag.Message,
-			))
+			)
 		} else {
-			sb.WriteString(fmt.Sprintf(
+			_, _ = fmt.Fprintf(&sb,
 				"%d:%d %s: %s",
 				diag.Start.Line,
 				diag.Start.Col,
 				diag.Severity.String(),
 				diag.Message,
-			))
+			)
 		}
 		for _, note := range diag.Notes {
 			sb.WriteString("\n")
 			if note.Start.Line > 0 {
-				sb.WriteString(fmt.Sprintf("  %d:%d note: %s", note.Start.Line, note.Start.Col, note.Message))
+				_, _ = fmt.Fprintf(&sb, "  %d:%d note: %s", note.Start.Line, note.Start.Col, note.Message)
 			} else {
-				sb.WriteString(fmt.Sprintf("  note: %s", note.Message))
+				_, _ = fmt.Fprintf(&sb, "  note: %s", note.Message)
 			}
 		}
 	}

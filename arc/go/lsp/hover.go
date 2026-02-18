@@ -527,7 +527,7 @@ func formatFunctionSignatureContent(sym *symbol.Scope) string {
 			if !first {
 				sig.WriteString(", ")
 			}
-			sig.WriteString(fmt.Sprintf("\n    %s %s", param.Name, param.Type))
+			_, _ = fmt.Fprintf(&sig, "\n    %s %s", param.Name, param.Type)
 			first = false
 		}
 		sig.WriteString("\n}")
@@ -539,7 +539,7 @@ func formatFunctionSignatureContent(sym *symbol.Scope) string {
 			if !first {
 				sig.WriteString(", ")
 			}
-			sig.WriteString(fmt.Sprintf("%s %s", param.Name, param.Type))
+			_, _ = fmt.Fprintf(&sig, "%s %s", param.Name, param.Type)
 			first = false
 		}
 	}
@@ -552,7 +552,7 @@ func formatFunctionSignatureContent(sym *symbol.Scope) string {
 		} else {
 			sig.WriteString("{")
 			for _, param := range sym.Type.Outputs {
-				sig.WriteString(fmt.Sprintf("\n    %s %s", param.Name, param.Type))
+				_, _ = fmt.Fprintf(&sig, "\n    %s %s", param.Name, param.Type)
 			}
 			sig.WriteString("\n}")
 		}

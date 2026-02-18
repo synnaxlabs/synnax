@@ -22,7 +22,7 @@ import (
 	"github.com/synnaxlabs/aspen/transport"
 	aspenv1 "github.com/synnaxlabs/aspen/transport/grpc/v1"
 	"github.com/synnaxlabs/freighter"
-	"github.com/synnaxlabs/freighter/fgrpc"
+	fgrpc "github.com/synnaxlabs/freighter/grpc"
 	"github.com/synnaxlabs/x/address"
 	"github.com/synnaxlabs/x/signal"
 	"google.golang.org/grpc"
@@ -247,7 +247,10 @@ func New(pool *fgrpc.Pool) *Transport {
 			Pool:               pool,
 			RequestTranslator:  recoveryRequestTranslator{},
 			ResponseTranslator: recoveryResponseTranslator{},
-			ClientFunc: func(ctx context.Context, connInterface grpc.ClientConnInterface) (fgrpc.GRPCClientStream[*aspenv1.RecoveryRequest, *aspenv1.RecoveryResponse], error) {
+			ClientFunc: func(
+				ctx context.Context,
+				connInterface grpc.ClientConnInterface,
+			) (fgrpc.GRPCClientStream[*aspenv1.RecoveryRequest, *aspenv1.RecoveryResponse], error) {
 				return aspenv1.NewRecoveryServiceClient(connInterface).Exec(ctx)
 			},
 			ServiceDesc: &aspenv1.RecoveryService_ServiceDesc,

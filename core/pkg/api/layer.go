@@ -18,7 +18,7 @@ import (
 
 	"github.com/samber/lo"
 	"github.com/synnaxlabs/freighter"
-	"github.com/synnaxlabs/freighter/falamos"
+	"github.com/synnaxlabs/freighter/alamos"
 	"github.com/synnaxlabs/synnax/pkg/api/access"
 	"github.com/synnaxlabs/synnax/pkg/api/arc"
 	"github.com/synnaxlabs/synnax/pkg/api/auth"
@@ -211,7 +211,7 @@ type Layer struct {
 func (l *Layer) BindTo(t Transport) {
 	var (
 		tk                 = auth.TokenMiddleware(l.config.Service.Token)
-		instrumentation    = lo.Must(falamos.Middleware(falamos.Config{Instrumentation: l.config.Instrumentation}))
+		instrumentation    = lo.Must(alamos.Middleware(alamos.Config{Instrumentation: l.config.Instrumentation}))
 		insecureMiddleware = []freighter.Middleware{instrumentation}
 		secureMiddleware   = make([]freighter.Middleware, len(insecureMiddleware))
 	)

@@ -7,56 +7,27 @@
 #  License, use of this software will be governed by the Apache License, Version 2.0,
 #  included in the file licenses/APL.txt.
 
-"""
-Modbus-specific task test case.
-
-Provides Modbus TCP task creation logic using Synnax task client directly.
-"""
+"""Modbus-specific task test case."""
 
 from abc import abstractmethod
-from typing import Any
 
 import synnax as sy
+from examples.modbus import ModbusSim
 from synnax import modbus
 from synnax.modbus.types import BaseChan
 
-from driver.devices import Simulator
-from tests.driver.simulator_task import SimulatorTaskCase
+from tests.driver.simulator_case import SimulatorCase
+from tests.driver.task import TaskCase
 
 
-class ModbusTaskCase(SimulatorTaskCase):
-    """
-    Base class for Modbus TCP task tests.
+class ModbusTaskCase(SimulatorCase, TaskCase):
+    """Base class for Modbus TCP task tests."""
 
-    Provides Modbus-specific task creation using Synnax task channels directly.
-    Subclasses should implement create_channels() to define task-specific channels.
-    """
-
-    def __init__(
-        self,
-        *,
-        task_name: str,
-        **kwargs: Any,
-    ) -> None:
-        """
-        Initialize ModbusTaskCase.
-
-        The device_name is automatically set from the Modbus simulator configuration.
-        """
-        super().__init__(
-            task_name=task_name,
-            simulator=Simulator.MODBUS,
-            **kwargs,
-        )
+    sim_class = ModbusSim
+    SAMPLE_RATE = 100 * sy.Rate.HZ
 
     @abstractmethod
-    def create_channels(self) -> list[BaseChan]:
-        """Create Modbus-specific task channels.
-
-        Returns:
-            List of Modbus channel objects (e.g., InputRegisterChan, HoldingRegisterInputChan)
-        """
-        pass
+    def create_channels(self) -> list[BaseChan]: ...
 
     def create(
         self,
@@ -66,18 +37,7 @@ class ModbusTaskCase(SimulatorTaskCase):
         sample_rate: sy.Rate,
         stream_rate: sy.Rate,
     ) -> modbus.ReadTask:
-        """
-        Create a Modbus read task.
-
-        Args:
-            device: Synnax device to read from
-            task_name: Name for the task
-            sample_rate: Sampling rate for the task
-            stream_rate: Streaming rate for the task
-
-        Returns:
-            Configured Modbus read task
-        """
+        """Create a Modbus read task."""
         channels = self.create_channels()
 
         return modbus.ReadTask(
