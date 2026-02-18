@@ -82,11 +82,18 @@ export const ZERO_SLAVE_PROPERTIES: SlaveProperties = {
   enabled: true,
 };
 
-export interface SlaveDevice
-  extends device.Device<typeof slavePropertiesZ, typeof makeZ, typeof modelZ> {}
+export interface SlaveDevice extends device.Device<
+  typeof slavePropertiesZ,
+  typeof makeZ,
+  typeof modelZ
+> {}
 
 export const SLAVE_SCHEMAS = {
   properties: slavePropertiesZ,
   make: makeZ,
   model: modelZ,
-} as const;
+} as const satisfies device.DeviceSchemas<
+  typeof slavePropertiesZ,
+  typeof makeZ,
+  typeof modelZ
+>;

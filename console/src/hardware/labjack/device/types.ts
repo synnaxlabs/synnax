@@ -228,7 +228,23 @@ export const ZERO_PROPERTIES: Properties = {
   [DO_PORT_TYPE]: { channels: {} },
 };
 
-export interface Device
-  extends device.Device<typeof propertiesZ, typeof makeZ, typeof modelZ> {}
-export interface New
-  extends device.New<typeof propertiesZ, typeof makeZ, typeof modelZ> {}
+export interface Device extends device.Device<
+  typeof propertiesZ,
+  typeof makeZ,
+  typeof modelZ
+> {}
+export interface New extends device.New<
+  typeof propertiesZ,
+  typeof makeZ,
+  typeof modelZ
+> {}
+
+export const SCHEMAS = {
+  properties: propertiesZ,
+  make: makeZ,
+  model: modelZ,
+} as const satisfies device.DeviceSchemas<
+  typeof propertiesZ,
+  typeof makeZ,
+  typeof modelZ
+>;

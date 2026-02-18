@@ -13,7 +13,7 @@ import (
 	"context"
 
 	"github.com/synnaxlabs/freighter/grpc"
-	echov1 "github.com/synnaxlabs/freighter/integration/grpc/gen/proto/go/v1"
+	egrpc chov1 "github.com/synnaxlabs/freighter/integration/grpc/gen/proto/go/v1"
 	"github.com/synnaxlabs/freighter/integration/http"
 )
 

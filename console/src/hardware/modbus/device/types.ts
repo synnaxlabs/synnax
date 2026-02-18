@@ -44,5 +44,18 @@ export const ZERO_PROPERTIES = {
   write: { channels: {} },
 } as const satisfies Properties;
 
-export interface Device
-  extends device.Device<typeof propertiesZ, typeof makeZ, typeof modelZ> {}
+export interface Device extends device.Device<
+  typeof propertiesZ,
+  typeof makeZ,
+  typeof modelZ
+> {}
+
+export const SCHEMAS = {
+  properties: propertiesZ,
+  make: makeZ,
+  model: modelZ,
+} as const satisfies device.DeviceSchemas<
+  typeof propertiesZ,
+  typeof makeZ,
+  typeof modelZ
+>;

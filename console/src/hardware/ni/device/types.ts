@@ -64,3 +64,8 @@ export const ZERO_PROPERTIES: Properties = {
 
 export interface Device extends device.Device<typeof propertiesZ, typeof makeZ> {}
 export interface New extends device.New<typeof propertiesZ, typeof makeZ> {}
+
+export const SCHEMAS = {
+  properties: propertiesZ,
+  make: makeZ,
+} as const satisfies device.DeviceSchemas<typeof propertiesZ, typeof makeZ>;

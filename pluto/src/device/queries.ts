@@ -25,8 +25,10 @@ const PLURAL_RESOURCE_NAME = "devices";
 
 // Explicitly omit 'status' from the device type to make sure we aren't storing two
 // copies of the statuses in the flux store.
-export interface FluxStore
-  extends Flux.UnaryStore<string, Omit<device.Device, "status">> {}
+export interface FluxStore extends Flux.UnaryStore<
+  string,
+  Omit<device.Device, "status">
+> {}
 
 export interface FluxSubStore extends Task.FluxSubStore {
   [FLUX_STORE_KEY]: FluxStore;
@@ -134,9 +136,7 @@ export const retrieveMultiple = async <
       keys: missingKeys,
       ...(schemas != null ? { schemas } : {}),
     });
-    devices.push(
-      ...(fetched as unknown as device.Device<Properties, Make, Model>[]),
-    );
+    devices.push(...(fetched as unknown as device.Device<Properties, Make, Model>[]));
     store.devices.set(fetched);
     fetched.forEach((d) => {
       if (d.status != null) store.statuses.set(d.status);

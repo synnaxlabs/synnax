@@ -35,11 +35,7 @@ export const deviceZ = <
   Properties extends z.ZodType = z.ZodType,
   Make extends z.ZodType<string> = z.ZodString,
   Model extends z.ZodType<string> = z.ZodString,
->({
-  properties,
-  make,
-  model,
-}: DeviceSchemas<Properties, Make, Model> = {}) =>
+>({ properties, make, model }: DeviceSchemas<Properties, Make, Model> = {}) =>
   z.object({
     key: keyZ,
     rack: rackKeyZ.min(1, "Must select a location to connect from"),
@@ -61,9 +57,9 @@ export interface Device<
   Make extends z.ZodType<string> = z.ZodString,
   Model extends z.ZodType<string> = z.ZodString,
 > extends Omit<
-    z.infer<ReturnType<typeof deviceZ>>,
-    "properties" | "make" | "model" | "status"
-  > {
+  z.infer<ReturnType<typeof deviceZ>>,
+  "properties" | "make" | "model" | "status"
+> {
   properties: z.infer<Properties>;
   make: z.infer<Make>;
   model: z.infer<Model>;
