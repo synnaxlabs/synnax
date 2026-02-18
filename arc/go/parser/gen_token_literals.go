@@ -36,7 +36,7 @@ const (
 	for _, m := range matches {
 		name, literal := m[1], m[2]
 		goName := strings.ReplaceAll(name, "_", "")
-		b.WriteString(fmt.Sprintf("\tLiteral%s = %q\n", goName, literal))
+		_, _ = fmt.Fprintf(&b, "\tLiteral%s = %q\n", goName, literal)
 	}
 	b.WriteString(")\n")
 	if err := os.WriteFile("token_literals.go", []byte(b.String()), 0644); err != nil {
