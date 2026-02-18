@@ -44,8 +44,12 @@ export const deviceZ = <
     model: model ?? z.string().min(1, "Model is required"),
     location: z.string().min(1, "Location is required"),
     configured: z.boolean().optional(),
-    properties:
-      properties ?? record.unknownZ.or(z.string().transform(decodeJSONString)),
+    properties: properties
+      ? z.unknown().transform((v) => {
+          const decoded = typeof v === "string" ? decodeJSONString(v) : v;
+          return properties.parse(decoded);
+        })
+      : record.unknownZ.or(z.string().transform(decodeJSONString)),
     status: zod.nullToUndefined(statusZ),
   });
 
