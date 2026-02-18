@@ -71,12 +71,12 @@ interface HeaderEntry {
 const HeadersField = ({
   form,
 }: {
-  form: Form.UseReturn<Device.FormSchema<Properties>>;
+  form: Form.UseReturn<typeof Device.formSchema>;
 }): ReactElement => {
   const value = Form.useFieldValue<
     Record<string, string>,
     Record<string, string>,
-    Device.FormSchema<Properties>
+    typeof Device.formSchema
   >("properties.headers", { ctx: form, defaultValue: {} });
   const entries: HeaderEntry[] = Object.entries(value).map(([k, v]) => ({
     key: k,
@@ -151,16 +151,15 @@ export const Connect: Layout.Renderer = ({ layoutKey, onClose }) => {
     afterSave: useCallback(() => onClose(), [onClose]),
   });
 
-  const authType = Form.useFieldValue<
-    AuthType,
-    AuthType,
-    Device.FormSchema<Properties>
-  >("properties.auth.type", { ctx: form });
+  const authType = Form.useFieldValue<AuthType, AuthType, typeof Device.formSchema>(
+    "properties.auth.type",
+    { ctx: form },
+  );
 
   return (
     <Flex.Box grow className={CSS.B("http-connect")}>
       <Flex.Box className={CSS.B("content")} grow gap="small">
-        <Form.Form<Device.FormSchema<Properties>> {...form}>
+        <Form.Form<typeof Device.formSchema> {...form}>
           <Form.TextField
             path="name"
             inputProps={{ level: "h2", placeholder: "HTTP Server", variant: "text" }}
