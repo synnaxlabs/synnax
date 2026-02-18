@@ -19,13 +19,13 @@ import (
 	"github.com/samber/lo"
 	"github.com/synnaxlabs/aspen/internal/cluster/pledge"
 	"github.com/synnaxlabs/aspen/internal/node"
-	"github.com/synnaxlabs/freighter/fmock"
+	"github.com/synnaxlabs/freighter/mock"
 	"github.com/synnaxlabs/x/address"
 	"github.com/synnaxlabs/x/errors"
 	. "github.com/synnaxlabs/x/testutil"
 )
 
-func baseConfig(n *fmock.Network[pledge.Request, pledge.Response]) pledge.Config {
+func baseConfig(n *mock.Network[pledge.Request, pledge.Response]) pledge.Config {
 	cfg, _ := baseConfigWithAddr(n)
 	return cfg
 }
@@ -35,7 +35,7 @@ func allCandidates(nodes node.Group) func() node.Group {
 }
 
 func baseConfigWithAddr(
-	n *fmock.Network[pledge.Request, pledge.Response],
+	n *mock.Network[pledge.Request, pledge.Response],
 ) (pledge.Config, address.Address) {
 	server := n.UnaryServer("")
 	cfg := pledge.Config{
@@ -47,7 +47,7 @@ func baseConfigWithAddr(
 
 func provisionCandidates(
 	n int,
-	net *fmock.Network[pledge.Request, pledge.Response],
+	net *mock.Network[pledge.Request, pledge.Response],
 	nodes node.Group,
 	candidates func(i int) func() node.Group,
 	nodeState func(i int) node.State,
@@ -72,9 +72,9 @@ func provisionCandidates(
 }
 
 var _ = Describe("PledgeServer", func() {
-	var net *fmock.Network[pledge.Request, pledge.Response]
+	var net *mock.Network[pledge.Request, pledge.Response]
 	BeforeEach(func() {
-		net = fmock.NewNetwork[pledge.Request, pledge.Response]()
+		net = mock.NewNetwork[pledge.Request, pledge.Response]()
 	})
 
 	Describe("PledgeServer", func() {
@@ -171,7 +171,7 @@ var _ = Describe("PledgeServer", func() {
 						n[10] = node.Node{Key: 10, Address: "localhost:10", State: node.StateHealthy}
 						return n
 					}
-					net = fmock.NewNetwork[pledge.Request, pledge.Response]()
+					net = mock.NewNetwork[pledge.Request, pledge.Response]()
 				)
 				provisionCandidates(10, net, nodes, func(i int) func() node.Group {
 					return lo.Ternary(i%2 == 0, extraCandidates, allCandidates)

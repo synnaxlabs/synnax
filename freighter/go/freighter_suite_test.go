@@ -10,47 +10,21 @@
 package freighter_test
 
 import (
-	"context"
 	"testing"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	"github.com/synnaxlabs/x/errors"
+	"github.com/synnaxlabs/freighter"
 )
-
-type request struct {
-	Message string `json:"message" msgpack:"message"`
-	ID      int    `json:"id" msgpack:"id"`
-}
-
-type response struct {
-	Message string `json:"message" msgpack:"message"`
-	ID      int    `json:"id" msgpack:"id"`
-}
-
-var errCustom = errors.New("my custom error")
 
 func TestGo(t *testing.T) {
 	RegisterFailHandler(Fail)
 	RunSpecs(t, "Freighter Suite")
 }
 
-var _ = BeforeSuite(func() {
-	errors.Register(
-		func(_ context.Context, err error) (errors.Payload, bool) {
-			if errors.Is(err, errCustom) {
-				return errors.Payload{
-					Type: "myCustomError",
-					Data: err.Error(),
-				}, true
-			}
-			return errors.Payload{}, false
-		},
-		func(ctx context.Context, f errors.Payload) (error, bool) {
-			if f.Type != "myCustomError" {
-				return nil, false
-			}
-			return errCustom, true
-		},
-	)
+var _ = Describe("SenderNopCloser", func() {
+	It("Should implement the freighter.StreamSenderCloser interface", func() {
+		var closer freighter.StreamSenderCloser[int] = freighter.SenderNopCloser[int]{}
+		Expect(closer.CloseSend()).To(Succeed())
+	})
 })

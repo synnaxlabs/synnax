@@ -79,7 +79,7 @@ var _ = Describe("Membership", Serial, Ordered, func() {
 			go func() {
 				defer GinkgoRecover()
 				defer wg.Done()
-				ctx, cancel := context.WithTimeout(context.TODO(), 5*time.Second)
+				ctx, cancel := context.WithTimeout(ctx, 5*time.Second)
 				defer cancel()
 				db, err := aspen.Open(
 					ctx,
@@ -138,7 +138,8 @@ var _ = Describe("Membership", Serial, Ordered, func() {
 						opts = append(opts, aspen.Bootstrap())
 					}
 					db, err := aspen.Open(
-						context.TODO(), "",
+						ctx,
+						"",
 						addresses[i],
 						addresses,
 						opts...,
@@ -198,7 +199,7 @@ var _ = Describe("Membership", Serial, Ordered, func() {
 
 					By("Opening the database again")
 					db, err := aspen.Open(
-						context.TODO(),
+						ctx,
 						node.Dir,
 						node.Addr,
 						[]aspen.Address{},

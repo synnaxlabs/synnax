@@ -10,16 +10,16 @@
 package mock
 
 import (
-	"github.com/synnaxlabs/freighter/fmock"
+	"github.com/synnaxlabs/freighter/mock"
 	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
 	"github.com/synnaxlabs/x/address"
 	"go/types"
 )
 
 type ChannelNetwork struct {
-	CreateNet *fmock.Network[channel.CreateMessage, channel.CreateMessage]
-	DeleteNet *fmock.Network[channel.DeleteRequest, types.Nil]
-	RenameNet *fmock.Network[channel.RenameRequest, types.Nil]
+	CreateNet *mock.Network[channel.CreateMessage, channel.CreateMessage]
+	DeleteNet *mock.Network[channel.DeleteRequest, types.Nil]
+	RenameNet *mock.Network[channel.RenameRequest, types.Nil]
 }
 
 func (c *ChannelNetwork) New(add address.Address) channel.Transport {
@@ -35,9 +35,9 @@ func (c *ChannelNetwork) New(add address.Address) channel.Transport {
 
 func NewChannelNetwork() *ChannelNetwork {
 	return &ChannelNetwork{
-		CreateNet: fmock.NewNetwork[channel.CreateMessage, channel.CreateMessage](),
-		DeleteNet: fmock.NewNetwork[channel.DeleteRequest, types.Nil](),
-		RenameNet: fmock.NewNetwork[channel.RenameRequest, types.Nil](),
+		CreateNet: mock.NewNetwork[channel.CreateMessage, channel.CreateMessage](),
+		DeleteNet: mock.NewNetwork[channel.DeleteRequest, types.Nil](),
+		RenameNet: mock.NewNetwork[channel.RenameRequest, types.Nil](),
 	}
 }
 

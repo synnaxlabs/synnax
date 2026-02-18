@@ -10,7 +10,7 @@
 import random
 
 import synnax as sy
-from examples.simulators.base import SimDAQ
+from examples.simulators.simdaq import SimDAQ
 
 
 class PressSimDAQ(SimDAQ):
@@ -20,7 +20,7 @@ class PressSimDAQ(SimDAQ):
     end_cmd_channel = "end_test_cmd"
 
     def _create_channels(self) -> None:
-        self._log("Creating channels...")
+        self.log("Creating channels...")
         client = self.client
 
         self.daq_time_ch = client.channels.create(
@@ -112,10 +112,10 @@ class PressSimDAQ(SimDAQ):
                 self.press_pt.key: [0.0],
             },
         )
-        self._log("Channels created successfully")
+        self.log("Channels created successfully")
 
     def _run_loop(self) -> None:
-        self._log("Starting simulation loop...")
+        self.log("Starting simulation loop...")
         loop = sy.Loop(sy.Rate.HZ * 100)
         loop_count = 0
 
@@ -147,7 +147,7 @@ class PressSimDAQ(SimDAQ):
                                 if hasattr(new_val, "item"):
                                     new_val = new_val.item()
                                 if new_val != state["vent_vlv_state"]:
-                                    self._log(
+                                    self.log(
                                         f"Vent valve: {state['vent_vlv_state']} -> {new_val}"
                                     )
                                 state["vent_vlv_state"] = new_val
@@ -158,7 +158,7 @@ class PressSimDAQ(SimDAQ):
                                 if hasattr(new_val, "item"):
                                     new_val = new_val.item()
                                 if new_val != state["press_vlv_state"]:
-                                    self._log(
+                                    self.log(
                                         f"Press valve: {state['press_vlv_state']} -> {new_val}"
                                     )
                                 state["press_vlv_state"] = new_val
@@ -180,13 +180,13 @@ class PressSimDAQ(SimDAQ):
 
                     loop_count += 1
                     if loop_count % 100 == 0:
-                        self._log(
+                        self.log(
                             f"press_pt={state['press_pt']:.2f}, "
                             f"press_vlv={state['press_vlv_state']}, "
                             f"vent_vlv={state['vent_vlv_state']}"
                         )
 
-        self._log("Simulation loop stopped")
+        self.log("Simulation loop stopped")
 
 
 if __name__ == "__main__":

@@ -45,6 +45,7 @@ import { Gauge as BaseGauge } from "@/vis/gauge";
 import { Input as BaseInput } from "@/vis/input";
 import { Light as BaseLight } from "@/vis/light";
 import { Setpoint as BaseSetpoint } from "@/vis/setpoint";
+import { StateIndicator as BaseStateIndicator } from "@/vis/stateIndicator";
 import { Toggle } from "@/vis/toggle";
 import { Value as BaseValue } from "@/vis/value";
 
@@ -1205,4 +1206,138 @@ export const TextBox = ({
 
 export const TextBoxPreview = (props: Primitives.TextBoxProps): ReactElement => (
   <Primitives.TextBox {...props} autoFit value="Text Box" />
+);
+
+export interface SelectProps
+  extends
+    Omit<Primitives.SelectProps, "value" | "onChange" | "onSend">,
+    Pick<BaseSetpoint.UseProps, "sink"> {
+  label?: LabelExtensionProps;
+  control?: ControlStateProps;
+  options: Primitives.StateMapping[];
+}
+
+export const Select = ({
+  label,
+  symbolKey,
+  orientation = "left",
+  control,
+  color: colorVal,
+  sink,
+  onChange,
+  selected,
+  draggable,
+  options,
+  size,
+  disabled,
+  inlineSize,
+}: SymbolProps<SelectProps>): ReactElement => {
+  const { set } = BaseSetpoint.use({ aetherKey: symbolKey, sink });
+  const [selectedKey, setSelectedKey] = useState<string | undefined>(undefined);
+  const handleSelectionChange = (key: string | null): void =>
+    setSelectedKey(key ?? undefined);
+
+  const gridItems: GridItem[] = [];
+  const controlItem = controlStateGridItem(control);
+  if (controlItem != null) gridItems.push(controlItem);
+  const labelItem = labelGridItem(label, onChange);
+  if (labelItem != null) gridItems.push(labelItem);
+
+  return (
+    <Grid
+      symbolKey={symbolKey}
+      allowRotate={false}
+      editable={selected && !draggable}
+      items={gridItems}
+      onLocationChange={(key, loc) => {
+        if (key !== "label") return;
+        onChange({ label: { ...label, orientation: loc } });
+      }}
+    >
+      <Primitives.Select
+        value={selectedKey}
+        onChange={handleSelectionChange}
+        onSend={set}
+        color={colorVal}
+        orientation={orientation}
+        disabled={disabled}
+        options={options}
+        size={size}
+        inlineSize={inlineSize}
+      />
+    </Grid>
+  );
+};
+
+export const SelectPreview = ({
+  color: colorVal,
+  className,
+}: SelectProps): ReactElement => (
+  <Primitives.Select
+    onChange={() => {}}
+    options={[]}
+    color={colorVal}
+    disabled
+    className={CSS(CSS.BM("select-symbol", "preview"), className)}
+  />
+);
+
+export interface StateIndicatorProps
+  extends
+    Omit<Primitives.StateIndicatorProps, "matchedOptionKey">,
+    Omit<BaseStateIndicator.UseProps, "aetherKey" | "options"> {
+  label?: LabelExtensionProps;
+  options: Primitives.StateMapping[];
+}
+
+export const StateIndicator = ({
+  symbolKey,
+  label,
+  source,
+  onChange,
+  selected,
+  draggable,
+  options,
+  color: colorVal,
+  inlineSize,
+}: SymbolProps<StateIndicatorProps>): ReactElement => {
+  const { key: matchedOptionKey } = BaseStateIndicator.use({
+    aetherKey: symbolKey,
+    source,
+    options,
+  });
+
+  const gridItems: GridItem[] = [];
+  const labelItem = labelGridItem(label, onChange);
+  if (labelItem != null) gridItems.push(labelItem);
+
+  return (
+    <Grid
+      items={gridItems}
+      allowRotate={false}
+      editable={selected && !draggable}
+      symbolKey={symbolKey}
+      onLocationChange={(key, loc) => {
+        if (key !== "label") return;
+        onChange({ label: { ...label, orientation: loc } });
+      }}
+    >
+      <Primitives.StateIndicator
+        matchedOptionKey={matchedOptionKey}
+        options={options}
+        color={colorVal}
+        inlineSize={inlineSize}
+      />
+    </Grid>
+  );
+};
+
+export const StateIndicatorPreview = ({
+  color: colorVal,
+}: StateIndicatorProps): ReactElement => (
+  <Primitives.StateIndicator
+    matchedOptionKey="1"
+    options={[{ key: "1", name: "Active", value: 1 }]}
+    color={colorVal}
+  />
 );

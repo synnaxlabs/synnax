@@ -18,7 +18,7 @@ import (
 	"github.com/synnaxlabs/aspen/internal/kv"
 	"github.com/synnaxlabs/aspen/internal/node"
 	aspenv1 "github.com/synnaxlabs/aspen/transport/grpc/v1"
-	"github.com/synnaxlabs/freighter/fgrpc"
+	"github.com/synnaxlabs/freighter/grpc"
 	"github.com/synnaxlabs/x/address"
 	"github.com/synnaxlabs/x/change"
 	xkv "github.com/synnaxlabs/x/kv"
@@ -26,12 +26,12 @@ import (
 )
 
 var (
-	_ fgrpc.Translator[pledge.Request, *aspenv1.ClusterPledge]         = pledgeTranslator{}
-	_ fgrpc.Translator[gossip.Message, *aspenv1.ClusterGossip]         = clusterGossipTranslator{}
-	_ fgrpc.Translator[kv.TxRequest, *aspenv1.TxRequest]               = batchTranslator{}
-	_ fgrpc.Translator[kv.FeedbackMessage, *aspenv1.FeedbackMessage]   = feedbackTranslator{}
-	_ fgrpc.Translator[kv.RecoveryRequest, *aspenv1.RecoveryRequest]   = recoveryRequestTranslator{}
-	_ fgrpc.Translator[kv.RecoveryResponse, *aspenv1.RecoveryResponse] = recoveryResponseTranslator{}
+	_ grpc.Translator[pledge.Request, *aspenv1.ClusterPledge]         = pledgeTranslator{}
+	_ grpc.Translator[gossip.Message, *aspenv1.ClusterGossip]         = clusterGossipTranslator{}
+	_ grpc.Translator[kv.TxRequest, *aspenv1.TxRequest]               = batchTranslator{}
+	_ grpc.Translator[kv.FeedbackMessage, *aspenv1.FeedbackMessage]   = feedbackTranslator{}
+	_ grpc.Translator[kv.RecoveryRequest, *aspenv1.RecoveryRequest]   = recoveryRequestTranslator{}
+	_ grpc.Translator[kv.RecoveryResponse, *aspenv1.RecoveryResponse] = recoveryResponseTranslator{}
 )
 
 type pledgeTranslator struct{}

@@ -19,13 +19,16 @@ from pymodbus.datastore import (
 )
 from pymodbus.server import StartAsyncTcpServer
 
+import synnax as sy
+from examples.simulators.device_sim import DeviceSim
+from synnax import modbus
 
-async def updating_writer(context):
+
+async def updating_writer(context, rate: sy.Rate = 50 * sy.Rate.HZ):
     """Update Modbus registers continuously with simulated sensor data."""
     slave_id = 0x00
     start_ref = time.time()
     i = 0
-    RATE = 50  # Hz
     SENSOR_COUNT = 5
 
     while True:
@@ -65,10 +68,38 @@ async def updating_writer(context):
         coil_values = [True, False, True, False, True]
         context[slave_id].setValues(1, 0, coil_values)
 
-        await asyncio.sleep(1 / RATE)
+        await asyncio.sleep(1 / rate)
 
 
-async def run_server() -> None:
+class ModbusSim(DeviceSim):
+    """Modbus TCP device simulator on port 5020."""
+
+    description = "Modbus TCP simulator on port 5020"
+    host = "127.0.0.1"
+    port = 5020
+    device_name = "Modbus TCP Test Server"
+
+    async def _run_server(self) -> None:
+        await run_server(self.host, self.port, self.rate)
+
+    @staticmethod
+    def create_device(rack_key: int) -> modbus.Device:
+        return modbus.Device(
+            host=ModbusSim.host,
+            port=ModbusSim.port,
+            name=ModbusSim.device_name,
+            location=f"{ModbusSim.host}:{ModbusSim.port}",
+            rack=rack_key,
+            swap_bytes=False,
+            swap_words=False,
+        )
+
+
+async def run_server(
+    host: str = ModbusSim.host,
+    port: int = ModbusSim.port,
+    rate: sy.Rate = 50 * sy.Rate.HZ,
+) -> None:
     """Run the Modbus TCP server."""
     # Initialize data store
     store = ModbusDeviceContext(
@@ -89,13 +120,9 @@ async def run_server() -> None:
     identity.ModelName = "Extended Simulator"
     identity.MajorMinorRevision = "1.0.0"
 
-    # Start the updating task
-    task = asyncio.create_task(updating_writer(context))
+    asyncio.create_task(updating_writer(context, rate))
 
-    # Start Modbus TCP server on localhost:5020
-    await StartAsyncTcpServer(
-        context=context, identity=identity, address=("127.0.0.1", 5020)
-    )
+    await StartAsyncTcpServer(context=context, identity=identity, address=(host, port))
 
 
 if __name__ == "__main__":

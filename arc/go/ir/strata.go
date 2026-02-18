@@ -57,7 +57,7 @@ func (s Strata) stringWithPrefix(prefix string) string {
 	for i, nodes := range s {
 		isLast := i == len(s)-1
 		nodeList := strings.Join(nodes, ", ")
-		b.WriteString(fmt.Sprintf("%s%s[%d]: %s\n", prefix, treePrefix(isLast), i, nodeList))
+		_, _ = fmt.Fprintf(&b, "%s%s[%d]: %s\n", prefix, treePrefix(isLast), i, nodeList)
 	}
 	return b.String()
 }
