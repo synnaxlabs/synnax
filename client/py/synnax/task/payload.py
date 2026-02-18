@@ -56,8 +56,13 @@ def ontology_id(key: int) -> ontology.ID:
     return ontology.ID(type=ONTOLOGY_TYPE.type, key=str(key))
 
 
-# Backwards compatibility
-TASK_ONTOLOGY_TYPE = ONTOLOGY_TYPE
-TaskPayload = Payload
-TaskStatus = Status
-TaskStatusDetails = StatusDetails
+from synnax.util.deprecation import deprecated_getattr
+
+_DEPRECATED = {
+    "TASK_ONTOLOGY_TYPE": "ONTOLOGY_TYPE",
+    "TaskPayload": "Payload",
+    "TaskStatus": "Status",
+    "TaskStatusDetails": "StatusDetails",
+}
+
+__getattr__ = deprecated_getattr(__name__, _DEPRECATED, globals())

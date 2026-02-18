@@ -118,7 +118,12 @@ def has_params(channels: Params | None) -> bool:
     return len(channels) > 0
 
 
-# Backwards compatibility
-ChannelKey = Key
-ChannelParams = Params
-ChannelPayload = Payload
+from synnax.util.deprecation import deprecated_getattr
+
+_DEPRECATED = {
+    "ChannelKey": "Key",
+    "ChannelParams": "Params",
+    "ChannelPayload": "Payload",
+}
+
+__getattr__ = deprecated_getattr(__name__, _DEPRECATED, globals())
