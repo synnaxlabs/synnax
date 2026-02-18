@@ -271,7 +271,7 @@ func (o *Ontology) InitializeSearchIndex(ctx context.Context) error {
 			}
 		})
 		o.disconnectObservers = append(o.disconnectObservers, disconnect)
-		oCtx.Go(func(ctx context.Context) error {
+		oCtx.Go(func(ctx context.Context) (err error) {
 			n, closer, err := svc.OpenNexter(ctx)
 			if err != nil {
 				return err

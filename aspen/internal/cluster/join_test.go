@@ -16,7 +16,7 @@ import (
 	"github.com/synnaxlabs/aspen/internal/cluster/gossip"
 	"github.com/synnaxlabs/aspen/internal/cluster/pledge"
 	"github.com/synnaxlabs/aspen/internal/node"
-	"github.com/synnaxlabs/freighter/fmock"
+	"github.com/synnaxlabs/freighter/mock"
 	"github.com/synnaxlabs/x/address"
 	"github.com/synnaxlabs/x/binary"
 	"github.com/synnaxlabs/x/kv/memkv"
@@ -28,13 +28,13 @@ var _ = Describe("Open", func() {
 	Context("Valid Properties", func() {
 
 		var (
-			gossipNet *fmock.Network[gossip.Message, gossip.Message]
-			pledgeNet *fmock.Network[pledge.Request, pledge.Response]
+			gossipNet *mock.Network[gossip.Message, gossip.Message]
+			pledgeNet *mock.Network[pledge.Request, pledge.Response]
 		)
 
 		BeforeEach(func() {
-			gossipNet = fmock.NewNetwork[gossip.Message, gossip.Message]()
-			pledgeNet = fmock.NewNetwork[pledge.Request, pledge.Response]()
+			gossipNet = mock.NewNetwork[gossip.Message, gossip.Message]()
+			pledgeNet = mock.NewNetwork[pledge.Request, pledge.Response]()
 		})
 
 		Context("Name Cluster", func() {

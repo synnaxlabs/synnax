@@ -10,14 +10,14 @@
 package mock
 
 import (
-	"github.com/synnaxlabs/freighter/fmock"
+	"github.com/synnaxlabs/freighter/mock"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer/deleter"
 	"github.com/synnaxlabs/x/address"
 	"go/types"
 )
 
 type FramerDeleterNetwork struct {
-	Internal *fmock.Network[deleter.Request, types.Nil]
+	Internal *mock.Network[deleter.Request, types.Nil]
 }
 
 func (c *FramerDeleterNetwork) New(addr address.Address) deleter.Transport {
@@ -28,7 +28,7 @@ func (c *FramerDeleterNetwork) New(addr address.Address) deleter.Transport {
 }
 
 func NewDeleterNetwork() *FramerDeleterNetwork {
-	return &FramerDeleterNetwork{Internal: fmock.NewNetwork[deleter.Request, types.Nil]()}
+	return &FramerDeleterNetwork{Internal: mock.NewNetwork[deleter.Request, types.Nil]()}
 }
 
 type FramerDeleterTransport struct {

@@ -14,7 +14,7 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	"github.com/synnaxlabs/freighter/fhttp"
+	fhttp "github.com/synnaxlabs/freighter/http"
 	"github.com/synnaxlabs/synnax/pkg/api/framer"
 	httpframer "github.com/synnaxlabs/synnax/pkg/api/http/framer"
 	"github.com/synnaxlabs/synnax/pkg/distribution"

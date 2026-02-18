@@ -13,10 +13,10 @@ from examples.simulators import PressSimDAQ
 from console.case import ConsoleCase
 from console.schematic import Button, Setpoint, Valve
 from console.schematic.schematic import Schematic
-from framework.sim_daq_case import SimDaqTestCase
+from tests.driver.sim_daq_case import SimDaqCase
 
 
-class SetpointPressUser(SimDaqTestCase, ConsoleCase):
+class SetpointPressUser(SimDaqCase, ConsoleCase):
     """
     Test the setpoint symbol. A separate case will
     read the setpoints and determine whether to

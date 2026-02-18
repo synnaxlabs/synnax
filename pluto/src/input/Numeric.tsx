@@ -141,6 +141,7 @@ export const Numeric = ({
       ref={ref}
       type="text"
       variant={variant}
+      className={className}
       value={value_.toString()}
       onChange={handleChange}
       disabled={disabled}

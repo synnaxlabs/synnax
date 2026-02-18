@@ -10,13 +10,13 @@
 package mock
 
 import (
-	"github.com/synnaxlabs/freighter/fmock"
+	"github.com/synnaxlabs/freighter/mock"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer/writer"
 	"github.com/synnaxlabs/x/address"
 )
 
 type FramerWriterNetwork struct {
-	Internal *fmock.Network[writer.Request, writer.Response]
+	Internal *mock.Network[writer.Request, writer.Response]
 }
 
 func (c *FramerWriterNetwork) New(addr address.Address, buffers ...int) writer.Transport {
@@ -27,7 +27,7 @@ func (c *FramerWriterNetwork) New(addr address.Address, buffers ...int) writer.T
 }
 
 func NewWriterNetwork() *FramerWriterNetwork {
-	return &FramerWriterNetwork{Internal: fmock.NewNetwork[writer.Request, writer.Response]()}
+	return &FramerWriterNetwork{Internal: mock.NewNetwork[writer.Request, writer.Response]()}
 }
 
 type FramerWriterTransport struct {

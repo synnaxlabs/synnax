@@ -735,7 +735,7 @@ const file_arc_go_ir_ir_proto_rawDesc = "" +
 	"\x06config\x18\x03 \x03(\v2\x15.arc.v1.types.PBParamR\x06config\x12-\n" +
 	"\x06inputs\x18\x04 \x03(\v2\x15.arc.v1.types.PBParamR\x06inputs\x12/\n" +
 	"\aoutputs\x18\x05 \x03(\v2\x15.arc.v1.types.PBParamR\aoutputs\x125\n" +
-	"\bchannels\x18\x06 \x01(\v2\x19.arc.v1.symbol.PBChannelsR\bchannels\"\xc7\x01\n" +
+	"\bchannels\x18\x06 \x01(\v2\x19.arc.v1.symbol.PBChannelsR\bchannels\"\xbb\x01\n" +
 	"\rPBAuthorities\x12\x1d\n" +
 	"\adefault\x18\x01 \x01(\rH\x00R\adefault\x88\x01\x01\x12B\n" +
 	"\bchannels\x18\x02 \x03(\v2&.arc.v1.ir.PBAuthorities.ChannelsEntryR\bchannels\x1a;\n" +
@@ -743,7 +743,7 @@ const file_arc_go_ir_ir_proto_rawDesc = "" +
 	"\x03key\x18\x01 \x01(\rR\x03key\x12\x14\n" +
 	"\x05value\x18\x02 \x01(\rR\x05value:\x028\x01B\n" +
 	"\n" +
-	"\b_defaultJ\x04\b\x03\x10\x04R\x04keys\"\xac\x02\n" +
+	"\b_default\"\xac\x02\n" +
 	"\x04PBIR\x123\n" +
 	"\tfunctions\x18\x01 \x03(\v2\x15.arc.v1.ir.PBFunctionR\tfunctions\x12'\n" +
 	"\x05nodes\x18\x02 \x03(\v2\x11.arc.v1.ir.PBNodeR\x05nodes\x12'\n" +

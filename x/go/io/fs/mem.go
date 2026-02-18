@@ -222,7 +222,7 @@ func (y *MemFS) List(dirname string) ([]os.FileInfo, error) {
 }
 
 // Stat implements FS.Stat.
-func (y *MemFS) Stat(name string) (os.FileInfo, error) {
+func (y *MemFS) Stat(name string) (stats os.FileInfo, err error) {
 	f, err := y.Open(name, 0)
 	if err != nil {
 		var pe *os.PathError
@@ -232,7 +232,6 @@ func (y *MemFS) Stat(name string) (os.FileInfo, error) {
 		return nil, err
 	}
 	defer func() { err = errors.Combine(err, f.Close()) }()
-	var stats os.FileInfo
 	stats, err = f.Stat()
 	return stats, err
 }
