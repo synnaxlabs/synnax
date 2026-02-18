@@ -19,55 +19,53 @@
 
 namespace driver::common {
 TEST(MergeDeviceProperties, ScannedOverridesRemote) {
-    const std::string remote = R"({"key1":"remote_value","key2":"only_remote"})";
-    const std::string scanned = R"({"key1":"scanned_value","key3":"only_scanned"})";
+    const x::json::json remote = {{"key1", "remote_value"}, {"key2", "only_remote"}};
+    const x::json::json scanned = {{"key1", "scanned_value"}, {"key3", "only_scanned"}};
     const auto result = merge_device_properties(remote, scanned);
-    const auto parsed = nlohmann::json::parse(result);
-    EXPECT_EQ(parsed["key1"], "scanned_value");
-    EXPECT_EQ(parsed["key2"], "only_remote");
-    EXPECT_EQ(parsed["key3"], "only_scanned");
+    EXPECT_EQ(result["key1"], "scanned_value");
+    EXPECT_EQ(result["key2"], "only_remote");
+    EXPECT_EQ(result["key3"], "only_scanned");
 }
 
 TEST(MergeDeviceProperties, EmptyRemote) {
-    const std::string scanned = R"({"key1":"value1"})";
-    const auto result = merge_device_properties("", scanned);
-    const auto parsed = nlohmann::json::parse(result);
-    EXPECT_EQ(parsed["key1"], "value1");
+    const x::json::json scanned = {{"key1", "value1"}};
+    const auto result = merge_device_properties(x::json::json::object(), scanned);
+    EXPECT_EQ(result["key1"], "value1");
 }
 
 TEST(MergeDeviceProperties, EmptyScanned) {
-    const std::string remote = R"({"key1":"value1"})";
-    const auto result = merge_device_properties(remote, "");
-    const auto parsed = nlohmann::json::parse(result);
-    EXPECT_EQ(parsed["key1"], "value1");
+    const x::json::json remote = {{"key1", "value1"}};
+    const auto result = merge_device_properties(remote, x::json::json::object());
+    EXPECT_EQ(result["key1"], "value1");
 }
 
 TEST(MergeDeviceProperties, BothEmpty) {
-    const auto result = merge_device_properties("", "");
-    EXPECT_EQ(result, "");
+    const auto result = merge_device_properties(
+        x::json::json::object(),
+        x::json::json::object()
+    );
+    EXPECT_TRUE(result.is_object());
+    EXPECT_TRUE(result.empty());
 }
 
-TEST(MergeDeviceProperties, InvalidRemoteJsonContinues) {
-    const std::string scanned = R"({"key1":"value1"})";
-    const auto result = merge_device_properties("not valid json", scanned);
-    const auto parsed = nlohmann::json::parse(result);
-    EXPECT_EQ(parsed["key1"], "value1");
+TEST(MergeDeviceProperties, NullRemoteUsesScanned) {
+    const x::json::json scanned = {{"key1", "value1"}};
+    const auto result = merge_device_properties(x::json::json(), scanned);
+    EXPECT_EQ(result["key1"], "value1");
 }
 
-TEST(MergeDeviceProperties, InvalidScannedJsonPreservesRemote) {
-    const std::string remote = R"({"key1":"value1"})";
-    const auto result = merge_device_properties(remote, "not valid json");
-    const auto parsed = nlohmann::json::parse(result);
-    EXPECT_EQ(parsed["key1"], "value1");
+TEST(MergeDeviceProperties, NullScannedPreservesRemote) {
+    const x::json::json remote = {{"key1", "value1"}};
+    const auto result = merge_device_properties(remote, x::json::json());
+    EXPECT_EQ(result["key1"], "value1");
 }
 
 TEST(MergeDeviceProperties, NestedObjectsReplacedNotMerged) {
-    const std::string remote = R"({"nested":{"a":"1","b":"2"}})";
-    const std::string scanned = R"({"nested":{"a":"new"}})";
+    const x::json::json remote = {{"nested", {{"a", "1"}, {"b", "2"}}}};
+    const x::json::json scanned = {{"nested", {{"a", "new"}}}};
     const auto result = merge_device_properties(remote, scanned);
-    const auto parsed = nlohmann::json::parse(result);
-    EXPECT_EQ(parsed["nested"]["a"], "new");
-    EXPECT_FALSE(parsed["nested"].contains("b"));
+    EXPECT_EQ(result["nested"]["a"], "new");
+    EXPECT_FALSE(result["nested"].contains("b"));
 }
 
 class MockScanner final : public Scanner {

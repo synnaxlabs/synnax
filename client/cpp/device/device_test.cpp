@@ -28,7 +28,7 @@ TEST(DeviceTests, testCreateDevice) {
         .location = "test_location",
         .make = "test_make",
         .model = "test_model",
-        .properties = "test_properties"
+        .properties = {{"test", "properties"}}
     };
     ASSERT_NIL(client.devices.create(d));
     ASSERT_EQ(d.name, "test_device");
@@ -46,7 +46,7 @@ TEST(DeviceTests, testRetrieveDevice) {
         .location = "test_location",
         .make = "test_make",
         .model = "test_model",
-        .properties = "test_properties"
+        .properties = {{"test", "properties"}}
     };
     ASSERT_NIL(client.devices.create(d));
     const auto d2 = ASSERT_NIL_P(client.devices.retrieve(d.key));
@@ -68,7 +68,7 @@ TEST(DeviceTests, testRetrieveDevices) {
         .location = "location_1",
         .make = "make_1",
         .model = "model_1",
-        .properties = "properties_1"
+        .properties = {{"key", "properties_1"}}
     };
     ASSERT_NIL(client.devices.create(d1));
 
@@ -80,7 +80,7 @@ TEST(DeviceTests, testRetrieveDevices) {
         .location = "location_2",
         .make = "make_2",
         .model = "model_2",
-        .properties = "properties_2"
+        .properties = {{"key", "properties_2"}}
     };
     ASSERT_NIL(client.devices.create(d2));
 
@@ -125,7 +125,7 @@ TEST(DeviceTests, testCreateDevices) {
             .location = "location_1",
             .make = "make_1",
             .model = "model_1",
-            .properties = "properties_1"
+            .properties = {{"key", "properties_1"}}
         },
         Device{
             .key = "device2_key",
@@ -134,7 +134,7 @@ TEST(DeviceTests, testCreateDevices) {
             .location = "location_2",
             .make = "make_2",
             .model = "model_2",
-            .properties = "properties_2"
+            .properties = {{"key", "properties_2"}}
         },
         Device{
             .key = "device3_key",
@@ -143,7 +143,7 @@ TEST(DeviceTests, testCreateDevices) {
             .location = "location_3",
             .make = "make_3",
             .model = "model_3",
-            .properties = "properties_3"
+            .properties = {{"key", "properties_3"}}
         }
     };
 
@@ -196,7 +196,7 @@ TEST(DeviceTests, testDeviceConfigured) {
         .location = "location_1",
         .make = "make_1",
         .model = "model_1",
-        .properties = "properties_1",
+        .properties = {{"key", "properties_1"}},
         .configured = false
     };
     ASSERT_NIL(client.devices.create(d1));
@@ -208,7 +208,7 @@ TEST(DeviceTests, testDeviceConfigured) {
         .location = "location_2",
         .make = "make_2",
         .model = "model_2",
-        .properties = "properties_2",
+        .properties = {{"key", "properties_2"}},
         .configured = true
     };
     ASSERT_NIL(client.devices.create(d2));
@@ -241,7 +241,7 @@ TEST(DeviceTests, testRetrieveDevicesAfterDeletion) {
         .location = "location_1",
         .make = "make_1",
         .model = "model_1",
-        .properties = "properties_1"
+        .properties = {{"key", "properties_1"}}
     };
     ASSERT_NIL(client.devices.create(d1));
 
@@ -252,7 +252,7 @@ TEST(DeviceTests, testRetrieveDevicesAfterDeletion) {
         .location = "location_2",
         .make = "make_2",
         .model = "model_2",
-        .properties = "properties_2"
+        .properties = {{"key", "properties_2"}}
     };
     ASSERT_NIL(client.devices.create(d2));
 
@@ -281,7 +281,7 @@ TEST(DeviceTests, testDeleteDevice) {
         .location = "test_location",
         .make = "test_make",
         .model = "test_model",
-        .properties = "test_properties"
+        .properties = {{"test", "properties"}}
     };
     ASSERT_NIL(client.devices.create(d));
     ASSERT_NIL(client.devices.del(d.key));
@@ -302,7 +302,7 @@ TEST(DeviceTests, testDeleteDevices) {
         .location = "location_1",
         .make = "make_1",
         .model = "model_1",
-        .properties = "properties_1"
+        .properties = {{"key", "properties_1"}}
     };
     ASSERT_NIL(client.devices.create(d1));
 
@@ -313,7 +313,7 @@ TEST(DeviceTests, testDeleteDevices) {
         .location = "location_2",
         .make = "make_2",
         .model = "model_2",
-        .properties = "properties_2"
+        .properties = {{"key", "properties_2"}}
     };
     ASSERT_NIL(client.devices.create(d2));
 
@@ -336,7 +336,7 @@ TEST(DeviceTests, testRetrieveWithRequest) {
         .location = "loc_a",
         .make = "make_a",
         .model = "model_a",
-        .properties = "p1"
+        .properties = {{"key", "p1"}}
     };
     auto d2 = Device{
         .key = "req_d2_" + rand,
@@ -345,7 +345,7 @@ TEST(DeviceTests, testRetrieveWithRequest) {
         .location = "loc_b",
         .make = "make_b",
         .model = "model_b",
-        .properties = "p2"
+        .properties = {{"key", "p2"}}
     };
     auto d3 = Device{
         .key = "req_d3_" + rand,
@@ -354,7 +354,7 @@ TEST(DeviceTests, testRetrieveWithRequest) {
         .location = "loc_c",
         .make = "make_c",
         .model = "model_c",
-        .properties = "p3"
+        .properties = {{"key", "p3"}}
     };
     ASSERT_NIL(client.devices.create(d1));
     ASSERT_NIL(client.devices.create(d2));
@@ -387,7 +387,7 @@ TEST(DeviceTests, testRetrieveWithLimitOffset) {
             .location = "loc",
             .make = make,
             .model = "model",
-            .properties = "props"
+            .properties = {{"key", "props"}}
         };
         ASSERT_NIL(client.devices.create(d));
         devices.push_back(d);
@@ -422,7 +422,7 @@ TEST(DeviceTests, testCreateDeviceWithStatus) {
         .location = "location",
         .make = "make",
         .model = "model",
-        .properties = "properties"
+        .properties = {{"key", "properties"}}
     };
     d.status.variant = x::status::VARIANT_SUCCESS;
     d.status.message = "Device is connected";
@@ -453,7 +453,7 @@ TEST(DeviceTests, testRetrieveDevicesWithStatus) {
         .location = "loc1",
         .make = "make1",
         .model = "model1",
-        .properties = "props1"
+        .properties = {{"key", "props1"}}
     };
     d1.status.variant = x::status::VARIANT_SUCCESS;
     d1.status.message = "Device 1 OK";
@@ -465,7 +465,7 @@ TEST(DeviceTests, testRetrieveDevicesWithStatus) {
         .location = "loc2",
         .make = "make2",
         .model = "model2",
-        .properties = "props2"
+        .properties = {{"key", "props2"}}
     };
     d2.status.variant = x::status::VARIANT_WARNING;
     d2.status.message = "Device 2 warning";
@@ -530,7 +530,7 @@ TEST(DeviceTests, testParseFromJSON) {
         {"location", "json-location"},
         {"make", "json-make"},
         {"model", "json-model"},
-        {"properties", "{\"custom\": true}"},
+        {"properties", {{"custom", true}}},
         {"configured", true}
     };
     x::json::Parser parser(j);
@@ -541,7 +541,7 @@ TEST(DeviceTests, testParseFromJSON) {
     ASSERT_EQ(d.rack, 99999);
     ASSERT_EQ(d.make, "json-make");
     ASSERT_EQ(d.model, "json-model");
-    ASSERT_EQ(d.properties, "{\"custom\": true}");
+    ASSERT_EQ(d.properties, x::json::json({{"custom", true}}));
     ASSERT_EQ(d.configured, true);
 }
 
@@ -555,7 +555,7 @@ TEST(DeviceTests, testParseFromJSONDefaults) {
     ASSERT_EQ(d.rack, 0);
     ASSERT_EQ(d.make, "");
     ASSERT_EQ(d.model, "");
-    ASSERT_EQ(d.properties, "");
+    ASSERT_EQ(d.properties, x::json::json::object());
     ASSERT_EQ(d.configured, false);
 }
 }
