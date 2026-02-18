@@ -7,9 +7,9 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+#include "google/protobuf/struct.pb.h"
 #include "gtest/gtest.h"
 
-#include "google/protobuf/struct.pb.h"
 #include "x/cpp/json/struct.h"
 #include "x/cpp/test/test.h"
 
@@ -150,10 +150,7 @@ TEST(ToStruct, BooleanValues) {
 TEST(ToStruct, NullValue) {
     const json j = {{"empty", nullptr}};
     const auto pb = ASSERT_NIL_P(to_struct(j));
-    ASSERT_EQ(
-        pb.fields().at("empty").kind_case(),
-        google::protobuf::Value::kNullValue
-    );
+    ASSERT_EQ(pb.fields().at("empty").kind_case(), google::protobuf::Value::kNullValue);
 }
 
 /// @brief it should convert a JSON object with nested objects to a Struct.
