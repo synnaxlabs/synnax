@@ -17,13 +17,12 @@
     .console-content {
         width: 100%;
         flex-grow: 1;
+        min-height: 0;
         padding: 3rem 4rem;
         overflow-y: auto;
     }
 
     .console-headers-list {
-        max-height: 15rem;
-        overflow-y: auto;
     }
 
     .pluto-navbar {

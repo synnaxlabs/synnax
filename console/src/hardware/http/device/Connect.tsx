@@ -158,8 +158,8 @@ export const Connect: Layout.Renderer = ({ layoutKey, onClose }) => {
   >("properties.auth.type", { ctx: form });
 
   return (
-    <Flex.Box align="start" className={CSS.B("http-connect")} justify="center">
-      <Flex.Box className={CSS.B("content")} grow size="small" gap="small">
+    <Flex.Box grow className={CSS.B("http-connect")}>
+      <Flex.Box className={CSS.B("content")} grow gap="small">
         <Form.Form<Device.FormSchema<Properties>> {...form}>
           <Form.TextField
             path="name"
