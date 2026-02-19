@@ -33,28 +33,6 @@ export type Make = z.infer<typeof makeZ>;
 export const getMake = (make: unknown): Make | null =>
   makeZ.safeParse(make).data ?? null;
 
-export const getIconString = (make: Make | null): string => {
-  switch (make) {
-    case EtherCAT.Device.MAKE:
-      return "Logo.EtherCAT";
-    case HTTP.Device.MAKE:
-      return "Logo.HTTP";
-    case LabJack.Device.MAKE:
-      return "Logo.LabJack";
-    case Modbus.Device.MAKE:
-      return "Logo.Modbus";
-    case NI.Device.MAKE:
-      return "Logo.NI";
-    case OPC.Device.MAKE:
-      return "Logo.OPC";
-    default:
-      return "Device";
-  }
-};
-
-export const hasIdentifier = (make: Make | null): boolean =>
-  make === LabJack.Device.MAKE || make === NI.Device.MAKE;
-
 const MAKE_ICONS: Record<Make, Icon.ReactElement> = {
   [EtherCAT.Device.MAKE]: <Icon.Logo.EtherCAT />,
   [HTTP.Device.MAKE]: <Icon.Logo.HTTP />,

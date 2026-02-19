@@ -11,14 +11,9 @@ import { Common } from "@/hardware/common";
 import { Device } from "@/hardware/http/device";
 import { type Ontology } from "@/ontology";
 
-const TASK_CONTEXT_MENU_ITEM_CONFIGS: Common.DeviceServices.TaskContextMenuItemConfig[] =
-  [];
-
 export const ContextMenuItems = (props: Ontology.TreeContextMenuProps) => (
-  <Common.DeviceServices.ContextMenuItemsWithConfigure
+  <Common.DeviceServices.EditConnectionMenuItem
     {...props}
-    itemKey="http.connect"
     configureLayout={Device.CONNECT_LAYOUT}
-    taskContextMenuItemConfigs={TASK_CONTEXT_MENU_ITEM_CONFIGS}
   />
 );

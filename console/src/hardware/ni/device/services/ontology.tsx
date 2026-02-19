@@ -42,9 +42,16 @@ const TASK_CONTEXT_MENU_ITEM_CONFIGS: Common.DeviceServices.TaskContextMenuItemC
   ];
 
 export const ContextMenuItems = (props: Ontology.TreeContextMenuProps) => (
-  <Common.DeviceServices.ContextMenuItems
-    {...props}
-    configureLayout={Device.CONFIGURE_LAYOUT}
-    taskContextMenuItemConfigs={TASK_CONTEXT_MENU_ITEM_CONFIGS}
-  />
+  <>
+    <Common.DeviceServices.ConfigureMenuItem
+      {...props}
+      configureLayout={Device.CONFIGURE_LAYOUT}
+    />
+    <Common.DeviceServices.ChangeIdentifierMenuItem {...props} icon="Logo.NI" />
+    <Common.DeviceServices.TaskContextMenuItems
+      {...props}
+      configureLayout={Device.CONFIGURE_LAYOUT}
+      taskContextMenuItemConfigs={TASK_CONTEXT_MENU_ITEM_CONFIGS}
+    />
+  </>
 );

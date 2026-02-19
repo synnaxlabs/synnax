@@ -19,10 +19,15 @@ const TASK_CONTEXT_MENU_ITEM_CONFIGS: Common.DeviceServices.TaskContextMenuItemC
   ];
 
 export const ContextMenuItems = (props: Ontology.TreeContextMenuProps) => (
-  <Common.DeviceServices.ContextMenuItemsWithConfigure
-    {...props}
-    itemKey="opc.connect"
-    configureLayout={Device.CONNECT_LAYOUT}
-    taskContextMenuItemConfigs={TASK_CONTEXT_MENU_ITEM_CONFIGS}
-  />
+  <>
+    <Common.DeviceServices.EditConnectionMenuItem
+      {...props}
+      configureLayout={Device.CONNECT_LAYOUT}
+    />
+    <Common.DeviceServices.TaskContextMenuItems
+      {...props}
+      configureLayout={Device.CONNECT_LAYOUT}
+      taskContextMenuItemConfigs={TASK_CONTEXT_MENU_ITEM_CONFIGS}
+    />
+  </>
 );
