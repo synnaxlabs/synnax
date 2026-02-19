@@ -365,13 +365,9 @@ class ReadTaskCase(TaskCase):
 
         self.test_task_exists()
         self.test_start_and_stop()
-        sy.sleep(0.5)
         self.test_disable_data_saving()
-        sy.sleep(0.5)
         self.test_enable_data_saving()
-        sy.sleep(0.5)
         self.test_reconfigure_rate()
-        sy.sleep(0.5)
         self.test_survives_channel_deletion()
 
     def test_start_and_stop(self) -> None:
@@ -506,7 +502,6 @@ class WriteTaskCase(TaskCase):
 
         self.test_task_exists()
         self.test_send_commands()
-        sy.sleep(0.5)
         self.test_reconfigure_name()
 
     def test_send_commands(self) -> None:
@@ -514,7 +509,6 @@ class WriteTaskCase(TaskCase):
         assert self.tsk is not None
         self.log("Testing: Send commands")
         with self.tsk.run():
-            sy.sleep(2)
             send_and_verify_commands(
                 self.client,
                 cmd_keys=self._channel_keys(self.tsk),
@@ -540,7 +534,6 @@ class WriteTaskCase(TaskCase):
             )
 
         with self.tsk.run():
-            sy.sleep(2)
             send_and_verify_commands(
                 self.client,
                 cmd_keys=self._channel_keys(self.tsk),

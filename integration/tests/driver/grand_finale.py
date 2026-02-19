@@ -129,7 +129,6 @@ class GrandFinale(SimulatorCase):
         for task in self.all_tasks:
             stack.enter_context(task.run())
         self.log(f"  All {len(self.all_tasks)} tasks running")
-        sy.sleep(1)
 
     def _test_read_data_flows(self) -> None:
         self.log("Test 3 - Verify each read task is streaming data")
