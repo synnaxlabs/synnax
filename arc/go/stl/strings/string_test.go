@@ -17,8 +17,8 @@ import (
 	"github.com/synnaxlabs/arc/runtime/state"
 	"github.com/synnaxlabs/arc/stl/strings"
 	"github.com/synnaxlabs/arc/stl/testutil"
-	"github.com/tetratelabs/wazero/experimental/wazerotest"
 	. "github.com/synnaxlabs/x/testutil"
+	"github.com/tetratelabs/wazero/experimental/wazerotest"
 )
 
 var ctx = context.Background()

@@ -37,7 +37,7 @@ public:
         state(std::move(state)), channel_key(channel_key) {}
 
     x::errors::Error next(runtime::node::Context &ctx) override {
-        auto [data, index_data, ok] = this->state.read_chan(this->channel_key);
+        auto [data, index_data, ok] = this->state.read_series(this->channel_key);
         if (!ok) return x::errors::NIL;
 
         for (size_t i = 0; i < data.series.size(); i++) {
@@ -110,7 +110,7 @@ public:
                 data->size()
             )
         );
-        this->state.write_chan(this->channel_key, data, time);
+        this->state.write_series(this->channel_key, data, time);
         return x::errors::NIL;
     }
 

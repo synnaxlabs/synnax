@@ -114,11 +114,11 @@ public:
     /// Reads buffered data and time series from a channel. Returns (data, index_data,
     /// ok). If the channel has an associated index, both data and time are returned.
     std::tuple<x::telem::MultiSeries, x::telem::MultiSeries, bool>
-    read_chan(types::ChannelKey key) const;
+    read_series(types::ChannelKey key) const;
 
     /// Writes data and time series to a channel buffer.
     void
-    write_chan(types::ChannelKey key, const Series &data, const Series &time) const;
+    write_series(types::ChannelKey key, const Series &data, const Series &time) const;
 
     [[nodiscard]] bool is_output_truthy(const std::string &param_name) const;
 

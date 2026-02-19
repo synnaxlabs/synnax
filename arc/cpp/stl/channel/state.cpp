@@ -47,7 +47,7 @@ void State::write_value(
 }
 
 std::tuple<x::telem::MultiSeries, x::telem::MultiSeries, bool>
-State::read_chan(const types::ChannelKey key) {
+State::read_series(const types::ChannelKey key) {
     auto [data, ok] = this->read_value(key);
     if (!ok) return {x::telem::MultiSeries{}, x::telem::MultiSeries{}, false};
     const auto index_it = this->indexes.find(key);
@@ -62,7 +62,7 @@ State::read_chan(const types::ChannelKey key) {
     };
 }
 
-void State::write_chan(
+void State::write_series(
     const types::ChannelKey key,
     const Series &data,
     const Series &time

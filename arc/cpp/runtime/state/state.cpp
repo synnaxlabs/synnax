@@ -252,16 +252,16 @@ bool Node::refresh_inputs() {
 }
 
 std::tuple<x::telem::MultiSeries, x::telem::MultiSeries, bool>
-Node::read_chan(const types::ChannelKey key) const {
-    return this->state.channel->read_chan(key);
+Node::read_series(const types::ChannelKey key) const {
+    return this->state.channel->read_series(key);
 }
 
-void Node::write_chan(
+void Node::write_series(
     const types::ChannelKey key,
     const Series &data,
     const Series &time
 ) const {
-    this->state.channel->write_chan(key, data, time);
+    this->state.channel->write_series(key, data, time);
 }
 
 const Series &Node::input_time(const size_t param_index) const {

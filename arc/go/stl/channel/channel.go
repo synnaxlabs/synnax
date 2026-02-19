@@ -137,7 +137,7 @@ type source struct {
 func (s *source) Init(node.Context) {}
 
 func (s *source) Next(ctx node.Context) {
-	data, indexData, ok := s.ReadChan(s.key)
+	data, indexData, ok := s.ReadSeries(s.key)
 	if !ok {
 		return
 	}
@@ -183,7 +183,7 @@ func (s *sink) Next(node.Context) {
 	if data.Len() == 0 {
 		return
 	}
-	s.WriteChan(s.key, data, time)
+	s.WriteSeries(s.key, data, time)
 }
 
 type i32Compatible interface {

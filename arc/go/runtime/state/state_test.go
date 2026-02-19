@@ -22,7 +22,7 @@ import (
 
 var _ = Describe("State", func() {
 	Describe("Channel Operations", func() {
-		Describe("ReadChan", func() {
+		Describe("ReadSeries", func() {
 			It("Should read channel data after ingestion", func() {
 				g := graph.Graph{
 					Nodes:     []graph.Node{{Key: "test", Type: "test"}},
@@ -34,7 +34,7 @@ var _ = Describe("State", func() {
 				fr := telem.UnaryFrame[uint32](10, telem.NewSeriesV[float32](1, 2, 3))
 				s.Channel.Ingest(fr)
 				n := s.Node("test")
-				data, time, ok := n.ReadChan(10)
+				data, time, ok := n.ReadSeries(10)
 				Expect(ok).To(BeTrue())
 				Expect(data.Series).To(HaveLen(1))
 				Expect(data.Series[0]).To(telem.MatchSeries(telem.NewSeriesV[float32](1, 2, 3)))
@@ -60,7 +60,7 @@ var _ = Describe("State", func() {
 				fr = fr.Append(6, telem.NewSeriesSecondsTSV(10, 20))
 				s.Channel.Ingest(fr)
 				n := s.Node("test")
-				data, time, ok := n.ReadChan(5)
+				data, time, ok := n.ReadSeries(5)
 				Expect(ok).To(BeTrue())
 				Expect(data.Series).To(HaveLen(1))
 				Expect(data.Series[0]).To(telem.MatchSeries(telem.NewSeriesV[int32](100, 200)))
@@ -77,12 +77,12 @@ var _ = Describe("State", func() {
 				Expect(diagnostics.Ok()).To(BeTrue())
 				s := state.New(state.Config{IR: ir})
 				n := s.Node("test")
-				_, _, ok := n.ReadChan(999)
+				_, _, ok := n.ReadSeries(999)
 				Expect(ok).To(BeFalse())
 			})
 		})
 
-		Describe("WriteChan", func() {
+		Describe("WriteSeries", func() {
 			It("Should write channel data", func() {
 				g := graph.Graph{
 					Nodes:     []graph.Node{{Key: "writer", Type: "writer"}},
@@ -100,7 +100,7 @@ var _ = Describe("State", func() {
 				n := s.Node("writer")
 				dataToWrite := telem.NewSeriesV[float64](3.14, 2.71)
 				timeToWrite := telem.NewSeriesSecondsTSV(100, 200)
-				n.WriteChan(1, dataToWrite, timeToWrite)
+				n.WriteSeries(1, dataToWrite, timeToWrite)
 				fr := telem.Frame[uint32]{}
 				fr, changed := s.Channel.Flush(fr)
 				Expect(changed).To(BeTrue())
@@ -126,8 +126,8 @@ var _ = Describe("State", func() {
 				}
 				s := state.New(cfg)
 				n := s.Node("writer")
-				n.WriteChan(10, telem.NewSeriesV[int32](42), telem.NewSeriesSecondsTSV(1))
-				n.WriteChan(20, telem.NewSeriesV[int32](99), telem.NewSeriesSecondsTSV(2))
+				n.WriteSeries(10, telem.NewSeriesV[int32](42), telem.NewSeriesSecondsTSV(1))
+				n.WriteSeries(20, telem.NewSeriesV[int32](99), telem.NewSeriesSecondsTSV(2))
 				fr, changed := s.Channel.Flush(telem.Frame[uint32]{})
 				Expect(changed).To(BeTrue())
 				Expect(len(fr.Get(10).Series)).To(Equal(1))
@@ -153,7 +153,7 @@ var _ = Describe("State", func() {
 				}
 				s := state.New(cfg)
 				n := s.Node("writer")
-				n.WriteChan(1, telem.NewSeriesV[float32](1.0), telem.NewSeriesSecondsTSV(1))
+				n.WriteSeries(1, telem.NewSeriesV[float32](1.0), telem.NewSeriesSecondsTSV(1))
 				fr1, changed := s.Channel.Flush(telem.Frame[uint32]{})
 				Expect(changed).To(BeTrue())
 				Expect(len(fr1.Get(1).Series)).To(Equal(1))
@@ -178,8 +178,8 @@ var _ = Describe("State", func() {
 				}
 				s := state.New(cfg)
 				n := s.Node("writer")
-				n.WriteChan(1, telem.NewSeriesV[float32](1.0), telem.NewSeriesSecondsTSV(1))
-				n.WriteChan(3, telem.NewSeriesV[float32](2.0), telem.NewSeriesSecondsTSV(2))
+				n.WriteSeries(1, telem.NewSeriesV[float32](1.0), telem.NewSeriesSecondsTSV(1))
+				n.WriteSeries(3, telem.NewSeriesV[float32](2.0), telem.NewSeriesSecondsTSV(2))
 				fr, changed := s.Channel.Flush(telem.Frame[uint32]{})
 				Expect(changed).To(BeTrue())
 				Expect(len(fr.Get(1).Series)).To(Equal(1))
@@ -243,7 +243,7 @@ var _ = Describe("State", func() {
 				Expect(fr.Get(21).Series).To(HaveLen(1))
 			})
 
-			It("Should produce matching behavior with WriteChan for indexed channels", func() {
+			It("Should produce matching behavior with WriteSeries for indexed channels", func() {
 				cfg := state.Config{
 					ChannelDigests: []state.ChannelDigest{
 						{Key: 50, Index: 51},
@@ -313,11 +313,11 @@ var _ = Describe("State", func() {
 				fr2 := telem.UnaryFrame[uint32](10, telem.NewSeriesV[float32](4, 5))
 				s.Channel.Ingest(fr2)
 				n := s.Node("test")
-				data, _, ok := n.ReadChan(10)
+				data, _, ok := n.ReadSeries(10)
 				Expect(ok).To(BeTrue())
 				Expect(data.Series).To(HaveLen(2))
 				s.Channel.ClearReads()
-				data, _, ok = n.ReadChan(10)
+				data, _, ok = n.ReadSeries(10)
 				Expect(ok).To(BeTrue())
 				Expect(data.Series).To(HaveLen(1))
 				Expect(data.Series[0]).To(telem.MatchSeries(telem.NewSeriesV[float32](4, 5)))
@@ -340,12 +340,12 @@ var _ = Describe("State", func() {
 				s.Channel.Ingest(fr)
 				s.Channel.ClearReads()
 				n := s.Node("test")
-				data1, time1, ok1 := n.ReadChan(1)
+				data1, time1, ok1 := n.ReadSeries(1)
 				Expect(ok1).To(BeTrue())
 				Expect(data1.Series).To(HaveLen(1))
 				Expect(time1.Series).To(HaveLen(1))
 				Expect(data1.Series[0]).To(telem.MatchSeries(telem.NewSeriesV[int32](100, 200)))
-				data2, time2, ok2 := n.ReadChan(3)
+				data2, time2, ok2 := n.ReadSeries(3)
 				Expect(ok2).To(BeTrue())
 				Expect(data2.Series).To(HaveLen(1))
 				Expect(time2.Series).To(HaveLen(1))
@@ -360,17 +360,17 @@ var _ = Describe("State", func() {
 				fr2 := telem.UnaryFrame[uint32](20, telem.NewSeriesV[float32](3, 4))
 				s.Channel.Ingest(fr2)
 				n := s.Node("test")
-				data10, _, ok10 := n.ReadChan(10)
+				data10, _, ok10 := n.ReadSeries(10)
 				Expect(ok10).To(BeTrue())
 				Expect(data10.Series[0]).To(telem.MatchSeries(telem.NewSeriesV[float32](1, 2)))
-				data20, _, ok20 := n.ReadChan(20)
+				data20, _, ok20 := n.ReadSeries(20)
 				Expect(ok20).To(BeTrue())
 				Expect(data20.Series[0]).To(telem.MatchSeries(telem.NewSeriesV[float32](3, 4)))
 				s.Channel.ClearReads()
-				data10, _, ok10 = n.ReadChan(10)
+				data10, _, ok10 = n.ReadSeries(10)
 				Expect(ok10).To(BeTrue())
 				Expect(data10.Series[0]).To(telem.MatchSeries(telem.NewSeriesV[float32](1, 2)))
-				data20, _, ok20 = n.ReadChan(20)
+				data20, _, ok20 = n.ReadSeries(20)
 				Expect(ok20).To(BeTrue())
 				Expect(data20.Series[0]).To(telem.MatchSeries(telem.NewSeriesV[float32](3, 4)))
 			})
@@ -381,13 +381,13 @@ var _ = Describe("State", func() {
 				s.Channel.Ingest(fr1)
 				s.Channel.ClearReads()
 				n := s.Node("test")
-				data, _, ok := n.ReadChan(5)
+				data, _, ok := n.ReadSeries(5)
 				Expect(ok).To(BeTrue())
 				Expect(data.Series[0]).To(telem.MatchSeries(telem.NewSeriesV[uint8](10, 20)))
 				fr2 := telem.UnaryFrame[uint32](5, telem.NewSeriesV[uint8](30, 40))
 				s.Channel.Ingest(fr2)
 				s.Channel.ClearReads()
-				data, _, ok = n.ReadChan(5)
+				data, _, ok = n.ReadSeries(5)
 				Expect(ok).To(BeTrue())
 				Expect(data.Series).To(HaveLen(1))
 				Expect(data.Series[0]).To(telem.MatchSeries(telem.NewSeriesV[uint8](30, 40)))
@@ -399,7 +399,7 @@ var _ = Describe("State", func() {
 				s.Channel.Ingest(fr)
 				s.Channel.ClearReads()
 				n := s.Node("test")
-				data, _, ok := n.ReadChan(10)
+				data, _, ok := n.ReadSeries(10)
 				Expect(ok).To(BeTrue())
 				Expect(data.Series).To(HaveLen(1))
 				Expect(data.Series[0]).To(telem.MatchSeries(telem.NewSeriesV[int32](1, 2, 3)))
@@ -417,7 +417,7 @@ var _ = Describe("State", func() {
 				s.Channel.Ingest(fr)
 				s.Channel.ClearReads()
 				n := s.Node("test")
-				_, _, ok := n.ReadChan(999)
+				_, _, ok := n.ReadSeries(999)
 				Expect(ok).To(BeFalse())
 			})
 
@@ -425,7 +425,7 @@ var _ = Describe("State", func() {
 				s := state.New(state.Config{IR: ir.IR{Nodes: []ir.Node{{Key: "test"}}}})
 				s.Channel.ClearReads()
 				n := s.Node("test")
-				_, _, ok := n.ReadChan(1)
+				_, _, ok := n.ReadSeries(1)
 				Expect(ok).To(BeFalse())
 			})
 		})

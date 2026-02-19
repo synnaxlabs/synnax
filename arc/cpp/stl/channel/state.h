@@ -47,9 +47,9 @@ public:
     void write_value(types::ChannelKey key, const Series &data, const Series &time);
 
     std::tuple<x::telem::MultiSeries, x::telem::MultiSeries, bool>
-    read_chan(types::ChannelKey key);
+    read_series(types::ChannelKey key);
 
-    void write_chan(types::ChannelKey key, const Series &data, const Series &time);
+    void write_series(types::ChannelKey key, const Series &data, const Series &time);
 
     std::vector<std::pair<types::ChannelKey, Series>> flush();
 

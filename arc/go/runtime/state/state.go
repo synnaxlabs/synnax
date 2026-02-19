@@ -226,8 +226,8 @@ func (cs *ChannelState) WriteValue(key uint32, value telem.Series) {
 	cs.writeChannel(key, value, telem.NewSeriesV(telem.Now()))
 }
 
-// ReadChan reads buffered data and time series from a channel.
-func (cs *ChannelState) ReadChan(key uint32) (data telem.MultiSeries, time telem.MultiSeries, ok bool) {
+// ReadSeries reads buffered data and time series from a channel.
+func (cs *ChannelState) ReadSeries(key uint32) (data telem.MultiSeries, time telem.MultiSeries, ok bool) {
 	data, ok = cs.reads[key]
 	if !ok {
 		return telem.MultiSeries{}, telem.MultiSeries{}, false
@@ -243,8 +243,8 @@ func (cs *ChannelState) ReadChan(key uint32) (data telem.MultiSeries, time telem
 	return data, time, len(time.Series) > 0 && len(data.Series) > 0
 }
 
-// WriteChan buffers data and time series for writing to a channel.
-func (cs *ChannelState) WriteChan(key uint32, value, time telem.Series) {
+// WriteSeries buffers data and time series for writing to a channel.
+func (cs *ChannelState) WriteSeries(key uint32, value, time telem.Series) {
 	cs.writeChannel(key, value, time)
 }
 
@@ -487,17 +487,17 @@ func (n *Node) OutputTime(paramIndex int) *telem.Series {
 	return &n.outputCache[paramIndex].time
 }
 
-// ReadChan reads buffered data and time series from a channel.
+// ReadSeries reads buffered data and time series from a channel.
 // If the channel has an index, both data and time are returned.
 // Returns ok=false if the channel has no buffered data.
-func (n *Node) ReadChan(key uint32) (data telem.MultiSeries, time telem.MultiSeries, ok bool) {
-	return n.channel.ReadChan(key)
+func (n *Node) ReadSeries(key uint32) (data telem.MultiSeries, time telem.MultiSeries, ok bool) {
+	return n.channel.ReadSeries(key)
 }
 
-// WriteChan buffers data and time series for writing to a channel.
+// WriteSeries buffers data and time series for writing to a channel.
 // If the channel has an index, the time series is automatically written to the index channel.
-func (n *Node) WriteChan(key uint32, value, time telem.Series) {
-	n.channel.WriteChan(key, value, time)
+func (n *Node) WriteSeries(key uint32, value, time telem.Series) {
+	n.channel.WriteSeries(key, value, time)
 }
 
 // IsOutputTruthy checks if the output at the given param name is truthy.
