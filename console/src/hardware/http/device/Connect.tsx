@@ -22,6 +22,7 @@ import {
   Rack,
   Select,
   Status,
+  Text,
 } from "@synnaxlabs/pluto";
 import { status } from "@synnaxlabs/x";
 import { type ReactElement, useCallback, useState } from "react";
@@ -268,7 +269,15 @@ const SelectAuthType = (props: SelectAuthTypeProps) => (
     <Select.Button<AuthType> itemKey="none">None</Select.Button>
     <Select.Button<AuthType>
       itemKey="bearer"
-      tooltip="Sends `Authorization: Bearer <token>` header"
+      tooltip={
+        <Text.Text level="small" color={11}>
+          Sends{" "}
+          <Text.Text level="small" variant="code" color={11}>
+            Authorization: Bearer {"<token>"}
+          </Text.Text>{" "}
+          header
+        </Text.Text>
+      }
       tooltipLocation="top"
     >
       Bearer Token
@@ -282,7 +291,15 @@ const SelectAuthType = (props: SelectAuthTypeProps) => (
     </Select.Button>
     <Select.Button<AuthType>
       itemKey="basic"
-      tooltip="Sends base64-encoded credentials via the `Authorization` header"
+      tooltip={
+        <Text.Text level="small" color={11}>
+          Sends base64-encoded credentials via the{" "}
+          <Text.Text level="small" variant="code" color={11}>
+            Authorization
+          </Text.Text>{" "}
+          header
+        </Text.Text>
+      }
       tooltipLocation="top"
     >
       Basic
