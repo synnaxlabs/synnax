@@ -12,6 +12,7 @@ from synnax import modbus
 from synnax.modbus.types import OutputChan
 
 from tests.driver.modbus_task import ModbusWriteTaskCase
+from tests.driver.task import create_channel, create_index
 
 
 class ModbusWriteCoil(ModbusWriteTaskCase):
@@ -19,15 +20,14 @@ class ModbusWriteCoil(ModbusWriteTaskCase):
 
     @staticmethod
     def create_channels(client: sy.Synnax) -> list[OutputChan]:
+        idx = create_index(client, "modbus_coil_cmd_time")
         return [
             modbus.CoilOutputChan(
-                channel=int(
-                    client.channels.create(
-                        name=f"modbus_coil_cmd_{i}",
-                        data_type=sy.DataType.UINT8,
-                        virtual=True,
-                        retrieve_if_name_exists=True,
-                    ).key
+                channel=create_channel(
+                    client,
+                    name=f"modbus_coil_cmd_{i}",
+                    data_type=sy.DataType.UINT8,
+                    index=idx.key,
                 ),
                 address=10 + i,
             )
@@ -40,15 +40,14 @@ class ModbusWriteHoldingRegister(ModbusWriteTaskCase):
 
     @staticmethod
     def create_channels(client: sy.Synnax) -> list[OutputChan]:
+        idx = create_index(client, "modbus_hr_cmd_time")
         return [
             modbus.HoldingRegisterOutputChan(
-                channel=int(
-                    client.channels.create(
-                        name=f"modbus_hr_cmd_{i}",
-                        data_type=sy.DataType.FLOAT32,
-                        virtual=True,
-                        retrieve_if_name_exists=True,
-                    ).key
+                channel=create_channel(
+                    client,
+                    name=f"modbus_hr_cmd_{i}",
+                    data_type=sy.DataType.FLOAT32,
+                    index=idx.key,
                 ),
                 address=10 + i * 2,
                 data_type="float32",
@@ -62,28 +61,25 @@ class ModbusWriteMixed(ModbusWriteTaskCase):
 
     @staticmethod
     def create_channels(client: sy.Synnax) -> list[OutputChan]:
+        idx = create_index(client, "modbus_mixed_cmd_time")
         return [
             modbus.CoilOutputChan(
-                channel=int(
-                    client.channels.create(
-                        name=f"modbus_mixed_coil_cmd_{i}",
-                        data_type=sy.DataType.UINT8,
-                        virtual=True,
-                        retrieve_if_name_exists=True,
-                    ).key
+                channel=create_channel(
+                    client,
+                    name=f"modbus_mixed_coil_cmd_{i}",
+                    data_type=sy.DataType.UINT8,
+                    index=idx.key,
                 ),
                 address=20 + i,
             )
             for i in range(2)
         ] + [
             modbus.HoldingRegisterOutputChan(
-                channel=int(
-                    client.channels.create(
-                        name=f"modbus_mixed_hr_cmd_{i}",
-                        data_type=sy.DataType.FLOAT32,
-                        virtual=True,
-                        retrieve_if_name_exists=True,
-                    ).key
+                channel=create_channel(
+                    client,
+                    name=f"modbus_mixed_hr_cmd_{i}",
+                    data_type=sy.DataType.FLOAT32,
+                    index=idx.key,
                 ),
                 address=20 + i * 2,
                 data_type="float32",

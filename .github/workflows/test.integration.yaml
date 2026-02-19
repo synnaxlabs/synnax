@@ -235,6 +235,14 @@ jobs:
           path: integration/tests/results/*
           retention-days: 7
 
+      - name: Upload Core Logs
+        uses: actions/upload-artifact@v6
+        if: ${{ failure() || cancelled() }}
+        with:
+          name: core-logs-windows-attempt-${{ github.run_attempt }}
+          path: ~/synnax-data/synnax-core.log
+          retention-days: 7
+
   deploy-and-test-ubuntu:
     name: Deploy and Test (ubuntu)
     timeout-minutes: 30
@@ -293,4 +301,12 @@ jobs:
         with:
           name: test-results-linux
           path: integration/tests/results/*
+          retention-days: 7
+
+      - name: Upload Core Logs
+        uses: actions/upload-artifact@v6
+        if: ${{ failure() || cancelled() }}
+        with:
+          name: core-logs-linux-attempt-${{ github.run_attempt }}
+          path: ~/synnax-data/synnax-core.log
           retention-days: 7

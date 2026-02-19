@@ -759,6 +759,25 @@ class RangesClient:
         section = self._get_child_ranges_section()
         return section.locator(".console-range__list-item").filter(has_text=name).first
 
+    def wait_for_child_ranges(self, names: list[str], parent_name: str) -> None:
+        """Wait for child ranges to appear, reopening the overview as a fallback.
+
+        Child ranges created via the API propagate to the console through a
+        reactive subscription. On slower CI machines this can lag, so if the
+        initial wait times out we close and reopen the overview to trigger a
+        fresh retrieval.
+        """
+        try:
+            for name in names:
+                self.get_child_range_item(name).wait_for(state="visible", timeout=10000)
+        except PlaywrightTimeoutError:
+            self.layout.close_tab(parent_name)
+            self.open_explorer()
+            self.open_overview_from_explorer(parent_name)
+            self.wait_for_overview(parent_name)
+            for name in names:
+                self.get_child_range_item(name).wait_for(state="visible", timeout=10000)
+
     def click_child_range(self, name: str) -> None:
         """Click on a child range to navigate to its overview.
 

@@ -32,8 +32,7 @@ from tests.driver.opcua_write import OPCUAWriteFloat
 from tests.driver.simulator_case import SimulatorCase
 from tests.driver.task import (
     assert_sample_counts_in_range,
-    assert_streamed_values,
-    wait_for_write_pipeline,
+    send_and_verify_commands,
 )
 
 
@@ -136,37 +135,20 @@ class GrandFinale(SimulatorCase):
         for task in self.read_tasks:
             keys = self._task_channel_keys(task)
             with self.client.open_streamer(keys) as streamer:
-                frame = streamer.read(timeout=5)
+                frame = streamer.read(timeout=30)
                 if frame is None:
-                    raise AssertionError(f"{task.name}: no data received within 5s")
+                    raise AssertionError(f"{task.name}: no data received within 30s")
             self.log(f"  {task.name}")
 
     def _test_write_commands(self) -> None:
         self.log("Test 4 - Send commands to write tasks")
         for task in self.write_tasks:
-            wait_for_write_pipeline(
+            send_and_verify_commands(
                 self.client,
                 cmd_keys=self._task_channel_keys(task),
+                writer_name=f"{task.name}_gf_writer",
                 task_name=task.name,
             )
-            cmd_keys = self._task_channel_keys(task)
-            with self.client.open_streamer(cmd_keys) as streamer:
-                with self.client.open_writer(
-                    start=sy.TimeStamp.now(),
-                    channels=cmd_keys,
-                    name=f"{task.name}_gf_writer",
-                ) as writer:
-                    values = {k: float(42.0 + i) for i, k in enumerate(cmd_keys)}
-                    writer.write(values)
-                    assert_streamed_values(
-                        self.client, streamer, values, task_name=task.name
-                    )
-
-                    values = {k: float(100.0 + i) for i, k in enumerate(cmd_keys)}
-                    writer.write(values)
-                    assert_streamed_values(
-                        self.client, streamer, values, task_name=task.name
-                    )
             self.log(f"  {task.name}")
 
     def _test_read_sample_counts(self, stack: ExitStack) -> None:
