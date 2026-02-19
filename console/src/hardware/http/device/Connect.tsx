@@ -68,11 +68,11 @@ interface HeaderEntry {
   value: string;
 }
 
-const HeadersField = ({
-  form,
-}: {
+interface HeadersFieldProps {
   form: Form.UseReturn<typeof PDevice.formSchema>;
-}): ReactElement => {
+}
+
+const HeadersField = ({ form }: HeadersFieldProps): ReactElement => {
   const value = Form.useFieldValue<
     Record<string, string>,
     Record<string, string>,
@@ -111,12 +111,12 @@ const HeadersField = ({
   return (
     <Flex.Box y gap="small">
       <Flex.Box x align="center" justify="between">
-        <label className="pluto-input-label">Headers</label>
+        <Input.Label>Headers</Input.Label>
         <Button.Button variant="text" size="small" onClick={addRow}>
           <Icon.Add />
         </Button.Button>
       </Flex.Box>
-      <Flex.Box y gap="small" className={CSS.B("headers-list")}>
+      <Flex.Box y gap="small">
         {draft.map((entry, i) => (
           <Flex.Box x key={i} align="center" gap="small">
             <Input.Text
