@@ -59,7 +59,7 @@ def check_timing(ctx: click.Context) -> None:
 
 def collect_samples(
     client: sy.Synnax,
-    time_channel: sy.channel.ChannelKey,
+    time_channel: sy.channel.Key,
     span: sy.TimeSpan,
 ):
     # Tracks the offset between the local clock and the time channel

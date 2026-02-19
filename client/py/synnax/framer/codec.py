@@ -14,7 +14,7 @@ import struct
 from freighter import JSONCodec
 from freighter.codec import Codec as FreighterCodec
 
-from synnax.channel.payload import ChannelKey, ChannelKeys
+import synnax.channel.payload as channel
 from synnax.exceptions import ValidationError
 from synnax.framer.frame import Frame, FramePayload
 from synnax.telem import Alignment, DataType, Series, TimeRange
@@ -72,11 +72,13 @@ class CodecFlags:
 
 
 class CodecState:
-    keys: ChannelKeys
-    data_types: dict[ChannelKey, DataType]
+    keys: list[channel.Key] | tuple[channel.Key]
+    data_types: dict[channel.Key, DataType]
     has_variable_data_types: bool
 
-    def __init__(self, keys: ChannelKeys, data_types: list[DataType]) -> None:
+    def __init__(
+        self, keys: list[channel.Key] | tuple[channel.Key], data_types: list[DataType]
+    ) -> None:
         self.keys = sorted(keys)
         self.data_types = {k: dt for k, dt in zip(keys, data_types)}
         self.has_variable_data_types = any(dt.is_variable for dt in data_types)
@@ -89,14 +91,18 @@ class Codec:
     _curr_state: CodecState = None
 
     def __init__(
-        self, keys: ChannelKeys = None, data_types: list[DataType] = None
+        self,
+        keys: list[channel.Key] | tuple[channel.Key] = None,
+        data_types: list[DataType] = None,
     ) -> None:
         self._seq_num = 0
         self._states = dict()
         if keys is not None:
             self.update(keys, data_types)
 
-    def update(self, keys: ChannelKeys, data_types: list[DataType]):
+    def update(
+        self, keys: list[channel.Key] | tuple[channel.Key], data_types: list[DataType]
+    ):
         self._seq_num += 1
         self._curr_state = CodecState(keys, data_types)
         self._states[self._seq_num] = self._curr_state

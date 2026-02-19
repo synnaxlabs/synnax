@@ -16,7 +16,6 @@ import pandas as pd
 import pytest
 
 import synnax as sy
-from synnax.telem import CrudeDataType, CrudeRate, CrudeTimeSpan
 
 _now = sy.TimeStamp.now()
 
@@ -267,7 +266,7 @@ class TestTimeSpan:
             (np.int64(1000), 1 * sy.TimeSpan.MICROSECOND),
         ],
     )
-    def test_construction(self, crude: CrudeTimeSpan, expected: sy.TimeSpan):
+    def test_construction(self, crude: sy.telem.CrudeTimeSpan, expected: sy.TimeSpan):
         assert sy.TimeSpan(crude) == expected
 
     def test_seconds(self):
@@ -360,7 +359,7 @@ class TestRate:
             (1000, sy.Rate(1000.0)),
         ],
     )
-    def test_construction(self, crude: CrudeRate, expected: sy.Rate):
+    def test_construction(self, crude: sy.telem.CrudeRate, expected: sy.Rate):
         assert sy.Rate(crude) == expected
 
     def test_invalid_init(self):
@@ -404,7 +403,7 @@ class TestDataType:
             (uuid.uuid4(), sy.DataType.UUID),
         ],
     )
-    def test_construction(self, crude: CrudeDataType, expected: sy.DataType):
+    def test_construction(self, crude: sy.telem.CrudeDataType, expected: sy.DataType):
         assert sy.DataType(crude) == expected
 
     def test_string(self):
