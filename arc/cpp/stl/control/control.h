@@ -14,7 +14,6 @@
 
 #include "x/cpp/errors/errors.h"
 
-#include "arc/cpp/runtime/node/factory.h"
 #include "arc/cpp/runtime/node/node.h"
 #include "arc/cpp/runtime/state/state.h"
 #include "arc/cpp/stl/stl.h"
@@ -58,35 +57,22 @@ public:
     explicit Module(std::shared_ptr<runtime::state::State> state):
         state(std::move(state)) {}
 
-    std::shared_ptr<runtime::node::Factory> factory() override {
-        return std::make_shared<AuthorityFactory>(this->state);
+    bool handles(const std::string &node_type) const override {
+        return node_type == "set_authority";
     }
 
-private:
-    class AuthorityFactory : public runtime::node::Factory {
-        std::shared_ptr<runtime::state::State> state;
-
-    public:
-        explicit AuthorityFactory(std::shared_ptr<runtime::state::State> state):
-            state(std::move(state)) {}
-
-        bool handles(const std::string &node_type) const override {
-            return node_type == "set_authority";
-        }
-
-        std::pair<std::unique_ptr<runtime::node::Node>, x::errors::Error>
-        create(runtime::node::Config &&cfg) override {
-            if (!this->handles(cfg.node.type)) return {nullptr, x::errors::NOT_FOUND};
-            const auto auth = cfg.node.config["value"].get<uint8_t>();
-            const auto channel = cfg.node.config["channel"].get<types::ChannelKey>();
-            std::optional<types::ChannelKey> channel_key;
-            if (channel != 0) channel_key = channel;
-            return {
-                std::make_unique<SetAuthority>(*this->state, auth, channel_key),
-                x::errors::NIL
-            };
-        }
-    };
+    std::pair<std::unique_ptr<runtime::node::Node>, x::errors::Error>
+    create(runtime::node::Config &&cfg) override {
+        if (!this->handles(cfg.node.type)) return {nullptr, x::errors::NOT_FOUND};
+        const auto auth = cfg.node.config["value"].get<uint8_t>();
+        const auto channel = cfg.node.config["channel"].get<types::ChannelKey>();
+        std::optional<types::ChannelKey> channel_key;
+        if (channel != 0) channel_key = channel;
+        return {
+            std::make_unique<SetAuthority>(*this->state, auth, channel_key),
+            x::errors::NIL
+        };
+    }
 };
 
 }

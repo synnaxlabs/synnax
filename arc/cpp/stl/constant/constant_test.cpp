@@ -69,25 +69,23 @@ private:
 };
 
 /// @brief Test that factory returns NOT_FOUND for non-constant node types.
-TEST(ConstantFactoryTest, ReturnsNotFoundForWrongType) {
+TEST(ConstantModuleTest, ReturnsNotFoundForWrongType) {
     TestSetup setup(types::Kind::F32, 42.5f);
     auto ir_node = setup.ir.nodes[0];
     ir_node.type = "not_constant";
 
     Module module;
-    auto factory = module.factory();
     ASSERT_OCCURRED_AS_P(
-        factory->create(runtime::node::Config(setup.ir, ir_node, setup.make_node())),
+        module.create(runtime::node::Config(setup.ir, ir_node, setup.make_node())),
         x::errors::NOT_FOUND
     );
 }
 
-/// @brief Test that factory creates a Constant node with valid configuration.
-TEST(ConstantFactoryTest, CreatesConstantNode) {
+/// @brief Test that module creates a Constant node with valid configuration.
+TEST(ConstantModuleTest, CreatesConstantNode) {
     TestSetup setup(types::Kind::F32, 42.5f);
     Module module;
-    const auto factory = module.factory();
-    auto node = ASSERT_NIL_P(factory->create(
+    auto node = ASSERT_NIL_P(module.create(
         runtime::node::Config(setup.ir, setup.ir.nodes[0], setup.make_node())
     ));
     ASSERT_NE(node, nullptr);

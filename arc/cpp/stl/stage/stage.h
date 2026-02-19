@@ -14,7 +14,6 @@
 
 #include "x/cpp/errors/errors.h"
 
-#include "arc/cpp/runtime/node/factory.h"
 #include "arc/cpp/runtime/node/node.h"
 #include "arc/cpp/stl/stl.h"
 
@@ -39,22 +38,14 @@ public:
 
 class Module : public stl::Module {
 public:
-    std::shared_ptr<runtime::node::Factory> factory() override {
-        return std::make_shared<StageFactory>();
+    bool handles(const std::string &node_type) const override {
+        return node_type == "stage_entry";
     }
 
-private:
-    class StageFactory : public runtime::node::Factory {
-    public:
-        bool handles(const std::string &node_type) const override {
-            return node_type == "stage_entry";
-        }
-
-        std::pair<std::unique_ptr<runtime::node::Node>, x::errors::Error>
-        create(runtime::node::Config &&cfg) override {
-            return {std::make_unique<StageEntry>(), x::errors::NIL};
-        }
-    };
+    std::pair<std::unique_ptr<runtime::node::Node>, x::errors::Error>
+    create(runtime::node::Config &&cfg) override {
+        return {std::make_unique<StageEntry>(), x::errors::NIL};
+    }
 };
 
 }

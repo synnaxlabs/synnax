@@ -39,24 +39,22 @@ ir::IR build_ir() {
     return ir;
 }
 
-/// @brief Verify factory correctly identifies stage_entry nodes.
-TEST(StageFactoryTest, HandlesStageEntryType) {
+/// @brief Verify module correctly identifies stage_entry nodes.
+TEST(StageModuleTest, HandlesStageEntryType) {
     stage::Module module;
-    auto factory = module.factory();
-    EXPECT_TRUE(factory->handles("stage_entry"));
+    EXPECT_TRUE(module.handles("stage_entry"));
 }
 
-/// @brief Verify factory rejects non-stage_entry node types.
-TEST(StageFactoryTest, RejectsOtherTypes) {
+/// @brief Verify module rejects non-stage_entry node types.
+TEST(StageModuleTest, RejectsOtherTypes) {
     stage::Module module;
-    auto factory = module.factory();
-    EXPECT_FALSE(factory->handles("constant"));
-    EXPECT_FALSE(factory->handles("timer"));
-    EXPECT_FALSE(factory->handles(""));
+    EXPECT_FALSE(module.handles("constant"));
+    EXPECT_FALSE(module.handles("timer"));
+    EXPECT_FALSE(module.handles(""));
 }
 
-/// @brief Verify factory creates a valid StageEntry node.
-TEST(StageFactoryTest, CreatesStageEntryNode) {
+/// @brief Verify module creates a valid StageEntry node.
+TEST(StageModuleTest, CreatesStageEntryNode) {
     auto ir = build_ir();
     runtime::state::State state(
         runtime::state::Config{.ir = ir, .channels = {}},
@@ -65,9 +63,8 @@ TEST(StageFactoryTest, CreatesStageEntryNode) {
     auto state_node = ASSERT_NIL_P(state.node("entry"));
 
     stage::Module module;
-    auto factory = module.factory();
     auto node = ASSERT_NIL_P(
-        factory->create(runtime::node::Config(ir, ir.nodes[0], std::move(state_node)))
+        module.create(runtime::node::Config(ir, ir.nodes[0], std::move(state_node)))
     );
     ASSERT_NE(node, nullptr);
 }

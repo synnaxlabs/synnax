@@ -30,7 +30,7 @@ runtime::node::Context make_context(bool *changed = nullptr) {
     };
 }
 
-TEST(ChannelIOFactoryTest, CreateSourceNode) {
+TEST(ChannelModuleTest, CreateSourceNode) {
     ir::Param output_param;
     output_param.name = ir::default_output_param;
     output_param.type = types::Type(types::Kind::F32);
@@ -52,15 +52,14 @@ TEST(ChannelIOFactoryTest, CreateSourceNode) {
     runtime::state::State s(cfg, runtime::errors::noop_handler);
 
     channel::Module module(nullptr, nullptr);
-    auto factory = module.factory();
     auto state_node = ASSERT_NIL_P(s.node("source"));
     auto node = ASSERT_NIL_P(
-        factory->create(runtime::node::Config(ir, ir_node, std::move(state_node)))
+        module.create(runtime::node::Config(ir, ir_node, std::move(state_node)))
     );
     EXPECT_NE(node, nullptr);
 }
 
-TEST(ChannelIOFactoryTest, CreateSinkNode) {
+TEST(ChannelModuleTest, CreateSinkNode) {
     ir::Param input_param;
     input_param.name = ir::default_input_param;
     input_param.type = types::Type(types::Kind::F32);
@@ -82,15 +81,14 @@ TEST(ChannelIOFactoryTest, CreateSinkNode) {
     runtime::state::State s(cfg, runtime::errors::noop_handler);
 
     channel::Module module(nullptr, nullptr);
-    auto factory = module.factory();
     auto state_node = ASSERT_NIL_P(s.node("sink"));
     auto node = ASSERT_NIL_P(
-        factory->create(runtime::node::Config(ir, ir_node, std::move(state_node)))
+        module.create(runtime::node::Config(ir, ir_node, std::move(state_node)))
     );
     EXPECT_NE(node, nullptr);
 }
 
-TEST(ChannelIOFactoryTest, UnknownNodeType) {
+TEST(ChannelModuleTest, UnknownNodeType) {
     ir::Node ir_node;
     ir_node.key = "unknown";
     ir_node.type = "unknown_type";
@@ -107,22 +105,20 @@ TEST(ChannelIOFactoryTest, UnknownNodeType) {
     runtime::state::State s(cfg, runtime::errors::noop_handler);
 
     channel::Module module(nullptr, nullptr);
-    auto factory = module.factory();
     auto state_node = ASSERT_NIL_P(s.node("unknown"));
-    auto [node, create_err] = factory->create(
+    auto [node, create_err] = module.create(
         runtime::node::Config(ir, ir_node, std::move(state_node))
     );
     ASSERT_OCCURRED_AS(create_err, x::errors::NOT_FOUND);
     EXPECT_EQ(node, nullptr);
 }
 
-TEST(ChannelIOFactoryTest, HandlesOnAndWrite) {
+TEST(ChannelModuleTest, HandlesOnAndWrite) {
     channel::Module module(nullptr, nullptr);
-    auto factory = module.factory();
-    EXPECT_TRUE(factory->handles("on"));
-    EXPECT_TRUE(factory->handles("write"));
-    EXPECT_FALSE(factory->handles("unknown"));
-    EXPECT_FALSE(factory->handles("constant"));
+    EXPECT_TRUE(module.handles("on"));
+    EXPECT_TRUE(module.handles("write"));
+    EXPECT_FALSE(module.handles("unknown"));
+    EXPECT_FALSE(module.handles("constant"));
 }
 
 TEST(OnTest, NextReadsChannelData) {
@@ -147,10 +143,9 @@ TEST(OnTest, NextReadsChannelData) {
     runtime::state::State s(cfg, runtime::errors::noop_handler);
 
     channel::Module module(nullptr, nullptr);
-    auto factory = module.factory();
     auto state_node = ASSERT_NIL_P(s.node("source"));
     auto node = ASSERT_NIL_P(
-        factory->create(runtime::node::Config(ir, ir_node, std::move(state_node)))
+        module.create(runtime::node::Config(ir, ir_node, std::move(state_node)))
     );
 
     ::x::telem::Frame frame(2);
@@ -201,10 +196,9 @@ TEST(OnTest, NextHandlesChannelWithoutIndex) {
     runtime::state::State s(cfg, runtime::errors::noop_handler);
 
     channel::Module module(nullptr, nullptr);
-    auto factory = module.factory();
     auto state_node = ASSERT_NIL_P(s.node("source"));
     auto node = ASSERT_NIL_P(
-        factory->create(runtime::node::Config(ir, ir_node, std::move(state_node)))
+        module.create(runtime::node::Config(ir, ir_node, std::move(state_node)))
     );
 
     ::x::telem::Frame frame(1);
@@ -250,10 +244,9 @@ TEST(OnTest, NextReturnsEarlyOnEmptyChannel) {
     runtime::state::State s(cfg, runtime::errors::noop_handler);
 
     channel::Module module(nullptr, nullptr);
-    auto factory = module.factory();
     auto state_node = ASSERT_NIL_P(s.node("source"));
     auto node = ASSERT_NIL_P(
-        factory->create(runtime::node::Config(ir, ir_node, std::move(state_node)))
+        module.create(runtime::node::Config(ir, ir_node, std::move(state_node)))
     );
 
     bool changed = false;
@@ -285,10 +278,9 @@ TEST(OnTest, NextHandlesMultipleSeries) {
     runtime::state::State s(cfg, runtime::errors::noop_handler);
 
     channel::Module module(nullptr, nullptr);
-    auto factory = module.factory();
     auto state_node = ASSERT_NIL_P(s.node("source"));
     auto node = ASSERT_NIL_P(
-        factory->create(runtime::node::Config(ir, ir_node, std::move(state_node)))
+        module.create(runtime::node::Config(ir, ir_node, std::move(state_node)))
     );
 
     ::x::telem::Frame frame1(2);
@@ -350,10 +342,9 @@ TEST(OnTest, NextSkipsOnIndexCountMismatch) {
     runtime::state::State s(cfg, runtime::errors::noop_handler);
 
     channel::Module module(nullptr, nullptr);
-    auto factory = module.factory();
     auto state_node = ASSERT_NIL_P(s.node("source"));
     auto node = ASSERT_NIL_P(
-        factory->create(runtime::node::Config(ir, ir_node, std::move(state_node)))
+        module.create(runtime::node::Config(ir, ir_node, std::move(state_node)))
     );
 
     ::x::telem::Frame frame1(2);
@@ -402,10 +393,9 @@ TEST(OnTest, NextSkipsOnAlignmentMismatch) {
     runtime::state::State s(cfg, runtime::errors::noop_handler);
 
     channel::Module module(nullptr, nullptr);
-    auto factory = module.factory();
     auto state_node = ASSERT_NIL_P(s.node("source"));
     auto node = ASSERT_NIL_P(
-        factory->create(runtime::node::Config(ir, ir_node, std::move(state_node)))
+        module.create(runtime::node::Config(ir, ir_node, std::move(state_node)))
     );
 
     ::x::telem::Frame frame(2);
@@ -451,10 +441,9 @@ TEST(OnTest, NextCallsMarkChanged) {
     runtime::state::State s(cfg, runtime::errors::noop_handler);
 
     channel::Module module(nullptr, nullptr);
-    auto factory = module.factory();
     auto state_node = ASSERT_NIL_P(s.node("source"));
     auto node = ASSERT_NIL_P(
-        factory->create(runtime::node::Config(ir, ir_node, std::move(state_node)))
+        module.create(runtime::node::Config(ir, ir_node, std::move(state_node)))
     );
 
     ::x::telem::Frame frame(2);
@@ -516,10 +505,9 @@ TEST(WriteTest, NextWritesDataWhenInputAvailable) {
     runtime::state::State s(cfg, runtime::errors::noop_handler);
 
     channel::Module module(nullptr, nullptr);
-    auto factory = module.factory();
     auto sink_state = ASSERT_NIL_P(s.node("sink"));
     auto sink = ASSERT_NIL_P(
-        factory->create(runtime::node::Config(ir, sink_node, std::move(sink_state)))
+        module.create(runtime::node::Config(ir, sink_node, std::move(sink_state)))
     );
 
     auto upstream = ASSERT_NIL_P(s.node("upstream"));
@@ -590,10 +578,9 @@ TEST(WriteTest, NextRespectsRefreshInputsGuard) {
     runtime::state::State s(cfg, runtime::errors::noop_handler);
 
     channel::Module module(nullptr, nullptr);
-    auto factory = module.factory();
     auto sink_state = ASSERT_NIL_P(s.node("sink"));
     auto sink = ASSERT_NIL_P(
-        factory->create(runtime::node::Config(ir, sink_node, std::move(sink_state)))
+        module.create(runtime::node::Config(ir, sink_node, std::move(sink_state)))
     );
 
     auto ctx = make_context();
@@ -643,10 +630,9 @@ TEST(WriteTest, NextSkipsEmptyInput) {
     runtime::state::State s(cfg, runtime::errors::noop_handler);
 
     channel::Module module(nullptr, nullptr);
-    auto factory = module.factory();
     auto sink_state = ASSERT_NIL_P(s.node("sink"));
     auto sink = ASSERT_NIL_P(
-        factory->create(runtime::node::Config(ir, sink_node, std::move(sink_state)))
+        module.create(runtime::node::Config(ir, sink_node, std::move(sink_state)))
     );
 
     auto upstream = ASSERT_NIL_P(s.node("upstream"));
@@ -707,10 +693,9 @@ TEST(WriteTest, NextHandlesSequentialWrites) {
     runtime::state::State s(cfg, runtime::errors::noop_handler);
 
     channel::Module module(nullptr, nullptr);
-    auto factory = module.factory();
     auto sink_state = ASSERT_NIL_P(s.node("sink"));
     auto sink = ASSERT_NIL_P(
-        factory->create(runtime::node::Config(ir, sink_node, std::move(sink_state)))
+        module.create(runtime::node::Config(ir, sink_node, std::move(sink_state)))
     );
 
     auto ctx = make_context();
@@ -797,16 +782,15 @@ TEST(IntegrationTest, SourceToSinkFlow) {
     runtime::state::State s(cfg, runtime::errors::noop_handler);
 
     channel::Module module(nullptr, nullptr);
-    auto factory = module.factory();
 
     auto read_state = ASSERT_NIL_P(s.node("read"));
     auto source = ASSERT_NIL_P(
-        factory->create(runtime::node::Config(ir, read_node, std::move(read_state)))
+        module.create(runtime::node::Config(ir, read_node, std::move(read_state)))
     );
 
     auto write_state = ASSERT_NIL_P(s.node("write"));
     auto sink = ASSERT_NIL_P(
-        factory->create(runtime::node::Config(ir, write_node, std::move(write_state)))
+        module.create(runtime::node::Config(ir, write_node, std::move(write_state)))
     );
 
     ::x::telem::Frame ingest_frame(2);

@@ -17,7 +17,6 @@
 #include "x/cpp/telem/telem.h"
 
 #include "arc/cpp/ir/ir.h"
-#include "arc/cpp/runtime/node/factory.h"
 #include "arc/cpp/runtime/node/node.h"
 #include "arc/cpp/stl/channel/state.h"
 #include "arc/cpp/stl/stl.h"
@@ -127,8 +126,23 @@ public:
     Module(std::shared_ptr<State> channel, std::shared_ptr<str::State> str_state):
         channel(std::move(channel)), str_state(std::move(str_state)) {}
 
-    std::shared_ptr<runtime::node::Factory> factory() override {
-        return std::make_shared<IOFactory>();
+    bool handles(const std::string &node_type) const override {
+        return node_type == "on" || node_type == "write";
+    }
+
+    std::pair<std::unique_ptr<runtime::node::Node>, x::errors::Error>
+    create(runtime::node::Config &&cfg) override {
+        if (!this->handles(cfg.node.type)) return {nullptr, x::errors::NOT_FOUND};
+        auto channel_key = cfg.node.config["channel"].get<types::ChannelKey>();
+        if (cfg.node.type == "on")
+            return {
+                std::make_unique<On>(std::move(cfg.state), channel_key),
+                x::errors::NIL
+            };
+        return {
+            std::make_unique<Write>(std::move(cfg.state), channel_key),
+            x::errors::NIL
+        };
     }
 
     void bind_to(wasmtime::Linker &linker, wasmtime::Store::Context cx) override {
@@ -229,28 +243,6 @@ private:
             )
             .unwrap();
     }
-
-    class IOFactory : public runtime::node::Factory {
-    public:
-        bool handles(const std::string &node_type) const override {
-            return node_type == "on" || node_type == "write";
-        }
-
-        std::pair<std::unique_ptr<runtime::node::Node>, x::errors::Error>
-        create(runtime::node::Config &&cfg) override {
-            if (!this->handles(cfg.node.type)) return {nullptr, x::errors::NOT_FOUND};
-            auto channel_key = cfg.node.config["channel"].get<types::ChannelKey>();
-            if (cfg.node.type == "on")
-                return {
-                    std::make_unique<On>(std::move(cfg.state), channel_key),
-                    x::errors::NIL
-                };
-            return {
-                std::make_unique<Write>(std::move(cfg.state), channel_key),
-                x::errors::NIL
-            };
-        }
-    };
 };
 
 }

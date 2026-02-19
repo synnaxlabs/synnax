@@ -16,7 +16,6 @@
 #include "x/cpp/telem/telem.h"
 
 #include "arc/cpp/ir/ir.h"
-#include "arc/cpp/runtime/node/factory.h"
 #include "arc/cpp/runtime/node/node.h"
 #include "arc/cpp/stl/stl.h"
 
@@ -58,33 +57,21 @@ public:
 
 class Module : public stl::Module {
 public:
-    std::shared_ptr<runtime::node::Factory> factory() override {
-        return std::make_shared<ConstantFactory>();
+    bool handles(const std::string &node_type) const override {
+        return node_type == "constant";
     }
 
-private:
-    class ConstantFactory : public runtime::node::Factory {
-    public:
-        bool handles(const std::string &node_type) const override {
-            return node_type == "constant";
-        }
-
-        std::pair<std::unique_ptr<runtime::node::Node>, x::errors::Error>
-        create(runtime::node::Config &&cfg) override {
-            if (!this->handles(cfg.node.type)) return {nullptr, x::errors::NOT_FOUND};
-            const auto &param = cfg.node.config["value"];
-            assert(param.value.has_value() && "constant node requires a value");
-            auto data_type = cfg.node.outputs[0].type.telem();
-            return {
-                std::make_unique<Constant>(
-                    std::move(cfg.state),
-                    *param.value,
-                    data_type
-                ),
-                x::errors::NIL
-            };
-        }
-    };
+    std::pair<std::unique_ptr<runtime::node::Node>, x::errors::Error>
+    create(runtime::node::Config &&cfg) override {
+        if (!this->handles(cfg.node.type)) return {nullptr, x::errors::NOT_FOUND};
+        const auto &param = cfg.node.config["value"];
+        assert(param.value.has_value() && "constant node requires a value");
+        auto data_type = cfg.node.outputs[0].type.telem();
+        return {
+            std::make_unique<Constant>(std::move(cfg.state), *param.value, data_type),
+            x::errors::NIL
+        };
+    }
 };
 
 }

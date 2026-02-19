@@ -1434,7 +1434,7 @@ TEST(RealNodeSchedulerTest, IntervalOneShotEdgeFires) {
     );
 
     // Create real Interval node using Factory
-    stl::time::Factory time_factory;
+    stl::time::Module time_factory;
     auto [interval_node, err] = time_factory.create(
         node::Config(
             interval_ir,
@@ -1503,7 +1503,7 @@ TEST(RealNodeSchedulerTest, IntervalTruthyCheckBeforeFiring) {
         errors::noop_handler
     );
 
-    stl::time::Factory time_factory;
+    stl::time::Module time_factory;
     auto [interval_node, err] = time_factory.create(
         node::Config(
             interval_ir,

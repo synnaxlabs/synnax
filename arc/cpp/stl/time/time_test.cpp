@@ -74,33 +74,33 @@ private:
     }
 };
 
-/// @brief Test that factory returns NOT_FOUND for non-time node types.
-TEST(TimeFactoryTest, ReturnsNotFoundForWrongType) {
+/// @brief Test that module returns NOT_FOUND for non-time node types.
+TEST(TimeModuleTest, ReturnsNotFoundForWrongType) {
     TestSetup setup("interval", "period", ::x::telem::SECOND.nanoseconds());
     auto ir_node = setup.ir.nodes[0];
     ir_node.type = "not_a_time_node";
 
-    Factory factory;
+    Module factory;
     ASSERT_OCCURRED_AS_P(
         factory.create(runtime::node::Config(setup.ir, ir_node, setup.make_node())),
         x::errors::NOT_FOUND
     );
 }
 
-/// @brief Test that factory creates an Interval node from valid configuration.
-TEST(TimeFactoryTest, CreatesIntervalNode) {
+/// @brief Test that module creates an Interval node from valid configuration.
+TEST(TimeModuleTest, CreatesIntervalNode) {
     TestSetup setup("interval", "period", ::x::telem::SECOND.nanoseconds());
-    Factory factory;
+    Module factory;
     const auto node = ASSERT_NIL_P(factory.create(
         runtime::node::Config(setup.ir, setup.ir.nodes[0], setup.make_node())
     ));
     ASSERT_NE(node, nullptr);
 }
 
-/// @brief Test that factory creates a Wait node from valid configuration.
-TEST(TimeFactoryTest, CreatesWaitNode) {
+/// @brief Test that module creates a Wait node from valid configuration.
+TEST(TimeModuleTest, CreatesWaitNode) {
     TestSetup setup("wait", "duration", ::x::telem::SECOND.nanoseconds());
-    Factory factory;
+    Module factory;
     const auto node = ASSERT_NIL_P(factory.create(
         runtime::node::Config(setup.ir, setup.ir.nodes[0], setup.make_node())
     ));
@@ -108,13 +108,13 @@ TEST(TimeFactoryTest, CreatesWaitNode) {
 }
 
 /// @brief Test that base_interval is set to the first interval when uninitialized.
-TEST(TimeFactoryTest, BaseIntervalSetToFirstInterval) {
+TEST(TimeModuleTest, BaseIntervalSetToFirstInterval) {
     TestSetup setup(
         "interval",
         "period",
         (500 * ::x::telem::MILLISECOND).nanoseconds()
     );
-    Factory factory;
+    Module factory;
     ASSERT_NIL_P(factory.create(
         runtime::node::Config(setup.ir, setup.ir.nodes[0], setup.make_node())
     ));
@@ -122,7 +122,7 @@ TEST(TimeFactoryTest, BaseIntervalSetToFirstInterval) {
 }
 
 /// @brief Test that base_interval computes GCD across multiple intervals.
-TEST(TimeFactoryTest, BaseIntervalComputesGCDAcrossNodes) {
+TEST(TimeModuleTest, BaseIntervalComputesGCDAcrossNodes) {
     TestSetup setup1(
         "interval",
         "period",
@@ -130,7 +130,7 @@ TEST(TimeFactoryTest, BaseIntervalComputesGCDAcrossNodes) {
     );
     TestSetup setup2("wait", "duration", (400 * ::x::telem::MILLISECOND).nanoseconds());
 
-    Factory factory;
+    Module factory;
     ASSERT_NIL_P(factory.create(
         runtime::node::Config(setup1.ir, setup1.ir.nodes[0], setup1.make_node())
     ));

@@ -246,13 +246,14 @@ load(const Config &cfg, errors::Handler error_handler = errors::noop_handler) {
         error_handler
     );
 
+    auto time_module = std::make_shared<stl::time::Module>();
     std::vector<std::shared_ptr<stl::Module>> stl_modules = {
         std::make_shared<stl::channel::Module>(channel_st, str_st),
         std::make_shared<stl::stateful::Module>(var_st, series_st, str_st),
         std::make_shared<stl::series::Module>(series_st),
         std::make_shared<stl::str::Module>(str_st),
         std::make_shared<stl::math::Module>(),
-        std::make_shared<stl::time::Module>(),
+        time_module,
         std::make_shared<stl::error::Module>(error_handler),
         std::make_shared<stl::stage::Module>(),
         std::make_shared<stl::constant::Module>(),
@@ -266,12 +267,10 @@ load(const Config &cfg, errors::Handler error_handler = errors::noop_handler) {
     auto [mod, mod_err] = wasm::Module::open(module_cfg);
     if (mod_err) return {nullptr, mod_err};
 
-    auto time_factory = std::make_shared<stl::time::Factory>();
     std::vector<std::shared_ptr<node::Factory>> factories;
     factories.push_back(std::make_shared<wasm::Factory>(mod));
-    factories.push_back(time_factory);
     for (auto &m: stl_modules)
-        if (auto f = m->factory()) factories.push_back(f);
+        factories.push_back(m);
     node::MultiFactory fact(factories);
 
     std::unordered_map<std::string, std::unique_ptr<node::Node>> nodes;
@@ -285,7 +284,7 @@ load(const Config &cfg, errors::Handler error_handler = errors::noop_handler) {
         if (err) return {nullptr, err};
         nodes[mod_node.key] = std::move(node);
     }
-    const auto base_interval = time_factory->base_interval();
+    const auto base_interval = time_module->base_interval();
     const auto loop_cfg = cfg.loop.apply_defaults(base_interval);
     const auto tolerance = stl::time::calculate_tolerance(loop_cfg.mode, base_interval);
     auto sched = std::make_unique<scheduler::Scheduler>(

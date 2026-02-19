@@ -71,24 +71,22 @@ runtime::node::Context make_context() {
     };
 }
 
-TEST(SetAuthorityFactoryTest, ReturnsNotFoundForWrongType) {
+TEST(SetAuthorityModuleTest, ReturnsNotFoundForWrongType) {
     TestSetup setup(100, 42);
     auto ir_node = setup.ir.nodes[0];
     ir_node.type = "not_set_authority";
 
     authority::Module module(setup.state);
-    const auto factory = module.factory();
     ASSERT_OCCURRED_AS_P(
-        factory->create(runtime::node::Config(setup.ir, ir_node, setup.make_node())),
+        module.create(runtime::node::Config(setup.ir, ir_node, setup.make_node())),
         x::errors::NOT_FOUND
     );
 }
 
-TEST(SetAuthorityFactoryTest, CreatesNode) {
+TEST(SetAuthorityModuleTest, CreatesNode) {
     TestSetup setup(100, 42);
     authority::Module module(setup.state);
-    auto factory = module.factory();
-    auto node = ASSERT_NIL_P(factory->create(
+    auto node = ASSERT_NIL_P(module.create(
         runtime::node::Config(setup.ir, setup.ir.nodes[0], setup.make_node())
     ));
     ASSERT_NE(node, nullptr);
@@ -97,8 +95,7 @@ TEST(SetAuthorityFactoryTest, CreatesNode) {
 TEST(SetAuthorityTest, NextBuffersChannelAuthorityChange) {
     TestSetup setup(200, 42);
     authority::Module module(setup.state);
-    auto factory = module.factory();
-    auto node = ASSERT_NIL_P(factory->create(
+    auto node = ASSERT_NIL_P(module.create(
         runtime::node::Config(setup.ir, setup.ir.nodes[0], setup.make_node())
     ));
 
@@ -115,8 +112,7 @@ TEST(SetAuthorityTest, NextBuffersChannelAuthorityChange) {
 TEST(SetAuthorityTest, NextBuffersGlobalAuthorityChange) {
     TestSetup setup(150, 0);
     authority::Module module(setup.state);
-    auto factory = module.factory();
-    auto node = ASSERT_NIL_P(factory->create(
+    auto node = ASSERT_NIL_P(module.create(
         runtime::node::Config(setup.ir, setup.ir.nodes[0], setup.make_node())
     ));
 
@@ -132,8 +128,7 @@ TEST(SetAuthorityTest, NextBuffersGlobalAuthorityChange) {
 TEST(SetAuthorityTest, NextFiresOnceBeforeReset) {
     TestSetup setup(200, 42);
     authority::Module module(setup.state);
-    auto factory = module.factory();
-    auto node = ASSERT_NIL_P(factory->create(
+    auto node = ASSERT_NIL_P(module.create(
         runtime::node::Config(setup.ir, setup.ir.nodes[0], setup.make_node())
     ));
 
@@ -149,8 +144,7 @@ TEST(SetAuthorityTest, NextFiresOnceBeforeReset) {
 TEST(SetAuthorityTest, ResetAllowsRefire) {
     TestSetup setup(200, 42);
     authority::Module module(setup.state);
-    auto factory = module.factory();
-    auto node = ASSERT_NIL_P(factory->create(
+    auto node = ASSERT_NIL_P(module.create(
         runtime::node::Config(setup.ir, setup.ir.nodes[0], setup.make_node())
     ));
 

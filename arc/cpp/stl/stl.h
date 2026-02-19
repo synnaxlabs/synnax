@@ -12,6 +12,8 @@
 #include <cstdint>
 #include <memory>
 
+#include "x/cpp/errors/errors.h"
+
 #include "arc/cpp/runtime/node/factory.h"
 #include "wasmtime.hh"
 
@@ -41,16 +43,19 @@ struct WasmType<int16_t> {
 };
 
 /// Module is the unit of STL organization. Each module groups related host
-/// functions and optionally provides a node factory.
-class Module {
+/// functions and optionally provides a node factory. Modules that create nodes
+/// override handles() and create() directly.
+class Module : public runtime::node::Factory {
 public:
-    virtual ~Module() = default;
+    ~Module() override = default;
 
     /// Registers host functions with the WASM Linker under a named module.
     virtual void bind_to(wasmtime::Linker &linker, wasmtime::Store::Context cx) {}
 
-    /// Returns a node factory, or nullptr if this module has none.
-    virtual std::shared_ptr<runtime::node::Factory> factory() { return nullptr; }
+    std::pair<std::unique_ptr<runtime::node::Node>, x::errors::Error>
+    create(runtime::node::Config &&cfg) override {
+        return {nullptr, x::errors::NOT_FOUND};
+    }
 
     /// Provides WASM memory and store access after instantiation.
     virtual void set_wasm_context(wasmtime::Store *store, wasmtime::Memory *memory) {}

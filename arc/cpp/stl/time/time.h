@@ -17,7 +17,6 @@
 
 #include "arc/cpp/ir/ir.h"
 #include "arc/cpp/runtime/loop/loop.h"
-#include "arc/cpp/runtime/node/factory.h"
 #include "arc/cpp/runtime/node/node.h"
 #include "arc/cpp/stl/stl.h"
 
@@ -131,7 +130,7 @@ public:
     }
 };
 
-class Factory : public runtime::node::Factory {
+class Module : public stl::Module {
     ::x::telem::TimeSpan base = UNSET_BASE_INTERVAL;
 
 public:
@@ -164,19 +163,6 @@ public:
         return {nullptr, x::errors::NOT_FOUND};
     }
 
-private:
-    void update_base_interval(const ::x::telem::TimeSpan span) {
-        if (this->base == UNSET_BASE_INTERVAL)
-            this->base = span;
-        else
-            this->base = ::x::telem::TimeSpan(
-                std::gcd(this->base.nanoseconds(), span.nanoseconds())
-            );
-    }
-};
-
-class Module : public stl::Module {
-public:
     void bind_to(wasmtime::Linker &linker, wasmtime::Store::Context cx) override {
         linker
             .func_wrap(
@@ -185,6 +171,16 @@ public:
                 []() -> int64_t { return ::x::telem::TimeStamp::now().nanoseconds(); }
             )
             .unwrap();
+    }
+
+private:
+    void update_base_interval(const ::x::telem::TimeSpan span) {
+        if (this->base == UNSET_BASE_INTERVAL)
+            this->base = span;
+        else
+            this->base = ::x::telem::TimeSpan(
+                std::gcd(this->base.nanoseconds(), span.nanoseconds())
+            );
     }
 };
 
