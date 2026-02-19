@@ -16,23 +16,21 @@ from pydantic import BaseModel
 
 from freighter.context import Context
 
-Payload: TypeAlias = BaseModel
 
-
-class Empty(Payload):
+class Empty(BaseModel):
     """Empty represents an empty payload."""
 
     pass
 
 
-RQ = TypeVar("RQ", bound=Payload, contravariant=True)
+RQ = TypeVar("RQ", bound=BaseModel, contravariant=True)
 """Represents a general request payload."""
 
-RS = TypeVar("RS", bound=Payload, covariant=True)
+RS = TypeVar("RS", bound=BaseModel, covariant=True)
 """Represents a general response payload."""
 
 
-P = TypeVar("P", bound=Payload)
+P = TypeVar("P", bound=BaseModel)
 """Represents a general payload."""
 
 

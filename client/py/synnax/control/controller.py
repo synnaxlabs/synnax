@@ -16,17 +16,9 @@ from typing import Any, Protocol, overload
 
 import numpy as np
 
-from synnax.channel.payload import (
-    ChannelKey,
-    ChannelName,
-    ChannelParams,
-    ChannelPayload,
-)
-from synnax.channel.retrieve import ChannelRetriever, retrieve_required
+from synnax import channel as channel_
+from synnax import framer
 from synnax.exceptions import ValidationError
-from synnax.framer import AsyncStreamer as AsyncFrameStreamer
-from synnax.framer import Client as FrameClient
-from synnax.framer import Writer as FrameWriter
 from synnax.telem import CrudeTimeSpan, SampleValue, TimeSpan, TimeStamp
 from synnax.telem.control import CrudeAuthority
 from synnax.timing import sleep
@@ -95,23 +87,23 @@ class RemainsTrueFor(Processor):
 
 
 class Controller:
-    _writer_opt: FrameWriter | None = None
+    _writer_opt: framer.Writer | None = None
     _receiver_opt: _Receiver | None = None
-    _idx_map: dict[ChannelKey, ChannelKey]
-    _retriever: ChannelRetriever
+    _idx_map: dict[channel_.Key, channel_.Key]
+    _retriever: channel_.Retriever
 
     def __init__(
         self,
         name: str,
-        write: ChannelParams | None,
-        read: ChannelParams | None,
-        frame_client: FrameClient,
-        retriever: ChannelRetriever,
+        write: channel_.Params | None,
+        read: channel_.Params | None,
+        frame_client: framer.Client,
+        retriever: channel_.Retriever,
         write_authorities: CrudeAuthority | list[CrudeAuthority],
     ) -> None:
         self._retriever = retriever
         if write is not None and len(write) > 0:
-            write_channels = retrieve_required(self._retriever, write)
+            write_channels = channel_.retrieve_required(self._retriever, write)
             write_keys = [ch.index for ch in write_channels if ch.index != 0]
             write_keys.extend([ch.key for ch in write_channels])
             self._writer_opt = frame_client.open_writer(
@@ -126,7 +118,7 @@ class Controller:
             self._receiver.startup_ack.wait()
 
     @property
-    def _writer(self) -> FrameWriter:
+    def _writer(self) -> framer.Writer:
         if self._writer_opt is None:
             raise ValidationError("""
             tried to command a channel but no channels were passed into the write
@@ -144,14 +136,14 @@ class Controller:
         return self._receiver_opt
 
     @overload
-    def set(self, ch: ChannelKey | ChannelName, value: SampleValue): ...
+    def set(self, ch: channel_.Key | str, value: SampleValue): ...
 
     @overload
-    def set(self, ch: dict[ChannelKey | ChannelName, SampleValue]): ...
+    def set(self, ch: dict[channel_.Key | str, SampleValue]): ...
 
     def set(
         self,
-        channel: ChannelKey | ChannelName | dict[ChannelKey | ChannelName, SampleValue],
+        channel: channel_.Key | str | dict[channel_.Key | str, SampleValue],
         value: SampleValue | None = None,
     ):
         """Sets the provided channel(s) to the provided value(s).
@@ -170,7 +162,7 @@ class Controller:
         """
         if isinstance(channel, dict):
             values = list(channel.values())
-            channels = retrieve_required(self._retriever, list(channel.keys()))
+            channels = channel_.retrieve_required(self._retriever, list(channel.keys()))
             now = TimeStamp.now()
             updated = {channels[i].key: values[i] for i in range(len(channels))}
             updated_idx = {
@@ -195,28 +187,28 @@ class Controller:
     @overload
     def set_authority(
         self,
-        value: dict[ChannelKey | ChannelName, CrudeAuthority],
+        value: dict[channel_.Key | str, CrudeAuthority],
     ) -> bool: ...
 
     @overload
     def set_authority(
         self,
-        ch: ChannelKey | ChannelName,
+        ch: channel_.Key | str,
         value: CrudeAuthority,
     ) -> bool: ...
 
     def set_authority(
         self,
         value: (
-            dict[ChannelKey | ChannelName | ChannelPayload, CrudeAuthority]
-            | ChannelKey
-            | ChannelName
+            dict[channel_.Key | str | channel_.Payload, CrudeAuthority]
+            | channel_.Key
+            | str
             | CrudeAuthority
         ),
         authority: CrudeAuthority | None = None,
     ) -> bool:
         if isinstance(value, dict):
-            channels = retrieve_required(self._retriever, list(value.keys()))
+            channels = channel_.retrieve_required(self._retriever, list(value.keys()))
             for ch in channels:
                 value[ch.index] = value.get(ch.key, value.get(ch.name))
         elif authority is not None:
@@ -299,7 +291,7 @@ class Controller:
 
     def wait_until_defined(
         self,
-        channels: ChannelKey | ChannelName | list[ChannelKey | ChannelName],
+        channels: channel_.Key | str | list[channel_.Key | str],
         timeout: CrudeTimeSpan = None,
     ) -> bool:
         """Blocks until the controller has received at least one value from all the
@@ -315,7 +307,7 @@ class Controller:
         >>> controller.wait_until_defined("my_channel")
         >>> controller.wait_until_defined(["channel_1", "channel_2"])
         """
-        res = retrieve_required(self._retriever, channels)
+        res = channel_.retrieve_required(self._retriever, channels)
         return self.wait_until(lambda c: all(v.key in c.state for v in res), timeout)
 
     def remains_true_for(
@@ -369,12 +361,12 @@ class Controller:
             self._receiver.stop()
 
     def __setitem__(
-        self, ch: ChannelKey | ChannelName | ChannelPayload, value: int | float
+        self, ch: channel_.Key | str | channel_.Payload, value: int | float
     ):
         self.set(ch, value)
 
     @property
-    def state(self) -> dict[ChannelKey, np.number]:
+    def state(self) -> dict[channel_.Key, np.number]:
         """
         :returns: The current state of all channels passed to read_from in the acquire
         method. This is a dictionary of channel keys to their most recent values. It's
@@ -390,15 +382,13 @@ class Controller:
             self.set(key, value)
 
     @overload
-    def get(self, ch: ChannelKey | ChannelName) -> int | float | None: ...
+    def get(self, ch: channel_.Key | str) -> int | float | None: ...
 
     @overload
-    def get(
-        self, ch: ChannelKey | ChannelName, default: int | float
-    ) -> int | float: ...
+    def get(self, ch: channel_.Key | str, default: int | float) -> int | float: ...
 
     def get(
-        self, ch: ChannelKey | ChannelName, default: int | float = None
+        self, ch: channel_.Key | str, default: int | float = None
     ) -> int | float | None:
         """Gets the most recent value for the provided channel, and returns the default
         value if no value has been received yet.
@@ -455,22 +445,22 @@ class Controller:
 
 
 class _Receiver(AsyncThread):
-    state: dict[ChannelKey, np.number]
-    channels: ChannelParams
-    client: FrameClient
-    streamer: AsyncFrameStreamer
+    state: dict[channel_.Key, np.number]
+    channels: channel_.Params
+    client: framer.Client
+    streamer: framer.AsyncStreamer
     processors: set[Processor]
     processor_lock: Lock
-    retriever: ChannelRetriever
+    retriever: channel_.Retriever
     controller: Controller
     startup_ack: Event
     shutdown_future: Future
 
     def __init__(
         self,
-        client: FrameClient,
-        channels: ChannelParams,
-        retriever: ChannelRetriever,
+        client: framer.Client,
+        channels: channel_.Params,
+        retriever: channel_.Retriever,
         controller: Controller,
     ):
         super().__init__()
@@ -519,13 +509,13 @@ class ScheduledCommand:
     command can be sent to the controller to be executed at a later time.
     """
 
-    channel: ChannelKey | ChannelName
+    channel: channel_.Key | str
     value: SampleValue
     delay: TimeSpan
 
     def __init__(
         self,
-        channel: ChannelKey | ChannelName,
+        channel: channel_.Key | str,
         value: SampleValue,
         delay: float | int | TimeSpan,
     ):

@@ -10,7 +10,7 @@
 from pydantic import BaseModel
 
 
-class SynnaxOptions(BaseModel):
+class Options(BaseModel):
     """Options class for the Synnax py."""
 
     host: str
@@ -18,3 +18,7 @@ class SynnaxOptions(BaseModel):
     username: str = ""
     password: str = ""
     secure: bool = False
+
+
+SynnaxOptions = Options
+"""Deprecated: Use Options instead."""
