@@ -12,7 +12,6 @@ import { type ReactElement } from "react";
 import { describe, expect, it, vi } from "vitest";
 
 import { Dialog } from "@/dialog";
-
 import { Menu } from "@/menu";
 
 const TestMenu = (): ReactElement => {
