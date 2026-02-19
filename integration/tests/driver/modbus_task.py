@@ -13,8 +13,6 @@ from abc import abstractmethod
 
 import synnax as sy
 from examples.modbus import ModbusSim
-from synnax import modbus
-from synnax.modbus.types import BaseChan
 
 from tests.driver.simulator_case import SimulatorCase
 from tests.driver.task import TaskCase
@@ -27,7 +25,7 @@ class ModbusTaskCase(SimulatorCase, TaskCase):
     SAMPLE_RATE = 100 * sy.Rate.HZ
 
     @abstractmethod
-    def create_channels(self) -> list[BaseChan]: ...
+    def create_channels(self) -> list[sy.modbus.BaseChan]: ...
 
     def create(
         self,
@@ -36,11 +34,11 @@ class ModbusTaskCase(SimulatorCase, TaskCase):
         task_name: str,
         sample_rate: sy.Rate,
         stream_rate: sy.Rate,
-    ) -> modbus.ReadTask:
+    ) -> sy.modbus.ReadTask:
         """Create a Modbus read task."""
         channels = self.create_channels()
 
-        return modbus.ReadTask(
+        return sy.modbus.ReadTask(
             name=task_name,
             device=device.key,
             sample_rate=sample_rate,

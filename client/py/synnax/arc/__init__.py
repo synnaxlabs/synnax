@@ -7,32 +7,46 @@
 #  License, use of this software will be governed by the Apache License, Version 2.0,
 #  included in the file licenses/APL.txt.
 
-from synnax.arc.client import Arc, ArcClient
+from synnax.arc.client import Arc, Client
 from synnax.arc.payload import (
-    ArcKey,
-    ArcMode,
-    ArcPayload,
     Edge,
     Graph,
     GraphNode,
     Handle,
+    Key,
+    Mode,
+    Payload,
     Position,
     Text,
 )
-from synnax.arc.types import ArcTask, ArcTaskConfig
+from synnax.arc.types import Task, TaskConfig
+
+# Backwards compatibility
+ArcTask = Task
+ArcTaskConfig = TaskConfig
+ArcClient = Client
+ArcKey = Key
+ArcMode = Mode
+ArcPayload = Payload
 
 __all__ = [
     "Arc",
-    "ArcClient",
-    "ArcKey",
-    "ArcMode",
-    "ArcPayload",
-    "ArcTask",
-    "ArcTaskConfig",
+    "Client",
+    "Key",
+    "Mode",
+    "Payload",
+    "Task",
+    "TaskConfig",
     "Edge",
     "Graph",
     "GraphNode",
     "Handle",
     "Position",
     "Text",
+    "ArcTask",
+    "ArcTaskConfig",
+    "ArcClient",
+    "ArcKey",
+    "ArcMode",
+    "ArcPayload",
 ]
