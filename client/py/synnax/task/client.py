@@ -465,7 +465,6 @@ class Client:
     @overload
     def retrieve(
         self,
-        *,
         key: int | None = None,
         name: str | None = None,
         type: str | None = None,
@@ -474,7 +473,9 @@ class Client:
     @overload
     def retrieve(
         self,
-        *,
+        key: None = None,
+        name: None = None,
+        type: None = None,
         names: list[str] | None = None,
         keys: list[int] | None = None,
         types: list[str] | None = None,
@@ -482,7 +483,6 @@ class Client:
 
     def retrieve(
         self,
-        *,
         key: int | None = None,
         name: str | None = None,
         type: str | None = None,

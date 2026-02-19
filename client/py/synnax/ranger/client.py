@@ -634,7 +634,6 @@ class Client:
     @overload
     def retrieve(
         self,
-        *,
         key: Key | None = None,
         name: str | None = None,
     ) -> Range: ...
@@ -642,7 +641,8 @@ class Client:
     @overload
     def retrieve(
         self,
-        *,
+        key: None = None,
+        name: None = None,
         names: list[str] | tuple[str] | None = None,
         keys: list[Key] | tuple[Key] | None = None,
     ) -> list[Range]: ...
@@ -650,7 +650,6 @@ class Client:
     @require_named_params(example_params=("name", "My Range"))
     def retrieve(
         self,
-        *,
         key: Key | None = None,
         name: str | None = None,
         names: list[str] | tuple[str] | None = None,
