@@ -190,6 +190,7 @@ export const Connect: Layout.Renderer = ({ layoutKey, onClose }) => {
             {({ onChange, ...rest }) => {
               const handleChange = (value: AuthType) => {
                 form.set("properties.auth", ZERO_AUTH_CONFIGS[value]);
+                onChange(value);
               };
               return <SelectAuthType {...rest} onChange={handleChange} />;
             }}
