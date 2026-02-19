@@ -60,7 +60,7 @@ const maxUnificationIterations = 100
 // Unify solves all accumulated constraints by computing type variable substitutions.
 // Returns an error if constraints conflict or cannot converge within iteration limit.
 func (s *System) Unify() error {
-	for iteration := 0; iteration < maxUnificationIterations; iteration++ {
+	for iteration := range maxUnificationIterations {
 		var (
 			changed      bool
 			previousSubs = maps.Clone(s.Substitutions)
@@ -361,36 +361,36 @@ func (s *System) String() string {
 	var b strings.Builder
 	b.WriteString("=== Type Unification ===\n")
 
-	b.WriteString(fmt.Sprintf("\nType Variables (%d):\n", len(s.TypeVars)))
+	_, _ = fmt.Fprintf(&b, "\nType Variables (%d):\n", len(s.TypeVars))
 	for name, tv := range s.TypeVars {
-		b.WriteString(fmt.Sprintf("  %s", name))
+		_, _ = fmt.Fprintf(&b, "  %s", name)
 		if tv.Constraint != nil {
-			b.WriteString(fmt.Sprintf(" : %v", tv.Constraint))
+			_, _ = fmt.Fprintf(&b, " : %v", tv.Constraint)
 		}
 		if sub, exists := s.Substitutions[name]; exists {
-			b.WriteString(fmt.Sprintf(" => %v", sub))
+			_, _ = fmt.Fprintf(&b, " => %v", sub)
 		} else {
 			b.WriteString(" (unresolved)")
 		}
 		b.WriteString("\n")
 	}
 
-	b.WriteString(fmt.Sprintf("\nConstraints (%d):\n", len(s.Constraints)))
+	_, _ = fmt.Fprintf(&b, "\nConstraints (%d):\n", len(s.Constraints))
 	for i, c := range s.Constraints {
 		kindStr := "≡"
 		if c.Kind == KindCompatible {
 			kindStr = "~"
 		}
-		b.WriteString(fmt.Sprintf("  [%d] %v %s %v", i, c.Left, kindStr, c.Right))
+		_, _ = fmt.Fprintf(&b, "  [%d] %v %s %v", i, c.Left, kindStr, c.Right)
 		if c.Reason != "" {
-			b.WriteString(fmt.Sprintf(" // %s", c.Reason))
+			_, _ = fmt.Fprintf(&b, " // %s", c.Reason)
 		}
 		b.WriteString("\n")
 	}
 
-	b.WriteString(fmt.Sprintf("\nSubstitutions (%d):\n", len(s.Substitutions)))
+	_, _ = fmt.Fprintf(&b, "\nSubstitutions (%d):\n", len(s.Substitutions))
 	for name, t := range s.Substitutions {
-		b.WriteString(fmt.Sprintf("  %s => %v\n", name, t))
+		_, _ = fmt.Fprintf(&b, "  %s => %v\n", name, t)
 	}
 
 	return b.String()

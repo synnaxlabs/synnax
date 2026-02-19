@@ -13,9 +13,10 @@ import (
 	"context"
 
 	"github.com/google/uuid"
-	"github.com/synnaxlabs/freighter/fgrpc"
+	"github.com/synnaxlabs/freighter/grpc"
 	"github.com/synnaxlabs/synnax/pkg/api"
 	apiauth "github.com/synnaxlabs/synnax/pkg/api/auth"
+
 	gapi "github.com/synnaxlabs/synnax/pkg/api/grpc/v1"
 	"github.com/synnaxlabs/synnax/pkg/distribution/cluster"
 	svcauth "github.com/synnaxlabs/synnax/pkg/service/auth"
@@ -25,7 +26,7 @@ import (
 )
 
 type (
-	loginServer = fgrpc.UnaryServer[
+	loginServer = grpc.UnaryServer[
 		apiauth.LoginRequest,
 		*gapi.LoginRequest,
 		apiauth.LoginResponse,
@@ -39,8 +40,8 @@ type (
 )
 
 var (
-	_ fgrpc.Translator[apiauth.LoginRequest, *gapi.LoginRequest]   = (*loginRequestTranslator)(nil)
-	_ fgrpc.Translator[apiauth.LoginResponse, *gapi.LoginResponse] = (*loginResponseTranslator)(nil)
+	_ grpc.Translator[apiauth.LoginRequest, *gapi.LoginRequest]   = (*loginRequestTranslator)(nil)
+	_ grpc.Translator[apiauth.LoginResponse, *gapi.LoginResponse] = (*loginResponseTranslator)(nil)
 )
 
 func (l loginRequestTranslator) Forward(
@@ -97,7 +98,7 @@ func (l loginResponseTranslator) Backward(
 	}, err
 }
 
-func New(a *api.Transport) fgrpc.BindableTransport {
+func New(a *api.Transport) grpc.BindableTransport {
 	s := &loginServer{
 		RequestTranslator:  loginRequestTranslator{},
 		ResponseTranslator: loginResponseTranslator{},

@@ -16,11 +16,11 @@ import (
 	"github.com/synnaxlabs/arc/analyzer/context"
 	"github.com/synnaxlabs/arc/analyzer/expression"
 	atypes "github.com/synnaxlabs/arc/analyzer/types"
-	"github.com/synnaxlabs/arc/diagnostics"
 	"github.com/synnaxlabs/arc/ir"
 	"github.com/synnaxlabs/arc/parser"
 	"github.com/synnaxlabs/arc/symbol"
 	"github.com/synnaxlabs/arc/types"
+	"github.com/synnaxlabs/x/diagnostics"
 )
 
 func AnalyzeSingleFunction(ctx context.Context[parser.IFunctionContext]) {
@@ -493,7 +493,7 @@ func analyzeInputRoutingTable(
 	nodes []parser.IFlowNodeContext,
 ) {
 	var nextFunc parser.IFunctionContext
-	for i := 0; i < len(nodes); i++ {
+	for i := range nodes {
 		if fn := nodes[i].Function(); fn != nil {
 			nextFunc = fn
 			break

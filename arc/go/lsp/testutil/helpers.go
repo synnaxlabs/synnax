@@ -12,126 +12,38 @@ package testutil
 import (
 	"context"
 
-	"github.com/onsi/gomega"
-	"github.com/samber/lo"
 	"github.com/synnaxlabs/arc/lsp"
+	"github.com/synnaxlabs/x/lsp/testutil"
 	xutil "github.com/synnaxlabs/x/testutil"
 	"go.lsp.dev/protocol"
 )
 
+// SetupTestServer creates a new arc LSP server with a MockClient for testing.
 func SetupTestServer(cfgs ...lsp.Config) (*lsp.Server, protocol.DocumentURI) {
 	server := xutil.MustSucceed(lsp.New(cfgs...))
 	uri := protocol.DocumentURI("file:///test.arc")
-	server.SetClient(&MockClient{})
+	server.SetClient(&testutil.MockClient{})
 	return server, uri
 }
 
-func SetupTestServerWithClient(cfgs ...lsp.Config) (*lsp.Server, protocol.DocumentURI, *MockClient) {
+// SetupTestServerWithClient creates a new arc LSP server and returns
+// the server, URI, and the MockClient.
+func SetupTestServerWithClient(
+	cfgs ...lsp.Config,
+) (*lsp.Server, protocol.DocumentURI, *testutil.MockClient) {
 	server := xutil.MustSucceed(lsp.New(cfgs...))
 	uri := protocol.DocumentURI("file:///test.arc")
-	client := &MockClient{}
+	client := &testutil.MockClient{}
 	server.SetClient(client)
 	return server, uri, client
 }
 
-// OpenDocument is a helper to open a document in the LSP server.
-func OpenDocument(
+// OpenArcDocument is a helper to open a document in the arc LSP server.
+func OpenArcDocument(
 	server *lsp.Server,
 	ctx context.Context,
 	uri protocol.DocumentURI,
 	content string,
 ) {
-	gomega.Expect(server.DidOpen(ctx, &protocol.DidOpenTextDocumentParams{
-		TextDocument: protocol.TextDocumentItem{
-			URI:        uri,
-			LanguageID: "arc",
-			Version:    1,
-			Text:       content,
-		},
-	})).To(gomega.Succeed())
-}
-
-func Hover(
-	server *lsp.Server,
-	ctx context.Context,
-	uri protocol.DocumentURI,
-	line, char uint32,
-) *protocol.Hover {
-	return xutil.MustSucceed(server.Hover(ctx, &protocol.HoverParams{
-		TextDocumentPositionParams: protocol.TextDocumentPositionParams{
-			TextDocument: protocol.TextDocumentIdentifier{URI: uri},
-			Position:     protocol.Position{Line: line, Character: char},
-		},
-	}))
-}
-
-func Definition(
-	server *lsp.Server,
-	ctx context.Context,
-	uri protocol.DocumentURI,
-	line, char uint32,
-) []protocol.Location {
-	return xutil.MustSucceed(server.Definition(ctx, &protocol.DefinitionParams{
-		TextDocumentPositionParams: protocol.TextDocumentPositionParams{
-			TextDocument: protocol.TextDocumentIdentifier{URI: uri},
-			Position:     protocol.Position{Line: line, Character: char},
-		},
-	}))
-}
-
-func Completion(
-	server *lsp.Server,
-	ctx context.Context,
-	uri protocol.DocumentURI,
-	line, char uint32,
-) *protocol.CompletionList {
-	return xutil.MustSucceed(server.Completion(ctx, &protocol.CompletionParams{
-		TextDocumentPositionParams: protocol.TextDocumentPositionParams{
-			TextDocument: protocol.TextDocumentIdentifier{URI: uri},
-			Position:     protocol.Position{Line: line, Character: char},
-		},
-	}))
-}
-
-func SemanticTokens(
-	server *lsp.Server,
-	ctx context.Context,
-	uri protocol.DocumentURI,
-) *protocol.SemanticTokens {
-	return xutil.MustSucceed(server.SemanticTokensFull(ctx, &protocol.SemanticTokensParams{
-		TextDocument: protocol.TextDocumentIdentifier{URI: uri},
-	}))
-}
-
-func FindCompletion(
-	items []protocol.CompletionItem,
-	label string,
-) (protocol.CompletionItem, bool) {
-	return lo.Find(items, func(item protocol.CompletionItem) bool {
-		return item.Label == label
-	})
-}
-
-func HasCompletion(items []protocol.CompletionItem, label string) bool {
-	_, found := FindCompletion(items, label)
-	return found
-}
-
-// ChangeDocument sends a full-content DidChange to the server.
-func ChangeDocument(
-	server *lsp.Server,
-	ctx context.Context,
-	uri protocol.DocumentURI,
-	content string,
-	version int32,
-) {
-	gomega.Expect(server.DidChange(ctx, &protocol.DidChangeTextDocumentParams{
-		TextDocument: protocol.VersionedTextDocumentIdentifier{
-			TextDocumentIdentifier: protocol.TextDocumentIdentifier{URI: uri},
-			Version:                version,
-		},
-		ContentChanges: []protocol.TextDocumentContentChangeEvent{
-			{Text: content},
-		},
-	})).To(gomega.Succeed())
+	testutil.OpenDocument(server, ctx, uri, content, "arc")
 }

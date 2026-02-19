@@ -10,7 +10,6 @@
 package iterator_test
 
 import (
-	"context"
 	"fmt"
 	"io"
 
@@ -22,7 +21,6 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer/iterator"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer/writer"
 	"github.com/synnaxlabs/synnax/pkg/distribution/mock"
-	"github.com/synnaxlabs/x/config"
 	"github.com/synnaxlabs/x/telem"
 	. "github.com/synnaxlabs/x/testutil"
 )
@@ -39,10 +37,10 @@ var _ = Describe("Iterator", func() {
 			Describe(fmt.Sprintf("Scenario: %v - Iteration", i), func() {
 				BeforeAll(func() {
 					s = _sF()
-					writer := MustSucceed(s.dist.Framer.OpenWriter(context.TODO(), writer.Config{
+					writer := MustSucceed(s.dist.Framer.OpenWriter(ctx, writer.Config{
 						Keys:  s.keys,
 						Start: 10 * telem.SecondTS,
-						Sync:  config.True(),
+						Sync:  new(true),
 					}))
 					MustSucceed(writer.Write(frame.NewMulti(
 						s.keys,

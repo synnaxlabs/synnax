@@ -246,21 +246,10 @@ class WorkspaceClient:
     def expand_active(self) -> None:
         """Expand the active workspace in the resources toolbar to show its contents."""
         self.layout.show_resource_toolbar("workspace")
-        self.layout.page.locator(f"div[id^='{self.ITEM_PREFIX}']").first.wait_for(
+        self.tree.expand_root(self.ITEM_PREFIX)
+        self.layout.page.locator(".pluto-tree__item").first.wait_for(
             state="visible", timeout=5000
         )
-        workspace_items = self.tree.find_by_prefix(self.ITEM_PREFIX)
-        if not workspace_items:
-            return
-        workspace_item = workspace_items[0]
-        caret = workspace_item.locator(".pluto--location-bottom")
-        try:
-            caret.wait_for(state="visible", timeout=500)
-            return
-        except PlaywrightTimeoutError:
-            pass
-        workspace_item.click()
-        caret.wait_for(state="visible", timeout=5000)
 
     def get_page(self, name: str) -> Locator:
         """Get a page item locator from the workspace resources toolbar.
@@ -273,19 +262,84 @@ class WorkspaceClient:
         """
         return self.layout.page.locator(".pluto-tree__item").filter(has_text=name).first
 
+    def _scroll_to_page(self, name: str) -> bool:
+        """Scroll the workspace tree to find a page that may be off-screen.
+
+        The Pluto tree uses virtual scrolling, so items outside the viewport
+        are not in the DOM. This method scrolls the tree container
+        incrementally until the item appears or the end is reached.
+
+        Returns:
+            True if the item was found and scrolled into view.
+        """
+        page_item = self.get_page(name)
+        try:
+            page_item.wait_for(state="attached", timeout=1000)
+            page_item.scroll_into_view_if_needed()
+            return True
+        except PlaywrightTimeoutError:
+            pass
+        container = self.layout.page.locator(".pluto-tree .pluto-list__items").first
+        try:
+            container.wait_for(state="attached", timeout=2000)
+        except PlaywrightTimeoutError:
+            return False
+        prev_scroll = -1
+        for _ in range(50):
+            curr_scroll = container.evaluate(
+                "el => ({ top: el.scrollTop, height: el.scrollHeight })"
+            )
+            if prev_scroll != -1 and curr_scroll["top"] == prev_scroll:
+                break
+            prev_scroll = curr_scroll["top"]
+            container.evaluate("el => el.scrollTop += 200")
+            self.layout.page.wait_for_timeout(100)
+            try:
+                page_item.wait_for(state="attached", timeout=300)
+                page_item.scroll_into_view_if_needed()
+                return True
+            except PlaywrightTimeoutError:
+                continue
+        return False
+
     def page_exists(self, name: str) -> bool:
         """Check if a page (schematic, line plot, etc.) exists in the workspace."""
         self.expand_active()
-        try:
-            self.get_page(name).wait_for(state="visible", timeout=5000)
-            return True
-        except PlaywrightTimeoutError:
-            return False
+        if self._scroll_to_page(name):
+            page_item = self.get_page(name)
+            try:
+                page_item.wait_for(state="visible", timeout=5000)
+                return True
+            except PlaywrightTimeoutError:
+                pass
+        return False
 
     def wait_for_page_removed(self, name: str) -> None:
         """Wait for a page to be removed from the workspace."""
         page_item = self.get_page(name)
         page_item.wait_for(state="hidden", timeout=5000)
+
+    def _find_page(self, name: str) -> Locator:
+        """Find a page in the workspace tree, scrolling if needed.
+
+        First tries a simple wait (handles most cases where the tree isn't
+        crowded). Falls back to scrolling for virtual-scrolled trees.
+
+        Raises:
+            PlaywrightTimeoutError: If the page cannot be found.
+        """
+        self.expand_active()
+        page_item = self.get_page(name)
+        try:
+            page_item.wait_for(state="visible", timeout=5000)
+            return page_item
+        except PlaywrightTimeoutError:
+            pass
+        if not self._scroll_to_page(name):
+            raise PlaywrightTimeoutError(f"Page '{name}' not found in workspace tree")
+        page_item = self.get_page(name)
+        page_item.wait_for(state="visible", timeout=5000)
+        return page_item
 
     def open_page(self, name: str) -> None:
         """Open a page by double-clicking it in the workspace resources toolbar.
@@ -293,9 +347,7 @@ class WorkspaceClient:
         Args:
             name: Name of the page to open
         """
-        self.expand_active()
-        page_item = self.get_page(name)
-        page_item.wait_for(state="visible", timeout=5000)
+        page_item = self._find_page(name)
         page_item.dblclick()
         self.layout.close_left_toolbar()
 
@@ -305,9 +357,7 @@ class WorkspaceClient:
         Args:
             name: Name of the page to drag
         """
-        self.expand_active()
-        page_item = self.get_page(name)
-        page_item.wait_for(state="visible", timeout=5000)
+        page_item = self._find_page(name)
         mosaic = self.layout.page.locator(".console-mosaic").first
         page_item.drag_to(mosaic)
         self.layout.close_left_toolbar()
@@ -319,9 +369,7 @@ class WorkspaceClient:
             old_name: Current name of the page
             new_name: New name for the page
         """
-        self.expand_active()
-        page_item = self.get_page(old_name)
-        page_item.wait_for(state="visible", timeout=5000)
+        page_item = self._find_page(old_name)
         self.ctx_menu.action(page_item, "Rename")
         self.layout.select_all_and_type(new_name)
         self.layout.press_enter()
@@ -335,9 +383,7 @@ class WorkspaceClient:
         Args:
             name: Name of the page to delete
         """
-        self.expand_active()
-        page_item = self.get_page(name)
-        page_item.wait_for(state="visible", timeout=5000)
+        page_item = self._find_page(name)
         self.ctx_menu.action(page_item, "Delete")
         delete_btn = self.layout.page.get_by_role("button", name="Delete", exact=True)
         delete_btn.wait_for(state="visible", timeout=5000)
@@ -345,53 +391,98 @@ class WorkspaceClient:
         self.wait_for_page_removed(name)
         self.layout.close_left_toolbar()
 
-    def delete_group(self, name: str) -> None:
+    def delete_group(self, name: str, child_names: list[str] | None = None) -> None:
         """Delete a group via context menu.
 
-        Groups are deleted immediately without a confirmation dialog (unlike pages).
-        The context menu shows "Delete" for collapsed groups and "Ungroup" for expanded
-        groups with visible children.
-
         Args:
-            name: Name of the group to delete
+            name: Name of the group to delete.
+            child_names: Names of child pages to delete first. Required because
+                the Pluto tree uses flat rendering (children are siblings, not
+                nested inside the group div), so they must be found by name.
         """
+        if child_names:
+            self.expand_active()
+            group = self.tree.get_group(name)
+            self.tree.expand(group)
+            for child_name in child_names:
+                page_item = self.get_page(child_name)
+                page_item.wait_for(state="attached", timeout=5000)
+                page_item.scroll_into_view_if_needed()
+                self.ctx_menu.action(page_item, "Delete")
+                delete_btn = self.layout.page.get_by_role(
+                    "button", name="Delete", exact=True
+                )
+                delete_btn.wait_for(state="visible", timeout=5000)
+                delete_btn.click(timeout=5000)
+                self.wait_for_page_removed(child_name)
         self.expand_active()
-        page_item = self.get_page(name)
-        page_item.wait_for(state="visible", timeout=5000)
-        try:
-            self.ctx_menu.action(page_item, "Delete")
-        except PlaywrightTimeoutError:
-            self.ctx_menu.click_option("Ungroup")
+        self.tree.delete_group(name)
         self.layout.close_left_toolbar()
 
-    def delete_pages(self, names: list[str]) -> None:
-        """Delete multiple pages via multi-select and context menu.
+    def delete_pages(self, page_names: list[str]) -> None:
+        """Delete pages by walking the workspace tree depth-first.
+
+        Expands groups as needed to find target pages, deletes each
+        individually, and cleans up empty groups on the way back up.
+        Tracks visited groups by DOM id to avoid infinite loops in the
+        flat-rendered tree. Falls back to scrolling for pages that may
+        be off-screen due to virtual scrolling.
 
         Args:
-            names: List of page names to delete
+            page_names: Names of pages to delete.
         """
-        if not names:
+        if not page_names:
             return
-
-        self.expand_active()
-
-        first_item = self.get_page(names[0])
-        first_item.wait_for(state="visible", timeout=5000)
-        first_item.click()
-
-        for name in names[1:]:
+        remaining = list(page_names)
+        try:
+            self.expand_active()
+        except PlaywrightTimeoutError:
+            self.layout.close_left_toolbar()
+            return
+        self._walk_and_delete(remaining, visited=set())
+        # Scroll fallback for pages missed by the walk (virtual scrolling).
+        for name in list(remaining):
+            if not self._scroll_to_page(name):
+                continue
             page_item = self.get_page(name)
-            page_item.wait_for(state="visible", timeout=5000)
-            page_item.click(modifiers=["ControlOrMeta"])
+            if not page_item.is_visible():
+                continue
+            self._delete_page_item(page_item, name, remaining)
+        self.layout.close_left_toolbar()
 
-        last_item = first_item if len(names) == 1 else self.get_page(names[-1])
-        self.ctx_menu.action(last_item, "Delete")
+    def _delete_page_item(
+        self, page_item: Locator, name: str, remaining: list[str]
+    ) -> None:
+        self.ctx_menu.action(page_item, "Delete")
         delete_btn = self.layout.page.get_by_role("button", name="Delete", exact=True)
         delete_btn.wait_for(state="visible", timeout=5000)
         delete_btn.click(timeout=5000)
-        for name in names:
-            self.wait_for_page_removed(name)
-        self.layout.close_left_toolbar()
+        delete_btn.wait_for(state="hidden", timeout=5000)
+        remaining.remove(name)
+
+    def _walk_and_delete(self, remaining: list[str], visited: set[str]) -> None:
+        # Delete any visible target pages at this level.
+        for name in list(remaining):
+            page_item = self.get_page(name)
+            if not page_item.is_visible():
+                continue
+            self._delete_page_item(page_item, name, remaining)
+
+        # Recurse into unvisited groups, then delete them on the way back up.
+        for group in self.tree.find_by_prefix("group:"):
+            group_id = group.get_attribute("id") or ""
+            if group_id in visited:
+                continue
+            visited.add(group_id)
+            self.tree.expand(group)
+            self._walk_and_delete(remaining, visited)
+            # Post-order: delete the group only if it's now empty.
+            locator = self.layout.page.locator(f"div[id='{group_id}']").first
+            try:
+                locator.wait_for(state="visible", timeout=2000)
+                self.tree.delete_group(locator, only_if_empty=True)
+            except PlaywrightTimeoutError:
+                pass
 
     def copy_page_link(self, name: str) -> str:
         """Copy link to a page via context menu.
@@ -402,38 +493,31 @@ class WorkspaceClient:
         Returns:
             The copied link from clipboard
         """
-        self.expand_active()
-        page_item = self.get_page(name)
-        page_item.wait_for(state="visible", timeout=5000)
+        page_item = self._find_page(name)
         self.ctx_menu.action(page_item, "Copy link")
         self.layout.close_left_toolbar()
         return self.layout.read_clipboard()
 
     def group_pages(self, *, names: list[str], group_name: str) -> None:
-        """Group multiple pages into a folder via multi-select and context menu.
-
-        Args:
-            names: List of page names to group
-            group_name: Name for the new group/folder
-        """
-        if not names:
-            return
-
+        """Group multiple pages into a folder via multi-select and context menu."""
         self.expand_active()
+        items = []
+        for n in names:
+            self._scroll_to_page(n)
+            items.append(self.get_page(n))
+        self.tree.group(items, group_name)
+        self.layout.close_left_toolbar()
 
-        first_item = self.get_page(names[0])
-        first_item.wait_for(state="visible", timeout=5000)
-        first_item.click()
+    def rename_group(self, old_name: str, new_name: str) -> None:
+        """Rename a group via context menu."""
+        self.expand_active()
+        self.tree.rename_group(old_name, new_name)
+        self.layout.close_left_toolbar()
 
-        for name in names[1:]:
-            page_item = self.get_page(name)
-            page_item.wait_for(state="visible", timeout=5000)
-            page_item.click(modifiers=["ControlOrMeta"])
-
-        last_item = first_item if len(names) == 1 else self.get_page(names[-1])
-        self.ctx_menu.action(last_item, "Group selection")
-        self.layout.select_all_and_type(group_name)
-        self.layout.press_enter()
+    def move_to_group(self, item_name: str, group_name: str) -> None:
+        """Move a page or group into a target group via drag-and-drop."""
+        self.expand_active()
+        self.tree.move_to_group(self.get_page(item_name), group_name)
         self.layout.close_left_toolbar()
 
     def export_page(self, name: str) -> dict[str, Any]:
@@ -447,18 +531,7 @@ class WorkspaceClient:
         Returns:
             The exported JSON content as a dictionary
         """
-        self.expand_active()
-        page_item = self.get_page(name)
-        try:
-            page_item.wait_for(state="visible", timeout=5000)
-        except PlaywrightTimeoutError as e:
-            all_items = self.layout.page.locator(".pluto-tree__item").all()
-            item_texts = [
-                item.text_content() for item in all_items if item.is_visible()
-            ]
-            raise PlaywrightTimeoutError(
-                f"Page '{name}' not found. Available items: {item_texts}"
-            ) from e
+        page_item = self._find_page(name)
         self.ctx_menu.open_on(page_item)
         self.layout.page.evaluate("delete window.showSaveFilePicker")
 
@@ -647,19 +720,6 @@ class WorkspaceClient:
 
         self.layout.close_left_toolbar()
         return result
-
-    def snapshot_page_to_active_range(self, name: str, range_name: str) -> None:
-        """Snapshot a page to the active range via context menu.
-
-        Args:
-            name: Name of the page to snapshot
-            range_name: Name of the active range (for menu text matching)
-        """
-        self.expand_active()
-        page_item = self.get_page(name)
-        page_item.wait_for(state="visible", timeout=5000)
-        self.ctx_menu.action(page_item, f"Snapshot to {range_name}")
-        self.layout.close_left_toolbar()
 
     def snapshot_pages_to_active_range(self, names: list[str], range_name: str) -> None:
         """Snapshot multiple pages to the active range via context menu.
@@ -1036,6 +1096,30 @@ class WorkspaceClient:
         """
         self.drag_page_to_mosaic(name)
         return Schematic.from_open_page(self.layout, self.client, name)
+
+    def open_table(self, name: str) -> Table:
+        """Open a table by double-clicking it in the workspace resources toolbar.
+
+        Args:
+            name: Name of the table to open.
+
+        Returns:
+            Table instance for the opened table.
+        """
+        self.open_page(name)
+        return Table.from_open_page(self.layout, self.client, name)
+
+    def drag_table_to_mosaic(self, name: str) -> Table:
+        """Drag a table from the workspace resources toolbar onto the mosaic.
+
+        Args:
+            name: Name of the table to drag.
+
+        Returns:
+            Table instance for the opened table.
+        """
+        self.drag_page_to_mosaic(name)
+        return Table.from_open_page(self.layout, self.client, name)
 
     @overload
     def create_task(

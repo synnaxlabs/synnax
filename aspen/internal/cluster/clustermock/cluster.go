@@ -16,13 +16,13 @@ import (
 	"github.com/synnaxlabs/aspen/internal/cluster/gossip"
 	"github.com/synnaxlabs/aspen/internal/cluster/pledge"
 	"github.com/synnaxlabs/aspen/internal/node"
-	"github.com/synnaxlabs/freighter/fmock"
+	"github.com/synnaxlabs/freighter/mock"
 	"github.com/synnaxlabs/x/address"
 )
 
 type Builder struct {
-	GossipNet   *fmock.Network[gossip.Message, gossip.Message]
-	PledgeNet   *fmock.Network[pledge.Request, pledge.Response]
+	GossipNet   *mock.Network[gossip.Message, gossip.Message]
+	PledgeNet   *mock.Network[pledge.Request, pledge.Response]
 	ClusterAPIs map[node.Key]*cluster.Cluster
 	Configs     []cluster.Config
 }
@@ -30,8 +30,8 @@ type Builder struct {
 func NewBuilder(cfgs ...cluster.Config) *Builder {
 	return &Builder{
 		Configs:     cfgs,
-		GossipNet:   fmock.NewNetwork[gossip.Message, gossip.Message](),
-		PledgeNet:   fmock.NewNetwork[pledge.Request, pledge.Response](),
+		GossipNet:   mock.NewNetwork[gossip.Message, gossip.Message](),
+		PledgeNet:   mock.NewNetwork[pledge.Request, pledge.Response](),
 		ClusterAPIs: make(map[node.Key]*cluster.Cluster),
 	}
 }

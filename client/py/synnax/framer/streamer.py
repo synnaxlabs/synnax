@@ -13,13 +13,13 @@ from freighter import (
     EOF,
     AsyncStream,
     AsyncStreamClient,
-    Payload,
     Stream,
     WebsocketClient,
 )
 from freighter.websocket import Message
+from pydantic import BaseModel
 
-from synnax.channel.payload import ChannelKeys, ChannelParams
+import synnax.channel.payload as channel
 from synnax.exceptions import UnexpectedError
 from synnax.framer.adapter import ReadFrameAdapter
 from synnax.framer.codec import LOW_PERF_SPECIAL_CHAR, WSFramerCodec
@@ -27,13 +27,13 @@ from synnax.framer.frame import Frame, FramePayload
 from synnax.telem import TimeSpan
 
 
-class _Request(Payload):
-    keys: ChannelKeys
+class _Request(BaseModel):
+    keys: list[channel.Key] | tuple[channel.Key]
     downsample_factor: int
     throttle_rate_hz: float | None = None
 
 
-class _Response(Payload):
+class _Response(BaseModel):
     frame: FramePayload
 
 
@@ -144,7 +144,7 @@ class Streamer:
         except TimeoutError:
             return None
 
-    def update_channels(self, channels: ChannelParams):
+    def update_channels(self, channels: channel.Params):
         """Updates the list of channels to stream. This method will replace the current
         list of channels with the new list, not add to it.
 

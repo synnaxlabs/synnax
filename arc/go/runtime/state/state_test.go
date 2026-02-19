@@ -295,7 +295,7 @@ var _ = Describe("State", func() {
 
 			It("Should handle many ingested frames without panic", func() {
 				s := state.New(state.Config{IR: ir.IR{Nodes: []ir.Node{{Key: "test"}}}})
-				for i := 0; i < 10; i++ {
+				for i := range 10 {
 					fr := telem.UnaryFrame[uint32](5, telem.NewSeriesV[int32](int32(i*10), int32(i*10+1)))
 					s.Channel.Ingest(fr)
 				}

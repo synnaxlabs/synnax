@@ -9,12 +9,14 @@
 
 import z from "zod";
 
+import { color } from "@/color";
+
 export const keyZ = z.uuid();
 export type Key = z.infer<typeof keyZ>;
 
 export const labelZ = z.object({
   key: keyZ,
   name: z.string().min(1),
-  color: z.string(),
+  color: color.colorZ,
 });
 export interface Label extends z.infer<typeof labelZ> {}

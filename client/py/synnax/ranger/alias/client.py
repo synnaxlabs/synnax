@@ -9,43 +9,44 @@
 
 import uuid
 
-from freighter import Payload, UnaryClient
+from freighter import UnaryClient
+from pydantic import BaseModel
 
-from synnax.channel import ChannelKey
+import synnax.channel.payload as channel
 from synnax.util.normalize import normalize
 
 
-class _ResolveRequest(Payload):
+class _ResolveRequest(BaseModel):
     range: uuid.UUID
     aliases: list[str]
 
 
-class _ResolveResponse(Payload):
-    aliases: dict[str, ChannelKey]
+class _ResolveResponse(BaseModel):
+    aliases: dict[str, channel.Key]
 
 
-class _SetRequest(Payload):
+class _SetRequest(BaseModel):
     range: uuid.UUID
-    aliases: dict[ChannelKey, str]
+    aliases: dict[channel.Key, str]
 
 
-class _EmptyResponse(Payload): ...
+class _EmptyResponse(BaseModel): ...
 
 
 class Client:
     __client: UnaryClient
-    __cache: dict[str, ChannelKey]
+    __cache: dict[str, channel.Key]
 
     def __init__(self, rng: uuid.UUID, client: UnaryClient) -> None:
         self.__client = client
         self.__rng = rng
         self.__cache = {}
 
-    def resolve(self, alias: str) -> ChannelKey: ...
+    def resolve(self, alias: str) -> channel.Key: ...
 
-    def resolve(self, aliases: list[str]) -> dict[str, ChannelKey]: ...
+    def resolve(self, aliases: list[str]) -> dict[str, channel.Key]: ...
 
-    def resolve(self, aliases: str | list[str]) -> dict[str, ChannelKey] | ChannelKey:
+    def resolve(self, aliases: str | list[str]) -> dict[str, channel.Key] | channel.Key:
         to_fetch = list()
         aliases = normalize(aliases)
         is_single = isinstance(aliases, str)
@@ -73,7 +74,7 @@ class Client:
             return res.aliases[aliases]
         return {**results, **res.aliases}
 
-    def set(self, aliases: dict[ChannelKey, str]) -> None:
+    def set(self, aliases: dict[channel.Key, str]) -> None:
         req = _SetRequest(range=self.__rng, aliases=aliases)
         res, exc = self.__client.send("/range/alias/set", req, _EmptyResponse)
         if exc is not None:

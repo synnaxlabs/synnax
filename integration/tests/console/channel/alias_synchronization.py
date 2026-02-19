@@ -58,7 +58,6 @@ class AliasSynchronization(ConsoleCase):
         self.log("Creating range and setting it active")
         console.ranges.create(self.range_name, persisted=True)
         console.ranges.open_explorer()
-        console.ranges.favorite_from_explorer(self.range_name)
         console.ranges.show_toolbar()
         console.ranges.set_active(self.range_name)
 
@@ -72,6 +71,7 @@ class AliasSynchronization(ConsoleCase):
 
         self.log("Setting up Line Plot with channel")
         plot = console.workspace.create_plot(f"Alias Test Plot {self.suffix}")
+        self._cleanup_pages.append(plot.page_name)
         plot.add_channels("Y1", [self.data_name])
 
         self.log("Setting alias for channel")

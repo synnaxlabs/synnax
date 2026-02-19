@@ -17,7 +17,7 @@ import (
 	"github.com/gofiber/fiber/v2"
 	"github.com/synnaxlabs/alamos"
 	"github.com/synnaxlabs/freighter"
-	"github.com/synnaxlabs/freighter/fhttp"
+	"github.com/synnaxlabs/freighter/http"
 )
 
 //go:embed fallback.html
@@ -26,7 +26,7 @@ var fallbackHTML []byte
 // Service serves the web-based console UI.
 type Service struct{}
 
-var _ fhttp.BindableTransport = (*Service)(nil)
+var _ http.BindableTransport = (*Service)(nil)
 
 // NewService creates a new console UI service.
 func NewService() *Service { return &Service{} }

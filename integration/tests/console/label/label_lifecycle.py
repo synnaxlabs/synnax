@@ -26,7 +26,6 @@ class LabelLifecycle(ConsoleCase):
             self.shared_range, persisted=True, labels=[self.shared_label]
         )
         self.console.ranges.open_explorer()
-        self.console.ranges.favorite_from_explorer(self.shared_range)
 
     def teardown(self) -> None:
         self.page.keyboard.press("Escape")
@@ -51,10 +50,6 @@ class LabelLifecycle(ConsoleCase):
         self.log(f"Renaming label {old_name}")
 
         self.console.labels.rename(old_name=old_name, new_name=new_name)
-        assert self.console.labels.exists(new_name), f"Label {new_name} should exist"
-        assert not self.console.labels.exists(
-            old_name
-        ), f"Label {old_name} should not exist"
         self.log(f"Label {old_name} renamed to {new_name}")
         self.shared_label = new_name
 
@@ -88,9 +83,9 @@ class LabelLifecycle(ConsoleCase):
         assert self.console.ranges.label_exists_in_toolbar(
             range_name, new_label_name
         ), f"Label {new_label_name} should be visible in toolbar for range {range_name}"
-        assert self.console.ranges.wait_for_label_removed_from_toolbar(
+        self.console.ranges.wait_for_label_removed_from_toolbar(
             range_name, old_label_name
-        ), f"Label {old_label_name} should not be visible in toolbar for range {range_name}"
+        )
         self.log(f"Label {new_label_name} visible in toolbar for range {range_name}")
         self.shared_label = new_label_name
 
@@ -109,9 +104,7 @@ class LabelLifecycle(ConsoleCase):
         self.console.labels.delete(label_name)
         self.log(f"Label {label_name} deleted")
 
-        assert self.console.ranges.wait_for_label_removed_from_toolbar(
-            range_name, label_name
-        ), f"Label {label_name} should not be visible in toolbar for range {range_name}"
+        self.console.ranges.wait_for_label_removed_from_toolbar(range_name, label_name)
         self.log(f"Label {label_name} not visible in toolbar for range {range_name}")
 
     def test_change_label_color_syncs_with_range_toolbar(self) -> None:

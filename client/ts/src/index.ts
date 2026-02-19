@@ -35,11 +35,11 @@ export {
 } from "@/errors";
 export { framer } from "@/framer";
 export { Frame } from "@/framer/frame";
+export { group } from "@/group";
 export { label } from "@/label";
 export { lineplot } from "@/lineplot";
 export { log } from "@/log";
 export { ontology } from "@/ontology";
-export { group } from "@/ontology/group";
 export { rack } from "@/rack";
 export { ranger } from "@/ranger";
 export { schematic } from "@/schematic";

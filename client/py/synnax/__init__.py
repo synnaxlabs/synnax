@@ -9,20 +9,23 @@
 
 __version__ = "0.3.0"
 
-from synnax import ethercat, labjack, modbus, ni, opcua, sequence, status
+from synnax import color, ethercat, labjack, modbus, ni, opcua, status
 from synnax.access.policy import Policy
 from synnax.access.role import Role
 from synnax.arc import (
     Arc,
-    ArcTask,
     Edge,
     Graph,
     GraphNode,
     Handle,
     Position,
+)
+from synnax.arc import Task as ArcTask
+from synnax.arc import (
     Text,
 )
 from synnax.channel import Channel
+from synnax.color import Color
 from synnax.control import Controller
 from synnax.device import Device
 from synnax.exceptions import (
@@ -49,12 +52,14 @@ from synnax.framer import (
     Writer,
     WriterMode,
 )
-from synnax.options import SynnaxOptions
+from synnax.options import Options
 from synnax.rack import Rack
 from synnax.ranger import Range
 from synnax.status import Status
 from synnax.synnax import Synnax
-from synnax.task import Task, TaskStatus, TaskStatusDetails
+from synnax.task import Status as TaskStatus
+from synnax.task import StatusDetails as TaskStatusDetails
+from synnax.task import Task
 from synnax.telem import (
     Alignment,
     Authority,
@@ -82,6 +87,8 @@ from synnax.telem import (
 from synnax.timing import Loop, Timer, sleep
 from synnax.user.payload import User
 
+SynnaxOptions = Options
+
 __all__ = [
     "Alignment",
     "Arc",
@@ -92,6 +99,7 @@ __all__ = [
     "Controller",
     "Bounds",
     "Channel",
+    "Color",
     "Edge",
     "ConfigurationError",
     "ContiguityError",
@@ -119,6 +127,7 @@ __all__ = [
     "Loop",
     "MultipleFoundError",
     "NotFoundError",
+    "Options",
     "Policy",
     "Position",
     "QueryError",
@@ -131,6 +140,7 @@ __all__ = [
     "MultiSeries",
     "Size",
     "sleep",
+    "Status",
     "Streamer",
     "Synnax",
     "SynnaxOptions",
@@ -150,13 +160,9 @@ __all__ = [
     "Writer",
     "WriterMode",
     "ethercat",
+    "labjack",
     "modbus",
     "ni",
-    "labjack",
     "opcua",
-    "sequence",
-    "ontology",
-    "auth",
     "status",
-    "Status",
 ]

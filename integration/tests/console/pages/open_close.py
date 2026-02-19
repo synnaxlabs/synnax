@@ -9,6 +9,7 @@
 
 from console.case import ConsoleCase
 from console.workspace import PageType
+from framework.utils import get_random_name
 
 
 class OpenClose(ConsoleCase):
@@ -16,37 +17,54 @@ class OpenClose(ConsoleCase):
     Test creating and closing pages
     """
 
+    _page_names: list[str]
+
+    def setup(self) -> None:
+        super().setup()
+        self._page_names = []
+        self._pages_deleted = False
+
     def run(self) -> None:
         """
         Test Opening and closing pages
         """
         console = self.console
+        suffix = get_random_name()
 
-        pages_renamed: list[tuple[PageType, str]] = [
-            ("Schematic", "S_Name"),
-            ("Line Plot", "L_Name"),
-            ("Log", "Log_Name"),
-            ("Table", "Table_Name"),
-            ("NI Analog Read Task", "AI"),
-            ("NI Analog Write Task", "AO"),
-            ("NI Digital Read Task", "DI"),
-            ("NI Digital Write Task", "DO"),
-            ("LabJack Read Task", "LabJack R"),
-            ("LabJack Write Task", "LabJack O"),
-            ("OPC UA Read Task", "OPC Read"),
-            ("OPC UA Write Task", "OPC Write"),
+        WORKSPACE_PAGES: list[tuple[PageType, str]] = [
+            ("Schematic", f"Sch_{suffix}"),
+            ("Line Plot", f"LinePlt_{suffix}"),
+            ("Log", f"LogPg_{suffix}"),
+            ("Table", f"TablePg_{suffix}"),
+        ]
+
+        TASK_PAGES: list[tuple[PageType, str]] = [
+            ("NI Analog Read Task", f"NIAR_{suffix}"),
+            ("NI Analog Write Task", f"NIAW_{suffix}"),
+            ("NI Digital Read Task", f"NIDR_{suffix}"),
+            ("NI Digital Write Task", f"NIDW_{suffix}"),
+            ("LabJack Read Task", f"LJRead_{suffix}"),
+            ("LabJack Write Task", f"LJWrite_{suffix}"),
+            ("OPC UA Read Task", f"OPCRead_{suffix}"),
+            ("OPC UA Write Task", f"OPCWrite_{suffix}"),
         ]
 
         self.log("(1/2) Create pages by cmd palette")
-        for page_type, page_name in pages_renamed:
+        all_pages = WORKSPACE_PAGES + TASK_PAGES
+
+        for page_type, page_name in all_pages:
             console.workspace.create_page_by_command_palette(page_type, page_name)
-        for page_type, page_name in pages_renamed:
+            if page_type in ("Schematic", "Line Plot", "Log", "Table"):
+                self._page_names.append(page_name)
+        for _, page_name in all_pages:
             console.workspace.close_page(page_name)
 
         self.log("(2/2) Create pages by (+) button")
-        for page_type, page_name in pages_renamed:
+        for page_type, page_name in all_pages:
             console.workspace.create_page_by_new_page_button(page_type, page_name)
-        for page_type, page_name in pages_renamed:
+            if page_type in ("Schematic", "Line Plot", "Log", "Table"):
+                self._page_names.append(page_name)
+        for _, page_name in all_pages:
             console.workspace.close_page(page_name)
 
         # Close "Get Started" if it's still open (may have been closed by workspace selection)
@@ -59,3 +77,11 @@ class OpenClose(ConsoleCase):
         assert (
             pass_condition
         ), "Some pages were not closed - 'New Component' screen not visible"
+
+        console.workspace.delete_pages(self._page_names)
+        self._pages_deleted = True
+
+    def teardown(self) -> None:
+        if not self._pages_deleted:
+            self._cleanup_pages.extend(self._page_names)
+        super().teardown()

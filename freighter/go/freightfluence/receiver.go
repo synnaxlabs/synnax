@@ -42,6 +42,9 @@ func (r *Receiver[M]) receive(ctx context.Context) error {
 			if errors.Is(rErr, freighter.EOF) {
 				return nil
 			}
+			if errors.Is(rErr, freighter.ErrStreamClosed) {
+				return context.Canceled
+			}
 			if rErr != nil {
 				return rErr
 			}
@@ -75,6 +78,9 @@ o:
 			res, err := r.Receiver.Receive()
 			if errors.Is(err, freighter.EOF) {
 				return nil
+			}
+			if errors.Is(err, freighter.ErrStreamClosed) {
+				return context.Canceled
 			}
 			if err != nil {
 				return err

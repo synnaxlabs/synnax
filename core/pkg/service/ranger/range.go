@@ -18,6 +18,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
 	"github.com/synnaxlabs/synnax/pkg/service/label"
+	"github.com/synnaxlabs/x/color"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/gorp"
 	"github.com/synnaxlabs/x/query"
@@ -34,7 +35,7 @@ type Range struct {
 	// unique.
 	Name string `json:"name" msgpack:"name"`
 	// Color is the color used to represent the range in the UI.
-	Color string `json:"color" msgpack:"color"`
+	Color color.Color `json:"color" msgpack:"color"`
 	// TimeRange is the range of time occupied by the range.
 	TimeRange telem.TimeRange `json:"time_range" msgpack:"time_range"`
 	// Key is a unique identifier for the Range. If not provided on creation, a new one

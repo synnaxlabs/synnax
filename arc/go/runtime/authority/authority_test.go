@@ -253,7 +253,7 @@ var _ = Describe("Authority", func() {
 
 			nA.Next(nCtx)
 			nB.Next(nCtx)
-			changes := ms.FlushAuthorityChanges()
+			changes := ms.Auth.Flush()
 			Expect(changes).To(HaveLen(2))
 			Expect(*changes[0].Channel).To(Equal(uint32(10)))
 			Expect(changes[0].Authority).To(Equal(uint8(200)))

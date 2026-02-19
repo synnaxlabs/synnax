@@ -13,10 +13,10 @@ from examples.simulators import PressSimDAQ
 from console.case import ConsoleCase
 from console.schematic import Button, Valve
 from console.schematic.schematic import Schematic
-from framework.sim_daq_case import SimDaqTestCase
+from tests.driver.sim_daq_case import SimDaqCase
 
 
-class SimplePressValves(SimDaqTestCase, ConsoleCase):
+class SimplePressValves(SimDaqCase, ConsoleCase):
     """
     Test a basic press control sequence using valves and buttons
     """
@@ -45,6 +45,7 @@ class SimplePressValves(SimDaqTestCase, ConsoleCase):
 
         self.log("Creating schematic symbols")
         schematic = self.console.workspace.create_schematic("simple_press_valves")
+        self._cleanup_pages.append(schematic.page_name)
         schematic.move("left")
 
         end_test_cmd = schematic.create_symbol(
@@ -81,7 +82,7 @@ class SimplePressValves(SimDaqTestCase, ConsoleCase):
             press_valve.press()
             self.wait_for_eq("press_vlv_state", 1)
             self.wait_for_eq("vent_vlv_state", 0)
-            self.wait_for_ge(PRESSURE, target_Pressure)
+            self.wait_for_ge(PRESSURE, target_Pressure, timeout=10)
 
             # Configure next cycle
             self.log("Closing press valve")
@@ -95,7 +96,7 @@ class SimplePressValves(SimDaqTestCase, ConsoleCase):
         vent_valve.press()
         self.wait_for_eq("press_vlv_state", 0)
         self.wait_for_eq("vent_vlv_state", 1)
-        self.wait_for_le(PRESSURE, 5)
+        self.wait_for_le(PRESSURE, 5, timeout=10)
         self.log("Closing vent valve")
         vent_valve.press()
         self.wait_for_eq("press_vlv_state", 0)

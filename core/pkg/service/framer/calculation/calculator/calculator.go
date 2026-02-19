@@ -180,12 +180,15 @@ func (c *Calculator) Next(
 		}
 		changed = true
 	}
-	if !changed {
-		return output, false, nil
-	}
+	// ClearReads must run unconditionally, not just when changed is true. Otherwise,
+	// when a required input channel never sends data, consumed series accumulate
+	// indefinitely in channel.reads.
 	c.state.Channel.ClearReads()
 	c.state.Series.Clear()
 	c.state.Strings.Clear()
+	if !changed {
+		return output, false, nil
+	}
 	return frame.NewFromStorage(ofr), true, nil
 }
 

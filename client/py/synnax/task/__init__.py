@@ -8,27 +8,43 @@
 #  included in the file licenses/APL.txt.
 
 from synnax.task.client import (
-    BaseReadTaskConfig,
-    BaseTaskConfig,
-    BaseWriteTaskConfig,
+    BaseConfig,
+    BaseReadConfig,
+    BaseWriteConfig,
     Client,
     JSONConfigMixin,
+    Protocol,
     StarterStopperMixin,
     Task,
-    TaskProtocol,
 )
-from synnax.task.payload import TaskPayload, TaskStatus, TaskStatusDetails
+from synnax.task.payload import Payload, Status, StatusDetails
+
+# Backwards compatibility
+TaskPayload = Payload
+TaskStatus = Status
+TaskStatusDetails = StatusDetails
+BaseTaskConfig = BaseConfig
+BaseReadTaskConfig = BaseReadConfig
+BaseWriteTaskConfig = BaseWriteConfig
+TaskProtocol = Protocol
 
 __all__ = [
     "Client",
     "Task",
+    "Payload",
+    "Status",
+    "StatusDetails",
+    "BaseConfig",
+    "BaseReadConfig",
+    "BaseWriteConfig",
+    "JSONConfigMixin",
+    "StarterStopperMixin",
+    "Protocol",
     "TaskPayload",
     "TaskStatus",
     "TaskStatusDetails",
     "BaseTaskConfig",
     "BaseReadTaskConfig",
     "BaseWriteTaskConfig",
-    "JSONConfigMixin",
-    "StarterStopperMixin",
     "TaskProtocol",
 ]

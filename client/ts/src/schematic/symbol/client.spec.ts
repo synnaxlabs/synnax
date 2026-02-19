@@ -9,8 +9,8 @@
 
 import { beforeAll, describe, expect, it } from "vitest";
 
+import { group } from "@/group";
 import { ontology } from "@/ontology";
-import { group } from "@/ontology/group";
 import { createTestClient } from "@/testutil/client";
 
 const client = createTestClient();
@@ -18,7 +18,7 @@ const client = createTestClient();
 describe("Symbol Client", () => {
   let symbolGroup: group.Group;
   beforeAll(async () => {
-    symbolGroup = await client.ontology.groups.create({
+    symbolGroup = await client.groups.create({
       parent: ontology.ROOT_ID,
       name: "Test Symbols",
     });

@@ -20,6 +20,7 @@ from console.layout import LayoutClient
 from console.notifications import NotificationsClient
 from console.rack import RackClient
 from console.ranges import RangesClient
+from console.statuses import StatusesClient
 from console.workspace import WorkspaceClient
 from framework.utils import get_results_path
 
@@ -43,6 +44,7 @@ class Console:
     notifications: NotificationsClient
     rack: RackClient
     ranges: RangesClient
+    statuses: StatusesClient
     workspace: WorkspaceClient
     page: Page
 
@@ -58,6 +60,7 @@ class Console:
         self.access = AccessClient(self.layout)
         self.channels = ChannelClient(self.layout, self.client)
         self.ranges = RangesClient(self.layout)
+        self.statuses = StatusesClient(self.layout)
         self.workspace = WorkspaceClient(self.layout, self.client)
 
     def check_for_error_screen(self) -> None:

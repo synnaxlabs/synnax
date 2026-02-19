@@ -8,7 +8,13 @@
 // included in the file licenses/APL.txt.
 
 import { sendRequired, type UnaryClient } from "@synnaxlabs/freighter";
-import { array, type CrudeTimeRange, type Series, TimeRange } from "@synnaxlabs/x";
+import {
+  array,
+  color,
+  type CrudeTimeRange,
+  type Series,
+  TimeRange,
+} from "@synnaxlabs/x";
 import { z } from "zod";
 
 import { type channel } from "@/channel";
@@ -50,7 +56,7 @@ export class Range {
   name: string;
   readonly kv: KVClient;
   readonly timeRange: TimeRange;
-  readonly color: string | undefined;
+  readonly color: color.Color | undefined;
   readonly parent: Payload | null;
   readonly labels?: label.Label[];
   readonly channels: channel.Retriever;
@@ -317,7 +323,7 @@ export class Client {
       key: resource.id.key,
       name: resource.data?.name as string,
       timeRange: new TimeRange(resource.data?.timeRange as CrudeTimeRange),
-      color: resource.data?.color as string,
+      color: resource.data?.color as color.Color,
       labels: [],
       parent: null,
     });
@@ -338,11 +344,12 @@ export const convertOntologyResourceToPayload = ({
   name,
 }: ontology.Resource): Payload => {
   const timeRange = TimeRange.z.parse(data?.timeRange);
+  const c = color.colorZ.safeParse(data?.color);
   return {
     key,
     name,
     timeRange,
-    color: typeof data?.color === "string" ? data.color : undefined,
+    color: c.success ? c.data : undefined,
     labels: [],
     parent: null,
   };

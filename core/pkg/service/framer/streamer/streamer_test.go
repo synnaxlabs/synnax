@@ -240,6 +240,90 @@ var _ = Describe("Streamer", Ordered, func() {
 			Expect(w.Close()).To(Succeed())
 			Expect(res.Frame.Get(calculation.Key()).Series[0]).To(telem.MatchSeriesDataV[float32](0, 0, 0, 0, 0))
 		})
+
+		It("Should compute when inputs with different indexes arrive in separate frames", func() {
+			idxA := &channel.Channel{
+				Name:     channel.NewRandomName(),
+				DataType: telem.TimeStampT,
+				IsIndex:  true,
+			}
+			Expect(dist.Channel.Create(ctx, idxA)).To(Succeed())
+			idxB := &channel.Channel{
+				Name:     channel.NewRandomName(),
+				DataType: telem.TimeStampT,
+				IsIndex:  true,
+			}
+			Expect(dist.Channel.Create(ctx, idxB)).To(Succeed())
+			dataA := &channel.Channel{
+				Name:       channel.NewRandomName(),
+				DataType:   telem.Float32T,
+				LocalIndex: idxA.LocalKey,
+			}
+			Expect(dist.Channel.Create(ctx, dataA)).To(Succeed())
+			dataB := &channel.Channel{
+				Name:       channel.NewRandomName(),
+				DataType:   telem.Float32T,
+				LocalIndex: idxB.LocalKey,
+			}
+			Expect(dist.Channel.Create(ctx, dataB)).To(Succeed())
+
+			calculation := &channel.Channel{
+				Name:       channel.NewRandomName(),
+				DataType:   telem.Float32T,
+				Expression: fmt.Sprintf("return %s + %s", dataA.Name, dataB.Name),
+			}
+			Expect(dist.Channel.Create(ctx, calculation)).To(Succeed())
+
+			keysA := []channel.Key{idxA.Key(), dataA.Key()}
+			wA := MustSucceed(dist.Framer.OpenWriter(ctx, framer.WriterConfig{
+				Start: telem.SecondTS,
+				Keys:  keysA,
+			}))
+			keysB := []channel.Key{idxB.Key(), dataB.Key()}
+			wB := MustSucceed(dist.Framer.OpenWriter(ctx, framer.WriterConfig{
+				Start: telem.SecondTS,
+				Keys:  keysB,
+			}))
+
+			s := MustSucceed(streamerSvc.New(ctx, streamer.Config{
+				Keys:        []channel.Key{calculation.Key()},
+				SendOpenAck: true,
+			}))
+			sCtx, cancel := signal.Isolated()
+			inlet, outlet := confluence.Attach(s)
+			defer cancel()
+			s.Flow(sCtx, confluence.CloseOutputInletsOnExit())
+			Eventually(outlet.Outlet()).Should(Receive())
+
+			// Writer A sends [idxA, dataA] — not enough inputs to compute
+			MustSucceed(wA.Write(frame.NewMulti(
+				keysA,
+				[]telem.Series{
+					telem.NewSeriesSecondsTSV(1, 2, 3),
+					telem.NewSeriesV[float32](10, 20, 30),
+				},
+			)))
+
+			// Writer B sends [idxB, dataB] — now both inputs available
+			MustSucceed(wB.Write(frame.NewMulti(
+				keysB,
+				[]telem.Series{
+					telem.NewSeriesSecondsTSV(1, 2, 3),
+					telem.NewSeriesV[float32](1, 2, 3),
+				},
+			)))
+
+			var res streamer.Response
+			Eventually(outlet.Outlet()).Should(Receive(&res))
+			Expect(res.Frame.Get(calculation.Key()).Series[0]).To(
+				telem.MatchSeriesDataV[float32](11, 22, 33),
+			)
+
+			inlet.Close()
+			Eventually(outlet.Outlet()).Should(BeClosed())
+			Expect(wA.Close()).To(Succeed())
+			Expect(wB.Close()).To(Succeed())
+		})
 	})
 
 	Describe("Downsampling", func() {

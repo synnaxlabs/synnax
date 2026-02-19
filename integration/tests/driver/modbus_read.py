@@ -7,26 +7,15 @@
 #  License, use of this software will be governed by the Apache License, Version 2.0,
 #  included in the file licenses/APL.txt.
 
-
 import synnax as sy
-from synnax import modbus
-from synnax.modbus.types import BaseChan
 
 from tests.driver.modbus_task import ModbusTaskCase
 
 
 class ModbusReadInputRegister(ModbusTaskCase):
-    """
-    Modbus TCP read task test for input registers.
+    task_name = "Modbus Read Input Register"
 
-    Tests input register channels (function code 4, read-only, addresses 0-1).
-    """
-
-    def __init__(self, **kwargs: object) -> None:
-        super().__init__(task_name="Modbus Read Input Register", **kwargs)
-
-    def create_channels(self) -> list[BaseChan]:
-        """Create input register channels."""
+    def create_channels(self) -> list[sy.modbus.BaseChan]:
         index_c = self.client.channels.create(
             name="input_register_index",
             data_type=sy.DataType.TIMESTAMP,
@@ -34,7 +23,7 @@ class ModbusReadInputRegister(ModbusTaskCase):
             retrieve_if_name_exists=True,
         )
         return [
-            modbus.InputRegisterChan(
+            sy.modbus.InputRegisterChan(
                 channel=self.client.channels.create(
                     name="input_register_0",
                     data_type=sy.DataType.UINT8,
@@ -44,7 +33,7 @@ class ModbusReadInputRegister(ModbusTaskCase):
                 address=0,
                 data_type="uint8",
             ),
-            modbus.InputRegisterChan(
+            sy.modbus.InputRegisterChan(
                 channel=self.client.channels.create(
                     name="input_register_1",
                     data_type=sy.DataType.UINT8,
@@ -58,17 +47,9 @@ class ModbusReadInputRegister(ModbusTaskCase):
 
 
 class ModbusReadHoldingRegister(ModbusTaskCase):
-    """
-    Modbus TCP read task test for holding registers.
+    task_name = "Modbus Read Holding Register"
 
-    Tests holding register input channels (function code 3, read/write, addresses 0-1).
-    """
-
-    def __init__(self, **kwargs: object) -> None:
-        super().__init__(task_name="Modbus Read Holding Register", **kwargs)
-
-    def create_channels(self) -> list[BaseChan]:
-        """Create holding register channels."""
+    def create_channels(self) -> list[sy.modbus.BaseChan]:
         index_c = self.client.channels.create(
             name="holding_register_index",
             data_type=sy.DataType.TIMESTAMP,
@@ -76,7 +57,7 @@ class ModbusReadHoldingRegister(ModbusTaskCase):
             retrieve_if_name_exists=True,
         )
         return [
-            modbus.HoldingRegisterInputChan(
+            sy.modbus.HoldingRegisterInputChan(
                 channel=self.client.channels.create(
                     name="holding_register_0",
                     index=index_c.key,
@@ -86,7 +67,7 @@ class ModbusReadHoldingRegister(ModbusTaskCase):
                 address=0,
                 data_type="uint8",
             ),
-            modbus.HoldingRegisterInputChan(
+            sy.modbus.HoldingRegisterInputChan(
                 channel=self.client.channels.create(
                     name="holding_register_1",
                     index=index_c.key,
@@ -100,17 +81,9 @@ class ModbusReadHoldingRegister(ModbusTaskCase):
 
 
 class ModbusReadDiscreteInput(ModbusTaskCase):
-    """
-    Modbus TCP read task test for discrete inputs.
+    task_name = "Modbus Read Discrete Input"
 
-    Tests discrete input channels (function code 2, 1-bit read-only, addresses 0-1).
-    """
-
-    def __init__(self, **kwargs: object) -> None:
-        super().__init__(task_name="Modbus Read Discrete Input", **kwargs)
-
-    def create_channels(self) -> list[BaseChan]:
-        """Create discrete input channels."""
+    def create_channels(self) -> list[sy.modbus.BaseChan]:
         index_c = self.client.channels.create(
             name="discrete_input_index",
             data_type=sy.DataType.TIMESTAMP,
@@ -118,7 +91,7 @@ class ModbusReadDiscreteInput(ModbusTaskCase):
             retrieve_if_name_exists=True,
         )
         return [
-            modbus.DiscreteInputChan(
+            sy.modbus.DiscreteInputChan(
                 channel=self.client.channels.create(
                     name="discrete_input_0",
                     index=index_c.key,
@@ -127,7 +100,7 @@ class ModbusReadDiscreteInput(ModbusTaskCase):
                 ).key,
                 address=0,
             ),
-            modbus.DiscreteInputChan(
+            sy.modbus.DiscreteInputChan(
                 channel=self.client.channels.create(
                     name="discrete_input_1",
                     index=index_c.key,
@@ -140,17 +113,9 @@ class ModbusReadDiscreteInput(ModbusTaskCase):
 
 
 class ModbusReadCoil(ModbusTaskCase):
-    """
-    Modbus TCP read task test for coils.
+    task_name = "Modbus Read Coil"
 
-    Tests coil input channels (function code 1, 1-bit read/write, addresses 0-1).
-    """
-
-    def __init__(self, **kwargs: object) -> None:
-        super().__init__(task_name="Modbus Read Coil", **kwargs)
-
-    def create_channels(self) -> list[BaseChan]:
-        """Create coil channels."""
+    def create_channels(self) -> list[sy.modbus.BaseChan]:
         index_c = self.client.channels.create(
             name="coil_input_index",
             data_type=sy.DataType.TIMESTAMP,
@@ -158,7 +123,7 @@ class ModbusReadCoil(ModbusTaskCase):
             retrieve_if_name_exists=True,
         )
         return [
-            modbus.CoilInputChan(
+            sy.modbus.CoilInputChan(
                 channel=self.client.channels.create(
                     name="coil_input_0",
                     index=index_c.key,
@@ -167,7 +132,7 @@ class ModbusReadCoil(ModbusTaskCase):
                 ).key,
                 address=0,
             ),
-            modbus.CoilInputChan(
+            sy.modbus.CoilInputChan(
                 channel=self.client.channels.create(
                     name="coil_input_1",
                     index=index_c.key,
@@ -180,17 +145,9 @@ class ModbusReadCoil(ModbusTaskCase):
 
 
 class ModbusReadMixed(ModbusTaskCase):
-    """
-    Modbus TCP read task test with mixed channel types.
+    task_name = "Modbus Read Mixed"
 
-    Tests mixed channel types (input registers + discrete inputs).
-    """
-
-    def __init__(self, **kwargs: object) -> None:
-        super().__init__(task_name="Modbus Read Mixed", **kwargs)
-
-    def create_channels(self) -> list[BaseChan]:
-        """Create mixed channel types."""
+    def create_channels(self) -> list[sy.modbus.BaseChan]:
         index_c = self.client.channels.create(
             name="modbus_mixed_index",
             data_type=sy.DataType.TIMESTAMP,
@@ -198,7 +155,7 @@ class ModbusReadMixed(ModbusTaskCase):
             retrieve_if_name_exists=True,
         )
         return [
-            modbus.InputRegisterChan(
+            sy.modbus.InputRegisterChan(
                 channel=self.client.channels.create(
                     name="input_register_0",
                     data_type=sy.DataType.UINT8,
@@ -208,7 +165,7 @@ class ModbusReadMixed(ModbusTaskCase):
                 address=0,
                 data_type="uint8",
             ),
-            modbus.InputRegisterChan(
+            sy.modbus.InputRegisterChan(
                 channel=self.client.channels.create(
                     name="input_register_1",
                     data_type=sy.DataType.UINT8,
@@ -218,7 +175,7 @@ class ModbusReadMixed(ModbusTaskCase):
                 address=1,
                 data_type="uint8",
             ),
-            modbus.DiscreteInputChan(
+            sy.modbus.DiscreteInputChan(
                 channel=self.client.channels.create(
                     name="discrete_input_0",
                     data_type=sy.DataType.UINT8,
@@ -227,7 +184,7 @@ class ModbusReadMixed(ModbusTaskCase):
                 ).key,
                 address=0,
             ),
-            modbus.DiscreteInputChan(
+            sy.modbus.DiscreteInputChan(
                 channel=self.client.channels.create(
                     name="discrete_input_1",
                     data_type=sy.DataType.UINT8,

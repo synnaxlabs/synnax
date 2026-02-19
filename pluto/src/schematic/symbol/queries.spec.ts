@@ -38,7 +38,7 @@ describe("Symbol queries", () => {
 
   describe("useList", () => {
     it("should return a list of symbols for a given parent", async () => {
-      const parent = await client.ontology.groups.create({
+      const parent = await client.groups.create({
         parent: ontology.ROOT_ID,
         name: "test-symbols-parent",
       });
@@ -95,7 +95,7 @@ describe("Symbol queries", () => {
 
     it("should filter symbols by search term", async () => {
       const uniqueId = Math.random().toString(36).substring(7);
-      const parent = await client.ontology.groups.create({
+      const parent = await client.groups.create({
         parent: ontology.ROOT_ID,
         name: `test-symbols-search-${uniqueId}`,
       });
@@ -170,7 +170,7 @@ describe("Symbol queries", () => {
 
     it("should update when a new symbol is added", async () => {
       const uniqueId = Math.random().toString(36).substring(7);
-      const parent = await client.ontology.groups.create({
+      const parent = await client.groups.create({
         parent: ontology.ROOT_ID,
         name: `test-symbols-live-${uniqueId}`,
       });
@@ -262,7 +262,7 @@ describe("Symbol queries", () => {
 
   describe("useForm", () => {
     it("should create a new symbol", async () => {
-      const parent = await client.ontology.groups.create({
+      const parent = await client.groups.create({
         parent: ontology.ROOT_ID,
         name: "test-symbol-create",
       });
@@ -298,7 +298,7 @@ describe("Symbol queries", () => {
     });
 
     it("should update an existing symbol", async () => {
-      const parent = await client.ontology.groups.create({
+      const parent = await client.groups.create({
         parent: ontology.ROOT_ID,
         name: "test-symbol-update",
       });

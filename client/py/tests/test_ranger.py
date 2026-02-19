@@ -45,7 +45,7 @@ class TestRangeClient:
         )
         assert rng.name == "test"
         assert rng.key != ""
-        assert rng.color == "#FF0000"
+        assert rng.color == sy.Color(r=255, g=0, b=0, a=1.0)
 
     def test_create_multiple(self, two_ranges: list[sy.Range]):
         """Should create multiple valid ranges"""
