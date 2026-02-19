@@ -8,10 +8,11 @@
 #  included in the file licenses/APL.txt.
 
 """
-Base class for driver task lifecycle tests.
+Base classes for driver task lifecycle tests.
 
-This module provides the abstract TaskCase class that defines the standard
-pattern for testing driver tasks.
+TaskCase: Shared base with setup, cleanup, and generic assertions.
+ReadTaskCase: Read-specific lifecycle (sample counting, data saving, rate changes).
+WriteTaskCase: Write-specific lifecycle (command sending).
 """
 
 import os
@@ -26,13 +27,14 @@ from framework.test_case import TestCase
 class TaskCase(TestCase):
     """Base class for driver task lifecycle tests.
 
-    This base class does NOT include simulator logic - that's in SimulatorCase.
+    Provides setup/cleanup, channel key extraction, and generic assertions.
     Subclasses must set task_name and device_name as class attributes.
     """
 
     task_name: str
     device_name: str
     tsk: sy.Task | None = None
+    _channel_key_attr: str = "channel"  # "channel" or "cmd_channel"
     SAMPLE_RATE: sy.Rate = 50 * sy.Rate.HZ
     STREAM_RATE: sy.Rate = 10 * sy.Rate.HZ
     TASK_DURATION: sy.TimeSpan = 1 * sy.TimeSpan.SECOND
@@ -47,18 +49,7 @@ class TaskCase(TestCase):
         sample_rate: sy.Rate,
         stream_rate: sy.Rate,
     ) -> sy.Task:
-        """Factory method to create protocol-specific task.
-
-        Args:
-            device: Synnax device to configure task for
-            task_name: Name for the task
-            sample_rate: Sampling rate for the task
-            stream_rate: Streaming rate for the task
-
-        Returns:
-            Configured protocol-specific task (e.g., modbus.ReadTask, opcua.ReadTask)
-            with all channels and configuration set.
-        """
+        """Factory method to create protocol-specific task."""
         pass
 
     def setup(self) -> None:
@@ -82,8 +73,105 @@ class TaskCase(TestCase):
             self.fail(f"Task configuration failed: {e}")
             return
 
+    def cleanup(self) -> None:
+        """Cleanup task after test."""
+        if self.tsk is not None:
+            try:
+                self.client.tasks.delete(self.tsk.key)
+                self.log(f"Task '{self.task_name}' deleted")
+            except sy.NotFoundError:
+                self.log(f"Task '{self.task_name}' already deleted")
+            except Exception as e:
+                self.log(f"Failed to delete task '{self.task_name}': {e}")
+
+    def _channel_keys(self, task: sy.Task) -> list[int]:
+        """Extract channel keys from task config using _channel_key_attr."""
+        return [getattr(ch, self._channel_key_attr) for ch in task.config.channels]
+
+    def test_task_exists(self) -> None:
+        """Verify the task exists and has the expected channels."""
+        assert self.tsk is not None
+        self.log("Testing: Verify task exists")
+        self.assert_task_exists(task_key=self.tsk.key)
+
+        channel_keys = self._channel_keys(self.tsk)
+        channels = self.client.channels.retrieve(channel_keys)
+        expected_names = [ch.name for ch in channels]
+        self.assert_channel_names(task=self.tsk, expected_names=expected_names)
+
+    def assert_channel_names(
+        self, *, task: sy.Task, expected_names: list[str]
+    ) -> list[str]:
+        """Assert that the task's channels match the expected channel names."""
+        actual_names = []
+        for key in self._channel_keys(task):
+            ch = self.client.channels.retrieve(key)
+            actual_names.append(ch.name)
+
+        expected_sorted = sorted(expected_names)
+        actual_sorted = sorted(actual_names)
+
+        if actual_sorted != expected_sorted:
+            raise AssertionError(
+                f"Channel names mismatch. Expected: {expected_sorted}, "
+                f"Actual: {actual_sorted}"
+            )
+        return actual_names
+
+    def assert_task_exists(self, *, task_key: int) -> sy.Task:
+        """Assert that a task exists in Synnax."""
+        try:
+            task = self.client.tasks.retrieve(task_key)
+            if task is None:
+                raise AssertionError(f"Task {task_key} does not exist (None)")
+        except sy.NotFoundError:
+            raise AssertionError(f"Task {task_key} does not exist (NotFoundError)")
+        except Exception as e:
+            raise AssertionError(f"Task {task_key} does not exist (Exception): {e}")
+        return task
+
+    def assert_task_deleted(self, *, task_key: str) -> None:
+        """Assert that a task has been deleted from Synnax."""
+        try:
+            self.client.tasks.retrieve(task_key)
+            raise AssertionError(f"Task {task_key} still exists after deletion")
+        except sy.NotFoundError:
+            return  # Win condition
+        except Exception as e:
+            raise AssertionError(f"Unexpected error asserting task deletion: {e}")
+
+    def assert_device_exists(self, *, device_key: str) -> sy.Device:
+        """Assert that a device exists in Synnax."""
+        try:
+            device = self.client.devices.retrieve(key=device_key)
+            if device is None:
+                raise AssertionError(f"Device {device_key} does not exist (None)")
+        except sy.NotFoundError:
+            raise AssertionError(f"Device {device_key} does not exist (NotFoundError)")
+        except Exception as e:
+            raise AssertionError(f"Device {device_key} does not exist (Exception): {e}")
+        return device
+
+    def assert_device_deleted(self, *, device_key: str) -> None:
+        """Assert that a device has been deleted from Synnax."""
+        try:
+            device = self.client.devices.retrieve(key=device_key)
+            raise AssertionError(f"Device '{device.name}' still exists after deletion")
+        except sy.NotFoundError:
+            return
+        except Exception as e:
+            raise AssertionError(f"Unexpected error asserting device deletion: {e}")
+
+
+class ReadTaskCase(TaskCase):
+    """Base for read task lifecycle tests.
+
+    Adds sample counting, data saving toggle, rate reconfiguration,
+    and streamer-based channel deletion survival testing.
+    """
+
     def run(self) -> None:
-        """Execute the standard task lifecycle test."""
+        """Execute the standard read task lifecycle test."""
         if self.tsk is None:
             self.fail("Task not configured. Subclass must set self.tsk in setup()")
             return
@@ -94,17 +182,6 @@ class TaskCase(TestCase):
         self.test_enable_data_saving()
         self.test_reconfigure_rate()
         self.test_survives_channel_deletion()
-
-    def test_task_exists(self) -> None:
-        """Verify the task exists and has the expected channels."""
-        assert self.tsk is not None
-        self.log("Testing: Verify task exists")
-        self.assert_task_exists(task_key=self.tsk.key)
-
-        channel_keys = [ch.channel for ch in self.tsk.config.channels]
-        channels = self.client.channels.retrieve(channel_keys)
-        expected_names = [ch.name for ch in channels]
-        self.assert_channel_names(task=self.tsk, expected_names=expected_names)
 
     def test_start_and_stop(self) -> None:
         """Start the task, collect samples, and stop it."""
@@ -139,79 +216,25 @@ class TaskCase(TestCase):
 
     def test_survives_channel_deletion(self) -> None:
         """Attempt to delete a channel while the task is running."""
+        assert self.tsk is not None
         self.log("Testing: Delete channel while running")
-        self.assert_survives_channel_deletion(task=self.tsk)
 
-    def assert_channel_names(
-        self, *, task: sy.Task, expected_names: list[str]
-    ) -> list[str]:
-        """Assert that the task's channels match the expected channel names.
+        channel_keys = self._channel_keys(self.tsk)
+        ch = self.client.channels.retrieve(channel_keys[0])
 
-        Args:
-            task: The task to check channel names for
-            expected_names: List of expected channel names in any order
-
-        Raises:
-            AssertionError: If channel names don't match
-
-        Returns:
-            List of channel names in task
-        """
-        # Retrieve all channel names from the task
-        actual_names = []
-        for channel_config in task.config.channels:
-            ch = self.client.channels.retrieve(channel_config.channel)
-            actual_names.append(ch.name)
-
-        # Sort both lists for comparison (order doesn't matter)
-        expected_sorted = sorted(expected_names)
-        actual_sorted = sorted(actual_names)
-
-        if actual_sorted != expected_sorted:
-            raise AssertionError(
-                f"Channel names mismatch. Expected: {expected_sorted}, "
-                f"Actual: {actual_sorted}"
-            )
-        return actual_names
-
-    def assert_device_deleted(self, *, device_key: str) -> None:
-        """Assert that a device has been deleted from Synnax.
-
-        Args:
-            device_key: The key of the device that should be deleted
-
-        Raises:
-            AssertionError: If the device still exists
-        """
-        try:
-            device = self.client.devices.retrieve(key=device_key)
-            raise AssertionError(f"Device '{device.name}' still exists after deletion")
-        except sy.NotFoundError:
-            return
-        except Exception as e:
-            raise AssertionError(f"Unexpected error asserting device deletion: {e}")
-
-    def assert_device_exists(self, *, device_key: str) -> sy.Device:
-        """Assert that a device exists in Synnax.
-
-        Args:
-            device_key: The key of the device to check
-
-        Raises:
-            AssertionError: If the device does not exist
-
-        Returns:
-            The retrieved device if it exists
-        """
-        try:
-            device = self.client.devices.retrieve(key=device_key)
-            if device is None:
-                raise AssertionError(f"Device {device_key} does not exist (None)")
-        except sy.NotFoundError:
-            raise AssertionError(f"Device {device_key} does not exist (NotFoundError)")
-        except Exception as e:
-            raise AssertionError(f"Device {device_key} does not exist (Exception): {e}")
-        return device
+        with self.tsk.run():
+            with self.client.open_streamer(channel_keys) as streamer:
+                streamer.read(timeout=5)
+            try:
+                self.client.channels.delete(ch.key)
+                raise AssertionError(
+                    f"Channel '{ch.name}' deletion should have been "
+                    f"rejected while task is running"
+                )
+            except AssertionError:
+                raise
+            except Exception:
+                pass  # Win condition
 
     def assert_sample_count(
         self,
@@ -220,19 +243,9 @@ class TaskCase(TestCase):
         duration: sy.TimeSpan = 1 * sy.TimeSpan.SECOND,
         strict: bool = True,
     ) -> None:
-        """Assert that the task has the expected number of samples.
-
-        Args:
-            task: The task to assert the sample count of
-            duration: Duration to run the task for (sy.TimeSpan)
-            strict: Sample count within 20% tolerance if True, else no check
-
-        Raises:
-            AssertionError: If sample counts are incorrect or inconsistent
-        """
-
+        """Assert that the task collects the expected number of samples."""
         sample_rate = task.config.sample_rate
-        channel_keys = [ch.channel for ch in task.config.channels]
+        channel_keys = self._channel_keys(task)
 
         with task.run():
             # Block until first frame arrives
@@ -240,11 +253,10 @@ class TaskCase(TestCase):
                 streamer.read(timeout=1)
             sy.sleep(1)
             start_time = sy.TimeStamp.now()
-            sy.sleep(duration.seconds * 1.25)  # Bufffer for CI
+            sy.sleep(duration.seconds * 1.25)  # Buffer for CI
 
         end_time = sy.TimeStamp.now()
 
-        # Allow 35% tolerance for CI environments with timing variance
         expected_samples = int(sample_rate * duration.seconds)
         min_samples = int(expected_samples * 0.60) if strict else 1
         max_samples = int(expected_samples * 1.4) if strict else sys.maxsize
@@ -253,8 +265,8 @@ class TaskCase(TestCase):
         time_range = sy.TimeRange(start_time, end_time)
 
         sample_counts = []
-        for channel_config in task.config.channels:
-            ch = self.client.channels.retrieve(channel_config.channel)
+        for key in channel_keys:
+            ch = self.client.channels.retrieve(key)
             num_samples = len(ch.read(time_range))
             sample_counts.append(num_samples)
 
@@ -262,7 +274,8 @@ class TaskCase(TestCase):
                 if strict:
                     raise AssertionError(
                         f"Channel '{ch.name}' has {num_samples} samples, "
-                        f"expected {expected_samples} ±40% ({min_samples}-{max_samples})"
+                        f"expected {expected_samples} ±40% "
+                        f"({min_samples}-{max_samples})"
                     )
                 else:
                     raise AssertionError(
@@ -275,24 +288,14 @@ class TaskCase(TestCase):
                 f"Channels have different sample counts: {sample_counts}"
             )
 
-        return
-
     def assert_no_samples_persisted(
         self,
         *,
         task: sy.Task,
         duration: sy.TimeSpan = 1 * sy.TimeSpan.SECOND,
     ) -> None:
-        """Assert that no samples are persisted while the task is running.
-
-        Runs the task, confirms data is still streaming, then verifies that
-        no samples were written to disk.
-
-        Args:
-            task: The task to run
-            duration: Duration to run the task for
-        """
-        channel_keys = [ch.channel for ch in task.config.channels]
+        """Assert that no samples are persisted while the task is running."""
+        channel_keys = self._channel_keys(task)
 
         with task.run():
             with self.client.open_streamer(channel_keys) as streamer:
@@ -307,8 +310,8 @@ class TaskCase(TestCase):
         end_time = sy.TimeStamp.now()
         time_range = sy.TimeRange(start_time, end_time)
 
-        for channel_config in task.config.channels:
-            ch = self.client.channels.retrieve(channel_config.channel)
+        for key in channel_keys:
+            ch = self.client.channels.retrieve(key)
             num_samples = len(ch.read(time_range))
             if num_samples > 0:
                 raise AssertionError(
@@ -316,79 +319,105 @@ class TaskCase(TestCase):
                     f"with data_saving disabled, expected 0"
                 )
 
-    def assert_survives_channel_deletion(self, *, task: sy.Task) -> None:
-        """Assert that the server rejects channel deletion while a task is running.
 
-        Starts the task, attempts to delete one of its channels, and
-        verifies the server rejects the deletion.
+class WriteTaskCase(TaskCase):
+    """Base for write task lifecycle tests.
 
-        Args:
-            task: The task to test
-        """
-        ch = self.client.channels.retrieve(task.config.channels[0].channel)
+    Adds command sending and task reconfiguration testing.
+    Protocol cases set _channel_key_attr to match their channel field name.
+    """
 
-        with task.run():
-            with self.client.open_streamer(
-                [c.channel for c in task.config.channels]
-            ) as streamer:
-                streamer.read(timeout=5)
-            try:
-                self.client.channels.delete(ch.key)
+    def run(self) -> None:
+        """Execute the standard write task lifecycle test."""
+        if self.tsk is None:
+            self.fail("Task not configured. Subclass must set self.tsk in setup()")
+            return
+
+        self.test_task_exists()
+        self.test_send_commands()
+        self.test_reconfigure_name()
+
+    def test_send_commands(self) -> None:
+        """Start the write task, send commands, and verify they arrive on the stream."""
+        assert self.tsk is not None
+        self.log("Testing: Send commands")
+
+        cmd_keys = self._channel_keys(self.tsk)
+
+        with self.tsk.run():
+
+            with self.client.open_streamer(cmd_keys) as streamer:
+                with self.client.open_writer(
+                    start=sy.TimeStamp.now(),
+                    channels=cmd_keys,
+                    name=f"{self.task_name}_test_writer",
+                ) as writer:
+                    expected = {key: float(42.0 + i) for i, key in enumerate(cmd_keys)}
+                    writer.write(expected)
+                    self._assert_streamed_values(streamer, expected)
+
+                    expected = {key: float(100.0 + i) for i, key in enumerate(cmd_keys)}
+                    writer.write(expected)
+                    self._assert_streamed_values(streamer, expected)
+
+    def _assert_streamed_values(
+        self,
+        streamer: sy.Streamer,
+        expected: dict[int, float],
+        timeout: sy.TimeSpan = 5 * sy.TimeSpan.SECOND,
+    ) -> None:
+        """Read from streamer until all expected channel values are received."""
+        received: dict[int, float] = {}
+        timer = sy.Timer()
+
+        while len(received) < len(expected):
+            if timer.elapsed() > timeout:
+                missing = set(expected.keys()) - set(received.keys())
                 raise AssertionError(
-                    f"Channel '{ch.name}' deletion should have been "
-                    f"rejected while task is running"
+                    f"Timeout waiting for command values. Missing keys: {missing}"
                 )
-            except AssertionError:
-                raise
-            except Exception:
-                pass  #  Win condition
+            frame = streamer.read(timeout=timeout)
+            if frame is None:
+                continue
+            for key in expected:
+                if key in frame and len(frame[key]) > 0:
+                    received[key] = float(frame[key][-1])
 
-    def assert_task_deleted(self, *, task_key: str) -> None:
-        """Assert that a task has been deleted from Synnax.
+        for key, exp_val in expected.items():
+            if received[key] != exp_val:
+                ch = self.client.channels.retrieve(key)
+                raise AssertionError(
+                    f"Channel '{ch.name}': expected {exp_val}, got {received[key]}"
+                )
 
-        Args:
-            task_key: The key of the task that should be deleted
+    def test_reconfigure_name(self) -> None:
+        """Rename the task, verify it persists, then send commands again."""
+        assert self.tsk is not None
+        self.log("Testing: Reconfigure task name")
 
-        Raises:
-            AssertionError: If the task still exists
-        """
-        try:
-            self.client.tasks.retrieve(task_key)
-            raise AssertionError(f"Task {task_key} still exists after deletion")
-        except sy.NotFoundError:
-            return  # Win condition
-        except Exception as e:
-            raise AssertionError(f"Unexpected error asserting task deletion: {e}")
+        original_name = self.tsk.name
+        new_name = f"{original_name} (Renamed)"
+        self.tsk._internal.name = new_name
+        self.client.tasks.configure(self.tsk)
 
-    def assert_task_exists(self, *, task_key: int) -> sy.Task:
-        """Assert that a task exists in Synnax.
+        retrieved = self.client.tasks.retrieve(self.tsk.key)
+        if retrieved.name != new_name:
+            raise AssertionError(
+                f"Task name mismatch after rename. "
+                f"Expected: {new_name}, Actual: {retrieved.name}"
+            )
 
-        Args:
-            task_key: The key of the task to check
+        cmd_keys = self._channel_keys(self.tsk)
+        with self.tsk.run():
+            with self.client.open_streamer(cmd_keys) as streamer:
+                with self.client.open_writer(
+                    start=sy.TimeStamp.now(),
+                    channels=cmd_keys,
+                    name=f"{new_name}_test_writer",
+                ) as writer:
+                    expected = {key: float(42.0 + i) for i, key in enumerate(cmd_keys)}
+                    writer.write(expected)
+                    self._assert_streamed_values(streamer, expected)
 
-        Raises:
-            AssertionError: If the task does not exist
-
-        Returns:
-            The retrieved task if it exists
-        """
-        try:
-            task = self.client.tasks.retrieve(task_key)
-            if task is None:
-                raise AssertionError(f"Task {task_key} does not exist (None)")
-        except sy.NotFoundError:
-            raise AssertionError(f"Task {task_key} does not exist (NotFoundError)")
-        except Exception as e:
-            raise AssertionError(f"Task {task_key} does not exist (Exception): {e}")
-        return task
-
-    def cleanup(self) -> None:
-        """Cleanup task after test."""
-        if self.tsk is not None:
-            try:
-                self.client.tasks.delete(self.tsk.key)
-                self.log(f"Task '{self.task_name}' deleted")
-            except sy.NotFoundError:
-                self.log(f"Task '{self.task_name}' already deleted")
-            except Exception as e:
-                self.log(f"Failed to delete task '{self.task_name}': {e}")
+        self.tsk._internal.name = original_name
+        self.client.tasks.configure(self.tsk)

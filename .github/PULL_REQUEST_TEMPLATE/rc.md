@@ -401,25 +401,14 @@ I can successfully:
 I can successfully:
 
 - [ ] Enable and disable OPC UA integration when starting the server.
-- [ ] Connect to an encrypted OPC UA server.
-- [ ] Move and rename channels.
-- **Read Task**
-  - [ ] Connect to and read data from a physical device.
-- **Write Task**
-  - [ ] Perform control and verify changes on the connected OPC UA server.
-  - [ ] Perform a write operation on an encrypted server.
-  - [ ] Stop, start, and reconfigure write tasks.
+- [ ] Connect to and read data from a physical device.
+- [ ] Connect to an encrypted OPC UA server (Write and Read).
 
 ### Modbus
 
 I can successfully:
 
 - [ ] Enable and disable Modbus integration when starting the server.
-- **Read Task**
-  - [ ] Connect to and read data from a physical device.
-- **Write Task**
-  - [ ] Write to holding registers on a Modbus server.
-  - [ ] Write to coils on a Modbus server.
-  - [ ] Stop, start, and reconfigure write tasks.
+- [ ] Connect to and read data from a physical device.
 - [ ] Run simultaneous read and write tasks on the same device.
 - [ ] Run tasks across multiple Modbus servers concurrently.

@@ -10,10 +10,10 @@
 import synnax as sy
 from synnax import opcua
 
-from tests.driver.opcua_task import OPCUATaskCase
+from tests.driver.opcua_task import OPCUAReadTaskCase
 
 
-class OPCUAReadFloat(OPCUATaskCase):
+class OPCUAReadFloat(OPCUAReadTaskCase):
     task_name = "OPCUA Read Float"
 
     def create_channels(self) -> list[opcua.ReadChannel]:
@@ -47,7 +47,7 @@ class OPCUAReadFloat(OPCUATaskCase):
         ]
 
 
-class OPCUAReadBool(OPCUATaskCase):
+class OPCUAReadBool(OPCUAReadTaskCase):
     task_name = "OPCUA Read Bool"
 
     def create_channels(self) -> list[opcua.ReadChannel]:
@@ -81,7 +81,7 @@ class OPCUAReadBool(OPCUATaskCase):
         ]
 
 
-class OPCUAReadArray(OPCUATaskCase):
+class OPCUAReadArray(OPCUAReadTaskCase):
     task_name = "OPCUA Read Array"
     array_mode = True
 
@@ -116,7 +116,7 @@ class OPCUAReadArray(OPCUATaskCase):
         ]
 
 
-class OPCUAReadTimestamp(OPCUATaskCase):
+class OPCUAReadTimestamp(OPCUAReadTaskCase):
     """Test reading server timestamps as the task index (use_as_index)."""
 
     task_name = "OPCUA Read Timestamp"
@@ -164,7 +164,7 @@ class OPCUAReadTimestamp(OPCUATaskCase):
         pass
 
 
-class OPCUAReadMixed(OPCUATaskCase):
+class OPCUAReadMixed(OPCUAReadTaskCase):
     task_name = "OPCUA Read Mixed"
 
     def create_channels(self) -> list[opcua.ReadChannel]:

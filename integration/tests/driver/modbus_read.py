@@ -11,10 +11,10 @@ import synnax as sy
 from synnax import modbus
 from synnax.modbus.types import BaseChan
 
-from tests.driver.modbus_task import ModbusTaskCase
+from tests.driver.modbus_task import ModbusReadTaskCase
 
 
-class ModbusReadInputRegister(ModbusTaskCase):
+class ModbusReadInputRegister(ModbusReadTaskCase):
     task_name = "Modbus Read Input Register"
 
     def create_channels(self) -> list[BaseChan]:
@@ -48,7 +48,7 @@ class ModbusReadInputRegister(ModbusTaskCase):
         ]
 
 
-class ModbusReadHoldingRegister(ModbusTaskCase):
+class ModbusReadHoldingRegister(ModbusReadTaskCase):
     task_name = "Modbus Read Holding Register"
 
     def create_channels(self) -> list[BaseChan]:
@@ -82,7 +82,7 @@ class ModbusReadHoldingRegister(ModbusTaskCase):
         ]
 
 
-class ModbusReadDiscreteInput(ModbusTaskCase):
+class ModbusReadDiscreteInput(ModbusReadTaskCase):
     task_name = "Modbus Read Discrete Input"
 
     def create_channels(self) -> list[BaseChan]:
@@ -114,7 +114,7 @@ class ModbusReadDiscreteInput(ModbusTaskCase):
         ]
 
 
-class ModbusReadCoil(ModbusTaskCase):
+class ModbusReadCoil(ModbusReadTaskCase):
     task_name = "Modbus Read Coil"
 
     def create_channels(self) -> list[BaseChan]:
@@ -146,7 +146,7 @@ class ModbusReadCoil(ModbusTaskCase):
         ]
 
 
-class ModbusReadMixed(ModbusTaskCase):
+class ModbusReadMixed(ModbusReadTaskCase):
     task_name = "Modbus Read Mixed"
 
     def create_channels(self) -> list[BaseChan]:

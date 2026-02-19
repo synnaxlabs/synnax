@@ -34,10 +34,10 @@ import synnax as sy
 from tests.driver.modbus_read import ModbusReadMixed
 from tests.driver.opcua_read import OPCUAReadMixed
 from tests.driver.simulator_case import SimulatorCase
-from tests.driver.task import TaskCase
+from tests.driver.task import ReadTaskCase
 
 
-class DisconnectTask(SimulatorCase, TaskCase, ABC):
+class DisconnectTask(SimulatorCase, ReadTaskCase, ABC):
     """
     Abstract base class providing disconnect/reconnect test behavior.
 

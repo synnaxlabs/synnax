@@ -7,7 +7,7 @@
 #  License, use of this software will be governed by the Apache License, Version 2.0,
 #  included in the file licenses/APL.txt.
 
-"""OPC UA-specific task test case."""
+"""OPC UA-specific task test cases."""
 
 from abc import abstractmethod
 
@@ -16,11 +16,11 @@ from examples.opcua import OPCUASim
 from synnax import opcua
 
 from tests.driver.simulator_case import SimulatorCase
-from tests.driver.task import TaskCase
+from tests.driver.task import ReadTaskCase, WriteTaskCase
 
 
-class OPCUATaskCase(SimulatorCase, TaskCase):
-    """Base class for OPC UA task tests."""
+class OPCUAReadTaskCase(SimulatorCase, ReadTaskCase):
+    """Base class for OPC UA read task tests."""
 
     sim_class = OPCUASim
     SAMPLE_RATE = 100 * sy.Rate.HZ
@@ -53,5 +53,36 @@ class OPCUATaskCase(SimulatorCase, TaskCase):
             data_saving=True,
             array_mode=self.array_mode,
             array_size=self.array_size,
+            channels=channels,
+        )
+
+
+class OPCUAWriteTaskCase(SimulatorCase, WriteTaskCase):
+    """Base class for OPC UA write task tests."""
+
+    sim_class = OPCUASim
+    SAMPLE_RATE = 100 * sy.Rate.HZ
+    _channel_key_attr = "cmd_channel"
+
+    def setup(self) -> None:
+        self.sim = OPCUASim(rate=self.SAMPLE_RATE)
+        super().setup()
+
+    @abstractmethod
+    def create_channels(self) -> list[opcua.WriteChannel]: ...
+
+    def create(
+        self,
+        *,
+        device: sy.Device,
+        task_name: str,
+        sample_rate: sy.Rate,
+        stream_rate: sy.Rate,
+    ) -> opcua.WriteTask:
+        """Create an OPC UA write task."""
+        channels = self.create_channels()
+        return opcua.WriteTask(
+            name=task_name,
+            device=device.key,
             channels=channels,
         )
