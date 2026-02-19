@@ -23,6 +23,117 @@ import synnax as sy
 
 from framework.test_case import TestCase
 
+# ── Channel creation helpers ─────────────────────────────────────
+
+
+def create_index(client: sy.Synnax, name: str) -> sy.Channel:
+    """Create a timestamp index channel."""
+    return client.channels.create(
+        name=name,
+        data_type=sy.DataType.TIMESTAMP,
+        is_index=True,
+        retrieve_if_name_exists=True,
+    )
+
+
+def create_channel(
+    client: sy.Synnax,
+    *,
+    name: str,
+    data_type: sy.DataType,
+    index: int,
+) -> int:
+    """Create a data channel and return its key."""
+    return int(
+        client.channels.create(
+            name=name,
+            data_type=data_type,
+            index=index,
+            retrieve_if_name_exists=True,
+        ).key
+    )
+
+
+# ── Assertion helpers (module-level for use by any test case) ────
+
+
+def assert_streamed_values(
+    client: sy.Synnax,
+    streamer: sy.Streamer,
+    expected: dict[int, float],
+    timeout: sy.TimeSpan = 5 * sy.TimeSpan.SECOND,
+    task_name: str = "",
+) -> None:
+    """Read from streamer until all expected channel values are received."""
+    prefix = f"{task_name}: " if task_name else ""
+    received: dict[int, float] = {}
+    timer = sy.Timer()
+
+    while len(received) < len(expected):
+        if timer.elapsed() > timeout:
+            missing = set(expected.keys()) - set(received.keys())
+            raise AssertionError(
+                f"{prefix}Timeout waiting for command values. "
+                f"Missing keys: {missing}"
+            )
+        frame = streamer.read(timeout=timeout)
+        if frame is None:
+            continue
+        for key in expected:
+            if key in frame and len(frame[key]) > 0:
+                received[key] = float(frame[key][-1])
+
+    for key, exp_val in expected.items():
+        if received[key] != exp_val:
+            ch = client.channels.retrieve(key)
+            raise AssertionError(
+                f"{prefix}Channel '{ch.name}': "
+                f"expected {exp_val}, got {received[key]}"
+            )
+
+
+def assert_sample_counts_in_range(
+    client: sy.Synnax,
+    *,
+    channel_keys: list[int],
+    time_range: sy.TimeRange,
+    expected_samples: int,
+    strict: bool = True,
+    task_name: str = "",
+) -> list[int]:
+    """Assert sample counts for channels fall within expected range.
+
+    Returns the list of per-channel sample counts.
+    """
+    prefix = f"{task_name}: " if task_name else ""
+    min_samples = int(expected_samples * 0.60) if strict else 1
+    max_samples = int(expected_samples * 1.4) if strict else sys.maxsize
+
+    sample_counts = []
+    for key in channel_keys:
+        ch = client.channels.retrieve(key)
+        num_samples = len(ch.read(time_range))
+        sample_counts.append(num_samples)
+
+        if num_samples < min_samples or num_samples > max_samples:
+            if strict:
+                raise AssertionError(
+                    f"{prefix}Channel '{ch.name}' has {num_samples} samples, "
+                    f"expected {expected_samples} ±40% "
+                    f"({min_samples}-{max_samples})"
+                )
+            else:
+                raise AssertionError(
+                    f"{prefix}Channel '{ch.name}' has {num_samples} samples, "
+                    f"expected at least {min_samples} sample(s)"
+                )
+
+    if len(set(sample_counts)) > 1:
+        raise AssertionError(
+            f"{prefix}Channels have different sample counts: {sample_counts}"
+        )
+    return sample_counts
+
 
 class TaskCase(TestCase):
     """Base class for driver task lifecycle tests.
@@ -34,7 +145,6 @@ class TaskCase(TestCase):
     task_name: str
     device_name: str
     tsk: sy.Task | None = None
-    _channel_key_attr: str = "channel"  # "channel" or "cmd_channel"
     SAMPLE_RATE: sy.Rate = 50 * sy.Rate.HZ
     STREAM_RATE: sy.Rate = 10 * sy.Rate.HZ
     TASK_DURATION: sy.TimeSpan = 1 * sy.TimeSpan.SECOND
@@ -84,8 +194,8 @@ class TaskCase(TestCase):
         super().teardown()
 
     def _channel_keys(self, task: sy.Task) -> list[int]:
-        """Extract channel keys from task config using _channel_key_attr."""
-        return [getattr(ch, self._channel_key_attr) for ch in task.config.channels]
+        """Extract channel keys from task config."""
+        return [ch.channel for ch in task.config.channels]
 
     def test_task_exists(self) -> None:
         """Verify the task exists and has the expected channels."""
@@ -255,37 +365,15 @@ class ReadTaskCase(TaskCase):
             sy.sleep(duration.seconds * 1.25)  # Buffer for CI
 
         end_time = sy.TimeStamp.now()
-
         expected_samples = int(sample_rate * duration.seconds)
-        min_samples = int(expected_samples * 0.60) if strict else 1
-        max_samples = int(expected_samples * 1.4) if strict else sys.maxsize
-
-        # Read from start_time to now (captures any buffered/flushed samples)
         time_range = sy.TimeRange(start_time, end_time)
-
-        sample_counts = []
-        for key in channel_keys:
-            ch = self.client.channels.retrieve(key)
-            num_samples = len(ch.read(time_range))
-            sample_counts.append(num_samples)
-
-            if num_samples < min_samples or num_samples > max_samples:
-                if strict:
-                    raise AssertionError(
-                        f"Channel '{ch.name}' has {num_samples} samples, "
-                        f"expected {expected_samples} ±40% "
-                        f"({min_samples}-{max_samples})"
-                    )
-                else:
-                    raise AssertionError(
-                        f"Channel '{ch.name}' has {num_samples} samples, "
-                        f"expected at least {min_samples} sample(s)"
-                    )
-
-        if len(set(sample_counts)) > 1:
-            raise AssertionError(
-                f"Channels have different sample counts: {sample_counts}"
-            )
+        assert_sample_counts_in_range(
+            self.client,
+            channel_keys=channel_keys,
+            time_range=time_range,
+            expected_samples=expected_samples,
+            strict=strict,
+        )
 
     def assert_no_samples_persisted(
         self,
@@ -323,7 +411,6 @@ class WriteTaskCase(TaskCase):
     """Base for write task lifecycle tests.
 
     Adds command sending and task reconfiguration testing.
-    Protocol cases set _channel_key_attr to match their channel field name.
     """
 
     def run(self) -> None:
@@ -336,58 +423,33 @@ class WriteTaskCase(TaskCase):
         self.test_send_commands()
         self.test_reconfigure_name()
 
+    def _send_and_verify_commands(
+        self,
+        task: sy.Task,
+        writer_name: str,
+    ) -> None:
+        """Open a streamer/writer pair, send two rounds of commands, and verify."""
+        cmd_keys = self._channel_keys(task)
+        with self.client.open_streamer(cmd_keys) as streamer:
+            with self.client.open_writer(
+                start=sy.TimeStamp.now(),
+                channels=cmd_keys,
+                name=writer_name,
+            ) as writer:
+                expected = {key: float(42.0 + i) for i, key in enumerate(cmd_keys)}
+                writer.write(expected)
+                assert_streamed_values(self.client, streamer, expected)
+
+                expected = {key: float(100.0 + i) for i, key in enumerate(cmd_keys)}
+                writer.write(expected)
+                assert_streamed_values(self.client, streamer, expected)
+
     def test_send_commands(self) -> None:
         """Start the write task, send commands, and verify they arrive on the stream."""
         assert self.tsk is not None
         self.log("Testing: Send commands")
-
-        cmd_keys = self._channel_keys(self.tsk)
-
         with self.tsk.run():
-
-            with self.client.open_streamer(cmd_keys) as streamer:
-                with self.client.open_writer(
-                    start=sy.TimeStamp.now(),
-                    channels=cmd_keys,
-                    name=f"{self.task_name}_test_writer",
-                ) as writer:
-                    expected = {key: float(42.0 + i) for i, key in enumerate(cmd_keys)}
-                    writer.write(expected)
-                    self._assert_streamed_values(streamer, expected)
-
-                    expected = {key: float(100.0 + i) for i, key in enumerate(cmd_keys)}
-                    writer.write(expected)
-                    self._assert_streamed_values(streamer, expected)
-
-    def _assert_streamed_values(
-        self,
-        streamer: sy.Streamer,
-        expected: dict[int, float],
-        timeout: sy.TimeSpan = 5 * sy.TimeSpan.SECOND,
-    ) -> None:
-        """Read from streamer until all expected channel values are received."""
-        received: dict[int, float] = {}
-        timer = sy.Timer()
-
-        while len(received) < len(expected):
-            if timer.elapsed() > timeout:
-                missing = set(expected.keys()) - set(received.keys())
-                raise AssertionError(
-                    f"Timeout waiting for command values. Missing keys: {missing}"
-                )
-            frame = streamer.read(timeout=timeout)
-            if frame is None:
-                continue
-            for key in expected:
-                if key in frame and len(frame[key]) > 0:
-                    received[key] = float(frame[key][-1])
-
-        for key, exp_val in expected.items():
-            if received[key] != exp_val:
-                ch = self.client.channels.retrieve(key)
-                raise AssertionError(
-                    f"Channel '{ch.name}': expected {exp_val}, got {received[key]}"
-                )
+            self._send_and_verify_commands(self.tsk, f"{self.task_name}_test_writer")
 
     def test_reconfigure_name(self) -> None:
         """Rename the task, verify it persists, then send commands again."""
@@ -406,14 +468,5 @@ class WriteTaskCase(TaskCase):
                 f"Expected: {new_name}, Actual: {retrieved.name}"
             )
 
-        cmd_keys = self._channel_keys(self.tsk)
         with self.tsk.run():
-            with self.client.open_streamer(cmd_keys) as streamer:
-                with self.client.open_writer(
-                    start=sy.TimeStamp.now(),
-                    channels=cmd_keys,
-                    name=f"{new_name}_test_writer",
-                ) as writer:
-                    expected = {key: float(42.0 + i) for i, key in enumerate(cmd_keys)}
-                    writer.write(expected)
-                    self._assert_streamed_values(streamer, expected)
+            self._send_and_verify_commands(self.tsk, f"{new_name}_test_writer")

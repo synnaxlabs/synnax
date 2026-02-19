@@ -59,7 +59,7 @@ TASK_NAMES = [t.name for t in TASKS]
 class TaskLifecycle(SimulatorCase, ConsoleCase):
     """Task Lifecycle Tests"""
 
-    sim_class = OPCUASim
+    sim_classes = [OPCUASim]
     _cleanup_tasks: list[str]
 
     def setup_tasks(self) -> None:

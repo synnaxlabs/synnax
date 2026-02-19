@@ -20,30 +20,15 @@ class OPCUAWriteFloat(OPCUAWriteTaskCase):
     def create_channels(client: sy.Synnax) -> list[opcua.WriteChannel]:
         return [
             opcua.WriteChannel(
-                cmd_channel=client.channels.create(
-                    name="opcua_cmd_0",
-                    data_type=sy.DataType.FLOAT32,
-                    virtual=True,
-                    retrieve_if_name_exists=True,
-                ).key,
-                node_id="NS=2;I=18",
-            ),
-            opcua.WriteChannel(
-                cmd_channel=client.channels.create(
-                    name="opcua_cmd_1",
-                    data_type=sy.DataType.FLOAT32,
-                    virtual=True,
-                    retrieve_if_name_exists=True,
-                ).key,
-                node_id="NS=2;I=19",
-            ),
-            opcua.WriteChannel(
-                cmd_channel=client.channels.create(
-                    name="opcua_cmd_2",
-                    data_type=sy.DataType.FLOAT32,
-                    virtual=True,
-                    retrieve_if_name_exists=True,
-                ).key,
-                node_id="NS=2;I=20",
-            ),
+                cmd_channel=int(
+                    client.channels.create(
+                        name=f"opcua_cmd_{i}",
+                        data_type=sy.DataType.FLOAT32,
+                        virtual=True,
+                        retrieve_if_name_exists=True,
+                    ).key
+                ),
+                node_id=f"NS=2;I={18 + i}",
+            )
+            for i in range(3)
         ]

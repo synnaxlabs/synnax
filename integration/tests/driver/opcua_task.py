@@ -22,13 +22,17 @@ from tests.driver.task import ReadTaskCase, WriteTaskCase
 class OPCUAReadTaskCase(SimulatorCase, ReadTaskCase):
     """Base class for OPC UA read task tests."""
 
-    sim_class = OPCUASim
+    sim_classes = [OPCUASim]
     SAMPLE_RATE = 100 * sy.Rate.HZ
     array_mode: bool = False
     array_size: int = 100
 
     def setup(self) -> None:
-        self.sim = OPCUASim(rate=self.SAMPLE_RATE, array_size=self.array_size)
+        self.sims = {
+            OPCUASim.device_name: OPCUASim(
+                rate=self.SAMPLE_RATE, array_size=self.array_size
+            )
+        }
         super().setup()
 
     @staticmethod
@@ -61,13 +65,11 @@ class OPCUAReadTaskCase(SimulatorCase, ReadTaskCase):
 class OPCUAWriteTaskCase(SimulatorCase, WriteTaskCase):
     """Base class for OPC UA write task tests."""
 
-    sim_class = OPCUASim
+    sim_classes = [OPCUASim]
     SAMPLE_RATE = 100 * sy.Rate.HZ
-    _channel_key_attr = "cmd_channel"
 
-    def setup(self) -> None:
-        self.sim = OPCUASim(rate=self.SAMPLE_RATE)
-        super().setup()
+    def _channel_keys(self, task: sy.Task) -> list[int]:
+        return [ch.cmd_channel for ch in task.config.channels]
 
     @staticmethod
     @abstractmethod

@@ -21,32 +21,17 @@ class ModbusWriteCoil(ModbusWriteTaskCase):
     def create_channels(client: sy.Synnax) -> list[OutputChan]:
         return [
             modbus.CoilOutputChan(
-                channel=client.channels.create(
-                    name="modbus_coil_cmd_0",
-                    data_type=sy.DataType.UINT8,
-                    virtual=True,
-                    retrieve_if_name_exists=True,
-                ).key,
-                address=10,
-            ),
-            modbus.CoilOutputChan(
-                channel=client.channels.create(
-                    name="modbus_coil_cmd_1",
-                    data_type=sy.DataType.UINT8,
-                    virtual=True,
-                    retrieve_if_name_exists=True,
-                ).key,
-                address=11,
-            ),
-            modbus.CoilOutputChan(
-                channel=client.channels.create(
-                    name="modbus_coil_cmd_2",
-                    data_type=sy.DataType.UINT8,
-                    virtual=True,
-                    retrieve_if_name_exists=True,
-                ).key,
-                address=12,
-            ),
+                channel=int(
+                    client.channels.create(
+                        name=f"modbus_coil_cmd_{i}",
+                        data_type=sy.DataType.UINT8,
+                        virtual=True,
+                        retrieve_if_name_exists=True,
+                    ).key
+                ),
+                address=10 + i,
+            )
+            for i in range(3)
         ]
 
 
@@ -57,35 +42,18 @@ class ModbusWriteHoldingRegister(ModbusWriteTaskCase):
     def create_channels(client: sy.Synnax) -> list[OutputChan]:
         return [
             modbus.HoldingRegisterOutputChan(
-                channel=client.channels.create(
-                    name="modbus_hr_cmd_0",
-                    data_type=sy.DataType.FLOAT32,
-                    virtual=True,
-                    retrieve_if_name_exists=True,
-                ).key,
-                address=10,
+                channel=int(
+                    client.channels.create(
+                        name=f"modbus_hr_cmd_{i}",
+                        data_type=sy.DataType.FLOAT32,
+                        virtual=True,
+                        retrieve_if_name_exists=True,
+                    ).key
+                ),
+                address=10 + i * 2,
                 data_type="float32",
-            ),
-            modbus.HoldingRegisterOutputChan(
-                channel=client.channels.create(
-                    name="modbus_hr_cmd_1",
-                    data_type=sy.DataType.FLOAT32,
-                    virtual=True,
-                    retrieve_if_name_exists=True,
-                ).key,
-                address=12,
-                data_type="float32",
-            ),
-            modbus.HoldingRegisterOutputChan(
-                channel=client.channels.create(
-                    name="modbus_hr_cmd_2",
-                    data_type=sy.DataType.FLOAT32,
-                    virtual=True,
-                    retrieve_if_name_exists=True,
-                ).key,
-                address=14,
-                data_type="float32",
-            ),
+            )
+            for i in range(3)
         ]
 
 
@@ -96,41 +64,29 @@ class ModbusWriteMixed(ModbusWriteTaskCase):
     def create_channels(client: sy.Synnax) -> list[OutputChan]:
         return [
             modbus.CoilOutputChan(
-                channel=client.channels.create(
-                    name="modbus_mixed_coil_cmd_0",
-                    data_type=sy.DataType.UINT8,
-                    virtual=True,
-                    retrieve_if_name_exists=True,
-                ).key,
-                address=20,
-            ),
-            modbus.CoilOutputChan(
-                channel=client.channels.create(
-                    name="modbus_mixed_coil_cmd_1",
-                    data_type=sy.DataType.UINT8,
-                    virtual=True,
-                    retrieve_if_name_exists=True,
-                ).key,
-                address=21,
-            ),
+                channel=int(
+                    client.channels.create(
+                        name=f"modbus_mixed_coil_cmd_{i}",
+                        data_type=sy.DataType.UINT8,
+                        virtual=True,
+                        retrieve_if_name_exists=True,
+                    ).key
+                ),
+                address=20 + i,
+            )
+            for i in range(2)
+        ] + [
             modbus.HoldingRegisterOutputChan(
-                channel=client.channels.create(
-                    name="modbus_mixed_hr_cmd_0",
-                    data_type=sy.DataType.FLOAT32,
-                    virtual=True,
-                    retrieve_if_name_exists=True,
-                ).key,
-                address=20,
+                channel=int(
+                    client.channels.create(
+                        name=f"modbus_mixed_hr_cmd_{i}",
+                        data_type=sy.DataType.FLOAT32,
+                        virtual=True,
+                        retrieve_if_name_exists=True,
+                    ).key
+                ),
+                address=20 + i * 2,
                 data_type="float32",
-            ),
-            modbus.HoldingRegisterOutputChan(
-                channel=client.channels.create(
-                    name="modbus_mixed_hr_cmd_1",
-                    data_type=sy.DataType.FLOAT32,
-                    virtual=True,
-                    retrieve_if_name_exists=True,
-                ).key,
-                address=22,
-                data_type="float32",
-            ),
+            )
+            for i in range(2)
         ]

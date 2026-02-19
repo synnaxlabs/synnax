@@ -12,6 +12,7 @@ from synnax import modbus
 from synnax.modbus.types import BaseChan
 
 from tests.driver.modbus_task import ModbusReadTaskCase
+from tests.driver.task import create_channel, create_index
 
 
 class ModbusReadInputRegister(ModbusReadTaskCase):
@@ -19,33 +20,19 @@ class ModbusReadInputRegister(ModbusReadTaskCase):
 
     @staticmethod
     def create_channels(client: sy.Synnax) -> list[BaseChan]:
-        index_c = client.channels.create(
-            name="input_register_index",
-            data_type=sy.DataType.TIMESTAMP,
-            is_index=True,
-            retrieve_if_name_exists=True,
-        )
+        idx = create_index(client, "input_register_index")
         return [
             modbus.InputRegisterChan(
-                channel=client.channels.create(
-                    name="input_register_0",
+                channel=create_channel(
+                    client,
+                    name=f"input_register_{i}",
                     data_type=sy.DataType.UINT8,
-                    index=index_c.key,
-                    retrieve_if_name_exists=True,
-                ).key,
-                address=0,
+                    index=idx.key,
+                ),
+                address=i,
                 data_type="uint8",
-            ),
-            modbus.InputRegisterChan(
-                channel=client.channels.create(
-                    name="input_register_1",
-                    data_type=sy.DataType.UINT8,
-                    index=index_c.key,
-                    retrieve_if_name_exists=True,
-                ).key,
-                address=1,
-                data_type="uint8",
-            ),
+            )
+            for i in range(2)
         ]
 
 
@@ -54,33 +41,19 @@ class ModbusReadHoldingRegister(ModbusReadTaskCase):
 
     @staticmethod
     def create_channels(client: sy.Synnax) -> list[BaseChan]:
-        index_c = client.channels.create(
-            name="holding_register_index",
-            data_type=sy.DataType.TIMESTAMP,
-            is_index=True,
-            retrieve_if_name_exists=True,
-        )
+        idx = create_index(client, "holding_register_index")
         return [
             modbus.HoldingRegisterInputChan(
-                channel=client.channels.create(
-                    name="holding_register_0",
-                    index=index_c.key,
+                channel=create_channel(
+                    client,
+                    name=f"holding_register_{i}",
                     data_type=sy.DataType.UINT8,
-                    retrieve_if_name_exists=True,
-                ).key,
-                address=0,
+                    index=idx.key,
+                ),
+                address=i,
                 data_type="uint8",
-            ),
-            modbus.HoldingRegisterInputChan(
-                channel=client.channels.create(
-                    name="holding_register_1",
-                    index=index_c.key,
-                    data_type=sy.DataType.UINT8,
-                    retrieve_if_name_exists=True,
-                ).key,
-                address=1,
-                data_type="uint8",
-            ),
+            )
+            for i in range(2)
         ]
 
 
@@ -89,31 +62,18 @@ class ModbusReadDiscreteInput(ModbusReadTaskCase):
 
     @staticmethod
     def create_channels(client: sy.Synnax) -> list[BaseChan]:
-        index_c = client.channels.create(
-            name="discrete_input_index",
-            data_type=sy.DataType.TIMESTAMP,
-            is_index=True,
-            retrieve_if_name_exists=True,
-        )
+        idx = create_index(client, "discrete_input_index")
         return [
             modbus.DiscreteInputChan(
-                channel=client.channels.create(
-                    name="discrete_input_0",
-                    index=index_c.key,
+                channel=create_channel(
+                    client,
+                    name=f"discrete_input_{i}",
                     data_type=sy.DataType.UINT8,
-                    retrieve_if_name_exists=True,
-                ).key,
-                address=0,
-            ),
-            modbus.DiscreteInputChan(
-                channel=client.channels.create(
-                    name="discrete_input_1",
-                    index=index_c.key,
-                    data_type=sy.DataType.UINT8,
-                    retrieve_if_name_exists=True,
-                ).key,
-                address=1,
-            ),
+                    index=idx.key,
+                ),
+                address=i,
+            )
+            for i in range(2)
         ]
 
 
@@ -122,31 +82,18 @@ class ModbusReadCoil(ModbusReadTaskCase):
 
     @staticmethod
     def create_channels(client: sy.Synnax) -> list[BaseChan]:
-        index_c = client.channels.create(
-            name="coil_input_index",
-            data_type=sy.DataType.TIMESTAMP,
-            is_index=True,
-            retrieve_if_name_exists=True,
-        )
+        idx = create_index(client, "coil_input_index")
         return [
             modbus.CoilInputChan(
-                channel=client.channels.create(
-                    name="coil_input_0",
-                    index=index_c.key,
+                channel=create_channel(
+                    client,
+                    name=f"coil_input_{i}",
                     data_type=sy.DataType.UINT8,
-                    retrieve_if_name_exists=True,
-                ).key,
-                address=0,
-            ),
-            modbus.CoilInputChan(
-                channel=client.channels.create(
-                    name="coil_input_1",
-                    index=index_c.key,
-                    data_type=sy.DataType.UINT8,
-                    retrieve_if_name_exists=True,
-                ).key,
-                address=1,
-            ),
+                    index=idx.key,
+                ),
+                address=i,
+            )
+            for i in range(2)
         ]
 
 
@@ -155,49 +102,28 @@ class ModbusReadMixed(ModbusReadTaskCase):
 
     @staticmethod
     def create_channels(client: sy.Synnax) -> list[BaseChan]:
-        index_c = client.channels.create(
-            name="modbus_mixed_index",
-            data_type=sy.DataType.TIMESTAMP,
-            is_index=True,
-            retrieve_if_name_exists=True,
-        )
+        idx = create_index(client, "modbus_mixed_index")
         return [
             modbus.InputRegisterChan(
-                channel=client.channels.create(
-                    name="input_register_0",
+                channel=create_channel(
+                    client,
+                    name=f"input_register_{i}",
                     data_type=sy.DataType.UINT8,
-                    index=index_c.key,
-                    retrieve_if_name_exists=True,
-                ).key,
-                address=0,
+                    index=idx.key,
+                ),
+                address=i,
                 data_type="uint8",
-            ),
-            modbus.InputRegisterChan(
-                channel=client.channels.create(
-                    name="input_register_1",
-                    data_type=sy.DataType.UINT8,
-                    index=index_c.key,
-                    retrieve_if_name_exists=True,
-                ).key,
-                address=1,
-                data_type="uint8",
-            ),
+            )
+            for i in range(2)
+        ] + [
             modbus.DiscreteInputChan(
-                channel=client.channels.create(
-                    name="discrete_input_0",
+                channel=create_channel(
+                    client,
+                    name=f"discrete_input_{i}",
                     data_type=sy.DataType.UINT8,
-                    index=index_c.key,
-                    retrieve_if_name_exists=True,
-                ).key,
-                address=0,
-            ),
-            modbus.DiscreteInputChan(
-                channel=client.channels.create(
-                    name="discrete_input_1",
-                    data_type=sy.DataType.UINT8,
-                    index=index_c.key,
-                    retrieve_if_name_exists=True,
-                ).key,
-                address=1,
-            ),
+                    index=idx.key,
+                ),
+                address=i,
+            )
+            for i in range(2)
         ]

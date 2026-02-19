@@ -23,7 +23,7 @@ from tests.driver.task import ReadTaskCase, WriteTaskCase
 class ModbusReadTaskCase(SimulatorCase, ReadTaskCase):
     """Base class for Modbus TCP read task tests."""
 
-    sim_class = ModbusSim
+    sim_classes = [ModbusSim]
     SAMPLE_RATE = 100 * sy.Rate.HZ
 
     @staticmethod
@@ -54,7 +54,7 @@ class ModbusReadTaskCase(SimulatorCase, ReadTaskCase):
 class ModbusWriteTaskCase(SimulatorCase, WriteTaskCase):
     """Base class for Modbus TCP write task tests."""
 
-    sim_class = ModbusSim
+    sim_classes = [ModbusSim]
 
     @staticmethod
     @abstractmethod
@@ -70,7 +70,6 @@ class ModbusWriteTaskCase(SimulatorCase, WriteTaskCase):
     ) -> modbus.WriteTask:
         """Create a Modbus write task."""
         channels = self.create_channels(self.client)
-
         return modbus.WriteTask(
             name=task_name,
             device=device.key,
