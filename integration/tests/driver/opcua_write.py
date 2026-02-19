@@ -16,10 +16,11 @@ from tests.driver.opcua_task import OPCUAWriteTaskCase
 class OPCUAWriteFloat(OPCUAWriteTaskCase):
     task_name = "OPCUA Write Float"
 
-    def create_channels(self) -> list[opcua.WriteChannel]:
+    @staticmethod
+    def create_channels(client: sy.Synnax) -> list[opcua.WriteChannel]:
         return [
             opcua.WriteChannel(
-                cmd_channel=self.client.channels.create(
+                cmd_channel=client.channels.create(
                     name="opcua_cmd_0",
                     data_type=sy.DataType.FLOAT32,
                     virtual=True,
@@ -28,7 +29,7 @@ class OPCUAWriteFloat(OPCUAWriteTaskCase):
                 node_id="NS=2;I=18",
             ),
             opcua.WriteChannel(
-                cmd_channel=self.client.channels.create(
+                cmd_channel=client.channels.create(
                     name="opcua_cmd_1",
                     data_type=sy.DataType.FLOAT32,
                     virtual=True,
@@ -37,7 +38,7 @@ class OPCUAWriteFloat(OPCUAWriteTaskCase):
                 node_id="NS=2;I=19",
             ),
             opcua.WriteChannel(
-                cmd_channel=self.client.channels.create(
+                cmd_channel=client.channels.create(
                     name="opcua_cmd_2",
                     data_type=sy.DataType.FLOAT32,
                     virtual=True,

@@ -410,5 +410,4 @@ I can successfully:
 
 - [ ] Enable and disable Modbus integration when starting the server.
 - [ ] Connect to and read data from a physical device.
-- [ ] Run simultaneous read and write tasks on the same device.
 - [ ] Run tasks across multiple Modbus servers concurrently.

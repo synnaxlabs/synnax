@@ -31,8 +31,9 @@ class OPCUAReadTaskCase(SimulatorCase, ReadTaskCase):
         self.sim = OPCUASim(rate=self.SAMPLE_RATE, array_size=self.array_size)
         super().setup()
 
+    @staticmethod
     @abstractmethod
-    def create_channels(self) -> list[opcua.ReadChannel]: ...
+    def create_channels(client: sy.Synnax) -> list[opcua.ReadChannel]: ...
 
     def create(
         self,
@@ -43,7 +44,7 @@ class OPCUAReadTaskCase(SimulatorCase, ReadTaskCase):
         stream_rate: sy.Rate,
     ) -> opcua.ReadTask:
         """Create an OPC UA read task."""
-        channels = self.create_channels()
+        channels = self.create_channels(self.client)
 
         return opcua.ReadTask(
             name=task_name,
@@ -68,8 +69,9 @@ class OPCUAWriteTaskCase(SimulatorCase, WriteTaskCase):
         self.sim = OPCUASim(rate=self.SAMPLE_RATE)
         super().setup()
 
+    @staticmethod
     @abstractmethod
-    def create_channels(self) -> list[opcua.WriteChannel]: ...
+    def create_channels(client: sy.Synnax) -> list[opcua.WriteChannel]: ...
 
     def create(
         self,
@@ -80,7 +82,7 @@ class OPCUAWriteTaskCase(SimulatorCase, WriteTaskCase):
         stream_rate: sy.Rate,
     ) -> opcua.WriteTask:
         """Create an OPC UA write task."""
-        channels = self.create_channels()
+        channels = self.create_channels(self.client)
         return opcua.WriteTask(
             name=task_name,
             device=device.key,

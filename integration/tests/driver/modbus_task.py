@@ -26,8 +26,9 @@ class ModbusReadTaskCase(SimulatorCase, ReadTaskCase):
     sim_class = ModbusSim
     SAMPLE_RATE = 100 * sy.Rate.HZ
 
+    @staticmethod
     @abstractmethod
-    def create_channels(self) -> list[BaseChan]: ...
+    def create_channels(client: sy.Synnax) -> list[BaseChan]: ...
 
     def create(
         self,
@@ -38,7 +39,7 @@ class ModbusReadTaskCase(SimulatorCase, ReadTaskCase):
         stream_rate: sy.Rate,
     ) -> modbus.ReadTask:
         """Create a Modbus read task."""
-        channels = self.create_channels()
+        channels = self.create_channels(self.client)
 
         return modbus.ReadTask(
             name=task_name,
@@ -55,8 +56,9 @@ class ModbusWriteTaskCase(SimulatorCase, WriteTaskCase):
 
     sim_class = ModbusSim
 
+    @staticmethod
     @abstractmethod
-    def create_channels(self) -> list[OutputChan]: ...
+    def create_channels(client: sy.Synnax) -> list[OutputChan]: ...
 
     def create(
         self,
@@ -67,7 +69,7 @@ class ModbusWriteTaskCase(SimulatorCase, WriteTaskCase):
         stream_rate: sy.Rate,
     ) -> modbus.WriteTask:
         """Create a Modbus write task."""
-        channels = self.create_channels()
+        channels = self.create_channels(self.client)
 
         return modbus.WriteTask(
             name=task_name,

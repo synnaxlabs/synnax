@@ -17,8 +17,9 @@ from tests.driver.modbus_task import ModbusReadTaskCase
 class ModbusReadInputRegister(ModbusReadTaskCase):
     task_name = "Modbus Read Input Register"
 
-    def create_channels(self) -> list[BaseChan]:
-        index_c = self.client.channels.create(
+    @staticmethod
+    def create_channels(client: sy.Synnax) -> list[BaseChan]:
+        index_c = client.channels.create(
             name="input_register_index",
             data_type=sy.DataType.TIMESTAMP,
             is_index=True,
@@ -26,7 +27,7 @@ class ModbusReadInputRegister(ModbusReadTaskCase):
         )
         return [
             modbus.InputRegisterChan(
-                channel=self.client.channels.create(
+                channel=client.channels.create(
                     name="input_register_0",
                     data_type=sy.DataType.UINT8,
                     index=index_c.key,
@@ -36,7 +37,7 @@ class ModbusReadInputRegister(ModbusReadTaskCase):
                 data_type="uint8",
             ),
             modbus.InputRegisterChan(
-                channel=self.client.channels.create(
+                channel=client.channels.create(
                     name="input_register_1",
                     data_type=sy.DataType.UINT8,
                     index=index_c.key,
@@ -51,8 +52,9 @@ class ModbusReadInputRegister(ModbusReadTaskCase):
 class ModbusReadHoldingRegister(ModbusReadTaskCase):
     task_name = "Modbus Read Holding Register"
 
-    def create_channels(self) -> list[BaseChan]:
-        index_c = self.client.channels.create(
+    @staticmethod
+    def create_channels(client: sy.Synnax) -> list[BaseChan]:
+        index_c = client.channels.create(
             name="holding_register_index",
             data_type=sy.DataType.TIMESTAMP,
             is_index=True,
@@ -60,7 +62,7 @@ class ModbusReadHoldingRegister(ModbusReadTaskCase):
         )
         return [
             modbus.HoldingRegisterInputChan(
-                channel=self.client.channels.create(
+                channel=client.channels.create(
                     name="holding_register_0",
                     index=index_c.key,
                     data_type=sy.DataType.UINT8,
@@ -70,7 +72,7 @@ class ModbusReadHoldingRegister(ModbusReadTaskCase):
                 data_type="uint8",
             ),
             modbus.HoldingRegisterInputChan(
-                channel=self.client.channels.create(
+                channel=client.channels.create(
                     name="holding_register_1",
                     index=index_c.key,
                     data_type=sy.DataType.UINT8,
@@ -85,8 +87,9 @@ class ModbusReadHoldingRegister(ModbusReadTaskCase):
 class ModbusReadDiscreteInput(ModbusReadTaskCase):
     task_name = "Modbus Read Discrete Input"
 
-    def create_channels(self) -> list[BaseChan]:
-        index_c = self.client.channels.create(
+    @staticmethod
+    def create_channels(client: sy.Synnax) -> list[BaseChan]:
+        index_c = client.channels.create(
             name="discrete_input_index",
             data_type=sy.DataType.TIMESTAMP,
             is_index=True,
@@ -94,7 +97,7 @@ class ModbusReadDiscreteInput(ModbusReadTaskCase):
         )
         return [
             modbus.DiscreteInputChan(
-                channel=self.client.channels.create(
+                channel=client.channels.create(
                     name="discrete_input_0",
                     index=index_c.key,
                     data_type=sy.DataType.UINT8,
@@ -103,7 +106,7 @@ class ModbusReadDiscreteInput(ModbusReadTaskCase):
                 address=0,
             ),
             modbus.DiscreteInputChan(
-                channel=self.client.channels.create(
+                channel=client.channels.create(
                     name="discrete_input_1",
                     index=index_c.key,
                     data_type=sy.DataType.UINT8,
@@ -117,8 +120,9 @@ class ModbusReadDiscreteInput(ModbusReadTaskCase):
 class ModbusReadCoil(ModbusReadTaskCase):
     task_name = "Modbus Read Coil"
 
-    def create_channels(self) -> list[BaseChan]:
-        index_c = self.client.channels.create(
+    @staticmethod
+    def create_channels(client: sy.Synnax) -> list[BaseChan]:
+        index_c = client.channels.create(
             name="coil_input_index",
             data_type=sy.DataType.TIMESTAMP,
             is_index=True,
@@ -126,7 +130,7 @@ class ModbusReadCoil(ModbusReadTaskCase):
         )
         return [
             modbus.CoilInputChan(
-                channel=self.client.channels.create(
+                channel=client.channels.create(
                     name="coil_input_0",
                     index=index_c.key,
                     data_type=sy.DataType.UINT8,
@@ -135,7 +139,7 @@ class ModbusReadCoil(ModbusReadTaskCase):
                 address=0,
             ),
             modbus.CoilInputChan(
-                channel=self.client.channels.create(
+                channel=client.channels.create(
                     name="coil_input_1",
                     index=index_c.key,
                     data_type=sy.DataType.UINT8,
@@ -149,8 +153,9 @@ class ModbusReadCoil(ModbusReadTaskCase):
 class ModbusReadMixed(ModbusReadTaskCase):
     task_name = "Modbus Read Mixed"
 
-    def create_channels(self) -> list[BaseChan]:
-        index_c = self.client.channels.create(
+    @staticmethod
+    def create_channels(client: sy.Synnax) -> list[BaseChan]:
+        index_c = client.channels.create(
             name="modbus_mixed_index",
             data_type=sy.DataType.TIMESTAMP,
             is_index=True,
@@ -158,7 +163,7 @@ class ModbusReadMixed(ModbusReadTaskCase):
         )
         return [
             modbus.InputRegisterChan(
-                channel=self.client.channels.create(
+                channel=client.channels.create(
                     name="input_register_0",
                     data_type=sy.DataType.UINT8,
                     index=index_c.key,
@@ -168,7 +173,7 @@ class ModbusReadMixed(ModbusReadTaskCase):
                 data_type="uint8",
             ),
             modbus.InputRegisterChan(
-                channel=self.client.channels.create(
+                channel=client.channels.create(
                     name="input_register_1",
                     data_type=sy.DataType.UINT8,
                     index=index_c.key,
@@ -178,7 +183,7 @@ class ModbusReadMixed(ModbusReadTaskCase):
                 data_type="uint8",
             ),
             modbus.DiscreteInputChan(
-                channel=self.client.channels.create(
+                channel=client.channels.create(
                     name="discrete_input_0",
                     data_type=sy.DataType.UINT8,
                     index=index_c.key,
@@ -187,7 +192,7 @@ class ModbusReadMixed(ModbusReadTaskCase):
                 address=0,
             ),
             modbus.DiscreteInputChan(
-                channel=self.client.channels.create(
+                channel=client.channels.create(
                     name="discrete_input_1",
                     data_type=sy.DataType.UINT8,
                     index=index_c.key,

@@ -73,16 +73,15 @@ class TaskCase(TestCase):
             self.fail(f"Task configuration failed: {e}")
             return
 
-    def cleanup(self) -> None:
-        """Cleanup task after test."""
+    def teardown(self) -> None:
+        """Delete the task created during setup, then delegate to parent."""
         if self.tsk is not None:
             try:
                 self.client.tasks.delete(self.tsk.key)
                 self.log(f"Task '{self.task_name}' deleted")
             except sy.NotFoundError:
                 self.log(f"Task '{self.task_name}' already deleted")
-            except Exception as e:
-                self.log(f"Failed to delete task '{self.task_name}': {e}")
+        super().teardown()
 
     def _channel_keys(self, task: sy.Task) -> list[int]:
         """Extract channel keys from task config using _channel_key_attr."""
@@ -418,6 +417,3 @@ class WriteTaskCase(TaskCase):
                     expected = {key: float(42.0 + i) for i, key in enumerate(cmd_keys)}
                     writer.write(expected)
                     self._assert_streamed_values(streamer, expected)
-
-        self.tsk._internal.name = original_name
-        self.client.tasks.configure(self.tsk)

@@ -17,10 +17,11 @@ from tests.driver.modbus_task import ModbusWriteTaskCase
 class ModbusWriteCoil(ModbusWriteTaskCase):
     task_name = "Modbus Write Coil"
 
-    def create_channels(self) -> list[OutputChan]:
+    @staticmethod
+    def create_channels(client: sy.Synnax) -> list[OutputChan]:
         return [
             modbus.CoilOutputChan(
-                channel=self.client.channels.create(
+                channel=client.channels.create(
                     name="modbus_coil_cmd_0",
                     data_type=sy.DataType.UINT8,
                     virtual=True,
@@ -29,7 +30,7 @@ class ModbusWriteCoil(ModbusWriteTaskCase):
                 address=10,
             ),
             modbus.CoilOutputChan(
-                channel=self.client.channels.create(
+                channel=client.channels.create(
                     name="modbus_coil_cmd_1",
                     data_type=sy.DataType.UINT8,
                     virtual=True,
@@ -38,7 +39,7 @@ class ModbusWriteCoil(ModbusWriteTaskCase):
                 address=11,
             ),
             modbus.CoilOutputChan(
-                channel=self.client.channels.create(
+                channel=client.channels.create(
                     name="modbus_coil_cmd_2",
                     data_type=sy.DataType.UINT8,
                     virtual=True,
@@ -52,10 +53,11 @@ class ModbusWriteCoil(ModbusWriteTaskCase):
 class ModbusWriteHoldingRegister(ModbusWriteTaskCase):
     task_name = "Modbus Write Holding Register"
 
-    def create_channels(self) -> list[OutputChan]:
+    @staticmethod
+    def create_channels(client: sy.Synnax) -> list[OutputChan]:
         return [
             modbus.HoldingRegisterOutputChan(
-                channel=self.client.channels.create(
+                channel=client.channels.create(
                     name="modbus_hr_cmd_0",
                     data_type=sy.DataType.FLOAT32,
                     virtual=True,
@@ -65,7 +67,7 @@ class ModbusWriteHoldingRegister(ModbusWriteTaskCase):
                 data_type="float32",
             ),
             modbus.HoldingRegisterOutputChan(
-                channel=self.client.channels.create(
+                channel=client.channels.create(
                     name="modbus_hr_cmd_1",
                     data_type=sy.DataType.FLOAT32,
                     virtual=True,
@@ -75,7 +77,7 @@ class ModbusWriteHoldingRegister(ModbusWriteTaskCase):
                 data_type="float32",
             ),
             modbus.HoldingRegisterOutputChan(
-                channel=self.client.channels.create(
+                channel=client.channels.create(
                     name="modbus_hr_cmd_2",
                     data_type=sy.DataType.FLOAT32,
                     virtual=True,
@@ -90,10 +92,11 @@ class ModbusWriteHoldingRegister(ModbusWriteTaskCase):
 class ModbusWriteMixed(ModbusWriteTaskCase):
     task_name = "Modbus Write Mixed"
 
-    def create_channels(self) -> list[OutputChan]:
+    @staticmethod
+    def create_channels(client: sy.Synnax) -> list[OutputChan]:
         return [
             modbus.CoilOutputChan(
-                channel=self.client.channels.create(
+                channel=client.channels.create(
                     name="modbus_mixed_coil_cmd_0",
                     data_type=sy.DataType.UINT8,
                     virtual=True,
@@ -102,7 +105,7 @@ class ModbusWriteMixed(ModbusWriteTaskCase):
                 address=20,
             ),
             modbus.CoilOutputChan(
-                channel=self.client.channels.create(
+                channel=client.channels.create(
                     name="modbus_mixed_coil_cmd_1",
                     data_type=sy.DataType.UINT8,
                     virtual=True,
@@ -111,7 +114,7 @@ class ModbusWriteMixed(ModbusWriteTaskCase):
                 address=21,
             ),
             modbus.HoldingRegisterOutputChan(
-                channel=self.client.channels.create(
+                channel=client.channels.create(
                     name="modbus_mixed_hr_cmd_0",
                     data_type=sy.DataType.FLOAT32,
                     virtual=True,
@@ -121,7 +124,7 @@ class ModbusWriteMixed(ModbusWriteTaskCase):
                 data_type="float32",
             ),
             modbus.HoldingRegisterOutputChan(
-                channel=self.client.channels.create(
+                channel=client.channels.create(
                     name="modbus_mixed_hr_cmd_1",
                     data_type=sy.DataType.FLOAT32,
                     virtual=True,
