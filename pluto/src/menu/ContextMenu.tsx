@@ -131,7 +131,7 @@ export const useContextMenu = (): UseContextMenuReturn => {
   const resizeRef = useResize(calculatePosition, { enabled: state.visible });
   const combinedRef = useCombinedRefs(menuRef, resizeRef);
 
-  useWindowResize(calculatePosition);
+  useWindowResize(calculatePosition, { enabled: state.visible });
 
   const hideMenu = (): void => setMenuState(INITIAL_STATE);
 
