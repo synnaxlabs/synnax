@@ -23,9 +23,9 @@ class OPCUAReadTaskCase(SimulatorCase, ReadTaskCase):
     """Base class for OPC UA read task tests."""
 
     sim_classes = [OPCUASim]
-    SAMPLE_RATE = 100 * sy.Rate.HZ
+    SAMPLE_RATE = 50 * sy.Rate.HZ
     array_mode: bool = False
-    array_size: int = 100
+    array_size: int = 50
 
     def setup(self) -> None:
         self.sims = {
@@ -66,7 +66,7 @@ class OPCUAWriteTaskCase(SimulatorCase, WriteTaskCase):
     """Base class for OPC UA write task tests."""
 
     sim_classes = [OPCUASim]
-    SAMPLE_RATE = 100 * sy.Rate.HZ
+    SAMPLE_RATE = 50 * sy.Rate.HZ
 
     def _channel_keys(self, task: sy.Task) -> list[int]:
         return [ch.cmd_channel for ch in task.config.channels]

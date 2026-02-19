@@ -18,7 +18,7 @@ mkdir -p $HOME/synnax-data
 
 # Start Synnax in background
 cd $HOME/synnax-data
-$HOME/synnax-binaries/synnax start -mi &
+$HOME/synnax-binaries/synnax start -mi > $HOME/synnax-data/synnax-core.log 2>&1 &
 
 # Wait for startup
 echo "Waiting for server startup..."

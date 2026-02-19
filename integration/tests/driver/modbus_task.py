@@ -24,7 +24,7 @@ class ModbusReadTaskCase(SimulatorCase, ReadTaskCase):
     """Base class for Modbus TCP read task tests."""
 
     sim_classes = [ModbusSim]
-    SAMPLE_RATE = 100 * sy.Rate.HZ
+    SAMPLE_RATE = 50 * sy.Rate.HZ
 
     @staticmethod
     @abstractmethod

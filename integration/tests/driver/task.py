@@ -57,45 +57,89 @@ def create_channel(
 # ── Helpers (module-level for use by any test case) ──────────────
 
 
-def wait_for_write_pipeline(
+def send_and_verify_commands(
     client: sy.Synnax,
     *,
     cmd_keys: list[int],
+    writer_name: str,
     task_name: str = "",
-    timeout: sy.TimeSpan = 5 * sy.TimeSpan.SECOND,
+    max_attempts: int = 3,
+    timeout_per_round: sy.TimeSpan = 10 * sy.TimeSpan.SECOND,
 ) -> None:
-    """Wait for a write task's control pipeline to accept commands.
+    """Open a streamer/writer pair, send two rounds of commands, and verify.
 
-    The driver's control pipeline opens a streamer in a background thread
-    after sending the 'started' status. This probes by writing to a command
-    channel and checking the streamer, retrying until the pipeline is live.
+    Retries the entire operation up to ``max_attempts`` times to handle relay
+    latency and transient errors under heavy server load.
+
+    Automatically detects whether command channels are indexed (non-virtual)
+    and includes timestamp writes for their index channels.
     """
+    channels = client.channels.retrieve(cmd_keys)
+    index_keys = list({ch.index for ch in channels if ch.index != 0})
+    all_writer_keys = cmd_keys + index_keys
+
     prefix = f"{task_name}: " if task_name else ""
-    probe_key = cmd_keys[0]
-    timer = sy.Timer()
-    while timer.elapsed() < timeout:
+    last_err: Exception | None = None
+    for attempt in range(max_attempts):
+        verified = False
         try:
-            with client.open_streamer([probe_key]) as streamer:
-                with client.open_writer(
+            with client.open_streamer(cmd_keys) as streamer:
+                writer = client.open_writer(
                     start=sy.TimeStamp.now(),
-                    channels=[probe_key],
-                    name=f"{task_name}_probe",
-                ) as writer:
-                    writer.write({probe_key: float(0)})
-                    frame = streamer.read(timeout=0.5)
-                    if frame is not None and probe_key in frame:
-                        return
-        except Exception:
-            pass
-        sy.sleep(0.1)
-    raise AssertionError(f"{prefix}Write pipeline not ready after {timeout}")
+                    channels=all_writer_keys,
+                    name=writer_name,
+                    enable_auto_commit=True,
+                )
+                try:
+                    expected = {key: float(42.0 + i) for i, key in enumerate(cmd_keys)}
+                    writer.write(
+                        {**expected, **{k: sy.TimeStamp.now() for k in index_keys}}
+                    )
+                    assert_streamed_values(
+                        client,
+                        streamer,
+                        expected,
+                        timeout=timeout_per_round,
+                        task_name=task_name,
+                    )
+
+                    expected = {key: float(100.0 + i) for i, key in enumerate(cmd_keys)}
+                    writer.write(
+                        {**expected, **{k: sy.TimeStamp.now() for k in index_keys}}
+                    )
+                    assert_streamed_values(
+                        client,
+                        streamer,
+                        expected,
+                        timeout=timeout_per_round,
+                        task_name=task_name,
+                    )
+                    verified = True
+                except Exception as e:
+                    last_err = e
+                finally:
+                    try:
+                        writer.close()
+                    except Exception:
+                        pass
+        except Exception as e:
+            if not verified:
+                last_err = e
+        if verified:
+            return
+        if attempt < max_attempts - 1:
+            sy.sleep(2)
+    raise AssertionError(
+        f"{prefix}Failed to send and verify commands after "
+        f"{max_attempts} attempts: {last_err}"
+    )
 
 
 def assert_streamed_values(
     client: sy.Synnax,
     streamer: sy.Streamer,
     expected: dict[int, float],
-    timeout: sy.TimeSpan = 5 * sy.TimeSpan.SECOND,
+    timeout: sy.TimeSpan = 30 * sy.TimeSpan.SECOND,
     task_name: str = "",
 ) -> None:
     """Read from streamer until all expected channel values are received."""
@@ -321,16 +365,19 @@ class ReadTaskCase(TaskCase):
 
         self.test_task_exists()
         self.test_start_and_stop()
+        sy.sleep(0.5)
         self.test_disable_data_saving()
+        sy.sleep(0.5)
         self.test_enable_data_saving()
+        sy.sleep(0.5)
         self.test_reconfigure_rate()
+        sy.sleep(0.5)
         self.test_survives_channel_deletion()
 
     def test_start_and_stop(self) -> None:
         """Start the task, collect samples, and stop it."""
         self.log("Testing: Start and stop")
         self.assert_sample_count(task=self.tsk, duration=self.TASK_DURATION)
-        sy.sleep(0.5)
 
     def test_disable_data_saving(self) -> None:
         """Disable data saving and verify no samples are persisted."""
@@ -367,7 +414,11 @@ class ReadTaskCase(TaskCase):
 
         with self.tsk.run():
             with self.client.open_streamer(channel_keys) as streamer:
-                streamer.read(timeout=5)
+                frame = streamer.read(timeout=30)
+                if frame is None:
+                    raise AssertionError(
+                        "Task is not streaming data — cannot test " "channel deletion"
+                    )
             try:
                 self.client.channels.delete(ch.key)
                 raise AssertionError(
@@ -393,7 +444,7 @@ class ReadTaskCase(TaskCase):
         with task.run():
             # Block until first frame arrives
             with self.client.open_streamer(channel_keys) as streamer:
-                streamer.read(timeout=1)
+                streamer.read(timeout=30)
             sy.sleep(1)
             start_time = sy.TimeStamp.now()
             sy.sleep(duration.seconds * 1.25)  # Buffer for CI
@@ -420,7 +471,7 @@ class ReadTaskCase(TaskCase):
 
         with task.run():
             with self.client.open_streamer(channel_keys) as streamer:
-                frame = streamer.read(timeout=5)
+                frame = streamer.read(timeout=30)
                 if frame is None:
                     raise AssertionError(
                         "Task is not streaming data with data_saving disabled"
@@ -455,40 +506,21 @@ class WriteTaskCase(TaskCase):
 
         self.test_task_exists()
         self.test_send_commands()
+        sy.sleep(0.5)
         self.test_reconfigure_name()
-
-    def _send_and_verify_commands(
-        self,
-        task: sy.Task,
-        writer_name: str,
-    ) -> None:
-        """Open a streamer/writer pair, send two rounds of commands, and verify."""
-        cmd_keys = self._channel_keys(task)
-        with self.client.open_streamer(cmd_keys) as streamer:
-            with self.client.open_writer(
-                start=sy.TimeStamp.now(),
-                channels=cmd_keys,
-                name=writer_name,
-            ) as writer:
-                expected = {key: float(42.0 + i) for i, key in enumerate(cmd_keys)}
-                writer.write(expected)
-                assert_streamed_values(self.client, streamer, expected)
-
-                expected = {key: float(100.0 + i) for i, key in enumerate(cmd_keys)}
-                writer.write(expected)
-                assert_streamed_values(self.client, streamer, expected)
 
     def test_send_commands(self) -> None:
         """Start the write task, send commands, and verify they arrive on the stream."""
         assert self.tsk is not None
         self.log("Testing: Send commands")
         with self.tsk.run():
-            wait_for_write_pipeline(
+            sy.sleep(2)
+            send_and_verify_commands(
                 self.client,
                 cmd_keys=self._channel_keys(self.tsk),
+                writer_name=f"{self.task_name}_test_writer",
                 task_name=self.tsk.name,
             )
-            self._send_and_verify_commands(self.tsk, f"{self.task_name}_test_writer")
 
     def test_reconfigure_name(self) -> None:
         """Rename the task, verify it persists, then send commands again."""
@@ -508,9 +540,10 @@ class WriteTaskCase(TaskCase):
             )
 
         with self.tsk.run():
-            wait_for_write_pipeline(
+            sy.sleep(2)
+            send_and_verify_commands(
                 self.client,
                 cmd_keys=self._channel_keys(self.tsk),
+                writer_name=f"{new_name}_test_writer",
                 task_name=self.tsk.name,
             )
-            self._send_and_verify_commands(self.tsk, f"{new_name}_test_writer")

@@ -11,6 +11,7 @@ import synnax as sy
 from synnax import opcua
 
 from tests.driver.opcua_task import OPCUAWriteTaskCase
+from tests.driver.task import create_channel, create_index
 
 
 class OPCUAWriteFloat(OPCUAWriteTaskCase):
@@ -18,15 +19,14 @@ class OPCUAWriteFloat(OPCUAWriteTaskCase):
 
     @staticmethod
     def create_channels(client: sy.Synnax) -> list[opcua.WriteChannel]:
+        idx = create_index(client, "opcua_write_cmd_time")
         return [
             opcua.WriteChannel(
-                cmd_channel=int(
-                    client.channels.create(
-                        name=f"opcua_cmd_{i}",
-                        data_type=sy.DataType.FLOAT32,
-                        virtual=True,
-                        retrieve_if_name_exists=True,
-                    ).key
+                cmd_channel=create_channel(
+                    client,
+                    name=f"opcua_cmd_{i}",
+                    data_type=sy.DataType.FLOAT32,
+                    index=idx.key,
                 ),
                 node_id=f"NS=2;I={18 + i}",
             )

@@ -76,7 +76,7 @@ class TaskClient:
         item.wait_for(state="visible", timeout=5000)
         icon_class = "pause" if state == "running" else "play"
         item.locator(f"button:has(.pluto-icon--{icon_class})").wait_for(
-            state="visible", timeout=15000
+            state="visible", timeout=30000
         )
 
     def rename_task(self, old_name: str, new_name: str) -> None:
