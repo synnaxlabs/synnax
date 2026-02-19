@@ -158,6 +158,11 @@ class OPCUAReadTimestamp(OPCUATaskCase):
             ),
         ]
 
+    def test_reconfigure_rate(self) -> None:
+        """Skipped: With server timestamps as index, the array size is controlled by the
+        simulator, not the task's sample_rate."""
+        pass
+
 
 class OPCUAReadMixed(OPCUATaskCase):
     task_name = "OPCUA Read Mixed"

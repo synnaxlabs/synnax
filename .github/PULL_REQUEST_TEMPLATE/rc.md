@@ -404,12 +404,11 @@ I can successfully:
 - [ ] Connect to an encrypted OPC UA server.
 - [ ] Move and rename channels.
 - **Read Task**
-  - [ ] Obtain recommended Synnax channels based on the configured OPC UA node.
   - [ ] Connect to and read data from a physical device.
 - **Write Task**
   - [ ] Perform control and verify changes on the connected OPC UA server.
-  - [ ] Enable and disable data saving.
   - [ ] Perform a write operation on an encrypted server.
+  - [ ] Stop, start, and reconfigure write tasks.
 
 ### Modbus
 
@@ -417,11 +416,10 @@ I can successfully:
 
 - [ ] Enable and disable Modbus integration when starting the server.
 - **Read Task**
-  - [ ] Plot live data from Modbus registers.
+  - [ ] Connect to and read data from a physical device.
 - **Write Task**
   - [ ] Write to holding registers on a Modbus server.
   - [ ] Write to coils on a Modbus server.
-  - [ ] Perform control actions using a schematic.
   - [ ] Stop, start, and reconfigure write tasks.
 - [ ] Run simultaneous read and write tasks on the same device.
 - [ ] Run tasks across multiple Modbus servers concurrently.

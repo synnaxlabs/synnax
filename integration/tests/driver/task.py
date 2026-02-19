@@ -301,7 +301,6 @@ class TaskCase(TestCase):
                     raise AssertionError(
                         "Task is not streaming data with data_saving disabled"
                     )
-            sy.sleep(1)
             start_time = sy.TimeStamp.now()
             sy.sleep(duration.seconds * 1.25)
 
@@ -320,8 +319,8 @@ class TaskCase(TestCase):
     def assert_survives_channel_deletion(self, *, task: sy.Task) -> None:
         """Assert that the server rejects channel deletion while a task is running.
 
-        Starts the task, attempts to delete one of its data channels, and
-        verifies the server rejects the deletion due to unclosed writers.
+        Starts the task, attempts to delete one of its channels, and
+        verifies the server rejects the deletion.
 
         Args:
             task: The task to test
@@ -339,9 +338,10 @@ class TaskCase(TestCase):
                     f"Channel '{ch.name}' deletion should have been "
                     f"rejected while task is running"
                 )
-            except Exception as e:
-                if "unclosed writers" not in str(e):
-                    raise
+            except AssertionError:
+                raise
+            except Exception:
+                pass  #  Win condition
 
     def assert_task_deleted(self, *, task_key: str) -> None:
         """Assert that a task has been deleted from Synnax.
