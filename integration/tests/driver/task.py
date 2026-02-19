@@ -128,7 +128,9 @@ def send_and_verify_commands(
         if verified:
             return
         if attempt < max_attempts - 1:
-            print(f">>> Retrying command send and verify... ({attempt + 1}/{max_attempts})")
+            print(
+                f">>> Retrying command send and verify... ({attempt + 1}/{max_attempts})"
+            )
             sy.sleep(2)
     raise AssertionError(
         f"{prefix}Failed to send and verify commands after "
