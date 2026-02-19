@@ -30,7 +30,11 @@ from tests.driver.modbus_write import ModbusWriteCoil
 from tests.driver.opcua_read import OPCUAReadMixed
 from tests.driver.opcua_write import OPCUAWriteFloat
 from tests.driver.simulator_case import SimulatorCase
-from tests.driver.task import assert_sample_counts_in_range, assert_streamed_values
+from tests.driver.task import (
+    assert_sample_counts_in_range,
+    assert_streamed_values,
+    wait_for_write_pipeline,
+)
 
 
 class GrandFinale(SimulatorCase):
@@ -135,11 +139,16 @@ class GrandFinale(SimulatorCase):
                 frame = streamer.read(timeout=5)
                 if frame is None:
                     raise AssertionError(f"{task.name}: no data received within 5s")
-            self.log(f"  {task.name}: streaming (OK)")
+            self.log(f"  {task.name}")
 
     def _test_write_commands(self) -> None:
         self.log("Test 4 - Send commands to write tasks")
         for task in self.write_tasks:
+            wait_for_write_pipeline(
+                self.client,
+                cmd_keys=self._task_channel_keys(task),
+                task_name=task.name,
+            )
             cmd_keys = self._task_channel_keys(task)
             with self.client.open_streamer(cmd_keys) as streamer:
                 with self.client.open_writer(
@@ -158,7 +167,7 @@ class GrandFinale(SimulatorCase):
                     assert_streamed_values(
                         self.client, streamer, values, task_name=task.name
                     )
-            self.log(f"  {task.name}: commands delivered (OK)")
+            self.log(f"  {task.name}")
 
     def _test_read_sample_counts(self, stack: ExitStack) -> None:
         self.log("Test 5 - Verify read sample counts")
@@ -179,7 +188,7 @@ class GrandFinale(SimulatorCase):
                 expected_samples=expected,
                 task_name=task.name,
             )
-            self.log(f"  {task.name}: {counts[0]} samples (OK)")
+            self.log(f"  {task.name}: {counts[0]} samples")
 
     # ── Helpers ──────────────────────────────────────────────────────
 

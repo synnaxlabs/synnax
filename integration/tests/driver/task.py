@@ -54,7 +54,41 @@ def create_channel(
     )
 
 
-# ── Assertion helpers (module-level for use by any test case) ────
+# ── Helpers (module-level for use by any test case) ──────────────
+
+
+def wait_for_write_pipeline(
+    client: sy.Synnax,
+    *,
+    cmd_keys: list[int],
+    task_name: str = "",
+    timeout: sy.TimeSpan = 5 * sy.TimeSpan.SECOND,
+) -> None:
+    """Wait for a write task's control pipeline to accept commands.
+
+    The driver's control pipeline opens a streamer in a background thread
+    after sending the 'started' status. This probes by writing to a command
+    channel and checking the streamer, retrying until the pipeline is live.
+    """
+    prefix = f"{task_name}: " if task_name else ""
+    probe_key = cmd_keys[0]
+    timer = sy.Timer()
+    while timer.elapsed() < timeout:
+        try:
+            with client.open_streamer([probe_key]) as streamer:
+                with client.open_writer(
+                    start=sy.TimeStamp.now(),
+                    channels=[probe_key],
+                    name=f"{task_name}_probe",
+                ) as writer:
+                    writer.write({probe_key: float(0)})
+                    frame = streamer.read(timeout=0.5)
+                    if frame is not None and probe_key in frame:
+                        return
+        except Exception:
+            pass
+        sy.sleep(0.1)
+    raise AssertionError(f"{prefix}Write pipeline not ready after {timeout}")
 
 
 def assert_streamed_values(
@@ -449,6 +483,11 @@ class WriteTaskCase(TaskCase):
         assert self.tsk is not None
         self.log("Testing: Send commands")
         with self.tsk.run():
+            wait_for_write_pipeline(
+                self.client,
+                cmd_keys=self._channel_keys(self.tsk),
+                task_name=self.tsk.name,
+            )
             self._send_and_verify_commands(self.tsk, f"{self.task_name}_test_writer")
 
     def test_reconfigure_name(self) -> None:
@@ -469,4 +508,9 @@ class WriteTaskCase(TaskCase):
             )
 
         with self.tsk.run():
+            wait_for_write_pipeline(
+                self.client,
+                cmd_keys=self._channel_keys(self.tsk),
+                task_name=self.tsk.name,
+            )
             self._send_and_verify_commands(self.tsk, f"{new_name}_test_writer")
