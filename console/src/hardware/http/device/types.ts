@@ -12,8 +12,8 @@ import { TimeSpan } from "@synnaxlabs/x";
 import { z } from "zod/v4";
 
 export const MAKE = "http";
-export type Make = typeof MAKE;
-export type Model = "HTTP server";
+const makeZ = z.literal(MAKE);
+const modelZ = z.literal("HTTP server");
 
 const noneAuthConfigZ = z.object({ type: z.literal("none") });
 
@@ -34,7 +34,7 @@ const basicAuthConfigZ = z.object({
   password: z.string().min(1, "Password is required"),
 });
 
-export const authConfigZ = z.discriminatedUnion("type", [
+const authConfigZ = z.discriminatedUnion("type", [
   noneAuthConfigZ,
   bearerAuthConfigZ,
   apiKeyAuthConfigZ,
@@ -54,7 +54,7 @@ export const ZERO_AUTH_CONFIGS: Record<AuthType, AuthConfig> = {
 
 const defaultTimeoutMs = TimeSpan.seconds(1).milliseconds;
 
-export const propertiesZ = z.object({
+const propertiesZ = z.object({
   secure: z.boolean().default(true),
   timeoutMs: z
     .number()
@@ -72,4 +72,18 @@ export const ZERO_PROPERTIES = {
   auth: ZERO_AUTH_CONFIGS.none,
 } as const satisfies Properties;
 
-export interface Device extends device.Device<Properties, Make, Model> {}
+export interface Device extends device.Device<
+  typeof propertiesZ,
+  typeof makeZ,
+  typeof modelZ
+> {}
+
+export const SCHEMAS = {
+  properties: propertiesZ,
+  make: makeZ,
+  model: modelZ,
+} as const satisfies device.DeviceSchemas<
+  typeof propertiesZ,
+  typeof makeZ,
+  typeof modelZ
+>;

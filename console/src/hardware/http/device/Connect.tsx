@@ -9,10 +9,10 @@
 
 import "@/hardware/http/device/Connect.css";
 
-import { type device, type rack } from "@synnaxlabs/client";
+import { type rack } from "@synnaxlabs/client";
 import {
   Button,
-  Device,
+  Device as PDevice,
   Divider,
   Flex,
   Form,
@@ -29,9 +29,8 @@ import { type ReactElement, useCallback, useState } from "react";
 import { CSS } from "@/css";
 import {
   type AuthType,
-  type Make,
-  type Model,
-  type Properties,
+  type Device,
+  SCHEMAS,
   ZERO_AUTH_CONFIGS,
   ZERO_PROPERTIES,
 } from "@/hardware/http/device/types";
@@ -50,7 +49,7 @@ export const CONNECT_LAYOUT: Layout.BaseState = {
   window: { resizable: false, size: { height: 720, width: 700 }, navTop: true },
 };
 
-const INITIAL_VALUES: device.Device<Properties, Make, Model> = {
+const INITIAL_VALUES: Device = {
   key: "",
   name: "HTTP Server",
   make: "http",
@@ -61,7 +60,7 @@ const INITIAL_VALUES: device.Device<Properties, Make, Model> = {
   configured: false,
 };
 
-const useForm = Device.createForm<Properties, Make, Model>();
+const useForm = PDevice.createForm(SCHEMAS);
 
 interface HeaderEntry {
   key: string;
@@ -71,12 +70,12 @@ interface HeaderEntry {
 const HeadersField = ({
   form,
 }: {
-  form: Form.UseReturn<typeof Device.formSchema>;
+  form: Form.UseReturn<typeof PDevice.formSchema>;
 }): ReactElement => {
   const value = Form.useFieldValue<
     Record<string, string>,
     Record<string, string>,
-    typeof Device.formSchema
+    typeof PDevice.formSchema
   >("properties.headers", { ctx: form, defaultValue: {} });
   const entries: HeaderEntry[] = Object.entries(value).map(([k, v]) => ({
     key: k,
@@ -151,7 +150,7 @@ export const Connect: Layout.Renderer = ({ layoutKey, onClose }) => {
     afterSave: useCallback(() => onClose(), [onClose]),
   });
 
-  const authType = Form.useFieldValue<AuthType, AuthType, typeof Device.formSchema>(
+  const authType = Form.useFieldValue<AuthType, AuthType, typeof PDevice.formSchema>(
     "properties.auth.type",
     { ctx: form },
   );
@@ -159,7 +158,7 @@ export const Connect: Layout.Renderer = ({ layoutKey, onClose }) => {
   return (
     <Flex.Box grow className={CSS.B("http-connect")}>
       <Flex.Box className={CSS.B("content")} grow gap="small">
-        <Form.Form<typeof Device.formSchema> {...form}>
+        <Form.Form<typeof PDevice.formSchema> {...form}>
           <Form.TextField
             path="name"
             inputProps={{ level: "h2", placeholder: "HTTP Server", variant: "text" }}
@@ -228,9 +227,12 @@ export const Connect: Layout.Renderer = ({ layoutKey, onClose }) => {
                 label="Username"
                 inputProps={{ placeholder: "user@example.com" }}
               />
-              <Form.Field<string> grow path="properties.auth.password" label="Password">
-                {(p) => <Input.Text {...p} type="password" />}
-              </Form.Field>
+              <Form.TextField
+                grow
+                path="properties.auth.password"
+                label="Password"
+                inputProps={{ placeholder: "password", type: "password" }}
+              />
             </Flex.Box>
           )}
         </Form.Form>

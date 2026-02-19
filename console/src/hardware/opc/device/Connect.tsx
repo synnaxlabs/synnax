@@ -12,12 +12,11 @@ import "@/hardware/opc/device/Connect.css";
 import { type device, type rack, TimeSpan } from "@synnaxlabs/client";
 import {
   Button,
-  Device,
+  Device as PDevice,
   Divider,
   Flex,
   type Flux,
   Form,
-  Input,
   Nav,
   Rack,
   Status,
@@ -31,9 +30,8 @@ import { retrieveScanTask } from "@/hardware/opc/device/retrieveScanTask";
 import { SelectSecurityMode } from "@/hardware/opc/device/SelectSecurityMode";
 import { SelectSecurityPolicy } from "@/hardware/opc/device/SelectSecurityPolicy";
 import {
-  type makeZ,
+  type Device,
   NO_SECURITY_MODE,
-  type propertiesZ,
   SCHEMAS,
   type SecurityMode,
   type SecurityPolicy,
@@ -55,9 +53,9 @@ export const CONNECT_LAYOUT: Layout.BaseState = {
   window: { resizable: false, size: { height: 720, width: 915 }, navTop: true },
 };
 
-const useForm = Device.createForm(SCHEMAS);
+const useForm = PDevice.createForm(SCHEMAS);
 
-const INITIAL_VALUES: device.Device<typeof propertiesZ, typeof makeZ> = {
+const INITIAL_VALUES: Device = {
   key: "",
   name: "OPC UA Server",
   make: "opc",
@@ -72,9 +70,9 @@ const beforeValidate = ({
   get,
   set,
 }: Flux.BeforeValidateArgs<
-  Device.RetrieveQuery,
-  typeof Device.formSchema,
-  Device.FluxSubStore
+  PDevice.RetrieveQuery,
+  typeof PDevice.formSchema,
+  PDevice.FluxSubStore
 >) => set("location", get("properties.connection.endpoint").value);
 
 const beforeSave = async ({
@@ -83,9 +81,9 @@ const beforeSave = async ({
   store,
   set,
 }: Flux.FormBeforeSaveParams<
-  Device.RetrieveQuery,
-  typeof Device.formSchema,
-  Device.FluxSubStore
+  PDevice.RetrieveQuery,
+  typeof PDevice.formSchema,
+  PDevice.FluxSubStore
 >) => {
   const scanTask = await retrieveScanTask(client, store, get<rack.Key>("rack").value);
   const scanStatus = await scanTask.executeCommandSync({
@@ -123,20 +121,16 @@ export const Connect: Layout.Renderer = ({ layoutKey, onClose }) => {
   });
 
   const hasSecurity =
-    Form.useFieldValue<SecurityMode, SecurityMode, typeof Device.formSchema>(
+    Form.useFieldValue<SecurityMode, SecurityMode, typeof PDevice.formSchema>(
       "properties.connection.securityMode",
       { ctx: form },
     ) != NO_SECURITY_MODE;
   return (
     <Flex.Box align="start" className={CSS.B("opc-connect")} justify="center">
       <Flex.Box className={CSS.B("content")} grow gap="small">
-        <Form.Form<typeof Device.formSchema> {...form}>
+        <Form.Form<typeof PDevice.formSchema> {...form}>
           <Form.TextField
-            inputProps={{
-              level: "h2",
-              placeholder: "OPC UA Server",
-              variant: "text",
-            }}
+            inputProps={{ level: "h2", placeholder: "OPC UA Server", variant: "text" }}
             path="name"
           />
           <Form.Field<rack.Key> path="rack" label="Connect From" required>
@@ -144,19 +138,22 @@ export const Connect: Layout.Renderer = ({ layoutKey, onClose }) => {
               <Rack.SelectSingle value={value} onChange={onChange} allowNone={false} />
             )}
           </Form.Field>
-          <Form.Field<string> path="properties.connection.endpoint">
-            {(p) => (
-              <Input.Text autoFocus placeholder="opc.tcp://localhost:4840" {...p} />
-            )}
-          </Form.Field>
+          <Form.TextField
+            path="properties.connection.endpoint"
+            inputProps={{ placeholder: "opc.tcp://localhost:4840", autoFocus: true }}
+          />
           <Divider.Divider x padded="bottom" />
           <Flex.Box x justify="between">
-            <Form.Field<string> grow path="properties.connection.username">
-              {(p) => <Input.Text placeholder="admin" {...p} />}
-            </Form.Field>
-            <Form.Field<string> grow path="properties.connection.password">
-              {(p) => <Input.Text placeholder="password" type="password" {...p} />}
-            </Form.Field>
+            <Form.TextField
+              grow
+              path="properties.connection.username"
+              inputProps={{ placeholder: "admin" }}
+            />
+            <Form.TextField
+              grow
+              path="properties.connection.password"
+              inputProps={{ placeholder: "password", type: "password" }}
+            />
             <Form.Field<SecurityMode>
               label="Security Mode"
               path="properties.connection.securityMode"
