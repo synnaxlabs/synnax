@@ -365,9 +365,13 @@ class ReadTaskCase(TaskCase):
 
         self.test_task_exists()
         self.test_start_and_stop()
+        sy.sleep(0.5)
         self.test_disable_data_saving()
+        sy.sleep(0.5)
         self.test_enable_data_saving()
+        sy.sleep(0.5)
         self.test_reconfigure_rate()
+        sy.sleep(0.5)
         self.test_survives_channel_deletion()
 
     def test_start_and_stop(self) -> None:

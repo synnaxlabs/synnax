@@ -120,19 +120,17 @@ class TaskLifecycle(SimulatorCase, ConsoleCase):
         for name in TASK_NAMES:
             self.console.tasks.stop_task(name)
 
-        sy.sleep(0.5)
+        sy.sleep(0.1)
 
         for name in TASK_NAMES:
             self.console.tasks.start_task(name)
-
-        sy.sleep(0.5)
 
         self.log("Testing: Group task stop/start")
         # Set one task to stopped (1 stopped, 3 running)
         self.console.tasks.stop_task(TASK_NAMES[2])
         self.console.tasks.stop_tasks(TASK_NAMES)
 
-        sy.sleep(0.5)
+        sy.sleep(0.1)
 
         # Set one task to running (1 running, 3 stopped)
         self.console.tasks.start_task(TASK_NAMES[1])
@@ -149,14 +147,14 @@ class TaskLifecycle(SimulatorCase, ConsoleCase):
         for name in read_names:
             self.assert_data_saving(name, False)
 
-        sy.sleep(0.5)
+        sy.sleep(0.1)
 
         for name in read_names:
             self.console.tasks.enable_data_saving(name)
         for name in read_names:
             self.assert_data_saving(name, True)
 
-        sy.sleep(0.5)
+        sy.sleep(0.1)
 
         self.log("Testing: Group data saving disable/enable")
 
@@ -166,7 +164,7 @@ class TaskLifecycle(SimulatorCase, ConsoleCase):
         for name in read_names:
             self.assert_data_saving(name, False)
 
-        sy.sleep(0.5)
+        sy.sleep(0.1)
 
         # Set one read task to data saving enabled (1 enabled, rest disabled)
         self.console.tasks.enable_data_saving(read_names[1])
