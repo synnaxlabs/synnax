@@ -89,7 +89,7 @@ struct ConnectionConfig {
     /// @param verify_ssl whether to verify SSL certificates (false only in tests).
     explicit ConnectionConfig(x::json::Parser parser, const bool verify_ssl = true):
         base_url(parser.field<std::string>("base_url")),
-        timeout(parser.field<uint32_t>("timeout_ms", 1000) * x::telem::MILLISECOND),
+        timeout(parser.field<uint32_t>("timeout_ms", 100) * x::telem::MILLISECOND),
         auth(AuthConfig(parser.optional_child("auth"))),
         headers(parser.field<std::map<std::string, std::string>>(
             "headers",

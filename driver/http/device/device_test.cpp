@@ -125,7 +125,7 @@ TEST(ConnectionConfigTest, DefaultsApplied) {
     x::json::Parser parser(j);
     ConnectionConfig config(parser);
     EXPECT_EQ(config.base_url, "http://localhost");
-    EXPECT_EQ(config.timeout, x::telem::SECOND);
+    EXPECT_EQ(config.timeout, 100 * x::telem::MILLISECOND);
     EXPECT_EQ(config.auth.type, "none");
     EXPECT_TRUE(config.headers.empty());
 }
