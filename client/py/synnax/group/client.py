@@ -9,28 +9,29 @@
 
 from uuid import UUID
 
-from freighter import Empty, Payload, UnaryClient, send_required
+from freighter import Empty, UnaryClient, send_required
+from pydantic import BaseModel
 
 from synnax.group.payload import Group
 from synnax.ontology.payload import ID, CrudeID
 
 
-class CreateReq(Payload):
+class CreateReq(BaseModel):
     parent: ID
     key: UUID | None = None
     name: str
 
 
-class CreateRes(Payload):
+class CreateRes(BaseModel):
     group: Group
 
 
-class RenameReq(Payload):
+class RenameReq(BaseModel):
     key: UUID
     name: str
 
 
-class DeleteReq(Payload):
+class DeleteReq(BaseModel):
     keys: list[UUID]
 
 

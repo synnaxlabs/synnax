@@ -173,7 +173,7 @@ class TestArcTask:
             mode="text",
             text=sy.Text(raw="x := 1"),
         )
-        task = sy.ArcTask(name="Test Arc Task", arc_key=arc.key, auto_start=False)
+        task = sy.arc.Task(name="Test Arc Task", arc_key=arc.key, auto_start=False)
         assert task.config.arc_key == str(arc.key)
         assert task.config.auto_start is False
         assert task.TYPE == "arc"
@@ -184,7 +184,7 @@ class TestArcTask:
             name=f"test-arc-task-{uuid4()}",
             mode="text",
         )
-        task = sy.ArcTask(name="Test Arc Task", arc_key=arc.key)
+        task = sy.arc.Task(name="Test Arc Task", arc_key=arc.key)
         payload = task.to_payload()
         assert payload.type == "arc"
         assert payload.name == "Test Arc Task"
@@ -193,7 +193,7 @@ class TestArcTask:
     def test_arc_task_requires_arc_key(self):
         """Should raise error when arc_key is not provided."""
         with pytest.raises(ValueError, match="arc_key is required"):
-            sy.ArcTask(name="Test")
+            sy.arc.Task(name="Test")
 
     def test_create_arc_task_on_cluster(self, client: sy.Synnax):
         """Should create an Arc task on the cluster."""
@@ -203,7 +203,7 @@ class TestArcTask:
             text=sy.Text(raw="x := 1"),
         )
         task_name = f"Test Arc Task {uuid4()}"
-        task = sy.ArcTask(name=task_name, arc_key=arc.key, auto_start=False)
+        task = sy.arc.Task(name=task_name, arc_key=arc.key, auto_start=False)
         # Create task using to_payload pattern (matching modbus/opcua tests)
         created = client.tasks.create(
             name=task_name,
@@ -222,7 +222,7 @@ class TestArcTask:
             mode="text",
         )
         task_name = f"Test Arc Task {uuid4()}"
-        task = sy.ArcTask(name=task_name, arc_key=arc.key)
+        task = sy.arc.Task(name=task_name, arc_key=arc.key)
         created = client.tasks.create(
             name=task_name,
             type="arc",
@@ -239,7 +239,7 @@ class TestArcTask:
             mode="text",
         )
         task_name = f"Test Arc Task {uuid4()}"
-        task = sy.ArcTask(name=task_name, arc_key=arc.key)
+        task = sy.arc.Task(name=task_name, arc_key=arc.key)
         created = client.tasks.create(
             name=task_name,
             type="arc",
@@ -247,6 +247,6 @@ class TestArcTask:
         )
         retrieved = client.tasks.retrieve(key=created.key)
         # Wrap the generic Task as an ArcTask
-        arc_task = sy.ArcTask(internal=retrieved)
+        arc_task = sy.arc.Task(internal=retrieved)
         assert arc_task.config.arc_key == str(arc.key)
         assert arc_task.config.auto_start is False

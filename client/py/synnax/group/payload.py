@@ -10,15 +10,17 @@
 
 from uuid import UUID
 
-from freighter import Payload
+from pydantic import BaseModel
 
-from synnax.ontology.payload import ID
+from synnax import ontology
+
+ONTOLOGY_TYPE = ontology.ID(type="group")
 
 
-class Group(Payload):
+class Group(BaseModel):
     key: UUID
     name: str
 
     @property
-    def ontology_id(self) -> ID:
-        return ID(key=str(self.key), type="group")
+    def ontology_id(self) -> ontology.ID:
+        return ontology.ID(key=str(self.key), type=ONTOLOGY_TYPE.type)
