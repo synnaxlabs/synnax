@@ -52,7 +52,7 @@ export const ZERO_AUTH_CONFIGS: Record<AuthType, AuthConfig> = {
   basic: { type: "basic", username: "", password: "" },
 };
 
-const defaultTimeoutMs = TimeSpan.seconds(1).milliseconds;
+const defaultTimeoutMs = TimeSpan.milliseconds(100).milliseconds;
 
 const propertiesZ = z.object({
   secure: z.boolean().default(true),
