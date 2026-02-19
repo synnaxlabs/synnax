@@ -53,9 +53,7 @@ export const CONNECT_LAYOUT: Layout.BaseState = {
   window: { resizable: false, size: { height: 500, width: 600 }, navTop: true },
 };
 
-const useForm = Device.createForm<typeof propertiesZ, typeof makeZ, typeof modelZ>(
-  SCHEMAS,
-);
+const useForm = Device.createForm(SCHEMAS);
 
 const INITIAL_VALUES: device.Device<typeof propertiesZ, typeof makeZ, typeof modelZ> = {
   key: "",

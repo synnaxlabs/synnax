@@ -230,11 +230,7 @@ const Form: FC<
 > = (props) => {
   const isSnapshot = Common.Task.useIsSnapshot();
   return (
-    <Common.Device.Provider<
-      typeof Device.propertiesZ,
-      typeof Device.makeZ,
-      typeof Device.modelZ
-    >
+    <Common.Device.Provider
       canConfigure={!isSnapshot}
       configureLayout={Device.CONFIGURE_LAYOUT}
       schemas={Device.SCHEMAS}
