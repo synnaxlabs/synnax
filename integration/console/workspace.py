@@ -357,10 +357,18 @@ class WorkspaceClient:
         Args:
             name: Name of the page to drag
         """
-        page_item = self._find_page(name)
-        mosaic = self.layout.page.locator(".console-mosaic").first
-        page_item.drag_to(mosaic)
-        self.layout.close_left_toolbar()
+        for attempt in range(2):
+            self.layout.show_resource_toolbar("workspace")
+            page_item = self._find_page(name)
+            mosaic = self.layout.page.locator(".console-mosaic").first
+            page_item.drag_to(mosaic)
+            self.layout.close_left_toolbar()
+            try:
+                self.layout.wait_for_tab(name)
+                return
+            except PlaywrightTimeoutError:
+                if attempt == 1:
+                    raise
 
     def rename_page(self, old_name: str, new_name: str) -> None:
         """Rename a page via context menu in the workspace resources toolbar.
