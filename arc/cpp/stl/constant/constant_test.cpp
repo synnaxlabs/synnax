@@ -18,7 +18,7 @@
 #include "arc/cpp/runtime/state/state.h"
 #include "arc/cpp/stl/constant/constant.h"
 
-namespace arc::stl {
+namespace arc::stl::constant {
 runtime::node::Context make_context() {
     return runtime::node::Context{
         .elapsed = x::telem::SECOND,
@@ -74,7 +74,7 @@ TEST(ConstantFactoryTest, ReturnsNotFoundForWrongType) {
     auto ir_node = setup.ir.nodes[0];
     ir_node.type = "not_constant";
 
-    constant::Module module;
+    Module module;
     auto factory = module.factory();
     ASSERT_OCCURRED_AS_P(
         factory->create(runtime::node::Config(setup.ir, ir_node, setup.make_node())),
@@ -85,7 +85,7 @@ TEST(ConstantFactoryTest, ReturnsNotFoundForWrongType) {
 /// @brief Test that factory creates a Constant node with valid configuration.
 TEST(ConstantFactoryTest, CreatesConstantNode) {
     TestSetup setup(types::Kind::F32, 42.5f);
-    constant::Module module;
+    Module module;
     const auto factory = module.factory();
     auto node = ASSERT_NIL_P(factory->create(
         runtime::node::Config(setup.ir, setup.ir.nodes[0], setup.make_node())
@@ -96,7 +96,7 @@ TEST(ConstantFactoryTest, CreatesConstantNode) {
 /// @brief Test that next() outputs the constant value on first call.
 TEST(ConstantTest, NextOutputsValueOnFirstCall) {
     TestSetup setup(types::Kind::F32, 42.5f);
-    constant::Constant node(setup.make_node(), 42.5f, x::telem::FLOAT32_T);
+    Constant node(setup.make_node(), 42.5f, x::telem::FLOAT32_T);
 
     auto ctx = make_context();
     ASSERT_NIL(node.next(ctx));
@@ -110,7 +110,7 @@ TEST(ConstantTest, NextOutputsValueOnFirstCall) {
 /// @brief Test that next() is a no-op on subsequent calls.
 TEST(ConstantTest, NextNoOpsOnSubsequentCalls) {
     TestSetup setup(types::Kind::F32, 42.5f);
-    constant::Constant node(setup.make_node(), 42.5f, x::telem::FLOAT32_T);
+    Constant node(setup.make_node(), 42.5f, x::telem::FLOAT32_T);
 
     auto ctx = make_context();
     node.next(ctx);
@@ -126,7 +126,7 @@ TEST(ConstantTest, NextNoOpsOnSubsequentCalls) {
 /// @brief Test that reset() allows the value to be output again.
 TEST(ConstantTest, ResetAllowsValueToBeOutputAgain) {
     TestSetup setup(types::Kind::F32, 42.5f);
-    constant::Constant node(setup.make_node(), 42.5f, x::telem::FLOAT32_T);
+    Constant node(setup.make_node(), 42.5f, x::telem::FLOAT32_T);
 
     auto ctx = make_context();
     node.next(ctx);
@@ -144,7 +144,7 @@ TEST(ConstantTest, ResetAllowsValueToBeOutputAgain) {
 /// @brief Test that float32 values are correctly cast and output.
 TEST(ConstantTest, ValueIsCastToCorrectDataType_Float32) {
     TestSetup setup(types::Kind::F32, 3.14f);
-    constant::Constant node(setup.make_node(), 3.14f, x::telem::FLOAT32_T);
+    Constant node(setup.make_node(), 3.14f, x::telem::FLOAT32_T);
 
     auto ctx = make_context();
     node.next(ctx);
@@ -158,11 +158,7 @@ TEST(ConstantTest, ValueIsCastToCorrectDataType_Float32) {
 /// @brief Test that int64 values are correctly cast and output.
 TEST(ConstantTest, ValueIsCastToCorrectDataType_Int64) {
     TestSetup setup(types::Kind::I64, static_cast<int64_t>(12345));
-    constant::Constant node(
-        setup.make_node(),
-        static_cast<int64_t>(12345),
-        x::telem::INT64_T
-    );
+    Constant node(setup.make_node(), static_cast<int64_t>(12345), x::telem::INT64_T);
 
     auto ctx = make_context();
     node.next(ctx);
@@ -176,11 +172,7 @@ TEST(ConstantTest, ValueIsCastToCorrectDataType_Int64) {
 /// @brief Test that uint8 values are correctly cast and output.
 TEST(ConstantTest, ValueIsCastToCorrectDataType_U8) {
     TestSetup setup(types::Kind::U8, static_cast<uint8_t>(255));
-    constant::Constant node(
-        setup.make_node(),
-        static_cast<uint8_t>(255),
-        x::telem::UINT8_T
-    );
+    Constant node(setup.make_node(), static_cast<uint8_t>(255), x::telem::UINT8_T);
 
     auto ctx = make_context();
     node.next(ctx);
@@ -194,7 +186,7 @@ TEST(ConstantTest, ValueIsCastToCorrectDataType_U8) {
 /// @brief Test that is_output_truthy delegates to state.
 TEST(ConstantTest, IsOutputTruthyDelegatesToState) {
     TestSetup setup(types::Kind::F32, 42.5f);
-    constant::Constant node(setup.make_node(), 42.5f, x::telem::FLOAT32_T);
+    Constant node(setup.make_node(), 42.5f, x::telem::FLOAT32_T);
 
     auto ctx = make_context();
     node.next(ctx);
@@ -205,7 +197,7 @@ TEST(ConstantTest, IsOutputTruthyDelegatesToState) {
 /// @brief Test that mark_changed is called on first next().
 TEST(ConstantTest, MarkChangedCalledOnFirstNext) {
     TestSetup setup(types::Kind::F32, 42.5f);
-    constant::Constant node(setup.make_node(), 42.5f, x::telem::FLOAT32_T);
+    Constant node(setup.make_node(), 42.5f, x::telem::FLOAT32_T);
 
     bool changed_called = false;
     std::string changed_param;
@@ -224,7 +216,7 @@ TEST(ConstantTest, MarkChangedCalledOnFirstNext) {
 /// @brief Test that mark_changed is not called on subsequent next() calls.
 TEST(ConstantTest, MarkChangedNotCalledOnSubsequentNext) {
     TestSetup setup(types::Kind::F32, 42.5f);
-    constant::Constant node(setup.make_node(), 42.5f, x::telem::FLOAT32_T);
+    Constant node(setup.make_node(), 42.5f, x::telem::FLOAT32_T);
 
     auto ctx = make_context();
     node.next(ctx);
@@ -241,7 +233,7 @@ TEST(ConstantTest, MarkChangedNotCalledOnSubsequentNext) {
 /// @brief Test that timestamp is populated on first next().
 TEST(ConstantTest, TimestampOutputOnFirstNext) {
     TestSetup setup(types::Kind::F32, 42.5f);
-    constant::Constant node(setup.make_node(), 42.5f, x::telem::FLOAT32_T);
+    Constant node(setup.make_node(), 42.5f, x::telem::FLOAT32_T);
 
     auto ctx = make_context();
     node.next(ctx);
@@ -255,7 +247,7 @@ TEST(ConstantTest, TimestampOutputOnFirstNext) {
 /// @brief Test that reset produces a new timestamp on subsequent next().
 TEST(ConstantTest, ResetProducesNewTimestamp) {
     TestSetup setup(types::Kind::F32, 42.5f);
-    constant::Constant node(setup.make_node(), 42.5f, x::telem::FLOAT32_T);
+    Constant node(setup.make_node(), 42.5f, x::telem::FLOAT32_T);
 
     auto ctx = make_context();
     node.next(ctx);

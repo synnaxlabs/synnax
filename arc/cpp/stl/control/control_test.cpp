@@ -16,7 +16,7 @@
 #include "arc/cpp/runtime/state/state.h"
 #include "arc/cpp/stl/control/control.h"
 
-namespace arc::stl {
+namespace arc::stl::control {
 struct TestSetup {
     ir::IR ir;
     std::shared_ptr<runtime::state::State> state;
