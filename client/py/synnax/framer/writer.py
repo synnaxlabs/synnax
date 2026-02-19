@@ -14,20 +14,14 @@ from uuid import uuid4
 from freighter import (
     EOF,
     ExceptionPayload,
-    Payload,
     Stream,
     WebsocketClient,
     decode_exception,
 )
 from freighter.websocket import Message
+from pydantic import BaseModel
 
-from synnax.channel.payload import (
-    ChannelKey,
-    ChannelKeys,
-    ChannelName,
-    ChannelNames,
-    ChannelPayload,
-)
+import synnax.channel.payload as channel
 from synnax.framer.adapter import WriteFrameAdapter
 from synnax.framer.codec import (
     HIGH_PERF_SPECIAL_CHAR,
@@ -62,24 +56,24 @@ CrudeWriterMode: TypeAlias = (
 )
 
 
-class WriterConfig(Payload):
+class WriterConfig(BaseModel):
     authorities: list[int] = Authority.ABSOLUTE
     control_subject: Subject = Subject(name="", key=str(uuid4()))
     start: TimeStamp | None = None
-    keys: ChannelKeys
+    keys: list[channel.Key] | tuple[channel.Key]
     mode: WriterMode = WriterMode.PERSIST_STREAM
     err_on_unauthorized: bool = False
     enable_auto_commit: bool = True
     auto_index_persist_interval: TimeSpan = 1 * TimeSpan.SECOND
 
 
-class WriterRequest(Payload):
+class WriterRequest(BaseModel):
     config: WriterConfig | None = None
     command: WriterCommand
     frame: FramePayload | None = None
 
 
-class WriterResponse(Payload):
+class WriterResponse(BaseModel):
     command: WriterCommand
     end: TimeStamp | None
     err: ExceptionPayload
@@ -100,7 +94,7 @@ class WSWriterCodec(WSFramerCodec):
             return self.lower_perf_codec.decode(data[1:], pld_t)
         frame = self.codec.decode(data, 1)
         msg = Message[WriterRequest](type="data")
-        msg.payload = Payload(command=WriterCommand.WRITE, frame=frame)
+        msg.payload = WriterRequest(command=WriterCommand.WRITE, frame=frame)
         return msg
 
 
@@ -213,13 +207,15 @@ class Writer:
             raise exc
 
     @overload
-    def write(
-        self, channels_or_data: ChannelKey | ChannelName, series: CrudeSeries
-    ): ...
+    def write(self, channels_or_data: channel.Key | str, series: CrudeSeries): ...
 
     @overload
     def write(
-        self, channels_or_data: ChannelKeys | ChannelNames, series: list[CrudeSeries]
+        self,
+        channels_or_data: (
+            list[channel.Key] | tuple[channel.Key] | list[str] | tuple[str]
+        ),
+        series: list[CrudeSeries],
     ): ...
 
     @overload
@@ -231,7 +227,13 @@ class Writer:
     def write(
         self,
         channels_or_data: (
-            ChannelName | ChannelKey | ChannelKeys | ChannelNames | CrudeFrame
+            str
+            | channel.Key
+            | list[channel.Key]
+            | tuple[channel.Key]
+            | list[str]
+            | tuple[str]
+            | CrudeFrame
         ),
         series: CrudeSeries | list[CrudeSeries] | None = None,
     ) -> None:
@@ -295,7 +297,7 @@ class Writer:
     @overload
     def set_authority(
         self,
-        value: ChannelKey | ChannelName,
+        value: channel.Key | str,
         authority: CrudeAuthority,
     ) -> None:
         """Sets the authority level for a single channel.
@@ -308,7 +310,7 @@ class Writer:
     @overload
     def set_authority(
         self,
-        value: dict[ChannelKey | ChannelName | ChannelPayload, CrudeAuthority],
+        value: dict[channel.Key | str | channel.Payload, CrudeAuthority],
     ) -> None:
         """Sets the authority level for multiple channels.
 
@@ -319,9 +321,9 @@ class Writer:
     def set_authority(
         self,
         value: (
-            dict[ChannelKey | ChannelName | ChannelPayload, CrudeAuthority]
-            | ChannelKey
-            | ChannelName
+            dict[channel.Key | str | channel.Payload, CrudeAuthority]
+            | channel.Key
+            | str
             | CrudeAuthority
         ),
         authority: CrudeAuthority | None = None,
@@ -364,7 +366,7 @@ class Writer:
         if isinstance(value, int) and authority is None:
             cfg = WriterConfig(keys=[], authorities=[value])
         else:
-            if isinstance(value, (ChannelKey, ChannelName)):
+            if isinstance(value, (channel.Key, str)):
                 if authority is None:
                     raise ValueError(
                         "authority must be provided when setting a single channel"

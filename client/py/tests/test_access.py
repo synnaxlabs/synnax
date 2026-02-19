@@ -12,7 +12,6 @@ import uuid
 import pytest
 
 import synnax as sy
-from synnax.ontology.payload import ID
 
 
 @pytest.mark.access
@@ -24,16 +23,16 @@ class TestAccessClient:
                 sy.Policy(
                     name="Test Policy 1",
                     objects=[
-                        ID(type="channel", key=str(uuid.uuid4())),
-                        ID(type="label", key=str(uuid.uuid4())),
+                        sy.ontology.ID(type="channel", key=str(uuid.uuid4())),
+                        sy.ontology.ID(type="label", key=str(uuid.uuid4())),
                     ],
                     actions=["create"],
                 ),
                 sy.Policy(
                     name="Test Policy 2",
                     objects=[
-                        ID(type="channel", key=str(uuid.uuid4())),
-                        ID(type="label", key=str(uuid.uuid4())),
+                        sy.ontology.ID(type="channel", key=str(uuid.uuid4())),
+                        sy.ontology.ID(type="label", key=str(uuid.uuid4())),
                     ],
                     actions=["create"],
                 ),
@@ -51,8 +50,8 @@ class TestAccessClient:
         p = sy.Policy(
             name="Single Test Policy",
             objects=[
-                ID(type="channel", key=str(uuid.uuid4())),
-                ID(type="label", key=str(uuid.uuid4())),
+                sy.ontology.ID(type="channel", key=str(uuid.uuid4())),
+                sy.ontology.ID(type="label", key=str(uuid.uuid4())),
             ],
             actions=["create"],
         )
@@ -69,7 +68,7 @@ class TestAccessClient:
         # For now, just verify the call completes without crashing
         try:
             res = client.access.policies.retrieve(
-                subjects=[ID(type="channel", key="hehe")]
+                subjects=[sy.ontology.ID(type="channel", key="hehe")]
             )
             assert isinstance(res, list)
         except sy.NotFoundError:
@@ -91,7 +90,7 @@ class TestAccessClient:
         created = client.access.policies.create(
             sy.Policy(
                 name="Test Non-Internal Policy",
-                objects=[ID(type="channel", key=str(uuid.uuid4()))],
+                objects=[sy.ontology.ID(type="channel", key=str(uuid.uuid4()))],
                 actions=["retrieve"],
             )
         )
@@ -167,7 +166,7 @@ class TestRoleClient:
     def test_assign_role(self, two_roles: list[sy.Role], client: sy.Synnax) -> None:
         """Should assign a role to a user."""
         username = str(uuid.uuid4())
-        user = client.user.create(username=username, password="testpass")
+        user = client.users.create(username=username, password="testpass")
         assert user.key is not None
 
         # Assign role to user
@@ -206,7 +205,7 @@ class TestAccessAuthClient:
         """Should prevent a newly created user from creating other users."""
         host, port, _, _ = login_info
         username = str(uuid.uuid4())
-        client.user.create(username=username, password="pwd2")
+        client.users.create(username=username, password="pwd2")
         client2 = sy.Synnax(
             host=host,
             port=port,
@@ -215,4 +214,4 @@ class TestAccessAuthClient:
         )
 
         with pytest.raises(sy.AuthError):
-            client2.user.create(username=str(uuid.uuid4()), password="pwd3")
+            client2.users.create(username=str(uuid.uuid4()), password="pwd3")

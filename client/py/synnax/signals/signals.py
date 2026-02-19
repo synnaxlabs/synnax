@@ -11,9 +11,7 @@ from collections.abc import Callable
 from functools import wraps
 from multiprocessing import Pool
 
-from synnax import framer
-from synnax.channel.payload import ChannelKey, ChannelName, ChannelParams
-from synnax.channel.retrieve import ChannelRetriever
+from synnax import channel, framer
 from synnax.state import LatestState, State
 
 _InternalHandler = Callable[[State], Callable[[LatestState], None] | None]
@@ -21,11 +19,11 @@ _InternalHandler = Callable[[State], Callable[[LatestState], None] | None]
 
 class Registry:
     __handlers: list[_InternalHandler]
-    __channels: set[ChannelKey | ChannelName]
+    __channels: set[channel.Key | str]
     __frame_client: framer.Client
-    __channel_retriever: ChannelRetriever
+    __channel_retriever: channel.Retriever
 
-    def __init__(self, frame_client: framer.Client, channels: ChannelRetriever):
+    def __init__(self, frame_client: framer.Client, channels: channel.Retriever):
         self.__handlers = list()
         self.__channels = set()
         self.__frame_client = frame_client
@@ -33,7 +31,7 @@ class Registry:
 
     def on(
         self,
-        channels: ChannelParams,
+        channels: channel.Params,
         filter_f: Callable[[LatestState], bool],
     ) -> Callable[[Callable[[LatestState], None]], Callable[[], None] | None]:
         self.__channels.update(channels)
@@ -63,17 +61,17 @@ class Scheduler:
     __pool: Pool
     __streamer: framer.AsyncStreamer | None = None
     __handlers: list[_InternalHandler]
-    __channels: ChannelParams
+    __channels: channel.Params
     __state: State
     __frame_client: framer.Client
-    __channel_retriever: ChannelRetriever
+    __channel_retriever: channel.Retriever
 
     def __init__(
         self,
-        channels: ChannelParams,
+        channels: channel.Params,
         handlers: list[_InternalHandler],
         frame_client: framer.Client,
-        channel_retriever: ChannelRetriever,
+        channel_retriever: channel.Retriever,
     ):
         self.__frame_client = frame_client
         self.__channels = channels

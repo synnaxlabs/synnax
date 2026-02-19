@@ -7,18 +7,18 @@
 #  License, use of this software will be governed by the Apache License, Version 2.0,
 #  included in the file licenses/APL.txt.
 
-from synnax.access.policy.client import PolicyClient
-from synnax.access.role.client import RoleClient
+from freighter import UnaryClient
+
+from synnax.access import policy, role
 
 
 class Client:
-    policies: PolicyClient
-    roles: RoleClient
+    policies: policy.Client
+    roles: role.Client
 
     def __init__(
         self,
-        policies: PolicyClient,
-        roles: RoleClient,
+        transport: UnaryClient,
     ):
-        self.policies = policies
-        self.roles = roles
+        self.policies = policy.Client(transport)
+        self.roles = role.Client(transport)
