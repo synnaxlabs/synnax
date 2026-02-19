@@ -31,7 +31,7 @@ export const useListenForChanges = () => {
 
 export const getKeyFromStatus = ({
   details,
-}: Status.NotificationSpec<typeof device.deviceZ>): device.Key | null => {
+}: Status.NotificationSpec<ReturnType<typeof device.deviceZ>>): device.Key | null => {
   if (details == null || details.configured || !("key" in details)) return null;
   return details.key;
 };

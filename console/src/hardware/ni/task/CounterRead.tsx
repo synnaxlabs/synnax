@@ -150,8 +150,9 @@ const onConfigure: Common.Task.OnConfigure<typeof counterReadConfigZ> = async (
   const devices = unique.unique(config.channels.map((c) => c.device));
   if (devices.length === 0) throw new Error("No device selected in task configuration");
 
-  const allDevices = await client.devices.retrieve<Device.Properties>({
+  const allDevices = await client.devices.retrieve({
     keys: devices,
+    schemas: Device.SCHEMAS,
   });
   const racks = new Set(allDevices.map((d) => d.rack));
   if (racks.size > 1)
@@ -219,7 +220,7 @@ const onConfigure: Common.Task.OnConfigure<typeof counterReadConfigZ> = async (
         c.channel = dev.properties.counterInput.channels[c.port.toString()];
       });
     } finally {
-      if (devModified) await client.devices.create(dev);
+      if (devModified) await client.devices.create(dev, Device.SCHEMAS);
     }
   }
 
