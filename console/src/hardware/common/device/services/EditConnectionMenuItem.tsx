@@ -12,8 +12,10 @@ import { Icon, Menu } from "@synnaxlabs/pluto";
 import { Layout } from "@/layout";
 import { type Ontology } from "@/ontology";
 
-export interface EditConnectionMenuItemProps
-  extends Pick<Ontology.TreeContextMenuProps, "selection"> {
+export interface EditConnectionMenuItemProps extends Pick<
+  Ontology.TreeContextMenuProps,
+  "selection"
+> {
   configureLayout: Layout.BaseState;
 }
 

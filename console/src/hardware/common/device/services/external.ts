@@ -9,5 +9,5 @@
 
 export * from "@/hardware/common/device/services/ChangeIdentifierMenuItem";
 export * from "@/hardware/common/device/services/ConfigureMenuItem";
-export * from "@/hardware/common/device/services/ContextMenuItems";
 export * from "@/hardware/common/device/services/EditConnectionMenuItem";
+export * from "@/hardware/common/device/services/TaskContextMenuItems";

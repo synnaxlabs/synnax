@@ -7,6 +7,8 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { Menu } from "@synnaxlabs/pluto";
+
 import { Common } from "@/hardware/common";
 import { Device } from "@/hardware/ni/device";
 import { Task } from "@/hardware/ni/task";
@@ -48,6 +50,7 @@ export const ContextMenuItems = (props: Ontology.TreeContextMenuProps) => (
       configureLayout={Device.CONFIGURE_LAYOUT}
     />
     <Common.DeviceServices.ChangeIdentifierMenuItem {...props} icon="Logo.NI" />
+    <Menu.Divider />
     <Common.DeviceServices.TaskContextMenuItems
       {...props}
       configureLayout={Device.CONFIGURE_LAYOUT}

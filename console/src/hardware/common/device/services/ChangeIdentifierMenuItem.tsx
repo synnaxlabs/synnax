@@ -13,11 +13,10 @@ import { errors } from "@synnaxlabs/x";
 import { Modals } from "@/modals";
 import { type Ontology } from "@/ontology";
 
-export interface ChangeIdentifierMenuItemProps
-  extends Pick<
-    Ontology.TreeContextMenuProps,
-    "selection" | "state" | "client" | "handleError"
-  > {
+export interface ChangeIdentifierMenuItemProps extends Pick<
+  Ontology.TreeContextMenuProps,
+  "selection" | "state" | "client" | "handleError"
+> {
   icon: string;
 }
 

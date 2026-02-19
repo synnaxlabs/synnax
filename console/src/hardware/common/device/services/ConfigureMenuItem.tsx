@@ -12,8 +12,10 @@ import { Icon, Menu } from "@synnaxlabs/pluto";
 import { Layout } from "@/layout";
 import { type Ontology } from "@/ontology";
 
-export interface ConfigureMenuItemProps
-  extends Pick<Ontology.TreeContextMenuProps, "selection" | "state"> {
+export interface ConfigureMenuItemProps extends Pick<
+  Ontology.TreeContextMenuProps,
+  "selection" | "state"
+> {
   configureLayout: Layout.BaseState;
 }
 

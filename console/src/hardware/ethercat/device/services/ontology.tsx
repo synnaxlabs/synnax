@@ -59,15 +59,14 @@ export const ContextMenuItems = (props: Ontology.TreeContextMenuProps) => {
         {...props}
         configureLayout={Device.CONFIGURE_LAYOUT}
       />
-      <Common.DeviceServices.ChangeIdentifierMenuItem
-        {...props}
-        icon="Logo.EtherCAT"
-      />
+      <Common.DeviceServices.ChangeIdentifierMenuItem {...props} icon="Logo.EtherCAT" />
+      <Menu.Divider />
       <Common.DeviceServices.TaskContextMenuItems
         {...props}
         configureLayout={Device.CONFIGURE_LAYOUT}
         taskContextMenuItemConfigs={TASK_CONTEXT_MENU_ITEM_CONFIGS}
       />
+      <Menu.Divider />
       {!allDisabled && (
         <Menu.Item itemKey="ethercat.disable" onClick={handleDisable}>
           <Icon.Disable />
