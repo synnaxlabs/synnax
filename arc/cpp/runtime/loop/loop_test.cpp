@@ -19,7 +19,7 @@
 
 #include "arc/cpp/runtime/loop/loop.h"
 
-using namespace arc::runtime::loop;
+namespace arc::runtime::loop {
 
 /// @brief Test timing constants.
 namespace test_timing {
@@ -808,4 +808,5 @@ TEST(WakeReasonTest, DistinguishesTimerFromInputWhenBothConfigured) {
     ASSERT_EQ(wait_reason, WakeReason::Timer);
 
     breaker.stop();
+}
 }

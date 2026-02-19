@@ -24,6 +24,7 @@
 
 #include "arc/cpp/ir/ir.h"
 #include "arc/cpp/runtime/errors/errors.h"
+#include "arc/cpp/stl/channel/state.h"
 #include "arc/cpp/stl/series/state.h"
 #include "arc/cpp/stl/stateful/state.h"
 #include "arc/cpp/stl/str/state.h"
@@ -42,11 +43,7 @@ struct Value {
     Series time;
 };
 
-struct ChannelDigest {
-    types::ChannelKey key;
-    x::telem::DataType data_type;
-    types::ChannelKey index;
-};
+using ChannelDigest = stl::channel::Digest;
 
 struct Config {
     ir::IR ir;
@@ -160,11 +157,9 @@ class State {
     Config cfg;
     std::vector<Value> values;
     std::unordered_map<ir::Handle, size_t> value_index;
-    std::unordered_map<types::ChannelKey, types::ChannelKey> indexes;
-    std::unordered_map<types::ChannelKey, std::vector<Series>> reads;
-    std::unordered_map<types::ChannelKey, Series> writes;
 
     /// @brief Per-module state slices.
+    std::shared_ptr<stl::channel::State> channel;
     std::shared_ptr<stl::str::State> strings;
     std::shared_ptr<stl::series::State> series;
     std::shared_ptr<stl::stateful::Variables> vars;
@@ -176,10 +171,16 @@ class State {
     std::vector<AuthorityChange> authority_changes;
 
 public:
-    void write_channel(types::ChannelKey key, const Series &data, const Series &time);
-    std::pair<x::telem::MultiSeries, bool> read_channel(types::ChannelKey key);
     explicit State(
         const Config &cfg,
+        errors::Handler error_handler = errors::noop_handler
+    );
+    State(
+        const Config &cfg,
+        std::shared_ptr<stl::channel::State> channel,
+        std::shared_ptr<stl::str::State> strings,
+        std::shared_ptr<stl::series::State> series,
+        std::shared_ptr<stl::stateful::Variables> vars,
         errors::Handler error_handler = errors::noop_handler
     );
     std::pair<Node, x::errors::Error> node(const std::string &key);
@@ -200,17 +201,6 @@ public:
     /// Must be called before each WASM function invocation.
     void set_current_node_key(const std::string &key) {
         this->vars->set_current_node_key(key);
-    }
-
-    /// @brief Accessors for per-module state slices.
-    std::shared_ptr<stl::str::State> get_str_state() const { return this->strings; }
-
-    std::shared_ptr<stl::series::State> get_series_state() const {
-        return this->series;
-    }
-
-    std::shared_ptr<stl::stateful::Variables> get_variables() const {
-        return this->vars;
     }
 };
 }

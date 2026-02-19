@@ -62,18 +62,33 @@ Series parse_default_value(
 }
 
 State::State(const Config &cfg, errors::Handler error_handler):
+    State(
+        cfg,
+        std::make_shared<stl::channel::State>(cfg.channels),
+        std::make_shared<stl::str::State>(),
+        std::make_shared<stl::series::State>(),
+        std::make_shared<stl::stateful::Variables>(),
+        std::move(error_handler)
+    ) {}
+
+State::State(
+    const Config &cfg,
+    std::shared_ptr<stl::channel::State> channel,
+    std::shared_ptr<stl::str::State> strings,
+    std::shared_ptr<stl::series::State> series,
+    std::shared_ptr<stl::stateful::Variables> vars,
+    errors::Handler error_handler
+):
     cfg(cfg),
-    strings(std::make_shared<stl::str::State>()),
-    series(std::make_shared<stl::series::State>()),
-    vars(std::make_shared<stl::stateful::Variables>()),
+    channel(std::move(channel)),
+    strings(std::move(strings)),
+    series(std::move(series)),
+    vars(std::move(vars)),
     error_handler(std::move(error_handler)) {
     size_t total = 0;
     for (const auto &node: cfg.ir.nodes)
         total += node.outputs.size();
     this->values.reserve(total);
-
-    for (const auto &digest: cfg.channels)
-        this->indexes[digest.key] = digest.index;
 
     for (const auto &node: cfg.ir.nodes) {
         for (const auto &output: node.outputs) {
@@ -176,33 +191,18 @@ std::pair<Node, x::errors::Error> State::node(const std::string &key) {
 }
 
 void State::ingest(const x::telem::Frame &frame) {
-    for (size_t i = 0; i < frame.size(); i++)
-        reads[frame.channels->at(i)].push_back(
-            x::mem::local_shared(std::move(frame.series->at(i)))
-        );
+    this->channel->ingest(frame);
 }
 
 std::vector<std::pair<types::ChannelKey, Series>> State::flush() {
-    for (auto &series_vec: reads | std::views::values) {
-        if (series_vec.size() <= 1) continue;
-        auto last = std::move(series_vec.back());
-        series_vec.clear();
-        series_vec.push_back(std::move(last));
-    }
+    auto result = this->channel->flush();
     this->series->clear();
     this->strings->clear();
-
-    std::vector<std::pair<types::ChannelKey, Series>> result;
-    result.reserve(writes.size());
-    for (const auto &[key, data]: writes)
-        result.push_back({key, data});
-    writes.clear();
     return result;
 }
 
 void State::reset() {
-    this->reads.clear();
-    this->writes.clear();
+    this->channel->reset();
     this->strings->clear();
     this->series->clear();
     this->vars->reset();
@@ -219,17 +219,6 @@ std::vector<AuthorityChange> State::flush_authority_changes() {
     std::vector<AuthorityChange> result;
     result.swap(authority_changes);
     return result;
-}
-
-void State::write_channel(
-    const types::ChannelKey key,
-    const Series &data,
-    const Series &time
-) {
-    writes[key] = data;
-    if (const auto idx_iter = indexes.find(key);
-        idx_iter != indexes.end() && idx_iter->second != 0)
-        writes[idx_iter->second] = time;
 }
 
 bool Node::refresh_inputs() {
@@ -262,31 +251,9 @@ bool Node::refresh_inputs() {
     return true;
 }
 
-std::pair<x::telem::MultiSeries, bool>
-State::read_channel(const types::ChannelKey key) {
-    const auto it = reads.find(key);
-    if (it == reads.end() || it->second.empty())
-        return {x::telem::MultiSeries{}, false};
-    x::telem::MultiSeries ms;
-    for (const auto &s: it->second)
-        ms.series.push_back(s->deep_copy());
-    return {std::move(ms), true};
-}
-
 std::tuple<x::telem::MultiSeries, x::telem::MultiSeries, bool>
 Node::read_chan(const types::ChannelKey key) const {
-    auto [data, ok] = this->state.read_channel(key);
-    if (!ok) return {x::telem::MultiSeries{}, x::telem::MultiSeries{}, false};
-    const auto index_it = this->state.indexes.find(key);
-    if (index_it == this->state.indexes.end() || index_it->second == 0)
-        return {std::move(data), x::telem::MultiSeries{}, !data.series.empty()};
-    auto [time, time_ok] = this->state.read_channel(index_it->second);
-    if (!time_ok) return {x::telem::MultiSeries{}, x::telem::MultiSeries{}, false};
-    return {
-        std::move(data),
-        std::move(time),
-        !data.series.empty() && !time.series.empty()
-    };
+    return this->state.channel->read_chan(key);
 }
 
 void Node::write_chan(
@@ -294,7 +261,7 @@ void Node::write_chan(
     const Series &data,
     const Series &time
 ) const {
-    this->state.write_channel(key, data, time);
+    this->state.channel->write_chan(key, data, time);
 }
 
 const Series &Node::input_time(const size_t param_index) const {

@@ -21,9 +21,9 @@ import (
 	"github.com/synnaxlabs/arc/stl/constant"
 	stlop "github.com/synnaxlabs/arc/stl/op"
 	"github.com/synnaxlabs/arc/stl/selector"
+	stlchannel "github.com/synnaxlabs/arc/stl/channel"
 	"github.com/synnaxlabs/arc/stl/stable"
 	"github.com/synnaxlabs/arc/stl/stat"
-	stltelem "github.com/synnaxlabs/arc/stl/telem"
 	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer/frame"
@@ -83,7 +83,7 @@ func Open(
 
 	progState := state.New(cfg.Module.StateConfig.State)
 	modules := []stl.Module{
-		stltelem.NewModule(),
+		stlchannel.NewModule(nil, nil),
 		selector.NewModule(),
 		constant.NewModule(),
 		stlop.NewModule(),

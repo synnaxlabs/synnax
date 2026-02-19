@@ -29,7 +29,6 @@ import (
 	"github.com/synnaxlabs/arc/stl/stat"
 	"github.com/synnaxlabs/arc/stl/stateful"
 	"github.com/synnaxlabs/arc/stl/strings"
-	"github.com/synnaxlabs/arc/stl/telem"
 	"github.com/synnaxlabs/arc/stl/time"
 	"github.com/synnaxlabs/arc/symbol"
 	"github.com/synnaxlabs/arc/types"
@@ -81,9 +80,6 @@ func (r *channelResolver) Search(ctx context.Context, name string) ([]arc.Symbol
 // DefaultResolverModules returns the default set of STL modules used for symbol
 // resolution by the analyzer and LSP. These modules only need static symbol
 // definitions and do not require runtime state.
-// DefaultResolverModules returns the default set of STL modules used for symbol
-// resolution by the analyzer and LSP. These modules only need static symbol
-// definitions and do not require runtime state.
 func DefaultResolverModules() []stl.Module {
 	return []stl.Module{
 		stlchannel.NewModule(nil, nil),
@@ -97,7 +93,6 @@ func DefaultResolverModules() []stl.Module {
 		selector.NewModule(),
 		stable.NewModule(),
 		control.NewModule(nil),
-		telem.NewModule(),
 		stat.NewModule(),
 		time.NewModule(),
 		stage.NewModule(),

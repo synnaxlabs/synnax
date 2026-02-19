@@ -16,6 +16,7 @@ import (
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/arc/stl/errors"
 	"github.com/synnaxlabs/arc/stl/testutil"
+	"github.com/tetratelabs/wazero/experimental/wazerotest"
 )
 
 var ctx = context.Background()
@@ -37,6 +38,34 @@ var _ = Describe("errors", func() {
 			panicFn := testutil.Get[func(context.Context, uint32, uint32)](rt, "error", "panic")
 			Expect(func() { panicFn(ctx, 0, 5) }).To(PanicWith(
 				ContainSubstring("memory not set"),
+			))
+		})
+
+		It("Should panic with the message read from memory", func() {
+			panicFn := testutil.Get[func(context.Context, uint32, uint32)](rt, "error", "panic")
+			mem := wazerotest.NewMemory(1)
+			mem.Write(0, []byte("test error"))
+			mod.SetMemory(mem)
+			Expect(func() { panicFn(ctx, 0, 10) }).To(PanicWith(
+				Equal("arc panic: test error"),
+			))
+		})
+
+		It("Should panic with 'message unreadable' when memory read fails", func() {
+			panicFn := testutil.Get[func(context.Context, uint32, uint32)](rt, "error", "panic")
+			mem := wazerotest.NewMemory(1)
+			mod.SetMemory(mem)
+			Expect(func() { panicFn(ctx, 100000, 5) }).To(PanicWith(
+				Equal("arc panic (message unreadable)"),
+			))
+		})
+
+		It("Should panic with empty message when length is zero", func() {
+			panicFn := testutil.Get[func(context.Context, uint32, uint32)](rt, "error", "panic")
+			mem := wazerotest.NewMemory(1)
+			mod.SetMemory(mem)
+			Expect(func() { panicFn(ctx, 0, 0) }).To(PanicWith(
+				Equal("arc panic: "),
 			))
 		})
 	})

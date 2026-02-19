@@ -10,6 +10,7 @@ cc_library(
     deps = [
         "//arc/cpp/ir",
         "//arc/cpp/runtime/errors",
+        "//arc/cpp/stl/channel:state",
         "//arc/cpp/stl/series:state",
         "//arc/cpp/stl/stateful:state",
         "//arc/cpp/stl/str:state",
@@ -27,6 +28,7 @@ cc_test(
     ],
     deps = [
         ":state",
+        "//arc/cpp/stl/channel:state",
         "//x/cpp/test",
         "@googletest//:gtest_main",
     ],

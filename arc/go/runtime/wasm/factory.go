@@ -15,7 +15,7 @@ import (
 	"math"
 	"strings"
 
-	node2 "github.com/synnaxlabs/arc/runtime/node"
+	runtimenode "github.com/synnaxlabs/arc/runtime/node"
 	"github.com/synnaxlabs/x/query"
 	"github.com/synnaxlabs/x/telem"
 	"github.com/tetratelabs/wazero/api"
@@ -25,7 +25,7 @@ type factory struct {
 	wasm api.Module
 }
 
-func (w *factory) Create(_ context.Context, cfg node2.Config) (node2.Node, error) {
+func (w *factory) Create(_ context.Context, cfg runtimenode.Config) (runtimenode.Node, error) {
 	irFn, ok := cfg.Module.Functions.Find(cfg.Node.Type)
 	if !ok {
 		return nil, query.ErrNotFound
@@ -89,6 +89,6 @@ func convertConfigValue(v any) uint64 {
 	}
 }
 
-func NewFactory(mod *Module) (node2.Factory, error) {
+func NewFactory(mod *Module) (runtimenode.Factory, error) {
 	return &factory{wasm: mod.wasmModule}, nil
 }

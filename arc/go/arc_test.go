@@ -31,7 +31,6 @@ import (
 	"github.com/synnaxlabs/arc/stl/stat"
 	"github.com/synnaxlabs/arc/stl/stateful"
 	stlstrings "github.com/synnaxlabs/arc/stl/strings"
-	stltelem "github.com/synnaxlabs/arc/stl/telem"
 	"github.com/synnaxlabs/arc/stl/time"
 	"github.com/synnaxlabs/arc/symbol"
 	"github.com/synnaxlabs/arc/types"
@@ -335,7 +334,6 @@ sequence main {
 			selector.NewModule(),
 			stable.NewModule(),
 			control.NewModule(nil),
-			stltelem.NewModule(),
 			stat.NewModule(),
 			time.NewModule(),
 			stage.NewModule(),

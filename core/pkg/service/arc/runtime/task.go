@@ -25,7 +25,7 @@ import (
 	"github.com/synnaxlabs/arc/stl/channel"
 	"github.com/synnaxlabs/arc/stl/constant"
 	stlcontrol "github.com/synnaxlabs/arc/stl/control"
-	slterrors "github.com/synnaxlabs/arc/stl/errors"
+	stlerrors "github.com/synnaxlabs/arc/stl/errors"
 	stlmath "github.com/synnaxlabs/arc/stl/math"
 	stlop "github.com/synnaxlabs/arc/stl/op"
 	"github.com/synnaxlabs/arc/stl/selector"
@@ -35,7 +35,6 @@ import (
 	"github.com/synnaxlabs/arc/stl/stat"
 	"github.com/synnaxlabs/arc/stl/stateful"
 	"github.com/synnaxlabs/arc/stl/strings"
-	stltelem "github.com/synnaxlabs/arc/stl/telem"
 	"github.com/synnaxlabs/arc/stl/time"
 	distchannel "github.com/synnaxlabs/synnax/pkg/distribution/channel"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer"
@@ -109,9 +108,8 @@ func (t *taskImpl) start(ctx context.Context) error {
 		series.NewModule(drt.state.Series),
 		strings.NewModule(drt.state.Strings),
 		stlmath.NewModule(),
-		slterrors.NewModule(),
+		stlerrors.NewModule(),
 		timeMod,
-		stltelem.NewModule(),
 		selector.NewModule(),
 		constant.NewModule(),
 		stlop.NewModule(),

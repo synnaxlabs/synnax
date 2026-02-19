@@ -19,7 +19,7 @@
 
 #include "arc/cpp/runtime/wasm/module.h"
 
-using namespace arc::runtime::wasm;
+namespace arc::runtime::wasm {
 
 namespace {
 std::mt19937 gen_rand = random_generator("Module Tests");
@@ -306,4 +306,5 @@ TEST(SampleFromBitsTest, HandlesTimestamp) {
     arc::types::Type ts_type(arc::types::Kind::I64, ns_unit);
     const auto ts_sample = sample_from_bits(1000000000, ts_type);
     EXPECT_EQ(std::get<x::telem::TimeStamp>(ts_sample).nanoseconds(), 1000000000);
+}
 }

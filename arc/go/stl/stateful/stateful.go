@@ -301,7 +301,7 @@ func bindSeries(rt stl.HostRuntime, m *Module, suffix string) {
 				return m.series.Store(s)
 			}
 			if initS, ok := m.series.Get(initHandle); ok {
-				inner[varID] = initS
+				inner[varID] = initS.DeepCopy()
 			}
 			return initHandle
 		})
@@ -314,7 +314,7 @@ func bindSeries(rt stl.HostRuntime, m *Module, suffix string) {
 				m.stateSeries[key] = inner
 			}
 			if s, ok := m.series.Get(handle); ok {
-				inner[varID] = s
+				inner[varID] = s.DeepCopy()
 			}
 		})
 }

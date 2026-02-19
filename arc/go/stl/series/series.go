@@ -31,10 +31,6 @@ func polyFunc(inputs, outputs types.Params) types.Type {
 	return types.Function(types.FunctionProperties{Inputs: inputs, Outputs: outputs})
 }
 
-func monoFunc(inputs, outputs types.Params) types.Type {
-	return types.Function(types.FunctionProperties{Inputs: inputs, Outputs: outputs})
-}
-
 var i32 = types.I32()
 var i64 = types.I64()
 
@@ -84,9 +80,9 @@ var CompilerSymbolResolver = symbol.MapResolver{
 	"set_element":       {Name: "set_element", Type: polyFunc(types.Params{{Name: "handle", Type: i32}, {Name: "idx", Type: i32}, {Name: "value", Type: tv()}}, types.Params{{Name: "result", Type: i32}})},
 	"index":             {Name: "index", Type: polyFunc(types.Params{{Name: "handle", Type: i32}, {Name: "idx", Type: i32}}, types.Params{{Name: "value", Type: tv()}})},
 	"negate":            {Name: "negate", Type: polyFunc(types.Params{{Name: "handle", Type: i32}}, types.Params{{Name: "result", Type: i32}})},
-	"not_u8":            {Name: "not_u8", Type: monoFunc(types.Params{{Name: "handle", Type: i32}}, types.Params{{Name: "result", Type: i32}})},
-	"len":               {Name: "len", Type: monoFunc(types.Params{{Name: "handle", Type: i32}}, types.Params{{Name: "length", Type: i64}})},
-	"slice":             {Name: "slice", Type: monoFunc(types.Params{{Name: "handle", Type: i32}, {Name: "start", Type: i32}, {Name: "end", Type: i32}}, types.Params{{Name: "result", Type: i32}})},
+	"not_u8":            {Name: "not_u8", Type: polyFunc(types.Params{{Name: "handle", Type: i32}}, types.Params{{Name: "result", Type: i32}})},
+	"len":               {Name: "len", Type: polyFunc(types.Params{{Name: "handle", Type: i32}}, types.Params{{Name: "length", Type: i64}})},
+	"slice":             {Name: "slice", Type: polyFunc(types.Params{{Name: "handle", Type: i32}, {Name: "start", Type: i32}, {Name: "end", Type: i32}}, types.Params{{Name: "result", Type: i32}})},
 }
 
 type Module struct {

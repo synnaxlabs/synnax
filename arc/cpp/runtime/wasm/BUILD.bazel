@@ -55,6 +55,7 @@ cc_test(
         "//arc/cpp/runtime/errors",
         "//arc/cpp/runtime/state",
         "//arc/cpp/stl/channel",
+        "//arc/cpp/stl/channel:state",
         "//arc/cpp/stl/error",
         "//arc/cpp/stl/math",
         "//arc/cpp/stl/series",

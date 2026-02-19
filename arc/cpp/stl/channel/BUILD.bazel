@@ -1,4 +1,20 @@
 cc_library(
+    name = "state",
+    srcs = ["state.cpp"],
+    hdrs = ["state.h"],
+    copts = select({
+        "@platforms//os:windows": ["/wd4201"],
+        "//conditions:default": [],
+    }),
+    visibility = ["//visibility:public"],
+    deps = [
+        "//arc/cpp/types",
+        "//x/cpp/mem",
+        "//x/cpp/telem",
+    ],
+)
+
+cc_library(
     name = "channel",
     hdrs = ["channel.h"],
     copts = select({
@@ -7,10 +23,27 @@ cc_library(
     }),
     visibility = ["//visibility:public"],
     deps = [
-        "//arc/cpp/runtime/state",
+        "//arc/cpp/ir",
+        "//arc/cpp/runtime/node",
         "//arc/cpp/stl",
+        "//arc/cpp/stl/channel:state",
         "//arc/cpp/stl/str:state",
+        "//x/cpp/errors",
         "//x/cpp/mem",
         "//x/cpp/telem",
+    ],
+)
+
+cc_test(
+    name = "channel_test",
+    srcs = ["channel_test.cpp"],
+    deps = [
+        "//arc/cpp/ir",
+        "//arc/cpp/runtime/state",
+        "//arc/cpp/stl/channel",
+        "//x/cpp/mem",
+        "//x/cpp/telem",
+        "//x/cpp/test",
+        "@googletest//:gtest_main",
     ],
 )

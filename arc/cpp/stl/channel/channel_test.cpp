@@ -15,9 +15,9 @@
 #include "x/cpp/test/test.h"
 
 #include "arc/cpp/runtime/state/state.h"
-#include "arc/cpp/stl/telem/telem.h"
+#include "arc/cpp/stl/channel/channel.h"
 
-namespace arc::stl {
+namespace arc::stl::channel {
 runtime::node::Context make_context(bool *changed = nullptr) {
     return runtime::node::Context{
         .elapsed = ::x::telem::SECOND,
@@ -30,8 +30,7 @@ runtime::node::Context make_context(bool *changed = nullptr) {
     };
 }
 
-/// @brief Test factory creates source node for "on" type.
-TEST(TelemFactoryTest, CreateSourceNode) {
+TEST(ChannelIOFactoryTest, CreateSourceNode) {
     ir::Param output_param;
     output_param.name = ir::default_output_param;
     output_param.type = types::Type(types::Kind::F32);
@@ -52,7 +51,7 @@ TEST(TelemFactoryTest, CreateSourceNode) {
     runtime::state::Config cfg{.ir = ir, .channels = {{10, ::x::telem::FLOAT32_T, 11}}};
     runtime::state::State s(cfg, runtime::errors::noop_handler);
 
-    telem::Module module;
+    channel::Module module(nullptr, nullptr);
     auto factory = module.factory();
     auto state_node = ASSERT_NIL_P(s.node("source"));
     auto node = ASSERT_NIL_P(
@@ -61,8 +60,7 @@ TEST(TelemFactoryTest, CreateSourceNode) {
     EXPECT_NE(node, nullptr);
 }
 
-/// @brief Test factory creates sink node for "write" type.
-TEST(TelemFactoryTest, CreateSinkNode) {
+TEST(ChannelIOFactoryTest, CreateSinkNode) {
     ir::Param input_param;
     input_param.name = ir::default_input_param;
     input_param.type = types::Type(types::Kind::F32);
@@ -83,7 +81,7 @@ TEST(TelemFactoryTest, CreateSinkNode) {
     runtime::state::Config cfg{.ir = ir, .channels = {}};
     runtime::state::State s(cfg, runtime::errors::noop_handler);
 
-    telem::Module module;
+    channel::Module module(nullptr, nullptr);
     auto factory = module.factory();
     auto state_node = ASSERT_NIL_P(s.node("sink"));
     auto node = ASSERT_NIL_P(
@@ -92,8 +90,7 @@ TEST(TelemFactoryTest, CreateSinkNode) {
     EXPECT_NE(node, nullptr);
 }
 
-/// @brief Test factory returns NOT_FOUND for unknown node type.
-TEST(TelemFactoryTest, UnknownNodeType) {
+TEST(ChannelIOFactoryTest, UnknownNodeType) {
     ir::Node ir_node;
     ir_node.key = "unknown";
     ir_node.type = "unknown_type";
@@ -109,7 +106,7 @@ TEST(TelemFactoryTest, UnknownNodeType) {
     runtime::state::Config cfg{.ir = ir, .channels = {}};
     runtime::state::State s(cfg, runtime::errors::noop_handler);
 
-    telem::Module module;
+    channel::Module module(nullptr, nullptr);
     auto factory = module.factory();
     auto state_node = ASSERT_NIL_P(s.node("unknown"));
     auto [node, create_err] = factory->create(
@@ -119,9 +116,8 @@ TEST(TelemFactoryTest, UnknownNodeType) {
     EXPECT_EQ(node, nullptr);
 }
 
-/// @brief Test factory handles() returns true for "on" and "write" types.
-TEST(TelemFactoryTest, HandlesOnAndWrite) {
-    telem::Module module;
+TEST(ChannelIOFactoryTest, HandlesOnAndWrite) {
+    channel::Module module(nullptr, nullptr);
     auto factory = module.factory();
     EXPECT_TRUE(factory->handles("on"));
     EXPECT_TRUE(factory->handles("write"));
@@ -129,7 +125,6 @@ TEST(TelemFactoryTest, HandlesOnAndWrite) {
     EXPECT_FALSE(factory->handles("constant"));
 }
 
-/// @brief Test source node reads channel data after ingestion.
 TEST(OnTest, NextReadsChannelData) {
     ir::Param output_param;
     output_param.name = ir::default_output_param;
@@ -151,7 +146,7 @@ TEST(OnTest, NextReadsChannelData) {
     runtime::state::Config cfg{.ir = ir, .channels = {{10, ::x::telem::FLOAT32_T, 11}}};
     runtime::state::State s(cfg, runtime::errors::noop_handler);
 
-    telem::Module module;
+    channel::Module module(nullptr, nullptr);
     auto factory = module.factory();
     auto state_node = ASSERT_NIL_P(s.node("source"));
     auto node = ASSERT_NIL_P(
@@ -184,7 +179,6 @@ TEST(OnTest, NextReadsChannelData) {
     EXPECT_EQ(output_time->at<int64_t>(2), 102);
 }
 
-/// @brief Test source node generates synthetic timestamps when no index channel.
 TEST(OnTest, NextHandlesChannelWithoutIndex) {
     ir::Param output_param;
     output_param.name = ir::default_output_param;
@@ -206,7 +200,7 @@ TEST(OnTest, NextHandlesChannelWithoutIndex) {
     runtime::state::Config cfg{.ir = ir, .channels = {{20, ::x::telem::INT32_T, 0}}};
     runtime::state::State s(cfg, runtime::errors::noop_handler);
 
-    telem::Module module;
+    channel::Module module(nullptr, nullptr);
     auto factory = module.factory();
     auto state_node = ASSERT_NIL_P(s.node("source"));
     auto node = ASSERT_NIL_P(
@@ -234,7 +228,6 @@ TEST(OnTest, NextHandlesChannelWithoutIndex) {
     EXPECT_EQ(output_time->size(), 2);
 }
 
-/// @brief Test source node returns early when no data available.
 TEST(OnTest, NextReturnsEarlyOnEmptyChannel) {
     ir::Param output_param;
     output_param.name = ir::default_output_param;
@@ -256,7 +249,7 @@ TEST(OnTest, NextReturnsEarlyOnEmptyChannel) {
     runtime::state::Config cfg{.ir = ir, .channels = {{999, ::x::telem::FLOAT32_T, 0}}};
     runtime::state::State s(cfg, runtime::errors::noop_handler);
 
-    telem::Module module;
+    channel::Module module(nullptr, nullptr);
     auto factory = module.factory();
     auto state_node = ASSERT_NIL_P(s.node("source"));
     auto node = ASSERT_NIL_P(
@@ -270,7 +263,6 @@ TEST(OnTest, NextReturnsEarlyOnEmptyChannel) {
     EXPECT_FALSE(changed);
 }
 
-/// @brief Test source node handles multiple series with high water mark.
 TEST(OnTest, NextHandlesMultipleSeries) {
     ir::Param output_param;
     output_param.name = ir::default_output_param;
@@ -292,7 +284,7 @@ TEST(OnTest, NextHandlesMultipleSeries) {
     runtime::state::Config cfg{.ir = ir, .channels = {{10, ::x::telem::FLOAT32_T, 11}}};
     runtime::state::State s(cfg, runtime::errors::noop_handler);
 
-    telem::Module module;
+    channel::Module module(nullptr, nullptr);
     auto factory = module.factory();
     auto state_node = ASSERT_NIL_P(s.node("source"));
     auto node = ASSERT_NIL_P(
@@ -336,7 +328,6 @@ TEST(OnTest, NextHandlesMultipleSeries) {
     EXPECT_FLOAT_EQ(checker2.output(0)->at<float>(0), 2.0f);
 }
 
-/// @brief Test source node skips data when index series count mismatches.
 TEST(OnTest, NextSkipsOnIndexCountMismatch) {
     ir::Param output_param;
     output_param.name = ir::default_output_param;
@@ -358,7 +349,7 @@ TEST(OnTest, NextSkipsOnIndexCountMismatch) {
     runtime::state::Config cfg{.ir = ir, .channels = {{10, ::x::telem::FLOAT32_T, 11}}};
     runtime::state::State s(cfg, runtime::errors::noop_handler);
 
-    telem::Module module;
+    channel::Module module(nullptr, nullptr);
     auto factory = module.factory();
     auto state_node = ASSERT_NIL_P(s.node("source"));
     auto node = ASSERT_NIL_P(
@@ -389,7 +380,6 @@ TEST(OnTest, NextSkipsOnIndexCountMismatch) {
     EXPECT_EQ(call_count, 1);
 }
 
-/// @brief Test source node skips data when alignment mismatches.
 TEST(OnTest, NextSkipsOnAlignmentMismatch) {
     ir::Param output_param;
     output_param.name = ir::default_output_param;
@@ -411,7 +401,7 @@ TEST(OnTest, NextSkipsOnAlignmentMismatch) {
     runtime::state::Config cfg{.ir = ir, .channels = {{30, ::x::telem::FLOAT64_T, 31}}};
     runtime::state::State s(cfg, runtime::errors::noop_handler);
 
-    telem::Module module;
+    channel::Module module(nullptr, nullptr);
     auto factory = module.factory();
     auto state_node = ASSERT_NIL_P(s.node("source"));
     auto node = ASSERT_NIL_P(
@@ -439,7 +429,6 @@ TEST(OnTest, NextSkipsOnAlignmentMismatch) {
     EXPECT_EQ(call_count, 0);
 }
 
-/// @brief Test source node calls mark_changed callback.
 TEST(OnTest, NextCallsMarkChanged) {
     ir::Param output_param;
     output_param.name = ir::default_output_param;
@@ -461,7 +450,7 @@ TEST(OnTest, NextCallsMarkChanged) {
     runtime::state::Config cfg{.ir = ir, .channels = {{10, ::x::telem::FLOAT32_T, 11}}};
     runtime::state::State s(cfg, runtime::errors::noop_handler);
 
-    telem::Module module;
+    channel::Module module(nullptr, nullptr);
     auto factory = module.factory();
     auto state_node = ASSERT_NIL_P(s.node("source"));
     auto node = ASSERT_NIL_P(
@@ -487,7 +476,6 @@ TEST(OnTest, NextCallsMarkChanged) {
     EXPECT_EQ(changed_param, ir::default_output_param);
 }
 
-/// @brief Test sink node writes data when input is available.
 TEST(WriteTest, NextWritesDataWhenInputAvailable) {
     ir::Param upstream_output;
     upstream_output.name = ir::default_output_param;
@@ -527,7 +515,7 @@ TEST(WriteTest, NextWritesDataWhenInputAvailable) {
     };
     runtime::state::State s(cfg, runtime::errors::noop_handler);
 
-    telem::Module module;
+    channel::Module module(nullptr, nullptr);
     auto factory = module.factory();
     auto sink_state = ASSERT_NIL_P(s.node("sink"));
     auto sink = ASSERT_NIL_P(
@@ -562,7 +550,6 @@ TEST(WriteTest, NextWritesDataWhenInputAvailable) {
     EXPECT_TRUE(found);
 }
 
-/// @brief Test sink node respects RefreshInputs guard.
 TEST(WriteTest, NextRespectsRefreshInputsGuard) {
     ir::Param upstream_output;
     upstream_output.name = ir::default_output_param;
@@ -602,7 +589,7 @@ TEST(WriteTest, NextRespectsRefreshInputsGuard) {
     };
     runtime::state::State s(cfg, runtime::errors::noop_handler);
 
-    telem::Module module;
+    channel::Module module(nullptr, nullptr);
     auto factory = module.factory();
     auto sink_state = ASSERT_NIL_P(s.node("sink"));
     auto sink = ASSERT_NIL_P(
@@ -616,7 +603,6 @@ TEST(WriteTest, NextRespectsRefreshInputsGuard) {
     EXPECT_TRUE(writes.empty());
 }
 
-/// @brief Test sink node skips empty input.
 TEST(WriteTest, NextSkipsEmptyInput) {
     ir::Param upstream_output;
     upstream_output.name = ir::default_output_param;
@@ -656,7 +642,7 @@ TEST(WriteTest, NextSkipsEmptyInput) {
     };
     runtime::state::State s(cfg, runtime::errors::noop_handler);
 
-    telem::Module module;
+    channel::Module module(nullptr, nullptr);
     auto factory = module.factory();
     auto sink_state = ASSERT_NIL_P(s.node("sink"));
     auto sink = ASSERT_NIL_P(
@@ -681,7 +667,6 @@ TEST(WriteTest, NextSkipsEmptyInput) {
     EXPECT_TRUE(writes.empty());
 }
 
-/// @brief Test sink node handles sequential writes.
 TEST(WriteTest, NextHandlesSequentialWrites) {
     ir::Param upstream_output;
     upstream_output.name = ir::default_output_param;
@@ -721,7 +706,7 @@ TEST(WriteTest, NextHandlesSequentialWrites) {
     };
     runtime::state::State s(cfg, runtime::errors::noop_handler);
 
-    telem::Module module;
+    channel::Module module(nullptr, nullptr);
     auto factory = module.factory();
     auto sink_state = ASSERT_NIL_P(s.node("sink"));
     auto sink = ASSERT_NIL_P(
@@ -767,7 +752,6 @@ TEST(WriteTest, NextHandlesSequentialWrites) {
     }
 }
 
-/// @brief Test end-to-end flow from source through sink.
 TEST(IntegrationTest, SourceToSinkFlow) {
     ir::Param read_output;
     read_output.name = ir::default_output_param;
@@ -812,7 +796,7 @@ TEST(IntegrationTest, SourceToSinkFlow) {
     };
     runtime::state::State s(cfg, runtime::errors::noop_handler);
 
-    telem::Module module;
+    channel::Module module(nullptr, nullptr);
     auto factory = module.factory();
 
     auto read_state = ASSERT_NIL_P(s.node("read"));

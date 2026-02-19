@@ -38,7 +38,6 @@
 #include "arc/cpp/stl/stage/stage.h"
 #include "arc/cpp/stl/stateful/stateful.h"
 #include "arc/cpp/stl/str/str.h"
-#include "arc/cpp/stl/telem/telem.h"
 #include "arc/cpp/stl/time/time.h"
 
 namespace arc::runtime {
@@ -232,15 +231,23 @@ load(const Config &cfg, errors::Handler error_handler = errors::noop_handler) {
         if (writes.contains(d.key) && d.index != 0) writes.insert(d.index);
     }
 
-    state::Config state_cfg{.ir = (static_cast<ir::IR>(cfg.mod)), .channels = digests};
-    auto state = std::make_shared<state::State>(state_cfg, error_handler);
+    auto channel_st = std::make_shared<stl::channel::State>(digests);
+    auto str_st = std::make_shared<stl::str::State>();
+    auto series_st = std::make_shared<stl::series::State>();
+    auto var_st = std::make_shared<stl::stateful::Variables>();
 
-    auto series_st = state->get_series_state();
-    auto str_st = state->get_str_state();
-    auto var_st = state->get_variables();
+    state::Config state_cfg{.ir = (static_cast<ir::IR>(cfg.mod)), .channels = digests};
+    auto state = std::make_shared<state::State>(
+        state_cfg,
+        channel_st,
+        str_st,
+        series_st,
+        var_st,
+        error_handler
+    );
 
     std::vector<std::shared_ptr<stl::Module>> stl_modules = {
-        std::make_shared<stl::channel::Module>(state, str_st),
+        std::make_shared<stl::channel::Module>(channel_st, str_st),
         std::make_shared<stl::stateful::Module>(var_st, series_st, str_st),
         std::make_shared<stl::series::Module>(series_st),
         std::make_shared<stl::str::Module>(str_st),
@@ -248,7 +255,6 @@ load(const Config &cfg, errors::Handler error_handler = errors::noop_handler) {
         std::make_shared<stl::time::Module>(),
         std::make_shared<stl::error::Module>(error_handler),
         std::make_shared<stl::stage::Module>(),
-        std::make_shared<stl::telem::Module>(),
         std::make_shared<stl::constant::Module>(),
         std::make_shared<stl::authority::Module>(state),
     };
