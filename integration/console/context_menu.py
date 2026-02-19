@@ -63,7 +63,12 @@ class ContextMenu:
         menu = self._visible_menu()
         option = menu.get_by_text(text, exact=exact).first
         option.wait_for(state="visible", timeout=5000)
-        option.click()
+        try:
+            option.click(timeout=5000)
+        except PlaywrightTimeoutError:
+            # Fixed-position menu may extend beyond viewport; force click
+            # since visibility is already confirmed above.
+            option.click(force=True)
         try:
             menu.wait_for(state="hidden", timeout=3000)
         except PlaywrightTimeoutError:

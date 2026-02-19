@@ -88,27 +88,59 @@ class TaskCase(TestCase):
             self.fail("Task not configured. Subclass must set self.tsk in setup()")
             return
 
-        client = self.client
-        tsk = self.tsk
+        self.test_task_exists()
+        self.test_start_and_stop()
+        self.test_disable_data_saving()
+        self.test_enable_data_saving()
+        self.test_reconfigure_rate()
+        self.test_survives_channel_deletion()
 
-        self.log("Test 0 - Verify Task Exists")
-        self.assert_task_exists(task_key=tsk.key)
+    def test_task_exists(self) -> None:
+        """Verify the task exists and has the expected channels."""
+        assert self.tsk is not None
+        self.log("Testing: Verify task exists")
+        self.assert_task_exists(task_key=self.tsk.key)
 
-        # Get channel names from task
-        channel_keys = [ch.channel for ch in tsk.config.channels]
-        channels = client.channels.retrieve(channel_keys)
+        channel_keys = [ch.channel for ch in self.tsk.config.channels]
+        channels = self.client.channels.retrieve(channel_keys)
         expected_names = [ch.name for ch in channels]
-        self.assert_channel_names(task=tsk, expected_names=expected_names)
+        self.assert_channel_names(task=self.tsk, expected_names=expected_names)
 
-        self.log("Test 1 - Start and Stop")
-        self.assert_sample_count(task=tsk, duration=self.TASK_DURATION)
+    def test_start_and_stop(self) -> None:
+        """Start the task, collect samples, and stop it."""
+        self.log("Testing: Start and stop")
+        self.assert_sample_count(task=self.tsk, duration=self.TASK_DURATION)
         sy.sleep(0.5)
 
-        self.log("Test 2 - Reconfigure Task")
+    def test_disable_data_saving(self) -> None:
+        """Disable data saving and verify no samples are persisted."""
+        assert self.tsk is not None
+        self.log("Testing: Disable data saving")
+        self.tsk.config.data_saving = False
+        self.client.tasks.configure(self.tsk)
+        self.assert_no_samples_persisted(task=self.tsk, duration=self.TASK_DURATION)
+
+    def test_enable_data_saving(self) -> None:
+        """Re-enable data saving and verify samples are persisted again."""
+        assert self.tsk is not None
+        self.log("Testing: Enable data saving")
+        self.tsk.config.data_saving = True
+        self.client.tasks.configure(self.tsk)
+        self.assert_sample_count(task=self.tsk, duration=self.TASK_DURATION)
+
+    def test_reconfigure_rate(self) -> None:
+        """Halve the sample rate and verify samples are still collected."""
+        assert self.tsk is not None
+        self.log("Testing: Reconfigure task rate")
         new_rate = int(self.SAMPLE_RATE / 2)
-        tsk.config.sample_rate = new_rate
-        client.tasks.configure(tsk)
-        self.assert_sample_count(task=tsk, duration=self.TASK_DURATION)
+        self.tsk.config.sample_rate = new_rate
+        self.client.tasks.configure(self.tsk)
+        self.assert_sample_count(task=self.tsk, duration=self.TASK_DURATION)
+
+    def test_survives_channel_deletion(self) -> None:
+        """Attempt to delete a channel while the task is running."""
+        self.log("Testing: Delete channel while running")
+        self.assert_survives_channel_deletion(task=self.tsk)
 
     def assert_channel_names(
         self, *, task: sy.Task, expected_names: list[str]
@@ -244,6 +276,72 @@ class TaskCase(TestCase):
             )
 
         return
+
+    def assert_no_samples_persisted(
+        self,
+        *,
+        task: sy.Task,
+        duration: sy.TimeSpan = 1 * sy.TimeSpan.SECOND,
+    ) -> None:
+        """Assert that no samples are persisted while the task is running.
+
+        Runs the task, confirms data is still streaming, then verifies that
+        no samples were written to disk.
+
+        Args:
+            task: The task to run
+            duration: Duration to run the task for
+        """
+        channel_keys = [ch.channel for ch in task.config.channels]
+
+        with task.run():
+            with self.client.open_streamer(channel_keys) as streamer:
+                frame = streamer.read(timeout=5)
+                if frame is None:
+                    raise AssertionError(
+                        "Task is not streaming data with data_saving disabled"
+                    )
+            sy.sleep(1)
+            start_time = sy.TimeStamp.now()
+            sy.sleep(duration.seconds * 1.25)
+
+        end_time = sy.TimeStamp.now()
+        time_range = sy.TimeRange(start_time, end_time)
+
+        for channel_config in task.config.channels:
+            ch = self.client.channels.retrieve(channel_config.channel)
+            num_samples = len(ch.read(time_range))
+            if num_samples > 0:
+                raise AssertionError(
+                    f"Channel '{ch.name}' has {num_samples} persisted samples "
+                    f"with data_saving disabled, expected 0"
+                )
+
+    def assert_survives_channel_deletion(self, *, task: sy.Task) -> None:
+        """Assert that the server rejects channel deletion while a task is running.
+
+        Starts the task, attempts to delete one of its data channels, and
+        verifies the server rejects the deletion due to unclosed writers.
+
+        Args:
+            task: The task to test
+        """
+        ch = self.client.channels.retrieve(task.config.channels[0].channel)
+
+        with task.run():
+            with self.client.open_streamer(
+                [c.channel for c in task.config.channels]
+            ) as streamer:
+                streamer.read(timeout=5)
+            try:
+                self.client.channels.delete(ch.key)
+                raise AssertionError(
+                    f"Channel '{ch.name}' deletion should have been "
+                    f"rejected while task is running"
+                )
+            except Exception as e:
+                if "unclosed writers" not in str(e):
+                    raise
 
     def assert_task_deleted(self, *, task_key: str) -> None:
         """Assert that a task has been deleted from Synnax.

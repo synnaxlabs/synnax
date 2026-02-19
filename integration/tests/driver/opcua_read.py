@@ -116,6 +116,49 @@ class OPCUAReadArray(OPCUATaskCase):
         ]
 
 
+class OPCUAReadTimestamp(OPCUATaskCase):
+    """Test reading server timestamps as the task index (use_as_index)."""
+
+    task_name = "OPCUA Read Timestamp"
+    array_mode = True
+
+    def create_channels(self) -> list[opcua.ReadChannel]:
+        index_c = self.client.channels.create(
+            name="opcua_timestamp_index",
+            data_type=sy.DataType.TIMESTAMP,
+            is_index=True,
+            retrieve_if_name_exists=True,
+        )
+        return [
+            opcua.ReadChannel(
+                channel=index_c.key,
+                node_id="NS=2;I=7",
+                data_type="datetime",
+                use_as_index=True,
+            ),
+            opcua.ReadChannel(
+                channel=self.client.channels.create(
+                    name="opcua_ts_float_0",
+                    data_type=sy.DataType.FLOAT32,
+                    index=index_c.key,
+                    retrieve_if_name_exists=True,
+                ).key,
+                node_id="NS=2;I=2",
+                data_type="float32",
+            ),
+            opcua.ReadChannel(
+                channel=self.client.channels.create(
+                    name="opcua_ts_float_1",
+                    data_type=sy.DataType.FLOAT32,
+                    index=index_c.key,
+                    retrieve_if_name_exists=True,
+                ).key,
+                node_id="NS=2;I=3",
+                data_type="float32",
+            ),
+        ]
+
+
 class OPCUAReadMixed(OPCUATaskCase):
     task_name = "OPCUA Read Mixed"
 
