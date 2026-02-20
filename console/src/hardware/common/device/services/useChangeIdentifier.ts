@@ -19,8 +19,12 @@ export const { useUpdate: useChangeIdentifier } = Flux.createUpdate<
   ChangeIdentifierParams,
   Device.FluxSubStore
 >({
-  name: "Change Identifier",
-  verbs: Flux.UPDATE_VERBS,
+  name: "device identifier",
+  verbs: {
+    present: "change identifier",
+    past: "changed identifier",
+    participle: "changing identifier",
+  },
   update: async ({ client, data, store }) => {
     const { key, identifier } = data;
     const d = await Device.retrieveSingle({ client, store, query: { key } });
