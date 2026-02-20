@@ -7,16 +7,18 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { Icon, Menu } from "@synnaxlabs/pluto";
+import { Device, Icon, Menu } from "@synnaxlabs/pluto";
 import { errors } from "@synnaxlabs/x";
 
+import { useChangeIdentifier } from "@/hardware/common/device/services/useChangeIdentifier";
 import { Modals } from "@/modals";
 import { type Ontology } from "@/ontology";
 
-export interface ChangeIdentifierMenuItemProps extends Pick<
-  Ontology.TreeContextMenuProps,
-  "selection" | "state" | "client" | "handleError"
-> {
+export interface ChangeIdentifierMenuItemProps
+  extends Pick<
+    Ontology.TreeContextMenuProps,
+    "selection" | "state" | "handleError"
+  > {
   icon: string;
 }
 
@@ -24,29 +26,26 @@ export const ChangeIdentifierMenuItem = ({
   icon,
   selection: { ids },
   state: { getResource },
-  client,
   handleError,
 }: ChangeIdentifierMenuItemProps) => {
   const rename = Modals.useRename();
+  const { updateAsync } = useChangeIdentifier();
   const first = getResource(ids[0]);
+  const { data: device } = Device.useRetrieve({ key: first.id.key });
   if (ids.length !== 1 || first.data?.configured !== true) return null;
+  const identifier =
+    typeof device?.properties?.identifier === "string"
+      ? device.properties.identifier
+      : "";
   const handleClick = () =>
     handleError(async () => {
-      const device = await client.devices.retrieve({ key: first.id.key });
-      const identifier =
-        typeof device.properties.identifier === "string"
-          ? device.properties.identifier
-          : "";
       try {
         const newIdentifier = await rename(
           { initialValue: identifier, allowEmpty: false, label: "Identifier" },
           { icon, name: "Device.Identifier" },
         );
         if (newIdentifier == null) return;
-        await client.devices.create({
-          ...device,
-          properties: { ...device.properties, identifier: newIdentifier },
-        });
+        await updateAsync({ key: first.id.key, identifier: newIdentifier });
       } catch (e) {
         if (e instanceof Error && errors.Canceled.matches(e)) return;
         throw e;
