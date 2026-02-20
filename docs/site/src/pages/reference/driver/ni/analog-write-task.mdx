@@ -171,6 +171,7 @@ with task.run():
     with client.open_writer(
         start=sy.TimeStamp.now(),
         channels=["current_cmd"],
+        name="NI Analog Write",
     ) as writer:
         # Set output to 0.01A
         writer.write({
@@ -278,6 +279,7 @@ await task.executeCommandSync("start");
 const writer = await client.openWriter({
   start: TimeStamp.now(),
   channels: ["current_cmd"],
+  name: "NI Analog Write",
 });
 
 await writer.write({

@@ -69,6 +69,7 @@ is now simply:
 with client.open_writer(
     channels=["pressure_0"],
     start=sy.TimeStamp.now(),
+    name="My Writer",
 ) as w:
     for i in range(100)
         w.write(pressure_0=i, timestamp=sy.TimeStamp.now())
@@ -93,6 +94,7 @@ is now simply:
 with client.openWriter({
     channels: ["pressure_0"],
     start: sy.TimeStamp.now(),
+    name: "My Writer",
 }) as w:
     for (let i = 0; i < 100; i++)
         w.write({ pressure_0: i, timestamp: sy.TimeStamp.now() });

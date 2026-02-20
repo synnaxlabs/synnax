@@ -226,7 +226,8 @@ Open a writer and stream data.
 ```python
 with client.open_writer(
     start=sy.TimeStamp.now(),
-    channels=["arduino_time", "arduino_value"]
+    channels=["arduino_time", "arduino_value"],
+    name="Arduino Driver",
 ) as writer:
     while True:
         value = float(ser.readline().decode("utf-8").rstrip())
@@ -246,6 +247,7 @@ import { TimeStamp } from "@synnaxlabs/client";
 const writer = await client.openWriter({
   start: TimeStamp.now(),
   channels: ["arduino_time", "arduino_value"],
+  name: "Arduino Driver",
 });
 
 parser.on("data", async (line: string) => {
@@ -308,6 +310,7 @@ if not ser.is_open:
 with client.open_writer(
     start=sy.TimeStamp.now(),
     channels=["arduino_time", "arduino_value"],
+    name="Arduino Driver",
 ) as writer:
     while True:
         value = float(ser.readline().decode("utf-8").rstrip())
@@ -363,6 +366,7 @@ port.on("error", (err) => {
 const writer = await client.openWriter({
   start: TimeStamp.now(),
   channels: ["arduino_time", "arduino_value"],
+  name: "Arduino Driver",
 });
 
 parser.on("data", async (line: string) => {

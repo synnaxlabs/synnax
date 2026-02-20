@@ -249,6 +249,7 @@ with task.run():
     with client.open_writer(
         start=sy.TimeStamp.now(),
         channels=["control_word_cmd", "target_position_cmd"],
+        name="EtherCAT Write",
     ) as writer:
         # Enable drive (control word 0x000F is common for CiA 402)
         writer.write({
@@ -335,6 +336,7 @@ with task.run():
     with client.open_writer(
         start=sy.TimeStamp.now(),
         channels=["control_word_cmd"],
+        name="EtherCAT Write",
     ) as writer:
         writer.write({"control_word_cmd": 0x000F})
 ```
@@ -459,6 +461,7 @@ await task.executeCommandSync("start");
 const writer = await client.openWriter({
   start: TimeStamp.now(),
   channels: ["control_word_cmd", "target_position_cmd"],
+  name: "EtherCAT Write",
 });
 
 // Enable drive (control word 0x000F is common for CiA 402)
@@ -557,6 +560,7 @@ await task.executeCommandSync("start");
 const writer = await client.openWriter({
   start: TimeStamp.now(),
   channels: ["control_word_cmd"],
+  name: "EtherCAT Write",
 });
 await writer.write({ control_word_cmd: 0x000f });
 

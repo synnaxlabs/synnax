@@ -210,6 +210,7 @@ contend over data in the same region.
 writer = client.open_writer(
     start=sy.TimeStamp(10 * sy.TimeSpan.SECOND),
     channels=["my_tc"],
+    name="My Writer",
 )
 
 # Error raised since writer start 00:10 is before deleting time range [00:12 - 00:30)
@@ -227,6 +228,7 @@ client.delete(
 const writer = await client.openWriter({
   start: TimeStamp.seconds(10),
   channels: ["my_tc"],
+  name: "My Writer",
 });
 
 // Error raised since writer start 00:10 is before deleting time range [00:12 - 00:30)

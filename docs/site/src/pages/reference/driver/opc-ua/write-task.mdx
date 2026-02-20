@@ -177,6 +177,7 @@ with task.run():
     with client.open_writer(
         start=sy.TimeStamp.now(),
         channels=["temperature_setpoint_cmd", "valve_control_cmd"],
+        name="OPC UA Write",
     ) as writer:
         # Set temperature setpoint
         writer.write({
@@ -284,6 +285,7 @@ await task.executeCommandSync("start");
 const writer = await client.openWriter({
   start: TimeStamp.now(),
   channels: ["temperature_setpoint_cmd", "valve_control_cmd"],
+  name: "OPC UA Write",
 });
 
 // Set temperature setpoint

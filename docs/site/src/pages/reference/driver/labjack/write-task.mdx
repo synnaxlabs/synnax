@@ -186,6 +186,7 @@ with task.run():
     with client.open_writer(
         start=sy.TimeStamp.now(),
         channels=["ao_0_cmd", "do_4_cmd"],
+        name="LabJack Write",
     ) as writer:
         # Set analog output to 2.5V and digital output high
         writer.write({
@@ -317,6 +318,7 @@ await task.executeCommandSync("start");
 const writer = await client.openWriter({
   start: TimeStamp.now(),
   channels: ["ao_0_cmd", "do_4_cmd"],
+  name: "LabJack Write",
 });
 
 // Set analog output to 2.5V and digital output high

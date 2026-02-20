@@ -50,6 +50,7 @@ method with a starting timestamp and a list of channels to write to.
 with client.open_writer(
     start=sy.TimeStamp.now(),
     channels=["time", "temperature"],
+    name="My Writer",
 ) as writer:
     for i in range(100):
         writer.write({
@@ -68,6 +69,7 @@ with client.open_writer(
 const writer = await client.openWriter({
   start: TimeStamp.now(),
   channels: ["time", "temperature"],
+  name: "My Writer",
 });
 
 try {
@@ -114,6 +116,7 @@ For example, to open a writer that only persists data:
 writer = client.open_writer(
     start=sy.TimeStamp.now(),
     channels=["time", "temperature"],
+    name="My Writer",
     mode="persist",
 )
 ```
@@ -126,6 +129,7 @@ writer = client.open_writer(
 const writer = await client.openWriter({
   start: TimeStamp.now(),
   channels: ["time", "temperature"],
+  name: "My Writer",
   mode: "persist",
 });
 ```
@@ -265,6 +269,7 @@ exception is thrown.
 with client.open_writer(
     start=sy.TimeStamp.now(),
     channels=["time", "temperature"],
+    name="My Writer",
 ) as writer:
     # Write data here
 
@@ -272,6 +277,7 @@ with client.open_writer(
 writer = client.open_writer(
     start=sy.TimeStamp.now(),
     channels=["time", "temperature"],
+    name="My Writer",
 )
 try:
     # Write data here
@@ -289,6 +295,7 @@ finally:
 const writer = await client.openWriter({
   start: TimeStamp.now(),
   channels: ["time", "temperature"],
+  name: "My Writer",
 });
 
 try {
@@ -549,6 +556,7 @@ for i in range(100):
     with client.open_writer(
         start=sy.TimeStamp.now(),
         channels=["time", "temperature"],
+        name="My Writer",
     ) as writer:
         sy.sleep(0.1)
         writer.write({
@@ -566,6 +574,7 @@ for (let i = 0; i < 100; i++) {
   const writer = await client.openWriter({
     start: TimeStamp.now(),
     channels: ["time", "temperature"],
+    name: "My Writer",
   });
   await writer.write({
     time: TimeStamp.now(),
@@ -590,6 +599,7 @@ for (let i = 0; i < 100; i++) {
 with client.open_writer(
     start=sy.TimeStamp.now(),
     channels=["time", "temperature"],
+    name="My Writer",
 ) as writer:
     sy.sleep(0.1)
     for i in range(100):
@@ -607,6 +617,7 @@ with client.open_writer(
 const writer = await client.openWriter({
   start: TimeStamp.now(),
   channels: ["time", "temperature"],
+  name: "My Writer",
 });
 try {
   for (let i = 0; i < 100; i++)

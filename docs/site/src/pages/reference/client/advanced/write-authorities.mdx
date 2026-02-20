@@ -41,6 +41,7 @@ parameter with an integer.
 writer = client.open_writer(
     start=sy.TimeStamp.now(),
     channels=["time", "temperature"],
+    name="My Writer",
     authorities=100,
 )
 ```
@@ -53,6 +54,7 @@ writer = client.open_writer(
 const writer = await client.openWriter({
   start: TimeStamp.now(),
   channels: ["time", "temperature"],
+  name: "My Writer",
   authorities: 100,
 });
 ```
@@ -76,6 +78,7 @@ channels in the writer.
 writer = client.open_writer(
     start=sy.TimeStamp.now(),
     channels=["time", "temperature"],
+    name="My Writer",
     authorities=[100, 200],
 )
 ```
@@ -88,6 +91,7 @@ writer = client.open_writer(
 const writer = await client.openWriter({
   start: TimeStamp.now(),
   channels: ["time", "temperature"],
+  name: "My Writer",
   authorities: [100, 200],
 });
 ```
@@ -145,6 +149,7 @@ Here's a complete example showing dynamic authority changes during a write sessi
 with client.open_writer(
     start=sy.TimeStamp.now(),
     channels=["time", "temperature"],
+    name="My Writer",
     authorities=100,
 ) as writer:
     # Start with low authority
@@ -166,6 +171,7 @@ with client.open_writer(
 const writer = await client.openWriter({
   start: TimeStamp.now(),
   channels: ["time", "temperature"],
+  name: "My Writer",
   authorities: 100,
 });
 try {

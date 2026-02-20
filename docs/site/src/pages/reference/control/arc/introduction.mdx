@@ -82,7 +82,7 @@ Instead of a traditional, Python-based approach:
 
 ```python
 with synnax.open_streamer(["tank_pressure"]) as streamer:
-  with synnax.open_writer(["pressure_display"]) as writer:
+  with synnax.open_writer(["pressure_display"], name="Pressure Scaler") as writer:
     while True:
         frame = streamer.read()
         pressure = frame.channels["tank_pressure"]

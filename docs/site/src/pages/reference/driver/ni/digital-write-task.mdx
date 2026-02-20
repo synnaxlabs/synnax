@@ -183,6 +183,7 @@ with task.run():
     with client.open_writer(
         start=sy.TimeStamp.now(),
         channels=["do_0_0_cmd", "do_0_1_cmd", "do_1_0_cmd"],
+        name="NI Digital Write",
     ) as writer:
         # Set outputs
         writer.write({
@@ -348,6 +349,7 @@ await task.executeCommandSync("start");
 const writer = await client.openWriter({
   start: TimeStamp.now(),
   channels: ["do_0_0_cmd", "do_0_1_cmd", "do_1_0_cmd"],
+  name: "NI Digital Write",
 });
 
 await writer.write({

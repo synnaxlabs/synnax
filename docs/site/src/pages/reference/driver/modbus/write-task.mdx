@@ -171,6 +171,7 @@ with task.run():
     with client.open_writer(
         start=sy.TimeStamp.now(),
         channels=["coil_cmd", "holding_reg_cmd"],
+        name="Modbus Write",
     ) as writer:
         # Write commands
         writer.write({
@@ -272,6 +273,7 @@ await task.executeCommandSync("start");
 const writer = await client.openWriter({
   start: TimeStamp.now(),
   channels: ["coil_cmd", "holding_reg_cmd"],
+  name: "Modbus Write",
 });
 
 await writer.write({
