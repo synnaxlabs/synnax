@@ -95,3 +95,7 @@
 .pluto-icon--false {
     color: var(--pluto-error-z);
 }
+
+.pluto-icon--logo-http {
+    transform: scale(1.5);
+}

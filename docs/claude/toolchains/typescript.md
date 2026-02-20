@@ -48,6 +48,15 @@ All packages use:
 - `pnpm test:pluto` - Run Pluto tests
 - `pnpm watch` - Watch mode for all packages
 
+### Console Dev Login
+
+When running the Console in dev mode, connect to a local Synnax server with:
+
+- **Host**: `localhost`
+- **Port**: `9090`
+- **Username**: `synnax`
+- **Password**: `seldon`
+
 ## Code Quality
 
 - `pnpm lint` - Lint all packages with ESLint

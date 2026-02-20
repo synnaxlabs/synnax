@@ -19,79 +19,16 @@ import {
   Text,
   Tree,
 } from "@synnaxlabs/pluto";
-import { errors, status } from "@synnaxlabs/x";
+import { status } from "@synnaxlabs/x";
 import { useMemo } from "react";
 
 import { Menu } from "@/components";
 import { CSS } from "@/css";
 import { Group } from "@/group";
-import {
-  CONFIGURE_LAYOUTS,
-  getContextMenuItems,
-  getIcon,
-  getIconString,
-  getMake,
-  hasIdentifier,
-  makeZ,
-} from "@/hardware/device/make";
-import { Modals } from "@/modals";
+import { getContextMenuItems, getIcon, getMake } from "@/hardware/device/make";
 import { Ontology } from "@/ontology";
 import { createUseDelete } from "@/ontology/createUseDelete";
 import { createUseRename } from "@/ontology/createUseRename";
-
-const handleConfigure = ({
-  selection: { ids },
-  state: { getResource },
-  placeLayout,
-  handleError,
-}: Ontology.TreeContextMenuProps) => {
-  const resource = getResource(ids[0]);
-  try {
-    const make = makeZ.parse(resource.data?.make);
-    placeLayout({ ...CONFIGURE_LAYOUTS[make], key: resource.id.key });
-  } catch (e) {
-    handleError(e, `Failed to configure ${resource.name}`);
-  }
-};
-
-const useHandleChangeIdentifier = () => {
-  const rename = Modals.useRename();
-  return ({
-    selection: { ids },
-    state: { getResource },
-    handleError,
-    client,
-  }: Ontology.TreeContextMenuProps) => {
-    const resource = getResource(ids[0]);
-    handleError(async () => {
-      const device = await client.devices.retrieve({ key: resource.id.key });
-      const identifier =
-        typeof device.properties.identifier === "string"
-          ? device.properties.identifier
-          : "";
-      try {
-        const newIdentifier = await rename(
-          { initialValue: identifier, allowEmpty: false, label: "Identifier" },
-          {
-            icon: getIconString(getMake(resource.data?.make)),
-            name: "Device.Identifier",
-          },
-        );
-        if (newIdentifier == null) return;
-        await client.devices.create({
-          ...device,
-          properties: {
-            ...device.properties,
-            identifier: newIdentifier,
-          },
-        });
-      } catch (e) {
-        if (e instanceof Error && errors.Canceled.matches(e)) return;
-        throw e;
-      }
-    }, "Failed to change identifier");
-  };
-};
 
 const useDelete = createUseDelete({
   type: "Device",
@@ -118,54 +55,31 @@ const TreeContextMenu: Ontology.TreeContextMenu = (props) => {
   const handleDelete = useDelete(props);
   const rename = useRename(props);
   const group = Group.useCreateFromSelection();
-  const handleChangeIdentifier = useHandleChangeIdentifier();
   if (ids.length === 0) return null;
   const handleSelect = {
-    configure: () => handleConfigure(props),
     delete: handleDelete,
     rename,
     group: () => group(props),
-    changeIdentifier: () => handleChangeIdentifier(props),
   };
   const C = singleResource ? getContextMenuItems(first.data?.make) : null;
   const customMenuItems = C ? <C {...props} /> : null;
-  const showConfigure = singleResource && first.data?.configured !== true;
-  const showChangeIdentifier =
-    singleResource &&
-    first.data?.configured === true &&
-    hasIdentifier(getMake(first.data?.make));
   return (
     <PMenu.Menu onChange={handleSelect} level="small" gap="small">
       <Group.MenuItem ids={ids} shape={shape} rootID={rootID} />
-      {canEdit && singleResource && (
-        <>
-          <Menu.RenameItem />
-          {(showConfigure || showChangeIdentifier) && <PMenu.Divider />}
-          {showConfigure && (
-            <PMenu.Item itemKey="configure">
-              <Icon.Hardware />
-              Configure
-            </PMenu.Item>
-          )}
-          {showChangeIdentifier && (
-            <PMenu.Item itemKey="changeIdentifier">
-              <Icon.Hardware />
-              Change identifier
-            </PMenu.Item>
-          )}
-        </>
-      )}
-      {canEdit && <PMenu.Divider />}
-      {canDelete && (
-        <PMenu.Item itemKey="delete">
-          <Icon.Delete />
-          Delete
-        </PMenu.Item>
-      )}
+      {canEdit && singleResource && <Menu.RenameItem />}
       {customMenuItems != null && (
         <>
           <PMenu.Divider />
           {customMenuItems}
+        </>
+      )}
+      {canDelete && (
+        <>
+          <PMenu.Divider />
+          <PMenu.Item itemKey="delete">
+            <Icon.Delete />
+            Delete
+          </PMenu.Item>
         </>
       )}
       <PMenu.Divider />

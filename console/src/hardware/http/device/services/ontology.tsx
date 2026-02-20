@@ -7,7 +7,13 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-export * from "@/hardware/common/device/services/ChangeIdentifierMenuItem";
-export * from "@/hardware/common/device/services/ConfigureMenuItem";
-export * from "@/hardware/common/device/services/EditConnectionMenuItem";
-export * from "@/hardware/common/device/services/TaskContextMenuItems";
+import { Common } from "@/hardware/common";
+import { Device } from "@/hardware/http/device";
+import { type Ontology } from "@/ontology";
+
+export const ContextMenuItems = (props: Ontology.TreeContextMenuProps) => (
+  <Common.DeviceServices.EditConnectionMenuItem
+    {...props}
+    configureLayout={Device.CONNECT_LAYOUT}
+  />
+);

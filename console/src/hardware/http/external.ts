@@ -7,7 +7,5 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-export * from "@/hardware/common/device/services/ChangeIdentifierMenuItem";
-export * from "@/hardware/common/device/services/ConfigureMenuItem";
-export * from "@/hardware/common/device/services/EditConnectionMenuItem";
-export * from "@/hardware/common/device/services/TaskContextMenuItems";
+export * from "@/hardware/http/device";
+export * from "@/hardware/http/device/services";
