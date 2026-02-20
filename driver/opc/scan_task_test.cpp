@@ -40,7 +40,6 @@ protected:
             .key = synnax::task::create_key(rack.key, 0),
             .name = "OPC UA Scan Task Test",
             .type = "opc_scan",
-            .config = ""
         };
 
         auto server_cfg = mock::ServerConfig::create_default();
@@ -266,7 +265,7 @@ TEST_F(TestScanTask, testScanChecksDeviceHealth) {
           {"security_mode", "None"},
           {"security_policy", "None"}}},
         {"channels", x::json::json::array()}
-    }.dump();
+    };
 
     // Pass devices via ScannerContext
     std::unordered_map<std::string, synnax::device::Device> devices_map;
@@ -294,7 +293,7 @@ TEST_F(TestScanTask, testHealthCheckDetectsConnectionStateChanges) {
           {"security_mode", "None"},
           {"security_policy", "None"}}},
         {"channels", x::json::json::array()}
-    }.dump();
+    };
 
     std::unordered_map<std::string, synnax::device::Device> devices_map;
     devices_map[dev.key] = dev;

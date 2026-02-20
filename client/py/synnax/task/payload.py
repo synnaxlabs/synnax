@@ -41,7 +41,7 @@ class Payload(BaseModel):
     key: int = 0
     name: str = ""
     type: str = ""
-    config: str = ""
+    config: dict[str, Any] = {}
     snapshot: bool = False
     status: Status | None = None
 
