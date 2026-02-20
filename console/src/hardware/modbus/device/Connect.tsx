@@ -121,10 +121,7 @@ export const Connect: Layout.Renderer = ({ layoutKey, onClose }) => {
     <Flex.Box align="start" className={CSS.B("modbus-connect")} justify="center">
       <Flex.Box className={CSS.B("content")} grow size="small">
         <Form.Form<typeof PDevice.formSchema> {...form}>
-          <Form.TextField
-            inputProps={{ level: "h2", placeholder: "Modbus Server", variant: "text" }}
-            path="name"
-          />
+          <Form.TextField inputProps={NAME_INPUT_PROPS} path="name" />
           <Form.Field<rack.Key> path="rack" label="Connect From Location" required>
             {({ value, onChange }) => (
               <Rack.SelectSingle value={value} onChange={onChange} allowNone={false} />
@@ -134,11 +131,11 @@ export const Connect: Layout.Renderer = ({ layoutKey, onClose }) => {
             <Form.TextField
               grow
               path="properties.connection.host"
-              inputProps={{ autoFocus: true, placeholder: "localhost" }}
+              inputProps={HOST_INPUT_PROPS}
             />
             <Form.NumericField
               path="properties.connection.port"
-              inputProps={{ placeholder: "502" }}
+              inputProps={PORT_INPUT_PROPS}
             />
           </Flex.Box>
           <Flex.Box x justify="start">
@@ -174,3 +171,13 @@ export const Connect: Layout.Renderer = ({ layoutKey, onClose }) => {
     </Flex.Box>
   );
 };
+
+const NAME_INPUT_PROPS = {
+  level: "h2",
+  variant: "text",
+  placeholder: "Modbus Server",
+} as const;
+
+const HOST_INPUT_PROPS = { autoFocus: true, placeholder: "localhost" } as const;
+
+const PORT_INPUT_PROPS = { placeholder: "502" } as const;

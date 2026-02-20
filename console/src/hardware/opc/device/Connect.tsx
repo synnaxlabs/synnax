@@ -129,10 +129,7 @@ export const Connect: Layout.Renderer = ({ layoutKey, onClose }) => {
     <Flex.Box align="start" className={CSS.B("opc-connect")} justify="center">
       <Flex.Box className={CSS.B("content")} grow gap="small">
         <Form.Form<typeof PDevice.formSchema> {...form}>
-          <Form.TextField
-            inputProps={{ level: "h2", placeholder: "OPC UA Server", variant: "text" }}
-            path="name"
-          />
+          <Form.TextField inputProps={NAME_INPUT_PROPS} path="name" />
           <Form.Field<rack.Key> path="rack" label="Connect From" required>
             {({ value, onChange }) => (
               <Rack.SelectSingle value={value} onChange={onChange} allowNone={false} />
@@ -140,19 +137,19 @@ export const Connect: Layout.Renderer = ({ layoutKey, onClose }) => {
           </Form.Field>
           <Form.TextField
             path="properties.connection.endpoint"
-            inputProps={{ placeholder: "opc.tcp://localhost:4840", autoFocus: true }}
+            inputProps={ENDPOINT_INPUT_PROPS}
           />
           <Divider.Divider x padded="bottom" />
           <Flex.Box x justify="between">
             <Form.TextField
               grow
               path="properties.connection.username"
-              inputProps={{ placeholder: "admin" }}
+              inputProps={USERNAME_INPUT_PROPS}
             />
             <Form.TextField
               grow
               path="properties.connection.password"
-              inputProps={{ placeholder: "password", type: "password" }}
+              inputProps={PASSWORD_INPUT_PROPS}
             />
             <Form.Field<SecurityMode>
               label="Security Mode"
@@ -219,3 +216,18 @@ export const Connect: Layout.Renderer = ({ layoutKey, onClose }) => {
     </Flex.Box>
   );
 };
+
+const NAME_INPUT_PROPS = {
+  level: "h2",
+  variant: "text",
+  placeholder: "OPC UA Server",
+} as const;
+
+const ENDPOINT_INPUT_PROPS = {
+  placeholder: "opc.tcp://localhost:4840",
+  autoFocus: true,
+} as const;
+
+const USERNAME_INPUT_PROPS = { placeholder: "admin" } as const;
+
+const PASSWORD_INPUT_PROPS = { type: "password" } as const;

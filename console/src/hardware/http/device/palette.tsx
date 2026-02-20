@@ -16,7 +16,7 @@ import { Palette } from "@/palette";
 const useVisible = () => Access.useCreateGranted(device.TYPE_ONTOLOGY_ID);
 
 const ConnectServerCommand = Palette.createSimpleCommand({
-  key: "http-connect-server",
+  key: "http_connect_server",
   name: "Connect an HTTP server",
   icon: <Icon.Logo.HTTP />,
   layout: CONNECT_LAYOUT,

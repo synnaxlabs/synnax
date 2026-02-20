@@ -160,10 +160,7 @@ export const Connect: Layout.Renderer = ({ layoutKey, onClose }) => {
     <Flex.Box grow className={CSS.B("http-connect")}>
       <Flex.Box className={CSS.B("content")} grow gap="small">
         <Form.Form<typeof PDevice.formSchema> {...form}>
-          <Form.TextField
-            path="name"
-            inputProps={{ level: "h2", placeholder: "HTTP Server", variant: "text" }}
-          />
+          <Form.TextField path="name" inputProps={NAME_INPUT_PROPS} />
           <Form.Field<rack.Key> path="rack" label="Connect from" required>
             {({ value, onChange }) => (
               <Rack.SelectSingle value={value} onChange={onChange} allowNone={false} />
@@ -174,14 +171,14 @@ export const Connect: Layout.Renderer = ({ layoutKey, onClose }) => {
               grow
               path="location"
               label="Host"
-              inputProps={{ autoFocus: true, placeholder: "www.example.com" }}
+              inputProps={HOST_INPUT_PROPS}
             />
             <Form.SwitchField path="properties.secure" label="HTTPS" />
           </Flex.Box>
           <Form.NumericField
             path="properties.timeoutMs"
             label="Expected response time"
-            inputProps={{ endContent: "ms", style: { width: "23rem" } }}
+            inputProps={TIMEOUT_INPUT_PROPS}
           />
           <Divider.Divider x padded="bottom" />
           <HeadersField form={form} />
@@ -199,10 +196,7 @@ export const Connect: Layout.Renderer = ({ layoutKey, onClose }) => {
             <Form.TextField
               path="properties.auth.token"
               label="Token"
-              inputProps={{
-                placeholder: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...",
-                type: "password",
-              }}
+              inputProps={AUTH_TOKEN_INPUT_PROPS}
             />
           )}
           {authType === "api_key" && (
@@ -211,13 +205,13 @@ export const Connect: Layout.Renderer = ({ layoutKey, onClose }) => {
                 grow
                 path="properties.auth.header"
                 label="Header Name"
-                inputProps={{ placeholder: "X-API-Key" }}
+                inputProps={AUTH_HEADER_INPUT_PROPS}
               />
               <Form.TextField
                 grow
                 path="properties.auth.key"
                 label="API Key"
-                inputProps={{ placeholder: "sk_live_51N8...", type: "password" }}
+                inputProps={AUTH_KEY_INPUT_PROPS}
               />
             </Flex.Box>
           )}
@@ -227,13 +221,13 @@ export const Connect: Layout.Renderer = ({ layoutKey, onClose }) => {
                 grow
                 path="properties.auth.username"
                 label="Username"
-                inputProps={{ placeholder: "user@example.com" }}
+                inputProps={AUTH_USERNAME_INPUT_PROPS}
               />
               <Form.TextField
                 grow
                 path="properties.auth.password"
                 label="Password"
-                inputProps={{ placeholder: "password", type: "password" }}
+                inputProps={AUTH_PASSWORD_INPUT_PROPS}
               />
             </Flex.Box>
           )}
@@ -261,6 +255,32 @@ export const Connect: Layout.Renderer = ({ layoutKey, onClose }) => {
   );
 };
 
+const NAME_INPUT_PROPS = {
+  level: "h2",
+  variant: "text",
+  placeholder: "HTTP Server",
+} as const;
+
+const HOST_INPUT_PROPS = { autoFocus: true, placeholder: "www.example.com" } as const;
+
+const TIMEOUT_INPUT_PROPS = { endContent: "ms", style: { width: "23rem" } } as const;
+
+const AUTH_TOKEN_INPUT_PROPS = {
+  placeholder: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...",
+  type: "password",
+} as const;
+
+const AUTH_HEADER_INPUT_PROPS = { placeholder: "X-API-Key" } as const;
+
+const AUTH_KEY_INPUT_PROPS = {
+  placeholder: "sk_live_51N8...",
+  type: "password",
+} as const;
+
+const AUTH_USERNAME_INPUT_PROPS = { placeholder: "user@example.com" } as const;
+
+const AUTH_PASSWORD_INPUT_PROPS = { type: "password" } as const;
+
 const SELECT_AUTH_TYPE_DATA: AuthType[] = ["none", "bearer", "api_key", "basic"];
 
 interface SelectAuthTypeProps extends Omit<Select.ButtonsProps<AuthType>, "keys"> {}
@@ -270,15 +290,7 @@ const SelectAuthType = (props: SelectAuthTypeProps) => (
     <Select.Button<AuthType> itemKey="none">None</Select.Button>
     <Select.Button<AuthType>
       itemKey="bearer"
-      tooltip={
-        <Text.Text level="small" color={11}>
-          Sends{" "}
-          <Text.Text level="small" variant="code" color={11}>
-            Authorization: Bearer {"<token>"}
-          </Text.Text>{" "}
-          header
-        </Text.Text>
-      }
+      tooltip={authBearerTooltip}
       tooltipLocation="top"
     >
       Bearer Token
@@ -292,18 +304,30 @@ const SelectAuthType = (props: SelectAuthTypeProps) => (
     </Select.Button>
     <Select.Button<AuthType>
       itemKey="basic"
-      tooltip={
-        <Text.Text level="small" color={11}>
-          Sends base64-encoded credentials via the{" "}
-          <Text.Text level="small" variant="code" color={11}>
-            Authorization
-          </Text.Text>{" "}
-          header
-        </Text.Text>
-      }
+      tooltip={authBasicTooltip}
       tooltipLocation="top"
     >
       Basic
     </Select.Button>
   </Select.Buttons>
+);
+
+const authBearerTooltip = (
+  <Text.Text level="small" color={11}>
+    Sends{" "}
+    <Text.Text level="small" variant="code" color={11}>
+      Authorization: Bearer {"<token>"}
+    </Text.Text>{" "}
+    header
+  </Text.Text>
+);
+
+const authBasicTooltip = (
+  <Text.Text level="small" color={11}>
+    Sends base64-encoded credentials via the{" "}
+    <Text.Text level="small" variant="code" color={11}>
+      Authorization
+    </Text.Text>{" "}
+    header
+  </Text.Text>
 );
