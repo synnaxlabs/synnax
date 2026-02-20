@@ -78,7 +78,7 @@ struct Range : public Base {
     [[nodiscard]] ::api::ranger::pb::Range to_proto() const;
     static std::pair<Range, x::errors::Error>
     from_proto(const ::api::ranger::pb::Range &pb);
-    kv::Client kv = kv::Client();
+    ranger::kv::Client kv = ranger::kv::Client();
 };
 
 const synnax::ontology::ID ONTOLOGY_TYPE("range", "");

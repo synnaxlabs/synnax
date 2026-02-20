@@ -38,7 +38,7 @@ public:
     Client(
         std::unique_ptr<RetrieveClient> retrieve_client,
         std::unique_ptr<CreateClient> create_client,
-        const kv::Client &kv_client
+        const ranger::kv::Client &kv_client
     ):
         retrieve_client(std::move(retrieve_client)),
         create_client(std::move(create_client)),
@@ -46,7 +46,7 @@ public:
 
     /// @brief retrieves the range with the given key.
     [[nodiscard]] std::pair<Range, x::errors::Error>
-    retrieve_by_key(const x::uuid::UUID &key) const;
+    retrieve_by_key(const Key &key) const;
 
     /// @brief retrieves the range with the given name.
     [[nodiscard]] std::pair<Range, x::errors::Error>
@@ -54,7 +54,7 @@ public:
 
     /// @brief retrieves the ranges with the given keys.
     [[nodiscard]] std::pair<std::vector<Range>, x::errors::Error>
-    retrieve_by_key(const std::vector<x::uuid::UUID> &keys) const;
+    retrieve_by_key(const std::vector<Key> &keys) const;
 
     /// @brief retrieves the ranges with the given names.
     [[nodiscard]] std::pair<std::vector<Range>, x::errors::Error>
@@ -76,7 +76,7 @@ private:
     /// @brief create retrieval transport.
     std::unique_ptr<CreateClient> create_client;
     /// @brief range kv get transport.
-    kv::Client kv;
+    ranger::kv::Client kv;
 
     /// @brief retrieves multiple ranges.
     std::pair<std::vector<Range>, x::errors::Error>

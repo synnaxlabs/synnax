@@ -75,15 +75,15 @@ Transport::Transport(
         grpc::ranger::CreateRequest,
         grpc::ranger::CreateResponse,
         grpc::ranger::RangeCreateService>>(pool, base_target);
-    this->kv_delete = std::make_shared<freighter::grpc::UnaryClient<
+    this->range_kv_delete = std::make_shared<freighter::grpc::UnaryClient<
         grpc::kv::DeleteRequest,
         google::protobuf::Empty,
         grpc::kv::KVDeleteService>>(pool, base_target);
-    this->kv_get = std::make_shared<freighter::grpc::UnaryClient<
+    this->range_kv_get = std::make_shared<freighter::grpc::UnaryClient<
         grpc::kv::GetRequest,
         grpc::kv::GetResponse,
         grpc::kv::KVGetService>>(pool, base_target);
-    this->kv_set = std::make_shared<freighter::grpc::UnaryClient<
+    this->range_kv_set = std::make_shared<freighter::grpc::UnaryClient<
         grpc::kv::SetRequest,
         google::protobuf::Empty,
         grpc::kv::KVSetService>>(pool, base_target);
@@ -156,9 +156,9 @@ void Transport::use(const std::shared_ptr<freighter::Middleware> &mw) const {
     chan_retrieve->use(mw);
     range_retrieve->use(mw);
     range_create->use(mw);
-    kv_delete->use(mw);
-    kv_get->use(mw);
-    kv_set->use(mw);
+    range_kv_delete->use(mw);
+    range_kv_get->use(mw);
+    range_kv_set->use(mw);
     rack_create_client->use(mw);
     rack_retrieve->use(mw);
     rack_delete->use(mw);

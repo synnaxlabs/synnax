@@ -55,7 +55,7 @@ using DeleteClient = freighter::
 /// @param task The local task key.
 /// @returns A combined task key.
 inline Key create_key(const rack::Key rack, const Key task) {
-    return static_cast<task::Key>(rack) << 32 | task;
+    return static_cast<Key>(rack) << 32 | task;
 }
 
 /// @brief Extracts the rack key from a task key.
@@ -212,7 +212,7 @@ public:
     /// @param key The key of the task to delete.
     /// @returns An error if the deletion failed.
     [[nodiscard]]
-    x::errors::Error del(task::Key key) const;
+    x::errors::Error del(Key key) const;
 
     /// @brief Lists all tasks on the rack.
     /// @returns A pair containing the list of tasks and an error if one occurred.

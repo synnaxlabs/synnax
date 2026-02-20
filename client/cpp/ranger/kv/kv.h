@@ -19,7 +19,7 @@
 
 #include "core/pkg/api/grpc/ranger/kv/kv.pb.h"
 
-namespace synnax::kv {
+namespace synnax::ranger::kv {
 /// @brief type alias for the transport used to get range-scoped key-values.
 using GetClient = freighter::UnaryClient<grpc::kv::GetRequest, grpc::kv::GetResponse>;
 
@@ -34,21 +34,21 @@ using DeleteClient = freighter::
 /// about a range.
 class Client {
     x::uuid::UUID range_key;
-    std::shared_ptr<GetClient> kv_get_client;
+    std::shared_ptr<GetClient> get_client;
     std::shared_ptr<SetClient> kv_set_client;
-    std::shared_ptr<DeleteClient> kv_delete_client;
+    std::shared_ptr<DeleteClient> delete_client;
 
 public:
     Client() = default;
 
     Client(
-        std::shared_ptr<GetClient> kv_get_client,
+        std::shared_ptr<GetClient> get_client,
         std::shared_ptr<SetClient> kv_set_client,
-        std::shared_ptr<DeleteClient> kv_delete_client
+        std::shared_ptr<DeleteClient> delete_client
     ):
-        kv_get_client(std::move(kv_get_client)),
+        get_client(std::move(get_client)),
         kv_set_client(std::move(kv_set_client)),
-        kv_delete_client(std::move(kv_delete_client)) {}
+        delete_client(std::move(delete_client)) {}
 
     /// @brief gets the value of the given key.
     /// @param key - the key to get the value of.

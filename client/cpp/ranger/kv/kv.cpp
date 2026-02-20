@@ -11,12 +11,12 @@
 #include "client/cpp/ranger/kv/kv.h"
 #include "x/cpp/errors/errors.h"
 
-namespace synnax::kv {
+namespace synnax::ranger::kv {
 std::pair<std::string, x::errors::Error> Client::get(const std::string &key) const {
     auto req = grpc::kv::GetRequest();
     req.add_keys(key);
     req.set_range(this->range_key.to_string());
-    auto [res, err] = this->kv_get_client->send("/range/kv/get", req);
+    auto [res, err] = this->get_client->send("/range/kv/get", req);
     if (err) return {"", err};
     if (res.pairs_size() == 0)
         return {"", errors::not_found_error("range key-value pair", "key " + key)};
@@ -37,7 +37,7 @@ x::errors::Error Client::del(const std::string &key) const {
     auto req = grpc::kv::DeleteRequest();
     req.set_range(this->range_key.to_string());
     req.add_keys(key);
-    auto [res, err] = this->kv_delete_client->send("/range/kv/delete", req);
+    auto [res, err] = this->delete_client->send("/range/kv/delete", req);
     return err;
 }
 }

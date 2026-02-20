@@ -173,7 +173,11 @@ public:
         ranges(
             std::move(this->t.range_retrieve),
             std::move(this->t.range_create),
-            kv::Client(this->t.kv_get, this->t.kv_set, this->t.kv_delete)
+            ranger::kv::Client(
+                this->t.range_kv_get,
+                this->t.range_kv_set,
+                this->t.range_kv_delete
+            )
         ),
         tasks(this->t.task_create, this->t.task_retrieve, this->t.task_delete),
         telem(
