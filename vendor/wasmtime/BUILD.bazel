@@ -1,3 +1,5 @@
+load("@rules_cc//cc:cc_library.bzl", "cc_library")
+
 genrule(
     name = "build_wasmtime",
     srcs = glob(["wasmtime/**"]),
@@ -73,12 +75,17 @@ genrule(
         "@platforms//os:windows": """
             # Fix PATH: Use rustup's Rust instead of Chocolatey's
             # Chocolatey installs Rust to /c/ProgramData/chocolatey/bin but rustup
-            # manages toolchains in /c/Users/Administrator/.cargo/bin. We need rustup's version.
-            # Note: $$HOME in Git Bash points to system profile, not actual user directory
-            export PATH="/c/Users/Administrator/.cargo/bin:$$PATH"
-
-            # Force rustup to use Administrator's rustup directory, not system profile's
-            export RUSTUP_HOME="/c/Users/Administrator/.rustup"
+            # manages toolchains in ~/.cargo/bin. We need rustup's version.
+            # Resolve the user home from USERPROFILE, HOME, or whoami as fallback.
+            if [ -n "$${USERPROFILE:-}" ]; then
+                _HOME="$$(cygpath -u "$$USERPROFILE")"
+            elif [ -n "$${HOME:-}" ]; then
+                _HOME="$$HOME"
+            else
+                _HOME="/c/Users/$$(whoami)"
+            fi
+            export PATH="$$_HOME/.cargo/bin:$$PATH"
+            export RUSTUP_HOME="$$_HOME/.rustup"
 
             # Ensure MSVC target is installed
             rustup target add x86_64-pc-windows-msvc
@@ -419,9 +426,6 @@ cc_library(
         "//conditions:default": ["lib/libwasmtime.a"],
     }),
     hdrs = [":build_wasmtime"],
-    includes = ["include"],
-    strip_include_prefix = "include",
-    visibility = ["//visibility:public"],
     # On Windows, disable warning C4201 (nameless struct/union) which is used by wasmtime headers
     copts = select({
         "@platforms//os:windows": ["/wd4201"],
@@ -435,6 +439,7 @@ cc_library(
         ],
         "//conditions:default": [],
     }),
+    includes = ["include"],
     linkopts = select({
         "@platforms//os:windows": [
             "ws2_32.lib",
@@ -458,10 +463,6 @@ cc_library(
             "-lrt",
         ],
     }),
-)
-
-cc_binary(
-    name = "wasmtime_test",
-    srcs = ["wasmtime_test.cpp"],
-    deps = [":wasmtime"],
+    strip_include_prefix = "include",
+    visibility = ["//visibility:public"],
 )

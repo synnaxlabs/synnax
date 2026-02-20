@@ -1577,7 +1577,8 @@ public:
 /// This matches Go's telem.MultiSeries pattern for handling multiple data arrivals
 /// before consumption.
 struct MultiSeries {
-    std::vector<Series> series; ///< Accumulated series
+    /// @brief accumulated series.
+    std::vector<Series> series;
 
     /// @brief Append adds a series to the accumulation.
     void append(Series s) { series.push_back(std::move(s)); }
