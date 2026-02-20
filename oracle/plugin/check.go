@@ -42,14 +42,14 @@ func (e *StaleError) Error() string {
 	}
 
 	var sb strings.Builder
-	sb.WriteString(fmt.Sprintf("plugin '%s' has %d stale file(s):\n", e.Plugin, len(e.Files)))
+	_, _ = fmt.Fprintf(&sb, "plugin '%s' has %d stale file(s):\n", e.Plugin, len(e.Files))
 	for _, f := range e.Files {
 		if f.GenTime.IsZero() {
-			sb.WriteString(fmt.Sprintf("  - %s (missing, source: %s)\n", f.Generated, f.Schema))
+			_, _ = fmt.Fprintf(&sb, "  - %s (missing, source: %s)\n", f.Generated, f.Schema)
 		} else {
-			sb.WriteString(fmt.Sprintf("  - %s (modified: %s, source %s modified: %s)\n",
+			_, _ = fmt.Fprintf(&sb, "  - %s (modified: %s, source %s modified: %s)\n",
 				f.Generated, f.GenTime.Format(time.RFC3339),
-				f.Schema, f.SchemaTime.Format(time.RFC3339)))
+				f.Schema, f.SchemaTime.Format(time.RFC3339))
 		}
 	}
 	return sb.String()
