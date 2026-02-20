@@ -69,7 +69,7 @@ class Color(BaseModel):
         return self.r == 0 and self.g == 0 and self.b == 0 and self.a == 0
 
 
-def _from_hex(s: str) -> dict:
+def _from_hex(s: str) -> dict[str, int | float]:
     s = s.lstrip("#")
     if len(s) == 0:
         return {"r": 0, "g": 0, "b": 0, "a": 0}

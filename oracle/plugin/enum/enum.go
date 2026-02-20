@@ -1,0 +1,148 @@
+// Copyright 2026 Synnax Labs, Inc.
+//
+// Use of this software is governed by the Business Source License included in the file
+// licenses/BSL.txt.
+//
+// As of the Change Date specified in that file, in accordance with the Business Source
+// License, use of this software will be governed by the Apache License, Version 2.0,
+// included in the file licenses/APL.txt.
+
+// Package enum provides utilities for working with enums in oracle schemas.
+package enum
+
+import (
+	"github.com/synnaxlabs/oracle/plugin/output"
+	"github.com/synnaxlabs/oracle/resolution"
+)
+
+// CollectReferenced collects unique enums referenced by struct fields.
+// Returns a deduplicated slice of enum types based on QualifiedName.
+func CollectReferenced(structs []resolution.Type, table *resolution.Table) []resolution.Type {
+	seen := make(map[string]bool)
+	var enums []resolution.Type
+	for _, s := range structs {
+		form, ok := s.Form.(resolution.StructForm)
+		if !ok {
+			continue
+		}
+		for _, f := range form.Fields {
+			collectEnumsFromTypeRef(f.Type, table, seen, &enums)
+		}
+	}
+	return enums
+}
+
+// collectEnumsFromTypeRef recursively collects enums from a type reference.
+func collectEnumsFromTypeRef(ref resolution.TypeRef, table *resolution.Table, seen map[string]bool, enums *[]resolution.Type) {
+	// Check type args first (for generic types like Array<EnumType>)
+	for _, arg := range ref.TypeArgs {
+		collectEnumsFromTypeRef(arg, table, seen, enums)
+	}
+
+	// Handle type parameters with defaults (e.g., V extends Variant = Variant)
+	// When a field has a type param, check if it has a default and collect from that
+	if ref.IsTypeParam() && ref.TypeParam != nil && ref.TypeParam.HasDefault() {
+		collectEnumsFromTypeRef(*ref.TypeParam.Default, table, seen, enums)
+		return
+	}
+
+	// Try to resolve the type
+	resolved, ok := ref.Resolve(table)
+	if !ok {
+		return
+	}
+	if _, isEnum := resolved.Form.(resolution.EnumForm); isEnum {
+		if !seen[resolved.QualifiedName] {
+			seen[resolved.QualifiedName] = true
+			*enums = append(*enums, resolved)
+		}
+	}
+}
+
+// PathFunc is a function that returns the output path for a type.
+type PathFunc func(typ resolution.Type, table *resolution.Table) string
+
+// FindOutputPath finds the output path for an enum type.
+// First checks if the enum has its own output domain, then falls back to
+// searching for a struct in the same namespace that has an output domain.
+// domainName specifies which domain to look up (e.g., "ts", "py").
+func FindOutputPath(e resolution.Type, table *resolution.Table, domainName string) string {
+	if path := output.GetPath(e, domainName); path != "" {
+		return path
+	}
+	for _, s := range table.StructTypes() {
+		if s.Namespace == e.Namespace {
+			if path := output.GetPath(s, domainName); path != "" {
+				return path
+			}
+		}
+	}
+	return ""
+}
+
+// MakePathFunc creates a PathFunc for a given domain name.
+func MakePathFunc(domainName string) PathFunc {
+	return func(typ resolution.Type, table *resolution.Table) string {
+		return FindOutputPath(typ, table, domainName)
+	}
+}
+
+// CollectWithOwnOutput collects enum types that have their own output domain defined.
+// These are standalone enums not just referenced by structs.
+func CollectWithOwnOutput(allEnums []resolution.Type, domainName string) []resolution.Type {
+	var result []resolution.Type
+	for _, e := range allEnums {
+		if output.GetPath(e, domainName) != "" && !output.IsOmitted(e, domainName) {
+			result = append(result, e)
+		}
+	}
+	return result
+}
+
+// FindPBOutputPath finds the pb output path for an enum using the new pb/ pattern.
+// Derives from @go output + "/pb/" for structs in the same namespace.
+func FindPBOutputPath(e resolution.Type, table *resolution.Table) string {
+	for _, s := range table.StructTypes() {
+		if s.Namespace == e.Namespace {
+			if path := output.GetPBPath(s); path != "" {
+				return path
+			}
+		}
+	}
+	return ""
+}
+
+// CollectNamespaceEnums returns all enums in the given namespace that should be
+// generated at the specified output path. This handles the case where enums
+// inherit their output path from file-level directives rather than having
+// explicit per-type output directives.
+//
+// The function:
+// - Filters by namespace
+// - Filters by output path (via pathFunc or default FindOutputPath)
+// - Excludes omitted enums
+// - Deduplicates by QualifiedName
+//
+// If pathFunc is nil, uses the default FindOutputPath for the given domain.
+func CollectNamespaceEnums(namespace, outputPath string, table *resolution.Table, domainName string, pathFunc PathFunc) []resolution.Type {
+	if pathFunc == nil {
+		pathFunc = MakePathFunc(domainName)
+	}
+	var result []resolution.Type
+	seen := make(map[string]bool)
+	for _, e := range table.EnumTypes() {
+		if e.Namespace != namespace {
+			continue
+		}
+		if output.IsOmitted(e, domainName) {
+			continue
+		}
+		if enumPath := pathFunc(e, table); enumPath == outputPath {
+			if !seen[e.QualifiedName] {
+				seen[e.QualifiedName] = true
+				result = append(result, e)
+			}
+		}
+	}
+	return result
+}

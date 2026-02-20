@@ -315,6 +315,7 @@ class ReadTask(task.StarterStopperMixin, task.JSONConfigMixin, task.Protocol):
     """
 
     TYPE = "opc_read"
+    config: NonArraySamplingReadTaskConfig | ArraySamplingReadTaskConfig
     _internal: task.Task
 
     def __init__(
@@ -329,7 +330,7 @@ class ReadTask(task.StarterStopperMixin, task.JSONConfigMixin, task.Protocol):
         auto_start: bool = False,
         array_mode: bool = False,
         array_size: int = 1,
-        channels: list[ReadChannel] = None,
+        channels: list[ReadChannel] | None = None,
     ):
         if internal is not None:
             self._internal = internal
@@ -393,7 +394,7 @@ class WriteTaskConfig(task.BaseWriteConfig):
     "A list of WriteChannel objects that specify which OPC UA nodes to write to."
 
     @field_validator("channels")
-    def validate_channels_not_empty(cls, v):
+    def validate_channels_not_empty(cls, v: list[WriteChannel]) -> list[WriteChannel]:
         """Validate that at least one channel is provided."""
         if len(v) == 0:
             raise ValueError("Task must have at least one channel")
@@ -425,7 +426,7 @@ class WriteTask(task.StarterStopperMixin, task.JSONConfigMixin, task.Protocol):
         device: device.Key = "",
         name: str = "",
         auto_start: bool = False,
-        channels: list[WriteChannel] = None,
+        channels: list[WriteChannel] | None = None,
     ):
         if internal is not None:
             self._internal = internal

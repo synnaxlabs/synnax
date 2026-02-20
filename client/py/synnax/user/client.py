@@ -13,6 +13,7 @@ from uuid import UUID
 from freighter import Empty, UnaryClient, send_required
 from pydantic import BaseModel
 
+from synnax.exceptions import NotFoundError
 from synnax.user.payload import New, User
 from synnax.util.normalize import normalize
 from synnax.util.params import require_named_params
@@ -98,8 +99,10 @@ class Client:
                 key=key,
             )
         single = user is not None
-        if single:
+        if user is not None:
             users = [user]
+        if users is None:
+            raise ValueError("Either username, user, or users must be provided")
         res = send_required(
             self.client,
             "/user/create",
@@ -153,12 +156,19 @@ class Client:
             keys = normalize(key)
         if username is not None:
             usernames = normalize(username)
-        return send_required(
+        single = key is not None or username is not None
+        res = send_required(
             self.client,
             "/user/retrieve",
             _RetrieveRequest(keys=keys, usernames=usernames),
             _RetrieveResponse,
-        ).users
+        )
+        users = res.users or []
+        if not single:
+            return users
+        if len(users) == 0:
+            raise NotFoundError(f"User matching {key or username} not found")
+        return users[0]
 
     def delete(self, keys: UUID | list[UUID] | None = None) -> None:
         send_required(

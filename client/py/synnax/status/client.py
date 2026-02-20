@@ -7,7 +7,7 @@
 #  License, use of this software will be governed by the Apache License, Version 2.0,
 #  included in the file licenses/APL.txt.
 
-from typing import overload
+from typing import Any, overload
 from uuid import UUID
 
 from freighter import Empty, UnaryClient, send_required
@@ -21,11 +21,11 @@ from synnax.util.params import require_named_params
 
 class _SetRequest(BaseModel):
     parent: ID | None = None
-    statuses: list[Status]
+    statuses: list[Status[Any]]
 
 
 class _SetResponse(BaseModel):
-    statuses: list[Status]
+    statuses: list[Status[Any]]
 
 
 class _RetrieveRequest(BaseModel):
@@ -38,7 +38,7 @@ class _RetrieveRequest(BaseModel):
 
 
 class _RetrieveResponse(BaseModel):
-    statuses: list[Status] | None = None
+    statuses: list[Status[Any]] | None = None
 
 
 class _DeleteRequest(BaseModel):
@@ -71,25 +71,25 @@ class Client:
     @overload
     def set(
         self,
-        status: Status,
+        status: Status[Any],
         *,
         parent: ID | None = None,
-    ) -> Status: ...
+    ) -> Status[Any]: ...
 
     @overload
     def set(
         self,
-        statuses: list[Status],
+        status: list[Status[Any]],
         *,
         parent: ID | None = None,
-    ) -> list[Status]: ...
+    ) -> list[Status[Any]]: ...
 
     def set(
         self,
-        status: Status | list[Status] | None = None,
+        status: Status[Any] | list[Status[Any]] | None = None,
         *,
         parent: ID | None = None,
-    ) -> Status | list[Status]:
+    ) -> Status[Any] | list[Status[Any]]:
         """Create or update a status.
 
         Args:
@@ -137,12 +137,12 @@ class Client:
         return res
 
     @overload
-    def retrieve(self, *, key: str, include_labels: bool = False) -> Status: ...
+    def retrieve(self, *, key: str, include_labels: bool = False) -> Status[Any]: ...
 
     @overload
     def retrieve(
         self, *, keys: list[str], include_labels: bool = False
-    ) -> list[Status]: ...
+    ) -> list[Status[Any]]: ...
 
     @overload
     def retrieve(
@@ -153,7 +153,7 @@ class Client:
         limit: int | None = None,
         include_labels: bool = False,
         has_labels: list[UUID] | None = None,
-    ) -> list[Status]: ...
+    ) -> list[Status[Any]]: ...
 
     @require_named_params(example_params=("key", "'status-key-123'"))
     def retrieve(
@@ -166,7 +166,7 @@ class Client:
         limit: int | None = None,
         include_labels: bool = False,
         has_labels: list[UUID] | None = None,
-    ) -> Status | list[Status]:
+    ) -> Status[Any] | list[Status[Any]]:
         """Retrieve statuses from the cluster.
 
         Args:
@@ -205,7 +205,7 @@ class Client:
                 ... )
         """
         single = key is not None
-        if single:
+        if single and key is not None:
             keys = [key]
 
         res = send_required(
@@ -223,7 +223,9 @@ class Client:
         ).statuses
 
         if res is None:
-            return [] if not single else None
+            if single:
+                raise ValueError(f"Status with key '{key}' not found")
+            return []
 
         if single:
             if len(res) == 0:

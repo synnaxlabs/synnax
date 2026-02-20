@@ -17,7 +17,7 @@ ONTOLOGY_TYPE = ontology.ID(type="rack")
 
 def ontology_id(key: int) -> ontology.ID:
     """Returns the ontology ID for the Rack entity."""
-    return ontology.ID(type=ONTOLOGY_TYPE.type, key=key)
+    return ontology.ID(type=ONTOLOGY_TYPE.type, key=str(key))
 
 
 class StatusDetails(BaseModel):
