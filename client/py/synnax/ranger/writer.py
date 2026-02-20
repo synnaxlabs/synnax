@@ -47,6 +47,6 @@ class Writer:
         return send_required(self._client, "/range/create", req, _CreateResponse).ranges
 
     @trace("debug", "range.delete")
-    def delete(self, keys: list[Key]):
+    def delete(self, keys: list[Key]) -> None:
         req = _DeleteRequest(keys=keys)
         send_required(self._client, "/range/delete", req, Empty)

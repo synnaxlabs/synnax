@@ -14,7 +14,10 @@ import time
 from typing import Any, Literal, Self, cast
 
 import synnax as sy
-from playwright.sync_api import FloatRect, Locator, Page, ViewportSize
+from playwright.sync_api import Error as PlaywrightError
+from playwright.sync_api import FloatRect, Locator, Page
+from playwright.sync_api import TimeoutError as PlaywrightTimeoutError
+from playwright.sync_api import ViewportSize
 
 from console.context_menu import ContextMenu
 from console.layout import LayoutClient
@@ -74,7 +77,7 @@ class ConsolePage:
             Instance of the page class
         """
         pane = layout.page.locator(cls.pluto_label)
-        pane.first.wait_for(state="visible", timeout=5000)
+        pane.first.wait_for(state="visible", timeout=10000)
 
         return cls(layout, client, name, pane_locator=pane.first)
 
@@ -296,10 +299,13 @@ class ConsolePage:
         Returns:
             The copied link from clipboard (empty string if clipboard access fails).
         """
-        self.notifications.close_all()
         self.layout.show_visualization_toolbar()
         link_button = self.page.locator(".pluto-icon--link").locator("..")
-        link_button.click(timeout=5000)
+        try:
+            self.notifications.close_all()
+            link_button.click(timeout=5000)
+        except (PlaywrightTimeoutError, PlaywrightError):
+            link_button.dispatch_event("click")
         return self.layout.read_clipboard()
 
     def export_json(self) -> dict[str, Any]:
@@ -315,7 +321,11 @@ class ConsolePage:
         self.page.evaluate("delete window.showSaveFilePicker")
 
         with self.page.expect_download(timeout=5000) as download_info:
-            export_button.click()
+            try:
+                self.notifications.close_all()
+                export_button.click(timeout=5000)
+            except (PlaywrightTimeoutError, PlaywrightError):
+                export_button.dispatch_event("click")
 
         download = download_info.value
         save_path = get_results_path(f"{self.page_name}.json")

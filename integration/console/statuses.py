@@ -65,9 +65,13 @@ class StatusesClient:
         if labels is not None:
             label_button = modal.get_by_text("Select labels", exact=True)
             label_button.click(timeout=5000)
+            label_dialog = self.layout.page.locator(
+                ".pluto-select__dialog.pluto--visible"
+            )
+            label_dialog.wait_for(state="visible", timeout=5000)
             for label_name in labels:
                 label_item = (
-                    self.layout.page.locator(".pluto-list__item")
+                    label_dialog.locator(".pluto-list__item")
                     .filter(has_text=label_name)
                     .first
                 )
@@ -75,7 +79,7 @@ class StatusesClient:
                     label_item.wait_for(state="visible", timeout=3000)
                     label_item.click(timeout=2000)
                 except PlaywrightTimeoutError:
-                    all_labels = self.layout.page.locator(".pluto-list__item").all()
+                    all_labels = label_dialog.locator(".pluto-list__item").all()
                     available = [
                         lbl.text_content() for lbl in all_labels if lbl.is_visible()
                     ]

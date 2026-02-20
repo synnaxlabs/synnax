@@ -13,15 +13,13 @@ Simulator lifecycle mixin.
 Provides DeviceSim server management (start/stop) and device registration
 in Synnax. Designed for multiple inheritance with TestCase subclasses.
 
-Usage standalone (e.g., with ConsoleCase):
+Usage:
 
-    class TaskToolbar(SimulatorCase, ConsoleCase):
-        sim_class = OPCUASim`
+    class MyTask(SimulatorCase, ReadTaskCase):
+        sim_classes = [OPCUASim]
 
-Usage with TaskCase:
-
-    class ModbusTaskCase(SimulatorCase, TaskCase):
-        sim_class = ModbusSim
+    class GrandFinale(SimulatorCase):
+        sim_classes = [OPCUASim, ModbusSim]
 """
 
 import os
@@ -36,34 +34,63 @@ from framework.test_case import TestCase
 class SimulatorCase(TestCase):
     """DeviceSim lifecycle management.
 
-    Subclasses must set sim_class as a class attribute.
+    Subclasses set sim_classes to a list of DeviceSim subclasses.
+    The first entry is used as the primary sim (self.sim / self.device_name).
     """
 
-    sim_class: type[DeviceSim]
+    sim_classes: list[type[DeviceSim]] = []
     sim: DeviceSim | None = None
+    sims: dict[str, DeviceSim | None]
     SAMPLE_RATE: sy.Rate = 50 * sy.Rate.HZ
     RACK_NAME: str = os.environ.get("SYNNAX_DRIVER_RACK", "Node 1 Embedded Driver")
 
     def setup(self) -> None:
-        """Start simulator, connect device, then delegate to next in MRO."""
-        self.device_name = self.sim_class.device_name
-        if self.sim is None:
-            self.sim = self.sim_class(rate=self.SAMPLE_RATE)
-        self.sim.start()
-        self._connect_device()
+        """Start simulator(s), connect device(s), then delegate to next in MRO."""
+        self.sims = getattr(self, "sims", {})
+        for sim_cls in self.sim_classes:
+            name = sim_cls.device_name
+            existing = self.sims.get(name)
+            sim = existing if existing is not None else sim_cls(rate=self.SAMPLE_RATE)
+            sim.start()
+            self.sims[name] = sim
+            self._connect_device_for(sim_cls)
+        first_cls = self.sim_classes[0]
+        self.sim = self.sims[first_cls.device_name]
+        self.device_name = first_cls.device_name
         super().setup()
 
-    def start_simulator(self) -> None:
-        """Start (or restart) the simulator."""
-        if self.sim is not None:
-            self.sim.stop()
-        self.sim = self.sim_class(rate=self.SAMPLE_RATE)
-        self.sim.start()
+    def start_simulator(self, device_name: str | None = None) -> None:
+        """Start (or restart) a simulator.
 
-    def cleanup_simulator(self, log: bool = False) -> None:
-        """Stop the simulator."""
-        if self.sim is not None:
-            self.sim.stop()
+        Args:
+            device_name: Target a specific sim. When None, restarts the primary sim.
+        """
+        target = device_name or self.device_name
+        old_sim = self.sims.get(target)
+        if old_sim is not None:
+            old_sim.stop()
+        sim_cls = next(c for c in self.sim_classes if c.device_name == target)
+        new_sim = sim_cls(rate=self.SAMPLE_RATE)
+        new_sim.start()
+        self.sims[target] = new_sim
+        if target == self.device_name:
+            self.sim = new_sim
+
+    def cleanup_simulator(
+        self, log: bool = False, device_name: str | None = None
+    ) -> None:
+        """Stop a simulator.
+
+        Args:
+            log: Whether to log cleanup.
+            device_name: Target a specific sim. When None, stops the primary sim.
+        """
+        target = device_name or self.device_name
+        sim = self.sims.get(target)
+        if sim is not None:
+            sim.stop()
+            self.sims[target] = None
+        if target == self.device_name:
             self.sim = None
 
     @property
@@ -76,12 +103,16 @@ class SimulatorCase(TestCase):
     def teardown(self) -> None:
         """Cleanup after test."""
         super().teardown()
-        self.cleanup_simulator(log=True)
+        for sim in self.sims.values():
+            if sim is not None:
+                sim.stop()
+        self.sims = {}
+        self.sim = None
 
-    def _connect_device(self) -> None:
-        """Get or create the hardware device for this simulator."""
+    def _connect_device_for(self, sim_cls: type[DeviceSim]) -> None:
+        """Get or create the hardware device for a given simulator class."""
         rack = self.client.racks.retrieve(name=self.RACK_NAME)
-        device_instance = self.sim_class.create_device(rack.key)
+        device_instance = sim_cls.create_device(rack.key)
         try:
             self.client.devices.retrieve(name=device_instance.name)
         except sy.NotFoundError:
