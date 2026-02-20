@@ -11,6 +11,7 @@ import { type device } from "@synnaxlabs/client";
 import { Text } from "@synnaxlabs/pluto";
 import { type record } from "@synnaxlabs/x";
 import { type ReactElement } from "react";
+import { type z } from "zod";
 
 import { EmptyAction } from "@/components";
 import { use } from "@/hardware/common/device/use";
@@ -23,35 +24,37 @@ const DEFAULT_NONE_SELECTED_CONTENT = (
 );
 
 export interface ProviderChildProps<
-  Properties extends record.Unknown = record.Unknown,
-  Make extends string = string,
-  Model extends string = string,
+  Properties extends z.ZodType<record.Unknown> = typeof record.unknownZ,
+  Make extends z.ZodType<string> = z.ZodString,
+  Model extends z.ZodType<string> = z.ZodString,
 > {
   device: device.Device<Properties, Make, Model>;
 }
 
 export interface ProviderProps<
-  Properties extends record.Unknown = record.Unknown,
-  Make extends string = string,
-  Model extends string = string,
+  Properties extends z.ZodType<record.Unknown> = typeof record.unknownZ,
+  Make extends z.ZodType<string> = z.ZodString,
+  Model extends z.ZodType<string> = z.ZodString,
 > {
   canConfigure: boolean;
   children: (props: ProviderChildProps<Properties, Make, Model>) => ReactElement;
   configureLayout: Layout.BaseState;
   noneSelectedContent?: ReactElement;
+  schemas?: device.DeviceSchemas<Properties, Make, Model>;
 }
 
 export const Provider = <
-  Properties extends record.Unknown = record.Unknown,
-  Make extends string = string,
-  Model extends string = string,
+  Properties extends z.ZodType<record.Unknown> = typeof record.unknownZ,
+  Make extends z.ZodType<string> = z.ZodString,
+  Model extends z.ZodType<string> = z.ZodString,
 >({
   canConfigure,
   children,
   configureLayout,
   noneSelectedContent = DEFAULT_NONE_SELECTED_CONTENT,
+  schemas,
 }: ProviderProps<Properties, Make, Model>) => {
-  const device = use<Properties, Make, Model>();
+  const device = use<Properties, Make, Model>(schemas);
   const placeLayout = Layout.usePlacer();
   if (device == null) return noneSelectedContent;
   if (!device.configured) {
