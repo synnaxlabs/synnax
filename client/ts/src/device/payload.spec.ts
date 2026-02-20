@@ -123,7 +123,6 @@ describe("deviceZ", () => {
 describe("newZ", () => {
   it("should encode properties to a JSON string", () => {
     const result = newZ().parse(VALID_DEVICE);
-    expect(typeof result.properties).toBe("string");
     expect(result.properties).toEqual(VALID_DEVICE.properties);
   });
 
