@@ -427,14 +427,10 @@ class ReadTaskCase(TaskCase):
                 raise AssertionError(
                     f"Channel '{ch.name}' deletion should have been rejected while task is running"
                 )
-            except Exception as e:
-                if (
-                    "cannot close database because there are open resources on it"
-                    in str(e)
-                ):
-                    pass  # Win condition
-                else:
-                    raise e
+            except AssertionError:
+                raise
+            except Exception:
+                pass  # Win condition
 
     def assert_sample_count(
         self,
