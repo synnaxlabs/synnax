@@ -492,7 +492,7 @@ class ReadTask(task.StarterStopperMixin, task.JSONConfigMixin, task.Protocol):
         Keys use hyphens instead of underscores to match Console's naming convention.
         """
         dev = device_client.retrieve(key=self.config.device)
-        props = dev.properties if dev.properties is not None else {}
+        props = dict(dev.properties) if dev.properties is not None else {}
 
         if "read" not in props:
             props["read"] = {"index": 0, "channels": {}}
@@ -570,7 +570,7 @@ class WriteTask(task.StarterStopperMixin, task.JSONConfigMixin, task.Protocol):
         Keys use hyphens instead of underscores to match Console's naming convention.
         """
         dev = device_client.retrieve(key=self.config.device)
-        props = dev.properties if dev.properties is not None else {}
+        props = dict(dev.properties) if dev.properties is not None else {}
 
         if "write" not in props:
             props["write"] = {"channels": {}}

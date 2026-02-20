@@ -13,8 +13,8 @@ import { z } from "zod";
 export const VERSION = "0.0.0";
 
 export const MAKE = "opc";
+export type Make = typeof MAKE;
 export const makeZ = z.literal(MAKE);
-export type Make = z.infer<typeof makeZ>;
 
 export const NO_SECURITY_MODE = "None";
 export const SIGN_SECURITY_MODE = "Sign";
@@ -71,13 +71,9 @@ export const propertiesZ = z.object({
     index: channel.keyZ,
     channels: z.record(z.string(), channel.keyZ),
   }),
-  write: z.object({
-    channels: z.record(z.string(), channel.keyZ),
-  }),
+  write: z.object({ channels: z.record(z.string(), channel.keyZ) }),
 });
-
 export type Properties = z.infer<typeof propertiesZ>;
-
 export const ZERO_PROPERTIES: Properties = {
   version: VERSION,
   connection: ZERO_CONNECTION_CONFIG,

@@ -569,8 +569,6 @@ class TestEtherCATDevice:
 
     def test_create_device_with_pdos(self, client: sy.Synnax):
         """Test that Device can be created with PDO definitions."""
-        import json
-
         rack = client.racks.retrieve_embedded_rack()
 
         device = sy.ethercat.Device(

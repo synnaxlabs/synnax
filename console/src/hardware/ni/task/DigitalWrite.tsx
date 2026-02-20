@@ -111,7 +111,7 @@ const onConfigure: Common.Task.OnConfigure<typeof digitalWriteConfigZ> = async (
 ) => {
   const dev = await client.devices.retrieve({
     key: config.device,
-    schemas: { properties: Device.propertiesZ, make: Device.makeZ },
+    schemas: Device.SCHEMAS,
   });
   Common.Device.checkConfigured(dev);
   dev.properties = Device.enrich(dev.model, dev.properties);
@@ -208,7 +208,7 @@ const onConfigure: Common.Task.OnConfigure<typeof digitalWriteConfigZ> = async (
       });
     }
   } finally {
-    if (modified) await client.devices.create(dev);
+    if (modified) await client.devices.create(dev, Device.SCHEMAS);
   }
   config.channels = config.channels.map((c) => {
     const key = getDigitalChannelDeviceKey(c);

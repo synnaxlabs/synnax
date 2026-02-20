@@ -103,7 +103,7 @@ class Client:
                     make=make,
                     model=model,
                     configured=configured,
-                    properties=properties,
+                    properties=properties if properties is not None else {},
                 )
             ]
         req = _CreateRequest(devices=normalize(devices))

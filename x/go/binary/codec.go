@@ -333,6 +333,54 @@ func (f *decodeFallbackCodec) DecodeStream(
 	return err
 }
 
+// MsgpackEncodedJSON is a map[string]any that handles backwards-compatible msgpack
+// decoding. When existing data was stored as a JSON string (the old format), it
+// unmarshals the string into a map. When new data arrives as a map, it uses it directly.
+type MsgpackEncodedJSON map[string]any
+
+func (e *MsgpackEncodedJSON) DecodeMsgpack(dec *msgpack.Decoder) error {
+	v, err := dec.DecodeInterface()
+	if err != nil {
+		return err
+	}
+	if v == nil {
+		*e = nil
+		return nil
+	}
+	switch val := v.(type) {
+	case string:
+		m := make(map[string]any)
+		if err := json.Unmarshal([]byte(val), &m); err != nil {
+			return errors.Wrapf(err, "failed to unmarshal JSON string into MsgpackEncodedJSON")
+		}
+		*e = m
+	case map[string]any:
+		*e = val
+	case map[any]any:
+		m := make(map[string]any, len(val))
+		for k, v := range val {
+			ks, ok := k.(string)
+			if !ok {
+				return errors.Newf("MsgpackEncodedJSON: non-string key %T in map", k)
+			}
+			m[ks] = v
+		}
+		*e = m
+	default:
+		return errors.Newf("MsgpackEncodedJSON: unsupported type %T", v)
+	}
+	return nil
+}
+
+// Unmarshal decodes the map into the provided struct using JSON marshal/unmarshal.
+func (e MsgpackEncodedJSON) Unmarshal(into any) error {
+	b, err := json.Marshal(e)
+	if err != nil {
+		return err
+	}
+	return json.Unmarshal(b, into)
+}
+
 // UnmarshalMsgpackUint64 decodes a msgpack value into a uint64, handling type coercion
 // from various numeric types, floats, and strings. This is useful when TypeScript/JavaScript
 // clients send numbers that may be encoded as different msgpack types.
@@ -454,45 +502,3 @@ func UnmarshalMsgpackUint32(dec *msgpack.Decoder) (uint32, error) {
 	}
 }
 
-// MsgpackEncodedJSON is a map[string]any that can unmarshal from either:
-// - A JSON string (which gets parsed into the map)
-// - A msgpack map (which is used directly)
-type MsgpackEncodedJSON map[string]any
-
-// DecodeMsgpack implements msgpack.CustomDecoder to handle both string and map formats.
-func (e *MsgpackEncodedJSON) DecodeMsgpack(dec *msgpack.Decoder) error {
-	// Decode as interface{} to let msgpack handle the type detection
-	v, err := dec.DecodeInterface()
-	if err != nil {
-		return err
-	}
-
-	switch val := v.(type) {
-	case string:
-		// If it's a string, unmarshal it as JSON
-		var m map[string]any
-		if v != "" {
-			if err = json.Unmarshal([]byte(val), &m); err != nil {
-				return errors.Wrapf(err, "failed to unmarshal JSON string into map")
-			}
-		}
-		*e = m
-		return nil
-	case map[string]any:
-		*e = val
-		return nil
-	case map[any]any:
-		m := make(map[string]any)
-		for k, v := range val {
-			if str, ok := k.(string); ok {
-				m[str] = v
-			} else {
-				return errors.Newf("map key %v is not a string", k)
-			}
-		}
-		*e = m
-		return nil
-	default:
-		return errors.Newf("cannot unmarshal %T into MsgpackEncodedJSON", v)
-	}
-}

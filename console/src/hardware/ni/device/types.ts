@@ -13,8 +13,8 @@ import { z } from "zod";
 import { Common } from "@/hardware/common";
 
 export const MAKE = "NI";
+export type Make = typeof MAKE;
 export const makeZ = z.literal(MAKE);
-export type Make = z.infer<typeof makeZ>;
 
 export const propertiesZ = z.object({
   identifier: Common.Device.identifierZ,
@@ -50,7 +50,6 @@ export const propertiesZ = z.object({
     channels: z.record(z.string(), Common.Device.commandStatePairZ),
   }),
 });
-
 export type Properties = z.infer<typeof propertiesZ>;
 
 export const ZERO_PROPERTIES: Properties = {
@@ -65,3 +64,8 @@ export const ZERO_PROPERTIES: Properties = {
 
 export interface Device extends device.Device<typeof propertiesZ, typeof makeZ> {}
 export interface New extends device.New<typeof propertiesZ, typeof makeZ> {}
+
+export const SCHEMAS = {
+  properties: propertiesZ,
+  make: makeZ,
+} as const satisfies device.DeviceSchemas<typeof propertiesZ, typeof makeZ>;

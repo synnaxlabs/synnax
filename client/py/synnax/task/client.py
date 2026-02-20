@@ -471,7 +471,6 @@ class Client:
     @overload
     def retrieve(
         self,
-        *,
         key: int | None = None,
         name: str | None = None,
         type: str | None = None,
@@ -488,7 +487,6 @@ class Client:
 
     def retrieve(
         self,
-        *,
         key: int | None = None,
         name: str | None = None,
         type: str | None = None,
@@ -520,6 +518,9 @@ class Client:
             )
 
         return sug[0] if is_single else sug
+
+    def sugar(self, tasks: list[Payload]) -> list[Task]:
+        return [Task(**t.model_dump(), _frame_client=self._frame_client) for t in tasks]
 
     def list(self, rack: int | None = None) -> list[Task]:
         """Lists all tasks on a rack. If no rack is specified, lists all tasks on the
@@ -555,6 +556,3 @@ class Client:
         req = _CopyRequest(key=key, name=name, snapshot=False)
         res = send_required(self._client, _COPY_ENDPOINT, req, _CopyResponse)
         return self.sugar([res.task])[0]
-
-    def sugar(self, tasks: _list[Payload]) -> _list[Task]:
-        return [Task(**t.model_dump(), _frame_client=self._frame_client) for t in tasks]

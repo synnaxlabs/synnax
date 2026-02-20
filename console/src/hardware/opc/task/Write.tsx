@@ -122,12 +122,12 @@ const onConfigure: Common.Task.OnConfigure<typeof writeConfigZ> = async (
   client,
   config,
 ) => {
-  const dev = await client.devices.retrieve({
+  let dev = await client.devices.retrieve({
     key: config.device,
-    schemas: { properties: Device.propertiesZ, make: Device.makeZ },
+    schemas: Device.SCHEMAS,
   });
   try {
-    dev.properties = Device.migrateProperties(dev.properties);
+    dev = { ...dev, properties: Device.migrateProperties(dev.properties) };
     const commandsToCreate: WriteChannel[] = [];
     for (const channel of config.channels) {
       const key = getChannelByNodeID(dev.properties, channel.nodeId);
@@ -176,7 +176,7 @@ const onConfigure: Common.Task.OnConfigure<typeof writeConfigZ> = async (
       cmdChannel: getChannelByNodeID(dev.properties, c.nodeId),
     }));
   } finally {
-    await client.devices.create(dev);
+    await client.devices.create(dev, Device.SCHEMAS);
   }
   return [config, dev.rack];
 };

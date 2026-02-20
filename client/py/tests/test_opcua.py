@@ -252,13 +252,13 @@ class TestOPCUAWriteTask:
         )
 
         # Serialize to JSON
-        config_json = original_task.config
+        config_dict = original_task.config
 
         # Create task in database
         created_task = client.tasks.create(
             name="test-round-trip",
             type="opc_write",
-            config=config_json,
+            config=config_dict,
         )
 
         # Deserialize from database

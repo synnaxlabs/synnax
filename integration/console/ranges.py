@@ -228,9 +228,13 @@ class RangesClient:
         if labels is not None:
             label_button = self.layout.page.get_by_text("Select labels", exact=True)
             label_button.click(timeout=5000)
+            label_dialog = self.layout.page.locator(
+                ".pluto-select__dialog.pluto--visible"
+            )
+            label_dialog.wait_for(state="visible", timeout=5000)
             for label_name in labels:
                 label_item = (
-                    self.layout.page.locator(".pluto-list__item")
+                    label_dialog.locator(".pluto-list__item")
                     .filter(has_text=label_name)
                     .first
                 )
@@ -238,12 +242,13 @@ class RangesClient:
                     label_item.wait_for(state="visible", timeout=3000)
                     label_item.click(timeout=2000)
                 except PlaywrightTimeoutError:
-                    all_labels = self.layout.page.locator(".pluto-list__item").all()
+                    all_labels = label_dialog.locator(".pluto-list__item").all()
                     available_labels = [
                         lbl.text_content() for lbl in all_labels if lbl.is_visible()
                     ]
                     raise RuntimeError(
-                        f"Error selecting label '{label_name}'. Available labels: {available_labels}."
+                        f"Error selecting label '{label_name}'. "
+                        f"Available labels: {available_labels}."
                     )
             self.layout.press_escape()
 
@@ -753,6 +758,25 @@ class RangesClient:
         """
         section = self._get_child_ranges_section()
         return section.locator(".console-range__list-item").filter(has_text=name).first
+
+    def wait_for_child_ranges(self, names: list[str], parent_name: str) -> None:
+        """Wait for child ranges to appear, reopening the overview as a fallback.
+
+        Child ranges created via the API propagate to the console through a
+        reactive subscription. On slower CI machines this can lag, so if the
+        initial wait times out we close and reopen the overview to trigger a
+        fresh retrieval.
+        """
+        try:
+            for name in names:
+                self.get_child_range_item(name).wait_for(state="visible", timeout=10000)
+        except PlaywrightTimeoutError:
+            self.layout.close_tab(parent_name)
+            self.open_explorer()
+            self.open_overview_from_explorer(parent_name)
+            self.wait_for_overview(parent_name)
+            for name in names:
+                self.get_child_range_item(name).wait_for(state="visible", timeout=10000)
 
     def click_child_range(self, name: str) -> None:
         """Click on a child range to navigate to its overview.

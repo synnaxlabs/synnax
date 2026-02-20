@@ -8,13 +8,15 @@
 // included in the file licenses/APL.txt.
 
 import { type device } from "@synnaxlabs/client";
-import { z } from "zod/v4";
+import { z } from "zod";
 
 export const MAKE = "ethercat";
 
+export type Make = typeof MAKE;
 export const makeZ = z.literal(MAKE);
 
 export const SLAVE_MODEL = "slave";
+export type SlaveModel = typeof SLAVE_MODEL;
 export const modelZ = z.literal(SLAVE_MODEL);
 
 /** Schema for a single PDO entry from device scan. */
@@ -85,12 +87,12 @@ export interface SlaveDevice extends device.Device<
   typeof modelZ
 > {}
 
-export const SLAVE_SCHEMAS: device.DeviceSchemas<
+export const SLAVE_SCHEMAS = {
+  properties: slavePropertiesZ,
+  make: makeZ,
+  model: modelZ,
+} as const satisfies device.DeviceSchemas<
   typeof slavePropertiesZ,
   typeof makeZ,
   typeof modelZ
-> = {
-  make: makeZ,
-  model: modelZ,
-  properties: slavePropertiesZ,
-};
+>;

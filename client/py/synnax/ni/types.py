@@ -7,7 +7,6 @@
 #  License, use of this software will be governed by the Apache License, Version 2.0,
 #  included in the file licenses/APL.txt.
 
-import json
 from typing import Annotated, Any, Literal
 from uuid import uuid4
 
@@ -2817,8 +2816,6 @@ class Device(device.Device):
             key = str(uuid4())
 
         # Set properties with identifier
-        props = {"identifier": identifier}
-
         super().__init__(
             key=key,
             location=location,
@@ -2827,5 +2824,5 @@ class Device(device.Device):
             make=MAKE,
             model=model,
             configured=configured,
-            properties=props,
+            properties={"identifier": identifier},
         )

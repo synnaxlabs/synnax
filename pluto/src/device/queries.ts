@@ -279,7 +279,7 @@ export const createCreate = <
       const dev =
         schemas != null
           ? await client.devices.create(data, schemas)
-          : await client.devices.create(data as device.New);
+          : await client.devices.create(data as unknown as device.New);
       rollbacks.push(store.devices.set(dev as unknown as device.Device));
       return dev as device.Device<Properties, Make, Model>;
     },
@@ -368,13 +368,13 @@ export const createForm = <
         set("key", uuid.create());
         return;
       }
-      const device = await retrieveSingle<Properties, Make, Model>({
+      const dev = await retrieveSingle<Properties, Make, Model>({
         client,
         store,
         query,
         schemas,
       });
-      reset(device as unknown as z.infer<typeof formSchema>);
+      reset(dev as unknown as z.infer<typeof formSchema>);
     },
     update: async ({ value, client, store, rollbacks }) => {
       const data = value();

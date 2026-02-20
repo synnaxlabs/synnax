@@ -86,12 +86,10 @@ const retrieveArgsZ = z.union([singleRetrieveArgsZ, retrieveRequestZ]);
 export type RetrieveArgs = z.input<typeof retrieveArgsZ>;
 
 type RetrieveSchemas<
-  Properties extends z.ZodType = z.ZodType,
-  Make extends z.ZodType<string> = z.ZodString,
-  Model extends z.ZodType<string> = z.ZodString,
-> = {
-  schemas: DeviceSchemas<Properties, Make, Model>;
-};
+  Properties extends z.ZodType,
+  Make extends z.ZodType<string>,
+  Model extends z.ZodType<string>,
+> = { schemas: DeviceSchemas<Properties, Make, Model> };
 
 export class Client {
   private readonly client: UnaryClient;
@@ -118,29 +116,22 @@ export class Client {
     args: RetrieveMultipleParams & RetrieveSchemas<Properties, Make, Model>,
   ): Promise<Array<Device<Properties, Make, Model>>>;
 
-  async retrieve(args: RetrieveMultipleParams): Promise<Device[]>;
+  async retrieve(args: RetrieveMultipleParams): Promise<Array<Device>>;
 
-  async retrieve<
-    Properties extends z.ZodType = z.ZodType,
-    Make extends z.ZodType<string> = z.ZodString,
-    Model extends z.ZodType<string> = z.ZodString,
-  >({
-    schemas,
-    ...args
-  }: RetrieveArgs & Partial<RetrieveSchemas<Properties, Make, Model>>): Promise<
-    Device<Properties, Make, Model> | Array<Device<Properties, Make, Model>>
-  > {
-    const isSingle = typeof args === "object" && "key" in args;
+  async retrieve(
+    args: RetrieveArgs & { schemas?: DeviceSchemas },
+  ): Promise<Device | Array<Device>> {
+    const { schemas, ...rest } = args as RetrieveArgs & { schemas?: DeviceSchemas };
+    const isSingle = typeof rest === "object" && "key" in rest;
     const res = await sendRequired(
       this.client,
       "/device/retrieve",
-      args,
+      rest,
       retrieveArgsZ,
       retrieveResZ(schemas),
     );
-    checkForMultipleOrNoResults("Device", args, res.devices, isSingle);
-    const devices = res.devices as Device<Properties, Make, Model>[];
-    return isSingle ? devices[0] : devices;
+    checkForMultipleOrNoResults("Device", rest, res.devices, isSingle);
+    return isSingle ? res.devices[0] : res.devices;
   }
 
   async create(device: New): Promise<Device>;
@@ -156,6 +147,8 @@ export class Client {
     schemas: DeviceSchemas<Properties, Make, Model>,
   ): Promise<Device<Properties, Make, Model>>;
 
+  async create(device: New): Promise<Device>;
+
   async create<
     Properties extends z.ZodType,
     Make extends z.ZodType<string>,
@@ -165,14 +158,12 @@ export class Client {
     schemas: DeviceSchemas<Properties, Make, Model>,
   ): Promise<Device<Properties, Make, Model>[]>;
 
-  async create<
-    Properties extends z.ZodType = z.ZodType,
-    Make extends z.ZodType<string> = z.ZodString,
-    Model extends z.ZodType<string> = z.ZodString,
-  >(
-    devices: New<Properties, Make, Model> | New<Properties, Make, Model>[],
-    schemas?: DeviceSchemas<Properties, Make, Model>,
-  ): Promise<Device<Properties, Make, Model> | Device<Properties, Make, Model>[]> {
+  async create(devices: New[]): Promise<Device[]>;
+
+  async create(
+    devices: New | New[],
+    schemas?: DeviceSchemas,
+  ): Promise<Device | Device[]> {
     const isSingle = !Array.isArray(devices);
     const res = await sendRequired(
       this.client,
@@ -181,8 +172,7 @@ export class Client {
       createReqZ(schemas),
       createResZ(schemas),
     );
-    const created = res.devices as Device<Properties, Make, Model>[];
-    return isSingle ? created[0] : created;
+    return isSingle ? res.devices[0] : res.devices;
   }
 
   async delete(keys: Key | Key[]): Promise<void> {

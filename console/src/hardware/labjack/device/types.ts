@@ -9,13 +9,13 @@
 
 import { channel, type device } from "@synnaxlabs/client";
 import { bounds, type record } from "@synnaxlabs/x";
-import z from "zod";
+import { z } from "zod";
 
 import { Common } from "@/hardware/common";
-export const MAKE = "LabJack";
-export const makeZ = z.literal(MAKE);
 
-export type Make = z.infer<typeof makeZ>;
+export const MAKE = "LabJack";
+export type Make = typeof MAKE;
+export const makeZ = z.literal(MAKE);
 
 export const T4_MODEL = "LJM_dtT4";
 export type T4Model = typeof T4_MODEL;
@@ -26,9 +26,8 @@ export type T7Model = typeof T7_MODEL;
 export const T8_MODEL = "LJM_dtT8";
 export type T8Model = typeof T8_MODEL;
 
-export const MODELS = [T4_MODEL, T7_MODEL, T8_MODEL];
-export const modelZ = z.enum(MODELS);
-export type Model = z.infer<typeof modelZ>;
+export type Model = T4Model | T7Model | T8Model;
+export const modelZ = z.enum([T4_MODEL, T7_MODEL, T8_MODEL]);
 
 export interface BasePort extends record.KeyedNamed<string> {
   alias?: string;
@@ -207,30 +206,16 @@ export const propertiesZ = z.object({
   readIndex: channel.keyZ,
   thermocoupleIndex: channel.keyZ,
   writeStateIndex: channel.keyZ,
-  [AI_PORT_TYPE]: z.object({
-    channels: z.record(z.string(), channel.keyZ),
-  }),
+  [AI_PORT_TYPE]: z.object({ channels: z.record(z.string(), channel.keyZ) }),
   [AO_PORT_TYPE]: z.object({
     channels: z.record(z.string(), Common.Device.commandStatePairZ),
   }),
-  [DI_PORT_TYPE]: z.object({
-    channels: z.record(z.string(), channel.keyZ),
-  }),
+  [DI_PORT_TYPE]: z.object({ channels: z.record(z.string(), channel.keyZ) }),
   [DO_PORT_TYPE]: z.object({
     channels: z.record(z.string(), Common.Device.commandStatePairZ),
   }),
 });
-
-export type Properties = {
-  identifier: Common.Device.Identifier;
-  readIndex: channel.Key;
-  thermocoupleIndex: channel.Key;
-  writeStateIndex: channel.Key;
-  [AI_PORT_TYPE]: { channels: Record<string, channel.Key> };
-  [AO_PORT_TYPE]: { channels: Record<string, Common.Device.CommandStatePair> };
-  [DI_PORT_TYPE]: { channels: Record<string, channel.Key> };
-  [DO_PORT_TYPE]: { channels: Record<string, Common.Device.CommandStatePair> };
-};
+export type Properties = z.infer<typeof propertiesZ>;
 
 export const ZERO_PROPERTIES: Properties = {
   identifier: "",
@@ -253,3 +238,13 @@ export interface New extends device.New<
   typeof makeZ,
   typeof modelZ
 > {}
+
+export const SCHEMAS = {
+  properties: propertiesZ,
+  make: makeZ,
+  model: modelZ,
+} as const satisfies device.DeviceSchemas<
+  typeof propertiesZ,
+  typeof makeZ,
+  typeof modelZ
+>;

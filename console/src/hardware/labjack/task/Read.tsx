@@ -230,13 +230,10 @@ const Form: FC<
 > = (props) => {
   const isSnapshot = Common.Task.useIsSnapshot();
   return (
-    <Common.Device.Provider<
-      typeof Device.propertiesZ,
-      typeof Device.makeZ,
-      typeof Device.modelZ
-    >
+    <Common.Device.Provider
       canConfigure={!isSnapshot}
       configureLayout={Device.CONFIGURE_LAYOUT}
+      schemas={Device.SCHEMAS}
     >
       {({ device }) => <ChannelsForm device={device} {...props} />}
     </Common.Device.Provider>
@@ -261,11 +258,7 @@ const onConfigure: Common.Task.OnConfigure<typeof readConfigZ> = async (
 ) => {
   const dev = await client.devices.retrieve({
     key: config.device,
-    schemas: {
-      properties: Device.propertiesZ,
-      make: Device.makeZ,
-      model: Device.modelZ,
-    },
+    schemas: Device.SCHEMAS,
   });
   Common.Device.checkConfigured(dev);
   let shouldCreateIndex = false;
@@ -319,7 +312,7 @@ const onConfigure: Common.Task.OnConfigure<typeof readConfigZ> = async (
       });
     }
   } finally {
-    if (modified) await client.devices.create(dev);
+    if (modified) await client.devices.create(dev, Device.SCHEMAS);
   }
   config.channels.forEach(
     (c) =>

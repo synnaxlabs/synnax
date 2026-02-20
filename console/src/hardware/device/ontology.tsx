@@ -78,7 +78,10 @@ const useHandleChangeIdentifier = () => {
         if (newIdentifier == null) return;
         await client.devices.create({
           ...device,
-          properties: { ...props, identifier: newIdentifier },
+          properties: {
+            ...(device.properties as record.Unknown),
+            identifier: newIdentifier,
+          },
         });
       } catch (e) {
         if (e instanceof Error && errors.Canceled.matches(e)) return;

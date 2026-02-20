@@ -55,8 +55,13 @@ def normalize_params(
     if len(normalized) == 0:
         return NormalizedKeyResult(single=False, channels=[])
     single = isinstance(channels, (Key, str))
-    if isinstance(normalized[0], str):
+    first = normalized[0]
+    if isinstance(first, str):
         str_list = [s for s in normalized if isinstance(s, str)]
+        if len(str_list) != len(normalized):
+            raise TypeError(
+                "channel params must be all keys or all names, got a mix of both"
+            )
         try:
             return NormalizedKeyResult(
                 single=single,
@@ -67,15 +72,19 @@ def normalize_params(
                 single=single,
                 channels=str_list,
             )
-    elif isinstance(normalized[0], Payload):
-        return NormalizedKeyResult(
-            single=single,
-            channels=[c.key for c in normalized if isinstance(c, Payload)],
+    elif isinstance(first, Payload):
+        payload_list = [c.key for c in normalized if isinstance(c, Payload)]
+        if len(payload_list) != len(normalized):
+            raise TypeError(
+                "channel params must be all keys or all names, got a mix of both"
+            )
+        return NormalizedKeyResult(single=single, channels=payload_list)
+    key_list = [k for k in normalized if isinstance(k, int)]
+    if len(key_list) != len(normalized):
+        raise TypeError(
+            "channel params must be all keys or all names, got a mix of both"
         )
-    return NormalizedKeyResult(
-        single=single,
-        channels=[k for k in normalized if isinstance(k, int)],
-    )
+    return NormalizedKeyResult(single=single, channels=key_list)
 
 
 def has_params(channels: Params | None) -> bool:

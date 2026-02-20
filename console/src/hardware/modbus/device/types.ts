@@ -11,11 +11,11 @@ import { type device } from "@synnaxlabs/client";
 import { z } from "zod";
 
 export const MAKE = "Modbus";
+export type Make = typeof MAKE;
 export const makeZ = z.literal(MAKE);
-export type Make = z.infer<typeof makeZ>;
 export const MODEL = "Modbus";
+export type Model = typeof MODEL;
 export const modelZ = z.literal(MODEL);
-export type Model = z.infer<typeof modelZ>;
 
 export const connectionConfigZ = z.object({
   host: z.string(),
@@ -54,3 +54,13 @@ export interface Device extends device.Device<
   typeof makeZ,
   typeof modelZ
 > {}
+
+export const SCHEMAS = {
+  properties: propertiesZ,
+  make: makeZ,
+  model: modelZ,
+} as const satisfies device.DeviceSchemas<
+  typeof propertiesZ,
+  typeof makeZ,
+  typeof modelZ
+>;

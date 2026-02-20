@@ -22,11 +22,8 @@ export const propertiesZ = z.object({
     indexes: z.array(channelAPI.keyZ),
     channels: z.record(z.string(), channelAPI.keyZ),
   }),
-  write: z.object({
-    channels: z.record(z.string(), channelAPI.keyZ),
-  }),
+  write: z.object({ channels: z.record(z.string(), channelAPI.keyZ) }),
 });
-
 export type Properties = z.infer<typeof propertiesZ>;
 
 export const ZERO_PROPERTIES: Properties = {

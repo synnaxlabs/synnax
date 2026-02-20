@@ -511,13 +511,13 @@ class TestModbusWriteTask:
         )
 
         # Serialize to JSON
-        config_json = original_task.config
+        config_dict = original_task.config
 
         # Create task in database
         created_task = client.tasks.create(
             name="test-round-trip",
             type="modbus_write",
-            config=config_json,
+            config=config_dict,
         )
 
         # Deserialize from database
@@ -548,8 +548,6 @@ class TestModbusDevicePropertyUpdates:
 
     def test_read_task_updates_device_properties(self, client: sy.Synnax):
         """Test that configuring a ReadTask updates device properties with channel mappings."""
-        import json
-
         # Create a rack
         rack = client.racks.retrieve_embedded_rack()
 
@@ -632,8 +630,6 @@ class TestModbusDevicePropertyUpdates:
 
     def test_write_task_updates_device_properties(self, client: sy.Synnax):
         """Test that configuring a WriteTask updates device properties with channel mappings."""
-        import json
-
         # Create a rack
         rack = client.racks.retrieve_embedded_rack()
 

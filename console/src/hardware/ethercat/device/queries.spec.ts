@@ -39,17 +39,20 @@ const client = createTestClient();
 const createSlaveDevice = async (
   rackKey: number,
   properties: Partial<SlaveProperties> = {},
-): Promise<device.Device<typeof slavePropertiesZ>> => {
+): Promise<device.Device<typeof slavePropertiesZ, typeof makeZ, typeof modelZ>> => {
   const key = id.create();
-  return await client.devices.create({
-    key,
-    name: properties.name ?? `EtherCAT Slave ${key}`,
-    rack: rackKey,
-    location: "test-location",
-    make: MAKE,
-    model: SLAVE_MODEL,
-    properties: { ...ZERO_SLAVE_PROPERTIES, ...properties },
-  });
+  return await client.devices.create(
+    {
+      key,
+      name: properties.name ?? `EtherCAT Slave ${key}`,
+      rack: rackKey,
+      location: "test-location",
+      make: MAKE,
+      model: SLAVE_MODEL,
+      properties: { ...ZERO_SLAVE_PROPERTIES, ...properties },
+    },
+    SLAVE_SCHEMAS,
+  );
 };
 
 describe("EtherCAT Device queries", () => {
@@ -327,11 +330,10 @@ describe("EtherCAT Device queries", () => {
         await result.current.toggle.updateAsync({ keys: dev.key });
       });
 
-      const updated = await client.devices.retrieve<
-        typeof slavePropertiesZ,
-        typeof makeZ,
-        typeof modelZ
-      >({ key: dev.key, schemas: SLAVE_SCHEMAS });
+      const updated = await client.devices.retrieve({
+        key: dev.key,
+        schemas: SLAVE_SCHEMAS,
+      });
       expect(updated.properties.enabled).toBe(false);
     });
 
@@ -354,11 +356,10 @@ describe("EtherCAT Device queries", () => {
         await result.current.toggle.updateAsync({ keys: dev.key });
       });
 
-      const updated = await client.devices.retrieve<
-        typeof slavePropertiesZ,
-        typeof makeZ,
-        typeof modelZ
-      >({ key: dev.key, schemas: SLAVE_SCHEMAS });
+      const updated = await client.devices.retrieve({
+        key: dev.key,
+        schemas: SLAVE_SCHEMAS,
+      });
       expect(updated.properties.enabled).toBe(true);
     });
 
@@ -381,11 +382,10 @@ describe("EtherCAT Device queries", () => {
         await result.current.toggle.updateAsync({ keys: dev.key, enabled: false });
       });
 
-      const updated = await client.devices.retrieve<
-        typeof slavePropertiesZ,
-        typeof makeZ,
-        typeof modelZ
-      >({ key: dev.key, schemas: SLAVE_SCHEMAS });
+      const updated = await client.devices.retrieve({
+        key: dev.key,
+        schemas: SLAVE_SCHEMAS,
+      });
       expect(updated.properties.enabled).toBe(false);
     });
 
@@ -413,19 +413,11 @@ describe("EtherCAT Device queries", () => {
         await result.current.toggle.updateAsync({ keys: [dev1.key, dev2.key] });
       });
 
-      const updated1 = await client.devices.retrieve<
-        typeof slavePropertiesZ,
-        typeof makeZ,
-        typeof modelZ
-      >({
+      const updated1 = await client.devices.retrieve({
         key: dev1.key,
         schemas: SLAVE_SCHEMAS,
       });
-      const updated2 = await client.devices.retrieve<
-        typeof slavePropertiesZ,
-        typeof makeZ,
-        typeof modelZ
-      >({
+      const updated2 = await client.devices.retrieve({
         key: dev2.key,
         schemas: SLAVE_SCHEMAS,
       });
@@ -460,19 +452,11 @@ describe("EtherCAT Device queries", () => {
         });
       });
 
-      const updated1 = await client.devices.retrieve<
-        typeof slavePropertiesZ,
-        typeof makeZ,
-        typeof modelZ
-      >({
+      const updated1 = await client.devices.retrieve({
         key: dev1.key,
         schemas: SLAVE_SCHEMAS,
       });
-      const updated2 = await client.devices.retrieve<
-        typeof slavePropertiesZ,
-        typeof makeZ,
-        typeof modelZ
-      >({
+      const updated2 = await client.devices.retrieve({
         key: dev2.key,
         schemas: SLAVE_SCHEMAS,
       });

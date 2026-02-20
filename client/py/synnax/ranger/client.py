@@ -61,7 +61,7 @@ class _InternalScopedChannel(channel.Payload):
     """The range that this channel belongs to."""
     __frame_client: framer.Client | None = PrivateAttr(None)
     """The frame client for executing read operations."""
-    __aliaser: AliasClient | None = PrivateAttr(None)
+    __aliaser: alias.Client | None = PrivateAttr(None)
     """An aliaser for setting the channel's alias."""
     __cache: MultiSeries | None = PrivateAttr(None)
     """An internal cache to prevent repeated reads from the same channel."""
@@ -79,7 +79,7 @@ class _InternalScopedChannel(channel.Payload):
         tasks: TaskClient,
         ontology: OntologyClient,
         payload: channel.Payload,
-        aliaser: AliasClient | None = None,
+        aliaser: alias.Client | None = None,
     ):
         super().__init__(**payload.model_dump())
         self.__range = rng
@@ -240,7 +240,7 @@ class Range(Payload):
     """For retrieving channels from the cluster."""
     _kv: kv.Client | None = PrivateAttr(None)
     """Key-value store for storing metadata about the range."""
-    __aliaser: AliasClient | None = PrivateAttr(None)
+    __aliaser: alias.Client | None = PrivateAttr(None)
     """For setting and resolving aliases."""
     _cache: dict[channel.Key, _InternalScopedChannel] = PrivateAttr(dict())
     """A writer for creating child ranges"""

@@ -152,7 +152,7 @@ const onConfigure: Common.Task.OnConfigure<typeof counterReadConfigZ> = async (
 
   const allDevices = await client.devices.retrieve({
     keys: devices,
-    schemas: { properties: Device.propertiesZ, make: Device.makeZ },
+    schemas: Device.SCHEMAS,
   });
   const racks = new Set(allDevices.map((d) => d.rack));
   if (racks.size > 1)
@@ -220,7 +220,7 @@ const onConfigure: Common.Task.OnConfigure<typeof counterReadConfigZ> = async (
         c.channel = dev.properties.counterInput.channels[c.port.toString()];
       });
     } finally {
-      if (devModified) await client.devices.create(dev);
+      if (devModified) await client.devices.create(dev, Device.SCHEMAS);
     }
   }
 

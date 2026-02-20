@@ -194,11 +194,7 @@ const onConfigure: Common.Task.OnConfigure<typeof writeConfigZ> = async (
 ) => {
   const dev = await client.devices.retrieve({
     key: config.device,
-    schemas: {
-      properties: Device.propertiesZ,
-      make: Device.makeZ,
-      model: Device.modelZ,
-    },
+    schemas: Device.SCHEMAS,
   });
   const commandsToCreate: OutputChannel[] = [];
   for (const channel of config.channels) {
@@ -240,7 +236,7 @@ const onConfigure: Common.Task.OnConfigure<typeof writeConfigZ> = async (
       const channel = commandsToCreate[i];
       dev.properties.write.channels[writeMapKey(channel)] = c.key;
     });
-    await client.devices.create(dev);
+    await client.devices.create(dev, Device.SCHEMAS);
   }
 
   config.channels = config.channels.map((c) => ({

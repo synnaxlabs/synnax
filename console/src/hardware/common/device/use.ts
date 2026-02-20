@@ -34,10 +34,12 @@ export const use = <
   Properties extends z.ZodType = z.ZodType,
   Make extends z.ZodType<string> = z.ZodString,
   Model extends z.ZodType<string> = z.ZodString,
->(): device.Device<Properties, Make, Model> | null => {
+>(
+  schemas?: device.DeviceSchemas<Properties, Make, Model>,
+): device.Device<Properties, Make, Model> | null => {
   const devKey = Form.useFieldValue<string>("config.device");
   const { useRetrieveStateful } = useMemo(
-    () => Device.createRetrieve<Properties, Make, Model>(),
+    () => Device.createRetrieve<Properties, Make, Model>(schemas),
     [],
   );
   const { retrieve, data } = useRetrieveStateful();

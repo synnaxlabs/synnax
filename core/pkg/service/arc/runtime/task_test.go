@@ -250,6 +250,7 @@ var _ = Describe("Task", Ordered, func() {
 				WhereKeys(task.OntologyID(svcTask.Key).String()).
 				Entry(&stat).Exec(ctx, nil)).To(Succeed())
 			Expect(stat.Variant).To(BeEquivalentTo("error"))
+			Expect(stat.Message).To(ContainSubstring("invalid UUID"))
 			Expect(stat.Details.Running).To(BeFalse())
 		})
 
@@ -314,10 +315,13 @@ var _ = Describe("Task", Ordered, func() {
 			}
 			Expect(dist.Channel.Create(ctx, ch)).To(Succeed())
 			svcTask := task.Task{
-				Key:    task.NewKey(rack.NewKey(1, 1), 5),
-				Name:   "test-auto-start",
-				Type:   runtime.TaskType,
-				Config: configToMap(runtime.TaskConfig{ArcKey: uuid.New(), AutoStart: true}),
+				Key:  task.NewKey(rack.NewKey(1, 1), 5),
+				Name: "test-auto-start",
+				Type: runtime.TaskType,
+				Config: configToMap(runtime.TaskConfig{
+					ArcKey:    uuid.New(),
+					AutoStart: true,
+				}),
 			}
 			t, handled := MustSucceed2(newGraphFactory(
 				simpleGraph(ch.Key())).
