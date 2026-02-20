@@ -192,8 +192,7 @@ class ArcThermalMonitor(ArcConsoleCase):
         self.log("Verifying abort transition (temp > 80)...")
 
         self.log("Triggering force overheat to simulate thermal runaway")
-        with self.client.open_writer(sy.TimeStamp.now(), "force_overheat_cmd") as w:
-            w.write("force_overheat_cmd", 1)
+        self.client.write(sy.TimeStamp.now(), "force_overheat_cmd", 1)
 
         self.log("Waiting for temp to exceed 80...")
         self.wait_for_gt("temp_sensor", 80)
@@ -205,5 +204,4 @@ class ArcThermalMonitor(ArcConsoleCase):
         self.wait_for_eq("alarm_active", 1)
         self.log("Abort sequence confirmed: heater OFF, alarm ACTIVE")
 
-        with self.client.open_writer(sy.TimeStamp.now(), "force_overheat_cmd") as w:
-            w.write("force_overheat_cmd", 0)
+        self.client.write(sy.TimeStamp.now(), "force_overheat_cmd", 0)

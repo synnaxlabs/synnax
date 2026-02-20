@@ -55,6 +55,7 @@ with client.open_streamer(["arduino_command"]) as streamer:
     with client.open_writer(
         start=sy.TimeStamp.now(),
         channels=["arduino_time", "arduino_state", "arduino_value"],
+        name="Arduino Read/Write Driver",
     ) as writer:
         while True:
             frame = streamer.read(timeout=0)

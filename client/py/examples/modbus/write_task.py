@@ -126,6 +126,7 @@ with tsk.run():
             holding_reg_cmd_1.key,
         ],
         enable_auto_commit=True,
+        name="Modbus Write Example",
     ) as writer:
         # Write test commands
         for i in range(10):

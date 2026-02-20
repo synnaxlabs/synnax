@@ -136,6 +136,7 @@ try:
                 fio4_cmd.key,
             ],
             enable_auto_commit=True,
+            name="LabJack Write Example",
         ) as writer:
             # Write test commands
             for i in range(10):

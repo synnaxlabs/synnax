@@ -83,6 +83,7 @@ class ArcAuthorityEmergency(ArcConsoleCase):
             sy.TimeStamp.now(),
             ["press_vlv_cmd_time", "press_vlv_cmd"],
             200,
+            name="Emergency Override",
         )
         self._override_writer.write(
             {

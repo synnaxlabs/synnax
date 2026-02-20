@@ -68,6 +68,7 @@ class ArcAuthorityPythonOverride(ArcConsoleCase):
             sy.TimeStamp.now(),
             ["press_vlv_cmd_time", "press_vlv_cmd"],
             255,
+            name="Python Override",
         )
         self._override_writer.write(
             {

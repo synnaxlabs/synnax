@@ -49,6 +49,7 @@ else:
 with client.open_writer(
     start=sy.TimeStamp.now(),
     channels=["arduino_time", "arduino_value"],
+    name="Arduino Read Driver",
 ) as writer:
     while True:
         # Read from the serial connection

@@ -90,8 +90,7 @@ class ArcAuthorityArcVsArc(ArcConsoleCase):
         self._arc_b_started = True
 
         self.log("Triggering Arc B sequence")
-        with self.client.open_writer(sy.TimeStamp.now(), "start_high_cmd") as w:
-            w.write("start_high_cmd", 1)
+        self.client.write(sy.TimeStamp.now(), "start_high_cmd", 1)
 
         # Wait for Arc B to override (valve open = 1)
         self.log("Waiting for Arc B to override (press_vlv_state == 1)...")

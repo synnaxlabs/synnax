@@ -56,6 +56,7 @@ with client.open_writer(
         "calculated_channels_squared_data",
         "calculated_channels_averaged_data",
     ],
+    name="Calculated Channels Writer",
 ) as writer:
     with client.open_streamer(
         ["stream_write_time", "stream_write_data_1", "stream_write_data_2"],

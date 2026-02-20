@@ -47,6 +47,7 @@ current_values = dict()
 with client.open_writer(
     start=sy.TimeStamp.now(),
     channels=["simple_average_time", "simple_average_data"],
+    name="Simple Average Writer",
 ) as writer:
     with client.open_streamer(TO_READ) as streamer:
         for frame in streamer:

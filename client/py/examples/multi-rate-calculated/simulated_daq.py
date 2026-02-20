@@ -68,6 +68,7 @@ rough_rate = sy.Loop(sy.Rate.HZ * 30)
 with client.open_writer(
     start,
     [time_ch_1.key, time_ch_2.key, data_ch_1.key, data_ch_2.key],
+    name="Simulated DAQ Multi-Rate Calculated Channels",
 ) as writer:
     i = 0
     while rough_rate.wait():

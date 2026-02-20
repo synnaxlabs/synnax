@@ -24,7 +24,9 @@ data = client.channels.create(
 )
 
 count = 100
-with client.open_writer(sy.TimeStamp.now(), [idx.key, data.key]) as writer:
+with client.open_writer(
+    sy.TimeStamp.now(), [idx.key, data.key], name="Multi Stream Writer"
+) as writer:
     for i in range(count):
         time.sleep(0.1)
         print(np.round(i / count * count))
@@ -49,6 +51,7 @@ data_3 = client.channels.create(
 with client.open_writer(
     sy.TimeStamp.now(),
     [data.key, data_2.key, data_3.key, idx.key],
+    name="Multi Stream Writer",
 ) as writer:
     for i in range(50000):
         time.sleep(0.1)

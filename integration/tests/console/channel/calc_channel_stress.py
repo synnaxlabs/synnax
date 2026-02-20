@@ -139,6 +139,7 @@ class CalcChannelStress(ConsoleCase):
             with client.open_writer(
                 sy.TimeStamp.now(),
                 channels=[ch.key for ch in all_channels],
+                name="Calculated Channel Stress Writer",
             ) as writer:
                 i = 0
                 while loop.wait() and not self._stop_event.is_set():

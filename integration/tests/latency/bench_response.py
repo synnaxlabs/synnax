@@ -65,7 +65,7 @@ class BenchResponse(Latency):
         try:
             with self.bench_client.open_streamer(cmd_channel) as stream:
                 with self.bench_client.open_writer(
-                    sy.TimeStamp.now(), state_channel
+                    sy.TimeStamp.now(), state_channel, name="Bench Response Writer"
                 ) as writer:
                     while sy.TimeStamp.since(start) < timeout and not self._should_stop:
                         frame = stream.read(timeout=3)

@@ -86,8 +86,7 @@ class ArcConsoleCase(SimDaqCase, ConsoleCase):
         self.log(f"Arc is running: {self.console.arc.is_running()}")
 
         self.log("Triggering sequence")
-        with self.client.open_writer(sy.TimeStamp.now(), self.start_cmd_channel) as w:
-            w.write(self.start_cmd_channel, 1)
+        self.client.write(sy.TimeStamp.now(), self.start_cmd_channel, 1)
 
         self.verify_sequence_execution()
 
@@ -112,10 +111,7 @@ class ArcConsoleCase(SimDaqCase, ConsoleCase):
         if self.end_cmd_channel:
             self.log(f"Signaling simulator to stop via {self.end_cmd_channel}")
             try:
-                with self.client.open_writer(
-                    sy.TimeStamp.now(), self.end_cmd_channel
-                ) as w:
-                    w.write(self.end_cmd_channel, 1)
+                self.client.write(sy.TimeStamp.now(), self.end_cmd_channel, 1)
             except Exception as e:
                 self.fail(f"Failed to signal simulator stop: {e}")
 

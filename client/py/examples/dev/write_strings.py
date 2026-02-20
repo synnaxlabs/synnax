@@ -22,7 +22,7 @@ loop = sy.Loop(sy.Rate.HZ * 20)
 
 i = 0
 
-with client.open_writer(sy.TimeStamp.now(), [ch.key]) as w:
+with client.open_writer(sy.TimeStamp.now(), [ch.key], name="String Writer") as w:
     while loop.wait():
         i += 1
         w.write(ch.key, [f"Sphinx {i}"])

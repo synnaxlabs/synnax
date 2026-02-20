@@ -137,6 +137,7 @@ class LogLifecycle(ConsoleCase):
         with self.client.open_writer(
             sy.TimeStamp.now(),
             channels=[self.idx_name, self.data_name],
+            name="Log Lifecycle Writer",
         ) as w:
             for i in range(5):
                 w.write({self.idx_name: sy.TimeStamp.now(), self.data_name: (42.0 + i)})
@@ -168,6 +169,7 @@ class LogLifecycle(ConsoleCase):
             sy.TimeStamp.now(),
             channels=[self.virtual_name],
             enable_auto_commit=True,
+            name="Log Lifecycle Writer",
         ) as writer:
             for i in range(5):
                 writer.write({self.virtual_name: float(i)})

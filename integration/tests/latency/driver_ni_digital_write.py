@@ -219,6 +219,7 @@ class DriverNIDigitalWrite(Latency):
         with client.open_writer(
             start=time_index[0],
             channels=[latency_time.key, latency_core_ch.key, latency_loop_ch.key],
+            name="NI Digital Write Bench",
         ) as writer:
             writer.write(
                 {

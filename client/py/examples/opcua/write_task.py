@@ -23,8 +23,6 @@ Before running this example:
    Update the node_id values below with the actual IDs from your server output.
 """
 
-import time
-
 import synnax as sy
 
 # We've logged in via the command-line interface, so there's no need to provide
@@ -106,6 +104,7 @@ with tsk.run():
             cmd_channel_2.key,
         ],
         enable_auto_commit=True,
+        name="OPC UA Write Example",
     ) as writer:
         # Write some test values to the OPC UA nodes
         for i in range(10):

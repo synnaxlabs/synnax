@@ -110,7 +110,9 @@ sensor_states = {v.key: np.uint8(False) for v in valve_responses}
 with client.open_streamer([channel.key for channel in valve_commands]) as streamer:
     i = 0
     # Open a writer to write data to Synnax.
-    with client.open_writer(sy.TimeStamp.now(), write_to) as writer:
+    with client.open_writer(
+        sy.TimeStamp.now(), write_to, name="Simulation Writer"
+    ) as writer:
         start = sy.TimeStamp.now()
         while loop.wait():
             # If we've received a command, update the state of the corresponding valve.

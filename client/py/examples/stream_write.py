@@ -71,6 +71,7 @@ client.channels.create(
 with client.open_writer(
     start,
     [time_channel.key, data_channel_1.key, data_channel_2.key],
+    name="Stream Write Example",
 ) as writer:
     i = 0
     while loop.wait():
