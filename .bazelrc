@@ -91,6 +91,11 @@ build:windows --per_file_copt=vendor/.*@/WX-,/w
 # Allow protobuf deprecation warnings without treating them as errors
 build:windows --copt=/wd4996  # disables warning C4996 (deprecated declarations) for MSVC
 
+# Static CRT linking — eliminates dependency on VC++ Redistributable DLLs
+# (MSVCP140.dll, VCRUNTIME140.dll) which cause 0xc0000005 crashes when outdated
+build:windows --copt=/MT
+build:windows --cxxopt=/MT
+
 # ===== Warning Suppression for External Dependencies =====
 
 # Only show output from workspace targets (filters out external dependency noise)
