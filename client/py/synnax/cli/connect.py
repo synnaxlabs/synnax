@@ -58,13 +58,12 @@ def connect_from_options(ctx: Context, opts: Options) -> Synnax | None:
     try:
         client = Synnax(**opts.model_dump())
     except Unreachable:
-        return ctx.console.error(
-            f"Cannot reach Synnax server at {opts.host}:{opts.port}"
-        )
+        ctx.console.error(f"Cannot reach Synnax server at {opts.host}:{opts.port}")
+        return None
     except AuthError:
-        return ctx.console.error("Invalid credentials")
+        ctx.console.error("Invalid credentials")
+        return None
     except Exception as e:
         raise e
-        # return ctx.console.error(f"An error occurred: {e}")
     ctx.console.success("Connection successful!")
     return client

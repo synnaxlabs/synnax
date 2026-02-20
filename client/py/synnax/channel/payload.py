@@ -10,7 +10,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Literal, cast
+from typing import Literal, Sequence, TypeAlias
 
 from pydantic import BaseModel
 
@@ -19,15 +19,13 @@ from synnax.telem import DataType, TimeSpan
 from synnax.util.normalize import normalize
 
 Key = int
-Params = Key | list[Key] | tuple[Key] | str | list[str] | tuple[str]
-
 
 ONTOLOGY_TYPE = ontology.ID(type="channel")
 
 
 def ontology_id(key: Key) -> ontology.ID:
     """Returns the ontology ID for the Channel entity."""
-    return ontology.ID(type=ONTOLOGY_TYPE.type, key=key)
+    return ontology.ID(type=ONTOLOGY_TYPE.type, key=str(key))
 
 
 OPERATION_TYPES = Literal["min", "max", "avg", "none"]
@@ -38,7 +36,7 @@ class Operation(BaseModel):
 
     type: OPERATION_TYPES
     reset_channel: Key = 0
-    duration: TimeSpan = 0
+    duration: TimeSpan = TimeSpan(0)
 
 
 class Payload(BaseModel):
@@ -57,7 +55,7 @@ class Payload(BaseModel):
     expression: str | None = ""
     operations: list[Operation] | None = None
 
-    def __str__(self):
+    def __str__(self) -> str:
         return f"Channel(name={self.name}, key={self.key})"
 
     def __hash__(self) -> int:
@@ -65,55 +63,76 @@ class Payload(BaseModel):
 
 
 @dataclass
-class NormalizedChannelKeyResult:
+class NormalizedKeyResult:
     single: bool
-    variant: Literal["keys"]
     channels: list[Key] | tuple[Key]
 
 
 @dataclass
-class NormalizedChannelNameResult:
+class NormalizedNameResult:
     single: bool
-    variant: Literal["names"]
     channels: list[str]
+
+
+Params: TypeAlias = (
+    Key | str | Payload | Sequence[Key] | Sequence[str] | Sequence[Payload]
+)
 
 
 def normalize_params(
     channels: Params,
-) -> NormalizedChannelKeyResult | NormalizedChannelNameResult:
+) -> NormalizedKeyResult | NormalizedNameResult:
     """Determine if a list of keys or names is a single key or name."""
     normalized = normalize(channels)
     if len(normalized) == 0:
-        return NormalizedChannelKeyResult(single=False, variant="keys", channels=[])
+        return NormalizedKeyResult(single=False, channels=[])
     single = isinstance(channels, (Key, str))
-    if isinstance(normalized[0], str):
+    first = normalized[0]
+    if isinstance(first, str):
+        str_list = [s for s in normalized if isinstance(s, str)]
+        if len(str_list) != len(normalized):
+            raise TypeError(
+                "channel params must be all keys or all names, got a mix of both"
+            )
         try:
-            numeric_strings = [Key(s) for s in normalized]
-            return NormalizedChannelKeyResult(
+            return NormalizedKeyResult(
                 single=single,
-                variant="keys",
-                channels=numeric_strings,
+                channels=[Key(s) for s in str_list],
             )
-        except ValueError:
-            return NormalizedChannelNameResult(
+        except (ValueError, TypeError):
+            return NormalizedNameResult(
                 single=single,
-                variant="names",
-                channels=cast(list[str] | tuple[str], normalized),
+                channels=str_list,
             )
-    elif isinstance(normalized[0], Payload):
-        return NormalizedChannelNameResult(
-            single=single,
-            variant="keys",
-            channels=[c.key for c in normalized],
+    elif isinstance(first, Payload):
+        payload_list = [c.key for c in normalized if isinstance(c, Payload)]
+        if len(payload_list) != len(normalized):
+            raise TypeError(
+                "channel params must be all keys or all names, got a mix of both"
+            )
+        return NormalizedKeyResult(single=single, channels=payload_list)
+    key_list = [k for k in normalized if isinstance(k, int)]
+    if len(key_list) != len(normalized):
+        raise TypeError(
+            "channel params must be all keys or all names, got a mix of both"
         )
-    return NormalizedChannelKeyResult(
-        single=single,
-        variant="keys",
-        channels=normalized,
-    )
+    return NormalizedKeyResult(single=single, channels=key_list)
 
 
-# Backwards compatibility
-ChannelKey = Key
-ChannelParams = Params
-ChannelPayload = Payload
+def has_params(channels: Params | None) -> bool:
+    if channels is None:
+        return False
+    if isinstance(channels, (Key, str, Payload)):
+        return True
+    return len(channels) > 0
+
+
+from synnax.util.deprecation import deprecated_getattr
+
+_DEPRECATED = {
+    "ChannelKey": "Key",
+    "ChannelParams": "Params",
+    "ChannelPayload": "Payload",
+}
+
+__getattr__ = deprecated_getattr(__name__, _DEPRECATED, globals())

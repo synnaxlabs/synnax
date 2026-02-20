@@ -18,15 +18,19 @@ from synnax.task.client import (
     Task,
 )
 from synnax.task.payload import Payload, Status, StatusDetails
+from synnax.util.deprecation import deprecated_getattr
 
-# Backwards compatibility
-TaskPayload = Payload
-TaskStatus = Status
-TaskStatusDetails = StatusDetails
-BaseTaskConfig = BaseConfig
-BaseReadTaskConfig = BaseReadConfig
-BaseWriteTaskConfig = BaseWriteConfig
-TaskProtocol = Protocol
+_DEPRECATED = {
+    "TaskPayload": "Payload",
+    "TaskStatus": "Status",
+    "TaskStatusDetails": "StatusDetails",
+    "BaseTaskConfig": "BaseConfig",
+    "BaseReadTaskConfig": "BaseReadConfig",
+    "BaseWriteTaskConfig": "BaseWriteConfig",
+    "TaskProtocol": "Protocol",
+}
+
+__getattr__ = deprecated_getattr(__name__, _DEPRECATED, globals())
 
 __all__ = [
     "Client",
@@ -40,11 +44,4 @@ __all__ = [
     "JSONConfigMixin",
     "StarterStopperMixin",
     "Protocol",
-    "TaskPayload",
-    "TaskStatus",
-    "TaskStatusDetails",
-    "BaseTaskConfig",
-    "BaseReadTaskConfig",
-    "BaseWriteTaskConfig",
-    "TaskProtocol",
 ]

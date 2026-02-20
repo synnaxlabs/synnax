@@ -39,5 +39,10 @@ Key = UUID | str
 RangeParams = Key | list[Key] | tuple[Key] | str | list[str] | tuple[str]
 """Parameters that can be used to query a range"""
 
-# Backwards compatibility
-RangePayload = Payload
+from synnax.util.deprecation import deprecated_getattr
+
+_DEPRECATED = {
+    "RangePayload": "Payload",
+}
+
+__getattr__ = deprecated_getattr(__name__, _DEPRECATED, globals())
