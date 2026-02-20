@@ -8,6 +8,7 @@
 #  included in the file licenses/APL.txt.
 
 import uuid
+from typing import overload
 
 from freighter import UnaryClient
 from pydantic import BaseModel
@@ -42,17 +43,19 @@ class Client:
         self.__rng = rng
         self.__cache = {}
 
-    def resolve(self, alias: str) -> channel.Key: ...
+    @overload
+    def resolve(self, aliases: str) -> channel.Key: ...
 
+    @overload
     def resolve(self, aliases: list[str]) -> dict[str, channel.Key]: ...
 
     def resolve(self, aliases: str | list[str]) -> dict[str, channel.Key] | channel.Key:
-        to_fetch = list()
-        aliases = normalize(aliases)
         is_single = isinstance(aliases, str)
+        normalized_aliases = normalize(aliases)
+        to_fetch: list[str] = list()
 
-        results = {}
-        for alias in aliases:
+        results: dict[str, channel.Key] = {}
+        for alias in normalized_aliases:
             key = self.__cache.get(alias, None)
             if key is not None:
                 results[alias] = key
@@ -60,18 +63,24 @@ class Client:
                 to_fetch.append(alias)
 
         if len(to_fetch) == 0:
+            if is_single:
+                return results[normalized_aliases[0]]
             return results
 
         req = _ResolveRequest(range=self.__rng, aliases=to_fetch)
         res, exc = self.__client.send("/range/alias/resolve", req, _ResolveResponse)
         if exc is not None:
             raise exc
+        if res is None:
+            if is_single:
+                raise KeyError(f"Alias not found: {aliases}")
+            return results
 
         for alias, key in res.aliases.items():
             self.__cache[alias] = key
 
         if is_single:
-            return res.aliases[aliases]
+            return res.aliases[normalized_aliases[0]]
         return {**results, **res.aliases}
 
     def set(self, aliases: dict[channel.Key, str]) -> None:

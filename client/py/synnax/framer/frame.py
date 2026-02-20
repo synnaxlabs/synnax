@@ -9,8 +9,8 @@
 
 from __future__ import annotations
 
-from collections.abc import Iterator
-from typing import overload
+from collections.abc import Iterator, Sequence
+from typing import TypeAlias, cast, overload
 
 from pandas import DataFrame
 from pydantic import BaseModel, Field
@@ -21,7 +21,7 @@ from synnax.telem import CrudeSeries, MultiSeries, Series, TypedCrudeSeries
 
 
 class FramePayload(BaseModel):
-    keys: list[channel.Key] | tuple[channel.Key]
+    keys: list[channel.Key]
     series: list[Series]
 
     def __init__(
@@ -29,9 +29,6 @@ class FramePayload(BaseModel):
         keys: list[int] | None = None,
         series: list[Series] | None = None,
     ):
-        # This is a workaround to allow for a None value to be
-        # passed to the arrays field, but still have required
-        # type hinting.
         if series is None:
             series = list()
         if keys is None:
@@ -45,7 +42,7 @@ class Frame:
     can be keyed by channel name or channel key, but not both.
     """
 
-    channels: list[channel.Key | str]
+    channels: list[channel.Key] | list[str]
     series: list[Series] = Field(default_factory=list)
 
     def __init__(
@@ -62,25 +59,29 @@ class Frame:
             | dict[str, TypedCrudeSeries]
             | None
         ) = None,
-        series: list[TypedCrudeSeries] | None = None,
+        series: Sequence[TypedCrudeSeries] | None = None,
     ):
         if isinstance(channels, Frame):
             self.channels = channels.channels
             self.series = channels.series
         elif isinstance(channels, FramePayload):
-            self.channels = channels.keys
+            self.channels = list(channels.keys)
             self.series = channels.series
         elif isinstance(channels, DataFrame):
             self.channels = channels.columns.to_list()
             self.series = [Series(data=channels[k]) for k in self.channels]
         elif isinstance(channels, dict):
-            self.channels = list(channels.keys())
+            self.channels = cast(list[channel.Key] | list[str], list(channels.keys()))
             self.series = [Series(d) for d in channels.values()]
         elif (series is None or isinstance(series, list)) and (
             channels is None or isinstance(channels, list)
         ):
             self.series = list() if series is None else [Series(d) for d in series]
-            self.channels = channels or list[channel.Key]()
+            self.channels = (
+                cast(list[channel.Key] | list[str], list(channels))
+                if channels
+                else list()
+            )
         else:
             raise ValueError(f"""
                 [Frame] - invalid construction arguments. Received {channels}
@@ -119,11 +120,13 @@ class Frame:
             or name.
         """
         if isinstance(col_or_frame, Frame):
-            self.series.extend(col_or_frame.series)  # type: ignore
-            self.channels.extend(col_or_frame.channels)  # type: ignore
+            self.series.extend(col_or_frame.series)
+            self.channels.extend(col_or_frame.channels)  # type: ignore[arg-type]
         else:
+            if series is None:
+                raise ValueError("series must be provided when appending a channel")
             self.series.append(series)
-            self.channels.append(col_or_frame)  # type: ignore
+            self.channels.append(col_or_frame)  # type: ignore[arg-type]
 
     def items(
         self,
@@ -132,16 +135,16 @@ class Frame:
         Returns a generator of tuples containing the channel and series for each channel
         in the frame.
         """
-        return zip(self.channels, self.series)  # type: ignore
+        return zip(self.channels, self.series)
 
-    def __getitem__(self, key: channel.Key | str | any) -> MultiSeries:
+    def __getitem__(self, key: channel.Key | str) -> MultiSeries:
         if not isinstance(key, (channel.Key, str)):
             return self.to_df()[key]
         indexes = [i for i, k in enumerate(self.channels) if k == key]
         return MultiSeries([self.series[i] for i in indexes])
 
     def get(
-        self, key: channel.Key | str, default: Series | None = None
+        self, key: channel.Key | str, default: MultiSeries | None = None
     ) -> MultiSeries | None:
         """Gets the series for the given channel key or name. If the channel does not
         exist in the frame, returns the default value or None if no default is provided.
@@ -153,7 +156,7 @@ class Frame:
         except ValueError:
             return default
 
-    def to_payload(self):
+    def to_payload(self) -> FramePayload:
         """Converts the frame to its payload representation for transport over the
         network. This method should typically only be used internally.
         :raises: ValidationError if the frame is keyed by channel name instead of key.
@@ -164,24 +167,29 @@ class Frame:
             Cannot convert a frame that contains channel names to a payload.
             The following channels are invalid: {diff}
             """)
-        return FramePayload(keys=self.channels, series=self.series)
+        keys: list[int] = [k for k in self.channels if isinstance(k, int)]
+        return FramePayload(keys=keys, series=self.series)
 
     def to_df(self) -> DataFrame:
         """Converts the frame to a pandas DataFrame. Each column in the DataFrame
         corresponds to a channel in the frame.
         """
-        base = dict()
-        for k in set(self.channels):
-            # Try to convert the value to a numpy array. If it fails (such as in the
-            # case of strings or JSON objects), convert it to a primitive list instead.
+        base: dict[channel.Key | str, object] = dict()
+        channels = cast(list[channel.Key | str], self.channels)
+        for k in set(channels):
+            v = self.get(k)
+            if v is None:
+                continue
             try:
-                base[k] = self.get(k).__array__()
+                base[k] = v.__array__()
             except TypeError:
-                base[k] = list(self.get(k))
+                base[k] = list(v)
         return DataFrame(base)
 
     def __contains__(self, key: channel.Key | str) -> bool:
         return key in self.channels
 
 
-CrudeFrame = Frame | FramePayload | dict[channel.Key, CrudeSeries] | DataFrame
+CrudeFrame: TypeAlias = (
+    Frame | FramePayload | dict[channel.Key, CrudeSeries] | DataFrame
+)
