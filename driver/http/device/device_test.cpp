@@ -721,7 +721,7 @@ TEST(ClientTest, ParallelPerResponseTimeRanges) {
          .status_code = 200,
          .response_body = "slow",
          .content_type = "text/plain",
-         .delay = 300 * x::telem::MILLISECOND},
+         .delay = 50 * x::telem::MILLISECOND},
     };
     mock::Server server(server_cfg);
     ASSERT_NIL(server.start());
