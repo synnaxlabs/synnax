@@ -228,6 +228,7 @@ class ChannelClient:
         sy.sleep(0.2)
         self.layout.type_text(expression)
 
+        self.notifications.close_all()
         save_btn = self.layout.locator("button").filter(has_text="Save").first
         if save_btn.count() == 0:
             save_btn = self.layout.locator("button").filter(has_text="Create").first

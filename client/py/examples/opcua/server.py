@@ -256,7 +256,7 @@ class OPCUASim(DeviceSim):
     description = "OPC UA simulator on port 4841"
     host = "127.0.0.1"
     port = 4841
-    device_name = "OPC UA Test Server"
+    device_name = "OPC UA Server"
     endpoint = f"opc.tcp://{host}:{port}/freeopcua/server/"
 
     def __init__(
