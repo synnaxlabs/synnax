@@ -98,8 +98,13 @@ class Payload(BaseModel):
     """Visual graph representation of the program."""
 
 
-# Backwards compatibility
-ARC_ONTOLOGY_TYPE = ONTOLOGY_TYPE
-ArcKey = Key
-ArcMode = Mode
-ArcPayload = Payload
+from synnax.util.deprecation import deprecated_getattr
+
+_DEPRECATED = {
+    "ARC_ONTOLOGY_TYPE": "ONTOLOGY_TYPE",
+    "ArcKey": "Key",
+    "ArcMode": "Mode",
+    "ArcPayload": "Payload",
+}
+
+__getattr__ = deprecated_getattr(__name__, _DEPRECATED, globals())

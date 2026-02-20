@@ -9,6 +9,8 @@
 
 from __future__ import annotations
 
+from typing import Any
+
 from pydantic import BaseModel
 
 
@@ -22,13 +24,13 @@ class ID(BaseModel):
         elif isinstance(key, tuple):
             key, type = key
             super().__init__(key=key, type=type)
-        elif type is None:
+        elif type is None and key is not None:
             type, key = key.split(":")
             super().__init__(key=key, type=type)
         else:
             super().__init__(key=key, type=type)
 
-    def __str__(self):
+    def __str__(self) -> str:
         return f"{self.key}:{self.type}"
 
 
@@ -40,7 +42,7 @@ CrudeID = str | ID
 class Resource(BaseModel):
     id: ID
     name: str
-    data: dict
+    data: dict[str, Any]
 
 
 class Relationship(BaseModel):

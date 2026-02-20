@@ -69,8 +69,8 @@ class Client:
         self.user = res.user
         self.authenticated = True
 
-    def middleware(self) -> list[Middleware]:
-        def mw(ctx: Context, _next: Next):
+    def middleware(self) -> Middleware:
+        def mw(ctx: Context, _next: Next) -> tuple[Context, Exception | None]:
             if not self.authenticated:
                 self.authenticate()
 
@@ -86,8 +86,10 @@ class Client:
 
         return mw
 
-    def async_middleware(self) -> list[AsyncMiddleware]:
-        async def mw(ctx: Context, _next: AsyncNext):
+    def async_middleware(self) -> AsyncMiddleware:
+        async def mw(
+            ctx: Context, _next: AsyncNext
+        ) -> tuple[Context, Exception | None]:
             if not self.authenticated:
                 self.authenticate()
 
@@ -112,5 +114,10 @@ class Client:
             self.token = refresh
 
 
-# Backwards compatibility
-AuthenticationClient = Client
+from synnax.util.deprecation import deprecated_getattr
+
+_DEPRECATED = {
+    "AuthenticationClient": "Client",
+}
+
+__getattr__ = deprecated_getattr(__name__, _DEPRECATED, globals())

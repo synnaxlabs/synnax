@@ -10,8 +10,12 @@
 
 from synnax.access.role.client import Client
 from synnax.access.role.payload import ONTOLOGY_TYPE, Role, ontology_id
+from synnax.util.deprecation import deprecated_getattr
 
-# Backwards compatibility
-RoleClient = Client
+_DEPRECATED = {
+    "RoleClient": "Client",
+}
 
-__all__ = ["Role", "Client", "ONTOLOGY_TYPE", "ontology_id", "RoleClient"]
+__getattr__ = deprecated_getattr(__name__, _DEPRECATED, globals())
+
+__all__ = ["Role", "Client", "ONTOLOGY_TYPE", "ontology_id"]

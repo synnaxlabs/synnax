@@ -7,6 +7,8 @@
 #  License, use of this software will be governed by the Apache License, Version 2.0,
 #  included in the file licenses/APL.txt.
 
+from typing import cast
+
 import click
 import matplotlib.pyplot as plt
 import numpy as np
@@ -32,11 +34,11 @@ def check_timing(ctx: click.Context) -> None:
     time_channels = [ch for ch in channels if ch.data_type == sy.DataType.TIMESTAMP]
 
     if not time_channels:
-        ctx.console.error("No time channels found in the database")
+        default.context().console.error("No time channels found in the database")
         return
 
     # Let user select the time channel
-    time_channel = select_channel(default.context(), time_channels, key="name")
+    time_channel = select_channel(default.context(), time_channels)
     if time_channel is None:
         return
 
@@ -46,6 +48,7 @@ def check_timing(ctx: click.Context) -> None:
         type_=int,
         default=10,
     )
+    assert duration is not None
     span = sy.TimeSpan.SECOND * duration
 
     # Collect samples
@@ -61,7 +64,9 @@ def collect_samples(
     client: sy.Synnax,
     time_channel: sy.channel.Key,
     span: sy.TimeSpan,
-):
+) -> tuple[
+    list[sy.TimeSpan], list[sy.TimeSpan], list[sy.TimeStamp], sy.TimeStamp, sy.TimeStamp
+]:
     # Tracks the offset between the local clock and the time channel
     offsets: list[sy.TimeSpan] = list()
     # Tracks the spacing between the samples inside individual reads
@@ -77,11 +82,13 @@ def collect_samples(
         while now < end:
             now = sy.TimeStamp.now()
             data = streamer.read()[time_channel]
-            offset = sy.TimeSpan(sy.TimeStamp.now() - sy.TimeStamp(data[-1]))
+            last = cast(int, data[-1])
+            second_last = cast(int, data[-2])
+            offset = sy.TimeSpan(sy.TimeStamp.now() - sy.TimeStamp(last))
             offsets.append(offset)
-            diff = sy.TimeSpan(data[-1] - data[-2])
+            diff = sy.TimeSpan(last - second_last)
             diffs.append(diff)
-            times.extend(data)
+            times.extend(data)  # type: ignore[arg-type]
 
     local_end = sy.TimeStamp.now()
     return offsets, diffs, times, local_start, local_end
@@ -134,15 +141,16 @@ def create_timing_report(
         np.abs(offsets_array - offset_mean) > 5 * offset_std
     ]
 
-    bins_offset = np.concatenate(
-        [np.linspace(min(offsets_array), max(offsets_array), 1000)]
-    )
-    hist_offset, bins_offset, _ = ax2.hist(
-        offsets_array, bins=bins_offset, alpha=0.7, color="cyan"
+    bins_offset_list: list[float] = np.linspace(
+        min(offsets_array), max(offsets_array), 1000
+    ).tolist()
+    hist_offset, _, _ = ax2.hist(
+        offsets_array, bins=bins_offset_list, alpha=0.7, color="cyan"
     )
 
     x_offset = np.linspace(min(offsets_array), max(offsets_array), 100)
-    gaussian_offset = hist_offset.max() * np.exp(
+    hist_offset_arr = np.asarray(hist_offset)
+    gaussian_offset = hist_offset_arr.max() * np.exp(
         -((x_offset - offset_mean) ** 2) / (2 * offset_std**2)
     )
     ax2.plot(x_offset, gaussian_offset, "magenta", lw=2, label="Gaussian fit")
@@ -168,13 +176,16 @@ def create_timing_report(
     rates = [sy.Rate(d) for d in diffs]
     avg_rate = np.mean([float(r) for r in rates])
 
-    bins_diff = np.concatenate([np.linspace(min(diffs_array), max(diffs_array), 500)])
-    hist_diff, bins_diff, _ = ax3.hist(
-        diffs_array, bins=bins_diff, alpha=0.7, color="cyan"
+    bins_diff_list: list[float] = np.linspace(
+        min(diffs_array), max(diffs_array), 500
+    ).tolist()
+    hist_diff, _, _ = ax3.hist(
+        diffs_array, bins=bins_diff_list, alpha=0.7, color="cyan"
     )
 
     x_diff = np.linspace(min(diffs_array), max(diffs_array), 100)
-    gaussian_diff = hist_diff.max() * np.exp(
+    hist_diff_arr = np.asarray(hist_diff)
+    gaussian_diff = hist_diff_arr.max() * np.exp(
         -((x_diff - diff_mean) ** 2) / (2 * diff_std**2)
     )
     ax3.plot(x_diff, gaussian_diff, "magenta", lw=2, label="Gaussian fit")
