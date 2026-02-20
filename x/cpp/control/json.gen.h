@@ -46,7 +46,7 @@ template<typename R>
 x::json::json State<R>::to_json() const {
     x::json::json j;
     j["subject"] = this->subject.to_json();
-    if constexpr (std::is_same_v<R, x::json::json>)
+    if constexpr (std::is_same_v<R, x::json::json::object_t>)
         j["resource"] = this->resource;
     else if constexpr (std::is_same_v<R, std::monostate>)
         j["resource"] = nullptr;

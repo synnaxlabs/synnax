@@ -98,7 +98,7 @@ TEST_F(TestScanTask, testBasicScan) {
     ASSERT_TRUE(state.details.data.has_value());
     auto &data = *state.details.data;
     ASSERT_TRUE(data.contains("channels"));
-    auto channels = data["channels"];
+    auto channels = data.at("channels");
     ASSERT_TRUE(channels.is_array());
     EXPECT_GE(channels.size(), 11);
 

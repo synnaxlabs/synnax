@@ -73,7 +73,7 @@ struct Device {
     /// @brief properties contains device-specific configuration properties stored as
     /// JSON.
     /// Structure varies by device make and model.
-    x::json::json properties;
+    x::json::json::object_t properties;
     /// @brief status is the current operational status of the device.
     std::optional<Status> status;
 

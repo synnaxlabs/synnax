@@ -30,7 +30,6 @@ TEST(stateTests, testNominal) {
     auto cmd = synnax::task::Command{
         .task = task.key,
         .type = "start",
-        .args = x::json::json{}
     };
     hb->exec(cmd);
     x::defer::defer stop([&hb]() { hb->stop(false); });

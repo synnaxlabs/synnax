@@ -40,7 +40,7 @@ struct StatusDetails {
     /// @brief cmd is the last command executed on this task.
     std::string cmd;
     /// @brief data contains task-specific status data.
-    std::optional<x::json::json> data;
+    std::optional<x::json::json::object_t> data;
 
     static StatusDetails parse(x::json::Parser parser);
     [[nodiscard]] x::json::json to_json() const;
@@ -60,7 +60,7 @@ struct Command {
     /// @brief key is a unique identifier for this command instance.
     std::string key;
     /// @brief args contains optional arguments for the command.
-    x::json::json args;
+    x::json::json::object_t args;
 
     static Command parse(x::json::Parser parser);
     [[nodiscard]] x::json::json to_json() const;
@@ -86,7 +86,7 @@ struct Task {
     std::string type;
     /// @brief config is task-specific configuration stored as JSON. Structure varies by
     /// task type.
-    x::json::json config;
+    x::json::json::object_t config;
     /// @brief internal is true if this is an internal system task.
     bool internal = false;
     /// @brief snapshot indicates whether to persist this task's configuration.

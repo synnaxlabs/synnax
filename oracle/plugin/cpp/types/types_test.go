@@ -208,7 +208,7 @@ var _ = Describe("C++ Types Plugin", func() {
 				Entry("uint64", "uint64", "std::uint64_t field = 0;"),
 				Entry("float32", "float32", "float field = 0;"),
 				Entry("float64", "float64", "double field = 0;"),
-				Entry("json", "json", "x::json::json field;"),
+				Entry("json", "json", "x::json::json::object_t field;"),
 			)
 
 		})
@@ -362,7 +362,7 @@ var _ = Describe("C++ Types Plugin", func() {
 
 			content := string(resp.Files[0].Content)
 			Expect(content).To(ContainSubstring(`#include "x/cpp/json/json.h"`))
-			Expect(content).To(ContainSubstring(`x::json::json config;`))
+			Expect(content).To(ContainSubstring(`x::json::json::object_t config;`))
 		})
 
 		It("Should handle map types", func() {

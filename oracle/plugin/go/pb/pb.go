@@ -1347,7 +1347,6 @@ func (p *Plugin) generateEnumTranslator(
 	var goDefault string
 
 	goAlias := data.parentAlias
-	isGoOmitted := omit.IsType(*enumRef, "go")
 
 	for i, v := range form.Values {
 		valueName := toPascalCase(v.Name)

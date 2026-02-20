@@ -501,4 +501,3 @@ func UnmarshalMsgpackUint32(dec *msgpack.Decoder) (uint32, error) {
 		return 0, errors.Newf("cannot unmarshal %T into uint32", v)
 	}
 }
-

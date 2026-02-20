@@ -24,7 +24,7 @@ inline StatusDetails StatusDetails::parse(x::json::Parser parser) {
         .task = parser.field<Key>("task"),
         .running = parser.field<bool>("running"),
         .cmd = parser.field<std::string>("cmd", ""),
-        .data = parser.field<std::optional<x::json::json>>("data"),
+        .data = parser.field<std::optional<x::json::json::object_t>>("data"),
     };
 }
 
@@ -42,7 +42,7 @@ inline Task Task::parse(x::json::Parser parser) {
         .key = parser.field<Key>("key"),
         .name = parser.field<std::string>("name"),
         .type = parser.field<std::string>("type"),
-        .config = parser.field<x::json::json>("config"),
+        .config = parser.field<x::json::json::object_t>("config"),
         .internal = parser.field<bool>("internal", false),
         .snapshot = parser.field<bool>("snapshot", false),
         .status = parser.field<std::optional<Status>>("status"),
@@ -66,7 +66,8 @@ inline Command Command::parse(x::json::Parser parser) {
         .task = parser.field<Key>("task"),
         .type = parser.field<std::string>("type"),
         .key = parser.field<std::string>("key"),
-        .args = parser.field<x::json::json>("args", x::json::json{}),
+        .args = parser
+                    .field<x::json::json::object_t>("args", x::json::json::object_t{}),
     };
 }
 

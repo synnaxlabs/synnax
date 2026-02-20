@@ -104,7 +104,7 @@ TEST_F(EtherCATScanTest, TestInterfaceCommandWithInvalidArgs) {
 
     synnax::task::Command cmd;
     cmd.type = TEST_INTERFACE_CMD_TYPE;
-    cmd.args = "{}";
+    cmd.args = x::json::json::object_t{};
     cmd.key = 1;
 
     bool handled = scanner.exec(cmd, task, ctx);
@@ -124,7 +124,7 @@ TEST_F(EtherCATScanTest, UnknownCommandNotHandled) {
 
     synnax::task::Command cmd;
     cmd.type = "unknown_command";
-    cmd.args = "{}";
+    cmd.args = x::json::json::object_t{};
 
     bool handled = scanner.exec(cmd, task, ctx);
     EXPECT_FALSE(handled);

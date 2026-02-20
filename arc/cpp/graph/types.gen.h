@@ -36,7 +36,7 @@ struct Node {
     /// @brief type is the function type being instantiated.
     std::string type;
     /// @brief config contains configuration parameter values as a JSON object.
-    x::json::json config;
+    x::json::json::object_t config;
     /// @brief position is the canvas position (x, y) for visual layout.
     ::x::spatial::XY position;
 

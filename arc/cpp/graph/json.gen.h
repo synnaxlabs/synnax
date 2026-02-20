@@ -25,7 +25,7 @@ inline Node Node::parse(x::json::Parser parser) {
     return Node{
         .key = parser.field<std::string>("key"),
         .type = parser.field<std::string>("type"),
-        .config = parser.field<x::json::json>("config"),
+        .config = parser.field<x::json::json::object_t>("config"),
         .position = parser.field<::x::spatial::XY>("position"),
     };
 }

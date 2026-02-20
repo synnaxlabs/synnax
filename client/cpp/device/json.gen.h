@@ -43,7 +43,7 @@ inline Device Device::parse(x::json::Parser parser) {
         .model = parser.field<std::string>("model"),
         .name = parser.field<std::string>("name"),
         .configured = parser.field<bool>("configured"),
-        .properties = parser.field<x::json::json>("properties"),
+        .properties = parser.field<x::json::json::object_t>("properties"),
         .status = parser.field<std::optional<Status>>("status"),
     };
 }
