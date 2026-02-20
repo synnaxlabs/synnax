@@ -45,6 +45,15 @@ describe("deviceZ", () => {
       expect(result.success).toBe(false);
     });
 
+    it("should decode a JSON string for properties", () => {
+      const props = { rate: 10, nested: { a: 1 } };
+      const result = deviceZ().parse({
+        ...VALID_DEVICE,
+        properties: JSON.stringify(props),
+      });
+      expect(result.properties).toEqual(props);
+    });
+
     it("should accept properties as an object", () => {
       const result = deviceZ().parse(VALID_DEVICE);
       expect(result.properties).toEqual({ rate: 10 });
@@ -98,6 +107,15 @@ describe("deviceZ", () => {
 
     it("should reject properties that don't match the custom schema", () => {
       expect(() => deviceZ({ properties: propertiesZ }).parse(VALID_DEVICE)).toThrow();
+    });
+
+    it("should decode a JSON string and validate against the custom schema", () => {
+      const props = { rate: 10, channel: "ai0" };
+      const result = deviceZ({ properties: propertiesZ }).parse({
+        ...VALID_DEVICE,
+        properties: JSON.stringify(props),
+      });
+      expect(result.properties).toEqual(props);
     });
   });
 });

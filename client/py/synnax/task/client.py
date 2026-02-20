@@ -397,7 +397,7 @@ class Client:
         elif isinstance(config, BaseModel):
             config = config.model_dump()
         if tasks is None:
-            payloads = [Payload(key=key, name=name, type=type, config=config)]
+            payloads = [Payload(key=key, name=name, type=type, config=config or {})]
         elif isinstance(tasks, Task):
             payloads = [tasks.to_payload()]
         else:

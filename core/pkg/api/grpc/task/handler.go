@@ -21,6 +21,7 @@ import (
 	taskpb "github.com/synnaxlabs/synnax/pkg/service/task/pb"
 	"github.com/synnaxlabs/x/unsafe"
 	"google.golang.org/protobuf/types/known/emptypb"
+	"google.golang.org/protobuf/types/known/structpb"
 )
 
 type (

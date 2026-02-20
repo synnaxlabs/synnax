@@ -224,7 +224,6 @@ protected:
             .key = synnax::task::create_key(rack.key, 0),
             .name = "OPC UA Read Task Test",
             .type = "opc_read",
-            .config = x::json::json{}
         };
 
         task_cfg_json = task_cfg;

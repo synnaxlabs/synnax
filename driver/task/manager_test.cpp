@@ -328,7 +328,6 @@ TEST_F(TaskManagerTest, Configure) {
         .key = synnax::task::create_key(rack.key, 0),
         .name = "t",
         .type = "echo",
-        .config = x::json::json{}
     };
     ASSERT_NIL(rack.tasks.create(task));
     auto s = WAIT_FOR_TASK_STATUS(streamer, task, [](const synnax::task::Status &s) {
@@ -343,7 +342,6 @@ TEST_F(TaskManagerTest, Delete) {
         .key = synnax::task::create_key(rack.key, 0),
         .name = "t",
         .type = "echo",
-        .config = x::json::json{}
     };
     ASSERT_NIL(rack.tasks.create(task));
     WAIT_FOR_TASK_STATUS(streamer, task, [](const synnax::task::Status &s) {
@@ -366,7 +364,6 @@ TEST_F(TaskManagerTest, Command) {
         .key = synnax::task::create_key(rack.key, 0),
         .name = "t",
         .type = "echo",
-        .config = x::json::json{}
     };
     ASSERT_NIL(rack.tasks.create(task));
     WAIT_FOR_TASK_STATUS(streamer, task, [](const synnax::task::Status &s) {
@@ -397,7 +394,6 @@ TEST_F(TaskManagerTest, IgnoresForeignRack) {
         .key = synnax::task::create_key(other.key, 0),
         .name = "t",
         .type = "echo",
-        .config = x::json::json{}
     };
     ASSERT_NIL(other.tasks.create(task));
 
@@ -421,7 +417,6 @@ TEST_F(TaskManagerTest, StopOnShutdown) {
         .key = synnax::task::create_key(rack.key, 0),
         .name = "t",
         .type = "echo",
-        .config = x::json::json{}
     };
     ASSERT_NIL(rack.tasks.create(task));
     WAIT_FOR_TASK_STATUS(streamer, task, [](const synnax::task::Status &s) {
@@ -441,7 +436,6 @@ TEST_F(TaskManagerTest, IgnoresSnapshot) {
         .key = synnax::task::create_key(rack.key, 0),
         .name = "t",
         .type = "echo",
-        .config = x::json::json{}
     };
     task.snapshot = true;
     ASSERT_NIL(rack.tasks.create(task));
@@ -472,7 +466,6 @@ TEST_F(TaskManagerTest, ParallelConfig) {
         .key = synnax::task::create_key(rack.key, 0),
         .name = "b",
         .type = "blocking",
-        .config = x::json::json{}
     };
     ASSERT_NIL(rack.tasks.create(blocking));
     EVENTUALLY([&] { return f->started.load(); }, [] { return "not started"; });
@@ -481,7 +474,6 @@ TEST_F(TaskManagerTest, ParallelConfig) {
         .key = synnax::task::create_key(rack.key, 0),
         .name = "e",
         .type = "echo",
-        .config = x::json::json{}
     };
     ASSERT_NIL(rack.tasks.create(echo));
     auto s = WAIT_FOR_TASK_STATUS(streamer, echo, [](const synnax::task::Status &s) {
@@ -514,7 +506,6 @@ TEST_F(TaskManagerTest, CommandForUnconfigured) {
         .key = synnax::task::create_key(rack.key, 0),
         .name = "t",
         .type = "echo",
-        .config = x::json::json{}
     };
     ASSERT_NIL(rack.tasks.create(task));
     WAIT_FOR_TASK_STATUS(streamer, task, [](const synnax::task::Status &s) {
@@ -528,7 +519,6 @@ TEST_F(TaskManagerTest, RapidReconfigure) {
         .key = synnax::task::create_key(rack.key, 0),
         .name = "t",
         .type = "echo",
-        .config = x::json::json{}
     };
     ASSERT_NIL(rack.tasks.create(task));
     WAIT_FOR_TASK_STATUS(streamer, task, [](const synnax::task::Status &s) {
@@ -569,7 +559,6 @@ TEST_F(TaskManagerTest, Timeout) {
         .key = synnax::task::create_key(rack.key, 0),
         .name = "t",
         .type = "timeout",
-        .config = x::json::json{}
     };
     ASSERT_NIL(rack.tasks.create(task));
 
@@ -601,7 +590,6 @@ TEST_F(TaskManagerTest, CommandFIFO) {
         .key = synnax::task::create_key(rack.key, 0),
         .name = "t",
         .type = "tracking",
-        .config = x::json::json{}
     };
     ASSERT_NIL(rack.tasks.create(task));
     EVENTUALLY(
@@ -636,7 +624,6 @@ TEST_F(TaskManagerTest, ReconfigureStopsOld) {
         .key = synnax::task::create_key(rack.key, 0),
         .name = "t",
         .type = "tracking",
-        .config = x::json::json{}
     };
     ASSERT_NIL(rack.tasks.create(task));
 
@@ -725,7 +712,6 @@ TEST_F(TaskManagerTest, ReconfigureCallsDestructor) {
         .key = synnax::task::create_key(rack.key, 0),
         .name = "t",
         .type = "destructor_tracking",
-        .config = x::json::json{}
     };
     ASSERT_NIL(rack.tasks.create(task));
 
@@ -770,7 +756,6 @@ TEST_F(ShutdownTest, DuringConfiguration) {
         .key = synnax::task::create_key(rack.key, 0),
         .name = "t",
         .type = "blocking",
-        .config = x::json::json{}
     };
     ASSERT_NIL(rack.tasks.create(task));
     EVENTUALLY([&] { return f->started.load(); }, [] { return "not started"; });
@@ -799,7 +784,6 @@ TEST_F(ShutdownTest, WithPendingOps) {
             .key = synnax::task::create_key(rack.key, 0),
             .name = "t" + std::to_string(i),
             .type = "blocking",
-            .config = x::json::json{}
         };
         ASSERT_NIL(rack.tasks.create(task));
     }
@@ -889,7 +873,6 @@ TEST_F(ShutdownTest, TimeoutDetachesStuckWorkers) {
         .key = synnax::task::create_key(rack.key, 0),
         .name = "t",
         .type = "blocking_stop",
-        .config = x::json::json{}
     };
     ASSERT_NIL(rack.tasks.create(task));
     std::this_thread::sleep_for((100 * x::telem::MILLISECOND).chrono());
@@ -968,7 +951,6 @@ TEST_F(ShutdownTest, ParallelTaskStop) {
             .key = synnax::task::create_key(rack.key, 0),
             .name = "t" + std::to_string(i),
             .type = "slow_stop",
-            .config = x::json::json{}
         };
         ASSERT_NIL(rack.tasks.create(task));
     }
@@ -1041,7 +1023,6 @@ TEST_F(ShutdownTest, StuckWorkerDetach) {
         .key = synnax::task::create_key(rack.key, 0),
         .name = "t",
         .type = "stuck_worker",
-        .config = x::json::json{}
     };
     ASSERT_NIL(rack.tasks.create(task));
 

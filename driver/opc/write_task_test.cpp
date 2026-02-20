@@ -199,7 +199,6 @@ protected:
             .key = synnax::task::create_key(rack.key, 0),
             .name = "opc_ua_write_task_test",
             .type = "opc_write",
-            .config = x::json::json{}
         };
 
         auto p = x::json::Parser(task_cfg);

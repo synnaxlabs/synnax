@@ -533,14 +533,11 @@ class TestEtherCATWriteTask:
             ],
         )
 
-        # Serialize config to dict
-        config_dict = original_task.config.model_dump()
-
         # Create task in database
         created_task = client.tasks.create(
             name="test-round-trip",
             type="ethercat_write",
-            config=config_dict,
+            config=original_task.config,
         )
 
         # Deserialize from database

@@ -18,3 +18,5 @@ __all__ = [
 ]
 
 __all__ = ["Client", "Group"]
+
+__all__ = ["Client", "Group"]

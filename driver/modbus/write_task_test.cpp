@@ -70,7 +70,6 @@ protected:
             .key = synnax::task::create_key(rack.key, 0),
             .name = "modbus_write_test",
             .type = "modbus_write",
-            .config = x::json::json{}
         };
     }
 };

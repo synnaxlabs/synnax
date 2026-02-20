@@ -517,7 +517,7 @@ class TestModbusWriteTask:
         created_task = client.tasks.create(
             name="test-round-trip",
             type="modbus_write",
-            config=config_dict,
+            config=original_task.config,
         )
 
         # Deserialize from database
