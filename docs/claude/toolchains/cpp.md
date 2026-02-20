@@ -137,13 +137,16 @@ Use Doxygen-style `///` comments with `@brief`, `@param`, and `@returns` tags:
 [[nodiscard]] constexpr int32_t days_from_civil(const Date &date);
 ```
 
-For struct/class members, use `///<` trailing comments:
+For struct/class members, use `/// @brief` comments above the field:
 
 ```cpp
 struct Date {
-    uint16_t year; ///< calendar year.
-    uint8_t month; ///< month of year [1, 12].
-    uint8_t day; ///< day of month [1, 31].
+    /// @brief calendar year.
+    uint16_t year;
+    /// @brief month of year [1, 12].
+    uint8_t month;
+    /// @brief day of month [1, 31].
+    uint8_t day;
 };
 ```
 
@@ -241,15 +244,16 @@ ASSERT_EVENTUALLY_NIL(error)
 // Success path — use ASSERT_NIL_P to unwrap pair<T, Error> results:
 const auto val = ASSERT_NIL_P(some_fn_returning_pair());
 
-// Error path — use ASSERT_OCCURRED_AS_P for pair returns (no structured bindings needed):
+// Error path — always prefer ASSERT_OCCURRED_AS_P for pair<T, Error> returns:
 ASSERT_OCCURRED_AS_P(some_fn_returning_pair(), EXPECTED_ERR);
 
-// Error path — use ASSERT_OCCURRED_AS for bare Error values:
-auto [val, err] = some_fn();
+// ASSERT_OCCURRED_AS is only for bare Error values (not pairs):
+xerrors::Error err = some_fn_returning_error();
 ASSERT_OCCURRED_AS(err, EXPECTED_ERR);
 
 // Always verify the specific error type, not just that an error occurred.
-// Prefer ASSERT_OCCURRED_AS / ASSERT_OCCURRED_AS_P over ASSERT_TRUE(err).
+// Never use structured bindings + ASSERT_OCCURRED_AS for pair returns —
+// use ASSERT_OCCURRED_AS_P instead.
 ```
 
 ## Common Patterns

@@ -15,9 +15,12 @@ namespace date {
 
 /// @brief civil date components.
 struct Date {
-    uint16_t year; ///< calendar year.
-    uint8_t month; ///< month of year [1, 12].
-    uint8_t day; ///< day of month [1, 31].
+    /// @brief calendar year.
+    uint16_t year;
+    /// @brief month of year [1, 12].
+    uint8_t month;
+    /// @brief day of month [1, 31].
+    uint8_t day;
 };
 
 /// @brief converts civil date components to a day count (days since 1970-01-01) using
