@@ -8,7 +8,14 @@
 // included in the file licenses/APL.txt.
 
 import { EOF, type Stream, type WebSocketClient } from "@synnaxlabs/freighter";
-import { control, type CrudeSeries, errors, TimeSpan, TimeStamp } from "@synnaxlabs/x";
+import {
+  control,
+  type CrudeSeries,
+  errors,
+  id,
+  TimeSpan,
+  TimeStamp,
+} from "@synnaxlabs/x";
 import { z } from "zod";
 
 import { channel } from "@/channel";
@@ -50,6 +57,8 @@ export type CrudeWriterMode = z.input<typeof writerModeZ>;
 const baseWriterConfigZ = z.object({
   /** start sets the starting timestamp for the first sample in the writer. */
   start: TimeStamp.z.optional(),
+  /** name sets a human-readable name for the writer's control subject. */
+  name: z.string().default(""),
   /** controlSubject sets the control subject of the writer. */
   controlSubject: control.subjectZ.optional(),
   /** authorities set the control authority to set for each channel on the writer.
@@ -201,6 +210,10 @@ export class Writer {
     config: WriterConfig,
   ): Promise<Writer> {
     const cfg = writerConfigZ.parse(config);
+    if (cfg.controlSubject == null)
+      cfg.controlSubject = { key: id.create(), name: cfg.name };
+    else if (cfg.controlSubject.name === "" && cfg.name !== "")
+      cfg.controlSubject.name = cfg.name;
     const adapter = await WriteAdapter.open(retriever, cfg.channels);
     if (cfg.useHighPerformanceCodec)
       client = client.withCodec(new WSWriterCodec(adapter.codec));

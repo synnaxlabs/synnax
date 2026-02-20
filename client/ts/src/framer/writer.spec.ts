@@ -231,6 +231,115 @@ describe("Writer", () => {
       expect(f.length).toEqual(10);
     });
 
+    test("name should set control subject name", async () => {
+      const channels = await newIndexedPair(client);
+      const writer = await client.openWriter({
+        start: TimeStamp.now(),
+        channels,
+        name: "Test Writer Name",
+      });
+      try {
+        const tracker = await client.control.openStateTracker();
+        try {
+          await expect
+            .poll(() => {
+              const subjects = tracker.subjects();
+              return subjects.some((s) => s.name === "Test Writer Name");
+            })
+            .toBe(true);
+        } finally {
+          await tracker.close();
+        }
+      } finally {
+        await writer.close();
+      }
+    });
+
+    test("name should fill in empty controlSubject name", async () => {
+      const channels = await newIndexedPair(client);
+      const subjectKey = id.create();
+      const writer = await client.openWriter({
+        start: TimeStamp.now(),
+        channels,
+        name: "Filled Name",
+        controlSubject: { key: subjectKey, name: "" },
+      });
+      try {
+        const tracker = await client.control.openStateTracker();
+        try {
+          await expect
+            .poll(() => {
+              const subjects = tracker.subjects();
+              return subjects.some(
+                (s) => s.name === "Filled Name" && s.key === subjectKey,
+              );
+            })
+            .toBe(true);
+        } finally {
+          await tracker.close();
+        }
+      } finally {
+        await writer.close();
+      }
+    });
+
+    test("explicit controlSubject name should not be overridden by name", async () => {
+      const channels = await newIndexedPair(client);
+      const writer = await client.openWriter({
+        start: TimeStamp.now(),
+        channels,
+        name: "Should Not Override",
+        controlSubject: { key: id.create(), name: "Explicit Name" },
+      });
+      try {
+        const tracker = await client.control.openStateTracker();
+        try {
+          await expect
+            .poll(() => {
+              const subjects = tracker.subjects();
+              return subjects.some((s) => s.name === "Explicit Name");
+            })
+            .toBe(true);
+          const subjects = tracker.subjects();
+          expect(subjects.some((s) => s.name === "Should Not Override")).toBe(false);
+        } finally {
+          await tracker.close();
+        }
+      } finally {
+        await writer.close();
+      }
+    });
+
+    test("name should auto-generate controlSubject when not provided", async () => {
+      const channels = await newIndexedPair(client);
+      const writer = await client.openWriter({
+        start: TimeStamp.now(),
+        channels,
+        name: "Auto Generated Subject",
+      });
+      try {
+        const tracker = await client.control.openStateTracker();
+        try {
+          await expect
+            .poll(() => {
+              const subjects = tracker.subjects();
+              return subjects.some((s) => s.name === "Auto Generated Subject");
+            })
+            .toBe(true);
+          const subject = tracker
+            .subjects()
+            .find((s) => s.name === "Auto Generated Subject");
+          expect(subject).toBeDefined();
+          expect(subject?.key).toBeTruthy();
+          expect(subject?.key.length).toBeGreaterThan(0);
+        } finally {
+          await tracker.close();
+        }
+      } finally {
+        await writer.close();
+      }
+    });
+
     test("setAuthority with name keys", async () => {
       const channels = await newIndexedPair(client);
       const start = TimeStamp.seconds(5);
