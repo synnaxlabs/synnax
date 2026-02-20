@@ -20,14 +20,18 @@ from synnax.arc.payload import (
     Text,
 )
 from synnax.arc.types import Task, TaskConfig
+from synnax.util.deprecation import deprecated_getattr
 
-# Backwards compatibility
-ArcTask = Task
-ArcTaskConfig = TaskConfig
-ArcClient = Client
-ArcKey = Key
-ArcMode = Mode
-ArcPayload = Payload
+_DEPRECATED = {
+    "ArcTask": "Task",
+    "ArcTaskConfig": "TaskConfig",
+    "ArcClient": "Client",
+    "ArcKey": "Key",
+    "ArcMode": "Mode",
+    "ArcPayload": "Payload",
+}
+
+__getattr__ = deprecated_getattr(__name__, _DEPRECATED, globals())
 
 __all__ = [
     "Arc",
@@ -43,10 +47,4 @@ __all__ = [
     "Handle",
     "Position",
     "Text",
-    "ArcTask",
-    "ArcTaskConfig",
-    "ArcClient",
-    "ArcKey",
-    "ArcMode",
-    "ArcPayload",
 ]

@@ -33,7 +33,7 @@ class ClustersConfig:
         pwd = pwd or ""
         return ClusterConfig(options=Options(**opts, password=pwd))
 
-    def set(self, c: ClusterConfig, key: str = "default"):
+    def set(self, c: ClusterConfig, key: str = "default") -> None:
         p = c.model_dump()
         keyring.set_password("synnax", key, p["options"].pop("password"))
         self.internal.set(f"clusters.{key}", p)
