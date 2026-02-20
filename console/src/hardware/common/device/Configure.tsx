@@ -38,21 +38,21 @@ export const CONFIGURE_LAYOUT: Omit<Layout.BaseState, "type"> = {
 };
 
 interface InternalProps<
-  Properties extends record.Unknown,
-  Make extends string,
-  Model extends string,
+  Properties extends z.ZodType<record.Unknown>,
+  Make extends z.ZodType<string>,
+  Model extends z.ZodType<string>,
 > extends Pick<Layout.RendererProps, "onClose"> {
   device: device.Device<Properties, Make, Model>;
-  initialProperties: Properties;
+  initialProperties: z.infer<Properties>;
 }
 
 const configurablePropertiesZ = z.object({ name: nameZ, identifier: identifierZ });
 type ConfigurablePropertiesZ = typeof configurablePropertiesZ;
 
 const Internal = <
-  Properties extends record.Unknown,
-  Make extends string,
-  Model extends string,
+  Properties extends z.ZodType<record.Unknown>,
+  Make extends z.ZodType<string>,
+  Model extends z.ZodType<string>,
 >({
   device,
   device: { name },
@@ -176,18 +176,18 @@ const Internal = <
 };
 
 export interface ConfigureProps<
-  Properties extends record.Unknown,
-  Make extends string,
-  Model extends string,
+  Properties extends z.ZodType<record.Unknown>,
+  Make extends z.ZodType<string>,
+  Model extends z.ZodType<string>,
 >
   extends
     Layout.RendererProps,
     Pick<InternalProps<Properties, Make, Model>, "initialProperties"> {}
 
 export const Configure = <
-  Properties extends record.Unknown,
-  Make extends string,
-  Model extends string,
+  Properties extends z.ZodType<record.Unknown>,
+  Make extends z.ZodType<string>,
+  Model extends z.ZodType<string>,
 >({
   layoutKey,
   ...rest
