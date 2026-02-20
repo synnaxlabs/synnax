@@ -55,6 +55,7 @@ class ContextMenu:
         menu = self.page.locator(".pluto-menu-context")
         option = menu.get_by_text(text, exact=exact).first
         option.wait_for(state="visible", timeout=2000)
+        option.scroll_into_view_if_needed()
         option.click()
 
     def action(self, element: Locator, action_text: str, *, exact: bool = True) -> None:

@@ -129,6 +129,7 @@ class StatusesClient:
 
     def delete_from_explorer(self, name: str) -> None:
         """Delete a single status via context menu in the explorer."""
+        self.notifications.close_all()
         item = self.get_explorer_item(name)
         item.wait_for(state="visible", timeout=5000)
         self.layout.delete_with_confirmation(item)
