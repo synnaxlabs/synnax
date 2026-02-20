@@ -167,7 +167,7 @@ class AccessClient:
 
         sy.sleep(0.5)
 
-        if self.layout.check_for_errors():
+        if self.layout.check_for_errors("user"):
             return False
 
         return True
@@ -275,7 +275,7 @@ class AccessClient:
             sy.sleep(0.3)
 
         # Check for error notifications
-        if self.layout.check_for_errors():
+        if self.layout.check_for_errors("delete"):
             return False
 
         return True
@@ -305,9 +305,18 @@ class AccessClient:
         self.layout.show_toolbar(self.SHORTCUT_KEY, self.ROLE_ITEM_PREFIX)
 
     def _find_user_item(self, username: str) -> Locator | None:
-        """Find a user item in the users panel by username."""
+        """Find a user item in the users panel by username.
+
+        Retries several times to handle tree refreshes that may temporarily
+        hide user items.
+        """
         self._show_users_panel()
-        return self.tree.find_by_name(self.USER_ITEM_PREFIX, username)
+        for _ in range(5):
+            item = self.tree.find_by_name(self.USER_ITEM_PREFIX, username)
+            if item is not None:
+                return item
+            sy.sleep(0.1)
+        return None
 
     def _find_role_item(self, role_name: str) -> Locator | None:
         """Find a role item in the ontology tree by name."""

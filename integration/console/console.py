@@ -21,6 +21,7 @@ from console.notifications import NotificationsClient
 from console.rack import RackClient
 from console.ranges import RangesClient
 from console.statuses import StatusesClient
+from console.tasks import TaskClient
 from console.workspace import WorkspaceClient
 from framework.utils import get_results_path
 
@@ -45,6 +46,7 @@ class Console:
     rack: RackClient
     ranges: RangesClient
     statuses: StatusesClient
+    tasks: TaskClient
     workspace: WorkspaceClient
     page: Page
 
@@ -61,6 +63,7 @@ class Console:
         self.channels = ChannelClient(self.layout, self.client)
         self.ranges = RangesClient(self.layout)
         self.statuses = StatusesClient(self.layout)
+        self.tasks = TaskClient(self.layout)
         self.workspace = WorkspaceClient(self.layout, self.client)
 
     def check_for_error_screen(self) -> None:
