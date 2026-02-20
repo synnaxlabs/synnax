@@ -530,7 +530,7 @@ TEST(DeviceTests, testParseFromJSON) {
     ASSERT_EQ(d.rack, 99999);
     ASSERT_EQ(d.make, "json-make");
     ASSERT_EQ(d.model, "json-model");
-    ASSERT_EQ(d.properties, x::json::json({{"custom", true}}));
+    ASSERT_EQ(x::json::json(d.properties), x::json::json({{"custom", true}}));
     ASSERT_EQ(d.configured, true);
 }
 

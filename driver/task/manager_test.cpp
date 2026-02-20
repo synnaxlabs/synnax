@@ -722,7 +722,7 @@ TEST_F(TaskManagerTest, ReconfigureCallsDestructor) {
     ASSERT_EQ(f->configure_count.load(), 1);
     ASSERT_FALSE(f->first_destroyed.load());
 
-    task.config = "{\"v\":2}";
+    task.config = {{"v", 2}};
     ASSERT_NIL(rack.tasks.create(task));
 
     ASSERT_EVENTUALLY_GE(f->configure_count.load(), 2);

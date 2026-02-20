@@ -57,11 +57,11 @@ protected:
 
         synnax::device::Device dev{
             .key = "modbus_test_dev",
+            .name = "modbus_test_dev",
             .rack = rack.key,
             .location = "dev1",
             .make = "modbus",
             .model = "Modbus Device",
-            .name = "modbus_test_dev",
             .properties = properties,
         };
         ASSERT_NIL(client->devices.create(dev));

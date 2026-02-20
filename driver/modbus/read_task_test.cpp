@@ -51,12 +51,12 @@ protected:
 
         device = synnax::device::Device{
             .key = "modbus_test_device",
+            .name = "modbus_test_device",
             .rack = rack.key,
             .location = "dev1",
             .make = "modbus",
             .model = "Modbus Device",
-            .name = "modbus_test_device",
-            .properties = properties,
+            .properties = properties
         };
         ASSERT_NIL(client->devices.create(device));
 
@@ -223,11 +223,11 @@ TEST(ReadTask, testBasicReadTask) {
     x::json::json properties{{"connection", conn_cfg.to_json()}};
     synnax::device::Device dev{
         .key = "my_modbus_lover",
+        .name = "my_mobdus_lover",
         .rack = rack.key,
         .location = "dev1",
         .make = "modbus",
         .model = "Modbus Device",
-        .name = "my_mobdus_lover",
         .properties = properties,
     };
 

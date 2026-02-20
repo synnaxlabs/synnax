@@ -106,11 +106,11 @@ protected:
         };
         synnax::device::Device dev{
             .key = "ecat_slave_" + std::to_string(serial),
+            .name = "Test Slave SN:" + std::to_string(serial),
             .rack = rack.key,
             .location = NETWORK_INTERFACE + ".Slot 0",
             .make = "DEWESoft",
             .model = "TestModule",
-            .name = "Test Slave SN:" + std::to_string(serial),
             .properties = props,
         };
         auto err = client->devices.create(dev);

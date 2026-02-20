@@ -31,8 +31,12 @@ protected:
 };
 
 TEST_F(EtherCATScanTest, ScannerCreation) {
-    const synnax::task::Task
-        task(rack.key, "EtherCAT Scanner", SCAN_TASK_TYPE, "", true);
+    synnax::task::Task task{
+        .key = this->rack.key,
+        .name = "EtherCAT Scanner",
+        .type = SCAN_TASK_TYPE,
+        .internal = true
+    };
     const ScanTaskConfig cfg;
     const Scanner scanner(ctx, task, cfg, nullptr);
     EXPECT_EQ(scanner.config().make, INTEGRATION_NAME);
@@ -142,8 +146,12 @@ TEST_F(EtherCATScanTest, TestInterfaceCommandSuccess) {
     manager->configure("eth0", mock_master);
     auto pool = std::make_shared<engine::Pool>(std::move(manager));
 
-    synnax::task::Task
-        task(this->rack.key, "EtherCAT Scanner", SCAN_TASK_TYPE, "", true);
+    synnax::task::Task task{
+        .key = this->rack.key,
+        .name = "EtherCAT Scanner",
+        .type = SCAN_TASK_TYPE,
+        .internal = true
+    };
     ScanTaskConfig cfg;
     Scanner scanner(this->ctx, task, cfg, pool);
 
@@ -193,8 +201,12 @@ TEST_F(EtherCATScanTest, TestInterfaceCommandWithMultipleSlaves) {
     manager->configure("enp3s0", mock_master);
     auto pool = std::make_shared<engine::Pool>(std::move(manager));
 
-    synnax::task::Task
-        task(this->rack.key, "EtherCAT Scanner", SCAN_TASK_TYPE, "", true);
+    synnax::task::Task task{
+        .key = this->rack.key,
+        .name = "EtherCAT Scanner",
+        .type = SCAN_TASK_TYPE,
+        .internal = true
+    };
     ScanTaskConfig cfg;
     Scanner scanner(this->ctx, task, cfg, pool);
 
@@ -220,8 +232,12 @@ TEST_F(EtherCATScanTest, TestInterfaceCommandInitError) {
     manager->configure("eth0", mock_master);
     auto pool = std::make_shared<engine::Pool>(std::move(manager));
 
-    synnax::task::Task
-        task(this->rack.key, "EtherCAT Scanner", SCAN_TASK_TYPE, "", true);
+    synnax::task::Task task{
+        .key = this->rack.key,
+        .name = "EtherCAT Scanner",
+        .type = SCAN_TASK_TYPE,
+        .internal = true
+    };
     ScanTaskConfig cfg;
     Scanner scanner(this->ctx, task, cfg, pool);
 

@@ -108,11 +108,11 @@ protected:
 
         synnax::device::Device dev{
             .key = "abc123",
+            .name = "my_device",
             .rack = rack.key,
             .location = "dev1",
             .make = "ni",
             .model = "PXI-6255",
-            .name = "my_device",
             .properties = x::json::json::object({{"connection", conn_cfg.to_json()}}),
         };
         ASSERT_NIL(client->devices.create(dev));
@@ -460,11 +460,11 @@ TEST_F(TestWriteTask, testInvalidNodeIdErrorContainsChannelInfo) {
 
     synnax::device::Device dev{
         .key = "invalid_node_dev",
+        .name = "invalid_node_device",
         .rack = rack.key,
         .location = "dev_invalid",
         .make = "ni",
         .model = "PXI-6255",
-        .name = "invalid_node_device",
         .properties = x::json::json::object({{"connection", conn_cfg.to_json()}}),
     };
     ASSERT_NIL(client->devices.create(dev));
