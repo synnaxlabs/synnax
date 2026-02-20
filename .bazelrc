@@ -6,6 +6,9 @@ common --enable_bzlmod=true --enable_workspace=false --noincompatible_disallow_c
 # Enable platform-specific configs
 build --enable_platform_specific_config
 
+# Use OpenSSl instead of BoringSSL for grpc
+build --@grpc//third_party:grpc_use_openssl=true
+
 # These hide symbols from the linker in order to prevent symbols collisions with
 # libraries we load dynamically at runtime (LabJack is the primary source of this issue,
 # as it relies an incompatible, legacy GRPC version).
@@ -39,6 +42,9 @@ build:linux --copt=-Wno-error=sequence-point
 build:windows --enable_runfiles
 build:windows --cxxopt=/std:c++latest
 build:windows --host_cxxopt=/std:c++latest
+# OpenSSL's crypto.lib references user32.lib functions (GetProcessWindowStation,
+# GetUserObjectInformationW, MessageBoxW) that must be linked explicitly on Windows.
+build:windows --linkopt=user32.lib
 build:windows --copt=/Zc:preprocessor      # Enable C++20 conformant preprocessor (for __VA_OPT__)
 build:windows --copt=/W3     # Use warning level 3 instead of -Wall (which is /W4 + extras on MSVC)
 build:windows --cxxopt=/W3   # Same for C++
@@ -90,6 +96,11 @@ build:windows --per_file_copt=vendor/.*@/WX-,/w
 
 # Allow protobuf deprecation warnings without treating them as errors
 build:windows --copt=/wd4996  # disables warning C4996 (deprecated declarations) for MSVC
+
+# Static CRT linking — eliminates dependency on VC++ Redistributable DLLs
+# (MSVCP140.dll, VCRUNTIME140.dll) which cause 0xc0000005 crashes when outdated
+build:windows --copt=/MT
+build:windows --cxxopt=/MT
 
 # ===== Warning Suppression for External Dependencies =====
 

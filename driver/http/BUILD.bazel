@@ -1,0 +1,15 @@
+load("@rules_cc//cc:cc_library.bzl", "cc_library")
+
+cc_library(
+    name = "http",
+    srcs = [
+        "factory.cpp",
+        "http.h",
+    ],
+    visibility = ["//visibility:public"],
+    deps = [
+        "//driver/errors",
+        "//driver/http/device",
+        "//driver/task",
+    ],
+)
