@@ -40,7 +40,6 @@ protected:
             .key = synnax::task::create_key(rack.key, 0),
             .name = "OPC UA Scan Task Test",
             .type = "opc_scan",
-            .config = x::json::json{}
         };
 
         auto server_cfg = mock::ServerConfig::create_default();

@@ -29,37 +29,34 @@ TEST(MergeDeviceProperties, ScannedOverridesRemote) {
 
 TEST(MergeDeviceProperties, EmptyRemote) {
     const x::json::json scanned = {{"key1", "value1"}};
-    const auto result = merge_device_properties(x::json::json{}, scanned);
+    const auto result = merge_device_properties(x::json::json::object(), scanned);
     EXPECT_EQ(result["key1"], "value1");
 }
 
 TEST(MergeDeviceProperties, EmptyScanned) {
     const x::json::json remote = {{"key1", "value1"}};
-    const auto result = merge_device_properties(remote, x::json::json{});
+    const auto result = merge_device_properties(remote, x::json::json::object());
     EXPECT_EQ(result["key1"], "value1");
 }
 
 TEST(MergeDeviceProperties, BothEmpty) {
-    const auto result = merge_device_properties(x::json::json{}, x::json::json{});
+    const auto result = merge_device_properties(
+        x::json::json::object(),
+        x::json::json::object()
+    );
     EXPECT_TRUE(result.is_object());
     EXPECT_TRUE(result.empty());
 }
 
-TEST(MergeDeviceProperties, InvalidRemoteJsonContinues) {
+TEST(MergeDeviceProperties, NullRemoteUsesScanned) {
     const x::json::json scanned = {{"key1", "value1"}};
-    const auto result = merge_device_properties(
-        x::json::json("not valid json"),
-        scanned
-    );
+    const auto result = merge_device_properties(x::json::json(), scanned);
     EXPECT_EQ(result["key1"], "value1");
 }
 
-TEST(MergeDeviceProperties, InvalidScannedJsonPreservesRemote) {
+TEST(MergeDeviceProperties, NullScannedPreservesRemote) {
     const x::json::json remote = {{"key1", "value1"}};
-    const auto result = merge_device_properties(
-        remote,
-        x::json::json("not valid json")
-    );
+    const auto result = merge_device_properties(remote, x::json::json());
     EXPECT_EQ(result["key1"], "value1");
 }
 
@@ -340,13 +337,13 @@ TEST(TestScanTask, TestRecreateWhenRackChanges) {
     synnax::device::Device dev1_moved = dev1;
     dev1_moved.rack = 2;
     dev1_moved.name = "cat";
-    dev1_moved.properties = x::json::json{};
+    dev1_moved.properties = x::json::json::object();
     dev1_moved.configured = false;
 
     synnax::device::Device dev1_moved_2 = dev1;
     dev1_moved_2.rack = 3;
     dev1_moved_2.name = "dog";
-    dev1_moved_2.properties = x::json::json{};
+    dev1_moved_2.properties = x::json::json::object();
     dev1_moved_2.configured = false;
 
     std::vector<std::vector<synnax::device::Device>> devices = {

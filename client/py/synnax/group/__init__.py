@@ -16,3 +16,5 @@ __all__ = [
     "ONTOLOGY_TYPE",
     "ontology_id",
 ]
+
+__all__ = ["Client", "Group"]

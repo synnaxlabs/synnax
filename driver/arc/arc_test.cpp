@@ -191,7 +191,6 @@ TEST(ArcTests, testCalcDoubling) {
         .key = synnax::task::create_key(rack.key, 0),
         .name = "arc_calc_test",
         .type = "arc_runtime",
-        .config = x::json::json{}
     };
     nlohmann::json cfg{{"arc_key", arc_prog.key.to_string()}};
     task_meta.config = cfg;
@@ -300,7 +299,6 @@ TEST(ArcTests, testBasicSequence) {
         .key = synnax::task::create_key(rack.key, 0),
         .name = "arc_sequence_test",
         .type = "arc_runtime",
-        .config = x::json::json{}
     };
     nlohmann::json cfg{{"arc_key", arc_prog.key.to_string()}};
     task_meta.config = cfg;
@@ -421,7 +419,6 @@ TEST(ArcTests, testOneShotTruthiness) {
         .key = synnax::task::create_key(rack.key, 0),
         .name = "arc_truthiness_test",
         .type = "arc_runtime",
-        .config = x::json::json{}
     };
     nlohmann::json cfg{{"arc_key", arc_prog.key.to_string()}};
     task_meta.config = cfg;
@@ -597,7 +594,6 @@ TEST(ArcTests, testTwoStageSequenceWithTransition) {
         .key = synnax::task::create_key(rack.key, 0),
         .name = "arc_two_stage_test",
         .type = "arc_runtime",
-        .config = x::json::json{}
     };
     nlohmann::json cfg{{"arc_key", arc_prog.key.to_string()}};
     task_meta.config = cfg;
@@ -774,7 +770,6 @@ TEST(ArcErrorHandling, WasmTrapTriggersFatalError) {
         .key = synnax::task::create_key(rack.key, 0),
         .name = "arc_trap_test",
         .type = "arc_runtime",
-        .config = x::json::json{}
     };
     nlohmann::json cfg{{"arc_key", arc_prog.key.to_string()}};
     task_meta.config = cfg;
@@ -877,7 +872,6 @@ TEST(ArcErrorHandling, RestartAfterWasmTrap) {
         .key = synnax::task::create_key(rack.key, 0),
         .name = "arc_restart_trap_test",
         .type = "arc_runtime",
-        .config = x::json::json{}
     };
     nlohmann::json cfg{{"arc_key", arc_prog.key.to_string()}};
     task_meta.config = cfg;
@@ -1007,7 +1001,6 @@ TEST(ArcErrorHandling, MultipleErrorRecoveryCycles) {
         .key = synnax::task::create_key(rack.key, 0),
         .name = "arc_multi_cycle_test",
         .type = "arc_runtime",
-        .config = x::json::json{}
     };
     nlohmann::json cfg{{"arc_key", arc_prog.key.to_string()}};
     task_meta.config = cfg;
@@ -1117,7 +1110,6 @@ TEST(ArcStatusVerification, StartStatusHasCorrectVariantAndRunning) {
         .key = synnax::task::create_key(rack.key, 0),
         .name = "arc_status_verify_test",
         .type = "arc_runtime",
-        .config = x::json::json{}
     };
     nlohmann::json cfg{{"arc_key", arc_prog.key.to_string()}};
     task_meta.config = cfg;
@@ -1231,7 +1223,6 @@ TEST(ArcEdgeCases, RapidStartStop) {
         .key = synnax::task::create_key(rack.key, 0),
         .name = "arc_rapid_test",
         .type = "arc_runtime",
-        .config = x::json::json{}
     };
     nlohmann::json cfg{{"arc_key", arc_prog.key.to_string()}};
     task_meta.config = cfg;
@@ -1324,7 +1315,6 @@ TEST(ArcEdgeCases, StopWithoutStart) {
         .key = synnax::task::create_key(rack.key, 0),
         .name = "arc_nostart_test",
         .type = "arc_runtime",
-        .config = x::json::json{}
     };
     nlohmann::json cfg{{"arc_key", arc_prog.key.to_string()}};
     task_meta.config = cfg;
@@ -1432,7 +1422,6 @@ TEST(ArcTests, testChannelConfigParam) {
         .key = synnax::task::create_key(rack.key, 0),
         .name = "arc_cfg_ch_test",
         .type = "arc_runtime",
-        .config = x::json::json{}
     };
     nlohmann::json cfg{{"arc_key", arc_prog.key.to_string()}};
     task_meta.config = cfg;
@@ -1587,7 +1576,6 @@ TEST(ArcTests, testChannelConfigParamReadWrite) {
         .key = synnax::task::create_key(rack.key, 0),
         .name = "arc_crw_test",
         .type = "arc_runtime",
-        .config = x::json::json{}
     };
     nlohmann::json cfg{{"arc_key", arc_prog.key.to_string()}};
     task_meta.config = cfg;
@@ -1708,7 +1696,6 @@ TEST(ArcEdgeCases, DoubleStart) {
         .key = synnax::task::create_key(rack.key, 0),
         .name = "arc_double_start_test",
         .type = "arc_runtime",
-        .config = x::json::json{}
     };
     nlohmann::json cfg{{"arc_key", arc_prog.key.to_string()}};
     task_meta.config = cfg;
@@ -1807,7 +1794,6 @@ TEST(ArcTests, testRestartResetsState) {
         .key = synnax::task::create_key(rack.key, 0),
         .name = "arc_restart_test",
         .type = "arc_runtime",
-        .config = x::json::json{}
     };
     nlohmann::json cfg{{"arc_key", arc_prog.key.to_string()}};
     task_meta.config = cfg;

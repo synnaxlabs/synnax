@@ -161,7 +161,7 @@ synnax::device::Device Scanner::create_slave_device(
     dev.model = SLAVE_DEVICE_MODEL;
     dev.location = master_key + ".Slot " + std::to_string(props.position);
     dev.rack = rack_key;
-    dev.properties = json_props.dump();
+    dev.properties = json_props;
     dev.status = synnax::device::Status{
         .key = synnax::device::status_key(dev),
         .name = dev.name,
