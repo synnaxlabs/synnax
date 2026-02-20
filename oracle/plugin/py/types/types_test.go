@@ -1016,6 +1016,33 @@ var _ = Describe("Python Types Plugin", func() {
 			})
 		})
 
+		Context("generic alias with nil type argument", func() {
+			It("Should generate TypeAlias with None for nil type arg", func() {
+				loader.Add("schemas/status", `
+@py output "client/py/synnax/status"
+
+Status struct<Details?> {
+    variant string
+    message string
+    details Details??
+}
+`)
+
+				source := `
+import "schemas/status"
+
+@py output "client/py/synnax/channel"
+
+ChannelStatus = status.Status<nil>
+`
+				resp := MustGenerate(ctx, source, "channel", loader, typesPlugin)
+				ExpectContent(resp, "channel/types_gen.py").
+					ToContain(
+						`ChannelStatus: TypeAlias = status.Status[None]`,
+					)
+			})
+		})
+
 		Context("fixed-size arrays", func() {
 			It("Should generate Tuple type for fixed-size arrays", func() {
 				source := `

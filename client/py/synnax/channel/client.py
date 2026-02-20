@@ -68,7 +68,7 @@ class Channel(Payload):
         operations: list[Operation] | None = None,
         alias: str | None = None,
         concurrency: control.Concurrency | None = None,
-        status: Status                                                                                                              | None = None,
+        status: Status | None = None,
         _frame_client: framer.Client | None = None,
         _client: Client | None = None,
     ) -> None:

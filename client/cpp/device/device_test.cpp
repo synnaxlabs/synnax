@@ -184,8 +184,8 @@ TEST(DeviceTests, testDeviceConfigured) {
         .make = "make_1",
         .model = "model_1",
         .name = "device_1",
+        .configured = false,
         .properties = {{"key", "properties_1"}},
-        .configured = false
     };
     ASSERT_NIL(client.devices.create(d1));
 
@@ -196,8 +196,8 @@ TEST(DeviceTests, testDeviceConfigured) {
         .make = "make_2",
         .model = "model_2",
         .name = "device_2",
+        .configured = true,
         .properties = {{"key", "properties_2"}},
-        .configured = true
     };
     ASSERT_NIL(client.devices.create(d2));
 
@@ -402,16 +402,16 @@ TEST(DeviceTests, testCreateDeviceWithStatus) {
     const auto rand = std::to_string(gen_rand_device());
     auto d = Device{
         .key = "status_dev_" + rand,
-        .name = "device_with_status",
         .rack = r.key,
         .location = "location",
         .make = "make",
         .model = "model",
+        .name = "device_with_status",
         .properties = {{"key", "properties"}}
     };
     d.status = device::Status{
-        .variant = x::status::VARIANT_SUCCESS,
         .name = "Device status",
+        .variant = x::status::VARIANT_SUCCESS,
         .message = "Device is connected",
         .time = x::telem::TimeStamp::now(),
         .details = device::StatusDetails{.rack = r.key, .device = d.key}

@@ -43,7 +43,7 @@ class Concurrency(IntEnum):
 
 Name: TypeAlias = str
 
-Status: TypeAlias = status_.Status
+Status: TypeAlias = status_.Status[None]
 
 
 class Operation(BaseModel):
