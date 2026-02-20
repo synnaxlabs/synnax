@@ -49,15 +49,15 @@ protected:
         auto conn_cfg = device::ConnectionConfig{"127.0.0.1", 1502};
         x::json::json properties{{"connection", conn_cfg.to_json()}};
 
-        device = synnax::device::Device(
-            "modbus_test_device",
-            "modbus_test_device",
-            rack.key,
-            "dev1",
-            "modbus",
-            "Modbus Device",
-            nlohmann::to_string(properties)
-        );
+        device = synnax::device::Device{
+            .key = "modbus_test_device",
+            .name = "modbus_test_device",
+            .rack = rack.key,
+            .location = "dev1",
+            .make = "modbus",
+            .model = "Modbus Device",
+            .properties = properties.get<x::json::json::object_t>(),
+        };
         ASSERT_NIL(client->devices.create(device));
 
         ctx = std::make_shared<task::MockContext>(client);
@@ -221,15 +221,15 @@ TEST(ReadTask, testBasicReadTask) {
 
     auto conn_cfg = device::ConnectionConfig{"127.0.0.1", 1502};
     x::json::json properties{{"connection", conn_cfg.to_json()}};
-    synnax::device::Device dev(
-        "my_modbus_lover",
-        "my_mobdus_lover",
-        rack.key,
-        "dev1",
-        "modbus",
-        "Modbus Device",
-        nlohmann::to_string(properties)
-    );
+    synnax::device::Device dev{
+        .key = "my_modbus_lover",
+        .name = "my_mobdus_lover",
+        .rack = rack.key,
+        .location = "dev1",
+        .make = "modbus",
+        .model = "Modbus Device",
+        .properties = properties.get<x::json::json::object_t>(),
+    };
 
     ASSERT_NIL(client->devices.create(dev));
 

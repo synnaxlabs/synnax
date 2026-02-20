@@ -139,7 +139,7 @@ void Device::to_proto(api::v1::Device *device) const {
     device->set_location(location);
     device->set_make(make);
     device->set_model(model);
-    if (!properties.is_null() && !properties.empty())
+    if (!properties.empty())
         x::json::to_struct(properties, device->mutable_properties());
     device->set_configured(configured);
     if (!status.is_zero()) status.to_proto(device->mutable_status());

@@ -389,14 +389,14 @@ TEST(TestScanTask, TestRecreateWhenRackChanges) {
     EXPECT_EQ(created_devices->size(), 1);
     EXPECT_EQ(created_devices->at(0).key, "device1");
     EXPECT_EQ(created_devices->at(0).rack, 2);
-    EXPECT_EQ(created_devices->at(0).properties, user_props);
+    EXPECT_EQ(x::json::json(created_devices->at(0).properties), user_props);
     EXPECT_TRUE(created_devices->at(0).configured);
 
     ASSERT_NIL(scan_task.scan());
     EXPECT_EQ(created_devices->size(), 1);
     EXPECT_EQ(created_devices->at(0).key, "device1");
     EXPECT_EQ(created_devices->at(0).rack, 2);
-    EXPECT_EQ(created_devices->at(0).properties, user_props);
+    EXPECT_EQ(x::json::json(created_devices->at(0).properties), user_props);
     EXPECT_TRUE(created_devices->at(0).configured);
 }
 
@@ -459,7 +459,7 @@ TEST(TestScanTask, TestUpdateWhenLocationChanges) {
     EXPECT_EQ(created_devices->at(0).key, "device1");
     EXPECT_EQ(created_devices->at(0).location, "new_location");
     EXPECT_EQ(created_devices->at(0).name, "Device 1");
-    EXPECT_EQ(created_devices->at(0).properties, user_props);
+    EXPECT_EQ(x::json::json(created_devices->at(0).properties), user_props);
     EXPECT_TRUE(created_devices->at(0).configured);
 }
 
@@ -688,7 +688,7 @@ TEST(TestScanTask, TestDeduplicateOnUpdate) {
     EXPECT_EQ(created_devices->at(0).key, "device1");
     EXPECT_EQ(created_devices->at(0).location, "final_slot");
     EXPECT_EQ(created_devices->at(0).name, "Device 1");
-    EXPECT_EQ(created_devices->at(0).properties, user_props);
+    EXPECT_EQ(x::json::json(created_devices->at(0).properties), user_props);
     EXPECT_TRUE(created_devices->at(0).configured);
 }
 

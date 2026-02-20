@@ -25,7 +25,7 @@ TEST(TaskTests, testCreateTask) {
         .key = create_key(r.key, 0),
         .name = "test_module",
         .type = "mock",
-        .config = "config",
+
         .snapshot = true
     };
     ASSERT_NIL(r.tasks.create(m));
@@ -43,7 +43,7 @@ TEST(TaskTests, testRetrieveTask) {
         .key = create_key(r.key, 0),
         .name = "test_module",
         .type = "mock",
-        .config = "config",
+
         .snapshot = true
     };
     ASSERT_NIL(r.tasks.create(t));
@@ -64,7 +64,7 @@ TEST(TaskTests, testRetrieveTaskByName) {
         .key = create_key(r.key, 0),
         .name = rand_name,
         .type = "mock",
-        .config = "config"
+
     };
     ASSERT_NIL(r.tasks.create(t));
     const auto t2 = ASSERT_NIL_P(r.tasks.retrieve(rand_name));
@@ -82,7 +82,7 @@ TEST(TaskTests, testRetrieveTaskByType) {
         .key = create_key(r.key, 0),
         .name = "test_module",
         .type = rand_type,
-        .config = "config"
+
     };
     ASSERT_NIL(r.tasks.create(t));
     const auto t2 = ASSERT_NIL_P(r.tasks.retrieve_by_type(rand_type));
@@ -99,7 +99,7 @@ TEST(TaskTests, testListTasks) {
         .key = create_key(r.key, 0),
         .name = "test_module",
         .type = "mock",
-        .config = "config"
+
     };
     ASSERT_NIL(r.tasks.create(m));
     const auto tasks = ASSERT_NIL_P(r.tasks.list());
@@ -118,7 +118,7 @@ TEST(TaskTests, testDeleteTask) {
         .key = create_key(r.key, 0),
         .name = "test_module",
         .type = "mock",
-        .config = "config"
+
     };
     ASSERT_NIL(r.tasks.create(t));
     ASSERT_NIL(r.tasks.del(t.key));
@@ -162,7 +162,7 @@ TEST(TaskTests, testCreateTaskWithStatus) {
         .key = create_key(r.key, 0),
         .name = "test_task_with_status",
         .type = "mock",
-        .config = "config"
+
     };
     t.status.key = "task-status-key";
     t.status.variant = x::status::VARIANT_SUCCESS;
@@ -191,7 +191,7 @@ TEST(TaskTests, testRetrieveTaskWithStatusByName) {
         .key = create_key(r.key, 0),
         .name = rand_name,
         .type = "mock",
-        .config = "config"
+
     };
     t.status.key = "task-status-by-name";
     t.status.variant = x::status::VARIANT_WARNING;
@@ -214,7 +214,7 @@ TEST(TaskTests, testListTasksWithStatus) {
         .key = create_key(r.key, 0),
         .name = "test_task_list_status",
         .type = "mock",
-        .config = "config"
+
     };
     t.status.key = "task-list-status";
     t.status.variant = x::status::VARIANT_INFO;
@@ -238,13 +238,11 @@ TEST(TaskTests, testRetrieveTasksByNames) {
         .key = create_key(r.key, 0),
         .name = rand1,
         .type = "mock",
-        .config = "config1"
     };
     auto t2 = Task{
         .key = create_key(r.key, 0),
         .name = rand2,
         .type = "mock",
-        .config = "config2"
     };
     ASSERT_NIL(r.tasks.create(t1));
     ASSERT_NIL(r.tasks.create(t2));
@@ -270,13 +268,11 @@ TEST(TaskTests, testRetrieveTasksByTypes) {
         .key = create_key(r.key, 0),
         .name = "task_by_type_1",
         .type = type1,
-        .config = "config1"
     };
     auto t2 = Task{
         .key = create_key(r.key, 0),
         .name = "task_by_type_2",
         .type = type2,
-        .config = "config2"
     };
     ASSERT_NIL(r.tasks.create(t1));
     ASSERT_NIL(r.tasks.create(t2));

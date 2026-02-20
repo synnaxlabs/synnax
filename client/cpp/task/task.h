@@ -140,7 +140,7 @@ struct Task {
     /// @brief The type of the task, which determines its behavior.
     std::string type;
     /// @brief Configuration data for the task as a JSON object.
-    x::json::json config;
+    x::json::json::object_t config = x::json::json::object();
     /// @brief Whether the task is internal to the system.
     bool internal = false;
     /// @brief Whether the task is a snapshot.

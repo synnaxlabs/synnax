@@ -36,8 +36,7 @@ void Task::to_proto(api::v1::Task *task) const {
     task->set_key(key);
     task->set_name(name);
     task->set_type(type);
-    if (!config.is_null() && !config.empty())
-        x::json::to_struct(config, task->mutable_config());
+    if (!config.empty()) x::json::to_struct(config, task->mutable_config());
     task->set_internal(internal);
     task->set_snapshot(snapshot);
     if (!status.is_zero()) status.to_proto(task->mutable_status());

@@ -104,7 +104,7 @@ struct Device {
     /// @brief The model of the device.
     std::string model;
     /// @brief Additional properties of the device.
-    x::json::json properties;
+    x::json::json::object_t properties;
     /// @brief whether the device has been configured.
     bool configured = false;
     /// @brief Status information about the device.

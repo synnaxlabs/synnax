@@ -82,15 +82,14 @@ class Scanner final : public common::Scanner {
             auto name = device_type_str + "-" + last_four;
 
             auto rack = synnax::task::rack_key_from_task_key(this->task.key);
-            auto sy_dev = synnax::device::Device(
-                serial_str,
-                name,
-                rack,
-                conn_type_str,
-                MAKE,
-                device_type_str,
-                "" // Properties will be set in Device constructor
-            );
+            auto sy_dev = synnax::device::Device{
+                .key = serial_str,
+                .name = name,
+                .rack = rack,
+                .location = conn_type_str,
+                .make = MAKE,
+                .model = device_type_str,
+            };
             sy_dev.status = synnax::device::Status{
                 .key = sy_dev.status_key(),
                 .name = name,

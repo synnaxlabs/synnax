@@ -522,7 +522,7 @@ TEST_F(TaskManagerTest, RapidReconfigure) {
     });
 
     for (int i = 0; i < 5; i++) {
-        task.config = "{\"v\":" + std::to_string(i) + "}";
+        task.config = {{"v", std::to_string(i)}};
         ASSERT_NIL(rack.tasks.create(task));
     }
     std::this_thread::sleep_for((500 * x::telem::MILLISECOND).chrono());
@@ -639,7 +639,7 @@ TEST_F(TaskManagerTest, ReconfigureStopsOld) {
         [] { return "first not created"; }
     );
 
-    task.config = "{\"v\":2}";
+    task.config = {{"v", 2}};
     ASSERT_NIL(rack.tasks.create(task));
 
     EVENTUALLY(
@@ -726,7 +726,7 @@ TEST_F(TaskManagerTest, ReconfigureCallsDestructor) {
     ASSERT_EQ(f->configure_count.load(), 1);
     ASSERT_FALSE(f->first_destroyed.load());
 
-    task.config = "{\"v\":2}";
+    task.config = {{"v", 2}};
     ASSERT_NIL(rack.tasks.create(task));
 
     EVENTUALLY(

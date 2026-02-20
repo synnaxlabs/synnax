@@ -181,8 +181,7 @@ nlohmann::json Scanner::get_existing_properties(
     if (scan_ctx.devices == nullptr) return nlohmann::json::object();
     const auto it = scan_ctx.devices->find(key);
     if (it == scan_ctx.devices->end()) return nlohmann::json::object();
-    if (!it->second.properties.is_object() || it->second.properties.empty())
-        return nlohmann::json::object();
+    if (it->second.properties.empty()) return nlohmann::json::object();
     return it->second.properties;
 }
 

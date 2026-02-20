@@ -115,17 +115,15 @@ protected:
         conn_cfg.security_mode = "None";
         conn_cfg.security_policy = "None";
 
-        synnax::device::Device dev(
-            "opc_read_task_test_server_key",
-            "OPC UA Read Task Test Server",
-            rack.key,
-            "opc.tcp://localhost:4840",
-            "opc",
-            "OPC UA Server",
-            nlohmann::to_string(
-                x::json::json::object({{"connection", conn_cfg.to_json()}})
-            )
-        );
+        synnax::device::Device dev{
+            .key = "opc_read_task_test_server_key",
+            .name = "OPC UA Read Task Test Server",
+            .rack = rack.key,
+            .location = "opc.tcp://localhost:4840",
+            .make = "opc",
+            .model = "OPC UA Server",
+            .properties = x::json::json::object({{"connection", conn_cfg.to_json()}}),
+        };
         ASSERT_NIL(client->devices.create(dev));
 
         // Use the comprehensive default server configuration
@@ -853,17 +851,17 @@ TEST_F(TestReadTask, testSkipSampleWithInvalidBooleanData) {
     invalid_conn_cfg.security_mode = "None";
     invalid_conn_cfg.security_policy = "None";
 
-    synnax::device::Device invalid_dev(
-        "opc_invalid_test_server",
-        "OPC UA Invalid Data Test Server",
-        invalid_rack.key,
-        "opc.tcp://localhost:4841",
-        "opc",
-        "OPC UA Server",
-        nlohmann::to_string(
-            x::json::json::object({{"connection", invalid_conn_cfg.to_json()}})
-        )
-    );
+    synnax::device::Device invalid_dev{
+        .key = "opc_invalid_test_server",
+        .name = "OPC UA Invalid Data Test Server",
+        .rack = invalid_rack.key,
+        .location = "opc.tcp://localhost:4841",
+        .make = "opc",
+        .model = "OPC UA Server",
+        .properties = x::json::json::object(
+            {{"connection", invalid_conn_cfg.to_json()}}
+        ),
+    };
     ASSERT_NIL(ctx->client->devices.create(invalid_dev));
 
     // Create a task that reads from the invalid boolean node
@@ -935,17 +933,17 @@ TEST_F(TestReadTask, testSkipSampleWithInvalidFloatData) {
     invalid_conn_cfg.security_mode = "None";
     invalid_conn_cfg.security_policy = "None";
 
-    synnax::device::Device invalid_dev(
-        "opc_invalid_float_server",
-        "OPC UA Invalid Float Server",
-        invalid_rack.key,
-        "opc.tcp://localhost:4842",
-        "opc",
-        "OPC UA Server",
-        nlohmann::to_string(
-            x::json::json::object({{"connection", invalid_conn_cfg.to_json()}})
-        )
-    );
+    synnax::device::Device invalid_dev{
+        .key = "opc_invalid_float_server",
+        .name = "OPC UA Invalid Float Server",
+        .rack = invalid_rack.key,
+        .location = "opc.tcp://localhost:4842",
+        .make = "opc",
+        .model = "OPC UA Server",
+        .properties = x::json::json::object(
+            {{"connection", invalid_conn_cfg.to_json()}}
+        ),
+    };
     ASSERT_NIL(ctx->client->devices.create(invalid_dev));
 
     x::json::json invalid_float_cfg{
@@ -1016,17 +1014,17 @@ TEST_F(TestReadTask, testFrameClearWithInvalidDoubleArrayData) {
     invalid_conn_cfg.security_mode = "None";
     invalid_conn_cfg.security_policy = "None";
 
-    synnax::device::Device invalid_dev(
-        "opc_invalid_double_server",
-        "OPC UA Invalid Double Server",
-        invalid_rack.key,
-        "opc.tcp://localhost:4843",
-        "opc",
-        "OPC UA Server",
-        nlohmann::to_string(
-            x::json::json::object({{"connection", invalid_conn_cfg.to_json()}})
-        )
-    );
+    synnax::device::Device invalid_dev{
+        .key = "opc_invalid_double_server",
+        .name = "OPC UA Invalid Double Server",
+        .rack = invalid_rack.key,
+        .location = "opc.tcp://localhost:4843",
+        .make = "opc",
+        .model = "OPC UA Server",
+        .properties = x::json::json::object(
+            {{"connection", invalid_conn_cfg.to_json()}}
+        ),
+    };
     ASSERT_NIL(ctx->client->devices.create(invalid_dev));
 
     x::json::json invalid_double_cfg{
@@ -1093,15 +1091,15 @@ TEST(OPCReadTaskConfig, testOPCDriverSetsAutoCommitTrue) {
     conn_cfg.security_mode = "None";
     conn_cfg.security_policy = "None";
 
-    synnax::device::Device dev(
-        "opc_test_device_key",
-        "OPC UA Test Device",
-        rack.key,
-        "opc.tcp://localhost:4840",
-        "opc",
-        "OPC UA Server",
-        nlohmann::to_string(x::json::json::object({{"connection", conn_cfg.to_json()}}))
-    );
+    synnax::device::Device dev{
+        .key = "opc_test_device_key",
+        .name = "OPC UA Test Device",
+        .rack = rack.key,
+        .location = "opc.tcp://localhost:4840",
+        .make = "opc",
+        .model = "OPC UA Server",
+        .properties = x::json::json::object({{"connection", conn_cfg.to_json()}}),
+    };
     ASSERT_NIL(client->devices.create(dev));
 
     // Create index and data channels

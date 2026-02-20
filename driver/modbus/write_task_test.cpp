@@ -55,15 +55,15 @@ protected:
               {"swap_words", false}}}
         };
 
-        synnax::device::Device dev(
-            "modbus_test_dev",
-            "modbus_test_dev",
-            rack.key,
-            "dev1",
-            "modbus",
-            "Modbus Device",
-            nlohmann::to_string(properties)
-        );
+        synnax::device::Device dev{
+            .key = "modbus_test_dev",
+            .name = "modbus_test_dev",
+            .rack = rack.key,
+            .location = "dev1",
+            .make = "modbus",
+            .model = "Modbus Device",
+            .properties = properties.get<x::json::json::object_t>(),
+        };
         ASSERT_NIL(client->devices.create(dev));
 
         task = synnax::task::Task{

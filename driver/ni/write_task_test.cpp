@@ -72,8 +72,14 @@ protected:
 
         const auto rack = ASSERT_NIL_P(client->racks.create("cat"));
 
-        synnax::device::Device
-            dev("abc123", "my_device", rack.key, "dev1", "ni", "PXI-6255", "");
+        auto dev = synnax::device::Device{
+            .key = "abc123",
+            .name = "my_device",
+            .rack = rack.key,
+            .location = "dev1",
+            .make = "ni",
+            .model = "PXI-6255",
+        };
         ASSERT_NIL(client->devices.create(dev));
 
         task = synnax::task::Task{
@@ -204,15 +210,14 @@ TEST(WriteTaskConfigTest, testInvalidChannelType) {
     auto rack = ASSERT_NIL_P(client->racks.create("test_rack"));
 
     // Create a device
-    auto dev = synnax::device::Device(
-        "abc123",
-        "test_device",
-        rack.key,
-        "dev1",
-        "ni",
-        "PXI-6255",
-        ""
-    );
+    auto dev = synnax::device::Device{
+        .key = "abc123",
+        .name = "test_device",
+        .rack = rack.key,
+        .location = "dev1",
+        .make = "ni",
+        .model = "PXI-6255",
+    };
     ASSERT_NIL(client->devices.create(dev));
 
     // Create state and command channels
