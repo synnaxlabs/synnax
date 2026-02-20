@@ -90,9 +90,13 @@ const shouldResize = (
   return false;
 };
 
+export interface UseWindowResizeOptions {
+  enabled?: boolean;
+}
+
 export const useWindowResize = (
   onResize: UseResizeHandler,
-  opts: { enabled?: boolean } = {},
+  opts: UseWindowResizeOptions = {},
 ) => {
   const { enabled = true } = opts;
   const onResizeRef = useSyncedRef(onResize);

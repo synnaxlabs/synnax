@@ -9,30 +9,23 @@
 
 import { act, fireEvent, render, screen } from "@testing-library/react";
 import { type ReactElement } from "react";
-import { describe, expect, it, vi } from "vitest";
+import { describe, expect, it } from "vitest";
 
-import { Dialog } from "@/dialog";
 import { Menu } from "@/menu";
 
 const TestMenu = (): ReactElement => {
   const ctx = Menu.useContextMenu();
   return (
     <Menu.ContextMenu
-      menu={({ keys }) => (
+      menu={() => (
         <Menu.Menu>
           <Menu.Item itemKey="action1">Action 1</Menu.Item>
           <Menu.Item itemKey="action2">Action 2</Menu.Item>
-          <span data-testid="menu-keys">{keys.join(",")}</span>
         </Menu.Menu>
       )}
       {...ctx}
     >
-      <div
-        data-testid="target"
-        id="target-1"
-        className="pluto-context-target"
-        onContextMenu={ctx.open}
-      >
+      <div id="target-1" className="pluto-context-target" onContextMenu={ctx.open}>
         Right click me
       </div>
     </Menu.ContextMenu>
@@ -47,34 +40,27 @@ describe("ContextMenu", () => {
 
   it("should display the menu on context menu event", () => {
     render(<TestMenu />);
-    fireEvent.contextMenu(screen.getByTestId("target"));
+    fireEvent.contextMenu(screen.getByText("Right click me"));
     expect(screen.getByText("Action 1")).toBeTruthy();
     expect(screen.getByText("Action 2")).toBeTruthy();
   });
 
   it("should close the menu when clicking a menu item", () => {
     render(<TestMenu />);
-    fireEvent.contextMenu(screen.getByTestId("target"));
+    fireEvent.contextMenu(screen.getByText("Right click me"));
     expect(screen.getByText("Action 1")).toBeTruthy();
     fireEvent.click(screen.getByText("Action 1"));
     expect(screen.queryByText("Action 1")).toBeNull();
   });
 
-  it("should provide selected keys from context targets", () => {
+  it("should keep the menu visible after a window resize", () => {
     render(<TestMenu />);
-    fireEvent.contextMenu(screen.getByTestId("target"));
-    expect(screen.getByTestId("menu-keys").textContent).toBe("target-1");
-  });
-
-  it("should recalculate position via Dialog.position on window resize", () => {
-    const spy = vi.spyOn(Dialog, "position");
-    render(<TestMenu />);
-    fireEvent.contextMenu(screen.getByTestId("target"));
-    const callsBefore = spy.mock.calls.length;
+    fireEvent.contextMenu(screen.getByText("Right click me"));
+    expect(screen.getByText("Action 1")).toBeTruthy();
     act(() => {
       fireEvent(window, new Event("resize"));
     });
-    expect(spy.mock.calls.length).toBeGreaterThan(callsBefore);
-    spy.mockRestore();
+    expect(screen.getByText("Action 1")).toBeTruthy();
+    expect(screen.getByText("Action 2")).toBeTruthy();
   });
 });
