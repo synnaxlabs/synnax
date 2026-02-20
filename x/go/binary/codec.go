@@ -372,6 +372,15 @@ func (e *MsgpackEncodedJSON) DecodeMsgpack(dec *msgpack.Decoder) error {
 	return nil
 }
 
+// Unmarshal decodes the map into the provided struct using JSON marshal/unmarshal.
+func (e MsgpackEncodedJSON) Unmarshal(into any) error {
+	b, err := json.Marshal(e)
+	if err != nil {
+		return err
+	}
+	return json.Unmarshal(b, into)
+}
+
 // UnmarshalMsgpackUint64 decodes a msgpack value into a uint64, handling type coercion
 // from various numeric types, floats, and strings. This is useful when TypeScript/JavaScript
 // clients send numbers that may be encoded as different msgpack types.

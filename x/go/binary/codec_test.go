@@ -352,6 +352,42 @@ var _ = Describe("Codec", func() {
 			var result binary.MsgpackEncodedJSON
 			Expect(result.DecodeMsgpack(dec)).To(MatchError(ContainSubstring("non-string key")))
 		})
+		Describe("Unmarshal", func() {
+			It("Should unmarshal into a typed struct", func() {
+				type Config struct {
+					Name    string `json:"name"`
+					Count   int    `json:"count"`
+					Enabled bool   `json:"enabled"`
+				}
+				m := binary.MsgpackEncodedJSON{
+					"name":    "test",
+					"count":   float64(42),
+					"enabled": true,
+				}
+				var cfg Config
+				Expect(m.Unmarshal(&cfg)).To(Succeed())
+				Expect(cfg.Name).To(Equal("test"))
+				Expect(cfg.Count).To(Equal(42))
+				Expect(cfg.Enabled).To(BeTrue())
+			})
+			It("Should handle nil map", func() {
+				var m binary.MsgpackEncodedJSON
+				type Config struct {
+					Name string `json:"name"`
+				}
+				var cfg Config
+				Expect(m.Unmarshal(&cfg)).To(Succeed())
+				Expect(cfg.Name).To(Equal(""))
+			})
+			It("Should return an error for incompatible types", func() {
+				m := binary.MsgpackEncodedJSON{"count": "not a number"}
+				type Config struct {
+					Count int `json:"count"`
+				}
+				var cfg Config
+				Expect(m.Unmarshal(&cfg)).ToNot(Succeed())
+			})
+		})
 	})
 	Describe("UnmarshalMsgpackUint32", func() {
 		DescribeTable("Should decode various types to uint32",

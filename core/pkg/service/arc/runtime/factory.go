@@ -11,7 +11,6 @@ package runtime
 
 import (
 	"context"
-	"encoding/json"
 
 	"github.com/google/uuid"
 	"github.com/synnaxlabs/alamos"
@@ -109,12 +108,7 @@ func (f *Factory) ConfigureTask(
 		return nil, false, nil
 	}
 	var cfg TaskConfig
-	cfgJSON, err := json.Marshal(t.Config)
-	if err != nil {
-		f.setConfigStatus(ctx, t, xstatus.VariantError, err.Error())
-		return nil, true, err
-	}
-	if err := json.Unmarshal(cfgJSON, &cfg); err != nil {
+	if err := t.Config.Unmarshal(&cfg); err != nil {
 		f.setConfigStatus(ctx, t, xstatus.VariantError, err.Error())
 		return nil, true, err
 	}

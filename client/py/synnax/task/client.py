@@ -12,13 +12,9 @@ from __future__ import annotations
 import warnings
 from collections.abc import Generator
 from contextlib import contextmanager
-from typing import (
-    TYPE_CHECKING,
-    Annotated,
-    Any,
-    Protocol as BaseProtocol,
-    overload
-)
+from typing import TYPE_CHECKING, Annotated, Any
+from typing import Protocol as BaseProtocol
+from typing import overload
 from uuid import uuid4
 
 from alamos import NOOP, Instrumentation

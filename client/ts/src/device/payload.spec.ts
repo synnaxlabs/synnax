@@ -124,7 +124,7 @@ describe("newZ", () => {
   it("should encode properties to a JSON string", () => {
     const result = newZ().parse(VALID_DEVICE);
     expect(typeof result.properties).toBe("string");
-    expect(JSON.parse(result.properties)).toEqual(VALID_DEVICE.properties);
+    expect(result.properties).toEqual(VALID_DEVICE.properties);
   });
 
   it("should still validate make and model with custom schemas", () => {
