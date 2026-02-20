@@ -14,11 +14,10 @@ import { useChangeIdentifier } from "@/hardware/common/device/services/useChange
 import { Modals } from "@/modals";
 import { type Ontology } from "@/ontology";
 
-export interface ChangeIdentifierMenuItemProps
-  extends Pick<
-    Ontology.TreeContextMenuProps,
-    "selection" | "state" | "handleError"
-  > {
+export interface ChangeIdentifierMenuItemProps extends Pick<
+  Ontology.TreeContextMenuProps,
+  "selection" | "state" | "handleError"
+> {
   icon: string;
 }
 
