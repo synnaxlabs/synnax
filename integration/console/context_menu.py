@@ -9,6 +9,7 @@
 
 """Context menu helper for Console UI automation."""
 
+from playwright.sync_api import Error as PlaywrightError
 from playwright.sync_api import Locator, Page
 from playwright.sync_api import TimeoutError as PlaywrightTimeoutError
 
@@ -63,7 +64,14 @@ class ContextMenu:
         menu = self._visible_menu()
         option = menu.get_by_text(text, exact=exact).first
         option.wait_for(state="visible", timeout=5000)
-        option.click()
+        try:
+            option.click(timeout=5000)
+        except (PlaywrightTimeoutError, PlaywrightError):
+            # Fixed-position menus may extend beyond the viewport, causing
+            # both click() and click(force=True) to fail. dispatch_event
+            # fires the click via the DOM and does not require the element
+            # to be within the viewport.
+            option.dispatch_event("click")
         try:
             menu.wait_for(state="hidden", timeout=3000)
         except PlaywrightTimeoutError:

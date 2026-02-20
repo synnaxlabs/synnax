@@ -7,27 +7,28 @@
 #  License, use of this software will be governed by the Apache License, Version 2.0,
 #  included in the file licenses/APL.txt.
 
-"""Modbus-specific task test case."""
+"""Modbus-specific task test cases."""
 
 from abc import abstractmethod
 
 import synnax as sy
 from examples.modbus import ModbusSim
 from synnax import modbus
-from synnax.modbus.types import BaseChan
+from synnax.modbus.types import BaseChan, OutputChan
 
 from tests.driver.simulator_case import SimulatorCase
-from tests.driver.task import TaskCase
+from tests.driver.task import ReadTaskCase, WriteTaskCase
 
 
-class ModbusTaskCase(SimulatorCase, TaskCase):
-    """Base class for Modbus TCP task tests."""
+class ModbusReadTaskCase(SimulatorCase, ReadTaskCase):
+    """Base class for Modbus TCP read task tests."""
 
-    sim_class = ModbusSim
-    SAMPLE_RATE = 100 * sy.Rate.HZ
+    sim_classes = [ModbusSim]
+    SAMPLE_RATE = 50 * sy.Rate.HZ
 
+    @staticmethod
     @abstractmethod
-    def create_channels(self) -> list[BaseChan]: ...
+    def create_channels(client: sy.Synnax) -> list[BaseChan]: ...
 
     def create(
         self,
@@ -38,7 +39,7 @@ class ModbusTaskCase(SimulatorCase, TaskCase):
         stream_rate: sy.Rate,
     ) -> modbus.ReadTask:
         """Create a Modbus read task."""
-        channels = self.create_channels()
+        channels = self.create_channels(self.client)
 
         return modbus.ReadTask(
             name=task_name,
@@ -46,5 +47,31 @@ class ModbusTaskCase(SimulatorCase, TaskCase):
             sample_rate=sample_rate,
             stream_rate=stream_rate,
             data_saving=True,
+            channels=channels,
+        )
+
+
+class ModbusWriteTaskCase(SimulatorCase, WriteTaskCase):
+    """Base class for Modbus TCP write task tests."""
+
+    sim_classes = [ModbusSim]
+
+    @staticmethod
+    @abstractmethod
+    def create_channels(client: sy.Synnax) -> list[OutputChan]: ...
+
+    def create(
+        self,
+        *,
+        device: sy.Device,
+        task_name: str,
+        sample_rate: sy.Rate,
+        stream_rate: sy.Rate,
+    ) -> modbus.WriteTask:
+        """Create a Modbus write task."""
+        channels = self.create_channels(self.client)
+        return modbus.WriteTask(
+            name=task_name,
+            device=device.key,
             channels=channels,
         )
