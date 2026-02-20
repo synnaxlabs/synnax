@@ -7,10 +7,10 @@
 #  License, use of this software will be governed by the Apache License, Version 2.0,
 #  included in the file licenses/APL.txt.
 
-from typing import Literal, get_args
+from typing import Annotated, Any, Literal, TypeAlias, get_args
 from uuid import uuid4
 
-from pydantic import BaseModel, Field, confloat, conint, field_validator
+from pydantic import BaseModel, Field, field_validator
 
 from synnax import channel as channel_
 from synnax import device, task
@@ -22,7 +22,7 @@ MAKE = "LabJack"
 T4 = "LJM_dtT4"
 T7 = "LJM_dtT7"
 T8 = "LJM_dtT8"
-SUPPORTED_MODELS = Literal[T4, T7, T8]
+SUPPORTED_MODELS: TypeAlias = Literal["LJM_dtT4", "LJM_dtT7", "LJM_dtT8"]
 
 
 class BaseChan(BaseModel):
@@ -35,7 +35,7 @@ class BaseChan(BaseModel):
     port: str = Field(min_length=1)
     "The port location of the channel (e.g., 'AIN0', 'DIO4')."
 
-    def __init__(self, **data):
+    def __init__(self, **data: Any) -> None:
         if "key" not in data or not data["key"]:
             data["key"] = str(uuid4())
         super().__init__(**data)
@@ -95,7 +95,7 @@ class AIChan(BaseChan):
     type: Literal["AI"] = "AI"
     channel: channel_.Key
     "The Synnax channel key that will be written to during acquisition."
-    range: confloat(gt=0) = 10.0
+    range: Annotated[float, Field(gt=0)] = 10.0
     "The voltage range for the channel (±range volts)."
     neg_chan: int = 199
     "The negative channel for differential measurements. 199 = single-ended (GND)."
@@ -335,13 +335,13 @@ class ReadTaskConfig(task.BaseReadConfig):
 
     device: str = Field(min_length=1)
     "The key of the Synnax LabJack device to read from."
-    sample_rate: conint(ge=0, le=100000)
-    stream_rate: conint(ge=0, le=100000)
+    sample_rate: Annotated[int, Field(ge=0, le=100000)]
+    stream_rate: Annotated[int, Field(ge=0, le=100000)]
     channels: list[InputChan]
     "A list of input channel configurations to acquire data from."
 
     @field_validator("channels")
-    def validate_channels_not_empty(cls, v):
+    def validate_channels_not_empty(cls, v: list[InputChan]) -> list[InputChan]:
         """Validate that at least one channel is provided."""
         if len(v) == 0:
             raise ValueError("Task must have at least one channel")
@@ -359,13 +359,13 @@ class WriteTaskConfig(task.BaseWriteConfig):
 
     data_saving: bool = True
     "Whether to persist state feedback data to disk (True) or only stream it (False)."
-    state_rate: conint(ge=0, le=10000)
+    state_rate: Annotated[int, Field(ge=0, le=10000)]
     "The rate at which to write task channel states to the Synnax cluster (Hz)."
     channels: list[OutputChan]
     "A list of output channel configurations to write to."
 
     @field_validator("channels")
-    def validate_channels_not_empty(cls, v):
+    def validate_channels_not_empty(cls, v: list[OutputChan]) -> list[OutputChan]:
         """Validate that at least one channel is provided."""
         if len(v) == 0:
             raise ValueError("Task must have at least one channel")
@@ -409,7 +409,7 @@ class ReadTask(task.StarterStopperMixin, task.JSONConfigMixin, task.Protocol):
         stream_rate: CrudeRate = 0,
         data_saving: bool = False,
         auto_start: bool = False,
-        channels: list[InputChan] = None,
+        channels: list[InputChan] | None = None,
     ) -> None:
         if internal is not None:
             self._internal = internal
@@ -473,7 +473,7 @@ class WriteTask(task.StarterStopperMixin, task.JSONConfigMixin, task.Protocol):
         state_rate: CrudeRate = 0,
         data_saving: bool = False,
         auto_start: bool = False,
-        channels: list[OutputChan] = None,
+        channels: list[OutputChan] | None = None,
     ):
         if internal is not None:
             self._internal = internal

@@ -120,14 +120,21 @@ class Synnax(framer.Client):
         self._transport.use(self.auth.middleware())
         self._transport.use_async(self.auth.async_middleware())
 
-        ch_retriever = channel.ClusterRetriever(self._transport.unary, instrumentation)
+        cluster_retriever = channel.ClusterRetriever(
+            self._transport.unary, instrumentation
+        )
+        cache_retriever: channel.CacheRetriever | None = None
+        ch_retriever: channel.Retriever
         if cache_channels:
-            ch_retriever = channel.CacheRetriever(ch_retriever, instrumentation)
+            cache_retriever = channel.CacheRetriever(cluster_retriever, instrumentation)
+            ch_retriever = cache_retriever
+        else:
+            ch_retriever = cluster_retriever
         deleter = framer.Deleter(self._transport.unary, instrumentation)
         ch_creator = channel.Writer(
             self._transport.unary,
             instrumentation,
-            ch_retriever if cache_channels else None,
+            cache_retriever,
         )
         super().__init__(
             stream_client=self._transport.stream,
@@ -183,7 +190,7 @@ class Synnax(framer.Client):
         )
         return self
 
-    def close(self):
+    def close(self) -> None:
         """Shuts down the client and closes all connections. All open iterators or
         writers must be closed before calling this method.
         """

@@ -8,3 +8,5 @@
 #  included in the file licenses/APL.txt.
 
 from synnax.color.color import Color, Crude
+
+__all__ = ["Color", "Crude"]

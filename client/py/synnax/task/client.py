@@ -10,20 +10,26 @@
 from __future__ import annotations
 
 import warnings
+from collections.abc import Generator
 from contextlib import contextmanager
-from typing import Any
-from typing import Protocol as BaseProtocol
-from typing import overload
+from typing import (
+    TYPE_CHECKING,
+    Annotated,
+    Any,
+    Protocol as BaseProtocol,
+    overload
+)
 from uuid import uuid4
 
 from alamos import NOOP, Instrumentation
 from freighter import Empty, UnaryClient, send_required
-from pydantic import BaseModel, Field, ValidationError, conint, field_validator
+from pydantic import BaseModel, Field, ValidationError, field_validator
 
 from synnax.device import Client as DeviceClient
 from synnax.device import Device
 from synnax.exceptions import ConfigurationError, UnexpectedError
 from synnax.framer import Client as FrameClient
+from synnax.ontology.payload import ID
 from synnax.rack import Client as RackClient
 from synnax.rack import Rack
 from synnax.status import VARIANT_ERROR, VARIANT_SUCCESS
@@ -102,13 +108,13 @@ class BaseReadConfig(BaseConfig):
 
     data_saving: bool = True
     "Whether to persist acquired data to disk (True) or only stream it (False)."
-    sample_rate: conint(ge=0, le=50000)
+    sample_rate: Annotated[int, Field(ge=0, le=50000)]
     "The rate at which to sample data from the hardware device (Hz)."
-    stream_rate: conint(ge=0, le=50000)
+    stream_rate: Annotated[int, Field(ge=0, le=50000)]
     "The rate at which acquired data will be streamed to the Synnax cluster (Hz)."
 
     @field_validator("stream_rate")
-    def validate_stream_rate(cls, v, info):
+    def validate_stream_rate(cls, v: int, info: Any) -> int:
         """Validate that stream_rate is less than or equal to sample_rate."""
         if "sample_rate" in info.data and v > info.data["sample_rate"]:
             raise ValueError(
@@ -138,7 +144,7 @@ class Task:
     config: dict[str, Any] = {}
     snapshot: bool = False
     status: Status | None = None
-    _frame_client: FrameClient | None = None
+    __frame_client: FrameClient | None = None
 
     def __init__(
         self,
@@ -160,7 +166,15 @@ class Task:
         self.config = config if config is not None else {}
         self.snapshot = snapshot
         self.status = status
-        self._frame_client = _frame_client
+        self.__frame_client = _frame_client
+
+    @property
+    def _frame_client(self) -> FrameClient:
+        if self.__frame_client is None:
+            raise RuntimeError(
+                "Cannot execute commands on a task that has not been created or retrieved from the cluster."
+            )
+        return self.__frame_client
 
     def to_payload(self) -> Payload:
         return Payload(
@@ -170,21 +184,16 @@ class Task:
             config=self.config,
         )
 
-    def set_internal(self, task: Task):
+    def set_internal(self, task: Task) -> None:
         self.key = task.key
         self.name = task.name
         self.type = task.type
         self.config = task.config
         self.snapshot = task.snapshot
-        self._frame_client = task._frame_client
+        self.__frame_client = task.__frame_client
 
     @property
-    def ontology_id(self) -> dict:
-        """Get the ontology ID for the task.
-
-        Returns:
-            An ontology ID dictionary with type "task" and the task key.
-        """
+    def ontology_id(self) -> ID:
         return ontology_id(self.key)
 
     def update_device_properties(self, device_client: DeviceClient) -> Device | None:
@@ -199,7 +208,7 @@ class Task:
         """
         return None
 
-    def execute_command(self, type_: str, args: dict | None = None) -> str:
+    def execute_command(self, type_: str, args: dict[str, Any] | None = None) -> str:
         """Executes a command on the task and returns the unique key assigned to the
         command.
 
@@ -219,7 +228,7 @@ class Task:
     def execute_command_sync(
         self,
         type_: str,
-        args: dict | None = None,
+        args: dict[str, Any] | None = None,
         timeout: float | TimeSpan = 5,
     ) -> Status:
         """Executes a command on the task and waits for the driver to acknowledge the
@@ -243,7 +252,11 @@ class Task:
                     continue
                 try:
                     status = Status.model_validate(frame[_TASK_STATE_CHANNEL][0])
-                    if status.details.cmd is not None and status.details.cmd == key:
+                    if (
+                        status.details is not None
+                        and status.details.cmd is not None
+                        and status.details.cmd == key
+                    ):
                         return status
                 except ValidationError as e:
                     raise UnexpectedError(f"""
@@ -252,11 +265,12 @@ class Task:
 
 
 class Protocol(BaseProtocol):
-    key: int
+    @property
+    def key(self) -> int: ...
 
     def to_payload(self) -> Payload: ...
 
-    def set_internal(self, task: Task): ...
+    def set_internal(self, task: Task) -> None: ...
 
     def update_device_properties(self, device_client: DeviceClient) -> Device | None:
         """Update device properties before task configuration.
@@ -277,7 +291,7 @@ class Protocol(BaseProtocol):
 class StarterStopperMixin:
     _internal: Task
 
-    def start(self, timeout: float | TimeSpan = 5):
+    def start(self, timeout: float | TimeSpan = 5) -> None:
         """Starts the task and blocks until the Synnax cluster has acknowledged the
         command or the specified timeout has elapsed.
 
@@ -287,7 +301,7 @@ class StarterStopperMixin:
         """
         self._internal.execute_command_sync("start", timeout=timeout)
 
-    def stop(self, timeout: float | TimeSpan = 5):
+    def stop(self, timeout: float | TimeSpan = 5) -> None:
         """Stops the task and blocks until the Synnax cluster has acknowledged the
         command or the specified timeout has elapsed.
 
@@ -298,7 +312,7 @@ class StarterStopperMixin:
         self._internal.execute_command_sync("stop", timeout=timeout)
 
     @contextmanager
-    def run(self, timeout: float | TimeSpan = 5):
+    def run(self, timeout: float | TimeSpan = 5) -> Generator[None, None, None]:
         """Context manager that starts the task before entering the block and stops the
         task after exiting the block. This is useful for ensuring that the task is
         properly stopped even if an exception occurs during execution.
@@ -329,7 +343,7 @@ class JSONConfigMixin(Protocol):
         pld.config = self.config.model_dump()
         return pld
 
-    def set_internal(self, task: Task):
+    def set_internal(self, task: Task) -> None:
         """Implements TaskProtocol protocol"""
         self._internal = task
 
@@ -366,7 +380,7 @@ class Client:
         type: str = "",
         config: dict[str, Any] | None = None,
         rack: int = 0,
-    ): ...
+    ) -> Task: ...
 
     @overload
     def create(self, tasks: Task) -> Task: ...
@@ -386,24 +400,24 @@ class Client:
     ) -> Task | list[Task]:
         is_single = True
         if tasks is None:
-            tasks = [Payload(key=key, name=name, type=type, config=config or {})]
+            payloads = [Payload(key=key, name=name, type=type, config=config or {})]
         elif isinstance(tasks, Task):
-            tasks = [tasks.to_payload()]
+            payloads = [tasks.to_payload()]
         else:
             is_single = False
-            tasks = [t.to_payload() for t in tasks]
-        for pld in tasks:
+            payloads = [t.to_payload() for t in tasks]
+        for pld in payloads:
             self.maybe_assign_def_rack(pld, rack)
-        req = _CreateRequest(tasks=tasks)
-        tasks = self.__exec_create(req)
-        sugared = self.sugar(tasks)
+        req = _CreateRequest(tasks=payloads)
+        created = self.__exec_create(req)
+        sugared = self.sugar(created)
         return sugared[0] if is_single else sugared
 
     def __exec_create(self, req: _CreateRequest) -> list[Payload]:
         res = send_required(self._client, "/task/create", req, _CreateResponse)
         return res.tasks
 
-    def maybe_assign_def_rack(self, pld: Payload, rack: int = 0) -> Rack:
+    def maybe_assign_def_rack(self, pld: Payload, rack: int = 0) -> Payload:
         if self._default_rack is None:
             # Hardcoded as this value for now. Will be changed once we have multi-rack
             # systems
@@ -438,7 +452,7 @@ class Client:
                     warnings.warn("task - unexpected missing state in frame")
                     continue
                 status = Status.model_validate(frame[_TASK_STATE_CHANNEL][0])
-                if status.details.task != task.key:
+                if status.details is None or status.details.task != task.key:
                     continue
                 if status.variant == VARIANT_SUCCESS:
                     break
@@ -446,14 +460,13 @@ class Client:
                     raise ConfigurationError(status.message)
         return task
 
-    def delete(self, keys: int | list[int]):
+    def delete(self, keys: int | list[int]) -> None:
         req = _DeleteRequest(keys=normalize(keys))
         send_required(self._client, "/task/delete", req, Empty)
 
     @overload
     def retrieve(
         self,
-        *,
         key: int | None = None,
         name: str | None = None,
         type: str | None = None,
@@ -462,6 +475,9 @@ class Client:
     @overload
     def retrieve(
         self,
+        key: None = None,
+        name: None = None,
+        type: None = None,
         names: list[str] | None = None,
         keys: list[int] | None = None,
         types: list[str] | None = None,
@@ -487,7 +503,7 @@ class Client:
             ),
             _RetrieveResponse,
         )
-        sug = self.sugar(res.tasks)
+        sug = self.sugar(res.tasks or [])
 
         # Warn if multiple tasks found when retrieving by name
         if is_single and name is not None and len(sug) > 1:
@@ -501,6 +517,9 @@ class Client:
 
         return sug[0] if is_single else sug
 
+    def sugar(self, tasks: list[Payload]) -> list[Task]:
+        return [Task(**t.model_dump(), _frame_client=self._frame_client) for t in tasks]
+
     def list(self, rack: int | None = None) -> list[Task]:
         """Lists all tasks on a rack. If no rack is specified, lists all tasks on the
         default rack. Excludes internal system tasks (scanner tasks and rack state).
@@ -508,9 +527,9 @@ class Client:
         :param rack: The rack key to list tasks from. If None, uses the default rack.
         :return: A list of all user-created tasks on the specified rack.
         """
-        if rack is None and self._default_rack is None:
-            self._default_rack = self._racks.retrieve_embedded_rack()
         if rack is None:
+            if self._default_rack is None:
+                self._default_rack = self._racks.retrieve_embedded_rack()
             rack = self._default_rack.key
 
         res = send_required(
@@ -519,7 +538,7 @@ class Client:
             _RetrieveRequest(rack=rack, internal=False),
             _RetrieveResponse,
         )
-        return self.sugar(res.tasks)
+        return self.sugar(res.tasks or [])
 
     def copy(
         self,
@@ -535,6 +554,3 @@ class Client:
         req = _CopyRequest(key=key, name=name, snapshot=False)
         res = send_required(self._client, _COPY_ENDPOINT, req, _CopyResponse)
         return self.sugar([res.task])[0]
-
-    def sugar(self, tasks: list[Payload]):
-        return [Task(**t.model_dump(), _frame_client=self._frame_client) for t in tasks]
