@@ -261,7 +261,7 @@ export const { useUpdate: useDelete } = Flux.createUpdate<UseDeleteArgs, FluxSub
   },
 });
 
-const createCreate = <
+export const createCreate = <
   Properties extends z.ZodType = z.ZodType,
   Make extends z.ZodType<string> = z.ZodString,
   Model extends z.ZodType<string> = z.ZodString,

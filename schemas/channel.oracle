@@ -151,7 +151,7 @@ Channel struct {
     @pb
 }
 
-Status = status.Status {
+Status = status.Status<never> {
     @doc value "is channel-specific status information."
     @go output "core/pkg/api/channel"
 }
