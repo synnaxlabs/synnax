@@ -139,11 +139,12 @@ class Streamer:
         timeout.
         """
         try:
-            res, exc = self._stream.receive(TimeSpan.to_seconds(timeout))
-            if exc is not None:
-                raise exc
-            assert res is not None
-            return self._adapter.adapt(Frame(res.frame))
+            # mypy does not understand destructured union tuples, so we keep [pld, exc] as
+            # a single tuple.
+            res = self._stream.receive(TimeSpan.to_seconds(timeout))
+            if res[1] is not None:
+                raise res[1]
+            return self._adapter.adapt(Frame(res[0].frame))
         except TimeoutError:
             return None
 
@@ -257,11 +258,12 @@ class AsyncStreamer:
         """Reads the next frame of telemetry from the streamer. If an error occurs while
         reading the frame, an exception will be raised.
         """
-        res, exc = await self._stream.receive()
-        if exc is not None:
-            raise exc
-        assert res is not None
-        return self._adapter.adapt(Frame(res.frame))
+        # mypy does not understand destructured union tuples, so we keep [pld, exc] as
+        # a single tuple.
+        res = await self._stream.receive()
+        if res[1] is not None:
+            raise res[1]
+        return self._adapter.adapt(Frame(res[0].frame))
 
     async def close_loop(self) -> None:
         """Closes the sending end of the streamer, requiring the caller to process all
