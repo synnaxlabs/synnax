@@ -12,18 +12,22 @@ from __future__ import annotations
 import warnings
 from collections.abc import Generator
 from contextlib import contextmanager
-from typing import Annotated, Any, Protocol as BaseProtocol, overload
+from typing import Annotated, Any
+from typing import Protocol as BaseProtocol
+from typing import overload
 from uuid import uuid4
 
-from alamos import Instrumentation, NOOP
+from alamos import NOOP, Instrumentation
 from freighter import Empty, UnaryClient, send_required
 from pydantic import BaseModel, Field, ValidationError, field_validator
 
-from synnax.device import Client as DeviceClient, Device
+from synnax.device import Client as DeviceClient
+from synnax.device import Device
 from synnax.exceptions import ConfigurationError
 from synnax.framer import Client as FrameClient
 from synnax.ontology.payload import ID
-from synnax.rack import Client as RackClient, Rack
+from synnax.rack import Client as RackClient
+from synnax.rack import Rack
 from synnax.status import VARIANT_ERROR, VARIANT_SUCCESS
 from synnax.task.types_gen import Payload, Status, ontology_id
 from synnax.telem import TimeSpan, TimeStamp

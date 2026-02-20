@@ -66,7 +66,8 @@ TEST(DeviceTests, testRetrieveDevices) {
         .location = "location_1",
         .make = "make_1",
         .model = "model_1",
-        .properties = "properties_1"
+        .name = "test_device_1",
+        .properties = {{"key", "properties_1"}}
     };
     ASSERT_NIL(client.devices.create(d1));
 

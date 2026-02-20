@@ -21,13 +21,13 @@ from freighter import UnaryClient
 from pydantic import PrivateAttr
 
 import synnax.channel.payload as channel
-from synnax.ranger import alias as alias_
-from synnax.ranger import kv
 from synnax import framer
 from synnax.channel.retrieve import Retriever as ChannelRetriever
 from synnax.exceptions import QueryError
 from synnax.ontology import Client as OntologyClient
 from synnax.ontology.payload import ID
+from synnax.ranger import alias as alias_
+from synnax.ranger import kv
 from synnax.ranger.payload import (
     Key,
     Payload,

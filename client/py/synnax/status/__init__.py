@@ -49,5 +49,5 @@ __all__ = [
     "VARIANT_LOADING",
     "VARIANT_SUCCESS",
     "ontology_id",
-    "Variant"
+    "Variant",
 ]
