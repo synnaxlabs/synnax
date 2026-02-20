@@ -16,6 +16,7 @@ import {
   type record,
   strings,
   TimeSpan,
+  TimeStamp,
 } from "@synnaxlabs/x";
 import { z } from "zod";
 
@@ -554,10 +555,8 @@ const executeCommands = async ({
   commands,
 }: ExecuteCommandsInternalParams): Promise<string[]> => {
   if (frameClient == null) throw NOT_CREATED_ERROR;
-  const w = await frameClient.openWriter(COMMAND_CHANNEL_NAME);
   const cmds = commands.map((c) => ({ ...c, key: id.create() }));
-  await w.write(COMMAND_CHANNEL_NAME, cmds);
-  await w.close();
+  await frameClient.write(TimeStamp.now(), COMMAND_CHANNEL_NAME, cmds);
   return cmds.map((c) => c.key);
 };
 
