@@ -21,38 +21,69 @@ export const statusZ = status.statusZ(statusDetailsZ);
 
 export interface Status extends z.infer<typeof statusZ> {}
 
-export const deviceZ = z.object({
-  key: keyZ,
-  rack: rackKeyZ.min(1, "Must select a location to connect from"),
-  name: z.string().min(1, "Name is required"),
-  make: z.string().min(1, "Make is required"),
-  model: z.string().min(1, "Model is required"),
-  location: z.string().min(1, "Location is required"),
-  configured: z.boolean().optional(),
-  properties: record.unknownZ.or(z.string().transform(decodeJSONString)),
-  status: zod.nullToUndefined(statusZ),
-});
+export interface DeviceSchemas<
+  Properties extends z.ZodType<record.Unknown> = typeof record.unknownZ,
+  Make extends z.ZodType<string> = z.ZodString,
+  Model extends z.ZodType<string> = z.ZodString,
+> {
+  properties?: Properties;
+  make?: Make;
+  model?: Model;
+}
+
+export const deviceZ = <
+  Properties extends z.ZodType<record.Unknown> = typeof record.unknownZ,
+  Make extends z.ZodType<string> = z.ZodString,
+  Model extends z.ZodType<string> = z.ZodString,
+>({ properties, make, model }: DeviceSchemas<Properties, Make, Model> = {}) =>
+  z.object({
+    key: keyZ,
+    rack: rackKeyZ.min(1, "Must select a location to connect from"),
+    name: z.string().min(1, "Name is required"),
+    make: make ?? z.string().min(1, "Make is required"),
+    model: model ?? z.string().min(1, "Model is required"),
+    location: z.string().min(1, "Location is required"),
+    configured: z.boolean().optional(),
+    properties: properties
+      ? z.unknown().transform((v) => {
+          const decoded = typeof v === "string" ? decodeJSONString(v) : v;
+          return properties.parse(decoded);
+        })
+      : record.unknownZ.or(z.string().transform(decodeJSONString)),
+    status: zod.nullToUndefined(statusZ),
+  });
 
 export interface Device<
-  Properties extends record.Unknown = record.Unknown,
-  Make extends string = string,
-  Model extends string = string,
-> extends Omit<z.infer<typeof deviceZ>, "properties" | "status"> {
-  properties: Properties;
-  make: Make;
-  model: Model;
+  Properties extends z.ZodType<record.Unknown> = typeof record.unknownZ,
+  Make extends z.ZodType<string> = z.ZodString,
+  Model extends z.ZodType<string> = z.ZodString,
+> extends Omit<
+  z.infer<ReturnType<typeof deviceZ>>,
+  "properties" | "make" | "model" | "status"
+> {
+  properties: z.infer<Properties>;
+  make: z.infer<Make>;
+  model: z.infer<Model>;
   status?: Status;
 }
 
-export const newZ = deviceZ.extend({
-  properties: z.unknown().transform((c) => binary.JSON_CODEC.encodeString(c)),
-});
+export const newZ = <
+  Properties extends z.ZodType<record.Unknown> = typeof record.unknownZ,
+  Make extends z.ZodType<string> = z.ZodString,
+  Model extends z.ZodType<string> = z.ZodString,
+>(
+  schemas: DeviceSchemas<Properties, Make, Model> = {},
+) =>
+  deviceZ(schemas).extend({
+    properties: z.unknown().transform((c) => binary.JSON_CODEC.encodeString(c)),
+  });
+
 export interface New<
-  Properties extends record.Unknown = record.Unknown,
-  Make extends string = string,
-  Model extends string = string,
-> extends Omit<z.input<typeof newZ>, "properties"> {
-  properties: Properties;
-  make: Make;
-  model: Model;
+  Properties extends z.ZodType<record.Unknown> = typeof record.unknownZ,
+  Make extends z.ZodType<string> = z.ZodString,
+  Model extends z.ZodType<string> = z.ZodString,
+> extends Omit<z.input<ReturnType<typeof newZ>>, "properties"> {
+  properties: z.infer<Properties>;
+  make: z.infer<Make>;
+  model: z.infer<Model>;
 }
