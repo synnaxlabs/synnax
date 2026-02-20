@@ -223,15 +223,18 @@ class LayoutClient:
         """Check if a modal dialog is currently open."""
         return self.page.locator(self.MODAL_SELECTOR).count() > 0
 
-    def check_for_errors(self) -> bool:
-        """Check notifications for errors.
+    def check_for_errors(self, match: str) -> bool:
+        """Check notifications for a specific error.
+
+        Args:
+            match: Substring to search for in the notification message.
 
         Returns:
-            True if errors were found, False otherwise.
+            True if a matching error was found, False otherwise.
         """
         for notification in self.notifications.check():
             message = notification.get("message", "")
-            if "Failed" in message or "Error" in message:
+            if match.lower() in message.lower():
                 self.notifications.close(0)
                 return True
         return False
@@ -832,6 +835,19 @@ class LayoutClient:
             last_item = item
         assert last_item is not None
         return last_item
+
+    def ctrl_select_items(
+        self, names: list[str], get_item_fn: Callable[[str], Locator]
+    ) -> Locator:
+        """Multi-select items via Ctrl+Click, return the last item."""
+        first = get_item_fn(names[0])
+        first.wait_for(state="visible", timeout=5000)
+        first.click()
+        for name in names[1:]:
+            item = get_item_fn(name)
+            item.wait_for(state="visible", timeout=5000)
+            item.click(modifiers=["ControlOrMeta"])
+        return get_item_fn(names[-1])
 
     def locator_exists(self, locator: Locator) -> bool:
         """Check if a locator is visible within 5 seconds."""

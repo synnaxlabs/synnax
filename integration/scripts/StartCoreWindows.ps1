@@ -41,7 +41,11 @@ if (-not (Test-Path $synnaxPath)) {
 }
 
 Write-Host "Found Synnax binary at: $synnaxPath"
-$process = Start-Process -FilePath $synnaxPath -ArgumentList "start", "-mi" -WindowStyle Hidden -PassThru -WorkingDirectory "$env:USERPROFILE\synnax-data"
+$logFile = "$env:USERPROFILE\synnax-data\synnax-core.log"
+# Use cmd /c with shell redirection to capture logs while keeping -WindowStyle Hidden
+# for proper process detachment (required so the process survives the step ending).
+$cmdArgs = "/c `"`"$synnaxPath`" start -mi > `"$logFile`" 2>&1`""
+$process = Start-Process -FilePath "cmd.exe" -ArgumentList $cmdArgs -WindowStyle Hidden -PassThru -WorkingDirectory "$env:USERPROFILE\synnax-data"
 
 # Store the process ID for tracking
 $process.Id | Out-File -FilePath "$env:USERPROFILE\synnax-pid.txt" -Encoding ASCII

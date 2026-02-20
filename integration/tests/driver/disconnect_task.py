@@ -34,10 +34,10 @@ import synnax as sy
 from tests.driver.modbus_read import ModbusReadMixed
 from tests.driver.opcua_read import OPCUAReadMixed
 from tests.driver.simulator_case import SimulatorCase
-from tests.driver.task import TaskCase
+from tests.driver.task import ReadTaskCase
 
 
-class DisconnectTask(SimulatorCase, TaskCase, ABC):
+class DisconnectTask(SimulatorCase, ReadTaskCase, ABC):
     """
     Abstract base class providing disconnect/reconnect test behavior.
 
@@ -100,9 +100,6 @@ class DisconnectTask(SimulatorCase, TaskCase, ABC):
         client.tasks.configure(tsk)
         self.assert_sample_count(task=tsk, strict=False)
 
-        # Shutdown
-        client.tasks.delete(tsk.key)
-        self.assert_task_deleted(task_key=tsk.key)
         client.devices.delete([reconnected_device.key])
         self.assert_device_deleted(device_key=reconnected_device.key)
 
