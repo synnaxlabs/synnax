@@ -11,7 +11,6 @@ import { type Device as PlutoDevice, Flux, Icon, Menu } from "@synnaxlabs/pluto"
 import { useCallback, useMemo } from "react";
 
 import { Common } from "@/hardware/common";
-import { type makeZ } from "@/hardware/device/make";
 import { Device } from "@/hardware/ethercat/device";
 import { useToggleEnabled } from "@/hardware/ethercat/device/queries";
 import { type SlaveDevice } from "@/hardware/ethercat/device/types";

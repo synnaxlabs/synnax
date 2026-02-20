@@ -108,11 +108,11 @@ protected:
 
         synnax::device::Device dev{
             .key = "abc123",
-            .name = "my_device",
             .rack = rack.key,
             .location = "dev1",
             .make = "ni",
             .model = "PXI-6255",
+            .name = "my_device",
             .properties = x::json::json::object({{"connection", conn_cfg.to_json()}}),
         };
         ASSERT_NIL(client->devices.create(dev));

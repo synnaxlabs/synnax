@@ -67,11 +67,11 @@ struct Device : synnax::device::Device {
     synnax::device::Device to_synnax() {
         auto dev = synnax::device::Device{
             .key = this->key,
-            .name = this->name,
             .rack = this->rack,
             .location = this->location,
             .make = this->make,
             .model = this->model,
+            .name = this->name,
             .properties = x::json::json{
                 {"is_simulated", this->is_simulated},
                 {"resource_name", this->resource_name}

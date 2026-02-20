@@ -74,11 +74,11 @@ protected:
 
         auto dev = synnax::device::Device{
             .key = "abc123",
-            .name = "my_device",
             .rack = rack.key,
             .location = "dev1",
             .make = "ni",
             .model = "PXI-6255",
+            .name = "my_device",
         };
         ASSERT_NIL(client->devices.create(dev));
 
@@ -212,11 +212,11 @@ TEST(WriteTaskConfigTest, testInvalidChannelType) {
     // Create a device
     auto dev = synnax::device::Device{
         .key = "abc123",
-        .name = "test_device",
         .rack = rack.key,
         .location = "dev1",
         .make = "ni",
         .model = "PXI-6255",
+        .name = "test_device",
     };
     ASSERT_NIL(client->devices.create(dev));
 
