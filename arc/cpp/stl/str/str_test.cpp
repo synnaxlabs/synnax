@@ -97,9 +97,8 @@ TEST(StrModule, ConcatCombinesTwoStrings) {
     const auto h2 = h2_result[0].i32();
 
     auto concat_fn = f.get_func("concat_handles");
-    auto result = concat_fn.call(
-        f.store, {wasmtime::Val(h1), wasmtime::Val(h2)}
-    ).unwrap();
+    auto result = concat_fn.call(f.store, {wasmtime::Val(h1), wasmtime::Val(h2)})
+                      .unwrap();
     const auto concat_handle = result[0].i32();
     EXPECT_EQ(f.state->get(concat_handle), "hello world");
 }
@@ -112,9 +111,8 @@ TEST(StrModule, EqualReturnsTrueForIdenticalStrings) {
     const auto h2 = h2_result[0].i32();
 
     auto equal_fn = f.get_func("equal_handles");
-    auto result = equal_fn.call(
-        f.store, {wasmtime::Val(h1), wasmtime::Val(h2)}
-    ).unwrap();
+    auto result = equal_fn.call(f.store, {wasmtime::Val(h1), wasmtime::Val(h2)})
+                      .unwrap();
     EXPECT_EQ(result[0].i32(), 1);
 }
 
@@ -126,9 +124,8 @@ TEST(StrModule, EqualReturnsFalseForDifferentStrings) {
     const auto h2 = h2_result[0].i32();
 
     auto equal_fn = f.get_func("equal_handles");
-    auto result = equal_fn.call(
-        f.store, {wasmtime::Val(h1), wasmtime::Val(h2)}
-    ).unwrap();
+    auto result = equal_fn.call(f.store, {wasmtime::Val(h1), wasmtime::Val(h2)})
+                      .unwrap();
     EXPECT_EQ(result[0].i32(), 0);
 }
 
@@ -138,9 +135,9 @@ TEST(StrModule, EqualReturnsFalseForInvalidHandle) {
     const auto h1 = h1_result[0].i32();
 
     auto equal_fn = f.get_func("equal_handles");
-    auto result = equal_fn.call(
-        f.store, {wasmtime::Val(h1), wasmtime::Val(int32_t{999})}
-    ).unwrap();
+    auto result = equal_fn
+                      .call(f.store, {wasmtime::Val(h1), wasmtime::Val(int32_t{999})})
+                      .unwrap();
     EXPECT_EQ(result[0].i32(), 0);
 }
 
@@ -150,9 +147,7 @@ TEST(StrModule, LenReturnsCorrectLength) {
     const auto h = h_result[0].i32();
 
     auto len_fn = f.get_func("len_handle");
-    auto result = len_fn.call(
-        f.store, {wasmtime::Val(h)}
-    ).unwrap();
+    auto result = len_fn.call(f.store, {wasmtime::Val(h)}).unwrap();
     EXPECT_EQ(result[0].i64(), 5);
 }
 }

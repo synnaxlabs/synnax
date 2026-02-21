@@ -43,7 +43,8 @@ TEST(State, FromMemoryPartialLength) {
     State st;
     const std::string data = "hello world";
     const uint32_t h = st.from_memory(
-        reinterpret_cast<const uint8_t *>(data.data()), 5
+        reinterpret_cast<const uint8_t *>(data.data()),
+        5
     );
     EXPECT_EQ(st.get(h), "hello");
 }

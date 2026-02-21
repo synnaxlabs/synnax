@@ -44,7 +44,7 @@ TEST(ErrorModule, PanicInvokesHandlerWithCorrectMessage) {
     mod.set_wasm_context(&store, &memory);
 
     auto trigger = std::get<wasmtime::Func>(*instance.get(store, "trigger_panic"));
-    (void)trigger.call(store, {});
+    (void) trigger.call(store, {});
     EXPECT_TRUE(captured.matches(runtime::errors::WASM_PANIC));
     EXPECT_NE(captured.message().find("test error message"), std::string::npos);
 }
@@ -64,7 +64,7 @@ TEST(ErrorModule, PanicReportsOutOfBoundsForInvalidPointer) {
     mod.set_wasm_context(&store, &memory);
 
     auto trigger = std::get<wasmtime::Func>(*instance.get(store, "trigger_oob_panic"));
-    (void)trigger.call(store, {});
+    (void) trigger.call(store, {});
     EXPECT_TRUE(captured.matches(runtime::errors::WASM_PANIC));
     EXPECT_NE(captured.message().find("out of bounds"), std::string::npos);
 }
@@ -82,7 +82,7 @@ TEST(ErrorModule, PanicBeforeSetWasmContextReportsNoMemory) {
     auto instance = linker.instantiate(store, wasm_mod).unwrap();
 
     auto trigger = std::get<wasmtime::Func>(*instance.get(store, "trigger_panic"));
-    (void)trigger.call(store, {});
+    (void) trigger.call(store, {});
     EXPECT_TRUE(captured.matches(runtime::errors::WASM_PANIC));
     EXPECT_NE(captured.message().find("no memory available"), std::string::npos);
 }

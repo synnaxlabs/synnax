@@ -44,8 +44,7 @@ std::string build_core_wat(const std::string &suffix) {
       << "\" (func $index (param i32 i32) (result " << wt << ")))\n";
     w << "  (func (export \"create_empty\") (param i32) (result i32)\n";
     w << "    (call $create_empty (local.get 0)))\n";
-    w << "  (func (export \"set_element\") (param i32 i32 " << wt
-      << ") (result i32)\n";
+    w << "  (func (export \"set_element\") (param i32 i32 " << wt << ") (result i32)\n";
     w << "    (call $set_element (local.get 0) (local.get 1) (local.get 2)))\n";
     w << "  (func (export \"index\") (param i32 i32) (result " << wt << ")\n";
     w << "    (call $index (local.get 0) (local.get 1)))\n";
@@ -64,41 +63,41 @@ std::string build_element_ops_wat(const std::string &suffix) {
     w << "  (import \"series\" \"index_" << suffix
       << "\" (func $index (param i32 i32) (result " << wt << ")))\n";
 
-    const std::vector<std::string> ops = {
-        "element_add", "element_mul", "element_sub",
-        "element_div", "element_mod"
-    };
-    for (const auto &op : ops) {
+    const std::vector<std::string> ops =
+        {"element_add", "element_mul", "element_sub", "element_div", "element_mod"};
+    for (const auto &op: ops) {
         if (is_float(suffix) && op == "element_mod") continue;
-        w << "  (import \"series\" \"" << op << "_" << suffix
-          << "\" (func $" << op << " (param i32 " << wt << ") (result i32)))\n";
+        w << "  (import \"series\" \"" << op << "_" << suffix << "\" (func $" << op
+          << " (param i32 " << wt << ") (result i32)))\n";
     }
 
     const std::vector<std::string> rops = {
-        "element_radd", "element_rmul", "element_rsub",
-        "element_rdiv", "element_rmod"
+        "element_radd",
+        "element_rmul",
+        "element_rsub",
+        "element_rdiv",
+        "element_rmod"
     };
-    for (const auto &op : rops) {
+    for (const auto &op: rops) {
         if (is_float(suffix) && op == "element_rmod") continue;
-        w << "  (import \"series\" \"" << op << "_" << suffix
-          << "\" (func $" << op << " (param " << wt << " i32) (result i32)))\n";
+        w << "  (import \"series\" \"" << op << "_" << suffix << "\" (func $" << op
+          << " (param " << wt << " i32) (result i32)))\n";
     }
 
     w << "  (func (export \"create_empty\") (param i32) (result i32)\n";
     w << "    (call $create_empty (local.get 0)))\n";
-    w << "  (func (export \"set_element\") (param i32 i32 " << wt
-      << ") (result i32)\n";
+    w << "  (func (export \"set_element\") (param i32 i32 " << wt << ") (result i32)\n";
     w << "    (call $set_element (local.get 0) (local.get 1) (local.get 2)))\n";
     w << "  (func (export \"index\") (param i32 i32) (result " << wt << ")\n";
     w << "    (call $index (local.get 0) (local.get 1)))\n";
 
-    for (const auto &op : ops) {
+    for (const auto &op: ops) {
         if (is_float(suffix) && op == "element_mod") continue;
         w << "  (func (export \"" << op << "\") (param i32 " << wt
           << ") (result i32)\n";
         w << "    (call $" << op << " (local.get 0) (local.get 1)))\n";
     }
-    for (const auto &op : rops) {
+    for (const auto &op: rops) {
         if (is_float(suffix) && op == "element_rmod") continue;
         w << "  (func (export \"" << op << "\") (param " << wt
           << " i32) (result i32)\n";
@@ -120,24 +119,22 @@ std::string build_series_ops_wat(const std::string &suffix) {
     w << "  (import \"series\" \"index_" << suffix
       << "\" (func $index (param i32 i32) (result " << wt << ")))\n";
 
-    const std::vector<std::string> ops = {
-        "series_add", "series_mul", "series_sub", "series_div", "series_mod"
-    };
-    for (const auto &op : ops) {
+    const std::vector<std::string> ops =
+        {"series_add", "series_mul", "series_sub", "series_div", "series_mod"};
+    for (const auto &op: ops) {
         if (is_float(suffix) && op == "series_mod") continue;
-        w << "  (import \"series\" \"" << op << "_" << suffix
-          << "\" (func $" << op << " (param i32 i32) (result i32)))\n";
+        w << "  (import \"series\" \"" << op << "_" << suffix << "\" (func $" << op
+          << " (param i32 i32) (result i32)))\n";
     }
 
     w << "  (func (export \"create_empty\") (param i32) (result i32)\n";
     w << "    (call $create_empty (local.get 0)))\n";
-    w << "  (func (export \"set_element\") (param i32 i32 " << wt
-      << ") (result i32)\n";
+    w << "  (func (export \"set_element\") (param i32 i32 " << wt << ") (result i32)\n";
     w << "    (call $set_element (local.get 0) (local.get 1) (local.get 2)))\n";
     w << "  (func (export \"index\") (param i32 i32) (result " << wt << ")\n";
     w << "    (call $index (local.get 0) (local.get 1)))\n";
 
-    for (const auto &op : ops) {
+    for (const auto &op: ops) {
         if (is_float(suffix) && op == "series_mod") continue;
         w << "  (func (export \"" << op << "\") (param i32 i32) (result i32)\n";
         w << "    (call $" << op << " (local.get 0) (local.get 1)))\n";
@@ -157,20 +154,28 @@ std::string build_compare_wat(const std::string &suffix) {
       << "\" (func $set_element (param i32 i32 " << wt << ") (result i32)))\n";
 
     const std::vector<std::string> cmp = {
-        "compare_gt", "compare_lt", "compare_ge",
-        "compare_le", "compare_eq", "compare_ne"
+        "compare_gt",
+        "compare_lt",
+        "compare_ge",
+        "compare_le",
+        "compare_eq",
+        "compare_ne"
     };
-    for (const auto &op : cmp) {
-        w << "  (import \"series\" \"" << op << "_" << suffix
-          << "\" (func $" << op << " (param i32 i32) (result i32)))\n";
+    for (const auto &op: cmp) {
+        w << "  (import \"series\" \"" << op << "_" << suffix << "\" (func $" << op
+          << " (param i32 i32) (result i32)))\n";
     }
     const std::vector<std::string> scmp = {
-        "compare_gt_scalar", "compare_lt_scalar", "compare_ge_scalar",
-        "compare_le_scalar", "compare_eq_scalar", "compare_ne_scalar"
+        "compare_gt_scalar",
+        "compare_lt_scalar",
+        "compare_ge_scalar",
+        "compare_le_scalar",
+        "compare_eq_scalar",
+        "compare_ne_scalar"
     };
-    for (const auto &op : scmp) {
-        w << "  (import \"series\" \"" << op << "_" << suffix
-          << "\" (func $" << op << " (param i32 " << wt << ") (result i32)))\n";
+    for (const auto &op: scmp) {
+        w << "  (import \"series\" \"" << op << "_" << suffix << "\" (func $" << op
+          << " (param i32 " << wt << ") (result i32)))\n";
     }
 
     w << "  (import \"series\" \"index_u8"
@@ -178,17 +183,16 @@ std::string build_compare_wat(const std::string &suffix) {
 
     w << "  (func (export \"create_empty\") (param i32) (result i32)\n";
     w << "    (call $create_empty (local.get 0)))\n";
-    w << "  (func (export \"set_element\") (param i32 i32 " << wt
-      << ") (result i32)\n";
+    w << "  (func (export \"set_element\") (param i32 i32 " << wt << ") (result i32)\n";
     w << "    (call $set_element (local.get 0) (local.get 1) (local.get 2)))\n";
     w << "  (func (export \"index_u8\") (param i32 i32) (result i32)\n";
     w << "    (call $index_u8 (local.get 0) (local.get 1)))\n";
 
-    for (const auto &op : cmp) {
+    for (const auto &op: cmp) {
         w << "  (func (export \"" << op << "\") (param i32 i32) (result i32)\n";
         w << "    (call $" << op << " (local.get 0) (local.get 1)))\n";
     }
-    for (const auto &op : scmp) {
+    for (const auto &op: scmp) {
         w << "  (func (export \"" << op << "\") (param i32 " << wt
           << ") (result i32)\n";
         w << "    (call $" << op << " (local.get 0) (local.get 1)))\n";
@@ -239,22 +243,22 @@ private:
         EXPECT_EQ(s->size(), 3);                                                       \
     }
 
-#define TEST_SET_AND_INDEX(suffix, wasm_val_type, make_val, get_val, cpp_val)           \
+#define TEST_SET_AND_INDEX(suffix, wasm_val_type, make_val, get_val, cpp_val)          \
     TEST(SeriesModule, SetElementAndIndex_##suffix) {                                  \
         Fixture f(build_core_wat(#suffix));                                            \
         auto create = f.get("create_empty");                                           \
         auto handle_r = create.call(f.store, {wasmtime::Val(int32_t{2})}).unwrap();    \
         auto h = handle_r[0].i32();                                                    \
         auto set = f.get("set_element");                                               \
-        (void)set.call(                                                                \
-            f.store,                                                                   \
-            {wasmtime::Val(h), wasmtime::Val(int32_t{0}), wasmtime::Val(make_val)}     \
-        ).unwrap();                                                                    \
+        (void) set                                                                     \
+            .call(                                                                     \
+                f.store,                                                               \
+                {wasmtime::Val(h), wasmtime::Val(int32_t{0}), wasmtime::Val(make_val)} \
+            )                                                                          \
+            .unwrap();                                                                 \
         auto idx = f.get("index");                                                     \
-        auto val_r = idx.call(                                                         \
-            f.store,                                                                   \
-            {wasmtime::Val(h), wasmtime::Val(int32_t{0})}                              \
-        ).unwrap();                                                                    \
+        auto val_r = idx.call(f.store, {wasmtime::Val(h), wasmtime::Val(int32_t{0})})  \
+                         .unwrap();                                                    \
         EXPECT_EQ(val_r[0].get_val(), cpp_val);                                        \
     }
 
@@ -263,9 +267,10 @@ private:
         Fixture f(build_core_wat(#suffix));                                            \
         auto idx = f.get("index");                                                     \
         auto val_r = idx.call(                                                         \
-            f.store,                                                                   \
-            {wasmtime::Val(int32_t{999}), wasmtime::Val(int32_t{0})}                   \
-        ).unwrap();                                                                    \
+                            f.store,                                                   \
+                            {wasmtime::Val(int32_t{999}), wasmtime::Val(int32_t{0})}   \
+        )                                                                              \
+                         .unwrap();                                                    \
         EXPECT_EQ(val_r[0].get_val(), 0);                                              \
     }
 
@@ -322,18 +327,16 @@ wasmtime::Val make_wasm_val(const std::string &suffix, double v) {
                    .call(f.store, {wasmtime::Val(int32_t{2})})                         \
                    .unwrap();                                                          \
     auto h = h_r[0].i32();                                                             \
-    (void)f.get("set_element")                                                         \
+    (void) f.get("set_element")                                                        \
         .call(                                                                         \
             f.store,                                                                   \
-            {wasmtime::Val(h), wasmtime::Val(int32_t{0}),                              \
-             make_wasm_val(#suffix, v1)}                                               \
+            {wasmtime::Val(h), wasmtime::Val(int32_t{0}), make_wasm_val(#suffix, v1)}  \
         )                                                                              \
         .unwrap();                                                                     \
-    (void)f.get("set_element")                                                         \
+    (void) f.get("set_element")                                                        \
         .call(                                                                         \
             f.store,                                                                   \
-            {wasmtime::Val(h), wasmtime::Val(int32_t{1}),                              \
-             make_wasm_val(#suffix, v2)}                                               \
+            {wasmtime::Val(h), wasmtime::Val(int32_t{1}), make_wasm_val(#suffix, v2)}  \
         )                                                                              \
         .unwrap();
 
@@ -360,8 +363,7 @@ wasmtime::Val make_wasm_val(const std::string &suffix, double v) {
         auto result = f.get(#op_name)                                                  \
                           .call(                                                       \
                               f.store,                                                 \
-                              {wasmtime::Val(int32_t{999}),                            \
-                               make_wasm_val(#suffix, 5)}                              \
+                              {wasmtime::Val(int32_t{999}), make_wasm_val(#suffix, 5)} \
                           )                                                            \
                           .unwrap();                                                   \
         EXPECT_EQ(result[0].i32(), 0);                                                 \
@@ -470,48 +472,44 @@ ALL_ELEMENT_TESTS(f64, f64)
 
 ////////////////////// Chunk 3: series-vs-series ops //////////////////////////////////
 
-#define SETUP_TWO_SERIES(suffix, a0, a1, b0, b1)                                      \
+#define SETUP_TWO_SERIES(suffix, a0, a1, b0, b1)                                       \
     Fixture f(build_series_ops_wat(#suffix));                                          \
     auto ha_r = f.get("create_empty")                                                  \
                     .call(f.store, {wasmtime::Val(int32_t{2})})                        \
                     .unwrap();                                                         \
     auto ha = ha_r[0].i32();                                                           \
-    (void)f.get("set_element")                                                         \
+    (void) f.get("set_element")                                                        \
         .call(                                                                         \
             f.store,                                                                   \
-            {wasmtime::Val(ha), wasmtime::Val(int32_t{0}),                             \
-             make_wasm_val(#suffix, a0)}                                               \
+            {wasmtime::Val(ha), wasmtime::Val(int32_t{0}), make_wasm_val(#suffix, a0)} \
         )                                                                              \
         .unwrap();                                                                     \
-    (void)f.get("set_element")                                                         \
+    (void) f.get("set_element")                                                        \
         .call(                                                                         \
             f.store,                                                                   \
-            {wasmtime::Val(ha), wasmtime::Val(int32_t{1}),                             \
-             make_wasm_val(#suffix, a1)}                                               \
+            {wasmtime::Val(ha), wasmtime::Val(int32_t{1}), make_wasm_val(#suffix, a1)} \
         )                                                                              \
         .unwrap();                                                                     \
     auto hb_r = f.get("create_empty")                                                  \
                     .call(f.store, {wasmtime::Val(int32_t{2})})                        \
                     .unwrap();                                                         \
     auto hb = hb_r[0].i32();                                                           \
-    (void)f.get("set_element")                                                         \
+    (void) f.get("set_element")                                                        \
         .call(                                                                         \
             f.store,                                                                   \
-            {wasmtime::Val(hb), wasmtime::Val(int32_t{0}),                             \
-             make_wasm_val(#suffix, b0)}                                               \
+            {wasmtime::Val(hb), wasmtime::Val(int32_t{0}), make_wasm_val(#suffix, b0)} \
         )                                                                              \
         .unwrap();                                                                     \
-    (void)f.get("set_element")                                                         \
+    (void) f.get("set_element")                                                        \
         .call(                                                                         \
             f.store,                                                                   \
-            {wasmtime::Val(hb), wasmtime::Val(int32_t{1}),                             \
-             make_wasm_val(#suffix, b1)}                                               \
+            {wasmtime::Val(hb), wasmtime::Val(int32_t{1}), make_wasm_val(#suffix, b1)} \
         )                                                                              \
         .unwrap();
 
 #define TEST_SERIES_OP(suffix, op_name, a0, a1, b0, b1, exp0, get_val)                 \
     TEST(SeriesModule, op_name##_##suffix) {                                           \
-        SETUP_TWO_SERIES(suffix, a0, a1, b0, b1)                                      \
+        SETUP_TWO_SERIES(suffix, a0, a1, b0, b1)                                       \
         auto result = f.get(#op_name)                                                  \
                           .call(f.store, {wasmtime::Val(ha), wasmtime::Val(hb)})       \
                           .unwrap();                                                   \
@@ -537,10 +535,10 @@ ALL_ELEMENT_TESTS(f64, f64)
     }
 
 #define ALL_SERIES_OPS(suffix, get_val)                                                \
-    TEST_SERIES_OP(suffix, series_add, 10, 20, 3, 4, 13, get_val)                     \
-    TEST_SERIES_OP(suffix, series_sub, 10, 20, 3, 4, 7, get_val)                      \
-    TEST_SERIES_OP(suffix, series_mul, 10, 20, 3, 4, 30, get_val)                     \
-    TEST_SERIES_OP(suffix, series_div, 10, 20, 2, 4, 5, get_val)                      \
+    TEST_SERIES_OP(suffix, series_add, 10, 20, 3, 4, 13, get_val)                      \
+    TEST_SERIES_OP(suffix, series_sub, 10, 20, 3, 4, 7, get_val)                       \
+    TEST_SERIES_OP(suffix, series_mul, 10, 20, 3, 4, 30, get_val)                      \
+    TEST_SERIES_OP(suffix, series_div, 10, 20, 2, 4, 5, get_val)                       \
     TEST_SERIES_OP_NULL(suffix, series_add)                                            \
     TEST_SERIES_OP_NULL(suffix, series_sub)                                            \
     TEST_SERIES_OP_NULL(suffix, series_mul)                                            \
@@ -548,7 +546,7 @@ ALL_ELEMENT_TESTS(f64, f64)
 
 #define ALL_SERIES_OPS_INT(suffix, get_val)                                            \
     ALL_SERIES_OPS(suffix, get_val)                                                    \
-    TEST_SERIES_OP(suffix, series_mod, 10, 20, 3, 7, 1, get_val)                      \
+    TEST_SERIES_OP(suffix, series_mod, 10, 20, 3, 7, 1, get_val)                       \
     TEST_SERIES_OP_NULL(suffix, series_mod)
 
 ALL_SERIES_OPS_INT(u8, i32)
@@ -576,22 +574,20 @@ ALL_SERIES_OPS(f64, f64)
                     .call(f.store, {wasmtime::Val(int32_t{1})})                        \
                     .unwrap();                                                         \
     auto ha = ha_r[0].i32();                                                           \
-    (void)f.get("set_element")                                                         \
+    (void) f.get("set_element")                                                        \
         .call(                                                                         \
             f.store,                                                                   \
-            {wasmtime::Val(ha), wasmtime::Val(int32_t{0}),                             \
-             make_wasm_val(#suffix, a0)}                                               \
+            {wasmtime::Val(ha), wasmtime::Val(int32_t{0}), make_wasm_val(#suffix, a0)} \
         )                                                                              \
         .unwrap();                                                                     \
     auto hb_r = f.get("create_empty")                                                  \
                     .call(f.store, {wasmtime::Val(int32_t{1})})                        \
                     .unwrap();                                                         \
     auto hb = hb_r[0].i32();                                                           \
-    (void)f.get("set_element")                                                         \
+    (void) f.get("set_element")                                                        \
         .call(                                                                         \
             f.store,                                                                   \
-            {wasmtime::Val(hb), wasmtime::Val(int32_t{0}),                             \
-             make_wasm_val(#suffix, b0)}                                               \
+            {wasmtime::Val(hb), wasmtime::Val(int32_t{0}), make_wasm_val(#suffix, b0)} \
         )                                                                              \
         .unwrap();
 
@@ -629,18 +625,18 @@ ALL_SERIES_OPS(f64, f64)
                         .call(f.store, {wasmtime::Val(int32_t{1})})                    \
                         .unwrap();                                                     \
         auto ha = ha_r[0].i32();                                                       \
-        (void)f.get("set_element")                                                     \
+        (void) f.get("set_element")                                                    \
             .call(                                                                     \
                 f.store,                                                               \
-                {wasmtime::Val(ha), wasmtime::Val(int32_t{0}),                         \
+                {wasmtime::Val(ha),                                                    \
+                 wasmtime::Val(int32_t{0}),                                            \
                  make_wasm_val(#suffix, a)}                                            \
             )                                                                          \
             .unwrap();                                                                 \
         auto result = f.get(#op_name)                                                  \
                           .call(                                                       \
                               f.store,                                                 \
-                              {wasmtime::Val(ha),                                      \
-                               make_wasm_val(#suffix, scalar)}                         \
+                              {wasmtime::Val(ha), make_wasm_val(#suffix, scalar)}      \
                           )                                                            \
                           .unwrap();                                                   \
         auto rh = result[0].i32();                                                     \
@@ -657,16 +653,15 @@ ALL_SERIES_OPS(f64, f64)
         auto result = f.get(#op_name)                                                  \
                           .call(                                                       \
                               f.store,                                                 \
-                              {wasmtime::Val(int32_t{999}),                            \
-                               make_wasm_val(#suffix, 5)}                              \
+                              {wasmtime::Val(int32_t{999}), make_wasm_val(#suffix, 5)} \
                           )                                                            \
                           .unwrap();                                                   \
         EXPECT_EQ(result[0].i32(), 0);                                                 \
     }
 
 #define ALL_CMP_TESTS(suffix)                                                          \
-    TEST_CMP(suffix, compare_gt, 10, 5, 1)                                            \
-    TEST_CMP(suffix, compare_gt, 5, 10, 0)                                            \
+    TEST_CMP(suffix, compare_gt, 10, 5, 1)                                             \
+    TEST_CMP(suffix, compare_gt, 5, 10, 0)
 
 // Can't reuse TEST_CMP with same (op, suffix) since test names collide.
 // Use separate true/false macros:
@@ -708,18 +703,18 @@ ALL_SERIES_OPS(f64, f64)
                         .call(f.store, {wasmtime::Val(int32_t{1})})                    \
                         .unwrap();                                                     \
         auto ha = ha_r[0].i32();                                                       \
-        (void)f.get("set_element")                                                     \
+        (void) f.get("set_element")                                                    \
             .call(                                                                     \
                 f.store,                                                               \
-                {wasmtime::Val(ha), wasmtime::Val(int32_t{0}),                         \
+                {wasmtime::Val(ha),                                                    \
+                 wasmtime::Val(int32_t{0}),                                            \
                  make_wasm_val(#suffix, a)}                                            \
             )                                                                          \
             .unwrap();                                                                 \
         auto result = f.get(#op_name)                                                  \
                           .call(                                                       \
                               f.store,                                                 \
-                              {wasmtime::Val(ha),                                      \
-                               make_wasm_val(#suffix, scalar)}                         \
+                              {wasmtime::Val(ha), make_wasm_val(#suffix, scalar)}      \
                           )                                                            \
                           .unwrap();                                                   \
         auto rh = result[0].i32();                                                     \
@@ -737,18 +732,18 @@ ALL_SERIES_OPS(f64, f64)
                         .call(f.store, {wasmtime::Val(int32_t{1})})                    \
                         .unwrap();                                                     \
         auto ha = ha_r[0].i32();                                                       \
-        (void)f.get("set_element")                                                     \
+        (void) f.get("set_element")                                                    \
             .call(                                                                     \
                 f.store,                                                               \
-                {wasmtime::Val(ha), wasmtime::Val(int32_t{0}),                         \
+                {wasmtime::Val(ha),                                                    \
+                 wasmtime::Val(int32_t{0}),                                            \
                  make_wasm_val(#suffix, a)}                                            \
             )                                                                          \
             .unwrap();                                                                 \
         auto result = f.get(#op_name)                                                  \
                           .call(                                                       \
                               f.store,                                                 \
-                              {wasmtime::Val(ha),                                      \
-                               make_wasm_val(#suffix, scalar)}                         \
+                              {wasmtime::Val(ha), make_wasm_val(#suffix, scalar)}      \
                           )                                                            \
                           .unwrap();                                                   \
         auto rh = result[0].i32();                                                     \
@@ -760,36 +755,36 @@ ALL_SERIES_OPS(f64, f64)
     }
 
 #define ALL_CMP_TESTS(suffix)                                                          \
-    TEST_CMP_TRUE(suffix, compare_gt, 10, 5)                                          \
-    TEST_CMP_FALSE(suffix, compare_gt, 5, 10)                                         \
-    TEST_CMP_TRUE(suffix, compare_lt, 5, 10)                                          \
-    TEST_CMP_FALSE(suffix, compare_lt, 10, 5)                                         \
-    TEST_CMP_TRUE(suffix, compare_ge, 10, 10)                                         \
-    TEST_CMP_FALSE(suffix, compare_ge, 5, 10)                                         \
-    TEST_CMP_TRUE(suffix, compare_le, 10, 10)                                         \
-    TEST_CMP_FALSE(suffix, compare_le, 10, 5)                                         \
-    TEST_CMP_TRUE(suffix, compare_eq, 7, 7)                                           \
-    TEST_CMP_FALSE(suffix, compare_eq, 7, 8)                                          \
-    TEST_CMP_TRUE(suffix, compare_ne, 7, 8)                                           \
-    TEST_CMP_FALSE(suffix, compare_ne, 7, 7)                                          \
+    TEST_CMP_TRUE(suffix, compare_gt, 10, 5)                                           \
+    TEST_CMP_FALSE(suffix, compare_gt, 5, 10)                                          \
+    TEST_CMP_TRUE(suffix, compare_lt, 5, 10)                                           \
+    TEST_CMP_FALSE(suffix, compare_lt, 10, 5)                                          \
+    TEST_CMP_TRUE(suffix, compare_ge, 10, 10)                                          \
+    TEST_CMP_FALSE(suffix, compare_ge, 5, 10)                                          \
+    TEST_CMP_TRUE(suffix, compare_le, 10, 10)                                          \
+    TEST_CMP_FALSE(suffix, compare_le, 10, 5)                                          \
+    TEST_CMP_TRUE(suffix, compare_eq, 7, 7)                                            \
+    TEST_CMP_FALSE(suffix, compare_eq, 7, 8)                                           \
+    TEST_CMP_TRUE(suffix, compare_ne, 7, 8)                                            \
+    TEST_CMP_FALSE(suffix, compare_ne, 7, 7)                                           \
     TEST_CMP_NULL(suffix, compare_gt)                                                  \
     TEST_CMP_NULL(suffix, compare_lt)                                                  \
     TEST_CMP_NULL(suffix, compare_ge)                                                  \
     TEST_CMP_NULL(suffix, compare_le)                                                  \
     TEST_CMP_NULL(suffix, compare_eq)                                                  \
     TEST_CMP_NULL(suffix, compare_ne)                                                  \
-    TEST_SCMP_TRUE(suffix, compare_gt_scalar, 10, 5)                                  \
-    TEST_SCMP_FALSE(suffix, compare_gt_scalar, 5, 10)                                 \
-    TEST_SCMP_TRUE(suffix, compare_lt_scalar, 5, 10)                                  \
-    TEST_SCMP_FALSE(suffix, compare_lt_scalar, 10, 5)                                 \
-    TEST_SCMP_TRUE(suffix, compare_ge_scalar, 10, 10)                                 \
-    TEST_SCMP_FALSE(suffix, compare_ge_scalar, 5, 10)                                 \
-    TEST_SCMP_TRUE(suffix, compare_le_scalar, 10, 10)                                 \
-    TEST_SCMP_FALSE(suffix, compare_le_scalar, 10, 5)                                 \
-    TEST_SCMP_TRUE(suffix, compare_eq_scalar, 7, 7)                                   \
-    TEST_SCMP_FALSE(suffix, compare_eq_scalar, 7, 8)                                  \
-    TEST_SCMP_TRUE(suffix, compare_ne_scalar, 7, 8)                                   \
-    TEST_SCMP_FALSE(suffix, compare_ne_scalar, 7, 7)                                  \
+    TEST_SCMP_TRUE(suffix, compare_gt_scalar, 10, 5)                                   \
+    TEST_SCMP_FALSE(suffix, compare_gt_scalar, 5, 10)                                  \
+    TEST_SCMP_TRUE(suffix, compare_lt_scalar, 5, 10)                                   \
+    TEST_SCMP_FALSE(suffix, compare_lt_scalar, 10, 5)                                  \
+    TEST_SCMP_TRUE(suffix, compare_ge_scalar, 10, 10)                                  \
+    TEST_SCMP_FALSE(suffix, compare_ge_scalar, 5, 10)                                  \
+    TEST_SCMP_TRUE(suffix, compare_le_scalar, 10, 10)                                  \
+    TEST_SCMP_FALSE(suffix, compare_le_scalar, 10, 5)                                  \
+    TEST_SCMP_TRUE(suffix, compare_eq_scalar, 7, 7)                                    \
+    TEST_SCMP_FALSE(suffix, compare_eq_scalar, 7, 8)                                   \
+    TEST_SCMP_TRUE(suffix, compare_ne_scalar, 7, 8)                                    \
+    TEST_SCMP_FALSE(suffix, compare_ne_scalar, 7, 7)                                   \
     TEST_SCMP_NULL(suffix, compare_gt_scalar)                                          \
     TEST_SCMP_NULL(suffix, compare_lt_scalar)                                          \
     TEST_SCMP_NULL(suffix, compare_ge_scalar)                                          \
@@ -833,8 +828,7 @@ std::string build_negate_wat(const std::string &suffix) {
       << "\" (func $negate (param i32) (result i32)))\n";
     w << "  (func (export \"create_empty\") (param i32) (result i32)\n";
     w << "    (call $create_empty (local.get 0)))\n";
-    w << "  (func (export \"set_element\") (param i32 i32 " << wt
-      << ") (result i32)\n";
+    w << "  (func (export \"set_element\") (param i32 i32 " << wt << ") (result i32)\n";
     w << "    (call $set_element (local.get 0) (local.get 1) (local.get 2)))\n";
     w << "  (func (export \"index\") (param i32 i32) (result " << wt << ")\n";
     w << "    (call $index (local.get 0) (local.get 1)))\n";
@@ -851,16 +845,15 @@ std::string build_negate_wat(const std::string &suffix) {
                        .call(f.store, {wasmtime::Val(int32_t{1})})                     \
                        .unwrap();                                                      \
         auto h = h_r[0].i32();                                                         \
-        (void)f.get("set_element")                                                     \
+        (void) f.get("set_element")                                                    \
             .call(                                                                     \
                 f.store,                                                               \
-                {wasmtime::Val(h), wasmtime::Val(int32_t{0}),                          \
+                {wasmtime::Val(h),                                                     \
+                 wasmtime::Val(int32_t{0}),                                            \
                  make_wasm_val(#suffix, val)}                                          \
             )                                                                          \
             .unwrap();                                                                 \
-        auto result = f.get("negate")                                                  \
-                          .call(f.store, {wasmtime::Val(h)})                           \
-                          .unwrap();                                                   \
+        auto result = f.get("negate").call(f.store, {wasmtime::Val(h)}).unwrap();      \
         auto rh = result[0].i32();                                                     \
         EXPECT_GT(rh, 0);                                                              \
         auto v = f.get("index")                                                        \
@@ -873,7 +866,7 @@ std::string build_negate_wat(const std::string &suffix) {
     TEST(SeriesModule, NegateNullHandle_##suffix) {                                    \
         Fixture f(build_negate_wat(#suffix));                                          \
         auto result = f.get("negate")                                                  \
-                          .call(f.store, {wasmtime::Val(int32_t{999})})               \
+                          .call(f.store, {wasmtime::Val(int32_t{999})})                \
                           .unwrap();                                                   \
         EXPECT_EQ(result[0].i32(), 0);                                                 \
     }
@@ -934,13 +927,17 @@ TEST(SeriesModule, NotU8InvertsBooleanSeries) {
                    .call(f.store, {wasmtime::Val(int32_t{2})})
                    .unwrap();
     auto h = h_r[0].i32();
-    (void)f.get("set_element_u8")
-        .call(f.store, {wasmtime::Val(h), wasmtime::Val(int32_t{0}),
-                        wasmtime::Val(int32_t{1})})
+    (void) f.get("set_element_u8")
+        .call(
+            f.store,
+            {wasmtime::Val(h), wasmtime::Val(int32_t{0}), wasmtime::Val(int32_t{1})}
+        )
         .unwrap();
-    (void)f.get("set_element_u8")
-        .call(f.store, {wasmtime::Val(h), wasmtime::Val(int32_t{1}),
-                        wasmtime::Val(int32_t{0})})
+    (void) f.get("set_element_u8")
+        .call(
+            f.store,
+            {wasmtime::Val(h), wasmtime::Val(int32_t{1}), wasmtime::Val(int32_t{0})}
+        )
         .unwrap();
     auto result = f.get("not_u8").call(f.store, {wasmtime::Val(h)}).unwrap();
     auto rh = result[0].i32();
@@ -957,9 +954,7 @@ TEST(SeriesModule, NotU8InvertsBooleanSeries) {
 
 TEST(SeriesModule, NotU8NullHandleReturnsZero) {
     Fixture f{std::string(MISC_WAT)};
-    auto result = f.get("not_u8")
-                      .call(f.store, {wasmtime::Val(int32_t{999})})
-                      .unwrap();
+    auto result = f.get("not_u8").call(f.store, {wasmtime::Val(int32_t{999})}).unwrap();
     EXPECT_EQ(result[0].i32(), 0);
 }
 
@@ -975,9 +970,7 @@ TEST(SeriesModule, LenReturnsSeriesLength) {
 
 TEST(SeriesModule, LenNullHandleReturnsZero) {
     Fixture f{std::string(MISC_WAT)};
-    auto result = f.get("len")
-                      .call(f.store, {wasmtime::Val(int32_t{999})})
-                      .unwrap();
+    auto result = f.get("len").call(f.store, {wasmtime::Val(int32_t{999})}).unwrap();
     EXPECT_EQ(result[0].i64(), 0);
 }
 
@@ -988,14 +981,22 @@ TEST(SeriesModule, SliceExtractsSubrange) {
                    .unwrap();
     auto h = h_r[0].i32();
     for (int32_t i = 0; i < 4; i++) {
-        (void)f.get("set_element_i32")
-            .call(f.store, {wasmtime::Val(h), wasmtime::Val(i),
-                            wasmtime::Val(int32_t{(i + 1) * 10})})
+        (void) f.get("set_element_i32")
+            .call(
+                f.store,
+                {wasmtime::Val(h),
+                 wasmtime::Val(i),
+                 wasmtime::Val(int32_t{(i + 1) * 10})}
+            )
             .unwrap();
     }
     auto result = f.get("slice")
-                      .call(f.store, {wasmtime::Val(h), wasmtime::Val(int32_t{1}),
-                                      wasmtime::Val(int32_t{3})})
+                      .call(
+                          f.store,
+                          {wasmtime::Val(h),
+                           wasmtime::Val(int32_t{1}),
+                           wasmtime::Val(int32_t{3})}
+                      )
                       .unwrap();
     auto rh = result[0].i32();
     EXPECT_GT(rh, 0);
@@ -1015,9 +1016,12 @@ TEST(SeriesModule, SliceExtractsSubrange) {
 TEST(SeriesModule, SliceNullHandleReturnsZero) {
     Fixture f{std::string(MISC_WAT)};
     auto result = f.get("slice")
-                      .call(f.store, {wasmtime::Val(int32_t{999}),
-                                      wasmtime::Val(int32_t{0}),
-                                      wasmtime::Val(int32_t{1})})
+                      .call(
+                          f.store,
+                          {wasmtime::Val(int32_t{999}),
+                           wasmtime::Val(int32_t{0}),
+                           wasmtime::Val(int32_t{1})}
+                      )
                       .unwrap();
     EXPECT_EQ(result[0].i32(), 0);
 }
@@ -1029,8 +1033,12 @@ TEST(SeriesModule, SliceOutOfBoundsReturnsZero) {
                    .unwrap();
     auto h = h_r[0].i32();
     auto result = f.get("slice")
-                      .call(f.store, {wasmtime::Val(h), wasmtime::Val(int32_t{0}),
-                                      wasmtime::Val(int32_t{10})})
+                      .call(
+                          f.store,
+                          {wasmtime::Val(h),
+                           wasmtime::Val(int32_t{0}),
+                           wasmtime::Val(int32_t{10})}
+                      )
                       .unwrap();
     EXPECT_EQ(result[0].i32(), 0);
 }
@@ -1042,8 +1050,12 @@ TEST(SeriesModule, SliceStartGEEndReturnsZero) {
                    .unwrap();
     auto h = h_r[0].i32();
     auto result = f.get("slice")
-                      .call(f.store, {wasmtime::Val(h), wasmtime::Val(int32_t{2}),
-                                      wasmtime::Val(int32_t{1})})
+                      .call(
+                          f.store,
+                          {wasmtime::Val(h),
+                           wasmtime::Val(int32_t{2}),
+                           wasmtime::Val(int32_t{1})}
+                      )
                       .unwrap();
     EXPECT_EQ(result[0].i32(), 0);
 }
