@@ -218,14 +218,14 @@ protected:
     synnax::channel::Channel index_channel = synnax::channel::Channel{
         .name = make_unique_channel_name("time_channel"),
         .data_type = x::telem::TIMESTAMP_T,
+        .is_index = true,
         .index = 0,
-        .is_index = true
     };
     synnax::channel::Channel data_channel = synnax::channel::Channel{
         .name = make_unique_channel_name("data_channel"),
         .data_type = x::telem::FLOAT64_T,
+        .is_index = false,
         .index = index_channel.key,
-        .is_index = false
     };
 
     void parse_config() {
@@ -522,14 +522,14 @@ protected:
     synnax::channel::Channel index_channel = synnax::channel::Channel{
         .name = make_unique_channel_name("time_channel"),
         .data_type = x::telem::TIMESTAMP_T,
+        .is_index = true,
         .index = 0,
-        .is_index = true
     };
     synnax::channel::Channel data_channel = synnax::channel::Channel{
         .name = make_unique_channel_name("digital_channel"),
         .data_type = x::telem::UINT8_T, // Digital data is typically boolean/uint8
+        .is_index = false,
         .index = index_channel.key,
-        .is_index = false
     };
 
     void parse_config() {
@@ -682,14 +682,14 @@ protected:
     synnax::channel::Channel index_channel = synnax::channel::Channel{
         .name = make_unique_channel_name("time_channel"),
         .data_type = x::telem::TIMESTAMP_T,
+        .is_index = true,
         .index = 0,
-        .is_index = true
     };
     synnax::channel::Channel data_channel = synnax::channel::Channel{
         .name = make_unique_channel_name("counter_channel"),
         .data_type = x::telem::FLOAT64_T, // Counter frequency data
+        .is_index = false,
         .index = index_channel.key,
-        .is_index = false
     };
 
     void parse_config() {
