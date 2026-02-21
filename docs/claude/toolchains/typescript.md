@@ -57,6 +57,9 @@ When running the Console in dev mode, connect to a local Synnax server with:
 - **Username**: `synnax`
 - **Password**: `seldon`
 
+Note: The login form shows placeholder text but does NOT pre-fill values. You must
+actually type the username and password into the fields before clicking Log In.
+
 ## Code Quality
 
 - `pnpm lint` - Lint all packages with ESLint

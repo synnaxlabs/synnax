@@ -58,7 +58,7 @@ const INITIAL_VALUES: Device = {
   location: "",
   properties: ZERO_PROPERTIES,
   rack: 0,
-  configured: false,
+  configured: true,
 };
 
 const useForm = PDevice.createForm(SCHEMAS);

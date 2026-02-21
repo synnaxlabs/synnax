@@ -7,13 +7,17 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+#include "driver/common/status.h"
 #include "driver/http/http.h"
+#include "driver/http/scan_task.h"
 
 namespace driver::http {
 std::pair<std::unique_ptr<task::Task>, bool> Factory::configure_task(
     const std::shared_ptr<task::Context> &ctx,
     const synnax::task::Task &task
 ) {
+    if (task.type == SCAN_TASK_TYPE)
+        return common::handle_config_err(ctx, task, configure_scan(ctx, task));
     return {nullptr, false};
 }
 

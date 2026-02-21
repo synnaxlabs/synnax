@@ -12,6 +12,7 @@
 
 #include "gtest/gtest.h"
 
+#include "client/cpp/testutil/testutil.h"
 #include "x/cpp/base64/base64.h"
 #include "x/cpp/telem/telem.h"
 #include "x/cpp/test/test.h"
@@ -1631,6 +1632,55 @@ TEST(ClientTest, SerialSingleHandleRecoveryFromServerError) {
     EXPECT_EQ(reqs[2].body, R"({"attempt": 2})");
 
     server.stop();
+}
+
+/// @brief it should construct a ConnectionConfig with https from device location when
+/// secure defaults to true.
+TEST(RetrieveConnectionTest, SecureDefaultBaseURL) {
+    auto client = new_test_client();
+    auto r = synnax::rack::Rack{.name = "test_rack"};
+    ASSERT_NIL(client.racks.create(r));
+    synnax::device::Device dev{
+        .key = "retrieve-conn-test-secure",
+        .name = "retrieve-conn-test-secure",
+        .rack = r.key,
+        .location = "192.168.1.100:8080",
+        .make = "http",
+        .properties = {{"timeout_ms", 5000}},
+    };
+    ASSERT_NIL(client.devices.create(dev));
+
+    const auto conn = ASSERT_NIL_P(retrieve_connection(client.devices, dev.key));
+    EXPECT_EQ(conn.base_url, "https://192.168.1.100:8080");
+    EXPECT_EQ(conn.timeout, 5 * x::telem::SECOND);
+}
+
+/// @brief it should use http when secure is false.
+TEST(RetrieveConnectionTest, InsecureBaseURL) {
+    auto client = new_test_client();
+    auto r = synnax::rack::Rack{.name = "test_rack"};
+    ASSERT_NIL(client.racks.create(r));
+    synnax::device::Device dev{
+        .key = "retrieve-conn-test-insecure",
+        .name = "retrieve-conn-test-insecure",
+        .rack = r.key,
+        .location = "10.0.0.1:9090",
+        .make = "http",
+        .properties = {{"secure", false}, {"timeout_ms", 2000}},
+    };
+    ASSERT_NIL(client.devices.create(dev));
+
+    const auto conn = ASSERT_NIL_P(retrieve_connection(client.devices, dev.key));
+    EXPECT_EQ(conn.base_url, "http://10.0.0.1:9090");
+}
+
+/// @brief it should return an error for a non-existent device.
+TEST(RetrieveConnectionTest, DeviceNotFound) {
+    auto client = new_test_client();
+    ASSERT_OCCURRED_AS_P(
+        retrieve_connection(client.devices, "non-existent-device-key"),
+        x::errors::NOT_FOUND
+    );
 }
 
 }

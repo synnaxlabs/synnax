@@ -78,7 +78,7 @@ export interface WrapFormArgs<
   StatusData extends z.ZodType = z.ZodType,
 > {
   Properties?: FC<{}>;
-  Form: FC<FormProps<Type, Config, StatusData>>;
+  Form?: FC<FormProps<Type, Config, StatusData>>;
   type: z.infer<Type>;
   onConfigure: OnConfigure<Config>;
   schemas: task.Schemas<Type, Config, StatusData>;
@@ -219,21 +219,23 @@ export const wrapForm = <
                 <Properties />
               </Flex.Box>
             )}
-            <Flex.Box
-              x
-              className={CSS.B("task-channel-form-container")}
-              bordered
-              rounded
-              grow
-              empty
-            >
-              <Form
-                layoutKey={layoutKey}
-                status={status}
-                onConfigure={save}
-                {...form}
-              />
-            </Flex.Box>
+            {Form != null && (
+              <Flex.Box
+                x
+                className={CSS.B("task-channel-form-container")}
+                bordered
+                rounded
+                grow
+                empty
+              >
+                <Form
+                  layoutKey={layoutKey}
+                  status={status}
+                  onConfigure={save}
+                  {...form}
+                />
+              </Flex.Box>
+            )}
             {showControls && (
               <Controls.Controls
                 layoutKey={layoutKey}
@@ -246,6 +248,6 @@ export const wrapForm = <
       </Flex.Box>
     );
   };
-  Wrapper.displayName = `Form(${Form.displayName ?? Form.name})`;
+  Wrapper.displayName = `Form(${Form?.displayName ?? Form?.name ?? "EmptyForm"})`;
   return Wrapper;
 };

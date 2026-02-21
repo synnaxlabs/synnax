@@ -365,4 +365,23 @@ Client::execute_requests(
     return {std::move(results), x::errors::NIL};
 }
 
+std::pair<ConnectionConfig, x::errors::Error> retrieve_connection(
+    const synnax::device::Client &devices,
+    const std::string &device_key
+) {
+    auto [dev, dev_err] = devices.retrieve(device_key);
+    if (dev_err)
+        return {
+            ConnectionConfig(x::json::Parser(x::json::json::object())),
+            dev_err,
+        };
+    auto props = x::json::json(dev.properties);
+    const bool secure = props.value("secure", true);
+    const std::string protocol = secure ? "https://" : "http://";
+    props["base_url"] = protocol + dev.location;
+    auto parser = x::json::Parser(props);
+    auto conn = ConnectionConfig(parser);
+    return {std::move(conn), parser.error()};
+}
+
 }

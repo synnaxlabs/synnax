@@ -9,9 +9,13 @@
 
 import { type Export } from "@/export";
 import { Common } from "@/hardware/common";
-import { ingestRead, ingestWrite } from "@/hardware/ethercat/task/import";
 import { Read, READ_LAYOUT, ReadSelectable } from "@/hardware/ethercat/task/Read";
-import { READ_TYPE, WRITE_TYPE } from "@/hardware/ethercat/task/types";
+import {
+  READ_TYPE,
+  readConfigZ,
+  WRITE_TYPE,
+  writeConfigZ,
+} from "@/hardware/ethercat/task/types";
 import { Write, WRITE_LAYOUT, WriteSelectable } from "@/hardware/ethercat/task/Write";
 import { type Import } from "@/import";
 import { type Layout } from "@/layout";
@@ -28,8 +32,8 @@ export const EXTRACTORS: Export.Extractors = {
 };
 
 export const FILE_INGESTERS: Import.FileIngesters = {
-  [READ_TYPE]: ingestRead,
-  [WRITE_TYPE]: ingestWrite,
+  [READ_TYPE]: Common.Task.createIngester(readConfigZ, READ_LAYOUT),
+  [WRITE_TYPE]: Common.Task.createIngester(writeConfigZ, WRITE_LAYOUT),
 };
 
 export const LAYOUTS: Record<string, Layout.Renderer> = {
