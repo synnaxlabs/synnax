@@ -10,7 +10,8 @@
 import { type Export } from "@/export";
 import { Common } from "@/hardware/common";
 import { Scan, SCAN_LAYOUT, ScanSelectable } from "@/hardware/http/task/Scan";
-import { SCAN_TYPE } from "@/hardware/http/task/types";
+import { SCAN_TYPE, scanConfigZ } from "@/hardware/http/task/types";
+import { type Import } from "@/import";
 import { type Layout } from "@/layout";
 import { type Selector } from "@/selector";
 
@@ -18,13 +19,13 @@ export * from "@/hardware/http/task/palette";
 export * from "@/hardware/http/task/Scan";
 export * from "@/hardware/http/task/types";
 
-export const EXTRACTORS: Export.Extractors = {
-  [SCAN_TYPE]: Common.Task.extract,
+export const EXTRACTORS: Export.Extractors = { [SCAN_TYPE]: Common.Task.extract };
+
+export const FILE_INGESTERS: Import.FileIngesters = {
+  [SCAN_TYPE]: Common.Task.createIngester(scanConfigZ, SCAN_LAYOUT),
 };
 
-export const LAYOUTS: Record<string, Layout.Renderer> = {
-  [SCAN_TYPE]: Scan,
-};
+export const LAYOUTS: Record<string, Layout.Renderer> = { [SCAN_TYPE]: Scan };
 
 export const SELECTABLES: Selector.Selectable[] = [ScanSelectable];
 

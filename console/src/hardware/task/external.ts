@@ -46,6 +46,7 @@ export const EXTRACTORS: Export.Extractors = {
 
 export const FILE_INGESTERS: Import.FileIngesters = {
   ...EtherCAT.Task.FILE_INGESTERS,
+  ...HTTP.Task.FILE_INGESTERS,
   ...LabJack.Task.FILE_INGESTERS,
   ...Modbus.Task.FILE_INGESTERS,
   ...NI.Task.FILE_INGESTERS,

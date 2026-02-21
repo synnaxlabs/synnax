@@ -1636,7 +1636,7 @@ TEST(ClientTest, SerialSingleHandleRecoveryFromServerError) {
 
 /// @brief it should construct a ConnectionConfig with https from device location when
 /// secure defaults to true.
-TEST(RetrieveConnectionTest, SecureDefaultBaseUrl) {
+TEST(RetrieveConnectionTest, SecureDefaultBaseURL) {
     auto client = new_test_client();
     auto r = synnax::rack::Rack{.name = "test_rack"};
     ASSERT_NIL(client.racks.create(r));
@@ -1656,7 +1656,7 @@ TEST(RetrieveConnectionTest, SecureDefaultBaseUrl) {
 }
 
 /// @brief it should use http when secure is false.
-TEST(RetrieveConnectionTest, InsecureBaseUrl) {
+TEST(RetrieveConnectionTest, InsecureBaseURL) {
     auto client = new_test_client();
     auto r = synnax::rack::Rack{.name = "test_rack"};
     ASSERT_NIL(client.racks.create(r));

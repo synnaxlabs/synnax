@@ -7,15 +7,10 @@
 #  License, use of this software will be governed by the Apache License, Version 2.0,
 #  included in the file licenses/APL.txt.
 
-import asyncio
-import json
 import math
 import time
 
 from flask import Flask, Response, jsonify, request
-
-import synnax as sy
-from examples.simulators.device_sim import DeviceSim
 
 
 def create_app() -> Flask:
@@ -32,34 +27,49 @@ def create_app() -> Flask:
     def health_detailed() -> tuple[Response, int]:
         """Detailed health with uptime and metrics."""
         elapsed = time.time() - start_time
-        return jsonify({
-            "status": "ok",
-            "uptime_seconds": round(elapsed, 2),
-            "version": "1.0.0",
-            "checks": {
-                "memory": "ok",
-                "disk": "ok",
-                "cpu": "ok",
-            },
-        }), 200
+        return (
+            jsonify(
+                {
+                    "status": "ok",
+                    "uptime_seconds": round(elapsed, 2),
+                    "version": "1.0.0",
+                    "checks": {
+                        "memory": "ok",
+                        "disk": "ok",
+                        "cpu": "ok",
+                    },
+                }
+            ),
+            200,
+        )
 
     @app.route("/health/degraded", methods=["GET"])
     def health_degraded() -> tuple[Response, int]:
         """Simulates a degraded service. Returns 200 but status is "degraded"."""
         elapsed = time.time() - start_time
-        return jsonify({
-            "status": "degraded",
-            "uptime_seconds": round(elapsed, 2),
-            "message": "High memory usage detected",
-        }), 200
+        return (
+            jsonify(
+                {
+                    "status": "degraded",
+                    "uptime_seconds": round(elapsed, 2),
+                    "message": "High memory usage detected",
+                }
+            ),
+            200,
+        )
 
     @app.route("/health/failing", methods=["GET"])
     def health_failing() -> tuple[Response, int]:
         """Simulates a failing health check. Returns 503."""
-        return jsonify({
-            "status": "error",
-            "message": "Service unavailable",
-        }), 503
+        return (
+            jsonify(
+                {
+                    "status": "error",
+                    "message": "Service unavailable",
+                }
+            ),
+            503,
+        )
 
     @app.route("/health/flapping", methods=["GET"])
     def health_flapping() -> tuple[Response, int]:
@@ -74,11 +84,16 @@ def create_app() -> Flask:
     def api_status() -> tuple[Response, int]:
         """Alternative status endpoint at a different path."""
         elapsed = time.time() - start_time
-        return jsonify({
-            "service": "http-mock",
-            "healthy": True,
-            "uptime": round(elapsed, 2),
-        }), 200
+        return (
+            jsonify(
+                {
+                    "service": "http-mock",
+                    "healthy": True,
+                    "uptime": round(elapsed, 2),
+                }
+            ),
+            200,
+        )
 
     @app.route("/api/v1/ping", methods=["GET", "POST"])
     def api_ping() -> tuple[Response, int]:
@@ -89,25 +104,33 @@ def create_app() -> Flask:
     def api_metrics() -> tuple[Response, int]:
         """Simulated metrics endpoint with sine-wave sensor data."""
         elapsed = time.time() - start_time
-        return jsonify({
-            "status": "ok",
-            "timestamp": time.time(),
-            "sensors": {
-                f"sensor_{i}": round(
-                    math.sin(elapsed + i * 0.5) * 100, 2
-                )
-                for i in range(5)
-            },
-        }), 200
+        return (
+            jsonify(
+                {
+                    "status": "ok",
+                    "timestamp": time.time(),
+                    "sensors": {
+                        f"sensor_{i}": round(math.sin(elapsed + i * 0.5) * 100, 2)
+                        for i in range(5)
+                    },
+                }
+            ),
+            200,
+        )
 
     @app.route("/api/v1/echo", methods=["POST"])
     def api_echo() -> tuple[Response, int]:
         """Echoes back the request JSON body. Useful for testing POST."""
         body = request.get_json(silent=True) or {}
-        return jsonify({
-            "status": "ok",
-            "echo": body,
-        }), 200
+        return (
+            jsonify(
+                {
+                    "status": "ok",
+                    "echo": body,
+                }
+            ),
+            200,
+        )
 
     @app.route("/auth/bearer", methods=["GET"])
     def auth_bearer() -> tuple[Response, int]:
@@ -131,48 +154,23 @@ def create_app() -> Flask:
         auth = request.authorization
         if auth is None:
             return jsonify({"status": "error", "message": "Unauthorized"}), 401
-        return jsonify({
-            "status": "ok",
-            "auth": "basic",
-            "user": auth.username,
-        }), 200
+        return (
+            jsonify(
+                {
+                    "status": "ok",
+                    "auth": "basic",
+                    "user": auth.username,
+                }
+            ),
+            200,
+        )
 
     return app
 
 
-class HTTPSim(DeviceSim):
-    """HTTP device simulator on port 8081."""
-
-    description = "HTTP mock server on port 8081"
-    host = "127.0.0.1"
-    port = 8081
-    device_name = "HTTP Mock Server"
-
-    async def _run_server(self) -> None:
-        app = create_app()
-        await asyncio.to_thread(
-            app.run, host=self.host, port=self.port, debug=False
-        )
-
-    @staticmethod
-    def create_device(rack_key: int) -> sy.device.Device:
-        return sy.device.Device(
-            name=HTTPSim.device_name,
-            make="http",
-            model="HTTP server",
-            location=f"{HTTPSim.host}:{HTTPSim.port}",
-            rack=rack_key,
-            properties=json.dumps({
-                "secure": False,
-                "timeoutMs": 5000,
-                "auth": {"type": "none"},
-            }),
-        )
-
-
 def run_server(
-    host: str = HTTPSim.host,
-    port: int = HTTPSim.port,
+    host: str = "127.0.0.1",
+    port: int = 8081,
 ) -> None:
     """Run the HTTP mock server directly."""
     app = create_app()
@@ -180,7 +178,9 @@ def run_server(
     print()
     print("Available endpoints:")
     print(f"  GET  http://{host}:{port}/health              - Simple health check")
-    print(f"  GET  http://{host}:{port}/health/detailed     - Detailed health + metrics")
+    print(
+        f"  GET  http://{host}:{port}/health/detailed     - Detailed health + metrics"
+    )
     print(f"  GET  http://{host}:{port}/health/degraded     - Degraded status (200)")
     print(f"  GET  http://{host}:{port}/health/failing      - Failing status (503)")
     print(f"  GET  http://{host}:{port}/health/flapping     - Alternates every 10s")
