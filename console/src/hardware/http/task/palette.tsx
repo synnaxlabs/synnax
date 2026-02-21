@@ -13,14 +13,12 @@ import { Access, Icon } from "@synnaxlabs/pluto";
 import { SCAN_LAYOUT } from "@/hardware/http/task/Scan";
 import { Palette } from "@/palette";
 
-const useVisible = () => Access.useUpdateGranted(task.TYPE_ONTOLOGY_ID);
-
-export const CreateScanCommand = Palette.createSimpleCommand({
+const CreateScanCommand = Palette.createSimpleCommand({
   key: "http-create-scan-task",
   name: "Create an HTTP Scan Task",
   icon: <Icon.Logo.HTTP />,
   layout: SCAN_LAYOUT,
-  useVisible,
+  useVisible: () => Access.useUpdateGranted(task.TYPE_ONTOLOGY_ID),
 });
 
 export const COMMANDS = [CreateScanCommand];

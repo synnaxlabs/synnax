@@ -17,7 +17,6 @@ import {
   SCAN_SCHEMAS,
   SCAN_TYPE,
   type scanConfigZ,
-  type scanStatusDataZ,
   type scanTypeZ,
   ZERO_RESPONSE_VALIDATION,
   ZERO_SCAN_PAYLOAD,
@@ -53,11 +52,7 @@ const Properties = () => (
 
 const RATE_INPUT_PROPS = { endContent: "Hz" } as const;
 
-type ScanFormProps = Common.Task.FormProps<
-  typeof scanTypeZ,
-  typeof scanConfigZ,
-  typeof scanStatusDataZ
->;
+type ScanFormProps = Common.Task.FormProps<typeof scanTypeZ, typeof scanConfigZ>;
 
 const ScanForm: FC<ScanFormProps> = () => {
   const { set } = Form.useContext();
@@ -109,8 +104,7 @@ const EXPECTED_VALUE_INPUT_PROPS = { placeholder: "ok" } as const;
 
 const getInitialValues: Common.Task.GetInitialValues<
   typeof scanTypeZ,
-  typeof scanConfigZ,
-  typeof scanStatusDataZ
+  typeof scanConfigZ
 > = ({ deviceKey }) => ({
   ...ZERO_SCAN_PAYLOAD,
   config: {
@@ -127,8 +121,6 @@ const onConfigure: Common.Task.OnConfigure<typeof scanConfigZ> = async (
     key: config.device,
     schemas: Device.SCHEMAS,
   });
-  console.log("config", config);
-  console.log("dev", dev);
   return [config, dev.rack];
 };
 

@@ -38,25 +38,14 @@ export const scanConfigZ = Common.Task.baseConfigZ.extend({
 
 export interface ScanConfig extends z.infer<typeof scanConfigZ> {}
 
-export const ZERO_SCAN_CONFIG: ScanConfig = {
+export const ZERO_SCAN_CONFIG = {
   ...Common.Task.ZERO_BASE_CONFIG,
   autoStart: true,
   rate: 0.1,
   path: "/health",
-};
+} as const satisfies ScanConfig;
 
-export const scanStatusDataZ = z
-  .object({
-    running: z.boolean(),
-    message: z.string(),
-  })
-  .or(z.null());
-
-interface ScanPayload extends task.Payload<
-  typeof scanTypeZ,
-  typeof scanConfigZ,
-  typeof scanStatusDataZ
-> {}
+interface ScanPayload extends task.Payload<typeof scanTypeZ, typeof scanConfigZ> {}
 
 export const ZERO_SCAN_PAYLOAD: ScanPayload = {
   key: "",
@@ -65,12 +54,8 @@ export const ZERO_SCAN_PAYLOAD: ScanPayload = {
   type: SCAN_TYPE,
 };
 
-export const SCAN_SCHEMAS: task.Schemas<
-  typeof scanTypeZ,
-  typeof scanConfigZ,
-  typeof scanStatusDataZ
-> = {
+export const SCAN_SCHEMAS: task.Schemas<typeof scanTypeZ, typeof scanConfigZ> = {
   typeSchema: scanTypeZ,
   configSchema: scanConfigZ,
-  statusDataSchema: scanStatusDataZ,
+  statusDataSchema: z.unknown(),
 };

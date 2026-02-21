@@ -17,28 +17,15 @@ namespace driver::http {
 namespace {
 const std::string LOG_PREFIX = "[http.scan] ";
 
-std::pair<std::string, std::string>
-check_health(device::Client &client, const std::optional<ResponseConfig> &response) {
-    auto [results, batch_err] = client.execute_requests({""});
-    if (batch_err)
-        return {
-            x::status::VARIANT_WARNING,
-            "Failed to reach device: " + batch_err.message(),
-        };
-
-    if (results.empty()) return {x::status::VARIANT_WARNING, "Failed to reach device"};
-
-    auto &[resp, req_err] = results[0];
-    if (req_err)
-        return {
-            x::status::VARIANT_WARNING,
-            "Failed to reach device: " + req_err.message(),
-        };
-
+std::pair<std::string, std::string> check_device_health(
+    const device::Response &resp,
+    const std::optional<ResponseConfig> &response
+) {
     if (resp.status_code < 200 || resp.status_code >= 300)
         return {
             x::status::VARIANT_WARNING,
-            "Device returned HTTP " + std::to_string(resp.status_code),
+            "Device returned HTTP " + std::to_string(resp.status_code) +
+                (resp.body.empty() ? "" : ": " + resp.body),
         };
 
     if (response.has_value()) {
@@ -145,16 +132,31 @@ void ScanTask::run() {
 
     auto timer = x::loop::Timer(cfg_.rate);
     while (this->breaker.running()) {
-        auto [variant, message] = check_health(client, cfg_.response);
-        this->set_device_status(variant, message);
-        if (variant == x::status::VARIANT_WARNING) {
-            this->status_handler_.send_warning(message);
-        } else {
-            this->status_handler_.status.variant = x::status::VARIANT_SUCCESS;
-            this->status_handler_.status.message = message;
-            this->status_handler_.status.key = task_.status_key();
-            this->ctx_->set_status(this->status_handler_.status);
+        auto [results, batch_err] = client.execute_requests({""});
+        if (batch_err) {
+            this->status_handler_.send_warning(
+                "Failed to execute request: " + batch_err.message()
+            );
+            timer.wait(this->breaker);
+            continue;
         }
+        if (results.empty()) {
+            this->status_handler_.send_warning("Failed to execute request: no results");
+            timer.wait(this->breaker);
+            continue;
+        }
+        this->status_handler_.status.variant = x::status::VARIANT_SUCCESS;
+        this->status_handler_.status.message = "Running";
+        this->status_handler_.status.key = task_.status_key();
+        this->ctx_->set_status(this->status_handler_.status);
+        auto &[resp, req_err] = results[0];
+        if (req_err) {
+            this->set_device_status(x::status::VARIANT_WARNING, req_err.message());
+            timer.wait(this->breaker);
+            continue;
+        }
+        auto [variant, message] = check_device_health(resp, cfg_.response);
+        this->set_device_status(variant, message);
         timer.wait(this->breaker);
     }
 }
