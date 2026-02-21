@@ -85,7 +85,6 @@ export interface WrapFormArgs<
   getInitialValues: GetInitialValues<Type, Config, StatusData>;
   showHeader?: boolean;
   showControls?: boolean;
-  growForm?: boolean;
 }
 
 export const useIsRunning = <Schema extends z.ZodType>(
@@ -127,7 +126,6 @@ export const wrapForm = <
   onConfigure,
   showHeader = true,
   showControls = true,
-  growForm = true,
 }: WrapFormArgs<Type, Config, StatusData>): Layout.Renderer => {
   const Wrapper: Layout.Renderer = ({ layoutKey }) => {
     const store = useStore<RootState>();
@@ -226,8 +224,8 @@ export const wrapForm = <
               className={CSS.B("task-channel-form-container")}
               bordered
               rounded
-              grow={growForm}
-              empty={growForm}
+              grow
+              empty
             >
               <Form
                 layoutKey={layoutKey}
