@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { Flex, Form, Icon, Input } from "@synnaxlabs/pluto";
+import { Flex, Form, Icon, Input, JSON } from "@synnaxlabs/pluto";
 import { type FC, useCallback } from "react";
 
 import { Common } from "@/hardware/common";
@@ -54,6 +54,52 @@ const RATE_INPUT_PROPS = { endContent: "Hz" } as const;
 
 type ScanFormProps = Common.Task.FormProps<typeof scanTypeZ, typeof scanConfigZ>;
 
+const ExpectedValueField: FC = () => {
+  const { set } = Form.useContext();
+  const value = Form.useFieldValue<JSON.Primitive>("config.response.expectedValue");
+  const valueType = JSON.detectType(value);
+
+  const handleTypeChange = useCallback(
+    (newType: JSON.PrimitiveTypeName) => {
+      set("config.response.expectedValue", JSON.ZERO_VALUES[newType]);
+    },
+    [set],
+  );
+
+  return (
+    <>
+      <Flex.Box y>
+        <Input.Label>Type</Input.Label>
+        <JSON.SelectType value={valueType} onChange={handleTypeChange} />
+      </Flex.Box>
+      {valueType === "string" && (
+        <Form.TextField
+          grow
+          path="config.response.expectedValue"
+          label="Expected Value"
+          inputProps={EXPECTED_VALUE_INPUT_PROPS}
+        />
+      )}
+      {valueType === "number" && (
+        <Form.NumericField
+          grow
+          path="config.response.expectedValue"
+          label="Expected Value"
+        />
+      )}
+      {valueType === "boolean" && (
+        <Flex.Box y grow>
+          <Input.Label>Expected Value</Input.Label>
+          <Input.Switch
+            value={value as boolean}
+            onChange={(v) => set("config.response.expectedValue", v)}
+          />
+        </Flex.Box>
+      )}
+    </>
+  );
+};
+
 const ScanForm: FC<ScanFormProps> = () => {
   const { set } = Form.useContext();
   const hasResponse =
@@ -66,7 +112,7 @@ const ScanForm: FC<ScanFormProps> = () => {
     [set],
   );
   return (
-    <Flex.Box y gap="large" style={{ padding: "2rem" }}>
+    <Flex.Box y grow gap="large" style={{ padding: "2rem" }}>
       <Form.TextField
         path="config.path"
         label="Endpoint Path"
@@ -77,20 +123,16 @@ const ScanForm: FC<ScanFormProps> = () => {
         <Input.Switch value={hasResponse} onChange={handleToggleResponse} />
       </Flex.Box>
       {hasResponse && (
-        <Flex.Box x grow>
+        <>
           <Form.TextField
-            grow
             path="config.response.field"
             label="JSON Pointer"
             inputProps={FIELD_INPUT_PROPS}
           />
-          <Form.TextField
-            grow
-            path="config.response.expectedValue"
-            label="Expected Value"
-            inputProps={EXPECTED_VALUE_INPUT_PROPS}
-          />
-        </Flex.Box>
+          <Flex.Box x grow>
+            <ExpectedValueField />
+          </Flex.Box>
+        </>
       )}
     </Flex.Box>
   );
@@ -131,5 +173,4 @@ export const Scan = Common.Task.wrapForm({
   type: SCAN_TYPE,
   getInitialValues,
   onConfigure,
-  growForm: false,
 });

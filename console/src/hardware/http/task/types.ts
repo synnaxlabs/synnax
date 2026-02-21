@@ -8,6 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { type task } from "@synnaxlabs/client";
+import { JSON } from "@synnaxlabs/pluto";
 import { z } from "zod/v4";
 
 import { Common } from "@/hardware/common";
@@ -20,7 +21,7 @@ export const scanTypeZ = z.literal(SCAN_TYPE);
 
 const responseValidationZ = z.object({
   field: z.string().min(1, "JSON pointer is required"),
-  expectedValue: z.string().min(1, "Expected value is required"),
+  expectedValue: JSON.primitiveZ,
 });
 
 export interface ResponseValidation extends z.infer<typeof responseValidationZ> {}
