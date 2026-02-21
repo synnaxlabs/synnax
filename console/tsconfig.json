@@ -2,11 +2,7 @@
   "extends": "@synnaxlabs/tsconfig/base.json",
   "compilerOptions": {
     "baseUrl": ".",
-    "paths": {
-      "@/*": ["src/*"],
-      "@synnaxlabs/pluto/dist/*": ["../../pluto/dist/*"],
-      "@synnaxlabs/pluto": ["../../pluto/src/index.ts"]
-    },
+    "paths": { "@/*": ["src/*"] },
     "declaration": false,
     "declarationMap": false
   },
