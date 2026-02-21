@@ -23,7 +23,7 @@
 namespace arc::stl::time {
 
 /// @brief Sentinel value indicating base_interval hasn't been set yet.
-inline const ::x::telem::TimeSpan UNSET_BASE_INTERVAL = ::x::telem::TimeSpan::max();
+inline const x::telem::TimeSpan UNSET_BASE_INTERVAL = ::x::telem::TimeSpan::max();
 
 /// @brief Calculates the tolerance for timing comparisons based on execution mode.
 inline ::x::telem::TimeSpan calculate_tolerance(
