@@ -60,7 +60,7 @@ export const create = <
     time: TimeStamp.now(),
     name: "",
     ...spec,
-  }) as unknown as Status<DetailsSchema, z.ZodType<V>>;
+  }) as Status<DetailsSchema, z.ZodType<V>>;
 
 export const keepVariants = (
   variant?: Variant,

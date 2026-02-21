@@ -7,7 +7,5 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-// Generated core types
-export * from "@/status/types.gen";
-// Handwritten extras (helpers, Crude type, etc.)
 export * from "@/status/status";
+export * from "@/status/types.gen";

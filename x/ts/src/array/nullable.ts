@@ -23,17 +23,3 @@ export const nullishToEmpty = <Z extends z.ZodType>(item: Z) =>
     z.union([z.null(), z.undefined()]).transform<z.infer<Z>[]>(() => []),
     item.array(),
   ]);
-
-/**
- * For optional arrays: normalizes null to undefined, preserves [].
- * Use when you need to distinguish "didn't ask" (undefined) from "asked, found nothing" ([]).
- *
- * - null → undefined (Go nil becomes JS undefined)
- * - undefined → undefined (didn't ask)
- * - [] → [] (asked, found nothing)
- * - [items] → [items]
- */
-export const nullToUndefined = <Z extends z.ZodType>(item: Z) =>
-  z
-    .union([z.null().transform(() => undefined), z.undefined(), item.array()])
-    .optional();
