@@ -150,13 +150,9 @@ func compileStatefulVariable(
 	// Stack is now: [varID, initValue/initHandle]
 	// Call appropriate state load function based on type
 	if varType.Kind == types.KindSeries {
-		if err = ctx.Resolver.EmitStateLoadSeries(ctx.Writer, ctx.WriterID, *varType.Elem); err != nil {
-			return err
-		}
+		ctx.Resolver.EmitStateLoadSeries(ctx.Writer, ctx.WriterID, *varType.Elem)
 	} else {
-		if err = ctx.Resolver.EmitStateLoad(ctx.Writer, ctx.WriterID, varType); err != nil {
-			return err
-		}
+		ctx.Resolver.EmitStateLoad(ctx.Writer, ctx.WriterID, varType)
 	}
 
 	// Stack is now: [value/handle]
@@ -193,11 +189,8 @@ func compileIndexedAssignment(
 
 	// Stack is now: [series_handle, index, value]
 	// Step 4: Call series_set_element_<type>(handle, index, value) -> handle
-	if err := ctx.Resolver.EmitSeriesSetElement(ctx.Writer, ctx.WriterID, elemType); err != nil {
-		return err
-	}
+	ctx.Resolver.EmitSeriesSetElement(ctx.Writer, ctx.WriterID, elemType)
 
-	// Drop the returned handle since we don't need it for assignment
 	ctx.Writer.WriteOpcode(wasm.OpDrop)
 
 	return nil
@@ -232,9 +225,7 @@ func compileIndexedCompoundAssignment(
 	); err != nil {
 		return errors.Wrap(err, "failed to compile index expression")
 	}
-	if err := ctx.Resolver.EmitSeriesIndex(ctx.Writer, ctx.WriterID, elemType); err != nil {
-		return err
-	}
+	ctx.Resolver.EmitSeriesIndex(ctx.Writer, ctx.WriterID, elemType)
 	// Stack: [handle, index, current_value]
 
 	// Step 3: Compile RHS expression
@@ -253,9 +244,7 @@ func compileIndexedCompoundAssignment(
 
 	// Step 4: Apply binary operation
 	if elemType.Kind == types.KindString && op == "+" {
-		if err = ctx.Resolver.EmitStringConcat(ctx.Writer, ctx.WriterID); err != nil {
-			return err
-		}
+		ctx.Resolver.EmitStringConcat(ctx.Writer, ctx.WriterID)
 	} else {
 		if err = ctx.Writer.WriteBinaryOpInferred(op, elemType); err != nil {
 			return err
@@ -263,10 +252,7 @@ func compileIndexedCompoundAssignment(
 	}
 	// Stack: [handle, index, new_value]
 
-	// Step 5: Call series_set_element and drop result
-	if err = ctx.Resolver.EmitSeriesSetElement(ctx.Writer, ctx.WriterID, elemType); err != nil {
-		return err
-	}
+	ctx.Resolver.EmitSeriesSetElement(ctx.Writer, ctx.WriterID, elemType)
 	ctx.Writer.WriteOpcode(wasm.OpDrop)
 	// Stack: []
 
@@ -306,9 +292,7 @@ func compileSeriesCompoundAssignment(
 		ctx.Writer.WriteLocalSet(scope.ID)
 		ctx.Writer.WriteI32Const(int32(scope.ID))
 		ctx.Writer.WriteLocalGet(scope.ID)
-		if err = ctx.Resolver.EmitStateStoreSeries(ctx.Writer, ctx.WriterID, elemType); err != nil {
-			return err
-		}
+		ctx.Resolver.EmitStateStoreSeries(ctx.Writer, ctx.WriterID, elemType)
 	default:
 		return errors.Newf("compound assignment not supported for %v", sym.Kind)
 	}
@@ -349,9 +333,7 @@ func compileCompoundAssignment(
 	}
 
 	if varType.Kind == types.KindString && op == "+" {
-		if err = ctx.Resolver.EmitStringConcat(ctx.Writer, ctx.WriterID); err != nil {
-			return err
-		}
+		ctx.Resolver.EmitStringConcat(ctx.Writer, ctx.WriterID)
 	} else {
 		if err = ctx.Writer.WriteBinaryOpInferred(op, varType); err != nil {
 			return err
@@ -366,13 +348,9 @@ func compileCompoundAssignment(
 		ctx.Writer.WriteI32Const(int32(scope.ID))
 		ctx.Writer.WriteLocalGet(scope.ID)
 		if varType.Kind == types.KindSeries {
-			if err = ctx.Resolver.EmitStateStoreSeries(ctx.Writer, ctx.WriterID, varType.Unwrap()); err != nil {
-				return err
-			}
+			ctx.Resolver.EmitStateStoreSeries(ctx.Writer, ctx.WriterID, varType.Unwrap())
 		} else {
-			if err = ctx.Resolver.EmitStateStore(ctx.Writer, ctx.WriterID, varType.Unwrap()); err != nil {
-				return err
-			}
+			ctx.Resolver.EmitStateStore(ctx.Writer, ctx.WriterID, varType.Unwrap())
 		}
 	default:
 		return errors.Newf("compound assignment not supported for %v", sym.Kind)
@@ -436,12 +414,8 @@ func compileAssignment(
 
 	switch sym.Kind {
 	case symbol.KindVariable:
-		// Variables with channel type need to emit channel write
 		if varType.Kind == types.KindChan {
-			// Stack is already [channelID, value] from pushing ID before expression
-			if err = ctx.Resolver.EmitChannelWrite(ctx.Writer, ctx.WriterID, varType.Unwrap()); err != nil {
-				return err
-			}
+			ctx.Resolver.EmitChannelWrite(ctx.Writer, ctx.WriterID, varType.Unwrap())
 		} else {
 			ctx.Writer.WriteLocalSet(scope.ID)
 		}
@@ -454,26 +428,15 @@ func compileAssignment(
 		ctx.Writer.WriteI32Const(int32(scope.ID))
 		ctx.Writer.WriteLocalGet(scope.ID)
 		if varType.Kind == types.KindSeries {
-			if err = ctx.Resolver.EmitStateStoreSeries(ctx.Writer, ctx.WriterID, varType.Unwrap()); err != nil {
-				return err
-			}
+			ctx.Resolver.EmitStateStoreSeries(ctx.Writer, ctx.WriterID, varType.Unwrap())
 		} else {
-			if err = ctx.Resolver.EmitStateStore(ctx.Writer, ctx.WriterID, varType.Unwrap()); err != nil {
-				return err
-			}
+			ctx.Resolver.EmitStateStore(ctx.Writer, ctx.WriterID, varType.Unwrap())
 		}
 	case symbol.KindChannel:
-		// Stack is already [channelID, value] from pushing ID before expression
-		if err = ctx.Resolver.EmitChannelWrite(ctx.Writer, ctx.WriterID, varType.Unwrap()); err != nil {
-			return err
-		}
+		ctx.Resolver.EmitChannelWrite(ctx.Writer, ctx.WriterID, varType.Unwrap())
 	case symbol.KindConfig:
-		// Config params may have channel types - if so, write to the channel
 		if varType.Kind == types.KindChan {
-			// Stack is already [channelID, value] from pushing ID before expression
-			if err = ctx.Resolver.EmitChannelWrite(ctx.Writer, ctx.WriterID, varType.Unwrap()); err != nil {
-				return err
-			}
+			ctx.Resolver.EmitChannelWrite(ctx.Writer, ctx.WriterID, varType.Unwrap())
 		} else {
 			// Non-channel config param - just set the local
 			ctx.Writer.WriteLocalSet(scope.ID)

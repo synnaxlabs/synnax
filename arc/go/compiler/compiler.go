@@ -120,9 +120,7 @@ func Compile(ctx context.Context, program ir.IR, opts ...Option) (Output, error)
 		compiled = append(compiled, cf)
 	}
 
-	if err := resolver.FinalizeAndPatch(compCtx.Module); err != nil {
-		return Output{}, err
-	}
+	resolver.FinalizeAndPatch(compCtx.Module)
 
 	for _, cf := range compiled {
 		funcIdx := compCtx.Module.AddFunction(cf.typeIdx, cf.locals, cf.writer.Bytes())

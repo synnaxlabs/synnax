@@ -71,7 +71,7 @@ func (m *Module) Create(ctx context.Context, cfg node.Config) (node.Node, error)
 	return f.Create(ctx, cfg)
 }
 
-func (m *Module) BindTo(_ context.Context, _ stl.HostRuntime) error {
+func (m *Module) BindTo(_ stl.HostRuntime) error {
 	return nil
 }
 

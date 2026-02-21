@@ -334,7 +334,7 @@ sequence main {
 			selector.NewModule(),
 			stable.NewModule(),
 			control.NewModule(nil),
-			stat.NewModule(),
+			&stat.Module{},
 			time.NewModule(),
 			stage.NewModule(),
 		}

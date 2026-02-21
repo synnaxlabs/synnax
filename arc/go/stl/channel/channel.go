@@ -101,7 +101,7 @@ func (m *Module) Create(_ context.Context, cfg node.Config) (node.Node, error) {
 	return &sink{Node: cfg.State, key: nodeCfg.Channel}, nil
 }
 
-func (m *Module) BindTo(_ context.Context, rt stl.HostRuntime) error {
+func (m *Module) BindTo(rt stl.HostRuntime) error {
 	if m.channel == nil {
 		return nil
 	}

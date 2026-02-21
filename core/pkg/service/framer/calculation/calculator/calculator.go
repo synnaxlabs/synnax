@@ -88,7 +88,7 @@ func Open(
 		constant.NewModule(),
 		stlop.NewModule(),
 		stable.NewModule(),
-		stat.NewModule(),
+		&stat.Module{},
 	}
 	f := stl.MultiFactory(modules...)
 	if len(cfg.Module.WASM) > 0 {

@@ -56,7 +56,7 @@ func (m *Module) Create(_ context.Context, cfg node.Config) (node.Node, error) {
 	return nil, query.ErrNotFound
 }
 
-func (m *Module) BindTo(_ context.Context, _ stl.HostRuntime) error {
+func (m *Module) BindTo(_ stl.HostRuntime) error {
 	return nil
 }
 

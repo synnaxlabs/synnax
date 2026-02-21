@@ -64,7 +64,7 @@ func NewResolver(symbols symbol.Resolver) *Resolver {
 // Resolve returns a temporary handle for the named function and records the
 // reference for later linking. The concreteType is the monomorphized function
 // type at the call site.
-func (r *Resolver) Resolve(name string, concreteType types.Type) (uint32, error) {
+func (r *Resolver) Resolve(name string, concreteType types.Type) uint32 {
 	handle := r.handleCounter
 	r.handleCounter++
 	r.pending = append(r.pending, pendingRef{
@@ -72,14 +72,14 @@ func (r *Resolver) Resolve(name string, concreteType types.Type) (uint32, error)
 		concreteType:  concreteType,
 		handle:        handle,
 	})
-	return handle, nil
+	return handle
 }
 
 // ResolveWithSuffix is like Resolve but uses an explicit type suffix instead of
 // deriving it from type variables. Use this for functions where the WASM params
 // are all i32 handles but the import name still needs a type suffix (e.g.,
 // series_create_empty_f64).
-func (r *Resolver) ResolveWithSuffix(name string, concreteType types.Type, suffix string) (uint32, error) {
+func (r *Resolver) ResolveWithSuffix(name string, concreteType types.Type, suffix string) uint32 {
 	handle := r.handleCounter
 	r.handleCounter++
 	r.pending = append(r.pending, pendingRef{
@@ -88,7 +88,7 @@ func (r *Resolver) ResolveWithSuffix(name string, concreteType types.Type, suffi
 		typeSuffix:    suffix,
 		handle:        handle,
 	})
-	return handle, nil
+	return handle
 }
 
 // RegisterLocal records that a function body was compiled locally and will
@@ -117,7 +117,7 @@ func (r *Resolver) RecordPlaceholder(writerID int, handle uint32, offset int) {
 // Finalize partitions pending references into imports and locals, registers
 // import entries with the WASM module, and returns a map from temporary handles
 // to real WASM function indices.
-func (r *Resolver) Finalize(m *wasm.Module) (map[uint32]uint32, error) {
+func (r *Resolver) Finalize(m *wasm.Module) map[uint32]uint32 {
 	type importKey struct {
 		wasmModule string
 		wasmName   string
@@ -148,21 +148,17 @@ func (r *Resolver) Finalize(m *wasm.Module) (map[uint32]uint32, error) {
 		patches[ref.handle] = m.ImportCount() + cf.bodyIndex
 	}
 
-	return patches, nil
+	return patches
 }
 
 // FinalizeAndPatch calls Finalize to resolve all function indices, then patches
 // every tracked writer's call placeholders with the real indices.
-func (r *Resolver) FinalizeAndPatch(m *wasm.Module) error {
-	patches, err := r.Finalize(m)
-	if err != nil {
-		return err
-	}
+func (r *Resolver) FinalizeAndPatch(m *wasm.Module) {
+	patches := r.Finalize(m)
 	for _, wp := range r.writers {
 		for _, entry := range wp.entries {
 			realIdx := patches[entry.handle]
 			wp.writer.PatchCall(entry.offset, realIdx)
 		}
 	}
-	return nil
 }

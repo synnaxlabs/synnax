@@ -142,7 +142,7 @@ func (m *Module) Create(_ context.Context, cfg node.Config) (node.Node, error) {
 	}
 }
 
-func (m *Module) BindTo(_ context.Context, rt stl.HostRuntime) error {
+func (m *Module) BindTo(rt stl.HostRuntime) error {
 	stl.MustExport(rt, "time", "now", func(_ context.Context) uint64 {
 		return uint64(telem.Now())
 	})

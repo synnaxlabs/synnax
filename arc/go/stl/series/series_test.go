@@ -59,7 +59,7 @@ var _ = Describe("Series", func() {
 		rt = testutil.NewMockHostRuntime()
 		ss = state.NewSeriesHandleStore()
 		mod := series.NewModule(ss)
-		Expect(mod.BindTo(ctx, rt)).To(Succeed())
+		Expect(mod.BindTo(rt)).To(Succeed())
 	})
 
 	describeI32Type := func(suffix string, dt telem.DataType, a, b uint32) {

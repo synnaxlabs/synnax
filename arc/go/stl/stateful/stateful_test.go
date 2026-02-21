@@ -22,10 +22,9 @@ import (
 	. "github.com/synnaxlabs/x/testutil"
 )
 
-var ctx = context.Background()
-
 var _ = Describe("Vars", func() {
 	var (
+		ctx     context.Context
 		rt      *testutil.MockHostRuntime
 		seriesS *state.SeriesHandleStore
 		strS    *state.StringHandleStore
@@ -33,11 +32,12 @@ var _ = Describe("Vars", func() {
 	)
 
 	BeforeEach(func() {
+		ctx = context.Background()
 		rt = testutil.NewMockHostRuntime()
 		seriesS = state.NewSeriesHandleStore()
 		strS = state.NewStringHandleStore()
 		mod = stateful.NewModule(seriesS, strS)
-		Expect(mod.BindTo(ctx, rt)).To(Succeed())
+		Expect(mod.BindTo(rt)).To(Succeed())
 	})
 
 	Describe("i32 scalar types", func() {

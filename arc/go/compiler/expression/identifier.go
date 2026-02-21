@@ -29,18 +29,14 @@ func compileIdentifier[ASTNode antlr.ParserRuleContext](
 	case symbol.KindVariable, symbol.KindInput:
 		ctx.Writer.WriteLocalGet(scope.ID)
 		if scope.Type.Kind == types.KindChan {
-			if err = emitChannelRead(ctx, scope.Type); err != nil {
-				return types.Type{}, err
-			}
+			emitChannelRead(ctx, scope.Type)
 			return scope.Type.Unwrap(), nil
 		}
 		return scope.Type, nil
 	case symbol.KindConfig:
 		if scope.Type.Kind == types.KindChan {
 			ctx.Writer.WriteLocalGet(scope.ID)
-			if err = emitChannelRead(ctx, scope.Type); err != nil {
-				return types.Type{}, err
-			}
+			emitChannelRead(ctx, scope.Type)
 			return scope.Type.Unwrap(), nil
 		}
 		ctx.Writer.WriteLocalGet(scope.ID)
@@ -51,15 +47,11 @@ func compileIdentifier[ASTNode antlr.ParserRuleContext](
 		}
 		return scope.Type, nil
 	case symbol.KindStatefulVariable:
-		if err = emitStatefulLoad(ctx, scope.ID, scope.Type); err != nil {
-			return types.Type{}, err
-		}
+		emitStatefulLoad(ctx, scope.ID, scope.Type)
 		return scope.Type, nil
 	case symbol.KindChannel:
 		ctx.Writer.WriteI32Const(int32(scope.ID))
-		if err = emitChannelRead(ctx, scope.Type); err != nil {
-			return types.Type{}, err
-		}
+		emitChannelRead(ctx, scope.Type)
 		return scope.Type.Unwrap(), nil
 	default:
 		return types.Type{}, errors.Newf("unsupported symbol kind: %v for '%s'", scope.Kind, name)
@@ -70,13 +62,14 @@ func emitStatefulLoad[ASTNode antlr.ParserRuleContext](
 	ctx context.Context[ASTNode],
 	idx int,
 	t types.Type,
-) error {
+) {
 	ctx.Writer.WriteI32Const(int32(idx))
 	emitZeroValue(ctx, t)
 	if t.Kind == types.KindSeries {
-		return ctx.Resolver.EmitStateLoadSeries(ctx.Writer, ctx.WriterID, *t.Elem)
+		ctx.Resolver.EmitStateLoadSeries(ctx.Writer, ctx.WriterID, *t.Elem)
+	} else {
+		ctx.Resolver.EmitStateLoad(ctx.Writer, ctx.WriterID, t.Unwrap())
 	}
-	return ctx.Resolver.EmitStateLoad(ctx.Writer, ctx.WriterID, t.Unwrap())
 }
 
 func emitZeroValue[ASTNode antlr.ParserRuleContext](
@@ -102,6 +95,6 @@ func emitZeroValue[ASTNode antlr.ParserRuleContext](
 func emitChannelRead[ASTNode antlr.ParserRuleContext](
 	ctx context.Context[ASTNode],
 	t types.Type,
-) error {
-	return ctx.Resolver.EmitChannelRead(ctx.Writer, ctx.WriterID, t)
+) {
+	ctx.Resolver.EmitChannelRead(ctx.Writer, ctx.WriterID, t)
 }

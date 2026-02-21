@@ -33,7 +33,7 @@ func (s *stubModule) Create(_ context.Context, cfg node.Config) (node.Node, erro
 	return nil, query.ErrNotFound
 }
 
-func (s *stubModule) BindTo(_ context.Context, _ stl.HostRuntime) error {
+func (s *stubModule) BindTo(_ stl.HostRuntime) error {
 	return nil
 }
 

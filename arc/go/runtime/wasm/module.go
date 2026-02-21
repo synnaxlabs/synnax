@@ -73,7 +73,7 @@ func OpenModule(ctx context.Context, cfg ModuleConfig) (*Module, error) {
 	}
 	hostRT := NewWazeroHostRuntime(ctx, wasmRuntime)
 	for _, m := range modules {
-		if err := m.BindTo(ctx, hostRT); err != nil {
+		if err := m.BindTo(hostRT); err != nil {
 			return nil, err
 		}
 	}

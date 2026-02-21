@@ -37,9 +37,7 @@ func compileUnary(ctx context.Context[parser.IUnaryExpressionContext]) (types.Ty
 		case types.KindSeries:
 			elemType := innerType.Unwrap()
 			if elemType.IsSigned() {
-				if err := ctx.Resolver.EmitSeriesNegate(ctx.Writer, ctx.WriterID, elemType); err != nil {
-					return types.Type{}, err
-				}
+				ctx.Resolver.EmitSeriesNegate(ctx.Writer, ctx.WriterID, elemType)
 			} else {
 				return types.Type{}, errors.Newf("cannot negate series of unsigned type %s", elemType)
 			}
@@ -62,9 +60,7 @@ func compileUnary(ctx context.Context[parser.IUnaryExpressionContext]) (types.Ty
 					innerType.Unwrap(),
 				)
 			}
-			if err := ctx.Resolver.EmitSeriesNotU8(ctx.Writer, ctx.WriterID); err != nil {
-				return types.Type{}, err
-			}
+			ctx.Resolver.EmitSeriesNotU8(ctx.Writer, ctx.WriterID)
 			return innerType, nil
 		}
 

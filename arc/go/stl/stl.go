@@ -28,7 +28,7 @@ type Module interface {
 	node.Factory
 	// BindTo registers this module's host function implementations with the
 	// WASM runtime. Called once during runtime setup.
-	BindTo(ctx context.Context, rt HostRuntime) error
+	BindTo(rt HostRuntime) error
 }
 
 // MemorySetter is implemented by modules that need access to the WASM linear

@@ -52,7 +52,7 @@ func (m *Module) Create(_ context.Context, _ node.Config) (node.Node, error) {
 	return nil, query.ErrNotFound
 }
 
-func (m *Module) BindTo(_ context.Context, rt stl.HostRuntime) error {
+func (m *Module) BindTo(rt stl.HostRuntime) error {
 	// i32-compatible types: WASM uses uint32, convert internally
 	bindI32Pow[uint8](rt, "u8")
 	bindI32Pow[uint16](rt, "u16")

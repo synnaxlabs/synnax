@@ -113,7 +113,7 @@ func (m *Module) Create(_ context.Context, _ node.Config) (node.Node, error) {
 	return nil, query.ErrNotFound
 }
 
-func (m *Module) BindTo(_ context.Context, rt stl.HostRuntime) error {
+func (m *Module) BindTo(rt stl.HostRuntime) error {
 	s := m.series
 	bindU8(rt, s)
 	bindU16(rt, s)

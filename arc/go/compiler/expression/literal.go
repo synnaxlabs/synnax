@@ -44,9 +44,7 @@ func compileStringLiteral(
 	offset := ctx.Module.AddData(strBytes)
 	ctx.Writer.WriteI32Const(int32(offset))
 	ctx.Writer.WriteI32Const(int32(len(strBytes)))
-	if err := ctx.Resolver.EmitStringFromLiteral(ctx.Writer, ctx.WriterID); err != nil {
-		return types.Type{}, err
-	}
+	ctx.Resolver.EmitStringFromLiteral(ctx.Writer, ctx.WriterID)
 	return types.String(), nil
 }
 
@@ -80,18 +78,14 @@ func compileSeriesLiteral(
 	length := len(expressions)
 
 	ctx.Writer.WriteI32Const(int32(length))
-	if err := ctx.Resolver.EmitSeriesCreateEmpty(ctx.Writer, ctx.WriterID, *elemType); err != nil {
-		return types.Type{}, err
-	}
+	ctx.Resolver.EmitSeriesCreateEmpty(ctx.Writer, ctx.WriterID, *elemType)
 
 	for i, expr := range expressions {
 		ctx.Writer.WriteI32Const(int32(i))
 		if _, err := Compile(context.Child(ctx, expr).WithHint(*elemType)); err != nil {
 			return types.Type{}, err
 		}
-		if err := ctx.Resolver.EmitSeriesSetElement(ctx.Writer, ctx.WriterID, *elemType); err != nil {
-			return types.Type{}, err
-		}
+		ctx.Resolver.EmitSeriesSetElement(ctx.Writer, ctx.WriterID, *elemType)
 	}
 
 	return seriesType, nil

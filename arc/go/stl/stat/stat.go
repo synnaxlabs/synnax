@@ -69,8 +69,6 @@ type Module struct{}
 
 var _ stl.Module = (*Module)(nil)
 
-func NewModule() *Module { return &Module{} }
-
 func (m *Module) Resolve(ctx context.Context, name string) (symbol.Symbol, error) {
 	return SymbolResolver.Resolve(ctx, name)
 }
@@ -113,7 +111,7 @@ func (m *Module) Create(_ context.Context, nodeCfg node.Config) (node.Node, erro
 	}, nil
 }
 
-func (m *Module) BindTo(_ context.Context, _ stl.HostRuntime) error {
+func (m *Module) BindTo(_ stl.HostRuntime) error {
 	return nil
 }
 

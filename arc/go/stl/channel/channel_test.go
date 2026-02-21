@@ -46,7 +46,7 @@ var _ = Describe("Channel", func() {
 			})
 			ss = state.NewStringHandleStore()
 			mod = channel.NewModule(cs, ss)
-			Expect(mod.BindTo(ctx, rt)).To(Succeed())
+			Expect(mod.BindTo(rt)).To(Succeed())
 		})
 
 		Describe("i32 types", func() {
@@ -696,7 +696,7 @@ var _ = Describe("Channel", func() {
 		It("Should not panic when channel state is nil", func() {
 			mod := channel.NewModule(nil, nil)
 			Expect(func() {
-				_ = mod.BindTo(ctx, testutil.NewMockHostRuntime())
+				_ = mod.BindTo(testutil.NewMockHostRuntime())
 			}).ToNot(Panic())
 		})
 	})

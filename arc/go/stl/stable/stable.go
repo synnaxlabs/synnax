@@ -44,13 +44,21 @@ var (
 )
 
 type Module struct {
-	Now func() telem.TimeStamp
+	now func() telem.TimeStamp
 }
 
 var _ stl.Module = (*Module)(nil)
 
-func NewModule() *Module {
-	return &Module{Now: telem.Now}
+func NewModule(opts ...func(*Module)) *Module {
+	m := &Module{now: telem.Now}
+	for _, opt := range opts {
+		opt(m)
+	}
+	return m
+}
+
+func WithNow(fn func() telem.TimeStamp) func(*Module) {
+	return func(m *Module) { m.now = fn }
 }
 
 func (m *Module) Resolve(ctx context.Context, name string) (symbol.Symbol, error) {
@@ -69,10 +77,10 @@ func (m *Module) Create(_ context.Context, cfg node.Config) (node.Node, error) {
 	if err := configSchema.Parse(cfg.Node.Config.ValueMap(), &cfgVals); err != nil {
 		return nil, err
 	}
-	return &stableFor{Node: cfg.State, duration: cfgVals.Duration, now: m.Now}, nil
+	return &stableFor{Node: cfg.State, duration: cfgVals.Duration, now: m.now}, nil
 }
 
-func (m *Module) BindTo(_ context.Context, _ stl.HostRuntime) error {
+func (m *Module) BindTo(_ stl.HostRuntime) error {
 	return nil
 }
 

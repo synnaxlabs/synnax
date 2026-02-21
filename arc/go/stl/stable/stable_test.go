@@ -36,10 +36,9 @@ var _ = Describe("StableFor", func() {
 		currentTime telem.TimeStamp
 	)
 	BeforeEach(func() {
-		module = stable.NewModule()
-		module.Now = func() telem.TimeStamp {
+		module = stable.NewModule(stable.WithNow(func() telem.TimeStamp {
 			return currentTime
-		}
+		}))
 		irNode = ir.Node{
 			Key:  "stable",
 			Type: "stable_for",

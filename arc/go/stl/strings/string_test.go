@@ -34,7 +34,7 @@ var _ = Describe("Strings", func() {
 		rt = testutil.NewMockHostRuntime()
 		ss = state.NewStringHandleStore()
 		mod = strings.NewModule(ss)
-		Expect(mod.BindTo(ctx, rt)).To(Succeed())
+		Expect(mod.BindTo(rt)).To(Succeed())
 	})
 
 	Describe("from_literal", func() {

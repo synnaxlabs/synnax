@@ -75,9 +75,7 @@ func compileBinaryAdditive(
 			elemType = secondElemType
 			firstIsSeries = true
 		} else if hintType.Kind == types.KindString && operators[i-1] == "+" {
-			if err := ctx.Resolver.EmitStringConcat(ctx.Writer, ctx.WriterID); err != nil {
-				return types.Type{}, err
-			}
+			ctx.Resolver.EmitStringConcat(ctx.Writer, ctx.WriterID)
 		} else {
 			if err = ctx.Writer.WriteBinaryOpInferred(operators[i-1], hintType); err != nil {
 				return types.Type{}, err
@@ -258,9 +256,7 @@ func compileBinaryEquality(ctx context.Context[parser.IEqualityExpressionContext
 	}
 
 	if hintType.Kind == types.KindString {
-		if err := ctx.Resolver.EmitStringEqual(ctx.Writer, ctx.WriterID); err != nil {
-			return types.Type{}, err
-		}
+		ctx.Resolver.EmitStringEqual(ctx.Writer, ctx.WriterID)
 		if op == "!=" {
 			ctx.Writer.WriteI32Eqz()
 		}

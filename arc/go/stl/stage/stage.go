@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-// Package stagemod provides the stage_entry STL module for Arc runtime stage
+// Package stage provides the stage_entry STL module for Arc runtime stage
 // transitions. Entry nodes listen for activation signals and trigger stage
 // transitions via the node context's ActivateStage callback.
 package stage
@@ -68,7 +68,7 @@ func (m *Module) Create(_ context.Context, cfg node.Config) (node.Node, error) {
 	return &entry{Node: cfg.State}, nil
 }
 
-func (m *Module) BindTo(_ context.Context, _ stl.HostRuntime) error {
+func (m *Module) BindTo(_ stl.HostRuntime) error {
 	return nil
 }
 

@@ -124,9 +124,7 @@ func compilePower(
 		return types.Type{}, err
 	}
 
-	if err := ctx.Resolver.EmitMathPow(ctx.Writer, ctx.WriterID, baseType); err != nil {
-		return types.Type{}, err
-	}
+	ctx.Resolver.EmitMathPow(ctx.Writer, ctx.WriterID, baseType)
 
 	return baseType, nil
 }
@@ -217,9 +215,7 @@ func compileFunctionCallExpr(
 		}
 	}
 
-	if err := ctx.Resolver.EmitCall(ctx.Writer, ctx.WriterID, funcName, funcType); err != nil {
-		return types.Type{}, err
-	}
+	ctx.Resolver.EmitCall(ctx.Writer, ctx.WriterID, funcName, funcType)
 	defaultOutput, hasDefault := funcType.Outputs.Get(ir.DefaultOutputParam)
 	if hasDefault {
 		return defaultOutput.Type, nil
@@ -243,9 +239,7 @@ func compileIndexOrSlice(
 			return types.Type{}, err
 		}
 		t := operandType.Unwrap()
-		if err := ctx.Resolver.EmitSeriesIndex(ctx.Writer, ctx.WriterID, t); err != nil {
-			return types.Type{}, err
-		}
+		ctx.Resolver.EmitSeriesIndex(ctx.Writer, ctx.WriterID, t)
 		return t, nil
 	}
 
@@ -283,9 +277,7 @@ func compileIndexOrSlice(
 		ctx.Writer.WriteI32Const(-1)
 	}
 
-	if err := ctx.Resolver.EmitSeriesSlice(ctx.Writer, ctx.WriterID); err != nil {
-		return types.Type{}, err
-	}
+	ctx.Resolver.EmitSeriesSlice(ctx.Writer, ctx.WriterID)
 
 	return operandType, nil
 }
@@ -374,9 +366,7 @@ func emitLiteralValue[T antlr.ParserRuleContext](
 		offset := ctx.Module.AddData(strBytes)
 		ctx.Writer.WriteI32Const(int32(offset))
 		ctx.Writer.WriteI32Const(int32(len(strBytes)))
-		if err := ctx.Resolver.EmitStringFromLiteral(ctx.Writer, ctx.WriterID); err != nil {
-			return err
-		}
+		ctx.Resolver.EmitStringFromLiteral(ctx.Writer, ctx.WriterID)
 	default:
 		return errors.Newf("unsupported default value type: %s", paramType)
 	}
@@ -402,14 +392,10 @@ func compileBuiltinLen(
 
 	switch argType.Kind {
 	case types.KindSeries:
-		if err := ctx.Resolver.EmitSeriesLen(ctx.Writer, ctx.WriterID); err != nil {
-			return types.Type{}, err
-		}
+		ctx.Resolver.EmitSeriesLen(ctx.Writer, ctx.WriterID)
 		return types.I64(), nil
 	case types.KindString:
-		if err := ctx.Resolver.EmitStringLen(ctx.Writer, ctx.WriterID); err != nil {
-			return types.Type{}, err
-		}
+		ctx.Resolver.EmitStringLen(ctx.Writer, ctx.WriterID)
 		return types.I64(), nil
 	default:
 		return types.Type{}, errors.Newf("argument 1 of len: expected series or str, got %s", argType)
@@ -417,8 +403,6 @@ func compileBuiltinLen(
 }
 
 func compileBuiltinNow(ctx context.Context[parser.IPostfixExpressionContext]) (types.Type, error) {
-	if err := ctx.Resolver.EmitNow(ctx.Writer, ctx.WriterID); err != nil {
-		return types.Type{}, err
-	}
+	ctx.Resolver.EmitNow(ctx.Writer, ctx.WriterID)
 	return types.TimeStamp(), nil
 }

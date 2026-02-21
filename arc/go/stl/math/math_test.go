@@ -19,18 +19,18 @@ import (
 	"github.com/synnaxlabs/arc/stl/testutil"
 )
 
-var ctx = context.Background()
-
 var _ = Describe("Math", func() {
 	var (
+		ctx context.Context
 		rt  *testutil.MockHostRuntime
 		mod *stlmath.Module
 	)
 
 	BeforeEach(func() {
+		ctx = context.Background()
 		rt = testutil.NewMockHostRuntime()
 		mod = stlmath.NewModule()
-		Expect(mod.BindTo(ctx, rt)).To(Succeed())
+		Expect(mod.BindTo(rt)).To(Succeed())
 	})
 
 	Describe("pow", func() {
@@ -54,5 +54,22 @@ var _ = Describe("Math", func() {
 			pow := testutil.Get[func(context.Context, float64, float64) float64](rt, "math", "pow_f64")
 			Expect(pow(ctx, 2.0, 0.5)).To(BeNumerically("~", math.Sqrt2, 0.0001))
 		})
+
+		It("Should truncate negative integer exponents to zero", func() {
+			pow := testutil.Get[func(context.Context, uint32, uint32) uint32](rt, "math", "pow_i32")
+			negOne := int32(-1)
+			Expect(pow(ctx, 2, uint32(negOne))).To(Equal(uint32(0)))
+		})
+
+		It("Should compute f64 negative exponents", func() {
+			pow := testutil.Get[func(context.Context, float64, float64) float64](rt, "math", "pow_f64")
+			Expect(pow(ctx, 2.0, -1.0)).To(BeNumerically("~", 0.5, 0.0001))
+		})
+
+		It("Should compute f32 negative exponents", func() {
+			pow := testutil.Get[func(context.Context, float32, float32) float32](rt, "math", "pow_f32")
+			Expect(pow(ctx, 4.0, -0.5)).To(BeNumerically("~", 0.5, 0.001))
+		})
+
 	})
 })

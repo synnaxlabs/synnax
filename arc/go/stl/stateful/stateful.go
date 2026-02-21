@@ -104,7 +104,7 @@ func (m *Module) Create(_ context.Context, _ node.Config) (node.Node, error) {
 	return nil, query.ErrNotFound
 }
 
-func (m *Module) BindTo(_ context.Context, rt stl.HostRuntime) error {
+func (m *Module) BindTo(rt stl.HostRuntime) error {
 	bindScalarI32[uint8](rt, m, m.stateU8, "u8")
 	bindScalarI32[uint16](rt, m, m.stateU16, "u16")
 	bindScalarI32[uint32](rt, m, m.stateU32, "u32")

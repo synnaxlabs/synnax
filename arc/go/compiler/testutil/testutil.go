@@ -63,9 +63,7 @@ func NewContext(ctx context.Context) ccontext.Context[antlr.ParserRuleContext] {
 // when the context has a Resolver.
 func FinalizeContext(ctx ccontext.Context[antlr.ParserRuleContext]) []byte {
 	if ctx.Resolver != nil {
-		if err := ctx.Resolver.FinalizeAndPatch(ctx.Module); err != nil {
-			panic(fmt.Sprintf("FinalizeAndPatch failed: %v", err))
-		}
+		ctx.Resolver.FinalizeAndPatch(ctx.Module)
 	}
 	return ctx.Writer.Bytes()
 }

@@ -103,7 +103,7 @@ func bindDefaultModules(r wazero.Runtime) (*state.State, *stlstrings.Module) {
 	modules, strMod, _ := wasm.DefaultModules(s)
 	hostRT := wasm.NewWazeroHostRuntime(ctx, r)
 	for _, m := range modules {
-		Expect(m.BindTo(ctx, hostRT)).To(Succeed())
+		Expect(m.BindTo(hostRT)).To(Succeed())
 	}
 	Expect(hostRT.Instantiate()).To(Succeed())
 	return s, strMod

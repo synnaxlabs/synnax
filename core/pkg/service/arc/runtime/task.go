@@ -117,7 +117,7 @@ func (t *taskImpl) start(ctx context.Context) error {
 		stable.NewModule(),
 		arcstatus.NewModule(t.factoryCfg.Status),
 		stlcontrol.NewModule(drt.state.Auth),
-		stat.NewModule(),
+		&stat.Module{},
 	}
 	f := stl.MultiFactory(modules...)
 	var closers xio.MultiCloser

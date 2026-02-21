@@ -16,16 +16,15 @@ import (
 	"github.com/synnaxlabs/arc/compiler/wasm"
 	"github.com/synnaxlabs/arc/symbol"
 	"github.com/synnaxlabs/arc/types"
-	. "github.com/synnaxlabs/x/testutil"
 )
 
 var _ = Describe("Resolver", func() {
 	Describe("Resolve", func() {
 		It("Should return incrementing handles", func() {
 			r := resolve.NewResolver(symbol.MapResolver{})
-			h0 := MustSucceed(r.Resolve("foo", types.Function(types.FunctionProperties{})))
-			h1 := MustSucceed(r.Resolve("bar", types.Function(types.FunctionProperties{})))
-			h2 := MustSucceed(r.Resolve("baz", types.Function(types.FunctionProperties{})))
+			h0 := r.Resolve("foo", types.Function(types.FunctionProperties{}))
+			h1 := r.Resolve("bar", types.Function(types.FunctionProperties{}))
+			h2 := r.Resolve("baz", types.Function(types.FunctionProperties{}))
 			Expect(h0).To(Equal(uint32(0)))
 			Expect(h1).To(Equal(uint32(1)))
 			Expect(h2).To(Equal(uint32(2)))
@@ -44,13 +43,13 @@ var _ = Describe("Resolver", func() {
 				},
 			}
 			r := resolve.NewResolver(symbols)
-			h0 := MustSucceed(r.Resolve("math.abs", types.Function(types.FunctionProperties{
+			h0 := r.Resolve("math.abs", types.Function(types.FunctionProperties{
 				Inputs:  types.Params{{Name: "x", Type: types.F64()}},
 				Outputs: types.Params{{Name: "result", Type: types.F64()}},
-			})))
+			}))
 
 			m := wasm.NewModule()
-			patches := MustSucceed(r.Finalize(m))
+			patches := r.Finalize(m)
 			Expect(patches[h0]).To(Equal(uint32(0)))
 			Expect(m.ImportCount()).To(Equal(uint32(1)))
 		})
@@ -65,14 +64,14 @@ var _ = Describe("Resolver", func() {
 				},
 			}
 			r := resolve.NewResolver(symbols)
-			hImport := MustSucceed(r.Resolve("test.print", types.Function(types.FunctionProperties{
+			hImport := r.Resolve("test.print", types.Function(types.FunctionProperties{
 				Inputs: types.Params{{Name: "x", Type: types.I32()}},
-			})))
-			hLocal := MustSucceed(r.Resolve("myFunc", types.Function(types.FunctionProperties{})))
+			}))
+			hLocal := r.Resolve("myFunc", types.Function(types.FunctionProperties{}))
 			r.RegisterLocal("myFunc", 0)
 
 			m := wasm.NewModule()
-			patches := MustSucceed(r.Finalize(m))
+			patches := r.Finalize(m)
 			Expect(patches[hImport]).To(Equal(uint32(0)))
 			Expect(patches[hLocal]).To(Equal(uint32(1)))
 		})
@@ -92,11 +91,11 @@ var _ = Describe("Resolver", func() {
 				Inputs:  types.Params{{Name: "x", Type: types.F64()}},
 				Outputs: types.Params{{Name: "result", Type: types.F64()}},
 			})
-			h0 := MustSucceed(r.Resolve("math.abs", ft))
-			h1 := MustSucceed(r.Resolve("math.abs", ft))
+			h0 := r.Resolve("math.abs", ft)
+			h1 := r.Resolve("math.abs", ft)
 
 			m := wasm.NewModule()
-			patches := MustSucceed(r.Finalize(m))
+			patches := r.Finalize(m)
 			Expect(patches[h0]).To(Equal(patches[h1]))
 			Expect(m.ImportCount()).To(Equal(uint32(1)))
 		})
@@ -117,20 +116,20 @@ var _ = Describe("Resolver", func() {
 				},
 			}
 			r := resolve.NewResolver(symbols)
-			hLog := MustSucceed(r.Resolve("test.log", types.Function(types.FunctionProperties{
+			hLog := r.Resolve("test.log", types.Function(types.FunctionProperties{
 				Inputs: types.Params{{Name: "x", Type: types.I32()}},
-			})))
-			hLocal0 := MustSucceed(r.Resolve("localA", types.Function(types.FunctionProperties{})))
-			hPrint := MustSucceed(r.Resolve("test.print", types.Function(types.FunctionProperties{
+			}))
+			hLocal0 := r.Resolve("localA", types.Function(types.FunctionProperties{}))
+			hPrint := r.Resolve("test.print", types.Function(types.FunctionProperties{
 				Inputs: types.Params{{Name: "x", Type: types.I32()}},
-			})))
-			hLocal1 := MustSucceed(r.Resolve("localB", types.Function(types.FunctionProperties{})))
+			}))
+			hLocal1 := r.Resolve("localB", types.Function(types.FunctionProperties{}))
 
 			r.RegisterLocal("localA", 0)
 			r.RegisterLocal("localB", 1)
 
 			m := wasm.NewModule()
-			patches := MustSucceed(r.Finalize(m))
+			patches := r.Finalize(m)
 			Expect(m.ImportCount()).To(Equal(uint32(2)))
 			Expect(patches[hLog]).To(Equal(uint32(0)))
 			Expect(patches[hPrint]).To(Equal(uint32(1)))
@@ -152,14 +151,14 @@ var _ = Describe("DeriveWASMCoordinates", func() {
 			},
 		}
 		r := resolve.NewResolver(symbols)
-		h := MustSucceed(r.Resolve("math.abs", types.Function(types.FunctionProperties{
+		h := r.Resolve("math.abs", types.Function(types.FunctionProperties{
 			Inputs:  types.Params{{Name: "x", Type: types.F64()}},
 			Outputs: types.Params{{Name: "result", Type: types.F64()}},
-		})))
+		}))
 		_ = h
 
 		m := wasm.NewModule()
-		MustSucceed(r.Finalize(m))
+		r.Finalize(m)
 		names := m.ImportNames()
 		Expect(names).To(HaveLen(1))
 		Expect(names[0]).To(Equal("abs"))
@@ -177,13 +176,13 @@ var _ = Describe("DeriveWASMCoordinates", func() {
 			},
 		}
 		r := resolve.NewResolver(symbols)
-		MustSucceed(r.Resolve("math.abs", types.Function(types.FunctionProperties{
+		r.Resolve("math.abs", types.Function(types.FunctionProperties{
 			Inputs:  types.Params{{Name: "x", Type: types.F64()}},
 			Outputs: types.Params{{Name: "result", Type: types.F64()}},
-		})))
+		}))
 
 		m := wasm.NewModule()
-		MustSucceed(r.Finalize(m))
+		r.Finalize(m)
 		names := m.ImportNames()
 		Expect(names).To(HaveLen(1))
 		Expect(names[0]).To(Equal("abs_f64"))

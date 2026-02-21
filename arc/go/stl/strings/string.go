@@ -76,7 +76,7 @@ func (m *Module) Create(_ context.Context, _ node.Config) (node.Node, error) {
 	return nil, query.ErrNotFound
 }
 
-func (m *Module) BindTo(_ context.Context, rt stl.HostRuntime) error {
+func (m *Module) BindTo(rt stl.HostRuntime) error {
 	s := m.strings
 	stl.MustExport(rt, "string", "from_literal",
 		func(_ context.Context, ptr uint32, length uint32) uint32 {

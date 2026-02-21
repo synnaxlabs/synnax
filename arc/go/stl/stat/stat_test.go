@@ -53,7 +53,7 @@ var _ = Describe("Stat", func() {
 			Expect(diagnostics.Ok()).To(BeTrue())
 			s := state.New(state.Config{IR: analyzed})
 			inputNode := s.Node("input")
-			m := stat.NewModule()
+			m := &stat.Module{}
 			n := MustSucceed(m.Create(ctx, node.Config{
 				Node:  ir.Node{Type: "avg", Config: types.Params{{Name: "count", Type: types.I64(), Value: int64(3)}}},
 				State: s.Node("avg"),
@@ -113,7 +113,7 @@ var _ = Describe("Stat", func() {
 			Expect(diagnostics.Ok()).To(BeTrue())
 			s := state.New(state.Config{IR: analyzed})
 			inputNode := s.Node("input")
-			m := stat.NewModule()
+			m := &stat.Module{}
 			n := MustSucceed(m.Create(ctx, node.Config{
 				Node:  ir.Node{Type: "min", Config: types.Params{{Name: "duration", Type: types.TimeSpan(), Value: telem.Second * 5}}},
 				State: s.Node("min"),
@@ -191,7 +191,7 @@ var _ = Describe("Stat", func() {
 			s := state.New(state.Config{IR: analyzed})
 			inputNode := s.Node("input")
 			resetNode := s.Node("reset_signal")
-			m := stat.NewModule()
+			m := &stat.Module{}
 			n := MustSucceed(m.Create(ctx, node.Config{
 				Node:   ir.Node{Type: "max"},
 				State:  s.Node("max"),
@@ -255,7 +255,7 @@ var _ = Describe("Stat", func() {
 			Expect(diagnostics.Ok()).To(BeTrue(), diagnostics.String())
 			s := state.New(state.Config{IR: analyzed})
 			inputNode := s.Node("input")
-			m := stat.NewModule()
+			m := &stat.Module{}
 			n := MustSucceed(m.Create(ctx, node.Config{
 				Node:   ir.Node{Type: "max"},
 				State:  s.Node("max"),
@@ -319,7 +319,7 @@ var _ = Describe("Stat", func() {
 			s := state.New(state.Config{IR: analyzed})
 			inputNode := s.Node("input")
 			resetNode := s.Node("reset_signal")
-			m := stat.NewModule()
+			m := &stat.Module{}
 			n := MustSucceed(m.Create(ctx, node.Config{
 				Node:   ir.Node{Type: "avg", Key: "avg"},
 				State:  s.Node("avg"),
@@ -379,7 +379,7 @@ var _ = Describe("Stat", func() {
 			Expect(diagnostics.Ok()).To(BeTrue())
 			s := state.New(state.Config{IR: analyzed})
 			inputNode := s.Node("input")
-			m := stat.NewModule()
+			m := &stat.Module{}
 			n := MustSucceed(m.Create(ctx, node.Config{
 				Node:   ir.Node{Type: "avg"},
 				State:  s.Node("avg"),
@@ -443,7 +443,7 @@ var _ = Describe("Stat", func() {
 			s := state.New(state.Config{IR: analyzed})
 			inputNode := s.Node("input")
 			resetNode := s.Node("reset")
-			m := stat.NewModule()
+			m := &stat.Module{}
 			n := MustSucceed(m.Create(ctx, node.Config{
 				Node:   ir.Node{Key: "avg", Type: "avg"},
 				State:  s.Node("avg"),

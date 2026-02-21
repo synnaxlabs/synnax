@@ -19,18 +19,18 @@ import (
 	"github.com/tetratelabs/wazero/experimental/wazerotest"
 )
 
-var ctx = context.Background()
-
 var _ = Describe("errors", func() {
 	var (
+		ctx context.Context
 		rt  *testutil.MockHostRuntime
 		mod *errors.Module
 	)
 
 	BeforeEach(func() {
+		ctx = context.Background()
 		rt = testutil.NewMockHostRuntime()
 		mod = errors.NewModule()
-		Expect(mod.BindTo(ctx, rt)).To(Succeed())
+		Expect(mod.BindTo(rt)).To(Succeed())
 	})
 
 	Describe("panic", func() {
