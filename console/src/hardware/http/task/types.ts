@@ -33,7 +33,6 @@ export const ZERO_RESPONSE_VALIDATION: ResponseValidation = {
 export const scanConfigZ = Common.Task.baseConfigZ.extend({
   rate: z.number().positive("Rate must be positive"),
   path: z.string().min(1, "Path is required"),
-  method: z.enum(["GET", "POST"]),
   response: responseValidationZ.optional(),
 });
 
@@ -44,7 +43,6 @@ export const ZERO_SCAN_CONFIG: ScanConfig = {
   autoStart: true,
   rate: 0.1,
   path: "/health",
-  method: "GET",
 };
 
 export const scanStatusDataZ = z
