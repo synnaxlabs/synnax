@@ -10,7 +10,6 @@
 import { type z } from "zod";
 
 import { type record } from "@/record";
-import { zod as zodUtil } from "@/zod";
 
 /**
  * Global symbol used to mark Zod schemas that should not have their keys converted.
@@ -87,6 +86,34 @@ const getArrayElementSchema = (
   return undefined;
 };
 
+/**
+ * Extracts the shape (field name → ZodType map) from a Zod schema.
+ * Traverses through wrappers (optional, nullable, default, catch, union, pipe)
+ * to find the inner object schema's shape. Returns null for non-object schemas.
+ */
+const getSchemaShape = (
+  schema: z.ZodType | undefined,
+): Record<string, z.ZodType> | null => {
+  if (schema == null) return null;
+  const s = schema as any;
+  if (s.shape != null) return s.shape;
+  if (typeof s.sourceType === "function") {
+    const st = s.sourceType();
+    if (st?.shape != null) return st.shape;
+  }
+  const def = s._zod?.def ?? s.def;
+  if (def == null) return null;
+  if (def.innerType != null) return getSchemaShape(def.innerType);
+  if (def.type === "union" && Array.isArray(def.options)) {
+    for (const option of def.options) {
+      const result = getSchemaShape(option);
+      if (result != null) return result;
+    }
+  }
+  if (def.type === "pipe") return getSchemaShape(def.in) ?? getSchemaShape(def.out);
+  return null;
+};
+
 const snakeToCamelStr = (str: string): string => {
   if (str.length === 0) return str;
   const hasUnderscore = str.indexOf("_") !== -1;
@@ -110,7 +137,12 @@ const createConverter = (
     if (typeof obj === "string") return f(obj) as any;
     if (Array.isArray(obj)) {
       const elementSchema = getArrayElementSchema(opt.schema);
-      return obj.map((v) => converter(v, { ...opt, schema: elementSchema })) as V;
+      const elemOpt: Options = {
+        recursive: opt.recursive,
+        recursiveInArray: opt.recursiveInArray,
+        schema: elementSchema,
+      };
+      return obj.map((v) => converter(v, elemOpt)) as V;
     }
     if (!isValidObject(obj)) return obj;
 
@@ -124,6 +156,8 @@ const createConverter = (
     if ("toJSON" in anyObj && typeof anyObj.toJSON === "function")
       return converter(anyObj.toJSON(), opt);
 
+    const shape = getSchemaShape(schema);
+    const childOpt: Options = { recursive, recursiveInArray, schema: undefined };
     const keys = Object.keys(anyObj);
     for (let i = 0; i < keys.length; i++) {
       const key = keys[i];
@@ -134,35 +168,22 @@ const createConverter = (
       // - For snakeToCamel: schema has camelCase keys, input has snake_case, nkey is camelCase (matches)
       // - For camelToSnake: schema has camelCase keys, input has camelCase, nkey is snake_case (key matches)
       const propSchema: z.ZodType | undefined =
-        schema != null
-          ? (zodUtil.getFieldSchema(schema, key, { optional: true }) ??
-            zodUtil.getFieldSchema(schema, nkey, { optional: true }) ??
-            undefined)
-          : undefined;
+        shape != null ? (shape[key] ?? shape[nkey] ?? undefined) : undefined;
 
       if (recursive)
         if (isValidObject(value)) {
-          if (!isPreservedType(value))
-            value = converter(value, {
-              recursive,
-              recursiveInArray,
-              schema: propSchema,
-            });
+          if (!isPreservedType(value)) {
+            childOpt.schema = propSchema;
+            value = converter(value, childOpt);
+          }
         } else if (recursiveInArray && Array.isArray(value)) {
           const elementSchema = getArrayElementSchema(propSchema);
+          childOpt.schema = elementSchema;
           value = (value as unknown[]).map((v) => {
             if (isValidObject(v)) {
-              if (!isPreservedType(v))
-                return converter(v, {
-                  recursive,
-                  recursiveInArray,
-                  schema: elementSchema,
-                });
+              if (!isPreservedType(v)) return converter(v, childOpt);
             } else if (Array.isArray(v)) {
-              const temp: record.Unknown = converter(
-                { key: v },
-                { recursive, recursiveInArray, schema: elementSchema },
-              );
+              const temp: record.Unknown = converter({ key: v }, childOpt);
               return temp.key;
             }
             return v;
@@ -242,7 +263,7 @@ const isValidObject = (obj: unknown): boolean =>
   obj != null && typeof obj === "object" && !Array.isArray(obj);
 
 const isPreservedType = (obj: unknown): boolean =>
-  obj instanceof Number || obj instanceof String || obj instanceof Uint8Array;
+  obj instanceof Uint8Array || obj instanceof Number || obj instanceof String;
 
 /**
  * Converts a string to kebab-case.
