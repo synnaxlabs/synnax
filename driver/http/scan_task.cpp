@@ -31,14 +31,13 @@ std::pair<std::string, std::string> check_device_health(
     if (response.has_value()) {
         try {
             auto body = x::json::json::parse(resp.body);
-            auto ptr = x::json::json::json_pointer(response->field);
-            if (!body.contains(ptr))
+            if (!body.contains(response->field))
                 return {
                     x::status::VARIANT_WARNING,
-                    "Unexpected health response: field '" + response->field +
-                        "' not found",
+                    "Unexpected health response: field '" +
+                        response->field.to_string() + "' not found",
                 };
-            const auto &actual = body.at(ptr);
+            const auto &actual = body.at(response->field);
             if (actual != response->expected_value)
                 return {
                     x::status::VARIANT_WARNING,

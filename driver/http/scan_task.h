@@ -29,7 +29,7 @@ const std::string SCAN_TASK_TYPE = INTEGRATION_NAME + "_scan";
 /// @brief optional response body validation for a health-check endpoint.
 struct ResponseConfig {
     /// @brief JSON Pointer (RFC 6901) to the field to validate.
-    std::string field;
+    x::json::json::json_pointer field;
     /// @brief expected value at the field (any JSON type).
     x::json::json expected_value;
 
