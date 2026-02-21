@@ -30,6 +30,7 @@ Repository = "https://github.com/synnaxlabs/synnax"
 dev = [
     "asyncua>=1.1.8,<2; python_version < '3.14'",
     "black>=26.1.0,<27",
+    "flask>=3.1.0,<4",
     "isort>=7.0.0,<8",
     "mypy>=1.19.1,<2",
     "pandas-stubs>=2.0.0",
