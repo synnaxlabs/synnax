@@ -9,7 +9,8 @@
 
 import { type task } from "@synnaxlabs/client";
 import { JSON } from "@synnaxlabs/pluto";
-import { z } from "zod/v4";
+import { Rate } from "@synnaxlabs/x";
+import { z } from "zod";
 
 import { Common } from "@/hardware/common";
 
@@ -28,7 +29,7 @@ export interface ResponseValidation extends z.infer<typeof responseValidationZ> 
 
 export const ZERO_RESPONSE_VALIDATION: ResponseValidation = {
   field: "",
-  expectedValue: "",
+  expectedValue: null,
 };
 
 export const scanConfigZ = Common.Task.baseConfigZ.extend({
@@ -41,9 +42,8 @@ export interface ScanConfig extends z.infer<typeof scanConfigZ> {}
 
 export const ZERO_SCAN_CONFIG = {
   ...Common.Task.ZERO_BASE_CONFIG,
-  autoStart: true,
-  rate: 0.1,
-  path: "/health",
+  rate: Rate.hz(1).valueOf(),
+  path: "",
 } as const satisfies ScanConfig;
 
 interface ScanPayload extends task.Payload<typeof scanTypeZ, typeof scanConfigZ> {}

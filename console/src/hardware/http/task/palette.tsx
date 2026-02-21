@@ -18,7 +18,7 @@ const CreateScanCommand = Palette.createSimpleCommand({
   name: "Create an HTTP Scan Task",
   icon: <Icon.Logo.HTTP />,
   layout: SCAN_LAYOUT,
-  useVisible: () => Access.useUpdateGranted(task.TYPE_ONTOLOGY_ID),
+  useVisible: () => Access.useCreateGranted(task.TYPE_ONTOLOGY_ID),
 });
 
 export const COMMANDS = [CreateScanCommand];

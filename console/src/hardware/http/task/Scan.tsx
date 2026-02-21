@@ -36,23 +36,7 @@ export const ScanSelectable = Selector.createSimpleItem({
   layout: SCAN_LAYOUT,
 });
 
-const Properties = () => (
-  <>
-    <Device.Select />
-    <Flex.Box x grow>
-      <Form.NumericField
-        path="config.rate"
-        label="Health Check Rate"
-        inputProps={RATE_INPUT_PROPS}
-      />
-      <Common.Task.Fields.AutoStart />
-    </Flex.Box>
-  </>
-);
-
-const RATE_INPUT_PROPS = { endContent: "Hz" } as const;
-
-type ScanFormProps = Common.Task.FormProps<typeof scanTypeZ, typeof scanConfigZ>;
+const RATE_INPUT_PROPS = { endContent: "Hz", style: { maxWidth: "20rem" } } as const;
 
 const ExpectedValueField: FC = () => {
   const { set } = Form.useContext();
@@ -67,16 +51,15 @@ const ExpectedValueField: FC = () => {
   );
 
   return (
-    <>
-      <Flex.Box y>
-        <Input.Label>Type</Input.Label>
+    <Flex.Box x align="start" gap="large">
+      <Input.Item label="Response type">
         <JSON.SelectType value={valueType} onChange={handleTypeChange} />
-      </Flex.Box>
+      </Input.Item>
       {valueType === "string" && (
         <Form.TextField
           grow
           path="config.response.expectedValue"
-          label="Expected Value"
+          label="Expected response value"
           inputProps={EXPECTED_VALUE_INPUT_PROPS}
         />
       )}
@@ -84,23 +67,21 @@ const ExpectedValueField: FC = () => {
         <Form.NumericField
           grow
           path="config.response.expectedValue"
-          label="Expected Value"
+          label="Expected response value"
+          inputProps={EXPECTED_VALUE_INPUT_PROPS}
         />
       )}
       {valueType === "boolean" && (
-        <Flex.Box y grow>
-          <Input.Label>Expected Value</Input.Label>
-          <Input.Switch
-            value={value as boolean}
-            onChange={(v) => set("config.response.expectedValue", v)}
-          />
-        </Flex.Box>
+        <Form.SwitchField
+          path="config.response.expectedValue"
+          label="Expected response value"
+        />
       )}
-    </>
+    </Flex.Box>
   );
 };
 
-const ScanForm: FC<ScanFormProps> = () => {
+const ScanForm = () => {
   const { set } = Form.useContext();
   const hasResponse =
     Form.useFieldValue<ResponseValidation>("config.response", { optional: true }) !=
@@ -112,37 +93,51 @@ const ScanForm: FC<ScanFormProps> = () => {
     [set],
   );
   return (
-    <Flex.Box y grow gap="large" style={{ padding: "2rem" }}>
-      <Form.TextField
-        path="config.path"
-        label="Endpoint Path"
-        inputProps={PATH_INPUT_PROPS}
-      />
-      <Flex.Box x align="center" gap="small">
-        <Input.Label>Response Validation</Input.Label>
-        <Input.Switch value={hasResponse} onChange={handleToggleResponse} />
+    <Flex.Box y grow>
+      <Flex.Box x align="start">
+        <Device.Select />
+        <Form.NumericField
+          path="config.rate"
+          label="Rate"
+          inputProps={RATE_INPUT_PROPS}
+        />
+        <Common.Task.Fields.AutoStart />
+      </Flex.Box>
+      <Flex.Box x align="start" gap="large">
+        <Form.TextField
+          path="config.path"
+          label="Health endpoint path"
+          inputProps={PATH_INPUT_PROPS}
+        />
+        <Input.Item label="Validate response" align="start">
+          <Input.Switch value={hasResponse} onChange={handleToggleResponse} />
+        </Input.Item>
       </Flex.Box>
       {hasResponse && (
         <>
           <Form.TextField
             path="config.response.field"
-            label="JSON Pointer"
+            label="Response field (JSON Pointer)"
             inputProps={FIELD_INPUT_PROPS}
           />
-          <Flex.Box x grow>
-            <ExpectedValueField />
-          </Flex.Box>
+          <ExpectedValueField />
         </>
       )}
     </Flex.Box>
   );
 };
 
-const PATH_INPUT_PROPS = { placeholder: "/health" } as const;
+const PATH_INPUT_PROPS = {
+  placeholder: "/health",
+  style: { maxWidth: "20rem" },
+} as const;
 
-const FIELD_INPUT_PROPS = { placeholder: "/status" } as const;
+const FIELD_INPUT_PROPS = {
+  placeholder: "/status",
+  style: { maxWidth: "20rem" },
+} as const;
 
-const EXPECTED_VALUE_INPUT_PROPS = { placeholder: "ok" } as const;
+const EXPECTED_VALUE_INPUT_PROPS = { style: { maxWidth: "20rem" } } as const;
 
 const getInitialValues: Common.Task.GetInitialValues<
   typeof scanTypeZ,
@@ -167,8 +162,7 @@ const onConfigure: Common.Task.OnConfigure<typeof scanConfigZ> = async (
 };
 
 export const Scan = Common.Task.wrapForm({
-  Properties,
-  Form: ScanForm,
+  Properties: ScanForm,
   schemas: SCAN_SCHEMAS,
   type: SCAN_TYPE,
   getInitialValues,
