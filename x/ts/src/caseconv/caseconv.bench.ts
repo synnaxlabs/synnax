@@ -201,14 +201,10 @@ describe("caseconv schema-based conversion", () => {
 });
 
 describe("caseconv wrapper traversal performance", () => {
-  const simpleData = { key_one: 1, key_two: 2, key_three: 3 };
-
-  // Direct marker - no traversal needed
   const directPreserve = z.object({
     data: caseconv.preserveCase(z.record(z.string(), z.number())),
   });
 
-  // Single wrapper - 1 level traversal
   const optionalWrapped = z.object({
     data: caseconv.preserveCase(z.record(z.string(), z.number())).optional(),
   });
@@ -225,7 +221,6 @@ describe("caseconv wrapper traversal performance", () => {
     data: caseconv.preserveCase(z.record(z.string(), z.number())).transform((v) => v),
   });
 
-  // Deep nesting - 4 level traversal (worst case)
   const deeplyNested = z.object({
     data: caseconv
       .preserveCase(z.record(z.string(), z.number()))
