@@ -183,13 +183,13 @@ std::pair<common::ConfigureResult, x::errors::Error> configure_scan(
     const synnax::task::Task &task
 ) {
     auto [cfg, err] = ScanTaskConfig::parse(task);
-    if (err) return {{}, err};
+    if (err) return {common::ConfigureResult{}, err};
 
     auto [conn, conn_err] = device::retrieve_connection(
         ctx->client->devices,
         cfg.device
     );
-    if (conn_err) return {{}, conn_err};
+    if (conn_err) return {common::ConfigureResult{}, conn_err};
 
     const bool auto_start = cfg.auto_start;
     auto scan_task = std::make_unique<ScanTask>(
