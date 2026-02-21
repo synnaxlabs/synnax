@@ -1638,11 +1638,16 @@ TEST(ClientTest, SerialSingleHandleRecoveryFromServerError) {
 /// secure defaults to true.
 TEST(RetrieveConnectionTest, SecureDefaultBaseUrl) {
     auto client = new_test_client();
-    synnax::device::Device dev;
-    dev.name = "retrieve-conn-test-secure";
-    dev.make = "http";
-    dev.location = "192.168.1.100:8080";
-    dev.properties = x::json::json{{"timeout_ms", 5000}}.dump();
+    auto r = synnax::rack::Rack{.name = "test_rack"};
+    ASSERT_NIL(client.racks.create(r));
+    synnax::device::Device dev{
+        .key = "retrieve-conn-test-secure",
+        .name = "retrieve-conn-test-secure",
+        .rack = r.key,
+        .location = "192.168.1.100:8080",
+        .make = "http",
+        .properties = {{"timeout_ms", 5000}},
+    };
     ASSERT_NIL(client.devices.create(dev));
 
     const auto conn = ASSERT_NIL_P(retrieve_connection(client.devices, dev.key));
@@ -1653,16 +1658,16 @@ TEST(RetrieveConnectionTest, SecureDefaultBaseUrl) {
 /// @brief it should use http when secure is false.
 TEST(RetrieveConnectionTest, InsecureBaseUrl) {
     auto client = new_test_client();
-    synnax::device::Device dev;
-    dev.name = "retrieve-conn-test-insecure";
-    dev.make = "http";
-    dev.location = "10.0.0.1:9090";
-    dev.properties =
-        x::json::json{
-            {"secure", false},
-            {"timeout_ms", 2000},
-        }
-            .dump();
+    auto r = synnax::rack::Rack{.name = "test_rack"};
+    ASSERT_NIL(client.racks.create(r));
+    synnax::device::Device dev{
+        .key = "retrieve-conn-test-insecure",
+        .name = "retrieve-conn-test-insecure",
+        .rack = r.key,
+        .location = "10.0.0.1:9090",
+        .make = "http",
+        .properties = {{"secure", false}, {"timeout_ms", 2000}},
+    };
     ASSERT_NIL(client.devices.create(dev));
 
     const auto conn = ASSERT_NIL_P(retrieve_connection(client.devices, dev.key));

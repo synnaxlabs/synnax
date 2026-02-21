@@ -120,37 +120,27 @@ TEST(ResponseConfig, testParseMissingExpectedValue) {
 /// @brief it should fail to parse when the device field is missing.
 TEST(ScanTask, testParseConfigMissingDevice) {
     synnax::task::Task task;
-    task.config =
-        x::json::json{
-            {"path", "/health"},
-        }
-            .dump();
+    task.config = {{"path", "/health"}};
     ASSERT_OCCURRED_AS_P(ScanTaskConfig::parse(task), x::errors::VALIDATION);
 }
 
 /// @brief it should fail to parse when the path field is missing.
 TEST(ScanTask, testParseConfigMissingPath) {
     synnax::task::Task task;
-    task.config =
-        x::json::json{
-            {"device", "dev-001"},
-        }
-            .dump();
+    task.config = {{"device", "dev-001"}};
     ASSERT_OCCURRED_AS_P(ScanTaskConfig::parse(task), x::errors::VALIDATION);
 }
 
 /// @brief it should parse the task config correctly.
 TEST(ScanTask, testParseConfig) {
     synnax::task::Task task;
-    task.config =
-        x::json::json{
-            {"device", "dev-001"},
-            {"auto_start", true},
-            {"rate", 0.5},
-            {"path", "/api/health"},
-            {"response", {{"field", "/status"}, {"expected_value", "ok"}}},
-        }
-            .dump();
+    task.config = {
+        {"device", "dev-001"},
+        {"auto_start", true},
+        {"rate", 0.5},
+        {"path", "/api/health"},
+        {"response", {{"field", "/status"}, {"expected_value", "ok"}}},
+    };
     const auto cfg = ASSERT_NIL_P(ScanTaskConfig::parse(task));
     EXPECT_EQ(cfg.device, "dev-001");
     EXPECT_TRUE(cfg.auto_start);

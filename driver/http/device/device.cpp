@@ -375,8 +375,7 @@ std::pair<ConnectionConfig, x::errors::Error> retrieve_connection(
             ConnectionConfig(x::json::Parser(x::json::json::object())),
             dev_err,
         };
-    auto props = x::json::json::parse(dev.properties, nullptr, false);
-    if (props.is_discarded()) props = x::json::json::object();
+    auto props = x::json::json(dev.properties);
     const bool secure = props.value("secure", true);
     const std::string protocol = secure ? "https://" : "http://";
     props["base_url"] = protocol + dev.location;
