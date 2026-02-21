@@ -12,27 +12,20 @@ import "@/hardware/modbus/device/Connect.css";
 import { type device, type rack, TimeSpan } from "@synnaxlabs/client";
 import {
   Button,
-  Device,
+  Device as PDevice,
   Flex,
   type Flux,
   Form,
-  Input,
   Nav,
   Rack,
   Status,
   Task,
 } from "@synnaxlabs/pluto";
-import { status, status as xstatus } from "@synnaxlabs/x";
+import { status as xstatus } from "@synnaxlabs/x";
 import { useCallback } from "react";
 
 import { CSS } from "@/css";
-import {
-  type makeZ,
-  type modelZ,
-  type propertiesZ,
-  SCHEMAS,
-  ZERO_PROPERTIES,
-} from "@/hardware/modbus/device/types";
+import { type Device, SCHEMAS, ZERO_PROPERTIES } from "@/hardware/modbus/device/types";
 import {
   SCAN_SCHEMAS,
   SCAN_TYPE,
@@ -53,9 +46,9 @@ export const CONNECT_LAYOUT: Layout.BaseState = {
   window: { resizable: false, size: { height: 500, width: 600 }, navTop: true },
 };
 
-const useForm = Device.createForm(SCHEMAS);
+const useForm = PDevice.createForm(SCHEMAS);
 
-const INITIAL_VALUES: device.Device<typeof propertiesZ, typeof makeZ, typeof modelZ> = {
+const INITIAL_VALUES: Device = {
   key: "",
   name: "Modbus Server",
   make: "Modbus",
@@ -70,9 +63,9 @@ const beforeValidate = ({
   get,
   set,
 }: Flux.BeforeValidateArgs<
-  Device.RetrieveQuery,
-  typeof Device.formSchema,
-  Device.FluxSubStore
+  PDevice.RetrieveQuery,
+  typeof PDevice.formSchema,
+  PDevice.FluxSubStore
 >) => {
   const host = get<string>("properties.connection.host").value;
   const port = get<number>("properties.connection.port").value;
@@ -85,9 +78,9 @@ const beforeSave = async ({
   store,
   set,
 }: Flux.FormBeforeSaveParams<
-  Device.RetrieveQuery,
-  typeof Device.formSchema,
-  Device.FluxSubStore
+  PDevice.RetrieveQuery,
+  typeof PDevice.formSchema,
+  PDevice.FluxSubStore
 >) => {
   const scanTask = await Task.retrieveSingle({
     client,
@@ -103,7 +96,7 @@ const beforeSave = async ({
   if (state.variant === "error") throw new Error(state.message);
   // Since we just scanned successfully, we create a default healthy status for the
   // device that can then be overwritten by the scanner if we lose connection.
-  const devStatus: device.Status = status.create<typeof device.statusDetailsZ>({
+  const devStatus: device.Status = xstatus.create<typeof device.statusDetailsZ>({
     message: "Server connected",
     variant: "success",
     details: {
@@ -127,37 +120,33 @@ export const Connect: Layout.Renderer = ({ layoutKey, onClose }) => {
   return (
     <Flex.Box align="start" className={CSS.B("modbus-connect")} justify="center">
       <Flex.Box className={CSS.B("content")} grow size="small">
-        <Form.Form<typeof Device.formSchema> {...form}>
-          <Form.TextField
-            inputProps={{ level: "h2", placeholder: "Modbus Server", variant: "text" }}
-            path="name"
-          />
+        <Form.Form<typeof PDevice.formSchema> {...form}>
+          <Form.TextField inputProps={NAME_INPUT_PROPS} path="name" />
           <Form.Field<rack.Key> path="rack" label="Connect From Location" required>
             {({ value, onChange }) => (
               <Rack.SelectSingle value={value} onChange={onChange} allowNone={false} />
             )}
           </Form.Field>
           <Flex.Box x justify="between">
-            <Form.Field<string> grow path="properties.connection.host">
-              {(p) => <Input.Text autoFocus placeholder="localhost" {...p} />}
-            </Form.Field>
-            <Form.Field<number> path="properties.connection.port">
-              {(p) => <Input.Numeric placeholder="502" {...p} />}
-            </Form.Field>
+            <Form.TextField
+              grow
+              path="properties.connection.host"
+              inputProps={HOST_INPUT_PROPS}
+            />
+            <Form.NumericField
+              path="properties.connection.port"
+              inputProps={PORT_INPUT_PROPS}
+            />
           </Flex.Box>
           <Flex.Box x justify="start">
-            <Form.Field<boolean>
+            <Form.SwitchField
               path="properties.connection.swapBytes"
               label="Swap Bytes"
-            >
-              {(p) => <Input.Switch {...p} />}
-            </Form.Field>
-            <Form.Field<boolean>
+            />
+            <Form.SwitchField
               path="properties.connection.swapWords"
               label="Swap Words"
-            >
-              {(p) => <Input.Switch {...p} />}
-            </Form.Field>
+            />
           </Flex.Box>
         </Form.Form>
       </Flex.Box>
@@ -182,3 +171,13 @@ export const Connect: Layout.Renderer = ({ layoutKey, onClose }) => {
     </Flex.Box>
   );
 };
+
+const NAME_INPUT_PROPS = {
+  level: "h2",
+  variant: "text",
+  placeholder: "Modbus Server",
+} as const;
+
+const HOST_INPUT_PROPS = { autoFocus: true, placeholder: "localhost" } as const;
+
+const PORT_INPUT_PROPS = { placeholder: "502" } as const;

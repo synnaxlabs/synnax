@@ -11,40 +11,24 @@ import { type device } from "@synnaxlabs/client";
 import { z } from "zod";
 
 export const MAKE = "Modbus";
-export type Make = typeof MAKE;
-export const makeZ = z.literal(MAKE);
-export const MODEL = "Modbus";
-export type Model = typeof MODEL;
-export const modelZ = z.literal(MODEL);
+const makeZ = z.literal(MAKE);
+const modelZ = z.literal("Modbus");
 
-export const connectionConfigZ = z.object({
-  host: z.string(),
-  port: z.number(),
-  swapBytes: z.boolean(),
-  swapWords: z.boolean(),
-});
-export interface ConnectionConfig extends z.infer<typeof connectionConfigZ> {}
-
-export const ZERO_CONNECTION_CONFIG = {
-  host: "",
-  port: 0,
-  swapBytes: false,
-  swapWords: false,
-} as const satisfies ConnectionConfig;
-
-export const propertiesZ = z.object({
-  connection: connectionConfigZ,
-  read: z.object({
-    index: z.number(),
-    channels: z.record(z.string(), z.number()),
+const propertiesZ = z.object({
+  connection: z.object({
+    host: z.string(),
+    port: z.number(),
+    swapBytes: z.boolean(),
+    swapWords: z.boolean(),
   }),
-  write: z.object({
-    channels: z.record(z.string(), z.number()),
-  }),
+  read: z.object({ index: z.number(), channels: z.record(z.string(), z.number()) }),
+  write: z.object({ channels: z.record(z.string(), z.number()) }),
 });
+
 export interface Properties extends z.infer<typeof propertiesZ> {}
+
 export const ZERO_PROPERTIES = {
-  connection: ZERO_CONNECTION_CONFIG,
+  connection: { host: "", port: 0, swapBytes: false, swapWords: false },
   read: { index: 0, channels: {} },
   write: { channels: {} },
 } as const satisfies Properties;
