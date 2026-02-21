@@ -12,6 +12,7 @@
 
 #include "gtest/gtest.h"
 
+#include "client/cpp/testutil/testutil.h"
 #include "x/cpp/base64/base64.h"
 #include "x/cpp/telem/telem.h"
 #include "x/cpp/test/test.h"
@@ -1631,6 +1632,50 @@ TEST(ClientTest, SerialSingleHandleRecoveryFromServerError) {
     EXPECT_EQ(reqs[2].body, R"({"attempt": 2})");
 
     server.stop();
+}
+
+/// @brief it should construct a ConnectionConfig with https from device location when
+/// secure defaults to true.
+TEST(RetrieveConnectionTest, SecureDefaultBaseUrl) {
+    auto client = new_test_client();
+    synnax::device::Device dev;
+    dev.name = "retrieve-conn-test-secure";
+    dev.make = "http";
+    dev.location = "192.168.1.100:8080";
+    dev.properties = x::json::json{{"timeout_ms", 5000}}.dump();
+    ASSERT_NIL(client.devices.create(dev));
+
+    const auto conn = ASSERT_NIL_P(retrieve_connection(client.devices, dev.key));
+    EXPECT_EQ(conn.base_url, "https://192.168.1.100:8080");
+    EXPECT_EQ(conn.timeout, 5 * x::telem::SECOND);
+}
+
+/// @brief it should use http when secure is false.
+TEST(RetrieveConnectionTest, InsecureBaseUrl) {
+    auto client = new_test_client();
+    synnax::device::Device dev;
+    dev.name = "retrieve-conn-test-insecure";
+    dev.make = "http";
+    dev.location = "10.0.0.1:9090";
+    dev.properties =
+        x::json::json{
+            {"secure", false},
+            {"timeout_ms", 2000},
+        }
+            .dump();
+    ASSERT_NIL(client.devices.create(dev));
+
+    const auto conn = ASSERT_NIL_P(retrieve_connection(client.devices, dev.key));
+    EXPECT_EQ(conn.base_url, "http://10.0.0.1:9090");
+}
+
+/// @brief it should return an error for a non-existent device.
+TEST(RetrieveConnectionTest, DeviceNotFound) {
+    auto client = new_test_client();
+    ASSERT_OCCURRED_AS_P(
+        retrieve_connection(client.devices, "non-existent-device-key"),
+        x::errors::NOT_FOUND
+    );
 }
 
 }
