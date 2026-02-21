@@ -173,10 +173,9 @@ TEST(ArcTests, testCalcDoubling) {
         .key = synnax::task::create_key(rack.key, 0),
         .name = "arc_calc_test",
         .type = "arc_runtime",
-        .config = ""
     };
     nlohmann::json cfg{{"arc_key", arc_prog.key.to_string()}};
-    task_meta.config = nlohmann::to_string(cfg);
+    task_meta.config = cfg;
 
     auto parser = x::json::Parser(task_meta.config);
     auto task_cfg = ASSERT_NIL_P(arc::TaskConfig::parse(client, parser));
@@ -282,10 +281,9 @@ TEST(ArcTests, testBasicSequence) {
         .key = synnax::task::create_key(rack.key, 0),
         .name = "arc_sequence_test",
         .type = "arc_runtime",
-        .config = ""
     };
     nlohmann::json cfg{{"arc_key", arc_prog.key.to_string()}};
-    task_meta.config = nlohmann::to_string(cfg);
+    task_meta.config = cfg;
 
     auto parser = x::json::Parser(task_meta.config);
     auto task_cfg = ASSERT_NIL_P(arc::TaskConfig::parse(client, parser));
@@ -403,10 +401,9 @@ TEST(ArcTests, testOneShotTruthiness) {
         .key = synnax::task::create_key(rack.key, 0),
         .name = "arc_truthiness_test",
         .type = "arc_runtime",
-        .config = ""
     };
     nlohmann::json cfg{{"arc_key", arc_prog.key.to_string()}};
-    task_meta.config = nlohmann::to_string(cfg);
+    task_meta.config = cfg;
 
     auto parser = x::json::Parser(task_meta.config);
     auto task_cfg = ASSERT_NIL_P(arc::TaskConfig::parse(client, parser));
@@ -579,10 +576,9 @@ TEST(ArcTests, testTwoStageSequenceWithTransition) {
         .key = synnax::task::create_key(rack.key, 0),
         .name = "arc_two_stage_test",
         .type = "arc_runtime",
-        .config = ""
     };
     nlohmann::json cfg{{"arc_key", arc_prog.key.to_string()}};
-    task_meta.config = nlohmann::to_string(cfg);
+    task_meta.config = cfg;
 
     auto parser = x::json::Parser(task_meta.config);
     auto task_cfg = ASSERT_NIL_P(arc::TaskConfig::parse(client, parser));
@@ -756,10 +752,9 @@ TEST(ArcErrorHandling, WasmTrapTriggersFatalError) {
         .key = synnax::task::create_key(rack.key, 0),
         .name = "arc_trap_test",
         .type = "arc_runtime",
-        .config = ""
     };
     nlohmann::json cfg{{"arc_key", arc_prog.key.to_string()}};
-    task_meta.config = nlohmann::to_string(cfg);
+    task_meta.config = cfg;
 
     auto parser = x::json::Parser(task_meta.config);
     auto task_cfg = ASSERT_NIL_P(arc::TaskConfig::parse(client, parser));
@@ -859,10 +854,9 @@ TEST(ArcErrorHandling, RestartAfterWasmTrap) {
         .key = synnax::task::create_key(rack.key, 0),
         .name = "arc_restart_trap_test",
         .type = "arc_runtime",
-        .config = ""
     };
     nlohmann::json cfg{{"arc_key", arc_prog.key.to_string()}};
-    task_meta.config = nlohmann::to_string(cfg);
+    task_meta.config = cfg;
 
     auto parser = x::json::Parser(task_meta.config);
     auto task_cfg = ASSERT_NIL_P(arc::TaskConfig::parse(client, parser));
@@ -989,10 +983,9 @@ TEST(ArcErrorHandling, MultipleErrorRecoveryCycles) {
         .key = synnax::task::create_key(rack.key, 0),
         .name = "arc_multi_cycle_test",
         .type = "arc_runtime",
-        .config = ""
     };
     nlohmann::json cfg{{"arc_key", arc_prog.key.to_string()}};
-    task_meta.config = nlohmann::to_string(cfg);
+    task_meta.config = cfg;
 
     auto parser = x::json::Parser(task_meta.config);
     auto task_cfg = ASSERT_NIL_P(arc::TaskConfig::parse(client, parser));
@@ -1099,10 +1092,9 @@ TEST(ArcStatusVerification, StartStatusHasCorrectVariantAndRunning) {
         .key = synnax::task::create_key(rack.key, 0),
         .name = "arc_status_verify_test",
         .type = "arc_runtime",
-        .config = ""
     };
     nlohmann::json cfg{{"arc_key", arc_prog.key.to_string()}};
-    task_meta.config = nlohmann::to_string(cfg);
+    task_meta.config = cfg;
 
     auto parser = x::json::Parser(task_meta.config);
     auto task_cfg = ASSERT_NIL_P(arc::TaskConfig::parse(client, parser));
@@ -1213,10 +1205,9 @@ TEST(ArcEdgeCases, RapidStartStop) {
         .key = synnax::task::create_key(rack.key, 0),
         .name = "arc_rapid_test",
         .type = "arc_runtime",
-        .config = ""
     };
     nlohmann::json cfg{{"arc_key", arc_prog.key.to_string()}};
-    task_meta.config = nlohmann::to_string(cfg);
+    task_meta.config = cfg;
 
     auto parser = x::json::Parser(task_meta.config);
     auto task_cfg = ASSERT_NIL_P(arc::TaskConfig::parse(client, parser));
@@ -1306,10 +1297,9 @@ TEST(ArcEdgeCases, StopWithoutStart) {
         .key = synnax::task::create_key(rack.key, 0),
         .name = "arc_nostart_test",
         .type = "arc_runtime",
-        .config = ""
     };
     nlohmann::json cfg{{"arc_key", arc_prog.key.to_string()}};
-    task_meta.config = nlohmann::to_string(cfg);
+    task_meta.config = cfg;
 
     auto parser = x::json::Parser(task_meta.config);
     auto task_cfg = ASSERT_NIL_P(arc::TaskConfig::parse(client, parser));
@@ -1414,10 +1404,9 @@ TEST(ArcTests, testChannelConfigParam) {
         .key = synnax::task::create_key(rack.key, 0),
         .name = "arc_cfg_ch_test",
         .type = "arc_runtime",
-        .config = ""
     };
     nlohmann::json cfg{{"arc_key", arc_prog.key.to_string()}};
-    task_meta.config = nlohmann::to_string(cfg);
+    task_meta.config = cfg;
 
     auto parser = x::json::Parser(task_meta.config);
     auto task_cfg = ASSERT_NIL_P(arc::TaskConfig::parse(client, parser));
@@ -1569,10 +1558,9 @@ TEST(ArcTests, testChannelConfigParamReadWrite) {
         .key = synnax::task::create_key(rack.key, 0),
         .name = "arc_crw_test",
         .type = "arc_runtime",
-        .config = ""
     };
     nlohmann::json cfg{{"arc_key", arc_prog.key.to_string()}};
-    task_meta.config = nlohmann::to_string(cfg);
+    task_meta.config = cfg;
 
     auto parser = x::json::Parser(task_meta.config);
     auto task_cfg = ASSERT_NIL_P(arc::TaskConfig::parse(client, parser));
@@ -1690,10 +1678,9 @@ TEST(ArcEdgeCases, DoubleStart) {
         .key = synnax::task::create_key(rack.key, 0),
         .name = "arc_double_start_test",
         .type = "arc_runtime",
-        .config = ""
     };
     nlohmann::json cfg{{"arc_key", arc_prog.key.to_string()}};
-    task_meta.config = nlohmann::to_string(cfg);
+    task_meta.config = cfg;
 
     auto parser = x::json::Parser(task_meta.config);
     auto task_cfg = ASSERT_NIL_P(arc::TaskConfig::parse(client, parser));
@@ -1789,10 +1776,9 @@ TEST(ArcTests, testRestartResetsState) {
         .key = synnax::task::create_key(rack.key, 0),
         .name = "arc_restart_test",
         .type = "arc_runtime",
-        .config = ""
     };
     nlohmann::json cfg{{"arc_key", arc_prog.key.to_string()}};
-    task_meta.config = nlohmann::to_string(cfg);
+    task_meta.config = cfg;
 
     auto parser = x::json::Parser(task_meta.config);
     auto task_cfg = ASSERT_NIL_P(arc::TaskConfig::parse(client, parser));
@@ -1915,7 +1901,7 @@ TEST(ArcTests, testStaticAuthorityConfig) {
         .type = "arc_runtime",
     };
     nlohmann::json cfg{{"arc_key", arc_prog.key.to_string()}};
-    task_meta.config = nlohmann::to_string(cfg);
+    task_meta.config = cfg;
 
     auto parser = x::json::Parser(task_meta.config);
     auto task_cfg = ASSERT_NIL_P(arc::TaskConfig::parse(client, parser));
@@ -2033,7 +2019,7 @@ TEST(ArcTests, testPerChannelAuthorityConfig) {
         .type = "arc_runtime",
     };
     nlohmann::json cfg{{"arc_key", arc_prog.key.to_string()}};
-    task_meta.config = nlohmann::to_string(cfg);
+    task_meta.config = cfg;
 
     auto parser = x::json::Parser(task_meta.config);
     auto task_cfg = ASSERT_NIL_P(arc::TaskConfig::parse(client, parser));
@@ -2147,7 +2133,7 @@ TEST(ArcTests, testDynamicSetAuthorityInSequence) {
         .type = "arc_runtime",
     };
     nlohmann::json cfg{{"arc_key", arc_prog.key.to_string()}};
-    task_meta.config = nlohmann::to_string(cfg);
+    task_meta.config = cfg;
 
     auto parser = x::json::Parser(task_meta.config);
     auto task_cfg = ASSERT_NIL_P(arc::TaskConfig::parse(client, parser));
@@ -2251,7 +2237,7 @@ TEST(ArcTests, testDynamicPerChannelSetAuthority) {
         .type = "arc_runtime",
     };
     nlohmann::json cfg{{"arc_key", arc_prog.key.to_string()}};
-    task_meta.config = nlohmann::to_string(cfg);
+    task_meta.config = cfg;
 
     auto parser = x::json::Parser(task_meta.config);
     auto task_cfg = ASSERT_NIL_P(arc::TaskConfig::parse(client, parser));
@@ -2350,7 +2336,7 @@ TEST(ArcTests, testSetAuthorityWithCalcInTopLevelFlow) {
         .type = "arc_runtime",
     };
     nlohmann::json cfg{{"arc_key", arc_prog.key.to_string()}};
-    task_meta.config = nlohmann::to_string(cfg);
+    task_meta.config = cfg;
 
     auto parser = x::json::Parser(task_meta.config);
     auto task_cfg = ASSERT_NIL_P(arc::TaskConfig::parse(client, parser));
@@ -2454,7 +2440,7 @@ TEST(ArcErrorHandling, WriterFailurePropagatesErrorStatus) {
         .type = "arc_runtime",
     };
     nlohmann::json cfg{{"arc_key", arc_prog.key.to_string()}};
-    task_meta.config = nlohmann::to_string(cfg);
+    task_meta.config = cfg;
 
     auto parser = x::json::Parser(task_meta.config);
     auto task_cfg = ASSERT_NIL_P(arc::TaskConfig::parse(client, parser));

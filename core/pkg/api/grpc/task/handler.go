@@ -22,6 +22,7 @@ import (
 	"github.com/synnaxlabs/x/status"
 	"github.com/synnaxlabs/x/unsafe"
 	"google.golang.org/protobuf/types/known/emptypb"
+	"google.golang.org/protobuf/types/known/structpb"
 )
 
 type (
@@ -76,9 +77,15 @@ func translateForward(m *apitask.Task) (*gapi.Task, error) {
 		Key:      uint64(m.Key),
 		Name:     m.Name,
 		Type:     m.Type,
-		Config:   m.Config,
 		Internal: m.Internal,
 		Snapshot: m.Snapshot,
+	}
+	if m.Config != nil {
+		s, err := structpb.NewStruct(map[string]any(m.Config))
+		if err != nil {
+			return nil, err
+		}
+		gt.Config = s
 	}
 	if m.Status != nil {
 		var err error
@@ -95,9 +102,11 @@ func translateBackward(m *gapi.Task) (*apitask.Task, error) {
 		Key:      svctask.Key(m.Key),
 		Name:     m.Name,
 		Type:     m.Type,
-		Config:   m.Config,
 		Internal: m.Internal,
 		Snapshot: m.Snapshot,
+	}
+	if m.Config != nil {
+		at.Config = m.Config.AsMap()
 	}
 	if m.Status != nil {
 		s, err := status.TranslateFromPB[svctask.StatusDetails](m.Status)
