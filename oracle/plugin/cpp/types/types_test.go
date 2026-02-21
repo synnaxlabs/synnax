@@ -210,7 +210,38 @@ var _ = Describe("C++ Types Plugin", func() {
 				Entry("float64", "float64", "double field = 0;"),
 				Entry("json", "json", "x::json::json::object_t field;"),
 			)
+		})
 
+		Context("nil primitive type", func() {
+			It("Should map nil to std::monostate", func() {
+				source := `
+					@cpp output "x/cpp/status"
+
+					Status struct<Details?> {
+						key string
+						details Details?
+					}
+				`
+				loader.Add("schemas/status", source)
+
+				channelSource := `
+					import "schemas/status"
+
+					@cpp output "client/cpp/channel"
+
+					ChannelStatus = status.Status<nil>
+
+					Channel struct {
+						key uint32
+						status ChannelStatus??
+					}
+				`
+				resp := MustGenerate(ctx, channelSource, "channel", loader, cppPlugin)
+
+				content := MustContentOf(resp, "client/cpp/channel/types.gen.h")
+				Expect(content).To(ContainSubstring(`std::monostate`))
+				Expect(content).NotTo(ContainSubstring(`void`))
+			})
 		})
 
 		It("Should treat soft optional as bare type", func() {

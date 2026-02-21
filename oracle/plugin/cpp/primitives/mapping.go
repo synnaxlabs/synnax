@@ -32,6 +32,7 @@ var Mappings = map[string]primitives.Mapping{
 	"json":    {TargetType: "x::json::json::object_t", Imports: []primitives.Import{{Category: "internal", Path: "x/cpp/json/json.h"}}},
 	"bytes":   {TargetType: "std::vector<std::uint8_t>", Imports: []primitives.Import{{Category: "system", Path: "vector"}, {Category: "system", Path: "cstdint"}}},
 	"any":     {TargetType: "x::json::json", Imports: []primitives.Import{{Category: "internal", Path: "x/cpp/json/json.h"}}},
+	"nil":     {TargetType: "std::monostate", Imports: []primitives.Import{{Category: "system", Path: "variant"}}},
 }
 
 // Mapper returns a primitives.Mapper for C++ code generation.
