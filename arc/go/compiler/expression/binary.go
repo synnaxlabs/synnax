@@ -25,20 +25,17 @@ func compileBinaryAdditive(
 		return types.Type{}, err
 	}
 
-	// Check if first operand is series
 	firstIsSeries := resultType.Kind == types.KindSeries
 	var elemType types.Type
 	if firstIsSeries {
 		elemType = *resultType.Elem
 	}
 
-	// Unwrap channel types (but not series) to use as hint for subsequent operands
 	hintType := resultType
 	if resultType.Kind == types.KindChan {
 		hintType = resultType.Unwrap()
 	}
 
-	// Build list of operators in order by iterating through children
 	var operators []string
 	for _, child := range ctx.AST.GetChildren() {
 		if termNode, ok := child.(antlr.TerminalNode); ok {
@@ -52,7 +49,6 @@ func compileBinaryAdditive(
 	}
 
 	for i := 1; i < len(muls); i++ {
-		// For series operations, hint with element type so scalars compile correctly
 		operandHint := hintType
 		if firstIsSeries {
 			operandHint = elemType
@@ -65,28 +61,23 @@ func compileBinaryAdditive(
 		secondIsSeries := operandType.Kind == types.KindSeries
 
 		if firstIsSeries {
-			// series op scalar or series op series
 			isScalar := !secondIsSeries
-			funcIdx, err := ctx.Imports.GetSeriesArithmetic(operators[i-1], elemType, isScalar)
-			if err != nil {
+			if err := ctx.Resolver.EmitSeriesArithmetic(ctx.Writer, ctx.WriterID, operators[i-1], elemType, isScalar); err != nil {
 				return types.Type{}, err
 			}
-			ctx.Writer.WriteCall(funcIdx)
 		} else if secondIsSeries {
-			// scalar op series - use reverse arithmetic to match stack order [scalar, handle]
 			secondElemType := *operandType.Elem
 			op := operators[i-1]
-			funcIdx, err := ctx.Imports.GetSeriesReverseArithmetic(op, secondElemType)
-			if err != nil {
+			if err := ctx.Resolver.EmitSeriesReverseArithmetic(ctx.Writer, ctx.WriterID, op, secondElemType); err != nil {
 				return types.Type{}, err
 			}
-			ctx.Writer.WriteCall(funcIdx)
-			// Update state to reflect we now have a series result
 			resultType = operandType
 			elemType = secondElemType
 			firstIsSeries = true
 		} else if hintType.Kind == types.KindString && operators[i-1] == "+" {
-			ctx.Writer.WriteCall(ctx.Imports.StringConcat)
+			if err := ctx.Resolver.EmitStringConcat(ctx.Writer, ctx.WriterID); err != nil {
+				return types.Type{}, err
+			}
 		} else {
 			if err = ctx.Writer.WriteBinaryOpInferred(operators[i-1], hintType); err != nil {
 				return types.Type{}, err
@@ -94,7 +85,6 @@ func compileBinaryAdditive(
 		}
 	}
 
-	// Return the series type if operating on series, otherwise the hint type
 	if firstIsSeries {
 		return resultType, nil
 	}
@@ -106,26 +96,22 @@ func compileBinaryMultiplicative(
 ) (types.Type, error) {
 	pows := ctx.AST.AllPowerExpression()
 
-	// Compile first operand - literals will get their type from TypeMap
 	resultType, err := compilePower(context.Child(ctx, pows[0]))
 	if err != nil {
 		return types.Type{}, err
 	}
 
-	// Check if first operand is series
 	firstIsSeries := resultType.Kind == types.KindSeries
 	var elemType types.Type
 	if firstIsSeries {
 		elemType = *resultType.Elem
 	}
 
-	// Unwrap channel types (but not series) to use as hint for subsequent operands
 	hintType := resultType
 	if resultType.Kind == types.KindChan {
 		hintType = resultType.Unwrap()
 	}
 
-	// Build list of operators in order by iterating through children
 	var operators []string
 	for _, child := range ctx.AST.GetChildren() {
 		if termNode, ok := child.(antlr.TerminalNode); ok {
@@ -140,9 +126,7 @@ func compileBinaryMultiplicative(
 		}
 	}
 
-	// Compile remaining operands with the first operand's type as hint
 	for i := 1; i < len(pows); i++ {
-		// For series operations, hint with element type so scalars compile correctly
 		operandHint := hintType
 		if firstIsSeries {
 			operandHint = elemType
@@ -155,23 +139,16 @@ func compileBinaryMultiplicative(
 		secondIsSeries := operandType.Kind == types.KindSeries
 
 		if firstIsSeries {
-			// series op scalar or series op series
 			isScalar := !secondIsSeries
-			funcIdx, err := ctx.Imports.GetSeriesArithmetic(operators[i-1], elemType, isScalar)
-			if err != nil {
+			if err := ctx.Resolver.EmitSeriesArithmetic(ctx.Writer, ctx.WriterID, operators[i-1], elemType, isScalar); err != nil {
 				return types.Type{}, err
 			}
-			ctx.Writer.WriteCall(funcIdx)
 		} else if secondIsSeries {
-			// scalar op series - use reverse arithmetic to match stack order [scalar, handle]
 			secondElemType := *operandType.Elem
 			op := operators[i-1]
-			funcIdx, err := ctx.Imports.GetSeriesReverseArithmetic(op, secondElemType)
-			if err != nil {
+			if err := ctx.Resolver.EmitSeriesReverseArithmetic(ctx.Writer, ctx.WriterID, op, secondElemType); err != nil {
 				return types.Type{}, err
 			}
-			ctx.Writer.WriteCall(funcIdx)
-			// Update state to reflect we now have a series result
 			resultType = operandType
 			elemType = secondElemType
 			firstIsSeries = true
@@ -182,7 +159,6 @@ func compileBinaryMultiplicative(
 		}
 	}
 
-	// Return the series type if operating on series, otherwise the hint type
 	if firstIsSeries {
 		return resultType, nil
 	}
@@ -196,20 +172,17 @@ func compileBinaryRelational(ctx context.Context[parser.IRelationalExpressionCon
 		return types.Type{}, err
 	}
 
-	// Check if we're comparing series BEFORE unwrapping
 	isSeries := leftType.Kind == types.KindSeries
 	var elemType types.Type
 	if isSeries {
 		elemType = *leftType.Elem
 	}
 
-	// Unwrap channel types (but not series) for comparison operations
 	hintType := leftType
 	if leftType.Kind == types.KindChan {
 		hintType = leftType.Unwrap()
 	}
 
-	// For series operations, hint with element type so scalars compile correctly
 	operandHint := hintType
 	if isSeries {
 		operandHint = elemType
@@ -231,12 +204,9 @@ func compileBinaryRelational(ctx context.Context[parser.IRelationalExpressionCon
 	}
 
 	if isSeries {
-		funcIdx, err := ctx.Imports.GetSeriesComparison(op, elemType)
-		if err != nil {
+		if err := ctx.Resolver.EmitSeriesComparison(ctx.Writer, ctx.WriterID, op, elemType); err != nil {
 			return types.Type{}, err
 		}
-		ctx.Writer.WriteCall(funcIdx)
-		// Series comparison returns a boolean series (series u8)
 		return types.Series(types.U8()), nil
 	}
 
@@ -253,20 +223,17 @@ func compileBinaryEquality(ctx context.Context[parser.IEqualityExpressionContext
 		return types.Type{}, err
 	}
 
-	// Check if we're comparing series BEFORE unwrapping
 	isSeries := leftType.Kind == types.KindSeries
 	var elemType types.Type
 	if isSeries {
 		elemType = *leftType.Elem
 	}
 
-	// Unwrap channel types (but not series) for equality operations
 	hintType := leftType
 	if leftType.Kind == types.KindChan {
 		hintType = leftType.Unwrap()
 	}
 
-	// For series operations, hint with element type so scalars compile correctly
 	operandHint := hintType
 	if isSeries {
 		operandHint = elemType
@@ -284,17 +251,16 @@ func compileBinaryEquality(ctx context.Context[parser.IEqualityExpressionContext
 	}
 
 	if isSeries {
-		funcIdx, err := ctx.Imports.GetSeriesComparison(op, elemType)
-		if err != nil {
+		if err := ctx.Resolver.EmitSeriesComparison(ctx.Writer, ctx.WriterID, op, elemType); err != nil {
 			return types.Type{}, err
 		}
-		ctx.Writer.WriteCall(funcIdx)
-		// Series comparison returns a boolean series (series u8)
 		return types.Series(types.U8()), nil
 	}
 
 	if hintType.Kind == types.KindString {
-		ctx.Writer.WriteCall(ctx.Imports.StringEqual)
+		if err := ctx.Resolver.EmitStringEqual(ctx.Writer, ctx.WriterID); err != nil {
+			return types.Type{}, err
+		}
 		if op == "!=" {
 			ctx.Writer.WriteI32Eqz()
 		}

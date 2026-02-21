@@ -17,10 +17,11 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/arc/compiler"
-	"github.com/synnaxlabs/arc/compiler/bindings"
+	"github.com/synnaxlabs/arc/compiler/testutil"
 	"github.com/synnaxlabs/arc/ir"
 	"github.com/synnaxlabs/arc/runtime/state"
-	runtimebindings "github.com/synnaxlabs/arc/runtime/wasm/bindings"
+	"github.com/synnaxlabs/arc/runtime/wasm"
+	stlstrings "github.com/synnaxlabs/arc/stl/strings"
 	"github.com/synnaxlabs/arc/symbol"
 	"github.com/synnaxlabs/arc/text"
 	"github.com/synnaxlabs/arc/types"
@@ -39,7 +40,7 @@ func compileWithHostImports(source string, resolver symbol.Resolver) (compiler.O
 	prog := MustSucceed(text.Parse(text.Text{Raw: source}))
 	inter, diag := text.Analyze(ctx, prog, resolver)
 	Expect(diag.Ok()).To(BeTrue())
-	return compiler.Compile(ctx, inter)
+	return compiler.Compile(ctx, inter, compiler.WithHostSymbols(testutil.NewStdlibResolver()))
 }
 
 func inferReturnType(expected any) string {
@@ -92,6 +93,30 @@ func assertResult(result uint64, expected any) {
 	case uint8:
 		Expect(uint8(result)).To(Equal(v))
 	}
+}
+
+// bindDefaultModules creates a state.State and binds all default STL modules
+// to the given wazero.Runtime. Returns the state and string module for
+// post-instantiation setup.
+func bindDefaultModules(r wazero.Runtime) (*state.State, *stlstrings.Module) {
+	s := state.New(state.Config{IR: ir.IR{Nodes: []ir.Node{{Key: "test"}}}})
+	modules, strMod, _ := wasm.DefaultModules(s)
+	hostRT := wasm.NewWazeroHostRuntime(ctx, r)
+	for _, m := range modules {
+		Expect(m.BindTo(ctx, hostRT)).To(Succeed())
+	}
+	Expect(hostRT.Instantiate()).To(Succeed())
+	return s, strMod
+}
+
+// bindMockChannelModule registers mock channel host functions under the
+// "channel" WASM module for test use.
+func bindMockChannelModule(r wazero.Runtime, exports map[string]any) {
+	hostRT := wasm.NewWazeroHostRuntime(ctx, r)
+	for name, impl := range exports {
+		Expect(hostRT.Export("channel", name, impl)).To(Succeed())
+	}
+	Expect(hostRT.Instantiate()).To(Succeed())
 }
 
 var _ = Describe("Compiler", func() {
@@ -342,12 +367,12 @@ var _ = Describe("Compiler", func() {
 
 	Describe("Channel Operations", func() {
 		It("Should compile channel writes with high channel keys", func() {
-			mockRuntime := bindings.NewBindings()
-			var writtenValue uint8
-			mockRuntime.ChannelWriteU8 = func(_ context.Context, _ uint32, val uint8) {
-				writtenValue = val
-			}
-			Expect(mockRuntime.Bind(ctx, r)).To(Succeed())
+			var writtenValue uint32
+			bindMockChannelModule(r, map[string]any{
+				"write_u8": func(_ context.Context, _ uint32, val uint32) {
+					writtenValue = val
+				},
+			})
 
 			// Use a high channel key that would cause local index out of bounds
 			// if mistakenly used as a WASM local variable index
@@ -373,26 +398,21 @@ var _ = Describe("Compiler", func() {
 			Expect(press).ToNot(BeNil())
 
 			MustSucceed(press.Call(ctx))
-			Expect(writtenValue).To(Equal(uint8(1)))
+			Expect(writtenValue).To(Equal(uint32(1)))
 		})
 
 		It("Should execute a function with channel read operations", func() {
-			// Create mock runtime with channel implementations
-			mockRuntime := bindings.NewBindings()
-
 			// Setup channel data
 			channelData := map[uint32]int32{0: 42}
 
-			// Define channel read implementation
-			mockRuntime.ChannelReadI32 = func(ctx context.Context, channelID uint32) int32 {
-				if val, ok := channelData[channelID]; ok {
-					return val
-				}
-				return 0
-			}
-
-			// Bind the mock runtime
-			Expect(mockRuntime.Bind(ctx, r)).To(Succeed())
+			bindMockChannelModule(r, map[string]any{
+				"read_i32": func(_ context.Context, channelID uint32) int32 {
+					if val, ok := channelData[channelID]; ok {
+						return val
+					}
+					return 0
+				},
+			})
 
 			resolver := symbol.MapResolver(map[string]symbol.Symbol{
 				"sensor": {
@@ -418,15 +438,15 @@ var _ = Describe("Compiler", func() {
 		})
 
 		It("Should execute a channel read in a comparison expression", func() {
-			mockRuntime := bindings.NewBindings()
 			channelData := map[uint32]int32{0: 50}
-			mockRuntime.ChannelReadI32 = func(ctx context.Context, channelID uint32) int32 {
-				if val, ok := channelData[channelID]; ok {
-					return val
-				}
-				return 0
-			}
-			Expect(mockRuntime.Bind(ctx, r)).To(Succeed())
+			bindMockChannelModule(r, map[string]any{
+				"read_i32": func(_ context.Context, channelID uint32) int32 {
+					if val, ok := channelData[channelID]; ok {
+						return val
+					}
+					return 0
+				},
+			})
 
 			resolver := symbol.MapResolver(map[string]symbol.Symbol{
 				"press_pt": {
@@ -457,15 +477,15 @@ var _ = Describe("Compiler", func() {
 		})
 
 		It("Should execute multiple channel reads in a boolean expression", func() {
-			mockRuntime := bindings.NewBindings()
 			channelData := map[uint32]int32{0: 75}
-			mockRuntime.ChannelReadI32 = func(ctx context.Context, channelID uint32) int32 {
-				if val, ok := channelData[channelID]; ok {
-					return val
-				}
-				return 0
-			}
-			Expect(mockRuntime.Bind(ctx, r)).To(Succeed())
+			bindMockChannelModule(r, map[string]any{
+				"read_i32": func(_ context.Context, channelID uint32) int32 {
+					if val, ok := channelData[channelID]; ok {
+						return val
+					}
+					return 0
+				},
+			})
 
 			resolver := symbol.MapResolver(map[string]symbol.Symbol{
 				"sensor": {
@@ -501,14 +521,14 @@ var _ = Describe("Compiler", func() {
 		})
 
 		It("Should compile channel write with expression", func() {
-			mockRuntime := bindings.NewBindings()
 			var writtenKey uint32
 			var writtenValue int32
-			mockRuntime.ChannelWriteI32 = func(_ context.Context, key uint32, val int32) {
-				writtenKey = key
-				writtenValue = val
-			}
-			Expect(mockRuntime.Bind(ctx, r)).To(Succeed())
+			bindMockChannelModule(r, map[string]any{
+				"write_i32": func(_ context.Context, key uint32, val int32) {
+					writtenKey = key
+					writtenValue = val
+				},
+			})
 
 			resolver := symbol.MapResolver(map[string]symbol.Symbol{
 				"output_ch": {
@@ -535,12 +555,12 @@ var _ = Describe("Compiler", func() {
 		})
 
 		It("Should compile multiple channel writes with different high keys", func() {
-			mockRuntime := bindings.NewBindings()
 			writes := make(map[uint32]int32)
-			mockRuntime.ChannelWriteI32 = func(_ context.Context, key uint32, val int32) {
-				writes[key] = val
-			}
-			Expect(mockRuntime.Bind(ctx, r)).To(Succeed())
+			bindMockChannelModule(r, map[string]any{
+				"write_i32": func(_ context.Context, key uint32, val int32) {
+					writes[key] = val
+				},
+			})
 
 			resolver := symbol.MapResolver(map[string]symbol.Symbol{
 				"ch_a": {Name: "ch_a", Kind: symbol.KindChannel, Type: types.Chan(types.I32()), ID: 1000001},
@@ -1198,12 +1218,7 @@ var _ = Describe("Compiler", func() {
 
 	Describe("Power Expression Execution", func() {
 		BeforeEach(func() {
-			// Setup bindings for math operations with actual runtime implementations
-			b := bindings.NewBindings()
-			// Note: Math functions don't require state, so we pass nil
-			arcRuntime := runtimebindings.NewRuntime(state.New(state.Config{IR: ir.IR{Nodes: []ir.Node{{Key: "test"}}}}), nil)
-			runtimebindings.BindRuntime(arcRuntime, b)
-			Expect(b.Bind(ctx, r)).To(Succeed())
+			bindDefaultModules(r)
 		})
 
 		It("Should execute i32 power: 2^3 = 8", func() {
@@ -1477,11 +1492,7 @@ var _ = Describe("Compiler", func() {
 
 	Describe("Power operator with literal type inference (SY-3207)", func() {
 		BeforeEach(func() {
-			// Setup bindings for math operations with actual runtime implementations
-			b := bindings.NewBindings()
-			arcRuntime := runtimebindings.NewRuntime(state.New(state.Config{IR: ir.IR{Nodes: []ir.Node{{Key: "test"}}}}), nil)
-			runtimebindings.BindRuntime(arcRuntime, b)
-			Expect(b.Bind(ctx, r)).To(Succeed())
+			bindDefaultModules(r)
 		})
 
 		It("Should execute f32 variable with integer literal: x^2", func() {
@@ -1596,10 +1607,7 @@ var _ = Describe("Compiler", func() {
 
 	Describe("Series Operations", func() {
 		BeforeEach(func() {
-			b := bindings.NewBindings()
-			arcRuntime := runtimebindings.NewRuntime(state.New(state.Config{IR: ir.IR{Nodes: []ir.Node{{Key: "test"}}}}), nil)
-			runtimebindings.BindRuntime(arcRuntime, b)
-			Expect(b.Bind(ctx, r)).To(Succeed())
+			bindDefaultModules(r)
 		})
 
 		DescribeTable("basic series operations",
@@ -2023,13 +2031,11 @@ var _ = Describe("Compiler", func() {
 	})
 
 	Describe("String Operations", func() {
-		var arcRuntime *runtimebindings.Runtime
+		var testState *state.State
+		var strMod *stlstrings.Module
 
 		BeforeEach(func() {
-			b := bindings.NewBindings()
-			arcRuntime = runtimebindings.NewRuntime(state.New(state.Config{IR: ir.IR{Nodes: []ir.Node{{Key: "test"}}}}), nil)
-			runtimebindings.BindRuntime(arcRuntime, b)
-			Expect(b.Bind(ctx, r)).To(Succeed())
+			testState, strMod = bindDefaultModules(r)
 		})
 
 		It("Should return string handle from function", func() {
@@ -2041,13 +2047,15 @@ var _ = Describe("Compiler", func() {
 			}
 			`, nil))
 			mod := MustSucceed(r.Instantiate(ctx, output.WASM))
-			arcRuntime.SetMemory(mod.Memory())
+			strMod.SetMemory(mod.Memory())
 			concat := mod.ExportedFunction("concat")
 			results := MustSucceed(concat.Call(ctx))
 			Expect(results).To(HaveLen(1))
 			handle := uint32(results[0])
 			Expect(handle).To(BeNumerically(">", 0))
-			Expect(arcRuntime.GetString(handle)).To(Equal("hello world"))
+			str, ok := testState.Strings.Get(handle)
+			Expect(ok).To(BeTrue())
+			Expect(str).To(Equal("hello world"))
 		})
 
 		It("Should execute string concatenation with multiple operands", func() {
@@ -2061,7 +2069,7 @@ var _ = Describe("Compiler", func() {
 			}
 			`, nil))
 			mod := MustSucceed(r.Instantiate(ctx, output.WASM))
-			arcRuntime.SetMemory(mod.Memory())
+			strMod.SetMemory(mod.Memory())
 			concat := mod.ExportedFunction("concat")
 			results := MustSucceed(concat.Call(ctx))
 			Expect(results).To(ConsistOf(uint64(1)))
@@ -2076,7 +2084,7 @@ var _ = Describe("Compiler", func() {
 			}
 			`, nil))
 			mod := MustSucceed(r.Instantiate(ctx, output.WASM))
-			arcRuntime.SetMemory(mod.Memory())
+			strMod.SetMemory(mod.Memory())
 			equal := mod.ExportedFunction("equal")
 			results := MustSucceed(equal.Call(ctx))
 			Expect(results).To(ConsistOf(uint64(1)))
@@ -2091,7 +2099,7 @@ var _ = Describe("Compiler", func() {
 			}
 			`, nil))
 			mod := MustSucceed(r.Instantiate(ctx, output.WASM))
-			arcRuntime.SetMemory(mod.Memory())
+			strMod.SetMemory(mod.Memory())
 			notEqual := mod.ExportedFunction("notEqual")
 			results := MustSucceed(notEqual.Call(ctx))
 			Expect(results).To(ConsistOf(uint64(0)))
@@ -2106,7 +2114,7 @@ var _ = Describe("Compiler", func() {
 			}
 			`, nil))
 			mod := MustSucceed(r.Instantiate(ctx, output.WASM))
-			arcRuntime.SetMemory(mod.Memory())
+			strMod.SetMemory(mod.Memory())
 			notEqual := mod.ExportedFunction("notEqual")
 			results := MustSucceed(notEqual.Call(ctx))
 			Expect(results).To(ConsistOf(uint64(1)))
@@ -2122,7 +2130,7 @@ var _ = Describe("Compiler", func() {
 			}
 			`, nil))
 			mod := MustSucceed(r.Instantiate(ctx, output.WASM))
-			arcRuntime.SetMemory(mod.Memory())
+			strMod.SetMemory(mod.Memory())
 			concatMatch := mod.ExportedFunction("concatMatch")
 			results := MustSucceed(concatMatch.Call(ctx))
 			Expect(results).To(ConsistOf(uint64(1)))
@@ -2138,7 +2146,7 @@ var _ = Describe("Compiler", func() {
 			}
 			`, nil))
 			mod := MustSucceed(r.Instantiate(ctx, output.WASM))
-			arcRuntime.SetMemory(mod.Memory())
+			strMod.SetMemory(mod.Memory())
 			build := mod.ExportedFunction("build")
 			results := MustSucceed(build.Call(ctx))
 			Expect(results).To(HaveLen(1))
@@ -2155,7 +2163,7 @@ var _ = Describe("Compiler", func() {
 			}
 			`, nil))
 			mod := MustSucceed(r.Instantiate(ctx, output.WASM))
-			arcRuntime.SetMemory(mod.Memory())
+			strMod.SetMemory(mod.Memory())
 			build := mod.ExportedFunction("build")
 			results := MustSucceed(build.Call(ctx))
 			Expect(results).To(HaveLen(1))
@@ -2814,14 +2822,10 @@ var _ = Describe("Compiler", func() {
 	})
 
 	Describe("String Functions", func() {
-		var arcRuntime *runtimebindings.Runtime
+		var strMod *stlstrings.Module
 
 		BeforeEach(func() {
-			// Setup bindings for string operations with actual runtime implementations
-			b := bindings.NewBindings()
-			arcRuntime = runtimebindings.NewRuntime(state.New(state.Config{IR: ir.IR{Nodes: []ir.Node{{Key: "test"}}}}), nil)
-			runtimebindings.BindRuntime(arcRuntime, b)
-			Expect(b.Bind(ctx, r)).To(Succeed())
+			_, strMod = bindDefaultModules(r)
 		})
 
 		It("Should compare strings with default", func() {
@@ -2836,7 +2840,7 @@ var _ = Describe("Compiler", func() {
 			`, nil))
 
 			mod := MustSucceed(r.Instantiate(ctx, output.WASM))
-			arcRuntime.SetMemory(mod.Memory())
+			strMod.SetMemory(mod.Memory())
 			main := mod.ExportedFunction("main")
 			Expect(main).ToNot(BeNil())
 
@@ -2857,7 +2861,7 @@ var _ = Describe("Compiler", func() {
 			`, nil))
 
 			mod := MustSucceed(r.Instantiate(ctx, output.WASM))
-			arcRuntime.SetMemory(mod.Memory())
+			strMod.SetMemory(mod.Memory())
 			main := mod.ExportedFunction("main")
 			Expect(main).ToNot(BeNil())
 
@@ -2878,7 +2882,7 @@ var _ = Describe("Compiler", func() {
 			`, nil))
 
 			mod := MustSucceed(r.Instantiate(ctx, output.WASM))
-			arcRuntime.SetMemory(mod.Memory())
+			strMod.SetMemory(mod.Memory())
 			main := mod.ExportedFunction("main")
 			Expect(main).ToNot(BeNil())
 

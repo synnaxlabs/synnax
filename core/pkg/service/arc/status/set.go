@@ -14,6 +14,7 @@ import (
 
 	"github.com/synnaxlabs/alamos"
 	"github.com/synnaxlabs/arc/runtime/node"
+	"github.com/synnaxlabs/arc/stl"
 	"github.com/synnaxlabs/arc/symbol"
 	"github.com/synnaxlabs/arc/types"
 	"github.com/synnaxlabs/x/errors"
@@ -46,6 +47,33 @@ var (
 	}
 	SymbolResolver = symbol.MapResolver{symbolName: symbolSet}
 )
+
+type Module struct {
+	stat *status.Service
+}
+
+var _ stl.Module = (*Module)(nil)
+
+func NewModule(stat *status.Service) *Module {
+	return &Module{stat: stat}
+}
+
+func (m *Module) Resolve(ctx context.Context, name string) (symbol.Symbol, error) {
+	return SymbolResolver.Resolve(ctx, name)
+}
+
+func (m *Module) Search(ctx context.Context, term string) ([]symbol.Symbol, error) {
+	return SymbolResolver.Search(ctx, term)
+}
+
+func (m *Module) Create(ctx context.Context, cfg node.Config) (node.Node, error) {
+	f := &statusFactory{stat: m.stat}
+	return f.Create(ctx, cfg)
+}
+
+func (m *Module) BindTo(_ context.Context, _ stl.HostRuntime) error {
+	return nil
+}
 
 type setStatus struct {
 	statusSvc *status.Service
@@ -103,8 +131,4 @@ func (s *statusFactory) Create(ctx context.Context, cfg node.Config) (node.Node,
 	stat.Message = nodeCfg.Message
 	stat.Variant = xstatus.Variant(nodeCfg.Variant)
 	return &setStatus{ins: cfg.Instrumentation, stat: stat, statusSvc: s.stat}, nil
-}
-
-func NewFactory(stat *status.Service) node.Factory {
-	return &statusFactory{stat: stat}
 }

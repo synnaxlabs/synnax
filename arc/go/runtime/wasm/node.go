@@ -13,16 +13,17 @@ import (
 	"github.com/synnaxlabs/arc/ir"
 	"github.com/synnaxlabs/arc/runtime/node"
 	"github.com/synnaxlabs/arc/runtime/state"
-	runtimebindings "github.com/synnaxlabs/arc/runtime/wasm/bindings"
+	"github.com/synnaxlabs/arc/stl"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/telem"
 )
+
+var _ node.Node = (*nodeImpl)(nil)
 
 type nodeImpl struct {
 	*state.Node
 	ir          ir.Node
 	wasm        *Function
-	runtime     *runtimebindings.Runtime
 	params      []uint64
 	configCount int
 	offsets     []int
@@ -97,13 +98,13 @@ func (n *nodeImpl) Next(ctx node.Context) {
 	if len(n.ir.Inputs) > 0 {
 		longestInputTime = n.InputTime(longestInputIdx)
 	}
-	n.runtime.SetCurrentNodeKey(n.ir.Key)
+	wasmCtx := stl.WithNodeKey(ctx.Context, n.ir.Key)
 	for i := int64(0); i < maxLength; i++ {
 		for j := range n.ir.Inputs {
 			inputLen := n.Input(j).Len()
 			n.params[n.configCount+j] = valueAt(n.Input(j), int(i%inputLen))
 		}
-		res, err := n.wasm.Call(ctx, n.params...)
+		res, err := n.wasm.Call(wasmCtx, n.params...)
 		if err != nil {
 			ctx.ReportError(errors.Wrapf(
 				err,

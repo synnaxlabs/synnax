@@ -42,20 +42,17 @@ func compileStringLiteral(
 	}
 	strBytes := []byte(parsed.Value.(string))
 	offset := ctx.Module.AddData(strBytes)
-	// Emit WASM bytecode:
-	// i32.const <offset>    ; push pointer to string in linear memory
-	// i32.const <length>    ; push length
-	// call $string_from_literal  ; returns handle (i32)
 	ctx.Writer.WriteI32Const(int32(offset))
 	ctx.Writer.WriteI32Const(int32(len(strBytes)))
-	ctx.Writer.WriteCall(ctx.Imports.StringFromLiteral)
+	if err := ctx.Resolver.EmitStringFromLiteral(ctx.Writer, ctx.WriterID); err != nil {
+		return types.Type{}, err
+	}
 	return types.String(), nil
 }
 
 func compileSeriesLiteral(
 	ctx context.Context[parser.ISeriesLiteralContext],
 ) (types.Type, error) {
-	// Get the series type from the hint or TypeMap
 	seriesType := ctx.Hint
 	if !seriesType.IsValid() {
 		if parent := ctx.AST.GetParent(); parent != nil {
@@ -76,51 +73,36 @@ func compileSeriesLiteral(
 		return types.Type{}, errors.New("series type missing element type")
 	}
 
-	// Get expressions from the list
 	var expressions []parser.IExpressionContext
 	if exprList := ctx.AST.ExpressionList(); exprList != nil {
 		expressions = exprList.AllExpression()
 	}
 	length := len(expressions)
 
-	// Create the series: push length and call series_create_empty_<type>
 	ctx.Writer.WriteI32Const(int32(length))
-	createIdx, err := ctx.Imports.GetSeriesCreateEmpty(*elemType)
-	if err != nil {
+	if err := ctx.Resolver.EmitSeriesCreateEmpty(ctx.Writer, ctx.WriterID, *elemType); err != nil {
 		return types.Type{}, err
 	}
-	ctx.Writer.WriteCall(createIdx)
 
-	// SetElement returns the handle, so we can chain calls directly on the stack.
-	// Stack after create: [handle]
-	// For each element: push index, push value, call SetElement -> [handle]
 	for i, expr := range expressions {
 		ctx.Writer.WriteI32Const(int32(i))
-		if _, err = Compile(context.Child(ctx, expr).WithHint(*elemType)); err != nil {
+		if _, err := Compile(context.Child(ctx, expr).WithHint(*elemType)); err != nil {
 			return types.Type{}, err
 		}
-		setIdx, err := ctx.Imports.GetSeriesSetElement(*elemType)
-		if err != nil {
+		if err := ctx.Resolver.EmitSeriesSetElement(ctx.Writer, ctx.WriterID, *elemType); err != nil {
 			return types.Type{}, err
 		}
-		ctx.Writer.WriteCall(setIdx)
 	}
 
-	// Handle is already on stack as the expression result
 	return seriesType, nil
 }
 
 func compileNumericLiteral(
 	ctx context.Context[parser.INumericLiteralContext],
 ) (types.Type, error) {
-	// Determine target type: prefer hint over TypeMap
-	// The hint is set when we have an explicit type declaration (e.g., x i32 := 42)
-	// The TypeMap contains inferred types from the analyzer
 	targetType := ctx.Hint
 
-	// Only use TypeMap if no hint was provided
 	if !targetType.IsValid() {
-		// TypeMap is keyed by the parent Literal context, so we look up parent
 		if parent := ctx.AST.GetParent(); parent != nil {
 			if litCtx, ok := parent.(parser.ILiteralContext); ok {
 				if inferredType, ok := ctx.TypeMap[litCtx]; ok {
@@ -130,31 +112,20 @@ func compileNumericLiteral(
 		}
 	}
 
-	// Unwrap series/channel types to get the element type for scalar literals.
-	// When compiling `100 - s` where s is `series i32`, the hint may be `series i32`
-	// but the literal should compile to the element type `i32`.
 	targetType = targetType.Unwrap()
-
-	// Clear the unit from target type - unit literals should always convert to SI base units.
-	// The unit is preserved in the TypeMap for dimensional analysis but should not affect
-	// the numeric value emitted (which is always in SI base units).
 	targetType.Unit = nil
 
-	// Use shared literal parser to parse and validate the value
-	// This enforces Go-like semantics: no truncation for literal constants
 	parsed, err := literal.ParseNumeric(ctx.AST, targetType)
 	if err != nil {
 		return types.Type{}, err
 	}
 
-	// Emit WASM bytecode based on the parsed type and value
 	switch parsed.Type.Kind {
 	case types.KindF32:
 		ctx.Writer.WriteF32Const(parsed.Value.(float32))
 	case types.KindF64:
 		ctx.Writer.WriteF64Const(parsed.Value.(float64))
 	case types.KindI8, types.KindI16, types.KindI32, types.KindU8, types.KindU16, types.KindU32:
-		// WASM uses i32 for all 32-bit and smaller integers
 		var i32Val int32
 		switch v := parsed.Value.(type) {
 		case int8:
