@@ -68,10 +68,22 @@ export const EXTRACTORS: Export.Extractors = {
 
 export const FILE_INGESTERS: Import.FileIngesters = {
   [ANALOG_READ_TYPE]: Common.Task.createIngester(analogReadConfigZ, ANALOG_READ_LAYOUT),
-  [ANALOG_WRITE_TYPE]: Common.Task.createIngester(analogWriteConfigZ, ANALOG_WRITE_LAYOUT),
-  [COUNTER_READ_TYPE]: Common.Task.createIngester(counterReadConfigZ, COUNTER_READ_LAYOUT),
-  [DIGITAL_READ_TYPE]: Common.Task.createIngester(digitalReadConfigZ, DIGITAL_READ_LAYOUT),
-  [DIGITAL_WRITE_TYPE]: Common.Task.createIngester(digitalWriteConfigZ, DIGITAL_WRITE_LAYOUT),
+  [ANALOG_WRITE_TYPE]: Common.Task.createIngester(
+    analogWriteConfigZ,
+    ANALOG_WRITE_LAYOUT,
+  ),
+  [COUNTER_READ_TYPE]: Common.Task.createIngester(
+    counterReadConfigZ,
+    COUNTER_READ_LAYOUT,
+  ),
+  [DIGITAL_READ_TYPE]: Common.Task.createIngester(
+    digitalReadConfigZ,
+    DIGITAL_READ_LAYOUT,
+  ),
+  [DIGITAL_WRITE_TYPE]: Common.Task.createIngester(
+    digitalWriteConfigZ,
+    DIGITAL_WRITE_LAYOUT,
+  ),
 };
 
 export const LAYOUTS: Record<string, Layout.Renderer> = {

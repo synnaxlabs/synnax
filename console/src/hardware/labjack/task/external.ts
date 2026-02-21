@@ -10,7 +10,12 @@
 import { type Export } from "@/export";
 import { Common } from "@/hardware/common";
 import { Read, READ_LAYOUT, ReadSelectable } from "@/hardware/labjack/task/Read";
-import { READ_TYPE, readConfigZ, WRITE_TYPE,writeConfigZ } from "@/hardware/labjack/task/types";
+import {
+  READ_TYPE,
+  readConfigZ,
+  WRITE_TYPE,
+  writeConfigZ,
+} from "@/hardware/labjack/task/types";
 import { Write, WRITE_LAYOUT, WriteSelectable } from "@/hardware/labjack/task/Write";
 import { type Import } from "@/import";
 import { type Layout } from "@/layout";
