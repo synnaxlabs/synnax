@@ -183,7 +183,7 @@ void Manager::process_task_cmd(const x::telem::Series &series) {
     const auto commands = series.strings();
     for (const auto &cmd_str: commands) {
         auto parser = x::json::Parser(cmd_str);
-        auto cmd = Command(parser);
+        auto cmd = synnax::task::Command::parse(parser);
         if (!parser.ok()) {
             LOG(WARNING) << "failed to parse command: " << parser.error_json().dump();
             continue;

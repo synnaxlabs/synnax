@@ -1,15 +1,18 @@
 cc_library(
     name = "ir",
+    srcs = ["ir.cpp"],
     hdrs = [
         "format.h",
         "ir.h",
+        "json.gen.h",
+        "proto.gen.h",
+        "types.gen.h",
     ],
     visibility = ["//visibility:public"],
     deps = [
         "//arc/cpp/types",
         "//arc/go/ir:ir_grpc",
-        "//arc/go/symbol:symbol_grpc",
-        "//arc/go/types:types_grpc",
+        "//x/cpp/pb",
         "//x/cpp/telem",
     ],
 )
@@ -20,7 +23,7 @@ cc_test(
     deps = [
         ":ir",
         "//arc/go/ir:ir_grpc",
-        "//arc/go/symbol:symbol_grpc",
+        "//x/cpp/test",
         "@googletest//:gtest_main",
     ],
 )

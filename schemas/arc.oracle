@@ -1,0 +1,113 @@
+// Copyright 2026 Synnax Labs, Inc.
+//
+// Use of this software is governed by the Business Source License included in the file
+// licenses/BSL.txt.
+//
+// As of the Change Date specified in that file, in accordance with the Business Source
+// License, use of this software will be governed by the Apache License, Version 2.0,
+// included in the file licenses/APL.txt.
+
+import "schemas/spatial"
+import "schemas/status"
+import "schemas/arc/graph"
+import "schemas/arc/text"
+import "schemas/arc/ir"
+import "schemas/arc/compiler"
+import "schemas/arc/module"
+
+@ts output  "client/ts/src/arc"
+@go output  "core/pkg/service/arc"
+@cpp output "client/cpp/arc"
+@pb
+
+StatusDetails struct {
+    running bool {
+        @doc value "indicates whether the Arc module is currently executing."
+    }
+
+    @doc value "contains Arc-specific status details for execution state."
+}
+
+Status = status.Status<StatusDetails> {
+    @doc value "is the status of an Arc module including execution state."
+}
+
+Key = uuid {
+    @doc value "is a unique identifier for an Arc module."
+}
+
+Mode enum {
+    text  = "text"
+    graph = "graph"
+
+    @doc value """
+        specifies whether an Arc module uses text-based or graph-based representation.
+    """
+}
+
+Arc struct {
+    key    Key             {
+        @key
+        @doc value "is the unique identifier for this module."
+    }
+    name   string          {
+        @doc value "is a human-readable name for the module."
+    }
+    mode   Mode            {
+        @doc value """
+            specifies the representation mode for this module.
+            Either "text" for text-based Arc code or "graph" for visual dataflow.
+        """
+    }
+    graph  graph.Graph     {
+        @doc value "is the visual dataflow graph representation of the module."
+    }
+    text   text.Text       {
+        @doc value "is the text-based Arc source code."
+    }
+    module module.Module?? {
+        @doc value """
+            is the compiled module output including IR and WebAssembly bytecode.
+        """
+    }
+    status Status??        {
+        @doc value "is the current execution status of the module."
+    }
+
+    @doc value     """
+        is an Arc module combining visual graph representation and text-based
+        source code for reactive control systems. Compiles to WebAssembly for
+        sandboxed execution.
+    """
+    @ontology type "arc"
+}
+
+New struct {
+    key   Key?        {
+        @doc value """
+            is an optional key for the module. If not provided, one will be
+            automatically assigned.
+        """
+    }
+    name  string      {
+        @doc value "is a human-readable name for the module."
+    }
+    mode  Mode        {
+        @doc value """
+            specifies the representation mode for this module.
+            Either "text" for text-based Arc code or "graph" for visual dataflow.
+        """
+    }
+    graph graph.Graph {
+        @doc value "is the visual dataflow graph representation."
+    }
+    text  text.Text   {
+        @doc value "is the text-based Arc source code."
+    }
+
+    @doc value    "contains parameters for creating a new Arc module."
+    @ts use_input
+    @go omit
+    @pb omit
+    @cpp omit
+}

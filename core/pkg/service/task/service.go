@@ -202,7 +202,7 @@ func (s *Service) migrateStatusesForExistingTasks(ctx context.Context) error {
 	for i, t := range tasks {
 		statusKeys[i] = OntologyID(t.Key).String()
 	}
-	var existingStatuses []Status
+	var existingStatuses []status.Status[StatusDetails]
 	if err := status.NewRetrieve[StatusDetails](s.cfg.Status).
 		WhereKeys(statusKeys...).
 		Entries(&existingStatuses).
@@ -213,11 +213,11 @@ func (s *Service) migrateStatusesForExistingTasks(ctx context.Context) error {
 	for _, stat := range existingStatuses {
 		existingKeys[stat.Key] = true
 	}
-	var missingStatuses []Status
+	var missingStatuses []status.Status[StatusDetails]
 	for _, t := range tasks {
 		key := OntologyID(t.Key).String()
 		if !existingKeys[key] {
-			missingStatuses = append(missingStatuses, Status{
+			missingStatuses = append(missingStatuses, status.Status[StatusDetails]{
 				Key:     key,
 				Name:    t.Name,
 				Time:    telem.Now(),
@@ -241,16 +241,16 @@ func (s *Service) onSuspectRack(ctx context.Context, rackStat rack.Status) {
 		Exec(ctx, nil); err != nil {
 		s.cfg.L.Error("failed to retrieve tasks on suspect rack", zap.Error(err))
 	}
-	statuses := make([]Status, len(tasks))
+	statuses := make([]status.Status[StatusDetails], len(tasks))
 	for i, tsk := range tasks {
-		statuses[i] = Status{
+		statuses[i] = status.Status[StatusDetails]{
 			Key:         OntologyID(tsk.Key).String(),
 			Time:        telem.Now(),
 			Name:        tsk.Name,
 			Variant:     rackStat.Variant,
 			Message:     rackStat.Message,
 			Description: rackStat.Description,
-			Details:     StatusDetails{Task: tsk.Key},
+			Details:     StatusDetails{Task: tsk.Key, Running: false},
 		}
 	}
 	if err := status.NewWriter[StatusDetails](s.cfg.Status, nil).

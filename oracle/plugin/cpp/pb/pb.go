@@ -18,6 +18,7 @@ import (
 	"github.com/synnaxlabs/oracle/domain/omit"
 	"github.com/synnaxlabs/oracle/exec"
 	"github.com/synnaxlabs/oracle/plugin"
+	"github.com/synnaxlabs/oracle/plugin/cpp/keywords"
 	"github.com/synnaxlabs/oracle/plugin/domain"
 	"github.com/synnaxlabs/oracle/plugin/enum"
 	"github.com/synnaxlabs/oracle/plugin/output"
@@ -433,6 +434,7 @@ func (p *Plugin) processFieldForTranslation(
 	if cppFieldName == field.Name {
 		cppFieldName = toSnakeCase(field.Name)
 	}
+	cppFieldName = keywords.Escape(cppFieldName)
 
 	isGenericField := false
 	typeParamName := ""
@@ -446,7 +448,7 @@ func (p *Plugin) processFieldForTranslation(
 	forwardExpr, backwardExpr := p.generateFieldConversion(field, cppFieldName, data)
 	forwardJSONExpr, backwardJSONExpr := "", ""
 	if isGenericField {
-		pbAccessorName := escapePBFieldName(pbFieldName)
+		pbAccessorName := keywords.Escape(pbFieldName)
 		forwardJSONExpr, backwardJSONExpr = p.generateJSONFieldConversion(field, cppFieldName, pbAccessorName, data)
 	}
 
@@ -471,7 +473,7 @@ func (p *Plugin) generateFieldConversion(
 ) (forward, backward string) {
 	typeRef := field.Type
 	pbFieldName := toSnakeCase(field.Name)
-	pbAccessorName := escapePBFieldName(pbFieldName)
+	pbAccessorName := keywords.Escape(pbFieldName)
 	pbSetter := fmt.Sprintf("pb.set_%s", pbAccessorName)
 
 	if p.isFixedSizeUint8Array(typeRef, data.table) {
@@ -616,6 +618,10 @@ func (p *Plugin) generatePrimitiveConversion(
 		return fmt.Sprintf("pb.set_%s(this->%s.data(), this->%s.size())", pbAccessorName, cppFieldName, cppFieldName),
 			fmt.Sprintf("cpp.%s.assign(pb.%s().begin(), pb.%s().end());", cppFieldName, pbAccessorName, pbAccessorName)
 	default:
+		if isOptional {
+			return fmt.Sprintf("if (this->%s.has_value()) %s(*this->%s)", cppFieldName, pbSetter, cppFieldName),
+				fmt.Sprintf("if (pb.has_%s()) cpp.%s = pb.%s();", pbAccessorName, cppFieldName, pbAccessorName)
+		}
 		return fmt.Sprintf("%s(this->%s)", pbSetter, cppFieldName),
 			fmt.Sprintf("cpp.%s = pb.%s();", cppFieldName, pbAccessorName)
 	}
@@ -902,7 +908,7 @@ func (p *Plugin) generateArrayConversion(
 	data *templateData,
 ) (forward, backward string) {
 	pbFieldName := toSnakeCase(field.Name)
-	pbAccessorName := escapePBFieldName(pbFieldName)
+	pbAccessorName := keywords.Escape(pbFieldName)
 	typeRef := field.Type
 
 	if len(typeRef.TypeArgs) == 0 {
@@ -959,7 +965,7 @@ func (p *Plugin) generateMapConversion(
 	data *templateData,
 ) (forward, backward string) {
 	fieldName := toSnakeCase(field.Name)
-	accessorName := escapePBFieldName(fieldName)
+	accessorName := keywords.Escape(fieldName)
 	typeRef := field.Type
 
 	if len(typeRef.TypeArgs) < 2 {
@@ -1004,7 +1010,7 @@ func (p *Plugin) generateFixedSizeUint8ArrayConversion(
 	data *templateData,
 ) (forward, backward string) {
 	fieldName := toSnakeCase(field.Name)
-	accessorName := escapePBFieldName(fieldName)
+	accessorName := keywords.Escape(fieldName)
 
 	forward = fmt.Sprintf("pb.set_%s(this->%s.data(), this->%s.size())", accessorName, fieldName, fieldName)
 	backward = fmt.Sprintf("std::copy(pb.%s().begin(), pb.%s().end(), cpp.%s.begin());", accessorName, accessorName, fieldName)
@@ -1258,34 +1264,6 @@ func toScreamingSnake(s string) string {
 
 func toSnakeCase(s string) string {
 	return lo.SnakeCase(s)
-}
-
-var cppReservedKeywords = map[string]bool{
-	"alignas": true, "alignof": true, "and": true, "and_eq": true, "asm": true,
-	"auto": true, "bitand": true, "bitor": true, "bool": true, "break": true,
-	"case": true, "catch": true, "char": true, "char16_t": true, "char32_t": true,
-	"class": true, "compl": true, "const": true, "constexpr": true, "const_cast": true,
-	"continue": true, "decltype": true, "default": true, "delete": true, "do": true,
-	"double": true, "dynamic_cast": true, "else": true, "enum": true, "explicit": true,
-	"export": true, "extern": true, "false": true, "float": true, "for": true,
-	"friend": true, "goto": true, "if": true, "inline": true, "int": true,
-	"long": true, "mutable": true, "namespace": true, "new": true, "noexcept": true,
-	"not": true, "not_eq": true, "nullptr": true, "operator": true, "or": true,
-	"or_eq": true, "private": true, "protected": true, "public": true, "register": true,
-	"reinterpret_cast": true, "return": true, "short": true, "signed": true,
-	"sizeof": true, "static": true, "static_assert": true, "static_cast": true,
-	"struct": true, "switch": true, "template": true, "this": true, "thread_local": true,
-	"throw": true, "true": true, "try": true, "typedef": true, "typeid": true,
-	"typename": true, "union": true, "unsigned": true, "using": true, "virtual": true,
-	"void": true, "volatile": true, "wchar_t": true, "while": true, "xor": true,
-	"xor_eq": true,
-}
-
-func escapePBFieldName(name string) string {
-	if cppReservedKeywords[name] {
-		return name + "_"
-	}
-	return name
 }
 
 type includeManager struct {

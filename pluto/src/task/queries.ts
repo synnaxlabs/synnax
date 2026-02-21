@@ -87,15 +87,13 @@ export const retrieveSingle = async <
   client,
   store,
 }: Flux.RetrieveParams<RetrieveQuery, FluxSubStore> & {
-  schemas?: task.Schemas<Type, Config, StatusData>;
+  schemas?: task.PayloadSchemas<Type, Config, StatusData>;
 }): Promise<task.Task<Type, Config, StatusData>> => {
   if ("key" in query && query.key != null) {
     const cached = store.tasks.get(query.key.toString());
     if (cached != null) {
       const tsk = cached as unknown as task.Task<Type, Config, StatusData>;
-      const detailsSchema = task.statusDetailsZ(
-        schemas?.statusDataSchema ?? z.unknown(),
-      );
+      const detailsSchema = task.statusDetailsZ(schemas?.statusData ?? z.unknown());
       tsk.status = (await Status.retrieveSingle<typeof detailsSchema>({
         store,
         client,
@@ -105,14 +103,20 @@ export const retrieveSingle = async <
       return tsk;
     }
   }
-  const tsk = await client.tasks.retrieve<Type, Config, StatusData>({
-    ...BASE_QUERY,
-    ...query,
-    schemas,
-  });
+  const tsk =
+    schemas != null
+      ? await client.tasks.retrieve({
+          ...BASE_QUERY,
+          ...query,
+          schemas,
+        })
+      : await client.tasks.retrieve({
+          ...BASE_QUERY,
+          ...query,
+        });
   store.tasks.set(tsk.key.toString(), tsk as unknown as task.Task);
   if (tsk.status != null) store.statuses.set(tsk.status);
-  return tsk;
+  return tsk as task.Task<Type, Config, StatusData>;
 };
 
 export const createRetrieve = <
@@ -120,7 +124,7 @@ export const createRetrieve = <
   Config extends z.ZodType = z.ZodType,
   StatusData extends z.ZodType = z.ZodType,
 >(
-  schemas?: task.Schemas<Type, Config, StatusData>,
+  schemas?: task.PayloadSchemas<Type, Config, StatusData>,
 ) =>
   Flux.createRetrieve<
     RetrieveQuery,
@@ -140,7 +144,7 @@ export const createRetrieve = <
         store.statuses.onSet(
           (status) => {
             const parsed = task
-              .statusZ(schemas?.statusDataSchema ?? z.unknown())
+              .statusZ(schemas?.statusData ?? z.unknown())
               .parse(status);
             onChange((prev) => {
               if (prev == null) return null;
@@ -205,16 +209,16 @@ const createFormSchema = <
   Config extends z.ZodType = z.ZodType,
   StatusData extends z.ZodType = z.ZodType,
 >(
-  schemas: task.Schemas<Type, Config, StatusData>,
+  schemas: task.PayloadSchemas<Type, Config, StatusData>,
 ): FormSchema<Type, Config, StatusData> =>
   z.object({
     key: task.keyZ.optional(),
     name: z.string(),
     rackKey: z.number(),
-    type: schemas.typeSchema,
+    type: schemas.type,
     snapshot: z.boolean(),
-    config: schemas.configSchema,
-    status: task.statusZ(schemas.statusDataSchema).optional().nullable(),
+    config: schemas.config,
+    status: task.statusZ(schemas.statusData).optional().nullable(),
   }) as unknown as FormSchema<Type, Config, StatusData>;
 
 export type FormSchema<
@@ -228,7 +232,7 @@ export type FormSchema<
   type: z.infer<Type>;
   snapshot: boolean;
   config: z.infer<Config>;
-  status?: task.Status<StatusData>;
+  status?: task.Status<StatusData> | null;
 }>;
 
 export interface CreateFormParams<
@@ -236,7 +240,7 @@ export interface CreateFormParams<
   Config extends z.ZodType = z.ZodType,
   StatusData extends z.ZodType = z.ZodType,
 > {
-  schemas: task.Schemas<Type, Config, StatusData>;
+  schemas: task.PayloadSchemas<Type, Config, StatusData>;
   initialValues: InitialValues<Type, Config, StatusData>;
 }
 
@@ -313,6 +317,7 @@ export const createForm = <
         const task = await retrieveSingle<Type, Config, StatusData>({
           ...args,
           query: { key },
+          schemas,
         });
         reset(taskToFormValues(task.payload));
       },

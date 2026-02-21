@@ -101,7 +101,7 @@ export const resourceZ = z
   .object({
     id: idZ,
     name: z.string(),
-    data: record.unknownZ.optional().nullable(),
+    data: record.unknownZ().optional().nullable(),
   })
   .transform((resource) => ({ key: idToString(resource.id), ...resource }));
 export interface Resource<T extends record.Unknown = record.Unknown> extends Omit<

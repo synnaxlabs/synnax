@@ -3,7 +3,7 @@ load("@rules_proto//proto:defs.bzl", "proto_library")
 
 proto_library(
     name = "text_proto",
-    srcs = ["text.proto"],
+    srcs = ["pb/text.proto"],
     visibility = ["//visibility:public"],
     deps = ["//arc/go/types:types_proto"],
 )

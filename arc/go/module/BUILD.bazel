@@ -3,7 +3,7 @@ load("@rules_proto//proto:defs.bzl", "proto_library")
 
 proto_library(
     name = "module_proto",
-    srcs = ["module.proto"],
+    srcs = ["pb/module.proto"],
     visibility = ["//visibility:public"],
     deps = [
         "//arc/go/ir:ir_proto",

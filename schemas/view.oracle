@@ -1,0 +1,57 @@
+// Copyright 2026 Synnax Labs, Inc.
+//
+// Use of this software is governed by the Business Source License included in the file
+// licenses/BSL.txt.
+//
+// As of the Change Date specified in that file, in accordance with the Business Source
+// License, use of this software will be governed by the Apache License, Version 2.0,
+// included in the file licenses/APL.txt.
+
+@ts output "client/ts/src/view"
+
+Key = uuid {
+    @doc value "is a unique identifier for a saved view configuration."
+}
+
+View struct {
+    key   Key    {
+        @key
+        @doc value "is the unique identifier for this view."
+    }
+    name  string {
+        @doc value "is a human-readable name for the view."
+    }
+    type  string {
+        @doc value """
+            is the view type identifier (e.g., 'lineplot', 'table', 'schematic').
+        """
+    }
+    query json   {
+        @doc value """
+            is a type-agnostic JSON object containing view-specific configuration
+            and query parameters.
+        """
+    }
+
+    @doc value     """
+        is a persisted view configuration storing visualization settings and
+        query parameters for line plots, tables, schematics, and other view
+        types.
+    """
+    @ontology type "view"
+}
+
+New struct extends View {
+    key   Key? {
+        @doc value """
+            is an optional key for the view. If not provided, one will be
+            automatically assigned.
+        """
+    }
+    query json {
+        @doc value "contains view-specific configuration and query parameters."
+    }
+
+    @doc value    "contains parameters for creating a new view."
+    @ts use_input
+}

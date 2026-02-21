@@ -81,7 +81,7 @@ export interface WrapFormArgs<
   Form: FC<FormProps<Type, Config, StatusData>>;
   type: z.infer<Type>;
   onConfigure: OnConfigure<Config>;
-  schemas: task.Schemas<Type, Config, StatusData>;
+  schemas: task.PayloadSchemas<Type, Config, StatusData>;
   getInitialValues: GetInitialValues<Type, Config, StatusData>;
   showHeader?: boolean;
   showControls?: boolean;

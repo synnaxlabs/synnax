@@ -17,10 +17,11 @@ import {
   keyZ,
   type New,
   newZ,
+  ontologyID,
   type Payload,
-  rackZ,
+  payloadZ,
   type Status,
-} from "@/rack/payload";
+} from "@/rack/types.gen";
 import { type task } from "@/task";
 import { checkForMultipleOrNoResults } from "@/util/retrieve";
 
@@ -37,7 +38,8 @@ const retrieveReqZ = z.object({
   offset: z.int().optional(),
   includeStatus: z.boolean().optional(),
 });
-const retrieveResZ = z.object({ racks: array.nullableZ(rackZ) });
+const retrieveResZ = z.object({ racks: array.nullishToEmpty(payloadZ) });
+export const rackZ = payloadZ;
 
 const singleRetrieveArgsZ = z.union([
   z
@@ -64,7 +66,7 @@ const retrieveArgsZ = z.union([singleRetrieveArgsZ, multiRetrieveArgsZ]);
 export type RetrieveArgs = z.input<typeof retrieveArgsZ>;
 
 const createReqZ = z.object({ racks: newZ.array() });
-const createResZ = z.object({ racks: rackZ.array() });
+const createResZ = z.object({ racks: payloadZ.array() });
 
 const deleteReqZ = z.object({ keys: keyZ.array() });
 const deleteResZ = z.object({});
@@ -154,7 +156,7 @@ export class Rack {
     StatusData extends z.ZodType = z.ZodType,
   >(
     task: task.New<Type, Config, StatusData>,
-    schemas: task.Schemas<Type, Config, StatusData>,
+    schemas: task.PayloadSchemas<Type, Config, StatusData>,
   ): Promise<task.Task<Type, Config, StatusData>>;
 
   async createTask<
@@ -163,15 +165,14 @@ export class Rack {
     StatusData extends z.ZodType = z.ZodType,
   >(
     task: task.New<Type, Config, StatusData>,
-    schemas?: task.Schemas<Type, Config, StatusData>,
+    schemas?: task.PayloadSchemas<Type, Config, StatusData>,
   ): Promise<task.Task<Type, Config, StatusData>> {
-    task.key = (
-      (BigInt(this.key) << 32n) +
-      (BigInt(task.key ?? 0) & 0xffffffffn)
+    task.key = Number(
+      (BigInt(this.key) << 32n) + (BigInt(task.key ?? 0) & 0xffffffffn),
     ).toString();
     return await this.tasks.create(
       task,
-      schemas as Required<task.Schemas<Type, Config, StatusData>>,
+      schemas as Required<task.PayloadSchemas<Type, Config, StatusData>>,
     );
   }
 
@@ -183,8 +184,5 @@ export class Rack {
     return { key: this.key, name: this.name, status: this.status };
   }
 }
-
-export const ontologyID = ontology.createIDFactory<Key>("rack");
-export const TYPE_ONTOLOGY_ID = ontologyID(0);
 
 export const statusKey = (key: Key): string => ontology.idToString(ontologyID(key));

@@ -57,12 +57,12 @@ protected:
 
         synnax::device::Device dev{
             .key = "modbus_test_dev",
-            .name = "modbus_test_dev",
             .rack = rack.key,
             .location = "dev1",
             .make = "modbus",
             .model = "Modbus Device",
-            .properties = properties.get<x::json::json::object_t>(),
+            .name = "modbus_test_dev",
+            .properties = properties,
         };
         ASSERT_NIL(client->devices.create(dev));
 
@@ -110,7 +110,7 @@ TEST_F(ModbusWriteTest, testBasicWrite) {
     fr.emplace(reg_ch.key, x::telem::Series(static_cast<uint16_t>(12345)));
     reads->push_back(std::move(fr));
 
-    mock_streamer_factory = pipeline::mock::simple_streamer_factory(
+    mock_streamer_factory = driver::pipeline::mock::simple_streamer_factory(
         {coil_ch.key, reg_ch.key},
         reads
     );
@@ -218,7 +218,7 @@ TEST_F(ModbusWriteTest, testMultipleDataTypes) {
     fr.emplace(float64_ch.key, x::telem::Series(static_cast<double>(2.71828)));
     reads->push_back(std::move(fr));
 
-    mock_streamer_factory = pipeline::mock::simple_streamer_factory(
+    mock_streamer_factory = driver::pipeline::mock::simple_streamer_factory(
         {int16_ch.key, uint32_ch.key, int32_ch.key, float32_ch.key, float64_ch.key},
         reads
     );
@@ -354,7 +354,7 @@ TEST_F(ModbusWriteTest, testConcurrentWrites) {
     fr.emplace(reg2.key, x::telem::Series(static_cast<uint16_t>(2000)));
     reads->push_back(std::move(fr));
 
-    mock_streamer_factory = pipeline::mock::simple_streamer_factory(
+    mock_streamer_factory = driver::pipeline::mock::simple_streamer_factory(
         {coil1.key, coil2.key, reg1.key, reg2.key},
         reads
     );
@@ -422,7 +422,7 @@ TEST_F(ModbusWriteTest, testWriteVerification) {
     fr.emplace(reg_ch.key, x::telem::Series(static_cast<uint16_t>(42)));
     reads->push_back(std::move(fr));
 
-    mock_streamer_factory = pipeline::mock::simple_streamer_factory(
+    mock_streamer_factory = driver::pipeline::mock::simple_streamer_factory(
         {coil_ch.key, reg_ch.key},
         reads
     );
@@ -452,7 +452,7 @@ TEST_F(ModbusWriteTest, testWriteVerification) {
 
     ASSERT_EVENTUALLY_GE(ctx->statuses.size(), 1);
     const auto first_state = ctx->statuses[0];
-    EXPECT_EQ(first_state.key, task.status_key());
+    EXPECT_EQ(first_state.key, synnax::task::status_key(task));
     EXPECT_EQ(first_state.details.task, task.key);
     EXPECT_EQ(first_state.details.cmd, "start_cmd");
     EXPECT_EQ(first_state.variant, x::status::VARIANT_SUCCESS);
@@ -461,7 +461,7 @@ TEST_F(ModbusWriteTest, testWriteVerification) {
 
     ASSERT_EQ(ctx->statuses.size(), 2);
     const auto second_state = ctx->statuses[1];
-    EXPECT_EQ(second_state.key, task.status_key());
+    EXPECT_EQ(second_state.key, synnax::task::status_key(task));
     EXPECT_EQ(second_state.details.task, task.key);
     EXPECT_EQ(second_state.details.cmd, "stop_cmd");
     EXPECT_EQ(second_state.variant, x::status::VARIANT_SUCCESS);
@@ -532,7 +532,7 @@ TEST_F(ModbusWriteTest, testMultipleUint8HoldingRegisters) {
     fr.emplace(holding2.key, x::telem::Series(static_cast<uint8_t>(150)));
     reads->push_back(std::move(fr));
 
-    mock_streamer_factory = pipeline::mock::simple_streamer_factory(
+    mock_streamer_factory = driver::pipeline::mock::simple_streamer_factory(
         {holding0.key, holding1.key, holding2.key},
         reads
     );

@@ -26,7 +26,7 @@ public:
     MockEchoTask(const std::shared_ptr<Context> &ctx, const synnax::task::Task &task):
         ctx(ctx), sy_task(task) {
         synnax::task::Status status{
-            .key = task.status_key(),
+            .key = synnax::task::status_key(task),
             .variant = x::status::VARIANT_SUCCESS,
             .message = "configured",
             .details = {.task = task.key}
@@ -36,19 +36,19 @@ public:
 
     std::string name() const override { return "echo"; }
 
-    void exec(Command &cmd) override {
+    void exec(synnax::task::Command &cmd) override {
         synnax::task::Status status{
-            .key = sy_task.status_key(),
+            .key = synnax::task::status_key(sy_task),
             .variant = x::status::VARIANT_SUCCESS,
             .details =
-                {.task = sy_task.key, .cmd = cmd.key, .running = true, .data = cmd.args}
+                {.task = sy_task.key, .running = true, .cmd = cmd.key, .data = cmd.args}
         };
         ctx->set_status(status);
     }
 
     void stop(bool) override {
         synnax::task::Status status{
-            .key = sy_task.status_key(),
+            .key = synnax::task::status_key(sy_task),
             .variant = x::status::VARIANT_SUCCESS,
             .message = "stopped",
             .details = {.task = sy_task.key, .running = false}
@@ -83,7 +83,7 @@ public:
         std::unique_lock lock(mu);
         cv.wait(lock, [&] { return done.load(); });
         synnax::task::Status status{
-            .key = task.status_key(),
+            .key = synnax::task::status_key(task),
             .variant = x::status::VARIANT_SUCCESS,
             .message = "configured",
             .details = {.task = task.key}
@@ -92,7 +92,7 @@ public:
     }
 
     std::string name() const override { return "blocking"; }
-    void exec(Command &) override {}
+    void exec(synnax::task::Command &) override {}
     void stop(bool) override {}
 };
 
@@ -143,7 +143,7 @@ public:
     ):
         sy_task(task), state(std::move(state)) {
         synnax::task::Status status{
-            .key = task.status_key(),
+            .key = synnax::task::status_key(task),
             .variant = x::status::VARIANT_SUCCESS,
             .message = "configured",
             .details = {.task = task.key}
@@ -153,7 +153,7 @@ public:
 
     std::string name() const override { return "tracking"; }
 
-    void exec(Command &cmd) override {
+    void exec(synnax::task::Command &cmd) override {
         state->exec_count++;
         std::lock_guard lock(state->cmd_order_mu);
         state->cmd_order.push_back(cmd.key);
@@ -209,7 +209,7 @@ public:
     }
 
     std::string name() const override { return "timeout"; }
-    void exec(Command &) override {}
+    void exec(synnax::task::Command &) override {}
     void stop(bool) override {}
 };
 
@@ -370,8 +370,12 @@ TEST_F(TaskManagerTest, Command) {
         return s.message == "configured";
     });
 
-    auto cmd = Command(task.key, "test", x::json::json{{"msg", "hi"}});
-    cmd.key = "cmd1";
+    auto cmd = synnax::task::Command{
+        .task = task.key,
+        .type = "test",
+        .key = "cmd1",
+        .args = x::json::json{{"msg", "hi"}}
+    };
     ASSERT_NIL(
         writer.write(x::telem::Frame(cmd_ch.key, x::telem::Series(cmd.to_json())))
     );
@@ -380,7 +384,7 @@ TEST_F(TaskManagerTest, Command) {
     auto s = WAIT_FOR_TASK_STATUS(streamer, task, [](const synnax::task::Status &s) {
         return s.details.cmd == "cmd1";
     });
-    ASSERT_EQ(s.details.data["msg"], "hi");
+    ASSERT_EQ((*s.details.data)["msg"], "hi");
 }
 
 TEST_F(TaskManagerTest, IgnoresForeignRack) {
@@ -491,7 +495,7 @@ TEST_F(TaskManagerTest, CommandForUnconfigured) {
     ));
 
     auto fake_key = synnax::task::create_key(rack.key, 99999);
-    auto cmd = Command(fake_key, "test", x::json::json{});
+    auto cmd = synnax::task::Command{.task = fake_key, .type = "test"};
     ASSERT_NIL(
         writer.write(x::telem::Frame(cmd_ch.key, x::telem::Series(cmd.to_json())))
     );
@@ -522,7 +526,7 @@ TEST_F(TaskManagerTest, RapidReconfigure) {
     });
 
     for (int i = 0; i < 5; i++) {
-        task.config = {{"v", std::to_string(i)}};
+        task.config = x::json::json{{"v", i}};
         ASSERT_NIL(rack.tasks.create(task));
     }
     std::this_thread::sleep_for((500 * x::telem::MILLISECOND).chrono());
@@ -531,8 +535,7 @@ TEST_F(TaskManagerTest, RapidReconfigure) {
     auto writer = ASSERT_NIL_P(client->telem.open_writer(
         {.channels = {cmd_ch.key}, .start = x::telem::TimeStamp::now()}
     ));
-    auto cmd = Command(task.key, "test", x::json::json{});
-    cmd.key = "final";
+    auto cmd = synnax::task::Command{.task = task.key, .type = "test", .key = "final"};
     ASSERT_NIL(
         writer.write(x::telem::Frame(cmd_ch.key, x::telem::Series(cmd.to_json())))
     );
@@ -599,8 +602,7 @@ TEST_F(TaskManagerTest, CommandFIFO) {
 
     std::vector<std::string> expected = {"c1", "c2", "c3", "c4", "c5"};
     for (const auto &k: expected) {
-        auto cmd = Command(task.key, "test", x::json::json{});
-        cmd.key = k;
+        auto cmd = synnax::task::Command{.task = task.key, .type = "test", .key = k};
         ASSERT_NIL(
             writer.write(x::telem::Frame(cmd_ch.key, x::telem::Series(cmd.to_json())))
         );
@@ -608,10 +610,7 @@ TEST_F(TaskManagerTest, CommandFIFO) {
     ASSERT_NIL(writer.close());
 
     auto state = f->task_states[0];
-    EVENTUALLY(
-        [&] { return state->exec_count.load() >= 5; },
-        [] { return "cmds not executed"; }
-    );
+    ASSERT_EVENTUALLY_GE(state->exec_count.load(), 5);
     std::lock_guard lock(state->cmd_order_mu);
     ASSERT_EQ(state->cmd_order, expected);
 }
@@ -636,16 +635,13 @@ TEST_F(TaskManagerTest, ReconfigureStopsOld) {
             first_state = f->task_states[0];
             return true;
         },
-        [] { return "first not created"; }
+        [] { return "first not created"; },
     );
 
-    task.config = {{"v", 2}};
+    task.config = x::json::json{{"v", 2}};
     ASSERT_NIL(rack.tasks.create(task));
 
-    EVENTUALLY(
-        [&] { return first_state->stopped.load(); },
-        [] { return "not stopped"; }
-    );
+    ASSERT_EVENTUALLY_TRUE(first_state->stopped.load());
     ASSERT_TRUE(first_state->stop_will_reconfigure.load());
 
     EVENTUALLY(
@@ -670,7 +666,7 @@ public:
     ):
         sy_task(task), destroyed(destroyed) {
         synnax::task::Status status{
-            .key = task.status_key(),
+            .key = synnax::task::status_key(task),
             .variant = x::status::VARIANT_SUCCESS,
             .message = "configured",
             .details = {.task = task.key}
@@ -684,7 +680,7 @@ public:
 
     std::string name() const override { return "destructor_tracking"; }
 
-    void exec(Command &) override {}
+    void exec(synnax::task::Command &) override {}
 
     void stop(bool) override { stopped = true; }
 };
@@ -729,15 +725,9 @@ TEST_F(TaskManagerTest, ReconfigureCallsDestructor) {
     task.config = {{"v", 2}};
     ASSERT_NIL(rack.tasks.create(task));
 
-    EVENTUALLY(
-        [&] { return f->configure_count.load() >= 2; },
-        [] { return "second task not configured"; }
-    );
+    ASSERT_EVENTUALLY_GE(f->configure_count.load(), 2);
 
-    EVENTUALLY(
-        [&] { return f->first_destroyed.load(); },
-        [] { return "first task destructor not called"; }
-    );
+    ASSERT_EVENTUALLY_TRUE(f->first_destroyed.load());
 
     ASSERT_FALSE(f->second_destroyed.load());
 }
@@ -826,7 +816,7 @@ public:
         stop_called(stop_called), release(release), cv(cv), mu(mu) {}
 
     std::string name() const override { return "blocking_stop"; }
-    void exec(Command &) override {}
+    void exec(synnax::task::Command &) override {}
 
     void stop(bool) override {
         stop_called = true;
@@ -911,7 +901,7 @@ public:
         stop_duration(duration), stopped(stopped) {}
 
     std::string name() const override { return "slow_stop"; }
-    void exec(Command &) override {}
+    void exec(synnax::task::Command &) override {}
 
     void stop(bool) override {
         std::this_thread::sleep_for(stop_duration.chrono());

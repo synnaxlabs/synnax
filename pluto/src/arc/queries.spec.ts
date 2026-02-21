@@ -37,14 +37,24 @@ describe("Arc queries", () => {
     it("should return a list of arcs", async () => {
       const arc1 = await client.arcs.create({
         name: "arc1",
-        version: "1.0.0",
-        graph: { nodes: [], edges: [] },
+        mode: "text",
+        graph: {
+          nodes: [],
+          edges: [],
+          viewport: { position: { x: 0, y: 0 }, zoom: 1 },
+          functions: [],
+        },
         text: { raw: "" },
       });
       const arc2 = await client.arcs.create({
         name: "arc2",
-        version: "1.0.0",
-        graph: { nodes: [], edges: [] },
+        mode: "text",
+        graph: {
+          nodes: [],
+          edges: [],
+          viewport: { position: { x: 0, y: 0 }, zoom: 1 },
+          functions: [],
+        },
         text: { raw: "" },
       });
 
@@ -84,8 +94,13 @@ describe("Arc queries", () => {
       await act(async () => {
         await client.arcs.create({
           name: "new-arc",
-          version: "1.0.0",
-          graph: { nodes: [], edges: [] },
+          mode: "text",
+          graph: {
+            nodes: [],
+            edges: [],
+            viewport: { position: { x: 0, y: 0 }, zoom: 1 },
+            functions: [],
+          },
           text: { raw: "" },
         });
       });
@@ -104,8 +119,13 @@ describe("Arc queries", () => {
     it("should update when an arc is modified", async () => {
       const testArc = await client.arcs.create({
         name: "original-name",
-        version: "1.0.0",
-        graph: { nodes: [], edges: [] },
+        mode: "text",
+        graph: {
+          nodes: [],
+          edges: [],
+          viewport: { position: { x: 0, y: 0 }, zoom: 1 },
+          functions: [],
+        },
         text: { raw: "" },
       });
 
@@ -125,6 +145,7 @@ describe("Arc queries", () => {
         await client.arcs.create({
           ...testArc,
           name: "updated-name",
+          mode: "text",
         });
       });
 
@@ -136,8 +157,13 @@ describe("Arc queries", () => {
     it("should remove arc from list when deleted", async () => {
       const testArc = await client.arcs.create({
         name: "to-delete",
-        version: "1.0.0",
-        graph: { nodes: [], edges: [] },
+        mode: "text",
+        graph: {
+          nodes: [],
+          edges: [],
+          viewport: { position: { x: 0, y: 0 }, zoom: 1 },
+          functions: [],
+        },
         text: { raw: "" },
       });
 
@@ -165,20 +191,35 @@ describe("Arc queries", () => {
     it("should filter arcs by keys", async () => {
       const arc1 = await client.arcs.create({
         name: "filter-arc-1",
-        version: "1.0.0",
-        graph: { nodes: [], edges: [] },
+        mode: "text",
+        graph: {
+          nodes: [],
+          edges: [],
+          viewport: { position: { x: 0, y: 0 }, zoom: 1 },
+          functions: [],
+        },
         text: { raw: "" },
       });
       const arc2 = await client.arcs.create({
         name: "filter-arc-2",
-        version: "1.0.0",
-        graph: { nodes: [], edges: [] },
+        mode: "text",
+        graph: {
+          nodes: [],
+          edges: [],
+          viewport: { position: { x: 0, y: 0 }, zoom: 1 },
+          functions: [],
+        },
         text: { raw: "" },
       });
       await client.arcs.create({
         name: "filter-arc-3",
-        version: "1.0.0",
-        graph: { nodes: [], edges: [] },
+        mode: "text",
+        graph: {
+          nodes: [],
+          edges: [],
+          viewport: { position: { x: 0, y: 0 }, zoom: 1 },
+          functions: [],
+        },
         text: { raw: "" },
       });
 
@@ -207,8 +248,13 @@ describe("Arc queries", () => {
     it("should delete a single arc", async () => {
       const testArc = await client.arcs.create({
         name: "delete-single",
-        version: "1.0.0",
-        graph: { nodes: [], edges: [] },
+        mode: "text",
+        graph: {
+          nodes: [],
+          edges: [],
+          viewport: { position: { x: 0, y: 0 }, zoom: 1 },
+          functions: [],
+        },
         text: { raw: "" },
       });
 
@@ -228,14 +274,24 @@ describe("Arc queries", () => {
     it("should delete multiple arcs", async () => {
       const arc1 = await client.arcs.create({
         name: "delete-multi-1",
-        version: "1.0.0",
-        graph: { nodes: [], edges: [] },
+        mode: "text",
+        graph: {
+          nodes: [],
+          edges: [],
+          viewport: { position: { x: 0, y: 0 }, zoom: 1 },
+          functions: [],
+        },
         text: { raw: "" },
       });
       const arc2 = await client.arcs.create({
         name: "delete-multi-2",
-        version: "1.0.0",
-        graph: { nodes: [], edges: [] },
+        mode: "text",
+        graph: {
+          nodes: [],
+          edges: [],
+          viewport: { position: { x: 0, y: 0 }, zoom: 1 },
+          functions: [],
+        },
         text: { raw: "" },
       });
 
@@ -263,8 +319,13 @@ describe("Arc queries", () => {
       await act(async () => {
         await result.current.updateAsync({
           name: uniqueName,
-          version: "1.0.0",
-          graph: { nodes: [], edges: [] },
+          mode: "text",
+          graph: {
+            nodes: [],
+            edges: [],
+            viewport: { position: { x: 0, y: 0 }, zoom: 1 },
+            functions: [],
+          },
           text: { raw: "" },
         });
       });
@@ -280,8 +341,13 @@ describe("Arc queries", () => {
         await act(async () => {
           await result.current.updateAsync({
             name: `arc_no_rack_${id.create()}`,
-            version: "1.0.0",
-            graph: { nodes: [], edges: [] },
+            mode: "text",
+            graph: {
+              nodes: [],
+              edges: [],
+              viewport: { position: { x: 0, y: 0 }, zoom: 1 },
+              functions: [],
+            },
             text: { raw: "" },
           });
         });
@@ -309,8 +375,13 @@ describe("Arc queries", () => {
           await result.current.updateAsync({
             key,
             name: `arc_with_rack_${id.create()}`,
-            version: "1.0.0",
-            graph: { nodes: [], edges: [] },
+            mode: "text",
+            graph: {
+              nodes: [],
+              edges: [],
+              viewport: { position: { x: 0, y: 0 }, zoom: 1 },
+              functions: [],
+            },
             text: { raw: "" },
             rack: testRack.key,
           });
@@ -339,8 +410,13 @@ describe("Arc queries", () => {
           await result.current.updateAsync({
             key,
             name: `arc_config_${id.create()}`,
-            version: "1.0.0",
-            graph: { nodes: [], edges: [] },
+            mode: "text",
+            graph: {
+              nodes: [],
+              edges: [],
+              viewport: { position: { x: 0, y: 0 }, zoom: 1 },
+              functions: [],
+            },
             text: { raw: "" },
             rack: testRack.key,
           });
@@ -366,8 +442,13 @@ describe("Arc queries", () => {
         it("should create new task when updating arc that has no task", async () => {
           const existingArc = await client.arcs.create({
             name: `existing_no_task_${id.create()}`,
-            version: "1.0.0",
-            graph: { nodes: [], edges: [] },
+            mode: "text",
+            graph: {
+              nodes: [],
+              edges: [],
+              viewport: { position: { x: 0, y: 0 }, zoom: 1 },
+              functions: [],
+            },
             text: { raw: "" },
           });
 
@@ -379,8 +460,8 @@ describe("Arc queries", () => {
           await act(async () => {
             await result.current.updateAsync({
               key: existingArc.key,
+              mode: existingArc.mode,
               name: existingArc.name,
-              version: existingArc.version,
               graph: existingArc.graph,
               text: existingArc.text,
               rack: testRack.key,
@@ -412,9 +493,14 @@ describe("Arc queries", () => {
           await act(async () => {
             await createResult.current.updateAsync({
               key: arcKey,
+              mode: "text",
               name: uniqueName,
-              version: "1.0.0",
-              graph: { nodes: [], edges: [] },
+              graph: {
+                nodes: [],
+                edges: [],
+                viewport: { position: { x: 0, y: 0 }, zoom: 1 },
+                functions: [],
+              },
               text: { raw: "" },
               rack: testRack.key,
             });
@@ -439,9 +525,14 @@ describe("Arc queries", () => {
           await act(async () => {
             await updateResult.current.updateAsync({
               key: arcKey,
+              mode: "text",
               name: `${uniqueName}_updated`,
-              version: "2.0.0",
-              graph: { nodes: [], edges: [] },
+              graph: {
+                nodes: [],
+                edges: [],
+                viewport: { position: { x: 0, y: 0 }, zoom: 1 },
+                functions: [],
+              },
               text: { raw: "" },
               rack: testRack.key,
             });
@@ -472,9 +563,14 @@ describe("Arc queries", () => {
           await act(async () => {
             await createResult.current.updateAsync({
               key: arcKey,
+              mode: "text",
               name: `arc_migrate_${id.create()}`,
-              version: "1.0.0",
-              graph: { nodes: [], edges: [] },
+              graph: {
+                nodes: [],
+                edges: [],
+                viewport: { position: { x: 0, y: 0 }, zoom: 1 },
+                functions: [],
+              },
               text: { raw: "" },
               rack: rack1.key,
             });
@@ -499,9 +595,14 @@ describe("Arc queries", () => {
           await act(async () => {
             await updateResult.current.updateAsync({
               key: arcKey,
+              mode: "text",
               name: `arc_migrate_updated`,
-              version: "1.0.0",
-              graph: { nodes: [], edges: [] },
+              graph: {
+                nodes: [],
+                edges: [],
+                viewport: { position: { x: 0, y: 0 }, zoom: 1 },
+                functions: [],
+              },
               text: { raw: "" },
               rack: rack2.key,
             });
@@ -536,9 +637,14 @@ describe("Arc queries", () => {
           await act(async () => {
             await createResult.current.updateAsync({
               key: arcKey,
+              mode: "text",
               name: `arc_del_${id.create()}`,
-              version: "1.0.0",
-              graph: { nodes: [], edges: [] },
+              graph: {
+                nodes: [],
+                edges: [],
+                viewport: { position: { x: 0, y: 0 }, zoom: 1 },
+                functions: [],
+              },
               text: { raw: "" },
               rack: rack1.key,
             });
@@ -562,9 +668,14 @@ describe("Arc queries", () => {
           await act(async () => {
             await updateResult.current.updateAsync({
               key: arcKey,
+              mode: "text",
               name: `arc_del_updated`,
-              version: "1.0.0",
-              graph: { nodes: [], edges: [] },
+              graph: {
+                nodes: [],
+                edges: [],
+                viewport: { position: { x: 0, y: 0 }, zoom: 1 },
+                functions: [],
+              },
               text: { raw: "" },
               rack: rack2.key,
             });
@@ -590,8 +701,12 @@ describe("Arc queries", () => {
 
       const formData = result.current.form.value();
       expect(formData.name).toBe("");
-      expect(formData.version).toBe("0.0.0");
-      expect(formData.graph).toEqual({ nodes: [], edges: [] });
+      expect(formData.graph).toEqual({
+        nodes: [],
+        edges: [],
+        viewport: { position: { x: 0, y: 0 }, zoom: 1 },
+        functions: [],
+      });
       expect(formData.text).toEqual({ raw: "" });
     });
 
@@ -604,7 +719,6 @@ describe("Arc queries", () => {
 
       act(() => {
         result.current.form.set("name", uniqueName);
-        result.current.form.set("version", "2.0.0");
       });
 
       await act(async () => {
@@ -614,7 +728,6 @@ describe("Arc queries", () => {
       await waitFor(() => {
         expect(result.current.variant).toBe("success");
         expect(result.current.form.value().name).toEqual(uniqueName);
-        expect(result.current.form.value().version).toEqual("2.0.0");
         expect(result.current.form.value().key).toBeDefined();
       });
     });
@@ -622,8 +735,13 @@ describe("Arc queries", () => {
     it("should retrieve and edit existing arc", async () => {
       const existingArc = await client.arcs.create({
         name: `existing-arc-${Math.random().toString(36).substring(7)}`,
-        version: "1.0.0",
-        graph: { nodes: [], edges: [] },
+        mode: "text",
+        graph: {
+          nodes: [],
+          edges: [],
+          viewport: { position: { x: 0, y: 0 }, zoom: 1 },
+          functions: [],
+        },
         text: { raw: "" },
       });
 
@@ -637,11 +755,9 @@ describe("Arc queries", () => {
       });
 
       expect(result.current.form.value().name).toEqual(existingArc.name);
-      expect(result.current.form.value().version).toEqual("1.0.0");
 
       act(() => {
         result.current.form.set("name", "edited-arc");
-        result.current.form.set("version", "1.5.0");
       });
 
       await act(async () => {
@@ -651,12 +767,10 @@ describe("Arc queries", () => {
       await waitFor(() => {
         expect(result.current.variant).toBe("success");
         expect(result.current.form.value().name).toEqual("edited-arc");
-        expect(result.current.form.value().version).toEqual("1.5.0");
       });
 
       const retrieved = await client.arcs.retrieve({ key: existingArc.key });
       expect(retrieved.name).toBe("edited-arc");
-      expect(retrieved.version).toBe("1.5.0");
     });
   });
 
@@ -664,8 +778,13 @@ describe("Arc queries", () => {
     it("should retrieve a single arc", async () => {
       const testArc = await client.arcs.create({
         name: `retrieve-arc-${Math.random().toString(36).substring(7)}`,
-        version: "1.0.0",
-        graph: { nodes: [], edges: [] },
+        mode: "text",
+        graph: {
+          nodes: [],
+          edges: [],
+          viewport: { position: { x: 0, y: 0 }, zoom: 1 },
+          functions: [],
+        },
         text: { raw: "" },
       });
 
@@ -679,7 +798,6 @@ describe("Arc queries", () => {
 
       expect(result.current.data?.key).toBe(testArc.key);
       expect(result.current.data?.name).toBe(testArc.name);
-      expect(result.current.data?.version).toBe("1.0.0");
     });
   });
 
@@ -687,8 +805,13 @@ describe("Arc queries", () => {
     it("should rename an arc", async () => {
       const testArc = await client.arcs.create({
         name: `original-${Math.random().toString(36).substring(7)}`,
-        version: "1.0.0",
-        graph: { nodes: [], edges: [] },
+        mode: "text",
+        graph: {
+          nodes: [],
+          edges: [],
+          viewport: { position: { x: 0, y: 0 }, zoom: 1 },
+          functions: [],
+        },
         text: { raw: "" },
       });
 
@@ -713,8 +836,13 @@ describe("Arc queries", () => {
     it("should return undefined when no task is associated with arc", async () => {
       const testArc = await client.arcs.create({
         name: `arc-no-task-${Math.random().toString(36).substring(7)}`,
-        version: "1.0.0",
-        graph: { nodes: [], edges: [] },
+        mode: "text",
+        graph: {
+          nodes: [],
+          edges: [],
+          viewport: { position: { x: 0, y: 0 }, zoom: 1 },
+          functions: [],
+        },
         text: { raw: "" },
       });
 
@@ -733,8 +861,13 @@ describe("Arc queries", () => {
     it("should retrieve task associated with arc", async () => {
       const testArc = await client.arcs.create({
         name: `arc-with-task-${Math.random().toString(36).substring(7)}`,
-        version: "1.0.0",
-        graph: { nodes: [], edges: [] },
+        mode: "text",
+        graph: {
+          nodes: [],
+          edges: [],
+          viewport: { position: { x: 0, y: 0 }, zoom: 1 },
+          functions: [],
+        },
         text: { raw: "" },
       });
 
@@ -768,8 +901,13 @@ describe("Arc queries", () => {
     it("should update when a task is associated with arc", async () => {
       const testArc = await client.arcs.create({
         name: `arc-task-add-${Math.random().toString(36).substring(7)}`,
-        version: "1.0.0",
-        graph: { nodes: [], edges: [] },
+        mode: "text",
+        graph: {
+          nodes: [],
+          edges: [],
+          viewport: { position: { x: 0, y: 0 }, zoom: 1 },
+          functions: [],
+        },
         text: { raw: "" },
       });
 
@@ -806,8 +944,13 @@ describe("Arc queries", () => {
     it("should update when task status changes", async () => {
       const testArc = await client.arcs.create({
         name: `arc-status-${Math.random().toString(36).substring(7)}`,
-        version: "1.0.0",
-        graph: { nodes: [], edges: [] },
+        mode: "text",
+        graph: {
+          nodes: [],
+          edges: [],
+          viewport: { position: { x: 0, y: 0 }, zoom: 1 },
+          functions: [],
+        },
         text: { raw: "" },
       });
 
@@ -859,8 +1002,13 @@ describe("Arc queries", () => {
     it("should update when task is renamed", async () => {
       const testArc = await client.arcs.create({
         name: `arc-rename-${Math.random().toString(36).substring(7)}`,
-        version: "1.0.0",
-        graph: { nodes: [], edges: [] },
+        mode: "text",
+        graph: {
+          nodes: [],
+          edges: [],
+          viewport: { position: { x: 0, y: 0 }, zoom: 1 },
+          functions: [],
+        },
         text: { raw: "" },
       });
 

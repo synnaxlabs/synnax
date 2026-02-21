@@ -646,6 +646,7 @@ var _ = Describe("Primitive Helpers", func() {
 		Entry("bool", "bool", true),
 		Entry("json", "json", true),
 		Entry("bytes", "bytes", true),
+		Entry("nil", "nil", true),
 		Entry("User", "User", false),
 		Entry("Array", "Array", false),
 	)

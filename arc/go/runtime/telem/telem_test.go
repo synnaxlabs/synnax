@@ -95,7 +95,7 @@ var _ = Describe("Telem", func() {
 		})
 
 		Describe("Error Handling", func() {
-			It("Should return query.NotFound for unknown node type", func() {
+			It("Should return query.ErrNotFound for unknown node type", func() {
 				cfg := rnode.Config{
 					Node: ir.Node{
 						Type:   "unknown",

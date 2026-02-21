@@ -61,8 +61,8 @@ func (p *Plugin) Check(req *plugin.Request) error { return nil }
 var postWriter = &exec.PostWriter{
 	ConfigFile: "pyproject.toml",
 	Commands: [][]string{
-		{"poetry", "run", "isort"},
-		{"poetry", "run", "black"},
+		{"uv", "run", "isort"},
+		{"uv", "run", "black"},
 	},
 }
 
@@ -245,11 +245,11 @@ func processEnum(typ resolution.Type, data *templateData) enumData {
 func processTypeDef(typ resolution.Type, table *resolution.Table, data *templateData) typeDefData {
 	switch form := typ.Form.(type) {
 	case resolution.DistinctForm:
-		data.imports.addTyping("NewType")
+		data.imports.addTyping("TypeAlias")
 		return typeDefData{
 			Name:       typ.Name,
 			BaseType:   typeDefBaseToPython(form.Base, typ.Namespace, table, data),
-			IsDistinct: true,
+			IsDistinct: false,
 		}
 	case resolution.AliasForm:
 		// For alias types, use typeRefToPythonAlias to properly handle struct references
@@ -261,8 +261,8 @@ func processTypeDef(typ resolution.Type, table *resolution.Table, data *template
 			IsDistinct: false,
 		}
 	default:
-		data.imports.addTyping("NewType")
-		return typeDefData{Name: typ.Name, BaseType: "Any", IsDistinct: true}
+		data.imports.addTyping("TypeAlias")
+		return typeDefData{Name: typ.Name, BaseType: "Any", IsDistinct: false}
 	}
 }
 
@@ -456,7 +456,16 @@ func processStruct(
 			redefinedFields := make(map[string]bool)
 			for _, field := range form.Fields {
 				redefinedFields[field.Name] = true
-				sd.Fields = append(sd.Fields, processField(field, table, data, keyFields, form.OmittedFields))
+				fd := processField(field, table, data, keyFields, form.OmittedFields)
+				if field.IsOptional || field.IsHardOptional {
+					for _, pf := range parentFields {
+						if pf.Name == field.Name && !pf.IsOptional && !pf.IsHardOptional {
+							fd.TypeIgnore = true
+							break
+						}
+					}
+				}
+				sd.Fields = append(sd.Fields, fd)
 				// Check if this field has @key annotation for __hash__ generation
 				if key.HasKey(field) {
 					sd.KeyField = field.Name
@@ -681,6 +690,9 @@ func collectValidation(
 			if isUUIDType(typeRef, table) && rules.Default.IntValue == 0 {
 				data.imports.addUUID("UUID")
 				constraints = append(constraints, "default=UUID(int=0)")
+			} else if wrapper := resolveDistinctWrapper(typeRef, table, data); wrapper != "" {
+				// Wrap int defaults in the distinct type constructor (e.g., TimeSpan(0))
+				constraints = append(constraints, fmt.Sprintf("default=%s(%d)", wrapper, rules.Default.IntValue))
 			} else {
 				constraints = append(constraints, fmt.Sprintf("default=%d", rules.Default.IntValue))
 			}
@@ -723,6 +735,23 @@ func isUUIDType(typeRef resolution.TypeRef, table *resolution.Table) bool {
 		return form.Target.Name == "uuid"
 	}
 	return false
+}
+
+// resolveDistinctWrapper returns the Python type name for a distinct type that wraps
+// a primitive, or empty string if the type is not a distinct wrapper. This is used to
+// wrap default values in the constructor (e.g., TimeSpan(0) instead of just 0).
+func resolveDistinctWrapper(typeRef resolution.TypeRef, table *resolution.Table, data *templateData) string {
+	if resolution.IsPrimitive(typeRef.Name) {
+		return ""
+	}
+	resolved, ok := typeRef.Resolve(table)
+	if !ok {
+		return ""
+	}
+	if _, isDistinct := resolved.Form.(resolution.DistinctForm); !isDistinct {
+		return ""
+	}
+	return typeToPython(typeRef, table, data)
 }
 
 // isTimeStampType checks if a type reference is or resolves to a TimeStamp type.
@@ -1069,7 +1098,7 @@ type typeDefData struct {
 	Name string
 	// BaseType is the Python base type (e.g., "int", "str").
 	BaseType string
-	// IsDistinct indicates whether to use NewType (true) or TypeAlias (false).
+	// IsDistinct indicates whether to use NewType (true) or TypeAlias (false). Currently always false.
 	IsDistinct bool
 }
 
@@ -1132,6 +1161,7 @@ type fieldData struct {
 	IsOptional     bool
 	IsHardOptional bool
 	IsArray        bool
+	TypeIgnore     bool
 }
 
 type enumData struct {
@@ -1292,7 +1322,7 @@ class {{ .PyName }}({{ range $i, $n := .ExtendsNames }}{{ if $i }}, {{ end }}{{ 
 {{- end }}
 {{- if or .Fields .KeyField }}
 {{- range .Fields }}
-    {{ .Name }}: {{ .PyType }}{{ .Default }}
+    {{ .Name }}: {{ .PyType }}{{ .Default }}{{ if .TypeIgnore }}  # type: ignore[assignment]{{ end }}
 {{- end }}
 {{- if .KeyField }}
 

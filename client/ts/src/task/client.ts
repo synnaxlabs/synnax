@@ -21,7 +21,7 @@ import { z } from "zod";
 
 import { type framer } from "@/framer";
 import { ontology } from "@/ontology";
-import { keyZ as rackKeyZ } from "@/rack/payload";
+import { type Key as RackKey, keyZ as rackKeyZ } from "@/rack/types.gen";
 import { type ranger } from "@/ranger";
 import { status } from "@/status";
 import {
@@ -29,12 +29,13 @@ import {
   keyZ,
   type New,
   newZ,
+  ontologyID,
   type Payload,
-  type Schemas,
+  type PayloadSchemas as Schemas,
+  payloadZ,
   type Status,
   statusZ,
-  taskZ,
-} from "@/task/payload";
+} from "@/task/types.gen";
 import { checkForMultipleOrNoResults } from "@/util/retrieve";
 
 export const COMMAND_CHANNEL_NAME = "sy_task_cmd";
@@ -42,6 +43,11 @@ export const SET_CHANNEL_NAME = "sy_task_set";
 export const DELETE_CHANNEL_NAME = "sy_task_delete";
 
 const NOT_CREATED_ERROR = new Error("Task not created");
+
+export const rackKey = (key: Key): RackKey => Number(BigInt(key) >> 32n);
+
+export const newKey = (rackKey: RackKey, taskKey: number = 0): Key =>
+  ((BigInt(rackKey) << 32n) + BigInt(taskKey)).toString();
 
 const retrieveSnapshottedTo = async (taskKey: Key, ontologyClient: ontology.Client) => {
   const parents = await ontologyClient.retrieveParents(ontologyID(taskKey));
@@ -129,9 +135,9 @@ export class Task<
     this.type = type;
     this.config = config;
     this.schemas = schemas ?? {
-      typeSchema: z.string() as unknown as Type,
-      configSchema: z.unknown() as unknown as Config,
-      statusDataSchema: z.unknown() as unknown as StatusData,
+      type: z.string() as unknown as Type,
+      config: z.unknown() as unknown as Config,
+      statusData: z.unknown() as unknown as StatusData,
     };
     this.internal = internal;
     this.snapshot = snapshot;
@@ -172,7 +178,7 @@ export class Task<
       frameClient: this.frameClient,
       task: this.key,
       name: this.name,
-      statusDataZ: this.schemas?.statusDataSchema,
+      statusDataZ: this.schemas.statusData as StatusData,
     });
   }
 
@@ -241,7 +247,7 @@ type RetrieveSchemas<
   Config extends z.ZodType = z.ZodType,
   StatusData extends z.ZodType = z.ZodType,
 > = {
-  schemas?: Schemas<Type, Config, StatusData>;
+  schemas: Schemas<Type, Config, StatusData>;
 };
 
 const retrieveResZ = <
@@ -252,7 +258,7 @@ const retrieveResZ = <
   schemas?: Schemas<Type, Config, StatusData>,
 ) =>
   z.object({
-    tasks: array.nullableZ(taskZ(schemas)),
+    tasks: array.nullishToEmpty(payloadZ(schemas)),
   });
 
 export interface RetrieveRequest extends z.infer<typeof retrieveReqZ> {}
@@ -270,7 +276,7 @@ const createResZ = <
   StatusData extends z.ZodType = z.ZodType,
 >(
   schemas?: Schemas<Type, Config, StatusData>,
-) => z.object({ tasks: taskZ(schemas).array() });
+) => z.object({ tasks: payloadZ(schemas).array() });
 const deleteReqZ = z.object({ keys: keyZ.array() });
 const deleteResZ = z.object({});
 const copyReqZ = z.object({ key: keyZ, name: z.string(), snapshot: z.boolean() });
@@ -280,7 +286,7 @@ const copyResZ = <
   StatusData extends z.ZodType = z.ZodType,
 >(
   schemas?: Schemas<Type, Config, StatusData>,
-) => z.object({ task: taskZ(schemas) });
+) => z.object({ task: payloadZ(schemas) });
 
 export class Client {
   readonly type: string = "task";
@@ -374,13 +380,13 @@ export class Client {
   ): Promise<Task<Type, Config, StatusData>[]>;
   async retrieve(args: RetrieveMultipleParams): Promise<Task[]>;
   async retrieve<
-    Type extends z.ZodLiteral<string>,
-    Config extends z.ZodType,
-    StatusData extends z.ZodType,
+    Type extends z.ZodLiteral<string> = z.ZodLiteral<string>,
+    Config extends z.ZodType = z.ZodType,
+    StatusData extends z.ZodType = z.ZodType,
   >({
     schemas,
     ...args
-  }: RetrieveArgs & RetrieveSchemas<Type, Config, StatusData>): Promise<
+  }: RetrieveArgs & Partial<RetrieveSchemas<Type, Config, StatusData>>): Promise<
     Task<Type, Config, StatusData> | Task<Type, Config, StatusData>[]
   > {
     const isSingle = singleRetrieveArgsZ.safeParse(args).success;
@@ -397,7 +403,7 @@ export class Client {
     return isSingle ? sugared[0] : sugared;
   }
 
-  async copy(key: string, name: string, snapshot: boolean): Promise<Task> {
+  async copy(key: Key, name: string, snapshot: boolean): Promise<Task> {
     const copyRes = copyResZ();
     const response = await sendRequired(
       this.client,
@@ -406,7 +412,7 @@ export class Client {
       copyReqZ,
       copyRes,
     );
-    return this.sugar(response.task as Payload);
+    return this.sugar(response.task);
   }
 
   async list(rack?: number): Promise<Task[]> {
@@ -517,9 +523,6 @@ export class Client {
     });
   }
 }
-
-export const ontologyID = ontology.createIDFactory<Key>("task");
-export const TYPE_ONTOLOGY_ID = ontologyID("");
 
 export const statusKey = (key: Key): string => ontology.idToString(ontologyID(key));
 
@@ -654,7 +657,7 @@ const formatTimeoutError = async (
   } catch (e) {
     console.error("Failed to retrieve task name for timeout error:", e);
     return new Error(
-      `${formattedType} command to task with key ${strings.naturalLanguageJoin(key)} timed out after ${formattedTimeout}`,
+      `${formattedType} command to task with key ${strings.naturalLanguageJoin(array.toArray(key).map((k) => k.toString()))} timed out after ${formattedTimeout}`,
     );
   }
 };

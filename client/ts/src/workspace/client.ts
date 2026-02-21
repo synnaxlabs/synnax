@@ -11,18 +11,15 @@ import { sendRequired, type UnaryClient } from "@synnaxlabs/freighter";
 import { array, record } from "@synnaxlabs/x";
 import { z } from "zod";
 
-import { ontology } from "@/ontology";
-import { keyZ as userKeyZ } from "@/user/payload";
+import { keyZ as userKeyZ } from "@/user/types.gen";
 import {
   type Key,
   keyZ,
   type New,
   newZ,
-  type Params,
-  remoteZ,
   type Workspace,
   workspaceZ,
-} from "@/workspace/payload";
+} from "@/workspace/types.gen";
 
 const retrieveReqZ = z.object({
   keys: keyZ.array().optional(),
@@ -36,12 +33,12 @@ const createReqZ = z.object({ workspaces: newZ.array() });
 const renameReqZ = z.object({ key: keyZ, name: z.string() });
 const setLayoutReqZ = z.object({
   key: keyZ,
-  layout: record.unknownZ.transform((l) => JSON.stringify(l)),
+  layout: record.unknownZ(),
 });
 const deleteReqZ = z.object({ keys: keyZ.array() });
 
-const retrieveResZ = z.object({ workspaces: array.nullableZ(workspaceZ) });
-const createResZ = z.object({ workspaces: remoteZ.array() });
+const retrieveResZ = z.object({ workspaces: array.nullishToEmpty(workspaceZ) });
+const createResZ = z.object({ workspaces: workspaceZ.array() });
 const emptyResZ = z.object({});
 
 export const SET_CHANNEL_NAME = "sy_workspace_set";
@@ -93,7 +90,9 @@ export class Client {
   async retrieve(key: Key): Promise<Workspace>;
   async retrieve(keys: Key[]): Promise<Workspace[]>;
   async retrieve(req: RetrieveRequest): Promise<Workspace[]>;
-  async retrieve(keys: Params | RetrieveRequest): Promise<Workspace | Workspace[]> {
+  async retrieve(
+    keys: Key | Key[] | RetrieveRequest,
+  ): Promise<Workspace | Workspace[]> {
     let req: RetrieveRequest;
     const isMany: boolean = typeof keys !== "string";
     if (typeof keys === "string" || Array.isArray(keys))
@@ -111,7 +110,7 @@ export class Client {
 
   async delete(key: Key): Promise<void>;
   async delete(keys: Key[]): Promise<void>;
-  async delete(keys: Params): Promise<void> {
+  async delete(keys: Key | Key[]): Promise<void> {
     await sendRequired(
       this.client,
       "/workspace/delete",
@@ -121,6 +120,3 @@ export class Client {
     );
   }
 }
-
-export const ontologyID = ontology.createIDFactory<Key>("workspace");
-export const TYPE_ONTOLOGY_ID = ontologyID("");

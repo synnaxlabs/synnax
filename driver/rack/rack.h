@@ -68,7 +68,7 @@ inline std::vector<std::string> default_integrations() {
         http::INTEGRATION_NAME
     };
 #ifndef SYNNAX_NILINUXRT
-    integrations.push_back(modbus::INTEGRATION_NAME);
+    integrations.push_back(driver::modbus::INTEGRATION_NAME);
 #endif
     return integrations;
 }
@@ -104,7 +104,7 @@ struct Config {
 
     /// @brief returns a new task factory to use for creating tasks in the task
     /// manager.
-    [[nodiscard]] std::unique_ptr<task::Factory> new_factory() const;
+    [[nodiscard]] std::unique_ptr<driver::task::Factory> new_factory() const;
 
     /// @brief returns a new Synnax client using the stored connection parameters.
     [[nodiscard]] std::shared_ptr<synnax::Synnax> new_client() const {

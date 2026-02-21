@@ -7,14 +7,189 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+#include <algorithm>
+#include <sstream>
+#include <stdexcept>
+
 #include "arc/cpp/types/types.h"
 
 namespace arc::types {
-x::telem::DataType Type::telem() const {
-    // Check for timestamp (i64 with nanosecond time units)
-    if (is_timestamp()) return x::telem::TIMESTAMP_T;
 
-    switch (this->kind) {
+std::string Param::to_string() const {
+    std::ostringstream ss;
+    ss << this->name << " (" << this->type.to_string() << ")";
+    if (!this->value.is_null()) ss << " = " << this->value.dump();
+    return ss.str();
+}
+
+std::ostream &operator<<(std::ostream &os, const Param &p) {
+    return os << p.to_string();
+}
+
+const Param &Params::operator[](const std::string &name) const {
+    for (const auto &p: *this)
+        if (p.name == name) return p;
+    throw std::runtime_error("param not found: " + name);
+}
+
+std::string Params::to_string() const {
+    if (this->empty()) return "(none)";
+    std::ostringstream ss;
+    bool first = true;
+    for (const auto &p: *this) {
+        if (!first) ss << ", ";
+        first = false;
+        ss << p.to_string();
+    }
+    return ss.str();
+}
+
+std::ostream &operator<<(std::ostream &os, const Params &p) {
+    return os << p.to_string();
+}
+
+std::string Channels::to_string() const {
+    if (this->read.empty() && this->write.empty()) return "(none)";
+    std::ostringstream ss;
+    if (!this->read.empty()) {
+        ss << "read [";
+        std::vector<std::pair<uint32_t, std::string>> pairs(
+            this->read.begin(),
+            this->read.end()
+        );
+        std::sort(pairs.begin(), pairs.end());
+        bool first = true;
+        for (const auto &[id, name]: pairs) {
+            if (!first) ss << ", ";
+            first = false;
+            ss << id << ": " << name;
+        }
+        ss << "]";
+    }
+    if (!this->write.empty()) {
+        if (!this->read.empty()) ss << ", ";
+        ss << "write [";
+        std::vector<std::pair<uint32_t, std::string>> pairs(
+            this->write.begin(),
+            this->write.end()
+        );
+        std::sort(pairs.begin(), pairs.end());
+        bool first = true;
+        for (const auto &[id, name]: pairs) {
+            if (!first) ss << ", ";
+            first = false;
+            ss << id << ": " << name;
+        }
+        ss << "]";
+    }
+    return ss.str();
+}
+
+std::ostream &operator<<(std::ostream &os, const Channels &c) {
+    return os << c.to_string();
+}
+
+bool Dimensions::operator==(const Dimensions &other) const {
+    return length == other.length && mass == other.mass && time == other.time &&
+           current == other.current && temperature == other.temperature &&
+           angle == other.angle && count == other.count && data == other.data;
+}
+
+bool Dimensions::is_zero() const {
+    return length == 0 && mass == 0 && time == 0 && current == 0 && temperature == 0 &&
+           angle == 0 && count == 0 && data == 0;
+}
+
+bool Unit::operator==(const Unit &other) const {
+    return dimensions == other.dimensions && scale == other.scale && name == other.name;
+}
+
+bool Unit::is_timestamp() const {
+    return dimensions.time == 1 && dimensions.length == 0 && dimensions.mass == 0 &&
+           dimensions.current == 0 && dimensions.temperature == 0 &&
+           dimensions.angle == 0 && dimensions.count == 0 && dimensions.data == 0 &&
+           name == "ns" && scale == 1.0;
+}
+
+size_t Type::density() const {
+    switch (kind) {
+        case Kind::U8:
+        case Kind::I8:
+            return 1;
+        case Kind::U16:
+        case Kind::I16:
+            return 2;
+        case Kind::U32:
+        case Kind::I32:
+        case Kind::F32:
+            return 4;
+        case Kind::U64:
+        case Kind::I64:
+        case Kind::F64:
+            return 8;
+        default:
+            return 0;
+    }
+}
+
+bool Type::is_valid() const {
+    return kind != Kind::Invalid;
+}
+
+bool Type::is_timestamp() const {
+    return kind == Kind::I64 && unit && unit->is_timestamp();
+}
+
+std::string Type::to_string() const {
+    std::string base;
+    switch (kind) {
+        case Kind::U8:
+            base = "u8";
+            break;
+        case Kind::U16:
+            base = "u16";
+            break;
+        case Kind::U32:
+            base = "u32";
+            break;
+        case Kind::U64:
+            base = "u64";
+            break;
+        case Kind::I8:
+            base = "i8";
+            break;
+        case Kind::I16:
+            base = "i16";
+            break;
+        case Kind::I32:
+            base = "i32";
+            break;
+        case Kind::I64:
+            base = "i64";
+            break;
+        case Kind::F32:
+            base = "f32";
+            break;
+        case Kind::F64:
+            base = "f64";
+            break;
+        case Kind::String:
+            return "str";
+        case Kind::Chan:
+            if (elem.has_value()) return "chan " + elem->to_string();
+            return "chan <invalid>";
+        case Kind::Series:
+            if (elem.has_value()) return "series " + elem->to_string();
+            return "series <invalid>";
+        default:
+            return "invalid";
+    }
+    if (unit && !unit->name.empty()) { return base + " " + unit->name; }
+    return base;
+}
+
+x::telem::DataType Type::telem() const {
+    switch (kind) {
         case Kind::U8:
             return x::telem::UINT8_T;
         case Kind::U16:
@@ -30,6 +205,7 @@ x::telem::DataType Type::telem() const {
         case Kind::I32:
             return x::telem::INT32_T;
         case Kind::I64:
+            if (is_timestamp()) return x::telem::TIMESTAMP_T;
             return x::telem::INT64_T;
         case Kind::F32:
             return x::telem::FLOAT32_T;
@@ -37,13 +213,65 @@ x::telem::DataType Type::telem() const {
             return x::telem::FLOAT64_T;
         case Kind::String:
             return x::telem::STRING_T;
-        case Kind::Series:
-        case Kind::Chan:
-            if (this->elem) return elem->telem();
-            [[fallthrough]];
-        case Kind::Invalid:
+        default:
             return x::telem::UNKNOWN_T;
     }
-    return x::telem::UNKNOWN_T;
 }
+
+std::ostream &operator<<(std::ostream &os, const Type &t) {
+    return os << t.to_string();
+}
+
+std::optional<x::telem::SampleValue>
+to_sample_value(const x::json::json &value, const Type &type) {
+    if (value.is_null()) return std::nullopt;
+
+    switch (type.kind) {
+        case Kind::I8:
+            return value.is_number()
+                     ? std::optional(static_cast<int8_t>(value.get<int>()))
+                     : std::nullopt;
+        case Kind::I16:
+            return value.is_number()
+                     ? std::optional(static_cast<int16_t>(value.get<int>()))
+                     : std::nullopt;
+        case Kind::I32:
+            return value.is_number() ? std::optional(value.get<int32_t>())
+                                     : std::nullopt;
+        case Kind::I64:
+            if (type.is_timestamp()) {
+                return value.is_number()
+                         ? std::optional(x::telem::TimeStamp(value.get<int64_t>()))
+                         : std::nullopt;
+            }
+            return value.is_number() ? std::optional(value.get<int64_t>())
+                                     : std::nullopt;
+        case Kind::U8:
+            return value.is_number()
+                     ? std::optional(static_cast<uint8_t>(value.get<unsigned>()))
+                     : std::nullopt;
+        case Kind::U16:
+            return value.is_number()
+                     ? std::optional(static_cast<uint16_t>(value.get<unsigned>()))
+                     : std::nullopt;
+        case Kind::U32:
+            return value.is_number() ? std::optional(value.get<uint32_t>())
+                                     : std::nullopt;
+        case Kind::U64:
+            return value.is_number() ? std::optional(value.get<uint64_t>())
+                                     : std::nullopt;
+        case Kind::F32:
+            return value.is_number() ? std::optional(value.get<float>()) : std::nullopt;
+        case Kind::F64:
+            return value.is_number() ? std::optional(value.get<double>())
+                                     : std::nullopt;
+        case Kind::String:
+            return value.is_string() ? std::optional(value.get<std::string>())
+                                     : std::nullopt;
+        default:
+            return std::nullopt;
+    }
+    return std::nullopt;
+}
+
 }

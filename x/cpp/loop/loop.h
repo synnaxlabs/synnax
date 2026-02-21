@@ -13,8 +13,6 @@
 #include <cmath>
 #include <thread>
 
-#include "glog/logging.h"
-
 #include "x/cpp/breaker/breaker.h"
 #include "x/cpp/telem/telem.h"
 
@@ -64,7 +62,7 @@ public:
         return {telem::TimeSpan(elapsed), true};
     }
 
-    std::pair<telem::TimeSpan, bool> wait(breaker::Breaker &breaker) {
+    std::pair<telem::TimeSpan, bool> wait(x::breaker::Breaker &breaker) {
         const auto now = hs_clock::now();
         const auto elapsed = this->elapsed(now);
         if (elapsed > interval) {

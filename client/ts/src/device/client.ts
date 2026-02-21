@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { sendRequired, type UnaryClient } from "@synnaxlabs/freighter";
-import { array, type record, zod } from "@synnaxlabs/x";
+import { array, zod } from "@synnaxlabs/x";
 import { z } from "zod";
 
 import {
@@ -19,16 +19,17 @@ import {
   keyZ,
   type New,
   newZ,
-} from "@/device/payload";
+  ontologyID,
+} from "@/device/types.gen";
 import { ontology } from "@/ontology";
-import { keyZ as rackKeyZ } from "@/rack/payload";
+import { keyZ as rackKeyZ } from "@/rack/types.gen";
 import { checkForMultipleOrNoResults } from "@/util/retrieve";
 
 export const SET_CHANNEL_NAME = "sy_device_set";
 export const DELETE_CHANNEL_NAME = "sy_device_delete";
 
 const createReqZ = <
-  Properties extends z.ZodType<record.Unknown> = typeof record.unknownZ,
+  Properties extends z.ZodType = z.ZodType,
   Make extends z.ZodType<string> = z.ZodString,
   Model extends z.ZodType<string> = z.ZodString,
 >(
@@ -36,7 +37,7 @@ const createReqZ = <
 ) => z.object({ devices: zod.toArray(newZ(schemas)) });
 
 const createResZ = <
-  Properties extends z.ZodType<record.Unknown> = typeof record.unknownZ,
+  Properties extends z.ZodType = z.ZodType,
   Make extends z.ZodType<string> = z.ZodString,
   Model extends z.ZodType<string> = z.ZodString,
 >(
@@ -60,12 +61,12 @@ const retrieveRequestZ = z.object({
 });
 
 const retrieveResZ = <
-  Properties extends z.ZodType<record.Unknown> = typeof record.unknownZ,
+  Properties extends z.ZodType = z.ZodType,
   Make extends z.ZodType<string> = z.ZodString,
   Model extends z.ZodType<string> = z.ZodString,
 >(
   schemas?: DeviceSchemas<Properties, Make, Model>,
-) => z.object({ devices: array.nullableZ(deviceZ(schemas)) });
+) => z.object({ devices: array.nullishToEmpty(deviceZ(schemas)) });
 
 const singleRetrieveArgsZ = z
   .object({
@@ -85,7 +86,7 @@ const retrieveArgsZ = z.union([singleRetrieveArgsZ, retrieveRequestZ]);
 export type RetrieveArgs = z.input<typeof retrieveArgsZ>;
 
 type RetrieveSchemas<
-  Properties extends z.ZodType<record.Unknown>,
+  Properties extends z.ZodType,
   Make extends z.ZodType<string>,
   Model extends z.ZodType<string>,
 > = { schemas: DeviceSchemas<Properties, Make, Model> };
@@ -98,7 +99,7 @@ export class Client {
   }
 
   async retrieve<
-    Properties extends z.ZodType<record.Unknown>,
+    Properties extends z.ZodType,
     Make extends z.ZodType<string>,
     Model extends z.ZodType<string>,
   >(
@@ -108,7 +109,7 @@ export class Client {
   async retrieve(args: RetrieveSingleParams): Promise<Device>;
 
   async retrieve<
-    Properties extends z.ZodType<record.Unknown>,
+    Properties extends z.ZodType,
     Make extends z.ZodType<string>,
     Model extends z.ZodType<string>,
   >(
@@ -133,8 +134,12 @@ export class Client {
     return isSingle ? res.devices[0] : res.devices;
   }
 
+  async create(device: New): Promise<Device>;
+
+  async create(devices: New[]): Promise<Device[]>;
+
   async create<
-    Properties extends z.ZodType<record.Unknown>,
+    Properties extends z.ZodType,
     Make extends z.ZodType<string>,
     Model extends z.ZodType<string>,
   >(
@@ -145,7 +150,7 @@ export class Client {
   async create(device: New): Promise<Device>;
 
   async create<
-    Properties extends z.ZodType<record.Unknown>,
+    Properties extends z.ZodType,
     Make extends z.ZodType<string>,
     Model extends z.ZodType<string>,
   >(
@@ -180,8 +185,5 @@ export class Client {
     );
   }
 }
-
-export const ontologyID = ontology.createIDFactory<Key>("device");
-export const TYPE_ONTOLOGY_ID = ontologyID("");
 
 export const statusKey = (key: Key): string => ontology.idToString(ontologyID(key));

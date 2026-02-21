@@ -14,8 +14,9 @@
 #include "x/cpp/loop/loop.h"
 #include "x/cpp/telem/series.h"
 #include "x/cpp/telem/telem.h"
+#include "x/cpp/test/test.h"
 
-#include "x/go/telem/telem.pb.h"
+#include "x/go/telem/pb/telem.pb.h"
 
 namespace x::telem {
 template<typename T>
@@ -128,7 +129,7 @@ TEST(TestSeries, testStringConstruction) {
     ASSERT_EQ(v[0], val);
 }
 
-/// @brief it should correctly construct a series from a single JSON string.
+/// @brief it should correctly construct a series from a single json::json string.
 TEST(TestSeries, testJSONStringConstruction) {
     const std::string raw = R"({ "key": "abc" })";
     const Series s(raw, JSON_T);
@@ -194,9 +195,8 @@ TEST(TestSeries, testInlineVectorConstruction) {
 TEST(TestSeries, testProto) {
     const std::vector<uint16_t> vals = {1, 2, 3, 4, 5};
     const Series s{vals};
-    ::telem::PBSeries s2;
-    s.to_proto(&s2);
-    const Series s3{s2};
+    const auto s2 = s.to_proto();
+    const auto s3 = ASSERT_NIL_P(Series::from_proto(s2));
     const auto v = s3.values<std::uint16_t>();
     for (size_t i = 0; i < vals.size(); i++)
         ASSERT_EQ(v[i], vals[i]);
@@ -219,9 +219,8 @@ TEST(TestSeries, testConstructionSingleValue) {
 TEST(TestSeries, testConstrucitonFromVariableProtoSeries) {
     const std::vector<std::string> vals = {"hello", "world22"};
     const Series s{vals};
-    ::telem::PBSeries s2;
-    s.to_proto(&s2);
-    const Series s3{s2};
+    const auto s2 = s.to_proto();
+    const auto s3 = ASSERT_NIL_P(Series::from_proto(s2));
     const auto v = s3.strings();
     for (size_t i = 0; i < vals.size(); i++)
         ASSERT_EQ(v[i], vals[i]);
@@ -832,7 +831,7 @@ TEST(TestSeriesInplace, testMultipleTypes) {
     ASSERT_EQ(double_result, expected_double);
 }
 
-/// @brief it should construct a series from a vector of JSON values.
+/// @brief it should construct a series from a vector of json::json values.
 TEST(TestSeries, testJSONVectorConstruction) {
     std::vector<json::json> simple_values = {
         json::json{{"key1", "value1"}},
@@ -873,7 +872,7 @@ TEST(TestSeries, testJSONVectorConstruction) {
     ASSERT_EQ(s3.byte_size(), 0);
 }
 
-/// @brief it should retrieve JSON values from a series.
+/// @brief it should retrieve json::json values from a series.
 TEST(TestSeries, testJSONValuesBasic) {
     std::vector<json::json> input_values = {
         json::json{{"key1", "value1"}},
@@ -893,14 +892,15 @@ TEST(TestSeries, testJSONValuesBasic) {
         ASSERT_EQ(output_values[i], input_values[i]);
 }
 
-/// @brief it should return empty vector for empty JSON series.
+/// @brief it should return empty vector for empty json::json series.
 TEST(TestSeries, testJSONValuesEmpty) {
     const Series empty_series(std::vector<json::json>{});
     auto empty_values = empty_series.json_values();
     ASSERT_TRUE(empty_values.empty());
 }
 
-/// @brief it should throw error when getting JSON values from non-JSON series.
+/// @brief it should throw error when getting json::json values from non-json::json
+/// series.
 TEST(TestSeries, testJSONValuesErrorOnNonJSON) {
     const Series non_json_series(std::vector<int>{1, 2, 3});
     ASSERT_THROW((void) non_json_series.json_values(), std::runtime_error);

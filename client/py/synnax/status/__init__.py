@@ -7,8 +7,14 @@
 #  License, use of this software will be governed by the Apache License, Version 2.0,
 #  included in the file licenses/APL.txt.
 
-from synnax.status.client import Client
-from synnax.status.payload import (
+from synnax.status.client import (
+    DELETE_CHANNEL,
+    ONTOLOGY_TYPE,
+    SET_CHANNEL,
+    Client,
+    ontology_id,
+)
+from synnax.status.types_gen import (
     VARIANT_DISABLED,
     VARIANT_ERROR,
     VARIANT_INFO,
@@ -17,7 +23,6 @@ from synnax.status.payload import (
     VARIANT_WARNING,
     Status,
     Variant,
-    ontology_id,
 )
 from synnax.util.deprecation import deprecated_getattr
 
@@ -34,13 +39,15 @@ __getattr__ = deprecated_getattr(__name__, _DEPRECATED, globals())
 
 __all__ = [
     "Client",
-    "Variant",
+    "DELETE_CHANNEL",
+    "ONTOLOGY_TYPE",
+    "SET_CHANNEL",
     "Status",
-    "VARIANT_SUCCESS",
-    "VARIANT_INFO",
-    "VARIANT_WARNING",
-    "VARIANT_ERROR",
     "VARIANT_DISABLED",
+    "VARIANT_ERROR",
+    "VARIANT_INFO",
     "VARIANT_LOADING",
+    "VARIANT_SUCCESS",
     "ontology_id",
+    "Variant",
 ]

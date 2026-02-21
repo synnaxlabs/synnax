@@ -208,7 +208,7 @@ TEST(ConnectionTest, readAfterDisconnect) {
 
     auto client = ASSERT_NIL_P(connect(cfg, "test"));
 
-    auto ser1 = ASSERT_NIL_P(opc::testutil::simple_read(client, "NS=1;S=TestFloat"));
+    auto ser1 = ASSERT_NIL_P(testutil::simple_read(client, "NS=1;S=TestFloat"));
 
     UA_Client_disconnect(client.get());
 

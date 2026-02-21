@@ -11,14 +11,17 @@
 
 #include <fstream>
 #include <map>
+#include <optional>
 #include <sstream>
 #include <string>
 #include <type_traits>
 #include <unordered_map>
+#include <variant>
 
 #include "nlohmann/json.hpp"
 
 #include "x/cpp/errors/errors.h"
+#include "x/cpp/mem/indirect.h"
 /// @brief general utilities for parsing configurations.
 namespace x::json {
 
@@ -68,6 +71,34 @@ struct is_map<std::unordered_map<K, V>>
 
 template<typename T>
 inline constexpr bool is_map_v = is_map<T>::value;
+
+/// @brief Type trait to detect std::optional types
+template<typename T>
+struct is_optional : std::false_type {
+    using value_type = T;
+};
+
+template<typename T>
+struct is_optional<std::optional<T>> : std::true_type {
+    using value_type = T;
+};
+
+template<typename T>
+inline constexpr bool is_optional_v = is_optional<T>::value;
+
+/// @brief Type trait to detect x::mem::indirect types
+template<typename T>
+struct is_indirect : std::false_type {
+    using value_type = T;
+};
+
+template<typename T>
+struct is_indirect<x::mem::indirect<T>> : std::true_type {
+    using value_type = T;
+};
+
+template<typename T>
+inline constexpr bool is_indirect_v = is_indirect<T>::value;
 
 /// @brief a utility class for improving the experience of parsing JSON-based
 /// configurations.
@@ -119,7 +150,7 @@ class Parser {
 
     /// @brief Wrapper for iterator-based access
     template<typename T>
-    T get(const std::string &path, const json::iterator &iter) {
+    T get(const std::string &path, const nlohmann::json::iterator &iter) {
         return parse_value<T>(path, *iter);
     }
 
@@ -127,7 +158,7 @@ class Parser {
     void parse_with_err_handling(const std::function<json()> &parser) {
         try {
             config = parser();
-        } catch (const json::parse_error &e) {
+        } catch (const nlohmann::json::parse_error &e) {
             field_err("", e.what());
             noop = true;
         }
@@ -150,8 +181,8 @@ public:
     explicit Parser(const std::string &encoded):
         errors(std::make_shared<std::vector<json>>()) {
         parse_with_err_handling([&encoded] {
-            if (encoded.empty()) return json::object();
-            return json::parse(encoded);
+            if (encoded.empty()) return nlohmann::json::object();
+            return nlohmann::json::parse(encoded);
         });
     }
 
@@ -160,7 +191,7 @@ public:
     /// to the parser.
     explicit Parser(std::istream &stream):
         errors(std::make_shared<std::vector<json>>()) {
-        parse_with_err_handling([&stream] { return json::parse(stream); });
+        parse_with_err_handling([&stream] { return nlohmann::json::parse(stream); });
     }
 
     /// @brief default constructor constructs a parser that will fail fast.
@@ -182,6 +213,10 @@ public:
 
     /// @brief gets the field at the given path. Works for scalars, vectors, and maps.
     /// If the field is not found, accumulates an error in the builder.
+    /// Special case: if T is std::optional<U>, missing fields return std::nullopt
+    /// without error.
+    /// Special case: if T is x::mem::indirect<U>, missing fields return empty indirect
+    /// (nullptr) without error.
     /// Special case: if path is empty string "", parses the root value (same as
     /// field<T>()).
     /// @param path The JSON path to the field.
@@ -192,6 +227,8 @@ public:
         if (path.empty()) return field<T>();
         const auto iter = config.find(path);
         if (iter == config.end()) {
+            if constexpr (is_optional_v<T>) return std::nullopt;
+            if constexpr (is_indirect_v<T>) return nullptr;
             field_err(path, "This field is required");
             return T();
         }
@@ -411,7 +448,18 @@ public:
     }
 };
 
-/// @brief Type trait to detect if a type can be constructed from a Parser
+template<typename T, typename = void>
+struct has_static_parse : std::false_type {};
+
+template<typename T>
+struct has_static_parse<
+    T,
+    std::enable_if_t<std::is_same_v<T, decltype(T::parse(std::declval<Parser>()))>>>
+    : std::true_type {};
+
+template<typename T>
+inline constexpr bool has_static_parse_v = has_static_parse<T>::value;
+
 template<typename T>
 inline constexpr bool
     is_parser_constructible_v = std::is_constructible_v<T, Parser> ||
@@ -419,10 +467,28 @@ inline constexpr bool
                                 std::is_constructible_v<T, const Parser &> ||
                                 std::is_constructible_v<T, Parser &&>;
 
-// Implementation of parse_value - the single source of truth for all type conversions
+template<typename T>
+inline constexpr bool is_json_type_v = std::is_same_v<std::decay_t<T>, json>;
+
+template<typename T>
+inline constexpr bool is_parseable_v = !is_json_type_v<T> &&
+                                       (is_parser_constructible_v<T> ||
+                                        has_static_parse_v<T>);
+
 template<typename T>
 T Parser::parse_value(const std::string &path, const json &j) {
-    if constexpr (is_map_v<T>) {
+    // Handle std::monostate - just return default constructed monostate
+    if constexpr (std::is_same_v<T, std::monostate>) {
+        return std::monostate{};
+    } else if constexpr (is_optional_v<T>) {
+        // Parse the inner type and wrap in optional
+        using U = typename is_optional<T>::value_type;
+        return std::make_optional(parse_value<U>(path, j));
+    } else if constexpr (is_indirect_v<T>) {
+        // Parse the inner type and wrap in indirect
+        using U = typename is_indirect<T>::value_type;
+        return x::mem::indirect<U>(parse_value<U>(path, j));
+    } else if constexpr (is_map_v<T>) {
         typedef typename is_map<T>::key_type K;
         using V = typename is_map<T>::value_type;
         if (!j.is_object()) {
@@ -450,14 +516,17 @@ T Parser::parse_value(const std::string &path, const json &j) {
             values.push_back(parse_value<U>(child_path, j[i]));
         }
         return values;
-    } else if constexpr (is_parser_constructible_v<T>) {
-        if (!j.is_object() && !j.is_array()) {
-            field_err(path, "expected an object or array");
-            return T();
-        }
+    } else if constexpr (is_parseable_v<T>) {
         const auto child_prefix = path.empty() ? path_prefix : path_prefix + path + ".";
         Parser child_parser(j, errors, child_prefix);
-        return T(child_parser);
+        if constexpr (is_parser_constructible_v<T>) {
+            if (!j.is_object() && !j.is_array()) {
+                field_err(path, "expected an object or array");
+                return T();
+            }
+            return T(child_parser);
+        } else
+            return T::parse(child_parser);
     } else {
         try {
             if constexpr (std::is_arithmetic_v<T>) {
@@ -480,6 +549,33 @@ T Parser::parse_value(const std::string &path, const json &j) {
             return T();
         }
     }
+}
+
+/// @brief Type trait to detect if a type has a to_json() method
+template<typename T, typename = void>
+struct has_to_json : std::false_type {};
+
+template<typename T>
+struct has_to_json<T, std::void_t<decltype(std::declval<T>().to_json())>>
+    : std::true_type {};
+
+template<typename T>
+inline constexpr bool has_to_json_v = has_to_json<T>::value;
+
+/// @brief Converts a container of items to a JSON array.
+/// Items with a to_json() method will have it called; others are assigned directly.
+/// @param items The container to convert.
+/// @returns A JSON array containing the serialized items.
+template<typename Container>
+json to_array(const Container &items) {
+    auto arr = json::array();
+    for (const auto &item: items) {
+        if constexpr (has_to_json_v<typename Container::value_type>)
+            arr.push_back(item.to_json());
+        else
+            arr.push_back(item);
+    }
+    return arr;
 }
 
 }

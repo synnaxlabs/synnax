@@ -133,7 +133,7 @@ export const readStatusDataZ = z
     message: z.string(),
     errors: z.array(z.object({ message: z.string(), path: z.string() })).optional(),
   })
-  .or(z.null());
+  .nullish();
 
 export const READ_TYPE = `${PREFIX}_read`;
 export const readTypeZ = z.literal(READ_TYPE);
@@ -150,14 +150,14 @@ export const ZERO_READ_PAYLOAD = {
   type: READ_TYPE,
 } as const satisfies ReadPayload;
 
-export const READ_SCHEMAS: task.Schemas<
+export const READ_SCHEMAS: task.PayloadSchemas<
   typeof readTypeZ,
   typeof readConfigZ,
   typeof readStatusDataZ
 > = {
-  typeSchema: readTypeZ,
-  configSchema: readConfigZ,
-  statusDataSchema: readStatusDataZ,
+  type: readTypeZ,
+  config: readConfigZ,
+  statusData: readStatusDataZ,
 };
 
 export const TEST_CONNECTION_COMMAND_TYPE = "test_connection";
@@ -217,7 +217,7 @@ export const writeStatusDataZ = z
     message: z.string(),
     errors: z.array(z.object({ message: z.string(), path: z.string() })).optional(),
   })
-  .or(z.null());
+  .optional();
 
 export const WRITE_TYPE = `${PREFIX}_write`;
 export const writeTypeZ = z.literal(WRITE_TYPE);
@@ -235,14 +235,14 @@ export const ZERO_WRITE_PAYLOAD = {
   type: WRITE_TYPE,
 } as const satisfies WritePayload;
 
-export const WRITE_SCHEMAS: task.Schemas<
+export const WRITE_SCHEMAS: task.PayloadSchemas<
   typeof writeTypeZ,
   typeof writeConfigZ,
   typeof writeStatusDataZ
 > = {
-  typeSchema: writeTypeZ,
-  configSchema: writeConfigZ,
-  statusDataSchema: writeStatusDataZ,
+  type: writeTypeZ,
+  config: writeConfigZ,
+  statusData: writeStatusDataZ,
 };
 
 export const OUTPUT_CHANNEL_SCHEMAS: Record<
@@ -257,14 +257,14 @@ const scanTypeZ = z.literal(SCAN_TYPE);
 
 const scanConfigZ = z.object({});
 
-const scanStatusDataZ = z.object({}).or(z.null());
+const scanStatusDataZ = z.object({}).optional();
 
-export const SCAN_SCHEMAS: task.Schemas<
+export const SCAN_SCHEMAS: task.PayloadSchemas<
   typeof scanTypeZ,
   typeof scanConfigZ,
   typeof scanStatusDataZ
 > = {
-  typeSchema: scanTypeZ,
-  configSchema: scanConfigZ,
-  statusDataSchema: scanStatusDataZ,
+  type: scanTypeZ,
+  config: scanConfigZ,
+  statusData: scanStatusDataZ,
 };

@@ -30,7 +30,7 @@ std::pair<Writer, x::errors::Error> Client::open_writer(const WriterConfig &cfg)
     }
     auto [net_writer, err] = this->writer_client->stream("/frame/write");
     if (err) return {Writer(), err};
-    api::v1::FrameWriterRequest req;
+    grpc::framer::WriterRequest req;
     req.set_command(OPEN);
     cfg.to_proto(req.mutable_config());
     if (!net_writer->send(req).ok()) net_writer->close_send();
@@ -42,8 +42,8 @@ std::pair<Writer, x::errors::Error> Client::open_writer(const WriterConfig &cfg)
 Writer::Writer(std::unique_ptr<WriterStream> s, WriterConfig cfg, const Codec &codec):
     cfg(std::move(cfg)), codec(codec), stream(std::move(s)) {}
 
-void WriterConfig::to_proto(api::v1::FrameWriterConfig *f) const {
-    this->subject.to_proto(f->mutable_control_subject());
+void WriterConfig::to_proto(grpc::framer::WriterConfig *f) const {
+    *f->mutable_control_subject() = this->subject.to_proto();
     f->set_start(this->start.nanoseconds());
     f->mutable_authorities()->Add(this->authorities.begin(), this->authorities.end());
     f->mutable_keys()->Add(this->channels.begin(), this->channels.end());
@@ -61,7 +61,7 @@ x::errors::Error Writer::write(const x::telem::Frame &fr) {
 
 std::pair<x::telem::TimeStamp, x::errors::Error> Writer::commit() {
     if (this->close_err) return {x::telem::TimeStamp(0), this->close_err};
-    api::v1::FrameWriterRequest req;
+    grpc::framer::WriterRequest req;
     req.set_command(COMMIT);
     const auto [res, err] = this->exec(req, true);
     return {x::telem::TimeStamp(res.end()), err};
@@ -83,7 +83,7 @@ x::errors::Error Writer::set_authority(
 ) {
     if (this->close_err) return this->close_err;
     const WriterConfig config{.channels = keys, .authorities = authorities};
-    api::v1::FrameWriterRequest req;
+    grpc::framer::WriterRequest req;
     req.set_command(SET_AUTHORITY);
     config.to_proto(req.mutable_config());
     return this->exec(req, ack).second;
@@ -96,7 +96,7 @@ x::errors::Error Writer::close() {
 x::errors::Error Writer::init_request(const x::telem::Frame &fr) {
     if (this->cfg.enable_experimental_codec) {
         if (this->cached_write_req == nullptr)
-            this->cached_write_req = std::make_unique<api::v1::FrameWriterRequest>();
+            this->cached_write_req = std::make_unique<grpc::framer::WriterRequest>();
         this->cached_write_req->set_command(WRITE);
         if (const auto err = this->codec.encode(fr, this->codec_data)) return err;
         this->cached_write_req->set_buffer(
@@ -108,43 +108,44 @@ x::errors::Error Writer::init_request(const x::telem::Frame &fr) {
 
     if (this->cached_write_req != nullptr && this->cfg.enable_proto_frame_caching) {
         for (size_t i = 0; i < fr.series->size(); i++)
-            fr.series->at(i).to_proto(
-                cached_frame->mutable_series(static_cast<int>(i))
-            );
+            *cached_frame->mutable_series(
+                static_cast<int>(i)
+            ) = fr.series->at(i).to_proto();
         return x::errors::NIL;
     }
     this->cached_write_req = nullptr;
-    this->cached_write_req = std::make_unique<api::v1::FrameWriterRequest>();
+    this->cached_write_req = std::make_unique<grpc::framer::WriterRequest>();
     this->cached_write_req->set_command(WRITE);
     this->cached_frame = cached_write_req->mutable_frame();
-    fr.to_proto(cached_frame);
+    *cached_frame = fr.to_proto();
     return x::errors::NIL;
 }
 
-x::errors::Error Writer::close(const x::errors::Error &close_err) {
+x::errors::Error Writer::close(const x::errors::Error &err) {
     if (this->close_err) return this->close_err.skip(WRITER_CLOSED);
-    this->close_err = close_err;
+    this->close_err = err;
     stream->close_send();
     while (true) {
         if (this->close_err) return this->close_err.skip(WRITER_CLOSED);
-        auto [res, err] = stream->receive();
-        if (err)
-            this->close_err = err.matches(freighter::EOF_ERR) ? WRITER_CLOSED : err;
+        auto [res, recv_err] = stream->receive();
+        if (recv_err)
+            this->close_err = recv_err.matches(freighter::ERR_EOF) ? WRITER_CLOSED
+                                                                   : recv_err;
         else
             this->close_err = x::errors::Error(res.error());
     }
 }
 
-std::pair<api::v1::FrameWriterResponse, x::errors::Error>
-Writer::exec(api::v1::FrameWriterRequest &req, const bool ack) {
+std::pair<grpc::framer::WriterResponse, x::errors::Error>
+Writer::exec(grpc::framer::WriterRequest &req, const bool ack) {
     if (const auto err = this->stream->send(req); err)
-        return {api::v1::FrameWriterResponse(), this->close(err)};
+        return {grpc::framer::WriterResponse(), this->close(err)};
     while (ack) {
         auto [res, res_err] = stream->receive();
         if (res_err) return {res, this->close(res_err)};
         if (auto err = x::errors::Error(res.error())) return {res, this->close(err)};
         if (res.command() == req.command()) return {res, x::errors::NIL};
     }
-    return {api::v1::FrameWriterResponse(), x::errors::NIL};
+    return {grpc::framer::WriterResponse(), x::errors::NIL};
 }
 }

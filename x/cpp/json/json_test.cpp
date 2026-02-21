@@ -10,6 +10,7 @@
 #include "gtest/gtest.h"
 
 #include "x/cpp/json/json.h"
+#include "x/cpp/test/test.h"
 
 namespace x::json {
 /// @brief it should parse valid JSON fields successfully.
@@ -321,7 +322,7 @@ TEST(testConfig, testNoError) {
     const json j = {};
     const Parser parser(j);
     const auto err = parser.error();
-    ASSERT_FALSE(err);
+    ASSERT_NIL(err);
 }
 
 /// @brief it should parse config from a valid JSON file.
@@ -1591,11 +1592,9 @@ TEST(testConfig, testHasConditionalParsing) {
     const json j = {{"type", "sensor"}, {"threshold", 3.14}};
     Parser parser(j);
 
-    std::string type;
     float threshold = 0.0f;
     int count = 0;
-
-    type = parser.field<std::string>("type");
+    const auto type = parser.field<std::string>("type");
     if (parser.has("threshold")) { threshold = parser.field<float>("threshold"); }
     if (parser.has("count")) { count = parser.field<int>("count"); }
 

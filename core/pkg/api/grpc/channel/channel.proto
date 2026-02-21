@@ -1,0 +1,55 @@
+// Copyright 2025 Synnax Labs, Inc.
+//
+// Use of this software is governed by the Business Source License included in the file
+// licenses/BSL.txt.
+//
+// As of the Change Date specified in that file, in accordance with the Business Source
+// License, use of this software will be governed by the Apache License, Version 2.0,
+// included in the file licenses/APL.txt.
+
+syntax = "proto3";
+
+package grpc.channel;
+
+import "core/pkg/api/channel/pb/channel.proto";
+import "google/protobuf/empty.proto";
+
+option go_package = "github.com/synnaxlabs/synnax/pkg/api/grpc/channel";
+
+service ChannelCreateService {
+  rpc Exec(CreateRequest) returns (CreateResponse) {}
+}
+
+service ChannelRetrieveService {
+  rpc Exec(RetrieveRequest) returns (RetrieveResponse) {}
+}
+
+service ChannelDeleteService {
+  rpc Exec(DeleteRequest) returns (google.protobuf.Empty) {}
+}
+
+message CreateRequest {
+  repeated api.channel.pb.Channel channels = 1;
+  bool retrieve_if_name_exists = 2;
+}
+
+message CreateResponse {
+  repeated api.channel.pb.Channel channels = 1;
+}
+
+message RetrieveRequest {
+  uint32 node_key = 1;
+  repeated uint32 keys = 2;
+  repeated string names = 3;
+  string search = 4;
+}
+
+message RetrieveResponse {
+  repeated api.channel.pb.Channel channels = 1;
+}
+
+message DeleteRequest {
+  repeated uint32 keys = 1;
+  repeated string names = 2;
+  bool allow_internal = 3;
+}

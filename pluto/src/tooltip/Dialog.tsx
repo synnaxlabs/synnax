@@ -100,7 +100,7 @@ export const chooseLocation = (
   target: box.Box,
   window: box.Box,
 ): location.XY => {
-  const parse = location.location.safeParse(cornerOrLocation);
+  const parse = location.locationZ.safeParse(cornerOrLocation);
   const chooseRemainingLocation = (first: location.Location): location.Location => {
     let preferences: location.Location[];
     if (first === "center") preferences = OUTER_LOCATION_PREFERENCES;

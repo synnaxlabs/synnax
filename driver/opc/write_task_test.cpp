@@ -108,11 +108,11 @@ protected:
 
         synnax::device::Device dev{
             .key = "abc123",
-            .name = "my_device",
             .rack = rack.key,
             .location = "dev1",
             .make = "ni",
             .model = "PXI-6255",
+            .name = "my_device",
             .properties = x::json::json::object({{"connection", conn_cfg.to_json()}}),
         };
         ASSERT_NIL(client->devices.create(dev));
@@ -256,7 +256,7 @@ protected:
         );
         reads->push_back(std::move(fr));
 
-        mock_factory = pipeline::mock::simple_streamer_factory(
+        mock_factory = driver::pipeline::mock::simple_streamer_factory(
             {this->bool_cmd_channel.key,
              this->uint16_cmd_channel.key,
              this->uint32_cmd_channel.key,
@@ -301,7 +301,7 @@ TEST_F(TestWriteTask, testBasicWriteTask) {
     wt->start("start_cmd");
     ASSERT_EVENTUALLY_GE(ctx->statuses.size(), 1);
     const auto first_state = ctx->statuses[0];
-    EXPECT_EQ(first_state.key, task.status_key());
+    EXPECT_EQ(first_state.key, synnax::task::status_key(task));
     EXPECT_EQ(first_state.details.cmd, "start_cmd");
     EXPECT_EQ(first_state.details.task, task.key);
     EXPECT_EQ(first_state.variant, x::status::VARIANT_SUCCESS);
@@ -314,7 +314,7 @@ TEST_F(TestWriteTask, testBasicWriteTask) {
     wt->stop("stop_cmd", true);
     ASSERT_EVENTUALLY_GE(ctx->statuses.size(), 2);
     const auto second_state = ctx->statuses[1];
-    EXPECT_EQ(second_state.key, task.status_key());
+    EXPECT_EQ(second_state.key, synnax::task::status_key(task));
     EXPECT_EQ(second_state.details.cmd, "stop_cmd");
     EXPECT_EQ(second_state.details.task, task.key);
     EXPECT_EQ(second_state.variant, x::status::VARIANT_SUCCESS);

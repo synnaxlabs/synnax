@@ -117,14 +117,14 @@ export const ZERO_READ_PAYLOAD: ReadPayload = {
   type: READ_TYPE,
 };
 
-export const READ_SCHEMAS: task.Schemas<
+export const READ_SCHEMAS: task.PayloadSchemas<
   typeof readTypeZ,
   typeof readConfigZ,
   typeof readStatusDataZ
 > = {
-  typeSchema: readTypeZ,
-  configSchema: readConfigZ,
-  statusDataSchema: readStatusDataZ,
+  type: readTypeZ,
+  config: readConfigZ,
+  statusData: readStatusDataZ,
 };
 
 const outputChannelZ = z.union([
@@ -215,28 +215,28 @@ export const ZERO_WRITE_PAYLOAD: WritePayload = {
   type: WRITE_TYPE,
 };
 
-export const WRITE_SCHEMAS: task.Schemas<
+export const WRITE_SCHEMAS: task.PayloadSchemas<
   typeof writeTypeZ,
   typeof writeConfigZ,
   typeof writeStatusDataZ
 > = {
-  typeSchema: writeTypeZ,
-  configSchema: writeConfigZ,
-  statusDataSchema: writeStatusDataZ,
+  type: writeTypeZ,
+  config: writeConfigZ,
+  statusData: writeStatusDataZ,
 };
 
 const scanTypeZ = z.literal(SCAN_TYPE);
 const scanConfigZ = z.object({});
 const scanStatusDataZ = z.object({}).or(z.null());
 
-export const SCAN_SCHEMAS: task.Schemas<
+export const SCAN_SCHEMAS: task.PayloadSchemas<
   typeof scanTypeZ,
   typeof scanConfigZ,
   typeof scanStatusDataZ
 > = {
-  typeSchema: scanTypeZ,
-  configSchema: scanConfigZ,
-  statusDataSchema: scanStatusDataZ,
+  type: scanTypeZ,
+  config: scanConfigZ,
+  statusData: scanStatusDataZ,
 };
 
 /** Generates a unique map key for a channel configuration within a slave. */

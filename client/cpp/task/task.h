@@ -11,60 +11,44 @@
 
 #include <cstdint>
 #include <memory>
+#include <ostream>
 #include <string>
 #include <utility>
 #include <vector>
 
-#include "client/cpp/ontology/id.h"
+#include "client/cpp/task/json.gen.h"
+#include "client/cpp/task/proto.gen.h"
+#include "client/cpp/task/types.gen.h"
 #include "freighter/cpp/freighter.h"
 #include "x/cpp/errors/errors.h"
 #include "x/cpp/json/json.h"
 #include "x/cpp/json/struct.h"
 #include "x/cpp/status/status.h"
 
-#include "core/pkg/api/grpc/v1/core/pkg/api/grpc/v1/task.pb.h"
+#include "core/pkg/api/grpc/task/task.pb.h"
+#include "core/pkg/service/task/pb/task.pb.h"
 
 namespace synnax {
 namespace rack {
 using Key = std::uint32_t;
 }
 namespace task {
+
 const std::string SET_CHANNEL = "sy_task_set";
 const std::string DELETE_CHANNEL = "sy_task_delete";
 const std::string CMD_CHANNEL = "sy_task_cmd";
 
 /// @brief Type alias for the transport used to create a task.
 using CreateClient = freighter::
-    UnaryClient<api::v1::TaskCreateRequest, api::v1::TaskCreateResponse>;
+    UnaryClient<grpc::task::CreateRequest, grpc::task::CreateResponse>;
 
 /// @brief Type alias for the transport used to retrieve a task.
 using RetrieveClient = freighter::
-    UnaryClient<api::v1::TaskRetrieveRequest, api::v1::TaskRetrieveResponse>;
+    UnaryClient<grpc::task::RetrieveRequest, grpc::task::RetrieveResponse>;
 
 /// @brief Type alias for the transport used to delete a task.
 using DeleteClient = freighter::
-    UnaryClient<api::v1::TaskDeleteRequest, google::protobuf::Empty>;
-
-/// @brief An alias for the type of task's key.
-using Key = std::uint64_t;
-
-/// @brief Converts a task key to an ontology ID.
-/// @param key The task key.
-/// @returns An ontology ID with type "task" and the given key.
-inline ontology::ID ontology_id(const Key key) {
-    return ontology::ID{.type = "task", .key = std::to_string(key)};
-}
-
-/// @brief Converts a vector of task keys to a vector of ontology IDs.
-/// @param keys The task keys.
-/// @returns A vector of ontology IDs.
-inline std::vector<ontology::ID> ontology_ids(const std::vector<Key> &keys) {
-    std::vector<ontology::ID> ids;
-    ids.reserve(keys.size());
-    for (const auto &key: keys)
-        ids.push_back(ontology_id(key));
-    return ids;
-}
+    UnaryClient<grpc::task::DeleteRequest, google::protobuf::Empty>;
 
 /// @brief Creates a task key from a rack key and a local task key.
 /// @param rack The rack key.
@@ -88,40 +72,35 @@ inline std::uint32_t local_key(const Key key) {
     return key & 0xFFFFFFFF;
 }
 
-/// @brief specific status details for tasks.
-struct StatusDetails {
-    /// @brief The key of the task that this status is for.
-    Key task;
-    /// @brief Is a non-empty string if the status is an explicit response to a command.
-    std::string cmd;
-    /// @brief whether the task is currently running.
-    bool running;
-    /// @brief additional data associated with the task.
-    x::json::json data;
+/// @brief Returns the rack key for a task.
+/// @param task The task.
+/// @returns The rack key portion of the task's key.
+inline rack::Key rack_key(const Task &task) {
+    return rack_key_from_task_key(task.key);
+}
 
-    /// @brief parses the task status details from a JSON parser.
-    static StatusDetails parse(x::json::Parser parser) {
-        return StatusDetails{
-            .task = parser.field<Key>("task"),
-            .cmd = parser.field<std::string>("cmd", ""),
-            .running = parser.field<bool>("running"),
-            .data = parser.field<x::json::json>("data"),
-        };
-    }
+/// @brief Returns a unique status key for a task.
+/// @param task The task.
+/// @returns A unique key for status updates, derived from the task key.
+inline std::string status_key(const Task &task) {
+    return ontology_id(task.key).string();
+}
 
-    /// @brief converts the task status details to JSON.
-    [[nodiscard]] x::json::json to_json() const {
-        x::json::json j;
-        j["task"] = this->task;
-        j["running"] = this->running;
-        j["data"] = this->data;
-        j["cmd"] = this->cmd;
-        return j;
-    }
-};
+/// @brief Stream output operator for Task.
+/// @param os The output stream.
+/// @param task The task to output.
+/// @returns The output stream.
+inline std::ostream &operator<<(std::ostream &os, const Task &task) {
+    return os << task.name << " (key=" << task.key << ",type=" << task.type << ")";
+}
 
-/// @brief status information for a task.
-using Status = x::status::Status<StatusDetails>;
+/// @brief Stream output operator for Command.
+/// @param os The output stream.
+/// @param cmd The command to output.
+/// @returns The output stream.
+inline std::ostream &operator<<(std::ostream &os, const Command &cmd) {
+    return os << cmd.type << " (task=" << cmd.task << ",key=" << cmd.key << ")";
+}
 
 /// @brief Options for retrieving tasks.
 struct RetrieveOptions {
@@ -129,64 +108,20 @@ struct RetrieveOptions {
     bool include_status = false;
 };
 
-/// @brief A Task is a data structure used to configure and execute operations on a
-/// hardware device. Tasks are associated with a specific rack and can be created,
-/// retrieved, and deleted.
-struct Task {
-    /// @brief The unique identifier for the task.
-    Key key = 0;
-    /// @brief A human-readable name for the task.
-    std::string name;
-    /// @brief The type of the task, which determines its behavior.
-    std::string type;
-    /// @brief Configuration data for the task as a JSON object.
-    x::json::json::object_t config = x::json::json::object();
-    /// @brief Whether the task is internal to the system.
-    bool internal = false;
-    /// @brief Whether the task is a snapshot.
-    bool snapshot = false;
-
-    /// @brief Status information for the task.
-    Status status;
-
-    /// @brief Constructs a task from its protobuf representation.
-    /// @param task The protobuf representation of the task.
-    /// @returns A pair containing the task and an error if one occurred.
-    static std::pair<Task, x::errors::Error> from_proto(const api::v1::Task &task);
-
-    friend std::ostream &operator<<(std::ostream &os, const Task &task) {
-        return os << task.name << " (key=" << task.key << ",type=" << task.type << ")";
-    }
-
-    /// @brief returns the key used for creating statuses associated with the task.
-    [[nodiscard]] std::string status_key() const {
-        return ontology_id(this->key).string();
-    }
-
-    [[nodiscard]] synnax::rack::Key rack() const {
-        return rack_key_from_task_key(this->key);
-    }
-
-    /// @brief Converts the task to its protobuf representation.
-    /// @param task The protobuf object to populate.
-    void to_proto(api::v1::Task *task) const;
-};
-
 /// @brief Client for managing tasks on a specific rack.
 class Client {
 public:
+    Client() = default;
     /// @brief Constructs a new task client for the given rack.
     /// @param rack The rack key that this client operates on.
     /// @param task_create_client Client for creating tasks.
     /// @param task_retrieve_client Client for retrieving tasks.
     /// @param task_delete_client Client for deleting tasks.
     Client(
-        const rack::Key rack,
         std::shared_ptr<CreateClient> task_create_client,
         std::shared_ptr<RetrieveClient> task_retrieve_client,
         std::shared_ptr<DeleteClient> task_delete_client
     ):
-        rack(rack),
         task_create_client(std::move(task_create_client)),
         task_retrieve_client(std::move(task_retrieve_client)),
         task_delete_client(std::move(task_delete_client)) {}
@@ -290,6 +225,12 @@ public:
     [[nodiscard]]
     std::pair<std::vector<Task>, x::errors::Error>
     list(const RetrieveOptions &options) const;
+
+    Client scope_to_rack(const rack::Key &rack_key) const {
+        auto c = *this;
+        c.rack = rack_key;
+        return c;
+    }
 
 private:
     /// @brief Key of rack that this client belongs to.

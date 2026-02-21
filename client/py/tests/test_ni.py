@@ -833,7 +833,8 @@ class TestNIDeviceHelpers:
                 location="cDAQ1/dev_mod1",
                 rack=1,
             )
-            assert device.properties["identifier"] == identifier
+            props = device.properties
+            assert props["identifier"] == identifier
 
     def test_device_sets_make(self, client: sy.Synnax):
         """Test that Device class automatically sets make to 'NI'."""
@@ -936,6 +937,5 @@ class TestNIDeviceHelpers:
             location="cDAQ1/dev_mod1",
             rack=1,
         )
-
         assert isinstance(device.properties, dict)
         assert device.properties["identifier"] == "test_id"

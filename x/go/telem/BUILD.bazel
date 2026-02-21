@@ -3,7 +3,10 @@ load("@rules_proto//proto:defs.bzl", "proto_library")
 
 proto_library(
     name = "telem_proto",
-    srcs = ["telem.proto"],
+    srcs = [
+    "pb/telem.proto",
+    "pb/frame.proto"
+    ],
     visibility = ["//visibility:public"],
 )
 

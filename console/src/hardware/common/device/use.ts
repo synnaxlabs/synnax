@@ -9,7 +9,7 @@
 
 import { type device } from "@synnaxlabs/client";
 import { Device, Form } from "@synnaxlabs/pluto";
-import { primitive, type record } from "@synnaxlabs/x";
+import { primitive } from "@synnaxlabs/x";
 import { useEffect, useMemo } from "react";
 import { type z } from "zod";
 
@@ -31,7 +31,7 @@ import { type z } from "zod";
  * @template MO - The device model type.
  */
 export const use = <
-  Properties extends z.ZodType<record.Unknown> = typeof record.unknownZ,
+  Properties extends z.ZodType = z.ZodType,
   Make extends z.ZodType<string> = z.ZodString,
   Model extends z.ZodType<string> = z.ZodString,
 >(

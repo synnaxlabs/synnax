@@ -42,7 +42,9 @@ compile_arc(const synnax::Synnax &client, const std::string &source) {
 
     auto [compiled, err] = client.arcs.retrieve_by_key(arc.key, {.compile = true});
     if (err) throw std::runtime_error("Failed to compile arc: " + err.message());
-    return compiled.module;
+    if (!compiled.module.has_value())
+        throw std::runtime_error("Compiled arc has no module");
+    return *compiled.module;
 }
 }
 
@@ -75,7 +77,7 @@ TEST(ModuleOpenTest, SucceedsWithValidModule) {
 
     const std::string source = R"(
 func double(val f32) f32 {
-    return val * 2.0
+    return val * 2
 }
 )" + ch.name + " -> double{}";
 
@@ -96,7 +98,7 @@ TEST(ModuleFuncTest, ReturnsNotFoundForMissingExport) {
 
     const std::string source = R"(
 func double(val f32) f32 {
-    return val * 2.0
+    return val * 2
 }
 )" + ch.name + " -> double{}";
 
@@ -117,7 +119,7 @@ TEST(ModuleFuncTest, ReturnsValidFunctionForExistingExport) {
 
     const std::string source = R"(
 func double(val f32) f32 {
-    return val * 2.0
+    return val * 2
 }
 )" + ch.name + " -> double{}";
 
@@ -136,7 +138,7 @@ TEST(FunctionCallTest, ExecutesFunctionAndReturnsResults) {
 
     const std::string source = R"(
 func double(val f32) f32 {
-    return val * 2.0
+    return val * 2
 }
 )" + ch.name + " -> double{}";
 
@@ -197,28 +199,28 @@ TEST(SampleFromWasmTest, ConvertsIntegerTypes) {
     wasmtime::Val i32_wasm(static_cast<int32_t>(42));
     const auto i32_sample = sample_from_wasm(
         i32_wasm,
-        arc::types::Type(arc::types::Kind::I32)
+        arc::types::Type{.kind = arc::types::Kind::I32}
     );
     EXPECT_EQ(std::get<int32_t>(i32_sample), 42);
 
     wasmtime::Val i64_wasm(static_cast<int64_t>(123456789));
     const auto i64_sample = sample_from_wasm(
         i64_wasm,
-        arc::types::Type(arc::types::Kind::I64)
+        arc::types::Type{.kind = arc::types::Kind::I64}
     );
     EXPECT_EQ(std::get<int64_t>(i64_sample), 123456789);
 
     wasmtime::Val u8_wasm(static_cast<int32_t>(255));
     const auto u8_sample = sample_from_wasm(
         u8_wasm,
-        arc::types::Type(arc::types::Kind::U8)
+        arc::types::Type{.kind = arc::types::Kind::U8}
     );
     EXPECT_EQ(std::get<uint8_t>(u8_sample), 255);
 
     wasmtime::Val u64_wasm(static_cast<int64_t>(999));
     const auto u64_sample = sample_from_wasm(
         u64_wasm,
-        arc::types::Type(arc::types::Kind::U64)
+        arc::types::Type{.kind = arc::types::Kind::U64}
     );
     EXPECT_EQ(std::get<uint64_t>(u64_sample), 999);
 }
@@ -228,14 +230,14 @@ TEST(SampleFromWasmTest, ConvertsFloatTypes) {
     wasmtime::Val f32_wasm(3.14f);
     const auto f32_sample = sample_from_wasm(
         f32_wasm,
-        arc::types::Type(arc::types::Kind::F32)
+        arc::types::Type{.kind = arc::types::Kind::F32}
     );
     EXPECT_FLOAT_EQ(std::get<float>(f32_sample), 3.14f);
 
     wasmtime::Val f64_wasm(2.71828);
     const auto f64_sample = sample_from_wasm(
         f64_wasm,
-        arc::types::Type(arc::types::Kind::F64)
+        arc::types::Type{.kind = arc::types::Kind::F64}
     );
     EXPECT_DOUBLE_EQ(std::get<double>(f64_sample), 2.71828);
 }
@@ -243,10 +245,9 @@ TEST(SampleFromWasmTest, ConvertsFloatTypes) {
 /// @brief sample_from_wasm converts timestamp correctly.
 TEST(SampleFromWasmTest, ConvertsTimestamp) {
     wasmtime::Val ts_wasm(static_cast<int64_t>(1000000000));
-    arc::types::Dimensions dims;
-    dims.time = 1;
-    arc::types::Unit ns_unit(dims, 1.0, "ns");
-    arc::types::Type ts_type(arc::types::Kind::I64, ns_unit);
+    arc::types::Dimensions dims{.time = 1};
+    arc::types::Unit ns_unit{.dimensions = dims, .scale = 1.0, .name = "ns"};
+    arc::types::Type ts_type{.kind = arc::types::Kind::I64, .unit = ns_unit};
     const auto ts_sample = sample_from_wasm(ts_wasm, ts_type);
     EXPECT_EQ(std::get<x::telem::TimeStamp>(ts_sample).nanoseconds(), 1000000000);
 }
@@ -255,25 +256,25 @@ TEST(SampleFromWasmTest, ConvertsTimestamp) {
 TEST(SampleFromBitsTest, ConvertsIntegerTypes) {
     const auto i32_sample = sample_from_bits(
         42,
-        arc::types::Type(arc::types::Kind::I32)
+        arc::types::Type{.kind = arc::types::Kind::I32}
     );
     EXPECT_EQ(std::get<int32_t>(i32_sample), 42);
 
     const auto i64_sample = sample_from_bits(
         123456789,
-        arc::types::Type(arc::types::Kind::I64)
+        arc::types::Type{.kind = arc::types::Kind::I64}
     );
     EXPECT_EQ(std::get<int64_t>(i64_sample), 123456789);
 
     const auto u8_sample = sample_from_bits(
         255,
-        arc::types::Type(arc::types::Kind::U8)
+        arc::types::Type{.kind = arc::types::Kind::U8}
     );
     EXPECT_EQ(std::get<uint8_t>(u8_sample), 255);
 
     const auto u64_sample = sample_from_bits(
         999,
-        arc::types::Type(arc::types::Kind::U64)
+        arc::types::Type{.kind = arc::types::Kind::U64}
     );
     EXPECT_EQ(std::get<uint64_t>(u64_sample), 999);
 }
@@ -285,7 +286,7 @@ TEST(SampleFromBitsTest, ConvertsFloatTypes) {
     memcpy(&f32_bits, &f32_val, sizeof(float));
     const auto f32_sample = sample_from_bits(
         f32_bits,
-        arc::types::Type(arc::types::Kind::F32)
+        arc::types::Type{.kind = arc::types::Kind::F32}
     );
     EXPECT_FLOAT_EQ(std::get<float>(f32_sample), 3.14f);
 
@@ -294,17 +295,16 @@ TEST(SampleFromBitsTest, ConvertsFloatTypes) {
     memcpy(&f64_bits, &f64_val, sizeof(double));
     const auto f64_sample = sample_from_bits(
         f64_bits,
-        arc::types::Type(arc::types::Kind::F64)
+        arc::types::Type{.kind = arc::types::Kind::F64}
     );
     EXPECT_DOUBLE_EQ(std::get<double>(f64_sample), 2.71828);
 }
 
 /// @brief sample_from_bits handles timestamp special case.
 TEST(SampleFromBitsTest, HandlesTimestamp) {
-    arc::types::Dimensions dims;
-    dims.time = 1;
-    arc::types::Unit ns_unit(dims, 1.0, "ns");
-    arc::types::Type ts_type(arc::types::Kind::I64, ns_unit);
+    arc::types::Dimensions dims{.time = 1};
+    arc::types::Unit ns_unit{.dimensions = dims, .scale = 1.0, .name = "ns"};
+    arc::types::Type ts_type{.kind = arc::types::Kind::I64, .unit = ns_unit};
     const auto ts_sample = sample_from_bits(1000000000, ts_type);
     EXPECT_EQ(std::get<x::telem::TimeStamp>(ts_sample).nanoseconds(), 1000000000);
 }

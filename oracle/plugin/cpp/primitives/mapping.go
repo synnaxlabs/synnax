@@ -29,7 +29,7 @@ var Mappings = map[string]primitives.Mapping{
 	"uint64":  {TargetType: "std::uint64_t", Imports: []primitives.Import{{Category: "system", Path: "cstdint"}}},
 	"float32": {TargetType: "float"},
 	"float64": {TargetType: "double"},
-	"json":    {TargetType: "x::json::json", Imports: []primitives.Import{{Category: "internal", Path: "x/cpp/json/json.h"}}},
+	"json":    {TargetType: "x::json::json::object_t", Imports: []primitives.Import{{Category: "internal", Path: "x/cpp/json/json.h"}}},
 	"bytes":   {TargetType: "std::vector<std::uint8_t>", Imports: []primitives.Import{{Category: "system", Path: "vector"}, {Category: "system", Path: "cstdint"}}},
 	"any":     {TargetType: "x::json::json", Imports: []primitives.Import{{Category: "internal", Path: "x/cpp/json/json.h"}}},
 }

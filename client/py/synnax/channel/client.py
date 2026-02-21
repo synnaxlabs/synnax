@@ -16,13 +16,18 @@ from pydantic import PrivateAttr
 from synnax import framer
 from synnax.channel.payload import (
     Key,
-    Operation,
     Params,
-    Payload,
     normalize_params,
-    ontology_id,
 )
 from synnax.channel.retrieve import Retriever
+from synnax.channel.types_gen import (
+    ONTOLOGY_TYPE,
+    New,
+    Operation,
+    Payload,
+    Status,
+    ontology_id,
+)
 from synnax.channel.writer import Writer
 from synnax.exceptions import MultipleFoundError, NotFoundError, ValidationError
 from synnax.ontology.payload import ID
@@ -35,6 +40,7 @@ from synnax.telem import (
     TimeRange,
 )
 from synnax.util.normalize import normalize
+from synnax.x import control
 
 
 class Channel(Payload):
@@ -60,6 +66,9 @@ class Channel(Payload):
         internal: bool = False,
         expression: str = "",
         operations: list[Operation] | None = None,
+        alias: str | None = None,
+        concurrency: control.Concurrency | None = None,
+        status: Status | None = None,
         _frame_client: framer.Client | None = None,
         _client: Client | None = None,
     ) -> None:
@@ -102,6 +111,9 @@ class Channel(Payload):
             virtual=virtual,
             expression=expression,
             operations=operations,
+            concurrency=concurrency,
+            alias=alias,
+            status=status,
         )
         self.___frame_client = _frame_client
         self.__client = _client
@@ -286,11 +298,12 @@ class Client:
         :returns: The created channels.
         """
 
+        _channels: list[Payload]
         if channels is None:
             if is_index and data_type == DataType.UNKNOWN:
                 data_type = DataType.TIMESTAMP
             _channels = [
-                Payload(
+                New(
                     name=name,
                     leaseholder=leaseholder,
                     data_type=DataType(data_type),

@@ -9,15 +9,20 @@
 
 import { type z } from "zod";
 
-export const nullToUndefined = <Input, Output>(
-  schema: z.ZodType<Input, Output>,
+export const nullToUndefined = <Z extends z.ZodType>(
+  schema: Z,
 ): z.ZodOptional<
   z.ZodPipe<
-    z.ZodNullable<z.ZodType<Input, Output>>,
-    z.ZodTransform<Awaited<Input & {}> | undefined, Input | null>
+    z.ZodNullable<Z>,
+    z.ZodTransform<Awaited<z.infer<Z>> | undefined, z.infer<Z> | null>
   >
 > =>
   schema
     .nullable()
     .transform((s) => (s === null ? undefined : s))
-    .optional();
+    .optional() as z.ZodOptional<
+    z.ZodPipe<
+      z.ZodNullable<Z>,
+      z.ZodTransform<Awaited<z.infer<Z>> | undefined, z.infer<Z> | null>
+    >
+  >;

@@ -33,7 +33,7 @@ public:
             cmd_channels,
             data_saving
         ),
-        pipeline::mock::Sink(writes, errors) {}
+        driver::pipeline::mock::Sink(writes, errors) {}
 
     x::errors::Error write(x::telem::Frame &frame) override {
         auto err = pipeline::mock::Sink::write(frame);
@@ -83,7 +83,7 @@ TEST(TestCommonWriteTask, testBasicOperation) {
     synnax::task::Task task;
     task.key = 12345;
 
-    auto ctx = std::make_shared<task::MockContext>(nullptr);
+    auto ctx = std::make_shared<driver::task::MockContext>(nullptr);
 
     WriteTask write_task(
         task,
@@ -100,7 +100,7 @@ TEST(TestCommonWriteTask, testBasicOperation) {
     ASSERT_TRUE(write_task.start(cmd_key));
     ASSERT_EVENTUALLY_EQ(ctx->statuses.size(), 1);
     auto start_state = ctx->statuses[0];
-    EXPECT_EQ(start_state.key, task.status_key());
+    EXPECT_EQ(start_state.key, synnax::task::status_key(task));
     EXPECT_EQ(start_state.details.cmd, cmd_key);
     EXPECT_EQ(start_state.details.task, task.key);
     EXPECT_EQ(start_state.variant, x::status::VARIANT_SUCCESS);
@@ -132,7 +132,7 @@ TEST(TestCommonWriteTask, testBasicOperation) {
     ASSERT_TRUE(write_task.stop(stop_cmd_key, true));
     ASSERT_EVENTUALLY_EQ(ctx->statuses.size(), 2);
     auto stop_state = ctx->statuses[1];
-    EXPECT_EQ(stop_state.key, task.status_key());
+    EXPECT_EQ(stop_state.key, synnax::task::status_key(task));
     EXPECT_EQ(stop_state.details.cmd, stop_cmd_key);
     EXPECT_EQ(stop_state.details.task, task.key);
     EXPECT_EQ(stop_state.variant, x::status::VARIANT_SUCCESS);

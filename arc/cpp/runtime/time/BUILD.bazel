@@ -7,8 +7,8 @@ cc_library(
         "//arc/cpp/runtime/loop",
         "//arc/cpp/runtime/node",
         "//arc/cpp/runtime/state",
-        "//x/cpp/telem",
         "//x/cpp/errors",
+        "//x/cpp/telem",
     ],
 )
 

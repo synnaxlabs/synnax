@@ -1,0 +1,71 @@
+// Copyright 2026 Synnax Labs, Inc.
+//
+// Use of this software is governed by the Business Source License included in the file
+// licenses/BSL.txt.
+//
+// As of the Change Date specified in that file, in accordance with the Business Source
+// License, use of this software will be governed by the Apache License, Version 2.0,
+// included in the file licenses/APL.txt.
+
+import "schemas/spatial"
+import "schemas/arc/ir"
+
+@ts output  "client/ts/src/arc/graph"
+@go output  "arc/go/graph"
+@cpp output "arc/cpp/graph"
+@pb
+
+Node struct {
+    key      string     {
+        @doc value "is the unique identifier for this node instance."
+    }
+    type     string     {
+        @doc value "is the function type being instantiated."
+    }
+    config   json       {
+        @doc value "contains configuration parameter values as a JSON object."
+    }
+    position spatial.XY {
+        @doc value "is the canvas position (x, y) for visual layout."
+    }
+
+    @doc value """
+        is a visual node in the Arc graph editor representing a function
+        instantiation with position data.
+    """
+}
+
+Nodes Node[] {
+    @doc value "is a collection of visual nodes in an Arc graph."
+}
+
+Viewport struct {
+    position spatial.XY {
+        @doc value "is the camera pan offset (x, y)."
+    }
+    zoom     float64    {
+        @doc value "is the zoom level where 1.0 equals 100%."
+    }
+
+    @doc value "is the camera state for viewing the Arc graph editor canvas."
+}
+
+Graph struct {
+    viewport  Viewport     {
+        @doc value "is the current camera state for the graph view."
+    }
+    functions ir.Functions {
+        @doc value "contains function definitions available in this graph."
+    }
+    edges     ir.Edges     {
+        @doc value "contains dataflow connections between node parameters."
+    }
+    nodes     Nodes        {
+        @doc value "contains visual nodes with canvas positions."
+    }
+
+    @doc value """
+        is a visual dataflow graph representation combining IR elements with
+        canvas layout for the Arc graph editor.
+    """
+}

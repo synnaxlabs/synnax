@@ -11,7 +11,7 @@ import { channel, NotFoundError, type Synnax } from "@synnaxlabs/client";
 import { Component, Flex, Form as PForm, type Haul, Icon } from "@synnaxlabs/pluto";
 import { caseconv, DataType, primitive } from "@synnaxlabs/x";
 import { type FC, type ReactElement } from "react";
-import { type z } from "zod";
+import type z from "zod";
 
 import { Common } from "@/hardware/common";
 import { Device } from "@/hardware/opc/device";
