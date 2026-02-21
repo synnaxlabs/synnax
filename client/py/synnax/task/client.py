@@ -9,7 +9,6 @@
 
 from __future__ import annotations
 
-import json
 import warnings
 from collections.abc import Generator
 from contextlib import contextmanager
@@ -138,7 +137,7 @@ class Task:
     key: int = 0
     name: str = ""
     type: str = ""
-    config: str = ""
+    config: dict[str, Any] = {}
     snapshot: bool = False
     status: Status | None = None
     __frame_client: FrameClient | None = None
@@ -150,7 +149,7 @@ class Task:
         rack: int = 0,
         name: str = "",
         type: str = "",
-        config: str = "",
+        config: dict[str, Any] | None = None,
         snapshot: bool = False,
         status: Status | None = None,
         _frame_client: FrameClient | None = None,
@@ -160,7 +159,7 @@ class Task:
         self.key = key
         self.name = name
         self.type = type
-        self.config = config
+        self.config = config if config is not None else {}
         self.snapshot = snapshot
         self.status = status
         self.__frame_client = _frame_client
@@ -337,7 +336,7 @@ class JSONConfigMixin(Protocol):
     def to_payload(self) -> Payload:
         """Implements TaskProtocol protocol"""
         pld = self._internal.to_payload()
-        pld.config = json.dumps(self.config.model_dump())
+        pld.config = self.config.model_dump()
         return pld
 
     def set_internal(self, task: Task) -> None:
@@ -375,7 +374,7 @@ class Client:
         key: int = 0,
         name: str = "",
         type: str = "",
-        config: str = "",
+        config: dict[str, Any] | None = None,
         rack: int = 0,
     ) -> Task: ...
 
@@ -392,12 +391,12 @@ class Client:
         key: int = 0,
         name: str = "",
         type: str = "",
-        config: str = "",
+        config: dict[str, Any] | None = None,
         rack: int = 0,
     ) -> Task | list[Task]:
         is_single = True
         if tasks is None:
-            payloads = [Payload(key=key, name=name, type=type, config=config)]
+            payloads = [Payload(key=key, name=name, type=type, config=config or {})]
         elif isinstance(tasks, Task):
             payloads = [tasks.to_payload()]
         else:

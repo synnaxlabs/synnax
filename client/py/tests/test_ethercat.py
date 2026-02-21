@@ -295,7 +295,7 @@ class TestEtherCATReadTask:
         created_task = client.tasks.create(
             name="test-ethercat-read-task",
             type="ethercat_read",
-            config=task.config.model_dump_json(),
+            config=task.config.model_dump(),
         )
         sy.ethercat.ReadTask(created_task)
 
@@ -498,7 +498,7 @@ class TestEtherCATWriteTask:
         created_task = client.tasks.create(
             name="test-ethercat-write-task",
             type="ethercat_write",
-            config=task.config.model_dump_json(),
+            config=task.config.model_dump(),
         )
         sy.ethercat.WriteTask(created_task)
 
@@ -534,13 +534,13 @@ class TestEtherCATWriteTask:
         )
 
         # Serialize to JSON
-        config_json = original_task.config.model_dump_json()
+        config_dict = original_task.config.model_dump()
 
         # Create task in database
         created_task = client.tasks.create(
             name="test-round-trip",
             type="ethercat_write",
-            config=config_json,
+            config=config_dict,
         )
 
         # Deserialize from database
@@ -569,8 +569,6 @@ class TestEtherCATDevice:
 
     def test_create_device_with_pdos(self, client: sy.Synnax):
         """Test that Device can be created with PDO definitions."""
-        import json
-
         rack = client.racks.retrieve_embedded_rack()
 
         device = sy.ethercat.Device(
@@ -616,7 +614,7 @@ class TestEtherCATDevice:
         assert created_device.model == "Slave"
 
         # Verify properties
-        props = json.loads(created_device.properties)
+        props = created_device.properties
         assert props["network"] == "eth0"
         assert props["position"] == 0
         assert props["vendor_id"] == 0x00000002

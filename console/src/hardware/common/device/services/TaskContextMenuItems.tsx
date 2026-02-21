@@ -7,8 +7,6 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type ReactElement } from "react";
-
 import { Task } from "@/hardware/common/task";
 import { Layout } from "@/layout";
 import { type Ontology } from "@/ontology";
@@ -19,22 +17,20 @@ export interface TaskContextMenuItemConfig {
   layout: Task.Layout;
 }
 
-export interface ContextMenuItemsProps extends Pick<
+export interface TaskContextMenuItemsProps extends Pick<
   Ontology.TreeContextMenuProps,
   "selection" | "state"
 > {
-  children?: ReactElement;
   configureLayout: Layout.BaseState;
   taskContextMenuItemConfigs: TaskContextMenuItemConfig[];
 }
 
-export const ContextMenuItems = ({
-  children,
+export const TaskContextMenuItems = ({
   configureLayout,
   state: { getResource },
   selection: { ids },
   taskContextMenuItemConfigs,
-}: ContextMenuItemsProps) => {
+}: TaskContextMenuItemsProps) => {
   const placeLayout = Layout.usePlacer();
   const firstID = ids[0];
   const first = getResource(firstID);
@@ -44,7 +40,6 @@ export const ContextMenuItems = ({
   };
   return (
     <>
-      {children}
       {taskContextMenuItemConfigs.map(({ itemKey, label, layout }) => {
         const handleClick = () => {
           maybeConfigure();

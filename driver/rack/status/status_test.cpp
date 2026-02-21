@@ -30,7 +30,6 @@ TEST(stateTests, testNominal) {
             .key = synnax::task::create_key(rack.key, 0),
             .name = "state",
             .type = "state",
-            .config = "",
             .internal = true
         }
     );

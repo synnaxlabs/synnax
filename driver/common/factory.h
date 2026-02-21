@@ -68,7 +68,7 @@ configure_initial_factory_tasks(
         .key = synnax::task::create_key(rack.key, 0),
         .name = task_name,
         .type = task_type,
-        .config = "",
+        .config = x::json::json::object(),
         .internal = true
     };
     auto [created, err] = create_if_type_not_exists_on_rack(rack, sy_task);

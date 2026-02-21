@@ -14,15 +14,13 @@ import synnax as sy
 from console.case import ConsoleCase
 from framework.utils import get_random_name
 
-NI_ANALOG_READ_CONFIG = json.dumps(
-    {
-        "autoStart": False,
-        "dataSaving": True,
-        "sampleRate": 10,
-        "streamRate": 5,
-        "channels": [],
-    }
-)
+NI_ANALOG_READ_CONFIG = {
+    "autoStart": False,
+    "dataSaving": True,
+    "sampleRate": 10,
+    "streamRate": 5,
+    "channels": [],
+}
 
 
 class RangeDetails(ConsoleCase):

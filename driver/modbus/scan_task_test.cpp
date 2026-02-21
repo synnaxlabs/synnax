@@ -107,7 +107,7 @@ TEST(ScanTask, testScanChecksDeviceHealth) {
           {"port", 1502},
           {"swap_bytes", false},
           {"swap_words", false}}}
-    }.dump();
+    };
 
     std::unordered_map<std::string, synnax::device::Device> devices_map;
     devices_map[dev.key] = dev;
@@ -141,7 +141,7 @@ TEST(ScanTask, testScanReportsDisconnectedDevice) {
           {"port", 9999},
           {"swap_bytes", false},
           {"swap_words", false}}}
-    }.dump();
+    };
 
     std::unordered_map<std::string, synnax::device::Device> devices_map;
     devices_map[dev.key] = dev;

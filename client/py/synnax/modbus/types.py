@@ -7,7 +7,6 @@
 #  License, use of this software will be governed by the Apache License, Version 2.0,
 #  included in the file licenses/APL.txt.
 
-import json
 from typing import Annotated, Any, Literal
 from uuid import uuid4
 
@@ -466,7 +465,7 @@ class ReadTask(task.StarterStopperMixin, task.JSONConfigMixin, task.Protocol):
     ) -> None:
         if internal is not None:
             self._internal = internal
-            self.config = ReadTaskConfig.model_validate_json(internal.config)
+            self.config = ReadTaskConfig.model_validate(internal.config)
             return
         self._internal = task.Task(name=name, type=self.TYPE)
         self.config = ReadTaskConfig(
@@ -492,14 +491,8 @@ class ReadTask(task.StarterStopperMixin, task.JSONConfigMixin, task.Protocol):
 
         Keys use hyphens instead of underscores to match Console's naming convention.
         """
-        import json
-
         dev = device_client.retrieve(key=self.config.device)
-        props = (
-            json.loads(dev.properties)
-            if isinstance(dev.properties, str)
-            else dev.properties
-        )
+        props = dict(dev.properties)
 
         if "read" not in props:
             props["read"] = {"index": 0, "channels": {}}
@@ -516,7 +509,7 @@ class ReadTask(task.StarterStopperMixin, task.JSONConfigMixin, task.Protocol):
 
             props["read"]["channels"][key] = ch.channel
 
-        dev.properties = json.dumps(props)
+        dev.properties = props
         return device_client.create(dev)
 
 
@@ -551,7 +544,7 @@ class WriteTask(task.StarterStopperMixin, task.JSONConfigMixin, task.Protocol):
     ):
         if internal is not None:
             self._internal = internal
-            self.config = WriteTaskConfig.model_validate_json(internal.config)
+            self.config = WriteTaskConfig.model_validate(internal.config)
             return
         self._internal = task.Task(name=name, type=self.TYPE)
         self.config = WriteTaskConfig(
@@ -576,14 +569,8 @@ class WriteTask(task.StarterStopperMixin, task.JSONConfigMixin, task.Protocol):
 
         Keys use hyphens instead of underscores to match Console's naming convention.
         """
-        import json
-
         dev = device_client.retrieve(key=self.config.device)
-        props = (
-            json.loads(dev.properties)
-            if isinstance(dev.properties, str)
-            else dev.properties
-        )
+        props = dict(dev.properties)
 
         if "write" not in props:
             props["write"] = {"channels": {}}
@@ -596,7 +583,7 @@ class WriteTask(task.StarterStopperMixin, task.JSONConfigMixin, task.Protocol):
             # Map the generated key to the Synnax channel that will send command values
             props["write"]["channels"][key] = ch.channel
 
-        dev.properties = json.dumps(props)
+        dev.properties = props
         return device_client.create(dev)
 
 
@@ -677,5 +664,5 @@ class Device(device.Device):
             make=MAKE,
             model=MODEL,
             configured=configured,
-            properties=json.dumps(props),
+            properties=props,
         )

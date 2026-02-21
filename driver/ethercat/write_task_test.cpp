@@ -83,7 +83,7 @@ protected:
             interface,
             "EtherCAT",
             "Network",
-            props.dump()
+            props
         );
         const auto err = client->devices.create(dev);
         EXPECT_TRUE(!err) << err.message();
@@ -113,7 +113,7 @@ protected:
             std::to_string(serial),
             "DEWESoft",
             "TestModule",
-            props.dump()
+            props
         );
         const auto err = client->devices.create(dev);
         EXPECT_TRUE(!err) << err.message();
