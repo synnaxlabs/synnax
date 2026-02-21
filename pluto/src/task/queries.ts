@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { ontology, type rack, task } from "@synnaxlabs/client";
-import { array, type optional, TimeStamp } from "@synnaxlabs/x";
+import { array, type optional, type record, TimeStamp } from "@synnaxlabs/x";
 import { z } from "zod";
 
 import { Flux } from "@/flux";
@@ -79,8 +79,8 @@ const BASE_QUERY: Partial<RetrieveQuery> = { includeStatus: true };
 
 export const retrieveSingle = async <
   Type extends z.ZodLiteral<string> = z.ZodLiteral<string>,
-  Config extends z.ZodType = z.ZodType,
-  StatusData extends z.ZodType = z.ZodType,
+  Config extends z.ZodType<record.Unknown> = z.ZodType<record.Unknown>,
+  StatusData extends z.ZodType = z.ZodNever,
 >({
   query,
   schemas,
@@ -121,8 +121,8 @@ export const retrieveSingle = async <
 
 export const createRetrieve = <
   Type extends z.ZodLiteral<string> = z.ZodLiteral<string>,
-  Config extends z.ZodType = z.ZodType,
-  StatusData extends z.ZodType = z.ZodType,
+  Config extends z.ZodType<record.Unknown> = z.ZodType<record.Unknown>,
+  StatusData extends z.ZodType = z.ZodNever,
 >(
   schemas?: task.PayloadSchemas<Type, Config, StatusData>,
 ) =>
@@ -206,8 +206,8 @@ export const useList = Flux.createList<ListQuery, task.Key, task.Task, FluxSubSt
 
 const createFormSchema = <
   Type extends z.ZodLiteral<string> = z.ZodLiteral<string>,
-  Config extends z.ZodType = z.ZodType,
-  StatusData extends z.ZodType = z.ZodType,
+  Config extends z.ZodType<record.Unknown> = z.ZodType<record.Unknown>,
+  StatusData extends z.ZodType = z.ZodNever,
 >(
   schemas: task.PayloadSchemas<Type, Config, StatusData>,
 ): FormSchema<Type, Config, StatusData> =>
@@ -223,8 +223,8 @@ const createFormSchema = <
 
 export type FormSchema<
   Type extends z.ZodLiteral<string> = z.ZodLiteral<string>,
-  Config extends z.ZodType = z.ZodType,
-  StatusData extends z.ZodType = z.ZodType,
+  Config extends z.ZodType<record.Unknown> = z.ZodType<record.Unknown>,
+  StatusData extends z.ZodType = z.ZodNever,
 > = z.ZodType<{
   key?: task.Key;
   name: string;
@@ -237,8 +237,8 @@ export type FormSchema<
 
 export interface CreateFormParams<
   Type extends z.ZodLiteral<string> = z.ZodLiteral<string>,
-  Config extends z.ZodType = z.ZodType,
-  StatusData extends z.ZodType = z.ZodType,
+  Config extends z.ZodType<record.Unknown> = z.ZodType<record.Unknown>,
+  StatusData extends z.ZodType = z.ZodNever,
 > {
   schemas: task.PayloadSchemas<Type, Config, StatusData>;
   initialValues: InitialValues<Type, Config, StatusData>;
@@ -246,8 +246,8 @@ export interface CreateFormParams<
 
 export interface InitialValues<
   Type extends z.ZodLiteral<string> = z.ZodLiteral<string>,
-  Config extends z.ZodType = z.ZodType,
-  StatusData extends z.ZodType = z.ZodType,
+  Config extends z.ZodType<record.Unknown> = z.ZodType<record.Unknown>,
+  StatusData extends z.ZodType = z.ZodNever,
 > extends optional.Optional<task.Payload<Type, Config, StatusData>, "key"> {
   key?: task.Key;
 }
@@ -258,8 +258,8 @@ export interface FormQuery {
 
 const taskToFormValues = <
   Type extends z.ZodLiteral<string> = z.ZodLiteral<string>,
-  Config extends z.ZodType = z.ZodType,
-  StatusData extends z.ZodType = z.ZodType,
+  Config extends z.ZodType<record.Unknown> = z.ZodType<record.Unknown>,
+  StatusData extends z.ZodType = z.ZodNever,
 >(
   t: InitialValues<Type, Config, StatusData>,
 ): z.infer<FormSchema<Type, Config, StatusData>> => ({
@@ -278,8 +278,8 @@ const RESET_OPTIONS: Form.SetOptions = {
 
 const resetFormValues = <
   Type extends z.ZodLiteral<string> = z.ZodLiteral<string>,
-  Config extends z.ZodType = z.ZodType,
-  StatusData extends z.ZodType = z.ZodType,
+  Config extends z.ZodType<record.Unknown> = z.ZodType<record.Unknown>,
+  StatusData extends z.ZodType = z.ZodNever,
 >(
   set: Form.UseReturn<FormSchema<Type, Config, StatusData>>["set"],
   payload: task.Payload<Type, Config, StatusData>,
@@ -295,8 +295,8 @@ const resetFormValues = <
 
 export const createForm = <
   Type extends z.ZodLiteral<string> = z.ZodLiteral<string>,
-  Config extends z.ZodType = z.ZodType,
-  StatusData extends z.ZodType = z.ZodType,
+  Config extends z.ZodType<record.Unknown> = z.ZodType<record.Unknown>,
+  StatusData extends z.ZodType = z.ZodNever,
 >({
   schemas,
   initialValues,
@@ -434,7 +434,7 @@ export type CommandParams = task.NewCommand | task.NewCommand[];
 
 const START_STOP_COMMANDS = new Set(["stop", "start"]);
 
-export const shouldExecuteCommand = <StatusData extends z.ZodType = z.ZodType>(
+export const shouldExecuteCommand = <StatusData extends z.ZodType = z.ZodNever>(
   status: task.Status<StatusData>,
   command: string,
 ): boolean => {

@@ -19,30 +19,60 @@ export const keyZ = z
   .or(z.number().transform(String).or(z.bigint().transform(String)));
 export type Key = z.infer<typeof keyZ>;
 
-export const statusDetailsZ = <Data extends z.ZodType = z.ZodType>(data?: Data) =>
+export type StatusDetailsZodObject<Data extends z.ZodType = z.ZodNever> = z.ZodObject<{
+  task: typeof keyZ;
+  running: z.ZodBoolean;
+  cmd: z.ZodOptional<z.ZodString>;
+  data: [Data] extends [z.ZodNever] ? z.ZodOptional<z.ZodUnknown> : Data;
+}>;
+
+export interface StatusDetailsZFunction {
+  <Data extends z.ZodType>(data: Data): StatusDetailsZodObject<Data>;
+  <Data extends z.ZodType = z.ZodNever>(data?: Data): StatusDetailsZodObject<Data>;
+}
+
+export const statusDetailsZ: StatusDetailsZFunction = <Data extends z.ZodType>(
+  data?: Data,
+) =>
   z.object({
     task: keyZ,
     running: z.boolean(),
     cmd: z.string().optional(),
-    data: data ?? record.nullishToEmpty().optional(),
+    data: data ?? z.unknown().optional(),
   });
-export interface StatusDetails<Data extends z.ZodType = z.ZodType> {
+export type StatusDetails<Data extends z.ZodType = z.ZodNever> = {
   task: Key;
   running: boolean;
   cmd?: string;
-  data?: z.infer<Data>;
+} & ([Data] extends [z.ZodNever] ? {} : { data: z.infer<Data> });
+
+export type NewStatusDetailsZodObject<Data extends z.ZodType = z.ZodNever> =
+  z.ZodObject<{
+    task: z.ZodOptional<typeof keyZ>;
+    running: z.ZodBoolean;
+    cmd: z.ZodOptional<z.ZodString>;
+    data: [Data] extends [z.ZodNever] ? z.ZodOptional<z.ZodUnknown> : Data;
+  }>;
+
+export interface NewStatusDetailsZFunction {
+  <Data extends z.ZodType>(data: Data): NewStatusDetailsZodObject<Data>;
+  <Data extends z.ZodType = z.ZodNever>(data?: Data): NewStatusDetailsZodObject<Data>;
 }
 
-export const newStatusDetailsZ = <Data extends z.ZodType = z.ZodType>(data?: Data) =>
+export const newStatusDetailsZ: NewStatusDetailsZFunction = <Data extends z.ZodType>(
+  data?: Data,
+) =>
   z.object({
     task: keyZ.optional(),
     running: z.boolean(),
     cmd: z.string().optional(),
-    data: data ?? record.nullishToEmpty(),
+    data: data ?? z.unknown().optional(),
   });
-export type NewStatusDetails<Data extends z.ZodType = z.ZodType> = z.infer<
-  ReturnType<typeof newStatusDetailsZ<Data>>
->;
+export type NewStatusDetails<Data extends z.ZodType = z.ZodNever> = {
+  task?: Key;
+  running: boolean;
+  cmd?: string;
+} & ([Data] extends [z.ZodNever] ? {} : { data: z.infer<Data> });
 
 /** Command is a command to execute on a task in the Driver system. */
 export const commandZ = z.object({
@@ -57,22 +87,22 @@ export const commandZ = z.object({
 });
 export interface Command extends z.infer<typeof commandZ> {}
 
-export const statusZ = <Data extends z.ZodType = z.ZodType>(data?: Data) =>
+export const statusZ = <Data extends z.ZodType = z.ZodNever>(data?: Data) =>
   status.statusZ({ details: statusDetailsZ(data) });
-export type Status<Data extends z.ZodType = z.ZodType> = z.infer<
+export type Status<Data extends z.ZodType = z.ZodNever> = z.infer<
   ReturnType<typeof statusZ<Data>>
 >;
 
-export const newStatusZ = <Data extends z.ZodType = z.ZodType>(data?: Data) =>
+export const newStatusZ = <Data extends z.ZodType = z.ZodNever>(data?: Data) =>
   status.newZ({ details: newStatusDetailsZ(data) });
-export type NewStatus<Data extends z.ZodType = z.ZodType> = z.infer<
+export type NewStatus<Data extends z.ZodType = z.ZodNever> = z.infer<
   ReturnType<typeof newStatusZ<Data>>
 >;
 
 export interface PayloadSchemas<
   Type extends z.ZodType<string> = z.ZodString,
-  Config extends z.ZodType = z.ZodType,
-  StatusData extends z.ZodType = z.ZodType,
+  Config extends z.ZodType<record.Unknown> = z.ZodType<record.Unknown>,
+  StatusData extends z.ZodType = z.ZodNever,
 > {
   type?: Type;
   config?: Config;
@@ -81,8 +111,8 @@ export interface PayloadSchemas<
 
 export const payloadZ = <
   Type extends z.ZodType<string> = z.ZodString,
-  Config extends z.ZodType = z.ZodType,
-  StatusData extends z.ZodType = z.ZodType,
+  Config extends z.ZodType<record.Unknown> = z.ZodType<record.Unknown>,
+  StatusData extends z.ZodType = z.ZodNever,
 >({ type, config, statusData }: PayloadSchemas<Type, Config, StatusData> = {}) =>
   z.object({
     key: keyZ,
@@ -95,8 +125,8 @@ export const payloadZ = <
   });
 export interface Payload<
   Type extends z.ZodType<string> = z.ZodString,
-  Config extends z.ZodType = z.ZodType,
-  StatusData extends z.ZodType = z.ZodType,
+  Config extends z.ZodType<record.Unknown> = z.ZodType<record.Unknown>,
+  StatusData extends z.ZodType = z.ZodNever,
 > {
   key: Key;
   name: string;
@@ -109,8 +139,8 @@ export interface Payload<
 
 export interface NewSchemas<
   Type extends z.ZodType<string> = z.ZodString,
-  Config extends z.ZodType = z.ZodType,
-  StatusData extends z.ZodType = z.ZodType,
+  Config extends z.ZodType<record.Unknown> = z.ZodType<record.Unknown>,
+  StatusData extends z.ZodType = z.ZodNever,
 > {
   type?: Type;
   config?: Config;
@@ -119,8 +149,8 @@ export interface NewSchemas<
 
 export const newZ = <
   Type extends z.ZodType<string> = z.ZodString,
-  Config extends z.ZodType = z.ZodType,
-  StatusData extends z.ZodType = z.ZodType,
+  Config extends z.ZodType<record.Unknown> = z.ZodType<record.Unknown>,
+  StatusData extends z.ZodType = z.ZodNever,
 >({ type, config, statusData }: NewSchemas<Type, Config, StatusData> = {}) =>
   payloadZ({ type, config, statusData })
     .omit({ internal: true, snapshot: true, status: true })
@@ -130,8 +160,8 @@ export const newZ = <
     });
 export type New<
   Type extends z.ZodType<string> = z.ZodString,
-  Config extends z.ZodType = z.ZodType,
-  StatusData extends z.ZodType = z.ZodType,
+  Config extends z.ZodType<record.Unknown> = z.ZodType<record.Unknown>,
+  StatusData extends z.ZodType = z.ZodNever,
 > = optional.Optional<
   Omit<Payload<Type, Config, StatusData>, "internal" | "snapshot" | "status">,
   "key"

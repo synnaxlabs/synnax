@@ -31,7 +31,7 @@ export const statusZ = status.statusZ({ details: statusDetailsZ });
 export type Status = z.infer<typeof statusZ>;
 
 export interface DeviceSchemas<
-  Properties extends z.ZodType = z.ZodType,
+  Properties extends z.ZodType<record.Unknown> = z.ZodType<record.Unknown>,
   Make extends z.ZodType<string> = z.ZodString,
   Model extends z.ZodType<string> = z.ZodString,
 > {
@@ -41,7 +41,7 @@ export interface DeviceSchemas<
 }
 
 export const deviceZ = <
-  Properties extends z.ZodType = z.ZodType,
+  Properties extends z.ZodType<record.Unknown> = z.ZodType<record.Unknown>,
   Make extends z.ZodType<string> = z.ZodString,
   Model extends z.ZodType<string> = z.ZodString,
 >({ properties, make, model }: DeviceSchemas<Properties, Make, Model> = {}) =>
@@ -57,7 +57,7 @@ export const deviceZ = <
     status: statusZ.optional(),
   });
 export interface Device<
-  Properties extends z.ZodType = z.ZodType,
+  Properties extends z.ZodType<record.Unknown> = z.ZodType<record.Unknown>,
   Make extends z.ZodType<string> = z.ZodString,
   Model extends z.ZodType<string> = z.ZodString,
 > {
@@ -73,7 +73,7 @@ export interface Device<
 }
 
 export interface NewSchemas<
-  Properties extends z.ZodType = z.ZodType,
+  Properties extends z.ZodType<record.Unknown> = z.ZodType<record.Unknown>,
   Make extends z.ZodType<string> = z.ZodString,
   Model extends z.ZodType<string> = z.ZodString,
 > {
@@ -83,13 +83,13 @@ export interface NewSchemas<
 }
 
 export const newZ = <
-  Properties extends z.ZodType = z.ZodType,
+  Properties extends z.ZodType<record.Unknown> = z.ZodType<record.Unknown>,
   Make extends z.ZodType<string> = z.ZodString,
   Model extends z.ZodType<string> = z.ZodString,
 >({ properties, make, model }: NewSchemas<Properties, Make, Model> = {}) =>
   deviceZ({ properties, make, model }).partial({ key: true, configured: true });
 export type New<
-  Properties extends z.ZodType = z.ZodType,
+  Properties extends z.ZodType<record.Unknown> = z.ZodType<record.Unknown>,
   Make extends z.ZodType<string> = z.ZodString,
   Model extends z.ZodType<string> = z.ZodString,
 > = optional.Optional<Device<Properties, Make, Model>, "key" | "configured">;

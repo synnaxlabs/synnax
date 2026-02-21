@@ -230,16 +230,13 @@ describe("queries", () => {
       });
       await waitFor(() => expect(result.current.variant).toEqual("success"));
 
-      const taskStatus: task.Status = status.create<
-        ReturnType<typeof task.statusDetailsZ>
-      >({
+      const taskStatus: task.Status = status.create<task.StatusDetailsZodObject>({
         key: id.create(),
         variant: "error",
         message: "Task failed",
         details: {
           task: testTask.key,
           running: false,
-          data: {},
         },
       });
 
@@ -325,16 +322,13 @@ describe("queries", () => {
         config: {},
       });
 
-      const taskStatus: task.Status = status.create<
-        ReturnType<typeof task.statusDetailsZ>
-      >({
+      const taskStatus: task.Status = status.create<task.StatusDetailsZodObject>({
         key: task.statusKey(testTask.key),
         variant: "success",
         message: "Task running",
         details: {
           task: testTask.key,
           running: true,
-          data: {},
         },
       });
 
@@ -400,9 +394,11 @@ describe("queries", () => {
       });
       await waitFor(() => expect(result.current.variant).toEqual("success"));
 
-      const newStatus: task.Status = status.create<
-        ReturnType<typeof task.statusDetailsZ>
-      >({
+      const errorStatusDataZ = z.object({ error: z.string() });
+      // eslint-disable-next-line @typescript-eslint/no-unused-vars
+      const errorStatusDetailsZ = task.statusDetailsZ(errorStatusDataZ);
+
+      const newStatus = status.create<typeof errorStatusDetailsZ>({
         key: task.statusKey(testTask.key),
         variant: "error",
         message: "Task failed",
@@ -991,9 +987,10 @@ describe("queries", () => {
 
       await waitFor(() => expect(result.current.variant).toEqual("success"));
 
-      const taskStatus: task.Status = status.create<
-        ReturnType<typeof task.statusDetailsZ>
-      >({
+      const errorStatusDataZ = z.object({ errorCode: z.number() });
+      // eslint-disable-next-line @typescript-eslint/no-unused-vars
+      const errorStatusDetailsZ = task.statusDetailsZ(errorStatusDataZ);
+      const taskStatus: task.Status = status.create<typeof errorStatusDetailsZ>({
         key: task.statusKey(testTask.key),
         variant: "error",
         message: "Task error",
@@ -1125,10 +1122,10 @@ describe("queries", () => {
 
       await waitFor(() => expect(result.current.variant).toEqual("success"));
       expect(result.current.form.get("name").touched).toBe(false);
-
-      const taskStatus: task.Status = status.create<
-        ReturnType<typeof task.statusDetailsZ>
-      >({
+      const errorStatusDataZ = z.object({ errorCode: z.number() });
+      // eslint-disable-next-line @typescript-eslint/no-unused-vars
+      const errorStatusDetailsZ = task.statusDetailsZ(errorStatusDataZ);
+      const taskStatus: task.Status = status.create<typeof errorStatusDetailsZ>({
         key: task.statusKey(testTask.key),
         variant: "error",
         message: "Task error from server",

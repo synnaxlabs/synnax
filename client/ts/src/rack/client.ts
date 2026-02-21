@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { sendRequired, type UnaryClient } from "@synnaxlabs/freighter";
-import { array } from "@synnaxlabs/x";
+import { array, type record } from "@synnaxlabs/x";
 import { z } from "zod";
 
 import { ontology } from "@/ontology";
@@ -152,8 +152,8 @@ export class Rack {
   async createTask(task: task.New): Promise<task.Task>;
   async createTask<
     Type extends z.ZodLiteral<string> = z.ZodLiteral<string>,
-    Config extends z.ZodType = z.ZodType,
-    StatusData extends z.ZodType = z.ZodType,
+    Config extends z.ZodType<record.Unknown> = z.ZodType<record.Unknown>,
+    StatusData extends z.ZodType = z.ZodNever,
   >(
     task: task.New<Type, Config, StatusData>,
     schemas: task.PayloadSchemas<Type, Config, StatusData>,
@@ -161,8 +161,8 @@ export class Rack {
 
   async createTask<
     Type extends z.ZodLiteral<string> = z.ZodLiteral<string>,
-    Config extends z.ZodType = z.ZodType,
-    StatusData extends z.ZodType = z.ZodType,
+    Config extends z.ZodType<record.Unknown> = z.ZodType<record.Unknown>,
+    StatusData extends z.ZodType = z.ZodNever,
   >(
     task: task.New<Type, Config, StatusData>,
     schemas?: task.PayloadSchemas<Type, Config, StatusData>,

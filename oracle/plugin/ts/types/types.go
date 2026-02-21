@@ -595,6 +595,12 @@ func (p *Plugin) processStruct(entry resolution.Type, table *resolution.Table, d
 		for _, tp := range aliasForm.TypeParams {
 			sd.TypeParams = append(sd.TypeParams, p.processTypeParam(tp, table, data))
 		}
+		for _, tp := range sd.TypeParams {
+			if tp.IsJSON || strings.Contains(tp.Constraint, "record.") || strings.Contains(tp.Default, "record.") {
+				addXImport(data, xImport{name: "record", submodule: "record"})
+				break
+			}
+		}
 		sd.AllParamsOptional = true
 		for _, tp := range sd.TypeParams {
 			if !tp.HasDefault {
@@ -658,6 +664,12 @@ func (p *Plugin) processStruct(entry resolution.Type, table *resolution.Table, d
 	}
 	for _, tp := range form.TypeParams {
 		sd.TypeParams = append(sd.TypeParams, p.processTypeParam(tp, table, data))
+	}
+	for _, tp := range sd.TypeParams {
+		if tp.IsJSON || strings.Contains(tp.Constraint, "record.") || strings.Contains(tp.Default, "record.") {
+			addXImport(data, xImport{name: "record", submodule: "record"})
+			break
+		}
 	}
 
 	sd.AllParamsOptional = true
@@ -771,10 +783,16 @@ func (p *Plugin) processStruct(entry resolution.Type, table *resolution.Table, d
 		if sd.ConcreteTypes && field.Type.IsTypeParam() &&
 			field.Type.TypeParam != nil &&
 			optionalTypeParams[field.Type.TypeParam.Name] {
+			tp := field.Type.TypeParam
+			effectiveRef := tp.Constraint
+			if effectiveRef == nil && tp.Default != nil && !tp.Optional {
+				effectiveRef = tp.Default
+			}
 			sd.ConditionalFields = append(sd.ConditionalFields, conditionalFieldData{
-				Field:         fd,
-				TypeParamName: field.Type.TypeParam.Name,
-				NeverType:     "z.ZodNever",
+				Field:              fd,
+				TypeParamName:      field.Type.TypeParam.Name,
+				NeverType:          "z.ZodNever",
+				FallbackSchemaType: fallbackSchemaTypeForConstraint(effectiveRef, table),
 			})
 		} else {
 			sd.BaseFields = append(sd.BaseFields, fd)
@@ -847,6 +865,7 @@ func (p *Plugin) processTypeParam(tp resolution.TypeParam, table *resolution.Tab
 	if tp.Constraint != nil {
 		if resolution.IsPrimitive(tp.Constraint.Name) && tp.Constraint.Name == "json" {
 			tpd.IsJSON = true
+			tpd.Constraint = "z.ZodType<record.Unknown>"
 		}
 		if resolution.IsPrimitive(tp.Constraint.Name) && tp.Constraint.Name == "string" {
 			tpd.Constraint = "z.ZodType<string>"
@@ -859,7 +878,11 @@ func (p *Plugin) processTypeParam(tp resolution.TypeParam, table *resolution.Tab
 			}
 		}
 	}
-	if tp.Default != nil {
+	if tp.Optional {
+		tpd.HasDefault = true
+		tpd.Default = "z.ZodNever"
+		tpd.DefaultValue = "z.unknown()"
+	} else if tp.Default != nil {
 		tpd.HasDefault = true
 		// Handle enum defaults
 		resolved, ok := tp.Default.Resolve(table)
@@ -876,10 +899,6 @@ func (p *Plugin) processTypeParam(tp resolution.TypeParam, table *resolution.Tab
 			tpd.Default = defaultToTS(tp.Default.Name)
 			tpd.DefaultValue = defaultValueToTS(tp.Default.Name)
 		}
-	} else if tp.Optional {
-		tpd.HasDefault = true
-		tpd.Default = "z.ZodNever"
-		tpd.DefaultValue = "z.unknown()"
 	}
 	return tpd
 }
@@ -906,7 +925,7 @@ var typeParamMappings = map[string]typeParamMapping{
 	"uuid":      {zodType: "z.ZodString", zodValue: "z.string()"},
 	"timestamp": {zodType: "z.ZodNumber", zodValue: "z.number()"},
 	"timespan":  {zodType: "z.ZodNumber", zodValue: "z.number()"},
-	"json":      {zodType: "z.ZodType", zodValue: "record.nullishToEmpty()"},
+	"json":      {zodType: "z.ZodType<record.Unknown>", zodValue: "record.nullishToEmpty()"},
 }
 
 func defaultToTS(rawType string) string {
@@ -925,7 +944,7 @@ func defaultValueToTS(rawType string) string {
 
 func fallbackForConstraint(constraint *resolution.TypeRef, table *resolution.Table) string {
 	if constraint == nil {
-		return "z.unknown()"
+		return "z.unknown().optional()"
 	}
 	resolved, ok := constraint.Resolve(table)
 	if ok {
@@ -934,6 +953,22 @@ func fallbackForConstraint(constraint *resolution.TypeRef, table *resolution.Tab
 		}
 	}
 	return defaultValueToTS(constraint.Name)
+}
+
+func fallbackSchemaTypeForConstraint(constraint *resolution.TypeRef, table *resolution.Table) string {
+	if constraint == nil {
+		return "z.ZodOptional<z.ZodUnknown>"
+	}
+	resolved, ok := constraint.Resolve(table)
+	if ok {
+		if _, isEnum := resolved.Form.(resolution.EnumForm); isEnum {
+			return "typeof " + lo.CamelCase(resolved.Name) + "Z"
+		}
+	}
+	if m, ok := typeParamMappings[constraint.Name]; ok {
+		return m.zodType
+	}
+	return "z.ZodType"
 }
 
 func isSelfReference(t resolution.TypeRef, parent resolution.Type) bool {
@@ -1080,7 +1115,9 @@ func (p *Plugin) processField(field resolution.Field, parentType resolution.Type
 			fd.ZodSchemaType = "typeof record.nullishToEmpty()"
 		}
 	} else if isAnyOptional {
-		fd.ZodType += ".optional()"
+		if !field.Type.IsTypeParam() {
+			fd.ZodType += ".optional()"
+		}
 		fd.ZodSchemaType = fmt.Sprintf("z.ZodOptional<%s>", fd.ZodSchemaType)
 	}
 	if hasPreserveCase(field) {
@@ -1239,10 +1276,14 @@ func (p *Plugin) typeRefToZodInternal(typeRef *resolution.TypeRef, table *resolu
 			return paramName
 		}
 		if typeRef.TypeParam.Default != nil || typeRef.TypeParam.Optional {
-			if typeRef.TypeParam.Constraint != nil && typeRef.TypeParam.Constraint.Name == "json" {
+			effectiveRef := typeRef.TypeParam.Constraint
+			if effectiveRef == nil && typeRef.TypeParam.Default != nil && !typeRef.TypeParam.Optional {
+				effectiveRef = typeRef.TypeParam.Default
+			}
+			if effectiveRef != nil && effectiveRef.Name == "json" {
 				addXImport(data, xImport{name: "record", submodule: "record"})
 			}
-			return fmt.Sprintf("%s ?? %s", paramName, fallbackForConstraint(typeRef.TypeParam.Constraint, table))
+			return fmt.Sprintf("%s ?? %s", paramName, fallbackForConstraint(effectiveRef, table))
 		}
 		return paramName
 	}
@@ -1274,17 +1315,26 @@ func (p *Plugin) typeRefToZodInternal(typeRef *resolution.TypeRef, table *resolu
 	case resolution.StructForm:
 		schemaName := lo.CamelCase(domain.GetName(resolved, "ts")) + "Z"
 		if form.IsGeneric() {
-			if len(typeRef.TypeArgs) > 0 {
-				args := make([]string, len(typeRef.TypeArgs))
-				for i, arg := range typeRef.TypeArgs {
-					args[i] = p.typeRefToZodInternal(&arg, table, data, true)
+			nonNilArgs := make([]struct {
+				index int
+				value string
+			}, 0, len(typeRef.TypeArgs))
+			for i, arg := range typeRef.TypeArgs {
+				if arg.Name == "nil" {
+					continue
 				}
+				nonNilArgs = append(nonNilArgs, struct {
+					index int
+					value string
+				}{i, p.typeRefToZodInternal(&arg, table, data, true)})
+			}
+			if len(nonNilArgs) > 0 {
 				if len(form.TypeParams) == 1 {
-					schemaName = fmt.Sprintf("%s(%s)", schemaName, args[0])
+					schemaName = fmt.Sprintf("%s(%s)", schemaName, nonNilArgs[0].value)
 				} else {
-					namedArgs := make([]string, len(typeRef.TypeArgs))
-					for i, arg := range args {
-						namedArgs[i] = fmt.Sprintf("%s: %s", lo.CamelCase(form.TypeParams[i].Name), arg)
+					namedArgs := make([]string, len(nonNilArgs))
+					for i, arg := range nonNilArgs {
+						namedArgs[i] = fmt.Sprintf("%s: %s", lo.CamelCase(form.TypeParams[arg.index].Name), arg.value)
 					}
 					schemaName = fmt.Sprintf("%s({%s})", schemaName, strings.Join(namedArgs, ", "))
 				}
@@ -1884,9 +1934,10 @@ type fieldData struct {
 }
 
 type conditionalFieldData struct {
-	TypeParamName string
-	NeverType     string
-	Field         fieldData
+	TypeParamName      string
+	NeverType          string
+	FallbackSchemaType string
+	Field              fieldData
 }
 
 type enumData struct {
@@ -2005,13 +2056,14 @@ export interface {{ .TSName }} extends z.{{ if .UseInput }}input{{ else }}infer{
 {{- if .IsSingleParam }}
 {{- if and .ConcreteTypes .ConditionalFields }}
 
-export type {{ .TSName }}ZodObject<{{ range $i, $p := .TypeParams }}{{ $p.Name }} extends {{ $p.Constraint }}{{ if $p.HasDefault }} = {{ $p.Default }}{{ end }}{{ end }}> = z.ZodObject<
-  {
+export type {{ .TSName }}ZodObject<{{ range $i, $p := .TypeParams }}{{ $p.Name }} extends {{ $p.Constraint }}{{ if $p.HasDefault }} = {{ $p.Default }}{{ end }}{{ end }}> = z.ZodObject<{
 {{- range .BaseFields }}
     {{ .TSName }}: {{ .ZodSchemaType }};
 {{- end }}
-  }{{ range .ConditionalFields }} & ([{{ .TypeParamName }}] extends [{{ .NeverType }}] ? {} : { {{ .Field.TSName }}: {{ .TypeParamName }} }){{ end }}
->;
+{{- range .ConditionalFields }}
+    {{ .Field.TSName }}: [{{ .TypeParamName }}] extends [{{ .NeverType }}] ? {{ .FallbackSchemaType }} : {{ .TypeParamName }};
+{{- end }}
+}>;
 
 export interface {{ .TSName }}ZFunction {
   <{{ range $i, $p := .TypeParams }}{{ $p.Name }} extends {{ $p.Constraint }}{{ end }}>(
@@ -2070,13 +2122,14 @@ export interface {{ .TSName }}Schemas<{{ range $i, $p := .TypeParams }}{{ if $i 
 }
 {{- if and .ConcreteTypes .ConditionalFields }}
 
-export type {{ .TSName }}ZodObject<{{ range $i, $p := .TypeParams }}{{ if $i }}, {{ end }}{{ $p.Name }} extends {{ $p.Constraint }}{{ if $p.HasDefault }} = {{ $p.Default }}{{ end }}{{ end }}> = z.ZodObject<
-  {
+export type {{ .TSName }}ZodObject<{{ range $i, $p := .TypeParams }}{{ if $i }}, {{ end }}{{ $p.Name }} extends {{ $p.Constraint }}{{ if $p.HasDefault }} = {{ $p.Default }}{{ end }}{{ end }}> = z.ZodObject<{
 {{- range .BaseFields }}
     {{ .TSName }}: {{ .ZodSchemaType }};
 {{- end }}
-  }{{ range .ConditionalFields }} & ([{{ .TypeParamName }}] extends [{{ .NeverType }}] ? {} : { {{ .Field.TSName }}: {{ .TypeParamName }} }){{ end }}
->;
+{{- range .ConditionalFields }}
+    {{ .Field.TSName }}: [{{ .TypeParamName }}] extends [{{ .NeverType }}] ? {{ .FallbackSchemaType }} : {{ .TypeParamName }};
+{{- end }}
+}>;
 
 export interface {{ .TSName }}ZFunction {
   <{{ range $i, $p := .TypeParams }}{{ if $i }}, {{ end }}{{ $p.Name }} extends {{ $p.Constraint }}{{ if not $p.HasDefault }}{{ else if $p.Default }} = {{ $p.Default }}{{ end }}{{ end }}>(

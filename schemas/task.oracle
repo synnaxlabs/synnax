@@ -24,7 +24,7 @@ Key uint64 {
     @ts to_string
 }
 
-StatusDetails struct<Data extends json = json> {
+StatusDetails struct<Data? = json> {
     task    Key     {
         @doc value "is the key of the task this status pertains to."
     }
@@ -42,13 +42,13 @@ StatusDetails struct<Data extends json = json> {
     @ts concrete_types
 }
 
-Status<Data extends json = json> = status.Status<StatusDetails<Data>> {
+Status<Data? = json> = status.Status<StatusDetails<Data>> {
     @doc value """
         is task-specific status information including execution state and task-specific data.
     """
 }
 
-NewStatusDetails struct<Data extends json = json> {
+NewStatusDetails struct<Data? = json> {
     task    Key?    {
         @doc value "is an optional task key."
     }
@@ -62,14 +62,15 @@ NewStatusDetails struct<Data extends json = json> {
         @doc value "contains task-specific status data."
     }
 
-    @doc value "contains details for creating a new task status."
+    @doc value         "contains details for creating a new task status."
+    @ts concrete_types
     @go omit
     @pb omit
     @py omit
     @cpp omit
 }
 
-NewStatus<Data extends json = json> = status.New<NewStatusDetails<Data>> {
+NewStatus<Data? = json> = status.New<NewStatusDetails<Data>> {
     @doc value "contains parameters for creating a new task status."
     @go omit
     @pb omit
@@ -80,7 +81,7 @@ NewStatus<Data extends json = json> = status.New<NewStatusDetails<Data>> {
 Task struct<
     Type extends string = string,
     Config extends json = json,
-    StatusData extends json = json
+    StatusData? = json
 > {
     key      Key                  {
         @doc value "is the composite identifier for this task."
@@ -124,11 +125,7 @@ Task struct<
     @py name       "Payload"
 }
 
-New struct<
-    Type extends string = string,
-    Config extends json = json,
-    StatusData extends json = json
-> extends Task<Type, Config, StatusData> {
+New struct<Type extends string = string, Config extends json = json, StatusData? = json> extends Task<Type, Config, StatusData> {
     -internal
     -snapshot
     key    Key?                   {

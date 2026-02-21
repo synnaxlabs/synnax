@@ -44,17 +44,16 @@ export interface StatusSchemas<
 export type StatusZodObject<
   Details extends z.ZodType = z.ZodNever,
   V extends z.ZodType<Variant> = typeof variantZ,
-> = z.ZodObject<
-  {
-    key: z.ZodDefault<z.ZodString>;
-    name: z.ZodDefault<z.ZodString>;
-    variant: V;
-    message: z.ZodString;
-    description: z.ZodOptional<z.ZodString>;
-    time: z.ZodDefault<typeof telem.timeStampZ>;
-    labels: ReturnType<typeof zod.nullToUndefined<z.ZodArray<typeof label.labelZ>>>;
-  } & ([Details] extends [z.ZodNever] ? {} : { details: Details })
->;
+> = z.ZodObject<{
+  key: z.ZodDefault<z.ZodString>;
+  name: z.ZodDefault<z.ZodString>;
+  variant: V;
+  message: z.ZodString;
+  description: z.ZodOptional<z.ZodString>;
+  time: z.ZodDefault<typeof telem.timeStampZ>;
+  labels: ReturnType<typeof zod.nullToUndefined<z.ZodArray<typeof label.labelZ>>>;
+  details: [Details] extends [z.ZodNever] ? z.ZodOptional<z.ZodUnknown> : Details;
+}>;
 
 export interface StatusZFunction {
   <

@@ -11,7 +11,7 @@ import "@/hardware/common/task/Form.css";
 
 import { type device, type rack, type Synnax, task } from "@synnaxlabs/client";
 import { Device, Flex, type Flux, Form as PForm, Input, Task } from "@synnaxlabs/pluto";
-import { primitive, TimeStamp } from "@synnaxlabs/x";
+import { primitive, type record, TimeStamp } from "@synnaxlabs/x";
 import { type FC, useCallback } from "react";
 import { useDispatch, useStore } from "react-redux";
 import { type z } from "zod";
@@ -56,16 +56,16 @@ export interface getInitialValuesArgs {
 
 export interface GetInitialValues<
   Type extends z.ZodLiteral<string> = z.ZodLiteral<string>,
-  Config extends z.ZodType = z.ZodType,
-  StatusData extends z.ZodType = z.ZodType,
+  Config extends z.ZodType<record.Unknown> = z.ZodType<record.Unknown>,
+  StatusData extends z.ZodType = z.ZodNever,
 > {
   (args: getInitialValuesArgs): Task.InitialValues<Type, Config, StatusData>;
 }
 
 export interface FormProps<
   Type extends z.ZodLiteral<string> = z.ZodLiteral<string>,
-  Config extends z.ZodType = z.ZodType,
-  StatusData extends z.ZodType = z.ZodType,
+  Config extends z.ZodType<record.Unknown> = z.ZodType<record.Unknown>,
+  StatusData extends z.ZodType = z.ZodNever,
 > extends PForm.UseReturn<Task.FormSchema<Type, Config, StatusData>> {
   layoutKey: string;
   status: Flux.Result<undefined>["status"];
@@ -74,8 +74,8 @@ export interface FormProps<
 
 export interface WrapFormArgs<
   Type extends z.ZodLiteral<string> = z.ZodLiteral<string>,
-  Config extends z.ZodType = z.ZodType,
-  StatusData extends z.ZodType = z.ZodType,
+  Config extends z.ZodType<record.Unknown> = z.ZodType<record.Unknown>,
+  StatusData extends z.ZodType = z.ZodNever,
 > {
   Properties?: FC<{}>;
   Form: FC<FormProps<Type, Config, StatusData>>;
@@ -115,8 +115,8 @@ const Header = ({ isSnapshot }: HeaderProps) => (
 
 export const wrapForm = <
   Type extends z.ZodLiteral<string> = z.ZodLiteral<string>,
-  Config extends z.ZodType = z.ZodType,
-  StatusData extends z.ZodType = z.ZodType,
+  Config extends z.ZodType<record.Unknown> = z.ZodType<record.Unknown>,
+  StatusData extends z.ZodType = z.ZodNever,
 >({
   Properties,
   Form,

@@ -125,7 +125,7 @@ describe("Task", async () => {
           key: ontology.idToString(task.ontologyID(t.key)),
           name: "test",
           variant: "success",
-          details: { task: t.key, running: false, data: {} },
+          details: { task: t.key, running: false, data: undefined },
           message: "test",
           time: TimeStamp.now(),
         };

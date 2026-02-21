@@ -985,7 +985,7 @@ describe("Arc queries", () => {
         details: {
           task: testTask.key,
           running: false,
-          data: undefined,
+          data: {},
         },
       });
 

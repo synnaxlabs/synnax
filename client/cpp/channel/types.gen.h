@@ -42,7 +42,7 @@ using Key = std::uint32_t;
 
 using Name = std::string;
 
-using Status = ::x::status::Status<>;
+using Status = ::x::status::Status<void>;
 
 /// @brief Operation defines an aggregation operation applied to channel data.
 /// Operations calculate min, max, or average values over a time duration or triggered

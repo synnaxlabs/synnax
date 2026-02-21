@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { sendRequired, type UnaryClient } from "@synnaxlabs/freighter";
-import { array, zod } from "@synnaxlabs/x";
+import { array, type record, zod } from "@synnaxlabs/x";
 import { z } from "zod";
 
 import {
@@ -29,7 +29,7 @@ export const SET_CHANNEL_NAME = "sy_device_set";
 export const DELETE_CHANNEL_NAME = "sy_device_delete";
 
 const createReqZ = <
-  Properties extends z.ZodType = z.ZodType,
+  Properties extends z.ZodType<record.Unknown> = z.ZodType<record.Unknown>,
   Make extends z.ZodType<string> = z.ZodString,
   Model extends z.ZodType<string> = z.ZodString,
 >(
@@ -37,7 +37,7 @@ const createReqZ = <
 ) => z.object({ devices: zod.toArray(newZ(schemas)) });
 
 const createResZ = <
-  Properties extends z.ZodType = z.ZodType,
+  Properties extends z.ZodType<record.Unknown> = z.ZodType<record.Unknown>,
   Make extends z.ZodType<string> = z.ZodString,
   Model extends z.ZodType<string> = z.ZodString,
 >(
@@ -61,7 +61,7 @@ const retrieveRequestZ = z.object({
 });
 
 const retrieveResZ = <
-  Properties extends z.ZodType = z.ZodType,
+  Properties extends z.ZodType<record.Unknown> = z.ZodType<record.Unknown>,
   Make extends z.ZodType<string> = z.ZodString,
   Model extends z.ZodType<string> = z.ZodString,
 >(
@@ -86,7 +86,7 @@ const retrieveArgsZ = z.union([singleRetrieveArgsZ, retrieveRequestZ]);
 export type RetrieveArgs = z.input<typeof retrieveArgsZ>;
 
 type RetrieveSchemas<
-  Properties extends z.ZodType,
+  Properties extends z.ZodType<record.Unknown>,
   Make extends z.ZodType<string>,
   Model extends z.ZodType<string>,
 > = { schemas: DeviceSchemas<Properties, Make, Model> };
@@ -99,7 +99,7 @@ export class Client {
   }
 
   async retrieve<
-    Properties extends z.ZodType,
+    Properties extends z.ZodType<record.Unknown>,
     Make extends z.ZodType<string>,
     Model extends z.ZodType<string>,
   >(
@@ -109,7 +109,7 @@ export class Client {
   async retrieve(args: RetrieveSingleParams): Promise<Device>;
 
   async retrieve<
-    Properties extends z.ZodType,
+    Properties extends z.ZodType<record.Unknown>,
     Make extends z.ZodType<string>,
     Model extends z.ZodType<string>,
   >(
@@ -139,7 +139,7 @@ export class Client {
   async create(devices: New[]): Promise<Device[]>;
 
   async create<
-    Properties extends z.ZodType,
+    Properties extends z.ZodType<record.Unknown>,
     Make extends z.ZodType<string>,
     Model extends z.ZodType<string>,
   >(
@@ -150,7 +150,7 @@ export class Client {
   async create(device: New): Promise<Device>;
 
   async create<
-    Properties extends z.ZodType,
+    Properties extends z.ZodType<record.Unknown>,
     Make extends z.ZodType<string>,
     Model extends z.ZodType<string>,
   >(

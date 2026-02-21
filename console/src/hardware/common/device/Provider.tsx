@@ -9,6 +9,7 @@
 
 import { type device } from "@synnaxlabs/client";
 import { Text } from "@synnaxlabs/pluto";
+import { type record } from "@synnaxlabs/x";
 import { type ReactElement } from "react";
 import { type z } from "zod";
 
@@ -23,7 +24,7 @@ const DEFAULT_NONE_SELECTED_CONTENT = (
 );
 
 export interface ProviderChildProps<
-  Properties extends z.ZodType = z.ZodType,
+  Properties extends z.ZodType<record.Unknown> = z.ZodType<record.Unknown>,
   Make extends z.ZodType<string> = z.ZodString,
   Model extends z.ZodType<string> = z.ZodString,
 > {
@@ -31,7 +32,7 @@ export interface ProviderChildProps<
 }
 
 export interface ProviderProps<
-  Properties extends z.ZodType = z.ZodType,
+  Properties extends z.ZodType<record.Unknown> = z.ZodType<record.Unknown>,
   Make extends z.ZodType<string> = z.ZodString,
   Model extends z.ZodType<string> = z.ZodString,
 > {
@@ -43,7 +44,7 @@ export interface ProviderProps<
 }
 
 export const Provider = <
-  Properties extends z.ZodType = z.ZodType,
+  Properties extends z.ZodType<record.Unknown> = z.ZodType<record.Unknown>,
   Make extends z.ZodType<string> = z.ZodString,
   Model extends z.ZodType<string> = z.ZodString,
 >({
