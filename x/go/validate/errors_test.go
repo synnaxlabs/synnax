@@ -32,7 +32,7 @@ var _ = Describe("Errors", func() {
 		})
 
 		Describe("Encoding + Decoding", func() {
-			It("Should correctly encode and decode", func() {
+			It("Should correctly encode and decode", func(ctx SpecContext) {
 				base := errors.New("cat")
 				pathed := validate.PathedError(base, "field")
 				encoded := errors.Encode(ctx, pathed, false)
@@ -40,7 +40,7 @@ var _ = Describe("Errors", func() {
 				Expect(decoded).To(MatchError(ContainSubstring("field: cat")))
 			})
 
-			It("Should have the correct encoded representation", func() {
+			It("Should have the correct encoded representation", func(ctx SpecContext) {
 				base := errors.New("cat")
 				pathed := validate.PathedError(base, "field")
 				encoded := errors.Encode(ctx, pathed, false)
@@ -48,7 +48,7 @@ var _ = Describe("Errors", func() {
 				Expect(encoded.Data).To(Equal("{\"error\":{\"type\":\"unknown\",\"data\":\"cat\"},\"path\":[\"field\"]}"))
 			})
 
-			It("Should correctly encode and decode nested paths", func() {
+			It("Should correctly encode and decode nested paths", func(ctx SpecContext) {
 				base := errors.New("cat")
 				first := validate.PathedError(base, "first")
 				parent := validate.PathedError(first, "parent")

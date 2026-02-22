@@ -10,8 +10,6 @@
 package gorp_test
 
 import (
-	"context"
-
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/x/gorp"
@@ -19,16 +17,12 @@ import (
 )
 
 var _ = Describe("Reader", func() {
-	var (
-		ctx context.Context
-		tx  gorp.Tx
-	)
+	var tx  gorp.Tx
 	BeforeEach(func() {
-		ctx = context.Background()
 		tx = db.OpenTx()
 	})
 	Describe("Iterator", func() {
-		It("Should iterate over entries matching a type", func() {
+		It("Should iterate over entries matching a type", func(ctx SpecContext) {
 			Expect(gorp.NewCreate[int, entry]().
 				Entries(&[]entry{{ID: 1, Data: "data"}, {ID: 2, Data: "data"}}).
 				Exec(ctx, tx)).To(Succeed())
@@ -42,7 +36,7 @@ var _ = Describe("Reader", func() {
 		})
 	})
 	Describe("Nexter", func() {
-		It("Should iterate over entries matching a type", func() {
+		It("Should iterate over entries matching a type", func(ctx SpecContext) {
 			Expect(gorp.NewCreate[int, entry]().
 				Entries(&[]entry{{ID: 1, Data: "data"}, {ID: 2, Data: "data"}}).
 				Exec(ctx, tx)).To(Succeed())
@@ -52,11 +46,12 @@ var _ = Describe("Reader", func() {
 			}
 			Expect(closer.Close()).To(Succeed())
 		})
-		It("Should correctly iterate over entries with a binary key", func() {
+		It("Should correctly iterate over entries with a binary key", func(ctx SpecContext) {
 			Expect(gorp.NewCreate[[]byte, prefixEntry]().
 				Entries(&[]prefixEntry{{ID: 1, Data: "data"}, {ID: 2, Data: "data"}}).
 				Exec(ctx, tx)).To(Succeed())
-			nexter, closer := MustSucceed2(gorp.WrapReader[[]byte, prefixEntry](tx).OpenNexter(ctx))
+			nexter, closer := MustSucceed2(gorp.WrapReader[[]byte, prefixEntry](tx).
+				OpenNexter(ctx))
 			for v := range nexter {
 				Expect(v.Data).To(Equal("data"))
 			}

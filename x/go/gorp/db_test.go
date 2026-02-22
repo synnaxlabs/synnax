@@ -10,8 +10,6 @@
 package gorp_test
 
 import (
-	"context"
-
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/x/gorp"
@@ -20,14 +18,8 @@ import (
 )
 
 var _ = Describe("DB", func() {
-	var ctx context.Context
-
-	BeforeEach(func() {
-		ctx = context.Background()
-	})
-
 	Describe("WithTx", func() {
-		It("Should commit the transaction if the callback returns nil", func() {
+		It("Should commit the transaction if the callback returns nil", func(ctx SpecContext) {
 			Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
 				return gorp.NewCreate[int, entry]().Entry(&entry{ID: 1, Data: "One"}).Exec(ctx, tx)
 			})).To(Succeed())
@@ -35,7 +27,7 @@ var _ = Describe("DB", func() {
 			Expect(gorp.NewRetrieve[int, entry]().WhereKeys(1).Entry(&res).Exec(ctx, db)).To(Succeed())
 			Expect(res).To(Equal(entry{ID: 1, Data: "One"}))
 		})
-		It("Should not commit the transaction if the callback returns an error", func() {
+		It("Should not commit the transaction if the callback returns an error", func(ctx SpecContext) {
 			Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
 				return gorp.NewCreate[int, entry]().Entry(&entry{ID: 1, Data: "One"}).Exec(ctx, tx)
 			})).To(Succeed())

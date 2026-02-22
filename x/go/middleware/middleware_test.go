@@ -13,6 +13,7 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/x/middleware"
+	. "github.com/synnaxlabs/x/testutil"
 )
 
 type request struct {
@@ -48,8 +49,8 @@ var _ = Describe("Middleware", func() {
 			&myFirstMiddleware{},
 		}
 		req := &request{}
-		_, err := chain.Exec(req, &myFinalizer{})
-		Expect(err).To(BeNil())
+		res := MustSucceed(chain.Exec(req, &myFinalizer{}))
 		Expect(req.value).To(Equal("request"))
+		Expect(res).To(BeNil())
 	})
 })

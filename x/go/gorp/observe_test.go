@@ -20,16 +20,13 @@ import (
 )
 
 var _ = Describe("Observe", func() {
-	var (
-		db  *gorp.DB
-		ctx context.Context
-	)
+	var db  *gorp.DB
 	BeforeEach(func() {
 		db = gorp.Wrap(memkv.New())
-		ctx = context.Background()
 	})
 	AfterEach(func() { Expect(db.Close()).To(Succeed()) })
-	It("Should correctly observe a change to the key value store", func() {
+
+	It("Should correctly observe a change to the key value store", func(ctx SpecContext) {
 		tx := db.OpenTx()
 		Expect(gorp.NewCreate[int, entry]().Entry(&entry{ID: 42, Data: "data"}).Exec(ctx, tx)).To(Succeed())
 		called := false
@@ -43,7 +40,8 @@ var _ = Describe("Observe", func() {
 		Expect(tx.Commit(ctx)).To(Succeed())
 		Expect(called).To(BeTrue())
 	})
-	It("Should not notify for a different type than the entries written", func() {
+
+	It("Should not notify for a different type than the entries written", func(ctx SpecContext) {
 		tx := db.OpenTx()
 		Expect(gorp.NewCreate[int, entry]().Entry(&entry{ID: 42, Data: "data"}).Exec(ctx, tx)).To(Succeed())
 		called := false
@@ -53,14 +51,20 @@ var _ = Describe("Observe", func() {
 		Expect(tx.Commit(ctx)).To(Succeed())
 		Expect(called).To(BeFalse())
 	})
-	It("Should notify each observer with only their matching entries in a mixed transaction", func() {
-		tx := db.OpenTx()
-		Expect(gorp.NewCreate[int, entry]().Entry(&entry{ID: 1, Data: "one"}).Exec(ctx, tx)).To(Succeed())
-		Expect(gorp.NewCreate[int, entry]().Entry(&entry{ID: 2, Data: "two"}).Exec(ctx, tx)).To(Succeed())
-		Expect(gorp.NewCreate[int, entryTwo]().Entry(&entryTwo{ID: 100, Data: "hundred"}).Exec(ctx, tx)).To(Succeed())
 
-		var entryChanges []change.Change[int, entry]
-		var entryTwoChanges []change.Change[int, entryTwo]
+	It("Should notify each observer with only their matching entries in a mixed transaction", func(ctx SpecContext) {
+		tx := db.OpenTx()
+		Expect(gorp.NewCreate[int, entry]().Entry(&entry{ID: 1, Data: "one"}).
+			Exec(ctx, tx)).To(Succeed())
+		Expect(gorp.NewCreate[int, entry]().Entry(&entry{ID: 2, Data: "two"}).
+			Exec(ctx, tx)).To(Succeed())
+		Expect(gorp.NewCreate[int, entryTwo]().Entry(&entryTwo{ID: 100, Data: "hundred"}).
+			Exec(ctx, tx)).To(Succeed())
+
+		var (
+			entryChanges []change.Change[int, entry]
+			entryTwoChanges []change.Change[int, entryTwo]
+		)
 
 		gorp.Observe[int, entry](db).OnChange(func(ctx context.Context, r gorp.TxReader[int, entry]) {
 			for ch := range r {

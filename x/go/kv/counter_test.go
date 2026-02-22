@@ -14,6 +14,7 @@ import (
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/x/kv"
 	"github.com/synnaxlabs/x/kv/memkv"
+	. "github.com/synnaxlabs/x/testutil"
 )
 
 var _ = Describe("Counter", Ordered, func() {
@@ -27,10 +28,8 @@ var _ = Describe("Counter", Ordered, func() {
 	Describe("AtomicInt64Counter", func() {
 		Context("Name Counter", Ordered, func() {
 			var c *kv.AtomicInt64Counter
-			BeforeAll(func() {
-				var err error
-				c, err = kv.OpenCounter(ctx, db, []byte("test"))
-				Expect(err).NotTo(HaveOccurred())
+			BeforeAll(func(ctx SpecContext) {
+				c = MustSucceed(kv.OpenCounter(ctx, db, []byte("test")))
 			})
 			It("Should create a counter with a starting value of 0", func() {
 				Expect(c.Value()).To(Equal(int64(0)))
@@ -47,7 +46,7 @@ var _ = Describe("Counter", Ordered, func() {
 			})
 		})
 		Context("Existing Counter", func() {
-			It("Should load the value of the existing counter", func() {
+			It("Should load the value of the existing counter", func(ctx SpecContext) {
 				c, err := kv.OpenCounter(ctx, db, []byte("test-two"))
 				Expect(err).NotTo(HaveOccurred())
 				Expect(c.Value()).To(Equal(int64(0)))

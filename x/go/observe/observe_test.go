@@ -18,7 +18,7 @@ import (
 )
 
 var _ = Describe("Observer", func() {
-	It("Should notify all handlers", func() {
+	It("Should notify all handlers", func(ctx SpecContext) {
 		obs := observe.New[int]()
 		var results []int
 		obs.OnChange(func(ctx context.Context, v int) {
@@ -27,24 +27,24 @@ var _ = Describe("Observer", func() {
 		obs.OnChange(func(ctx context.Context, v int) {
 			results = append(results, v*2)
 		})
-		obs.Notify(context.Background(), 5)
+		obs.Notify(ctx, 5)
 		Expect(results).To(ContainElements(5, 10))
 	})
 
-	It("Should allow disconnecting handlers", func() {
+	It("Should allow disconnecting handlers", func(ctx SpecContext) {
 		obs := observe.New[int]()
 		called := false
 		disconnect := obs.OnChange(func(ctx context.Context, v int) {
 			called = true
 		})
 		disconnect()
-		obs.Notify(context.Background(), 5)
+		obs.Notify(ctx, 5)
 		Expect(called).To(BeFalse())
 	})
 })
 
 var _ = Describe("Translator", func() {
-	It("Should translate and notify when Translate returns true", func() {
+	It("Should translate and notify when Translate returns true", func(ctx SpecContext) {
 		base := observe.New[int]()
 		translator := observe.Translator[int, string]{
 			Observable: base,
@@ -56,11 +56,11 @@ var _ = Describe("Translator", func() {
 		translator.OnChange(func(ctx context.Context, v string) {
 			result = v
 		})
-		base.Notify(context.Background(), 42)
+		base.Notify(ctx, 42)
 		Expect(result).To(Equal("translated"))
 	})
 
-	It("Should not notify when Translate returns false", func() {
+	It("Should not notify when Translate returns false", func(ctx SpecContext) {
 		base := observe.New[int]()
 		translator := observe.Translator[int, string]{
 			Observable: base,
@@ -72,11 +72,11 @@ var _ = Describe("Translator", func() {
 		translator.OnChange(func(ctx context.Context, v string) {
 			called = true
 		})
-		base.Notify(context.Background(), 42)
+		base.Notify(ctx, 42)
 		Expect(called).To(BeFalse())
 	})
 
-	It("Should conditionally notify based on input", func() {
+	It("Should conditionally notify based on input", func(ctx SpecContext) {
 		base := observe.New[int]()
 		translator := observe.Translator[int, int]{
 			Observable: base,
@@ -91,10 +91,10 @@ var _ = Describe("Translator", func() {
 		translator.OnChange(func(ctx context.Context, v int) {
 			results = append(results, v)
 		})
-		base.Notify(context.Background(), 5)
-		base.Notify(context.Background(), 15)
-		base.Notify(context.Background(), 3)
-		base.Notify(context.Background(), 20)
+		base.Notify(ctx, 5)
+		base.Notify(ctx, 15)
+		base.Notify(ctx, 3)
+		base.Notify(ctx, 20)
 		Expect(results).To(Equal([]int{30, 40}))
 	})
 })

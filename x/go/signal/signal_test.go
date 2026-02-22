@@ -33,11 +33,6 @@ func immediatelyPanic(ctx context.Context) error { panic("routine panicked") }
 func immediatelyReturnNil(ctx context.Context) error { return nil }
 
 var _ = Describe("Signal", func() {
-	var ctx context.Context
-	BeforeEach(func() {
-		ctx = context.Background()
-	})
-
 	Describe("Coordination", func() {
 		Describe("CancelOnFail", func() {
 			It("Should cancel the context when the first routine exits with an error", func() {
@@ -197,8 +192,8 @@ var _ = Describe("Signal", func() {
 			Expect(<-v).To(Equal(1))
 		})
 
-		It("Should not send a value to the channel if the context is cancelled", func() {
-			ctx, cancel := signal.WithTimeout(ctx, 500*time.Microsecond)
+		It("Should not send a value to the channel if the context is cancelled", func(specCtx SpecContext) {
+			ctx, cancel := signal.WithTimeout(specCtx, 500*time.Microsecond)
 			v := make(chan int)
 			_ = signal.SendUnderContext(ctx, v, 1)
 			cancel()
@@ -217,8 +212,8 @@ var _ = Describe("Signal", func() {
 			Expect(val).To(Equal(1))
 		})
 
-		It("Should return context error if context is cancelled before receive", func() {
-			ctx, cancel := signal.WithTimeout(ctx, 500*time.Microsecond)
+		It("Should return context error if context is cancelled before receive", func(specCtx SpecContext) {
+			ctx, cancel := signal.WithTimeout(specCtx, 500*time.Microsecond)
 			v := make(chan int)
 			cancel()
 			val, err := signal.RecvUnderContext(ctx, v)
@@ -226,8 +221,8 @@ var _ = Describe("Signal", func() {
 			Expect(val).To(Equal(0))
 		})
 
-		It("Should receive value even if context is cancelled after value is available", func() {
-			ctx, cancel := signal.WithTimeout(ctx, 500*time.Microsecond)
+		It("Should receive value even if context is cancelled after value is available", func(specCtx SpecContext) {
+			ctx, cancel := signal.WithTimeout(specCtx, 500*time.Microsecond)
 			v := make(chan int, 1)
 			v <- 1
 			val, err := signal.RecvUnderContext(ctx, v)

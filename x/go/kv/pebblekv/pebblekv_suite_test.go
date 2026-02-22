@@ -10,18 +10,11 @@
 package pebblekv_test
 
 import (
-	"context"
 	"testing"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 )
-
-var ctx = context.Background()
-
-var _ = BeforeEach(func() {
-	ctx = context.Background()
-})
 
 func TestPebbleKV(t *testing.T) {
 	RegisterFailHandler(Fail)

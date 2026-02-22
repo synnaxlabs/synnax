@@ -19,12 +19,6 @@ import (
 	"go.lsp.dev/protocol"
 )
 
-var ctx context.Context
-
-var _ = BeforeEach(func() {
-	ctx = context.Background()
-})
-
 var _ = Describe("MockClient", func() {
 	Describe("Diagnostics", func() {
 		It("should return empty diagnostics initially", func() {
@@ -92,61 +86,63 @@ var _ = Describe("MockClient", func() {
 			client = &testutil.MockClient{}
 		})
 
-		It("should return nil from ShowMessage", func() {
+		It("should return nil from ShowMessage", func(ctx SpecContext) {
 			Expect(client.ShowMessage(ctx, &protocol.ShowMessageParams{
 				Type:    protocol.MessageTypeInfo,
 				Message: "test",
 			})).To(Succeed())
 		})
 
-		It("should return nil from ShowMessageRequest", func() {
-			Expect(MustSucceed(client.ShowMessageRequest(ctx, &protocol.ShowMessageRequestParams{}))).To(BeNil())
+		It("should return nil from ShowMessageRequest", func(ctx SpecContext) {
+			Expect(MustSucceed(
+				client.ShowMessageRequest(ctx, &protocol.ShowMessageRequestParams{})),
+			).To(BeNil())
 		})
 
-		It("should return nil from LogMessage", func() {
+		It("should return nil from LogMessage", func(ctx SpecContext) {
 			Expect(client.LogMessage(ctx, &protocol.LogMessageParams{
 				Type:    protocol.MessageTypeLog,
 				Message: "log entry",
 			})).To(Succeed())
 		})
 
-		It("should return nil from Telemetry", func() {
+		It("should return nil from Telemetry", func(ctx SpecContext) {
 			Expect(client.Telemetry(ctx, map[string]string{"key": "value"})).To(Succeed())
 		})
 
-		It("should return nil from RegisterCapability", func() {
+		It("should return nil from RegisterCapability", func(ctx SpecContext) {
 			Expect(client.RegisterCapability(ctx, &protocol.RegistrationParams{})).To(Succeed())
 		})
 
-		It("should return nil from UnregisterCapability", func() {
+		It("should return nil from UnregisterCapability", func(ctx SpecContext) {
 			Expect(client.UnregisterCapability(ctx, &protocol.UnregistrationParams{})).To(Succeed())
 		})
 
-		It("should return nil from WorkspaceFolders", func() {
+		It("should return nil from WorkspaceFolders", func(ctx SpecContext) {
 			Expect(MustSucceed(client.WorkspaceFolders(ctx))).To(BeNil())
 		})
 
-		It("should return nil from Configuration", func() {
+		It("should return nil from Configuration", func(ctx SpecContext) {
 			Expect(MustSucceed(client.Configuration(ctx, &protocol.ConfigurationParams{}))).To(BeNil())
 		})
 
-		It("should return false from ApplyEdit", func() {
+		It("should return false from ApplyEdit", func(ctx SpecContext) {
 			Expect(MustSucceed(client.ApplyEdit(ctx, &protocol.ApplyWorkspaceEditParams{}))).To(BeFalse())
 		})
 
-		It("should return nil from Progress", func() {
+		It("should return nil from Progress", func(ctx SpecContext) {
 			Expect(client.Progress(ctx, &protocol.ProgressParams{})).To(Succeed())
 		})
 
-		It("should return nil from WorkDoneProgressCreate", func() {
+		It("should return nil from WorkDoneProgressCreate", func(ctx SpecContext) {
 			Expect(client.WorkDoneProgressCreate(ctx, &protocol.WorkDoneProgressCreateParams{})).To(Succeed())
 		})
 
-		It("should return nil from ShowDocument", func() {
+		It("should return nil from ShowDocument", func(ctx SpecContext) {
 			Expect(MustSucceed(client.ShowDocument(ctx, &protocol.ShowDocumentParams{URI: "file:///test"}))).To(BeNil())
 		})
 
-		It("should return nil from Request", func() {
+		It("should return nil from Request", func(ctx SpecContext) {
 			Expect(MustSucceed(client.Request(ctx, "custom/method", nil))).To(BeNil())
 		})
 	})
