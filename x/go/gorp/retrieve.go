@@ -177,11 +177,15 @@ func (r Retrieve[K, E]) Count(ctx context.Context, tx Tx) (count int, err error)
 		err = errors.Combine(err, iter.Close())
 	}()
 	for iter.First(); iter.Valid(); iter.Next() {
+		v := iter.Value(ctx)
+		if err = iter.Error(); err != nil {
+			return 0, err
+		}
 		var match bool
 		match, err = r.filters.exec(Context{
 			Context: ctx,
 			Tx:      tx,
-		}, iter.Value(ctx))
+		}, v)
 		if err != nil {
 			return 0, err
 		}

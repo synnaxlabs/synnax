@@ -14,7 +14,6 @@
 package unsafe
 
 import (
-	"bytes"
 	"fmt"
 	"unsafe"
 
@@ -141,34 +140,3 @@ func ReinterpretMapValues[K comparable, A, B types.Sized](in map[K]A) map[K]B {
 	return *(*map[K]B)(unsafe.Pointer(&in))
 }
 
-// EncodePrimitive encodes a primitive value to a byte slice using little-endian
-// byte order for numeric types.
-func EncodePrimitive[K types.Primitive](value K) []byte {
-	switch v := any(value).(type) {
-	case string:
-		return []byte(v)
-	case []byte:
-		return v
-	default:
-		// All remaining Primitive types are fixed-size numerics
-		size := int(unsafe.Sizeof(value))
-		out := make([]byte, size)
-		copy(out, unsafe.Slice((*byte)(unsafe.Pointer(&value)), size))
-		return out
-	}
-}
-
-// DecodePrimitive decodes a byte slice into a primitive value using little-endian
-// byte order for numeric types. For []byte types, the data is cloned to prevent
-// issues with buffer reuse.
-func DecodePrimitive[K types.Primitive](data []byte) K {
-	var zero K
-	switch any(zero).(type) {
-	case string:
-		return any(string(data)).(K)
-	case []byte:
-		return any(bytes.Clone(data)).(K)
-	default:
-		return *(*K)(unsafe.Pointer(&data[0]))
-	}
-}

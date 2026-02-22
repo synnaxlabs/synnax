@@ -83,4 +83,25 @@ var _ = Describe("Observe", func() {
 		Expect(grapeChanges).To(HaveLen(1))
 		Expect(grapeChanges[0].Value).To(Equal(grape{ID: 100, Data: "hundred"}))
 	})
+
+	It("Should correctly decode the key on delete notifications", func() {
+		Expect(gorp.NewCreate[int32, entry]().
+			Entry(&entry{ID: 42, Data: "data"}).
+			Exec(ctx, db)).To(Succeed())
+
+		tx := db.OpenTx()
+		Expect(gorp.NewDelete[int32, entry]().WhereKeys(42).Exec(ctx, tx)).To(Succeed())
+
+		var deleteChanges []change.Change[int32, entry]
+		gorp.Observe[int32, entry](db).OnChange(func(ctx context.Context, r gorp.TxReader[int32, entry]) {
+			for ch := range r {
+				deleteChanges = append(deleteChanges, ch)
+			}
+		})
+
+		Expect(tx.Commit(ctx)).To(Succeed())
+		Expect(deleteChanges).To(HaveLen(1))
+		Expect(deleteChanges[0].Variant).To(Equal(change.VariantDelete))
+		Expect(deleteChanges[0].Key).To(Equal(int32(42)))
+	})
 })

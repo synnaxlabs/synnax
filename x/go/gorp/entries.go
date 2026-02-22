@@ -11,9 +11,10 @@ package gorp
 
 import (
 	"bytes"
+	"encoding/binary"
+	"unsafe"
 
 	"github.com/synnaxlabs/x/types"
-	xunsafe "github.com/synnaxlabs/x/unsafe"
 	"go.uber.org/zap"
 )
 
@@ -88,7 +89,7 @@ func (e *Entries[K, E]) Set(i int, entry E) {
 		}
 		(*e.entries)[i] = entry
 		e.changes++
-	} else if i == 0 {
+	} else if i == 0 && e.entry != nil {
 		*e.entry = entry
 		e.changes++
 	}
@@ -113,6 +114,9 @@ func (e *Entries[K, E]) MapInPlace(f func(E) (E, bool, error)) error {
 		}
 		*e.entries = nEntries
 		e.changes += len(nEntries)
+		return nil
+	}
+	if e.entry == nil {
 		return nil
 	}
 	n, ok, err := f(*e.entry)
@@ -169,25 +173,120 @@ func multipleEntries[K Key, E Entry[K]](entries *[]E) *Entries[K, E] {
 const magicPrefix = "__gorp__//"
 
 type keyCodec[K Key, E Entry[K]] struct {
-	prefix []byte
+	prefix  []byte
+	keySize int
 }
 
 func newKeyCodec[K Key, E Entry[K]]() keyCodec[K, E] {
-	return keyCodec[K, E]{prefix: []byte(magicPrefix + types.Name[E]())}
-}
-
-func (k keyCodec[K, E]) baseEncode(key K) []byte {
-	return xunsafe.EncodePrimitive(key)
+	c := keyCodec[K, E]{prefix: []byte(magicPrefix + types.Name[E]())}
+	var zero K
+	switch any(zero).(type) {
+	case string, []byte:
+	default:
+		c.keySize = int(unsafe.Sizeof(zero))
+	}
+	return c
 }
 
 func (k keyCodec[K, E]) encode(key K) []byte {
-	return append(bytes.Clone(k.prefix), k.baseEncode(key)...)
+	if k.keySize > 0 {
+		out := make([]byte, len(k.prefix)+k.keySize)
+		copy(out, k.prefix)
+		k.putBigEndian(out[len(k.prefix):], key)
+		return out
+	}
+	switch v := any(key).(type) {
+	case string:
+		out := make([]byte, len(k.prefix)+len(v))
+		copy(out, k.prefix)
+		copy(out[len(k.prefix):], v)
+		return out
+	case []byte:
+		out := make([]byte, len(k.prefix)+len(v))
+		copy(out, k.prefix)
+		copy(out[len(k.prefix):], v)
+		return out
+	default:
+		panic("unreachable")
+	}
 }
 
 func (k keyCodec[K, E]) decode(b []byte) K {
-	return xunsafe.DecodePrimitive[K](b[len(k.prefix):])
+	b = b[len(k.prefix):]
+	if k.keySize > 0 {
+		return k.getBigEndian(b)
+	}
+	var zero K
+	switch any(zero).(type) {
+	case string:
+		return any(string(b)).(K)
+	case []byte:
+		return any(bytes.Clone(b)).(K)
+	default:
+		panic("unreachable")
+	}
 }
 
 func (k keyCodec[K, E]) matchPrefix(prefix []byte, key K) bool {
-	return bytes.HasPrefix(k.baseEncode(key), prefix)
+	if len(prefix) == 0 {
+		return true
+	}
+	if k.keySize > 0 {
+		if len(prefix) > k.keySize {
+			return false
+		}
+		src := unsafe.Slice((*byte)(unsafe.Pointer(&key)), k.keySize)
+		for i := range len(prefix) {
+			if src[k.keySize-1-i] != prefix[i] {
+				return false
+			}
+		}
+		return true
+	}
+	switch v := any(key).(type) {
+	case string:
+		return len(v) >= len(prefix) && string(prefix) == v[:len(prefix)]
+	case []byte:
+		return bytes.HasPrefix(v, prefix)
+	default:
+		panic("unreachable")
+	}
+}
+
+func (k keyCodec[K, E]) putBigEndian(dst []byte, key K) {
+	switch k.keySize {
+	case 1:
+		dst[0] = *(*byte)(unsafe.Pointer(&key))
+	case 2:
+		binary.BigEndian.PutUint16(dst, *(*uint16)(unsafe.Pointer(&key)))
+	case 4:
+		binary.BigEndian.PutUint32(dst, *(*uint32)(unsafe.Pointer(&key)))
+	case 8:
+		binary.BigEndian.PutUint64(dst, *(*uint64)(unsafe.Pointer(&key)))
+	default:
+		src := unsafe.Slice((*byte)(unsafe.Pointer(&key)), k.keySize)
+		for i := range k.keySize {
+			dst[i] = src[k.keySize-1-i]
+		}
+	}
+}
+
+func (k keyCodec[K, E]) getBigEndian(b []byte) K {
+	var out K
+	switch k.keySize {
+	case 1:
+		*(*byte)(unsafe.Pointer(&out)) = b[0]
+	case 2:
+		*(*uint16)(unsafe.Pointer(&out)) = binary.BigEndian.Uint16(b)
+	case 4:
+		*(*uint32)(unsafe.Pointer(&out)) = binary.BigEndian.Uint32(b)
+	case 8:
+		*(*uint64)(unsafe.Pointer(&out)) = binary.BigEndian.Uint64(b)
+	default:
+		dst := unsafe.Slice((*byte)(unsafe.Pointer(&out)), k.keySize)
+		for i := range k.keySize {
+			dst[i] = b[k.keySize-1-i]
+		}
+	}
+	return out
 }
