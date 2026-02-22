@@ -23,7 +23,7 @@ const CreateScanCommand = Palette.createSimpleCommand({
 });
 
 const CreateReadCommand = Palette.createSimpleCommand({
-  key: "http-create-read-task",
+  key: "http_create_read_task",
   name: "Create an HTTP Read Task",
   icon: <Icon.Logo.HTTP />,
   layout: READ_LAYOUT,

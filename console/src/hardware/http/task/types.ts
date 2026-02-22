@@ -9,28 +9,36 @@
 
 import { type task } from "@synnaxlabs/client";
 import { JSON } from "@synnaxlabs/pluto";
-import { id, Rate } from "@synnaxlabs/x";
+import { Rate } from "@synnaxlabs/x";
 import { z } from "zod";
 
 import { Common } from "@/hardware/common";
 
 export const PREFIX = "http";
 
+const jsonPointerZ = z
+  .string()
+  .regex(/^(?:$|(?:\/(?:[^~/]|~0|~1)*)+)$/, "JSON pointers");
+
+const timeFormatZ = z.enum(["iso8601", "unix_sec", "unix_ms", "unix_us", "unix_ns"]);
+
+export type TimeFormat = z.infer<typeof timeFormatZ>;
+
 export const SCAN_TYPE = `${PREFIX}_scan`;
 
 export const scanTypeZ = z.literal(SCAN_TYPE);
 
 const responseValidationZ = z.object({
-  field: z.string().min(1, "JSON pointer is required"),
+  field: jsonPointerZ,
   expectedValue: JSON.primitiveZ,
 });
 
 export interface ResponseValidation extends z.infer<typeof responseValidationZ> {}
 
-export const ZERO_RESPONSE_VALIDATION: ResponseValidation = {
+export const ZERO_RESPONSE_VALIDATION = {
   field: "",
   expectedValue: null,
-};
+} as const satisfies ResponseValidation;
 
 export const scanConfigZ = Common.Task.baseConfigZ.extend({
   rate: z.number().positive("Rate must be positive"),
@@ -67,19 +75,9 @@ export const READ_TYPE = `${PREFIX}_read`;
 
 export const readTypeZ = z.literal(READ_TYPE);
 
-const timeFormatZ = z.enum(["iso8601", "unix_sec", "unix_ms", "unix_us", "unix_ns"]);
-export type TimeFormat = z.infer<typeof timeFormatZ>;
-
-const timeInfoZ = z.object({
-  pointer: z.string().min(1, "Pointer is required"),
-  format: timeFormatZ,
-});
-export interface TimeInfo extends z.infer<typeof timeInfoZ> {}
-
 const readFieldZ = Common.Task.readChannelZ.extend({
-  pointer: z.string().min(1, "JSON pointer is required"),
-  timestampFormat: timeFormatZ.optional(),
-  timePointer: timeInfoZ.optional(),
+  pointer: jsonPointerZ,
+  timestampFormat: timeFormatZ.optional(), // only used for channels where data type is timestamp.
 });
 export interface ReadField extends z.infer<typeof readFieldZ> {}
 
@@ -88,25 +86,36 @@ export const ZERO_READ_FIELD: ReadField = {
   pointer: "",
 };
 
-const readEndpointZ = z.object({
+const baseReadEndpointZ = z.object({
   key: z.string(),
-  method: z.enum(["GET", "POST"]),
   path: z.string().min(1, "Path is required"),
   queryParams: z.record(z.string(), z.string()).optional(),
-  body: z.string().optional(),
   fields: z.array(readFieldZ),
 });
-export interface ReadEndpoint extends z.infer<typeof readEndpointZ> {}
+const getReadEndpointZ = baseReadEndpointZ.extend({ method: z.literal("GET") });
+const postReadEndpointZ = baseReadEndpointZ.extend({
+  method: z.literal("POST"),
+  body: z.string().optional(),
+});
+
+const readEndpointZ = z.discriminatedUnion("method", [
+  getReadEndpointZ,
+  postReadEndpointZ,
+]);
+export type ReadEndpoint = z.infer<typeof readEndpointZ>;
 
 export const ZERO_READ_ENDPOINT: ReadEndpoint = {
-  key: id.create(),
+  key: "",
   method: "GET",
   path: "",
   fields: [],
 };
 
 export const readConfigZ = Common.Task.baseReadConfigZ.extend({
-  rate: z.number().positive("Rate must be positive"),
+  rate: z
+    .number()
+    .positive("Rate must be positive")
+    .max(100, "Rate must be less than 100 Hz"),
   strict: z.boolean().default(false),
   endpoints: z.array(readEndpointZ),
 });
@@ -120,13 +129,10 @@ export const ZERO_READ_CONFIG: ReadConfig = {
 };
 
 export const readStatusDataZ = z
-  .object({
-    running: z.boolean(),
-    message: z.string(),
-  })
+  .object({ running: z.boolean(), message: z.string() })
   .or(z.null());
 
-interface ReadPayload extends task.Payload<
+export interface ReadPayload extends task.Payload<
   typeof readTypeZ,
   typeof readConfigZ,
   typeof readStatusDataZ
