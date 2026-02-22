@@ -7,13 +7,14 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+#include <set>
+
 #include "driver/http/errors/errors.h"
 #include "driver/http/read_task.h"
 
 namespace driver::http {
 
-std::pair<ReadTaskConfig, x::errors::Error>
-ReadTaskConfig::parse(
+std::pair<ReadTaskConfig, x::errors::Error> ReadTaskConfig::parse(
     const std::shared_ptr<task::Context> &ctx,
     const synnax::task::Task &task
 ) {
@@ -25,18 +26,16 @@ ReadTaskConfig::parse(
     cfg.rate = x::telem::Rate(parser.field<double>("rate"));
     cfg.strict = parser.field<bool>("strict", false);
 
-    // Collect all channel keys for batch retrieval.
+    // Collect all channel keys for batch retrieval and duplicate detection.
     std::vector<synnax::channel::Key> all_keys;
+    std::set<synnax::channel::Key> seen_keys;
 
     parser.iter("endpoints", [&](x::json::Parser &ep) {
         ReadEndpoint endpoint;
         endpoint.request.method = parse_method(ep, "method");
         if (endpoint.request.method != Method::GET &&
             endpoint.request.method != Method::POST)
-            ep.field_err(
-                "method",
-                "read tasks only support GET and POST methods"
-            );
+            ep.field_err("method", "read tasks only support GET and POST methods");
         endpoint.request.path = ep.field<std::string>("path");
         endpoint.request.query_params = ep.field<std::map<std::string, std::string>>(
             "query_params",
@@ -65,14 +64,14 @@ ReadTaskConfig::parse(
             if (ti_parser.ok()) field.time_info.emplace(ti_parser);
 
             // Check for duplicate channel keys.
-            if (cfg.all_channel_keys.count(field.channel_key))
+            if (seen_keys.count(field.channel_key))
                 fp.field_err(
                     "channel",
                     "channel " + std::to_string(field.channel_key) +
                         " is used multiple times"
                 );
             else
-                cfg.all_channel_keys.insert(field.channel_key);
+                seen_keys.insert(field.channel_key);
 
             all_keys.push_back(field.channel_key);
             endpoint.fields.push_back(std::move(field));
@@ -99,62 +98,53 @@ ReadTaskConfig::parse(
     auto [sy_channels, ch_err] = ctx->client->channels.retrieve(all_keys);
     if (ch_err) return {{}, ch_err};
 
-    // Build a key -> channel map for lookups.
-    std::map<synnax::channel::Key, synnax::channel::Channel> ch_map;
-    for (const auto &ch : sy_channels) ch_map[ch.key] = ch;
+    // Build the channel map on the config.
+    for (const auto &ch: sy_channels)
+        cfg.channels[ch.key] = ch;
 
-    auto validate_err = cfg.validate_fields(ch_map);
-    if (validate_err) return {std::move(cfg), validate_err};
-    return {std::move(cfg), x::errors::NIL};
-}
-
-x::errors::Error ReadTaskConfig::validate_fields(
-    const std::map<synnax::channel::Key, synnax::channel::Channel> &ch_map
-) {
+    // Validate field channel types and resolve index channels.
     struct IndexEntry {
         int endpoint_index;
         std::optional<TimeInfo> time_info;
     };
     std::map<synnax::channel::Key, IndexEntry> index_entries;
-    x::json::Parser validator(x::json::json::object());
 
-    for (int ei = 0; ei < static_cast<int>(endpoints.size()); ei++) {
-        auto &ep = endpoints[ei];
-        for (auto &field : ep.fields) {
-            auto it = ch_map.find(field.channel_key);
-            if (it == ch_map.end()) continue;
-            field.ch = it->second;
+    for (int ei = 0; ei < static_cast<int>(cfg.endpoints.size()); ei++) {
+        auto &ep = cfg.endpoints[ei];
+        for (auto &field: ep.fields) {
+            auto it = cfg.channels.find(field.channel_key);
+            if (it == cfg.channels.end()) continue;
+            const auto &ch = it->second;
 
-            const auto &dt = field.ch.data_type;
+            const auto &dt = ch.data_type;
             if (dt == x::telem::UUID_T || dt == x::telem::JSON_T) {
-                validator.field_err(
+                parser.field_err(
                     "endpoints",
-                    "channel " + field.ch.name +
-                        " has unsupported data type " + dt.name()
+                    "channel " + ch.name + " has unsupported data type " + dt.name()
                 );
                 continue;
             }
 
             if (field.time_format.has_value() && dt != x::telem::TIMESTAMP_T) {
-                validator.field_err(
+                parser.field_err(
                     "endpoints",
-                    "channel " + field.ch.name +
+                    "channel " + ch.name +
                         " has timestampFormat but is not a timestamp channel"
                 );
                 continue;
             }
 
             if (dt == x::telem::TIMESTAMP_T && !field.time_format.has_value()) {
-                validator.field_err(
+                parser.field_err(
                     "endpoints",
-                    "channel " + field.ch.name +
+                    "channel " + ch.name +
                         " is a timestamp channel but has no timestampFormat"
                 );
                 continue;
             }
 
-            if (field.ch.index == 0) continue;
-            const auto idx_key = field.ch.index;
+            if (ch.index == 0) continue;
+            const auto idx_key = ch.index;
 
             std::optional<TimeInfo> ti;
             if (field.time_info.has_value()) ti = field.time_info;
@@ -164,7 +154,7 @@ x::errors::Error ReadTaskConfig::validate_fields(
                 if (existing->second.time_info.has_value() && ti.has_value()) {
                     if (existing->second.time_info->pointer != ti->pointer ||
                         existing->second.time_info->format != ti->format) {
-                        validator.field_err(
+                        parser.field_err(
                             "endpoints",
                             "conflicting timestamp sources for index channel " +
                                 std::to_string(idx_key)
@@ -179,38 +169,41 @@ x::errors::Error ReadTaskConfig::validate_fields(
                     .time_info = ti,
                 };
             }
-            index_keys.insert(idx_key);
-            all_channel_keys.insert(idx_key);
         }
     }
 
-    if (!validator.ok()) return validator.error();
+    if (!parser.ok()) return {std::move(cfg), parser.error()};
 
-    for (const auto &[key, entry] : index_entries) {
-        index_sources.push_back(IndexSource{
-            .index_key = key,
-            .endpoint_index = entry.endpoint_index,
-            .time_info = entry.time_info,
-        });
+    for (const auto &[key, entry]: index_entries) {
+        cfg.index_sources.push_back(
+            IndexSource{
+                .index_key = key,
+                .endpoint_index = entry.endpoint_index,
+                .time_info = entry.time_info,
+            }
+        );
     }
 
-    return x::errors::NIL;
+    return {std::move(cfg), x::errors::NIL};
 }
 
 ReadTaskSource::ReadTaskSource(ReadTaskConfig cfg, device::Client client):
-    cfg_(std::move(cfg)),
-    client_(std::move(client)),
-    read_opts_({.strict = cfg_.strict}) {
+    cfg_(std::move(cfg)), client_(std::move(client)) {
     // Build the flat list of channels for the tare transform.
-    for (const auto &ep : cfg_.endpoints)
-        for (const auto &field : ep.fields)
-            channels_.push_back(field.ch);
+    for (const auto &ep: cfg_.endpoints)
+        for (const auto &field: ep.fields) {
+            auto it = cfg_.channels.find(field.channel_key);
+            if (it != cfg_.channels.end()) channels_.push_back(it->second);
+        }
 }
 
 synnax::framer::WriterConfig ReadTaskSource::writer_config() const {
     std::vector<synnax::channel::Key> keys;
-    keys.reserve(cfg_.all_channel_keys.size());
-    for (const auto &key : cfg_.all_channel_keys) keys.push_back(key);
+    keys.reserve(cfg_.channels.size() + cfg_.index_sources.size());
+    for (const auto &[key, _]: cfg_.channels)
+        keys.push_back(key);
+    for (const auto &idx: cfg_.index_sources)
+        keys.push_back(idx.index_key);
     return {
         .channels = keys,
         .mode = common::data_saving_writer_mode(cfg_.data_saving),
@@ -228,7 +221,8 @@ ReadTaskSource::read(x::breaker::Breaker &breaker, x::telem::Frame &fr) {
     // Build bodies vector.
     std::vector<std::string> bodies;
     bodies.reserve(cfg_.endpoints.size());
-    for (const auto &ep : cfg_.endpoints) bodies.push_back(ep.body);
+    for (const auto &ep: cfg_.endpoints)
+        bodies.push_back(ep.body);
 
     // Execute all endpoint requests in parallel.
     auto [results, batch_err] = client_.execute_requests(bodies);
@@ -241,9 +235,7 @@ ReadTaskSource::read(x::breaker::Breaker &breaker, x::telem::Frame &fr) {
     // index timestamp extraction later.
     std::vector<x::json::json> parsed_bodies(cfg_.endpoints.size());
 
-    // Count total fields for frame reservation.
-    size_t total_fields = cfg_.all_channel_keys.size();
-    fr.reserve(total_fields);
+    fr.reserve(cfg_.channels.size() + cfg_.index_sources.size());
 
     for (size_t ei = 0; ei < cfg_.endpoints.size(); ei++) {
         const auto &ep = cfg_.endpoints[ei];
@@ -273,41 +265,41 @@ ReadTaskSource::read(x::breaker::Breaker &breaker, x::telem::Frame &fr) {
         const auto &body = parsed_bodies[ei];
 
         // Extract each field value.
-        for (const auto &field : ep.fields) {
+        for (const auto &field: ep.fields) {
             if (!body.contains(field.pointer)) {
                 res.error = errors::PARSE_ERROR.sub(
-                    "field " + field.pointer.to_string() + " not found in response from " +
-                        ep.request.path
+                    "field " + field.pointer.to_string() +
+                    " not found in response from " + ep.request.path
                 );
                 return res;
             }
 
+            const auto &ch = cfg_.channels.at(field.channel_key);
             const auto &json_val = body.at(field.pointer);
 
-            // If this field has a custom time_format, use it for the conversion.
-            auto opts = read_opts_;
+            auto opts = x::json::ReadOptions{.strict = cfg_.strict};
             if (field.time_format.has_value()) opts.time_format = *field.time_format;
 
             auto [sample_val, conv_err] = x::json::to_sample_value(
                 json_val,
-                field.ch.data_type,
+                ch.data_type,
                 opts
             );
             if (conv_err) {
                 res.error = errors::PARSE_ERROR.sub(
-                    "failed to convert " + field.pointer.to_string() +
-                        " for channel " + field.ch.name + ": " + conv_err.message()
+                    "failed to convert " + field.pointer.to_string() + " for channel " +
+                    ch.name + ": " + conv_err.message()
                 );
                 return res;
             }
 
-            auto s = x::telem::Series(field.ch.data_type, 1);
+            auto s = x::telem::Series(ch.data_type, 1);
             s.write(sample_val);
             fr.emplace(field.channel_key, std::move(s));
         }
 
         // Write index timestamps for index sources associated with this endpoint.
-        for (const auto &idx : cfg_.index_sources) {
+        for (const auto &idx: cfg_.index_sources) {
             if (idx.endpoint_index != static_cast<int>(ei)) continue;
             // Skip if we already wrote this index (from a previous endpoint).
             if (fr.contains(idx.index_key)) continue;
@@ -318,7 +310,7 @@ ReadTaskSource::read(x::breaker::Breaker &breaker, x::telem::Frame &fr) {
                 if (!body.contains(idx.time_info->pointer)) {
                     res.error = errors::PARSE_ERROR.sub(
                         "timestamp field " + idx.time_info->pointer.to_string() +
-                            " not found in response from " + ep.request.path
+                        " not found in response from " + ep.request.path
                     );
                     return res;
                 }
@@ -335,8 +327,7 @@ ReadTaskSource::read(x::breaker::Breaker &breaker, x::telem::Frame &fr) {
                 if (ts_err) {
                     res.error = errors::PARSE_ERROR.sub(
                         "failed to parse timestamp from " +
-                            idx.time_info->pointer.to_string() + ": " +
-                            ts_err.message()
+                        idx.time_info->pointer.to_string() + ": " + ts_err.message()
                     );
                     return res;
                 }
@@ -344,7 +335,8 @@ ReadTaskSource::read(x::breaker::Breaker &breaker, x::telem::Frame &fr) {
             } else {
                 // Software timing: midpoint of request time range.
                 ts = x::telem::TimeStamp::midpoint(
-                    resp.time_range.start, resp.time_range.end
+                    resp.time_range.start,
+                    resp.time_range.end
                 );
             }
 
@@ -374,7 +366,7 @@ std::pair<common::ConfigureResult, x::errors::Error> configure_read(
     // Build request configs for the client.
     std::vector<device::RequestConfig> request_configs;
     request_configs.reserve(cfg.endpoints.size());
-    for (const auto &ep : cfg.endpoints)
+    for (const auto &ep: cfg.endpoints)
         request_configs.push_back(ep.request);
 
     // Create the HTTP client.
@@ -385,10 +377,7 @@ std::pair<common::ConfigureResult, x::errors::Error> configure_read(
     if (client_err) return {common::ConfigureResult{}, client_err};
 
     const bool auto_start = cfg.auto_start;
-    auto source = std::make_unique<ReadTaskSource>(
-        std::move(cfg),
-        std::move(client)
-    );
+    auto source = std::make_unique<ReadTaskSource>(std::move(cfg), std::move(client));
 
     auto breaker_cfg = x::breaker::Config{
         .name = task.name,

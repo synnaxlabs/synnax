@@ -9,6 +9,7 @@
 
 #include "gtest/gtest.h"
 
+#include "client/cpp/testutil/testutil.h"
 #include "x/cpp/defer/defer.h"
 #include "x/cpp/test/test.h"
 
@@ -19,10 +20,8 @@
 namespace driver::http {
 namespace {
 /// @brief helper to build a ReadTaskSource from config and a mock server URL.
-std::pair<std::unique_ptr<ReadTaskSource>, x::errors::Error> make_source(
-    const ReadTaskConfig &cfg,
-    const std::string &base_url
-) {
+std::pair<std::unique_ptr<ReadTaskSource>, x::errors::Error>
+make_source(const ReadTaskConfig &cfg, const std::string &base_url) {
     auto conn_parser = x::json::Parser(
         x::json::json{
             {"base_url", base_url},
@@ -33,7 +32,8 @@ std::pair<std::unique_ptr<ReadTaskSource>, x::errors::Error> make_source(
 
     std::vector<device::RequestConfig> request_configs;
     request_configs.reserve(cfg.endpoints.size());
-    for (const auto &ep : cfg.endpoints) request_configs.push_back(ep.request);
+    for (const auto &ep: cfg.endpoints)
+        request_configs.push_back(ep.request);
 
     auto [client, err] = device::Client::create(std::move(conn), request_configs);
     if (err) return {nullptr, err};
@@ -61,14 +61,16 @@ TEST(HTTPReadTask, ParseConfigMissingDevice) {
     synnax::task::Task task;
     task.config = {
         {"rate", 1.0},
-        {"endpoints", {{
-            {"method", "GET"},
-            {"path", "/api/data"},
-            {"fields", {{
-                {"pointer", "/temp"},
-                {"channel", 1},
-            }}},
-        }}},
+        {"endpoints",
+         {{
+             {"method", "GET"},
+             {"path", "/api/data"},
+             {"fields",
+              {{
+                  {"pointer", "/temp"},
+                  {"channel", 1},
+              }}},
+         }}},
     };
     auto ctx = std::make_shared<task::MockContext>(nullptr);
     ASSERT_OCCURRED_AS_P(ReadTaskConfig::parse(ctx, task), x::errors::VALIDATION);
@@ -80,14 +82,16 @@ TEST(HTTPReadTask, ParseConfigDuplicateChannel) {
     task.config = {
         {"device", "dev-001"},
         {"rate", 1.0},
-        {"endpoints", {{
-            {"method", "GET"},
-            {"path", "/api/data"},
-            {"fields", {
-                {{"pointer", "/temp"}, {"channel", 1}},
-                {{"pointer", "/humidity"}, {"channel", 1}},
-            }},
-        }}},
+        {"endpoints",
+         {{
+             {"method", "GET"},
+             {"path", "/api/data"},
+             {"fields",
+              {
+                  {{"pointer", "/temp"}, {"channel", 1}},
+                  {{"pointer", "/humidity"}, {"channel", 1}},
+              }},
+         }}},
     };
     auto ctx = std::make_shared<task::MockContext>(nullptr);
     ASSERT_OCCURRED_AS_P(ReadTaskConfig::parse(ctx, task), x::errors::VALIDATION);
@@ -118,16 +122,10 @@ TEST(HTTPReadTask, SingleEndpointGETNumericField) {
     ReadField temp_field;
     temp_field.pointer = x::json::json::json_pointer("/temperature");
     temp_field.channel_key = 1;
-    temp_field.ch.key = 1;
-    temp_field.ch.name = "temperature";
-    temp_field.ch.data_type = x::telem::FLOAT64_T;
 
     ReadField humidity_field;
     humidity_field.pointer = x::json::json::json_pointer("/humidity");
     humidity_field.channel_key = 2;
-    humidity_field.ch.key = 2;
-    humidity_field.ch.name = "humidity";
-    humidity_field.ch.data_type = x::telem::FLOAT64_T;
 
     ReadEndpoint ep;
     ep.request.method = Method::GET;
@@ -136,10 +134,15 @@ TEST(HTTPReadTask, SingleEndpointGETNumericField) {
     ep.fields = {temp_field, humidity_field};
 
     cfg.endpoints = {ep};
-    cfg.all_channel_keys = {1, 2};
 
-    auto [source, err] = make_source(cfg, server.base_url());
-    ASSERT_NIL(err);
+    cfg.channels[1] = {
+        .key = 1,
+        .name = "temperature",
+        .data_type = x::telem::FLOAT64_T
+    };
+    cfg.channels[2] = {.key = 2, .name = "humidity", .data_type = x::telem::FLOAT64_T};
+
+    auto source = ASSERT_NIL_P(make_source(cfg, server.base_url()));
 
     auto breaker = x::breaker::Breaker(x::breaker::Config{.name = "test"});
     breaker.start();
@@ -179,9 +182,6 @@ TEST(HTTPReadTask, NestedJSONPointerPaths) {
     ReadField field;
     field.pointer = x::json::json::json_pointer("/data/sensors/0/value");
     field.channel_key = 1;
-    field.ch.key = 1;
-    field.ch.name = "sensor_0";
-    field.ch.data_type = x::telem::FLOAT64_T;
 
     ReadEndpoint ep;
     ep.request.method = Method::GET;
@@ -190,10 +190,10 @@ TEST(HTTPReadTask, NestedJSONPointerPaths) {
     ep.fields = {field};
 
     cfg.endpoints = {ep};
-    cfg.all_channel_keys = {1};
 
-    auto [source, err] = make_source(cfg, server.base_url());
-    ASSERT_NIL(err);
+    cfg.channels[1] = {.key = 1, .name = "sensor_0", .data_type = x::telem::FLOAT64_T};
+
+    auto source = ASSERT_NIL_P(make_source(cfg, server.base_url()));
 
     auto breaker = x::breaker::Breaker(x::breaker::Config{.name = "test"});
     breaker.start();
@@ -230,9 +230,6 @@ TEST(HTTPReadTask, MissingJSONField) {
     ReadField field;
     field.pointer = x::json::json::json_pointer("/nonexistent");
     field.channel_key = 1;
-    field.ch.key = 1;
-    field.ch.name = "missing";
-    field.ch.data_type = x::telem::FLOAT64_T;
 
     ReadEndpoint ep;
     ep.request.method = Method::GET;
@@ -241,10 +238,10 @@ TEST(HTTPReadTask, MissingJSONField) {
     ep.fields = {field};
 
     cfg.endpoints = {ep};
-    cfg.all_channel_keys = {1};
 
-    auto [source, err] = make_source(cfg, server.base_url());
-    ASSERT_NIL(err);
+    cfg.channels[1] = {.key = 1, .name = "missing", .data_type = x::telem::FLOAT64_T};
+
+    auto source = ASSERT_NIL_P(make_source(cfg, server.base_url()));
 
     auto breaker = x::breaker::Breaker(x::breaker::Config{.name = "test"});
     breaker.start();
@@ -279,9 +276,6 @@ TEST(HTTPReadTask, ServerErrorOn5xx) {
     ReadField field;
     field.pointer = x::json::json::json_pointer("/value");
     field.channel_key = 1;
-    field.ch.key = 1;
-    field.ch.name = "val";
-    field.ch.data_type = x::telem::FLOAT64_T;
 
     ReadEndpoint ep;
     ep.request.method = Method::GET;
@@ -290,10 +284,10 @@ TEST(HTTPReadTask, ServerErrorOn5xx) {
     ep.fields = {field};
 
     cfg.endpoints = {ep};
-    cfg.all_channel_keys = {1};
 
-    auto [source, err] = make_source(cfg, server.base_url());
-    ASSERT_NIL(err);
+    cfg.channels[1] = {.key = 1, .name = "val", .data_type = x::telem::FLOAT64_T};
+
+    auto source = ASSERT_NIL_P(make_source(cfg, server.base_url()));
 
     auto breaker = x::breaker::Breaker(x::breaker::Config{.name = "test"});
     breaker.start();
@@ -328,9 +322,6 @@ TEST(HTTPReadTask, ClientErrorOn4xx) {
     ReadField field;
     field.pointer = x::json::json::json_pointer("/value");
     field.channel_key = 1;
-    field.ch.key = 1;
-    field.ch.name = "val";
-    field.ch.data_type = x::telem::FLOAT64_T;
 
     ReadEndpoint ep;
     ep.request.method = Method::GET;
@@ -339,10 +330,10 @@ TEST(HTTPReadTask, ClientErrorOn4xx) {
     ep.fields = {field};
 
     cfg.endpoints = {ep};
-    cfg.all_channel_keys = {1};
 
-    auto [source, err] = make_source(cfg, server.base_url());
-    ASSERT_NIL(err);
+    cfg.channels[1] = {.key = 1, .name = "val", .data_type = x::telem::FLOAT64_T};
+
+    auto source = ASSERT_NIL_P(make_source(cfg, server.base_url()));
 
     auto breaker = x::breaker::Breaker(x::breaker::Config{.name = "test"});
     breaker.start();
@@ -378,23 +369,14 @@ TEST(HTTPReadTask, TypeConversions) {
     ReadField bool_field;
     bool_field.pointer = x::json::json::json_pointer("/active");
     bool_field.channel_key = 1;
-    bool_field.ch.key = 1;
-    bool_field.ch.name = "active";
-    bool_field.ch.data_type = x::telem::UINT8_T;
 
     ReadField string_field;
     string_field.pointer = x::json::json::json_pointer("/label");
     string_field.channel_key = 2;
-    string_field.ch.key = 2;
-    string_field.ch.name = "label";
-    string_field.ch.data_type = x::telem::STRING_T;
 
     ReadField int_field;
     int_field.pointer = x::json::json::json_pointer("/count");
     int_field.channel_key = 3;
-    int_field.ch.key = 3;
-    int_field.ch.name = "count";
-    int_field.ch.data_type = x::telem::INT32_T;
 
     ReadEndpoint ep;
     ep.request.method = Method::GET;
@@ -403,10 +385,12 @@ TEST(HTTPReadTask, TypeConversions) {
     ep.fields = {bool_field, string_field, int_field};
 
     cfg.endpoints = {ep};
-    cfg.all_channel_keys = {1, 2, 3};
 
-    auto [source, err] = make_source(cfg, server.base_url());
-    ASSERT_NIL(err);
+    cfg.channels[1] = {.key = 1, .name = "active", .data_type = x::telem::UINT8_T};
+    cfg.channels[2] = {.key = 2, .name = "label", .data_type = x::telem::STRING_T};
+    cfg.channels[3] = {.key = 3, .name = "count", .data_type = x::telem::INT32_T};
+
+    auto source = ASSERT_NIL_P(make_source(cfg, server.base_url()));
 
     auto breaker = x::breaker::Breaker(x::breaker::Config{.name = "test"});
     breaker.start();
@@ -445,10 +429,6 @@ TEST(HTTPReadTask, SoftwareTimingIndex) {
     ReadField field;
     field.pointer = x::json::json::json_pointer("/value");
     field.channel_key = 1;
-    field.ch.key = 1;
-    field.ch.name = "value";
-    field.ch.data_type = x::telem::FLOAT64_T;
-    field.ch.index = 100;
 
     ReadEndpoint ep;
     ep.request.method = Method::GET;
@@ -457,15 +437,15 @@ TEST(HTTPReadTask, SoftwareTimingIndex) {
     ep.fields = {field};
 
     cfg.endpoints = {ep};
-    cfg.all_channel_keys = {1, 100};
-    cfg.index_keys = {100};
+
+    cfg.channels[1] =
+        {.key = 1, .name = "value", .data_type = x::telem::FLOAT64_T, .index = 100};
     cfg.index_sources = {IndexSource{
         .index_key = 100,
         .endpoint_index = 0,
     }};
 
-    auto [source, err] = make_source(cfg, server.base_url());
-    ASSERT_NIL(err);
+    auto source = ASSERT_NIL_P(make_source(cfg, server.base_url()));
 
     auto breaker = x::breaker::Breaker(x::breaker::Config{.name = "test"});
     breaker.start();
@@ -487,8 +467,7 @@ TEST(HTTPReadTask, TimestampExtractionFromResponse) {
                 .method = Method::GET,
                 .path = "/api/data",
                 .status_code = 200,
-                .response_body =
-                    R"({"value": 42.0, "timestamp": 1700000000})",
+                .response_body = R"({"value": 42.0, "timestamp": 1700000000})",
             }},
         }
     );
@@ -505,10 +484,6 @@ TEST(HTTPReadTask, TimestampExtractionFromResponse) {
     ReadField field;
     field.pointer = x::json::json::json_pointer("/value");
     field.channel_key = 1;
-    field.ch.key = 1;
-    field.ch.name = "value";
-    field.ch.data_type = x::telem::FLOAT64_T;
-    field.ch.index = 100;
 
     ReadEndpoint ep;
     ep.request.method = Method::GET;
@@ -517,8 +492,9 @@ TEST(HTTPReadTask, TimestampExtractionFromResponse) {
     ep.fields = {field};
 
     cfg.endpoints = {ep};
-    cfg.all_channel_keys = {1, 100};
-    cfg.index_keys = {100};
+
+    cfg.channels[1] =
+        {.key = 1, .name = "value", .data_type = x::telem::FLOAT64_T, .index = 100};
     cfg.index_sources = {IndexSource{
         .index_key = 100,
         .endpoint_index = 0,
@@ -528,8 +504,7 @@ TEST(HTTPReadTask, TimestampExtractionFromResponse) {
         },
     }};
 
-    auto [source, err] = make_source(cfg, server.base_url());
-    ASSERT_NIL(err);
+    auto source = ASSERT_NIL_P(make_source(cfg, server.base_url()));
 
     auto breaker = x::breaker::Breaker(x::breaker::Config{.name = "test"});
     breaker.start();
@@ -576,16 +551,10 @@ TEST(HTTPReadTask, MultipleEndpoints) {
     ReadField temp_field;
     temp_field.pointer = x::json::json::json_pointer("/temp");
     temp_field.channel_key = 1;
-    temp_field.ch.key = 1;
-    temp_field.ch.name = "temp";
-    temp_field.ch.data_type = x::telem::FLOAT64_T;
 
     ReadField pressure_field;
     pressure_field.pointer = x::json::json::json_pointer("/pressure");
     pressure_field.channel_key = 2;
-    pressure_field.ch.key = 2;
-    pressure_field.ch.name = "pressure";
-    pressure_field.ch.data_type = x::telem::FLOAT64_T;
 
     ReadEndpoint ep1;
     ep1.request.method = Method::GET;
@@ -600,10 +569,11 @@ TEST(HTTPReadTask, MultipleEndpoints) {
     ep2.fields = {pressure_field};
 
     cfg.endpoints = {ep1, ep2};
-    cfg.all_channel_keys = {1, 2};
 
-    auto [source, err] = make_source(cfg, server.base_url());
-    ASSERT_NIL(err);
+    cfg.channels[1] = {.key = 1, .name = "temp", .data_type = x::telem::FLOAT64_T};
+    cfg.channels[2] = {.key = 2, .name = "pressure", .data_type = x::telem::FLOAT64_T};
+
+    auto source = ASSERT_NIL_P(make_source(cfg, server.base_url()));
 
     auto breaker = x::breaker::Breaker(x::breaker::Config{.name = "test"});
     breaker.start();
@@ -641,9 +611,6 @@ TEST(HTTPReadTask, POSTWithBody) {
     ReadField field;
     field.pointer = x::json::json::json_pointer("/result");
     field.channel_key = 1;
-    field.ch.key = 1;
-    field.ch.name = "result";
-    field.ch.data_type = x::telem::FLOAT64_T;
 
     ReadEndpoint ep;
     ep.request.method = Method::POST;
@@ -652,10 +619,10 @@ TEST(HTTPReadTask, POSTWithBody) {
     ep.fields = {field};
 
     cfg.endpoints = {ep};
-    cfg.all_channel_keys = {1};
 
-    auto [source, err] = make_source(cfg, server.base_url());
-    ASSERT_NIL(err);
+    cfg.channels[1] = {.key = 1, .name = "result", .data_type = x::telem::FLOAT64_T};
+
+    auto source = ASSERT_NIL_P(make_source(cfg, server.base_url()));
 
     auto breaker = x::breaker::Breaker(x::breaker::Config{.name = "test"});
     breaker.start();
@@ -669,10 +636,12 @@ TEST(HTTPReadTask, POSTWithBody) {
 
 /// @brief it should construct TimeInfo from a valid JSON parser.
 TEST(HTTPReadTask, TimeInfoParseValid) {
-    auto parser = x::json::Parser(x::json::json{
-        {"pointer", "/timestamp"},
-        {"format", "unix_sec"},
-    });
+    auto parser = x::json::Parser(
+        x::json::json{
+            {"pointer", "/timestamp"},
+            {"format", "unix_sec"},
+        }
+    );
     TimeInfo ti(parser);
     ASSERT_TRUE(parser.ok());
     EXPECT_EQ(ti.pointer.to_string(), "/timestamp");
@@ -681,19 +650,23 @@ TEST(HTTPReadTask, TimeInfoParseValid) {
 
 /// @brief it should report an error when TimeInfo has an invalid format.
 TEST(HTTPReadTask, TimeInfoParseInvalidFormat) {
-    auto parser = x::json::Parser(x::json::json{
-        {"pointer", "/timestamp"},
-        {"format", "bad_format"},
-    });
+    auto parser = x::json::Parser(
+        x::json::json{
+            {"pointer", "/timestamp"},
+            {"format", "bad_format"},
+        }
+    );
     TimeInfo ti(parser);
     EXPECT_FALSE(parser.ok());
 }
 
 /// @brief it should report an error when TimeInfo is missing the pointer field.
 TEST(HTTPReadTask, TimeInfoParseMissingPointer) {
-    auto parser = x::json::Parser(x::json::json{
-        {"format", "iso8601"},
-    });
+    auto parser = x::json::Parser(
+        x::json::json{
+            {"format", "iso8601"},
+        }
+    );
     TimeInfo ti(parser);
     EXPECT_FALSE(parser.ok());
 }
@@ -704,14 +677,16 @@ TEST(HTTPReadTask, ParseConfigRejectsPUT) {
     task.config = {
         {"device", "dev-001"},
         {"rate", 1.0},
-        {"endpoints", {{
-            {"method", "PUT"},
-            {"path", "/api/data"},
-            {"fields", {{
-                {"pointer", "/temp"},
-                {"channel", 1},
-            }}},
-        }}},
+        {"endpoints",
+         {{
+             {"method", "PUT"},
+             {"path", "/api/data"},
+             {"fields",
+              {{
+                  {"pointer", "/temp"},
+                  {"channel", 1},
+              }}},
+         }}},
     };
     auto ctx = std::make_shared<task::MockContext>(nullptr);
     ASSERT_OCCURRED_AS_P(ReadTaskConfig::parse(ctx, task), x::errors::VALIDATION);
@@ -723,231 +698,256 @@ TEST(HTTPReadTask, ParseConfigRejectsDELETE) {
     task.config = {
         {"device", "dev-001"},
         {"rate", 1.0},
-        {"endpoints", {{
-            {"method", "DELETE"},
-            {"path", "/api/data"},
-            {"fields", {{
-                {"pointer", "/temp"},
-                {"channel", 1},
-            }}},
-        }}},
+        {"endpoints",
+         {{
+             {"method", "DELETE"},
+             {"path", "/api/data"},
+             {"fields",
+              {{
+                  {"pointer", "/temp"},
+                  {"channel", 1},
+              }}},
+         }}},
     };
     auto ctx = std::make_shared<task::MockContext>(nullptr);
     ASSERT_OCCURRED_AS_P(ReadTaskConfig::parse(ctx, task), x::errors::VALIDATION);
 }
 
+/// @brief test fixture for parse tests that need a real Synnax client with
+/// pre-created channels and device.
+class HTTPReadTaskParseTest : public ::testing::Test {
+protected:
+    std::shared_ptr<synnax::Synnax> client;
+    std::shared_ptr<task::MockContext> ctx;
+    std::string device_key;
+
+    void SetUp() override {
+        client = std::make_shared<synnax::Synnax>(new_test_client());
+        auto rack = ASSERT_NIL_P(
+            client->racks.create(make_unique_channel_name("http_read_test_rack"))
+        );
+        device_key = make_unique_channel_name("http_read_test_device");
+        x::json::json props = {{"secure", false}, {"timeout_ms", 1000}};
+        synnax::device::Device dev{
+            .key = device_key,
+            .name = "HTTP Read Test Device",
+            .rack = rack.key,
+            .location = "localhost:0",
+            .make = "http",
+            .model = "HTTP Device",
+            .properties = props.get<x::json::json::object_t>(),
+        };
+        ASSERT_NIL(client->devices.create(dev));
+        ctx = std::make_shared<task::MockContext>(client);
+    }
+};
+
 /// @brief it should error when a TIMESTAMP_T channel has no timestampFormat.
-TEST(HTTPReadTask, ValidateFieldsTimestampChannelMissingFormat) {
-    ReadTaskConfig cfg;
-    cfg.device = "test-device";
-    cfg.rate = x::telem::Rate(10);
-    cfg.strict = false;
+TEST_F(HTTPReadTaskParseTest, TimestampChannelMissingFormat) {
+    auto idx = ASSERT_NIL_P(
+        client->channels
+            .create(make_unique_channel_name("idx"), x::telem::TIMESTAMP_T, 0, true)
+    );
+    auto ts_ch = ASSERT_NIL_P(client->channels.create(
+        make_unique_channel_name("ts_data"),
+        x::telem::TIMESTAMP_T,
+        idx.key,
+        false
+    ));
 
-    ReadField field;
-    field.pointer = x::json::json::json_pointer("/ts");
-    field.channel_key = 1;
-
-    ReadEndpoint ep;
-    ep.request.method = Method::GET;
-    ep.request.path = "/api/data";
-    ep.fields = {field};
-    cfg.endpoints = {ep};
-    cfg.all_channel_keys = {1};
-
-    synnax::channel::Channel ch;
-    ch.key = 1;
-    ch.name = "timestamp_ch";
-    ch.data_type = x::telem::TIMESTAMP_T;
-    std::map<synnax::channel::Key, synnax::channel::Channel> ch_map = {{1, ch}};
-
-    auto err = cfg.validate_fields(ch_map);
-    ASSERT_OCCURRED_AS(err, x::errors::VALIDATION);
+    synnax::task::Task task;
+    task.config = {
+        {"device", device_key},
+        {"rate", 1.0},
+        {"endpoints",
+         {{
+             {"method", "GET"},
+             {"path", "/api/data"},
+             {"fields",
+              {{
+                  {"pointer", "/ts"},
+                  {"channel", ts_ch.key},
+              }}},
+         }}},
+    };
+    ASSERT_OCCURRED_AS_P(ReadTaskConfig::parse(ctx, task), x::errors::VALIDATION);
 }
 
 /// @brief it should error when two fields for the same index have conflicting
 /// time pointers.
-TEST(HTTPReadTask, ValidateFieldsConflictingTimestampSources) {
-    ReadTaskConfig cfg;
-    cfg.device = "test-device";
-    cfg.rate = x::telem::Rate(10);
-    cfg.strict = false;
+TEST_F(HTTPReadTaskParseTest, ConflictingTimestampSources) {
+    auto idx = ASSERT_NIL_P(
+        client->channels
+            .create(make_unique_channel_name("idx"), x::telem::TIMESTAMP_T, 0, true)
+    );
+    auto ch1 = ASSERT_NIL_P(client->channels.create(
+        make_unique_channel_name("temp"),
+        x::telem::FLOAT64_T,
+        idx.key,
+        false
+    ));
+    auto ch2 = ASSERT_NIL_P(client->channels.create(
+        make_unique_channel_name("humidity"),
+        x::telem::FLOAT64_T,
+        idx.key,
+        false
+    ));
 
-    ReadField field1;
-    field1.pointer = x::json::json::json_pointer("/temp");
-    field1.channel_key = 1;
-    field1.time_info = TimeInfo{
-        x::json::json::json_pointer("/ts1"),
-        x::json::TimeFormat::UnixSecond,
+    synnax::task::Task task;
+    task.config = {
+        {"device", device_key},
+        {"rate", 1.0},
+        {"endpoints",
+         {{
+             {"method", "GET"},
+             {"path", "/api/data"},
+             {"fields",
+              {
+                  {
+                      {"pointer", "/temp"},
+                      {"channel", ch1.key},
+                      {"timePointer", {{"pointer", "/ts1"}, {"format", "unix_sec"}}},
+                  },
+                  {
+                      {"pointer", "/humidity"},
+                      {"channel", ch2.key},
+                      {"timePointer", {{"pointer", "/ts2"}, {"format", "unix_sec"}}},
+                  },
+              }},
+         }}},
     };
-
-    ReadField field2;
-    field2.pointer = x::json::json::json_pointer("/humidity");
-    field2.channel_key = 2;
-    field2.time_info = TimeInfo{
-        x::json::json::json_pointer("/ts2"),
-        x::json::TimeFormat::UnixSecond,
-    };
-
-    ReadEndpoint ep;
-    ep.request.method = Method::GET;
-    ep.request.path = "/api/data";
-    ep.fields = {field1, field2};
-    cfg.endpoints = {ep};
-    cfg.all_channel_keys = {1, 2};
-
-    synnax::channel::Channel ch1;
-    ch1.key = 1;
-    ch1.name = "temp";
-    ch1.data_type = x::telem::FLOAT64_T;
-    ch1.index = 100;
-
-    synnax::channel::Channel ch2;
-    ch2.key = 2;
-    ch2.name = "humidity";
-    ch2.data_type = x::telem::FLOAT64_T;
-    ch2.index = 100;
-
-    std::map<synnax::channel::Key, synnax::channel::Channel> ch_map = {
-        {1, ch1},
-        {2, ch2},
-    };
-
-    auto err = cfg.validate_fields(ch_map);
-    ASSERT_OCCURRED_AS(err, x::errors::VALIDATION);
+    ASSERT_OCCURRED_AS_P(ReadTaskConfig::parse(ctx, task), x::errors::VALIDATION);
 }
 
 /// @brief it should not error when two fields for the same index have identical
 /// time pointers.
-TEST(HTTPReadTask, ValidateFieldsSameIndexSamePointerOK) {
-    ReadTaskConfig cfg;
-    cfg.device = "test-device";
-    cfg.rate = x::telem::Rate(10);
-    cfg.strict = false;
+TEST_F(HTTPReadTaskParseTest, SameIndexSamePointerOK) {
+    auto idx = ASSERT_NIL_P(
+        client->channels
+            .create(make_unique_channel_name("idx"), x::telem::TIMESTAMP_T, 0, true)
+    );
+    auto ch1 = ASSERT_NIL_P(client->channels.create(
+        make_unique_channel_name("temp"),
+        x::telem::FLOAT64_T,
+        idx.key,
+        false
+    ));
+    auto ch2 = ASSERT_NIL_P(client->channels.create(
+        make_unique_channel_name("humidity"),
+        x::telem::FLOAT64_T,
+        idx.key,
+        false
+    ));
 
-    ReadField field1;
-    field1.pointer = x::json::json::json_pointer("/temp");
-    field1.channel_key = 1;
-    field1.time_info = TimeInfo{
-        x::json::json::json_pointer("/timestamp"),
-        x::json::TimeFormat::UnixSecond,
+    synnax::task::Task task;
+    task.config = {
+        {"device", device_key},
+        {"rate", 1.0},
+        {"endpoints",
+         {{
+             {"method", "GET"},
+             {"path", "/api/data"},
+             {"fields",
+              {
+                  {
+                      {"pointer", "/temp"},
+                      {"channel", ch1.key},
+                      {"timePointer",
+                       {{"pointer", "/timestamp"}, {"format", "unix_sec"}}},
+                  },
+                  {
+                      {"pointer", "/humidity"},
+                      {"channel", ch2.key},
+                      {"timePointer",
+                       {{"pointer", "/timestamp"}, {"format", "unix_sec"}}},
+                  },
+              }},
+         }}},
     };
-
-    ReadField field2;
-    field2.pointer = x::json::json::json_pointer("/humidity");
-    field2.channel_key = 2;
-    field2.time_info = TimeInfo{
-        x::json::json::json_pointer("/timestamp"),
-        x::json::TimeFormat::UnixSecond,
-    };
-
-    ReadEndpoint ep;
-    ep.request.method = Method::GET;
-    ep.request.path = "/api/data";
-    ep.fields = {field1, field2};
-    cfg.endpoints = {ep};
-    cfg.all_channel_keys = {1, 2};
-
-    synnax::channel::Channel ch1;
-    ch1.key = 1;
-    ch1.name = "temp";
-    ch1.data_type = x::telem::FLOAT64_T;
-    ch1.index = 100;
-
-    synnax::channel::Channel ch2;
-    ch2.key = 2;
-    ch2.name = "humidity";
-    ch2.data_type = x::telem::FLOAT64_T;
-    ch2.index = 100;
-
-    std::map<synnax::channel::Key, synnax::channel::Channel> ch_map = {
-        {1, ch1},
-        {2, ch2},
-    };
-
-    auto err = cfg.validate_fields(ch_map);
-    ASSERT_NIL(err);
+    auto cfg = ASSERT_NIL_P(ReadTaskConfig::parse(ctx, task));
     EXPECT_EQ(cfg.index_sources.size(), 1);
-    EXPECT_EQ(cfg.index_sources[0].index_key, 100u);
+    EXPECT_EQ(cfg.index_sources[0].index_key, idx.key);
     EXPECT_TRUE(cfg.index_sources[0].time_info.has_value());
 }
 
 /// @brief it should not error when the same index is referenced by multiple fields
 /// where only some have time pointers.
-TEST(HTTPReadTask, ValidateFieldsSameIndexPartialTimePointerOK) {
-    ReadTaskConfig cfg;
-    cfg.device = "test-device";
-    cfg.rate = x::telem::Rate(10);
-    cfg.strict = false;
+TEST_F(HTTPReadTaskParseTest, SameIndexPartialTimePointerOK) {
+    auto idx = ASSERT_NIL_P(
+        client->channels
+            .create(make_unique_channel_name("idx"), x::telem::TIMESTAMP_T, 0, true)
+    );
+    auto ch1 = ASSERT_NIL_P(client->channels.create(
+        make_unique_channel_name("temp"),
+        x::telem::FLOAT64_T,
+        idx.key,
+        false
+    ));
+    auto ch2 = ASSERT_NIL_P(client->channels.create(
+        make_unique_channel_name("humidity"),
+        x::telem::FLOAT64_T,
+        idx.key,
+        false
+    ));
 
-    ReadField field1;
-    field1.pointer = x::json::json::json_pointer("/temp");
-    field1.channel_key = 1;
-    field1.time_info = TimeInfo{
-        x::json::json::json_pointer("/timestamp"),
-        x::json::TimeFormat::UnixSecond,
+    synnax::task::Task task;
+    task.config = {
+        {"device", device_key},
+        {"rate", 1.0},
+        {"endpoints",
+         {{
+             {"method", "GET"},
+             {"path", "/api/data"},
+             {"fields",
+              {
+                  {
+                      {"pointer", "/temp"},
+                      {"channel", ch1.key},
+                      {"timePointer",
+                       {{"pointer", "/timestamp"}, {"format", "unix_sec"}}},
+                  },
+                  {
+                      {"pointer", "/humidity"},
+                      {"channel", ch2.key},
+                  },
+              }},
+         }}},
     };
-
-    ReadField field2;
-    field2.pointer = x::json::json::json_pointer("/humidity");
-    field2.channel_key = 2;
-
-    ReadEndpoint ep;
-    ep.request.method = Method::GET;
-    ep.request.path = "/api/data";
-    ep.fields = {field1, field2};
-    cfg.endpoints = {ep};
-    cfg.all_channel_keys = {1, 2};
-
-    synnax::channel::Channel ch1;
-    ch1.key = 1;
-    ch1.name = "temp";
-    ch1.data_type = x::telem::FLOAT64_T;
-    ch1.index = 100;
-
-    synnax::channel::Channel ch2;
-    ch2.key = 2;
-    ch2.name = "humidity";
-    ch2.data_type = x::telem::FLOAT64_T;
-    ch2.index = 100;
-
-    std::map<synnax::channel::Key, synnax::channel::Channel> ch_map = {
-        {1, ch1},
-        {2, ch2},
-    };
-
-    auto err = cfg.validate_fields(ch_map);
-    ASSERT_NIL(err);
+    auto cfg = ASSERT_NIL_P(ReadTaskConfig::parse(ctx, task));
     EXPECT_EQ(cfg.index_sources.size(), 1);
     EXPECT_TRUE(cfg.index_sources[0].time_info.has_value());
 }
 
 /// @brief it should error when timestampFormat is set on a non-timestamp channel.
-TEST(HTTPReadTask, ValidateFieldsTimestampFormatOnNonTimestamp) {
-    ReadTaskConfig cfg;
-    cfg.device = "test-device";
-    cfg.rate = x::telem::Rate(10);
-    cfg.strict = false;
+TEST_F(HTTPReadTaskParseTest, TimestampFormatOnNonTimestamp) {
+    auto idx = ASSERT_NIL_P(
+        client->channels
+            .create(make_unique_channel_name("idx"), x::telem::TIMESTAMP_T, 0, true)
+    );
+    auto ch = ASSERT_NIL_P(client->channels.create(
+        make_unique_channel_name("value"),
+        x::telem::FLOAT64_T,
+        idx.key,
+        false
+    ));
 
-    ReadField field;
-    field.pointer = x::json::json::json_pointer("/value");
-    field.channel_key = 1;
-    field.time_format = x::json::TimeFormat::UnixSecond;
-
-    ReadEndpoint ep;
-    ep.request.method = Method::GET;
-    ep.request.path = "/api/data";
-    ep.fields = {field};
-    cfg.endpoints = {ep};
-    cfg.all_channel_keys = {1};
-
-    synnax::channel::Channel ch;
-    ch.key = 1;
-    ch.name = "value";
-    ch.data_type = x::telem::FLOAT64_T;
-    std::map<synnax::channel::Key, synnax::channel::Channel> ch_map = {{1, ch}};
-
-    auto err = cfg.validate_fields(ch_map);
-    ASSERT_OCCURRED_AS(err, x::errors::VALIDATION);
+    synnax::task::Task task;
+    task.config = {
+        {"device", device_key},
+        {"rate", 1.0},
+        {"endpoints",
+         {{
+             {"method", "GET"},
+             {"path", "/api/data"},
+             {"fields",
+              {{
+                  {"pointer", "/value"},
+                  {"channel", ch.key},
+                  {"timestampFormat", "unix_sec"},
+              }}},
+         }}},
+    };
+    ASSERT_OCCURRED_AS_P(ReadTaskConfig::parse(ctx, task), x::errors::VALIDATION);
 }
 
 /// @brief it should successfully read 10 times in succession from the same endpoint.
@@ -975,9 +975,6 @@ TEST(HTTPReadTask, RepeatedReads) {
     ReadField field;
     field.pointer = x::json::json::json_pointer("/value");
     field.channel_key = 1;
-    field.ch.key = 1;
-    field.ch.name = "value";
-    field.ch.data_type = x::telem::FLOAT64_T;
 
     ReadEndpoint ep;
     ep.request.method = Method::GET;
@@ -986,10 +983,10 @@ TEST(HTTPReadTask, RepeatedReads) {
     ep.fields = {field};
 
     cfg.endpoints = {ep};
-    cfg.all_channel_keys = {1};
 
-    auto [source, err] = make_source(cfg, server.base_url());
-    ASSERT_NIL(err);
+    cfg.channels[1] = {.key = 1, .name = "value", .data_type = x::telem::FLOAT64_T};
+
+    auto source = ASSERT_NIL_P(make_source(cfg, server.base_url()));
 
     auto breaker = x::breaker::Breaker(x::breaker::Config{.name = "test"});
     breaker.start();

@@ -6,6 +6,8 @@ cc_library(
     srcs = [
         "factory.cpp",
         "http.h",
+        "read_task.cpp",
+        "read_task.h",
         "scan_task.cpp",
         "scan_task.h",
     ],
@@ -18,6 +20,8 @@ cc_library(
         "//driver/http/types",
         "//driver/pipeline",
         "//driver/task",
+        "//x/cpp/json",
+        "//x/cpp/json:convert",
         "//x/cpp/loop",
         "@glog",
         "@nlohmann_json//:json",
@@ -30,6 +34,21 @@ cc_test(
     linkstatic = True,
     deps = [
         ":http",
+        "//driver/http/mock",
+        "//x/cpp/defer",
+        "//x/cpp/test",
+        "@googletest//:gtest_main",
+        "@nlohmann_json//:json",
+    ],
+)
+
+cc_test(
+    name = "read_task_test",
+    srcs = ["read_task_test.cpp"],
+    linkstatic = True,
+    deps = [
+        ":http",
+        "//client/cpp/testutil",
         "//driver/http/mock",
         "//x/cpp/defer",
         "//x/cpp/test",
