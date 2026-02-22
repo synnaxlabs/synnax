@@ -171,6 +171,7 @@ func multipleEntries[K Key, E Entry[K]](entries *[]E) *Entries[K, E] {
 }
 
 const magicPrefix = "__gorp__//"
+const migrationVersionPrefix = "__gorp_migration__//"
 
 type keyCodec[K Key, E Entry[K]] struct {
 	prefix  []byte

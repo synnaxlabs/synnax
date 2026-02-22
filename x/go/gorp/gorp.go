@@ -21,6 +21,11 @@ import (
 // Wrap wraps the provided key-value database in a DB.
 func Wrap(kv kv.DB, opts ...Option) *DB { return &DB{DB: kv, options: newOptions(opts)} }
 
+// WrapTx creates a gorp.Tx from a raw kv.Tx and a binary.Codec.
+func WrapTx(kvTx kv.Tx, codec binary.Codec) Tx {
+	return tx{Tx: kvTx, options: options{Codec: codec}}
+}
+
 // DB is a wrapper around a kv.DB that queries can be executed against. DB implements
 // the transaction (Tx) interface. Using a DB as a Tx will execute the query
 // directly against the underlying key-value store, outside the isolated context of
