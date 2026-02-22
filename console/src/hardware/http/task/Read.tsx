@@ -103,7 +103,7 @@ const TIME_FORMAT_DATA: Select.StaticEntry<string>[] = [
   { key: "iso8601", name: "ISO 8601" },
   { key: "unix_sec", name: "Unix (s)" },
   { key: "unix_ms", name: "Unix (ms)" },
-  { key: "unix_us", name: "Unix (us)" },
+  { key: "unix_us", name: "Unix (μs)" },
   { key: "unix_ns", name: "Unix (ns)" },
 ];
 
