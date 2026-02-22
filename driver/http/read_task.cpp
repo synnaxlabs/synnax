@@ -304,12 +304,7 @@ std::pair<common::ConfigureResult, x::errors::Error> configure_read(
     const bool auto_start = cfg.auto_start;
     auto source = std::make_unique<ReadTaskSource>(std::move(cfg), std::move(client));
 
-    auto breaker_cfg = x::breaker::Config{
-        .name = task.name,
-        .base_interval = 1 * x::telem::SECOND,
-        .max_retries = 50,
-        .scale = 1.2,
-    };
+    auto breaker_cfg = x::breaker::Config{.name = task.name};
 
     auto read_task = std::make_unique<common::ReadTask>(
         task,
