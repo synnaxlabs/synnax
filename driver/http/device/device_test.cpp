@@ -1683,4 +1683,42 @@ TEST(RetrieveConnectionTest, DeviceNotFound) {
     );
 }
 
+// ==================== classify_status ====================
+
+TEST(ClassifyStatus, Status200ReturnsNil) {
+    ASSERT_NIL(classify_status(200));
+}
+
+TEST(ClassifyStatus, Status201ReturnsNil) {
+    ASSERT_NIL(classify_status(201));
+}
+
+TEST(ClassifyStatus, Status204ReturnsNil) {
+    ASSERT_NIL(classify_status(204));
+}
+
+TEST(ClassifyStatus, Status400ReturnsClientError) {
+    ASSERT_OCCURRED_AS(classify_status(400), errors::CLIENT_ERROR);
+}
+
+TEST(ClassifyStatus, Status404ReturnsClientError) {
+    ASSERT_OCCURRED_AS(classify_status(404), errors::CLIENT_ERROR);
+}
+
+TEST(ClassifyStatus, Status499ReturnsClientError) {
+    ASSERT_OCCURRED_AS(classify_status(499), errors::CLIENT_ERROR);
+}
+
+TEST(ClassifyStatus, Status500ReturnsServerError) {
+    ASSERT_OCCURRED_AS(classify_status(500), errors::SERVER_ERROR);
+}
+
+TEST(ClassifyStatus, Status503ReturnsServerError) {
+    ASSERT_OCCURRED_AS(classify_status(503), errors::SERVER_ERROR);
+}
+
+TEST(ClassifyStatus, Status301ReturnsClientError) {
+    ASSERT_OCCURRED_AS(classify_status(301), errors::CLIENT_ERROR);
+}
+
 }

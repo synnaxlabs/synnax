@@ -1393,3 +1393,38 @@ TEST(ZeroValue, String) {
 TEST(ZeroValue, Boolean) {
     ASSERT_EQ(x::json::zero_value(x::json::Type::Boolean), false);
 }
+
+// ==================== parse_time_format ====================
+
+TEST(ParseTimeFormat, ISO8601) {
+    const auto fmt = ASSERT_NIL_P(x::json::parse_time_format("iso8601"));
+    ASSERT_EQ(fmt, x::json::TimeFormat::ISO8601);
+}
+
+TEST(ParseTimeFormat, UnixSecond) {
+    const auto fmt = ASSERT_NIL_P(x::json::parse_time_format("unix_sec"));
+    ASSERT_EQ(fmt, x::json::TimeFormat::UnixSecond);
+}
+
+TEST(ParseTimeFormat, UnixMillisecond) {
+    const auto fmt = ASSERT_NIL_P(x::json::parse_time_format("unix_ms"));
+    ASSERT_EQ(fmt, x::json::TimeFormat::UnixMillisecond);
+}
+
+TEST(ParseTimeFormat, UnixMicrosecond) {
+    const auto fmt = ASSERT_NIL_P(x::json::parse_time_format("unix_us"));
+    ASSERT_EQ(fmt, x::json::TimeFormat::UnixMicrosecond);
+}
+
+TEST(ParseTimeFormat, UnixNanosecond) {
+    const auto fmt = ASSERT_NIL_P(x::json::parse_time_format("unix_ns"));
+    ASSERT_EQ(fmt, x::json::TimeFormat::UnixNanosecond);
+}
+
+TEST(ParseTimeFormat, InvalidFormat) {
+    ASSERT_OCCURRED_AS_P(x::json::parse_time_format("invalid"), x::json::BASE_ERROR);
+}
+
+TEST(ParseTimeFormat, EmptyString) {
+    ASSERT_OCCURRED_AS_P(x::json::parse_time_format(""), x::json::BASE_ERROR);
+}

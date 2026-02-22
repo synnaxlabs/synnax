@@ -384,4 +384,13 @@ std::pair<ConnectionConfig, x::errors::Error> retrieve_connection(
     return {std::move(conn), parser.error()};
 }
 
+x::errors::Error classify_status(const int status_code) {
+    if (status_code >= 200 && status_code < 300) return x::errors::NIL;
+    if (status_code >= 400 && status_code < 500)
+        return errors::CLIENT_ERROR.sub("HTTP " + std::to_string(status_code));
+    if (status_code >= 500)
+        return errors::SERVER_ERROR.sub("HTTP " + std::to_string(status_code));
+    return errors::CLIENT_ERROR.sub("unexpected HTTP " + std::to_string(status_code));
+}
+
 }

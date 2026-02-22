@@ -127,6 +127,11 @@ std::pair<ConnectionConfig, x::errors::Error> retrieve_connection(
     const std::string &device_key
 );
 
+/// @brief classifies an HTTP status code into an error.
+/// @param status_code the HTTP response status code.
+/// @returns nil for 2xx, CLIENT_ERROR for 4xx, SERVER_ERROR for 5xx.
+x::errors::Error classify_status(int status_code);
+
 /// @brief static request configuration, set once at task setup time.
 struct RequestConfig {
     /// @brief HTTP method.

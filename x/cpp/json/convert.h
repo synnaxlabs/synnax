@@ -86,4 +86,10 @@ nlohmann::json from_timestamp(telem::TimeStamp ts, TimeFormat format);
 /// @returns the zero JSON value.
 nlohmann::json zero_value(Type format);
 
+/// @brief parses a TimeFormat from a string.
+/// @param str the string to parse ("iso8601", "unix_sec", "unix_ms", "unix_us",
+/// "unix_ns").
+/// @returns the TimeFormat and nil, or ISO8601 and an error if the string is unknown.
+std::pair<TimeFormat, errors::Error> parse_time_format(const std::string &str);
+
 }
