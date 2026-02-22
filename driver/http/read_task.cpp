@@ -27,6 +27,7 @@ std::pair<ReadTaskConfig, x::errors::Error> ReadTaskConfig::parse(
     cfg.strict = parser.field<bool>("strict", false);
 
     // Collect all channel keys for batch retrieval and duplicate detection.
+    // TODO: probably don't need all_keys and seen_keys.
     std::vector<synnax::channel::Key> all_keys;
     std::set<synnax::channel::Key> seen_keys;
 
@@ -64,6 +65,11 @@ std::pair<ReadTaskConfig, x::errors::Error> ReadTaskConfig::parse(
             if (ti_parser.ok()) field.time_info.emplace(ti_parser);
 
             // Check for duplicate channel keys.
+            // TODO: should allow duplicate channel keys if the JSON pointer is the
+            // same.
+            // TODO: config shouldn't even have time info for data channels. Those
+            // should just be specified separately for any channel, and if not specified
+            // the software timing will be used.
             if (seen_keys.count(field.channel_key))
                 fp.field_err(
                     "channel",
@@ -103,8 +109,13 @@ std::pair<ReadTaskConfig, x::errors::Error> ReadTaskConfig::parse(
         cfg.channels[ch.key] = ch;
 
     // Validate field channel types and resolve index channels.
+    // TODO: this struct can be defined outside of this function.
     struct IndexEntry {
         int endpoint_index;
+
+        // TODO: if time info not specified, use software sampling.
+        // Also need to test that the same index is not used
+        // across different ENDPOINTs (can be used across different fields on the same endpoint).
         std::optional<TimeInfo> time_info;
     };
     std::map<synnax::channel::Key, IndexEntry> index_entries;
@@ -117,7 +128,7 @@ std::pair<ReadTaskConfig, x::errors::Error> ReadTaskConfig::parse(
             const auto &ch = it->second;
 
             const auto &dt = ch.data_type;
-            if (dt == x::telem::UUID_T || dt == x::telem::JSON_T) {
+            if (dt == x::telem::UUID_T || dt == x::telem::JSON_T || dt == x::telem::BYTES_T || dt == x::telem::STRING_T) {
                 parser.field_err(
                     "endpoints",
                     "channel " + ch.name + " has unsupported data type " + dt.name()
@@ -125,6 +136,7 @@ std::pair<ReadTaskConfig, x::errors::Error> ReadTaskConfig::parse(
                 continue;
             }
 
+            // TODO: probably can ignore this case
             if (field.time_format.has_value() && dt != x::telem::TIMESTAMP_T) {
                 parser.field_err(
                     "endpoints",
@@ -190,6 +202,7 @@ std::pair<ReadTaskConfig, x::errors::Error> ReadTaskConfig::parse(
 ReadTaskSource::ReadTaskSource(ReadTaskConfig cfg, device::Client client):
     cfg_(std::move(cfg)), client_(std::move(client)) {
     // Build the flat list of channels for the tare transform.
+    // TODO: do i even need to do this?
     for (const auto &ep: cfg_.endpoints)
         for (const auto &field: ep.fields) {
             auto it = cfg_.channels.find(field.channel_key);
@@ -219,6 +232,7 @@ ReadTaskSource::read(x::breaker::Breaker &breaker, x::telem::Frame &fr) {
     common::ReadResult res;
 
     // Build bodies vector.
+    // TODO: body vector should be allocated outside of hot loop?
     std::vector<std::string> bodies;
     bodies.reserve(cfg_.endpoints.size());
     for (const auto &ep: cfg_.endpoints)
@@ -233,6 +247,7 @@ ReadTaskSource::read(x::breaker::Breaker &breaker, x::telem::Frame &fr) {
 
     // Parse responses per endpoint. We store the parsed JSON bodies for
     // index timestamp extraction later.
+    // TODO: parsed_bodies should be allocated outside of hot loop?
     std::vector<x::json::json> parsed_bodies(cfg_.endpoints.size());
 
     fr.reserve(cfg_.channels.size() + cfg_.index_sources.size());
@@ -301,6 +316,7 @@ ReadTaskSource::read(x::breaker::Breaker &breaker, x::telem::Frame &fr) {
         // Write index timestamps for index sources associated with this endpoint.
         for (const auto &idx: cfg_.index_sources) {
             if (idx.endpoint_index != static_cast<int>(ei)) continue;
+            // TODO: shouldn't be skipping? we should deduplicate index sources
             // Skip if we already wrote this index (from a previous endpoint).
             if (fr.contains(idx.index_key)) continue;
 
