@@ -193,7 +193,8 @@ public:
             },
             std::move(source),
             x::breaker::default_config("arc_acquisition"),
-            "arc_acquisition"
+            "arc_acquisition",
+            false
         );
         task->control = std::make_unique<pipeline::Control>(
             streamer_factory,

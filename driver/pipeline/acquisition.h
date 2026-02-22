@@ -149,6 +149,13 @@ class Acquisition final : public Base {
     const std::shared_ptr<Source> source;
     /// @brief the configuration for the Synnax writer.
     synnax::framer::WriterConfig writer_config;
+    /// @brief whether to reject writes when the writer does not have sufficient
+    /// authority over a channel. Defaults to true, which is correct for hardware
+    /// acquisition tasks where two tasks should never write to the same channels.
+    /// Set to false for control-oriented tasks (e.g. Arc) where multiple writers
+    /// may compete for the same channels at different authority levels and need
+    /// to remain open to accept authority handoff.
+    bool err_on_unauthorized;
 
     /// @brief the run function passed to the pipeline thread. Automatically catches
     /// standard exceptions to ensure the pipeline does not cause the application to
@@ -161,20 +168,22 @@ public:
     /// @param client the Synnax client to use for writing data.
     /// @param writer_config the configuration for the Synnax writer. This
     /// configuration will have its start time set to the first timestamp read from
-    /// the source. The pipeline will also set err_on_unauthorized to true so that
-    /// multiple acquisition pipelines cannot write to the same channels at once.
+    /// the source.
     /// @param source the source to read data from. See the Source interface for
     /// more details on how to correctly implement a source.
     /// @param breaker_config the configuration for the breaker used to manage the
     /// acquisition thread lifecycle and retry requests on connection loss or
     /// temporary hardware errors.
     /// @param thread_name optional name for the pipeline thread (visible in debuggers).
+    /// @param err_on_unauthorized whether to reject writes when the writer does
+    /// not have sufficient authority. Defaults to true.
     Acquisition(
         std::shared_ptr<synnax::Synnax> client,
         synnax::framer::WriterConfig writer_config,
         std::shared_ptr<Source> source,
         const x::breaker::Config &breaker_config,
-        std::string thread_name = ""
+        std::string thread_name = "",
+        bool err_on_unauthorized = true
     );
 
     /// @brief construct an acquisition pipeline that opens writers using a writer
@@ -182,20 +191,22 @@ public:
     /// @param factory the writer factory to use for opening writers.
     /// @param writer_config the configuration for the Synnax writer. This
     /// configuration will have its start time set to the first timestamp read from
-    /// the source. The pipeline will also set err_on_unauthorized to true so that
-    /// multiple acquisition pipelines cannot write to the same channels at once.
+    /// the source.
     /// @param source the source to read data from. See the Source interface for
     /// more details on how to correctly implement a source.
     /// @param breaker_config the configuration for the breaker used to manage the
     /// acquisition thread lifecycle and retry requests on connection loss or
-    /// temporary
+    /// temporary hardware errors.
     /// @param thread_name optional name for the pipeline thread (visible in debuggers).
+    /// @param err_on_unauthorized whether to reject writes when the writer does
+    /// not have sufficient authority. Defaults to true.
     Acquisition(
         std::shared_ptr<WriterFactory> factory,
         synnax::framer::WriterConfig writer_config,
         std::shared_ptr<Source> source,
         const x::breaker::Config &breaker_config,
-        std::string thread_name = ""
+        std::string thread_name = "",
+        bool err_on_unauthorized = true
     );
 };
 }
