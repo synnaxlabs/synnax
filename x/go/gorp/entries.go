@@ -175,25 +175,26 @@ const magicPrefix = "__gorp__//"
 type keyCodec[K Key, E Entry[K]] struct {
 	prefix  []byte
 	keySize int
+	buf     []byte
 }
 
-func newKeyCodec[K Key, E Entry[K]]() keyCodec[K, E] {
-	c := keyCodec[K, E]{prefix: []byte(magicPrefix + types.Name[E]())}
+func newKeyCodec[K Key, E Entry[K]]() *keyCodec[K, E] {
+	c := &keyCodec[K, E]{prefix: []byte(magicPrefix + types.Name[E]())}
 	var zero K
 	switch any(zero).(type) {
 	case string, []byte:
 	default:
 		c.keySize = int(unsafe.Sizeof(zero))
+		c.buf = make([]byte, len(c.prefix)+c.keySize)
+		copy(c.buf, c.prefix)
 	}
 	return c
 }
 
-func (k keyCodec[K, E]) encode(key K) []byte {
+func (k *keyCodec[K, E]) encode(key K) []byte {
 	if k.keySize > 0 {
-		out := make([]byte, len(k.prefix)+k.keySize)
-		copy(out, k.prefix)
-		k.putBigEndian(out[len(k.prefix):], key)
-		return out
+		k.putBigEndian(k.buf[len(k.prefix):], key)
+		return k.buf
 	}
 	switch v := any(key).(type) {
 	case string:
@@ -211,7 +212,7 @@ func (k keyCodec[K, E]) encode(key K) []byte {
 	}
 }
 
-func (k keyCodec[K, E]) decode(b []byte) K {
+func (k *keyCodec[K, E]) decode(b []byte) K {
 	b = b[len(k.prefix):]
 	if k.keySize > 0 {
 		return k.getBigEndian(b)
@@ -227,7 +228,7 @@ func (k keyCodec[K, E]) decode(b []byte) K {
 	}
 }
 
-func (k keyCodec[K, E]) matchPrefix(prefix []byte, key K) bool {
+func (k *keyCodec[K, E]) matchPrefix(prefix []byte, key K) bool {
 	if len(prefix) == 0 {
 		return true
 	}
@@ -253,7 +254,7 @@ func (k keyCodec[K, E]) matchPrefix(prefix []byte, key K) bool {
 	}
 }
 
-func (k keyCodec[K, E]) putBigEndian(dst []byte, key K) {
+func (k *keyCodec[K, E]) putBigEndian(dst []byte, key K) {
 	switch k.keySize {
 	case 1:
 		dst[0] = *(*byte)(unsafe.Pointer(&key))
@@ -271,7 +272,7 @@ func (k keyCodec[K, E]) putBigEndian(dst []byte, key K) {
 	}
 }
 
-func (k keyCodec[K, E]) getBigEndian(b []byte) K {
+func (k *keyCodec[K, E]) getBigEndian(b []byte) K {
 	var out K
 	switch k.keySize {
 	case 1:

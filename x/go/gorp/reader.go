@@ -26,10 +26,10 @@ import (
 )
 
 // Reader wraps a key-value reader to provide a strongly typed interface for
-// reading entries from the DB. Readonly only accesses entries that match
-// its type arguments.
+// reading entries from the DB. Reader only accesses entries that match
+// its type arguments. Reader is NOT safe for concurrent use.
 type Reader[K Key, E Entry[K]] struct {
-	keyCodec keyCodec[K, E]
+	keyCodec *keyCodec[K, E]
 	// BaseReader is the underlying key-value reader that the Reader is wrapping.
 	BaseReader
 }
@@ -37,8 +37,7 @@ type Reader[K Key, E Entry[K]] struct {
 // WrapReader wraps the given key-value reader to provide a strongly
 // typed interface for reading entries from the DB. It's important to note
 // that the Reader only access to the entries provided as the type arguments
-// to this function. The returned reader is safe for concurrent use.
-// The following example reads from a DB:
+// to this function. The following example reads from a DB:
 //
 //	r := gor.WrapReader[MyKey, MyEntry](db)
 //

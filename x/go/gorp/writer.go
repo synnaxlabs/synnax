@@ -13,13 +13,11 @@ import (
 	"context"
 )
 
-// Writer represents a generalized key-value transaction that executes atomically against
-// an underlying database. DB implements the Writer interface, which will execute
-// queries directly against the DB. To open an isolated transaction against the DB, use
-// cesium.BeginWrite.
+// Writer wraps a key-value writer to provide a strongly typed interface for
+// writing entries to the DB. Writer is NOT safe for concurrent use.
 type Writer[K Key, E Entry[K]] struct {
 	BaseWriter
-	keyCodec keyCodec[K, E]
+	keyCodec *keyCodec[K, E]
 }
 
 // WrapWriter wraps the given key-value writer to provide a strongly

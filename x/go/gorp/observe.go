@@ -44,7 +44,7 @@ func Observe[K Key, E Entry[K]](kvo BaseObservable) observe.Observable[iter.Seq[
 func wrapMatchedChanges[K Key, E Entry[K]](
 	ctx context.Context,
 	changes []kv.Change,
-	kCodec keyCodec[K, E],
+	kCodec *keyCodec[K, E],
 	tools Tools,
 ) TxReader[K, E] {
 	return func(yield func(change.Change[K, E]) bool) {

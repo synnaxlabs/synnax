@@ -139,4 +139,3 @@ func ReinterpretMapValues[K comparable, A, B types.Sized](in map[K]A) map[K]B {
 	}
 	return *(*map[K]B)(unsafe.Pointer(&in))
 }
-
