@@ -15,6 +15,7 @@ import (
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/kv"
 	"github.com/synnaxlabs/x/kv/memkv"
+	"github.com/synnaxlabs/x/query"
 	. "github.com/synnaxlabs/x/testutil"
 )
 
@@ -41,7 +42,7 @@ var _ = Describe("Tx", Ordered, func() {
 				return err
 			})).To(MatchError(err))
 			_, _, err = db.Get(ctx, k)
-			Expect(err).To(MatchError(kv.ErrNotFound))
+			Expect(err).To(MatchError(query.ErrNotFound))
 		})
 	})
 })

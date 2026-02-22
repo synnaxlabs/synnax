@@ -29,19 +29,19 @@ var _ = Describe("DB", func() {
 	Describe("WithTx", func() {
 		It("Should commit the transaction if the callback returns nil", func() {
 			Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
-				return gorp.NewCreate[int, entry]().Entry(&entry{ID: 1, Data: "One"}).Exec(ctx, tx)
+				return gorp.NewCreate[int32, entry]().Entry(&entry{ID: 1, Data: "One"}).Exec(ctx, tx)
 			})).To(Succeed())
 			var res entry
-			Expect(gorp.NewRetrieve[int, entry]().WhereKeys(1).Entry(&res).Exec(ctx, db)).To(Succeed())
+			Expect(gorp.NewRetrieve[int32, entry]().WhereKeys(1).Entry(&res).Exec(ctx, db)).To(Succeed())
 			Expect(res).To(Equal(entry{ID: 1, Data: "One"}))
 		})
 		It("Should not commit the transaction if the callback returns an error", func() {
 			Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
-				return gorp.NewCreate[int, entry]().Entry(&entry{ID: 1, Data: "One"}).Exec(ctx, tx)
+				return gorp.NewCreate[int32, entry]().Entry(&entry{ID: 1, Data: "One"}).Exec(ctx, tx)
 			})).To(Succeed())
 			Expect(db.WithTx(ctx, func(_ gorp.Tx) error { return query.ErrNotFound })).
 				ToNot(Succeed())
-			Expect(gorp.NewRetrieve[int, entry]().WhereKeys(2).Exec(ctx, db)).To(HaveOccurredAs(query.ErrNotFound))
+			Expect(gorp.NewRetrieve[int32, entry]().WhereKeys(2).Exec(ctx, db)).To(HaveOccurredAs(query.ErrNotFound))
 		})
 	})
 

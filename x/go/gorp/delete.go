@@ -18,17 +18,20 @@ import (
 )
 
 // Delete is a query that deletes Entries from the DB.
-type Delete[K Key, E Entry[K]] struct{ params query.Parameters }
+type Delete[K Key, E Entry[K]] struct {
+	retrieve Retrieve[K, E]
+	guards   guards[K, E]
+}
 
 // NewDelete opens a new Delete query.
 func NewDelete[K Key, E Entry[K]]() Delete[K, E] {
-	return Delete[K, E]{params: make(query.Parameters)}
+	return Delete[K, E]{retrieve: NewRetrieve[K, E]()}
 }
 
 // Where adds the provided filter to the query. If filtering by the key of the Entry,
 // use the far more efficient WhereKeys method instead.
 func (d Delete[K, E]) Where(filter FilterFunc[K, E], opts ...FilterOption) Delete[K, E] {
-	addFilter(d.params, filter, opts)
+	d.retrieve = d.retrieve.Where(filter, opts...)
 	return d
 }
 
@@ -39,7 +42,7 @@ func (d Delete[K, E]) Guard(filter GuardFunc[K, E]) Delete[K, E] {
 	if filter == nil {
 		return d
 	}
-	addGuard(d.params, filter)
+	d.guards = append(d.guards, filter)
 	return d
 }
 
@@ -48,7 +51,7 @@ func (d Delete[K, E]) Guard(filter GuardFunc[K, E]) Delete[K, E] {
 // If called in conjunction with Where, the WhereKeys filter will be applied first.
 // Subsequent calls to WhereKeys will append the keys to the existing filter.
 func (d Delete[K, E]) WhereKeys(keys ...K) Delete[K, E] {
-	setWhereKeys(d.params, keys...)
+	d.retrieve = d.retrieve.WhereKeys(keys...)
 	return d
 }
 
@@ -58,24 +61,24 @@ func (d Delete[K, E]) WhereKeys(keys ...K) Delete[K, E] {
 func (d Delete[K, E]) Exec(ctx context.Context, tx Tx) error {
 	checkForNilTx("DeleteChannel.Exec", tx)
 	var (
-		entries []E
-		q       = (Retrieve[K, E]{Params: d.params}).Entries(&entries)
+		queryCtx = Context{Context: ctx, Tx: tx}
+		entries  []E
+		q        = d.retrieve.Entries(&entries)
 	)
 	if err := q.Exec(ctx, tx); err != nil && !errors.Is(err, query.ErrNotFound) {
 		return err
 	}
-	if err := checkGuards(Context{Context: ctx, Tx: tx}, d.params, entries); err != nil {
+	if err := d.guards.checkMany(queryCtx, entries); err != nil {
 		return err
 	}
 	keys := lo.Map(entries, func(entry E, _ int) K { return entry.GorpKey() })
 	return WrapWriter[K, E](tx).Delete(ctx, keys...)
 }
 
-const deleteGuardKey = "deleteGuard"
-
+type GuardFunc[K Key, E Entry[K]] = func(ctx Context, entry E) error
 type guards[K Key, E Entry[K]] []GuardFunc[K, E]
 
-func (g guards[K, E]) exec(ctx Context, entry E) error {
+func (g guards[K, E]) checkOne(ctx Context, entry E) error {
 	for _, f := range g {
 		if err := f(ctx, entry); err != nil {
 			return err
@@ -84,28 +87,9 @@ func (g guards[K, E]) exec(ctx Context, entry E) error {
 	return nil
 }
 
-type GuardFunc[K Key, E Entry[K]] = func(ctx Context, entry E) error
-
-func addGuard[K Key, E Entry[K]](q query.Parameters, guard GuardFunc[K, E]) {
-	var g guards[K, E]
-	rg, ok := q.Get(deleteGuardKey)
-	if !ok {
-		g = make(guards[K, E], 0, 1)
-	} else {
-		g = rg.(guards[K, E])
-	}
-	g = append(g, guard)
-	q.Set(deleteGuardKey, g)
-}
-
-func checkGuards[K Key, E Entry[K]](ctx Context, q query.Parameters, entries []E) error {
-	g, ok := q.Get(deleteGuardKey)
-	if !ok {
-		return nil
-	}
-	guards := g.(guards[K, E])
+func (g guards[K, E]) checkMany(ctx Context, entries []E) error {
 	for _, entry := range entries {
-		if err := guards.exec(ctx, entry); err != nil {
+		if err := g.checkOne(ctx, entry); err != nil {
 			return err
 		}
 	}

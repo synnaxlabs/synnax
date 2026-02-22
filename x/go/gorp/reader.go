@@ -10,6 +10,7 @@
 package gorp
 
 import (
+	"bytes"
 	"context"
 	"fmt"
 	"io"
@@ -28,7 +29,7 @@ import (
 // reading entries from the DB. Readonly only accesses entries that match
 // its type arguments.
 type Reader[K Key, E Entry[K]] struct {
-	*lazyPrefix[K, E]
+	keyCodec keyCodec[K, E]
 	// BaseReader is the underlying key-value reader that the Reader is wrapping.
 	BaseReader
 }
@@ -45,22 +46,16 @@ type Reader[K Key, E Entry[K]] struct {
 //
 //	r := gor.WrapReader[MyKey, MyEntry](tx)
 func WrapReader[K Key, E Entry[K]](base BaseReader) *Reader[K, E] {
-	return &Reader[K, E]{
-		BaseReader: base,
-		lazyPrefix: &lazyPrefix[K, E]{Tools: base},
-	}
+	return &Reader[K, E]{BaseReader: base, keyCodec: newKeyCodec[K, E]()}
 }
 
 // Get retrieves a single entry from the database. If the entry does not exist,
 // query.ErrNotFound is returned.
-func (r Reader[K, E]) Get(ctx context.Context, key K) (e E, err error) {
-	bKey, err := encodeKey(ctx, r, r.prefix(ctx), key)
+func (r Reader[K, E]) Get(ctx context.Context, key K) (E, error) {
+	var e E
+	b, closer, err := r.BaseReader.Get(ctx, r.keyCodec.encode(key))
 	if err != nil {
 		return e, err
-	}
-	b, closer, err := r.BaseReader.Get(ctx, bKey)
-	if err != nil {
-		return e, lo.Ternary(errors.Is(err, kv.ErrNotFound), query.ErrNotFound, err)
 	}
 	err = r.Decode(ctx, b, &e)
 	return e, errors.Combine(err, closer.Close())
@@ -104,7 +99,7 @@ type IterOptions struct {
 
 // OpenIterator opens a new Iterator over the entries in the Reader.
 func (r Reader[K, E]) OpenIterator(opts IterOptions) (iter *Iterator[E], err error) {
-	prefixedKey := append(r.prefix(context.TODO()), opts.prefix...)
+	prefixedKey := append(bytes.Clone(r.keyCodec.prefix), opts.prefix...)
 	base, err := r.BaseReader.OpenIterator(kv.IterPrefix(prefixedKey))
 	return WrapIterator[E](base, r), err
 }
@@ -148,6 +143,7 @@ func (k *Iterator[E]) Value(ctx context.Context) (entry *E) {
 	k.value = new(E)
 	if err := k.decoder.Decode(ctx, k.Iterator.Value(), k.value); err != nil {
 		k.err = err
+		return nil
 	}
 	return k.value
 }

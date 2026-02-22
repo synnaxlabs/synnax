@@ -101,7 +101,7 @@ func (s *Service) RetrieveResource(ctx context.Context, key string, tx gorp.Tx) 
 func translateChange(ch change) ontology.Change {
 	return ontology.Change{
 		Variant: ch.Variant,
-		Key:     OntologyID(ch.Key),
+		Key:     OntologyID(ch.Key).String(),
 		Value:   newResource(ch.Value),
 	}
 }

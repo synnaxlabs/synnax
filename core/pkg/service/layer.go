@@ -234,19 +234,19 @@ func OpenLayer(ctx context.Context, cfgs ...LayerConfig) (l *Layer, err error) {
 	}); !ok(err, l.Schematic) {
 		return nil, err
 	}
-	if l.LinePlot, err = lineplot.NewService(lineplot.ServiceConfig{
+	if l.LinePlot, err = lineplot.OpenService(ctx, lineplot.ServiceConfig{
 		DB:       cfg.Distribution.DB,
 		Ontology: cfg.Distribution.Ontology,
 	}); !ok(err, nil) {
 		return nil, err
 	}
-	if l.Log, err = log.NewService(log.ServiceConfig{
+	if l.Log, err = log.OpenService(ctx, log.ServiceConfig{
 		DB:       cfg.Distribution.DB,
 		Ontology: cfg.Distribution.Ontology,
 	}); !ok(err, nil) {
 		return nil, err
 	}
-	if l.Table, err = table.NewService(table.ServiceConfig{
+	if l.Table, err = table.OpenService(ctx, table.ServiceConfig{
 		DB:       cfg.Distribution.DB,
 		Ontology: cfg.Distribution.Ontology,
 	}); !ok(err, nil) {

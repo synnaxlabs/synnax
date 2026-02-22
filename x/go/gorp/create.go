@@ -17,11 +17,14 @@ import (
 )
 
 // Create is a query that creates Entries in the DB.
-type Create[K Key, E Entry[K]] struct{ params query.Parameters }
+type Create[K Key, E Entry[K]] struct {
+	entries  *Entries[K, E]
+	onUpdate onUpdate[K, E]
+}
 
 // NewCreate opens a new Create query.
 func NewCreate[K Key, E Entry[K]]() Create[K, E] {
-	return Create[K, E]{params: make(query.Parameters)}
+	return Create[K, E]{entries: new(Entries[K, E])}
 }
 
 // MergeExisting adds a function to the query that can be used to prevent the accidental
@@ -30,19 +33,19 @@ func NewCreate[K Key, E Entry[K]]() Create[K, E] {
 // If no entry with a matching GorpKey is found, the function is not called. MergeExisting
 // adds overhead to the query, as a retrieval is required to check for existing entries.
 func (c Create[K, E]) MergeExisting(filter func(ctx Context, creating E, existing E) (E, error)) Create[K, E] {
-	addMergeExisting(c.params, filter)
+	c.onUpdate = append(c.onUpdate, filter)
 	return c
 }
 
 // Entries sets the Entries to write to the DB.
 func (c Create[K, E]) Entries(entries *[]E) Create[K, E] {
-	SetEntries(c.params, entries)
+	c.entries = multipleEntries[K, E](entries)
 	return c
 }
 
 // Entry sets the entry to write to the DB.
 func (c Create[K, E]) Entry(entry *E) Create[K, E] {
-	SetEntry(c.params, entry)
+	c.entries = singleEntry[K, E](entry)
 	return c
 }
 
@@ -50,13 +53,12 @@ func (c Create[K, E]) Entry(entry *E) Create[K, E] {
 // encountered during execution.
 func (c Create[K, E]) Exec(ctx context.Context, tx Tx) error {
 	checkForNilTx("Create.Exec", tx)
-	entries, w := GetEntries[K, E](c.params), WrapWriter[K, E](tx)
-	mergeExisting, hasMergeExisting := getMergeExisting[K, E](c.params)
-	if !hasMergeExisting {
-		return w.Set(ctx, entries.All()...)
+	w := WrapWriter[K, E](tx)
+	if len(c.onUpdate) == 0 {
+		return w.Set(ctx, c.entries.All()...)
 	}
 	r := WrapReader[K, E](tx)
-	all := entries.All()
+	all := c.entries.All()
 	toWrite := make([]E, 0, len(all))
 	for _, entry := range all {
 		e, err := r.Get(ctx, entry.GorpKey())
@@ -67,7 +69,7 @@ func (c Create[K, E]) Exec(ctx context.Context, tx Tx) error {
 		if err != nil {
 			return err
 		}
-		if e, err = mergeExisting.exec(Context{
+		if e, err = c.onUpdate.exec(Context{
 			Context: ctx,
 			Tx:      tx,
 		}, entry, e); err != nil {
@@ -77,8 +79,6 @@ func (c Create[K, E]) Exec(ctx context.Context, tx Tx) error {
 	}
 	return w.Set(ctx, toWrite...)
 }
-
-const mergeExistingKey = "mergeExisting"
 
 type MergeExistingFunc[K Key, E Entry[K]] = func(ctx Context, creating, existing E) (E, error)
 
@@ -92,24 +92,4 @@ func (o onUpdate[K, E]) exec(ctx Context, creating, existing E) (E, error) {
 		}
 	}
 	return creating, nil
-}
-
-func addMergeExisting[K Key, E Entry[K]](q query.Parameters, f MergeExistingFunc[K, E]) {
-	var o onUpdate[K, E]
-	ro, ok := q.Get(mergeExistingKey)
-	if !ok {
-		o = make(onUpdate[K, E], 0, 1)
-	} else {
-		o = ro.(onUpdate[K, E])
-	}
-	o = append(o, f)
-	q.Set(mergeExistingKey, o)
-}
-
-func getMergeExisting[K Key, E Entry[K]](q query.Parameters) (o onUpdate[K, E], ok bool) {
-	ro, ok := q.Get(mergeExistingKey)
-	if !ok {
-		return nil, false
-	}
-	return ro.(onUpdate[K, E]), true
 }

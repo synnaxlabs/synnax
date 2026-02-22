@@ -66,8 +66,9 @@ func (c ServiceConfig) Validate() error {
 // mechanisms for listening to changes in views.
 type Service struct {
 	cfg             ServiceConfig
-	shutdownSignals io.Closer
 	group           group.Group
+	entryManager    *gorp.EntryManager[uuid.UUID, View]
+	shutdownSignals io.Closer
 }
 
 // OpenService opens a new Service with the provided configuration. If error is nil, the
@@ -80,6 +81,10 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (*Service, error) {
 		return nil, err
 	}
 	if s.group, err = s.cfg.Group.CreateOrRetrieve(ctx, "Views", ontology.RootID); err != nil {
+		return nil, err
+	}
+	s.entryManager, err = gorp.OpenEntryManager[uuid.UUID, View](ctx, s.cfg.DB)
+	if err != nil {
 		return nil, err
 	}
 	s.cfg.Ontology.RegisterService(s)

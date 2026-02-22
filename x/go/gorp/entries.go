@@ -10,17 +10,15 @@
 package gorp
 
 import (
-	"context"
+	"bytes"
 
-	"github.com/samber/lo"
-	"github.com/synnaxlabs/x/binary"
-	"github.com/synnaxlabs/x/query"
 	"github.com/synnaxlabs/x/types"
+	xunsafe "github.com/synnaxlabs/x/unsafe"
 	"go.uber.org/zap"
 )
 
 // Key is a unique key for an entry of a particular type.
-type Key any
+type Key types.Primitive
 
 // Entry is a go type that can be queried against a DB. All go types must implement the Entry
 // interface so that they can be stored. Entry must be serializable by the Encodings and decoder
@@ -40,8 +38,6 @@ func entryKeys[K Key, E Entry[K]](entries []E) []K {
 	}
 	return keys
 }
-
-const entriesOptKey query.Parameter = "entries"
 
 // Entries is a query option used to bind entities from a retrieve query or
 // write values to a create query.
@@ -151,89 +147,47 @@ func (e *Entries[K, E]) Keys() []K {
 	return entryKeys(e.All())
 }
 
-func (e *Entries[K, E]) Any() bool {
+// Bound returns true if entries binding was set on the query.
+func (e *Entries[K, E]) Bound() bool {
 	if e.isMultiple {
-		return len(*e.entries) > 0
+		return e.entries != nil
 	}
 	return e.entry != nil
 }
 
+// IsMultiple returns true if multiple entries were bound to the query.
 func (e *Entries[K, E]) IsMultiple() bool { return e.isMultiple }
 
-// SetEntry sets the entry that the query will fill results into or write results to.
-//
-//	Calls to SetEntry will override All previous calls to SetEntry or SetEntries.
-func SetEntry[K Key, E Entry[K]](q query.Parameters, entry *E) {
-	q.Set(entriesOptKey, &Entries[K, E]{entry: entry, isMultiple: false})
+func singleEntry[K Key, E Entry[K]](entry *E) *Entries[K, E] {
+	return &Entries[K, E]{entry: entry, isMultiple: false}
 }
 
-// SetEntries sets the entries that the query will fill results into or write results to.
-// Calls to SetEntries will override All previous calls to SetEntry or SetEntries.
-func SetEntries[K Key, E Entry[K]](q query.Parameters, e *[]E) {
-	q.Set(entriesOptKey, &Entries[K, E]{entries: e, isMultiple: true})
+func multipleEntries[K Key, E Entry[K]](entries *[]E) *Entries[K, E] {
+	return &Entries[K, E]{entries: entries, isMultiple: true}
 }
 
-// GetEntries returns the entries that the query will fill results into or write
-// results from.
-func GetEntries[K Key, E Entry[K]](q query.Parameters) *Entries[K, E] {
-	re, ok := q.Get(entriesOptKey)
-	if !ok {
-		SetEntries(q, &[]E{})
-		return GetEntries[K, E](q)
-	}
-	return re.(*Entries[K, E])
+const magicPrefix = "__gorp__//"
+
+type keyCodec[K Key, E Entry[K]] struct {
+	prefix []byte
 }
 
-// HasEntries returns true if entries have been explicitly bound to the query via
-// SetEntry or SetEntries. Unlike GetEntries, this does not create a new entries
-// binding if one doesn't exist.
-func HasEntries[K Key, E Entry[K]](q query.Parameters) bool {
-	_, ok := q.Get(entriesOptKey)
-	return ok
+func newKeyCodec[K Key, E Entry[K]]() keyCodec[K, E] {
+	return keyCodec[K, E]{prefix: []byte(magicPrefix + types.Name[E]())}
 }
 
-func prefix[K Key, E Entry[K]](ctx context.Context, encoder binary.Encoder) []byte {
-	return lo.Must(encoder.Encode(ctx, types.Name[E]()))
+func (k keyCodec[K, E]) baseEncode(key K) []byte {
+	return xunsafe.EncodePrimitive(key)
 }
 
-type lazyPrefix[K Key, E Entry[K]] struct {
-	Tools
-	_prefix []byte
+func (k keyCodec[K, E]) encode(key K) []byte {
+	return append(bytes.Clone(k.prefix), k.baseEncode(key)...)
 }
 
-func (lp *lazyPrefix[K, E]) prefix(ctx context.Context) []byte {
-	if lp._prefix == nil {
-		lp._prefix = prefix[K, E](ctx, lp)
-	}
-	return lp._prefix
+func (k keyCodec[K, E]) decode(b []byte) K {
+	return xunsafe.DecodePrimitive[K](b[len(k.prefix):])
 }
 
-func encodeKey[K Key](
-	ctx context.Context,
-	encoder binary.Encoder,
-	prefix []byte,
-	key K,
-) ([]byte, error) {
-	// if the key is already a byte slice, we can just append it to the prefix
-	if b, ok := any(key).([]byte); ok {
-		return append(prefix, b...), nil
-	}
-	byteKey, err := encoder.Encode(ctx, key)
-	if err != nil {
-		return nil, err
-	}
-	return append(prefix, byteKey...), nil
-}
-
-func decodeKey[K Key](
-	ctx context.Context,
-	decoder binary.Decoder,
-	prefix []byte,
-	b []byte,
-) (v K, err error) {
-	// if the key is a byte slice, we can just return it
-	if _, ok := any(v).([]byte); ok {
-		return any(b[len(prefix):]).(K), nil
-	}
-	return v, decoder.Decode(ctx, b[len(prefix):], &v)
+func (k keyCodec[K, E]) matchPrefix(prefix []byte, key K) bool {
+	return bytes.HasPrefix(k.baseEncode(key), prefix)
 }

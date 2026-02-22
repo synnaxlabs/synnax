@@ -49,7 +49,7 @@ func Publish(
 						continue
 					}
 				} else {
-					key = EncodeID(ch.Key)
+					key = []byte(ch.Key + "\n")
 				}
 				out = append(out, change.Change[[]byte, struct{}]{Key: key, Variant: ch.Variant})
 			}

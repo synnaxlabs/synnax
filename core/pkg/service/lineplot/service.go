@@ -10,6 +10,8 @@
 package lineplot
 
 import (
+	"context"
+
 	"github.com/google/uuid"
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
 	"github.com/synnaxlabs/x/config"
@@ -52,19 +54,31 @@ func (c ServiceConfig) Validate() error {
 }
 
 // Service is the primary service for retrieving and modifying line plots from Synnax.
-type Service struct{ ServiceConfig }
+type Service struct {
+	ServiceConfig
+	entryManager *gorp.EntryManager[uuid.UUID, LinePlot]
+}
 
-// NewService instantiates a new line plot service using the provided configurations.
+// OpenService instantiates a new line plot service using the provided configurations.
 // Each configuration will be used as an override for the previous configuration in the
 // list. See the Config struct for information on which fields should be set.
-func NewService(cfgs ...ServiceConfig) (*Service, error) {
+func OpenService(ctx context.Context, cfgs ...ServiceConfig) (*Service, error) {
 	cfg, err := config.New(DefaultServiceConfig, cfgs...)
 	if err != nil {
 		return nil, err
 	}
-	s := &Service{ServiceConfig: cfg}
+	entryManager, err := gorp.OpenEntryManager[uuid.UUID, LinePlot](ctx, cfg.DB)
+	if err != nil {
+		return nil, err
+	}
+	s := &Service{ServiceConfig: cfg, entryManager: entryManager}
 	cfg.Ontology.RegisterService(s)
 	return s, nil
+}
+
+// Close closes the line plot service and releases any resources.
+func (s *Service) Close() error {
+	return s.entryManager.Close()
 }
 
 // NewWriter opens a new writer for creating, updating, and deleting line plots in Synnax. If

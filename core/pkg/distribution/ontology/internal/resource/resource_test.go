@@ -190,7 +190,7 @@ var _ = Describe("Resource", func() {
 		})
 		Describe("GorpKey", func() {
 			It("Should return the ID as the gorp key of the resource", func() {
-				Expect(r.GorpKey()).To(Equal(r.ID))
+				Expect(r.GorpKey()).To(Equal(r.ID.String()))
 			})
 		})
 

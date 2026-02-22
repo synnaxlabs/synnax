@@ -31,9 +31,9 @@ var _ = Describe("Observe", func() {
 	AfterEach(func() { Expect(db.Close()).To(Succeed()) })
 	It("Should correctly observe a change to the key value store", func() {
 		tx := db.OpenTx()
-		Expect(gorp.NewCreate[int, entry]().Entry(&entry{ID: 42, Data: "data"}).Exec(ctx, tx)).To(Succeed())
+		Expect(gorp.NewCreate[int32, entry]().Entry(&entry{ID: 42, Data: "data"}).Exec(ctx, tx)).To(Succeed())
 		called := false
-		gorp.Observe[int, entry](db).OnChange(func(ctx context.Context, r gorp.TxReader[int, entry]) {
+		gorp.Observe[int32, entry](db).OnChange(func(ctx context.Context, r gorp.TxReader[int32, entry]) {
 			for ch := range r {
 				Expect(ch.Value).To(Equal(entry{ID: 42, Data: "data"}))
 				Expect(ch.Variant).To(Equal(change.VariantSet))
@@ -45,31 +45,32 @@ var _ = Describe("Observe", func() {
 	})
 	It("Should not notify for a different type than the entries written", func() {
 		tx := db.OpenTx()
-		Expect(gorp.NewCreate[int, entry]().Entry(&entry{ID: 42, Data: "data"}).Exec(ctx, tx)).To(Succeed())
+		Expect(gorp.NewCreate[int32, entry]().Entry(&entry{ID: 42, Data: "data"}).Exec(ctx, tx)).To(Succeed())
 		called := false
-		gorp.Observe[int, entryTwo](db).OnChange(func(ctx context.Context, r gorp.TxReader[int, entryTwo]) {
+		gorp.Observe[int32, grape](db).OnChange(func(ctx context.Context, r gorp.TxReader[int32, grape]) {
 			called = true
 		})
 		Expect(tx.Commit(ctx)).To(Succeed())
 		Expect(called).To(BeFalse())
 	})
+
 	It("Should notify each observer with only their matching entries in a mixed transaction", func() {
 		tx := db.OpenTx()
-		Expect(gorp.NewCreate[int, entry]().Entry(&entry{ID: 1, Data: "one"}).Exec(ctx, tx)).To(Succeed())
-		Expect(gorp.NewCreate[int, entry]().Entry(&entry{ID: 2, Data: "two"}).Exec(ctx, tx)).To(Succeed())
-		Expect(gorp.NewCreate[int, entryTwo]().Entry(&entryTwo{ID: 100, Data: "hundred"}).Exec(ctx, tx)).To(Succeed())
+		Expect(gorp.NewCreate[int32, entry]().Entry(&entry{ID: 1, Data: "one"}).Exec(ctx, tx)).To(Succeed())
+		Expect(gorp.NewCreate[int32, entry]().Entry(&entry{ID: 2, Data: "two"}).Exec(ctx, tx)).To(Succeed())
+		Expect(gorp.NewCreate[int32, grape]().Entry(&grape{ID: 100, Data: "hundred"}).Exec(ctx, tx)).To(Succeed())
 
-		var entryChanges []change.Change[int, entry]
-		var entryTwoChanges []change.Change[int, entryTwo]
+		var entryChanges []change.Change[int32, entry]
+		var grapeChanges []change.Change[int32, grape]
 
-		gorp.Observe[int, entry](db).OnChange(func(ctx context.Context, r gorp.TxReader[int, entry]) {
+		gorp.Observe[int32, entry](db).OnChange(func(ctx context.Context, r gorp.TxReader[int32, entry]) {
 			for ch := range r {
 				entryChanges = append(entryChanges, ch)
 			}
 		})
-		gorp.Observe[int, entryTwo](db).OnChange(func(ctx context.Context, r gorp.TxReader[int, entryTwo]) {
+		gorp.Observe[int32, grape](db).OnChange(func(ctx context.Context, r gorp.TxReader[int32, grape]) {
 			for ch := range r {
-				entryTwoChanges = append(entryTwoChanges, ch)
+				grapeChanges = append(grapeChanges, ch)
 			}
 		})
 
@@ -79,7 +80,7 @@ var _ = Describe("Observe", func() {
 		Expect(entryChanges[0].Value).To(Equal(entry{ID: 1, Data: "one"}))
 		Expect(entryChanges[1].Value).To(Equal(entry{ID: 2, Data: "two"}))
 
-		Expect(entryTwoChanges).To(HaveLen(1))
-		Expect(entryTwoChanges[0].Value).To(Equal(entryTwo{ID: 100, Data: "hundred"}))
+		Expect(grapeChanges).To(HaveLen(1))
+		Expect(grapeChanges[0].Value).To(Equal(grape{ID: 100, Data: "hundred"}))
 	})
 })

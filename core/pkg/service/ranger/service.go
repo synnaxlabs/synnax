@@ -83,6 +83,7 @@ func (c ServiceConfig) Override(other ServiceConfig) ServiceConfig {
 // mechanisms for creating, deleting, and listening to changes in ranges.
 type Service struct {
 	shutdownSignals io.Closer
+	entryManager    *gorp.EntryManager[uuid.UUID, Range]
 	cfg             ServiceConfig
 }
 
@@ -94,7 +95,11 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (*Service, error) {
 	if err != nil {
 		return nil, err
 	}
-	s := &Service{cfg: cfg}
+	entryManager, err := gorp.OpenEntryManager[uuid.UUID, Range](ctx, cfg.DB)
+	if err != nil {
+		return nil, err
+	}
+	s := &Service{cfg: cfg, entryManager: entryManager}
 	cfg.Ontology.RegisterService(s)
 	if err := s.migrate(ctx); err != nil {
 		return nil, err
@@ -118,10 +123,12 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (*Service, error) {
 // is not safe to call concurrently with any other Service methods (including Writer(s)
 // and Retrieve(s)).
 func (s *Service) Close() error {
+	var err error
 	if s.shutdownSignals != nil {
-		return s.shutdownSignals.Close()
+		err = s.shutdownSignals.Close()
 	}
-	return nil
+	err = errors.Join(err, s.entryManager.Close())
+	return err
 }
 
 // NewWriter opens a new Writer to create, update, and delete ranges. If tx is not nil,

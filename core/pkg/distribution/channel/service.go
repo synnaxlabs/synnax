@@ -32,9 +32,10 @@ type Service struct {
 	cfg ServiceConfig
 	db  *gorp.DB
 	Writer
-	proxy *leaseProxy
-	otg   *ontology.Ontology
-	group group.Group
+	proxy        *leaseProxy
+	otg          *ontology.Ontology
+	group        group.Group
+	entryManager *gorp.EntryManager[Key, Channel]
 }
 
 func (s *Service) SetCalculationAnalyzer(analyzer CalculationAnalyzer) {
@@ -88,8 +89,12 @@ func (c ServiceConfig) Override(other ServiceConfig) ServiceConfig {
 
 var DefaultServiceConfig = ServiceConfig{ValidateNames: new(true), ForceMigration: new(false)}
 
-func NewService(ctx context.Context, cfgs ...ServiceConfig) (*Service, error) {
+func OpenService(ctx context.Context, cfgs ...ServiceConfig) (*Service, error) {
 	cfg, err := config.New(DefaultServiceConfig, cfgs...)
+	if err != nil {
+		return nil, err
+	}
+	entryManager, err := gorp.OpenEntryManager[Key, Channel](ctx, cfg.ClusterDB)
 	if err != nil {
 		return nil, err
 	}
@@ -104,11 +109,12 @@ func NewService(ctx context.Context, cfgs ...ServiceConfig) (*Service, error) {
 		return nil, err
 	}
 	s := &Service{
-		cfg:   cfg,
-		db:    cfg.ClusterDB,
-		proxy: proxy,
-		otg:   cfg.Ontology,
-		group: g,
+		cfg:          cfg,
+		db:           cfg.ClusterDB,
+		proxy:        proxy,
+		otg:          cfg.Ontology,
+		group:        g,
+		entryManager: entryManager,
 	}
 	s.Writer = s.NewWriter(nil)
 	if cfg.Ontology != nil {
@@ -138,6 +144,10 @@ func (s *Service) CountExternalNonVirtual() uint32 {
 	s.proxy.mu.RLock()
 	defer s.proxy.mu.RUnlock()
 	return uint32(s.proxy.mu.externalNonVirtualSet.Size())
+}
+
+func (s *Service) Close() error {
+	return s.entryManager.Close()
 }
 
 func (s *Service) validateChannels(channels []Channel) ([]Channel, error) {
