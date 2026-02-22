@@ -128,11 +128,7 @@ const FieldItem: FC<{ path: string }> = ({ path }) => {
         <Common.Task.EnableDisableButton path={`${path}.enabled`} />
       </Flex.Box>
       <Flex.Box x align="center" gap="large">
-        <PForm.SwitchField
-          path={`${path}.isIndex`}
-          label="Index"
-          size="small"
-        />
+        <PForm.SwitchField path={`${path}.isIndex`} label="Index" size="small" />
         {isIndex && (
           <PForm.Field<string>
             path={`${path}.timestampFormat`}
@@ -337,10 +333,7 @@ const onConfigure: Common.Task.OnConfigure<typeof readConfigZ> = async (
   const props = dev.properties as Record<string, unknown>;
   const readProps = (props.read ?? {}) as Record<string, unknown>;
   const channelMap = (readProps.channels ?? {}) as Record<string, number>;
-  const endpointIndices = (readProps.endpointIndices ?? {}) as Record<
-    string,
-    number
-  >;
+  const endpointIndices = (readProps.endpointIndices ?? {}) as Record<string, number>;
 
   try {
     for (const ep of config.endpoints) {
