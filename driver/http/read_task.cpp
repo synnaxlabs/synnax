@@ -26,10 +26,8 @@ std::pair<ReadTaskConfig, x::errors::Error> ReadTaskConfig::parse(
     cfg.rate = x::telem::Rate(parser.field<double>("rate"));
     cfg.strict = parser.field<bool>("strict", false);
 
-    // Collect all channel keys for batch retrieval and duplicate detection.
-    // TODO: probably don't need all_keys and seen_keys.
-    std::vector<synnax::channel::Key> all_keys;
-    std::set<synnax::channel::Key> seen_keys;
+    // Track channel keys for batch retrieval and duplicate detection.
+    std::set<synnax::channel::Key> field_keys;
 
     parser.iter("endpoints", [&](x::json::Parser &ep) {
         ReadEndpoint endpoint;
@@ -51,44 +49,33 @@ std::pair<ReadTaskConfig, x::errors::Error> ReadTaskConfig::parse(
             );
             field.channel_key = fp.field<synnax::channel::Key>("channel");
 
-            auto tf_parser = fp.optional_child("timestampFormat");
-            if (tf_parser.ok()) {
-                const auto str = fp.field<std::string>("timestampFormat");
-                auto [fmt, fmt_err] = x::json::parse_time_format(str);
+            const auto ts_fmt_str = fp.field<std::string>("timestampFormat", "");
+            if (!ts_fmt_str.empty()) {
+                auto [fmt, fmt_err] = x::json::parse_time_format(ts_fmt_str);
                 if (fmt_err)
                     fp.field_err("timestampFormat", fmt_err.message());
                 else
                     field.time_format = fmt;
             }
 
-            auto ti_parser = fp.optional_child("timePointer");
-            if (ti_parser.ok()) field.time_info.emplace(ti_parser);
-
-            // Check for duplicate channel keys.
-            // TODO: should allow duplicate channel keys if the JSON pointer is the
-            // same.
-            // TODO: config shouldn't even have time info for data channels. Those
-            // should just be specified separately for any channel, and if not specified
-            // the software timing will be used.
-            if (seen_keys.count(field.channel_key))
+            if (!field_keys.insert(field.channel_key).second)
                 fp.field_err(
                     "channel",
                     "channel " + std::to_string(field.channel_key) +
                         " is used multiple times"
                 );
-            else
-                seen_keys.insert(field.channel_key);
 
-            all_keys.push_back(field.channel_key);
             endpoint.fields.push_back(std::move(field));
         });
 
+        if (endpoint.fields.empty()) {
+            ep.field_err("fields", "at least one field is required");
+        }
         cfg.endpoints.push_back(std::move(endpoint));
     });
 
     if (cfg.endpoints.empty()) {
         parser.field_err("endpoints", "at least one endpoint is required");
-        return {std::move(cfg), parser.error()};
     }
 
     if (!parser.ok()) return {std::move(cfg), parser.error()};
@@ -101,6 +88,10 @@ std::pair<ReadTaskConfig, x::errors::Error> ReadTaskConfig::parse(
     if (conn_err) return {{}, conn_err};
 
     // Fetch all referenced channels from Synnax.
+    const std::vector<synnax::channel::Key> all_keys(
+        field_keys.begin(),
+        field_keys.end()
+    );
     auto [sy_channels, ch_err] = ctx->client->channels.retrieve(all_keys);
     if (ch_err) return {{}, ch_err};
 
@@ -109,17 +100,6 @@ std::pair<ReadTaskConfig, x::errors::Error> ReadTaskConfig::parse(
         cfg.channels[ch.key] = ch;
 
     // Validate field channel types and resolve index channels.
-    // TODO: this struct can be defined outside of this function.
-    struct IndexEntry {
-        int endpoint_index;
-
-        // TODO: if time info not specified, use software sampling.
-        // Also need to test that the same index is not used
-        // across different ENDPOINTs (can be used across different fields on the same endpoint).
-        std::optional<TimeInfo> time_info;
-    };
-    std::map<synnax::channel::Key, IndexEntry> index_entries;
-
     for (int ei = 0; ei < static_cast<int>(cfg.endpoints.size()); ei++) {
         auto &ep = cfg.endpoints[ei];
         for (auto &field: ep.fields) {
@@ -128,20 +108,11 @@ std::pair<ReadTaskConfig, x::errors::Error> ReadTaskConfig::parse(
             const auto &ch = it->second;
 
             const auto &dt = ch.data_type;
-            if (dt == x::telem::UUID_T || dt == x::telem::JSON_T || dt == x::telem::BYTES_T || dt == x::telem::STRING_T) {
+            if (dt == x::telem::UUID_T || dt == x::telem::JSON_T ||
+                dt == x::telem::BYTES_T || dt == x::telem::STRING_T) {
                 parser.field_err(
                     "endpoints",
                     "channel " + ch.name + " has unsupported data type " + dt.name()
-                );
-                continue;
-            }
-
-            // TODO: probably can ignore this case
-            if (field.time_format.has_value() && dt != x::telem::TIMESTAMP_T) {
-                parser.field_err(
-                    "endpoints",
-                    "channel " + ch.name +
-                        " has timestampFormat but is not a timestamp channel"
                 );
                 continue;
             }
@@ -155,68 +126,54 @@ std::pair<ReadTaskConfig, x::errors::Error> ReadTaskConfig::parse(
                 continue;
             }
 
+            // Only data channels (those with an index) need index resolution.
             if (ch.index == 0) continue;
             const auto idx_key = ch.index;
 
-            std::optional<TimeInfo> ti;
-            if (field.time_info.has_value()) ti = field.time_info;
+            // If the index channel is explicitly listed as a field, it will be
+            // extracted from the response — no software timing needed.
+            if (field_keys.count(idx_key)) continue;
 
-            auto existing = index_entries.find(idx_key);
-            if (existing != index_entries.end()) {
-                if (existing->second.time_info.has_value() && ti.has_value()) {
-                    if (existing->second.time_info->pointer != ti->pointer ||
-                        existing->second.time_info->format != ti->format) {
-                        parser.field_err(
-                            "endpoints",
-                            "conflicting timestamp sources for index channel " +
-                                std::to_string(idx_key)
-                        );
-                    }
-                }
-                if (!existing->second.time_info.has_value() && ti.has_value())
-                    existing->second.time_info = ti;
-            } else {
-                index_entries[idx_key] = IndexEntry{
-                    .endpoint_index = ei,
-                    .time_info = ti,
-                };
+            // Software timing needed. Validate cross-endpoint consistency.
+            auto [existing, inserted] = cfg.software_timed_indexes.try_emplace(
+                idx_key,
+                ei
+            );
+            if (!inserted && existing->second != ei) {
+                parser.field_err(
+                    "endpoints",
+                    "index channel " + std::to_string(idx_key) +
+                        " is referenced by fields on different endpoints"
+                );
             }
         }
     }
 
     if (!parser.ok()) return {std::move(cfg), parser.error()};
 
-    for (const auto &[key, entry]: index_entries) {
-        cfg.index_sources.push_back(
-            IndexSource{
-                .index_key = key,
-                .endpoint_index = entry.endpoint_index,
-                .time_info = entry.time_info,
-            }
-        );
-    }
-
     return {std::move(cfg), x::errors::NIL};
 }
 
 ReadTaskSource::ReadTaskSource(ReadTaskConfig cfg, device::Client client):
     cfg_(std::move(cfg)), client_(std::move(client)) {
-    // Build the flat list of channels for the tare transform.
-    // TODO: do i even need to do this?
-    for (const auto &ep: cfg_.endpoints)
+    bodies_.reserve(cfg_.endpoints.size());
+    parsed_bodies_.resize(cfg_.endpoints.size());
+    for (const auto &ep: cfg_.endpoints) {
+        bodies_.push_back(ep.body);
         for (const auto &field: ep.fields) {
             auto it = cfg_.channels.find(field.channel_key);
             if (it != cfg_.channels.end()) channels_.push_back(it->second);
         }
+    }
 }
 
 synnax::framer::WriterConfig ReadTaskSource::writer_config() const {
     std::vector<synnax::channel::Key> keys;
-    keys.reserve(cfg_.channels.size() + cfg_.index_sources.size());
+    keys.reserve(cfg_.channels.size() + cfg_.software_timed_indexes.size());
     for (const auto &[key, _]: cfg_.channels)
         keys.push_back(key);
-    for (const auto &idx: cfg_.index_sources)
-        keys.push_back(idx.index_key);
+    for (const auto &[key, _]: cfg_.software_timed_indexes)
+        keys.push_back(key);
     return {
         .channels = keys,
         .mode = common::data_saving_writer_mode(cfg_.data_saving),
@@ -231,26 +188,13 @@ common::ReadResult
 ReadTaskSource::read(x::breaker::Breaker &breaker, x::telem::Frame &fr) {
     common::ReadResult res;
 
-    // Build bodies vector.
-    // TODO: body vector should be allocated outside of hot loop?
-    std::vector<std::string> bodies;
-    bodies.reserve(cfg_.endpoints.size());
-    for (const auto &ep: cfg_.endpoints)
-        bodies.push_back(ep.body);
-
-    // Execute all endpoint requests in parallel.
-    auto [results, batch_err] = client_.execute_requests(bodies);
+    auto [results, batch_err] = client_.execute_requests(bodies_);
     if (batch_err) {
         res.error = batch_err;
         return res;
     }
 
-    // Parse responses per endpoint. We store the parsed JSON bodies for
-    // index timestamp extraction later.
-    // TODO: parsed_bodies should be allocated outside of hot loop?
-    std::vector<x::json::json> parsed_bodies(cfg_.endpoints.size());
-
-    fr.reserve(cfg_.channels.size() + cfg_.index_sources.size());
+    fr.reserve(cfg_.channels.size() + cfg_.software_timed_indexes.size());
 
     for (size_t ei = 0; ei < cfg_.endpoints.size(); ei++) {
         const auto &ep = cfg_.endpoints[ei];
@@ -269,7 +213,7 @@ ReadTaskSource::read(x::breaker::Breaker &breaker, x::telem::Frame &fr) {
 
         // Parse the response body as JSON.
         try {
-            parsed_bodies[ei] = x::json::json::parse(resp.body);
+            parsed_bodies_[ei] = x::json::json::parse(resp.body);
         } catch (const x::json::json::parse_error &e) {
             res.error = errors::PARSE_ERROR.sub(
                 "failed to parse response from " + ep.request.path + ": " + e.what()
@@ -277,9 +221,9 @@ ReadTaskSource::read(x::breaker::Breaker &breaker, x::telem::Frame &fr) {
             return res;
         }
 
-        const auto &body = parsed_bodies[ei];
+        const auto &body = parsed_bodies_[ei];
 
-        // Extract each field value.
+        // Extract each field value (both data and index channels).
         for (const auto &field: ep.fields) {
             if (!body.contains(field.pointer)) {
                 res.error = errors::PARSE_ERROR.sub(
@@ -313,52 +257,17 @@ ReadTaskSource::read(x::breaker::Breaker &breaker, x::telem::Frame &fr) {
             fr.emplace(field.channel_key, std::move(s));
         }
 
-        // Write index timestamps for index sources associated with this endpoint.
-        for (const auto &idx: cfg_.index_sources) {
-            if (idx.endpoint_index != static_cast<int>(ei)) continue;
-            // TODO: shouldn't be skipping? we should deduplicate index sources
-            // Skip if we already wrote this index (from a previous endpoint).
-            if (fr.contains(idx.index_key)) continue;
-
-            x::telem::TimeStamp ts;
-            if (idx.time_info.has_value()) {
-                // Extract timestamp from response JSON.
-                if (!body.contains(idx.time_info->pointer)) {
-                    res.error = errors::PARSE_ERROR.sub(
-                        "timestamp field " + idx.time_info->pointer.to_string() +
-                        " not found in response from " + ep.request.path
-                    );
-                    return res;
-                }
-                const auto &ts_json = body.at(idx.time_info->pointer);
-                auto ts_opts = x::json::ReadOptions{
-                    .strict = cfg_.strict,
-                    .time_format = idx.time_info->format,
-                };
-                auto [ts_val, ts_err] = x::json::to_sample_value(
-                    ts_json,
-                    x::telem::TIMESTAMP_T,
-                    ts_opts
-                );
-                if (ts_err) {
-                    res.error = errors::PARSE_ERROR.sub(
-                        "failed to parse timestamp from " +
-                        idx.time_info->pointer.to_string() + ": " + ts_err.message()
-                    );
-                    return res;
-                }
-                ts = std::get<x::telem::TimeStamp>(ts_val);
-            } else {
-                // Software timing: midpoint of request time range.
-                ts = x::telem::TimeStamp::midpoint(
-                    resp.time_range.start,
-                    resp.time_range.end
-                );
-            }
-
+        // Write software-timed index timestamps for index channels on this
+        // endpoint that are NOT listed as fields.
+        for (const auto &[idx_key, ep_idx]: cfg_.software_timed_indexes) {
+            if (ep_idx != static_cast<int>(ei)) continue;
+            auto ts = x::telem::TimeStamp::midpoint(
+                resp.time_range.start,
+                resp.time_range.end
+            );
             auto s = x::telem::Series(x::telem::TIMESTAMP_T, 1);
             s.write(ts);
-            fr.emplace(idx.index_key, std::move(s));
+            fr.emplace(idx_key, std::move(s));
         }
     }
 

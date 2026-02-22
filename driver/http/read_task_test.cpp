@@ -403,8 +403,8 @@ TEST(HTTPReadTask, TypeConversions) {
     EXPECT_EQ(fr.at<int32_t>(3, 0), 42);
 }
 
-/// @brief it should use software timing (midpoint) for index channels when no
-/// time_pointer is provided.
+/// @brief it should use software timing (midpoint) for index channels when the
+/// index channel is not listed as a field.
 TEST(HTTPReadTask, SoftwareTimingIndex) {
     mock::Server server(
         mock::ServerConfig{
@@ -440,10 +440,7 @@ TEST(HTTPReadTask, SoftwareTimingIndex) {
 
     cfg.channels[1] =
         {.key = 1, .name = "value", .data_type = x::telem::FLOAT64_T, .index = 100};
-    cfg.index_sources = {IndexSource{
-        .index_key = 100,
-        .endpoint_index = 0,
-    }};
+    cfg.software_timed_indexes[100] = 0;
 
     auto source = ASSERT_NIL_P(make_source(cfg, server.base_url()));
 
@@ -459,8 +456,9 @@ TEST(HTTPReadTask, SoftwareTimingIndex) {
     EXPECT_GT(ts, 0);
 }
 
-/// @brief it should extract timestamps from JSON response when time_pointer is set.
-TEST(HTTPReadTask, TimestampExtractionFromResponse) {
+/// @brief it should extract timestamps from the JSON response when the index
+/// channel is listed as an explicit field with a timestampFormat.
+TEST(HTTPReadTask, ExplicitIndexFieldTimestamp) {
     mock::Server server(
         mock::ServerConfig{
             .routes = {{
@@ -481,28 +479,32 @@ TEST(HTTPReadTask, TimestampExtractionFromResponse) {
     cfg.rate = x::telem::Rate(10);
     cfg.strict = false;
 
-    ReadField field;
-    field.pointer = x::json::json::json_pointer("/value");
-    field.channel_key = 1;
+    ReadField data_field;
+    data_field.pointer = x::json::json::json_pointer("/value");
+    data_field.channel_key = 1;
+
+    ReadField index_field;
+    index_field.pointer = x::json::json::json_pointer("/timestamp");
+    index_field.channel_key = 100;
+    index_field.time_format = x::json::TimeFormat::UnixSecond;
 
     ReadEndpoint ep;
     ep.request.method = Method::GET;
     ep.request.path = "/api/data";
     ep.body = "";
-    ep.fields = {field};
+    ep.fields = {data_field, index_field};
 
     cfg.endpoints = {ep};
 
     cfg.channels[1] =
         {.key = 1, .name = "value", .data_type = x::telem::FLOAT64_T, .index = 100};
-    cfg.index_sources = {IndexSource{
-        .index_key = 100,
-        .endpoint_index = 0,
-        .time_info = TimeInfo{
-            x::json::json::json_pointer("/timestamp"),
-            x::json::TimeFormat::UnixSecond,
-        },
-    }};
+    cfg.channels[100] = {
+        .key = 100,
+        .name = "time",
+        .data_type = x::telem::TIMESTAMP_T,
+        .is_index = true,
+    };
+    // No index_sources needed — index channel is an explicit field.
 
     auto source = ASSERT_NIL_P(make_source(cfg, server.base_url()));
 
@@ -634,43 +636,6 @@ TEST(HTTPReadTask, POSTWithBody) {
     EXPECT_NEAR(fr.at<double>(1, 0), 99.9, 0.001);
 }
 
-/// @brief it should construct TimeInfo from a valid JSON parser.
-TEST(HTTPReadTask, TimeInfoParseValid) {
-    auto parser = x::json::Parser(
-        x::json::json{
-            {"pointer", "/timestamp"},
-            {"format", "unix_sec"},
-        }
-    );
-    TimeInfo ti(parser);
-    ASSERT_TRUE(parser.ok());
-    EXPECT_EQ(ti.pointer.to_string(), "/timestamp");
-    EXPECT_EQ(ti.format, x::json::TimeFormat::UnixSecond);
-}
-
-/// @brief it should report an error when TimeInfo has an invalid format.
-TEST(HTTPReadTask, TimeInfoParseInvalidFormat) {
-    auto parser = x::json::Parser(
-        x::json::json{
-            {"pointer", "/timestamp"},
-            {"format", "bad_format"},
-        }
-    );
-    TimeInfo ti(parser);
-    EXPECT_FALSE(parser.ok());
-}
-
-/// @brief it should report an error when TimeInfo is missing the pointer field.
-TEST(HTTPReadTask, TimeInfoParseMissingPointer) {
-    auto parser = x::json::Parser(
-        x::json::json{
-            {"format", "iso8601"},
-        }
-    );
-    TimeInfo ti(parser);
-    EXPECT_FALSE(parser.ok());
-}
-
 /// @brief it should reject PUT method in read task config.
 TEST(HTTPReadTask, ParseConfigRejectsPUT) {
     synnax::task::Task task;
@@ -713,8 +678,8 @@ TEST(HTTPReadTask, ParseConfigRejectsDELETE) {
     ASSERT_OCCURRED_AS_P(ReadTaskConfig::parse(ctx, task), x::errors::VALIDATION);
 }
 
-/// @brief test fixture for parse tests that need a real Synnax client with
-/// pre-created channels and device.
+/// @brief test fixture for parse tests that need a real Synnax client with pre-created
+/// channels and device.
 class HTTPReadTaskParseTest : public ::testing::Test {
 protected:
     std::shared_ptr<synnax::Synnax> client;
@@ -773,9 +738,10 @@ TEST_F(HTTPReadTaskParseTest, TimestampChannelMissingFormat) {
     ASSERT_OCCURRED_AS_P(ReadTaskConfig::parse(ctx, task), x::errors::VALIDATION);
 }
 
-/// @brief it should error when two fields for the same index have conflicting
-/// time pointers.
-TEST_F(HTTPReadTaskParseTest, ConflictingTimestampSources) {
+/// @brief it should error when channels on different endpoints share the same
+/// index channel — we wouldn't know which endpoint's response time to use for
+/// software timing.
+TEST_F(HTTPReadTaskParseTest, CrossEndpointSharedIndex) {
     auto idx = ASSERT_NIL_P(
         client->channels
             .create(make_unique_channel_name("idx"), x::telem::TIMESTAMP_T, 0, true)
@@ -798,30 +764,25 @@ TEST_F(HTTPReadTaskParseTest, ConflictingTimestampSources) {
         {"device", device_key},
         {"rate", 1.0},
         {"endpoints",
-         {{
-             {"method", "GET"},
-             {"path", "/api/data"},
-             {"fields",
-              {
-                  {
-                      {"pointer", "/temp"},
-                      {"channel", ch1.key},
-                      {"timePointer", {{"pointer", "/ts1"}, {"format", "unix_sec"}}},
-                  },
-                  {
-                      {"pointer", "/humidity"},
-                      {"channel", ch2.key},
-                      {"timePointer", {{"pointer", "/ts2"}, {"format", "unix_sec"}}},
-                  },
-              }},
-         }}},
+         {
+             {
+                 {"method", "GET"},
+                 {"path", "/api/temp"},
+                 {"fields", {{{"pointer", "/temp"}, {"channel", ch1.key}}}},
+             },
+             {
+                 {"method", "GET"},
+                 {"path", "/api/humidity"},
+                 {"fields", {{{"pointer", "/humidity"}, {"channel", ch2.key}}}},
+             },
+         }},
     };
     ASSERT_OCCURRED_AS_P(ReadTaskConfig::parse(ctx, task), x::errors::VALIDATION);
 }
 
-/// @brief it should not error when two fields for the same index have identical
-/// time pointers.
-TEST_F(HTTPReadTaskParseTest, SameIndexSamePointerOK) {
+/// @brief it should succeed when two fields on the same endpoint share an index
+/// channel and the index is listed as an explicit field.
+TEST_F(HTTPReadTaskParseTest, SameEndpointSharedIndexAsField) {
     auto idx = ASSERT_NIL_P(
         client->channels
             .create(make_unique_channel_name("idx"), x::telem::TIMESTAMP_T, 0, true)
@@ -849,30 +810,24 @@ TEST_F(HTTPReadTaskParseTest, SameIndexSamePointerOK) {
              {"path", "/api/data"},
              {"fields",
               {
+                  {{"pointer", "/temp"}, {"channel", ch1.key}},
+                  {{"pointer", "/humidity"}, {"channel", ch2.key}},
                   {
-                      {"pointer", "/temp"},
-                      {"channel", ch1.key},
-                      {"timePointer",
-                       {{"pointer", "/timestamp"}, {"format", "unix_sec"}}},
-                  },
-                  {
-                      {"pointer", "/humidity"},
-                      {"channel", ch2.key},
-                      {"timePointer",
-                       {{"pointer", "/timestamp"}, {"format", "unix_sec"}}},
+                      {"pointer", "/timestamp"},
+                      {"channel", idx.key},
+                      {"timestampFormat", "unix_sec"},
                   },
               }},
          }}},
     };
     auto cfg = ASSERT_NIL_P(ReadTaskConfig::parse(ctx, task));
-    EXPECT_EQ(cfg.index_sources.size(), 1);
-    EXPECT_EQ(cfg.index_sources[0].index_key, idx.key);
-    EXPECT_TRUE(cfg.index_sources[0].time_info.has_value());
+    // Index channel is a field, so no software-timed indexes needed.
+    EXPECT_TRUE(cfg.software_timed_indexes.empty());
 }
 
-/// @brief it should not error when the same index is referenced by multiple fields
-/// where only some have time pointers.
-TEST_F(HTTPReadTaskParseTest, SameIndexPartialTimePointerOK) {
+/// @brief it should succeed when two fields on the same endpoint share an index
+/// channel and the index is NOT listed as a field (software timing).
+TEST_F(HTTPReadTaskParseTest, SameEndpointSharedIndexSoftwareTiming) {
     auto idx = ASSERT_NIL_P(
         client->channels
             .create(make_unique_channel_name("idx"), x::telem::TIMESTAMP_T, 0, true)
@@ -900,25 +855,17 @@ TEST_F(HTTPReadTaskParseTest, SameIndexPartialTimePointerOK) {
              {"path", "/api/data"},
              {"fields",
               {
-                  {
-                      {"pointer", "/temp"},
-                      {"channel", ch1.key},
-                      {"timePointer",
-                       {{"pointer", "/timestamp"}, {"format", "unix_sec"}}},
-                  },
-                  {
-                      {"pointer", "/humidity"},
-                      {"channel", ch2.key},
-                  },
+                  {{"pointer", "/temp"}, {"channel", ch1.key}},
+                  {{"pointer", "/humidity"}, {"channel", ch2.key}},
               }},
          }}},
     };
     auto cfg = ASSERT_NIL_P(ReadTaskConfig::parse(ctx, task));
-    EXPECT_EQ(cfg.index_sources.size(), 1);
-    EXPECT_TRUE(cfg.index_sources[0].time_info.has_value());
+    EXPECT_EQ(cfg.software_timed_indexes.size(), 1);
+    EXPECT_TRUE(cfg.software_timed_indexes.count(idx.key));
 }
 
-/// @brief it should error when timestampFormat is set on a non-timestamp channel.
+/// @brief it should silently ignore timestampFormat on a non-timestamp channel.
 TEST_F(HTTPReadTaskParseTest, TimestampFormatOnNonTimestamp) {
     auto idx = ASSERT_NIL_P(
         client->channels
@@ -947,7 +894,7 @@ TEST_F(HTTPReadTaskParseTest, TimestampFormatOnNonTimestamp) {
               }}},
          }}},
     };
-    ASSERT_OCCURRED_AS_P(ReadTaskConfig::parse(ctx, task), x::errors::VALIDATION);
+    auto cfg = ASSERT_NIL_P(ReadTaskConfig::parse(ctx, task));
 }
 
 /// @brief it should successfully read 10 times in succession from the same endpoint.

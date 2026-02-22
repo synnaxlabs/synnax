@@ -108,14 +108,7 @@ const TIME_FORMAT_DATA: Select.StaticEntry<string>[] = [
 ];
 
 const FieldItem: FC<{ path: string }> = ({ path }) => {
-  const { get, set } = PForm.useContext();
-  const timePointer = get<object>(`${path}.timePointer`, { optional: true });
-  const hasTimePointer = timePointer?.value != null;
-
-  const handleToggleTimePointer = useCallback(() => {
-    if (hasTimePointer) set(`${path}.timePointer`, undefined);
-    else set(`${path}.timePointer`, { pointer: "", format: "unix_sec" });
-  }, [hasTimePointer, set, path]);
+  const isIndex = PForm.useFieldValue<boolean>(`${path}.isIndex`);
 
   return (
     <Flex.Box y style={{ padding: "0.5rem 1rem", borderBottom: "var(--pluto-border)" }}>
@@ -135,39 +128,26 @@ const FieldItem: FC<{ path: string }> = ({ path }) => {
         <Common.Task.EnableDisableButton path={`${path}.enabled`} />
       </Flex.Box>
       <Flex.Box x align="center" gap="large">
-        <Button.Toggle
-          value={hasTimePointer}
-          onChange={handleToggleTimePointer}
+        <PForm.SwitchField
+          path={`${path}.isIndex`}
+          label="Index"
           size="small"
-          tooltip="Configure timestamp source for this field's index"
-          checkedVariant="filled"
-          uncheckedVariant="text"
-        >
-          <Icon.Time />
-        </Button.Toggle>
-        {hasTimePointer && (
-          <>
-            <PForm.TextField
-              path={`${path}.timePointer.pointer`}
-              label="Time Pointer"
-              inputProps={{ placeholder: "/timestamp" }}
-              grow
-            />
-            <PForm.Field<string>
-              path={`${path}.timePointer.format`}
-              label="Format"
-              style={{ width: 140 }}
-            >
-              {({ value, onChange }) => (
-                <Select.Static<string, Select.StaticEntry<string>>
-                  value={value}
-                  onChange={onChange}
-                  data={TIME_FORMAT_DATA}
-                  resourceName="time format"
-                />
-              )}
-            </PForm.Field>
-          </>
+        />
+        {isIndex && (
+          <PForm.Field<string>
+            path={`${path}.timestampFormat`}
+            label="Format"
+            style={{ width: 140 }}
+          >
+            {({ value, onChange }) => (
+              <Select.Static<string, Select.StaticEntry<string>>
+                value={value ?? "unix_sec"}
+                onChange={onChange}
+                data={TIME_FORMAT_DATA}
+                resourceName="time format"
+              />
+            )}
+          </PForm.Field>
         )}
       </Flex.Box>
     </Flex.Box>
@@ -356,33 +336,74 @@ const onConfigure: Common.Task.OnConfigure<typeof readConfigZ> = async (
 
   const props = dev.properties as Record<string, unknown>;
   const readProps = (props.read ?? {}) as Record<string, unknown>;
-  let indexKey = readProps.index as number | undefined;
+  const channelMap = (readProps.channels ?? {}) as Record<string, number>;
+  const endpointIndices = (readProps.endpointIndices ?? {}) as Record<
+    string,
+    number
+  >;
 
   try {
-    if (indexKey != null)
-      try {
-        await client.channels.retrieve(indexKey.toString());
-      } catch (e) {
-        if (NotFoundError.matches(e)) indexKey = undefined;
-        else throw e;
+    for (const ep of config.endpoints) {
+      // Resolve or create the index channel for this endpoint.
+      // If a field is marked isIndex, it IS the index channel. Otherwise, create
+      // a software-timed index.
+      const indexField = ep.fields.find((f) => f.enabled && f.isIndex);
+      let indexKey: number | undefined;
+
+      if (indexField != null) {
+        // The index field itself is a timestamp channel — create/retrieve it.
+        const mapKey = `${ep.path}:${indexField.pointer}`;
+        const existingKey = channelMap[mapKey];
+        if (existingKey != null)
+          try {
+            await client.channels.retrieve(existingKey.toString());
+            indexField.channel = existingKey;
+            indexKey = existingKey;
+          } catch (e) {
+            if (!NotFoundError.matches(e)) throw e;
+          }
+
+        if (indexKey == null) {
+          modified = true;
+          const name = primitive.isNonZero(indexField.name)
+            ? indexField.name
+            : `${safeName}_${indexField.pointer.replace(/\//g, "_").replace(/^_/, "")}_time`;
+          const idx = await client.channels.create({
+            name,
+            dataType: "timestamp",
+            isIndex: true,
+          });
+          indexKey = idx.key;
+          channelMap[mapKey] = idx.key;
+          indexField.channel = idx.key;
+        }
+      } else {
+        // No explicit index field — use a software-timed index per endpoint.
+        indexKey = endpointIndices[ep.key] as number | undefined;
+        if (indexKey != null)
+          try {
+            await client.channels.retrieve(indexKey.toString());
+          } catch (e) {
+            if (NotFoundError.matches(e)) indexKey = undefined;
+            else throw e;
+          }
+
+        if (indexKey == null) {
+          modified = true;
+          const pathSlug = ep.path.replace(/\//g, "_").replace(/^_/, "");
+          const idx = await client.channels.create({
+            name: `${safeName}_${pathSlug}_time`,
+            dataType: "timestamp",
+            isIndex: true,
+          });
+          indexKey = idx.key;
+        }
+        endpointIndices[ep.key] = indexKey;
       }
 
-    if (indexKey == null) {
-      modified = true;
-      const index = await client.channels.create({
-        name: `${safeName}_time`,
-        dataType: "timestamp",
-        isIndex: true,
-      });
-      indexKey = index.key;
-      readProps.index = indexKey;
-    }
-
-    const channelMap = (readProps.channels ?? {}) as Record<string, number>;
-
-    for (const ep of config.endpoints)
+      // Create/retrieve data channels for non-index fields.
       for (const field of ep.fields) {
-        if (!field.enabled) continue;
+        if (!field.enabled || field.isIndex) continue;
         const mapKey = `${ep.path}:${field.pointer}`;
 
         const existingKey = channelMap[mapKey];
@@ -406,8 +427,10 @@ const onConfigure: Common.Task.OnConfigure<typeof readConfigZ> = async (
         channelMap[mapKey] = ch.key;
         field.channel = ch.key;
       }
+    }
 
     readProps.channels = channelMap;
+    readProps.endpointIndices = endpointIndices;
     props.read = readProps;
   } finally {
     if (modified) await client.devices.create(dev, Device.SCHEMAS);

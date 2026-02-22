@@ -77,13 +77,15 @@ export const readTypeZ = z.literal(READ_TYPE);
 
 const readFieldZ = Common.Task.readChannelZ.extend({
   pointer: jsonPointerZ,
-  timestampFormat: timeFormatZ.optional(), // only used for channels where data type is timestamp.
+  isIndex: z.boolean().default(false),
+  timestampFormat: timeFormatZ.optional(),
 });
 export interface ReadField extends z.infer<typeof readFieldZ> {}
 
 export const ZERO_READ_FIELD: ReadField = {
   ...Common.Task.ZERO_READ_CHANNEL,
   pointer: "",
+  isIndex: false,
 };
 
 const baseReadEndpointZ = z.object({

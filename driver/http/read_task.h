@@ -27,26 +27,6 @@
 namespace driver::http {
 const std::string READ_TASK_TYPE = INTEGRATION_NAME + "_read";
 
-/// @brief optional timestamp extraction info for an index channel.
-struct TimeInfo {
-    /// @brief JSON Pointer to the timestamp in the response body.
-    x::json::json::json_pointer pointer;
-    /// @brief format of the timestamp value.
-    x::json::TimeFormat format;
-
-    TimeInfo(x::json::json::json_pointer pointer, x::json::TimeFormat format):
-        pointer(std::move(pointer)), format(format) {}
-
-    explicit TimeInfo(x::json::Parser &parser):
-        pointer(parser.field<std::string>("pointer")) {
-        auto [fmt, err] = x::json::parse_time_format(
-            parser.field<std::string>("format")
-        );
-        if (err) parser.field_err("format", err.message());
-        format = fmt;
-    }
-};
-
 /// @brief a single field to extract from an endpoint's JSON response.
 struct ReadField {
     /// @brief JSON Pointer to the value in the response.
@@ -55,8 +35,6 @@ struct ReadField {
     synnax::channel::Key channel_key;
     /// @brief if the Synnax channel is a timestamp, the format of the JSON value.
     std::optional<x::json::TimeFormat> time_format;
-    /// @brief optional timestamp source for this field's index channel.
-    std::optional<TimeInfo> time_info;
 };
 
 /// @brief a single HTTP endpoint to poll.
@@ -67,16 +45,6 @@ struct ReadEndpoint {
     std::string body;
     /// @brief fields to extract from the response.
     std::vector<ReadField> fields;
-};
-
-/// @brief resolved index channel source info.
-struct IndexSource {
-    /// @brief key of the index channel.
-    synnax::channel::Key index_key;
-    /// @brief index into the endpoints vector this source belongs to.
-    int endpoint_index;
-    /// @brief if set, extract the timestamp from the response JSON.
-    std::optional<TimeInfo> time_info;
 };
 
 /// @brief configuration for an HTTP read task.
@@ -93,8 +61,10 @@ struct ReadTaskConfig {
     bool strict;
     /// @brief endpoints to poll.
     std::vector<ReadEndpoint> endpoints;
-    /// @brief resolved index sources.
-    std::vector<IndexSource> index_sources;
+    /// @brief index channels that need software timing, mapped to their endpoint index.
+    /// These are index channels referenced by data channels but not explicitly listed
+    /// as fields.
+    std::map<synnax::channel::Key, int> software_timed_indexes;
     /// @brief mapping of channel keys to their Synnax channel definitions.
     std::map<synnax::channel::Key, synnax::channel::Channel> channels;
 
@@ -108,6 +78,8 @@ class ReadTaskSource : public common::Source {
     ReadTaskConfig cfg_;
     device::Client client_;
     std::vector<synnax::channel::Channel> channels_;
+    std::vector<std::string> bodies_;
+    std::vector<x::json::json> parsed_bodies_;
 
 public:
     ReadTaskSource(ReadTaskConfig, device::Client);
