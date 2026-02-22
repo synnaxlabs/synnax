@@ -109,7 +109,7 @@ std::pair<ReadTaskConfig, x::errors::Error> ReadTaskConfig::parse(
 
             const auto &dt = ch.data_type;
             if (dt == x::telem::UUID_T || dt == x::telem::JSON_T ||
-                dt == x::telem::BYTES_T || dt == x::telem::STRING_T) {
+                dt == x::telem::BYTES_T) {
                 parser.field_err(
                     "endpoints",
                     "channel " + ch.name + " has unsupported data type " + dt.name()
@@ -252,9 +252,7 @@ ReadTaskSource::read(x::breaker::Breaker &breaker, x::telem::Frame &fr) {
                 return res;
             }
 
-            auto s = x::telem::Series(ch.data_type, 1);
-            s.write(sample_val);
-            fr.emplace(field.channel_key, std::move(s));
+            fr.emplace(field.channel_key, x::telem::Series(sample_val));
         }
 
         // Write software-timed index timestamps for index channels on this

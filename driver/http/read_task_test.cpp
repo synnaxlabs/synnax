@@ -403,6 +403,205 @@ TEST(HTTPReadTask, TypeConversions) {
     EXPECT_EQ(fr.at<int32_t>(3, 0), 42);
 }
 
+/// @brief it should extract a string field from a JSON response.
+TEST(HTTPReadTask, StringField) {
+    mock::Server server(
+        mock::ServerConfig{
+            .routes = {{
+                .method = Method::GET,
+                .path = "/api/data",
+                .status_code = 200,
+                .response_body =
+                    R"({"name": "sensor-42", "status": "online", "value": 3.14})",
+            }},
+        }
+    );
+    ASSERT_NIL(server.start());
+    x::defer::defer stop_server([&server] { server.stop(); });
+
+    ReadTaskConfig cfg;
+    cfg.device = "test-device";
+    cfg.data_saving = false;
+    cfg.auto_start = false;
+    cfg.rate = x::telem::Rate(10);
+    cfg.strict = false;
+
+    ReadField name_field;
+    name_field.pointer = x::json::json::json_pointer("/name");
+    name_field.channel_key = 1;
+
+    ReadField status_field;
+    status_field.pointer = x::json::json::json_pointer("/status");
+    status_field.channel_key = 2;
+
+    ReadField value_field;
+    value_field.pointer = x::json::json::json_pointer("/value");
+    value_field.channel_key = 3;
+
+    ReadEndpoint ep;
+    ep.request.method = Method::GET;
+    ep.request.path = "/api/data";
+    ep.body = "";
+    ep.fields = {name_field, status_field, value_field};
+
+    cfg.endpoints = {ep};
+
+    cfg.channels[1] = {.key = 1, .name = "name", .data_type = x::telem::STRING_T};
+    cfg.channels[2] = {.key = 2, .name = "status", .data_type = x::telem::STRING_T};
+    cfg.channels[3] = {.key = 3, .name = "value", .data_type = x::telem::FLOAT64_T};
+
+    auto source = ASSERT_NIL_P(make_source(cfg, server.base_url()));
+
+    auto breaker = x::breaker::Breaker(x::breaker::Config{.name = "test"});
+    breaker.start();
+    x::telem::Frame fr;
+    auto res = source->read(breaker, fr);
+    breaker.stop();
+    ASSERT_NIL(res.error);
+    EXPECT_EQ(fr.size(), 3);
+    EXPECT_EQ(std::get<std::string>(fr.at(1, 0)), "sensor-42");
+    EXPECT_EQ(std::get<std::string>(fr.at(2, 0)), "online");
+    EXPECT_NEAR(fr.at<double>(3, 0), 3.14, 0.001);
+}
+
+/// @brief strict mode should error on decimal values for integer channels and
+/// negative values for unsigned integer channels.
+TEST(HTTPReadTask, StrictModeConversionErrors) {
+    mock::Server server(
+        mock::ServerConfig{
+            .routes = {{
+                .method = Method::GET,
+                .path = "/api/data",
+                .status_code = 200,
+                .response_body = R"({"value": 3.7})",
+            }},
+        }
+    );
+    ASSERT_NIL(server.start());
+    x::defer::defer stop_server([&server] { server.stop(); });
+
+    ReadTaskConfig cfg;
+    cfg.device = "test-device";
+    cfg.data_saving = false;
+    cfg.auto_start = false;
+    cfg.rate = x::telem::Rate(10);
+    cfg.strict = true;
+
+    ReadField field;
+    field.pointer = x::json::json::json_pointer("/value");
+    field.channel_key = 1;
+
+    ReadEndpoint ep;
+    ep.request.method = Method::GET;
+    ep.request.path = "/api/data";
+    ep.body = "";
+    ep.fields = {field};
+
+    cfg.endpoints = {ep};
+    cfg.channels[1] = {.key = 1, .name = "count", .data_type = x::telem::INT32_T};
+
+    auto source = ASSERT_NIL_P(make_source(cfg, server.base_url()));
+
+    auto breaker = x::breaker::Breaker(x::breaker::Config{.name = "test"});
+    breaker.start();
+    x::telem::Frame fr;
+    auto res = source->read(breaker, fr);
+    breaker.stop();
+    ASSERT_OCCURRED_AS(res.error, errors::PARSE_ERROR);
+}
+
+/// @brief strict mode should error on negative values for unsigned integer channels.
+TEST(HTTPReadTask, StrictModeNegativeForUnsigned) {
+    mock::Server server(
+        mock::ServerConfig{
+            .routes = {{
+                .method = Method::GET,
+                .path = "/api/data",
+                .status_code = 200,
+                .response_body = R"({"value": -5})",
+            }},
+        }
+    );
+    ASSERT_NIL(server.start());
+    x::defer::defer stop_server([&server] { server.stop(); });
+
+    ReadTaskConfig cfg;
+    cfg.device = "test-device";
+    cfg.data_saving = false;
+    cfg.auto_start = false;
+    cfg.rate = x::telem::Rate(10);
+    cfg.strict = true;
+
+    ReadField field;
+    field.pointer = x::json::json::json_pointer("/value");
+    field.channel_key = 1;
+
+    ReadEndpoint ep;
+    ep.request.method = Method::GET;
+    ep.request.path = "/api/data";
+    ep.body = "";
+    ep.fields = {field};
+
+    cfg.endpoints = {ep};
+    cfg.channels[1] = {.key = 1, .name = "count", .data_type = x::telem::UINT32_T};
+
+    auto source = ASSERT_NIL_P(make_source(cfg, server.base_url()));
+
+    auto breaker = x::breaker::Breaker(x::breaker::Config{.name = "test"});
+    breaker.start();
+    x::telem::Frame fr;
+    auto res = source->read(breaker, fr);
+    breaker.stop();
+    ASSERT_OCCURRED_AS(res.error, errors::PARSE_ERROR);
+}
+
+/// @brief non-strict mode should silently truncate decimals for integer channels.
+TEST(HTTPReadTask, NonStrictModeTruncatesDecimals) {
+    mock::Server server(
+        mock::ServerConfig{
+            .routes = {{
+                .method = Method::GET,
+                .path = "/api/data",
+                .status_code = 200,
+                .response_body = R"({"value": 3.7})",
+            }},
+        }
+    );
+    ASSERT_NIL(server.start());
+    x::defer::defer stop_server([&server] { server.stop(); });
+
+    ReadTaskConfig cfg;
+    cfg.device = "test-device";
+    cfg.data_saving = false;
+    cfg.auto_start = false;
+    cfg.rate = x::telem::Rate(10);
+    cfg.strict = false;
+
+    ReadField field;
+    field.pointer = x::json::json::json_pointer("/value");
+    field.channel_key = 1;
+
+    ReadEndpoint ep;
+    ep.request.method = Method::GET;
+    ep.request.path = "/api/data";
+    ep.body = "";
+    ep.fields = {field};
+
+    cfg.endpoints = {ep};
+    cfg.channels[1] = {.key = 1, .name = "count", .data_type = x::telem::INT32_T};
+
+    auto source = ASSERT_NIL_P(make_source(cfg, server.base_url()));
+
+    auto breaker = x::breaker::Breaker(x::breaker::Config{.name = "test"});
+    breaker.start();
+    x::telem::Frame fr;
+    auto res = source->read(breaker, fr);
+    breaker.stop();
+    ASSERT_NIL(res.error);
+    EXPECT_EQ(fr.size(), 1);
+    EXPECT_EQ(fr.at<int32_t>(1, 0), 3);
+}
+
 /// @brief it should use software timing (midpoint) for index channels when the
 /// index channel is not listed as a field.
 TEST(HTTPReadTask, SoftwareTimingIndex) {
