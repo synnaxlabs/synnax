@@ -85,7 +85,7 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (*Service, error) {
 	if err != nil {
 		return nil, err
 	}
-	table, err := gorp.OpenTable[uuid.UUID, Label](ctx, cfg.DB)
+	table, err := gorp.OpenTable[uuid.UUID, Label](ctx, gorp.TableConfig[Label]{DB: cfg.DB})
 	if err != nil {
 		return nil, err
 	}
@@ -113,7 +113,7 @@ func (s *Service) Close() error {
 func (s *Service) NewRetrieve() Retrieve {
 	return Retrieve{
 		baseTx: s.cfg.DB,
-		gorp:   gorp.NewRetrieve[uuid.UUID, Label](),
+		gorp:   s.table.NewRetrieve(),
 		otg:    s.cfg.Ontology,
 	}
 }
@@ -122,5 +122,5 @@ func (s *Service) NewRetrieve() Retrieve {
 // the writer will use it, otherwise it will execute operations directly against the
 // underlying gorp.DB.
 func (s *Service) NewWriter(tx gorp.Tx) Writer {
-	return Writer{tx: tx, otg: s.cfg.Ontology.NewWriter(tx)}
+	return Writer{tx: tx, otg: s.cfg.Ontology.NewWriter(tx), table: s.table}
 }

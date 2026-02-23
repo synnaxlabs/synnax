@@ -67,7 +67,7 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (*Service, error) {
 	if err != nil {
 		return nil, err
 	}
-	table, err := gorp.OpenTable[uuid.UUID, LinePlot](ctx, cfg.DB)
+	table, err := gorp.OpenTable[uuid.UUID, LinePlot](ctx, gorp.TableConfig[LinePlot]{DB: cfg.DB})
 	if err != nil {
 		return nil, err
 	}
@@ -87,15 +87,16 @@ func (s *Service) Close() error {
 func (s *Service) NewWriter(tx gorp.Tx) Writer {
 	tx = gorp.OverrideTx(s.DB, tx)
 	return Writer{
-		tx:  tx,
-		otg: s.Ontology.NewWriter(tx),
+		tx:    tx,
+		otg:   s.Ontology.NewWriter(tx),
+		table: s.table,
 	}
 }
 
 // NewRetrieve opens a new query builder for retrieving line plots from Synnax.
 func (s *Service) NewRetrieve() Retrieve {
 	return Retrieve{
-		gorp:   gorp.NewRetrieve[uuid.UUID, LinePlot](),
+		gorp:   s.table.NewRetrieve(),
 		baseTX: s.DB,
 	}
 }

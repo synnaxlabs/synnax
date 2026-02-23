@@ -57,6 +57,7 @@ type Service struct {
 	cfg     ServiceConfig
 	signals io.Closer
 	group   group.Group
+	table   *gorp.Table[uuid.UUID, Role]
 }
 
 func (s *Service) Close() error {
@@ -71,7 +72,11 @@ func OpenService(ctx context.Context, configs ...ServiceConfig) (*Service, error
 	if err != nil {
 		return nil, err
 	}
-	s := &Service{cfg: cfg}
+	table, err := gorp.OpenTable[uuid.UUID, Role](ctx, gorp.TableConfig[Role]{DB: cfg.DB})
+	if err != nil {
+		return nil, err
+	}
+	s := &Service{cfg: cfg, table: table}
 	if cfg.Ontology != nil {
 		cfg.Ontology.RegisterService(s)
 	}
@@ -98,9 +103,10 @@ func (s *Service) NewWriter(tx gorp.Tx, allowInternal bool) Writer {
 		otg:           s.cfg.Ontology.NewWriter(tx),
 		group:         s.group,
 		allowInternal: allowInternal,
+		table:         s.table,
 	}
 }
 
 func (s *Service) NewRetrieve() Retrieve {
-	return Retrieve{baseTx: s.cfg.DB, gorp: gorp.NewRetrieve[uuid.UUID, Role]()}
+	return Retrieve{baseTx: s.cfg.DB, gorp: s.table.NewRetrieve()}
 }

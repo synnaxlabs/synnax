@@ -22,10 +22,10 @@ type Retrieve struct {
 	gorp gorp.Retrieve[uuid.UUID, Group]
 }
 
-func newRetrieve(tx gorp.Tx) Retrieve {
+func newRetrieve(tx gorp.Tx, table *gorp.Table[uuid.UUID, Group]) Retrieve {
 	return Retrieve{
 		tx:   tx,
-		gorp: gorp.NewRetrieve[uuid.UUID, Group](),
+		gorp: table.NewRetrieve(),
 	}
 }
 

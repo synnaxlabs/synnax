@@ -25,6 +25,7 @@ type Writer struct {
 	tx        gorp.Tx
 	otgWriter ontology.Writer
 	otg       *ontology.Ontology
+	table     *gorp.Table[uuid.UUID, Symbol]
 }
 
 // Create creates the given symbol as a child of the ontology.Resource with the given
@@ -40,12 +41,12 @@ func (w Writer) Create(
 	if s.Key == uuid.Nil {
 		s.Key = uuid.New()
 	} else {
-		exists, err = gorp.NewRetrieve[uuid.UUID, Symbol]().WhereKeys(s.Key).Exists(ctx, w.tx)
+		exists, err = w.table.NewRetrieve().WhereKeys(s.Key).Exists(ctx, w.tx)
 		if err != nil {
 			return err
 		}
 	}
-	if err = gorp.NewCreate[uuid.UUID, Symbol]().Entry(s).Exec(ctx, w.tx); err != nil {
+	if err = w.table.NewCreate().Entry(s).Exec(ctx, w.tx); err != nil {
 		return err
 	}
 	otgID := OntologyID(s.Key)
@@ -68,7 +69,7 @@ func (w Writer) Rename(
 	key uuid.UUID,
 	name string,
 ) error {
-	return gorp.NewUpdate[uuid.UUID, Symbol]().WhereKeys(key).Change(func(_ gorp.Context, s Symbol) Symbol {
+	return w.table.NewUpdate().WhereKeys(key).Change(func(_ gorp.Context, s Symbol) Symbol {
 		s.Name = name
 		return s
 	}).Exec(ctx, w.tx)
@@ -79,7 +80,7 @@ func (w Writer) Delete(
 	ctx context.Context,
 	keys ...uuid.UUID,
 ) error {
-	err := gorp.NewDelete[uuid.UUID, Symbol]().WhereKeys(keys...).Exec(ctx, w.tx)
+	err := w.table.NewDelete().WhereKeys(keys...).Exec(ctx, w.tx)
 	if err != nil {
 		return err
 	}

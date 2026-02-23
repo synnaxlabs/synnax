@@ -26,6 +26,7 @@ type Writer struct {
 	tx        gorp.Tx
 	otgWriter ontology.Writer
 	otg       *ontology.Ontology
+	tbl       *gorp.Table[uuid.UUID, Table]
 }
 
 // Create creates the given table within the workspace provided. If the table does not
@@ -39,12 +40,12 @@ func (w Writer) Create(
 	if s.Key == uuid.Nil {
 		s.Key = uuid.New()
 	} else {
-		exists, err = gorp.NewRetrieve[uuid.UUID, Table]().WhereKeys(s.Key).Exists(ctx, w.tx)
+		exists, err = w.tbl.NewRetrieve().WhereKeys(s.Key).Exists(ctx, w.tx)
 		if err != nil {
 			return
 		}
 	}
-	if err = gorp.NewCreate[uuid.UUID, Table]().Entry(s).Exec(ctx, w.tx); err != nil {
+	if err = w.tbl.NewCreate().Entry(s).Exec(ctx, w.tx); err != nil {
 		return
 	}
 	if exists {
@@ -68,7 +69,7 @@ func (w Writer) Rename(
 	key uuid.UUID,
 	name string,
 ) error {
-	return gorp.NewUpdate[uuid.UUID, Table]().
+	return w.tbl.NewUpdate().
 		WhereKeys(key).
 		Change(func(_ gorp.Context, t Table) Table {
 			t.Name = name
@@ -83,7 +84,7 @@ func (w Writer) SetData(
 	key uuid.UUID,
 	data map[string]any,
 ) error {
-	return gorp.NewUpdate[uuid.UUID, Table]().
+	return w.tbl.NewUpdate().
 		WhereKeys(key).
 		Change(func(_ gorp.Context, t Table) Table {
 			t.Data = data
@@ -96,7 +97,7 @@ func (w Writer) Delete(
 	ctx context.Context,
 	keys ...uuid.UUID,
 ) (err error) {
-	if err = gorp.NewDelete[uuid.UUID, Table]().WhereKeys(keys...).Exec(ctx, w.tx); err != nil {
+	if err = w.tbl.NewDelete().WhereKeys(keys...).Exec(ctx, w.tx); err != nil {
 		return
 	}
 	for _, key := range keys {

@@ -25,9 +25,10 @@ import (
 // method. If no transaction is provided, the writer will execute operations directly
 // on the database.
 type Writer struct {
-	tx   gorp.Tx
-	otg  ontology.Writer
-	task task.Writer
+	tx    gorp.Tx
+	otg   ontology.Writer
+	task  task.Writer
+	table *gorp.Table[uuid.UUID, Arc]
 }
 
 // Create creates the given Arc. If the Arc does not have a key,
@@ -43,12 +44,12 @@ func (w Writer) Create(
 	if a.Key == uuid.Nil {
 		a.Key = uuid.New()
 	} else {
-		exists, err = gorp.NewRetrieve[uuid.UUID, Arc]().WhereKeys(a.Key).Exists(ctx, w.tx)
+		exists, err = w.table.NewRetrieve().WhereKeys(a.Key).Exists(ctx, w.tx)
 		if err != nil {
 			return err
 		}
 	}
-	if err = gorp.NewCreate[uuid.UUID, Arc]().Entry(a).Exec(ctx, w.tx); err != nil {
+	if err = w.table.NewCreate().Entry(a).Exec(ctx, w.tx); err != nil {
 		return err
 	}
 	otgID := OntologyID(a.Key)
@@ -71,7 +72,7 @@ func (w Writer) Delete(
 			return err
 		}
 	}
-	if err := gorp.NewDelete[uuid.UUID, Arc]().WhereKeys(keys...).Exec(ctx, w.tx); err != nil {
+	if err := w.table.NewDelete().WhereKeys(keys...).Exec(ctx, w.tx); err != nil {
 		return err
 	}
 	for _, key := range keys {

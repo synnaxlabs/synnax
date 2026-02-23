@@ -24,6 +24,7 @@ type Writer struct {
 	tx            gorp.Tx
 	otg           ontology.Writer
 	allowInternal bool
+	table         *gorp.Table[uuid.UUID, Policy]
 }
 
 // Create creates a new policy in the database.
@@ -37,7 +38,7 @@ func (w Writer) Create(
 	if p.Internal && !w.allowInternal {
 		return errors.Wrap(validate.ErrValidation, "cannot create internal policy")
 	}
-	if err := gorp.NewCreate[uuid.UUID, Policy]().Entry(p).Exec(ctx, w.tx); err != nil {
+	if err := w.table.NewCreate().Entry(p).Exec(ctx, w.tx); err != nil {
 		return err
 	}
 	return w.otg.DefineResource(ctx, OntologyID(p.Key))
@@ -48,7 +49,7 @@ func (w Writer) Delete(
 	ctx context.Context,
 	keys ...uuid.UUID,
 ) error {
-	return gorp.NewDelete[uuid.UUID, Policy]().WhereKeys(keys...).Exec(ctx, w.tx)
+	return w.table.NewDelete().WhereKeys(keys...).Exec(ctx, w.tx)
 }
 
 func (w Writer) SetOnRole(

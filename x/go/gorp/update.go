@@ -20,6 +20,7 @@ import (
 type Update[K Key, E Entry[K]] struct {
 	retrieve Retrieve[K, E]
 	changes  changes[K, E]
+	codec    Codec[E]
 }
 
 // NewUpdate opens a new Update query.
@@ -55,7 +56,7 @@ func (u Update[K, E]) Exec(ctx context.Context, tx Tx) (err error) {
 			return err
 		}
 	}
-	return WrapWriter[K, E](tx).Set(ctx, entries...)
+	return wrapWriter[K, E](tx, u.codec).Set(ctx, entries...)
 }
 
 type ChangeFunc[K Key, E Entry[K]] = func(Context, E) (E, error)

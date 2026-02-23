@@ -65,7 +65,7 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (*Service, error) {
 	if err != nil {
 		return nil, err
 	}
-	table, err := gorp.OpenTable[uuid.UUID, Log](ctx, cfg.DB)
+	table, err := gorp.OpenTable[uuid.UUID, Log](ctx, gorp.TableConfig[Log]{DB: cfg.DB})
 	if err != nil {
 		return nil, err
 	}
@@ -88,13 +88,14 @@ func (s *Service) NewWriter(tx gorp.Tx) Writer {
 		tx:        tx,
 		otgWriter: s.Ontology.NewWriter(tx),
 		otg:       s.Ontology,
+		table:     s.table,
 	}
 }
 
 // NewRetrieve opens a new query build for retrieving logs from Synnax.
 func (s *Service) NewRetrieve() Retrieve {
 	return Retrieve{
-		gorp:   gorp.NewRetrieve[uuid.UUID, Log](),
+		gorp:   s.table.NewRetrieve(),
 		baseTX: s.DB,
 	}
 }

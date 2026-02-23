@@ -36,6 +36,7 @@ type leaseProxy struct {
 	freeCounter        *counter
 	analyzeCalculation CalculationAnalyzer
 	group              group.Group
+	table              *gorp.Table[Key, Channel]
 	mu                 struct {
 		externalNonVirtualSet *set.Integer[Key]
 		sync.RWMutex
@@ -51,6 +52,7 @@ func newLeaseProxy(
 	ctx context.Context,
 	cfg ServiceConfig,
 	group group.Group,
+	table *gorp.Table[Key, Channel],
 ) (*leaseProxy, error) {
 	leasedCounterKey := []byte(cfg.HostResolver.HostKey().String() + ".distribution.channel.leasedCounter")
 	c, err := openCounter(ctx, cfg.ClusterDB, leasedCounterKey)
@@ -59,8 +61,7 @@ func newLeaseProxy(
 	}
 	keyRouter := proxy.BatchFactory[Key]{Host: cfg.HostResolver.HostKey()}
 	var externalNonVirtualChannels []Channel
-	if err := gorp.
-		NewRetrieve[Key, Channel]().
+	if err := table.NewRetrieve().
 		Where(func(_ gorp.Context, c *Channel) (bool, error) {
 			return !c.Internal && !c.Virtual, nil
 		}).
@@ -76,6 +77,7 @@ func newLeaseProxy(
 		renameRouter:  proxy.BatchFactory[renameBatchEntry]{Host: cfg.HostResolver.HostKey()},
 		leasedCounter: c,
 		group:         group,
+		table:         table,
 	}
 	p.mu.externalNonVirtualSet = set.NewInteger(KeysFromChannels(externalNonVirtualChannels))
 	if cfg.HostResolver.HostKey() == cluster.NodeKeyBootstrapper {
@@ -223,7 +225,7 @@ func (lp *leaseProxy) createAndUpdateFreeVirtual(
 	// Filter out zero keys (channels that don't exist yet)
 	existingKeys := lo.Filter(keys, func(k Key, _ int) bool { return k != 0 })
 	if len(existingKeys) > 0 {
-		if err := gorp.NewUpdate[Key, Channel]().
+		if err := lp.table.NewUpdate().
 			WhereKeys(existingKeys...).
 			ChangeErr(
 				func(_ gorp.Context, c Channel) (Channel, error) {
@@ -327,7 +329,7 @@ func (lp *leaseProxy) createAndUpdateFreeVirtual(
 		}
 	}
 
-	if err := gorp.NewCreate[Key, Channel]().Entries(&toCreate).Exec(ctx,
+	if err := lp.table.NewCreate().Entries(&toCreate).Exec(ctx,
 		tx); err != nil {
 		return err
 	}
@@ -335,7 +337,7 @@ func (lp *leaseProxy) createAndUpdateFreeVirtual(
 	// Update existing calculated channels with their new LocalIndex values
 	if len(existingChannelsToUpdate) > 0 {
 		for _, ch := range existingChannelsToUpdate {
-			if err := gorp.NewUpdate[Key, Channel]().
+			if err := lp.table.NewUpdate().
 				WhereKeys(ch.Key()).
 				Change(func(_ gorp.Context, c Channel) Channel {
 					c.LocalIndex = ch.LocalIndex
@@ -376,7 +378,7 @@ func (lp *leaseProxy) validateChannelNames(
 		return nil
 	}
 	var conflictingChannels []Channel
-	if err := gorp.NewRetrieve[Key, Channel]().
+	if err := lp.table.NewRetrieve().
 		Where(func(_ gorp.Context, c *Channel) (bool, error) {
 			return namesSeen.Contains(c.Name), nil
 		}).
@@ -425,7 +427,7 @@ func (lp *leaseProxy) retrieveExistingAndAssignKeys(
 	incCounterBy := LocalKey(len(*channels))
 	if retrieveIfNameExists {
 		names := Names(*channels)
-		if err = gorp.NewRetrieve[Key, Channel]().Where(func(_ gorp.Context, c *Channel) (bool, error) {
+		if err = lp.table.NewRetrieve().Where(func(_ gorp.Context, c *Channel) (bool, error) {
 			v := lo.IndexOf(names, c.Name)
 			exists := v != -1
 			if exists {
@@ -469,7 +471,7 @@ func (lp *leaseProxy) deleteOverwritten(
 	channels *[]Channel,
 ) error {
 	storageToDelete := make([]ts.ChannelKey, 0, len(*channels))
-	if err := gorp.NewDelete[Key, Channel]().
+	if err := lp.table.NewDelete().
 		Where(func(_ gorp.Context, c *Channel) (bool, error) {
 			ch, i, found := lo.FindIndexOf(*channels, func(ch Channel) bool {
 				return ch.Name == c.Name && ch.Key() != c.Key()
@@ -526,8 +528,7 @@ func (lp *leaseProxy) createGateway(
 	if err = lp.cfg.TSChannel.CreateChannel(ctx, storageChannels...); err != nil {
 		return err
 	}
-	if err = gorp.
-		NewCreate[Key, Channel]().
+	if err = lp.table.NewCreate().
 		Entries(&toCreate).
 		Exec(ctx, tx); err != nil {
 		return err
@@ -584,7 +585,7 @@ func (lp *leaseProxy) createRemote(
 
 func (lp *leaseProxy) deleteByName(ctx context.Context, tx gorp.Tx, names []string, allowInternal bool) error {
 	var res []Channel
-	if err := gorp.NewRetrieve[Key, Channel]().Entries(&res).Where(func(ctx gorp.Context, c *Channel) (bool, error) {
+	if err := lp.table.NewRetrieve().Entries(&res).Where(func(ctx gorp.Context, c *Channel) (bool, error) {
 		return lo.Contains(names, c.Name), nil
 	}).Exec(ctx, tx); err != nil {
 		return err
@@ -596,8 +597,7 @@ func (lp *leaseProxy) deleteByName(ctx context.Context, tx gorp.Tx, names []stri
 func (lp *leaseProxy) delete(ctx context.Context, tx gorp.Tx, keys Keys, allowInternal bool) error {
 	if !allowInternal {
 		internalChannels := make([]Channel, 0, len(keys))
-		if err := gorp.
-			NewRetrieve[Key, Channel]().
+		if err := lp.table.NewRetrieve().
 			WhereKeys(keys...).
 			Where(func(ctx gorp.Context, c *Channel) (bool, error) {
 				return c.Internal, nil
@@ -635,11 +635,11 @@ func (lp *leaseProxy) delete(ctx context.Context, tx gorp.Tx, keys Keys, allowIn
 }
 
 func (lp *leaseProxy) deleteFreeVirtual(ctx context.Context, tx gorp.Tx, channels Keys) error {
-	return gorp.NewDelete[Key, Channel]().WhereKeys(channels...).Exec(ctx, tx)
+	return lp.table.NewDelete().WhereKeys(channels...).Exec(ctx, tx)
 }
 
 func (lp *leaseProxy) deleteGateway(ctx context.Context, tx gorp.Tx, keys Keys) error {
-	if err := gorp.NewDelete[Key, Channel]().WhereKeys(keys...).Exec(ctx, tx); err != nil {
+	if err := lp.table.NewDelete().WhereKeys(keys...).Exec(ctx, tx); err != nil {
 		return err
 	}
 	if err := lp.maybeDeleteResources(ctx, tx, keys); err != nil {
@@ -755,14 +755,14 @@ func channelNameUpdater(allowInternal bool, keys Keys, names []string) gorp.Chan
 }
 
 func (lp *leaseProxy) renameFreeVirtual(ctx context.Context, tx gorp.Tx, channels Keys, names []string, allowInternal bool) error {
-	return gorp.NewUpdate[Key, Channel]().
+	return lp.table.NewUpdate().
 		WhereKeys(channels...).
 		ChangeErr(channelNameUpdater(allowInternal, channels, names)).
 		Exec(ctx, tx)
 }
 
 func (lp *leaseProxy) renameGateway(ctx context.Context, tx gorp.Tx, keys Keys, names []string, allowInternal bool) error {
-	if err := gorp.NewUpdate[Key, Channel]().
+	if err := lp.table.NewUpdate().
 		WhereKeys(keys...).
 		ChangeErr(channelNameUpdater(allowInternal, keys, names)).
 		Exec(ctx, tx); err != nil {

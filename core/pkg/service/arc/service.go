@@ -171,7 +171,7 @@ func OpenService(ctx context.Context, configs ...ServiceConfig) (*Service, error
 	if err != nil {
 		return nil, err
 	}
-	table, err := gorp.OpenTable[uuid.UUID, Arc](ctx, cfg.DB)
+	table, err := gorp.OpenTable[uuid.UUID, Arc](ctx, gorp.TableConfig[Arc]{DB: cfg.DB})
 	if err != nil {
 		return nil, err
 	}
@@ -195,16 +195,17 @@ func OpenService(ctx context.Context, configs ...ServiceConfig) (*Service, error
 // execute the operations directly on the underlying gorp.DB.
 func (s *Service) NewWriter(tx gorp.Tx) Writer {
 	return Writer{
-		tx:   gorp.OverrideTx(s.cfg.DB, tx),
-		otg:  s.cfg.Ontology.NewWriter(tx),
-		task: s.cfg.Task.NewWriter(tx),
+		tx:    gorp.OverrideTx(s.cfg.DB, tx),
+		otg:   s.cfg.Ontology.NewWriter(tx),
+		task:  s.cfg.Task.NewWriter(tx),
+		table: s.table,
 	}
 }
 
 // NewRetrieve opens a new query builder for retrieving arcs from Synnax.
 func (s *Service) NewRetrieve() Retrieve {
 	return Retrieve{
-		gorp:   gorp.NewRetrieve[uuid.UUID, Arc](),
+		gorp:   s.table.NewRetrieve(),
 		baseTX: s.cfg.DB,
 		otg:    s.cfg.Ontology,
 	}

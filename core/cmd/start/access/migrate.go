@@ -78,6 +78,12 @@ func MigratePermissions(
 		return nil
 	}
 
+	legacyPolicyTable, err := gorp.OpenTable[uuid.UUID, LegacyPolicy](ctx, gorp.TableConfig[LegacyPolicy]{DB: dist.DB})
+	if err != nil {
+		return err
+	}
+	defer legacyPolicyTable.Close()
+
 	// Query all users
 	var users []user.User
 	if err := svc.User.NewRetrieve().Entries(&users).Exec(ctx, tx); err != nil {
@@ -86,7 +92,7 @@ func MigratePermissions(
 
 	// Query all legacy policies
 	var legacyPolicies []LegacyPolicy
-	if err := gorp.NewRetrieve[uuid.UUID, LegacyPolicy]().
+	if err := legacyPolicyTable.NewRetrieve().
 		Entries(&legacyPolicies).
 		Exec(ctx, tx); err != nil {
 		return err
@@ -140,7 +146,7 @@ func MigratePermissions(
 		legacyKeys := lo.Map(legacyPolicies, func(p LegacyPolicy, _ int) uuid.UUID {
 			return p.Key
 		})
-		if err := gorp.NewDelete[uuid.UUID, LegacyPolicy]().
+		if err := legacyPolicyTable.NewDelete().
 			WhereKeys(legacyKeys...).
 			Exec(ctx, tx); err != nil {
 			return err

@@ -28,13 +28,15 @@ type clause struct {
 // Retrieve implements a set of methods for retrieving resources and traversing their
 // relationships in teh ontology.
 type Retrieve struct {
-	clauses   []clause
-	registrar serviceRegistrar
-	tx        gorp.Tx
+	clauses           []clause
+	registrar         serviceRegistrar
+	tx                gorp.Tx
+	resourceTable     *gorp.Table[string, Resource]
+	relationshipTable *gorp.Table[[]byte, Relationship]
 }
 
 func (r Retrieve) nextClause() Retrieve {
-	c := clause{Retrieve: gorp.NewRetrieve[string, Resource]()}
+	c := clause{Retrieve: r.resourceTable.NewRetrieve()}
 	r.clauses = append(r.clauses, c)
 	return r
 }
@@ -50,12 +52,21 @@ func (r Retrieve) setCurrentClause(c clause) Retrieve {
 
 // NewRetrieve opens a new Retrieve query, which can be used to traverse and read resources
 // from the underlying ontology.
-func (o *Ontology) NewRetrieve() Retrieve { return newRetrieve(o.registrar, o.DB) }
+func (o *Ontology) NewRetrieve() Retrieve {
+	return newRetrieve(o.registrar, o.DB, o.resourceTable, o.relationshipTable)
+}
 
-func newRetrieve(registrar serviceRegistrar, tx gorp.Tx) Retrieve {
+func newRetrieve(
+	registrar serviceRegistrar,
+	tx gorp.Tx,
+	resourceTable *gorp.Table[string, Resource],
+	relationshipTable *gorp.Table[[]byte, Relationship],
+) Retrieve {
 	r := Retrieve{
-		registrar: registrar,
-		tx:        tx,
+		registrar:         registrar,
+		tx:                tx,
+		resourceTable:     resourceTable,
+		relationshipTable: relationshipTable,
 	}
 	return r.nextClause()
 }
@@ -310,7 +321,7 @@ func (r Retrieve) traverseByPrefix(
 	relationships := make([]Relationship, 0, 16)
 	for _, id := range ids {
 		relationships = relationships[:0]
-		if err := gorp.NewRetrieve[[]byte, Relationship]().
+		if err := r.relationshipTable.NewRetrieve().
 			WherePrefix(traverse.Prefix(id)).
 			Entries(&relationships).
 			Exec(ctx, tx); err != nil {
@@ -333,7 +344,7 @@ func (r Retrieve) traverseByScan(
 		nextIDs       = make([]ID, 0, len(ids)*4)
 		relationships []Relationship
 	)
-	err := gorp.NewRetrieve[[]byte, Relationship]().
+	err := r.relationshipTable.NewRetrieve().
 		Entries(&relationships).
 		Where(func(ctx gorp.Context, rel *Relationship) (bool, error) {
 			for _, id := range ids {

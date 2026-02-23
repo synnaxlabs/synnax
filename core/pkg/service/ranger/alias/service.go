@@ -72,6 +72,7 @@ func (c ServiceConfig) Override(other ServiceConfig) ServiceConfig {
 type Service struct {
 	shutdownSignals io.Closer
 	cfg             ServiceConfig
+	table           *gorp.Table[string, Alias]
 }
 
 // OpenService opens a new alias.Service with the provided configuration.
@@ -80,7 +81,11 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (*Service, error) {
 	if err != nil {
 		return nil, err
 	}
-	s := &Service{cfg: cfg}
+	table, err := gorp.OpenTable[string, Alias](ctx, gorp.TableConfig[Alias]{DB: cfg.DB})
+	if err != nil {
+		return nil, err
+	}
+	s := &Service{cfg: cfg, table: table}
 	cfg.Ontology.RegisterService(s)
 	if cfg.Signals == nil {
 		return s, nil
@@ -110,6 +115,7 @@ func (s *Service) NewWriter(tx gorp.Tx) Writer {
 		tx:        gorp.OverrideTx(s.cfg.DB, tx),
 		otg:       s.cfg.Ontology,
 		otgWriter: s.cfg.Ontology.NewWriter(tx),
+		table:     s.table,
 	}
 }
 
@@ -119,6 +125,7 @@ func (s *Service) NewReader(tx gorp.Tx) Reader {
 		tx:              gorp.OverrideTx(s.cfg.DB, tx),
 		otg:             s.cfg.Ontology,
 		parentRetriever: s.cfg.ParentRetriever,
+		table:           s.table,
 	}
 }
 
@@ -145,7 +152,7 @@ func (s *Service) RetrieveResource(
 		return ontology.Resource{}, err
 	}
 	var res Alias
-	if err = gorp.NewRetrieve[string, Alias]().
+	if err = s.table.NewRetrieve().
 		WhereKeys(Alias{Range: rangeKey, Channel: channelKey}.GorpKey()).
 		Entry(&res).
 		Exec(ctx, tx); err != nil {

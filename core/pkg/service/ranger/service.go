@@ -95,7 +95,7 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (*Service, error) {
 	if err != nil {
 		return nil, err
 	}
-	table, err := gorp.OpenTable[uuid.UUID, Range](ctx, cfg.DB)
+	table, err := gorp.OpenTable[uuid.UUID, Range](ctx, gorp.TableConfig[Range]{DB: cfg.DB})
 	if err != nil {
 		return nil, err
 	}
@@ -139,13 +139,14 @@ func (s *Service) NewWriter(tx gorp.Tx) Writer {
 		tx:        gorp.OverrideTx(s.cfg.DB, tx),
 		otg:       s.cfg.Ontology,
 		otgWriter: s.cfg.Ontology.NewWriter(tx),
+		table:     s.table,
 	}
 }
 
 // NewRetrieve opens a new Retrieve query to fetch ranges from the database.
 func (s *Service) NewRetrieve() Retrieve {
 	return Retrieve{
-		gorp:   gorp.NewRetrieve[uuid.UUID, Range](),
+		gorp:   s.table.NewRetrieve(),
 		baseTX: s.cfg.DB,
 		otg:    s.cfg.Ontology,
 		label:  s.cfg.Label,
