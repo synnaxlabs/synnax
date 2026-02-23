@@ -23,7 +23,7 @@ std::pair<std::string, std::string> check_device_health(
 ) {
     if (resp.status_code < 200 || resp.status_code >= 300)
         return {
-            x::status::VARIANT_WARNING,
+            x::status::VARIANT_ERROR,
             "Device returned HTTP " + std::to_string(resp.status_code) +
                 (resp.body.empty() ? "" : ": " + resp.body),
         };
@@ -33,20 +33,20 @@ std::pair<std::string, std::string> check_device_health(
             auto body = x::json::json::parse(resp.body);
             if (!body.contains(response->field))
                 return {
-                    x::status::VARIANT_WARNING,
+                    x::status::VARIANT_ERROR,
                     "Unexpected health response: field '" +
                         response->field.to_string() + "' not found",
                 };
             const auto &actual = body.at(response->field);
             if (actual != response->expected_value)
                 return {
-                    x::status::VARIANT_WARNING,
+                    x::status::VARIANT_ERROR,
                     "Unexpected health response: expected " +
                         response->expected_value.dump() + ", got " + actual.dump(),
                 };
         } catch (const x::json::json::parse_error &) {
             return {
-                x::status::VARIANT_WARNING,
+                x::status::VARIANT_ERROR,
                 "Unexpected health response: invalid JSON body",
             };
         }
@@ -95,21 +95,21 @@ ScanTask::ScanTask(
         },
         task.name
     ),
-    ctx_(std::move(ctx)),
-    task_(std::move(task)),
-    cfg_(std::move(cfg)),
-    conn_(std::move(conn)),
-    status_handler_(ctx_, task_) {
-    this->key = task_.key;
+    ctx(std::move(ctx)),
+    task(std::move(task)),
+    cfg(std::move(cfg)),
+    conn(std::move(conn)),
+    status_handler(ctx, task) {
+    this->key = task.key;
 }
 
 void ScanTask::exec(task::Command &cmd) {
     if (cmd.type == common::START_CMD_TYPE) {
         pipeline::Base::start();
-        this->status_handler_.send_start(cmd.key);
+        this->status_handler.send_start(cmd.key);
     } else if (cmd.type == common::STOP_CMD_TYPE) {
         pipeline::Base::stop();
-        this->status_handler_.send_stop(cmd.key);
+        this->status_handler.send_stop(cmd.key);
     }
 }
 
@@ -120,41 +120,41 @@ void ScanTask::stop(bool will_reconfigure) {
 void ScanTask::run() {
     device::RequestConfig req_cfg{
         .method = Method::GET,
-        .path = cfg_.path,
+        .path = cfg.path,
     };
-    auto [client, err] = device::Client::create(conn_, {req_cfg});
+    auto [client, err] = device::Client::create(conn, {req_cfg});
     if (err) {
         LOG(ERROR) << LOG_PREFIX << "failed to create client: " << err;
-        this->status_handler_.send_error(err);
+        this->status_handler.send_error(err);
         return;
     }
 
-    auto timer = x::loop::Timer(cfg_.rate);
+    auto timer = x::loop::Timer(cfg.rate);
     while (this->breaker.running()) {
         auto [results, batch_err] = client.execute_requests({""});
         if (batch_err) {
-            this->status_handler_.send_warning(
+            this->status_handler.send_warning(
                 "Failed to execute request: " + batch_err.message()
             );
             timer.wait(this->breaker);
             continue;
         }
         if (results.empty()) {
-            this->status_handler_.send_warning("Failed to execute request: no results");
+            this->status_handler.send_warning("Failed to execute request: no results");
             timer.wait(this->breaker);
             continue;
         }
-        this->status_handler_.status.variant = x::status::VARIANT_SUCCESS;
-        this->status_handler_.status.message = "Running";
-        this->status_handler_.status.key = task_.status_key();
-        this->ctx_->set_status(this->status_handler_.status);
+        this->status_handler.status.variant = x::status::VARIANT_SUCCESS;
+        this->status_handler.status.message = "Running";
+        this->status_handler.status.key = task.status_key();
+        this->ctx->set_status(this->status_handler.status);
         auto &[resp, req_err] = results[0];
         if (req_err) {
             this->set_device_status(x::status::VARIANT_WARNING, req_err.message());
             timer.wait(this->breaker);
             continue;
         }
-        auto [variant, message] = check_device_health(resp, cfg_.response);
+        auto [variant, message] = check_device_health(resp, cfg.response);
         this->set_device_status(variant, message);
         timer.wait(this->breaker);
     }
@@ -164,14 +164,14 @@ void ScanTask::set_device_status(
     const std::string &variant,
     const std::string &message
 ) {
-    if (ctx_->client == nullptr) return;
+    if (ctx->client == nullptr) return;
     synnax::device::Status dev_status;
-    dev_status.key = synnax::device::ontology_id(cfg_.device).string();
+    dev_status.key = synnax::device::ontology_id(cfg.device).string();
     dev_status.variant = variant;
     dev_status.message = message;
     dev_status.time = x::telem::TimeStamp::now();
-    dev_status.details.device = cfg_.device;
-    if (const auto err = ctx_->client->statuses.set<synnax::device::StatusDetails>(
+    dev_status.details.device = cfg.device;
+    if (const auto err = ctx->client->statuses.set<synnax::device::StatusDetails>(
             dev_status
         );
         err)

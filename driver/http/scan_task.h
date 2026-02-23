@@ -75,14 +75,14 @@ public:
     /// @brief stops the health-check loop.
     void stop(bool will_reconfigure) override;
 
-    [[nodiscard]] std::string name() const override { return task_.name; }
+    [[nodiscard]] std::string name() const override { return task.name; }
 
 private:
-    std::shared_ptr<task::Context> ctx_;
-    synnax::task::Task task_;
-    ScanTaskConfig cfg_;
-    device::ConnectionConfig conn_;
-    common::StatusHandler status_handler_;
+    std::shared_ptr<task::Context> ctx;
+    synnax::task::Task task;
+    ScanTaskConfig cfg;
+    device::ConnectionConfig conn;
+    common::StatusHandler status_handler;
 
     /// @brief the main health-check loop.
     void run() override;
