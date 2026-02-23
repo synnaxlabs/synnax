@@ -13,14 +13,14 @@
 namespace synnax::ontology {
 /// @brief it should construct an ID with type and key.
 TEST(OntologyID, testConstruction) {
-    const ID id("channel", "42");
+    const ID id{.type = "channel", .key = "42"};
     EXPECT_EQ(id.type, "channel");
     EXPECT_EQ(id.key, "42");
 }
 
 /// @brief it should convert an ID to string format "type:key".
 TEST(OntologyID, testStringConversion) {
-    const ID id("channel", "42");
+    const ID id{.type = "channel", .key = "42"};
     EXPECT_EQ(id.string(), "channel:42");
 }
 
@@ -61,17 +61,17 @@ TEST(OntologyID, testParseEmptyType) {
 
 /// @brief it should support round-trip string conversion: parse(id.string()) == id.
 TEST(OntologyID, testStringRoundTrip) {
-    const ID original("channel", "42");
+    const ID original{.type = "channel", .key = "42"};
     const auto parsed = ASSERT_NIL_P(ID::parse(original.string()));
     EXPECT_EQ(parsed, original);
 }
 
 /// @brief it should compare two IDs for equality.
 TEST(OntologyID, testEqualityOperator) {
-    const ID id1("channel", "42");
-    const ID id2("channel", "42");
-    const ID id3("channel", "43");
-    const ID id4("group", "42");
+    const ID id1{.type = "channel", .key = "42"};
+    const ID id2{.type = "channel", .key = "42"};
+    const ID id3{.type = "channel", .key = "43"};
+    const ID id4{.type = "group", .key = "42"};
 
     EXPECT_TRUE(id1 == id2);
     EXPECT_FALSE(id1 == id3);
@@ -80,9 +80,9 @@ TEST(OntologyID, testEqualityOperator) {
 
 /// @brief it should compare two IDs for inequality.
 TEST(OntologyID, testInequalityOperator) {
-    const ID id1("channel", "42");
-    const ID id2("channel", "42");
-    const ID id3("channel", "43");
+    const ID id1{.type = "channel", .key = "42"};
+    const ID id2{.type = "channel", .key = "42"};
+    const ID id3{.type = "channel", .key = "43"};
 
     EXPECT_FALSE(id1 != id2);
     EXPECT_TRUE(id1 != id3);
@@ -114,9 +114,9 @@ TEST(OntologyID, testParseIDsWithInvalid) {
 /// @brief it should convert a vector of IDs to strings.
 TEST(OntologyID, testIDsToStrings) {
     const std::vector<ID> ids = {
-        ID("channel", "42"),
-        ID("group", "748d31e2-5732-4cb5-8bc9-64d4ad51efe8"),
-        ID("user", "admin")
+        ID{.type = "channel", .key = "42"},
+        ID{.type = "group", .key = "748d31e2-5732-4cb5-8bc9-64d4ad51efe8"},
+        ID{.type = "user", .key = "admin"}
     };
     const auto strs = ids_to_strings(ids);
     EXPECT_EQ(strs.size(), 3);

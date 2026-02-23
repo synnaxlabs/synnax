@@ -9,7 +9,7 @@
 
 from __future__ import annotations
 
-from freighter import Payload
+from pydantic import BaseModel
 
 
 class Authority(int):
@@ -25,6 +25,6 @@ Authority.DEFAULT = Authority(1)
 CrudeAuthority = int | Authority
 
 
-class Subject(Payload):
+class Subject(BaseModel):
     name: str
     key: str

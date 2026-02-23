@@ -330,7 +330,7 @@ TEST(BuildAuthoritiesTest, NoDefaultUsesAbsolute) {
     auto result = build_authorities(auth, write_keys);
     ASSERT_EQ(result.size(), 2);
     EXPECT_EQ(result[0], 50);
-    EXPECT_EQ(result[1], x::telem::AUTH_ABSOLUTE);
+    EXPECT_EQ(result[1], x::control::AUTHORITY_ABSOLUTE);
 }
 
 TEST(MockLoopTest, WakeReasonIsConfigurable) {

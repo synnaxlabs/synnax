@@ -17,6 +17,8 @@
 #include "x/cpp/errors/errors.h"
 #include "x/cpp/test/test.h"
 
+#include "core/pkg/api/grpc/v1/arc.pb.h"
+
 namespace synnax::arc {
 std::mt19937 gen_rand = random_generator(std::move("Arc Tests"));
 
@@ -28,12 +30,12 @@ std::string random_arc_name(const std::string &prefix) {
 /// @brief it should create an Arc program and assign it a non-zero key.
 TEST(TestArc, testCreate) {
     const auto client = new_test_client();
-    auto arc = Arc("test_arc");
+    auto arc = Arc{.name = "test_arc"};
     arc.text.raw = "// Simple Arc program";
 
     ASSERT_NIL(client.arcs.create(arc));
     ASSERT_EQ(arc.name, "test_arc");
-    ASSERT_FALSE(arc.key.empty());
+    ASSERT_FALSE(arc.key.is_nil());
 }
 
 /// @brief it should create an Arc program using the convenience method.
@@ -41,22 +43,22 @@ TEST(TestArc, testCreateConvenience) {
     const auto client = new_test_client();
     auto arc = ASSERT_NIL_P(client.arcs.create("convenience_arc"));
     ASSERT_EQ(arc.name, "convenience_arc");
-    ASSERT_FALSE(arc.key.empty());
+    ASSERT_FALSE(arc.key.is_nil());
 }
 
 /// @brief it should create multiple Arc programs.
 TEST(TestArc, testCreateMany) {
     const auto client = new_test_client();
     auto arcs = std::vector<Arc>{
-        Arc("arc1"),
-        Arc("arc2"),
-        Arc("arc3"),
+        Arc{.name = "arc1"},
+        Arc{.name = "arc2"},
+        Arc{.name = "arc3"},
     };
 
     ASSERT_NIL(client.arcs.create(arcs));
 
     for (const auto &arc: arcs)
-        ASSERT_FALSE(arc.key.empty());
+        ASSERT_FALSE(arc.key.is_nil());
     ASSERT_EQ(arcs[0].name, "arc1");
     ASSERT_EQ(arcs[1].name, "arc2");
     ASSERT_EQ(arcs[2].name, "arc3");
@@ -66,7 +68,7 @@ TEST(TestArc, testCreateMany) {
 TEST(TestArc, testRetrieveByName) {
     const auto client = new_test_client();
     auto name = random_arc_name("retrieve_test");
-    auto created = Arc(name);
+    auto created = Arc{.name = name};
     ASSERT_NIL(client.arcs.create(created));
 
     auto retrieved = ASSERT_NIL_P(client.arcs.retrieve_by_name(name));
@@ -77,7 +79,7 @@ TEST(TestArc, testRetrieveByName) {
 /// @brief it should retrieve an Arc program by key.
 TEST(TestArc, testRetrieveByKey) {
     const auto client = new_test_client();
-    auto created = Arc("key_test");
+    auto created = Arc{.name = "key_test"};
     ASSERT_NIL(client.arcs.create(created));
 
     auto retrieved = ASSERT_NIL_P(client.arcs.retrieve_by_key(created.key));
@@ -91,8 +93,8 @@ TEST(TestArc, testRetrieveMany) {
     auto name1 = random_arc_name("multi1");
     auto name2 = random_arc_name("multi2");
     auto arcs = std::vector<Arc>{
-        Arc(name1),
-        Arc(name2),
+        Arc{.name = name1},
+        Arc{.name = name2},
     };
     ASSERT_NIL(client.arcs.create(arcs));
 
@@ -104,12 +106,12 @@ TEST(TestArc, testRetrieveMany) {
 TEST(TestArc, testRetrieveByKeys) {
     const auto client = new_test_client();
     auto arcs = std::vector<Arc>{
-        Arc("keys1"),
-        Arc("keys2"),
+        Arc{.name = "keys1"},
+        Arc{.name = "keys2"},
     };
     ASSERT_NIL(client.arcs.create(arcs));
 
-    std::vector<std::string> keys = {arcs[0].key, arcs[1].key};
+    std::vector<x::uuid::UUID> keys = {arcs[0].key, arcs[1].key};
     auto retrieved = ASSERT_NIL_P(client.arcs.retrieve_by_keys(keys));
     ASSERT_EQ(retrieved.size(), 2);
 }
@@ -117,7 +119,7 @@ TEST(TestArc, testRetrieveByKeys) {
 /// @brief it should delete an Arc program by key.
 TEST(TestArc, testDelete) {
     const auto client = new_test_client();
-    auto arc = Arc("delete_test");
+    auto arc = Arc{.name = "delete_test"};
     ASSERT_NIL(client.arcs.create(arc));
 
     ASSERT_NIL(client.arcs.delete_arc(arc.key));
@@ -129,12 +131,12 @@ TEST(TestArc, testDelete) {
 TEST(TestArc, testDeleteMany) {
     const auto client = new_test_client();
     auto arcs = std::vector<Arc>{
-        Arc("delete1"),
-        Arc("delete2"),
+        Arc{.name = "delete1"},
+        Arc{.name = "delete2"},
     };
     ASSERT_NIL(client.arcs.create(arcs));
 
-    std::vector<std::string> keys = {arcs[0].key, arcs[1].key};
+    std::vector<x::uuid::UUID> keys = {arcs[0].key, arcs[1].key};
     ASSERT_NIL(client.arcs.delete_arc(keys));
 
     auto retrieved = ASSERT_OCCURRED_AS_P(
@@ -146,7 +148,7 @@ TEST(TestArc, testDeleteMany) {
 /// @brief it should handle the module field correctly.
 TEST(TestArc, testModuleField) {
     const auto client = new_test_client();
-    auto arc = Arc("module_test");
+    auto arc = Arc{.name = "module_test"};
     arc.text.raw = "// Test program";
 
     ASSERT_NIL(client.arcs.create(arc));
@@ -175,7 +177,7 @@ TEST(TestArc, testRetrieveWithCompile) {
 
     // Create the Arc with calc.arc content
     // This matches arc/go/testdata/calc.arc
-    auto arc = Arc(random_arc_name("compile_test"));
+    auto arc = Arc{.name = random_arc_name("compile_test")};
     std::string calc_arc_text = R"(
 func calc(val f32) f32 {
     return val * 2
@@ -227,7 +229,7 @@ func calc(val f32) f32 {
 TEST(TestArc, testIntervalNodeCompiles) {
     const auto client = new_test_client();
 
-    auto arc = Arc(random_arc_name("interval_test"));
+    auto arc = Arc{.name = random_arc_name("interval_test")};
     arc.text.raw = R"(
 sequence main {
     stage initial {
@@ -261,5 +263,84 @@ sequence main {
     ASSERT_EQ(retrieved.module.sequences.size(), 1);
     ASSERT_EQ(retrieved.module.sequences[0].key, "main");
     ASSERT_EQ(retrieved.module.sequences[0].stages.size(), 2);
+}
+
+/// @brief it should correctly parse all fields from a valid Arc proto.
+TEST(TestArc, testArcFromProto) {
+    api::v1::Arc pb;
+    pb.set_key("748d31e2-5732-4cb5-8bc9-64d4ad51efe8");
+    pb.set_name("test arc");
+    pb.mutable_text()->set_raw("// source code");
+    pb.set_deploy(true);
+    pb.set_version("1.0.0");
+    const auto arc = ASSERT_NIL_P(Arc::from_proto(pb));
+    ASSERT_EQ(arc.key.to_string(), "748d31e2-5732-4cb5-8bc9-64d4ad51efe8");
+    ASSERT_EQ(arc.name, "test arc");
+    ASSERT_EQ(arc.text.raw, "// source code");
+    ASSERT_TRUE(arc.deploy);
+    ASSERT_EQ(arc.version, "1.0.0");
+}
+
+/// @brief it should return an error when parsing an Arc proto with an invalid key.
+TEST(TestArc, testArcFromProtoInvalidKey) {
+    api::v1::Arc pb;
+    pb.set_key("not-a-valid-uuid");
+    pb.set_name("bad arc");
+    ASSERT_OCCURRED_AS_P(Arc::from_proto(pb), x::uuid::INVALID);
+}
+
+/// @brief it should return an error when parsing an Arc proto with an empty key.
+TEST(TestArc, testArcFromProtoEmptyKey) {
+    api::v1::Arc pb;
+    pb.set_name("empty key arc");
+    ASSERT_OCCURRED_AS_P(Arc::from_proto(pb), x::uuid::INVALID);
+}
+
+/// @brief it should handle an Arc proto without optional graph, text, and module.
+TEST(TestArc, testArcFromProtoWithoutOptionalFields) {
+    api::v1::Arc pb;
+    pb.set_key("748d31e2-5732-4cb5-8bc9-64d4ad51efe8");
+    pb.set_name("minimal arc");
+    const auto arc = ASSERT_NIL_P(Arc::from_proto(pb));
+    ASSERT_EQ(arc.name, "minimal arc");
+    ASSERT_TRUE(arc.text.raw.empty());
+    ASSERT_TRUE(arc.module.wasm.empty());
+    ASSERT_FALSE(arc.deploy);
+    ASSERT_TRUE(arc.version.empty());
+}
+
+/// @brief it should correctly parse deploy=false from the proto.
+TEST(TestArc, testArcFromProtoDeployFalse) {
+    api::v1::Arc pb;
+    pb.set_key("748d31e2-5732-4cb5-8bc9-64d4ad51efe8");
+    pb.set_name("no deploy arc");
+    pb.set_deploy(false);
+    const auto arc = ASSERT_NIL_P(Arc::from_proto(pb));
+    ASSERT_FALSE(arc.deploy);
+}
+
+/// @brief it should roundtrip Arc through proto -> C++ -> proto -> C++.
+TEST(TestArc, testArcFromProtoRoundtrip) {
+    api::v1::Arc pb;
+    pb.set_key("748d31e2-5732-4cb5-8bc9-64d4ad51efe8");
+    pb.set_name("roundtrip arc");
+    pb.mutable_text()->set_raw("func main() {}");
+    pb.set_deploy(true);
+    pb.set_version("2.0.0");
+    const auto first = ASSERT_NIL_P(Arc::from_proto(pb));
+    api::v1::Arc pb2;
+    pb2.set_key(first.key.to_string());
+    pb2.set_name(first.name);
+    first.text.to_proto(pb2.mutable_text());
+    first.graph.to_proto(pb2.mutable_graph());
+    first.module.to_proto(pb2.mutable_module());
+    pb2.set_deploy(first.deploy);
+    pb2.set_version(first.version);
+    const auto second = ASSERT_NIL_P(Arc::from_proto(pb2));
+    ASSERT_EQ(first.key, second.key);
+    ASSERT_EQ(first.name, second.name);
+    ASSERT_EQ(first.text.raw, second.text.raw);
+    ASSERT_EQ(first.deploy, second.deploy);
+    ASSERT_EQ(first.version, second.version);
 }
 }

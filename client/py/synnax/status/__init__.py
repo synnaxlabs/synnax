@@ -9,26 +9,38 @@
 
 from synnax.status.client import Client
 from synnax.status.payload import (
-    DISABLED_VARIANT,
-    ERROR_VARIANT,
-    INFO_VARIANT,
-    LOADING_VARIANT,
-    SUCCESS_VARIANT,
-    WARNING_VARIANT,
+    VARIANT_DISABLED,
+    VARIANT_ERROR,
+    VARIANT_INFO,
+    VARIANT_LOADING,
+    VARIANT_SUCCESS,
+    VARIANT_WARNING,
     Status,
     Variant,
     ontology_id,
 )
+from synnax.util.deprecation import deprecated_getattr
+
+_DEPRECATED = {
+    "SUCCESS_VARIANT": "VARIANT_SUCCESS",
+    "INFO_VARIANT": "VARIANT_INFO",
+    "WARNING_VARIANT": "VARIANT_WARNING",
+    "ERROR_VARIANT": "VARIANT_ERROR",
+    "DISABLED_VARIANT": "VARIANT_DISABLED",
+    "LOADING_VARIANT": "VARIANT_LOADING",
+}
+
+__getattr__ = deprecated_getattr(__name__, _DEPRECATED, globals())
 
 __all__ = [
     "Client",
     "Variant",
     "Status",
-    "SUCCESS_VARIANT",
-    "INFO_VARIANT",
-    "WARNING_VARIANT",
-    "ERROR_VARIANT",
-    "DISABLED_VARIANT",
-    "LOADING_VARIANT",
+    "VARIANT_SUCCESS",
+    "VARIANT_INFO",
+    "VARIANT_WARNING",
+    "VARIANT_ERROR",
+    "VARIANT_DISABLED",
+    "VARIANT_LOADING",
     "ontology_id",
 ]

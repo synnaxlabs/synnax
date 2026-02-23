@@ -15,9 +15,9 @@ import (
 
 	"github.com/antlr4-go/antlr/v4"
 	acontext "github.com/synnaxlabs/arc/analyzer/context"
-	"github.com/synnaxlabs/arc/diagnostics"
 	"github.com/synnaxlabs/arc/ir"
 	"github.com/synnaxlabs/arc/parser"
+	"github.com/synnaxlabs/x/diagnostics"
 )
 
 // Analyze validates authority blocks in a program and returns the Authorities.

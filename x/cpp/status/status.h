@@ -20,21 +20,18 @@
 
 /// @brief utility packages for managing status messages.
 namespace x::status {
-namespace variant {
 /// @brief a successful operation.
-const std::string SUCCESS = "success";
+const std::string VARIANT_SUCCESS = "success";
 /// @brief an operation that encountered an error.
-/// Named ERR instead of ERROR to avoid confusion with the C++ `error` keyword.
-const std::string ERR = "error";
+const std::string VARIANT_ERROR = "error";
 /// @brief an operation that encountered a warning.
-const std::string WARNING = "warning";
+const std::string VARIANT_WARNING = "warning";
 /// @brief general informational message.
-const std::string INFO = "info";
+const std::string VARIANT_INFO = "info";
 /// @brief an operation that is disabled.
-const std::string DISABLED = "disabled";
+const std::string VARIANT_DISABLED = "disabled";
 /// @brief an operation that is in the process of loading or starting up.
-const std::string LOADING = "loading";
-}
+const std::string VARIANT_LOADING = "loading";
 
 struct DefaultDetails {
     static json::json to_json() { return json::json::object(); }
@@ -58,7 +55,7 @@ struct Status {
     /// @brief a human-readable name for the status.
     std::string name;
     /// @brief the variant of the status message. This should be one of the
-    /// status::variant::* constants.
+    /// status::VARIANT_* constants.
     std::string variant;
     /// @brief a short, descriptive message about the status.
     std::string message;

@@ -118,7 +118,7 @@ const handleSelect: Ontology.HandleSelect = ({
     "line plot",
   );
   handleError(async () => {
-    const linePlot = await client.workspaces.lineplots.retrieve({
+    const linePlot = await client.lineplots.retrieve({
       key: selection[0].id.key,
     });
     placeLayout(
@@ -136,7 +136,7 @@ const handleMosaicDrop: Ontology.HandleMosaicDrop = ({
   handleError,
 }): void =>
   handleError(async () => {
-    const linePlot = await client.workspaces.lineplots.retrieve({ key });
+    const linePlot = await client.lineplots.retrieve({ key });
     placeLayout(
       LinePlot.create({
         ...linePlot.data,

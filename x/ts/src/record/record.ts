@@ -26,6 +26,21 @@ export type Key = z.infer<typeof keyZ>;
 export const unknownZ = z.record(keyZ, z.unknown());
 
 /**
+ * For required JSON/record fields: coerces null/undefined to empty object {}.
+ * Use when the record must always be present and iterable.
+ *
+ * - null → {}
+ * - undefined → {}
+ * - {} → {}
+ * - {data} → {data}
+ */
+export const nullishToEmpty = (): z.ZodType<Unknown> =>
+  z.union([
+    z.union([z.null(), z.undefined()]).transform<Unknown>(() => ({})),
+    unknownZ,
+  ]);
+
+/**
  * Represents a record with unknown values and string/number keys.
  * This is a generic type for objects where the value types are not known.
  */

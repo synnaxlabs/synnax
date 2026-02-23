@@ -23,6 +23,7 @@
 #include "freighter/cpp/freighter.h"
 #include "x/cpp/errors/errors.h"
 #include "x/cpp/json/json.h"
+#include "x/cpp/json/struct.h"
 #include "x/cpp/status/status.h"
 
 #include "core/pkg/api/grpc/v1/core/pkg/api/grpc/v1/device.pb.h"
@@ -47,7 +48,7 @@ using DeleteClient = freighter::
 /// @param key The device key.
 /// @returns An ontology ID with type "device" and the given key.
 inline ontology::ID ontology_id(const std::string &key) {
-    return ontology::ID("device", key);
+    return ontology::ID{.type = "device", .key = key};
 }
 
 /// @brief Converts a vector of device keys to a vector of ontology IDs.
@@ -102,33 +103,12 @@ struct Device {
     std::string make;
     /// @brief The model of the device.
     std::string model;
-    /// @brief Additional properties of the device, typically in JSON format.
-    std::string properties;
+    /// @brief Additional properties of the device.
+    x::json::json::object_t properties;
     /// @brief whether the device has been configured.
     bool configured = false;
     /// @brief Status information about the device.
     Status status;
-
-    /// @brief Constructs a new device with the given properties.
-    /// @param key The unique identifier for the device.
-    /// @param name A human-readable name for the device.
-    /// @param rack The rack that this device is connected to.
-    /// @param location The physical location of the device.
-    /// @param make The manufacturer of the device.
-    /// @param model The model of the device.
-    /// @param properties Additional properties of the device.
-    Device(
-        std::string key,
-        std::string name,
-        rack::Key rack,
-        std::string location,
-        std::string make,
-        std::string model,
-        std::string properties
-    );
-
-    /// @brief Default constructor for an empty device.
-    Device() = default;
 
     /// @brief returns the key used for creating statuses associated with the task.
     [[nodiscard]] std::string status_key() const {
@@ -146,10 +126,7 @@ struct Device {
     /// @returns The parsed device.
     static Device parse(x::json::Parser &parser);
 
-private:
     void to_proto(api::v1::Device *device) const;
-
-    friend class Client;
 };
 
 /// @brief Creates a map of device keys to devices.

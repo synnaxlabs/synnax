@@ -81,6 +81,9 @@ catalogs:
     stylelint:
       specifier: ^17.1.0
       version: 17.1.0
+    stylelint-config-standard:
+      specifier: ^40.0.0
+      version: 40.0.0
     typescript:
       specifier: ^5.9.3
       version: 5.9.3
@@ -116,6 +119,9 @@ importers:
       prettier-plugin-toml:
         specifier: ^2.0.6
         version: 2.0.6(prettier@3.8.1)
+      stylelint-config-standard:
+        specifier: 'catalog:'
+        version: 40.0.0(stylelint@17.1.0(typescript@5.9.3))
       turbo:
         specifier: ^2.8.1
         version: 2.8.1
@@ -261,7 +267,7 @@ importers:
   configs/stylelint:
     dependencies:
       stylelint-config-standard:
-        specifier: ^40.0.0
+        specifier: 'catalog:'
         version: 40.0.0(stylelint@17.1.0(typescript@5.9.3))
     devDependencies:
       '@synnaxlabs/tsconfig':
@@ -316,9 +322,6 @@ importers:
         specifier: ^14.0.6
         version: 14.0.6
       '@codingame/monaco-vscode-languages-service-override':
-        specifier: ^14.0.6
-        version: 14.0.6
-      '@codingame/monaco-vscode-lua-default-extension':
         specifier: ^14.0.6
         version: 14.0.6
       '@codingame/monaco-vscode-textmate-service-override':
@@ -1633,9 +1636,6 @@ packages:
 
   '@codingame/monaco-vscode-log-service-override@20.2.1':
     resolution: {integrity: sha512-CUTxmqqFeu8Sbw24ot6S3wSQDE5DOTMHrK3gC/heNjkWDPXQTu10QteWnBekfP5Czbm+huXUDljL41BVHoD5rQ==}
-
-  '@codingame/monaco-vscode-lua-default-extension@14.0.6':
-    resolution: {integrity: sha512-vHAIx/gAn6Fd160m/4CJjvVZ6dNIGXLTjzeZh5N2aIfX8f99zRm+pI+ohagkJ0qM0686Tx9O8/IN3uEwIcJizg==}
 
   '@codingame/monaco-vscode-model-service-override@20.2.1':
     resolution: {integrity: sha512-ff/hBbV1ERU6dcoCJSkBZyg1BvJ8JOmmDt8rmoaWMNoub3hdsmvA87jKw1iblhv/EtKYL0R9J25+6e9LIU2FAQ==}
@@ -8468,10 +8468,6 @@ snapshots:
       '@codingame/monaco-vscode-api': 20.2.1
       '@codingame/monaco-vscode-cea4d01f-6526-5c2f-8b09-b168fead499f-common': 20.2.1
       '@codingame/monaco-vscode-environment-service-override': 20.2.1
-
-  '@codingame/monaco-vscode-lua-default-extension@14.0.6':
-    dependencies:
-      '@codingame/monaco-vscode-api': 14.0.6
 
   '@codingame/monaco-vscode-model-service-override@20.2.1':
     dependencies:

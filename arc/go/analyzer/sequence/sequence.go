@@ -12,10 +12,10 @@ package sequence
 import (
 	"github.com/synnaxlabs/arc/analyzer/context"
 	"github.com/synnaxlabs/arc/analyzer/flow"
-	"github.com/synnaxlabs/arc/diagnostics"
 	"github.com/synnaxlabs/arc/parser"
 	"github.com/synnaxlabs/arc/symbol"
 	"github.com/synnaxlabs/arc/types"
+	"github.com/synnaxlabs/x/diagnostics"
 )
 
 // CollectDeclarations registers all sequences and their stages in the symbol table.

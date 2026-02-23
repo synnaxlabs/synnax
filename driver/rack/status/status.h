@@ -58,7 +58,7 @@ public:
         synnax::task::Status stat{
             .key = this->task.status_key(),
             .name = this->task.name,
-            .variant = ::x::status::variant::SUCCESS,
+            .variant = ::x::status::VARIANT_SUCCESS,
             .message = "Started",
             .time = x::telem::TimeStamp::now(),
             .details = synnax::task::StatusDetails{
@@ -72,7 +72,7 @@ public:
             synnax::rack::Status status{
                 .key = synnax::rack::ontology_id(this->rack.key).string(),
                 .name = this->rack.name,
-                .variant = ::x::status::variant::SUCCESS,
+                .variant = ::x::status::VARIANT_SUCCESS,
                 .message = "Driver is running",
                 .time = x::telem::TimeStamp::now(),
                 .details = synnax::rack::StatusDetails{.rack = this->rack.key}
@@ -119,7 +119,7 @@ public:
             synnax::task::Status stat{
                 .key = task.status_key(),
                 .name = TASK_NAME,
-                .variant = ::x::status::variant::ERR,
+                .variant = ::x::status::VARIANT_ERROR,
                 .message = "Failed to retrieve rack for status task",
                 .description = rack_err.message(),
                 .details = synnax::task::StatusDetails{

@@ -1,0 +1,11 @@
+load("@rules_cc//cc:cc_library.bzl", "cc_library")
+
+cc_library(
+    name = "errors",
+    hdrs = ["errors.h"],
+    visibility = ["//visibility:public"],
+    deps = [
+        "//driver/errors",
+        "//x/cpp/errors",
+    ],
+)

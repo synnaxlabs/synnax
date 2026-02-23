@@ -23,7 +23,7 @@ import click
     default=10,
     help="Number of samples per range in each channel",
 )
-def populate(num_channels, num_ranges, num_samples):
+def populate(num_channels: int, num_ranges: int, num_samples: int) -> None:
     client = instantiate_client()
 
     for channel_index in range(num_channels):
@@ -35,23 +35,23 @@ def populate(num_channels, num_ranges, num_samples):
             client.populate_range(channel_name, range_data)
 
 
-def instantiate_client():
+def instantiate_client() -> MockClient:
     return MockClient()
 
 
-def generate_channel_name(channel_index):
+def generate_channel_name(channel_index: int) -> str:
     return f"Channel_{channel_index}"
 
 
-def generate_fake_data(num_samples):
+def generate_fake_data(num_samples: int) -> list[int]:
     return [random.randint(0, 100) for _ in range(num_samples)]
 
 
 class MockClient:
-    def create_channel(self, channel_name):
+    def create_channel(self, channel_name: str) -> None:
         print(f"Creating channel: {channel_name}")
 
-    def populate_range(self, channel_name, range_data):
+    def populate_range(self, channel_name: str, range_data: list[int]) -> None:
         print(f"Populating range in channel {channel_name} with data: {range_data}")
 
 

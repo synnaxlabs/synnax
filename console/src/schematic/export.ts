@@ -21,7 +21,7 @@ export const extract: Export.Extractor = async (key, { store, client }) => {
   let name = Layout.select(storeState, key)?.name;
   if (state == null || name == null) {
     if (client == null) throw new DisconnectedError();
-    const schematic = await client.workspaces.schematics.retrieve({ key });
+    const schematic = await client.schematics.retrieve({ key });
     state ??= {
       ...(schematic.data as State),
       snapshot: schematic.snapshot,

@@ -1,0 +1,49 @@
+load("@rules_cc//cc:cc_library.bzl", "cc_library")
+load("@rules_cc//cc:cc_test.bzl", "cc_test")
+
+exports_files(
+    [
+        "test_cert.pem",
+        "test_key.pem",
+    ],
+    visibility = ["//visibility:public"],
+)
+
+cc_library(
+    name = "mock",
+    srcs = ["server.cpp"],
+    hdrs = ["server.h"],
+    copts = select({
+        "@platforms//os:windows": ["/wd4191"],
+        "//conditions:default": [],
+    }),
+    defines = ["CPPHTTPLIB_OPENSSL_SUPPORT"],
+    visibility = ["//visibility:public"],
+    deps = [
+        "//driver/http/types",
+        "//x/cpp/errors",
+        "//x/cpp/telem",
+        "@cpp-httplib//:cpp-httplib",
+        "@openssl//:crypto",
+        "@openssl//:ssl",
+    ],
+)
+
+cc_test(
+    name = "server_test",
+    srcs = ["server_test.cpp"],
+    copts = select({
+        "@platforms//os:windows": ["/wd4191"],
+        "//conditions:default": [],
+    }),
+    data = [
+        "test_cert.pem",
+        "test_key.pem",
+    ],
+    deps = [
+        ":mock",
+        "//x/cpp/test",
+        "@cpp-httplib//:cpp-httplib",
+        "@googletest//:gtest_main",
+    ],
+)

@@ -41,8 +41,8 @@ check_minimum_permissions(const std::filesystem::path &path, const char *context
 JSONFile::JSONFile(const std::string &path, const json &data):
     path(path), data_(data) {}
 
-std::pair<std::shared_ptr<kv::KV>, errors::Error>
-JSONFile::open(const JSONFileConfig &config) {
+std::pair<std::shared_ptr<KV>, errors::Error>
+JSONFile::open_file(const JSONFileConfig &config) {
     try {
         const auto dir = config.path.parent_path();
         if (!std::filesystem::exists(dir)) {

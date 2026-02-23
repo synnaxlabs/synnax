@@ -13,8 +13,6 @@ import { z } from "zod";
 
 import { ontology } from "@/ontology";
 import { keyZ as userKeyZ } from "@/user/payload";
-import { lineplot } from "@/workspace/lineplot";
-import { log } from "@/workspace/log";
 import {
   type Key,
   keyZ,
@@ -25,8 +23,6 @@ import {
   type Workspace,
   workspaceZ,
 } from "@/workspace/payload";
-import { schematic } from "@/workspace/schematic";
-import { table } from "@/workspace/table";
 
 const retrieveReqZ = z.object({
   keys: keyZ.array().optional(),
@@ -54,18 +50,10 @@ export const DELETE_CHANNEL_NAME = "sy_workspace_delete";
 export interface SetLayoutArgs extends z.input<typeof setLayoutReqZ> {}
 
 export class Client {
-  readonly schematics: schematic.Client;
-  readonly lineplots: lineplot.Client;
-  readonly logs: log.Client;
-  readonly tables: table.Client;
   private readonly client: UnaryClient;
 
   constructor(client: UnaryClient) {
     this.client = client;
-    this.schematics = new schematic.Client(client);
-    this.lineplots = new lineplot.Client(client);
-    this.logs = new log.Client(client);
-    this.tables = new table.Client(client);
   }
 
   async create(workspace: New): Promise<Workspace>;

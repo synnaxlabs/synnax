@@ -230,7 +230,7 @@ var _ = Describe("Scheduler", func() {
 
 			s := build(prog)
 
-			for i := 0; i < 100; i++ {
+			for i := range 100 {
 				s.Next(ctx, telem.TimeSpan(i)*telem.Microsecond, node.ReasonTimerTick)
 			}
 
@@ -448,17 +448,17 @@ var _ = Describe("Scheduler", func() {
 		})
 
 		It("Should handle wide graph", func() {
-			for i := 0; i < 10; i++ {
+			for i := range 10 {
 				mock(fmt.Sprintf("N%d", i))
 			}
 
 			stratum0 := make([]string, 10)
-			for i := 0; i < 10; i++ {
+			for i := range 10 {
 				stratum0[i] = fmt.Sprintf("N%d", i)
 			}
 
 			builder := testutil.NewIRBuilder()
-			for i := 0; i < 10; i++ {
+			for i := range 10 {
 				builder.Node(fmt.Sprintf("N%d", i))
 			}
 			prog := builder.Strata([][]string{stratum0}).Build()
@@ -466,7 +466,7 @@ var _ = Describe("Scheduler", func() {
 			s := build(prog)
 			s.Next(ctx, telem.Microsecond, node.ReasonTimerTick)
 
-			for i := 0; i < 10; i++ {
+			for i := range 10 {
 				Expect(mocks[fmt.Sprintf("N%d", i)].NextCalled).To(Equal(1))
 			}
 		})
@@ -1111,7 +1111,7 @@ var _ = Describe("Scheduler", func() {
 
 	Describe("Complex Graph Structures", func() {
 		It("Should handle deep strata chain", func() {
-			for i := 0; i < 10; i++ {
+			for i := range 10 {
 				m := mock(fmt.Sprintf("N%d", i))
 				if i < 9 {
 					m.MarkOnNext("output")
@@ -1119,16 +1119,16 @@ var _ = Describe("Scheduler", func() {
 			}
 
 			builder := testutil.NewIRBuilder()
-			for i := 0; i < 10; i++ {
+			for i := range 10 {
 				builder.Node(fmt.Sprintf("N%d", i))
 			}
 
-			for i := 0; i < 9; i++ {
+			for i := range 9 {
 				builder.Edge(fmt.Sprintf("N%d", i), "output", fmt.Sprintf("N%d", i+1), "input")
 			}
 
 			strata := make([][]string, 10)
-			for i := 0; i < 10; i++ {
+			for i := range 10 {
 				strata[i] = []string{fmt.Sprintf("N%d", i)}
 			}
 
@@ -1136,7 +1136,7 @@ var _ = Describe("Scheduler", func() {
 			s := build(prog)
 			s.Next(ctx, telem.Microsecond, node.ReasonTimerTick)
 
-			for i := 0; i < 10; i++ {
+			for i := range 10 {
 				Expect(mocks[fmt.Sprintf("N%d", i)].NextCalled).To(Equal(1))
 			}
 		})

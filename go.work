@@ -1,4 +1,4 @@
-go 1.25.6
+go 1.26.0
 
 use (
 	./alamos/go
@@ -8,6 +8,7 @@ use (
 	./core
 	./freighter/go
 	./freighter/integration
+	./oracle
 	./x/go
 )
 

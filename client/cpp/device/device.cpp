@@ -118,7 +118,11 @@ std::pair<Device, x::errors::Error> Device::from_proto(const api::v1::Device &de
     d.location = device.location();
     d.make = device.make();
     d.model = device.model();
-    d.properties = device.properties();
+    if (device.has_properties()) {
+        auto [v, err] = x::json::from_struct(device.properties());
+        if (err) return {d, err};
+        d.properties = v;
+    }
     d.configured = device.configured();
     if (device.has_status()) {
         auto [s, err] = Status::from_proto(device.status());
@@ -128,23 +132,6 @@ std::pair<Device, x::errors::Error> Device::from_proto(const api::v1::Device &de
     return {d, x::errors::NIL};
 }
 
-Device::Device(
-    std::string key,
-    std::string name,
-    rack::Key rack,
-    std::string location,
-    std::string make,
-    std::string model,
-    std::string properties
-):
-    key(std::move(key)),
-    name(std::move(name)),
-    rack(rack),
-    location(std::move(location)),
-    make(std::move(make)),
-    model(std::move(model)),
-    properties(std::move(properties)) {}
-
 void Device::to_proto(api::v1::Device *device) const {
     device->set_key(key);
     device->set_name(name);
@@ -152,7 +139,7 @@ void Device::to_proto(api::v1::Device *device) const {
     device->set_location(location);
     device->set_make(make);
     device->set_model(model);
-    device->set_properties(properties);
+    x::json::to_struct(properties, device->mutable_properties());
     device->set_configured(configured);
     if (!status.is_zero()) status.to_proto(device->mutable_status());
 }
@@ -166,7 +153,8 @@ Device Device::parse(x::json::Parser &parser) {
     d.make = parser.field<std::string>("make", "");
     d.model = parser.field<std::string>("model", "");
     d.configured = parser.field<bool>("configured", false);
-    d.properties = parser.field<std::string>("properties", "");
+    auto props = parser.field<x::json::json>("properties", x::json::json::object());
+    if (props.is_object()) d.properties = props;
     return d;
 }
 }

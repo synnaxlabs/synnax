@@ -14,7 +14,6 @@
 
 #include "driver/ethercat/mock/master.h"
 #include "driver/ethercat/read_task.h"
-#include "driver/pipeline/mock/pipeline.h"
 #include "engine/engine.h"
 
 namespace driver::ethercat {
@@ -33,12 +32,11 @@ protected:
     void SetUp() override {
         client = std::make_shared<synnax::Synnax>(new_test_client());
 
-        index_channel = synnax::channel::Channel(
-            make_unique_channel_name("time_channel"),
-            x::telem::TIMESTAMP_T,
-            0,
-            true
-        );
+        index_channel = synnax::channel::Channel{
+            .name = make_unique_channel_name("time_channel"),
+            .data_type = x::telem::TIMESTAMP_T,
+            .is_index = true,
+        };
         ASSERT_NIL(client->channels.create(index_channel));
 
         rack = ASSERT_NIL_P(client->racks.create("test_rack"));
@@ -105,15 +103,15 @@ protected:
             {"enabled", true},
             {"pdos", {{"inputs", input_pdos}, {"outputs", output_pdos}}}
         };
-        synnax::device::Device dev(
-            "ecat_slave_" + std::to_string(serial),
-            "Test Slave SN:" + std::to_string(serial),
-            rack.key,
-            NETWORK_INTERFACE + ".Slot 0",
-            "DEWESoft",
-            "TestModule",
-            props.dump()
-        );
+        synnax::device::Device dev{
+            .key = "ecat_slave_" + std::to_string(serial),
+            .name = "Test Slave SN:" + std::to_string(serial),
+            .rack = rack.key,
+            .location = NETWORK_INTERFACE + ".Slot 0",
+            .make = "DEWESoft",
+            .model = "TestModule",
+            .properties = props.get<x::json::json::object_t>(),
+        };
         auto err = client->devices.create(dev);
         EXPECT_TRUE(!err) << err.message();
         return dev;
@@ -473,7 +471,7 @@ TEST_F(EtherCATReadTest, SourceReadsMultipleChannelValues) {
     auto source = ReadTaskSource(this->engine, std::move(task_cfg));
     ASSERT_NIL(source.start());
 
-    this->mock_master->set_input<int16_t>(0, 0xABCD);
+    this->mock_master->set_input<int16_t>(0, static_cast<int16_t>(0xABCD));
     this->mock_master->set_input<int32_t>(2, 0x12345678);
 
     x::breaker::Breaker brk;

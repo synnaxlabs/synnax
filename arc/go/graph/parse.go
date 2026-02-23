@@ -10,8 +10,8 @@
 package graph
 
 import (
-	"github.com/synnaxlabs/arc/diagnostics"
 	"github.com/synnaxlabs/arc/parser"
+	"github.com/synnaxlabs/x/diagnostics"
 )
 
 // Parse parses the raw function bodies in the graph into AST representations.

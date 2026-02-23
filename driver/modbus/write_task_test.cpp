@@ -55,18 +55,22 @@ protected:
               {"swap_words", false}}}
         };
 
-        synnax::device::Device dev(
-            "modbus_test_dev",
-            "modbus_test_dev",
-            rack.key,
-            "dev1",
-            "modbus",
-            "Modbus Device",
-            nlohmann::to_string(properties)
-        );
+        synnax::device::Device dev{
+            .key = "modbus_test_dev",
+            .name = "modbus_test_dev",
+            .rack = rack.key,
+            .location = "dev1",
+            .make = "modbus",
+            .model = "Modbus Device",
+            .properties = properties.get<x::json::json::object_t>(),
+        };
         ASSERT_NIL(client->devices.create(dev));
 
-        task = synnax::task::Task(rack.key, "modbus_write_test", "modbus_write", "");
+        task = synnax::task::Task{
+            .key = synnax::task::create_key(rack.key, 0),
+            .name = "modbus_write_test",
+            .type = "modbus_write",
+        };
     }
 };
 
@@ -451,7 +455,7 @@ TEST_F(ModbusWriteTest, testWriteVerification) {
     EXPECT_EQ(first_state.key, task.status_key());
     EXPECT_EQ(first_state.details.task, task.key);
     EXPECT_EQ(first_state.details.cmd, "start_cmd");
-    EXPECT_EQ(first_state.variant, x::status::variant::SUCCESS);
+    EXPECT_EQ(first_state.variant, x::status::VARIANT_SUCCESS);
 
     wt->stop("stop_cmd", true);
 
@@ -460,7 +464,7 @@ TEST_F(ModbusWriteTest, testWriteVerification) {
     EXPECT_EQ(second_state.key, task.status_key());
     EXPECT_EQ(second_state.details.task, task.key);
     EXPECT_EQ(second_state.details.cmd, "stop_cmd");
-    EXPECT_EQ(second_state.variant, x::status::variant::SUCCESS);
+    EXPECT_EQ(second_state.variant, x::status::VARIANT_SUCCESS);
 }
 
 /// Regression test for buffer size calculation bug with UINT8 holding registers.

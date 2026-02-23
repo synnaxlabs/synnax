@@ -19,6 +19,7 @@
 #include "freighter/cpp/freighter.h"
 #include "x/cpp/errors/errors.h"
 #include "x/cpp/json/json.h"
+#include "x/cpp/json/struct.h"
 #include "x/cpp/status/status.h"
 
 #include "core/pkg/api/grpc/v1/core/pkg/api/grpc/v1/task.pb.h"
@@ -51,7 +52,7 @@ using Key = std::uint64_t;
 /// @param key The task key.
 /// @returns An ontology ID with type "task" and the given key.
 inline ontology::ID ontology_id(const Key key) {
-    return ontology::ID("task", std::to_string(key));
+    return ontology::ID{.type = "task", .key = std::to_string(key)};
 }
 
 /// @brief Converts a vector of task keys to a vector of ontology IDs.
@@ -131,16 +132,15 @@ struct RetrieveOptions {
 /// @brief A Task is a data structure used to configure and execute operations on a
 /// hardware device. Tasks are associated with a specific rack and can be created,
 /// retrieved, and deleted.
-class Task {
-public:
+struct Task {
     /// @brief The unique identifier for the task.
     Key key = 0;
     /// @brief A human-readable name for the task.
     std::string name;
     /// @brief The type of the task, which determines its behavior.
     std::string type;
-    /// @brief Configuration data for the task, typically in JSON format.
-    std::string config;
+    /// @brief Configuration data for the task as a JSON object.
+    x::json::json::object_t config = x::json::json::object();
     /// @brief Whether the task is internal to the system.
     bool internal = false;
     /// @brief Whether the task is a snapshot.
@@ -149,59 +149,10 @@ public:
     /// @brief Status information for the task.
     Status status;
 
-    /// @brief Constructs a new task with the given properties.
-    /// @param name A human-readable name for the task.
-    /// @param type The type of the task.
-    /// @param config Configuration data for the task.
-    /// @param internal Whether the task is internal to the system.
-    /// @param snapshot Whether the task is a snapshot and cannot be modified.
-    Task(
-        std::string name,
-        std::string type,
-        std::string config,
-        bool internal = false,
-        bool snapshot = false
-    );
-
-    /// @brief Constructs a new task with the given properties and key.
-    /// @param key The unique identifier for the task.
-    /// @param name A human-readable name for the task.
-    /// @param type The type of the task.
-    /// @param config Configuration data for the task.
-    /// @param internal Whether the task is internal to the system.
-    /// @param snapshot Whether the task is a snapshot and cannot be modified.
-    Task(
-        Key key,
-        std::string name,
-        std::string type,
-        std::string config,
-        bool internal = false,
-        bool snapshot = false
-    );
-
-    /// @brief Constructs a new task with the given properties and rack.
-    /// @param rack The rack key that this task belongs to.
-    /// @param name A human-readable name for the task.
-    /// @param type The type of the task.
-    /// @param config Configuration data for the task.
-    /// @param internal Whether the task is internal to the system.
-    /// @param snapshot Whether the task is a snapshot and cannot be modified.
-    Task(
-        rack::Key rack,
-        std::string name,
-        std::string type,
-        std::string config,
-        bool internal = false,
-        bool snapshot = false
-    );
-
     /// @brief Constructs a task from its protobuf representation.
     /// @param task The protobuf representation of the task.
     /// @returns A pair containing the task and an error if one occurred.
     static std::pair<Task, x::errors::Error> from_proto(const api::v1::Task &task);
-
-    /// @brief Default constructor for an empty task.
-    Task() = default;
 
     friend std::ostream &operator<<(std::ostream &os, const Task &task) {
         return os << task.name << " (key=" << task.key << ",type=" << task.type << ")";
@@ -216,12 +167,9 @@ public:
         return rack_key_from_task_key(this->key);
     }
 
-private:
     /// @brief Converts the task to its protobuf representation.
     /// @param task The protobuf object to populate.
     void to_proto(api::v1::Task *task) const;
-
-    friend class Client;
 };
 
 /// @brief Client for managing tasks on a specific rack.

@@ -753,7 +753,7 @@ TEST(AcquisitionPipeline, testAuthorityBufferDedupes) {
 
     const auto &change = mock_factory->authority_changes->at(0);
     ASSERT_EQ(change.keys.size(), 2);
-    std::map<synnax::channel::Key, x::telem::Authority> merged;
+    std::map<synnax::channel::Key, x::control::Authority> merged;
     for (size_t i = 0; i < change.keys.size(); i++)
         merged[change.keys[i]] = change.authorities[i];
     EXPECT_EQ(merged[1], 50);

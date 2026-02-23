@@ -1,0 +1,6 @@
+cc_library(
+    name = "control",
+    hdrs = ["control.h"],
+    visibility = ["//visibility:public"],
+    deps = [],
+)

@@ -13,6 +13,7 @@ cc_library(
         "//core/pkg/api/grpc/v1:api_grpc",
         "//freighter/cpp:freighter",
         "//freighter/cpp/grpc",
+        "//x/cpp/uuid",
         "@grpc//:grpc++",
     ],
 )

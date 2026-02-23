@@ -1,7 +1,7 @@
 # syntax=docker/dockerfile:1
 
 # Stage 1: Download dependencies
-FROM golang:1.25.6 AS deps
+FROM golang:1.26.0 AS deps
 WORKDIR /workspace
 
 # Copy go.work files first
@@ -16,6 +16,7 @@ COPY x/go/go.mod x/go/go.sum ./x/go/
 COPY cesium/go.mod cesium/go.sum ./cesium/
 COPY aspen/go.mod aspen/go.sum ./aspen/
 COPY arc/go/go.mod arc/go/go.sum ./arc/go/
+COPY oracle/go.mod oracle/go.sum ./oracle/
 
 # Download dependencies with cache mount for go modules
 RUN --mount=type=cache,target=/go/pkg/mod \
@@ -32,6 +33,7 @@ COPY x/go ./x/go
 COPY cesium ./cesium
 COPY aspen ./aspen
 COPY arc/go ./arc/go
+COPY oracle ./oracle
 COPY core ./core
 
 # Build with cache mounts for both go modules and build cache

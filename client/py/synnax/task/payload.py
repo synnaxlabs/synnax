@@ -7,15 +7,17 @@
 #  License, use of this software will be governed by the Apache License, Version 2.0,
 #  included in the file licenses/APL.txt.
 
-from freighter import Payload
 
-from synnax.ontology import ID
-from synnax.status import Status
+from typing import Any
 
-TASK_ONTOLOGY_TYPE = ID(type="task")
+from pydantic import BaseModel
+
+from synnax import ontology, status
+
+ONTOLOGY_TYPE = ontology.ID(type="task")
 
 
-class TaskStatusDetails(Payload):
+class StatusDetails(BaseModel):
     """
     Details about the status of a task.
     """
@@ -24,27 +26,27 @@ class TaskStatusDetails(Payload):
     """The key of the task."""
     running: bool = False
     """Whether the task is running."""
-    data: dict | None = None
+    data: dict[str, Any] | None = None
     """Arbitrary data about the task."""
     cmd: str | None = None
 
 
-TaskStatus = Status[TaskStatusDetails]
+Status = status.Status[StatusDetails]
 """The status of a task."""
 
 
-class TaskPayload(Payload):
+class Payload(BaseModel):
     """A primitive task payload."""
 
     key: int = 0
     name: str = ""
     type: str = ""
-    config: str = ""
+    config: dict[str, Any] = {}
     snapshot: bool = False
-    status: TaskStatus | None = None
+    status: Status | None = None
 
 
-def ontology_id(key: int) -> ID:
+def ontology_id(key: int) -> ontology.ID:
     """Create an ontology ID for a task.
 
     Args:
@@ -53,4 +55,16 @@ def ontology_id(key: int) -> ID:
     Returns:
         An ontology ID dictionary with type "task" and the given key.
     """
-    return ID(type=TASK_ONTOLOGY_TYPE.type, key=str(key))
+    return ontology.ID(type=ONTOLOGY_TYPE.type, key=str(key))
+
+
+from synnax.util.deprecation import deprecated_getattr
+
+_DEPRECATED = {
+    "TASK_ONTOLOGY_TYPE": "ONTOLOGY_TYPE",
+    "TaskPayload": "Payload",
+    "TaskStatus": "Status",
+    "TaskStatusDetails": "StatusDetails",
+}
+
+__getattr__ = deprecated_getattr(__name__, _DEPRECATED, globals())

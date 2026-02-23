@@ -12,6 +12,7 @@ package telem
 import (
 	"bytes"
 	"fmt"
+	"strings"
 
 	"github.com/onsi/gomega/types"
 	"github.com/synnaxlabs/x/errors"
@@ -76,9 +77,10 @@ func MatchSeriesData(expected Series) types.GomegaMatcher {
 	return MatchSeries(expected, ExcludeSeriesFields("TimeRange", "Alignment"))
 }
 
-// MatchSeriesDataV is a generic variant of MatchSeriesData that creates a Series from the
-// provided sample data and returns a matcher. This is a convenience function for testing
-// when you want to directly provide data values instead of constructing a Series first.
+// MatchSeriesDataV is a generic variant of MatchSeriesData that creates a Series from
+// the provided sample data and returns a matcher. This is a convenience function for
+// testing when you want to directly provide data values instead of constructing a
+// Series first.
 func MatchSeriesDataV[T Sample](data ...T) types.GomegaMatcher {
 	return MatchSeriesData(NewSeriesV(data...))
 }
@@ -150,14 +152,14 @@ func (m *seriesMatcher) NegatedFailureMessage(actual any) string {
 }
 
 func formatDifferences(differences []string) string {
-	var result string
+	var result strings.Builder
 	for i, diff := range differences {
 		if i > 0 {
-			result += "\n"
+			result.WriteString("\n")
 		}
-		result += diff
+		result.WriteString(diff)
 	}
-	return result
+	return result.String()
 }
 
 type frameMatcher[K xtypes.SizedNumeric] struct {
