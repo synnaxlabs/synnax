@@ -23,6 +23,8 @@ import (
 	"github.com/synnaxlabs/x/kv/memkv"
 	"github.com/synnaxlabs/x/query"
 	. "github.com/synnaxlabs/x/testutil"
+	"google.golang.org/protobuf/proto"
+	"google.golang.org/protobuf/types/known/structpb"
 )
 
 type entryV1 struct {
@@ -77,6 +79,53 @@ func (failMarshalCodec) Unmarshal(_ context.Context, data []byte) (jsonEntry, er
 }
 
 var _ gorp.Codec[jsonEntry] = failMarshalCodec{}
+
+// mapEntry mimics production types like Schematic that have a MsgpackEncodedJSON field.
+type mapEntry struct {
+	ID   int32                    `msgpack:"id"`
+	Name string                   `msgpack:"name"`
+	Data binary.MsgpackEncodedJSON `msgpack:"data"`
+}
+
+func (e mapEntry) GorpKey() int32    { return e.ID }
+func (e mapEntry) SetOptions() []any { return nil }
+
+// structpbCodec mimics the production protobuf codecs (e.g. schematicpb.SchematicCodec)
+// by marshaling the Data field through structpb.NewStruct, which is the exact path
+// that production code takes.
+type structpbCodec struct{}
+
+func (structpbCodec) Marshal(_ context.Context, e mapEntry) ([]byte, error) {
+	dataVal, err := structpb.NewStruct(e.Data)
+	if err != nil {
+		return nil, err
+	}
+	pb := &structpb.Struct{
+		Fields: map[string]*structpb.Value{
+			"id":   structpb.NewNumberValue(float64(e.ID)),
+			"name": structpb.NewStringValue(e.Name),
+			"data": structpb.NewStructValue(dataVal),
+		},
+	}
+	return proto.Marshal(pb)
+}
+
+func (structpbCodec) Unmarshal(_ context.Context, data []byte) (mapEntry, error) {
+	pb := &structpb.Struct{}
+	if err := proto.Unmarshal(data, pb); err != nil {
+		return mapEntry{}, err
+	}
+	m := pb.AsMap()
+	var e mapEntry
+	e.ID = int32(m["id"].(float64))
+	e.Name = m["name"].(string)
+	if d, ok := m["data"]; ok && d != nil {
+		e.Data = d.(map[string]any)
+	}
+	return e, nil
+}
+
+var _ gorp.Codec[mapEntry] = structpbCodec{}
 
 var _ = Describe("Gorp", func() {
 	var ctx context.Context
@@ -950,6 +999,56 @@ var _ = Describe("Gorp", func() {
 					Error().To(MatchError(query.ErrNotFound))
 				r := gorp.WrapReader[int32, jsonEntry](testDB)
 				Expect(MustSucceed(r.Get(ctx, 1)).Data).To(Equal("original"))
+			})
+
+			It("Should re-encode MsgpackEncodedJSON fields through structpb", func() {
+				testDB := gorp.Wrap(memkv.New())
+				defer func() { Expect(testDB.Close()).To(Succeed()) }()
+				w := gorp.WrapWriter[int32, mapEntry](testDB)
+				Expect(w.Set(ctx, mapEntry{
+					ID:   1,
+					Name: "nested_test",
+					Data: binary.MsgpackEncodedJSON{
+						"string_val": "hello",
+						"int_val":    42,
+						"float_val":  3.14,
+						"bool_val":   true,
+						"null_val":   nil,
+						"nested": map[string]any{
+							"level2_string": "deep",
+							"level2_int":    99,
+							"level3": map[string]any{
+								"key": "deeply_nested",
+							},
+						},
+						"array": []any{"a", "b", "c"},
+						"mixed_array": []any{
+							1, "two", true, nil,
+							map[string]any{"inner": "map"},
+						},
+					},
+				})).To(Succeed())
+				codec := structpbCodec{}
+				tbl := MustSucceed(gorp.OpenTable[int32, mapEntry](ctx, gorp.TableConfig[mapEntry]{
+					DB:    testDB,
+					Codec: codec,
+					Migrations: []gorp.Migration{
+						gorp.NewCodecTransition[int32, mapEntry]("msgpack_to_structpb", codec),
+					},
+				}))
+				var result mapEntry
+				Expect(tbl.NewRetrieve().WhereKeys(1).Entry(&result).Exec(ctx, testDB)).To(Succeed())
+				Expect(result.Name).To(Equal("nested_test"))
+				Expect(result.Data["string_val"]).To(Equal("hello"))
+				Expect(result.Data["bool_val"]).To(Equal(true))
+				Expect(result.Data["null_val"]).To(BeNil())
+				nested := result.Data["nested"].(map[string]any)
+				Expect(nested["level2_string"]).To(Equal("deep"))
+				level3 := nested["level3"].(map[string]any)
+				Expect(level3["key"]).To(Equal("deeply_nested"))
+				arr := result.Data["array"].([]any)
+				Expect(arr).To(HaveLen(3))
+				Expect(arr[0]).To(Equal("a"))
 			})
 		})
 
