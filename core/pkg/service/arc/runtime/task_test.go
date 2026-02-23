@@ -1069,7 +1069,7 @@ var _ = Describe("Task", Ordered, func() {
 				Keys:        channel.Keys{ch1.Key()},
 				Start:       telem.Now(),
 				Authorities: []control.Authority{control.Authority(1)},
-				Sync:        config.True(),
+				Sync:        new(true),
 			}))
 			defer func() { Expect(w1.Close()).To(Succeed()) }()
 			Expect(w1.Write(frame.NewUnary(ch1.Key(), telem.NewSeriesV[uint8](99)))).To(BeTrue())
@@ -1078,7 +1078,7 @@ var _ = Describe("Task", Ordered, func() {
 				Keys:        channel.Keys{ch2.Key()},
 				Start:       telem.Now(),
 				Authorities: []control.Authority{control.Authority(1)},
-				Sync:        config.True(),
+				Sync:        new(true),
 			}))
 			defer func() { Expect(w2.Close()).To(Succeed()) }()
 			Expect(w2.Write(frame.NewUnary(ch2.Key(), telem.NewSeriesV[uint8](99)))).To(BeTrue())
@@ -1165,7 +1165,7 @@ var _ = Describe("Task", Ordered, func() {
 				Keys:        channel.Keys{ch1.Key()},
 				Start:       telem.Now(),
 				Authorities: []control.Authority{control.Authority(100)},
-				Sync:        config.True(),
+				Sync:        new(true),
 			}))
 			defer func() { Expect(w1.Close()).To(Succeed()) }()
 			Expect(w1.Write(frame.NewUnary(ch1.Key(), telem.NewSeriesV[uint8](99)))).To(BeFalse())
@@ -1174,7 +1174,7 @@ var _ = Describe("Task", Ordered, func() {
 				Keys:        channel.Keys{ch2.Key()},
 				Start:       telem.Now(),
 				Authorities: []control.Authority{control.Authority(100)},
-				Sync:        config.True(),
+				Sync:        new(true),
 			}))
 			defer func() { Expect(w2.Close()).To(Succeed()) }()
 			Expect(w2.Write(frame.NewUnary(ch2.Key(), telem.NewSeriesV[uint8](99)))).To(BeFalse())
