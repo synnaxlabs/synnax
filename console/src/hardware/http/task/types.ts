@@ -88,7 +88,7 @@ const baseReadEndpointZ = z.object({
   key: z.string(),
   path: z.string().min(1, "Path is required"),
   queryParams: z.record(z.string(), z.string()).optional(),
-  fields: z.array(readFieldZ),
+  fields: z.array(readFieldZ).check(Common.Task.validateReadChannels),
 });
 const getReadEndpointZ = baseReadEndpointZ.extend({ method: z.literal("GET") });
 const postReadEndpointZ = baseReadEndpointZ.extend({

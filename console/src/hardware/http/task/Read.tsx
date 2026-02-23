@@ -10,18 +10,23 @@
 import { channel, NotFoundError } from "@synnaxlabs/client";
 import {
   Button,
+  Component,
   Divider,
   Flex,
   Form as PForm,
   Header,
   Icon,
+  List,
+  Menu as PMenu,
   Select,
   Text,
 } from "@synnaxlabs/pluto";
 import { id, primitive } from "@synnaxlabs/x";
 import { type FC, useCallback, useState } from "react";
 
+import { EmptyAction, Menu } from "@/components";
 import { Common } from "@/hardware/common";
+import { ChannelList as BaseChannelList } from "@/hardware/common/task/ChannelList";
 import { Device } from "@/hardware/http/device";
 import {
   READ_SCHEMAS,
@@ -68,36 +73,61 @@ const Properties = () => (
   </>
 );
 
-const EndpointListEntry: FC<{
-  epKey: string;
-  selected: boolean;
-  onSelect: (key: string) => void;
-}> = ({ epKey, selected, onSelect }) => {
-  const method = PForm.useFieldValue<string>(`config.endpoints.${epKey}.method`);
-  const epPath = PForm.useFieldValue<string>(`config.endpoints.${epKey}.path`);
-  const fields = PForm.useFieldValue<ReadField[]>(`config.endpoints.${epKey}.fields`);
+// ─── Endpoint Context Menu ───
+
+const EndpointContextMenu: FC<{
+  keys: string[];
+  onDelete: (keys: string[]) => void;
+  onDuplicate: (keys: string[]) => void;
+}> = ({ keys, onDelete, onDuplicate }) => {
+  const isSnapshot = Common.Task.useIsSnapshot();
+  const canAct = keys.length > 0;
+  const handleSelect: Record<string, () => void> = {
+    duplicate: () => onDuplicate(keys),
+    delete: () => onDelete(keys),
+  };
   return (
-    <Flex.Box
-      x
-      align="center"
-      style={{
-        padding: "0.5rem 1rem",
-        cursor: "pointer",
-        background: selected ? "var(--pluto-primary-z-20)" : undefined,
-      }}
-      onClick={() => onSelect(epKey)}
-    >
-      <Flex.Box grow>
-        <Text.Text level="small">
-          {method} {epPath || "(no path)"}
-        </Text.Text>
-      </Flex.Box>
-      <Text.Text level="small" style={{ opacity: 0.5 }}>
-        {fields?.length ?? 0}
-      </Text.Text>
-    </Flex.Box>
+    <PMenu.Menu onChange={handleSelect} level="small">
+      {!isSnapshot && canAct && (
+        <>
+          <PMenu.Item itemKey="duplicate">
+            <Icon.Copy />
+            Duplicate
+          </PMenu.Item>
+          <PMenu.Item itemKey="delete">
+            <Icon.Close />
+            Delete
+          </PMenu.Item>
+          <PMenu.Divider />
+        </>
+      )}
+      <Menu.ReloadConsoleItem />
+    </PMenu.Menu>
   );
 };
+
+// ─── Endpoint List Item ───
+
+const EndpointListItem = (props: List.ItemProps<string>) => {
+  const { itemKey } = props;
+  const method = PForm.useFieldValue<string>(`config.endpoints.${itemKey}.method`);
+  const epPath = PForm.useFieldValue<string>(`config.endpoints.${itemKey}.path`);
+  const fields = PForm.useFieldValue<ReadField[]>(`config.endpoints.${itemKey}.fields`);
+  return (
+    <Select.ListItem {...props} justify="between" align="center" x>
+      <Text.Text level="small" weight={500}>
+        {method} {epPath || "(no path)"}
+      </Text.Text>
+      <Text.Text level="small" color={7}>
+        {fields?.length ?? 0}
+      </Text.Text>
+    </Select.ListItem>
+  );
+};
+
+const endpointListItem = Component.renderProp(EndpointListItem);
+
+// ─── Time Format Data ───
 
 const TIME_FORMAT_DATA: Select.StaticEntry<string>[] = [
   { key: "iso8601", name: "ISO 8601" },
@@ -107,49 +137,38 @@ const TIME_FORMAT_DATA: Select.StaticEntry<string>[] = [
   { key: "unix_ns", name: "Unix (ns)" },
 ];
 
-const FieldItem: FC<{ path: string }> = ({ path }) => {
-  const isIndex = PForm.useFieldValue<boolean>(`${path}.isIndex`);
+// ─── Field List Item ───
 
+interface FieldListItemProps extends Common.Task.ChannelListItemProps {
+  epKey: string;
+}
+
+const FieldListItem = ({ epKey, ...props }: FieldListItemProps) => {
+  const { itemKey } = props;
+  const path = `config.endpoints.${epKey}.fields.${itemKey}`;
+  const fieldChannel = PForm.useFieldValue<number>(`${path}.channel`);
   return (
-    <Flex.Box y style={{ padding: "0.5rem 1rem", borderBottom: "var(--pluto-border)" }}>
-      <Flex.Box x align="start" gap="large" wrap>
-        <PForm.TextField
-          path={`${path}.pointer`}
-          label="JSON Pointer"
-          inputProps={{ placeholder: "/temperature" }}
-          style={{ minWidth: 150 }}
-          grow
-        />
+    <Select.ListItem {...props} justify="between" align="center" x>
+      <PForm.TextField
+        path={`${path}.pointer`}
+        showLabel={false}
+        showHelpText={false}
+        inputProps={{ placeholder: "/temperature" }}
+        grow
+      />
+      <Flex.Box x align="center" grow justify="end">
         <Common.Task.ChannelName
-          channel={PForm.useFieldValue<number>(`${path}.channel`)}
+          channel={fieldChannel}
           namePath={`${path}.name`}
-          id={Common.Task.getChannelNameID(path)}
+          id={Common.Task.getChannelNameID(itemKey)}
         />
         <Common.Task.EnableDisableButton path={`${path}.enabled`} />
       </Flex.Box>
-      <Flex.Box x align="center" gap="large">
-        <PForm.SwitchField path={`${path}.isIndex`} label="Index" size="small" />
-        {isIndex && (
-          <PForm.Field<string>
-            path={`${path}.timestampFormat`}
-            label="Format"
-            style={{ width: 140 }}
-          >
-            {({ value, onChange }) => (
-              <Select.Static<string, Select.StaticEntry<string>>
-                value={value ?? "unix_sec"}
-                onChange={onChange}
-                data={TIME_FORMAT_DATA}
-                resourceName="time format"
-              />
-            )}
-          </PForm.Field>
-        )}
-      </Flex.Box>
-    </Flex.Box>
+    </Select.ListItem>
   );
 };
 
+// ─── Method Toggle ───
 const MethodToggle: FC<{ path: string }> = ({ path }) => {
   const { get, set } = PForm.useContext();
   const method = get<string>(path).value;
@@ -180,20 +199,183 @@ const MethodToggle: FC<{ path: string }> = ({ path }) => {
   );
 };
 
-const EndpointDetails: FC<{ path: string }> = ({ path }) => {
-  const { push, data: fieldKeys } = PForm.useFieldList<string, ReadField>(
-    `${path}.fields`,
+// ─── Field List ───
+
+const FieldList: FC<{ epKey: string }> = ({ epKey }) => {
+  const path = `config.endpoints.${epKey}.fields`;
+  const { data: allData, push, remove } = PForm.useFieldList<string, ReadField>(path);
+  const [selected, setSelected] = useState<string[]>([]);
+  const ctx = PForm.useContext();
+  const isSnapshot = Common.Task.useIsSnapshot();
+
+  const allFields = PForm.useFieldValue<ReadField[]>(path);
+  const indexKeys = new Set(
+    allFields.filter((f) => f.isIndex).map((f) => f.key),
+  );
+  const data = allData.filter((key) => !indexKeys.has(key));
+
+  const handleAdd = useCallback(() => {
+    const fields = ctx.get<ReadField[]>(path).value;
+    const nonIndex = fields.filter((f) => !f.isIndex);
+    const last = nonIndex[nonIndex.length - 1];
+    const field: ReadField = {
+      ...(last != null
+        ? { ...last, ...Common.Task.READ_CHANNEL_OVERRIDE }
+        : ZERO_READ_FIELD),
+      key: id.create(),
+      isIndex: false,
+    };
+    push(field);
+    setSelected([field.key]);
+  }, [push, ctx, path]);
+
+  const handleDuplicate = useCallback(
+    (channels: ReadField[], keys: string[]) => {
+      const duplicated = channels
+        .filter(({ key }) => keys.includes(key))
+        .map((ch) => ({
+          ...ch,
+          ...Common.Task.READ_CHANNEL_OVERRIDE,
+          key: id.create(),
+          isIndex: false,
+        }));
+      push(duplicated);
+    },
+    [push],
   );
 
-  const handleAddField = useCallback(() => {
-    push({
-      ...ZERO_READ_FIELD,
-      key: id.create(),
-    });
-  }, [push]);
+  const listItem = useCallback(
+    ({ key, ...p }: Common.Task.ChannelListItemProps) => (
+      <FieldListItem {...p} key={key} epKey={epKey} />
+    ),
+    [epKey],
+  );
 
+  return (
+    <BaseChannelList<ReadField>
+      data={data}
+      remove={remove}
+      onDuplicate={handleDuplicate}
+      onSelect={setSelected}
+      selected={selected}
+      path={path}
+      header={
+        <Header.Header>
+          <Header.Title weight={500} color={10}>
+            Fields
+          </Header.Title>
+          {!isSnapshot && (
+            <Header.Actions>
+              <Button.Button
+                onClick={handleAdd}
+                variant="text"
+                contrast={2}
+                tooltip="Add Field"
+                sharp
+              >
+                <Icon.Add />
+              </Button.Button>
+            </Header.Actions>
+          )}
+        </Header.Header>
+      }
+      emptyContent={
+        <EmptyAction
+          message="No fields."
+          action="Add a field"
+          onClick={isSnapshot ? undefined : handleAdd}
+        />
+      }
+      listItem={listItem}
+      contextMenuItems={Common.Task.readChannelContextMenuItem}
+    />
+  );
+};
+
+// ─── Endpoint Details ───
+
+const TimingToggle: FC<{ path: string }> = ({ path }) => {
+  const fields = PForm.useFieldValue<ReadField[]>(`${path}.fields`);
+  const { set } = PForm.useContext();
+  const indexField = fields.find((f) => f.isIndex);
+  const isValueTiming = indexField != null;
+
+  const handleToggle = useCallback(
+    (value: boolean) => {
+      if (value && !isValueTiming) {
+        const indexF: ReadField = {
+          ...ZERO_READ_FIELD,
+          key: id.create(),
+          isIndex: true,
+          timestampFormat: "unix_sec",
+        };
+        set(`${path}.fields`, [...fields, indexF]);
+      } else if (!value && isValueTiming) 
+        set(
+          `${path}.fields`,
+          fields.filter((f) => !f.isIndex),
+        );
+      
+    },
+    [fields, isValueTiming, path, set],
+  );
+
+  return (
+    <Flex.Box y gap="small" style={{ padding: "0.5rem 1rem" }}>
+      <Flex.Box x align="center" gap="small">
+        <Text.Text level="small" weight={500} style={{ marginRight: "0.25rem" }}>
+          Timing
+        </Text.Text>
+        <Button.Toggle
+          value={!isValueTiming}
+          onChange={() => handleToggle(false)}
+          size="small"
+          checkedVariant="filled"
+          uncheckedVariant="text"
+        >
+          Software
+        </Button.Toggle>
+        <Button.Toggle
+          value={isValueTiming}
+          onChange={() => handleToggle(true)}
+          size="small"
+          checkedVariant="filled"
+          uncheckedVariant="text"
+        >
+          Value
+        </Button.Toggle>
+      </Flex.Box>
+      {isValueTiming && indexField != null && (
+        <Flex.Box x align="center" gap="large">
+          <PForm.TextField
+            path={`${path}.fields.${indexField.key}.pointer`}
+            label="Timestamp Pointer"
+            inputProps={{ placeholder: "/timestamp" }}
+            grow
+          />
+          <PForm.Field<string>
+            path={`${path}.fields.${indexField.key}.timestampFormat`}
+            label="Format"
+            style={{ width: 160 }}
+          >
+            {({ value, onChange }) => (
+              <Select.Static<string, Select.StaticEntry<string>>
+                value={value ?? "unix_sec"}
+                onChange={onChange}
+                data={TIME_FORMAT_DATA}
+                resourceName="time format"
+              />
+            )}
+          </PForm.Field>
+        </Flex.Box>
+      )}
+    </Flex.Box>
+  );
+};
+
+const EndpointDetails: FC<{ epKey: string }> = ({ epKey }) => {
+  const path = `config.endpoints.${epKey}`;
   const method = PForm.useFieldValue<string>(`${path}.method`);
-
   return (
     <Flex.Box y grow empty>
       <Flex.Box x align="center" gap="large" style={{ padding: "1rem" }}>
@@ -215,89 +397,125 @@ const EndpointDetails: FC<{ path: string }> = ({ path }) => {
           />
         </Flex.Box>
       )}
+      <TimingToggle path={path} />
       <Divider.Divider x />
-      <Header.Header>
-        <Header.Title weight={500} wrap={false} color={10}>
-          Fields
-        </Header.Title>
-        <Header.Actions>
-          <Button.Button variant="text" size="small" onClick={handleAddField}>
-            <Icon.Add />
-          </Button.Button>
-        </Header.Actions>
-      </Header.Header>
-      <Flex.Box y grow style={{ overflowY: "auto" }}>
-        {fieldKeys.map((fk) => (
-          <FieldItem key={fk} path={`${path}.fields.${fk}`} />
-        ))}
-        {fieldKeys.length === 0 && (
-          <Flex.Box align="center" justify="center" grow>
-            <Text.Text level="small" style={{ opacity: 0.5 }}>
-              No fields. Click + to add one.
-            </Text.Text>
-          </Flex.Box>
-        )}
-      </Flex.Box>
+      <FieldList key={epKey} epKey={epKey} />
     </Flex.Box>
   );
 };
 
+// ─── Main Form ───
+
 const Form: FC<
   Common.Task.FormProps<typeof readTypeZ, typeof readConfigZ, typeof readStatusDataZ>
 > = () => {
-  const [selected, setSelected] = useState<string[]>([]);
-  const { push, data: endpointKeys } = PForm.useFieldList<string, ReadEndpoint>(
+  const [selectedEndpoints, setSelectedEndpoints] = useState<string[]>([]);
+  const { data, push, remove } = PForm.useFieldList<string, ReadEndpoint>(
     "config.endpoints",
   );
+  const ctx = PForm.useContext();
+  const isSnapshot = Common.Task.useIsSnapshot();
 
   const handleAddEndpoint = useCallback(() => {
-    push({
-      ...ZERO_READ_ENDPOINT,
-      key: id.create(),
-    });
+    const ep: ReadEndpoint = { ...ZERO_READ_ENDPOINT, key: id.create() };
+    push(ep);
+    setSelectedEndpoints([ep.key]);
   }, [push]);
 
-  const handleSelect = useCallback((key: string) => {
-    setSelected([key]);
-  }, []);
+  const handleDeleteEndpoints = useCallback(
+    (keys: string[]) => {
+      remove(keys);
+      setSelectedEndpoints([]);
+    },
+    [remove],
+  );
+
+  const handleDuplicateEndpoints = useCallback(
+    (keys: string[]) => {
+      const allEndpoints = ctx.get<ReadEndpoint[]>("config.endpoints").value;
+      const duplicated = allEndpoints
+        .filter(({ key }) => keys.includes(key))
+        .map((ep) => ({
+          ...ep,
+          key: id.create(),
+          fields: ep.fields.map((f) => ({
+            ...f,
+            key: id.create(),
+            channel: 0,
+            name: "",
+          })),
+        }));
+      push(duplicated);
+      if (duplicated.length > 0) setSelectedEndpoints([duplicated[0].key]);
+    },
+    [ctx, push],
+  );
+
+  const menuProps = PMenu.useContextMenu();
 
   return (
     <Flex.Box x grow empty>
       <Flex.Box y style={{ width: 250, flexShrink: 0 }}>
         <Header.Header>
-          <Header.Title weight={500} wrap={false} color={10}>
+          <Header.Title weight={500} color={10}>
             Endpoints
           </Header.Title>
-          <Header.Actions>
-            <Button.Button variant="text" size="small" onClick={handleAddEndpoint}>
-              <Icon.Add />
-            </Button.Button>
-          </Header.Actions>
-        </Header.Header>
-        <Flex.Box y grow style={{ overflowY: "auto" }}>
-          {endpointKeys.map((ek) => (
-            <EndpointListEntry
-              key={ek}
-              epKey={ek}
-              selected={selected.includes(ek)}
-              onSelect={handleSelect}
-            />
-          ))}
-          {endpointKeys.length === 0 && (
-            <Flex.Box align="center" justify="center" grow>
-              <Text.Text level="small" style={{ opacity: 0.5 }}>
-                No endpoints. Click + to add one.
-              </Text.Text>
-            </Flex.Box>
+          {!isSnapshot && (
+            <Header.Actions>
+              <Button.Button
+                onClick={handleAddEndpoint}
+                variant="text"
+                contrast={2}
+                tooltip="Add Endpoint"
+                sharp
+              >
+                <Icon.Add />
+              </Button.Button>
+            </Header.Actions>
           )}
-        </Flex.Box>
+        </Header.Header>
+        <PMenu.ContextMenu
+          {...menuProps}
+          menu={(p) => (
+            <EndpointContextMenu
+              keys={p.keys}
+              onDelete={handleDeleteEndpoints}
+              onDuplicate={handleDuplicateEndpoints}
+            />
+          )}
+        >
+          <Select.Frame<string, ReadEndpoint>
+            multiple
+            data={data}
+            value={selectedEndpoints}
+            onChange={setSelectedEndpoints}
+            replaceOnSingle
+            allowNone={false}
+            autoSelectOnNone
+          >
+            <List.Items<string, ReadEndpoint>
+              full="y"
+              className={menuProps.className}
+              onContextMenu={menuProps.open}
+              emptyContent={
+                <EmptyAction
+                  message="No endpoints."
+                  action="Add an endpoint"
+                  onClick={isSnapshot ? undefined : handleAddEndpoint}
+                />
+              }
+            >
+              {endpointListItem}
+            </List.Items>
+          </Select.Frame>
+        </PMenu.ContextMenu>
       </Flex.Box>
       <Divider.Divider y />
-      {selected.length > 0 ? (
-        <EndpointDetails path={`config.endpoints.${selected[0]}`} />
+      {selectedEndpoints.length > 0 ? (
+        <EndpointDetails epKey={selectedEndpoints[0]} />
       ) : (
         <Flex.Box y grow align="center" justify="center">
-          <Text.Text level="small" style={{ opacity: 0.5 }}>
+          <Text.Text level="small" status="disabled">
             Select an endpoint to configure
           </Text.Text>
         </Flex.Box>
