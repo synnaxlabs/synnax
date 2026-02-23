@@ -32,10 +32,10 @@ type Service struct {
 	cfg ServiceConfig
 	db  *gorp.DB
 	Writer
-	proxy        *leaseProxy
-	otg          *ontology.Ontology
-	group        group.Group
-	entryManager *gorp.EntryManager[Key, Channel]
+	proxy *leaseProxy
+	otg   *ontology.Ontology
+	group group.Group
+	table *gorp.Table[Key, Channel]
 }
 
 func (s *Service) SetCalculationAnalyzer(analyzer CalculationAnalyzer) {
@@ -94,7 +94,7 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (*Service, error) {
 	if err != nil {
 		return nil, err
 	}
-	entryManager, err := gorp.OpenEntryManager[Key, Channel](ctx, cfg.ClusterDB)
+	table, err := gorp.OpenTable[Key, Channel](ctx, cfg.ClusterDB)
 	if err != nil {
 		return nil, err
 	}
@@ -109,12 +109,12 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (*Service, error) {
 		return nil, err
 	}
 	s := &Service{
-		cfg:          cfg,
-		db:           cfg.ClusterDB,
-		proxy:        proxy,
-		otg:          cfg.Ontology,
-		group:        g,
-		entryManager: entryManager,
+		cfg:   cfg,
+		db:    cfg.ClusterDB,
+		proxy: proxy,
+		otg:   cfg.Ontology,
+		group: g,
+		table: table,
 	}
 	s.Writer = s.NewWriter(nil)
 	if cfg.Ontology != nil {
@@ -147,7 +147,7 @@ func (s *Service) CountExternalNonVirtual() uint32 {
 }
 
 func (s *Service) Close() error {
-	return s.entryManager.Close()
+	return s.table.Close()
 }
 
 func (s *Service) validateChannels(channels []Channel) ([]Channel, error) {

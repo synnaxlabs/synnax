@@ -56,7 +56,7 @@ func (c ServiceConfig) Validate() error {
 // Service is the primary service for retrieving and modifying line plots from Synnax.
 type Service struct {
 	ServiceConfig
-	entryManager *gorp.EntryManager[uuid.UUID, LinePlot]
+	table *gorp.Table[uuid.UUID, LinePlot]
 }
 
 // OpenService instantiates a new line plot service using the provided configurations.
@@ -67,18 +67,18 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (*Service, error) {
 	if err != nil {
 		return nil, err
 	}
-	entryManager, err := gorp.OpenEntryManager[uuid.UUID, LinePlot](ctx, cfg.DB)
+	table, err := gorp.OpenTable[uuid.UUID, LinePlot](ctx, cfg.DB)
 	if err != nil {
 		return nil, err
 	}
-	s := &Service{ServiceConfig: cfg, entryManager: entryManager}
+	s := &Service{ServiceConfig: cfg, table: table}
 	cfg.Ontology.RegisterService(s)
 	return s, nil
 }
 
 // Close closes the line plot service and releases any resources.
 func (s *Service) Close() error {
-	return s.entryManager.Close()
+	return s.table.Close()
 }
 
 // NewWriter opens a new writer for creating, updating, and deleting line plots in Synnax. If

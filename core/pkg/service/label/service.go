@@ -72,9 +72,9 @@ func (c ServiceConfig) Override(other ServiceConfig) ServiceConfig {
 // Service is the main entry point for managing labels within Synnax. It provides
 // mechanisms for creating, deleting, retrieving, and listening to changes on labels.
 type Service struct {
-	cfg          ServiceConfig
-	signals      io.Closer
-	entryManager *gorp.EntryManager[uuid.UUID, Label]
+	cfg     ServiceConfig
+	signals io.Closer
+	table   *gorp.Table[uuid.UUID, Label]
 }
 
 // OpenService opens a new label service using the provided configuration. If error
@@ -85,11 +85,11 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (*Service, error) {
 	if err != nil {
 		return nil, err
 	}
-	entryManager, err := gorp.OpenEntryManager[uuid.UUID, Label](ctx, cfg.DB)
+	table, err := gorp.OpenTable[uuid.UUID, Label](ctx, cfg.DB)
 	if err != nil {
 		return nil, err
 	}
-	s := &Service{cfg: cfg, entryManager: entryManager}
+	s := &Service{cfg: cfg, table: table}
 	cfg.Ontology.RegisterService(s)
 	if cfg.Signals != nil {
 		s.signals, err = signals.PublishFromGorp(ctx, cfg.Signals, signals.GorpPublisherConfigUUID[Label](cfg.DB))
@@ -104,9 +104,9 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (*Service, error) {
 // Close must be called when the service is no longer needed to prevent resource leaks.
 func (s *Service) Close() error {
 	if s.signals != nil {
-		return errors.Combine(s.signals.Close(), s.entryManager.Close())
+		return errors.Combine(s.signals.Close(), s.table.Close())
 	}
-	return s.entryManager.Close()
+	return s.table.Close()
 }
 
 // NewRetrieve opens a new Retrieve query to fetch labels.

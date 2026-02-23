@@ -17,17 +17,17 @@ import (
 	"github.com/synnaxlabs/x/types"
 )
 
-type EntryManager[K Key, E Entry[K]] struct{}
+type Table[K Key, E Entry[K]] struct{}
 
-func (e EntryManager[K, E]) Close() error {
+func (e Table[K, E]) Close() error {
 	return nil
 }
 
-func OpenEntryManager[K Key, E Entry[K]](ctx context.Context, db *DB) (*EntryManager[K, E], error) {
+func OpenTable[K Key, E Entry[K]](ctx context.Context, db *DB) (*Table[K, E], error) {
 	if err := migrateKeys[K, E](ctx, db); err != nil {
 		return nil, err
 	}
-	return &EntryManager[K, E]{}, nil
+	return &Table[K, E]{}, nil
 }
 
 func migrateKeys[K Key, E Entry[K]](ctx context.Context, db *DB) error {

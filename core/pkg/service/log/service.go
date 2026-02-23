@@ -54,7 +54,7 @@ func (c ServiceConfig) Validate() error {
 // Service is the primary service for retrieving and modifying logs from Synnax.
 type Service struct {
 	ServiceConfig
-	entryManager *gorp.EntryManager[uuid.UUID, Log]
+	table *gorp.Table[uuid.UUID, Log]
 }
 
 // OpenService instantiates a new log service using the provided configurations. Each
@@ -65,18 +65,18 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (*Service, error) {
 	if err != nil {
 		return nil, err
 	}
-	entryManager, err := gorp.OpenEntryManager[uuid.UUID, Log](ctx, cfg.DB)
+	table, err := gorp.OpenTable[uuid.UUID, Log](ctx, cfg.DB)
 	if err != nil {
 		return nil, err
 	}
-	s := &Service{ServiceConfig: cfg, entryManager: entryManager}
+	s := &Service{ServiceConfig: cfg, table: table}
 	cfg.Ontology.RegisterService(s)
 	return s, nil
 }
 
 // Close closes the log service and releases any resources.
 func (s *Service) Close() error {
-	return s.entryManager.Close()
+	return s.table.Close()
 }
 
 // NewWriter opens a new writer for creating, updating, and deleting logs in Synnax. If

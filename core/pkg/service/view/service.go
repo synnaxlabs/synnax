@@ -67,7 +67,7 @@ func (c ServiceConfig) Validate() error {
 type Service struct {
 	cfg             ServiceConfig
 	group           group.Group
-	entryManager    *gorp.EntryManager[uuid.UUID, View]
+	table           *gorp.Table[uuid.UUID, View]
 	shutdownSignals io.Closer
 }
 
@@ -83,7 +83,7 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (*Service, error) {
 	if s.group, err = s.cfg.Group.CreateOrRetrieve(ctx, "Views", ontology.RootID); err != nil {
 		return nil, err
 	}
-	s.entryManager, err = gorp.OpenEntryManager[uuid.UUID, View](ctx, s.cfg.DB)
+	s.table, err = gorp.OpenTable[uuid.UUID, View](ctx, s.cfg.DB)
 	if err != nil {
 		return nil, err
 	}

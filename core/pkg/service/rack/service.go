@@ -111,7 +111,7 @@ type Service struct {
 	localKeyCounter *kv.AtomicInt64Counter
 	group           group.Group
 	monitor         *monitor
-	entryManager    *gorp.EntryManager[Key, Rack]
+	table           *gorp.Table[Key, Rack]
 	ServiceConfig
 	EmbeddedKey Key
 }
@@ -121,7 +121,7 @@ func OpenService(ctx context.Context, configs ...ServiceConfig) (*Service, error
 	if err != nil {
 		return nil, err
 	}
-	entryManager, err := gorp.OpenEntryManager[Key, Rack](ctx, cfg.DB)
+	table, err := gorp.OpenTable[Key, Rack](ctx, cfg.DB)
 	if err != nil {
 		return nil, err
 	}
@@ -139,7 +139,7 @@ func OpenService(ctx context.Context, configs ...ServiceConfig) (*Service, error
 		localKeyCounter: c,
 		group:           g,
 		keyMu:           &sync.Mutex{},
-		entryManager:    entryManager,
+		table:           table,
 	}
 	if err = s.loadEmbeddedRack(ctx); err != nil {
 		return nil, err
@@ -250,7 +250,7 @@ func (s *Service) Close() error {
 	if s.shutdownSignals == nil {
 		return err
 	}
-	err = errors.Join(err, s.entryManager.Close())
+	err = errors.Join(err, s.table.Close())
 	return errors.Join(err, s.shutdownSignals.Close())
 }
 

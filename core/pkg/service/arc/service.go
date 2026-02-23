@@ -92,7 +92,7 @@ func (c ServiceConfig) Validate() error {
 // Service is the primary service for retrieving and modifying arcs from Synnax.
 type Service struct {
 	symbolResolver arc.SymbolResolver
-	entryManager   *gorp.EntryManager[uuid.UUID, Arc]
+	table          *gorp.Table[uuid.UUID, Arc]
 	closer         io.Closer
 	cfg            ServiceConfig
 }
@@ -171,13 +171,13 @@ func OpenService(ctx context.Context, configs ...ServiceConfig) (*Service, error
 	if err != nil {
 		return nil, err
 	}
-	entryManager, err := gorp.OpenEntryManager[uuid.UUID, Arc](ctx, cfg.DB)
+	table, err := gorp.OpenTable[uuid.UUID, Arc](ctx, cfg.DB)
 	if err != nil {
 		return nil, err
 	}
 	s := &Service{
 		cfg:            cfg,
-		entryManager:   entryManager,
+		table:          table,
 		symbolResolver: symbol.CreateResolver(cfg.Channel),
 	}
 	cfg.Ontology.RegisterService(s)

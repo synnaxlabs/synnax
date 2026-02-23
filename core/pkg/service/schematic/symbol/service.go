@@ -67,9 +67,9 @@ func (c ServiceConfig) Validate() error {
 // Service is the primary service for retrieving and modifying symbols from Synnax.
 type Service struct {
 	ServiceConfig
-	signals      io.Closer
-	group        group.Group
-	entryManager *gorp.EntryManager[uuid.UUID, Symbol]
+	signals io.Closer
+	group   group.Group
+	table   *gorp.Table[uuid.UUID, Symbol]
 }
 
 // OpenService instantiates a new symbol service using the provided configurations. Each
@@ -80,11 +80,11 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (*Service, error) {
 	if err != nil {
 		return nil, err
 	}
-	entryManager, err := gorp.OpenEntryManager[uuid.UUID, Symbol](ctx, cfg.DB)
+	table, err := gorp.OpenTable[uuid.UUID, Symbol](ctx, cfg.DB)
 	if err != nil {
 		return nil, err
 	}
-	s := &Service{ServiceConfig: cfg, entryManager: entryManager}
+	s := &Service{ServiceConfig: cfg, table: table}
 
 	// Create or retrieve the permanent symbols group
 	if cfg.Group != nil {
@@ -135,7 +135,7 @@ func (s *Service) Group() group.Group { return s.group }
 // Close closes the symbol service, shutting down signal publishers.
 func (s *Service) Close() error {
 	if s.signals != nil {
-		return errors.Combine(s.signals.Close(), s.entryManager.Close())
+		return errors.Combine(s.signals.Close(), s.table.Close())
 	}
-	return s.entryManager.Close()
+	return s.table.Close()
 }

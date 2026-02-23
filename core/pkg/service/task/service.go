@@ -95,7 +95,7 @@ type Service struct {
 	shutdownSignals               io.Closer
 	group                         group.Group
 	disconnectSuspectRackObserver observe.Disconnect
-	entryManager                  *gorp.EntryManager[Key, Task]
+	table                         *gorp.Table[Key, Task]
 	commandChannelKey             channel.Key
 }
 
@@ -104,7 +104,7 @@ func OpenService(ctx context.Context, configs ...ServiceConfig) (*Service, error
 	if err != nil {
 		return nil, err
 	}
-	entryManager, err := gorp.OpenEntryManager[Key, Task](ctx, cfg.DB)
+	table, err := gorp.OpenTable[Key, Task](ctx, cfg.DB)
 	if err != nil {
 		return nil, err
 	}
@@ -112,7 +112,7 @@ func OpenService(ctx context.Context, configs ...ServiceConfig) (*Service, error
 	if err != nil {
 		return nil, err
 	}
-	s := &Service{cfg: cfg, group: g, entryManager: entryManager}
+	s := &Service{cfg: cfg, group: g, table: table}
 	cfg.Ontology.RegisterService(s)
 	s.cleanupInternalOntologyResources(ctx)
 	if err := s.migrateStatusesForExistingTasks(ctx); err != nil {
@@ -171,9 +171,9 @@ func (s *Service) cleanupInternalOntologyResources(ctx context.Context) {
 func (s *Service) Close() error {
 	s.disconnectSuspectRackObserver()
 	if s.shutdownSignals != nil {
-		return errors.Combine(s.shutdownSignals.Close(), s.entryManager.Close())
+		return errors.Combine(s.shutdownSignals.Close(), s.table.Close())
 	}
-	return s.entryManager.Close()
+	return s.table.Close()
 }
 
 func (s *Service) NewWriter(tx gorp.Tx) Writer {

@@ -50,9 +50,9 @@ func (c ServiceConfig) Validate() error {
 }
 
 type Service struct {
-	cfg          ServiceConfig
-	signals      io.Closer
-	entryManager *gorp.EntryManager[uuid.UUID, Group]
+	cfg     ServiceConfig
+	signals io.Closer
+	table   *gorp.Table[uuid.UUID, Group]
 }
 
 func OpenService(ctx context.Context, configs ...ServiceConfig) (*Service, error) {
@@ -60,11 +60,11 @@ func OpenService(ctx context.Context, configs ...ServiceConfig) (*Service, error
 	if err != nil {
 		return nil, err
 	}
-	entryManager, err := gorp.OpenEntryManager[uuid.UUID, Group](ctx, cfg.DB)
+	table, err := gorp.OpenTable[uuid.UUID, Group](ctx, cfg.DB)
 	if err != nil {
 		return nil, err
 	}
-	s := &Service{cfg: cfg, entryManager: entryManager}
+	s := &Service{cfg: cfg, table: table}
 	cfg.Ontology.RegisterService(s)
 	return s, nil
 }
@@ -92,9 +92,9 @@ func (s *Service) NewRetrieve() Retrieve {
 
 func (s *Service) Close() error {
 	if s.signals != nil {
-		return errors.Combine(s.signals.Close(), s.entryManager.Close())
+		return errors.Combine(s.signals.Close(), s.table.Close())
 	}
-	return s.entryManager.Close()
+	return s.table.Close()
 }
 
 type Writer struct {

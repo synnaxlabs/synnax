@@ -58,7 +58,7 @@ func (c ServiceConfig) Validate() error {
 type Service struct {
 	cfg             ServiceConfig
 	shutdownSignals io.Closer
-	entryManager    *gorp.EntryManager[uuid.UUID, Workspace]
+	table           *gorp.Table[uuid.UUID, Workspace]
 	group           group.Group
 }
 
@@ -67,7 +67,7 @@ func OpenService(ctx context.Context, configs ...ServiceConfig) (*Service, error
 	if err != nil {
 		return nil, err
 	}
-	entryManager, err := gorp.OpenEntryManager[uuid.UUID, Workspace](ctx, cfg.DB)
+	table, err := gorp.OpenTable[uuid.UUID, Workspace](ctx, cfg.DB)
 	if err != nil {
 		return nil, err
 	}
@@ -75,7 +75,7 @@ func OpenService(ctx context.Context, configs ...ServiceConfig) (*Service, error
 	if err != nil {
 		return nil, err
 	}
-	s := &Service{cfg: cfg, group: g, entryManager: entryManager}
+	s := &Service{cfg: cfg, group: g, table: table}
 	cfg.Ontology.RegisterService(s)
 	if cfg.Signals == nil {
 		return s, nil
@@ -92,7 +92,7 @@ func OpenService(ctx context.Context, configs ...ServiceConfig) (*Service, error
 
 func (s *Service) Close() error {
 	err := s.shutdownSignals.Close()
-	return errors.Join(err, s.entryManager.Close())
+	return errors.Join(err, s.table.Close())
 }
 
 func (s *Service) NewWriter(tx gorp.Tx) Writer {

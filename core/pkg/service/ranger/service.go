@@ -83,7 +83,7 @@ func (c ServiceConfig) Override(other ServiceConfig) ServiceConfig {
 // mechanisms for creating, deleting, and listening to changes in ranges.
 type Service struct {
 	shutdownSignals io.Closer
-	entryManager    *gorp.EntryManager[uuid.UUID, Range]
+	table           *gorp.Table[uuid.UUID, Range]
 	cfg             ServiceConfig
 }
 
@@ -95,11 +95,11 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (*Service, error) {
 	if err != nil {
 		return nil, err
 	}
-	entryManager, err := gorp.OpenEntryManager[uuid.UUID, Range](ctx, cfg.DB)
+	table, err := gorp.OpenTable[uuid.UUID, Range](ctx, cfg.DB)
 	if err != nil {
 		return nil, err
 	}
-	s := &Service{cfg: cfg, entryManager: entryManager}
+	s := &Service{cfg: cfg, table: table}
 	cfg.Ontology.RegisterService(s)
 	if err := s.migrate(ctx); err != nil {
 		return nil, err
@@ -127,7 +127,7 @@ func (s *Service) Close() error {
 	if s.shutdownSignals != nil {
 		err = s.shutdownSignals.Close()
 	}
-	err = errors.Join(err, s.entryManager.Close())
+	err = errors.Join(err, s.table.Close())
 	return err
 }
 

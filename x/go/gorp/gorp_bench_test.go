@@ -55,7 +55,11 @@ func (e benchLargeEntry) SetOptions() []any { return nil }
 func setupBenchDB(b *testing.B) *gorp.DB {
 	b.Helper()
 	db := gorp.Wrap(memkv.New())
-	b.Cleanup(func() { db.Close() })
+	b.Cleanup(func() {
+		if err := db.Close(); err != nil {
+			b.Fatal(err)
+		}
+	})
 	return db
 }
 
