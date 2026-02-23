@@ -11,7 +11,6 @@
 #include "nlohmann/json.hpp"
 
 #include "client/cpp/testutil/testutil.h"
-#include "x/cpp/breaker/breaker.h"
 #include "x/cpp/status/status.h"
 #include "x/cpp/test/test.h"
 

@@ -99,8 +99,8 @@ ScanTask::ScanTask(
     task(std::move(task)),
     cfg(std::move(cfg)),
     conn(std::move(conn)),
-    status_handler(ctx, task) {
-    this->key = task.key;
+    status_handler(this->ctx, this->task) {
+    this->key = this->task.key;
 }
 
 void ScanTask::exec(task::Command &cmd) {
@@ -144,16 +144,18 @@ void ScanTask::run() {
             timer.wait(this->breaker);
             continue;
         }
+        auto &[resp, req_err] = results[0];
+        if (req_err) {
+            auto msg = "Failed to reach device: " + req_err.message();
+            this->status_handler.send_warning(msg);
+            this->set_device_status(x::status::VARIANT_WARNING, msg);
+            timer.wait(this->breaker);
+            continue;
+        }
         this->status_handler.status.variant = x::status::VARIANT_SUCCESS;
         this->status_handler.status.message = "Running";
         this->status_handler.status.key = task.status_key();
         this->ctx->set_status(this->status_handler.status);
-        auto &[resp, req_err] = results[0];
-        if (req_err) {
-            this->set_device_status(x::status::VARIANT_WARNING, req_err.message());
-            timer.wait(this->breaker);
-            continue;
-        }
         auto [variant, message] = check_device_health(resp, cfg.response);
         this->set_device_status(variant, message);
         timer.wait(this->breaker);
