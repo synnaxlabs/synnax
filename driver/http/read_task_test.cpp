@@ -656,7 +656,7 @@ TEST(HTTPReadTask, SoftwareTimingIndex) {
 }
 
 /// @brief it should extract timestamps from the JSON response when the index
-/// channel is listed as an explicit field with a timestampFormat.
+/// channel is listed as an explicit field with a timestamp_format.
 TEST(HTTPReadTask, ExplicitIndexFieldTimestamp) {
     mock::Server server(
         mock::ServerConfig{
@@ -906,7 +906,7 @@ protected:
     }
 };
 
-/// @brief it should error when a TIMESTAMP_T channel has no timestampFormat.
+/// @brief it should error when a TIMESTAMP_T channel has no timestamp_format.
 TEST_F(HTTPReadTaskParseTest, TimestampChannelMissingFormat) {
     auto idx = ASSERT_NIL_P(
         client->channels
@@ -1014,7 +1014,7 @@ TEST_F(HTTPReadTaskParseTest, SameEndpointSharedIndexAsField) {
                   {
                       {"pointer", "/timestamp"},
                       {"channel", idx.key},
-                      {"timestampFormat", "unix_sec"},
+                      {"timestamp_format", "unix_sec"},
                   },
               }},
          }}},
@@ -1064,7 +1064,7 @@ TEST_F(HTTPReadTaskParseTest, SameEndpointSharedIndexSoftwareTiming) {
     EXPECT_TRUE(cfg.software_timed_indexes.count(idx.key));
 }
 
-/// @brief it should silently ignore timestampFormat on a non-timestamp channel.
+/// @brief it should silently ignore timestamp_format on a non-timestamp channel.
 TEST_F(HTTPReadTaskParseTest, TimestampFormatOnNonTimestamp) {
     auto idx = ASSERT_NIL_P(
         client->channels
@@ -1089,7 +1089,7 @@ TEST_F(HTTPReadTaskParseTest, TimestampFormatOnNonTimestamp) {
               {{
                   {"pointer", "/value"},
                   {"channel", ch.key},
-                  {"timestampFormat", "unix_sec"},
+                  {"timestamp_format", "unix_sec"},
               }}},
          }}},
     };

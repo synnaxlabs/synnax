@@ -7,7 +7,9 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { channel, NotFoundError } from "@synnaxlabs/client";
+import "@/hardware/http/task/Read.css";
+
+import { channel } from "@synnaxlabs/client";
 import {
   Button,
   Component,
@@ -19,15 +21,18 @@ import {
   List,
   Menu as PMenu,
   Select,
+  Telem,
   Text,
 } from "@synnaxlabs/pluto";
 import { id, primitive } from "@synnaxlabs/x";
 import { type FC, useCallback, useState } from "react";
 
 import { EmptyAction, Menu } from "@/components";
+import { CSS } from "@/css";
 import { Common } from "@/hardware/common";
 import { ChannelList as BaseChannelList } from "@/hardware/common/task/ChannelList";
 import { Device } from "@/hardware/http/device";
+import { KeyValueEditor } from "@/hardware/http/task/KeyValueEditor";
 import {
   READ_SCHEMAS,
   READ_TYPE,
@@ -75,11 +80,17 @@ const Properties = () => (
 
 // ─── Endpoint Context Menu ───
 
-const EndpointContextMenu: FC<{
+interface EndpointContextMenuProps {
   keys: string[];
   onDelete: (keys: string[]) => void;
   onDuplicate: (keys: string[]) => void;
-}> = ({ keys, onDelete, onDuplicate }) => {
+}
+
+const EndpointContextMenu = ({
+  keys,
+  onDelete,
+  onDuplicate,
+}: EndpointContextMenuProps) => {
   const isSnapshot = Common.Task.useIsSnapshot();
   const canAct = keys.length > 0;
   const handleSelect: Record<string, () => void> = {
@@ -105,8 +116,6 @@ const EndpointContextMenu: FC<{
     </PMenu.Menu>
   );
 };
-
-// ─── Endpoint List Item ───
 
 const EndpointListItem = (props: List.ItemProps<string>) => {
   const { itemKey } = props;
@@ -137,6 +146,8 @@ const TIME_FORMAT_DATA: Select.StaticEntry<string>[] = [
   { key: "unix_ns", name: "Unix (ns)" },
 ];
 
+const isTimingField = (f: ReadField): boolean => f.timestampFormat != null;
+
 // ─── Field List Item ───
 
 interface FieldListItemProps extends Common.Task.ChannelListItemProps {
@@ -156,6 +167,21 @@ const FieldListItem = ({ epKey, ...props }: FieldListItemProps) => {
         inputProps={{ placeholder: "/temperature" }}
         grow
       />
+      <PForm.Field<string>
+        path={`${path}.dataType`}
+        showLabel={false}
+        showHelpText={false}
+        hideIfNull
+      >
+        {({ value, onChange }) => (
+          <Telem.SelectDataType
+            value={value}
+            onChange={onChange}
+            hideVariableDensity
+            location="bottom"
+          />
+        )}
+      </PForm.Field>
       <Flex.Box x align="center" grow justify="end">
         <Common.Task.ChannelName
           channel={fieldChannel}
@@ -168,36 +194,21 @@ const FieldListItem = ({ epKey, ...props }: FieldListItemProps) => {
   );
 };
 
-// ─── Method Toggle ───
-const MethodToggle: FC<{ path: string }> = ({ path }) => {
-  const { get, set } = PForm.useContext();
-  const method = get<string>(path).value;
-  return (
-    <Flex.Box x align="center" gap="small">
-      <Text.Text level="small" weight={500} style={{ marginRight: "0.25rem" }}>
-        Method
-      </Text.Text>
-      <Button.Toggle
-        value={method === "GET"}
-        onChange={() => set(path, "GET")}
-        size="small"
-        checkedVariant="filled"
-        uncheckedVariant="text"
-      >
-        GET
-      </Button.Toggle>
-      <Button.Toggle
-        value={method === "POST"}
-        onChange={() => set(path, "POST")}
-        size="small"
-        checkedVariant="filled"
-        uncheckedVariant="text"
-      >
-        POST
-      </Button.Toggle>
-    </Flex.Box>
-  );
-};
+// ─── Method Select ───
+
+type HTTPMethod = "GET" | "POST";
+const HTTP_METHOD_KEYS: HTTPMethod[] = ["GET", "POST"];
+
+const MethodSelect: FC<{ path: string }> = ({ path }) => (
+  <PForm.Field<HTTPMethod> path={path} label="Method">
+    {({ value, onChange }) => (
+      <Select.Buttons<HTTPMethod> value={value} onChange={onChange} keys={HTTP_METHOD_KEYS}>
+        <Select.Button<HTTPMethod> itemKey="GET">GET</Select.Button>
+        <Select.Button<HTTPMethod> itemKey="POST">POST</Select.Button>
+      </Select.Buttons>
+    )}
+  </PForm.Field>
+);
 
 // ─── Field List ───
 
@@ -210,20 +221,19 @@ const FieldList: FC<{ epKey: string }> = ({ epKey }) => {
 
   const allFields = PForm.useFieldValue<ReadField[]>(path);
   const indexKeys = new Set(
-    allFields.filter((f) => f.isIndex).map((f) => f.key),
+    allFields.filter(isTimingField).map((f) => f.key),
   );
   const data = allData.filter((key) => !indexKeys.has(key));
 
   const handleAdd = useCallback(() => {
     const fields = ctx.get<ReadField[]>(path).value;
-    const nonIndex = fields.filter((f) => !f.isIndex);
+    const nonIndex = fields.filter((f) => !isTimingField(f));
     const last = nonIndex[nonIndex.length - 1];
     const field: ReadField = {
       ...(last != null
         ? { ...last, ...Common.Task.READ_CHANNEL_OVERRIDE }
         : ZERO_READ_FIELD),
       key: id.create(),
-      isIndex: false,
     };
     push(field);
     setSelected([field.key]);
@@ -237,7 +247,6 @@ const FieldList: FC<{ epKey: string }> = ({ epKey }) => {
           ...ch,
           ...Common.Task.READ_CHANNEL_OVERRIDE,
           key: id.create(),
-          isIndex: false,
         }));
       push(duplicated);
     },
@@ -297,7 +306,7 @@ const FieldList: FC<{ epKey: string }> = ({ epKey }) => {
 const TimingToggle: FC<{ path: string }> = ({ path }) => {
   const fields = PForm.useFieldValue<ReadField[]>(`${path}.fields`);
   const { set } = PForm.useContext();
-  const indexField = fields.find((f) => f.isIndex);
+  const indexField = fields.find(isTimingField);
   const isValueTiming = indexField != null;
 
   const handleToggle = useCallback(
@@ -306,16 +315,17 @@ const TimingToggle: FC<{ path: string }> = ({ path }) => {
         const indexF: ReadField = {
           ...ZERO_READ_FIELD,
           key: id.create(),
-          isIndex: true,
           timestampFormat: "unix_sec",
         };
         set(`${path}.fields`, [...fields, indexF]);
-      } else if (!value && isValueTiming) 
+        set(`${path}.index`, indexF.key);
+      } else if (!value && isValueTiming) {
         set(
           `${path}.fields`,
-          fields.filter((f) => !f.isIndex),
+          fields.filter((f) => !isTimingField(f)),
         );
-      
+        set(`${path}.index`, null);
+      }
     },
     [fields, isValueTiming, path, set],
   );
@@ -377,9 +387,9 @@ const EndpointDetails: FC<{ epKey: string }> = ({ epKey }) => {
   const path = `config.endpoints.${epKey}`;
   const method = PForm.useFieldValue<string>(`${path}.method`);
   return (
-    <Flex.Box y grow empty>
-      <Flex.Box x align="center" gap="large" style={{ padding: "1rem" }}>
-        <MethodToggle path={`${path}.method`} />
+    <Flex.Box y grow empty style={{ overflowY: "auto" }} className={CSS.B("http-read-endpoint")}>
+      <Flex.Box x align="end" gap="large" style={{ padding: "1rem" }}>
+        <MethodSelect path={`${path}.method`} />
         <PForm.TextField
           path={`${path}.path`}
           label="Path"
@@ -397,6 +407,20 @@ const EndpointDetails: FC<{ epKey: string }> = ({ epKey }) => {
           />
         </Flex.Box>
       )}
+      <Flex.Box y style={{ padding: "0 1rem" }} gap="large">
+        <KeyValueEditor
+          path={`${path}.headers`}
+          label="Headers"
+          keyPlaceholder="Header Name"
+          valuePlaceholder="Header Value"
+        />
+        <KeyValueEditor
+          path={`${path}.queryParams`}
+          label="Query Parameters"
+          keyPlaceholder="Parameter"
+          valuePlaceholder="Value"
+        />
+      </Flex.Box>
       <TimingToggle path={path} />
       <Divider.Divider x />
       <FieldList key={epKey} epKey={epKey} />
@@ -544,109 +568,41 @@ const onConfigure: Common.Task.OnConfigure<typeof readConfigZ> = async (
     key: config.device,
     schemas: Device.SCHEMAS,
   });
-
-  const safeName = channel.escapeInvalidName(dev.name);
+  const safeDevName = channel.escapeInvalidName(dev.name);
   let modified = false;
+  for (const ep of config.endpoints) {
+    // first, see if the user specified an index channel for this endpoint
+    const devIndexKey = dev.properties.readIndexes[ep.path];
+    if (primitive.isNonZero(devIndexKey)) continue;
 
-  const props = dev.properties as Record<string, unknown>;
-  const readProps = (props.read ?? {}) as Record<string, unknown>;
-  const channelMap = (readProps.channels ?? {}) as Record<string, number>;
-  const endpointIndices = (readProps.endpointIndices ?? {}) as Record<string, number>;
-
-  try {
-    for (const ep of config.endpoints) {
-      // Resolve or create the index channel for this endpoint.
-      // If a field is marked isIndex, it IS the index channel. Otherwise, create
-      // a software-timed index.
-      const indexField = ep.fields.find((f) => f.enabled && f.isIndex);
-      let indexKey: number | undefined;
-
-      if (indexField != null) {
-        // The index field itself is a timestamp channel — create/retrieve it.
-        const mapKey = `${ep.path}:${indexField.pointer}`;
-        const existingKey = channelMap[mapKey];
-        if (existingKey != null)
-          try {
-            await client.channels.retrieve(existingKey.toString());
-            indexField.channel = existingKey;
-            indexKey = existingKey;
-          } catch (e) {
-            if (!NotFoundError.matches(e)) throw e;
-          }
-
-        if (indexKey == null) {
-          modified = true;
-          const name = primitive.isNonZero(indexField.name)
-            ? indexField.name
-            : `${safeName}_${indexField.pointer.replace(/\//g, "_").replace(/^_/, "")}_time`;
-          const idx = await client.channels.create({
-            name,
-            dataType: "timestamp",
-            isIndex: true,
-          });
-          indexKey = idx.key;
-          channelMap[mapKey] = idx.key;
-          indexField.channel = idx.key;
-        }
-      } else {
-        // No explicit index field — use a software-timed index per endpoint.
-        indexKey = endpointIndices[ep.key] as number | undefined;
-        if (indexKey != null)
-          try {
-            await client.channels.retrieve(indexKey.toString());
-          } catch (e) {
-            if (NotFoundError.matches(e)) indexKey = undefined;
-            else throw e;
-          }
-
-        if (indexKey == null) {
-          modified = true;
-          const pathSlug = ep.path.replace(/\//g, "_").replace(/^_/, "");
-          const idx = await client.channels.create({
-            name: `${safeName}_${pathSlug}_time`,
-            dataType: "timestamp",
-            isIndex: true,
-          });
-          indexKey = idx.key;
-        }
-        endpointIndices[ep.key] = indexKey;
-      }
-
-      // Create/retrieve data channels for non-index fields.
-      for (const field of ep.fields) {
-        if (!field.enabled || field.isIndex) continue;
-        const mapKey = `${ep.path}:${field.pointer}`;
-
-        const existingKey = channelMap[mapKey];
-        if (existingKey != null)
-          try {
-            await client.channels.retrieve(existingKey.toString());
-            field.channel = existingKey;
-            continue;
-          } catch (e) {
-            if (!NotFoundError.matches(e)) throw e;
-          }
-
-        modified = true;
-        const ch = await client.channels.create({
-          name: primitive.isNonZero(field.name)
-            ? field.name
-            : `${safeName}_${field.pointer.replace(/\//g, "_").replace(/^_/, "")}`,
-          dataType: "float64",
-          index: indexKey,
-        });
-        channelMap[mapKey] = ch.key;
-        field.channel = ch.key;
-      }
-    }
-
-    readProps.channels = channelMap;
-    readProps.endpointIndices = endpointIndices;
-    props.read = readProps;
-  } finally {
-    if (modified) await client.devices.create(dev, Device.SCHEMAS);
+    // we need to create an index channel for this endpoint.
+    const newIndexCh = await client.channels.create({
+      name: `${safeDevName}_${channel.escapeInvalidName(ep.path)}_time`,
+      dataType: "timestamp",
+      isIndex: true,
+    });
+    modified = true;
+    dev.properties.readIndexes[ep.path] = newIndexCh.key;
   }
-
+  // now, we need to update any data channels as need be
+  for (const ep of config.endpoints) {
+    const index = dev.properties.readIndexes[ep.path];
+    const potentialTimingKey = ep.index;
+    for (const field of ep.fields) {
+      if (field.channel !== 0) continue;
+      if (field.key === potentialTimingKey) {
+        field.channel = index;
+        continue;
+      }
+      const newCh = await client.channels.create({
+        name: `${safeDevName}_${channel.escapeInvalidName(ep.path + field.pointer)}`,
+        dataType: field.dataType, //TODO: set this for NEW CHANNELS ONLY on task form
+        index,
+      });
+      field.channel = newCh.key;
+    }
+  }
+  if (modified) await client.devices.create(dev, Device.SCHEMAS);
   return [config, dev.rack];
 };
 

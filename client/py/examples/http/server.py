@@ -132,6 +132,53 @@ def create_app() -> Flask:
             200,
         )
 
+    @app.route("/api/v1/data", methods=["GET"])
+    def api_data() -> tuple[Response, int]:
+        """Returns mixed data types. Useful for testing dataType selection.
+
+        Supports query parameters:
+          ?scale=<float>  - multiplier for numeric values (default 1.0)
+          ?include=<csv>  - comma-separated fields to include
+        """
+        elapsed = time.time() - start_time
+        scale = float(request.args.get("scale", 1.0))
+        include = request.args.get("include", "").split(",")
+        include_all = include == [""]
+        data: dict = {
+            "timestamp": time.time(),
+        }
+        if include_all or "temperature" in include:
+            data["temperature"] = round(
+                math.sin(elapsed * 0.1) * 25 * scale + 20, 2
+            )
+        if include_all or "pressure" in include:
+            data["pressure"] = round(
+                math.cos(elapsed * 0.05) * 10 * scale + 1013, 2
+            )
+        if include_all or "humidity" in include:
+            data["humidity"] = int(
+                math.sin(elapsed * 0.2) * 30 * scale + 50
+            )
+        if include_all or "label" in include:
+            data["label"] = "normal" if data.get("humidity", 50) < 70 else "high"
+        if include_all or "active" in include:
+            data["active"] = int(elapsed) % 60 < 50
+        if include_all or "count" in include:
+            data["count"] = int(elapsed)
+        return jsonify(data), 200
+
+    @app.route("/api/v1/headers", methods=["GET"])
+    def api_headers() -> tuple[Response, int]:
+        """Echoes back all request headers as JSON. Tests per-endpoint headers."""
+        headers = {k: v for k, v in request.headers}
+        return jsonify({"headers": headers}), 200
+
+    @app.route("/api/v1/query", methods=["GET"])
+    def api_query() -> tuple[Response, int]:
+        """Echoes back all query parameters as JSON. Tests query param config."""
+        params = dict(request.args)
+        return jsonify({"params": params, "count": len(params)}), 200
+
     @app.route("/auth/bearer", methods=["GET"])
     def auth_bearer() -> tuple[Response, int]:
         """Requires Bearer token authentication."""
@@ -189,6 +236,9 @@ def run_server(
     print(f"  POST http://{host}:{port}/api/v1/ping         - Ping/pong (POST)")
     print(f"  GET  http://{host}:{port}/api/v1/metrics      - Sensor metrics")
     print(f"  POST http://{host}:{port}/api/v1/echo         - Echo request body")
+    print(f"  GET  http://{host}:{port}/api/v1/data         - Mixed data types")
+    print(f"  GET  http://{host}:{port}/api/v1/headers      - Echo request headers")
+    print(f"  GET  http://{host}:{port}/api/v1/query        - Echo query parameters")
     print(f"  GET  http://{host}:{port}/auth/bearer         - Bearer auth required")
     print(f"  GET  http://{host}:{port}/auth/api-key        - API key auth required")
     print(f"  GET  http://{host}:{port}/auth/basic          - Basic auth required")

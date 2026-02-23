@@ -73,7 +73,7 @@ export const readTypeZ = z.literal(READ_TYPE);
 
 const readFieldZ = Common.Task.readChannelZ.extend({
   pointer: jsonPointerZ,
-  isIndex: z.boolean().default(false),
+  dataType: z.string().default("float64"),
   timestampFormat: timeFormatZ.optional(),
 });
 export interface ReadField extends z.infer<typeof readFieldZ> {}
@@ -81,14 +81,16 @@ export interface ReadField extends z.infer<typeof readFieldZ> {}
 export const ZERO_READ_FIELD = {
   ...Common.Task.ZERO_READ_CHANNEL,
   pointer: "",
-  isIndex: false,
+  dataType: "float64",
 } as const satisfies ReadField;
 
 const baseReadEndpointZ = z.object({
   key: z.string(),
   path: z.string().min(1, "Path is required"),
+  headers: z.record(z.string(), z.string()).optional(),
   queryParams: z.record(z.string(), z.string()).optional(),
   fields: z.array(readFieldZ).check(Common.Task.validateReadChannels),
+  index: z.string().nullable().default(null),
 });
 const getReadEndpointZ = baseReadEndpointZ.extend({ method: z.literal("GET") });
 const postReadEndpointZ = baseReadEndpointZ.extend({
@@ -107,6 +109,7 @@ export const ZERO_READ_ENDPOINT = {
   method: "GET",
   path: "",
   fields: [],
+  index: null,
 } as const satisfies ReadEndpoint;
 
 export const readConfigZ = Common.Task.baseReadConfigZ.extend({

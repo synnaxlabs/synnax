@@ -49,11 +49,11 @@ std::pair<ReadTaskConfig, x::errors::Error> ReadTaskConfig::parse(
             );
             field.channel_key = fp.field<synnax::channel::Key>("channel");
 
-            const auto ts_fmt_str = fp.field<std::string>("timestampFormat", "");
+            const auto ts_fmt_str = fp.field<std::string>("timestamp_format", "");
             if (!ts_fmt_str.empty()) {
                 auto [fmt, fmt_err] = x::json::parse_time_format(ts_fmt_str);
                 if (fmt_err)
-                    fp.field_err("timestampFormat", fmt_err.message());
+                    fp.field_err("timestamp_format", fmt_err.message());
                 else
                     field.time_format = fmt;
             }
@@ -121,7 +121,7 @@ std::pair<ReadTaskConfig, x::errors::Error> ReadTaskConfig::parse(
                 parser.field_err(
                     "endpoints",
                     "channel " + ch.name +
-                        " is a timestamp channel but has no timestampFormat"
+                        " is a timestamp channel but has no timestamp_format"
                 );
                 continue;
             }

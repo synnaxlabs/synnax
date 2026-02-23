@@ -1,0 +1,5 @@
+.console-task-configure > div .console-http-read-endpoint .console-channel-list {
+    max-width: unset;
+    flex-basis: unset;
+    flex-grow: 1;
+}
