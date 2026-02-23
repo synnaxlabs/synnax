@@ -1,8 +1,8 @@
 # 27 - Action-Based State Management for Meta-Data Structures
 
-**Feature Name**: Action-Based State Management <br /> **Status**: Draft <br />
-**Start Date**: 2026-02-23 <br /> **Authors**: Emiliano Bonilla <br /> **Depends On**:
-RFC 0025 (Meta-Data Structures), RFC 0026 (Oracle Schema System)
+**Feature Name**: Action-Based State Management <br /> **Status**: Draft <br /> **Start
+Date**: 2026-02-23 <br /> **Authors**: Emiliano Bonilla <br /> **Depends On**: RFC 0025
+(Meta-Data Structures), RFC 0026 (Oracle Schema System)
 
 # 0 - Summary
 
@@ -63,26 +63,26 @@ interface RecordsDiff<R> {
 }
 ```
 
-Diffs are composable (`squashRecordDiffs`), reversible (`reverseRecordsDiff`), and
-form the basis of both sync and undo/redo. The history stack contains diffs interleaved
-with **marks** (named stopping points). Undo replays diffs backward until hitting a mark.
+Diffs are composable (`squashRecordDiffs`), reversible (`reverseRecordsDiff`), and form
+the basis of both sync and undo/redo. The history stack contains diffs interleaved with
+**marks** (named stopping points). Undo replays diffs backward until hitting a mark.
 `editor.run()` batches multiple operations into a single transaction/diff.
 
 TLDraw separates state into three scopes:
 
-| Scope | Persisted | Synced | Undoable |
+| Scope    | Persisted | Synced | Undoable |
 | -------- | --------- | ------ | -------- |
-| Document | Yes | Yes | Yes |
-| Session | Local | No | No |
-| Presence | No | Yes | No |
+| Document | Yes       | Yes    | Yes      |
+| Session  | Local     | No     | No       |
+| Presence | No        | Yes    | No       |
 
 ## 2.2 - Liveblocks
 
 Liveblocks uses LWW with acknowledgment-based ordering. Each mutation records a reverse
-operation alongside the forward operation. Each user maintains their own undo/redo stack.
-Critically, Liveblocks provides `pause()`/`resume()` for grouping interactions — all
-mutations between pause and resume become a single undoable action (essential for drag
-operations).
+operation alongside the forward operation. Each user maintains their own undo/redo
+stack. Critically, Liveblocks provides `pause()`/`resume()` for grouping interactions —
+all mutations between pause and resume become a single undoable action (essential for
+drag operations).
 
 When an undo targets an object deleted by another user, the operation is silently
 skipped. This is the same approach used by Figma and Google Slides.
@@ -321,11 +321,11 @@ User drags node ──► Flux dispatch(setNodePosition({ key: "abc", position: 
 Following TLDraw's model, all state for a meta-data structure is classified into one of
 three scopes:
 
-| Scope | Owner | Persisted | Synced | Undoable | Example |
-| -------- | --------- | --------- | ----------- | -------- | ------------------------------------------------ |
-| Document | Flux | Server | All clients | Yes | Nodes, edges, props, name, snapshot |
-| Session | Redux | Local disk | Windows\* | No | Viewport, selection, mode, editable, legend, toolbar |
-| Presence | Flux | No | All clients | No | Cursor position\* |
+| Scope    | Owner | Persisted  | Synced      | Undoable | Example                                              |
+| -------- | ----- | ---------- | ----------- | -------- | ---------------------------------------------------- |
+| Document | Flux  | Server     | All clients | Yes      | Nodes, edges, props, name, snapshot                  |
+| Session  | Redux | Local disk | Windows\*   | No       | Viewport, selection, mode, editable, legend, toolbar |
+| Presence | Flux  | No         | All clients | No       | Cursor position\*                                    |
 
 \*Session state syncs across windows via Drift (existing behavior). Presence — real-time
 awareness of other users' activity (cursor positions, active selections) — is a future
@@ -334,8 +334,8 @@ concern and not part of this RFC's implementation scope.
 **The critical migration**: document state moves out of Redux slices and into Flux. The
 console's schematic Redux slice currently holds ~20 actions mixing document and session
 state. After migration, the Redux slice retains only session-scoped actions (viewport,
-toolbar, edit mode, control status). Document-scoped actions (add node, set position, set
-props, remove edge) flow through the new action pipeline.
+toolbar, edit mode, control status). Document-scoped actions (add node, set position,
+set props, remove edge) flow through the new action pipeline.
 
 ## 3.2 - Action Pipeline
 
@@ -379,26 +379,27 @@ Each client applies action via TS reducer → React re-renders
 
 ### 3.2.1 - Optimistic Application with Server Authority
 
-The originating client applies actions optimistically for instant UI feedback. The server
-is the authoritative reducer — it applies the same action independently, persists the
-result, and broadcasts.
+The originating client applies actions optimistically for instant UI feedback. The
+server is the authoritative reducer — it applies the same action independently, persists
+the result, and broadcasts.
 
-**Self-broadcast deduplication**: The server broadcasts actions to all connected clients,
-including the originator. Each broadcast is tagged with the originating session ID.
-When a client's Flux channel listener receives a broadcast, it checks whether the action
-originated from itself — if so, it **drops the action** rather than re-applying it. The
-optimistic local state is already correct.
+**Self-broadcast deduplication**: The server broadcasts actions to all connected
+clients, including the originator. Each broadcast is tagged with the originating session
+ID. When a client's Flux channel listener receives a broadcast, it checks whether the
+action originated from itself — if so, it **drops the action** rather than re-applying
+it. The optimistic local state is already correct.
 
 This is necessary because many actions are not idempotent (`AddNode` applied twice would
-create duplicate nodes). It also prevents visual flickering from redundant state updates.
+create duplicate nodes). It also prevents visual flickering from redundant state
+updates.
 
 The one case where the originating client needs to react to the server's response is
 **rejection** (e.g., access control failure, validation error). On rejection, the client
 rolls back its optimistic state. This is the error path, not the normal flow.
 
 **Concurrent multi-client edits**: The server defines the canonical action ordering.
-When a client receives broadcast actions from other clients, it applies them through
-the normal reducer pipeline. Because both client and server run deterministic reducers,
+When a client receives broadcast actions from other clients, it applies them through the
+normal reducer pipeline. Because both client and server run deterministic reducers,
 their states converge as broadcasts are processed.
 
 For the initial implementation, property-level last-writer-wins handles the rare case of
@@ -508,7 +509,8 @@ The server:
 1. Retrieves the current state from gorp
 2. Applies each action sequentially via the generated `Reduce` function
 3. Persists the updated state
-4. Broadcasts actions (tagged with `SessionID` for client-side dedup) on the signal channel
+4. Broadcasts actions (tagged with `SessionID` for client-side dedup) on the signal
+   channel
 
 This endpoint will eventually replace `SetData`/`Update` for types that opt into the
 action system. During the transition period, both endpoints coexist.
@@ -528,7 +530,12 @@ newline-delimited JSON and writes it to `sy_schematic_set`. Each action is a sin
 object:
 
 ```json
-{"key":"schematic-uuid","session_id":"abc","type":"set_node_position","set_node_position":{"key":"node-uuid","position":{"x":100,"y":200}}}
+{
+  "key": "schematic-uuid",
+  "session_id": "abc",
+  "type": "set_node_position",
+  "set_node_position": { "key": "node-uuid", "position": { "x": 100, "y": 200 } }
+}
 ```
 
 Flux channel listeners on the client side parse individual actions from the frame and
@@ -592,8 +599,8 @@ the action pipeline.
 Pluto's Diagram component (`pluto/src/vis/diagram/`) is a general-purpose React Flow
 wrapper with no knowledge of Flux, Redux, or the action system. A separate
 schematic-specific integration layer bridges the gap: it receives change events from
-Pluto's Diagram and routes document mutations to Flux actions while routing session state
-(selections) to Redux dispatches. This layer may live in Pluto's schematic module
+Pluto's Diagram and routes document mutations to Flux actions while routing session
+state (selections) to Redux dispatches. This layer may live in Pluto's schematic module
 (`pluto/src/schematic/`) or in the console — the key constraint is that the generic
 Diagram component remains isolated.
 
@@ -609,8 +616,7 @@ const handleNodesChange = (nodes: Node[], changes: NodeChange[]) => {
     .filter((c) => c.type !== "select")
     .map(nodeChangeToAction)
     .filter(Boolean);
-  if (docActions.length > 0)
-    fluxDispatch({ key: schematicKey, actions: docActions });
+  if (docActions.length > 0) fluxDispatch({ key: schematicKey, actions: docActions });
 };
 ```
 
@@ -664,9 +670,9 @@ The following constraints on the action system ensure undo can be layered on lat
 
 ## 3.7 - Opt-In Per Type
 
-The action system is opt-in. Not every meta-data structure needs it. Simple types (users,
-workspaces, ranges) can continue using traditional CRUD. The developer decides by adding
-action definitions to the oracle schema for a given type.
+The action system is opt-in. Not every meta-data structure needs it. Simple types
+(users, workspaces, ranges) can continue using traditional CRUD. The developer decides
+by adding action definitions to the oracle schema for a given type.
 
 Types that benefit most from the action system are those with:
 
@@ -699,12 +705,13 @@ implemented. Once fields are typed, actions operate on those typed fields.
 
 ## 4.2 - Flux
 
-The Flux system already provides the `ScopedUnaryStore`, channel listeners, `useRetrieve`,
-and `useUpdate` patterns needed for the action pipeline. The main new pieces are:
+The Flux system already provides the `ScopedUnaryStore`, channel listeners,
+`useRetrieve`, and `useUpdate` patterns needed for the action pipeline. The main new
+pieces are:
 
 - Integrating the TS reducer into the Flux store's set operations
-- Adding a channel listener on `sy_schematic_set` that parses actions and applies
-  them via the local reducer
+- Adding a channel listener on `sy_schematic_set` that parses actions and applies them
+  via the local reducer
 - Adding `useSelect` patterns for granular subscriptions
 
 ## 4.3 - Relapse
@@ -725,23 +732,23 @@ The schematic-specific integration layer sits between Pluto's Diagram and the st
 management layer. It receives change events from Diagram and routes them to the correct
 destination:
 
-| Change type | Destination | Reason |
-| ----------- | ------------------------------------ | ----------------------------------------- |
-| `position` (dragging) | Local Flux store only | Don't send RPCs during a drag |
-| `position` (drop) | Flux action → server dispatch | Final position is a document mutation |
-| `dimensions` | Flux action → server dispatch | Document mutation |
-| `add` | Flux action → server dispatch | Document mutation |
-| `remove` | Flux action → server dispatch | Document mutation |
-| `replace` | Flux action → server dispatch | Document mutation |
-| `select` | Redux dispatch | Session state, per-window |
+| Change type           | Destination                   | Reason                                |
+| --------------------- | ----------------------------- | ------------------------------------- |
+| `position` (dragging) | Local Flux store only         | Don't send RPCs during a drag         |
+| `position` (drop)     | Flux action → server dispatch | Final position is a document mutation |
+| `dimensions`          | Flux action → server dispatch | Document mutation                     |
+| `add`                 | Flux action → server dispatch | Document mutation                     |
+| `remove`              | Flux action → server dispatch | Document mutation                     |
+| `replace`             | Flux action → server dispatch | Document mutation                     |
+| `select`              | Redux dispatch                | Session state, per-window             |
 
 This routing logic lives in the schematic-specific integration layer, not in the generic
 Diagram component. Pluto's Diagram remains a generic component that fires events without
 knowing where they go.
 
-The current code sends the full node array on every change (`setNodes({ nodes })`). After
-migration, the integration layer inspects individual changes, maps document mutations to
-typed actions dispatched through Flux, and routes selections to Redux.
+The current code sends the full node array on every change (`setNodes({ nodes })`).
+After migration, the integration layer inspects individual changes, maps document
+mutations to typed actions dispatched through Flux, and routes selections to Redux.
 
 The drag case connects to open question 6.1: during a drag, the local Flux store updates
 for rendering but the server dispatch is deferred until drop. This is a form of implicit
@@ -773,8 +780,8 @@ transaction grouping that also reduces network overhead.
    - Remove `useSyncComponent` (replaced by the action dispatch pipeline)
    - Migrate copy/paste to read document state from Flux
    - Accept that existing `useUndoableDispatch` undo breaks (rebuilt in Phase 3)
-6. **Build schematic integration layer**: Wire `onNodesChange`/`onEdgesChange` routing
-   — document mutations dispatch through Flux, selection changes dispatch to Redux.
+6. **Build schematic integration layer**: Wire `onNodesChange`/`onEdgesChange` routing —
+   document mutations dispatch through Flux, selection changes dispatch to Redux.
 7. **Cross-language parity tests**: Integration tests verifying Go and TS reducers
    produce identical state for the same action sequence.
 
@@ -803,8 +810,8 @@ established in Phases 1-2.
 # 6 - Open Questions
 
 1. **Action batching on the wire**: Should the client batch rapid-fire actions (e.g.,
-   during a drag) into fewer network requests, or send each action individually? Batching
-   reduces network overhead but adds latency to other clients seeing updates.
+   during a drag) into fewer network requests, or send each action individually?
+   Batching reduces network overhead but adds latency to other clients seeing updates.
 2. **Server-side action log**: Should the server persist an action log per resource for
    audit trails and time-travel debugging? Not needed for undo (client-local), but
    valuable for diagnostics. Deferred to a future RFC.
@@ -817,14 +824,14 @@ established in Phases 1-2.
 
 # 7 - Concrete Code Sketches
 
-This section shows what the actual code looks like at each layer, grounded in the existing
-codebase. These are illustrative sketches — exact signatures may change during
+This section shows what the actual code looks like at each layer, grounded in the
+existing codebase. These are illustrative sketches — exact signatures may change during
 implementation.
 
 ## 7.0 - Go: Generated Action Infrastructure (Oracle Output)
 
-Oracle reads action definitions from the `.oracle` schema and generates the following for
-each type that opts into actions. This is analogous to the prototype on the
+Oracle reads action definitions from the `.oracle` schema and generates the following
+for each type that opts into actions. This is analogous to the prototype on the
 `sy-3304-reactive-schematics` branch, but generated by oracle instead of `relapse/gen`.
 
 ### Generated Action Struct and Reducer (`reducer.gen.go`)
@@ -941,8 +948,8 @@ func (a AddNode) Handle(state Schematic) (Schematic, error) {
 
 ### Service Writer: New `Dispatch` Method (`writer.go`)
 
-The existing `Writer` gains a `Dispatch` method alongside the existing CRUD methods.
-The Writer holds a reference to the action observable (passed via `NewWriter` from the
+The existing `Writer` gains a `Dispatch` method alongside the existing CRUD methods. The
+Writer holds a reference to the action observable (passed via `NewWriter` from the
 Service) and is responsible for both persisting the reduced state and notifying the
 signal pipeline.
 
@@ -1109,11 +1116,7 @@ export interface CreateActionParams<
   handler: (state: State, payload: z.infer<Payload>) => void;
 }
 
-export interface ActionDef<
-  State,
-  Type extends string,
-  Payload extends z.ZodType,
-> {
+export interface ActionDef<State, Type extends string, Payload extends z.ZodType> {
   type: Type;
   payload: Payload;
   handler: (state: State, payload: z.infer<Payload>) => void;
@@ -1150,10 +1153,7 @@ export const createReducer = <State>(
   for (const action of actions)
     handlers.set(action.type, { schema: action.payload, handler: action.handler });
 
-  const reducer = (
-    state: State,
-    action: { type: string; payload: unknown },
-  ): State => {
+  const reducer = (state: State, action: { type: string; payload: unknown }): State => {
     const h = handlers.get(action.type);
     if (h == null) return state;
     const parsed = h.schema.parse(action.payload);
@@ -1161,9 +1161,11 @@ export const createReducer = <State>(
   };
 
   const actionZ = z.union(
-    actions.map((a) =>
-      z.object({ type: z.literal(a.type), payload: a.payload }),
-    ) as [z.ZodType, z.ZodType, ...z.ZodType[]],
+    actions.map((a) => z.object({ type: z.literal(a.type), payload: a.payload })) as [
+      z.ZodType,
+      z.ZodType,
+      ...z.ZodType[],
+    ],
   );
 
   return { reducer, actionZ };
@@ -1299,10 +1301,11 @@ export const FLUX_STORE_CONFIG: Flux.UnaryStoreConfig<
 ```
 
 The channel listener receives frames from `sy_schematic_set`. The Flux streamer splits
-frames into newline-delimited JSON objects and parses each one through the `scopedActionZ`
-schema (this is the standard Flux `ChannelListener` behavior — `onChange` is called once
-per parsed item, not once per frame). The listener checks `sessionId` to skip
-self-originated broadcasts, then runs the local reducer for all other clients' actions.
+frames into newline-delimited JSON objects and parses each one through the
+`scopedActionZ` schema (this is the standard Flux `ChannelListener` behavior —
+`onChange` is called once per parsed item, not once per frame). The listener checks
+`sessionId` to skip self-originated broadcasts, then runs the local reducer for all
+other clients' actions.
 
 ### Dispatch Hook (`pluto/src/schematic/queries.ts`)
 
@@ -1414,8 +1417,8 @@ const SchematicInner: FC<SchematicProps> = ({ schematicKey }) => {
 
 ### Client Library Addition (`client/ts/src/schematic/client.ts`)
 
-The client library adds a `dispatch` method following the existing `sendRequired` pattern
-used by all other client methods (`rename`, `setData`, `delete`, etc.):
+The client library adds a `dispatch` method following the existing `sendRequired`
+pattern used by all other client methods (`rename`, `setData`, `delete`, etc.):
 
 ```typescript
 const dispatchReqZ = z.object({
@@ -1452,7 +1455,7 @@ React Flow fires an `onNodesChange` callback:
 
 ```typescript
 // React Flow produces this change event
-[{ type: "position", id: "valve-3", position: { x: 100, y: 200 } }]
+[{ type: "position", id: "valve-3", position: { x: 100, y: 200 } }];
 ```
 
 ### Step 2: Action Construction (User A's browser)
@@ -1549,8 +1552,8 @@ API Layer
 
 ### Step 6: Signal Broadcast
 
-The `observe.Translator` marshals the `ScopedAction` as JSON, appends `\n`, and emits
-it as a `change.VariantSet`. `PublishFromObservable` writes it to `sy_schematic_set` via
+The `observe.Translator` marshals the `ScopedAction` as JSON, appends `\n`, and emits it
+as a `change.VariantSet`. `PublishFromObservable` writes it to `sy_schematic_set` via
 the framer.
 
 Bytes written to `sy_schematic_set`:
@@ -1561,8 +1564,8 @@ Bytes written to `sy_schematic_set`:
 
 ### Step 7: Client Reception
 
-Both User A and User B have Flux channel listeners subscribed to `sy_schematic_set`.
-The Flux streamer splits the frame on `\n`, parses each line through `scopedActionZ`.
+Both User A and User B have Flux channel listeners subscribed to `sy_schematic_set`. The
+Flux streamer splits the frame on `\n`, parses each line through `scopedActionZ`.
 
 **User A's listener**:
 

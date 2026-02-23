@@ -16,6 +16,7 @@ session.
 of `GorpMarshaler`/`GorpUnmarshaler` + `EntryManager`):
 
 - **`Codec[E]` interface** (`x/go/gorp/codec.go`):
+
   ```go
   type Codec[E any] interface {
       Marshal(ctx context.Context, entry E) ([]byte, error)
@@ -32,25 +33,28 @@ of `GorpMarshaler`/`GorpUnmarshaler` + `EntryManager`):
   `reEncodeKeys` automatically.
 
 - **`Migration` interface** (`x/go/gorp/migrate.go`):
+
   ```go
   type Migration interface {
       Name() string
       Run(ctx context.Context, tx kv.Tx, cfg MigrationConfig) error
   }
   ```
+
   Implementations: `TypedMigration[I,O]` and `RawMigration`.
 
 - **Codec threaded through** all builders, writers (`Writer.set()`), readers
   (`Reader.Get()`, `Iterator.Value()`), and observers (`Table.Observe()`).
 
-- **Deleted** `GorpMarshaler`/`GorpUnmarshaler` interfaces (`x/go/gorp/marshal.go`)
-  and standalone query builders (`NewCreate[K,E]()`, etc.).
+- **Deleted** `GorpMarshaler`/`GorpUnmarshaler` interfaces (`x/go/gorp/marshal.go`) and
+  standalone query builders (`NewCreate[K,E]()`, etc.).
 
 - **All ~17 services** migrated from standalone builders to `table` methods.
 
 - **All gorp and core tests pass**.
 
 ### Key files
+
 - `x/go/gorp/codec.go` — `Codec[E]` interface
 - `x/go/gorp/table.go` — `Table[K,E]`, `OpenTable`, `TableConfig`, `OpenNexter`
 - `x/go/gorp/migrate.go` — `Migration`, `TypedMigration`, `RawMigration`, version
@@ -65,19 +69,19 @@ of `GorpMarshaler`/`GorpUnmarshaler` + `EntryManager`):
 
 **Status**: Complete. On branch `sy-3816-oracle-migrations`.
 
-**What was built** (diverged from original plan — generates standalone `Codec[E]` structs
-in `pb/` subpackage instead of `GorpMarshal`/`GorpUnmarshal` methods on parent type,
-avoiding import cycles):
+**What was built** (diverged from original plan — generates standalone `Codec[E]`
+structs in `pb/` subpackage instead of `GorpMarshal`/`GorpUnmarshal` methods on parent
+type, avoiding import cycles):
 
 - **Oracle `go/marshal` plugin** (`oracle/plugin/go/marshal/marshal.go`):
   - Triggers on `@go marshal` annotation (not `@key`)
   - Generates `pb/codec.gen.go` with standalone codec struct
   - Codec wraps existing `ToPB`/`FromPB` translators + `proto.Marshal`/`Unmarshal`
-  - Exported var: `var SchematicCodec gorp.Codec[schematic.Schematic] = schematicCodec{}`
+  - Exported var:
+    `var SchematicCodec gorp.Codec[schematic.Schematic] = schematicCodec{}`
 
-- **`@go marshal` annotations** added to 14 `.oracle` schemas:
-  arc, channel, device, group, label, lineplot, log, rack, ranger, schematic, table,
-  task, user, workspace
+- **`@go marshal` annotations** added to 14 `.oracle` schemas: arc, channel, device,
+  group, label, lineplot, log, rack, ranger, schematic, table, task, user, workspace
 
 - **14 `codec.gen.go` files generated** via `oracle sync`:
   ```
@@ -88,6 +92,7 @@ avoiding import cycles):
   ```
 
 ### What was NOT built (deferred)
+
 - Oracle plugin tests (`oracle/plugin/go/marshal/marshal_test.go`) not updated to assert
   new trigger/output patterns
 
@@ -120,6 +125,7 @@ This was originally part of Phase 4 in the old plan, but was done early since th
 - **All core tests pass** (60+ suites, 0 failures)
 
 ### Key files modified
+
 - `core/pkg/service/layer.go` — 12 codec imports + wiring
 - `core/pkg/distribution/layer.go` — group codec wiring
 - `core/pkg/distribution/signals/gorp.go` — `Observable` field on `GorpPublisherConfig`
@@ -133,10 +139,10 @@ This was originally part of Phase 4 in the old plan, but was done early since th
 
 ## Phase 3: Codec Transition Migration (msgpack → protobuf) — NOT STARTED
 
-**Goal**: Build and wire the actual data migration that converts existing msgpack-encoded
-entries to protobuf at server startup. **This is the critical missing piece** — without
-it, a server with pre-existing data will crash because the protobuf codec can't decode
-msgpack bytes.
+**Goal**: Build and wire the actual data migration that converts existing
+msgpack-encoded entries to protobuf at server startup. **This is the critical missing
+piece** — without it, a server with pre-existing data will crash because the protobuf
+codec can't decode msgpack bytes.
 
 **Scope**: `x/go/gorp/`, service `OpenTable` call sites
 
@@ -216,8 +222,8 @@ auto-migrate and post-migrate are fully generated, developer touches nothing.
          `AutoMigrateV1ToV2` function (identity transform copying all fields)
        - `migrate.go`: `PostMigrateV1ToV2` function (empty body, codec transition only)
      - Generate `migrations/v2/` sub-package with:
-       - `auto.gen.go`: Current type snapshot with protobuf codec
-         (no auto-migrate yet — v2 is the current version)
+       - `auto.gen.go`: Current type snapshot with protobuf codec (no auto-migrate yet —
+         v2 is the current version)
        - `pb/`: Snapshotted protobuf definitions
      - Generate `migrations/migrate.gen.go`: `All()` function returning the ordered
        migration list with a single `gorp.NewTypedMigration` call
@@ -249,29 +255,29 @@ auto-migrate and post-migrate are fully generated, developer touches nothing.
 
 All of these get codec transition migrations:
 
-| Type | Package | Key Type |
-|------|---------|----------|
-| Workspace | `core/pkg/service/workspace` | `uuid.UUID` |
-| User | `core/pkg/service/user` | `uuid.UUID` |
-| Task | `core/pkg/service/task` | `Key` (uint64) |
-| Schematic | `core/pkg/service/schematic` | `uuid.UUID` |
-| Symbol | `core/pkg/service/schematic/symbol` | `uuid.UUID` |
-| Device | `core/pkg/service/device` | `string` |
-| View | `core/pkg/service/view` | `uuid.UUID` |
-| Arc | `core/pkg/service/arc` | `uuid.UUID` |
-| Table | `core/pkg/service/table` | `uuid.UUID` |
-| LinePlot | `core/pkg/service/lineplot` | `uuid.UUID` |
-| Rack | `core/pkg/service/rack` | `Key` (uint32) |
-| Log | `core/pkg/service/log` | `uuid.UUID` |
-| Range | `core/pkg/service/ranger` | `uuid.UUID` |
-| Alias | `core/pkg/service/ranger/alias` | `string` |
-| Pair | `core/pkg/service/ranger/kv` | `string` |
-| Group | `core/pkg/distribution/group` | `uuid.UUID` |
-| Relationship | `core/pkg/distribution/ontology` | `[]byte` |
-| Label | `x/go/label` | `uuid.UUID` |
-| Role | `core/pkg/service/access/rbac/role` | `uuid.UUID` |
-| Policy | `core/pkg/service/access/rbac/policy` | `uuid.UUID` |
-| SecureCredentials | `core/pkg/service/auth` | `string` |
+| Type              | Package                               | Key Type       |
+| ----------------- | ------------------------------------- | -------------- |
+| Workspace         | `core/pkg/service/workspace`          | `uuid.UUID`    |
+| User              | `core/pkg/service/user`               | `uuid.UUID`    |
+| Task              | `core/pkg/service/task`               | `Key` (uint64) |
+| Schematic         | `core/pkg/service/schematic`          | `uuid.UUID`    |
+| Symbol            | `core/pkg/service/schematic/symbol`   | `uuid.UUID`    |
+| Device            | `core/pkg/service/device`             | `string`       |
+| View              | `core/pkg/service/view`               | `uuid.UUID`    |
+| Arc               | `core/pkg/service/arc`                | `uuid.UUID`    |
+| Table             | `core/pkg/service/table`              | `uuid.UUID`    |
+| LinePlot          | `core/pkg/service/lineplot`           | `uuid.UUID`    |
+| Rack              | `core/pkg/service/rack`               | `Key` (uint32) |
+| Log               | `core/pkg/service/log`                | `uuid.UUID`    |
+| Range             | `core/pkg/service/ranger`             | `uuid.UUID`    |
+| Alias             | `core/pkg/service/ranger/alias`       | `string`       |
+| Pair              | `core/pkg/service/ranger/kv`          | `string`       |
+| Group             | `core/pkg/distribution/group`         | `uuid.UUID`    |
+| Relationship      | `core/pkg/distribution/ontology`      | `[]byte`       |
+| Label             | `x/go/label`                          | `uuid.UUID`    |
+| Role              | `core/pkg/service/access/rbac/role`   | `uuid.UUID`    |
+| Policy            | `core/pkg/service/access/rbac/policy` | `uuid.UUID`    |
+| SecureCredentials | `core/pkg/service/auth`               | `string`       |
 
 ### Acceptance criteria
 
@@ -306,8 +312,8 @@ full codec transition end-to-end.
 2. **Remove old `gorp.Migrator` usage** from any service that previously used it
    (currently only ranger uses it). For ranger, keep its existing `migrateRangeGroups`
    as a `RawMigration` passed before the codec transition in the migration chain.
-   Actually — defer ranger port to Phase 7. For now, ranger keeps its old migrator
-   AND the new `OpenTable` pattern.
+   Actually — defer ranger port to Phase 7. For now, ranger keeps its old migrator AND
+   the new `OpenTable` pattern.
 
 3. **Server startup order**: Verify that services start in dependency order. Schematic
    before Workspace (if Workspace depends on Schematic), etc. The existing startup
@@ -352,8 +358,8 @@ corresponding migration.
    - Diff current `.oracle` files against latest snapshot
    - If schemas differ and no new migration files exist, exit with error code 1
    - If schemas match (or new migrations account for changes), exit with code 0
-   - Print actionable error message: "schema changed but no migration generated.
-     Run 'oracle migrate generate' and commit the result."
+   - Print actionable error message: "schema changed but no migration generated. Run
+     'oracle migrate generate' and commit the result."
 
 4. **Schema diffing**: Compare two sets of `.oracle` files. This is a file-level diff
    (not field-level yet — that comes in Phase 7). If any `.oracle` file content differs
@@ -428,6 +434,7 @@ thorough unit testing.
 The diff engine and dependency tracking need comprehensive unit tests:
 
 **Diff engine tests**:
+
 - Field added: detects new field, classifies correctly
 - Field removed: detects missing field
 - Field type changed: same name, different type
@@ -439,6 +446,7 @@ The diff engine and dependency tracking need comprehensive unit tests:
 - Map field changes
 
 **Dependency graph tests**:
+
 - Direct dependency: Type A has field of Type B
 - Transitive dependency: A → B → C, change C triggers A and B
 - Shared dependency: A and B both reference C, change C triggers both
@@ -447,6 +455,7 @@ The diff engine and dependency tracking need comprehensive unit tests:
 - Deep nesting (5+ levels)
 
 **Generation mode tests**:
+
 - Skeleton mode generates correct auto-migrate (copies unchanged fields)
 - Skeleton mode post-migrate template has correct TODOs
 - Propagation mode auto-migrate walks nested collections correctly
@@ -455,6 +464,7 @@ The diff engine and dependency tracking need comprehensive unit tests:
 - Generated code compiles
 
 **Integration tests**:
+
 - Add a field to a type → `oracle migrate generate` → correct files generated
 - Remove a field → correct files
 - Change nested type → propagation to all parents
@@ -595,5 +605,5 @@ Phase 9: Test Infrastructure (can start anytime after Phase 1)
 6. **`@go marshal` annotation** triggers codec generation (not `@key`).
 7. **Standalone codec structs** in `pb/` subpackage, exported as
    `var XxxCodec gorp.Codec[parent.Xxx]`.
-8. **Ranger port deferred to Phase 8** — validates `RawMigration` path but doesn't
-   block codec transition.
+8. **Ranger port deferred to Phase 8** — validates `RawMigration` path but doesn't block
+   codec transition.
