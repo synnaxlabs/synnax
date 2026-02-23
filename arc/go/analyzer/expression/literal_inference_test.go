@@ -49,8 +49,8 @@ var _ = Describe("Literal Type Inference", func() {
 	})
 
 	Describe("Numeric literals should adapt to context", func() {
-		It("Should allow comparison of f32 variable with integer literal", func() {
-			expectSuccess(`
+		It("Should allow comparison of f32 variable with integer literal", func(ctx SpecContext) {
+			expectSuccess(ctx, `
 				func testFunc() {
 					x f32 := 10
 					z := x > 5
@@ -58,8 +58,8 @@ var _ = Describe("Literal Type Inference", func() {
 			`, nil)
 		})
 
-		It("Should reject comparison of i32 variable with non-exact-integer float literal", func() {
-			expectFailure(`
+		It("Should reject comparison of i32 variable with non-exact-integer float literal", func(ctx SpecContext) {
+			expectFailure(ctx, `
 				func testFunc() {
 					x i32 := 10
 					z := x > 5.5
@@ -67,8 +67,8 @@ var _ = Describe("Literal Type Inference", func() {
 			`, nil, "type mismatch")
 		})
 
-		It("Should allow comparison of i32 variable with exact-integer float literal", func() {
-			expectSuccess(`
+		It("Should allow comparison of i32 variable with exact-integer float literal", func(ctx SpecContext) {
+			expectSuccess(ctx, `
 				func testFunc() {
 					x i32 := 10
 					z := x > 5.0
@@ -76,77 +76,77 @@ var _ = Describe("Literal Type Inference", func() {
 			`, nil)
 		})
 
-		It("should allow 2 + abc where abc is f32", func() {
-			expectSuccess(`
+		It("should allow 2 + abc where abc is f32", func(ctx SpecContext) {
+			expectSuccess(ctx, `
 				func test{} () f32 {
 					return 2 + abc
 				}
 			`, testResolver)
 		})
 
-		It("should allow abc + 2 where abc is f32", func() {
-			expectSuccess(`
+		It("should allow abc + 2 where abc is f32", func(ctx SpecContext) {
+			expectSuccess(ctx, `
 				func test{} () f32 {
 					return abc + 2
 				}
 			`, testResolver)
 		})
 
-		It("should allow 2.5 + abc where abc is f32", func() {
-			expectSuccess(`
+		It("should allow 2.5 + abc where abc is f32", func(ctx SpecContext) {
+			expectSuccess(ctx, `
 				func test{} () f32 {
 					return 2.5 + abc
 				}
 			`, testResolver)
 		})
 
-		It("should allow 5 + xyz where xyz is i32", func() {
-			expectSuccess(`
+		It("should allow 5 + xyz where xyz is i32", func(ctx SpecContext) {
+			expectSuccess(ctx, `
 				func test{} () i32 {
 					return 5 + xyz
 				}
 			`, testResolver)
 		})
 
-		It("should infer correct type for expressions with multiple literals", func() {
-			expectSuccess(`
+		It("should infer correct type for expressions with multiple literals", func(ctx SpecContext) {
+			expectSuccess(ctx, `
 				func test{} () f32 {
 					return 2 + abc + 3
 				}
 			`, testResolver)
 		})
 
-		It("Should infer the correct type for channel and literal operations", func() {
-			expectSuccess(`
+		It("Should infer the correct type for channel and literal operations", func(ctx SpecContext) {
+			expectSuccess(ctx, `
 				func cat() f64 {
 					return 2 * sensor
 				}
 			`, testResolver)
 		})
 
-		It("Should infer the correct type for channel and literal operations in power expressions", func() {
-			expectSuccess(`
+		It("Should infer the correct type for channel and literal operations in power expressions", func(ctx SpecContext) {
+			expectSuccess(ctx, `
 				func cat() f64 {
 					return sensor ^ 2
 				}
 			`, testResolver)
 		})
 
-		It("Should infer the correct type for channel and several literal operations", func() {
-			expectSuccess(`
+		It("Should infer the correct type for channel and several literal operations", func(ctx SpecContext) {
+			expectSuccess(ctx, `
 				func cat() f64 {
 					return 2 * sensor * 3.0 * sensor
 				}
 			`, testResolver)
 		})
 
-		It("Should reject float literal with incompatible integer channel type", func() {
+		It("Should reject float literal with incompatible integer channel type", func(specCtx SpecContext) {
 			program := MustSucceed(parser.Parse(`
 				func cat() f64 {
 					return 2.2 * integer_sensor
 				}
 			`))
-			ctx := acontext.CreateRoot(bCtx, program, testResolver)
+			ctx := acontext.CreateRoot(specCtx, program, testResolver)
 			analyzer.AnalyzeProgram(ctx)
 			Expect(ctx.Diagnostics.Ok()).To(BeFalse())
 			errorMsg := ctx.Diagnostics.Error()
@@ -156,8 +156,8 @@ var _ = Describe("Literal Type Inference", func() {
 			))
 		})
 
-		It("Should infer the correct type for the direct return of a channel as an i8", func() {
-			expectSuccess(`
+		It("Should infer the correct type for the direct return of a channel as an i8", func(ctx SpecContext) {
+			expectSuccess(ctx, `
 				func cat() i8 {
 					return integer_sensor
 				}
@@ -184,48 +184,48 @@ var _ = Describe("Literal Type Inference", func() {
 			}
 		})
 
-		It("Should infer integer literal as f32 in power expression with f32 channel", func() {
-			expectSuccess(`
+		It("Should infer integer literal as f32 in power expression with f32 channel", func(ctx SpecContext) {
+			expectSuccess(ctx, `
 				func test() f32 {
 					return f32_sensor ^ 2
 				}
 			`, testResolver)
 		})
 
-		It("Should infer integer literal as f64 in power expression with f64 channel", func() {
-			expectSuccess(`
+		It("Should infer integer literal as f64 in power expression with f64 channel", func(ctx SpecContext) {
+			expectSuccess(ctx, `
 				func test() f64 {
 					return f64_sensor ^ 3
 				}
 			`, testResolver)
 		})
 
-		It("Should infer integer literal as i32 in power expression with i32 channel", func() {
-			expectSuccess(`
+		It("Should infer integer literal as i32 in power expression with i32 channel", func(ctx SpecContext) {
+			expectSuccess(ctx, `
 				func test() i32 {
 					return i32_sensor ^ 2
 				}
 			`, testResolver)
 		})
 
-		It("Should handle float literal as exponent with float channel", func() {
-			expectSuccess(`
+		It("Should handle float literal as exponent with float channel", func(ctx SpecContext) {
+			expectSuccess(ctx, `
 				func test() f64 {
 					return f64_sensor ^ 2.5
 				}
 			`, testResolver)
 		})
 
-		It("Should handle chained power operations with literals", func() {
-			expectSuccess(`
+		It("Should handle chained power operations with literals", func(ctx SpecContext) {
+			expectSuccess(ctx, `
 				func test() f32 {
 					return f32_sensor ^ 2 ^ 3
 				}
 			`, testResolver)
 		})
 
-		It("Should handle power in complex expression with literals", func() {
-			expectSuccess(`
+		It("Should handle power in complex expression with literals", func(ctx SpecContext) {
+			expectSuccess(ctx, `
 				func test() f32 {
 					return 2 * f32_sensor ^ 2 + 3
 				}

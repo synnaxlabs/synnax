@@ -10,8 +10,6 @@
 package context_test
 
 import (
-	stdcontext "context"
-
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	analyzerContext "github.com/synnaxlabs/arc/analyzer/context"
@@ -24,17 +22,11 @@ import (
 )
 
 var _ = Describe("Context", func() {
-	var bCtx stdcontext.Context
-
-	BeforeEach(func() {
-		bCtx = stdcontext.Background()
-	})
-
 	Describe("CreateRoot", func() {
-		It("Should initialize all fields correctly", func() {
+		It("Should initialize all fields correctly", func(specCtx SpecContext) {
 			ast := testutil.NewMockAST(1)
-			ctx := analyzerContext.CreateRoot(bCtx, ast, nil)
-			Expect(ctx.Context).To(Equal(bCtx))
+			ctx := analyzerContext.CreateRoot(specCtx, ast, nil)
+			Expect(ctx.Context).To(Equal(specCtx))
 			Expect(ctx.Scope).ToNot(BeNil())
 			Expect(ctx.Diagnostics).ToNot(BeNil())
 			Expect(*ctx.Diagnostics).To(HaveLen(0))
@@ -48,11 +40,11 @@ var _ = Describe("Context", func() {
 	})
 
 	Describe("Child", func() {
-		It("Should share all pointers except AST", func() {
+		It("Should share all pointers except AST", func(specCtx SpecContext) {
 			var (
 				parentAST = testutil.NewMockAST(1)
 				childAST  = testutil.NewMockAST(2)
-				parent    = analyzerContext.CreateRoot(bCtx, parentAST, nil)
+				parent    = analyzerContext.CreateRoot(specCtx, parentAST, nil)
 				child     = analyzerContext.Child(parent, childAST)
 			)
 			Expect(child.AST).To(Equal(childAST))
@@ -65,11 +57,11 @@ var _ = Describe("Context", func() {
 			Expect(child.InTypeInferenceMode).To(Equal(parent.InTypeInferenceMode))
 		})
 
-		It("Should share state mutations", func() {
+		It("Should share state mutations", func(ctx SpecContext) {
 			var (
 				parentAST = testutil.NewMockAST(1)
 				childAST  = testutil.NewMockAST(2)
-				parent    = analyzerContext.CreateRoot(bCtx, parentAST, nil)
+				parent    = analyzerContext.CreateRoot(ctx, parentAST, nil)
 				child     = analyzerContext.Child(parent, childAST)
 			)
 			child.Diagnostics.Add(diagnostics.Infof(childAST, "test diagnostic"))
@@ -79,10 +71,10 @@ var _ = Describe("Context", func() {
 			Expect(parent.TypeMap[testAST]).To(Equal(types.I32()))
 		})
 
-		It("Should preserve parent's TypeHint and InTypeInferenceMode", func() {
+		It("Should preserve parent's TypeHint and InTypeInferenceMode", func(ctx SpecContext) {
 			parentAST := testutil.NewMockAST(1)
 			childAST := testutil.NewMockAST(2)
-			parent := analyzerContext.CreateRoot(bCtx, parentAST, nil)
+			parent := analyzerContext.CreateRoot(ctx, parentAST, nil)
 			parent.TypeHint = types.F64()
 			parent.InTypeInferenceMode = true
 			child := analyzerContext.Child(parent, childAST)
@@ -92,12 +84,12 @@ var _ = Describe("Context", func() {
 	})
 
 	Describe("WithScope", func() {
-		It("Should return new context with updated scope", func() {
+		It("Should return new context with updated scope", func(specCtx SpecContext) {
 			var (
 				ast           = testutil.NewMockAST(1)
-				ctx           = analyzerContext.CreateRoot(bCtx, ast, nil)
+				ctx           = analyzerContext.CreateRoot(specCtx, ast, nil)
 				originalScope = ctx.Scope
-				newScope      = MustSucceed(ctx.Scope.Add(bCtx, symbol.Symbol{
+				newScope      = MustSucceed(ctx.Scope.Add(specCtx, symbol.Symbol{
 					Name: "test",
 					Kind: symbol.KindFunction,
 					Type: types.Function(types.FunctionProperties{}),
@@ -117,10 +109,10 @@ var _ = Describe("Context", func() {
 	})
 
 	Describe("WithTypeHint", func() {
-		It("Should return new context with updated type hint", func() {
+		It("Should return new context with updated type hint", func(specCtx SpecContext) {
 			var (
 				ast    = testutil.NewMockAST(1)
-				ctx    = analyzerContext.CreateRoot(bCtx, ast, nil)
+				ctx    = analyzerContext.CreateRoot(specCtx, ast, nil)
 				newCtx = ctx.WithTypeHint(types.F64())
 			)
 			Expect(newCtx.TypeHint).To(Equal(types.F64()))
@@ -133,11 +125,11 @@ var _ = Describe("Context", func() {
 			Expect(newCtx.InTypeInferenceMode).To(Equal(ctx.InTypeInferenceMode))
 		})
 
-		It("Should allow chaining with WithScope", func() {
+		It("Should allow chaining with WithScope", func(specCtx SpecContext) {
 			var (
 				ast      = testutil.NewMockAST(1)
-				ctx      = analyzerContext.CreateRoot(bCtx, ast, nil)
-				newScope = MustSucceed(ctx.Scope.Add(bCtx, symbol.Symbol{
+				ctx      = analyzerContext.CreateRoot(specCtx, ast, nil)
+				newScope = MustSucceed(ctx.Scope.Add(specCtx, symbol.Symbol{
 					Name: "test",
 					Kind: symbol.KindFunction,
 					Type: types.Function(types.FunctionProperties{}),
@@ -150,11 +142,11 @@ var _ = Describe("Context", func() {
 	})
 
 	Describe("Integration", func() {
-		It("Should support realistic workflow with one parsed AST", func() {
+		It("Should support realistic workflow with one parsed AST", func(specCtx SpecContext) {
 			var (
 				prog     = MustSucceed(parser.Parse(`func test() {}`))
-				rootCtx  = analyzerContext.CreateRoot(bCtx, prog, nil)
-				newScope = MustSucceed(rootCtx.Scope.Add(bCtx, symbol.Symbol{
+				rootCtx  = analyzerContext.CreateRoot(specCtx, prog, nil)
+				newScope = MustSucceed(rootCtx.Scope.Add(specCtx, symbol.Symbol{
 					Name: "x",
 					Kind: symbol.KindVariable,
 					Type: types.I32(),

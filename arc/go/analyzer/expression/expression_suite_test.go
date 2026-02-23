@@ -22,27 +22,21 @@ import (
 	. "github.com/synnaxlabs/x/testutil"
 )
 
-var bCtx context.Context
-
-var _ = BeforeEach(func() {
-	bCtx = context.Background()
-})
-
 func TestExpression(t *testing.T) {
 	RegisterFailHandler(Fail)
 	RunSpecs(t, "Expression Analyzer Suite")
 }
 
-func expectSuccess(code string, resolver symbol.Resolver) {
+func expectSuccess(specCtx context.Context, code string, resolver symbol.Resolver) {
 	ast := MustSucceed(parser.Parse(code))
-	ctx := acontext.CreateRoot(bCtx, ast, resolver)
+	ctx := acontext.CreateRoot(specCtx, ast, resolver)
 	analyzer.AnalyzeProgram(ctx)
 	Expect(ctx.Diagnostics.Ok()).To(BeTrue(), ctx.Diagnostics.String())
 }
 
-func expectFailure(code string, resolver symbol.Resolver, expectedMsg string) {
+func expectFailure(specCtx context.Context, code string, resolver symbol.Resolver, expectedMsg string) {
 	ast := MustSucceed(parser.Parse(code))
-	ctx := acontext.CreateRoot(bCtx, ast, resolver)
+	ctx := acontext.CreateRoot(specCtx, ast, resolver)
 	analyzer.AnalyzeProgram(ctx)
 	Expect(ctx.Diagnostics.Ok()).To(BeFalse())
 	Expect((*ctx.Diagnostics)[0].Message).To(ContainSubstring(expectedMsg))
