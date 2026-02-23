@@ -330,6 +330,12 @@ export const Loaded: Layout.Renderer = ({ layoutKey, visible }) => {
     [storeLegendPosition, setLegendPosition],
   );
 
+  const handleLegendColorsChange = useCallback(
+    (colors: Record<string, string>) =>
+      syncDispatch(setLegend({ key: layoutKey, legend: { colors } })),
+    [layoutKey, syncDispatch],
+  );
+
   const handleViewportModeChange = useCallback(
     (mode: Viewport.Mode) => dispatch(setViewportMode({ key: layoutKey, mode })),
     [dispatch, layoutKey],
@@ -421,6 +427,8 @@ export const Loaded: Layout.Renderer = ({ layoutKey, visible }) => {
           <Control.Legend
             position={legendPosition}
             onPositionChange={handleLegendPositionChange}
+            colors={state.legend.colors}
+            onColorsChange={handleLegendColorsChange}
             allowVisibleChange={false}
           />
         )}

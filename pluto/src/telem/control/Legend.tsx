@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { UnexpectedError } from "@synnaxlabs/client";
-import { type color, unique } from "@synnaxlabs/x";
+import { color, unique } from "@synnaxlabs/x";
 import { type ReactElement, useCallback, useEffect, useState } from "react";
 
 import { Aether } from "@/aether";
@@ -35,10 +35,13 @@ const parseSubjectName = (name: string): ParsedName => {
   return { primary: match[1], secondary: match[2] };
 };
 
-export interface LegendProps extends Omit<Base.SimpleProps, "data" | "onEntryChange"> {}
+export interface LegendProps extends Omit<Base.SimpleProps, "data" | "onEntryChange"> {
+  colors?: Record<string, string>;
+  onColorsChange?: (colors: Record<string, string>) => void;
+}
 
 export const Legend = (props: LegendProps): ReactElement | null => {
-  const { controllerKey, needsControlOf } = useContext();
+  const { key: contextKey, needsControlOf } = useContext();
   const [, { states }, setState] = Aether.use({
     type: control.Legend.TYPE,
     schema: control.legendStateZ,
@@ -49,12 +52,20 @@ export const Legend = (props: LegendProps): ReactElement | null => {
     setState((state) => ({ ...state, needsControlOf }));
   }, [needsControlOf]);
 
-  const [colorOverrides, setColorOverrides] = useState<Record<string, color.Crude>>({});
+  const {
+    colors = {},
+    onColorsChange,
+    position,
+    onPositionChange,
+    allowVisibleChange: _,
+    background = 1,
+    ...rest
+  } = props;
 
   const handleColorChange = useCallback(
     (key: string, c: color.Crude) =>
-      setColorOverrides((prev) => ({ ...prev, [key]: c })),
-    [],
+      onColorsChange?.({ ...colors, [key]: color.hex(c) }),
+    [colors, onColorsChange],
   );
 
   const subjects = unique.unique(states.map((s) => s.subject.key));
@@ -64,8 +75,8 @@ export const Legend = (props: LegendProps): ReactElement | null => {
     return {
       key: d.subject.key,
       name: d.subject.name,
-      color: colorOverrides[d.subject.key] ?? d.subjectColor,
-      isSelf: d.subject.key === controllerKey,
+      color: colors[d.subject.key] ?? d.subjectColor,
+      isSelf: d.subject.key === contextKey,
     };
   });
 
@@ -73,14 +84,6 @@ export const Legend = (props: LegendProps): ReactElement | null => {
     if (a.isSelf !== b.isSelf) return a.isSelf ? -1 : 1;
     return a.name.localeCompare(b.name);
   });
-
-  const {
-    position,
-    onPositionChange,
-    allowVisibleChange: _,
-    background = 1,
-    ...rest
-  } = props;
 
   const [pickerVisible, setPickerVisible] = useState(false);
 

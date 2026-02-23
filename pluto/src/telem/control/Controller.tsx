@@ -25,7 +25,7 @@ export interface ControllerProps
 }
 
 export interface ContextValue {
-  controllerKey: string;
+  key: string;
   needsControlOf: channel.Keys;
   acquire: () => void;
   release: () => void;
@@ -33,7 +33,7 @@ export interface ContextValue {
 
 const [Context, useContext] = context.create<ContextValue>({
   defaultValue: {
-    controllerKey: "",
+    key: "",
     needsControlOf: [],
     acquire: () => {},
     release: () => {},
@@ -61,15 +61,15 @@ export const Controller = ({
     setState((state) => ({ ...state, ...memoProps }));
   }, [memoProps, setState]);
   useEffect(() => () => onStatusChange?.("released"), []);
-  const controllerKey = path[path.length - 1];
+  const key = path[path.length - 1];
   const value = useMemo(
     () => ({
-      controllerKey,
+      key,
       needsControlOf,
       acquire: methods.acquire,
       release: methods.release,
     }),
-    [controllerKey, needsControlOf, methods.acquire, methods.release],
+    [key, needsControlOf, methods.acquire, methods.release],
   );
   return (
     <Context value={value}>
