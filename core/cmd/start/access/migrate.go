@@ -64,7 +64,7 @@ func MigratePermissions(
 	dist *distribution.Layer,
 	svc *service.Layer,
 	roles ProvisionResult,
-) error {
+) (err error) {
 	// Check if migration already performed
 	performed, closer, err := tx.Get(ctx, migrationKey)
 	if err != nil && !errors.Is(err, query.ErrNotFound) {
@@ -82,7 +82,7 @@ func MigratePermissions(
 	if err != nil {
 		return err
 	}
-	defer legacyPolicyTable.Close()
+	defer func() { err = errors.Join(err, legacyPolicyTable.Close()) }()
 
 	// Query all users
 	var users []user.User

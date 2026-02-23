@@ -140,12 +140,6 @@ type Iterator[E any] struct {
 	unmarshal func(context.Context, []byte) (E, error)
 }
 
-// WrapIterator wraps the provided iterator. All valid calls to iter.Value are
-// decoded into the entry type E.
-func WrapIterator[E any](wrapped kv.Iterator, decoder binary.Decoder) *Iterator[E] {
-	return &Iterator[E]{Iterator: wrapped, decoder: decoder}
-}
-
 func wrapIterator[E any](wrapped kv.Iterator, decoder binary.Decoder, codec Codec[E]) *Iterator[E] {
 	iter := &Iterator[E]{Iterator: wrapped, decoder: decoder}
 	if codec != nil {
