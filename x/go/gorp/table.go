@@ -11,7 +11,6 @@ package gorp
 
 import (
 	"context"
-	stdbinary "encoding/binary"
 	"io"
 	"iter"
 

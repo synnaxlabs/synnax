@@ -27,11 +27,12 @@ import (
 )
 
 var (
-	ctx = context.Background()
-	db  *gorp.DB
-	otg *ontology.Ontology
-	g   *group.Service
-	svc *service.Layer
+	ctx    = context.Background()
+	db     *gorp.DB
+	otg    *ontology.Ontology
+	g      *group.Service
+	svc    *service.Layer
+	authKv *auth.KV
 )
 
 func TestAuth(t *testing.T) {
@@ -62,6 +63,7 @@ var _ = BeforeSuite(func() {
 })
 
 var _ = AfterSuite(func() {
+	Expect(authKv.Close()).To(Succeed())
 	Expect(svc.RBAC.Close()).To(Succeed())
 	Expect(g.Close()).To(Succeed())
 	Expect(otg.Close()).To(Succeed())
