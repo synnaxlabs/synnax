@@ -38,6 +38,7 @@ Label struct {
         filtering.
     """
     @go marshal
+    @go migrate
 }
 
 New struct extends Label {

@@ -20,6 +20,7 @@ import (
 	"github.com/synnaxlabs/x/config"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/gorp"
+	golabel "github.com/synnaxlabs/x/label"
 	"github.com/synnaxlabs/x/override"
 	"github.com/synnaxlabs/x/validate"
 )
@@ -90,11 +91,9 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (*Service, error) {
 		return nil, err
 	}
 	table, err := gorp.OpenTable[uuid.UUID, Label](ctx, gorp.TableConfig[Label]{
-		DB:    cfg.DB,
-		Codec: cfg.Codec,
-		Migrations: []gorp.Migration{
-			gorp.NewCodecTransition[uuid.UUID, Label]("msgpack_to_protobuf", cfg.Codec),
-		},
+		DB:         cfg.DB,
+		Codec:      cfg.Codec,
+		Migrations: golabel.LabelMigrations(cfg.Codec),
 	})
 	if err != nil {
 		return nil, err

@@ -43,6 +43,7 @@ Schematic struct {
     """
     @ontology type "schematic"
     @go marshal
+    @go migrate
 }
 
 New struct extends Schematic {

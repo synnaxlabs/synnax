@@ -74,6 +74,7 @@ func (g GorpPublisherConfig[K, E]) Override(other GorpPublisherConfig[K, E]) Gor
 	g.MarshalDelete = override.Nil(g.MarshalDelete, other.MarshalDelete)
 	g.SetName = override.String(g.SetName, other.SetName)
 	g.DeleteName = override.String(g.DeleteName, other.DeleteName)
+	g.Observable = override.Nil(g.Observable, other.Observable)
 	return g
 }
 

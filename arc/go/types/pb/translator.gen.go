@@ -465,6 +465,34 @@ func UnitsFromPB(ctx context.Context, pbs []*Unit) ([]types.Unit, error) {
 	return result, nil
 }
 
+// ChanDirectionToPB converts types.ChanDirection to ChanDirection.
+func ChanDirectionToPB(v types.ChanDirection) ChanDirection {
+	switch v {
+	case types.ChanDirectionNone:
+		return ChanDirection_CHAN_DIRECTION_NONE
+	case types.ChanDirectionRead:
+		return ChanDirection_CHAN_DIRECTION_READ
+	case types.ChanDirectionWrite:
+		return ChanDirection_CHAN_DIRECTION_WRITE
+	default:
+		return ChanDirection_CHAN_DIRECTION_NONE
+	}
+}
+
+// ChanDirectionFromPB converts ChanDirection to types.ChanDirection.
+func ChanDirectionFromPB(v ChanDirection) types.ChanDirection {
+	switch v {
+	case ChanDirection_CHAN_DIRECTION_NONE:
+		return types.ChanDirectionNone
+	case ChanDirection_CHAN_DIRECTION_READ:
+		return types.ChanDirectionRead
+	case ChanDirection_CHAN_DIRECTION_WRITE:
+		return types.ChanDirectionWrite
+	default:
+		return types.ChanDirectionNone
+	}
+}
+
 // KindToPB converts types.Kind to Kind.
 func KindToPB(v types.Kind) Kind {
 	switch v {
@@ -566,33 +594,5 @@ func KindFromPB(v Kind) types.Kind {
 		return types.KindStage
 	default:
 		return types.KindInvalid
-	}
-}
-
-// ChanDirectionToPB converts types.ChanDirection to ChanDirection.
-func ChanDirectionToPB(v types.ChanDirection) ChanDirection {
-	switch v {
-	case types.ChanDirectionNone:
-		return ChanDirection_CHAN_DIRECTION_NONE
-	case types.ChanDirectionRead:
-		return ChanDirection_CHAN_DIRECTION_READ
-	case types.ChanDirectionWrite:
-		return ChanDirection_CHAN_DIRECTION_WRITE
-	default:
-		return ChanDirection_CHAN_DIRECTION_NONE
-	}
-}
-
-// ChanDirectionFromPB converts ChanDirection to types.ChanDirection.
-func ChanDirectionFromPB(v ChanDirection) types.ChanDirection {
-	switch v {
-	case ChanDirection_CHAN_DIRECTION_NONE:
-		return types.ChanDirectionNone
-	case ChanDirection_CHAN_DIRECTION_READ:
-		return types.ChanDirectionRead
-	case ChanDirection_CHAN_DIRECTION_WRITE:
-		return types.ChanDirectionWrite
-	default:
-		return types.ChanDirectionNone
 	}
 }

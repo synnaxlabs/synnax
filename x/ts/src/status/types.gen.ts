@@ -13,8 +13,8 @@ import { z } from "zod";
 
 import { id } from "@/id";
 import { label } from "@/label";
-import { type optional } from "@/optional";
-import { telem, TimeStamp } from "@/telem";
+import { optional } from "@/optional";
+import { TimeStamp, telem } from "@/telem";
 import { zod } from "@/zod";
 export const VARIANTS = [
   "success",

@@ -123,6 +123,7 @@ Task struct<
     }
     @ontology type "task"
     @go marshal
+    @go migrate
     @py name       "Payload"
 }
 

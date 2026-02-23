@@ -94,6 +94,7 @@ Device struct<
     """
     @ontology type     "device"
     @go marshal
+    @go migrate
     @ts concrete_types
 }
 
