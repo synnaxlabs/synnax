@@ -82,8 +82,8 @@ var _ gorp.Codec[jsonEntry] = failMarshalCodec{}
 
 // mapEntry mimics production types like Schematic that have a MsgpackEncodedJSON field.
 type mapEntry struct {
-	ID   int32                    `msgpack:"id"`
-	Name string                   `msgpack:"name"`
+	ID   int32                     `msgpack:"id"`
+	Name string                    `msgpack:"name"`
 	Data binary.MsgpackEncodedJSON `msgpack:"data"`
 }
 
