@@ -1,0 +1,67 @@
+---
+title: "Version 0.52 Release Notes"
+---
+
+import { Image } from "@/components/media/Media";
+import { Divider, Flex } from "@synnaxlabs/pluto";
+import Release from "@/components/releases/Release.astro";
+import Diagram from "@/components/diagram/Diagram.astro";
+import { mdxOverrides } from "@/components/mdxOverrides";
+
+export const components = mdxOverrides;
+
+<Release
+    version="0.52.0"
+    date="Feb 22, 2026"
+    title="HTTP Device Support"
+>
+
+Synnax v0.52 introduces our new HTTP device driver for integrating with REST APIs and
+web services. We've also added support for extended analog input channels on the LabJack
+T7.
+
+### HTTP Device Driver
+
+Our new HTTP device driver allows you to connect Synnax to any REST API or web service
+directly from the Console. A deployed Synnax Driver will now discover and communicate
+with HTTP endpoints for both data acquisition and control.
+
+Read tasks poll one or more endpoints at a configurable rate and write response data into
+Synnax channels. You can extract specific fields from nested JSON response bodies, and
+timestamps can be sourced from the API response or generated automatically.
+
+Write tasks send HTTP requests when Synnax channel values change. Request bodies can
+combine live channel values with static fields and auto-generated values like timestamps.
+
+The driver also includes built-in health monitoring that periodically checks endpoint
+availability, with results displayed in the Console's device status indicators.
+Authentication is supported out of the box, including token, API key, and basic
+username/password methods.
+
+<Divider.Divider x />
+
+### LabJack T7 Extended Analog Inputs
+
+The Console and Driver now support extended analog input channels (AIN 48–127) on the
+LabJack T7 when used with the MUX80 analog multiplexer. Previously, only channels
+AIN 0–13 were available.
+
+<Divider.Divider x />
+
+### Removal of Lua Sequences
+
+Lua-based embedded sequences have been fully removed from Synnax. This includes the
+language server, the sequence driver, and all related Console UI. Users who have not yet
+migrated their Lua sequences to [Arc](/reference/control/arc/get-started) should do so
+before upgrading.
+
+<Divider.Divider x />
+
+### Minor Improvements and Bug Fixes
+
+#### Driver
+
+- Fixed a crash (`0xc0000005`) that occurred when starting the Driver on older Windows
+  versions.
+
+</Release>
