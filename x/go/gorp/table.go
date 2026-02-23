@@ -11,6 +11,8 @@ package gorp
 
 import (
 	"context"
+	"io"
+	"iter"
 
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/kv"
@@ -65,6 +67,12 @@ func (t *Table[K, E]) NewUpdate() Update[K, E] {
 // NewDelete returns a Delete query builder configured with this table's codec.
 func (t *Table[K, E]) NewDelete() Delete[K, E] {
 	return Delete[K, E]{retrieve: t.NewRetrieve(), codec: t.codec}
+}
+
+// OpenNexter opens a new Nexter over entries in the table using the table's codec
+// for decoding.
+func (t *Table[K, E]) OpenNexter(ctx context.Context) (iter.Seq[E], io.Closer, error) {
+	return wrapReader[K, E](t.DB, t.codec).OpenNexter(ctx)
 }
 
 func migrateKeys[K Key, E Entry[K]](ctx context.Context, db *DB, codec Codec[E]) error {

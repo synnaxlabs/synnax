@@ -56,7 +56,7 @@ var _ = BeforeSuite(func() {
 	svc = &service.Layer{
 		User: userSvc,
 		RBAC: rbacSvc,
-		Auth: &auth.KV{DB: db},
+		Auth: MustSucceed(auth.OpenKV(ctx, db)),
 	}
 })
 
