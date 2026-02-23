@@ -2444,8 +2444,8 @@ TEST(ArcTests, testWriterOpensWithErrOnUnauthorizedFalse) {
     );
 
     synnax::task::Task task_meta(rack.key, "arc_eou_test", "arc_runtime", "");
-    nlohmann::json cfg{{"arc_key", arc_prog.key}};
-    task_meta.config = nlohmann::to_string(cfg);
+    nlohmann::json cfg{{"arc_key", arc_prog.key.to_string()}};
+    task_meta.config = cfg;
 
     auto parser = x::json::Parser(task_meta.config);
     auto task_cfg = ASSERT_NIL_P(arc::TaskConfig::parse(client, parser));
