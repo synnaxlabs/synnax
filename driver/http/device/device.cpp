@@ -168,8 +168,7 @@ build_result(Handle &h, x::telem::TimeStamp start) {
 Client::Client() = default;
 
 Client::Client(Client &&other) noexcept:
-    multi_handle_(std::move(other.multi_handle_)),
-    handles_(std::move(other.handles_)) {}
+    multi_handle(std::move(other.multi_handle)), handles(std::move(other.handles)) {}
 
 std::pair<Client, x::errors::Error>
 Client::create(ConnectionConfig config, const std::vector<RequestConfig> &requests) {
@@ -189,8 +188,8 @@ Client::create(ConnectionConfig config, const std::vector<RequestConfig> &reques
 
 Client::Client(ConnectionConfig config, const std::vector<RequestConfig> &requests) {
     ensure_curl_initialized();
-    multi_handle_ = std::make_unique<MultiHandle>();
-    handles_.reserve(requests.size());
+    multi_handle = std::make_unique<MultiHandle>();
+    handles.reserve(requests.size());
 
     for (const auto &req: requests) {
         Handle h;
@@ -289,10 +288,10 @@ Client::Client(ConnectionConfig config, const std::vector<RequestConfig> &reques
         if (h.headers != nullptr)
             curl_easy_setopt(h.handle, CURLOPT_HTTPHEADER, h.headers);
 
-        handles_.push_back(std::move(h));
+        handles.push_back(std::move(h));
         // Set WRITEDATA and PRIVATE after push_back so pointers target the handle's
         // final location in the vector (reserve prevents reallocation).
-        auto &back = handles_.back();
+        auto &back = handles.back();
         curl_easy_setopt(back.handle, CURLOPT_WRITEDATA, &back.response_body);
         curl_easy_setopt(back.handle, CURLOPT_PRIVATE, reinterpret_cast<char *>(&back));
     }
@@ -308,8 +307,8 @@ Client::execute_requests(
     static const std::string empty;
 
     // Single-handle fast path: use curl_easy_perform directly.
-    if (handles_.size() == 1) {
-        auto &h = handles_[0];
+    if (handles.size() == 1) {
+        auto &h = handles[0];
         h.response_body.clear();
         set_body(h, !bodies.empty() ? bodies[0] : empty);
         const auto start = x::telem::TimeStamp::now();
@@ -318,10 +317,10 @@ Client::execute_requests(
     }
 
     // Multi-handle path.
-    auto *multi = multi_handle_->handle;
+    auto *multi = multi_handle->handle;
 
-    for (size_t i = 0; i < handles_.size(); i++) {
-        auto &h = handles_[i];
+    for (size_t i = 0; i < handles.size(); i++) {
+        auto &h = handles[i];
         h.response_body.clear();
         h.result_code = CURLE_OK;
         set_body(h, i < bodies.size() ? bodies[i] : empty);
@@ -335,7 +334,7 @@ Client::execute_requests(
     do {
         const auto mc = curl_multi_perform(multi, &still_running);
         if (mc != CURLM_OK) {
-            for (auto &h: handles_)
+            for (auto &h: handles)
                 curl_multi_remove_handle(multi, h.handle);
             return {
                 {},
@@ -355,9 +354,9 @@ Client::execute_requests(
     }
 
     std::vector<std::pair<Response, x::errors::Error>> results;
-    results.reserve(handles_.size());
+    results.reserve(handles.size());
 
-    for (auto &h: handles_) {
+    for (auto &h: handles) {
         results.push_back(build_result(h, start));
         curl_multi_remove_handle(multi, h.handle);
     }
