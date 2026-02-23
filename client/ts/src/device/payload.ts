@@ -43,7 +43,7 @@ export const deviceZ = <
     model: model ?? z.string().min(1, "Model is required"),
     location: z.string().min(1, "Location is required"),
     configured: z.boolean().optional(),
-    properties: properties ?? record.unknownZ,
+    properties: properties ?? record.nullishToEmpty(),
     status: zod.nullToUndefined(statusZ),
   });
 
@@ -69,7 +69,7 @@ export const newZ = <
   schemas: DeviceSchemas<Properties, Make, Model> = {},
 ) =>
   deviceZ(schemas).extend({
-    properties: schemas?.properties ?? record.unknownZ,
+    properties: schemas?.properties ?? record.nullishToEmpty(),
   });
 
 export interface New<

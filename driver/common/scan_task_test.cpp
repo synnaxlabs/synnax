@@ -60,6 +60,12 @@ TEST(MergeDeviceProperties, NullScannedPreservesRemote) {
     EXPECT_EQ(result["key1"], "value1");
 }
 
+TEST(MergeDeviceProperties, BothNullReturnsEmptyObject) {
+    const auto result = merge_device_properties(x::json::json(), x::json::json());
+    EXPECT_TRUE(result.is_object());
+    EXPECT_TRUE(result.empty());
+}
+
 TEST(MergeDeviceProperties, NestedObjectsReplacedNotMerged) {
     const x::json::json remote = {{"nested", {{"a", "1"}, {"b", "2"}}}};
     const x::json::json scanned = {{"nested", {{"a", "new"}}}};
