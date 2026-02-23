@@ -2400,33 +2400,29 @@ TEST(ArcTests, testWriterOpensWithErrOnUnauthorizedFalse) {
     auto output_idx_name = make_unique_channel_name("eou_output_idx");
     auto output_name = make_unique_channel_name("eou_output");
 
-    auto input_idx = synnax::channel::Channel(
-        input_idx_name,
-        x::telem::TIMESTAMP_T,
-        0,
-        true
-    );
+    auto input_idx = synnax::channel::Channel{
+        .name = input_idx_name,
+        .data_type = x::telem::TIMESTAMP_T,
+        .is_index = true,
+    };
     ASSERT_NIL(client->channels.create(input_idx));
-    auto output_idx = synnax::channel::Channel(
-        output_idx_name,
-        x::telem::TIMESTAMP_T,
-        0,
-        true
-    );
+    auto output_idx = synnax::channel::Channel{
+        .name = output_idx_name,
+        .data_type = x::telem::TIMESTAMP_T,
+        .is_index = true,
+    };
     ASSERT_NIL(client->channels.create(output_idx));
 
-    auto input_ch = synnax::channel::Channel(
-        input_name,
-        x::telem::FLOAT32_T,
-        input_idx.key,
-        false
-    );
-    auto output_ch = synnax::channel::Channel(
-        output_name,
-        x::telem::FLOAT32_T,
-        output_idx.key,
-        false
-    );
+    auto input_ch = synnax::channel::Channel{
+        .name = input_name,
+        .data_type = x::telem::FLOAT32_T,
+        .index = input_idx.key,
+    };
+    auto output_ch = synnax::channel::Channel{
+        .name = output_name,
+        .data_type = x::telem::FLOAT32_T,
+        .index = output_idx.key,
+    };
     ASSERT_NIL(client->channels.create(input_ch));
     ASSERT_NIL(client->channels.create(output_ch));
 
