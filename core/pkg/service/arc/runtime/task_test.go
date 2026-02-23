@@ -167,6 +167,54 @@ var _ = Describe("Task", Ordered, func() {
 		}
 	}
 
+	bangBangProg := func(ch1, ch2, stopSignal, startSignal *channel.Channel) arc.Text {
+		return arc.Text{
+			Raw: fmt.Sprintf(`
+				authority (%s 210 %s 210)
+
+				func high_bang() {
+					%s = 1
+				}
+
+				func low_bang() {
+					%s = 1
+				}
+
+				sequence bb {
+					stage start {
+						set_authority{value=220, channel=%s},
+						set_authority{value=220, channel=%s},
+						interval{period=50ms} -> high_bang{},
+						interval{period=50ms} -> low_bang{},
+						%s => stop
+					}
+					stage stop {
+						0 -> %s,
+						0 -> %s,
+						wait{duration=100ms} => yield
+					}
+					stage yield {
+						set_authority{value=0, channel=%s},
+						set_authority{value=0, channel=%s},
+						%s => start
+					}
+				}
+
+				%s => bb
+			`,
+				ch1.Name, ch2.Name,
+				ch1.Name,
+				ch2.Name,
+				ch1.Name, ch2.Name,
+				stopSignal.Name,
+				ch1.Name, ch2.Name,
+				ch1.Name, ch2.Name,
+				startSignal.Name,
+				startSignal.Name,
+			),
+		}
+	}
+
 	Describe("Factory.ConfigureTask", func() {
 		It("Should return false for non-arc task types", func() {
 			factory := MustSucceed(runtime.NewFactory(runtime.FactoryConfig{
@@ -985,51 +1033,7 @@ var _ = Describe("Task", Ordered, func() {
 			ch2 := createVirtualCh("bb_ch2", telem.Uint8T)
 			stopSignal := createVirtualCh("bb_stop", telem.Uint8T)
 			startSignal := createVirtualCh("bb_start", telem.Uint8T)
-			prog := arc.Text{
-				Raw: fmt.Sprintf(`
-					authority (%s 210 %s 210)
-
-					func high_bang() {
-						%s = 1
-					}
-
-					func low_bang() {
-						%s = 1
-					}
-
-					sequence bb {
-						stage start {
-							set_authority{value=220, channel=%s},
-							set_authority{value=220, channel=%s},
-							interval{period=50ms} -> high_bang{},
-							interval{period=50ms} -> low_bang{},
-							%s => stop
-						}
-						stage stop {
-							0 -> %s,
-							0 -> %s,
-							wait{duration=100ms} => yield
-						}
-						stage yield {
-							set_authority{value=0, channel=%s},
-							set_authority{value=0, channel=%s},
-							%s => start
-						}
-					}
-
-					%s => bb
-				`,
-					ch1.Name, ch2.Name,
-					ch1.Name,
-					ch2.Name,
-					ch1.Name, ch2.Name,
-					stopSignal.Name,
-					ch1.Name, ch2.Name,
-					ch1.Name, ch2.Name,
-					startSignal.Name,
-					startSignal.Name,
-				),
-			}
+			prog := bangBangProg(ch1, ch2, stopSignal, startSignal)
 
 			responses, closeStreamer := openTestStreamer(channel.Keys{ch1.Key(), ch2.Key()}, 20)
 			defer closeStreamer()
@@ -1089,51 +1093,7 @@ var _ = Describe("Task", Ordered, func() {
 			ch2 := createVirtualCh("bb2_ch2", telem.Uint8T)
 			stopSignal := createVirtualCh("bb2_stop", telem.Uint8T)
 			startSignal := createVirtualCh("bb2_start", telem.Uint8T)
-			prog := arc.Text{
-				Raw: fmt.Sprintf(`
-					authority (%s 210 %s 210)
-
-					func high_bang() {
-						%s = 1
-					}
-
-					func low_bang() {
-						%s = 1
-					}
-
-					sequence bb {
-						stage start {
-							set_authority{value=220, channel=%s},
-							set_authority{value=220, channel=%s},
-							interval{period=50ms} -> high_bang{},
-							interval{period=50ms} -> low_bang{},
-							%s => stop
-						}
-						stage stop {
-							0 -> %s,
-							0 -> %s,
-							wait{duration=100ms} => yield
-						}
-						stage yield {
-							set_authority{value=0, channel=%s},
-							set_authority{value=0, channel=%s},
-							%s => start
-						}
-					}
-
-					%s => bb
-				`,
-					ch1.Name, ch2.Name,
-					ch1.Name,
-					ch2.Name,
-					ch1.Name, ch2.Name,
-					stopSignal.Name,
-					ch1.Name, ch2.Name,
-					ch1.Name, ch2.Name,
-					startSignal.Name,
-					startSignal.Name,
-				),
-			}
+			prog := bangBangProg(ch1, ch2, stopSignal, startSignal)
 
 			responses, closeStreamer := openTestStreamer(channel.Keys{ch1.Key(), ch2.Key()}, 20)
 			defer closeStreamer()

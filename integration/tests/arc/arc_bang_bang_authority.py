@@ -7,8 +7,6 @@
 #  License, use of this software will be governed by the Apache License, Version 2.0,
 #  included in the file licenses/APL.txt.
 
-import time
-
 import synnax as sy
 from examples.simulators import PressSimDAQ
 
@@ -146,9 +144,10 @@ class ArcBangBangAuthority(ArcConsoleCase):
         with self.client.open_writer(sy.TimeStamp.now(), "bb_stop_cmd") as w:
             w.write("bb_stop_cmd", 1)
 
-        # Wait for stop (writes 0, waits 250ms) → yield → start re-entry.
+        # Wait for stop (writes 0) → yield → start re-entry (writes 1).
         self.log("Waiting for stop -> yield -> start re-entry...")
-        time.sleep(2.0)
+        self.wait_for_eq("press_vlv_state", 0)
+        self.wait_for_eq("press_vlv_state", 1)
 
         # Phase 3: Verify BOTH channels reclaimed authority after re-entry.
         # The ARC should be back at authority 220 on both channels.
@@ -169,7 +168,6 @@ class ArcBangBangAuthority(ArcConsoleCase):
                 "press_vlv_cmd": 0,
             }
         )
-        time.sleep(0.5)
         self.wait_for_eq("press_vlv_state", 1, timeout=5)
         self.log("press_vlv_cmd correctly reclaimed by ARC")
 
@@ -186,7 +184,6 @@ class ArcBangBangAuthority(ArcConsoleCase):
                 "vent_vlv_cmd": 0,
             }
         )
-        time.sleep(0.5)
         press_state = self.get_value("press_vlv_state")
         vent_state = self.get_value("vent_vlv_state")
         self.log(
@@ -194,7 +191,8 @@ class ArcBangBangAuthority(ArcConsoleCase):
             f"vent_vlv_state={vent_state}"
         )
         # The ARC is running bang-bang at authority 220. Our writers at 50 should
-        # have no effect. The press valve should still be open (pressure < 45).
+        # have no effect. Directly verify the ARC's write (1) wins over the
+        # external writer's write (0) on the press valve state channel.
         self.wait_for_eq("press_vlv_state", 1, timeout=5)
         self.log("Both channels symmetrically reclaimed by ARC after re-entry")
 

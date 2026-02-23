@@ -197,7 +197,7 @@ public:
             std::move(source),
             x::breaker::default_config("arc_acquisition"),
             "arc_acquisition",
-            false
+            /* err_on_unauthorized */ false
         );
         task->control = std::make_unique<pipeline::Control>(
             streamer_factory,
