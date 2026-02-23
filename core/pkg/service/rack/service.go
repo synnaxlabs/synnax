@@ -56,6 +56,7 @@ type ServiceConfig struct {
 	// communication mechanism.
 	// [OPTIONAL]
 	Signals *signals.Provider
+	Codec   gorp.Codec[Rack]
 	alamos.Instrumentation
 	// HealthCheckInterval specifies the interval at which the rack service will check
 	// that it has received a status update from a rack.
@@ -90,6 +91,7 @@ func (c ServiceConfig) Override(other ServiceConfig) ServiceConfig {
 	c.Status = override.Nil(c.Status, other.Status)
 	c.HealthCheckInterval = override.Numeric(c.HealthCheckInterval, other.HealthCheckInterval)
 	c.AlertEveryNChecks = override.Numeric(c.AlertEveryNChecks, other.AlertEveryNChecks)
+	c.Codec = override.Nil(c.Codec, other.Codec)
 	return c
 }
 
@@ -121,7 +123,7 @@ func OpenService(ctx context.Context, configs ...ServiceConfig) (*Service, error
 	if err != nil {
 		return nil, err
 	}
-	table, err := gorp.OpenTable[Key, Rack](ctx, gorp.TableConfig[Rack]{DB: cfg.DB})
+	table, err := gorp.OpenTable[Key, Rack](ctx, gorp.TableConfig[Rack]{DB: cfg.DB, Codec: cfg.Codec})
 	if err != nil {
 		return nil, err
 	}
@@ -152,10 +154,12 @@ func OpenService(ctx context.Context, configs ...ServiceConfig) (*Service, error
 		return nil, err
 	}
 	if cfg.Signals != nil {
+		signalsCfg := signals.GorpPublisherConfigNumeric[Key, Rack](cfg.DB, telem.Uint32T)
+		signalsCfg.Observable = s.table.Observe()
 		if s.shutdownSignals, err = signals.PublishFromGorp(
 			ctx,
 			cfg.Signals,
-			signals.GorpPublisherConfigNumeric[Key, Rack](cfg.DB, telem.Uint32T),
+			signalsCfg,
 		); err != nil {
 			return nil, err
 		}

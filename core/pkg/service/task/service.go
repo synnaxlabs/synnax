@@ -58,6 +58,7 @@ type ServiceConfig struct {
 	// Channel is used to create channels related to task operations.
 	// [OPTIONAL]
 	Channel *channel.Service
+	Codec   gorp.Codec[Task]
 	alamos.Instrumentation
 }
 
@@ -76,6 +77,7 @@ func (c ServiceConfig) Override(other ServiceConfig) ServiceConfig {
 	c.Status = override.Nil(c.Status, other.Status)
 	c.Signals = override.Nil(c.Signals, other.Signals)
 	c.Channel = override.Nil(c.Channel, other.Channel)
+	c.Codec = override.Nil(c.Codec, other.Codec)
 	return c
 }
 
@@ -104,7 +106,7 @@ func OpenService(ctx context.Context, configs ...ServiceConfig) (*Service, error
 	if err != nil {
 		return nil, err
 	}
-	table, err := gorp.OpenTable[Key, Task](ctx, gorp.TableConfig[Task]{DB: cfg.DB})
+	table, err := gorp.OpenTable[Key, Task](ctx, gorp.TableConfig[Task]{DB: cfg.DB, Codec: cfg.Codec})
 	if err != nil {
 		return nil, err
 	}
@@ -138,10 +140,12 @@ func OpenService(ctx context.Context, configs ...ServiceConfig) (*Service, error
 	if cfg.Signals == nil {
 		return s, nil
 	}
+	signalsCfg := signals.GorpPublisherConfigPureNumeric[Key, Task](cfg.DB, telem.Uint64T)
+	signalsCfg.Observable = s.table.Observe()
 	if s.shutdownSignals, err = signals.PublishFromGorp(
 		ctx,
 		cfg.Signals,
-		signals.GorpPublisherConfigPureNumeric[Key, Task](cfg.DB, telem.Uint64T),
+		signalsCfg,
 	); err != nil {
 		return nil, err
 	}
@@ -166,6 +170,10 @@ func (s *Service) cleanupInternalOntologyResources(ctx context.Context) {
 	if err := s.cfg.Ontology.NewWriter(nil).DeleteManyResources(ctx, ids); err != nil {
 		s.cfg.L.Warn("unable to delete internal task resources", zap.Error(err))
 	}
+}
+
+func (s *Service) Observe() observe.Observable[gorp.TxReader[Key, Task]] {
+	return s.table.Observe()
 }
 
 func (s *Service) Close() error {

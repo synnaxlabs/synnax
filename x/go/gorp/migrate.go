@@ -11,7 +11,6 @@ package gorp
 
 import (
 	"context"
-	stdbinary "encoding/binary"
 
 	"github.com/synnaxlabs/x/binary"
 	"github.com/synnaxlabs/x/errors"
@@ -19,12 +18,12 @@ import (
 	"github.com/synnaxlabs/x/query"
 )
 
-// Deprecated: Use Migration interface and OpenEntryManager with variadic migrations.
+// Deprecated: Use Migration interface and OpenTable with variadic migrations.
 var ErrMigrationCountExceeded = errors.New(
 	"migration count is greater than the maximum of 255",
 )
 
-// Deprecated: Use Migration interface and OpenEntryManager with variadic migrations.
+// Deprecated: Use Migration interface and OpenTable with variadic migrations.
 //
 // MigrationSpec defines a single migration that should be run with a transaction.
 type MigrationSpec struct {
@@ -34,7 +33,7 @@ type MigrationSpec struct {
 	Name string
 }
 
-// Deprecated: Use Migration interface and OpenEntryManager with variadic migrations.
+// Deprecated: Use Migration interface and OpenTable with variadic migrations.
 //
 // Migrator executes a series of migrations in order, tracking progress with
 // incrementing versions. Migrations are run sequentially from current_version + 1 up to
@@ -51,7 +50,7 @@ type Migrator struct {
 	Force bool
 }
 
-// Deprecated: Use Migration interface and OpenEntryManager with variadic migrations.
+// Deprecated: Use Migration interface and OpenTable with variadic migrations.
 //
 // Run executes all migrations that haven't been completed yet. Migrations run
 // sequentially and the version is incremented after each successful migration.
@@ -159,12 +158,7 @@ func (m *typedMigration[I, O]) Run(
 	}()
 	for iter.First(); iter.Valid(); iter.Next() {
 		var old I
-		if u, ok := any(&old).(GorpUnmarshaler); ok {
-			err = u.GorpUnmarshal(ctx, iter.Value())
-		} else {
-			err = cfg.Codec.Decode(ctx, iter.Value(), &old)
-		}
-		if err != nil {
+		if err = cfg.Codec.Decode(ctx, iter.Value(), &old); err != nil {
 			return err
 		}
 		var newEntry O
@@ -180,12 +174,7 @@ func (m *typedMigration[I, O]) Run(
 			}
 		}
 		var data []byte
-		if marsh, ok := any(&newEntry).(GorpMarshaler); ok {
-			data, err = marsh.GorpMarshal(ctx)
-		} else {
-			data, err = cfg.Codec.Encode(ctx, newEntry)
-		}
-		if err != nil {
+		if data, err = cfg.Codec.Encode(ctx, newEntry); err != nil {
 			return err
 		}
 		if err = kvTx.Set(ctx, iter.Key(), data); err != nil {
@@ -217,36 +206,4 @@ func (m *rawMigration) Run(
 	cfg MigrationConfig,
 ) error {
 	return m.fn(ctx, WrapTx(kvTx, cfg.Codec))
-}
-
-func readMigrationVersion(
-	ctx context.Context,
-	kvTx kv.Tx,
-	key []byte,
-) (uint16, error) {
-	b, closer, err := kvTx.Get(ctx, key)
-	if err != nil {
-		if errors.Is(err, query.ErrNotFound) {
-			return 0, nil
-		}
-		return 0, err
-	}
-	defer func() {
-		err = errors.Combine(err, closer.Close())
-	}()
-	if len(b) < 2 {
-		return 0, err
-	}
-	return stdbinary.BigEndian.Uint16(b), err
-}
-
-func writeMigrationVersion(
-	ctx context.Context,
-	kvTx kv.Tx,
-	key []byte,
-	version uint16,
-) error {
-	b := make([]byte, 2)
-	stdbinary.BigEndian.PutUint16(b, version)
-	return kvTx.Set(ctx, key, b)
 }

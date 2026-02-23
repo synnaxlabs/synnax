@@ -29,6 +29,9 @@ type ServiceConfig struct {
 	// the Synnax resource graph.
 	// [REQUIRED]
 	Ontology *ontology.Ontology
+	// Codec is the protobuf-based codec for encoding/decoding line plots in gorp.
+	// [OPTIONAL]
+	Codec gorp.Codec[LinePlot]
 }
 
 var (
@@ -42,6 +45,7 @@ var (
 func (c ServiceConfig) Override(other ServiceConfig) ServiceConfig {
 	c.DB = override.Nil(c.DB, other.DB)
 	c.Ontology = override.Nil(c.Ontology, other.Ontology)
+	c.Codec = override.Nil(c.Codec, other.Codec)
 	return c
 }
 
@@ -67,7 +71,7 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (*Service, error) {
 	if err != nil {
 		return nil, err
 	}
-	table, err := gorp.OpenTable[uuid.UUID, LinePlot](ctx, gorp.TableConfig[LinePlot]{DB: cfg.DB})
+	table, err := gorp.OpenTable[uuid.UUID, LinePlot](ctx, gorp.TableConfig[LinePlot]{DB: cfg.DB, Codec: cfg.Codec})
 	if err != nil {
 		return nil, err
 	}

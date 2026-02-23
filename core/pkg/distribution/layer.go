@@ -23,6 +23,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/distribution/cluster"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer"
 	"github.com/synnaxlabs/synnax/pkg/distribution/group"
+	grouppb "github.com/synnaxlabs/synnax/pkg/distribution/group/pb"
 	groupsignals "github.com/synnaxlabs/synnax/pkg/distribution/group/signals"
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
 	ontologysignals "github.com/synnaxlabs/synnax/pkg/distribution/ontology/signals"
@@ -251,6 +252,7 @@ func OpenLayer(ctx context.Context, cfgs ...LayerConfig) (l *Layer, err error) {
 		group.ServiceConfig{
 			DB:       l.DB,
 			Ontology: l.Ontology,
+			Codec:    grouppb.GroupCodec,
 		},
 	); !ok(err, l.Group) {
 		return nil, err
@@ -323,7 +325,7 @@ func OpenLayer(ctx context.Context, cfgs ...LayerConfig) (l *Layer, err error) {
 			return nil, err
 		}
 		var groupSignalsCloser io.Closer
-		if groupSignalsCloser, err = groupsignals.Publish(ctx, l.Signals, l.DB); !ok(err, groupSignalsCloser) {
+		if groupSignalsCloser, err = groupsignals.Publish(ctx, l.Signals, l.DB, l.Group); !ok(err, groupSignalsCloser) {
 			return nil, err
 		}
 	}

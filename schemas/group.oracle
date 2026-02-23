@@ -30,4 +30,5 @@ Group struct {
         provide hierarchical organization through the ontology system.
     """
     @ontology type "group"
+    @go marshal
 }

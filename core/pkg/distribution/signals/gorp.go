@@ -49,6 +49,11 @@ type GorpPublisherConfig[K gorp.Key, E gorp.Entry[K]] struct {
 	SetName string
 	// DeleteName is the name of the delete channel.
 	DeleteName string
+	// Observable is an optional codec-aware observable to use instead of the default
+	// gorp.Observe. When entries are stored with a custom codec (e.g. protobuf), set
+	// this to the table's Observe() method so values are decoded correctly.
+	// [OPTIONAL] - Falls back to gorp.Observe[K, E](DB) when nil.
+	Observable observe.Observable[gorp.TxReader[K, E]]
 }
 
 var _ config.Config[GorpPublisherConfig[uuid.UUID, gorp.Entry[uuid.UUID]]] = GorpPublisherConfig[uuid.UUID, gorp.Entry[uuid.UUID]]{}
@@ -155,9 +160,15 @@ func PublishFromGorp[K gorp.Key, E gorp.Entry[K]](
 	if err != nil {
 		return nil, err
 	}
+	var baseObs observe.Observable[gorp.TxReader[K, E]]
+	if cfg.Observable != nil {
+		baseObs = cfg.Observable
+	} else {
+		baseObs = gorp.Observe[K, E](cfg.DB)
+	}
 	var (
 		obs = observe.Translator[gorp.TxReader[K, E], []change.Change[[]byte, struct{}]]{
-			Observable: gorp.Observe[K, E](cfg.DB),
+			Observable: baseObs,
 			Translate: func(ctx context.Context, r gorp.TxReader[K, E]) ([]change.Change[[]byte, struct{}], bool) {
 				var out []change.Change[[]byte, struct{}]
 				for c := range r {

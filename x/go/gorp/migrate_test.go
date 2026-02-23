@@ -41,21 +41,27 @@ type entryV2 struct {
 func (e entryV2) GorpKey() int32    { return e.ID }
 func (e entryV2) SetOptions() []any { return nil }
 
-type marshalEntry struct {
+type jsonEntry struct {
 	ID   int32  `json:"id"`
 	Data string `json:"data"`
 }
 
-func (e marshalEntry) GorpKey() int32    { return e.ID }
-func (e marshalEntry) SetOptions() []any { return nil }
+func (e jsonEntry) GorpKey() int32    { return e.ID }
+func (e jsonEntry) SetOptions() []any { return nil }
 
-func (e *marshalEntry) GorpMarshal(_ context.Context) ([]byte, error) {
+type jsonEntryCodec struct{}
+
+func (jsonEntryCodec) Marshal(_ context.Context, e jsonEntry) ([]byte, error) {
 	return json.Marshal(e)
 }
 
-func (e *marshalEntry) GorpUnmarshal(_ context.Context, data []byte) error {
-	return json.Unmarshal(data, e)
+func (jsonEntryCodec) Unmarshal(_ context.Context, data []byte) (jsonEntry, error) {
+	var e jsonEntry
+	err := json.Unmarshal(data, &e)
+	return e, err
 }
+
+var _ gorp.Codec[jsonEntry] = jsonEntryCodec{}
 
 var _ = Describe("Gorp", func() {
 	var ctx context.Context
@@ -468,19 +474,23 @@ var _ = Describe("Gorp", func() {
 		})
 	})
 
-	Describe("GorpMarshaler and GorpUnmarshaler", func() {
-		It("Should use GorpMarshal when the entry implements GorpMarshaler", func() {
+	Describe("Codec", func() {
+		It("Should use Codec.Marshal when a codec is provided to the table", func() {
 			testDB := gorp.Wrap(memkv.New())
 			defer func() { Expect(testDB.Close()).To(Succeed()) }()
-			w := gorp.WrapWriter[int32, marshalEntry](testDB)
-			Expect(w.Set(ctx, marshalEntry{ID: 1, Data: "hello"})).To(Succeed())
-			r := gorp.WrapReader[int32, marshalEntry](testDB)
-			result := MustSucceed(r.Get(ctx, 1))
+			tbl := MustSucceed(gorp.OpenTable[int32, jsonEntry](ctx, gorp.TableConfig[jsonEntry]{
+				DB:    testDB,
+				Codec: jsonEntryCodec{},
+			}))
+			e := jsonEntry{ID: 1, Data: "hello"}
+			Expect(tbl.NewCreate().Entry(&e).Exec(ctx, testDB)).To(Succeed())
+			var result jsonEntry
+			Expect(tbl.NewRetrieve().WhereKeys(1).Entry(&result).Exec(ctx, testDB)).To(Succeed())
 			Expect(result.ID).To(Equal(int32(1)))
 			Expect(result.Data).To(Equal("hello"))
 		})
 
-		It("Should fall back to codec when GorpMarshaler is not implemented", func() {
+		It("Should fall back to DB codec when no table codec is provided", func() {
 			testDB := gorp.Wrap(memkv.New())
 			defer func() { Expect(testDB.Close()).To(Succeed()) }()
 			w := gorp.WrapWriter[int32, entry](testDB)
@@ -491,19 +501,19 @@ var _ = Describe("Gorp", func() {
 			Expect(result.Data).To(Equal("hello"))
 		})
 
-		It("Should use GorpUnmarshal in Iterator.Value", func() {
+		It("Should use Codec.Unmarshal in Iterator.Value via table reader", func() {
 			testDB := gorp.Wrap(memkv.New())
 			defer func() { Expect(testDB.Close()).To(Succeed()) }()
-			w := gorp.WrapWriter[int32, marshalEntry](testDB)
-			Expect(w.Set(ctx, marshalEntry{ID: 1, Data: "iter"})).To(Succeed())
-			r := gorp.WrapReader[int32, marshalEntry](testDB)
-			iter := MustSucceed(r.OpenIterator(gorp.IterOptions{}))
-			defer func() { Expect(iter.Close()).To(Succeed()) }()
-			Expect(iter.First()).To(BeTrue())
-			val := iter.Value(ctx)
-			Expect(val).ToNot(BeNil())
-			Expect(val.ID).To(Equal(int32(1)))
-			Expect(val.Data).To(Equal("iter"))
+			tbl := MustSucceed(gorp.OpenTable[int32, jsonEntry](ctx, gorp.TableConfig[jsonEntry]{
+				DB:    testDB,
+				Codec: jsonEntryCodec{},
+			}))
+			e := jsonEntry{ID: 1, Data: "iter"}
+			Expect(tbl.NewCreate().Entry(&e).Exec(ctx, testDB)).To(Succeed())
+			var result jsonEntry
+			Expect(tbl.NewRetrieve().WhereKeys(1).Entry(&result).Exec(ctx, testDB)).To(Succeed())
+			Expect(result.ID).To(Equal(int32(1)))
+			Expect(result.Data).To(Equal("iter"))
 		})
 	})
 
@@ -522,7 +532,10 @@ var _ = Describe("Gorp", func() {
 					},
 					nil,
 				)
-				MustSucceed(gorp.OpenEntryManager[int32, entryV1](ctx, testDB, migration))
+				MustSucceed(gorp.OpenTable[int32, entryV1](ctx, gorp.TableConfig[entryV1]{
+					DB:         testDB,
+					Migrations: []gorp.Migration{migration},
+				}))
 				r := gorp.WrapReader[int32, entryV1](testDB)
 				Expect(MustSucceed(r.Get(ctx, 1)).Data).To(Equal("one_migrated"))
 				Expect(MustSucceed(r.Get(ctx, 2)).Data).To(Equal("two_migrated"))
@@ -543,27 +556,12 @@ var _ = Describe("Gorp", func() {
 						return nil
 					},
 				)
-				MustSucceed(gorp.OpenEntryManager[int32, entryV1](ctx, testDB, migration))
+				MustSucceed(gorp.OpenTable[int32, entryV1](ctx, gorp.TableConfig[entryV1]{
+					DB:         testDB,
+					Migrations: []gorp.Migration{migration},
+				}))
 				r := gorp.WrapReader[int32, entryV1](testDB)
 				Expect(MustSucceed(r.Get(ctx, 1)).Data).To(Equal("post:one"))
-			})
-
-			It("Should use GorpMarshaler/GorpUnmarshaler when available", func() {
-				testDB := gorp.Wrap(memkv.New())
-				defer func() { Expect(testDB.Close()).To(Succeed()) }()
-				w := gorp.WrapWriter[int32, marshalEntry](testDB)
-				Expect(w.Set(ctx, marshalEntry{ID: 1, Data: "custom"})).To(Succeed())
-				migration := gorp.NewTypedMigration[marshalEntry, marshalEntry](
-					"identity_marshal",
-					func(_ context.Context, old marshalEntry) (marshalEntry, error) {
-						old.Data = old.Data + "_migrated"
-						return old, nil
-					},
-					nil,
-				)
-				MustSucceed(gorp.OpenEntryManager[int32, marshalEntry](ctx, testDB, migration))
-				r := gorp.WrapReader[int32, marshalEntry](testDB)
-				Expect(MustSucceed(r.Get(ctx, 1)).Data).To(Equal("custom_migrated"))
 			})
 
 			It("Should handle cross-type migration with manually seeded data", func() {
@@ -589,7 +587,10 @@ var _ = Describe("Gorp", func() {
 					},
 					nil,
 				)
-				MustSucceed(gorp.OpenEntryManager[int32, entryV2](ctx, testDB, migration))
+				MustSucceed(gorp.OpenTable[int32, entryV2](ctx, gorp.TableConfig[entryV2]{
+					DB:         testDB,
+					Migrations: []gorp.Migration{migration},
+				}))
 				r := gorp.WrapReader[int32, entryV2](testDB)
 				Expect(MustSucceed(r.Get(ctx, 1)).Description).To(Equal("migrated:one"))
 				Expect(MustSucceed(r.Get(ctx, 2)).Description).To(Equal("migrated:two"))
@@ -612,7 +613,10 @@ var _ = Describe("Gorp", func() {
 						return w.Set(ctx, e)
 					},
 				)
-				MustSucceed(gorp.OpenEntryManager[int32, entryV1](ctx, testDB, migration))
+				MustSucceed(gorp.OpenTable[int32, entryV1](ctx, gorp.TableConfig[entryV1]{
+					DB:         testDB,
+					Migrations: []gorp.Migration{migration},
+				}))
 				r := gorp.WrapReader[int32, entryV1](testDB)
 				Expect(MustSucceed(r.Get(ctx, 1)).Data).To(Equal("raw_migrated"))
 			})
@@ -626,7 +630,10 @@ var _ = Describe("Gorp", func() {
 					"noop",
 					func(context.Context, gorp.Tx) error { return nil },
 				)
-				MustSucceed(gorp.OpenEntryManager[int32, entryV1](ctx, testDB, migration))
+				MustSucceed(gorp.OpenTable[int32, entryV1](ctx, gorp.TableConfig[entryV1]{
+					DB:         testDB,
+					Migrations: []gorp.Migration{migration},
+				}))
 				versionKey := []byte("__gorp_migration__//entryV1")
 				b, closer := MustSucceed2(testDB.Get(ctx, versionKey))
 				Expect(closer.Close()).To(Succeed())
@@ -645,9 +652,13 @@ var _ = Describe("Gorp", func() {
 						return nil
 					},
 				)
-				MustSucceed(gorp.OpenEntryManager[int32, entryV1](ctx, testDB, migration))
+				cfg := gorp.TableConfig[entryV1]{
+					DB:         testDB,
+					Migrations: []gorp.Migration{migration},
+				}
+				MustSucceed(gorp.OpenTable[int32, entryV1](ctx, cfg))
 				Expect(executionCount).To(Equal(1))
-				MustSucceed(gorp.OpenEntryManager[int32, entryV1](ctx, testDB, migration))
+				MustSucceed(gorp.OpenTable[int32, entryV1](ctx, cfg))
 				Expect(executionCount).To(Equal(1))
 			})
 
@@ -659,13 +670,19 @@ var _ = Describe("Gorp", func() {
 					executed = append(executed, "first")
 					return nil
 				})
-				MustSucceed(gorp.OpenEntryManager[int32, entryV1](ctx, testDB, m1))
+				MustSucceed(gorp.OpenTable[int32, entryV1](ctx, gorp.TableConfig[entryV1]{
+					DB:         testDB,
+					Migrations: []gorp.Migration{m1},
+				}))
 				Expect(executed).To(Equal([]string{"first"}))
 				m2 := gorp.NewRawMigration("second", func(context.Context, gorp.Tx) error {
 					executed = append(executed, "second")
 					return nil
 				})
-				MustSucceed(gorp.OpenEntryManager[int32, entryV1](ctx, testDB, m1, m2))
+				MustSucceed(gorp.OpenTable[int32, entryV1](ctx, gorp.TableConfig[entryV1]{
+					DB:         testDB,
+					Migrations: []gorp.Migration{m1, m2},
+				}))
 				Expect(executed).To(Equal([]string{"first", "second"}))
 			})
 		})
@@ -690,7 +707,10 @@ var _ = Describe("Gorp", func() {
 					},
 					nil,
 				)
-				MustSucceed(gorp.OpenEntryManager[int32, entryV1](ctx, testDB, m1, m2))
+				MustSucceed(gorp.OpenTable[int32, entryV1](ctx, gorp.TableConfig[entryV1]{
+					DB:         testDB,
+					Migrations: []gorp.Migration{m1, m2},
+				}))
 				r := gorp.WrapReader[int32, entryV1](testDB)
 				Expect(MustSucceed(r.Get(ctx, 1)).Data).To(Equal("chain_v2_v3"))
 			})
@@ -714,7 +734,10 @@ var _ = Describe("Gorp", func() {
 					w := gorp.WrapWriter[int32, entryV1](tx)
 					return w.Set(ctx, e)
 				})
-				MustSucceed(gorp.OpenEntryManager[int32, entryV1](ctx, testDB, m1, m2))
+				MustSucceed(gorp.OpenTable[int32, entryV1](ctx, gorp.TableConfig[entryV1]{
+					DB:         testDB,
+					Migrations: []gorp.Migration{m1, m2},
+				}))
 				r := gorp.WrapReader[int32, entryV1](testDB)
 				Expect(MustSucceed(r.Get(ctx, 1)).Data).To(Equal("mixed_typed_raw"))
 			})
@@ -732,7 +755,10 @@ var _ = Describe("Gorp", func() {
 						return errors.New("migration error")
 					},
 				)
-				_, err := gorp.OpenEntryManager[int32, entryV1](ctx, testDB, migration)
+				_, err := gorp.OpenTable[int32, entryV1](ctx, gorp.TableConfig[entryV1]{
+					DB:         testDB,
+					Migrations: []gorp.Migration{migration},
+				})
 				Expect(err).To(HaveOccurred())
 				Expect(err.Error()).To(ContainSubstring("failing"))
 				versionKey := []byte("__gorp_migration__//entryV1")
@@ -748,7 +774,9 @@ var _ = Describe("Gorp", func() {
 				defer func() { Expect(testDB.Close()).To(Succeed()) }()
 				w := gorp.WrapWriter[int32, entryV1](testDB)
 				Expect(w.Set(ctx, entryV1{ID: 1, Data: "no_migration"})).To(Succeed())
-				MustSucceed(gorp.OpenEntryManager[int32, entryV1](ctx, testDB))
+				MustSucceed(gorp.OpenTable[int32, entryV1](ctx, gorp.TableConfig[entryV1]{
+					DB: testDB,
+				}))
 				r := gorp.WrapReader[int32, entryV1](testDB)
 				Expect(MustSucceed(r.Get(ctx, 1)).Data).To(Equal("no_migration"))
 			})
@@ -762,10 +790,14 @@ var _ = Describe("Gorp", func() {
 					"noop",
 					func(context.Context, gorp.Tx) error { return nil },
 				)
-				MustSucceed(gorp.OpenEntryManager[int32, entryV1](ctx, testDB, migration))
+				cfg := gorp.TableConfig[entryV1]{
+					DB:         testDB,
+					Migrations: []gorp.Migration{migration},
+				}
+				MustSucceed(gorp.OpenTable[int32, entryV1](ctx, cfg))
 				w := gorp.WrapWriter[int32, entryV1](testDB)
 				Expect(w.Set(ctx, entryV1{ID: 5, Data: "post_migration"})).To(Succeed())
-				MustSucceed(gorp.OpenEntryManager[int32, entryV1](ctx, testDB, migration))
+				MustSucceed(gorp.OpenTable[int32, entryV1](ctx, cfg))
 				r := gorp.WrapReader[int32, entryV1](testDB)
 				Expect(MustSucceed(r.Get(ctx, 5)).Data).To(Equal("post_migration"))
 			})

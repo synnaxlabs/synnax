@@ -8,195 +8,192 @@ session.
 
 ---
 
-## Phase 1: gorp Migration Interface & Infrastructure
+## Phase 1: gorp Infrastructure — DONE
 
-**Goal**: Replace the existing `gorp.Migrator` struct with a `Migration` interface and
-update `EntryManager` to be the single entry point for all migrations (schema + key
-re-encoding). No Oracle code generation yet — this is pure gorp infrastructure.
+**Status**: Complete. Merged on branch `sy-3823-gorp-tables`.
 
-**Scope**: `x/go/gorp/`
+**What was built** (diverged from original plan — used `Codec[E]` + `Table[K,E]` instead
+of `GorpMarshaler`/`GorpUnmarshaler` + `EntryManager`):
 
-### What to build
+- **`Codec[E]` interface** (`x/go/gorp/codec.go`):
+  ```go
+  type Codec[E any] interface {
+      Marshal(ctx context.Context, entry E) ([]byte, error)
+      Unmarshal(ctx context.Context, data []byte) (E, error)
+  }
+  ```
 
-1. **`Migration` interface** (`x/go/gorp/migrate.go`):
+- **`Table[K,E]`** (`x/go/gorp/table.go`): replaces `EntryManager`. Holds optional
+  `Codec[E]`, provides codec-aware query builders (`NewCreate`, `NewRetrieve`,
+  `NewUpdate`, `NewDelete`), `OpenNexter`, `Observe`, `Close`.
 
-   ```go
-   type Migration interface {
-       Name() string
-       Run(ctx context.Context, tx kv.Tx, cfg MigrationConfig) error
-   }
+- **`OpenTable[K,E](ctx, TableConfig[E])`**: runs versioned `Migration` list
+  sequentially with uint16 version tracking, then runs `migrateOldPrefixKeys` and
+  `reEncodeKeys` automatically.
 
-   type MigrationConfig struct {
-       Prefix []byte
-       Codec  binary.Codec
-   }
-   ```
+- **`Migration` interface** (`x/go/gorp/migrate.go`):
+  ```go
+  type Migration interface {
+      Name() string
+      Run(ctx context.Context, tx kv.Tx, cfg MigrationConfig) error
+  }
+  ```
+  Implementations: `TypedMigration[I,O]` and `RawMigration`.
 
-2. **`TypedMigration[I, O]`** (`x/go/gorp/migrate.go`):
-   - Implements `Migration` interface
-   - `NewTypedMigration[I, O](name, autoFn, postFn) Migration`
-   - `Run` iterates all entries under `cfg.Prefix`, decodes each as `I` (using
-     `GorpUnmarshaler` if implemented, else `cfg.Codec`), calls `autoFn` then `postFn`,
-     encodes as `O` (using `GorpMarshaler` if implemented, else `cfg.Codec`), writes back
-   - Type aliases: `AutoMigrateFunc[I, O]`, `PostMigrateFunc[I, O]`
+- **Codec threaded through** all builders, writers (`Writer.set()`), readers
+  (`Reader.Get()`, `Iterator.Value()`), and observers (`Table.Observe()`).
 
-3. **`RawMigration`** (`x/go/gorp/migrate.go`):
-   - Implements `Migration` interface
-   - `NewRawMigration(name, func(ctx, Tx) error) Migration`
-   - `Run` wraps `kv.Tx` into `gorp.Tx` and calls the function
+- **Deleted** `GorpMarshaler`/`GorpUnmarshaler` interfaces (`x/go/gorp/marshal.go`)
+  and standalone query builders (`NewCreate[K,E]()`, etc.).
 
-4. **`KeyMigration[K, E]`** (`x/go/gorp/migrate.go`):
-   - Implements `Migration` interface
-   - Extracts existing `reEncodeKeys` logic
-   - Name returns `"re_encode_keys"`
+- **All ~17 services** migrated from standalone builders to `table` methods.
 
-5. **`GorpMarshaler` / `GorpUnmarshaler` interfaces** (`x/go/gorp/marshal.go`):
+- **All gorp and core tests pass**.
 
-   ```go
-   type GorpMarshaler interface {
-       GorpMarshal(ctx context.Context) ([]byte, error)
-   }
-   type GorpUnmarshaler interface {
-       GorpUnmarshal(ctx context.Context, data []byte) error
-   }
-   ```
-
-   Update `Writer.set()` to check `GorpMarshaler` before falling back to codec.
-   Update `Iterator.Value()` to check `GorpUnmarshaler` before falling back to codec.
-
-6. **Update `EntryManager[K, E]`** (`x/go/gorp/manager.go`):
-   - `OpenEntryManager[K, E](ctx, db, migrations ...Migration) (*EntryManager, error)`
-   - Derives prefix from `types.Name[E]()`: `"__gorp__//" + typeName`
-   - Version key: `"__gorp__//" + typeName + "/version"`
-   - Appends `KeyMigration[K, E]{}` as the implicit final migration
-   - Runs all migrations sequentially, tracking progress with a uint16 version counter
-   - Existing `migrateOldPrefixKeys` becomes a migration too, or is folded into
-     `KeyMigration`
-   - Zero-migration case (`OpenEntryManager(ctx, db)`) still works — only key
-     re-encoding runs
-
-7. **Backward compatibility**: The old `gorp.Migrator` struct and `MigrationSpec` can
-   remain temporarily (deprecated) so ranger and other existing callers don't break.
-   Mark them deprecated with a comment. They will be removed in a later phase.
-
-### What to test (Ginkgo/Gomega in `x/go/gorp/`)
-
-- **Migration interface**: TypedMigration decodes, transforms, encodes correctly
-- **GorpMarshaler/GorpUnmarshaler**: Writer uses per-type marshaling when available,
-  falls back to codec when not. Reader/Iterator same.
-- **Version tracking**: uint16 big-endian, starts at 0, increments per migration
-- **Sequential execution**: Migrations run in order, skipping already-completed ones
-- **Multi-step chaining**: v1→v2→v3 runs as two full passes
-- **Error handling**: Failed migration rolls back transaction, version not incremented
-- **Zero-migration case**: EntryManager with no migrations still runs key re-encoding
-- **RawMigration**: Gets a working gorp.Tx, can read/write entries
-- **KeyMigration**: Exercises re-encode keys path
-- **Mixed chain**: TypedMigration + RawMigration + KeyMigration in sequence
-
-### Test helper (`x/go/gorp/testutil/`)
-
-Build a `gorp/testutil` package with Gomega-compatible helpers:
-
-```go
-// testutil.TestMigration seeds old entries, runs a migration, and asserts results.
-func TestMigration[I gorp.Entry[K], O gorp.Entry[K], K gorp.Key](
-    oldEntries []I,
-    expectedEntries []O,
-    migration gorp.Migration,
-) // returns Gomega-compatible assertion or uses Expect internally
-```
-
-This helper:
-1. Creates an in-memory KV store (use existing test infrastructure)
-2. Wraps it in gorp.DB with msgpack codec
-3. Encodes and writes old entries under the canonical prefix
-4. Runs the migration via a MigrationConfig
-5. Reads back all entries, decodes as new type
-6. Asserts results match expected entries
-7. Validates version counter was incremented
-
-### Files to modify
-
-- `x/go/gorp/migrate.go` — rewrite (Migration interface, TypedMigration, RawMigration)
-- `x/go/gorp/marshal.go` — new file (GorpMarshaler/GorpUnmarshaler interfaces)
-- `x/go/gorp/manager.go` — update OpenEntryManager signature and implementation
-- `x/go/gorp/writer.go` — add GorpMarshaler check in `set()`
-- `x/go/gorp/reader.go` — add GorpUnmarshaler check in `Iterator.Value()`
-- `x/go/gorp/migrate_test.go` — rewrite tests for new interface
-- `x/go/gorp/testutil/` — new package with test helpers
-- All callers of `OpenEntryManager` — update to new signature (add `...Migration`)
-
-### Acceptance criteria
-
-- `cd x/go && ginkgo -r ./gorp/...` passes
-- All existing service code compiles (no breaking changes to callers that pass zero
-  migrations)
-- The old `gorp.Migrator` is marked deprecated but still compiles
+### Key files
+- `x/go/gorp/codec.go` — `Codec[E]` interface
+- `x/go/gorp/table.go` — `Table[K,E]`, `OpenTable`, `TableConfig`, `OpenNexter`
+- `x/go/gorp/migrate.go` — `Migration`, `TypedMigration`, `RawMigration`, version
+  tracking
+- `x/go/gorp/reader.go` — codec-aware `Reader`, `Iterator`, `WrapReader`
+- `x/go/gorp/writer.go` — codec-aware `Writer`
+- `x/go/gorp/observe.go` — `Table.Observe()`, standalone `Observe[K,E]()`
 
 ---
 
-## Phase 2: Oracle `GorpMarshal`/`GorpUnmarshal` Generation
+## Phase 2: Oracle Codec Generation — DONE
 
-**Goal**: Extend Oracle's `go/types` plugin to generate `GorpMarshal`/`GorpUnmarshal`
-methods on all Oracle-managed gorp types. This uses the existing `oracle sync` command —
-no new CLI commands needed.
+**Status**: Complete. On branch `sy-3816-oracle-migrations`.
 
-**Scope**: `oracle/plugin/go/`, Oracle-managed type packages
+**What was built** (diverged from original plan — generates standalone `Codec[E]` structs
+in `pb/` subpackage instead of `GorpMarshal`/`GorpUnmarshal` methods on parent type,
+avoiding import cycles):
+
+- **Oracle `go/marshal` plugin** (`oracle/plugin/go/marshal/marshal.go`):
+  - Triggers on `@go marshal` annotation (not `@key`)
+  - Generates `pb/codec.gen.go` with standalone codec struct
+  - Codec wraps existing `ToPB`/`FromPB` translators + `proto.Marshal`/`Unmarshal`
+  - Exported var: `var SchematicCodec gorp.Codec[schematic.Schematic] = schematicCodec{}`
+
+- **`@go marshal` annotations** added to 14 `.oracle` schemas:
+  arc, channel, device, group, label, lineplot, log, rack, ranger, schematic, table,
+  task, user, workspace
+
+- **14 `codec.gen.go` files generated** via `oracle sync`:
+  ```
+  core/pkg/service/{arc,device,lineplot,log,rack,ranger,schematic,table,task,user,workspace}/pb/codec.gen.go
+  core/pkg/distribution/group/pb/codec.gen.go
+  core/pkg/api/channel/pb/codec.gen.go
+  x/go/label/pb/codec.gen.go
+  ```
+
+### What was NOT built (deferred)
+- Oracle plugin tests (`oracle/plugin/go/marshal/marshal_test.go`) not updated to assert
+  new trigger/output patterns
+
+---
+
+## Phase 2.5: Service Wiring — DONE
+
+**Status**: Complete. On branch `sy-3816-oracle-migrations`.
+
+This was originally part of Phase 4 in the old plan, but was done early since the
+`Codec[E]` + `Table[K,E]` approach made it straightforward.
+
+**What was built:**
+
+- **`Codec` field** added to each service's `ServiceConfig` + `Override` method
+- **Codecs wired in `core/pkg/service/layer.go`**: 12 services get their codec at
+  construction (arcpb, devicepb, labelpb, lineplotpb, logpb, rackpb, rangerpb,
+  schematicpb, tablepb, taskpb, userpb, workspacepb)
+- **Codec wired in `core/pkg/distribution/layer.go`**: group gets `grouppb.GroupCodec`
+- **All 13 `Observe` callers migrated**: ontology.go `OnChange` methods use
+  `s.table.Observe()` instead of `gorp.Observe[K,E](s.DB)`
+- **All 13 `OpenNexter` callers migrated**: ontology.go `OpenNexter` methods use
+  `s.table.OpenNexter(ctx)` instead of `gorp.WrapReader[K,E](db).OpenNexter(ctx)`
+- **Signal publishers migrated**: 8 service signal callers + group signals + driver
+  service use codec-aware observables via `Observable` field on `GorpPublisherConfig`
+  (`core/pkg/distribution/signals/gorp.go`)
+- **Auth KV fix**: `layer.go` uses `auth.OpenKV(ctx, db)` instead of direct struct
+  construction
+
+- **All core tests pass** (60+ suites, 0 failures)
+
+### Key files modified
+- `core/pkg/service/layer.go` — 12 codec imports + wiring
+- `core/pkg/distribution/layer.go` — group codec wiring
+- `core/pkg/distribution/signals/gorp.go` — `Observable` field on `GorpPublisherConfig`
+- 13× `*/ontology.go` — `OnChange` and `OpenNexter` migrated
+- 8× `*/service.go` — signal publisher observable wiring
+- `core/pkg/distribution/group/service.go` — added `Observe()` method
+- `core/pkg/service/task/service.go` — added `Observe()` method
+- `core/pkg/service/driver/service.go` — uses `cfg.Task.Observe()`
+
+---
+
+## Phase 3: Codec Transition Migration (msgpack → protobuf) — NOT STARTED
+
+**Goal**: Build and wire the actual data migration that converts existing msgpack-encoded
+entries to protobuf at server startup. **This is the critical missing piece** — without
+it, a server with pre-existing data will crash because the protobuf codec can't decode
+msgpack bytes.
+
+**Scope**: `x/go/gorp/`, service `OpenTable` call sites
 
 ### What to build
 
-1. **Detect gorp entry types**: In the `go/types` plugin, identify types that have a
-   `@key` annotation (these are gorp entries). Oracle already knows which types have keys.
+1. **`CodecTransitionMigration[K,E]`** (`x/go/gorp/migrate.go`):
 
-2. **Generate `marshal.gen.go`** for each gorp entry type:
+   A new `Migration` implementation purpose-built for codec transitions:
 
    ```go
-   func (s *Schematic) GorpMarshal(ctx context.Context) ([]byte, error) {
-       pb, err := SchematicToPB(ctx, *s)
-       if err != nil {
-           return nil, err
-       }
-       return proto.Marshal(pb)
-   }
-
-   func (s *Schematic) GorpUnmarshal(ctx context.Context, data []byte) error {
-       pbMsg := &pb.Schematic{}
-       if err := proto.Unmarshal(data, pbMsg); err != nil {
-           return err
-       }
-       result, err := SchematicFromPB(ctx, pbMsg)
-       if err != nil {
-           return err
-       }
-       *s = result
-       return nil
-   }
+   func NewCodecTransition[K Key, E Entry[K]](name string, codec Codec[E]) Migration
    ```
 
-   Oracle already generates `ToPB`/`FromPB` translators. The marshal methods are thin
-   wrappers.
+   `Run()` behavior:
+   - Iterate all entries under `cfg.Prefix`
+   - Decode each with `cfg.Codec` (the DB's default msgpack codec)
+   - Re-encode with `codec` (the target protobuf codec)
+   - Write back under the same key
 
-3. **Generate for all ~21 Oracle-managed gorp types**: Every type with `@key` and `@pb`
-   annotations gets marshal methods.
+   This is simpler than `TypedMigration` because the type doesn't change — only the
+   encoding format changes.
+
+2. **Wire into each service's `OpenTable`** — pass codec transition as a migration:
+
+   ```go
+   table, err := gorp.OpenTable[uuid.UUID, Schematic](ctx, gorp.TableConfig[Schematic]{
+       DB:    cfg.DB,
+       Codec: cfg.Codec,
+       Migrations: []gorp.Migration{
+           gorp.NewCodecTransition[uuid.UUID, Schematic]("msgpack_to_protobuf", cfg.Codec),
+       },
+   })
+   ```
+
+   Do this for all 13 codec-ed services + group.
+
+3. **Handle the channel type**: channel is in the distribution layer
+   (`core/pkg/distribution/channel/`). Check if it has a table with codec and needs the
+   migration too.
 
 ### What to test
 
-- `oracle sync` generates `marshal.gen.go` files for all gorp entry types
-- Generated methods compile
-- Round-trip test: marshal → unmarshal produces identical struct
-- Fallback: types without `GorpMarshaler` still use msgpack codec (gorp tests from
-  Phase 1 cover this)
-- Run full `oracle check` to verify no regressions
+- Seed msgpack-encoded entries, run `CodecTransitionMigration`, verify protobuf decoding
+- Second run is a no-op (version counter already incremented)
+- Empty DB — migration runs without error
+- Round-trip: write with protobuf codec → read back → data matches
+- Full server boot with pre-existing msgpack data → all services start correctly
 
 ### Acceptance criteria
 
-- `oracle sync` generates marshal.gen.go for all gorp entry types
-- `cd core && go build ./...` compiles
-- Round-trip tests pass for representative types (schematic, workspace, arc, etc.)
+- `cd x/go/gorp && ginkgo` passes with new codec transition tests
+- `cd core && ginkgo -r` passes (all core tests)
+- Server boots cleanly against a DB with pre-existing msgpack-encoded data
 
 ---
 
-## Phase 3: Oracle Migration Plugin — Codec Transition (Full Mode)
+## Phase 4: Oracle Migration Plugin — Codec Transition (Full Mode) — NOT STARTED
 
 **Goal**: Build the Oracle migration code generator for the MVP: codec transition
 (msgpack → protobuf) for all Oracle-managed gorp types. This is "full mode" — both
@@ -213,13 +210,13 @@ auto-migrate and post-migrate are fully generated, developer touches nothing.
 2. **`oracle migrate generate` CLI command** (`oracle/cmd/migrate.go`):
    - New cobra subcommand under `oracle migrate`
    - For the MVP (codec transition), the behavior is simple:
-     - Enumerate all Oracle-managed gorp types (types with `@key` + `@pb`)
+     - Enumerate all Oracle-managed gorp types (types with `@go marshal` + `@pb`)
      - For each type, generate `migrations/v1/` sub-package with:
        - `auto.gen.go`: Legacy type snapshot (identical fields, msgpack tags) +
          `AutoMigrateV1ToV2` function (identity transform copying all fields)
        - `migrate.go`: `PostMigrateV1ToV2` function (empty body, codec transition only)
      - Generate `migrations/v2/` sub-package with:
-       - `auto.gen.go`: Current type snapshot with `GorpMarshal`/`GorpUnmarshal`
+       - `auto.gen.go`: Current type snapshot with protobuf codec
          (no auto-migrate yet — v2 is the current version)
        - `pb/`: Snapshotted protobuf definitions
      - Generate `migrations/migrate.gen.go`: `All()` function returning the ordered
@@ -227,8 +224,8 @@ auto-migrate and post-migrate are fully generated, developer touches nothing.
 
 3. **Legacy type snapshot generation**: The `v1/auto.gen.go` legacy type must be a
    faithful snapshot of the current struct — same fields, same types. For pre-transition
-   types, use `msgpack` struct tags (no `GorpUnmarshaler`). The migration runner will
-   decode these using the generic msgpack codec.
+   types, use `msgpack` struct tags (no codec). The migration runner will decode these
+   using the generic msgpack codec.
 
 4. **Migration file placement**: Files go at `<@go output>/migrations/vN/`. Oracle
    already knows the `@go output` path for each type.
@@ -246,7 +243,7 @@ auto-migrate and post-migrate are fully generated, developer touches nothing.
 - Generated code compiles: `go build ./...`
 - **Integration test**: Seed entries encoded with msgpack, run the generated migration,
   verify entries are now protobuf-encoded and decode correctly
-- Use the `gorp/testutil` helpers from Phase 1 to test each generated migration
+- Use the `gorp/testutil` helpers from Phase 8 to test each generated migration
 
 ### Oracle-managed gorp types (~21 types)
 
@@ -285,21 +282,23 @@ All of these get codec transition migrations:
 
 ---
 
-## Phase 4: Service Wiring & End-to-End Codec Transition
+## Phase 5: Service Wiring & End-to-End Codec Transition — NOT STARTED
 
-**Goal**: Wire up the generated migrations into each service's `OpenEntryManager` call.
-Run the full codec transition end-to-end.
+**Goal**: Wire up the generated migrations into each service's `OpenTable` call. Run the
+full codec transition end-to-end.
 
 **Scope**: `core/pkg/service/*/`, `core/pkg/distribution/*/`
 
 ### What to build
 
-1. **Update each service's `OpenService`** to pass migrations to `OpenEntryManager`:
+1. **Update each service's `OpenService`** to pass migrations to `OpenTable`:
 
    ```go
-   entryManager, err := gorp.OpenEntryManager[uuid.UUID, Schematic](
-       ctx, cfg.DB, migrations.All()...,
-   )
+   table, err := gorp.OpenTable[uuid.UUID, Schematic](ctx, gorp.TableConfig[Schematic]{
+       DB:         cfg.DB,
+       Codec:      cfg.Codec,
+       Migrations: migrations.All(),
+   })
    ```
 
    Do this for all ~21 services that have Oracle-managed gorp types.
@@ -308,7 +307,7 @@ Run the full codec transition end-to-end.
    (currently only ranger uses it). For ranger, keep its existing `migrateRangeGroups`
    as a `RawMigration` passed before the codec transition in the migration chain.
    Actually — defer ranger port to Phase 7. For now, ranger keeps its old migrator
-   AND the new entryManager pattern.
+   AND the new `OpenTable` pattern.
 
 3. **Server startup order**: Verify that services start in dependency order. Schematic
    before Workspace (if Workspace depends on Schematic), etc. The existing startup
@@ -327,11 +326,11 @@ Run the full codec transition end-to-end.
 
 - Server boots and runs codec transition for all Oracle-managed types
 - All existing tests pass
-- `go test ./...` passes across the core module
+- `cd core && ginkgo -r` passes
 
 ---
 
-## Phase 5: Schema Snapshots & `oracle migrate check` (CI Enforcement)
+## Phase 6: Schema Snapshots & `oracle migrate check` (CI Enforcement) — NOT STARTED
 
 **Goal**: Implement schema snapshot storage and the `oracle migrate check` CLI command
 for CI enforcement. This ensures no `.oracle` schema change ships without a
@@ -357,7 +356,7 @@ corresponding migration.
      Run 'oracle migrate generate' and commit the result."
 
 4. **Schema diffing**: Compare two sets of `.oracle` files. This is a file-level diff
-   (not field-level yet — that comes in Phase 6). If any `.oracle` file content differs
+   (not field-level yet — that comes in Phase 7). If any `.oracle` file content differs
    from the snapshot, a migration is required.
 
 ### What to test
@@ -376,7 +375,7 @@ corresponding migration.
 
 ---
 
-## Phase 6: Schema Diff Engine & Skeleton/Propagation Mode Generation
+## Phase 7: Schema Diff Engine & Skeleton/Propagation Mode Generation — NOT STARTED
 
 **Goal**: Build the schema diff engine that compares two `resolution.Table`s
 field-by-field and generates skeleton mode (direct schema changes) and propagation mode
@@ -470,7 +469,7 @@ The diff engine and dependency tracking need comprehensive unit tests:
 
 ---
 
-## Phase 7: Port Existing Migrations to New System
+## Phase 8: Port Existing Migrations to New System — NOT STARTED
 
 **Goal**: Port existing hand-written migrations (ranger, rack, task, device status
 migrations) to the new `Migration` interface. Remove the deprecated `gorp.Migrator`.
@@ -482,7 +481,7 @@ migrations) to the new `Migration` interface. Remove the deprecated `gorp.Migrat
 
 1. **Port ranger's `migrateRangeGroups`**:
    - Wrap as `gorp.NewRawMigration("range_groups", s.migrateRangeGroups)`
-   - Pass to `OpenEntryManager` alongside Oracle-generated migrations
+   - Pass to `OpenTable` alongside Oracle-generated migrations
    - The raw migration must come BEFORE the codec transition migration in the chain
      (ranger's migration reads msgpack-encoded entries)
    - Handle the dependency injection: ranger's migration accesses `s.cfg.Ontology`,
@@ -513,7 +512,7 @@ migrations) to the new `Migration` interface. Remove the deprecated `gorp.Migrat
 
 ---
 
-## Phase 8: Test Infrastructure & Migration Test Helpers
+## Phase 9: Test Infrastructure & Migration Test Helpers — NOT STARTED
 
 **Goal**: Build comprehensive migration test helpers that make writing migration tests
 trivial. This phase can run in parallel with earlier phases after Phase 1 establishes
@@ -554,42 +553,47 @@ the interface.
 
 - Test helpers are ergonomic and reduce migration test boilerplate
 - Documented with examples
-- Used by Phase 3 and Phase 6 tests
+- Used by Phase 4 and Phase 7 tests
 
 ---
 
 ## Dependency Graph
 
 ```
-Phase 1: gorp Migration Interface
+Phase 1: gorp Infrastructure ...................... DONE
     ↓
-Phase 2: Oracle GorpMarshal/GorpUnmarshal Generation
+Phase 2: Oracle Codec Generation .................. DONE
     ↓
-Phase 3: Oracle Migration Plugin (Codec Transition)
+Phase 2.5: Service Wiring ......................... DONE
     ↓
-Phase 4: Service Wiring & E2E Codec Transition
+Phase 3: Codec Transition Migration ............... NEXT  ← critical path
     ↓
-Phase 5: Schema Snapshots & CI Check
+Phase 4: Oracle Migration Plugin (Full Mode) ...... NOT STARTED
     ↓
-Phase 6: Schema Diff Engine & Skeleton/Propagation Mode
+Phase 5: Service Wiring & E2E Codec Transition .... NOT STARTED
     ↓
-Phase 7: Port Existing Migrations
+Phase 6: Schema Snapshots & CI Check .............. NOT STARTED
+    ↓
+Phase 7: Schema Diff Engine & Skeleton/Propagation  NOT STARTED
+    ↓
+Phase 8: Port Existing Migrations ................. NOT STARTED
 
-Phase 8: Test Infrastructure (can start after Phase 1, used by Phase 3+)
+Phase 9: Test Infrastructure (can start anytime after Phase 1)
 ```
 
-## Key Design Decisions (from RFC discussion)
+## Key Design Decisions
 
-1. **Oracle = build-time code gen only**. Runtime migration execution lives in gorp.
-2. **`Migration` is an interface** with `TypedMigration[I,O]`, `RawMigration`,
-   `KeyMigration[K,E]` implementations.
-3. **`EntryManager[K,E]` runs everything**. Single entry point. Key re-encoding is
-   implicit. Version counter at `__gorp__//<Type>/version` (uint16).
-4. **`GorpMarshal`/`GorpUnmarshal`** generated by `oracle sync` (go/types plugin),
-   not the migration plugin.
-5. **`vN/` sub-packages** per migration version. Migrations map
-   `vN.TypeVN → v(N+1).TypeV(N+1)`. Never import parent service package.
-6. **Migration files at `@go output` path** — never in `schemas/`.
-7. **`oracle migrate regenerate` deferred** — not needed for MVP.
-8. **Ranger port deferred to Phase 7** — validates `RawMigration` path but doesn't
+1. **`Codec[E]` interface over `GorpMarshaler`/`GorpUnmarshaler`**: Avoids import cycles
+   by keeping codec in `pb/` subpackage, injected via `TableConfig`. Cleaner separation.
+2. **`Table[K,E]` over `EntryManager[K,E]`**: Single struct owns codec + DB + query
+   builders. Services hold `table` field, call `table.NewCreate()`, etc.
+3. **`Migration` is an interface** with `TypedMigration[I,O]`, `RawMigration`, and
+   (soon) `CodecTransitionMigration[K,E]` implementations.
+4. **`OpenTable` runs everything**: versioned migrations → old prefix migration → key
+   re-encoding. Version counter at `__gorp_migration__//{TypeName}` (uint16).
+5. **Oracle = build-time code gen only**. Runtime migration execution lives in gorp.
+6. **`@go marshal` annotation** triggers codec generation (not `@key`).
+7. **Standalone codec structs** in `pb/` subpackage, exported as
+   `var XxxCodec gorp.Codec[parent.Xxx]`.
+8. **Ranger port deferred to Phase 8** — validates `RawMigration` path but doesn't
    block codec transition.

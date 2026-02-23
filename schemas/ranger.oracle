@@ -42,16 +42,17 @@ Range struct {
         """
     }
 
-    @doc value """
+    @doc value  """
         is a user-defined region of time in the Synnax cluster. Ranges act as a
         method for labeling and categorizing telemetry data within specific time
         periods.
     """
-    @go output "core/pkg/service/ranger"
+    @go output  "core/pkg/service/ranger"
+    @go marshal
     @pb
-    @cpp name  "Base"
-    @ts name   "Base"
-    @py name   "Payload"
+    @cpp name   "Base"
+    @ts name    "Base"
+    @py name    "Payload"
 }
 
 APIRange struct extends Range {

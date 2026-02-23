@@ -46,6 +46,9 @@ type ServiceConfig struct {
 	// ForceMigration will force all migrations to run, regardless of whether they have
 	// already been run.
 	ForceMigration *bool
+	// Codec is the protobuf-based codec for encoding/decoding ranges in gorp.
+	// [OPTIONAL]
+	Codec gorp.Codec[Range]
 	// Instrumentation for logging, tracing, and metrics.
 	alamos.Instrumentation
 }
@@ -76,6 +79,7 @@ func (c ServiceConfig) Override(other ServiceConfig) ServiceConfig {
 	c.Signals = override.Nil(c.Signals, other.Signals)
 	c.Label = override.Nil(c.Label, other.Label)
 	c.ForceMigration = override.Nil(c.ForceMigration, other.ForceMigration)
+	c.Codec = override.Nil(c.Codec, other.Codec)
 	return c
 }
 
@@ -95,7 +99,7 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (*Service, error) {
 	if err != nil {
 		return nil, err
 	}
-	table, err := gorp.OpenTable[uuid.UUID, Range](ctx, gorp.TableConfig[Range]{DB: cfg.DB})
+	table, err := gorp.OpenTable[uuid.UUID, Range](ctx, gorp.TableConfig[Range]{DB: cfg.DB, Codec: cfg.Codec})
 	if err != nil {
 		return nil, err
 	}
@@ -107,10 +111,12 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (*Service, error) {
 	if cfg.Signals == nil {
 		return s, nil
 	}
+	signalsCfg := signals.GorpPublisherConfigUUID[Range](cfg.DB)
+	signalsCfg.Observable = s.table.Observe()
 	rangeSignals, err := signals.PublishFromGorp(
 		ctx,
 		cfg.Signals,
-		signals.GorpPublisherConfigUUID[Range](cfg.DB),
+		signalsCfg,
 	)
 	if err != nil {
 		return nil, err

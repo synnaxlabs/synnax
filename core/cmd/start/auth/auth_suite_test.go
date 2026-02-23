@@ -53,10 +53,11 @@ var _ = BeforeSuite(func() {
 		Ontology: otg,
 		Group:    g,
 	}))
+	authKV := MustSucceed(auth.OpenKV(ctx, db))
 	svc = &service.Layer{
 		User: userSvc,
 		RBAC: rbacSvc,
-		Auth: &auth.KV{DB: db},
+		Auth: authKV,
 	}
 })
 

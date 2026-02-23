@@ -28,6 +28,9 @@ type ServiceConfig struct {
 	// Ontology is used to define relationships between logs and other entities in
 	// the Synnax resource graph.
 	Ontology *ontology.Ontology
+	// Codec is the protobuf-based codec for encoding/decoding logs in gorp.
+	// [OPTIONAL]
+	Codec gorp.Codec[Log]
 }
 
 var (
@@ -40,6 +43,7 @@ var (
 func (c ServiceConfig) Override(other ServiceConfig) ServiceConfig {
 	c.DB = override.Nil(c.DB, other.DB)
 	c.Ontology = override.Nil(c.Ontology, other.Ontology)
+	c.Codec = override.Nil(c.Codec, other.Codec)
 	return c
 }
 
@@ -65,7 +69,7 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (*Service, error) {
 	if err != nil {
 		return nil, err
 	}
-	table, err := gorp.OpenTable[uuid.UUID, Log](ctx, gorp.TableConfig[Log]{DB: cfg.DB})
+	table, err := gorp.OpenTable[uuid.UUID, Log](ctx, gorp.TableConfig[Log]{DB: cfg.DB, Codec: cfg.Codec})
 	if err != nil {
 		return nil, err
 	}

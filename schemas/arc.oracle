@@ -80,6 +80,7 @@ Arc struct {
         sandboxed execution.
     """
     @ontology type "arc"
+    @go marshal
 }
 
 New struct {

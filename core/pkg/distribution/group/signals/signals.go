@@ -23,6 +23,11 @@ func Publish(
 	ctx context.Context,
 	prov *signals.Provider,
 	db *gorp.DB,
+	groupSvc *group.Service,
 ) (io.Closer, error) {
-	return signals.PublishFromGorp(ctx, prov, signals.GorpPublisherConfigUUID[group.Group](db))
+	cfg := signals.GorpPublisherConfigUUID[group.Group](db)
+	if groupSvc != nil {
+		cfg.Observable = groupSvc.Observe()
+	}
+	return signals.PublishFromGorp(ctx, prov, cfg)
 }

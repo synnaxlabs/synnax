@@ -58,6 +58,9 @@ type ServiceConfig struct {
 	// [OPTIONAL] - Defaults to nil. Signals will not be propagated if this service
 	// is nil.
 	Signals *signals.Provider
+	// Codec is the protobuf-based codec for encoding/decoding arcs in gorp.
+	// [OPTIONAL]
+	Codec gorp.Codec[Arc]
 	// Instrumentation is used for logging, tracing, and metrics.
 	alamos.Instrumentation
 }
@@ -76,6 +79,7 @@ func (c ServiceConfig) Override(other ServiceConfig) ServiceConfig {
 	c.Signals = override.Nil(c.Signals, other.Signals)
 	c.Channel = override.Nil(c.Channel, other.Channel)
 	c.Task = override.Nil(c.Task, other.Task)
+	c.Codec = override.Nil(c.Codec, other.Codec)
 	return c
 }
 
@@ -171,7 +175,7 @@ func OpenService(ctx context.Context, configs ...ServiceConfig) (*Service, error
 	if err != nil {
 		return nil, err
 	}
-	table, err := gorp.OpenTable[uuid.UUID, Arc](ctx, gorp.TableConfig[Arc]{DB: cfg.DB})
+	table, err := gorp.OpenTable[uuid.UUID, Arc](ctx, gorp.TableConfig[Arc]{DB: cfg.DB, Codec: cfg.Codec})
 	if err != nil {
 		return nil, err
 	}
@@ -182,7 +186,9 @@ func OpenService(ctx context.Context, configs ...ServiceConfig) (*Service, error
 	}
 	cfg.Ontology.RegisterService(s)
 	if cfg.Signals != nil {
-		s.closer, err = signals.PublishFromGorp(ctx, s.cfg.Signals, signals.GorpPublisherConfigUUID[Arc](cfg.DB))
+		signalsCfg := signals.GorpPublisherConfigUUID[Arc](cfg.DB)
+		signalsCfg.Observable = s.table.Observe()
+		s.closer, err = signals.PublishFromGorp(ctx, s.cfg.Signals, signalsCfg)
 		if err != nil {
 			return nil, err
 		}

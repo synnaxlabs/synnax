@@ -98,12 +98,12 @@ func (s *Service) OnChange(f func(context.Context, iter.Seq[ontology.Change])) o
 	handleChange := func(ctx context.Context, reader gorp.TxReader[uuid.UUID, User]) {
 		f(ctx, xiter.Map(reader, translateChange))
 	}
-	return gorp.Observe[uuid.UUID, User](s.cfg.DB).OnChange(handleChange)
+	return s.table.Observe().OnChange(handleChange)
 }
 
 // OpenNexter implements ontology.Service.
 func (s *Service) OpenNexter(ctx context.Context) (iter.Seq[ontology.Resource], io.Closer, error) {
-	n, closer, err := gorp.WrapReader[uuid.UUID, User](s.cfg.DB).OpenNexter(ctx)
+	n, closer, err := s.table.OpenNexter(ctx)
 	if err != nil {
 		return nil, nil, err
 	}

@@ -30,6 +30,7 @@ type ServiceConfig struct {
 	DB       *gorp.DB
 	Ontology *ontology.Ontology
 	Group    *group.Service
+	Codec    gorp.Codec[Workspace]
 }
 
 var (
@@ -43,6 +44,7 @@ func (c ServiceConfig) Override(other ServiceConfig) ServiceConfig {
 	c.Ontology = override.Nil(c.Ontology, other.Ontology)
 	c.Group = override.Nil(c.Group, other.Group)
 	c.Signals = override.Nil(c.Signals, other.Signals)
+	c.Codec = override.Nil(c.Codec, other.Codec)
 	return c
 }
 
@@ -67,7 +69,7 @@ func OpenService(ctx context.Context, configs ...ServiceConfig) (*Service, error
 	if err != nil {
 		return nil, err
 	}
-	table, err := gorp.OpenTable[uuid.UUID, Workspace](ctx, gorp.TableConfig[Workspace]{DB: cfg.DB})
+	table, err := gorp.OpenTable[uuid.UUID, Workspace](ctx, gorp.TableConfig[Workspace]{DB: cfg.DB, Codec: cfg.Codec})
 	if err != nil {
 		return nil, err
 	}
@@ -80,10 +82,12 @@ func OpenService(ctx context.Context, configs ...ServiceConfig) (*Service, error
 	if cfg.Signals == nil {
 		return s, nil
 	}
+	signalsCfg := signals.GorpPublisherConfigUUID[Workspace](cfg.DB)
+	signalsCfg.Observable = s.table.Observe()
 	if s.shutdownSignals, err = signals.PublishFromGorp(
 		ctx,
 		cfg.Signals,
-		signals.GorpPublisherConfigUUID[Workspace](cfg.DB),
+		signalsCfg,
 	); err != nil {
 		return nil, err
 	}

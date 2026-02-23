@@ -54,6 +54,9 @@ type ServiceConfig struct {
 	// Rack is used to retrieve and manage racks.
 	// [REQUIRED]
 	Rack *rack.Service
+	// Codec is the protobuf-based codec for encoding/decoding devices in gorp.
+	// [OPTIONAL]
+	Codec gorp.Codec[Device]
 	// Instrumentation is used for logging, tracing, and metrics.
 	// [OPTIONAL] - Defaults to noop instrumentation.
 	alamos.Instrumentation
@@ -69,6 +72,7 @@ func (c ServiceConfig) Override(other ServiceConfig) ServiceConfig {
 	c.Status = override.Nil(c.Status, other.Status)
 	c.Signals = override.Nil(c.Signals, other.Signals)
 	c.Rack = override.Nil(c.Rack, other.Rack)
+	c.Codec = override.Nil(c.Codec, other.Codec)
 	return c
 }
 
@@ -105,7 +109,7 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (*Service, error) {
 	if err != nil {
 		return nil, err
 	}
-	table, err := gorp.OpenTable[string, Device](ctx, gorp.TableConfig[Device]{DB: cfg.DB})
+	table, err := gorp.OpenTable[string, Device](ctx, gorp.TableConfig[Device]{DB: cfg.DB, Codec: cfg.Codec})
 	if err != nil {
 		return nil, err
 	}
@@ -124,10 +128,12 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (*Service, error) {
 	cfg.Ontology.RegisterService(s)
 	s.disconnectSuspectRackObserver = cfg.Rack.OnSuspect(s.onSuspectRack)
 	if cfg.Signals != nil {
+		signalsCfg := signals.GorpPublisherConfigString[Device](cfg.DB)
+		signalsCfg.Observable = s.table.Observe()
 		if s.shutdownSignals, err = signals.PublishFromGorp(
 			ctx,
 			cfg.Signals,
-			signals.GorpPublisherConfigString[Device](cfg.DB),
+			signalsCfg,
 		); err != nil {
 			return nil, err
 		}

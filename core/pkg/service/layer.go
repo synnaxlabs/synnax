@@ -18,30 +18,42 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/security"
 	"github.com/synnaxlabs/synnax/pkg/service/access/rbac"
 	"github.com/synnaxlabs/synnax/pkg/service/arc"
+	arcpb "github.com/synnaxlabs/synnax/pkg/service/arc/pb"
 	arcruntime "github.com/synnaxlabs/synnax/pkg/service/arc/runtime"
 	"github.com/synnaxlabs/synnax/pkg/service/auth"
 	"github.com/synnaxlabs/synnax/pkg/service/auth/token"
 	"github.com/synnaxlabs/synnax/pkg/service/device"
+	devicepb "github.com/synnaxlabs/synnax/pkg/service/device/pb"
 	"github.com/synnaxlabs/synnax/pkg/service/driver"
 	"github.com/synnaxlabs/synnax/pkg/service/framer"
 	"github.com/synnaxlabs/synnax/pkg/service/label"
 	"github.com/synnaxlabs/synnax/pkg/service/lineplot"
+	lineplotpb "github.com/synnaxlabs/synnax/pkg/service/lineplot/pb"
 	"github.com/synnaxlabs/synnax/pkg/service/log"
+	logpb "github.com/synnaxlabs/synnax/pkg/service/log/pb"
 	"github.com/synnaxlabs/synnax/pkg/service/metrics"
 	"github.com/synnaxlabs/synnax/pkg/service/rack"
+	rackpb "github.com/synnaxlabs/synnax/pkg/service/rack/pb"
 	"github.com/synnaxlabs/synnax/pkg/service/ranger"
 	"github.com/synnaxlabs/synnax/pkg/service/ranger/alias"
 	"github.com/synnaxlabs/synnax/pkg/service/ranger/kv"
+	rangerpb "github.com/synnaxlabs/synnax/pkg/service/ranger/pb"
 	"github.com/synnaxlabs/synnax/pkg/service/schematic"
+	schematicpb "github.com/synnaxlabs/synnax/pkg/service/schematic/pb"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
 	"github.com/synnaxlabs/synnax/pkg/service/table"
+	tablepb "github.com/synnaxlabs/synnax/pkg/service/table/pb"
 	"github.com/synnaxlabs/synnax/pkg/service/task"
+	taskpb "github.com/synnaxlabs/synnax/pkg/service/task/pb"
 	"github.com/synnaxlabs/synnax/pkg/service/user"
+	userpb "github.com/synnaxlabs/synnax/pkg/service/user/pb"
 	"github.com/synnaxlabs/synnax/pkg/service/view"
 	"github.com/synnaxlabs/synnax/pkg/service/workspace"
+	workspacepb "github.com/synnaxlabs/synnax/pkg/service/workspace/pb"
 	"github.com/synnaxlabs/synnax/pkg/storage"
 	"github.com/synnaxlabs/x/config"
 	xio "github.com/synnaxlabs/x/io"
+	labelpb "github.com/synnaxlabs/x/label/pb"
 	"github.com/synnaxlabs/x/override"
 	"github.com/synnaxlabs/x/service"
 	"github.com/synnaxlabs/x/validate"
@@ -167,6 +179,7 @@ func OpenLayer(ctx context.Context, cfgs ...LayerConfig) (l *Layer, err error) {
 		DB:       cfg.Distribution.DB,
 		Ontology: cfg.Distribution.Ontology,
 		Group:    cfg.Distribution.Group,
+		Codec:    userpb.UserCodec,
 	}); !ok(err, nil) {
 		return nil, err
 	}
@@ -179,7 +192,11 @@ func OpenLayer(ctx context.Context, cfgs ...LayerConfig) (l *Layer, err error) {
 		return nil, err
 	}
 
-	l.Auth = &auth.KV{DB: cfg.Distribution.DB}
+	var authKV *auth.KV
+	if authKV, err = auth.OpenKV(ctx, cfg.Distribution.DB); !ok(err, authKV) {
+		return nil, err
+	}
+	l.Auth = authKV
 	if l.Token, err = token.NewService(token.ServiceConfig{
 		KeyProvider:      cfg.Security,
 		Expiration:       24 * time.Hour,
@@ -192,6 +209,7 @@ func OpenLayer(ctx context.Context, cfgs ...LayerConfig) (l *Layer, err error) {
 		Ontology: cfg.Distribution.Ontology,
 		Group:    cfg.Distribution.Group,
 		Signals:  cfg.Distribution.Signals,
+		Codec:    labelpb.LabelCodec,
 	}); !ok(err, l.Label) {
 		return nil, err
 	}
@@ -201,6 +219,7 @@ func OpenLayer(ctx context.Context, cfgs ...LayerConfig) (l *Layer, err error) {
 		Group:    cfg.Distribution.Group,
 		Signals:  cfg.Distribution.Signals,
 		Label:    l.Label,
+		Codec:    rangerpb.RangeCodec,
 	}); !ok(err, l.Ranger) {
 		return nil, err
 	}
@@ -223,6 +242,7 @@ func OpenLayer(ctx context.Context, cfgs ...LayerConfig) (l *Layer, err error) {
 		Ontology: cfg.Distribution.Ontology,
 		Group:    cfg.Distribution.Group,
 		Signals:  cfg.Distribution.Signals,
+		Codec:    workspacepb.WorkspaceCodec,
 	}); !ok(err, l.Workspace) {
 		return nil, err
 	}
@@ -231,24 +251,28 @@ func OpenLayer(ctx context.Context, cfgs ...LayerConfig) (l *Layer, err error) {
 		Ontology: cfg.Distribution.Ontology,
 		Group:    cfg.Distribution.Group,
 		Signals:  cfg.Distribution.Signals,
+		Codec:    schematicpb.SchematicCodec,
 	}); !ok(err, l.Schematic) {
 		return nil, err
 	}
 	if l.LinePlot, err = lineplot.OpenService(ctx, lineplot.ServiceConfig{
 		DB:       cfg.Distribution.DB,
 		Ontology: cfg.Distribution.Ontology,
+		Codec:    lineplotpb.LinePlotCodec,
 	}); !ok(err, nil) {
 		return nil, err
 	}
 	if l.Log, err = log.OpenService(ctx, log.ServiceConfig{
 		DB:       cfg.Distribution.DB,
 		Ontology: cfg.Distribution.Ontology,
+		Codec:    logpb.LogCodec,
 	}); !ok(err, nil) {
 		return nil, err
 	}
 	if l.Table, err = table.OpenService(ctx, table.ServiceConfig{
 		DB:       cfg.Distribution.DB,
 		Ontology: cfg.Distribution.Ontology,
+		Codec:    tablepb.TableCodec,
 	}); !ok(err, nil) {
 		return nil, err
 	}
@@ -273,6 +297,7 @@ func OpenLayer(ctx context.Context, cfgs ...LayerConfig) (l *Layer, err error) {
 		HostProvider:    cfg.Distribution.Cluster,
 		Signals:         cfg.Distribution.Signals,
 		Status:          l.Status,
+		Codec:           rackpb.RackCodec,
 	}); !ok(err, l.Rack) {
 		return nil, err
 	}
@@ -283,6 +308,7 @@ func OpenLayer(ctx context.Context, cfgs ...LayerConfig) (l *Layer, err error) {
 		Signals:  cfg.Distribution.Signals,
 		Status:   l.Status,
 		Rack:     l.Rack,
+		Codec:    devicepb.DeviceCodec,
 	}); !ok(err, l.Device) {
 		return nil, err
 	}
@@ -295,6 +321,7 @@ func OpenLayer(ctx context.Context, cfgs ...LayerConfig) (l *Layer, err error) {
 		Channel:         cfg.Distribution.Channel,
 		Rack:            l.Rack,
 		Status:          l.Status,
+		Codec:           taskpb.TaskCodec,
 	}); !ok(err, l.Task) {
 		return nil, err
 	}
@@ -307,6 +334,7 @@ func OpenLayer(ctx context.Context, cfgs ...LayerConfig) (l *Layer, err error) {
 			Channel:         cfg.Distribution.Channel,
 			Signals:         cfg.Distribution.Signals,
 			Task:            l.Task,
+			Codec:           arcpb.ArcCodec,
 		},
 	); !ok(err, l.Arc) {
 		return nil, err

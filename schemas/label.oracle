@@ -32,11 +32,12 @@ Label struct {
         @doc value "is the display color for visual identification of the label."
     }
 
-    @doc value """
+    @doc value  """
         is a tagging and categorization entity with a name and associated color.
         Labels can be attached to resources like ranges for organization and
         filtering.
     """
+    @go marshal
 }
 
 New struct extends Label {

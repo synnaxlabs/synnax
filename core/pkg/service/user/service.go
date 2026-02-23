@@ -37,6 +37,9 @@ type ServiceConfig struct {
 	// communication mechanism.
 	// [OPTIONAL]
 	Signals *signals.Provider
+	// Codec is the protobuf-based codec for encoding/decoding users in gorp.
+	// [OPTIONAL]
+	Codec gorp.Codec[User]
 }
 
 var (
@@ -50,6 +53,7 @@ func (c ServiceConfig) Override(other ServiceConfig) ServiceConfig {
 	c.Ontology = override.Nil(c.Ontology, other.Ontology)
 	c.Group = override.Nil(c.Group, other.Group)
 	c.Signals = override.Nil(c.Signals, other.Signals)
+	c.Codec = override.Nil(c.Codec, other.Codec)
 	return c
 }
 
@@ -76,7 +80,7 @@ func OpenService(ctx context.Context, configs ...ServiceConfig) (*Service, error
 		return nil, err
 	}
 
-	table, err := gorp.OpenTable[uuid.UUID, User](ctx, gorp.TableConfig[User]{DB: cfg.DB})
+	table, err := gorp.OpenTable[uuid.UUID, User](ctx, gorp.TableConfig[User]{DB: cfg.DB, Codec: cfg.Codec})
 	if err != nil {
 		return nil, err
 	}
@@ -84,10 +88,12 @@ func OpenService(ctx context.Context, configs ...ServiceConfig) (*Service, error
 	cfg.Ontology.RegisterService(s)
 
 	if cfg.Signals != nil {
+		signalsCfg := signals.GorpPublisherConfigUUID[User](cfg.DB)
+		signalsCfg.Observable = s.table.Observe()
 		cdcS, err := signals.PublishFromGorp[uuid.UUID, User](
 			ctx,
 			cfg.Signals,
-			signals.GorpPublisherConfigUUID[User](cfg.DB),
+			signalsCfg,
 		)
 		s.shutdownSignals = cdcS
 		if err != nil {
