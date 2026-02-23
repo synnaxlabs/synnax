@@ -217,7 +217,8 @@ TEST(ScanTask, testHealthCheckWithResponseValidation) {
     EXPECT_FALSE(has_warning(ctx));
 }
 
-/// @brief it should report WARNING when response validation fails.
+/// @brief task status should remain successful when response validation fails
+/// (device health is reported separately via device status).
 TEST(ScanTask, testHealthCheckWithFailedResponseValidation) {
     mock::Server server(
         mock::ServerConfig{
@@ -245,14 +246,13 @@ TEST(ScanTask, testHealthCheckWithFailedResponseValidation) {
         ResponseConfig(resp_parser)
     );
     start_task(*scan_task);
-    ASSERT_EVENTUALLY_TRUE(has_warning(ctx));
+    ASSERT_EVENTUALLY_TRUE(has_success(ctx));
     scan_task->stop(false);
-    auto msg = last_warning_message(ctx);
-    EXPECT_TRUE(msg.find("Unexpected health response") != std::string::npos);
+    EXPECT_FALSE(has_warning(ctx));
 }
 
-/// @brief it should report WARNING when the response value has the wrong JSON type
-/// (e.g. expected integer 1, got string "1").
+/// @brief task status should remain successful when the response value has the wrong
+/// JSON type (e.g. expected integer 1, got string "1").
 TEST(ScanTask, testHealthCheckTypeMismatch) {
     mock::Server server(
         mock::ServerConfig{
@@ -280,13 +280,13 @@ TEST(ScanTask, testHealthCheckTypeMismatch) {
         ResponseConfig(resp_parser)
     );
     start_task(*scan_task);
-    ASSERT_EVENTUALLY_TRUE(has_warning(ctx));
+    ASSERT_EVENTUALLY_TRUE(has_success(ctx));
     scan_task->stop(false);
-    auto msg = last_warning_message(ctx);
-    EXPECT_TRUE(msg.find("Unexpected health response") != std::string::npos);
+    EXPECT_FALSE(has_warning(ctx));
 }
 
-/// @brief it should report WARNING when the server returns a non-2xx status.
+/// @brief task status should remain successful when the server returns a non-2xx
+/// status (device health is reported separately via device status).
 TEST(ScanTask, testHealthCheckNon2xx) {
     mock::Server server(
         mock::ServerConfig{
@@ -304,13 +304,13 @@ TEST(ScanTask, testHealthCheckNon2xx) {
     auto ctx = std::make_shared<task::MockContext>(nullptr);
     auto scan_task = make_scan_task(ctx, server.base_url());
     start_task(*scan_task);
-    ASSERT_EVENTUALLY_TRUE(has_warning(ctx));
+    ASSERT_EVENTUALLY_TRUE(has_success(ctx));
     scan_task->stop(false);
-    auto msg = last_warning_message(ctx);
-    EXPECT_EQ(msg, "Device returned HTTP 500");
+    EXPECT_FALSE(has_warning(ctx));
 }
 
-/// @brief it should report WARNING when the response field is not found.
+/// @brief task status should remain successful when the response field is not found
+/// (device health is reported separately via device status).
 TEST(ScanTask, testHealthCheckMissingField) {
     mock::Server server(
         mock::ServerConfig{
@@ -338,9 +338,8 @@ TEST(ScanTask, testHealthCheckMissingField) {
         ResponseConfig(resp_parser)
     );
     start_task(*scan_task);
-    ASSERT_EVENTUALLY_TRUE(has_warning(ctx));
+    ASSERT_EVENTUALLY_TRUE(has_success(ctx));
     scan_task->stop(false);
-    auto msg = last_warning_message(ctx);
-    EXPECT_TRUE(msg.find("not found") != std::string::npos);
+    EXPECT_FALSE(has_warning(ctx));
 }
 }

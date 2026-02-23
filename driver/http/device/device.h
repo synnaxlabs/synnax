@@ -167,8 +167,8 @@ struct MultiHandle;
 /// pre-built at construction time from the connection and request configurations so the
 /// hot-path request() only needs to set the body, perform I/O, and read results.
 class Client {
-    std::unique_ptr<MultiHandle> multi_handle_;
-    std::vector<Handle> handles_;
+    std::unique_ptr<MultiHandle> multi_handle;
+    std::vector<Handle> handles;
 
     Client(const Client &) = delete;
     Client &operator=(const Client &) = delete;
