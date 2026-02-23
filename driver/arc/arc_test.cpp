@@ -2430,7 +2430,7 @@ TEST(ArcTests, testWriterOpensWithErrOnUnauthorizedFalse) {
     ASSERT_NIL(client->channels.create(input_ch));
     ASSERT_NIL(client->channels.create(output_ch));
 
-    synnax::arc::Arc arc_prog(make_unique_channel_name("eou_test"));
+    synnax::arc::Arc arc_prog{.name = make_unique_channel_name("eou_test")};
     arc_prog.text = ::arc::text::Text(
         "func calc(val f32) f32 {\n"
         "    return val * 2\n"
@@ -2443,7 +2443,11 @@ TEST(ArcTests, testWriterOpensWithErrOnUnauthorizedFalse) {
         client->racks.create(make_unique_channel_name("arc_eou_test_rack"))
     );
 
-    synnax::task::Task task_meta(rack.key, "arc_eou_test", "arc_runtime", "");
+    synnax::task::Task task_meta{
+        .key = synnax::task::create_key(rack.key, 0),
+        .name = "arc_eou_test",
+        .type = "arc_runtime",
+    };
     nlohmann::json cfg{{"arc_key", arc_prog.key.to_string()}};
     task_meta.config = cfg;
 
