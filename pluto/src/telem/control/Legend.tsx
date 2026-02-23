@@ -22,7 +22,7 @@ import { useContext } from "@/telem/control/Controller";
 import { Text } from "@/text";
 import { Legend as Base } from "@/vis/legend";
 
-const SUBJECT_NAME_RE = /^(.+?)\s*\((.+)\)$/;
+const SUBJECT_NAME_RE = /^(.+)\s*\(([^)]+)\)$/;
 
 interface ParsedName {
   primary: string;
