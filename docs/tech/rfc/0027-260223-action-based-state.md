@@ -750,13 +750,16 @@ The current code sends the full node array on every change (`setNodes({ nodes })
 After migration, the integration layer inspects individual changes, maps document
 mutations to typed actions dispatched through Flux, and routes selections to Redux.
 
-The drag case connects to open question 6.1: during a drag, the local Flux store updates
-for rendering but the server dispatch is deferred until drop. This is a form of implicit
-transaction grouping that also reduces network overhead.
+The drag case connects to open question 1 (action batching on the wire): during a drag,
+the local Flux store updates for rendering but the server dispatch is deferred until
+drop. This is a form of implicit transaction grouping that also reduces network overhead.
 
 # 5 - Implementation Plan
 
 ## Phase 0: Infrastructure
+
+**Prerequisite**: The `data json` → typed fields migration (RFC 0026) must complete
+before this phase. Actions operate on typed fields, not raw JSON blobs.
 
 1. **Oracle action plugin**: Extend oracle to read action definitions and generate Go
    structs, TS types/zod schemas, proto messages, and reducer dispatchers for each
