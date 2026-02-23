@@ -184,6 +184,47 @@ func (m *typedMigration[I, O]) Run(
 	return err
 }
 
+type codecTransitionMigration[K Key, E Entry[K]] struct {
+	name  string
+	codec Codec[E]
+}
+
+// NewCodecTransition creates a Migration that re-encodes all entries from the DB's
+// default codec (e.g. msgpack) to the provided target codec (e.g. protobuf).
+func NewCodecTransition[K Key, E Entry[K]](name string, codec Codec[E]) Migration {
+	return &codecTransitionMigration[K, E]{name: name, codec: codec}
+}
+
+func (m *codecTransitionMigration[K, E]) Name() string { return m.name }
+
+func (m *codecTransitionMigration[K, E]) Run(
+	ctx context.Context,
+	kvTx kv.Tx,
+	cfg MigrationConfig,
+) error {
+	iter, err := kvTx.OpenIterator(kv.IterPrefix(cfg.Prefix))
+	if err != nil {
+		return err
+	}
+	defer func() {
+		err = errors.Combine(err, iter.Close())
+	}()
+	for iter.First(); iter.Valid(); iter.Next() {
+		var entry E
+		if err = cfg.Codec.Decode(ctx, iter.Value(), &entry); err != nil {
+			return err
+		}
+		var data []byte
+		if data, err = m.codec.Marshal(ctx, entry); err != nil {
+			return err
+		}
+		if err = kvTx.Set(ctx, iter.Key(), data); err != nil {
+			return err
+		}
+	}
+	return err
+}
+
 type rawMigration struct {
 	name string
 	fn   func(ctx context.Context, tx Tx) error

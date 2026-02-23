@@ -89,7 +89,13 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (*Service, error) {
 	if err != nil {
 		return nil, err
 	}
-	table, err := gorp.OpenTable[uuid.UUID, Label](ctx, gorp.TableConfig[Label]{DB: cfg.DB, Codec: cfg.Codec})
+	table, err := gorp.OpenTable[uuid.UUID, Label](ctx, gorp.TableConfig[Label]{
+		DB:    cfg.DB,
+		Codec: cfg.Codec,
+		Migrations: []gorp.Migration{
+			gorp.NewCodecTransition[uuid.UUID, Label]("msgpack_to_protobuf", cfg.Codec),
+		},
+	})
 	if err != nil {
 		return nil, err
 	}

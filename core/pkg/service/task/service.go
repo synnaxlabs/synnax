@@ -106,7 +106,13 @@ func OpenService(ctx context.Context, configs ...ServiceConfig) (*Service, error
 	if err != nil {
 		return nil, err
 	}
-	table, err := gorp.OpenTable[Key, Task](ctx, gorp.TableConfig[Task]{DB: cfg.DB, Codec: cfg.Codec})
+	table, err := gorp.OpenTable[Key, Task](ctx, gorp.TableConfig[Task]{
+		DB:    cfg.DB,
+		Codec: cfg.Codec,
+		Migrations: []gorp.Migration{
+			gorp.NewCodecTransition[Key, Task]("msgpack_to_protobuf", cfg.Codec),
+		},
+	})
 	if err != nil {
 		return nil, err
 	}

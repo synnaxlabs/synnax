@@ -13,6 +13,7 @@ import (
 	"context"
 	stdbinary "encoding/binary"
 	"encoding/json"
+	"fmt"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -62,6 +63,20 @@ func (jsonEntryCodec) Unmarshal(_ context.Context, data []byte) (jsonEntry, erro
 }
 
 var _ gorp.Codec[jsonEntry] = jsonEntryCodec{}
+
+type failMarshalCodec struct{}
+
+func (failMarshalCodec) Marshal(_ context.Context, _ jsonEntry) ([]byte, error) {
+	return nil, errors.New("marshal failed")
+}
+
+func (failMarshalCodec) Unmarshal(_ context.Context, data []byte) (jsonEntry, error) {
+	var e jsonEntry
+	err := json.Unmarshal(data, &e)
+	return e, err
+}
+
+var _ gorp.Codec[jsonEntry] = failMarshalCodec{}
 
 var _ = Describe("Gorp", func() {
 	var ctx context.Context
@@ -764,6 +779,176 @@ var _ = Describe("Gorp", func() {
 				versionKey := []byte("__gorp_migration__//entryV1")
 				Expect(testDB.Get(ctx, versionKey)).Error().To(MatchError(query.ErrNotFound))
 				r := gorp.WrapReader[int32, entryV1](testDB)
+				Expect(MustSucceed(r.Get(ctx, 1)).Data).To(Equal("original"))
+			})
+		})
+
+		Describe("CodecTransitionMigration", func() {
+			It("Should re-encode entries from default codec to custom codec", func() {
+				testDB := gorp.Wrap(memkv.New())
+				defer func() { Expect(testDB.Close()).To(Succeed()) }()
+				w := gorp.WrapWriter[int32, jsonEntry](testDB)
+				Expect(w.Set(ctx, jsonEntry{ID: 1, Data: "one"})).To(Succeed())
+				Expect(w.Set(ctx, jsonEntry{ID: 2, Data: "two"})).To(Succeed())
+				tbl := MustSucceed(gorp.OpenTable[int32, jsonEntry](ctx, gorp.TableConfig[jsonEntry]{
+					DB:    testDB,
+					Codec: jsonEntryCodec{},
+					Migrations: []gorp.Migration{
+						gorp.NewCodecTransition[int32, jsonEntry]("msgpack_to_json", jsonEntryCodec{}),
+					},
+				}))
+				var r1, r2 jsonEntry
+				Expect(tbl.NewRetrieve().WhereKeys(1).Entry(&r1).Exec(ctx, testDB)).To(Succeed())
+				Expect(r1.ID).To(Equal(int32(1)))
+				Expect(r1.Data).To(Equal("one"))
+				Expect(tbl.NewRetrieve().WhereKeys(2).Entry(&r2).Exec(ctx, testDB)).To(Succeed())
+				Expect(r2.Data).To(Equal("two"))
+			})
+
+			It("Should produce bytes in the target codec format", func() {
+				testDB := gorp.Wrap(memkv.New())
+				defer func() { Expect(testDB.Close()).To(Succeed()) }()
+				w := gorp.WrapWriter[int32, jsonEntry](testDB)
+				Expect(w.Set(ctx, jsonEntry{ID: 1, Data: "verify"})).To(Succeed())
+				MustSucceed(gorp.OpenTable[int32, jsonEntry](ctx, gorp.TableConfig[jsonEntry]{
+					DB:    testDB,
+					Codec: jsonEntryCodec{},
+					Migrations: []gorp.Migration{
+						gorp.NewCodecTransition[int32, jsonEntry]("msgpack_to_json", jsonEntryCodec{}),
+					},
+				}))
+				prefix := "__gorp__//jsonEntry"
+				key := make([]byte, len(prefix)+4)
+				copy(key, prefix)
+				stdbinary.BigEndian.PutUint32(key[len(prefix):], 1)
+				raw, closer := MustSucceed2(testDB.Get(ctx, key))
+				Expect(closer.Close()).To(Succeed())
+				var parsed map[string]interface{}
+				Expect(json.Unmarshal(raw, &parsed)).To(Succeed())
+				Expect(parsed["data"]).To(Equal("verify"))
+			})
+
+			It("Should be a no-op on second run", func() {
+				testDB := gorp.Wrap(memkv.New())
+				defer func() { Expect(testDB.Close()).To(Succeed()) }()
+				w := gorp.WrapWriter[int32, jsonEntry](testDB)
+				Expect(w.Set(ctx, jsonEntry{ID: 1, Data: "hello"})).To(Succeed())
+				cfg := gorp.TableConfig[jsonEntry]{
+					DB:    testDB,
+					Codec: jsonEntryCodec{},
+					Migrations: []gorp.Migration{
+						gorp.NewCodecTransition[int32, jsonEntry]("msgpack_to_json", jsonEntryCodec{}),
+					},
+				}
+				MustSucceed(gorp.OpenTable[int32, jsonEntry](ctx, cfg))
+				tbl := MustSucceed(gorp.OpenTable[int32, jsonEntry](ctx, cfg))
+				var result jsonEntry
+				Expect(tbl.NewRetrieve().WhereKeys(1).Entry(&result).Exec(ctx, testDB)).To(Succeed())
+				Expect(result.Data).To(Equal("hello"))
+			})
+
+			It("Should handle empty DB", func() {
+				testDB := gorp.Wrap(memkv.New())
+				defer func() { Expect(testDB.Close()).To(Succeed()) }()
+				MustSucceed(gorp.OpenTable[int32, jsonEntry](ctx, gorp.TableConfig[jsonEntry]{
+					DB:    testDB,
+					Codec: jsonEntryCodec{},
+					Migrations: []gorp.Migration{
+						gorp.NewCodecTransition[int32, jsonEntry]("msgpack_to_json", jsonEntryCodec{}),
+					},
+				}))
+			})
+
+			It("Should migrate many entries correctly", func() {
+				testDB := gorp.Wrap(memkv.New())
+				defer func() { Expect(testDB.Close()).To(Succeed()) }()
+				w := gorp.WrapWriter[int32, jsonEntry](testDB)
+				for i := int32(0); i < 100; i++ {
+					Expect(w.Set(ctx, jsonEntry{ID: i, Data: fmt.Sprintf("entry_%d", i)})).To(Succeed())
+				}
+				tbl := MustSucceed(gorp.OpenTable[int32, jsonEntry](ctx, gorp.TableConfig[jsonEntry]{
+					DB:    testDB,
+					Codec: jsonEntryCodec{},
+					Migrations: []gorp.Migration{
+						gorp.NewCodecTransition[int32, jsonEntry]("msgpack_to_json", jsonEntryCodec{}),
+					},
+				}))
+				for i := int32(0); i < 100; i++ {
+					var result jsonEntry
+					Expect(tbl.NewRetrieve().WhereKeys(i).Entry(&result).Exec(ctx, testDB)).To(Succeed())
+					Expect(result.Data).To(Equal(fmt.Sprintf("entry_%d", i)))
+				}
+			})
+
+			It("Should return an error when source data cannot be decoded", func() {
+				testDB := gorp.Wrap(memkv.New())
+				defer func() { Expect(testDB.Close()).To(Succeed()) }()
+				prefix := "__gorp__//jsonEntry"
+				key := make([]byte, len(prefix)+4)
+				copy(key, prefix)
+				stdbinary.BigEndian.PutUint32(key[len(prefix):], 1)
+				Expect(testDB.Set(ctx, key, []byte("not valid msgpack \xff\xfe"))).To(Succeed())
+				Expect(gorp.OpenTable[int32, jsonEntry](ctx, gorp.TableConfig[jsonEntry]{
+					DB:    testDB,
+					Codec: jsonEntryCodec{},
+					Migrations: []gorp.Migration{
+						gorp.NewCodecTransition[int32, jsonEntry]("msgpack_to_json", jsonEntryCodec{}),
+					},
+				})).Error().To(MatchError(ContainSubstring("failed to decode")))
+			})
+
+			It("Should return an error when target codec fails to marshal", func() {
+				testDB := gorp.Wrap(memkv.New())
+				defer func() { Expect(testDB.Close()).To(Succeed()) }()
+				w := gorp.WrapWriter[int32, jsonEntry](testDB)
+				Expect(w.Set(ctx, jsonEntry{ID: 1, Data: "fail"})).To(Succeed())
+				Expect(gorp.OpenTable[int32, jsonEntry](ctx, gorp.TableConfig[jsonEntry]{
+					DB:    testDB,
+					Codec: failMarshalCodec{},
+					Migrations: []gorp.Migration{
+						gorp.NewCodecTransition[int32, jsonEntry]("to_failing", failMarshalCodec{}),
+					},
+				})).Error().To(MatchError(ContainSubstring("marshal failed")))
+			})
+
+			It("Should work in a migration chain with a preceding RawMigration", func() {
+				testDB := gorp.Wrap(memkv.New())
+				defer func() { Expect(testDB.Close()).To(Succeed()) }()
+				w := gorp.WrapWriter[int32, jsonEntry](testDB)
+				Expect(w.Set(ctx, jsonEntry{ID: 1, Data: "chain"})).To(Succeed())
+				m1 := gorp.NewRawMigration("raw_update", func(ctx context.Context, tx gorp.Tx) error {
+					r := gorp.WrapReader[int32, jsonEntry](tx)
+					e := MustSucceed(r.Get(ctx, 1))
+					e.Data = e.Data + "_raw"
+					w := gorp.WrapWriter[int32, jsonEntry](tx)
+					return w.Set(ctx, e)
+				})
+				m2 := gorp.NewCodecTransition[int32, jsonEntry]("msgpack_to_json", jsonEntryCodec{})
+				tbl := MustSucceed(gorp.OpenTable[int32, jsonEntry](ctx, gorp.TableConfig[jsonEntry]{
+					DB:         testDB,
+					Codec:      jsonEntryCodec{},
+					Migrations: []gorp.Migration{m1, m2},
+				}))
+				var result jsonEntry
+				Expect(tbl.NewRetrieve().WhereKeys(1).Entry(&result).Exec(ctx, testDB)).To(Succeed())
+				Expect(result.Data).To(Equal("chain_raw"))
+			})
+
+			It("Should not commit when migration fails", func() {
+				testDB := gorp.Wrap(memkv.New())
+				defer func() { Expect(testDB.Close()).To(Succeed()) }()
+				w := gorp.WrapWriter[int32, jsonEntry](testDB)
+				Expect(w.Set(ctx, jsonEntry{ID: 1, Data: "original"})).To(Succeed())
+				Expect(gorp.OpenTable[int32, jsonEntry](ctx, gorp.TableConfig[jsonEntry]{
+					DB:    testDB,
+					Codec: failMarshalCodec{},
+					Migrations: []gorp.Migration{
+						gorp.NewCodecTransition[int32, jsonEntry]("to_failing", failMarshalCodec{}),
+					},
+				})).Error().To(HaveOccurred())
+				Expect(testDB.Get(ctx, []byte("__gorp_migration__//jsonEntry"))).
+					Error().To(MatchError(query.ErrNotFound))
+				r := gorp.WrapReader[int32, jsonEntry](testDB)
 				Expect(MustSucceed(r.Get(ctx, 1)).Data).To(Equal("original"))
 			})
 		})

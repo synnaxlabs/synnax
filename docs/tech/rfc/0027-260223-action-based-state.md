@@ -180,13 +180,21 @@ adopted for rich text (issue descriptions).
 │  nodes: Node[]           │  viewport: { x, y, zoom }       │
 │  edges: Edge[]           │  mode: "select" | "pan"         │
 │  props: Record<K, V>    │  editable: boolean               │
-│  name: string            │  toolbar: { activeTab }          │
-│  snapshot: boolean       │  control: Control.Status         │
-│                          │  controlAcquireTrigger: number   │
-│  Persisted: server       │                                  │
-│  Synced: all clients     │  Persisted: local disk           │
-│  Mutations: actions      │  Synced: windows (Drift)         │
-│  Undoable: yes (future)  │  Mutations: Redux dispatch       │
+│  name: string            │  fitViewOnResize: boolean        │
+│  snapshot: boolean       │  legend: { visible, position }   │
+│                          │  toolbar: { activeTab }          │
+│                          │  control: Control.Status         │
+│                          │  authority: number               │
+│  Persisted: server       │  selection: string[]             │
+│  Synced: all clients     │                                  │
+│  Mutations: actions      │  Persisted: local disk           │
+│  Undoable: yes (future)  │  Synced: windows (Drift)         │
+│                          │  Mutations: Redux dispatch       │
+│                          │                                  │
+│  Note: Node[] in Flux    │  Note: selection is stored       │
+│  has NO selected field.  │  separately, merged with Flux    │
+│  Selection is session    │  nodes at render time before     │
+│  state only.             │  passing to React Flow.          │
 └──────────────────────────┴──────────────────────────────────┘
 ```
 
@@ -314,10 +322,10 @@ Following TLDraw's model, all state for a meta-data structure is classified into
 three scopes:
 
 | Scope | Owner | Persisted | Synced | Undoable | Example |
-| -------- | --------- | --------- | ----------- | -------- | ----------------------------------- |
-| Document | Flux | Server | All clients | Yes | Nodes, edges, props, name |
-| Session | Redux | Local disk | Windows\* | No | Viewport, toolbar tab, edit mode |
-| Presence | Flux | No | All clients | No | Cursor position, active selection\* |
+| -------- | --------- | --------- | ----------- | -------- | ------------------------------------------------ |
+| Document | Flux | Server | All clients | Yes | Nodes, edges, props, name, snapshot |
+| Session | Redux | Local disk | Windows\* | No | Viewport, selection, mode, editable, legend, toolbar |
+| Presence | Flux | No | All clients | No | Cursor position\* |
 
 \*Session state syncs across windows via Drift (existing behavior). Presence — real-time
 awareness of other users' activity (cursor positions, active selections) — is a future
@@ -550,30 +558,65 @@ interface SchematicSessionState {
   viewport: Diagram.Viewport;
   mode: Viewport.Mode;
   editable: boolean;
+  fitViewOnResize: boolean;
+  legend: LegendState;
   control: Control.Status;
-  controlAcquireTrigger: number;
+  authority: number;
   toolbar: ToolbarState;
+  selection: string[];
 }
 ```
 
 All document-related actions (`addNode`, `setNodes`, `setEdges`, `setElementProps`,
 etc.) are removed from the Redux slice. They flow through Flux instead.
 
-### 3.5.2 - Pluto Component Integration
+**Selection merge**: React Flow expects `Node[]` with `selected: boolean` on each node.
+Flux nodes do not carry selection state — it is per-window, not per-document. The
+component reads nodes from Flux and selection state from Redux, merging them at render
+time before passing to React Flow.
 
-Pluto components (e.g., `Schematic.Schematic`) translate diagram events into actions:
+**Undo/redo**: The current `useUndoableDispatch` wraps Redux dispatches. Moving document
+mutations to Flux breaks existing undo in Phase 1. This is acceptable — undo is rebuilt
+properly in Phase 3 using the action-based diff mechanism.
+
+**`useSyncComponent` removal**: The current Redux → server sync via `useSyncComponent`
+is replaced entirely by the action dispatch pipeline. Document mutations flow through
+Flux, which handles server communication.
+
+**Copy/paste**: `CopyBuffer` currently holds nodes, edges, and props from Redux. After
+migration, copy reads from Flux (document state) and paste dispatches actions through
+the action pipeline.
+
+### 3.5.2 - Component Integration
+
+Pluto's Diagram component (`pluto/src/vis/diagram/`) is a general-purpose React Flow
+wrapper with no knowledge of Flux, Redux, or the action system. A separate
+schematic-specific integration layer bridges the gap: it receives change events from
+Pluto's Diagram and routes document mutations to Flux actions while routing session state
+(selections) to Redux dispatches. This layer may live in Pluto's schematic module
+(`pluto/src/schematic/`) or in the console — the key constraint is that the generic
+Diagram component remains isolated.
 
 ```typescript
-const handleNodesChange = (changes: Diagram.NodeChange[]) =>
-  changes.forEach((change) => dispatch({ key, ...nodeChangeToAction(change) }));
+const handleNodesChange = (nodes: Node[], changes: NodeChange[]) => {
+  // Selection changes → Redux (session state)
+  const selectionChanges = changes.filter((c) => c.type === "select");
+  if (selectionChanges.length > 0)
+    reduxDispatch(setSelection({ key, changes: selectionChanges }));
+
+  // Document mutations → Flux action pipeline
+  const docActions = changes
+    .filter((c) => c.type !== "select")
+    .map(nodeChangeToAction)
+    .filter(Boolean);
+  if (docActions.length > 0)
+    fluxDispatch({ key: schematicKey, actions: docActions });
+};
 ```
 
-Where `dispatch` sends the action through the Flux update pipeline (optimistic local
-apply + async server dispatch).
-
-Components consume document state via Flux's `useSelect` or `useRetrieve` hooks,
-and session state via Redux selectors. This dual-read pattern already exists for
-other resources (channels, ranges) and is well established.
+The console component reads document state from Flux (`useRetrieve`) and session state
+from Redux (selectors), merging them before passing to Pluto's Diagram. This dual-read
+pattern already exists for other resources (channels, ranges).
 
 ## 3.6 - Undo/Redo Architecture
 
@@ -673,10 +716,36 @@ code-generated and doesn't need a runtime library.
 
 ## 4.4 - React Flow / Pluto Diagram
 
-The Pluto Diagram component is built on React Flow, which uses arrays for its public API
-(`Node[]`, `Edge[]`). The typed struct model with arrays (as oracle defines them) is the
-correct data model — it matches React Flow's expectations. React Flow's `NodeChange`
-events map directly to action types.
+The Pluto Diagram component (`pluto/src/vis/diagram/`) is a **general-purpose** React
+Flow wrapper. It has no knowledge of Flux, Redux, Synnax, or schematics. It takes
+`nodes`, `edges`, and `onChange` callbacks as props and fires `NodeChange[]` /
+`EdgeChange[]` events. This boundary must remain clean.
+
+The schematic-specific integration layer sits between Pluto's Diagram and the state
+management layer. It receives change events from Diagram and routes them to the correct
+destination:
+
+| Change type | Destination | Reason |
+| ----------- | ------------------------------------ | ----------------------------------------- |
+| `position` (dragging) | Local Flux store only | Don't send RPCs during a drag |
+| `position` (drop) | Flux action → server dispatch | Final position is a document mutation |
+| `dimensions` | Flux action → server dispatch | Document mutation |
+| `add` | Flux action → server dispatch | Document mutation |
+| `remove` | Flux action → server dispatch | Document mutation |
+| `replace` | Flux action → server dispatch | Document mutation |
+| `select` | Redux dispatch | Session state, per-window |
+
+This routing logic lives in the schematic-specific integration layer, not in the generic
+Diagram component. Pluto's Diagram remains a generic component that fires events without
+knowing where they go.
+
+The current code sends the full node array on every change (`setNodes({ nodes })`). After
+migration, the integration layer inspects individual changes, maps document mutations to
+typed actions dispatched through Flux, and routes selections to Redux.
+
+The drag case connects to open question 6.1: during a drag, the local Flux store updates
+for rendering but the server dispatch is deferred until drop. This is a form of implicit
+transaction grouping that also reduces network overhead.
 
 # 5 - Implementation Plan
 
@@ -698,9 +767,14 @@ events map directly to action types.
 4. **Migrate Flux store**: Add schematic Flux store with action-aware channel listener
    and update hooks.
 5. **Migrate console schematic**: Move document state out of Redux slice into Flux.
-   Reduce Redux slice to session state only.
-6. **Update Pluto Schematic component**: Wire `onNodesChange`/`onEdgesChange` to
-   dispatch actions through Flux.
+   Reduce Redux slice to session state only. This includes:
+   - Separate selection state into a `string[]` of selected node/edge keys in Redux,
+     merged with Flux nodes at render time before passing to React Flow
+   - Remove `useSyncComponent` (replaced by the action dispatch pipeline)
+   - Migrate copy/paste to read document state from Flux
+   - Accept that existing `useUndoableDispatch` undo breaks (rebuilt in Phase 3)
+6. **Build schematic integration layer**: Wire `onNodesChange`/`onEdgesChange` routing
+   — document mutations dispatch through Flux, selection changes dispatch to Redux.
 7. **Cross-language parity tests**: Integration tests verifying Go and TS reducers
    produce identical state for the same action sequence.
 
@@ -1276,9 +1350,9 @@ The flow is:
 4. Send actions to server via `client.schematics.dispatch()`
 5. If the server rejects, rollbacks fire automatically
 
-### Component Integration (`pluto/src/schematic/Schematic.tsx`)
+### Component Integration
 
-The Pluto Schematic component translates React Flow events into actions:
+The schematic integration layer routes Pluto Diagram events to the right destination:
 
 ```typescript
 import { useDispatch } from "./queries";
