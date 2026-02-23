@@ -332,6 +332,30 @@ var _ = Describe("Codec", func() {
 			Expect(result.Name).To(Equal("test"))
 			Expect(result.Schema["field"]).To(Equal("value"))
 		})
+		It("Should decode an empty string to an empty map", func() {
+			b := MustSucceed(msgpack.Marshal(""))
+			var result binary.MsgpackEncodedJSON
+			Expect(msgpack.Unmarshal(b, &result)).To(Succeed())
+			Expect(result).ToNot(BeNil())
+			Expect(result).To(HaveLen(0))
+		})
+		It("Should decode an empty string struct field to an empty map", func() {
+			type OldConfig struct {
+				Name   string `msgpack:"name"`
+				Schema string `msgpack:"schema"`
+			}
+			type NewConfig struct {
+				Name   string                    `msgpack:"name"`
+				Schema binary.MsgpackEncodedJSON `msgpack:"schema"`
+			}
+			old := OldConfig{Name: "test", Schema: ""}
+			b := MustSucceed(msgpack.Marshal(old))
+			var result NewConfig
+			Expect(msgpack.Unmarshal(b, &result)).To(Succeed())
+			Expect(result.Name).To(Equal("test"))
+			Expect(result.Schema).ToNot(BeNil())
+			Expect(result.Schema).To(HaveLen(0))
+		})
 		It("Should return an error for an invalid JSON string", func() {
 			b := MustSucceed(msgpack.Marshal("not valid json"))
 			var result binary.MsgpackEncodedJSON
