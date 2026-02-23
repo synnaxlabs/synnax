@@ -40,7 +40,7 @@
         },
         {
           "case": "arc/arc_bang_bang_authority",
-          "parameters": { "rack_key": [65537, 65538] }
+          "parameters": { "rack_key": [65539] }
         }
       ]
     }
