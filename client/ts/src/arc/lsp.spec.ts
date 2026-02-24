@@ -7,10 +7,24 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type jsonRPC } from "@synnaxlabs/x";
 import { describe, expect, it } from "vitest";
 
 import { createTestClient } from "@/testutil/client";
+
+interface JSONRPCRequest {
+  jsonrpc: "2.0";
+  id: number;
+  method: string;
+  params?: unknown;
+}
+
+type JSONRPCResponse =
+  | { jsonrpc: "2.0"; id: number; result: unknown }
+  | {
+      jsonrpc: "2.0";
+      id: number;
+      error: { code: number; message: string; data?: unknown };
+    };
 
 type LSPReceiver = {
   receive: () => Promise<[{ content: string }, null] | [null, Error]>;
@@ -22,14 +36,14 @@ const MAX_DRAIN = 50;
 const receiveResponse = async (
   stream: LSPReceiver,
   expectedId: number,
-): Promise<jsonRPC.Response> => {
+): Promise<JSONRPCResponse> => {
   for (let i = 0; i < MAX_DRAIN; i++) {
     const [res, err] = await stream.receive();
     if (err != null) throw err;
     if (res == null) throw new Error("Expected response");
     const msg = JSON.parse(res.content);
     if (!("method" in msg) && "id" in msg && msg.id === expectedId)
-      return msg as jsonRPC.Response;
+      return msg as JSONRPCResponse;
   }
   throw new Error(
     `receiveResponse: drained ${MAX_DRAIN} messages without seeing id=${expectedId}`,
@@ -40,13 +54,13 @@ const receiveResponse = async (
 const receiveNotification = async (
   stream: LSPReceiver,
   expectedMethod: string,
-): Promise<jsonRPC.Request> => {
+): Promise<JSONRPCRequest> => {
   for (let i = 0; i < MAX_DRAIN; i++) {
     const [res, err] = await stream.receive();
     if (err != null) throw err;
     if (res == null) throw new Error("Expected message");
     const msg = JSON.parse(res.content);
-    if ("method" in msg && msg.method === expectedMethod) return msg as jsonRPC.Request;
+    if ("method" in msg && msg.method === expectedMethod) return msg as JSONRPCRequest;
   }
   throw new Error(
     `receiveNotification: drained ${MAX_DRAIN} messages without seeing method=${expectedMethod}`,
@@ -58,7 +72,7 @@ describe("Arc LSP", () => {
     const client = createTestClient();
     const stream = await client.arcs.openLSP();
 
-    const initializeRequest: jsonRPC.Request = {
+    const initializeRequest: JSONRPCRequest = {
       jsonrpc: "2.0",
       id: 1,
       method: "initialize",
@@ -90,7 +104,7 @@ describe("Arc LSP", () => {
     const client = createTestClient();
     const stream = await client.arcs.openLSP();
 
-    const initializeRequest: jsonRPC.Request = {
+    const initializeRequest: JSONRPCRequest = {
       jsonrpc: "2.0",
       id: 1,
       method: "initialize",
@@ -143,7 +157,7 @@ describe("Arc LSP", () => {
     const client = createTestClient();
     const stream = await client.arcs.openLSP();
 
-    const initializeRequest: jsonRPC.Request = {
+    const initializeRequest: JSONRPCRequest = {
       jsonrpc: "2.0",
       id: 1,
       method: "initialize",
@@ -184,7 +198,7 @@ describe("Arc LSP", () => {
 
     await receiveNotification(stream, "textDocument/publishDiagnostics");
 
-    const hoverRequest: jsonRPC.Request = {
+    const hoverRequest: JSONRPCRequest = {
       jsonrpc: "2.0",
       id: 2,
       method: "textDocument/hover",
@@ -210,9 +224,9 @@ describe("Arc LSP", () => {
     const client = createTestClient();
     const stream = await client.arcs.openLSP();
 
-    const receivedMessages: jsonRPC.Response[] = [];
+    const receivedMessages: JSONRPCResponse[] = [];
 
-    const initializeRequest: jsonRPC.Request = {
+    const initializeRequest: JSONRPCRequest = {
       jsonrpc: "2.0",
       id: 1,
       method: "initialize",
@@ -268,7 +282,7 @@ describe("Arc LSP", () => {
     const client = createTestClient();
     const stream = await client.arcs.openLSP();
 
-    const testMessage: jsonRPC.Request = {
+    const testMessage: JSONRPCRequest = {
       jsonrpc: "2.0",
       id: 999,
       method: "test/method",
@@ -291,7 +305,7 @@ describe("Arc LSP", () => {
     const client = createTestClient();
     const stream = await client.arcs.openLSP();
 
-    const initializeRequest: jsonRPC.Request = {
+    const initializeRequest: JSONRPCRequest = {
       jsonrpc: "2.0",
       id: 1,
       method: "initialize",
@@ -346,7 +360,7 @@ describe("Arc LSP", () => {
 
     await receiveNotification(stream, "textDocument/publishDiagnostics");
 
-    const semanticTokensRequest: jsonRPC.Request = {
+    const semanticTokensRequest: JSONRPCRequest = {
       jsonrpc: "2.0",
       id: 2,
       method: "textDocument/semanticTokens/full",
@@ -381,7 +395,7 @@ describe("Arc LSP", () => {
       const client = createTestClient();
       const stream = await client.arcs.openLSP();
 
-      const initializeRequest: jsonRPC.Request = {
+      const initializeRequest: JSONRPCRequest = {
         jsonrpc: "2.0",
         id: 1,
         method: "initialize",
@@ -444,7 +458,7 @@ describe("Arc LSP", () => {
       const client = createTestClient();
       const stream = await client.arcs.openLSP();
 
-      const initializeRequest: jsonRPC.Request = {
+      const initializeRequest: JSONRPCRequest = {
         jsonrpc: "2.0",
         id: 1,
         method: "initialize",
@@ -512,7 +526,7 @@ describe("Arc LSP", () => {
       const client = createTestClient();
       const stream = await client.arcs.openLSP();
 
-      const initializeRequest: jsonRPC.Request = {
+      const initializeRequest: JSONRPCRequest = {
         jsonrpc: "2.0",
         id: 1,
         method: "initialize",
@@ -574,7 +588,7 @@ describe("Arc LSP", () => {
       const client = createTestClient();
       const stream = await client.arcs.openLSP();
 
-      const initializeRequest: jsonRPC.Request = {
+      const initializeRequest: JSONRPCRequest = {
         jsonrpc: "2.0",
         id: 1,
         method: "initialize",
@@ -647,7 +661,7 @@ describe("Arc LSP", () => {
       const client = createTestClient();
       const stream = await client.arcs.openLSP();
 
-      const initializeRequest: jsonRPC.Request = {
+      const initializeRequest: JSONRPCRequest = {
         jsonrpc: "2.0",
         id: 1,
         method: "initialize",

@@ -7,13 +7,33 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { Menu } from "@synnaxlabs/pluto";
+
 import { Common } from "@/hardware/common";
 import { Device } from "@/hardware/http/device";
+import { Task } from "@/hardware/http/task";
 import { type Ontology } from "@/ontology";
 
+const TASK_CONTEXT_MENU_ITEM_CONFIGS: Common.DeviceServices.TaskContextMenuItemConfig[] =
+  [
+    {
+      itemKey: "http.readTask",
+      label: "Create read task",
+      layout: Task.READ_LAYOUT,
+    },
+  ];
+
 export const ContextMenuItems = (props: Ontology.TreeContextMenuProps) => (
-  <Common.DeviceServices.EditConnectionMenuItem
-    {...props}
-    configureLayout={Device.CONNECT_LAYOUT}
-  />
+  <>
+    <Common.DeviceServices.EditConnectionMenuItem
+      {...props}
+      configureLayout={Device.CONNECT_LAYOUT}
+    />
+    <Menu.Divider />
+    <Common.DeviceServices.TaskContextMenuItems
+      {...props}
+      configureLayout={Device.CONNECT_LAYOUT}
+      taskContextMenuItemConfigs={TASK_CONTEXT_MENU_ITEM_CONFIGS}
+    />
+  </>
 );
