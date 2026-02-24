@@ -12,6 +12,7 @@
 
 #include "gtest/gtest.h"
 
+#include "client/cpp/testutil/testutil.h"
 #include "x/cpp/base64/base64.h"
 #include "x/cpp/telem/telem.h"
 #include "x/cpp/test/test.h"
@@ -22,9 +23,10 @@
 
 namespace driver::http::device {
 namespace {
-ConnectionConfig make_config(const x::json::json &j, const bool verify_ssl = true) {
+ConnectionConfig make_config(x::json::json j, const bool verify_ssl = true) {
+    j["verify_ssl"] = verify_ssl;
     x::json::Parser p(j);
-    return ConnectionConfig(p, verify_ssl);
+    return ConnectionConfig(p);
 }
 }
 
@@ -453,6 +455,81 @@ TEST(ClientTest, QueryParamsPercentEncoded) {
     ASSERT_EQ(reqs.size(), 1);
     EXPECT_EQ(reqs[0].query_params.find("q")->second, "hello world");
     EXPECT_EQ(reqs[0].query_params.find("tag")->second, "a&b=c");
+
+    server.stop();
+}
+
+/// @brief connection-level query_params should be passed to every request.
+TEST(ClientTest, ConnectionLevelQueryParams) {
+    mock::ServerConfig server_cfg;
+    server_cfg.routes = {{
+        .method = Method::GET,
+        .path = "/api/data",
+        .status_code = 200,
+        .response_body = "ok",
+        .content_type = "text/plain",
+    }};
+    mock::Server server(server_cfg);
+    ASSERT_NIL(server.start());
+
+    auto config = make_config({
+        {"base_url", server.base_url()},
+        {"query_params", {{"api_key", "secret"}, {"format", "json"}}},
+    });
+    auto client = ASSERT_NIL_P(
+        Client::create(config, {{.method = Method::GET, .path = "/api/data"}})
+    );
+
+    auto results = ASSERT_NIL_P(client.execute_requests({""}));
+    ASSERT_EQ(results.size(), 1);
+    const auto resp = ASSERT_NIL_P(results[0]);
+    EXPECT_EQ(resp.status_code, 200);
+
+    auto reqs = server.received_requests();
+    ASSERT_EQ(reqs.size(), 1);
+    EXPECT_EQ(reqs[0].query_params.find("api_key")->second, "secret");
+    EXPECT_EQ(reqs[0].query_params.find("format")->second, "json");
+
+    server.stop();
+}
+
+/// @brief connection-level and request-level query params should be merged.
+TEST(ClientTest, ConnectionAndRequestQueryParamsMerged) {
+    mock::ServerConfig server_cfg;
+    server_cfg.routes = {{
+        .method = Method::GET,
+        .path = "/api/data",
+        .status_code = 200,
+        .response_body = "ok",
+        .content_type = "text/plain",
+    }};
+    mock::Server server(server_cfg);
+    ASSERT_NIL(server.start());
+
+    auto config = make_config({
+        {"base_url", server.base_url()},
+        {"query_params", {{"api_key", "secret"}}},
+    });
+    auto client = ASSERT_NIL_P(
+        Client::create(
+            config,
+            {{
+                .method = Method::GET,
+                .path = "/api/data",
+                .query_params = {{"limit", "10"}},
+            }}
+        )
+    );
+
+    auto results = ASSERT_NIL_P(client.execute_requests({""}));
+    ASSERT_EQ(results.size(), 1);
+    const auto resp = ASSERT_NIL_P(results[0]);
+    EXPECT_EQ(resp.status_code, 200);
+
+    auto reqs = server.received_requests();
+    ASSERT_EQ(reqs.size(), 1);
+    EXPECT_EQ(reqs[0].query_params.find("api_key")->second, "secret");
+    EXPECT_EQ(reqs[0].query_params.find("limit")->second, "10");
 
     server.stop();
 }
@@ -1631,6 +1708,93 @@ TEST(ClientTest, SerialSingleHandleRecoveryFromServerError) {
     EXPECT_EQ(reqs[2].body, R"({"attempt": 2})");
 
     server.stop();
+}
+
+/// @brief it should construct a ConnectionConfig with https from device location when
+/// secure defaults to true.
+TEST(RetrieveConnectionTest, SecureDefaultBaseURL) {
+    auto client = new_test_client();
+    auto r = synnax::rack::Rack{.name = "test_rack"};
+    ASSERT_NIL(client.racks.create(r));
+    synnax::device::Device dev{
+        .key = "retrieve-conn-test-secure",
+        .name = "retrieve-conn-test-secure",
+        .rack = r.key,
+        .location = "192.168.1.100:8080",
+        .make = "http",
+        .properties = {{"timeout_ms", 5000}},
+    };
+    ASSERT_NIL(client.devices.create(dev));
+
+    const auto conn = ASSERT_NIL_P(retrieve_connection(client.devices, dev.key));
+    EXPECT_EQ(conn.base_url, "https://192.168.1.100:8080");
+    EXPECT_EQ(conn.timeout, 5 * x::telem::SECOND);
+}
+
+/// @brief it should use http when secure is false.
+TEST(RetrieveConnectionTest, InsecureBaseURL) {
+    auto client = new_test_client();
+    auto r = synnax::rack::Rack{.name = "test_rack"};
+    ASSERT_NIL(client.racks.create(r));
+    synnax::device::Device dev{
+        .key = "retrieve-conn-test-insecure",
+        .name = "retrieve-conn-test-insecure",
+        .rack = r.key,
+        .location = "10.0.0.1:9090",
+        .make = "http",
+        .properties = {{"secure", false}, {"timeout_ms", 2000}},
+    };
+    ASSERT_NIL(client.devices.create(dev));
+
+    const auto conn = ASSERT_NIL_P(retrieve_connection(client.devices, dev.key));
+    EXPECT_EQ(conn.base_url, "http://10.0.0.1:9090");
+}
+
+/// @brief it should return an error for a non-existent device.
+TEST(RetrieveConnectionTest, DeviceNotFound) {
+    auto client = new_test_client();
+    ASSERT_OCCURRED_AS_P(
+        retrieve_connection(client.devices, "non-existent-device-key"),
+        x::errors::NOT_FOUND
+    );
+}
+
+// ==================== classify_status ====================
+
+TEST(ClassifyStatus, Status200ReturnsNil) {
+    ASSERT_NIL(classify_status(200));
+}
+
+TEST(ClassifyStatus, Status201ReturnsNil) {
+    ASSERT_NIL(classify_status(201));
+}
+
+TEST(ClassifyStatus, Status204ReturnsNil) {
+    ASSERT_NIL(classify_status(204));
+}
+
+TEST(ClassifyStatus, Status400ReturnsClientError) {
+    ASSERT_OCCURRED_AS(classify_status(400), errors::CLIENT_ERROR);
+}
+
+TEST(ClassifyStatus, Status404ReturnsClientError) {
+    ASSERT_OCCURRED_AS(classify_status(404), errors::CLIENT_ERROR);
+}
+
+TEST(ClassifyStatus, Status499ReturnsClientError) {
+    ASSERT_OCCURRED_AS(classify_status(499), errors::CLIENT_ERROR);
+}
+
+TEST(ClassifyStatus, Status500ReturnsServerError) {
+    ASSERT_OCCURRED_AS(classify_status(500), errors::SERVER_ERROR);
+}
+
+TEST(ClassifyStatus, Status503ReturnsServerError) {
+    ASSERT_OCCURRED_AS(classify_status(503), errors::SERVER_ERROR);
+}
+
+TEST(ClassifyStatus, Status301ReturnsClientError) {
+    ASSERT_OCCURRED_AS(classify_status(301), errors::CLIENT_ERROR);
 }
 
 }

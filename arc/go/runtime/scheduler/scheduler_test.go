@@ -1246,6 +1246,195 @@ var _ = Describe("Scheduler", func() {
 		})
 	})
 
+	Describe("Bang-Bang Authority Release Pattern", func() {
+		It("Should execute yield stage authority nodes during start → stop → yield cascade", func() {
+			trigger := mock("trigger")
+			entryStart := mock("entry_bb_start")
+			entryStop := mock("entry_bb_stop")
+			entryYield := mock("entry_bb_yield")
+			authHighCh1 := mock("auth_high_ch1")
+			authHighCh2 := mock("auth_high_ch2")
+			stopTrigger := mock("stop_trigger")
+			writeCh1 := mock("write_ch1")
+			writeCh2 := mock("write_ch2")
+			yieldTrigger := mock("yield_trigger")
+			authLowCh1 := mock("auth_low_ch1")
+			authLowCh2 := mock("auth_low_ch2")
+			reentryTrigger := mock("reentry_trigger")
+
+			trigger.MarkOnNext("activate")
+			trigger.ParamTruthy["activate"] = true
+			entryStart.ActivateOnNext()
+			entryStop.ActivateOnNext()
+			entryYield.ActivateOnNext()
+			stopTrigger.MarkOnNext("to_stop")
+			stopTrigger.ParamTruthy["to_stop"] = true
+			yieldTrigger.MarkOnNext("to_yield")
+			yieldTrigger.ParamTruthy["to_yield"] = true
+			reentryTrigger.MarkOnNext("to_start")
+			reentryTrigger.ParamTruthy["to_start"] = false
+
+			prog := testutil.NewIRBuilder().
+				Node("trigger").
+				Node("entry_bb_start").
+				Node("entry_bb_stop").
+				Node("entry_bb_yield").
+				Node("auth_high_ch1").
+				Node("auth_high_ch2").
+				Node("stop_trigger").
+				Node("write_ch1").
+				Node("write_ch2").
+				Node("yield_trigger").
+				Node("auth_low_ch1").
+				Node("auth_low_ch2").
+				Node("reentry_trigger").
+				OneShot("trigger", "activate", "entry_bb_start", "input").
+				OneShot("stop_trigger", "to_stop", "entry_bb_stop", "input").
+				OneShot("yield_trigger", "to_yield", "entry_bb_yield", "input").
+				OneShot("reentry_trigger", "to_start", "entry_bb_start", "input").
+				Strata([][]string{
+					{"trigger"},
+					{"entry_bb_start", "entry_bb_stop", "entry_bb_yield"},
+				}).
+				Sequence("bb", []testutil.StageSpec{
+					{Key: "start", Strata: [][]string{
+						{"auth_high_ch1", "auth_high_ch2", "stop_trigger"},
+						{"entry_bb_stop"},
+					}},
+					{Key: "stop", Strata: [][]string{
+						{"write_ch1", "write_ch2", "yield_trigger"},
+						{"entry_bb_yield"},
+					}},
+					{Key: "yield", Strata: [][]string{
+						{"auth_low_ch1", "auth_low_ch2", "reentry_trigger"},
+						{"entry_bb_start"},
+					}},
+				}).
+				Build()
+
+			s := build(prog)
+
+			s.Next(ctx, telem.Microsecond, node.ReasonTimerTick)
+			Expect(authHighCh1.NextCalled).To(Equal(1))
+			Expect(authHighCh2.NextCalled).To(Equal(1))
+			Expect(writeCh1.NextCalled).To(Equal(1))
+			Expect(writeCh2.NextCalled).To(Equal(1))
+			Expect(authLowCh1.NextCalled).To(Equal(1))
+			Expect(authLowCh2.NextCalled).To(Equal(1))
+
+			s.Next(ctx, 2*telem.Microsecond, node.ReasonTimerTick)
+			Expect(authLowCh1.NextCalled).To(Equal(2))
+			Expect(authLowCh2.NextCalled).To(Equal(2))
+			Expect(authHighCh1.NextCalled).To(Equal(1))
+			Expect(authHighCh2.NextCalled).To(Equal(1))
+			Expect(writeCh1.NextCalled).To(Equal(1))
+			Expect(writeCh2.NextCalled).To(Equal(1))
+		})
+
+		It("Should re-execute start authority nodes when yield re-enters start via active trigger", func() {
+			// In the real scenario, stop → yield is timer-delayed (separate tick),
+			// so re-entry only needs 2 transitions within one convergence loop
+			// (stop → yield, yield → start), which fits within maxConvergenceIterations = 3.
+			trigger := mock("trigger")
+			entryStart := mock("entry_bb_start")
+			entryStop := mock("entry_bb_stop")
+			entryYield := mock("entry_bb_yield")
+			authHighCh1 := mock("auth_high_ch1")
+			authHighCh2 := mock("auth_high_ch2")
+			stopTrigger := mock("stop_trigger")
+			mock("write_ch1")
+			mock("write_ch2")
+			yieldTrigger := mock("yield_trigger")
+			authLowCh1 := mock("auth_low_ch1")
+			authLowCh2 := mock("auth_low_ch2")
+			reentryTrigger := mock("reentry_trigger")
+
+			trigger.MarkOnNext("activate")
+			trigger.ParamTruthy["activate"] = true
+			entryStart.ActivateOnNext()
+			entryStop.ActivateOnNext()
+			entryYield.ActivateOnNext()
+			reentryTrigger.MarkOnNext("to_start")
+			reentryTrigger.ParamTruthy["to_start"] = true
+
+			// stop_trigger fires on tick 1 (cascading start → stop).
+			// yield_trigger fires on tick 2 (cascading stop → yield → start re-entry).
+			// This mirrors the real behavior where wait{duration=250ms} delays
+			// the stop → yield transition to a later tick.
+			stopCallCount := 0
+			stopTrigger.OnNext = func(nCtx node.Context) {
+				stopCallCount++
+				if stopCallCount == 1 {
+					nCtx.MarkChanged("to_stop")
+				}
+			}
+			stopTrigger.ParamTruthy["to_stop"] = true
+
+			yieldCallCount := 0
+			yieldTrigger.OnNext = func(nCtx node.Context) {
+				yieldCallCount++
+				if yieldCallCount == 1 {
+					nCtx.MarkChanged("to_yield")
+				}
+			}
+			yieldTrigger.ParamTruthy["to_yield"] = true
+
+			prog := testutil.NewIRBuilder().
+				Node("trigger").
+				Node("entry_bb_start").
+				Node("entry_bb_stop").
+				Node("entry_bb_yield").
+				Node("auth_high_ch1").
+				Node("auth_high_ch2").
+				Node("stop_trigger").
+				Node("write_ch1").
+				Node("write_ch2").
+				Node("yield_trigger").
+				Node("auth_low_ch1").
+				Node("auth_low_ch2").
+				Node("reentry_trigger").
+				OneShot("trigger", "activate", "entry_bb_start", "input").
+				OneShot("stop_trigger", "to_stop", "entry_bb_stop", "input").
+				OneShot("yield_trigger", "to_yield", "entry_bb_yield", "input").
+				OneShot("reentry_trigger", "to_start", "entry_bb_start", "input").
+				Strata([][]string{
+					{"trigger"},
+					{"entry_bb_start", "entry_bb_stop", "entry_bb_yield"},
+				}).
+				Sequence("bb", []testutil.StageSpec{
+					{Key: "start", Strata: [][]string{
+						{"auth_high_ch1", "auth_high_ch2", "stop_trigger"},
+						{"entry_bb_stop"},
+					}},
+					{Key: "stop", Strata: [][]string{
+						{"write_ch1", "write_ch2", "yield_trigger"},
+						{"entry_bb_yield"},
+					}},
+					{Key: "yield", Strata: [][]string{
+						{"auth_low_ch1", "auth_low_ch2", "reentry_trigger"},
+						{"entry_bb_start"},
+					}},
+				}).
+				Build()
+
+			s := build(prog)
+
+			// Tick 1: trigger → start → stop (stop_trigger fires once).
+			s.Next(ctx, telem.Microsecond, node.ReasonTimerTick)
+			Expect(authHighCh1.NextCalled).To(Equal(1))
+			Expect(authHighCh2.NextCalled).To(Equal(1))
+
+			// Tick 2: stop is active. yield_trigger fires → stop → yield.
+			// reentry_trigger fires → yield → start (re-entry).
+			// This is 2 transitions within maxConvergenceIterations = 3.
+			s.Next(ctx, 2*telem.Microsecond, node.ReasonTimerTick)
+			Expect(authLowCh1.NextCalled).To(Equal(1))
+			Expect(authLowCh2.NextCalled).To(Equal(1))
+			Expect(authHighCh1.NextCalled).To(Equal(2))
+			Expect(authHighCh2.NextCalled).To(Equal(2))
+		})
+	})
+
 	Describe("Edge Cases", func() {
 		It("Should handle zero elapsed time", func() {
 			nodeA := mock("A")

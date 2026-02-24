@@ -167,6 +167,54 @@ var _ = Describe("Task", Ordered, func() {
 		}
 	}
 
+	bangBangProg := func(ch1, ch2, stopSignal, startSignal *channel.Channel) arc.Text {
+		return arc.Text{
+			Raw: fmt.Sprintf(`
+				authority (%s 210 %s 210)
+
+				func high_bang() {
+					%s = 1
+				}
+
+				func low_bang() {
+					%s = 1
+				}
+
+				sequence bb {
+					stage start {
+						set_authority{value=220, channel=%s},
+						set_authority{value=220, channel=%s},
+						interval{period=50ms} -> high_bang{},
+						interval{period=50ms} -> low_bang{},
+						%s => stop
+					}
+					stage stop {
+						0 -> %s,
+						0 -> %s,
+						wait{duration=100ms} => yield
+					}
+					stage yield {
+						set_authority{value=0, channel=%s},
+						set_authority{value=0, channel=%s},
+						%s => start
+					}
+				}
+
+				%s => bb
+			`,
+				ch1.Name, ch2.Name,
+				ch1.Name,
+				ch2.Name,
+				ch1.Name, ch2.Name,
+				stopSignal.Name,
+				ch1.Name, ch2.Name,
+				ch1.Name, ch2.Name,
+				startSignal.Name,
+				startSignal.Name,
+			),
+		}
+	}
+
 	Describe("Factory.ConfigureTask", func() {
 		It("Should return false for non-arc task types", func() {
 			factory := MustSucceed(runtime.NewFactory(runtime.FactoryConfig{
@@ -978,6 +1026,118 @@ var _ = Describe("Task", Ordered, func() {
 			Eventually(responses).Should(Receive(&fr))
 			Expect(fr.Frame.Get(dataCh.Key()).Len()).To(BeEquivalentTo(1))
 			Expect(telem.ValueAt[uint8](fr.Frame.Get(dataCh.Key()).Series[0], 0)).To(Equal(uint8(42)))
+		})
+
+		It("Should release per-channel authority on both channels after bang-bang start → stop → yield", func() {
+			ch1 := createVirtualCh("bb_ch1", telem.Uint8T)
+			ch2 := createVirtualCh("bb_ch2", telem.Uint8T)
+			stopSignal := createVirtualCh("bb_stop", telem.Uint8T)
+			startSignal := createVirtualCh("bb_start", telem.Uint8T)
+			prog := bangBangProg(ch1, ch2, stopSignal, startSignal)
+
+			responses, closeStreamer := openTestStreamer(channel.Keys{ch1.Key(), ch2.Key()}, 20)
+			defer closeStreamer()
+
+			t := newTask(newTextFactory(prog))
+			Expect(t.Exec(ctx, task.Command{Type: "start"})).To(Succeed())
+			defer func() { Expect(t.Stop(false)).To(Succeed()) }()
+
+			startW := MustSucceed(dist.Framer.OpenWriter(ctx, framer.WriterConfig{
+				Keys:  channel.Keys{startSignal.Key()},
+				Start: telem.Now(),
+			}))
+			Expect(startW.Write(frame.NewUnary(startSignal.Key(), telem.NewSeriesV[uint8](1)))).To(BeTrue())
+			Expect(startW.Close()).To(Succeed())
+
+			var fr framer.StreamerResponse
+			Eventually(responses, 500*time.Millisecond).Should(Receive(&fr))
+
+			clearW := MustSucceed(dist.Framer.OpenWriter(ctx, framer.WriterConfig{
+				Keys:  channel.Keys{startSignal.Key()},
+				Start: telem.Now(),
+			}))
+			Expect(clearW.Write(frame.NewUnary(startSignal.Key(), telem.NewSeriesV[uint8](0)))).To(BeTrue())
+			Expect(clearW.Close()).To(Succeed())
+			time.Sleep(100 * time.Millisecond)
+
+			stopW := MustSucceed(dist.Framer.OpenWriter(ctx, framer.WriterConfig{
+				Keys:  channel.Keys{stopSignal.Key()},
+				Start: telem.Now(),
+			}))
+			Expect(stopW.Write(frame.NewUnary(stopSignal.Key(), telem.NewSeriesV[uint8](1)))).To(BeTrue())
+			Expect(stopW.Close()).To(Succeed())
+
+			time.Sleep(300 * time.Millisecond)
+
+			w1 := MustSucceed(dist.Framer.OpenWriter(ctx, framer.WriterConfig{
+				Keys:        channel.Keys{ch1.Key()},
+				Start:       telem.Now(),
+				Authorities: []control.Authority{control.Authority(1)},
+				Sync:        new(true),
+			}))
+			defer func() { Expect(w1.Close()).To(Succeed()) }()
+			Expect(w1.Write(frame.NewUnary(ch1.Key(), telem.NewSeriesV[uint8](99)))).To(BeTrue())
+
+			w2 := MustSucceed(dist.Framer.OpenWriter(ctx, framer.WriterConfig{
+				Keys:        channel.Keys{ch2.Key()},
+				Start:       telem.Now(),
+				Authorities: []control.Authority{control.Authority(1)},
+				Sync:        new(true),
+			}))
+			defer func() { Expect(w2.Close()).To(Succeed()) }()
+			Expect(w2.Write(frame.NewUnary(ch2.Key(), telem.NewSeriesV[uint8](99)))).To(BeTrue())
+		})
+
+		It("Should reclaim authority symmetrically on both channels when start signal stays active through yield", func() {
+			ch1 := createVirtualCh("bb2_ch1", telem.Uint8T)
+			ch2 := createVirtualCh("bb2_ch2", telem.Uint8T)
+			stopSignal := createVirtualCh("bb2_stop", telem.Uint8T)
+			startSignal := createVirtualCh("bb2_start", telem.Uint8T)
+			prog := bangBangProg(ch1, ch2, stopSignal, startSignal)
+
+			responses, closeStreamer := openTestStreamer(channel.Keys{ch1.Key(), ch2.Key()}, 20)
+			defer closeStreamer()
+
+			t := newTask(newTextFactory(prog))
+			Expect(t.Exec(ctx, task.Command{Type: "start"})).To(Succeed())
+			defer func() { Expect(t.Stop(false)).To(Succeed()) }()
+
+			startW := MustSucceed(dist.Framer.OpenWriter(ctx, framer.WriterConfig{
+				Keys:  channel.Keys{startSignal.Key()},
+				Start: telem.Now(),
+			}))
+			Expect(startW.Write(frame.NewUnary(startSignal.Key(), telem.NewSeriesV[uint8](1)))).To(BeTrue())
+			Expect(startW.Close()).To(Succeed())
+
+			var fr framer.StreamerResponse
+			Eventually(responses, 500*time.Millisecond).Should(Receive(&fr))
+
+			stopW := MustSucceed(dist.Framer.OpenWriter(ctx, framer.WriterConfig{
+				Keys:  channel.Keys{stopSignal.Key()},
+				Start: telem.Now(),
+			}))
+			Expect(stopW.Write(frame.NewUnary(stopSignal.Key(), telem.NewSeriesV[uint8](1)))).To(BeTrue())
+			Expect(stopW.Close()).To(Succeed())
+
+			time.Sleep(300 * time.Millisecond)
+
+			w1 := MustSucceed(dist.Framer.OpenWriter(ctx, framer.WriterConfig{
+				Keys:        channel.Keys{ch1.Key()},
+				Start:       telem.Now(),
+				Authorities: []control.Authority{control.Authority(100)},
+				Sync:        new(true),
+			}))
+			defer func() { Expect(w1.Close()).To(Succeed()) }()
+			Expect(w1.Write(frame.NewUnary(ch1.Key(), telem.NewSeriesV[uint8](99)))).To(BeFalse())
+
+			w2 := MustSucceed(dist.Framer.OpenWriter(ctx, framer.WriterConfig{
+				Keys:        channel.Keys{ch2.Key()},
+				Start:       telem.Now(),
+				Authorities: []control.Authority{control.Authority(100)},
+				Sync:        new(true),
+			}))
+			defer func() { Expect(w2.Close()).To(Succeed()) }()
+			Expect(w2.Write(frame.NewUnary(ch2.Key(), telem.NewSeriesV[uint8](99)))).To(BeFalse())
 		})
 	})
 
