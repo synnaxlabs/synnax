@@ -13,15 +13,15 @@ import "@synnaxlabs/pluto/dist/pluto.css";
 
 import { Provider } from "@synnaxlabs/drift/react";
 import {
+  type Alamos,
   type Color,
   type Haul,
   Pluto,
   preventDefault,
   type state,
-  Synnax,
   type Triggers,
 } from "@synnaxlabs/pluto";
-import { type ReactElement, useCallback, useEffect, useState } from "react";
+import { type ReactElement, useCallback, useEffect } from "react";
 import { useDispatch } from "react-redux";
 
 import { Access } from "@/access";
@@ -29,7 +29,6 @@ import { Arc } from "@/arc";
 import { Channel } from "@/channel";
 import { Cluster } from "@/cluster";
 import { Code } from "@/code";
-import { Arc as ArcCode } from "@/code/arc";
 import { COMMANDS } from "@/commands";
 import { CSV } from "@/csv";
 import { Docs } from "@/docs";
@@ -130,52 +129,12 @@ const useBlockDefaultDropBehavior = (): void =>
     };
   }, []);
 
-const ArcLSPClientSetter = ({ children }: { children: ReactElement }): ReactElement => {
-  const client = Synnax.use();
-  const monaco = Code.useMonaco();
-  const [stream, setStream] = useState<ArcCode.LSPStream | null>(null);
+const MONACO_SERVICES = Arc.LSP.SERVICES;
 
-  useEffect(() => {
-    if (client == null) {
-      setStream(null);
-      return;
-    }
-    let cancelled = false;
-    ArcCode.openLSPStream(client)
-      .then((s) => {
-        if (cancelled) ArcCode.closeLSPStream(s);
-        else setStream(s);
-      })
-      .catch(console.error);
-    return () => {
-      cancelled = true;
-      setStream((prev) => {
-        if (prev != null) ArcCode.closeLSPStream(prev);
-        return null;
-      });
-    };
-  }, [client]);
+const ALAMOS_PROPS: Alamos.ProviderProps = { level: "info" };
 
-  useEffect(() => {
-    if (monaco == null || stream == null) return;
-    let cancelled = false;
-    let lspClient: Awaited<ReturnType<typeof ArcCode.startLSPClient>> | null = null;
-    ArcCode.startLSPClient(stream)
-      .then((c) => {
-        if (cancelled) void ArcCode.stopLSPClient(c);
-        else lspClient = c;
-      })
-      .catch(console.error);
-    return () => {
-      cancelled = true;
-      if (lspClient != null) void ArcCode.stopLSPClient(lspClient);
-    };
-  }, [monaco, stream]);
-
-  return children;
-};
-
-const MONACO_SERVICES = [...ArcCode.SERVICES];
+const HAUL_PROPS: Haul.ProviderProps = { useState: useHaulState };
+const COLOR_PROPS: Color.ProviderProps = { useState: useColorContextState };
 
 const MainUnderContext = (): ReactElement => {
   const theme = Layout.useThemeProvider();
@@ -189,16 +148,16 @@ const MainUnderContext = (): ReactElement => {
       connParams={cluster ?? undefined}
       workerURL={WorkerURL}
       triggers={TRIGGERS_PROVIDER_PROPS}
-      haul={{ useState: useHaulState }}
-      color={{ useState: useColorContextState }}
-      alamos={{ level: "info" }}
+      haul={HAUL_PROPS}
+      color={COLOR_PROPS}
+      alamos={ALAMOS_PROPS}
     >
       <Code.Provider initServices={MONACO_SERVICES}>
-        <ArcLSPClientSetter>
+        <Arc.LSP.Provider>
           <Vis.Canvas>
             <Layout.Window />
           </Vis.Canvas>
-        </ArcLSPClientSetter>
+        </Arc.LSP.Provider>
       </Code.Provider>
     </Pluto.Provider>
   );

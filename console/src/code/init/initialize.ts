@@ -55,7 +55,10 @@ let initPromise: Promise<InitializeReturn> | null = null;
 
 export const initializeMonaco = (props: InitializeProps): Promise<InitializeReturn> => {
   if (initPromise != null) return initPromise;
-  initPromise = doInitialize(props);
+  initPromise = doInitialize(props).catch((e) => {
+    initPromise = null;
+    throw e;
+  });
   return initPromise;
 };
 
