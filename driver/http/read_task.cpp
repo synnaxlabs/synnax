@@ -151,7 +151,9 @@ std::pair<ReadTaskConfig, x::errors::Error> ReadTaskConfig::parse(
 }
 
 ReadTaskSource::ReadTaskSource(ReadTaskConfig cfg, device::Client client):
-    cfg(std::move(cfg)), client(std::move(client)) {
+    cfg(std::move(cfg)),
+    client(std::move(client)),
+    sample_clock(this->cfg.rate) {
     bodies.reserve(this->cfg.endpoints.size());
     parsed_bodies.resize(this->cfg.endpoints.size());
     for (const auto &ep: this->cfg.endpoints) {
@@ -187,6 +189,7 @@ std::vector<synnax::channel::Channel> ReadTaskSource::channels() const {
 common::ReadResult
 ReadTaskSource::read(x::breaker::Breaker &breaker, x::telem::Frame &fr) {
     common::ReadResult res;
+    sample_clock.wait(breaker);
 
     auto [results, batch_err] = client.execute_requests(bodies);
     if (batch_err) {

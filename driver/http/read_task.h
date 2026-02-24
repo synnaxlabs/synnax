@@ -20,6 +20,7 @@
 #include "x/cpp/telem/telem.h"
 
 #include "driver/common/read_task.h"
+#include "driver/common/sample_clock.h"
 #include "driver/http/device/device.h"
 #include "driver/http/http.h"
 #include "driver/task/task.h"
@@ -77,6 +78,8 @@ struct ReadTaskConfig {
 class ReadTaskSource : public common::Source {
     ReadTaskConfig cfg;
     device::Client client;
+    /// @brief regulates the polling rate.
+    common::SoftwareTimedSampleClock sample_clock;
     std::vector<synnax::channel::Channel> chs;
     std::vector<std::string> bodies;
     std::vector<x::json::json> parsed_bodies;

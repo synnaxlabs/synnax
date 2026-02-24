@@ -120,7 +120,7 @@ TEST(HTTPReadTask, SingleEndpointGETNumericField) {
     cfg.device = "test-device";
     cfg.data_saving = false;
     cfg.auto_start = false;
-    cfg.rate = x::telem::Rate(10);
+    cfg.rate = x::telem::Rate(10000);
 
     ReadField temp_field;
     temp_field.pointer = x::json::json::json_pointer("/temperature");
@@ -179,7 +179,7 @@ TEST(HTTPReadTask, NestedJSONPointerPaths) {
     cfg.device = "test-device";
     cfg.data_saving = false;
     cfg.auto_start = false;
-    cfg.rate = x::telem::Rate(10);
+    cfg.rate = x::telem::Rate(10000);
 
     ReadField field;
     field.pointer = x::json::json::json_pointer("/data/sensors/0/value");
@@ -226,7 +226,7 @@ TEST(HTTPReadTask, MissingJSONFieldWarning) {
     cfg.device = "test-device";
     cfg.data_saving = false;
     cfg.auto_start = false;
-    cfg.rate = x::telem::Rate(10);
+    cfg.rate = x::telem::Rate(10000);
 
     ReadField field;
     field.pointer = x::json::json::json_pointer("/nonexistent");
@@ -273,7 +273,7 @@ TEST(HTTPReadTask, ServerErrorOn5xx) {
     cfg.device = "test-device";
     cfg.data_saving = false;
     cfg.auto_start = false;
-    cfg.rate = x::telem::Rate(10);
+    cfg.rate = x::telem::Rate(10000);
 
     ReadField field;
     field.pointer = x::json::json::json_pointer("/value");
@@ -318,7 +318,7 @@ TEST(HTTPReadTask, ClientErrorOn4xx) {
     cfg.device = "test-device";
     cfg.data_saving = false;
     cfg.auto_start = false;
-    cfg.rate = x::telem::Rate(10);
+    cfg.rate = x::telem::Rate(10000);
 
     ReadField field;
     field.pointer = x::json::json::json_pointer("/value");
@@ -364,7 +364,7 @@ TEST(HTTPReadTask, TypeConversions) {
     cfg.device = "test-device";
     cfg.data_saving = false;
     cfg.auto_start = false;
-    cfg.rate = x::telem::Rate(10);
+    cfg.rate = x::telem::Rate(10000);
 
     ReadField bool_field;
     bool_field.pointer = x::json::json::json_pointer("/active");
@@ -423,7 +423,7 @@ TEST(HTTPReadTask, StringField) {
     cfg.device = "test-device";
     cfg.data_saving = false;
     cfg.auto_start = false;
-    cfg.rate = x::telem::Rate(10);
+    cfg.rate = x::telem::Rate(10000);
 
     ReadField name_field;
     name_field.pointer = x::json::json::json_pointer("/name");
@@ -483,7 +483,7 @@ TEST(HTTPReadTask, DecimalToIntegerWarns) {
     cfg.device = "test-device";
     cfg.data_saving = false;
     cfg.auto_start = false;
-    cfg.rate = x::telem::Rate(10);
+    cfg.rate = x::telem::Rate(10000);
 
     ReadField field;
     field.pointer = x::json::json::json_pointer("/value");
@@ -530,7 +530,7 @@ TEST(HTTPReadTask, NegativeForUnsignedWarns) {
     cfg.device = "test-device";
     cfg.data_saving = false;
     cfg.auto_start = false;
-    cfg.rate = x::telem::Rate(10);
+    cfg.rate = x::telem::Rate(10000);
 
     ReadField field;
     field.pointer = x::json::json::json_pointer("/value");
@@ -577,7 +577,7 @@ TEST(HTTPReadTask, SoftwareTimingIndex) {
     cfg.device = "test-device";
     cfg.data_saving = false;
     cfg.auto_start = false;
-    cfg.rate = x::telem::Rate(10);
+    cfg.rate = x::telem::Rate(10000);
 
     ReadField field;
     field.pointer = x::json::json::json_pointer("/value");
@@ -629,7 +629,7 @@ TEST(HTTPReadTask, ExplicitIndexFieldTimestamp) {
     cfg.device = "test-device";
     cfg.data_saving = false;
     cfg.auto_start = false;
-    cfg.rate = x::telem::Rate(10);
+    cfg.rate = x::telem::Rate(10000);
 
     ReadField data_field;
     data_field.pointer = x::json::json::json_pointer("/value");
@@ -699,7 +699,7 @@ TEST(HTTPReadTask, MultipleEndpoints) {
     cfg.device = "test-device";
     cfg.data_saving = false;
     cfg.auto_start = false;
-    cfg.rate = x::telem::Rate(10);
+    cfg.rate = x::telem::Rate(10000);
 
     ReadField temp_field;
     temp_field.pointer = x::json::json::json_pointer("/temp");
@@ -758,7 +758,7 @@ TEST(HTTPReadTask, POSTWithBody) {
     cfg.device = "test-device";
     cfg.data_saving = false;
     cfg.auto_start = false;
-    cfg.rate = x::telem::Rate(10);
+    cfg.rate = x::telem::Rate(10000);
 
     ReadField field;
     field.pointer = x::json::json::json_pointer("/result");
@@ -1066,7 +1066,7 @@ TEST(HTTPReadTask, RepeatedReads) {
     cfg.device = "test-device";
     cfg.data_saving = false;
     cfg.auto_start = false;
-    cfg.rate = x::telem::Rate(10);
+    cfg.rate = x::telem::Rate(10000);
 
     ReadField field;
     field.pointer = x::json::json::json_pointer("/value");
@@ -1118,7 +1118,7 @@ TEST(HTTPReadTask, DisabledFieldsSkipped) {
     cfg.device = "test-device";
     cfg.data_saving = false;
     cfg.auto_start = false;
-    cfg.rate = x::telem::Rate(10);
+    cfg.rate = x::telem::Rate(10000);
 
     ReadField temp_field;
     temp_field.pointer = x::json::json::json_pointer("/temperature");
@@ -1169,7 +1169,7 @@ TEST(HTTPReadTask, DisabledFieldsExcludedFromWriterConfig) {
     cfg.device = "test-device";
     cfg.data_saving = false;
     cfg.auto_start = false;
-    cfg.rate = x::telem::Rate(10);
+    cfg.rate = x::telem::Rate(10000);
 
     ReadField enabled_field;
     enabled_field.pointer = x::json::json::json_pointer("/temp");
@@ -1256,7 +1256,7 @@ TEST(HTTPReadTask, DisabledFieldMissingPointerNoError) {
     cfg.device = "test-device";
     cfg.data_saving = false;
     cfg.auto_start = false;
-    cfg.rate = x::telem::Rate(10);
+    cfg.rate = x::telem::Rate(10000);
 
     ReadField enabled_field;
     enabled_field.pointer = x::json::json::json_pointer("/temperature");
@@ -1318,7 +1318,7 @@ TEST(HTTPReadTask, HTTPSReadSingleEndpoint) {
     cfg.device = "test-device";
     cfg.data_saving = false;
     cfg.auto_start = false;
-    cfg.rate = x::telem::Rate(10);
+    cfg.rate = x::telem::Rate(10000);
 
     ReadField field;
     field.pointer = x::json::json::json_pointer("/value");
@@ -1376,7 +1376,7 @@ TEST(HTTPReadTask, HTTPSMultipleEndpoints) {
     cfg.device = "test-device";
     cfg.data_saving = false;
     cfg.auto_start = false;
-    cfg.rate = x::telem::Rate(10);
+    cfg.rate = x::telem::Rate(10000);
 
     ReadField temp_field;
     temp_field.pointer = x::json::json::json_pointer("/temp");
@@ -1437,7 +1437,7 @@ TEST(HTTPReadTask, HTTPSRepeatedReads) {
     cfg.device = "test-device";
     cfg.data_saving = false;
     cfg.auto_start = false;
-    cfg.rate = x::telem::Rate(10);
+    cfg.rate = x::telem::Rate(10000);
 
     ReadField field;
     field.pointer = x::json::json::json_pointer("/value");
@@ -1488,7 +1488,7 @@ TEST(HTTPReadTask, HTTPSPOSTWithBody) {
     cfg.device = "test-device";
     cfg.data_saving = false;
     cfg.auto_start = false;
-    cfg.rate = x::telem::Rate(10);
+    cfg.rate = x::telem::Rate(10000);
 
     ReadField field;
     field.pointer = x::json::json::json_pointer("/result");
@@ -1545,7 +1545,7 @@ TEST(HTTPReadTask, PartialFailureFirstEndpoint5xx) {
     cfg.device = "test-device";
     cfg.data_saving = false;
     cfg.auto_start = false;
-    cfg.rate = x::telem::Rate(10);
+    cfg.rate = x::telem::Rate(10000);
 
     ReadField field1;
     field1.pointer = x::json::json::json_pointer("/error");
@@ -1609,7 +1609,7 @@ TEST(HTTPReadTask, PartialFailureSecondEndpoint4xx) {
     cfg.device = "test-device";
     cfg.data_saving = false;
     cfg.auto_start = false;
-    cfg.rate = x::telem::Rate(10);
+    cfg.rate = x::telem::Rate(10000);
 
     ReadField field1;
     field1.pointer = x::json::json::json_pointer("/value");
@@ -1673,7 +1673,7 @@ TEST(HTTPReadTask, PartialFailureMissingFieldInSecondEndpoint) {
     cfg.device = "test-device";
     cfg.data_saving = false;
     cfg.auto_start = false;
-    cfg.rate = x::telem::Rate(10);
+    cfg.rate = x::telem::Rate(10000);
 
     ReadField temp_field;
     temp_field.pointer = x::json::json::json_pointer("/temp");
@@ -1742,7 +1742,7 @@ TEST(HTTPReadTask, PartialFailureInvalidJSONInOneEndpoint) {
     cfg.device = "test-device";
     cfg.data_saving = false;
     cfg.auto_start = false;
-    cfg.rate = x::telem::Rate(10);
+    cfg.rate = x::telem::Rate(10000);
 
     ReadField field1;
     field1.pointer = x::json::json::json_pointer("/value");
@@ -1810,7 +1810,7 @@ TEST(HTTPReadTask, PartialFailureTypeConversionError) {
     cfg.device = "test-device";
     cfg.data_saving = false;
     cfg.auto_start = false;
-    cfg.rate = x::telem::Rate(10);
+    cfg.rate = x::telem::Rate(10000);
 
     ReadField field1;
     field1.pointer = x::json::json::json_pointer("/value");
@@ -1853,6 +1853,112 @@ TEST(HTTPReadTask, PartialFailureTypeConversionError) {
 
 ////////////////////// Connection-Level Query Parameters ///////////////////////
 
+//////////////////////////////// Sample Clock //////////////////////////////////
+
+/// @brief the sample clock should regulate the read rate so that multiple reads
+/// take at least the expected duration.
+TEST(HTTPReadTask, SampleClockRegulatesRate) {
+    mock::Server server(
+        mock::ServerConfig{
+            .routes = {{
+                .method = Method::GET,
+                .path = "/api/data",
+                .status_code = 200,
+                .response_body = R"({"value": 1.0})",
+            }},
+        }
+    );
+    ASSERT_NIL(server.start());
+    x::defer::defer stop_server([&server] { server.stop(); });
+
+    ReadTaskConfig cfg;
+    cfg.device = "test-device";
+    cfg.data_saving = false;
+    cfg.auto_start = false;
+    cfg.rate = x::telem::Rate(20); // 20 Hz → 50ms period
+
+    ReadField field;
+    field.pointer = x::json::json::json_pointer("/value");
+    field.channel_key = 1;
+
+    ReadEndpoint ep;
+    ep.request.method = Method::GET;
+    ep.request.path = "/api/data";
+    ep.body = "";
+    ep.fields = {field};
+
+    cfg.endpoints = {ep};
+    cfg.channels[1] = {.key = 1, .name = "value", .data_type = x::telem::FLOAT64_T};
+
+    auto source = ASSERT_NIL_P(make_source(cfg, server.base_url()));
+
+    auto breaker = x::breaker::Breaker(x::breaker::Config{.name = "test"});
+    breaker.start();
+
+    const int n_reads = 5;
+    const auto start = x::telem::TimeStamp::now();
+    for (int i = 0; i < n_reads; i++) {
+        x::telem::Frame fr;
+        auto res = source->read(breaker, fr);
+        ASSERT_NIL(res.error);
+    }
+    const auto elapsed = x::telem::TimeStamp::now() - start;
+    breaker.stop();
+
+    // 5 reads at 20 Hz = 5 × 50ms = 250ms minimum. Allow some tolerance.
+    EXPECT_GE(elapsed, 200 * x::telem::MILLISECOND);
+}
+
+/// @brief the sample clock should not prevent data from being read correctly.
+TEST(HTTPReadTask, SampleClockDoesNotAffectData) {
+    mock::Server server(
+        mock::ServerConfig{
+            .routes = {{
+                .method = Method::GET,
+                .path = "/api/data",
+                .status_code = 200,
+                .response_body = R"({"value": 99.9})",
+            }},
+        }
+    );
+    ASSERT_NIL(server.start());
+    x::defer::defer stop_server([&server] { server.stop(); });
+
+    ReadTaskConfig cfg;
+    cfg.device = "test-device";
+    cfg.data_saving = false;
+    cfg.auto_start = false;
+    cfg.rate = x::telem::Rate(50); // 50 Hz → 20ms period
+
+    ReadField field;
+    field.pointer = x::json::json::json_pointer("/value");
+    field.channel_key = 1;
+
+    ReadEndpoint ep;
+    ep.request.method = Method::GET;
+    ep.request.path = "/api/data";
+    ep.body = "";
+    ep.fields = {field};
+
+    cfg.endpoints = {ep};
+    cfg.channels[1] = {.key = 1, .name = "value", .data_type = x::telem::FLOAT64_T};
+
+    auto source = ASSERT_NIL_P(make_source(cfg, server.base_url()));
+
+    auto breaker = x::breaker::Breaker(x::breaker::Config{.name = "test"});
+    breaker.start();
+    for (int i = 0; i < 3; i++) {
+        x::telem::Frame fr;
+        auto res = source->read(breaker, fr);
+        ASSERT_NIL(res.error);
+        EXPECT_EQ(fr.size(), 1);
+        EXPECT_NEAR(fr.at<double>(1, 0), 99.9, 0.001);
+    }
+    breaker.stop();
+}
+
+////////////////////// Connection-Level Query Parameters ///////////////////////
+
 /// @brief it should pass connection-level query parameters to every request.
 TEST(HTTPReadTask, ConnectionLevelQueryParams) {
     mock::Server server(
@@ -1872,7 +1978,7 @@ TEST(HTTPReadTask, ConnectionLevelQueryParams) {
     cfg.device = "test-device";
     cfg.data_saving = false;
     cfg.auto_start = false;
-    cfg.rate = x::telem::Rate(10);
+    cfg.rate = x::telem::Rate(10000);
 
     ReadField field;
     field.pointer = x::json::json::json_pointer("/value");
