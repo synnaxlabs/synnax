@@ -86,6 +86,7 @@ export { Legend } from "@/vis/legend";
 export { Line } from "@/vis/line";
 export { Measure } from "@/vis/measure";
 export { Rule } from "@/vis/rule";
+export { Spectrogram } from "@/vis/spectrogram";
 export { Value } from "@/vis/value";
 export { Worker } from "@/worker";
 export { Workspace } from "@/workspace";

@@ -8,6 +8,7 @@
 #  included in the file licenses/APL.txt.
 
 from .device_sim import DeviceSim
+from .motor import MotorSimDAQ
 from .press import PressSimDAQ
 from .simdaq import SimDAQ
 from .simulator import Simulator
@@ -18,6 +19,7 @@ __all__ = [
     "Simulator",
     "SimDAQ",
     "DeviceSim",
+    "MotorSimDAQ",
     "PressSimDAQ",
     "ThermalSimDAQ",
     "TPCSimDAQ",

@@ -19,4 +19,5 @@ export { diagram } from "@/vis/diagram/aether";
 export { measure } from "@/vis/measure/aether";
 export { render } from "@/vis/render";
 export { rule } from "@/vis/rule/aether";
+export { spectrogram } from "@/vis/spectrogram/aether";
 export { value } from "@/vis/value/aether";

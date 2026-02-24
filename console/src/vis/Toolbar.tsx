@@ -16,6 +16,7 @@ import { Layout } from "@/layout";
 import { LinePlot } from "@/lineplot";
 import { Log } from "@/log";
 import { Schematic } from "@/schematic";
+import { Spectrogram } from "@/spectrogram";
 import { Table } from "@/table";
 import { createSelectorLayout, useSelectorVisible } from "@/vis/Selector";
 import { type LayoutType } from "@/vis/types";
@@ -28,6 +29,7 @@ const TOOLBARS: Record<LayoutType, FC<ToolbarProps>> = {
   [LinePlot.LAYOUT_TYPE]: LinePlot.Toolbar,
   [Log.LAYOUT_TYPE]: Log.Toolbar,
   [Schematic.LAYOUT_TYPE]: Schematic.Toolbar,
+  [Spectrogram.LAYOUT_TYPE]: Spectrogram.Toolbar,
   [Table.LAYOUT_TYPE]: Table.Toolbar,
   [Arc.EDITOR_LAYOUT_TYPE]: Arc.Editor.Toolbar,
 };

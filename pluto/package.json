@@ -33,6 +33,7 @@
     "compromise": "catalog:",
     "compromise-dates": "catalog:",
     "d3-scale": "^4.0.2",
+    "fft.js": "^4.0.4",
     "fuse.js": "^7.1.0",
     "mathjs": "^15.1.0",
     "pluralize": "catalog:",

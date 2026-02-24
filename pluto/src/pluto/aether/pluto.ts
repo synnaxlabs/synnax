@@ -39,6 +39,7 @@ import { rule } from "@/vis/rule/aether";
 import { setpoint } from "@/vis/setpoint/aether";
 import { stateIndicator } from "@/vis/stateIndicator/aether";
 import { toggle } from "@/vis/toggle/aether";
+import { spectrogram } from "@/vis/spectrogram/aether";
 import { value } from "@/vis/value/aether";
 
 const STORE_CONFIG: flux.StoreConfig<{
@@ -82,6 +83,7 @@ export const render = (): void => {
     ...theming.REGISTRY,
     ...toggle.REGISTRY,
     ...tooltip.REGISTRY,
+    ...spectrogram.REGISTRY,
     ...value.REGISTRY,
     ...log.REGISTRY,
     ...table.REGISTRY,

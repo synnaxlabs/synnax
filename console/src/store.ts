@@ -28,6 +28,7 @@ import { Persist } from "@/persist";
 import { Range } from "@/range";
 import { Runtime } from "@/runtime";
 import { Schematic } from "@/schematic";
+import { Spectrogram } from "@/spectrogram";
 import { Status } from "@/status";
 import { Table } from "@/table";
 import { Version } from "@/version";
@@ -47,6 +48,7 @@ const ZERO_STATE: RootState = {
   [Log.SLICE_NAME]: Log.ZERO_SLICE_STATE,
   [Range.SLICE_NAME]: Range.ZERO_SLICE_STATE,
   [Schematic.SLICE_NAME]: Schematic.ZERO_SLICE_STATE,
+  [Spectrogram.SLICE_NAME]: Spectrogram.ZERO_SLICE_STATE,
   [Status.SLICE_NAME]: Status.ZERO_SLICE_STATE,
   [Table.SLICE_NAME]: Table.ZERO_SLICE_STATE,
   [Workspace.SLICE_NAME]: Workspace.ZERO_SLICE_STATE,
@@ -63,6 +65,7 @@ const reducer = combineReducers({
   [Log.SLICE_NAME]: Log.reducer,
   [Range.SLICE_NAME]: Range.reducer,
   [Schematic.SLICE_NAME]: Schematic.reducer,
+  [Spectrogram.SLICE_NAME]: Spectrogram.reducer,
   [Status.SLICE_NAME]: Status.reducer,
   [Table.SLICE_NAME]: Table.reducer,
   [Version.SLICE_NAME]: Version.reducer,
@@ -79,6 +82,7 @@ export interface RootState {
   [Log.SLICE_NAME]: Log.SliceState;
   [Range.SLICE_NAME]: Range.SliceState;
   [Schematic.SLICE_NAME]: Schematic.SliceState;
+  [Spectrogram.SLICE_NAME]: Spectrogram.SliceState;
   [Status.SLICE_NAME]: Status.SliceState;
   [Table.SLICE_NAME]: Table.SliceState;
   [Version.SLICE_NAME]: Version.SliceState;
@@ -95,6 +99,7 @@ export type RootAction =
   | Log.Action
   | Range.Action
   | Schematic.Action
+  | Spectrogram.Action
   | Status.Action
   | Table.Action
   | Version.Action
@@ -120,6 +125,7 @@ export const migrateState = (prev: RootState): RootState => {
   const docs = Docs.migrateSlice(prev.docs);
   const cluster = Cluster.migrateSlice(prev.cluster);
   const arc = Arc.migrateSlice(prev.arc);
+  const spectrogram = Spectrogram.migrateSlice(prev.spectrogram);
   const status = Status.migrateSlice(prev.status);
   console.log("Migrated State");
   console.groupEnd();
@@ -134,6 +140,7 @@ export const migrateState = (prev: RootState): RootState => {
     docs,
     cluster,
     arc,
+    spectrogram,
     status,
   };
 };
@@ -164,6 +171,7 @@ const BASE_MIDDLEWARE = [
   ...Layout.MIDDLEWARE,
   ...LinePlot.MIDDLEWARE,
   ...Schematic.MIDDLEWARE,
+  ...Spectrogram.MIDDLEWARE,
   ...Arc.MIDDLEWARE,
 ];
 

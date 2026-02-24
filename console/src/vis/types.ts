@@ -11,11 +11,13 @@ import { type Arc } from "@/arc";
 import { type LinePlot } from "@/lineplot";
 import { type Log } from "@/log";
 import { type Schematic } from "@/schematic";
+import { type Spectrogram } from "@/spectrogram";
 import { type Table } from "@/table";
 
 export type LayoutType =
   | LinePlot.LayoutType
   | Log.LayoutType
   | Schematic.LayoutType
+  | Spectrogram.LayoutType
   | Table.LayoutType
   | Arc.EditorLayoutType;

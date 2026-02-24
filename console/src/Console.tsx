@@ -49,6 +49,7 @@ import { Palette } from "@/palette";
 import { Range } from "@/range";
 import { Schematic } from "@/schematic";
 import { SERVICES } from "@/services";
+import { Spectrogram } from "@/spectrogram";
 import { Status } from "@/status";
 import { store } from "@/store";
 import { Table } from "@/table";
@@ -71,6 +72,7 @@ const LAYOUT_RENDERERS: Record<string, Layout.Renderer> = {
   ...Modals.LAYOUTS,
   ...Range.LAYOUTS,
   ...Schematic.LAYOUTS,
+  ...Spectrogram.LAYOUTS,
   ...Table.LAYOUTS,
   ...User.LAYOUTS,
   ...Version.LAYOUTS,
@@ -84,6 +86,7 @@ const LAYOUT_RENDERERS: Record<string, Layout.Renderer> = {
 const CONTEXT_MENU_RENDERERS: Record<string, Layout.ContextMenuRenderer> = {
   ...Schematic.CONTEXT_MENUS,
   ...LinePlot.CONTEXT_MENUS,
+  ...Spectrogram.CONTEXT_MENUS,
 };
 
 const PREVENT_DEFAULT_TRIGGERS: Triggers.Trigger[] = [

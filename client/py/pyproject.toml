@@ -42,7 +42,7 @@ dev = [
 ]
 
 [tool.hatch.build.targets.wheel]
-packages = ["synnax", "examples"]
+packages = ["synnax"]
 
 [tool.isort]
 profile = "black"

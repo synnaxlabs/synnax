@@ -14,12 +14,14 @@ import { LinePlot } from "@/lineplot";
 import { Log } from "@/log";
 import { Schematic } from "@/schematic";
 import { Selector as BaseSelector } from "@/selector";
+import { Spectrogram } from "@/spectrogram";
 import { Table } from "@/table";
 
 export const SELECTABLES: BaseSelector.Selectable[] = [
   ...LinePlot.SELECTABLES,
   ...Schematic.SELECTABLES,
   ...Log.SELECTABLES,
+  ...Spectrogram.SELECTABLES,
   ...Table.SELECTABLES,
 ];
 

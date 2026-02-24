@@ -7,13 +7,4 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-/// <reference types="vite/client" />
-
-declare module "fft.js" {
-  class FFT {
-    constructor(size: number);
-    realTransform(output: Float32Array, input: Float32Array): void;
-    completeSpectrum(output: Float32Array): void;
-  }
-  export default FFT;
-}
+export { Toolbar } from "@/spectrogram/toolbar/Toolbar";
