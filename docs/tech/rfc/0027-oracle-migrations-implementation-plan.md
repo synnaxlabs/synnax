@@ -361,78 +361,91 @@ generate`, and `OpenTable` + `layer.go` wiring:
 
 ---
 
-## Phase 5: Delete Deprecated `gorp.Migrator` — NOT STARTED
+## Phase 5: Delete Deprecated `gorp.Migrator` — DONE
 
-**Status**: Not started. Blocked by Phase 4.5 completion.
+**Status**: Complete on branch `sy-3824-oracle-auto-migration-plugin`.
 
-**Goal**: Remove the old `gorp.Migrator` type now that all migrations use the new
-`Migration` interface.
+**What was built:**
 
-**What was built previously (ranger)**: Ranger's `rangeGroupsMigration` already
-implements the `gorp.Migration` interface directly
-(`core/pkg/service/ranger/migrate.go`) and is passed to `OpenTable` alongside the
-generated codec transition migration. This was done as part of Phase 4.
+- **Deleted deprecated types** from `x/go/gorp/migrate.go`:
+  - `Migrator` struct
+  - `MigrationSpec` struct
+  - `Migrator.Run()` method
+  - `ErrMigrationCountExceeded` var
+  - Removed unused `query` import
 
-### What to build
+- **Deleted deprecated tests** from `x/go/gorp/migrate_test.go`:
+  - Entire `GorpRunner` describe block (basic execution, error handling, force flag,
+    version tracking, transaction behavior)
 
-1. **Delete deprecated types** from `x/go/gorp/migrate.go`:
-   - `Migrator` struct
-   - `MigrationSpec` struct
-   - `Migrator.Run()` method
-   - `ErrMigrationCountExceeded` var
+- **Verified no remaining references** to old migrator pattern in production code.
 
-2. **Verify no remaining references** to the old migrator pattern.
-
-### Acceptance criteria
-
-- `gorp.Migrator` fully deleted
-- All tests pass
-- No remaining references to old migration types
+- **All tests pass**: gorp (118/118), core builds clean.
 
 ---
 
-## Phase 6: Schema Snapshots & `oracle migrate check` (CI Enforcement) — NOT STARTED
+## Phase 6: Schema Snapshots & `oracle migrate check` (CI Enforcement) — DONE
 
-**Goal**: Implement schema snapshot storage and the `oracle migrate check` CLI command
-for CI enforcement. This ensures no `.oracle` schema change ships without a
-corresponding migration.
+**Status**: Complete on branch `sy-3824-oracle-auto-migration-plugin`.
 
-**Scope**: `oracle/`, `schemas/.snapshots/`
+**What was built:**
 
-### What to build
+- **`oracle/snapshot/` package** (`oracle/snapshot/snapshot.go`):
+  - `LatestVersion(snapshotsDir)` — finds highest `v<N>` snapshot version (0 if none
+    exist or directory missing)
+  - `Create(schemasDir, snapshotsDir, version)` — copies all `.oracle` files into
+    `schemas/.snapshots/v<N>/` (flat copy, byte-for-byte)
+  - `Check(schemasDir, snapshotsDir)` — compares current `.oracle` files against latest
+    snapshot; returns nil if identical, descriptive error listing added/removed/modified
+    files if different
 
-1. **Snapshot storage**: When `oracle migrate generate` runs, copy current `.oracle`
-   source files into `schemas/.snapshots/v<N>/`. The snapshot is the authoritative
-   record of schema state at each migration version.
+- **Updated `oracle migrate generate`** (`oracle/cmd/migrate.go`):
+  - After syncing migration files, calls `snapshot.LatestVersion()` then
+    `snapshot.Create()` at version+1
+  - Prints styled confirmation: "snapshot v<N> created"
 
-2. **Update `oracle migrate generate`** to:
-   - Create snapshot after generating migration files
-   - Store version metadata alongside snapshots
+- **New `oracle migrate check` CLI command** (`oracle/cmd/migrate.go`):
+  - Subcommand of `migrateCmd` (invoked as `oracle migrate check`)
+  - Calls `snapshot.Check(schemasDir, snapshotsDir)`
+  - Exit 0 + success message when schemas match latest snapshot
+  - Exit 1 + actionable error: "schema changed but no migration generated. Run
+    'oracle migrate generate' and commit the result." with per-file diff listing
 
-3. **`oracle migrate check` CLI command** (`oracle/cmd/migrate.go`):
-   - Diff current `.oracle` files against latest snapshot
-   - If schemas differ and no new migration files exist, exit with error code 1
-   - If schemas match (or new migrations account for changes), exit with code 0
-   - Print actionable error message: "schema changed but no migration generated. Run
-     'oracle migrate generate' and commit the result."
+- **`printSnapshotCreated` helper** added to `oracle/cmd/style.go`
 
-4. **Schema diffing**: Compare two sets of `.oracle` files. This is a file-level diff
-   (not field-level yet — that comes in Phase 7). If any `.oracle` file content differs
-   from the snapshot, a migration is required.
+- **Fixed pre-existing marshal test failures** (`oracle/plugin/go/marshal/marshal_test.go`):
+  - `"package pb"` → `"package test"` (codec now generates in parent package per
+    Phase 2.1)
+  - `"marshaltest"` → `"marshalType"` (recursive helpers are in-package, no cross-package
+    prefix)
 
-### What to test
+- **19 Ginkgo tests** in `oracle/snapshot/snapshot_test.go`:
+  - `LatestVersion`: nonexistent dir, empty dir, single version, multiple versions,
+    non-version entries ignored
+  - `Create`: file copying, directory auto-creation, byte preservation, `.oracle`-only
+    filtering, empty schemas
+  - `Check`: matching schemas, no snapshots error, modified content detection, added
+    file detection, removed file detection, latest-version comparison
+  - Integration: create→check pass, modify→check fail, re-snapshot→check pass
 
-- `oracle migrate generate` creates snapshots in correct location
-- `oracle migrate check` passes when schemas match snapshot
-- `oracle migrate check` fails when schemas differ without migration
-- `oracle migrate check` passes when schemas differ WITH migration
-- Snapshot files are human-readable copies of `.oracle` source
+- **All tests pass**: snapshot (19/19), marshal (8/8), full oracle suite (35 suites)
 
-### Acceptance criteria
+### Key files
 
-- `oracle migrate check` can be added to CI pipeline
-- Snapshot directory structure is correct
-- Diffing logic correctly detects changes
+- `oracle/snapshot/snapshot.go` — core snapshot logic
+- `oracle/snapshot/snapshot_test.go` — 19 Ginkgo tests
+- `oracle/snapshot/snapshot_suite_test.go` — test suite bootstrap
+- `oracle/cmd/migrate.go` — `migrateCheckCmd` + snapshot creation in generate
+- `oracle/cmd/style.go` — `printSnapshotCreated` output helper
+
+### Design decisions
+
+- **Snapshot directory**: `schemas/.snapshots/v<N>/` at repo root
+- **Version = sequential integer**: determined by counting existing snapshot dirs
+- **File-level diffing only**: byte-for-byte `.oracle` comparison (Phase 7 adds
+  field-level)
+- **Always snapshot on generate**: every `oracle migrate generate` creates a new version
+- **Version encoded in directory name**: no separate metadata file needed
 
 ---
 
@@ -616,13 +629,13 @@ Phase 3: Codec Transition Migration ............... DONE (absorbed into Phase 1)
     ↓
 Phase 4: Oracle Migration Plugin (Full Mode) ...... DONE (sy-3824)
     ↓
-Phase 4.5: Complete Service Wiring ................ IN PROGRESS (sy-3824)   ← SESSION 2
+Phase 4.5: Complete Service Wiring ................ IN PROGRESS (sy-3824)
     ↓
-Phase 5: Delete Deprecated gorp.Migrator .......... NOT STARTED (sy-3824)   ← SESSION 2
+Phase 5: Delete Deprecated gorp.Migrator .......... DONE (sy-3824)
     ↓
-Phase 6: Schema Snapshots & CI Check .............. NOT STARTED             ← SESSION 3
+Phase 6: Schema Snapshots & CI Check .............. DONE (sy-3824)
     ↓
-Phase 7: Schema Diff Engine & Skeleton/Propagation  NOT STARTED             ← SESSION 4+
+Phase 7: Schema Diff Engine & Skeleton/Propagation  NOT STARTED             ← NEXT
     ↓                                               (includes TypedMigration codec params)
 
 Phase 8: Test Infrastructure (can start anytime after Phase 1)

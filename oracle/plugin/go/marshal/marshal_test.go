@@ -55,7 +55,7 @@ var _ = Describe("Go Marshal Plugin", func() {
 
 				ExpectContent(resp, "codec.gen.go").
 					ToContain(
-						"package pb",
+						"package test",
 						"binary.BigEndian.AppendUint32",
 						"TestCodec gorp.Codec",
 					)
@@ -253,7 +253,7 @@ var _ = Describe("Go Marshal Plugin", func() {
 
 				ExpectContent(resp, "codec.gen.go").
 					ToContain("ContainerCodec gorp.Codec").
-					ToContain("marshaltest")
+					ToContain("marshalType")
 			})
 		})
 	})

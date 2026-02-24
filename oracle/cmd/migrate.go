@@ -22,6 +22,7 @@ import (
 	gopb "github.com/synnaxlabs/oracle/plugin/go/pb"
 	gotypes "github.com/synnaxlabs/oracle/plugin/go/types"
 	pbtypes "github.com/synnaxlabs/oracle/plugin/pb/types"
+	"github.com/synnaxlabs/oracle/snapshot"
 	"github.com/synnaxlabs/x/errors"
 )
 
@@ -45,9 +46,29 @@ var migrateGenerateCmd = &cobra.Command{
 	},
 }
 
+var migrateCheckCmd = &cobra.Command{
+	Use:   "check",
+	Short: "Check that schemas match the latest snapshot",
+	Long: `Compares current .oracle schema files against the latest snapshot.
+
+If any schema file has changed since the last snapshot and no new migration
+was generated, exits with code 1 and prints an actionable error message.
+
+This command is intended for CI pipelines to enforce that every schema change
+is accompanied by a migration.`,
+	RunE: func(cmd *cobra.Command, args []string) error {
+		if err := runMigrateCheck(); err != nil {
+			printError(err.Error())
+			return err
+		}
+		return nil
+	},
+}
+
 func init() {
 	rootCmd.AddCommand(migrateCmd)
 	migrateCmd.AddCommand(migrateGenerateCmd)
+	migrateCmd.AddCommand(migrateCheckCmd)
 }
 
 func runMigrateGenerate(cmd *cobra.Command) error {
@@ -125,6 +146,33 @@ func runMigrateGenerate(cmd *cobra.Command) error {
 		}
 	}
 	printSyncedCount(len(syncResult.Written), len(syncResult.Unchanged))
+
+	schemasDir := filepath.Join(repoRoot, "schemas")
+	snapshotsDir := filepath.Join(schemasDir, ".snapshots")
+	latestVersion, err := snapshot.LatestVersion(snapshotsDir)
+	if err != nil {
+		return errors.Wrap(err, "failed to read snapshot version")
+	}
+	nextVersion := latestVersion + 1
+	if err := snapshot.Create(schemasDir, snapshotsDir, nextVersion); err != nil {
+		return errors.Wrap(err, "failed to create schema snapshot")
+	}
+	printSnapshotCreated(nextVersion)
+	return nil
+}
+
+func runMigrateCheck() error {
+	printBanner()
+	repoRoot, err := paths.RepoRoot()
+	if err != nil {
+		return errors.Wrap(err, "migrate check must be run within a git repository")
+	}
+	schemasDir := filepath.Join(repoRoot, "schemas")
+	snapshotsDir := filepath.Join(schemasDir, ".snapshots")
+	if err := snapshot.Check(schemasDir, snapshotsDir); err != nil {
+		return err
+	}
+	printSuccess("schemas match latest snapshot")
 	return nil
 }
 

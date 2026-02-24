@@ -150,6 +150,11 @@ func printDiagnostics(diagnosticStr string) {
 	}
 }
 
+func printSnapshotCreated(version int) {
+	v := countStyle.Render(fmt.Sprintf("v%d", version))
+	printSuccess(fmt.Sprintf("snapshot %s created", v))
+}
+
 func printFormattingStart(count int) {
 	c := countStyle.Render(fmt.Sprintf("%d", count))
 	word := "schema"
