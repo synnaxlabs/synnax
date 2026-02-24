@@ -13,36 +13,74 @@ package pb
 
 import (
 	"context"
-
-	"google.golang.org/protobuf/proto"
+	"encoding/binary"
 
 	"github.com/synnaxlabs/x/gorp"
 
 	user "github.com/synnaxlabs/synnax/pkg/service/user"
 )
 
+var _ = binary.BigEndian
+
+const (
+	UserFieldKey       = 0
+	UserFieldUsername  = 1
+	UserFieldFirstName = 2
+	UserFieldLastName  = 3
+	UserFieldRootUser  = 4
+	UserFieldCount     = 5
+)
+
 type userCodec struct{}
 
 func (userCodec) Marshal(
-	ctx context.Context,
+	_ context.Context,
 	s user.User,
 ) ([]byte, error) {
-	p, err := UserToPB(ctx, s)
-	if err != nil {
-		return nil, err
+	buf := make([]byte, 0, 113)
+	buf = append(buf, s.Key[:]...)
+	buf = binary.BigEndian.AppendUint32(buf, uint32(len(s.Username)))
+	buf = append(buf, s.Username...)
+	buf = binary.BigEndian.AppendUint32(buf, uint32(len(s.FirstName)))
+	buf = append(buf, s.FirstName...)
+	buf = binary.BigEndian.AppendUint32(buf, uint32(len(s.LastName)))
+	buf = append(buf, s.LastName...)
+	if s.RootUser {
+		buf = append(buf, 1)
+	} else {
+		buf = append(buf, 0)
 	}
-	return proto.Marshal(p)
+	return buf, nil
 }
 
 func (userCodec) Unmarshal(
-	ctx context.Context,
+	_ context.Context,
 	data []byte,
 ) (user.User, error) {
-	p := &User{}
-	if err := proto.Unmarshal(data, p); err != nil {
-		return user.User{}, err
+	var r user.User
+	copy(r.Key[:], data[:16])
+	data = data[16:]
+	{
+		_n := binary.BigEndian.Uint32(data[:4])
+		data = data[4:]
+		r.Username = string(data[:_n])
+		data = data[_n:]
 	}
-	return UserFromPB(ctx, p)
+	{
+		_n := binary.BigEndian.Uint32(data[:4])
+		data = data[4:]
+		r.FirstName = string(data[:_n])
+		data = data[_n:]
+	}
+	{
+		_n := binary.BigEndian.Uint32(data[:4])
+		data = data[4:]
+		r.LastName = string(data[:_n])
+		data = data[_n:]
+	}
+	r.RootUser = data[0] != 0
+	data = data[1:]
+	return r, nil
 }
 
 var UserCodec gorp.Codec[user.User] = userCodec{}

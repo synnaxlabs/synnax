@@ -16,6 +16,7 @@ import (
 	"github.com/synnaxlabs/arc/types"
 	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
 	"github.com/synnaxlabs/synnax/pkg/distribution/cluster"
+	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
 	"github.com/synnaxlabs/synnax/pkg/service/rack"
 	"github.com/synnaxlabs/synnax/pkg/service/task"
 	"github.com/synnaxlabs/x/telem"
@@ -50,6 +51,10 @@ func convertAnyForPB(v any) any {
 		return uint32(val)
 	case rack.Key:
 		return uint32(val)
+	case ontology.Type:
+		return string(val)
+	case ontology.RelationshipType:
+		return string(val)
 	case task.Key:
 		return uint64(val)
 	default:

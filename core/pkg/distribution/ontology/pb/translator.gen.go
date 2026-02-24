@@ -19,7 +19,7 @@ import (
 // IDToPB converts ID to ID.
 func IDToPB(_ context.Context, r ontology.ID) (*ID, error) {
 	pb := &ID{
-		Type: r.Type,
+		Type: string(r.Type),
 		Key:  r.Key,
 	}
 	return pb, nil
@@ -31,7 +31,7 @@ func IDFromPB(_ context.Context, pb *ID) (ontology.ID, error) {
 	if pb == nil {
 		return r, nil
 	}
-	r.Type = pb.Type
+	r.Type = ontology.Type(pb.Type)
 	r.Key = pb.Key
 	return r, nil
 }
@@ -64,13 +64,13 @@ func IDsFromPB(ctx context.Context, pbs []*ID) ([]ontology.ID, error) {
 
 // ResourceToPB converts Resource to Resource.
 func ResourceToPB(ctx context.Context, r ontology.Resource) (*Resource, error) {
-	idVal, err := IDToPB(ctx, r.Id)
+	iDVal, err := IDToPB(ctx, r.ID)
 	if err != nil {
 		return nil, err
 	}
 	pb := &Resource{
 		Name: r.Name,
-		Id:   idVal,
+		Id:   iDVal,
 	}
 	return pb, nil
 }
@@ -82,7 +82,7 @@ func ResourceFromPB(ctx context.Context, pb *Resource) (ontology.Resource, error
 		return r, nil
 	}
 	var err error
-	r.Id, err = IDFromPB(ctx, pb.Id)
+	r.ID, err = IDFromPB(ctx, pb.Id)
 	if err != nil {
 		return r, err
 	}
@@ -127,7 +127,7 @@ func RelationshipToPB(ctx context.Context, r ontology.Relationship) (*Relationsh
 		return nil, err
 	}
 	pb := &Relationship{
-		Type: r.Type,
+		Type: string(r.Type),
 		From: fromVal,
 		To:   toVal,
 	}
@@ -149,7 +149,7 @@ func RelationshipFromPB(ctx context.Context, pb *Relationship) (ontology.Relatio
 	if err != nil {
 		return r, err
 	}
-	r.Type = pb.Type
+	r.Type = ontology.RelationshipType(pb.Type)
 	return r, nil
 }
 

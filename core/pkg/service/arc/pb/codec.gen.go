@@ -13,36 +13,4142 @@ package pb
 
 import (
 	"context"
-
-	"google.golang.org/protobuf/proto"
+	"encoding/binary"
+	"encoding/json"
+	"math"
 
 	"github.com/synnaxlabs/x/gorp"
 
+	graph "github.com/synnaxlabs/arc/graph"
+	ir "github.com/synnaxlabs/arc/ir"
+	module "github.com/synnaxlabs/arc/module"
+	types "github.com/synnaxlabs/arc/types"
 	arc "github.com/synnaxlabs/synnax/pkg/service/arc"
+	label "github.com/synnaxlabs/x/label"
+	status "github.com/synnaxlabs/x/status"
+	telem "github.com/synnaxlabs/x/telem"
+)
+
+var _ = binary.BigEndian
+
+const (
+	ArcFieldKey                                                         = 0
+	ArcFieldName                                                        = 1
+	ArcFieldMode                                                        = 2
+	ArcFieldGraphViewportPositionX                                      = 3
+	ArcFieldGraphViewportPositionY                                      = 4
+	ArcFieldGraphViewportZoom                                           = 5
+	ArcFieldGraphFunctionsElemKey                                       = 6
+	ArcFieldGraphFunctionsElemBodyRaw                                   = 7
+	ArcFieldGraphFunctionsElemConfigElemName                            = 8
+	ArcFieldGraphFunctionsElemConfigElemTypeInputsElem                  = 9
+	ArcFieldGraphFunctionsElemConfigElemTypeOutputsElem                 = 10
+	ArcFieldGraphFunctionsElemConfigElemTypeConfigElem                  = 11
+	ArcFieldGraphFunctionsElemConfigElemTypeKind                        = 12
+	ArcFieldGraphFunctionsElemConfigElemTypeName                        = 13
+	ArcFieldGraphFunctionsElemConfigElemTypeElem                        = 14
+	ArcFieldGraphFunctionsElemConfigElemTypeUnitDimensionsLength        = 15
+	ArcFieldGraphFunctionsElemConfigElemTypeUnitDimensionsMass          = 16
+	ArcFieldGraphFunctionsElemConfigElemTypeUnitDimensionsTime          = 17
+	ArcFieldGraphFunctionsElemConfigElemTypeUnitDimensionsCurrent       = 18
+	ArcFieldGraphFunctionsElemConfigElemTypeUnitDimensionsTemperature   = 19
+	ArcFieldGraphFunctionsElemConfigElemTypeUnitDimensionsAngle         = 20
+	ArcFieldGraphFunctionsElemConfigElemTypeUnitDimensionsCount         = 21
+	ArcFieldGraphFunctionsElemConfigElemTypeUnitDimensionsData          = 22
+	ArcFieldGraphFunctionsElemConfigElemTypeUnitScale                   = 23
+	ArcFieldGraphFunctionsElemConfigElemTypeUnitName                    = 24
+	ArcFieldGraphFunctionsElemConfigElemTypeConstraint                  = 25
+	ArcFieldGraphFunctionsElemConfigElemTypeChanDirection               = 26
+	ArcFieldGraphFunctionsElemConfigElemValue                           = 27
+	ArcFieldGraphFunctionsElemInputsElemName                            = 28
+	ArcFieldGraphFunctionsElemInputsElemTypeInputsElem                  = 29
+	ArcFieldGraphFunctionsElemInputsElemTypeOutputsElem                 = 30
+	ArcFieldGraphFunctionsElemInputsElemTypeConfigElem                  = 31
+	ArcFieldGraphFunctionsElemInputsElemTypeKind                        = 32
+	ArcFieldGraphFunctionsElemInputsElemTypeName                        = 33
+	ArcFieldGraphFunctionsElemInputsElemTypeElem                        = 34
+	ArcFieldGraphFunctionsElemInputsElemTypeUnitDimensionsLength        = 35
+	ArcFieldGraphFunctionsElemInputsElemTypeUnitDimensionsMass          = 36
+	ArcFieldGraphFunctionsElemInputsElemTypeUnitDimensionsTime          = 37
+	ArcFieldGraphFunctionsElemInputsElemTypeUnitDimensionsCurrent       = 38
+	ArcFieldGraphFunctionsElemInputsElemTypeUnitDimensionsTemperature   = 39
+	ArcFieldGraphFunctionsElemInputsElemTypeUnitDimensionsAngle         = 40
+	ArcFieldGraphFunctionsElemInputsElemTypeUnitDimensionsCount         = 41
+	ArcFieldGraphFunctionsElemInputsElemTypeUnitDimensionsData          = 42
+	ArcFieldGraphFunctionsElemInputsElemTypeUnitScale                   = 43
+	ArcFieldGraphFunctionsElemInputsElemTypeUnitName                    = 44
+	ArcFieldGraphFunctionsElemInputsElemTypeConstraint                  = 45
+	ArcFieldGraphFunctionsElemInputsElemTypeChanDirection               = 46
+	ArcFieldGraphFunctionsElemInputsElemValue                           = 47
+	ArcFieldGraphFunctionsElemOutputsElemName                           = 48
+	ArcFieldGraphFunctionsElemOutputsElemTypeInputsElem                 = 49
+	ArcFieldGraphFunctionsElemOutputsElemTypeOutputsElem                = 50
+	ArcFieldGraphFunctionsElemOutputsElemTypeConfigElem                 = 51
+	ArcFieldGraphFunctionsElemOutputsElemTypeKind                       = 52
+	ArcFieldGraphFunctionsElemOutputsElemTypeName                       = 53
+	ArcFieldGraphFunctionsElemOutputsElemTypeElem                       = 54
+	ArcFieldGraphFunctionsElemOutputsElemTypeUnitDimensionsLength       = 55
+	ArcFieldGraphFunctionsElemOutputsElemTypeUnitDimensionsMass         = 56
+	ArcFieldGraphFunctionsElemOutputsElemTypeUnitDimensionsTime         = 57
+	ArcFieldGraphFunctionsElemOutputsElemTypeUnitDimensionsCurrent      = 58
+	ArcFieldGraphFunctionsElemOutputsElemTypeUnitDimensionsTemperature  = 59
+	ArcFieldGraphFunctionsElemOutputsElemTypeUnitDimensionsAngle        = 60
+	ArcFieldGraphFunctionsElemOutputsElemTypeUnitDimensionsCount        = 61
+	ArcFieldGraphFunctionsElemOutputsElemTypeUnitDimensionsData         = 62
+	ArcFieldGraphFunctionsElemOutputsElemTypeUnitScale                  = 63
+	ArcFieldGraphFunctionsElemOutputsElemTypeUnitName                   = 64
+	ArcFieldGraphFunctionsElemOutputsElemTypeConstraint                 = 65
+	ArcFieldGraphFunctionsElemOutputsElemTypeChanDirection              = 66
+	ArcFieldGraphFunctionsElemOutputsElemValue                          = 67
+	ArcFieldGraphFunctionsElemChannelsRead                              = 68
+	ArcFieldGraphFunctionsElemChannelsReadKey                           = 69
+	ArcFieldGraphFunctionsElemChannelsReadVal                           = 70
+	ArcFieldGraphFunctionsElemChannelsWrite                             = 71
+	ArcFieldGraphFunctionsElemChannelsWriteKey                          = 72
+	ArcFieldGraphFunctionsElemChannelsWriteVal                          = 73
+	ArcFieldGraphEdgesElemSourceNode                                    = 74
+	ArcFieldGraphEdgesElemSourceParam                                   = 75
+	ArcFieldGraphEdgesElemTargetNode                                    = 76
+	ArcFieldGraphEdgesElemTargetParam                                   = 77
+	ArcFieldGraphEdgesElemKind                                          = 78
+	ArcFieldGraphNodesElemKey                                           = 79
+	ArcFieldGraphNodesElemType                                          = 80
+	ArcFieldGraphNodesElemConfig                                        = 81
+	ArcFieldGraphNodesElemPositionX                                     = 82
+	ArcFieldGraphNodesElemPositionY                                     = 83
+	ArcFieldTextRaw                                                     = 84
+	ArcFieldModuleFunctionsElemKey                                      = 85
+	ArcFieldModuleFunctionsElemBodyRaw                                  = 86
+	ArcFieldModuleFunctionsElemConfigElemName                           = 87
+	ArcFieldModuleFunctionsElemConfigElemTypeInputsElem                 = 88
+	ArcFieldModuleFunctionsElemConfigElemTypeOutputsElem                = 89
+	ArcFieldModuleFunctionsElemConfigElemTypeConfigElem                 = 90
+	ArcFieldModuleFunctionsElemConfigElemTypeKind                       = 91
+	ArcFieldModuleFunctionsElemConfigElemTypeName                       = 92
+	ArcFieldModuleFunctionsElemConfigElemTypeElem                       = 93
+	ArcFieldModuleFunctionsElemConfigElemTypeUnitDimensionsLength       = 94
+	ArcFieldModuleFunctionsElemConfigElemTypeUnitDimensionsMass         = 95
+	ArcFieldModuleFunctionsElemConfigElemTypeUnitDimensionsTime         = 96
+	ArcFieldModuleFunctionsElemConfigElemTypeUnitDimensionsCurrent      = 97
+	ArcFieldModuleFunctionsElemConfigElemTypeUnitDimensionsTemperature  = 98
+	ArcFieldModuleFunctionsElemConfigElemTypeUnitDimensionsAngle        = 99
+	ArcFieldModuleFunctionsElemConfigElemTypeUnitDimensionsCount        = 100
+	ArcFieldModuleFunctionsElemConfigElemTypeUnitDimensionsData         = 101
+	ArcFieldModuleFunctionsElemConfigElemTypeUnitScale                  = 102
+	ArcFieldModuleFunctionsElemConfigElemTypeUnitName                   = 103
+	ArcFieldModuleFunctionsElemConfigElemTypeConstraint                 = 104
+	ArcFieldModuleFunctionsElemConfigElemTypeChanDirection              = 105
+	ArcFieldModuleFunctionsElemConfigElemValue                          = 106
+	ArcFieldModuleFunctionsElemInputsElemName                           = 107
+	ArcFieldModuleFunctionsElemInputsElemTypeInputsElem                 = 108
+	ArcFieldModuleFunctionsElemInputsElemTypeOutputsElem                = 109
+	ArcFieldModuleFunctionsElemInputsElemTypeConfigElem                 = 110
+	ArcFieldModuleFunctionsElemInputsElemTypeKind                       = 111
+	ArcFieldModuleFunctionsElemInputsElemTypeName                       = 112
+	ArcFieldModuleFunctionsElemInputsElemTypeElem                       = 113
+	ArcFieldModuleFunctionsElemInputsElemTypeUnitDimensionsLength       = 114
+	ArcFieldModuleFunctionsElemInputsElemTypeUnitDimensionsMass         = 115
+	ArcFieldModuleFunctionsElemInputsElemTypeUnitDimensionsTime         = 116
+	ArcFieldModuleFunctionsElemInputsElemTypeUnitDimensionsCurrent      = 117
+	ArcFieldModuleFunctionsElemInputsElemTypeUnitDimensionsTemperature  = 118
+	ArcFieldModuleFunctionsElemInputsElemTypeUnitDimensionsAngle        = 119
+	ArcFieldModuleFunctionsElemInputsElemTypeUnitDimensionsCount        = 120
+	ArcFieldModuleFunctionsElemInputsElemTypeUnitDimensionsData         = 121
+	ArcFieldModuleFunctionsElemInputsElemTypeUnitScale                  = 122
+	ArcFieldModuleFunctionsElemInputsElemTypeUnitName                   = 123
+	ArcFieldModuleFunctionsElemInputsElemTypeConstraint                 = 124
+	ArcFieldModuleFunctionsElemInputsElemTypeChanDirection              = 125
+	ArcFieldModuleFunctionsElemInputsElemValue                          = 126
+	ArcFieldModuleFunctionsElemOutputsElemName                          = 127
+	ArcFieldModuleFunctionsElemOutputsElemTypeInputsElem                = 128
+	ArcFieldModuleFunctionsElemOutputsElemTypeOutputsElem               = 129
+	ArcFieldModuleFunctionsElemOutputsElemTypeConfigElem                = 130
+	ArcFieldModuleFunctionsElemOutputsElemTypeKind                      = 131
+	ArcFieldModuleFunctionsElemOutputsElemTypeName                      = 132
+	ArcFieldModuleFunctionsElemOutputsElemTypeElem                      = 133
+	ArcFieldModuleFunctionsElemOutputsElemTypeUnitDimensionsLength      = 134
+	ArcFieldModuleFunctionsElemOutputsElemTypeUnitDimensionsMass        = 135
+	ArcFieldModuleFunctionsElemOutputsElemTypeUnitDimensionsTime        = 136
+	ArcFieldModuleFunctionsElemOutputsElemTypeUnitDimensionsCurrent     = 137
+	ArcFieldModuleFunctionsElemOutputsElemTypeUnitDimensionsTemperature = 138
+	ArcFieldModuleFunctionsElemOutputsElemTypeUnitDimensionsAngle       = 139
+	ArcFieldModuleFunctionsElemOutputsElemTypeUnitDimensionsCount       = 140
+	ArcFieldModuleFunctionsElemOutputsElemTypeUnitDimensionsData        = 141
+	ArcFieldModuleFunctionsElemOutputsElemTypeUnitScale                 = 142
+	ArcFieldModuleFunctionsElemOutputsElemTypeUnitName                  = 143
+	ArcFieldModuleFunctionsElemOutputsElemTypeConstraint                = 144
+	ArcFieldModuleFunctionsElemOutputsElemTypeChanDirection             = 145
+	ArcFieldModuleFunctionsElemOutputsElemValue                         = 146
+	ArcFieldModuleFunctionsElemChannelsRead                             = 147
+	ArcFieldModuleFunctionsElemChannelsReadKey                          = 148
+	ArcFieldModuleFunctionsElemChannelsReadVal                          = 149
+	ArcFieldModuleFunctionsElemChannelsWrite                            = 150
+	ArcFieldModuleFunctionsElemChannelsWriteKey                         = 151
+	ArcFieldModuleFunctionsElemChannelsWriteVal                         = 152
+	ArcFieldModuleNodesElemKey                                          = 153
+	ArcFieldModuleNodesElemType                                         = 154
+	ArcFieldModuleNodesElemConfigElemName                               = 155
+	ArcFieldModuleNodesElemConfigElemTypeInputsElem                     = 156
+	ArcFieldModuleNodesElemConfigElemTypeOutputsElem                    = 157
+	ArcFieldModuleNodesElemConfigElemTypeConfigElem                     = 158
+	ArcFieldModuleNodesElemConfigElemTypeKind                           = 159
+	ArcFieldModuleNodesElemConfigElemTypeName                           = 160
+	ArcFieldModuleNodesElemConfigElemTypeElem                           = 161
+	ArcFieldModuleNodesElemConfigElemTypeUnitDimensionsLength           = 162
+	ArcFieldModuleNodesElemConfigElemTypeUnitDimensionsMass             = 163
+	ArcFieldModuleNodesElemConfigElemTypeUnitDimensionsTime             = 164
+	ArcFieldModuleNodesElemConfigElemTypeUnitDimensionsCurrent          = 165
+	ArcFieldModuleNodesElemConfigElemTypeUnitDimensionsTemperature      = 166
+	ArcFieldModuleNodesElemConfigElemTypeUnitDimensionsAngle            = 167
+	ArcFieldModuleNodesElemConfigElemTypeUnitDimensionsCount            = 168
+	ArcFieldModuleNodesElemConfigElemTypeUnitDimensionsData             = 169
+	ArcFieldModuleNodesElemConfigElemTypeUnitScale                      = 170
+	ArcFieldModuleNodesElemConfigElemTypeUnitName                       = 171
+	ArcFieldModuleNodesElemConfigElemTypeConstraint                     = 172
+	ArcFieldModuleNodesElemConfigElemTypeChanDirection                  = 173
+	ArcFieldModuleNodesElemConfigElemValue                              = 174
+	ArcFieldModuleNodesElemInputsElemName                               = 175
+	ArcFieldModuleNodesElemInputsElemTypeInputsElem                     = 176
+	ArcFieldModuleNodesElemInputsElemTypeOutputsElem                    = 177
+	ArcFieldModuleNodesElemInputsElemTypeConfigElem                     = 178
+	ArcFieldModuleNodesElemInputsElemTypeKind                           = 179
+	ArcFieldModuleNodesElemInputsElemTypeName                           = 180
+	ArcFieldModuleNodesElemInputsElemTypeElem                           = 181
+	ArcFieldModuleNodesElemInputsElemTypeUnitDimensionsLength           = 182
+	ArcFieldModuleNodesElemInputsElemTypeUnitDimensionsMass             = 183
+	ArcFieldModuleNodesElemInputsElemTypeUnitDimensionsTime             = 184
+	ArcFieldModuleNodesElemInputsElemTypeUnitDimensionsCurrent          = 185
+	ArcFieldModuleNodesElemInputsElemTypeUnitDimensionsTemperature      = 186
+	ArcFieldModuleNodesElemInputsElemTypeUnitDimensionsAngle            = 187
+	ArcFieldModuleNodesElemInputsElemTypeUnitDimensionsCount            = 188
+	ArcFieldModuleNodesElemInputsElemTypeUnitDimensionsData             = 189
+	ArcFieldModuleNodesElemInputsElemTypeUnitScale                      = 190
+	ArcFieldModuleNodesElemInputsElemTypeUnitName                       = 191
+	ArcFieldModuleNodesElemInputsElemTypeConstraint                     = 192
+	ArcFieldModuleNodesElemInputsElemTypeChanDirection                  = 193
+	ArcFieldModuleNodesElemInputsElemValue                              = 194
+	ArcFieldModuleNodesElemOutputsElemName                              = 195
+	ArcFieldModuleNodesElemOutputsElemTypeInputsElem                    = 196
+	ArcFieldModuleNodesElemOutputsElemTypeOutputsElem                   = 197
+	ArcFieldModuleNodesElemOutputsElemTypeConfigElem                    = 198
+	ArcFieldModuleNodesElemOutputsElemTypeKind                          = 199
+	ArcFieldModuleNodesElemOutputsElemTypeName                          = 200
+	ArcFieldModuleNodesElemOutputsElemTypeElem                          = 201
+	ArcFieldModuleNodesElemOutputsElemTypeUnitDimensionsLength          = 202
+	ArcFieldModuleNodesElemOutputsElemTypeUnitDimensionsMass            = 203
+	ArcFieldModuleNodesElemOutputsElemTypeUnitDimensionsTime            = 204
+	ArcFieldModuleNodesElemOutputsElemTypeUnitDimensionsCurrent         = 205
+	ArcFieldModuleNodesElemOutputsElemTypeUnitDimensionsTemperature     = 206
+	ArcFieldModuleNodesElemOutputsElemTypeUnitDimensionsAngle           = 207
+	ArcFieldModuleNodesElemOutputsElemTypeUnitDimensionsCount           = 208
+	ArcFieldModuleNodesElemOutputsElemTypeUnitDimensionsData            = 209
+	ArcFieldModuleNodesElemOutputsElemTypeUnitScale                     = 210
+	ArcFieldModuleNodesElemOutputsElemTypeUnitName                      = 211
+	ArcFieldModuleNodesElemOutputsElemTypeConstraint                    = 212
+	ArcFieldModuleNodesElemOutputsElemTypeChanDirection                 = 213
+	ArcFieldModuleNodesElemOutputsElemValue                             = 214
+	ArcFieldModuleNodesElemChannelsRead                                 = 215
+	ArcFieldModuleNodesElemChannelsReadKey                              = 216
+	ArcFieldModuleNodesElemChannelsReadVal                              = 217
+	ArcFieldModuleNodesElemChannelsWrite                                = 218
+	ArcFieldModuleNodesElemChannelsWriteKey                             = 219
+	ArcFieldModuleNodesElemChannelsWriteVal                             = 220
+	ArcFieldModuleEdgesElemSourceNode                                   = 221
+	ArcFieldModuleEdgesElemSourceParam                                  = 222
+	ArcFieldModuleEdgesElemTargetNode                                   = 223
+	ArcFieldModuleEdgesElemTargetParam                                  = 224
+	ArcFieldModuleEdgesElemKind                                         = 225
+	ArcFieldModuleStrataElemElem                                        = 226
+	ArcFieldModuleSequencesElemKey                                      = 227
+	ArcFieldModuleSequencesElemStagesElemKey                            = 228
+	ArcFieldModuleSequencesElemStagesElemNodesElem                      = 229
+	ArcFieldModuleSequencesElemStagesElemStrataElemElem                 = 230
+	ArcFieldModuleAuthoritiesDefault                                    = 231
+	ArcFieldModuleAuthoritiesChannels                                   = 232
+	ArcFieldModuleAuthoritiesChannelsKey                                = 233
+	ArcFieldModuleAuthoritiesChannelsVal                                = 234
+	ArcFieldModuleWASM                                                  = 235
+	ArcFieldModuleOutputMemoryBases                                     = 236
+	ArcFieldModuleOutputMemoryBasesKey                                  = 237
+	ArcFieldModuleOutputMemoryBasesVal                                  = 238
+	ArcFieldStatusKey                                                   = 239
+	ArcFieldStatusName                                                  = 240
+	ArcFieldStatusVariant                                               = 241
+	ArcFieldStatusMessage                                               = 242
+	ArcFieldStatusDescription                                           = 243
+	ArcFieldStatusTime                                                  = 244
+	ArcFieldStatusDetailsRunning                                        = 245
+	ArcFieldStatusLabelsElemKey                                         = 246
+	ArcFieldStatusLabelsElemName                                        = 247
+	ArcFieldStatusLabelsElemColorR                                      = 248
+	ArcFieldStatusLabelsElemColorG                                      = 249
+	ArcFieldStatusLabelsElemColorB                                      = 250
+	ArcFieldStatusLabelsElemColorA                                      = 251
+	ArcFieldCount                                                       = 252
 )
 
 type arcCodec struct{}
 
 func (arcCodec) Marshal(
-	ctx context.Context,
+	_ context.Context,
 	s arc.Arc,
 ) ([]byte, error) {
-	p, err := ArcToPB(ctx, s)
-	if err != nil {
-		return nil, err
+	buf := make([]byte, 0, 6542)
+	buf = append(buf, s.Key[:]...)
+	buf = binary.BigEndian.AppendUint32(buf, uint32(len(s.Name)))
+	buf = append(buf, s.Name...)
+	buf = binary.BigEndian.AppendUint32(buf, uint32(len(s.Mode)))
+	buf = append(buf, s.Mode...)
+	buf = binary.BigEndian.AppendUint64(buf, math.Float64bits(float64(s.Graph.Viewport.Position.X)))
+	buf = binary.BigEndian.AppendUint64(buf, math.Float64bits(float64(s.Graph.Viewport.Position.Y)))
+	buf = binary.BigEndian.AppendUint64(buf, math.Float64bits(float64(s.Graph.Viewport.Zoom)))
+	buf = binary.BigEndian.AppendUint32(buf, uint32(len(s.Graph.Functions)))
+	for _, _e1 := range s.Graph.Functions {
+		buf = binary.BigEndian.AppendUint32(buf, uint32(len(_e1.Key)))
+		buf = append(buf, _e1.Key...)
+		buf = binary.BigEndian.AppendUint32(buf, uint32(len(_e1.Body.Raw)))
+		buf = append(buf, _e1.Body.Raw...)
+		if _e1.Config != nil {
+			buf = append(buf, 1)
+			buf = binary.BigEndian.AppendUint32(buf, uint32(len(_e1.Config)))
+			for _, _e3 := range _e1.Config {
+				buf = binary.BigEndian.AppendUint32(buf, uint32(len(_e3.Name)))
+				buf = append(buf, _e3.Name...)
+				if _e3.Type.Inputs != nil {
+					buf = append(buf, 1)
+					buf = binary.BigEndian.AppendUint32(buf, uint32(len(_e3.Type.Inputs)))
+					for _, _e5 := range _e3.Type.Inputs {
+						{
+							_sub, _se := marshaltypesParam(_e5)
+							if _se != nil {
+								return nil, _se
+							}
+							buf = binary.BigEndian.AppendUint32(buf, uint32(len(_sub)))
+							buf = append(buf, _sub...)
+						}
+					}
+				} else {
+					buf = append(buf, 0)
+				}
+				if _e3.Type.Outputs != nil {
+					buf = append(buf, 1)
+					buf = binary.BigEndian.AppendUint32(buf, uint32(len(_e3.Type.Outputs)))
+					for _, _e7 := range _e3.Type.Outputs {
+						{
+							_sub, _se := marshaltypesParam(_e7)
+							if _se != nil {
+								return nil, _se
+							}
+							buf = binary.BigEndian.AppendUint32(buf, uint32(len(_sub)))
+							buf = append(buf, _sub...)
+						}
+					}
+				} else {
+					buf = append(buf, 0)
+				}
+				if _e3.Type.Config != nil {
+					buf = append(buf, 1)
+					buf = binary.BigEndian.AppendUint32(buf, uint32(len(_e3.Type.Config)))
+					for _, _e9 := range _e3.Type.Config {
+						{
+							_sub, _se := marshaltypesParam(_e9)
+							if _se != nil {
+								return nil, _se
+							}
+							buf = binary.BigEndian.AppendUint32(buf, uint32(len(_sub)))
+							buf = append(buf, _sub...)
+						}
+					}
+				} else {
+					buf = append(buf, 0)
+				}
+				buf = binary.BigEndian.AppendUint64(buf, uint64(_e3.Type.Kind))
+				buf = binary.BigEndian.AppendUint32(buf, uint32(len(_e3.Type.Name)))
+				buf = append(buf, _e3.Type.Name...)
+				if _e3.Type.Elem != nil {
+					buf = append(buf, 1)
+					{
+						_sub, _se := marshaltypesType((*_e3.Type.Elem))
+						if _se != nil {
+							return nil, _se
+						}
+						buf = binary.BigEndian.AppendUint32(buf, uint32(len(_sub)))
+						buf = append(buf, _sub...)
+					}
+				} else {
+					buf = append(buf, 0)
+				}
+				if _e3.Type.Unit != nil {
+					buf = append(buf, 1)
+					buf = append(buf, byte((*_e3.Type.Unit).Dimensions.Length))
+					buf = append(buf, byte((*_e3.Type.Unit).Dimensions.Mass))
+					buf = append(buf, byte((*_e3.Type.Unit).Dimensions.Time))
+					buf = append(buf, byte((*_e3.Type.Unit).Dimensions.Current))
+					buf = append(buf, byte((*_e3.Type.Unit).Dimensions.Temperature))
+					buf = append(buf, byte((*_e3.Type.Unit).Dimensions.Angle))
+					buf = append(buf, byte((*_e3.Type.Unit).Dimensions.Count))
+					buf = append(buf, byte((*_e3.Type.Unit).Dimensions.Data))
+					buf = binary.BigEndian.AppendUint64(buf, math.Float64bits(float64((*_e3.Type.Unit).Scale)))
+					buf = binary.BigEndian.AppendUint32(buf, uint32(len((*_e3.Type.Unit).Name)))
+					buf = append(buf, (*_e3.Type.Unit).Name...)
+				} else {
+					buf = append(buf, 0)
+				}
+				if _e3.Type.Constraint != nil {
+					buf = append(buf, 1)
+					{
+						_sub, _se := marshaltypesType((*_e3.Type.Constraint))
+						if _se != nil {
+							return nil, _se
+						}
+						buf = binary.BigEndian.AppendUint32(buf, uint32(len(_sub)))
+						buf = append(buf, _sub...)
+					}
+				} else {
+					buf = append(buf, 0)
+				}
+				buf = binary.BigEndian.AppendUint64(buf, uint64(_e3.Type.ChanDirection))
+				{
+					_jb, _je := json.Marshal(_e3.Value)
+					if _je != nil {
+						return nil, _je
+					}
+					buf = binary.BigEndian.AppendUint32(buf, uint32(len(_jb)))
+					buf = append(buf, _jb...)
+				}
+			}
+		} else {
+			buf = append(buf, 0)
+		}
+		if _e1.Inputs != nil {
+			buf = append(buf, 1)
+			buf = binary.BigEndian.AppendUint32(buf, uint32(len(_e1.Inputs)))
+			for _, _e14 := range _e1.Inputs {
+				buf = binary.BigEndian.AppendUint32(buf, uint32(len(_e14.Name)))
+				buf = append(buf, _e14.Name...)
+				if _e14.Type.Inputs != nil {
+					buf = append(buf, 1)
+					buf = binary.BigEndian.AppendUint32(buf, uint32(len(_e14.Type.Inputs)))
+					for _, _e16 := range _e14.Type.Inputs {
+						{
+							_sub, _se := marshaltypesParam(_e16)
+							if _se != nil {
+								return nil, _se
+							}
+							buf = binary.BigEndian.AppendUint32(buf, uint32(len(_sub)))
+							buf = append(buf, _sub...)
+						}
+					}
+				} else {
+					buf = append(buf, 0)
+				}
+				if _e14.Type.Outputs != nil {
+					buf = append(buf, 1)
+					buf = binary.BigEndian.AppendUint32(buf, uint32(len(_e14.Type.Outputs)))
+					for _, _e18 := range _e14.Type.Outputs {
+						{
+							_sub, _se := marshaltypesParam(_e18)
+							if _se != nil {
+								return nil, _se
+							}
+							buf = binary.BigEndian.AppendUint32(buf, uint32(len(_sub)))
+							buf = append(buf, _sub...)
+						}
+					}
+				} else {
+					buf = append(buf, 0)
+				}
+				if _e14.Type.Config != nil {
+					buf = append(buf, 1)
+					buf = binary.BigEndian.AppendUint32(buf, uint32(len(_e14.Type.Config)))
+					for _, _e20 := range _e14.Type.Config {
+						{
+							_sub, _se := marshaltypesParam(_e20)
+							if _se != nil {
+								return nil, _se
+							}
+							buf = binary.BigEndian.AppendUint32(buf, uint32(len(_sub)))
+							buf = append(buf, _sub...)
+						}
+					}
+				} else {
+					buf = append(buf, 0)
+				}
+				buf = binary.BigEndian.AppendUint64(buf, uint64(_e14.Type.Kind))
+				buf = binary.BigEndian.AppendUint32(buf, uint32(len(_e14.Type.Name)))
+				buf = append(buf, _e14.Type.Name...)
+				if _e14.Type.Elem != nil {
+					buf = append(buf, 1)
+					{
+						_sub, _se := marshaltypesType((*_e14.Type.Elem))
+						if _se != nil {
+							return nil, _se
+						}
+						buf = binary.BigEndian.AppendUint32(buf, uint32(len(_sub)))
+						buf = append(buf, _sub...)
+					}
+				} else {
+					buf = append(buf, 0)
+				}
+				if _e14.Type.Unit != nil {
+					buf = append(buf, 1)
+					buf = append(buf, byte((*_e14.Type.Unit).Dimensions.Length))
+					buf = append(buf, byte((*_e14.Type.Unit).Dimensions.Mass))
+					buf = append(buf, byte((*_e14.Type.Unit).Dimensions.Time))
+					buf = append(buf, byte((*_e14.Type.Unit).Dimensions.Current))
+					buf = append(buf, byte((*_e14.Type.Unit).Dimensions.Temperature))
+					buf = append(buf, byte((*_e14.Type.Unit).Dimensions.Angle))
+					buf = append(buf, byte((*_e14.Type.Unit).Dimensions.Count))
+					buf = append(buf, byte((*_e14.Type.Unit).Dimensions.Data))
+					buf = binary.BigEndian.AppendUint64(buf, math.Float64bits(float64((*_e14.Type.Unit).Scale)))
+					buf = binary.BigEndian.AppendUint32(buf, uint32(len((*_e14.Type.Unit).Name)))
+					buf = append(buf, (*_e14.Type.Unit).Name...)
+				} else {
+					buf = append(buf, 0)
+				}
+				if _e14.Type.Constraint != nil {
+					buf = append(buf, 1)
+					{
+						_sub, _se := marshaltypesType((*_e14.Type.Constraint))
+						if _se != nil {
+							return nil, _se
+						}
+						buf = binary.BigEndian.AppendUint32(buf, uint32(len(_sub)))
+						buf = append(buf, _sub...)
+					}
+				} else {
+					buf = append(buf, 0)
+				}
+				buf = binary.BigEndian.AppendUint64(buf, uint64(_e14.Type.ChanDirection))
+				{
+					_jb, _je := json.Marshal(_e14.Value)
+					if _je != nil {
+						return nil, _je
+					}
+					buf = binary.BigEndian.AppendUint32(buf, uint32(len(_jb)))
+					buf = append(buf, _jb...)
+				}
+			}
+		} else {
+			buf = append(buf, 0)
+		}
+		if _e1.Outputs != nil {
+			buf = append(buf, 1)
+			buf = binary.BigEndian.AppendUint32(buf, uint32(len(_e1.Outputs)))
+			for _, _e25 := range _e1.Outputs {
+				buf = binary.BigEndian.AppendUint32(buf, uint32(len(_e25.Name)))
+				buf = append(buf, _e25.Name...)
+				if _e25.Type.Inputs != nil {
+					buf = append(buf, 1)
+					buf = binary.BigEndian.AppendUint32(buf, uint32(len(_e25.Type.Inputs)))
+					for _, _e27 := range _e25.Type.Inputs {
+						{
+							_sub, _se := marshaltypesParam(_e27)
+							if _se != nil {
+								return nil, _se
+							}
+							buf = binary.BigEndian.AppendUint32(buf, uint32(len(_sub)))
+							buf = append(buf, _sub...)
+						}
+					}
+				} else {
+					buf = append(buf, 0)
+				}
+				if _e25.Type.Outputs != nil {
+					buf = append(buf, 1)
+					buf = binary.BigEndian.AppendUint32(buf, uint32(len(_e25.Type.Outputs)))
+					for _, _e29 := range _e25.Type.Outputs {
+						{
+							_sub, _se := marshaltypesParam(_e29)
+							if _se != nil {
+								return nil, _se
+							}
+							buf = binary.BigEndian.AppendUint32(buf, uint32(len(_sub)))
+							buf = append(buf, _sub...)
+						}
+					}
+				} else {
+					buf = append(buf, 0)
+				}
+				if _e25.Type.Config != nil {
+					buf = append(buf, 1)
+					buf = binary.BigEndian.AppendUint32(buf, uint32(len(_e25.Type.Config)))
+					for _, _e31 := range _e25.Type.Config {
+						{
+							_sub, _se := marshaltypesParam(_e31)
+							if _se != nil {
+								return nil, _se
+							}
+							buf = binary.BigEndian.AppendUint32(buf, uint32(len(_sub)))
+							buf = append(buf, _sub...)
+						}
+					}
+				} else {
+					buf = append(buf, 0)
+				}
+				buf = binary.BigEndian.AppendUint64(buf, uint64(_e25.Type.Kind))
+				buf = binary.BigEndian.AppendUint32(buf, uint32(len(_e25.Type.Name)))
+				buf = append(buf, _e25.Type.Name...)
+				if _e25.Type.Elem != nil {
+					buf = append(buf, 1)
+					{
+						_sub, _se := marshaltypesType((*_e25.Type.Elem))
+						if _se != nil {
+							return nil, _se
+						}
+						buf = binary.BigEndian.AppendUint32(buf, uint32(len(_sub)))
+						buf = append(buf, _sub...)
+					}
+				} else {
+					buf = append(buf, 0)
+				}
+				if _e25.Type.Unit != nil {
+					buf = append(buf, 1)
+					buf = append(buf, byte((*_e25.Type.Unit).Dimensions.Length))
+					buf = append(buf, byte((*_e25.Type.Unit).Dimensions.Mass))
+					buf = append(buf, byte((*_e25.Type.Unit).Dimensions.Time))
+					buf = append(buf, byte((*_e25.Type.Unit).Dimensions.Current))
+					buf = append(buf, byte((*_e25.Type.Unit).Dimensions.Temperature))
+					buf = append(buf, byte((*_e25.Type.Unit).Dimensions.Angle))
+					buf = append(buf, byte((*_e25.Type.Unit).Dimensions.Count))
+					buf = append(buf, byte((*_e25.Type.Unit).Dimensions.Data))
+					buf = binary.BigEndian.AppendUint64(buf, math.Float64bits(float64((*_e25.Type.Unit).Scale)))
+					buf = binary.BigEndian.AppendUint32(buf, uint32(len((*_e25.Type.Unit).Name)))
+					buf = append(buf, (*_e25.Type.Unit).Name...)
+				} else {
+					buf = append(buf, 0)
+				}
+				if _e25.Type.Constraint != nil {
+					buf = append(buf, 1)
+					{
+						_sub, _se := marshaltypesType((*_e25.Type.Constraint))
+						if _se != nil {
+							return nil, _se
+						}
+						buf = binary.BigEndian.AppendUint32(buf, uint32(len(_sub)))
+						buf = append(buf, _sub...)
+					}
+				} else {
+					buf = append(buf, 0)
+				}
+				buf = binary.BigEndian.AppendUint64(buf, uint64(_e25.Type.ChanDirection))
+				{
+					_jb, _je := json.Marshal(_e25.Value)
+					if _je != nil {
+						return nil, _je
+					}
+					buf = binary.BigEndian.AppendUint32(buf, uint32(len(_jb)))
+					buf = append(buf, _jb...)
+				}
+			}
+		} else {
+			buf = append(buf, 0)
+		}
+		buf = binary.BigEndian.AppendUint32(buf, uint32(len(_e1.Channels.Read)))
+		for _mk36, _mv37 := range _e1.Channels.Read {
+			buf = binary.BigEndian.AppendUint32(buf, uint32(_mk36))
+			buf = binary.BigEndian.AppendUint32(buf, uint32(len(_mv37)))
+			buf = append(buf, _mv37...)
+		}
+		buf = binary.BigEndian.AppendUint32(buf, uint32(len(_e1.Channels.Write)))
+		for _mk39, _mv40 := range _e1.Channels.Write {
+			buf = binary.BigEndian.AppendUint32(buf, uint32(_mk39))
+			buf = binary.BigEndian.AppendUint32(buf, uint32(len(_mv40)))
+			buf = append(buf, _mv40...)
+		}
 	}
-	return proto.Marshal(p)
+	buf = binary.BigEndian.AppendUint32(buf, uint32(len(s.Graph.Edges)))
+	for _, _e42 := range s.Graph.Edges {
+		buf = binary.BigEndian.AppendUint32(buf, uint32(len(_e42.Source.Node)))
+		buf = append(buf, _e42.Source.Node...)
+		buf = binary.BigEndian.AppendUint32(buf, uint32(len(_e42.Source.Param)))
+		buf = append(buf, _e42.Source.Param...)
+		buf = binary.BigEndian.AppendUint32(buf, uint32(len(_e42.Target.Node)))
+		buf = append(buf, _e42.Target.Node...)
+		buf = binary.BigEndian.AppendUint32(buf, uint32(len(_e42.Target.Param)))
+		buf = append(buf, _e42.Target.Param...)
+		buf = binary.BigEndian.AppendUint64(buf, uint64(_e42.Kind))
+	}
+	buf = binary.BigEndian.AppendUint32(buf, uint32(len(s.Graph.Nodes)))
+	for _, _e44 := range s.Graph.Nodes {
+		buf = binary.BigEndian.AppendUint32(buf, uint32(len(_e44.Key)))
+		buf = append(buf, _e44.Key...)
+		buf = binary.BigEndian.AppendUint32(buf, uint32(len(_e44.Type)))
+		buf = append(buf, _e44.Type...)
+		{
+			_jb, _je := json.Marshal(_e44.Config)
+			if _je != nil {
+				return nil, _je
+			}
+			buf = binary.BigEndian.AppendUint32(buf, uint32(len(_jb)))
+			buf = append(buf, _jb...)
+		}
+		buf = binary.BigEndian.AppendUint64(buf, math.Float64bits(float64(_e44.Position.X)))
+		buf = binary.BigEndian.AppendUint64(buf, math.Float64bits(float64(_e44.Position.Y)))
+	}
+	buf = binary.BigEndian.AppendUint32(buf, uint32(len(s.Text.Raw)))
+	buf = append(buf, s.Text.Raw...)
+	if s.Module != nil {
+		buf = append(buf, 1)
+		if (*s.Module).Functions != nil {
+			buf = append(buf, 1)
+			buf = binary.BigEndian.AppendUint32(buf, uint32(len((*s.Module).Functions)))
+			for _, _e47 := range (*s.Module).Functions {
+				buf = binary.BigEndian.AppendUint32(buf, uint32(len(_e47.Key)))
+				buf = append(buf, _e47.Key...)
+				buf = binary.BigEndian.AppendUint32(buf, uint32(len(_e47.Body.Raw)))
+				buf = append(buf, _e47.Body.Raw...)
+				if _e47.Config != nil {
+					buf = append(buf, 1)
+					buf = binary.BigEndian.AppendUint32(buf, uint32(len(_e47.Config)))
+					for _, _e49 := range _e47.Config {
+						buf = binary.BigEndian.AppendUint32(buf, uint32(len(_e49.Name)))
+						buf = append(buf, _e49.Name...)
+						if _e49.Type.Inputs != nil {
+							buf = append(buf, 1)
+							buf = binary.BigEndian.AppendUint32(buf, uint32(len(_e49.Type.Inputs)))
+							for _, _e51 := range _e49.Type.Inputs {
+								{
+									_sub, _se := marshaltypesParam(_e51)
+									if _se != nil {
+										return nil, _se
+									}
+									buf = binary.BigEndian.AppendUint32(buf, uint32(len(_sub)))
+									buf = append(buf, _sub...)
+								}
+							}
+						} else {
+							buf = append(buf, 0)
+						}
+						if _e49.Type.Outputs != nil {
+							buf = append(buf, 1)
+							buf = binary.BigEndian.AppendUint32(buf, uint32(len(_e49.Type.Outputs)))
+							for _, _e53 := range _e49.Type.Outputs {
+								{
+									_sub, _se := marshaltypesParam(_e53)
+									if _se != nil {
+										return nil, _se
+									}
+									buf = binary.BigEndian.AppendUint32(buf, uint32(len(_sub)))
+									buf = append(buf, _sub...)
+								}
+							}
+						} else {
+							buf = append(buf, 0)
+						}
+						if _e49.Type.Config != nil {
+							buf = append(buf, 1)
+							buf = binary.BigEndian.AppendUint32(buf, uint32(len(_e49.Type.Config)))
+							for _, _e55 := range _e49.Type.Config {
+								{
+									_sub, _se := marshaltypesParam(_e55)
+									if _se != nil {
+										return nil, _se
+									}
+									buf = binary.BigEndian.AppendUint32(buf, uint32(len(_sub)))
+									buf = append(buf, _sub...)
+								}
+							}
+						} else {
+							buf = append(buf, 0)
+						}
+						buf = binary.BigEndian.AppendUint64(buf, uint64(_e49.Type.Kind))
+						buf = binary.BigEndian.AppendUint32(buf, uint32(len(_e49.Type.Name)))
+						buf = append(buf, _e49.Type.Name...)
+						if _e49.Type.Elem != nil {
+							buf = append(buf, 1)
+							{
+								_sub, _se := marshaltypesType((*_e49.Type.Elem))
+								if _se != nil {
+									return nil, _se
+								}
+								buf = binary.BigEndian.AppendUint32(buf, uint32(len(_sub)))
+								buf = append(buf, _sub...)
+							}
+						} else {
+							buf = append(buf, 0)
+						}
+						if _e49.Type.Unit != nil {
+							buf = append(buf, 1)
+							buf = append(buf, byte((*_e49.Type.Unit).Dimensions.Length))
+							buf = append(buf, byte((*_e49.Type.Unit).Dimensions.Mass))
+							buf = append(buf, byte((*_e49.Type.Unit).Dimensions.Time))
+							buf = append(buf, byte((*_e49.Type.Unit).Dimensions.Current))
+							buf = append(buf, byte((*_e49.Type.Unit).Dimensions.Temperature))
+							buf = append(buf, byte((*_e49.Type.Unit).Dimensions.Angle))
+							buf = append(buf, byte((*_e49.Type.Unit).Dimensions.Count))
+							buf = append(buf, byte((*_e49.Type.Unit).Dimensions.Data))
+							buf = binary.BigEndian.AppendUint64(buf, math.Float64bits(float64((*_e49.Type.Unit).Scale)))
+							buf = binary.BigEndian.AppendUint32(buf, uint32(len((*_e49.Type.Unit).Name)))
+							buf = append(buf, (*_e49.Type.Unit).Name...)
+						} else {
+							buf = append(buf, 0)
+						}
+						if _e49.Type.Constraint != nil {
+							buf = append(buf, 1)
+							{
+								_sub, _se := marshaltypesType((*_e49.Type.Constraint))
+								if _se != nil {
+									return nil, _se
+								}
+								buf = binary.BigEndian.AppendUint32(buf, uint32(len(_sub)))
+								buf = append(buf, _sub...)
+							}
+						} else {
+							buf = append(buf, 0)
+						}
+						buf = binary.BigEndian.AppendUint64(buf, uint64(_e49.Type.ChanDirection))
+						{
+							_jb, _je := json.Marshal(_e49.Value)
+							if _je != nil {
+								return nil, _je
+							}
+							buf = binary.BigEndian.AppendUint32(buf, uint32(len(_jb)))
+							buf = append(buf, _jb...)
+						}
+					}
+				} else {
+					buf = append(buf, 0)
+				}
+				if _e47.Inputs != nil {
+					buf = append(buf, 1)
+					buf = binary.BigEndian.AppendUint32(buf, uint32(len(_e47.Inputs)))
+					for _, _e60 := range _e47.Inputs {
+						buf = binary.BigEndian.AppendUint32(buf, uint32(len(_e60.Name)))
+						buf = append(buf, _e60.Name...)
+						if _e60.Type.Inputs != nil {
+							buf = append(buf, 1)
+							buf = binary.BigEndian.AppendUint32(buf, uint32(len(_e60.Type.Inputs)))
+							for _, _e62 := range _e60.Type.Inputs {
+								{
+									_sub, _se := marshaltypesParam(_e62)
+									if _se != nil {
+										return nil, _se
+									}
+									buf = binary.BigEndian.AppendUint32(buf, uint32(len(_sub)))
+									buf = append(buf, _sub...)
+								}
+							}
+						} else {
+							buf = append(buf, 0)
+						}
+						if _e60.Type.Outputs != nil {
+							buf = append(buf, 1)
+							buf = binary.BigEndian.AppendUint32(buf, uint32(len(_e60.Type.Outputs)))
+							for _, _e64 := range _e60.Type.Outputs {
+								{
+									_sub, _se := marshaltypesParam(_e64)
+									if _se != nil {
+										return nil, _se
+									}
+									buf = binary.BigEndian.AppendUint32(buf, uint32(len(_sub)))
+									buf = append(buf, _sub...)
+								}
+							}
+						} else {
+							buf = append(buf, 0)
+						}
+						if _e60.Type.Config != nil {
+							buf = append(buf, 1)
+							buf = binary.BigEndian.AppendUint32(buf, uint32(len(_e60.Type.Config)))
+							for _, _e66 := range _e60.Type.Config {
+								{
+									_sub, _se := marshaltypesParam(_e66)
+									if _se != nil {
+										return nil, _se
+									}
+									buf = binary.BigEndian.AppendUint32(buf, uint32(len(_sub)))
+									buf = append(buf, _sub...)
+								}
+							}
+						} else {
+							buf = append(buf, 0)
+						}
+						buf = binary.BigEndian.AppendUint64(buf, uint64(_e60.Type.Kind))
+						buf = binary.BigEndian.AppendUint32(buf, uint32(len(_e60.Type.Name)))
+						buf = append(buf, _e60.Type.Name...)
+						if _e60.Type.Elem != nil {
+							buf = append(buf, 1)
+							{
+								_sub, _se := marshaltypesType((*_e60.Type.Elem))
+								if _se != nil {
+									return nil, _se
+								}
+								buf = binary.BigEndian.AppendUint32(buf, uint32(len(_sub)))
+								buf = append(buf, _sub...)
+							}
+						} else {
+							buf = append(buf, 0)
+						}
+						if _e60.Type.Unit != nil {
+							buf = append(buf, 1)
+							buf = append(buf, byte((*_e60.Type.Unit).Dimensions.Length))
+							buf = append(buf, byte((*_e60.Type.Unit).Dimensions.Mass))
+							buf = append(buf, byte((*_e60.Type.Unit).Dimensions.Time))
+							buf = append(buf, byte((*_e60.Type.Unit).Dimensions.Current))
+							buf = append(buf, byte((*_e60.Type.Unit).Dimensions.Temperature))
+							buf = append(buf, byte((*_e60.Type.Unit).Dimensions.Angle))
+							buf = append(buf, byte((*_e60.Type.Unit).Dimensions.Count))
+							buf = append(buf, byte((*_e60.Type.Unit).Dimensions.Data))
+							buf = binary.BigEndian.AppendUint64(buf, math.Float64bits(float64((*_e60.Type.Unit).Scale)))
+							buf = binary.BigEndian.AppendUint32(buf, uint32(len((*_e60.Type.Unit).Name)))
+							buf = append(buf, (*_e60.Type.Unit).Name...)
+						} else {
+							buf = append(buf, 0)
+						}
+						if _e60.Type.Constraint != nil {
+							buf = append(buf, 1)
+							{
+								_sub, _se := marshaltypesType((*_e60.Type.Constraint))
+								if _se != nil {
+									return nil, _se
+								}
+								buf = binary.BigEndian.AppendUint32(buf, uint32(len(_sub)))
+								buf = append(buf, _sub...)
+							}
+						} else {
+							buf = append(buf, 0)
+						}
+						buf = binary.BigEndian.AppendUint64(buf, uint64(_e60.Type.ChanDirection))
+						{
+							_jb, _je := json.Marshal(_e60.Value)
+							if _je != nil {
+								return nil, _je
+							}
+							buf = binary.BigEndian.AppendUint32(buf, uint32(len(_jb)))
+							buf = append(buf, _jb...)
+						}
+					}
+				} else {
+					buf = append(buf, 0)
+				}
+				if _e47.Outputs != nil {
+					buf = append(buf, 1)
+					buf = binary.BigEndian.AppendUint32(buf, uint32(len(_e47.Outputs)))
+					for _, _e71 := range _e47.Outputs {
+						buf = binary.BigEndian.AppendUint32(buf, uint32(len(_e71.Name)))
+						buf = append(buf, _e71.Name...)
+						if _e71.Type.Inputs != nil {
+							buf = append(buf, 1)
+							buf = binary.BigEndian.AppendUint32(buf, uint32(len(_e71.Type.Inputs)))
+							for _, _e73 := range _e71.Type.Inputs {
+								{
+									_sub, _se := marshaltypesParam(_e73)
+									if _se != nil {
+										return nil, _se
+									}
+									buf = binary.BigEndian.AppendUint32(buf, uint32(len(_sub)))
+									buf = append(buf, _sub...)
+								}
+							}
+						} else {
+							buf = append(buf, 0)
+						}
+						if _e71.Type.Outputs != nil {
+							buf = append(buf, 1)
+							buf = binary.BigEndian.AppendUint32(buf, uint32(len(_e71.Type.Outputs)))
+							for _, _e75 := range _e71.Type.Outputs {
+								{
+									_sub, _se := marshaltypesParam(_e75)
+									if _se != nil {
+										return nil, _se
+									}
+									buf = binary.BigEndian.AppendUint32(buf, uint32(len(_sub)))
+									buf = append(buf, _sub...)
+								}
+							}
+						} else {
+							buf = append(buf, 0)
+						}
+						if _e71.Type.Config != nil {
+							buf = append(buf, 1)
+							buf = binary.BigEndian.AppendUint32(buf, uint32(len(_e71.Type.Config)))
+							for _, _e77 := range _e71.Type.Config {
+								{
+									_sub, _se := marshaltypesParam(_e77)
+									if _se != nil {
+										return nil, _se
+									}
+									buf = binary.BigEndian.AppendUint32(buf, uint32(len(_sub)))
+									buf = append(buf, _sub...)
+								}
+							}
+						} else {
+							buf = append(buf, 0)
+						}
+						buf = binary.BigEndian.AppendUint64(buf, uint64(_e71.Type.Kind))
+						buf = binary.BigEndian.AppendUint32(buf, uint32(len(_e71.Type.Name)))
+						buf = append(buf, _e71.Type.Name...)
+						if _e71.Type.Elem != nil {
+							buf = append(buf, 1)
+							{
+								_sub, _se := marshaltypesType((*_e71.Type.Elem))
+								if _se != nil {
+									return nil, _se
+								}
+								buf = binary.BigEndian.AppendUint32(buf, uint32(len(_sub)))
+								buf = append(buf, _sub...)
+							}
+						} else {
+							buf = append(buf, 0)
+						}
+						if _e71.Type.Unit != nil {
+							buf = append(buf, 1)
+							buf = append(buf, byte((*_e71.Type.Unit).Dimensions.Length))
+							buf = append(buf, byte((*_e71.Type.Unit).Dimensions.Mass))
+							buf = append(buf, byte((*_e71.Type.Unit).Dimensions.Time))
+							buf = append(buf, byte((*_e71.Type.Unit).Dimensions.Current))
+							buf = append(buf, byte((*_e71.Type.Unit).Dimensions.Temperature))
+							buf = append(buf, byte((*_e71.Type.Unit).Dimensions.Angle))
+							buf = append(buf, byte((*_e71.Type.Unit).Dimensions.Count))
+							buf = append(buf, byte((*_e71.Type.Unit).Dimensions.Data))
+							buf = binary.BigEndian.AppendUint64(buf, math.Float64bits(float64((*_e71.Type.Unit).Scale)))
+							buf = binary.BigEndian.AppendUint32(buf, uint32(len((*_e71.Type.Unit).Name)))
+							buf = append(buf, (*_e71.Type.Unit).Name...)
+						} else {
+							buf = append(buf, 0)
+						}
+						if _e71.Type.Constraint != nil {
+							buf = append(buf, 1)
+							{
+								_sub, _se := marshaltypesType((*_e71.Type.Constraint))
+								if _se != nil {
+									return nil, _se
+								}
+								buf = binary.BigEndian.AppendUint32(buf, uint32(len(_sub)))
+								buf = append(buf, _sub...)
+							}
+						} else {
+							buf = append(buf, 0)
+						}
+						buf = binary.BigEndian.AppendUint64(buf, uint64(_e71.Type.ChanDirection))
+						{
+							_jb, _je := json.Marshal(_e71.Value)
+							if _je != nil {
+								return nil, _je
+							}
+							buf = binary.BigEndian.AppendUint32(buf, uint32(len(_jb)))
+							buf = append(buf, _jb...)
+						}
+					}
+				} else {
+					buf = append(buf, 0)
+				}
+				buf = binary.BigEndian.AppendUint32(buf, uint32(len(_e47.Channels.Read)))
+				for _mk82, _mv83 := range _e47.Channels.Read {
+					buf = binary.BigEndian.AppendUint32(buf, uint32(_mk82))
+					buf = binary.BigEndian.AppendUint32(buf, uint32(len(_mv83)))
+					buf = append(buf, _mv83...)
+				}
+				buf = binary.BigEndian.AppendUint32(buf, uint32(len(_e47.Channels.Write)))
+				for _mk85, _mv86 := range _e47.Channels.Write {
+					buf = binary.BigEndian.AppendUint32(buf, uint32(_mk85))
+					buf = binary.BigEndian.AppendUint32(buf, uint32(len(_mv86)))
+					buf = append(buf, _mv86...)
+				}
+			}
+		} else {
+			buf = append(buf, 0)
+		}
+		if (*s.Module).Nodes != nil {
+			buf = append(buf, 1)
+			buf = binary.BigEndian.AppendUint32(buf, uint32(len((*s.Module).Nodes)))
+			for _, _e88 := range (*s.Module).Nodes {
+				buf = binary.BigEndian.AppendUint32(buf, uint32(len(_e88.Key)))
+				buf = append(buf, _e88.Key...)
+				buf = binary.BigEndian.AppendUint32(buf, uint32(len(_e88.Type)))
+				buf = append(buf, _e88.Type...)
+				if _e88.Config != nil {
+					buf = append(buf, 1)
+					buf = binary.BigEndian.AppendUint32(buf, uint32(len(_e88.Config)))
+					for _, _e90 := range _e88.Config {
+						buf = binary.BigEndian.AppendUint32(buf, uint32(len(_e90.Name)))
+						buf = append(buf, _e90.Name...)
+						if _e90.Type.Inputs != nil {
+							buf = append(buf, 1)
+							buf = binary.BigEndian.AppendUint32(buf, uint32(len(_e90.Type.Inputs)))
+							for _, _e92 := range _e90.Type.Inputs {
+								{
+									_sub, _se := marshaltypesParam(_e92)
+									if _se != nil {
+										return nil, _se
+									}
+									buf = binary.BigEndian.AppendUint32(buf, uint32(len(_sub)))
+									buf = append(buf, _sub...)
+								}
+							}
+						} else {
+							buf = append(buf, 0)
+						}
+						if _e90.Type.Outputs != nil {
+							buf = append(buf, 1)
+							buf = binary.BigEndian.AppendUint32(buf, uint32(len(_e90.Type.Outputs)))
+							for _, _e94 := range _e90.Type.Outputs {
+								{
+									_sub, _se := marshaltypesParam(_e94)
+									if _se != nil {
+										return nil, _se
+									}
+									buf = binary.BigEndian.AppendUint32(buf, uint32(len(_sub)))
+									buf = append(buf, _sub...)
+								}
+							}
+						} else {
+							buf = append(buf, 0)
+						}
+						if _e90.Type.Config != nil {
+							buf = append(buf, 1)
+							buf = binary.BigEndian.AppendUint32(buf, uint32(len(_e90.Type.Config)))
+							for _, _e96 := range _e90.Type.Config {
+								{
+									_sub, _se := marshaltypesParam(_e96)
+									if _se != nil {
+										return nil, _se
+									}
+									buf = binary.BigEndian.AppendUint32(buf, uint32(len(_sub)))
+									buf = append(buf, _sub...)
+								}
+							}
+						} else {
+							buf = append(buf, 0)
+						}
+						buf = binary.BigEndian.AppendUint64(buf, uint64(_e90.Type.Kind))
+						buf = binary.BigEndian.AppendUint32(buf, uint32(len(_e90.Type.Name)))
+						buf = append(buf, _e90.Type.Name...)
+						if _e90.Type.Elem != nil {
+							buf = append(buf, 1)
+							{
+								_sub, _se := marshaltypesType((*_e90.Type.Elem))
+								if _se != nil {
+									return nil, _se
+								}
+								buf = binary.BigEndian.AppendUint32(buf, uint32(len(_sub)))
+								buf = append(buf, _sub...)
+							}
+						} else {
+							buf = append(buf, 0)
+						}
+						if _e90.Type.Unit != nil {
+							buf = append(buf, 1)
+							buf = append(buf, byte((*_e90.Type.Unit).Dimensions.Length))
+							buf = append(buf, byte((*_e90.Type.Unit).Dimensions.Mass))
+							buf = append(buf, byte((*_e90.Type.Unit).Dimensions.Time))
+							buf = append(buf, byte((*_e90.Type.Unit).Dimensions.Current))
+							buf = append(buf, byte((*_e90.Type.Unit).Dimensions.Temperature))
+							buf = append(buf, byte((*_e90.Type.Unit).Dimensions.Angle))
+							buf = append(buf, byte((*_e90.Type.Unit).Dimensions.Count))
+							buf = append(buf, byte((*_e90.Type.Unit).Dimensions.Data))
+							buf = binary.BigEndian.AppendUint64(buf, math.Float64bits(float64((*_e90.Type.Unit).Scale)))
+							buf = binary.BigEndian.AppendUint32(buf, uint32(len((*_e90.Type.Unit).Name)))
+							buf = append(buf, (*_e90.Type.Unit).Name...)
+						} else {
+							buf = append(buf, 0)
+						}
+						if _e90.Type.Constraint != nil {
+							buf = append(buf, 1)
+							{
+								_sub, _se := marshaltypesType((*_e90.Type.Constraint))
+								if _se != nil {
+									return nil, _se
+								}
+								buf = binary.BigEndian.AppendUint32(buf, uint32(len(_sub)))
+								buf = append(buf, _sub...)
+							}
+						} else {
+							buf = append(buf, 0)
+						}
+						buf = binary.BigEndian.AppendUint64(buf, uint64(_e90.Type.ChanDirection))
+						{
+							_jb, _je := json.Marshal(_e90.Value)
+							if _je != nil {
+								return nil, _je
+							}
+							buf = binary.BigEndian.AppendUint32(buf, uint32(len(_jb)))
+							buf = append(buf, _jb...)
+						}
+					}
+				} else {
+					buf = append(buf, 0)
+				}
+				if _e88.Inputs != nil {
+					buf = append(buf, 1)
+					buf = binary.BigEndian.AppendUint32(buf, uint32(len(_e88.Inputs)))
+					for _, _e101 := range _e88.Inputs {
+						buf = binary.BigEndian.AppendUint32(buf, uint32(len(_e101.Name)))
+						buf = append(buf, _e101.Name...)
+						if _e101.Type.Inputs != nil {
+							buf = append(buf, 1)
+							buf = binary.BigEndian.AppendUint32(buf, uint32(len(_e101.Type.Inputs)))
+							for _, _e103 := range _e101.Type.Inputs {
+								{
+									_sub, _se := marshaltypesParam(_e103)
+									if _se != nil {
+										return nil, _se
+									}
+									buf = binary.BigEndian.AppendUint32(buf, uint32(len(_sub)))
+									buf = append(buf, _sub...)
+								}
+							}
+						} else {
+							buf = append(buf, 0)
+						}
+						if _e101.Type.Outputs != nil {
+							buf = append(buf, 1)
+							buf = binary.BigEndian.AppendUint32(buf, uint32(len(_e101.Type.Outputs)))
+							for _, _e105 := range _e101.Type.Outputs {
+								{
+									_sub, _se := marshaltypesParam(_e105)
+									if _se != nil {
+										return nil, _se
+									}
+									buf = binary.BigEndian.AppendUint32(buf, uint32(len(_sub)))
+									buf = append(buf, _sub...)
+								}
+							}
+						} else {
+							buf = append(buf, 0)
+						}
+						if _e101.Type.Config != nil {
+							buf = append(buf, 1)
+							buf = binary.BigEndian.AppendUint32(buf, uint32(len(_e101.Type.Config)))
+							for _, _e107 := range _e101.Type.Config {
+								{
+									_sub, _se := marshaltypesParam(_e107)
+									if _se != nil {
+										return nil, _se
+									}
+									buf = binary.BigEndian.AppendUint32(buf, uint32(len(_sub)))
+									buf = append(buf, _sub...)
+								}
+							}
+						} else {
+							buf = append(buf, 0)
+						}
+						buf = binary.BigEndian.AppendUint64(buf, uint64(_e101.Type.Kind))
+						buf = binary.BigEndian.AppendUint32(buf, uint32(len(_e101.Type.Name)))
+						buf = append(buf, _e101.Type.Name...)
+						if _e101.Type.Elem != nil {
+							buf = append(buf, 1)
+							{
+								_sub, _se := marshaltypesType((*_e101.Type.Elem))
+								if _se != nil {
+									return nil, _se
+								}
+								buf = binary.BigEndian.AppendUint32(buf, uint32(len(_sub)))
+								buf = append(buf, _sub...)
+							}
+						} else {
+							buf = append(buf, 0)
+						}
+						if _e101.Type.Unit != nil {
+							buf = append(buf, 1)
+							buf = append(buf, byte((*_e101.Type.Unit).Dimensions.Length))
+							buf = append(buf, byte((*_e101.Type.Unit).Dimensions.Mass))
+							buf = append(buf, byte((*_e101.Type.Unit).Dimensions.Time))
+							buf = append(buf, byte((*_e101.Type.Unit).Dimensions.Current))
+							buf = append(buf, byte((*_e101.Type.Unit).Dimensions.Temperature))
+							buf = append(buf, byte((*_e101.Type.Unit).Dimensions.Angle))
+							buf = append(buf, byte((*_e101.Type.Unit).Dimensions.Count))
+							buf = append(buf, byte((*_e101.Type.Unit).Dimensions.Data))
+							buf = binary.BigEndian.AppendUint64(buf, math.Float64bits(float64((*_e101.Type.Unit).Scale)))
+							buf = binary.BigEndian.AppendUint32(buf, uint32(len((*_e101.Type.Unit).Name)))
+							buf = append(buf, (*_e101.Type.Unit).Name...)
+						} else {
+							buf = append(buf, 0)
+						}
+						if _e101.Type.Constraint != nil {
+							buf = append(buf, 1)
+							{
+								_sub, _se := marshaltypesType((*_e101.Type.Constraint))
+								if _se != nil {
+									return nil, _se
+								}
+								buf = binary.BigEndian.AppendUint32(buf, uint32(len(_sub)))
+								buf = append(buf, _sub...)
+							}
+						} else {
+							buf = append(buf, 0)
+						}
+						buf = binary.BigEndian.AppendUint64(buf, uint64(_e101.Type.ChanDirection))
+						{
+							_jb, _je := json.Marshal(_e101.Value)
+							if _je != nil {
+								return nil, _je
+							}
+							buf = binary.BigEndian.AppendUint32(buf, uint32(len(_jb)))
+							buf = append(buf, _jb...)
+						}
+					}
+				} else {
+					buf = append(buf, 0)
+				}
+				if _e88.Outputs != nil {
+					buf = append(buf, 1)
+					buf = binary.BigEndian.AppendUint32(buf, uint32(len(_e88.Outputs)))
+					for _, _e112 := range _e88.Outputs {
+						buf = binary.BigEndian.AppendUint32(buf, uint32(len(_e112.Name)))
+						buf = append(buf, _e112.Name...)
+						if _e112.Type.Inputs != nil {
+							buf = append(buf, 1)
+							buf = binary.BigEndian.AppendUint32(buf, uint32(len(_e112.Type.Inputs)))
+							for _, _e114 := range _e112.Type.Inputs {
+								{
+									_sub, _se := marshaltypesParam(_e114)
+									if _se != nil {
+										return nil, _se
+									}
+									buf = binary.BigEndian.AppendUint32(buf, uint32(len(_sub)))
+									buf = append(buf, _sub...)
+								}
+							}
+						} else {
+							buf = append(buf, 0)
+						}
+						if _e112.Type.Outputs != nil {
+							buf = append(buf, 1)
+							buf = binary.BigEndian.AppendUint32(buf, uint32(len(_e112.Type.Outputs)))
+							for _, _e116 := range _e112.Type.Outputs {
+								{
+									_sub, _se := marshaltypesParam(_e116)
+									if _se != nil {
+										return nil, _se
+									}
+									buf = binary.BigEndian.AppendUint32(buf, uint32(len(_sub)))
+									buf = append(buf, _sub...)
+								}
+							}
+						} else {
+							buf = append(buf, 0)
+						}
+						if _e112.Type.Config != nil {
+							buf = append(buf, 1)
+							buf = binary.BigEndian.AppendUint32(buf, uint32(len(_e112.Type.Config)))
+							for _, _e118 := range _e112.Type.Config {
+								{
+									_sub, _se := marshaltypesParam(_e118)
+									if _se != nil {
+										return nil, _se
+									}
+									buf = binary.BigEndian.AppendUint32(buf, uint32(len(_sub)))
+									buf = append(buf, _sub...)
+								}
+							}
+						} else {
+							buf = append(buf, 0)
+						}
+						buf = binary.BigEndian.AppendUint64(buf, uint64(_e112.Type.Kind))
+						buf = binary.BigEndian.AppendUint32(buf, uint32(len(_e112.Type.Name)))
+						buf = append(buf, _e112.Type.Name...)
+						if _e112.Type.Elem != nil {
+							buf = append(buf, 1)
+							{
+								_sub, _se := marshaltypesType((*_e112.Type.Elem))
+								if _se != nil {
+									return nil, _se
+								}
+								buf = binary.BigEndian.AppendUint32(buf, uint32(len(_sub)))
+								buf = append(buf, _sub...)
+							}
+						} else {
+							buf = append(buf, 0)
+						}
+						if _e112.Type.Unit != nil {
+							buf = append(buf, 1)
+							buf = append(buf, byte((*_e112.Type.Unit).Dimensions.Length))
+							buf = append(buf, byte((*_e112.Type.Unit).Dimensions.Mass))
+							buf = append(buf, byte((*_e112.Type.Unit).Dimensions.Time))
+							buf = append(buf, byte((*_e112.Type.Unit).Dimensions.Current))
+							buf = append(buf, byte((*_e112.Type.Unit).Dimensions.Temperature))
+							buf = append(buf, byte((*_e112.Type.Unit).Dimensions.Angle))
+							buf = append(buf, byte((*_e112.Type.Unit).Dimensions.Count))
+							buf = append(buf, byte((*_e112.Type.Unit).Dimensions.Data))
+							buf = binary.BigEndian.AppendUint64(buf, math.Float64bits(float64((*_e112.Type.Unit).Scale)))
+							buf = binary.BigEndian.AppendUint32(buf, uint32(len((*_e112.Type.Unit).Name)))
+							buf = append(buf, (*_e112.Type.Unit).Name...)
+						} else {
+							buf = append(buf, 0)
+						}
+						if _e112.Type.Constraint != nil {
+							buf = append(buf, 1)
+							{
+								_sub, _se := marshaltypesType((*_e112.Type.Constraint))
+								if _se != nil {
+									return nil, _se
+								}
+								buf = binary.BigEndian.AppendUint32(buf, uint32(len(_sub)))
+								buf = append(buf, _sub...)
+							}
+						} else {
+							buf = append(buf, 0)
+						}
+						buf = binary.BigEndian.AppendUint64(buf, uint64(_e112.Type.ChanDirection))
+						{
+							_jb, _je := json.Marshal(_e112.Value)
+							if _je != nil {
+								return nil, _je
+							}
+							buf = binary.BigEndian.AppendUint32(buf, uint32(len(_jb)))
+							buf = append(buf, _jb...)
+						}
+					}
+				} else {
+					buf = append(buf, 0)
+				}
+				buf = binary.BigEndian.AppendUint32(buf, uint32(len(_e88.Channels.Read)))
+				for _mk123, _mv124 := range _e88.Channels.Read {
+					buf = binary.BigEndian.AppendUint32(buf, uint32(_mk123))
+					buf = binary.BigEndian.AppendUint32(buf, uint32(len(_mv124)))
+					buf = append(buf, _mv124...)
+				}
+				buf = binary.BigEndian.AppendUint32(buf, uint32(len(_e88.Channels.Write)))
+				for _mk126, _mv127 := range _e88.Channels.Write {
+					buf = binary.BigEndian.AppendUint32(buf, uint32(_mk126))
+					buf = binary.BigEndian.AppendUint32(buf, uint32(len(_mv127)))
+					buf = append(buf, _mv127...)
+				}
+			}
+		} else {
+			buf = append(buf, 0)
+		}
+		if (*s.Module).Edges != nil {
+			buf = append(buf, 1)
+			buf = binary.BigEndian.AppendUint32(buf, uint32(len((*s.Module).Edges)))
+			for _, _e129 := range (*s.Module).Edges {
+				buf = binary.BigEndian.AppendUint32(buf, uint32(len(_e129.Source.Node)))
+				buf = append(buf, _e129.Source.Node...)
+				buf = binary.BigEndian.AppendUint32(buf, uint32(len(_e129.Source.Param)))
+				buf = append(buf, _e129.Source.Param...)
+				buf = binary.BigEndian.AppendUint32(buf, uint32(len(_e129.Target.Node)))
+				buf = append(buf, _e129.Target.Node...)
+				buf = binary.BigEndian.AppendUint32(buf, uint32(len(_e129.Target.Param)))
+				buf = append(buf, _e129.Target.Param...)
+				buf = binary.BigEndian.AppendUint64(buf, uint64(_e129.Kind))
+			}
+		} else {
+			buf = append(buf, 0)
+		}
+		if (*s.Module).Strata != nil {
+			buf = append(buf, 1)
+			buf = binary.BigEndian.AppendUint32(buf, uint32(len((*s.Module).Strata)))
+			for _, _e131 := range (*s.Module).Strata {
+				buf = binary.BigEndian.AppendUint32(buf, uint32(len(_e131)))
+				for _, _e133 := range _e131 {
+					buf = binary.BigEndian.AppendUint32(buf, uint32(len(_e133)))
+					buf = append(buf, _e133...)
+				}
+			}
+		} else {
+			buf = append(buf, 0)
+		}
+		if (*s.Module).Sequences != nil {
+			buf = append(buf, 1)
+			buf = binary.BigEndian.AppendUint32(buf, uint32(len((*s.Module).Sequences)))
+			for _, _e135 := range (*s.Module).Sequences {
+				buf = binary.BigEndian.AppendUint32(buf, uint32(len(_e135.Key)))
+				buf = append(buf, _e135.Key...)
+				buf = binary.BigEndian.AppendUint32(buf, uint32(len(_e135.Stages)))
+				for _, _e137 := range _e135.Stages {
+					buf = binary.BigEndian.AppendUint32(buf, uint32(len(_e137.Key)))
+					buf = append(buf, _e137.Key...)
+					buf = binary.BigEndian.AppendUint32(buf, uint32(len(_e137.Nodes)))
+					for _, _e139 := range _e137.Nodes {
+						buf = binary.BigEndian.AppendUint32(buf, uint32(len(_e139)))
+						buf = append(buf, _e139...)
+					}
+					buf = binary.BigEndian.AppendUint32(buf, uint32(len(_e137.Strata)))
+					for _, _e141 := range _e137.Strata {
+						buf = binary.BigEndian.AppendUint32(buf, uint32(len(_e141)))
+						for _, _e143 := range _e141 {
+							buf = binary.BigEndian.AppendUint32(buf, uint32(len(_e143)))
+							buf = append(buf, _e143...)
+						}
+					}
+				}
+			}
+		} else {
+			buf = append(buf, 0)
+		}
+		if (*s.Module).Authorities.Default != nil {
+			buf = append(buf, 1)
+			buf = append(buf, byte((*(*s.Module).Authorities.Default)))
+		} else {
+			buf = append(buf, 0)
+		}
+		if (*s.Module).Authorities.Channels != nil {
+			buf = append(buf, 1)
+			buf = binary.BigEndian.AppendUint32(buf, uint32(len((*s.Module).Authorities.Channels)))
+			for _mk146, _mv147 := range (*s.Module).Authorities.Channels {
+				buf = binary.BigEndian.AppendUint32(buf, uint32(_mk146))
+				buf = append(buf, byte(_mv147))
+			}
+		} else {
+			buf = append(buf, 0)
+		}
+		buf = binary.BigEndian.AppendUint32(buf, uint32(len((*s.Module).WASM)))
+		buf = append(buf, (*s.Module).WASM...)
+		buf = binary.BigEndian.AppendUint32(buf, uint32(len((*s.Module).OutputMemoryBases)))
+		for _mk149, _mv150 := range (*s.Module).OutputMemoryBases {
+			buf = binary.BigEndian.AppendUint32(buf, uint32(len(_mk149)))
+			buf = append(buf, _mk149...)
+			buf = binary.BigEndian.AppendUint32(buf, uint32(_mv150))
+		}
+	} else {
+		buf = append(buf, 0)
+	}
+	if s.Status != nil {
+		buf = append(buf, 1)
+		buf = binary.BigEndian.AppendUint32(buf, uint32(len((*s.Status).Key)))
+		buf = append(buf, (*s.Status).Key...)
+		buf = binary.BigEndian.AppendUint32(buf, uint32(len((*s.Status).Name)))
+		buf = append(buf, (*s.Status).Name...)
+		buf = binary.BigEndian.AppendUint32(buf, uint32(len((*s.Status).Variant)))
+		buf = append(buf, (*s.Status).Variant...)
+		buf = binary.BigEndian.AppendUint32(buf, uint32(len((*s.Status).Message)))
+		buf = append(buf, (*s.Status).Message...)
+		buf = binary.BigEndian.AppendUint32(buf, uint32(len((*s.Status).Description)))
+		buf = append(buf, (*s.Status).Description...)
+		buf = binary.BigEndian.AppendUint64(buf, uint64((*s.Status).Time))
+		if (*s.Status).Details.Running {
+			buf = append(buf, 1)
+		} else {
+			buf = append(buf, 0)
+		}
+		if (*s.Status).Labels != nil {
+			buf = append(buf, 1)
+			buf = binary.BigEndian.AppendUint32(buf, uint32(len((*s.Status).Labels)))
+			for _, _e153 := range (*s.Status).Labels {
+				buf = append(buf, _e153.Key[:]...)
+				buf = binary.BigEndian.AppendUint32(buf, uint32(len(_e153.Name)))
+				buf = append(buf, _e153.Name...)
+				buf = append(buf, byte(_e153.Color.R))
+				buf = append(buf, byte(_e153.Color.G))
+				buf = append(buf, byte(_e153.Color.B))
+				buf = binary.BigEndian.AppendUint64(buf, math.Float64bits(float64(_e153.Color.A)))
+			}
+		} else {
+			buf = append(buf, 0)
+		}
+	} else {
+		buf = append(buf, 0)
+	}
+	return buf, nil
 }
 
 func (arcCodec) Unmarshal(
-	ctx context.Context,
+	_ context.Context,
 	data []byte,
 ) (arc.Arc, error) {
-	p := &Arc{}
-	if err := proto.Unmarshal(data, p); err != nil {
-		return arc.Arc{}, err
+	var r arc.Arc
+	copy(r.Key[:], data[:16])
+	data = data[16:]
+	{
+		_n := binary.BigEndian.Uint32(data[:4])
+		data = data[4:]
+		r.Name = string(data[:_n])
+		data = data[_n:]
 	}
-	return ArcFromPB(ctx, p)
+	{
+		_n := binary.BigEndian.Uint32(data[:4])
+		data = data[4:]
+		r.Mode = arc.Mode(data[:_n])
+		data = data[_n:]
+	}
+	r.Graph.Viewport.Position.X = float64(math.Float64frombits(binary.BigEndian.Uint64(data[:8])))
+	data = data[8:]
+	r.Graph.Viewport.Position.Y = float64(math.Float64frombits(binary.BigEndian.Uint64(data[:8])))
+	data = data[8:]
+	r.Graph.Viewport.Zoom = float64(math.Float64frombits(binary.BigEndian.Uint64(data[:8])))
+	data = data[8:]
+	{
+		_n := binary.BigEndian.Uint32(data[:4])
+		data = data[4:]
+		r.Graph.Functions = make([]ir.Function, _n)
+		for _i2 := range r.Graph.Functions {
+			{
+				_n := binary.BigEndian.Uint32(data[:4])
+				data = data[4:]
+				r.Graph.Functions[_i2].Key = string(data[:_n])
+				data = data[_n:]
+			}
+			{
+				_n := binary.BigEndian.Uint32(data[:4])
+				data = data[4:]
+				r.Graph.Functions[_i2].Body.Raw = string(data[:_n])
+				data = data[_n:]
+			}
+			if data[0] == 1 {
+				data = data[1:]
+				{
+					_n := binary.BigEndian.Uint32(data[:4])
+					data = data[4:]
+					r.Graph.Functions[_i2].Config = make([]types.Param, _n)
+					for _i4 := range r.Graph.Functions[_i2].Config {
+						{
+							_n := binary.BigEndian.Uint32(data[:4])
+							data = data[4:]
+							r.Graph.Functions[_i2].Config[_i4].Name = string(data[:_n])
+							data = data[_n:]
+						}
+						if data[0] == 1 {
+							data = data[1:]
+							{
+								_n := binary.BigEndian.Uint32(data[:4])
+								data = data[4:]
+								r.Graph.Functions[_i2].Config[_i4].Type.Inputs = make([]types.Param, _n)
+								for _i6 := range r.Graph.Functions[_i2].Config[_i4].Type.Inputs {
+									{
+										_sLen := binary.BigEndian.Uint32(data[:4])
+										data = data[4:]
+										_sv, _se := unmarshaltypesParam(data[:_sLen])
+										if _se != nil {
+											return r, _se
+										}
+										r.Graph.Functions[_i2].Config[_i4].Type.Inputs[_i6] = _sv
+										data = data[_sLen:]
+									}
+								}
+							}
+						} else {
+							data = data[1:]
+						}
+						if data[0] == 1 {
+							data = data[1:]
+							{
+								_n := binary.BigEndian.Uint32(data[:4])
+								data = data[4:]
+								r.Graph.Functions[_i2].Config[_i4].Type.Outputs = make([]types.Param, _n)
+								for _i8 := range r.Graph.Functions[_i2].Config[_i4].Type.Outputs {
+									{
+										_sLen := binary.BigEndian.Uint32(data[:4])
+										data = data[4:]
+										_sv, _se := unmarshaltypesParam(data[:_sLen])
+										if _se != nil {
+											return r, _se
+										}
+										r.Graph.Functions[_i2].Config[_i4].Type.Outputs[_i8] = _sv
+										data = data[_sLen:]
+									}
+								}
+							}
+						} else {
+							data = data[1:]
+						}
+						if data[0] == 1 {
+							data = data[1:]
+							{
+								_n := binary.BigEndian.Uint32(data[:4])
+								data = data[4:]
+								r.Graph.Functions[_i2].Config[_i4].Type.Config = make([]types.Param, _n)
+								for _i10 := range r.Graph.Functions[_i2].Config[_i4].Type.Config {
+									{
+										_sLen := binary.BigEndian.Uint32(data[:4])
+										data = data[4:]
+										_sv, _se := unmarshaltypesParam(data[:_sLen])
+										if _se != nil {
+											return r, _se
+										}
+										r.Graph.Functions[_i2].Config[_i4].Type.Config[_i10] = _sv
+										data = data[_sLen:]
+									}
+								}
+							}
+						} else {
+							data = data[1:]
+						}
+						r.Graph.Functions[_i2].Config[_i4].Type.Kind = types.Kind(binary.BigEndian.Uint64(data[:8]))
+						data = data[8:]
+						{
+							_n := binary.BigEndian.Uint32(data[:4])
+							data = data[4:]
+							r.Graph.Functions[_i2].Config[_i4].Type.Name = string(data[:_n])
+							data = data[_n:]
+						}
+						if data[0] == 1 {
+							data = data[1:]
+							var _ov11 types.Type
+							{
+								_sLen := binary.BigEndian.Uint32(data[:4])
+								data = data[4:]
+								_sv, _se := unmarshaltypesType(data[:_sLen])
+								if _se != nil {
+									return r, _se
+								}
+								_ov11 = _sv
+								data = data[_sLen:]
+							}
+							r.Graph.Functions[_i2].Config[_i4].Type.Elem = &_ov11
+						} else {
+							data = data[1:]
+						}
+						if data[0] == 1 {
+							data = data[1:]
+							var _ov12 types.Unit
+							_ov12.Dimensions.Length = int8(data[0])
+							data = data[1:]
+							_ov12.Dimensions.Mass = int8(data[0])
+							data = data[1:]
+							_ov12.Dimensions.Time = int8(data[0])
+							data = data[1:]
+							_ov12.Dimensions.Current = int8(data[0])
+							data = data[1:]
+							_ov12.Dimensions.Temperature = int8(data[0])
+							data = data[1:]
+							_ov12.Dimensions.Angle = int8(data[0])
+							data = data[1:]
+							_ov12.Dimensions.Count = int8(data[0])
+							data = data[1:]
+							_ov12.Dimensions.Data = int8(data[0])
+							data = data[1:]
+							_ov12.Scale = float64(math.Float64frombits(binary.BigEndian.Uint64(data[:8])))
+							data = data[8:]
+							{
+								_n := binary.BigEndian.Uint32(data[:4])
+								data = data[4:]
+								_ov12.Name = string(data[:_n])
+								data = data[_n:]
+							}
+							r.Graph.Functions[_i2].Config[_i4].Type.Unit = &_ov12
+						} else {
+							data = data[1:]
+						}
+						if data[0] == 1 {
+							data = data[1:]
+							var _ov13 types.Type
+							{
+								_sLen := binary.BigEndian.Uint32(data[:4])
+								data = data[4:]
+								_sv, _se := unmarshaltypesType(data[:_sLen])
+								if _se != nil {
+									return r, _se
+								}
+								_ov13 = _sv
+								data = data[_sLen:]
+							}
+							r.Graph.Functions[_i2].Config[_i4].Type.Constraint = &_ov13
+						} else {
+							data = data[1:]
+						}
+						r.Graph.Functions[_i2].Config[_i4].Type.ChanDirection = types.ChanDirection(binary.BigEndian.Uint64(data[:8]))
+						data = data[8:]
+						{
+							_n := binary.BigEndian.Uint32(data[:4])
+							data = data[4:]
+							if err := json.Unmarshal(data[:_n], &r.Graph.Functions[_i2].Config[_i4].Value); err != nil {
+								return r, err
+							}
+							data = data[_n:]
+						}
+					}
+				}
+			} else {
+				data = data[1:]
+			}
+			if data[0] == 1 {
+				data = data[1:]
+				{
+					_n := binary.BigEndian.Uint32(data[:4])
+					data = data[4:]
+					r.Graph.Functions[_i2].Inputs = make([]types.Param, _n)
+					for _i15 := range r.Graph.Functions[_i2].Inputs {
+						{
+							_n := binary.BigEndian.Uint32(data[:4])
+							data = data[4:]
+							r.Graph.Functions[_i2].Inputs[_i15].Name = string(data[:_n])
+							data = data[_n:]
+						}
+						if data[0] == 1 {
+							data = data[1:]
+							{
+								_n := binary.BigEndian.Uint32(data[:4])
+								data = data[4:]
+								r.Graph.Functions[_i2].Inputs[_i15].Type.Inputs = make([]types.Param, _n)
+								for _i17 := range r.Graph.Functions[_i2].Inputs[_i15].Type.Inputs {
+									{
+										_sLen := binary.BigEndian.Uint32(data[:4])
+										data = data[4:]
+										_sv, _se := unmarshaltypesParam(data[:_sLen])
+										if _se != nil {
+											return r, _se
+										}
+										r.Graph.Functions[_i2].Inputs[_i15].Type.Inputs[_i17] = _sv
+										data = data[_sLen:]
+									}
+								}
+							}
+						} else {
+							data = data[1:]
+						}
+						if data[0] == 1 {
+							data = data[1:]
+							{
+								_n := binary.BigEndian.Uint32(data[:4])
+								data = data[4:]
+								r.Graph.Functions[_i2].Inputs[_i15].Type.Outputs = make([]types.Param, _n)
+								for _i19 := range r.Graph.Functions[_i2].Inputs[_i15].Type.Outputs {
+									{
+										_sLen := binary.BigEndian.Uint32(data[:4])
+										data = data[4:]
+										_sv, _se := unmarshaltypesParam(data[:_sLen])
+										if _se != nil {
+											return r, _se
+										}
+										r.Graph.Functions[_i2].Inputs[_i15].Type.Outputs[_i19] = _sv
+										data = data[_sLen:]
+									}
+								}
+							}
+						} else {
+							data = data[1:]
+						}
+						if data[0] == 1 {
+							data = data[1:]
+							{
+								_n := binary.BigEndian.Uint32(data[:4])
+								data = data[4:]
+								r.Graph.Functions[_i2].Inputs[_i15].Type.Config = make([]types.Param, _n)
+								for _i21 := range r.Graph.Functions[_i2].Inputs[_i15].Type.Config {
+									{
+										_sLen := binary.BigEndian.Uint32(data[:4])
+										data = data[4:]
+										_sv, _se := unmarshaltypesParam(data[:_sLen])
+										if _se != nil {
+											return r, _se
+										}
+										r.Graph.Functions[_i2].Inputs[_i15].Type.Config[_i21] = _sv
+										data = data[_sLen:]
+									}
+								}
+							}
+						} else {
+							data = data[1:]
+						}
+						r.Graph.Functions[_i2].Inputs[_i15].Type.Kind = types.Kind(binary.BigEndian.Uint64(data[:8]))
+						data = data[8:]
+						{
+							_n := binary.BigEndian.Uint32(data[:4])
+							data = data[4:]
+							r.Graph.Functions[_i2].Inputs[_i15].Type.Name = string(data[:_n])
+							data = data[_n:]
+						}
+						if data[0] == 1 {
+							data = data[1:]
+							var _ov22 types.Type
+							{
+								_sLen := binary.BigEndian.Uint32(data[:4])
+								data = data[4:]
+								_sv, _se := unmarshaltypesType(data[:_sLen])
+								if _se != nil {
+									return r, _se
+								}
+								_ov22 = _sv
+								data = data[_sLen:]
+							}
+							r.Graph.Functions[_i2].Inputs[_i15].Type.Elem = &_ov22
+						} else {
+							data = data[1:]
+						}
+						if data[0] == 1 {
+							data = data[1:]
+							var _ov23 types.Unit
+							_ov23.Dimensions.Length = int8(data[0])
+							data = data[1:]
+							_ov23.Dimensions.Mass = int8(data[0])
+							data = data[1:]
+							_ov23.Dimensions.Time = int8(data[0])
+							data = data[1:]
+							_ov23.Dimensions.Current = int8(data[0])
+							data = data[1:]
+							_ov23.Dimensions.Temperature = int8(data[0])
+							data = data[1:]
+							_ov23.Dimensions.Angle = int8(data[0])
+							data = data[1:]
+							_ov23.Dimensions.Count = int8(data[0])
+							data = data[1:]
+							_ov23.Dimensions.Data = int8(data[0])
+							data = data[1:]
+							_ov23.Scale = float64(math.Float64frombits(binary.BigEndian.Uint64(data[:8])))
+							data = data[8:]
+							{
+								_n := binary.BigEndian.Uint32(data[:4])
+								data = data[4:]
+								_ov23.Name = string(data[:_n])
+								data = data[_n:]
+							}
+							r.Graph.Functions[_i2].Inputs[_i15].Type.Unit = &_ov23
+						} else {
+							data = data[1:]
+						}
+						if data[0] == 1 {
+							data = data[1:]
+							var _ov24 types.Type
+							{
+								_sLen := binary.BigEndian.Uint32(data[:4])
+								data = data[4:]
+								_sv, _se := unmarshaltypesType(data[:_sLen])
+								if _se != nil {
+									return r, _se
+								}
+								_ov24 = _sv
+								data = data[_sLen:]
+							}
+							r.Graph.Functions[_i2].Inputs[_i15].Type.Constraint = &_ov24
+						} else {
+							data = data[1:]
+						}
+						r.Graph.Functions[_i2].Inputs[_i15].Type.ChanDirection = types.ChanDirection(binary.BigEndian.Uint64(data[:8]))
+						data = data[8:]
+						{
+							_n := binary.BigEndian.Uint32(data[:4])
+							data = data[4:]
+							if err := json.Unmarshal(data[:_n], &r.Graph.Functions[_i2].Inputs[_i15].Value); err != nil {
+								return r, err
+							}
+							data = data[_n:]
+						}
+					}
+				}
+			} else {
+				data = data[1:]
+			}
+			if data[0] == 1 {
+				data = data[1:]
+				{
+					_n := binary.BigEndian.Uint32(data[:4])
+					data = data[4:]
+					r.Graph.Functions[_i2].Outputs = make([]types.Param, _n)
+					for _i26 := range r.Graph.Functions[_i2].Outputs {
+						{
+							_n := binary.BigEndian.Uint32(data[:4])
+							data = data[4:]
+							r.Graph.Functions[_i2].Outputs[_i26].Name = string(data[:_n])
+							data = data[_n:]
+						}
+						if data[0] == 1 {
+							data = data[1:]
+							{
+								_n := binary.BigEndian.Uint32(data[:4])
+								data = data[4:]
+								r.Graph.Functions[_i2].Outputs[_i26].Type.Inputs = make([]types.Param, _n)
+								for _i28 := range r.Graph.Functions[_i2].Outputs[_i26].Type.Inputs {
+									{
+										_sLen := binary.BigEndian.Uint32(data[:4])
+										data = data[4:]
+										_sv, _se := unmarshaltypesParam(data[:_sLen])
+										if _se != nil {
+											return r, _se
+										}
+										r.Graph.Functions[_i2].Outputs[_i26].Type.Inputs[_i28] = _sv
+										data = data[_sLen:]
+									}
+								}
+							}
+						} else {
+							data = data[1:]
+						}
+						if data[0] == 1 {
+							data = data[1:]
+							{
+								_n := binary.BigEndian.Uint32(data[:4])
+								data = data[4:]
+								r.Graph.Functions[_i2].Outputs[_i26].Type.Outputs = make([]types.Param, _n)
+								for _i30 := range r.Graph.Functions[_i2].Outputs[_i26].Type.Outputs {
+									{
+										_sLen := binary.BigEndian.Uint32(data[:4])
+										data = data[4:]
+										_sv, _se := unmarshaltypesParam(data[:_sLen])
+										if _se != nil {
+											return r, _se
+										}
+										r.Graph.Functions[_i2].Outputs[_i26].Type.Outputs[_i30] = _sv
+										data = data[_sLen:]
+									}
+								}
+							}
+						} else {
+							data = data[1:]
+						}
+						if data[0] == 1 {
+							data = data[1:]
+							{
+								_n := binary.BigEndian.Uint32(data[:4])
+								data = data[4:]
+								r.Graph.Functions[_i2].Outputs[_i26].Type.Config = make([]types.Param, _n)
+								for _i32 := range r.Graph.Functions[_i2].Outputs[_i26].Type.Config {
+									{
+										_sLen := binary.BigEndian.Uint32(data[:4])
+										data = data[4:]
+										_sv, _se := unmarshaltypesParam(data[:_sLen])
+										if _se != nil {
+											return r, _se
+										}
+										r.Graph.Functions[_i2].Outputs[_i26].Type.Config[_i32] = _sv
+										data = data[_sLen:]
+									}
+								}
+							}
+						} else {
+							data = data[1:]
+						}
+						r.Graph.Functions[_i2].Outputs[_i26].Type.Kind = types.Kind(binary.BigEndian.Uint64(data[:8]))
+						data = data[8:]
+						{
+							_n := binary.BigEndian.Uint32(data[:4])
+							data = data[4:]
+							r.Graph.Functions[_i2].Outputs[_i26].Type.Name = string(data[:_n])
+							data = data[_n:]
+						}
+						if data[0] == 1 {
+							data = data[1:]
+							var _ov33 types.Type
+							{
+								_sLen := binary.BigEndian.Uint32(data[:4])
+								data = data[4:]
+								_sv, _se := unmarshaltypesType(data[:_sLen])
+								if _se != nil {
+									return r, _se
+								}
+								_ov33 = _sv
+								data = data[_sLen:]
+							}
+							r.Graph.Functions[_i2].Outputs[_i26].Type.Elem = &_ov33
+						} else {
+							data = data[1:]
+						}
+						if data[0] == 1 {
+							data = data[1:]
+							var _ov34 types.Unit
+							_ov34.Dimensions.Length = int8(data[0])
+							data = data[1:]
+							_ov34.Dimensions.Mass = int8(data[0])
+							data = data[1:]
+							_ov34.Dimensions.Time = int8(data[0])
+							data = data[1:]
+							_ov34.Dimensions.Current = int8(data[0])
+							data = data[1:]
+							_ov34.Dimensions.Temperature = int8(data[0])
+							data = data[1:]
+							_ov34.Dimensions.Angle = int8(data[0])
+							data = data[1:]
+							_ov34.Dimensions.Count = int8(data[0])
+							data = data[1:]
+							_ov34.Dimensions.Data = int8(data[0])
+							data = data[1:]
+							_ov34.Scale = float64(math.Float64frombits(binary.BigEndian.Uint64(data[:8])))
+							data = data[8:]
+							{
+								_n := binary.BigEndian.Uint32(data[:4])
+								data = data[4:]
+								_ov34.Name = string(data[:_n])
+								data = data[_n:]
+							}
+							r.Graph.Functions[_i2].Outputs[_i26].Type.Unit = &_ov34
+						} else {
+							data = data[1:]
+						}
+						if data[0] == 1 {
+							data = data[1:]
+							var _ov35 types.Type
+							{
+								_sLen := binary.BigEndian.Uint32(data[:4])
+								data = data[4:]
+								_sv, _se := unmarshaltypesType(data[:_sLen])
+								if _se != nil {
+									return r, _se
+								}
+								_ov35 = _sv
+								data = data[_sLen:]
+							}
+							r.Graph.Functions[_i2].Outputs[_i26].Type.Constraint = &_ov35
+						} else {
+							data = data[1:]
+						}
+						r.Graph.Functions[_i2].Outputs[_i26].Type.ChanDirection = types.ChanDirection(binary.BigEndian.Uint64(data[:8]))
+						data = data[8:]
+						{
+							_n := binary.BigEndian.Uint32(data[:4])
+							data = data[4:]
+							if err := json.Unmarshal(data[:_n], &r.Graph.Functions[_i2].Outputs[_i26].Value); err != nil {
+								return r, err
+							}
+							data = data[_n:]
+						}
+					}
+				}
+			} else {
+				data = data[1:]
+			}
+			{
+				_n := binary.BigEndian.Uint32(data[:4])
+				data = data[4:]
+				r.Graph.Functions[_i2].Channels.Read = make(map[uint32]string, _n)
+				for _mi38 := uint32(0); _mi38 < _n; _mi38++ {
+					var _mk36 uint32
+					var _mv37 string
+					_mk36 = uint32(binary.BigEndian.Uint32(data[:4]))
+					data = data[4:]
+					{
+						_n := binary.BigEndian.Uint32(data[:4])
+						data = data[4:]
+						_mv37 = string(data[:_n])
+						data = data[_n:]
+					}
+					r.Graph.Functions[_i2].Channels.Read[_mk36] = _mv37
+				}
+			}
+			{
+				_n := binary.BigEndian.Uint32(data[:4])
+				data = data[4:]
+				r.Graph.Functions[_i2].Channels.Write = make(map[uint32]string, _n)
+				for _mi41 := uint32(0); _mi41 < _n; _mi41++ {
+					var _mk39 uint32
+					var _mv40 string
+					_mk39 = uint32(binary.BigEndian.Uint32(data[:4]))
+					data = data[4:]
+					{
+						_n := binary.BigEndian.Uint32(data[:4])
+						data = data[4:]
+						_mv40 = string(data[:_n])
+						data = data[_n:]
+					}
+					r.Graph.Functions[_i2].Channels.Write[_mk39] = _mv40
+				}
+			}
+		}
+	}
+	{
+		_n := binary.BigEndian.Uint32(data[:4])
+		data = data[4:]
+		r.Graph.Edges = make([]ir.Edge, _n)
+		for _i43 := range r.Graph.Edges {
+			{
+				_n := binary.BigEndian.Uint32(data[:4])
+				data = data[4:]
+				r.Graph.Edges[_i43].Source.Node = string(data[:_n])
+				data = data[_n:]
+			}
+			{
+				_n := binary.BigEndian.Uint32(data[:4])
+				data = data[4:]
+				r.Graph.Edges[_i43].Source.Param = string(data[:_n])
+				data = data[_n:]
+			}
+			{
+				_n := binary.BigEndian.Uint32(data[:4])
+				data = data[4:]
+				r.Graph.Edges[_i43].Target.Node = string(data[:_n])
+				data = data[_n:]
+			}
+			{
+				_n := binary.BigEndian.Uint32(data[:4])
+				data = data[4:]
+				r.Graph.Edges[_i43].Target.Param = string(data[:_n])
+				data = data[_n:]
+			}
+			r.Graph.Edges[_i43].Kind = ir.EdgeKind(binary.BigEndian.Uint64(data[:8]))
+			data = data[8:]
+		}
+	}
+	{
+		_n := binary.BigEndian.Uint32(data[:4])
+		data = data[4:]
+		r.Graph.Nodes = make([]graph.Node, _n)
+		for _i45 := range r.Graph.Nodes {
+			{
+				_n := binary.BigEndian.Uint32(data[:4])
+				data = data[4:]
+				r.Graph.Nodes[_i45].Key = string(data[:_n])
+				data = data[_n:]
+			}
+			{
+				_n := binary.BigEndian.Uint32(data[:4])
+				data = data[4:]
+				r.Graph.Nodes[_i45].Type = string(data[:_n])
+				data = data[_n:]
+			}
+			{
+				_n := binary.BigEndian.Uint32(data[:4])
+				data = data[4:]
+				if err := json.Unmarshal(data[:_n], &r.Graph.Nodes[_i45].Config); err != nil {
+					return r, err
+				}
+				data = data[_n:]
+			}
+			r.Graph.Nodes[_i45].Position.X = float64(math.Float64frombits(binary.BigEndian.Uint64(data[:8])))
+			data = data[8:]
+			r.Graph.Nodes[_i45].Position.Y = float64(math.Float64frombits(binary.BigEndian.Uint64(data[:8])))
+			data = data[8:]
+		}
+	}
+	{
+		_n := binary.BigEndian.Uint32(data[:4])
+		data = data[4:]
+		r.Text.Raw = string(data[:_n])
+		data = data[_n:]
+	}
+	if data[0] == 1 {
+		data = data[1:]
+		var _ov46 module.Module
+		if data[0] == 1 {
+			data = data[1:]
+			{
+				_n := binary.BigEndian.Uint32(data[:4])
+				data = data[4:]
+				_ov46.Functions = make([]ir.Function, _n)
+				for _i48 := range _ov46.Functions {
+					{
+						_n := binary.BigEndian.Uint32(data[:4])
+						data = data[4:]
+						_ov46.Functions[_i48].Key = string(data[:_n])
+						data = data[_n:]
+					}
+					{
+						_n := binary.BigEndian.Uint32(data[:4])
+						data = data[4:]
+						_ov46.Functions[_i48].Body.Raw = string(data[:_n])
+						data = data[_n:]
+					}
+					if data[0] == 1 {
+						data = data[1:]
+						{
+							_n := binary.BigEndian.Uint32(data[:4])
+							data = data[4:]
+							_ov46.Functions[_i48].Config = make([]types.Param, _n)
+							for _i50 := range _ov46.Functions[_i48].Config {
+								{
+									_n := binary.BigEndian.Uint32(data[:4])
+									data = data[4:]
+									_ov46.Functions[_i48].Config[_i50].Name = string(data[:_n])
+									data = data[_n:]
+								}
+								if data[0] == 1 {
+									data = data[1:]
+									{
+										_n := binary.BigEndian.Uint32(data[:4])
+										data = data[4:]
+										_ov46.Functions[_i48].Config[_i50].Type.Inputs = make([]types.Param, _n)
+										for _i52 := range _ov46.Functions[_i48].Config[_i50].Type.Inputs {
+											{
+												_sLen := binary.BigEndian.Uint32(data[:4])
+												data = data[4:]
+												_sv, _se := unmarshaltypesParam(data[:_sLen])
+												if _se != nil {
+													return r, _se
+												}
+												_ov46.Functions[_i48].Config[_i50].Type.Inputs[_i52] = _sv
+												data = data[_sLen:]
+											}
+										}
+									}
+								} else {
+									data = data[1:]
+								}
+								if data[0] == 1 {
+									data = data[1:]
+									{
+										_n := binary.BigEndian.Uint32(data[:4])
+										data = data[4:]
+										_ov46.Functions[_i48].Config[_i50].Type.Outputs = make([]types.Param, _n)
+										for _i54 := range _ov46.Functions[_i48].Config[_i50].Type.Outputs {
+											{
+												_sLen := binary.BigEndian.Uint32(data[:4])
+												data = data[4:]
+												_sv, _se := unmarshaltypesParam(data[:_sLen])
+												if _se != nil {
+													return r, _se
+												}
+												_ov46.Functions[_i48].Config[_i50].Type.Outputs[_i54] = _sv
+												data = data[_sLen:]
+											}
+										}
+									}
+								} else {
+									data = data[1:]
+								}
+								if data[0] == 1 {
+									data = data[1:]
+									{
+										_n := binary.BigEndian.Uint32(data[:4])
+										data = data[4:]
+										_ov46.Functions[_i48].Config[_i50].Type.Config = make([]types.Param, _n)
+										for _i56 := range _ov46.Functions[_i48].Config[_i50].Type.Config {
+											{
+												_sLen := binary.BigEndian.Uint32(data[:4])
+												data = data[4:]
+												_sv, _se := unmarshaltypesParam(data[:_sLen])
+												if _se != nil {
+													return r, _se
+												}
+												_ov46.Functions[_i48].Config[_i50].Type.Config[_i56] = _sv
+												data = data[_sLen:]
+											}
+										}
+									}
+								} else {
+									data = data[1:]
+								}
+								_ov46.Functions[_i48].Config[_i50].Type.Kind = types.Kind(binary.BigEndian.Uint64(data[:8]))
+								data = data[8:]
+								{
+									_n := binary.BigEndian.Uint32(data[:4])
+									data = data[4:]
+									_ov46.Functions[_i48].Config[_i50].Type.Name = string(data[:_n])
+									data = data[_n:]
+								}
+								if data[0] == 1 {
+									data = data[1:]
+									var _ov57 types.Type
+									{
+										_sLen := binary.BigEndian.Uint32(data[:4])
+										data = data[4:]
+										_sv, _se := unmarshaltypesType(data[:_sLen])
+										if _se != nil {
+											return r, _se
+										}
+										_ov57 = _sv
+										data = data[_sLen:]
+									}
+									_ov46.Functions[_i48].Config[_i50].Type.Elem = &_ov57
+								} else {
+									data = data[1:]
+								}
+								if data[0] == 1 {
+									data = data[1:]
+									var _ov58 types.Unit
+									_ov58.Dimensions.Length = int8(data[0])
+									data = data[1:]
+									_ov58.Dimensions.Mass = int8(data[0])
+									data = data[1:]
+									_ov58.Dimensions.Time = int8(data[0])
+									data = data[1:]
+									_ov58.Dimensions.Current = int8(data[0])
+									data = data[1:]
+									_ov58.Dimensions.Temperature = int8(data[0])
+									data = data[1:]
+									_ov58.Dimensions.Angle = int8(data[0])
+									data = data[1:]
+									_ov58.Dimensions.Count = int8(data[0])
+									data = data[1:]
+									_ov58.Dimensions.Data = int8(data[0])
+									data = data[1:]
+									_ov58.Scale = float64(math.Float64frombits(binary.BigEndian.Uint64(data[:8])))
+									data = data[8:]
+									{
+										_n := binary.BigEndian.Uint32(data[:4])
+										data = data[4:]
+										_ov58.Name = string(data[:_n])
+										data = data[_n:]
+									}
+									_ov46.Functions[_i48].Config[_i50].Type.Unit = &_ov58
+								} else {
+									data = data[1:]
+								}
+								if data[0] == 1 {
+									data = data[1:]
+									var _ov59 types.Type
+									{
+										_sLen := binary.BigEndian.Uint32(data[:4])
+										data = data[4:]
+										_sv, _se := unmarshaltypesType(data[:_sLen])
+										if _se != nil {
+											return r, _se
+										}
+										_ov59 = _sv
+										data = data[_sLen:]
+									}
+									_ov46.Functions[_i48].Config[_i50].Type.Constraint = &_ov59
+								} else {
+									data = data[1:]
+								}
+								_ov46.Functions[_i48].Config[_i50].Type.ChanDirection = types.ChanDirection(binary.BigEndian.Uint64(data[:8]))
+								data = data[8:]
+								{
+									_n := binary.BigEndian.Uint32(data[:4])
+									data = data[4:]
+									if err := json.Unmarshal(data[:_n], &_ov46.Functions[_i48].Config[_i50].Value); err != nil {
+										return r, err
+									}
+									data = data[_n:]
+								}
+							}
+						}
+					} else {
+						data = data[1:]
+					}
+					if data[0] == 1 {
+						data = data[1:]
+						{
+							_n := binary.BigEndian.Uint32(data[:4])
+							data = data[4:]
+							_ov46.Functions[_i48].Inputs = make([]types.Param, _n)
+							for _i61 := range _ov46.Functions[_i48].Inputs {
+								{
+									_n := binary.BigEndian.Uint32(data[:4])
+									data = data[4:]
+									_ov46.Functions[_i48].Inputs[_i61].Name = string(data[:_n])
+									data = data[_n:]
+								}
+								if data[0] == 1 {
+									data = data[1:]
+									{
+										_n := binary.BigEndian.Uint32(data[:4])
+										data = data[4:]
+										_ov46.Functions[_i48].Inputs[_i61].Type.Inputs = make([]types.Param, _n)
+										for _i63 := range _ov46.Functions[_i48].Inputs[_i61].Type.Inputs {
+											{
+												_sLen := binary.BigEndian.Uint32(data[:4])
+												data = data[4:]
+												_sv, _se := unmarshaltypesParam(data[:_sLen])
+												if _se != nil {
+													return r, _se
+												}
+												_ov46.Functions[_i48].Inputs[_i61].Type.Inputs[_i63] = _sv
+												data = data[_sLen:]
+											}
+										}
+									}
+								} else {
+									data = data[1:]
+								}
+								if data[0] == 1 {
+									data = data[1:]
+									{
+										_n := binary.BigEndian.Uint32(data[:4])
+										data = data[4:]
+										_ov46.Functions[_i48].Inputs[_i61].Type.Outputs = make([]types.Param, _n)
+										for _i65 := range _ov46.Functions[_i48].Inputs[_i61].Type.Outputs {
+											{
+												_sLen := binary.BigEndian.Uint32(data[:4])
+												data = data[4:]
+												_sv, _se := unmarshaltypesParam(data[:_sLen])
+												if _se != nil {
+													return r, _se
+												}
+												_ov46.Functions[_i48].Inputs[_i61].Type.Outputs[_i65] = _sv
+												data = data[_sLen:]
+											}
+										}
+									}
+								} else {
+									data = data[1:]
+								}
+								if data[0] == 1 {
+									data = data[1:]
+									{
+										_n := binary.BigEndian.Uint32(data[:4])
+										data = data[4:]
+										_ov46.Functions[_i48].Inputs[_i61].Type.Config = make([]types.Param, _n)
+										for _i67 := range _ov46.Functions[_i48].Inputs[_i61].Type.Config {
+											{
+												_sLen := binary.BigEndian.Uint32(data[:4])
+												data = data[4:]
+												_sv, _se := unmarshaltypesParam(data[:_sLen])
+												if _se != nil {
+													return r, _se
+												}
+												_ov46.Functions[_i48].Inputs[_i61].Type.Config[_i67] = _sv
+												data = data[_sLen:]
+											}
+										}
+									}
+								} else {
+									data = data[1:]
+								}
+								_ov46.Functions[_i48].Inputs[_i61].Type.Kind = types.Kind(binary.BigEndian.Uint64(data[:8]))
+								data = data[8:]
+								{
+									_n := binary.BigEndian.Uint32(data[:4])
+									data = data[4:]
+									_ov46.Functions[_i48].Inputs[_i61].Type.Name = string(data[:_n])
+									data = data[_n:]
+								}
+								if data[0] == 1 {
+									data = data[1:]
+									var _ov68 types.Type
+									{
+										_sLen := binary.BigEndian.Uint32(data[:4])
+										data = data[4:]
+										_sv, _se := unmarshaltypesType(data[:_sLen])
+										if _se != nil {
+											return r, _se
+										}
+										_ov68 = _sv
+										data = data[_sLen:]
+									}
+									_ov46.Functions[_i48].Inputs[_i61].Type.Elem = &_ov68
+								} else {
+									data = data[1:]
+								}
+								if data[0] == 1 {
+									data = data[1:]
+									var _ov69 types.Unit
+									_ov69.Dimensions.Length = int8(data[0])
+									data = data[1:]
+									_ov69.Dimensions.Mass = int8(data[0])
+									data = data[1:]
+									_ov69.Dimensions.Time = int8(data[0])
+									data = data[1:]
+									_ov69.Dimensions.Current = int8(data[0])
+									data = data[1:]
+									_ov69.Dimensions.Temperature = int8(data[0])
+									data = data[1:]
+									_ov69.Dimensions.Angle = int8(data[0])
+									data = data[1:]
+									_ov69.Dimensions.Count = int8(data[0])
+									data = data[1:]
+									_ov69.Dimensions.Data = int8(data[0])
+									data = data[1:]
+									_ov69.Scale = float64(math.Float64frombits(binary.BigEndian.Uint64(data[:8])))
+									data = data[8:]
+									{
+										_n := binary.BigEndian.Uint32(data[:4])
+										data = data[4:]
+										_ov69.Name = string(data[:_n])
+										data = data[_n:]
+									}
+									_ov46.Functions[_i48].Inputs[_i61].Type.Unit = &_ov69
+								} else {
+									data = data[1:]
+								}
+								if data[0] == 1 {
+									data = data[1:]
+									var _ov70 types.Type
+									{
+										_sLen := binary.BigEndian.Uint32(data[:4])
+										data = data[4:]
+										_sv, _se := unmarshaltypesType(data[:_sLen])
+										if _se != nil {
+											return r, _se
+										}
+										_ov70 = _sv
+										data = data[_sLen:]
+									}
+									_ov46.Functions[_i48].Inputs[_i61].Type.Constraint = &_ov70
+								} else {
+									data = data[1:]
+								}
+								_ov46.Functions[_i48].Inputs[_i61].Type.ChanDirection = types.ChanDirection(binary.BigEndian.Uint64(data[:8]))
+								data = data[8:]
+								{
+									_n := binary.BigEndian.Uint32(data[:4])
+									data = data[4:]
+									if err := json.Unmarshal(data[:_n], &_ov46.Functions[_i48].Inputs[_i61].Value); err != nil {
+										return r, err
+									}
+									data = data[_n:]
+								}
+							}
+						}
+					} else {
+						data = data[1:]
+					}
+					if data[0] == 1 {
+						data = data[1:]
+						{
+							_n := binary.BigEndian.Uint32(data[:4])
+							data = data[4:]
+							_ov46.Functions[_i48].Outputs = make([]types.Param, _n)
+							for _i72 := range _ov46.Functions[_i48].Outputs {
+								{
+									_n := binary.BigEndian.Uint32(data[:4])
+									data = data[4:]
+									_ov46.Functions[_i48].Outputs[_i72].Name = string(data[:_n])
+									data = data[_n:]
+								}
+								if data[0] == 1 {
+									data = data[1:]
+									{
+										_n := binary.BigEndian.Uint32(data[:4])
+										data = data[4:]
+										_ov46.Functions[_i48].Outputs[_i72].Type.Inputs = make([]types.Param, _n)
+										for _i74 := range _ov46.Functions[_i48].Outputs[_i72].Type.Inputs {
+											{
+												_sLen := binary.BigEndian.Uint32(data[:4])
+												data = data[4:]
+												_sv, _se := unmarshaltypesParam(data[:_sLen])
+												if _se != nil {
+													return r, _se
+												}
+												_ov46.Functions[_i48].Outputs[_i72].Type.Inputs[_i74] = _sv
+												data = data[_sLen:]
+											}
+										}
+									}
+								} else {
+									data = data[1:]
+								}
+								if data[0] == 1 {
+									data = data[1:]
+									{
+										_n := binary.BigEndian.Uint32(data[:4])
+										data = data[4:]
+										_ov46.Functions[_i48].Outputs[_i72].Type.Outputs = make([]types.Param, _n)
+										for _i76 := range _ov46.Functions[_i48].Outputs[_i72].Type.Outputs {
+											{
+												_sLen := binary.BigEndian.Uint32(data[:4])
+												data = data[4:]
+												_sv, _se := unmarshaltypesParam(data[:_sLen])
+												if _se != nil {
+													return r, _se
+												}
+												_ov46.Functions[_i48].Outputs[_i72].Type.Outputs[_i76] = _sv
+												data = data[_sLen:]
+											}
+										}
+									}
+								} else {
+									data = data[1:]
+								}
+								if data[0] == 1 {
+									data = data[1:]
+									{
+										_n := binary.BigEndian.Uint32(data[:4])
+										data = data[4:]
+										_ov46.Functions[_i48].Outputs[_i72].Type.Config = make([]types.Param, _n)
+										for _i78 := range _ov46.Functions[_i48].Outputs[_i72].Type.Config {
+											{
+												_sLen := binary.BigEndian.Uint32(data[:4])
+												data = data[4:]
+												_sv, _se := unmarshaltypesParam(data[:_sLen])
+												if _se != nil {
+													return r, _se
+												}
+												_ov46.Functions[_i48].Outputs[_i72].Type.Config[_i78] = _sv
+												data = data[_sLen:]
+											}
+										}
+									}
+								} else {
+									data = data[1:]
+								}
+								_ov46.Functions[_i48].Outputs[_i72].Type.Kind = types.Kind(binary.BigEndian.Uint64(data[:8]))
+								data = data[8:]
+								{
+									_n := binary.BigEndian.Uint32(data[:4])
+									data = data[4:]
+									_ov46.Functions[_i48].Outputs[_i72].Type.Name = string(data[:_n])
+									data = data[_n:]
+								}
+								if data[0] == 1 {
+									data = data[1:]
+									var _ov79 types.Type
+									{
+										_sLen := binary.BigEndian.Uint32(data[:4])
+										data = data[4:]
+										_sv, _se := unmarshaltypesType(data[:_sLen])
+										if _se != nil {
+											return r, _se
+										}
+										_ov79 = _sv
+										data = data[_sLen:]
+									}
+									_ov46.Functions[_i48].Outputs[_i72].Type.Elem = &_ov79
+								} else {
+									data = data[1:]
+								}
+								if data[0] == 1 {
+									data = data[1:]
+									var _ov80 types.Unit
+									_ov80.Dimensions.Length = int8(data[0])
+									data = data[1:]
+									_ov80.Dimensions.Mass = int8(data[0])
+									data = data[1:]
+									_ov80.Dimensions.Time = int8(data[0])
+									data = data[1:]
+									_ov80.Dimensions.Current = int8(data[0])
+									data = data[1:]
+									_ov80.Dimensions.Temperature = int8(data[0])
+									data = data[1:]
+									_ov80.Dimensions.Angle = int8(data[0])
+									data = data[1:]
+									_ov80.Dimensions.Count = int8(data[0])
+									data = data[1:]
+									_ov80.Dimensions.Data = int8(data[0])
+									data = data[1:]
+									_ov80.Scale = float64(math.Float64frombits(binary.BigEndian.Uint64(data[:8])))
+									data = data[8:]
+									{
+										_n := binary.BigEndian.Uint32(data[:4])
+										data = data[4:]
+										_ov80.Name = string(data[:_n])
+										data = data[_n:]
+									}
+									_ov46.Functions[_i48].Outputs[_i72].Type.Unit = &_ov80
+								} else {
+									data = data[1:]
+								}
+								if data[0] == 1 {
+									data = data[1:]
+									var _ov81 types.Type
+									{
+										_sLen := binary.BigEndian.Uint32(data[:4])
+										data = data[4:]
+										_sv, _se := unmarshaltypesType(data[:_sLen])
+										if _se != nil {
+											return r, _se
+										}
+										_ov81 = _sv
+										data = data[_sLen:]
+									}
+									_ov46.Functions[_i48].Outputs[_i72].Type.Constraint = &_ov81
+								} else {
+									data = data[1:]
+								}
+								_ov46.Functions[_i48].Outputs[_i72].Type.ChanDirection = types.ChanDirection(binary.BigEndian.Uint64(data[:8]))
+								data = data[8:]
+								{
+									_n := binary.BigEndian.Uint32(data[:4])
+									data = data[4:]
+									if err := json.Unmarshal(data[:_n], &_ov46.Functions[_i48].Outputs[_i72].Value); err != nil {
+										return r, err
+									}
+									data = data[_n:]
+								}
+							}
+						}
+					} else {
+						data = data[1:]
+					}
+					{
+						_n := binary.BigEndian.Uint32(data[:4])
+						data = data[4:]
+						_ov46.Functions[_i48].Channels.Read = make(map[uint32]string, _n)
+						for _mi84 := uint32(0); _mi84 < _n; _mi84++ {
+							var _mk82 uint32
+							var _mv83 string
+							_mk82 = uint32(binary.BigEndian.Uint32(data[:4]))
+							data = data[4:]
+							{
+								_n := binary.BigEndian.Uint32(data[:4])
+								data = data[4:]
+								_mv83 = string(data[:_n])
+								data = data[_n:]
+							}
+							_ov46.Functions[_i48].Channels.Read[_mk82] = _mv83
+						}
+					}
+					{
+						_n := binary.BigEndian.Uint32(data[:4])
+						data = data[4:]
+						_ov46.Functions[_i48].Channels.Write = make(map[uint32]string, _n)
+						for _mi87 := uint32(0); _mi87 < _n; _mi87++ {
+							var _mk85 uint32
+							var _mv86 string
+							_mk85 = uint32(binary.BigEndian.Uint32(data[:4]))
+							data = data[4:]
+							{
+								_n := binary.BigEndian.Uint32(data[:4])
+								data = data[4:]
+								_mv86 = string(data[:_n])
+								data = data[_n:]
+							}
+							_ov46.Functions[_i48].Channels.Write[_mk85] = _mv86
+						}
+					}
+				}
+			}
+		} else {
+			data = data[1:]
+		}
+		if data[0] == 1 {
+			data = data[1:]
+			{
+				_n := binary.BigEndian.Uint32(data[:4])
+				data = data[4:]
+				_ov46.Nodes = make([]ir.Node, _n)
+				for _i89 := range _ov46.Nodes {
+					{
+						_n := binary.BigEndian.Uint32(data[:4])
+						data = data[4:]
+						_ov46.Nodes[_i89].Key = string(data[:_n])
+						data = data[_n:]
+					}
+					{
+						_n := binary.BigEndian.Uint32(data[:4])
+						data = data[4:]
+						_ov46.Nodes[_i89].Type = string(data[:_n])
+						data = data[_n:]
+					}
+					if data[0] == 1 {
+						data = data[1:]
+						{
+							_n := binary.BigEndian.Uint32(data[:4])
+							data = data[4:]
+							_ov46.Nodes[_i89].Config = make([]types.Param, _n)
+							for _i91 := range _ov46.Nodes[_i89].Config {
+								{
+									_n := binary.BigEndian.Uint32(data[:4])
+									data = data[4:]
+									_ov46.Nodes[_i89].Config[_i91].Name = string(data[:_n])
+									data = data[_n:]
+								}
+								if data[0] == 1 {
+									data = data[1:]
+									{
+										_n := binary.BigEndian.Uint32(data[:4])
+										data = data[4:]
+										_ov46.Nodes[_i89].Config[_i91].Type.Inputs = make([]types.Param, _n)
+										for _i93 := range _ov46.Nodes[_i89].Config[_i91].Type.Inputs {
+											{
+												_sLen := binary.BigEndian.Uint32(data[:4])
+												data = data[4:]
+												_sv, _se := unmarshaltypesParam(data[:_sLen])
+												if _se != nil {
+													return r, _se
+												}
+												_ov46.Nodes[_i89].Config[_i91].Type.Inputs[_i93] = _sv
+												data = data[_sLen:]
+											}
+										}
+									}
+								} else {
+									data = data[1:]
+								}
+								if data[0] == 1 {
+									data = data[1:]
+									{
+										_n := binary.BigEndian.Uint32(data[:4])
+										data = data[4:]
+										_ov46.Nodes[_i89].Config[_i91].Type.Outputs = make([]types.Param, _n)
+										for _i95 := range _ov46.Nodes[_i89].Config[_i91].Type.Outputs {
+											{
+												_sLen := binary.BigEndian.Uint32(data[:4])
+												data = data[4:]
+												_sv, _se := unmarshaltypesParam(data[:_sLen])
+												if _se != nil {
+													return r, _se
+												}
+												_ov46.Nodes[_i89].Config[_i91].Type.Outputs[_i95] = _sv
+												data = data[_sLen:]
+											}
+										}
+									}
+								} else {
+									data = data[1:]
+								}
+								if data[0] == 1 {
+									data = data[1:]
+									{
+										_n := binary.BigEndian.Uint32(data[:4])
+										data = data[4:]
+										_ov46.Nodes[_i89].Config[_i91].Type.Config = make([]types.Param, _n)
+										for _i97 := range _ov46.Nodes[_i89].Config[_i91].Type.Config {
+											{
+												_sLen := binary.BigEndian.Uint32(data[:4])
+												data = data[4:]
+												_sv, _se := unmarshaltypesParam(data[:_sLen])
+												if _se != nil {
+													return r, _se
+												}
+												_ov46.Nodes[_i89].Config[_i91].Type.Config[_i97] = _sv
+												data = data[_sLen:]
+											}
+										}
+									}
+								} else {
+									data = data[1:]
+								}
+								_ov46.Nodes[_i89].Config[_i91].Type.Kind = types.Kind(binary.BigEndian.Uint64(data[:8]))
+								data = data[8:]
+								{
+									_n := binary.BigEndian.Uint32(data[:4])
+									data = data[4:]
+									_ov46.Nodes[_i89].Config[_i91].Type.Name = string(data[:_n])
+									data = data[_n:]
+								}
+								if data[0] == 1 {
+									data = data[1:]
+									var _ov98 types.Type
+									{
+										_sLen := binary.BigEndian.Uint32(data[:4])
+										data = data[4:]
+										_sv, _se := unmarshaltypesType(data[:_sLen])
+										if _se != nil {
+											return r, _se
+										}
+										_ov98 = _sv
+										data = data[_sLen:]
+									}
+									_ov46.Nodes[_i89].Config[_i91].Type.Elem = &_ov98
+								} else {
+									data = data[1:]
+								}
+								if data[0] == 1 {
+									data = data[1:]
+									var _ov99 types.Unit
+									_ov99.Dimensions.Length = int8(data[0])
+									data = data[1:]
+									_ov99.Dimensions.Mass = int8(data[0])
+									data = data[1:]
+									_ov99.Dimensions.Time = int8(data[0])
+									data = data[1:]
+									_ov99.Dimensions.Current = int8(data[0])
+									data = data[1:]
+									_ov99.Dimensions.Temperature = int8(data[0])
+									data = data[1:]
+									_ov99.Dimensions.Angle = int8(data[0])
+									data = data[1:]
+									_ov99.Dimensions.Count = int8(data[0])
+									data = data[1:]
+									_ov99.Dimensions.Data = int8(data[0])
+									data = data[1:]
+									_ov99.Scale = float64(math.Float64frombits(binary.BigEndian.Uint64(data[:8])))
+									data = data[8:]
+									{
+										_n := binary.BigEndian.Uint32(data[:4])
+										data = data[4:]
+										_ov99.Name = string(data[:_n])
+										data = data[_n:]
+									}
+									_ov46.Nodes[_i89].Config[_i91].Type.Unit = &_ov99
+								} else {
+									data = data[1:]
+								}
+								if data[0] == 1 {
+									data = data[1:]
+									var _ov100 types.Type
+									{
+										_sLen := binary.BigEndian.Uint32(data[:4])
+										data = data[4:]
+										_sv, _se := unmarshaltypesType(data[:_sLen])
+										if _se != nil {
+											return r, _se
+										}
+										_ov100 = _sv
+										data = data[_sLen:]
+									}
+									_ov46.Nodes[_i89].Config[_i91].Type.Constraint = &_ov100
+								} else {
+									data = data[1:]
+								}
+								_ov46.Nodes[_i89].Config[_i91].Type.ChanDirection = types.ChanDirection(binary.BigEndian.Uint64(data[:8]))
+								data = data[8:]
+								{
+									_n := binary.BigEndian.Uint32(data[:4])
+									data = data[4:]
+									if err := json.Unmarshal(data[:_n], &_ov46.Nodes[_i89].Config[_i91].Value); err != nil {
+										return r, err
+									}
+									data = data[_n:]
+								}
+							}
+						}
+					} else {
+						data = data[1:]
+					}
+					if data[0] == 1 {
+						data = data[1:]
+						{
+							_n := binary.BigEndian.Uint32(data[:4])
+							data = data[4:]
+							_ov46.Nodes[_i89].Inputs = make([]types.Param, _n)
+							for _i102 := range _ov46.Nodes[_i89].Inputs {
+								{
+									_n := binary.BigEndian.Uint32(data[:4])
+									data = data[4:]
+									_ov46.Nodes[_i89].Inputs[_i102].Name = string(data[:_n])
+									data = data[_n:]
+								}
+								if data[0] == 1 {
+									data = data[1:]
+									{
+										_n := binary.BigEndian.Uint32(data[:4])
+										data = data[4:]
+										_ov46.Nodes[_i89].Inputs[_i102].Type.Inputs = make([]types.Param, _n)
+										for _i104 := range _ov46.Nodes[_i89].Inputs[_i102].Type.Inputs {
+											{
+												_sLen := binary.BigEndian.Uint32(data[:4])
+												data = data[4:]
+												_sv, _se := unmarshaltypesParam(data[:_sLen])
+												if _se != nil {
+													return r, _se
+												}
+												_ov46.Nodes[_i89].Inputs[_i102].Type.Inputs[_i104] = _sv
+												data = data[_sLen:]
+											}
+										}
+									}
+								} else {
+									data = data[1:]
+								}
+								if data[0] == 1 {
+									data = data[1:]
+									{
+										_n := binary.BigEndian.Uint32(data[:4])
+										data = data[4:]
+										_ov46.Nodes[_i89].Inputs[_i102].Type.Outputs = make([]types.Param, _n)
+										for _i106 := range _ov46.Nodes[_i89].Inputs[_i102].Type.Outputs {
+											{
+												_sLen := binary.BigEndian.Uint32(data[:4])
+												data = data[4:]
+												_sv, _se := unmarshaltypesParam(data[:_sLen])
+												if _se != nil {
+													return r, _se
+												}
+												_ov46.Nodes[_i89].Inputs[_i102].Type.Outputs[_i106] = _sv
+												data = data[_sLen:]
+											}
+										}
+									}
+								} else {
+									data = data[1:]
+								}
+								if data[0] == 1 {
+									data = data[1:]
+									{
+										_n := binary.BigEndian.Uint32(data[:4])
+										data = data[4:]
+										_ov46.Nodes[_i89].Inputs[_i102].Type.Config = make([]types.Param, _n)
+										for _i108 := range _ov46.Nodes[_i89].Inputs[_i102].Type.Config {
+											{
+												_sLen := binary.BigEndian.Uint32(data[:4])
+												data = data[4:]
+												_sv, _se := unmarshaltypesParam(data[:_sLen])
+												if _se != nil {
+													return r, _se
+												}
+												_ov46.Nodes[_i89].Inputs[_i102].Type.Config[_i108] = _sv
+												data = data[_sLen:]
+											}
+										}
+									}
+								} else {
+									data = data[1:]
+								}
+								_ov46.Nodes[_i89].Inputs[_i102].Type.Kind = types.Kind(binary.BigEndian.Uint64(data[:8]))
+								data = data[8:]
+								{
+									_n := binary.BigEndian.Uint32(data[:4])
+									data = data[4:]
+									_ov46.Nodes[_i89].Inputs[_i102].Type.Name = string(data[:_n])
+									data = data[_n:]
+								}
+								if data[0] == 1 {
+									data = data[1:]
+									var _ov109 types.Type
+									{
+										_sLen := binary.BigEndian.Uint32(data[:4])
+										data = data[4:]
+										_sv, _se := unmarshaltypesType(data[:_sLen])
+										if _se != nil {
+											return r, _se
+										}
+										_ov109 = _sv
+										data = data[_sLen:]
+									}
+									_ov46.Nodes[_i89].Inputs[_i102].Type.Elem = &_ov109
+								} else {
+									data = data[1:]
+								}
+								if data[0] == 1 {
+									data = data[1:]
+									var _ov110 types.Unit
+									_ov110.Dimensions.Length = int8(data[0])
+									data = data[1:]
+									_ov110.Dimensions.Mass = int8(data[0])
+									data = data[1:]
+									_ov110.Dimensions.Time = int8(data[0])
+									data = data[1:]
+									_ov110.Dimensions.Current = int8(data[0])
+									data = data[1:]
+									_ov110.Dimensions.Temperature = int8(data[0])
+									data = data[1:]
+									_ov110.Dimensions.Angle = int8(data[0])
+									data = data[1:]
+									_ov110.Dimensions.Count = int8(data[0])
+									data = data[1:]
+									_ov110.Dimensions.Data = int8(data[0])
+									data = data[1:]
+									_ov110.Scale = float64(math.Float64frombits(binary.BigEndian.Uint64(data[:8])))
+									data = data[8:]
+									{
+										_n := binary.BigEndian.Uint32(data[:4])
+										data = data[4:]
+										_ov110.Name = string(data[:_n])
+										data = data[_n:]
+									}
+									_ov46.Nodes[_i89].Inputs[_i102].Type.Unit = &_ov110
+								} else {
+									data = data[1:]
+								}
+								if data[0] == 1 {
+									data = data[1:]
+									var _ov111 types.Type
+									{
+										_sLen := binary.BigEndian.Uint32(data[:4])
+										data = data[4:]
+										_sv, _se := unmarshaltypesType(data[:_sLen])
+										if _se != nil {
+											return r, _se
+										}
+										_ov111 = _sv
+										data = data[_sLen:]
+									}
+									_ov46.Nodes[_i89].Inputs[_i102].Type.Constraint = &_ov111
+								} else {
+									data = data[1:]
+								}
+								_ov46.Nodes[_i89].Inputs[_i102].Type.ChanDirection = types.ChanDirection(binary.BigEndian.Uint64(data[:8]))
+								data = data[8:]
+								{
+									_n := binary.BigEndian.Uint32(data[:4])
+									data = data[4:]
+									if err := json.Unmarshal(data[:_n], &_ov46.Nodes[_i89].Inputs[_i102].Value); err != nil {
+										return r, err
+									}
+									data = data[_n:]
+								}
+							}
+						}
+					} else {
+						data = data[1:]
+					}
+					if data[0] == 1 {
+						data = data[1:]
+						{
+							_n := binary.BigEndian.Uint32(data[:4])
+							data = data[4:]
+							_ov46.Nodes[_i89].Outputs = make([]types.Param, _n)
+							for _i113 := range _ov46.Nodes[_i89].Outputs {
+								{
+									_n := binary.BigEndian.Uint32(data[:4])
+									data = data[4:]
+									_ov46.Nodes[_i89].Outputs[_i113].Name = string(data[:_n])
+									data = data[_n:]
+								}
+								if data[0] == 1 {
+									data = data[1:]
+									{
+										_n := binary.BigEndian.Uint32(data[:4])
+										data = data[4:]
+										_ov46.Nodes[_i89].Outputs[_i113].Type.Inputs = make([]types.Param, _n)
+										for _i115 := range _ov46.Nodes[_i89].Outputs[_i113].Type.Inputs {
+											{
+												_sLen := binary.BigEndian.Uint32(data[:4])
+												data = data[4:]
+												_sv, _se := unmarshaltypesParam(data[:_sLen])
+												if _se != nil {
+													return r, _se
+												}
+												_ov46.Nodes[_i89].Outputs[_i113].Type.Inputs[_i115] = _sv
+												data = data[_sLen:]
+											}
+										}
+									}
+								} else {
+									data = data[1:]
+								}
+								if data[0] == 1 {
+									data = data[1:]
+									{
+										_n := binary.BigEndian.Uint32(data[:4])
+										data = data[4:]
+										_ov46.Nodes[_i89].Outputs[_i113].Type.Outputs = make([]types.Param, _n)
+										for _i117 := range _ov46.Nodes[_i89].Outputs[_i113].Type.Outputs {
+											{
+												_sLen := binary.BigEndian.Uint32(data[:4])
+												data = data[4:]
+												_sv, _se := unmarshaltypesParam(data[:_sLen])
+												if _se != nil {
+													return r, _se
+												}
+												_ov46.Nodes[_i89].Outputs[_i113].Type.Outputs[_i117] = _sv
+												data = data[_sLen:]
+											}
+										}
+									}
+								} else {
+									data = data[1:]
+								}
+								if data[0] == 1 {
+									data = data[1:]
+									{
+										_n := binary.BigEndian.Uint32(data[:4])
+										data = data[4:]
+										_ov46.Nodes[_i89].Outputs[_i113].Type.Config = make([]types.Param, _n)
+										for _i119 := range _ov46.Nodes[_i89].Outputs[_i113].Type.Config {
+											{
+												_sLen := binary.BigEndian.Uint32(data[:4])
+												data = data[4:]
+												_sv, _se := unmarshaltypesParam(data[:_sLen])
+												if _se != nil {
+													return r, _se
+												}
+												_ov46.Nodes[_i89].Outputs[_i113].Type.Config[_i119] = _sv
+												data = data[_sLen:]
+											}
+										}
+									}
+								} else {
+									data = data[1:]
+								}
+								_ov46.Nodes[_i89].Outputs[_i113].Type.Kind = types.Kind(binary.BigEndian.Uint64(data[:8]))
+								data = data[8:]
+								{
+									_n := binary.BigEndian.Uint32(data[:4])
+									data = data[4:]
+									_ov46.Nodes[_i89].Outputs[_i113].Type.Name = string(data[:_n])
+									data = data[_n:]
+								}
+								if data[0] == 1 {
+									data = data[1:]
+									var _ov120 types.Type
+									{
+										_sLen := binary.BigEndian.Uint32(data[:4])
+										data = data[4:]
+										_sv, _se := unmarshaltypesType(data[:_sLen])
+										if _se != nil {
+											return r, _se
+										}
+										_ov120 = _sv
+										data = data[_sLen:]
+									}
+									_ov46.Nodes[_i89].Outputs[_i113].Type.Elem = &_ov120
+								} else {
+									data = data[1:]
+								}
+								if data[0] == 1 {
+									data = data[1:]
+									var _ov121 types.Unit
+									_ov121.Dimensions.Length = int8(data[0])
+									data = data[1:]
+									_ov121.Dimensions.Mass = int8(data[0])
+									data = data[1:]
+									_ov121.Dimensions.Time = int8(data[0])
+									data = data[1:]
+									_ov121.Dimensions.Current = int8(data[0])
+									data = data[1:]
+									_ov121.Dimensions.Temperature = int8(data[0])
+									data = data[1:]
+									_ov121.Dimensions.Angle = int8(data[0])
+									data = data[1:]
+									_ov121.Dimensions.Count = int8(data[0])
+									data = data[1:]
+									_ov121.Dimensions.Data = int8(data[0])
+									data = data[1:]
+									_ov121.Scale = float64(math.Float64frombits(binary.BigEndian.Uint64(data[:8])))
+									data = data[8:]
+									{
+										_n := binary.BigEndian.Uint32(data[:4])
+										data = data[4:]
+										_ov121.Name = string(data[:_n])
+										data = data[_n:]
+									}
+									_ov46.Nodes[_i89].Outputs[_i113].Type.Unit = &_ov121
+								} else {
+									data = data[1:]
+								}
+								if data[0] == 1 {
+									data = data[1:]
+									var _ov122 types.Type
+									{
+										_sLen := binary.BigEndian.Uint32(data[:4])
+										data = data[4:]
+										_sv, _se := unmarshaltypesType(data[:_sLen])
+										if _se != nil {
+											return r, _se
+										}
+										_ov122 = _sv
+										data = data[_sLen:]
+									}
+									_ov46.Nodes[_i89].Outputs[_i113].Type.Constraint = &_ov122
+								} else {
+									data = data[1:]
+								}
+								_ov46.Nodes[_i89].Outputs[_i113].Type.ChanDirection = types.ChanDirection(binary.BigEndian.Uint64(data[:8]))
+								data = data[8:]
+								{
+									_n := binary.BigEndian.Uint32(data[:4])
+									data = data[4:]
+									if err := json.Unmarshal(data[:_n], &_ov46.Nodes[_i89].Outputs[_i113].Value); err != nil {
+										return r, err
+									}
+									data = data[_n:]
+								}
+							}
+						}
+					} else {
+						data = data[1:]
+					}
+					{
+						_n := binary.BigEndian.Uint32(data[:4])
+						data = data[4:]
+						_ov46.Nodes[_i89].Channels.Read = make(map[uint32]string, _n)
+						for _mi125 := uint32(0); _mi125 < _n; _mi125++ {
+							var _mk123 uint32
+							var _mv124 string
+							_mk123 = uint32(binary.BigEndian.Uint32(data[:4]))
+							data = data[4:]
+							{
+								_n := binary.BigEndian.Uint32(data[:4])
+								data = data[4:]
+								_mv124 = string(data[:_n])
+								data = data[_n:]
+							}
+							_ov46.Nodes[_i89].Channels.Read[_mk123] = _mv124
+						}
+					}
+					{
+						_n := binary.BigEndian.Uint32(data[:4])
+						data = data[4:]
+						_ov46.Nodes[_i89].Channels.Write = make(map[uint32]string, _n)
+						for _mi128 := uint32(0); _mi128 < _n; _mi128++ {
+							var _mk126 uint32
+							var _mv127 string
+							_mk126 = uint32(binary.BigEndian.Uint32(data[:4]))
+							data = data[4:]
+							{
+								_n := binary.BigEndian.Uint32(data[:4])
+								data = data[4:]
+								_mv127 = string(data[:_n])
+								data = data[_n:]
+							}
+							_ov46.Nodes[_i89].Channels.Write[_mk126] = _mv127
+						}
+					}
+				}
+			}
+		} else {
+			data = data[1:]
+		}
+		if data[0] == 1 {
+			data = data[1:]
+			{
+				_n := binary.BigEndian.Uint32(data[:4])
+				data = data[4:]
+				_ov46.Edges = make([]ir.Edge, _n)
+				for _i130 := range _ov46.Edges {
+					{
+						_n := binary.BigEndian.Uint32(data[:4])
+						data = data[4:]
+						_ov46.Edges[_i130].Source.Node = string(data[:_n])
+						data = data[_n:]
+					}
+					{
+						_n := binary.BigEndian.Uint32(data[:4])
+						data = data[4:]
+						_ov46.Edges[_i130].Source.Param = string(data[:_n])
+						data = data[_n:]
+					}
+					{
+						_n := binary.BigEndian.Uint32(data[:4])
+						data = data[4:]
+						_ov46.Edges[_i130].Target.Node = string(data[:_n])
+						data = data[_n:]
+					}
+					{
+						_n := binary.BigEndian.Uint32(data[:4])
+						data = data[4:]
+						_ov46.Edges[_i130].Target.Param = string(data[:_n])
+						data = data[_n:]
+					}
+					_ov46.Edges[_i130].Kind = ir.EdgeKind(binary.BigEndian.Uint64(data[:8]))
+					data = data[8:]
+				}
+			}
+		} else {
+			data = data[1:]
+		}
+		if data[0] == 1 {
+			data = data[1:]
+			{
+				_n := binary.BigEndian.Uint32(data[:4])
+				data = data[4:]
+				_ov46.Strata = make([][]string, _n)
+				for _i132 := range _ov46.Strata {
+					{
+						_n := binary.BigEndian.Uint32(data[:4])
+						data = data[4:]
+						_ov46.Strata[_i132] = make([]string, _n)
+						for _i134 := range _ov46.Strata[_i132] {
+							{
+								_n := binary.BigEndian.Uint32(data[:4])
+								data = data[4:]
+								_ov46.Strata[_i132][_i134] = string(data[:_n])
+								data = data[_n:]
+							}
+						}
+					}
+				}
+			}
+		} else {
+			data = data[1:]
+		}
+		if data[0] == 1 {
+			data = data[1:]
+			{
+				_n := binary.BigEndian.Uint32(data[:4])
+				data = data[4:]
+				_ov46.Sequences = make([]ir.Sequence, _n)
+				for _i136 := range _ov46.Sequences {
+					{
+						_n := binary.BigEndian.Uint32(data[:4])
+						data = data[4:]
+						_ov46.Sequences[_i136].Key = string(data[:_n])
+						data = data[_n:]
+					}
+					{
+						_n := binary.BigEndian.Uint32(data[:4])
+						data = data[4:]
+						_ov46.Sequences[_i136].Stages = make([]ir.Stage, _n)
+						for _i138 := range _ov46.Sequences[_i136].Stages {
+							{
+								_n := binary.BigEndian.Uint32(data[:4])
+								data = data[4:]
+								_ov46.Sequences[_i136].Stages[_i138].Key = string(data[:_n])
+								data = data[_n:]
+							}
+							{
+								_n := binary.BigEndian.Uint32(data[:4])
+								data = data[4:]
+								_ov46.Sequences[_i136].Stages[_i138].Nodes = make([]string, _n)
+								for _i140 := range _ov46.Sequences[_i136].Stages[_i138].Nodes {
+									{
+										_n := binary.BigEndian.Uint32(data[:4])
+										data = data[4:]
+										_ov46.Sequences[_i136].Stages[_i138].Nodes[_i140] = string(data[:_n])
+										data = data[_n:]
+									}
+								}
+							}
+							{
+								_n := binary.BigEndian.Uint32(data[:4])
+								data = data[4:]
+								_ov46.Sequences[_i136].Stages[_i138].Strata = make([][]string, _n)
+								for _i142 := range _ov46.Sequences[_i136].Stages[_i138].Strata {
+									{
+										_n := binary.BigEndian.Uint32(data[:4])
+										data = data[4:]
+										_ov46.Sequences[_i136].Stages[_i138].Strata[_i142] = make([]string, _n)
+										for _i144 := range _ov46.Sequences[_i136].Stages[_i138].Strata[_i142] {
+											{
+												_n := binary.BigEndian.Uint32(data[:4])
+												data = data[4:]
+												_ov46.Sequences[_i136].Stages[_i138].Strata[_i142][_i144] = string(data[:_n])
+												data = data[_n:]
+											}
+										}
+									}
+								}
+							}
+						}
+					}
+				}
+			}
+		} else {
+			data = data[1:]
+		}
+		if data[0] == 1 {
+			data = data[1:]
+			var _ov145 uint8
+			_ov145 = uint8(data[0])
+			data = data[1:]
+			_ov46.Authorities.Default = &_ov145
+		} else {
+			data = data[1:]
+		}
+		if data[0] == 1 {
+			data = data[1:]
+			{
+				_n := binary.BigEndian.Uint32(data[:4])
+				data = data[4:]
+				_ov46.Authorities.Channels = make(map[uint32]uint8, _n)
+				for _mi148 := uint32(0); _mi148 < _n; _mi148++ {
+					var _mk146 uint32
+					var _mv147 uint8
+					_mk146 = uint32(binary.BigEndian.Uint32(data[:4]))
+					data = data[4:]
+					_mv147 = uint8(data[0])
+					data = data[1:]
+					_ov46.Authorities.Channels[_mk146] = _mv147
+				}
+			}
+		} else {
+			data = data[1:]
+		}
+		{
+			_n := binary.BigEndian.Uint32(data[:4])
+			data = data[4:]
+			_ov46.WASM = append([]byte(nil), data[:_n]...)
+			data = data[_n:]
+		}
+		{
+			_n := binary.BigEndian.Uint32(data[:4])
+			data = data[4:]
+			_ov46.OutputMemoryBases = make(map[string]uint32, _n)
+			for _mi151 := uint32(0); _mi151 < _n; _mi151++ {
+				var _mk149 string
+				var _mv150 uint32
+				{
+					_n := binary.BigEndian.Uint32(data[:4])
+					data = data[4:]
+					_mk149 = string(data[:_n])
+					data = data[_n:]
+				}
+				_mv150 = uint32(binary.BigEndian.Uint32(data[:4]))
+				data = data[4:]
+				_ov46.OutputMemoryBases[_mk149] = _mv150
+			}
+		}
+		r.Module = &_ov46
+	} else {
+		data = data[1:]
+	}
+	if data[0] == 1 {
+		data = data[1:]
+		var _ov152 arc.Status
+		{
+			_n := binary.BigEndian.Uint32(data[:4])
+			data = data[4:]
+			_ov152.Key = string(data[:_n])
+			data = data[_n:]
+		}
+		{
+			_n := binary.BigEndian.Uint32(data[:4])
+			data = data[4:]
+			_ov152.Name = string(data[:_n])
+			data = data[_n:]
+		}
+		{
+			_n := binary.BigEndian.Uint32(data[:4])
+			data = data[4:]
+			_ov152.Variant = status.Variant(data[:_n])
+			data = data[_n:]
+		}
+		{
+			_n := binary.BigEndian.Uint32(data[:4])
+			data = data[4:]
+			_ov152.Message = string(data[:_n])
+			data = data[_n:]
+		}
+		{
+			_n := binary.BigEndian.Uint32(data[:4])
+			data = data[4:]
+			_ov152.Description = string(data[:_n])
+			data = data[_n:]
+		}
+		_ov152.Time = telem.TimeStamp(binary.BigEndian.Uint64(data[:8]))
+		data = data[8:]
+		_ov152.Details.Running = data[0] != 0
+		data = data[1:]
+		if data[0] == 1 {
+			data = data[1:]
+			{
+				_n := binary.BigEndian.Uint32(data[:4])
+				data = data[4:]
+				_ov152.Labels = make([]label.Label, _n)
+				for _i154 := range _ov152.Labels {
+					copy(_ov152.Labels[_i154].Key[:], data[:16])
+					data = data[16:]
+					{
+						_n := binary.BigEndian.Uint32(data[:4])
+						data = data[4:]
+						_ov152.Labels[_i154].Name = string(data[:_n])
+						data = data[_n:]
+					}
+					_ov152.Labels[_i154].Color.R = uint8(data[0])
+					data = data[1:]
+					_ov152.Labels[_i154].Color.G = uint8(data[0])
+					data = data[1:]
+					_ov152.Labels[_i154].Color.B = uint8(data[0])
+					data = data[1:]
+					_ov152.Labels[_i154].Color.A = float64(math.Float64frombits(binary.BigEndian.Uint64(data[:8])))
+					data = data[8:]
+				}
+			}
+		} else {
+			data = data[1:]
+		}
+		r.Status = &_ov152
+	} else {
+		data = data[1:]
+	}
+	return r, nil
 }
 
 var ArcCodec gorp.Codec[arc.Arc] = arcCodec{}
+
+func marshaltypesParam(s types.Param) ([]byte, error) {
+	buf := make([]byte, 0, 512)
+	buf = binary.BigEndian.AppendUint32(buf, uint32(len(s.Name)))
+	buf = append(buf, s.Name...)
+	if s.Type.Inputs != nil {
+		buf = append(buf, 1)
+		buf = binary.BigEndian.AppendUint32(buf, uint32(len(s.Type.Inputs)))
+		for _, _e1 := range s.Type.Inputs {
+			{
+				_sub, _se := marshaltypesParam(_e1)
+				if _se != nil {
+					return nil, _se
+				}
+				buf = binary.BigEndian.AppendUint32(buf, uint32(len(_sub)))
+				buf = append(buf, _sub...)
+			}
+		}
+	} else {
+		buf = append(buf, 0)
+	}
+	if s.Type.Outputs != nil {
+		buf = append(buf, 1)
+		buf = binary.BigEndian.AppendUint32(buf, uint32(len(s.Type.Outputs)))
+		for _, _e3 := range s.Type.Outputs {
+			{
+				_sub, _se := marshaltypesParam(_e3)
+				if _se != nil {
+					return nil, _se
+				}
+				buf = binary.BigEndian.AppendUint32(buf, uint32(len(_sub)))
+				buf = append(buf, _sub...)
+			}
+		}
+	} else {
+		buf = append(buf, 0)
+	}
+	if s.Type.Config != nil {
+		buf = append(buf, 1)
+		buf = binary.BigEndian.AppendUint32(buf, uint32(len(s.Type.Config)))
+		for _, _e5 := range s.Type.Config {
+			{
+				_sub, _se := marshaltypesParam(_e5)
+				if _se != nil {
+					return nil, _se
+				}
+				buf = binary.BigEndian.AppendUint32(buf, uint32(len(_sub)))
+				buf = append(buf, _sub...)
+			}
+		}
+	} else {
+		buf = append(buf, 0)
+	}
+	buf = binary.BigEndian.AppendUint64(buf, uint64(s.Type.Kind))
+	buf = binary.BigEndian.AppendUint32(buf, uint32(len(s.Type.Name)))
+	buf = append(buf, s.Type.Name...)
+	if s.Type.Elem != nil {
+		buf = append(buf, 1)
+		{
+			_sub, _se := marshaltypesType((*s.Type.Elem))
+			if _se != nil {
+				return nil, _se
+			}
+			buf = binary.BigEndian.AppendUint32(buf, uint32(len(_sub)))
+			buf = append(buf, _sub...)
+		}
+	} else {
+		buf = append(buf, 0)
+	}
+	if s.Type.Unit != nil {
+		buf = append(buf, 1)
+		buf = append(buf, byte((*s.Type.Unit).Dimensions.Length))
+		buf = append(buf, byte((*s.Type.Unit).Dimensions.Mass))
+		buf = append(buf, byte((*s.Type.Unit).Dimensions.Time))
+		buf = append(buf, byte((*s.Type.Unit).Dimensions.Current))
+		buf = append(buf, byte((*s.Type.Unit).Dimensions.Temperature))
+		buf = append(buf, byte((*s.Type.Unit).Dimensions.Angle))
+		buf = append(buf, byte((*s.Type.Unit).Dimensions.Count))
+		buf = append(buf, byte((*s.Type.Unit).Dimensions.Data))
+		buf = binary.BigEndian.AppendUint64(buf, math.Float64bits(float64((*s.Type.Unit).Scale)))
+		buf = binary.BigEndian.AppendUint32(buf, uint32(len((*s.Type.Unit).Name)))
+		buf = append(buf, (*s.Type.Unit).Name...)
+	} else {
+		buf = append(buf, 0)
+	}
+	if s.Type.Constraint != nil {
+		buf = append(buf, 1)
+		{
+			_sub, _se := marshaltypesType((*s.Type.Constraint))
+			if _se != nil {
+				return nil, _se
+			}
+			buf = binary.BigEndian.AppendUint32(buf, uint32(len(_sub)))
+			buf = append(buf, _sub...)
+		}
+	} else {
+		buf = append(buf, 0)
+	}
+	buf = binary.BigEndian.AppendUint64(buf, uint64(s.Type.ChanDirection))
+	{
+		_jb, _je := json.Marshal(s.Value)
+		if _je != nil {
+			return nil, _je
+		}
+		buf = binary.BigEndian.AppendUint32(buf, uint32(len(_jb)))
+		buf = append(buf, _jb...)
+	}
+	return buf, nil
+}
+
+func unmarshaltypesParam(data []byte) (types.Param, error) {
+	var r types.Param
+	{
+		_n := binary.BigEndian.Uint32(data[:4])
+		data = data[4:]
+		r.Name = string(data[:_n])
+		data = data[_n:]
+	}
+	if data[0] == 1 {
+		data = data[1:]
+		{
+			_n := binary.BigEndian.Uint32(data[:4])
+			data = data[4:]
+			r.Type.Inputs = make([]types.Param, _n)
+			for _i2 := range r.Type.Inputs {
+				{
+					_sLen := binary.BigEndian.Uint32(data[:4])
+					data = data[4:]
+					_sv, _se := unmarshaltypesParam(data[:_sLen])
+					if _se != nil {
+						return r, _se
+					}
+					r.Type.Inputs[_i2] = _sv
+					data = data[_sLen:]
+				}
+			}
+		}
+	} else {
+		data = data[1:]
+	}
+	if data[0] == 1 {
+		data = data[1:]
+		{
+			_n := binary.BigEndian.Uint32(data[:4])
+			data = data[4:]
+			r.Type.Outputs = make([]types.Param, _n)
+			for _i4 := range r.Type.Outputs {
+				{
+					_sLen := binary.BigEndian.Uint32(data[:4])
+					data = data[4:]
+					_sv, _se := unmarshaltypesParam(data[:_sLen])
+					if _se != nil {
+						return r, _se
+					}
+					r.Type.Outputs[_i4] = _sv
+					data = data[_sLen:]
+				}
+			}
+		}
+	} else {
+		data = data[1:]
+	}
+	if data[0] == 1 {
+		data = data[1:]
+		{
+			_n := binary.BigEndian.Uint32(data[:4])
+			data = data[4:]
+			r.Type.Config = make([]types.Param, _n)
+			for _i6 := range r.Type.Config {
+				{
+					_sLen := binary.BigEndian.Uint32(data[:4])
+					data = data[4:]
+					_sv, _se := unmarshaltypesParam(data[:_sLen])
+					if _se != nil {
+						return r, _se
+					}
+					r.Type.Config[_i6] = _sv
+					data = data[_sLen:]
+				}
+			}
+		}
+	} else {
+		data = data[1:]
+	}
+	r.Type.Kind = types.Kind(binary.BigEndian.Uint64(data[:8]))
+	data = data[8:]
+	{
+		_n := binary.BigEndian.Uint32(data[:4])
+		data = data[4:]
+		r.Type.Name = string(data[:_n])
+		data = data[_n:]
+	}
+	if data[0] == 1 {
+		data = data[1:]
+		var _ov7 types.Type
+		{
+			_sLen := binary.BigEndian.Uint32(data[:4])
+			data = data[4:]
+			_sv, _se := unmarshaltypesType(data[:_sLen])
+			if _se != nil {
+				return r, _se
+			}
+			_ov7 = _sv
+			data = data[_sLen:]
+		}
+		r.Type.Elem = &_ov7
+	} else {
+		data = data[1:]
+	}
+	if data[0] == 1 {
+		data = data[1:]
+		var _ov8 types.Unit
+		_ov8.Dimensions.Length = int8(data[0])
+		data = data[1:]
+		_ov8.Dimensions.Mass = int8(data[0])
+		data = data[1:]
+		_ov8.Dimensions.Time = int8(data[0])
+		data = data[1:]
+		_ov8.Dimensions.Current = int8(data[0])
+		data = data[1:]
+		_ov8.Dimensions.Temperature = int8(data[0])
+		data = data[1:]
+		_ov8.Dimensions.Angle = int8(data[0])
+		data = data[1:]
+		_ov8.Dimensions.Count = int8(data[0])
+		data = data[1:]
+		_ov8.Dimensions.Data = int8(data[0])
+		data = data[1:]
+		_ov8.Scale = float64(math.Float64frombits(binary.BigEndian.Uint64(data[:8])))
+		data = data[8:]
+		{
+			_n := binary.BigEndian.Uint32(data[:4])
+			data = data[4:]
+			_ov8.Name = string(data[:_n])
+			data = data[_n:]
+		}
+		r.Type.Unit = &_ov8
+	} else {
+		data = data[1:]
+	}
+	if data[0] == 1 {
+		data = data[1:]
+		var _ov9 types.Type
+		{
+			_sLen := binary.BigEndian.Uint32(data[:4])
+			data = data[4:]
+			_sv, _se := unmarshaltypesType(data[:_sLen])
+			if _se != nil {
+				return r, _se
+			}
+			_ov9 = _sv
+			data = data[_sLen:]
+		}
+		r.Type.Constraint = &_ov9
+	} else {
+		data = data[1:]
+	}
+	r.Type.ChanDirection = types.ChanDirection(binary.BigEndian.Uint64(data[:8]))
+	data = data[8:]
+	{
+		_n := binary.BigEndian.Uint32(data[:4])
+		data = data[4:]
+		if err := json.Unmarshal(data[:_n], &r.Value); err != nil {
+			return r, err
+		}
+		data = data[_n:]
+	}
+	return r, nil
+}
+
+func marshaltypesType(s types.Type) ([]byte, error) {
+	buf := make([]byte, 0, 704)
+	if s.Inputs != nil {
+		buf = append(buf, 1)
+		buf = binary.BigEndian.AppendUint32(buf, uint32(len(s.Inputs)))
+		for _, _e1 := range s.Inputs {
+			buf = binary.BigEndian.AppendUint32(buf, uint32(len(_e1.Name)))
+			buf = append(buf, _e1.Name...)
+			{
+				_sub, _se := marshaltypesType(_e1.Type)
+				if _se != nil {
+					return nil, _se
+				}
+				buf = binary.BigEndian.AppendUint32(buf, uint32(len(_sub)))
+				buf = append(buf, _sub...)
+			}
+			{
+				_jb, _je := json.Marshal(_e1.Value)
+				if _je != nil {
+					return nil, _je
+				}
+				buf = binary.BigEndian.AppendUint32(buf, uint32(len(_jb)))
+				buf = append(buf, _jb...)
+			}
+		}
+	} else {
+		buf = append(buf, 0)
+	}
+	if s.Outputs != nil {
+		buf = append(buf, 1)
+		buf = binary.BigEndian.AppendUint32(buf, uint32(len(s.Outputs)))
+		for _, _e3 := range s.Outputs {
+			buf = binary.BigEndian.AppendUint32(buf, uint32(len(_e3.Name)))
+			buf = append(buf, _e3.Name...)
+			{
+				_sub, _se := marshaltypesType(_e3.Type)
+				if _se != nil {
+					return nil, _se
+				}
+				buf = binary.BigEndian.AppendUint32(buf, uint32(len(_sub)))
+				buf = append(buf, _sub...)
+			}
+			{
+				_jb, _je := json.Marshal(_e3.Value)
+				if _je != nil {
+					return nil, _je
+				}
+				buf = binary.BigEndian.AppendUint32(buf, uint32(len(_jb)))
+				buf = append(buf, _jb...)
+			}
+		}
+	} else {
+		buf = append(buf, 0)
+	}
+	if s.Config != nil {
+		buf = append(buf, 1)
+		buf = binary.BigEndian.AppendUint32(buf, uint32(len(s.Config)))
+		for _, _e5 := range s.Config {
+			buf = binary.BigEndian.AppendUint32(buf, uint32(len(_e5.Name)))
+			buf = append(buf, _e5.Name...)
+			{
+				_sub, _se := marshaltypesType(_e5.Type)
+				if _se != nil {
+					return nil, _se
+				}
+				buf = binary.BigEndian.AppendUint32(buf, uint32(len(_sub)))
+				buf = append(buf, _sub...)
+			}
+			{
+				_jb, _je := json.Marshal(_e5.Value)
+				if _je != nil {
+					return nil, _je
+				}
+				buf = binary.BigEndian.AppendUint32(buf, uint32(len(_jb)))
+				buf = append(buf, _jb...)
+			}
+		}
+	} else {
+		buf = append(buf, 0)
+	}
+	buf = binary.BigEndian.AppendUint64(buf, uint64(s.Kind))
+	buf = binary.BigEndian.AppendUint32(buf, uint32(len(s.Name)))
+	buf = append(buf, s.Name...)
+	if s.Elem != nil {
+		buf = append(buf, 1)
+		{
+			_sub, _se := marshaltypesType((*s.Elem))
+			if _se != nil {
+				return nil, _se
+			}
+			buf = binary.BigEndian.AppendUint32(buf, uint32(len(_sub)))
+			buf = append(buf, _sub...)
+		}
+	} else {
+		buf = append(buf, 0)
+	}
+	if s.Unit != nil {
+		buf = append(buf, 1)
+		buf = append(buf, byte((*s.Unit).Dimensions.Length))
+		buf = append(buf, byte((*s.Unit).Dimensions.Mass))
+		buf = append(buf, byte((*s.Unit).Dimensions.Time))
+		buf = append(buf, byte((*s.Unit).Dimensions.Current))
+		buf = append(buf, byte((*s.Unit).Dimensions.Temperature))
+		buf = append(buf, byte((*s.Unit).Dimensions.Angle))
+		buf = append(buf, byte((*s.Unit).Dimensions.Count))
+		buf = append(buf, byte((*s.Unit).Dimensions.Data))
+		buf = binary.BigEndian.AppendUint64(buf, math.Float64bits(float64((*s.Unit).Scale)))
+		buf = binary.BigEndian.AppendUint32(buf, uint32(len((*s.Unit).Name)))
+		buf = append(buf, (*s.Unit).Name...)
+	} else {
+		buf = append(buf, 0)
+	}
+	if s.Constraint != nil {
+		buf = append(buf, 1)
+		{
+			_sub, _se := marshaltypesType((*s.Constraint))
+			if _se != nil {
+				return nil, _se
+			}
+			buf = binary.BigEndian.AppendUint32(buf, uint32(len(_sub)))
+			buf = append(buf, _sub...)
+		}
+	} else {
+		buf = append(buf, 0)
+	}
+	buf = binary.BigEndian.AppendUint64(buf, uint64(s.ChanDirection))
+	return buf, nil
+}
+
+func unmarshaltypesType(data []byte) (types.Type, error) {
+	var r types.Type
+	if data[0] == 1 {
+		data = data[1:]
+		{
+			_n := binary.BigEndian.Uint32(data[:4])
+			data = data[4:]
+			r.Inputs = make([]types.Param, _n)
+			for _i2 := range r.Inputs {
+				{
+					_n := binary.BigEndian.Uint32(data[:4])
+					data = data[4:]
+					r.Inputs[_i2].Name = string(data[:_n])
+					data = data[_n:]
+				}
+				{
+					_sLen := binary.BigEndian.Uint32(data[:4])
+					data = data[4:]
+					_sv, _se := unmarshaltypesType(data[:_sLen])
+					if _se != nil {
+						return r, _se
+					}
+					r.Inputs[_i2].Type = _sv
+					data = data[_sLen:]
+				}
+				{
+					_n := binary.BigEndian.Uint32(data[:4])
+					data = data[4:]
+					if err := json.Unmarshal(data[:_n], &r.Inputs[_i2].Value); err != nil {
+						return r, err
+					}
+					data = data[_n:]
+				}
+			}
+		}
+	} else {
+		data = data[1:]
+	}
+	if data[0] == 1 {
+		data = data[1:]
+		{
+			_n := binary.BigEndian.Uint32(data[:4])
+			data = data[4:]
+			r.Outputs = make([]types.Param, _n)
+			for _i4 := range r.Outputs {
+				{
+					_n := binary.BigEndian.Uint32(data[:4])
+					data = data[4:]
+					r.Outputs[_i4].Name = string(data[:_n])
+					data = data[_n:]
+				}
+				{
+					_sLen := binary.BigEndian.Uint32(data[:4])
+					data = data[4:]
+					_sv, _se := unmarshaltypesType(data[:_sLen])
+					if _se != nil {
+						return r, _se
+					}
+					r.Outputs[_i4].Type = _sv
+					data = data[_sLen:]
+				}
+				{
+					_n := binary.BigEndian.Uint32(data[:4])
+					data = data[4:]
+					if err := json.Unmarshal(data[:_n], &r.Outputs[_i4].Value); err != nil {
+						return r, err
+					}
+					data = data[_n:]
+				}
+			}
+		}
+	} else {
+		data = data[1:]
+	}
+	if data[0] == 1 {
+		data = data[1:]
+		{
+			_n := binary.BigEndian.Uint32(data[:4])
+			data = data[4:]
+			r.Config = make([]types.Param, _n)
+			for _i6 := range r.Config {
+				{
+					_n := binary.BigEndian.Uint32(data[:4])
+					data = data[4:]
+					r.Config[_i6].Name = string(data[:_n])
+					data = data[_n:]
+				}
+				{
+					_sLen := binary.BigEndian.Uint32(data[:4])
+					data = data[4:]
+					_sv, _se := unmarshaltypesType(data[:_sLen])
+					if _se != nil {
+						return r, _se
+					}
+					r.Config[_i6].Type = _sv
+					data = data[_sLen:]
+				}
+				{
+					_n := binary.BigEndian.Uint32(data[:4])
+					data = data[4:]
+					if err := json.Unmarshal(data[:_n], &r.Config[_i6].Value); err != nil {
+						return r, err
+					}
+					data = data[_n:]
+				}
+			}
+		}
+	} else {
+		data = data[1:]
+	}
+	r.Kind = types.Kind(binary.BigEndian.Uint64(data[:8]))
+	data = data[8:]
+	{
+		_n := binary.BigEndian.Uint32(data[:4])
+		data = data[4:]
+		r.Name = string(data[:_n])
+		data = data[_n:]
+	}
+	if data[0] == 1 {
+		data = data[1:]
+		var _ov7 types.Type
+		{
+			_sLen := binary.BigEndian.Uint32(data[:4])
+			data = data[4:]
+			_sv, _se := unmarshaltypesType(data[:_sLen])
+			if _se != nil {
+				return r, _se
+			}
+			_ov7 = _sv
+			data = data[_sLen:]
+		}
+		r.Elem = &_ov7
+	} else {
+		data = data[1:]
+	}
+	if data[0] == 1 {
+		data = data[1:]
+		var _ov8 types.Unit
+		_ov8.Dimensions.Length = int8(data[0])
+		data = data[1:]
+		_ov8.Dimensions.Mass = int8(data[0])
+		data = data[1:]
+		_ov8.Dimensions.Time = int8(data[0])
+		data = data[1:]
+		_ov8.Dimensions.Current = int8(data[0])
+		data = data[1:]
+		_ov8.Dimensions.Temperature = int8(data[0])
+		data = data[1:]
+		_ov8.Dimensions.Angle = int8(data[0])
+		data = data[1:]
+		_ov8.Dimensions.Count = int8(data[0])
+		data = data[1:]
+		_ov8.Dimensions.Data = int8(data[0])
+		data = data[1:]
+		_ov8.Scale = float64(math.Float64frombits(binary.BigEndian.Uint64(data[:8])))
+		data = data[8:]
+		{
+			_n := binary.BigEndian.Uint32(data[:4])
+			data = data[4:]
+			_ov8.Name = string(data[:_n])
+			data = data[_n:]
+		}
+		r.Unit = &_ov8
+	} else {
+		data = data[1:]
+	}
+	if data[0] == 1 {
+		data = data[1:]
+		var _ov9 types.Type
+		{
+			_sLen := binary.BigEndian.Uint32(data[:4])
+			data = data[4:]
+			_sv, _se := unmarshaltypesType(data[:_sLen])
+			if _se != nil {
+				return r, _se
+			}
+			_ov9 = _sv
+			data = data[_sLen:]
+		}
+		r.Constraint = &_ov9
+	} else {
+		data = data[1:]
+	}
+	r.ChanDirection = types.ChanDirection(binary.BigEndian.Uint64(data[:8]))
+	data = data[8:]
+	return r, nil
+}

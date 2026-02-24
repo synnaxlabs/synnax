@@ -13,36 +13,66 @@ package pb
 
 import (
 	"context"
-
-	"google.golang.org/protobuf/proto"
+	"encoding/binary"
+	"encoding/json"
 
 	"github.com/synnaxlabs/x/gorp"
 
 	table "github.com/synnaxlabs/synnax/pkg/service/table"
 )
 
+var _ = binary.BigEndian
+
+const (
+	TableFieldKey   = 0
+	TableFieldName  = 1
+	TableFieldData  = 2
+	TableFieldCount = 3
+)
+
 type tableCodec struct{}
 
 func (tableCodec) Marshal(
-	ctx context.Context,
+	_ context.Context,
 	s table.Table,
 ) ([]byte, error) {
-	p, err := TableToPB(ctx, s)
-	if err != nil {
-		return nil, err
+	buf := make([]byte, 0, 112)
+	buf = append(buf, s.Key[:]...)
+	buf = binary.BigEndian.AppendUint32(buf, uint32(len(s.Name)))
+	buf = append(buf, s.Name...)
+	{
+		_jb, _je := json.Marshal(s.Data)
+		if _je != nil {
+			return nil, _je
+		}
+		buf = binary.BigEndian.AppendUint32(buf, uint32(len(_jb)))
+		buf = append(buf, _jb...)
 	}
-	return proto.Marshal(p)
+	return buf, nil
 }
 
 func (tableCodec) Unmarshal(
-	ctx context.Context,
+	_ context.Context,
 	data []byte,
 ) (table.Table, error) {
-	p := &Table{}
-	if err := proto.Unmarshal(data, p); err != nil {
-		return table.Table{}, err
+	var r table.Table
+	copy(r.Key[:], data[:16])
+	data = data[16:]
+	{
+		_n := binary.BigEndian.Uint32(data[:4])
+		data = data[4:]
+		r.Name = string(data[:_n])
+		data = data[_n:]
 	}
-	return TableFromPB(ctx, p)
+	{
+		_n := binary.BigEndian.Uint32(data[:4])
+		data = data[4:]
+		if err := json.Unmarshal(data[:_n], &r.Data); err != nil {
+			return r, err
+		}
+		data = data[_n:]
+	}
+	return r, nil
 }
 
 var TableCodec gorp.Codec[table.Table] = tableCodec{}

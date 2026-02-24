@@ -33,13 +33,6 @@ import (
 
 const goModulePrefix = "github.com/synnaxlabs/synnax/"
 
-func toPascalCase(s string) string {
-	if naming.IsScreamingCase(s) {
-		return s
-	}
-	return lo.PascalCase(s)
-}
-
 // primitiveMapper is the Go-specific primitive type mapper.
 var primitiveMapper = goprimitives.Mapper()
 
@@ -193,7 +186,7 @@ func processEnum(e resolution.Type) enumData {
 	values := make([]enumValueData, 0, len(form.Values))
 	for _, v := range form.Values {
 		values = append(values, enumValueData{
-			Name:     toPascalCase(v.Name),
+			Name:     naming.ToPascalCase(v.Name),
 			Value:    v.StringValue(),
 			IntValue: v.IntValue(),
 		})
@@ -393,7 +386,7 @@ func processField(field resolution.Field, data *templateData) fieldData {
 		goType = "*" + goType
 	}
 	return fieldData{
-		GoName:         toPascalCase(field.Name),
+		GoName:         naming.GetFieldName(field),
 		GoType:         goType,
 		JSONName:       lo.SnakeCase(field.Name),
 		IsOptional:     field.IsOptional || field.IsHardOptional,

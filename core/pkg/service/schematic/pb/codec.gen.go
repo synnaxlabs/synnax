@@ -13,36 +13,74 @@ package pb
 
 import (
 	"context"
-
-	"google.golang.org/protobuf/proto"
+	"encoding/binary"
+	"encoding/json"
 
 	"github.com/synnaxlabs/x/gorp"
 
 	schematic "github.com/synnaxlabs/synnax/pkg/service/schematic"
 )
 
+var _ = binary.BigEndian
+
+const (
+	SchematicFieldKey      = 0
+	SchematicFieldName     = 1
+	SchematicFieldData     = 2
+	SchematicFieldSnapshot = 3
+	SchematicFieldCount    = 4
+)
+
 type schematicCodec struct{}
 
 func (schematicCodec) Marshal(
-	ctx context.Context,
+	_ context.Context,
 	s schematic.Schematic,
 ) ([]byte, error) {
-	p, err := SchematicToPB(ctx, s)
-	if err != nil {
-		return nil, err
+	buf := make([]byte, 0, 113)
+	buf = append(buf, s.Key[:]...)
+	buf = binary.BigEndian.AppendUint32(buf, uint32(len(s.Name)))
+	buf = append(buf, s.Name...)
+	{
+		_jb, _je := json.Marshal(s.Data)
+		if _je != nil {
+			return nil, _je
+		}
+		buf = binary.BigEndian.AppendUint32(buf, uint32(len(_jb)))
+		buf = append(buf, _jb...)
 	}
-	return proto.Marshal(p)
+	if s.Snapshot {
+		buf = append(buf, 1)
+	} else {
+		buf = append(buf, 0)
+	}
+	return buf, nil
 }
 
 func (schematicCodec) Unmarshal(
-	ctx context.Context,
+	_ context.Context,
 	data []byte,
 ) (schematic.Schematic, error) {
-	p := &Schematic{}
-	if err := proto.Unmarshal(data, p); err != nil {
-		return schematic.Schematic{}, err
+	var r schematic.Schematic
+	copy(r.Key[:], data[:16])
+	data = data[16:]
+	{
+		_n := binary.BigEndian.Uint32(data[:4])
+		data = data[4:]
+		r.Name = string(data[:_n])
+		data = data[_n:]
 	}
-	return SchematicFromPB(ctx, p)
+	{
+		_n := binary.BigEndian.Uint32(data[:4])
+		data = data[4:]
+		if err := json.Unmarshal(data[:_n], &r.Data); err != nil {
+			return r, err
+		}
+		data = data[_n:]
+	}
+	r.Snapshot = data[0] != 0
+	data = data[1:]
+	return r, nil
 }
 
 var SchematicCodec gorp.Codec[schematic.Schematic] = schematicCodec{}

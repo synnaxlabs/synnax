@@ -13,36 +13,238 @@ package pb
 
 import (
 	"context"
-
-	"google.golang.org/protobuf/proto"
+	"encoding/binary"
+	"encoding/json"
+	"math"
 
 	"github.com/synnaxlabs/x/gorp"
 
 	device "github.com/synnaxlabs/synnax/pkg/service/device"
+	rack "github.com/synnaxlabs/synnax/pkg/service/rack"
+	label "github.com/synnaxlabs/x/label"
+	status "github.com/synnaxlabs/x/status"
+	telem "github.com/synnaxlabs/x/telem"
+)
+
+var _ = binary.BigEndian
+
+const (
+	DeviceFieldKey                    = 0
+	DeviceFieldRack                   = 1
+	DeviceFieldLocation               = 2
+	DeviceFieldMake                   = 3
+	DeviceFieldModel                  = 4
+	DeviceFieldName                   = 5
+	DeviceFieldConfigured             = 6
+	DeviceFieldProperties             = 7
+	DeviceFieldStatusKey              = 8
+	DeviceFieldStatusName             = 9
+	DeviceFieldStatusVariant          = 10
+	DeviceFieldStatusMessage          = 11
+	DeviceFieldStatusDescription      = 12
+	DeviceFieldStatusTime             = 13
+	DeviceFieldStatusDetailsRack      = 14
+	DeviceFieldStatusDetailsDevice    = 15
+	DeviceFieldStatusLabelsElemKey    = 16
+	DeviceFieldStatusLabelsElemName   = 17
+	DeviceFieldStatusLabelsElemColorR = 18
+	DeviceFieldStatusLabelsElemColorG = 19
+	DeviceFieldStatusLabelsElemColorB = 20
+	DeviceFieldStatusLabelsElemColorA = 21
+	DeviceFieldCount                  = 22
 )
 
 type deviceCodec struct{}
 
 func (deviceCodec) Marshal(
-	ctx context.Context,
+	_ context.Context,
 	s device.Device,
 ) ([]byte, error) {
-	p, err := DeviceToPB(ctx, s)
-	if err != nil {
-		return nil, err
+	buf := make([]byte, 0, 492)
+	buf = binary.BigEndian.AppendUint32(buf, uint32(len(s.Key)))
+	buf = append(buf, s.Key...)
+	buf = binary.BigEndian.AppendUint32(buf, uint32(s.Rack))
+	buf = binary.BigEndian.AppendUint32(buf, uint32(len(s.Location)))
+	buf = append(buf, s.Location...)
+	buf = binary.BigEndian.AppendUint32(buf, uint32(len(s.Make)))
+	buf = append(buf, s.Make...)
+	buf = binary.BigEndian.AppendUint32(buf, uint32(len(s.Model)))
+	buf = append(buf, s.Model...)
+	buf = binary.BigEndian.AppendUint32(buf, uint32(len(s.Name)))
+	buf = append(buf, s.Name...)
+	if s.Configured {
+		buf = append(buf, 1)
+	} else {
+		buf = append(buf, 0)
 	}
-	return proto.Marshal(p)
+	{
+		_jb, _je := json.Marshal(s.Properties)
+		if _je != nil {
+			return nil, _je
+		}
+		buf = binary.BigEndian.AppendUint32(buf, uint32(len(_jb)))
+		buf = append(buf, _jb...)
+	}
+	if s.Status != nil {
+		buf = append(buf, 1)
+		buf = binary.BigEndian.AppendUint32(buf, uint32(len((*s.Status).Key)))
+		buf = append(buf, (*s.Status).Key...)
+		buf = binary.BigEndian.AppendUint32(buf, uint32(len((*s.Status).Name)))
+		buf = append(buf, (*s.Status).Name...)
+		buf = binary.BigEndian.AppendUint32(buf, uint32(len((*s.Status).Variant)))
+		buf = append(buf, (*s.Status).Variant...)
+		buf = binary.BigEndian.AppendUint32(buf, uint32(len((*s.Status).Message)))
+		buf = append(buf, (*s.Status).Message...)
+		buf = binary.BigEndian.AppendUint32(buf, uint32(len((*s.Status).Description)))
+		buf = append(buf, (*s.Status).Description...)
+		buf = binary.BigEndian.AppendUint64(buf, uint64((*s.Status).Time))
+		buf = binary.BigEndian.AppendUint32(buf, uint32((*s.Status).Details.Rack))
+		buf = binary.BigEndian.AppendUint32(buf, uint32(len((*s.Status).Details.Device)))
+		buf = append(buf, (*s.Status).Details.Device...)
+		if (*s.Status).Labels != nil {
+			buf = append(buf, 1)
+			buf = binary.BigEndian.AppendUint32(buf, uint32(len((*s.Status).Labels)))
+			for _, _e2 := range (*s.Status).Labels {
+				buf = append(buf, _e2.Key[:]...)
+				buf = binary.BigEndian.AppendUint32(buf, uint32(len(_e2.Name)))
+				buf = append(buf, _e2.Name...)
+				buf = append(buf, byte(_e2.Color.R))
+				buf = append(buf, byte(_e2.Color.G))
+				buf = append(buf, byte(_e2.Color.B))
+				buf = binary.BigEndian.AppendUint64(buf, math.Float64bits(float64(_e2.Color.A)))
+			}
+		} else {
+			buf = append(buf, 0)
+		}
+	} else {
+		buf = append(buf, 0)
+	}
+	return buf, nil
 }
 
 func (deviceCodec) Unmarshal(
-	ctx context.Context,
+	_ context.Context,
 	data []byte,
 ) (device.Device, error) {
-	p := &Device{}
-	if err := proto.Unmarshal(data, p); err != nil {
-		return device.Device{}, err
+	var r device.Device
+	{
+		_n := binary.BigEndian.Uint32(data[:4])
+		data = data[4:]
+		r.Key = string(data[:_n])
+		data = data[_n:]
 	}
-	return DeviceFromPB(ctx, p)
+	r.Rack = rack.Key(binary.BigEndian.Uint32(data[:4]))
+	data = data[4:]
+	{
+		_n := binary.BigEndian.Uint32(data[:4])
+		data = data[4:]
+		r.Location = string(data[:_n])
+		data = data[_n:]
+	}
+	{
+		_n := binary.BigEndian.Uint32(data[:4])
+		data = data[4:]
+		r.Make = string(data[:_n])
+		data = data[_n:]
+	}
+	{
+		_n := binary.BigEndian.Uint32(data[:4])
+		data = data[4:]
+		r.Model = string(data[:_n])
+		data = data[_n:]
+	}
+	{
+		_n := binary.BigEndian.Uint32(data[:4])
+		data = data[4:]
+		r.Name = string(data[:_n])
+		data = data[_n:]
+	}
+	r.Configured = data[0] != 0
+	data = data[1:]
+	{
+		_n := binary.BigEndian.Uint32(data[:4])
+		data = data[4:]
+		if err := json.Unmarshal(data[:_n], &r.Properties); err != nil {
+			return r, err
+		}
+		data = data[_n:]
+	}
+	if data[0] == 1 {
+		data = data[1:]
+		var _ov1 device.Status
+		{
+			_n := binary.BigEndian.Uint32(data[:4])
+			data = data[4:]
+			_ov1.Key = string(data[:_n])
+			data = data[_n:]
+		}
+		{
+			_n := binary.BigEndian.Uint32(data[:4])
+			data = data[4:]
+			_ov1.Name = string(data[:_n])
+			data = data[_n:]
+		}
+		{
+			_n := binary.BigEndian.Uint32(data[:4])
+			data = data[4:]
+			_ov1.Variant = status.Variant(data[:_n])
+			data = data[_n:]
+		}
+		{
+			_n := binary.BigEndian.Uint32(data[:4])
+			data = data[4:]
+			_ov1.Message = string(data[:_n])
+			data = data[_n:]
+		}
+		{
+			_n := binary.BigEndian.Uint32(data[:4])
+			data = data[4:]
+			_ov1.Description = string(data[:_n])
+			data = data[_n:]
+		}
+		_ov1.Time = telem.TimeStamp(binary.BigEndian.Uint64(data[:8]))
+		data = data[8:]
+		_ov1.Details.Rack = rack.Key(binary.BigEndian.Uint32(data[:4]))
+		data = data[4:]
+		{
+			_n := binary.BigEndian.Uint32(data[:4])
+			data = data[4:]
+			_ov1.Details.Device = string(data[:_n])
+			data = data[_n:]
+		}
+		if data[0] == 1 {
+			data = data[1:]
+			{
+				_n := binary.BigEndian.Uint32(data[:4])
+				data = data[4:]
+				_ov1.Labels = make([]label.Label, _n)
+				for _i3 := range _ov1.Labels {
+					copy(_ov1.Labels[_i3].Key[:], data[:16])
+					data = data[16:]
+					{
+						_n := binary.BigEndian.Uint32(data[:4])
+						data = data[4:]
+						_ov1.Labels[_i3].Name = string(data[:_n])
+						data = data[_n:]
+					}
+					_ov1.Labels[_i3].Color.R = uint8(data[0])
+					data = data[1:]
+					_ov1.Labels[_i3].Color.G = uint8(data[0])
+					data = data[1:]
+					_ov1.Labels[_i3].Color.B = uint8(data[0])
+					data = data[1:]
+					_ov1.Labels[_i3].Color.A = float64(math.Float64frombits(binary.BigEndian.Uint64(data[:8])))
+					data = data[8:]
+				}
+			}
+		} else {
+			data = data[1:]
+		}
+		r.Status = &_ov1
+	} else {
+		data = data[1:]
+	}
+	return r, nil
 }
 
 var DeviceCodec gorp.Codec[device.Device] = deviceCodec{}

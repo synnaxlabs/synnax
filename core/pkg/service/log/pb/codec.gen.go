@@ -13,36 +13,66 @@ package pb
 
 import (
 	"context"
-
-	"google.golang.org/protobuf/proto"
+	"encoding/binary"
+	"encoding/json"
 
 	"github.com/synnaxlabs/x/gorp"
 
 	log "github.com/synnaxlabs/synnax/pkg/service/log"
 )
 
+var _ = binary.BigEndian
+
+const (
+	LogFieldKey   = 0
+	LogFieldName  = 1
+	LogFieldData  = 2
+	LogFieldCount = 3
+)
+
 type logCodec struct{}
 
 func (logCodec) Marshal(
-	ctx context.Context,
+	_ context.Context,
 	s log.Log,
 ) ([]byte, error) {
-	p, err := LogToPB(ctx, s)
-	if err != nil {
-		return nil, err
+	buf := make([]byte, 0, 112)
+	buf = append(buf, s.Key[:]...)
+	buf = binary.BigEndian.AppendUint32(buf, uint32(len(s.Name)))
+	buf = append(buf, s.Name...)
+	{
+		_jb, _je := json.Marshal(s.Data)
+		if _je != nil {
+			return nil, _je
+		}
+		buf = binary.BigEndian.AppendUint32(buf, uint32(len(_jb)))
+		buf = append(buf, _jb...)
 	}
-	return proto.Marshal(p)
+	return buf, nil
 }
 
 func (logCodec) Unmarshal(
-	ctx context.Context,
+	_ context.Context,
 	data []byte,
 ) (log.Log, error) {
-	p := &Log{}
-	if err := proto.Unmarshal(data, p); err != nil {
-		return log.Log{}, err
+	var r log.Log
+	copy(r.Key[:], data[:16])
+	data = data[16:]
+	{
+		_n := binary.BigEndian.Uint32(data[:4])
+		data = data[4:]
+		r.Name = string(data[:_n])
+		data = data[_n:]
 	}
-	return LogFromPB(ctx, p)
+	{
+		_n := binary.BigEndian.Uint32(data[:4])
+		data = data[4:]
+		if err := json.Unmarshal(data[:_n], &r.Data); err != nil {
+			return r, err
+		}
+		data = data[_n:]
+	}
+	return r, nil
 }
 
 var LogCodec gorp.Codec[log.Log] = logCodec{}

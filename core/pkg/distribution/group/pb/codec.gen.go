@@ -13,36 +13,48 @@ package pb
 
 import (
 	"context"
-
-	"google.golang.org/protobuf/proto"
+	"encoding/binary"
 
 	"github.com/synnaxlabs/x/gorp"
 
 	group "github.com/synnaxlabs/synnax/pkg/distribution/group"
 )
 
+var _ = binary.BigEndian
+
+const (
+	GroupFieldKey   = 0
+	GroupFieldName  = 1
+	GroupFieldCount = 2
+)
+
 type groupCodec struct{}
 
 func (groupCodec) Marshal(
-	ctx context.Context,
+	_ context.Context,
 	s group.Group,
 ) ([]byte, error) {
-	p, err := GroupToPB(ctx, s)
-	if err != nil {
-		return nil, err
-	}
-	return proto.Marshal(p)
+	buf := make([]byte, 0, 48)
+	buf = append(buf, s.Key[:]...)
+	buf = binary.BigEndian.AppendUint32(buf, uint32(len(s.Name)))
+	buf = append(buf, s.Name...)
+	return buf, nil
 }
 
 func (groupCodec) Unmarshal(
-	ctx context.Context,
+	_ context.Context,
 	data []byte,
 ) (group.Group, error) {
-	p := &Group{}
-	if err := proto.Unmarshal(data, p); err != nil {
-		return group.Group{}, err
+	var r group.Group
+	copy(r.Key[:], data[:16])
+	data = data[16:]
+	{
+		_n := binary.BigEndian.Uint32(data[:4])
+		data = data[4:]
+		r.Name = string(data[:_n])
+		data = data[_n:]
 	}
-	return GroupFromPB(ctx, p)
+	return r, nil
 }
 
 var GroupCodec gorp.Codec[group.Group] = groupCodec{}
