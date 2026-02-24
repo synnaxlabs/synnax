@@ -10,8 +10,3 @@ plugins:
   - remote: buf.build/protocolbuffers/go
     out: .
     opt: paths=source_relative
-  - remote: buf.build/community/planetscale-vtprotobuf
-    out: .
-    opt:
-      - paths=source_relative
-      - features=marshal+unmarshal+size

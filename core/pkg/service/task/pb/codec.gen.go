@@ -13,34 +13,253 @@ package pb
 
 import (
 	"context"
+	"encoding/binary"
+	"encoding/json"
+	"math"
 
 	"github.com/synnaxlabs/x/gorp"
 
 	task "github.com/synnaxlabs/synnax/pkg/service/task"
+	label "github.com/synnaxlabs/x/label"
+	status "github.com/synnaxlabs/x/status"
+	telem "github.com/synnaxlabs/x/telem"
+)
+
+var _ = binary.BigEndian
+
+const (
+	TaskFieldKey                    = 0
+	TaskFieldName                   = 1
+	TaskFieldType                   = 2
+	TaskFieldConfig                 = 3
+	TaskFieldInternal               = 4
+	TaskFieldSnapshot               = 5
+	TaskFieldStatusKey              = 6
+	TaskFieldStatusName             = 7
+	TaskFieldStatusVariant          = 8
+	TaskFieldStatusMessage          = 9
+	TaskFieldStatusDescription      = 10
+	TaskFieldStatusTime             = 11
+	TaskFieldStatusDetailsTask      = 12
+	TaskFieldStatusDetailsRunning   = 13
+	TaskFieldStatusDetailsCmd       = 14
+	TaskFieldStatusDetailsData      = 15
+	TaskFieldStatusLabelsElemKey    = 16
+	TaskFieldStatusLabelsElemName   = 17
+	TaskFieldStatusLabelsElemColorR = 18
+	TaskFieldStatusLabelsElemColorG = 19
+	TaskFieldStatusLabelsElemColorB = 20
+	TaskFieldStatusLabelsElemColorA = 21
+	TaskFieldCount                  = 22
 )
 
 type taskCodec struct{}
 
 func (taskCodec) Marshal(
-	ctx context.Context,
+	_ context.Context,
 	s task.Task,
 ) ([]byte, error) {
-	p, err := TaskToPB(ctx, s)
-	if err != nil {
-		return nil, err
+	buf := make([]byte, 0, 470)
+	buf = binary.BigEndian.AppendUint64(buf, uint64(s.Key))
+	buf = binary.BigEndian.AppendUint32(buf, uint32(len(s.Name)))
+	buf = append(buf, s.Name...)
+	buf = binary.BigEndian.AppendUint32(buf, uint32(len(s.Type)))
+	buf = append(buf, s.Type...)
+	{
+		_jb, _je := json.Marshal(s.Config)
+		if _je != nil {
+			return nil, _je
+		}
+		buf = binary.BigEndian.AppendUint32(buf, uint32(len(_jb)))
+		buf = append(buf, _jb...)
 	}
-	return p.MarshalVT()
+	if s.Internal {
+		buf = append(buf, 1)
+	} else {
+		buf = append(buf, 0)
+	}
+	if s.Snapshot {
+		buf = append(buf, 1)
+	} else {
+		buf = append(buf, 0)
+	}
+	if s.Status != nil {
+		buf = append(buf, 1)
+		buf = binary.BigEndian.AppendUint32(buf, uint32(len((*s.Status).Key)))
+		buf = append(buf, (*s.Status).Key...)
+		buf = binary.BigEndian.AppendUint32(buf, uint32(len((*s.Status).Name)))
+		buf = append(buf, (*s.Status).Name...)
+		buf = binary.BigEndian.AppendUint32(buf, uint32(len((*s.Status).Variant)))
+		buf = append(buf, (*s.Status).Variant...)
+		buf = binary.BigEndian.AppendUint32(buf, uint32(len((*s.Status).Message)))
+		buf = append(buf, (*s.Status).Message...)
+		buf = binary.BigEndian.AppendUint32(buf, uint32(len((*s.Status).Description)))
+		buf = append(buf, (*s.Status).Description...)
+		buf = binary.BigEndian.AppendUint64(buf, uint64((*s.Status).Time))
+		buf = binary.BigEndian.AppendUint64(buf, uint64((*s.Status).Details.Task))
+		if (*s.Status).Details.Running {
+			buf = append(buf, 1)
+		} else {
+			buf = append(buf, 0)
+		}
+		buf = binary.BigEndian.AppendUint32(buf, uint32(len((*s.Status).Details.Cmd)))
+		buf = append(buf, (*s.Status).Details.Cmd...)
+		if (*s.Status).Details.Data != nil {
+			buf = append(buf, 1)
+			{
+				_jb, _je := json.Marshal((*s.Status).Details.Data)
+				if _je != nil {
+					return nil, _je
+				}
+				buf = binary.BigEndian.AppendUint32(buf, uint32(len(_jb)))
+				buf = append(buf, _jb...)
+			}
+		} else {
+			buf = append(buf, 0)
+		}
+		if (*s.Status).Labels != nil {
+			buf = append(buf, 1)
+			buf = binary.BigEndian.AppendUint32(buf, uint32(len((*s.Status).Labels)))
+			for _, _e2 := range (*s.Status).Labels {
+				buf = append(buf, _e2.Key[:]...)
+				buf = binary.BigEndian.AppendUint32(buf, uint32(len(_e2.Name)))
+				buf = append(buf, _e2.Name...)
+				buf = append(buf, byte(_e2.Color.R))
+				buf = append(buf, byte(_e2.Color.G))
+				buf = append(buf, byte(_e2.Color.B))
+				buf = binary.BigEndian.AppendUint64(buf, math.Float64bits(float64(_e2.Color.A)))
+			}
+		} else {
+			buf = append(buf, 0)
+		}
+	} else {
+		buf = append(buf, 0)
+	}
+	return buf, nil
 }
 
 func (taskCodec) Unmarshal(
-	ctx context.Context,
+	_ context.Context,
 	data []byte,
 ) (task.Task, error) {
-	p := &Task{}
-	if err := p.UnmarshalVT(data); err != nil {
-		return task.Task{}, err
+	var r task.Task
+	r.Key = task.Key(binary.BigEndian.Uint64(data[:8]))
+	data = data[8:]
+	{
+		_n := binary.BigEndian.Uint32(data[:4])
+		data = data[4:]
+		r.Name = string(data[:_n])
+		data = data[_n:]
 	}
-	return TaskFromPB(ctx, p)
+	{
+		_n := binary.BigEndian.Uint32(data[:4])
+		data = data[4:]
+		r.Type = string(data[:_n])
+		data = data[_n:]
+	}
+	{
+		_n := binary.BigEndian.Uint32(data[:4])
+		data = data[4:]
+		if err := json.Unmarshal(data[:_n], &r.Config); err != nil {
+			return r, err
+		}
+		data = data[_n:]
+	}
+	r.Internal = data[0] != 0
+	data = data[1:]
+	r.Snapshot = data[0] != 0
+	data = data[1:]
+	if data[0] == 1 {
+		data = data[1:]
+		var _ov1 task.Status
+		{
+			_n := binary.BigEndian.Uint32(data[:4])
+			data = data[4:]
+			_ov1.Key = string(data[:_n])
+			data = data[_n:]
+		}
+		{
+			_n := binary.BigEndian.Uint32(data[:4])
+			data = data[4:]
+			_ov1.Name = string(data[:_n])
+			data = data[_n:]
+		}
+		{
+			_n := binary.BigEndian.Uint32(data[:4])
+			data = data[4:]
+			_ov1.Variant = status.Variant(data[:_n])
+			data = data[_n:]
+		}
+		{
+			_n := binary.BigEndian.Uint32(data[:4])
+			data = data[4:]
+			_ov1.Message = string(data[:_n])
+			data = data[_n:]
+		}
+		{
+			_n := binary.BigEndian.Uint32(data[:4])
+			data = data[4:]
+			_ov1.Description = string(data[:_n])
+			data = data[_n:]
+		}
+		_ov1.Time = telem.TimeStamp(binary.BigEndian.Uint64(data[:8]))
+		data = data[8:]
+		_ov1.Details.Task = task.Key(binary.BigEndian.Uint64(data[:8]))
+		data = data[8:]
+		_ov1.Details.Running = data[0] != 0
+		data = data[1:]
+		{
+			_n := binary.BigEndian.Uint32(data[:4])
+			data = data[4:]
+			_ov1.Details.Cmd = string(data[:_n])
+			data = data[_n:]
+		}
+		if data[0] == 1 {
+			data = data[1:]
+			{
+				_n := binary.BigEndian.Uint32(data[:4])
+				data = data[4:]
+				if err := json.Unmarshal(data[:_n], &_ov1.Details.Data); err != nil {
+					return r, err
+				}
+				data = data[_n:]
+			}
+		} else {
+			data = data[1:]
+		}
+		if data[0] == 1 {
+			data = data[1:]
+			{
+				_n := binary.BigEndian.Uint32(data[:4])
+				data = data[4:]
+				_ov1.Labels = make([]label.Label, _n)
+				for _i3 := range _ov1.Labels {
+					copy(_ov1.Labels[_i3].Key[:], data[:16])
+					data = data[16:]
+					{
+						_n := binary.BigEndian.Uint32(data[:4])
+						data = data[4:]
+						_ov1.Labels[_i3].Name = string(data[:_n])
+						data = data[_n:]
+					}
+					_ov1.Labels[_i3].Color.R = uint8(data[0])
+					data = data[1:]
+					_ov1.Labels[_i3].Color.G = uint8(data[0])
+					data = data[1:]
+					_ov1.Labels[_i3].Color.B = uint8(data[0])
+					data = data[1:]
+					_ov1.Labels[_i3].Color.A = float64(math.Float64frombits(binary.BigEndian.Uint64(data[:8])))
+					data = data[8:]
+				}
+			}
+		} else {
+			data = data[1:]
+		}
+		r.Status = &_ov1
+	} else {
+		data = data[1:]
+	}
+	return r, nil
 }
 
 var TaskCodec gorp.Codec[task.Task] = taskCodec{}

@@ -110,9 +110,6 @@ func (p *Plugin) Generate(req *plugin.Request) (*plugin.Response, error) {
 		if !hasMarshalAnnotation(entry) {
 			continue
 		}
-		if form, ok := entry.Form.(resolution.StructForm); ok && form.IsGeneric() {
-			continue
-		}
 		if !output.HasPB(entry) {
 			continue
 		}
@@ -308,7 +305,7 @@ func (b *codeBuilder) processFields(
 	getPrefix, setPrefix, constPrefix string,
 ) error {
 	for _, f := range fields {
-		if f.Type.Name == "nil" {
+		if f.Type.Name == "nil" || !b.canResolve(f.Type) {
 			continue
 		}
 		goName := naming.GetFieldName(f)
@@ -392,6 +389,27 @@ func (b *codeBuilder) processHardOptional(
 		b.depth++
 		derefGet := "(*" + getPath + ")"
 		if err := b.processValueByType(resolved, f.Type, derefGet, setPath, constPrefix); err != nil {
+			return err
+		}
+		b.depth--
+		b.marshalLines = append(b.marshalLines, ind+"} else {", ind+"\tbuf = append(buf, 0)", ind+"}")
+		b.unmarshalLines = append(b.unmarshalLines, ind+"} else {", ind+"\tdata = data[1:]", ind+"}")
+		return nil
+	}
+
+	// Hard optional json/any: these map to nilable Go types (interface{}/map),
+	// no pointer wrapping needed.
+	if prim, ok := actual.Form.(resolution.PrimitiveForm); ok && (prim.Name == "json" || prim.Name == "any") {
+		b.marshalLines = append(b.marshalLines,
+			ind+fmt.Sprintf("if %s != nil {", getPath),
+			ind+"\tbuf = append(buf, 1)",
+		)
+		b.unmarshalLines = append(b.unmarshalLines,
+			ind+"if data[0] == 1 {",
+			ind+"\tdata = data[1:]",
+		)
+		b.depth++
+		if err := b.processValueByType(resolved, f.Type, getPath, setPath, constPrefix); err != nil {
 			return err
 		}
 		b.depth--
@@ -575,6 +593,13 @@ func (b *codeBuilder) processValueByType(
 	default:
 		return b.processLeaf(resolved, getPath, setPath, constPrefix)
 	}
+}
+
+// canResolve returns true if the type ref can be resolved to a concrete type.
+// Returns false for nil or unsubstituted type params (e.g. after generic substitution with nil).
+func (b *codeBuilder) canResolve(ref resolution.TypeRef) bool {
+	_, ok := b.resolveTypeRef(ref)
+	return ok
 }
 
 func (b *codeBuilder) processFieldValue(
