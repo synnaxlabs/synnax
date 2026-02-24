@@ -1608,6 +1608,7 @@ var _ = Describe("Statement Compiler", func() {
 				OpCall, uint32(1),
 			))
 		})
+	})
 	Describe("For Loops", func() {
 		It("Should compile range loop with 1 arg", func() {
 			block := MustSucceed(parser.ParseBlock(`{
@@ -1931,7 +1932,7 @@ var _ = Describe("Statement Compiler", func() {
 				Expect(aCtx.Diagnostics.Ok()).To(BeTrue(), aCtx.Diagnostics.String())
 				ctx := context.CreateRoot(
 					bCtx, aCtx.Scope, aCtx.TypeMap,
-					resolve.NewResolver(NewStdlibResolver()),
+					resolve.NewResolver(stl.SymbolResolver),
 				)
 				diverged := MustSucceed(statement.CompileBlock(context.Child(ctx, block)))
 				Expect(diverged).To(BeFalse())
@@ -1955,7 +1956,7 @@ var _ = Describe("Statement Compiler", func() {
 				Expect(aCtx.Diagnostics.Ok()).To(BeTrue(), aCtx.Diagnostics.String())
 				ctx := context.CreateRoot(
 					bCtx, aCtx.Scope, aCtx.TypeMap,
-					resolve.NewResolver(NewStdlibResolver()),
+					resolve.NewResolver(stl.SymbolResolver),
 				)
 				diverged := MustSucceed(statement.CompileBlock(context.Child(ctx, block)))
 				Expect(diverged).To(BeFalse())

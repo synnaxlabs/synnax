@@ -182,22 +182,29 @@ func compileForRange(
 		// Direction-aware: check step sign at runtime
 		ctx.Writer.WriteLocalGet(stepIdx)
 		emitZero(ctx.Writer, loopVarType)
-		emitGtS(ctx.Writer, loopVarType) // step > 0? → i32
+		if err = ctx.Writer.WriteBinaryOpInferred(">", loopVarType); err != nil {
+			return err
+		}
 		ctx.Writer.WriteIf(wasm.BlockTypeI32)
 		ctx.Writer.WriteLocalGet(loopVarIdx)
 		ctx.Writer.WriteLocalGet(limitIdx)
-		emitGeS(ctx.Writer, loopVarType) // ascending: i >= limit
+		if err = ctx.Writer.WriteBinaryOpInferred(">=", loopVarType); err != nil {
+			return err
+		}
 		ctx.Writer.WriteElse()
 		ctx.Writer.WriteLocalGet(loopVarIdx)
 		ctx.Writer.WriteLocalGet(limitIdx)
-		emitLeS(ctx.Writer, loopVarType) // descending: i <= limit
+		if err = ctx.Writer.WriteBinaryOpInferred("<=", loopVarType); err != nil {
+			return err
+		}
 		ctx.Writer.WriteEnd()
 		ctx.Writer.WriteBrIf(1)
 	} else {
-		// 1-arg and 2-arg: step is always +1
 		ctx.Writer.WriteLocalGet(loopVarIdx)
 		ctx.Writer.WriteLocalGet(limitIdx)
-		emitGeS(ctx.Writer, loopVarType)
+		if err = ctx.Writer.WriteBinaryOpInferred(">=", loopVarType); err != nil {
+			return err
+		}
 		ctx.Writer.WriteBrIf(1)
 	}
 
@@ -228,7 +235,9 @@ func compileForRange(
 	} else {
 		emitOne(ctx.Writer, loopVarType)
 	}
-	emitAdd(ctx.Writer, loopVarType)
+	if err = ctx.Writer.WriteBinaryOpInferred("+", loopVarType); err != nil {
+		return err
+	}
 	ctx.Writer.WriteLocalSet(loopVarIdx)
 
 	// br $loop_header
@@ -499,109 +508,27 @@ func castIfNeeded[ASTNode parser.IExpressionContext](
 }
 
 func emitZero(w *wasm.Writer, t types.Type) {
-	switch {
-	case t.Kind == types.KindI32 || t.Kind == types.KindU32 ||
-		t.Kind == types.KindI16 || t.Kind == types.KindU16 ||
-		t.Kind == types.KindI8 || t.Kind == types.KindU8:
+	switch wasm.ConvertType(t) {
+	case wasm.I32:
 		w.WriteI32Const(0)
-	case t.Kind == types.KindI64 || t.Kind == types.KindU64:
+	case wasm.I64:
 		w.WriteI64Const(0)
-	case t.Kind == types.KindF32:
+	case wasm.F32:
 		w.WriteF32Const(0)
-	case t.Kind == types.KindF64:
+	case wasm.F64:
 		w.WriteF64Const(0)
-	default:
-		w.WriteI64Const(0)
 	}
 }
 
 func emitOne(w *wasm.Writer, t types.Type) {
-	switch {
-	case t.Kind == types.KindI32 || t.Kind == types.KindU32 ||
-		t.Kind == types.KindI16 || t.Kind == types.KindU16 ||
-		t.Kind == types.KindI8 || t.Kind == types.KindU8:
+	switch wasm.ConvertType(t) {
+	case wasm.I32:
 		w.WriteI32Const(1)
-	case t.Kind == types.KindI64 || t.Kind == types.KindU64:
+	case wasm.I64:
 		w.WriteI64Const(1)
-	case t.Kind == types.KindF32:
+	case wasm.F32:
 		w.WriteF32Const(1)
-	case t.Kind == types.KindF64:
+	case wasm.F64:
 		w.WriteF64Const(1)
-	default:
-		w.WriteI64Const(1)
-	}
-}
-
-func emitAdd(w *wasm.Writer, t types.Type) {
-	switch {
-	case t.Kind == types.KindI32 || t.Kind == types.KindU32 ||
-		t.Kind == types.KindI16 || t.Kind == types.KindU16 ||
-		t.Kind == types.KindI8 || t.Kind == types.KindU8:
-		w.WriteOpcode(wasm.OpI32Add)
-	case t.Kind == types.KindI64 || t.Kind == types.KindU64:
-		w.WriteOpcode(wasm.OpI64Add)
-	case t.Kind == types.KindF32:
-		w.WriteOpcode(wasm.OpF32Add)
-	case t.Kind == types.KindF64:
-		w.WriteOpcode(wasm.OpF64Add)
-	default:
-		w.WriteOpcode(wasm.OpI64Add)
-	}
-}
-
-func emitGtS(w *wasm.Writer, t types.Type) {
-	switch {
-	case t.Kind == types.KindI32 || t.Kind == types.KindI16 || t.Kind == types.KindI8:
-		w.WriteOpcode(wasm.OpI32GtS)
-	case t.Kind == types.KindU32 || t.Kind == types.KindU16 || t.Kind == types.KindU8:
-		w.WriteOpcode(wasm.OpI32GtU)
-	case t.Kind == types.KindI64:
-		w.WriteOpcode(wasm.OpI64GtS)
-	case t.Kind == types.KindU64:
-		w.WriteOpcode(wasm.OpI64GtU)
-	case t.Kind == types.KindF32:
-		w.WriteOpcode(wasm.OpF32Gt)
-	case t.Kind == types.KindF64:
-		w.WriteOpcode(wasm.OpF64Gt)
-	default:
-		w.WriteOpcode(wasm.OpI64GtS)
-	}
-}
-
-func emitLeS(w *wasm.Writer, t types.Type) {
-	switch {
-	case t.Kind == types.KindI32 || t.Kind == types.KindI16 || t.Kind == types.KindI8:
-		w.WriteOpcode(wasm.OpI32LeS)
-	case t.Kind == types.KindU32 || t.Kind == types.KindU16 || t.Kind == types.KindU8:
-		w.WriteOpcode(wasm.OpI32LeU)
-	case t.Kind == types.KindI64:
-		w.WriteOpcode(wasm.OpI64LeS)
-	case t.Kind == types.KindU64:
-		w.WriteOpcode(wasm.OpI64LeU)
-	case t.Kind == types.KindF32:
-		w.WriteOpcode(wasm.OpF32Le)
-	case t.Kind == types.KindF64:
-		w.WriteOpcode(wasm.OpF64Le)
-	default:
-		w.WriteOpcode(wasm.OpI64LeS)
-	}
-}
-
-func emitGeS(w *wasm.Writer, t types.Type) {
-	switch {
-	case t.Kind == types.KindI32 || t.Kind == types.KindI16 || t.Kind == types.KindI8:
-		w.WriteOpcode(wasm.OpI32GeS)
-	case t.Kind == types.KindU32 || t.Kind == types.KindU16 || t.Kind == types.KindU8:
-		w.WriteOpcode(wasm.OpI32GeU)
-	case t.Kind == types.KindI64:
-		w.WriteOpcode(wasm.OpI64GeS)
-	case t.Kind == types.KindU64:
-		w.WriteOpcode(wasm.OpI64GeU)
-	case t.Kind == types.KindF32:
-		w.WriteOpcode(wasm.OpF32Ge)
-	case t.Kind == types.KindF64:
-		w.WriteOpcode(wasm.OpF64Ge)
-	default:
-		w.WriteOpcode(wasm.OpI64GeS)
 	}
 }
