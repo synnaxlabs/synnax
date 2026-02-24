@@ -32,7 +32,7 @@ import synnax as sy
 from framework.test_case import TestCase
 
 PROBE_TIMEOUT = 2 * sy.TimeSpan.SECOND
-NUM_THREADS = 10
+NUM_THREADS = 20
 OPS_PER_SEC = 100
 TEST_DURATION = 10 * sy.TimeSpan.SECOND
 
@@ -65,7 +65,7 @@ class WriterOpenCloseStress(TestCase):
 
         # Start writer threads
         for _ in range(NUM_THREADS):
-            t = threading.Thread(target=self._writer_loop, daemon=True)
+            t = threading.Thread(target=self._stress_loop, daemon=True)
             t.start()
             threads.append(t)
 
@@ -95,7 +95,7 @@ class WriterOpenCloseStress(TestCase):
         for t in threads:
             t.join(timeout=2)
 
-    def _writer_loop(self) -> None:
+    def _stress_loop(self) -> None:
         """Rapid open/write/close on shared channels until told to stop."""
         conn = self.synnax_connection
         client = sy.Synnax(
