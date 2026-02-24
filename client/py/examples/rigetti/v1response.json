@@ -1,0 +1,29 @@
+{
+  "data": {
+    "mapper.bf.flow": {
+      "name": "mapper.bf.flow",
+      "type": "Value.Number.Float",
+      "content": {
+        "read_only": true,
+        "maximum_age": 15000,
+        "lockable": false,
+        "locked": false,
+        "owner": "driver.vc.flow",
+        "latest_valid_value": {
+          "value": "1.3",
+          "outdated": false,
+          "date": 1771883219263,
+          "status": "SYNCHRONIZED",
+          "exception": ""
+        },
+        "latest_value": {
+          "value": "1.3",
+          "outdated": false,
+          "date": 1771883219263,
+          "status": "SYNCHRONIZED",
+          "exception": ""
+        }
+      }
+    }
+  }
+}

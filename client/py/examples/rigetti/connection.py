@@ -11,10 +11,10 @@ synnax_client = sy.Synnax(
 
 name = "v16"
 
-api_key = "4"   
+api_key = "4"
 
 endpoint = bluefors_endpoint + "values/devices/v16"
 
 
-r = requests.get(endpoint,params={"key": api_key, "fields": "name,value"})
+r = requests.get(endpoint, params={"key": api_key, "fields": "name,value"})
 print(r.json())
