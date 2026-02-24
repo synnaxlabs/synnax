@@ -23,9 +23,10 @@
 
 namespace driver::http::device {
 namespace {
-ConnectionConfig make_config(const x::json::json &j, const bool verify_ssl = true) {
+ConnectionConfig make_config(x::json::json j, const bool verify_ssl = true) {
+    j["verify_ssl"] = verify_ssl;
     x::json::Parser p(j);
-    return ConnectionConfig(p, verify_ssl);
+    return ConnectionConfig(p);
 }
 }
 

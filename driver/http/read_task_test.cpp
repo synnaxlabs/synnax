@@ -28,10 +28,11 @@ std::pair<std::unique_ptr<ReadTaskSource>, x::errors::Error> make_source(
     auto conn_json = x::json::json{
         {"base_url", base_url},
         {"timeout_ms", 1000},
+        {"verify_ssl", false},
     };
     conn_json.update(conn_extra);
     auto conn_parser = x::json::Parser(conn_json);
-    auto conn = device::ConnectionConfig(conn_parser, false);
+    auto conn = device::ConnectionConfig(conn_parser);
 
     std::vector<device::RequestConfig> request_configs;
     request_configs.reserve(cfg.endpoints.size());
@@ -1229,10 +1230,12 @@ TEST(HTTPReadTask, DisabledFieldsExcludedFromWriterConfig) {
         .data_type = x::telem::FLOAT64_T
     };
 
-    auto conn_parser = x::json::Parser(
-        x::json::json{{"base_url", "http://localhost:9999"}, {"timeout_ms", 100}}
-    );
-    auto conn = device::ConnectionConfig(conn_parser, false);
+    auto conn_parser = x::json::Parser(x::json::json{
+        {"base_url", "http://localhost:9999"},
+        {"timeout_ms", 100},
+        {"verify_ssl", false},
+    });
+    auto conn = device::ConnectionConfig(conn_parser);
     std::vector<device::RequestConfig> request_configs;
     for (const auto &e: cfg.endpoints)
         request_configs.push_back(e.request);

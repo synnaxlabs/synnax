@@ -89,8 +89,7 @@ struct ConnectionConfig {
     bool verify_ssl;
 
     /// @param parser the JSON parser to read configuration from.
-    /// @param verify_ssl whether to verify SSL certificates (false only in tests).
-    explicit ConnectionConfig(x::json::Parser parser, const bool verify_ssl = true):
+    explicit ConnectionConfig(x::json::Parser parser):
         base_url(parser.field<std::string>("base_url")),
         timeout(parser.field<uint32_t>("timeout_ms", 100) * x::telem::MILLISECOND),
         auth(AuthConfig(parser.optional_child("auth"))),
@@ -102,7 +101,7 @@ struct ConnectionConfig {
             "query_params",
             std::map<std::string, std::string>{}
         )),
-        verify_ssl(verify_ssl) {
+        verify_ssl(parser.field<bool>("verify_ssl", true)) {
         if (timeout <= x::telem::TimeSpan::ZERO())
             parser.field_err("timeout_ms", "must be positive");
     }
@@ -112,6 +111,7 @@ struct ConnectionConfig {
             {"base_url", base_url},
             {"timeout_ms", timeout.milliseconds()},
             {"auth", auth.to_json()},
+            {"verify_ssl", verify_ssl},
         };
         if (!headers.empty()) {
             x::json::json h;
