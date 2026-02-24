@@ -15,6 +15,7 @@
 #include <utility>
 #include <vector>
 
+#include "client/cpp/device/device.h"
 #include "x/cpp/errors/errors.h"
 #include "x/cpp/json/json.h"
 #include "x/cpp/telem/telem.h"
@@ -116,6 +117,16 @@ struct ConnectionConfig {
     }
 };
 
+/// @brief retrieves a device by key and constructs a ConnectionConfig from its
+/// properties and location.
+/// @param devices the Synnax device client.
+/// @param device_key the key of the device to retrieve.
+/// @returns the connection config paired with an error (nil on success).
+std::pair<ConnectionConfig, x::errors::Error> retrieve_connection(
+    const synnax::device::Client &devices,
+    const std::string &device_key
+);
+
 /// @brief static request configuration, set once at task setup time.
 struct RequestConfig {
     /// @brief HTTP method.
@@ -151,8 +162,8 @@ struct MultiHandle;
 /// pre-built at construction time from the connection and request configurations so the
 /// hot-path request() only needs to set the body, perform I/O, and read results.
 class Client {
-    std::unique_ptr<MultiHandle> multi_handle_;
-    std::vector<Handle> handles_;
+    std::unique_ptr<MultiHandle> multi_handle;
+    std::vector<Handle> handles;
 
     Client(const Client &) = delete;
     Client &operator=(const Client &) = delete;

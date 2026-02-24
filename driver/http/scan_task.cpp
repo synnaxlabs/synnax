@@ -1,0 +1,211 @@
+// Copyright 2026 Synnax Labs, Inc.
+//
+// Use of this software is governed by the Business Source License included in the file
+// licenses/BSL.txt.
+//
+// As of the Change Date specified in that file, in accordance with the Business Source
+// License, use of this software will be governed by the Apache License, Version 2.0,
+// included in the file licenses/APL.txt.
+
+#include "glog/logging.h"
+
+#include "x/cpp/loop/loop.h"
+
+#include "driver/http/scan_task.h"
+
+namespace driver::http {
+namespace {
+const std::string LOG_PREFIX = "[http.scan] ";
+
+std::pair<std::string, std::string> check_device_health(
+    const device::Response &resp,
+    const std::optional<ResponseConfig> &response
+) {
+    if (resp.status_code < 200 || resp.status_code >= 300)
+        return {
+            x::status::VARIANT_ERROR,
+            "Device returned HTTP " + std::to_string(resp.status_code) +
+                (resp.body.empty() ? "" : ": " + resp.body),
+        };
+
+    if (response.has_value()) {
+        try {
+            auto body = x::json::json::parse(resp.body);
+            if (!body.contains(response->field))
+                return {
+                    x::status::VARIANT_ERROR,
+                    "Unexpected health response: field '" +
+                        response->field.to_string() + "' not found",
+                };
+            const auto &actual = body.at(response->field);
+            if (actual != response->expected_value)
+                return {
+                    x::status::VARIANT_ERROR,
+                    "Unexpected health response: expected " +
+                        response->expected_value.dump() + ", got " + actual.dump(),
+                };
+        } catch (const x::json::json::parse_error &) {
+            return {
+                x::status::VARIANT_ERROR,
+                "Unexpected health response: invalid JSON body",
+            };
+        }
+    }
+
+    return {x::status::VARIANT_SUCCESS, "Device connected"};
+}
+}
+
+std::pair<ScanTaskConfig, x::errors::Error>
+ScanTaskConfig::parse(const synnax::task::Task &task) {
+    auto parser = x::json::Parser(task.config);
+    const auto device = parser.field<std::string>("device");
+    const auto auto_start = parser.field<bool>("auto_start", false);
+    const auto rate_hz = parser.field<double>("rate");
+    const auto path = parser.field<std::string>("path");
+
+    std::optional<ResponseConfig> response;
+    auto response_parser = parser.optional_child("response");
+    if (response_parser.ok()) response.emplace(response_parser);
+
+    if (!parser.ok()) return {{}, parser.error()};
+
+    return {
+        ScanTaskConfig{
+            .device = device,
+            .auto_start = auto_start,
+            .rate = x::telem::Rate(rate_hz),
+            .path = path,
+            .response = std::move(response),
+        },
+        x::errors::NIL,
+    };
+}
+
+ScanTask::ScanTask(
+    std::shared_ptr<task::Context> ctx,
+    synnax::task::Task task,
+    ScanTaskConfig cfg,
+    device::ConnectionConfig conn
+):
+    pipeline::Base(
+        x::breaker::Config{
+            .name = task.name,
+            .max_retries = x::breaker::RETRY_INFINITELY,
+        },
+        task.name
+    ),
+    ctx(std::move(ctx)),
+    task(std::move(task)),
+    cfg(std::move(cfg)),
+    conn(std::move(conn)),
+    status_handler(this->ctx, this->task) {
+    this->key = this->task.key;
+}
+
+void ScanTask::exec(task::Command &cmd) {
+    if (cmd.type == common::START_CMD_TYPE) {
+        pipeline::Base::start();
+        this->status_handler.send_start(cmd.key);
+    } else if (cmd.type == common::STOP_CMD_TYPE) {
+        pipeline::Base::stop();
+        this->status_handler.send_stop(cmd.key);
+    }
+}
+
+void ScanTask::stop(bool will_reconfigure) {
+    pipeline::Base::stop();
+}
+
+void ScanTask::run() {
+    device::RequestConfig req_cfg{
+        .method = Method::GET,
+        .path = cfg.path,
+    };
+    auto [client, err] = device::Client::create(conn, {req_cfg});
+    if (err) {
+        LOG(ERROR) << LOG_PREFIX << "failed to create client: " << err;
+        this->status_handler.send_error(err);
+        return;
+    }
+
+    auto timer = x::loop::Timer(cfg.rate);
+    while (this->breaker.running()) {
+        auto [results, batch_err] = client.execute_requests({""});
+        if (batch_err) {
+            this->status_handler.send_warning(
+                "Failed to execute request: " + batch_err.message()
+            );
+            timer.wait(this->breaker);
+            continue;
+        }
+        if (results.empty()) {
+            this->status_handler.send_warning("Failed to execute request: no results");
+            timer.wait(this->breaker);
+            continue;
+        }
+        auto &[resp, req_err] = results[0];
+        if (req_err) {
+            auto msg = "Failed to reach device: " + req_err.message();
+            this->status_handler.send_warning(msg);
+            this->set_device_status(x::status::VARIANT_WARNING, msg);
+            timer.wait(this->breaker);
+            continue;
+        }
+        this->status_handler.status.variant = x::status::VARIANT_SUCCESS;
+        this->status_handler.status.message = "Running";
+        this->status_handler.status.key = task.status_key();
+        this->ctx->set_status(this->status_handler.status);
+        auto [variant, message] = check_device_health(resp, cfg.response);
+        this->set_device_status(variant, message);
+        timer.wait(this->breaker);
+    }
+}
+
+void ScanTask::set_device_status(
+    const std::string &variant,
+    const std::string &message
+) {
+    if (ctx->client == nullptr) return;
+    synnax::device::Status dev_status;
+    dev_status.key = synnax::device::ontology_id(cfg.device).string();
+    dev_status.variant = variant;
+    dev_status.message = message;
+    dev_status.time = x::telem::TimeStamp::now();
+    dev_status.details.device = cfg.device;
+    if (const auto err = ctx->client->statuses.set<synnax::device::StatusDetails>(
+            dev_status
+        );
+        err)
+        LOG(ERROR) << LOG_PREFIX << "failed to set device status: " << err;
+}
+
+std::pair<common::ConfigureResult, x::errors::Error> configure_scan(
+    const std::shared_ptr<task::Context> &ctx,
+    const synnax::task::Task &task
+) {
+    auto [cfg, err] = ScanTaskConfig::parse(task);
+    if (err) return {common::ConfigureResult{}, err};
+
+    auto [conn, conn_err] = device::retrieve_connection(
+        ctx->client->devices,
+        cfg.device
+    );
+    if (conn_err) return {common::ConfigureResult{}, conn_err};
+
+    const bool auto_start = cfg.auto_start;
+    auto scan_task = std::make_unique<ScanTask>(
+        ctx,
+        task,
+        std::move(cfg),
+        std::move(conn)
+    );
+    return {
+        common::ConfigureResult{
+            .task = std::move(scan_task),
+            .auto_start = auto_start,
+        },
+        x::errors::NIL,
+    };
+}
+}
