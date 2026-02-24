@@ -28,7 +28,13 @@ export interface LogProps
     optional.Optional<
       Omit<
         z.input<typeof log.logState>,
-        "region" | "scrollPosition" | "scrollback" | "empty" | "scrolling" | "wheelPos"
+        | "region"
+        | "scrollPosition"
+        | "scrollback"
+        | "empty"
+        | "scrolling"
+        | "wheelPos"
+        | "lineCount"
       >,
       "visible"
     >,
@@ -36,6 +42,15 @@ export interface LogProps
     Aether.ComponentProps {
   emptyContent?: ReactElement;
 }
+
+const getLineIndex = (node: Node | null): number | null => {
+  while (node) {
+    if (node instanceof HTMLElement && node.dataset.line != null)
+      return parseInt(node.dataset.line);
+    node = node.parentNode;
+  }
+  return null;
+};
 
 export const Log = ({
   aetherKey,
@@ -49,17 +64,28 @@ export const Log = ({
   ),
   color,
   telem,
+  indexTelem,
+  showIndex,
   ...rest
 }: LogProps): ReactElement | null => {
-  const memoProps = useMemoDeepEqual({ font, color, telem, visible });
-  const [, { scrolling, empty }, setState] = Aether.use({
+  const memoProps = useMemoDeepEqual({
+    font,
+    color,
+    telem,
+    visible,
+    indexTelem,
+    showIndex,
+  });
+  const [, { scrolling, empty, lineCount }, setState, methods] = Aether.use({
     type: log.Log.TYPE,
     schema: log.logState,
+    methods: log.logMethodsZ,
     initialState: {
       empty: true,
       region: box.ZERO,
       scrolling: false,
       wheelPos: 0,
+      lineCount: 0,
       ...memoProps,
     },
   });
@@ -70,6 +96,22 @@ export const Log = ({
 
   const resizeRef = Canvas.useRegion(
     useCallback((b) => setState((s) => ({ ...s, region: b })), [setState]),
+  );
+
+  const handleCopy = useCallback(
+    async (e: React.ClipboardEvent) => {
+      e.preventDefault();
+      const sel = window.getSelection();
+      if (sel == null || sel.isCollapsed) return;
+      const startLine = getLineIndex(sel.anchorNode);
+      const endLine = getLineIndex(sel.focusNode);
+      if (startLine == null || endLine == null) return;
+      const start = Math.min(startLine, endLine);
+      const end = Math.max(startLine, endLine) + 1;
+      const text = await methods.copyText(start, end);
+      await navigator.clipboard.writeText(text);
+    },
+    [methods],
   );
 
   return (
@@ -88,15 +130,34 @@ export const Log = ({
       {empty ? (
         emptyContent
       ) : (
-        <Button.Button
-          className={CSS(CSS.BE("log", "live"), scrolling && CSS.M("active"))}
-          variant="outlined"
-          onClick={() => setState((s) => ({ ...s, scrolling: !s.scrolling }))}
-          tooltip={scrolling ? "Resume Scrolling" : "Pause Scrolling"}
-          tooltipLocation={location.BOTTOM_LEFT}
-        >
-          <Icon.Dynamic />
-        </Button.Button>
+        <>
+          <div
+            className={CSS.BE("log", "text-overlay")}
+            onCopy={(e) => void handleCopy(e)}
+          >
+            {Array.from({ length: lineCount }, (_, i) => (
+              <div key={i} data-line={i} className={CSS.BE("log", "line")}>
+                {"\u00A0"}
+              </div>
+            ))}
+          </div>
+          <Button.Button
+            className={CSS(CSS.BE("log", "live"), scrolling && CSS.M("active"))}
+            variant="outlined"
+            onClick={() => setState((s) => ({ ...s, scrolling: !s.scrolling }))}
+            tooltip={scrolling ? "Resume Scrolling" : "Pause Scrolling"}
+            tooltipLocation={location.BOTTOM_LEFT}
+          >
+            <Icon.Dynamic />
+          </Button.Button>
+          <Button.Copy
+            className={CSS.BE("log", "copy")}
+            text={() => methods.copyAllText()}
+            tooltip="Copy all"
+            tooltipLocation={location.BOTTOM_LEFT}
+            variant="outlined"
+          />
+        </>
       )}
     </div>
   );

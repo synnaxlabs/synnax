@@ -16,8 +16,8 @@ import { Icon } from "@/icon";
 const COPIED_DURATION_MS = TimeSpan.seconds(2).milliseconds;
 
 export interface CopyProps extends Omit<ButtonProps, "onClick"> {
-  /** The text to copy to the clipboard, or a function that returns it. */
-  text: string | (() => string);
+  /** The text to copy to the clipboard, or a function that returns it (may be async). */
+  text: string | (() => string | Promise<string>);
   /** Optional callback invoked after successfully copying to clipboard. */
   onCopy?: () => void;
   /** Optional callback invoked if copying fails. */
@@ -53,7 +53,7 @@ export const Copy = ({
   const handleClick = useCallback(() => {
     void (async () => {
       try {
-        const resolvedText = typeof text === "function" ? text() : text;
+        const resolvedText = typeof text === "function" ? await text() : text;
         await navigator.clipboard.writeText(resolvedText);
         setCopied(true);
         onCopy?.();

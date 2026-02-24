@@ -14,6 +14,7 @@ import {
   type destructor,
   MultiSeries,
   type TelemValue,
+  TimeStamp,
   xy,
 } from "@synnaxlabs/x";
 import { z } from "zod";
@@ -35,9 +36,21 @@ export const logState = z.object({
   font: text.levelZ.default("p"),
   color: color.colorZ.default(color.ZERO),
   overshoot: xy.xy.default({ x: 0, y: 0 }),
+  lineCount: z.number().default(0),
+  indexTelem: telem.seriesSourceSpecZ.default(telem.noopSeriesSourceSpec),
+  showIndex: z.boolean().default(false),
 });
 
+export const logMethodsZ = {
+  copyText: z.function({
+    input: z.tuple([z.number(), z.number()]),
+    output: z.string(),
+  }),
+  copyAllText: z.function({ input: z.tuple([]), output: z.string() }),
+};
+
 const SCROLLBAR_RENDER_THRESHOLD = 0.98;
+const MIN_SCROLLBAR_HEIGHT = 20;
 const CANVAS: render.Canvas2DVariant = "lower2d";
 
 interface InternalState {
@@ -46,6 +59,8 @@ interface InternalState {
   telem: telem.SeriesSource;
   textColor: color.Color;
   stopListeningTelem?: destructor.Destructor;
+  indexTelem: telem.SeriesSource;
+  stopListeningIndexTelem?: destructor.Destructor;
 }
 
 interface ScrollbackState {
@@ -60,11 +75,17 @@ const ZERO_SCROLLBACK: ScrollbackState = {
   scrollRef: 0,
 };
 
-export class Log extends aether.Leaf<typeof logState, InternalState> {
+export class Log
+  extends aether.Leaf<typeof logState, InternalState, typeof logMethodsZ>
+  implements aether.HandlersFromSchema<typeof logMethodsZ>
+{
   static readonly TYPE = "log";
   static readonly z = logState;
+  static readonly METHODS = logMethodsZ;
   schema = Log.z;
+  methods = logMethodsZ;
   values: MultiSeries = new MultiSeries([]);
+  indexValues: MultiSeries = new MultiSeries([]);
   scrollState: ScrollbackState = ZERO_SCROLLBACK;
 
   afterUpdate(ctx: aether.Context): void {
@@ -75,6 +96,7 @@ export class Log extends aether.Leaf<typeof logState, InternalState> {
       this.internal.textColor = i.theme.colors.gray.l11;
     else i.textColor = this.state.color;
     i.telem = telem.useSource(ctx, this.state.telem, i.telem);
+    i.indexTelem = telem.useSource(ctx, this.state.indexTelem, i.indexTelem);
 
     const { scrolling, wheelPos } = this.state;
 
@@ -112,12 +134,23 @@ export class Log extends aether.Leaf<typeof logState, InternalState> {
 
     const [_, series] = this.internal.telem.value();
     this.values = series;
+    const [__, indexSeries] = this.internal.indexTelem.value();
+    this.indexValues = indexSeries;
     this.checkEmpty();
+    this.updateLineCount();
+
     i.stopListeningTelem?.();
     i.stopListeningTelem = i.telem.onChange(() => {
       const [_, series] = this.internal.telem.value();
       this.checkEmpty();
       this.values = series;
+      this.updateLineCount();
+      this.requestRender();
+    });
+    i.stopListeningIndexTelem?.();
+    i.stopListeningIndexTelem = i.indexTelem.onChange(() => {
+      const [_, series] = this.internal.indexTelem.value();
+      this.indexValues = series;
       this.requestRender();
     });
     if (!this.state.visible && !this.prevState.visible) return;
@@ -130,9 +163,16 @@ export class Log extends aether.Leaf<typeof logState, InternalState> {
     this.setState((s) => ({ ...s, empty: actuallyEmpty }));
   }
 
+  private updateLineCount(): void {
+    const lineCount = Math.min(this.visibleLineCount, this.values.length);
+    if (lineCount !== this.state.lineCount)
+      this.setState((s) => ({ ...s, lineCount }));
+  }
+
   afterDelete(): void {
-    const { telem, render: renderCtx } = this.internal;
+    const { telem, indexTelem, render: renderCtx } = this.internal;
     telem.cleanup?.();
+    indexTelem.cleanup?.();
     renderCtx.erase(box.construct(this.state.region), xy.ZERO, CANVAS);
   }
 
@@ -164,30 +204,95 @@ export class Log extends aether.Leaf<typeof logState, InternalState> {
     );
   }
 
+  private valueToText(value: TelemValue): string {
+    return this.values.dataType.equals(DataType.JSON)
+      ? JSON.stringify(value)
+      : value.toString();
+  }
+
+  private formatLine(value: TelemValue, indexValue?: TelemValue): string {
+    const text = this.valueToText(value);
+    if (!this.state.showIndex || indexValue == null) return text;
+    const ts = new TimeStamp(BigInt(indexValue as number));
+    return `[${ts.toString("preciseTime")}] ${text}`;
+  }
+
+  private getVisibleRange(): { startIdx: number; endIdx: number } {
+    if (!this.state.scrolling) {
+      const startIdx = this.values.length - this.visibleLineCount;
+      return { startIdx, endIdx: this.values.length };
+    }
+    const start = this.values.traverseAlignment(
+      this.scrollState.offset,
+      -BigInt(this.visibleLineCount),
+    );
+    const startIdx = Number(start - this.values.alignmentBounds.lower);
+    return { startIdx, endIdx: startIdx + this.visibleLineCount };
+  }
+
+  copyText(startLine: number, endLine: number): string {
+    const { startIdx } = this.getVisibleRange();
+    const absStart = startIdx + startLine;
+    const absEnd = startIdx + endLine;
+    const lines: string[] = [];
+    const iter = this.values.subIterator(absStart, absEnd);
+    let indexIter: Iterator<TelemValue> | undefined;
+    if (this.state.showIndex && this.indexValues.length > 0) {
+      const iterable = this.indexValues.subIterator(absStart, absEnd);
+      indexIter = iterable[Symbol.iterator]();
+    }
+    for (const value of iter) {
+      const indexValue = indexIter?.next().value;
+      lines.push(this.formatLine(value, indexValue));
+    }
+    return lines.join("\n");
+  }
+
+  copyAllText(): string {
+    const lines: string[] = [];
+    const iter = this.values.subIterator(0, this.values.length);
+    let indexIter: Iterator<TelemValue> | undefined;
+    if (this.state.showIndex && this.indexValues.length > 0) {
+      const iterable = this.indexValues.subIterator(0, this.indexValues.length);
+      indexIter = iterable[Symbol.iterator]();
+    }
+    for (const value of iter) {
+      const indexValue = indexIter?.next().value;
+      lines.push(this.formatLine(value, indexValue));
+    }
+    return lines.join("\n");
+  }
+
   render(): render.Cleanup | undefined {
     const { render: renderCtx } = this.internal;
     const region = this.state.region;
     if (box.areaIsZero(region)) return undefined;
     if (!this.state.visible) return () => renderCtx.erase(region, xy.ZERO, CANVAS);
-    let range: Iterable<any>;
-    if (!this.state.scrolling)
-      range = this.values.subIterator(
-        this.values.length - this.visibleLineCount,
-        this.values.length,
-      );
-    else {
+    let range: Iterable<TelemValue>;
+    let indexRange: Iterable<TelemValue> | undefined;
+    if (!this.state.scrolling) {
+      const start = this.values.length - this.visibleLineCount;
+      range = this.values.subIterator(start, this.values.length);
+      if (this.state.showIndex && this.indexValues.length > 0)
+        indexRange = this.indexValues.subIterator(start, this.values.length);
+    } else {
       const start = this.values.traverseAlignment(
         this.scrollState.offset,
         -BigInt(this.visibleLineCount),
       );
       range = this.values.subAlignmentSpanIterator(start, this.visibleLineCount);
+      if (this.state.showIndex && this.indexValues.length > 0)
+        indexRange = this.indexValues.subAlignmentSpanIterator(
+          start,
+          this.visibleLineCount,
+        );
     }
 
     const reg = this.state.region;
     const canvas = renderCtx[CANVAS];
     const draw2d = new Draw2D(canvas, this.internal.theme);
     const clearScissor = renderCtx.scissor(reg, xy.ZERO, [CANVAS]);
-    this.renderElements(draw2d, range);
+    this.renderElements(draw2d, range, indexRange);
     this.renderScrollbar(draw2d);
     clearScissor();
     const eraseRegion = box.copy(this.state.region);
@@ -197,21 +302,26 @@ export class Log extends aether.Leaf<typeof logState, InternalState> {
 
   private renderScrollbar(draw2d: Draw2D): void {
     const reg = this.state.region;
-    const scrollbarHeight = (box.height(reg) / this.totalHeight) * box.height(reg);
-    if (scrollbarHeight >= box.height(reg) * SCROLLBAR_RENDER_THRESHOLD) return;
-    let scrollbarYPos = box.bottom(reg) - scrollbarHeight;
-    if (this.state.scrolling)
-      scrollbarYPos -=
-        (Number(
+    const viewportH = box.height(reg);
+    const rawHeight = (viewportH / this.totalHeight) * viewportH;
+    if (rawHeight >= viewportH * SCROLLBAR_RENDER_THRESHOLD) return;
+    const scrollbarHeight = Math.max(rawHeight, MIN_SCROLLBAR_HEIGHT);
+    const top = box.top(reg);
+    const maxTravel = viewportH - scrollbarHeight;
+    let scrollbarYPos: number;
+    if (!this.state.scrolling) 
+      scrollbarYPos = top + maxTravel;
+     else {
+      const scrollFraction =
+        Number(
           this.values.distance(
             this.values.alignmentBounds.upper,
             this.scrollState.offset,
           ),
-        ) /
-          this.values.length) *
-        box.height(reg);
-
-    if (scrollbarYPos < 0) scrollbarYPos = box.top(reg);
+        ) / this.values.length;
+      scrollbarYPos = top + maxTravel * (1 - scrollFraction);
+    }
+    scrollbarYPos = Math.max(top, Math.min(scrollbarYPos, top + maxTravel));
 
     draw2d.container({
       region: box.construct(
@@ -223,15 +333,19 @@ export class Log extends aether.Leaf<typeof logState, InternalState> {
     });
   }
 
-  private renderElements(draw2D: Draw2D, iter: Iterable<TelemValue>): void {
+  private renderElements(
+    draw2D: Draw2D,
+    iter: Iterable<TelemValue>,
+    indexIter?: Iterable<TelemValue>,
+  ): void {
     const reg = this.state.region;
     let i = 0;
+    const idxIterator = indexIter?.[Symbol.iterator]();
     for (const value of iter) {
-      const text = this.values.dataType.equals(DataType.JSON)
-        ? JSON.stringify(value)
-        : value.toString();
+      const indexValue = idxIterator?.next().value;
+      const lineText = this.formatLine(value, indexValue);
       draw2D.text({
-        text,
+        text: lineText,
         level: this.state.font,
         shade: 11,
         position: xy.translate(box.topLeft(reg), { x: 6, y: i * this.lineHeight + 6 }),
