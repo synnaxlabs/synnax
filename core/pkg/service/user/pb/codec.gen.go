@@ -14,8 +14,6 @@ package pb
 import (
 	"context"
 
-	"google.golang.org/protobuf/proto"
-
 	"github.com/synnaxlabs/x/gorp"
 
 	user "github.com/synnaxlabs/synnax/pkg/service/user"
@@ -31,7 +29,7 @@ func (userCodec) Marshal(
 	if err != nil {
 		return nil, err
 	}
-	return proto.Marshal(p)
+	return p.MarshalVT()
 }
 
 func (userCodec) Unmarshal(
@@ -39,7 +37,7 @@ func (userCodec) Unmarshal(
 	data []byte,
 ) (user.User, error) {
 	p := &User{}
-	if err := proto.Unmarshal(data, p); err != nil {
+	if err := p.UnmarshalVT(data); err != nil {
 		return user.User{}, err
 	}
 	return UserFromPB(ctx, p)

@@ -291,8 +291,6 @@ package {{.Package}}
 import (
 	"context"
 
-	"google.golang.org/protobuf/proto"
-
 	"github.com/synnaxlabs/x/gorp"
 
 	{{.ParentAlias}} "{{.ParentImportPath}}"
@@ -308,7 +306,7 @@ func ({{lowerFirst .GoName}}Codec) Marshal(
 	if err != nil {
 		return nil, err
 	}
-	return proto.Marshal(p)
+	return p.MarshalVT()
 }
 
 func ({{lowerFirst .GoName}}Codec) Unmarshal(
@@ -316,7 +314,7 @@ func ({{lowerFirst .GoName}}Codec) Unmarshal(
 	data []byte,
 ) ({{.ParentAlias}}.{{.GoName}}, error) {
 	p := &{{toPascalCase .PBName}}{}
-	if err := proto.Unmarshal(data, p); err != nil {
+	if err := p.UnmarshalVT(data); err != nil {
 		return {{.ParentAlias}}.{{.GoName}}{}, err
 	}
 	return {{toPascalCase .PBName}}FromPB(ctx, p)

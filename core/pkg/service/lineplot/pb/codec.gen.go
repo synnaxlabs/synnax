@@ -14,8 +14,6 @@ package pb
 import (
 	"context"
 
-	"google.golang.org/protobuf/proto"
-
 	"github.com/synnaxlabs/x/gorp"
 
 	lineplot "github.com/synnaxlabs/synnax/pkg/service/lineplot"
@@ -31,7 +29,7 @@ func (linePlotCodec) Marshal(
 	if err != nil {
 		return nil, err
 	}
-	return proto.Marshal(p)
+	return p.MarshalVT()
 }
 
 func (linePlotCodec) Unmarshal(
@@ -39,7 +37,7 @@ func (linePlotCodec) Unmarshal(
 	data []byte,
 ) (lineplot.LinePlot, error) {
 	p := &LinePlot{}
-	if err := proto.Unmarshal(data, p); err != nil {
+	if err := p.UnmarshalVT(data); err != nil {
 		return lineplot.LinePlot{}, err
 	}
 	return LinePlotFromPB(ctx, p)

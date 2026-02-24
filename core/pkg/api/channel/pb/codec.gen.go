@@ -14,8 +14,6 @@ package pb
 import (
 	"context"
 
-	"google.golang.org/protobuf/proto"
-
 	"github.com/synnaxlabs/x/gorp"
 
 	channel "github.com/synnaxlabs/synnax/pkg/api/channel"
@@ -31,7 +29,7 @@ func (channelCodec) Marshal(
 	if err != nil {
 		return nil, err
 	}
-	return proto.Marshal(p)
+	return p.MarshalVT()
 }
 
 func (channelCodec) Unmarshal(
@@ -39,7 +37,7 @@ func (channelCodec) Unmarshal(
 	data []byte,
 ) (channel.Channel, error) {
 	p := &Channel{}
-	if err := proto.Unmarshal(data, p); err != nil {
+	if err := p.UnmarshalVT(data); err != nil {
 		return channel.Channel{}, err
 	}
 	return ChannelFromPB(ctx, p)

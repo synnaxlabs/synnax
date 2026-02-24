@@ -14,8 +14,6 @@ package pb
 import (
 	"context"
 
-	"google.golang.org/protobuf/proto"
-
 	"github.com/synnaxlabs/x/gorp"
 
 	arc "github.com/synnaxlabs/synnax/pkg/service/arc"
@@ -31,7 +29,7 @@ func (arcCodec) Marshal(
 	if err != nil {
 		return nil, err
 	}
-	return proto.Marshal(p)
+	return p.MarshalVT()
 }
 
 func (arcCodec) Unmarshal(
@@ -39,7 +37,7 @@ func (arcCodec) Unmarshal(
 	data []byte,
 ) (arc.Arc, error) {
 	p := &Arc{}
-	if err := proto.Unmarshal(data, p); err != nil {
+	if err := p.UnmarshalVT(data); err != nil {
 		return arc.Arc{}, err
 	}
 	return ArcFromPB(ctx, p)

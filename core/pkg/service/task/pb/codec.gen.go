@@ -14,8 +14,6 @@ package pb
 import (
 	"context"
 
-	"google.golang.org/protobuf/proto"
-
 	"github.com/synnaxlabs/x/gorp"
 
 	task "github.com/synnaxlabs/synnax/pkg/service/task"
@@ -31,7 +29,7 @@ func (taskCodec) Marshal(
 	if err != nil {
 		return nil, err
 	}
-	return proto.Marshal(p)
+	return p.MarshalVT()
 }
 
 func (taskCodec) Unmarshal(
@@ -39,7 +37,7 @@ func (taskCodec) Unmarshal(
 	data []byte,
 ) (task.Task, error) {
 	p := &Task{}
-	if err := proto.Unmarshal(data, p); err != nil {
+	if err := p.UnmarshalVT(data); err != nil {
 		return task.Task{}, err
 	}
 	return TaskFromPB(ctx, p)

@@ -14,8 +14,6 @@ package pb
 import (
 	"context"
 
-	"google.golang.org/protobuf/proto"
-
 	"github.com/synnaxlabs/x/gorp"
 
 	device "github.com/synnaxlabs/synnax/pkg/service/device"
@@ -31,7 +29,7 @@ func (deviceCodec) Marshal(
 	if err != nil {
 		return nil, err
 	}
-	return proto.Marshal(p)
+	return p.MarshalVT()
 }
 
 func (deviceCodec) Unmarshal(
@@ -39,7 +37,7 @@ func (deviceCodec) Unmarshal(
 	data []byte,
 ) (device.Device, error) {
 	p := &Device{}
-	if err := proto.Unmarshal(data, p); err != nil {
+	if err := p.UnmarshalVT(data); err != nil {
 		return device.Device{}, err
 	}
 	return DeviceFromPB(ctx, p)

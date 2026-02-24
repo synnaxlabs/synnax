@@ -14,8 +14,6 @@ package pb
 import (
 	"context"
 
-	"google.golang.org/protobuf/proto"
-
 	"github.com/synnaxlabs/x/gorp"
 
 	workspace "github.com/synnaxlabs/synnax/pkg/service/workspace"
@@ -31,7 +29,7 @@ func (workspaceCodec) Marshal(
 	if err != nil {
 		return nil, err
 	}
-	return proto.Marshal(p)
+	return p.MarshalVT()
 }
 
 func (workspaceCodec) Unmarshal(
@@ -39,7 +37,7 @@ func (workspaceCodec) Unmarshal(
 	data []byte,
 ) (workspace.Workspace, error) {
 	p := &Workspace{}
-	if err := proto.Unmarshal(data, p); err != nil {
+	if err := p.UnmarshalVT(data); err != nil {
 		return workspace.Workspace{}, err
 	}
 	return WorkspaceFromPB(ctx, p)

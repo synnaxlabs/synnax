@@ -14,8 +14,6 @@ package pb
 import (
 	"context"
 
-	"google.golang.org/protobuf/proto"
-
 	"github.com/synnaxlabs/x/gorp"
 
 	label "github.com/synnaxlabs/x/label"
@@ -31,7 +29,7 @@ func (labelCodec) Marshal(
 	if err != nil {
 		return nil, err
 	}
-	return proto.Marshal(p)
+	return p.MarshalVT()
 }
 
 func (labelCodec) Unmarshal(
@@ -39,7 +37,7 @@ func (labelCodec) Unmarshal(
 	data []byte,
 ) (label.Label, error) {
 	p := &Label{}
-	if err := proto.Unmarshal(data, p); err != nil {
+	if err := p.UnmarshalVT(data); err != nil {
 		return label.Label{}, err
 	}
 	return LabelFromPB(ctx, p)

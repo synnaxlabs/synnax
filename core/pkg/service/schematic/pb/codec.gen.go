@@ -14,8 +14,6 @@ package pb
 import (
 	"context"
 
-	"google.golang.org/protobuf/proto"
-
 	"github.com/synnaxlabs/x/gorp"
 
 	schematic "github.com/synnaxlabs/synnax/pkg/service/schematic"
@@ -31,7 +29,7 @@ func (schematicCodec) Marshal(
 	if err != nil {
 		return nil, err
 	}
-	return proto.Marshal(p)
+	return p.MarshalVT()
 }
 
 func (schematicCodec) Unmarshal(
@@ -39,7 +37,7 @@ func (schematicCodec) Unmarshal(
 	data []byte,
 ) (schematic.Schematic, error) {
 	p := &Schematic{}
-	if err := proto.Unmarshal(data, p); err != nil {
+	if err := p.UnmarshalVT(data); err != nil {
 		return schematic.Schematic{}, err
 	}
 	return SchematicFromPB(ctx, p)

@@ -14,8 +14,6 @@ package pb
 import (
 	"context"
 
-	"google.golang.org/protobuf/proto"
-
 	"github.com/synnaxlabs/x/gorp"
 
 	rack "github.com/synnaxlabs/synnax/pkg/service/rack"
@@ -31,7 +29,7 @@ func (rackCodec) Marshal(
 	if err != nil {
 		return nil, err
 	}
-	return proto.Marshal(p)
+	return p.MarshalVT()
 }
 
 func (rackCodec) Unmarshal(
@@ -39,7 +37,7 @@ func (rackCodec) Unmarshal(
 	data []byte,
 ) (rack.Rack, error) {
 	p := &Rack{}
-	if err := proto.Unmarshal(data, p); err != nil {
+	if err := p.UnmarshalVT(data); err != nil {
 		return rack.Rack{}, err
 	}
 	return RackFromPB(ctx, p)

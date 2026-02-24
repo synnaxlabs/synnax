@@ -14,8 +14,6 @@ package pb
 import (
 	"context"
 
-	"google.golang.org/protobuf/proto"
-
 	"github.com/synnaxlabs/x/gorp"
 
 	log "github.com/synnaxlabs/synnax/pkg/service/log"
@@ -31,7 +29,7 @@ func (logCodec) Marshal(
 	if err != nil {
 		return nil, err
 	}
-	return proto.Marshal(p)
+	return p.MarshalVT()
 }
 
 func (logCodec) Unmarshal(
@@ -39,7 +37,7 @@ func (logCodec) Unmarshal(
 	data []byte,
 ) (log.Log, error) {
 	p := &Log{}
-	if err := proto.Unmarshal(data, p); err != nil {
+	if err := p.UnmarshalVT(data); err != nil {
 		return log.Log{}, err
 	}
 	return LogFromPB(ctx, p)

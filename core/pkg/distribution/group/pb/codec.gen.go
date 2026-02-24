@@ -14,8 +14,6 @@ package pb
 import (
 	"context"
 
-	"google.golang.org/protobuf/proto"
-
 	"github.com/synnaxlabs/x/gorp"
 
 	group "github.com/synnaxlabs/synnax/pkg/distribution/group"
@@ -31,7 +29,7 @@ func (groupCodec) Marshal(
 	if err != nil {
 		return nil, err
 	}
-	return proto.Marshal(p)
+	return p.MarshalVT()
 }
 
 func (groupCodec) Unmarshal(
@@ -39,7 +37,7 @@ func (groupCodec) Unmarshal(
 	data []byte,
 ) (group.Group, error) {
 	p := &Group{}
-	if err := proto.Unmarshal(data, p); err != nil {
+	if err := p.UnmarshalVT(data); err != nil {
 		return group.Group{}, err
 	}
 	return GroupFromPB(ctx, p)

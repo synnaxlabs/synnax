@@ -14,8 +14,6 @@ package pb
 import (
 	"context"
 
-	"google.golang.org/protobuf/proto"
-
 	"github.com/synnaxlabs/x/gorp"
 
 	ontology "github.com/synnaxlabs/synnax/pkg/distribution/ontology"
@@ -31,7 +29,7 @@ func (resourceCodec) Marshal(
 	if err != nil {
 		return nil, err
 	}
-	return proto.Marshal(p)
+	return p.MarshalVT()
 }
 
 func (resourceCodec) Unmarshal(
@@ -39,7 +37,7 @@ func (resourceCodec) Unmarshal(
 	data []byte,
 ) (ontology.Resource, error) {
 	p := &Resource{}
-	if err := proto.Unmarshal(data, p); err != nil {
+	if err := p.UnmarshalVT(data); err != nil {
 		return ontology.Resource{}, err
 	}
 	return ResourceFromPB(ctx, p)
@@ -57,7 +55,7 @@ func (relationshipCodec) Marshal(
 	if err != nil {
 		return nil, err
 	}
-	return proto.Marshal(p)
+	return p.MarshalVT()
 }
 
 func (relationshipCodec) Unmarshal(
@@ -65,7 +63,7 @@ func (relationshipCodec) Unmarshal(
 	data []byte,
 ) (ontology.Relationship, error) {
 	p := &Relationship{}
-	if err := proto.Unmarshal(data, p); err != nil {
+	if err := p.UnmarshalVT(data); err != nil {
 		return ontology.Relationship{}, err
 	}
 	return RelationshipFromPB(ctx, p)
