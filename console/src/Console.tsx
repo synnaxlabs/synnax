@@ -21,7 +21,7 @@ import {
   Synnax,
   type Triggers,
 } from "@synnaxlabs/pluto";
-import { type ReactElement, useCallback, useEffect } from "react";
+import { type ReactElement, useCallback, useEffect, useState } from "react";
 import { useDispatch } from "react-redux";
 
 import { Access } from "@/access";
@@ -133,11 +133,45 @@ const useBlockDefaultDropBehavior = (): void =>
 const ArcLSPClientSetter = ({ children }: { children: ReactElement }): ReactElement => {
   const client = Synnax.use();
   const monaco = Code.useMonaco();
+  const [stream, setStream] = useState<ArcCode.LSPStream | null>(null);
+
   useEffect(() => {
-    // Only start LSP when Monaco is initialized and client is available
-    if (monaco == null) return;
-    void ArcCode.setSynnaxClient(client);
-  }, [client, monaco]);
+    if (client == null) {
+      setStream(null);
+      return;
+    }
+    let cancelled = false;
+    ArcCode.openLSPStream(client)
+      .then((s) => {
+        if (cancelled) ArcCode.closeLSPStream(s);
+        else setStream(s);
+      })
+      .catch(console.error);
+    return () => {
+      cancelled = true;
+      setStream((prev) => {
+        if (prev != null) ArcCode.closeLSPStream(prev);
+        return null;
+      });
+    };
+  }, [client]);
+
+  useEffect(() => {
+    if (monaco == null || stream == null) return;
+    let cancelled = false;
+    let lspClient: Awaited<ReturnType<typeof ArcCode.startLSPClient>> | null = null;
+    ArcCode.startLSPClient(stream)
+      .then((c) => {
+        if (cancelled) void ArcCode.stopLSPClient(c);
+        else lspClient = c;
+      })
+      .catch(console.error);
+    return () => {
+      cancelled = true;
+      if (lspClient != null) void ArcCode.stopLSPClient(lspClient);
+    };
+  }, [monaco, stream]);
+
   return children;
 };
 

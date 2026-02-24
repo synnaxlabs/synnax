@@ -10,7 +10,13 @@
 import { type destructor } from "@synnaxlabs/x";
 import type * as monacoT from "monaco-editor";
 
-import { initializationState } from "@/code/init/mu";
+const codingameImports = Promise.all([
+  import("@codingame/monaco-vscode-theme-defaults-default-extension"),
+  import("@codingame/monaco-vscode-api"),
+  import("@codingame/monaco-vscode-textmate-service-override"),
+  import("@codingame/monaco-vscode-theme-service-override"),
+  import("@codingame/monaco-vscode-languages-service-override"),
+]);
 
 const WORKER_LOADERS: Partial<Record<string, () => Worker>> = {
   TextEditorWorker: () =>
@@ -45,48 +51,34 @@ export interface InitializeReturn {
   destructor: destructor.Async;
 }
 
-let monaco: typeof monacoT | null = null;
-let shutdownMonaco: destructor.Async | null = null;
+let initPromise: Promise<InitializeReturn> | null = null;
 
-export const initializeMonaco = async ({
+export const initializeMonaco = (props: InitializeProps): Promise<InitializeReturn> => {
+  if (initPromise != null) return initPromise;
+  initPromise = doInitialize(props);
+  return initPromise;
+};
+
+const doInitialize = async ({
   services,
 }: InitializeProps): Promise<InitializeReturn> => {
   self.MonacoEnvironment = { getWorker };
-  await initializationState.mu.acquire();
-  if (initializationState.initialized) {
-    initializationState.mu.release();
-    return {
-      monaco: monaco as typeof monacoT,
-      destructor: shutdownMonaco as destructor.Async,
-    };
-  }
-  initializationState.initialized = true;
   const [
     ,
     { initialize },
     { default: getTextMateServiceOverride },
     { default: getThemeServiceOverride },
     { default: getLanguagesServiceOverride },
-  ] = await Promise.all([
-    import("@codingame/monaco-vscode-theme-defaults-default-extension"),
-    import("@codingame/monaco-vscode-api"),
-    import("@codingame/monaco-vscode-textmate-service-override"),
-    import("@codingame/monaco-vscode-theme-service-override"),
-    import("@codingame/monaco-vscode-languages-service-override"),
-  ]);
+  ] = await codingameImports;
   await initialize({
     ...getTextMateServiceOverride(),
     ...getThemeServiceOverride(),
     ...getLanguagesServiceOverride(),
   });
-  monaco = await import("monaco-editor");
+  const monaco = await import("monaco-editor");
   const destructors = await Promise.all(services.map(async (s) => await s()));
-  initializationState.mu.release();
-  shutdownMonaco = async () => {
+  const dest: destructor.Async = async () => {
     await Promise.all(destructors.map((d) => d()));
   };
-  return {
-    monaco,
-    destructor: shutdownMonaco,
-  };
+  return { monaco, destructor: dest };
 };

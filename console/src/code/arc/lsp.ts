@@ -186,8 +186,10 @@ const TEXTMATE_RULES = {
 
 const NOOP_DISPOSER = () => ({ dispose: () => {} });
 
+export type LSPStream = Stream<typeof arc.lspMessageZ, typeof arc.lspMessageZ>;
+
 interface FreighterTransportProps {
-  stream: Stream<typeof arc.lspMessageZ, typeof arc.lspMessageZ>;
+  stream: LSPStream;
 }
 
 const createFreighterTransport = ({
@@ -266,51 +268,34 @@ const createFreighterTransport = ({
   return { reader, writer };
 };
 
-let synnaxClient: Synnax | null = null;
-let lspDestructor: destructor.Async | null = null;
+export const openLSPStream = async (client: Synnax): Promise<LSPStream> =>
+  await client.arcs.openLSP();
 
-export const setSynnaxClient = async (client: Synnax | null): Promise<void> => {
-  if (lspDestructor != null) {
-    await lspDestructor();
-    lspDestructor = null;
-  }
-  synnaxClient = client;
-  if (client == null) return;
-  lspDestructor = await startArcLSP();
+export const closeLSPStream = (stream: LSPStream): void => {
+  stream.closeSend();
 };
 
-const startArcLSP = async (): Promise<destructor.Async> => {
-  if (synnaxClient == null) {
-    console.warn("Synnax client not set, Arc LSP will not start");
-    return async () => {};
-  }
-
-  try {
-    const stream = await synnaxClient.arcs.openLSP();
-    const { reader, writer } = createFreighterTransport({ stream });
-
-    const languageClient = new MonacoLanguageClient({
-      name: "Arc Language Server",
-      clientOptions: {
-        documentSelector: [LANGUAGE],
-        errorHandler: {
-          error: () => ({ action: ErrorAction.Continue }),
-          closed: () => ({ action: CloseAction.DoNotRestart }),
-        },
+export const startLSPClient = async (
+  stream: LSPStream,
+): Promise<MonacoLanguageClient> => {
+  const { reader, writer } = createFreighterTransport({ stream });
+  const languageClient = new MonacoLanguageClient({
+    name: "Arc Language Server",
+    clientOptions: {
+      documentSelector: [LANGUAGE],
+      errorHandler: {
+        error: () => ({ action: ErrorAction.Continue }),
+        closed: () => ({ action: CloseAction.DoNotRestart }),
       },
-      messageTransports: { reader, writer },
-    });
+    },
+    messageTransports: { reader, writer },
+  });
+  await languageClient.start();
+  return languageClient;
+};
 
-    await languageClient.start();
-
-    return async () => {
-      await languageClient.stop();
-      stream.closeSend();
-    };
-  } catch (error) {
-    console.error("Failed to start Arc LSP:", error);
-    return async () => {};
-  }
+export const stopLSPClient = async (client: MonacoLanguageClient): Promise<void> => {
+  await client.stop();
 };
 
 const GRAMMAR_PATH = "./arc.tmLanguage.json";
