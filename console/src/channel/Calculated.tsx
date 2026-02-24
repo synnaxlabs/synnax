@@ -24,9 +24,9 @@ import {
 import { status } from "@synnaxlabs/x";
 import { type ReactElement, useRef, useState } from "react";
 
+import { Arc } from "@/arc";
 import { type CalculatedLayoutArgs } from "@/channel/calculatedLayout";
 import { Code } from "@/code";
-import { Arc } from "@/code/arc";
 import { CSS } from "@/css";
 import { Layout } from "@/layout";
 import { Modals } from "@/modals";
@@ -67,7 +67,7 @@ export const Calculated: Layout.Renderer = ({ layoutKey, onClose }): ReactElemen
               {({ value, onChange }) => (
                 <Code.Editor
                   value={value}
-                  language={Arc.LANGUAGE}
+                  language={Arc.LSP.LANGUAGE}
                   onChange={onChange}
                   isBlock
                   bordered
