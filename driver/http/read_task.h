@@ -73,11 +73,11 @@ struct ReadTaskConfig {
 
 /// @brief source that polls HTTP endpoints and writes extracted values to a frame.
 class ReadTaskSource : public common::Source {
-    ReadTaskConfig cfg_;
-    device::Client client_;
-    std::vector<synnax::channel::Channel> channels_;
-    std::vector<std::string> bodies_;
-    std::vector<x::json::json> parsed_bodies_;
+    ReadTaskConfig cfg;
+    device::Client client;
+    std::vector<synnax::channel::Channel> chs;
+    std::vector<std::string> bodies;
+    std::vector<x::json::json> parsed_bodies;
 
 public:
     ReadTaskSource(ReadTaskConfig, device::Client);

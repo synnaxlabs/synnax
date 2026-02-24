@@ -123,7 +123,7 @@ std::pair<ReadTaskConfig, x::errors::Error> ReadTaskConfig::parse(
             if (ch.index == 0) continue;
             const auto idx_key = ch.index;
             if (field_keys.count(idx_key)) continue;
-           auto [existing, inserted] = cfg.software_timed_indexes.try_emplace(
+            auto [existing, inserted] = cfg.software_timed_indexes.try_emplace(
                 idx_key,
                 ei
             );
@@ -143,49 +143,49 @@ std::pair<ReadTaskConfig, x::errors::Error> ReadTaskConfig::parse(
 }
 
 ReadTaskSource::ReadTaskSource(ReadTaskConfig cfg, device::Client client):
-    cfg_(std::move(cfg)), client_(std::move(client)) {
-    bodies_.reserve(cfg_.endpoints.size());
-    parsed_bodies_.resize(cfg_.endpoints.size());
-    for (const auto &ep: cfg_.endpoints) {
-        bodies_.push_back(ep.body);
+    cfg(std::move(cfg)), client(std::move(client)) {
+    bodies.reserve(cfg.endpoints.size());
+    parsed_bodies.resize(cfg.endpoints.size());
+    for (const auto &ep: cfg.endpoints) {
+        bodies.push_back(ep.body);
         for (const auto &field: ep.fields) {
-            auto it = cfg_.channels.find(field.channel_key);
-            if (it != cfg_.channels.end()) channels_.push_back(it->second);
+            auto it = cfg.channels.find(field.channel_key);
+            if (it != cfg.channels.end()) chs.push_back(it->second);
         }
     }
 }
 
 synnax::framer::WriterConfig ReadTaskSource::writer_config() const {
     std::vector<synnax::channel::Key> keys;
-    keys.reserve(cfg_.channels.size() + cfg_.software_timed_indexes.size());
-    for (const auto &[key, _]: cfg_.channels)
+    keys.reserve(cfg.channels.size() + cfg.software_timed_indexes.size());
+    for (const auto &[key, _]: cfg.channels)
         keys.push_back(key);
-    for (const auto &[key, _]: cfg_.software_timed_indexes)
+    for (const auto &[key, _]: cfg.software_timed_indexes)
         keys.push_back(key);
     return {
         .channels = keys,
-        .mode = common::data_saving_writer_mode(cfg_.data_saving),
+        .mode = common::data_saving_writer_mode(cfg.data_saving),
     };
 }
 
 std::vector<synnax::channel::Channel> ReadTaskSource::channels() const {
-    return channels_;
+    return chs;
 }
 
 common::ReadResult
 ReadTaskSource::read(x::breaker::Breaker &breaker, x::telem::Frame &fr) {
     common::ReadResult res;
 
-    auto [results, batch_err] = client_.execute_requests(bodies_);
+    auto [results, batch_err] = client.execute_requests(bodies);
     if (batch_err) {
         res.error = batch_err;
         return res;
     }
 
-    fr.reserve(cfg_.channels.size() + cfg_.software_timed_indexes.size());
+    fr.reserve(cfg.channels.size() + cfg.software_timed_indexes.size());
 
-    for (size_t ei = 0; ei < cfg_.endpoints.size(); ei++) {
-        const auto &ep = cfg_.endpoints[ei];
+    for (size_t ei = 0; ei < cfg.endpoints.size(); ei++) {
+        const auto &ep = cfg.endpoints[ei];
         auto &[resp, req_err] = results[ei];
 
         if (req_err) {
@@ -199,7 +199,7 @@ ReadTaskSource::read(x::breaker::Breaker &breaker, x::telem::Frame &fr) {
         }
 
         try {
-            parsed_bodies_[ei] = x::json::json::parse(resp.body);
+            parsed_bodies[ei] = x::json::json::parse(resp.body);
         } catch (const x::json::json::parse_error &e) {
             res.error = errors::PARSE_ERROR.sub(
                 "failed to parse response from " + ep.request.path + ": " + e.what()
@@ -207,7 +207,7 @@ ReadTaskSource::read(x::breaker::Breaker &breaker, x::telem::Frame &fr) {
             return res;
         }
 
-        const auto &body = parsed_bodies_[ei];
+        const auto &body = parsed_bodies[ei];
 
         for (const auto &field: ep.fields) {
             if (!body.contains(field.pointer)) {
@@ -218,7 +218,7 @@ ReadTaskSource::read(x::breaker::Breaker &breaker, x::telem::Frame &fr) {
                 return res;
             }
 
-            const auto &ch = cfg_.channels.at(field.channel_key);
+            const auto &ch = cfg.channels.at(field.channel_key);
             const auto &json_val = body.at(field.pointer);
 
             auto tf = x::json::TimeFormat::ISO8601;
@@ -242,7 +242,7 @@ ReadTaskSource::read(x::breaker::Breaker &breaker, x::telem::Frame &fr) {
 
         // Write software-timed index timestamps for index channels on this endpoint
         // that are NOT listed as fields.
-        for (const auto &[idx_key, ep_idx]: cfg_.software_timed_indexes) {
+        for (const auto &[idx_key, ep_idx]: cfg.software_timed_indexes) {
             if (ep_idx != static_cast<int>(ei)) continue;
             auto ts = x::telem::TimeStamp::midpoint(
                 resp.time_range.start,
