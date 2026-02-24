@@ -13,34 +13,70 @@ package pb
 
 import (
 	"context"
+	"encoding/binary"
+	"encoding/json"
 
 	"github.com/synnaxlabs/x/gorp"
 
 	workspace "github.com/synnaxlabs/synnax/pkg/service/workspace"
 )
 
+var _ = binary.BigEndian
+
+const (
+	WorkspaceFieldKey    = 0
+	WorkspaceFieldName   = 1
+	WorkspaceFieldAuthor = 2
+	WorkspaceFieldLayout = 3
+	WorkspaceFieldCount  = 4
+)
+
 type workspaceCodec struct{}
 
 func (workspaceCodec) Marshal(
-	ctx context.Context,
+	_ context.Context,
 	s workspace.Workspace,
 ) ([]byte, error) {
-	p, err := WorkspaceToPB(ctx, s)
-	if err != nil {
-		return nil, err
+	buf := make([]byte, 0, 128)
+	buf = append(buf, s.Key[:]...)
+	buf = binary.BigEndian.AppendUint32(buf, uint32(len(s.Name)))
+	buf = append(buf, s.Name...)
+	buf = append(buf, s.Author[:]...)
+	{
+		_jb, _je := json.Marshal(s.Layout)
+		if _je != nil {
+			return nil, _je
+		}
+		buf = binary.BigEndian.AppendUint32(buf, uint32(len(_jb)))
+		buf = append(buf, _jb...)
 	}
-	return p.MarshalVT()
+	return buf, nil
 }
 
 func (workspaceCodec) Unmarshal(
-	ctx context.Context,
+	_ context.Context,
 	data []byte,
 ) (workspace.Workspace, error) {
-	p := &Workspace{}
-	if err := p.UnmarshalVT(data); err != nil {
-		return workspace.Workspace{}, err
+	var r workspace.Workspace
+	copy(r.Key[:], data[:16])
+	data = data[16:]
+	{
+		_n := binary.BigEndian.Uint32(data[:4])
+		data = data[4:]
+		r.Name = string(data[:_n])
+		data = data[_n:]
 	}
-	return WorkspaceFromPB(ctx, p)
+	copy(r.Author[:], data[:16])
+	data = data[16:]
+	{
+		_n := binary.BigEndian.Uint32(data[:4])
+		data = data[4:]
+		if err := json.Unmarshal(data[:_n], &r.Layout); err != nil {
+			return r, err
+		}
+		data = data[_n:]
+	}
+	return r, nil
 }
 
 var WorkspaceCodec gorp.Codec[workspace.Workspace] = workspaceCodec{}

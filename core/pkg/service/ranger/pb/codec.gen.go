@@ -13,34 +13,74 @@ package pb
 
 import (
 	"context"
+	"encoding/binary"
+	"math"
 
 	"github.com/synnaxlabs/x/gorp"
 
 	ranger "github.com/synnaxlabs/synnax/pkg/service/ranger"
+	telem "github.com/synnaxlabs/x/telem"
+)
+
+var _ = binary.BigEndian
+
+const (
+	RangeFieldKey            = 0
+	RangeFieldName           = 1
+	RangeFieldTimeRangeStart = 2
+	RangeFieldTimeRangeEnd   = 3
+	RangeFieldColorR         = 4
+	RangeFieldColorG         = 5
+	RangeFieldColorB         = 6
+	RangeFieldColorA         = 7
+	RangeFieldCount          = 8
 )
 
 type rangeCodec struct{}
 
 func (rangeCodec) Marshal(
-	ctx context.Context,
+	_ context.Context,
 	s ranger.Range,
 ) ([]byte, error) {
-	p, err := RangeToPB(ctx, s)
-	if err != nil {
-		return nil, err
-	}
-	return p.MarshalVT()
+	buf := make([]byte, 0, 75)
+	buf = append(buf, s.Key[:]...)
+	buf = binary.BigEndian.AppendUint32(buf, uint32(len(s.Name)))
+	buf = append(buf, s.Name...)
+	buf = binary.BigEndian.AppendUint64(buf, uint64(s.TimeRange.Start))
+	buf = binary.BigEndian.AppendUint64(buf, uint64(s.TimeRange.End))
+	buf = append(buf, byte(s.Color.R))
+	buf = append(buf, byte(s.Color.G))
+	buf = append(buf, byte(s.Color.B))
+	buf = binary.BigEndian.AppendUint64(buf, math.Float64bits(float64(s.Color.A)))
+	return buf, nil
 }
 
 func (rangeCodec) Unmarshal(
-	ctx context.Context,
+	_ context.Context,
 	data []byte,
 ) (ranger.Range, error) {
-	p := &Range{}
-	if err := p.UnmarshalVT(data); err != nil {
-		return ranger.Range{}, err
+	var r ranger.Range
+	copy(r.Key[:], data[:16])
+	data = data[16:]
+	{
+		_n := binary.BigEndian.Uint32(data[:4])
+		data = data[4:]
+		r.Name = string(data[:_n])
+		data = data[_n:]
 	}
-	return RangeFromPB(ctx, p)
+	r.TimeRange.Start = telem.TimeStamp(binary.BigEndian.Uint64(data[:8]))
+	data = data[8:]
+	r.TimeRange.End = telem.TimeStamp(binary.BigEndian.Uint64(data[:8]))
+	data = data[8:]
+	r.Color.R = uint8(data[0])
+	data = data[1:]
+	r.Color.G = uint8(data[0])
+	data = data[1:]
+	r.Color.B = uint8(data[0])
+	data = data[1:]
+	r.Color.A = float64(math.Float64frombits(binary.BigEndian.Uint64(data[:8])))
+	data = data[8:]
+	return r, nil
 }
 
 var RangeCodec gorp.Codec[ranger.Range] = rangeCodec{}

@@ -13,60 +13,131 @@ package pb
 
 import (
 	"context"
+	"encoding/binary"
 
 	"github.com/synnaxlabs/x/gorp"
 
 	ontology "github.com/synnaxlabs/synnax/pkg/distribution/ontology"
 )
 
+var _ = binary.BigEndian
+
+const (
+	ResourceFieldIDType = 0
+	ResourceFieldIDKey  = 1
+	ResourceFieldName   = 2
+	ResourceFieldCount  = 3
+)
+
 type resourceCodec struct{}
 
 func (resourceCodec) Marshal(
-	ctx context.Context,
+	_ context.Context,
 	s ontology.Resource,
 ) ([]byte, error) {
-	p, err := ResourceToPB(ctx, s)
-	if err != nil {
-		return nil, err
-	}
-	return p.MarshalVT()
+	buf := make([]byte, 0, 96)
+	buf = binary.BigEndian.AppendUint32(buf, uint32(len(s.ID.Type)))
+	buf = append(buf, s.ID.Type...)
+	buf = binary.BigEndian.AppendUint32(buf, uint32(len(s.ID.Key)))
+	buf = append(buf, s.ID.Key...)
+	buf = binary.BigEndian.AppendUint32(buf, uint32(len(s.Name)))
+	buf = append(buf, s.Name...)
+	return buf, nil
 }
 
 func (resourceCodec) Unmarshal(
-	ctx context.Context,
+	_ context.Context,
 	data []byte,
 ) (ontology.Resource, error) {
-	p := &Resource{}
-	if err := p.UnmarshalVT(data); err != nil {
-		return ontology.Resource{}, err
+	var r ontology.Resource
+	{
+		_n := binary.BigEndian.Uint32(data[:4])
+		data = data[4:]
+		r.ID.Type = ontology.Type(data[:_n])
+		data = data[_n:]
 	}
-	return ResourceFromPB(ctx, p)
+	{
+		_n := binary.BigEndian.Uint32(data[:4])
+		data = data[4:]
+		r.ID.Key = string(data[:_n])
+		data = data[_n:]
+	}
+	{
+		_n := binary.BigEndian.Uint32(data[:4])
+		data = data[4:]
+		r.Name = string(data[:_n])
+		data = data[_n:]
+	}
+	return r, nil
 }
 
 var ResourceCodec gorp.Codec[ontology.Resource] = resourceCodec{}
 
+const (
+	RelationshipFieldFromType = 0
+	RelationshipFieldFromKey  = 1
+	RelationshipFieldType     = 2
+	RelationshipFieldToType   = 3
+	RelationshipFieldToKey    = 4
+	RelationshipFieldCount    = 5
+)
+
 type relationshipCodec struct{}
 
 func (relationshipCodec) Marshal(
-	ctx context.Context,
+	_ context.Context,
 	s ontology.Relationship,
 ) ([]byte, error) {
-	p, err := RelationshipToPB(ctx, s)
-	if err != nil {
-		return nil, err
-	}
-	return p.MarshalVT()
+	buf := make([]byte, 0, 160)
+	buf = binary.BigEndian.AppendUint32(buf, uint32(len(s.From.Type)))
+	buf = append(buf, s.From.Type...)
+	buf = binary.BigEndian.AppendUint32(buf, uint32(len(s.From.Key)))
+	buf = append(buf, s.From.Key...)
+	buf = binary.BigEndian.AppendUint32(buf, uint32(len(s.Type)))
+	buf = append(buf, s.Type...)
+	buf = binary.BigEndian.AppendUint32(buf, uint32(len(s.To.Type)))
+	buf = append(buf, s.To.Type...)
+	buf = binary.BigEndian.AppendUint32(buf, uint32(len(s.To.Key)))
+	buf = append(buf, s.To.Key...)
+	return buf, nil
 }
 
 func (relationshipCodec) Unmarshal(
-	ctx context.Context,
+	_ context.Context,
 	data []byte,
 ) (ontology.Relationship, error) {
-	p := &Relationship{}
-	if err := p.UnmarshalVT(data); err != nil {
-		return ontology.Relationship{}, err
+	var r ontology.Relationship
+	{
+		_n := binary.BigEndian.Uint32(data[:4])
+		data = data[4:]
+		r.From.Type = ontology.Type(data[:_n])
+		data = data[_n:]
 	}
-	return RelationshipFromPB(ctx, p)
+	{
+		_n := binary.BigEndian.Uint32(data[:4])
+		data = data[4:]
+		r.From.Key = string(data[:_n])
+		data = data[_n:]
+	}
+	{
+		_n := binary.BigEndian.Uint32(data[:4])
+		data = data[4:]
+		r.Type = ontology.RelationshipType(data[:_n])
+		data = data[_n:]
+	}
+	{
+		_n := binary.BigEndian.Uint32(data[:4])
+		data = data[4:]
+		r.To.Type = ontology.Type(data[:_n])
+		data = data[_n:]
+	}
+	{
+		_n := binary.BigEndian.Uint32(data[:4])
+		data = data[4:]
+		r.To.Key = string(data[:_n])
+		data = data[_n:]
+	}
+	return r, nil
 }
 
 var RelationshipCodec gorp.Codec[ontology.Relationship] = relationshipCodec{}

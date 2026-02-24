@@ -13,34 +13,178 @@ package pb
 
 import (
 	"context"
+	"encoding/binary"
+	"math"
 
 	"github.com/synnaxlabs/x/gorp"
 
 	rack "github.com/synnaxlabs/synnax/pkg/service/rack"
+	label "github.com/synnaxlabs/x/label"
+	status "github.com/synnaxlabs/x/status"
+	telem "github.com/synnaxlabs/x/telem"
+)
+
+var _ = binary.BigEndian
+
+const (
+	RackFieldKey                    = 0
+	RackFieldName                   = 1
+	RackFieldTaskCounter            = 2
+	RackFieldEmbedded               = 3
+	RackFieldStatusKey              = 4
+	RackFieldStatusName             = 5
+	RackFieldStatusVariant          = 6
+	RackFieldStatusMessage          = 7
+	RackFieldStatusDescription      = 8
+	RackFieldStatusTime             = 9
+	RackFieldStatusDetailsRack      = 10
+	RackFieldStatusLabelsElemKey    = 11
+	RackFieldStatusLabelsElemName   = 12
+	RackFieldStatusLabelsElemColorR = 13
+	RackFieldStatusLabelsElemColorG = 14
+	RackFieldStatusLabelsElemColorB = 15
+	RackFieldStatusLabelsElemColorA = 16
+	RackFieldCount                  = 17
 )
 
 type rackCodec struct{}
 
 func (rackCodec) Marshal(
-	ctx context.Context,
+	_ context.Context,
 	s rack.Rack,
 ) ([]byte, error) {
-	p, err := RackToPB(ctx, s)
-	if err != nil {
-		return nil, err
+	buf := make([]byte, 0, 272)
+	buf = binary.BigEndian.AppendUint32(buf, uint32(s.Key))
+	buf = binary.BigEndian.AppendUint32(buf, uint32(len(s.Name)))
+	buf = append(buf, s.Name...)
+	buf = binary.BigEndian.AppendUint32(buf, uint32(s.TaskCounter))
+	if s.Embedded {
+		buf = append(buf, 1)
+	} else {
+		buf = append(buf, 0)
 	}
-	return p.MarshalVT()
+	if s.Status != nil {
+		buf = append(buf, 1)
+		buf = binary.BigEndian.AppendUint32(buf, uint32(len((*s.Status).Key)))
+		buf = append(buf, (*s.Status).Key...)
+		buf = binary.BigEndian.AppendUint32(buf, uint32(len((*s.Status).Name)))
+		buf = append(buf, (*s.Status).Name...)
+		buf = binary.BigEndian.AppendUint32(buf, uint32(len((*s.Status).Variant)))
+		buf = append(buf, (*s.Status).Variant...)
+		buf = binary.BigEndian.AppendUint32(buf, uint32(len((*s.Status).Message)))
+		buf = append(buf, (*s.Status).Message...)
+		buf = binary.BigEndian.AppendUint32(buf, uint32(len((*s.Status).Description)))
+		buf = append(buf, (*s.Status).Description...)
+		buf = binary.BigEndian.AppendUint64(buf, uint64((*s.Status).Time))
+		buf = binary.BigEndian.AppendUint32(buf, uint32((*s.Status).Details.Rack))
+		if (*s.Status).Labels != nil {
+			buf = append(buf, 1)
+			buf = binary.BigEndian.AppendUint32(buf, uint32(len((*s.Status).Labels)))
+			for _, _e2 := range (*s.Status).Labels {
+				buf = append(buf, _e2.Key[:]...)
+				buf = binary.BigEndian.AppendUint32(buf, uint32(len(_e2.Name)))
+				buf = append(buf, _e2.Name...)
+				buf = append(buf, byte(_e2.Color.R))
+				buf = append(buf, byte(_e2.Color.G))
+				buf = append(buf, byte(_e2.Color.B))
+				buf = binary.BigEndian.AppendUint64(buf, math.Float64bits(float64(_e2.Color.A)))
+			}
+		} else {
+			buf = append(buf, 0)
+		}
+	} else {
+		buf = append(buf, 0)
+	}
+	return buf, nil
 }
 
 func (rackCodec) Unmarshal(
-	ctx context.Context,
+	_ context.Context,
 	data []byte,
 ) (rack.Rack, error) {
-	p := &Rack{}
-	if err := p.UnmarshalVT(data); err != nil {
-		return rack.Rack{}, err
+	var r rack.Rack
+	r.Key = rack.Key(binary.BigEndian.Uint32(data[:4]))
+	data = data[4:]
+	{
+		_n := binary.BigEndian.Uint32(data[:4])
+		data = data[4:]
+		r.Name = string(data[:_n])
+		data = data[_n:]
 	}
-	return RackFromPB(ctx, p)
+	r.TaskCounter = uint32(binary.BigEndian.Uint32(data[:4]))
+	data = data[4:]
+	r.Embedded = data[0] != 0
+	data = data[1:]
+	if data[0] == 1 {
+		data = data[1:]
+		var _ov1 rack.Status
+		{
+			_n := binary.BigEndian.Uint32(data[:4])
+			data = data[4:]
+			_ov1.Key = string(data[:_n])
+			data = data[_n:]
+		}
+		{
+			_n := binary.BigEndian.Uint32(data[:4])
+			data = data[4:]
+			_ov1.Name = string(data[:_n])
+			data = data[_n:]
+		}
+		{
+			_n := binary.BigEndian.Uint32(data[:4])
+			data = data[4:]
+			_ov1.Variant = status.Variant(data[:_n])
+			data = data[_n:]
+		}
+		{
+			_n := binary.BigEndian.Uint32(data[:4])
+			data = data[4:]
+			_ov1.Message = string(data[:_n])
+			data = data[_n:]
+		}
+		{
+			_n := binary.BigEndian.Uint32(data[:4])
+			data = data[4:]
+			_ov1.Description = string(data[:_n])
+			data = data[_n:]
+		}
+		_ov1.Time = telem.TimeStamp(binary.BigEndian.Uint64(data[:8]))
+		data = data[8:]
+		_ov1.Details.Rack = rack.Key(binary.BigEndian.Uint32(data[:4]))
+		data = data[4:]
+		if data[0] == 1 {
+			data = data[1:]
+			{
+				_n := binary.BigEndian.Uint32(data[:4])
+				data = data[4:]
+				_ov1.Labels = make([]label.Label, _n)
+				for _i3 := range _ov1.Labels {
+					copy(_ov1.Labels[_i3].Key[:], data[:16])
+					data = data[16:]
+					{
+						_n := binary.BigEndian.Uint32(data[:4])
+						data = data[4:]
+						_ov1.Labels[_i3].Name = string(data[:_n])
+						data = data[_n:]
+					}
+					_ov1.Labels[_i3].Color.R = uint8(data[0])
+					data = data[1:]
+					_ov1.Labels[_i3].Color.G = uint8(data[0])
+					data = data[1:]
+					_ov1.Labels[_i3].Color.B = uint8(data[0])
+					data = data[1:]
+					_ov1.Labels[_i3].Color.A = float64(math.Float64frombits(binary.BigEndian.Uint64(data[:8])))
+					data = data[8:]
+				}
+			}
+		} else {
+			data = data[1:]
+		}
+		r.Status = &_ov1
+	} else {
+		data = data[1:]
+	}
+	return r, nil
 }
 
 var RackCodec gorp.Codec[rack.Rack] = rackCodec{}

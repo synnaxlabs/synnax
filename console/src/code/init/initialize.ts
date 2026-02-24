@@ -61,32 +61,38 @@ export const initializeMonaco = async ({
     };
   }
   initializationState.initialized = true;
-  const [
-    ,
-    { initialize },
-    { default: getTextMateServiceOverride },
-    { default: getThemeServiceOverride },
-    { default: getLanguagesServiceOverride },
-  ] = await Promise.all([
-    import("@codingame/monaco-vscode-theme-defaults-default-extension"),
-    import("@codingame/monaco-vscode-api"),
-    import("@codingame/monaco-vscode-textmate-service-override"),
-    import("@codingame/monaco-vscode-theme-service-override"),
-    import("@codingame/monaco-vscode-languages-service-override"),
-  ]);
-  await initialize({
-    ...getTextMateServiceOverride(),
-    ...getThemeServiceOverride(),
-    ...getLanguagesServiceOverride(),
-  });
-  monaco = await import("monaco-editor");
-  const destructors = await Promise.all(services.map(async (s) => await s()));
-  initializationState.mu.release();
-  shutdownMonaco = async () => {
-    await Promise.all(destructors.map((d) => d()));
-  };
-  return {
-    monaco,
-    destructor: shutdownMonaco,
-  };
+  try {
+    const [
+      ,
+      { initialize },
+      { default: getTextMateServiceOverride },
+      { default: getThemeServiceOverride },
+      { default: getLanguagesServiceOverride },
+    ] = await Promise.all([
+      import("@codingame/monaco-vscode-theme-defaults-default-extension"),
+      import("@codingame/monaco-vscode-api"),
+      import("@codingame/monaco-vscode-textmate-service-override"),
+      import("@codingame/monaco-vscode-theme-service-override"),
+      import("@codingame/monaco-vscode-languages-service-override"),
+    ]);
+    await initialize({
+      ...getTextMateServiceOverride(),
+      ...getThemeServiceOverride(),
+      ...getLanguagesServiceOverride(),
+    });
+    monaco = await import("monaco-editor");
+    const destructors = await Promise.all(services.map(async (s) => await s()));
+    shutdownMonaco = async () => {
+      await Promise.all(destructors.map((d) => d()));
+    };
+    return {
+      monaco,
+      destructor: shutdownMonaco,
+    };
+  } catch (e) {
+    initializationState.initialized = false;
+    throw e;
+  } finally {
+    initializationState.mu.release();
+  }
 };

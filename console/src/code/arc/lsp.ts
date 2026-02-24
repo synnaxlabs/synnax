@@ -12,7 +12,7 @@ import {
   registerExtension,
 } from "@codingame/monaco-vscode-api/extensions";
 import { grammarRaw as arcGrammarRaw } from "@synnaxlabs/arc";
-import { type arc, type Synnax } from "@synnaxlabs/client";
+import { type arc } from "@synnaxlabs/client";
 import { type Stream } from "@synnaxlabs/freighter";
 import { type destructor } from "@synnaxlabs/x";
 import { MonacoLanguageClient } from "monaco-languageclient";
@@ -195,11 +195,15 @@ const createFreighterTransport = ({
 }: FreighterTransportProps): {
   reader: MessageReader;
   writer: MessageWriter;
+  closed: Promise<void>;
 } => {
   let isClosed = false;
   let onCloseCallback: (() => void) | null = null;
   let onErrorCallback: ((error: Error) => void) | null = null;
   let onMessageCallback: ((message: Message) => void) | null = null;
+
+  let resolveClosed: () => void;
+  const closed = new Promise<void>((r) => (resolveClosed = r));
 
   const receiveLoop = async () => {
     try {
@@ -222,6 +226,7 @@ const createFreighterTransport = ({
     } finally {
       isClosed = true;
       onCloseCallback?.();
+      resolveClosed();
     }
   };
 
@@ -263,54 +268,45 @@ const createFreighterTransport = ({
     },
   };
 
-  return { reader, writer };
+  return { reader, writer, closed };
 };
 
-let synnaxClient: Synnax | null = null;
-let lspDestructor: destructor.Async | null = null;
+export type LSPStream = Stream<typeof arc.lspMessageZ, typeof arc.lspMessageZ>;
 
-export const setSynnaxClient = async (client: Synnax | null): Promise<void> => {
-  if (lspDestructor != null) {
-    await lspDestructor();
-    lspDestructor = null;
-  }
-  synnaxClient = client;
-  if (client == null) return;
-  lspDestructor = await startArcLSP();
-};
+export interface LSPClientHandle {
+  client: MonacoLanguageClient;
+  closed: Promise<void>;
+}
 
-const startArcLSP = async (): Promise<destructor.Async> => {
-  if (synnaxClient == null) {
-    console.warn("Synnax client not set, Arc LSP will not start");
-    return async () => {};
-  }
-
-  try {
-    const stream = await synnaxClient.arcs.openLSP();
-    const { reader, writer } = createFreighterTransport({ stream });
-
-    const languageClient = new MonacoLanguageClient({
-      name: "Arc Language Server",
-      clientOptions: {
-        documentSelector: [LANGUAGE],
-        errorHandler: {
-          error: () => ({ action: ErrorAction.Continue }),
-          closed: () => ({ action: CloseAction.DoNotRestart }),
-        },
+export const startLSPClient = async (
+  stream: LSPStream,
+): Promise<LSPClientHandle> => {
+  const { reader, writer, closed } = createFreighterTransport({ stream });
+  const client = new MonacoLanguageClient({
+    name: "Arc Language Server",
+    clientOptions: {
+      documentSelector: [LANGUAGE],
+      errorHandler: {
+        error: () => ({ action: ErrorAction.Continue }),
+        closed: () => ({ action: CloseAction.DoNotRestart }),
       },
-      messageTransports: { reader, writer },
-    });
+    },
+    messageTransports: { reader, writer },
+  });
+  await client.start();
+  return { client, closed };
+};
 
-    await languageClient.start();
-
-    return async () => {
-      await languageClient.stop();
-      stream.closeSend();
-    };
-  } catch (error) {
-    console.error("Failed to start Arc LSP:", error);
-    return async () => {};
+export const stopLSPClient = async (client: MonacoLanguageClient): Promise<void> => {
+  try {
+    await client.stop();
+  } catch {
+    // Client may already be stopped if the stream died.
   }
+};
+
+export const closeLSPStream = (stream: LSPStream): void => {
+  stream.closeSend();
 };
 
 const GRAMMAR_PATH = "./arc.tmLanguage.json";

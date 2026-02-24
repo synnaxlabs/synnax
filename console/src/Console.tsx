@@ -21,6 +21,7 @@ import {
   Synnax,
   type Triggers,
 } from "@synnaxlabs/pluto";
+import { breaker, TimeSpan } from "@synnaxlabs/x";
 import { type ReactElement, useCallback, useEffect } from "react";
 import { useDispatch } from "react-redux";
 
@@ -130,13 +131,66 @@ const useBlockDefaultDropBehavior = (): void =>
     };
   }, []);
 
+const LSP_BREAKER_CONFIG: breaker.Config = {
+  baseInterval: TimeSpan.seconds(1),
+  maxRetries: 50,
+  scale: 1.5,
+};
+
 const ArcLSPClientSetter = ({ children }: { children: ReactElement }): ReactElement => {
   const client = Synnax.use();
   const monaco = Code.useMonaco();
   useEffect(() => {
-    // Only start LSP when Monaco is initialized and client is available
-    if (monaco == null) return;
-    void ArcCode.setSynnaxClient(client);
+    if (monaco == null || client == null) return;
+    const abortController = new AbortController();
+    const { signal } = abortController;
+    const abortPromise = new Promise<void>((r) =>
+      signal.addEventListener("abort", () => r()),
+    );
+    let currentHandle: ArcCode.LSPClientHandle | null = null;
+    let currentStream: ArcCode.LSPStream | null = null;
+    const run = async () => {
+      const b = new breaker.Breaker(LSP_BREAKER_CONFIG);
+      while (!signal.aborted) {
+        try {
+          const stream = await client.arcs.openLSP();
+          if (signal.aborted) {
+            stream.closeSend();
+            return;
+          }
+          currentStream = stream;
+          const handle = await ArcCode.startLSPClient(stream);
+          if (signal.aborted) {
+            await ArcCode.stopLSPClient(handle.client);
+            ArcCode.closeLSPStream(stream);
+            return;
+          }
+          currentHandle = handle;
+          b.reset();
+          await Promise.race([handle.closed, abortPromise]);
+          currentHandle = null;
+          currentStream = null;
+          await ArcCode.stopLSPClient(handle.client);
+          ArcCode.closeLSPStream(stream);
+          if (signal.aborted) return;
+        } catch (e) {
+          console.error("Arc LSP connection failed:", e);
+          currentHandle = null;
+          currentStream = null;
+        }
+        if (!(await b.wait())) {
+          console.error("Arc LSP breaker exhausted, giving up reconnection");
+          return;
+        }
+      }
+    };
+    run().catch(console.error);
+    return () => {
+      abortController.abort();
+      if (currentHandle != null)
+        ArcCode.stopLSPClient(currentHandle.client).catch(console.error);
+      if (currentStream != null) ArcCode.closeLSPStream(currentStream);
+    };
   }, [client, monaco]);
   return children;
 };

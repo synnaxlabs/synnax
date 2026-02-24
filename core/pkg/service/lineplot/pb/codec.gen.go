@@ -13,34 +13,66 @@ package pb
 
 import (
 	"context"
+	"encoding/binary"
+	"encoding/json"
 
 	"github.com/synnaxlabs/x/gorp"
 
 	lineplot "github.com/synnaxlabs/synnax/pkg/service/lineplot"
 )
 
+var _ = binary.BigEndian
+
+const (
+	LinePlotFieldKey   = 0
+	LinePlotFieldName  = 1
+	LinePlotFieldData  = 2
+	LinePlotFieldCount = 3
+)
+
 type linePlotCodec struct{}
 
 func (linePlotCodec) Marshal(
-	ctx context.Context,
+	_ context.Context,
 	s lineplot.LinePlot,
 ) ([]byte, error) {
-	p, err := LinePlotToPB(ctx, s)
-	if err != nil {
-		return nil, err
+	buf := make([]byte, 0, 112)
+	buf = append(buf, s.Key[:]...)
+	buf = binary.BigEndian.AppendUint32(buf, uint32(len(s.Name)))
+	buf = append(buf, s.Name...)
+	{
+		_jb, _je := json.Marshal(s.Data)
+		if _je != nil {
+			return nil, _je
+		}
+		buf = binary.BigEndian.AppendUint32(buf, uint32(len(_jb)))
+		buf = append(buf, _jb...)
 	}
-	return p.MarshalVT()
+	return buf, nil
 }
 
 func (linePlotCodec) Unmarshal(
-	ctx context.Context,
+	_ context.Context,
 	data []byte,
 ) (lineplot.LinePlot, error) {
-	p := &LinePlot{}
-	if err := p.UnmarshalVT(data); err != nil {
-		return lineplot.LinePlot{}, err
+	var r lineplot.LinePlot
+	copy(r.Key[:], data[:16])
+	data = data[16:]
+	{
+		_n := binary.BigEndian.Uint32(data[:4])
+		data = data[4:]
+		r.Name = string(data[:_n])
+		data = data[_n:]
 	}
-	return LinePlotFromPB(ctx, p)
+	{
+		_n := binary.BigEndian.Uint32(data[:4])
+		data = data[4:]
+		if err := json.Unmarshal(data[:_n], &r.Data); err != nil {
+			return r, err
+		}
+		data = data[_n:]
+	}
+	return r, nil
 }
 
 var LinePlotCodec gorp.Codec[lineplot.LinePlot] = linePlotCodec{}

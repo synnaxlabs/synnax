@@ -13,34 +13,65 @@ package pb
 
 import (
 	"context"
+	"encoding/binary"
+	"math"
 
 	"github.com/synnaxlabs/x/gorp"
 
 	label "github.com/synnaxlabs/x/label"
 )
 
+var _ = binary.BigEndian
+
+const (
+	LabelFieldKey    = 0
+	LabelFieldName   = 1
+	LabelFieldColorR = 2
+	LabelFieldColorG = 3
+	LabelFieldColorB = 4
+	LabelFieldColorA = 5
+	LabelFieldCount  = 6
+)
+
 type labelCodec struct{}
 
 func (labelCodec) Marshal(
-	ctx context.Context,
+	_ context.Context,
 	s label.Label,
 ) ([]byte, error) {
-	p, err := LabelToPB(ctx, s)
-	if err != nil {
-		return nil, err
-	}
-	return p.MarshalVT()
+	buf := make([]byte, 0, 59)
+	buf = append(buf, s.Key[:]...)
+	buf = binary.BigEndian.AppendUint32(buf, uint32(len(s.Name)))
+	buf = append(buf, s.Name...)
+	buf = append(buf, byte(s.Color.R))
+	buf = append(buf, byte(s.Color.G))
+	buf = append(buf, byte(s.Color.B))
+	buf = binary.BigEndian.AppendUint64(buf, math.Float64bits(float64(s.Color.A)))
+	return buf, nil
 }
 
 func (labelCodec) Unmarshal(
-	ctx context.Context,
+	_ context.Context,
 	data []byte,
 ) (label.Label, error) {
-	p := &Label{}
-	if err := p.UnmarshalVT(data); err != nil {
-		return label.Label{}, err
+	var r label.Label
+	copy(r.Key[:], data[:16])
+	data = data[16:]
+	{
+		_n := binary.BigEndian.Uint32(data[:4])
+		data = data[4:]
+		r.Name = string(data[:_n])
+		data = data[_n:]
 	}
-	return LabelFromPB(ctx, p)
+	r.Color.R = uint8(data[0])
+	data = data[1:]
+	r.Color.G = uint8(data[0])
+	data = data[1:]
+	r.Color.B = uint8(data[0])
+	data = data[1:]
+	r.Color.A = float64(math.Float64frombits(binary.BigEndian.Uint64(data[:8])))
+	data = data[8:]
+	return r, nil
 }
 
 var LabelCodec gorp.Codec[label.Label] = labelCodec{}
