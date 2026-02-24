@@ -81,8 +81,10 @@ struct ConnectionConfig {
     x::telem::TimeSpan timeout;
     /// @brief authentication configuration.
     AuthConfig auth;
-    /// @brief custom headers.
+    /// @brief custom headers applied to every request.
     std::map<std::string, std::string> headers;
+    /// @brief query parameters applied to every request.
+    std::map<std::string, std::string> query_params;
     /// @brief whether to verify SSL certificates.
     bool verify_ssl;
 
@@ -94,6 +96,10 @@ struct ConnectionConfig {
         auth(AuthConfig(parser.optional_child("auth"))),
         headers(parser.field<std::map<std::string, std::string>>(
             "headers",
+            std::map<std::string, std::string>{}
+        )),
+        query_params(parser.field<std::map<std::string, std::string>>(
+            "query_params",
             std::map<std::string, std::string>{}
         )),
         verify_ssl(verify_ssl) {
@@ -112,6 +118,12 @@ struct ConnectionConfig {
             for (const auto &[k, v]: headers)
                 h[k] = v;
             j["headers"] = h;
+        }
+        if (!query_params.empty()) {
+            x::json::json qp;
+            for (const auto &[k, v]: query_params)
+                qp[k] = v;
+            j["query_params"] = qp;
         }
         return j;
     }

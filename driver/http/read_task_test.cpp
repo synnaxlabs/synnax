@@ -20,14 +20,17 @@
 namespace driver::http {
 namespace {
 /// @brief helper to build a ReadTaskSource from config and a mock server URL.
-std::pair<std::unique_ptr<ReadTaskSource>, x::errors::Error>
-make_source(const ReadTaskConfig &cfg, const std::string &base_url) {
-    auto conn_parser = x::json::Parser(
-        x::json::json{
-            {"base_url", base_url},
-            {"timeout_ms", 1000},
-        }
-    );
+std::pair<std::unique_ptr<ReadTaskSource>, x::errors::Error> make_source(
+    const ReadTaskConfig &cfg,
+    const std::string &base_url,
+    const x::json::json &conn_extra = x::json::json::object()
+) {
+    auto conn_json = x::json::json{
+        {"base_url", base_url},
+        {"timeout_ms", 1000},
+    };
+    conn_json.update(conn_extra);
+    auto conn_parser = x::json::Parser(conn_json);
     auto conn = device::ConnectionConfig(conn_parser, false);
 
     std::vector<device::RequestConfig> request_configs;
@@ -1126,6 +1129,803 @@ TEST(HTTPReadTask, RepeatedReads) {
         EXPECT_NEAR(fr.at<double>(1, 0), 42.0, 0.001);
     }
     breaker.stop();
+}
+
+////////////////////////////// Disabled Channels ///////////////////////////////
+
+/// @brief it should skip disabled fields and only return enabled ones.
+TEST(HTTPReadTask, DisabledFieldsSkipped) {
+    mock::Server server(
+        mock::ServerConfig{
+            .routes = {{
+                .method = Method::GET,
+                .path = "/api/data",
+                .status_code = 200,
+                .response_body =
+                    R"({"temperature": 23.5, "humidity": 80, "pressure": 1013})",
+            }},
+        }
+    );
+    ASSERT_NIL(server.start());
+    x::defer::defer stop_server([&server] { server.stop(); });
+
+    ReadTaskConfig cfg;
+    cfg.device = "test-device";
+    cfg.data_saving = false;
+    cfg.auto_start = false;
+    cfg.rate = x::telem::Rate(10);
+
+    ReadField temp_field;
+    temp_field.pointer = x::json::json::json_pointer("/temperature");
+    temp_field.channel_key = 1;
+    temp_field.enabled = true;
+
+    ReadField humidity_field;
+    humidity_field.pointer = x::json::json::json_pointer("/humidity");
+    humidity_field.channel_key = 2;
+    humidity_field.enabled = false;
+
+    ReadField pressure_field;
+    pressure_field.pointer = x::json::json::json_pointer("/pressure");
+    pressure_field.channel_key = 3;
+    pressure_field.enabled = true;
+
+    ReadEndpoint ep;
+    ep.request.method = Method::GET;
+    ep.request.path = "/api/data";
+    ep.body = "";
+    ep.fields = {temp_field, humidity_field, pressure_field};
+
+    cfg.endpoints = {ep};
+
+    cfg.channels[1] = {
+        .key = 1,
+        .name = "temperature",
+        .data_type = x::telem::FLOAT64_T
+    };
+    cfg.channels[3] = {.key = 3, .name = "pressure", .data_type = x::telem::FLOAT64_T};
+
+    auto source = ASSERT_NIL_P(make_source(cfg, server.base_url()));
+
+    auto breaker = x::breaker::Breaker(x::breaker::Config{.name = "test"});
+    breaker.start();
+    x::telem::Frame fr;
+    auto res = source->read(breaker, fr);
+    breaker.stop();
+    ASSERT_NIL(res.error);
+    EXPECT_EQ(fr.size(), 2);
+    EXPECT_NEAR(fr.at<double>(1, 0), 23.5, 0.001);
+    EXPECT_NEAR(fr.at<double>(3, 0), 1013.0, 0.001);
+}
+
+/// @brief it should not include disabled fields in the writer config.
+TEST(HTTPReadTask, DisabledFieldsExcludedFromWriterConfig) {
+    ReadTaskConfig cfg;
+    cfg.device = "test-device";
+    cfg.data_saving = false;
+    cfg.auto_start = false;
+    cfg.rate = x::telem::Rate(10);
+
+    ReadField enabled_field;
+    enabled_field.pointer = x::json::json::json_pointer("/temp");
+    enabled_field.channel_key = 1;
+    enabled_field.enabled = true;
+
+    ReadField disabled_field;
+    disabled_field.pointer = x::json::json::json_pointer("/humidity");
+    disabled_field.channel_key = 2;
+    disabled_field.enabled = false;
+
+    ReadEndpoint ep;
+    ep.request.method = Method::GET;
+    ep.request.path = "/api/data";
+    ep.body = "";
+    ep.fields = {enabled_field, disabled_field};
+
+    cfg.endpoints = {ep};
+    cfg.channels[1] = {
+        .key = 1,
+        .name = "temperature",
+        .data_type = x::telem::FLOAT64_T
+    };
+
+    auto conn_parser = x::json::Parser(
+        x::json::json{{"base_url", "http://localhost:9999"}, {"timeout_ms", 100}}
+    );
+    auto conn = device::ConnectionConfig(conn_parser, false);
+    std::vector<device::RequestConfig> request_configs;
+    for (const auto &e: cfg.endpoints)
+        request_configs.push_back(e.request);
+    auto [client, err] = device::Client::create(std::move(conn), request_configs);
+    ASSERT_NIL(err);
+
+    ReadTaskSource source(std::move(cfg), std::move(client));
+    auto wc = source.writer_config();
+    EXPECT_EQ(wc.channels.size(), 1);
+    EXPECT_EQ(wc.channels[0], 1);
+}
+
+/// @brief it should fail to parse config when all fields are disabled.
+TEST(HTTPReadTask, ParseConfigAllFieldsDisabled) {
+    synnax::task::Task task;
+    task.config = {
+        {"device", "dev-001"},
+        {"rate", 1.0},
+        {"endpoints",
+         {{
+             {"method", "GET"},
+             {"path", "/api/data"},
+             {"fields",
+              {{
+                  {"pointer", "/temp"},
+                  {"channel", 1},
+                  {"enabled", false},
+              }}},
+         }}},
+    };
+    auto ctx = std::make_shared<task::MockContext>(nullptr);
+    ASSERT_OCCURRED_AS_P(ReadTaskConfig::parse(ctx, task), x::errors::VALIDATION);
+}
+
+/// @brief disabled fields should not cause a missing-field error even if the
+/// JSON pointer would not match the response.
+TEST(HTTPReadTask, DisabledFieldMissingPointerNoError) {
+    mock::Server server(
+        mock::ServerConfig{
+            .routes = {{
+                .method = Method::GET,
+                .path = "/api/data",
+                .status_code = 200,
+                .response_body = R"({"temperature": 23.5})",
+            }},
+        }
+    );
+    ASSERT_NIL(server.start());
+    x::defer::defer stop_server([&server] { server.stop(); });
+
+    ReadTaskConfig cfg;
+    cfg.device = "test-device";
+    cfg.data_saving = false;
+    cfg.auto_start = false;
+    cfg.rate = x::telem::Rate(10);
+
+    ReadField enabled_field;
+    enabled_field.pointer = x::json::json::json_pointer("/temperature");
+    enabled_field.channel_key = 1;
+    enabled_field.enabled = true;
+
+    ReadField disabled_field;
+    disabled_field.pointer = x::json::json::json_pointer("/nonexistent");
+    disabled_field.channel_key = 2;
+    disabled_field.enabled = false;
+
+    ReadEndpoint ep;
+    ep.request.method = Method::GET;
+    ep.request.path = "/api/data";
+    ep.body = "";
+    ep.fields = {enabled_field, disabled_field};
+
+    cfg.endpoints = {ep};
+
+    cfg.channels[1] = {
+        .key = 1,
+        .name = "temperature",
+        .data_type = x::telem::FLOAT64_T
+    };
+
+    auto source = ASSERT_NIL_P(make_source(cfg, server.base_url()));
+
+    auto breaker = x::breaker::Breaker(x::breaker::Config{.name = "test"});
+    breaker.start();
+    x::telem::Frame fr;
+    auto res = source->read(breaker, fr);
+    breaker.stop();
+    ASSERT_NIL(res.error);
+    EXPECT_EQ(fr.size(), 1);
+    EXPECT_NEAR(fr.at<double>(1, 0), 23.5, 0.001);
+}
+
+///////////////////////////////// HTTPS Tests /////////////////////////////////
+
+/// @brief it should read from an HTTPS server with SSL verification disabled.
+TEST(HTTPReadTask, HTTPSReadSingleEndpoint) {
+    mock::Server server(
+        mock::ServerConfig{
+            .routes = {{
+                .method = Method::GET,
+                .path = "/api/data",
+                .status_code = 200,
+                .response_body = R"({"value": 77.7})",
+            }},
+            .secure = true,
+            .cert_path = "driver/http/mock/test_cert.pem",
+            .key_path = "driver/http/mock/test_key.pem",
+        }
+    );
+    ASSERT_NIL(server.start());
+    x::defer::defer stop_server([&server] { server.stop(); });
+
+    ReadTaskConfig cfg;
+    cfg.device = "test-device";
+    cfg.data_saving = false;
+    cfg.auto_start = false;
+    cfg.rate = x::telem::Rate(10);
+
+    ReadField field;
+    field.pointer = x::json::json::json_pointer("/value");
+    field.channel_key = 1;
+
+    ReadEndpoint ep;
+    ep.request.method = Method::GET;
+    ep.request.path = "/api/data";
+    ep.body = "";
+    ep.fields = {field};
+
+    cfg.endpoints = {ep};
+    cfg.channels[1] = {.key = 1, .name = "value", .data_type = x::telem::FLOAT64_T};
+
+    auto source = ASSERT_NIL_P(make_source(cfg, server.base_url()));
+
+    auto breaker = x::breaker::Breaker(x::breaker::Config{.name = "test"});
+    breaker.start();
+    x::telem::Frame fr;
+    auto res = source->read(breaker, fr);
+    breaker.stop();
+    ASSERT_NIL(res.error);
+    EXPECT_EQ(fr.size(), 1);
+    EXPECT_NEAR(fr.at<double>(1, 0), 77.7, 0.001);
+}
+
+/// @brief it should read multiple endpoints over HTTPS.
+TEST(HTTPReadTask, HTTPSMultipleEndpoints) {
+    mock::Server server(
+        mock::ServerConfig{
+            .routes =
+                {
+                    {
+                        .method = Method::GET,
+                        .path = "/api/temp",
+                        .status_code = 200,
+                        .response_body = R"({"temp": 22.5})",
+                    },
+                    {
+                        .method = Method::GET,
+                        .path = "/api/pressure",
+                        .status_code = 200,
+                        .response_body = R"({"pressure": 1015.0})",
+                    },
+                },
+            .secure = true,
+            .cert_path = "driver/http/mock/test_cert.pem",
+            .key_path = "driver/http/mock/test_key.pem",
+        }
+    );
+    ASSERT_NIL(server.start());
+    x::defer::defer stop_server([&server] { server.stop(); });
+
+    ReadTaskConfig cfg;
+    cfg.device = "test-device";
+    cfg.data_saving = false;
+    cfg.auto_start = false;
+    cfg.rate = x::telem::Rate(10);
+
+    ReadField temp_field;
+    temp_field.pointer = x::json::json::json_pointer("/temp");
+    temp_field.channel_key = 1;
+
+    ReadField pressure_field;
+    pressure_field.pointer = x::json::json::json_pointer("/pressure");
+    pressure_field.channel_key = 2;
+
+    ReadEndpoint ep1;
+    ep1.request.method = Method::GET;
+    ep1.request.path = "/api/temp";
+    ep1.body = "";
+    ep1.fields = {temp_field};
+
+    ReadEndpoint ep2;
+    ep2.request.method = Method::GET;
+    ep2.request.path = "/api/pressure";
+    ep2.body = "";
+    ep2.fields = {pressure_field};
+
+    cfg.endpoints = {ep1, ep2};
+    cfg.channels[1] = {.key = 1, .name = "temp", .data_type = x::telem::FLOAT64_T};
+    cfg.channels[2] = {.key = 2, .name = "pressure", .data_type = x::telem::FLOAT64_T};
+
+    auto source = ASSERT_NIL_P(make_source(cfg, server.base_url()));
+
+    auto breaker = x::breaker::Breaker(x::breaker::Config{.name = "test"});
+    breaker.start();
+    x::telem::Frame fr;
+    auto res = source->read(breaker, fr);
+    breaker.stop();
+    ASSERT_NIL(res.error);
+    EXPECT_EQ(fr.size(), 2);
+    EXPECT_NEAR(fr.at<double>(1, 0), 22.5, 0.001);
+    EXPECT_NEAR(fr.at<double>(2, 0), 1015.0, 0.001);
+}
+
+/// @brief it should read repeated times from HTTPS endpoints.
+TEST(HTTPReadTask, HTTPSRepeatedReads) {
+    mock::Server server(
+        mock::ServerConfig{
+            .routes = {{
+                .method = Method::GET,
+                .path = "/api/data",
+                .status_code = 200,
+                .response_body = R"({"value": 55.5})",
+            }},
+            .secure = true,
+            .cert_path = "driver/http/mock/test_cert.pem",
+            .key_path = "driver/http/mock/test_key.pem",
+        }
+    );
+    ASSERT_NIL(server.start());
+    x::defer::defer stop_server([&server] { server.stop(); });
+
+    ReadTaskConfig cfg;
+    cfg.device = "test-device";
+    cfg.data_saving = false;
+    cfg.auto_start = false;
+    cfg.rate = x::telem::Rate(10);
+
+    ReadField field;
+    field.pointer = x::json::json::json_pointer("/value");
+    field.channel_key = 1;
+
+    ReadEndpoint ep;
+    ep.request.method = Method::GET;
+    ep.request.path = "/api/data";
+    ep.body = "";
+    ep.fields = {field};
+
+    cfg.endpoints = {ep};
+    cfg.channels[1] = {.key = 1, .name = "value", .data_type = x::telem::FLOAT64_T};
+
+    auto source = ASSERT_NIL_P(make_source(cfg, server.base_url()));
+
+    auto breaker = x::breaker::Breaker(x::breaker::Config{.name = "test"});
+    breaker.start();
+    for (int i = 0; i < 5; i++) {
+        x::telem::Frame fr;
+        auto res = source->read(breaker, fr);
+        ASSERT_NIL(res.error);
+        EXPECT_EQ(fr.size(), 1);
+        EXPECT_NEAR(fr.at<double>(1, 0), 55.5, 0.001);
+    }
+    breaker.stop();
+}
+
+/// @brief it should POST to an HTTPS endpoint and extract response fields.
+TEST(HTTPReadTask, HTTPSPOSTWithBody) {
+    mock::Server server(
+        mock::ServerConfig{
+            .routes = {{
+                .method = Method::POST,
+                .path = "/api/query",
+                .status_code = 200,
+                .response_body = R"({"result": 88.8})",
+            }},
+            .secure = true,
+            .cert_path = "driver/http/mock/test_cert.pem",
+            .key_path = "driver/http/mock/test_key.pem",
+        }
+    );
+    ASSERT_NIL(server.start());
+    x::defer::defer stop_server([&server] { server.stop(); });
+
+    ReadTaskConfig cfg;
+    cfg.device = "test-device";
+    cfg.data_saving = false;
+    cfg.auto_start = false;
+    cfg.rate = x::telem::Rate(10);
+
+    ReadField field;
+    field.pointer = x::json::json::json_pointer("/result");
+    field.channel_key = 1;
+
+    ReadEndpoint ep;
+    ep.request.method = Method::POST;
+    ep.request.path = "/api/query";
+    ep.body = R"({"query": "latest"})";
+    ep.fields = {field};
+
+    cfg.endpoints = {ep};
+    cfg.channels[1] = {.key = 1, .name = "result", .data_type = x::telem::FLOAT64_T};
+
+    auto source = ASSERT_NIL_P(make_source(cfg, server.base_url()));
+
+    auto breaker = x::breaker::Breaker(x::breaker::Config{.name = "test"});
+    breaker.start();
+    x::telem::Frame fr;
+    auto res = source->read(breaker, fr);
+    breaker.stop();
+    ASSERT_NIL(res.error);
+    EXPECT_EQ(fr.size(), 1);
+    EXPECT_NEAR(fr.at<double>(1, 0), 88.8, 0.001);
+}
+
+///////////////////////////// Partial Failures ////////////////////////////////
+
+/// @brief when the first endpoint returns 5xx but the second would succeed,
+/// the read should fail with SERVER_ERROR.
+TEST(HTTPReadTask, PartialFailureFirstEndpoint5xx) {
+    mock::Server server(
+        mock::ServerConfig{
+            .routes = {
+                {
+                    .method = Method::GET,
+                    .path = "/api/failing",
+                    .status_code = 500,
+                    .response_body = R"({"error":"internal"})",
+                },
+                {
+                    .method = Method::GET,
+                    .path = "/api/ok",
+                    .status_code = 200,
+                    .response_body = R"({"value": 42.0})",
+                },
+            },
+        }
+    );
+    ASSERT_NIL(server.start());
+    x::defer::defer stop_server([&server] { server.stop(); });
+
+    ReadTaskConfig cfg;
+    cfg.device = "test-device";
+    cfg.data_saving = false;
+    cfg.auto_start = false;
+    cfg.rate = x::telem::Rate(10);
+
+    ReadField field1;
+    field1.pointer = x::json::json::json_pointer("/error");
+    field1.channel_key = 1;
+
+    ReadField field2;
+    field2.pointer = x::json::json::json_pointer("/value");
+    field2.channel_key = 2;
+
+    ReadEndpoint ep1;
+    ep1.request.method = Method::GET;
+    ep1.request.path = "/api/failing";
+    ep1.body = "";
+    ep1.fields = {field1};
+
+    ReadEndpoint ep2;
+    ep2.request.method = Method::GET;
+    ep2.request.path = "/api/ok";
+    ep2.body = "";
+    ep2.fields = {field2};
+
+    cfg.endpoints = {ep1, ep2};
+    cfg.channels[1] = {.key = 1, .name = "error_msg", .data_type = x::telem::STRING_T};
+    cfg.channels[2] = {.key = 2, .name = "value", .data_type = x::telem::FLOAT64_T};
+
+    auto source = ASSERT_NIL_P(make_source(cfg, server.base_url()));
+
+    auto breaker = x::breaker::Breaker(x::breaker::Config{.name = "test"});
+    breaker.start();
+    x::telem::Frame fr;
+    auto res = source->read(breaker, fr);
+    breaker.stop();
+    ASSERT_OCCURRED_AS(res.error, errors::SERVER_ERROR);
+}
+
+/// @brief when the second endpoint returns 4xx but the first succeeds,
+/// the read should fail with CLIENT_ERROR.
+TEST(HTTPReadTask, PartialFailureSecondEndpoint4xx) {
+    mock::Server server(
+        mock::ServerConfig{
+            .routes = {
+                {
+                    .method = Method::GET,
+                    .path = "/api/ok",
+                    .status_code = 200,
+                    .response_body = R"({"value": 42.0})",
+                },
+                {
+                    .method = Method::GET,
+                    .path = "/api/failing",
+                    .status_code = 404,
+                    .response_body = R"({"error":"not found"})",
+                },
+            },
+        }
+    );
+    ASSERT_NIL(server.start());
+    x::defer::defer stop_server([&server] { server.stop(); });
+
+    ReadTaskConfig cfg;
+    cfg.device = "test-device";
+    cfg.data_saving = false;
+    cfg.auto_start = false;
+    cfg.rate = x::telem::Rate(10);
+
+    ReadField field1;
+    field1.pointer = x::json::json::json_pointer("/value");
+    field1.channel_key = 1;
+
+    ReadField field2;
+    field2.pointer = x::json::json::json_pointer("/error");
+    field2.channel_key = 2;
+
+    ReadEndpoint ep1;
+    ep1.request.method = Method::GET;
+    ep1.request.path = "/api/ok";
+    ep1.body = "";
+    ep1.fields = {field1};
+
+    ReadEndpoint ep2;
+    ep2.request.method = Method::GET;
+    ep2.request.path = "/api/failing";
+    ep2.body = "";
+    ep2.fields = {field2};
+
+    cfg.endpoints = {ep1, ep2};
+    cfg.channels[1] = {.key = 1, .name = "value", .data_type = x::telem::FLOAT64_T};
+    cfg.channels[2] = {.key = 2, .name = "error_msg", .data_type = x::telem::STRING_T};
+
+    auto source = ASSERT_NIL_P(make_source(cfg, server.base_url()));
+
+    auto breaker = x::breaker::Breaker(x::breaker::Config{.name = "test"});
+    breaker.start();
+    x::telem::Frame fr;
+    auto res = source->read(breaker, fr);
+    breaker.stop();
+    ASSERT_OCCURRED_AS(res.error, errors::CLIENT_ERROR);
+}
+
+/// @brief when one endpoint returns valid JSON but a field pointer is missing,
+/// the other endpoint's data should not be written (all-or-nothing).
+TEST(HTTPReadTask, PartialFailureMissingFieldInSecondEndpoint) {
+    mock::Server server(
+        mock::ServerConfig{
+            .routes = {
+                {
+                    .method = Method::GET,
+                    .path = "/api/temp",
+                    .status_code = 200,
+                    .response_body = R"({"temp": 25.0})",
+                },
+                {
+                    .method = Method::GET,
+                    .path = "/api/pressure",
+                    .status_code = 200,
+                    .response_body = R"({"psi": 14.7})",
+                },
+            },
+        }
+    );
+    ASSERT_NIL(server.start());
+    x::defer::defer stop_server([&server] { server.stop(); });
+
+    ReadTaskConfig cfg;
+    cfg.device = "test-device";
+    cfg.data_saving = false;
+    cfg.auto_start = false;
+    cfg.rate = x::telem::Rate(10);
+
+    ReadField temp_field;
+    temp_field.pointer = x::json::json::json_pointer("/temp");
+    temp_field.channel_key = 1;
+
+    ReadField pressure_field;
+    // Pointer that doesn't exist in the response.
+    pressure_field.pointer = x::json::json::json_pointer("/pressure");
+    pressure_field.channel_key = 2;
+
+    ReadEndpoint ep1;
+    ep1.request.method = Method::GET;
+    ep1.request.path = "/api/temp";
+    ep1.body = "";
+    ep1.fields = {temp_field};
+
+    ReadEndpoint ep2;
+    ep2.request.method = Method::GET;
+    ep2.request.path = "/api/pressure";
+    ep2.body = "";
+    ep2.fields = {pressure_field};
+
+    cfg.endpoints = {ep1, ep2};
+    cfg.channels[1] = {.key = 1, .name = "temp", .data_type = x::telem::FLOAT64_T};
+    cfg.channels[2] = {.key = 2, .name = "pressure", .data_type = x::telem::FLOAT64_T};
+
+    auto source = ASSERT_NIL_P(make_source(cfg, server.base_url()));
+
+    auto breaker = x::breaker::Breaker(x::breaker::Config{.name = "test"});
+    breaker.start();
+    x::telem::Frame fr;
+    auto res = source->read(breaker, fr);
+    breaker.stop();
+    ASSERT_OCCURRED_AS(res.error, errors::PARSE_ERROR);
+}
+
+/// @brief when one endpoint returns invalid JSON but another returns valid JSON,
+/// the read should fail with PARSE_ERROR.
+TEST(HTTPReadTask, PartialFailureInvalidJSONInOneEndpoint) {
+    mock::Server server(
+        mock::ServerConfig{
+            .routes = {
+                {
+                    .method = Method::GET,
+                    .path = "/api/ok",
+                    .status_code = 200,
+                    .response_body = R"({"value": 42.0})",
+                },
+                {
+                    .method = Method::GET,
+                    .path = "/api/broken",
+                    .status_code = 200,
+                    .response_body = "not valid json{{{",
+                },
+            },
+        }
+    );
+    ASSERT_NIL(server.start());
+    x::defer::defer stop_server([&server] { server.stop(); });
+
+    ReadTaskConfig cfg;
+    cfg.device = "test-device";
+    cfg.data_saving = false;
+    cfg.auto_start = false;
+    cfg.rate = x::telem::Rate(10);
+
+    ReadField field1;
+    field1.pointer = x::json::json::json_pointer("/value");
+    field1.channel_key = 1;
+
+    ReadField field2;
+    field2.pointer = x::json::json::json_pointer("/data");
+    field2.channel_key = 2;
+
+    ReadEndpoint ep1;
+    ep1.request.method = Method::GET;
+    ep1.request.path = "/api/ok";
+    ep1.body = "";
+    ep1.fields = {field1};
+
+    ReadEndpoint ep2;
+    ep2.request.method = Method::GET;
+    ep2.request.path = "/api/broken";
+    ep2.body = "";
+    ep2.fields = {field2};
+
+    cfg.endpoints = {ep1, ep2};
+    cfg.channels[1] = {.key = 1, .name = "value", .data_type = x::telem::FLOAT64_T};
+    cfg.channels[2] = {.key = 2, .name = "data", .data_type = x::telem::FLOAT64_T};
+
+    auto source = ASSERT_NIL_P(make_source(cfg, server.base_url()));
+
+    auto breaker = x::breaker::Breaker(x::breaker::Config{.name = "test"});
+    breaker.start();
+    x::telem::Frame fr;
+    auto res = source->read(breaker, fr);
+    breaker.stop();
+    ASSERT_OCCURRED_AS(res.error, errors::PARSE_ERROR);
+}
+
+/// @brief when one endpoint has a type conversion error but the other parses
+/// fine, the read should fail with PARSE_ERROR.
+TEST(HTTPReadTask, PartialFailureTypeConversionError) {
+    mock::Server server(
+        mock::ServerConfig{
+            .routes = {
+                {
+                    .method = Method::GET,
+                    .path = "/api/good",
+                    .status_code = 200,
+                    .response_body = R"({"value": 42.0})",
+                },
+                {
+                    .method = Method::GET,
+                    .path = "/api/bad",
+                    .status_code = 200,
+                    .response_body = R"({"count": 3.7})",
+                },
+            },
+        }
+    );
+    ASSERT_NIL(server.start());
+    x::defer::defer stop_server([&server] { server.stop(); });
+
+    ReadTaskConfig cfg;
+    cfg.device = "test-device";
+    cfg.data_saving = false;
+    cfg.auto_start = false;
+    cfg.rate = x::telem::Rate(10);
+
+    ReadField field1;
+    field1.pointer = x::json::json::json_pointer("/value");
+    field1.channel_key = 1;
+
+    ReadField field2;
+    field2.pointer = x::json::json::json_pointer("/count");
+    field2.channel_key = 2;
+
+    ReadEndpoint ep1;
+    ep1.request.method = Method::GET;
+    ep1.request.path = "/api/good";
+    ep1.body = "";
+    ep1.fields = {field1};
+
+    ReadEndpoint ep2;
+    ep2.request.method = Method::GET;
+    ep2.request.path = "/api/bad";
+    ep2.body = "";
+    ep2.fields = {field2};
+
+    cfg.endpoints = {ep1, ep2};
+    cfg.channels[1] = {.key = 1, .name = "value", .data_type = x::telem::FLOAT64_T};
+    // INT32_T will fail on 3.7 (decimal truncation).
+    cfg.channels[2] = {.key = 2, .name = "count", .data_type = x::telem::INT32_T};
+
+    auto source = ASSERT_NIL_P(make_source(cfg, server.base_url()));
+
+    auto breaker = x::breaker::Breaker(x::breaker::Config{.name = "test"});
+    breaker.start();
+    x::telem::Frame fr;
+    auto res = source->read(breaker, fr);
+    breaker.stop();
+    ASSERT_OCCURRED_AS(res.error, errors::PARSE_ERROR);
+}
+
+////////////////////// Connection-Level Query Parameters ///////////////////////
+
+/// @brief it should pass connection-level query parameters to every request.
+TEST(HTTPReadTask, ConnectionLevelQueryParams) {
+    mock::Server server(
+        mock::ServerConfig{
+            .routes = {{
+                .method = Method::GET,
+                .path = "/api/data",
+                .status_code = 200,
+                .response_body = R"({"value": 42.0})",
+            }},
+        }
+    );
+    ASSERT_NIL(server.start());
+    x::defer::defer stop_server([&server] { server.stop(); });
+
+    ReadTaskConfig cfg;
+    cfg.device = "test-device";
+    cfg.data_saving = false;
+    cfg.auto_start = false;
+    cfg.rate = x::telem::Rate(10);
+
+    ReadField field;
+    field.pointer = x::json::json::json_pointer("/value");
+    field.channel_key = 1;
+
+    ReadEndpoint ep;
+    ep.request.method = Method::GET;
+    ep.request.path = "/api/data";
+    ep.body = "";
+    ep.fields = {field};
+
+    cfg.endpoints = {ep};
+    cfg.channels[1] = {.key = 1, .name = "value", .data_type = x::telem::FLOAT64_T};
+
+    auto source = ASSERT_NIL_P(make_source(
+        cfg,
+        server.base_url(),
+        x::json::json{{"query_params", {{"api_key", "abc123"}, {"format", "json"}}}}
+    ));
+
+    auto breaker = x::breaker::Breaker(x::breaker::Config{.name = "test"});
+    breaker.start();
+    x::telem::Frame fr;
+    auto res = source->read(breaker, fr);
+    breaker.stop();
+    ASSERT_NIL(res.error);
+    EXPECT_EQ(fr.size(), 1);
+    EXPECT_NEAR(fr.at<double>(1, 0), 42.0, 0.001);
+
+    auto requests = server.received_requests();
+    ASSERT_EQ(requests.size(), 1);
+    auto &params = requests[0].query_params;
+    EXPECT_EQ(params.find("api_key")->second, "abc123");
+    EXPECT_EQ(params.find("format")->second, "json");
 }
 
 }

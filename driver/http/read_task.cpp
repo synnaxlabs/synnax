@@ -26,6 +26,7 @@ std::pair<ReadTaskConfig, x::errors::Error> ReadTaskConfig::parse(
     cfg.rate = x::telem::Rate(parser.field<double>("rate"));
 
     std::set<synnax::channel::Key> field_keys;
+    std::set<synnax::channel::Key> enabled_field_keys;
 
     parser.iter("endpoints", [&](x::json::Parser &ep) {
         ReadEndpoint endpoint;
@@ -40,8 +41,10 @@ std::pair<ReadTaskConfig, x::errors::Error> ReadTaskConfig::parse(
         );
         endpoint.body = ep.field<std::string>("body", "");
 
+        size_t enabled_field_count = 0;
         ep.iter("fields", [&](x::json::Parser &fp) {
             ReadField field;
+            field.enabled = fp.field<bool>("enabled", true);
             field.pointer = x::json::json::json_pointer(
                 fp.field<std::string>("pointer")
             );
@@ -63,11 +66,15 @@ std::pair<ReadTaskConfig, x::errors::Error> ReadTaskConfig::parse(
                         " is used multiple times"
                 );
 
+            if (field.enabled) {
+                enabled_field_count++;
+                enabled_field_keys.insert(field.channel_key);
+            }
             endpoint.fields.push_back(std::move(field));
         });
 
-        if (endpoint.fields.empty()) {
-            ep.field_err("fields", "at least one field is required");
+        if (enabled_field_count == 0) {
+            ep.field_err("fields", "at least one enabled field is required");
         }
         cfg.endpoints.push_back(std::move(endpoint));
     });
@@ -85,9 +92,10 @@ std::pair<ReadTaskConfig, x::errors::Error> ReadTaskConfig::parse(
     if (conn_err) return {{}, conn_err};
 
     const std::vector<synnax::channel::Key> all_keys(
-        field_keys.begin(),
-        field_keys.end()
+        enabled_field_keys.begin(),
+        enabled_field_keys.end()
     );
+    if (all_keys.empty()) return {std::move(cfg), parser.error()};
     auto [sy_channels, ch_err] = ctx->client->channels.retrieve(all_keys);
     if (ch_err) return {{}, ch_err};
 
@@ -97,6 +105,7 @@ std::pair<ReadTaskConfig, x::errors::Error> ReadTaskConfig::parse(
     for (int ei = 0; ei < static_cast<int>(cfg.endpoints.size()); ei++) {
         auto &ep = cfg.endpoints[ei];
         for (auto &field: ep.fields) {
+            if (!field.enabled) continue;
             auto it = cfg.channels.find(field.channel_key);
             if (it == cfg.channels.end()) continue;
             const auto &ch = it->second;
@@ -122,7 +131,7 @@ std::pair<ReadTaskConfig, x::errors::Error> ReadTaskConfig::parse(
 
             if (ch.index == 0) continue;
             const auto idx_key = ch.index;
-            if (field_keys.count(idx_key)) continue;
+            if (enabled_field_keys.count(idx_key)) continue;
             auto [existing, inserted] = cfg.software_timed_indexes.try_emplace(
                 idx_key,
                 ei
@@ -144,13 +153,14 @@ std::pair<ReadTaskConfig, x::errors::Error> ReadTaskConfig::parse(
 
 ReadTaskSource::ReadTaskSource(ReadTaskConfig cfg, device::Client client):
     cfg(std::move(cfg)), client(std::move(client)) {
-    bodies.reserve(cfg.endpoints.size());
-    parsed_bodies.resize(cfg.endpoints.size());
-    for (const auto &ep: cfg.endpoints) {
+    bodies.reserve(this->cfg.endpoints.size());
+    parsed_bodies.resize(this->cfg.endpoints.size());
+    for (const auto &ep: this->cfg.endpoints) {
         bodies.push_back(ep.body);
         for (const auto &field: ep.fields) {
-            auto it = cfg.channels.find(field.channel_key);
-            if (it != cfg.channels.end()) chs.push_back(it->second);
+            if (!field.enabled) continue;
+            auto it = this->cfg.channels.find(field.channel_key);
+            if (it != this->cfg.channels.end()) chs.push_back(it->second);
         }
     }
 }
@@ -158,8 +168,11 @@ ReadTaskSource::ReadTaskSource(ReadTaskConfig cfg, device::Client client):
 synnax::framer::WriterConfig ReadTaskSource::writer_config() const {
     std::vector<synnax::channel::Key> keys;
     keys.reserve(cfg.channels.size() + cfg.software_timed_indexes.size());
-    for (const auto &[key, _]: cfg.channels)
-        keys.push_back(key);
+    for (const auto &ep: cfg.endpoints)
+        for (const auto &field: ep.fields) {
+            if (!field.enabled) continue;
+            keys.push_back(field.channel_key);
+        }
     for (const auto &[key, _]: cfg.software_timed_indexes)
         keys.push_back(key);
     return {
@@ -210,6 +223,8 @@ ReadTaskSource::read(x::breaker::Breaker &breaker, x::telem::Frame &fr) {
         const auto &body = parsed_bodies[ei];
 
         for (const auto &field: ep.fields) {
+            if (!field.enabled) continue;
+
             if (!body.contains(field.pointer)) {
                 res.error = errors::PARSE_ERROR.sub(
                     "field " + field.pointer.to_string() +

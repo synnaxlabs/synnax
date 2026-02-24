@@ -29,6 +29,10 @@ cc_library(
 cc_test(
     name = "read_task_test",
     srcs = ["read_task_test.cpp"],
+    data = [
+        "//driver/http/mock:test_cert.pem",
+        "//driver/http/mock:test_key.pem",
+    ],
     linkstatic = True,
     deps = [
         ":http",

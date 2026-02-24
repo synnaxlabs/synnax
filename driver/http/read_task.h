@@ -29,6 +29,8 @@ const std::string READ_TASK_TYPE = INTEGRATION_NAME + "_read";
 
 /// @brief a single field to extract from an endpoint's JSON response.
 struct ReadField {
+    /// @brief whether this field is enabled.
+    bool enabled = true;
     /// @brief JSON Pointer to the value in the response.
     x::json::json::json_pointer pointer;
     /// @brief Synnax channel key to write the extracted value to.

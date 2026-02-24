@@ -204,6 +204,16 @@ Client::Client(ConnectionConfig config, const std::vector<RequestConfig> &reques
             if (path.front() != '/') path.insert(path.begin(), '/');
             curl_url_set(u, CURLUPART_PATH, path.c_str(), 0);
         }
+        // Connection-level query params first, then per-request (which can override).
+        for (const auto &[k, v]: config.query_params) {
+            const auto param = k + "=" + v;
+            curl_url_set(
+                u,
+                CURLUPART_QUERY,
+                param.c_str(),
+                CURLU_APPENDQUERY | CURLU_URLENCODE
+            );
+        }
         for (const auto &[k, v]: req.query_params) {
             const auto param = k + "=" + v;
             curl_url_set(

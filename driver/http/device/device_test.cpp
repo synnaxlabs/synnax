@@ -458,6 +458,81 @@ TEST(ClientTest, QueryParamsPercentEncoded) {
     server.stop();
 }
 
+/// @brief connection-level query_params should be passed to every request.
+TEST(ClientTest, ConnectionLevelQueryParams) {
+    mock::ServerConfig server_cfg;
+    server_cfg.routes = {{
+        .method = Method::GET,
+        .path = "/api/data",
+        .status_code = 200,
+        .response_body = "ok",
+        .content_type = "text/plain",
+    }};
+    mock::Server server(server_cfg);
+    ASSERT_NIL(server.start());
+
+    auto config = make_config({
+        {"base_url", server.base_url()},
+        {"query_params", {{"api_key", "secret"}, {"format", "json"}}},
+    });
+    auto client = ASSERT_NIL_P(
+        Client::create(config, {{.method = Method::GET, .path = "/api/data"}})
+    );
+
+    auto results = ASSERT_NIL_P(client.execute_requests({""}));
+    ASSERT_EQ(results.size(), 1);
+    const auto resp = ASSERT_NIL_P(results[0]);
+    EXPECT_EQ(resp.status_code, 200);
+
+    auto reqs = server.received_requests();
+    ASSERT_EQ(reqs.size(), 1);
+    EXPECT_EQ(reqs[0].query_params.find("api_key")->second, "secret");
+    EXPECT_EQ(reqs[0].query_params.find("format")->second, "json");
+
+    server.stop();
+}
+
+/// @brief connection-level and request-level query params should be merged.
+TEST(ClientTest, ConnectionAndRequestQueryParamsMerged) {
+    mock::ServerConfig server_cfg;
+    server_cfg.routes = {{
+        .method = Method::GET,
+        .path = "/api/data",
+        .status_code = 200,
+        .response_body = "ok",
+        .content_type = "text/plain",
+    }};
+    mock::Server server(server_cfg);
+    ASSERT_NIL(server.start());
+
+    auto config = make_config({
+        {"base_url", server.base_url()},
+        {"query_params", {{"api_key", "secret"}}},
+    });
+    auto client = ASSERT_NIL_P(
+        Client::create(
+            config,
+            {{
+                .method = Method::GET,
+                .path = "/api/data",
+                .query_params = {{"limit", "10"}},
+            }}
+        )
+    );
+
+    auto results = ASSERT_NIL_P(client.execute_requests({""}));
+    ASSERT_EQ(results.size(), 1);
+    const auto resp = ASSERT_NIL_P(results[0]);
+    EXPECT_EQ(resp.status_code, 200);
+
+    auto reqs = server.received_requests();
+    ASSERT_EQ(reqs.size(), 1);
+    EXPECT_EQ(reqs[0].query_params.find("api_key")->second, "secret");
+    EXPECT_EQ(reqs[0].query_params.find("limit")->second, "10");
+
+    server.stop();
+}
+
 TEST(ClientTest, TimeoutError) {
     mock::ServerConfig server_cfg;
     server_cfg.routes = {{
