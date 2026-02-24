@@ -26,6 +26,7 @@ import (
 	grouppb "github.com/synnaxlabs/synnax/pkg/distribution/group/pb"
 	groupsignals "github.com/synnaxlabs/synnax/pkg/distribution/group/signals"
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
+	ontologypb "github.com/synnaxlabs/synnax/pkg/distribution/ontology/pb"
 	ontologysignals "github.com/synnaxlabs/synnax/pkg/distribution/ontology/signals"
 	"github.com/synnaxlabs/synnax/pkg/distribution/signals"
 	"github.com/synnaxlabs/synnax/pkg/storage"
@@ -240,8 +241,10 @@ func OpenLayer(ctx context.Context, cfgs ...LayerConfig) (l *Layer, err error) {
 	if l.Ontology, err = ontology.Open(
 		ctx,
 		ontology.Config{
-			Instrumentation: cfg.Child("ontology"),
-			DB:              l.DB,
+			Instrumentation:   cfg.Child("ontology"),
+			DB:                l.DB,
+			RelationshipCodec: ontologypb.RelationshipCodec,
+			ResourceCodec:     ontologypb.ResourceCodec,
 		},
 	); !ok(err, l.Ontology) {
 		return nil, err

@@ -85,8 +85,10 @@ type Ontology struct {
 }
 
 type Config struct {
-	DB           *gorp.DB
-	EnableSearch *bool
+	DB                *gorp.DB
+	EnableSearch      *bool
+	RelationshipCodec gorp.Codec[Relationship]
+	ResourceCodec     gorp.Codec[Resource]
 	alamos.Instrumentation
 }
 
@@ -108,6 +110,8 @@ func (c Config) Override(other Config) Config {
 	c.DB = override.Nil(c.DB, other.DB)
 	c.Instrumentation = override.Zero(c.Instrumentation, other.Instrumentation)
 	c.EnableSearch = override.Nil(c.EnableSearch, other.EnableSearch)
+	c.RelationshipCodec = override.Nil(c.RelationshipCodec, other.RelationshipCodec)
+	c.ResourceCodec = override.Nil(c.ResourceCodec, other.ResourceCodec)
 	return c
 }
 
@@ -118,18 +122,30 @@ func Open(ctx context.Context, configs ...Config) (*Ontology, error) {
 	if err != nil {
 		return nil, err
 	}
-	resourceTable, err := gorp.OpenTable[string, Resource](ctx, gorp.TableConfig[Resource]{DB: cfg.DB})
+	resourceTable, err := gorp.OpenTable[string, Resource](ctx, gorp.TableConfig[Resource]{
+		DB:    cfg.DB,
+		Codec: cfg.ResourceCodec,
+		Migrations: []gorp.Migration{
+			gorp.NewCodecTransition[string, Resource]("msgpack_to_protobuf", cfg.ResourceCodec),
+		},
+	})
 	if err != nil {
 		return nil, err
 	}
-	relationshipTable, err := gorp.OpenTable[[]byte, Relationship](ctx, gorp.TableConfig[Relationship]{DB: cfg.DB})
+	relationshipTable, err := gorp.OpenTable[[]byte, Relationship](ctx, gorp.TableConfig[Relationship]{
+		DB:    cfg.DB,
+		Codec: cfg.RelationshipCodec,
+		Migrations: []gorp.Migration{
+			gorp.NewCodecTransition[[]byte, Relationship]("msgpack_to_protobuf", cfg.RelationshipCodec),
+		},
+	})
 	if err != nil {
 		return nil, err
 	}
 	o := &Ontology{
 		Config:               cfg,
 		ResourceObserver:     observe.New[iter.Seq[Change]](),
-		RelationshipObserver: gorp.Observe[[]byte, Relationship](cfg.DB),
+		RelationshipObserver: relationshipTable.Observe(),
 		registrar:            serviceRegistrar{TypeBuiltIn: &builtinService{}},
 		resourceTable:        resourceTable,
 		relationshipTable:    relationshipTable,

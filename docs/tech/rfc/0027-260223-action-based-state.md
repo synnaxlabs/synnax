@@ -752,7 +752,8 @@ mutations to typed actions dispatched through Flux, and routes selections to Red
 
 The drag case connects to open question 1 (action batching on the wire): during a drag,
 the local Flux store updates for rendering but the server dispatch is deferred until
-drop. This is a form of implicit transaction grouping that also reduces network overhead.
+drop. This is a form of implicit transaction grouping that also reduces network
+overhead.
 
 # 5 - Implementation Plan
 

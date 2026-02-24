@@ -21,7 +21,6 @@ import (
 	"strings"
 	"text/template"
 
-	"github.com/samber/lo"
 	"github.com/synnaxlabs/oracle/exec"
 	"github.com/synnaxlabs/oracle/plugin"
 	"github.com/synnaxlabs/oracle/plugin/go/internal/naming"
@@ -217,12 +216,7 @@ func (p *Plugin) generateFile(
 			}
 			return strings.ToLower(s[:1]) + s[1:]
 		},
-		"toPascalCase": func(s string) string {
-			if naming.IsScreamingCase(s) {
-				return s
-			}
-			return lo.PascalCase(s)
-		},
+		"toPascalCase": naming.ToPascalCase,
 	}).Parse(codecTemplate)
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to parse template")

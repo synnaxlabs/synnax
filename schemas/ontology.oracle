@@ -8,6 +8,8 @@
 // included in the file licenses/APL.txt.
 
 @ts output "client/ts/src/ontology"
+@go output "core/pkg/distribution/ontology"
+@pb
 
 ResourceType enum {
     label            = "label"
@@ -40,13 +42,25 @@ ResourceType enum {
         type represents a distinct kind of entity that can have relationships
         with other resources.
     """
+    @go omit
+    @pb omit
+}
+
+Type string {
+    @go omit
+    @ts omit
+}
+
+RelationshipType string {
+    @go omit
+    @ts omit
 }
 
 ID struct {
-    type ResourceType {
+    type Type   {
         @doc value "is the type of the resource."
     }
-    key  string       {
+    key  string {
         @doc value "is the unique key identifying the resource within its type."
     }
 
@@ -54,6 +68,7 @@ ID struct {
         is a unique identifier for a resource in the ontology system, composed
         of its type and key.
     """
+    @go omit
     @ts omit
 }
 
@@ -64,31 +79,32 @@ Resource struct {
     name string {
         @doc value "is a human-readable name for the resource."
     }
-    data json?  {
-        @doc value "is optional metadata associated with the resource."
-    }
 
-    @doc value """
+    @doc value  """
         is a resource in the ontology system with its identifier, name, and
         optional metadata.
     """
+    @go omit
+    @go marshal
     @ts omit
 }
 
 Relationship struct {
-    from ID     {
+    from ID               {
         @doc value "is the source resource of the relationship."
     }
-    type string {
+    type RelationshipType {
         @doc value "is the type of relationship (e.g., 'parent_of', 'owns')."
     }
-    to   ID     {
+    to   ID               {
         @doc value "is the target resource of the relationship."
     }
 
-    @doc value """
+    @doc value  """
         is a directional relationship between two resources in the ontology
         system.
     """
+    @go omit
+    @go marshal
     @ts omit
 }

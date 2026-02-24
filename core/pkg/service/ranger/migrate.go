@@ -11,85 +11,96 @@ package ranger
 
 import (
 	"context"
+	"unsafe"
 
 	"github.com/google/uuid"
 	"github.com/samber/lo"
+	"github.com/synnaxlabs/alamos"
 	"github.com/synnaxlabs/synnax/pkg/distribution/group"
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/gorp"
+	"github.com/synnaxlabs/x/kv"
 	"github.com/synnaxlabs/x/query"
 	"github.com/synnaxlabs/x/telem"
 )
 
-func (s *Service) migrate(ctx context.Context) error {
-	return gorp.Migrator{
-		Key: "sy_ranger_migration_performed",
-		Migrations: []gorp.MigrationSpec{
-			{Name: "range_groups", Migrate: s.migrateRangeGroups},
-		},
-		Force: *s.cfg.ForceMigration,
-	}.Run(ctx, s.cfg.DB)
+type rangeGroupsMigration struct {
+	otg   *ontology.Ontology
+	group *group.Service
+	codec gorp.Codec[Range]
+	l     *alamos.Logger
 }
 
-func (s *Service) migrateRangeGroups(ctx context.Context, tx gorp.Tx) error {
-	s.cfg.L.Info("Swapping ranges to make sure the time range is valid.")
-	if err := s.NewWriter(tx).swapRanges(ctx); err != nil {
+func (m *rangeGroupsMigration) Name() string { return "range_groups" }
+
+func (m *rangeGroupsMigration) Run(
+	ctx context.Context,
+	kvTx kv.Tx,
+	migCfg gorp.MigrationConfig,
+) error {
+	gorpTx := gorp.WrapTx(kvTx, migCfg.Codec)
+
+	m.l.Info("Swapping ranges to make sure the time range is valid.")
+	if err := m.swapRanges(ctx, kvTx, migCfg.Prefix); err != nil {
 		return err
 	}
+
 	var topLevelGroup group.Group
-	if err := s.cfg.
-		Group.
+	if err := m.group.
 		NewRetrieve().
 		Entry(&topLevelGroup).
 		WhereNames("Ranges").
-		Exec(ctx, tx); err != nil {
+		Exec(ctx, gorpTx); err != nil {
 		if errors.Is(err, query.ErrNotFound) {
 			return nil
 		}
 		return err
 	}
-	s.cfg.L.Info(
+
+	m.l.Info(
 		"Migrating subgroups of the Ranges group to ranges and deleting the group.",
 	)
 	var groups []ontology.Resource
-	if err := s.cfg.
-		Ontology.
+	if err := m.otg.
 		NewRetrieve().
 		WhereIDs(topLevelGroup.OntologyID()).
 		TraverseTo(ontology.ChildrenTraverser).
 		WhereTypes(group.OntologyType).
 		Entries(&groups).
-		Exec(ctx, tx); err != nil {
+		Exec(ctx, gorpTx); err != nil {
 		return err
 	}
-	if err := s.cfg.Ontology.NewWriter(tx).DeleteOutgoingRelationshipsOfType(
+
+	otgWriter := m.otg.NewWriter(gorpTx)
+	if err := otgWriter.DeleteOutgoingRelationshipsOfType(
 		ctx,
 		topLevelGroup.OntologyID(),
 		ontology.RelationshipTypeParentOf,
 	); err != nil {
 		return err
 	}
-	if err := s.cfg.Group.NewWriter(tx).Delete(ctx, topLevelGroup.Key); err != nil {
+	if err := m.group.NewWriter(gorpTx).Delete(ctx, topLevelGroup.Key); err != nil {
 		return err
 	}
-	// Now we have subgroups. For each subgroup, we want to grab the children of that
-	// group that are ranges, and create a corresponding parent range for that group
-	// whose time range is the union of the children's time ranges, whose name is the
-	// subgroup's name, and has children that are the children of the subgroup.
+
+	rangeMap, err := m.loadAllRanges(ctx, kvTx, migCfg.Prefix)
+	if err != nil {
+		return err
+	}
+
 	for _, g := range groups {
 		var childRanges []ontology.Resource
-		if err := s.cfg.
-			Ontology.
+		if err := m.otg.
 			NewRetrieve().
 			WhereIDs(g.ID).
 			TraverseTo(ontology.ChildrenTraverser).
 			WhereTypes(OntologyType).
 			Entries(&childRanges).
-			Exec(ctx, tx); err != nil {
+			Exec(ctx, gorpTx); err != nil {
 			return err
 		}
-		s.cfg.L.Infof(
+		m.l.Infof(
 			"Migrating range group: %s with %d children.",
 			g.Name,
 			len(childRanges),
@@ -98,32 +109,28 @@ func (s *Service) migrateRangeGroups(ctx context.Context, tx gorp.Tx) error {
 		if err != nil {
 			return err
 		}
-		if err := s.cfg.Ontology.NewWriter(tx).DeleteOutgoingRelationshipsOfType(
+		if err := otgWriter.DeleteOutgoingRelationshipsOfType(
 			ctx,
 			g.ID,
 			ontology.RelationshipTypeParentOf,
 		); err != nil {
 			return err
 		}
-		if err := s.cfg.Group.NewWriter(tx).Delete(ctx, gKey); err != nil {
+		if err := m.group.NewWriter(gorpTx).Delete(ctx, gKey); err != nil {
 			return err
 		}
 		if len(childRanges) == 0 {
 			continue
 		}
 		tr := telem.TimeRange{Start: telem.TimeStampMax, End: telem.TimeStampMin}
-		for _, r := range childRanges {
-			rKey, err := uuid.Parse(r.ID.Key)
+		for _, cr := range childRanges {
+			rKey, err := uuid.Parse(cr.ID.Key)
 			if err != nil {
 				return err
 			}
-			var r Range
-			if err := s.
-				NewRetrieve().
-				WhereKeys(rKey).
-				Entry(&r).
-				Exec(ctx, tx); err != nil {
-				return err
+			r, ok := rangeMap[rKey]
+			if !ok {
+				continue
 			}
 			if r.TimeRange.Start.Before(tr.Start) {
 				tr.Start = r.TimeRange.Start
@@ -137,23 +144,117 @@ func (s *Service) migrateRangeGroups(ctx context.Context, tx gorp.Tx) error {
 			Name:      g.Name,
 			TimeRange: tr.MakeValid(),
 		}
-		if err := s.NewWriter(tx).Create(ctx, &newParentRange); err != nil {
+		if err := m.writeRange(ctx, kvTx, migCfg.Prefix, newParentRange); err != nil {
 			return err
 		}
-		if err := s.cfg.
-			Ontology.
-			NewWriter(tx).
-			DefineFromOneToManyRelationships(
-				ctx,
-				newParentRange.OntologyID(),
-				ontology.RelationshipTypeParentOf,
-				lo.Map(childRanges, func(r ontology.Resource, _ int) ontology.ID {
-					return r.ID
-				}),
-			); err != nil {
+		if err := otgWriter.DefineResource(ctx, OntologyID(newParentRange.Key)); err != nil {
+			return err
+		}
+		if err := otgWriter.DefineFromOneToManyRelationships(
+			ctx,
+			newParentRange.OntologyID(),
+			ontology.RelationshipTypeParentOf,
+			lo.Map(childRanges, func(r ontology.Resource, _ int) ontology.ID {
+				return r.ID
+			}),
+		); err != nil {
 			return err
 		}
 	}
-	s.cfg.L.Info("finished ranger migration")
+
+	m.l.Info("finished ranger migration")
 	return nil
 }
+
+func (m *rangeGroupsMigration) swapRanges(
+	ctx context.Context,
+	kvTx kv.Tx,
+	prefix []byte,
+) (err error) {
+	iter, err := kvTx.OpenIterator(kv.IterPrefix(prefix))
+	if err != nil {
+		return err
+	}
+	defer func() {
+		err = errors.Combine(err, iter.Close())
+	}()
+	for iter.First(); iter.Valid(); iter.Next() {
+		r, decErr := m.codec.Unmarshal(ctx, iter.Value())
+		if decErr != nil {
+			return decErr
+		}
+		r.TimeRange = r.TimeRange.MakeValid()
+		data, encErr := m.codec.Marshal(ctx, r)
+		if encErr != nil {
+			return encErr
+		}
+		if err = kvTx.Set(ctx, iter.Key(), data); err != nil {
+			return err
+		}
+	}
+	return err
+}
+
+func (m *rangeGroupsMigration) loadAllRanges(
+	ctx context.Context,
+	kvTx kv.Tx,
+	prefix []byte,
+) (map[uuid.UUID]Range, error) {
+	result := make(map[uuid.UUID]Range)
+	iter, err := kvTx.OpenIterator(kv.IterPrefix(prefix))
+	if err != nil {
+		return nil, err
+	}
+	defer func() {
+		err = errors.Combine(err, iter.Close())
+	}()
+	for iter.First(); iter.Valid(); iter.Next() {
+		r, decErr := iter.Value(), error(nil)
+		var rng Range
+		rng, decErr = m.codec.Unmarshal(ctx, r)
+		if decErr != nil {
+			return nil, decErr
+		}
+		result[rng.Key] = rng
+	}
+	return result, err
+}
+
+func (m *rangeGroupsMigration) writeRange(
+	ctx context.Context,
+	kvTx kv.Tx,
+	prefix []byte,
+	r Range,
+) error {
+	data, err := m.codec.Marshal(ctx, r)
+	if err != nil {
+		return err
+	}
+	return kvTx.Set(ctx, encodeUUIDKey(prefix, r.Key), data)
+}
+
+func encodeUUIDKey(prefix []byte, id uuid.UUID) []byte {
+	const uuidSize = int(unsafe.Sizeof(uuid.UUID{}))
+	key := make([]byte, len(prefix)+uuidSize)
+	copy(key, prefix)
+	for i := range uuidSize {
+		key[len(prefix)+i] = id[uuidSize-1-i]
+	}
+	return key
+}
+
+// newRangeGroupsMigration constructs the migration. It uses gorp.Codec and
+// binary.Codec to remain independent of the DB's default codec — this is
+// necessary because the migration runs AFTER NewCodecTransition and the
+// entries are already in protobuf format.
+func newRangeGroupsMigration(cfg ServiceConfig) gorp.Migration {
+	return &rangeGroupsMigration{
+		otg:   cfg.Ontology,
+		group: cfg.Group,
+		codec: cfg.Codec,
+		l:     cfg.L,
+	}
+}
+
+// Ensure rangeGroupsMigration implements the Migration interface at compile time.
+var _ gorp.Migration = (*rangeGroupsMigration)(nil)
