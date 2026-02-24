@@ -97,10 +97,10 @@ export const Connect: Layout.Renderer = ({ layoutKey, onClose }) => {
               inputProps={HOST_INPUT_PROPS}
             />
             <Form.SwitchField path="properties.secure" label="HTTPS" />
-            <Form.SwitchField path="properties.verify_ssl" label="Verify SSL" />
+            <Form.SwitchField path="properties.verifySsl" label="Verify SSL" />
           </Flex.Box>
           <Form.NumericField
-            path="properties.timeout_ms"
+            path="properties.timeoutMs"
             label="Expected response time"
             inputProps={TIMEOUT_INPUT_PROPS}
           />
@@ -111,8 +111,9 @@ export const Connect: Layout.Renderer = ({ layoutKey, onClose }) => {
             keyPlaceholder="Field Name"
             valuePlaceholder="Field Value"
           />
+          <Divider.Divider x padded />
           <KeyValueEditor
-            path="properties.query_params"
+            path="properties.queryParams"
             label="Query Parameters"
             keyPlaceholder="Parameter"
             valuePlaceholder="Value"
