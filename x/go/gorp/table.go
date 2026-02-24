@@ -11,18 +11,21 @@ package gorp
 
 import (
 	"context"
+	stdbinary "encoding/binary"
 	"io"
 	"iter"
 
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/kv"
+	"github.com/synnaxlabs/x/query"
 	"github.com/synnaxlabs/x/types"
 )
 
 // TableConfig configures a Table opened via OpenTable.
 type TableConfig[E any] struct {
-	DB    *DB
-	Codec Codec[E]
+	DB         *DB
+	Codec      Codec[E]
+	Migrations []Migration
 }
 
 // Table provides a strongly typed interface for a specific entry type within a gorp DB.
@@ -37,13 +40,49 @@ func (t *Table[K, E]) Close() error {
 	return nil
 }
 
-// OpenTable creates or opens a table for the given entry type. It runs key migrations
-// to ensure entries are stored under the current prefix and key encoding format.
+// OpenTable creates or opens a table for the given entry type. It runs any provided
+// versioned migrations followed by key migrations to ensure entries are stored under
+// the current prefix and key encoding format.
 func OpenTable[K Key, E Entry[K]](
 	ctx context.Context,
 	cfg TableConfig[E],
 ) (*Table[K, E], error) {
-	if err := migrateKeys[K, E](ctx, cfg.DB, cfg.Codec); err != nil {
+	prefix := []byte(magicPrefix + types.Name[E]())
+	versionKey := []byte(migrationVersionPrefix + types.Name[E]())
+	kvTx := cfg.DB.KV().OpenTx()
+	defer func() {
+		_ = kvTx.Close()
+	}()
+	migCfg := MigrationConfig{Prefix: prefix, Codec: cfg.DB.Codec}
+	if len(cfg.Migrations) > 0 {
+		currentVersion, err := readMigrationVersion(ctx, kvTx, versionKey)
+		if err != nil {
+			return nil, err
+		}
+		for i := int(currentVersion); i < len(cfg.Migrations); i++ {
+			if err := cfg.Migrations[i].Run(ctx, kvTx, migCfg); err != nil {
+				return nil, errors.Wrapf(
+					err,
+					"migration %d (%s) failed",
+					i+1,
+					cfg.Migrations[i].Name(),
+				)
+			}
+			if err := writeMigrationVersion(
+				ctx, kvTx, versionKey, uint16(i+1),
+			); err != nil {
+				return nil, err
+			}
+		}
+	}
+	gorpTx := WrapTx(kvTx, cfg.DB.Codec)
+	if err := migrateOldPrefixKeys[K, E](ctx, gorpTx, cfg.Codec); err != nil {
+		return nil, err
+	}
+	if err := reEncodeKeys[K, E](ctx, gorpTx, cfg.Codec); err != nil {
+		return nil, err
+	}
+	if err := kvTx.Commit(ctx); err != nil {
 		return nil, err
 	}
 	return &Table[K, E]{codec: cfg.Codec, DB: cfg.DB}, nil
@@ -73,15 +112,6 @@ func (t *Table[K, E]) NewDelete() Delete[K, E] {
 // for decoding.
 func (t *Table[K, E]) OpenNexter(ctx context.Context) (iter.Seq[E], io.Closer, error) {
 	return wrapReader[K, E](t.DB, t.codec).OpenNexter(ctx)
-}
-
-func migrateKeys[K Key, E Entry[K]](ctx context.Context, db *DB, codec Codec[E]) error {
-	return db.WithTx(ctx, func(tx Tx) error {
-		if err := migrateOldPrefixKeys[K, E](ctx, tx, codec); err != nil {
-			return err
-		}
-		return reEncodeKeys[K, E](ctx, tx, codec)
-	})
 }
 
 // migrateOldPrefixKeys finds entries stored under the old codec-based prefix
@@ -146,4 +176,36 @@ func reEncodeKeys[K Key, E Entry[K]](ctx context.Context, tx Tx, codec Codec[E])
 		}
 	}
 	return err
+}
+
+func readMigrationVersion(
+	ctx context.Context,
+	kvTx kv.Tx,
+	key []byte,
+) (uint16, error) {
+	b, closer, err := kvTx.Get(ctx, key)
+	if err != nil {
+		if errors.Is(err, query.ErrNotFound) {
+			return 0, nil
+		}
+		return 0, err
+	}
+	defer func() {
+		err = errors.Combine(err, closer.Close())
+	}()
+	if len(b) < 2 {
+		return 0, err
+	}
+	return stdbinary.BigEndian.Uint16(b), err
+}
+
+func writeMigrationVersion(
+	ctx context.Context,
+	kvTx kv.Tx,
+	key []byte,
+	version uint16,
+) error {
+	b := make([]byte, 2)
+	stdbinary.BigEndian.PutUint16(b, version)
+	return kvTx.Set(ctx, key, b)
 }

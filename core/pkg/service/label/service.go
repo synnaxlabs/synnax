@@ -41,6 +41,9 @@ type ServiceConfig struct {
 	// Signals is the signal service used to propagate changes to labels.
 	// [OPTIONAL]
 	Signals *signals.Provider
+	// Codec is the protobuf-based codec for encoding/decoding labels in gorp.
+	// [OPTIONAL]
+	Codec gorp.Codec[Label]
 }
 
 var (
@@ -66,6 +69,7 @@ func (c ServiceConfig) Override(other ServiceConfig) ServiceConfig {
 	c.Ontology = override.Nil(c.Ontology, other.Ontology)
 	c.Group = override.Nil(c.Group, other.Group)
 	c.Signals = override.Nil(c.Signals, other.Signals)
+	c.Codec = override.Nil(c.Codec, other.Codec)
 	return c
 }
 
@@ -85,14 +89,22 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (*Service, error) {
 	if err != nil {
 		return nil, err
 	}
-	table, err := gorp.OpenTable[uuid.UUID, Label](ctx, gorp.TableConfig[Label]{DB: cfg.DB})
+	table, err := gorp.OpenTable[uuid.UUID, Label](ctx, gorp.TableConfig[Label]{
+		DB:    cfg.DB,
+		Codec: cfg.Codec,
+		Migrations: []gorp.Migration{
+			gorp.NewCodecTransition[uuid.UUID, Label]("msgpack_to_protobuf", cfg.Codec),
+		},
+	})
 	if err != nil {
 		return nil, err
 	}
 	s := &Service{cfg: cfg, table: table}
 	cfg.Ontology.RegisterService(s)
 	if cfg.Signals != nil {
-		s.signals, err = signals.PublishFromGorp(ctx, cfg.Signals, signals.GorpPublisherConfigUUID[Label](cfg.DB))
+		signalsCfg := signals.GorpPublisherConfigUUID[Label](cfg.DB)
+		signalsCfg.Observable = s.table.Observe()
+		s.signals, err = signals.PublishFromGorp(ctx, cfg.Signals, signalsCfg)
 		if err != nil {
 			return nil, err
 		}

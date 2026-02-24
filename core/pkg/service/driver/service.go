@@ -85,7 +85,7 @@ func Open(ctx context.Context, cfgs ...Config) (*Driver, error) {
 
 	d.startHeartbeat()
 	d.configureInitialTasks(ctx)
-	taskObs := gorp.Observe[task.Key, task.Task](cfg.DB)
+	taskObs := cfg.Task.Observe()
 	d.disconnectObserver = taskObs.OnChange(d.handleTaskChange)
 	if err = d.startCommandStreaming(ctx); err != nil {
 		return nil, err

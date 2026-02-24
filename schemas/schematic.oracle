@@ -42,6 +42,7 @@ Schematic struct {
         symbols, connection handles, and dynamic state visualization.
     """
     @ontology type "schematic"
+    @go marshal
 }
 
 New struct extends Schematic {

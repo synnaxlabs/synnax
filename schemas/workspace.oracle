@@ -42,6 +42,7 @@ Workspace struct {
         custom arrangements of visualizations, tabs, and window configurations.
     """
     @ontology type "workspace"
+    @go marshal
 }
 
 New struct extends Workspace {

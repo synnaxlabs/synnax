@@ -42,6 +42,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/storage"
 	"github.com/synnaxlabs/x/config"
 	xio "github.com/synnaxlabs/x/io"
+	xlabel "github.com/synnaxlabs/x/label"
 	"github.com/synnaxlabs/x/override"
 	"github.com/synnaxlabs/x/service"
 	"github.com/synnaxlabs/x/validate"
@@ -167,6 +168,7 @@ func OpenLayer(ctx context.Context, cfgs ...LayerConfig) (l *Layer, err error) {
 		DB:       cfg.Distribution.DB,
 		Ontology: cfg.Distribution.Ontology,
 		Group:    cfg.Distribution.Group,
+		Codec:    user.UserCodec,
 	}); !ok(err, nil) {
 		return nil, err
 	}
@@ -179,9 +181,11 @@ func OpenLayer(ctx context.Context, cfgs ...LayerConfig) (l *Layer, err error) {
 		return nil, err
 	}
 
-	if l.Auth, err = auth.OpenKV(ctx, cfg.Distribution.DB); !ok(err, nil) {
+	var authKV *auth.KV
+	if authKV, err = auth.OpenKV(ctx, cfg.Distribution.DB); !ok(err, authKV) {
 		return nil, err
 	}
+	l.Auth = authKV
 	if l.Token, err = token.NewService(token.ServiceConfig{
 		KeyProvider:      cfg.Security,
 		Expiration:       24 * time.Hour,
@@ -194,6 +198,7 @@ func OpenLayer(ctx context.Context, cfgs ...LayerConfig) (l *Layer, err error) {
 		Ontology: cfg.Distribution.Ontology,
 		Group:    cfg.Distribution.Group,
 		Signals:  cfg.Distribution.Signals,
+		Codec:    xlabel.LabelCodec,
 	}); !ok(err, l.Label) {
 		return nil, err
 	}
@@ -203,6 +208,7 @@ func OpenLayer(ctx context.Context, cfgs ...LayerConfig) (l *Layer, err error) {
 		Group:    cfg.Distribution.Group,
 		Signals:  cfg.Distribution.Signals,
 		Label:    l.Label,
+		Codec:    ranger.RangeCodec,
 	}); !ok(err, l.Ranger) {
 		return nil, err
 	}
@@ -225,6 +231,7 @@ func OpenLayer(ctx context.Context, cfgs ...LayerConfig) (l *Layer, err error) {
 		Ontology: cfg.Distribution.Ontology,
 		Group:    cfg.Distribution.Group,
 		Signals:  cfg.Distribution.Signals,
+		Codec:    workspace.WorkspaceCodec,
 	}); !ok(err, l.Workspace) {
 		return nil, err
 	}
@@ -233,24 +240,28 @@ func OpenLayer(ctx context.Context, cfgs ...LayerConfig) (l *Layer, err error) {
 		Ontology: cfg.Distribution.Ontology,
 		Group:    cfg.Distribution.Group,
 		Signals:  cfg.Distribution.Signals,
+		Codec:    schematic.SchematicCodec,
 	}); !ok(err, l.Schematic) {
 		return nil, err
 	}
 	if l.LinePlot, err = lineplot.OpenService(ctx, lineplot.ServiceConfig{
 		DB:       cfg.Distribution.DB,
 		Ontology: cfg.Distribution.Ontology,
+		Codec:    lineplot.LinePlotCodec,
 	}); !ok(err, nil) {
 		return nil, err
 	}
 	if l.Log, err = log.OpenService(ctx, log.ServiceConfig{
 		DB:       cfg.Distribution.DB,
 		Ontology: cfg.Distribution.Ontology,
+		Codec:    log.LogCodec,
 	}); !ok(err, nil) {
 		return nil, err
 	}
 	if l.Table, err = table.OpenService(ctx, table.ServiceConfig{
 		DB:       cfg.Distribution.DB,
 		Ontology: cfg.Distribution.Ontology,
+		Codec:    table.TableCodec,
 	}); !ok(err, nil) {
 		return nil, err
 	}
@@ -275,6 +286,7 @@ func OpenLayer(ctx context.Context, cfgs ...LayerConfig) (l *Layer, err error) {
 		HostProvider:    cfg.Distribution.Cluster,
 		Signals:         cfg.Distribution.Signals,
 		Status:          l.Status,
+		Codec:           rack.RackCodec,
 	}); !ok(err, l.Rack) {
 		return nil, err
 	}
@@ -285,6 +297,7 @@ func OpenLayer(ctx context.Context, cfgs ...LayerConfig) (l *Layer, err error) {
 		Signals:  cfg.Distribution.Signals,
 		Status:   l.Status,
 		Rack:     l.Rack,
+		Codec:    device.DeviceCodec,
 	}); !ok(err, l.Device) {
 		return nil, err
 	}
@@ -297,6 +310,7 @@ func OpenLayer(ctx context.Context, cfgs ...LayerConfig) (l *Layer, err error) {
 		Channel:         cfg.Distribution.Channel,
 		Rack:            l.Rack,
 		Status:          l.Status,
+		Codec:           task.TaskCodec,
 	}); !ok(err, l.Task) {
 		return nil, err
 	}
@@ -309,6 +323,7 @@ func OpenLayer(ctx context.Context, cfgs ...LayerConfig) (l *Layer, err error) {
 			Channel:         cfg.Distribution.Channel,
 			Signals:         cfg.Distribution.Signals,
 			Task:            l.Task,
+			Codec:           arc.ArcCodec,
 		},
 	); !ok(err, l.Arc) {
 		return nil, err

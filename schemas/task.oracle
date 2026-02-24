@@ -122,6 +122,7 @@ Task struct<
         concrete_types
     }
     @ontology type "task"
+    @go marshal
     @py name       "Payload"
 }
 

@@ -19,6 +19,7 @@ import (
 	"github.com/synnaxlabs/x/config"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/gorp"
+	"github.com/synnaxlabs/x/observe"
 	"github.com/synnaxlabs/x/override"
 	"github.com/synnaxlabs/x/query"
 	"github.com/synnaxlabs/x/validate"
@@ -27,6 +28,7 @@ import (
 type ServiceConfig struct {
 	DB       *gorp.DB
 	Ontology *ontology.Ontology
+	Codec    gorp.Codec[Group]
 }
 
 var (
@@ -38,6 +40,7 @@ var (
 func (c ServiceConfig) Override(other ServiceConfig) ServiceConfig {
 	c.DB = override.Nil(c.DB, other.DB)
 	c.Ontology = override.Nil(c.Ontology, other.Ontology)
+	c.Codec = override.Nil(c.Codec, other.Codec)
 	return c
 }
 
@@ -60,7 +63,13 @@ func OpenService(ctx context.Context, configs ...ServiceConfig) (*Service, error
 	if err != nil {
 		return nil, err
 	}
-	table, err := gorp.OpenTable[uuid.UUID, Group](ctx, gorp.TableConfig[Group]{DB: cfg.DB})
+	table, err := gorp.OpenTable[uuid.UUID, Group](ctx, gorp.TableConfig[Group]{
+		DB:    cfg.DB,
+		Codec: cfg.Codec,
+		Migrations: []gorp.Migration{
+			gorp.NewCodecTransition[uuid.UUID, Group]("msgpack_to_protobuf", cfg.Codec),
+		},
+	})
 	if err != nil {
 		return nil, err
 	}
@@ -88,6 +97,10 @@ func (s *Service) NewWriter(tx gorp.Tx) Writer {
 
 func (s *Service) NewRetrieve() Retrieve {
 	return newRetrieve(s.cfg.DB, s.table)
+}
+
+func (s *Service) Observe() observe.Observable[gorp.TxReader[uuid.UUID, Group]] {
+	return s.table.Observe()
 }
 
 func (s *Service) Close() error {

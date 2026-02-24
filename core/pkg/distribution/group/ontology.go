@@ -74,7 +74,7 @@ func (s *Service) OnChange(
 	handleChange := func(ctx context.Context, reader gorp.TxReader[uuid.UUID, Group]) {
 		f(ctx, xiter.Map(reader, translateChange))
 	}
-	return gorp.Observe[uuid.UUID, Group](s.cfg.DB).OnChange(handleChange)
+	return s.table.Observe().OnChange(handleChange)
 }
 
 func (s *Service) OpenNexter(ctx context.Context) (iter.Seq[ontology.Resource], io.Closer, error) {

@@ -68,6 +68,7 @@ Rack struct {
     """
     @ts name       "Payload"
     @ontology type "rack"
+    @go marshal
     @py name       "Base"
     @cpp methods   "task::Client tasks"
     @cpp includes  "client/cpp/task/task.h"

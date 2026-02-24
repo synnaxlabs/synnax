@@ -239,8 +239,10 @@ func OpenLayer(ctx context.Context, cfgs ...LayerConfig) (l *Layer, err error) {
 	if l.Ontology, err = ontology.Open(
 		ctx,
 		ontology.Config{
-			Instrumentation: cfg.Child("ontology"),
-			DB:              l.DB,
+			Instrumentation:   cfg.Child("ontology"),
+			DB:                l.DB,
+			RelationshipCodec: ontology.RelationshipCodec,
+			ResourceCodec:     ontology.ResourceCodec,
 		},
 	); !ok(err, l.Ontology) {
 		return nil, err
@@ -251,6 +253,7 @@ func OpenLayer(ctx context.Context, cfgs ...LayerConfig) (l *Layer, err error) {
 		group.ServiceConfig{
 			DB:       l.DB,
 			Ontology: l.Ontology,
+			Codec:    group.GroupCodec,
 		},
 	); !ok(err, l.Group) {
 		return nil, err
@@ -323,7 +326,7 @@ func OpenLayer(ctx context.Context, cfgs ...LayerConfig) (l *Layer, err error) {
 			return nil, err
 		}
 		var groupSignalsCloser io.Closer
-		if groupSignalsCloser, err = groupsignals.Publish(ctx, l.Signals, l.DB); !ok(err, groupSignalsCloser) {
+		if groupSignalsCloser, err = groupsignals.Publish(ctx, l.Signals, l.DB, l.Group); !ok(err, groupSignalsCloser) {
 			return nil, err
 		}
 	}

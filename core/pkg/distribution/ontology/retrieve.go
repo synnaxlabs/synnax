@@ -10,6 +10,7 @@
 package ontology
 
 import (
+	"bytes"
 	"context"
 
 	"github.com/samber/lo"
@@ -143,16 +144,21 @@ type Traverser struct {
 	// Prefix is an optional function that returns a prefix for efficient lookup.
 	// If nil, a full table scan will be used.
 	Prefix func(id ID) []byte
+	// RawFilter builds a raw byte filter for the given IDs that can reject
+	// non-matching relationship rows without decoding them.
+	RawFilter func(ids []ID) gorp.RawFilter
 	// Direction is the direction of the traversal. See (Direction) for more.
 	Direction Direction
 }
 
 var (
+	parentBytes = []byte(RelationshipTypeParentOf)
 	// ParentsTraverser traverses to the parents of a resource.
 	ParentsTraverser = Traverser{
 		Filter: func(res *Resource, rel *Relationship) bool {
 			return rel.Type == RelationshipTypeParentOf && rel.To == res.ID
 		},
+		RawFilter: parentsRawFilter,
 		Direction: DirectionBackward,
 	}
 	// ChildrenTraverser traverse to the children of a resource.
@@ -165,6 +171,47 @@ var (
 	}
 	childrenPrefixSuffix = []byte("->" + string(RelationshipTypeParentOf) + "->")
 )
+
+// parentsRawFilter builds a raw filter that checks relationship type == "parent"
+// and To.Type + To.Key match any of the given IDs, all without decoding.
+// Wire format: [From.Type][From.Key][Type][To.Type][To.Key] (each uint32 len + bytes).
+func parentsRawFilter(ids []ID) gorp.RawFilter {
+	type rawID struct{ typ, key []byte }
+	raw := make([]rawID, len(ids))
+	for i, id := range ids {
+		raw[i] = rawID{typ: []byte(id.Type), key: []byte(id.Key)}
+	}
+	return func(data []byte) bool {
+		// Skip From.Type and From.Key (fields 0, 1)
+		rest := gorp.SkipRawFields(data, 2)
+		if rest == nil {
+			return true // malformed, fallback to full decode
+		}
+		// Read Type (field 2)
+		typeVal, rest := gorp.ReadRawField(rest)
+		if rest == nil {
+			return true
+		}
+		if !bytes.Equal(typeVal, parentBytes) {
+			return false
+		}
+		// Read To.Type (field 3) and To.Key (field 4)
+		toType, rest := gorp.ReadRawField(rest)
+		if rest == nil {
+			return true
+		}
+		toKey, _ := gorp.ReadRawField(rest)
+		if toKey == nil {
+			return true
+		}
+		for _, id := range raw {
+			if bytes.Equal(toType, id.typ) && bytes.Equal(toKey, id.key) {
+				return true
+			}
+		}
+		return false
+	}
+}
 
 func childrenPrefix(id ID) []byte {
 	idStr := id.String()
@@ -344,7 +391,7 @@ func (r Retrieve) traverseByScan(
 		nextIDs       = make([]ID, 0, len(ids)*4)
 		relationships []Relationship
 	)
-	err := r.relationshipTable.NewRetrieve().
+	q := r.relationshipTable.NewRetrieve().
 		Entries(&relationships).
 		Where(func(ctx gorp.Context, rel *Relationship) (bool, error) {
 			for _, id := range ids {
@@ -354,6 +401,10 @@ func (r Retrieve) traverseByScan(
 				}
 			}
 			return false, nil
-		}).Exec(ctx, tx)
+		})
+	if traverse.RawFilter != nil {
+		q = q.WhereRaw(traverse.RawFilter(ids))
+	}
+	err := q.Exec(ctx, tx)
 	return nextIDs, err
 }

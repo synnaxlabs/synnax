@@ -12,14 +12,19 @@ package gorp
 import (
 	"context"
 
+	"github.com/synnaxlabs/x/binary"
 	"github.com/synnaxlabs/x/errors"
+	"github.com/synnaxlabs/x/kv"
 	"github.com/synnaxlabs/x/query"
 )
 
+// Deprecated: Use Migration interface and OpenTable with variadic migrations.
 var ErrMigrationCountExceeded = errors.New(
 	"migration count is greater than the maximum of 255",
 )
 
+// Deprecated: Use Migration interface and OpenTable with variadic migrations.
+//
 // MigrationSpec defines a single migration that should be run with a transaction.
 type MigrationSpec struct {
 	// Migrate is the migration function to execute
@@ -28,6 +33,8 @@ type MigrationSpec struct {
 	Name string
 }
 
+// Deprecated: Use Migration interface and OpenTable with variadic migrations.
+//
 // Migrator executes a series of migrations in order, tracking progress with
 // incrementing versions. Migrations are run sequentially from current_version + 1 up to
 // the latest version. The version starts at 0 (no migrations) and increments to
@@ -43,20 +50,10 @@ type Migrator struct {
 	Force bool
 }
 
+// Deprecated: Use Migration interface and OpenTable with variadic migrations.
+//
 // Run executes all migrations that haven't been completed yet. Migrations run
 // sequentially and the version is incremented after each successful migration.
-//
-// Example:
-//
-//	func (s *Service) migrate(ctx context.Context) error {
-//	    return gorp.Migrator{
-//	        Key: "sy_channel_migration_version",
-//	        Migrations: []gorp.MigrationSpec{
-//	            {Name: "name_validation", Migrate: s.migrateChannelNames},
-//	            {Name: "future_migration", Migrate: s.migrateSomethingElse},
-//	        },
-//	    }.Run(ctx, s.DB)
-//	}
 func (r Migrator) Run(ctx context.Context, db *DB) error {
 	return db.WithTx(ctx, func(tx Tx) error {
 		migrationCount := len(r.Migrations)
@@ -103,4 +100,151 @@ func (r Migrator) Run(ctx context.Context, db *DB) error {
 		}
 		return nil
 	})
+}
+
+// Migration is a versioned schema migration that transforms entries stored in gorp.
+type Migration interface {
+	// Name returns a human-readable identifier for this migration.
+	Name() string
+	// Run executes the migration within the provided kv.Tx.
+	Run(ctx context.Context, tx kv.Tx, cfg MigrationConfig) error
+}
+
+// MigrationConfig provides the configuration needed by Migration implementations
+// to locate and encode/decode entries.
+type MigrationConfig struct {
+	Prefix []byte
+	Codec  binary.Codec
+}
+
+// AutoMigrateFunc transforms an old entry into a new entry.
+type AutoMigrateFunc[I, O any] func(ctx context.Context, old I) (O, error)
+
+// PostMigrateFunc is called after the auto-migration to allow additional
+// modifications to the new entry using data from the old entry.
+type PostMigrateFunc[I, O any] func(ctx context.Context, new *O, old I) error
+
+type typedMigration[I, O any] struct {
+	name string
+	auto AutoMigrateFunc[I, O]
+	post PostMigrateFunc[I, O]
+}
+
+// NewTypedMigration creates a Migration that iterates over all entries with the
+// configured prefix, decodes each as type I, transforms it to type O via auto
+// (and optionally post), and writes it back. Either auto or post may be nil but
+// not both.
+func NewTypedMigration[I, O any](
+	name string,
+	auto AutoMigrateFunc[I, O],
+	post PostMigrateFunc[I, O],
+) Migration {
+	return &typedMigration[I, O]{name: name, auto: auto, post: post}
+}
+
+func (m *typedMigration[I, O]) Name() string { return m.name }
+
+func (m *typedMigration[I, O]) Run(
+	ctx context.Context,
+	kvTx kv.Tx,
+	cfg MigrationConfig,
+) error {
+	iter, err := kvTx.OpenIterator(kv.IterPrefix(cfg.Prefix))
+	if err != nil {
+		return err
+	}
+	defer func() {
+		err = errors.Combine(err, iter.Close())
+	}()
+	for iter.First(); iter.Valid(); iter.Next() {
+		var old I
+		if err = cfg.Codec.Decode(ctx, iter.Value(), &old); err != nil {
+			return err
+		}
+		var newEntry O
+		if m.auto != nil {
+			newEntry, err = m.auto(ctx, old)
+			if err != nil {
+				return err
+			}
+		}
+		if m.post != nil {
+			if err = m.post(ctx, &newEntry, old); err != nil {
+				return err
+			}
+		}
+		var data []byte
+		if data, err = cfg.Codec.Encode(ctx, newEntry); err != nil {
+			return err
+		}
+		if err = kvTx.Set(ctx, iter.Key(), data); err != nil {
+			return err
+		}
+	}
+	return err
+}
+
+type codecTransitionMigration[K Key, E Entry[K]] struct {
+	name  string
+	codec Codec[E]
+}
+
+// NewCodecTransition creates a Migration that re-encodes all entries from the DB's
+// default codec (e.g. msgpack) to the provided target codec (e.g. protobuf).
+func NewCodecTransition[K Key, E Entry[K]](name string, codec Codec[E]) Migration {
+	return &codecTransitionMigration[K, E]{name: name, codec: codec}
+}
+
+func (m *codecTransitionMigration[K, E]) Name() string { return m.name }
+
+func (m *codecTransitionMigration[K, E]) Run(
+	ctx context.Context,
+	kvTx kv.Tx,
+	cfg MigrationConfig,
+) error {
+	iter, err := kvTx.OpenIterator(kv.IterPrefix(cfg.Prefix))
+	if err != nil {
+		return err
+	}
+	defer func() {
+		err = errors.Combine(err, iter.Close())
+	}()
+	for iter.First(); iter.Valid(); iter.Next() {
+		var entry E
+		if err = cfg.Codec.Decode(ctx, iter.Value(), &entry); err != nil {
+			return err
+		}
+		var data []byte
+		if data, err = m.codec.Marshal(ctx, entry); err != nil {
+			return err
+		}
+		if err = kvTx.Set(ctx, iter.Key(), data); err != nil {
+			return err
+		}
+	}
+	return err
+}
+
+type rawMigration struct {
+	name string
+	fn   func(ctx context.Context, tx Tx) error
+}
+
+// NewRawMigration creates a Migration that receives a fully wrapped gorp.Tx,
+// allowing arbitrary read/write operations on the store.
+func NewRawMigration(
+	name string,
+	fn func(ctx context.Context, tx Tx) error,
+) Migration {
+	return &rawMigration{name: name, fn: fn}
+}
+
+func (m *rawMigration) Name() string { return m.name }
+
+func (m *rawMigration) Run(
+	ctx context.Context,
+	kvTx kv.Tx,
+	cfg MigrationConfig,
+) error {
+	return m.fn(ctx, WrapTx(kvTx, cfg.Codec))
 }

@@ -13,7 +13,12 @@ package naming
 
 import (
 	"path/filepath"
+	"strings"
 	"unicode"
+
+	"github.com/samber/lo"
+	"github.com/synnaxlabs/oracle/plugin/domain"
+	"github.com/synnaxlabs/oracle/resolution"
 )
 
 // IsScreamingCase returns true if s is all uppercase letters (possibly with
@@ -34,6 +39,26 @@ func IsScreamingCase(s string) bool {
 		}
 	}
 	return hasLetter
+}
+
+// ToPascalCase converts a name to PascalCase, preserving Go acronym conventions
+// (e.g. "id" → "ID").
+func ToPascalCase(s string) string {
+	if IsScreamingCase(s) {
+		return s
+	}
+	result := lo.PascalCase(s)
+	result = strings.ReplaceAll(result, "Id", "ID")
+	return result
+}
+
+// GetFieldName returns the Go field name for a schema field. It checks for a
+// @go name override first, then falls back to ToPascalCase of the field name.
+func GetFieldName(f resolution.Field) string {
+	if override := domain.GetStringFromField(f, "go", "name"); override != "" {
+		return override
+	}
+	return ToPascalCase(f.Name)
 }
 
 // DerivePackageName extracts the package name from an output path.

@@ -39,6 +39,9 @@ type ServiceConfig struct {
 	// Signals is used to propagate changes to schematics and symbols throughout the cluster.
 	// [OPTIONAL]
 	Signals *signals.Provider
+	// Codec is the protobuf-based codec for encoding/decoding schematics in gorp.
+	// [OPTIONAL]
+	Codec gorp.Codec[Schematic]
 }
 
 var (
@@ -53,6 +56,7 @@ func (c ServiceConfig) Override(other ServiceConfig) ServiceConfig {
 	c.Ontology = override.Nil(c.Ontology, other.Ontology)
 	c.Group = override.Nil(c.Group, other.Group)
 	c.Signals = override.Nil(c.Signals, other.Signals)
+	c.Codec = override.Nil(c.Codec, other.Codec)
 	return c
 }
 
@@ -79,7 +83,13 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (*Service, error) {
 	if err != nil {
 		return nil, err
 	}
-	table, err := gorp.OpenTable[uuid.UUID, Schematic](ctx, gorp.TableConfig[Schematic]{DB: cfg.DB})
+	table, err := gorp.OpenTable[uuid.UUID, Schematic](ctx, gorp.TableConfig[Schematic]{
+		DB:    cfg.DB,
+		Codec: cfg.Codec,
+		Migrations: []gorp.Migration{
+			gorp.NewCodecTransition[uuid.UUID, Schematic]("msgpack_to_protobuf", cfg.Codec),
+		},
+	})
 	if err != nil {
 		return nil, err
 	}

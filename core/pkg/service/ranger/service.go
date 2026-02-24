@@ -43,9 +43,9 @@ type ServiceConfig struct {
 	// Label is the label service used to attach, remove, and query labels related to
 	// changes.
 	Label *label.Service
-	// ForceMigration will force all migrations to run, regardless of whether they have
-	// already been run.
-	ForceMigration *bool
+	// Codec is the protobuf-based codec for encoding/decoding ranges in gorp.
+	// [OPTIONAL]
+	Codec gorp.Codec[Range]
 	// Instrumentation for logging, tracing, and metrics.
 	alamos.Instrumentation
 }
@@ -53,7 +53,7 @@ type ServiceConfig struct {
 var (
 	_ config.Config[ServiceConfig] = ServiceConfig{}
 	// DefaultServiceConfig is the default configuration for opening a range service.
-	DefaultServiceConfig = ServiceConfig{ForceMigration: new(false)}
+	DefaultServiceConfig = ServiceConfig{}
 )
 
 // Validate implements config.Config.
@@ -63,7 +63,6 @@ func (c ServiceConfig) Validate() error {
 	validate.NotNil(v, "ontology", c.Ontology)
 	validate.NotNil(v, "group", c.Group)
 	validate.NotNil(v, "label", c.Label)
-	validate.NotNil(v, "force_migration", c.ForceMigration)
 	return v.Error()
 }
 
@@ -75,7 +74,7 @@ func (c ServiceConfig) Override(other ServiceConfig) ServiceConfig {
 	c.Group = override.Nil(c.Group, other.Group)
 	c.Signals = override.Nil(c.Signals, other.Signals)
 	c.Label = override.Nil(c.Label, other.Label)
-	c.ForceMigration = override.Nil(c.ForceMigration, other.ForceMigration)
+	c.Codec = override.Nil(c.Codec, other.Codec)
 	return c
 }
 
@@ -95,22 +94,28 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (*Service, error) {
 	if err != nil {
 		return nil, err
 	}
-	table, err := gorp.OpenTable[uuid.UUID, Range](ctx, gorp.TableConfig[Range]{DB: cfg.DB})
+	table, err := gorp.OpenTable[uuid.UUID, Range](ctx, gorp.TableConfig[Range]{
+		DB:    cfg.DB,
+		Codec: cfg.Codec,
+		Migrations: []gorp.Migration{
+			gorp.NewCodecTransition[uuid.UUID, Range]("msgpack_to_protobuf", cfg.Codec),
+			newRangeGroupsMigration(cfg),
+		},
+	})
 	if err != nil {
 		return nil, err
 	}
 	s := &Service{cfg: cfg, table: table}
 	cfg.Ontology.RegisterService(s)
-	if err := s.migrate(ctx); err != nil {
-		return nil, err
-	}
 	if cfg.Signals == nil {
 		return s, nil
 	}
+	signalsCfg := signals.GorpPublisherConfigUUID[Range](cfg.DB)
+	signalsCfg.Observable = s.table.Observe()
 	rangeSignals, err := signals.PublishFromGorp(
 		ctx,
 		cfg.Signals,
-		signals.GorpPublisherConfigUUID[Range](cfg.DB),
+		signalsCfg,
 	)
 	if err != nil {
 		return nil, err
