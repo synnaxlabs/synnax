@@ -121,10 +121,10 @@ template<typename T>
 std::pair<telem::SampleValue, errors::Error> convert_number(const double v) {
     if constexpr (std::is_integral_v<T>) {
         if (v != std::trunc(v))
-            return {telem::SampleValue(static_cast<T>(0)), TRUNCATION_ERROR};
+            return {telem::SampleValue(static_cast<T>(0)), INVALID_ERROR};
         if (v < static_cast<double>(std::numeric_limits<T>::min()) ||
             v > static_cast<double>(std::numeric_limits<T>::max()))
-            return {telem::SampleValue(static_cast<T>(0)), OVERFLOW_ERROR};
+            return {telem::SampleValue(static_cast<T>(0)), INVALID_ERROR};
     }
     return {telem::SampleValue(static_cast<T>(v)), errors::NIL};
 }
@@ -166,7 +166,7 @@ std::pair<double, errors::Error> parse_string_double(const std::string &str) {
         v = std::stod(str, &pos);
     } catch (const std::invalid_argument &) {
         return {0, invalid_number_err(str)};
-    } catch (const std::out_of_range &) { return {0, OVERFLOW_ERROR}; }
+    } catch (const std::out_of_range &) { return {0, INVALID_ERROR}; }
     if (pos != str.size()) return {0, invalid_number_err(str)};
     return {v, errors::NIL};
 }
@@ -178,7 +178,7 @@ std::pair<int64_t, errors::Error> parse_string_int64(const std::string &str) {
         v = std::stoll(str, &pos);
     } catch (const std::invalid_argument &) {
         return {0, invalid_number_err(str)};
-    } catch (const std::out_of_range &) { return {0, OVERFLOW_ERROR}; }
+    } catch (const std::out_of_range &) { return {0, INVALID_ERROR}; }
     if (pos != str.size()) return {0, invalid_number_err(str)};
     return {v, errors::NIL};
 }
@@ -190,7 +190,7 @@ std::pair<uint64_t, errors::Error> parse_string_uint64(const std::string &str) {
         v = std::stoull(str, &pos);
     } catch (const std::invalid_argument &) {
         return {0, invalid_number_err(str)};
-    } catch (const std::out_of_range &) { return {0, OVERFLOW_ERROR}; }
+    } catch (const std::out_of_range &) { return {0, INVALID_ERROR}; }
     if (pos != str.size()) return {0, invalid_number_err(str)};
     return {v, errors::NIL};
 }

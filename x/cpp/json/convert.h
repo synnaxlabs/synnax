@@ -20,12 +20,8 @@ namespace x::json {
 const errors::Error BASE_ERROR = errors::Error("xjson.conversion", "");
 /// @brief error for unsupported conversions.
 const errors::Error UNSUPPORTED_ERROR = BASE_ERROR.sub("unsupported");
-/// @brief error for truncation during float → int conversion (e.g. 3.7 → int).
-const errors::Error TRUNCATION_ERROR = BASE_ERROR.sub("truncation");
-/// @brief error for unexpected overflow.
-const errors::Error OVERFLOW_ERROR = BASE_ERROR.sub("overflow");
 /// @brief error for invalid input values (e.g. malformed ISO 8601 timestamps,
-/// non-numeric strings).
+/// non-numeric strings, integer overflow, truncation).
 const errors::Error INVALID_ERROR = BASE_ERROR.sub("invalid");
 
 /// @brief JSON value type.

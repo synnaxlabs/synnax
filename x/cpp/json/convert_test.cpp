@@ -78,7 +78,7 @@ TEST(ToSampleValue, NumberToUint8) {
 TEST(ToSampleValue, NumberToInt64TruncationError) {
     ASSERT_OCCURRED_AS_P(
         x::json::to_sample_value(json(3.7), x::telem::INT64_T),
-        x::json::TRUNCATION_ERROR
+        x::json::INVALID_ERROR
     );
 }
 
@@ -92,14 +92,14 @@ TEST(ToSampleValue, NumberWholeFloatToInt64) {
 TEST(ToSampleValue, NumberToUint8Overflow) {
     ASSERT_OCCURRED_AS_P(
         x::json::to_sample_value(json(300), x::telem::UINT8_T),
-        x::json::OVERFLOW_ERROR
+        x::json::INVALID_ERROR
     );
 }
 
 TEST(ToSampleValue, NumberToUint8Underflow) {
     ASSERT_OCCURRED_AS_P(
         x::json::to_sample_value(json(-1), x::telem::UINT8_T),
-        x::json::OVERFLOW_ERROR
+        x::json::INVALID_ERROR
     );
 }
 
@@ -171,14 +171,14 @@ TEST(ToSampleValue, StringToUint8) {
 TEST(ToSampleValue, StringToInt64TruncationError) {
     ASSERT_OCCURRED_AS_P(
         x::json::to_sample_value(json("3.7"), x::telem::INT64_T),
-        x::json::TRUNCATION_ERROR
+        x::json::INVALID_ERROR
     );
 }
 
 TEST(ToSampleValue, StringToUint8Overflow) {
     ASSERT_OCCURRED_AS_P(
         x::json::to_sample_value(json("300"), x::telem::UINT8_T),
-        x::json::OVERFLOW_ERROR
+        x::json::INVALID_ERROR
     );
 }
 
@@ -258,7 +258,7 @@ TEST(ToSampleValue, StringExponentToInt64TruncationError) {
     // 1.5e0 = 1.5 (fractional, causes truncation error)
     ASSERT_OCCURRED_AS_P(
         x::json::to_sample_value(json("1.5e0"), x::telem::INT64_T),
-        x::json::TRUNCATION_ERROR
+        x::json::INVALID_ERROR
     );
 }
 
@@ -296,7 +296,7 @@ TEST(ToSampleValue, StringInt64Min) {
 TEST(ToSampleValue, StringInt64OverflowError) {
     ASSERT_OCCURRED_AS_P(
         x::json::to_sample_value(json("9223372036854775808"), x::telem::INT64_T),
-        x::json::OVERFLOW_ERROR
+        x::json::INVALID_ERROR
     );
 }
 
@@ -310,21 +310,21 @@ TEST(ToSampleValue, StringLargeUint64PreservesPrecision) {
 TEST(ToSampleValue, StringUint64OverflowError) {
     ASSERT_OCCURRED_AS_P(
         x::json::to_sample_value(json("18446744073709551616"), x::telem::UINT64_T),
-        x::json::OVERFLOW_ERROR
+        x::json::INVALID_ERROR
     );
 }
 
 TEST(ToSampleValue, StringNegativeToUint8Overflow) {
     ASSERT_OCCURRED_AS_P(
         x::json::to_sample_value(json("-1"), x::telem::UINT8_T),
-        x::json::OVERFLOW_ERROR
+        x::json::INVALID_ERROR
     );
 }
 
 TEST(ToSampleValue, StringDecimalToInt64TruncationError) {
     ASSERT_OCCURRED_AS_P(
         x::json::to_sample_value(json("3.7"), x::telem::INT64_T),
-        x::json::TRUNCATION_ERROR
+        x::json::INVALID_ERROR
     );
 }
 
