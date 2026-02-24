@@ -176,8 +176,7 @@ export class Log
 
   private updateLineCount(): void {
     const lineCount = Math.min(this.visibleLineCount, this.values.length);
-    if (lineCount !== this.state.lineCount)
-      this.setState((s) => ({ ...s, lineCount }));
+    if (lineCount !== this.state.lineCount) this.setState((s) => ({ ...s, lineCount }));
   }
 
   afterDelete(): void {
@@ -348,7 +347,7 @@ export class Log
 
   private renderElements(draw2D: Draw2D, lines: string[]): void {
     const reg = this.state.region;
-    for (let i = 0; i < lines.length; i++) 
+    for (let i = 0; i < lines.length; i++)
       draw2D.text({
         text: lines[i],
         level: this.state.font,
@@ -356,7 +355,6 @@ export class Log
         position: xy.translate(box.topLeft(reg), { x: 6, y: i * this.lineHeight + 6 }),
         code: true,
       });
-    
   }
 }
 

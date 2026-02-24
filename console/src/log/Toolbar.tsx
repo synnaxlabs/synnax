@@ -57,9 +57,7 @@ export const Toolbar = ({ layoutKey }: ToolbarProps): ReactElement | null => {
         <Input.Item label="Show Timestamps">
           <Input.Switch
             value={state.showIndex}
-            onChange={(v) =>
-              dispatch(setShowIndex({ key: layoutKey, showIndex: v }))
-            }
+            onChange={(v) => dispatch(setShowIndex({ key: layoutKey, showIndex: v }))}
             disabled={!hasEditPermission}
           />
         </Input.Item>
