@@ -130,3 +130,24 @@ class Log(ConsolePage):
         live_button = self.pane_locator.locator("button.pluto-log__live")
         if live_button.count() > 0:
             live_button.click()
+
+    def click_copy_all(self) -> str:
+        """Click the Copy All button and return clipboard contents."""
+        assert self.pane_locator is not None, "Log pane must be visible"
+        copy_btn = self.pane_locator.locator("button.pluto-log__copy")
+        copy_btn.wait_for(state="visible", timeout=5000)
+        copy_btn.click()
+        self.page.wait_for_timeout(500)
+        return self.layout.read_clipboard()
+
+    def toggle_show_timestamps(self, enable: bool) -> None:
+        """Toggle the 'Show Timestamps' switch in the visualization toolbar."""
+        self.layout.show_visualization_toolbar()
+        current = self.layout.get_toggle("Show Timestamps")
+        if current != enable:
+            self.layout.click_checkbox("Show Timestamps")
+
+    def has_timestamps_enabled(self) -> bool:
+        """Check if the Show Timestamps toggle is currently enabled."""
+        self.layout.show_visualization_toolbar()
+        return self.layout.get_toggle("Show Timestamps")
