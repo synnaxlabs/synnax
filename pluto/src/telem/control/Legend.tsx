@@ -136,33 +136,37 @@ const LegendEntry = ({
     [entryKey, onColorChange],
   );
   return (
-    <Flex.Box
-      align="center"
-      className={CSS(CSS.B("legend-entry"))}
-      gap="small"
-      x
-      justify="between"
-      grow
-    >
-      <Flex.Box align="center" gap="small" x>
-        <Color.Swatch
-          allowChange
-          draggable={false}
-          onChange={handleColorChange}
-          size="tiny"
-          value={entryColor}
-          onVisibleChange={onColorPickerVisibleChange}
-        />
-        {isSelf && <Icon.User style={{ fontSize: "1.2rem", opacity: 0.7 }} />}
-        <Text.Text level="small" color={10} overflow="nowrap">
-          {parsed.primary}
-        </Text.Text>
-        {parsed.secondary != null && (
-          <Text.Text level="small" color={7} overflow="nowrap">
-            ({parsed.secondary})
+    <Flex.Box align="center" className={CSS(CSS.B("legend-entry"))} gap="small" x grow>
+      <Color.Swatch
+        allowChange
+        draggable={false}
+        onChange={handleColorChange}
+        size="tiny"
+        value={entryColor}
+        onVisibleChange={onColorPickerVisibleChange}
+      />
+      <Text.Text level="small" color={10} overflow="nowrap">
+        {parsed.primary}
+      </Text.Text>
+      {parsed.secondary != null && (
+        <>
+          <Text.Text
+            level="small"
+            color="var(--pluto-gray-l10-80)"
+            overflow="nowrap"
+            gap="tiny"
+            weight={450}
+          >
+            <Icon.User />
+            {parsed.secondary}
           </Text.Text>
-        )}
-      </Flex.Box>
+          {isSelf && (
+            <Text.Text level="small" status="success">
+              {isSelf && "you"}
+            </Text.Text>
+          )}
+        </>
+      )}
     </Flex.Box>
   );
 };

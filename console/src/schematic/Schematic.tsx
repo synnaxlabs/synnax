@@ -185,7 +185,7 @@ export const Loaded: Layout.Renderer = ({ layoutKey, visible }) => {
   const { name } = Layout.useSelectRequired(layoutKey);
   const { data: user } = User.useRetrieve({}, { addStatusOnFailure: false });
   const username = user?.username ?? "";
-  const controlName = username.length > 0 ? `${username} (${name})` : name;
+  const controlName = username.length > 0 ? `${name} (${username})` : name;
   const state = useSelectRequired(layoutKey);
   const legendVisible = useSelectLegendVisible(layoutKey);
   const dispatch = useDispatch();
