@@ -28,7 +28,7 @@ iso_err(const std::string &input, const std::string &reason) {
     return {
         ZERO_TS,
         errors::Error(
-            INVALID_ISO_ERROR.type,
+            INVALID_ERROR.type,
             "\"" + input + "\" is not a valid ISO 8601 timestamp: " + reason
         ),
     };
@@ -121,13 +121,11 @@ template<typename T>
 std::pair<telem::SampleValue, errors::Error>
 convert_number(const double v, const bool strict) {
     if constexpr (std::is_integral_v<T>) {
-        if (strict) {
-            if (v != std::trunc(v))
-                return {telem::SampleValue(static_cast<T>(0)), TRUNCATION_ERROR};
-            if (v < static_cast<double>(std::numeric_limits<T>::min()) ||
-                v > static_cast<double>(std::numeric_limits<T>::max()))
-                return {telem::SampleValue(static_cast<T>(0)), OVERFLOW_ERROR};
-        }
+        if (strict && v != std::trunc(v))
+            return {telem::SampleValue(static_cast<T>(0)), TRUNCATION_ERROR};
+        if (v < static_cast<double>(std::numeric_limits<T>::min()) ||
+            v > static_cast<double>(std::numeric_limits<T>::max()))
+            return {telem::SampleValue(static_cast<T>(0)), OVERFLOW_ERROR};
     }
     return {telem::SampleValue(static_cast<T>(v)), errors::NIL};
 }
@@ -145,6 +143,113 @@ number_to_numeric(const double v, const telem::DataType &target, const bool stri
     if (target == telem::UINT16_T) return convert_number<uint16_t>(v, strict);
     if (target == telem::UINT8_T) return convert_number<uint8_t>(v, strict);
     return {telem::SampleValue(0), UNSUPPORTED_ERROR};
+}
+
+errors::Error invalid_number_err(const std::string &str) {
+    return errors::Error(
+        INVALID_ERROR.type,
+        "\"" + str + "\" is not a valid number"
+    );
+}
+
+/// @brief returns true if the string contains only digits with an optional leading
+/// sign character ('+' or '-').
+bool is_integer_string(const std::string &str) {
+    if (str.empty()) return false;
+    const size_t start = (str[0] == '-' || str[0] == '+') ? 1 : 0;
+    if (start >= str.size()) return false;
+    for (size_t i = start; i < str.size(); ++i)
+        if (str[i] < '0' || str[i] > '9') return false;
+    return true;
+}
+
+std::pair<double, errors::Error> parse_string_double(const std::string &str) {
+    size_t pos = 0;
+    double v;
+    try {
+        v = std::stod(str, &pos);
+    } catch (const std::invalid_argument &) {
+        return {0, invalid_number_err(str)};
+    } catch (const std::out_of_range &) {
+        return {0, OVERFLOW_ERROR};
+    }
+    if (pos != str.size()) return {0, invalid_number_err(str)};
+    return {v, errors::NIL};
+}
+
+std::pair<int64_t, errors::Error> parse_string_int64(const std::string &str) {
+    size_t pos = 0;
+    int64_t v;
+    try {
+        v = std::stoll(str, &pos);
+    } catch (const std::invalid_argument &) {
+        return {0, invalid_number_err(str)};
+    } catch (const std::out_of_range &) {
+        return {0, OVERFLOW_ERROR};
+    }
+    if (pos != str.size()) return {0, invalid_number_err(str)};
+    return {v, errors::NIL};
+}
+
+std::pair<uint64_t, errors::Error> parse_string_uint64(const std::string &str) {
+    size_t pos = 0;
+    uint64_t v;
+    try {
+        v = std::stoull(str, &pos);
+    } catch (const std::invalid_argument &) {
+        return {0, invalid_number_err(str)};
+    } catch (const std::out_of_range &) {
+        return {0, OVERFLOW_ERROR};
+    }
+    if (pos != str.size()) return {0, invalid_number_err(str)};
+    return {v, errors::NIL};
+}
+
+/// @brief converts a string to a numeric SampleValue. Uses integer parsing (stoll/
+/// stoull) for pure integer strings targeting integer types to preserve full int64/
+/// uint64 precision, and falls back to stod for float targets and strings containing
+/// decimal points or exponents.
+std::pair<telem::SampleValue, errors::Error>
+string_to_numeric(
+    const std::string &str,
+    const telem::DataType &target,
+    const bool strict
+) {
+    if (str.empty()) return {telem::SampleValue(0), invalid_number_err(str)};
+
+    // Float targets always parse as double.
+    if (target == telem::FLOAT64_T || target == telem::FLOAT32_T) {
+        const auto [v, err] = parse_string_double(str);
+        if (err) return {telem::SampleValue(0), err};
+        return number_to_numeric(v, target, strict);
+    }
+
+    // For integer targets with pure integer strings, use integer parsing
+    // to avoid precision loss through double (matters for int64/uint64).
+    if (is_integer_string(str)) {
+        const bool is_negative = str[0] == '-';
+        const bool is_signed = target == telem::INT64_T ||
+                               target == telem::INT32_T ||
+                               target == telem::INT16_T ||
+                               target == telem::INT8_T;
+        if (is_negative || is_signed) {
+            const auto [v, err] = parse_string_int64(str);
+            if (err) return {telem::SampleValue(0), err};
+            if (target == telem::INT64_T)
+                return {telem::SampleValue(v), errors::NIL};
+            return number_to_numeric(static_cast<double>(v), target, strict);
+        }
+        const auto [v, err] = parse_string_uint64(str);
+        if (err) return {telem::SampleValue(0), err};
+        if (target == telem::UINT64_T)
+            return {telem::SampleValue(v), errors::NIL};
+        return number_to_numeric(static_cast<double>(v), target, strict);
+    }
+
+    // Non-integer strings (decimals, exponents) fall back to stod.
+    const auto [v, err] = parse_string_double(str);
+    if (err) return {telem::SampleValue(0), err};
+    return number_to_numeric(v, target, strict);
 }
 
 }
@@ -215,6 +320,11 @@ std::pair<telem::SampleValue, errors::Error> to_sample_value(
 
     if (value.is_number())
         return number_to_numeric(value.get<double>(), target, opts.strict);
+
+    if (value.is_string())
+        return string_to_numeric(
+            value.get_ref<const std::string &>(), target, opts.strict
+        );
 
     return {telem::SampleValue(0), UNSUPPORTED_ERROR};
 }

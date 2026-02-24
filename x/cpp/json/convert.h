@@ -24,8 +24,9 @@ const errors::Error UNSUPPORTED_ERROR = BASE_ERROR.sub("unsupported");
 const errors::Error TRUNCATION_ERROR = BASE_ERROR.sub("truncation");
 /// @brief error for unexpected overflow.
 const errors::Error OVERFLOW_ERROR = BASE_ERROR.sub("overflow");
-/// @brief error for invalid ISO 8601 timestamp strings.
-const errors::Error INVALID_ISO_ERROR = BASE_ERROR.sub("invalid_iso");
+/// @brief error for invalid input values (e.g. malformed ISO 8601 timestamps,
+/// non-numeric strings).
+const errors::Error INVALID_ERROR = BASE_ERROR.sub("invalid");
 
 /// @brief JSON value type.
 enum class Type { Number, String, Boolean };
@@ -41,8 +42,9 @@ enum class TimeFormat {
 
 /// @brief options for to_sample_value.
 struct ReadOptions {
-    /// @brief if true, numeric conversions that lose precision (e.g. float → int
-    /// truncation, overflow) return an error instead of silently truncating.
+    /// @brief if true, float → int conversions that lose precision due to truncation
+    /// (e.g. 3.7 → 3) return an error. Overflow is always an error regardless of
+    /// this setting.
     bool strict = false;
     /// @brief the expected time format for JSON → TimeStamp conversions. Ignored when
     /// the target type is not TIMESTAMP_T.
@@ -89,7 +91,8 @@ nlohmann::json zero_value(Type format);
 /// @brief parses a TimeFormat from a string.
 /// @param str the string to parse ("iso8601", "unix_sec", "unix_ms", "unix_us",
 /// "unix_ns").
-/// @returns the TimeFormat and nil, or ISO8601 and an error if the string is unknown.
+/// @returns the TimeFormat and nil, or ISO8601 and INVALID_TIME_FORMAT_ERROR if the
+/// string is unknown.
 std::pair<TimeFormat, errors::Error> parse_time_format(const std::string &str);
 
 }

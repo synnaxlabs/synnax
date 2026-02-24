@@ -89,16 +89,16 @@ TEST(ToSampleValue, NumberToInt64StrictTruncationError) {
     );
 }
 
-TEST(ToSampleValue, NumberToUint8StrictOverflow) {
+TEST(ToSampleValue, NumberToUint8Overflow) {
     ASSERT_OCCURRED_AS_P(
-        x::json::to_sample_value(json(300), x::telem::UINT8_T, {.strict = true}),
+        x::json::to_sample_value(json(300), x::telem::UINT8_T),
         x::json::OVERFLOW_ERROR
     );
 }
 
-TEST(ToSampleValue, NumberToUint8StrictUnderflow) {
+TEST(ToSampleValue, NumberToUint8Underflow) {
     ASSERT_OCCURRED_AS_P(
-        x::json::to_sample_value(json(-1), x::telem::UINT8_T, {.strict = true}),
+        x::json::to_sample_value(json(-1), x::telem::UINT8_T),
         x::json::OVERFLOW_ERROR
     );
 }
@@ -138,13 +138,226 @@ TEST(ToSampleValue, BooleanFalseToString) {
     ASSERT_EQ(std::get<std::string>(sv), "false");
 }
 
-// --- String → Numeric (unsupported) ---
+// --- String → Numeric ---
 
-TEST(ToSampleValue, StringToFloat64Error) {
+TEST(ToSampleValue, StringToFloat64) {
+    const auto sv = ASSERT_NIL_P(
+        x::json::to_sample_value(json("34.5"), x::telem::FLOAT64_T)
+    );
+    ASSERT_DOUBLE_EQ(std::get<double>(sv), 34.5);
+}
+
+TEST(ToSampleValue, StringToFloat32) {
+    const auto sv = ASSERT_NIL_P(
+        x::json::to_sample_value(json("34.5"), x::telem::FLOAT32_T)
+    );
+    ASSERT_FLOAT_EQ(std::get<float>(sv), 34.5f);
+}
+
+TEST(ToSampleValue, StringToInt64) {
+    const auto sv = ASSERT_NIL_P(
+        x::json::to_sample_value(json("7"), x::telem::INT64_T)
+    );
+    ASSERT_EQ(std::get<int64_t>(sv), 7);
+}
+
+TEST(ToSampleValue, StringToUint8) {
+    const auto sv = ASSERT_NIL_P(
+        x::json::to_sample_value(json("200"), x::telem::UINT8_T)
+    );
+    ASSERT_EQ(std::get<uint8_t>(sv), 200);
+}
+
+TEST(ToSampleValue, StringToInt64StrictTruncationError) {
+    ASSERT_OCCURRED_AS_P(
+        x::json::to_sample_value(json("3.7"), x::telem::INT64_T, {.strict = true}),
+        x::json::TRUNCATION_ERROR
+    );
+}
+
+TEST(ToSampleValue, StringToUint8Overflow) {
+    ASSERT_OCCURRED_AS_P(
+        x::json::to_sample_value(json("300"), x::telem::UINT8_T),
+        x::json::OVERFLOW_ERROR
+    );
+}
+
+TEST(ToSampleValue, StringNonNumericToFloat64Error) {
     ASSERT_OCCURRED_AS_P(
         x::json::to_sample_value(json("hello"), x::telem::FLOAT64_T),
-        x::json::UNSUPPORTED_ERROR
+        x::json::INVALID_ERROR
     );
+}
+
+TEST(ToSampleValue, StringPartialNumericToFloat64Error) {
+    ASSERT_OCCURRED_AS_P(
+        x::json::to_sample_value(json("34.5abc"), x::telem::FLOAT64_T),
+        x::json::INVALID_ERROR
+    );
+}
+
+TEST(ToSampleValue, StringEmptyToFloat64Error) {
+    ASSERT_OCCURRED_AS_P(
+        x::json::to_sample_value(json(""), x::telem::FLOAT64_T),
+        x::json::INVALID_ERROR
+    );
+}
+
+TEST(ToSampleValue, StringEmptyToInt64Error) {
+    ASSERT_OCCURRED_AS_P(
+        x::json::to_sample_value(json(""), x::telem::INT64_T),
+        x::json::INVALID_ERROR
+    );
+}
+
+// --- String exponent notation ---
+
+TEST(ToSampleValue, StringExponentToFloat64) {
+    const auto sv = ASSERT_NIL_P(
+        x::json::to_sample_value(json("1e5"), x::telem::FLOAT64_T)
+    );
+    ASSERT_DOUBLE_EQ(std::get<double>(sv), 100000.0);
+}
+
+TEST(ToSampleValue, StringExponentUpperToFloat64) {
+    const auto sv = ASSERT_NIL_P(
+        x::json::to_sample_value(json("1E5"), x::telem::FLOAT64_T)
+    );
+    ASSERT_DOUBLE_EQ(std::get<double>(sv), 100000.0);
+}
+
+TEST(ToSampleValue, StringDecimalExponentToFloat64) {
+    const auto sv = ASSERT_NIL_P(
+        x::json::to_sample_value(json("1.5e2"), x::telem::FLOAT64_T)
+    );
+    ASSERT_DOUBLE_EQ(std::get<double>(sv), 150.0);
+}
+
+TEST(ToSampleValue, StringNegativeExponentToFloat64) {
+    const auto sv = ASSERT_NIL_P(
+        x::json::to_sample_value(json("1.5e-2"), x::telem::FLOAT64_T)
+    );
+    ASSERT_DOUBLE_EQ(std::get<double>(sv), 0.015);
+}
+
+TEST(ToSampleValue, StringExponentToInt64) {
+    const auto sv = ASSERT_NIL_P(
+        x::json::to_sample_value(json("1e5"), x::telem::INT64_T)
+    );
+    ASSERT_EQ(std::get<int64_t>(sv), 100000);
+}
+
+TEST(ToSampleValue, StringExponentToUint32) {
+    const auto sv = ASSERT_NIL_P(
+        x::json::to_sample_value(json("2.5e3"), x::telem::UINT32_T)
+    );
+    ASSERT_EQ(std::get<uint32_t>(sv), 2500);
+}
+
+TEST(ToSampleValue, StringExponentToInt64StrictTruncationError) {
+    // 1.5e1 = 15.0 (whole number, no truncation)
+    // 1.5e0 = 1.5 (fractional, truncation error in strict mode)
+    ASSERT_OCCURRED_AS_P(
+        x::json::to_sample_value(
+            json("1.5e0"), x::telem::INT64_T, {.strict = true}
+        ),
+        x::json::TRUNCATION_ERROR
+    );
+}
+
+// --- String large integer precision ---
+
+TEST(ToSampleValue, StringLargeInt64PreservesPrecision) {
+    // 2^53 + 1: would lose precision through double
+    const auto sv = ASSERT_NIL_P(
+        x::json::to_sample_value(json("9007199254740993"), x::telem::INT64_T)
+    );
+    ASSERT_EQ(std::get<int64_t>(sv), 9007199254740993LL);
+}
+
+TEST(ToSampleValue, StringLargeNegativeInt64PreservesPrecision) {
+    const auto sv = ASSERT_NIL_P(
+        x::json::to_sample_value(json("-9007199254740993"), x::telem::INT64_T)
+    );
+    ASSERT_EQ(std::get<int64_t>(sv), -9007199254740993LL);
+}
+
+TEST(ToSampleValue, StringInt64Max) {
+    const auto sv = ASSERT_NIL_P(
+        x::json::to_sample_value(json("9223372036854775807"), x::telem::INT64_T)
+    );
+    ASSERT_EQ(std::get<int64_t>(sv), INT64_MAX);
+}
+
+TEST(ToSampleValue, StringInt64Min) {
+    const auto sv = ASSERT_NIL_P(
+        x::json::to_sample_value(
+            json("-9223372036854775808"), x::telem::INT64_T
+        )
+    );
+    ASSERT_EQ(std::get<int64_t>(sv), INT64_MIN);
+}
+
+TEST(ToSampleValue, StringInt64OverflowError) {
+    ASSERT_OCCURRED_AS_P(
+        x::json::to_sample_value(
+            json("9223372036854775808"), x::telem::INT64_T
+        ),
+        x::json::OVERFLOW_ERROR
+    );
+}
+
+TEST(ToSampleValue, StringLargeUint64PreservesPrecision) {
+    const auto sv = ASSERT_NIL_P(
+        x::json::to_sample_value(json("18446744073709551615"), x::telem::UINT64_T)
+    );
+    ASSERT_EQ(std::get<uint64_t>(sv), UINT64_MAX);
+}
+
+TEST(ToSampleValue, StringUint64OverflowError) {
+    ASSERT_OCCURRED_AS_P(
+        x::json::to_sample_value(
+            json("18446744073709551616"), x::telem::UINT64_T
+        ),
+        x::json::OVERFLOW_ERROR
+    );
+}
+
+TEST(ToSampleValue, StringNegativeToUint8Overflow) {
+    ASSERT_OCCURRED_AS_P(
+        x::json::to_sample_value(json("-1"), x::telem::UINT8_T),
+        x::json::OVERFLOW_ERROR
+    );
+}
+
+TEST(ToSampleValue, StringDecimalToInt64NonStrict) {
+    const auto sv = ASSERT_NIL_P(
+        x::json::to_sample_value(
+            json("3.7"), x::telem::INT64_T, {.strict = false}
+        )
+    );
+    ASSERT_EQ(std::get<int64_t>(sv), 3);
+}
+
+TEST(ToSampleValue, StringLeadingPlusToInt64) {
+    const auto sv = ASSERT_NIL_P(
+        x::json::to_sample_value(json("+42"), x::telem::INT64_T)
+    );
+    ASSERT_EQ(std::get<int64_t>(sv), 42);
+}
+
+TEST(ToSampleValue, StringZeroToFloat64) {
+    const auto sv = ASSERT_NIL_P(
+        x::json::to_sample_value(json("0"), x::telem::FLOAT64_T)
+    );
+    ASSERT_DOUBLE_EQ(std::get<double>(sv), 0.0);
+}
+
+TEST(ToSampleValue, StringNegativeZeroToFloat64) {
+    const auto sv = ASSERT_NIL_P(
+        x::json::to_sample_value(json("-0"), x::telem::FLOAT64_T)
+    );
+    ASSERT_DOUBLE_EQ(std::get<double>(sv), 0.0);
 }
 
 // --- Boolean → Numeric ---
@@ -575,7 +788,7 @@ TEST(ToSampleValue, StringToTimestampISO8601LeapSecondRejected) {
             x::telem::TIMESTAMP_T,
             {.time_format = x::json::TimeFormat::ISO8601}
         ),
-        x::json::INVALID_ISO_ERROR
+        x::json::INVALID_ERROR
     );
 }
 
@@ -588,7 +801,7 @@ TEST(ToSampleValue, StringToTimestampISO8601EmptyString) {
             x::telem::TIMESTAMP_T,
             {.time_format = x::json::TimeFormat::ISO8601}
         ),
-        x::json::INVALID_ISO_ERROR
+        x::json::INVALID_ERROR
     );
 }
 
@@ -599,7 +812,7 @@ TEST(ToSampleValue, StringToTimestampISO8601TooShort) {
             x::telem::TIMESTAMP_T,
             {.time_format = x::json::TimeFormat::ISO8601}
         ),
-        x::json::INVALID_ISO_ERROR
+        x::json::INVALID_ERROR
     );
 }
 
@@ -610,7 +823,7 @@ TEST(ToSampleValue, StringToTimestampISO8601MissingTimezone) {
             x::telem::TIMESTAMP_T,
             {.time_format = x::json::TimeFormat::ISO8601}
         ),
-        x::json::INVALID_ISO_ERROR
+        x::json::INVALID_ERROR
     );
 }
 
@@ -621,7 +834,7 @@ TEST(ToSampleValue, StringToTimestampISO8601BadSeparator) {
             x::telem::TIMESTAMP_T,
             {.time_format = x::json::TimeFormat::ISO8601}
         ),
-        x::json::INVALID_ISO_ERROR
+        x::json::INVALID_ERROR
     );
 }
 
@@ -632,7 +845,7 @@ TEST(ToSampleValue, StringToTimestampISO8601NonDigitYear) {
             x::telem::TIMESTAMP_T,
             {.time_format = x::json::TimeFormat::ISO8601}
         ),
-        x::json::INVALID_ISO_ERROR
+        x::json::INVALID_ERROR
     );
 }
 
@@ -643,7 +856,7 @@ TEST(ToSampleValue, StringToTimestampISO8601MonthZero) {
             x::telem::TIMESTAMP_T,
             {.time_format = x::json::TimeFormat::ISO8601}
         ),
-        x::json::INVALID_ISO_ERROR
+        x::json::INVALID_ERROR
     );
 }
 
@@ -654,7 +867,7 @@ TEST(ToSampleValue, StringToTimestampISO8601MonthThirteen) {
             x::telem::TIMESTAMP_T,
             {.time_format = x::json::TimeFormat::ISO8601}
         ),
-        x::json::INVALID_ISO_ERROR
+        x::json::INVALID_ERROR
     );
 }
 
@@ -665,7 +878,7 @@ TEST(ToSampleValue, StringToTimestampISO8601DayZero) {
             x::telem::TIMESTAMP_T,
             {.time_format = x::json::TimeFormat::ISO8601}
         ),
-        x::json::INVALID_ISO_ERROR
+        x::json::INVALID_ERROR
     );
 }
 
@@ -676,7 +889,7 @@ TEST(ToSampleValue, StringToTimestampISO8601HourTwentyFour) {
             x::telem::TIMESTAMP_T,
             {.time_format = x::json::TimeFormat::ISO8601}
         ),
-        x::json::INVALID_ISO_ERROR
+        x::json::INVALID_ERROR
     );
 }
 
@@ -687,7 +900,7 @@ TEST(ToSampleValue, StringToTimestampISO8601MinuteSixty) {
             x::telem::TIMESTAMP_T,
             {.time_format = x::json::TimeFormat::ISO8601}
         ),
-        x::json::INVALID_ISO_ERROR
+        x::json::INVALID_ERROR
     );
 }
 
@@ -698,7 +911,7 @@ TEST(ToSampleValue, StringToTimestampISO8601SecondSixty) {
             x::telem::TIMESTAMP_T,
             {.time_format = x::json::TimeFormat::ISO8601}
         ),
-        x::json::INVALID_ISO_ERROR
+        x::json::INVALID_ERROR
     );
 }
 
@@ -709,7 +922,7 @@ TEST(ToSampleValue, StringToTimestampISO8601InvalidTimezoneChar) {
             x::telem::TIMESTAMP_T,
             {.time_format = x::json::TimeFormat::ISO8601}
         ),
-        x::json::INVALID_ISO_ERROR
+        x::json::INVALID_ERROR
     );
 }
 
@@ -720,7 +933,7 @@ TEST(ToSampleValue, StringToTimestampISO8601OffsetMissingColon) {
             x::telem::TIMESTAMP_T,
             {.time_format = x::json::TimeFormat::ISO8601}
         ),
-        x::json::INVALID_ISO_ERROR
+        x::json::INVALID_ERROR
     );
 }
 
@@ -731,7 +944,7 @@ TEST(ToSampleValue, StringToTimestampISO8601OffsetTruncated) {
             x::telem::TIMESTAMP_T,
             {.time_format = x::json::TimeFormat::ISO8601}
         ),
-        x::json::INVALID_ISO_ERROR
+        x::json::INVALID_ERROR
     );
 }
 
@@ -742,7 +955,7 @@ TEST(ToSampleValue, StringToTimestampISO8601JustDate) {
             x::telem::TIMESTAMP_T,
             {.time_format = x::json::TimeFormat::ISO8601}
         ),
-        x::json::INVALID_ISO_ERROR
+        x::json::INVALID_ERROR
     );
 }
 
@@ -1393,8 +1606,6 @@ TEST(ZeroValue, String) {
 TEST(ZeroValue, Boolean) {
     ASSERT_EQ(x::json::zero_value(x::json::Type::Boolean), false);
 }
-
-// ==================== parse_time_format ====================
 
 TEST(ParseTimeFormat, ISO8601) {
     const auto fmt = ASSERT_NIL_P(x::json::parse_time_format("iso8601"));
