@@ -25,6 +25,7 @@ type Writer struct {
 	otg           ontology.Writer
 	group         group.Group
 	allowInternal bool
+	table         *gorp.Table[uuid.UUID, Role]
 }
 
 // Create creates a new role in the database.
@@ -38,7 +39,7 @@ func (w Writer) Create(
 	if r.Internal && !w.allowInternal {
 		return errors.Wrap(validate.ErrValidation, "cannot create internal role")
 	}
-	if err := gorp.NewCreate[uuid.UUID, Role]().Entry(r).Exec(ctx, w.tx); err != nil {
+	if err := w.table.NewCreate().Entry(r).Exec(ctx, w.tx); err != nil {
 		return err
 	}
 	if err := w.otg.DefineResource(ctx, OntologyID(r.Key)); err != nil {
@@ -50,7 +51,7 @@ func (w Writer) Create(
 // Delete removes a role from the database. It will fail if the role is builtin
 // or if any users are assigned to the role.
 func (w Writer) Delete(ctx context.Context, key uuid.UUID) error {
-	return gorp.NewDelete[uuid.UUID, Role]().WhereKeys(key).Guard(func(_ gorp.Context, r Role) error {
+	return w.table.NewDelete().WhereKeys(key).Guard(func(_ gorp.Context, r Role) error {
 		if r.Internal && !w.allowInternal {
 			return errors.Wrap(validate.ErrValidation, "cannot delete builtin role")
 		}

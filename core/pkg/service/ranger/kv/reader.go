@@ -21,14 +21,15 @@ import (
 
 // Reader is used to retrieve key-value pairs.
 type Reader struct {
-	tx gorp.Tx
+	tx    gorp.Tx
+	table *gorp.Table[string, Pair]
 }
 
 // Get retrieves a single key-value pair from the specified range.
 func (r Reader) Get(ctx context.Context, rng uuid.UUID, key string) (string, error) {
 	var (
 		res = Pair{Range: rng, Key: key}
-		err = gorp.NewRetrieve[string, Pair]().
+		err = r.table.NewRetrieve().
 			WhereKeys(res.GorpKey()).
 			Entry(&res).
 			Exec(ctx, r.tx)
@@ -49,7 +50,7 @@ func (r Reader) GetMany(
 	tKeys := lo.Map(keys, func(k string, _ int) string {
 		return Pair{Range: rng, Key: k}.GorpKey()
 	})
-	err := gorp.NewRetrieve[string, Pair]().
+	err := r.table.NewRetrieve().
 		WhereKeys(tKeys...).
 		Entries(&res).
 		Exec(ctx, r.tx)
@@ -59,7 +60,7 @@ func (r Reader) GetMany(
 // List retrieves all key-value pairs on the specified range.
 func (r Reader) List(ctx context.Context, rng uuid.UUID) ([]Pair, error) {
 	var res []Pair
-	err := gorp.NewRetrieve[string, Pair]().
+	err := r.table.NewRetrieve().
 		Where(func(_ gorp.Context, kv *Pair) (bool, error) {
 			return kv.Range == rng, nil
 		}).

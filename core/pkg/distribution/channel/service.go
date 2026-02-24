@@ -94,7 +94,7 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (*Service, error) {
 	if err != nil {
 		return nil, err
 	}
-	table, err := gorp.OpenTable[Key, Channel](ctx, cfg.ClusterDB)
+	table, err := gorp.OpenTable[Key, Channel](ctx, gorp.TableConfig[Channel]{DB: cfg.ClusterDB})
 	if err != nil {
 		return nil, err
 	}
@@ -104,7 +104,7 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (*Service, error) {
 			return nil, err
 		}
 	}
-	proxy, err := newLeaseProxy(ctx, cfg, g)
+	proxy, err := newLeaseProxy(ctx, cfg, g, table)
 	if err != nil {
 		return nil, err
 	}
@@ -131,7 +131,7 @@ func (s *Service) Group() group.Group { return s.group }
 
 func (s *Service) NewRetrieve() Retrieve {
 	return Retrieve{
-		gorp:                      gorp.NewRetrieve[Key, Channel](),
+		gorp:                      s.table.NewRetrieve(),
 		tx:                        s.db,
 		otg:                       s.otg,
 		validateRetrievedChannels: s.validateChannels,

@@ -21,6 +21,7 @@ import (
 type Delete[K Key, E Entry[K]] struct {
 	retrieve Retrieve[K, E]
 	guards   guards[K, E]
+	codec    Codec[E]
 }
 
 // NewDelete opens a new Delete query.
@@ -72,7 +73,7 @@ func (d Delete[K, E]) Exec(ctx context.Context, tx Tx) error {
 		return err
 	}
 	keys := lo.Map(entries, func(entry E, _ int) K { return entry.GorpKey() })
-	return WrapWriter[K, E](tx).Delete(ctx, keys...)
+	return wrapWriter[K, E](tx, d.codec).Delete(ctx, keys...)
 }
 
 type GuardFunc[K Key, E Entry[K]] = func(ctx Context, entry E) error

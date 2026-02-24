@@ -29,7 +29,7 @@ type KV struct {
 
 // OpenKV opens a new KV authenticator with the given database.
 func OpenKV(ctx context.Context, db *gorp.DB) (*KV, error) {
-	table, err := gorp.OpenTable[string, SecureCredentials](ctx, db)
+	table, err := gorp.OpenTable[string, SecureCredentials](ctx, gorp.TableConfig[SecureCredentials]{DB: db})
 	if err != nil {
 		return nil, err
 	}
@@ -72,11 +72,14 @@ func (db *KV) authenticate(
 }
 
 // NewWriter implements Authenticator.
-func (db *KV) NewWriter(tx gorp.Tx) Writer { return &kvWriter{service: db, tx: db.DB.OverrideTx(tx)} }
+func (db *KV) NewWriter(tx gorp.Tx) Writer {
+	return &kvWriter{service: db, tx: db.DB.OverrideTx(tx), table: db.table}
+}
 
 type kvWriter struct {
 	service *KV
 	tx      gorp.Tx
+	table   *gorp.Table[string, SecureCredentials]
 }
 
 // Register implements Authenticator.
@@ -144,15 +147,15 @@ func (w *kvWriter) changeUsername(ctx context.Context, oldUsername, newUsername 
 }
 
 func (w *kvWriter) set(ctx context.Context, creds SecureCredentials) error {
-	return gorp.NewCreate[string, SecureCredentials]().Entry(&creds).Exec(ctx, w.tx)
+	return w.table.NewCreate().Entry(&creds).Exec(ctx, w.tx)
 }
 
 func (w *kvWriter) delete(ctx context.Context, usernames ...string) error {
-	return gorp.NewDelete[string, SecureCredentials]().WhereKeys(usernames...).Exec(ctx, w.tx)
+	return w.table.NewDelete().WhereKeys(usernames...).Exec(ctx, w.tx)
 }
 
 func (w *kvWriter) checkUsernameExists(ctx context.Context, user string) error {
-	exists, err := gorp.NewRetrieve[string, SecureCredentials]().WhereKeys(user).Exists(ctx, w.tx)
+	exists, err := w.service.table.NewRetrieve().WhereKeys(user).Exists(ctx, w.tx)
 	if err != nil {
 		return err
 	}
@@ -163,7 +166,7 @@ func (w *kvWriter) checkUsernameExists(ctx context.Context, user string) error {
 }
 
 func (db *KV) retrieve(ctx context.Context, tx gorp.Tx, user string, creds *SecureCredentials) error {
-	return gorp.NewRetrieve[string, SecureCredentials]().
+	return db.table.NewRetrieve().
 		WhereKeys(user).
 		Entry(creds).
 		Exec(ctx, gorp.OverrideTx(db.DB, tx))

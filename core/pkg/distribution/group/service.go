@@ -60,7 +60,7 @@ func OpenService(ctx context.Context, configs ...ServiceConfig) (*Service, error
 	if err != nil {
 		return nil, err
 	}
-	table, err := gorp.OpenTable[uuid.UUID, Group](ctx, cfg.DB)
+	table, err := gorp.OpenTable[uuid.UUID, Group](ctx, gorp.TableConfig[Group]{DB: cfg.DB})
 	if err != nil {
 		return nil, err
 	}
@@ -83,11 +83,11 @@ func (s *Service) CreateOrRetrieve(ctx context.Context, groupName string, parent
 }
 
 func (s *Service) NewWriter(tx gorp.Tx) Writer {
-	return Writer{tx: gorp.OverrideTx(s.cfg.DB, tx), otg: s.cfg.Ontology.NewWriter(tx)}
+	return Writer{tx: gorp.OverrideTx(s.cfg.DB, tx), otg: s.cfg.Ontology.NewWriter(tx), table: s.table}
 }
 
 func (s *Service) NewRetrieve() Retrieve {
-	return newRetrieve(s.cfg.DB)
+	return newRetrieve(s.cfg.DB, s.table)
 }
 
 func (s *Service) Close() error {
@@ -98,8 +98,9 @@ func (s *Service) Close() error {
 }
 
 type Writer struct {
-	tx  gorp.Tx
-	otg ontology.Writer
+	tx    gorp.Tx
+	otg   ontology.Writer
+	table *gorp.Table[uuid.UUID, Group]
 }
 
 // Create creates a new Group with the given name and parent.
@@ -111,7 +112,7 @@ func (w Writer) Create(
 	g.Key = uuid.New()
 	g.Name = name
 	id := OntologyID(g.Key)
-	if err = gorp.NewCreate[uuid.UUID, Group]().Entry(&g).Exec(ctx, w.tx); err != nil {
+	if err = w.table.NewCreate().Entry(&g).Exec(ctx, w.tx); err != nil {
 		return
 	}
 	if err = w.otg.DefineResource(ctx, id); err != nil {
@@ -135,7 +136,7 @@ func (w Writer) CreateWithKey(
 	}
 	g.Name = name
 	id := OntologyID(g.Key)
-	if err = gorp.NewCreate[uuid.UUID, Group]().Entry(&g).Exec(ctx, w.tx); err != nil {
+	if err = w.table.NewCreate().Entry(&g).Exec(ctx, w.tx); err != nil {
 		return
 	}
 	if err = w.otg.DefineResource(ctx, id); err != nil {
@@ -172,12 +173,12 @@ func (w Writer) Delete(ctx context.Context, keys ...uuid.UUID) error {
 			return err
 		}
 	}
-	return gorp.NewDelete[uuid.UUID, Group]().WhereKeys(keys...).Exec(ctx, w.tx)
+	return w.table.NewDelete().WhereKeys(keys...).Exec(ctx, w.tx)
 }
 
 // Rename renames the Group with the given key.
 func (w Writer) Rename(ctx context.Context, key uuid.UUID, name string) error {
-	return gorp.NewUpdate[uuid.UUID, Group]().
+	return w.table.NewUpdate().
 		WhereKeys(key).
 		Change(func(_ gorp.Context, g Group) Group {
 			g.Name = name

@@ -67,7 +67,7 @@ func OpenService(ctx context.Context, configs ...ServiceConfig) (*Service, error
 	if err != nil {
 		return nil, err
 	}
-	table, err := gorp.OpenTable[uuid.UUID, Workspace](ctx, cfg.DB)
+	table, err := gorp.OpenTable[uuid.UUID, Workspace](ctx, gorp.TableConfig[Workspace]{DB: cfg.DB})
 	if err != nil {
 		return nil, err
 	}
@@ -100,6 +100,7 @@ func (s *Service) NewWriter(tx gorp.Tx) Writer {
 		tx:    gorp.OverrideTx(s.cfg.DB, tx),
 		otg:   s.cfg.Ontology.NewWriter(tx),
 		group: s.group,
+		table: s.table,
 	}
 }
 
@@ -107,6 +108,6 @@ func (s *Service) NewRetrieve() Retrieve {
 	return Retrieve{
 		otg:    s.cfg.Ontology,
 		baseTX: s.cfg.DB,
-		gorp:   gorp.NewRetrieve[uuid.UUID, Workspace](),
+		gorp:   s.table.NewRetrieve(),
 	}
 }

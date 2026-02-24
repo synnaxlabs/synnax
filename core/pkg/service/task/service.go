@@ -104,7 +104,7 @@ func OpenService(ctx context.Context, configs ...ServiceConfig) (*Service, error
 	if err != nil {
 		return nil, err
 	}
-	table, err := gorp.OpenTable[Key, Task](ctx, cfg.DB)
+	table, err := gorp.OpenTable[Key, Task](ctx, gorp.TableConfig[Task]{DB: cfg.DB})
 	if err != nil {
 		return nil, err
 	}
@@ -184,6 +184,7 @@ func (s *Service) NewWriter(tx gorp.Tx) Writer {
 		rack:   s.cfg.Rack.NewWriter(tx),
 		group:  s.group,
 		status: status.NewWriter[StatusDetails](s.cfg.Status, tx),
+		table:  s.table,
 	}
 }
 
@@ -191,7 +192,7 @@ func (s *Service) NewRetrieve() Retrieve {
 	return Retrieve{
 		otg:    s.cfg.Ontology,
 		baseTX: s.cfg.DB,
-		gorp:   gorp.NewRetrieve[Key, Task](),
+		gorp:   s.table.NewRetrieve(),
 	}
 }
 

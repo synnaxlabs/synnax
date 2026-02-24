@@ -28,6 +28,7 @@ type Writer struct {
 	rack   rack.Writer
 	group  group.Group
 	status status.Writer[StatusDetails]
+	table  *gorp.Table[Key, Task]
 }
 
 func resolveStatus(t *Task, provided *status.Status[StatusDetails]) *status.Status[StatusDetails] {
@@ -59,7 +60,7 @@ func (w Writer) Create(ctx context.Context, t *Task) error {
 	}
 	providedStatus := (*status.Status[StatusDetails])(t.Status) // Preserve before clearing for gorp
 	t.Status = nil                                              // Status stored separately, not in gorp
-	if err := gorp.NewCreate[Key, Task]().
+	if err := w.table.NewCreate().
 		MergeExisting(func(_ gorp.Context, creating, existing Task) (Task, error) {
 			if existing.Snapshot {
 				creating.Config = existing.Config
@@ -96,7 +97,7 @@ func (w Writer) Create(ctx context.Context, t *Task) error {
 
 // Delete deletes the task with the given key and its associated status.
 func (w Writer) Delete(ctx context.Context, key Key, allowInternal bool) error {
-	if err := gorp.NewDelete[Key, Task]().
+	if err := w.table.NewDelete().
 		WhereKeys(key).
 		Exec(ctx, w.tx); err != nil {
 		return err
@@ -119,7 +120,7 @@ func (w Writer) Copy(
 	}
 	newKey := NewKey(key.Rack(), localKey)
 	var res Task
-	if err = gorp.NewUpdate[Key, Task]().WhereKeys(key).Change(func(_ gorp.Context, t Task) Task {
+	if err = w.table.NewUpdate().WhereKeys(key).Change(func(_ gorp.Context, t Task) Task {
 		t.Key = newKey
 		t.Name = name
 		t.Snapshot = snapshot

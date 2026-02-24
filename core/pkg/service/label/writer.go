@@ -19,8 +19,9 @@ import (
 
 // Writer wraps a transaction to create, update, and delete labels.
 type Writer struct {
-	tx  gorp.Tx
-	otg ontology.Writer
+	tx    gorp.Tx
+	otg   ontology.Writer
+	table *gorp.Table[uuid.UUID, Label]
 }
 
 // Create creates a new label, assigning it a unique key if one is not provided. If
@@ -32,7 +33,7 @@ func (w Writer) Create(
 	if l.Key == uuid.Nil {
 		l.Key = uuid.New()
 	}
-	if err = gorp.NewCreate[uuid.UUID, Label]().Entry(l).Exec(ctx, w.tx); err != nil {
+	if err = w.table.NewCreate().Entry(l).Exec(ctx, w.tx); err != nil {
 		return
 	}
 	return w.otg.DefineResource(ctx, OntologyID(l.Key))
@@ -59,7 +60,7 @@ func (w Writer) Delete(
 	ctx context.Context,
 	k uuid.UUID,
 ) (err error) {
-	if err = gorp.NewDelete[uuid.UUID, Label]().WhereKeys(k).Exec(ctx, w.tx); err != nil {
+	if err = w.table.NewDelete().WhereKeys(k).Exec(ctx, w.tx); err != nil {
 		return
 	}
 	return w.otg.DeleteResource(ctx, OntologyID(k))

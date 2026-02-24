@@ -80,7 +80,7 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (*Service, error) {
 	if err != nil {
 		return nil, err
 	}
-	table, err := gorp.OpenTable[uuid.UUID, Symbol](ctx, cfg.DB)
+	table, err := gorp.OpenTable[uuid.UUID, Symbol](ctx, gorp.TableConfig[Symbol]{DB: cfg.DB})
 	if err != nil {
 		return nil, err
 	}
@@ -117,13 +117,14 @@ func (s *Service) NewWriter(tx gorp.Tx) Writer {
 		tx:        tx,
 		otgWriter: s.Ontology.NewWriter(tx),
 		otg:       s.Ontology,
+		table:     s.table,
 	}
 }
 
 // NewRetrieve opens a new query build for retrieving symbols from Synnax.
 func (s *Service) NewRetrieve() Retrieve {
 	return Retrieve{
-		gorp:   gorp.NewRetrieve[uuid.UUID, Symbol](),
+		gorp:   s.table.NewRetrieve(),
 		baseTX: s.DB,
 		otg:    s.Ontology,
 	}

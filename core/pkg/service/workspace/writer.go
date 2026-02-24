@@ -23,6 +23,7 @@ type Writer struct {
 	tx    gorp.Tx
 	otg   ontology.Writer
 	group group.Group
+	table *gorp.Table[uuid.UUID, Workspace]
 }
 
 func (w Writer) Create(
@@ -32,7 +33,7 @@ func (w Writer) Create(
 	if ws.Key == uuid.Nil {
 		ws.Key = uuid.New()
 	}
-	if err = gorp.NewCreate[uuid.UUID, Workspace]().Entry(ws).Exec(ctx, w.tx); err != nil {
+	if err = w.table.NewCreate().Entry(ws).Exec(ctx, w.tx); err != nil {
 		return
 	}
 	otgID := OntologyID(ws.Key)
@@ -63,7 +64,7 @@ func (w Writer) Rename(
 	key uuid.UUID,
 	name string,
 ) error {
-	return gorp.NewUpdate[uuid.UUID, Workspace]().
+	return w.table.NewUpdate().
 		WhereKeys(key).
 		Change(func(_ gorp.Context, ws Workspace) Workspace {
 			ws.Name = name
@@ -76,7 +77,7 @@ func (w Writer) SetLayout(
 	key uuid.UUID,
 	layout map[string]any,
 ) error {
-	return gorp.NewUpdate[uuid.UUID, Workspace]().
+	return w.table.NewUpdate().
 		WhereKeys(key).
 		Change(func(_ gorp.Context, ws Workspace) Workspace {
 			ws.Layout = layout
@@ -88,7 +89,7 @@ func (w Writer) Delete(
 	ctx context.Context,
 	keys ...uuid.UUID,
 ) error {
-	if err := gorp.NewDelete[uuid.UUID, Workspace]().WhereKeys(keys...).Exec(ctx, w.tx); err != nil {
+	if err := w.table.NewDelete().WhereKeys(keys...).Exec(ctx, w.tx); err != nil {
 		return err
 	}
 	for _, key := range keys {

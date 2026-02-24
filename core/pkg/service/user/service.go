@@ -66,6 +66,7 @@ func (c ServiceConfig) Validate() error {
 type Service struct {
 	cfg             ServiceConfig
 	shutdownSignals io.Closer
+	table           *gorp.Table[uuid.UUID, User]
 }
 
 // OpenService opens a new Service with the given context ctx and configurations configs.
@@ -75,7 +76,11 @@ func OpenService(ctx context.Context, configs ...ServiceConfig) (*Service, error
 		return nil, err
 	}
 
-	s := &Service{cfg: cfg}
+	table, err := gorp.OpenTable[uuid.UUID, User](ctx, gorp.TableConfig[User]{DB: cfg.DB})
+	if err != nil {
+		return nil, err
+	}
+	s := &Service{cfg: cfg, table: table}
 	cfg.Ontology.RegisterService(s)
 
 	if cfg.Signals != nil {
@@ -96,23 +101,24 @@ func OpenService(ctx context.Context, configs ...ServiceConfig) (*Service, error
 // writer operates within the given transaction tx.
 func (s *Service) NewWriter(tx gorp.Tx) Writer {
 	return Writer{
-		tx:  gorp.OverrideTx(s.cfg.DB, tx),
-		otg: s.cfg.Ontology.NewWriter(tx),
-		svc: s,
+		tx:    gorp.OverrideTx(s.cfg.DB, tx),
+		otg:   s.cfg.Ontology.NewWriter(tx),
+		svc:   s,
+		table: s.table,
 	}
 }
 
 // NewRetrieve opens a new retrieve query capable of retrieving Users.
 func (s *Service) NewRetrieve() Retrieve {
 	return Retrieve{
-		gorp:   gorp.NewRetrieve[uuid.UUID, User](),
+		gorp:   s.table.NewRetrieve(),
 		baseTX: s.cfg.DB,
 	}
 }
 
 // UsernameExists reports whether a User with the given username exists.
 func (s *Service) UsernameExists(ctx context.Context, username string) (bool, error) {
-	return gorp.NewRetrieve[uuid.UUID, User]().
+	return s.table.NewRetrieve().
 		Where(func(_ gorp.Context, u *User) (bool, error) {
 			return u.Username == username, nil
 		}).

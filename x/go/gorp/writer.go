@@ -18,12 +18,17 @@ import (
 type Writer[K Key, E Entry[K]] struct {
 	BaseWriter
 	keyCodec *keyCodec[K, E]
+	codec    Codec[E]
 }
 
 // WrapWriter wraps the given key-value writer to provide a strongly
 // typed interface for writing entries to the DB.
 func WrapWriter[K Key, E Entry[K]](base BaseWriter) *Writer[K, E] {
 	return &Writer[K, E]{BaseWriter: base, keyCodec: newKeyCodec[K, E]()}
+}
+
+func wrapWriter[K Key, E Entry[K]](base BaseWriter, codec Codec[E]) *Writer[K, E] {
+	return &Writer[K, E]{BaseWriter: base, keyCodec: newKeyCodec[K, E](), codec: codec}
 }
 
 // Set writes the provided entries to the DB.
@@ -47,7 +52,15 @@ func (w *Writer[K, E]) Delete(ctx context.Context, keys ...K) error {
 }
 
 func (w *Writer[K, E]) set(ctx context.Context, entry E) error {
-	data, err := w.Encode(ctx, entry)
+	var (
+		data []byte
+		err  error
+	)
+	if w.codec != nil {
+		data, err = w.codec.Marshal(ctx, entry)
+	} else {
+		data, err = w.Encode(ctx, entry)
+	}
 	if err != nil {
 		return err
 	}

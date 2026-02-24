@@ -80,6 +80,8 @@ type Ontology struct {
 	search               struct{ *search.Index }
 	registrar            serviceRegistrar
 	disconnectObservers  []observe.Disconnect
+	resourceTable        *gorp.Table[string, Resource]
+	relationshipTable    *gorp.Table[[]byte, Relationship]
 }
 
 type Config struct {
@@ -116,11 +118,21 @@ func Open(ctx context.Context, configs ...Config) (*Ontology, error) {
 	if err != nil {
 		return nil, err
 	}
+	resourceTable, err := gorp.OpenTable[string, Resource](ctx, gorp.TableConfig[Resource]{DB: cfg.DB})
+	if err != nil {
+		return nil, err
+	}
+	relationshipTable, err := gorp.OpenTable[[]byte, Relationship](ctx, gorp.TableConfig[Relationship]{DB: cfg.DB})
+	if err != nil {
+		return nil, err
+	}
 	o := &Ontology{
 		Config:               cfg,
 		ResourceObserver:     observe.New[iter.Seq[Change]](),
 		RelationshipObserver: gorp.Observe[[]byte, Relationship](cfg.DB),
 		registrar:            serviceRegistrar{TypeBuiltIn: &builtinService{}},
+		resourceTable:        resourceTable,
+		relationshipTable:    relationshipTable,
 	}
 
 	if err = o.NewRetrieve().WhereIDs(RootID).Exec(ctx, cfg.DB); errors.Is(err, query.ErrNotFound) {
@@ -212,7 +224,12 @@ func (o *Ontology) SearchIDs(ctx context.Context, req search.Request) ([]ID, err
 // NewWriter opens a new Writer using the provided transaction. Panics if the
 // transaction does not root from the same database as the Ontology.
 func (o *Ontology) NewWriter(tx gorp.Tx) Writer {
-	return dagWriter{tx: o.DB.OverrideTx(tx), registrar: o.registrar}
+	return dagWriter{
+		tx:                o.DB.OverrideTx(tx),
+		registrar:         o.registrar,
+		resourceTable:     o.resourceTable,
+		relationshipTable: o.relationshipTable,
+	}
 }
 
 // RegisterService registers a Service for a particular [Type] with the [Ontology].
@@ -300,5 +317,5 @@ func (o *Ontology) Close() error {
 	for _, d := range o.disconnectObservers {
 		d()
 	}
-	return nil
+	return errors.Combine(o.resourceTable.Close(), o.relationshipTable.Close())
 }

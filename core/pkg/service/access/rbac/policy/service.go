@@ -52,6 +52,7 @@ func (c ServiceConfig) Validate() error {
 type Service struct {
 	cfg     ServiceConfig
 	signals io.Closer
+	table   *gorp.Table[uuid.UUID, Policy]
 }
 
 func OpenService(ctx context.Context, configs ...ServiceConfig) (*Service, error) {
@@ -59,7 +60,11 @@ func OpenService(ctx context.Context, configs ...ServiceConfig) (*Service, error
 	if err != nil {
 		return nil, err
 	}
-	s := &Service{cfg: cfg}
+	table, err := gorp.OpenTable[uuid.UUID, Policy](ctx, gorp.TableConfig[Policy]{DB: cfg.DB})
+	if err != nil {
+		return nil, err
+	}
+	s := &Service{cfg: cfg, table: table}
 	if cfg.Signals != nil {
 		if s.signals, err = signals.PublishFromGorp(
 			ctx,
@@ -86,13 +91,14 @@ func (s *Service) NewWriter(tx gorp.Tx, allowInternal bool) Writer {
 		tx:            tx,
 		otg:           s.cfg.Ontology.NewWriter(tx),
 		allowInternal: allowInternal,
+		table:         s.table,
 	}
 }
 
 func (s *Service) NewRetrieve() Retriever {
 	return Retriever{
 		baseTx:   s.cfg.DB,
-		gorp:     gorp.NewRetrieve[uuid.UUID, Policy](),
+		gorp:     s.table.NewRetrieve(),
 		ontology: s.cfg.Ontology,
 	}
 }

@@ -52,6 +52,7 @@ func (c ServiceConfig) Override(other ServiceConfig) ServiceConfig {
 type Service struct {
 	shutdownSignals io.Closer
 	cfg             ServiceConfig
+	table           *gorp.Table[string, Pair]
 }
 
 // OpenService opens a new kv.Service with the provided configuration.
@@ -60,7 +61,11 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (*Service, error) {
 	if err != nil {
 		return nil, err
 	}
-	s := &Service{cfg: cfg}
+	table, err := gorp.OpenTable[string, Pair](ctx, gorp.TableConfig[Pair]{DB: cfg.DB})
+	if err != nil {
+		return nil, err
+	}
+	s := &Service{cfg: cfg, table: table}
 	if cfg.Signals == nil {
 		return s, nil
 	}
@@ -85,10 +90,10 @@ func (s *Service) Close() error {
 
 // NewWriter opens a new Writer to create and delete key-value pairs.
 func (s *Service) NewWriter(tx gorp.Tx) Writer {
-	return Writer{tx: gorp.OverrideTx(s.cfg.DB, tx)}
+	return Writer{tx: gorp.OverrideTx(s.cfg.DB, tx), table: s.table}
 }
 
 // NewReader opens a new Reader to retrieve key-value pairs.
 func (s *Service) NewReader(tx gorp.Tx) Reader {
-	return Reader{tx: gorp.OverrideTx(s.cfg.DB, tx)}
+	return Reader{tx: gorp.OverrideTx(s.cfg.DB, tx), table: s.table}
 }
