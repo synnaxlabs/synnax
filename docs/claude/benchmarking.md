@@ -15,7 +15,7 @@ Build a binary for each branch you want to compare:
 
 ```bash
 # From the branch under test
-cd core && go build -o /tmp/synnax-<label> ./cmd/main.go
+cd core && go build -o /tmp/synnax- < label > ./cmd/main.go
 ```
 
 Example comparing `rc` vs a feature branch:
@@ -33,12 +33,12 @@ cd core && go build -o /tmp/synnax-feature ./cmd/main.go
 Start the server with `--debug` to enable the pprof endpoint:
 
 ```bash
-/tmp/synnax-<label> start \
-    -d /tmp/synnax-<label>-data \
-    --listen localhost:9090 \
-    --debug \
-    --insecure \
-    --no-driver
+/tmp/synnax- < label > start \
+  -d /tmp/synnax- \
+  --listen localhost:9090 \
+  --debug \
+  --insecure \
+  --no-driver < label > -data
 ```
 
 - `--debug` enables pprof at `http://localhost:9090/debug/pprof/`
@@ -84,8 +84,8 @@ go tool pprof http://localhost:9090/debug/pprof/allocs
 # Then: top20, web, list <function>, etc.
 
 # Save profile to file for later analysis
-curl -o /tmp/allocs-<label>.pb.gz http://localhost:9090/debug/pprof/allocs
-go tool pprof -text -cum /tmp/allocs-<label>.pb.gz
+curl -o /tmp/allocs- http://localhost:9090/debug/pprof/allocs < label > .pb.gz
+go tool pprof -text -cum /tmp/allocs- < label > .pb.gz
 ```
 
 ## 5. Compare Results
@@ -98,18 +98,18 @@ Key metrics to compare between branches:
 
 Example comparison format:
 
-| Metric | Branch A | Branch B |
-|---|---|---|
-| Total alloc objects | 25,303,927 | 137,779,404 |
-| Total alloc space | 1,903.76 MB | 8,897.19 MB |
-| Tests passed | 1,652 | 1,857 |
+| Metric              | Branch A    | Branch B    |
+| ------------------- | ----------- | ----------- |
+| Total alloc objects | 25,303,927  | 137,779,404 |
+| Total alloc space   | 1,903.76 MB | 8,897.19 MB |
+| Tests passed        | 1,652       | 1,857       |
 
 ## 6. Cleanup
 
 Stop the server (`Ctrl+C` or type `stop` in the server terminal), then remove data:
 
 ```bash
-rm -rf /tmp/synnax-<label>-data
+rm -rf /tmp/synnax- < label > -data
 ```
 
 ## Tips

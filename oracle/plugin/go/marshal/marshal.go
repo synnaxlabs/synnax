@@ -164,14 +164,14 @@ func (p *Plugin) Generate(req *plugin.Request) (*plugin.Response, error) {
 }
 
 type codecOutput struct {
-	GoName      string
-	ParentAlias string
-	Constants   string
-	FieldCount  int
-	EstSize     int
-	MarshalBody string
+	GoName        string
+	ParentAlias   string
+	Constants     string
+	FieldCount    int
+	EstSize       int
+	MarshalBody   string
 	UnmarshalBody string
-	HelperFuncs string
+	HelperFuncs   string
 }
 
 type fileOutput struct {
@@ -265,19 +265,19 @@ func lowerFirst(s string) string {
 
 // codeBuilder generates binary marshal/unmarshal code for a single type.
 type codeBuilder struct {
-	table          *resolution.Table
-	repoRoot       string
-	parentAlias    string
-	parentPath     string
-	imports        map[string]string
-	consts         []wireConst
-	marshalLines   []string
-	unmarshalLines []string
-	estSize        int
-	needsMath      bool
-	needsJSON      bool
-	index          int
-	depth          int
+	table            *resolution.Table
+	repoRoot         string
+	parentAlias      string
+	parentPath       string
+	imports          map[string]string
+	consts           []wireConst
+	marshalLines     []string
+	unmarshalLines   []string
+	estSize          int
+	needsMath        bool
+	needsJSON        bool
+	index            int
+	depth            int
 	varCounter       int
 	processingTypes  map[string]bool
 	helperFuncs      []string

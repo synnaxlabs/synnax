@@ -278,9 +278,7 @@ export interface LSPClientHandle {
   closed: Promise<void>;
 }
 
-export const startLSPClient = async (
-  stream: LSPStream,
-): Promise<LSPClientHandle> => {
+export const startLSPClient = async (stream: LSPStream): Promise<LSPClientHandle> => {
   const { reader, writer, closed } = createFreighterTransport({ stream });
   const client = new MonacoLanguageClient({
     name: "Arc Language Server",
