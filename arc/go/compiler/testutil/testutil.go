@@ -134,6 +134,34 @@ func WASM(instructions ...any) []byte {
 				} else {
 					encoder.WriteIf(wasm.BlockTypeEmpty)
 				}
+			case wasm.OpBlock:
+				if i+1 < len(instructions) {
+					if bt, ok := instructions[i+1].(wasm.BlockType); ok {
+						encoder.WriteBlock(bt)
+						i++
+					} else {
+						encoder.WriteBlock(wasm.BlockTypeEmpty)
+					}
+				} else {
+					encoder.WriteBlock(wasm.BlockTypeEmpty)
+				}
+			case wasm.OpLoop:
+				if i+1 < len(instructions) {
+					if bt, ok := instructions[i+1].(wasm.BlockType); ok {
+						encoder.WriteLoop(bt)
+						i++
+					} else {
+						encoder.WriteLoop(wasm.BlockTypeEmpty)
+					}
+				} else {
+					encoder.WriteLoop(wasm.BlockTypeEmpty)
+				}
+			case wasm.OpBr:
+				encoder.WriteBr(instructions[i+1].(uint32))
+				i++
+			case wasm.OpBrIf:
+				encoder.WriteBrIf(instructions[i+1].(uint32))
+				i++
 			default:
 				// Simple opcode with no operands
 				encoder.WriteOpcode(instr)

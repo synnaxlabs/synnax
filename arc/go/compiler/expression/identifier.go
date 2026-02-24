@@ -26,7 +26,7 @@ func compileIdentifier[ASTNode antlr.ParserRuleContext](
 		return types.Type{}, err
 	}
 	switch scope.Kind {
-	case symbol.KindVariable, symbol.KindInput:
+	case symbol.KindVariable, symbol.KindInput, symbol.KindLoopVariable:
 		ctx.Writer.WriteLocalGet(scope.ID)
 		if scope.Type.Kind == types.KindChan {
 			emitChannelRead(ctx, scope.Type)

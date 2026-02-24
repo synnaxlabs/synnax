@@ -19,6 +19,14 @@ import (
 	"github.com/synnaxlabs/arc/types"
 )
 
+// LoopEntry tracks the block nesting depth at the point where a loop's block
+// and loop instructions were emitted, enabling correct label computation for
+// break (targets the outer block) and continue (targets the loop).
+type LoopEntry struct {
+	BreakDepth    int
+	ContinueDepth int
+}
+
 // Context maintains compilation state across all code generation
 type Context[ASTNode antlr.ParserRuleContext] struct {
 	context.Context
@@ -33,6 +41,10 @@ type Context[ASTNode antlr.ParserRuleContext] struct {
 	Outputs          types.Params
 	Hint             types.Type
 	OutputMemoryBase uint32
+	// LoopDepth tracks current block nesting depth for label computation.
+	LoopDepth int
+	// LoopStack tracks active loops for break/continue label resolution.
+	LoopStack []LoopEntry
 }
 
 func Child[P, ASTNode antlr.ParserRuleContext](ctx Context[P], node ASTNode) Context[ASTNode] {
@@ -48,6 +60,8 @@ func Child[P, ASTNode antlr.ParserRuleContext](ctx Context[P], node ASTNode) Con
 		Outputs:          ctx.Outputs,
 		OutputMemoryBase: ctx.OutputMemoryBase,
 		WriterID:         ctx.WriterID,
+		LoopDepth:        ctx.LoopDepth,
+		LoopStack:        ctx.LoopStack,
 	}
 }
 func (c Context[AstNode]) WithHint(hint types.Type) Context[AstNode] {

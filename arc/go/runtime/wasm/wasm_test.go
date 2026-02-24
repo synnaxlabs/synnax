@@ -2757,4 +2757,312 @@ input_ch -> count_local{} -> sink_ch
 			Expect(outFr.Get(200).Series).To(BeEmpty())
 		})
 	})
+
+	Describe("For Loops", func() {
+		Describe("Range loops", func() {
+			DescribeTable("should compute correct sums",
+				expectOutput[int64],
+				Entry("1-arg range", ctx, "range1", types.I64(), `{
+					sum i64 := 0
+					for i := range(5) {
+						sum = sum + i
+					}
+					return sum
+				}`, nil, int64(10)),
+				Entry("2-arg range", ctx, "range2", types.I64(), `{
+					sum i64 := 0
+					for i := range(5, 10) {
+						sum = sum + i
+					}
+					return sum
+				}`, nil, int64(35)),
+				Entry("3-arg range with step", ctx, "range3", types.I64(), `{
+					sum i64 := 0
+					for i := range(0, 10, 2) {
+						sum = sum + i
+					}
+					return sum
+				}`, nil, int64(20)),
+				Entry("empty range", ctx, "range_empty", types.I64(), `{
+					sum i64 := 99
+					for i := range(0) {
+						sum = sum + i
+					}
+					return sum
+				}`, nil, int64(99)),
+				Entry("reversed bounds", ctx, "range_rev", types.I64(), `{
+					sum i64 := 99
+					for i := range(10, 5) {
+						sum = sum + i
+					}
+					return sum
+				}`, nil, int64(99)),
+				Entry("step of 3", ctx, "range_step3", types.I64(), `{
+					sum i64 := 0
+					for i := range(0, 10, 3) {
+						sum = sum + i
+					}
+					return sum
+				}`, nil, int64(18)),
+				Entry("explicit step of 1", ctx, "range_step1", types.I64(), `{
+					sum i64 := 0
+					for i := range(0, 5, 1) {
+						sum = sum + i
+					}
+					return sum
+				}`, nil, int64(10)),
+				Entry("step larger than range", ctx, "range_big_step", types.I64(), `{
+					sum i64 := 0
+					for i := range(0, 5, 10) {
+						sum = sum + i
+					}
+					return sum
+				}`, nil, int64(0)),
+				Entry("step equals range", ctx, "range_step_eq", types.I64(), `{
+					sum i64 := 0
+					for i := range(0, 10, 10) {
+						sum = sum + i
+					}
+					return sum
+				}`, nil, int64(0)),
+				Entry("negative step", ctx, "range_neg_step", types.I64(), `{
+					sum i64 := 0
+					for i := range(10, 0, -2) {
+						sum = sum + i
+					}
+					return sum
+				}`, nil, int64(30)),
+				Entry("negative step of -1", ctx, "range_neg1", types.I64(), `{
+					sum i64 := 0
+					for i := range(10, 0, -1) {
+						sum = sum + i
+					}
+					return sum
+				}`, nil, int64(55)),
+				Entry("negative step with large gap", ctx, "range_neg_big", types.I64(), `{
+					sum i64 := 0
+					for i := range(20, 0, -5) {
+						sum = sum + i
+					}
+					return sum
+				}`, nil, int64(50)),
+				Entry("negative step empty", ctx, "range_neg_empty", types.I64(), `{
+					sum i64 := 99
+					for i := range(0, 10, -1) {
+						sum = sum + i
+					}
+					return sum
+				}`, nil, int64(99)),
+			)
+		})
+
+		Describe("Series iteration", func() {
+			It("Should sum elements with single-ident form", func() {
+				expectOutput(ctx, "series_sum", types.I32(), `{
+					data series i32 := [1, 2, 3, 4, 5]
+					sum i32 := 0
+					for x := data {
+						sum = sum + x
+					}
+					return sum
+				}`, nil, int32(15))
+			})
+
+			It("Should compute weighted sum with two-ident form", func() {
+				expectOutput(ctx, "series_weighted", types.I32(), `{
+					data series i32 := [10, 20, 30]
+					sum i32 := 0
+					for i, x := data {
+						sum = sum + x * (i + 1)
+					}
+					return sum
+				}`, nil, int32(140))
+			})
+		})
+
+		Describe("Break and continue", func() {
+			It("Should break on threshold in series iteration", func() {
+				expectOutput(ctx, "break_thresh", types.I32(), `{
+					data series i32 := [1, 2, 3, 100, 5]
+					sum i32 := 0
+					for x := data {
+						if x > 50 {
+							break
+						}
+						sum = sum + x
+					}
+					return sum
+				}`, nil, int32(6))
+			})
+
+			It("Should continue to skip odd indices in range loop", func() {
+				expectOutput(ctx, "cont_skip", types.I32(), `{
+					sum i32 := 0
+					for i := range(i32(6)) {
+						if i % 2 != 0 {
+							continue
+						}
+						sum = sum + i
+					}
+					return sum
+				}`, nil, int32(6))
+			})
+
+			It("Should continue to skip elements in series iteration", func() {
+				expectOutput(ctx, "cont_series", types.I32(), `{
+					data series i32 := [10, -1, 20, -1, 30]
+					sum i32 := 0
+					for x := data {
+						if x < 0 {
+							continue
+						}
+						sum = sum + x
+					}
+					return sum
+				}`, nil, int32(60))
+			})
+
+			It("Should continue only the inner loop when nested", func() {
+				expectOutput(ctx, "cont_nested", types.I64(), `{
+					sum i64 := 0
+					for i := range(3) {
+						for j := range(4) {
+							if j == 2 {
+								continue
+							}
+							sum = sum + 1
+						}
+					}
+					return sum
+				}`, nil, int64(9))
+			})
+
+			It("Should break only the inner loop when nested", func() {
+				expectOutput(ctx, "break_inner_only", types.I64(), `{
+					sum i64 := 0
+					for i := range(3) {
+						for j := range(10) {
+							if j >= 2 {
+								break
+							}
+							sum = sum + 1
+						}
+						sum = sum + 100
+					}
+					return sum
+				}`, nil, int64(306))
+			})
+		})
+
+		Describe("Conditional and infinite", func() {
+			It("Should execute while-style countdown", func() {
+				expectOutput(ctx, "while_count", types.I32(), `{
+					n i32 := 5
+					sum i32 := 0
+					for n > 0 {
+						sum = sum + n
+						n = n - 1
+					}
+					return sum
+				}`, nil, int32(15))
+			})
+
+			It("Should execute infinite loop with break", func() {
+				expectOutput(ctx, "inf_break", types.I32(), `{
+					val i32 := 1
+					for {
+						val = val * 2
+						if val > 100 {
+							break
+						}
+					}
+					return val
+				}`, nil, int32(128))
+			})
+		})
+
+		Describe("Nested loops", func() {
+			It("Should compute matrix iteration count", func() {
+				expectOutput(ctx, "nested_count", types.I64(), `{
+					count i64 := 0
+					for i := range(3) {
+						for j := range(4) {
+							count = count + 1
+						}
+					}
+					return count
+				}`, nil, int64(12))
+			})
+
+			It("Should handle inner break with outer running fully", func() {
+				expectOutput(ctx, "inner_break", types.I64(), `{
+					count i64 := 0
+					for i := range(3) {
+						for j := range(4) {
+							if j > 1 {
+								break
+							}
+							count = count + 1
+						}
+					}
+					return count
+				}`, nil, int64(6))
+			})
+
+			It("Should handle 3-deep nested range loops", func() {
+				expectOutput(ctx, "nested_3deep", types.I64(), `{
+					count i64 := 0
+					for i := range(2) {
+						for j := range(3) {
+							for k := range(4) {
+								count = count + 1
+							}
+						}
+					}
+					return count
+				}`, nil, int64(24))
+			})
+
+			It("Should nest range loop inside series iteration", func() {
+				expectOutput(ctx, "series_range_nested", types.I32(), `{
+					data series i32 := [10, 20, 30]
+					sum i32 := 0
+					for x := data {
+						for j := range(i32(x / 10)) {
+							sum = sum + 1
+						}
+					}
+					return sum
+				}`, nil, int32(6))
+			})
+		})
+
+		Describe("Stateful across calls", func() {
+			It("Should accumulate across reactive executions", func() {
+				g := singleFunctionGraph("loop_state", types.I64(), `{
+					total i64 $= 0
+					for i := range(3) {
+						total = total + 1
+					}
+					return total
+				}`)
+				h := newHarness(ctx, g, nil, nil)
+				defer h.Close()
+
+				n := h.CreateNode(ctx, "loop_state")
+				nCtx := node.Context{Context: ctx, MarkChanged: func(string) {}}
+
+				n.Next(nCtx)
+				Expect(telem.UnmarshalSeries[int64](h.Output("loop_state", 0))[0]).To(Equal(int64(3)))
+
+				n.Reset()
+				n.Next(nCtx)
+				Expect(telem.UnmarshalSeries[int64](h.Output("loop_state", 0))[0]).To(Equal(int64(6)))
+
+				n.Reset()
+				n.Next(nCtx)
+				Expect(telem.UnmarshalSeries[int64](h.Output("loop_state", 0))[0]).To(Equal(int64(9)))
+			})
+		})
+	})
 })

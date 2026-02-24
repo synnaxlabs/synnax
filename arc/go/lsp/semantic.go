@@ -143,8 +143,10 @@ func mapSymbolKind(kind symbol.Kind) *uint32 {
 		tokenType = SemanticTokenTypeSequence
 	case symbol.KindStage:
 		tokenType = SemanticTokenTypeStage
-	case symbol.KindBlock:
+	case symbol.KindBlock, symbol.KindLoop:
 		tokenType = SemanticTokenTypeBlock
+	case symbol.KindLoopVariable:
+		tokenType = SemanticTokenTypeVariable
 	default:
 		tokenType = SemanticTokenTypeVariable
 	}
@@ -156,6 +158,7 @@ func mapLexerTokenType(antlrType int) *uint32 {
 	switch antlrType {
 	case parser.ArcLexerFUNC, parser.ArcLexerIF,
 		parser.ArcLexerELSE, parser.ArcLexerRETURN,
+		parser.ArcLexerFOR, parser.ArcLexerBREAK, parser.ArcLexerCONTINUE,
 		parser.ArcLexerSEQUENCE, parser.ArcLexerSTAGE,
 		parser.ArcLexerNEXT, parser.ArcLexerAND, parser.ArcLexerOR,
 		parser.ArcLexerNOT, parser.ArcLexerAUTHORITY:

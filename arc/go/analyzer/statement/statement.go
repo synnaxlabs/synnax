@@ -48,6 +48,12 @@ func Analyze(ctx context.Context[parser.IStatementContext]) {
 		analyzeVariableDeclaration(context.Child(ctx, ctx.AST.VariableDeclaration()))
 	case ctx.AST.IfStatement() != nil:
 		analyzeIfStatement(context.Child(ctx, ctx.AST.IfStatement()))
+	case ctx.AST.ForStatement() != nil:
+		analyzeForStatement(context.Child(ctx, ctx.AST.ForStatement()))
+	case ctx.AST.BreakStatement() != nil:
+		analyzeBreakStatement(context.Child(ctx, ctx.AST.BreakStatement()))
+	case ctx.AST.ContinueStatement() != nil:
+		analyzeContinueStatement(context.Child(ctx, ctx.AST.ContinueStatement()))
 	case ctx.AST.ReturnStatement() != nil:
 		analyzeReturnStatement(context.Child(ctx, ctx.AST.ReturnStatement()))
 	case ctx.AST.Assignment() != nil:
@@ -282,6 +288,279 @@ func analyzeIfStatement(ctx context.Context[parser.IIfStatementContext]) {
 		if block := elseClause.Block(); block != nil {
 			AnalyzeBlock(context.Child(ctx, block))
 		}
+	}
+}
+
+func analyzeForStatement(ctx context.Context[parser.IForStatementContext]) {
+	clause := ctx.AST.ForClause()
+	if clause == nil {
+		return
+	}
+
+	loopScope, err := ctx.Scope.Add(ctx, symbol.Symbol{
+		Kind: symbol.KindLoop,
+		AST:  ctx.AST,
+	})
+	if err != nil {
+		ctx.Diagnostics.Add(diagnostics.Error(err, ctx.AST))
+		return
+	}
+	loopScope.Name = "__loop"
+	loopCtx := ctx.WithScope(loopScope)
+
+	idents := clause.AllIDENTIFIER()
+	hasDeclare := clause.DECLARE() != nil
+	hasComma := clause.COMMA() != nil
+	expr := clause.Expression()
+
+	switch {
+	case hasComma && len(idents) == 2:
+		analyzeForTwoIdent(loopCtx, clause, idents, expr)
+	case hasDeclare && len(idents) == 1:
+		analyzeForSingleIdent(loopCtx, clause, idents[0], expr)
+	case expr != nil:
+		expression.Analyze(context.Child(loopCtx, expr))
+	}
+
+	if block := ctx.AST.Block(); block != nil {
+		AnalyzeBlock(context.Child(loopCtx, block))
+	}
+}
+
+func isRangeCall(expr parser.IExpressionContext) (parser.IFunctionCallSuffixContext, bool) {
+	primary := parser.GetPrimaryExpression(expr)
+	if primary == nil || primary.IDENTIFIER() == nil {
+		return nil, false
+	}
+	if primary.IDENTIFIER().GetText() != "range" {
+		return nil, false
+	}
+	postfix := expr.LogicalOrExpression().
+		AllLogicalAndExpression()[0].
+		AllEqualityExpression()[0].
+		AllRelationalExpression()[0].
+		AllAdditiveExpression()[0].
+		AllMultiplicativeExpression()[0].
+		AllPowerExpression()[0].
+		UnaryExpression().
+		PostfixExpression()
+	if postfix == nil {
+		return nil, false
+	}
+	calls := postfix.AllFunctionCallSuffix()
+	if len(calls) != 1 {
+		return nil, false
+	}
+	return calls[0], true
+}
+
+func analyzeForSingleIdent(
+	ctx context.Context[parser.IForStatementContext],
+	clause parser.IForClauseContext,
+	ident antlr.TerminalNode,
+	expr parser.IExpressionContext,
+) {
+	name := ident.GetText()
+
+	if funcCall, ok := isRangeCall(expr); ok {
+		analyzeForRange(ctx, clause, name, funcCall)
+		return
+	}
+
+	expression.Analyze(context.Child(ctx, expr))
+	exprType := atypes.InferFromExpression(context.Child(ctx, expr))
+
+	if exprType.Kind == types.KindSeries && exprType.Elem != nil {
+		elemType := *exprType.Elem
+		_, err := ctx.Scope.Add(ctx, symbol.Symbol{
+			Name: name,
+			Kind: symbol.KindLoopVariable,
+			Type: elemType,
+			AST:  clause,
+		})
+		if err != nil {
+			ctx.Diagnostics.Add(diagnostics.Error(err, ctx.AST))
+			return
+		}
+		addHiddenLocals(ctx, clause)
+		return
+	}
+
+	ctx.Diagnostics.Add(diagnostics.Errorf(
+		ctx.AST,
+		"cannot iterate over %s; did you mean range(%s)?",
+		exprType,
+		parser.GetExpressionText(expr),
+	))
+}
+
+func analyzeForTwoIdent(
+	ctx context.Context[parser.IForStatementContext],
+	clause parser.IForClauseContext,
+	idents []antlr.TerminalNode,
+	expr parser.IExpressionContext,
+) {
+	indexName := idents[0].GetText()
+	elemName := idents[1].GetText()
+
+	expression.Analyze(context.Child(ctx, expr))
+	exprType := atypes.InferFromExpression(context.Child(ctx, expr))
+
+	if exprType.Kind != types.KindSeries || exprType.Elem == nil {
+		ctx.Diagnostics.Add(diagnostics.Errorf(
+			ctx.AST,
+			"two-variable for loop requires a series, got %s",
+			exprType,
+		))
+		return
+	}
+
+	elemType := *exprType.Elem
+
+	_, err := ctx.Scope.Add(ctx, symbol.Symbol{
+		Name: indexName,
+		Kind: symbol.KindLoopVariable,
+		Type: types.I32(),
+		AST:  clause,
+	})
+	if err != nil {
+		ctx.Diagnostics.Add(diagnostics.Error(err, ctx.AST))
+		return
+	}
+
+	_, err = ctx.Scope.Add(ctx, symbol.Symbol{
+		Name: elemName,
+		Kind: symbol.KindLoopVariable,
+		Type: elemType,
+		AST:  clause,
+	})
+	if err != nil {
+		ctx.Diagnostics.Add(diagnostics.Error(err, ctx.AST))
+		return
+	}
+
+	addHiddenLocals(ctx, clause)
+}
+
+func analyzeForRange(
+	ctx context.Context[parser.IForStatementContext],
+	clause parser.IForClauseContext,
+	name string,
+	funcCall parser.IFunctionCallSuffixContext,
+) {
+	args := funcCall.ArgumentList()
+	if args == nil {
+		ctx.Diagnostics.Add(diagnostics.Errorf(
+			ctx.AST, "range() requires 1 to 3 arguments",
+		))
+		return
+	}
+
+	argExprs := args.AllExpression()
+	if len(argExprs) < 1 || len(argExprs) > 3 {
+		ctx.Diagnostics.Add(diagnostics.Errorf(
+			ctx.AST, "range() requires 1 to 3 arguments, got %d",
+			len(argExprs),
+		))
+		return
+	}
+
+	var rangeType types.Type
+	for i, argExpr := range argExprs {
+		expression.Analyze(context.Child(ctx, argExpr))
+		argType := atypes.InferFromExpression(context.Child(ctx, argExpr))
+		if !argType.IsValid() {
+			return
+		}
+		if !argType.IsInteger() && !isIntegerLiteral(argType) {
+			ctx.Diagnostics.Add(diagnostics.Errorf(
+				ctx.AST,
+				"range() argument %d must be an integer type, got %s",
+				i+1, argType,
+			))
+			return
+		}
+		if i == 0 {
+			rangeType = argType
+		}
+	}
+
+	loopVarType := rangeType
+	if isIntegerLiteral(loopVarType) {
+		loopVarType = types.I64()
+	}
+
+	_, err := ctx.Scope.Add(ctx, symbol.Symbol{
+		Name: name,
+		Kind: symbol.KindLoopVariable,
+		Type: loopVarType,
+		AST:  clause,
+	})
+	if err != nil {
+		ctx.Diagnostics.Add(diagnostics.Error(err, ctx.AST))
+		return
+	}
+
+	addHiddenLocal(ctx, clause, "__for_limit", loopVarType)
+	if len(argExprs) >= 3 {
+		addHiddenLocal(ctx, clause, "__for_step", loopVarType)
+	}
+}
+
+func isIntegerLiteral(t types.Type) bool {
+	return t.Kind == types.KindVariable &&
+		t.Constraint != nil &&
+		(t.Constraint.Kind == types.KindIntegerConstant ||
+			t.Constraint.Kind == types.KindNumericConstant)
+}
+
+func addHiddenLocals(
+	ctx context.Context[parser.IForStatementContext],
+	clause parser.IForClauseContext,
+) {
+	addHiddenLocal(ctx, clause, "__for_handle", types.I32())
+	addHiddenLocal(ctx, clause, "__for_len", types.I32())
+	addHiddenLocal(ctx, clause, "__for_idx", types.I32())
+}
+
+func addHiddenLocal(
+	ctx context.Context[parser.IForStatementContext],
+	clause parser.IForClauseContext,
+	name string,
+	t types.Type,
+) {
+	// Add with an empty name so Scope.Add skips the parent-scope name conflict
+	// check. Without this, nested loops fail because the inner loop's hidden local
+	// (e.g. __for_limit) conflicts with the identically-named local in the outer
+	// loop scope, causing Add to silently fail and the inner loop to share the
+	// outer loop's limit variable.
+	child, _ := ctx.Scope.Add(ctx, symbol.Symbol{
+		Kind: symbol.KindVariable,
+		Type: t,
+		AST:  clause,
+	})
+	if child != nil {
+		child.Name = name
+	}
+}
+
+func analyzeBreakStatement(ctx context.Context[parser.IBreakStatementContext]) {
+	_, err := ctx.Scope.ClosestAncestorOfKind(symbol.KindLoop)
+	if err != nil {
+		ctx.Diagnostics.Add(diagnostics.Errorf(
+			ctx.AST,
+			"break can only be used inside a for loop",
+		))
+	}
+}
+
+func analyzeContinueStatement(ctx context.Context[parser.IContinueStatementContext]) {
+	_, err := ctx.Scope.ClosestAncestorOfKind(symbol.KindLoop)
+	if err != nil {
+		ctx.Diagnostics.Add(diagnostics.Errorf(
+			ctx.AST,
+			"continue can only be used inside a for loop",
+		))
 	}
 }
 
@@ -713,6 +992,13 @@ func analyzeAssignment(ctx context.Context[parser.IAssignmentContext]) {
 	varScope, err := ctx.Scope.Resolve(ctx, name)
 	if err != nil {
 		ctx.Diagnostics.Add(diagnostics.Error(err, ctx.AST))
+		return
+	}
+
+	if varScope.Kind == symbol.KindLoopVariable {
+		ctx.Diagnostics.Add(diagnostics.Errorf(
+			ctx.AST, "cannot assign to loop variable '%s'", name,
+		))
 		return
 	}
 

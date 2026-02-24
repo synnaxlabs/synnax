@@ -55,7 +55,7 @@ func collectFoldingRanges(scope *symbol.Scope, ranges *[]protocol.FoldingRange) 
 
 func isFoldableKind(kind symbol.Kind) bool {
 	switch kind {
-	case symbol.KindFunction, symbol.KindSequence, symbol.KindStage:
+	case symbol.KindFunction, symbol.KindSequence, symbol.KindStage, symbol.KindLoop:
 		return true
 	default:
 		return false
@@ -64,7 +64,7 @@ func isFoldableKind(kind symbol.Kind) bool {
 
 func foldingRangeKind(kind symbol.Kind) protocol.FoldingRangeKind {
 	switch kind {
-	case symbol.KindFunction, symbol.KindSequence, symbol.KindStage:
+	case symbol.KindFunction, symbol.KindSequence, symbol.KindStage, symbol.KindLoop:
 		return protocol.RegionFoldingRange
 	default:
 		return protocol.RegionFoldingRange

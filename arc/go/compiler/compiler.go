@@ -197,9 +197,10 @@ func collectLocals(scope *symbol.Scope) []wasm.ValueType {
 	var locals []wasm.ValueType
 	for _, child := range scope.Children {
 		switch child.Kind {
-		case symbol.KindVariable, symbol.KindStatefulVariable, symbol.KindOutput:
+		case symbol.KindVariable, symbol.KindStatefulVariable,
+			symbol.KindOutput, symbol.KindLoopVariable:
 			locals = append(locals, wasm.ConvertType(child.Type))
-		case symbol.KindBlock:
+		case symbol.KindBlock, symbol.KindLoop:
 			locals = append(locals, collectLocals(child)...)
 		default:
 		}
