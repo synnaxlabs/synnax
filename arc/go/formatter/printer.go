@@ -35,22 +35,25 @@ const (
 )
 
 type printer struct {
-	output             strings.Builder
-	indentLevel        int
-	linePos            int
-	lastTokenType      int
-	prevToken          antlr.Token
-	needsSpace         bool
-	atLineStart        bool
-	prevLine           int
-	lastWasUnaryMinus  bool
-	indentCache        []string
-	delimiterStack     []int
-	braceContextStack  []braceContext
-	parenContextStack  []parenContext
-	inlineConfigValues bool
-	inlineConfigBlock  bool
-	multilineParens    map[int]bool // tracks which paren depth levels are multiline
+	output                 strings.Builder
+	indentLevel            int
+	linePos                int
+	lastTokenType          int
+	prevToken              antlr.Token
+	needsSpace             bool
+	atLineStart            bool
+	prevLine               int
+	lastWasUnaryMinus      bool
+	indentCache            []string
+	delimiterStack         []int
+	braceContextStack      []braceContext
+	parenContextStack      []parenContext
+	inlineConfigValues     bool
+	inlineConfigBlock      bool
+	multilineParens        map[int]bool // tracks which paren depth levels are multiline
+	allComments            []antlr.Token
+	pendingTrailingComment string
+	pendingBreak           bool
 }
 
 const maxCachedIndentLevel = 16
@@ -70,20 +73,31 @@ func newPrinter() *printer {
 func (p *printer) print(tokens []antlr.Token) string {
 	visibleTokens, comments := p.separateTokens(tokens)
 	visibleTokens = reorderAuthorityEntries(visibleTokens)
+	p.allComments = comments
 	commentAttacher := newCommentAttacher(comments)
 
 	for i, tok := range visibleTokens {
 		if tok.GetTokenType() == antlr.TokenEOF {
+			p.flushPendingLineEnd()
 			p.emitTrailingComments(commentAttacher)
 			continue
 		}
 
+		p.flushPendingLineEnd()
 		p.emitToken(tok, i, visibleTokens, commentAttacher)
+		if p.shouldAddTrailingComma(tok, i, visibleTokens) {
+			p.emitChar(",")
+		}
 		if p.isLastTokenOnLine(tok, i, visibleTokens) {
-			p.emitTrailingComment(commentAttacher, tok)
+			trailing := commentAttacher.getTrailingComment(tok)
+			if trailing != nil {
+				p.pendingTrailingComment = " " + strings.TrimSpace(trailing.GetText())
+			}
 		}
 		p.prevToken = tok
 	}
+
+	p.flushPendingLineEnd()
 
 	return strings.TrimRight(p.output.String(), " \t") + "\n"
 }
@@ -122,12 +136,85 @@ func (p *printer) emitLeadingCommentsPreFetched(comments []antlr.Token) {
 	}
 }
 
-func (p *printer) emitTrailingComment(ca *commentAttacher, tok antlr.Token) {
-	trailing := ca.getTrailingComment(tok)
-	if trailing != nil {
-		p.output.WriteString(" ")
-		p.output.WriteString(strings.TrimSpace(trailing.GetText()))
+func (p *printer) flushPendingTrailingComment() {
+	if p.pendingTrailingComment != "" {
+		p.output.WriteString(p.pendingTrailingComment)
+		p.pendingTrailingComment = ""
 	}
+}
+
+func (p *printer) flushPendingLineEnd() {
+	p.flushPendingTrailingComment()
+	if p.pendingBreak {
+		p.writeNewline()
+		p.pendingBreak = false
+	}
+}
+
+func (p *printer) shouldAddTrailingComma(tok antlr.Token, idx int, tokens []antlr.Token) bool {
+	tokType := tok.GetTokenType()
+	if tokType == parser.ArcLexerCOMMA || tokType == parser.ArcLexerLBRACE ||
+		tokType == parser.ArcLexerLPAREN {
+		return false
+	}
+	if idx+1 >= len(tokens) {
+		return false
+	}
+	nextType := tokens[idx+1].GetTokenType()
+
+	if nextType == parser.ArcLexerRBRACE && len(p.braceContextStack) > 0 {
+		ctx := p.braceContextStack[len(p.braceContextStack)-1]
+		if ctx == braceContextConfigBlock && !p.inlineConfigBlock {
+			return true
+		}
+		if ctx == braceContextStageBody {
+			return true
+		}
+	}
+
+	if nextType == parser.ArcLexerRPAREN {
+		depth := len(p.parenContextStack)
+		if p.multilineParens[depth] && len(p.parenContextStack) > 0 {
+			ctx := p.parenContextStack[len(p.parenContextStack)-1]
+			if ctx == parenContextInputList || ctx == parenContextMultiOutput {
+				return true
+			}
+		}
+	}
+
+	return false
+}
+
+func (p *printer) hasCommentsInBlock(idx int, tokens []antlr.Token) bool {
+	endIdx := p.blockEndIdx(idx, tokens)
+	if endIdx == -1 {
+		return false
+	}
+	openStop := tokens[idx].GetStop()
+	closeStart := tokens[endIdx].GetStart()
+	for _, c := range p.allComments {
+		cStart := c.GetStart()
+		if cStart > openStop && cStart < closeStart {
+			return true
+		}
+	}
+	return false
+}
+
+func (p *printer) blockEndIdx(idx int, tokens []antlr.Token) int {
+	braceDepth := 1
+	for i := idx + 1; i < len(tokens); i++ {
+		switch tokens[i].GetTokenType() {
+		case parser.ArcLexerLBRACE:
+			braceDepth++
+		case parser.ArcLexerRBRACE:
+			braceDepth--
+			if braceDepth == 0 {
+				return i
+			}
+		}
+	}
+	return -1
 }
 
 func (p *printer) emitTrailingComments(ca *commentAttacher) {
@@ -153,6 +240,9 @@ func (p *printer) emitToken(tok antlr.Token, idx int, tokens []antlr.Token, ca *
 		if p.inAuthorityParenContext() {
 			// Skip general newline handling inside authority blocks;
 			// entry formatting handles newlines independently.
+		} else if (p.inlineConfigBlock && p.inConfigBlockContext()) ||
+			(p.inlineConfigValues && p.inConfigValuesContext()) {
+			// Skip - inline contexts don't break on original line positions.
 		} else if tokType != parser.ArcLexerRBRACE || hasLeadingComments {
 			p.writeNewline()
 			if !hasLeadingComments {
@@ -271,11 +361,17 @@ func (p *printer) hasAssignInBraceBlock(idx int, tokens []antlr.Token) bool {
 }
 
 func (p *printer) shouldInlineConfigValues(idx int, tokens []antlr.Token) bool {
+	if p.hasCommentsInBlock(idx, tokens) {
+		return false
+	}
 	length := p.calculateConfigValuesLength(idx, tokens)
 	return length <= maxLineLength
 }
 
 func (p *printer) shouldInlineConfigBlock(idx int, tokens []antlr.Token) bool {
+	if p.hasCommentsInBlock(idx, tokens) {
+		return false
+	}
 	length := p.calculateConfigBlockLength(idx, tokens)
 	return length <= maxLineLength
 }
@@ -418,11 +514,7 @@ func (p *printer) handleCloseBrace(idx int, tokens []antlr.Token) {
 
 	isEmptyBlock := idx > 0 && tokens[idx-1].GetTokenType() == parser.ArcLexerLBRACE
 	if !isEmptyBlock {
-		// Add trailing comma for multi-line config blocks and stage bodies
-		if (ctx == braceContextConfigBlock || ctx == braceContextStageBody) &&
-			p.lastTokenType != parser.ArcLexerCOMMA {
-			p.emitChar(",")
-		}
+		p.flushPendingTrailingComment()
 		p.indentLevel--
 		if p.indentLevel < 0 {
 			p.indentLevel = 0
@@ -488,18 +580,14 @@ func (p *printer) handleOpenParen(idx int, tokens []antlr.Token) {
 
 func (p *printer) handleCloseParen(idx int, tokens []antlr.Token) {
 	p.popDelimiter()
-	ctx := p.popParenContext()
+	p.popParenContext()
 	depth := len(p.parenContextStack) + 1
 
 	if p.multilineParens[depth] {
 		delete(p.multilineParens, depth)
 		isEmptyList := idx > 0 && tokens[idx-1].GetTokenType() == parser.ArcLexerLPAREN
 		if !isEmptyList {
-			// Add trailing comma for multiline paren lists
-			if (ctx == parenContextInputList || ctx == parenContextMultiOutput) &&
-				p.lastTokenType != parser.ArcLexerCOMMA {
-				p.emitChar(",")
-			}
+			p.flushPendingTrailingComment()
 			p.indentLevel--
 			if p.indentLevel < 0 {
 				p.indentLevel = 0
@@ -667,7 +755,7 @@ func (p *printer) handleCloseBracket() {
 func (p *printer) handleComma() {
 	p.emitChar(",")
 	if p.shouldBreakAfterComma() {
-		p.writeNewline()
+		p.pendingBreak = true
 	} else {
 		p.needsSpace = true
 	}
