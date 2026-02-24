@@ -26,6 +26,7 @@ import (
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/kv"
 	"github.com/synnaxlabs/x/observe"
+	"github.com/synnaxlabs/x/query"
 	"github.com/synnaxlabs/x/telem"
 	"go.uber.org/zap"
 )
@@ -128,6 +129,7 @@ func (d db) Set(ctx context.Context, key, value []byte, opts ...any) error {
 	// Hot path: if we don't need to notify observers of changes, then go straight
 	// to the underlying DB.
 	if d.Observer == nil {
+		//fmt.Println(string(key))
 		return translateError(d.DB.Set(key, value, parseOpts(opts)))
 	}
 	return d.withTx(ctx, func(tx kv.Tx) error {
@@ -278,7 +280,7 @@ func parseIterOpts(opts kv.IteratorOptions) *pebble.IterOptions {
 
 func translateError(err error) error {
 	if errors.Is(err, pebble.ErrNotFound) {
-		return kv.ErrNotFound
+		return errors.WithStack(query.ErrNotFound)
 	}
 	return err
 }

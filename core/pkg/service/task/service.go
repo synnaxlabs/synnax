@@ -93,8 +93,9 @@ func (c ServiceConfig) Validate() error {
 type Service struct {
 	cfg                           ServiceConfig
 	shutdownSignals               io.Closer
-	disconnectSuspectRackObserver observe.Disconnect
 	group                         group.Group
+	disconnectSuspectRackObserver observe.Disconnect
+	table                         *gorp.Table[Key, Task]
 	commandChannelKey             channel.Key
 }
 
@@ -103,11 +104,15 @@ func OpenService(ctx context.Context, configs ...ServiceConfig) (*Service, error
 	if err != nil {
 		return nil, err
 	}
+	table, err := gorp.OpenTable[Key, Task](ctx, cfg.DB)
+	if err != nil {
+		return nil, err
+	}
 	g, err := cfg.Group.CreateOrRetrieve(ctx, "Tasks", ontology.RootID)
 	if err != nil {
 		return nil, err
 	}
-	s := &Service{cfg: cfg, group: g}
+	s := &Service{cfg: cfg, group: g, table: table}
 	cfg.Ontology.RegisterService(s)
 	s.cleanupInternalOntologyResources(ctx)
 	if err := s.migrateStatusesForExistingTasks(ctx); err != nil {
@@ -166,9 +171,9 @@ func (s *Service) cleanupInternalOntologyResources(ctx context.Context) {
 func (s *Service) Close() error {
 	s.disconnectSuspectRackObserver()
 	if s.shutdownSignals != nil {
-		return s.shutdownSignals.Close()
+		return errors.Combine(s.shutdownSignals.Close(), s.table.Close())
 	}
-	return nil
+	return s.table.Close()
 }
 
 func (s *Service) NewWriter(tx gorp.Tx) Writer {

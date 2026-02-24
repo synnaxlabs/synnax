@@ -18,7 +18,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
 )
 
-var _ = Describe("retrieveResource", func() {
+var _ = Describe("Retrieve", func() {
 	var w ontology.Writer
 	BeforeEach(func() { w = otg.NewWriter(tx) })
 	Describe("Single Clause", func() {
@@ -169,6 +169,76 @@ var _ = Describe("retrieveResource", func() {
 		})
 	})
 
+	Describe("Multi-hop traversal with intermediate filters", func() {
+		// Regression test for issue where intermediate clauses with filters
+		// but no bound entries would silently drop results because gorp.NewRetrieve
+		// created unbound entries that couldn't store query results.
+		It("Should traverse through intermediate filtered clauses without bound entries", func() {
+			// Create a hierarchy: grandparent -> parent -> child
+			// We'll query: grandparent -> TraverseTo(Children) -> WhereTypes(sample) -> TraverseTo(Children) -> Entries
+			grandparent := newSampleType("grandparent")
+			parent := newSampleType("parent")
+			child := newSampleType("child")
+
+			Expect(w.DefineResource(ctx, grandparent)).To(Succeed())
+			Expect(w.DefineResource(ctx, parent)).To(Succeed())
+			Expect(w.DefineResource(ctx, child)).To(Succeed())
+			Expect(w.DefineRelationship(ctx, grandparent, ontology.RelationshipTypeParentOf, parent)).To(Succeed())
+			Expect(w.DefineRelationship(ctx, parent, ontology.RelationshipTypeParentOf, child)).To(Succeed())
+
+			// This query pattern has an intermediate clause (WhereTypes) with no bound entries
+			var results []ontology.Resource
+			Expect(w.NewRetrieve().
+				WhereIDs(grandparent).
+				TraverseTo(ontology.ChildrenTraverser).
+				WhereTypes(sampleOntologyType). // Intermediate filter, no Entries() bound
+				TraverseTo(ontology.ChildrenTraverser).
+				WhereTypes(sampleOntologyType).
+				Entries(&results). // Only final clause has entries
+				Exec(ctx, tx),
+			).To(Succeed())
+
+			Expect(results).To(HaveLen(1))
+			var res Sample
+			Expect(results[0].Parse(&res)).To(Succeed())
+			Expect(res.Key).To(Equal("child"))
+		})
+
+		It("Should traverse through multiple intermediate filtered clauses", func() {
+			// Create a 4-level hierarchy: A -> B -> C -> D
+			a := newSampleType("level-A")
+			b := newSampleType("level-B")
+			c := newSampleType("level-C")
+			d := newSampleType("level-D")
+
+			Expect(w.DefineResource(ctx, a)).To(Succeed())
+			Expect(w.DefineResource(ctx, b)).To(Succeed())
+			Expect(w.DefineResource(ctx, c)).To(Succeed())
+			Expect(w.DefineResource(ctx, d)).To(Succeed())
+			Expect(w.DefineRelationship(ctx, a, ontology.RelationshipTypeParentOf, b)).To(Succeed())
+			Expect(w.DefineRelationship(ctx, b, ontology.RelationshipTypeParentOf, c)).To(Succeed())
+			Expect(w.DefineRelationship(ctx, c, ontology.RelationshipTypeParentOf, d)).To(Succeed())
+
+			// Multiple intermediate clauses with filters, no bound entries
+			var results []ontology.Resource
+			Expect(w.NewRetrieve().
+				WhereIDs(a).
+				TraverseTo(ontology.ChildrenTraverser).
+				WhereTypes(sampleOntologyType). // Intermediate filter #1
+				TraverseTo(ontology.ChildrenTraverser).
+				WhereTypes(sampleOntologyType). // Intermediate filter #2
+				TraverseTo(ontology.ChildrenTraverser).
+				Entries(&results). // Only final clause has entries
+				Exec(ctx, tx),
+			).To(Succeed())
+
+			Expect(results).To(HaveLen(1))
+			var res Sample
+			Expect(results[0].Parse(&res)).To(Succeed())
+			Expect(res.Key).To(Equal("level-D"))
+		})
+	})
+
 	Describe("Limit + Offset", func() {
 		It("Should page through resources in order", func() {
 			ids := make([]ontology.ID, 10)
@@ -195,6 +265,130 @@ var _ = Describe("retrieveResource", func() {
 			r1Keys := lo.Map(r, mapKeys)
 			r2Keys := lo.Map(r2, mapKeys)
 			Expect(lo.Intersect(r1Keys, r2Keys)).To(BeEmpty())
+		})
+	})
+
+	Describe("WhereTypes", func() {
+		It("Should retrieve resources of a single type using prefix matching", func() {
+			a := newSampleType("type-filter-A")
+			b := newSampleType("type-filter-B")
+			Expect(w.DefineResource(ctx, a)).To(Succeed())
+			Expect(w.DefineResource(ctx, b)).To(Succeed())
+			var r []ontology.Resource
+			Expect(w.NewRetrieve().
+				WhereTypes(sampleOntologyType).
+				Entries(&r).
+				Exec(ctx, tx),
+			).To(Succeed())
+			Expect(len(r)).To(BeNumerically(">=", 2))
+			types := lo.Map(r, func(res ontology.Resource, _ int) ontology.Type {
+				return res.ID.Type
+			})
+			for _, t := range types {
+				Expect(t).To(Equal(sampleOntologyType))
+			}
+		})
+
+		It("Should return empty results when filtering by non-existent type", func() {
+			Expect(w.DefineResource(ctx, newSampleType("type-filter-C"))).To(Succeed())
+			nonExistentType := ontology.Type("nonexistent")
+			var r []ontology.Resource
+			Expect(w.NewRetrieve().
+				WhereTypes(nonExistentType).
+				Entries(&r).
+				Exec(ctx, tx),
+			).To(Succeed())
+			Expect(r).To(BeEmpty())
+		})
+
+		It("Should retrieve resources matching any of multiple types using filter function", func() {
+			a := newSampleType("multi-type-A")
+			b := newSampleType("multi-type-B")
+			Expect(w.DefineResource(ctx, a)).To(Succeed())
+			Expect(w.DefineResource(ctx, b)).To(Succeed())
+			otherType := ontology.Type("other")
+			var r []ontology.Resource
+			Expect(w.NewRetrieve().
+				WhereTypes(sampleOntologyType, otherType).
+				Entries(&r).
+				Exec(ctx, tx),
+			).To(Succeed())
+			Expect(len(r)).To(BeNumerically(">=", 2))
+			for _, res := range r {
+				Expect(res.ID.Type).To(BeElementOf(sampleOntologyType, otherType))
+			}
+		})
+
+		It("Should return empty when none of the multiple types match", func() {
+			Expect(w.DefineResource(ctx, newSampleType("multi-type-none"))).To(Succeed())
+			var r []ontology.Resource
+			Expect(w.NewRetrieve().
+				WhereTypes(ontology.Type("foo"), ontology.Type("bar")).
+				Entries(&r).
+				Exec(ctx, tx),
+			).To(Succeed())
+			Expect(r).To(BeEmpty())
+		})
+
+		It("Should combine WhereTypes with WhereIDs", func() {
+			a := newSampleType("combined-A")
+			b := newSampleType("combined-B")
+			Expect(w.DefineResource(ctx, a)).To(Succeed())
+			Expect(w.DefineResource(ctx, b)).To(Succeed())
+			var r []ontology.Resource
+			Expect(w.NewRetrieve().
+				WhereIDs(a, b).
+				WhereTypes(sampleOntologyType).
+				Entries(&r).
+				Exec(ctx, tx),
+			).To(Succeed())
+			Expect(len(r)).To(Equal(2))
+			ids := lo.Map(r, func(res ontology.Resource, _ int) ontology.ID {
+				return res.ID
+			})
+			Expect(ids).To(ContainElements(a, b))
+		})
+
+		It("Should filter out resources when WhereIDs and WhereTypes don't overlap using filter function", func() {
+			a := newSampleType("no-overlap-A")
+			Expect(w.DefineResource(ctx, a)).To(Succeed())
+			var r []ontology.Resource
+			// Use multiple types to trigger filter function path (not prefix matching)
+			Expect(w.NewRetrieve().
+				WhereIDs(a).
+				WhereTypes(ontology.Type("different"), ontology.Type("another")).
+				Entries(&r).
+				Exec(ctx, tx),
+			).To(Succeed())
+			Expect(r).To(BeEmpty())
+		})
+
+		It("Should work with Limit when using single type prefix matching", func() {
+			for i := 0; i < 5; i++ {
+				Expect(w.DefineResource(ctx, newSampleType("limit-type-"+strconv.Itoa(i)))).To(Succeed())
+			}
+			var r []ontology.Resource
+			Expect(w.NewRetrieve().
+				WhereTypes(sampleOntologyType).
+				Limit(3).
+				Entries(&r).
+				Exec(ctx, tx),
+			).To(Succeed())
+			Expect(len(r)).To(Equal(3))
+		})
+
+		It("Should work with Limit when using multiple types filter", func() {
+			for i := 0; i < 5; i++ {
+				Expect(w.DefineResource(ctx, newSampleType("limit-multi-"+strconv.Itoa(i)))).To(Succeed())
+			}
+			var r []ontology.Resource
+			Expect(w.NewRetrieve().
+				WhereTypes(sampleOntologyType, ontology.Type("other")).
+				Limit(3).
+				Entries(&r).
+				Exec(ctx, tx),
+			).To(Succeed())
+			Expect(len(r)).To(Equal(3))
 		})
 	})
 })

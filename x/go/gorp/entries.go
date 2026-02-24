@@ -10,17 +10,16 @@
 package gorp
 
 import (
-	"context"
+	"bytes"
+	"encoding/binary"
+	"unsafe"
 
-	"github.com/samber/lo"
-	"github.com/synnaxlabs/x/binary"
-	"github.com/synnaxlabs/x/query"
 	"github.com/synnaxlabs/x/types"
 	"go.uber.org/zap"
 )
 
 // Key is a unique key for an entry of a particular type.
-type Key any
+type Key types.Primitive
 
 // Entry is a go type that can be queried against a DB. All go types must implement the Entry
 // interface so that they can be stored. Entry must be serializable by the Encodings and decoder
@@ -40,8 +39,6 @@ func entryKeys[K Key, E Entry[K]](entries []E) []K {
 	}
 	return keys
 }
-
-const entriesOptKey query.Parameter = "entries"
 
 // Entries is a query option used to bind entities from a retrieve query or
 // write values to a create query.
@@ -92,7 +89,7 @@ func (e *Entries[K, E]) Set(i int, entry E) {
 		}
 		(*e.entries)[i] = entry
 		e.changes++
-	} else if i == 0 {
+	} else if i == 0 && e.entry != nil {
 		*e.entry = entry
 		e.changes++
 	}
@@ -117,6 +114,9 @@ func (e *Entries[K, E]) MapInPlace(f func(E) (E, bool, error)) error {
 		}
 		*e.entries = nEntries
 		e.changes += len(nEntries)
+		return nil
+	}
+	if e.entry == nil {
 		return nil
 	}
 	n, ok, err := f(*e.entry)
@@ -151,89 +151,143 @@ func (e *Entries[K, E]) Keys() []K {
 	return entryKeys(e.All())
 }
 
-func (e *Entries[K, E]) Any() bool {
+// Bound returns true if entries binding was set on the query.
+func (e *Entries[K, E]) Bound() bool {
 	if e.isMultiple {
-		return len(*e.entries) > 0
+		return e.entries != nil
 	}
 	return e.entry != nil
 }
 
+// IsMultiple returns true if multiple entries were bound to the query.
 func (e *Entries[K, E]) IsMultiple() bool { return e.isMultiple }
 
-// SetEntry sets the entry that the query will fill results into or write results to.
-//
-//	Calls to SetEntry will override All previous calls to SetEntry or SetEntries.
-func SetEntry[K Key, E Entry[K]](q query.Parameters, entry *E) {
-	q.Set(entriesOptKey, &Entries[K, E]{entry: entry, isMultiple: false})
+func singleEntry[K Key, E Entry[K]](entry *E) *Entries[K, E] {
+	return &Entries[K, E]{entry: entry, isMultiple: false}
 }
 
-// SetEntries sets the entries that the query will fill results into or write results to.
-// Calls to SetEntries will override All previous calls to SetEntry or SetEntries.
-func SetEntries[K Key, E Entry[K]](q query.Parameters, e *[]E) {
-	q.Set(entriesOptKey, &Entries[K, E]{entries: e, isMultiple: true})
+func multipleEntries[K Key, E Entry[K]](entries *[]E) *Entries[K, E] {
+	return &Entries[K, E]{entries: entries, isMultiple: true}
 }
 
-// GetEntries returns the entries that the query will fill results into or write
-// results from.
-func GetEntries[K Key, E Entry[K]](q query.Parameters) *Entries[K, E] {
-	re, ok := q.Get(entriesOptKey)
-	if !ok {
-		SetEntries(q, &[]E{})
-		return GetEntries[K, E](q)
+const magicPrefix = "__gorp__//"
+
+type keyCodec[K Key, E Entry[K]] struct {
+	prefix  []byte
+	keySize int
+	buf     []byte
+}
+
+func newKeyCodec[K Key, E Entry[K]]() *keyCodec[K, E] {
+	c := &keyCodec[K, E]{prefix: []byte(magicPrefix + types.Name[E]())}
+	var zero K
+	switch any(zero).(type) {
+	case string, []byte:
+	default:
+		c.keySize = int(unsafe.Sizeof(zero))
+		c.buf = make([]byte, len(c.prefix)+c.keySize)
+		copy(c.buf, c.prefix)
 	}
-	return re.(*Entries[K, E])
+	return c
 }
 
-// HasEntries returns true if entries have been explicitly bound to the query via
-// SetEntry or SetEntries. Unlike GetEntries, this does not create a new entries
-// binding if one doesn't exist.
-func HasEntries[K Key, E Entry[K]](q query.Parameters) bool {
-	_, ok := q.Get(entriesOptKey)
-	return ok
-}
-
-func prefix[K Key, E Entry[K]](ctx context.Context, encoder binary.Encoder) []byte {
-	return lo.Must(encoder.Encode(ctx, types.Name[E]()))
-}
-
-type lazyPrefix[K Key, E Entry[K]] struct {
-	Tools
-	_prefix []byte
-}
-
-func (lp *lazyPrefix[K, E]) prefix(ctx context.Context) []byte {
-	if lp._prefix == nil {
-		lp._prefix = prefix[K, E](ctx, lp)
+func (k *keyCodec[K, E]) encode(key K) []byte {
+	if k.keySize > 0 {
+		k.putBigEndian(k.buf[len(k.prefix):], key)
+		return k.buf
 	}
-	return lp._prefix
+	switch v := any(key).(type) {
+	case string:
+		out := make([]byte, len(k.prefix)+len(v))
+		copy(out, k.prefix)
+		copy(out[len(k.prefix):], v)
+		return out
+	case []byte:
+		out := make([]byte, len(k.prefix)+len(v))
+		copy(out, k.prefix)
+		copy(out[len(k.prefix):], v)
+		return out
+	default:
+		panic("unreachable")
+	}
 }
 
-func encodeKey[K Key](
-	ctx context.Context,
-	encoder binary.Encoder,
-	prefix []byte,
-	key K,
-) ([]byte, error) {
-	// if the key is already a byte slice, we can just append it to the prefix
-	if b, ok := any(key).([]byte); ok {
-		return append(prefix, b...), nil
+func (k *keyCodec[K, E]) decode(b []byte) K {
+	b = b[len(k.prefix):]
+	if k.keySize > 0 {
+		return k.getBigEndian(b)
 	}
-	byteKey, err := encoder.Encode(ctx, key)
-	if err != nil {
-		return nil, err
+	var zero K
+	switch any(zero).(type) {
+	case string:
+		return any(string(b)).(K)
+	case []byte:
+		return any(bytes.Clone(b)).(K)
+	default:
+		panic("unreachable")
 	}
-	return append(prefix, byteKey...), nil
 }
 
-func decodeKey[K Key](
-	ctx context.Context,
-	decoder binary.Decoder,
-	prefix []byte,
-	b []byte,
-) (v K, err error) {
-	// if the key is a byte slice, we can just return it
-	if _, ok := any(v).([]byte); ok {
-		return any(b[len(prefix):]).(K), nil
+func (k *keyCodec[K, E]) matchPrefix(prefix []byte, key K) bool {
+	if len(prefix) == 0 {
+		return true
 	}
-	return v, decoder.Decode(ctx, b[len(prefix):], &v)
+	if k.keySize > 0 {
+		if len(prefix) > k.keySize {
+			return false
+		}
+		src := unsafe.Slice((*byte)(unsafe.Pointer(&key)), k.keySize)
+		for i := range len(prefix) {
+			if src[k.keySize-1-i] != prefix[i] {
+				return false
+			}
+		}
+		return true
+	}
+	switch v := any(key).(type) {
+	case string:
+		return len(v) >= len(prefix) && string(prefix) == v[:len(prefix)]
+	case []byte:
+		return bytes.HasPrefix(v, prefix)
+	default:
+		panic("unreachable")
+	}
+}
+
+func (k *keyCodec[K, E]) putBigEndian(dst []byte, key K) {
+	switch k.keySize {
+	case 1:
+		dst[0] = *(*byte)(unsafe.Pointer(&key))
+	case 2:
+		binary.BigEndian.PutUint16(dst, *(*uint16)(unsafe.Pointer(&key)))
+	case 4:
+		binary.BigEndian.PutUint32(dst, *(*uint32)(unsafe.Pointer(&key)))
+	case 8:
+		binary.BigEndian.PutUint64(dst, *(*uint64)(unsafe.Pointer(&key)))
+	default:
+		src := unsafe.Slice((*byte)(unsafe.Pointer(&key)), k.keySize)
+		for i := range k.keySize {
+			dst[i] = src[k.keySize-1-i]
+		}
+	}
+}
+
+func (k *keyCodec[K, E]) getBigEndian(b []byte) K {
+	var out K
+	switch k.keySize {
+	case 1:
+		*(*byte)(unsafe.Pointer(&out)) = b[0]
+	case 2:
+		*(*uint16)(unsafe.Pointer(&out)) = binary.BigEndian.Uint16(b)
+	case 4:
+		*(*uint32)(unsafe.Pointer(&out)) = binary.BigEndian.Uint32(b)
+	case 8:
+		*(*uint64)(unsafe.Pointer(&out)) = binary.BigEndian.Uint64(b)
+	default:
+		dst := unsafe.Slice((*byte)(unsafe.Pointer(&out)), k.keySize)
+		for i := range k.keySize {
+			dst[i] = b[k.keySize-1-i]
+		}
+	}
+	return out
 }

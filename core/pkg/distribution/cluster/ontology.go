@@ -77,7 +77,7 @@ func (s *NodeOntologyService) ListenForChanges(ctx context.Context) {
 func translateNodeChange(ch NodeChange, _ int) ontology.Change {
 	return ontology.Change{
 		Variant: ch.Variant,
-		Key:     NodeOntologyID(ch.Key),
+		Key:     NodeOntologyID(ch.Key).String(),
 		Value:   newNodeResource(ch.Value),
 	}
 }

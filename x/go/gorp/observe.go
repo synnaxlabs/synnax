@@ -20,27 +20,33 @@ import (
 	"go.uber.org/zap"
 )
 
+// Observe wraps an observable key-value store and returns an observable that notifies
+// its caller whenever a change is made to the provided entry type.
 func Observe[K Key, E Entry[K]](kvo BaseObservable) observe.Observable[iter.Seq[change.Change[K, E]]] {
-	lp := &lazyPrefix[K, E]{Tools: kvo}
+	kCodec := newKeyCodec[K, E]()
 	return observe.Translator[kv.TxReader, TxReader[K, E]]{
 		Observable: kvo,
 		Translate: func(ctx context.Context, reader kv.TxReader) (TxReader[K, E], bool) {
-			pref := lp.prefix(ctx)
 			var matched []kv.Change
 			for ch := range reader {
-				if bytes.HasPrefix(ch.Key, pref) {
+				if bytes.HasPrefix(ch.Key, kCodec.prefix) {
 					matched = append(matched, ch)
 				}
 			}
 			if len(matched) == 0 {
 				return nil, false
 			}
-			return wrapMatchedChanges[K, E](ctx, matched, kvo), true
+			return wrapMatchedChanges[K, E](ctx, matched, kCodec, kvo), true
 		},
 	}
 }
 
-func wrapMatchedChanges[K Key, E Entry[K]](ctx context.Context, changes []kv.Change, tools Tools) TxReader[K, E] {
+func wrapMatchedChanges[K Key, E Entry[K]](
+	ctx context.Context,
+	changes []kv.Change,
+	kCodec *keyCodec[K, E],
+	tools Tools,
+) TxReader[K, E] {
 	return func(yield func(change.Change[K, E]) bool) {
 		for _, kvChange := range changes {
 			var op change.Change[K, E]
@@ -52,12 +58,7 @@ func wrapMatchedChanges[K Key, E Entry[K]](ctx context.Context, changes []kv.Cha
 				}
 				op.Key = op.Value.GorpKey()
 			} else {
-				pref := prefix[K, E](ctx, tools)
-				var err error
-				if op.Key, err = decodeKey[K](ctx, tools, pref, kvChange.Key); err != nil {
-					zap.S().DPanic("failed to decode key", zap.Error(err))
-					continue
-				}
+				op.Key = kCodec.decode(kvChange.Key)
 			}
 			if !yield(op) {
 				return

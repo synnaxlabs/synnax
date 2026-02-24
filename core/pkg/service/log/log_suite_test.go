@@ -67,7 +67,7 @@ var _ = BeforeSuite(func() {
 	Expect(userSvc.NewWriter(nil).Create(ctx, &author)).To(Succeed())
 	ws.Author = author.Key
 	Expect(workspaceSvc.NewWriter(nil).Create(ctx, &ws)).To(Succeed())
-	svc = MustSucceed(log.NewService(log.ServiceConfig{
+	svc = MustSucceed(log.OpenService(ctx, log.ServiceConfig{
 		DB:       db,
 		Ontology: otg,
 	}))

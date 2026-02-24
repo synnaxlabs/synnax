@@ -13,19 +13,17 @@ import (
 	"context"
 )
 
-// Writer represents a generalized key-value transaction that executes atomically against
-// an underlying database. DB implements the Writer interface, which will execute
-// queries directly against the DB. To open an isolated transaction against the DB, use
-// cesium.BeginWrite.
+// Writer wraps a key-value writer to provide a strongly typed interface for
+// writing entries to the DB. Writer is NOT safe for concurrent use.
 type Writer[K Key, E Entry[K]] struct {
 	BaseWriter
-	lazyPrefix[K, E]
+	keyCodec *keyCodec[K, E]
 }
 
 // WrapWriter wraps the given key-value writer to provide a strongly
 // typed interface for writing entries to the DB.
 func WrapWriter[K Key, E Entry[K]](base BaseWriter) *Writer[K, E] {
-	return &Writer[K, E]{BaseWriter: base, lazyPrefix: lazyPrefix[K, E]{Tools: base}}
+	return &Writer[K, E]{BaseWriter: base, keyCodec: newKeyCodec[K, E]()}
 }
 
 // Set writes the provided entries to the DB.
@@ -53,19 +51,12 @@ func (w *Writer[K, E]) set(ctx context.Context, entry E) error {
 	if err != nil {
 		return err
 	}
-	prefixedKey, err := encodeKey(ctx, w, w.prefix(ctx), entry.GorpKey())
-	if err != nil {
-		return err
-	}
-	return w.BaseWriter.Set(ctx, prefixedKey, data, entry.SetOptions()...)
+	v := w.keyCodec.encode(entry.GorpKey())
+	return w.BaseWriter.Set(ctx, v, data, entry.SetOptions()...)
 }
 
 func (w *Writer[K, E]) delete(ctx context.Context, key K) error {
-	encodedKey, err := encodeKey(ctx, w, w.prefix(ctx), key)
-	if err != nil {
-		return err
-	}
 	// NOTE: We need to be careful with this operation in the future.
 	// Because we aren't copying prefix, we're modifying the underlying slice.
-	return w.BaseWriter.Delete(ctx, encodedKey)
+	return w.BaseWriter.Delete(ctx, w.keyCodec.encode(key))
 }

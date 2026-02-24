@@ -102,7 +102,10 @@ var _ = Describe("View", func() {
 				Expect(w.CreateMany(ctx, &views)).To(Succeed())
 
 				var retrieved []view.View
-				Expect(svc.NewRetrieve().WhereKeys(views[0].Key, views[1].Key).Entries(&retrieved).Exec(ctx, tx)).To(Succeed())
+				Expect(svc.NewRetrieve().WhereKeys(
+					views[0].Key,
+					views[1].Key,
+				).Entries(&retrieved).Exec(ctx, tx)).To(Succeed())
 				Expect(retrieved).To(HaveLen(2))
 			})
 		})

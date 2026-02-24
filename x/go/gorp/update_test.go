@@ -30,21 +30,21 @@ var _ = Describe("update", func() {
 		tx = db.OpenTx()
 		entries = make([]entry, 10)
 		for i := range 10 {
-			entries[i] = entry{ID: i, Data: "data"}
+			entries[i] = entry{ID: int32(i), Data: "data"}
 		}
-		Expect(gorp.NewCreate[int, entry]().Entries(&entries).Exec(ctx, tx)).To(Succeed())
+		Expect(gorp.NewCreate[int32, entry]().Entries(&entries).Exec(ctx, tx)).To(Succeed())
 	})
 	AfterEach(func() { Expect(tx.Close()).To(Succeed()) })
 
 	It("Should correctly update set of entries", func() {
-		Expect(gorp.NewUpdate[int, entry]().
+		Expect(gorp.NewUpdate[int32, entry]().
 			WhereKeys(entries[0].GorpKey()).
 			Change(func(_ gorp.Context, e entry) entry {
 				e.Data = "new data"
 				return e
 			}).Exec(ctx, tx)).To(Succeed())
 		var res entry
-		Expect(gorp.NewRetrieve[int, entry]().
+		Expect(gorp.NewRetrieve[int32, entry]().
 			WhereKeys(entries[0].GorpKey()).
 			Entry(&res).
 			Exec(ctx, tx)).To(Succeed())
@@ -52,13 +52,13 @@ var _ = Describe("update", func() {
 	})
 
 	It("Should return an error if no change function was specified", func() {
-		Expect(gorp.NewUpdate[int, entry]().
+		Expect(gorp.NewUpdate[int32, entry]().
 			WhereKeys(entries[0].GorpKey()).
 			Exec(ctx, tx)).To(HaveOccurredAs(query.ErrInvalidParameters))
 	})
 
 	It("Should return an error if the the key cannot be found", func() {
-		Expect(gorp.NewUpdate[int, entry]().
+		Expect(gorp.NewUpdate[int32, entry]().
 			WhereKeys(999).
 			Change(func(_ gorp.Context, e entry) entry {
 				e.Data = "new data"
@@ -68,7 +68,7 @@ var _ = Describe("update", func() {
 
 	It("Should pass the correct transaction into the gorp.Context in the where function", func() {
 		count := 0
-		Expect(gorp.NewUpdate[int, entry]().
+		Expect(gorp.NewUpdate[int32, entry]().
 			WhereKeys(entries[0].GorpKey()).
 			Change(func(gCtx gorp.Context, e entry) entry {
 				e.Data = "new data"

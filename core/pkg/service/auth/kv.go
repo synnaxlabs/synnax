@@ -22,7 +22,24 @@ import (
 // KV is a simple key-value backed Authenticator. It saves data to the provided
 // gorp DB. It's important to note that all gorp.tx(s) provided to the Authenticator
 // interface must be spawned from the same gorp DB.
-type KV struct{ DB *gorp.DB }
+type KV struct {
+	DB    *gorp.DB
+	table *gorp.Table[string, SecureCredentials]
+}
+
+// OpenKV opens a new KV authenticator with the given database.
+func OpenKV(ctx context.Context, db *gorp.DB) (*KV, error) {
+	table, err := gorp.OpenTable[string, SecureCredentials](ctx, db)
+	if err != nil {
+		return nil, err
+	}
+	return &KV{DB: db, table: table}, nil
+}
+
+// Close closes the KV authenticator and releases any resources.
+func (db *KV) Close() error {
+	return db.table.Close()
+}
 
 var _ Authenticator = (*KV)(nil)
 

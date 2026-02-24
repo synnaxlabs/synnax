@@ -18,6 +18,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
 	"github.com/synnaxlabs/synnax/pkg/distribution/signals"
 	"github.com/synnaxlabs/x/config"
+	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/gorp"
 	"github.com/synnaxlabs/x/override"
 	"github.com/synnaxlabs/x/validate"
@@ -73,6 +74,7 @@ func (c ServiceConfig) Override(other ServiceConfig) ServiceConfig {
 type Service struct {
 	cfg     ServiceConfig
 	signals io.Closer
+	table   *gorp.Table[uuid.UUID, Label]
 }
 
 // OpenService opens a new label service using the provided configuration. If error
@@ -83,7 +85,11 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (*Service, error) {
 	if err != nil {
 		return nil, err
 	}
-	s := &Service{cfg: cfg}
+	table, err := gorp.OpenTable[uuid.UUID, Label](ctx, cfg.DB)
+	if err != nil {
+		return nil, err
+	}
+	s := &Service{cfg: cfg, table: table}
 	cfg.Ontology.RegisterService(s)
 	if cfg.Signals != nil {
 		s.signals, err = signals.PublishFromGorp(ctx, cfg.Signals, signals.GorpPublisherConfigUUID[Label](cfg.DB))
@@ -98,9 +104,9 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (*Service, error) {
 // Close must be called when the service is no longer needed to prevent resource leaks.
 func (s *Service) Close() error {
 	if s.signals != nil {
-		return s.signals.Close()
+		return errors.Combine(s.signals.Close(), s.table.Close())
 	}
-	return nil
+	return s.table.Close()
 }
 
 // NewRetrieve opens a new Retrieve query to fetch labels.

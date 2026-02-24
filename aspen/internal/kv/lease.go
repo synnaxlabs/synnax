@@ -20,7 +20,7 @@ import (
 	"github.com/synnaxlabs/x/change"
 	"github.com/synnaxlabs/x/confluence"
 	"github.com/synnaxlabs/x/errors"
-	xkv "github.com/synnaxlabs/x/kv"
+	"github.com/synnaxlabs/x/query"
 )
 
 var ErrLeaseNotTransferable = errors.New("[aspen] - cannot transfer lease")
@@ -43,7 +43,7 @@ func (la *leaseAllocator) allocate(ctx context.Context, op Operation) (Operation
 			// we return an error.
 			return op, ErrLeaseNotTransferable
 		}
-	} else if errors.Is(err, xkv.ErrNotFound) && op.Variant == change.VariantSet {
+	} else if errors.Is(err, query.ErrNotFound) && op.Variant == change.VariantSet {
 		if op.Leaseholder == nodeKeyDefaultLeaseholder {
 			// If we can't find the Leaseholder, and the op doesn't have a Leaseholder assigned,
 			// we assign the leaseAlloc to the cluster host.
@@ -51,6 +51,11 @@ func (la *leaseAllocator) allocate(ctx context.Context, op Operation) (Operation
 		}
 		// If we can't find the Leaseholder, and the op has a Leaseholder assigned,
 		// that means it's a new key, so we let it choose its own leaseAlloc.
+	} else if errors.Is(err, query.ErrNotFound) && op.Variant == change.VariantDelete {
+		// The key has no digest (e.g. it was written directly or through a recovery
+		// that didn't persist digests). Assign the host as leaseholder so the delete
+		// can proceed.
+		op.Leaseholder = la.Cluster.HostKey()
 	} else {
 		return op, err
 	}
@@ -59,6 +64,9 @@ func (la *leaseAllocator) allocate(ctx context.Context, op Operation) (Operation
 
 func (la *leaseAllocator) getLease(ctx context.Context, key []byte) (node.Key, error) {
 	digest, err := getDigestFromKV(ctx, la.Engine, key)
+	if err != nil {
+		return 0, err
+	}
 	return digest.Leaseholder, err
 }
 

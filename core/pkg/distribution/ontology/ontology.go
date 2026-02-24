@@ -253,7 +253,7 @@ func (o *Ontology) InitializeSearchIndex(ctx context.Context) error {
 				for ch := range i {
 					o.L.Debug(
 						"updating search index",
-						zap.Stringer("key", ch.Key),
+						zap.String("key", ch.Key),
 						zap.Stringer("type", svc.Type()),
 						zap.Stringer("variant", ch.Variant),
 					)

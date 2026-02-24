@@ -116,11 +116,11 @@ func (t *Tx) flatten(r resource.Resource) bleveDoc {
 func (t *Tx) Apply(changes ...resource.Change) error {
 	for _, ch := range changes {
 		if ch.Variant == change.VariantSet {
-			if err := t.batch.Index(ch.Key.String(), t.flatten(ch.Value)); err != nil {
+			if err := t.batch.Index(ch.Key, t.flatten(ch.Value)); err != nil {
 				return err
 			}
 		} else {
-			t.batch.Delete(ch.Key.String())
+			t.batch.Delete(ch.Key)
 		}
 	}
 	return nil

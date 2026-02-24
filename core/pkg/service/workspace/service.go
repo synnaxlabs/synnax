@@ -18,6 +18,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
 	"github.com/synnaxlabs/synnax/pkg/distribution/signals"
 	"github.com/synnaxlabs/x/config"
+	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/gorp"
 	"github.com/synnaxlabs/x/override"
 	"github.com/synnaxlabs/x/validate"
@@ -57,6 +58,7 @@ func (c ServiceConfig) Validate() error {
 type Service struct {
 	cfg             ServiceConfig
 	shutdownSignals io.Closer
+	table           *gorp.Table[uuid.UUID, Workspace]
 	group           group.Group
 }
 
@@ -65,11 +67,15 @@ func OpenService(ctx context.Context, configs ...ServiceConfig) (*Service, error
 	if err != nil {
 		return nil, err
 	}
+	table, err := gorp.OpenTable[uuid.UUID, Workspace](ctx, cfg.DB)
+	if err != nil {
+		return nil, err
+	}
 	g, err := cfg.Group.CreateOrRetrieve(ctx, "Workspaces", ontology.RootID)
 	if err != nil {
 		return nil, err
 	}
-	s := &Service{cfg: cfg, group: g}
+	s := &Service{cfg: cfg, group: g, table: table}
 	cfg.Ontology.RegisterService(s)
 	if cfg.Signals == nil {
 		return s, nil
@@ -84,7 +90,10 @@ func OpenService(ctx context.Context, configs ...ServiceConfig) (*Service, error
 	return s, nil
 }
 
-func (s *Service) Close() error { return s.shutdownSignals.Close() }
+func (s *Service) Close() error {
+	err := s.shutdownSignals.Close()
+	return errors.Join(err, s.table.Close())
+}
 
 func (s *Service) NewWriter(tx gorp.Tx) Writer {
 	return Writer{
