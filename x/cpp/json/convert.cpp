@@ -239,11 +239,11 @@ string_to_numeric(const std::string &str, const telem::DataType &target) {
 std::pair<telem::SampleValue, errors::Error> to_sample_value(
     const nlohmann::json &value,
     const telem::DataType &target,
-    const ReadOptions &opts
+    TimeFormat time_format
 ) {
     if (target == telem::TIMESTAMP_T) {
         if (value.is_number()) {
-            switch (opts.time_format) {
+            switch (time_format) {
                 case TimeFormat::UnixNanosecond:
                     return {
                         telem::SampleValue(telem::TimeStamp(value.get<int64_t>())),
@@ -280,7 +280,7 @@ std::pair<telem::SampleValue, errors::Error> to_sample_value(
                     return {telem::SampleValue(telem::TimeStamp(0)), UNSUPPORTED_ERROR};
             }
         }
-        if (value.is_string() && opts.time_format == TimeFormat::ISO8601)
+        if (value.is_string() && time_format == TimeFormat::ISO8601)
             return parse_rfc3339(value.get<std::string>());
         return {telem::SampleValue(telem::TimeStamp(0)), UNSUPPORTED_ERROR};
     }

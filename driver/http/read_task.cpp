@@ -235,13 +235,13 @@ ReadTaskSource::read(x::breaker::Breaker &breaker, x::telem::Frame &fr) {
             const auto &ch = cfg_.channels.at(field.channel_key);
             const auto &json_val = body.at(field.pointer);
 
-            auto opts = x::json::ReadOptions{};
-            if (field.time_format.has_value()) opts.time_format = *field.time_format;
+            auto tf = x::json::TimeFormat::ISO8601;
+            if (field.time_format.has_value()) tf = *field.time_format;
 
             auto [sample_val, conv_err] = x::json::to_sample_value(
                 json_val,
                 ch.data_type,
-                opts
+                tf
             );
             if (conv_err) {
                 res.error = errors::PARSE_ERROR.sub(

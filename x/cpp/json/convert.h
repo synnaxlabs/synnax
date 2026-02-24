@@ -40,23 +40,17 @@ enum class TimeFormat {
     UnixNanosecond,
 };
 
-/// @brief options for to_sample_value.
-struct ReadOptions {
-    /// @brief the expected time format for JSON → TimeStamp conversions. Ignored when
-    /// the target type is not TIMESTAMP_T.
-    TimeFormat time_format = TimeFormat::ISO8601;
-};
-
 /// @brief converts a JSON value to a SampleValue of the given target DataType.
 /// Inspects the JSON value's type at runtime to determine the conversion path.
 /// @param value the JSON value to convert.
 /// @param target the Synnax DataType to convert to.
-/// @param opts conversion options (time format).
+/// @param time_format the expected time format for JSON → TimeStamp conversions.
+/// Ignored when the target type is not TIMESTAMP_T.
 /// @returns the converted SampleValue and nil, or a zero SampleValue and an error.
 std::pair<telem::SampleValue, errors::Error> to_sample_value(
     const nlohmann::json &value,
     const telem::DataType &target,
-    const ReadOptions &opts = {}
+    TimeFormat time_format = TimeFormat::ISO8601
 );
 
 /// @brief converts a SampleValue to a JSON value of the given target type.
