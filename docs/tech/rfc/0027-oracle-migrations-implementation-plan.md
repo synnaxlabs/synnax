@@ -154,6 +154,7 @@ This was originally part of Phase 4 in the old plan, but was done early since th
   - Removed `ParentAlias`, `ParentPath`, `ParentImportPath` from template data structs
 
 - **15 `codec.gen.go` files regenerated** via `oracle sync` in parent packages:
+
   ```
   core/pkg/service/{arc,device,lineplot,log,rack,ranger,schematic,table,task,user,workspace}/codec.gen.go
   core/pkg/distribution/{group,ontology}/codec.gen.go
@@ -243,8 +244,7 @@ codec-only MVP):
 ### What was NOT built (deferred to Phase 4.5)
 
 - Remaining 8 services not yet wired (see Phase 4.5)
-- Migration name still says `"msgpack_to_protobuf"` in some generated files (should be
-  `"msgpack_to_binary"`)
+- ~~Migration name still says `"msgpack_to_protobuf"` in some generated files~~ — FIXED
 
 ---
 
@@ -256,53 +256,102 @@ codec-only MVP):
 
 13 services have full `OpenTable` wiring with `Codec` + `Migrations`:
 
-| Service | OpenTable wiring |
-|---------|-----------------|
-| arc | `ArcMigrations(cfg.Codec)` |
-| device | `DeviceMigrations(cfg.Codec)` |
-| lineplot | `LinePlotMigrations(cfg.Codec)` |
-| log | `LogMigrations(cfg.Codec)` |
-| rack | `RackMigrations(cfg.Codec)` |
-| ranger | `RangeMigrations(cfg.Codec)` |
-| schematic | `SchematicMigrations(cfg.Codec)` |
-| table | `TableMigrations(cfg.Codec)` |
-| task | `TaskMigrations(cfg.Codec)` |
-| user | `UserMigrations(cfg.Codec)` |
-| workspace | `WorkspaceMigrations(cfg.Codec)` |
-| group (distribution) | `GroupMigrations(cfg.Codec)` |
-| ontology (distribution) | inline `NewCodecTransition` calls |
+| Service                 | OpenTable wiring                                                   |
+| ----------------------- | ------------------------------------------------------------------ |
+| arc                     | `ArcMigrations(cfg.Codec)`                                         |
+| device                  | `DeviceMigrations(cfg.Codec)`                                      |
+| lineplot                | `LinePlotMigrations(cfg.Codec)`                                    |
+| log                     | `LogMigrations(cfg.Codec)`                                         |
+| rack                    | `RackMigrations(cfg.Codec)`                                        |
+| ranger                  | `append(RangeMigrations(cfg.Codec), newRangeGroupsMigration(cfg))` |
+| schematic               | `SchematicMigrations(cfg.Codec)`                                   |
+| table                   | `TableMigrations(cfg.Codec)`                                       |
+| task                    | `TaskMigrations(cfg.Codec)`                                        |
+| user                    | `UserMigrations(cfg.Codec)`                                        |
+| workspace               | `WorkspaceMigrations(cfg.Codec)`                                   |
+| group (distribution)    | `GroupMigrations(cfg.Codec)`                                       |
+| ontology (distribution) | inline `NewCodecTransition` calls                                  |
+
+### Test fixes applied
+
+- **Rack tests** (`rack_test.go`): Added `Codec: rack.RackCodec` to 3 `OpenService`
+  calls in migration tests. Added `Count()` method to `rack/retrieve.go` so tests can
+  count entries through the codec-aware table (standalone `gorp.NewRetrieve` can't
+  decode binary-encoded data after codec transition).
+
+- **Ranger migration** (`ranger/migrate.go`): Added `ExcludeFieldData(true)` to ontology
+  query that traverses to range children. The `rangeGroupsMigration` runs during
+  `OpenTable`, before the ranger service registers with the ontology. Without
+  `ExcludeFieldData(true)`, the ontology's `retrieveResource` panics because the "range"
+  service isn't registered yet. The migration only needs child IDs (not full entity
+  data), so `ExcludeFieldData(true)` is the correct fix.
+
+- **Ranger service** (`ranger/service.go`): Wired `newRangeGroupsMigration(cfg)` into
+  `OpenTable` migrations alongside the generated codec transition.
+
+- **Ranger test** (`ranger/migrate_test.go`): Added `Codec: ranger.RangeCodec`.
+
+### Completed in this session
+
+- **Fixed migration name**: Updated `oracle/plugin/go/migrate/migrate.go` template from
+  `"msgpack_to_protobuf"` to `"msgpack_to_binary"`. Updated all 13 existing
+  `migrate.gen.go` files, `oracle/plugin/go/migrate/migrate_test.go`, and
+  `core/pkg/distribution/ontology/ontology.go` inline calls.
+
+- **Removed `HasPB` check** from `oracle/plugin/go/marshal/marshal.go`: The marshal
+  plugin previously required `@pb` annotation to generate codecs. Removed this gate so
+  types with only `@go marshal` (no `@pb`) can get binary codecs. Rebuilt oracle via
+  `./oracle/install.sh`.
+
+- **Added `@go marshal` to 3 schemas**: `channel.oracle`, `alias.oracle`, `kv.oracle`.
+  Generated `codec.gen.go` for each (Channel, Alias, Pair).
+
+- **Added `@go marshal` + `@go migrate` + `@go output` to 2 schemas**: `role.oracle`,
+  `view.oracle`. Generated `codec.gen.go`, `types.gen.go`, `migrate.gen.go`, and
+  `migrations/v1/v1.gen.go` for each (Role, View).
+
+- **Resolved type conflicts**: Removed hand-written `Role` struct from `role/role.go`
+  and `View` struct from `view/view.go` in favor of oracle-generated `types.gen.go`.
+  Kept `GorpKey()`, `SetOptions()`, `OntologyID()` methods.
+
+- **All tests pass**: view (13/13), role (29/29), ranger (20/20), RBAC (15/15),
+  policy (30/30).
 
 ### What's remaining
 
-8 services have bare `OpenTable` calls (no Codec, no Migrations). Each needs evaluation:
+5 services still need `@go marshal` + `@go migrate`, `oracle sync`, `oracle migrate
+generate`, and `OpenTable` + `layer.go` wiring:
 
-| Service | File | Needs codec? |
-|---------|------|-------------|
-| `access/rbac/policy` | `policy/service.go:63` | Needs `.oracle` schema + codec + migration |
-| `access/rbac/role` | `role/service.go:75` | Needs `.oracle` schema + codec + migration |
-| `auth` (SecureCredentials) | `auth/kv.go:32` | Needs `.oracle` schema + codec + migration |
-| `ranger/alias` | `alias/service.go:84` | Needs `.oracle` schema + codec + migration |
-| `ranger/kv` (Pair) | `kv/service.go:64` | Needs `.oracle` schema + codec + migration |
-| `schematic/symbol` | `symbol/service.go:83` | Needs `.oracle` schema + codec + migration |
-| `view` | `view/service.go:86` | Needs `.oracle` schema + codec + migration |
-| `distribution/channel` | `channel/service.go:97` | Needs `.oracle` schema + codec + migration |
+| Service                    | File                    | Schema status                                |
+| -------------------------- | ----------------------- | -------------------------------------------- |
+| `access/rbac/policy`       | `policy/service.go:63`  | Needs `@go marshal` + `@go migrate`          |
+| `auth` (SecureCredentials) | `auth/kv.go:32`         | Needs `@go marshal` + `@go migrate`          |
+| `schematic/symbol`         | `symbol/service.go:83`  | Needs `@go marshal` + `@go migrate`          |
+| `ranger/alias`             | `alias/service.go:84`   | Has `@go marshal`, needs `@go migrate`       |
+| `ranger/kv` (Pair)         | `kv/service.go:64`      | Has `@go marshal`, needs `@go migrate`       |
+
+3 services have `codec.gen.go` generated but still need `@go migrate`, `oracle migrate
+generate`, and `OpenTable` + `layer.go` wiring:
+
+| Service                    | File                      | Schema status                          |
+| -------------------------- | ------------------------- | -------------------------------------- |
+| `distribution/channel`     | `channel/service.go:97`   | Has `@go marshal`, needs `@go migrate` |
+| `access/rbac/role`         | `role/service.go:75`      | Has both, needs `OpenTable` wiring     |
+| `view`                     | `view/service.go:86`      | Has both, needs `OpenTable` wiring     |
 
 ### What to build
 
-1. **Add `@go marshal` and `@go migrate` annotations** to `.oracle` schemas for the 8
-   remaining types (or determine if any should be excluded — e.g., channel may have
-   special handling in the distribution layer).
+1. **Add `@go migrate` annotations** to Channel, Alias, Pair schemas (already have
+   `@go marshal`).
 
-2. **Run `oracle sync`** to generate `pb/codec.gen.go` for each.
+2. **Add `@go marshal` + `@go migrate` annotations** to Policy, Symbol,
+   SecureCredentials schemas.
 
-3. **Run `oracle migrate generate`** to generate `migrate.gen.go` + `v1/v1.gen.go`.
+3. **Run `oracle sync`** + **`oracle migrate generate`** for all remaining types.
 
-4. **Wire `Codec` + `Migrations` into `OpenTable`** calls for each service.
+4. **Wire `Codec` + `Migrations` into `OpenTable`** calls for all 8 services.
 
 5. **Wire codecs in `layer.go`** — add codec imports and pass to ServiceConfig.
-
-6. **Fix migration name**: Update `oracle/plugin/go/migrate/migrate.go` template to use
-   `"msgpack_to_binary"` instead of `"msgpack_to_protobuf"`.
 
 ### Acceptance criteria
 
@@ -320,9 +369,9 @@ codec-only MVP):
 `Migration` interface.
 
 **What was built previously (ranger)**: Ranger's `rangeGroupsMigration` already
-implements the `gorp.Migration` interface directly (`core/pkg/service/ranger/migrate.go`)
-and is passed to `OpenTable` alongside the generated codec transition migration. This was
-done as part of Phase 4.
+implements the `gorp.Migration` interface directly
+(`core/pkg/service/ranger/migrate.go`) and is passed to `OpenTable` alongside the
+generated codec transition migration. This was done as part of Phase 4.
 
 ### What to build
 
@@ -415,9 +464,9 @@ thorough unit testing.
    ) Migration
    ```
 
-   When `inputCodec` is nil, decode using `cfg.Codec` (DB's msgpack). When
-   `outputCodec` is nil, encode using `cfg.Codec`. This preserves backward
-   compatibility — existing `TypedMigration` callers in tests just pass nil for both.
+   When `inputCodec` is nil, decode using `cfg.Codec` (DB's msgpack). When `outputCodec`
+   is nil, encode using `cfg.Codec`. This preserves backward compatibility — existing
+   `TypedMigration` callers in tests just pass nil for both.
 
 2. **Schema diff engine** (`oracle/plugin/migrate/diff/`):
    - Compare two `resolution.Table`s (old snapshot vs. current)
@@ -608,6 +657,27 @@ Phase 8: Test Infrastructure (can start anytime after Phase 1)
     `inputCodec`/`outputCodec` parameters (nil → fallback to msgpack) will be added when
     schema migrations need version-specific frozen codecs. For the MVP codec transition,
     `NewCodecTransition` handles everything.
-11. **Generated migration function pattern** — `{Type}Migrations(codec Codec[T])
-    []Migration` rather than `All() []Migration`. The codec is passed as a parameter to
-    avoid circular imports and to allow `NewCodecTransition` to use it directly.
+11. **Generated migration function pattern** —
+    `{Type}Migrations(codec Codec[T]) []Migration` rather than `All() []Migration`. The
+    codec is passed as a parameter to avoid circular imports and to allow
+    `NewCodecTransition` to use it directly.
+12. **Migrations run before service registration** — `OpenTable` runs migrations during
+    table construction, which happens BEFORE the service registers with the ontology.
+    Any migration that uses the ontology must call `ExcludeFieldData(true)` on queries
+    that traverse to the service's own type, since `retrieveResource` panics when the
+    service isn't registered. This was encountered with `rangeGroupsMigration` — the fix
+    was adding `ExcludeFieldData(true)` to the child-range traversal query. The
+    migration only needs the IDs (loaded from the KV store separately), not the full
+    entity data.
+13. **Hand-written migrations appended to generated list** — Services with custom
+    migrations (e.g., ranger's `rangeGroupsMigration`) append them after the generated
+    codec transition:
+    `append(RangeMigrations(cfg.Codec), newRangeGroupsMigration(cfg))`. Migration
+    ordering matters: codec transition runs first (converting msgpack → binary), then
+    custom migrations operate on binary-encoded data.
+14. **Tests must provide Codec** — Any test that calls `OpenService` with a codec-aware
+    service must pass the `Codec` field. Without it, `cfg.Codec` is nil, and
+    `NewCodecTransition(codec)` panics when the migration tries to marshal. Tests that
+    count or retrieve entries after codec transition must use the table's codec-aware
+    methods (e.g., `svc.NewRetrieve().Count()`) rather than standalone
+    `gorp.NewRetrieve[K,E]().Count()` which uses msgpack and can't decode binary data.

@@ -126,6 +126,16 @@ func (r Retrieve) execSearch(ctx context.Context) (Retrieve, error) {
 	return r, err
 }
 
+// Count returns the number of records matching the query.
+func (r Retrieve) Count(ctx context.Context, tx gorp.Tx) (int, error) {
+	var err error
+	r, err = r.execSearch(ctx)
+	if err != nil {
+		return 0, err
+	}
+	return r.gorp.Count(ctx, gorp.OverrideTx(r.baseTX, tx))
+}
+
 // Exec executes the query against the provided transaction.
 func (r Retrieve) Exec(ctx context.Context, tx gorp.Tx) error {
 	var err error

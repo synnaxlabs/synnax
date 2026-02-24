@@ -16,7 +16,7 @@ import "github.com/synnaxlabs/x/gorp"
 func TaskMigrations(codec gorp.Codec[Task]) []gorp.Migration {
 	return []gorp.Migration{
 		gorp.NewCodecTransition[Key, Task](
-			"msgpack_to_protobuf",
+			"msgpack_to_binary",
 			codec,
 		),
 	}

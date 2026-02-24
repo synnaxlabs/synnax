@@ -95,7 +95,7 @@ var _ = Describe("Go Migrate Plugin", func() {
 						`"github.com/synnaxlabs/x/gorp"`,
 						"func SchematicMigrations(codec gorp.Codec[Schematic]) []gorp.Migration {",
 						`gorp.NewCodecTransition[Key, Schematic](`,
-						`"msgpack_to_protobuf"`,
+						`"msgpack_to_binary"`,
 						"codec,",
 					).
 					ToNotContain(

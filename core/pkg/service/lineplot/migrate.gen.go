@@ -16,7 +16,7 @@ import "github.com/synnaxlabs/x/gorp"
 func LinePlotMigrations(codec gorp.Codec[LinePlot]) []gorp.Migration {
 	return []gorp.Migration{
 		gorp.NewCodecTransition[Key, LinePlot](
-			"msgpack_to_protobuf",
+			"msgpack_to_binary",
 			codec,
 		),
 	}

@@ -16,7 +16,7 @@ import "github.com/synnaxlabs/x/gorp"
 func TableMigrations(codec gorp.Codec[Table]) []gorp.Migration {
 	return []gorp.Migration{
 		gorp.NewCodecTransition[Key, Table](
-			"msgpack_to_protobuf",
+			"msgpack_to_binary",
 			codec,
 		),
 	}

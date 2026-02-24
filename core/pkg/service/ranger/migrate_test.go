@@ -118,6 +118,7 @@ var _ = Describe("Migrate", func() {
 			Ontology: otg,
 			Group:    gSvc,
 			Label:    lab,
+			Codec:    ranger.RangeCodec,
 		}))
 
 		// The "Ranges" group and "Subgroup" should be deleted.

@@ -8,6 +8,7 @@
 // included in the file licenses/APL.txt.
 
 @ts output "client/ts/src/view"
+@go output "core/pkg/service/view"
 
 Key = uuid {
     @doc value "is a unique identifier for a saved view configuration."
@@ -39,6 +40,8 @@ View struct {
         types.
     """
     @ontology type "view"
+    @go marshal
+    @go migrate
 }
 
 New struct extends View {

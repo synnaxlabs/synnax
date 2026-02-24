@@ -126,7 +126,7 @@ func Open(ctx context.Context, configs ...Config) (*Ontology, error) {
 		DB:    cfg.DB,
 		Codec: cfg.ResourceCodec,
 		Migrations: []gorp.Migration{
-			gorp.NewCodecTransition[string, Resource]("msgpack_to_protobuf", cfg.ResourceCodec),
+			gorp.NewCodecTransition[string, Resource]("msgpack_to_binary", cfg.ResourceCodec),
 		},
 	})
 	if err != nil {
@@ -136,7 +136,7 @@ func Open(ctx context.Context, configs ...Config) (*Ontology, error) {
 		DB:    cfg.DB,
 		Codec: cfg.RelationshipCodec,
 		Migrations: []gorp.Migration{
-			gorp.NewCodecTransition[[]byte, Relationship]("msgpack_to_protobuf", cfg.RelationshipCodec),
+			gorp.NewCodecTransition[[]byte, Relationship]("msgpack_to_binary", cfg.RelationshipCodec),
 		},
 	})
 	if err != nil {

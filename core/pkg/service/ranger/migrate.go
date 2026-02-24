@@ -96,6 +96,7 @@ func (m *rangeGroupsMigration) Run(
 			WhereIDs(g.ID).
 			TraverseTo(ontology.ChildrenTraverser).
 			WhereTypes(OntologyType).
+			ExcludeFieldData(true).
 			Entries(&childRanges).
 			Exec(ctx, gorpTx); err != nil {
 			return err

@@ -16,7 +16,7 @@ import "github.com/synnaxlabs/x/gorp"
 func ArcMigrations(codec gorp.Codec[Arc]) []gorp.Migration {
 	return []gorp.Migration{
 		gorp.NewCodecTransition[Key, Arc](
-			"msgpack_to_protobuf",
+			"msgpack_to_binary",
 			codec,
 		),
 	}

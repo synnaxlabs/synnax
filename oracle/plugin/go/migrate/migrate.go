@@ -549,7 +549,7 @@ import "github.com/synnaxlabs/x/gorp"
 func {{.GoName}}Migrations(codec gorp.Codec[{{.GoName}}]) []gorp.Migration {
 	return []gorp.Migration{
 		gorp.NewCodecTransition[{{.KeyType}}, {{.GoName}}](
-			"msgpack_to_protobuf",
+			"msgpack_to_binary",
 			codec,
 		),
 	}

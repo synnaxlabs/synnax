@@ -97,7 +97,7 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (*Service, error) {
 	table, err := gorp.OpenTable[uuid.UUID, Range](ctx, gorp.TableConfig[Range]{
 		DB:         cfg.DB,
 		Codec:      cfg.Codec,
-		Migrations: RangeMigrations(cfg.Codec),
+		Migrations: append(RangeMigrations(cfg.Codec), newRangeGroupsMigration(cfg)),
 	})
 	if err != nil {
 		return nil, err

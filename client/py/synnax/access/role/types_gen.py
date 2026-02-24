@@ -14,7 +14,7 @@ from __future__ import annotations
 from typing import TypeAlias
 from uuid import UUID
 
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 from synnax.ontology.payload import ID
 
@@ -30,15 +30,14 @@ class Base(BaseModel):
         key: Is the unique identifier for this role.
         name: Is a human-readable name for the role (e.g., 'Administrator',
             'Engineer').
-        description: Is an optional description explaining what permissions the role
-            provides.
+        description: Is a description explaining what permissions the role provides.
         internal: Is true if this is a built-in system role that cannot be deleted.
     """
 
     key: Key
     name: str
-    description: str | None = None
-    internal: bool | None = None
+    description: str = Field(default="")
+    internal: bool = Field(default=False)
 
     def __hash__(self) -> int:
         return hash(self.key)
@@ -50,9 +49,14 @@ class Role(Base):
     Attributes:
         key: Is an optional key for the role. If not provided, one will be
             automatically assigned.
+        description: Is an optional description explaining what permissions the role
+            provides.
+        internal: Is true if this is a built-in system role that cannot be deleted.
     """
 
     key: Key | None = None  # type: ignore[assignment]
+    description: str | None = None  # type: ignore[assignment]
+    internal: bool | None = None  # type: ignore[assignment]
 
 
 ONTOLOGY_TYPE = ID(type="role")

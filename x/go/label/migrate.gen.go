@@ -16,7 +16,7 @@ import "github.com/synnaxlabs/x/gorp"
 func LabelMigrations(codec gorp.Codec[Label]) []gorp.Migration {
 	return []gorp.Migration{
 		gorp.NewCodecTransition[Key, Label](
-			"msgpack_to_protobuf",
+			"msgpack_to_binary",
 			codec,
 		),
 	}

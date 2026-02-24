@@ -108,9 +108,6 @@ func (p *Plugin) Generate(req *plugin.Request) (*plugin.Response, error) {
 		if !hasMarshalAnnotation(entry) {
 			continue
 		}
-		if !output.HasPB(entry) {
-			continue
-		}
 		goPath := output.GetPath(entry, "go")
 		if goPath == "" {
 			continue

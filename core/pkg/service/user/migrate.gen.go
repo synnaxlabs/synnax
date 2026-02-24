@@ -16,7 +16,7 @@ import "github.com/synnaxlabs/x/gorp"
 func UserMigrations(codec gorp.Codec[User]) []gorp.Migration {
 	return []gorp.Migration{
 		gorp.NewCodecTransition[Key, User](
-			"msgpack_to_protobuf",
+			"msgpack_to_binary",
 			codec,
 		),
 	}

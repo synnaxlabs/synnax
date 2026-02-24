@@ -29,17 +29,14 @@ export const roleZ = z.object({
    * 'Engineer').
    */
   name: z.string(),
-  /**
-   * description is an optional description explaining what permissions the role
-   * provides.
-   */
-  description: z.string().optional(),
+  /** description is a description explaining what permissions the role provides. */
+  description: z.string().default(""),
   /** internal is true if this is a built-in system role that cannot be deleted. */
-  internal: z.boolean().optional(),
+  internal: z.boolean().default(false),
 });
 export interface Role extends z.infer<typeof roleZ> {}
 
-export const newZ = roleZ.partial({ key: true });
+export const newZ = roleZ.partial({ key: true, description: true, internal: true });
 export interface New extends z.input<typeof newZ> {}
 
 export const ontologyID = ontology.createIDFactory<Key>("role");

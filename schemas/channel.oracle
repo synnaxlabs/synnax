@@ -139,12 +139,13 @@ Channel struct {
         """
     }
 
-    @doc value """
+    @doc value  """
         is an internal representation of a channel containing all storage and
         distribution metadata. This type is used internally by the server;
         clients should use APIChannel instead.
     """
-    @go output "core/pkg/distribution/channel"
+    @go output  "core/pkg/distribution/channel"
+    @go marshal
     @py omit
     @ts omit
     @cpp omit

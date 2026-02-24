@@ -16,13 +16,6 @@ import (
 	"github.com/synnaxlabs/x/gorp"
 )
 
-type View struct {
-	Query map[string]any `json:"query" msgpack:"query"`
-	Name  string         `json:"name" msgpack:"name"`
-	Type  string         `json:"type" msgpack:"type"`
-	Key   uuid.UUID      `json:"key" msgpack:"key"`
-}
-
 var _ gorp.Entry[uuid.UUID] = (*View)(nil)
 
 // GorpKey returns a unique key for the view for use in gorp.

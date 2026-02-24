@@ -471,6 +471,7 @@ var _ = Describe("Migration", func() {
 			Group:        g,
 			HostProvider: mock.StaticHostKeyProvider(1),
 			Status:       stat,
+			Codec:        rack.RackCodec,
 		}))
 		DeferCleanup(func() { Expect(svc.Close()).To(Succeed()) })
 		return svc
@@ -483,6 +484,7 @@ var _ = Describe("Migration", func() {
 			Group:        g,
 			HostProvider: mock.StaticHostKeyProvider(1),
 			Status:       stat,
+			Codec:        rack.RackCodec,
 		}))
 		r := &rack.Rack{Name: "test rack"}
 		Expect(svc.NewWriter(nil).Create(ctx, r)).To(Succeed())
@@ -500,6 +502,7 @@ var _ = Describe("Migration", func() {
 			Group:        g,
 			HostProvider: mock.StaticHostKeyProvider(1),
 			Status:       stat,
+			Codec:        rack.RackCodec,
 		}))
 		DeferCleanup(func() { Expect(svc2.Close()).To(Succeed()) })
 
@@ -531,7 +534,7 @@ var _ = Describe("Migration", func() {
 			Exec(ctx, db)).To(Succeed())
 		Expect(embeddedRack.Embedded).To(BeTrue())
 		Expect(embeddedRack.Name).To(Equal("Node 1 Embedded Driver"))
-		count := MustSucceed(gorp.NewRetrieve[rack.Key, rack.Rack]().Count(ctx, db))
+		count := MustSucceed(svc.NewRetrieve().Count(ctx, db))
 		Expect(count).To(Equal(1))
 	})
 
@@ -556,7 +559,7 @@ var _ = Describe("Migration", func() {
 		Expect(embeddedRack.Embedded).To(BeTrue())
 		Expect(embeddedRack.Name).To(Equal("Node 1 Embedded Driver"))
 
-		count := MustSucceed(gorp.NewRetrieve[rack.Key, rack.Rack]().Count(ctx, db))
+		count := MustSucceed(svc.NewRetrieve().Count(ctx, db))
 		Expect(count).To(Equal(2))
 	})
 
@@ -581,7 +584,7 @@ var _ = Describe("Migration", func() {
 		Expect(embeddedRack.Embedded).To(BeTrue())
 		Expect(embeddedRack.Name).To(Equal("Node 1 Embedded Driver"))
 
-		count := MustSucceed(gorp.NewRetrieve[rack.Key, rack.Rack]().Count(ctx, db))
+		count := MustSucceed(svc.NewRetrieve().Count(ctx, db))
 		Expect(count).To(Equal(1))
 	})
 })

@@ -59,11 +59,11 @@ The goals of this migration system are:
 - Allow custom migration logic defined by the developer
 - Enable eventual transition from msgpack to binary encoding for storage encoding
 
-The first migration to run through the system is the codec switch from msgpack to
-binary for gorp-stored entries. This is a high-value change that exercises the core
-migration pipeline (iterate all entries, decode with old codec, re-encode with new
-codec) without requiring schema changes to any individual type. It validates the
-infrastructure before more complex per-type schema migrations are needed.
+The first migration to run through the system is the codec switch from msgpack to binary
+for gorp-stored entries. This is a high-value change that exercises the core migration
+pipeline (iterate all entries, decode with old codec, re-encode with new codec) without
+requiring schema changes to any individual type. It validates the infrastructure before
+more complex per-type schema migrations are needed.
 
 MVP requirements for this use case:
 
@@ -329,11 +329,11 @@ oracle migrate regenerate
 ### 1 - Eager Startup Execution
 
 All entries of a type are migrated during server startup before the service accepts
-requests. This is consistent with how `OpenTable` already works and guarantees that
-all data is in the current format at runtime — no need to support reading both old and
-new formats simultaneously. The tradeoff is potentially slower startup with large
-datasets, but metadata entries (schematics, workspaces, devices) are expected to number
-in the thousands, not millions, so this is acceptable.
+requests. This is consistent with how `OpenTable` already works and guarantees that all
+data is in the current format at runtime — no need to support reading both old and new
+formats simultaneously. The tradeoff is potentially slower startup with large datasets,
+but metadata entries (schematics, workspaces, devices) are expected to number in the
+thousands, not millions, so this is acceptable.
 
 ### 2 - Sequential Chaining
 
@@ -500,8 +500,8 @@ core/pkg/service/schematic/
 - The highest-numbered `vN/` is the "current" snapshot. It has no `AutoMigrate` or
   `PostMigrate` yet — Oracle adds those when the next migration is created, then creates
   `v(N+1)/` as the new current.
-- Pre-codec-transition versions (e.g., `v1/`) have no `codec.gen.go` — they decode
-  using the DB's generic msgpack codec.
+- Pre-codec-transition versions (e.g., `v1/`) have no `codec.gen.go` — they decode using
+  the DB's generic msgpack codec.
 - Post-codec-transition versions (e.g., `v2/`, `v3/`) include a frozen `codec.gen.go`
   that implements `gorp.Codec[E]` using direct binary encoding. Each version's codec is
   a snapshot of the binary layout at that version — write-once, never regenerated. The
@@ -537,9 +537,9 @@ type Codec[E any] interface {
 }
 ```
 
-**Codec is injected, not discovered via type assertion.** `Table[K,E]` holds an
-optional `Codec[E]` and threads it through all query builders, writers, readers, and
-observers. If no codec is set, the DB's generic codec (msgpack) is used as fallback.
+**Codec is injected, not discovered via type assertion.** `Table[K,E]` holds an optional
+`Codec[E]` and threads it through all query builders, writers, readers, and observers.
+If no codec is set, the DB's generic codec (msgpack) is used as fallback.
 
 **Oracle-generated codec** (in `codec.gen.go`, same package as the type):
 
@@ -588,8 +588,8 @@ marshaled via `encoding/json`.
 - **Pre-transition legacy types** (e.g., `v1/`): No codec — decoded using the DB's
   generic msgpack codec via `MigrationConfig.Codec`.
 - **Post-transition legacy types** (e.g., `v2/`): Each version has a frozen
-  `codec.gen.go` in its `vN/` directory. The frozen codec exactly matches that
-  version's type layout. Migrations pass the appropriate `Codec[I]` and `Codec[O]` to
+  `codec.gen.go` in its `vN/` directory. The frozen codec exactly matches that version's
+  type layout. Migrations pass the appropriate `Codec[I]` and `Codec[O]` to
   `TypedMigration` for decoding input and encoding output.
 - **Current types**: Use the live codec from `codec.gen.go` (in the parent package),
   injected into `Table` via `TableConfig.Codec`.
@@ -639,10 +639,10 @@ generates a new frozen codec for each version.
 
 ### 3 - JSON Fields in Binary Encoding
 
-JSON fields (`Schematic.data`, `Workspace.layout`) are encoded using `encoding/json`
-and stored as length-prefixed byte blobs within the binary format. This preserves full
-JSON fidelity. When these fields are eventually promoted to full Oracle types, they'll
-get proper binary encoding with correct numeric types.
+JSON fields (`Schematic.data`, `Workspace.layout`) are encoded using `encoding/json` and
+stored as length-prefixed byte blobs within the binary format. This preserves full JSON
+fidelity. When these fields are eventually promoted to full Oracle types, they'll get
+proper binary encoding with correct numeric types.
 
 ### 4 - Codec Transition Startup Sequence
 
@@ -989,8 +989,8 @@ func PostMigrateV1ToV2(
 
 - The developer writes nothing. Both files are Oracle-generated. The auto-migrate copies
   all fields 1:1. The post-migrate is empty because there are no schema changes.
-- `v1/` is a pre-transition snapshot: no `codec.gen.go`. The migration's `inputCodec`
-  is nil, so the runner decodes using `MigrationConfig.Codec` (msgpack).
+- `v1/` is a pre-transition snapshot: no `codec.gen.go`. The migration's `inputCodec` is
+  nil, so the runner decodes using `MigrationConfig.Codec` (msgpack).
 - `v2/` is a post-transition snapshot: has a frozen `codec.gen.go` with binary encoding.
   The migration's `outputCodec` is `v2.Codec`, so the runner encodes the output using
   the frozen binary codec.
@@ -1959,11 +1959,10 @@ under which data is actually stored. This can't be derived from the legacy type 
 
 The solution is **`Table[K, E]`'s generic type parameter**. Since `Table` is generic on
 the current type `E`, it derives the canonical prefix via `types.Name[E]()` — the same
-mechanism gorp already uses for `Reader` and `Writer`. The
-`migrations/migrate.gen.go` file exports an `All()` function returning
-`[]gorp.Migration` — it only imports `vN/` sub-packages, never the parent service
-package, avoiding circular dependencies. The prefix and version key are derived by
-`OpenTable`, not by the migration files.
+mechanism gorp already uses for `Reader` and `Writer`. The `migrations/migrate.gen.go`
+file exports an `All()` function returning `[]gorp.Migration` — it only imports `vN/`
+sub-packages, never the parent service package, avoiding circular dependencies. The
+prefix and version key are derived by `OpenTable`, not by the migration files.
 
 # 7 - Go API Surface
 

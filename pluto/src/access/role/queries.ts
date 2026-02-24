@@ -153,6 +153,8 @@ const retrieveUserRole = async ({
   const r: access.role.Role = {
     key: parent.id.key,
     name: parent.name,
+    internal: false,
+    description: "",
     ...parent.data,
   };
   store.roles.set(r.key, r);
@@ -226,7 +228,12 @@ export const useForm = Flux.createForm<
   },
   update: async ({ client, value, store, set, rollbacks }) => {
     const v = value();
-    let r: access.role.Role = { key: uuid.create(), ...v };
+    let r: access.role.Role = {
+      key: uuid.create(),
+      internal: false,
+      description: "",
+      ...v,
+    };
     const otgID = access.role.ontologyID(r.key);
     const otgKey = ontology.idToString(otgID);
     rollbacks.push(

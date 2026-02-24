@@ -16,7 +16,7 @@ import "github.com/synnaxlabs/x/gorp"
 func RangeMigrations(codec gorp.Codec[Range]) []gorp.Migration {
 	return []gorp.Migration{
 		gorp.NewCodecTransition[Key, Range](
-			"msgpack_to_protobuf",
+			"msgpack_to_binary",
 			codec,
 		),
 	}
