@@ -17,9 +17,9 @@ import { type Ontology } from "@/ontology";
 const TASK_CONTEXT_MENU_ITEM_CONFIGS: Common.DeviceServices.TaskContextMenuItemConfig[] =
   [
     {
-      itemKey: "http.scanTask",
-      label: "Create scan task",
-      layout: Task.SCAN_LAYOUT,
+      itemKey: "http.readTask",
+      label: "Create read task",
+      layout: Task.READ_LAYOUT,
     },
   ];
 
