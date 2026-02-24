@@ -24,14 +24,9 @@ export interface TimeAxisProps {
   currentSize: number;
 }
 
-export interface TimeAxisRenderResult {
-  size: number;
-}
-
 interface InternalState {
   renderCtx: render.Context;
   axis: axis.Axis;
-  size: number;
 }
 
 export class TimeAxis extends aether.Leaf<typeof timeAxisStateZ, InternalState> {
@@ -54,21 +49,18 @@ export class TimeAxis extends aether.Leaf<typeof timeAxisStateZ, InternalState> 
       location: "bottom",
     });
     i.axis = axis.newCanvas("bottom", i.renderCtx, state);
-    i.size ??= 24;
   }
 
-  render(props: TimeAxisProps): TimeAxisRenderResult {
+  render(props: TimeAxisProps): axis.RenderResult {
     const { internal: i } = this;
     const { plot, totalSeconds } = props;
     const decimalToDataScale = scale.Scale.scale(-totalSeconds, 0);
     const pos = xy.construct(box.left(plot), box.top(plot) + box.height(plot));
-    const { size } = i.axis.render({
+    return i.axis.render({
       plot,
       position: pos,
       size: 0,
       decimalToDataScale,
     });
-    i.size = size;
-    return { size };
   }
 }

@@ -91,13 +91,11 @@ export class Spectrogram extends aether.Composite<
     const b = this.state.box;
     const { leftAxisSize, bottomAxisSize, rightAxisSize } = this.internal;
     if (box.areaIsZero(b)) return b;
-    const left = leftAxisSize ?? 50;
-    const right = rightAxisSize ?? 60;
     return box.construct(
-      { x: box.left(b) + left, y: box.top(b) + TOP_PADDING },
+      { x: box.left(b) + leftAxisSize, y: box.top(b) + TOP_PADDING },
       {
-        width: Math.max(1, box.width(b) - left - right),
-        height: Math.max(1, box.height(b) - TOP_PADDING - (bottomAxisSize ?? 24)),
+        width: Math.max(1, box.width(b) - leftAxisSize - rightAxisSize),
+        height: Math.max(1, box.height(b) - TOP_PADDING - bottomAxisSize),
       },
     );
   }

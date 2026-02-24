@@ -34,15 +34,10 @@ export interface ColorBarProps {
   currentSize: number;
 }
 
-export interface ColorBarRenderResult {
-  size: number;
-}
-
 interface InternalState {
   renderCtx: render.Context;
   theme: theming.Theme;
   axis: axis.Axis;
-  size: number;
 }
 
 export class ColorBar extends aether.Leaf<typeof colorBarStateZ, InternalState> {
@@ -65,10 +60,9 @@ export class ColorBar extends aether.Leaf<typeof colorBarStateZ, InternalState> 
       location: "right",
     });
     i.axis = axis.newCanvas("right", i.renderCtx, state);
-    i.size ??= 60;
   }
 
-  render(props: ColorBarProps): ColorBarRenderResult {
+  render(props: ColorBarProps): axis.RenderResult {
     const { internal: i } = this;
     const { plot, colorMap, dbMin, dbMax } = props;
     const canvas = i.renderCtx.lower2d;
@@ -117,8 +111,6 @@ export class ColorBar extends aether.Leaf<typeof colorBarStateZ, InternalState> 
       FILL_TEXT_OPTIONS,
     );
 
-    const totalSize = COLOR_BAR_GAP + COLOR_BAR_WIDTH + size + TICK_PADDING;
-    i.size = totalSize;
-    return { size: totalSize };
+    return { size: COLOR_BAR_GAP + COLOR_BAR_WIDTH + size + TICK_PADDING };
   }
 }

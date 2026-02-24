@@ -25,14 +25,9 @@ export interface FreqAxisProps {
   currentSize: number;
 }
 
-export interface FreqAxisRenderResult {
-  size: number;
-}
-
 interface InternalState {
   renderCtx: render.Context;
   axis: axis.Axis;
-  size: number;
 }
 
 export class FreqAxis extends aether.Leaf<typeof freqAxisStateZ, InternalState> {
@@ -55,21 +50,18 @@ export class FreqAxis extends aether.Leaf<typeof freqAxisStateZ, InternalState> 
       location: "left",
     });
     i.axis = axis.newCanvas("left", i.renderCtx, state);
-    i.size ??= 50;
   }
 
-  render(props: FreqAxisProps): FreqAxisRenderResult {
+  render(props: FreqAxisProps): axis.RenderResult {
     const { internal: i } = this;
     const { plot, freqMin, freqMax, currentSize } = props;
     const decimalToDataScale = scale.Scale.scale(freqMax, freqMin);
     const pos = xy.construct(box.left(plot), box.top(plot));
-    const { size } = i.axis.render({
+    return i.axis.render({
       plot,
       position: pos,
       size: currentSize,
       decimalToDataScale,
     });
-    i.size = size;
-    return { size };
   }
 }
