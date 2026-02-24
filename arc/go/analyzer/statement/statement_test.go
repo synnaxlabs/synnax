@@ -1925,4 +1925,185 @@ var _ = Describe("Statement", func() {
 			Expect((*ctx.Diagnostics)[0].Message).To(ContainSubstring("type mismatch"))
 		})
 	})
+
+	Describe("For Loops", func() {
+		Context("range loops", func() {
+			It("should analyze range with 1 argument", func() {
+				stmt := MustSucceed(parser.ParseStatement(`for i := range(10) { x := i }`))
+				ctx := context.CreateRoot(bCtx, stmt, nil)
+				statement.Analyze(ctx)
+				Expect(ctx.Diagnostics.Ok()).To(BeTrue(), ctx.Diagnostics.String())
+				loopScope := ctx.Scope.Children[0]
+				sym := MustSucceed(loopScope.Resolve(ctx, "i"))
+				Expect(sym.Kind).To(Equal(symbol.KindLoopVariable))
+				limitSym := MustSucceed(loopScope.Resolve(ctx, "__for_limit"))
+				Expect(limitSym.Kind).To(Equal(symbol.KindVariable))
+			})
+
+			It("should analyze range with 2 arguments", func() {
+				stmt := MustSucceed(parser.ParseStatement(`for i := range(5, 10) { x := i }`))
+				ctx := context.CreateRoot(bCtx, stmt, nil)
+				statement.Analyze(ctx)
+				Expect(ctx.Diagnostics.Ok()).To(BeTrue(), ctx.Diagnostics.String())
+			})
+
+			It("should analyze range with 3 arguments", func() {
+				stmt := MustSucceed(parser.ParseStatement(`for i := range(0, 10, 2) { x := i }`))
+				ctx := context.CreateRoot(bCtx, stmt, nil)
+				statement.Analyze(ctx)
+				Expect(ctx.Diagnostics.Ok()).To(BeTrue(), ctx.Diagnostics.String())
+				loopScope := ctx.Scope.Children[0]
+				stepSym := MustSucceed(loopScope.Resolve(ctx, "__for_step"))
+				Expect(stepSym.Kind).To(Equal(symbol.KindVariable))
+			})
+
+			It("should analyze range with explicit integer type", func() {
+				stmt := MustSucceed(parser.ParseStatement(`for i := range(i32(10)) { x := i }`))
+				ctx := context.CreateRoot(bCtx, stmt, nil)
+				statement.Analyze(ctx)
+				Expect(ctx.Diagnostics.Ok()).To(BeTrue(), ctx.Diagnostics.String())
+				loopScope := ctx.Scope.Children[0]
+				sym := MustSucceed(loopScope.Resolve(ctx, "i"))
+				Expect(sym.Type).To(Equal(types.I32()))
+			})
+
+			It("should reject range with no arguments", func() {
+				stmt := MustSucceed(parser.ParseStatement(`for i := range() { x := i }`))
+				ctx := context.CreateRoot(bCtx, stmt, nil)
+				statement.Analyze(ctx)
+				Expect(ctx.Diagnostics.Ok()).To(BeFalse())
+				Expect((*ctx.Diagnostics)[0].Message).To(ContainSubstring("range()"))
+			})
+
+			It("should reject range with 4 arguments", func() {
+				stmt := MustSucceed(parser.ParseStatement(`for i := range(1, 2, 3, 4) { x := i }`))
+				ctx := context.CreateRoot(bCtx, stmt, nil)
+				statement.Analyze(ctx)
+				Expect(ctx.Diagnostics.Ok()).To(BeFalse())
+				Expect((*ctx.Diagnostics)[0].Message).To(ContainSubstring("range()"))
+			})
+
+			It("should reject range with float arguments", func() {
+				stmt := MustSucceed(parser.ParseStatement(`for i := range(f64(3.14)) { x := i }`))
+				ctx := context.CreateRoot(bCtx, stmt, nil)
+				statement.Analyze(ctx)
+				Expect(ctx.Diagnostics.Ok()).To(BeFalse())
+				Expect((*ctx.Diagnostics)[0].Message).To(ContainSubstring("integer type"))
+			})
+		})
+
+		Context("series iteration", func() {
+			It("should analyze single-ident series iteration", func() {
+				block := MustSucceed(parser.ParseBlock(`{
+					data series i64 := [1, 2, 3]
+					for x := data { y := x }
+				}`))
+				ctx := context.CreateRoot(bCtx, block, nil)
+				statement.AnalyzeBlock(ctx)
+				Expect(ctx.Diagnostics.Ok()).To(BeTrue(), ctx.Diagnostics.String())
+			})
+
+			It("should analyze two-ident series iteration", func() {
+				block := MustSucceed(parser.ParseBlock(`{
+					data series f64 := [1.0, 2.0, 3.0]
+					for i, x := data { y := x + f64(i) }
+				}`))
+				ctx := context.CreateRoot(bCtx, block, nil)
+				statement.AnalyzeBlock(ctx)
+				Expect(ctx.Diagnostics.Ok()).To(BeTrue(), ctx.Diagnostics.String())
+			})
+
+			It("should reject iteration over non-series", func() {
+				block := MustSucceed(parser.ParseBlock(`{
+					x i32 := 10
+					for v := x { y := v }
+				}`))
+				ctx := context.CreateRoot(bCtx, block, nil)
+				statement.AnalyzeBlock(ctx)
+				Expect(ctx.Diagnostics.Ok()).To(BeFalse())
+				Expect((*ctx.Diagnostics)[0].Message).To(ContainSubstring("cannot iterate"))
+			})
+
+			It("should reject two-ident form on non-series", func() {
+				block := MustSucceed(parser.ParseBlock(`{
+					x i32 := 10
+					for i, v := x { y := v }
+				}`))
+				ctx := context.CreateRoot(bCtx, block, nil)
+				statement.AnalyzeBlock(ctx)
+				Expect(ctx.Diagnostics.Ok()).To(BeFalse())
+				Expect((*ctx.Diagnostics)[0].Message).To(ContainSubstring("series"))
+			})
+		})
+
+		Context("condition and infinite loops", func() {
+			It("should analyze conditional for loop", func() {
+				block := MustSucceed(parser.ParseBlock(`{
+					running i32 := 1
+					for running { running = 0 }
+				}`))
+				ctx := context.CreateRoot(bCtx, block, nil)
+				statement.AnalyzeBlock(ctx)
+				Expect(ctx.Diagnostics.Ok()).To(BeTrue(), ctx.Diagnostics.String())
+			})
+
+			It("should analyze infinite for loop", func() {
+				stmt := MustSucceed(parser.ParseStatement(`for { x := 1 }`))
+				ctx := context.CreateRoot(bCtx, stmt, nil)
+				statement.Analyze(ctx)
+				Expect(ctx.Diagnostics.Ok()).To(BeTrue(), ctx.Diagnostics.String())
+			})
+		})
+
+		Context("break and continue", func() {
+			It("should accept break inside for loop", func() {
+				stmt := MustSucceed(parser.ParseStatement(`for { break }`))
+				ctx := context.CreateRoot(bCtx, stmt, nil)
+				statement.Analyze(ctx)
+				Expect(ctx.Diagnostics.Ok()).To(BeTrue(), ctx.Diagnostics.String())
+			})
+
+			It("should accept continue inside for loop", func() {
+				stmt := MustSucceed(parser.ParseStatement(`for i := range(10) { continue }`))
+				ctx := context.CreateRoot(bCtx, stmt, nil)
+				statement.Analyze(ctx)
+				Expect(ctx.Diagnostics.Ok()).To(BeTrue(), ctx.Diagnostics.String())
+			})
+
+			It("should reject break outside for loop", func() {
+				stmt := MustSucceed(parser.ParseStatement(`break`))
+				ctx := context.CreateRoot(bCtx, stmt, nil)
+				statement.Analyze(ctx)
+				Expect(ctx.Diagnostics.Ok()).To(BeFalse())
+				Expect((*ctx.Diagnostics)[0].Message).To(ContainSubstring("break can only be used inside a for loop"))
+			})
+
+			It("should reject continue outside for loop", func() {
+				stmt := MustSucceed(parser.ParseStatement(`continue`))
+				ctx := context.CreateRoot(bCtx, stmt, nil)
+				statement.Analyze(ctx)
+				Expect(ctx.Diagnostics.Ok()).To(BeFalse())
+				Expect((*ctx.Diagnostics)[0].Message).To(ContainSubstring("continue can only be used inside a for loop"))
+			})
+
+			It("should accept break in nested if inside loop", func() {
+				stmt := MustSucceed(parser.ParseStatement(`for i := range(10) {
+					if i > 5 { break }
+				}`))
+				ctx := context.CreateRoot(bCtx, stmt, nil)
+				statement.Analyze(ctx)
+				Expect(ctx.Diagnostics.Ok()).To(BeTrue(), ctx.Diagnostics.String())
+			})
+		})
+
+		Context("loop variable immutability", func() {
+			It("should reject assignment to loop variable", func() {
+				stmt := MustSucceed(parser.ParseStatement(`for i := range(10) { i = 5 }`))
+				ctx := context.CreateRoot(bCtx, stmt, nil)
+				statement.Analyze(ctx)
+				Expect(ctx.Diagnostics.Ok()).To(BeFalse())
+				Expect((*ctx.Diagnostics)[0].Message).To(ContainSubstring("cannot assign to loop variable"))
+			})
+		})
+	})
 })
