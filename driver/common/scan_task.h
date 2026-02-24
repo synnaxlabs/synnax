@@ -35,30 +35,19 @@ const auto DEFAULT_SCAN_RATE = x::telem::Rate(x::telem::SECOND * 5);
 /// Scanner properties take precedence on conflicts, but remote properties are preserved
 /// if the scanner doesn't specify them.
 /// @param remote_props JSON string of properties from the remote/cluster.
-/// @param scanned_props JSON string of properties from the scanner.
-/// @return Merged JSON string with scanner properties overriding remote on conflicts.
-inline std::string merge_device_properties(
-    const std::string &remote_props,
-    const std::string &scanned_props
+/// @param scanned_props JSON properties from the scanner.
+/// @return Merged JSON with scanner properties overriding remote on conflicts.
+inline x::json::json merge_device_properties(
+    const x::json::json &remote_props,
+    const x::json::json &scanned_props
 ) {
-    nlohmann::json merged = nlohmann::json::object();
-    if (!remote_props.empty()) {
-        try {
-            merged = nlohmann::json::parse(remote_props);
-        } catch (const nlohmann::json::parse_error &e) {
-            LOG(WARNING) << "failed to parse remote device properties: " << e.what();
-        }
+    x::json::json merged = remote_props.is_object() ? remote_props
+                                                    : x::json::json::object();
+    if (scanned_props.is_object()) {
+        for (auto &[k, v]: scanned_props.items())
+            merged[k] = v;
     }
-    if (!scanned_props.empty()) {
-        try {
-            auto scanned = nlohmann::json::parse(scanned_props);
-            for (auto &[k, v]: scanned.items())
-                merged[k] = v;
-        } catch (const nlohmann::json::parse_error &e) {
-            LOG(WARNING) << "failed to parse scanned device properties: " << e.what();
-        }
-    }
-    return merged.empty() ? "" : merged.dump();
+    return merged;
 }
 
 /// @brief Base configuration for scan tasks with rate and enabled settings.

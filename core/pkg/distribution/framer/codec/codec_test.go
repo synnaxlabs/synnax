@@ -308,6 +308,15 @@ var _ = Describe("Codec", func() {
 			})
 		})
 
+		It("Should not mutate the caller's keys slice when updating", func() {
+			c := codec.NewDynamic(channelSvc)
+			keys := []channel.Key{dataCh.Key(), idxCh.Key()}
+			original := make([]channel.Key, len(keys))
+			copy(original, keys)
+			Expect(c.Update(ctx, keys)).To(Succeed())
+			Expect(keys).To(Equal(original))
+		})
+
 		It("Should panic if the codec is not initialized", func() {
 			codec := codec.NewDynamic(nil)
 			Expect(func() {

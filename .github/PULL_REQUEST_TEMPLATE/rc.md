@@ -235,45 +235,10 @@ I can successfully:
 
 I can successfully:
 
-- **Resources Toolbar**
-  - [ ] Open task configuration by double-clicking.
-  - **Context Menu**
-    - [ ] Snapshot a task to the active range.
-    - [ ] Snapshot multiple tasks to the active range.
-    - [ ] Rename a task.
-    - [ ] Group tasks.
-    - [ ] Export a task.
-    - [ ] Delete a task.
-    - [ ] Delete multiple tasks.
-    - [ ] Copy a link to a task.
-- **Tasks Toolbar**
-  - [ ] Pause and play a task.
-  - [ ] Open task configuration by double-clicking.
-  - **Context Menu**
-    - [ ] Pause a task. (individual and group)
-    - [ ] Start a task. (individual and group)
-    - [ ] Open task configuration.
-    - [ ] Copy a link to a task.
-    - [ ] Enable/Disable Data saving (individual and group)
-      - [ ] Different run states and verify state persistence
-      - [ ] Different task types (read/write)
-      - [ ] Different pre-configuration states
-- **Search and Command Palette**
-  - [ ] Open an existing task configuration.
 - [ ] Open a task configuration from a link.
 - [ ] Start a task on server boot up when the "Auto start" option is enabled.
 - [ ] Import a task from a file via the import task commands
 - [ ] Import a task from a file via drag-and-drop
-- [ ] Rename a task and ensure synchronization across:
-  - Resources Toolbar
-  - Task Toolbar
-  - Task Configuration Tab Name
-  - Task Configuration Title
-- [ ] Rename a task snapshot and ensure synchronization across:
-  - Resources Toolbar
-  - Task Toolbar
-  - Task Configuration Tab Name
-  - Task Configuration Title
 
 ### Users
 
@@ -436,35 +401,13 @@ I can successfully:
 I can successfully:
 
 - [ ] Enable and disable OPC UA integration when starting the server.
-- [ ] Connect to an encrypted OPC UA server.
-- [ ] Move and rename channels.
-- **Read Task**
-  - **Single Sampling**
-    - [ ] Read timestamps from the OPC UA server.
-    - [ ] Read timestamps from the OPC UA server.
-  - [ ] Obtain recommended Synnax channels based on the configured OPC UA node.
-  - [ ] Connect to and read data from a physical device.
-  - [ ] Maintain Driver operation during device disconnection or channel removal while a task is running.
-  - [ ] Enable and disable data saving.
-- **Write Task**
-  - [ ] Perform control and verify changes on the connected OPC UA server.
-  - [ ] Enable and disable data saving.
-  - [ ] Perform a write operation on an encrypted server.
+- [ ] Connect to and read data from a physical device.
+- [ ] Connect to an encrypted OPC UA server (Write and Read).
 
 ### Modbus
 
 I can successfully:
 
 - [ ] Enable and disable Modbus integration when starting the server.
-- **Read Task**
-  - [ ] Plot live data from Modbus registers.
-  - [ ] Apply scaling to register values.
-  - [ ] Enable and disable data saving.
-  - [ ] Handle device disconnection gracefully.
-- **Write Task**
-  - [ ] Write to holding registers on a Modbus server.
-  - [ ] Write to coils on a Modbus server.
-  - [ ] Perform control actions using a schematic.
-  - [ ] Stop, start, and reconfigure write tasks.
-- [ ] Run simultaneous read and write tasks on the same device.
+- [ ] Connect to and read data from a physical device.
 - [ ] Run tasks across multiple Modbus servers concurrently.

@@ -222,13 +222,14 @@ const onConfigure: Common.Task.OnConfigure<typeof readConfigZ> = async (
   config,
   name,
 ) => {
-  const previous = await client.devices.retrieve<Device.Properties, Device.Make>({
+  const previous = await client.devices.retrieve({
     key: config.device,
+    schemas: Device.SCHEMAS,
   });
-  const device = await client.devices.create<Device.Properties, Device.Make>({
-    ...previous,
-    properties: Device.migrateProperties(previous.properties),
-  });
+  const device = await client.devices.create(
+    { ...previous, properties: Device.migrateProperties(previous.properties) },
+    Device.SCHEMAS,
+  );
 
   const index = await determineIndexChannel({
     client,
@@ -273,7 +274,7 @@ const onConfigure: Common.Task.OnConfigure<typeof readConfigZ> = async (
     ...c,
     channel: getChannelByNodeID(device.properties, c.nodeId),
   }));
-  await client.devices.create(device);
+  await client.devices.create(device, Device.SCHEMAS);
   return [config, device.rack];
 };
 

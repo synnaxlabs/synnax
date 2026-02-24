@@ -19,55 +19,59 @@
 
 namespace driver::common {
 TEST(MergeDeviceProperties, ScannedOverridesRemote) {
-    const std::string remote = R"({"key1":"remote_value","key2":"only_remote"})";
-    const std::string scanned = R"({"key1":"scanned_value","key3":"only_scanned"})";
+    const x::json::json remote = {{"key1", "remote_value"}, {"key2", "only_remote"}};
+    const x::json::json scanned = {{"key1", "scanned_value"}, {"key3", "only_scanned"}};
     const auto result = merge_device_properties(remote, scanned);
-    const auto parsed = nlohmann::json::parse(result);
-    EXPECT_EQ(parsed["key1"], "scanned_value");
-    EXPECT_EQ(parsed["key2"], "only_remote");
-    EXPECT_EQ(parsed["key3"], "only_scanned");
+    EXPECT_EQ(result["key1"], "scanned_value");
+    EXPECT_EQ(result["key2"], "only_remote");
+    EXPECT_EQ(result["key3"], "only_scanned");
 }
 
 TEST(MergeDeviceProperties, EmptyRemote) {
-    const std::string scanned = R"({"key1":"value1"})";
-    const auto result = merge_device_properties("", scanned);
-    const auto parsed = nlohmann::json::parse(result);
-    EXPECT_EQ(parsed["key1"], "value1");
+    const x::json::json scanned = {{"key1", "value1"}};
+    const auto result = merge_device_properties(x::json::json::object(), scanned);
+    EXPECT_EQ(result["key1"], "value1");
 }
 
 TEST(MergeDeviceProperties, EmptyScanned) {
-    const std::string remote = R"({"key1":"value1"})";
-    const auto result = merge_device_properties(remote, "");
-    const auto parsed = nlohmann::json::parse(result);
-    EXPECT_EQ(parsed["key1"], "value1");
+    const x::json::json remote = {{"key1", "value1"}};
+    const auto result = merge_device_properties(remote, x::json::json::object());
+    EXPECT_EQ(result["key1"], "value1");
 }
 
 TEST(MergeDeviceProperties, BothEmpty) {
-    const auto result = merge_device_properties("", "");
-    EXPECT_EQ(result, "");
+    const auto result = merge_device_properties(
+        x::json::json::object(),
+        x::json::json::object()
+    );
+    EXPECT_TRUE(result.is_object());
+    EXPECT_TRUE(result.empty());
 }
 
-TEST(MergeDeviceProperties, InvalidRemoteJsonContinues) {
-    const std::string scanned = R"({"key1":"value1"})";
-    const auto result = merge_device_properties("not valid json", scanned);
-    const auto parsed = nlohmann::json::parse(result);
-    EXPECT_EQ(parsed["key1"], "value1");
+TEST(MergeDeviceProperties, NullRemoteUsesScanned) {
+    const x::json::json scanned = {{"key1", "value1"}};
+    const auto result = merge_device_properties(x::json::json(), scanned);
+    EXPECT_EQ(result["key1"], "value1");
 }
 
-TEST(MergeDeviceProperties, InvalidScannedJsonPreservesRemote) {
-    const std::string remote = R"({"key1":"value1"})";
-    const auto result = merge_device_properties(remote, "not valid json");
-    const auto parsed = nlohmann::json::parse(result);
-    EXPECT_EQ(parsed["key1"], "value1");
+TEST(MergeDeviceProperties, NullScannedPreservesRemote) {
+    const x::json::json remote = {{"key1", "value1"}};
+    const auto result = merge_device_properties(remote, x::json::json());
+    EXPECT_EQ(result["key1"], "value1");
+}
+
+TEST(MergeDeviceProperties, BothNullReturnsEmptyObject) {
+    const auto result = merge_device_properties(x::json::json(), x::json::json());
+    EXPECT_TRUE(result.is_object());
+    EXPECT_TRUE(result.empty());
 }
 
 TEST(MergeDeviceProperties, NestedObjectsReplacedNotMerged) {
-    const std::string remote = R"({"nested":{"a":"1","b":"2"}})";
-    const std::string scanned = R"({"nested":{"a":"new"}})";
+    const x::json::json remote = {{"nested", {{"a", "1"}, {"b", "2"}}}};
+    const x::json::json scanned = {{"nested", {{"a", "new"}}}};
     const auto result = merge_device_properties(remote, scanned);
-    const auto parsed = nlohmann::json::parse(result);
-    EXPECT_EQ(parsed["nested"]["a"], "new");
-    EXPECT_FALSE(parsed["nested"].contains("b"));
+    EXPECT_EQ(result["nested"]["a"], "new");
+    EXPECT_FALSE(result["nested"].contains("b"));
 }
 
 class MockScanner final : public Scanner {
@@ -327,7 +331,7 @@ TEST(TestScanTask, TestNoRecreateOnExistingRemote) {
 }
 
 TEST(TestScanTask, TestRecreateWhenRackChanges) {
-    const std::string user_props = R"({"user_key":"user_value"})";
+    const x::json::json user_props = {{"user_key", "user_value"}};
 
     synnax::device::Device dev1;
     dev1.key = "device1";
@@ -339,13 +343,13 @@ TEST(TestScanTask, TestRecreateWhenRackChanges) {
     synnax::device::Device dev1_moved = dev1;
     dev1_moved.rack = 2;
     dev1_moved.name = "cat";
-    dev1_moved.properties = "";
+    dev1_moved.properties = x::json::json::object();
     dev1_moved.configured = false;
 
     synnax::device::Device dev1_moved_2 = dev1;
     dev1_moved_2.rack = 3;
     dev1_moved_2.name = "dog";
-    dev1_moved_2.properties = "";
+    dev1_moved_2.properties = x::json::json::object();
     dev1_moved_2.configured = false;
 
     std::vector<std::vector<synnax::device::Device>> devices = {
@@ -391,19 +395,19 @@ TEST(TestScanTask, TestRecreateWhenRackChanges) {
     EXPECT_EQ(created_devices->size(), 1);
     EXPECT_EQ(created_devices->at(0).key, "device1");
     EXPECT_EQ(created_devices->at(0).rack, 2);
-    EXPECT_EQ(created_devices->at(0).properties, user_props);
+    EXPECT_EQ(x::json::json(created_devices->at(0).properties), user_props);
     EXPECT_TRUE(created_devices->at(0).configured);
 
     ASSERT_NIL(scan_task.scan());
     EXPECT_EQ(created_devices->size(), 1);
     EXPECT_EQ(created_devices->at(0).key, "device1");
     EXPECT_EQ(created_devices->at(0).rack, 2);
-    EXPECT_EQ(created_devices->at(0).properties, user_props);
+    EXPECT_EQ(x::json::json(created_devices->at(0).properties), user_props);
     EXPECT_TRUE(created_devices->at(0).configured);
 }
 
 TEST(TestScanTask, TestUpdateWhenLocationChanges) {
-    const std::string user_props = R"({"user_key":"user_value"})";
+    const x::json::json user_props = {{"user_key", "user_value"}};
 
     synnax::device::Device dev1;
     dev1.key = "device1";
@@ -416,7 +420,7 @@ TEST(TestScanTask, TestUpdateWhenLocationChanges) {
     synnax::device::Device dev1_renamed = dev1;
     dev1_renamed.location = "new_location";
     dev1_renamed.name = "scanner_name";
-    dev1_renamed.properties = "";
+    dev1_renamed.properties = x::json::json::object();
     dev1_renamed.configured = false;
 
     std::vector<std::vector<synnax::device::Device>> devices = {{dev1_renamed}};
@@ -461,12 +465,12 @@ TEST(TestScanTask, TestUpdateWhenLocationChanges) {
     EXPECT_EQ(created_devices->at(0).key, "device1");
     EXPECT_EQ(created_devices->at(0).location, "new_location");
     EXPECT_EQ(created_devices->at(0).name, "Device 1");
-    EXPECT_EQ(created_devices->at(0).properties, user_props);
+    EXPECT_EQ(x::json::json(created_devices->at(0).properties), user_props);
     EXPECT_TRUE(created_devices->at(0).configured);
 }
 
 TEST(TestScanTask, TestNoUpdateWhenLocationSame) {
-    const std::string user_props = R"({"user_key":"user_value"})";
+    const x::json::json user_props = {{"user_key", "user_value"}};
 
     synnax::device::Device dev1;
     dev1.key = "device1";
@@ -478,7 +482,7 @@ TEST(TestScanTask, TestNoUpdateWhenLocationSame) {
 
     synnax::device::Device dev1_scanned = dev1;
     dev1_scanned.name = "scanner_name";
-    dev1_scanned.properties = "";
+    dev1_scanned.properties = x::json::json::object();
     dev1_scanned.configured = false;
 
     std::vector<std::vector<synnax::device::Device>> devices = {{dev1_scanned}};
@@ -629,7 +633,7 @@ TEST(TestScanTask, TestDeduplicateKeepsLastOldSlot) {
 }
 
 TEST(TestScanTask, TestDeduplicateOnUpdate) {
-    const std::string user_props = R"({"user_key":"user_value"})";
+    const x::json::json user_props = {{"user_key", "user_value"}};
 
     synnax::device::Device existing_dev;
     existing_dev.key = "device1";
@@ -690,7 +694,7 @@ TEST(TestScanTask, TestDeduplicateOnUpdate) {
     EXPECT_EQ(created_devices->at(0).key, "device1");
     EXPECT_EQ(created_devices->at(0).location, "final_slot");
     EXPECT_EQ(created_devices->at(0).name, "Device 1");
-    EXPECT_EQ(created_devices->at(0).properties, user_props);
+    EXPECT_EQ(x::json::json(created_devices->at(0).properties), user_props);
     EXPECT_TRUE(created_devices->at(0).configured);
 }
 

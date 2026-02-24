@@ -358,27 +358,26 @@ func (d *dataRuntime) next(
 
 func (d *dataRuntime) flushAuthorityChanges(ctx context.Context) error {
 	changes := d.state.Auth.Flush()
+	if len(changes) == 0 {
+		return nil
+	}
+	cfg := writer.Config{}
 	for _, change := range changes {
-		cfg := writer.Config{}
 		if change.Channel != nil {
-			cfg.Keys = distchannel.Keys{distchannel.Key(*change.Channel)}
-			cfg.Authorities = []control.Authority{control.Authority(change.Authority)}
+			cfg.Keys = append(cfg.Keys, distchannel.Key(*change.Channel))
+			cfg.Authorities = append(cfg.Authorities, control.Authority(change.Authority))
 		} else {
-			cfg.Keys = d.writeKeys
-			cfg.Authorities = make([]control.Authority, len(d.writeKeys))
-			for i := range cfg.Authorities {
-				cfg.Authorities[i] = control.Authority(change.Authority)
+			cfg.Keys = append(cfg.Keys, d.writeKeys...)
+			for range d.writeKeys {
+				cfg.Authorities = append(cfg.Authorities, control.Authority(change.Authority))
 			}
 		}
-		req := framer.WriterRequest{
-			Command: writer.CommandSetAuthority,
-			Config:  cfg,
-		}
-		if err := signal.SendUnderContext(ctx, d.Out.Inlet(), req); err != nil {
-			return err
-		}
 	}
-	return nil
+	req := framer.WriterRequest{
+		Command: writer.CommandSetAuthority,
+		Config:  cfg,
+	}
+	return signal.SendUnderContext(ctx, d.Out.Inlet(), req)
 }
 
 func (d *dataRuntime) Flow(sCtx signal.Context, opts ...confluence.Option) {

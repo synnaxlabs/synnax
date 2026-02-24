@@ -265,7 +265,7 @@ class TestLabJackReadTask:
         created_task = client.tasks.create(
             name="test-labjack-read-task",
             type="labjack_read",
-            config=task.config.model_dump_json(),
+            config=task.config.model_dump(),
         )
         sy.labjack.ReadTask(created_task)
 
@@ -443,7 +443,7 @@ class TestLabJackWriteTask:
         created_task = client.tasks.create(
             name="test-labjack-write-task",
             type="labjack_write",
-            config=task.config.model_dump_json(),
+            config=task.config.model_dump(),
         )
         sy.labjack.WriteTask(created_task)
 
@@ -476,13 +476,13 @@ class TestLabJackWriteTask:
         )
 
         # Serialize to JSON
-        config_json = original_task.config.model_dump_json()
+        config_dict = original_task.config.model_dump()
 
         # Create task in database
         created_task = client.tasks.create(
             name="test-round-trip",
             type="labjack_write",
-            config=config_json,
+            config=config_dict,
         )
 
         # Deserialize from database
@@ -512,8 +512,6 @@ class TestLabJackDevicePropertyUpdates:
 
     def test_read_task_updates_device_properties(self, client: sy.Synnax):
         """Test that configuring a ReadTask updates device properties with channel mappings."""
-        import json
-
         # Create a rack
         rack = client.racks.retrieve_embedded_rack()
 
@@ -574,7 +572,7 @@ class TestLabJackDevicePropertyUpdates:
 
         # Retrieve device and check properties
         updated_device = client.devices.retrieve(key=device.key)
-        props = json.loads(updated_device.properties)
+        props = updated_device.properties
 
         # Verify read.channels mapping exists
         assert "read" in props
@@ -589,8 +587,6 @@ class TestLabJackDevicePropertyUpdates:
 
     def test_write_task_updates_device_properties(self, client: sy.Synnax):
         """Test that configuring a WriteTask updates device properties with channel mappings."""
-        import json
-
         # Create a rack
         rack = client.racks.retrieve_embedded_rack()
 
@@ -672,7 +668,7 @@ class TestLabJackDevicePropertyUpdates:
 
         # Retrieve device and check properties
         updated_device = client.devices.retrieve(key=device.key)
-        props = json.loads(updated_device.properties)
+        props = updated_device.properties
 
         # Verify write.channels mapping exists
         assert "write" in props

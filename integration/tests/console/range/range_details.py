@@ -14,15 +14,13 @@ import synnax as sy
 from console.case import ConsoleCase
 from framework.utils import get_random_name
 
-NI_ANALOG_READ_CONFIG = json.dumps(
-    {
-        "autoStart": False,
-        "dataSaving": True,
-        "sampleRate": 10,
-        "streamRate": 5,
-        "channels": [],
-    }
-)
+NI_ANALOG_READ_CONFIG = {
+    "autoStart": False,
+    "dataSaving": True,
+    "sampleRate": 10,
+    "streamRate": 5,
+    "channels": [],
+}
 
 
 class RangeDetails(ConsoleCase):
@@ -92,10 +90,10 @@ class RangeDetails(ConsoleCase):
                 time_range=sy.TimeRange(now - sy.TimeSpan.HOUR, now + sy.TimeSpan.HOUR),
             )
 
-        for name in [self.child_1_name, self.child_2_name, self.child_3_name]:
-            self.console.ranges.get_child_range_item(name).wait_for(
-                state="visible", timeout=10000
-            )
+        self.console.ranges.wait_for_child_ranges(
+            [self.child_1_name, self.child_2_name, self.child_3_name],
+            self.parent_range_name,
+        )
 
     def teardown(self) -> None:
         if self.console.layout.is_modal_open():

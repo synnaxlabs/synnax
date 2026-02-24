@@ -132,7 +132,12 @@ class NotificationsClient:
                 sy.sleep(0.1)
 
         if closed_count > 0:
-            sy.sleep(0.1)
+            try:
+                self.page.locator(".pluto-notification").first.wait_for(
+                    state="hidden", timeout=2000
+                )
+            except PlaywrightTimeoutError:
+                pass
 
         return closed_count
 

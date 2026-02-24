@@ -158,16 +158,17 @@ def pure_tsconvert(
         arg_name=OUTPUT_CHANNEL_ARG,
     )
 
-    output_path = Path(
-        ctx.console.ask(
-            "Where would you like to save the converted data?",
-            default=str(
-                input_path.parent / f"{input_path.stem}_converted{input_path.suffix}"
-            ),
-            arg=str(output_path) if output_path is not None else None,
-            arg_name=OUTPUT_PATH_ARG,
-        )
+    output_path_str = ctx.console.ask(
+        "Where would you like to save the converted data?",
+        default=str(
+            input_path.parent / f"{input_path.stem}_converted{input_path.suffix}"
+        ),
+        arg=str(output_path) if output_path is not None else None,
+        arg_name=OUTPUT_PATH_ARG,
     )
+    if output_path_str is None:
+        raise ValueError("Output path is required")
+    output_path = Path(output_path_str)
 
     writer = IO_FACTORY.open_writer(output_path)
 
@@ -184,7 +185,7 @@ def pure_tsconvert(
             for chunk in reader:
                 t0 = datetime.now()
                 converted = convert_time_units(
-                    chunk[input_channel], input_precision, output_precision
+                    chunk[input_channel].to_numpy(), input_precision, output_precision
                 )
                 chunk[output_channel] = converted
                 writer.write(chunk)
@@ -198,11 +199,13 @@ def pure_tsconvert(
 def ask_channel_and_check_exists(
     ctx: Context,
     reader: BaseReader,
-    question="Enter a channel name",
-    arg_name="channel",
+    question: str = "Enter a channel name",
+    arg_name: str = "channel",
     arg: str | None = None,
 ) -> str:
     _ch = ctx.console.ask(question, arg_name=arg_name, arg=arg)
+    if _ch is None:
+        raise ValueError("Channel name is required")
     try:
         next(ch for ch in reader.channels() if ch.name == _ch)
     except StopIteration:

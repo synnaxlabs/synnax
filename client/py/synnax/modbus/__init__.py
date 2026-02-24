@@ -15,9 +15,28 @@ from synnax.modbus.types import (
     DiscreteInputChan,
     HoldingRegisterInputChan,
     HoldingRegisterOutputChan,
+    InputChan,
     InputRegisterChan,
+    OutputChan,
     ReadTask,
     ReadTaskConfig,
     WriteTask,
     WriteTaskConfig,
 )
+
+__all__ = [
+    "InputChan",
+    "BaseChan",
+    "OutputChan",
+    "CoilInputChan",
+    "CoilOutputChan",
+    "Device",
+    "DiscreteInputChan",
+    "HoldingRegisterInputChan",
+    "HoldingRegisterOutputChan",
+    "InputRegisterChan",
+    "ReadTask",
+    "ReadTaskConfig",
+    "WriteTask",
+    "WriteTaskConfig",
+]
