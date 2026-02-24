@@ -25,7 +25,6 @@ std::pair<ReadTaskConfig, x::errors::Error> ReadTaskConfig::parse(
     cfg.auto_start = parser.field<bool>("auto_start", false);
     cfg.rate = x::telem::Rate(parser.field<double>("rate"));
 
-    // Track channel keys for batch retrieval and duplicate detection.
     std::set<synnax::channel::Key> field_keys;
 
     parser.iter("endpoints", [&](x::json::Parser &ep) {
@@ -79,14 +78,12 @@ std::pair<ReadTaskConfig, x::errors::Error> ReadTaskConfig::parse(
 
     if (!parser.ok()) return {std::move(cfg), parser.error()};
 
-    // Retrieve the device connection config.
     auto [conn, conn_err] = device::retrieve_connection(
         ctx->client->devices,
         cfg.device
     );
     if (conn_err) return {{}, conn_err};
 
-    // Fetch all referenced channels from Synnax.
     const std::vector<synnax::channel::Key> all_keys(
         field_keys.begin(),
         field_keys.end()
@@ -94,11 +91,9 @@ std::pair<ReadTaskConfig, x::errors::Error> ReadTaskConfig::parse(
     auto [sy_channels, ch_err] = ctx->client->channels.retrieve(all_keys);
     if (ch_err) return {{}, ch_err};
 
-    // Build the channel map on the config.
     for (const auto &ch: sy_channels)
         cfg.channels[ch.key] = ch;
 
-    // Validate field channel types and resolve index channels.
     for (int ei = 0; ei < static_cast<int>(cfg.endpoints.size()); ei++) {
         auto &ep = cfg.endpoints[ei];
         for (auto &field: ep.fields) {
@@ -125,16 +120,10 @@ std::pair<ReadTaskConfig, x::errors::Error> ReadTaskConfig::parse(
                 continue;
             }
 
-            // Only data channels (those with an index) need index resolution.
             if (ch.index == 0) continue;
             const auto idx_key = ch.index;
-
-            // If the index channel is explicitly listed as a field, it will be
-            // extracted from the response — no software timing needed.
             if (field_keys.count(idx_key)) continue;
-
-            // Software timing needed. Validate cross-endpoint consistency.
-            auto [existing, inserted] = cfg.software_timed_indexes.try_emplace(
+           auto [existing, inserted] = cfg.software_timed_indexes.try_emplace(
                 idx_key,
                 ei
             );
@@ -204,13 +193,11 @@ ReadTaskSource::read(x::breaker::Breaker &breaker, x::telem::Frame &fr) {
             return res;
         }
 
-        // Classify HTTP status code.
         if (auto status_err = device::classify_status(resp.status_code); status_err) {
             res.error = status_err;
             return res;
         }
 
-        // Parse the response body as JSON.
         try {
             parsed_bodies_[ei] = x::json::json::parse(resp.body);
         } catch (const x::json::json::parse_error &e) {
@@ -222,7 +209,6 @@ ReadTaskSource::read(x::breaker::Breaker &breaker, x::telem::Frame &fr) {
 
         const auto &body = parsed_bodies_[ei];
 
-        // Extract each field value (both data and index channels).
         for (const auto &field: ep.fields) {
             if (!body.contains(field.pointer)) {
                 res.error = errors::PARSE_ERROR.sub(
@@ -254,8 +240,8 @@ ReadTaskSource::read(x::breaker::Breaker &breaker, x::telem::Frame &fr) {
             fr.emplace(field.channel_key, x::telem::Series(sample_val));
         }
 
-        // Write software-timed index timestamps for index channels on this
-        // endpoint that are NOT listed as fields.
+        // Write software-timed index timestamps for index channels on this endpoint
+        // that are NOT listed as fields.
         for (const auto &[idx_key, ep_idx]: cfg_.software_timed_indexes) {
             if (ep_idx != static_cast<int>(ei)) continue;
             auto ts = x::telem::TimeStamp::midpoint(
@@ -278,20 +264,17 @@ std::pair<common::ConfigureResult, x::errors::Error> configure_read(
     auto [cfg, parse_err] = ReadTaskConfig::parse(ctx, task);
     if (parse_err) return {common::ConfigureResult{}, parse_err};
 
-    // Retrieve connection config for the HTTP client.
     auto [conn, conn_err] = device::retrieve_connection(
         ctx->client->devices,
         cfg.device
     );
     if (conn_err) return {common::ConfigureResult{}, conn_err};
 
-    // Build request configs for the client.
     std::vector<device::RequestConfig> request_configs;
     request_configs.reserve(cfg.endpoints.size());
     for (const auto &ep: cfg.endpoints)
         request_configs.push_back(ep.request);
 
-    // Create the HTTP client.
     auto [client, client_err] = device::Client::create(
         std::move(conn),
         request_configs
