@@ -25,6 +25,7 @@ import {
 import { status } from "@synnaxlabs/x";
 import { useCallback } from "react";
 
+import { KeyValueEditor } from "@/components/form/KeyValueEditor";
 import { CSS } from "@/css";
 import {
   type AuthType,
@@ -33,7 +34,6 @@ import {
   ZERO_AUTH_CONFIGS,
   ZERO_PROPERTIES,
 } from "@/hardware/http/device/types";
-import { KeyValueEditor } from "@/hardware/http/task/KeyValueEditor";
 import { type Layout } from "@/layout";
 import { Modals } from "@/modals";
 import { Triggers } from "@/triggers";

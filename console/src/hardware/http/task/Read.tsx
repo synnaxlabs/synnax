@@ -28,11 +28,11 @@ import { id, primitive } from "@synnaxlabs/x";
 import { type FC, useCallback, useState } from "react";
 
 import { EmptyAction, Menu } from "@/components";
+import { KeyValueEditor } from "@/components/form/KeyValueEditor";
 import { CSS } from "@/css";
 import { Common } from "@/hardware/common";
 import { ChannelList as BaseChannelList } from "@/hardware/common/task/ChannelList";
 import { Device } from "@/hardware/http/device";
-import { KeyValueEditor } from "@/hardware/http/task/KeyValueEditor";
 import {
   READ_SCHEMAS,
   READ_TYPE,
