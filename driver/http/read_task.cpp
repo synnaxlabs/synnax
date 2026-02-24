@@ -253,8 +253,8 @@ ReadTaskSource::read(x::breaker::Breaker &breaker, x::telem::Frame &fr) {
             );
             if (conv_err) {
                 warnings.push_back(
-                    "failed to convert " + field.pointer.to_string() +
-                    " for channel " + ch.name + ": " + conv_err.message()
+                    "failed to convert " + field.pointer.to_string() + " for channel " +
+                    ch.name + ": " + conv_err.message()
                 );
                 continue;
             }

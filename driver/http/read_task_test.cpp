@@ -1194,11 +1194,13 @@ TEST(HTTPReadTask, DisabledFieldsExcludedFromWriterConfig) {
         .data_type = x::telem::FLOAT64_T
     };
 
-    auto conn_parser = x::json::Parser(x::json::json{
-        {"base_url", "http://localhost:9999"},
-        {"timeout_ms", 100},
-        {"verify_ssl", false},
-    });
+    auto conn_parser = x::json::Parser(
+        x::json::json{
+            {"base_url", "http://localhost:9999"},
+            {"timeout_ms", 100},
+            {"verify_ssl", false},
+        }
+    );
     auto conn = device::ConnectionConfig(conn_parser);
     std::vector<device::RequestConfig> request_configs;
     for (const auto &e: cfg.endpoints)
@@ -1696,9 +1698,7 @@ TEST(HTTPReadTask, PartialFailureMissingFieldInSecondEndpoint) {
 
     cfg.endpoints = {ep1, ep2};
     cfg.channels[1] = {.key = 1, .name = "temp", .data_type = x::telem::FLOAT64_T};
-    cfg.channels[2] = {
-        .key = 2, .name = "pressure", .data_type = x::telem::FLOAT64_T
-    };
+    cfg.channels[2] = {.key = 2, .name = "pressure", .data_type = x::telem::FLOAT64_T};
 
     auto source = ASSERT_NIL_P(make_source(cfg, server.base_url()));
 
