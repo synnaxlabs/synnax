@@ -17,7 +17,7 @@ export const stateZ = z.object({
   version: z.literal(VERSION),
   channels: channel.keyZ.array(),
   remoteCreated: z.boolean(),
-  showIndex: z.boolean(),
+  showIndex: z.boolean().default(false),
 });
 
 export type State = z.infer<typeof stateZ>;

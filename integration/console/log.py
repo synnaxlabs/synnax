@@ -146,6 +146,7 @@ class Log(ConsolePage):
         current = self.layout.get_toggle("Show Timestamps")
         if current != enable:
             self.layout.click_checkbox("Show Timestamps")
+            self.page.wait_for_timeout(1000)
 
     def has_timestamps_enabled(self) -> bool:
         """Check if the Show Timestamps toggle is currently enabled."""
