@@ -23,8 +23,8 @@ identical to the highest-versioned snapshot.
 - **gorp** — Type-safe ORM wrapping Pebble KV store with `Reader[K, E]` and
   `Writer[K, E]` generics. Stores entries under a canonical KV prefix derived from the
   Go type name (e.g., `__gorp__//Schematic`).
-- **EntryManager** — `gorp.EntryManager[K, E]` manages key re-encoding when the key
-  encoding scheme changes. Does not run schema migrations.
+- **Table** — `gorp.Table[K, E]` manages codec-aware reads/writes and runs versioned
+  migrations at startup via `OpenTable`. Replaces the earlier `EntryManager` concept.
 - **Migration** — A versioned transform that converts entries from one schema version to
   the next during server startup.
 - **Auto-migrate** — Oracle-generated function (`migrations/vN/auto.gen.go`) that copies
@@ -36,7 +36,8 @@ identical to the highest-versioned snapshot.
 - **KV prefix** — The key prefix under which gorp stores all entries of a type (e.g.,
   `__gorp__//Schematic`). Derived from the Go type name via `types.Name[E]()`.
 - **Codec** — Serialization format used to encode/decode entries in the KV store.
-  Currently msgpack; transitioning to protobuf.
+  Currently msgpack; transitioning to direct binary encoding via Oracle-generated
+  `gorp.Codec[E]` implementations.
 - **Legacy type** — A snapshot of a type's struct definition at a previous schema
   version, stored in `migrations/vN/auto.gen.go`.
 - **Snapshot** — A copy of `.oracle` source files at the time of a migration generation,
@@ -47,8 +48,8 @@ identical to the highest-versioned snapshot.
 Several Oracle-managed types — schematics, workspace layouts, device configurations —
 are stored as loosely typed blobs in the KV store. As the platform matures, these types
 need stronger typing, and the storage encoding needs to transition from msgpack to
-protobuf. Both changes require a systematic way to evolve stored data without data loss
-or downtime.
+direct binary encoding. Both changes require a systematic way to evolve stored data
+without data loss or downtime.
 
 The goals of this migration system are:
 
@@ -56,10 +57,10 @@ The goals of this migration system are:
 - Strongly type server-side data structures (schematics, workspace layouts, etc.)
 - Support automatic migration generation when Oracle schemas change
 - Allow custom migration logic defined by the developer
-- Enable eventual transition from msgpack to protobuf for storage encoding
+- Enable eventual transition from msgpack to binary encoding for storage encoding
 
 The first migration to run through the system is the codec switch from msgpack to
-protobuf for gorp-stored entries. This is a high-value change that exercises the core
+binary for gorp-stored entries. This is a high-value change that exercises the core
 migration pipeline (iterate all entries, decode with old codec, re-encode with new
 codec) without requiring schema changes to any individual type. It validates the
 infrastructure before more complex per-type schema migrations are needed.
@@ -68,7 +69,7 @@ MVP requirements for this use case:
 
 - Migration execution on server startup (per-type, eager)
 - Per-type version tracking (KV key, uint16)
-- Oracle-generated migration code (decode msgpack → encode protobuf)
+- Oracle-generated migration code (decode msgpack → encode binary)
 - Independent per-node execution
 - CI check that migrations are generated when needed
 
@@ -217,7 +218,7 @@ adding a field, removing a field, renaming, changing a field's type, changing
 required/optional status — requires a corresponding migration. Explicit is better than
 implicit. Even additive changes that are technically safe with msgpack deserialization
 get a migration entry. This ensures a complete audit trail and prevents surprises when
-the storage codec changes (e.g., msgpack → protobuf where additive changes may not be
+the storage codec changes (e.g., msgpack → binary where additive changes may not be
 free).
 
 ### 2 - Schema Snapshots
@@ -249,7 +250,7 @@ oracle migrate generate
 1. Diffs current `.oracle` files against the latest snapshot in
    `schemas/.snapshots/<version>/`.
 2. For each changed type, determines the generation mode:
-   - **Full mode**: Codec transitions (e.g., first migration for msgpack→protobuf). Both
+   - **Full mode**: Codec transitions (e.g., first migration for msgpack→binary). Both
      `_auto.gen.go` and `.go` are fully generated. Developer touches neither.
    - **Skeleton mode**: Direct schema changes (field add/remove/rename/type change).
      `_auto.gen.go` copies unchanged fields. `.go` template has TODOs for changed
@@ -328,7 +329,7 @@ oracle migrate regenerate
 ### 1 - Eager Startup Execution
 
 All entries of a type are migrated during server startup before the service accepts
-requests. This is consistent with how `EntryManager` already works and guarantees that
+requests. This is consistent with how `OpenTable` already works and guarantees that
 all data is in the current format at runtime — no need to support reading both old and
 new formats simultaneously. The tradeoff is potentially slower startup with large
 datasets, but metadata entries (schematics, workspaces, devices) are expected to number
@@ -388,16 +389,16 @@ migration execution. The migration runtime lives in gorp.
 - **`KeyMigration[K, E]`**: Re-encodes keys when the key encoding scheme changes. This
   is the existing `reEncodeKeys` logic, now expressed as a `Migration`.
 
-`gorp.EntryManager[K, E]` is the single entry point for all migrations. It accepts an
-ordered list of `Migration`s and runs them sequentially by version counter during
-`OpenEntryManager`. Key re-encoding is implicitly appended as the final migration —
-services don't need to think about it.
+`gorp.OpenTable[K, E]` is the single entry point for all migrations. It accepts an
+ordered list of `Migration`s via `TableConfig` and runs them sequentially by version
+counter during startup. Key re-encoding runs automatically after migrations — services
+don't need to think about it.
 
 **Startup sequence** (each service):
 
 ```
-1. gorp.OpenEntryManager[K, E](ctx, db, migrations.All()...)
-   → Reads __gorp__/<type>/version from KV store
+1. gorp.OpenTable[K, E](ctx, TableConfig{DB, Codec, Migrations: migrations.All()})
+   → Reads __gorp_migration__//<Type> from KV store
    → Runs pending schema migrations in order (v1→v2→v3...)
    → Implicitly runs key re-encoding as the final step
    → Updates version counter
@@ -411,26 +412,27 @@ ordered `[]gorp.Migration` list. Oracle generates this file and appends new
 registrations on each `oracle migrate generate` run. The developer never edits this
 file.
 
-The version counter is stored at `__gorp__//<Type>/version` as a uint16 (big-endian, max
-65,535 migrations). This is a new key format — existing `gorp.Migrator` keys for
+The version counter is stored at `__gorp_migration__//<Type>` as a uint16 (big-endian,
+max 65,535 migrations). This is a new key format — existing `gorp.Migrator` keys for
 non-Oracle types are untouched.
 
-`GorpMarshal`/`GorpUnmarshal` methods are generated by `oracle sync` (the `go/types`
-plugin), not by the migration plugin. They are a normal type generation concern.
+`Codec[E]` implementations are generated by `oracle sync` (the `go/marshal` plugin) in
+`codec.gen.go` (in the parent package), not by the migration plugin. They are a normal
+type generation concern.
 
 ```
-Oracle (build time)              gorp.EntryManager (runtime)
+Oracle (build time)              gorp.OpenTable (runtime)
   │                                │
-  ├─ oracle sync                   ├─ reads __gorp__/<type>/version
+  ├─ oracle sync                   ├─ reads __gorp_migration__//<Type>
   │   ├─ generates types.gen.go    ├─ runs pending migrations in order:
-  │   ├─ generates GorpMarshal/    │   ├─ TypedMigration: decode → transform → encode
-  │   │  GorpUnmarshal             │   ├─ RawMigration: arbitrary gorp.Tx logic
-  │   └─ generates pb/             │   └─ KeyMigration: re-encode keys
-  │                                ├─ increments version counter
-  ├─ oracle migrate generate       └─ (future) manages indexes
-  │   ├─ generates vN/ snapshots
+  │   └─ generates codec.gen.go    │   ├─ TypedMigration: decode → transform → encode
+  │      (Codec[E] binary impl)    │   ├─ RawMigration: arbitrary gorp.Tx logic
+  │                                │   └─ (implicit) re-encode keys
+  ├─ oracle migrate generate       ├─ increments version counter
+  │   ├─ generates vN/ snapshots   └─ (future) manages indexes
   │   ├─ generates auto-migrate
   │   ├─ generates post-migrate
+  │   ├─ generates vN/codec.gen.go (frozen binary codec)
   │   └─ generates migrate.gen.go
   │
   └─ oracle migrate check
@@ -454,9 +456,10 @@ Every migration version produces a `vN/` Go sub-package with two files:
 
 - **`vN/auto.gen.go`**: Auto-migrate function + legacy type snapshot. Oracle-generated,
   regeneratable, never edited. Contains the structural copy of the type at version N and
-  a transform that maps `vN.TypeVN → v(N+1).TypeV(N+1)`. Post-codec-transition versions
-  also include `GorpMarshal`/`GorpUnmarshal` methods using snapshotted protobuf
-  definitions.
+  a transform that maps `vN.TypeVN → v(N+1).TypeV(N+1)`.
+- **`vN/codec.gen.go`** (post-transition only): Frozen binary `Codec[TypeVN]`
+  implementation. Write-once — generated when the migration version is created and never
+  regenerated. Matches the exact field layout of the type snapshot in `auto.gen.go`.
 - **`vN/migrate.go`**: Post-migrate template. Oracle-generated once, then owned by the
   developer. Contains a post-migrate function called after auto-migrate. Oracle
   pre-populates TODOs for new/changed/removed fields.
@@ -472,21 +475,21 @@ type. Each schema version gets its own `vN/` Go sub-package:
 ```
 core/pkg/service/schematic/
 ├── types.gen.go           # Current Schematic type (Oracle-generated)
-├── marshal.gen.go         # GorpMarshal/GorpUnmarshal for current type
+├── codec.gen.go           # Current binary Codec[Schematic] (Oracle sync)
 ├── service.go             # Service logic
-├── pb/                    # Current protobuf definitions
+├── pb/                    # Protobuf transport (ToPB/FromPB, .pb.go) — NOT storage
 └── migrations/
-    ├── migrate.gen.go     # GENERATED: Migrator() function (never edit)
+    ├── migrate.gen.go     # GENERATED: All() function (never edit)
     ├── v1/                # Pre-transition snapshot (msgpack era)
     │   ├── auto.gen.go    # SchematicV1 + AutoMigrateV1ToV2 → v2.SchematicV2
     │   └── migrate.go     # PostMigrateV1ToV2 (developer edits)
     ├── v2/                # Post-transition snapshot
-    │   ├── auto.gen.go    # SchematicV2 + GorpMarshal/Unmarshal + AutoMigrateV2ToV3
-    │   ├── migrate.go     # PostMigrateV2ToV3 (developer edits)
-    │   └── pb/            # Snapshotted protobuf for V2
+    │   ├── auto.gen.go    # SchematicV2 + AutoMigrateV2ToV3
+    │   ├── codec.gen.go   # Frozen binary codec for V2 (write-once, never regenerate)
+    │   └── migrate.go     # PostMigrateV2ToV3 (developer edits)
     └── v3/                # Current snapshot (no AutoMigrate yet)
-        ├── auto.gen.go    # SchematicV3 + GorpMarshal/Unmarshal
-        └── pb/            # Snapshotted protobuf for V3
+        ├── auto.gen.go    # SchematicV3 type snapshot
+        └── codec.gen.go   # Frozen binary codec for V3
 ```
 
 **Key structural rules:**
@@ -497,12 +500,13 @@ core/pkg/service/schematic/
 - The highest-numbered `vN/` is the "current" snapshot. It has no `AutoMigrate` or
   `PostMigrate` yet — Oracle adds those when the next migration is created, then creates
   `v(N+1)/` as the new current.
-- Pre-codec-transition versions (e.g., `v1/`) have no `pb/` directory or
-  `GorpUnmarshaler` — they decode using the DB's generic msgpack codec.
-- Post-codec-transition versions (e.g., `v2/`, `v3/`) include snapshotted `.proto` files
-  in a `pb/` sub-package and implement `GorpMarshal`/`GorpUnmarshal` using those
-  snapshotted protos. The `.proto` files are regenerated from snapshotted `.oracle`
-  source files — Oracle can reproduce them deterministically.
+- Pre-codec-transition versions (e.g., `v1/`) have no `codec.gen.go` — they decode
+  using the DB's generic msgpack codec.
+- Post-codec-transition versions (e.g., `v2/`, `v3/`) include a frozen `codec.gen.go`
+  that implements `gorp.Codec[E]` using direct binary encoding. Each version's codec is
+  a snapshot of the binary layout at that version — write-once, never regenerated. The
+  binary layout is positional (field order from the `.oracle` schema determines wire
+  format), so the frozen codec must exactly match the type snapshot in `auto.gen.go`.
 - The parent package's current type (in `types.gen.go`) is structurally identical to the
   highest `vN/` snapshot. Oracle ensures this by generating both from the same `.oracle`
   source.
@@ -514,184 +518,164 @@ migration is generated, Oracle appends the new `gorp.NewTypedMigration` call to
 `migrate.gen.go`. The developer never edits this file — Oracle maintains it as the
 single source of truth for migration ordering.
 
-### 4 - Protobuf Marshaling Interfaces
+### 4 - Binary Codec Interface
 
-A generic `ProtobufCodec` implementing `binary.Codec` with `Encode(ctx, any)` is
-problematic — protobuf marshaling is type-specific (each proto message has its own
-generated `Marshal`/`Unmarshal`). A generic codec would need type assertions or
-reflection, which is fragile.
-
-Gorp entries optionally implement marshaling interfaces. Oracle generates these methods
-using the protobuf translators it already produces. Gorp checks for the interface; if
-not implemented, it falls back to the generic DB codec (msgpack for legacy types).
+Rather than per-type marshaling interfaces (`GorpMarshaler`/`GorpUnmarshaler`), gorp
+uses an explicit `Codec[E]` interface injected into `Table[K,E]` via `TableConfig`.
+Oracle generates codec structs in the parent package (`codec.gen.go`) using direct
+binary encoding — no protobuf translation layer.
 
 ```go
-// x/go/gorp/marshal.go
+// x/go/gorp/codec.go
 
-// GorpMarshaler is an optional interface that entries can implement to
-// control their own serialization. When implemented, gorp uses this
-// instead of the generic DB codec.
-type GorpMarshaler interface {
-    GorpMarshal(ctx context.Context) ([]byte, error)
-}
-
-// GorpUnmarshaler is the decoding counterpart.
-type GorpUnmarshaler interface {
-    GorpUnmarshal(ctx context.Context, data []byte) error
+// Codec is a per-type serialization interface. Injected into Table via
+// TableConfig. When set, Table uses this for all reads and writes instead
+// of the DB's generic codec (msgpack).
+type Codec[E any] interface {
+    Marshal(ctx context.Context, entry E) ([]byte, error)
+    Unmarshal(ctx context.Context, data []byte) (E, error)
 }
 ```
 
-**Writer changes** (`writer.go`):
+**Codec is injected, not discovered via type assertion.** `Table[K,E]` holds an
+optional `Codec[E]` and threads it through all query builders, writers, readers, and
+observers. If no codec is set, the DB's generic codec (msgpack) is used as fallback.
+
+**Oracle-generated codec** (in `codec.gen.go`, same package as the type):
 
 ```go
-func (w *Writer[K, E]) set(ctx context.Context, entry E) error {
-    var data []byte
-    var err error
-    if m, ok := any(&entry).(GorpMarshaler); ok {
-        data, err = m.GorpMarshal(ctx)
-    } else {
-        data, err = w.Encode(ctx, entry)
-    }
-    if err != nil {
-        return err
-    }
-    return w.BaseWriter.Set(ctx, w.keyCodec.encode(entry.GorpKey()), data,
-        entry.SetOptions()...)
+// GENERATED BY ORACLE — DO NOT EDIT
+package schematic
+
+type schematicCodec struct{}
+
+var SchematicCodec gorp.Codec[Schematic] = schematicCodec{}
+
+func (schematicCodec) Marshal(
+    _ context.Context,
+    s Schematic,
+) ([]byte, error) {
+    buf := make([]byte, 0, 113)
+    buf = append(buf, s.Key[:]...)                              // uuid: 16 bytes fixed
+    buf = binary.BigEndian.AppendUint32(buf, uint32(len(s.Name)))
+    buf = append(buf, s.Name...)                                // string: length-prefixed
+    { _jb, _je := json.Marshal(s.Data); /* ... */ }            // json: length-prefixed
+    if s.Snapshot { buf = append(buf, 1) } else { buf = append(buf, 0) }
+    return buf, nil
+}
+
+func (schematicCodec) Unmarshal(
+    _ context.Context,
+    data []byte,
+) (Schematic, error) {
+    var s Schematic
+    off := 0
+    copy(s.Key[:], data[off:off+16]); off += 16
+    _nl := binary.BigEndian.Uint32(data[off:]); off += 4
+    s.Name = string(data[off : off+int(_nl)]); off += int(_nl)
+    // ... remaining fields ...
+    return s, nil
 }
 ```
 
-**Note**: The type assertion uses `any(&entry)` (pointer), not `any(entry)` (value).
-`GorpMarshal` has a pointer receiver (`*Schematic`), and Go's type assertion on an
-interface only matches if the concrete type in the interface matches exactly. Passing a
-value would fail to find the pointer-receiver method.
+The binary encoding is **positional** — field order in the `.oracle` schema determines
+wire layout. Fields are encoded with BigEndian byte ordering, fixed-size types written
+directly, variable-length types with a uint32 length prefix, and untyped JSON fields
+marshaled via `encoding/json`.
 
-**Reader/Iterator changes** (`reader.go`):
+**This solves the old/new codec problem for migrations via explicit codec parameters:**
 
-```go
-func (k *Iterator[E]) Value(ctx context.Context) (entry *E) {
-    k.value = new(E)
-    if u, ok := any(k.value).(GorpUnmarshaler); ok {
-        if err := u.GorpUnmarshal(ctx, k.Iterator.Value()); err != nil {
-            k.err = err
-            return nil
-        }
-    } else {
-        if err := k.decoder.Decode(ctx, k.Iterator.Value(), k.value); err != nil {
-            k.err = err
-            return nil
-        }
-    }
-    return k.value
-}
-```
+- **Pre-transition legacy types** (e.g., `v1/`): No codec — decoded using the DB's
+  generic msgpack codec via `MigrationConfig.Codec`.
+- **Post-transition legacy types** (e.g., `v2/`): Each version has a frozen
+  `codec.gen.go` in its `vN/` directory. The frozen codec exactly matches that
+  version's type layout. Migrations pass the appropriate `Codec[I]` and `Codec[O]` to
+  `TypedMigration` for decoding input and encoding output.
+- **Current types**: Use the live codec from `codec.gen.go` (in the parent package),
+  injected into `Table` via `TableConfig.Codec`.
+- **Each migration step declares its codecs explicitly** — no type assertion magic.
 
-**Oracle-generated methods** (in `types.gen.go`):
-
-```go
-func (s *Schematic) GorpMarshal(ctx context.Context) ([]byte, error) {
-    pb, err := pb.SchematicToPB(ctx, *s)
-    if err != nil {
-        return nil, err
-    }
-    return proto.Marshal(pb)
-}
-
-func (s *Schematic) GorpUnmarshal(ctx context.Context, data []byte) error {
-    pbMsg := &pb.Schematic{}
-    if err := proto.Unmarshal(data, pbMsg); err != nil {
-        return err
-    }
-    result, err := pb.SchematicFromPB(ctx, pbMsg)
-    if err != nil {
-        return err
-    }
-    *s = result
-    return nil
-}
-```
-
-**This naturally solves the old/new codec problem for migrations:**
-
-- **Pre-transition legacy types** (e.g., `v1/`): Don't implement `GorpUnmarshaler`. The
-  migration runner decodes them with the generic DB codec (msgpack). No `pb/`
-  sub-package needed.
-- **Post-transition legacy types** (e.g., `v2/`): Implement
-  `GorpMarshal`/`GorpUnmarshal` using snapshotted protobuf definitions in their own
-  `pb/` sub-package. Each version decodes with its own proto definition — field numbers
-  are irrelevant across versions because data is never read with a different version's
-  proto.
-- **Current types** (in `types.gen.go`): Implement `GorpMarshaler`/`GorpUnmarshaler`.
-  Written back using protobuf.
-- **No explicit codec declaration per-migration needed.** The type itself determines its
-  encoding format.
-
-## 5 - Protobuf Transition
+## 5 - Binary Transition
 
 ### 1 - Codec Transition Scope
 
 The goal is a full codec replacement — all Oracle-managed types stored via gorp switch
-from msgpack to protobuf encoding. The migration system handles the format transition
-(decode old entries with msgpack, re-encode with protobuf). If a full cutover proves
-impractical, a per-type gradual migration is acceptable, but the strong preference is a
-clean, complete switch. Oracle already generates `.proto` files and Go translators, so
-the protobuf infrastructure exists.
+from msgpack to direct binary encoding. The migration system handles the format
+transition (decode old entries with msgpack, re-encode with binary). If a full cutover
+proves impractical, a per-type gradual migration is acceptable, but the strong
+preference is a clean, complete switch. Oracle already generates binary `Codec[E]`
+implementations via the `@go marshal` annotation, so the binary encoding infrastructure
+exists.
 
-Since Oracle owns the schema and generates both msgpack-compatible Go structs and
-protobuf definitions + translators, the codec transition should be Oracle-generated
-rather than manually written per-type. The exact mechanism (gorp-layer detection vs.
-explicit migration entry) is an implementation detail to be resolved during development.
-The key principle is that Oracle should be able to generate all the code needed for the
-codec switch — the developer shouldn't have to write repetitive msgpack→protobuf
-boilerplate for each type.
+Since Oracle owns the schema and generates both msgpack-compatible Go structs and binary
+codecs, the codec transition should be Oracle-generated rather than manually written
+per-type. The key principle is that Oracle should be able to generate all the code
+needed for the codec switch — the developer shouldn't have to write repetitive
+msgpack→binary boilerplate for each type.
 
-### 2 - Protobuf Field Number Stability
+### 2 - Field Ordering Stability
 
-Protobuf field number stability across schema versions does not matter because each
-version snapshot includes its own protobuf definitions. Version N's data is always
-decoded with version N's proto, never with version N+1's proto. The migration chain
-decodes with the old version's `GorpUnmarshal` (using the snapshotted proto in
-`vN/pb/`), transforms to the new version's type, then encodes with the new version's
-`GorpMarshal` (using the snapshotted proto in `v(N+1)/pb/`). Oracle can freely assign
-and reassign field numbers on each generation without stability constraints.
+Binary encoding is **positional** — field order in the `.oracle` schema determines wire
+layout. Unlike protobuf (where field numbers provide tagged access), reordering fields
+in a binary-encoded schema changes the wire format and makes existing data unreadable.
 
-### 3 - Protobuf Struct Precision for JSON Fields
+This is safe because each migration version freezes a `codec.gen.go` that exactly
+matches its type snapshot. Version N's data is always decoded with version N's frozen
+codec, never with version N+1's codec. The migration chain decodes with the old
+version's frozen codec, transforms to the new version's type, then encodes with the new
+version's frozen codec. Oracle can freely add or remove fields between versions — it
+generates a new frozen codec for each version.
 
-JSON fields (`Schematic.data`, `Workspace.layout`) originate from TypeScript/JavaScript
-where all numbers are float64. The `google.protobuf.Struct` type's float64-only numeric
-representation matches the source data — no precision loss in practice. When these
-fields are eventually promoted to full Oracle types, they'll get proper protobuf
-messages with correct numeric types.
+**Safety rules:**
+
+- **Never reorder fields** in an existing `.oracle` schema. Append new fields at the
+  end.
+- **Frozen codecs are write-once** — `vN/codec.gen.go` is generated once and never
+  regenerated.
+- **`oracle migrate check`** should include a structural diff that detects field
+  reordering as an error, not just field addition/removal.
+- **Round-trip golden tests** — each migration version should have a golden test that
+  encodes a known value and asserts the byte output matches a frozen expectation.
+
+### 3 - JSON Fields in Binary Encoding
+
+JSON fields (`Schematic.data`, `Workspace.layout`) are encoded using `encoding/json`
+and stored as length-prefixed byte blobs within the binary format. This preserves full
+JSON fidelity. When these fields are eventually promoted to full Oracle types, they'll
+get proper binary encoding with correct numeric types.
 
 ### 4 - Codec Transition Startup Sequence
 
-After the protobuf switch, the DB's generic codec remains msgpack (unchanged). It serves
-as the fallback for types that don't implement the marshaling interfaces. The startup
-sequence:
+After the binary switch, the DB's generic codec remains msgpack (unchanged). It serves
+as the fallback for pre-transition legacy types. The startup sequence:
 
 ```
-1. gorp.Wrap(kvStore, gorp.WithCodec(&MsgPackCodec{}))
-   ↳ Generic codec stays msgpack — used as fallback for pre-transition legacy types
+1. gorp.OpenTable[K, Schematic](ctx, TableConfig{
+       DB:    db,
+       Codec: schematic.SchematicCodec,  // binary codec for current type
+       Migrations: migrations.All(),
+   })
 
-2. migrations.Migrator().Run(ctx, db)
-   ↳ Migration v1→v2: reads raw bytes from KV
-   ↳ Decodes using MsgPackCodec into v1.SchematicV1 (no GorpUnmarshaler)
+2. OpenTable runs pending migrations:
+   ↳ Migration v1→v2: iterates all entries under prefix
+   ↳ Decodes using MigrationConfig.Codec (DB's msgpack) into v1.SchematicV1
    ↳ Calls transform: v1.SchematicV1 → v2.SchematicV2
-   ↳ Encodes using v2.SchematicV2.GorpMarshal() → protobuf bytes
+   ↳ Encodes using v2's frozen Codec[SchematicV2] → binary bytes
    ↳ Writes back to KV
 
-3. gorp.OpenEntryManager[K, Schematic]()
-   ↳ reEncodeKeys reads entries — Schematic implements GorpUnmarshaler
-   ↳ All data is already protobuf, this is effectively a no-op
+3. OpenTable runs key re-encoding:
+   ↳ Reads entries using TableConfig.Codec (binary)
+   ↳ All data is already binary, this is effectively a no-op
 
 4. Service accepts requests
-   ↳ All reads use GorpUnmarshal (protobuf)
-   ↳ All writes use GorpMarshal (protobuf)
-   ↳ Generic MsgPackCodec never touched at runtime
+   ↳ All reads use Table's Codec (binary)
+   ↳ All writes use Table's Codec (binary)
+   ↳ Generic msgpack codec never touched at runtime
 ```
 
-**After migration completes, DB state is clean**: every entry is protobuf, no ambiguity,
-no fallback codec at runtime. The generic msgpack codec exists only for the migration
-runner to decode legacy types.
+**After migration completes, DB state is clean**: every entry is binary-encoded, no
+ambiguity, no fallback codec at runtime. The generic msgpack codec exists only for the
+migration runner to decode legacy (pre-transition) types.
 
 ## 6 - Nested and Shared Type Migrations
 
@@ -906,7 +890,7 @@ retain their existing migration mechanisms. This RFC covers only Oracle-managed 
 
 ### 2 - Version Counter Storage
 
-Each Oracle-managed type gets a dedicated KV key (e.g., `__oracle__/schematic/version`)
+Each Oracle-managed type gets a dedicated KV key (e.g., `__gorp_migration__//Schematic`)
 that stores its current migration version. All entries of that type are assumed to be at
 the same version after startup migration completes. This is consistent with the eager
 migration model — once startup finishes, every entry has been migrated. No version field
@@ -923,7 +907,7 @@ The Oracle migration system builds the server-side infrastructure for schema evo
 RFC 0025 (moving client-side migrations to the server) will layer on top once server
 types are strongly typed via Oracle. The sequence is:
 
-1. **This RFC (0027)**: Oracle migration system + msgpack→protobuf codec transition
+1. **This RFC (0027)**: Oracle migration system + msgpack→binary codec transition
 2. **Strongly type JSON fields**: Incrementally promote `json` fields to Oracle types
 3. **RFC 0025**: Server owns all schema evolution; client sends/receives Oracle-typed
    data instead of managing its own migrations
@@ -935,7 +919,7 @@ concrete code showing what the migration file, legacy type, and transform functi
 look like under the proposed system. The purpose is to stress-test the API design before
 building it.
 
-## Scenario 1: Codec Transition (msgpack → protobuf)
+## Scenario 1: Codec Transition (msgpack → binary)
 
 **Context**: The MVP. Every Oracle-managed type switches storage encoding. No schema
 change — same fields, same types, different wire format.
@@ -955,7 +939,7 @@ import (
 )
 
 // SchematicV1 is the legacy type snapshot. Same fields, msgpack encoding.
-// No GorpUnmarshaler — decoded using the generic DB codec (msgpack).
+// No binary codec — decoded using the generic DB codec (msgpack).
 type SchematicV1 struct {
     Key      uuid.UUID                 `json:"key" msgpack:"key"`
     Name     string                    `json:"name" msgpack:"name"`
@@ -1005,11 +989,11 @@ func PostMigrateV1ToV2(
 
 - The developer writes nothing. Both files are Oracle-generated. The auto-migrate copies
   all fields 1:1. The post-migrate is empty because there are no schema changes.
-- `v1/` is a pre-transition snapshot: no `pb/` directory, no `GorpUnmarshaler`. The
-  runner decodes using the generic DB codec (msgpack).
-- `v2/` is a post-transition snapshot: has `pb/` with snapshotted proto, implements
-  `GorpMarshal`/`GorpUnmarshal`. The runner encodes the output using `GorpMarshal` →
-  protobuf bytes.
+- `v1/` is a pre-transition snapshot: no `codec.gen.go`. The migration's `inputCodec`
+  is nil, so the runner decodes using `MigrationConfig.Codec` (msgpack).
+- `v2/` is a post-transition snapshot: has a frozen `codec.gen.go` with binary encoding.
+  The migration's `outputCodec` is `v2.Codec`, so the runner encodes the output using
+  the frozen binary codec.
 - Every Oracle-managed type (~15+ types) gets the same pair of `vN/` packages.
   Repetitive but explicit, auditable, and consistent with "all changes require
   migration."
@@ -1088,9 +1072,10 @@ func PostMigrateV2ToV3(
   new `Description` field. The developer decides the default value (here, `nil`).
 - The two-file split means Oracle can regenerate `v2/auto.gen.go` freely (e.g., if the
   auto-migrate logic improves) without clobbering the developer's `v2/migrate.go`.
-- With msgpack, this migration is technically unnecessary — missing fields decode as
-  zero values. But all changes require a migration, so it exists for the audit trail and
-  for protobuf compatibility.
+- With msgpack, this migration would be technically unnecessary — missing fields decode
+  as zero values. But all changes require a migration, so it exists for the audit trail
+  and for binary encoding compatibility (positional encoding has no concept of "missing
+  fields").
 
 ---
 
@@ -1162,7 +1147,7 @@ func PostMigrateV3ToV4(
   template is generated with a comment about the removed field.
 - The developer only touches the post-migrate if they need to preserve the removed data
   elsewhere (e.g., copy Author to an audit log).
-- With protobuf, this also reclaims storage (the field is no longer serialized).
+- With binary encoding, this also reclaims storage (the field is no longer serialized).
 
 ---
 
@@ -1870,7 +1855,7 @@ migration runner tries to read it using `Reader[uuid.UUID, SchematicV1]`, it get
 **Implication**: The migration runner **cannot use gorp's typed Reader/Writer** with
 legacy types directly. It must operate at a lower level.
 
-## 2 - How EntryManager Already Solves This
+## 2 - How OpenTable Already Solves This
 
 `manager.go` already has a migration that reads and rewrites entries. Here's what
 `reEncodeKeys` does:
@@ -1951,17 +1936,16 @@ step. Multiple full passes is correct and fast enough for metadata volumes.
 
 ## 5 - Codec Transition Specifics
 
-For the msgpack → protobuf MVP, there is no generic "protobuf codec." Each type handles
-its own protobuf serialization via `GorpMarshaler`/`GorpUnmarshaler` (Section 3.4.4).
-The DB's generic codec stays msgpack — it's the fallback for pre-transition legacy types
-that don't implement the marshaling interfaces.
+For the msgpack → binary MVP, each type gets its own Oracle-generated `Codec[E]`
+implementation (Section 3.4.4). The DB's generic codec stays msgpack — it's the fallback
+for pre-transition legacy types that don't have a binary codec.
 
 The transform function is identity (same fields), so the chain is:
 
 ```
-Raw msgpack bytes → tx.Decode into v1.SchematicV1 (no GorpUnmarshaler, uses msgpack)
+Raw msgpack bytes → decode with MigrationConfig.Codec (msgpack) into v1.SchematicV1
     → identity transform → v2.SchematicV2
-    → v2.SchematicV2.GorpMarshal() → protobuf bytes → write
+    → encode with v2's frozen Codec[SchematicV2] → binary bytes → write
 ```
 
 The canonical type prefix (`__gorp__//Schematic`) doesn't change — only the value
@@ -1973,13 +1957,13 @@ The migration runner needs to know the canonical KV prefix for each type — the
 under which data is actually stored. This can't be derived from the legacy type name
 (e.g., `v1.SchematicV1` would give `__gorp__//SchematicV1`, not `__gorp__//Schematic`).
 
-The solution is **`EntryManager[K, E]`'s generic type parameter**. Since `EntryManager`
-is generic on the current type `E`, it derives the canonical prefix via
-`types.Name[E]()` — the same mechanism gorp already uses for `Reader` and `Writer`. The
+The solution is **`Table[K, E]`'s generic type parameter**. Since `Table` is generic on
+the current type `E`, it derives the canonical prefix via `types.Name[E]()` — the same
+mechanism gorp already uses for `Reader` and `Writer`. The
 `migrations/migrate.gen.go` file exports an `All()` function returning
 `[]gorp.Migration` — it only imports `vN/` sub-packages, never the parent service
 package, avoiding circular dependencies. The prefix and version key are derived by
-`EntryManager`, not by the migration files.
+`OpenTable`, not by the migration files.
 
 # 7 - Go API Surface
 
@@ -1996,10 +1980,10 @@ import "context"
 
 // Migration is the interface for a single versioned migration step. All
 // migrations — typed, raw, and key re-encoding — implement this interface.
-// EntryManager runs them sequentially by version counter.
+// OpenTable runs them sequentially by version counter.
 type Migration interface {
     // Name returns a human-readable identifier for this migration (e.g.,
-    // "msgpack_to_protobuf", "add_description_field").
+    // "msgpack_to_binary", "add_description_field").
     Name() string
 
     // Run executes the migration within the given transaction. The
@@ -2007,13 +1991,13 @@ type Migration interface {
     Run(ctx context.Context, tx kv.Tx, cfg MigrationConfig) error
 }
 
-// MigrationConfig is passed to each Migration.Run call by EntryManager.
+// MigrationConfig is passed to each Migration.Run call by OpenTable.
 type MigrationConfig struct {
     // Prefix is the canonical KV prefix for this type (e.g.,
-    // "__gorp__//Schematic"). Derived from types.Name[E]() by EntryManager.
+    // "__gorp__//Schematic"). Derived from types.Name[E]() by OpenTable.
     Prefix []byte
-    // Codec is the DB's generic codec (msgpack). Used as fallback for types
-    // that don't implement GorpMarshaler/GorpUnmarshaler.
+    // Codec is the DB's generic codec (msgpack). Used as fallback for
+    // pre-transition legacy types that don't have a binary codec.
     Codec binary.Codec
 }
 
@@ -2035,23 +2019,41 @@ type PostMigrateFunc[I, O any] func(ctx context.Context, new *O, old I) error
 
 ### TypedMigration
 
+> **Implementation note**: The current implementation (`x/go/gorp/migrate.go`) uses a
+> simpler 3-parameter `NewTypedMigration(name, auto, post)` without codec params. It
+> always decodes/encodes with `MigrationConfig.Codec` (msgpack). The codec params below
+> will be added in Phase 7 when schema migrations need version-specific frozen codecs.
+> For the MVP codec transition, `NewCodecTransition[K,E]` handles re-encoding.
+
 ```go
 // TypedMigration is a per-entry transform migration. It iterates all entries
 // under the canonical KV prefix, decodes each as type I, calls auto-migrate
 // + post-migrate to produce type O, encodes, and writes back.
+//
+// InputCodec and OutputCodec are optional — when nil, the migration falls
+// back to MigrationConfig.Codec (the DB's generic msgpack codec). This
+// means pre-transition migrations (where I has no binary codec) work
+// automatically, while post-transition migrations pass frozen Codec[I]
+// and Codec[O] for binary decode/encode.
 type TypedMigration[I, O any] struct {
     name        string
+    inputCodec  Codec[I]
+    outputCodec Codec[O]
     autoMigrate AutoMigrateFunc[I, O]
     postMigrate PostMigrateFunc[I, O]
 }
 
 func NewTypedMigration[I, O any](
     name string,
+    inputCodec Codec[I],
+    outputCodec Codec[O],
     autoMigrate AutoMigrateFunc[I, O],
     postMigrate PostMigrateFunc[I, O],
 ) Migration {
     return &TypedMigration[I, O]{
         name:        name,
+        inputCodec:  inputCodec,
+        outputCodec: outputCodec,
         autoMigrate: autoMigrate,
         postMigrate: postMigrate,
     }
@@ -2071,11 +2073,12 @@ func (m *TypedMigration[I, O]) Run(
     defer func() { err = errors.Combine(err, iter.Close()) }()
 
     for iter.First(); iter.Valid(); iter.Next() {
-        // Decode: use GorpUnmarshaler if I implements it,
-        // otherwise fall back to the generic codec (msgpack).
+        // Decode: use InputCodec if provided, otherwise fall back to
+        // MigrationConfig.Codec (msgpack) for pre-transition types.
         var old I
-        if u, ok := any(&old).(GorpUnmarshaler); ok {
-            if err := u.GorpUnmarshal(ctx, iter.Value()); err != nil {
+        if m.inputCodec != nil {
+            old, err = m.inputCodec.Unmarshal(ctx, iter.Value())
+            if err != nil {
                 return errors.Wrapf(err, "migration %s: decode failed", m.name)
             }
         } else {
@@ -2095,11 +2098,11 @@ func (m *TypedMigration[I, O]) Run(
             return errors.Wrapf(err, "migration %s: post-migrate failed", m.name)
         }
 
-        // Encode: use GorpMarshaler if O implements it,
-        // otherwise fall back to the generic codec.
+        // Encode: use OutputCodec if provided, otherwise fall back to
+        // MigrationConfig.Codec (msgpack).
         var encoded []byte
-        if mar, ok := any(&migrated).(GorpMarshaler); ok {
-            encoded, err = mar.GorpMarshal(ctx)
+        if m.outputCodec != nil {
+            encoded, err = m.outputCodec.Marshal(ctx, migrated)
         } else {
             encoded, err = cfg.Codec.Encode(ctx, migrated)
         }
@@ -2150,7 +2153,7 @@ func (m *RawMigration) Run(
 ```go
 // KeyMigration re-encodes all keys for a type when the key encoding scheme
 // changes. This is the existing reEncodeKeys logic expressed as a Migration.
-// EntryManager implicitly appends this as the final migration — services
+// OpenTable implicitly runs key re-encoding after all migrations — services
 // don't need to register it.
 type KeyMigration[K Key, E Entry[K]] struct{}
 
@@ -2166,34 +2169,37 @@ func (m *KeyMigration[K, E]) Run(
 }
 ```
 
-## 3 - EntryManager as Migration Runner
+## 3 - Table as Migration Runner
 
 ```go
-// EntryManager manages the full migration lifecycle for a gorp-stored type.
-// It accepts an ordered list of Migration implementations and runs them
-// sequentially, tracking progress via a version counter in the KV store.
-// Key re-encoding is implicitly appended as the final migration.
-type EntryManager[K Key, E Entry[K]] struct{}
+// Table manages codec-aware reads/writes and the full migration lifecycle
+// for a gorp-stored type. Holds an optional Codec[E] and provides query
+// builders (NewCreate, NewRetrieve, NewUpdate, NewDelete), OpenNexter,
+// Observe, and Close.
+type Table[K Key, E Entry[K]] struct { /* ... */ }
 
-// OpenEntryManager creates an EntryManager, runs all pending migrations, and
-// returns. The version counter is stored at "__gorp__//<Type>/version" as a
-// uint16 (big-endian). Key re-encoding is always run as the final step.
-func OpenEntryManager[K Key, E Entry[K]](
+// TableConfig configures a Table, including optional codec and migrations.
+type TableConfig[E any] struct {
+    DB         *DB
+    Codec      Codec[E]      // Optional binary codec for current type
+    Migrations []Migration   // Ordered migration list
+}
+
+// OpenTable creates a Table, runs all pending migrations, then runs
+// migrateOldPrefixKeys and reEncodeKeys. The version counter is stored at
+// "__gorp_migration__//{TypeName}" as a uint16 (big-endian).
+func OpenTable[K Key, E Entry[K]](
     ctx context.Context,
-    db *DB,
-    migrations ...Migration,
-) (*EntryManager[K, E], error) {
+    cfg TableConfig[E],
+) (*Table[K, E], error) {
     // Derive canonical prefix and version key from the current type E.
     prefix := []byte(magicPrefix + types.Name[E]())
-    versionKey := []byte(magicPrefix + types.Name[E]() + "/version")
+    versionKey := []byte("__gorp_migration__//" + types.Name[E]())
 
-    // Append key re-encoding as the implicit final migration.
-    allMigrations := append(migrations, &KeyMigration[K, E]{})
-
-    if err := runMigrations(ctx, db, prefix, versionKey, allMigrations); err != nil {
+    if err := runMigrations(ctx, cfg.DB, prefix, versionKey, cfg.Migrations); err != nil {
         return nil, err
     }
-    return &EntryManager[K, E]{}, nil
+    // ... migrateOldPrefixKeys, reEncodeKeys, return Table ...
 }
 
 func runMigrations(
@@ -2254,6 +2260,11 @@ func writeVersion(ctx context.Context, tx Tx, key []byte, v uint16) error {
 
 ## 4 - Service Wiring
 
+> **Implementation note**: The current generated pattern (Phase 4) uses
+> `{Type}Migrations(codec Codec[T]) []Migration` in the parent package with
+> `NewCodecTransition` — not `migrations.All()` with `NewTypedMigration`. The pattern
+> below shows the future state after Phase 7 when schema migrations exist.
+
 ```go
 // GENERATED BY ORACLE — DO NOT EDIT
 // core/pkg/service/schematic/migrations/migrate.gen.go
@@ -2273,13 +2284,20 @@ import (
 // schematic package, so there is no circular dependency.
 func All() []gorp.Migration {
     return []gorp.Migration{
+        // Codec transition: nil inputCodec = decode with DB's msgpack codec,
+        // v2.Codec = encode with v2's frozen binary codec.
         gorp.NewTypedMigration(
-            "msgpack_to_protobuf",
+            "msgpack_to_binary",
+            nil,           // inputCodec: nil → use MigrationConfig.Codec (msgpack)
+            v2.Codec,      // outputCodec: v2's frozen binary codec
             v1.AutoMigrateV1ToV2,
             v1.PostMigrateV1ToV2,
         ),
+        // Schema change: both sides use frozen binary codecs.
         gorp.NewTypedMigration(
             "add_description",
+            v2.Codec,      // inputCodec: v2's frozen binary codec
+            v3.Codec,      // outputCodec: v3's frozen binary codec
             v2.AutoMigrateV2ToV3,
             v2.PostMigrateV2ToV3,
         ),
@@ -2290,16 +2308,18 @@ func All() []gorp.Migration {
 ```go
 // core/pkg/service/schematic/service.go
 func OpenService(ctx context.Context, cfg ServiceConfig) (*Service, error) {
-    // OpenEntryManager runs all pending migrations (schema migrations +
-    // key re-encoding) and returns the ready EntryManager.
-    entryManager, err := gorp.OpenEntryManager[uuid.UUID, Schematic](
-        ctx, cfg.DB, migrations.All()...,
-    )
+    // OpenTable runs all pending migrations (schema migrations +
+    // key re-encoding) and returns the ready Table.
+    table, err := gorp.OpenTable[uuid.UUID, Schematic](ctx, gorp.TableConfig[Schematic]{
+        DB:         cfg.DB,
+        Codec:      cfg.Codec,          // current binary codec
+        Migrations: migrations.All(),
+    })
     if err != nil {
         return nil, err
     }
 
-    s := &Service{ServiceConfig: cfg, entryManager: entryManager}
+    s := &Service{ServiceConfig: cfg, table: table}
     // ... rest of service init ...
     return s, nil
 }
@@ -2307,15 +2327,18 @@ func OpenService(ctx context.Context, cfg ServiceConfig) (*Service, error) {
 
 ## 5 - Migration File Layout
 
+> **Implementation note**: `codec.gen.go` currently lives in the `pb/` subdirectory.
+> Phase 2.1 of the implementation plan moves it to the parent package as shown below.
+
 Migration files always live next to their source Go type — at the `@go output` path with
 `/migrations/vN/` appended. Each `vN/` is a separate Go package.
 
 ```
 core/pkg/service/schematic/
 ├── types.gen.go              # Current Schematic type (Oracle-generated)
-├── marshal.gen.go            # GorpMarshal/GorpUnmarshal (Oracle sync)
-├── service.go                # Service init, calls OpenEntryManager
-├── pb/                       # Current protobuf definitions
+├── codec.gen.go              # Current binary Codec[Schematic] (Oracle sync)
+├── service.go                # Service init, calls OpenTable
+├── pb/                       # Protobuf transport (ToPB/FromPB, .pb.go)
 └── migrations/
     ├── migrate.gen.go        # GENERATED: All() — ordered migration list
     ├── v1/                   # Pre-transition snapshot (msgpack era)
@@ -2323,12 +2346,12 @@ core/pkg/service/schematic/
     │   ├── migrate.go        # PostMigrateV1ToV2 (developer edits)
     │   └── migrate_test.go   # Tests for this migration
     ├── v2/                   # Post-transition snapshot
-    │   ├── auto.gen.go       # SchematicV2 + GorpMarshal/Unmarshal + AutoMigrateV2ToV3
-    │   ├── migrate.go        # PostMigrateV2ToV3 (developer edits)
-    │   └── pb/               # Snapshotted protobuf for V2
+    │   ├── auto.gen.go       # SchematicV2 + AutoMigrateV2ToV3
+    │   ├── codec.gen.go      # Frozen binary codec for V2 (write-once)
+    │   └── migrate.go        # PostMigrateV2ToV3 (developer edits)
     └── v3/                   # Current snapshot (no AutoMigrate yet)
-        ├── auto.gen.go       # SchematicV3 + GorpMarshal/Unmarshal
-        └── pb/               # Snapshotted protobuf for V3
+        ├── auto.gen.go       # SchematicV3 type snapshot
+        └── codec.gen.go      # Frozen binary codec for V3
 ```
 
 **v1/auto.gen.go** (Oracle-generated, never touched):
@@ -2434,15 +2457,15 @@ Developer Workflow (nested type change):
   5. Commit — CI runs `oracle migrate check` to validate all affected types
 
 Server Startup (per service):
-  1. gorp.OpenEntryManager[K, E](ctx, db, migrations.All()...)
+  1. gorp.OpenTable[K, E](ctx, TableConfig{DB, Codec, Migrations: migrations.All()})
      a. Derives prefix from types.Name[E]() → "__gorp__//<Type>"
-     b. Reads __gorp__//<Type>/version from KV store
+     b. Reads __gorp_migration__//<Type> from KV store
      c. For each pending migration (currentVersion+1 → latest):
         i.   Call Migration.Run(ctx, tx, cfg)
              - TypedMigration: iterate entries, decode, transform, encode, write
              - RawMigration: arbitrary gorp.Tx logic
         ii.  Increment version counter
-     d. Implicitly runs KeyMigration as final step (re-encode keys)
+     d. Runs migrateOldPrefixKeys + reEncodeKeys
   2. Service begins accepting requests
 
 Directory Layout (nested migrations — files always at @go output path):
@@ -2535,7 +2558,7 @@ Parent snapshots use current types for unchanged nested types (e.g., `arc.Text` 
 
 # 10 - Roadmap
 
-1. **Phase 1 (This RFC)**: Oracle migration framework + msgpack→protobuf codec switch
+1. **Phase 1 (This RFC)**: Oracle migration framework + msgpack→binary codec switch
 2. **Phase 2**: Incrementally strongly type JSON fields (schematic data, workspace
    layout) using the migration system
 3. **Phase 3**: RFC 0025 — server owns all schema evolution, replacing client-side

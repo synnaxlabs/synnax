@@ -32,7 +32,7 @@ var (
 	otg    *ontology.Ontology
 	g      *group.Service
 	svc    *service.Layer
-	authKv *auth.KV
+	authKV *auth.KV
 )
 
 func TestAuth(t *testing.T) {
@@ -54,7 +54,7 @@ var _ = BeforeSuite(func() {
 		Ontology: otg,
 		Group:    g,
 	}))
-	authKV := MustSucceed(auth.OpenKV(ctx, db))
+	authKV = MustSucceed(auth.OpenKV(ctx, db))
 	svc = &service.Layer{
 		User: userSvc,
 		RBAC: rbacSvc,
@@ -63,7 +63,7 @@ var _ = BeforeSuite(func() {
 })
 
 var _ = AfterSuite(func() {
-	Expect(authKv.Close()).To(Succeed())
+	Expect(authKV.Close()).To(Succeed())
 	Expect(svc.RBAC.Close()).To(Succeed())
 	Expect(g.Close()).To(Succeed())
 	Expect(otg.Close()).To(Succeed())

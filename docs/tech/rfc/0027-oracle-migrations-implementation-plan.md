@@ -41,7 +41,12 @@ of `GorpMarshaler`/`GorpUnmarshaler` + `EntryManager`):
   }
   ```
 
-  Implementations: `TypedMigration[I,O]` and `RawMigration`.
+  Implementations: `TypedMigration[I,O]`, `RawMigration`, and
+  `CodecTransitionMigration[K,E]`.
+
+- **`NewCodecTransition[K,E]`** (`x/go/gorp/migrate.go`): purpose-built migration that
+  re-encodes all entries from the DB's default codec (msgpack) to a target `Codec[E]`
+  (binary). Originally planned as Phase 3 but built alongside the infrastructure.
 
 - **Codec threaded through** all builders, writers (`Writer.set()`), readers
   (`Reader.Get()`, `Iterator.Value()`), and observers (`Table.Observe()`).
@@ -57,8 +62,8 @@ of `GorpMarshaler`/`GorpUnmarshaler` + `EntryManager`):
 
 - `x/go/gorp/codec.go` — `Codec[E]` interface
 - `x/go/gorp/table.go` — `Table[K,E]`, `OpenTable`, `TableConfig`, `OpenNexter`
-- `x/go/gorp/migrate.go` — `Migration`, `TypedMigration`, `RawMigration`, version
-  tracking
+- `x/go/gorp/migrate.go` — `Migration`, `TypedMigration`, `RawMigration`,
+  `CodecTransitionMigration`, version tracking
 - `x/go/gorp/reader.go` — codec-aware `Reader`, `Iterator`, `WrapReader`
 - `x/go/gorp/writer.go` — codec-aware `Writer`
 - `x/go/gorp/observe.go` — `Table.Observe()`, standalone `Observe[K,E]()`
@@ -67,29 +72,24 @@ of `GorpMarshaler`/`GorpUnmarshaler` + `EntryManager`):
 
 ## Phase 2: Oracle Codec Generation — DONE
 
-**Status**: Complete. On branch `sy-3816-oracle-migrations`.
+**Status**: Complete on branch `sy-3816-oracle-migrations`. Codec files now live in
+parent packages (moved from `pb/` in Phase 2.1).
 
 **What was built** (diverged from original plan — generates standalone `Codec[E]`
-structs in `pb/` subpackage instead of `GorpMarshal`/`GorpUnmarshal` methods on parent
-type, avoiding import cycles):
+structs instead of `GorpMarshal`/`GorpUnmarshal` methods):
 
 - **Oracle `go/marshal` plugin** (`oracle/plugin/go/marshal/marshal.go`):
   - Triggers on `@go marshal` annotation (not `@key`)
-  - Generates `pb/codec.gen.go` with standalone codec struct
-  - Codec wraps existing `ToPB`/`FromPB` translators + `proto.Marshal`/`Unmarshal`
-  - Exported var:
-    `var SchematicCodec gorp.Codec[schematic.Schematic] = schematicCodec{}`
+  - Generates `codec.gen.go` in the parent package (same package as the type)
+  - Codec uses direct binary encoding (BigEndian, length-prefixed fields, JSON for
+    untyped fields) — no protobuf translation layer
+  - Exported var: `var SchematicCodec gorp.Codec[Schematic] = schematicCodec{}`
 
-- **`@go marshal` annotations** added to 14 `.oracle` schemas: arc, channel, device,
-  group, label, lineplot, log, rack, ranger, schematic, table, task, user, workspace
+- **`@go marshal` annotations** added to 15 `.oracle` schemas: arc, channel, device,
+  group, label, lineplot, log, ontology, rack, ranger, schematic, table, task, user,
+  workspace
 
-- **14 `codec.gen.go` files generated** via `oracle sync`:
-  ```
-  core/pkg/service/{arc,device,lineplot,log,rack,ranger,schematic,table,task,user,workspace}/pb/codec.gen.go
-  core/pkg/distribution/group/pb/codec.gen.go
-  core/pkg/api/channel/pb/codec.gen.go
-  x/go/label/pb/codec.gen.go
-  ```
+- **15 `codec.gen.go` files generated** via `oracle sync` in parent packages
 
 ### What was NOT built (deferred)
 
@@ -109,9 +109,10 @@ This was originally part of Phase 4 in the old plan, but was done early since th
 
 - **`Codec` field** added to each service's `ServiceConfig` + `Override` method
 - **Codecs wired in `core/pkg/service/layer.go`**: 12 services get their codec at
-  construction (arcpb, devicepb, labelpb, lineplotpb, logpb, rackpb, rangerpb,
-  schematicpb, tablepb, taskpb, userpb, workspacepb)
-- **Codec wired in `core/pkg/distribution/layer.go`**: group gets `grouppb.GroupCodec`
+  construction (arc, device, label, lineplot, log, rack, ranger, schematic, table, task,
+  user, workspace — imported directly from parent packages)
+- **Codec wired in `core/pkg/distribution/layer.go`**: group gets `group.GroupCodec`,
+  ontology gets `ontology.RelationshipCodec` and `ontology.ResourceCodec`
 - **All 13 `Observe` callers migrated**: ontology.go `OnChange` methods use
   `s.table.Observe()` instead of `gorp.Observe[K,E](s.DB)`
 - **All 13 `OpenNexter` callers migrated**: ontology.go `OpenNexter` methods use
@@ -126,8 +127,9 @@ This was originally part of Phase 4 in the old plan, but was done early since th
 
 ### Key files modified
 
-- `core/pkg/service/layer.go` — 12 codec imports + wiring
-- `core/pkg/distribution/layer.go` — group codec wiring
+- `core/pkg/service/layer.go` — 12 codec imports + wiring (parent package imports)
+- `core/pkg/distribution/layer.go` — group + ontology codec wiring (parent package
+  imports)
 - `core/pkg/distribution/signals/gorp.go` — `Observable` field on `GorpPublisherConfig`
 - 13× `*/ontology.go` — `OnChange` and `OpenNexter` migrated
 - 8× `*/service.go` — signal publisher observable wiring
@@ -137,202 +139,206 @@ This was originally part of Phase 4 in the old plan, but was done early since th
 
 ---
 
-## Phase 3: Codec Transition Migration (msgpack → protobuf) — NOT STARTED
+## Phase 2.1: Move `codec.gen.go` to Parent Packages — DONE
 
-**Goal**: Build and wire the actual data migration that converts existing
-msgpack-encoded entries to protobuf at server startup. **This is the critical missing
-piece** — without it, a server with pre-existing data will crash because the protobuf
-codec can't decode msgpack bytes.
+**Status**: Complete on branch `sy-3816-oracle-migrations`.
 
-**Scope**: `x/go/gorp/`, service `OpenTable` call sites
+**What was built:**
 
-### What to build
+- **Oracle `go/marshal` plugin** (`oracle/plugin/go/marshal/marshal.go`) updated:
+  - Output path changed from `pb/` subdirectory to parent package (`goPath` directly)
+  - Package declaration uses `naming.DerivePackageName(goPath)` instead of `"pb"`
+  - Type references are unqualified (e.g., `Schematic` not `schematic.Schematic`) since
+    codec is now in the same package as the type
+  - External import aliases derived from `packageName` context instead of `"pb"`
+  - Removed `ParentAlias`, `ParentPath`, `ParentImportPath` from template data structs
 
-1. **`CodecTransitionMigration[K,E]`** (`x/go/gorp/migrate.go`):
+- **15 `codec.gen.go` files regenerated** via `oracle sync` in parent packages:
+  ```
+  core/pkg/service/{arc,device,lineplot,log,rack,ranger,schematic,table,task,user,workspace}/codec.gen.go
+  core/pkg/distribution/{group,ontology}/codec.gen.go
+  core/pkg/api/channel/codec.gen.go
+  x/go/label/codec.gen.go
+  ```
 
-   A new `Migration` implementation purpose-built for codec transitions:
+- **15 old `pb/codec.gen.go` files deleted** (pb/ directories retained for protobuf
+  transport files)
 
-   ```go
-   func NewCodecTransition[K Key, E Entry[K]](name string, codec Codec[E]) Migration
-   ```
+- **Layer imports updated**:
+  - `core/pkg/service/layer.go` — removed 12 `pb` import aliases, codec refs now use
+    parent package directly (e.g., `schematic.SchematicCodec`). `xlabel` alias for
+    `x/label` to avoid collision with `service/label`.
+  - `core/pkg/distribution/layer.go` — removed `grouppb`/`ontologypb` imports, codec
+    refs now use `group.GroupCodec`, `ontology.RelationshipCodec`,
+    `ontology.ResourceCodec`
 
-   `Run()` behavior:
-   - Iterate all entries under `cfg.Prefix`
-   - Decode each with `cfg.Codec` (the DB's default msgpack codec)
-   - Re-encode with `codec` (the target protobuf codec)
-   - Write back under the same key
-
-   This is simpler than `TypedMigration` because the type doesn't change — only the
-   encoding format changes.
-
-2. **Wire into each service's `OpenTable`** — pass codec transition as a migration:
-
-   ```go
-   table, err := gorp.OpenTable[uuid.UUID, Schematic](ctx, gorp.TableConfig[Schematic]{
-       DB:    cfg.DB,
-       Codec: cfg.Codec,
-       Migrations: []gorp.Migration{
-           gorp.NewCodecTransition[uuid.UUID, Schematic]("msgpack_to_protobuf", cfg.Codec),
-       },
-   })
-   ```
-
-   Do this for all 13 codec-ed services + group.
-
-3. **Handle the channel type**: channel is in the distribution layer
-   (`core/pkg/distribution/channel/`). Check if it has a table with codec and needs the
-   migration too.
-
-### What to test
-
-- Seed msgpack-encoded entries, run `CodecTransitionMigration`, verify protobuf decoding
-- Second run is a no-op (version counter already incremented)
-- Empty DB — migration runs without error
-- Round-trip: write with protobuf codec → read back → data matches
-- Full server boot with pre-existing msgpack data → all services start correctly
-
-### Acceptance criteria
-
-- `cd x/go/gorp && ginkgo` passes with new codec transition tests
-- `cd core && ginkgo -r` passes (all core tests)
-- Server boots cleanly against a DB with pre-existing msgpack-encoded data
+- **All tests pass**: `go build ./...`, `cd x/go && ginkgo -r` (60 suites),
+  `cd core && ginkgo -r` (77 suites)
 
 ---
 
-## Phase 4: Oracle Migration Plugin — Codec Transition (Full Mode) — NOT STARTED
+## Phase 3: Codec Transition Migration (msgpack → binary) — DONE
 
-**Goal**: Build the Oracle migration code generator for the MVP: codec transition
-(msgpack → protobuf) for all Oracle-managed gorp types. This is "full mode" — both
-auto-migrate and post-migrate are fully generated, developer touches nothing.
+**Status**: Complete. Built as part of Phase 1 on branch `sy-3823-gorp-tables`.
 
-**Scope**: `oracle/plugin/migrate/`, `oracle/cmd/`
+Originally planned as a separate phase, `NewCodecTransition[K,E]` was implemented
+directly in `x/go/gorp/migrate.go` alongside the other `Migration` implementations.
 
-### What to build
+**What was built:**
 
-1. **New Oracle plugin**: `oracle/plugin/migrate/` — a new plugin that generates
-   migration files. This plugin is invoked by a new `oracle migrate generate` CLI
-   command, NOT by `oracle sync`.
-
-2. **`oracle migrate generate` CLI command** (`oracle/cmd/migrate.go`):
-   - New cobra subcommand under `oracle migrate`
-   - For the MVP (codec transition), the behavior is simple:
-     - Enumerate all Oracle-managed gorp types (types with `@go marshal` + `@pb`)
-     - For each type, generate `migrations/v1/` sub-package with:
-       - `auto.gen.go`: Legacy type snapshot (identical fields, msgpack tags) +
-         `AutoMigrateV1ToV2` function (identity transform copying all fields)
-       - `migrate.go`: `PostMigrateV1ToV2` function (empty body, codec transition only)
-     - Generate `migrations/v2/` sub-package with:
-       - `auto.gen.go`: Current type snapshot with protobuf codec (no auto-migrate yet —
-         v2 is the current version)
-       - `pb/`: Snapshotted protobuf definitions
-     - Generate `migrations/migrate.gen.go`: `All()` function returning the ordered
-       migration list with a single `gorp.NewTypedMigration` call
-
-3. **Legacy type snapshot generation**: The `v1/auto.gen.go` legacy type must be a
-   faithful snapshot of the current struct — same fields, same types. For pre-transition
-   types, use `msgpack` struct tags (no codec). The migration runner will decode these
-   using the generic msgpack codec.
-
-4. **Migration file placement**: Files go at `<@go output>/migrations/vN/`. Oracle
-   already knows the `@go output` path for each type.
-
-5. **`GorpKey()` and `SetOptions()` on legacy types**: The legacy type in `v1/` needs
-   these methods so it satisfies the iterator's expectations. Generate them.
-
-### What to test
-
-- `oracle migrate generate` produces correct file structure for each type
-- Generated `v1/auto.gen.go` has correct legacy type snapshot
-- Generated `AutoMigrateV1ToV2` copies all fields correctly
-- Generated `PostMigrateV1ToV2` compiles (empty body)
-- Generated `migrate.gen.go` has correct `All()` function
-- Generated code compiles: `go build ./...`
-- **Integration test**: Seed entries encoded with msgpack, run the generated migration,
-  verify entries are now protobuf-encoded and decode correctly
-- Use the `gorp/testutil` helpers from Phase 8 to test each generated migration
-
-### Oracle-managed gorp types (~21 types)
-
-All of these get codec transition migrations:
-
-| Type              | Package                               | Key Type       |
-| ----------------- | ------------------------------------- | -------------- |
-| Workspace         | `core/pkg/service/workspace`          | `uuid.UUID`    |
-| User              | `core/pkg/service/user`               | `uuid.UUID`    |
-| Task              | `core/pkg/service/task`               | `Key` (uint64) |
-| Schematic         | `core/pkg/service/schematic`          | `uuid.UUID`    |
-| Symbol            | `core/pkg/service/schematic/symbol`   | `uuid.UUID`    |
-| Device            | `core/pkg/service/device`             | `string`       |
-| View              | `core/pkg/service/view`               | `uuid.UUID`    |
-| Arc               | `core/pkg/service/arc`                | `uuid.UUID`    |
-| Table             | `core/pkg/service/table`              | `uuid.UUID`    |
-| LinePlot          | `core/pkg/service/lineplot`           | `uuid.UUID`    |
-| Rack              | `core/pkg/service/rack`               | `Key` (uint32) |
-| Log               | `core/pkg/service/log`                | `uuid.UUID`    |
-| Range             | `core/pkg/service/ranger`             | `uuid.UUID`    |
-| Alias             | `core/pkg/service/ranger/alias`       | `string`       |
-| Pair              | `core/pkg/service/ranger/kv`          | `string`       |
-| Group             | `core/pkg/distribution/group`         | `uuid.UUID`    |
-| Relationship      | `core/pkg/distribution/ontology`      | `[]byte`       |
-| Label             | `x/go/label`                          | `uuid.UUID`    |
-| Role              | `core/pkg/service/access/rbac/role`   | `uuid.UUID`    |
-| Policy            | `core/pkg/service/access/rbac/policy` | `uuid.UUID`    |
-| SecureCredentials | `core/pkg/service/auth`               | `string`       |
-
-### Acceptance criteria
-
-- `oracle migrate generate` produces migration files for all ~21 types
-- `go build ./...` compiles with generated files
-- Codec transition integration tests pass for representative types
-- Each migration is independently testable via `gorp/testutil`
+- **`codecTransitionMigration[K,E]`** struct (`x/go/gorp/migrate.go:187`):
+  - `NewCodecTransition[K Key, E Entry[K]](name string, codec Codec[E]) Migration`
+  - Iterates all entries under `cfg.Prefix`
+  - Decodes each with `cfg.Codec` (DB's default msgpack codec)
+  - Re-encodes with the target `Codec[E]` (binary)
+  - Writes back under the same key
+- **Tests** in `x/go/gorp/migrate_test.go`
 
 ---
 
-## Phase 5: Service Wiring & End-to-End Codec Transition — NOT STARTED
+## Phase 4: Oracle Migration Plugin — Codec Transition (Full Mode) — DONE
 
-**Goal**: Wire up the generated migrations into each service's `OpenTable` call. Run the
-full codec transition end-to-end.
+**Status**: Complete. On branch `sy-3824-oracle-auto-migration-plugin`.
 
-**Scope**: `core/pkg/service/*/`, `core/pkg/distribution/*/`
+**What was built** (diverged from original plan — uses `NewCodecTransition` directly
+instead of `NewTypedMigration` with codec params, which is simpler and correct for the
+codec-only MVP):
+
+- **Oracle `go/migrate` plugin** (`oracle/plugin/go/migrate/migrate.go`):
+  - Triggers on `@go migrate` annotation (requires `@key` field and `@go output` path)
+  - Generates two files per type:
+    1. `migrations/v1/v1.gen.go` — Legacy type snapshot with msgpack tags, `GorpKey()`,
+       `SetOptions()` methods
+    2. `migrate.gen.go` — Migration registration function in the parent package
+
+- **`oracle migrate generate` CLI command** (`oracle/cmd/migrate.go`):
+  - Discovers schemas from `schemas/*.oracle`
+  - Runs `go/migrate` plugin (filtered from full plugin set)
+  - Updates license headers, runs `gofmt`
+
+- **Generated `migrate.gen.go` pattern** (per service):
+
+  ```go
+  package schematic
+
+  func SchematicMigrations(codec gorp.Codec[Schematic]) []gorp.Migration {
+      return []gorp.Migration{
+          gorp.NewCodecTransition[Key, Schematic]("msgpack_to_binary", codec),
+      }
+  }
+  ```
+
+  Note: This differs from the RFC's `All()` pattern using `NewTypedMigration` with
+  explicit codec params. The generated function takes the codec as a parameter and uses
+  `NewCodecTransition` directly. This is the correct approach for the MVP (codec-only
+  migration). The RFC's `NewTypedMigration` with `inputCodec`/`outputCodec` will be
+  needed in Phase 7 when schema migrations use frozen version-specific codecs.
+
+- **11 services + group + ontology** have generated `migrate.gen.go` + `v1/v1.gen.go`:
+  arc, device, lineplot, log, rack, ranger, schematic, table, task, user, workspace,
+  group (distribution), ontology (inline)
+
+- **Tests** in `oracle/plugin/go/migrate/migrate_test.go`
+
+### What was NOT built (deferred to Phase 4.5)
+
+- Remaining 8 services not yet wired (see Phase 4.5)
+- Migration name still says `"msgpack_to_protobuf"` in some generated files (should be
+  `"msgpack_to_binary"`)
+
+---
+
+## Phase 4.5: Complete Service Wiring — IN PROGRESS
+
+**Status**: Partially complete on branch `sy-3824-oracle-auto-migration-plugin`.
+
+### What's done
+
+13 services have full `OpenTable` wiring with `Codec` + `Migrations`:
+
+| Service | OpenTable wiring |
+|---------|-----------------|
+| arc | `ArcMigrations(cfg.Codec)` |
+| device | `DeviceMigrations(cfg.Codec)` |
+| lineplot | `LinePlotMigrations(cfg.Codec)` |
+| log | `LogMigrations(cfg.Codec)` |
+| rack | `RackMigrations(cfg.Codec)` |
+| ranger | `RangeMigrations(cfg.Codec)` |
+| schematic | `SchematicMigrations(cfg.Codec)` |
+| table | `TableMigrations(cfg.Codec)` |
+| task | `TaskMigrations(cfg.Codec)` |
+| user | `UserMigrations(cfg.Codec)` |
+| workspace | `WorkspaceMigrations(cfg.Codec)` |
+| group (distribution) | `GroupMigrations(cfg.Codec)` |
+| ontology (distribution) | inline `NewCodecTransition` calls |
+
+### What's remaining
+
+8 services have bare `OpenTable` calls (no Codec, no Migrations). Each needs evaluation:
+
+| Service | File | Needs codec? |
+|---------|------|-------------|
+| `access/rbac/policy` | `policy/service.go:63` | Needs `.oracle` schema + codec + migration |
+| `access/rbac/role` | `role/service.go:75` | Needs `.oracle` schema + codec + migration |
+| `auth` (SecureCredentials) | `auth/kv.go:32` | Needs `.oracle` schema + codec + migration |
+| `ranger/alias` | `alias/service.go:84` | Needs `.oracle` schema + codec + migration |
+| `ranger/kv` (Pair) | `kv/service.go:64` | Needs `.oracle` schema + codec + migration |
+| `schematic/symbol` | `symbol/service.go:83` | Needs `.oracle` schema + codec + migration |
+| `view` | `view/service.go:86` | Needs `.oracle` schema + codec + migration |
+| `distribution/channel` | `channel/service.go:97` | Needs `.oracle` schema + codec + migration |
 
 ### What to build
 
-1. **Update each service's `OpenService`** to pass migrations to `OpenTable`:
+1. **Add `@go marshal` and `@go migrate` annotations** to `.oracle` schemas for the 8
+   remaining types (or determine if any should be excluded — e.g., channel may have
+   special handling in the distribution layer).
 
-   ```go
-   table, err := gorp.OpenTable[uuid.UUID, Schematic](ctx, gorp.TableConfig[Schematic]{
-       DB:         cfg.DB,
-       Codec:      cfg.Codec,
-       Migrations: migrations.All(),
-   })
-   ```
+2. **Run `oracle sync`** to generate `pb/codec.gen.go` for each.
 
-   Do this for all ~21 services that have Oracle-managed gorp types.
+3. **Run `oracle migrate generate`** to generate `migrate.gen.go` + `v1/v1.gen.go`.
 
-2. **Remove old `gorp.Migrator` usage** from any service that previously used it
-   (currently only ranger uses it). For ranger, keep its existing `migrateRangeGroups`
-   as a `RawMigration` passed before the codec transition in the migration chain.
-   Actually — defer ranger port to Phase 7. For now, ranger keeps its old migrator AND
-   the new `OpenTable` pattern.
+4. **Wire `Codec` + `Migrations` into `OpenTable`** calls for each service.
 
-3. **Server startup order**: Verify that services start in dependency order. Schematic
-   before Workspace (if Workspace depends on Schematic), etc. The existing startup
-   sequence in `core/` should already handle this.
+5. **Wire codecs in `layer.go`** — add codec imports and pass to ServiceConfig.
 
-### What to test
-
-- Server starts successfully with existing msgpack-encoded data
-- After startup, all entries are protobuf-encoded
-- Server restarts (second time) — migrations are no-op (version counter already at
-  latest)
-- Read/write operations work correctly after codec transition
-- Existing integration tests pass
+6. **Fix migration name**: Update `oracle/plugin/go/migrate/migrate.go` template to use
+   `"msgpack_to_binary"` instead of `"msgpack_to_protobuf"`.
 
 ### Acceptance criteria
 
-- Server boots and runs codec transition for all Oracle-managed types
-- All existing tests pass
+- All services with gorp tables have Codec + Migrations wired
 - `cd core && ginkgo -r` passes
+- `go build ./...` compiles cleanly
+
+---
+
+## Phase 5: Delete Deprecated `gorp.Migrator` — NOT STARTED
+
+**Status**: Not started. Blocked by Phase 4.5 completion.
+
+**Goal**: Remove the old `gorp.Migrator` type now that all migrations use the new
+`Migration` interface.
+
+**What was built previously (ranger)**: Ranger's `rangeGroupsMigration` already
+implements the `gorp.Migration` interface directly (`core/pkg/service/ranger/migrate.go`)
+and is passed to `OpenTable` alongside the generated codec transition migration. This was
+done as part of Phase 4.
+
+### What to build
+
+1. **Delete deprecated types** from `x/go/gorp/migrate.go`:
+   - `Migrator` struct
+   - `MigrationSpec` struct
+   - `Migrator.Run()` method
+   - `ErrMigrationCountExceeded` var
+
+2. **Verify no remaining references** to the old migrator pattern.
+
+### Acceptance criteria
+
+- `gorp.Migrator` fully deleted
+- All tests pass
+- No remaining references to old migration types
 
 ---
 
@@ -388,11 +394,32 @@ field-by-field and generates skeleton mode (direct schema changes) and propagati
 (nested dependency changes) migrations. This is the most complex phase and requires
 thorough unit testing.
 
-**Scope**: `oracle/plugin/migrate/`
+**Scope**: `oracle/plugin/migrate/`, `x/go/gorp/migrate.go`
 
 ### What to build
 
-1. **Schema diff engine** (`oracle/plugin/migrate/diff/`):
+1. **Add `inputCodec`/`outputCodec` to `TypedMigration`** (`x/go/gorp/migrate.go`):
+
+   The current `NewTypedMigration[I,O]` takes only `name`, `auto`, and `post`. For
+   post-transition schema migrations (v2→v3, v3→v4, etc.), each step needs to decode
+   with the previous version's frozen binary codec and encode with the new version's
+   frozen binary codec. Add optional codec parameters:
+
+   ```go
+   func NewTypedMigration[I, O any](
+       name string,
+       inputCodec Codec[I],   // nil → use MigrationConfig.Codec (msgpack)
+       outputCodec Codec[O],  // nil → use MigrationConfig.Codec (msgpack)
+       auto AutoMigrateFunc[I, O],
+       post PostMigrateFunc[I, O],
+   ) Migration
+   ```
+
+   When `inputCodec` is nil, decode using `cfg.Codec` (DB's msgpack). When
+   `outputCodec` is nil, encode using `cfg.Codec`. This preserves backward
+   compatibility — existing `TypedMigration` callers in tests just pass nil for both.
+
+2. **Schema diff engine** (`oracle/plugin/migrate/diff/`):
    - Compare two `resolution.Table`s (old snapshot vs. current)
    - Classify changes per type:
      - **Unchanged**: All fields match by name and type
@@ -402,13 +429,13 @@ thorough unit testing.
    - No rename detection (shows as remove + add)
    - Output: `[]TypeDiff` with per-field change classification
 
-2. **Dependency graph** (`oracle/plugin/migrate/deps/`):
+3. **Dependency graph** (`oracle/plugin/migrate/deps/`):
    - Build a directed graph of type dependencies from `resolution.Table`
    - Track which gorp entry types transitively contain which nested types
    - When a nested type changes, identify all affected gorp entries
    - Use Oracle's existing `TopologicalSort()` for ordering
 
-3. **Generation modes**:
+4. **Generation modes**:
 
    **Skeleton mode** (direct schema changes):
    - `auto.gen.go`: Legacy type snapshot + auto-migrate that copies all unchanged
@@ -421,12 +448,13 @@ thorough unit testing.
      collections and calls leaf auto-migrate + post-migrate for each element.
    - `migrate.go`: Empty post-migrate template (parent-level logic usually not needed).
 
-4. **Update `oracle migrate generate`** to:
+5. **Update `oracle migrate generate`** to:
    - Parse current `.oracle` files AND latest snapshot `.oracle` files
    - Run diff engine to classify changes
    - Determine generation mode per type (full/skeleton/propagation)
    - Generate appropriate files
-   - Update `migrate.gen.go` with new registrations
+   - Update `migrate.gen.go` with new registrations (now using `NewTypedMigration` with
+     frozen codecs for post-transition migrations)
    - Create new snapshot
 
 ### What to test — THIS IS CRITICAL
@@ -479,50 +507,7 @@ The diff engine and dependency tracking need comprehensive unit tests:
 
 ---
 
-## Phase 8: Port Existing Migrations to New System — NOT STARTED
-
-**Goal**: Port existing hand-written migrations (ranger, rack, task, device status
-migrations) to the new `Migration` interface. Remove the deprecated `gorp.Migrator`.
-
-**Scope**: `core/pkg/service/ranger/`, `core/pkg/service/rack/`,
-`core/pkg/service/task/`, `core/pkg/service/device/`, `x/go/gorp/`
-
-### What to build
-
-1. **Port ranger's `migrateRangeGroups`**:
-   - Wrap as `gorp.NewRawMigration("range_groups", s.migrateRangeGroups)`
-   - Pass to `OpenTable` alongside Oracle-generated migrations
-   - The raw migration must come BEFORE the codec transition migration in the chain
-     (ranger's migration reads msgpack-encoded entries)
-   - Handle the dependency injection: ranger's migration accesses `s.cfg.Ontology`,
-     `s.cfg.Group`, etc. Use a closure that captures the service config.
-
-2. **Port status migrations** (rack, task, device):
-   - These currently use existence-check patterns (not version-tracked)
-   - Convert to `RawMigration` implementations
-   - Ensure idempotency (they should be no-ops on second run)
-
-3. **Remove deprecated `gorp.Migrator`**:
-   - Delete old `Migrator` struct and `MigrationSpec`
-   - Remove `Run` method
-   - Clean up any remaining references
-
-### What to test
-
-- Ranger migration works correctly via `RawMigration` path
-- Status migrations are idempotent
-- No regression in ranger, rack, task, device behavior
-- Old `gorp.Migrator` code is fully removed
-
-### Acceptance criteria
-
-- All existing migrations ported to new system
-- `gorp.Migrator` deleted
-- All tests pass
-
----
-
-## Phase 9: Test Infrastructure & Migration Test Helpers — NOT STARTED
+## Phase 8: Test Infrastructure & Migration Test Helpers — NOT STARTED
 
 **Goal**: Build comprehensive migration test helpers that make writing migration tests
 trivial. This phase can run in parallel with earlier phases after Phase 1 establishes
@@ -555,7 +540,7 @@ the interface.
 ### What to test
 
 - Test helpers themselves are tested (meta-tests)
-- Helpers work with TypedMigration, RawMigration
+- Helpers work with TypedMigration, RawMigration, CodecTransitionMigration
 - Helpers correctly detect migration failures
 - Helpers work with different key types (uuid, string, uint32, etc.)
 
@@ -563,47 +548,66 @@ the interface.
 
 - Test helpers are ergonomic and reduce migration test boilerplate
 - Documented with examples
-- Used by Phase 4 and Phase 7 tests
+- Used by Phase 7 tests
 
 ---
 
 ## Dependency Graph
 
 ```
-Phase 1: gorp Infrastructure ...................... DONE
+Phase 1: gorp Infrastructure ...................... DONE (sy-3823)
     ↓
-Phase 2: Oracle Codec Generation .................. DONE
+Phase 2: Oracle Codec Generation .................. DONE (sy-3816)
     ↓
-Phase 2.5: Service Wiring ......................... DONE
+Phase 2.5: Service Wiring ......................... DONE (sy-3816)
     ↓
-Phase 3: Codec Transition Migration ............... NEXT  ← critical path
+Phase 2.1: Move codec.gen.go to Parent Packages ... DONE (sy-3816)
     ↓
-Phase 4: Oracle Migration Plugin (Full Mode) ...... NOT STARTED
+Phase 3: Codec Transition Migration ............... DONE (absorbed into Phase 1)
     ↓
-Phase 5: Service Wiring & E2E Codec Transition .... NOT STARTED
+Phase 4: Oracle Migration Plugin (Full Mode) ...... DONE (sy-3824)
     ↓
-Phase 6: Schema Snapshots & CI Check .............. NOT STARTED
+Phase 4.5: Complete Service Wiring ................ IN PROGRESS (sy-3824)   ← SESSION 2
     ↓
-Phase 7: Schema Diff Engine & Skeleton/Propagation  NOT STARTED
+Phase 5: Delete Deprecated gorp.Migrator .......... NOT STARTED (sy-3824)   ← SESSION 2
     ↓
-Phase 8: Port Existing Migrations ................. NOT STARTED
+Phase 6: Schema Snapshots & CI Check .............. NOT STARTED             ← SESSION 3
+    ↓
+Phase 7: Schema Diff Engine & Skeleton/Propagation  NOT STARTED             ← SESSION 4+
+    ↓                                               (includes TypedMigration codec params)
 
-Phase 9: Test Infrastructure (can start anytime after Phase 1)
+Phase 8: Test Infrastructure (can start anytime after Phase 1)
 ```
 
 ## Key Design Decisions
 
-1. **`Codec[E]` interface over `GorpMarshaler`/`GorpUnmarshaler`**: Avoids import cycles
-   by keeping codec in `pb/` subpackage, injected via `TableConfig`. Cleaner separation.
+1. **`Codec[E]` interface over `GorpMarshaler`/`GorpUnmarshaler`**: Codec injected into
+   `Table` via `TableConfig`. Currently generated in `pb/` subdirectory (see decision
+   #7).
 2. **`Table[K,E]` over `EntryManager[K,E]`**: Single struct owns codec + DB + query
    builders. Services hold `table` field, call `table.NewCreate()`, etc.
-3. **`Migration` is an interface** with `TypedMigration[I,O]`, `RawMigration`, and
-   (soon) `CodecTransitionMigration[K,E]` implementations.
+3. **`Migration` is an interface** with three implementations: `TypedMigration[I,O]`,
+   `RawMigration`, and `CodecTransitionMigration[K,E]`.
 4. **`OpenTable` runs everything**: versioned migrations → old prefix migration → key
    re-encoding. Version counter at `__gorp_migration__//{TypeName}` (uint16).
 5. **Oracle = build-time code gen only**. Runtime migration execution lives in gorp.
-6. **`@go marshal` annotation** triggers codec generation (not `@key`).
-7. **Standalone codec structs** in `pb/` subpackage, exported as
-   `var XxxCodec gorp.Codec[parent.Xxx]`.
-8. **Ranger port deferred to Phase 8** — validates `RawMigration` path but doesn't block
-   codec transition.
+6. **`@go marshal` annotation** triggers codec generation (not `@key`). `@go migrate`
+   annotation triggers migration file generation.
+7. **Codec structs in parent package (Phase 2.1 complete)** — `codec.gen.go` lives in
+   the parent package alongside `types.gen.go`, where it semantically belongs. `pb/` is
+   reserved for protobuf transport (`ToPB`/`FromPB`, `.pb.go`).
+8. **Ranger migration already ported** — `rangeGroupsMigration` implements
+   `gorp.Migration` directly and is passed to `OpenTable` alongside the generated codec
+   transition. Old `gorp.Migrator` still exists but is deprecated (removed in Phase 5).
+9. **Direct binary encoding over protobuf** — Oracle-generated codecs use positional
+   binary encoding (BigEndian, length-prefixed) instead of protobuf. Eliminates the
+   `ToPB`/`FromPB` translation layer for storage. `pb/` package retains protobuf for
+   transport (gRPC/HTTP). Each migration version will freeze a `codec.gen.go` snapshot.
+10. **`TypedMigration` codec params deferred to Phase 7** — The current
+    `NewTypedMigration` takes only `name`, `auto`, and `post`. Explicit
+    `inputCodec`/`outputCodec` parameters (nil → fallback to msgpack) will be added when
+    schema migrations need version-specific frozen codecs. For the MVP codec transition,
+    `NewCodecTransition` handles everything.
+11. **Generated migration function pattern** — `{Type}Migrations(codec Codec[T])
+    []Migration` rather than `All() []Migration`. The codec is passed as a parameter to
+    avoid circular imports and to allow `NewCodecTransition` to use it directly.

@@ -23,10 +23,8 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/distribution/cluster"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer"
 	"github.com/synnaxlabs/synnax/pkg/distribution/group"
-	grouppb "github.com/synnaxlabs/synnax/pkg/distribution/group/pb"
 	groupsignals "github.com/synnaxlabs/synnax/pkg/distribution/group/signals"
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
-	ontologypb "github.com/synnaxlabs/synnax/pkg/distribution/ontology/pb"
 	ontologysignals "github.com/synnaxlabs/synnax/pkg/distribution/ontology/signals"
 	"github.com/synnaxlabs/synnax/pkg/distribution/signals"
 	"github.com/synnaxlabs/synnax/pkg/storage"
@@ -243,8 +241,8 @@ func OpenLayer(ctx context.Context, cfgs ...LayerConfig) (l *Layer, err error) {
 		ontology.Config{
 			Instrumentation:   cfg.Child("ontology"),
 			DB:                l.DB,
-			RelationshipCodec: ontologypb.RelationshipCodec,
-			ResourceCodec:     ontologypb.ResourceCodec,
+			RelationshipCodec: ontology.RelationshipCodec,
+			ResourceCodec:     ontology.ResourceCodec,
 		},
 	); !ok(err, l.Ontology) {
 		return nil, err
@@ -255,7 +253,7 @@ func OpenLayer(ctx context.Context, cfgs ...LayerConfig) (l *Layer, err error) {
 		group.ServiceConfig{
 			DB:       l.DB,
 			Ontology: l.Ontology,
-			Codec:    grouppb.GroupCodec,
+			Codec:    group.GroupCodec,
 		},
 	); !ok(err, l.Group) {
 		return nil, err

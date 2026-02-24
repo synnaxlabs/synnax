@@ -94,11 +94,9 @@ func getPBName(s resolution.Type) string {
 }
 
 type codecEntry struct {
-	GoName      string
-	PBName      string
-	ParentAlias string
-	ParentPath  string
-	Type        resolution.Type
+	GoName string
+	PBName string
+	Type   resolution.Type
 }
 
 func (p *Plugin) Generate(req *plugin.Request) (*plugin.Response, error) {
@@ -117,9 +115,8 @@ func (p *Plugin) Generate(req *plugin.Request) (*plugin.Response, error) {
 		if goPath == "" {
 			continue
 		}
-		pbPath := goPath + "/pb"
 		if req.RepoRoot != "" {
-			if err := req.ValidateOutputPath(pbPath); err != nil {
+			if err := req.ValidateOutputPath(goPath); err != nil {
 				return nil, errors.Wrapf(err, "invalid output path for %s", entry.Name)
 			}
 		}
@@ -131,28 +128,25 @@ func (p *Plugin) Generate(req *plugin.Request) (*plugin.Response, error) {
 		if pbName == "" {
 			pbName = entry.Name
 		}
-		parentAlias := naming.DerivePackageAlias(goPath, "pb")
-		if _, exists := outputEntries[pbPath]; !exists {
-			outputOrder = append(outputOrder, pbPath)
+		if _, exists := outputEntries[goPath]; !exists {
+			outputOrder = append(outputOrder, goPath)
 		}
-		outputEntries[pbPath] = append(outputEntries[pbPath], codecEntry{
-			GoName:      goName,
-			PBName:      pbName,
-			ParentAlias: parentAlias,
-			ParentPath:  goPath,
-			Type:        entry,
+		outputEntries[goPath] = append(outputEntries[goPath], codecEntry{
+			GoName: goName,
+			PBName: pbName,
+			Type:   entry,
 		})
 	}
 
-	for _, pbPath := range outputOrder {
-		entries := outputEntries[pbPath]
-		content, err := p.generateFile(pbPath, entries, req)
+	for _, goPath := range outputOrder {
+		entries := outputEntries[goPath]
+		content, err := p.generateFile(goPath, entries, req)
 		if err != nil {
-			return nil, errors.Wrapf(err, "failed to generate %s", pbPath)
+			return nil, errors.Wrapf(err, "failed to generate %s", goPath)
 		}
 		if len(content) > 0 {
 			resp.Files = append(resp.Files, plugin.File{
-				Path:    fmt.Sprintf("%s/%s", pbPath, p.Options.FileNamePattern),
+				Path:    fmt.Sprintf("%s/%s", goPath, p.Options.FileNamePattern),
 				Content: content,
 			})
 		}
@@ -162,7 +156,6 @@ func (p *Plugin) Generate(req *plugin.Request) (*plugin.Response, error) {
 
 type codecOutput struct {
 	GoName        string
-	ParentAlias   string
 	Constants     string
 	FieldCount    int
 	EstSize       int
@@ -172,43 +165,34 @@ type codecOutput struct {
 }
 
 type fileOutput struct {
-	Package          string
-	ParentAlias      string
-	ParentImportPath string
-	ExtraImports     map[string]string
-	NeedsMath        bool
-	NeedsJSON        bool
-	Codecs           []codecOutput
+	Package      string
+	ExtraImports map[string]string
+	NeedsMath    bool
+	NeedsJSON    bool
+	Codecs       []codecOutput
 }
 
 func (p *Plugin) generateFile(
-	pbPath string,
+	goPath string,
 	entries []codecEntry,
 	req *plugin.Request,
 ) ([]byte, error) {
 	if len(entries) == 0 {
 		return nil, nil
 	}
-	parentAlias := entries[0].ParentAlias
-	parentGoPath := entries[0].ParentPath
-	parentImportPath, err := resolveGoImportPath(parentGoPath, req.RepoRoot)
-	if err != nil {
-		return nil, errors.Wrap(err, "failed to resolve parent package import")
-	}
+	packageName := naming.DerivePackageName(goPath)
 
 	fo := fileOutput{
-		Package:          "pb",
-		ParentAlias:      parentAlias,
-		ParentImportPath: parentImportPath,
-		ExtraImports:     make(map[string]string),
+		Package:      packageName,
+		ExtraImports: make(map[string]string),
 	}
 
 	for _, e := range entries {
 		b := &codeBuilder{
 			table:       req.Resolutions,
 			repoRoot:    req.RepoRoot,
-			parentAlias: e.ParentAlias,
-			parentPath:  e.ParentPath,
+			packageName: packageName,
+			parentPath:  goPath,
 			imports:     fo.ExtraImports,
 		}
 		if err := b.processType(e.Type); err != nil {
@@ -230,7 +214,6 @@ func (p *Plugin) generateFile(
 
 		fo.Codecs = append(fo.Codecs, codecOutput{
 			GoName:        e.GoName,
-			ParentAlias:   e.ParentAlias,
 			Constants:     constBuf.String(),
 			FieldCount:    len(b.consts),
 			EstSize:       b.estSize,
@@ -264,7 +247,7 @@ func lowerFirst(s string) string {
 type codeBuilder struct {
 	table            *resolution.Table
 	repoRoot         string
-	parentAlias      string
+	packageName      string
 	parentPath       string
 	imports          map[string]string
 	consts           []wireConst
@@ -668,7 +651,7 @@ func (b *codeBuilder) processRecursiveStruct(
 	sub := &codeBuilder{
 		table:            b.table,
 		repoRoot:         b.repoRoot,
-		parentAlias:      b.parentAlias,
+		packageName:      b.packageName,
 		parentPath:       b.parentPath,
 		imports:          b.imports,
 		processingTypes:  map[string]bool{helperKey: true},
@@ -1132,19 +1115,17 @@ func (b *codeBuilder) goTypeName(typ resolution.Type) (string, error) {
 	}
 	goPath := output.GetPath(typ, "go")
 	if goPath == "" || goPath == b.parentPath {
-		return b.parentAlias + "." + goName, nil
+		return goName, nil
 	}
 	importPath, err := resolveGoImportPath(goPath, b.repoRoot)
 	if err != nil {
 		return "", err
 	}
-	// Check if this import path already has an alias
 	if existingAlias, ok := b.imports[importPath]; ok {
 		return existingAlias + "." + goName, nil
 	}
-	alias := naming.DerivePackageAlias(goPath, "pb")
-	// Disambiguate alias if it collides with parent alias or existing imports
-	if alias == b.parentAlias || b.aliasUsed(alias) {
+	alias := naming.DerivePackageAlias(goPath, b.packageName)
+	if alias == b.packageName || b.aliasUsed(alias) {
 		parent := filepath.Base(filepath.Dir(goPath))
 		alias = parent + alias
 	}
@@ -1230,9 +1211,8 @@ import (
 {{end}}{{if .NeedsJSON}}	"encoding/json"
 {{end}}
 	"github.com/synnaxlabs/x/gorp"
-
-	{{.ParentAlias}} "{{.ParentImportPath}}"
-{{range $path, $alias := .ExtraImports}}	{{$alias}} "{{$path}}"
+{{range $path, $alias := .ExtraImports}}
+	{{$alias}} "{{$path}}"
 {{end}})
 
 var _ = binary.BigEndian
@@ -1245,7 +1225,7 @@ type {{lowerFirst .GoName}}Codec struct{}
 
 func ({{lowerFirst .GoName}}Codec) Marshal(
 	_ context.Context,
-	s {{.ParentAlias}}.{{.GoName}},
+	s {{.GoName}},
 ) ([]byte, error) {
 	buf := make([]byte, 0, {{.EstSize}})
 {{.MarshalBody}}
@@ -1255,12 +1235,12 @@ func ({{lowerFirst .GoName}}Codec) Marshal(
 func ({{lowerFirst .GoName}}Codec) Unmarshal(
 	_ context.Context,
 	data []byte,
-) ({{.ParentAlias}}.{{.GoName}}, error) {
-	var r {{.ParentAlias}}.{{.GoName}}
+) ({{.GoName}}, error) {
+	var r {{.GoName}}
 {{.UnmarshalBody}}
 	return r, nil
 }
 
-var {{.GoName}}Codec gorp.Codec[{{.ParentAlias}}.{{.GoName}}] = {{lowerFirst .GoName}}Codec{}
+var {{.GoName}}Codec gorp.Codec[{{.GoName}}] = {{lowerFirst .GoName}}Codec{}
 {{if .HelperFuncs}}{{.HelperFuncs}}{{end}}
 {{end}}`
