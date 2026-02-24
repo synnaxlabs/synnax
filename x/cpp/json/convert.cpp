@@ -11,6 +11,7 @@
 #include <limits>
 #include <stdexcept>
 #include <string>
+#include <type_traits>
 
 #include "x/cpp/date/date.h"
 #include "x/cpp/errors/errors.h"
@@ -121,7 +122,7 @@ telem::SampleValue parse_rfc3339(const std::string &input) {
 }
 
 template<typename T>
-telem::SampleValue convert_number(const double v) {
+telem::SampleValue convert_float(const double v) {
     if constexpr (std::is_integral_v<T>) {
         if (v != std::trunc(v))
             throw std::runtime_error("value has a fractional component");
@@ -132,17 +133,91 @@ telem::SampleValue convert_number(const double v) {
     return telem::SampleValue(static_cast<T>(v));
 }
 
-telem::SampleValue number_to_numeric(const double v, const telem::DataType &target) {
-    if (target == telem::FLOAT64_T) return convert_number<double>(v);
-    if (target == telem::FLOAT32_T) return convert_number<float>(v);
-    if (target == telem::INT64_T) return convert_number<int64_t>(v);
-    if (target == telem::INT32_T) return convert_number<int32_t>(v);
-    if (target == telem::INT16_T) return convert_number<int16_t>(v);
-    if (target == telem::INT8_T) return convert_number<int8_t>(v);
-    if (target == telem::UINT64_T) return convert_number<uint64_t>(v);
-    if (target == telem::UINT32_T) return convert_number<uint32_t>(v);
-    if (target == telem::UINT16_T) return convert_number<uint16_t>(v);
-    if (target == telem::UINT8_T) return convert_number<uint8_t>(v);
+template<typename From, typename To>
+telem::SampleValue convert_integer(const From v) {
+    if constexpr (std::is_same_v<From, To>) {
+        return telem::SampleValue(v);
+    } else if constexpr (std::is_floating_point_v<To>) {
+        return telem::SampleValue(static_cast<To>(v));
+    } else if constexpr (std::is_signed_v<From> && std::is_unsigned_v<To>) {
+        if (v < 0) throw std::runtime_error("value is out of bounds");
+        if (static_cast<std::make_unsigned_t<From>>(v) > std::numeric_limits<To>::max())
+            throw std::runtime_error("value is out of bounds");
+        return telem::SampleValue(static_cast<To>(v));
+    } else if constexpr (std::is_unsigned_v<From> && std::is_signed_v<To>) {
+        if (v > static_cast<std::make_unsigned_t<To>>(std::numeric_limits<To>::max()))
+            throw std::runtime_error("value is out of bounds");
+        return telem::SampleValue(static_cast<To>(v));
+    } else {
+        if (v < std::numeric_limits<To>::min() || v > std::numeric_limits<To>::max())
+            throw std::runtime_error("value is out of bounds");
+        return telem::SampleValue(static_cast<To>(v));
+    }
+}
+
+template<typename V>
+telem::SampleValue number_to_numeric(const V v, const telem::DataType &target) {
+    constexpr bool is_float = std::is_floating_point_v<V>;
+    if (target == telem::FLOAT64_T) {
+        if constexpr (is_float)
+            return convert_float<double>(v);
+        else
+            return convert_integer<V, double>(v);
+    }
+    if (target == telem::FLOAT32_T) {
+        if constexpr (is_float)
+            return convert_float<float>(v);
+        else
+            return convert_integer<V, float>(v);
+    }
+    if (target == telem::INT64_T) {
+        if constexpr (is_float)
+            return convert_float<int64_t>(v);
+        else
+            return convert_integer<V, int64_t>(v);
+    }
+    if (target == telem::INT32_T) {
+        if constexpr (is_float)
+            return convert_float<int32_t>(v);
+        else
+            return convert_integer<V, int32_t>(v);
+    }
+    if (target == telem::INT16_T) {
+        if constexpr (is_float)
+            return convert_float<int16_t>(v);
+        else
+            return convert_integer<V, int16_t>(v);
+    }
+    if (target == telem::INT8_T) {
+        if constexpr (is_float)
+            return convert_float<int8_t>(v);
+        else
+            return convert_integer<V, int8_t>(v);
+    }
+    if (target == telem::UINT64_T) {
+        if constexpr (is_float)
+            return convert_float<uint64_t>(v);
+        else
+            return convert_integer<V, uint64_t>(v);
+    }
+    if (target == telem::UINT32_T) {
+        if constexpr (is_float)
+            return convert_float<uint32_t>(v);
+        else
+            return convert_integer<V, uint32_t>(v);
+    }
+    if (target == telem::UINT16_T) {
+        if constexpr (is_float)
+            return convert_float<uint16_t>(v);
+        else
+            return convert_integer<V, uint16_t>(v);
+    }
+    if (target == telem::UINT8_T) {
+        if constexpr (is_float)
+            return convert_float<uint8_t>(v);
+        else
+            return convert_integer<V, uint8_t>(v);
+    }
     throw std::runtime_error("");
 }
 
@@ -199,14 +274,9 @@ string_to_numeric(const std::string &str, const telem::DataType &target) {
         const bool is_negative = str[0] == '-';
         const bool is_signed = target == telem::INT64_T || target == telem::INT32_T ||
                                target == telem::INT16_T || target == telem::INT8_T;
-        if (is_negative || is_signed) {
-            const auto v = parse_string_int64(str);
-            if (target == telem::INT64_T) return telem::SampleValue(v);
-            return number_to_numeric(static_cast<double>(v), target);
-        }
-        const auto v = parse_string_uint64(str);
-        if (target == telem::UINT64_T) return telem::SampleValue(v);
-        return number_to_numeric(static_cast<double>(v), target);
+        if (is_negative || is_signed)
+            return number_to_numeric(parse_string_int64(str), target);
+        return number_to_numeric(parse_string_uint64(str), target);
     }
 
     // Non-integer strings (decimals, exponents) fall back to stod.
@@ -257,6 +327,10 @@ telem::SampleValue convert(
     }
 
     if (value.is_boolean()) return number_to_numeric(value.get<bool>() ? 1 : 0, target);
+    if (value.is_number_unsigned())
+        return number_to_numeric(value.get<uint64_t>(), target);
+    if (value.is_number_integer())
+        return number_to_numeric(value.get<int64_t>(), target);
     if (value.is_number()) return number_to_numeric(value.get<double>(), target);
     if (value.is_string())
         return string_to_numeric(value.get_ref<const std::string &>(), target);
