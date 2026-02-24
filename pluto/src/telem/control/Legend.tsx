@@ -42,25 +42,25 @@ export interface LegendProps extends Omit<Base.SimpleProps, "data" | "onEntryCha
 
 export const Legend = (props: LegendProps): ReactElement | null => {
   const { key: contextKey, needsControlOf } = useContext();
+  const { colors = {}, onColorsChange, ...restProps } = props;
+
   const [, { states }, setState] = Aether.use({
     type: control.Legend.TYPE,
     schema: control.legendStateZ,
-    initialState: { states: [], needsControlOf },
+    initialState: { states: [], needsControlOf, colors },
   });
 
   useEffect(() => {
-    setState((state) => ({ ...state, needsControlOf }));
-  }, [needsControlOf]);
+    setState((state) => ({ ...state, needsControlOf, colors }));
+  }, [needsControlOf, colors]);
 
   const {
-    colors = {},
-    onColorsChange,
     position,
     onPositionChange,
     allowVisibleChange: _,
     background = 1,
     ...rest
-  } = props;
+  } = restProps;
 
   const handleColorChange = useCallback(
     (key: string, c: color.Crude) =>
