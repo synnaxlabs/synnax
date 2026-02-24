@@ -477,8 +477,14 @@ jobs:
 
       - name: Upload Driver to Release
         if: inputs.driver && inputs.upload_to_release
-        run: |
-          gh release upload --clobber synnax-v${{ needs.setup.outputs.VERSION }} bazel-bin/driver/synnax-driver-v${{ needs.setup.outputs.VERSION }}-${{ matrix.os-name }}${{ matrix.executable }}
+        uses: nick-fields/retry@v3
+        with:
+          timeout_minutes: 5
+          max_attempts: 3
+          command:
+            gh release upload --clobber synnax-v${{ needs.setup.outputs.VERSION }}
+            bazel-bin/driver/synnax-driver-v${{ needs.setup.outputs.VERSION }}-${{
+            matrix.os-name }}${{ matrix.executable }}
 
       - name: Copy Driver to Assets
         if: inputs.driver && inputs.core && matrix.os != 'windows-build-bot'
@@ -651,8 +657,14 @@ jobs:
 
       - name: Upload Core to Release
         if: inputs.core && inputs.upload_to_release
-        run: |
-          gh release upload --clobber synnax-v${{ needs.setup.outputs.VERSION }} core/synnax-v${{ needs.setup.outputs.VERSION }}-${{ matrix.os-name }}${{ matrix.executable }}
+        uses: nick-fields/retry@v3
+        with:
+          timeout_minutes: 5
+          max_attempts: 3
+          command:
+            gh release upload --clobber synnax-v${{ needs.setup.outputs.VERSION }}
+            core/synnax-v${{ needs.setup.outputs.VERSION }}-${{ matrix.os-name }}${{
+            matrix.executable }}
 
   docker:
     name: Build Docker Image
@@ -867,10 +879,14 @@ jobs:
 
       - name: Upload macOS Release Assets
         if: inputs.upload_to_release && startsWith(matrix.os, 'macos-build-bot')
-        run: |
-          gh release upload --clobber console-v${{ steps.console-version.outputs.VERSION }} ./console/src-tauri/target/release/bundle/macos/Synnax.app.tar.gz
-          gh release upload --clobber console-v${{ steps.console-version.outputs.VERSION }} ./console/src-tauri/target/release/bundle/macos/Synnax.app.tar.gz.sig
-          gh release upload --clobber console-v${{ steps.console-version.outputs.VERSION }} ./console/src-tauri/target/release/bundle/dmg/Synnax_${{ steps.console-version.outputs.CONSOLE_VERSION }}_aarch64.dmg
+        uses: nick-fields/retry@v3
+        with:
+          timeout_minutes: 5
+          max_attempts: 3
+          command: |
+            gh release upload --clobber console-v${{ steps.console-version.outputs.VERSION }} ./console/src-tauri/target/release/bundle/macos/Synnax.app.tar.gz
+            gh release upload --clobber console-v${{ steps.console-version.outputs.VERSION }} ./console/src-tauri/target/release/bundle/macos/Synnax.app.tar.gz.sig
+            gh release upload --clobber console-v${{ steps.console-version.outputs.VERSION }} ./console/src-tauri/target/release/bundle/dmg/Synnax_${{ steps.console-version.outputs.CONSOLE_VERSION }}_aarch64.dmg
 
       - name: Upload Windows Release Assets
         if: inputs.upload_to_release && matrix.os == 'windows-latest'
