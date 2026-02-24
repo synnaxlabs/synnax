@@ -72,7 +72,6 @@ const Properties = () => (
         inputProps={RATE_INPUT_PROPS}
       />
       <Common.Task.Fields.DataSaving />
-      <PForm.SwitchField path="config.strict" label="Strict" />
       <Common.Task.Fields.AutoStart />
     </Flex.Box>
   </>
@@ -167,21 +166,23 @@ const FieldListItem = ({ epKey, ...props }: FieldListItemProps) => {
         inputProps={{ placeholder: "/temperature" }}
         grow
       />
-      <PForm.Field<string>
-        path={`${path}.dataType`}
-        showLabel={false}
-        showHelpText={false}
-        hideIfNull
-      >
-        {({ value, onChange }) => (
-          <Telem.SelectDataType
-            value={value}
-            onChange={onChange}
-            hideVariableDensity
-            location="bottom"
-          />
-        )}
-      </PForm.Field>
+      {fieldChannel === 0 && (
+        <PForm.Field<string>
+          path={`${path}.dataType`}
+          showLabel={false}
+          showHelpText={false}
+          hideIfNull
+        >
+          {({ value, onChange }) => (
+            <Telem.SelectDataType
+              value={value}
+              onChange={onChange}
+              hideVariableDensity
+              location="bottom"
+            />
+          )}
+        </PForm.Field>
+      )}
       <Flex.Box x align="center" grow justify="end">
         <Common.Task.ChannelName
           channel={fieldChannel}
@@ -199,16 +200,30 @@ const FieldListItem = ({ epKey, ...props }: FieldListItemProps) => {
 type HTTPMethod = "GET" | "POST";
 const HTTP_METHOD_KEYS: HTTPMethod[] = ["GET", "POST"];
 
-const MethodSelect: FC<{ path: string }> = ({ path }) => (
-  <PForm.Field<HTTPMethod> path={path} label="Method">
-    {({ value, onChange }) => (
-      <Select.Buttons<HTTPMethod> value={value} onChange={onChange} keys={HTTP_METHOD_KEYS}>
-        <Select.Button<HTTPMethod> itemKey="GET">GET</Select.Button>
-        <Select.Button<HTTPMethod> itemKey="POST">POST</Select.Button>
-      </Select.Buttons>
-    )}
-  </PForm.Field>
-);
+const MethodSelect: FC<{ path: string; epPath: string }> = ({ path, epPath }) => {
+  const { set } = PForm.useContext();
+  const handleChange = useCallback(
+    (method: HTTPMethod) => {
+      set(path, method);
+      if (method === "POST") set(`${epPath}.body`, "");
+    },
+    [set, path, epPath],
+  );
+  return (
+    <PForm.Field<HTTPMethod> path={path} label="Method">
+      {({ value }) => (
+        <Select.Buttons<HTTPMethod>
+          value={value}
+          onChange={handleChange}
+          keys={HTTP_METHOD_KEYS}
+        >
+          <Select.Button<HTTPMethod> itemKey="GET">GET</Select.Button>
+          <Select.Button<HTTPMethod> itemKey="POST">POST</Select.Button>
+        </Select.Buttons>
+      )}
+    </PForm.Field>
+  );
+};
 
 // ─── Field List ───
 
@@ -220,9 +235,7 @@ const FieldList: FC<{ epKey: string }> = ({ epKey }) => {
   const isSnapshot = Common.Task.useIsSnapshot();
 
   const allFields = PForm.useFieldValue<ReadField[]>(path);
-  const indexKeys = new Set(
-    allFields.filter(isTimingField).map((f) => f.key),
-  );
+  const indexKeys = new Set(allFields.filter(isTimingField).map((f) => f.key));
   const data = allData.filter((key) => !indexKeys.has(key));
 
   const handleAdd = useCallback(() => {
@@ -303,15 +316,18 @@ const FieldList: FC<{ epKey: string }> = ({ epKey }) => {
 
 // ─── Endpoint Details ───
 
+type TimingMode = "software" | "value";
+const TIMING_MODE_KEYS: TimingMode[] = ["software", "value"];
+
 const TimingToggle: FC<{ path: string }> = ({ path }) => {
   const fields = PForm.useFieldValue<ReadField[]>(`${path}.fields`);
   const { set } = PForm.useContext();
   const indexField = fields.find(isTimingField);
   const isValueTiming = indexField != null;
 
-  const handleToggle = useCallback(
-    (value: boolean) => {
-      if (value && !isValueTiming) {
+  const handleChange = useCallback(
+    (mode: TimingMode) => {
+      if (mode === "value" && !isValueTiming) {
         const indexF: ReadField = {
           ...ZERO_READ_FIELD,
           key: id.create(),
@@ -319,7 +335,7 @@ const TimingToggle: FC<{ path: string }> = ({ path }) => {
         };
         set(`${path}.fields`, [...fields, indexF]);
         set(`${path}.index`, indexF.key);
-      } else if (!value && isValueTiming) {
+      } else if (mode === "software" && isValueTiming) {
         set(
           `${path}.fields`,
           fields.filter((f) => !isTimingField(f)),
@@ -336,24 +352,14 @@ const TimingToggle: FC<{ path: string }> = ({ path }) => {
         <Text.Text level="small" weight={500} style={{ marginRight: "0.25rem" }}>
           Timing
         </Text.Text>
-        <Button.Toggle
-          value={!isValueTiming}
-          onChange={() => handleToggle(false)}
-          size="small"
-          checkedVariant="filled"
-          uncheckedVariant="text"
+        <Select.Buttons<TimingMode>
+          value={isValueTiming ? "value" : "software"}
+          onChange={handleChange}
+          keys={TIMING_MODE_KEYS}
         >
-          Software
-        </Button.Toggle>
-        <Button.Toggle
-          value={isValueTiming}
-          onChange={() => handleToggle(true)}
-          size="small"
-          checkedVariant="filled"
-          uncheckedVariant="text"
-        >
-          Value
-        </Button.Toggle>
+          <Select.Button<TimingMode> itemKey="software">Software</Select.Button>
+          <Select.Button<TimingMode> itemKey="value">Value</Select.Button>
+        </Select.Buttons>
       </Flex.Box>
       {isValueTiming && indexField != null && (
         <Flex.Box x align="center" gap="large">
@@ -387,9 +393,15 @@ const EndpointDetails: FC<{ epKey: string }> = ({ epKey }) => {
   const path = `config.endpoints.${epKey}`;
   const method = PForm.useFieldValue<string>(`${path}.method`);
   return (
-    <Flex.Box y grow empty style={{ overflowY: "auto" }} className={CSS.B("http-read-endpoint")}>
+    <Flex.Box
+      y
+      grow
+      empty
+      style={{ overflowY: "auto" }}
+      className={CSS.B("http-read-endpoint")}
+    >
       <Flex.Box x align="end" gap="large" style={{ padding: "1rem" }}>
-        <MethodSelect path={`${path}.method`} />
+        <MethodSelect path={`${path}.method`} epPath={path} />
         <PForm.TextField
           path={`${path}.path`}
           label="Path"
@@ -407,13 +419,15 @@ const EndpointDetails: FC<{ epKey: string }> = ({ epKey }) => {
           />
         </Flex.Box>
       )}
-      <Flex.Box y style={{ padding: "0 1rem" }} gap="large">
+      <Divider.Divider x padded />
+      <Flex.Box y style={{ padding: "0 1rem" }}>
         <KeyValueEditor
           path={`${path}.headers`}
           label="Headers"
           keyPlaceholder="Header Name"
           valuePlaceholder="Header Value"
         />
+        <Divider.Divider x padded />
         <KeyValueEditor
           path={`${path}.queryParams`}
           label="Query Parameters"
@@ -421,8 +435,8 @@ const EndpointDetails: FC<{ epKey: string }> = ({ epKey }) => {
           valuePlaceholder="Value"
         />
       </Flex.Box>
+      <Divider.Divider x padded />
       <TimingToggle path={path} />
-      <Divider.Divider x />
       <FieldList key={epKey} epKey={epKey} />
     </Flex.Box>
   );

@@ -67,7 +67,6 @@ export const ZERO_READ_ENDPOINT = {
 
 export const readConfigZ = Common.Task.baseReadConfigZ.extend({
   rate: z.number().positive("Rate must be positive"),
-  strict: z.boolean().default(false),
   endpoints: z.array(readEndpointZ),
 });
 export interface ReadConfig extends z.infer<typeof readConfigZ> {}
@@ -75,7 +74,6 @@ export interface ReadConfig extends z.infer<typeof readConfigZ> {}
 export const ZERO_READ_CONFIG = {
   ...Common.Task.ZERO_BASE_READ_CONFIG,
   rate: 1,
-  strict: false,
   endpoints: [],
 } as const satisfies ReadConfig;
 
