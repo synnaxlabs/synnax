@@ -73,20 +73,20 @@ TEST(ToSampleValue, NumberToUint8) {
     ASSERT_EQ(std::get<uint8_t>(sv), 7);
 }
 
-// --- Strict truncation ---
+// --- Truncation ---
 
-TEST(ToSampleValue, NumberToInt64NonStrictTruncation) {
-    const auto sv = ASSERT_NIL_P(
-        x::json::to_sample_value(json(3.7), x::telem::INT64_T, {.strict = false})
-    );
-    ASSERT_EQ(std::get<int64_t>(sv), 3);
-}
-
-TEST(ToSampleValue, NumberToInt64StrictTruncationError) {
+TEST(ToSampleValue, NumberToInt64TruncationError) {
     ASSERT_OCCURRED_AS_P(
-        x::json::to_sample_value(json(3.7), x::telem::INT64_T, {.strict = true}),
+        x::json::to_sample_value(json(3.7), x::telem::INT64_T),
         x::json::TRUNCATION_ERROR
     );
+}
+
+TEST(ToSampleValue, NumberWholeFloatToInt64) {
+    const auto sv = ASSERT_NIL_P(
+        x::json::to_sample_value(json(35.0), x::telem::INT64_T)
+    );
+    ASSERT_EQ(std::get<int64_t>(sv), 35);
 }
 
 TEST(ToSampleValue, NumberToUint8Overflow) {
@@ -168,9 +168,9 @@ TEST(ToSampleValue, StringToUint8) {
     ASSERT_EQ(std::get<uint8_t>(sv), 200);
 }
 
-TEST(ToSampleValue, StringToInt64StrictTruncationError) {
+TEST(ToSampleValue, StringToInt64TruncationError) {
     ASSERT_OCCURRED_AS_P(
-        x::json::to_sample_value(json("3.7"), x::telem::INT64_T, {.strict = true}),
+        x::json::to_sample_value(json("3.7"), x::telem::INT64_T),
         x::json::TRUNCATION_ERROR
     );
 }
@@ -254,13 +254,10 @@ TEST(ToSampleValue, StringExponentToUint32) {
     ASSERT_EQ(std::get<uint32_t>(sv), 2500);
 }
 
-TEST(ToSampleValue, StringExponentToInt64StrictTruncationError) {
-    // 1.5e1 = 15.0 (whole number, no truncation)
-    // 1.5e0 = 1.5 (fractional, truncation error in strict mode)
+TEST(ToSampleValue, StringExponentToInt64TruncationError) {
+    // 1.5e0 = 1.5 (fractional, causes truncation error)
     ASSERT_OCCURRED_AS_P(
-        x::json::to_sample_value(
-            json("1.5e0"), x::telem::INT64_T, {.strict = true}
-        ),
+        x::json::to_sample_value(json("1.5e0"), x::telem::INT64_T),
         x::json::TRUNCATION_ERROR
     );
 }
@@ -291,18 +288,14 @@ TEST(ToSampleValue, StringInt64Max) {
 
 TEST(ToSampleValue, StringInt64Min) {
     const auto sv = ASSERT_NIL_P(
-        x::json::to_sample_value(
-            json("-9223372036854775808"), x::telem::INT64_T
-        )
+        x::json::to_sample_value(json("-9223372036854775808"), x::telem::INT64_T)
     );
     ASSERT_EQ(std::get<int64_t>(sv), INT64_MIN);
 }
 
 TEST(ToSampleValue, StringInt64OverflowError) {
     ASSERT_OCCURRED_AS_P(
-        x::json::to_sample_value(
-            json("9223372036854775808"), x::telem::INT64_T
-        ),
+        x::json::to_sample_value(json("9223372036854775808"), x::telem::INT64_T),
         x::json::OVERFLOW_ERROR
     );
 }
@@ -316,9 +309,7 @@ TEST(ToSampleValue, StringLargeUint64PreservesPrecision) {
 
 TEST(ToSampleValue, StringUint64OverflowError) {
     ASSERT_OCCURRED_AS_P(
-        x::json::to_sample_value(
-            json("18446744073709551616"), x::telem::UINT64_T
-        ),
+        x::json::to_sample_value(json("18446744073709551616"), x::telem::UINT64_T),
         x::json::OVERFLOW_ERROR
     );
 }
@@ -330,13 +321,18 @@ TEST(ToSampleValue, StringNegativeToUint8Overflow) {
     );
 }
 
-TEST(ToSampleValue, StringDecimalToInt64NonStrict) {
-    const auto sv = ASSERT_NIL_P(
-        x::json::to_sample_value(
-            json("3.7"), x::telem::INT64_T, {.strict = false}
-        )
+TEST(ToSampleValue, StringDecimalToInt64TruncationError) {
+    ASSERT_OCCURRED_AS_P(
+        x::json::to_sample_value(json("3.7"), x::telem::INT64_T),
+        x::json::TRUNCATION_ERROR
     );
-    ASSERT_EQ(std::get<int64_t>(sv), 3);
+}
+
+TEST(ToSampleValue, StringWholeDecimalToInt64) {
+    const auto sv = ASSERT_NIL_P(
+        x::json::to_sample_value(json("35.0"), x::telem::INT64_T)
+    );
+    ASSERT_EQ(std::get<int64_t>(sv), 35);
 }
 
 TEST(ToSampleValue, StringLeadingPlusToInt64) {

@@ -117,7 +117,6 @@ TEST(HTTPReadTask, SingleEndpointGETNumericField) {
     cfg.data_saving = false;
     cfg.auto_start = false;
     cfg.rate = x::telem::Rate(10);
-    cfg.strict = false;
 
     ReadField temp_field;
     temp_field.pointer = x::json::json::json_pointer("/temperature");
@@ -177,7 +176,6 @@ TEST(HTTPReadTask, NestedJSONPointerPaths) {
     cfg.data_saving = false;
     cfg.auto_start = false;
     cfg.rate = x::telem::Rate(10);
-    cfg.strict = false;
 
     ReadField field;
     field.pointer = x::json::json::json_pointer("/data/sensors/0/value");
@@ -225,7 +223,6 @@ TEST(HTTPReadTask, MissingJSONField) {
     cfg.data_saving = false;
     cfg.auto_start = false;
     cfg.rate = x::telem::Rate(10);
-    cfg.strict = false;
 
     ReadField field;
     field.pointer = x::json::json::json_pointer("/nonexistent");
@@ -271,7 +268,6 @@ TEST(HTTPReadTask, ServerErrorOn5xx) {
     cfg.data_saving = false;
     cfg.auto_start = false;
     cfg.rate = x::telem::Rate(10);
-    cfg.strict = false;
 
     ReadField field;
     field.pointer = x::json::json::json_pointer("/value");
@@ -317,7 +313,6 @@ TEST(HTTPReadTask, ClientErrorOn4xx) {
     cfg.data_saving = false;
     cfg.auto_start = false;
     cfg.rate = x::telem::Rate(10);
-    cfg.strict = false;
 
     ReadField field;
     field.pointer = x::json::json::json_pointer("/value");
@@ -364,7 +359,6 @@ TEST(HTTPReadTask, TypeConversions) {
     cfg.data_saving = false;
     cfg.auto_start = false;
     cfg.rate = x::telem::Rate(10);
-    cfg.strict = false;
 
     ReadField bool_field;
     bool_field.pointer = x::json::json::json_pointer("/active");
@@ -424,7 +418,6 @@ TEST(HTTPReadTask, StringField) {
     cfg.data_saving = false;
     cfg.auto_start = false;
     cfg.rate = x::telem::Rate(10);
-    cfg.strict = false;
 
     ReadField name_field;
     name_field.pointer = x::json::json::json_pointer("/name");
@@ -464,9 +457,8 @@ TEST(HTTPReadTask, StringField) {
     EXPECT_NEAR(fr.at<double>(3, 0), 3.14, 0.001);
 }
 
-/// @brief strict mode should error on decimal values for integer channels and
-/// negative values for unsigned integer channels.
-TEST(HTTPReadTask, StrictModeConversionErrors) {
+/// @brief should error on decimal values for integer channels.
+TEST(HTTPReadTask, DecimalToIntegerErrors) {
     mock::Server server(
         mock::ServerConfig{
             .routes = {{
@@ -485,7 +477,6 @@ TEST(HTTPReadTask, StrictModeConversionErrors) {
     cfg.data_saving = false;
     cfg.auto_start = false;
     cfg.rate = x::telem::Rate(10);
-    cfg.strict = true;
 
     ReadField field;
     field.pointer = x::json::json::json_pointer("/value");
@@ -510,8 +501,8 @@ TEST(HTTPReadTask, StrictModeConversionErrors) {
     ASSERT_OCCURRED_AS(res.error, errors::PARSE_ERROR);
 }
 
-/// @brief strict mode should error on negative values for unsigned integer channels.
-TEST(HTTPReadTask, StrictModeNegativeForUnsigned) {
+/// @brief should error on negative values for unsigned integer channels.
+TEST(HTTPReadTask, NegativeForUnsignedErrors) {
     mock::Server server(
         mock::ServerConfig{
             .routes = {{
@@ -530,7 +521,6 @@ TEST(HTTPReadTask, StrictModeNegativeForUnsigned) {
     cfg.data_saving = false;
     cfg.auto_start = false;
     cfg.rate = x::telem::Rate(10);
-    cfg.strict = true;
 
     ReadField field;
     field.pointer = x::json::json::json_pointer("/value");
@@ -555,8 +545,8 @@ TEST(HTTPReadTask, StrictModeNegativeForUnsigned) {
     ASSERT_OCCURRED_AS(res.error, errors::PARSE_ERROR);
 }
 
-/// @brief non-strict mode should silently truncate decimals for integer channels.
-TEST(HTTPReadTask, NonStrictModeTruncatesDecimals) {
+/// @brief truncating decimals for integer channels should always error.
+TEST(HTTPReadTask, TruncationAlwaysErrors) {
     mock::Server server(
         mock::ServerConfig{
             .routes = {{
@@ -575,7 +565,6 @@ TEST(HTTPReadTask, NonStrictModeTruncatesDecimals) {
     cfg.data_saving = false;
     cfg.auto_start = false;
     cfg.rate = x::telem::Rate(10);
-    cfg.strict = false;
 
     ReadField field;
     field.pointer = x::json::json::json_pointer("/value");
@@ -597,9 +586,7 @@ TEST(HTTPReadTask, NonStrictModeTruncatesDecimals) {
     x::telem::Frame fr;
     auto res = source->read(breaker, fr);
     breaker.stop();
-    ASSERT_NIL(res.error);
-    EXPECT_EQ(fr.size(), 1);
-    EXPECT_EQ(fr.at<int32_t>(1, 0), 3);
+    ASSERT_OCCURRED_AS(res.error, errors::PARSE_ERROR);
 }
 
 /// @brief it should use software timing (midpoint) for index channels when the
@@ -623,7 +610,6 @@ TEST(HTTPReadTask, SoftwareTimingIndex) {
     cfg.data_saving = false;
     cfg.auto_start = false;
     cfg.rate = x::telem::Rate(10);
-    cfg.strict = false;
 
     ReadField field;
     field.pointer = x::json::json::json_pointer("/value");
@@ -676,7 +662,6 @@ TEST(HTTPReadTask, ExplicitIndexFieldTimestamp) {
     cfg.data_saving = false;
     cfg.auto_start = false;
     cfg.rate = x::telem::Rate(10);
-    cfg.strict = false;
 
     ReadField data_field;
     data_field.pointer = x::json::json::json_pointer("/value");
@@ -747,7 +732,6 @@ TEST(HTTPReadTask, MultipleEndpoints) {
     cfg.data_saving = false;
     cfg.auto_start = false;
     cfg.rate = x::telem::Rate(10);
-    cfg.strict = false;
 
     ReadField temp_field;
     temp_field.pointer = x::json::json::json_pointer("/temp");
@@ -807,7 +791,6 @@ TEST(HTTPReadTask, POSTWithBody) {
     cfg.data_saving = false;
     cfg.auto_start = false;
     cfg.rate = x::telem::Rate(10);
-    cfg.strict = false;
 
     ReadField field;
     field.pointer = x::json::json::json_pointer("/result");
@@ -1116,7 +1099,6 @@ TEST(HTTPReadTask, RepeatedReads) {
     cfg.data_saving = false;
     cfg.auto_start = false;
     cfg.rate = x::telem::Rate(10);
-    cfg.strict = false;
 
     ReadField field;
     field.pointer = x::json::json::json_pointer("/value");

@@ -57,8 +57,6 @@ struct ReadTaskConfig {
     bool auto_start;
     /// @brief polling rate (used for both sample_rate and stream_rate).
     x::telem::Rate rate;
-    /// @brief whether to be strict about type conversions.
-    bool strict;
     /// @brief endpoints to poll.
     std::vector<ReadEndpoint> endpoints;
     /// @brief index channels that need software timing, mapped to their endpoint index.

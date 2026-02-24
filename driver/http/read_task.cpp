@@ -24,7 +24,6 @@ std::pair<ReadTaskConfig, x::errors::Error> ReadTaskConfig::parse(
     cfg.data_saving = parser.field<bool>("data_saving", true);
     cfg.auto_start = parser.field<bool>("auto_start", false);
     cfg.rate = x::telem::Rate(parser.field<double>("rate"));
-    cfg.strict = parser.field<bool>("strict", false);
 
     // Track channel keys for batch retrieval and duplicate detection.
     std::set<synnax::channel::Key> field_keys;
@@ -236,7 +235,7 @@ ReadTaskSource::read(x::breaker::Breaker &breaker, x::telem::Frame &fr) {
             const auto &ch = cfg_.channels.at(field.channel_key);
             const auto &json_val = body.at(field.pointer);
 
-            auto opts = x::json::ReadOptions{.strict = cfg_.strict};
+            auto opts = x::json::ReadOptions{};
             if (field.time_format.has_value()) opts.time_format = *field.time_format;
 
             auto [sample_val, conv_err] = x::json::to_sample_value(

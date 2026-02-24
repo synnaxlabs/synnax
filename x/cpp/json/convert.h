@@ -20,7 +20,7 @@ namespace x::json {
 const errors::Error BASE_ERROR = errors::Error("xjson.conversion", "");
 /// @brief error for unsupported conversions.
 const errors::Error UNSUPPORTED_ERROR = BASE_ERROR.sub("unsupported");
-/// @brief error for unexpected truncation.
+/// @brief error for truncation during float → int conversion (e.g. 3.7 → int).
 const errors::Error TRUNCATION_ERROR = BASE_ERROR.sub("truncation");
 /// @brief error for unexpected overflow.
 const errors::Error OVERFLOW_ERROR = BASE_ERROR.sub("overflow");
@@ -42,10 +42,6 @@ enum class TimeFormat {
 
 /// @brief options for to_sample_value.
 struct ReadOptions {
-    /// @brief if true, float → int conversions that lose precision due to truncation
-    /// (e.g. 3.7 → 3) return an error. Overflow is always an error regardless of
-    /// this setting.
-    bool strict = false;
     /// @brief the expected time format for JSON → TimeStamp conversions. Ignored when
     /// the target type is not TIMESTAMP_T.
     TimeFormat time_format = TimeFormat::ISO8601;
@@ -55,7 +51,7 @@ struct ReadOptions {
 /// Inspects the JSON value's type at runtime to determine the conversion path.
 /// @param value the JSON value to convert.
 /// @param target the Synnax DataType to convert to.
-/// @param opts conversion options (strictness, time format).
+/// @param opts conversion options (time format).
 /// @returns the converted SampleValue and nil, or a zero SampleValue and an error.
 std::pair<telem::SampleValue, errors::Error> to_sample_value(
     const nlohmann::json &value,
