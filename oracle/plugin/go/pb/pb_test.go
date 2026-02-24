@@ -907,7 +907,7 @@ var _ = Describe("Go PB Plugin", func() {
 				resp := MustGenerate(ctx, source, "cluster", loader, pbPlugin)
 
 				ExpectContent(resp, "translator.gen.go").
-					ToContain("uint32(r.NodeId)").
+					ToContain("uint32(r.NodeID)").
 					ToContain("ids.NodeID(pb.NodeId)")
 			})
 		})

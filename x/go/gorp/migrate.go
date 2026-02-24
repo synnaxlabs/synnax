@@ -40,21 +40,33 @@ type AutoMigrateFunc[I, O any] func(ctx context.Context, old I) (O, error)
 type PostMigrateFunc[I, O any] func(ctx context.Context, new *O, old I) error
 
 type typedMigration[I, O any] struct {
-	name string
-	auto AutoMigrateFunc[I, O]
-	post PostMigrateFunc[I, O]
+	name       string
+	inputCodec Codec[I]
+	outputCodec Codec[O]
+	auto       AutoMigrateFunc[I, O]
+	post       PostMigrateFunc[I, O]
 }
 
 // NewTypedMigration creates a Migration that iterates over all entries with the
 // configured prefix, decodes each as type I, transforms it to type O via auto
 // (and optionally post), and writes it back. Either auto or post may be nil but
-// not both.
+// not both. When inputCodec is non-nil, it is used to decode entries instead of
+// the DB's default codec. When outputCodec is non-nil, it is used to encode
+// entries instead of the DB's default codec.
 func NewTypedMigration[I, O any](
 	name string,
+	inputCodec Codec[I],
+	outputCodec Codec[O],
 	auto AutoMigrateFunc[I, O],
 	post PostMigrateFunc[I, O],
 ) Migration {
-	return &typedMigration[I, O]{name: name, auto: auto, post: post}
+	return &typedMigration[I, O]{
+		name:        name,
+		inputCodec:  inputCodec,
+		outputCodec: outputCodec,
+		auto:        auto,
+		post:        post,
+	}
 }
 
 func (m *typedMigration[I, O]) Name() string { return m.name }
@@ -73,7 +85,12 @@ func (m *typedMigration[I, O]) Run(
 	}()
 	for iter.First(); iter.Valid(); iter.Next() {
 		var old I
-		if err = cfg.Codec.Decode(ctx, iter.Value(), &old); err != nil {
+		if m.inputCodec != nil {
+			old, err = m.inputCodec.Unmarshal(ctx, iter.Value())
+		} else {
+			err = cfg.Codec.Decode(ctx, iter.Value(), &old)
+		}
+		if err != nil {
 			return err
 		}
 		var newEntry O
@@ -89,7 +106,12 @@ func (m *typedMigration[I, O]) Run(
 			}
 		}
 		var data []byte
-		if data, err = cfg.Codec.Encode(ctx, newEntry); err != nil {
+		if m.outputCodec != nil {
+			data, err = m.outputCodec.Marshal(ctx, newEntry)
+		} else {
+			data, err = cfg.Codec.Encode(ctx, newEntry)
+		}
+		if err != nil {
 			return err
 		}
 		if err = kvTx.Set(ctx, iter.Key(), data); err != nil {

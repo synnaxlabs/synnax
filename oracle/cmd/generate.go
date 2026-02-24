@@ -23,16 +23,28 @@ import (
 	"github.com/synnaxlabs/x/diagnostics"
 )
 
+// generateOpts provides optional parameters for the generate function.
+type generateOpts struct {
+	OldResolutions  *resolution.Table
+	SnapshotVersion int
+}
+
 func generate(
 	ctx context.Context,
 	files []string,
 	repoRoot string,
 	registry *plugin.Registry,
+	opts ...generateOpts,
 ) (*generateResult, *diagnostics.Diagnostics) {
 	loader := analyzer.NewStandardFileLoader(repoRoot)
 	table, diag := analyzer.Analyze(ctx, files, loader)
 	if diag != nil && !diag.Ok() {
 		return nil, diag
+	}
+
+	var opt generateOpts
+	if len(opts) > 0 {
+		opt = opts[0]
 	}
 
 	result := &generateResult{
@@ -41,7 +53,12 @@ func generate(
 	}
 	for _, p := range registry.All() {
 		output.PluginStart(p.Name())
-		req := &plugin.Request{Resolutions: table, RepoRoot: repoRoot}
+		req := &plugin.Request{
+			Resolutions:     table,
+			OldResolutions:  opt.OldResolutions,
+			RepoRoot:        repoRoot,
+			SnapshotVersion: opt.SnapshotVersion,
+		}
 		for _, depName := range p.Requires() {
 			dep := registry.Get(depName)
 			if dep == nil {

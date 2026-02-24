@@ -15,6 +15,7 @@ import (
 
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
+	"github.com/synnaxlabs/oracle/analyzer"
 	"github.com/synnaxlabs/oracle/paths"
 	"github.com/synnaxlabs/oracle/plugin"
 	gomarshal "github.com/synnaxlabs/oracle/plugin/go/marshal"
@@ -102,7 +103,42 @@ func runMigrateGenerate(cmd *cobra.Command) error {
 
 	registry := buildMigrateRegistry()
 
-	result, diag := generate(ctx, normalizedFiles, repoRoot, registry)
+	schemasDir := filepath.Join(repoRoot, "schemas")
+	snapshotsDir := filepath.Join(schemasDir, ".snapshots")
+	latestVersion, err := snapshot.LatestVersion(snapshotsDir)
+	if err != nil {
+		return errors.Wrap(err, "failed to read snapshot version")
+	}
+
+	var opts generateOpts
+	if latestVersion > 0 {
+		snapshotDir := filepath.Join(snapshotsDir, fmt.Sprintf("v%d", latestVersion))
+		oldFiles, err := expandGlobs([]string{filepath.Join(snapshotDir, "*.oracle")}, repoRoot)
+		if err != nil {
+			return errors.Wrap(err, "failed to expand snapshot globs")
+		}
+		if len(oldFiles) > 0 {
+			oldNormalized := make([]string, 0, len(oldFiles))
+			for _, f := range oldFiles {
+				relPath, err := paths.Normalize(f, repoRoot)
+				if err != nil {
+					return errors.Wrapf(err, "failed to normalize snapshot path %q", f)
+				}
+				oldNormalized = append(oldNormalized, relPath)
+			}
+			oldLoader := analyzer.NewStandardFileLoader(repoRoot)
+			oldTable, diag := analyzer.Analyze(ctx, oldNormalized, oldLoader)
+			if diag != nil && !diag.Ok() {
+				printDiagnostics(diag.String())
+			}
+			if oldTable != nil {
+				opts.OldResolutions = oldTable
+				opts.SnapshotVersion = latestVersion
+			}
+		}
+	}
+
+	result, diag := generate(ctx, normalizedFiles, repoRoot, registry, opts)
 	if diag != nil {
 		printDiagnostics(diag.String())
 		if !diag.Ok() {
@@ -147,12 +183,6 @@ func runMigrateGenerate(cmd *cobra.Command) error {
 	}
 	printSyncedCount(len(syncResult.Written), len(syncResult.Unchanged))
 
-	schemasDir := filepath.Join(repoRoot, "schemas")
-	snapshotsDir := filepath.Join(schemasDir, ".snapshots")
-	latestVersion, err := snapshot.LatestVersion(snapshotsDir)
-	if err != nil {
-		return errors.Wrap(err, "failed to read snapshot version")
-	}
 	nextVersion := latestVersion + 1
 	if err := snapshot.Create(schemasDir, snapshotsDir, nextVersion); err != nil {
 		return errors.Wrap(err, "failed to create schema snapshot")

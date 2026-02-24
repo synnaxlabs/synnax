@@ -20,6 +20,8 @@ import (
 	"text/template"
 
 	"github.com/samber/lo"
+	"github.com/synnaxlabs/oracle/deps"
+	"github.com/synnaxlabs/oracle/diff"
 	"github.com/synnaxlabs/oracle/exec"
 	"github.com/synnaxlabs/oracle/plugin"
 	"github.com/synnaxlabs/oracle/plugin/go/internal/imports"
@@ -126,6 +128,13 @@ type fieldInfo struct {
 }
 
 func (p *Plugin) Generate(req *plugin.Request) (*plugin.Response, error) {
+	if req.OldResolutions == nil {
+		return p.generateInitial(req)
+	}
+	return p.generateWithDiff(req)
+}
+
+func (p *Plugin) generateInitial(req *plugin.Request) (*plugin.Response, error) {
 	resp := &plugin.Response{Files: make([]plugin.File, 0)}
 
 	outputEntries := make(map[string][]migrateEntry)
@@ -169,7 +178,7 @@ func (p *Plugin) Generate(req *plugin.Request) (*plugin.Response, error) {
 			})
 		}
 
-		migrateContent, err := p.generateMigrateFile(goPath, entries)
+		migrateContent, err := p.generateMigrateFile(goPath, entries, nil, 0)
 		if err != nil {
 			return nil, errors.Wrapf(err, "failed to generate migrate for %s", goPath)
 		}
@@ -183,6 +192,209 @@ func (p *Plugin) Generate(req *plugin.Request) (*plugin.Response, error) {
 
 	return resp, nil
 }
+
+// migrationMode classifies what kind of migration code should be generated.
+type migrationMode int
+
+const (
+	modeSkeleton    migrationMode = iota // direct schema change on gorp entry
+	modePropagation                      // nested type changed, parent affected
+)
+
+// versionMigration holds migration info for a single entry at a specific version.
+type versionMigration struct {
+	Entry migrateEntry
+	Mode  migrationMode
+	Diff  *diff.TypeDiff
+}
+
+func (p *Plugin) generateWithDiff(req *plugin.Request) (*plugin.Response, error) {
+	resp := &plugin.Response{Files: make([]plugin.File, 0)}
+
+	tableDiffs := diff.DiffTables(req.OldResolutions, req.Resolutions)
+	if len(tableDiffs) == 0 {
+		return p.generateInitial(req)
+	}
+
+	changedTypeNames := make([]string, len(tableDiffs))
+	changedTypeMap := make(map[string]*diff.TypeDiff, len(tableDiffs))
+	for i, td := range tableDiffs {
+		changedTypeNames[i] = td.TypeName
+		tdCopy := td
+		changedTypeMap[td.TypeName] = &tdCopy
+	}
+
+	graph := deps.Build(req.Resolutions)
+	affectedEntries := graph.AffectedEntries(changedTypeNames)
+
+	if len(affectedEntries) == 0 {
+		return p.generateInitial(req)
+	}
+
+	version := req.SnapshotVersion + 1
+	versionDir := fmt.Sprintf("v%d", version)
+
+	// Classify affected entries into version migrations.
+	outputMigrations := make(map[string][]versionMigration)
+	var migrationOutputOrder []string
+
+	for _, qname := range affectedEntries {
+		entry, ok := req.Resolutions.Get(qname)
+		if !ok {
+			continue
+		}
+		if !hasMigrateAnnotation(entry) {
+			continue
+		}
+		goPath := output.GetPath(entry, "go")
+		if goPath == "" {
+			continue
+		}
+
+		me, err := p.buildMigrateEntry(entry, goPath, req)
+		if err != nil {
+			return nil, errors.Wrapf(err, "failed to build migrate entry for %s", entry.Name)
+		}
+
+		mode := modePropagation
+		var td *diff.TypeDiff
+		if d, directlyChanged := changedTypeMap[qname]; directlyChanged {
+			mode = modeSkeleton
+			td = d
+		}
+		if _, exists := outputMigrations[goPath]; !exists {
+			migrationOutputOrder = append(migrationOutputOrder, goPath)
+		}
+		outputMigrations[goPath] = append(outputMigrations[goPath], versionMigration{
+			Entry: me, Mode: mode, Diff: td,
+		})
+	}
+
+	// Collect ALL migrate entries grouped by goPath (for v1 + migrate.gen.go).
+	allEntries := make(map[string][]migrateEntry)
+	var allOrder []string
+	for _, entry := range req.Resolutions.StructTypes() {
+		if !hasMigrateAnnotation(entry) {
+			continue
+		}
+		form, ok := entry.Form.(resolution.StructForm)
+		if !ok || !form.HasKeyDomain {
+			continue
+		}
+		goPath := output.GetPath(entry, "go")
+		if goPath == "" {
+			continue
+		}
+		me, err := p.buildMigrateEntry(entry, goPath, req)
+		if err != nil {
+			return nil, errors.Wrapf(err, "failed to build migrate entry for %s", entry.Name)
+		}
+		if _, exists := allEntries[goPath]; !exists {
+			allOrder = append(allOrder, goPath)
+		}
+		allEntries[goPath] = append(allEntries[goPath], me)
+	}
+
+	// For every goPath that has migrate entries, generate v1 snapshot + migrate.gen.go.
+	for _, goPath := range allOrder {
+		entries := allEntries[goPath]
+
+		// v1 snapshot (frozen initial types).
+		v1Content, err := p.generateV1File(goPath, entries, req)
+		if err != nil {
+			return nil, errors.Wrapf(err, "failed to generate v1 for %s", goPath)
+		}
+		if len(v1Content) > 0 {
+			resp.Files = append(resp.Files, plugin.File{
+				Path:    fmt.Sprintf("%s/migrations/v1/%s", goPath, p.Options.V1FileName),
+				Content: v1Content,
+			})
+		}
+
+		// migrate.gen.go — includes version migrations if this path is affected.
+		var migrations []versionMigration
+		if m, ok := outputMigrations[goPath]; ok {
+			migrations = m
+		}
+		migrateContent, err := p.generateMigrateFile(goPath, entries, migrations, req.SnapshotVersion)
+		if err != nil {
+			return nil, errors.Wrapf(err, "failed to generate migrate for %s", goPath)
+		}
+		if len(migrateContent) > 0 {
+			resp.Files = append(resp.Files, plugin.File{
+				Path:    fmt.Sprintf("%s/%s", goPath, p.Options.MigrateFileName),
+				Content: migrateContent,
+			})
+		}
+	}
+
+	// For affected paths, generate vN snapshot + auto + post files.
+	prevVersionDir := fmt.Sprintf("v%d", req.SnapshotVersion)
+
+	for _, goPath := range migrationOutputOrder {
+		migrations := outputMigrations[goPath]
+
+		// Frozen old struct snapshot (vN.gen.go) from OLD resolutions.
+		oldEntries := make([]migrateEntry, 0, len(migrations))
+		for _, vm := range migrations {
+			oldType, ok := req.OldResolutions.Get(vm.Entry.Type.QualifiedName)
+			if !ok {
+				continue
+			}
+			oldMe, err := p.buildMigrateEntry(oldType, goPath, &plugin.Request{
+				Resolutions: req.OldResolutions,
+				RepoRoot:    req.RepoRoot,
+			})
+			if err != nil {
+				return nil, errors.Wrapf(err, "failed to build old migrate entry for %s", vm.Entry.GoName)
+			}
+			oldEntries = append(oldEntries, oldMe)
+		}
+
+		if len(oldEntries) > 0 {
+			snapshotContent, err := p.generateV1File(goPath, oldEntries, &plugin.Request{
+				Resolutions: req.OldResolutions,
+				RepoRoot:    req.RepoRoot,
+			})
+			if err != nil {
+				return nil, errors.Wrapf(err, "failed to generate snapshot for %s", goPath)
+			}
+			if len(snapshotContent) > 0 {
+				resp.Files = append(resp.Files, plugin.File{
+					Path:    fmt.Sprintf("%s/migrations/%s/%s.gen.go", goPath, versionDir, versionDir),
+					Content: snapshotContent,
+				})
+			}
+		}
+
+		// auto.gen.go — references previous version package for the old type.
+		autoContent, err := p.generateAutoFile(goPath, migrations, versionDir, prevVersionDir, req)
+		if err != nil {
+			return nil, errors.Wrapf(err, "failed to generate auto for %s", goPath)
+		}
+		if len(autoContent) > 0 {
+			resp.Files = append(resp.Files, plugin.File{
+				Path:    fmt.Sprintf("%s/migrations/%s/auto.gen.go", goPath, versionDir),
+				Content: autoContent,
+			})
+		}
+
+		// migrate.go — post-migrate template referencing previous version.
+		postContent, err := p.generatePostFile(goPath, migrations, versionDir, prevVersionDir)
+		if err != nil {
+			return nil, errors.Wrapf(err, "failed to generate post for %s", goPath)
+		}
+		if len(postContent) > 0 {
+			resp.Files = append(resp.Files, plugin.File{
+				Path:    fmt.Sprintf("%s/migrations/%s/migrate.go", goPath, versionDir),
+				Content: postContent,
+			})
+		}
+	}
+
+	return resp, nil
+}
+
 
 func (p *Plugin) buildMigrateEntry(
 	entry resolution.Type,
@@ -461,9 +673,13 @@ func (p *Plugin) generateV1File(
 // generateMigrateFile generates the migration registration file (migrate.gen.go).
 // The file is placed in the same package as the service to avoid import cycles.
 // The codec is accepted as a parameter rather than imported from pb/.
+// When versionMigrations is non-nil, additional NewTypedMigration entries are
+// appended after the initial codec transition.
 func (p *Plugin) generateMigrateFile(
 	goPath string,
 	entries []migrateEntry,
+	versionMigrations []versionMigration,
+	snapshotVersion int,
 ) ([]byte, error) {
 	if len(entries) == 0 {
 		return nil, nil
@@ -471,25 +687,58 @@ func (p *Plugin) generateMigrateFile(
 
 	pkg := naming.DerivePackageName(goPath)
 
+	type versionMigrateData struct {
+		GoName      string
+		KeyType     string
+		OldVersion  string
+		NewVersion  string
+		OldPkg      string
+		NewPkg      string
+		ImportPath  string
+		OldImport   string
+		NewImport   string
+	}
+
 	type migrateData struct {
-		GoName  string
-		KeyType string
+		GoName            string
+		KeyType           string
+		VersionMigrations []versionMigrateData
 	}
 
 	migrateEntries := make([]migrateData, len(entries))
 	for i, e := range entries {
-		migrateEntries[i] = migrateData{
+		md := migrateData{
 			GoName:  e.GoName,
 			KeyType: e.KeyField.KeyTypeName,
 		}
+		for _, vm := range versionMigrations {
+			if vm.Entry.GoName == e.GoName {
+				prevVersion := fmt.Sprintf("v%d", snapshotVersion)
+				nextVersion := fmt.Sprintf("v%d", snapshotVersion+1)
+				importBase := resolveGoImportPath(goPath+"/migrations", "")
+				md.VersionMigrations = append(md.VersionMigrations, versionMigrateData{
+					GoName:     e.GoName,
+					KeyType:    e.KeyField.KeyTypeName,
+					OldVersion: prevVersion,
+					NewVersion: nextVersion,
+					OldPkg:     prevVersion,
+					NewPkg:     nextVersion,
+					OldImport:  importBase + "/" + prevVersion,
+					NewImport:  importBase + "/" + nextVersion,
+				})
+			}
+		}
+		migrateEntries[i] = md
 	}
 
 	data := struct {
-		Package string
-		Entries []migrateData
+		Package           string
+		Entries           []migrateData
+		HasVersionImports bool
 	}{
-		Package: pkg,
-		Entries: migrateEntries,
+		Package:           pkg,
+		Entries:           migrateEntries,
+		HasVersionImports: len(versionMigrations) > 0,
 	}
 
 	tmpl, err := template.New("migrate").Parse(migrateTemplate)
@@ -500,6 +749,139 @@ func (p *Plugin) generateMigrateFile(
 	var buf bytes.Buffer
 	if err := tmpl.Execute(&buf, data); err != nil {
 		return nil, errors.Wrap(err, "failed to execute migrate template")
+	}
+	return buf.Bytes(), nil
+}
+
+
+func (p *Plugin) generateAutoFile(
+	goPath string,
+	migrations []versionMigration,
+	versionDir string,
+	prevVersionDir string,
+	req *plugin.Request,
+) ([]byte, error) {
+	if len(migrations) == 0 {
+		return nil, nil
+	}
+
+	oldImportPath := resolveGoImportPath(goPath+"/migrations/"+prevVersionDir, req.RepoRoot)
+
+	type autoField struct {
+		GoName    string
+		Unchanged bool
+		Added     bool
+		Removed   bool
+		Changed   bool
+		OldType   string
+		NewType   string
+	}
+
+	type autoEntry struct {
+		GoName string
+		Mode   string
+		Fields []autoField
+	}
+
+	var entries []autoEntry
+	for _, vm := range migrations {
+		ae := autoEntry{
+			GoName: vm.Entry.GoName,
+		}
+		if vm.Mode == modeSkeleton {
+			ae.Mode = "skeleton"
+			if vm.Diff != nil {
+				for _, fd := range vm.Diff.Fields {
+					af := autoField{
+						GoName:    toPascalCase(fd.Name),
+						Unchanged: fd.Kind == diff.FieldUnchanged,
+						Added:     fd.Kind == diff.FieldAdded,
+						Removed:   fd.Kind == diff.FieldRemoved,
+						Changed:   fd.Kind == diff.FieldTypeChanged,
+						OldType:   fd.OldType,
+						NewType:   fd.NewType,
+					}
+					ae.Fields = append(ae.Fields, af)
+				}
+			}
+		} else {
+			ae.Mode = "propagation"
+			fields := resolution.UnifiedFields(vm.Entry.Type, req.Resolutions)
+			for _, f := range fields {
+				ae.Fields = append(ae.Fields, autoField{
+					GoName:    toPascalCase(f.Name),
+					Unchanged: true,
+				})
+			}
+		}
+		entries = append(entries, ae)
+	}
+
+	data := struct {
+		Package    string
+		OldPkg     string
+		OldImport  string
+		Entries    []autoEntry
+	}{
+		Package:   versionDir,
+		OldPkg:    prevVersionDir,
+		OldImport: oldImportPath,
+		Entries:   entries,
+	}
+
+	tmpl, err := template.New("auto").Parse(autoTemplate)
+	if err != nil {
+		return nil, errors.Wrap(err, "failed to parse auto template")
+	}
+
+	var buf bytes.Buffer
+	if err := tmpl.Execute(&buf, data); err != nil {
+		return nil, errors.Wrap(err, "failed to execute auto template")
+	}
+	return buf.Bytes(), nil
+}
+
+func (p *Plugin) generatePostFile(
+	goPath string,
+	migrations []versionMigration,
+	versionDir string,
+	prevVersionDir string,
+) ([]byte, error) {
+	if len(migrations) == 0 {
+		return nil, nil
+	}
+
+	oldImportPath := resolveGoImportPath(goPath+"/migrations/"+prevVersionDir, "")
+
+	type postEntry struct {
+		GoName string
+	}
+
+	var entries []postEntry
+	for _, vm := range migrations {
+		entries = append(entries, postEntry{GoName: vm.Entry.GoName})
+	}
+
+	data := struct {
+		Package   string
+		OldPkg    string
+		OldImport string
+		Entries   []postEntry
+	}{
+		Package:   versionDir,
+		OldPkg:    prevVersionDir,
+		OldImport: oldImportPath,
+		Entries:   entries,
+	}
+
+	tmpl, err := template.New("post").Parse(postTemplate)
+	if err != nil {
+		return nil, errors.Wrap(err, "failed to parse post template")
+	}
+
+	var buf bytes.Buffer
+	if err := tmpl.Execute(&buf, data); err != nil {
+		return nil, errors.Wrap(err, "failed to execute post template")
 	}
 	return buf.Bytes(), nil
 }
@@ -544,14 +926,77 @@ const migrateTemplate = `// Code generated by oracle. DO NOT EDIT.
 
 package {{.Package}}
 
-import "github.com/synnaxlabs/x/gorp"
+import (
+	"github.com/synnaxlabs/x/gorp"
+{{- range .Entries}}
+{{- range .VersionMigrations}}
+	{{.OldPkg}} "{{.OldImport}}"
+	{{.NewPkg}} "{{.NewImport}}"
+{{- end}}
+{{- end}}
+)
 {{range .Entries}}
 func {{.GoName}}Migrations(codec gorp.Codec[{{.GoName}}]) []gorp.Migration {
 	return []gorp.Migration{
+{{- range .VersionMigrations}}
+		gorp.NewTypedMigration[{{.OldPkg}}.{{.GoName}}, {{.NewPkg}}.{{.GoName}}](
+			"{{.OldVersion}}_to_{{.NewVersion}}",
+			nil, nil,
+			{{.NewPkg}}.Auto{{.GoName}}, {{.NewPkg}}.Post{{.GoName}},
+		),
+{{- end}}
 		gorp.NewCodecTransition[{{.KeyType}}, {{.GoName}}](
 			"msgpack_to_binary",
 			codec,
 		),
 	}
+}
+{{end}}`
+
+const autoTemplate = `// Code generated by oracle. DO NOT EDIT.
+
+package {{.Package}}
+
+import (
+	"context"
+
+	{{.OldPkg}} "{{.OldImport}}"
+)
+{{range .Entries}}
+func Auto{{.GoName}}(_ context.Context, old {{$.OldPkg}}.{{.GoName}}) ({{.GoName}}, error) {
+	return {{.GoName}}{
+{{- range .Fields}}
+{{- if .Unchanged}}
+		{{.GoName}}: old.{{.GoName}},
+{{- end}}
+{{- if .Added}}
+		// TODO: {{.GoName}} was added (type: {{.NewType}}). Provide a default value.
+		// {{.GoName}}: ???,
+{{- end}}
+{{- if .Changed}}
+		// TODO: {{.GoName}} type changed from {{.OldType}} to {{.NewType}}.
+		// {{.GoName}}: convert(old.{{.GoName}}),
+{{- end}}
+{{- end}}
+	}, nil
+}
+{{- range .Fields}}
+{{- if .Removed}}
+// NOTE: Field {{.GoName}} was removed (was type: {{.OldType}}).
+{{- end}}
+{{- end}}
+{{end}}`
+
+const postTemplate = `package {{.Package}}
+
+import (
+	"context"
+
+	{{.OldPkg}} "{{.OldImport}}"
+)
+{{range .Entries}}
+func Post{{.GoName}}(_ context.Context, _ *{{.GoName}}, _ {{$.OldPkg}}.{{.GoName}}) error {
+	// TODO: Implement any post-migration logic for {{.GoName}}.
+	return nil
 }
 {{end}}`

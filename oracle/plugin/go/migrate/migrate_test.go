@@ -11,10 +11,12 @@ package migrate_test
 
 import (
 	"context"
+	"strings"
 	"testing"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"github.com/synnaxlabs/oracle/plugin"
 	"github.com/synnaxlabs/oracle/plugin/go/migrate"
 	. "github.com/synnaxlabs/oracle/testutil"
 )
@@ -366,6 +368,267 @@ var _ = Describe("Go Migrate Plugin", func() {
 						"type Label struct {",
 						"Color color.Color",
 					)
+			})
+		})
+
+		Context("diff-based generation", func() {
+			It("Should generate skeleton when a field is added", func() {
+				oldSource := `
+					@go output "core/pkg/service/schematic"
+					@pb
+
+					Key = uuid
+
+					Schematic struct {
+						key  Key { @key }
+						name string
+
+						@go marshal
+						@go migrate
+					}
+				`
+				newSource := `
+					@go output "core/pkg/service/schematic"
+					@pb
+
+					Key = uuid
+
+					Schematic struct {
+						key         Key { @key }
+						name        string
+						description string
+
+						@go marshal
+						@go migrate
+					}
+				`
+				oldReq := MustGenerateRequest(ctx, oldSource, "schematic", loader)
+				newReq := MustGenerateRequest(ctx, newSource, "schematic", loader)
+				newReq.OldResolutions = oldReq.Resolutions
+				newReq.SnapshotVersion = 1
+
+				resp, err := p.Generate(newReq)
+				Expect(err).ToNot(HaveOccurred())
+
+				var paths []string
+				for _, f := range resp.Files {
+					paths = append(paths, f.Path)
+				}
+				Expect(paths).To(ContainElement(ContainSubstring("v2/auto.gen.go")))
+				Expect(paths).To(ContainElement(ContainSubstring("v2/migrate.go")))
+				Expect(paths).To(ContainElement(ContainSubstring("v2/v2.gen.go")))
+
+				ExpectContent(resp, "v2/auto.gen.go").
+					ToContain(
+						"func AutoSchematic",
+						"old v1.Schematic",
+						"Key: old.Key,",
+						"Name: old.Name,",
+						"TODO",
+						"Description",
+					)
+
+				ExpectContent(resp, "v2/migrate.go").
+					ToContain(
+						"func PostSchematic",
+						"v1.Schematic",
+					)
+			})
+
+			It("Should generate skeleton when a field is removed", func() {
+				oldSource := `
+					@go output "core/pkg/service/schematic"
+					@pb
+
+					Key = uuid
+
+					Schematic struct {
+						key    Key { @key }
+						name   string
+						legacy string
+
+						@go marshal
+						@go migrate
+					}
+				`
+				newSource := `
+					@go output "core/pkg/service/schematic"
+					@pb
+
+					Key = uuid
+
+					Schematic struct {
+						key  Key { @key }
+						name string
+
+						@go marshal
+						@go migrate
+					}
+				`
+				oldReq := MustGenerateRequest(ctx, oldSource, "schematic", loader)
+				newReq := MustGenerateRequest(ctx, newSource, "schematic", loader)
+				newReq.OldResolutions = oldReq.Resolutions
+				newReq.SnapshotVersion = 1
+
+				resp, err := p.Generate(newReq)
+				Expect(err).ToNot(HaveOccurred())
+
+				ExpectContent(resp, "v2/auto.gen.go").
+					ToContain(
+						"func AutoSchematic",
+						"old v1.Schematic",
+						"Key: old.Key,",
+						"Name: old.Name,",
+						"Legacy",
+						"removed",
+					)
+			})
+
+			It("Should generate no migration files when nothing changed", func() {
+				source := `
+					@go output "core/pkg/service/schematic"
+					@pb
+
+					Key = uuid
+
+					Schematic struct {
+						key  Key { @key }
+						name string
+
+						@go marshal
+						@go migrate
+					}
+				`
+				oldReq := MustGenerateRequest(ctx, source, "schematic", loader)
+				newReq := MustGenerateRequest(ctx, source, "schematic", loader)
+				newReq.OldResolutions = oldReq.Resolutions
+				newReq.SnapshotVersion = 1
+
+				resp, err := p.Generate(newReq)
+				Expect(err).ToNot(HaveOccurred())
+
+				for _, f := range resp.Files {
+					Expect(f.Path).ToNot(ContainSubstring("v2/"))
+				}
+			})
+
+			It("Should generate propagation when nested type changed", func() {
+				oldSource := `
+					@go output "core/pkg/service/entry"
+					@pb
+
+					Key = uuid
+
+					Config struct {
+						value int32
+					}
+
+					Entry struct {
+						key    Key { @key }
+						config Config
+
+						@go marshal
+						@go migrate
+					}
+				`
+				newSource := `
+					@go output "core/pkg/service/entry"
+					@pb
+
+					Key = uuid
+
+					Config struct {
+						value   int32
+						enabled bool
+					}
+
+					Entry struct {
+						key    Key { @key }
+						config Config
+
+						@go marshal
+						@go migrate
+					}
+				`
+				oldReq := MustGenerateRequest(ctx, oldSource, "entry", loader)
+				newReq := MustGenerateRequest(ctx, newSource, "entry", loader)
+				newReq.OldResolutions = oldReq.Resolutions
+				newReq.SnapshotVersion = 1
+
+				resp, err := p.Generate(newReq)
+				Expect(err).ToNot(HaveOccurred())
+
+				var paths []string
+				for _, f := range resp.Files {
+					paths = append(paths, f.Path)
+				}
+				Expect(paths).To(ContainElement(ContainSubstring("v2/auto.gen.go")))
+
+				ExpectContent(resp, "v2/auto.gen.go").
+					ToContain(
+						"func AutoEntry",
+						"old v1.Entry",
+						"Key: old.Key,",
+						"Config: old.Config,",
+					)
+			})
+
+			It("Should emit exactly one migrate.gen.go per path with typed migration before codec transition", func() {
+				oldSource := `
+					@go output "core/pkg/service/schematic"
+					@pb
+
+					Key = uuid
+
+					Schematic struct {
+						key  Key { @key }
+						name string
+
+						@go marshal
+						@go migrate
+					}
+				`
+				newSource := `
+					@go output "core/pkg/service/schematic"
+					@pb
+
+					Key = uuid
+
+					Schematic struct {
+						key         Key { @key }
+						name        string
+						description string
+
+						@go marshal
+						@go migrate
+					}
+				`
+				oldReq := MustGenerateRequest(ctx, oldSource, "schematic", loader)
+				newReq := MustGenerateRequest(ctx, newSource, "schematic", loader)
+				newReq.OldResolutions = oldReq.Resolutions
+				newReq.SnapshotVersion = 1
+
+				resp, err := p.Generate(newReq)
+				Expect(err).ToNot(HaveOccurred())
+
+				var migrateFiles []plugin.File
+				for _, f := range resp.Files {
+					if f.Path == "core/pkg/service/schematic/migrate.gen.go" {
+						migrateFiles = append(migrateFiles, f)
+					}
+				}
+				Expect(migrateFiles).To(HaveLen(1))
+
+				content := string(migrateFiles[0].Content)
+				Expect(content).To(ContainSubstring("NewTypedMigration"))
+				Expect(content).To(ContainSubstring("v1_to_v2"))
+				Expect(content).To(ContainSubstring("nil, nil"))
+				Expect(content).To(ContainSubstring("NewCodecTransition"))
+
+				// Typed migration should come before codec transition
+				typedIdx := strings.Index(content, "NewTypedMigration")
+				codecIdx := strings.Index(content, "NewCodecTransition")
+				Expect(typedIdx).To(BeNumerically("<", codecIdx))
 			})
 		})
 	})

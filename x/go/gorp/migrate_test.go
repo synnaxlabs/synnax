@@ -28,8 +28,8 @@ import (
 )
 
 type entryV1 struct {
-	ID   int32  `msgpack:"id"`
-	Data string `msgpack:"data"`
+	ID   int32  `msgpack:"id" json:"id"`
+	Data string `msgpack:"data" json:"data"`
 }
 
 func (e entryV1) GorpKey() int32    { return e.ID }
@@ -65,6 +65,20 @@ func (jsonEntryCodec) Unmarshal(_ context.Context, data []byte) (jsonEntry, erro
 }
 
 var _ gorp.Codec[jsonEntry] = jsonEntryCodec{}
+
+type entryV1Codec struct{}
+
+func (entryV1Codec) Marshal(_ context.Context, e entryV1) ([]byte, error) {
+	return json.Marshal(e)
+}
+
+func (entryV1Codec) Unmarshal(_ context.Context, data []byte) (entryV1, error) {
+	var e entryV1
+	err := json.Unmarshal(data, &e)
+	return e, err
+}
+
+var _ gorp.Codec[entryV1] = entryV1Codec{}
 
 type failMarshalCodec struct{}
 
@@ -185,6 +199,7 @@ var _ = Describe("Gorp", func() {
 				Expect(w.Set(ctx, entryV1{ID: 2, Data: "two"})).To(Succeed())
 				migration := gorp.NewTypedMigration[entryV1, entryV1](
 					"add_suffix",
+					nil, nil,
 					func(_ context.Context, old entryV1) (entryV1, error) {
 						return entryV1{ID: old.ID, Data: old.Data + "_migrated"}, nil
 					},
@@ -206,6 +221,7 @@ var _ = Describe("Gorp", func() {
 				Expect(w.Set(ctx, entryV1{ID: 1, Data: "one"})).To(Succeed())
 				migration := gorp.NewTypedMigration[entryV1, entryV1](
 					"post_transform",
+					nil, nil,
 					func(_ context.Context, old entryV1) (entryV1, error) {
 						return old, nil
 					},
@@ -236,6 +252,7 @@ var _ = Describe("Gorp", func() {
 				}
 				migration := gorp.NewTypedMigration[entryV1, entryV2](
 					"v1_to_v2",
+					nil, nil,
 					func(_ context.Context, old entryV1) (entryV2, error) {
 						return entryV2{
 							ID:          old.ID,
@@ -252,6 +269,95 @@ var _ = Describe("Gorp", func() {
 				r := gorp.WrapReader[int32, entryV2](testDB)
 				Expect(MustSucceed(r.Get(ctx, 1)).Description).To(Equal("migrated:one"))
 				Expect(MustSucceed(r.Get(ctx, 2)).Description).To(Equal("migrated:two"))
+			})
+		})
+
+		Describe("TypedMigration with custom codecs", func() {
+			It("Should use inputCodec to decode entries", func() {
+				testDB := gorp.Wrap(memkv.New())
+				defer func() { Expect(testDB.Close()).To(Succeed()) }()
+				codec := entryV1Codec{}
+				prefix := "__gorp__//entryV1"
+				e := entryV1{ID: 1, Data: "json_input"}
+				data := MustSucceed(codec.Marshal(ctx, e))
+				key := make([]byte, len(prefix)+4)
+				copy(key, prefix)
+				stdbinary.BigEndian.PutUint32(key[len(prefix):], uint32(e.ID))
+				Expect(testDB.Set(ctx, key, data)).To(Succeed())
+				migration := gorp.NewTypedMigration[entryV1, entryV1](
+					"input_codec",
+					entryV1Codec{}, nil,
+					func(_ context.Context, old entryV1) (entryV1, error) {
+						return entryV1{ID: old.ID, Data: old.Data + "_processed"}, nil
+					},
+					nil,
+				)
+				MustSucceed(gorp.OpenTable[int32, entryV1](ctx, gorp.TableConfig[entryV1]{
+					DB:         testDB,
+					Migrations: []gorp.Migration{migration},
+				}))
+				r := gorp.WrapReader[int32, entryV1](testDB)
+				Expect(MustSucceed(r.Get(ctx, 1)).Data).To(Equal("json_input_processed"))
+			})
+
+			It("Should use outputCodec to encode entries", func() {
+				testDB := gorp.Wrap(memkv.New())
+				defer func() { Expect(testDB.Close()).To(Succeed()) }()
+				w := gorp.WrapWriter[int32, entryV1](testDB)
+				Expect(w.Set(ctx, entryV1{ID: 1, Data: "output"})).To(Succeed())
+				migration := gorp.NewTypedMigration[entryV1, entryV1](
+					"output_codec",
+					nil, entryV1Codec{},
+					func(_ context.Context, old entryV1) (entryV1, error) {
+						return old, nil
+					},
+					nil,
+				)
+				MustSucceed(gorp.OpenTable[int32, entryV1](ctx, gorp.TableConfig[entryV1]{
+					DB:         testDB,
+					Codec:      entryV1Codec{},
+					Migrations: []gorp.Migration{migration},
+				}))
+				prefix := "__gorp__//entryV1"
+				key := make([]byte, len(prefix)+4)
+				copy(key, prefix)
+				stdbinary.BigEndian.PutUint32(key[len(prefix):], 1)
+				raw, closer := MustSucceed2(testDB.Get(ctx, key))
+				Expect(closer.Close()).To(Succeed())
+				var parsed map[string]interface{}
+				Expect(json.Unmarshal(raw, &parsed)).To(Succeed())
+				Expect(parsed["data"]).To(Equal("output"))
+			})
+
+			It("Should use both inputCodec and outputCodec", func() {
+				testDB := gorp.Wrap(memkv.New())
+				defer func() { Expect(testDB.Close()).To(Succeed()) }()
+				inputCodec := entryV1Codec{}
+				prefix := "__gorp__//entryV1"
+				e := entryV1{ID: 1, Data: "both_codecs"}
+				data := MustSucceed(inputCodec.Marshal(ctx, e))
+				key := make([]byte, len(prefix)+4)
+				copy(key, prefix)
+				stdbinary.BigEndian.PutUint32(key[len(prefix):], uint32(e.ID))
+				Expect(testDB.Set(ctx, key, data)).To(Succeed())
+				migration := gorp.NewTypedMigration[entryV1, entryV1](
+					"both_codecs",
+					entryV1Codec{}, entryV1Codec{},
+					func(_ context.Context, old entryV1) (entryV1, error) {
+						return entryV1{ID: old.ID, Data: old.Data + "_roundtrip"}, nil
+					},
+					nil,
+				)
+				MustSucceed(gorp.OpenTable[int32, entryV1](ctx, gorp.TableConfig[entryV1]{
+					DB:         testDB,
+					Migrations: []gorp.Migration{migration},
+					Codec:      entryV1Codec{},
+				}))
+				raw, closer := MustSucceed2(testDB.Get(ctx, key))
+				Expect(closer.Close()).To(Succeed())
+				var parsed map[string]interface{}
+				Expect(json.Unmarshal(raw, &parsed)).To(Succeed())
+				Expect(parsed["data"]).To(Equal("both_codecs_roundtrip"))
 			})
 		})
 
@@ -353,6 +459,7 @@ var _ = Describe("Gorp", func() {
 				Expect(w.Set(ctx, entryV1{ID: 1, Data: "chain"})).To(Succeed())
 				m1 := gorp.NewTypedMigration[entryV1, entryV1](
 					"add_suffix",
+					nil, nil,
 					func(_ context.Context, old entryV1) (entryV1, error) {
 						return entryV1{ID: old.ID, Data: old.Data + "_v2"}, nil
 					},
@@ -360,6 +467,7 @@ var _ = Describe("Gorp", func() {
 				)
 				m2 := gorp.NewTypedMigration[entryV1, entryV1](
 					"add_suffix_2",
+					nil, nil,
 					func(_ context.Context, old entryV1) (entryV1, error) {
 						return entryV1{ID: old.ID, Data: old.Data + "_v3"}, nil
 					},
@@ -380,6 +488,7 @@ var _ = Describe("Gorp", func() {
 				Expect(w.Set(ctx, entryV1{ID: 1, Data: "mixed"})).To(Succeed())
 				m1 := gorp.NewTypedMigration[entryV1, entryV1](
 					"typed_transform",
+					nil, nil,
 					func(_ context.Context, old entryV1) (entryV1, error) {
 						return entryV1{ID: old.ID, Data: old.Data + "_typed"}, nil
 					},

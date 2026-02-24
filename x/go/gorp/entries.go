@@ -173,6 +173,17 @@ func multipleEntries[K Key, E Entry[K]](entries *[]E) *Entries[K, E] {
 const magicPrefix = "__gorp__//"
 const migrationVersionPrefix = "__gorp_migration__//"
 
+// EncodeKey returns the full storage key (prefix + encoded key) for an entry
+// of type E with the given key value. This is useful in test helpers that need
+// to seed data under a specific type's key space.
+func EncodeKey[K Key, E Entry[K]](key K) []byte {
+	c := newKeyCodec[K, E]()
+	encoded := c.encode(key)
+	result := make([]byte, len(encoded))
+	copy(result, encoded)
+	return result
+}
+
 type keyCodec[K Key, E Entry[K]] struct {
 	prefix  []byte
 	keySize int

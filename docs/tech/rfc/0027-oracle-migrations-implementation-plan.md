@@ -314,30 +314,30 @@ codec-only MVP):
   and `View` struct from `view/view.go` in favor of oracle-generated `types.gen.go`.
   Kept `GorpKey()`, `SetOptions()`, `OntologyID()` methods.
 
-- **All tests pass**: view (13/13), role (29/29), ranger (20/20), RBAC (15/15),
-  policy (30/30).
+- **All tests pass**: view (13/13), role (29/29), ranger (20/20), RBAC (15/15), policy
+  (30/30).
 
 ### What's remaining
 
-5 services still need `@go marshal` + `@go migrate`, `oracle sync`, `oracle migrate
-generate`, and `OpenTable` + `layer.go` wiring:
+5 services still need `@go marshal` + `@go migrate`, `oracle sync`,
+`oracle migrate generate`, and `OpenTable` + `layer.go` wiring:
 
-| Service                    | File                    | Schema status                                |
-| -------------------------- | ----------------------- | -------------------------------------------- |
-| `access/rbac/policy`       | `policy/service.go:63`  | Needs `@go marshal` + `@go migrate`          |
-| `auth` (SecureCredentials) | `auth/kv.go:32`         | Needs `@go marshal` + `@go migrate`          |
-| `schematic/symbol`         | `symbol/service.go:83`  | Needs `@go marshal` + `@go migrate`          |
-| `ranger/alias`             | `alias/service.go:84`   | Has `@go marshal`, needs `@go migrate`       |
-| `ranger/kv` (Pair)         | `kv/service.go:64`      | Has `@go marshal`, needs `@go migrate`       |
+| Service                    | File                   | Schema status                          |
+| -------------------------- | ---------------------- | -------------------------------------- |
+| `access/rbac/policy`       | `policy/service.go:63` | Needs `@go marshal` + `@go migrate`    |
+| `auth` (SecureCredentials) | `auth/kv.go:32`        | Needs `@go marshal` + `@go migrate`    |
+| `schematic/symbol`         | `symbol/service.go:83` | Needs `@go marshal` + `@go migrate`    |
+| `ranger/alias`             | `alias/service.go:84`  | Has `@go marshal`, needs `@go migrate` |
+| `ranger/kv` (Pair)         | `kv/service.go:64`     | Has `@go marshal`, needs `@go migrate` |
 
-3 services have `codec.gen.go` generated but still need `@go migrate`, `oracle migrate
-generate`, and `OpenTable` + `layer.go` wiring:
+3 services have `codec.gen.go` generated but still need `@go migrate`,
+`oracle migrate generate`, and `OpenTable` + `layer.go` wiring:
 
-| Service                    | File                      | Schema status                          |
-| -------------------------- | ------------------------- | -------------------------------------- |
-| `distribution/channel`     | `channel/service.go:97`   | Has `@go marshal`, needs `@go migrate` |
-| `access/rbac/role`         | `role/service.go:75`      | Has both, needs `OpenTable` wiring     |
-| `view`                     | `view/service.go:86`      | Has both, needs `OpenTable` wiring     |
+| Service                | File                    | Schema status                          |
+| ---------------------- | ----------------------- | -------------------------------------- |
+| `distribution/channel` | `channel/service.go:97` | Has `@go marshal`, needs `@go migrate` |
+| `access/rbac/role`     | `role/service.go:75`    | Has both, needs `OpenTable` wiring     |
+| `view`                 | `view/service.go:86`    | Has both, needs `OpenTable` wiring     |
 
 ### What to build
 
@@ -408,16 +408,17 @@ generate`, and `OpenTable` + `layer.go` wiring:
   - Subcommand of `migrateCmd` (invoked as `oracle migrate check`)
   - Calls `snapshot.Check(schemasDir, snapshotsDir)`
   - Exit 0 + success message when schemas match latest snapshot
-  - Exit 1 + actionable error: "schema changed but no migration generated. Run
-    'oracle migrate generate' and commit the result." with per-file diff listing
+  - Exit 1 + actionable error: "schema changed but no migration generated. Run 'oracle
+    migrate generate' and commit the result." with per-file diff listing
 
 - **`printSnapshotCreated` helper** added to `oracle/cmd/style.go`
 
-- **Fixed pre-existing marshal test failures** (`oracle/plugin/go/marshal/marshal_test.go`):
-  - `"package pb"` → `"package test"` (codec now generates in parent package per
-    Phase 2.1)
-  - `"marshaltest"` → `"marshalType"` (recursive helpers are in-package, no cross-package
-    prefix)
+- **Fixed pre-existing marshal test failures**
+  (`oracle/plugin/go/marshal/marshal_test.go`):
+  - `"package pb"` → `"package test"` (codec now generates in parent package per Phase
+    2.1)
+  - `"marshaltest"` → `"marshalType"` (recursive helpers are in-package, no
+    cross-package prefix)
 
 - **19 Ginkgo tests** in `oracle/snapshot/snapshot_test.go`:
   - `LatestVersion`: nonexistent dir, empty dir, single version, multiple versions,
@@ -449,168 +450,97 @@ generate`, and `OpenTable` + `layer.go` wiring:
 
 ---
 
-## Phase 7: Schema Diff Engine & Skeleton/Propagation Mode Generation — NOT STARTED
+## Phase 7: Schema Diff Engine & Skeleton/Propagation Mode Generation — DONE
 
-**Goal**: Build the schema diff engine that compares two `resolution.Table`s
-field-by-field and generates skeleton mode (direct schema changes) and propagation mode
-(nested dependency changes) migrations. This is the most complex phase and requires
-thorough unit testing.
+**Status**: Complete on branch `sy-3824-oracle-auto-migration-plugin`.
 
-**Scope**: `oracle/plugin/migrate/`, `x/go/gorp/migrate.go`
+**What was built:**
 
-### What to build
+1. **`inputCodec`/`outputCodec` added to `TypedMigration`** (`x/go/gorp/migrate.go`):
+   - `NewTypedMigration[I,O](name, inputCodec Codec[I], outputCodec Codec[O], auto, post)`
+   - When `inputCodec` is nil, decodes using `cfg.Codec` (DB's msgpack)
+   - When `outputCodec` is nil, encodes using `cfg.Codec`
+   - All existing callers updated to pass `nil, nil` for backward compatibility
+   - 3 new test cases: inputCodec only, outputCodec only, both codecs
 
-1. **Add `inputCodec`/`outputCodec` to `TypedMigration`** (`x/go/gorp/migrate.go`):
+2. **Schema diff engine** (`oracle/diff/`):
+   - `DiffStructs(old, new, oldTable, newTable)` — compares `UnifiedFields` by name
+   - `DiffTables(old, new)` — diffs all struct types across two tables
+   - `FormatTypeRef(ref)` — canonical string comparison for TypeRef
+   - 16 Ginkgo tests covering all change types
 
-   The current `NewTypedMigration[I,O]` takes only `name`, `auto`, and `post`. For
-   post-transition schema migrations (v2→v3, v3→v4, etc.), each step needs to decode
-   with the previous version's frozen binary codec and encode with the new version's
-   frozen binary codec. Add optional codec parameters:
+3. **Dependency graph** (`oracle/deps/`):
+   - `Build(table)` — forward/reverse edges from type references
+   - `AffectedEntries(changedTypes)` — BFS through reverse edges, filtered to
+     `HasKeyDomain` gorp entries
+   - 8 Ginkgo tests: direct, transitive, shared, independent, deep nesting, cycles
 
-   ```go
-   func NewTypedMigration[I, O any](
-       name string,
-       inputCodec Codec[I],   // nil → use MigrationConfig.Codec (msgpack)
-       outputCodec Codec[O],  // nil → use MigrationConfig.Codec (msgpack)
-       auto AutoMigrateFunc[I, O],
-       post PostMigrateFunc[I, O],
-   ) Migration
-   ```
+4. **Generation modes** (`oracle/plugin/go/migrate/migrate.go`):
+   - `generateWithDiff` determines skeleton vs propagation per type
+   - **Skeleton mode**: `auto.gen.go` (copy unchanged fields, TODO for changes),
+     `migrate.go` (post-migrate template), `vN.gen.go` (frozen snapshot)
+   - **Propagation mode**: `auto.gen.go` copies all parent fields (nested types get
+     zero-initialized via msgpack deserialization)
+   - `migrate.gen.go` emits `NewTypedMigration` entries before `NewCodecTransition`
+   - Uses `nil, nil` for inputCodec/outputCodec (data is still msgpack before codec
+     transition)
 
-   When `inputCodec` is nil, decode using `cfg.Codec` (DB's msgpack). When `outputCodec`
-   is nil, encode using `cfg.Codec`. This preserves backward compatibility — existing
-   `TypedMigration` callers in tests just pass nil for both.
+5. **`oracle migrate generate` updated** (`oracle/cmd/migrate.go`):
+   - Loads latest snapshot `.oracle` files → parses into old resolution table
+   - Passes both tables to plugin via `Request{OldResolutions, SnapshotVersion}`
+   - Plugin runs diff + deps internally
 
-2. **Schema diff engine** (`oracle/plugin/migrate/diff/`):
-   - Compare two `resolution.Table`s (old snapshot vs. current)
-   - Classify changes per type:
-     - **Unchanged**: All fields match by name and type
-     - **Field added**: New field name not in old type
-     - **Field removed**: Old field name not in new type
-     - **Field type changed**: Same field name, different type
-   - No rename detection (shows as remove + add)
-   - Output: `[]TypeDiff` with per-field change classification
-
-3. **Dependency graph** (`oracle/plugin/migrate/deps/`):
-   - Build a directed graph of type dependencies from `resolution.Table`
-   - Track which gorp entry types transitively contain which nested types
-   - When a nested type changes, identify all affected gorp entries
-   - Use Oracle's existing `TopologicalSort()` for ordering
-
-4. **Generation modes**:
-
-   **Skeleton mode** (direct schema changes):
-   - `auto.gen.go`: Legacy type snapshot + auto-migrate that copies all unchanged
-     fields. Changed/new/removed fields get comments.
-   - `migrate.go`: Post-migrate template with TODOs for each changed field. Oracle
-     pre-populates the TODO with the change type (added, removed, type changed).
-
-   **Propagation mode** (nested dependency changes):
-   - `auto.gen.go`: Parent legacy type snapshot + auto-migrate that walks nested
-     collections and calls leaf auto-migrate + post-migrate for each element.
-   - `migrate.go`: Empty post-migrate template (parent-level logic usually not needed).
-
-5. **Update `oracle migrate generate`** to:
-   - Parse current `.oracle` files AND latest snapshot `.oracle` files
-   - Run diff engine to classify changes
-   - Determine generation mode per type (full/skeleton/propagation)
-   - Generate appropriate files
-   - Update `migrate.gen.go` with new registrations (now using `NewTypedMigration` with
-     frozen codecs for post-transition migrations)
-   - Create new snapshot
-
-### What to test — THIS IS CRITICAL
-
-The diff engine and dependency tracking need comprehensive unit tests:
-
-**Diff engine tests**:
-
-- Field added: detects new field, classifies correctly
-- Field removed: detects missing field
-- Field type changed: same name, different type
-- Multiple changes in one type
-- No changes: types match
-- Nested type reference: detects that parent needs migration when child changes
-- Array of nested type: detects change in array element type
-- Optional field added/removed
-- Map field changes
-
-**Dependency graph tests**:
-
-- Direct dependency: Type A has field of Type B
-- Transitive dependency: A → B → C, change C triggers A and B
-- Shared dependency: A and B both reference C, change C triggers both
-- No dependency: independent types don't affect each other
-- Circular reference handling (shouldn't happen with Oracle schemas but be safe)
-- Deep nesting (5+ levels)
-
-**Generation mode tests**:
-
-- Skeleton mode generates correct auto-migrate (copies unchanged fields)
-- Skeleton mode post-migrate template has correct TODOs
-- Propagation mode auto-migrate walks nested collections correctly
-- Propagation mode calls both auto-migrate and post-migrate on nested elements
-- Multiple nested types changed simultaneously → single parent migration
-- Generated code compiles
-
-**Integration tests**:
-
-- Add a field to a type → `oracle migrate generate` → correct files generated
-- Remove a field → correct files
-- Change nested type → propagation to all parents
-- Generated migration actually works (seed old data, run migration, verify)
-
-### Acceptance criteria
-
-- Diff engine has >90% branch coverage
-- Dependency graph handles all nesting patterns from RFC scenarios 9-12
-- Generated skeleton and propagation migrations compile and pass tests
-- `oracle migrate generate` correctly handles schema changes
+- **All tests pass**: gorp (121/121), diff (16/16), deps (8/8), migrate plugin (19/19),
+  full oracle suite (37 suites, 0 failures)
 
 ---
 
-## Phase 8: Test Infrastructure & Migration Test Helpers — NOT STARTED
+## Phase 8: Test Infrastructure & Migration Test Helpers — DONE
 
-**Goal**: Build comprehensive migration test helpers that make writing migration tests
-trivial. This phase can run in parallel with earlier phases after Phase 1 establishes
-the interface.
+**Status**: Complete on branch `sy-3824-oracle-auto-migration-plugin`.
 
-**Scope**: `x/go/gorp/testutil/`
+**What was built** (scope changed to `x/go/gorp/testutil/` for idiomatic Go naming):
 
-### What to build
+- **`gorp.EncodeKey[K, E](key)`** — exported helper in `gorp/entries.go` that produces
+  the full storage key (prefix + encoded key) for seeding data under a specific type's
+  key space.
 
-1. **`testutil.TestMigration`** — the primary test helper:
-   - Creates in-memory KV store
-   - Seeds old entries encoded with appropriate codec
-   - Runs migration
-   - Asserts results match expected entries
-   - Validates version counter
-   - Returns Gomega-compatible errors
+- **`migratetest.SeedAndMigrate[K, Old, New]`** — primary test helper:
+  - Creates in-memory KV store via `memkv.New()`
+  - Seeds old entries under New's key prefix (encoded with seedCodec or default msgpack)
+  - Runs migrations through `gorp.OpenTable`
+  - Returns `Result[K, New]` for querying migrated data
 
-2. **`testutil.TestNestedMigration`** — for nested type migrations:
-   - Tests auto-migrate + post-migrate as pure functions (no KV store)
-   - Validates field copying and transform logic
+- **`migratetest.Result[K, E]`** — wraps migration outcome:
+  - `Entries(ctx)` — retrieves all entries
+  - `Entry(ctx, key)` — retrieves single entry by key
+  - `EntryCount(ctx)` — returns count of entries
+  - `Version(ctx)` — reads migration version counter
+  - `Close()` — releases resources
 
-3. **`testutil.TestMigrationChain`** — for multi-step migrations:
-   - Seeds entries at v1
-   - Runs full chain v1→v2→v3
-   - Validates final state
+- **`migratetest.RunAutoPost[I, O]`** — tests auto+post as pure functions (no KV store):
+  - Runs auto-migrate, then post-migrate on a single input
+  - Returns the transformed output
+  - Either function may be nil
 
-4. **Gomega custom matchers** if needed:
-   - `HaveMigratedTo(expectedEntries)` matcher for readable test assertions
+- **10 Ginkgo tests** covering:
+  - Typed migration with field transformation
+  - Codec transition migration
+  - Custom seed codec with matching inputCodec
+  - Empty seed
+  - Migration chain (typed + codec transition)
+  - Version counter tracking
+  - Entries retrieval
+  - RunAutoPost: auto only, auto+post, post only
 
-### What to test
+- **All tests pass**: migratetest (10/10), gorp (121/121), oracle (37 suites)
 
-- Test helpers themselves are tested (meta-tests)
-- Helpers work with TypedMigration, RawMigration, CodecTransitionMigration
-- Helpers correctly detect migration failures
-- Helpers work with different key types (uuid, string, uint32, etc.)
+### Key files
 
-### Acceptance criteria
-
-- Test helpers are ergonomic and reduce migration test boilerplate
-- Documented with examples
-- Used by Phase 7 tests
+- `x/go/gorp/entries.go` — added `EncodeKey[K, E]` export
+- `x/go/gorp/testutil/migratetest.go` — `SeedAndMigrate`, `Result`, `RunAutoPost`
+- `x/go/gorp/testutil/migratetest_test.go` — 10 tests
+- `x/go/gorp/testutil/migratetest_suite_test.go` — test suite bootstrap
 
 ---
 
@@ -635,10 +565,9 @@ Phase 5: Delete Deprecated gorp.Migrator .......... DONE (sy-3824)
     ↓
 Phase 6: Schema Snapshots & CI Check .............. DONE (sy-3824)
     ↓
-Phase 7: Schema Diff Engine & Skeleton/Propagation  NOT STARTED             ← NEXT
-    ↓                                               (includes TypedMigration codec params)
-
-Phase 8: Test Infrastructure (can start anytime after Phase 1)
+Phase 7: Schema Diff Engine & Skeleton/Propagation  DONE (sy-3824)
+    ↓
+Phase 8: Test Infrastructure ........................ DONE (sy-3824)
 ```
 
 ## Key Design Decisions
