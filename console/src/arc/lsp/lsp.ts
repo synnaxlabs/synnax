@@ -12,14 +12,15 @@ import {
   registerExtension,
 } from "@codingame/monaco-vscode-api/extensions";
 import { grammarRaw as arcGrammarRaw } from "@synnaxlabs/arc";
-import { type arc } from "@synnaxlabs/client";
+import { type arc, type Synnax } from "@synnaxlabs/client";
 import { type Stream } from "@synnaxlabs/freighter";
-import { type destructor } from "@synnaxlabs/x";
+import { breaker, type destructor, TimeSpan } from "@synnaxlabs/x";
 import { MonacoLanguageClient } from "monaco-languageclient";
+import { useEffect } from "react";
 import { type Message, type MessageReader, type MessageWriter } from "vscode-jsonrpc";
 import { CloseAction, ErrorAction } from "vscode-languageclient/browser";
 
-import arcLanguageConfigurationRaw from "@/code/arc/language-configuration.json?raw";
+import arcLanguageConfigurationRaw from "@/arc/lsp/language-configuration.json?raw";
 
 export const LANGUAGE = "arc";
 
@@ -186,8 +187,10 @@ const TEXTMATE_RULES = {
 
 const NOOP_DISPOSER = () => ({ dispose: () => {} });
 
+export type LSPStream = Stream<typeof arc.lspMessageZ, typeof arc.lspMessageZ>;
+
 interface FreighterTransportProps {
-  stream: Stream<typeof arc.lspMessageZ, typeof arc.lspMessageZ>;
+  stream: LSPStream;
 }
 
 const createFreighterTransport = ({
@@ -271,12 +274,17 @@ const createFreighterTransport = ({
   return { reader, writer, closed };
 };
 
-export type LSPStream = Stream<typeof arc.lspMessageZ, typeof arc.lspMessageZ>;
-
 export interface LSPClientHandle {
   client: MonacoLanguageClient;
   closed: Promise<void>;
 }
+
+export const openLSPStream = async (client: Synnax): Promise<LSPStream> =>
+  await client.arcs.openLSP();
+
+export const closeLSPStream = (stream: LSPStream): void => {
+  stream.closeSend();
+};
 
 export const startLSPClient = async (stream: LSPStream): Promise<LSPClientHandle> => {
   const { reader, writer, closed } = createFreighterTransport({ stream });
@@ -301,10 +309,6 @@ export const stopLSPClient = async (client: MonacoLanguageClient): Promise<void>
   } catch {
     // Client may already be stopped if the stream died.
   }
-};
-
-export const closeLSPStream = (stream: LSPStream): void => {
-  stream.closeSend();
 };
 
 const GRAMMAR_PATH = "./arc.tmLanguage.json";
@@ -372,6 +376,65 @@ const applySemanticTokenColors = async (): Promise<destructor.Async> => {
     console.warn("Failed to apply Arc semantic token colors:", error);
   }
   return async () => {};
+};
+
+const LSP_BREAKER_CONFIG: breaker.Config = {
+  baseInterval: TimeSpan.seconds(1),
+  maxRetries: 50,
+  scale: 1.5,
+};
+
+export const use = (client: Synnax | null, monaco: unknown): void => {
+  useEffect(() => {
+    if (monaco == null || client == null) return;
+    const abortController = new AbortController();
+    const { signal } = abortController;
+    const abortPromise = new Promise<void>((r) =>
+      signal.addEventListener("abort", () => r()),
+    );
+    let currentHandle: LSPClientHandle | null = null;
+    let currentStream: LSPStream | null = null;
+    const run = async () => {
+      const b = new breaker.Breaker(LSP_BREAKER_CONFIG);
+      while (!signal.aborted) {
+        try {
+          const stream = await openLSPStream(client);
+          if (signal.aborted) {
+            closeLSPStream(stream);
+            return;
+          }
+          currentStream = stream;
+          const handle = await startLSPClient(stream);
+          if (signal.aborted) {
+            await stopLSPClient(handle.client);
+            closeLSPStream(stream);
+            return;
+          }
+          currentHandle = handle;
+          b.reset();
+          await Promise.race([handle.closed, abortPromise]);
+          currentHandle = null;
+          currentStream = null;
+          if (signal.aborted) return;
+        } catch (e) {
+          console.error("Arc LSP connection failed:", e);
+          currentHandle = null;
+          currentStream = null;
+        }
+        if (!(await b.wait())) {
+          console.error("Arc LSP breaker exhausted, giving up reconnection");
+          return;
+        }
+      }
+    };
+    run().catch(console.error);
+    return () => {
+      abortController.abort();
+      if (currentHandle != null)
+        stopLSPClient(currentHandle.client).catch(console.error);
+      if (currentStream != null) closeLSPStream(currentStream);
+    };
+  }, [client, monaco]);
 };
 
 export const SERVICES = [registerArcLanguage, applySemanticTokenColors];

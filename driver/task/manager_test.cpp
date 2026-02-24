@@ -7,11 +7,12 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+#include <future>
+
 #include "gtest/gtest.h"
 #include "nlohmann/json.hpp"
 
 #include "client/cpp/testutil/testutil.h"
-#include "x/cpp/breaker/breaker.h"
 #include "x/cpp/status/status.h"
 #include "x/cpp/test/test.h"
 

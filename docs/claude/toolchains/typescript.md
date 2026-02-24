@@ -57,6 +57,9 @@ When running the Console in dev mode, connect to a local Synnax server with:
 - **Username**: `synnax`
 - **Password**: `seldon`
 
+Note: The login form shows placeholder text but does NOT pre-fill values. You must
+actually type the username and password into the fields before clicking Log In.
+
 ## Code Quality
 
 - `pnpm lint` - Lint all packages with ESLint
@@ -196,6 +199,27 @@ pnpm madge:console # Check only Console
 - **Vitest**: Always import from "vitest", not Jest
 - **React 19**: Using latest React 19.1.1 - check for breaking changes from React 18
 
+## Visual Verification with Playwright
+
+After making console UI changes, verify them visually using the Playwright MCP tools
+against the Vite dev server at `localhost:5173`.
+
+### Workflow
+
+1. Ensure `pnpm dev:console-vite` is running (or ask the user)
+2. Use `browser_navigate` to go to `http://localhost:5173`
+3. Navigate to the relevant page, modal, or component
+4. Use `browser_snapshot` to inspect the rendered UI and verify changes
+5. Use the command palette (`Cmd+Shift+P`) to open specific modals or views
+
+### Tips
+
+- Take a fresh `browser_snapshot` before each interaction — refs go stale after
+  navigation
+- The command palette is useful for reaching specific forms (e.g.,
+  `> Connect an HTTP server`)
+- Check both the visual layout and the default values/state of form fields
+
 ## Development Best Practices
 
 - **Always prefer absolute imports** over relative imports in TypeScript projects
@@ -204,3 +228,5 @@ pnpm madge:console # Check only Console
   inheritance
 - **Type everything** - use TypeScript strict mode, avoid `any`
 - **Test co-location** - keep tests next to source files for better discoverability
+- **Visual verification** - use Playwright MCP to verify console UI changes at
+  `localhost:5173`

@@ -13,15 +13,14 @@ import "@synnaxlabs/pluto/dist/pluto.css";
 
 import { Provider } from "@synnaxlabs/drift/react";
 import {
+  type Alamos,
   type Color,
   type Haul,
   Pluto,
   preventDefault,
   type state,
-  Synnax,
   type Triggers,
 } from "@synnaxlabs/pluto";
-import { breaker, TimeSpan } from "@synnaxlabs/x";
 import { type ReactElement, useCallback, useEffect } from "react";
 import { useDispatch } from "react-redux";
 
@@ -30,7 +29,6 @@ import { Arc } from "@/arc";
 import { Channel } from "@/channel";
 import { Cluster } from "@/cluster";
 import { Code } from "@/code";
-import { Arc as ArcCode } from "@/code/arc";
 import { COMMANDS } from "@/commands";
 import { CSV } from "@/csv";
 import { Docs } from "@/docs";
@@ -131,71 +129,12 @@ const useBlockDefaultDropBehavior = (): void =>
     };
   }, []);
 
-const LSP_BREAKER_CONFIG: breaker.Config = {
-  baseInterval: TimeSpan.seconds(1),
-  maxRetries: 50,
-  scale: 1.5,
-};
+const MONACO_SERVICES = Arc.LSP.SERVICES;
 
-const ArcLSPClientSetter = ({ children }: { children: ReactElement }): ReactElement => {
-  const client = Synnax.use();
-  const monaco = Code.useMonaco();
-  useEffect(() => {
-    if (monaco == null || client == null) return;
-    const abortController = new AbortController();
-    const { signal } = abortController;
-    const abortPromise = new Promise<void>((r) =>
-      signal.addEventListener("abort", () => r()),
-    );
-    let currentHandle: ArcCode.LSPClientHandle | null = null;
-    let currentStream: ArcCode.LSPStream | null = null;
-    const run = async () => {
-      const b = new breaker.Breaker(LSP_BREAKER_CONFIG);
-      while (!signal.aborted) {
-        try {
-          const stream = await client.arcs.openLSP();
-          if (signal.aborted) {
-            stream.closeSend();
-            return;
-          }
-          currentStream = stream;
-          const handle = await ArcCode.startLSPClient(stream);
-          if (signal.aborted) {
-            await ArcCode.stopLSPClient(handle.client);
-            ArcCode.closeLSPStream(stream);
-            return;
-          }
-          currentHandle = handle;
-          b.reset();
-          await Promise.race([handle.closed, abortPromise]);
-          currentHandle = null;
-          currentStream = null;
-          await ArcCode.stopLSPClient(handle.client);
-          ArcCode.closeLSPStream(stream);
-          if (signal.aborted) return;
-        } catch (e) {
-          console.error("Arc LSP connection failed:", e);
-          currentHandle = null;
-          currentStream = null;
-        }
-        if (!(await b.wait())) {
-          console.error("Arc LSP breaker exhausted, giving up reconnection");
-          return;
-        }
-      }
-    };
-    run().catch(console.error);
-    return () => {
-      abortController.abort();
-      if (currentHandle != null)
-        ArcCode.stopLSPClient(currentHandle.client).catch(console.error);
-      if (currentStream != null) ArcCode.closeLSPStream(currentStream);
-    };
-  }, [client, monaco]);
-  return children;
-};
+const ALAMOS_PROPS: Alamos.ProviderProps = { level: "info" };
 
-const MONACO_SERVICES = [...ArcCode.SERVICES];
+const HAUL_PROPS: Haul.ProviderProps = { useState: useHaulState };
+const COLOR_PROPS: Color.ProviderProps = { useState: useColorContextState };
 
 const MainUnderContext = (): ReactElement => {
   const theme = Layout.useThemeProvider();
@@ -209,16 +148,16 @@ const MainUnderContext = (): ReactElement => {
       connParams={cluster ?? undefined}
       workerURL={WorkerURL}
       triggers={TRIGGERS_PROVIDER_PROPS}
-      haul={{ useState: useHaulState }}
-      color={{ useState: useColorContextState }}
-      alamos={{ level: "info" }}
+      haul={HAUL_PROPS}
+      color={COLOR_PROPS}
+      alamos={ALAMOS_PROPS}
     >
       <Code.Provider initServices={MONACO_SERVICES}>
-        <ArcLSPClientSetter>
+        <Arc.LSP.Provider>
           <Vis.Canvas>
             <Layout.Window />
           </Vis.Canvas>
-        </ArcLSPClientSetter>
+        </Arc.LSP.Provider>
       </Code.Provider>
     </Pluto.Provider>
   );
