@@ -139,11 +139,11 @@ TEST(HTTPReadTask, SingleEndpointGETNumericField) {
     cfg.endpoints = {ep};
 
     cfg.channels[1] = {
-        .key = 1,
         .name = "temperature",
-        .data_type = x::telem::FLOAT64_T
+        .data_type = x::telem::FLOAT64_T,
+        .key = 1,
     };
-    cfg.channels[2] = {.key = 2, .name = "humidity", .data_type = x::telem::FLOAT64_T};
+    cfg.channels[2] = {.name = "humidity", .data_type = x::telem::FLOAT64_T, .key = 2};
 
     auto source = ASSERT_NIL_P(make_source(cfg, server.base_url()));
 
@@ -193,7 +193,7 @@ TEST(HTTPReadTask, NestedJSONPointerPaths) {
 
     cfg.endpoints = {ep};
 
-    cfg.channels[1] = {.key = 1, .name = "sensor_0", .data_type = x::telem::FLOAT64_T};
+    cfg.channels[1] = {.name = "sensor_0", .data_type = x::telem::FLOAT64_T, .key = 1};
 
     auto source = ASSERT_NIL_P(make_source(cfg, server.base_url()));
 
@@ -240,7 +240,7 @@ TEST(HTTPReadTask, MissingJSONFieldWarning) {
 
     cfg.endpoints = {ep};
 
-    cfg.channels[1] = {.key = 1, .name = "missing", .data_type = x::telem::FLOAT64_T};
+    cfg.channels[1] = {.name = "missing", .data_type = x::telem::FLOAT64_T, .key = 1};
 
     auto source = ASSERT_NIL_P(make_source(cfg, server.base_url()));
 
@@ -287,7 +287,7 @@ TEST(HTTPReadTask, ServerErrorOn5xx) {
 
     cfg.endpoints = {ep};
 
-    cfg.channels[1] = {.key = 1, .name = "val", .data_type = x::telem::FLOAT64_T};
+    cfg.channels[1] = {.name = "val", .data_type = x::telem::FLOAT64_T, .key = 1};
 
     auto source = ASSERT_NIL_P(make_source(cfg, server.base_url()));
 
@@ -332,7 +332,7 @@ TEST(HTTPReadTask, ClientErrorOn4xx) {
 
     cfg.endpoints = {ep};
 
-    cfg.channels[1] = {.key = 1, .name = "val", .data_type = x::telem::FLOAT64_T};
+    cfg.channels[1] = {.name = "val", .data_type = x::telem::FLOAT64_T, .key = 1};
 
     auto source = ASSERT_NIL_P(make_source(cfg, server.base_url()));
 
@@ -386,9 +386,9 @@ TEST(HTTPReadTask, TypeConversions) {
 
     cfg.endpoints = {ep};
 
-    cfg.channels[1] = {.key = 1, .name = "active", .data_type = x::telem::UINT8_T};
-    cfg.channels[2] = {.key = 2, .name = "label", .data_type = x::telem::STRING_T};
-    cfg.channels[3] = {.key = 3, .name = "count", .data_type = x::telem::INT32_T};
+    cfg.channels[1] = {.name = "active", .data_type = x::telem::UINT8_T, .key = 1};
+    cfg.channels[2] = {.name = "label", .data_type = x::telem::STRING_T, .key = 2};
+    cfg.channels[3] = {.name = "count", .data_type = x::telem::INT32_T, .key = 3};
 
     auto source = ASSERT_NIL_P(make_source(cfg, server.base_url()));
 
@@ -445,9 +445,9 @@ TEST(HTTPReadTask, StringField) {
 
     cfg.endpoints = {ep};
 
-    cfg.channels[1] = {.key = 1, .name = "name", .data_type = x::telem::STRING_T};
-    cfg.channels[2] = {.key = 2, .name = "status", .data_type = x::telem::STRING_T};
-    cfg.channels[3] = {.key = 3, .name = "value", .data_type = x::telem::FLOAT64_T};
+    cfg.channels[1] = {.name = "name", .data_type = x::telem::STRING_T, .key = 1};
+    cfg.channels[2] = {.name = "status", .data_type = x::telem::STRING_T, .key = 2};
+    cfg.channels[3] = {.name = "value", .data_type = x::telem::FLOAT64_T, .key = 3};
 
     auto source = ASSERT_NIL_P(make_source(cfg, server.base_url()));
 
@@ -496,7 +496,7 @@ TEST(HTTPReadTask, DecimalToIntegerWarns) {
     ep.fields = {field};
 
     cfg.endpoints = {ep};
-    cfg.channels[1] = {.key = 1, .name = "count", .data_type = x::telem::INT32_T};
+    cfg.channels[1] = {.name = "count", .data_type = x::telem::INT32_T, .key = 1};
 
     auto source = ASSERT_NIL_P(make_source(cfg, server.base_url()));
 
@@ -543,7 +543,7 @@ TEST(HTTPReadTask, NegativeForUnsignedWarns) {
     ep.fields = {field};
 
     cfg.endpoints = {ep};
-    cfg.channels[1] = {.key = 1, .name = "count", .data_type = x::telem::UINT32_T};
+    cfg.channels[1] = {.name = "count", .data_type = x::telem::UINT32_T, .key = 1};
 
     auto source = ASSERT_NIL_P(make_source(cfg, server.base_url()));
 
@@ -592,7 +592,7 @@ TEST(HTTPReadTask, SoftwareTimingIndex) {
     cfg.endpoints = {ep};
 
     cfg.channels[1] =
-        {.key = 1, .name = "value", .data_type = x::telem::FLOAT64_T, .index = 100};
+        {.name = "value", .data_type = x::telem::FLOAT64_T, .key = 1, .index = 100};
     cfg.software_timed_indexes[100] = 0;
 
     auto source = ASSERT_NIL_P(make_source(cfg, server.base_url()));
@@ -649,11 +649,11 @@ TEST(HTTPReadTask, ExplicitIndexFieldTimestamp) {
     cfg.endpoints = {ep};
 
     cfg.channels[1] =
-        {.key = 1, .name = "value", .data_type = x::telem::FLOAT64_T, .index = 100};
+        {.name = "value", .data_type = x::telem::FLOAT64_T, .key = 1, .index = 100};
     cfg.channels[100] = {
-        .key = 100,
         .name = "time",
         .data_type = x::telem::TIMESTAMP_T,
+        .key = 100,
         .is_index = true,
     };
     // No index_sources needed — index channel is an explicit field.
@@ -723,8 +723,8 @@ TEST(HTTPReadTask, MultipleEndpoints) {
 
     cfg.endpoints = {ep1, ep2};
 
-    cfg.channels[1] = {.key = 1, .name = "temp", .data_type = x::telem::FLOAT64_T};
-    cfg.channels[2] = {.key = 2, .name = "pressure", .data_type = x::telem::FLOAT64_T};
+    cfg.channels[1] = {.name = "temp", .data_type = x::telem::FLOAT64_T, .key = 1};
+    cfg.channels[2] = {.name = "pressure", .data_type = x::telem::FLOAT64_T, .key = 2};
 
     auto source = ASSERT_NIL_P(make_source(cfg, server.base_url()));
 
@@ -772,7 +772,7 @@ TEST(HTTPReadTask, POSTWithBody) {
 
     cfg.endpoints = {ep};
 
-    cfg.channels[1] = {.key = 1, .name = "result", .data_type = x::telem::FLOAT64_T};
+    cfg.channels[1] = {.name = "result", .data_type = x::telem::FLOAT64_T, .key = 1};
 
     auto source = ASSERT_NIL_P(make_source(cfg, server.base_url()));
 
@@ -1080,7 +1080,7 @@ TEST(HTTPReadTask, RepeatedReads) {
 
     cfg.endpoints = {ep};
 
-    cfg.channels[1] = {.key = 1, .name = "value", .data_type = x::telem::FLOAT64_T};
+    cfg.channels[1] = {.name = "value", .data_type = x::telem::FLOAT64_T, .key = 1};
 
     auto source = ASSERT_NIL_P(make_source(cfg, server.base_url()));
 
@@ -1144,11 +1144,11 @@ TEST(HTTPReadTask, DisabledFieldsSkipped) {
     cfg.endpoints = {ep};
 
     cfg.channels[1] = {
-        .key = 1,
         .name = "temperature",
-        .data_type = x::telem::FLOAT64_T
+        .data_type = x::telem::FLOAT64_T,
+        .key = 1
     };
-    cfg.channels[3] = {.key = 3, .name = "pressure", .data_type = x::telem::FLOAT64_T};
+    cfg.channels[3] = {.name = "pressure", .data_type = x::telem::FLOAT64_T, .key = 3};
 
     auto source = ASSERT_NIL_P(make_source(cfg, server.base_url()));
 
@@ -1189,9 +1189,9 @@ TEST(HTTPReadTask, DisabledFieldsExcludedFromWriterConfig) {
 
     cfg.endpoints = {ep};
     cfg.channels[1] = {
-        .key = 1,
         .name = "temperature",
-        .data_type = x::telem::FLOAT64_T
+        .data_type = x::telem::FLOAT64_T,
+        .key = 1
     };
 
     auto conn_parser = x::json::Parser(
@@ -1277,9 +1277,9 @@ TEST(HTTPReadTask, DisabledFieldMissingPointerNoError) {
     cfg.endpoints = {ep};
 
     cfg.channels[1] = {
-        .key = 1,
         .name = "temperature",
-        .data_type = x::telem::FLOAT64_T
+        .data_type = x::telem::FLOAT64_T,
+        .key = 1
     };
 
     auto source = ASSERT_NIL_P(make_source(cfg, server.base_url()));
@@ -1331,7 +1331,7 @@ TEST(HTTPReadTask, HTTPSReadSingleEndpoint) {
     ep.fields = {field};
 
     cfg.endpoints = {ep};
-    cfg.channels[1] = {.key = 1, .name = "value", .data_type = x::telem::FLOAT64_T};
+    cfg.channels[1] = {.name = "value", .data_type = x::telem::FLOAT64_T, .key = 1};
 
     auto source = ASSERT_NIL_P(make_source(cfg, server.base_url()));
 
@@ -1399,8 +1399,8 @@ TEST(HTTPReadTask, HTTPSMultipleEndpoints) {
     ep2.fields = {pressure_field};
 
     cfg.endpoints = {ep1, ep2};
-    cfg.channels[1] = {.key = 1, .name = "temp", .data_type = x::telem::FLOAT64_T};
-    cfg.channels[2] = {.key = 2, .name = "pressure", .data_type = x::telem::FLOAT64_T};
+    cfg.channels[1] = {.name = "temp", .data_type = x::telem::FLOAT64_T, .key = 1};
+    cfg.channels[2] = {.name = "pressure", .data_type = x::telem::FLOAT64_T, .key = 2};
 
     auto source = ASSERT_NIL_P(make_source(cfg, server.base_url()));
 
@@ -1450,7 +1450,7 @@ TEST(HTTPReadTask, HTTPSRepeatedReads) {
     ep.fields = {field};
 
     cfg.endpoints = {ep};
-    cfg.channels[1] = {.key = 1, .name = "value", .data_type = x::telem::FLOAT64_T};
+    cfg.channels[1] = {.name = "value", .data_type = x::telem::FLOAT64_T, .key = 1};
 
     auto source = ASSERT_NIL_P(make_source(cfg, server.base_url()));
 
@@ -1501,7 +1501,7 @@ TEST(HTTPReadTask, HTTPSPOSTWithBody) {
     ep.fields = {field};
 
     cfg.endpoints = {ep};
-    cfg.channels[1] = {.key = 1, .name = "result", .data_type = x::telem::FLOAT64_T};
+    cfg.channels[1] = {.name = "result", .data_type = x::telem::FLOAT64_T, .key = 1};
 
     auto source = ASSERT_NIL_P(make_source(cfg, server.base_url()));
 
@@ -1568,8 +1568,8 @@ TEST(HTTPReadTask, PartialFailureFirstEndpoint5xx) {
     ep2.fields = {field2};
 
     cfg.endpoints = {ep1, ep2};
-    cfg.channels[1] = {.key = 1, .name = "error_msg", .data_type = x::telem::STRING_T};
-    cfg.channels[2] = {.key = 2, .name = "value", .data_type = x::telem::FLOAT64_T};
+    cfg.channels[1] = {.name = "error_msg", .data_type = x::telem::STRING_T, .key = 1};
+    cfg.channels[2] = {.name = "value", .data_type = x::telem::FLOAT64_T, .key = 2};
 
     auto source = ASSERT_NIL_P(make_source(cfg, server.base_url()));
 
@@ -1632,8 +1632,8 @@ TEST(HTTPReadTask, PartialFailureSecondEndpoint4xx) {
     ep2.fields = {field2};
 
     cfg.endpoints = {ep1, ep2};
-    cfg.channels[1] = {.key = 1, .name = "value", .data_type = x::telem::FLOAT64_T};
-    cfg.channels[2] = {.key = 2, .name = "error_msg", .data_type = x::telem::STRING_T};
+    cfg.channels[1] = {.name = "value", .data_type = x::telem::FLOAT64_T, .key = 1};
+    cfg.channels[2] = {.name = "error_msg", .data_type = x::telem::STRING_T, .key = 2};
 
     auto source = ASSERT_NIL_P(make_source(cfg, server.base_url()));
 
@@ -1697,8 +1697,8 @@ TEST(HTTPReadTask, PartialFailureMissingFieldInSecondEndpoint) {
     ep2.fields = {pressure_field};
 
     cfg.endpoints = {ep1, ep2};
-    cfg.channels[1] = {.key = 1, .name = "temp", .data_type = x::telem::FLOAT64_T};
-    cfg.channels[2] = {.key = 2, .name = "pressure", .data_type = x::telem::FLOAT64_T};
+    cfg.channels[1] = {.name = "temp", .data_type = x::telem::FLOAT64_T, .key = 1};
+    cfg.channels[2] = {.name = "pressure", .data_type = x::telem::FLOAT64_T, .key = 2};
 
     auto source = ASSERT_NIL_P(make_source(cfg, server.base_url()));
 
@@ -1765,8 +1765,8 @@ TEST(HTTPReadTask, PartialFailureInvalidJSONInOneEndpoint) {
     ep2.fields = {field2};
 
     cfg.endpoints = {ep1, ep2};
-    cfg.channels[1] = {.key = 1, .name = "value", .data_type = x::telem::FLOAT64_T};
-    cfg.channels[2] = {.key = 2, .name = "data", .data_type = x::telem::FLOAT64_T};
+    cfg.channels[1] = {.name = "value", .data_type = x::telem::FLOAT64_T, .key = 1};
+    cfg.channels[2] = {.name = "data", .data_type = x::telem::FLOAT64_T, .key = 2};
 
     auto source = ASSERT_NIL_P(make_source(cfg, server.base_url()));
 
@@ -1833,9 +1833,9 @@ TEST(HTTPReadTask, PartialFailureTypeConversionError) {
     ep2.fields = {field2};
 
     cfg.endpoints = {ep1, ep2};
-    cfg.channels[1] = {.key = 1, .name = "value", .data_type = x::telem::FLOAT64_T};
+    cfg.channels[1] = {.name = "value", .data_type = x::telem::FLOAT64_T, .key = 1};
     // INT32_T will fail on 3.7 (decimal truncation) — produces warning.
-    cfg.channels[2] = {.key = 2, .name = "count", .data_type = x::telem::INT32_T};
+    cfg.channels[2] = {.name = "count", .data_type = x::telem::INT32_T, .key = 2};
 
     auto source = ASSERT_NIL_P(make_source(cfg, server.base_url()));
 
@@ -1888,7 +1888,7 @@ TEST(HTTPReadTask, SampleClockRegulatesRate) {
     ep.fields = {field};
 
     cfg.endpoints = {ep};
-    cfg.channels[1] = {.key = 1, .name = "value", .data_type = x::telem::FLOAT64_T};
+    cfg.channels[1] = {.name = "value", .data_type = x::telem::FLOAT64_T, .key = 1};
 
     auto source = ASSERT_NIL_P(make_source(cfg, server.base_url()));
 
@@ -1941,7 +1941,7 @@ TEST(HTTPReadTask, SampleClockDoesNotAffectData) {
     ep.fields = {field};
 
     cfg.endpoints = {ep};
-    cfg.channels[1] = {.key = 1, .name = "value", .data_type = x::telem::FLOAT64_T};
+    cfg.channels[1] = {.name = "value", .data_type = x::telem::FLOAT64_T, .key = 1};
 
     auto source = ASSERT_NIL_P(make_source(cfg, server.base_url()));
 
@@ -1991,7 +1991,7 @@ TEST(HTTPReadTask, ConnectionLevelQueryParams) {
     ep.fields = {field};
 
     cfg.endpoints = {ep};
-    cfg.channels[1] = {.key = 1, .name = "value", .data_type = x::telem::FLOAT64_T};
+    cfg.channels[1] = {.name = "value", .data_type = x::telem::FLOAT64_T, .key = 1};
 
     auto source = ASSERT_NIL_P(make_source(
         cfg,
