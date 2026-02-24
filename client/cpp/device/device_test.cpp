@@ -534,6 +534,24 @@ TEST(DeviceTests, testParseFromJSON) {
     ASSERT_EQ(d.configured, true);
 }
 
+/// @brief it should handle null properties when parsing Device from JSON.
+TEST(DeviceTests, testParseFromJSONNullProperties) {
+    x::json::json j = {
+        {"key", "null-props-device"},
+        {"name", "device-with-null-props"},
+        {"rack", 1},
+        {"location", "loc"},
+        {"make", "make"},
+        {"model", "model"},
+        {"properties", nullptr},
+        {"configured", false}
+    };
+    x::json::Parser parser(j);
+    auto d = Device::parse(parser);
+    ASSERT_EQ(d.key, "null-props-device");
+    ASSERT_EQ(x::json::json(d.properties), x::json::json::object());
+}
+
 /// @brief it should handle default values when parsing Device from JSON.
 TEST(DeviceTests, testParseFromJSONDefaults) {
     const x::json::json j = x::json::json::object();

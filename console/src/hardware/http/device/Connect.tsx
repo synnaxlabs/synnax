@@ -16,8 +16,6 @@ import {
   Divider,
   Flex,
   Form,
-  Icon,
-  Input,
   Nav,
   Rack,
   Select,
@@ -25,8 +23,9 @@ import {
   Text,
 } from "@synnaxlabs/pluto";
 import { status } from "@synnaxlabs/x";
-import { type ReactElement, useCallback, useState } from "react";
+import { useCallback } from "react";
 
+import { KeyValueEditor } from "@/components/form/KeyValueEditor";
 import { CSS } from "@/css";
 import {
   type AuthType,
@@ -58,86 +57,10 @@ const INITIAL_VALUES: Device = {
   location: "",
   properties: ZERO_PROPERTIES,
   rack: 0,
-  configured: false,
+  configured: true,
 };
 
 const useForm = PDevice.createForm(SCHEMAS);
-
-interface HeaderEntry {
-  key: string;
-  value: string;
-}
-
-interface HeadersFieldProps {
-  form: Form.UseReturn<typeof PDevice.formSchema>;
-}
-
-const HeadersField = ({ form }: HeadersFieldProps): ReactElement => {
-  const value = Form.useFieldValue<
-    Record<string, string>,
-    Record<string, string>,
-    typeof PDevice.formSchema
-  >("properties.headers", { ctx: form, defaultValue: {} });
-  const entries: HeaderEntry[] = Object.entries(value).map(([k, v]) => ({
-    key: k,
-    value: v,
-  }));
-  const [draft, setDraft] = useState<HeaderEntry[]>(entries);
-  const sync = useCallback(
-    (next: HeaderEntry[]) => {
-      setDraft(next);
-      const record: Record<string, string> = {};
-      for (const { key, value: v } of next) if (key.length > 0) record[key] = v;
-      form.set("properties.headers", record);
-    },
-    [form],
-  );
-  const addRow = useCallback(
-    () => sync([...draft, { key: "", value: "" }]),
-    [draft, sync],
-  );
-  const updateRow = useCallback(
-    (i: number, field: "key" | "value", v: string) => {
-      const next = [...draft];
-      next[i] = { ...next[i], [field]: v };
-      sync(next);
-    },
-    [draft, sync],
-  );
-  const removeRow = useCallback(
-    (i: number) => sync(draft.filter((_, j) => j !== i)),
-    [draft, sync],
-  );
-  return (
-    <Flex.Box y gap="small">
-      <Flex.Box x align="center" justify="between">
-        <Input.Label>Headers</Input.Label>
-        <Button.Button variant="text" size="small" onClick={addRow}>
-          <Icon.Add />
-        </Button.Button>
-      </Flex.Box>
-      <Flex.Box y gap="small">
-        {draft.map((entry, i) => (
-          <Flex.Box x key={i} align="center" gap="small">
-            <Input.Text
-              placeholder="Field Name"
-              value={entry.key}
-              onChange={(v) => updateRow(i, "key", v)}
-            />
-            <Input.Text
-              placeholder="Field Value"
-              value={entry.value}
-              onChange={(v) => updateRow(i, "value", v)}
-            />
-            <Button.Button variant="text" size="small" onClick={() => removeRow(i)}>
-              <Icon.Close />
-            </Button.Button>
-          </Flex.Box>
-        ))}
-      </Flex.Box>
-    </Flex.Box>
-  );
-};
 
 export const Connect: Layout.Renderer = ({ layoutKey, onClose }) => {
   const {
@@ -174,6 +97,7 @@ export const Connect: Layout.Renderer = ({ layoutKey, onClose }) => {
               inputProps={HOST_INPUT_PROPS}
             />
             <Form.SwitchField path="properties.secure" label="HTTPS" />
+            <Form.SwitchField path="properties.verifySsl" label="Verify SSL" />
           </Flex.Box>
           <Form.NumericField
             path="properties.timeoutMs"
@@ -181,7 +105,19 @@ export const Connect: Layout.Renderer = ({ layoutKey, onClose }) => {
             inputProps={TIMEOUT_INPUT_PROPS}
           />
           <Divider.Divider x padded="bottom" />
-          <HeadersField form={form} />
+          <KeyValueEditor
+            path="properties.headers"
+            label="Headers"
+            keyPlaceholder="Field Name"
+            valuePlaceholder="Field Value"
+          />
+          <Divider.Divider x padded />
+          <KeyValueEditor
+            path="properties.queryParams"
+            label="Query Parameters"
+            keyPlaceholder="Parameter"
+            valuePlaceholder="Value"
+          />
           <Divider.Divider x padded="bottom" />
           <Form.Field<AuthType> path="properties.auth.type" label="Authentication">
             {({ onChange, ...rest }) => {

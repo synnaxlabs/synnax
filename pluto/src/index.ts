@@ -9,6 +9,7 @@
 
 export { Access } from "@/access";
 export { Aether } from "@/aether";
+export { Alamos } from "@/alamos";
 export { Arc } from "@/arc";
 export { Breadcrumb } from "@/breadcrumb";
 export { Button } from "@/button";
@@ -34,6 +35,7 @@ export { Header } from "@/header";
 export * from "@/hooks";
 export { Icon } from "@/icon";
 export { Input } from "@/input";
+export { JSON } from "@/json";
 export { Label } from "@/label";
 export { LinePlot } from "@/lineplot";
 export { List } from "@/list";

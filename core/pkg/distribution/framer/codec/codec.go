@@ -220,7 +220,7 @@ func (c *Codec) Initialized() bool {
 
 func (c *Codec) update(keys channel.Keys, keyDataTypes map[channel.Key]telem.DataType) {
 	s := state{
-		keys:                 keys,
+		keys:                 slices.Clone(keys),
 		keyDataTypes:         keyDataTypes,
 		hasVariableDataTypes: false,
 	}

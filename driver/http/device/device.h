@@ -15,6 +15,7 @@
 #include <utility>
 #include <vector>
 
+#include "client/cpp/device/device.h"
 #include "x/cpp/errors/errors.h"
 #include "x/cpp/json/json.h"
 #include "x/cpp/telem/telem.h"
@@ -80,14 +81,15 @@ struct ConnectionConfig {
     x::telem::TimeSpan timeout;
     /// @brief authentication configuration.
     AuthConfig auth;
-    /// @brief custom headers.
+    /// @brief custom headers applied to every request.
     std::map<std::string, std::string> headers;
+    /// @brief query parameters applied to every request.
+    std::map<std::string, std::string> query_params;
     /// @brief whether to verify SSL certificates.
     bool verify_ssl;
 
     /// @param parser the JSON parser to read configuration from.
-    /// @param verify_ssl whether to verify SSL certificates (false only in tests).
-    explicit ConnectionConfig(x::json::Parser parser, const bool verify_ssl = true):
+    explicit ConnectionConfig(x::json::Parser parser):
         base_url(parser.field<std::string>("base_url")),
         timeout(parser.field<uint32_t>("timeout_ms", 100) * x::telem::MILLISECOND),
         auth(AuthConfig(parser.optional_child("auth"))),
@@ -95,7 +97,11 @@ struct ConnectionConfig {
             "headers",
             std::map<std::string, std::string>{}
         )),
-        verify_ssl(verify_ssl) {
+        query_params(parser.field<std::map<std::string, std::string>>(
+            "query_params",
+            std::map<std::string, std::string>{}
+        )),
+        verify_ssl(parser.field<bool>("verify_ssl", true)) {
         if (timeout <= x::telem::TimeSpan::ZERO())
             parser.field_err("timeout_ms", "must be positive");
     }
@@ -105,6 +111,7 @@ struct ConnectionConfig {
             {"base_url", base_url},
             {"timeout_ms", timeout.milliseconds()},
             {"auth", auth.to_json()},
+            {"verify_ssl", verify_ssl},
         };
         if (!headers.empty()) {
             x::json::json h;
@@ -112,9 +119,30 @@ struct ConnectionConfig {
                 h[k] = v;
             j["headers"] = h;
         }
+        if (!query_params.empty()) {
+            x::json::json qp;
+            for (const auto &[k, v]: query_params)
+                qp[k] = v;
+            j["query_params"] = qp;
+        }
         return j;
     }
 };
+
+/// @brief retrieves a device by key and constructs a ConnectionConfig from its
+/// properties and location.
+/// @param devices the Synnax device client.
+/// @param device_key the key of the device to retrieve.
+/// @returns the connection config paired with an error (nil on success).
+std::pair<ConnectionConfig, x::errors::Error> retrieve_connection(
+    const synnax::device::Client &devices,
+    const std::string &device_key
+);
+
+/// @brief classifies an HTTP status code into an error.
+/// @param status_code the HTTP response status code.
+/// @returns nil for 2xx, CLIENT_ERROR for 4xx, SERVER_ERROR for 5xx.
+x::errors::Error classify_status(int status_code);
 
 /// @brief static request configuration, set once at task setup time.
 struct RequestConfig {
@@ -151,8 +179,8 @@ struct MultiHandle;
 /// pre-built at construction time from the connection and request configurations so the
 /// hot-path request() only needs to set the body, perform I/O, and read results.
 class Client {
-    std::unique_ptr<MultiHandle> multi_handle_;
-    std::vector<Handle> handles_;
+    std::unique_ptr<MultiHandle> multi_handle;
+    std::vector<Handle> handles;
 
     Client(const Client &) = delete;
     Client &operator=(const Client &) = delete;
