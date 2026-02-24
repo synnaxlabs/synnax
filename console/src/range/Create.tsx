@@ -12,6 +12,7 @@ import "@/range/Create.css";
 import { type ranger, TimeStamp } from "@synnaxlabs/client";
 import {
   Button,
+  Color,
   Flex,
   Form,
   Icon,
@@ -21,7 +22,7 @@ import {
   Synnax,
   Text,
 } from "@synnaxlabs/pluto";
-import { type NumericTimeRange, TimeRange, uuid } from "@synnaxlabs/x";
+import { color, type NumericTimeRange, TimeRange, uuid } from "@synnaxlabs/x";
 import { useCallback, useRef } from "react";
 import { useDispatch } from "react-redux";
 import { type z } from "zod";
@@ -170,6 +171,16 @@ export const Create: Layout.Renderer = (props) => {
             </Form.Field>
             <Form.Field<string[]> path="labels" required={false}>
               {({ variant, ...p }) => <Label.SelectMultiple zIndex={100} {...p} />}
+            </Form.Field>
+            <Form.Field<string>
+              path="color"
+              padHelpText={false}
+              showLabel={false}
+              hideIfNull
+            >
+              {({ onChange, variant: _, ...p }) => (
+                <Color.Swatch onChange={(v) => onChange(color.hex(v))} {...p} />
+              )}
             </Form.Field>
           </Flex.Box>
         </Form.Form>
