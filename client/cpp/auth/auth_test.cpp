@@ -18,10 +18,18 @@
 #include "core/pkg/api/grpc/v1/auth.pb.h"
 
 namespace synnax::auth {
+const std::string MOCK_CLUSTER_KEY = "748d31e2-5732-4cb5-8bc9-64d4ad51efe8";
+
+api::v1::LoginResponse mock_login_response() {
+    api::v1::LoginResponse res;
+    res.set_token("abc");
+    res.mutable_cluster_info()->set_cluster_key(MOCK_CLUSTER_KEY);
+    return res;
+}
+
 /// @brief it should correctly authenticate with a Synnax cluster.
 TEST(TestAuth, testLoginHappyPath) {
-    auto res = api::v1::LoginResponse();
-    res.set_token("abc");
+    auto res = mock_login_response();
     auto mock_login_client = std::make_unique<
         MockUnaryClient<api::v1::LoginRequest, api::v1::LoginResponse>>(
         res,
@@ -42,8 +50,7 @@ TEST(TestAuth, testLoginHappyPath) {
 
 /// @brief it should return an error if credentials are invalid.
 TEST(TestAuth, testLoginInvalidCredentials) {
-    auto res = api::v1::LoginResponse();
-    res.set_token("abc");
+    auto res = mock_login_response();
     auto mock_login_client = std::make_unique<
         MockUnaryClient<api::v1::LoginRequest, api::v1::LoginResponse>>(
         res,
@@ -64,8 +71,7 @@ TEST(TestAuth, testLoginInvalidCredentials) {
 
 /// @brief it should retry authentication if the authentication token is invalid.
 TEST(TestAuth, testLoginRetry) {
-    auto res = api::v1::LoginResponse();
-    res.set_token("abc");
+    auto res = mock_login_response();
     auto mock_login_client = std::make_unique<
         MockUnaryClient<api::v1::LoginRequest, api::v1::LoginResponse>>(
         std::vector<api::v1::LoginResponse>{res, res},
@@ -95,7 +101,7 @@ protected:
     std::shared_ptr<Middleware> mw;
     MockUnaryClient<int, int> mock_client;
 
-    void SetUp() override { res.set_token("abc"); }
+    void SetUp() override { res = mock_login_response(); }
 
     void setupTest(x::errors::Error first_error) {
         mock_login_client = std::make_unique<
@@ -128,5 +134,68 @@ TEST_F(TestAuthRetry, RetryOnExpiredToken) {
     auto v = 1;
     const auto r = ASSERT_NIL_P(mock_client.send("", v));
     ASSERT_EQ(r, 1);
+}
+
+/// @brief it should correctly parse all fields from a valid ClusterInfo proto.
+TEST(TestClusterInfo, testFromProto) {
+    api::v1::ClusterInfo pb;
+    pb.set_cluster_key(MOCK_CLUSTER_KEY);
+    pb.set_node_version("1.2.3");
+    pb.set_node_key(42);
+    pb.set_node_time(5000000000);
+    const auto info = ASSERT_NIL_P(ClusterInfo::from_proto(pb));
+    ASSERT_EQ(info.cluster_key.to_string(), MOCK_CLUSTER_KEY);
+    ASSERT_EQ(info.node_version, "1.2.3");
+    ASSERT_EQ(info.node_key, 42);
+    ASSERT_EQ(info.node_time, x::telem::TimeStamp(5000000000));
+}
+
+/// @brief it should return an error when the cluster key UUID is invalid.
+TEST(TestClusterInfo, testFromProtoInvalidUUID) {
+    api::v1::ClusterInfo pb;
+    pb.set_cluster_key("not-a-valid-uuid");
+    pb.set_node_version("1.0.0");
+    pb.set_node_key(1);
+    pb.set_node_time(0);
+    ASSERT_OCCURRED_AS_P(ClusterInfo::from_proto(pb), x::uuid::INVALID);
+}
+
+/// @brief it should return an error when the cluster key is empty.
+TEST(TestClusterInfo, testFromProtoEmptyKey) {
+    api::v1::ClusterInfo pb;
+    pb.set_node_version("1.0.0");
+    ASSERT_OCCURRED_AS_P(ClusterInfo::from_proto(pb), x::uuid::INVALID);
+}
+
+/// @brief it should correctly handle zero values for node_key and node_time.
+TEST(TestClusterInfo, testFromProtoZeroValues) {
+    api::v1::ClusterInfo pb;
+    pb.set_cluster_key(MOCK_CLUSTER_KEY);
+    pb.set_node_key(0);
+    pb.set_node_time(0);
+    const auto info = ASSERT_NIL_P(ClusterInfo::from_proto(pb));
+    ASSERT_EQ(info.node_key, 0);
+    ASSERT_EQ(info.node_time, x::telem::TimeStamp(0));
+    ASSERT_TRUE(info.node_version.empty());
+}
+
+/// @brief it should roundtrip ClusterInfo through proto -> C++ -> proto -> C++.
+TEST(TestClusterInfo, testFromProtoRoundtrip) {
+    api::v1::ClusterInfo pb;
+    pb.set_cluster_key(MOCK_CLUSTER_KEY);
+    pb.set_node_version("2.5.1");
+    pb.set_node_key(99);
+    pb.set_node_time(123456789);
+    const auto first = ASSERT_NIL_P(ClusterInfo::from_proto(pb));
+    api::v1::ClusterInfo pb2;
+    pb2.set_cluster_key(first.cluster_key.to_string());
+    pb2.set_node_version(first.node_version);
+    pb2.set_node_key(first.node_key);
+    pb2.set_node_time(first.node_time.nanoseconds());
+    const auto second = ASSERT_NIL_P(ClusterInfo::from_proto(pb2));
+    ASSERT_EQ(first.cluster_key, second.cluster_key);
+    ASSERT_EQ(first.node_version, second.node_version);
+    ASSERT_EQ(first.node_key, second.node_key);
+    ASSERT_EQ(first.node_time, second.node_time);
 }
 }

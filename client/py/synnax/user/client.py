@@ -10,40 +10,42 @@
 from typing import overload
 from uuid import UUID
 
-from freighter import Empty, Payload, UnaryClient, send_required
+from freighter import Empty, UnaryClient, send_required
+from pydantic import BaseModel
 
-from synnax.user.payload import NewUser, User
+from synnax.exceptions import NotFoundError
+from synnax.user.payload import New, User
 from synnax.util.normalize import normalize
 from synnax.util.params import require_named_params
 
 
-class _CreateRequest(Payload):
-    users: list[NewUser]
+class _CreateRequest(BaseModel):
+    users: list[New]
 
 
-class _CreateResponse(Payload):
+class _CreateResponse(BaseModel):
     users: list[User]
 
 
-class _RetrieveRequest(Payload):
+class _RetrieveRequest(BaseModel):
     keys: list[UUID] | None = None
     usernames: list[str] | None = None
 
 
-class _RetrieveResponse(Payload):
+class _RetrieveResponse(BaseModel):
     users: list[User] | None = None
 
 
-class _DeleteRequest(Payload):
+class _DeleteRequest(BaseModel):
     keys: list[UUID]
 
 
-class _ChangeUsernameRequest(Payload):
+class _ChangeUsernameRequest(BaseModel):
     key: UUID
     username: str
 
 
-class _ChangeNameRequest(Payload):
+class _ChangeNameRequest(BaseModel):
     key: UUID
     first_name: str
     last_name: str
@@ -67,10 +69,10 @@ class Client:
     ) -> User: ...
 
     @overload
-    def create(self, *, user: NewUser) -> User: ...
+    def create(self, *, user: New) -> User: ...
 
     @overload
-    def create(self, *, users: list[NewUser]) -> list[User]: ...
+    def create(self, *, users: list[New]) -> list[User]: ...
 
     @require_named_params(example_params=("user", "NewUser(username='synnax')"))
     def create(
@@ -81,15 +83,15 @@ class Client:
         first_name: str | None = None,
         last_name: str | None = None,
         key: UUID | None = None,
-        user: NewUser | None = None,
-        users: list[NewUser] | None = None,
+        user: New | None = None,
+        users: list[New] | None = None,
     ) -> User | list[User]:
         if username is not None:
             if first_name is None:
                 first_name = ""
             if last_name is None:
                 last_name = ""
-            user = NewUser(
+            user = New(
                 username=username,
                 password=password,
                 first_name=first_name,
@@ -97,8 +99,10 @@ class Client:
                 key=key,
             )
         single = user is not None
-        if single:
+        if user is not None:
             users = [user]
+        if users is None:
+            raise ValueError("Either username, user, or users must be provided")
         res = send_required(
             self.client,
             "/user/create",
@@ -152,12 +156,19 @@ class Client:
             keys = normalize(key)
         if username is not None:
             usernames = normalize(username)
-        return send_required(
+        single = key is not None or username is not None
+        res = send_required(
             self.client,
             "/user/retrieve",
             _RetrieveRequest(keys=keys, usernames=usernames),
             _RetrieveResponse,
-        ).users
+        )
+        users = res.users or []
+        if not single:
+            return users
+        if len(users) == 0:
+            raise NotFoundError(f"User matching {key or username} not found")
+        return users[0]
 
     def delete(self, keys: UUID | list[UUID] | None = None) -> None:
         send_required(

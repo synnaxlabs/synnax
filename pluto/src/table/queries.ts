@@ -39,7 +39,7 @@ export const retrieveSingle = async ({
 }: Flux.RetrieveParams<RetrieveQuery, FluxSubStore>) => {
   const cached = store.tables.get(key);
   if (cached != null) return cached;
-  const t = await client.workspaces.tables.retrieve({ key });
+  const t = await client.tables.retrieve({ key });
   store.tables.set(t);
   return t;
 };
@@ -66,7 +66,7 @@ export const { useUpdate: useDelete } = Flux.createUpdate<DeleteParams, FluxSubS
     const ids = table.ontologyID(keys);
     const relFilter = Ontology.filterRelationshipsThatHaveIDs(ids);
     rollbacks.push(store.relationships.delete(relFilter));
-    await client.workspaces.tables.delete(data);
+    await client.tables.delete(data);
     return data;
   },
 });
@@ -88,7 +88,7 @@ export const { useUpdate: useCreate } = Flux.createUpdate<
   verbs: Flux.CREATE_VERBS,
   update: async ({ client, data, store }) => {
     const { workspace, ...rest } = data;
-    const t = await client.workspaces.tables.create(workspace, rest);
+    const t = await client.tables.create(workspace, rest);
     store.tables.set(t.key, t);
     return { ...t, workspace };
   },
@@ -104,7 +104,7 @@ export const { useUpdate: useRename } = Flux.createUpdate<UseRenameArgs, FluxSub
   verbs: Flux.RENAME_VERBS,
   update: async ({ client, data, rollbacks, store }) => {
     const { key, name } = data;
-    await client.workspaces.tables.rename(key, name);
+    await client.tables.rename(key, name);
     rollbacks.push(Flux.partialUpdate(store.tables, key, { name }));
     rollbacks.push(Ontology.renameFluxResource(store, table.ontologyID(key), name));
     return data;

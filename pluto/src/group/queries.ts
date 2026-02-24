@@ -63,7 +63,7 @@ export const { useUpdate: useCreate } = Flux.createUpdate<CreateParams, FluxSubS
   verbs: Flux.CREATE_VERBS,
   update: async ({ data, client, store }) => {
     const { parent } = data;
-    const res = await client.ontology.groups.create(data);
+    const res = await client.groups.create(data);
     store.groups.set(res.key, res);
     return { ...res, parent };
   },
@@ -146,7 +146,7 @@ export const { useUpdate: useDelete } = Flux.createUpdate<DeleteParams, FluxSubS
   name: RESOURCE_NAME,
   verbs: Flux.DELETE_VERBS,
   update: async ({ client, data, store }) => {
-    await client.ontology.groups.delete(data.key);
+    await client.groups.delete(data.key);
     store.groups.delete(data.key);
     return data;
   },
@@ -161,7 +161,7 @@ export const { useUpdate: useRename } = Flux.createUpdate<RenameParams, FluxSubS
     const { key, name } = data;
     rollbacks.push(Flux.partialUpdate(store.groups, key, { name }));
     rollbacks.push(Ontology.renameFluxResource(store, group.ontologyID(key), name));
-    await client.ontology.groups.rename(key, name);
+    await client.groups.rename(key, name);
     return data;
   },
 });

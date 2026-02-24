@@ -11,7 +11,7 @@ import { channel, NotFoundError, type Synnax } from "@synnaxlabs/client";
 import { primitive } from "@synnaxlabs/x";
 
 import { Common } from "@/hardware/common";
-import { type Device } from "@/hardware/ethercat/device";
+import { Device } from "@/hardware/ethercat/device";
 import {
   channelMapKey,
   getChannelByMapKey,
@@ -34,11 +34,10 @@ export const retrieveAndValidateSlaves = async <C extends Channel>(
   const slaveKeys = [...new Set(channels.map((ch) => ch.device))];
   if (slaveKeys.length === 0) throw new Error("No channels configured");
 
-  const slaves = await client.devices.retrieve<
-    Device.SlaveProperties,
-    Device.Make,
-    Device.SlaveModel
-  >({ keys: slaveKeys });
+  const slaves = await client.devices.retrieve({
+    keys: slaveKeys,
+    schemas: Device.SLAVE_SCHEMAS,
+  });
 
   for (const slave of slaves) Common.Device.checkConfigured(slave);
 

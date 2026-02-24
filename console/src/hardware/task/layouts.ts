@@ -11,20 +11,20 @@ import { DisconnectedError, type Synnax, type task } from "@synnaxlabs/client";
 
 import { type Common } from "@/hardware/common";
 import { EtherCAT } from "@/hardware/ethercat";
+import { HTTP } from "@/hardware/http";
 import { LabJack } from "@/hardware/labjack";
 import { Modbus } from "@/hardware/modbus";
 import { NI } from "@/hardware/ni";
 import { OPC } from "@/hardware/opc";
-import { Sequence } from "@/hardware/task/sequence";
 import { type Layout } from "@/layout";
 
 const ZERO_LAYOUTS: Record<string, Common.Task.Layout> = {
   ...EtherCAT.Task.ZERO_LAYOUTS,
+  ...HTTP.Task.ZERO_LAYOUTS,
   ...LabJack.Task.ZERO_LAYOUTS,
   ...Modbus.Task.ZERO_LAYOUTS,
   ...NI.Task.ZERO_LAYOUTS,
   ...OPC.Task.ZERO_LAYOUTS,
-  ...Sequence.ZERO_LAYOUTS,
 };
 
 export const createLayout = ({ key, name, type }: task.Task): Layout.BaseState => {

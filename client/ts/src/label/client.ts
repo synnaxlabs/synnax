@@ -19,7 +19,7 @@ export const SET_CHANNEL_NAME = "sy_label_set";
 export const DELETE_CHANNEL_NAME = "sy_label_delete";
 
 export const newZ = labelZ.extend({ key: keyZ.optional() });
-export interface New extends z.infer<typeof newZ> {}
+export interface New extends z.input<typeof newZ> {}
 
 const createReqZ = z.object({ labels: newZ.array() });
 const createResZ = z.object({ labels: labelZ.array() });

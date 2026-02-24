@@ -420,13 +420,12 @@ class ReadTaskCase(TaskCase):
                 frame = streamer.read(timeout=30)
                 if frame is None:
                     raise AssertionError(
-                        "Task is not streaming data — cannot test " "channel deletion"
+                        "Task is not streaming data — cannot test channel deletion"
                     )
             try:
                 self.client.channels.delete(ch.key)
                 raise AssertionError(
-                    f"Channel '{ch.name}' deletion should have been "
-                    f"rejected while task is running"
+                    f"Channel '{ch.name}' deletion should have been rejected while task is running"
                 )
             except AssertionError:
                 raise

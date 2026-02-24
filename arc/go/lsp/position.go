@@ -11,7 +11,6 @@ package lsp
 
 import (
 	"github.com/antlr4-go/antlr/v4"
-	"github.com/synnaxlabs/arc/formatter"
 	"github.com/synnaxlabs/arc/symbol"
 	"go.lsp.dev/protocol"
 )
@@ -23,18 +22,6 @@ type position struct {
 
 func fromProtocol(pos protocol.Position) position {
 	return position{Line: int(pos.Line) + 1, Col: int(pos.Character)}
-}
-
-func getLine(content string, line uint32) (string, bool) {
-	lines := formatter.SplitLines(content)
-	if int(line) >= len(lines) {
-		return "", false
-	}
-	return lines[line], true
-}
-
-func isWordChar(c byte) bool {
-	return (c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z') || (c >= '0' && c <= '9') || c == '_'
 }
 
 func findScopeAtInternalPosition(rootScope *symbol.Scope, pos position) *symbol.Scope {

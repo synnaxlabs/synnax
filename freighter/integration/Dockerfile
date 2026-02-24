@@ -1,6 +1,6 @@
 # syntax=docker/dockerfile:1
 
-FROM golang:1.25 AS builder
+FROM golang:1.26.0 AS builder
 WORKDIR /workspace
 
 # Copy go.work files first
@@ -15,6 +15,7 @@ COPY arc/go/go.mod arc/go/go.sum ./arc/go/
 COPY aspen/go.mod aspen/go.sum ./aspen/
 COPY cesium/go.mod cesium/go.sum ./cesium/
 COPY core/go.mod core/go.sum ./core/
+COPY oracle/go.mod oracle/go.sum ./oracle/
 
 # Download dependencies with cache mount
 RUN --mount=type=cache,target=/go/pkg/mod \
@@ -29,6 +30,7 @@ COPY arc ./arc
 COPY aspen ./aspen
 COPY cesium ./cesium
 COPY core ./core
+COPY oracle ./oracle
 
 # Build with cache mounts
 WORKDIR /workspace/freighter/integration

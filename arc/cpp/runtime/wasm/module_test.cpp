@@ -33,14 +33,14 @@ std::string random_name(const std::string &prefix) {
 /// @brief Compiles an Arc program via the Synnax client.
 arc::module::Module
 compile_arc(const synnax::Synnax &client, const std::string &source) {
-    auto arc = synnax::arc::Arc(random_name("test_arc"));
-    arc.text.raw = source;
+    synnax::arc::Arc arc{
+        .name = random_name("test_arc"),
+        .text = ::arc::text::Text(source)
+    };
     if (const auto create_err = client.arcs.create(arc))
         throw std::runtime_error("Failed to create arc: " + create_err.message());
 
-    synnax::arc::RetrieveOptions opts;
-    opts.compile = true;
-    auto [compiled, err] = client.arcs.retrieve_by_key(arc.key, opts);
+    auto [compiled, err] = client.arcs.retrieve_by_key(arc.key, {.compile = true});
     if (err) throw std::runtime_error("Failed to compile arc: " + err.message());
     return compiled.module;
 }

@@ -21,7 +21,6 @@ import (
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/alamos"
 	"github.com/synnaxlabs/synnax/pkg/driver"
-	"github.com/synnaxlabs/x/config"
 	. "github.com/synnaxlabs/x/testutil"
 	"go.uber.org/zap"
 	"go.uber.org/zap/zapcore"
@@ -44,7 +43,7 @@ func openMockDriver(logger *alamos.Logger, overrides ...driver.Config) *driver.D
 	base := driver.Config{
 		Instrumentation: alamos.New("test", alamos.WithLogger(logger)),
 		BinaryPath:      mockBinaryPath,
-		Insecure:        config.True(),
+		Insecure:        new(true),
 		Address:         "localhost:9090",
 		ParentDirname:   GinkgoT().TempDir(),
 	}
@@ -69,7 +68,7 @@ var _ = Describe("Open", func() {
 			d, err := driver.Open(context.Background(), driver.Config{
 				Instrumentation: alamos.New("test", alamos.WithLogger(logger)),
 				BinaryPath:      mockBinaryPath,
-				Insecure:        config.True(),
+				Insecure:        new(true),
 				Address:         "localhost:9090",
 				ParentDirname:   GinkgoT().TempDir(),
 				StartTimeout:    100 * time.Millisecond,
@@ -91,7 +90,7 @@ var _ = Describe("Open", func() {
 			d, err := driver.Open(context.Background(), driver.Config{
 				Instrumentation: alamos.New("test", alamos.WithLogger(logger)),
 				BinaryPath:      mockBinaryPath,
-				Insecure:        config.True(),
+				Insecure:        new(true),
 				Address:         "localhost:9090",
 				ParentDirname:   GinkgoT().TempDir(),
 				StartTimeout:    500 * time.Millisecond,
@@ -111,8 +110,8 @@ var _ = Describe("Open", func() {
 			logger, _ := newTestLogger()
 			d := MustSucceed(driver.Open(context.Background(), driver.Config{
 				Instrumentation: alamos.New("test", alamos.WithLogger(logger)),
-				Enabled:         config.False(),
-				Insecure:        config.True(),
+				Enabled:         new(false),
+				Insecure:        new(true),
 			}))
 			Expect(d).ToNot(BeNil())
 			Expect(d.Close()).To(Succeed())
@@ -122,7 +121,7 @@ var _ = Describe("Open", func() {
 	Describe("behavior", func() {
 		It("Should pass --debug flag when enabled", func() {
 			logger, buffer := newTestLogger()
-			d := openMockDriver(logger, driver.Config{Debug: config.True()})
+			d := openMockDriver(logger, driver.Config{Debug: new(true)})
 			Expect(buffer.String()).To(ContainSubstring("debug mode enabled"))
 			Expect(d.Close()).To(Succeed())
 		})
@@ -157,8 +156,8 @@ var _ = Describe("Close", func() {
 			logger, _ := newTestLogger()
 			d := MustSucceed(driver.Open(context.Background(), driver.Config{
 				Instrumentation: alamos.New("test", alamos.WithLogger(logger)),
-				Enabled:         config.False(),
-				Insecure:        config.True(),
+				Enabled:         new(false),
+				Insecure:        new(true),
 			}))
 			Expect(d.Close()).To(Succeed())
 			Expect(d.Close()).To(Succeed())

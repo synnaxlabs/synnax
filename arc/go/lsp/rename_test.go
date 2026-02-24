@@ -18,6 +18,7 @@ import (
 	. "github.com/synnaxlabs/arc/lsp/testutil"
 	"github.com/synnaxlabs/arc/symbol"
 	"github.com/synnaxlabs/arc/types"
+	. "github.com/synnaxlabs/x/lsp/testutil"
 	. "github.com/synnaxlabs/x/testutil"
 	"go.lsp.dev/protocol"
 )
@@ -42,7 +43,7 @@ var _ = Describe("Rename", func() {
     x i32 := 42
     y := x + 10
 }`
-			OpenDocument(server, ctx, uri, content)
+			OpenArcDocument(server, ctx, uri, content)
 
 			result := MustSucceed(server.PrepareRename(ctx, &protocol.PrepareRenameParams{
 				TextDocumentPositionParams: protocol.TextDocumentPositionParams{
@@ -59,7 +60,7 @@ var _ = Describe("Rename", func() {
 			content := `func test() {
     return 42
 }`
-			OpenDocument(server, ctx, uri, content)
+			OpenArcDocument(server, ctx, uri, content)
 
 			result := MustSucceed(server.PrepareRename(ctx, &protocol.PrepareRenameParams{
 				TextDocumentPositionParams: protocol.TextDocumentPositionParams{
@@ -83,7 +84,7 @@ var _ = Describe("Rename", func() {
 			server.SetClient(&MockClient{})
 
 			content := "func test() i32 {\n    return myGlobal\n}"
-			OpenDocument(server, ctx, uri, content)
+			OpenArcDocument(server, ctx, uri, content)
 
 			result := MustSucceed(server.PrepareRename(ctx, &protocol.PrepareRenameParams{
 				TextDocumentPositionParams: protocol.TextDocumentPositionParams{
@@ -112,7 +113,7 @@ var _ = Describe("Rename", func() {
     y := x + 10
     z := x * 2
 }`
-			OpenDocument(server, ctx, uri, content)
+			OpenArcDocument(server, ctx, uri, content)
 
 			result := MustSucceed(server.Rename(ctx, &protocol.RenameParams{
 				TextDocumentPositionParams: protocol.TextDocumentPositionParams{
@@ -134,7 +135,7 @@ var _ = Describe("Rename", func() {
 			content := `func multiply(x f64, y f64) f64 {
     return x * y
 }`
-			OpenDocument(server, ctx, uri, content)
+			OpenArcDocument(server, ctx, uri, content)
 
 			// Click on 'x' in return statement
 			result := MustSucceed(server.Rename(ctx, &protocol.RenameParams{
@@ -163,7 +164,7 @@ func second() {
     x := 20
     z := x + 2
 }`
-			OpenDocument(server, ctx, uri, content)
+			OpenArcDocument(server, ctx, uri, content)
 
 			// Rename x in first function
 			result := MustSucceed(server.Rename(ctx, &protocol.RenameParams{
@@ -192,7 +193,7 @@ func second() {
     count = count + 1
     return count
 }`
-			OpenDocument(server, ctx, uri, content)
+			OpenArcDocument(server, ctx, uri, content)
 
 			result := MustSucceed(server.Rename(ctx, &protocol.RenameParams{
 				TextDocumentPositionParams: protocol.TextDocumentPositionParams{
@@ -219,7 +220,7 @@ func second() {
 func main() {
     result := add(1, 2)
 }`
-			OpenDocument(server, ctx, uri, content)
+			OpenArcDocument(server, ctx, uri, content)
 
 			result := MustSucceed(server.Rename(ctx, &protocol.RenameParams{
 				TextDocumentPositionParams: protocol.TextDocumentPositionParams{
@@ -250,7 +251,7 @@ func main() {
 			server.SetClient(&MockClient{})
 
 			content := "func test() i32 {\n    return myGlobal\n}"
-			OpenDocument(server, ctx, uri, content)
+			OpenArcDocument(server, ctx, uri, content)
 
 			result := MustSucceed(server.Rename(ctx, &protocol.RenameParams{
 				TextDocumentPositionParams: protocol.TextDocumentPositionParams{
@@ -277,7 +278,7 @@ func main() {
 			content := `func test() {
 
 }`
-			OpenDocument(server, ctx, uri, content)
+			OpenArcDocument(server, ctx, uri, content)
 
 			result := MustSucceed(server.Rename(ctx, &protocol.RenameParams{
 				TextDocumentPositionParams: protocol.TextDocumentPositionParams{

@@ -7,13 +7,15 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type channel, type device } from "@synnaxlabs/client";
+import { channel, type device } from "@synnaxlabs/client";
 import { bounds, type record } from "@synnaxlabs/x";
+import { z } from "zod";
 
-import { type Common } from "@/hardware/common";
+import { Common } from "@/hardware/common";
 
 export const MAKE = "LabJack";
 export type Make = typeof MAKE;
+export const makeZ = z.literal(MAKE);
 
 export const T4_MODEL = "LJM_dtT4";
 export type T4Model = typeof T4_MODEL;
@@ -25,6 +27,7 @@ export const T8_MODEL = "LJM_dtT8";
 export type T8Model = typeof T8_MODEL;
 
 export type Model = T4Model | T7Model | T8Model;
+export const modelZ = z.enum([T4_MODEL, T7_MODEL, T8_MODEL]);
 
 export interface BasePort extends record.KeyedNamed<string> {
   alias?: string;
@@ -148,7 +151,10 @@ const T4_PORTS: PortsInfo = {
   [DO_PORT_TYPE]: T4_DO_PORTS,
 };
 
-const T7_AI_PORTS: AIPort[] = aiFactory({ lower: 0, upper: 13 });
+const T7_AI_PORTS: AIPort[] = [
+  ...aiFactory({ lower: 0, upper: 13 }),
+  ...aiFactory({ lower: 48, upper: 127 }), //Channels for use with LabJack MUX80
+];
 const T7_AO_PORTS: AOPort[] = aoFactory({ lower: 0, upper: 1 });
 const T7_DI_PORTS: DIPort[] = [
   ...diFactory({ lower: 0, upper: 7 }, { prefix: "FIO", offset: 0 }),
@@ -195,16 +201,21 @@ export const PORTS: Ports = {
   [T8_MODEL]: T8_PORTS,
 };
 
-export type Properties = {
-  identifier: Common.Device.Identifier;
-  readIndex: channel.Key;
-  thermocoupleIndex: channel.Key;
-  writeStateIndex: channel.Key;
-  [AI_PORT_TYPE]: { channels: Record<string, channel.Key> };
-  [AO_PORT_TYPE]: { channels: Record<string, Common.Device.CommandStatePair> };
-  [DI_PORT_TYPE]: { channels: Record<string, channel.Key> };
-  [DO_PORT_TYPE]: { channels: Record<string, Common.Device.CommandStatePair> };
-};
+export const propertiesZ = z.object({
+  identifier: Common.Device.identifierZ,
+  readIndex: channel.keyZ,
+  thermocoupleIndex: channel.keyZ,
+  writeStateIndex: channel.keyZ,
+  [AI_PORT_TYPE]: z.object({ channels: z.record(z.string(), channel.keyZ) }),
+  [AO_PORT_TYPE]: z.object({
+    channels: z.record(z.string(), Common.Device.commandStatePairZ),
+  }),
+  [DI_PORT_TYPE]: z.object({ channels: z.record(z.string(), channel.keyZ) }),
+  [DO_PORT_TYPE]: z.object({
+    channels: z.record(z.string(), Common.Device.commandStatePairZ),
+  }),
+});
+export type Properties = z.infer<typeof propertiesZ>;
 
 export const ZERO_PROPERTIES: Properties = {
   identifier: "",
@@ -217,5 +228,23 @@ export const ZERO_PROPERTIES: Properties = {
   [DO_PORT_TYPE]: { channels: {} },
 };
 
-export interface Device extends device.Device<Properties, Make, Model> {}
-export interface New extends device.New<Properties, Make, Model> {}
+export interface Device extends device.Device<
+  typeof propertiesZ,
+  typeof makeZ,
+  typeof modelZ
+> {}
+export interface New extends device.New<
+  typeof propertiesZ,
+  typeof makeZ,
+  typeof modelZ
+> {}
+
+export const SCHEMAS = {
+  properties: propertiesZ,
+  make: makeZ,
+  model: modelZ,
+} as const satisfies device.DeviceSchemas<
+  typeof propertiesZ,
+  typeof makeZ,
+  typeof modelZ
+>;

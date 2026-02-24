@@ -13,17 +13,17 @@ from synnax import Synnax
 from synnax.cli.flow import Context
 from synnax.config import load_options
 from synnax.exceptions import AuthError
-from synnax.options import SynnaxOptions
+from synnax.options import Options
 
 
-def prompt_client_options(ctx: Context) -> SynnaxOptions:
+def prompt_client_options(ctx: Context) -> Options:
     """Prompts the user for the parameters to connect to a Synnax server.
 
     :param ctx: The context of the current flow.
     :return: The options to connect to a Synnax server.
     """
     ctx.console.info("Enter your Synnax connection parameters:")
-    return SynnaxOptions(
+    return Options(
         host=ctx.console.ask("Host", default="localhost"),
         port=ctx.console.ask("Port", default=9090),
         username=ctx.console.ask("Username", default="synnax"),
@@ -47,7 +47,7 @@ def connect_client(ctx: Context) -> Synnax | None:
     return connect_from_options(ctx, opts)
 
 
-def connect_from_options(ctx: Context, opts: SynnaxOptions) -> Synnax | None:
+def connect_from_options(ctx: Context, opts: Options) -> Synnax | None:
     """Connects to a Synnax server. Prints user-friendly messages to the console if
     the connection fails.
 
@@ -58,13 +58,12 @@ def connect_from_options(ctx: Context, opts: SynnaxOptions) -> Synnax | None:
     try:
         client = Synnax(**opts.model_dump())
     except Unreachable:
-        return ctx.console.error(
-            f"Cannot reach Synnax server at {opts.host}:{opts.port}"
-        )
+        ctx.console.error(f"Cannot reach Synnax server at {opts.host}:{opts.port}")
+        return None
     except AuthError:
-        return ctx.console.error("Invalid credentials")
+        ctx.console.error("Invalid credentials")
+        return None
     except Exception as e:
         raise e
-        # return ctx.console.error(f"An error occurred: {e}")
     ctx.console.success("Connection successful!")
     return client

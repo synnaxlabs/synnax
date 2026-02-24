@@ -59,7 +59,8 @@ export class Indicator extends aether.Leaf<typeof indicatorStateZ, InternalState
     const status = this.internal.statusSource.value();
     if (
       color.equals(colorVal, this.state.color) &&
-      status.message === this.state.status.message
+      status.message === this.state.status.message &&
+      color.equals(status.details?.color, this.state.status.details?.color)
     )
       return;
     this.setState((p) => ({ ...p, color: colorVal, status }));

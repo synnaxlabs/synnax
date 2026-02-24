@@ -51,14 +51,16 @@ Acquisition::Acquisition(
     synnax::framer::WriterConfig writer_config,
     std::shared_ptr<Source> source,
     const x::breaker::Config &breaker_config,
-    std::string thread_name
+    std::string thread_name,
+    bool err_on_unauthorized
 ):
     Acquisition(
         std::make_shared<SynnaxWriterFactory>(std::move(client)),
         std::move(writer_config),
         std::move(source),
         breaker_config,
-        std::move(thread_name)
+        std::move(thread_name),
+        err_on_unauthorized
     ) {}
 
 Acquisition::Acquisition(
@@ -66,12 +68,14 @@ Acquisition::Acquisition(
     synnax::framer::WriterConfig writer_config,
     std::shared_ptr<Source> source,
     const x::breaker::Config &breaker_config,
-    std::string thread_name
+    std::string thread_name,
+    bool err_on_unauthorized
 ):
     Base(breaker_config, std::move(thread_name)),
     factory(std::move(factory)),
     source(std::move(source)),
-    writer_config(std::move(writer_config)) {}
+    writer_config(std::move(writer_config)),
+    err_on_unauthorized(err_on_unauthorized) {}
 
 /// @brief attempts to resolve the start timestamp for the writer from a series in
 /// the frame with a timestamp data type. If that can't be found, resolveStart falls
@@ -92,8 +96,8 @@ x::telem::TimeStamp resolve_start(const x::telem::Frame &frame) {
 void Acquisition::run() {
     std::unique_ptr<Writer> writer;
     bool writer_opened = false;
-    std::optional<x::telem::Authority> pending_global_auth;
-    std::map<synnax::channel::Key, x::telem::Authority> pending_channel_auths;
+    std::optional<x::control::Authority> pending_global_auth;
+    std::map<synnax::channel::Key, x::control::Authority> pending_channel_auths;
     x::errors::Error writer_err;
     x::errors::Error source_err;
     x::telem::Frame fr(0);
@@ -123,10 +127,7 @@ void Acquisition::run() {
         // between the source we're recording data from and the system clock.
         if (!fr.empty() && !writer_opened) {
             this->writer_config.start = resolve_start(fr);
-            // There are no scenarios where an acquisition task would want control
-            // handoff between different levels of authorization, so we just reject
-            // unauthorized writes.
-            this->writer_config.err_on_unauthorized = true;
+            this->writer_config.err_on_unauthorized = this->err_on_unauthorized;
             auto [writer_i, writer_err_i] = factory->open_writer(writer_config);
             writer_err = writer_err_i;
             if (writer_err) {

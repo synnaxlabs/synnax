@@ -17,6 +17,7 @@ cc_library(
         "//x/cpp/breaker",
         "//x/cpp/json",
         "//x/cpp/telem",
+        "//x/cpp/uuid",
     ],
 )
 

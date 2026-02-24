@@ -35,18 +35,16 @@ import {
   DigitalWriteSelectable,
 } from "@/hardware/ni/task/DigitalWrite";
 import {
-  ingestAnalogRead,
-  ingestAnalogWrite,
-  ingestCounterRead,
-  ingestDigitalRead,
-  ingestDigitalWrite,
-} from "@/hardware/ni/task/import";
-import {
   ANALOG_READ_TYPE,
   ANALOG_WRITE_TYPE,
+  analogReadConfigZ,
+  analogWriteConfigZ,
   COUNTER_READ_TYPE,
+  counterReadConfigZ,
   DIGITAL_READ_TYPE,
   DIGITAL_WRITE_TYPE,
+  digitalReadConfigZ,
+  digitalWriteConfigZ,
 } from "@/hardware/ni/task/types";
 import { type Import } from "@/import";
 import { type Layout } from "@/layout";
@@ -69,11 +67,23 @@ export const EXTRACTORS: Export.Extractors = {
 };
 
 export const FILE_INGESTERS: Import.FileIngesters = {
-  [ANALOG_READ_TYPE]: ingestAnalogRead,
-  [ANALOG_WRITE_TYPE]: ingestAnalogWrite,
-  [COUNTER_READ_TYPE]: ingestCounterRead,
-  [DIGITAL_READ_TYPE]: ingestDigitalRead,
-  [DIGITAL_WRITE_TYPE]: ingestDigitalWrite,
+  [ANALOG_READ_TYPE]: Common.Task.createIngester(analogReadConfigZ, ANALOG_READ_LAYOUT),
+  [ANALOG_WRITE_TYPE]: Common.Task.createIngester(
+    analogWriteConfigZ,
+    ANALOG_WRITE_LAYOUT,
+  ),
+  [COUNTER_READ_TYPE]: Common.Task.createIngester(
+    counterReadConfigZ,
+    COUNTER_READ_LAYOUT,
+  ),
+  [DIGITAL_READ_TYPE]: Common.Task.createIngester(
+    digitalReadConfigZ,
+    DIGITAL_READ_LAYOUT,
+  ),
+  [DIGITAL_WRITE_TYPE]: Common.Task.createIngester(
+    digitalWriteConfigZ,
+    DIGITAL_WRITE_LAYOUT,
+  ),
 };
 
 export const LAYOUTS: Record<string, Layout.Renderer> = {

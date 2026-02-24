@@ -18,10 +18,9 @@
 #include <winsock2.h>
 #endif
 
-#include "nlohmann/json.hpp"
-
 #include "x/cpp/args/args.h"
 #include "x/cpp/log/log.h"
+#include "x/cpp/uuid/uuid.h"
 
 #include "driver/labjack/labjack.h"
 #ifndef SYNNAX_NILINUXRT
@@ -29,27 +28,32 @@
 #endif
 #include "driver/common/sample_clock.h"
 #include "driver/ethercat/ethercat.h"
+#include "driver/http/http.h"
 #include "driver/ni/ni.h"
 #include "driver/opc/opc.h"
-#include "driver/rack/status/status.h"
-#include "driver/sequence/sequence.h"
 #include "driver/task/task.h"
 
 namespace driver::rack {
 struct RemoteInfo {
     synnax::rack::Key rack_key = 0;
-    std::string cluster_key;
+    x::uuid::UUID cluster_key;
 
     template<typename Parser>
     void override(Parser &p) {
         this->rack_key = p.field("rack_key", this->rack_key);
-        this->cluster_key = p.field("cluster_key", this->cluster_key);
+        auto [ck, ck_err] = x::uuid::UUID::parse(
+            p.field("cluster_key", this->cluster_key.to_string())
+        );
+        if (ck_err)
+            p.field_err("cluster_key", ck_err);
+        else
+            this->cluster_key = ck;
     }
 
     [[nodiscard]] x::json::json to_json() const {
         return {
             {"rack_key", this->rack_key},
-            {"cluster_key", this->cluster_key},
+            {"cluster_key", this->cluster_key.to_string()},
         };
     }
 };
@@ -58,10 +62,10 @@ inline std::vector<std::string> default_integrations() {
     std::vector<std::string> integrations = {
         opc::INTEGRATION_NAME,
         ni::INTEGRATION_NAME,
-        sequence::INTEGRATION_NAME,
         labjack::INTEGRATION_NAME,
         arc::INTEGRATION_NAME,
-        ethercat::INTEGRATION_NAME
+        ethercat::INTEGRATION_NAME,
+        http::INTEGRATION_NAME
     };
 #ifndef SYNNAX_NILINUXRT
     integrations.push_back(modbus::INTEGRATION_NAME);

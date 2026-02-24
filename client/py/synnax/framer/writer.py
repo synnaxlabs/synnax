@@ -7,27 +7,25 @@
 #  License, use of this software will be governed by the Apache License, Version 2.0,
 #  included in the file licenses/APL.txt.
 
+from __future__ import annotations
+
 from enum import Enum
-from typing import Literal, TypeAlias, overload
+from typing import Literal, TypeAlias, cast, overload
 from uuid import uuid4
 
 from freighter import (
     EOF,
     ExceptionPayload,
-    Payload,
     Stream,
     WebsocketClient,
     decode_exception,
 )
+from freighter.transport import P
 from freighter.websocket import Message
+from pydantic import BaseModel
 
-from synnax.channel.payload import (
-    ChannelKey,
-    ChannelKeys,
-    ChannelName,
-    ChannelNames,
-    ChannelPayload,
-)
+import synnax.channel.payload as channel
+from synnax.exceptions import UnexpectedError
 from synnax.framer.adapter import WriteFrameAdapter
 from synnax.framer.codec import (
     HIGH_PERF_SPECIAL_CHAR,
@@ -62,46 +60,51 @@ CrudeWriterMode: TypeAlias = (
 )
 
 
-class WriterConfig(Payload):
-    authorities: list[int] = Authority.ABSOLUTE
+class WriterConfig(BaseModel):
+    authorities: list[int] = [Authority.ABSOLUTE]
     control_subject: Subject = Subject(name="", key=str(uuid4()))
     start: TimeStamp | None = None
-    keys: ChannelKeys
+    keys: list[channel.Key]
     mode: WriterMode = WriterMode.PERSIST_STREAM
     err_on_unauthorized: bool = False
     enable_auto_commit: bool = True
     auto_index_persist_interval: TimeSpan = 1 * TimeSpan.SECOND
 
 
-class WriterRequest(Payload):
+class WriterRequest(BaseModel):
     config: WriterConfig | None = None
     command: WriterCommand
     frame: FramePayload | None = None
 
 
-class WriterResponse(Payload):
+class WriterResponse(BaseModel):
     command: WriterCommand
     end: TimeStamp | None
     err: ExceptionPayload
 
 
 class WSWriterCodec(WSFramerCodec):
-    def encode(self, pld: Message[WriterRequest]) -> bytes:
-        if pld.type == "close" or pld.payload.command != WriterCommand.WRITE:
-            data = self.lower_perf_codec.encode(pld)
-            return bytes([LOW_PERF_SPECIAL_CHAR]) + data
-        data = self.codec.encode(pld.payload.frame, 1)
-        data = bytearray(data)
-        data[0] = HIGH_PERF_SPECIAL_CHAR
-        return bytes(data)
+    def encode(self, data: BaseModel) -> bytes:
+        if not isinstance(data, Message):
+            raise TypeError(f"expected Message, got {type(data)}")
+        if (
+            data.type == "close"
+            or data.payload is None
+            or data.payload.command != WriterCommand.WRITE
+        ):
+            return bytes([LOW_PERF_SPECIAL_CHAR]) + self.lower_perf_codec.encode(data)
+        encoded = self.codec.encode(data.payload.frame, 1)
+        buf = bytearray(encoded)
+        buf[0] = HIGH_PERF_SPECIAL_CHAR
+        return bytes(buf)
 
-    def decode(self, data: bytes, pld_t: Message[WriterResponse]) -> object:
+    def decode(self, data: bytes, pld_t: type[P]) -> P:
         if data[0] == LOW_PERF_SPECIAL_CHAR:
             return self.lower_perf_codec.decode(data[1:], pld_t)
         frame = self.codec.decode(data, 1)
-        msg = Message[WriterRequest](type="data")
-        msg.payload = Payload(command=WriterCommand.WRITE, frame=frame)
-        return msg
+        msg: Message[WriterRequest] = Message(type="data")
+        msg.payload = WriterRequest(command=WriterCommand.WRITE, frame=frame)
+        return cast(P, msg)
 
 
 def parse_writer_mode(mode: CrudeWriterMode) -> WriterMode:
@@ -124,7 +127,7 @@ def parse_writer_mode(mode: CrudeWriterMode) -> WriterMode:
 ALWAYS_INDEX_PERSIST_ON_AUTO_COMMIT: TimeSpan = TimeSpan(-1)
 
 
-class WriterClosed(BaseException): ...
+class WriterClosed(Exception): ...
 
 
 class Writer:
@@ -181,7 +184,7 @@ class Writer:
         client: WebsocketClient,
         adapter: WriteFrameAdapter,
         name: str = "",
-        authorities: list[Authority] | Authority = Authority.ABSOLUTE,
+        authorities: CrudeAuthority | list[CrudeAuthority] = Authority.ABSOLUTE,
         mode: CrudeWriterMode = WriterMode.PERSIST_STREAM,
         err_on_unauthorized: bool = False,
         enable_auto_commit: bool = True,
@@ -214,24 +217,34 @@ class Writer:
 
     @overload
     def write(
-        self, channels_or_data: ChannelKey | ChannelName, series: CrudeSeries
-    ): ...
+        self, channels_or_data: channel.Key | str, series: CrudeSeries
+    ) -> None: ...
 
     @overload
     def write(
-        self, channels_or_data: ChannelKeys | ChannelNames, series: list[CrudeSeries]
-    ): ...
+        self,
+        channels_or_data: (
+            list[channel.Key] | tuple[channel.Key] | list[str] | tuple[str]
+        ),
+        series: list[CrudeSeries],
+    ) -> None: ...
 
     @overload
     def write(
         self,
         channels_or_data: CrudeFrame,
-    ): ...
+    ) -> None: ...
 
     def write(
         self,
         channels_or_data: (
-            ChannelName | ChannelKey | ChannelKeys | ChannelNames | CrudeFrame
+            str
+            | channel.Key
+            | list[channel.Key]
+            | tuple[channel.Key]
+            | list[str]
+            | tuple[str]
+            | CrudeFrame
         ),
         series: CrudeSeries | list[CrudeSeries] | None = None,
     ) -> None:
@@ -295,7 +308,7 @@ class Writer:
     @overload
     def set_authority(
         self,
-        value: ChannelKey | ChannelName,
+        value: channel.Key | str,
         authority: CrudeAuthority,
     ) -> None:
         """Sets the authority level for a single channel.
@@ -308,7 +321,7 @@ class Writer:
     @overload
     def set_authority(
         self,
-        value: dict[ChannelKey | ChannelName | ChannelPayload, CrudeAuthority],
+        value: dict[channel.Key | str | channel.Payload, CrudeAuthority],
     ) -> None:
         """Sets the authority level for multiple channels.
 
@@ -319,9 +332,9 @@ class Writer:
     def set_authority(
         self,
         value: (
-            dict[ChannelKey | ChannelName | ChannelPayload, CrudeAuthority]
-            | ChannelKey
-            | ChannelName
+            dict[channel.Key | str | channel.Payload, CrudeAuthority]
+            | channel.Key
+            | str
             | CrudeAuthority
         ),
         authority: CrudeAuthority | None = None,
@@ -364,16 +377,21 @@ class Writer:
         if isinstance(value, int) and authority is None:
             cfg = WriterConfig(keys=[], authorities=[value])
         else:
-            if isinstance(value, (ChannelKey, ChannelName)):
+            auth_map: dict[channel.Key | str | channel.Payload, CrudeAuthority]
+            if isinstance(value, (channel.Key, str)):
                 if authority is None:
                     raise ValueError(
                         "authority must be provided when setting a single channel"
                     )
-                value = {value: authority}
-            value = self._adapter.adapt_dict_keys(value)
+                auth_map = {value: authority}
+            elif isinstance(value, dict):
+                auth_map = value
+            else:
+                raise ValueError(f"unexpected authority value type: {type(value)}")
+            resolved = self._adapter.adapt_dict_keys(auth_map)
             cfg = WriterConfig(
-                keys=list(value.keys()),
-                authorities=list(value.values()),
+                keys=list(resolved.keys()),
+                authorities=list(resolved.values()),
             )
         self._exec(WriterRequest(command=WriterCommand.SET_AUTHORITY, config=cfg))
 
@@ -389,9 +407,13 @@ class Writer:
         if self._close_exc is not None:
             raise self._close_exc
         res = self._exec(WriterRequest(command=WriterCommand.COMMIT))
+        if res is None:
+            raise UnexpectedError("commit did not receive a response")
+        if res.end is None:
+            raise UnexpectedError("commit response missing end timestamp")
         return res.end
 
-    def close(self):
+    def close(self) -> None:
         """Closes the writer, raising any accumulated error encountered during
         operation. A writer MUST be closed after use, and this method should probably
         be placed in a 'finally' block.
@@ -410,30 +432,37 @@ class Writer:
                 if isinstance(self._close_exc, WriterClosed):
                     return
                 raise self._close_exc
-            res, exc = self._stream.receive()
-            if exc is not None:
-                self._close_exc = WriterClosed() if isinstance(exc, EOF) else exc
-            else:
+            res, recv_exc = self._stream.receive()
+            if recv_exc is not None:
+                self._close_exc = (
+                    WriterClosed() if isinstance(recv_exc, EOF) else recv_exc
+                )
+            elif res is not None:
                 self._close_exc = decode_exception(res.err)
 
     def _exec(
         self, req: WriterRequest, timeout: int | None = None
     ) -> WriterResponse | None:
-        exc = self._stream.send(req)
-        if exc is not None:
-            return self._close(exc)
+        send_exc = self._stream.send(req)
+        if send_exc is not None:
+            self._close(send_exc)
+            return None
         while True:
-            res, exc = self._stream.receive(timeout)
-            if exc is not None:
-                return self._close(exc)
-            exc = decode_exception(res.err)
-            if exc is not None:
-                return self._close(exc)
+            res, recv_exc = self._stream.receive(timeout)
+            if recv_exc is not None:
+                self._close(recv_exc)
+                return None
+            if res is None:
+                continue
+            decoded_exc = decode_exception(res.err)
+            if decoded_exc is not None:
+                self._close(decoded_exc)
+                return None
             if res.command == req.command:
                 return res
 
-    def __enter__(self):
+    def __enter__(self) -> Writer:
         return self
 
-    def __exit__(self, exc_type, exc_value, traceback):
+    def __exit__(self, exc_type: object, exc_value: object, traceback: object) -> None:
         self.close()

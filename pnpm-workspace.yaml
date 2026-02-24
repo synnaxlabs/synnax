@@ -37,6 +37,7 @@ catalog:
   react-icons: ^5.5.0
   react-redux: ^9.2.0
   stylelint: ^17.1.0
+  stylelint-config-standard: ^40.0.0
   typescript: ^5.9.3
   vite: ^7.3.1
   vitest: ^3.2.4

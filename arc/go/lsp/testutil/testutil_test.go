@@ -18,152 +18,10 @@ import (
 	. "github.com/synnaxlabs/arc/lsp/testutil"
 	"github.com/synnaxlabs/arc/symbol"
 	"github.com/synnaxlabs/arc/types"
+	. "github.com/synnaxlabs/x/lsp/testutil"
 	. "github.com/synnaxlabs/x/testutil"
 	"go.lsp.dev/protocol"
 )
-
-var _ = Describe("MockClient", func() {
-	Describe("Diagnostics", func() {
-		It("should return empty diagnostics initially", func() {
-			client := &MockClient{}
-			Expect(client.Diagnostics()).To(BeEmpty())
-		})
-
-		It("should capture diagnostics from PublishDiagnostics", func() {
-			client := &MockClient{}
-			ctx := context.Background()
-			diags := []protocol.Diagnostic{
-				{Message: "undefined symbol: x", Severity: protocol.DiagnosticSeverityError},
-				{Message: "unused variable: y", Severity: protocol.DiagnosticSeverityWarning},
-			}
-			Expect(client.PublishDiagnostics(ctx, &protocol.PublishDiagnosticsParams{
-				URI:         "file:///test.arc",
-				Diagnostics: diags,
-			})).To(Succeed())
-			Expect(client.Diagnostics()).To(HaveLen(2))
-			Expect(client.Diagnostics()[0].Message).To(Equal("undefined symbol: x"))
-			Expect(client.Diagnostics()[1].Message).To(Equal("unused variable: y"))
-		})
-
-		It("should replace diagnostics on subsequent PublishDiagnostics calls", func() {
-			client := &MockClient{}
-			ctx := context.Background()
-			Expect(client.PublishDiagnostics(ctx, &protocol.PublishDiagnosticsParams{
-				URI: "file:///test.arc",
-				Diagnostics: []protocol.Diagnostic{
-					{Message: "first error"},
-				},
-			})).To(Succeed())
-			Expect(client.Diagnostics()).To(HaveLen(1))
-			Expect(client.PublishDiagnostics(ctx, &protocol.PublishDiagnosticsParams{
-				URI: "file:///test.arc",
-				Diagnostics: []protocol.Diagnostic{
-					{Message: "second error"},
-					{Message: "third error"},
-				},
-			})).To(Succeed())
-			Expect(client.Diagnostics()).To(HaveLen(2))
-			Expect(client.Diagnostics()[0].Message).To(Equal("second error"))
-		})
-
-		It("should clear diagnostics when publishing empty slice", func() {
-			client := &MockClient{}
-			ctx := context.Background()
-			Expect(client.PublishDiagnostics(ctx, &protocol.PublishDiagnosticsParams{
-				URI:         "file:///test.arc",
-				Diagnostics: []protocol.Diagnostic{{Message: "error"}},
-			})).To(Succeed())
-			Expect(client.Diagnostics()).To(HaveLen(1))
-			Expect(client.PublishDiagnostics(ctx, &protocol.PublishDiagnosticsParams{
-				URI:         "file:///test.arc",
-				Diagnostics: []protocol.Diagnostic{},
-			})).To(Succeed())
-			Expect(client.Diagnostics()).To(BeEmpty())
-		})
-	})
-
-	Describe("Stubbed Methods", func() {
-		var (
-			client *MockClient
-			ctx    context.Context
-		)
-
-		BeforeEach(func() {
-			client = &MockClient{}
-			ctx = context.Background()
-		})
-
-		It("should return nil from ShowMessage", func() {
-			Expect(client.ShowMessage(ctx, &protocol.ShowMessageParams{
-				Type:    protocol.MessageTypeInfo,
-				Message: "test",
-			})).To(Succeed())
-		})
-
-		It("should return nil from ShowMessageRequest", func() {
-			result, err := client.ShowMessageRequest(ctx, &protocol.ShowMessageRequestParams{})
-			Expect(err).ToNot(HaveOccurred())
-			Expect(result).To(BeNil())
-		})
-
-		It("should return nil from LogMessage", func() {
-			Expect(client.LogMessage(ctx, &protocol.LogMessageParams{
-				Type:    protocol.MessageTypeLog,
-				Message: "log entry",
-			})).To(Succeed())
-		})
-
-		It("should return nil from Telemetry", func() {
-			Expect(client.Telemetry(ctx, map[string]string{"key": "value"})).To(Succeed())
-		})
-
-		It("should return nil from RegisterCapability", func() {
-			Expect(client.RegisterCapability(ctx, &protocol.RegistrationParams{})).To(Succeed())
-		})
-
-		It("should return nil from UnregisterCapability", func() {
-			Expect(client.UnregisterCapability(ctx, &protocol.UnregistrationParams{})).To(Succeed())
-		})
-
-		It("should return nil from WorkspaceFolders", func() {
-			folders, err := client.WorkspaceFolders(ctx)
-			Expect(err).ToNot(HaveOccurred())
-			Expect(folders).To(BeNil())
-		})
-
-		It("should return nil from Configuration", func() {
-			result, err := client.Configuration(ctx, &protocol.ConfigurationParams{})
-			Expect(err).ToNot(HaveOccurred())
-			Expect(result).To(BeNil())
-		})
-
-		It("should return false from ApplyEdit", func() {
-			applied, err := client.ApplyEdit(ctx, &protocol.ApplyWorkspaceEditParams{})
-			Expect(err).ToNot(HaveOccurred())
-			Expect(applied).To(BeFalse())
-		})
-
-		It("should return nil from Progress", func() {
-			Expect(client.Progress(ctx, &protocol.ProgressParams{})).To(Succeed())
-		})
-
-		It("should return nil from WorkDoneProgressCreate", func() {
-			Expect(client.WorkDoneProgressCreate(ctx, &protocol.WorkDoneProgressCreateParams{})).To(Succeed())
-		})
-
-		It("should return nil from ShowDocument", func() {
-			result, err := client.ShowDocument(ctx, &protocol.ShowDocumentParams{URI: "file:///test"})
-			Expect(err).ToNot(HaveOccurred())
-			Expect(result).To(BeNil())
-		})
-
-		It("should return nil from Request", func() {
-			result, err := client.Request(ctx, "custom/method", nil)
-			Expect(err).ToNot(HaveOccurred())
-			Expect(result).To(BeNil())
-		})
-	})
-})
 
 var _ = Describe("SetupTestServer", func() {
 	It("should create a server and URI with default config", func() {
@@ -175,7 +33,7 @@ var _ = Describe("SetupTestServer", func() {
 	It("should create a functional server that handles document operations", func() {
 		server, uri := SetupTestServer()
 		ctx := context.Background()
-		OpenDocument(server, ctx, uri, "func test() {}")
+		OpenArcDocument(server, ctx, uri, "func test() {}")
 		hover := Hover(server, ctx, uri, 0, 2)
 		Expect(hover).ToNot(BeNil())
 		Expect(hover.Contents.Value).To(ContainSubstring("func"))
@@ -192,7 +50,7 @@ var _ = Describe("SetupTestServer", func() {
 		}
 		server, uri := SetupTestServer(lsp.Config{GlobalResolver: resolver})
 		ctx := context.Background()
-		OpenDocument(server, ctx, uri, "func test() { x := sensor }")
+		OpenArcDocument(server, ctx, uri, "func test() { x := sensor }")
 		completions := Completion(server, ctx, uri, 0, 24)
 		Expect(completions).ToNot(BeNil())
 		Expect(HasCompletion(completions.Items, "sensor")).To(BeTrue())
@@ -210,7 +68,7 @@ var _ = Describe("SetupTestServerWithClient", func() {
 	It("should wire the client to receive diagnostics from server operations", func() {
 		server, uri, client := SetupTestServerWithClient()
 		ctx := context.Background()
-		OpenDocument(server, ctx, uri, "func test() {\n\tx := undefined_var\n}")
+		OpenArcDocument(server, ctx, uri, "func test() {\n\tx := undefined_var\n}")
 		Expect(client.Diagnostics()).To(HaveLen(1))
 		Expect(client.Diagnostics()[0].Message).To(ContainSubstring("undefined symbol"))
 	})
@@ -225,16 +83,16 @@ var _ = Describe("SetupTestServerWithClient", func() {
 		}
 		server, uri, client := SetupTestServerWithClient(lsp.Config{GlobalResolver: resolver})
 		ctx := context.Background()
-		OpenDocument(server, ctx, uri, "func test() { x := sensor }")
+		OpenArcDocument(server, ctx, uri, "func test() { x := sensor }")
 		Expect(client.Diagnostics()).To(BeEmpty())
 	})
 })
 
-var _ = Describe("OpenDocument", func() {
+var _ = Describe("OpenArcDocument", func() {
 	It("should open a document that subsequent LSP operations can query", func() {
 		server, uri := SetupTestServer()
 		ctx := context.Background()
-		OpenDocument(server, ctx, uri, "func hello() { return 42 }")
+		OpenArcDocument(server, ctx, uri, "func hello() { return 42 }")
 		hover := Hover(server, ctx, uri, 0, 2)
 		Expect(hover).ToNot(BeNil())
 		Expect(hover.Contents.Value).To(ContainSubstring("func"))
@@ -244,8 +102,8 @@ var _ = Describe("OpenDocument", func() {
 		server, uri, client := SetupTestServerWithClient()
 		ctx := context.Background()
 		uri2 := protocol.DocumentURI("file:///second.arc")
-		OpenDocument(server, ctx, uri, "func a() {}")
-		OpenDocument(server, ctx, uri2, "func b() { x := undefined }")
+		OpenArcDocument(server, ctx, uri, "func a() {}")
+		OpenArcDocument(server, ctx, uri2, "func b() { x := undefined }")
 		Expect(client.Diagnostics()).To(HaveLen(1))
 		Expect(client.Diagnostics()[0].Message).To(ContainSubstring("undefined"))
 	})
@@ -255,7 +113,7 @@ var _ = Describe("Hover", func() {
 	It("should return hover information for a known keyword", func() {
 		server, uri := SetupTestServer()
 		ctx := context.Background()
-		OpenDocument(server, ctx, uri, "func test() {}")
+		OpenArcDocument(server, ctx, uri, "func test() {}")
 		hover := Hover(server, ctx, uri, 0, 2)
 		Expect(hover).ToNot(BeNil())
 		Expect(hover.Contents.Value).To(ContainSubstring("func"))
@@ -264,14 +122,14 @@ var _ = Describe("Hover", func() {
 	It("should return nil for an unknown position", func() {
 		server, uri := SetupTestServer()
 		ctx := context.Background()
-		OpenDocument(server, ctx, uri, "func test() {}")
+		OpenArcDocument(server, ctx, uri, "func test() {}")
 		Expect(Hover(server, ctx, uri, 10, 0)).To(BeNil())
 	})
 
 	It("should return hover for a type annotation", func() {
 		server, uri := SetupTestServer()
 		ctx := context.Background()
-		OpenDocument(server, ctx, uri, "x i32 := 42")
+		OpenArcDocument(server, ctx, uri, "x i32 := 42")
 		hover := Hover(server, ctx, uri, 0, 3)
 		Expect(hover).ToNot(BeNil())
 		Expect(hover.Contents.Value).To(ContainSubstring("i32"))
@@ -284,7 +142,7 @@ var _ = Describe("Definition", func() {
 		server.SetClient(&MockClient{})
 		uri := protocol.DocumentURI("file:///test.arc")
 		ctx := context.Background()
-		OpenDocument(server, ctx, uri, "func test() {\n    x i32 := 42\n    y := x + 1\n}")
+		OpenArcDocument(server, ctx, uri, "func test() {\n    x i32 := 42\n    y := x + 1\n}")
 		locations := Definition(server, ctx, uri, 2, 9)
 		Expect(locations).To(HaveLen(1))
 		Expect(locations[0].Range.Start.Line).To(Equal(uint32(1)))
@@ -303,7 +161,7 @@ var _ = Describe("Completion", func() {
 	It("should return completion items for a partial identifier", func() {
 		server, uri := SetupTestServer()
 		ctx := context.Background()
-		OpenDocument(server, ctx, uri, "func test() {\n    i\n}")
+		OpenArcDocument(server, ctx, uri, "func test() {\n    i\n}")
 		completions := Completion(server, ctx, uri, 1, 5)
 		Expect(completions).ToNot(BeNil())
 		Expect(len(completions.Items)).To(BeNumerically(">", 0))
@@ -320,7 +178,7 @@ var _ = Describe("Completion", func() {
 		}
 		server, uri := SetupTestServer(lsp.Config{GlobalResolver: resolver})
 		ctx := context.Background()
-		OpenDocument(server, ctx, uri, "func test() { x := pres }")
+		OpenArcDocument(server, ctx, uri, "func test() { x := pres }")
 		completions := Completion(server, ctx, uri, 0, 24)
 		Expect(completions).ToNot(BeNil())
 		Expect(HasCompletion(completions.Items, "pressure")).To(BeTrue())
@@ -331,7 +189,7 @@ var _ = Describe("SemanticTokens", func() {
 	It("should return semantic tokens for a document", func() {
 		server, uri := SetupTestServer()
 		ctx := context.Background()
-		OpenDocument(server, ctx, uri, "func test() {}")
+		OpenArcDocument(server, ctx, uri, "func test() {}")
 		tokens := SemanticTokens(server, ctx, uri)
 		Expect(tokens).ToNot(BeNil())
 		Expect(len(tokens.Data)).To(BeNumerically(">=", 5))
@@ -340,88 +198,9 @@ var _ = Describe("SemanticTokens", func() {
 	It("should return tokens with correct encoding", func() {
 		server, uri := SetupTestServer()
 		ctx := context.Background()
-		OpenDocument(server, ctx, uri, "x := 42")
+		OpenArcDocument(server, ctx, uri, "x := 42")
 		tokens := SemanticTokens(server, ctx, uri)
 		Expect(tokens).ToNot(BeNil())
 		Expect(len(tokens.Data) % 5).To(Equal(0))
-	})
-})
-
-var _ = Describe("FindCompletion", func() {
-	var items []protocol.CompletionItem
-
-	BeforeEach(func() {
-		items = []protocol.CompletionItem{
-			{Label: "sensor", Detail: "chan f32", Kind: protocol.CompletionItemKindVariable},
-			{Label: "pressure", Detail: "chan f64", Kind: protocol.CompletionItemKindVariable},
-			{Label: "len", Detail: "func", Kind: protocol.CompletionItemKindFunction},
-		}
-	})
-
-	It("should find an existing completion item by label", func() {
-		item := MustBeOk(FindCompletion(items, "sensor"))
-		Expect(item.Label).To(Equal("sensor"))
-		Expect(item.Detail).To(Equal("chan f32"))
-	})
-
-	It("should return false for a non-existent label", func() {
-		_, found := FindCompletion(items, "nonexistent")
-		Expect(found).To(BeFalse())
-	})
-
-	It("should find the correct item when multiple items exist", func() {
-		item := MustBeOk(FindCompletion(items, "len"))
-		Expect(item.Kind).To(Equal(protocol.CompletionItemKindFunction))
-	})
-
-	It("should return false for an empty label", func() {
-		_, found := FindCompletion(items, "")
-		Expect(found).To(BeFalse())
-	})
-
-	It("should return false when items slice is empty", func() {
-		_, found := FindCompletion([]protocol.CompletionItem{}, "sensor")
-		Expect(found).To(BeFalse())
-	})
-
-	It("should match the exact label and not a prefix", func() {
-		_, found := FindCompletion(items, "sens")
-		Expect(found).To(BeFalse())
-	})
-})
-
-var _ = Describe("HasCompletion", func() {
-	var items []protocol.CompletionItem
-
-	BeforeEach(func() {
-		items = []protocol.CompletionItem{
-			{Label: "sensor", Detail: "chan f32"},
-			{Label: "pressure", Detail: "chan f64"},
-			{Label: "now", Detail: "func"},
-		}
-	})
-
-	It("should return true for an existing label", func() {
-		Expect(HasCompletion(items, "sensor")).To(BeTrue())
-	})
-
-	It("should return false for a non-existent label", func() {
-		Expect(HasCompletion(items, "temperature")).To(BeFalse())
-	})
-
-	It("should return false for an empty items slice", func() {
-		Expect(HasCompletion([]protocol.CompletionItem{}, "sensor")).To(BeFalse())
-	})
-
-	It("should return true for the last item in the slice", func() {
-		Expect(HasCompletion(items, "now")).To(BeTrue())
-	})
-
-	It("should not match partial labels", func() {
-		Expect(HasCompletion(items, "press")).To(BeFalse())
-	})
-
-	It("should be case-sensitive", func() {
-		Expect(HasCompletion(items, "Sensor")).To(BeFalse())
 	})
 })

@@ -35,7 +35,7 @@ var _ = Describe("Formatting", func() {
 	Describe("Full Document Formatting", func() {
 		It("should format a simple function", func() {
 			content := "func add(x i32,y i32)i32{return x+y}"
-			OpenDocument(server, ctx, uri, content)
+			OpenArcDocument(server, ctx, uri, content)
 
 			edits := MustSucceed(server.Formatting(ctx, &protocol.DocumentFormattingParams{
 				TextDocument: protocol.TextDocumentIdentifier{URI: uri},
@@ -50,7 +50,7 @@ var _ = Describe("Formatting", func() {
 
 		It("should return nil for already-formatted code", func() {
 			content := "func add(x i32, y i32) i32 {\n    return x + y\n}\n"
-			OpenDocument(server, ctx, uri, content)
+			OpenArcDocument(server, ctx, uri, content)
 
 			Expect(server.Formatting(ctx, &protocol.DocumentFormattingParams{
 				TextDocument: protocol.TextDocumentIdentifier{URI: uri},
@@ -67,7 +67,7 @@ var _ = Describe("Formatting", func() {
 
 		It("should format binary operators with spaces", func() {
 			content := "x:=a+b*c"
-			OpenDocument(server, ctx, uri, content)
+			OpenArcDocument(server, ctx, uri, content)
 
 			edits := MustSucceed(server.Formatting(ctx, &protocol.DocumentFormattingParams{
 				TextDocument: protocol.TextDocumentIdentifier{URI: uri},
@@ -80,7 +80,7 @@ var _ = Describe("Formatting", func() {
 
 		It("should respect tab size option", func() {
 			content := "func test(){x:=1}"
-			OpenDocument(server, ctx, uri, content)
+			OpenArcDocument(server, ctx, uri, content)
 
 			edits := MustSucceed(server.Formatting(ctx, &protocol.DocumentFormattingParams{
 				TextDocument: protocol.TextDocumentIdentifier{URI: uri},
@@ -95,7 +95,7 @@ var _ = Describe("Formatting", func() {
 
 		It("should preserve unit literals without space", func() {
 			content := "delay:=100ms"
-			OpenDocument(server, ctx, uri, content)
+			OpenArcDocument(server, ctx, uri, content)
 
 			edits := MustSucceed(server.Formatting(ctx, &protocol.DocumentFormattingParams{
 				TextDocument: protocol.TextDocumentIdentifier{URI: uri},
@@ -111,7 +111,7 @@ var _ = Describe("Formatting", func() {
 	Describe("Range Formatting", func() {
 		It("should format a specific range", func() {
 			content := "x:=1\ny:=2\nz:=3"
-			OpenDocument(server, ctx, uri, content)
+			OpenArcDocument(server, ctx, uri, content)
 
 			edits := MustSucceed(server.RangeFormatting(ctx, &protocol.DocumentRangeFormattingParams{
 				TextDocument: protocol.TextDocumentIdentifier{URI: uri},

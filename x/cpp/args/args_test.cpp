@@ -47,9 +47,12 @@ TEST_F(ArgsTest, TestRequiredStringHappyPath) {
 TEST_F(ArgsTest, TestRequiredStringMissing) {
     auto [argc, argv] = make_args({"program"});
     parser = Parser(argc, argv);
-    auto name = parser.field<std::string>("--name");
-    EXPECT_FALSE(parser.errors.empty());
-    ASSERT_EQ(parser.errors.at(0).data, "--name: required argument not found");
+    parser.field<std::string>("--name");
+    ASSERT_OCCURRED_AS(parser.error(), errors::VALIDATION);
+    ASSERT_EQ(
+        parser.error().message(),
+        "[sy.validation] --name: required argument not found"
+    );
     cleanup(argc, argv);
 }
 
@@ -69,8 +72,8 @@ TEST_F(ArgsTest, TestRequiredIntegerInvalidFormat) {
     parser = Parser(argc, argv);
     const auto count = parser.field<int>("--count");
     ASSERT_EQ(count, 0);
-    EXPECT_FALSE(parser.errors.empty());
-    ASSERT_EQ(parser.errors.at(0).message(), "[--count] Invalid value");
+    ASSERT_OCCURRED_AS(parser.error(), errors::VALIDATION);
+    ASSERT_EQ(parser.error().message(), "[sy.validation] --count: Invalid value");
     cleanup(argc, argv);
 }
 
@@ -126,6 +129,10 @@ TEST_F(ArgsTest, TestError) {
     ASSERT_NIL(parser.error());
     parser.field<std::string>("--name");
     ASSERT_OCCURRED_AS(parser.error(), errors::VALIDATION);
+    ASSERT_EQ(
+        parser.error().message(),
+        "[sy.validation] --name: required argument not found"
+    );
     cleanup(argc, argv);
 }
 
@@ -178,8 +185,8 @@ TEST_F(ArgsTest, TestEqualsFormatInvalid) {
     parser = Parser(argc, argv);
     const auto count = parser.field<int>("--count");
     ASSERT_EQ(count, 0);
-    EXPECT_FALSE(parser.errors.empty());
-    ASSERT_EQ(parser.errors.at(0).message(), "[--count] Invalid value");
+    ASSERT_OCCURRED_AS(parser.error(), errors::VALIDATION);
+    ASSERT_EQ(parser.error().message(), "[sy.validation] --count: Invalid value");
     cleanup(argc, argv);
 }
 
@@ -209,13 +216,12 @@ TEST_F(ArgsTest, TestPrefixHandling) {
     );
     parser = Parser(argc, argv);
 
-    // Test different prefix scenarios
-    ASSERT_TRUE(parser.flag("--long-flag")); // Original --
-    ASSERT_TRUE(parser.flag("long-flag")); // Auto-add --
-    ASSERT_TRUE(parser.flag("-v")); // Preserve single -
-    ASSERT_TRUE(parser.flag("v")); // Auto-add --
-    ASSERT_EQ(parser.field<std::string>("-f"), "file.txt"); // Preserve single -
-    ASSERT_EQ(parser.field<std::string>("unprefixed"), "value"); // Auto-add --
+    ASSERT_TRUE(parser.flag("--long-flag"));
+    ASSERT_TRUE(parser.flag("long-flag"));
+    ASSERT_TRUE(parser.flag("-v"));
+    ASSERT_TRUE(parser.flag("v"));
+    ASSERT_EQ(parser.field<std::string>("-f"), "file.txt");
+    ASSERT_EQ(parser.field<std::string>("unprefixed"), "value");
 
     ASSERT_NIL(parser.error());
     cleanup(argc, argv);
@@ -226,14 +232,13 @@ TEST_F(ArgsTest, TestSingleLetterFlags) {
     auto [argc, argv] = make_args({"program", "-v", "--f", "-x=true"});
     parser = Parser(argc, argv);
 
-    // Test single letter flags with different prefixes
-    ASSERT_TRUE(parser.flag("v")); // Should match -v
-    ASSERT_TRUE(parser.flag("-v")); // Should match -v
-    ASSERT_TRUE(parser.flag("--v")); // Should match -v
-    ASSERT_TRUE(parser.flag("f")); // Should match --f
-    ASSERT_TRUE(parser.flag("-f")); // Should match --f
-    ASSERT_TRUE(parser.flag("--f")); // Should match --f
-    ASSERT_TRUE(parser.flag("x")); // Should match -x=true
+    ASSERT_TRUE(parser.flag("v"));
+    ASSERT_TRUE(parser.flag("-v"));
+    ASSERT_TRUE(parser.flag("--v"));
+    ASSERT_TRUE(parser.flag("f"));
+    ASSERT_TRUE(parser.flag("-f"));
+    ASSERT_TRUE(parser.flag("--f"));
+    ASSERT_TRUE(parser.flag("x"));
 
     ASSERT_NIL(parser.error());
     cleanup(argc, argv);
@@ -241,36 +246,30 @@ TEST_F(ArgsTest, TestSingleLetterFlags) {
 
 /// @brief it should handle null pointer arguments gracefully.
 TEST_F(ArgsTest, TestNullPointerHandling) {
-    // Test with nullptr argv
     parser = Parser(0, nullptr);
-    EXPECT_TRUE(parser.argv_.empty());
+    EXPECT_TRUE(parser.argv.empty());
     ASSERT_NIL(parser.error());
 
-    // Verify behavior when trying to access values
     const auto required_str = parser.field<std::string>("test");
     EXPECT_TRUE(required_str.empty());
-    EXPECT_FALSE(parser.errors.empty());
-    EXPECT_EQ(
-        parser.errors[0].message(),
+    ASSERT_OCCURRED_AS(parser.error(), errors::VALIDATION);
+    ASSERT_EQ(
+        parser.error().message(),
         "[sy.validation] test: required argument not found"
     );
 
-    // Clear errors for next test
     parser.errors.clear();
 
-    // Test optional values
     const auto optional_str = parser.field<std::string>("test", "default");
     EXPECT_EQ(optional_str, "default");
     ASSERT_NIL(parser.error());
 
-    // Test flags
     EXPECT_FALSE(parser.flag("test"));
     ASSERT_NIL(parser.error());
 
-    // Test with zero argc but non-null argv
     char *dummy_argv[] = {nullptr};
     parser = Parser(0, dummy_argv);
-    EXPECT_TRUE(parser.argv_.empty());
+    EXPECT_TRUE(parser.argv.empty());
     ASSERT_NIL(parser.error());
 }
 
@@ -321,7 +320,7 @@ TEST_F(ArgsTest, TestWeirdArgumentNames) {
     ASSERT_TRUE(parser.flag("- -"));
     ASSERT_TRUE(parser.flag("--"));
 
-    EXPECT_FALSE(parser.errors.empty());
+    EXPECT_FALSE(parser.ok());
     cleanup(argc, argv);
 }
 
@@ -349,7 +348,7 @@ TEST_F(ArgsTest, TestDuplicateArguments) {
     ASSERT_NIL(parser.error());
     ASSERT_EQ(name, "second");
     ASSERT_EQ(count, 20);
-    ASSERT_TRUE(verbose); // Last --verbose flag wins
+    ASSERT_TRUE(verbose);
     cleanup(argc, argv);
 }
 
@@ -377,7 +376,6 @@ TEST_F(ArgsTest, TestVectorArguments) {
     );
     parser = Parser(argc, argv);
 
-    // Test string vector
     auto strings = parser.field<std::vector<std::string>>("strings");
     ASSERT_NIL(parser.error());
     ASSERT_EQ(strings.size(), 3);
@@ -385,14 +383,12 @@ TEST_F(ArgsTest, TestVectorArguments) {
     ASSERT_EQ(strings[1], "cat");
     ASSERT_EQ(strings[2], "ferret");
 
-    // Test integer vector
     auto numbers = parser.field<std::vector<int>>("numbers");
     ASSERT_NIL(parser.error());
     ASSERT_EQ(numbers.size(), 5);
     ASSERT_EQ(numbers[0], 1);
     ASSERT_EQ(numbers[4], 5);
 
-    // Test double vector
     auto doubles = parser.field<std::vector<double>>("doubles");
     ASSERT_NIL(parser.error());
     ASSERT_EQ(doubles.size(), 3);
@@ -400,12 +396,53 @@ TEST_F(ArgsTest, TestVectorArguments) {
     ASSERT_DOUBLE_EQ(doubles[1], 2.7);
     ASSERT_DOUBLE_EQ(doubles[2], 3.14);
 
-    // Test optional vector with default
     std::vector<int> default_vec = {1, 2, 3};
     auto optional_nums = parser.field<std::vector<int>>("missing", default_vec);
     ASSERT_NIL(parser.error());
     ASSERT_EQ(optional_nums, default_vec);
 
+    cleanup(argc, argv);
+}
+
+/// @brief it should return true from ok() when no errors are present.
+TEST_F(ArgsTest, TestOk) {
+    auto [argc, argv] = make_args({"program", "--name", "test"});
+    parser = Parser(argc, argv);
+    ASSERT_TRUE(parser.ok());
+    parser.field<std::string>("--missing");
+    ASSERT_FALSE(parser.ok());
+    cleanup(argc, argv);
+}
+
+/// @brief it should accumulate errors via field_err with a message.
+TEST_F(ArgsTest, TestFieldErr) {
+    parser = Parser(std::vector<std::string>{"program"});
+    ASSERT_TRUE(parser.ok());
+    parser.field_err("host", "must not be empty");
+    ASSERT_FALSE(parser.ok());
+    ASSERT_OCCURRED_AS(parser.error(), errors::VALIDATION);
+    ASSERT_EQ(parser.error().message(), "[sy.validation] host: must not be empty");
+}
+
+/// @brief it should accumulate errors via field_err with an existing error.
+TEST_F(ArgsTest, TestFieldErrWithError) {
+    parser = Parser(std::vector<std::string>{"program"});
+    errors::Error err(errors::VALIDATION, "connection refused");
+    parser.field_err("host", err);
+    ASSERT_FALSE(parser.ok());
+    ASSERT_OCCURRED_AS(parser.error(), errors::VALIDATION);
+    ASSERT_EQ(parser.error().message(), "[sy.validation] host: connection refused");
+}
+
+/// @brief it should accumulate multiple errors from different sources.
+TEST_F(ArgsTest, TestMultipleErrors) {
+    auto [argc, argv] = make_args({"program", "--count", "not_a_number"});
+    parser = Parser(argc, argv);
+    parser.field<std::string>("--name");
+    parser.field<int>("--count");
+    parser.field_err("host", "must not be empty");
+    ASSERT_FALSE(parser.ok());
+    ASSERT_EQ(parser.errors.size(), 3);
     cleanup(argc, argv);
 }
 }

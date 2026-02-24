@@ -7,12 +7,15 @@
 #  License, use of this software will be governed by the Apache License, Version 2.0,
 #  included in the file licenses/APL.txt.
 
+from __future__ import annotations
+
 from enum import Enum
 
 from alamos import NOOP, Instrumentation
-from freighter import EOF, Payload, Stream, StreamClient
+from freighter import EOF, Stream, StreamClient
+from pydantic import BaseModel
 
-from synnax.channel.payload import ChannelKeys
+import synnax.channel.payload as channel
 from synnax.exceptions import UnexpectedError
 from synnax.framer.adapter import ReadFrameAdapter
 from synnax.framer.frame import Frame, FramePayload
@@ -39,17 +42,17 @@ class _ResponseVariant(int, Enum):
     DATA = 2
 
 
-class _Request(Payload):
+class _Request(BaseModel):
     command: _Command
     span: TimeSpan | None = None
     bounds: TimeRange | None = None
     stamp: TimeStamp | None = None
-    keys: ChannelKeys | None = None
+    keys: list[channel.Key] | None = None
     chunk_size: int | None = None
     downsample_factor: int | None = None
 
 
-class _Response(Payload):
+class _Response(BaseModel):
     variant: _ResponseVariant
     command: _Command
     ack: bool
@@ -81,7 +84,7 @@ class Iterator:
         tr: TimeRange,
         client: StreamClient,
         adapter: ReadFrameAdapter,
-        chunk_size: int = 1e5,
+        chunk_size: int = 100000,
         downsample_factor: int = 1,
         instrumentation: Instrumentation = NOOP,
     ) -> None:
@@ -93,7 +96,7 @@ class Iterator:
         self._downsample_factor = downsample_factor
         self.__open()
 
-    def __open(self):
+    def __open(self) -> None:
         """Opens the iterator, configuring it to iterate over the telemetry in the
         channels with the given keys within the provided time range.
 
@@ -182,7 +185,7 @@ class Iterator:
         """
         return self._exec(command=_Command.VALID)
 
-    def close(self):
+    def close(self) -> None:
         """Close closes the iterator. An iterator MUST be closed after use, and this method
         should probably be placed in a 'finally' block. If the iterator is not closed, it may
         leak resources and threads.
@@ -201,22 +204,22 @@ class Iterator:
         elif not isinstance(exc, EOF):
             raise exc
 
-    def __iter__(self):
+    def __iter__(self) -> Iterator:
         self.seek_first()
         return self
 
-    def __next__(self):
+    def __next__(self) -> Frame:
         if not self.next(AUTO_SPAN):
             raise StopIteration
         return self.value
 
-    def __enter__(self):
+    def __enter__(self) -> Iterator:
         return self
 
-    def __exit__(self, exc_type, exc_value, traceback):
+    def __exit__(self, exc_type: object, exc_value: object, traceback: object) -> None:
         self.close()
 
-    def _exec(self, **kwargs) -> bool:
+    def _exec(self, **kwargs: object) -> bool:
         exc = self.__stream.send(_Request(**kwargs))
         if exc is not None:
             raise exc
