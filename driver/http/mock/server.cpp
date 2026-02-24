@@ -105,19 +105,19 @@ struct Server::Impl {
     }
 };
 
-Server::Server(const ServerConfig &config): impl_(std::make_unique<Impl>()) {
-    impl_->host = config.host;
-    impl_->secure = config.secure;
+Server::Server(const ServerConfig &config): impl(std::make_unique<Impl>()) {
+    impl->host = config.host;
+    impl->secure = config.secure;
     if (config.secure) {
-        impl_->svr = std::make_unique<httplib::SSLServer>(
+        impl->svr = std::make_unique<httplib::SSLServer>(
             config.cert_path.c_str(),
             config.key_path.c_str()
         );
     } else {
-        impl_->svr = std::make_unique<httplib::Server>();
+        impl->svr = std::make_unique<httplib::Server>();
     }
     for (const auto &route: config.routes)
-        impl_->register_route(route);
+        impl->register_route(route);
 }
 
 Server::~Server() {
@@ -125,31 +125,31 @@ Server::~Server() {
 }
 
 x::errors::Error Server::start() {
-    if (impl_->running) return x::errors::NIL;
-    if (!impl_->svr->is_valid())
+    if (impl->running) return x::errors::NIL;
+    if (!impl->svr->is_valid())
         return x::errors::Error("mock server is not valid (bad TLS cert?)");
-    impl_->port = impl_->svr->bind_to_any_port(impl_->host);
-    if (impl_->port < 0) return x::errors::Error("failed to bind mock HTTP server");
-    impl_->running = true;
-    impl_->thread = std::thread([this] { impl_->svr->listen_after_bind(); });
-    impl_->svr->wait_until_ready();
+    impl->port = impl->svr->bind_to_any_port(impl->host);
+    if (impl->port < 0) return x::errors::Error("failed to bind mock HTTP server");
+    impl->running = true;
+    impl->thread = std::thread([this] { impl->svr->listen_after_bind(); });
+    impl->svr->wait_until_ready();
     return x::errors::NIL;
 }
 
 void Server::stop() {
-    if (!impl_->running) return;
-    impl_->running = false;
-    impl_->svr->stop();
-    if (impl_->thread.joinable()) impl_->thread.join();
+    if (!impl->running) return;
+    impl->running = false;
+    impl->svr->stop();
+    if (impl->thread.joinable()) impl->thread.join();
 }
 
 std::string Server::base_url() const {
-    const std::string scheme = impl_->secure ? "https" : "http";
-    return scheme + "://" + impl_->host + ":" + std::to_string(impl_->port);
+    const std::string scheme = impl->secure ? "https" : "http";
+    return scheme + "://" + impl->host + ":" + std::to_string(impl->port);
 }
 
 std::vector<ReceivedRequest> Server::received_requests() const {
-    std::lock_guard lock(impl_->mu);
-    return impl_->requests;
+    std::lock_guard lock(impl->mu);
+    return impl->requests;
 }
 }
