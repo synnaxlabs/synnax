@@ -63,7 +63,7 @@ export const Spectrogram: Layout.Renderer = ({ layoutKey, visible }) => {
         )}
       >
         <Eraser.Eraser>
-          <PlutoSpectrogram.SpectrogramC
+          <PlutoSpectrogram.Spectrogram
             aetherKey={layoutKey}
             telem={telemSpec}
             sampleRate={vis.sampleRate}
@@ -76,7 +76,12 @@ export const Spectrogram: Layout.Renderer = ({ layoutKey, visible }) => {
             freqMin={vis.freqMin}
             freqMax={vis.freqMax}
             visible={visible}
-          />
+          >
+            <PlutoSpectrogram.FreqAxis />
+            <PlutoSpectrogram.TimeAxis />
+            <PlutoSpectrogram.ColorBar />
+            <PlutoSpectrogram.Tooltip />
+          </PlutoSpectrogram.Spectrogram>
         </Eraser.Eraser>
       </PMenu.ContextMenu>
     </div>
