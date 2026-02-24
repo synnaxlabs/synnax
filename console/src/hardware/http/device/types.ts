@@ -56,12 +56,14 @@ const defaultTimeoutMs = TimeSpan.milliseconds(100).milliseconds;
 
 const propertiesZ = z.object({
   secure: z.boolean().default(true),
-  timeoutMs: z
+  verify_ssl: z.boolean().default(true),
+  timeout_ms: z
     .number()
     .nonnegative("Timeout must be non-negative")
     .default(defaultTimeoutMs),
   auth: authConfigZ,
   headers: z.record(z.string(), z.string()).optional(),
+  query_params: z.record(z.string(), z.string()).optional(),
   readIndexes: z.record(z.string(), channel.keyZ),
 });
 
@@ -69,7 +71,8 @@ export interface Properties extends z.infer<typeof propertiesZ> {}
 
 export const ZERO_PROPERTIES = {
   secure: true,
-  timeoutMs: defaultTimeoutMs,
+  verify_ssl: true,
+  timeout_ms: defaultTimeoutMs,
   auth: ZERO_AUTH_CONFIGS.none,
   readIndexes: {},
 } as const satisfies Properties;
