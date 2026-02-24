@@ -404,7 +404,7 @@ export class AuthoritySource
     this.stopListening?.();
     const filter = xcontrol.filterTransfersByChannelKey(ch);
     this.stopListening = this.prov.onChange((t) => {
-      if (filter(t).length === 0) return;
+      if (t.length > 0 && filter(t).length === 0) return;
       this.notify?.();
     });
     this.valid = true;
