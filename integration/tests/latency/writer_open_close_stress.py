@@ -33,7 +33,7 @@ from framework.test_case import TestCase
 
 PROBE_TIMEOUT = 2 * sy.TimeSpan.SECOND
 NUM_THREADS = 10
-OPS_PER_SEC = 25
+OPS_PER_SEC = 100
 TEST_DURATION = 10 * sy.TimeSpan.SECOND
 
 
