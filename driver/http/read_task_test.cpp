@@ -207,8 +207,8 @@ TEST(HTTPReadTask, NestedJSONPointerPaths) {
     EXPECT_NEAR(fr.at<double>(1, 0), 42.0, 0.001);
 }
 
-/// @brief it should return PARSE_ERROR when a JSON pointer doesn't match.
-TEST(HTTPReadTask, MissingJSONField) {
+/// @brief a missing JSON pointer should produce a warning, not a hard error.
+TEST(HTTPReadTask, MissingJSONFieldWarning) {
     mock::Server server(
         mock::ServerConfig{
             .routes = {{
@@ -249,7 +249,9 @@ TEST(HTTPReadTask, MissingJSONField) {
     x::telem::Frame fr;
     auto res = source->read(breaker, fr);
     breaker.stop();
-    ASSERT_OCCURRED_AS(res.error, errors::PARSE_ERROR);
+    ASSERT_NIL(res.error);
+    EXPECT_FALSE(res.warning.empty());
+    EXPECT_EQ(fr.size(), 0);
 }
 
 /// @brief it should return SERVER_ERROR on 5xx status codes.
@@ -461,8 +463,9 @@ TEST(HTTPReadTask, StringField) {
     EXPECT_NEAR(fr.at<double>(3, 0), 3.14, 0.001);
 }
 
-/// @brief should error on decimal values for integer channels.
-TEST(HTTPReadTask, DecimalToIntegerErrors) {
+/// @brief decimal values for integer channels should produce a warning, not a
+/// hard error.
+TEST(HTTPReadTask, DecimalToIntegerWarns) {
     mock::Server server(
         mock::ServerConfig{
             .routes = {{
@@ -502,11 +505,14 @@ TEST(HTTPReadTask, DecimalToIntegerErrors) {
     x::telem::Frame fr;
     auto res = source->read(breaker, fr);
     breaker.stop();
-    ASSERT_OCCURRED_AS(res.error, errors::PARSE_ERROR);
+    ASSERT_NIL(res.error);
+    EXPECT_FALSE(res.warning.empty());
+    EXPECT_EQ(fr.size(), 0);
 }
 
-/// @brief should error on negative values for unsigned integer channels.
-TEST(HTTPReadTask, NegativeForUnsignedErrors) {
+/// @brief negative values for unsigned integer channels should produce a
+/// warning, not a hard error.
+TEST(HTTPReadTask, NegativeForUnsignedWarns) {
     mock::Server server(
         mock::ServerConfig{
             .routes = {{
@@ -546,51 +552,9 @@ TEST(HTTPReadTask, NegativeForUnsignedErrors) {
     x::telem::Frame fr;
     auto res = source->read(breaker, fr);
     breaker.stop();
-    ASSERT_OCCURRED_AS(res.error, errors::PARSE_ERROR);
-}
-
-/// @brief truncating decimals for integer channels should always error.
-TEST(HTTPReadTask, TruncationAlwaysErrors) {
-    mock::Server server(
-        mock::ServerConfig{
-            .routes = {{
-                .method = Method::GET,
-                .path = "/api/data",
-                .status_code = 200,
-                .response_body = R"({"value": 3.7})",
-            }},
-        }
-    );
-    ASSERT_NIL(server.start());
-    x::defer::defer stop_server([&server] { server.stop(); });
-
-    ReadTaskConfig cfg;
-    cfg.device = "test-device";
-    cfg.data_saving = false;
-    cfg.auto_start = false;
-    cfg.rate = x::telem::Rate(10);
-
-    ReadField field;
-    field.pointer = x::json::json::json_pointer("/value");
-    field.channel_key = 1;
-
-    ReadEndpoint ep;
-    ep.request.method = Method::GET;
-    ep.request.path = "/api/data";
-    ep.body = "";
-    ep.fields = {field};
-
-    cfg.endpoints = {ep};
-    cfg.channels[1] = {.key = 1, .name = "count", .data_type = x::telem::INT32_T};
-
-    auto source = ASSERT_NIL_P(make_source(cfg, server.base_url()));
-
-    auto breaker = x::breaker::Breaker(x::breaker::Config{.name = "test"});
-    breaker.start();
-    x::telem::Frame fr;
-    auto res = source->read(breaker, fr);
-    breaker.stop();
-    ASSERT_OCCURRED_AS(res.error, errors::PARSE_ERROR);
+    ASSERT_NIL(res.error);
+    EXPECT_FALSE(res.warning.empty());
+    EXPECT_EQ(fr.size(), 0);
 }
 
 /// @brief it should use software timing (midpoint) for index channels when the
@@ -1679,8 +1643,8 @@ TEST(HTTPReadTask, PartialFailureSecondEndpoint4xx) {
     ASSERT_OCCURRED_AS(res.error, errors::CLIENT_ERROR);
 }
 
-/// @brief when one endpoint returns valid JSON but a field pointer is missing,
-/// the other endpoint's data should not be written (all-or-nothing).
+/// @brief when one endpoint has a missing field pointer, the other endpoint's
+/// data should still come through with a warning.
 TEST(HTTPReadTask, PartialFailureMissingFieldInSecondEndpoint) {
     mock::Server server(
         mock::ServerConfig{
@@ -1732,7 +1696,9 @@ TEST(HTTPReadTask, PartialFailureMissingFieldInSecondEndpoint) {
 
     cfg.endpoints = {ep1, ep2};
     cfg.channels[1] = {.key = 1, .name = "temp", .data_type = x::telem::FLOAT64_T};
-    cfg.channels[2] = {.key = 2, .name = "pressure", .data_type = x::telem::FLOAT64_T};
+    cfg.channels[2] = {
+        .key = 2, .name = "pressure", .data_type = x::telem::FLOAT64_T
+    };
 
     auto source = ASSERT_NIL_P(make_source(cfg, server.base_url()));
 
@@ -1741,11 +1707,15 @@ TEST(HTTPReadTask, PartialFailureMissingFieldInSecondEndpoint) {
     x::telem::Frame fr;
     auto res = source->read(breaker, fr);
     breaker.stop();
-    ASSERT_OCCURRED_AS(res.error, errors::PARSE_ERROR);
+    ASSERT_NIL(res.error);
+    EXPECT_FALSE(res.warning.empty());
+    // First endpoint succeeded, second endpoint's field was missing.
+    EXPECT_EQ(fr.size(), 1);
+    EXPECT_NEAR(fr.at<double>(1, 0), 25.0, 0.001);
 }
 
-/// @brief when one endpoint returns invalid JSON but another returns valid JSON,
-/// the read should fail with PARSE_ERROR.
+/// @brief when one endpoint returns invalid JSON, the other endpoint's data
+/// should still come through with a warning.
 TEST(HTTPReadTask, PartialFailureInvalidJSONInOneEndpoint) {
     mock::Server server(
         mock::ServerConfig{
@@ -1805,11 +1775,15 @@ TEST(HTTPReadTask, PartialFailureInvalidJSONInOneEndpoint) {
     x::telem::Frame fr;
     auto res = source->read(breaker, fr);
     breaker.stop();
-    ASSERT_OCCURRED_AS(res.error, errors::PARSE_ERROR);
+    ASSERT_NIL(res.error);
+    EXPECT_FALSE(res.warning.empty());
+    // First endpoint parsed, second was invalid JSON.
+    EXPECT_EQ(fr.size(), 1);
+    EXPECT_NEAR(fr.at<double>(1, 0), 42.0, 0.001);
 }
 
-/// @brief when one endpoint has a type conversion error but the other parses
-/// fine, the read should fail with PARSE_ERROR.
+/// @brief when one endpoint has a type conversion error, the other endpoint's
+/// data should still come through with a warning.
 TEST(HTTPReadTask, PartialFailureTypeConversionError) {
     mock::Server server(
         mock::ServerConfig{
@@ -1860,7 +1834,7 @@ TEST(HTTPReadTask, PartialFailureTypeConversionError) {
 
     cfg.endpoints = {ep1, ep2};
     cfg.channels[1] = {.key = 1, .name = "value", .data_type = x::telem::FLOAT64_T};
-    // INT32_T will fail on 3.7 (decimal truncation).
+    // INT32_T will fail on 3.7 (decimal truncation) — produces warning.
     cfg.channels[2] = {.key = 2, .name = "count", .data_type = x::telem::INT32_T};
 
     auto source = ASSERT_NIL_P(make_source(cfg, server.base_url()));
@@ -1870,7 +1844,11 @@ TEST(HTTPReadTask, PartialFailureTypeConversionError) {
     x::telem::Frame fr;
     auto res = source->read(breaker, fr);
     breaker.stop();
-    ASSERT_OCCURRED_AS(res.error, errors::PARSE_ERROR);
+    ASSERT_NIL(res.error);
+    EXPECT_FALSE(res.warning.empty());
+    // First endpoint parsed fine, second had conversion error.
+    EXPECT_EQ(fr.size(), 1);
+    EXPECT_NEAR(fr.at<double>(1, 0), 42.0, 0.001);
 }
 
 ////////////////////// Connection-Level Query Parameters ///////////////////////

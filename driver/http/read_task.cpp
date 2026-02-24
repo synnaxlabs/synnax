@@ -9,7 +9,6 @@
 
 #include <set>
 
-#include "driver/http/errors/errors.h"
 #include "driver/http/read_task.h"
 
 namespace driver::http {
@@ -197,10 +196,13 @@ ReadTaskSource::read(x::breaker::Breaker &breaker, x::telem::Frame &fr) {
 
     fr.reserve(cfg.channels.size() + cfg.software_timed_indexes.size());
 
+    std::vector<std::string> warnings;
+
     for (size_t ei = 0; ei < cfg.endpoints.size(); ei++) {
         const auto &ep = cfg.endpoints[ei];
         auto &[resp, req_err] = results[ei];
 
+        // Transport-level errors are fatal — the endpoint is unreachable.
         if (req_err) {
             res.error = req_err;
             return res;
@@ -211,26 +213,31 @@ ReadTaskSource::read(x::breaker::Breaker &breaker, x::telem::Frame &fr) {
             return res;
         }
 
+        // If the entire response body is unparseable, skip all fields on this
+        // endpoint but keep going.
+        bool ep_parsed = true;
         try {
             parsed_bodies[ei] = x::json::json::parse(resp.body);
         } catch (const x::json::json::parse_error &e) {
-            res.error = errors::PARSE_ERROR.sub(
+            warnings.push_back(
                 "failed to parse response from " + ep.request.path + ": " + e.what()
             );
-            return res;
+            ep_parsed = false;
         }
 
+        if (!ep_parsed) continue;
         const auto &body = parsed_bodies[ei];
+        bool any_field_ok = false;
 
         for (const auto &field: ep.fields) {
             if (!field.enabled) continue;
 
             if (!body.contains(field.pointer)) {
-                res.error = errors::PARSE_ERROR.sub(
+                warnings.push_back(
                     "field " + field.pointer.to_string() +
                     " not found in response from " + ep.request.path
                 );
-                return res;
+                continue;
             }
 
             const auto &ch = cfg.channels.at(field.channel_key);
@@ -245,18 +252,20 @@ ReadTaskSource::read(x::breaker::Breaker &breaker, x::telem::Frame &fr) {
                 tf
             );
             if (conv_err) {
-                res.error = errors::PARSE_ERROR.sub(
-                    "failed to convert " + field.pointer.to_string() + " for channel " +
-                    ch.name + ": " + conv_err.message()
+                warnings.push_back(
+                    "failed to convert " + field.pointer.to_string() +
+                    " for channel " + ch.name + ": " + conv_err.message()
                 );
-                return res;
+                continue;
             }
 
             fr.emplace(field.channel_key, x::telem::Series(sample_val));
+            any_field_ok = true;
         }
 
-        // Write software-timed index timestamps for index channels on this endpoint
-        // that are NOT listed as fields.
+        // Only write software-timed index timestamps if at least one field on
+        // this endpoint was successfully parsed.
+        if (!any_field_ok) continue;
         for (const auto &[idx_key, ep_idx]: cfg.software_timed_indexes) {
             if (ep_idx != static_cast<int>(ei)) continue;
             auto ts = x::telem::TimeStamp::midpoint(
@@ -269,6 +278,12 @@ ReadTaskSource::read(x::breaker::Breaker &breaker, x::telem::Frame &fr) {
         }
     }
 
+    if (!warnings.empty()) {
+        for (size_t i = 0; i < warnings.size(); i++) {
+            if (i > 0) res.warning += "; ";
+            res.warning += warnings[i];
+        }
+    }
     return res;
 }
 
