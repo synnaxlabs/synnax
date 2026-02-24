@@ -430,7 +430,7 @@ var _ = Describe("Runtime Series Operations", func() {
 		})
 		It("Should slice series", func() {
 			h := rt.SeriesCreateEmptyF64(ctx, 5)
-			for i := uint32(0); i < 5; i++ {
+			for i := range uint32(5) {
 				rt.SeriesSetElementF64(ctx, h, i, float64(i*10))
 			}
 			sliced := rt.SeriesSlice(ctx, h, 1, 4)

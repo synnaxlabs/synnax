@@ -10,6 +10,8 @@
 package formatter_test
 
 import (
+	"strings"
+
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/arc/formatter"
@@ -338,7 +340,7 @@ var _ = Describe("Formatter", func() {
 
 		It("should handle very long identifier", func() {
 			longName := "x"
-			for i := 0; i < 100; i++ {
+			for range 100 {
 				longName += "a"
 			}
 			input := longName + " := 1"
@@ -361,11 +363,11 @@ var _ = Describe("Formatter", func() {
 		})
 
 		It("should handle large file with many statements", func() {
-			var input string
-			for i := 0; i < 100; i++ {
-				input += "x := 1\n"
+			var input strings.Builder
+			for range 100 {
+				input.WriteString("x := 1\n")
 			}
-			result := formatter.Format(input)
+			result := formatter.Format(input.String())
 			Expect(result).ToNot(BeEmpty())
 		})
 	})

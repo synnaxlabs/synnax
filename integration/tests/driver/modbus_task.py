@@ -13,8 +13,6 @@ from abc import abstractmethod
 
 import synnax as sy
 from examples.modbus import ModbusSim
-from synnax import modbus
-from synnax.modbus.types import BaseChan, OutputChan
 
 from tests.driver.simulator_case import SimulatorCase
 from tests.driver.task import ReadTaskCase, WriteTaskCase
@@ -28,7 +26,7 @@ class ModbusReadTaskCase(SimulatorCase, ReadTaskCase):
 
     @staticmethod
     @abstractmethod
-    def create_channels(client: sy.Synnax) -> list[BaseChan]: ...
+    def create_channels(client: sy.Synnax) -> list[sy.modbus.BaseChan]: ...
 
     def create(
         self,
@@ -37,11 +35,11 @@ class ModbusReadTaskCase(SimulatorCase, ReadTaskCase):
         task_name: str,
         sample_rate: sy.Rate,
         stream_rate: sy.Rate,
-    ) -> modbus.ReadTask:
+    ) -> sy.modbus.ReadTask:
         """Create a Modbus read task."""
         channels = self.create_channels(self.client)
 
-        return modbus.ReadTask(
+        return sy.modbus.ReadTask(
             name=task_name,
             device=device.key,
             sample_rate=sample_rate,
@@ -58,7 +56,7 @@ class ModbusWriteTaskCase(SimulatorCase, WriteTaskCase):
 
     @staticmethod
     @abstractmethod
-    def create_channels(client: sy.Synnax) -> list[OutputChan]: ...
+    def create_channels(client: sy.Synnax) -> list[sy.modbus.OutputChan]: ...
 
     def create(
         self,
@@ -67,10 +65,10 @@ class ModbusWriteTaskCase(SimulatorCase, WriteTaskCase):
         task_name: str,
         sample_rate: sy.Rate,
         stream_rate: sy.Rate,
-    ) -> modbus.WriteTask:
+    ) -> sy.modbus.WriteTask:
         """Create a Modbus write task."""
         channels = self.create_channels(self.client)
-        return modbus.WriteTask(
+        return sy.modbus.WriteTask(
             name=task_name,
             device=device.key,
             channels=channels,

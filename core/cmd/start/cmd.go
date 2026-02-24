@@ -22,7 +22,6 @@ import (
 	"github.com/synnaxlabs/synnax/cmd/cert"
 	"github.com/synnaxlabs/synnax/cmd/instrumentation"
 	"github.com/synnaxlabs/x/address"
-	"github.com/synnaxlabs/x/config"
 	"github.com/synnaxlabs/x/errors"
 	xsignal "github.com/synnaxlabs/x/signal"
 	"go.uber.org/zap"
@@ -104,18 +103,18 @@ func GetCoreConfigFromViper(ins alamos.Instrumentation) CoreConfig {
 	})
 	return CoreConfig{
 		Instrumentation:      ins,
-		insecure:             config.Bool(viper.GetBool(FlagInsecure)),
-		debug:                config.Bool(viper.GetBool(instrumentation.FlagDebug)),
-		autoCert:             config.Bool(viper.GetBool(FlagAutoCert)),
+		insecure:             new(viper.GetBool(FlagInsecure)),
+		debug:                new(viper.GetBool(instrumentation.FlagDebug)),
+		autoCert:             new(viper.GetBool(FlagAutoCert)),
 		verifier:             viper.GetString(FlagDecoded),
-		memBacked:            config.Bool(viper.GetBool(FlagMem)),
+		memBacked:            new(viper.GetBool(FlagMem)),
 		listenAddress:        listenAddress,
 		peers:                peers,
 		dataPath:             viper.GetString(FlagData),
 		slowConsumerTimeout:  viper.GetDuration(FlagSlowConsumerTimeout),
 		rootUsername:         viper.GetString(FlagUsername),
 		rootPassword:         viper.GetString(FlagPassword),
-		noDriver:             config.Bool(viper.GetBool(FlagNoDriver)),
+		noDriver:             new(viper.GetBool(FlagNoDriver)),
 		taskOpTimeout:        viper.GetDuration(FlagTaskOpTimeout),
 		taskPollInterval:     viper.GetDuration(FlagTaskPollInterval),
 		taskShutdownTimeout:  viper.GetDuration(FlagTaskShutdownTimeout),
@@ -123,6 +122,6 @@ func GetCoreConfigFromViper(ins alamos.Instrumentation) CoreConfig {
 		certFactoryConfig:    cert.BuildCertFactoryConfig(ins, listenAddress),
 		enabledIntegrations:  viper.GetStringSlice(FlagEnableIntegrations),
 		disabledIntegrations: viper.GetStringSlice(FlagDisableIntegrations),
-		validateChannelNames: config.Bool(!viper.GetBool(FlagDisableChannelNameValidation)),
+		validateChannelNames: new(!viper.GetBool(FlagDisableChannelNameValidation)),
 	}
 }

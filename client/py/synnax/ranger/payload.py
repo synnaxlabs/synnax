@@ -9,35 +9,40 @@
 
 from uuid import UUID
 
-from freighter import Payload
+from pydantic import BaseModel, ConfigDict
 
-from synnax.ontology import ID
+from synnax import ontology
+from synnax.color import Color
 from synnax.telem import TimeRange
 
-RANGE_ONTOLOGY_TYPE = ID(type="range")
+ONTOLOGY_TYPE = ontology.ID(type="range")
 
 
-def ontology_id(key: UUID) -> ID:
+def ontology_id(key: UUID) -> ontology.ID:
     """Returns the ontology ID for the Range entity."""
-    return ID(type=RANGE_ONTOLOGY_TYPE.type, key=str(key))
+    return ontology.ID(type=ONTOLOGY_TYPE.type, key=str(key))
 
 
-class RangePayload(Payload):
+class Payload(BaseModel):
     """Network transportable payload representing a range."""
+
+    model_config = ConfigDict(validate_assignment=True)
 
     key: UUID = UUID(int=0)
     name: str = ""
     time_range: TimeRange
-    color: str = "#000000"
+    color: Color = Color()
 
 
-RangeKey = UUID | str
-"""The type for the key of a Range. A UUID."""
-RangeName = str
-"""The type for the name of a Range. A string."""
-RangeKeys = tuple[UUID] | list[UUID]
-"""The type for the keys of a Range. A tuple or list of UUIDs."""
-RangeNames = tuple[str] | list[str]
+Key = UUID | str
 """The type for the names of a Range. A tuple or list of strings."""
-RangeParams = RangeKeys | RangeNames | RangeKey | RangeName
+RangeParams = Key | list[Key] | tuple[Key] | str | list[str] | tuple[str]
 """Parameters that can be used to query a range"""
+
+from synnax.util.deprecation import deprecated_getattr
+
+_DEPRECATED = {
+    "RangePayload": "Payload",
+}
+
+__getattr__ = deprecated_getattr(__name__, _DEPRECATED, globals())

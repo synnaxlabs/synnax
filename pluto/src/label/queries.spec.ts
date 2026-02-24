@@ -8,6 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { createTestClient, label } from "@synnaxlabs/client";
+import { color } from "@synnaxlabs/x";
 import { act, renderHook, waitFor } from "@testing-library/react";
 import { type FC, type PropsWithChildren } from "react";
 import { beforeAll, describe, expect, it } from "vitest";
@@ -66,7 +67,7 @@ describe("queries", () => {
       const retrievedLabel = result.current.getItem(testLabel.key);
       expect(retrievedLabel?.key).toEqual(testLabel.key);
       expect(retrievedLabel?.name).toEqual("testLabel");
-      expect(retrievedLabel?.color).toEqual("#E774D0");
+      expect(retrievedLabel?.color).toEqual(color.construct("#E774D0"));
     });
 
     it("should filter labels by search term", async () => {
@@ -423,7 +424,7 @@ describe("queries", () => {
 
       await waitFor(() => {
         expect(result.current.form.value().name).toEqual("newFormLabel");
-        expect(result.current.form.value().color).toEqual("#FF00FF");
+        expect(result.current.form.value().color).toEqual(color.construct("#FF00FF"));
         expect(result.current.form.value().key).toBeDefined();
       });
     });
@@ -441,7 +442,7 @@ describe("queries", () => {
       await waitFor(() => expect(result.current.variant).toEqual("success"));
 
       expect(result.current.form.value().name).toEqual("existingLabel");
-      expect(result.current.form.value().color).toEqual("#00FFFF");
+      expect(result.current.form.value().color).toEqual(color.construct("#00FFFF"));
 
       act(() => {
         result.current.form.set("name", "editedLabel");
@@ -484,7 +485,7 @@ describe("queries", () => {
       });
 
       expect(result.current.form.value().name).toEqual("");
-      expect(result.current.form.value().color).toEqual("#000000");
+      expect(result.current.form.value().color).toEqual(color.construct("#000000"));
     });
   });
 

@@ -51,7 +51,7 @@ var (
 	// DefaultStreamerConfig is the default configuration for opening a new streamer.
 	// This configuration is valid and will create a streamer that does
 	// not stream from any channels.
-	DefaultStreamerConfig = StreamerConfig{SendOpenAck: config.False()}
+	DefaultStreamerConfig = StreamerConfig{SendOpenAck: new(false)}
 )
 
 // Override implements config.Config.

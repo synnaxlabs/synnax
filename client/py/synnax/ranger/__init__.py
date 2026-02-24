@@ -7,6 +7,16 @@
 #  License, use of this software will be governed by the Apache License, Version 2.0,
 #  included in the file licenses/APL.txt.
 
-from synnax.ranger.client import Range
-from synnax.ranger.retrieve import RangeRetriever
-from synnax.ranger.writer import RangeWriter
+from synnax.ranger.client import Client, Range
+from synnax.ranger.retrieve import Retriever
+from synnax.ranger.writer import Writer
+from synnax.util.deprecation import deprecated_getattr
+
+_DEPRECATED = {
+    "RangeRetriever": "Retriever",
+    "RangeWriter": "Writer",
+}
+
+__getattr__ = deprecated_getattr(__name__, _DEPRECATED, globals())
+
+__all__ = ["Client", "Range", "Retriever", "Writer"]

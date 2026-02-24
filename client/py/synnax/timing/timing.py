@@ -7,18 +7,21 @@
 #  License, use of this software will be governed by the Apache License, Version 2.0,
 #  included in the file licenses/APL.txt.
 
+from __future__ import annotations
+
 import math
 import time
+from typing import Literal
 
 from synnax.telem import Rate, TimeSpan, TimeStamp
 
 RESOLUTION = (100 * TimeSpan.MICROSECOND).seconds
 
 
-def _precise_sleep(dur: float | int):
+def _precise_sleep(dur: float | int) -> None:
     estimate = RESOLUTION * 10  # Initial overestimate
     mean = RESOLUTION * 10
-    m2 = 0
+    m2: float = 0
     count = 1
     end_time = time.perf_counter() + dur
     nanoseconds = dur * 1e9
@@ -38,7 +41,7 @@ def _precise_sleep(dur: float | int):
         pass
 
 
-def sleep(dur: Rate | TimeSpan | float | int, precise: bool = False):
+def sleep(dur: Rate | TimeSpan | float | int, precise: bool = False) -> None:
     """Sleeps for the given duration, with the option to use a high-precision sleep
     that is more accurate than Python's default time.sleep implementation.
 
@@ -67,18 +70,18 @@ class Timer:
 
     _start: TimeStamp
 
-    def __init__(self):
+    def __init__(self) -> None:
         self.reset()
 
     def elapsed(self) -> TimeSpan:
         """Returns the time elapsed since the timer was started."""
         return TimeSpan(time.perf_counter_ns() - self._start)
 
-    def start(self):
+    def start(self) -> None:
         """Starts the timer."""
         self.reset()
 
-    def reset(self):
+    def reset(self) -> None:
         """Resets the timer to zero."""
         self._start = TimeStamp(time.perf_counter_ns())
 
@@ -119,17 +122,17 @@ class Loop:
         self.precise = precise
         self._last = time.perf_counter_ns()
 
-    def __enter__(self):
+    def __enter__(self) -> Loop:
         self._last = time.perf_counter_ns()
         return self
 
-    def __exit__(self, exc_type, exc_val, exc_tb):
+    def __exit__(self, exc_type: object, exc_val: object, exc_tb: object) -> None:
         pass
 
-    def __iter__(self):
+    def __iter__(self) -> Loop:
         return self
 
-    def __next__(self):
+    def __next__(self) -> None:
         elapsed = self._timer.elapsed()
         if elapsed < self.interval:
             sleep_for = self.interval - elapsed - self._correction
@@ -143,10 +146,10 @@ class Loop:
         self._correction = self.average - self.interval
         self._timer.reset()
 
-    def __call__(self):
+    def __call__(self) -> None:
         return self.__next__()
 
-    def wait(self) -> True:
+    def wait(self) -> Literal[True]:
         """Waits for the next iteration of the loop, automatically sleeping for the
         remainder of the interval if the calling block of code executes faster than the
         interval.

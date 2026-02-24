@@ -30,7 +30,7 @@ describe("table queries", () => {
         name: "test_workspace",
         layout: {},
       });
-      const table = await client.workspaces.tables.create(workspace.key, {
+      const table = await client.tables.create(workspace.key, {
         name: "retrieve_test",
         data: {},
       });
@@ -50,7 +50,7 @@ describe("table queries", () => {
         name: "cache_workspace",
         layout: {},
       });
-      const table = await client.workspaces.tables.create(workspace.key, {
+      const table = await client.tables.create(workspace.key, {
         name: "cached_table",
         data: {},
       });
@@ -93,7 +93,7 @@ describe("table queries", () => {
       expect(result.current.data?.name).toEqual("created_table");
       expect(result.current.data?.workspace).toEqual(workspace.key);
 
-      const retrieved = await client.workspaces.tables.retrieve({ key });
+      const retrieved = await client.tables.retrieve({ key });
       expect(retrieved.name).toEqual("created_table");
     });
 
@@ -131,7 +131,7 @@ describe("table queries", () => {
         name: "rename_workspace",
         layout: {},
       });
-      const table = await client.workspaces.tables.create(workspace.key, {
+      const table = await client.tables.create(workspace.key, {
         name: "original_name",
         data: {},
       });
@@ -155,7 +155,7 @@ describe("table queries", () => {
         });
       });
 
-      const retrieved = await client.workspaces.tables.retrieve({ key: table.key });
+      const retrieved = await client.tables.retrieve({ key: table.key });
       expect(retrieved.name).toEqual("renamed_table");
     });
 
@@ -164,7 +164,7 @@ describe("table queries", () => {
         name: "rename_cache_workspace",
         layout: {},
       });
-      const table = await client.workspaces.tables.create(workspace.key, {
+      const table = await client.tables.create(workspace.key, {
         name: "cache_original",
         data: {},
       });
@@ -197,7 +197,7 @@ describe("table queries", () => {
         name: "delete_workspace",
         layout: {},
       });
-      const table = await client.workspaces.tables.create(workspace.key, {
+      const table = await client.tables.create(workspace.key, {
         name: "delete_single",
         data: {},
       });
@@ -208,9 +208,9 @@ describe("table queries", () => {
         await result.current.updateAsync(table.key);
       });
       expect(result.current.variant).toEqual("success");
-      await expect(
-        client.workspaces.tables.retrieve({ key: table.key }),
-      ).rejects.toThrow(NotFoundError);
+      await expect(client.tables.retrieve({ key: table.key })).rejects.toThrow(
+        NotFoundError,
+      );
     });
 
     it("should delete multiple tables", async () => {
@@ -218,11 +218,11 @@ describe("table queries", () => {
         name: "delete_multi_workspace",
         layout: {},
       });
-      const table1 = await client.workspaces.tables.create(workspace.key, {
+      const table1 = await client.tables.create(workspace.key, {
         name: "delete_multi_1",
         data: {},
       });
-      const table2 = await client.workspaces.tables.create(workspace.key, {
+      const table2 = await client.tables.create(workspace.key, {
         name: "delete_multi_2",
         data: {},
       });
@@ -235,12 +235,12 @@ describe("table queries", () => {
 
       expect(result.current.variant).toEqual("success");
 
-      await expect(
-        client.workspaces.tables.retrieve({ key: table1.key }),
-      ).rejects.toThrow(NotFoundError);
-      await expect(
-        client.workspaces.tables.retrieve({ key: table2.key }),
-      ).rejects.toThrow(NotFoundError);
+      await expect(client.tables.retrieve({ key: table1.key })).rejects.toThrow(
+        NotFoundError,
+      );
+      await expect(client.tables.retrieve({ key: table2.key })).rejects.toThrow(
+        NotFoundError,
+      );
     });
   });
 });

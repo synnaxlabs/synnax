@@ -26,7 +26,7 @@ type testUUIDEntry struct {
 
 func (t testUUIDEntry) GorpKey() uuid.UUID { return t.Key }
 
-func (t testUUIDEntry) SetOptions() []interface{} { return nil }
+func (t testUUIDEntry) SetOptions() []any { return nil }
 
 type testNumericEntry struct {
 	Value string `json:"value"`
@@ -35,7 +35,7 @@ type testNumericEntry struct {
 
 func (t testNumericEntry) GorpKey() uint32 { return t.Key }
 
-func (t testNumericEntry) SetOptions() []interface{} { return nil }
+func (t testNumericEntry) SetOptions() []any { return nil }
 
 type testStringEntry struct {
 	Key   string `json:"key"`
@@ -44,7 +44,7 @@ type testStringEntry struct {
 
 func (t testStringEntry) GorpKey() string { return t.Key }
 
-func (t testStringEntry) SetOptions() []interface{} { return nil }
+func (t testStringEntry) SetOptions() []any { return nil }
 
 var _ = Describe("GorpPublisherConfig", func() {
 	var db *gorp.DB

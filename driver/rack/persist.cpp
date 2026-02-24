@@ -44,7 +44,7 @@ std::string get_persisted_state_path(x::args::Parser &parser) {
 
 std::pair<std::shared_ptr<x::kv::KV>, x::errors::Error>
 open_kv(x::args::Parser &parser) {
-    return x::kv::JSONFile::open(
+    return x::kv::JSONFile::open_file(
         x::kv::JSONFileConfig{
             .path = get_persisted_state_path(parser),
             .dir_mode = PERSISTED_STATE_DIR_PERMISSIONS,

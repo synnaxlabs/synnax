@@ -24,7 +24,6 @@ import (
 	"github.com/synnaxlabs/cesium/internal/channel"
 	"github.com/synnaxlabs/cesium/internal/control"
 	. "github.com/synnaxlabs/cesium/internal/testutil"
-	"github.com/synnaxlabs/x/config"
 	"github.com/synnaxlabs/x/confluence"
 	xcontrol "github.com/synnaxlabs/x/control"
 	"github.com/synnaxlabs/x/io/fs"
@@ -75,8 +74,8 @@ var _ = Describe("Control", func() {
 							Start:             start,
 							Channels:          []cesium.ChannelKey{indexChKey, dataChKey},
 							Authorities:       []xcontrol.Authority{xcontrol.AuthorityAbsolute - 2},
-							ErrOnUnauthorized: config.False(),
-							Sync:              config.True(),
+							ErrOnUnauthorized: new(false),
+							Sync:              new(true),
 						}))
 						By("Opening the second writer")
 						w2 := MustSucceed(db.OpenWriter(ctx, cesium.WriterConfig{
@@ -84,8 +83,8 @@ var _ = Describe("Control", func() {
 							ControlSubject:    xcontrol.Subject{Name: "Writer Two"},
 							Channels:          []cesium.ChannelKey{indexChKey, dataChKey},
 							Authorities:       []xcontrol.Authority{xcontrol.AuthorityAbsolute - 2},
-							ErrOnUnauthorized: config.False(),
-							Sync:              config.True(),
+							ErrOnUnauthorized: new(false),
+							Sync:              new(true),
 						}))
 						streamer := MustSucceed(db.NewStreamer(ctx, cesium.StreamerConfig{
 							Channels:    []cesium.ChannelKey{math.MaxUint32},
@@ -177,8 +176,8 @@ var _ = Describe("Control", func() {
 							Start:             start,
 							Channels:          []cesium.ChannelKey{indexChKey, dataChKey},
 							Authorities:       []xcontrol.Authority{xcontrol.AuthorityAbsolute - 2},
-							ErrOnUnauthorized: config.False(),
-							Sync:              config.True(),
+							ErrOnUnauthorized: new(false),
+							Sync:              new(true),
 						}))
 
 						By("Opening the second writer")
@@ -187,8 +186,8 @@ var _ = Describe("Control", func() {
 							ControlSubject:    xcontrol.Subject{Name: "Writer Two"},
 							Channels:          []cesium.ChannelKey{indexChKey, dataChKey},
 							Authorities:       []xcontrol.Authority{xcontrol.AuthorityAbsolute - 3},
-							ErrOnUnauthorized: config.False(),
-							Sync:              config.True(),
+							ErrOnUnauthorized: new(false),
+							Sync:              new(true),
 						}))
 
 						ctx1, cancel1 := signal.Isolated()
@@ -293,8 +292,8 @@ var _ = Describe("Control", func() {
 							Start:             start,
 							Channels:          []cesium.ChannelKey{virtualChKey, indexChKey, dataChKey},
 							Authorities:       []xcontrol.Authority{100},
-							ErrOnUnauthorized: config.False(),
-							Sync:              config.True(),
+							ErrOnUnauthorized: new(false),
+							Sync:              new(true),
 						}))
 						By("Opening the second writer")
 						w2 = MustSucceed(db.OpenWriter(ctx, cesium.WriterConfig{
@@ -302,8 +301,8 @@ var _ = Describe("Control", func() {
 							ControlSubject:    xcontrol.Subject{Name: "Writer Two"},
 							Channels:          []cesium.ChannelKey{indexChKey, dataChKey},
 							Authorities:       []xcontrol.Authority{0},
-							ErrOnUnauthorized: config.False(),
-							Sync:              config.True(),
+							ErrOnUnauthorized: new(false),
+							Sync:              new(true),
 						}))
 						dataStreamer := MustSucceed(db.NewStreamer(ctx, cesium.StreamerConfig{
 							Channels:    []cesium.ChannelKey{virtualChKey, indexChKey, dataChKey},

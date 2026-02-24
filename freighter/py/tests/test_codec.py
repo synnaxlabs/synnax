@@ -10,12 +10,12 @@
 import json
 
 import msgpack
-from pydantic import ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field
 
-from freighter import JSONCodec, MsgPackCodec, Payload
+from freighter import JSONCodec, MsgPackCodec
 
 
-class PayloadWithAlias(Payload):
+class PayloadWithAlias(BaseModel):
     """Payload with a field alias to test by_alias serialization.
 
     This is needed when the Python attribute name differs from the wire format,

@@ -8,7 +8,6 @@
 #  included in the file licenses/APL.txt.
 
 import random
-import uuid
 
 import numpy as np
 import pytest
@@ -108,7 +107,7 @@ class TestChannel:
         assert len(channels) == 2
         for channel in channels:
             assert channel.name.startswith("test")
-            assert channel.key != ""
+            assert channel.key != 0
 
     def test_create_from_single_instance(self, client: sy.Synnax):
         """Should create a single channel from a channel instance"""
@@ -426,7 +425,7 @@ class TestChannel:
         assert len(hundred_channels) == 100
         for channel in hundred_channels:
             assert channel.name.startswith("sensor")
-            assert channel.key != ""
+            assert channel.key != 0
 
     def test_retrieve_list(self, client: sy.Synnax, hundred_channels: list[sy.Channel]):
         """Should retrieve a list of 100 valid channels"""
@@ -435,7 +434,7 @@ class TestChannel:
         assert len(res_channels) == 100
         for channel in res_channels:
             assert channel.name.startswith("sensor")
-            assert channel.key != ""
+            assert channel.key != 0
             assert isinstance(channel.data_type.density, sy.Density)
 
     def test_retrieve_zero_key_single(self, client: sy.Synnax):
@@ -472,6 +471,7 @@ class TestChannel:
 
         assert created.name == channel.name
         assert created.virtual is True
+        assert created.operations is not None
         assert len(created.operations) == 1
         assert created.operations[0].type == "avg"
         assert created.operations[0].duration == sy.TimeSpan.SECOND * 10
@@ -507,6 +507,7 @@ class TestChannel:
 
         assert created.name == channel.name
         assert created.virtual is True
+        assert created.operations is not None
         assert len(created.operations) == 1
         assert created.operations[0].type == "min"
         assert created.operations[0].reset_channel == reset_channel.key
@@ -538,6 +539,7 @@ class TestChannel:
         created = client.channels.create(channel)
 
         assert created.name == channel.name
+        assert created.operations is not None
         assert len(created.operations) == 1
         assert created.operations[0].type == "max"
         assert created.operations[0].duration == sy.TimeSpan.SECOND * 5
@@ -567,6 +569,7 @@ class TestChannel:
         # Retrieve and verify operations are preserved
         retrieved = client.channels.retrieve(created.key)
         assert retrieved.name == channel.name
+        assert retrieved.operations is not None
         assert len(retrieved.operations) == 1
         assert retrieved.operations[0].type == "avg"
         assert retrieved.operations[0].duration == sy.TimeSpan.SECOND * 15
@@ -606,6 +609,7 @@ class TestChannelWriteRead:
         start = 1 * sy.TimeSpan.SECOND
         channel.write(start, d)
         data = channel.read(start, (start + len(d)) * sy.TimeSpan.SECOND)
+        assert data.time_range is not None
         assert data.time_range.start == start
         assert len(d) == len(data)
         assert data.time_range.end == start + (len(d) - 1) * sy.TimeSpan.SECOND + 1

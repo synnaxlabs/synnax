@@ -30,7 +30,7 @@ describe("log queries", () => {
         name: "test_workspace",
         layout: {},
       });
-      const log = await client.workspaces.logs.create(workspace.key, {
+      const log = await client.logs.create(workspace.key, {
         name: "retrieve_test",
         data: {},
       });
@@ -50,7 +50,7 @@ describe("log queries", () => {
         name: "cache_workspace",
         layout: {},
       });
-      const log = await client.workspaces.logs.create(workspace.key, {
+      const log = await client.logs.create(workspace.key, {
         name: "cached_log",
         data: {},
       });
@@ -91,7 +91,7 @@ describe("log queries", () => {
       expect(result.current.data?.name).toEqual("created_log");
       expect(result.current.data?.workspace).toEqual(workspace.key);
 
-      const retrieved = await client.workspaces.logs.retrieve({ key });
+      const retrieved = await client.logs.retrieve({ key });
       expect(retrieved.name).toEqual("created_log");
     });
 
@@ -129,7 +129,7 @@ describe("log queries", () => {
         name: "rename_workspace",
         layout: {},
       });
-      const log = await client.workspaces.logs.create(workspace.key, {
+      const log = await client.logs.create(workspace.key, {
         name: "original_name",
         data: {},
       });
@@ -153,7 +153,7 @@ describe("log queries", () => {
         });
       });
 
-      const retrieved = await client.workspaces.logs.retrieve({ key: log.key });
+      const retrieved = await client.logs.retrieve({ key: log.key });
       expect(retrieved.name).toEqual("renamed_log");
     });
 
@@ -162,7 +162,7 @@ describe("log queries", () => {
         name: "rename_cache_workspace",
         layout: {},
       });
-      const log = await client.workspaces.logs.create(workspace.key, {
+      const log = await client.logs.create(workspace.key, {
         name: "cache_original",
         data: {},
       });
@@ -195,7 +195,7 @@ describe("log queries", () => {
         name: "delete_workspace",
         layout: {},
       });
-      const log = await client.workspaces.logs.create(workspace.key, {
+      const log = await client.logs.create(workspace.key, {
         name: "delete_single",
         data: {},
       });
@@ -206,7 +206,7 @@ describe("log queries", () => {
         await result.current.updateAsync(log.key);
       });
       expect(result.current.variant).toEqual("success");
-      await expect(client.workspaces.logs.retrieve({ key: log.key })).rejects.toThrow(
+      await expect(client.logs.retrieve({ key: log.key })).rejects.toThrow(
         NotFoundError,
       );
     });
@@ -216,11 +216,11 @@ describe("log queries", () => {
         name: "delete_multi_workspace",
         layout: {},
       });
-      const log1 = await client.workspaces.logs.create(workspace.key, {
+      const log1 = await client.logs.create(workspace.key, {
         name: "delete_multi_1",
         data: {},
       });
-      const log2 = await client.workspaces.logs.create(workspace.key, {
+      const log2 = await client.logs.create(workspace.key, {
         name: "delete_multi_2",
         data: {},
       });
@@ -233,10 +233,10 @@ describe("log queries", () => {
 
       expect(result.current.variant).toEqual("success");
 
-      await expect(client.workspaces.logs.retrieve({ key: log1.key })).rejects.toThrow(
+      await expect(client.logs.retrieve({ key: log1.key })).rejects.toThrow(
         NotFoundError,
       );
-      await expect(client.workspaces.logs.retrieve({ key: log2.key })).rejects.toThrow(
+      await expect(client.logs.retrieve({ key: log2.key })).rejects.toThrow(
         NotFoundError,
       );
     });

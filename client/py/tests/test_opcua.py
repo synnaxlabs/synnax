@@ -108,7 +108,7 @@ class TestOPCUATask:
         createdTask = client.tasks.create(
             name="test-task",
             type="opc_read",
-            config=task.config.model_dump_json(),
+            config=task.config.model_dump(),
         )
         sy.opcua.ReadTask(createdTask)
 
@@ -180,7 +180,7 @@ class TestOPCUAWriteTask:
         createdTask = client.tasks.create(
             name="test-write-task",
             type="opc_write",
-            config=task.config.model_dump_json(),
+            config=task.config.model_dump(),
         )
         sy.opcua.WriteTask(createdTask)
 
@@ -252,13 +252,13 @@ class TestOPCUAWriteTask:
         )
 
         # Serialize to JSON
-        config_json = original_task.config.model_dump_json()
+        config_dict = original_task.config.model_dump()
 
         # Create task in database
         created_task = client.tasks.create(
             name="test-round-trip",
             type="opc_write",
-            config=config_json,
+            config=config_dict,
         )
 
         # Deserialize from database

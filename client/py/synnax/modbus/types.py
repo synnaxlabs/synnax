@@ -7,22 +7,13 @@
 #  License, use of this software will be governed by the Apache License, Version 2.0,
 #  included in the file licenses/APL.txt.
 
-import json
-from typing import Literal
+from typing import Annotated, Any, Literal
 from uuid import uuid4
 
-from pydantic import BaseModel, Field, confloat, conint, field_validator
+from pydantic import BaseModel, Field, field_validator
 
-from synnax import device
-from synnax.channel import ChannelKey
-from synnax.task import (
-    BaseReadTaskConfig,
-    BaseWriteTaskConfig,
-    JSONConfigMixin,
-    StarterStopperMixin,
-    Task,
-    TaskProtocol,
-)
+from synnax import channel as channel_
+from synnax import device, task
 from synnax.telem import CrudeDataType, CrudeRate
 
 # Device identifiers - must match Console expectations
@@ -40,7 +31,7 @@ class BaseChan(BaseModel):
     address: int = Field(ge=0, le=65535)
     "The Modbus register address (0-65535)."
 
-    def __init__(self, **data):
+    def __init__(self, **data: Any) -> None:
         if "key" not in data or not data["key"]:
             data["key"] = str(uuid4())
         super().__init__(**data)
@@ -106,7 +97,7 @@ class HoldingRegisterInputChan(BaseChan):
     """
 
     type: Literal["holding_register_input"] = "holding_register_input"
-    channel: ChannelKey
+    channel: channel_.Key
     "The Synnax channel key that will be written to during acquisition."
     data_type: str = "float32"
     "The data type to interpret the register(s) as (e.g., 'float32', 'int16', 'uint32')."
@@ -168,7 +159,7 @@ class InputRegisterChan(BaseChan):
     """
 
     type: Literal["register_input"] = "register_input"
-    channel: ChannelKey
+    channel: channel_.Key
     "The Synnax channel key that will be written to during acquisition."
     data_type: str = "float32"
     "The data type to interpret the register(s) as (e.g., 'float32', 'int16', 'uint32')."
@@ -219,7 +210,7 @@ class CoilInputChan(BaseChan):
     """
 
     type: Literal["coil_input"] = "coil_input"
-    channel: ChannelKey
+    channel: channel_.Key
     "The Synnax channel key that will be written to during acquisition."
 
 
@@ -262,7 +253,7 @@ class DiscreteInputChan(BaseChan):
     """
 
     type: Literal["discrete_input"] = "discrete_input"
-    channel: ChannelKey
+    channel: channel_.Key
     "The Synnax channel key that will be written to during acquisition."
 
 
@@ -313,7 +304,7 @@ class CoilOutputChan(BaseChan):
     """
 
     type: Literal["coil_output"] = "coil_output"
-    channel: ChannelKey
+    channel: channel_.Key
     "The Synnax channel key to read command values from."
 
 
@@ -376,7 +367,7 @@ class HoldingRegisterOutputChan(BaseChan):
     """
 
     type: Literal["holding_register_output"] = "holding_register_output"
-    channel: ChannelKey
+    channel: channel_.Key
     "The Synnax channel key to read command values from."
     data_type: str = "float32"
     "The data type to interpret the register(s) as (e.g., 'float32', 'int16', 'uint32')."
@@ -390,7 +381,7 @@ class HoldingRegisterOutputChan(BaseChan):
 OutputChan = CoilOutputChan | HoldingRegisterOutputChan
 
 
-class ReadTaskConfig(BaseReadTaskConfig):
+class ReadTaskConfig(task.BaseReadConfig):
     """Configuration for a Modbus TCP read task.
 
     Inherits common read task fields (sample_rate, stream_rate, data_saving,
@@ -400,20 +391,20 @@ class ReadTaskConfig(BaseReadTaskConfig):
 
     device: str = Field(min_length=1)
     "The key of the Synnax Modbus device to read from."
-    sample_rate: conint(ge=0, le=10000)
-    stream_rate: conint(ge=0, le=10000)
+    sample_rate: Annotated[int, Field(ge=0, le=10000)]
+    stream_rate: Annotated[int, Field(ge=0, le=10000)]
     channels: list[InputChan]
     "A list of input channel configurations to acquire data from."
 
     @field_validator("channels")
-    def validate_channels_not_empty(cls, v):
+    def validate_channels_not_empty(cls, v: list[InputChan]) -> list[InputChan]:
         """Validate that at least one channel is provided."""
         if len(v) == 0:
             raise ValueError("Task must have at least one channel")
         return v
 
 
-class WriteTaskConfig(BaseWriteTaskConfig):
+class WriteTaskConfig(task.BaseWriteConfig):
     """Configuration for a Modbus TCP write task.
 
     Inherits common write task fields (device, auto_start) from
@@ -426,14 +417,14 @@ class WriteTaskConfig(BaseWriteTaskConfig):
     "A list of output channel configurations to write to."
 
     @field_validator("channels")
-    def validate_channels_not_empty(cls, v):
+    def validate_channels_not_empty(cls, v: list[OutputChan]) -> list[OutputChan]:
         """Validate that at least one channel is provided."""
         if len(v) == 0:
             raise ValueError("Task must have at least one channel")
         return v
 
 
-class ReadTask(StarterStopperMixin, JSONConfigMixin, TaskProtocol):
+class ReadTask(task.StarterStopperMixin, task.JSONConfigMixin, task.Protocol):
     """
     A read task for sampling data from Modbus TCP devices and writing the data to a
     Synnax cluster. This task is a programmatic representation of the Modbus read
@@ -458,11 +449,11 @@ class ReadTask(StarterStopperMixin, JSONConfigMixin, TaskProtocol):
 
     TYPE = "modbus_read"
     config: ReadTaskConfig
-    _internal: Task
+    _internal: task.Task
 
     def __init__(
         self,
-        internal: Task | None = None,
+        internal: task.Task | None = None,
         *,
         device: str = "",
         name: str = "",
@@ -470,13 +461,13 @@ class ReadTask(StarterStopperMixin, JSONConfigMixin, TaskProtocol):
         stream_rate: CrudeRate = 0,
         data_saving: bool = False,
         auto_start: bool = False,
-        channels: list[InputChan] = None,
+        channels: list[InputChan] | None = None,
     ) -> None:
         if internal is not None:
             self._internal = internal
-            self.config = ReadTaskConfig.model_validate_json(internal.config)
+            self.config = ReadTaskConfig.model_validate(internal.config)
             return
-        self._internal = Task(name=name, type=self.TYPE)
+        self._internal = task.Task(name=name, type=self.TYPE)
         self.config = ReadTaskConfig(
             device=device,
             sample_rate=sample_rate,
@@ -500,14 +491,8 @@ class ReadTask(StarterStopperMixin, JSONConfigMixin, TaskProtocol):
 
         Keys use hyphens instead of underscores to match Console's naming convention.
         """
-        import json
-
         dev = device_client.retrieve(key=self.config.device)
-        props = (
-            json.loads(dev.properties)
-            if isinstance(dev.properties, str)
-            else dev.properties
-        )
+        props = dict(dev.properties)
 
         if "read" not in props:
             props["read"] = {"index": 0, "channels": {}}
@@ -524,11 +509,11 @@ class ReadTask(StarterStopperMixin, JSONConfigMixin, TaskProtocol):
 
             props["read"]["channels"][key] = ch.channel
 
-        dev.properties = json.dumps(props)
+        dev.properties = props
         return device_client.create(dev)
 
 
-class WriteTask(StarterStopperMixin, JSONConfigMixin, TaskProtocol):
+class WriteTask(task.StarterStopperMixin, task.JSONConfigMixin, task.Protocol):
     """
     A write task for sending commands to Modbus TCP devices. This task is a programmatic
     representation of the Modbus write task configurable within the Synnax console.
@@ -546,22 +531,22 @@ class WriteTask(StarterStopperMixin, JSONConfigMixin, TaskProtocol):
 
     TYPE = "modbus_write"
     config: WriteTaskConfig
-    _internal: Task
+    _internal: task.Task
 
     def __init__(
         self,
-        internal: Task | None = None,
+        internal: task.Task | None = None,
         *,
-        device: str = "",
+        device: device.Key = "",
         name: str = "",
         auto_start: bool = False,
-        channels: list[OutputChan] = None,
+        channels: list[OutputChan] | None = None,
     ):
         if internal is not None:
             self._internal = internal
-            self.config = WriteTaskConfig.model_validate_json(internal.config)
+            self.config = WriteTaskConfig.model_validate(internal.config)
             return
-        self._internal = Task(name=name, type=self.TYPE)
+        self._internal = task.Task(name=name, type=self.TYPE)
         self.config = WriteTaskConfig(
             device=device,
             auto_start=auto_start,
@@ -584,14 +569,8 @@ class WriteTask(StarterStopperMixin, JSONConfigMixin, TaskProtocol):
 
         Keys use hyphens instead of underscores to match Console's naming convention.
         """
-        import json
-
         dev = device_client.retrieve(key=self.config.device)
-        props = (
-            json.loads(dev.properties)
-            if isinstance(dev.properties, str)
-            else dev.properties
-        )
+        props = dict(dev.properties)
 
         if "write" not in props:
             props["write"] = {"channels": {}}
@@ -604,7 +583,7 @@ class WriteTask(StarterStopperMixin, JSONConfigMixin, TaskProtocol):
             # Map the generated key to the Synnax channel that will send command values
             props["write"]["channels"][key] = ch.channel
 
-        dev.properties = json.dumps(props)
+        dev.properties = props
         return device_client.create(dev)
 
 
@@ -685,5 +664,5 @@ class Device(device.Device):
             make=MAKE,
             model=MODEL,
             configured=configured,
-            properties=json.dumps(props),
+            properties=props,
         )

@@ -19,7 +19,6 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
 	"github.com/synnaxlabs/synnax/pkg/service/user"
 	"github.com/synnaxlabs/synnax/pkg/service/workspace"
-	"github.com/synnaxlabs/x/config"
 	"github.com/synnaxlabs/x/gorp"
 	"github.com/synnaxlabs/x/kv/memkv"
 	. "github.com/synnaxlabs/x/testutil"
@@ -45,7 +44,7 @@ var _ = BeforeSuite(func() {
 	db = gorp.Wrap(memkv.New())
 	Expect(err).ToNot(HaveOccurred())
 	otg = MustSucceed(ontology.Open(ctx, ontology.Config{
-		EnableSearch: config.False(),
+		EnableSearch: new(false),
 		DB:           db,
 	}))
 	g := MustSucceed(group.OpenService(ctx, group.ServiceConfig{

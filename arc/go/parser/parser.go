@@ -36,7 +36,7 @@ package parser
 
 import (
 	"github.com/antlr4-go/antlr/v4"
-	"github.com/synnaxlabs/arc/diagnostics"
+	"github.com/synnaxlabs/x/diagnostics"
 )
 
 // Parse parses a complete Arc program from source code.
@@ -130,7 +130,7 @@ type errorListener struct {
 // It records the error along with its position in the source code.
 func (e *errorListener) SyntaxError(
 	_ antlr.Recognizer,
-	_ interface{},
+	_ any,
 	line,
 	column int,
 	msg string,

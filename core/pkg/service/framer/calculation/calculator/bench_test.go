@@ -279,7 +279,7 @@ func BenchmarkCalculator_SampleCount(b *testing.B) {
 
 			aData := make([]float64, count)
 			bData := make([]float64, count)
-			for i := 0; i < count; i++ {
+			for i := range count {
 				aData[i] = float64(i)
 				bData[i] = float64(i + 1)
 			}
@@ -351,7 +351,7 @@ func BenchmarkCalculator_GroupScaling(b *testing.B) {
 
 			var group calculator.Group
 			prevName := "base"
-			for i := 0; i < size; i++ {
+			for i := range size {
 				calcCh := channel.Channel{
 					Name:       fmt.Sprintf("calc_%d", i),
 					DataType:   telem.Int64T,

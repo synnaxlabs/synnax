@@ -21,18 +21,19 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/device"
 	"github.com/synnaxlabs/synnax/pkg/service/framer"
 	"github.com/synnaxlabs/synnax/pkg/service/label"
+	"github.com/synnaxlabs/synnax/pkg/service/lineplot"
+	"github.com/synnaxlabs/synnax/pkg/service/log"
 	"github.com/synnaxlabs/synnax/pkg/service/rack"
 	"github.com/synnaxlabs/synnax/pkg/service/ranger"
+	"github.com/synnaxlabs/synnax/pkg/service/ranger/alias"
+	"github.com/synnaxlabs/synnax/pkg/service/schematic"
+	"github.com/synnaxlabs/synnax/pkg/service/schematic/symbol"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
+	"github.com/synnaxlabs/synnax/pkg/service/table"
 	"github.com/synnaxlabs/synnax/pkg/service/task"
 	"github.com/synnaxlabs/synnax/pkg/service/user"
 	"github.com/synnaxlabs/synnax/pkg/service/view"
 	"github.com/synnaxlabs/synnax/pkg/service/workspace"
-	"github.com/synnaxlabs/synnax/pkg/service/workspace/lineplot"
-	"github.com/synnaxlabs/synnax/pkg/service/workspace/log"
-	"github.com/synnaxlabs/synnax/pkg/service/workspace/schematic"
-	"github.com/synnaxlabs/synnax/pkg/service/workspace/schematic/symbol"
-	"github.com/synnaxlabs/synnax/pkg/service/workspace/table"
 )
 
 // allObjects is the complete list of ontology types used for permission definitions.
@@ -45,7 +46,7 @@ var allObjects = []ontology.ID{
 	{Type: group.OntologyType},
 	{Type: ranger.OntologyType},
 	{Type: framer.OntologyType},
-	{Type: ranger.OntologyTypeAlias},
+	{Type: alias.OntologyType},
 	{Type: user.OntologyType},
 	{Type: workspace.OntologyType},
 	{Type: schematic.OntologyType},
@@ -99,7 +100,7 @@ var (
 				{Type: group.OntologyType},
 				{Type: ranger.OntologyType},
 				{Type: framer.OntologyType},
-				{Type: ranger.OntologyTypeAlias},
+				{Type: alias.OntologyType},
 				{Type: workspace.OntologyType},
 				{Type: schematic.OntologyType},
 				{Type: lineplot.OntologyType},

@@ -90,11 +90,9 @@ func (r *relay) connect() (confluence.Outlet[Frame], func()) {
 		// NOTE: This area is a source of concurrency bugs. BE CAREFUL. We need to make
 		// sure we drain the frames in a SEPARATE goroutine. This prevents deadlocks
 		// inside the relay.
-		wg.Add(1)
-		go func() {
+		wg.Go(func() {
 			confluence.Drain(frames)
-			wg.Done()
-		}()
+		})
 		r.delta.Disconnect(frames)
 		wg.Wait()
 	}

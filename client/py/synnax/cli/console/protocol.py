@@ -9,7 +9,7 @@
 
 from typing import Protocol, TypeVar
 
-R = TypeVar("R", str, int, float, bool, None)
+R = TypeVar("R", str, int, float, bool)
 
 
 class Prompt(Protocol):
@@ -83,8 +83,8 @@ class Print(Protocol):
     def table(
         self,
         columns: list[str],
-        rows: list[dict],
-    ):
+        rows: list[dict[str, str]],
+    ) -> None:
         """Prints a table to the console.
 
         :param columns: A list of column names.
@@ -116,7 +116,7 @@ def assign_default_ask_type(
         if choices is not None:
             type_ = type(choices[0])
         elif default is not None:
-            type_ = type(default)  # type: ignore
+            type_ = type(default)
         else:
             type_ = str  # type: ignore
     return type_  # type: ignore

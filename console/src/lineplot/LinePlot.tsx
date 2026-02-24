@@ -107,7 +107,7 @@ const useSyncComponent = Workspace.createSyncComponent(
     if (data == null) return;
     const la = Layout.selectRequired(s, key);
     if (!data.remoteCreated) store.dispatch(setRemoteCreated({ key }));
-    await client.workspaces.lineplots.create(workspace, { key, name: la.name, data });
+    await client.lineplots.create(workspace, { key, name: la.name, data });
   },
 );
 

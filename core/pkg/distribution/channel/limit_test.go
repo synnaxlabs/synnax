@@ -41,7 +41,7 @@ var _ = Describe("Limit", Ordered, func() {
 	)
 	BeforeEach(func() {
 		mockCluster = mock.NewCluster()
-		dist = mockCluster.Provision(ctx, distribution.Config{
+		dist = mockCluster.Provision(ctx, distribution.LayerConfig{
 			TestingIntOverflowCheck: fixedOverflowChecker(limit),
 		})
 	})

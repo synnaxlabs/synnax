@@ -7,6 +7,8 @@
 #  License, use of this software will be governed by the Apache License, Version 2.0,
 #  included in the file licenses/APL.txt.
 
+from __future__ import annotations
+
 import csv
 from collections.abc import Iterator
 from pathlib import Path
@@ -61,7 +63,7 @@ class CSVReader(CSVMatcher):  # type: ignore
             dialect = csv.Sniffer().sniff(sample)
             return dialect.delimiter
 
-    def seek_first(self):
+    def seek_first(self) -> None:
         self.close()
         self.__reader = pd.read_csv(
             self._path,
@@ -113,7 +115,7 @@ class CSVReader(CSVMatcher):  # type: ignore
             ]
         return self._channels
 
-    def set_chunk_size(self, chunk_size: int):
+    def set_chunk_size(self, chunk_size: int) -> None:
         self.chunk_size = chunk_size
 
     def read(self) -> pd.DataFrame:
@@ -141,7 +143,7 @@ class CSVReader(CSVMatcher):  # type: ignore
         assert self.__reader is not None
         return self.__reader
 
-    def close(self):
+    def close(self) -> None:
         if self.__reader is not None:
             self.__reader.close()
         self.__reader = None
@@ -179,14 +181,14 @@ class CSVWriter(CSVMatcher):  # type: ignore
     def _(self) -> FileWriter:
         return self
 
-    def write(self, df: pd.DataFrame):
+    def write(self, df: pd.DataFrame) -> None:
         df.to_csv(self._path, index=False, mode="a", header=self._header)
         self._header = False
 
     def path(self) -> Path:
         return self._path
 
-    def close(self):
+    def close(self) -> None:
         pass
 
 
@@ -196,8 +198,8 @@ class CSVReaderIterator:
     def __init__(self, base: Iterator[pd.DataFrame]):
         self.base = base
 
-    def __iter__(self):
+    def __iter__(self) -> CSVReaderIterator:
         return self
 
-    def __next__(self):
+    def __next__(self) -> pd.DataFrame:
         return convert_df(next(self.base))

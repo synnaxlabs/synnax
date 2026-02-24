@@ -11,38 +11,39 @@ from typing import overload
 from uuid import UUID
 
 from alamos import NOOP, Instrumentation
-from freighter import Empty, Payload, UnaryClient, send_required
+from freighter import Empty, UnaryClient, send_required
+from pydantic import BaseModel
 
 from synnax.access.policy.payload import Policy
 from synnax.ontology.payload import ID
 from synnax.util.normalize import normalize
 
 
-class _CreateRequest(Payload):
+class _CreateRequest(BaseModel):
     policies: list[Policy]
 
 
 _CreateResponse = _CreateRequest
 
 
-class _RetrieveRequest(Payload):
+class _RetrieveRequest(BaseModel):
     keys: list[UUID] | None
     subjects: list[ID] | None
     internal: bool | None = None
 
 
-class _RetrieveResponse(Payload):
+class _RetrieveResponse(BaseModel):
     policies: list[Policy] | None
 
 
-class _DeleteRequest(Payload):
+class _DeleteRequest(BaseModel):
     keys: list[UUID]
 
 
 ONTOLOGY_TYPE = ID(type="policy")
 
 
-class PolicyClient:
+class Client:
     _client: UnaryClient
     instrumentation: Instrumentation
 

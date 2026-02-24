@@ -8,7 +8,6 @@
 #  included in the file licenses/APL.txt.
 
 import synnax as sy
-from synnax import opcua
 
 from tests.driver.opcua_task import OPCUAWriteTaskCase
 from tests.driver.task import create_channel, create_index
@@ -18,10 +17,10 @@ class OPCUAWriteFloat(OPCUAWriteTaskCase):
     task_name = "OPCUA Write Float"
 
     @staticmethod
-    def create_channels(client: sy.Synnax) -> list[opcua.WriteChannel]:
+    def create_channels(client: sy.Synnax) -> list[sy.opcua.WriteChannel]:
         idx = create_index(client, "opcua_write_cmd_time")
         return [
-            opcua.WriteChannel(
+            sy.opcua.WriteChannel(
                 cmd_channel=create_channel(
                     client,
                     name=f"opcua_cmd_{i}",

@@ -1446,7 +1446,7 @@ Examples:
     parser.add_argument("--port", type=int, default=9090, help="Synnax server port")
     parser.add_argument("--username", default="synnax", help="Synnax username")
     parser.add_argument("--password", default="seldon", help="Synnax password")
-    parser.add_argument("--secure", default=False, help="Use secure connection")
+    parser.add_argument("--secure", action="store_true", help="Use secure connection")
     parser.add_argument(
         "--filter",
         "-f",
@@ -1454,8 +1454,7 @@ Examples:
     )
     parser.add_argument(
         "--headed",
-        type=bool,
-        default=False,
+        action="store_true",
         help="Run Playwright Console tests in headed mode (sets PLAYWRIGHT_CONSOLE_HEADED environment variable)",
     )
     parser.add_argument(

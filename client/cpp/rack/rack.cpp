@@ -13,10 +13,6 @@
 #include "x/cpp/errors/errors.h"
 
 namespace synnax::rack {
-Rack::Rack(const rack::Key key, std::string name): key(key), name(std::move(name)) {}
-
-Rack::Rack(std::string name): name(std::move(name)) {}
-
 std::pair<Rack, x::errors::Error> Rack::from_proto(const api::v1::Rack &rack) {
     Rack r;
     r.key = rack.key();
@@ -105,7 +101,7 @@ x::errors::Error Client::create(Rack &rack) const {
 }
 
 std::pair<Rack, x::errors::Error> Client::create(const std::string &name) const {
-    auto rack = Rack(name);
+    auto rack = Rack{.name = name};
     auto err = create(rack);
     return {rack, err};
 }

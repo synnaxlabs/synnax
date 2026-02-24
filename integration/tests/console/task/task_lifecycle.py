@@ -104,8 +104,7 @@ class TaskLifecycle(SimulatorCase, ConsoleCase):
         """Verify data saving state via the Python client, with polling."""
         for _ in range(10):
             task = self.client.tasks.retrieve(names=[name])[0]
-            config = json.loads(task.config)
-            actual = config.get("dataSaving", config.get("data_saving"))
+            actual = task.config.get("dataSaving", task.config.get("data_saving"))
             if actual == expected:
                 return
             sy.sleep(0.5)

@@ -9,6 +9,7 @@
 
 import json
 import pathlib
+from typing import Any
 
 CONFIG_DIR_NAME = "./synnax"
 
@@ -17,7 +18,7 @@ class ConfigFile:
     """The global synnax py configuration file."""
 
     file: pathlib.Path
-    config: dict
+    config: dict[str, Any]
 
     def __init__(
         self,
@@ -28,7 +29,7 @@ class ConfigFile:
         self.config = {}
         self.load()
 
-    def load(self):
+    def load(self) -> None:
         """Loads the config file from disk. If the file does not exist, it will
         be created.
         """
@@ -37,7 +38,7 @@ class ConfigFile:
         with open(self.config_file, "r") as f:
             self.config = json.load(f)
 
-    def save(self):
+    def save(self) -> None:
         """Saves the config file to disk."""
         self.config_file.parent.mkdir(
             parents=True,
@@ -46,29 +47,29 @@ class ConfigFile:
         with open(self.config_file, "w") as f:
             json.dump(self.config, f)
 
-    def get(self, key):
+    def get(self, key: str) -> Any:
         """Gets a value from the config file."""
         return get_nested(self.config, key)
 
-    def set(self, key, value):
+    def set(self, key: str, value: Any) -> None:
         """Sets a value in the config file."""
         set_nested(self.config, key, value)
         self.save()
 
-    def delete(self, key):
+    def delete(self, key: str) -> None:
         """Deletes a value from the config file."""
         del self.config[key]
         self.save()
 
 
-def set_nested(d, key, value):
+def set_nested(d: dict[str, Any], key: str, value: Any) -> None:
     keys = key.split(".")
     for key in keys[:-1]:
         d = d.setdefault(key, {})
     d[keys[-1]] = value
 
 
-def get_nested(d, key):
+def get_nested(d: dict[str, Any], key: str) -> Any:
     keys = key.split(".")
     for key in keys[:-1]:
         d = d.get(key, {})

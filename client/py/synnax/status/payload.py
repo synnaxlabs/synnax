@@ -10,18 +10,17 @@
 from typing import Any, Generic, Literal, TypeVar
 from uuid import uuid4
 
-from freighter import Payload
-from pydantic import Field
+from pydantic import BaseModel, Field
 
 from synnax.ontology import ID
 from synnax.telem import TimeStamp
 
-SUCCESS_VARIANT = "success"
-INFO_VARIANT = "info"
-WARNING_VARIANT = "warning"
-ERROR_VARIANT = "error"
-DISABLED_VARIANT = "disabled"
-LOADING_VARIANT = "loading"
+VARIANT_SUCCESS = "success"
+VARIANT_INFO = "info"
+VARIANT_WARNING = "warning"
+VARIANT_ERROR = "error"
+VARIANT_DISABLED = "disabled"
+VARIANT_LOADING = "loading"
 
 Variant = Literal[
     "success",
@@ -33,9 +32,9 @@ Variant = Literal[
 ]
 """Represents the variant of a status message."""
 
-D = TypeVar("D", bound=Payload | None)
+D = TypeVar("D", bound=BaseModel | None)
 
-STATUS_ONTOLOGY_TYPE = ID(type="status")
+ONTOLOGY_TYPE = ID(type="status")
 
 
 def ontology_id(key: str) -> ID:
@@ -47,10 +46,10 @@ def ontology_id(key: str) -> ID:
     Returns:
         An ontology ID dictionary with type "status" and the given key.
     """
-    return ID(type=STATUS_ONTOLOGY_TYPE.type, key=key)
+    return ID(type=ONTOLOGY_TYPE.type, key=key)
 
 
-class Status(Payload, Generic[D]):
+class Status(BaseModel, Generic[D]):
     """A standardized payload used across Synnax."""
 
     key: str = Field(default_factory=lambda: str(uuid4()))
@@ -67,7 +66,7 @@ class Status(Payload, Generic[D]):
     """The time the status was created."""
     labels: list[Any] | None = None
     """Optional labels attached to the status (only present in responses)."""
-    details: D = None
+    details: D | None = None
     """The details are customizable details for component specific statuses."""
 
     @property
@@ -78,3 +77,17 @@ class Status(Payload, Generic[D]):
             An ontology ID dictionary with type "status" and the status key.
         """
         return ontology_id(self.key)
+
+
+from synnax.util.deprecation import deprecated_getattr
+
+_DEPRECATED = {
+    "SUCCESS_VARIANT": "VARIANT_SUCCESS",
+    "INFO_VARIANT": "VARIANT_INFO",
+    "WARNING_VARIANT": "VARIANT_WARNING",
+    "ERROR_VARIANT": "VARIANT_ERROR",
+    "DISABLED_VARIANT": "VARIANT_DISABLED",
+    "LOADING_VARIANT": "VARIANT_LOADING",
+}
+
+__getattr__ = deprecated_getattr(__name__, _DEPRECATED, globals())

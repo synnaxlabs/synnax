@@ -1,3 +1,6 @@
+load("@rules_cc//cc:cc_library.bzl", "cc_library")
+load("@rules_cc//cc:cc_test.bzl", "cc_test")
+
 config_setting(
     name = "nilinuxrt",
     values = {
@@ -26,11 +29,11 @@ cc_library(
         "//driver/arc",
         "//driver/common",
         "//driver/ethercat",
+        "//driver/http",
         "//driver/labjack",
         "//driver/ni",
         "//driver/opc",
         "//driver/rack/status",
-        "//driver/sequence",
         "//driver/task",
         "//x/cpp/args",
         "//x/cpp/env",
@@ -39,6 +42,7 @@ cc_library(
         "//x/cpp/os",
         "//x/cpp/path",
         "//x/cpp/thread",
+        "//x/cpp/uuid",
     ] + select({
         ":nilinuxrt": [],
         "//conditions:default": ["//driver/modbus"],
@@ -50,6 +54,7 @@ cc_test(
     srcs = [
         "config_test.cpp",
     ],
+    linkstatic = True,
     deps = [
         "//client/cpp/testutil",
         "//driver/rack",

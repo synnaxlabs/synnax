@@ -8,37 +8,43 @@
 // included in the file licenses/APL.txt.
 
 import { type device } from "@synnaxlabs/client";
-import { z } from "zod/v4";
+import { z } from "zod";
 
 export const MAKE = "Modbus";
-export type Make = typeof MAKE;
-export type Model = "Modbus";
+const makeZ = z.literal(MAKE);
+const modelZ = z.literal("Modbus");
 
-export const connectionConfigZ = z.object({
-  host: z.string(),
-  port: z.number(),
-  swapBytes: z.boolean(),
-  swapWords: z.boolean(),
-});
-export interface ConnectionConfig extends z.infer<typeof connectionConfigZ> {}
-
-export const ZERO_CONNECTION_CONFIG = {
-  host: "",
-  port: 0,
-  swapBytes: false,
-  swapWords: false,
-} as const satisfies ConnectionConfig;
-
-export const propertiesZ = z.object({
-  connection: connectionConfigZ,
+const propertiesZ = z.object({
+  connection: z.object({
+    host: z.string(),
+    port: z.number(),
+    swapBytes: z.boolean(),
+    swapWords: z.boolean(),
+  }),
   read: z.object({ index: z.number(), channels: z.record(z.string(), z.number()) }),
   write: z.object({ channels: z.record(z.string(), z.number()) }),
 });
+
 export interface Properties extends z.infer<typeof propertiesZ> {}
+
 export const ZERO_PROPERTIES = {
-  connection: ZERO_CONNECTION_CONFIG,
+  connection: { host: "", port: 0, swapBytes: false, swapWords: false },
   read: { index: 0, channels: {} },
   write: { channels: {} },
 } as const satisfies Properties;
 
-export interface Device extends device.Device<Properties, Make, Model> {}
+export interface Device extends device.Device<
+  typeof propertiesZ,
+  typeof makeZ,
+  typeof modelZ
+> {}
+
+export const SCHEMAS = {
+  properties: propertiesZ,
+  make: makeZ,
+  model: modelZ,
+} as const satisfies device.DeviceSchemas<
+  typeof propertiesZ,
+  typeof makeZ,
+  typeof modelZ
+>;

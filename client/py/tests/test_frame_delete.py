@@ -19,7 +19,9 @@ from tests.telem import seconds_linspace
 @pytest.mark.framer
 @pytest.mark.delete
 class TestDeleter:
-    def test_basic_delete(self, indexed_pair: sy.Channel, client: sy.Synnax):
+    def test_basic_delete(
+        self, indexed_pair: tuple[sy.Channel, sy.Channel], client: sy.Synnax
+    ):
         idx_ch, _ = indexed_pair
         with client.open_writer(sy.TimeSpan.SECOND * 1, idx_ch) as w:
             data = seconds_linspace(1, 50)
@@ -58,7 +60,7 @@ class TestDeleter:
         )
 
     def test_delete_channel_not_found_name(
-        self, indexed_pair: sy.Channel, client: sy.Synnax
+        self, indexed_pair: tuple[sy.Channel, sy.Channel], client: sy.Synnax
     ):
         idx_ch, _ = indexed_pair
         client.write(0, idx_ch.key, seconds_linspace(1, 50))
@@ -69,7 +71,7 @@ class TestDeleter:
         assert data.size == 50 * 8
 
     def test_delete_channel_not_found_key(
-        self, indexed_pair: sy.Channel, client: sy.Synnax
+        self, indexed_pair: tuple[sy.Channel, sy.Channel], client: sy.Synnax
     ):
         idx_ch, _ = indexed_pair
         client.write(0, idx_ch.key, seconds_linspace(1, 50))

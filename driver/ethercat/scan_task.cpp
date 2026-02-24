@@ -136,21 +136,21 @@ synnax::device::Device Scanner::create_slave_device(
     std::string status_variant;
     if (!is_enabled) {
         status_msg = "Device disabled";
-        status_variant = x::status::variant::DISABLED;
+        status_variant = x::status::VARIANT_DISABLED;
     } else if (sts.pdos_discovered) {
         if (sts.pdo_discovery_error.empty()) {
             status_msg = "Discovered (" + std::to_string(props.input_pdos.size()) +
                          " inputs, " + std::to_string(props.output_pdos.size()) +
                          " outputs)";
-            status_variant = x::status::variant::SUCCESS;
+            status_variant = x::status::VARIANT_SUCCESS;
         } else {
             status_msg = "Discovered with warning: " + sts.pdo_discovery_error + ". " +
                          get_pdo_error_guidance(sts.pdo_discovery_error);
-            status_variant = x::status::variant::WARNING;
+            status_variant = x::status::VARIANT_WARNING;
         }
     } else {
         status_msg = "Discovered (no PDOs found). " + get_pdo_error_guidance("no PDOs");
-        status_variant = x::status::variant::WARNING;
+        status_variant = x::status::VARIANT_WARNING;
     }
 
     synnax::device::Device dev;
@@ -161,7 +161,7 @@ synnax::device::Device Scanner::create_slave_device(
     dev.model = SLAVE_DEVICE_MODEL;
     dev.location = master_key + ".Slot " + std::to_string(props.position);
     dev.rack = rack_key;
-    dev.properties = json_props.dump();
+    dev.properties = json_props;
     dev.status = synnax::device::Status{
         .key = dev.status_key(),
         .name = dev.name,
@@ -182,9 +182,7 @@ nlohmann::json Scanner::get_existing_properties(
     const auto it = scan_ctx.devices->find(key);
     if (it == scan_ctx.devices->end()) return nlohmann::json::object();
     if (it->second.properties.empty()) return nlohmann::json::object();
-    try {
-        return nlohmann::json::parse(it->second.properties);
-    } catch (const nlohmann::json::parse_error &) { return nlohmann::json::object(); }
+    return it->second.properties;
 }
 
 std::string Scanner::generate_slave_key(
@@ -215,8 +213,8 @@ void Scanner::on_device_set(const synnax::device::Device &dev) {
     synnax::device::Status status{
         .key = dev.status_key(),
         .name = dev.name,
-        .variant = props.enabled ? x::status::variant::SUCCESS
-                                 : x::status::variant::DISABLED,
+        .variant = props.enabled ? x::status::VARIANT_SUCCESS
+                                 : x::status::VARIANT_DISABLED,
         .message = props.enabled ? "Device enabled" : "Device disabled",
         .time = x::telem::TimeStamp::now(),
         .details = {.rack = dev.rack, .device = dev.key},
@@ -233,7 +231,7 @@ void Scanner::test_interface(const task::Command &cmd) const {
     synnax::task::Status task_status{
         .key = this->task.status_key(),
         .name = this->task.name,
-        .variant = x::status::variant::ERR,
+        .variant = x::status::VARIANT_ERROR,
         .details = synnax::task::StatusDetails{
             .task = this->task.key,
             .cmd = cmd.key,
@@ -261,7 +259,7 @@ void Scanner::test_interface(const task::Command &cmd) const {
 
     VLOG(1) << SCAN_LOG_PREFIX << "test_interface: found " << slaves.size()
             << " slaves on " << args.interface;
-    task_status.variant = x::status::variant::SUCCESS;
+    task_status.variant = x::status::VARIANT_SUCCESS;
     task_status.message = "Found " + std::to_string(slaves.size()) + " slaves on " +
                           args.interface;
     this->ctx->set_status(task_status);

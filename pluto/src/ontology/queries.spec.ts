@@ -22,15 +22,15 @@ const wrapper = createSynnaxWrapper({ client });
 describe("Ontology Queries", () => {
   describe("useChildren", async () => {
     it("should return children of a parent", async () => {
-      const parent = await client.ontology.groups.create({
+      const parent = await client.groups.create({
         parent: ontology.ROOT_ID,
         name: "parent",
       });
-      const child1 = await client.ontology.groups.create({
+      const child1 = await client.groups.create({
         parent: group.ontologyID(parent.key),
         name: "child1",
       });
-      const child2 = await client.ontology.groups.create({
+      const child2 = await client.groups.create({
         parent: group.ontologyID(parent.key),
         name: "child2",
       });
@@ -56,15 +56,15 @@ describe("Ontology Queries", () => {
     });
 
     it("should update the query when a child is added to the parent", async () => {
-      const parent = await client.ontology.groups.create({
+      const parent = await client.groups.create({
         parent: ontology.ROOT_ID,
         name: "parent",
       });
-      await client.ontology.groups.create({
+      await client.groups.create({
         parent: group.ontologyID(parent.key),
         name: "child1",
       });
-      await client.ontology.groups.create({
+      await client.groups.create({
         parent: group.ontologyID(parent.key),
         name: "child2",
       });
@@ -82,15 +82,15 @@ describe("Ontology Queries", () => {
         expect(result.current.data).toHaveLength(2);
       });
       await act(async () => {
-        const alternateParent = await client.ontology.groups.create({
+        const alternateParent = await client.groups.create({
           parent: ontology.ROOT_ID,
           name: "alternateParent",
         });
-        await client.ontology.groups.create({
+        await client.groups.create({
           parent: group.ontologyID(parent.key),
           name: "child3",
         });
-        await client.ontology.groups.create({
+        await client.groups.create({
           parent: group.ontologyID(alternateParent.key),
           name: "child4",
         });
@@ -101,15 +101,15 @@ describe("Ontology Queries", () => {
     });
 
     it("should update the query when a child is removed from the parent", async () => {
-      const parent = await client.ontology.groups.create({
+      const parent = await client.groups.create({
         parent: ontology.ROOT_ID,
         name: "parent",
       });
-      const child1 = await client.ontology.groups.create({
+      const child1 = await client.groups.create({
         parent: group.ontologyID(parent.key),
         name: "child1",
       });
-      const child2 = await client.ontology.groups.create({
+      const child2 = await client.groups.create({
         parent: group.ontologyID(parent.key),
         name: "child2",
       });
@@ -143,8 +143,8 @@ describe("Ontology Queries", () => {
 
   describe("useResourceList", () => {
     it("should return all resources when no parameters are provided", async () => {
-      await client.ontology.groups.create({ parent: ontology.ROOT_ID, name: "group1" });
-      await client.ontology.groups.create({ parent: ontology.ROOT_ID, name: "group2" });
+      await client.groups.create({ parent: ontology.ROOT_ID, name: "group1" });
+      await client.groups.create({ parent: ontology.ROOT_ID, name: "group2" });
 
       const { result } = renderHook(() => Ontology.useResourceList({}), {
         wrapper,
@@ -167,7 +167,7 @@ describe("Ontology Queries", () => {
     it("should respect pagination parameters", async () => {
       const groups: group.Group[] = await Promise.all(
         Array.from({ length: 5 }, async (_, i) =>
-          client.ontology.groups.create({
+          client.groups.create({
             parent: ontology.ROOT_ID,
             name: `group${i}`,
           }),
@@ -207,11 +207,11 @@ describe("Ontology Queries", () => {
     });
 
     it("should filter resources by search term", async () => {
-      await client.ontology.groups.create({
+      await client.groups.create({
         parent: ontology.ROOT_ID,
         name: "matching-group",
       });
-      await client.ontology.groups.create({
+      await client.groups.create({
         parent: ontology.ROOT_ID,
         name: "different-name",
       });
@@ -248,7 +248,7 @@ describe("Ontology Queries", () => {
       });
 
       const newGroupName = id.create();
-      const newGroup = await client.ontology.groups.create({
+      const newGroup = await client.groups.create({
         parent: ontology.ROOT_ID,
         name: newGroupName,
       });
@@ -264,15 +264,15 @@ describe("Ontology Queries", () => {
 
   describe("useRetrieveChildren", () => {
     it("should retrieve children of a parent", async () => {
-      const parent = await client.ontology.groups.create({
+      const parent = await client.groups.create({
         parent: ontology.ROOT_ID,
         name: "parent",
       });
-      await client.ontology.groups.create({
+      await client.groups.create({
         parent: group.ontologyID(parent.key),
         name: "child1",
       });
-      await client.ontology.groups.create({
+      await client.groups.create({
         parent: group.ontologyID(parent.key),
         name: "child2",
       });
@@ -289,7 +289,7 @@ describe("Ontology Queries", () => {
     });
 
     it("should return empty array when parent has no children", async () => {
-      const parent = await client.ontology.groups.create({
+      const parent = await client.groups.create({
         parent: ontology.ROOT_ID,
         name: "empty-parent",
       });
@@ -319,24 +319,24 @@ describe("Ontology Queries", () => {
     });
 
     it("should re-fetch when query ID changes", async () => {
-      const parent1 = await client.ontology.groups.create({
+      const parent1 = await client.groups.create({
         parent: ontology.ROOT_ID,
         name: "parent1",
       });
-      await client.ontology.groups.create({
+      await client.groups.create({
         parent: group.ontologyID(parent1.key),
         name: "p1-child",
       });
 
-      const parent2 = await client.ontology.groups.create({
+      const parent2 = await client.groups.create({
         parent: ontology.ROOT_ID,
         name: "parent2",
       });
-      await client.ontology.groups.create({
+      await client.groups.create({
         parent: group.ontologyID(parent2.key),
         name: "p2-child1",
       });
-      await client.ontology.groups.create({
+      await client.groups.create({
         parent: group.ontologyID(parent2.key),
         name: "p2-child2",
       });

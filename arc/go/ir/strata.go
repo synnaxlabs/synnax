@@ -11,6 +11,7 @@ package ir
 
 import (
 	"fmt"
+	"slices"
 	"strings"
 )
 
@@ -23,10 +24,8 @@ type Strata [][]string
 // Get returns the stratum level of the node with the given key, or -1 if not found.
 func (s Strata) Get(key string) int {
 	for i, nodes := range s {
-		for _, node := range nodes {
-			if node == key {
-				return i
-			}
+		if slices.Contains(nodes, key) {
+			return i
 		}
 	}
 	return -1
@@ -58,7 +57,7 @@ func (s Strata) stringWithPrefix(prefix string) string {
 	for i, nodes := range s {
 		isLast := i == len(s)-1
 		nodeList := strings.Join(nodes, ", ")
-		b.WriteString(fmt.Sprintf("%s%s[%d]: %s\n", prefix, treePrefix(isLast), i, nodeList))
+		_, _ = fmt.Fprintf(&b, "%s%s[%d]: %s\n", prefix, treePrefix(isLast), i, nodeList)
 	}
 	return b.String()
 }

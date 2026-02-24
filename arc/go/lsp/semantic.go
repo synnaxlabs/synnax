@@ -16,6 +16,7 @@ import (
 	"github.com/synnaxlabs/arc/ir"
 	"github.com/synnaxlabs/arc/parser"
 	"github.com/synnaxlabs/arc/symbol"
+	"github.com/synnaxlabs/x/lsp"
 	"go.lsp.dev/protocol"
 )
 
@@ -76,16 +77,9 @@ func (s *Server) SemanticTokensFull(ctx context.Context, params *protocol.Semant
 	return &protocol.SemanticTokens{Data: tokens}, nil
 }
 
-type token struct {
-	line      uint32
-	startChar uint32
-	length    uint32
-	tokenType uint32
-}
-
 func extractSemanticTokens(ctx context.Context, content string, docIR ir.IR) []uint32 {
 	allTokens := tokenizeContent(content)
-	var tokens []token
+	var tokens []lsp.Token
 	for _, t := range allTokens {
 		if t.GetTokenType() == antlr.TokenEOF {
 			continue
@@ -94,14 +88,14 @@ func extractSemanticTokens(ctx context.Context, content string, docIR ir.IR) []u
 		if tokenType == nil {
 			continue
 		}
-		tokens = append(tokens, token{
-			line:      uint32(t.GetLine() - 1),
-			startChar: uint32(t.GetColumn()),
-			length:    uint32(len(t.GetText())),
-			tokenType: *tokenType,
+		tokens = append(tokens, lsp.Token{
+			Line:      uint32(t.GetLine() - 1),
+			StartChar: uint32(t.GetColumn()),
+			Length:    uint32(len(t.GetText())),
+			TokenType: *tokenType,
 		})
 	}
-	return encodeSemanticTokens(tokens)
+	return lsp.EncodeSemanticTokens(tokens)
 }
 
 func classifyToken(ctx context.Context, t antlr.Token, docIR ir.IR) *uint32 {
@@ -194,26 +188,4 @@ func mapLexerTokenType(antlrType int) *uint32 {
 		return nil
 	}
 	return &tokenType
-}
-
-func encodeSemanticTokens(tokens []token) []uint32 {
-	if len(tokens) == 0 {
-		return []uint32{}
-	}
-	encoded := make([]uint32, 0, len(tokens)*5)
-	prevLine := uint32(0)
-	prevChar := uint32(0)
-	for _, t := range tokens {
-		deltaLine := t.line - prevLine
-		var deltaChar uint32
-		if deltaLine == 0 {
-			deltaChar = t.startChar - prevChar
-		} else {
-			deltaChar = t.startChar
-		}
-		encoded = append(encoded, deltaLine, deltaChar, t.length, t.tokenType, 0)
-		prevLine = t.line
-		prevChar = t.startChar
-	}
-	return encoded
 }

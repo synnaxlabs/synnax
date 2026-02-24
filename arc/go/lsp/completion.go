@@ -15,6 +15,7 @@ import (
 
 	"github.com/synnaxlabs/arc/parser"
 	"github.com/synnaxlabs/arc/types"
+	lsp "github.com/synnaxlabs/x/lsp"
 	"go.lsp.dev/protocol"
 	"go.uber.org/zap"
 )
@@ -327,7 +328,7 @@ func (s *Server) Completion(
 
 	displayContent := doc.displayContent()
 
-	line, ok := getLine(displayContent, params.Position.Line)
+	line, ok := lsp.GetLine(displayContent, params.Position.Line)
 	if !ok {
 		return &protocol.CompletionList{}, nil
 	}
@@ -335,7 +336,7 @@ func (s *Server) Completion(
 	prefix := ""
 	if int(params.Position.Character) <= len(line) {
 		start := int(params.Position.Character)
-		for start > 0 && isWordChar(line[start-1]) {
+		for start > 0 && lsp.IsWordChar(line[start-1]) {
 			start--
 		}
 		prefix = line[start:params.Position.Character]

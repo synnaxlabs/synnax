@@ -58,11 +58,11 @@ class RowIngestionEngine:
         )
         self.end = start
 
-    def get_chunk_size(self):
+    def get_chunk_size(self) -> int:
         """Sum the density of all channels to determine the chunk size."""
         return self.mem_limit // sum(ch.data_type.density for ch in self.channels)
 
-    def run(self):
+    def run(self) -> None:
         """Run the ingestion engine."""
         self.reader.seek_first()
         try:
@@ -88,7 +88,7 @@ class RowIngestionEngine:
             self.reader.close()
             self.writer.close()
 
-    def _write(self, df: DataFrame):
+    def _write(self, df: DataFrame) -> None:
         for channel in self.channels:
             if channel.name in df.columns:
                 df.rename(columns={channel.name: channel.key}, inplace=True)

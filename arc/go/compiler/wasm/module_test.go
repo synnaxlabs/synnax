@@ -428,7 +428,7 @@ var _ = Describe("WASM Module", func() {
 			typeIdx := mod.AddType(ft)
 
 			// Add 5 functions with same type
-			for i := 0; i < 5; i++ {
+			for range 5 {
 				mod.AddFunction(typeIdx, []wasm.ValueType{}, []byte{0x41, 0x00})
 			}
 

@@ -11,12 +11,13 @@ from __future__ import annotations
 
 import json
 import uuid
+from collections.abc import Iterator
 from datetime import datetime
+from typing import Any, TypeAlias
 
 import numpy as np
 import pandas as pd
-from freighter import Payload
-from pydantic import PrivateAttr
+from pydantic import BaseModel, PrivateAttr
 
 from synnax.telem.telem import (
     Alignment,
@@ -32,7 +33,7 @@ from synnax.telem.telem import (
 from synnax.util.interop import overload_comparison_operators
 
 
-class Series(Payload):
+class Series(BaseModel):
     """Series is a strongly typed array of telemetry samples backed by an underlying
     binary buffer. It is interoperable with np.ndarray, meaning that it can be safely
     passed as an argument to any function/method that accepts a numpy array.
@@ -71,7 +72,7 @@ class Series(Payload):
 
     def __init__(
         self,
-        data: CrudeSeries,
+        data: CrudeSeries | MultiSeries,
         data_type: CrudeDataType | None = None,
         time_range: TimeRange | None = None,
         alignment: CrudeAlignment = 0,
@@ -99,9 +100,9 @@ class Series(Payload):
                 raise ValueError(
                     "[Series] - MultiSeries with more than one series cannot be converted to a Series"
                 )
-            data_type = data_type or data
+            data_type = data_type or data.data_type
         elif isinstance(data, pd.Series):
-            data_type = data_type or DataType(data.dtype)
+            data_type = data_type or DataType(str(data.dtype))
             data_ = data.to_numpy(dtype=data_type.np).tobytes()
         elif isinstance(data, np.ndarray):
             data_type = data_type or DataType(data.dtype)
@@ -113,12 +114,19 @@ class Series(Payload):
                     b"\n".join([json.dumps(d).encode("utf-8") for d in data]) + b"\n"
                 )
             elif data_type == DataType.STRING:
-                data_ = b"\n".join([d.encode("utf-8") for d in data]) + b"\n"
+                data_ = b"\n".join([str(d).encode("utf-8") for d in data]) + b"\n"
             elif data_type == DataType.UUID:
-                data_ = b"".join(d.bytes for d in data)
+                uuids = [d for d in data if isinstance(d, uuid.UUID)]
+                data_ = b"".join(d.bytes for d in uuids)
             else:
                 data_ = np.array(data, dtype=data_type.np).tobytes()
                 data_type = data_type or DataType(data)
+        elif isinstance(data, uuid.UUID):
+            data_type = DataType.UUID
+            data_ = data.bytes
+        elif isinstance(data, dict):
+            data_type = data_type or DataType.JSON
+            data_ = json.dumps(data).encode("utf-8") + b"\n"
         elif isinstance(data, str):
             data_ = bytes(f"{data}\n", "utf-8")
             data_type = DataType.STRING
@@ -176,13 +184,13 @@ class Series(Payload):
 
         if self.data_type == DataType.JSON:
             d = self.__newline_getitem__(index)
-            return json.loads(d)
+            return json.loads(d)  # type: ignore[no-any-return]
 
         if self.data_type == DataType.STRING:
             d = self.__newline_getitem__(index)
             return d.decode("utf-8")
 
-        return self.__array__()[index]
+        return self.__array__()[index]  # type: ignore[no-any-return]
 
     def __newline_getitem__(self, index: int) -> bytes:
         if index == 0:
@@ -202,7 +210,7 @@ class Series(Payload):
             end = len(self.data)
         return self.data[start:end]
 
-    def __iter__(self):
+    def __iter__(self) -> Iterator[SampleValue]:  # type: ignore[override]
         if self.data_type == DataType.UUID:
             yield from [self[i] for i in range(len(self))]
         elif self.data_type == DataType.JSON:
@@ -214,7 +222,7 @@ class Series(Payload):
         else:
             yield from self.__array__()
 
-    def __iter__newline(self):
+    def __iter__newline(self) -> Iterator[bytes]:
         curr = 0
         while curr < len(self.data):
             end = self.data.find(b"\n", curr)
@@ -254,27 +262,34 @@ class Series(Payload):
     def to_datetime(self) -> list[datetime]:
         return [pd.Timestamp(t).to_pydatetime() for t in self.__array__()]
 
-    def __eq__(self, other):
+    def __eq__(self, other: object) -> bool:
         if isinstance(other, Series):
             return self.data == other.data
         elif isinstance(other, np.ndarray):
-            return self.__array__() == other
+            return self.__array__() == other  # type: ignore[no-any-return]
         else:
             return False
 
 
-Series = overload_comparison_operators(Series, "__array__")
+overload_comparison_operators(Series, "__array__")
 
-SampleValue = np.number | uuid.UUID | dict | str | int | float | TimeStamp
-TypedCrudeSeries = Series | pd.Series | np.ndarray
-CrudeSeries = (
+SampleValue: TypeAlias = (
+    np.number | uuid.UUID | dict[str, Any] | str | int | float | TimeStamp
+)
+TypedCrudeSeries: TypeAlias = Series | pd.Series | np.ndarray
+CrudeSeries: TypeAlias = (
     Series
     | bytes
     | pd.Series
     | np.ndarray
     | list[float]
     | list[str]
-    | list[dict]
+    | list[dict[str, Any]]
+    | list[uuid.UUID]
+    | np.number
+    | str
+    | uuid.UUID
+    | dict[str, Any]
     | float
     | int
     | TimeStamp
@@ -287,7 +302,7 @@ def elapsed_seconds(d: np.ndarray) -> np.ndarray:
     :param d: A Series of timestamps.
     :returns: A Series of elapsed seconds.
     """
-    return (d - d[0]) / TimeSpan.SECOND
+    return (d - d[0]) / TimeSpan.SECOND  # type: ignore[no-any-return]
 
 
 class MultiSeries:
@@ -380,11 +395,11 @@ class MultiSeries:
             index -= len(s)
         raise IndexError(f"[MultiSeries] - Index {index} out of bounds for {len(self)}")
 
-    def __iter__(self):
+    def __iter__(self) -> Iterator[SampleValue]:
         for s in self.series:
             yield from s
 
-    def __str__(self):
+    def __str__(self) -> str:
         return str(list(self))
 
     @property
@@ -392,4 +407,4 @@ class MultiSeries:
         return Size(sum(s.size for s in self.series))
 
 
-MultiSeries = overload_comparison_operators(MultiSeries, "__array__")
+overload_comparison_operators(MultiSeries, "__array__")

@@ -11,6 +11,7 @@ package search
 
 import (
 	"context"
+	"maps"
 	"strings"
 
 	"github.com/blevesearch/bleve/v2"
@@ -107,9 +108,7 @@ func (t *Tx) flatten(r resource.Resource) bleveDoc {
 	t.buf["name"] = r.Name
 	t.buf["_type"] = r.ID.Type.String()
 	if data, ok := r.Data.(map[string]any); ok {
-		for k, v := range data {
-			t.buf[k] = v
-		}
+		maps.Copy(t.buf, data)
 	}
 	return t.buf
 }

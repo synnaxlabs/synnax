@@ -15,6 +15,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
 	"github.com/synnaxlabs/synnax/pkg/service/rack"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
+	"github.com/synnaxlabs/x/binary"
 	"github.com/synnaxlabs/x/gorp"
 	"github.com/synnaxlabs/x/validate"
 )
@@ -36,7 +37,7 @@ type Device struct {
 	// Model is the model of the device.
 	Model string `json:"model" msgpack:"model"`
 	// Properties are additional properties that are unique to the device.
-	Properties string `json:"properties" msgpack:"properties"`
+	Properties binary.MsgpackEncodedJSON `json:"properties" msgpack:"properties"`
 	// Rack is the rack that the device is in.
 	Rack rack.Key `json:"rack" msgpack:"rack"`
 	// Configured sets whether the device has been configured yet.

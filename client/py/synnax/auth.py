@@ -14,21 +14,21 @@ from freighter import (
     Context,
     Middleware,
     Next,
-    Payload,
     UnaryClient,
 )
+from pydantic import BaseModel
 
 from synnax.exceptions import ExpiredToken, InvalidToken
 from synnax.user.payload import User
 from synnax.util.send_required import send_required
 
 
-class InsecureCredentials(Payload):
+class InsecureCredentials(BaseModel):
     username: str
     password: str
 
 
-class TokenResponse(Payload):
+class TokenResponse(BaseModel):
     token: str
     user: User
 
@@ -39,7 +39,7 @@ RETRY_ON_ERRORS = (InvalidToken, ExpiredToken)
 TOKEN_PREFIX = "Bearer "
 
 
-class AuthenticationClient:
+class Client:
     client: UnaryClient
     username: str
     password: str
@@ -69,8 +69,8 @@ class AuthenticationClient:
         self.user = res.user
         self.authenticated = True
 
-    def middleware(self) -> list[Middleware]:
-        def mw(ctx: Context, _next: Next):
+    def middleware(self) -> Middleware:
+        def mw(ctx: Context, _next: Next) -> tuple[Context, Exception | None]:
             if not self.authenticated:
                 self.authenticate()
 
@@ -86,8 +86,10 @@ class AuthenticationClient:
 
         return mw
 
-    def async_middleware(self) -> list[AsyncMiddleware]:
-        async def mw(ctx: Context, _next: AsyncNext):
+    def async_middleware(self) -> AsyncMiddleware:
+        async def mw(
+            ctx: Context, _next: AsyncNext
+        ) -> tuple[Context, Exception | None]:
             if not self.authenticated:
                 self.authenticate()
 
@@ -110,3 +112,12 @@ class AuthenticationClient:
         refresh = ctx.get(TOKEN_REFRESH_HEADER, None)
         if refresh is not None:
             self.token = refresh
+
+
+from synnax.util.deprecation import deprecated_getattr
+
+_DEPRECATED = {
+    "AuthenticationClient": "Client",
+}
+
+__getattr__ = deprecated_getattr(__name__, _DEPRECATED, globals())

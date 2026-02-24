@@ -57,7 +57,7 @@ const maxCachedIndentLevel = 16
 
 func newPrinter() *printer {
 	cache := make([]string, maxCachedIndentLevel)
-	for i := 0; i < maxCachedIndentLevel; i++ {
+	for i := range maxCachedIndentLevel {
 		cache[i] = strings.Repeat(" ", i*indentWidth)
 	}
 	return &printer{
@@ -157,11 +157,8 @@ func (p *printer) emitToken(tok antlr.Token, idx int, tokens []antlr.Token, ca *
 			p.writeNewline()
 			if !hasLeadingComments {
 				lineDiff := tokLine - p.prevLine
-				blankLines := lineDiff - 1
-				if blankLines > maxBlankLines {
-					blankLines = maxBlankLines
-				}
-				for i := 0; i < blankLines; i++ {
+				blankLines := min(lineDiff-1, maxBlankLines)
+				for range blankLines {
 					p.writeNewline()
 				}
 			}

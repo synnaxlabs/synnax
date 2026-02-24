@@ -3,6 +3,7 @@ syntax = "proto3";
 package api.v1;
 
 import "google/protobuf/empty.proto";
+import "google/protobuf/struct.proto";
 import "x/go/status/status.proto";
 
 option go_package = "github.com/synnaxlabs/synnax/pkg/api/grpc/v1";
@@ -26,7 +27,7 @@ message Device {
   string location = 4;
   string make = 6;
   string model = 7;
-  string properties = 8;
+  google.protobuf.Struct properties = 8;
   bool configured = 9;
   status.PBStatus status = 10;
 }

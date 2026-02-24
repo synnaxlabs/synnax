@@ -1,6 +1,0 @@
-cc_library(
-    name = "mock",
-    hdrs = ["plugins.h"],
-    visibility = ["//visibility:public"],
-    deps = [],
-)

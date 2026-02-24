@@ -1,3 +1,6 @@
+load("@rules_cc//cc:cc_library.bzl", "cc_library")
+load("@rules_cc//cc:cc_test.bzl", "cc_test")
+
 # Vendored IgH EtherCAT Master header (ecrt.h)
 # Source: https://gitlab.com/etherlab.org/ethercat (stable-1.6)
 # License: LGPL-2.1
@@ -29,6 +32,7 @@ cc_library(
     name = "igh",
     srcs = ["master.cpp"],
     hdrs = ["master.h"],
+    target_compatible_with = ["@platforms//os:linux"],
     visibility = ["//driver/ethercat:__pkg__"],
     deps = [
         ":ecrt_official",
@@ -47,6 +51,7 @@ cc_library(
 cc_test(
     name = "igh_test",
     srcs = ["master_test.cpp"],
+    target_compatible_with = ["@platforms//os:linux"],
     deps = [
         ":igh",
         ":mock_api",

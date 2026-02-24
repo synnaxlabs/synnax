@@ -7,6 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { type device } from "@synnaxlabs/client";
 import { migrate } from "@synnaxlabs/x";
 
 import * as v0 from "@/hardware/opc/device/types/v0";
@@ -14,6 +15,8 @@ import * as v1 from "@/hardware/opc/device/types/v1";
 
 export const MAKE = v0.MAKE;
 export type Make = v0.Make;
+export const makeZ = v0.makeZ;
+export const propertiesZ = v1.propertiesZ;
 
 export const NO_SECURITY_MODE = v0.NO_SECURITY_MODE;
 export const SIGN_SECURITY_MODE = v0.SIGN_SECURITY_MODE;
@@ -44,6 +47,11 @@ const PROPERTIES_MIGRATIONS: migrate.Migrations = {
   [v0.VERSION]: v1.propertiesMigration,
 };
 export type AnyProperties = v0.Properties | v1.Properties;
+
+export const SCHEMAS = {
+  properties: propertiesZ,
+  make: makeZ,
+} as const satisfies device.DeviceSchemas<typeof propertiesZ, typeof makeZ>;
 
 export const migrateProperties = migrate.migrator<AnyProperties, v1.Properties>({
   name: v1.PROPERTIES_MIGRATION_NAME,

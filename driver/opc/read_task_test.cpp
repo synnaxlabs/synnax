@@ -115,17 +115,15 @@ protected:
         conn_cfg.security_mode = "None";
         conn_cfg.security_policy = "None";
 
-        synnax::device::Device dev(
-            "opc_read_task_test_server_key",
-            "OPC UA Read Task Test Server",
-            rack.key,
-            "opc.tcp://localhost:4840",
-            "opc",
-            "OPC UA Server",
-            nlohmann::to_string(
-                x::json::json::object({{"connection", conn_cfg.to_json()}})
-            )
-        );
+        synnax::device::Device dev{
+            .key = "opc_read_task_test_server_key",
+            .name = "OPC UA Read Task Test Server",
+            .rack = rack.key,
+            .location = "opc.tcp://localhost:4840",
+            .make = "opc",
+            .model = "OPC UA Server",
+            .properties = x::json::json::object({{"connection", conn_cfg.to_json()}}),
+        };
         ASSERT_NIL(client->devices.create(dev));
 
         // Use the comprehensive default server configuration
@@ -222,7 +220,11 @@ protected:
             {"stream_rate", 25}
         };
 
-        task = synnax::task::Task(rack.key, "OPC UA Read Task Test", "opc_read", "");
+        task = synnax::task::Task{
+            .key = synnax::task::create_key(rack.key, 0),
+            .name = "OPC UA Read Task Test",
+            .type = "opc_read",
+        };
 
         task_cfg_json = task_cfg;
 
@@ -270,7 +272,7 @@ TEST_F(TestReadTask, testBasicReadTask) {
     EXPECT_EQ(first_state.key, task.status_key());
     EXPECT_EQ(first_state.details.cmd, "start_cmd");
     EXPECT_EQ(first_state.details.task, task.key);
-    EXPECT_EQ(first_state.variant, x::status::variant::SUCCESS);
+    EXPECT_EQ(first_state.variant, x::status::VARIANT_SUCCESS);
     EXPECT_EQ(first_state.message, "Task started successfully");
     ASSERT_EVENTUALLY_GE(mock_factory->writer_opens.load(std::memory_order_acquire), 1);
     ASSERT_EVENTUALLY_GE(mock_factory->writes->size(), 1);
@@ -279,7 +281,7 @@ TEST_F(TestReadTask, testBasicReadTask) {
     EXPECT_EQ(second_state.key, task.status_key());
     EXPECT_EQ(second_state.details.cmd, "stop_cmd");
     EXPECT_EQ(second_state.details.task, task.key);
-    EXPECT_EQ(second_state.variant, x::status::variant::SUCCESS);
+    EXPECT_EQ(second_state.variant, x::status::VARIANT_SUCCESS);
     EXPECT_EQ(second_state.message, "Task stopped successfully");
     auto &fr = mock_factory->writes->at(0);
     ASSERT_EQ(fr.size(), 11);
@@ -351,7 +353,7 @@ TEST_F(TestReadTask, testInvalidNodeId) {
     ASSERT_GE(ctx->statuses.size(), 1);
     bool found_error = false;
     for (const auto &state: ctx->statuses) {
-        if (state.variant == x::status::variant::ERR) {
+        if (state.variant == x::status::VARIANT_ERROR) {
             found_error = true;
             break;
         }
@@ -374,7 +376,7 @@ TEST_F(TestReadTask, testServerDisconnectDuringRead) {
 
     bool found_error = false;
     for (const auto &state: ctx->statuses) {
-        if (state.variant == x::status::variant::ERR) {
+        if (state.variant == x::status::VARIANT_ERROR) {
             found_error = true;
             break;
         }
@@ -432,8 +434,8 @@ TEST_F(TestReadTask, testRapidStartStop) {
     rt->stop("stop_cmd", true);
 
     ASSERT_GE(ctx->statuses.size(), 2);
-    EXPECT_EQ(ctx->statuses[0].variant, x::status::variant::SUCCESS);
-    EXPECT_EQ(ctx->statuses[1].variant, x::status::variant::SUCCESS);
+    EXPECT_EQ(ctx->statuses[0].variant, x::status::VARIANT_SUCCESS);
+    EXPECT_EQ(ctx->statuses[1].variant, x::status::VARIANT_SUCCESS);
 }
 
 /// @brief it should reuse connections from pool across task starts.
@@ -549,9 +551,9 @@ TEST_F(TestReadTask, testInvalidDataSkipsFrameInUnaryMode) {
 
     // Verify task lifecycle worked correctly
     ASSERT_GE(ctx->statuses.size(), 2);
-    EXPECT_EQ(ctx->statuses[0].variant, x::status::variant::SUCCESS);
+    EXPECT_EQ(ctx->statuses[0].variant, x::status::VARIANT_SUCCESS);
     EXPECT_EQ(ctx->statuses[0].message, "Task started successfully");
-    EXPECT_EQ(ctx->statuses[1].variant, x::status::variant::SUCCESS);
+    EXPECT_EQ(ctx->statuses[1].variant, x::status::VARIANT_SUCCESS);
     EXPECT_EQ(ctx->statuses[1].message, "Task stopped successfully");
 }
 
@@ -764,8 +766,8 @@ TEST_F(TestReadTask, testSkipSampleOnWriteErrorInUnaryMode) {
 
     // Verify that task completed successfully
     ASSERT_GE(ctx->statuses.size(), 2);
-    EXPECT_EQ(ctx->statuses[0].variant, x::status::variant::SUCCESS);
-    EXPECT_EQ(ctx->statuses[1].variant, x::status::variant::SUCCESS);
+    EXPECT_EQ(ctx->statuses[0].variant, x::status::VARIANT_SUCCESS);
+    EXPECT_EQ(ctx->statuses[1].variant, x::status::VARIANT_SUCCESS);
 }
 
 /// @brief it should clear frame when error occurs in array mode.
@@ -849,17 +851,17 @@ TEST_F(TestReadTask, testSkipSampleWithInvalidBooleanData) {
     invalid_conn_cfg.security_mode = "None";
     invalid_conn_cfg.security_policy = "None";
 
-    synnax::device::Device invalid_dev(
-        "opc_invalid_test_server",
-        "OPC UA Invalid Data Test Server",
-        invalid_rack.key,
-        "opc.tcp://localhost:4841",
-        "opc",
-        "OPC UA Server",
-        nlohmann::to_string(
-            x::json::json::object({{"connection", invalid_conn_cfg.to_json()}})
-        )
-    );
+    synnax::device::Device invalid_dev{
+        .key = "opc_invalid_test_server",
+        .name = "OPC UA Invalid Data Test Server",
+        .rack = invalid_rack.key,
+        .location = "opc.tcp://localhost:4841",
+        .make = "opc",
+        .model = "OPC UA Server",
+        .properties = x::json::json::object(
+            {{"connection", invalid_conn_cfg.to_json()}}
+        ),
+    };
     ASSERT_NIL(ctx->client->devices.create(invalid_dev));
 
     // Create a task that reads from the invalid boolean node
@@ -931,17 +933,17 @@ TEST_F(TestReadTask, testSkipSampleWithInvalidFloatData) {
     invalid_conn_cfg.security_mode = "None";
     invalid_conn_cfg.security_policy = "None";
 
-    synnax::device::Device invalid_dev(
-        "opc_invalid_float_server",
-        "OPC UA Invalid Float Server",
-        invalid_rack.key,
-        "opc.tcp://localhost:4842",
-        "opc",
-        "OPC UA Server",
-        nlohmann::to_string(
-            x::json::json::object({{"connection", invalid_conn_cfg.to_json()}})
-        )
-    );
+    synnax::device::Device invalid_dev{
+        .key = "opc_invalid_float_server",
+        .name = "OPC UA Invalid Float Server",
+        .rack = invalid_rack.key,
+        .location = "opc.tcp://localhost:4842",
+        .make = "opc",
+        .model = "OPC UA Server",
+        .properties = x::json::json::object(
+            {{"connection", invalid_conn_cfg.to_json()}}
+        ),
+    };
     ASSERT_NIL(ctx->client->devices.create(invalid_dev));
 
     x::json::json invalid_float_cfg{
@@ -1012,17 +1014,17 @@ TEST_F(TestReadTask, testFrameClearWithInvalidDoubleArrayData) {
     invalid_conn_cfg.security_mode = "None";
     invalid_conn_cfg.security_policy = "None";
 
-    synnax::device::Device invalid_dev(
-        "opc_invalid_double_server",
-        "OPC UA Invalid Double Server",
-        invalid_rack.key,
-        "opc.tcp://localhost:4843",
-        "opc",
-        "OPC UA Server",
-        nlohmann::to_string(
-            x::json::json::object({{"connection", invalid_conn_cfg.to_json()}})
-        )
-    );
+    synnax::device::Device invalid_dev{
+        .key = "opc_invalid_double_server",
+        .name = "OPC UA Invalid Double Server",
+        .rack = invalid_rack.key,
+        .location = "opc.tcp://localhost:4843",
+        .make = "opc",
+        .model = "OPC UA Server",
+        .properties = x::json::json::object(
+            {{"connection", invalid_conn_cfg.to_json()}}
+        ),
+    };
     ASSERT_NIL(ctx->client->devices.create(invalid_dev));
 
     x::json::json invalid_double_cfg{
@@ -1089,15 +1091,15 @@ TEST(OPCReadTaskConfig, testOPCDriverSetsAutoCommitTrue) {
     conn_cfg.security_mode = "None";
     conn_cfg.security_policy = "None";
 
-    synnax::device::Device dev(
-        "opc_test_device_key",
-        "OPC UA Test Device",
-        rack.key,
-        "opc.tcp://localhost:4840",
-        "opc",
-        "OPC UA Server",
-        nlohmann::to_string(x::json::json::object({{"connection", conn_cfg.to_json()}}))
-    );
+    synnax::device::Device dev{
+        .key = "opc_test_device_key",
+        .name = "OPC UA Test Device",
+        .rack = rack.key,
+        .location = "opc.tcp://localhost:4840",
+        .make = "opc",
+        .model = "OPC UA Server",
+        .properties = x::json::json::object({{"connection", conn_cfg.to_json()}}),
+    };
     ASSERT_NIL(client->devices.create(dev));
 
     // Create index and data channels

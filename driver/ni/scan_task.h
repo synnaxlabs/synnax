@@ -65,20 +65,18 @@ struct Device : synnax::device::Device {
     /// @brief returns the synnax device representation along with json serialized
     /// properties.
     synnax::device::Device to_synnax() {
-        auto dev = synnax::device::Device(
-            this->key,
-            this->name,
-            this->rack,
-            this->location,
-            this->make,
-            this->model,
-            nlohmann::to_string(
-                x::json::json{
-                    {"is_simulated", this->is_simulated},
-                    {"resource_name", this->resource_name}
-                }
-            )
-        );
+        auto dev = synnax::device::Device{
+            .key = this->key,
+            .name = this->name,
+            .rack = this->rack,
+            .location = this->location,
+            .make = this->make,
+            .model = this->model,
+            .properties = x::json::json{
+                {"is_simulated", this->is_simulated},
+                {"resource_name", this->resource_name}
+            }.get<x::json::json::object_t>(),
+        };
         dev.status = this->status;
         return dev;
     }

@@ -17,7 +17,6 @@ from freighter import (
     JSONCodec,
     Middleware,
     MsgPackCodec,
-    StreamClient,
     UnaryClient,
     WebsocketClient,
     async_instrumentation_middleware,
@@ -30,7 +29,7 @@ from synnax.telem import Size, TimeSpan
 
 class Transport:
     url: URL
-    stream: StreamClient
+    stream: WebsocketClient
     stream_async: AsyncStreamClient
     unary: UnaryClient
     secure: bool
@@ -70,9 +69,9 @@ class Transport:
         self.use(instrumentation_middleware(instrumentation))
         self.use_async(async_instrumentation_middleware(instrumentation))
 
-    def use(self, *middleware: Middleware):
+    def use(self, *middleware: Middleware) -> None:
         self.unary.use(*middleware)
         self.stream.use(*middleware)
 
-    def use_async(self, *middleware: AsyncMiddleware):
+    def use_async(self, *middleware: AsyncMiddleware) -> None:
         self.stream_async.use(*middleware)

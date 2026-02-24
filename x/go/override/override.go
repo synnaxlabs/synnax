@@ -65,7 +65,7 @@ func UUID(base uuid.UUID, override uuid.UUID) uuid.UUID {
 }
 
 func isInterface[T any]() bool {
-	return reflect.TypeOf((*T)(nil)).Elem().Kind() == reflect.Interface
+	return reflect.TypeFor[T]().Kind() == reflect.Interface
 }
 
 // Zeroable is a type that can be checked for its zero value using the IsZero method.

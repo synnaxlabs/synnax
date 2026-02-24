@@ -21,7 +21,7 @@ import { type GroupManifest } from "@/schematic/symbols/types";
 
 export const extract: Export.Extractor = async (key, { client }) => {
   if (client == null) throw new DisconnectedError();
-  const symbol = await client.workspaces.schematics.symbols.retrieve({ key });
+  const symbol = await client.schematics.symbols.retrieve({ key });
   return { data: JSON.stringify(symbol), name: symbol.name };
 };
 
@@ -53,7 +53,7 @@ const exportGroup = async ({
       message: "No symbols found in this group to export",
     });
 
-  const symbols = await client.workspaces.schematics.symbols.retrieve({
+  const symbols = await client.schematics.symbols.retrieve({
     keys: symbolKeys,
   });
 

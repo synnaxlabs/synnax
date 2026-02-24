@@ -8,7 +8,7 @@ Individual Go modules in the monorepo:
 - `/aspen/` - Distributed key-value store and cluster management
 - `/cesium/` - Time-series database engine
 - `/freighter/go/` - Transport layer (gRPC, HTTP, WebSocket)
-- `/arc/` - Arc programming language compiler
+- `/arc/go/` - Arc programming language compiler
 - `/alamos/go/` - Instrumentation and observability
 - `/x/go/` - Shared Go utilities
 
@@ -21,7 +21,7 @@ go 1.25.4
 
 use (
     ./alamos/go
-    ./arc
+    ./arc/go
     ./aspen
     ./cesium
     ./core

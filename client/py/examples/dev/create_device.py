@@ -22,7 +22,6 @@ client.devices.create(
             make="NI",
             model="PXI-6255",
             location="dev1",
-            identifier="dev1",
         ),
         sy.Device(
             key="labjack-t4",
@@ -31,7 +30,6 @@ client.devices.create(
             make="LabJack",
             model="LJM_dtT4",
             location="dev2",
-            identifier="dev2",
         ),
         sy.Device(
             key="labjack-t7",
@@ -40,7 +38,6 @@ client.devices.create(
             make="LabJack",
             model="LJM_dtT7",
             location="dev3",
-            identifier="dev3",
         ),
         sy.Device(
             key="labjack-t8",
@@ -49,7 +46,6 @@ client.devices.create(
             make="LabJack",
             model="LJM_dtT8",
             location="dev4",
-            identifier="dev4",
         ),
         sy.Device(
             key="a0e37b26-5401-413e-8e65-c7ad9d9afd70",
@@ -58,7 +54,6 @@ client.devices.create(
             make="NI",
             model="USB-6000",
             location="dev3",
-            identifier="dev3",
         ),
     ]
 )

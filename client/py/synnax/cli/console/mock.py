@@ -7,7 +7,7 @@
 #  License, use of this software will be governed by the Apache License, Version 2.0,
 #  included in the file licenses/APL.txt.
 
-from typing import Generic, TextIO
+from typing import Any, Generic, TextIO
 
 from pydantic import BaseModel
 
@@ -24,7 +24,7 @@ from synnax.cli.console.rich import RichConsole
 class Entry(BaseModel, Generic[R]):
     message: str | None = None
     columns: list[str] | None = None
-    rows: list[dict] | None = None
+    rows: list[dict[str, str]] | None = None
     choices: list[R] | None = None
     default: R | None = None
     response: R | None = None
@@ -33,16 +33,16 @@ class Entry(BaseModel, Generic[R]):
 
 
 class Output(BaseModel):
-    entries: list[Entry]
+    entries: list[Entry[Any]]
 
-    def __init__(self, entries: list[Entry] | None = None):
+    def __init__(self, entries: list[Entry[Any]] | None = None):
         super().__init__(entries=entries or list())
 
-    def append(self, entry: Entry):
+    def append(self, entry: Entry[Any]) -> None:
         assert self.entries is not None
         self.entries.append(entry)
 
-    def write(self, f: TextIO):
+    def write(self, f: TextIO) -> None:
         f.write(self.json())
 
 
@@ -62,27 +62,27 @@ class MockPrint:
     def _(self) -> Print:
         return self
 
-    def info(self, message: str):
+    def info(self, message: str) -> None:
         self.output.append(Entry(message=message))
         if self.verbose is not None:
             self.verbose.info(message)
 
-    def error(self, message: str):
+    def error(self, message: str) -> None:
         self.output.append(Entry(message=message))
         if self.verbose is not None:
             self.verbose.error(message)
 
-    def warn(self, message: str):
+    def warn(self, message: str) -> None:
         self.output.append(Entry(message=message))
         if self.verbose is not None:
             self.verbose.warn(message)
 
-    def success(self, message: str):
+    def success(self, message: str) -> None:
         self.output.append(Entry(message=message))
         if self.verbose is not None:
             self.verbose.success(message)
 
-    def table(self, columns: list, rows: list):
+    def table(self, columns: list[str], rows: list[dict[str, str]]) -> None:
         self.output.append(Entry(columns=columns, rows=rows))
         if self.verbose is not None:
             self.verbose.table(columns, rows)
@@ -92,9 +92,9 @@ class MockPrompt:
     """A mock implementation of the Prompt protocol for testing purposes."""
 
     output: Output
-    responses: list
+    responses: list[Any]
 
-    def __init__(self, output: Output, responses: list):
+    def __init__(self, output: Output, responses: list[Any]):
         """
         :param output: The output list to append entries to.
         :param responses: A list of responses to return in order. These responses
@@ -114,22 +114,26 @@ class MockPrompt:
         default: R | None = None,
         password: bool = False,
     ) -> R | None:
-        e = Entry(
+        resolved_type = assign_default_ask_type(type_, choices, default)
+        response: R | None = (
+            self.responses.pop(0) if len(self.responses) > 0 else default
+        )
+        e: Entry[Any] = Entry(
             message=question,
             choices=choices,
             default=default,
-            type_=assign_default_ask_type(type_, choices, default),
+            type_=resolved_type,
             password=password,
+            response=response,
         )
-        e.response = self.responses.pop(0) if len(self.responses) > 0 else default
-        if type(e.response) != e.type_:
+        if type(response) != resolved_type:
             raise TypeError(f"""
                 Mock Prompt: Invalid response type
                 Question: {question}
                 Expected type: {type_}
-                Actual response: {e.response}
+                Actual response: {response}
                 """)
-        return e.response
+        return response
 
 
 class MockConsole(MockPrint, MockPrompt):
@@ -138,7 +142,7 @@ class MockConsole(MockPrint, MockPrompt):
     def __init__(
         self,
         output: Output = Output(),
-        responses: list | None = None,
+        responses: list[Any] | None = None,
         verbose: bool = False,
     ):
         """
@@ -148,3 +152,6 @@ class MockConsole(MockPrint, MockPrompt):
         """
         MockPrint.__init__(self, output, verbose)
         MockPrompt.__init__(self, output, responses or list())
+
+    def _(self) -> Console:
+        return self

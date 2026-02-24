@@ -183,7 +183,7 @@ const loadSchematic = async (
   { key }: ontology.ID,
   placeLayout: Layout.Placer,
 ) => {
-  const schematic = await client.workspaces.schematics.retrieve({ key });
+  const schematic = await client.schematics.retrieve({ key });
   placeLayout(
     Schematic.create({
       ...schematic.data,
@@ -219,7 +219,7 @@ const handleMosaicDrop: Ontology.HandleMosaicDrop = ({
   handleError,
 }) =>
   handleError(async () => {
-    const schematic = await client.workspaces.schematics.retrieve({ key });
+    const schematic = await client.schematics.retrieve({ key });
     placeLayout(
       Schematic.create({
         name: schematic.name,

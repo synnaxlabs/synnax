@@ -9,7 +9,6 @@
 
 import synnax as sy
 from synnax import modbus
-from synnax.modbus.types import BaseChan
 
 from tests.driver.modbus_task import ModbusReadTaskCase
 from tests.driver.task import create_channel, create_index
@@ -19,10 +18,10 @@ class ModbusReadInputRegister(ModbusReadTaskCase):
     task_name = "Modbus Read Input Register"
 
     @staticmethod
-    def create_channels(client: sy.Synnax) -> list[BaseChan]:
+    def create_channels(client: sy.Synnax) -> list[sy.modbus.BaseChan]:
         idx = create_index(client, "input_register_index")
         return [
-            modbus.InputRegisterChan(
+            sy.modbus.InputRegisterChan(
                 channel=create_channel(
                     client,
                     name=f"input_register_{i}",
@@ -40,10 +39,10 @@ class ModbusReadHoldingRegister(ModbusReadTaskCase):
     task_name = "Modbus Read Holding Register"
 
     @staticmethod
-    def create_channels(client: sy.Synnax) -> list[BaseChan]:
+    def create_channels(client: sy.Synnax) -> list[sy.modbus.BaseChan]:
         idx = create_index(client, "holding_register_index")
         return [
-            modbus.HoldingRegisterInputChan(
+            sy.modbus.HoldingRegisterInputChan(
                 channel=create_channel(
                     client,
                     name=f"holding_register_{i}",
@@ -61,10 +60,10 @@ class ModbusReadDiscreteInput(ModbusReadTaskCase):
     task_name = "Modbus Read Discrete Input"
 
     @staticmethod
-    def create_channels(client: sy.Synnax) -> list[BaseChan]:
+    def create_channels(client: sy.Synnax) -> list[sy.modbus.BaseChan]:
         idx = create_index(client, "discrete_input_index")
         return [
-            modbus.DiscreteInputChan(
+            sy.modbus.DiscreteInputChan(
                 channel=create_channel(
                     client,
                     name=f"discrete_input_{i}",
@@ -81,10 +80,10 @@ class ModbusReadCoil(ModbusReadTaskCase):
     task_name = "Modbus Read Coil"
 
     @staticmethod
-    def create_channels(client: sy.Synnax) -> list[BaseChan]:
+    def create_channels(client: sy.Synnax) -> list[sy.modbus.BaseChan]:
         idx = create_index(client, "coil_input_index")
         return [
-            modbus.CoilInputChan(
+            sy.modbus.CoilInputChan(
                 channel=create_channel(
                     client,
                     name=f"coil_input_{i}",
@@ -101,10 +100,10 @@ class ModbusReadMixed(ModbusReadTaskCase):
     task_name = "Modbus Read Mixed"
 
     @staticmethod
-    def create_channels(client: sy.Synnax) -> list[BaseChan]:
+    def create_channels(client: sy.Synnax) -> list[sy.modbus.BaseChan]:
         idx = create_index(client, "modbus_mixed_index")
         return [
-            modbus.InputRegisterChan(
+            sy.modbus.InputRegisterChan(
                 channel=create_channel(
                     client,
                     name=f"input_register_{i}",
@@ -116,7 +115,7 @@ class ModbusReadMixed(ModbusReadTaskCase):
             )
             for i in range(2)
         ] + [
-            modbus.DiscreteInputChan(
+            sy.modbus.DiscreteInputChan(
                 channel=create_channel(
                     client,
                     name=f"discrete_input_{i}",

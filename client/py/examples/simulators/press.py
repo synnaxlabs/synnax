@@ -130,7 +130,7 @@ class PressSimDAQ(SimDAQ):
             with self.client.open_writer(
                 start=sy.TimeStamp.now(),
                 channels=[
-                    self.daq_time_ch.key,
+                    self.daq_time_ch.name,
                     "press_vlv_state",
                     "vent_vlv_state",
                     "press_pt",

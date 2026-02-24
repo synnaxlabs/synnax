@@ -247,7 +247,7 @@ class TestModbusReadTask:
         created_task = client.tasks.create(
             name="test-modbus-read-task",
             type="modbus_read",
-            config=task.config.model_dump_json(),
+            config=task.config.model_dump(),
         )
         sy.modbus.ReadTask(created_task)
 
@@ -415,7 +415,7 @@ class TestModbusWriteTask:
         created_task = client.tasks.create(
             name="test-modbus-write-task",
             type="modbus_write",
-            config=task.config.model_dump_json(),
+            config=task.config.model_dump(),
         )
         sy.modbus.WriteTask(created_task)
 
@@ -445,13 +445,13 @@ class TestModbusWriteTask:
         )
 
         # Serialize to JSON
-        config_json = original_task.config.model_dump_json()
+        config_dict = original_task.config.model_dump()
 
         # Create task in database
         created_task = client.tasks.create(
             name="test-round-trip",
             type="modbus_write",
-            config=config_json,
+            config=config_dict,
         )
 
         # Deserialize from database
@@ -482,8 +482,6 @@ class TestModbusDevicePropertyUpdates:
 
     def test_read_task_updates_device_properties(self, client: sy.Synnax):
         """Test that configuring a ReadTask updates device properties with channel mappings."""
-        import json
-
         # Create a rack
         rack = client.racks.retrieve_embedded_rack()
 
@@ -546,7 +544,7 @@ class TestModbusDevicePropertyUpdates:
 
         # Retrieve device and check properties
         updated_device = client.devices.retrieve(key=device.key)
-        props = json.loads(updated_device.properties)
+        props = updated_device.properties
 
         # Verify read.channels mapping exists
         assert "read" in props
@@ -567,8 +565,6 @@ class TestModbusDevicePropertyUpdates:
 
     def test_write_task_updates_device_properties(self, client: sy.Synnax):
         """Test that configuring a WriteTask updates device properties with channel mappings."""
-        import json
-
         # Create a rack
         rack = client.racks.retrieve_embedded_rack()
 
@@ -627,7 +623,7 @@ class TestModbusDevicePropertyUpdates:
 
         # Retrieve device and check properties
         updated_device = client.devices.retrieve(key=device.key)
-        props = json.loads(updated_device.properties)
+        props = updated_device.properties
 
         # Verify write.channels mapping exists
         assert "write" in props

@@ -9,6 +9,7 @@
 
 import { TOOLBAR } from "@/hardware/device/Toolbar";
 import { EtherCAT } from "@/hardware/ethercat";
+import { HTTP } from "@/hardware/http";
 import { LabJack } from "@/hardware/labjack";
 import { Modbus } from "@/hardware/modbus";
 import { NI } from "@/hardware/ni";
@@ -22,12 +23,14 @@ export * from "@/hardware/device/Toolbar";
 export * from "@/hardware/device/useListenForChanges";
 
 export const COMMANDS: Palette.Command[] = [
+  ...HTTP.Device.COMMANDS,
   ...Modbus.Device.COMMANDS,
   ...OPC.Device.COMMANDS,
 ];
 
 export const LAYOUTS: Record<string, Layout.Renderer> = {
   ...EtherCAT.Device.LAYOUTS,
+  ...HTTP.Device.LAYOUTS,
   ...LabJack.Device.LAYOUTS,
   ...Modbus.Device.LAYOUTS,
   ...NI.Device.LAYOUTS,

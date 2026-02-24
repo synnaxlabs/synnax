@@ -10,7 +10,6 @@
 import synnax as sy
 from playwright.sync_api import Locator
 from playwright.sync_api import TimeoutError as PlaywrightTimeoutError
-from synnax.channel.payload import ChannelName
 
 from console.layout import LayoutClient
 from console.page import ConsolePage
@@ -27,7 +26,7 @@ class Log(ConsolePage):
         layout: LayoutClient,
         client: sy.Synnax,
         page_name: str,
-        channel_name: ChannelName | None = None,
+        channel_name: str | None = None,
         *,
         pane_locator: Locator,
     ) -> None:

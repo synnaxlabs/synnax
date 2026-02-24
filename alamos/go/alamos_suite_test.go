@@ -12,11 +12,9 @@ package alamos_test
 import (
 	"testing"
 
-	"github.com/synnaxlabs/alamos"
-	"github.com/synnaxlabs/x/config"
-
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"github.com/synnaxlabs/alamos"
 	. "github.com/synnaxlabs/x/testutil"
 )
 
@@ -29,6 +27,6 @@ func TestAlamos(t *testing.T) {
 
 var _ = BeforeSuite(func() {
 	devIns = Instrumentation("alamos-test", InstrumentationConfig{
-		Trace: config.True(),
+		Trace: new(true),
 	})
 })

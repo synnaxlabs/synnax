@@ -13,7 +13,6 @@ from abc import abstractmethod
 
 import synnax as sy
 from examples.opcua import OPCUASim
-from synnax import opcua
 
 from tests.driver.simulator_case import SimulatorCase
 from tests.driver.task import ReadTaskCase, WriteTaskCase
@@ -37,7 +36,7 @@ class OPCUAReadTaskCase(SimulatorCase, ReadTaskCase):
 
     @staticmethod
     @abstractmethod
-    def create_channels(client: sy.Synnax) -> list[opcua.ReadChannel]: ...
+    def create_channels(client: sy.Synnax) -> list[sy.opcua.ReadChannel]: ...
 
     def create(
         self,
@@ -46,11 +45,11 @@ class OPCUAReadTaskCase(SimulatorCase, ReadTaskCase):
         task_name: str,
         sample_rate: sy.Rate,
         stream_rate: sy.Rate,
-    ) -> opcua.ReadTask:
+    ) -> sy.opcua.ReadTask:
         """Create an OPC UA read task."""
         channels = self.create_channels(self.client)
 
-        return opcua.ReadTask(
+        return sy.opcua.ReadTask(
             name=task_name,
             device=device.key,
             sample_rate=sample_rate,
@@ -73,7 +72,7 @@ class OPCUAWriteTaskCase(SimulatorCase, WriteTaskCase):
 
     @staticmethod
     @abstractmethod
-    def create_channels(client: sy.Synnax) -> list[opcua.WriteChannel]: ...
+    def create_channels(client: sy.Synnax) -> list[sy.opcua.WriteChannel]: ...
 
     def create(
         self,
@@ -82,10 +81,10 @@ class OPCUAWriteTaskCase(SimulatorCase, WriteTaskCase):
         task_name: str,
         sample_rate: sy.Rate,
         stream_rate: sy.Rate,
-    ) -> opcua.WriteTask:
+    ) -> sy.opcua.WriteTask:
         """Create an OPC UA write task."""
         channels = self.create_channels(self.client)
-        return opcua.WriteTask(
+        return sy.opcua.WriteTask(
             name=task_name,
             device=device.key,
             channels=channels,

@@ -11,10 +11,11 @@ cc_library(
     visibility = ["//visibility:public"],
     deps = [
         "//client/cpp/channel",
+        "//core/pkg/api/grpc/v1:api_grpc",
         "//freighter/cpp:freighter",
         "//freighter/cpp/grpc",
-        "//core/pkg/api/grpc/v1:api_grpc",
         "//x/cpp/binary",
+        "//x/cpp/control",
         "//x/cpp/telem",
         "//x/go/telem:telem_grpc",
         "@grpc//:grpc++",

@@ -15,10 +15,11 @@ import (
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/arc/graph"
 	"github.com/synnaxlabs/arc/ir"
-	"github.com/synnaxlabs/arc/lsp/testutil"
+	. "github.com/synnaxlabs/arc/lsp/testutil"
 	"github.com/synnaxlabs/arc/types"
 	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
 	"github.com/synnaxlabs/synnax/pkg/service/arc"
+	. "github.com/synnaxlabs/x/lsp/testutil"
 	"github.com/synnaxlabs/x/query"
 	"github.com/synnaxlabs/x/telem"
 	. "github.com/synnaxlabs/x/testutil"
@@ -126,11 +127,11 @@ var _ = Describe("NewLSP", func() {
 
 	It("Should republish diagnostics when channels change", func() {
 		server := MustSucceed(svc.NewLSP())
-		client := &testutil.MockClient{}
+		client := &MockClient{}
 		server.SetClient(client)
 
 		uri := protocol.DocumentURI("file:///test.arc")
-		testutil.OpenDocument(server, ctx, uri, "func test() {\n\tx := test_lsp_channel\n}")
+		OpenArcDocument(server, ctx, uri, "func test() {\n\tx := test_lsp_channel\n}")
 		Expect(client.Diagnostics()).To(HaveLen(1))
 		Expect(client.Diagnostics()[0].Message).To(ContainSubstring("undefined symbol"))
 

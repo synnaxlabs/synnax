@@ -30,7 +30,7 @@ describe("lineplot queries", () => {
         name: "test_workspace",
         layout: {},
       });
-      const plot = await client.workspaces.lineplots.create(workspace.key, {
+      const plot = await client.lineplots.create(workspace.key, {
         name: "retrieve_test",
         data: {},
       });
@@ -50,7 +50,7 @@ describe("lineplot queries", () => {
         name: "cache_workspace",
         layout: {},
       });
-      const plot = await client.workspaces.lineplots.create(workspace.key, {
+      const plot = await client.lineplots.create(workspace.key, {
         name: "cached_plot",
         data: {},
       });
@@ -93,7 +93,7 @@ describe("lineplot queries", () => {
       expect(result.current.data?.name).toEqual("created_plot");
       expect(result.current.data?.workspace).toEqual(workspace.key);
 
-      const retrieved = await client.workspaces.lineplots.retrieve({ key });
+      const retrieved = await client.lineplots.retrieve({ key });
       expect(retrieved.name).toEqual("created_plot");
     });
 
@@ -132,7 +132,7 @@ describe("lineplot queries", () => {
         name: "rename_workspace",
         layout: {},
       });
-      const plot = await client.workspaces.lineplots.create(workspace.key, {
+      const plot = await client.lineplots.create(workspace.key, {
         name: "original_name",
         data: {},
       });
@@ -156,7 +156,7 @@ describe("lineplot queries", () => {
         });
       });
 
-      const retrieved = await client.workspaces.lineplots.retrieve({ key: plot.key });
+      const retrieved = await client.lineplots.retrieve({ key: plot.key });
       expect(retrieved.name).toEqual("renamed_plot");
     });
 
@@ -165,7 +165,7 @@ describe("lineplot queries", () => {
         name: "rename_cache_workspace",
         layout: {},
       });
-      const plot = await client.workspaces.lineplots.create(workspace.key, {
+      const plot = await client.lineplots.create(workspace.key, {
         name: "cache_original",
         data: {},
       });
@@ -198,7 +198,7 @@ describe("lineplot queries", () => {
         name: "delete_workspace",
         layout: {},
       });
-      const plot = await client.workspaces.lineplots.create(workspace.key, {
+      const plot = await client.lineplots.create(workspace.key, {
         name: "delete_single",
         data: {},
       });
@@ -209,9 +209,9 @@ describe("lineplot queries", () => {
         await result.current.updateAsync(plot.key);
       });
       expect(result.current.variant).toEqual("success");
-      await expect(
-        client.workspaces.lineplots.retrieve({ key: plot.key }),
-      ).rejects.toThrow(NotFoundError);
+      await expect(client.lineplots.retrieve({ key: plot.key })).rejects.toThrow(
+        NotFoundError,
+      );
     });
 
     it("should delete multiple line plots", async () => {
@@ -219,11 +219,11 @@ describe("lineplot queries", () => {
         name: "delete_multi_workspace",
         layout: {},
       });
-      const plot1 = await client.workspaces.lineplots.create(workspace.key, {
+      const plot1 = await client.lineplots.create(workspace.key, {
         name: "delete_multi_1",
         data: {},
       });
-      const plot2 = await client.workspaces.lineplots.create(workspace.key, {
+      const plot2 = await client.lineplots.create(workspace.key, {
         name: "delete_multi_2",
         data: {},
       });
@@ -236,12 +236,12 @@ describe("lineplot queries", () => {
 
       expect(result.current.variant).toEqual("success");
 
-      await expect(
-        client.workspaces.lineplots.retrieve({ key: plot1.key }),
-      ).rejects.toThrow(NotFoundError);
-      await expect(
-        client.workspaces.lineplots.retrieve({ key: plot2.key }),
-      ).rejects.toThrow(NotFoundError);
+      await expect(client.lineplots.retrieve({ key: plot1.key })).rejects.toThrow(
+        NotFoundError,
+      );
+      await expect(client.lineplots.retrieve({ key: plot2.key })).rejects.toThrow(
+        NotFoundError,
+      );
     });
   });
 });

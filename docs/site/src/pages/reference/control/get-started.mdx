@@ -6,7 +6,7 @@ nextURL: "/reference/control/control-authority"
 next: "Control Authority"
 ---
 
-import { Divider, Note } from "@synnaxlabs/pluto";
+import { Divider } from "@synnaxlabs/pluto";
 import { Image, Video } from "@/components/media/Media";
 import { mdxOverrides } from "@/components/mdxOverrides";
 import { Table } from "@/components";
@@ -38,11 +38,6 @@ sequences run externally and communicate with Synnax over the network, which int
 latency and makes control loop timing less predictable. Use Python for automations where
 you need maximum flexibility, and Arc for automations where you need consistent,
 low-latency control.
-
-<Note.Note variant="warning">
-  The [Embedded Sequence Editor](/reference/control/embedded/get-started) (Lua-based) is
-  deprecated. New automations should use Arc instead.
-</Note.Note>
 
 <Divider.Divider x />
 

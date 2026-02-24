@@ -7,8 +7,7 @@
 #  License, use of this software will be governed by the Apache License, Version 2.0,
 #  included in the file licenses/APL.txt.
 
-from synnax.channel.payload import ChannelParams
-from synnax.channel.retrieve import ChannelRetriever
+from synnax import channel
 from synnax.control.controller import Controller
 from synnax.framer import Client as FrameClient
 from synnax.telem.control import Authority, CrudeAuthority
@@ -20,17 +19,17 @@ class Client:
     """
 
     framer: FrameClient
-    retriever: ChannelRetriever
+    retriever: channel.Retriever
 
-    def __init__(self, framer: FrameClient, channels: ChannelRetriever) -> None:
+    def __init__(self, framer: FrameClient, channels: channel.Retriever) -> None:
         self.framer = framer
         self.retriever = channels
 
     def acquire(
         self,
         name: str,
-        read: ChannelParams | None,
-        write: ChannelParams | None,
+        read: channel.Params | None,
+        write: channel.Params | None,
         write_authorities: CrudeAuthority | list[CrudeAuthority] = Authority.ABSOLUTE,
     ) -> Controller:
         """Opens a new controller for executing control sequences. We recommend using

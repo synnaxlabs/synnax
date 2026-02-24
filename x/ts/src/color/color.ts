@@ -24,6 +24,10 @@ const rgbaZ = z.tuple([rgbValueZ, rgbValueZ, rgbValueZ, alphaZ]);
 const rgbZ = z.tuple([rgbValueZ, rgbValueZ, rgbValueZ]);
 /** A zod schema for a legacy color object. */
 const legacyObjectZ = z.object({ rgba255: rgbaZ });
+/** A zod schema for an RGBA struct (r, g, b, a fields). */
+const rgbaStructZ = z.object({ r: rgbValueZ, g: rgbValueZ, b: rgbValueZ, a: alphaZ });
+/** An RGBA struct with named fields. */
+export type RGBAStruct = z.infer<typeof rgbaStructZ>;
 /** A zod schema for a hue value between 0 and 360. */
 const hueZ = z.number().min(0).max(360);
 /** A zod schema for a saturation value between 0 and 100. */
@@ -46,12 +50,12 @@ export type Hex = z.infer<typeof hexZ>;
 type LegacyObject = z.infer<typeof legacyObjectZ>;
 
 /** A zod schema for a crude color representation. */
-export const crudeZ = z.union([hexZ, rgbZ, rgbaZ, hslaZ, legacyObjectZ]);
+export const crudeZ = z.union([hexZ, rgbZ, rgbaZ, hslaZ, legacyObjectZ, rgbaStructZ]);
 /**
  * An unparsed representation of a color i.e. a value that can be converted into
  * a Color object.
  */
-export type Crude = Hex | RGBA | Color | RGB | LegacyObject;
+export type Crude = Hex | RGBA | Color | RGB | LegacyObject | RGBAStruct;
 
 /** A zod schema to parse color values from various crude representations. */
 export const colorZ = crudeZ.transform((v) => construct(v));
@@ -113,6 +117,7 @@ export const construct = (color: Crude, alpha: number = 1): Color => {
     if (color.length === 3) return [...color, alpha];
     return color;
   }
+  if ("a" in color && "r" in color) return [color.r, color.g, color.b, color.a];
   return color.rgba255;
 };
 
@@ -140,8 +145,9 @@ export interface ToHex {
 export const hex = ((color?: Crude) => {
   if (color == null) return undefined;
   const [r, g, b, a] = construct(color);
+  const alphaByte = Math.round(a * 255);
   return `#${rgbaToHex(r)}${rgbaToHex(g)}${rgbaToHex(b)}${
-    a === 1 ? "" : rgbaToHex(a * 255)
+    alphaByte === 255 ? "" : rgbaToHex(alphaByte)
   }`;
 }) as ToHex;
 

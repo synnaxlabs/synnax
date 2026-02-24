@@ -57,7 +57,7 @@ class RichConsole:
     def table(
         self,
         columns: list[str],
-        rows: list[dict],
+        rows: list[dict[str, str]],
     ) -> None:
         from rich.table import Table
 
@@ -81,7 +81,7 @@ class RichConsole:
     ) -> R | None:
         if type_ is None:
             if default is not None:
-                type_ = type(default)  # type: ignore
+                type_ = type(default)
             elif choices is not None and len(choices) > 0:
                 type_ = type(choices[0])
             else:
@@ -98,7 +98,7 @@ class RichConsole:
                 question,
                 default=default,
                 choices=[str(choice) for choice in choices] if choices else None,  # type: ignore
-            )  # type: ignore
+            )
         if type_ == float:
             return FloatPrompt.ask(
                 question,
@@ -109,4 +109,4 @@ class RichConsole:
             choices=choices,  # type: ignore
             default=default,
             password=password,
-        )  # type: ignore
+        )

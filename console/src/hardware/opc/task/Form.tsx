@@ -202,9 +202,10 @@ export const Form = <C extends Channel>({
 }: FormProps<C>) => {
   const isSnapshot = Common.Task.useIsSnapshot();
   return (
-    <Common.Device.Provider<Device.Properties, Device.Make>
+    <Common.Device.Provider
       canConfigure={!isSnapshot}
       configureLayout={Device.CONNECT_LAYOUT}
+      schemas={Device.SCHEMAS}
     >
       {({ device }) => (
         <>

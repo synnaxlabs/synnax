@@ -149,8 +149,9 @@ const onConfigure: Common.Task.OnConfigure<typeof analogReadConfigZ> = async (
 ) => {
   const devices = unique.unique(config.channels.map((c) => c.device));
   let rackKey: rack.Key | undefined;
-  const allDevices = await client.devices.retrieve<Device.Properties>({
+  const allDevices = await client.devices.retrieve({
     keys: devices,
+    schemas: Device.SCHEMAS,
   });
   const racks = new Set(allDevices.map((d) => d.rack));
   if (racks.size > 1) {
@@ -214,7 +215,7 @@ const onConfigure: Common.Task.OnConfigure<typeof analogReadConfigZ> = async (
         );
       }
     } finally {
-      if (modified) await client.devices.create(dev);
+      if (modified) await client.devices.create(dev, Device.SCHEMAS);
     }
     config.channels.forEach((c) => {
       if (c.device !== dev.key) return;

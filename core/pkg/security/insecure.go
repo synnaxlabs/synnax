@@ -11,7 +11,6 @@ package security
 
 import (
 	"crypto"
-	"crypto/rand"
 	"crypto/rsa"
 	"crypto/tls"
 )
@@ -22,7 +21,7 @@ type insecureProvider struct {
 }
 
 func newInsecureProvider(cfg ProviderConfig) (Provider, error) {
-	key, err := rsa.GenerateKey(rand.Reader, cfg.KeySize)
+	key, err := rsa.GenerateKey(nil, cfg.KeySize)
 	return &insecureProvider{nodeSecret: key}, err
 }
 

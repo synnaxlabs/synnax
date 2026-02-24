@@ -11,29 +11,71 @@ package telem
 
 import (
 	"encoding/binary"
+	"encoding/json"
 	"fmt"
+	"math"
 
+	"github.com/google/uuid"
 	"github.com/samber/lo"
-	xbinary "github.com/synnaxlabs/x/binary"
-	"github.com/synnaxlabs/x/types"
 	"github.com/synnaxlabs/x/unsafe"
 )
 
-// Sample represents any numeric value that can be stored in a Series.
-// It must satisfy the Sample interface.
-type Sample = types.SizedNumeric
-
-// NewSeries creates a new Series from a slice of numeric values. It automatically
-// determines the data type from the first element.
-func NewSeries[T Sample](data []T) Series {
-	return Series{
-		DataType: InferDataType[T](),
-		Data:     MarshalSlice(data),
-	}
+// NumericSample represents any numeric value that can be stored in a Series and have
+// mathematical operations performed on it.
+type NumericSample interface {
+	uint8 | uint16 | uint32 | uint64 | int8 | int16 | int32 | int64 |
+		float32 | float64 | TimeStamp
 }
 
-// NewSeriesV is a variadic version of NewSeries that creates a new Series from
-// individual numeric values.
+// FixedSample represents any numeric value that can be stored in a Series and has a
+// fixed density.
+type FixedSample interface{ NumericSample | uuid.UUID }
+
+// VariableSample is a type that can be stored in a variable-density series.
+type VariableSample interface{ []byte | string }
+
+// Sample represents any value that can be stored in a non-JSON Series.
+type Sample interface{ FixedSample | VariableSample }
+
+// NewSeries creates a new Series from a slice of sample values. It automatically
+// determines the data type from the type parameter.
+func NewSeries[T Sample](data []T) Series {
+	var t T
+	switch any(t).(type) {
+	case uint8:
+		return newFixedSeries(any(data).([]uint8))
+	case uint16:
+		return newFixedSeries(any(data).([]uint16))
+	case uint32:
+		return newFixedSeries(any(data).([]uint32))
+	case uint64:
+		return newFixedSeries(any(data).([]uint64))
+	case int8:
+		return newFixedSeries(any(data).([]int8))
+	case int16:
+		return newFixedSeries(any(data).([]int16))
+	case int32:
+		return newFixedSeries(any(data).([]int32))
+	case int64:
+		return newFixedSeries(any(data).([]int64))
+	case float32:
+		return newFixedSeries(any(data).([]float32))
+	case float64:
+		return newFixedSeries(any(data).([]float64))
+	case TimeStamp:
+		return newFixedSeries(any(data).([]TimeStamp))
+	case uuid.UUID:
+		return newFixedSeries(any(data).([]uuid.UUID))
+	case string:
+		return newVariableSeries(any(data).([]string))
+	case []byte:
+		return newVariableSeries(any(data).([][]byte))
+	}
+	// degenerate case, should never hit this path.
+	panic(fmt.Sprintf("unsupported sample type %T", t))
+}
+
+// NewSeriesV is a variadic version of NewSeries.
 func NewSeriesV[T Sample](data ...T) Series { return NewSeries(data) }
 
 // MakeSeries allocates a new Series with the specified DataType and length. Note that
@@ -42,78 +84,57 @@ func MakeSeries(dt DataType, len int) Series {
 	return Series{DataType: dt, Data: make([]byte, len*int(dt.Density()))}
 }
 
-// NewSeriesSecondsTSV creates a new Series containing TimeStamp values. All input timestamps
-// are multiplied by SecondTS to convert them to the standard time unit used in the
-// system.
+// NewSeriesSecondsTSV creates a new Series containing TimeStamp values. All input
+// timestamps are multiplied by SecondTS to convert them to the standard time unit used
+// in the system.
 func NewSeriesSecondsTSV(data ...TimeStamp) Series {
 	for i := range data {
 		data[i] *= SecondTS
 	}
-	return Series{DataType: TimeStampT, Data: MarshalSlice(data)}
+	return NewSeries(data)
 }
 
-// NewSeriesStrings creates a new Series from a slice of strings. The strings are stored with
-// newline characters as delimiters.
-func NewSeriesStrings(data []string) Series {
-	return Series{DataType: StringT, Data: MarshalStrings(data, StringT)}
+func newFixedSeries[T FixedSample](data []T) Series {
+	return Series{DataType: InferDataType[T](), Data: marshalFixed(data)}
 }
 
-// NewSeriesStringsV is a variadic version of NewSeriesStrings that creates a new Series from
-// individual string values.
-func NewSeriesStringsV(data ...string) Series { return NewSeriesStrings(data) }
+func newVariableSeries[T VariableSample](data []T) Series {
+	return Series{DataType: InferDataType[T](), Data: marshalVariable(data)}
+}
 
-// NewSeriesStaticJSONV constructs a new series from an arbitrary set of JSON values,
-// marshaling each one in the process.
-func NewSeriesStaticJSONV[T any](data ...T) (series Series) {
-	series.DataType = JSONT
-	strings := make([]string, len(data))
+// NewJSONSeries creates a new JSON Series from a slice of JSON values. It returns an
+// error if the data cannot be marshalled into JSON.
+func NewJSONSeries[T any](data []T) (Series, error) {
+	byteSlices := make([][]byte, len(data))
+	var err error
 	for i, v := range data {
-		strings[i] = xbinary.MustEncodeJSONToString(v)
+		if byteSlices[i], err = json.Marshal(v); err != nil {
+			return Series{}, err
+		}
 	}
-	series.Data = MarshalStrings(strings, series.DataType)
-	return series
+	return Series{DataType: JSONT, Data: marshalVariable(byteSlices)}, nil
 }
+
+// NewJSONSeriesV constructs a new JSON Series from an arbitrary set of JSON values,
+// marshaling each one in the process. It returns an error if the data cannot be
+// marshalled into JSON.
+func NewJSONSeriesV[T any](data ...T) (Series, error) { return NewJSONSeries(data) }
 
 const newLine = '\n'
 
-// MarshalStrings converts a slice of strings into a byte slice. Each string is
-// terminated with a newline character. Panics if the DataType is not variable.
-func MarshalStrings(data []string, dt DataType) []byte {
-	if !dt.IsVariable() {
-		panic("data type must be variable length")
-	}
-	total := lo.SumBy(data, func(s string) int64 { return int64(len(s)) + 1 })
+func marshalVariable[T VariableSample](data []T) []byte {
+	total := lo.SumBy(data, func(v T) int64 { return int64(len(v)) + 1 })
 	b := make([]byte, total)
 	offset := 0
-	for _, s := range data {
-		copy(b[offset:], s)
-		b[offset+len(s)] = newLine
-		offset += len(s) + 1
+	for _, d := range data {
+		copy(b[offset:], d)
+		b[offset+len(d)] = newLine
+		offset += len(d) + 1
 	}
 	return b
 }
 
-// UnmarshalStrings converts a byte slice back into a slice of strings. It assumes
-// strings are separated by newline characters.
-func UnmarshalStrings(b []byte) []string {
-	var (
-		offset int
-		data   []string
-	)
-	for offset < len(b) {
-		end := offset
-		for b[end] != newLine {
-			end++
-		}
-		data = append(data, string(b[offset:end]))
-		offset = end + 1
-	}
-	return data
-}
-
-// MarshalSlice converts a slice of numeric values into a byte slice according to the
-// specified DataType.
-func MarshalSlice[T Sample](data []T) []byte {
+func marshalFixed[T FixedSample](data []T) []byte {
 	dt := InferDataType[T]()
 	b := make([]byte, dt.Density().Size(int64(len(data))))
 	typedData := unsafe.CastSlice[byte, T](b)
@@ -121,25 +142,85 @@ func MarshalSlice[T Sample](data []T) []byte {
 	return b
 }
 
-// UnmarshalSlice converts a byte slice back into a slice of numeric values according to
-// the specified DataType.
-func UnmarshalSlice[T Sample](b []byte, dt DataType) []T {
-	return unsafe.CastSlice[byte, T](b)
-}
-
-// UnmarshalSeries converts a Series' data back into a slice of the original type.
+// UnmarshalSeries converts a Series back into a slice of the specified data type. Note
+// that this function does NOT check the Series' DataType, it simply unmarshals the data
+// according to type T.
 func UnmarshalSeries[T Sample](series Series) []T {
-	return unsafe.CastSlice[byte, T](series.Data)
+	var t T
+	switch any(t).(type) {
+	case uint8:
+		return any(unmarshalFixed[uint8](series.Data)).([]T)
+	case uint16:
+		return any(unmarshalFixed[uint16](series.Data)).([]T)
+	case uint32:
+		return any(unmarshalFixed[uint32](series.Data)).([]T)
+	case uint64:
+		return any(unmarshalFixed[uint64](series.Data)).([]T)
+	case int8:
+		return any(unmarshalFixed[int8](series.Data)).([]T)
+	case int16:
+		return any(unmarshalFixed[int16](series.Data)).([]T)
+	case int32:
+		return any(unmarshalFixed[int32](series.Data)).([]T)
+	case int64:
+		return any(unmarshalFixed[int64](series.Data)).([]T)
+	case float32:
+		return any(unmarshalFixed[float32](series.Data)).([]T)
+	case float64:
+		return any(unmarshalFixed[float64](series.Data)).([]T)
+	case TimeStamp:
+		return any(unmarshalFixed[TimeStamp](series.Data)).([]T)
+	case uuid.UUID:
+		return any(unmarshalFixed[uuid.UUID](series.Data)).([]T)
+	case string:
+		return any(unmarshalVariable[string](series.Data)).([]T)
+	case []byte:
+		return any(unmarshalVariable[[]byte](series.Data)).([]T)
+	}
+	// degenerate case, should never hit this path.
+	panic(fmt.Sprintf("unsupported sample type %T", t))
 }
 
-// ByteOrder is the standard order for encoding/decoding numeric values across
-// the Synnax telemetry ecosystem.
+func unmarshalFixed[T FixedSample](b []byte) []T { return unsafe.CastSlice[byte, T](b) }
+
+func unmarshalVariable[T VariableSample](b []byte) []T {
+	var (
+		offset int
+		data   []T
+	)
+	for offset < len(b) {
+		end := offset
+		for b[end] != newLine {
+			end++
+		}
+		data = append(data, T(b[offset:end]))
+		offset = end + 1
+	}
+	return data
+}
+
+// UnmarshalJSONSeries unmarshals a JSON-encoded series into a slice of JSON values
+// of the specified type T. This function does NOT check the Series' DataType, it simply
+// unmarshals the data according to type T.
+func UnmarshalJSONSeries[T any](s Series) ([]T, error) {
+	byteSlices := UnmarshalSeries[[]byte](s)
+	data := make([]T, len(byteSlices))
+	for i, b := range byteSlices {
+		if err := json.Unmarshal(b, &data[i]); err != nil {
+			return nil, err
+		}
+	}
+	return data, nil
+}
+
+// ByteOrder is the standard order for encoding/decoding numeric values across the
+// Synnax telemetry ecosystem.
 var ByteOrder = binary.LittleEndian
 
 // Arrange creates a new Series containing count values starting from start, with each
 // subsequent value incremented by spacing. For example, Arrange(0, 5, 2) produces [0,
 // 2, 4, 6, 8]. Panics if count is less than or equal to 0.
-func Arrange[T Sample](start T, count int, spacing T) Series {
+func Arrange[T NumericSample](start T, count int, spacing T) Series {
 	data := make([]T, count)
 	for i := range count {
 		data[i] = start + T(i)*spacing
@@ -148,229 +229,136 @@ func Arrange[T Sample](start T, count int, spacing T) Series {
 }
 
 // NewSeriesFromAny creates a single-value Series from a value of type any, casting it
-// to the specified DataType. This function preserves numeric precision by avoiding
-// unnecessary intermediate conversions. Supports numeric types, strings, TimeStamp,
-// JSON, and bytes. Panics if the value cannot be converted to the target DataType.
+// to the specified DataType. Supports numeric types, strings, TimeStamp, JSON, and
+// bytes. Panics if the value cannot be converted to the target DataType.
 func NewSeriesFromAny(value any, dt DataType) Series {
 	switch dt {
-	case Int64T:
-		return NewSeriesV(castToInt64(value))
-	case Int32T:
-		return NewSeriesV(castToInt32(value))
-	case Int16T:
-		return NewSeriesV(castToInt16(value))
-	case Int8T:
-		return NewSeriesV(castToInt8(value))
-	case Uint64T:
-		return NewSeriesV(castToUint64(value))
-	case Uint32T:
-		return NewSeriesV(castToUint32(value))
-	case Uint16T:
-		return NewSeriesV(castToUint16(value))
 	case Uint8T:
-		return NewSeriesV(castToUint8(value))
-	case Float64T:
-		return NewSeriesV(castToFloat64(value))
+		return NewSeriesV(castNumeric[uint8](value))
+	case Uint16T:
+		return NewSeriesV(castNumeric[uint16](value))
+	case Uint32T:
+		return NewSeriesV(castNumeric[uint32](value))
+	case Uint64T:
+		return NewSeriesV(castNumeric[uint64](value))
+	case Int8T:
+		return NewSeriesV(castNumeric[int8](value))
+	case Int16T:
+		return NewSeriesV(castNumeric[int16](value))
+	case Int32T:
+		return NewSeriesV(castNumeric[int32](value))
+	case Int64T:
+		return NewSeriesV(castNumeric[int64](value))
 	case Float32T:
-		return NewSeriesV(castToFloat32(value))
+		return NewSeriesV(castNumeric[float32](value))
+	case Float64T:
+		return NewSeriesV(castNumeric[float64](value))
 	case TimeStampT:
-		return NewSeriesV(castToTimeStamp(value))
+		return NewSeriesV(castNumeric[TimeStamp](value))
+	case UUIDT:
+		return NewSeriesV(castToUUID(value))
 	case StringT:
-		return NewSeriesStringsV(castToString(value))
-	case JSONT:
-		return castToJSON(value)
+		return NewSeriesV(castToString(value))
 	case BytesT:
-		return castToBytes(value)
+		return NewSeriesV(castToBytes(value))
+	case JSONT:
+		return lo.Must(NewJSONSeriesV(value))
 	default:
 		panic(fmt.Sprintf("unsupported data type %s", dt))
 	}
 }
 
-func castToInt64(value any) int64 {
+func castNumeric[T NumericSample](value any) T {
 	switch v := value.(type) {
-	case int:
-		return int64(v)
-	case int64:
-		return v
-	case int32:
-		return int64(v)
-	case int16:
-		return int64(v)
-	case int8:
-		return int64(v)
 	case uint:
-		return int64(v)
-	case uint64:
-		return int64(v)
-	case uint32:
-		return int64(v)
-	case uint16:
-		return int64(v)
+		return T(v)
 	case uint8:
-		return int64(v)
-	case float64:
-		return int64(v)
-	case float32:
-		return int64(v)
-	case TimeStamp:
-		return int64(v)
-	case string:
-		panic("cannot cast string to int64")
-	default:
-		panic(fmt.Sprintf("cannot cast %T to int64", value))
-	}
-}
-
-func castToInt32(value any) int32 { return int32(castToInt64(value)) }
-
-func castToInt16(value any) int16 { return int16(castToInt64(value)) }
-
-func castToInt8(value any) int8 { return int8(castToInt64(value)) }
-
-func castToUint64(value any) uint64 {
-	switch v := value.(type) {
+		return T(v)
+	case uint16:
+		return T(v)
+	case uint32:
+		return T(v)
+	case uint64:
+		return T(v)
 	case int:
-		return uint64(v)
-	case int64:
-		return uint64(v)
-	case int32:
-		return uint64(v)
-	case int16:
-		return uint64(v)
+		return T(v)
 	case int8:
-		return uint64(v)
-	case uint:
-		return uint64(v)
-	case uint64:
-		return v
-	case uint32:
-		return uint64(v)
-	case uint16:
-		return uint64(v)
-	case uint8:
-		return uint64(v)
-	case float64:
-		return uint64(v)
-	case float32:
-		return uint64(v)
-	case TimeStamp:
-		return uint64(v)
-	case string:
-		panic("cannot cast string to uint64")
-	default:
-		panic(fmt.Sprintf("cannot cast %T to uint64", value))
-	}
-}
-
-func castToUint32(value any) uint32 { return uint32(castToUint64(value)) }
-
-func castToUint16(value any) uint16 { return uint16(castToUint64(value)) }
-
-func castToUint8(value any) uint8 { return uint8(castToUint64(value)) }
-
-func castToFloat64(value any) float64 {
-	switch v := value.(type) {
-	case int:
-		return float64(v)
-	case int64:
-		return float64(v)
-	case int32:
-		return float64(v)
+		return T(v)
 	case int16:
-		return float64(v)
-	case int8:
-		return float64(v)
-	case uint:
-		return float64(v)
-	case uint64:
-		return float64(v)
-	case uint32:
-		return float64(v)
-	case uint16:
-		return float64(v)
-	case uint8:
-		return float64(v)
-	case float64:
-		return v
+		return T(v)
+	case int32:
+		return T(v)
+	case int64:
+		return T(v)
 	case float32:
-		return float64(v)
+		return T(v)
+	case float64:
+		return T(v)
 	case TimeStamp:
-		return float64(v)
-	case string:
-		panic("cannot cast string to float64")
+		return T(v)
 	default:
-		panic(fmt.Sprintf("cannot cast %T to float64", value))
-	}
-}
-
-func castToFloat32(value any) float32 { return float32(castToFloat64(value)) }
-
-func castToTimeStamp(value any) TimeStamp {
-	switch v := value.(type) {
-	case TimeStamp:
-		return v
-	case string:
-		panic("cannot cast string to TimeStamp")
-	default:
-		return TimeStamp(castToInt64(value))
+		var t T
+		panic(fmt.Sprintf("cannot cast %T to %T", value, t))
 	}
 }
 
 func castToString(value any) string {
 	switch v := value.(type) {
+	case int, int8, int16, int32, int64, uint, uint8, uint16, uint32, uint64, TimeStamp:
+		return fmt.Sprintf("%d", v)
+	case float32, float64:
+		return fmt.Sprintf("%g", v)
 	case string:
 		return v
-	case int:
-		return fmt.Sprintf("%d", v)
-	case int64:
-		return fmt.Sprintf("%d", v)
-	case int32:
-		return fmt.Sprintf("%d", v)
-	case int16:
-		return fmt.Sprintf("%d", v)
-	case int8:
-		return fmt.Sprintf("%d", v)
-	case uint:
-		return fmt.Sprintf("%d", v)
-	case uint64:
-		return fmt.Sprintf("%d", v)
-	case uint32:
-		return fmt.Sprintf("%d", v)
-	case uint16:
-		return fmt.Sprintf("%d", v)
-	case uint8:
-		return fmt.Sprintf("%d", v)
-	case float64:
-		return fmt.Sprintf("%g", v)
-	case float32:
-		return fmt.Sprintf("%g", v)
-	case TimeStamp:
-		return fmt.Sprintf("%d", v)
 	default:
 		return fmt.Sprintf("%v", value)
 	}
 }
 
-func castToJSON(value any) Series {
+func castToBytes(value any) []byte {
 	switch v := value.(type) {
+	case uint8:
+		return []byte{v}
+	case uint16:
+		return ByteOrder.AppendUint16(nil, v)
+	case uint32:
+		return ByteOrder.AppendUint32(nil, v)
+	case uint64:
+		return ByteOrder.AppendUint64(nil, v)
+	case int8:
+		return []byte{byte(v)}
+	case int16:
+		return ByteOrder.AppendUint16(nil, uint16(v))
+	case int32:
+		return ByteOrder.AppendUint32(nil, uint32(v))
+	case int64:
+		return ByteOrder.AppendUint64(nil, uint64(v))
+	case float32:
+		return ByteOrder.AppendUint32(nil, math.Float32bits(v))
+	case float64:
+		return ByteOrder.AppendUint64(nil, math.Float64bits(v))
+	case TimeStamp:
+		return ByteOrder.AppendUint64(nil, uint64(v))
+	case uuid.UUID:
+		return v[:]
 	case string:
-		return Series{DataType: JSONT, Data: MarshalStrings([]string{v}, JSONT)}
+		return []byte(v)
 	case []byte:
-		return Series{DataType: JSONT, Data: MarshalStrings([]string{string(v)}, JSONT)}
+		return v
 	default:
-		jsonStr := xbinary.MustEncodeJSONToString(value)
-		return Series{DataType: JSONT, Data: MarshalStrings([]string{jsonStr}, JSONT)}
+		panic(fmt.Sprintf("cannot cast %T to []byte", value))
 	}
 }
 
-func castToBytes(value any) Series {
+func castToUUID(value any) uuid.UUID {
 	switch v := value.(type) {
-	case []byte:
-		return Series{DataType: BytesT, Data: append(v, newLine)}
+	case uuid.UUID:
+		return v
 	case string:
-		return Series{DataType: BytesT, Data: append([]byte(v), newLine)}
+		return uuid.MustParse(v)
+	case []byte:
+		return lo.Must(uuid.FromBytes(v))
 	default:
-		str := castToString(value)
-		return Series{DataType: BytesT, Data: append([]byte(str), newLine)}
+		panic(fmt.Sprintf("cannot cast %T to uuid.UUID", value))
 	}
 }

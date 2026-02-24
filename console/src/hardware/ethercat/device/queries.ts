@@ -12,14 +12,14 @@ import { Device, Flux } from "@synnaxlabs/pluto";
 import { array, primitive } from "@synnaxlabs/x";
 import { useCallback, useEffect, useMemo, useState } from "react";
 
-import { type SlaveProperties } from "@/hardware/ethercat/device/types";
+import { slavePropertiesZ } from "@/hardware/ethercat/device/types";
 import { type Channel } from "@/hardware/ethercat/task/types";
 
 export const {
   useRetrieve: useRetrieveSlave,
   useRetrieveObservable,
   useRetrieveStateful: useRetrieveSlaveStateful,
-} = Device.createRetrieve<SlaveProperties>();
+} = Device.createRetrieve({ properties: slavePropertiesZ });
 
 export const useCommonNetwork = (channels: Channel[]) => {
   const firstDeviceKey = useMemo(() => {
@@ -52,10 +52,11 @@ export const { useUpdate: useToggleEnabled } = Flux.createUpdate<
   update: async ({ data, client, store, rollbacks }) => {
     const keys = array.toArray(data.keys);
 
-    const devices = await Device.retrieveMultiple<SlaveProperties>({
+    const devices = await Device.retrieveMultiple({
       client,
       store,
       query: { keys },
+      schemas: { properties: slavePropertiesZ },
     });
 
     const enabledValue = data.enabled ?? !devices[0]?.properties?.enabled;

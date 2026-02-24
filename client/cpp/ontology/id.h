@@ -29,14 +29,6 @@ struct ID {
     /// @brief The unique identifier within the resource type
     std::string key;
 
-    /// @brief Constructs an empty, invalid ID.
-    ID() = default;
-
-    /// @brief Constructs an ID with the given type and key.
-    /// @param type The resource type.
-    /// @param key The unique identifier.
-    ID(std::string type, std::string key);
-
     /// @brief Returns the string representation of the ID in "type:key" format.
     /// @returns A string in the format "type:key".
     [[nodiscard]] std::string string() const;
@@ -55,7 +47,7 @@ struct ID {
 };
 
 /// @brief The root ID used as the top-level parent in the ontology hierarchy.
-const ID ROOT_ID("builtin", "root");
+const ID ROOT_ID{.type = "builtin", .key = "root"};
 
 /// @brief Parses a vector of strings into a vector of IDs.
 /// @param strs The strings to parse, each in "type:key" format.

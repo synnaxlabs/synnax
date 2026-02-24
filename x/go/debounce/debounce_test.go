@@ -35,7 +35,7 @@ var _ = Describe("Debouncer", func() {
 			d := debounce.New(20*time.Millisecond, 0, func(ctx context.Context) {
 				called.Add(1)
 			})
-			for i := 0; i < 10; i++ {
+			for range 10 {
 				d.Trigger()
 			}
 			Eventually(func() int32 { return called.Load() }).Should(Equal(int32(1)))

@@ -43,9 +43,7 @@ on:
       - turbo.json
       - uv.lock
       - uv.toml
-      - vendor/mbedtls/**
-      - vendor/open62541/**
-      - vendor/wasmtime/**
+      - vendor/**
       - x/cpp/**
       - x/go/**
       - x/media/**
@@ -281,7 +279,8 @@ jobs:
           python-version-file: integration/pyproject.toml
 
       - name: Install Playwright
-        run: integration/scripts/install_playwright_unix.sh
+        working-directory: integration
+        run: uv run playwright install --with-deps
 
       - name: Start Core
         timeout-minutes: 1

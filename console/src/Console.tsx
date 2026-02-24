@@ -13,15 +13,15 @@ import "@synnaxlabs/pluto/dist/pluto.css";
 
 import { Provider } from "@synnaxlabs/drift/react";
 import {
+  type Alamos,
   type Color,
   type Haul,
   Pluto,
   preventDefault,
   type state,
-  Synnax,
   type Triggers,
 } from "@synnaxlabs/pluto";
-import { type ReactElement, useCallback, useEffect, useMemo } from "react";
+import { type ReactElement, useCallback, useEffect } from "react";
 import { useDispatch } from "react-redux";
 
 import { Access } from "@/access";
@@ -29,8 +29,6 @@ import { Arc } from "@/arc";
 import { Channel } from "@/channel";
 import { Cluster } from "@/cluster";
 import { Code } from "@/code";
-import { Arc as ArcCode } from "@/code/arc";
-import { Lua } from "@/code/lua";
 import { COMMANDS } from "@/commands";
 import { CSV } from "@/csv";
 import { Docs } from "@/docs";
@@ -131,24 +129,17 @@ const useBlockDefaultDropBehavior = (): void =>
     };
   }, []);
 
-const ArcLSPClientSetter = ({ children }: { children: ReactElement }): ReactElement => {
-  const client = Synnax.use();
-  const monaco = Code.useMonaco();
-  useEffect(() => {
-    // Only start LSP when Monaco is initialized and client is available
-    if (monaco == null) return;
-    void ArcCode.setSynnaxClient(client);
-  }, [client, monaco]);
-  return children;
-};
+const MONACO_SERVICES = Arc.LSP.SERVICES;
+
+const ALAMOS_PROPS: Alamos.ProviderProps = { level: "info" };
+
+const HAUL_PROPS: Haul.ProviderProps = { useState: useHaulState };
+const COLOR_PROPS: Color.ProviderProps = { useState: useColorContextState };
 
 const MainUnderContext = (): ReactElement => {
   const theme = Layout.useThemeProvider();
   const cluster = Cluster.useSelect();
   useBlockDefaultDropBehavior();
-
-  const monacoExtensions = useMemo(() => [...Lua.EXTENSIONS], []);
-  const monacoServices = useMemo(() => [...Lua.SERVICES, ...ArcCode.SERVICES], []);
 
   return (
     <Pluto.Provider
@@ -157,16 +148,16 @@ const MainUnderContext = (): ReactElement => {
       connParams={cluster ?? undefined}
       workerURL={WorkerURL}
       triggers={TRIGGERS_PROVIDER_PROPS}
-      haul={{ useState: useHaulState }}
-      color={{ useState: useColorContextState }}
-      alamos={{ level: "info" }}
+      haul={HAUL_PROPS}
+      color={COLOR_PROPS}
+      alamos={ALAMOS_PROPS}
     >
-      <Code.Provider importExtensions={monacoExtensions} initServices={monacoServices}>
-        <ArcLSPClientSetter>
+      <Code.Provider initServices={MONACO_SERVICES}>
+        <Arc.LSP.Provider>
           <Vis.Canvas>
             <Layout.Window />
           </Vis.Canvas>
-        </ArcLSPClientSetter>
+        </Arc.LSP.Provider>
       </Code.Provider>
     </Pluto.Provider>
   );

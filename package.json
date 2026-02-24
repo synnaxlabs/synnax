@@ -109,6 +109,7 @@
     "prettier-plugin-astro": "^0.14.1",
     "prettier-plugin-sh": "^0.18.0",
     "prettier-plugin-toml": "^2.0.6",
+    "stylelint-config-standard": "catalog:",
     "turbo": "^2.8.1"
   },
   "engines": {

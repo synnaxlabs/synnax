@@ -11,7 +11,6 @@
 
 #include <atomic>
 #include <condition_variable>
-#include <future>
 #include <list>
 #include <memory>
 #include <mutex>
@@ -20,7 +19,6 @@
 #include <vector>
 
 #include "glog/logging.h"
-#include "nlohmann/json.hpp"
 
 #include "client/cpp/synnax.h"
 #include "x/cpp/breaker/breaker.h"

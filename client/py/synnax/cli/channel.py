@@ -8,16 +8,16 @@
 #  included in the file licenses/APL.txt.
 
 import fnmatch
+from typing import Any
 
 from synnax.channel import Channel
-from synnax.cli.console.sugared import AskKwargs
 from synnax.cli.flow import Context
 
 
 def channel_name_table(
     ctx: Context,
     names: list[str],
-):
+) -> None:
     """Creates a table containing names of the channels.
 
     :param ctx: The current flow context.
@@ -33,7 +33,7 @@ def maybe_select_channel(
     ctx: Context,
     channels: list[Channel],
     param: str,
-    **kwargs: AskKwargs[str],
+    **kwargs: Any,
 ) -> Channel | None:
     """Asks the user to select a channel if there are multiple channels available.
 
@@ -52,7 +52,7 @@ def maybe_select_channel(
 def select_channel(
     ctx: Context,
     channels: list[Channel],
-    **kwargs: AskKwargs[str],
+    **kwargs: Any,
 ) -> Channel | None:
     """Prompts the user to select a channel from a list of channels.
 
@@ -68,6 +68,8 @@ def select_channel(
         rows=[c.model_dump() for c in channels],
         **kwargs,
     )
+    if i is None:
+        return None
     return channels[i]
 
 
@@ -87,14 +89,17 @@ def prompt_group_channel_names(
     3) A pattern to match (e.g. 'channel*, sensor*')
     """
     )
-    return group_channel_names(ctx, options, ctx.console.ask("channels").split(","))
+    response = ctx.console.ask("channels")
+    if response is None:
+        return None
+    return group_channel_names(ctx, options, response.split(","))
 
 
 def group_channel_names(
     ctx: Context,
     options: list[str],
     matchers: list[str],
-):
+) -> dict[str, list[str]] | None:
     """Groups channel names by matching them against a list of matchers.
 
     :param ctx: The current flow Context.

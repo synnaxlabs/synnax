@@ -15,7 +15,6 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	"github.com/synnaxlabs/x/config"
 	. "github.com/synnaxlabs/x/confluence"
 	"github.com/synnaxlabs/x/signal"
 	. "github.com/synnaxlabs/x/testutil"
@@ -139,7 +138,7 @@ var _ = Describe("Delta", func() {
 			It("Should allow the delta to operate normally if a consumer receives within the timeout", func() {
 				delta := NewDynamicDeltaMultiplier[int](
 					10*time.Millisecond,
-					Instrumentation("dev", InstrumentationConfig{Log: config.True()}),
+					Instrumentation("dev", InstrumentationConfig{Log: new(true)}),
 				)
 				delta.InFrom(inputOne)
 				ctx, cancel := signal.Isolated()
@@ -159,7 +158,7 @@ var _ = Describe("Delta", func() {
 			It("Should allow other outlets to receive values even if one consumer times out", func() {
 				delta := NewDynamicDeltaMultiplier[int](
 					10*time.Millisecond,
-					Instrumentation("dev", InstrumentationConfig{Log: config.False()}),
+					Instrumentation("dev", InstrumentationConfig{Log: new(false)}),
 				)
 				delta.InFrom(inputOne)
 				ctx, cancel := signal.Isolated()

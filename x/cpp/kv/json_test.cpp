@@ -41,7 +41,7 @@ TEST_F(JSONTest, CreateNewFile) {
     config.file_mode = std::filesystem::perms::owner_read |
                        std::filesystem::perms::owner_write;
 
-    auto kv = ASSERT_NIL_P(kv::JSONFile::open(config));
+    auto kv = ASSERT_NIL_P(kv::JSONFile::open_file(config));
     ASSERT_TRUE(std::filesystem::exists(temp_path));
 }
 
@@ -55,7 +55,7 @@ TEST_F(JSONTest, SetGetDelete) {
     config.file_mode = std::filesystem::perms::owner_read |
                        std::filesystem::perms::owner_write;
 
-    auto kv = ASSERT_NIL_P(kv::JSONFile::open(config));
+    auto kv = ASSERT_NIL_P(kv::JSONFile::open_file(config));
 
     ASSERT_NIL(kv->set("key1", "value1"));
 
@@ -85,13 +85,13 @@ TEST_F(JSONTest, Persistence) {
                        std::filesystem::perms::owner_write;
     // Write some data
     {
-        auto kv = ASSERT_NIL_P(kv::JSONFile::open(config));
+        auto kv = ASSERT_NIL_P(kv::JSONFile::open_file(config));
         ASSERT_NIL(kv->set("persistent", "data"));
     }
 
     // Read it back in a new instance
     {
-        auto kv = ASSERT_NIL_P(kv::JSONFile::open(config));
+        auto kv = ASSERT_NIL_P(kv::JSONFile::open_file(config));
         std::string value;
         ASSERT_NIL(kv->get("persistent", value));
         ASSERT_EQ(value, "data");

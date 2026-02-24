@@ -13,10 +13,11 @@ import (
 	"context"
 	"strings"
 
-	"github.com/synnaxlabs/arc/diagnostics"
 	"github.com/synnaxlabs/arc/ir"
 	"github.com/synnaxlabs/arc/symbol"
 	"github.com/synnaxlabs/x/debounce"
+	"github.com/synnaxlabs/x/diagnostics"
+	lsp "github.com/synnaxlabs/x/lsp"
 	"go.lsp.dev/protocol"
 )
 
@@ -98,40 +99,11 @@ func (d *Document) toDocLocations(locs []protocol.Location) []protocol.Location 
 }
 
 func (d *Document) getWordAtPosition(pos protocol.Position) string {
-	content := d.displayContent()
-	line, ok := getLine(content, pos.Line)
-	if !ok || int(pos.Character) >= len(line) {
-		return ""
-	}
-	start := int(pos.Character)
-	end := int(pos.Character)
-	for start > 0 && isWordChar(line[start-1]) {
-		start--
-	}
-	for end < len(line) && isWordChar(line[end]) {
-		end++
-	}
-	return line[start:end]
+	return lsp.GetWordAtPosition(d.displayContent(), pos)
 }
 
 func (d *Document) getWordRangeAtPosition(pos protocol.Position) *protocol.Range {
-	word := d.getWordAtPosition(pos)
-	if word == "" {
-		return nil
-	}
-	content := d.displayContent()
-	line, ok := getLine(content, pos.Line)
-	if !ok || int(pos.Character) >= len(line) {
-		return nil
-	}
-	start := int(pos.Character)
-	for start > 0 && isWordChar(line[start-1]) {
-		start--
-	}
-	return &protocol.Range{
-		Start: protocol.Position{Line: pos.Line, Character: uint32(start)},
-		End:   protocol.Position{Line: pos.Line, Character: uint32(start + len(word))},
-	}
+	return lsp.GetWordRangeAtPosition(d.displayContent(), pos)
 }
 
 func (d *Document) findScopeAtPosition(pos protocol.Position) *symbol.Scope {
@@ -158,48 +130,4 @@ func (d *Document) resolveSymbolAtPosition(ctx context.Context, pos protocol.Pos
 		return nil, nil
 	}
 	return scope.Resolve(ctx, word)
-}
-
-// PositionToOffset converts an LSP line/character position to a byte offset
-// within the given content string.
-func PositionToOffset(content string, pos protocol.Position) int {
-	line := int(pos.Line)
-	char := int(pos.Character)
-	offset := 0
-	for i := 0; i < line; i++ {
-		idx := strings.IndexByte(content[offset:], '\n')
-		if idx < 0 {
-			return len(content)
-		}
-		offset += idx + 1
-	}
-	offset += char
-	if offset > len(content) {
-		return len(content)
-	}
-	return offset
-}
-
-// IsFullReplacement detects whether a content change event represents a
-// full-document replacement (no range specified).
-func IsFullReplacement(
-	change protocol.TextDocumentContentChangeEvent,
-) bool {
-	return change.Range == (protocol.Range{}) && change.RangeLength == 0
-}
-
-// ApplyIncrementalChange splices a single incremental change into the
-// document content and returns the updated string.
-func ApplyIncrementalChange(
-	content string,
-	change protocol.TextDocumentContentChangeEvent,
-) string {
-	start := PositionToOffset(content, change.Range.Start)
-	end := PositionToOffset(content, change.Range.End)
-	var b strings.Builder
-	b.Grow(start + len(change.Text) + len(content) - end)
-	b.WriteString(content[:start])
-	b.WriteString(change.Text)
-	b.WriteString(content[end:])
-	return b.String()
 }

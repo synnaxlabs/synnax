@@ -8,7 +8,14 @@
 #  included in the file licenses/APL.txt.
 
 
-from synnax.access.role.client import RoleClient
+from synnax.access.role.client import Client
 from synnax.access.role.payload import ONTOLOGY_TYPE, Role, ontology_id
+from synnax.util.deprecation import deprecated_getattr
 
-__all__ = ["Role", "RoleClient", "ONTOLOGY_TYPE", "ontology_id"]
+_DEPRECATED = {
+    "RoleClient": "Client",
+}
+
+__getattr__ = deprecated_getattr(__name__, _DEPRECATED, globals())
+
+__all__ = ["Role", "Client", "ONTOLOGY_TYPE", "ontology_id"]

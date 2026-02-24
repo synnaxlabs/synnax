@@ -443,7 +443,7 @@ var _ = Describe("Ontology Integration", func() {
 	Describe("OpenNexter", func() {
 		It("Should iterate over all roles", func() {
 			w := svc.NewWriter(tx, true)
-			for i := 0; i < 3; i++ {
+			for range 3 {
 				r := &role.Role{
 					Name:        "nexter-test",
 					Description: "Nexter test role",

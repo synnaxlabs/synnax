@@ -46,7 +46,7 @@ public:
     /// @brief opens the key-value store using the provided configuration. If the
     /// file does not exist, it will be created.
     static std::pair<std::shared_ptr<KV>, errors::Error>
-    open(const JSONFileConfig &config);
+    open_file(const JSONFileConfig &config);
 
     /// @brief implements KV.
     errors::Error set(const std::string &key, const std::string &value) override;

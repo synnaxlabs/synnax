@@ -12,23 +12,35 @@ from __future__ import annotations
 
 from uuid import UUID
 
-from freighter import Payload
+from pydantic import BaseModel
 
-from synnax.ontology.payload import ID
+from synnax import ontology
 
-CREATE_ACTION = "create"
-DELETE_ACTION = "delete"
-RETRIEVE_ACTION = "retrieve"
-UPDATE_ACTION = "update"
+ACTION_CREATE = "create"
+ACTION_DELETE = "delete"
+ACTION_RETRIEVE = "retrieve"
+ACTION_UPDATE = "update"
 
 
-class Policy(Payload):
+class Policy(BaseModel):
     key: UUID | None = None
     name: str
-    objects: list[ID] = []
+    objects: list[ontology.ID] = []
     actions: list[str] = []
     internal: bool = False
 
 
-def ontology_id(key: UUID | None = None) -> ID:
-    return ID(type="policy", key=key if key is None else str(key))
+def ontology_id(key: UUID | None = None) -> ontology.ID:
+    return ontology.ID(type="policy", key=key if key is None else str(key))
+
+
+from synnax.util.deprecation import deprecated_getattr
+
+_DEPRECATED = {
+    "CREATE_ACTION": "ACTION_CREATE",
+    "DELETE_ACTION": "ACTION_DELETE",
+    "RETRIEVE_ACTION": "ACTION_RETRIEVE",
+    "UPDATE_ACTION": "ACTION_UPDATE",
+}
+
+__getattr__ = deprecated_getattr(__name__, _DEPRECATED, globals())

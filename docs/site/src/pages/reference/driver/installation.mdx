@@ -313,7 +313,7 @@ file with the following format:
     "worker_count": 4
   },
   // List of device integrations to enable (overrides defaults).
-  "enable_integrations": ["labjack", "ni", "opc", "modbus", "sequence"],
+  "enable_integrations": ["arc", "ethercat", "labjack", "modbus", "ni", "opc"],
   // List of device integrations to disable.
   "disable_integrations": []
 }
@@ -475,13 +475,13 @@ synnax-driver start --standalone
       option: "--enable-integrations",
       default: "[]",
       description:
-        "Comma-separated list of device integrations to enable. Options: labjack, modbus, ni, opc, sequence.",
+        "Comma-separated list of device integrations to enable. Options: arc, ethercat, labjack, modbus, ni, opc.",
     },
     {
       option: "--disable-integrations",
       default: "[]",
       description:
-        "Comma-separated list of device integrations to disable. Options: labjack, modbus, ni, opc, sequence.",
+        "Comma-separated list of device integrations to disable. Options: arc, ethercat, labjack, modbus, ni, opc.",
     },
   ]}
 />

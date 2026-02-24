@@ -87,7 +87,7 @@ func (f Frame[K]) String() string {
 	var b strings.Builder
 	b.WriteString("Frame{\n")
 	for key, series := range f.Entries() {
-		b.WriteString(fmt.Sprintf(" %v: %v, \n", key, series))
+		_, _ = fmt.Fprintf(&b, " %v: %v, \n", key, series)
 	}
 	b.WriteString("}")
 	return b.String()

@@ -400,6 +400,13 @@ func (r *routine) goRun(f func(context.Context) error) {
 						break
 					}
 				}
+				// When a breaker-managed routine exits its retry loop and the context
+				// is cancelled, always report the context error. This ensures
+				// deterministic behavior regardless of whether the cancellation
+				// landed during the breaker wait or during a re-execution of f.
+				if r.useBreaker && r.ctx.Err() != nil {
+					err = r.ctx.Err()
+				}
 				err = r.runPostlude(err)
 				return
 			})

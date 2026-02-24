@@ -12,7 +12,7 @@ from __future__ import annotations
 import uuid
 from datetime import UTC, datetime, timedelta, tzinfo
 from math import trunc
-from typing import Any, ClassVar, Literal, TypeAlias, cast, get_args
+from typing import Any, ClassVar, Literal, TypeAlias
 
 import numpy as np
 import pandas as pd
@@ -66,12 +66,12 @@ class TimeStamp(int):
     @classmethod
     def __get_pydantic_core_schema__(
         cls, source_type: Any, handler: GetCoreSchemaHandler
-    ):
+    ) -> core_schema.CoreSchema:
         """Implemented for pydantic validation. Should not be used externally."""
         return core_schema.no_info_after_validator_function(cls, handler(int))
 
     @classmethod
-    def validate(cls, value, *args, **kwargs):
+    def validate(cls, value: Any, *args: Any, **kwargs: Any) -> TimeStamp:
         """Implemented for pydantic validation. Should not be used externally."""
         return cls(value)
 
@@ -171,9 +171,11 @@ class TimeStamp(int):
         return self.after(rhs)
 
     def __eq__(self, rhs: object) -> bool:
-        if not isinstance(rhs, get_args(CrudeTimeStamp)):
+        if not isinstance(
+            rhs, (int, TimeSpan, datetime, timedelta, np.datetime64, np.int64)
+        ):
             return False
-        return super().__eq__(TimeStamp(cast(CrudeTimeStamp, rhs)))
+        return super().__eq__(TimeStamp(rhs))
 
     def __str__(self) -> str:
         return self.datetime().isoformat()
@@ -199,7 +201,7 @@ class TimeSpan(int):
     * np.timedelta64 - The duration of the timedelta64.
     """
 
-    def __new__(cls, value: CrudeTimeSpan):
+    def __new__(cls, value: CrudeTimeSpan) -> TimeSpan:
         if isinstance(value, str):
             value = int(value)
         if isinstance(value, timedelta):
@@ -213,12 +215,12 @@ class TimeSpan(int):
     @classmethod
     def __get_pydantic_core_schema__(
         cls, source_type: Any, handler: GetCoreSchemaHandler
-    ):
+    ) -> core_schema.CoreSchema:
         """Implemented for pydantic validation. Should not be used externally."""
         return core_schema.no_info_after_validator_function(cls, handler(int))
 
     @classmethod
-    def validate(cls, value, *args, **kwargs):
+    def validate(cls, value: Any, *args: Any, **kwargs: Any) -> TimeSpan:
         """Implemented for pydantic validation. Should not be used externally."""
         return cls(value)
 
@@ -412,25 +414,27 @@ class TimeSpan(int):
     def __mod__(self, rhs: CrudeTimeSpan) -> TimeSpan:
         return TimeSpan(super().__mod__(TimeSpan(rhs)))
 
-    def __rmul__(self, rhs: CrudeTimeSpan) -> TimeSpan:
+    # override widens int's parameter type to accept CrudeTimeSpan
+    def __rmul__(self, rhs: CrudeTimeSpan) -> TimeSpan:  # type: ignore[misc]
         return self.__mul__(rhs)
 
-    def __gt__(self, rhs: CrudeTimeSpan) -> bool:
+    # overrides below widen int's parameter type to accept CrudeTimeSpan
+    def __gt__(self, rhs: CrudeTimeSpan) -> bool:  # type: ignore[misc]
         return super().__gt__(TimeSpan(rhs))
 
-    def __ge__(self, rhs: CrudeTimeSpan) -> bool:
+    def __ge__(self, rhs: CrudeTimeSpan) -> bool:  # type: ignore[misc]
         return super().__ge__(TimeSpan(rhs))
 
-    def __lt__(self, rhs: CrudeTimeSpan) -> bool:
+    def __lt__(self, rhs: CrudeTimeSpan) -> bool:  # type: ignore[misc]
         return super().__lt__(TimeSpan(rhs))
 
-    def __le__(self, rhs: CrudeTimeSpan) -> bool:
+    def __le__(self, rhs: CrudeTimeSpan) -> bool:  # type: ignore[misc]
         return super().__le__(TimeSpan(rhs))
 
     def __eq__(self, rhs: object) -> bool:
-        if not isinstance(rhs, get_args(CrudeTimeSpan)):
+        if not isinstance(rhs, (int, float, timedelta, np.timedelta64)):
             return NotImplemented
-        return super().__eq__(int(TimeSpan(cast(CrudeTimeSpan, rhs))))
+        return super().__eq__(int(TimeSpan(rhs)))
 
     NANOSECOND: TimeSpan
     """A nanosecond."""
@@ -502,7 +506,9 @@ TimeStamp.MAX = TimeStamp(2**63 - 1)
 TimeSpanUnits = Literal["ns", "us", "ms", "s", "m", "h", "d", "iso"]
 
 
-def convert_time_units(data: np.ndarray, _from: TimeSpanUnits, to: TimeSpanUnits):
+def convert_time_units(
+    data: np.ndarray, _from: TimeSpanUnits, to: TimeSpanUnits
+) -> np.ndarray:
     """Converts the data from one time unit to another.
 
     :param data: the numpy array to convert.
@@ -532,7 +538,7 @@ def convert_time_units(data: np.ndarray, _from: TimeSpanUnits, to: TimeSpanUnits
 class Rate(float):
     """Rate represents a data rate measured in Hz."""
 
-    def __new__(cls, value: CrudeRate):
+    def __new__(cls, value: CrudeRate) -> Rate:
         if isinstance(value, float):
             return super().__new__(cls, value)
         if isinstance(value, TimeSpan):
@@ -546,12 +552,12 @@ class Rate(float):
     @classmethod
     def __get_pydantic_core_schema__(
         cls, source_type: Any, handler: GetCoreSchemaHandler
-    ):
+    ) -> core_schema.CoreSchema:
         """Implemented for pydantic validation. Should not be used externally."""
         return core_schema.no_info_after_validator_function(cls, handler(float))
 
     @classmethod
-    def validate(cls, v, *args, **kwargs):
+    def validate(cls, v: Any, *args: Any, **kwargs: Any) -> Rate:
         """Implemented for pydantic validation. Should not be used externally."""
         return cls(v)
 
@@ -586,18 +592,18 @@ class Rate(float):
             raise ContiguityError(f"Size {size} is not a multiple of density {density}")
         return self.span(int(size / density))
 
-    def __str__(self):
+    def __str__(self) -> str:
         if self < 1:
             return f"{self.period} per cycle"
         return f"{round(self, 2)} Hz"
 
-    def __repr__(self):
+    def __repr__(self) -> str:
         return f"Rate({super().__repr__()} Hz)"
 
     def __mul__(self, rhs: CrudeRate) -> Rate:
         return Rate(super().__mul__(Rate(rhs)))
 
-    def __rmul__(self, other) -> Rate:
+    def __rmul__(self, other: CrudeRate) -> Rate:
         return self.__mul__(other)
 
     HZ: Rate
@@ -639,23 +645,14 @@ class TimeRange(BaseModel):
         self,
         start: CrudeTimeStamp | TimeRange,
         end: CrudeTimeStamp | None = None,
-        *args,
-        **kwargs,
+        *args: Any,
+        **kwargs: Any,
     ):
         if isinstance(start, TimeRange):
-            start_ = cast(TimeRange, start)
-            start, end = start_.start, start_.end
+            end = start.end
+            start = start.start
         end = start if end is None else end
         super().__init__(start=TimeStamp(start), end=TimeStamp(end))
-
-    @classmethod
-    def validate(cls, v, *args, **kwargs):
-        """Implemented for pydantic validation. Should not be used externally."""
-        if isinstance(v, TimeRange):
-            return cls(v.start, v.end)
-        elif isinstance(v, dict):
-            return cls(**v)
-        return cls(start=v[0], end=v[1])
 
     @property
     def span(self) -> TimeSpan:
@@ -717,7 +714,7 @@ class TimeRange(BaseModel):
         self.copy()
         return TimeRange(start=self.end, end=self.start)
 
-    def copy(self, *args, **kwargs) -> TimeRange:
+    def copy(self, *args: Any, **kwargs: Any) -> TimeRange:
         """:returns: A copy of the time range."""
         return TimeRange(start=self.start, end=self.end)
 
@@ -759,7 +756,7 @@ TimeRange.ZERO = TimeRange(0, 0)
 class Density(int):
     """Density is the number of bytes contained in a single sample."""
 
-    def __new__(cls, value: CrudeDensity):
+    def __new__(cls, value: CrudeDensity) -> Density:
         if isinstance(value, Density):
             return value
         if isinstance(value, int):
@@ -769,12 +766,12 @@ class Density(int):
     @classmethod
     def __get_pydantic_core_schema__(
         cls, source_type: Any, handler: GetCoreSchemaHandler
-    ):
+    ) -> core_schema.CoreSchema:
         """Implemented for pydantic validation. Should not be used externally."""
         return core_schema.no_info_after_validator_function(cls, handler(int))
 
     @classmethod
-    def validate(cls, v, *args, **kwargs):
+    def validate(cls, v: Any, *args: Any, **kwargs: Any) -> Density:
         """Implemented for pydantic validation. Should not be used externally."""
         return cls(v)
 
@@ -786,7 +783,7 @@ class Density(int):
         """:returns: The number of bytes occupied by the given number of samples."""
         return Size(sample_count * self)
 
-    def __repr__(self):
+    def __repr__(self) -> str:
         return f"Density({super().__repr__()})"
 
     UNKNOWN: Density
@@ -899,13 +896,13 @@ class Size(int):
         return Size(int(self) + Size(rhs))
 
     BYTE: Size
-    BYTE_UNITS: SizeUnits
+    BYTE_UNITS: str
     KB: Size
-    KB_UNITS: SizeUnits
+    KB_UNITS: str
     MB: Size
-    MB_UNITS: SizeUnits
+    MB_UNITS: str
     GB: Size
-    GB_UNITS: SizeUnits
+    GB_UNITS: str
 
 
 Size.BYTE = Size(1)
@@ -923,7 +920,7 @@ SizeUnits = ["gb", "mb", "kb", "b"]
 class DataType(str):
     """DataType represents a data type as a string."""
 
-    def __new__(cls, value: CrudeDataType):
+    def __new__(cls, value: CrudeDataType) -> DataType:
         if isinstance(value, DataType):
             return value
 
@@ -931,9 +928,9 @@ class DataType(str):
             return super().__new__(cls, value)
 
         if isinstance(value, np.number):
-            value = DataType._FROM_NUMPY.get(np.dtype(value), None)
-            if value is not None:
-                return value
+            result = DataType._FROM_NUMPY.get(np.dtype(value), None)
+            if result is not None:
+                return result
 
         if isinstance(value, float):
             return DataType.FLOAT64
@@ -971,31 +968,33 @@ class DataType(str):
         if isinstance(value, dict):
             return DataType.JSON
 
-        value = DataType._FROM_NUMPY.get(np.dtype(value), None)
-        if value is not None:
-            return value
+        result = DataType._FROM_NUMPY.get(np.dtype(value), None)
+        if result is not None:
+            return result
 
         raise TypeError(f"Cannot convert {type(value)} to DataType")
 
     @classmethod
     def __get_pydantic_core_schema__(
         cls, source_type: Any, handler: GetCoreSchemaHandler
-    ):
+    ) -> core_schema.CoreSchema:
         """Implemented for pydantic validation. Should not be used externally."""
         return core_schema.no_info_after_validator_function(cls, handler(str))
 
     @classmethod
-    def validate(cls, v, *args, **kwargs):
+    def validate(cls, v: Any, *args: Any, **kwargs: Any) -> DataType:
         """Implemented for pydantic validation. Should not be used externally."""
         return cls(v)
 
     @classmethod
-    def __modify_schema__(cls, field_schema):
+    def __modify_schema__(cls, field_schema: dict[str, Any]) -> None:
         """Implemented for pydantic validation. Should not be used externally."""
         field_schema.update(type="string")
 
     @classmethod
-    def __get_pydantic_json_schema__(cls, _schema_generator, _field_schema):
+    def __get_pydantic_json_schema__(
+        cls, _schema_generator: Any, _field_schema: Any
+    ) -> dict[str, str]:
         """Implemented for pydantic validation. Should not be used externally."""
         return {"type": "string"}
 
@@ -1005,9 +1004,9 @@ class DataType(str):
         :return: The numpy type
         """
         npt = DataType._TO_NUMPY.get(self, None)
-        if npt is None:
+        if not isinstance(npt, np.dtype):
             raise TypeError(f"Cannot convert {self} to numpy type")
-        return cast(np.dtype, npt)
+        return npt
 
     @property
     def is_variable(self) -> bool:
@@ -1025,7 +1024,7 @@ class DataType(str):
         """
         return DataType._DENSITIES.get(self, Density.UNKNOWN)
 
-    def __repr__(self):
+    def __repr__(self) -> str:
         return f"DataType({super().__repr__()})"
 
     UNKNOWN: DataType
@@ -1088,7 +1087,9 @@ CrudeTimeSpan: TypeAlias = (
 )
 CrudeRate: TypeAlias = int | float | TimeSpan | Rate
 CrudeDensity: TypeAlias = Density | int
-CrudeDataType: TypeAlias = DTypeLike | DataType | str | list | np.number
+CrudeDataType: TypeAlias = (
+    DTypeLike | DataType | str | list[str] | np.number | int | float
+)
 CrudeSize: TypeAlias = int | float | Size
 
 DataType._TO_NUMPY = {
@@ -1208,7 +1209,7 @@ class Alignment(int):
     @classmethod
     def __get_pydantic_core_schema__(
         cls, source_type: Any, handler: GetCoreSchemaHandler
-    ):
+    ) -> core_schema.CoreSchema:
         """Implemented for pydantic validation. Should not be used externally."""
         return core_schema.no_info_after_validator_function(cls._validate, handler(int))
 

@@ -51,13 +51,13 @@ func (k *Key) DecodeMsgpack(dec *msgpack.Decoder) error {
 }
 
 type Task struct {
-	Status   *Status `json:"status" msgpack:"status"`
-	Name     string  `json:"name" msgpack:"name"`
-	Type     string  `json:"type" msgpack:"type"`
-	Config   string  `json:"config" msgpack:"config"`
-	Key      Key     `json:"key" msgpack:"key"`
-	Internal bool    `json:"internal" msgpack:"internal"`
-	Snapshot bool    `json:"snapshot" msgpack:"snapshot"`
+	Status   *Status                   `json:"status" msgpack:"status"`
+	Name     string                    `json:"name" msgpack:"name"`
+	Type     string                    `json:"type" msgpack:"type"`
+	Config   binary.MsgpackEncodedJSON `json:"config" msgpack:"config"`
+	Key      Key                       `json:"key" msgpack:"key"`
+	Internal bool                      `json:"internal" msgpack:"internal"`
+	Snapshot bool                      `json:"snapshot" msgpack:"snapshot"`
 }
 
 var _ gorp.Entry[Key] = Task{}

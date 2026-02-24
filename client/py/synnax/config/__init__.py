@@ -13,12 +13,14 @@ from pathlib import Path
 from synnax.config.clusters import ClusterConfig, ClustersConfig
 from synnax.config.file import ConfigFile
 from synnax.exceptions import ValidationError
-from synnax.options import SynnaxOptions
+from synnax.options import Options
+
+__all__ = ["ClusterConfig", "ClustersConfig", "ConfigFile"]
 
 CONFIG_FILE_PATH = Path(os.path.expanduser("~/.synnax"))
 
 
-def load_options() -> SynnaxOptions | None:
+def load_options() -> Options | None:
     """Loads the connection parameters from a configuration file.
     :return: The options to connect to a Synnax server.
     """
@@ -37,13 +39,13 @@ def try_load_options_if_none_provided(
     username: str = "",
     password: str = "",
     secure: bool = False,
-) -> SynnaxOptions:
+) -> Options:
     if len(host) == 0:
         opts = load_options()
         if opts is None:
             raise ValidationError(NO_OPTIONS_MSG)
         return opts
-    return SynnaxOptions(
+    return Options(
         host=host,
         port=port,
         username=username,

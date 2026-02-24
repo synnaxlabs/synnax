@@ -19,7 +19,6 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/security/cert"
 	"github.com/synnaxlabs/synnax/pkg/security/mock"
 	"github.com/synnaxlabs/synnax/pkg/server"
-	"github.com/synnaxlabs/x/config"
 	xfs "github.com/synnaxlabs/x/io/fs"
 	. "github.com/synnaxlabs/x/testutil"
 )
@@ -31,13 +30,13 @@ var _ = Describe("HttpRedirect", func() {
 		prov := MustSucceed(security.NewProvider(security.ProviderConfig{
 			LoaderConfig: cert.LoaderConfig{FS: fs},
 			KeySize:      mock.SmallKeySize,
-			Insecure:     config.False(),
+			Insecure:     new(false),
 		}))
 		received := false
 		b := MustSucceed(server.Serve(server.Config{
 			ListenAddress: "localhost:26260",
 			Security: server.SecurityConfig{
-				Insecure: config.False(),
+				Insecure: new(false),
 				TLS:      prov.TLS(),
 			},
 			Branches: []server.Branch{

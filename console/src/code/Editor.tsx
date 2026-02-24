@@ -15,7 +15,6 @@ import {
   type Input,
   Menu as PMenu,
   Theming,
-  TimeSpan,
   type Triggers,
 } from "@synnaxlabs/pluto";
 import { type RefObject, useCallback, useEffect, useRef } from "react";
@@ -111,24 +110,6 @@ const useTheme = (language: string) => {
   return prefersDark ? "vs-dark" : "vs";
 };
 
-const TRIGGER_SMALL_DELAY = TimeSpan.milliseconds(100).milliseconds;
-
-/** @brief triggers a small model change to the editor so that it activates any language server features. */
-const triggerSmallModelChangeToActiveLanguageServerFeatures = (
-  editor: Monaco.editor.IStandaloneCodeEditor,
-  value: string,
-) => {
-  setTimeout(() => {
-    const model = editor.getModel();
-    if (model != null)
-      model.pushEditOperations(
-        [],
-        [{ range: model.getFullModelRange(), text: value }],
-        () => null,
-      );
-  }, TRIGGER_SMALL_DELAY);
-};
-
 interface UseReturn {
   containerRef: RefObject<HTMLDivElement | null>;
   editorRef: RefObject<Monaco.editor.IStandaloneCodeEditor | null>;
@@ -180,7 +161,6 @@ const use = ({
       scrollBeyondLastLine,
     });
 
-    triggerSmallModelChangeToActiveLanguageServerFeatures(editorRef.current, value);
     disableMonacoCommandPalette(monaco);
 
     const contentDispose = editorRef.current.onDidChangeModelContent(() => {

@@ -34,7 +34,7 @@ const base = Flux.createUpdate<CreateParams, Group.FluxSubStore>({
       group: { name, key },
     } = data;
     const resourcesToGroup = getResourcesToGroup(ids, shape);
-    await client.ontology.groups.create({ parent: parentID, name, key });
+    await client.groups.create({ parent: parentID, name, key });
     await client.ontology.moveChildren(
       parentID,
       group.ontologyID(key),

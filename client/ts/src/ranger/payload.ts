@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { math, TimeRange } from "@synnaxlabs/x";
+import { color, math, TimeRange } from "@synnaxlabs/x";
 import { z } from "zod";
 
 import { label } from "@/label";
@@ -35,7 +35,7 @@ export const payloadZ = z.object({
       error:
         "Time range start time must be greater than or equal to the minimum value of an int64",
     }),
-  color: z.string().optional(),
+  color: color.colorZ.optional(),
   labels: label.labelZ
     .array()
     .or(z.null().transform(() => undefined))

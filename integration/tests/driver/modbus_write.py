@@ -9,7 +9,6 @@
 
 import synnax as sy
 from synnax import modbus
-from synnax.modbus.types import OutputChan
 
 from tests.driver.modbus_task import ModbusWriteTaskCase
 from tests.driver.task import create_channel, create_index
@@ -19,7 +18,7 @@ class ModbusWriteCoil(ModbusWriteTaskCase):
     task_name = "Modbus Write Coil"
 
     @staticmethod
-    def create_channels(client: sy.Synnax) -> list[OutputChan]:
+    def create_channels(client: sy.Synnax) -> list[sy.modbus.OutputChan]:
         idx = create_index(client, "modbus_coil_cmd_time")
         return [
             modbus.CoilOutputChan(
@@ -39,7 +38,7 @@ class ModbusWriteHoldingRegister(ModbusWriteTaskCase):
     task_name = "Modbus Write Holding Register"
 
     @staticmethod
-    def create_channels(client: sy.Synnax) -> list[OutputChan]:
+    def create_channels(client: sy.Synnax) -> list[sy.modbus.OutputChan]:
         idx = create_index(client, "modbus_hr_cmd_time")
         return [
             modbus.HoldingRegisterOutputChan(
@@ -60,7 +59,7 @@ class ModbusWriteMixed(ModbusWriteTaskCase):
     task_name = "Modbus Write Mixed"
 
     @staticmethod
-    def create_channels(client: sy.Synnax) -> list[OutputChan]:
+    def create_channels(client: sy.Synnax) -> list[sy.modbus.OutputChan]:
         idx = create_index(client, "modbus_mixed_cmd_time")
         return [
             modbus.CoilOutputChan(

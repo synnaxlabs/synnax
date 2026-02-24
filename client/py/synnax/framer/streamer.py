@@ -7,19 +7,22 @@
 #  License, use of this software will be governed by the Apache License, Version 2.0,
 #  included in the file licenses/APL.txt.
 
-from typing import overload
+from __future__ import annotations
+
+from typing import cast, overload
 
 from freighter import (
     EOF,
     AsyncStream,
     AsyncStreamClient,
-    Payload,
     Stream,
     WebsocketClient,
 )
+from freighter.transport import P
 from freighter.websocket import Message
+from pydantic import BaseModel
 
-from synnax.channel.payload import ChannelKeys, ChannelParams
+import synnax.channel.payload as channel
 from synnax.exceptions import UnexpectedError
 from synnax.framer.adapter import ReadFrameAdapter
 from synnax.framer.codec import LOW_PERF_SPECIAL_CHAR, WSFramerCodec
@@ -27,26 +30,25 @@ from synnax.framer.frame import Frame, FramePayload
 from synnax.telem import TimeSpan
 
 
-class _Request(Payload):
-    keys: ChannelKeys
+class _Request(BaseModel):
+    keys: list[channel.Key]
     downsample_factor: int
     throttle_rate_hz: float | None = None
 
 
-class _Response(Payload):
+class _Response(BaseModel):
     frame: FramePayload
 
 
 class WSStreamerCodec(WSFramerCodec):
-    def encode(self, pld: Message) -> bytes:
-        return self.lower_perf_codec.encode(pld)
+    def encode(self, data: BaseModel) -> bytes:
+        return self.lower_perf_codec.encode(data)
 
-    def decode(self, data: bytes, pld_t: Message[_Response]) -> object:
+    def decode(self, data: bytes, pld_t: type[P]) -> P:
         if data[0] == LOW_PERF_SPECIAL_CHAR:
-            msg = self.lower_perf_codec.decode(data[1:], pld_t)
-            return msg
+            return self.lower_perf_codec.decode(data[1:], pld_t)
         frame = self.codec.decode(data, 1)
-        return Message(type="data", payload=_Response(frame=frame))
+        return cast(P, Message(type="data", payload=_Response(frame=frame)))
 
 
 _ENDPOINT = "/frame/stream"
@@ -137,14 +139,16 @@ class Streamer:
         timeout.
         """
         try:
-            res, exc = self._stream.receive(TimeSpan.to_seconds(timeout))
-            if exc is not None:
-                raise exc
-            return self._adapter.adapt(Frame(res.frame))
+            # mypy does not understand destructured union tuples, so we keep [pld, exc] as
+            # a single tuple.
+            res = self._stream.receive(TimeSpan.to_seconds(timeout))
+            if res[1] is not None:
+                raise res[1]
+            return self._adapter.adapt(Frame(res[0].frame))
         except TimeoutError:
             return None
 
-    def update_channels(self, channels: ChannelParams):
+    def update_channels(self, channels: channel.Params) -> None:
         """Updates the list of channels to stream. This method will replace the current
         list of channels with the new list, not add to it.
 
@@ -160,7 +164,7 @@ class Streamer:
             )
         )
 
-    def close(self, timeout: float | int | TimeSpan | None = None):
+    def close(self, timeout: float | int | TimeSpan | None = None) -> None:
         """Closes the streamer and frees all network resources.
 
         :param timeout: The maximum amount of time to wait for the server to acknowledge
@@ -186,22 +190,22 @@ class Streamer:
                 raise exc
             break
 
-    def __iter__(self):
+    def __iter__(self) -> Streamer:
         """Returns an iterator object that can be used to iterate over the frames of
         telemetry as they are received. This is useful when you want to process each
         frame as it is received.
         """
         return self
 
-    def __enter__(self):
+    def __enter__(self) -> Streamer:
         """Returns the streamer object when used as a context manager."""
         return self
 
-    def __next__(self):
+    def __next__(self) -> Frame:
         """Reads the next frame of telemetry from the streamer."""
         return self.read()
 
-    def __exit__(self, exc_type, exc_val, exc_tb):
+    def __exit__(self, exc_type: object, exc_val: object, exc_tb: object) -> None:
         self.close()
 
 
@@ -237,7 +241,7 @@ class AsyncStreamer:
         self._downsample_factor = downsample_factor
         self._throttle_rate = throttle_rate
 
-    async def _open(self):
+    async def _open(self) -> None:
         self._stream = await self._client.stream(_ENDPOINT, _Request, _Response)
         await self._stream.send(
             _Request(
@@ -250,21 +254,18 @@ class AsyncStreamer:
         if exc is not None:
             raise exc
 
-    @property
-    def received(self) -> bool:
-        """Returns True if a frame has been received, False otherwise."""
-        return self._stream.received()
-
     async def read(self) -> Frame:
         """Reads the next frame of telemetry from the streamer. If an error occurs while
         reading the frame, an exception will be raised.
         """
-        res, exc = await self._stream.receive()
-        if exc is not None:
-            raise exc
-        return self._adapter.adapt(Frame(res.frame))
+        # mypy does not understand destructured union tuples, so we keep [pld, exc] as
+        # a single tuple.
+        res = await self._stream.receive()
+        if res[1] is not None:
+            raise res[1]
+        return self._adapter.adapt(Frame(res[0].frame))
 
-    async def close_loop(self):
+    async def close_loop(self) -> None:
         """Closes the sending end of the streamer, requiring the caller to process all
         remaining frames and close acknowledgements by calling read. This method is
         useful for managing the lifecycle of a streamer within a separate event loop or
@@ -272,7 +273,7 @@ class AsyncStreamer:
         """
         await self._stream.close_send()
 
-    async def close(self):
+    async def close(self) -> None:
         """Close the streamer and free all network resources, waiting for the server to
         acknowledge the close request.
         """
@@ -288,24 +289,26 @@ class AsyncStreamer:
         elif not isinstance(exc, EOF):
             raise exc
 
-    async def __aenter__(self):
+    async def __aenter__(self) -> AsyncStreamer:
         """Returns the async streamer object when used as an async context manager."""
         return self
 
-    def __aiter__(self):
+    def __aiter__(self) -> AsyncStreamer:
         """Returns an async iterator object that can be used to iterate over the frames
         of telemetry as they are received. This is useful when you want to process each
         frame as it is received.
         """
         return self
 
-    async def __anext__(self):
+    async def __anext__(self) -> Frame:
         """Reads the next frame of telemetry from the streamer."""
         try:
             return await self.read()
         except EOF:
             raise StopAsyncIteration
 
-    async def __aexit__(self, exc_type, exc_val, exc_tb):
+    async def __aexit__(
+        self, exc_type: object, exc_val: object, exc_tb: object
+    ) -> None:
         """Closes the streamer when used as an async context manager"""
         await self.close()

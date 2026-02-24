@@ -26,14 +26,14 @@ def login(ctx: click.Context) -> None:
     file.
     """
     warning(ctx)
-    ctx = Context(console=RichConsole())
-    options = prompt_client_options(ctx)
-    synnax = connect_from_options(ctx, options)
+    flow_ctx = Context(console=RichConsole())
+    options = prompt_client_options(flow_ctx)
+    synnax = connect_from_options(flow_ctx, options)
     if synnax is None:
         return
     cfg = ClustersConfig(ConfigFile(Path(os.path.expanduser("~/.synnax"))))
     cfg.set(ClusterConfig(options=options))
-    ctx.console.info(SUCCESSFUL_LOGIN)
+    flow_ctx.console.info(SUCCESSFUL_LOGIN)
 
 
 SUCCESSFUL_LOGIN = """Saved credentials. You can now use the Synnax Client

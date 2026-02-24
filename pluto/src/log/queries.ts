@@ -40,7 +40,7 @@ export const retrieveSingle = async ({
 }: Flux.RetrieveParams<RetrieveQuery, FluxSubStore>) => {
   const cached = store.logs.get(key);
   if (cached != null) return cached;
-  const l = await client.workspaces.logs.retrieve({ key });
+  const l = await client.logs.retrieve({ key });
   store.logs.set(l);
   return l;
 };
@@ -65,7 +65,7 @@ export const { useUpdate: useDelete } = Flux.createUpdate<UseDeleteArgs, FluxSub
     const ids = log.ontologyID(keys);
     const relFilter = Ontology.filterRelationshipsThatHaveIDs(ids);
     rollbacks.push(store.relationships.delete(relFilter));
-    await client.workspaces.logs.delete(data);
+    await client.logs.delete(data);
     return data;
   },
 });
@@ -87,7 +87,7 @@ export const { useUpdate: useCreate } = Flux.createUpdate<
   verbs: Flux.CREATE_VERBS,
   update: async ({ client, data, store }) => {
     const { workspace, ...rest } = data;
-    const l = await client.workspaces.logs.create(workspace, rest);
+    const l = await client.logs.create(workspace, rest);
     store.logs.set(l.key, l);
     return { ...l, workspace };
   },
@@ -102,7 +102,7 @@ export const { useUpdate: useRename } = Flux.createUpdate<RenameParams, FluxSubS
     const { key, name } = data;
     rollbacks.push(Flux.partialUpdate(store.logs, key, { name }));
     rollbacks.push(Ontology.renameFluxResource(store, log.ontologyID(key), name));
-    await client.workspaces.logs.rename(key, data.name);
+    await client.logs.rename(key, data.name);
     return data;
   },
 });

@@ -97,7 +97,7 @@ type IR struct {
 	// TypeMap contains inferred types from the analyzer.
 	TypeMap map[antlr.ParserRuleContext]types.Type `json:"-"`
 	// Authorities contains the static authority declarations for this program.
-	Authorities Authorities `json:"authorities,omitempty" msgpack:"authorities,omitempty"`
+	Authorities Authorities `json:"authorities" msgpack:"authorities,omitempty"`
 	// Functions contains all function and stage definitions in the program.
 	Functions Functions `json:"functions"`
 	// Sequences contains all sequence (state machine) definitions in the program.

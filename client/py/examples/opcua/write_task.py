@@ -26,7 +26,6 @@ Before running this example:
 import time
 
 import synnax as sy
-from synnax import opcua
 
 # We've logged in via the command-line interface, so there's no need to provide
 # credentials here. See https://docs.synnaxlabs.com/reference/client/quick-start.
@@ -69,16 +68,16 @@ cmd_channel_2 = client.channels.create(
 # Create and configure the OPC UA write task
 # NOTE: Update these node IDs with the actual values from your server output!
 # The server prints them on startup like: "command_0: ns=2;i=42"
-tsk = opcua.WriteTask(
+tsk = sy.opcua.WriteTask(
     name="OPC UA Write Task Example",
     device=dev.key,
     auto_start=False,  # We'll start it manually for this example
     channels=[
         # Map Synnax command channels to OPC UA node IDs
         # Replace these node_id values with the actual IDs from your server
-        opcua.WriteChannel(cmd_channel=cmd_channel_0.key, node_id="NS=2;I=18"),
-        opcua.WriteChannel(cmd_channel=cmd_channel_1.key, node_id="NS=2;I=19"),
-        opcua.WriteChannel(cmd_channel=cmd_channel_2.key, node_id="NS=2;I=20"),
+        sy.opcua.WriteChannel(cmd_channel=cmd_channel_0.key, node_id="NS=2;I=18"),
+        sy.opcua.WriteChannel(cmd_channel=cmd_channel_1.key, node_id="NS=2;I=19"),
+        sy.opcua.WriteChannel(cmd_channel=cmd_channel_2.key, node_id="NS=2;I=20"),
     ],
 )
 

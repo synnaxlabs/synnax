@@ -10,14 +10,12 @@
 /// std. lib.
 #include <cstdarg>
 #include <cstring>
-#include <iostream>
 
 #include <stdio.h>
 
 /// internal.
 #include "x/cpp/os/os.h"
 
-#include "../errors/errors.h"
 #include "driver/errors/errors.h"
 #include "driver/ni/syscfg/nisyscfg.h"
 #include "driver/ni/syscfg/nisyscfg_errors.h"

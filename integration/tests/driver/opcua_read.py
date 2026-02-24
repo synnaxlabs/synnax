@@ -8,7 +8,6 @@
 #  included in the file licenses/APL.txt.
 
 import synnax as sy
-from synnax import opcua
 
 from tests.driver.opcua_task import OPCUAReadTaskCase
 from tests.driver.task import create_channel, create_index
@@ -18,10 +17,10 @@ class OPCUAReadFloat(OPCUAReadTaskCase):
     task_name = "OPCUA Read Float"
 
     @staticmethod
-    def create_channels(client: sy.Synnax) -> list[opcua.ReadChannel]:
+    def create_channels(client: sy.Synnax) -> list[sy.opcua.ReadChannel]:
         idx = create_index(client, "opcua_float_index")
         return [
-            opcua.ReadChannel(
+            sy.opcua.ReadChannel(
                 channel=create_channel(
                     client,
                     name=f"my_float_{i}",
@@ -39,10 +38,10 @@ class OPCUAReadBool(OPCUAReadTaskCase):
     task_name = "OPCUA Read Bool"
 
     @staticmethod
-    def create_channels(client: sy.Synnax) -> list[opcua.ReadChannel]:
+    def create_channels(client: sy.Synnax) -> list[sy.opcua.ReadChannel]:
         idx = create_index(client, "opcua_bool_index")
         return [
-            opcua.ReadChannel(
+            sy.opcua.ReadChannel(
                 channel=create_channel(
                     client,
                     name=f"my_bool_{i}",
@@ -61,10 +60,10 @@ class OPCUAReadArray(OPCUAReadTaskCase):
     array_mode = True
 
     @staticmethod
-    def create_channels(client: sy.Synnax) -> list[opcua.ReadChannel]:
+    def create_channels(client: sy.Synnax) -> list[sy.opcua.ReadChannel]:
         idx = create_index(client, "opcua_array_index")
         return [
-            opcua.ReadChannel(
+            sy.opcua.ReadChannel(
                 channel=create_channel(
                     client,
                     name=f"my_array_{i}",
@@ -85,17 +84,17 @@ class OPCUAReadTimestamp(OPCUAReadTaskCase):
     array_mode = True
 
     @staticmethod
-    def create_channels(client: sy.Synnax) -> list[opcua.ReadChannel]:
+    def create_channels(client: sy.Synnax) -> list[sy.opcua.ReadChannel]:
         idx = create_index(client, "opcua_timestamp_index")
         return [
-            opcua.ReadChannel(
+            sy.opcua.ReadChannel(
                 channel=idx.key,
                 node_id="NS=2;I=7",
                 data_type="datetime",
                 use_as_index=True,
             ),
         ] + [
-            opcua.ReadChannel(
+            sy.opcua.ReadChannel(
                 channel=create_channel(
                     client,
                     name=f"opcua_ts_float_{i}",
@@ -118,10 +117,10 @@ class OPCUAReadMixed(OPCUAReadTaskCase):
     task_name = "OPCUA Read Mixed"
 
     @staticmethod
-    def create_channels(client: sy.Synnax) -> list[opcua.ReadChannel]:
+    def create_channels(client: sy.Synnax) -> list[sy.opcua.ReadChannel]:
         idx = create_index(client, "opcua_mixed_index")
         return [
-            opcua.ReadChannel(
+            sy.opcua.ReadChannel(
                 channel=create_channel(
                     client,
                     name=f"my_float_{i}",
@@ -133,7 +132,7 @@ class OPCUAReadMixed(OPCUAReadTaskCase):
             )
             for i in range(2)
         ] + [
-            opcua.ReadChannel(
+            sy.opcua.ReadChannel(
                 channel=create_channel(
                     client,
                     name=f"my_bool_{i}",

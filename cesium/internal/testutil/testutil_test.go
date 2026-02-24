@@ -29,7 +29,6 @@ var _ = Describe("Test Util Test", func() {
 			)
 			wg.Add(1000)
 			for i := range 1000 {
-				i := i
 				go func() {
 					defer wg.Done()
 					keys[i] = GenerateChannelKey()

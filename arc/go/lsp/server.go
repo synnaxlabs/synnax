@@ -19,14 +19,15 @@ import (
 	"github.com/synnaxlabs/alamos"
 	acontext "github.com/synnaxlabs/arc/analyzer/context"
 	"github.com/synnaxlabs/arc/analyzer/statement"
-	"github.com/synnaxlabs/arc/diagnostics"
 	"github.com/synnaxlabs/arc/ir"
 	"github.com/synnaxlabs/arc/parser"
 	"github.com/synnaxlabs/arc/symbol"
 	"github.com/synnaxlabs/arc/text"
 	"github.com/synnaxlabs/x/config"
 	"github.com/synnaxlabs/x/debounce"
+	"github.com/synnaxlabs/x/diagnostics"
 	"github.com/synnaxlabs/x/errors"
+	lsp "github.com/synnaxlabs/x/lsp"
 	"github.com/synnaxlabs/x/observe"
 	"github.com/synnaxlabs/x/override"
 	"go.lsp.dev/protocol"
@@ -79,17 +80,13 @@ func (c Config) Override(other Config) Config {
 // Validate implements config.Config.
 func (c Config) Validate() error { return nil }
 
-// Client extends protocol.Client with LSP 3.16+ methods missing from
-// go.lsp.dev/protocol@v0.12.0.
-type Client interface {
-	protocol.Client
-	SemanticTokensRefresh(ctx context.Context) error
-}
+var translateCfg = lsp.TranslateConfig{Source: "arc-analyzer"}
 
 // Server implements the Language Server Protocol for arc
 type Server struct {
+	lsp.NoopServer
 	capabilities             protocol.ServerCapabilities
-	client                   Client
+	client                   lsp.Client
 	documents                map[protocol.DocumentURI]*Document
 	cfg                      Config
 	mu                       sync.RWMutex
@@ -135,7 +132,7 @@ func New(cfgs ...Config) (*Server, error) {
 			RenameProvider:                  true,
 			SemanticTokensProvider: map[string]any{
 				"legend": protocol.SemanticTokensLegend{
-					TokenTypes: convertToSemanticTokenTypes(semanticTokenTypes),
+					TokenTypes: lsp.ConvertToSemanticTokenTypes(semanticTokenTypes),
 				},
 				"full": true,
 			},
@@ -144,7 +141,7 @@ func New(cfgs ...Config) (*Server, error) {
 }
 
 // SetClient sets the LSP client for sending notifications
-func (s *Server) SetClient(client Client) {
+func (s *Server) SetClient(client lsp.Client) {
 	s.client = client
 	if s.cfg.OnExternalChange != nil {
 		s.externalChangeDisconnect = s.cfg.OnExternalChange.OnChange(func(ctx context.Context, _ struct{}) {
@@ -176,15 +173,6 @@ func (s *Server) getDocument(uri protocol.DocumentURI) (*Document, bool) {
 	defer s.mu.RUnlock()
 	doc, ok := s.documents[uri]
 	return doc, ok
-}
-
-// Helper functions to convert string slices to protocol types
-func convertToSemanticTokenTypes(types []string) []protocol.SemanticTokenTypes {
-	result := make([]protocol.SemanticTokenTypes, len(types))
-	for i, t := range types {
-		result[i] = protocol.SemanticTokenTypes(t)
-	}
-	return result
 }
 
 // Initialize handles the initialize request
@@ -264,10 +252,10 @@ func (s *Server) DidChange(_ context.Context, params *protocol.DidChangeTextDocu
 		return nil
 	}
 	for _, change := range params.ContentChanges {
-		if IsFullReplacement(change) {
+		if lsp.IsFullReplacement(change) {
 			doc.Content = change.Text
 		} else {
-			doc.Content = ApplyIncrementalChange(doc.Content, change)
+			doc.Content = lsp.ApplyIncrementalChange(doc.Content, change)
 		}
 	}
 	doc.Version = params.TextDocument.Version
@@ -389,7 +377,7 @@ func (s *Server) analyze(
 		wrappedContent := fmt.Sprintf("{%s}", content)
 		t, err := parser.ParseBlock(wrappedContent)
 		if err != nil {
-			pDiagnostics = translateDiagnostics(*err)
+			pDiagnostics = lsp.TranslateDiagnostics(*err, translateCfg)
 		} else {
 			aCtx := acontext.CreateRoot[parser.IBlockContext](
 				ctx, t, s.cfg.GlobalResolver,
@@ -397,18 +385,18 @@ func (s *Server) analyze(
 			statement.AnalyzeFunctionBody(aCtx)
 			docIR = ir.IR{Symbols: aCtx.Scope}
 			docDiag = *aCtx.Diagnostics
-			pDiagnostics = translateDiagnostics(docDiag)
+			pDiagnostics = lsp.TranslateDiagnostics(docDiag, translateCfg)
 		}
 	} else {
 		t, diag := text.Parse(text.Text{Raw: content})
 		if diag != nil {
-			pDiagnostics = translateDiagnostics(*diag)
+			pDiagnostics = lsp.TranslateDiagnostics(*diag, translateCfg)
 		} else {
 			analyzedIR, analysisDiag := text.Analyze(ctx, t, s.cfg.GlobalResolver)
 			docIR = analyzedIR
 			if analysisDiag != nil {
 				docDiag = *analysisDiag
-				pDiagnostics = translateDiagnostics(docDiag)
+				pDiagnostics = lsp.TranslateDiagnostics(docDiag, translateCfg)
 			}
 		}
 	}
@@ -465,79 +453,4 @@ func (s *Server) republishAllDiagnostics(ctx context.Context) {
 		s.publishDiagnostics(ctx, uri, content)
 	}
 	s.refreshSemanticTokens(ctx, "")
-}
-
-func severity(in diagnostics.Severity) protocol.DiagnosticSeverity {
-	var out protocol.DiagnosticSeverity
-	switch in {
-	case diagnostics.SeverityWarning:
-		out = protocol.DiagnosticSeverityWarning
-	case diagnostics.SeverityInfo:
-		out = protocol.DiagnosticSeverityInformation
-	case diagnostics.SeverityHint:
-		out = protocol.DiagnosticSeverityHint
-	case diagnostics.SeverityError:
-		out = protocol.DiagnosticSeverityError
-	}
-	return out
-}
-
-func translateDiagnostics(analysisDiag diagnostics.Diagnostics) []protocol.Diagnostic {
-	oDiagnostics := make([]protocol.Diagnostic, 0, len(analysisDiag))
-	for _, diag := range analysisDiag {
-		end := diag.End
-		if end.Line == 0 && end.Col == 0 {
-			end.Line = diag.Start.Line
-			end.Col = diag.Start.Col + 1
-		}
-
-		pDiag := protocol.Diagnostic{
-			Range: protocol.Range{
-				Start: protocol.Position{
-					Line:      uint32(diag.Start.Line - 1),
-					Character: uint32(diag.Start.Col),
-				},
-				End: protocol.Position{
-					Line:      uint32(end.Line - 1),
-					Character: uint32(end.Col),
-				},
-			},
-			Severity: severity(diag.Severity),
-			Source:   "arc",
-			Message:  diag.Message,
-		}
-
-		if diag.Code != "" {
-			pDiag.Code = string(diag.Code)
-		}
-
-		if len(diag.Notes) > 0 {
-			related := make([]protocol.DiagnosticRelatedInformation, 0, len(diag.Notes))
-			for _, note := range diag.Notes {
-				loc := protocol.Location{
-					Range: protocol.Range{
-						Start: protocol.Position{
-							Line:      uint32(note.Start.Line - 1),
-							Character: uint32(note.Start.Col),
-						},
-						End: protocol.Position{
-							Line:      uint32(note.Start.Line - 1),
-							Character: uint32(note.Start.Col + 1),
-						},
-					},
-				}
-				if note.Start.Line == 0 {
-					loc.Range = pDiag.Range
-				}
-				related = append(related, protocol.DiagnosticRelatedInformation{
-					Location: loc,
-					Message:  note.Message,
-				})
-			}
-			pDiag.RelatedInformation = related
-		}
-
-		oDiagnostics = append(oDiagnostics, pDiag)
-	}
-	return oDiagnostics
 }

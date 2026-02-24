@@ -37,7 +37,6 @@ on:
       - scripts/EnVar.dll
       - turbo.json
       - vendor/**
-      - vendor/lua-language-server/**
       - x/cpp/**
       - x/go/**
       - x/media/**
@@ -74,7 +73,6 @@ on:
       - pnpm-workspace.yaml
       - turbo.json
       - vendor/**
-      - vendor/lua-language-server/**
       - x/cpp/**
       - x/go/**
       - x/ts/**

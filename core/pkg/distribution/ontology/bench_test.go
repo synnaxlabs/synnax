@@ -19,7 +19,6 @@ import (
 	"testing"
 
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
-	"github.com/synnaxlabs/x/config"
 	"github.com/synnaxlabs/x/gorp"
 	xio "github.com/synnaxlabs/x/io"
 	"github.com/synnaxlabs/x/kv/memkv"
@@ -66,15 +65,9 @@ func newBenchEnv(b *testing.B, enableSearch bool) *benchEnv {
 	ctx := context.Background()
 	db := gorp.Wrap(memkv.New())
 	svc := &benchService{}
-	var searchPtr *bool
-	if enableSearch {
-		searchPtr = config.True()
-	} else {
-		searchPtr = config.False()
-	}
 	otg, err := ontology.Open(ctx, ontology.Config{
 		DB:           db,
-		EnableSearch: searchPtr,
+		EnableSearch: new(enableSearch),
 	})
 	if err != nil {
 		b.Fatalf("failed to open ontology: %v", err)
