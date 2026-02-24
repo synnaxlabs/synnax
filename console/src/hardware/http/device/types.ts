@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type device } from "@synnaxlabs/client";
+import { channel, type device } from "@synnaxlabs/client";
 import { TimeSpan } from "@synnaxlabs/x";
 import { z } from "zod/v4";
 
@@ -56,20 +56,25 @@ const defaultTimeoutMs = TimeSpan.milliseconds(100).milliseconds;
 
 const propertiesZ = z.object({
   secure: z.boolean().default(true),
+  verifySsl: z.boolean().default(true),
   timeoutMs: z
     .number()
     .nonnegative("Timeout must be non-negative")
     .default(defaultTimeoutMs),
   auth: authConfigZ,
   headers: z.record(z.string(), z.string()).optional(),
+  queryParams: z.record(z.string(), z.string()).optional(),
+  readIndexes: z.record(z.string(), channel.keyZ),
 });
 
 export interface Properties extends z.infer<typeof propertiesZ> {}
 
 export const ZERO_PROPERTIES = {
   secure: true,
+  verifySsl: true,
   timeoutMs: defaultTimeoutMs,
   auth: ZERO_AUTH_CONFIGS.none,
+  readIndexes: {},
 } as const satisfies Properties;
 
 export interface Device extends device.Device<

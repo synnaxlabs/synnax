@@ -35,6 +35,7 @@ export { Header } from "@/header";
 export * from "@/hooks";
 export { Icon } from "@/icon";
 export { Input } from "@/input";
+export { JSON } from "@/json";
 export { Label } from "@/label";
 export { LinePlot } from "@/lineplot";
 export { List } from "@/list";

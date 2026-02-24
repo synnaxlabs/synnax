@@ -9,41 +9,30 @@
 
 import { type Export } from "@/export";
 import { Common } from "@/hardware/common";
-import { Read, READ_LAYOUT, ReadSelectable } from "@/hardware/ethercat/task/Read";
-import {
-  READ_TYPE,
-  readConfigZ,
-  WRITE_TYPE,
-  writeConfigZ,
-} from "@/hardware/ethercat/task/types";
-import { Write, WRITE_LAYOUT, WriteSelectable } from "@/hardware/ethercat/task/Write";
+import { Read, READ_LAYOUT, ReadSelectable } from "@/hardware/http/task/Read";
+import { READ_TYPE, readConfigZ } from "@/hardware/http/task/types";
 import { type Import } from "@/import";
 import { type Layout } from "@/layout";
 import { type Selector } from "@/selector";
 
-export * from "@/hardware/ethercat/task/palette";
-export * from "@/hardware/ethercat/task/Read";
-export * from "@/hardware/ethercat/task/types";
-export * from "@/hardware/ethercat/task/Write";
+export * from "@/hardware/http/task/palette";
+export * from "@/hardware/http/task/Read";
+export * from "@/hardware/http/task/types";
 
 export const EXTRACTORS: Export.Extractors = {
   [READ_TYPE]: Common.Task.extract,
-  [WRITE_TYPE]: Common.Task.extract,
 };
 
 export const FILE_INGESTERS: Import.FileIngesters = {
   [READ_TYPE]: Common.Task.createIngester(readConfigZ, READ_LAYOUT),
-  [WRITE_TYPE]: Common.Task.createIngester(writeConfigZ, WRITE_LAYOUT),
 };
 
 export const LAYOUTS: Record<string, Layout.Renderer> = {
   [READ_TYPE]: Read,
-  [WRITE_TYPE]: Write,
 };
 
-export const SELECTABLES: Selector.Selectable[] = [ReadSelectable, WriteSelectable];
+export const SELECTABLES: Selector.Selectable[] = [ReadSelectable];
 
 export const ZERO_LAYOUTS: Record<string, Common.Task.Layout> = {
   [READ_TYPE]: READ_LAYOUT,
-  [WRITE_TYPE]: WRITE_LAYOUT,
 };
