@@ -214,7 +214,8 @@ func (s *Scope) Add(ctx context.Context, sym Symbol) (*Scope, error) {
 		sym.Kind == KindStatefulVariable ||
 		sym.Kind == KindInput ||
 		sym.Kind == KindConfig ||
-		sym.Kind == KindOutput {
+		sym.Kind == KindOutput ||
+		sym.Kind == KindLoopVariable {
 		child.ID = s.addIndex()
 	}
 	s.Children = append(s.Children, child)

@@ -87,6 +87,10 @@ const (
 	// KindGlobalConstant represents a compile-time constant declared at global scope.
 	// Values are inlined at each reference site with no runtime overhead.
 	KindGlobalConstant
+	// KindLoop represents a loop scope (for break/continue validation).
+	KindLoop
+	// KindLoopVariable represents an immutable loop iteration variable.
+	KindLoopVariable
 )
 
 // Symbol represents a named entity in an Arc program.

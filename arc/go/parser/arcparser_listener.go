@@ -1,12 +1,3 @@
-// Copyright 2026 Synnax Labs, Inc.
-//
-// Use of this software is governed by the Business Source License included in the file
-// licenses/BSL.txt.
-//
-// As of the Change Date specified in that file, in accordance with the Business Source
-// License, use of this software will be governed by the Apache License, Version 2.0,
-// included in the file licenses/APL.txt.
-
 // Code generated from ArcParser.g4 by ANTLR 4.13.2. DO NOT EDIT.
 
 package parser // ArcParser
@@ -141,6 +132,18 @@ type ArcParserListener interface {
 
 	// EnterElseClause is called when entering the elseClause production.
 	EnterElseClause(c *ElseClauseContext)
+
+	// EnterForStatement is called when entering the forStatement production.
+	EnterForStatement(c *ForStatementContext)
+
+	// EnterForClause is called when entering the forClause production.
+	EnterForClause(c *ForClauseContext)
+
+	// EnterBreakStatement is called when entering the breakStatement production.
+	EnterBreakStatement(c *BreakStatementContext)
+
+	// EnterContinueStatement is called when entering the continueStatement production.
+	EnterContinueStatement(c *ContinueStatementContext)
 
 	// EnterReturnStatement is called when entering the returnStatement production.
 	EnterReturnStatement(c *ReturnStatementContext)
@@ -348,6 +351,18 @@ type ArcParserListener interface {
 
 	// ExitElseClause is called when exiting the elseClause production.
 	ExitElseClause(c *ElseClauseContext)
+
+	// ExitForStatement is called when exiting the forStatement production.
+	ExitForStatement(c *ForStatementContext)
+
+	// ExitForClause is called when exiting the forClause production.
+	ExitForClause(c *ForClauseContext)
+
+	// ExitBreakStatement is called when exiting the breakStatement production.
+	ExitBreakStatement(c *BreakStatementContext)
+
+	// ExitContinueStatement is called when exiting the continueStatement production.
+	ExitContinueStatement(c *ContinueStatementContext)
 
 	// ExitReturnStatement is called when exiting the returnStatement production.
 	ExitReturnStatement(c *ReturnStatementContext)
