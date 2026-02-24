@@ -148,17 +148,11 @@ def create_app() -> Flask:
             "timestamp": time.time(),
         }
         if include_all or "temperature" in include:
-            data["temperature"] = round(
-                math.sin(elapsed * 0.1) * 25 * scale + 20, 2
-            )
+            data["temperature"] = round(math.sin(elapsed * 0.1) * 25 * scale + 20, 2)
         if include_all or "pressure" in include:
-            data["pressure"] = round(
-                math.cos(elapsed * 0.05) * 10 * scale + 1013, 2
-            )
+            data["pressure"] = round(math.cos(elapsed * 0.05) * 10 * scale + 1013, 2)
         if include_all or "humidity" in include:
-            data["humidity"] = int(
-                math.sin(elapsed * 0.2) * 30 * scale + 50
-            )
+            data["humidity"] = int(math.sin(elapsed * 0.2) * 30 * scale + 50)
         if include_all or "label" in include:
             data["label"] = "normal" if data.get("humidity", 50) < 70 else "high"
         if include_all or "active" in include:
