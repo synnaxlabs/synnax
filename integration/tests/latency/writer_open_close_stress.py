@@ -7,22 +7,18 @@
 #  License, use of this software will be governed by the Apache License, Version 2.0,
 #  included in the file licenses/APL.txt.
 
-"""Concurrent writer open/close deadlock regression test (SY-3812).
+"""Regression test for SY-3812: lock-ordering deadlock in cesium/internal/control/.
 
-Regression test for a lock-ordering deadlock in cesium/internal/control/.
-
-The cesium control layer has a lock-ordering deadlock: OpenGate (writer open)
-locks controller -> region, while release (writer close) locks region ->
-controller. When two goroutines race these paths on the same channel, each
-holds the lock the other needs - permanent deadlock.
-
-The deadlocked goroutine holds db.mu.RLock() forever, which cascades via Go's
-writer-priority RWMutex to freeze ALL server operations (channels.create,
-new writers, health checks - everything).
+The cesium control layer had a lock-ordering deadlock: OpenGate (writer open)
+locked controller -> region, while release (writer close) locked region ->
+controller. The fix moves controller.remove() outside the region lock in
+release(), maintaining consistent lock ordering. A TOCTOU re-check in remove()
+handles the race window where OpenGate could add a gate between the unlock
+and removal.
 
 This test hammers the server with concurrent transient writers (open/write/close)
-on overlapping virtual channels. A background health probe detects the freeze
-by attempting channels.create - the first operation to starve.
+on overlapping virtual channels. A background health probe detects any freeze
+by attempting channels.create - the first operation to starve under the old bug.
 """
 
 import threading
