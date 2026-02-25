@@ -7,6 +7,7 @@
 #  License, use of this software will be governed by the Apache License, Version 2.0,
 #  included in the file licenses/APL.txt.
 
+import argparse
 import asyncio
 import datetime
 import math
@@ -17,6 +18,7 @@ from pathlib import Path
 from asyncua import Server, ua
 from asyncua.crypto.cert_gen import setup_self_signed_certificate
 from asyncua.crypto.validator import CertificateValidator, CertificateValidatorOptions
+from asyncua.server.user_managers import User, UserRole
 from cryptography.x509.oid import ExtendedKeyUsageOID
 
 import synnax as sy
@@ -190,6 +192,18 @@ async def update_bools(bools, elapsed):
         await bool_var.set_value(square_wave, varianttype=ua.VariantType.Boolean)
 
 
+class SimpleUserManager:
+    """A user manager that validates credentials against a static user dict."""
+
+    def __init__(self, users: dict[str, str]):
+        self.users = users
+
+    def get_user(self, iserver, username=None, password=None, certificate=None):
+        if username in self.users and self.users[username] == password:
+            return User(role=UserRole.User)
+        return None
+
+
 async def configure_encryption(server: Server) -> None:
     """Generate self-signed certificates and configure server encryption."""
     CERT_DIR.mkdir(exist_ok=True)
@@ -235,9 +249,7 @@ async def configure_encryption(server: Server) -> None:
     await server.load_certificate(str(server_cert))
     await server.load_private_key(str(server_key))
 
-    validator = CertificateValidator(
-        options=CertificateValidatorOptions.EXT_VALIDATION
-    )
+    validator = CertificateValidator(options=CertificateValidatorOptions.EXT_VALIDATION)
     server.set_certificate_validator(validator)
 
 
@@ -246,9 +258,10 @@ async def run_server(
     rate: sy.Rate = DEFAULT_RATE * sy.Rate.HZ,
     array_size: int = DEFAULT_ARRAY_SIZE,
     encrypted: bool = False,
+    user_manager=None,
 ) -> None:
     # Initialize server
-    server = Server()
+    server = Server(user_manager=user_manager)
     await server.init()
     if not endpoint:
         endpoint = OPCUASim.endpoint
@@ -329,13 +342,21 @@ class OPCUASim(DeviceSim):
         rate: sy.Rate = 50 * sy.Rate.HZ,
         verbose: bool = False,
         encrypted: bool = False,
+        user_manager=None,
     ):
         super().__init__(rate=rate, verbose=verbose)
         self.array_size = array_size
         self.encrypted = encrypted
+        self.user_manager = user_manager
 
     async def _run_server(self) -> None:
-        await run_server(self.endpoint, self.rate, self.array_size, self.encrypted)
+        await run_server(
+            self.endpoint,
+            self.rate,
+            self.array_size,
+            self.encrypted,
+            self.user_manager,
+        )
 
     @staticmethod
     def create_device(rack_key: int) -> opcua.Device:
@@ -347,34 +368,24 @@ class OPCUASim(DeviceSim):
         )
 
 
-class OPCUAEncryptedSim(OPCUASim):
-    """Encrypted OPC UA device simulator on port 4842."""
+class OPCUATLSSim(OPCUASim):
+    """TLS-encrypted OPC UA device simulator on port 4842."""
 
-    description = "Encrypted OPC UA simulator on port 4842"
+    description = "TLS OPC UA simulator on port 4842"
     host = "127.0.0.1"
     port = 4842
-    device_name = "OPC UA Encrypted Server"
+    device_name = "OPC UA TLS Server"
     endpoint = f"opc.tcp://{host}:{port}/freeopcua/server/"
 
-    def __init__(
-        self,
-        array_size: int = DEFAULT_ARRAY_SIZE,
-        rate: sy.Rate = 50 * sy.Rate.HZ,
-        verbose: bool = False,
-    ):
-        super().__init__(
-            array_size=array_size,
-            rate=rate,
-            verbose=verbose,
-            encrypted=True,
-        )
+    def __init__(self, **kwargs):
+        super().__init__(encrypted=True, **kwargs)
 
     @staticmethod
     def create_device(rack_key: int) -> opcua.Device:
         return opcua.Device(
-            endpoint=OPCUAEncryptedSim.endpoint,
-            name=OPCUAEncryptedSim.device_name,
-            location=OPCUAEncryptedSim.endpoint,
+            endpoint=OPCUATLSSim.endpoint,
+            name=OPCUATLSSim.device_name,
+            location=OPCUATLSSim.endpoint,
             rack=rack_key,
             security_mode="SignAndEncrypt",
             security_policy="Basic256Sha256",
@@ -384,16 +395,51 @@ class OPCUAEncryptedSim(OPCUASim):
         )
 
 
-if __name__ == "__main__":
-    import argparse
+TLS_AUTH_USERNAME = "testuser"
+TLS_AUTH_PASSWORD = "testpass"
 
+
+class OPCUATLSAuthSim(OPCUASim):
+    """TLS-encrypted OPC UA simulator with username/password auth on port 4843."""
+
+    description = "TLS OPC UA simulator with user/pass on port 4843"
+    host = "127.0.0.1"
+    port = 4843
+    device_name = "OPC UA TLS Auth Server"
+    endpoint = f"opc.tcp://{host}:{port}/freeopcua/server/"
+
+    def __init__(self, **kwargs):
+        super().__init__(
+            encrypted=True,
+            user_manager=SimpleUserManager({TLS_AUTH_USERNAME: TLS_AUTH_PASSWORD}),
+            **kwargs,
+        )
+
+    @staticmethod
+    def create_device(rack_key: int) -> opcua.Device:
+        return opcua.Device(
+            endpoint=OPCUATLSAuthSim.endpoint,
+            name=OPCUATLSAuthSim.device_name,
+            location=OPCUATLSAuthSim.endpoint,
+            rack=rack_key,
+            security_mode="SignAndEncrypt",
+            security_policy="Basic256Sha256",
+            server_cert=str(CERT_DIR / "server-certificate.der"),
+            client_cert=str(CERT_DIR / "client-certificate.der"),
+            client_private_key=str(CERT_DIR / "client-private-key.pem"),
+            username=TLS_AUTH_USERNAME,
+            password=TLS_AUTH_PASSWORD,
+        )
+
+
+if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="OPC UA test server")
     parser.add_argument(
-        "--encrypted", action="store_true", help="Enable encryption (port 4842)"
+        "--tls", action="store_true", help="Enable TLS encryption (port 4842)"
     )
     args = parser.parse_args()
 
-    if args.encrypted:
-        asyncio.run(run_server(endpoint=OPCUAEncryptedSim.endpoint, encrypted=True))
+    if args.tls:
+        asyncio.run(run_server(endpoint=OPCUATLSSim.endpoint, encrypted=True))
     else:
         asyncio.run(run_server())

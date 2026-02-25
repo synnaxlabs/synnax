@@ -19,8 +19,8 @@ Before running this example:
 2. Start the OPC UA test server:
    uv run python -m examples.opcua.server
 
-   For an encrypted server:
-   uv run python -m examples.opcua.server --encrypted
+   For a TLS-encrypted server:
+   uv run python -m examples.opcua.server --tls
 
 3. Login to Synnax (if not already logged in):
    uv run sy login
@@ -28,8 +28,8 @@ Before running this example:
 4. Run this script:
    uv run python examples/opcua/connect_server.py
 
-   For an encrypted server:
-   uv run python examples/opcua/connect_server.py --encrypted
+   For a TLS-encrypted server:
+   uv run python examples/opcua/connect_server.py --tls
 
 Configuration:
     Modify the constants below to match your OPC UA server configuration.
@@ -47,21 +47,35 @@ CERT_DIR = Path(__file__).parent / "certificates"
 PLAIN_DEVICE_NAME = "OPC UA Server"
 PLAIN_ENDPOINT = "opc.tcp://127.0.0.1:4841/"
 
-# Encrypted server config
-ENCRYPTED_DEVICE_NAME = "OPC UA Encrypted Server"
-ENCRYPTED_ENDPOINT = "opc.tcp://127.0.0.1:4842/"
+# TLS-encrypted server config
+TLS_DEVICE_NAME = "OPC UA TLS Server"
+TLS_ENDPOINT = "opc.tcp://127.0.0.1:4842/"
+
+# TLS-encrypted + username/password server config
+TLS_AUTH_DEVICE_NAME = "OPC UA TLS Auth Server"
+TLS_AUTH_ENDPOINT = "opc.tcp://127.0.0.1:4843/"
+TLS_AUTH_USERNAME = "testuser"
+TLS_AUTH_PASSWORD = "testpass"
 
 parser = argparse.ArgumentParser(description="Connect an OPC UA server to Synnax")
 parser.add_argument(
-    "--encrypted",
+    "--tls",
     action="store_true",
-    help="Connect to the encrypted server (port 4842)",
+    help="Connect to the TLS-encrypted server (port 4842)",
+)
+parser.add_argument(
+    "--tls-auth",
+    action="store_true",
+    help="Connect to the TLS-encrypted server with username/password (port 4843)",
 )
 args = parser.parse_args()
 
-if args.encrypted:
-    DEVICE_NAME = ENCRYPTED_DEVICE_NAME
-    ENDPOINT = ENCRYPTED_ENDPOINT
+if args.tls_auth:
+    DEVICE_NAME = TLS_AUTH_DEVICE_NAME
+    ENDPOINT = TLS_AUTH_ENDPOINT
+elif args.tls:
+    DEVICE_NAME = TLS_DEVICE_NAME
+    ENDPOINT = TLS_ENDPOINT
 else:
     DEVICE_NAME = PLAIN_DEVICE_NAME
     ENDPOINT = PLAIN_ENDPOINT
@@ -74,7 +88,9 @@ print("OPC UA Server Connection Script")
 print("=" * 70)
 print(f"Target Device Name: {DEVICE_NAME}")
 print(f"Endpoint: {ENDPOINT}")
-if args.encrypted:
+if args.tls_auth:
+    print("Security: Basic256Sha256 SignAndEncrypt + Username/Password")
+elif args.tls:
     print("Security: Basic256Sha256 SignAndEncrypt")
 print()
 
@@ -119,13 +135,18 @@ if response in ("", "y", "yes"):
             "rack": rack.key,
         }
 
-        if args.encrypted:
+        if args.tls_auth or args.tls:
             device_kwargs.update(
                 security_mode="SignAndEncrypt",
                 security_policy="Basic256Sha256",
                 server_cert=str(CERT_DIR / "server-certificate.der"),
                 client_cert=str(CERT_DIR / "client-certificate.der"),
                 client_private_key=str(CERT_DIR / "client-private-key.pem"),
+            )
+        if args.tls_auth:
+            device_kwargs.update(
+                username=TLS_AUTH_USERNAME,
+                password=TLS_AUTH_PASSWORD,
             )
 
         device = sy.opcua.Device(**device_kwargs)
@@ -136,7 +157,9 @@ if response in ("", "y", "yes"):
         print(f"  - Key: {created_device.key}")
         print(f"  - Location: {created_device.location}")
         print(f"  - Rack: {rack.name}")
-        if args.encrypted:
+        if args.tls_auth:
+            print("  - Security: Basic256Sha256 SignAndEncrypt + Username/Password")
+        elif args.tls:
             print("  - Security: Basic256Sha256 SignAndEncrypt")
         print()
         print("Device is ready to use.")
@@ -158,7 +181,7 @@ if response in ("n", "no") or response not in ("", "y", "yes"):
     print(f"   - Name: {DEVICE_NAME}")
     print(f"   - Endpoint: {ENDPOINT}")
     print("   - Make: opc")
-    if args.encrypted:
+    if args.tls:
         print("   - Security Mode: SignAndEncrypt")
         print("   - Security Policy: Basic256Sha256")
         print(f"   - Server Certificate: {CERT_DIR / 'server-certificate.der'}")

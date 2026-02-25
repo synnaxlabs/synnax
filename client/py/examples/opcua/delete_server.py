@@ -20,8 +20,8 @@ Before running this example:
 2. Run this script:
    uv run python examples/opcua/delete_server.py
 
-   For the encrypted server:
-   uv run python examples/opcua/delete_server.py --encrypted
+   For the TLS-encrypted server:
+   uv run python examples/opcua/delete_server.py --tls
 
 Note: You do NOT need the OPC UA test server running to delete the device.
       This script only removes the device registration from Synnax.
@@ -33,11 +33,21 @@ import synnax as sy
 
 parser = argparse.ArgumentParser(description="Delete an OPC UA server from Synnax")
 parser.add_argument(
-    "--encrypted", action="store_true", help="Delete the encrypted server"
+    "--tls", action="store_true", help="Delete the TLS-encrypted server"
+)
+parser.add_argument(
+    "--tls-auth",
+    action="store_true",
+    help="Delete the TLS-encrypted server with username/password (port 4843)",
 )
 args = parser.parse_args()
 
-DEVICE_NAME = "OPC UA Encrypted Server" if args.encrypted else "OPC UA Server"
+if args.tls_auth:
+    DEVICE_NAME = "OPC UA TLS Auth Server"
+elif args.tls:
+    DEVICE_NAME = "OPC UA TLS Server"
+else:
+    DEVICE_NAME = "OPC UA Server"
 
 # Connect to Synnax
 client = sy.Synnax()

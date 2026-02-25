@@ -13,7 +13,7 @@ Lazy imports avoid the RuntimeWarning when running
 ``python -m examples.opcua.server``.
 """
 
-__all__ = ["run_server", "OPCUASim", "OPCUAEncryptedSim"]
+__all__ = ["run_server", "OPCUASim", "OPCUATLSSim", "OPCUATLSAuthSim"]
 
 
 def __getattr__(name: str):

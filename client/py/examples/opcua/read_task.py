@@ -20,7 +20,7 @@ Before running this example:
 3. The server creates float variables (my_float_0, my_float_1, etc.) that continuously
    update with sine wave values. This example reads those values.
 
-Use --encrypted to target the encrypted server instead.
+Use --tls to target the TLS-encrypted server instead.
 """
 
 import argparse
@@ -29,11 +29,21 @@ import synnax as sy
 
 parser = argparse.ArgumentParser(description="Read float data from OPC UA server")
 parser.add_argument(
-    "--encrypted", action="store_true", help="Target the encrypted server"
+    "--tls", action="store_true", help="Target the TLS-encrypted server"
+)
+parser.add_argument(
+    "--tls-auth",
+    action="store_true",
+    help="Target the TLS-encrypted server with username/password (port 4843)",
 )
 args = parser.parse_args()
 
-DEVICE_NAME = "OPC UA Encrypted Server" if args.encrypted else "OPC UA Server"
+if args.tls_auth:
+    DEVICE_NAME = "OPC UA TLS Auth Server"
+elif args.tls:
+    DEVICE_NAME = "OPC UA TLS Server"
+else:
+    DEVICE_NAME = "OPC UA Server"
 
 # We've logged in via the command-line interface, so there's no need to provide
 # credentials here. See https://docs.synnaxlabs.com/reference/client/quick-start.
