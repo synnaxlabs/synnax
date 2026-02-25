@@ -261,6 +261,251 @@ var _ = Describe("Device", func() {
 			Expect(err.Error()).To(ContainSubstring("variant"))
 		})
 	})
+	Describe("ParentDevice", func() {
+		// --- Phase 1: Data model round-trip ---
+		It("Should persist and retrieve the ParentDevice field", func() {
+			chassis := device.Device{
+				Key:      "pd-chassis-rt",
+				Rack:     rackSvc.EmbeddedKey,
+				Location: "slot-0",
+				Name:     "Chassis",
+			}
+			Expect(w.Create(ctx, chassis)).To(Succeed())
+
+			module := device.Device{
+				Key:          "pd-module-rt",
+				Rack:         rackSvc.EmbeddedKey,
+				Location:     "slot-1",
+				Name:         "Module",
+				ParentDevice: "pd-chassis-rt",
+			}
+			Expect(w.Create(ctx, module)).To(Succeed())
+
+			var res device.Device
+			Expect(svc.NewRetrieve().WhereKeys("pd-module-rt").Entry(&res).Exec(ctx, tx)).
+				To(Succeed())
+			Expect(res.ParentDevice).To(Equal("pd-chassis-rt"))
+		})
+
+		It("Should store empty ParentDevice by default", func() {
+			d := device.Device{
+				Key:      "pd-no-parent",
+				Rack:     rackSvc.EmbeddedKey,
+				Location: "loc",
+				Name:     "Standalone",
+			}
+			Expect(w.Create(ctx, d)).To(Succeed())
+
+			var res device.Device
+			Expect(svc.NewRetrieve().WhereKeys("pd-no-parent").Entry(&res).Exec(ctx, tx)).
+				To(Succeed())
+			Expect(res.ParentDevice).To(BeEmpty())
+		})
+
+		// --- Phase 2: Parent-aware writer ---
+		It("Should parent a device to another device when ParentDevice is set and parent exists", func() {
+			chassis := device.Device{
+				Key:      "pd-chassis-1",
+				Rack:     rackSvc.EmbeddedKey,
+				Location: "slot-0",
+				Name:     "Chassis 1",
+			}
+			Expect(w.Create(ctx, chassis)).To(Succeed())
+
+			module := device.Device{
+				Key:          "pd-module-1",
+				Rack:         rackSvc.EmbeddedKey,
+				Location:     "slot-1",
+				Name:         "Module 1",
+				ParentDevice: "pd-chassis-1",
+			}
+			Expect(w.Create(ctx, module)).To(Succeed())
+
+			// Module should be a child of chassis, not rack
+			var res ontology.Resource
+			Expect(otg.NewRetrieve().
+				WhereIDs(device.OntologyID("pd-chassis-1")).
+				TraverseTo(ontology.ChildrenTraverser).
+				Entry(&res).
+				Exec(ctx, tx),
+			).To(Succeed())
+			Expect(res.ID).To(Equal(module.OntologyID()))
+		})
+
+		It("Should fall back to rack when ParentDevice references a non-existent device", func() {
+			module := device.Device{
+				Key:          "pd-orphan-module",
+				Rack:         rackSvc.EmbeddedKey,
+				Location:     "slot-1",
+				Name:         "Orphan Module",
+				ParentDevice: "nonexistent-chassis",
+			}
+			Expect(w.Create(ctx, module)).To(Succeed())
+
+			// Module should be a child of rack (fallback)
+			var res ontology.Resource
+			Expect(otg.NewRetrieve().
+				WhereIDs(rackSvc.EmbeddedKey.OntologyID()).
+				TraverseTo(ontology.ChildrenTraverser).
+				Entry(&res).
+				Exec(ctx, tx),
+			).To(Succeed())
+			Expect(res.ID).To(Equal(module.OntologyID()))
+
+			// Stored ParentDevice should be cleared
+			var stored device.Device
+			Expect(svc.NewRetrieve().WhereKeys("pd-orphan-module").Entry(&stored).Exec(ctx, tx)).
+				To(Succeed())
+			Expect(stored.ParentDevice).To(BeEmpty())
+		})
+
+		It("Should re-parent a device when ParentDevice changes", func() {
+			chassisA := device.Device{
+				Key:      "pd-chassis-a",
+				Rack:     rackSvc.EmbeddedKey,
+				Location: "slot-a",
+				Name:     "Chassis A",
+			}
+			chassisB := device.Device{
+				Key:      "pd-chassis-b",
+				Rack:     rackSvc.EmbeddedKey,
+				Location: "slot-b",
+				Name:     "Chassis B",
+			}
+			Expect(w.Create(ctx, chassisA)).To(Succeed())
+			Expect(w.Create(ctx, chassisB)).To(Succeed())
+
+			module := device.Device{
+				Key:          "pd-moving-module",
+				Rack:         rackSvc.EmbeddedKey,
+				Location:     "slot-1",
+				Name:         "Moving Module",
+				ParentDevice: "pd-chassis-a",
+			}
+			Expect(w.Create(ctx, module)).To(Succeed())
+
+			// Verify module is child of chassis A
+			var res ontology.Resource
+			Expect(otg.NewRetrieve().
+				WhereIDs(device.OntologyID("pd-chassis-a")).
+				TraverseTo(ontology.ChildrenTraverser).
+				Entry(&res).
+				Exec(ctx, tx),
+			).To(Succeed())
+			Expect(res.ID).To(Equal(module.OntologyID()))
+
+			// Re-parent to chassis B
+			module.ParentDevice = "pd-chassis-b"
+			Expect(w.Create(ctx, module)).To(Succeed())
+
+			// Verify module is now a child of chassis B
+			Expect(otg.NewRetrieve().
+				WhereIDs(device.OntologyID("pd-chassis-b")).
+				TraverseTo(ontology.ChildrenTraverser).
+				Entry(&res).
+				Exec(ctx, tx),
+			).To(Succeed())
+			Expect(res.ID).To(Equal(module.OntologyID()))
+
+			// Verify module is no longer a child of chassis A
+			var nRes ontology.Resource
+			Expect(otg.NewRetrieve().
+				WhereIDs(device.OntologyID("pd-chassis-a")).
+				TraverseTo(ontology.ChildrenTraverser).
+				Entry(&nRes).
+				Exec(ctx, tx),
+			).To(MatchError(query.ErrNotFound))
+		})
+
+		It("Should converge when parent is created after the child", func() {
+			// Step 1: Create module with parent that doesn't exist yet
+			module := device.Device{
+				Key:          "pd-converge-module",
+				Rack:         rackSvc.EmbeddedKey,
+				Location:     "slot-1",
+				Name:         "Converge Module",
+				ParentDevice: "pd-converge-chassis",
+			}
+			Expect(w.Create(ctx, module)).To(Succeed())
+
+			// ParentDevice should be cleared since parent doesn't exist
+			var stored device.Device
+			Expect(svc.NewRetrieve().WhereKeys("pd-converge-module").Entry(&stored).Exec(ctx, tx)).
+				To(Succeed())
+			Expect(stored.ParentDevice).To(BeEmpty())
+
+			// Module should be parented to rack
+			var res ontology.Resource
+			Expect(otg.NewRetrieve().
+				WhereIDs(rackSvc.EmbeddedKey.OntologyID()).
+				TraverseTo(ontology.ChildrenTraverser).
+				Entry(&res).
+				Exec(ctx, tx),
+			).To(Succeed())
+			Expect(res.ID).To(Equal(module.OntologyID()))
+
+			// Step 2: Create the chassis
+			chassis := device.Device{
+				Key:      "pd-converge-chassis",
+				Rack:     rackSvc.EmbeddedKey,
+				Location: "slot-0",
+				Name:     "Converge Chassis",
+			}
+			Expect(w.Create(ctx, chassis)).To(Succeed())
+
+			// Step 3: Re-send module with parent set (scanner would do this)
+			module.ParentDevice = "pd-converge-chassis"
+			Expect(w.Create(ctx, module)).To(Succeed())
+
+			// Module should now be parented to chassis
+			var childRes ontology.Resource
+			Expect(otg.NewRetrieve().
+				WhereIDs(device.OntologyID("pd-converge-chassis")).
+				TraverseTo(ontology.ChildrenTraverser).
+				Entry(&childRes).
+				Exec(ctx, tx),
+			).To(Succeed())
+			Expect(childRes.ID).To(Equal(module.OntologyID()))
+
+			// Stored ParentDevice should now be set
+			Expect(svc.NewRetrieve().WhereKeys("pd-converge-module").Entry(&stored).Exec(ctx, tx)).
+				To(Succeed())
+			Expect(stored.ParentDevice).To(Equal("pd-converge-chassis"))
+		})
+
+		It("Should not skip update when only ParentDevice changes", func() {
+			chassis := device.Device{
+				Key:      "pd-skip-chassis",
+				Rack:     rackSvc.EmbeddedKey,
+				Location: "slot-0",
+				Name:     "Skip Chassis",
+			}
+			Expect(w.Create(ctx, chassis)).To(Succeed())
+
+			// Create device with no parent (rack child)
+			d := device.Device{
+				Key:      "pd-skip-module",
+				Rack:     rackSvc.EmbeddedKey,
+				Location: "slot-1",
+				Name:     "Skip Module",
+			}
+			Expect(w.Create(ctx, d)).To(Succeed())
+
+			// Update: same rack, but now with a parent device
+			d.ParentDevice = "pd-skip-chassis"
+			Expect(w.Create(ctx, d)).To(Succeed())
+
+			// Should now be a child of chassis (not rack)
+			var res ontology.Resource
+			Expect(otg.NewRetrieve().
+				WhereIDs(device.OntologyID("pd-skip-chassis")).
+				TraverseTo(ontology.ChildrenTraverser).
+				Entry(&res).
+				Exec(ctx, tx),
+			).To(Succeed())
+			Expect(res.ID).To(Equal(d.OntologyID()))
+		})
+	})
 	Describe("Retrieve", func() {
 		It("Should correctly retrieve a device", func() {
 			d := device.Device{
