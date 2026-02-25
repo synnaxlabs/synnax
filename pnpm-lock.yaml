@@ -713,6 +713,64 @@ importers:
         specifier: 'catalog:'
         version: 3.2.4(@types/debug@4.1.12)(@types/node@25.1.0)(jiti@2.6.1)(jsdom@27.4.0)(terser@5.44.0)(tsx@4.20.5)(yaml@2.8.2)
 
+  landing:
+    dependencies:
+      '@astrojs/react':
+        specifier: ^4.4.2
+        version: 4.4.2(@types/node@25.1.0)(@types/react-dom@19.2.3(@types/react@19.2.10))(@types/react@19.2.10)(jiti@2.6.1)(react-dom@19.2.4(react@19.2.4))(react@19.2.4)(terser@5.44.0)(tsx@4.20.5)(yaml@2.8.2)
+      '@astrojs/vercel':
+        specifier: ^9.0.4
+        version: 9.0.4(astro@5.17.1(@types/node@25.1.0)(@vercel/functions@2.2.13)(jiti@2.6.1)(rollup@4.57.1)(terser@5.44.0)(tsx@4.20.5)(typescript@5.9.3)(yaml@2.8.2))(react@19.2.4)(rollup@4.57.1)
+      '@synnaxlabs/media':
+        specifier: workspace:^
+        version: link:../x/media
+      '@synnaxlabs/pluto':
+        specifier: workspace:^
+        version: link:../pluto
+      '@synnaxlabs/x':
+        specifier: workspace:^
+        version: link:../x/ts
+      astro:
+        specifier: ^5.17.1
+        version: 5.17.1(@types/node@25.1.0)(@vercel/functions@2.2.13)(jiti@2.6.1)(rollup@4.57.1)(terser@5.44.0)(tsx@4.20.5)(typescript@5.9.3)(yaml@2.8.2)
+      astro-seo:
+        specifier: ^1.1.0
+        version: 1.1.0(prettier-plugin-astro@0.14.1)(prettier@3.8.1)(typescript@5.9.3)
+      react:
+        specifier: 'catalog:'
+        version: 19.2.4
+      react-dom:
+        specifier: 'catalog:'
+        version: 19.2.4(react@19.2.4)
+    devDependencies:
+      '@astrojs/check':
+        specifier: ^0.9.6
+        version: 0.9.6(prettier-plugin-astro@0.14.1)(prettier@3.8.1)(typescript@5.9.3)
+      '@synnaxlabs/tsconfig':
+        specifier: workspace:^
+        version: link:../configs/ts
+      '@types/react':
+        specifier: 'catalog:'
+        version: 19.2.10
+      '@types/react-dom':
+        specifier: 'catalog:'
+        version: 19.2.3(@types/react@19.2.10)
+      eslint:
+        specifier: 'catalog:'
+        version: 9.39.2(jiti@2.6.1)
+      eslint-config-synnaxlabs:
+        specifier: workspace:^
+        version: link:../configs/eslint
+      stylelint:
+        specifier: 'catalog:'
+        version: 17.1.0(typescript@5.9.3)
+      stylelint-config-synnaxlabs:
+        specifier: workspace:^
+        version: link:../configs/stylelint
+      typescript:
+        specifier: 'catalog:'
+        version: 5.9.3
+
   pluto:
     dependencies:
       '@fontsource-variable/inter':

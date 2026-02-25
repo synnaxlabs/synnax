@@ -1,0 +1,8 @@
+@layer reset, pluto, base;
+
+@import "./reset.css" layer(reset);
+@import "@synnaxlabs/pluto/dist/pluto.css" layer(pluto);
+@import "@synnaxlabs/pluto/dist/theme.css" layer(pluto);
+@import "@synnaxlabs/media/dist/media.css" layer(pluto);
+
+@import "./base.css" layer(base);

@@ -1,0 +1,42 @@
+:root {
+    --max-width: 1400px;
+    --content-padding: 7rem;
+    --nav-height: 9rem;
+
+    --pluto-h1-size: 11rem;
+    --pluto-h1-weight: 500;
+    --pluto-h1-line-height: 120%;
+    --pluto-h1-letter-spacing: -0.02em;
+}
+
+html {
+    background: var(--pluto-gray-l0);
+}
+
+body {
+    min-height: 100vh;
+    font-family: var(--pluto-font-family);
+    color: var(--pluto-text-color);
+    -webkit-font-smoothing: antialiased;
+}
+
+a:not(.pluto-btn) {
+    color: var(--pluto-primary-p1);
+    text-decoration: none;
+
+    &:hover {
+        text-decoration: underline;
+    }
+}
+
+@media (max-width: 800px) {
+    :root {
+        --content-padding: 4rem;
+    }
+}
+
+@media (max-width: 600px) {
+    :root {
+        --content-padding: 3rem;
+    }
+}

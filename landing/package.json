@@ -1,0 +1,36 @@
+{
+  "name": "@synnaxlabs/landing",
+  "type": "module",
+  "private": true,
+  "scripts": {
+    "dev": "astro dev",
+    "build": "astro check && astro build",
+    "check-types": "astro check",
+    "preview": "astro preview",
+    "lint": "eslint",
+    "fix": "eslint --fix",
+    "stylelint": "stylelint \"src/**/*.css\""
+  },
+  "dependencies": {
+    "@astrojs/react": "^4.4.2",
+    "@astrojs/vercel": "^9.0.4",
+    "@synnaxlabs/media": "workspace:^",
+    "@synnaxlabs/pluto": "workspace:^",
+    "@synnaxlabs/x": "workspace:^",
+    "astro": "^5.17.1",
+    "astro-seo": "^1.1.0",
+    "react": "catalog:",
+    "react-dom": "catalog:"
+  },
+  "devDependencies": {
+    "@astrojs/check": "^0.9.6",
+    "@synnaxlabs/tsconfig": "workspace:^",
+    "@types/react": "catalog:",
+    "@types/react-dom": "catalog:",
+    "eslint": "catalog:",
+    "eslint-config-synnaxlabs": "workspace:^",
+    "stylelint": "catalog:",
+    "stylelint-config-synnaxlabs": "workspace:^",
+    "typescript": "catalog:"
+  }
+}

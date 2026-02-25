@@ -1,0 +1,65 @@
+---
+import { Logo } from "@synnaxlabs/media";
+import { Flex, Text, Icon } from "@synnaxlabs/pluto";
+---
+
+<Flex.Box el="footer" justify="center" align="center">
+  <Flex.Box
+    className="footer-content"
+    direction="x"
+    justify="between"
+    align="start"
+  >
+    <Flex.Box align="start">
+      <a href="/" class="footer-logo-link">
+        <Logo variant="title" />
+      </a>
+      <Text.Text level="small" className="copyright">
+        &copy; {new Date().getFullYear()} Synnax Labs Inc.
+      </Text.Text>
+    </Flex.Box>
+    <Flex.Box direction="x">
+      <Text.Text href="https://www.linkedin.com/company/synnaxlabs/">
+        <Icon.Logo.LinkedIn className="footer-social-link" />
+      </Text.Text>
+      <Text.Text href="https://github.com/synnaxlabs/synnax">
+        <Icon.Logo.Github className="footer-social-link" />
+      </Text.Text>
+    </Flex.Box>
+  </Flex.Box>
+</Flex.Box>
+
+<style is:global>
+  footer {
+    padding: 5rem var(--content-padding);
+    border-top: var(--pluto-border);
+
+    .footer-content {
+      width: 100%;
+      max-width: var(--max-width);
+    }
+
+    .footer-logo-link {
+      text-decoration: none;
+      display: flex;
+      & .synnax-logo--title {
+        height: 4.5rem;
+      }
+    }
+
+    .copyright {
+      color: var(--pluto-gray-l7);
+    }
+
+    .footer-social-link {
+      height: 4rem;
+      width: 4rem;
+      color: var(--pluto-gray-l7);
+      transition: color 0.2s ease-in-out;
+
+      &:hover {
+        color: var(--pluto-gray-l10);
+      }
+    }
+  }
+</style>

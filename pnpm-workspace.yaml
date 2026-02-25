@@ -7,6 +7,7 @@ packages:
   - docs/site
   - drift
   - freighter/ts
+  - landing
   - pluto
   - x/media
   - x/ts

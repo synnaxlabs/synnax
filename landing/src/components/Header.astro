@@ -1,0 +1,181 @@
+---
+import { Logo } from "@synnaxlabs/media";
+import { Flex, Button } from "@synnaxlabs/pluto";
+import { Nav } from "@/components/Nav";
+---
+
+<Flex.Box className="header" el="header" justify="center" align="center" empty>
+    <Flex.Box className="header-content" direction="x" justify="between" align="center">
+        <a href="/" class="logo-link">
+            <Logo variant="title" />
+        </a>
+        <Flex.Box x gap={7} align="center">
+            <div class="header-nav">
+                <Nav client:load />
+            </div>
+            <Button.Button variant="filled" href="https://docs.synnaxlabs.com">
+                Get Started
+            </Button.Button>
+        </Flex.Box>
+    </Flex.Box>
+</Flex.Box>
+
+<style is:global>
+    .header {
+        position: sticky;
+        top: 0;
+        z-index: 10;
+        width: 100%;
+        height: var(--nav-height);
+        background: var(--pluto-gray-l0-90);
+        backdrop-filter: blur(2rem);
+        -webkit-backdrop-filter: blur(2rem);
+        border-bottom: var(--pluto-border);
+
+        .header-content {
+            width: 100%;
+            max-width: var(--max-width);
+            padding: 0 var(--content-padding);
+        }
+
+        .logo-link {
+            text-decoration: none;
+            display: flex;
+            align-items: center;
+
+            & .synnax-logo--title {
+                height: 4.5rem;
+            }
+        }
+
+        & .pluto-btn.pluto-btn--text .pluto-icon {
+            color: var(--pluto-gray-l8);
+            height: 3rem;
+            width: 3rem;
+
+            &:hover {
+                color: var(--pluto-gray-l10);
+            }
+        }
+    }
+
+    /* Nav link styles */
+    .nav-links .nav-link,
+    .nav-links .nav-link a {
+        text-transform: none;
+        font-weight: 500;
+        color: var(--pluto-gray-l8);
+        text-decoration: none;
+        cursor: pointer;
+
+        &:hover {
+            color: var(--pluto-gray-l10);
+            text-decoration: none;
+        }
+    }
+
+    .nav-link-trigger {
+        cursor: pointer;
+
+        .nav-caret {
+            color: var(--pluto-gray-l6);
+            height: 1.8rem;
+            width: 1.8rem;
+            transition: transform 0.2s ease;
+        }
+
+        &:hover .nav-caret {
+            color: var(--pluto-gray-l8);
+        }
+    }
+
+    /* Product dropdown */
+    .nav-dropdown-wrap {
+        position: relative;
+    }
+
+    .product-dropdown {
+        position: absolute;
+        top: calc(100% + 1.5rem);
+        left: 50%;
+        transform: translateX(-50%);
+        width: 680px;
+        padding: 2rem;
+        box-shadow:
+            0 4px 12px rgba(0, 0, 0, 0.15),
+            0 16px 40px rgba(0, 0, 0, 0.2);
+        animation: dropdown-reveal 0.15s cubic-bezier(0.16, 1, 0.3, 1);
+        z-index: 20;
+    }
+
+    .product-grid {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+    }
+
+    .product-card {
+        display: block;
+        padding: 2rem;
+        border-radius: 0.8rem;
+        text-decoration: none;
+        color: inherit;
+        transition: background 0.15s ease;
+
+        &:hover {
+            background: var(--pluto-gray-l2);
+            text-decoration: none;
+        }
+
+        .product-card__icon-wrap {
+            width: 3.6rem;
+            height: 3.6rem;
+            min-width: 3.6rem;
+            border-radius: 0.6rem;
+            background: var(--pluto-gray-l2);
+            border: var(--pluto-border);
+        }
+
+        &:hover .product-card__icon-wrap {
+            background: var(--pluto-gray-l3);
+            border-color: var(--pluto-gray-l4);
+        }
+
+        .product-card__icon {
+            height: 1.8rem;
+            width: 1.8rem;
+            color: var(--pluto-gray-l9);
+        }
+
+        .product-card__title {
+            font-weight: 500;
+            color: var(--pluto-gray-l10);
+        }
+
+        .product-card__desc {
+            color: var(--pluto-gray-l7);
+            line-height: 1.4;
+        }
+    }
+
+    @keyframes dropdown-reveal {
+        from {
+            opacity: 0;
+            transform: translateX(-50%) translateY(-6px) scale(0.98);
+        }
+        to {
+            opacity: 1;
+            transform: translateX(-50%) translateY(0) scale(1);
+        }
+    }
+
+    @media (max-width: 600px) {
+        .header {
+            .header-nav {
+                display: none;
+            }
+            .header-content {
+                padding: 0 3rem;
+            }
+        }
+    }
+</style>
