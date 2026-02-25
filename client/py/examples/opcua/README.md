@@ -49,9 +49,8 @@ This server simulates:
 - **Boolean variables** (my_bool_0, my_bool_1): Square wave patterns
 - **Command variables** (command_0, command_1, command_2): Writable float values
 
-The server runs on `opc.tcp://127.0.0.1:4841/` by default (port 4842 with
-`--tls`, port 4843 for TLS with username/password) and prints node IDs on
-startup.
+The server runs on `opc.tcp://127.0.0.1:4841/` by default (port 4842 with `--tls`, port
+4843 for TLS with username/password) and prints node IDs on startup.
 
 ### 2. Connect Your OPC UA Server
 
@@ -82,8 +81,8 @@ This script will:
 **Configuration**: Edit the constants at the top of `connect_server.py` to match your
 server:
 
-- `PLAIN_DEVICE_NAME` / `TLS_DEVICE_NAME` / `TLS_AUTH_DEVICE_NAME`: Friendly names
-  for your OPC UA servers
+- `PLAIN_DEVICE_NAME` / `TLS_DEVICE_NAME` / `TLS_AUTH_DEVICE_NAME`: Friendly names for
+  your OPC UA servers
 - `PLAIN_ENDPOINT` / `TLS_ENDPOINT` / `TLS_AUTH_ENDPOINT`: OPC UA endpoint URLs
 - `TLS_AUTH_USERNAME` / `TLS_AUTH_PASSWORD`: Credentials for username/password auth
 
@@ -275,8 +274,8 @@ OPC UA supports various security policies:
 
 ### TLS Test Server
 
-The included test server supports TLS encryption via the `OPCUATLSSim` class, which
-runs on port 4842 with `Basic256Sha256_SignAndEncrypt`. Self-signed certificates for both
+The included test server supports TLS encryption via the `OPCUATLSSim` class, which runs
+on port 4842 with `Basic256Sha256_SignAndEncrypt`. Self-signed certificates for both
 server and client are generated automatically under `examples/opcua/certificates/`.
 
 ```python
