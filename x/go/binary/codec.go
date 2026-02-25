@@ -333,6 +333,56 @@ func (f *decodeFallbackCodec) DecodeStream(
 	return err
 }
 
+// MsgpackEncodedJSON is a map[string]any that handles backwards-compatible msgpack
+// decoding. When existing data was stored as a JSON string (the old format), it
+// unmarshals the string into a map. When new data arrives as a map, it uses it directly.
+type MsgpackEncodedJSON map[string]any
+
+func (e *MsgpackEncodedJSON) DecodeMsgpack(dec *msgpack.Decoder) error {
+	v, err := dec.DecodeInterface()
+	if err != nil {
+		return err
+	}
+	if v == nil {
+		*e = nil
+		return nil
+	}
+	switch val := v.(type) {
+	case string:
+		m := make(map[string]any)
+		if len(val) != 0 {
+			if err = json.Unmarshal([]byte(val), &m); err != nil {
+				return errors.Wrapf(err, "failed to unmarshal JSON string into MsgpackEncodedJSON")
+			}
+		}
+		*e = m
+	case map[string]any:
+		*e = val
+	case map[any]any:
+		m := make(map[string]any, len(val))
+		for k, v := range val {
+			ks, ok := k.(string)
+			if !ok {
+				return errors.Newf("MsgpackEncodedJSON: non-string key %T in map", k)
+			}
+			m[ks] = v
+		}
+		*e = m
+	default:
+		return errors.Newf("MsgpackEncodedJSON: unsupported type %T", v)
+	}
+	return nil
+}
+
+// Unmarshal decodes the map into the provided struct using JSON marshal/unmarshal.
+func (e MsgpackEncodedJSON) Unmarshal(into any) error {
+	b, err := json.Marshal(e)
+	if err != nil {
+		return err
+	}
+	return json.Unmarshal(b, into)
+}
+
 // UnmarshalMsgpackUint64 decodes a msgpack value into a uint64, handling type coercion
 // from various numeric types, floats, and strings. This is useful when TypeScript/JavaScript
 // clients send numbers that may be encoded as different msgpack types.

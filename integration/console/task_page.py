@@ -26,6 +26,8 @@ class TaskPage(ConsolePage):
     Subclasses should implement device-specific functionality like channel management.
     """
 
+    pluto_label: str = ".console-task-configure"
+
     def __init__(
         self,
         layout: LayoutClient,
@@ -76,6 +78,26 @@ class TaskPage(ConsolePage):
             "msg": msg,
             "level": level,
         }
+
+    def copy_link(self) -> str:
+        """Copy link to the task via the utility button in the form header."""
+        link_button = self.page.locator(".pluto-icon--link").locator("..")
+        link_button.click(timeout=5000)
+        return self.layout.read_clipboard()
+
+    def verify_config(self, expected_channels: list[str]) -> None:
+        """Verify the task config page is visible and contains expected channels.
+
+        Args:
+            expected_channels: Channel identifiers expected in the channel list.
+        """
+        if self.pane_locator is None:
+            raise RuntimeError("No pane locator available for config verification")
+        self.pane_locator.wait_for(state="visible", timeout=10000)
+        for channel in expected_channels:
+            self.pane_locator.get_by_text(channel).first.wait_for(
+                state="visible", timeout=5000
+            )
 
     def set_parameters(
         self,

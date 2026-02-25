@@ -8,6 +8,8 @@
 #  included in the file licenses/APL.txt.
 
 
+from typing import Any
+
 from pydantic import BaseModel
 
 from synnax import ontology, status
@@ -43,7 +45,7 @@ class Device(BaseModel):
     make: str = ""
     model: str = ""
     configured: bool = False
-    properties: str = ""
+    properties: dict[str, Any] = {}
     status: Status | None = None
 
     @property

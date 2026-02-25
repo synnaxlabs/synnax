@@ -7,14 +7,13 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type device } from "@synnaxlabs/client";
 import { type Device as PlutoDevice, Flux, Icon, Menu } from "@synnaxlabs/pluto";
 import { useCallback, useMemo } from "react";
 
 import { Common } from "@/hardware/common";
 import { Device } from "@/hardware/ethercat/device";
 import { useToggleEnabled } from "@/hardware/ethercat/device/queries";
-import { type SlaveProperties } from "@/hardware/ethercat/device/types";
+import { type SlaveDevice } from "@/hardware/ethercat/device/types";
 import { Task } from "@/hardware/ethercat/task";
 import { type Ontology } from "@/ontology";
 
@@ -38,7 +37,7 @@ export const ContextMenuItems = (props: Ontology.TreeContextMenuProps) => {
   const { update: toggleEnabled } = useToggleEnabled();
 
   const { allDisabled, allEnabled } = useMemo(() => {
-    const devices = store.devices.get(keys) as device.Device<SlaveProperties>[];
+    const devices = store.devices.get(keys) as SlaveDevice[];
     const disabledCount = devices.filter((d) => !d.properties?.enabled).length;
     return {
       allDisabled: disabledCount === devices.length,
@@ -56,11 +55,18 @@ export const ContextMenuItems = (props: Ontology.TreeContextMenuProps) => {
 
   return (
     <>
-      <Common.DeviceServices.ContextMenuItems
+      <Common.DeviceServices.ConfigureMenuItem
+        {...props}
+        configureLayout={Device.CONFIGURE_LAYOUT}
+      />
+      <Common.DeviceServices.ChangeIdentifierMenuItem {...props} icon="Logo.EtherCAT" />
+      <Menu.Divider />
+      <Common.DeviceServices.TaskContextMenuItems
         {...props}
         configureLayout={Device.CONFIGURE_LAYOUT}
         taskContextMenuItemConfigs={TASK_CONTEXT_MENU_ITEM_CONFIGS}
       />
+      <Menu.Divider />
       {!allDisabled && (
         <Menu.Item itemKey="ethercat.disable" onClick={handleDisable}>
           <Icon.Disable />

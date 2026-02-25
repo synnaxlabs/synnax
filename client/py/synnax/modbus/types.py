@@ -7,11 +7,10 @@
 #  License, use of this software will be governed by the Apache License, Version 2.0,
 #  included in the file licenses/APL.txt.
 
-import json
-from typing import Literal
+from typing import Annotated, Any, Literal
 from uuid import uuid4
 
-from pydantic import BaseModel, Field, confloat, conint, field_validator
+from pydantic import BaseModel, Field, field_validator
 
 from synnax import channel as channel_
 from synnax import device, task
@@ -32,7 +31,7 @@ class BaseChan(BaseModel):
     address: int = Field(ge=0, le=65535)
     "The Modbus register address (0-65535)."
 
-    def __init__(self, **data):
+    def __init__(self, **data: Any) -> None:
         if "key" not in data or not data["key"]:
             data["key"] = str(uuid4())
         super().__init__(**data)
@@ -392,13 +391,13 @@ class ReadTaskConfig(task.BaseReadConfig):
 
     device: str = Field(min_length=1)
     "The key of the Synnax Modbus device to read from."
-    sample_rate: conint(ge=0, le=10000)
-    stream_rate: conint(ge=0, le=10000)
+    sample_rate: Annotated[int, Field(ge=0, le=10000)]
+    stream_rate: Annotated[int, Field(ge=0, le=10000)]
     channels: list[InputChan]
     "A list of input channel configurations to acquire data from."
 
     @field_validator("channels")
-    def validate_channels_not_empty(cls, v):
+    def validate_channels_not_empty(cls, v: list[InputChan]) -> list[InputChan]:
         """Validate that at least one channel is provided."""
         if len(v) == 0:
             raise ValueError("Task must have at least one channel")
@@ -418,7 +417,7 @@ class WriteTaskConfig(task.BaseWriteConfig):
     "A list of output channel configurations to write to."
 
     @field_validator("channels")
-    def validate_channels_not_empty(cls, v):
+    def validate_channels_not_empty(cls, v: list[OutputChan]) -> list[OutputChan]:
         """Validate that at least one channel is provided."""
         if len(v) == 0:
             raise ValueError("Task must have at least one channel")
@@ -462,11 +461,11 @@ class ReadTask(task.StarterStopperMixin, task.JSONConfigMixin, task.Protocol):
         stream_rate: CrudeRate = 0,
         data_saving: bool = False,
         auto_start: bool = False,
-        channels: list[InputChan] = None,
+        channels: list[InputChan] | None = None,
     ) -> None:
         if internal is not None:
             self._internal = internal
-            self.config = ReadTaskConfig.model_validate_json(internal.config)
+            self.config = ReadTaskConfig.model_validate(internal.config)
             return
         self._internal = task.Task(name=name, type=self.TYPE)
         self.config = ReadTaskConfig(
@@ -492,14 +491,8 @@ class ReadTask(task.StarterStopperMixin, task.JSONConfigMixin, task.Protocol):
 
         Keys use hyphens instead of underscores to match Console's naming convention.
         """
-        import json
-
         dev = device_client.retrieve(key=self.config.device)
-        props = (
-            json.loads(dev.properties)
-            if isinstance(dev.properties, str)
-            else dev.properties
-        )
+        props = dict(dev.properties)
 
         if "read" not in props:
             props["read"] = {"index": 0, "channels": {}}
@@ -516,7 +509,7 @@ class ReadTask(task.StarterStopperMixin, task.JSONConfigMixin, task.Protocol):
 
             props["read"]["channels"][key] = ch.channel
 
-        dev.properties = json.dumps(props)
+        dev.properties = props
         return device_client.create(dev)
 
 
@@ -547,11 +540,11 @@ class WriteTask(task.StarterStopperMixin, task.JSONConfigMixin, task.Protocol):
         device: device.Key = "",
         name: str = "",
         auto_start: bool = False,
-        channels: list[OutputChan] = None,
+        channels: list[OutputChan] | None = None,
     ):
         if internal is not None:
             self._internal = internal
-            self.config = WriteTaskConfig.model_validate_json(internal.config)
+            self.config = WriteTaskConfig.model_validate(internal.config)
             return
         self._internal = task.Task(name=name, type=self.TYPE)
         self.config = WriteTaskConfig(
@@ -576,14 +569,8 @@ class WriteTask(task.StarterStopperMixin, task.JSONConfigMixin, task.Protocol):
 
         Keys use hyphens instead of underscores to match Console's naming convention.
         """
-        import json
-
         dev = device_client.retrieve(key=self.config.device)
-        props = (
-            json.loads(dev.properties)
-            if isinstance(dev.properties, str)
-            else dev.properties
-        )
+        props = dict(dev.properties)
 
         if "write" not in props:
             props["write"] = {"channels": {}}
@@ -596,7 +583,7 @@ class WriteTask(task.StarterStopperMixin, task.JSONConfigMixin, task.Protocol):
             # Map the generated key to the Synnax channel that will send command values
             props["write"]["channels"][key] = ch.channel
 
-        dev.properties = json.dumps(props)
+        dev.properties = props
         return device_client.create(dev)
 
 
@@ -677,5 +664,5 @@ class Device(device.Device):
             make=MAKE,
             model=MODEL,
             configured=configured,
-            properties=json.dumps(props),
+            properties=props,
         )

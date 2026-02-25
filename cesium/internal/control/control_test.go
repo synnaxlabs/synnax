@@ -10,6 +10,10 @@
 package control_test
 
 import (
+	"fmt"
+	"sync"
+	"time"
+
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/cesium/internal/channel"
@@ -947,5 +951,52 @@ var _ = Describe("Control", func() {
 			Expect(err).ToNot(HaveOccurred())
 		})
 
+	})
+
+	Context("Concurrent Open and Close", func() {
+		BeforeEach(func() {
+			cfg.Concurrency = xcontrol.ConcurrencyExclusive
+		})
+
+		It("Should not deadlock when opening and closing gates concurrently", func() {
+			const (
+				numGoroutines   = 10
+				opsPerGoroutine = 200
+			)
+			var wg sync.WaitGroup
+			wg.Add(numGoroutines)
+			for i := range numGoroutines {
+				go func() {
+					defer GinkgoRecover()
+					defer wg.Done()
+					for j := range opsPerGoroutine {
+						gateCfg := control.GateConfig[testResource]{
+							Subject: xcontrol.Subject{
+								Key:  fmt.Sprintf("g-%d-%d", i, j),
+								Name: fmt.Sprintf("g-%d-%d", i, j),
+							},
+							TimeRange:    telem.TimeRangeMax,
+							Authority:    xcontrol.AuthorityAbsolute,
+							OpenResource: func() (testResource, error) { return testResource{value: i*1000 + j}, nil },
+						}
+						g, _, err := c.OpenGate(gateCfg)
+						if err != nil {
+							continue
+						}
+						g.Release()
+					}
+				}()
+			}
+			done := make(chan struct{})
+			go func() {
+				wg.Wait()
+				close(done)
+			}()
+			select {
+			case <-done:
+			case <-time.After(10 * time.Second):
+				Fail("Deadlock detected: concurrent open/close did not complete within 10 seconds")
+			}
+		})
 	})
 })

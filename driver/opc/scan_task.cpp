@@ -11,16 +11,13 @@
 #include <utility>
 
 #include "glog/logging.h"
-#include "nlohmann/json.hpp"
 #include "open62541/client.h"
 #include "open62541/client_highlevel.h"
 #include "open62541/types.h"
 
-#include "x/cpp/defer/defer.h"
 #include "x/cpp/json/json.h"
 #include "x/cpp/status/status.h"
 
-#include "driver/common/status.h"
 #include "driver/opc/device/device.h"
 #include "driver/opc/scan_task.h"
 #include "driver/opc/telem/telem.h"
@@ -182,7 +179,6 @@ void Scanner::browse_nodes(const task::Command &cmd) const {
 
     auto [connection, err] = conn_pool->acquire(args.connection, SCAN_LOG_PREFIX);
     if (err) {
-        status.variant = x::status::VARIANT_ERROR;
         status.message = err.message();
         return ctx->set_status(status);
     }

@@ -88,4 +88,4 @@ class Select(Symbol):
         self.layout.select_from_dropdown(option_name)
 
         send_button = self.locator.locator("button").filter(has_text="Send")
-        send_button.click(timeout=500)
+        send_button.click(timeout=2000)

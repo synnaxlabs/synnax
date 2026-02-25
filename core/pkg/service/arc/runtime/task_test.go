@@ -113,13 +113,19 @@ var _ = Describe("Task", Ordered, func() {
 		})
 	}
 
+	configToMap := func(cfg runtime.TaskConfig) map[string]any {
+		cfgJSON := MustSucceed(json.Marshal(cfg))
+		var cfgMap map[string]any
+		Expect(json.Unmarshal(cfgJSON, &cfgMap)).To(Succeed())
+		return cfgMap
+	}
+
 	newTask := func(factory *runtime.Factory) driver.Task {
-		cfgJSON := MustSucceed(json.Marshal(runtime.TaskConfig{ArcKey: uuid.New()}))
 		svcTask := task.Task{
 			Key:    task.NewKey(rack.NewKey(1, 1), 1),
 			Name:   "test-task",
 			Type:   runtime.TaskType,
-			Config: string(cfgJSON),
+			Config: configToMap(runtime.TaskConfig{ArcKey: uuid.New()}),
 		}
 		t := MustBeOk(MustSucceed2(factory.ConfigureTask(newContext(), svcTask)))
 		return t
@@ -161,6 +167,54 @@ var _ = Describe("Task", Ordered, func() {
 		}
 	}
 
+	bangBangProg := func(ch1, ch2, stopSignal, startSignal *channel.Channel) arc.Text {
+		return arc.Text{
+			Raw: fmt.Sprintf(`
+				authority (%s 210 %s 210)
+
+				func high_bang() {
+					%s = 1
+				}
+
+				func low_bang() {
+					%s = 1
+				}
+
+				sequence bb {
+					stage start {
+						set_authority{value=220, channel=%s},
+						set_authority{value=220, channel=%s},
+						interval{period=50ms} -> high_bang{},
+						interval{period=50ms} -> low_bang{},
+						%s => stop
+					}
+					stage stop {
+						0 -> %s,
+						0 -> %s,
+						wait{duration=100ms} => yield
+					}
+					stage yield {
+						set_authority{value=0, channel=%s},
+						set_authority{value=0, channel=%s},
+						%s => start
+					}
+				}
+
+				%s => bb
+			`,
+				ch1.Name, ch2.Name,
+				ch1.Name,
+				ch2.Name,
+				ch1.Name, ch2.Name,
+				stopSignal.Name,
+				ch1.Name, ch2.Name,
+				ch1.Name, ch2.Name,
+				startSignal.Name,
+				startSignal.Name,
+			),
+		}
+	}
+
 	Describe("Factory.ConfigureTask", func() {
 		It("Should return false for non-arc task types", func() {
 			factory := MustSucceed(runtime.NewFactory(runtime.FactoryConfig{
@@ -174,7 +228,7 @@ var _ = Describe("Task", Ordered, func() {
 			svcTask := task.Task{
 				Key:    task.NewKey(rack.NewKey(1, 1), 1),
 				Type:   "not-arc",
-				Config: "{}",
+				Config: map[string]any{},
 			}
 			t, handled := MustSucceed2(factory.ConfigureTask(newContext(), svcTask))
 			Expect(handled).To(BeFalse())
@@ -198,10 +252,10 @@ var _ = Describe("Task", Ordered, func() {
 			svcTask := task.Task{
 				Key:    task.NewKey(rack.NewKey(1, 1), 1),
 				Type:   runtime.TaskType,
-				Config: "invalid json",
+				Config: map[string]any{"arc_key": "not-a-valid-uuid"},
 			}
 			task, ok, err := factory.ConfigureTask(newContext(), svcTask)
-			Expect(err).To(MatchError(ContainSubstring("invalid character 'i'")))
+			Expect(err).To(HaveOccurred())
 			Expect(ok).To(BeTrue())
 			Expect(task).To(BeNil())
 		})
@@ -213,11 +267,10 @@ var _ = Describe("Task", Ordered, func() {
 				Status:    statusSvc,
 				GetModule: moduleNotFoundGetter,
 			}))
-			cfgJSON := MustSucceed(json.Marshal(runtime.TaskConfig{ArcKey: uuid.New()}))
 			svcTask := task.Task{
 				Key:    task.NewKey(rack.NewKey(1, 1), 1),
 				Type:   runtime.TaskType,
-				Config: string(cfgJSON),
+				Config: configToMap(runtime.TaskConfig{ArcKey: uuid.New()}),
 			}
 			t, handled, err := factory.ConfigureTask(newContext(), svcTask)
 			Expect(err).To(MatchError(query.ErrNotFound))
@@ -236,7 +289,7 @@ var _ = Describe("Task", Ordered, func() {
 				Key:    task.NewKey(rack.NewKey(1, 1), 2),
 				Name:   "test-invalid-config",
 				Type:   runtime.TaskType,
-				Config: "invalid json",
+				Config: map[string]any{"arc_key": "not-a-valid-uuid"},
 			}
 			_, _, err := factory.ConfigureTask(newContext(), svcTask)
 			Expect(err).To(HaveOccurred())
@@ -245,7 +298,7 @@ var _ = Describe("Task", Ordered, func() {
 				WhereKeys(task.OntologyID(svcTask.Key).String()).
 				Entry(&stat).Exec(ctx, nil)).To(Succeed())
 			Expect(stat.Variant).To(BeEquivalentTo("error"))
-			Expect(stat.Message).To(ContainSubstring("invalid character"))
+			Expect(stat.Message).To(ContainSubstring("invalid UUID"))
 			Expect(stat.Details.Running).To(BeFalse())
 		})
 
@@ -256,12 +309,11 @@ var _ = Describe("Task", Ordered, func() {
 				Status:    statusSvc,
 				GetModule: moduleNotFoundGetter,
 			}))
-			cfgJSON := MustSucceed(json.Marshal(runtime.TaskConfig{ArcKey: uuid.New()}))
 			svcTask := task.Task{
 				Key:    task.NewKey(rack.NewKey(1, 1), 3),
 				Name:   "test-module-not-found",
 				Type:   runtime.TaskType,
-				Config: string(cfgJSON),
+				Config: configToMap(runtime.TaskConfig{ArcKey: uuid.New()}),
 			}
 			_, _, err := factory.ConfigureTask(newContext(), svcTask)
 			Expect(err).To(MatchError(query.ErrNotFound))
@@ -285,7 +337,7 @@ var _ = Describe("Task", Ordered, func() {
 				Key:    task.NewKey(rack.NewKey(1, 1), 4),
 				Name:   "test-config-success",
 				Type:   runtime.TaskType,
-				Config: string(MustSucceed(json.Marshal(runtime.TaskConfig{ArcKey: uuid.New()}))),
+				Config: configToMap(runtime.TaskConfig{ArcKey: uuid.New()}),
 			}
 			t, handled := MustSucceed2(
 				newGraphFactory(simpleGraph(ch.Key())).
@@ -314,10 +366,10 @@ var _ = Describe("Task", Ordered, func() {
 				Key:  task.NewKey(rack.NewKey(1, 1), 5),
 				Name: "test-auto-start",
 				Type: runtime.TaskType,
-				Config: string(MustSucceed(json.Marshal(runtime.TaskConfig{
+				Config: configToMap(runtime.TaskConfig{
 					ArcKey:    uuid.New(),
 					AutoStart: true,
-				}))),
+				}),
 			}
 			t, handled := MustSucceed2(newGraphFactory(
 				simpleGraph(ch.Key())).
@@ -395,12 +447,11 @@ var _ = Describe("Task", Ordered, func() {
 			badNodeGraph := graph.Graph{
 				Nodes: []graph.Node{{Key: "bad", Type: "nonexistent_type", Config: map[string]any{}}},
 			}
-			cfgJSON := MustSucceed(json.Marshal(runtime.TaskConfig{ArcKey: uuid.New()}))
 			svcTask := task.Task{
 				Key:    task.NewKey(rack.NewKey(1, 1), 1),
 				Name:   "test-bad-node",
 				Type:   runtime.TaskType,
-				Config: string(cfgJSON),
+				Config: configToMap(runtime.TaskConfig{ArcKey: uuid.New()}),
 			}
 			_, ok, err := newGraphFactory(badNodeGraph).ConfigureTask(newContext(), svcTask)
 			Expect(ok).To(BeTrue())
@@ -976,6 +1027,118 @@ var _ = Describe("Task", Ordered, func() {
 			Expect(fr.Frame.Get(dataCh.Key()).Len()).To(BeEquivalentTo(1))
 			Expect(telem.ValueAt[uint8](fr.Frame.Get(dataCh.Key()).Series[0], 0)).To(Equal(uint8(42)))
 		})
+
+		It("Should release per-channel authority on both channels after bang-bang start → stop → yield", func() {
+			ch1 := createVirtualCh("bb_ch1", telem.Uint8T)
+			ch2 := createVirtualCh("bb_ch2", telem.Uint8T)
+			stopSignal := createVirtualCh("bb_stop", telem.Uint8T)
+			startSignal := createVirtualCh("bb_start", telem.Uint8T)
+			prog := bangBangProg(ch1, ch2, stopSignal, startSignal)
+
+			responses, closeStreamer := openTestStreamer(channel.Keys{ch1.Key(), ch2.Key()}, 20)
+			defer closeStreamer()
+
+			t := newTask(newTextFactory(prog))
+			Expect(t.Exec(ctx, task.Command{Type: "start"})).To(Succeed())
+			defer func() { Expect(t.Stop(false)).To(Succeed()) }()
+
+			startW := MustSucceed(dist.Framer.OpenWriter(ctx, framer.WriterConfig{
+				Keys:  channel.Keys{startSignal.Key()},
+				Start: telem.Now(),
+			}))
+			Expect(startW.Write(frame.NewUnary(startSignal.Key(), telem.NewSeriesV[uint8](1)))).To(BeTrue())
+			Expect(startW.Close()).To(Succeed())
+
+			var fr framer.StreamerResponse
+			Eventually(responses, 500*time.Millisecond).Should(Receive(&fr))
+
+			clearW := MustSucceed(dist.Framer.OpenWriter(ctx, framer.WriterConfig{
+				Keys:  channel.Keys{startSignal.Key()},
+				Start: telem.Now(),
+			}))
+			Expect(clearW.Write(frame.NewUnary(startSignal.Key(), telem.NewSeriesV[uint8](0)))).To(BeTrue())
+			Expect(clearW.Close()).To(Succeed())
+			time.Sleep(100 * time.Millisecond)
+
+			stopW := MustSucceed(dist.Framer.OpenWriter(ctx, framer.WriterConfig{
+				Keys:  channel.Keys{stopSignal.Key()},
+				Start: telem.Now(),
+			}))
+			Expect(stopW.Write(frame.NewUnary(stopSignal.Key(), telem.NewSeriesV[uint8](1)))).To(BeTrue())
+			Expect(stopW.Close()).To(Succeed())
+
+			time.Sleep(300 * time.Millisecond)
+
+			w1 := MustSucceed(dist.Framer.OpenWriter(ctx, framer.WriterConfig{
+				Keys:        channel.Keys{ch1.Key()},
+				Start:       telem.Now(),
+				Authorities: []control.Authority{control.Authority(1)},
+				Sync:        new(true),
+			}))
+			defer func() { Expect(w1.Close()).To(Succeed()) }()
+			Expect(w1.Write(frame.NewUnary(ch1.Key(), telem.NewSeriesV[uint8](99)))).To(BeTrue())
+
+			w2 := MustSucceed(dist.Framer.OpenWriter(ctx, framer.WriterConfig{
+				Keys:        channel.Keys{ch2.Key()},
+				Start:       telem.Now(),
+				Authorities: []control.Authority{control.Authority(1)},
+				Sync:        new(true),
+			}))
+			defer func() { Expect(w2.Close()).To(Succeed()) }()
+			Expect(w2.Write(frame.NewUnary(ch2.Key(), telem.NewSeriesV[uint8](99)))).To(BeTrue())
+		})
+
+		It("Should reclaim authority symmetrically on both channels when start signal stays active through yield", func() {
+			ch1 := createVirtualCh("bb2_ch1", telem.Uint8T)
+			ch2 := createVirtualCh("bb2_ch2", telem.Uint8T)
+			stopSignal := createVirtualCh("bb2_stop", telem.Uint8T)
+			startSignal := createVirtualCh("bb2_start", telem.Uint8T)
+			prog := bangBangProg(ch1, ch2, stopSignal, startSignal)
+
+			responses, closeStreamer := openTestStreamer(channel.Keys{ch1.Key(), ch2.Key()}, 20)
+			defer closeStreamer()
+
+			t := newTask(newTextFactory(prog))
+			Expect(t.Exec(ctx, task.Command{Type: "start"})).To(Succeed())
+			defer func() { Expect(t.Stop(false)).To(Succeed()) }()
+
+			startW := MustSucceed(dist.Framer.OpenWriter(ctx, framer.WriterConfig{
+				Keys:  channel.Keys{startSignal.Key()},
+				Start: telem.Now(),
+			}))
+			Expect(startW.Write(frame.NewUnary(startSignal.Key(), telem.NewSeriesV[uint8](1)))).To(BeTrue())
+			Expect(startW.Close()).To(Succeed())
+
+			var fr framer.StreamerResponse
+			Eventually(responses, 500*time.Millisecond).Should(Receive(&fr))
+
+			stopW := MustSucceed(dist.Framer.OpenWriter(ctx, framer.WriterConfig{
+				Keys:  channel.Keys{stopSignal.Key()},
+				Start: telem.Now(),
+			}))
+			Expect(stopW.Write(frame.NewUnary(stopSignal.Key(), telem.NewSeriesV[uint8](1)))).To(BeTrue())
+			Expect(stopW.Close()).To(Succeed())
+
+			time.Sleep(300 * time.Millisecond)
+
+			w1 := MustSucceed(dist.Framer.OpenWriter(ctx, framer.WriterConfig{
+				Keys:        channel.Keys{ch1.Key()},
+				Start:       telem.Now(),
+				Authorities: []control.Authority{control.Authority(100)},
+				Sync:        new(true),
+			}))
+			defer func() { Expect(w1.Close()).To(Succeed()) }()
+			Expect(w1.Write(frame.NewUnary(ch1.Key(), telem.NewSeriesV[uint8](99)))).To(BeFalse())
+
+			w2 := MustSucceed(dist.Framer.OpenWriter(ctx, framer.WriterConfig{
+				Keys:        channel.Keys{ch2.Key()},
+				Start:       telem.Now(),
+				Authorities: []control.Authority{control.Authority(100)},
+				Sync:        new(true),
+			}))
+			defer func() { Expect(w2.Close()).To(Succeed()) }()
+			Expect(w2.Write(frame.NewUnary(ch2.Key(), telem.NewSeriesV[uint8](99)))).To(BeFalse())
+		})
 	})
 
 	Describe("Runtime Error Handling", func() {
@@ -992,12 +1155,11 @@ var _ = Describe("Task", Ordered, func() {
 				`, outputCh.Name, inputCh.Name, inputCh.Name),
 			}
 
-			cfgJSON := MustSucceed(json.Marshal(runtime.TaskConfig{ArcKey: uuid.New()}))
 			svcTask := task.Task{
 				Key:    task.NewKey(rack.NewKey(1, 1), 100),
 				Name:   "test-div-zero",
 				Type:   runtime.TaskType,
-				Config: string(cfgJSON),
+				Config: configToMap(runtime.TaskConfig{ArcKey: uuid.New()}),
 			}
 			t := MustBeOk(MustSucceed2(newTextFactory(prog).ConfigureTask(newContext(), svcTask)))
 			Expect(t.Exec(ctx, task.Command{Type: "start"})).To(Succeed())
@@ -1114,12 +1276,11 @@ var _ = Describe("Task", Ordered, func() {
 				`, outputCh.Name, inputCh.Name, inputCh.Name),
 			}
 
-			cfgJSON := MustSucceed(json.Marshal(runtime.TaskConfig{ArcKey: uuid.New()}))
 			svcTask := task.Task{
 				Key:    task.NewKey(rack.NewKey(1, 1), 101),
 				Name:   "test-div-recover",
 				Type:   runtime.TaskType,
-				Config: string(cfgJSON),
+				Config: configToMap(runtime.TaskConfig{ArcKey: uuid.New()}),
 			}
 			t := MustBeOk(MustSucceed2(newTextFactory(prog).ConfigureTask(newContext(), svcTask)))
 

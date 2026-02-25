@@ -65,7 +65,7 @@ class Client:
     @overload
     def create(
         self,
-        role: Role,
+        roles: Role,
     ) -> Role: ...
 
     @overload
@@ -89,6 +89,7 @@ class Client:
     @overload
     def retrieve(
         self,
+        *,
         keys: list[UUID] | None = None,
         limit: int | None = None,
         offset: int | None = None,
@@ -104,7 +105,7 @@ class Client:
         internal: bool | None = None,
     ) -> Role | list[Role]:
         is_single = key is not None
-        if is_single:
+        if is_single and key is not None:
             keys = [key]
         req = _RetrieveRequest(keys=keys, limit=limit, offset=offset, internal=internal)
         res = send_required(

@@ -9,3 +9,5 @@
 
 from synnax.group.client import Client
 from synnax.group.payload import Group
+
+__all__ = ["Client", "Group"]

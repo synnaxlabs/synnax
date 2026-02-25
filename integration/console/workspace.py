@@ -357,10 +357,18 @@ class WorkspaceClient:
         Args:
             name: Name of the page to drag
         """
-        page_item = self._find_page(name)
-        mosaic = self.layout.page.locator(".console-mosaic").first
-        page_item.drag_to(mosaic)
-        self.layout.close_left_toolbar()
+        for attempt in range(2):
+            self.layout.show_resource_toolbar("workspace")
+            page_item = self._find_page(name)
+            mosaic = self.layout.page.locator(".console-mosaic").first
+            page_item.drag_to(mosaic)
+            self.layout.close_left_toolbar()
+            try:
+                self.layout.wait_for_tab(name)
+                return
+            except PlaywrightTimeoutError:
+                if attempt == 1:
+                    raise
 
     def rename_page(self, old_name: str, new_name: str) -> None:
         """Rename a page via context menu in the workspace resources toolbar.
@@ -730,20 +738,9 @@ class WorkspaceClient:
         """
         if not names:
             return
-
         self.expand_active()
-
-        first_item = self.get_page(names[0])
-        first_item.wait_for(state="visible", timeout=5000)
-        first_item.click()
-
-        for name in names[1:]:
-            page_item = self.get_page(name)
-            page_item.wait_for(state="visible", timeout=5000)
-            page_item.click(modifiers=["ControlOrMeta"])
-
-        last_item = first_item if len(names) == 1 else self.get_page(names[-1])
-        self.ctx_menu.action(last_item, f"Snapshot to {range_name}")
+        last = self.layout.ctrl_select_items(names, self.get_page)
+        self.ctx_menu.action(last, f"Snapshot to {range_name}")
         self.layout.close_left_toolbar()
 
     def copy_page(self, name: str, new_name: str) -> None:
@@ -773,26 +770,12 @@ class WorkspaceClient:
         """
         if not names:
             return
-
         self.expand_active()
-
-        first_item = self.get_page(names[0])
-        first_item.wait_for(state="visible", timeout=5000)
-        first_item.click()
-
-        for name in names[1:]:
-            page_item = self.get_page(name)
-            page_item.wait_for(state="visible", timeout=5000)
-            page_item.click(modifiers=["ControlOrMeta"])
-
-        # For single item, reuse first_item; otherwise get the last item
-        last_item = first_item if len(names) == 1 else self.get_page(names[-1])
-        self.ctx_menu.action(last_item, "Copy")
-
+        last = self.layout.ctrl_select_items(names, self.get_page)
+        self.ctx_menu.action(last, "Copy")
         for name in names:
             copy_name = f"{name} (copy)"
             self.get_page(copy_name).wait_for(state="visible", timeout=5000)
-
         self.layout.close_left_toolbar()
 
     def create(self, name: str) -> bool:

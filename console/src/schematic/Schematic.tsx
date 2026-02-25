@@ -22,6 +22,7 @@ import {
   Schematic as Base,
   Theming,
   usePrevious,
+  User,
   useSyncedRef,
   Viewport,
 } from "@synnaxlabs/pluto";
@@ -182,6 +183,9 @@ export const ContextMenu: Layout.ContextMenuRenderer = ({ layoutKey }) => (
 export const Loaded: Layout.Renderer = ({ layoutKey, visible }) => {
   const windowKey = useSelectWindowKey() as string;
   const { name } = Layout.useSelectRequired(layoutKey);
+  const { data: user } = User.useRetrieve({}, { addStatusOnFailure: false });
+  const username = user?.username ?? "";
+  const controlName = username.length > 0 ? `${name} (${username})` : name;
   const state = useSelectRequired(layoutKey);
   const legendVisible = useSelectLegendVisible(layoutKey);
   const dispatch = useDispatch();
@@ -326,6 +330,12 @@ export const Loaded: Layout.Renderer = ({ layoutKey, visible }) => {
     [storeLegendPosition, setLegendPosition],
   );
 
+  const handleLegendColorsChange = useCallback(
+    (colors: Record<string, string>) =>
+      syncDispatch(setLegend({ key: layoutKey, legend: { colors } })),
+    [layoutKey, syncDispatch],
+  );
+
   const handleViewportModeChange = useCallback(
     (mode: Viewport.Mode) => dispatch(setViewportMode({ key: layoutKey, mode })),
     [dispatch, layoutKey],
@@ -375,7 +385,7 @@ export const Loaded: Layout.Renderer = ({ layoutKey, visible }) => {
       style={{ width: "inherit", height: "inherit", position: "relative" }}
     >
       <Control.Controller
-        name={name}
+        name={controlName}
         authority={state.authority}
         onStatusChange={handleControlStatusChange}
       >
@@ -417,6 +427,8 @@ export const Loaded: Layout.Renderer = ({ layoutKey, visible }) => {
           <Control.Legend
             position={legendPosition}
             onPositionChange={handleLegendPositionChange}
+            colors={state.legend.colors}
+            onColorsChange={handleLegendColorsChange}
             allowVisibleChange={false}
           />
         )}
