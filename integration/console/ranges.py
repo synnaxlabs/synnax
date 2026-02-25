@@ -64,6 +64,26 @@ class RangesClient:
         btn.wait_for(state="visible", timeout=5000)
         self._fill_datetime_picker(btn, year, month, day, hour, minute, second)
 
+    def _open_color_picker(self, parent: Locator | None = None) -> Locator:
+        """Open the Annotation Color picker and return the dialog.
+
+        Locates the Annotation Color field by filtering for the label text,
+        clicks the swatch to open the picker, and returns the dialog locator.
+
+        Args:
+            parent: Optional parent locator to scope the search (e.g., a modal).
+                    Defaults to the full page.
+        """
+        root = parent or self.layout.page
+        color_field = root.locator(".pluto-input__item").filter(
+            has_text="Annotation Color"
+        )
+        swatch = color_field.locator(".pluto-color-swatch").first
+        swatch.click()
+        dialog = color_field.locator('[role="dialog"]')
+        dialog.wait_for(state="visible", timeout=5000)
+        return dialog
+
     def _open_labels_dropdown(self) -> Locator:
         """Open the labels dropdown in the range overview and return the dialog."""
         labels_row = self.layout.page.get_by_text("Labels", exact=True).locator("..")
@@ -168,6 +188,7 @@ class RangesClient:
         parent: str | None = None,
         labels: list[str] | None = None,
         stage: str | None = None,
+        color: str | None = None,
     ) -> None:
         """Create a new range via the command palette.
 
@@ -177,12 +198,18 @@ class RangesClient:
             parent: Optional parent range name to set.
             labels: Optional list of label names to add.
             stage: Optional stage to set ("To Do", "In Progress", "Completed").
+            color: Optional hex color string (e.g., "#FF0000").
         """
         self.layout.command_palette("Create a range")
         modal = self.layout.page.locator(self.CREATE_MODAL_SELECTOR)
         modal.wait_for(state="visible", timeout=5000)
         self._fill_create_modal(
-            name, persisted=persisted, parent=parent, labels=labels, stage=stage
+            name,
+            persisted=persisted,
+            parent=parent,
+            labels=labels,
+            stage=stage,
+            color=color,
         )
 
     def _fill_create_modal(
@@ -193,6 +220,7 @@ class RangesClient:
         parent: str | None = None,
         labels: list[str] | None = None,
         stage: str | None = None,
+        color: str | None = None,
     ) -> None:
         """Fill and submit the range creation modal.
 
@@ -251,6 +279,14 @@ class RangesClient:
                         f"Available labels: {available_labels}."
                     )
             self.layout.press_escape()
+
+        if color is not None:
+            hex_value = color.lstrip("#")
+            dialog = self._open_color_picker(parent=modal)
+            hex_input = dialog.locator("input").first
+            hex_input.fill(hex_value)
+            self.layout.press_escape()
+            dialog.wait_for(state="hidden", timeout=5000)
 
         if persisted:
             save_button = self.layout.page.get_by_role("button", name="Save to Synnax")
@@ -470,6 +506,19 @@ class RangesClient:
             .first
         )
         self._pick_stage_from_dropdown(stage_button, stage)
+
+    def set_color_in_overview(self, hex_color: str) -> None:
+        """Set the annotation color in the range overview.
+
+        Args:
+            hex_color: Hex color string (e.g., "#FF0000" or "FF0000").
+        """
+        hex_value = hex_color.lstrip("#")
+        dialog = self._open_color_picker()
+        hex_input = dialog.locator("input").first
+        hex_input.fill(hex_value)
+        self.layout.press_escape()
+        dialog.wait_for(state="hidden", timeout=5000)
 
     def add_label_in_overview(self, label_name: str) -> None:
         """Add a label to the range in the overview.
