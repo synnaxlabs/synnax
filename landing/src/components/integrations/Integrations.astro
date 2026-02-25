@@ -1,0 +1,210 @@
+---
+import { Flex, Text } from "@synnaxlabs/pluto";
+import NI from "./logos/NI.astro";
+import Dewesoft from "./logos/Dewesoft.astro";
+import Beckhoff from "./logos/Beckhoff.astro";
+import Siemens from "./logos/Siemens.astro";
+import Rockwell from "./logos/Rockwell.astro";
+import Wago from "./logos/Wago.astro";
+import Omron from "./logos/Omron.astro";
+import LabJack from "./logos/LabJack.astro";
+import EtherCAT from "./logos/EtherCAT.astro";
+import Modbus from "./logos/Modbus.astro";
+import OPCUA from "./logos/OPCUA.astro";
+---
+
+<!-- Dither SVG filter definition -->
+<svg class="dither-filters" xmlns="http://www.w3.org/2000/svg">
+    <defs>
+        <filter
+            id="dither"
+            color-interpolation-filters="sRGB"
+            x="-5%"
+            y="-5%"
+            width="110%"
+            height="110%"
+        >
+            <feImage
+                width="2"
+                height="2"
+                href="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAQAAAAECAYAAACp8Z5+AAAASElEQVR42gXBgQAAIAxFwW8QwhBCCCGEIYQQQgghhBBCCEMYwutOkphzYmbsvdG9l9YaEYG7o1or5xxKKay1UGYyxuC9R++dD7yGJkTj6F0HAAAAAElFTkSuQmCC"
+            ></feImage>
+            <feTile></feTile>
+            <feComposite
+                operator="arithmetic"
+                k1="0"
+                k2="1"
+                k3="1"
+                k4="-0.5"
+                in="SourceGraphic"></feComposite>
+            <feComponentTransfer>
+                <feFuncR type="discrete" tableValues="0 1"></feFuncR>
+                <feFuncG type="discrete" tableValues="0 1"></feFuncG>
+                <feFuncB type="discrete" tableValues="0 1"></feFuncB>
+            </feComponentTransfer>
+        </filter>
+    </defs>
+</svg>
+
+<Flex.Box el="section" className="integrations">
+    <Text.Text level="h4" variant="code" className="integrations-label">
+        02. Integrations
+    </Text.Text>
+    <Flex.Box className="integrations-content" gap="large">
+        <Flex.Box className="integrations-text">
+            <Text.Text level="h1" className="integrations-title">
+                Works with your hardware
+            </Text.Text>
+            <Text.Text level="h4" el="p" className="integrations-description">
+                Synnax natively integrates with the most popular data acquisition and
+                control hardware. Connect your devices in minutes, not weeks.
+            </Text.Text>
+        </Flex.Box>
+        <div class="integrations-grid">
+            <div class="integration-cell" style="--logo-w: 12rem; --logo-h: 6rem;"><NI /></div>
+            <div class="integration-cell" style="--logo-w: 14rem; --logo-h: 8.5rem;"><LabJack /></div>
+            <div class="integration-cell" style="--logo-w: 17rem; --logo-h: 6rem;"><Dewesoft /></div>
+            <div class="integration-cell" style="--logo-w: 31rem; --logo-h: 12rem;"><OPCUA /></div>
+            <div class="integration-cell" style="--logo-w: 10rem; --logo-h: 10rem;"><Modbus /></div>
+            <div class="integration-cell" style="--logo-w: 17rem; --logo-h: 8.5rem;"><EtherCAT /></div>
+            <div class="integration-cell" style="--logo-w: 22rem; --logo-h: 8.5rem;"><Beckhoff /></div>
+            <div class="integration-cell" style="--logo-w: 29rem; --logo-h: 11rem;"><Siemens /></div>
+            <div class="integration-cell" style="--logo-w: 24rem; --logo-h: 8.5rem;"><Rockwell /></div>
+            <div class="integration-cell" style="--logo-w: 19rem; --logo-h: 8.5rem;"><Wago /></div>
+            <div class="integration-cell" style="--logo-w: 14rem; --logo-h: 6rem;"><Omron /></div>
+        </div>
+    </Flex.Box>
+</Flex.Box>
+
+<style is:global>
+    .dither-filters {
+        position: absolute;
+        width: 0;
+        height: 0;
+        overflow: hidden;
+    }
+
+    .integrations {
+        padding: 10rem 0 15rem;
+        gap: 20rem;
+    }
+
+    .integrations-label {
+        color: var(--pluto-gray-l7);
+        font-weight: 500;
+    }
+
+    .integrations-content {
+        width: 100%;
+    }
+
+    .integrations-text {
+        gap: 3rem;
+        max-width: 900px;
+    }
+
+    .integrations-title {
+    }
+
+    .integrations-description {
+        color: var(--pluto-gray-l8);
+        max-width: 700px;
+    }
+
+    .integrations-grid {
+        display: grid;
+        grid-template-columns: repeat(4, 1fr);
+        width: 100%;
+        border: var(--pluto-border);
+        border-radius: 2rem;
+        overflow: hidden;
+    }
+
+    .integration-cell {
+        position: relative;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        padding: 5rem 3rem;
+        border-right: var(--pluto-border);
+        border-bottom: var(--pluto-border);
+        background: var(--pluto-gray-l1);
+        filter: url(#dither);
+        transition: filter 0.3s ease;
+
+        &:nth-child(4n) {
+            border-right: none;
+        }
+
+        &:nth-last-child(-n + 4) {
+            border-bottom: none;
+        }
+
+        &:hover {
+            filter: none;
+            background: var(--pluto-gray-l1);
+        }
+
+        & svg {
+            width: var(--logo-w, 12rem);
+            height: var(--logo-h, 7rem);
+            color: var(--pluto-gray-l6);
+            object-fit: contain;
+            transition: color 0.3s ease;
+        }
+
+        &:hover svg {
+            color: var(--pluto-gray-l9);
+        }
+    }
+
+    @media (max-width: 800px) {
+        .integrations-grid {
+            grid-template-columns: repeat(3, 1fr);
+        }
+
+        .integration-cell {
+            &:nth-child(4n) {
+                border-right: var(--pluto-border);
+            }
+
+            &:nth-child(3n) {
+                border-right: none;
+            }
+
+            &:nth-last-child(-n + 4) {
+                border-bottom: var(--pluto-border);
+            }
+
+            &:nth-last-child(-n + 3) {
+                border-bottom: none;
+            }
+        }
+    }
+
+    @media (max-width: 600px) {
+        .integrations-grid {
+            grid-template-columns: repeat(2, 1fr);
+        }
+
+        .integration-cell {
+            padding: 4rem 2rem;
+
+            &:nth-child(3n) {
+                border-right: var(--pluto-border);
+            }
+
+            &:nth-child(2n) {
+                border-right: none;
+            }
+
+            &:nth-last-child(-n + 3) {
+                border-bottom: var(--pluto-border);
+            }
+
+            &:nth-last-child(-n + 2) {
+                border-bottom: none;
+            }
+        }
+    }
+</style>
