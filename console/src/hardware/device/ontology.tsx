@@ -130,7 +130,14 @@ export const ONTOLOGY_SERVICE: Ontology.Service = {
   ...Ontology.NOOP_SERVICE,
   type: "device",
   icon,
-  hasChildren: false,
+  hasChildren: ({ data }) => {
+    const props = data?.properties;
+    if (props == null || typeof props !== "object") return false;
+    // Safe narrowing — typeof guard above proves props is a non-null object.
+    // properties can't be added to the zyn ontology schema because MsgpackEncodedJSON
+    // (a named map type) panics in zyn's ObjectZ.Dump when nil.
+    return (props as Record<string, unknown>).is_chassis === true;
+  },
   TreeContextMenu,
   Item,
 };
