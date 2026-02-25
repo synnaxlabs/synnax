@@ -11,7 +11,6 @@ package expression
 
 import (
 	"github.com/antlr4-go/antlr/v4"
-	"github.com/samber/lo"
 	"github.com/synnaxlabs/arc/compiler/context"
 	"github.com/synnaxlabs/arc/symbol"
 	"github.com/synnaxlabs/arc/types"
@@ -30,19 +29,14 @@ func compileIdentifier[ASTNode antlr.ParserRuleContext](
 	case symbol.KindVariable, symbol.KindInput:
 		ctx.Writer.WriteLocalGet(scope.ID)
 		if scope.Type.Kind == types.KindChan {
-			if err = emitChannelRead(ctx, scope.Type); err != nil {
-				return types.Type{}, err
-			}
+			emitChannelRead(ctx, scope.Type)
 			return scope.Type.Unwrap(), nil
 		}
 		return scope.Type, nil
 	case symbol.KindConfig:
-		// Config params may have channel types - if so, read from the channel
 		if scope.Type.Kind == types.KindChan {
 			ctx.Writer.WriteLocalGet(scope.ID)
-			if err = emitChannelRead(ctx, scope.Type); err != nil {
-				return types.Type{}, err
-			}
+			emitChannelRead(ctx, scope.Type)
 			return scope.Type.Unwrap(), nil
 		}
 		ctx.Writer.WriteLocalGet(scope.ID)
@@ -53,15 +47,11 @@ func compileIdentifier[ASTNode antlr.ParserRuleContext](
 		}
 		return scope.Type, nil
 	case symbol.KindStatefulVariable:
-		if err = emitStatefulLoad(ctx, scope.ID, scope.Type); err != nil {
-			return types.Type{}, err
-		}
+		emitStatefulLoad(ctx, scope.ID, scope.Type)
 		return scope.Type, nil
 	case symbol.KindChannel:
 		ctx.Writer.WriteI32Const(int32(scope.ID))
-		if err = emitChannelRead(ctx, scope.Type); err != nil {
-			return types.Type{}, err
-		}
+		emitChannelRead(ctx, scope.Type)
 		return scope.Type.Unwrap(), nil
 	default:
 		return types.Type{}, errors.Newf("unsupported symbol kind: %v for '%s'", scope.Kind, name)
@@ -72,20 +62,14 @@ func emitStatefulLoad[ASTNode antlr.ParserRuleContext](
 	ctx context.Context[ASTNode],
 	idx int,
 	t types.Type,
-) error {
+) {
 	ctx.Writer.WriteI32Const(int32(idx))
 	emitZeroValue(ctx, t)
-	stateLoadF := lo.Ternary(
-		t.Kind == types.KindSeries,
-		ctx.Imports.GetStateLoadSeries,
-		ctx.Imports.GetStateLoad,
-	)
-	importIdx, err := stateLoadF(t.Unwrap())
-	if err != nil {
-		return err
+	if t.Kind == types.KindSeries {
+		ctx.Resolver.EmitStateLoadSeries(ctx.Writer, ctx.WriterID, *t.Elem)
+	} else {
+		ctx.Resolver.EmitStateLoad(ctx.Writer, ctx.WriterID, t.Unwrap())
 	}
-	ctx.Writer.WriteCall(importIdx)
-	return nil
 }
 
 func emitZeroValue[ASTNode antlr.ParserRuleContext](
@@ -102,7 +86,7 @@ func emitZeroValue[ASTNode antlr.ParserRuleContext](
 	case types.KindF64:
 		ctx.Writer.WriteF64Const(0.0)
 	case types.KindString:
-		ctx.Writer.WriteI32Const(0) // null string handle
+		ctx.Writer.WriteI32Const(0)
 	default:
 		ctx.Writer.WriteI32Const(0)
 	}
@@ -111,11 +95,6 @@ func emitZeroValue[ASTNode antlr.ParserRuleContext](
 func emitChannelRead[ASTNode antlr.ParserRuleContext](
 	ctx context.Context[ASTNode],
 	t types.Type,
-) error {
-	importIdx, err := ctx.Imports.GetChannelRead(t)
-	if err != nil {
-		return err
-	}
-	ctx.Writer.WriteCall(importIdx)
-	return nil
+) {
+	ctx.Resolver.EmitChannelRead(ctx.Writer, ctx.WriterID, t)
 }

@@ -17,19 +17,26 @@ import (
 	stdtime "time"
 
 	"github.com/synnaxlabs/arc/ir"
-	arcauthority "github.com/synnaxlabs/arc/runtime/authority"
-	"github.com/synnaxlabs/arc/runtime/constant"
 	"github.com/synnaxlabs/arc/runtime/node"
-	"github.com/synnaxlabs/arc/runtime/op"
 	"github.com/synnaxlabs/arc/runtime/scheduler"
-	"github.com/synnaxlabs/arc/runtime/selector"
-	"github.com/synnaxlabs/arc/runtime/stable"
-	"github.com/synnaxlabs/arc/runtime/stage"
 	"github.com/synnaxlabs/arc/runtime/state"
-	arctelem "github.com/synnaxlabs/arc/runtime/telem"
-	arctime "github.com/synnaxlabs/arc/runtime/time"
 	"github.com/synnaxlabs/arc/runtime/wasm"
-	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
+	"github.com/synnaxlabs/arc/stl"
+	"github.com/synnaxlabs/arc/stl/channel"
+	"github.com/synnaxlabs/arc/stl/constant"
+	stlcontrol "github.com/synnaxlabs/arc/stl/control"
+	stlerrors "github.com/synnaxlabs/arc/stl/errors"
+	stlmath "github.com/synnaxlabs/arc/stl/math"
+	stlop "github.com/synnaxlabs/arc/stl/op"
+	"github.com/synnaxlabs/arc/stl/selector"
+	"github.com/synnaxlabs/arc/stl/series"
+	"github.com/synnaxlabs/arc/stl/stable"
+	"github.com/synnaxlabs/arc/stl/stage"
+	"github.com/synnaxlabs/arc/stl/stat"
+	"github.com/synnaxlabs/arc/stl/stateful"
+	"github.com/synnaxlabs/arc/stl/strings"
+	"github.com/synnaxlabs/arc/stl/time"
+	distchannel "github.com/synnaxlabs/synnax/pkg/distribution/channel"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer/frame"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer/writer"
@@ -93,26 +100,34 @@ func (t *taskImpl) start(ctx context.Context) error {
 		return err
 	}
 	drt.state = state.New(stateCfg.State)
-	timeFactory := arctime.NewFactory()
-	f := node.MultiFactory{
-		arctelem.NewTelemFactory(),
-		selector.NewFactory(),
-		constant.NewFactory(),
-		op.NewFactory(),
-		stage.NewFactory(),
-		timeFactory,
-		stable.NewFactory(stable.FactoryConfig{}),
-		arcstatus.NewFactory(t.factoryCfg.Status),
-		arcauthority.NewFactory(drt.state),
+
+	timeMod := time.NewModule()
+	modules := []stl.Module{
+		channel.NewModule(drt.state.Channel, drt.state.Strings),
+		stateful.NewModule(drt.state.Series, drt.state.Strings),
+		series.NewModule(drt.state.Series),
+		strings.NewModule(drt.state.Strings),
+		stlmath.NewModule(),
+		stlerrors.NewModule(),
+		timeMod,
+		selector.NewModule(),
+		constant.NewModule(),
+		stlop.NewModule(),
+		stage.NewModule(),
+		stable.NewModule(),
+		arcstatus.NewModule(t.factoryCfg.Status),
+		stlcontrol.NewModule(drt.state.Auth),
+		&stat.Module{},
 	}
+	f := stl.MultiFactory(modules...)
 	var closers xio.MultiCloser
-	var wasmMod *wasm.Module
 
 	if len(t.prog.Module.WASM) > 0 {
 		var err error
-		wasmMod, err = wasm.OpenModule(ctx, wasm.ModuleConfig{
-			Module: t.prog.Module,
-			State:  drt.state,
+		wasmMod, err := wasm.OpenModule(ctx, wasm.ModuleConfig{
+			Module:     t.prog.Module,
+			State:      drt.state,
+			STLModules: modules,
 		})
 		if err != nil {
 			t.setStatus(status.VariantError, false, err.Error())
@@ -141,7 +156,7 @@ func (t *taskImpl) start(ctx context.Context) error {
 		nodes[irNode.Key] = n
 	}
 
-	tolerance := arctime.CalculateTolerance(timeFactory.BaseInterval)
+	tolerance := time.CalculateTolerance(timeMod.BaseInterval)
 	drt.scheduler = scheduler.New(t.prog.Module.IR, nodes, tolerance)
 
 	drt.scheduler.SetErrorHandler(scheduler.ErrorHandlerFunc(func(nodeKey string, err error) {
@@ -159,8 +174,8 @@ func (t *taskImpl) start(ctx context.Context) error {
 	pipeline := plumber.New()
 
 	var runtime confluence.Segment[framer.StreamerResponse, framer.WriterRequest] = &drt
-	if hasIntervals := timeFactory.BaseInterval != telem.TimeSpan(math.MaxInt64); hasIntervals {
-		runtime = &tickerRuntime{dataRuntime: drt, interval: timeFactory.BaseInterval}
+	if hasIntervals := timeMod.BaseInterval != telem.TimeSpan(math.MaxInt64); hasIntervals {
+		runtime = &tickerRuntime{dataRuntime: drt, interval: timeMod.BaseInterval}
 	}
 	plumber.SetSegment(pipeline, runtimeAddr, runtime)
 
@@ -313,7 +328,7 @@ type dataRuntime struct {
 	startTime telem.TimeStamp
 	scheduler *scheduler.Scheduler
 	state     *state.State
-	writeKeys channel.Keys
+	writeKeys distchannel.Keys
 }
 
 func (d *dataRuntime) next(
@@ -321,15 +336,17 @@ func (d *dataRuntime) next(
 	res framer.StreamerResponse,
 	reason node.RunReason,
 ) error {
-	d.state.Ingest(res.Frame.ToStorage())
+	d.state.Channel.Ingest(res.Frame.ToStorage())
 	d.scheduler.Next(ctx, telem.Since(d.startTime), reason)
-	d.state.ClearReads()
+	d.state.Channel.ClearReads()
 	if d.Out != nil {
 		if err := d.flushAuthorityChanges(ctx); err != nil {
 			return err
 		}
 	}
-	if fr, changed := d.state.Flush(telem.Frame[uint32]{}); changed && d.Out != nil {
+	d.state.Series.Clear()
+	d.state.Strings.Clear()
+	if fr, changed := d.state.Channel.Flush(telem.Frame[uint32]{}); changed && d.Out != nil {
 		req := framer.WriterRequest{
 			Frame:   frame.NewFromStorage(fr),
 			Command: writer.CommandWrite,
@@ -340,14 +357,14 @@ func (d *dataRuntime) next(
 }
 
 func (d *dataRuntime) flushAuthorityChanges(ctx context.Context) error {
-	changes := d.state.FlushAuthorityChanges()
+	changes := d.state.Auth.Flush()
 	if len(changes) == 0 {
 		return nil
 	}
 	cfg := writer.Config{}
 	for _, change := range changes {
 		if change.Channel != nil {
-			cfg.Keys = append(cfg.Keys, channel.Key(*change.Channel))
+			cfg.Keys = append(cfg.Keys, distchannel.Key(*change.Channel))
 			cfg.Authorities = append(cfg.Authorities, control.Authority(change.Authority))
 		} else {
 			cfg.Keys = append(cfg.Keys, d.writeKeys...)
@@ -417,7 +434,7 @@ const DefaultAuthority = control.AuthorityAbsolute
 // returns the authorities array aligned with writeKeys.
 func buildAuthorities(
 	auth ir.Authorities,
-	writeKeys channel.Keys,
+	writeKeys distchannel.Keys,
 ) []control.Authority {
 	if auth.Default == nil && len(auth.Channels) == 0 {
 		return []control.Authority{DefaultAuthority}
@@ -432,7 +449,7 @@ func buildAuthorities(
 	}
 	for key, value := range auth.Channels {
 		for i, wk := range writeKeys {
-			if wk == channel.Key(key) {
+			if wk == distchannel.Key(key) {
 				authorities[i] = control.Authority(value)
 				break
 			}

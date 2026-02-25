@@ -122,7 +122,7 @@ var _ = Describe("WASM Module", func() {
 				Params:  []wasm.ValueType{wasm.I32},
 				Results: []wasm.ValueType{wasm.I32},
 			}
-			idx := mod.AddImport("env", "imported_func", ft)
+			idx := mod.AddImport("test", "imported_func", ft)
 			Expect(idx).To(Equal(uint32(0)))
 		})
 
@@ -132,8 +132,8 @@ var _ = Describe("WASM Module", func() {
 				Params:  []wasm.ValueType{wasm.I32},
 				Results: []wasm.ValueType{wasm.I32},
 			}
-			idx1 := mod.AddImport("env", "func1", ft)
-			idx2 := mod.AddImport("env", "func2", ft)
+			idx1 := mod.AddImport("test", "func1", ft)
+			idx2 := mod.AddImport("test", "func2", ft)
 			Expect(idx1).To(Equal(uint32(0)))
 			Expect(idx2).To(Equal(uint32(1)))
 		})
@@ -144,7 +144,7 @@ var _ = Describe("WASM Module", func() {
 				Params:  []wasm.ValueType{wasm.I32},
 				Results: []wasm.ValueType{wasm.I64},
 			}
-			mod.AddImport("env", "func", ft)
+			mod.AddImport("test", "func", ft)
 			types, _, _ := mod.Debug()
 			Expect(types).To(Equal(1))
 		})
@@ -162,13 +162,13 @@ var _ = Describe("WASM Module", func() {
 				Params:  []wasm.ValueType{wasm.I32},
 				Results: []wasm.ValueType{wasm.I32},
 			}
-			mod.AddImport("env", "func1", ft)
+			mod.AddImport("test", "func1", ft)
 			Expect(mod.ImportCount()).To(Equal(uint32(1)))
 
-			mod.AddImport("env", "func2", ft)
+			mod.AddImport("test", "func2", ft)
 			Expect(mod.ImportCount()).To(Equal(uint32(2)))
 
-			mod.AddImport("env", "func3", ft)
+			mod.AddImport("test", "func3", ft)
 			Expect(mod.ImportCount()).To(Equal(uint32(3)))
 		})
 
@@ -178,7 +178,7 @@ var _ = Describe("WASM Module", func() {
 				Params:  []wasm.ValueType{wasm.I32},
 				Results: []wasm.ValueType{wasm.I32},
 			}
-			mod.AddImport("env", "imported_func", ft)
+			mod.AddImport("test", "imported_func", ft)
 			Expect(mod.ImportCount()).To(Equal(uint32(1)))
 
 			// Add local function
@@ -193,7 +193,7 @@ var _ = Describe("WASM Module", func() {
 				Params:  []wasm.ValueType{},
 				Results: []wasm.ValueType{wasm.I32},
 			}
-			mod.AddImport("env", "func", ft)
+			mod.AddImport("test", "func", ft)
 			Expect(mod.ImportCount()).To(Equal(uint32(1)))
 
 			typeIdx := mod.AddType(ft)
@@ -237,8 +237,8 @@ var _ = Describe("WASM Module", func() {
 				Results: []wasm.ValueType{},
 			}
 			// Add 2 imports
-			mod.AddImport("env", "func1", ft)
-			mod.AddImport("env", "func2", ft)
+			mod.AddImport("test", "func1", ft)
+			mod.AddImport("test", "func2", ft)
 			// Add a local function
 			typeIdx := mod.AddType(ft)
 			funcIdx := mod.AddFunction(typeIdx, []wasm.ValueType{}, []byte{})
@@ -320,7 +320,7 @@ var _ = Describe("WASM Module", func() {
 			typeIdx := mod.AddType(ft)
 
 			// Add import
-			mod.AddImport("env", "log", wasm.FunctionType{
+			mod.AddImport("test", "log", wasm.FunctionType{
 				Params:  []wasm.ValueType{wasm.I32},
 				Results: []wasm.ValueType{},
 			})
@@ -398,7 +398,7 @@ var _ = Describe("WASM Module", func() {
 				Params:  []wasm.ValueType{wasm.I32},
 				Results: []wasm.ValueType{wasm.I32},
 			}
-			mod.AddImport("env", "func", ft)
+			mod.AddImport("test", "func", ft)
 
 			bytes := mod.Generate()
 			Expect(bytes).ToNot(BeEmpty())

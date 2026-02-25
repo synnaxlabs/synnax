@@ -57,7 +57,7 @@ func (s *setAuthority) Next(node.Context) {
 		return
 	}
 	s.initialized = true
-	s.state.SetAuthority(s.channelKey, s.authority)
+	s.state.Auth.Set(s.channelKey, s.authority)
 }
 
 type setAuthorityFactory struct {

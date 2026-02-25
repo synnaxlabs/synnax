@@ -1,0 +1,12 @@
+cc_library(
+    name = "math",
+    hdrs = ["math.h"],
+    copts = select({
+        "@platforms//os:windows": ["/wd4201"],
+        "//conditions:default": [],
+    }),
+    visibility = ["//visibility:public"],
+    deps = [
+        "//arc/cpp/stl",
+    ],
+)

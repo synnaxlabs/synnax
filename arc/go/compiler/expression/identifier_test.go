@@ -124,13 +124,10 @@ var _ = Describe("Identifier Compilation", func() {
 			scope := MustSucceed(ctx.Scope.Add(ctx, symbol.Symbol{Name: "x", Kind: symbol.KindChannel, Type: types.Chan(types.I32())}))
 			Expect(scope).ToNot(BeNil())
 			byteCode, exprType := compileWithCtx(ctx, "x")
-			i := ctx.Imports.ChannelRead["i32"]
 			Expect(exprType).To(Equal(types.I32()))
 			Expect(byteCode).To(MatchOpcodes(
-				OpI32Const,
-				int32(0),
-				OpCall,
-				uint64(i),
+				OpI32Const, int32(0),
+				OpCall, uint32(0),
 			))
 		})
 
@@ -139,15 +136,11 @@ var _ = Describe("Identifier Compilation", func() {
 			scope := MustSucceed(ctx.Scope.Add(ctx, symbol.Symbol{Name: "x", Kind: symbol.KindChannel, Type: types.Chan(types.I32())}))
 			Expect(scope).ToNot(BeNil())
 			byteCode, exprType := compileWithCtx(ctx, "x + 1")
-			i := ctx.Imports.ChannelRead["i32"]
 			Expect(exprType).To(Equal(types.I32()))
 			Expect(byteCode).To(MatchOpcodes(
-				OpI32Const,
-				int32(0),
-				OpCall,
-				uint64(i),
-				OpI32Const,
-				int32(1),
+				OpI32Const, int32(0),
+				OpCall, uint32(0),
+				OpI32Const, int32(1),
 				OpI32Add,
 			))
 		})
@@ -156,15 +149,11 @@ var _ = Describe("Identifier Compilation", func() {
 			ctx := NewContext(bCtx)
 			MustSucceed(ctx.Scope.Add(ctx, symbol.Symbol{Name: "press_pt", Kind: symbol.KindChannel, Type: types.Chan(types.I32())}))
 			byteCode, exprType := compileWithCtx(ctx, "press_pt > 1")
-			i := ctx.Imports.ChannelRead["i32"]
 			Expect(exprType).To(Equal(types.U8()))
 			Expect(byteCode).To(MatchOpcodes(
-				OpI32Const,
-				int32(0),
-				OpCall,
-				uint64(i),
-				OpI32Const,
-				int32(1),
+				OpI32Const, int32(0),
+				OpCall, uint32(0),
+				OpI32Const, int32(1),
 				OpI32GtS,
 			))
 		})
@@ -315,11 +304,10 @@ var _ = Describe("Identifier Compilation", func() {
 				Type: types.I32(),
 			}))
 			bytecode, exprType := compileWithCtx(ctx, "counter")
-			i := ctx.Imports.StateLoad["i32"]
 			Expect(bytecode).To(MatchOpcodes(
-				OpI32Const, int32(0), // var ID
-				OpI32Const, int32(0), // init value
-				OpCall, uint64(i),
+				OpI32Const, int32(0),
+				OpI32Const, int32(0),
+				OpCall, uint32(0),
 			))
 			Expect(exprType).To(Equal(types.I32()))
 		})
@@ -332,11 +320,10 @@ var _ = Describe("Identifier Compilation", func() {
 				Type: types.I64(),
 			}))
 			bytecode, exprType := compileWithCtx(ctx, "total")
-			i := ctx.Imports.StateLoad["i64"]
 			Expect(bytecode).To(MatchOpcodes(
-				OpI32Const, int32(0), // var ID
-				OpI64Const, int64(0), // init value
-				OpCall, uint64(i),
+				OpI32Const, int32(0),
+				OpI64Const, int64(0),
+				OpCall, uint32(0),
 			))
 			Expect(exprType).To(Equal(types.I64()))
 		})
@@ -349,11 +336,10 @@ var _ = Describe("Identifier Compilation", func() {
 				Type: types.F32(),
 			}))
 			bytecode, exprType := compileWithCtx(ctx, "rate")
-			i := ctx.Imports.StateLoad["f32"]
 			Expect(bytecode).To(MatchOpcodes(
-				OpI32Const, int32(0), // var ID
-				OpF32Const, float32(0), // init value
-				OpCall, uint64(i),
+				OpI32Const, int32(0),
+				OpF32Const, float32(0),
+				OpCall, uint32(0),
 			))
 			Expect(exprType).To(Equal(types.F32()))
 		})
@@ -366,11 +352,10 @@ var _ = Describe("Identifier Compilation", func() {
 				Type: types.F64(),
 			}))
 			bytecode, exprType := compileWithCtx(ctx, "accumulator")
-			i := ctx.Imports.StateLoad["f64"]
 			Expect(bytecode).To(MatchOpcodes(
-				OpI32Const, int32(0), // var ID
-				OpF64Const, float64(0), // init value
-				OpCall, uint64(i),
+				OpI32Const, int32(0),
+				OpF64Const, float64(0),
+				OpCall, uint32(0),
 			))
 			Expect(exprType).To(Equal(types.F64()))
 		})
@@ -383,11 +368,10 @@ var _ = Describe("Identifier Compilation", func() {
 				Type: types.I64(),
 			}))
 			bytecode, exprType := compileWithCtx(ctx, "count + 1")
-			i := ctx.Imports.StateLoad["i64"]
 			Expect(bytecode).To(MatchOpcodes(
-				OpI32Const, int32(0), // var ID
-				OpI64Const, int64(0), // init value
-				OpCall, uint64(i),
+				OpI32Const, int32(0),
+				OpI64Const, int64(0),
+				OpCall, uint32(0),
 				OpI64Const, int64(1),
 				OpI64Add,
 			))
@@ -407,14 +391,13 @@ var _ = Describe("Identifier Compilation", func() {
 				Type: types.I64(),
 			}))
 			bytecode, exprType := compileWithCtx(ctx, "first + second")
-			i := ctx.Imports.StateLoad["i64"]
 			Expect(bytecode).To(MatchOpcodes(
-				OpI32Const, int32(0), // first var ID
-				OpI64Const, int64(0), // init value
-				OpCall, uint64(i),
-				OpI32Const, int32(1), // second var ID
-				OpI64Const, int64(0), // init value
-				OpCall, uint64(i),
+				OpI32Const, int32(0),
+				OpI64Const, int64(0),
+				OpCall, uint32(0),
+				OpI32Const, int32(1),
+				OpI64Const, int64(0),
+				OpCall, uint32(0),
 				OpI64Add,
 			))
 			Expect(exprType).To(Equal(types.I64()))
@@ -428,11 +411,10 @@ var _ = Describe("Identifier Compilation", func() {
 				Type: types.I64(),
 			}))
 			bytecode, exprType := compileWithCtx(ctx, "iterations > 10")
-			i := ctx.Imports.StateLoad["i64"]
 			Expect(bytecode).To(MatchOpcodes(
-				OpI32Const, int32(0), // var ID
-				OpI64Const, int64(0), // init value
-				OpCall, uint64(i),
+				OpI32Const, int32(0),
+				OpI64Const, int64(0),
+				OpCall, uint32(0),
 				OpI64Const, int64(10),
 				OpI64GtS,
 			))
@@ -443,7 +425,7 @@ var _ = Describe("Identifier Compilation", func() {
 	Context("User-Defined Function Calls", func() {
 		It("Should compile a simple function call with no arguments", func() {
 			ctx := NewContext(bCtx)
-			ctx.FunctionIndices = map[string]uint32{"getVal": 5}
+			ctx.Resolver.RegisterLocal("getVal", 5)
 
 			funcType := types.Function(types.FunctionProperties{
 				Outputs: types.Params{{Name: ir.DefaultOutputParam, Type: types.I64()}},
@@ -461,7 +443,7 @@ var _ = Describe("Identifier Compilation", func() {
 
 		It("Should compile a function call with arguments", func() {
 			ctx := NewContext(bCtx)
-			ctx.FunctionIndices = map[string]uint32{"add": 3}
+			ctx.Resolver.RegisterLocal("add", 3)
 
 			funcType := types.Function(types.FunctionProperties{
 				Inputs:  types.Params{{Name: "a", Type: types.I64()}, {Name: "b", Type: types.I64()}},
@@ -484,7 +466,8 @@ var _ = Describe("Identifier Compilation", func() {
 
 		It("Should compile nested function calls", func() {
 			ctx := NewContext(bCtx)
-			ctx.FunctionIndices = map[string]uint32{"inner": 2, "outer": 3}
+			ctx.Resolver.RegisterLocal("inner", 2)
+			ctx.Resolver.RegisterLocal("outer", 3)
 
 			innerType := types.Function(types.FunctionProperties{
 				Outputs: types.Params{{Name: ir.DefaultOutputParam, Type: types.I64()}},
@@ -498,15 +481,15 @@ var _ = Describe("Identifier Compilation", func() {
 
 			byteCode, exprType := compileWithCtx(ctx, "outer(inner())")
 			Expect(byteCode).To(MatchOpcodes(
-				OpCall, uint32(2), // inner() called first
-				OpCall, uint32(3), // outer() called with result
+				OpCall, uint32(2),
+				OpCall, uint32(3),
 			))
 			Expect(exprType).To(Equal(types.I64()))
 		})
 
 		It("Should compile function call in binary expression", func() {
 			ctx := NewContext(bCtx)
-			ctx.FunctionIndices = map[string]uint32{"getValue": 7}
+			ctx.Resolver.RegisterLocal("getValue", 7)
 
 			funcType := types.Function(types.FunctionProperties{
 				Outputs: types.Params{{Name: ir.DefaultOutputParam, Type: types.I64()}},

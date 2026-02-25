@@ -10,13 +10,32 @@
 package symbol_test
 
 import (
+	"context"
 	"testing"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"github.com/synnaxlabs/synnax/pkg/distribution/mock"
 )
 
 func TestSymbol(t *testing.T) {
 	RegisterFailHandler(Fail)
 	RunSpecs(t, "Symbol Suite")
 }
+
+var (
+	ctx  context.Context
+	dist mock.Node
+)
+
+var _ = BeforeEach(func() { ctx = context.Background() })
+
+var _ = BeforeSuite(func() {
+	ctx = context.Background()
+	distB := mock.NewCluster()
+	dist = distB.Provision(ctx)
+})
+
+var _ = AfterSuite(func() {
+	Expect(dist.Close()).To(Succeed())
+})

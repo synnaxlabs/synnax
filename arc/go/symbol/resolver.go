@@ -104,3 +104,40 @@ func (c CompoundResolver) Search(ctx context.Context, term string) ([]Symbol, er
 	}
 	return symbols, accumulatedErr
 }
+
+// ModuleResolver handles qualified name resolution for a named module. It strips
+// the "Name." prefix before delegating to Members.
+type ModuleResolver struct {
+	// Name is the module namespace (e.g., "math").
+	Name string
+	// Members contains the module's symbols keyed by bare name.
+	Members MapResolver
+}
+
+var _ Resolver = (*ModuleResolver)(nil)
+
+// Resolve looks up a symbol by qualified name. If the name has the prefix
+// "Name.", it strips the prefix and delegates to Members. Otherwise it returns
+// query.ErrNotFound.
+func (m *ModuleResolver) Resolve(ctx context.Context, name string) (Symbol, error) {
+	bare, ok := strings.CutPrefix(name, m.Name+".")
+	if !ok {
+		return Symbol{}, errors.Wrapf(query.ErrNotFound, "symbol %s not found in module %s", name, m.Name)
+	}
+	return m.Members.Resolve(ctx, bare)
+}
+
+// Search returns symbols matching the given search term. If the term has the
+// prefix "Name.", it strips the prefix and delegates. If the term is a prefix
+// of "Name.", it returns all members. Otherwise it delegates with the raw term
+// for fuzzy matching.
+func (m *ModuleResolver) Search(ctx context.Context, term string) ([]Symbol, error) {
+	prefix := m.Name + "."
+	if bare, ok := strings.CutPrefix(term, prefix); ok {
+		return m.Members.Search(ctx, bare)
+	}
+	if strings.HasPrefix(prefix, term) {
+		return m.Members.Search(ctx, "")
+	}
+	return m.Members.Search(ctx, term)
+}

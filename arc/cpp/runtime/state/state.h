@@ -10,6 +10,7 @@
 #pragma once
 
 #include <cstdint>
+#include <memory>
 #include <string>
 #include <tuple>
 #include <unordered_map>
@@ -23,6 +24,10 @@
 
 #include "arc/cpp/ir/ir.h"
 #include "arc/cpp/runtime/errors/errors.h"
+#include "arc/cpp/stl/channel/state.h"
+#include "arc/cpp/stl/series/state.h"
+#include "arc/cpp/stl/stateful/state.h"
+#include "arc/cpp/stl/str/state.h"
 #include "arc/cpp/types/types.h"
 
 namespace arc::runtime::state {
@@ -38,11 +43,7 @@ struct Value {
     Series time;
 };
 
-struct ChannelDigest {
-    types::ChannelKey key;
-    x::telem::DataType data_type;
-    types::ChannelKey index;
-};
+using ChannelDigest = stl::channel::Digest;
 
 struct Config {
     ir::IR ir;
@@ -113,11 +114,11 @@ public:
     /// Reads buffered data and time series from a channel. Returns (data, index_data,
     /// ok). If the channel has an associated index, both data and time are returned.
     std::tuple<x::telem::MultiSeries, x::telem::MultiSeries, bool>
-    read_chan(types::ChannelKey key) const;
+    read_series(types::ChannelKey key) const;
 
     /// Writes data and time series to a channel buffer.
     void
-    write_chan(types::ChannelKey key, const Series &data, const Series &time) const;
+    write_series(types::ChannelKey key, const Series &data, const Series &time) const;
 
     [[nodiscard]] bool is_output_truthy(const std::string &param_name) const;
 
@@ -156,39 +157,12 @@ class State {
     Config cfg;
     std::vector<Value> values;
     std::unordered_map<ir::Handle, size_t> value_index;
-    std::unordered_map<types::ChannelKey, types::ChannelKey> indexes;
-    std::unordered_map<types::ChannelKey, std::vector<Series>> reads;
-    std::unordered_map<types::ChannelKey, Series> writes;
 
-    /// @brief Transient string handles - cleared each execution cycle.
-    std::unordered_map<uint32_t, std::string> strings;
-    uint32_t string_handle_counter = 1;
-
-    /// @brief Transient series handles - cleared each execution cycle.
-    std::unordered_map<uint32_t, x::telem::Series> series_handles;
-    uint32_t series_handle_counter = 1;
-
-    /// @brief Current node key for stateful variable isolation.
-    /// Set before each WASM call to ensure stateful variables are unique per node
-    /// instance.
-    std::string current_node_key;
-
-    /// @brief Persistent stateful variable storage.
-    /// Outer map key: node key, inner map key: variable ID.
-    std::unordered_map<std::string, std::unordered_map<uint32_t, uint8_t>> var_u8;
-    std::unordered_map<std::string, std::unordered_map<uint32_t, uint16_t>> var_u16;
-    std::unordered_map<std::string, std::unordered_map<uint32_t, uint32_t>> var_u32;
-    std::unordered_map<std::string, std::unordered_map<uint32_t, uint64_t>> var_u64;
-    std::unordered_map<std::string, std::unordered_map<uint32_t, int8_t>> var_i8;
-    std::unordered_map<std::string, std::unordered_map<uint32_t, int16_t>> var_i16;
-    std::unordered_map<std::string, std::unordered_map<uint32_t, int32_t>> var_i32;
-    std::unordered_map<std::string, std::unordered_map<uint32_t, int64_t>> var_i64;
-    std::unordered_map<std::string, std::unordered_map<uint32_t, float>> var_f32;
-    std::unordered_map<std::string, std::unordered_map<uint32_t, double>> var_f64;
-    std::unordered_map<std::string, std::unordered_map<uint32_t, std::string>>
-        var_string;
-    std::unordered_map<std::string, std::unordered_map<uint32_t, x::telem::Series>>
-        var_series;
+    /// @brief Per-module state slices.
+    std::shared_ptr<stl::channel::State> channel;
+    std::shared_ptr<stl::str::State> strings;
+    std::shared_ptr<stl::series::State> series;
+    std::shared_ptr<stl::stateful::Variables> vars;
 
     /// @brief Callback for reporting warnings (e.g., data drops).
     errors::Handler error_handler;
@@ -197,10 +171,16 @@ class State {
     std::vector<AuthorityChange> authority_changes;
 
 public:
-    void write_channel(types::ChannelKey key, const Series &data, const Series &time);
-    std::pair<x::telem::MultiSeries, bool> read_channel(types::ChannelKey key);
     explicit State(
         const Config &cfg,
+        errors::Handler error_handler = errors::noop_handler
+    );
+    State(
+        const Config &cfg,
+        std::shared_ptr<stl::channel::State> channel,
+        std::shared_ptr<stl::str::State> strings,
+        std::shared_ptr<stl::series::State> series,
+        std::shared_ptr<stl::stateful::Variables> vars,
         errors::Handler error_handler = errors::noop_handler
     );
     std::pair<Node, x::errors::Error> node(const std::string &key);
@@ -219,48 +199,8 @@ public:
 
     /// @brief Sets the current node key for stateful variable isolation.
     /// Must be called before each WASM function invocation.
-    void set_current_node_key(const std::string &key) { this->current_node_key = key; }
-
-    /// @brief Creates a string handle from raw memory pointer and length.
-    uint32_t string_from_memory(const uint8_t *data, uint32_t len);
-
-    /// @brief Creates a string handle from a C++ string.
-    uint32_t string_create(const std::string &str);
-
-    /// @brief Gets the string value for a handle. Returns empty string if not found.
-    std::string string_get(uint32_t handle) const;
-
-    /// @brief Checks if a string handle exists.
-    bool string_exists(uint32_t handle) const;
-
-    /// @brief Gets a series by handle. Returns nullptr if not found.
-    x::telem::Series *series_get(uint32_t handle);
-    const x::telem::Series *series_get(uint32_t handle) const;
-
-    /// @brief Stores a series and returns its handle.
-    uint32_t series_store(x::telem::Series series);
-
-#define DECLARE_VAR_OPS(suffix, cpptype)                                               \
-    cpptype var_load_##suffix(uint32_t var_id, cpptype init_value);                    \
-    void var_store_##suffix(uint32_t var_id, cpptype value);
-
-    DECLARE_VAR_OPS(u8, uint8_t)
-    DECLARE_VAR_OPS(u16, uint16_t)
-    DECLARE_VAR_OPS(u32, uint32_t)
-    DECLARE_VAR_OPS(u64, uint64_t)
-    DECLARE_VAR_OPS(i8, int8_t)
-    DECLARE_VAR_OPS(i16, int16_t)
-    DECLARE_VAR_OPS(i32, int32_t)
-    DECLARE_VAR_OPS(i64, int64_t)
-    DECLARE_VAR_OPS(f32, float)
-    DECLARE_VAR_OPS(f64, double)
-
-#undef DECLARE_VAR_OPS
-
-    uint32_t var_load_str(uint32_t var_id, uint32_t init_handle);
-    void var_store_str(uint32_t var_id, uint32_t str_handle);
-
-    uint32_t var_load_series(uint32_t var_id, uint32_t init_handle);
-    void var_store_series(uint32_t var_id, uint32_t handle);
+    void set_current_node_key(const std::string &key) {
+        this->vars->set_current_node_key(key);
+    }
 };
 }

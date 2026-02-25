@@ -96,7 +96,7 @@ var _ = Describe("Authority", func() {
 			Expect(n).ToNot(BeNil())
 			// Verify by exercising the node and checking the authority change
 			n.Next(node.Context{Context: ctx, MarkChanged: func(string) {}})
-			changes := s.FlushAuthorityChanges()
+			changes := s.Auth.Flush()
 			Expect(changes).To(HaveLen(1))
 			Expect(changes[0].Channel).ToNot(BeNil())
 			Expect(*changes[0].Channel).To(Equal(uint32(42)))
@@ -115,7 +115,7 @@ var _ = Describe("Authority", func() {
 			n := MustSucceed(factory.Create(ctx, cfg))
 			// Verify by exercising the node and checking the authority change
 			n.Next(node.Context{Context: ctx, MarkChanged: func(string) {}})
-			changes := s.FlushAuthorityChanges()
+			changes := s.Auth.Flush()
 			Expect(changes).To(HaveLen(1))
 			Expect(changes[0].Channel).To(BeNil())
 		})
@@ -152,7 +152,7 @@ var _ = Describe("Authority", func() {
 			}
 			n := MustSucceed(factory.Create(ctx, cfg))
 			n.Next(node.Context{Context: ctx, MarkChanged: func(string) {}})
-			changes := s.FlushAuthorityChanges()
+			changes := s.Auth.Flush()
 			Expect(changes).To(HaveLen(1))
 			Expect(changes[0].Authority).To(Equal(uint8(200)))
 			Expect(changes[0].Channel).ToNot(BeNil())
@@ -172,7 +172,7 @@ var _ = Describe("Authority", func() {
 			}
 			n := MustSucceed(factory.Create(ctx, cfg))
 			n.Next(node.Context{Context: ctx, MarkChanged: func(string) {}})
-			changes := s.FlushAuthorityChanges()
+			changes := s.Auth.Flush()
 			Expect(changes).To(HaveLen(1))
 			Expect(changes[0].Authority).To(Equal(uint8(150)))
 			Expect(changes[0].Channel).To(BeNil())
@@ -194,7 +194,7 @@ var _ = Describe("Authority", func() {
 			n.Next(nCtx)
 			n.Next(nCtx)
 			n.Next(nCtx)
-			changes := s.FlushAuthorityChanges()
+			changes := s.Auth.Flush()
 			Expect(changes).To(HaveLen(1))
 		})
 
@@ -253,7 +253,7 @@ var _ = Describe("Authority", func() {
 
 			nA.Next(nCtx)
 			nB.Next(nCtx)
-			changes := ms.FlushAuthorityChanges()
+			changes := ms.Auth.Flush()
 			Expect(changes).To(HaveLen(2))
 			Expect(*changes[0].Channel).To(Equal(uint32(10)))
 			Expect(changes[0].Authority).To(Equal(uint8(200)))
@@ -292,11 +292,11 @@ var _ = Describe("Authority", func() {
 			n := MustSucceed(factory.Create(ctx, cfg))
 			nCtx := node.Context{Context: ctx, MarkChanged: func(string) {}}
 			n.Next(nCtx)
-			changes := s.FlushAuthorityChanges()
+			changes := s.Auth.Flush()
 			Expect(changes).To(HaveLen(1))
 			n.Reset()
 			n.Next(nCtx)
-			changes = s.FlushAuthorityChanges()
+			changes = s.Auth.Flush()
 			Expect(changes).To(HaveLen(1))
 		})
 
@@ -314,11 +314,11 @@ var _ = Describe("Authority", func() {
 			n := MustSucceed(factory.Create(ctx, cfg))
 			nCtx := node.Context{Context: ctx, MarkChanged: func(string) {}}
 			n.Next(nCtx)
-			first := s.FlushAuthorityChanges()
+			first := s.Auth.Flush()
 			Expect(first).To(HaveLen(1))
 			n.Reset()
 			n.Next(nCtx)
-			second := s.FlushAuthorityChanges()
+			second := s.Auth.Flush()
 			Expect(second).To(HaveLen(1))
 			Expect(second[0].Authority).To(Equal(first[0].Authority))
 			Expect(*second[0].Channel).To(Equal(*first[0].Channel))

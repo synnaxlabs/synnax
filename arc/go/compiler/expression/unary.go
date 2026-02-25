@@ -35,14 +35,9 @@ func compileUnary(ctx context.Context[parser.IUnaryExpressionContext]) (types.Ty
 		case types.KindF64:
 			ctx.Writer.WriteOpcode(wasm.OpF64Neg)
 		case types.KindSeries:
-			// Series negation - only for signed element types
 			elemType := innerType.Unwrap()
 			if elemType.IsSigned() {
-				funcIdx, err := ctx.Imports.GetSeriesNegate(elemType)
-				if err != nil {
-					return types.Type{}, err
-				}
-				ctx.Writer.WriteCall(funcIdx)
+				ctx.Resolver.EmitSeriesNegate(ctx.Writer, ctx.WriterID, elemType)
 			} else {
 				return types.Type{}, errors.Newf("cannot negate series of unsigned type %s", elemType)
 			}
@@ -65,12 +60,10 @@ func compileUnary(ctx context.Context[parser.IUnaryExpressionContext]) (types.Ty
 					innerType.Unwrap(),
 				)
 			}
-			ctx.Writer.WriteCall(ctx.Imports.SeriesNotU8)
+			ctx.Resolver.EmitSeriesNotU8(ctx.Writer, ctx.WriterID)
 			return innerType, nil
 		}
 
-		// Logical NOT expects a boolean (u8) and returns boolean
-		// Use i32.eqz to check if value is 0 (false becomes true, true becomes false)
 		ctx.Writer.WriteOpcode(wasm.OpI32Eqz)
 		return types.U8(), nil
 	}

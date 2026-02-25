@@ -6,10 +6,14 @@ cc_library(
     hdrs = [
         "state.h",
     ],
-    visibility = ["//arc/cpp/runtime:__subpackages__"],
+    visibility = ["//visibility:public"],
     deps = [
         "//arc/cpp/ir",
         "//arc/cpp/runtime/errors",
+        "//arc/cpp/stl/channel:state",
+        "//arc/cpp/stl/series:state",
+        "//arc/cpp/stl/stateful:state",
+        "//arc/cpp/stl/str:state",
         "//x/cpp/telem",
         "//x/cpp/errors",
         "//x/cpp/mem",
@@ -24,6 +28,7 @@ cc_test(
     ],
     deps = [
         ":state",
+        "//arc/cpp/stl/channel:state",
         "//x/cpp/test",
         "@googletest//:gtest_main",
     ],
