@@ -7,8 +7,10 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+#include <algorithm>
 #include <regex>
 #include <string>
+#include <unordered_map>
 
 #include "driver/ni/scan_task.h"
 #include "errors/errors.h"
@@ -113,6 +115,25 @@ Scanner::parse_device(NISysCfgResourceHandle resource) const {
         }
     };
 
+    // Chassis/link properties (non-fatal; missing = empty/false).
+    NISysCfgBool is_chassis_val = NISysCfgBoolFalse;
+    if (!this->syscfg->GetResourceProperty(
+            resource, NISysCfgResourcePropertyIsChassis, &is_chassis_val))
+        dev.is_chassis = is_chassis_val;
+    if (!this->syscfg->GetResourceProperty(
+            resource, NISysCfgResourcePropertyConnectsToLinkName,
+            property_value_buf))
+        dev.connects_to_link_name = property_value_buf;
+    if (!this->syscfg->GetResourceProperty(
+            resource, NISysCfgResourcePropertyProvidesLinkName,
+            property_value_buf))
+        dev.provides_link_name = property_value_buf;
+
+    VLOG(1) << SCAN_LOG_PREFIX << "device " << dev.key
+            << " is_chassis=" << dev.is_chassis
+            << " connects_to=" << dev.connects_to_link_name
+            << " provides=" << dev.provides_link_name;
+
     auto err = x::errors::NIL;
     if (this->cfg.should_ignore(dev.model)) {
         LOG(WARNING) << SCAN_LOG_PREFIX << "device ignored by filter: " << dev.key
@@ -127,7 +148,6 @@ Scanner::parse_device(NISysCfgResourceHandle resource) const {
 
 std::pair<std::vector<synnax::device::Device>, x::errors::Error>
 Scanner::scan(const common::ScannerContext &ctx) {
-    std::vector<synnax::device::Device> devices;
     NISysCfgEnumResourceHandle resources = nullptr;
     NISysCfgResourceHandle curr_resource = nullptr;
 
@@ -142,31 +162,53 @@ Scanner::scan(const common::ScannerContext &ctx) {
         if (err.matches(errors::END_OF_ENUM)) {
             if (ctx.count % NO_DEVICES_LOG_MULTIPLIER == 0)
                 LOG(INFO) << SCAN_LOG_PREFIX << "no devices found.";
-            return {devices, x::errors::NIL};
+            return {{}, x::errors::NIL};
         }
-        return {devices, err};
+        return {{}, err};
     }
 
+    // Stage 1: Parse NISysCfg resources into ni::Device objects.
+    std::vector<ni::Device> ni_devices;
     while (true) {
         if (const auto next_err = this->syscfg->NextResource(
-                this->session,
-                resources,
-                &curr_resource
-            ))
+                this->session, resources, &curr_resource))
             break;
-
         auto [dev, parse_err] = this->parse_device(curr_resource);
-        if (parse_err) {
-            if (parse_err == SKIP_DEVICE_ERR) continue;
-            this->syscfg->CloseHandle(curr_resource);
-            continue;
-        }
-        devices.push_back(dev.to_synnax());
         this->syscfg->CloseHandle(curr_resource);
+        if (parse_err) continue;
+        ni_devices.push_back(std::move(dev));
+    }
+    auto close_err = this->syscfg->CloseHandle(resources);
+    if (err.skip(SKIP_DEVICE_ERR)) return {{}, err};
+
+    // Stage 2: Resolve parent links (O(N) total, O(1) per device).
+    // Build map: provides_link_name -> device key (chassis only).
+    std::unordered_map<std::string, std::string> link_to_chassis;
+    for (const auto &dev : ni_devices)
+        if (dev.is_chassis && !dev.provides_link_name.empty())
+            link_to_chassis[dev.provides_link_name] = dev.key;
+    // For each module, look up its parent chassis.
+    for (auto &dev : ni_devices) {
+        if (dev.is_chassis || dev.connects_to_link_name.empty()) continue;
+        if (auto it = link_to_chassis.find(dev.connects_to_link_name);
+            it != link_to_chassis.end())
+            dev.parent_device = it->second;
+        else
+            VLOG(1) << SCAN_LOG_PREFIX << "module " << dev.key
+                    << " connects to link '" << dev.connects_to_link_name
+                    << "' but no chassis provides it";
     }
 
-    auto close_err = this->syscfg->CloseHandle(resources);
-    if (err.skip(SKIP_DEVICE_ERR)) return {devices, err};
+    // Stage 3: Sort chassis before modules for creation ordering, then convert.
+    std::stable_sort(ni_devices.begin(), ni_devices.end(),
+        [](const ni::Device &a, const ni::Device &b) {
+            return a.is_chassis > b.is_chassis;
+        });
+
+    std::vector<synnax::device::Device> devices;
+    devices.reserve(ni_devices.size());
+    for (auto &dev : ni_devices)
+        devices.push_back(dev.to_synnax());
     return {devices, close_err};
 }
 
@@ -200,12 +242,6 @@ x::errors::Error Scanner::start() {
             this->filter,
             NISysCfgFilterPropertyIsPresent,
             NISysCfgIsPresentTypePresent
-        ))
-        return err;
-    if (const auto err = this->syscfg->SetFilterProperty(
-            this->filter,
-            NISysCfgFilterPropertyIsChassis,
-            NISysCfgBoolFalse
         ))
         return err;
     if (const auto err = this->syscfg->SetFilterProperty(
