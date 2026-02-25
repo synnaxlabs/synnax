@@ -191,7 +191,7 @@ jobs:
     name: Build Windows Installer
     runs-on: windows-latest
     needs: [setup, build]
-    if: github.event_name == 'push'
+    if: github.event_name == 'push' && !cancelled()
     permissions:
       contents: write
     env:
@@ -244,7 +244,7 @@ jobs:
     name: Create NI Linux RT Install Script
     runs-on: ubuntu-latest
     needs: [setup, create-release, build]
-    if: github.event_name == 'push'
+    if: github.event_name == 'push' && !cancelled()
     permissions:
       contents: write
     env:
@@ -275,7 +275,7 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       contents: write
-    if: github.event_name == 'push'
+    if: github.event_name == 'push' && !cancelled()
     needs: [create-release, build]
     env:
       VERSION: ${{ needs.create-release.outputs.CONSOLE_VERSION }}
