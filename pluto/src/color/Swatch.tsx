@@ -9,7 +9,8 @@
 
 import "@/color/Swatch.css";
 
-import { type ReactElement, useCallback, useMemo } from "react";
+import { type color } from "@synnaxlabs/x";
+import { type ReactElement, useCallback, useMemo, useRef } from "react";
 
 import { BaseSwatch, type BaseSwatchProps } from "@/color/BaseSwatch";
 import { Picker, type PickerProps } from "@/color/Picker";
@@ -24,6 +25,7 @@ export interface SwatchProps
     Pick<Dialog.FrameProps, "visible" | "onVisibleChange" | "initialVisible">,
     Pick<PickerProps, "onDelete" | "position"> {
   allowChange?: boolean;
+  onlyChangeOnBlur?: boolean;
 }
 
 export const Swatch = ({
@@ -31,17 +33,37 @@ export const Swatch = ({
   onVisibleChange,
   initialVisible = false,
   allowChange = true,
+  onlyChangeOnBlur = false,
   style,
   onClick,
   value,
   visible: propsVisible,
   ...rest
 }: SwatchProps): ReactElement => {
+  const pendingRef = useRef<color.Color | null>(null);
   const [visible, setVisible] = state.usePassthrough({
     initial: initialVisible,
     value: propsVisible,
     onChange: onVisibleChange,
   });
+  const handleVisibleChange: state.Setter<boolean> = useCallback(
+    (v: state.SetArg<boolean>) => {
+      setVisible(v);
+      const next = typeof v === "function" ? v(visible) : v;
+      if (!next && onlyChangeOnBlur && pendingRef.current != null) {
+        onChange?.(pendingRef.current);
+        pendingRef.current = null;
+      }
+    },
+    [setVisible, visible, onlyChangeOnBlur, onChange],
+  );
+  const handlePickerChange = useCallback(
+    (c: color.Color) => {
+      if (onlyChangeOnBlur) pendingRef.current = c;
+      else onChange?.(c);
+    },
+    [onlyChangeOnBlur, onChange],
+  );
   const canPick = onChange != null && allowChange;
   const handleClick = useCallback<NonNullable<BaseSwatchProps["onClick"]>>(
     (e) => (canPick ? setVisible(true) : onClick?.(e)),
@@ -68,13 +90,13 @@ export const Swatch = ({
     <Dialog.Frame
       visible={visible}
       initialVisible={initialVisible}
-      onVisibleChange={setVisible}
+      onVisibleChange={handleVisibleChange}
       className={CSS.BE("color-swatch", "dropdown")}
       variant="floating"
     >
       {swatch}
       <Dialog.Dialog rounded={1}>
-        <Picker value={value} onChange={onChange} />
+        <Picker value={value} onChange={handlePickerChange} />
       </Dialog.Dialog>
     </Dialog.Frame>
   );

@@ -72,6 +72,7 @@ export const Create: Layout.Renderer = (props) => {
       labels: [],
       timeRange: { start: now, end: now },
       parent: "",
+      color: [...color.ZERO],
       ...args,
     },
     afterSave: (form) => {
@@ -169,18 +170,22 @@ export const Create: Layout.Renderer = (props) => {
                 />
               )}
             </Form.Field>
-            <Form.Field<string[]> path="labels" required={false}>
-              {({ variant, ...p }) => <Label.SelectMultiple zIndex={100} {...p} />}
-            </Form.Field>
             <Form.Field<string>
+              label="Annotation Color"
               path="color"
               padHelpText={false}
-              showLabel={false}
               hideIfNull
             >
               {({ onChange, variant: _, ...p }) => (
-                <Color.Swatch onChange={(v) => onChange(color.hex(v))} {...p} />
+                <Color.Swatch
+                  onChange={(v) => onChange(color.hex(v))}
+                  onlyChangeOnBlur
+                  {...p}
+                />
               )}
+            </Form.Field>
+            <Form.Field<string[]> path="labels" required={false}>
+              {({ variant, ...p }) => <Label.SelectMultiple zIndex={100} {...p} />}
             </Form.Field>
           </Flex.Box>
         </Form.Form>
