@@ -14,25 +14,40 @@ If the device is not found, the script exits with an appropriate message.
 Otherwise, it prompts for confirmation before deleting.
 
 Before running this example:
-1. Start the Synnax Driver (if not already running).
-
-2. Login to Synnax (if not already logged in):
+1. Login to Synnax (if not already logged in):
    uv run sy login
 
-3. Run this script:
-   uv run python examples/opcua/delete_opc_server.py
+2. Run this script:
+   uv run python examples/opcua/delete_server.py
+
+   For the TLS-encrypted server:
+   uv run python examples/opcua/delete_server.py --tls
 
 Note: You do NOT need the OPC UA test server running to delete the device.
       This script only removes the device registration from Synnax.
-
-Configuration:
-    Modify the constants below to match your OPC UA server configuration.
 """
+
+import argparse
 
 import synnax as sy
 
-# Configuration
-DEVICE_NAME = "OPC UA Server"
+parser = argparse.ArgumentParser(description="Delete an OPC UA server from Synnax")
+parser.add_argument(
+    "--tls", action="store_true", help="Delete the TLS-encrypted server"
+)
+parser.add_argument(
+    "--tls-auth",
+    action="store_true",
+    help="Delete the TLS-encrypted server with username/password (port 4843)",
+)
+args = parser.parse_args()
+
+if args.tls_auth:
+    DEVICE_NAME = "OPC UA TLS Auth Server"
+elif args.tls:
+    DEVICE_NAME = "OPC UA TLS Server"
+else:
+    DEVICE_NAME = "OPC UA Server"
 
 # Connect to Synnax
 client = sy.Synnax()
