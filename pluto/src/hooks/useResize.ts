@@ -90,9 +90,18 @@ const shouldResize = (
   return false;
 };
 
-export const useWindowResize = (onResize: UseResizeHandler) => {
+export interface UseWindowResizeOptions {
+  enabled?: boolean;
+}
+
+export const useWindowResize = (
+  onResize: UseResizeHandler,
+  opts: UseWindowResizeOptions = {},
+) => {
+  const { enabled = true } = opts;
   const onResizeRef = useSyncedRef(onResize);
   useEffect(() => {
+    if (!enabled) return;
     const handler = () =>
       onResizeRef.current(
         box.construct(window.innerWidth, window.innerHeight),
@@ -100,5 +109,5 @@ export const useWindowResize = (onResize: UseResizeHandler) => {
       );
     window.addEventListener("resize", handler);
     return () => window.removeEventListener("resize", handler);
-  }, []);
+  }, [enabled]);
 };
