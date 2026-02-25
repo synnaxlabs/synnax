@@ -64,13 +64,14 @@ var (
 
 func translateForward(d *apidevice.Device) (*gapi.Device, error) {
 	gd := &gapi.Device{
-		Key:        d.Key,
-		Name:       d.Name,
-		Location:   d.Location,
-		Rack:       uint32(d.Rack),
-		Make:       d.Make,
-		Model:      d.Model,
-		Configured: d.Configured,
+		Key:          d.Key,
+		Name:         d.Name,
+		Location:     d.Location,
+		Rack:         uint32(d.Rack),
+		Make:         d.Make,
+		Model:        d.Model,
+		Configured:   d.Configured,
+		ParentDevice: d.ParentDevice,
 	}
 	if d.Properties != nil {
 		s, err := structpb.NewStruct(map[string]any(d.Properties))
@@ -91,13 +92,14 @@ func translateForward(d *apidevice.Device) (*gapi.Device, error) {
 
 func translateBackward(d *gapi.Device) (*apidevice.Device, error) {
 	ad := &apidevice.Device{
-		Key:        d.Key,
-		Name:       d.Name,
-		Rack:       rack.Key(d.Rack),
-		Location:   d.Location,
-		Make:       d.Make,
-		Model:      d.Model,
-		Configured: d.Configured,
+		Key:          d.Key,
+		Name:         d.Name,
+		Rack:         rack.Key(d.Rack),
+		Location:     d.Location,
+		Make:         d.Make,
+		Model:        d.Model,
+		Configured:   d.Configured,
+		ParentDevice: d.ParentDevice,
 	}
 	if d.Properties != nil {
 		ad.Properties = d.Properties.AsMap()

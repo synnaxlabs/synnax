@@ -107,6 +107,9 @@ struct Device {
     x::json::json::object_t properties;
     /// @brief whether the device has been configured.
     bool configured = false;
+    /// @brief the key of the parent device (e.g., chassis for NI module).
+    /// Empty means the device is parented directly to its rack.
+    std::string parent_device;
     /// @brief Status information about the device.
     Status status;
 
