@@ -78,11 +78,13 @@ struct Device : synnax::device::Device {
             .location = this->location,
             .make = this->make,
             .model = this->model,
-            .properties = x::json::json{
-                {"is_simulated", this->is_simulated},
-                {"resource_name", this->resource_name},
-                {"is_chassis", this->is_chassis},
-            }.get<x::json::json::object_t>(),
+            .properties =
+                x::json::json{
+                    {"is_simulated", this->is_simulated},
+                    {"resource_name", this->resource_name},
+                    {"is_chassis", this->is_chassis},
+                }
+                    .get<x::json::json::object_t>(),
             .parent_device = this->parent_device,
         };
         dev.status = this->status;

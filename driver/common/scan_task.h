@@ -479,9 +479,8 @@ public:
 
                 if (scanned_dev.parent_device != remote_dev.parent_device) {
                     VLOG(1) << this->log_prefix << "device parent changed for "
-                            << scanned_dev.key << " from '"
-                            << remote_dev.parent_device << "' to '"
-                            << scanned_dev.parent_device << "'";
+                            << scanned_dev.key << " from '" << remote_dev.parent_device
+                            << "' to '" << scanned_dev.parent_device << "'";
                     needs_update = true;
                 }
 

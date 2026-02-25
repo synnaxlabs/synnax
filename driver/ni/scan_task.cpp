@@ -118,15 +118,22 @@ Scanner::parse_device(NISysCfgResourceHandle resource) const {
     // Chassis/link properties (non-fatal; missing = empty/false).
     NISysCfgBool is_chassis_val = NISysCfgBoolFalse;
     if (!this->syscfg->GetResourceProperty(
-            resource, NISysCfgResourcePropertyIsChassis, &is_chassis_val))
+            resource,
+            NISysCfgResourcePropertyIsChassis,
+            &is_chassis_val
+        ))
         dev.is_chassis = is_chassis_val;
     if (!this->syscfg->GetResourceProperty(
-            resource, NISysCfgResourcePropertyConnectsToLinkName,
-            property_value_buf))
+            resource,
+            NISysCfgResourcePropertyConnectsToLinkName,
+            property_value_buf
+        ))
         dev.connects_to_link_name = property_value_buf;
     if (!this->syscfg->GetResourceProperty(
-            resource, NISysCfgResourcePropertyProvidesLinkName,
-            property_value_buf))
+            resource,
+            NISysCfgResourcePropertyProvidesLinkName,
+            property_value_buf
+        ))
         dev.provides_link_name = property_value_buf;
 
     VLOG(1) << SCAN_LOG_PREFIX << "device " << dev.key
@@ -171,7 +178,10 @@ Scanner::scan(const common::ScannerContext &ctx) {
     std::vector<ni::Device> ni_devices;
     while (true) {
         if (const auto next_err = this->syscfg->NextResource(
-                this->session, resources, &curr_resource))
+                this->session,
+                resources,
+                &curr_resource
+            ))
             break;
         auto [dev, parse_err] = this->parse_device(curr_resource);
         this->syscfg->CloseHandle(curr_resource);
@@ -184,30 +194,32 @@ Scanner::scan(const common::ScannerContext &ctx) {
     // Stage 2: Resolve parent links (O(N) total, O(1) per device).
     // Build map: provides_link_name -> device key (chassis only).
     std::unordered_map<std::string, std::string> link_to_chassis;
-    for (const auto &dev : ni_devices)
+    for (const auto &dev: ni_devices)
         if (dev.is_chassis && !dev.provides_link_name.empty())
             link_to_chassis[dev.provides_link_name] = dev.key;
     // For each module, look up its parent chassis.
-    for (auto &dev : ni_devices) {
+    for (auto &dev: ni_devices) {
         if (dev.is_chassis || dev.connects_to_link_name.empty()) continue;
         if (auto it = link_to_chassis.find(dev.connects_to_link_name);
             it != link_to_chassis.end())
             dev.parent_device = it->second;
         else
-            VLOG(1) << SCAN_LOG_PREFIX << "module " << dev.key
-                    << " connects to link '" << dev.connects_to_link_name
-                    << "' but no chassis provides it";
+            VLOG(1) << SCAN_LOG_PREFIX << "module " << dev.key << " connects to link '"
+                    << dev.connects_to_link_name << "' but no chassis provides it";
     }
 
     // Stage 3: Sort chassis before modules for creation ordering, then convert.
-    std::stable_sort(ni_devices.begin(), ni_devices.end(),
+    std::stable_sort(
+        ni_devices.begin(),
+        ni_devices.end(),
         [](const ni::Device &a, const ni::Device &b) {
             return a.is_chassis > b.is_chassis;
-        });
+        }
+    );
 
     std::vector<synnax::device::Device> devices;
     devices.reserve(ni_devices.size());
-    for (auto &dev : ni_devices)
+    for (auto &dev: ni_devices)
         devices.push_back(dev.to_synnax());
     return {devices, close_err};
 }
