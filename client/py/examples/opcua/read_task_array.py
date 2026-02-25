@@ -8,29 +8,39 @@
 #  included in the file licenses/APL.txt.
 
 """
-This example demonstrates how to read array data from the test OPC UA server (server_extended.py).
+This example demonstrates how to read array data from the OPC UA test server.
 
 Before running this example:
 1. Start the test server:
-   uv run python driver/opc/dev/server_extended.py
+   uv run python -m examples.opcua.server
 
 2. Connect the OPC UA server device in Synnax:
-   - Endpoint: opc.tcp://127.0.0.1:4841/
-   - Name the device "OPC UA Server" (or update line 27 below)
+   uv run python examples/opcua/connect_server.py
 
 3. The server creates array variables (my_array_0, my_array_1, etc.) that continuously
    update with arrays of sine wave values. This example reads those arrays in array mode.
+
+Use --encrypted to target the encrypted server instead.
 """
 
+import argparse
+
 import synnax as sy
+
+parser = argparse.ArgumentParser(description="Read array data from OPC UA server")
+parser.add_argument(
+    "--encrypted", action="store_true", help="Target the encrypted server"
+)
+args = parser.parse_args()
+
+DEVICE_NAME = "OPC UA Encrypted Server" if args.encrypted else "OPC UA Server"
 
 # We've logged in via the command-line interface, so there's no need to provide
 # credentials here. See https://docs.synnaxlabs.com/reference/client/quick-start.
 client = sy.Synnax()
 
 # Retrieve the OPC UA server from Synnax
-# Update this with the name you gave the device in the Synnax Console
-dev = client.devices.retrieve(name="OPC UA Server")
+dev = client.devices.retrieve(name=DEVICE_NAME)
 
 # Create an index channel that will be used to store the timestamps for the data.
 opcua_array_time = client.channels.create(
@@ -41,7 +51,7 @@ opcua_array_time = client.channels.create(
 )
 
 # Create Synnax channels to store the my_array_0 and my_array_1 node data from the server.
-# These arrays are continuously updated with sine wave values by server_extended.py.
+# These arrays are continuously updated with sine wave values by the OPC UA server.
 my_array_0 = client.channels.create(
     name="my_array_0",
     index=opcua_array_time.key,
@@ -68,7 +78,7 @@ tsk = sy.opcua.ReadTask(
     data_saving=True,
     channels=[
         # Bind the Synnax channels to the OPC UA node IDs
-        # These IDs correspond to my_array_0 and my_array_1 in server_extended.py
+        # These IDs correspond to my_array_0 and my_array_1 in the OPC UA server
         sy.opcua.ReadChannel(
             channel=my_array_0.key,
             node_id="NS=2;I=2",  # my_array_0
@@ -88,7 +98,7 @@ client.tasks.configure(tsk)
 print("=" * 80)
 print("\nStarting OPC UA Array Read Task")
 print("=" * 80)
-print("Reading array sine wave data from server_extended.py...")
+print("Reading array sine wave data from the OPC UA server...")
 print("Running continuously - Press Ctrl+C to stop\n")
 
 print(

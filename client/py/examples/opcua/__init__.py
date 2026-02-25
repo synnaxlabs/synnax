@@ -7,8 +7,18 @@
 #  License, use of this software will be governed by the Apache License, Version 2.0,
 #  included in the file licenses/APL.txt.
 
-"""OPC UA example package."""
+"""OPC UA example package.
 
-from .server import OPCUASim, run_server
+Lazy imports avoid the RuntimeWarning when running
+``python -m examples.opcua.server``.
+"""
 
-__all__ = ["run_server", "OPCUASim"]
+__all__ = ["run_server", "OPCUASim", "OPCUAEncryptedSim"]
+
+
+def __getattr__(name: str):
+    if name in __all__:
+        from . import server
+
+        return getattr(server, name)
+    raise AttributeError(f"module {__name__!r} has no attribute {name!r}")

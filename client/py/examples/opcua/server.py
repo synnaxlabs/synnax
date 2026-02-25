@@ -11,8 +11,13 @@ import asyncio
 import datetime
 import math
 import random
+import socket
+from pathlib import Path
 
 from asyncua import Server, ua
+from asyncua.crypto.cert_gen import setup_self_signed_certificate
+from asyncua.crypto.validator import CertificateValidator, CertificateValidatorOptions
+from cryptography.x509.oid import ExtendedKeyUsageOID
 
 import synnax as sy
 from examples.simulators.device_sim import DeviceSim
@@ -30,6 +35,9 @@ BOOL_OFFSET = 0.2  # seconds between each boolean transition
 ERROR_INJECTION_RATE = 0.1  # 10% error rate
 ERROR_ARRAY_INDEX = 2  # Which array to inject errors into
 ERROR_FLOAT_INDEX = 2  # Which float to inject errors into
+
+# Encryption certificate directory
+CERT_DIR = Path(__file__).parent / "certificates"
 
 
 # Initialization Functions
@@ -182,10 +190,62 @@ async def update_bools(bools, elapsed):
         await bool_var.set_value(square_wave, varianttype=ua.VariantType.Boolean)
 
 
+async def configure_encryption(server: Server) -> None:
+    """Generate self-signed certificates and configure server encryption."""
+    CERT_DIR.mkdir(exist_ok=True)
+    server_cert = CERT_DIR / "server-certificate.der"
+    server_key = CERT_DIR / "server-private-key.pem"
+    client_cert = CERT_DIR / "client-certificate.der"
+    client_key = CERT_DIR / "client-private-key.pem"
+
+    host_name = socket.gethostname()
+    server_uri = f"urn:synnax:opcua:server:{host_name}"
+    client_uri = f"urn:synnax:opcua:client:{host_name}"
+    subject = {
+        "countryName": "US",
+        "stateOrProvinceName": "Colorado",
+        "localityName": "Evergreen",
+        "organizationName": "Synnax Labs",
+    }
+
+    await setup_self_signed_certificate(
+        server_key,
+        server_cert,
+        server_uri,
+        host_name,
+        [ExtendedKeyUsageOID.CLIENT_AUTH, ExtendedKeyUsageOID.SERVER_AUTH],
+        subject,
+    )
+    await setup_self_signed_certificate(
+        client_key,
+        client_cert,
+        client_uri,
+        host_name,
+        [ExtendedKeyUsageOID.CLIENT_AUTH],
+        subject,
+    )
+
+    await server.set_application_uri(server_uri)
+    server.set_security_policy(
+        [
+            ua.SecurityPolicyType.Basic256Sha256_SignAndEncrypt,
+            ua.SecurityPolicyType.Basic256Sha256_Sign,
+        ]
+    )
+    await server.load_certificate(str(server_cert))
+    await server.load_private_key(str(server_key))
+
+    validator = CertificateValidator(
+        options=CertificateValidatorOptions.EXT_VALIDATION
+    )
+    server.set_certificate_validator(validator)
+
+
 async def run_server(
     endpoint: str = "",
     rate: sy.Rate = DEFAULT_RATE * sy.Rate.HZ,
     array_size: int = DEFAULT_ARRAY_SIZE,
+    encrypted: bool = False,
 ) -> None:
     # Initialize server
     server = Server()
@@ -193,6 +253,10 @@ async def run_server(
     if not endpoint:
         endpoint = OPCUASim.endpoint
     server.set_endpoint(endpoint)
+
+    if encrypted:
+        await configure_encryption(server)
+
     uri = "http://examples.freeopcua.github.io"
     idx = await server.register_namespace(uri)
 
@@ -264,12 +328,14 @@ class OPCUASim(DeviceSim):
         array_size: int = DEFAULT_ARRAY_SIZE,
         rate: sy.Rate = 50 * sy.Rate.HZ,
         verbose: bool = False,
+        encrypted: bool = False,
     ):
         super().__init__(rate=rate, verbose=verbose)
         self.array_size = array_size
+        self.encrypted = encrypted
 
     async def _run_server(self) -> None:
-        await run_server(self.endpoint, self.rate, self.array_size)
+        await run_server(self.endpoint, self.rate, self.array_size, self.encrypted)
 
     @staticmethod
     def create_device(rack_key: int) -> opcua.Device:
@@ -281,5 +347,53 @@ class OPCUASim(DeviceSim):
         )
 
 
+class OPCUAEncryptedSim(OPCUASim):
+    """Encrypted OPC UA device simulator on port 4842."""
+
+    description = "Encrypted OPC UA simulator on port 4842"
+    host = "127.0.0.1"
+    port = 4842
+    device_name = "OPC UA Encrypted Server"
+    endpoint = f"opc.tcp://{host}:{port}/freeopcua/server/"
+
+    def __init__(
+        self,
+        array_size: int = DEFAULT_ARRAY_SIZE,
+        rate: sy.Rate = 50 * sy.Rate.HZ,
+        verbose: bool = False,
+    ):
+        super().__init__(
+            array_size=array_size,
+            rate=rate,
+            verbose=verbose,
+            encrypted=True,
+        )
+
+    @staticmethod
+    def create_device(rack_key: int) -> opcua.Device:
+        return opcua.Device(
+            endpoint=OPCUAEncryptedSim.endpoint,
+            name=OPCUAEncryptedSim.device_name,
+            location=OPCUAEncryptedSim.endpoint,
+            rack=rack_key,
+            security_mode="SignAndEncrypt",
+            security_policy="Basic256Sha256",
+            server_cert=str(CERT_DIR / "server-certificate.der"),
+            client_cert=str(CERT_DIR / "client-certificate.der"),
+            client_private_key=str(CERT_DIR / "client-private-key.pem"),
+        )
+
+
 if __name__ == "__main__":
-    asyncio.run(run_server())
+    import argparse
+
+    parser = argparse.ArgumentParser(description="OPC UA test server")
+    parser.add_argument(
+        "--encrypted", action="store_true", help="Enable encryption (port 4842)"
+    )
+    args = parser.parse_args()
+
+    if args.encrypted:
+        asyncio.run(run_server(endpoint=OPCUAEncryptedSim.endpoint, encrypted=True))
+    else:
+        asyncio.run(run_server())

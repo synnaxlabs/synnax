@@ -22,7 +22,13 @@ Follow these scripts in order:
 If you don't have a real OPC UA server, start the included test server:
 
 ```bash
-uv run python examples/opcua/server.py
+uv run python -m examples.opcua.server
+```
+
+To start an encrypted server (Basic256Sha256, port 4842):
+
+```bash
+uv run python -m examples.opcua.server --encrypted
 ```
 
 This server simulates:
@@ -33,8 +39,8 @@ This server simulates:
 - **Boolean variables** (my_bool_0, my_bool_1): Square wave patterns
 - **Command variables** (command_0, command_1, command_2): Writable float values
 
-The server runs on `opc.tcp://127.0.0.1:4841/` by default and prints node IDs on
-startup.
+The server runs on `opc.tcp://127.0.0.1:4841/` by default (or port 4842 with
+`--encrypted`) and prints node IDs on startup.
 
 ### 2. Connect Your OPC UA Server
 
@@ -44,17 +50,23 @@ Register your OPC UA server with Synnax:
 uv run python examples/opcua/connect_server.py
 ```
 
+To connect an encrypted server (Basic256Sha256, port 4842):
+
+```bash
+uv run python examples/opcua/connect_server.py --encrypted
+```
+
 This script will:
 
 - Check if the server is already registered
 - Register the server with the embedded Synnax rack
-- Set up the server configuration
+- Set up the server configuration (including security settings for `--encrypted`)
 
 **Configuration**: Edit the constants at the top of `connect_server.py` to match your
 server:
 
-- `DEVICE_NAME`: A friendly name for your OPC UA server
-- `ENDPOINT`: OPC UA endpoint URL (e.g., `opc.tcp://127.0.0.1:4841/`)
+- `PLAIN_DEVICE_NAME` / `ENCRYPTED_DEVICE_NAME`: Friendly names for your OPC UA servers
+- `PLAIN_ENDPOINT` / `ENCRYPTED_ENDPOINT`: OPC UA endpoint URLs
 
 ### 3. Read Float Data from OPC UA Nodes
 
@@ -74,7 +86,7 @@ This example:
 **What you'll see**: Real-time sine wave values from my_float_0 and my_float_1.
 
 **Node IDs**: The example uses node IDs like `NS=2;I=8` to identify OPC UA variables.
-These IDs are printed by `server_extended.py` on startup.
+These IDs are printed by `server.py` on startup.
 
 ### 4. Read Array Data from OPC UA Nodes
 
@@ -232,8 +244,35 @@ OPC UA supports various security policies:
 - **Aes128-Sha256-RsaOaep**: High security
 - **Aes256-Sha256-RsaPss**: Highest security
 
-**Note**: The current examples use `SecurityPolicy.None` for simplicity. For production
-deployments, configure security in `device_props()`.
+### Encrypted Test Server
+
+The included test server supports encryption via the `OPCUAEncryptedSim` class, which
+runs on port 4842 with `Basic256Sha256_SignAndEncrypt`. Self-signed certificates for both
+server and client are generated automatically under `examples/opcua/certificates/`.
+
+```python
+from examples.opcua import OPCUAEncryptedSim
+
+sim = OPCUAEncryptedSim()
+sim.start()   # Starts encrypted server on opc.tcp://127.0.0.1:4842/
+sim.stop()
+```
+
+You can also pass `encrypted=True` to the base `OPCUASim` directly:
+
+```python
+from examples.opcua import OPCUASim
+
+sim = OPCUASim(encrypted=True)
+sim.start()
+sim.stop()
+```
+
+The encrypted server exposes the same full set of variables (floats, bools, arrays,
+commands, timestamps) as the unencrypted server.
+
+**Note**: The default `OPCUASim` uses no encryption for simplicity. For production
+deployments, configure security mode and policy when registering the device.
 
 ## Sample Rates
 

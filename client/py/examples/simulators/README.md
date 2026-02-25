@@ -76,6 +76,12 @@ Runs an OPC UA server on port 4841 with:
 - Array variables (`my_array_0` - `my_array_4`): 5-element float arrays
 - Command variables (`command_0` - `command_2`): Writable floats
 
+### OPCUAEncryptedSim (`examples/opcua/server.py`)
+
+Runs an encrypted OPC UA server on port 4842 with `Basic256Sha256_SignAndEncrypt`
+security. Exposes the same variables as `OPCUASim`. Self-signed server and client
+certificates are generated automatically under `examples/opcua/certificates/`.
+
 ## Creating Custom Simulators
 
 ### Custom SimDAQ
