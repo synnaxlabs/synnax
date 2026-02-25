@@ -3,7 +3,7 @@ load("@rules_proto//proto:defs.bzl", "proto_library")
 
 proto_library(
     name = "spatial_proto",
-    srcs = ["spatial.proto"],
+    srcs = ["pb/spatial.proto"],
     visibility = ["//visibility:public"],
 )
 

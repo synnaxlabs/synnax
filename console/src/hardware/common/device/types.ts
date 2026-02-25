@@ -31,5 +31,6 @@ export const commandStatePairZ = z.object({
   command: channel.keyZ,
   state: channel.keyZ,
 });
+
 export type CommandStatePair = z.infer<typeof commandStatePairZ>;
 export const ZERO_COMMAND_STATE_PAIR: CommandStatePair = { command: 0, state: 0 };

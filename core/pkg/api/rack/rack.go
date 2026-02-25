@@ -52,8 +52,6 @@ func NewService(cfgs ...config.LayerConfig) (*Service, error) {
 	}, nil
 }
 
-type Rack = rack.Rack
-
 type (
 	CreateRequest struct {
 		Racks []rack.Rack `json:"racks" msgpack:"racks"`
@@ -159,7 +157,7 @@ func (s *Service) Retrieve(
 			return res, err
 		}
 		for i, stat := range statuses {
-			resRacks[i].Status = &stat
+			resRacks[i].Status = (*rack.Status)(&stat)
 		}
 	}
 
@@ -178,7 +176,7 @@ type DeleteRequest struct {
 	Keys []rack.Key `json:"keys" msgpack:"keys"`
 }
 
-func embeddedGuard(_ gorp.Context, r Rack) error {
+func embeddedGuard(_ gorp.Context, r rack.Rack) error {
 	if !r.Embedded {
 		return nil
 	}

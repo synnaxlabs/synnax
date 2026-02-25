@@ -1,0 +1,32 @@
+// Copyright 2026 Synnax Labs, Inc.
+//
+// Use of this software is governed by the Business Source License included in the file
+// licenses/BSL.txt.
+//
+// As of the Change Date specified in that file, in accordance with the Business Source
+// License, use of this software will be governed by the Apache License, Version 2.0,
+// included in the file licenses/APL.txt.
+
+// Manually maintained Frame protobuf definition.
+// Frame is handwritten in Go with private fields and iterator methods,
+// so it requires manual proto and translator definitions.
+
+syntax = "proto3";
+
+package x.telem.pb;
+
+import "x/go/telem/pb/telem.proto";
+
+option go_package = "github.com/synnaxlabs/x/telem/pb";
+
+message Series {
+  TimeRange time_range = 1;
+  string data_type = 2;
+  bytes data = 3;
+  uint64 alignment = 4;
+}
+
+message Frame {
+  repeated uint32 keys = 1;
+  repeated Series series = 2;
+}

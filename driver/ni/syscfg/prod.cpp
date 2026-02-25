@@ -32,12 +32,12 @@ const auto LOAD_ERROR = errors::missing_lib(LIBRARY_INFO);
 
 std::pair<std::shared_ptr<API>, x::errors::Error> ProdAPI::load() {
     if (x::os::get() == x::os::MACOS_NAME) return {nullptr, x::errors::NIL};
-    auto lib = std::make_unique<x::lib::SharedLib>(LIB_NAME);
+    auto lib = std::make_unique<x::lib::Shared>(LIB_NAME);
     if (!lib->load()) return {nullptr, LOAD_ERROR};
     return {std::make_shared<ProdAPI>(lib), x::errors::NIL};
 }
 
-ProdAPI::ProdAPI(std::unique_ptr<x::lib::SharedLib> &lib_): lib(std::move(lib_)) {
+ProdAPI::ProdAPI(std::unique_ptr<x::lib::Shared> &lib_): lib(std::move(lib_)) {
     memset(&function_pointers_, 0, sizeof(function_pointers_));
     function_pointers_.InitializeSession = reinterpret_cast<InitializeSessionPtr>(
         const_cast<void *>(this->lib->get_func_ptr("NISysCfgInitializeSession"))

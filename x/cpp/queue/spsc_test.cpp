@@ -84,7 +84,6 @@ TEST(SPSCQueueTest, CloseUnblocksWaitingPop) {
 
     std::this_thread::sleep_for(std::chrono::milliseconds(10));
     queue.close();
-
     consumer.join();
 }
 
@@ -124,7 +123,6 @@ TEST(SPSCQueueTest, ProducerConsumerThreads) {
             EXPECT_EQ(value, i);
         }
     });
-
     producer.join();
     consumer.join();
     EXPECT_TRUE(queue.empty());

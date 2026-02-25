@@ -13,7 +13,7 @@ import { z } from "zod";
 
 import { MultipleFoundError, NotFoundError } from "@/errors";
 import { ontology } from "@/ontology";
-import { type Key, keyZ, type New, newZ, type User, userZ } from "@/user/payload";
+import { type Key, keyZ, type New, newZ, type User, userZ } from "@/user/types.gen";
 
 const retrieveRequestZ = z.object({
   keys: keyZ.array().optional(),
@@ -53,7 +53,7 @@ export type RetrieveArgs = z.input<typeof retrieveArgsZ>;
 
 export interface RetrieveRequest extends z.infer<typeof retrieveRequestZ> {}
 
-const retrieveResZ = z.object({ users: array.nullableZ(userZ) });
+const retrieveResZ = z.object({ users: array.nullishToEmpty(userZ) });
 
 const createReqZ = z.object({ users: newZ.array() });
 const createResZ = z.object({ users: userZ.array() });

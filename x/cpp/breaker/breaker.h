@@ -211,8 +211,6 @@ public:
 };
 
 inline Config default_config(const std::string &name) {
-    return Config{
-        .name = name,
-    };
+    return Config{.name = name};
 }
 }

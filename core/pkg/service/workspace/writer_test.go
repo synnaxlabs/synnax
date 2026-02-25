@@ -23,7 +23,7 @@ var _ = Describe("Writer", func() {
 			ws := workspace.Workspace{
 				Name:   "test",
 				Author: author.Key,
-				Layout: "data",
+				Layout: map[string]any{"key": "data"},
 			}
 			Expect(svc.NewWriter(tx).Create(ctx, &ws)).To(Succeed())
 			Expect(ws.Key).ToNot(Equal(uuid.Nil))
@@ -43,10 +43,10 @@ var _ = Describe("Writer", func() {
 		It("Should set the layout of a workspace", func() {
 			ws := workspace.Workspace{Name: "test", Author: author.Key}
 			Expect(svc.NewWriter(tx).Create(ctx, &ws)).To(Succeed())
-			Expect(svc.NewWriter(tx).SetLayout(ctx, ws.Key, "data")).To(Succeed())
+			Expect(svc.NewWriter(tx).SetLayout(ctx, ws.Key, map[string]any{"key": "data"})).To(Succeed())
 			var res workspace.Workspace
 			Expect(gorp.NewRetrieve[uuid.UUID, workspace.Workspace]().WhereKeys(ws.Key).Entry(&res).Exec(ctx, tx)).To(Succeed())
-			Expect(res.Layout).To(Equal("data"))
+			Expect(res.Layout["key"]).To(Equal("data"))
 		})
 	})
 	Describe("DeleteChannel", func() {

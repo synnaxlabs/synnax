@@ -30,7 +30,7 @@ int start(x::args::Parser &args) {
         return 1;
     }
 
-    rack::Rack r;
+    driver::rack::Rack r;
 
     // Register an early shutdown handler to stop the driver when the process encounters
     // an error.

@@ -12,14 +12,14 @@ package grpc_test
 import (
 	"context"
 
-	fgrpc "github.com/synnaxlabs/freighter/grpc"
+	"github.com/synnaxlabs/freighter/grpc"
 	v1 "github.com/synnaxlabs/freighter/grpc/v1"
 	"github.com/synnaxlabs/freighter/test"
 )
 
 type requestTranslator struct{}
 
-var _ fgrpc.Translator[test.Request, *v1.Request] = requestTranslator{}
+var _ grpc.Translator[test.Request, *v1.Request] = requestTranslator{}
 
 func (requestTranslator) Forward(
 	_ context.Context,
@@ -37,7 +37,7 @@ func (requestTranslator) Backward(
 
 type responseTranslator struct{}
 
-var _ fgrpc.Translator[test.Response, *v1.Response] = responseTranslator{}
+var _ grpc.Translator[test.Response, *v1.Response] = responseTranslator{}
 
 func (responseTranslator) Forward(
 	_ context.Context,

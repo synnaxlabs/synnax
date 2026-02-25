@@ -31,7 +31,7 @@ export const itemZ = z.object({
   key: z.string().or(z.number()),
   type: z.string(),
   elementID: z.string().optional(),
-  data: record.unknownZ.optional(),
+  data: record.unknownZ().optional(),
 });
 
 // Item represents a draggable item.

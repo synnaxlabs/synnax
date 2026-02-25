@@ -26,6 +26,8 @@ import { log } from "@/log";
 import { ontology } from "@/ontology";
 import { rack } from "@/rack";
 import { ranger } from "@/ranger";
+import { alias } from "@/ranger/alias";
+import { kv } from "@/ranger/kv";
 import { schematic } from "@/schematic";
 import { status } from "@/status";
 import { table } from "@/table";
@@ -152,6 +154,8 @@ export default class Synnax extends framer.Client {
       chRetriever,
       this.labels,
       this.ontology,
+      (key: ranger.Key) => new alias.Client(key, this.transport.unary),
+      (key: ranger.Key) => new kv.Client(key, this.transport.unary),
     );
     this.access = new access.Client(this.transport.unary);
     this.users = new user.Client(this.transport.unary);

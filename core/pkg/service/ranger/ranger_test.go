@@ -222,8 +222,8 @@ var _ = Describe("Ranger", Ordered, func() {
 						TimeRange: telem.SecondTS.SpanRange(telem.Second),
 					}
 					Expect(w.CreateWithParent(ctx, &r, parent.OntologyID())).To(Succeed())
-					p := MustSucceed(r.RetrieveParent(ctx))
-					Expect(p.Key).To(Equal(parent.Key))
+					pKey := MustSucceed(svc.RetrieveParentKey(ctx, r.Key, tx))
+					Expect(pKey).To(Equal(parent.Key))
 				})
 				It("Should return an error if the range has no parent", func() {
 					p := ranger.Range{
@@ -231,7 +231,7 @@ var _ = Describe("Ranger", Ordered, func() {
 						TimeRange: telem.SecondTS.SpanRange(telem.Second),
 					}
 					Expect(w.Create(ctx, &p)).To(Succeed())
-					_, err := p.RetrieveParent(ctx)
+					_, err := svc.RetrieveParentKey(ctx, p.Key, tx)
 					Expect(err).To(HaveOccurredAs(query.ErrNotFound))
 				})
 			})
@@ -304,6 +304,37 @@ var _ = Describe("Ranger", Ordered, func() {
 				End:   telem.TimeStamp(9 * telem.Second),
 			}).Entry(&retrieveR).Exec(ctx, tx)).To(Succeed())
 			Expect(retrieveR.Key).To(Equal(r.Key))
+		})
+		It("Should retrieve ranges that have a specific label", func() {
+			l := &label.Label{Name: "TestLabel"}
+			Expect(labelSvc.NewWriter(tx).Create(ctx, l)).To(Succeed())
+			r1 := &ranger.Range{
+				Name:      "LabeledRange",
+				TimeRange: telem.SecondTS.SpanRange(telem.Second),
+			}
+			r2 := &ranger.Range{
+				Name:      "UnlabeledRange",
+				TimeRange: telem.SecondTS.SpanRange(telem.Second),
+			}
+			Expect(svc.NewWriter(tx).Create(ctx, r1)).To(Succeed())
+			Expect(svc.NewWriter(tx).Create(ctx, r2)).To(Succeed())
+			Expect(labelSvc.NewWriter(tx).Label(ctx, r1.OntologyID(), []uuid.UUID{l.Key})).To(Succeed())
+			var results []ranger.Range
+			Expect(svc.NewRetrieve().WhereHasLabels(l.Key).Entries(&results).Exec(ctx, tx)).To(Succeed())
+			Expect(results).To(HaveLen(1))
+			Expect(results[0].Key).To(Equal(r1.Key))
+		})
+		It("Should return empty when no ranges have the specified label", func() {
+			l := &label.Label{Name: "UnusedLabel"}
+			Expect(labelSvc.NewWriter(tx).Create(ctx, l)).To(Succeed())
+			r := &ranger.Range{
+				Name:      "RangeWithoutLabels",
+				TimeRange: telem.SecondTS.SpanRange(telem.Second),
+			}
+			Expect(svc.NewWriter(tx).Create(ctx, r)).To(Succeed())
+			var results []ranger.Range
+			Expect(svc.NewRetrieve().WhereHasLabels(l.Key).Entries(&results).Exec(ctx, tx)).To(Succeed())
+			Expect(results).To(BeEmpty())
 		})
 	})
 

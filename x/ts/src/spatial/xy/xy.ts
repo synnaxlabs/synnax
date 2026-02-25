@@ -12,29 +12,29 @@ import { z } from "zod";
 import {
   type AngularDirection,
   type ClientXY,
-  clientXY,
+  clientXyZ,
   type CrudeDirection,
-  dimensions,
+  dimensionsZ,
   type Direction,
   type NumberCouple,
   numberCouple,
-  signedDimensions,
+  signedDimensionsZ,
   type XY,
-  xy,
+  xyZ,
 } from "@/spatial/base";
 import { direction as dir } from "@/spatial/direction";
 import { type location } from "@/spatial/location";
 
-export { type ClientXY as Client, clientXY, type XY, xy };
+export { type ClientXY as Client, clientXyZ, type XY, xyZ };
 
 /** A crude representation of a {@link XY} coordinate as a zod schema. */
 export const crudeZ = z.union([
   z.number(),
-  xy,
+  xyZ,
   numberCouple,
-  dimensions,
-  signedDimensions,
-  clientXY,
+  dimensionsZ,
+  signedDimensionsZ,
+  clientXyZ,
 ]);
 
 /** A crude representation of a {@link XY} coordinate. */

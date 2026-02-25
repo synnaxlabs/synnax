@@ -52,7 +52,7 @@ func WrapReader[K Key, E Entry[K]](base BaseReader) *Reader[K, E] {
 }
 
 // Get retrieves a single entry from the database. If the entry does not exist,
-// query.NotFound is returned.
+// query.ErrNotFound is returned.
 func (r Reader[K, E]) Get(ctx context.Context, key K) (e E, err error) {
 	bKey, err := encodeKey(ctx, r, r.prefix(ctx), key)
 	if err != nil {

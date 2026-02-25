@@ -31,13 +31,13 @@ import { Draw2D } from "@/vis/draw2d";
 import { render } from "@/vis/render";
 
 export const selectedStateZ = ranger.payloadZ.extend({
-  viewport: bounds.bounds,
+  viewport: bounds.boundsZ,
 });
 
 export type SelectedState = z.infer<typeof selectedStateZ>;
 
 export const providerStateZ = z.object({
-  cursor: xy.xy.or(z.null()),
+  cursor: xy.xyZ.or(z.null()),
   hovered: selectedStateZ.or(z.null()),
   count: z.number(),
 });

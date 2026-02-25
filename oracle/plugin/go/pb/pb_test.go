@@ -706,8 +706,31 @@ var _ = Describe("Go PB Plugin", func() {
 				resp := MustGenerate(ctx, source, "status", loader, pbPlugin)
 
 				ExpectContent(resp, "translator.gen.go").
-					ToContain("status.ActiveStatus").
-					ToContain("status.InactiveStatus")
+					ToContain("status.StatusActive").
+					ToContain("status.StatusInactive")
+			})
+		})
+
+		Context("uint8 primitive conversion", func() {
+			It("Should dereference hard optional uint8 pointer for conversion", func() {
+				source := `
+					@go output "arc/go/ir"
+					@pb
+
+					Authorities struct {
+						default  uint8??
+						channels map<uint32, uint8>?
+					}
+				`
+				resp := MustGenerate(ctx, source, "ir", loader, pbPlugin)
+
+				ExpectContent(resp, "translator.gen.go").
+					ToContain("uint32(*r.Default)").
+					ToContain("uint8(*pb.Default)").
+					ToContain("pb.Channels = make(map[uint32]uint32").
+					ToContain("pb.Channels[k] = uint32(v)").
+					ToContain("r.Channels = make(map[uint32]uint8").
+					ToContain("r.Channels[k] = uint8(v)")
 			})
 		})
 

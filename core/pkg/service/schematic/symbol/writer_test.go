@@ -96,9 +96,6 @@ var _ = Describe("Writer", func() {
 		})
 
 		It("Should create a Symbol under the permanent symbols group if provided", func() {
-			if svc.Group().Key == uuid.Nil {
-				Skip("Group service not configured")
-			}
 			sym := symbol.Symbol{
 				Name: "group-test",
 				Data: map[string]any{

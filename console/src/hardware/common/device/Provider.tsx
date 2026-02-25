@@ -24,7 +24,7 @@ const DEFAULT_NONE_SELECTED_CONTENT = (
 );
 
 export interface ProviderChildProps<
-  Properties extends z.ZodType<record.Unknown> = typeof record.unknownZ,
+  Properties extends z.ZodType<record.Unknown> = z.ZodType<record.Unknown>,
   Make extends z.ZodType<string> = z.ZodString,
   Model extends z.ZodType<string> = z.ZodString,
 > {
@@ -32,7 +32,7 @@ export interface ProviderChildProps<
 }
 
 export interface ProviderProps<
-  Properties extends z.ZodType<record.Unknown> = typeof record.unknownZ,
+  Properties extends z.ZodType<record.Unknown> = z.ZodType<record.Unknown>,
   Make extends z.ZodType<string> = z.ZodString,
   Model extends z.ZodType<string> = z.ZodString,
 > {
@@ -44,7 +44,7 @@ export interface ProviderProps<
 }
 
 export const Provider = <
-  Properties extends z.ZodType<record.Unknown> = typeof record.unknownZ,
+  Properties extends z.ZodType<record.Unknown> = z.ZodType<record.Unknown>,
   Make extends z.ZodType<string> = z.ZodString,
   Model extends z.ZodType<string> = z.ZodString,
 >({

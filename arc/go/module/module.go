@@ -60,29 +60,8 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/synnaxlabs/arc/compiler"
 	"github.com/synnaxlabs/arc/ir"
 )
-
-// Module represents a fully compiled Arc program combining intermediate representation
-// with executable WebAssembly bytecode.
-//
-// A Module embeds both the IR (containing the dataflow graph, function definitions,
-// and symbol table) and the compiler Output (containing WASM bytecode and memory
-// layout information). This makes a Module self-contained and ready for execution
-// by a WebAssembly runtime.
-//
-// The embedded compiler.Output provides:
-//   - WASM: Compiled WebAssembly bytecode ready for execution
-//   - OutputMemoryBases: Memory addresses for multi-output functions
-//
-// Modules can be serialized to disk for caching or distributed execution, though
-// the Symbols and TypeMap fields are not serialized (they are only needed during
-// compilation and tooling).
-type Module struct {
-	ir.IR
-	compiler.Output
-}
 
 // IsZero reports whether the Module is empty (uninitialized or contains no content).
 //

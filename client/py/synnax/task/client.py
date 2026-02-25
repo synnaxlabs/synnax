@@ -12,7 +12,7 @@ from __future__ import annotations
 import warnings
 from collections.abc import Generator
 from contextlib import contextmanager
-from typing import TYPE_CHECKING, Annotated, Any
+from typing import Annotated, Any
 from typing import Protocol as BaseProtocol
 from typing import overload
 from uuid import uuid4
@@ -23,13 +23,13 @@ from pydantic import BaseModel, Field, ValidationError, field_validator
 
 from synnax.device import Client as DeviceClient
 from synnax.device import Device
-from synnax.exceptions import ConfigurationError, UnexpectedError
+from synnax.exceptions import ConfigurationError
 from synnax.framer import Client as FrameClient
 from synnax.ontology.payload import ID
 from synnax.rack import Client as RackClient
 from synnax.rack import Rack
 from synnax.status import VARIANT_ERROR, VARIANT_SUCCESS
-from synnax.task.payload import Payload, Status, ontology_id
+from synnax.task.types_gen import Payload, Status, ontology_id
 from synnax.telem import TimeSpan, TimeStamp
 from synnax.util.normalize import check_for_none, normalize, override
 
@@ -76,6 +76,7 @@ _COPY_ENDPOINT = "/task/copy"
 
 _TASK_STATE_CHANNEL = "sy_status_set"
 _TASK_CMD_CHANNEL = "sy_task_cmd"
+_list = list
 
 
 class BaseConfig(BaseModel):
@@ -152,6 +153,7 @@ class Task:
         config: dict[str, Any] | None = None,
         snapshot: bool = False,
         status: Status | None = None,
+        internal: bool = False,
         _frame_client: FrameClient | None = None,
     ):
         if key == 0:
@@ -160,6 +162,7 @@ class Task:
         self.name = name
         self.type = type
         self.config = config if config is not None else {}
+        self.internal = internal
         self.snapshot = snapshot
         self.status = status
         self.__frame_client = _frame_client
@@ -254,10 +257,8 @@ class Task:
                         and status.details.cmd == key
                     ):
                         return status
-                except ValidationError as e:
-                    raise UnexpectedError(f"""
-                    Received invalid task state from driver.
-                    """) from e
+                except ValidationError:
+                    continue
 
 
 class Protocol(BaseProtocol):
@@ -374,7 +375,7 @@ class Client:
         key: int = 0,
         name: str = "",
         type: str = "",
-        config: dict[str, Any] | None = None,
+        config: dict[str, Any] | BaseModel | None = None,
         rack: int = 0,
     ) -> Task: ...
 
@@ -391,10 +392,14 @@ class Client:
         key: int = 0,
         name: str = "",
         type: str = "",
-        config: dict[str, Any] | None = None,
+        config: dict[str, Any] | BaseModel | None = None,
         rack: int = 0,
     ) -> Task | list[Task]:
         is_single = True
+        if config is None:
+            config = dict()
+        elif isinstance(config, BaseModel):
+            config = config.model_dump()
         if tasks is None:
             payloads = [Payload(key=key, name=name, type=type, config=config or {})]
         elif isinstance(tasks, Task):
@@ -447,7 +452,10 @@ class Client:
                 ):
                     warnings.warn("task - unexpected missing state in frame")
                     continue
-                status = Status.model_validate(frame[_TASK_STATE_CHANNEL][0])
+                try:
+                    status = Status.model_validate(frame[_TASK_STATE_CHANNEL][0])
+                except ValidationError:
+                    continue
                 if status.details is None or status.details.task != task.key:
                     continue
                 if status.variant == VARIANT_SUCCESS:

@@ -56,22 +56,54 @@ TEST(RackTests, testRetrieveRackByName) {
     ASSERT_EQ(r.key, r2.key);
 }
 
+TEST(RackTests, testCreateTaskOnCreatedRack) {
+    const auto client = new_test_client();
+    auto r = Rack{.name = "test_rack"};
+    ASSERT_NIL(client.racks.create(r));
+    task::Task t{
+        .name = "cat",
+        .type = "dog",
+        .internal = false,
+    };
+    ASSERT_NIL(r.tasks.create(t));
+    ASSERT_EQ(task::rack_key_from_task_key(t.key), r.key);
+}
+
+TEST(RackTests, testCreateTaskOnRetrieveRack) {
+    const auto client = new_test_client();
+    auto r = Rack{.name = "test_rack"};
+    ASSERT_NIL(client.racks.create(r));
+    auto retrieved = ASSERT_NIL_P(client.racks.retrieve(r.key));
+    task::Task t{
+        .name = "cat",
+        .type = "dog",
+        .internal = false,
+    };
+    ASSERT_NIL(retrieved.tasks.create(t));
+    ASSERT_EQ(task::rack_key_from_task_key(t.key), r.key);
+    ASSERT_EQ(task::rack_key_from_task_key(t.key), retrieved.key);
+}
+
 /// @brief it should correctly create and retrieve a rack with a status.
 TEST(RackTests, testCreateRackWithStatus) {
     const auto client = new_test_client();
-    auto r = Rack{.name = "test_rack_with_status"};
-    r.status.key = "rack-status-key";
-    r.status.variant = x::status::VARIANT_SUCCESS;
-    r.status.message = "Rack is healthy";
-    r.status.time = x::telem::TimeStamp::now();
-    r.status.details.rack = 123;
+    auto r = Rack{
+        .name = "test_rack_with_status",
+        .status = Status{
+            .key = "rack-status-key",
+            .variant = x::status::VARIANT_SUCCESS,
+            .message = "Rack is healthy",
+            .time = x::telem::TimeStamp::now(),
+            .details = StatusDetails{.rack = 123}
+        }
+    };
     ASSERT_NIL(client.racks.create(r));
     const auto r2 = ASSERT_NIL_P(client.racks.retrieve(r.key));
     ASSERT_EQ(r2.name, "test_rack_with_status");
-    ASSERT_FALSE(r2.status.is_zero());
-    ASSERT_EQ(r2.status.key, "rack-status-key");
-    ASSERT_EQ(r2.status.variant, x::status::VARIANT_SUCCESS);
-    ASSERT_EQ(r2.status.message, "Rack is healthy");
+    ASSERT_TRUE(r2.status.has_value());
+    ASSERT_EQ(r2.status->key, "rack-status-key");
+    ASSERT_EQ(r2.status->variant, x::status::VARIANT_SUCCESS);
+    ASSERT_EQ(r2.status->message, "Rack is healthy");
 }
 
 /// @brief it should correctly parse StatusDetails from JSON.

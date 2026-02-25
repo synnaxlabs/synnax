@@ -66,6 +66,23 @@ sample_to_wasm(const x::telem::SampleValue &val, const types::Type &type) {
     }
 }
 
+/// @brief Convert json value to wasmtime::Val using the declared type.
+inline wasmtime::Val json_to_wasm(const x::json::json &val, const types::Type &type) {
+    if (val.is_null()) return wasmtime::Val(0);
+    const auto as_double = val.get<double>();
+    switch (type.kind) {
+        case types::Kind::F64:
+            return wasmtime::Val(as_double);
+        case types::Kind::F32:
+            return wasmtime::Val(static_cast<float>(as_double));
+        case types::Kind::I64:
+        case types::Kind::U64:
+            return wasmtime::Val(static_cast<int64_t>(as_double));
+        default:
+            return wasmtime::Val(static_cast<int32_t>(as_double));
+    }
+}
+
 /// Convert wasmtime::Val to SampleValue after WASM function returns
 inline x::telem::SampleValue
 sample_from_wasm(const wasmtime::Val &val, const types::Type &type) {
@@ -94,10 +111,7 @@ sample_from_wasm(const wasmtime::Val &val, const types::Type &type) {
             return x::telem::SampleValue(val.f32());
         case types::Kind::F64:
             return x::telem::SampleValue(val.f64());
-        case types::Kind::Invalid:
-        case types::Kind::String:
-        case types::Kind::Chan:
-        case types::Kind::Series:
+        default:
             return x::telem::SampleValue(0);
     }
     return x::telem::SampleValue(0);
@@ -137,10 +151,7 @@ sample_from_bits(const uint64_t bits, const types::Type &type) {
             memcpy(&d, &bits, sizeof(double));
             return x::telem::SampleValue(d);
         }
-        case types::Kind::Invalid:
-        case types::Kind::String:
-        case types::Kind::Chan:
-        case types::Kind::Series:
+        default:
             return x::telem::SampleValue(static_cast<int32_t>(0));
     }
     return x::telem::SampleValue(static_cast<int32_t>(0));
@@ -262,7 +273,7 @@ public:
     private:
         Module &module;
         wasmtime::Func fn;
-        ir::Params outputs;
+        types::Params outputs;
         size_t config_count;
         uint32_t base;
         std::vector<wasmtime::Val> args;
@@ -272,9 +283,9 @@ public:
         Function(
             Module &module,
             wasmtime::Func fn,
-            const ir::Params &outputs,
-            const ir::Params &config,
-            const ir::Params &inputs,
+            const types::Params &outputs,
+            const types::Params &config,
+            const types::Params &inputs,
             const uint32_t base
         ):
             module(module),
@@ -284,8 +295,8 @@ public:
             base(base) {
             this->args.resize(config.size() + inputs.size(), wasmtime::Val(0));
             for (size_t i = 0; i < config.size(); i++)
-                if (config[i].value.has_value())
-                    this->args[i] = sample_to_wasm(*config[i].value, config[i].type);
+                if (!config[i].value.is_null())
+                    this->args[i] = json_to_wasm(config[i].value, config[i].type);
             uint32_t offset = base + 8;
             for (const auto &param: outputs) {
                 this->offsets.push_back(offset);
@@ -311,7 +322,6 @@ public:
             }
 
             const auto results = result.ok();
-
             if (this->base == 0) {
                 if (!output_vals.empty() && !results.empty())
                     output_vals[0] = Result{
@@ -358,7 +368,7 @@ public:
     /// @param node_config The node's config params with values. If empty, uses the
     /// function's config.
     std::pair<Function, x::errors::Error>
-    func(const std::string &name, const ir::Params &node_config = {}) {
+    func(const std::string &name, const types::Params &node_config = {}) {
         const auto export_opt = this->instance.get(this->store, name);
         const Function zero_func(*this, wasmtime::Func({}), {}, {}, {}, 0);
         if (!export_opt) return {zero_func, x::errors::NOT_FOUND};

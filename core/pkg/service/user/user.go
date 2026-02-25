@@ -16,21 +16,8 @@ package user
 import (
 	"github.com/google/uuid"
 	"github.com/synnaxlabs/x/gorp"
+	"github.com/vmihailenco/msgpack/v5"
 )
-
-// A User is a representation of a user in the Synnax cluster.
-type User struct {
-	// Username is the unique username for the user. Username is also enforced to be
-	// unique.
-	Username string `json:"username"`
-	// FirstName is the first name of the user.
-	FirstName string `json:"first_name" msgpack:"first_name"`
-	// LastName is the last name of the user.
-	LastName string `json:"last_name" msgpack:"last_name"`
-	// Key is the unique identifier for the user.
-	Key      uuid.UUID `json:"key"`
-	RootUser bool      `json:"root_user" msgpack:"root_user"`
-}
 
 var _ gorp.Entry[uuid.UUID] = User{}
 
@@ -39,3 +26,34 @@ func (u User) GorpKey() uuid.UUID { return u.Key }
 
 // SetOptions implements gorp.Entry.
 func (u User) SetOptions() []any { return nil }
+
+// DecodeMsgpack implements msgpack.CustomDecoder, supporting both legacy "node_id"
+// and new "leaseholder" field names for backward compatibility.
+func (u *User) DecodeMsgpack(dec *msgpack.Decoder) error {
+	type alias User
+	raw, err := dec.DecodeRaw()
+	if err != nil {
+		return err
+	}
+	if err = msgpack.Unmarshal(raw, (*alias)(u)); err != nil {
+		return err
+	}
+	keyIsNil := u.Key == uuid.Nil
+	usernameEmpty := len(u.Username) == 0
+	if keyIsNil || usernameEmpty {
+		var legacy struct {
+			Username string
+			Key      Key
+		}
+		if err = msgpack.Unmarshal(raw, &legacy); err != nil {
+			return err
+		}
+		if keyIsNil {
+			u.Key = legacy.Key
+		}
+		if usernameEmpty {
+			u.Username = legacy.Username
+		}
+	}
+	return nil
+}

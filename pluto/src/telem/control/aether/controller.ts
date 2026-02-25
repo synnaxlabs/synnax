@@ -379,7 +379,7 @@ export type AuthoritySourceDetails = z.infer<typeof authoritySourceDetailsZ>;
 
 export class AuthoritySource
   extends telem.AbstractSource<typeof authoritySourceProps>
-  implements telem.StatusSource<AuthoritySourceDetails>, AetherControllerTelem
+  implements telem.StatusSource<typeof authoritySourceDetailsZ>, AetherControllerTelem
 {
   static readonly TYPE = "controlled-status-source";
   private readonly prov: StateProvider;
@@ -410,7 +410,7 @@ export class AuthoritySource
     this.valid = true;
   }
 
-  value(): xstatus.Status<AuthoritySourceDetails> {
+  value(): xstatus.Status<typeof authoritySourceDetailsZ> {
     this.maybeRevalidate();
 
     const time = TimeStamp.now();

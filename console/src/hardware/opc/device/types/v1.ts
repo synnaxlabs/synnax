@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { channel, type device } from "@synnaxlabs/client";
+import { channel as channelAPI, type device } from "@synnaxlabs/client";
 import { migrate } from "@synnaxlabs/x";
 import { z } from "zod";
 
@@ -19,10 +19,10 @@ export const propertiesZ = z.object({
   version: z.literal(VERSION),
   connection: v0.connectionConfigZ,
   read: z.object({
-    indexes: z.array(channel.keyZ),
-    channels: z.record(z.string(), channel.keyZ),
+    indexes: z.array(channelAPI.keyZ),
+    channels: z.record(z.string(), channelAPI.keyZ),
   }),
-  write: z.object({ channels: z.record(z.string(), channel.keyZ) }),
+  write: z.object({ channels: z.record(z.string(), channelAPI.keyZ) }),
 });
 export type Properties = z.infer<typeof propertiesZ>;
 

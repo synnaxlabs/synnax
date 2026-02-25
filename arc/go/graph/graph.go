@@ -29,7 +29,6 @@ package graph
 import (
 	"github.com/samber/lo"
 	"github.com/synnaxlabs/arc/ir"
-	"github.com/synnaxlabs/x/spatial"
 )
 
 // Type aliases for IR types to avoid circular dependencies while maintaining
@@ -41,23 +40,6 @@ type (
 	Handle   = ir.Handle
 )
 
-// Node represents a visual node in an Arc graph. Unlike ir.Node, which contains
-// compiled type information, Node represents the user's visual layout including
-// position and raw configuration values.
-type Node struct {
-	// Config are the raw configuration parameter values.
-	Config map[string]any `json:"config"`
-	// Key is the unique identifier for this node instance.
-	Key string `json:"key"`
-	// Type is the function type this node instantiates.
-	Type string `json:"type"`
-	// Position is the visual position in the graph editor.
-	Position spatial.XY `json:"position"`
-}
-
-// Nodes is a slice of Node with helper methods for lookup operations.
-type Nodes []Node
-
 // Get returns the node with the given key. Panics if the node is not found.
 // Use Find for safe lookups with error handling.
 func (n Nodes) Get(key string) Node {
@@ -68,24 +50,4 @@ func (n Nodes) Get(key string) Node {
 // the node was found. This is the safe variant of Get.
 func (n Nodes) Find(key string) (Node, bool) {
 	return lo.Find(n, func(n Node) bool { return n.Key == key })
-}
-
-// Viewport represents the visual viewport state of the graph editor.
-type Viewport struct {
-	// Position is the pan offset of the viewport.
-	Position spatial.XY `json:"position"`
-	// Zoom is the zoom level of the viewport.
-	Zoom float32 `json:"zoom"`
-}
-
-// Graph represents a complete visual graph.
-type Graph struct {
-	// Functions are the function definitions available in the graph.
-	Functions []Function `json:"functions"`
-	// Edges connect node outputs to node inputs.
-	Edges Edges `json:"edges"`
-	// Nodes are the visual node instances in the graph.
-	Nodes Nodes `json:"nodes"`
-	// Viewport is the visual viewport state.
-	Viewport Viewport `json:"viewport"`
 }

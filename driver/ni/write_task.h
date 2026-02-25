@@ -190,7 +190,7 @@ private:
     /// @brief implements common::Task to stop the hardware writer.
     x::errors::Error stop() override { return this->hw_writer->stop(); }
 
-    /// @brief implements pipeline::Sink to write the incoming frame to the
+    /// @brief implements driver::pipeline::Sink to write the incoming frame to the
     /// underlying hardware. If the values are successfully written, updates
     /// the write tasks state to match the output values.
     x::errors::Error write(x::telem::Frame &frame) override {

@@ -13,7 +13,8 @@ from alamos import NOOP, Instrumentation, trace
 from freighter import Empty, UnaryClient, send_required
 from pydantic import BaseModel
 
-from synnax.device.payload import Device
+from synnax import rack as rack_
+from synnax.device.types_gen import Device
 from synnax.exceptions import NotFoundError
 from synnax.util.normalize import check_for_none, normalize, override
 
@@ -60,7 +61,7 @@ class Client:
         *,
         key: str = "",
         location: str = "",
-        rack: int = 0,
+        rack: rack_.Key = 0,
         name: str = "",
         make: str = "",
         model: str = "",
@@ -80,7 +81,7 @@ class Client:
         *,
         key: str = "",
         location: str = "",
-        rack: int = 0,
+        rack: rack_.Key = 0,
         name: str = "",
         make: str = "",
         model: str = "",
@@ -88,6 +89,10 @@ class Client:
         properties: dict[str, Any] | None = None,
     ) -> Device | list[Device]:
         is_single = not isinstance(devices, list)
+        if properties is None:
+            properties = dict()
+        elif isinstance(properties, BaseModel):
+            properties = properties.model_dump()
         if devices is None:
             devices = [
                 Device(

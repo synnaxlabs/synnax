@@ -14,6 +14,30 @@
 #include "x/cpp/test/test.h"
 
 namespace synnax::status {
+
+/// @brief Custom details type for testing templated status operations.
+struct CustomStatusDetails {
+    std::string device_id;
+    int error_code = 0;
+    bool critical = false;
+
+    static CustomStatusDetails parse(x::json::Parser parser) {
+        return CustomStatusDetails{
+            .device_id = parser.field<std::string>("device_id"),
+            .error_code = parser.field<int>("error_code"),
+            .critical = parser.field<bool>("critical"),
+        };
+    }
+
+    [[nodiscard]] x::json::json to_json() const {
+        return {
+            {"device_id", device_id},
+            {"error_code", error_code},
+            {"critical", critical},
+        };
+    }
+};
+
 /// @brief it should set a single status in the cluster.
 TEST(StatusTest, SetSingleStatus) {
     const auto client = new_test_client();
@@ -162,33 +186,10 @@ TEST(StatusTest, DetailsRoundTrip) {
     const auto retrieved = ASSERT_NIL_P(client.statuses.retrieve(s.key));
     EXPECT_EQ(retrieved.key, s.key);
     EXPECT_EQ(retrieved.message, s.message);
-    const auto details_json = retrieved.details.to_json();
+    const auto details_json = retrieved.details;
     EXPECT_TRUE(details_json.is_object());
     EXPECT_TRUE(details_json.empty());
 }
-
-// Custom details type for testing templated status client
-struct CustomStatusDetails {
-    std::string device_id;
-    int error_code = 0;
-    bool critical = false;
-
-    [[nodiscard]] x::json::json to_json() const {
-        return x::json::json{
-            {"device_id", device_id},
-            {"error_code", error_code},
-            {"critical", critical}
-        };
-    }
-
-    static CustomStatusDetails parse(x::json::Parser &parser) {
-        return CustomStatusDetails{
-            .device_id = parser.field<std::string>("device_id", ""),
-            .error_code = parser.field<int>("error_code", 0),
-            .critical = parser.field<bool>("critical", false),
-        };
-    }
-};
 
 /// @brief it should set and retrieve a status with custom details type.
 TEST(StatusTest, CustomDetailsSetAndRetrieve) {
@@ -269,7 +270,6 @@ TEST(StatusTest, CustomDetailsUpdate) {
 
     ASSERT_NIL(client.statuses.set<CustomStatusDetails>(s));
 
-    // Update the status with new details
     s.variant = x::status::VARIANT_ERROR;
     s.message = "Escalated to error";
     s.details.error_code = 500;
@@ -296,7 +296,6 @@ TEST(StatusTest, CustomDetailsEmptyFields) {
     s.variant = x::status::VARIANT_INFO;
     s.message = "Empty details test";
     s.time = x::telem::TimeStamp::now();
-    // Leave details with default values
 
     ASSERT_NIL(client.statuses.set<CustomStatusDetails>(s));
 
@@ -307,4 +306,5 @@ TEST(StatusTest, CustomDetailsEmptyFields) {
     EXPECT_EQ(retrieved.details.error_code, 0);
     EXPECT_EQ(retrieved.details.critical, false);
 }
+
 }

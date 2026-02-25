@@ -303,7 +303,7 @@ struct ReadTaskConfig : common::BaseReadTaskConfig {
     std::string dev_model;
     /// @brief a set of transforms to apply to the frame after reading. Applies
     /// scaling information to channels.
-    transform::Chain transform;
+    driver::transform::Chain transform;
     /// @brief the number of skipped scans to allow before warning the user.
     size_t device_scan_backlog_warn_on_count;
     /// @brief the size of the buffer to use for reading data from the device.

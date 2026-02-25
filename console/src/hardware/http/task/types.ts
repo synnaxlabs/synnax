@@ -95,10 +95,10 @@ export const ZERO_READ_PAYLOAD = {
 } as const satisfies ReadPayload;
 
 export const READ_SCHEMAS = {
-  typeSchema: readTypeZ,
-  configSchema: readConfigZ,
-  statusDataSchema: readStatusDataZ,
-} as const satisfies task.Schemas<
+  type: readTypeZ,
+  config: readConfigZ,
+  statusData: readStatusDataZ,
+} as const satisfies task.PayloadSchemas<
   typeof readTypeZ,
   typeof readConfigZ,
   typeof readStatusDataZ

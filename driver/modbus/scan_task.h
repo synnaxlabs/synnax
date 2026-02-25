@@ -65,7 +65,7 @@ public:
 
     /// @brief Handle Modbus-specific commands (test connection).
     bool exec(
-        task::Command &cmd,
+        synnax::task::Command &cmd,
         const synnax::task::Task &task,
         const std::shared_ptr<task::Context> &ctx
     ) override;
@@ -76,7 +76,7 @@ private:
     std::shared_ptr<device::Manager> devices;
 
     /// @brief Test connection to a Modbus server.
-    void test_connection(const task::Command &cmd) const;
+    void test_connection(const synnax::task::Command &cmd) const;
 
     /// @brief Check health of a single device by testing its connection.
     /// Sets dev.status based on connection result.

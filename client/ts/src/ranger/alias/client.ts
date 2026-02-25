@@ -12,7 +12,7 @@ import { array } from "@synnaxlabs/x";
 import { z } from "zod";
 
 import { channel } from "@/channel";
-import { type Key, keyZ } from "@/ranger/payload";
+import { type Key, keyZ } from "@/ranger/types.gen";
 
 const resolveReqZ = z.object({ range: keyZ, aliases: z.string().array() });
 const resolveResZ = z.object({ aliases: z.record(z.string(), channel.keyZ) });

@@ -10,12 +10,10 @@
 #pragma once
 
 #include <algorithm>
-#include <map>
+#include <cstdint>
 #include <sstream>
 #include <string>
 #include <vector>
-
-#include "x/cpp/telem/telem.h"
 
 namespace arc::ir {
 /// @brief Returns the tree prefix for a tree item.
@@ -40,7 +38,7 @@ std::string format_params(const Params &params) {
         if (!first) ss << ", ";
         first = false;
         ss << p.name << " (" << p.type.to_string() << ")";
-        if (p.value.has_value()) ss << " = " << x::telem::to_string(*p.value);
+        if (!p.value.is_null()) ss << " = " << p.value.dump();
     }
     return ss.str();
 }

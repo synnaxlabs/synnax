@@ -23,7 +23,7 @@ const RESOURCE_NAME = "log";
 
 export interface FluxStore extends Flux.UnaryStore<log.Key, log.Log> {}
 
-export type UseDeleteArgs = log.Params;
+export type UseDeleteArgs = log.Key | log.Key[];
 
 interface FluxSubStore extends Flux.Store {
   [FLUX_STORE_KEY]: FluxStore;

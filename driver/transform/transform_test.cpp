@@ -114,7 +114,7 @@ TEST_F(TareTests, BasicTare) {
     ASSERT_EQ(frame.at<double>(1, -1), 20.0);
     ASSERT_EQ(frame.at<float>(2, -1), 15.0f);
 
-    x::json::json tare_args = x::json::json::object();
+    x::json::json::object_t tare_args;
     ASSERT_NIL(tare.tare(tare_args));
 
     x::telem::Frame new_frame(2);
@@ -144,7 +144,7 @@ TEST_F(TareTests, TareSpecificChannels) {
     ASSERT_NIL(tare.transform(frame));
 
     // Request tare of only channel 1
-    x::json::json tare_args = {{"keys", {1}}};
+    x::json::json::object_t tare_args = {{"keys", {1}}};
     ASSERT_NIL(tare.tare(tare_args));
 
     x::telem::Frame new_frame(2);
@@ -191,7 +191,7 @@ TEST_F(TareTests, InvalidChannelKey) {
 
     ASSERT_NIL(tare.transform(frame));
 
-    x::json::json tare_args = {{"keys", {999}}};
+    x::json::json::object_t tare_args = {{"keys", {999}}};
     const auto err = tare.tare(tare_args);
     ASSERT_TRUE(err);
 }
@@ -460,7 +460,7 @@ TEST_F(TareTests, TareWithDifferentDataTypes) {
 
     ASSERT_NIL(tare.transform(frame));
 
-    x::json::json tare_args = x::json::json::object();
+    x::json::json::object_t tare_args;
     ASSERT_NIL(tare.tare(tare_args));
 
     x::telem::Frame new_frame(3);
@@ -545,7 +545,7 @@ TEST(ChainTests, ComplexTransformChain) {
     chain.add(tare);
     chain.add(scale);
 
-    x::json::json tare_args = x::json::json::object();
+    x::json::json::object_t tare_args;
     ASSERT_NIL(tare->tare(tare_args));
 
     x::telem::Frame frame(1);

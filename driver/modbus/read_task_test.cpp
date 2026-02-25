@@ -38,8 +38,8 @@ protected:
         index_channel = synnax::channel::Channel{
             .name = make_unique_channel_name("time_channel"),
             .data_type = x::telem::TIMESTAMP_T,
-            .index = 0,
-            .is_index = true
+            .is_index = true,
+            .index = 0
         };
         ASSERT_NIL(client->channels.create(index_channel));
 
@@ -51,17 +51,17 @@ protected:
 
         device = synnax::device::Device{
             .key = "modbus_test_device",
-            .name = "modbus_test_device",
             .rack = rack.key,
             .location = "dev1",
             .make = "modbus",
             .model = "Modbus Device",
-            .properties = properties.get<x::json::json::object_t>(),
+            .name = "modbus_test_device",
+            .properties = properties
         };
         ASSERT_NIL(client->devices.create(device));
 
-        ctx = std::make_shared<task::MockContext>(client);
-        mock_factory = std::make_shared<pipeline::mock::WriterFactory>();
+        ctx = std::make_shared<driver::task::MockContext>(client);
+        mock_factory = std::make_shared<driver::pipeline::mock::WriterFactory>();
     }
 
     // Helper to create a basic task configuration
@@ -200,15 +200,15 @@ TEST(ReadTask, testBasicReadTask) {
     auto index_channel = synnax::channel::Channel{
         .name = make_unique_channel_name("time_channel"),
         .data_type = x::telem::TIMESTAMP_T,
-        .index = 0,
-        .is_index = true
+        .is_index = true,
+        .index = 0
     };
 
     auto data_channel = synnax::channel::Channel{
         .name = make_unique_channel_name("data_channel"),
         .data_type = x::telem::UINT8_T,
-        .index = index_channel.key,
-        .is_index = false
+        .is_index = false,
+        .index = index_channel.key
     };
 
     auto client = std::make_shared<synnax::Synnax>(new_test_client());
@@ -228,7 +228,7 @@ TEST(ReadTask, testBasicReadTask) {
         .location = "dev1",
         .make = "modbus",
         .model = "Modbus Device",
-        .properties = properties.get<x::json::json::object_t>(),
+        .properties = properties,
     };
 
     ASSERT_NIL(client->devices.create(dev));
@@ -256,8 +256,8 @@ TEST(ReadTask, testBasicReadTask) {
     auto cfg = std::make_unique<ReadTaskConfig>(client, p);
     ASSERT_NIL(p.error());
 
-    auto ctx = std::make_shared<task::MockContext>(client);
-    auto factory = std::make_shared<pipeline::mock::WriterFactory>();
+    auto ctx = std::make_shared<driver::task::MockContext>(client);
+    auto factory = std::make_shared<driver::pipeline::mock::WriterFactory>();
 
     auto devs = std::make_shared<device::Manager>();
 
@@ -276,7 +276,7 @@ TEST(ReadTask, testBasicReadTask) {
     task.start("start_cmd");
     ASSERT_EVENTUALLY_GE(ctx->statuses.size(), 1);
     const auto first_state = ctx->statuses[0];
-    EXPECT_EQ(first_state.key, tsk.status_key());
+    EXPECT_EQ(first_state.key, synnax::task::status_key(tsk));
     EXPECT_EQ(first_state.details.cmd, "start_cmd");
     EXPECT_EQ(first_state.variant, x::status::VARIANT_SUCCESS);
     EXPECT_EQ(first_state.details.task, tsk.key);
@@ -285,7 +285,7 @@ TEST(ReadTask, testBasicReadTask) {
     task.stop("stop_cmd", true);
     ASSERT_EQ(ctx->statuses.size(), 2);
     const auto second_state = ctx->statuses[1];
-    EXPECT_EQ(second_state.key, tsk.status_key());
+    EXPECT_EQ(second_state.key, synnax::task::status_key(tsk));
     EXPECT_EQ(second_state.details.cmd, "stop_cmd");
     EXPECT_EQ(second_state.variant, x::status::VARIANT_SUCCESS);
     EXPECT_EQ(second_state.details.task, tsk.key);
@@ -736,7 +736,7 @@ TEST_F(ModbusReadTest, testAutoStartTrue) {
     ASSERT_TRUE(found_start);
 
     // Stop the task to clean up
-    task::Command stop_cmd(task.key, "stop", {});
+    synnax::task::Command stop_cmd{.task = task.key, .type = "stop"};
     configured_task->exec(stop_cmd);
 }
 
@@ -800,7 +800,7 @@ TEST_F(ModbusReadTest, testAutoStartFalse) {
     ASSERT_EQ(initial_state.message, "Task configured successfully");
 
     // Manually start the task
-    task::Command start_cmd(task.key, "start", {});
+    synnax::task::Command start_cmd{.task = task.key, .type = "start"};
     configured_task->exec(start_cmd);
 
     // Now task should be running
@@ -815,7 +815,7 @@ TEST_F(ModbusReadTest, testAutoStartFalse) {
     ASSERT_TRUE(found_start);
 
     // Stop the task to clean up
-    task::Command stop_cmd(task.key, "stop", {});
+    synnax::task::Command stop_cmd{.task = task.key, .type = "stop"};
     configured_task->exec(stop_cmd);
 }
 }

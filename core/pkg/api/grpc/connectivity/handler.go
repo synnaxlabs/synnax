@@ -15,39 +15,38 @@ import (
 
 	"github.com/synnaxlabs/freighter/grpc"
 	"github.com/synnaxlabs/synnax/pkg/api"
-	apiconnectivity "github.com/synnaxlabs/synnax/pkg/api/connectivity"
-	gapi "github.com/synnaxlabs/synnax/pkg/api/grpc/v1"
+	"github.com/synnaxlabs/synnax/pkg/api/connectivity"
 	"google.golang.org/protobuf/types/known/emptypb"
 )
-
-type responseTranslator struct{}
 
 type (
 	server = grpc.UnaryServer[
 		types.Nil,
 		*emptypb.Empty,
-		apiconnectivity.CheckResponse,
-		*gapi.ConnectivityCheckResponse,
+		connectivity.CheckResponse,
+		*CheckResponse,
 	]
 )
 
-var _ grpc.Translator[apiconnectivity.CheckResponse, *gapi.ConnectivityCheckResponse] = (*responseTranslator)(nil)
+type responseTranslator struct{}
 
-func (c responseTranslator) Forward(
-	ctx context.Context,
-	r apiconnectivity.CheckResponse,
-) (*gapi.ConnectivityCheckResponse, error) {
-	return &gapi.ConnectivityCheckResponse{
+var _ grpc.Translator[connectivity.CheckResponse, *CheckResponse] = (*responseTranslator)(nil)
+
+func (responseTranslator) Forward(
+	_ context.Context,
+	r connectivity.CheckResponse,
+) (*CheckResponse, error) {
+	return &CheckResponse{
 		ClusterKey:  r.ClusterKey,
 		NodeVersion: r.NodeVersion,
 	}, nil
 }
 
-func (c responseTranslator) Backward(
-	ctx context.Context,
-	r *gapi.ConnectivityCheckResponse,
-) (apiconnectivity.CheckResponse, error) {
-	return apiconnectivity.CheckResponse{
+func (responseTranslator) Backward(
+	_ context.Context,
+	r *CheckResponse,
+) (connectivity.CheckResponse, error) {
+	return connectivity.CheckResponse{
 		ClusterKey:  r.ClusterKey,
 		NodeVersion: r.NodeVersion,
 	}, nil
@@ -57,7 +56,7 @@ func New(a *api.Transport) grpc.BindableTransport {
 	s := &server{
 		RequestTranslator:  grpc.EmptyTranslator{},
 		ResponseTranslator: responseTranslator{},
-		ServiceDesc:        &gapi.ConnectivityService_ServiceDesc,
+		ServiceDesc:        &ConnectivityService_ServiceDesc,
 	}
 	a.ConnectivityCheck = s
 	return s

@@ -48,16 +48,13 @@ func NewService(cfgs ...config.LayerConfig) (*Service, error) {
 }
 
 type (
-	Device = device.Device
+	CreateRequest struct {
+		Devices []device.Device `json:"devices" msgpack:"devices"`
+	}
+	CreateResponse struct {
+		Devices []device.Device `json:"devices" msgpack:"devices"`
+	}
 )
-
-type CreateRequest struct {
-	Devices []device.Device `json:"devices" msgpack:"devices"`
-}
-
-type CreateResponse struct {
-	Devices []device.Device `json:"devices" msgpack:"devices"`
-}
 
 func (s *Service) Create(
 	ctx context.Context,

@@ -20,7 +20,7 @@ class MockTask final : public task::Task {
 public:
     explicit MockTask() = default;
 
-    void exec(task::Command &cmd) override {}
+    void exec(synnax::task::Command &cmd) override {}
     void stop(bool will_reconfigure) override {}
     [[nodiscard]] std::string name() const override { return "mock_task"; }
 };
@@ -81,7 +81,7 @@ TEST(TestFactory, TestCreateIfTypeNotExistsOnRack_ExistingTask) {
 TEST(TestFactory, TestConfigureInitialFactoryTasks_Success) {
     auto client = std::make_shared<synnax::Synnax>(new_test_client());
     const auto rack = ASSERT_NIL_P(client->racks.create("test_rack"));
-    const auto ctx = std::make_shared<task::MockContext>(client);
+    const auto ctx = std::make_shared<driver::task::MockContext>(client);
     const auto factory = std::make_unique<MockFactory>();
     auto tasks = configure_initial_factory_tasks(
         factory.get(),
@@ -102,7 +102,7 @@ TEST(TestFactory, TestConfigureInitialFactoryTasks_Success) {
 TEST(TestFactory, TestConfigureInitialFactoryTasks_ExistingTask) {
     auto client = std::make_shared<synnax::Synnax>(new_test_client());
     auto rack = ASSERT_NIL_P(client->racks.create("test_rack"));
-    auto ctx = std::make_shared<task::MockContext>(client);
+    auto ctx = std::make_shared<driver::task::MockContext>(client);
     auto factory = std::make_unique<MockFactory>();
     synnax::task::Task existing_task{
         .key = synnax::task::create_key(rack.key, 0),
@@ -126,7 +126,7 @@ TEST(TestFactory, TestConfigureInitialFactoryTasks_ExistingTask) {
 TEST(TestFactory, TestConfigureInitialFactoryTasks_ConfigurationFailure) {
     auto client = std::make_shared<synnax::Synnax>(new_test_client());
     auto rack = ASSERT_NIL_P(client->racks.create("test_rack"));
-    auto ctx = std::make_shared<task::MockContext>(client);
+    auto ctx = std::make_shared<driver::task::MockContext>(client);
     auto factory = std::make_unique<MockFactory>();
     factory->should_fail = true;
     auto tasks = configure_initial_factory_tasks(
@@ -145,7 +145,7 @@ TEST(TestFactory, TestConfigureInitialFactoryTasks_ConfigurationFailure) {
 TEST(TestFactory, TestConfigureInitialFactoryTasks_MultipleConfigurations) {
     auto client = std::make_shared<synnax::Synnax>(new_test_client());
     auto rack = ASSERT_NIL_P(client->racks.create("test_rack"));
-    auto ctx = std::make_shared<task::MockContext>(client);
+    auto ctx = std::make_shared<driver::task::MockContext>(client);
     auto factory = std::make_unique<MockFactory>();
     auto tasks1 = configure_initial_factory_tasks(
         factory.get(),

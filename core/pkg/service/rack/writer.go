@@ -38,9 +38,9 @@ type Writer struct {
 	status status.Writer[StatusDetails]
 }
 
-func resolveStatus(r *Rack) *Status {
+func resolveStatus(r *Rack) *status.Status[StatusDetails] {
 	if r.Status == nil {
-		return &Status{
+		return &status.Status[StatusDetails]{
 			Key:     OntologyID(r.Key).String(),
 			Name:    r.Name,
 			Time:    telem.Now(),
@@ -49,10 +49,11 @@ func resolveStatus(r *Rack) *Status {
 			Details: StatusDetails{Rack: r.Key},
 		}
 	}
-	r.Status.Key = OntologyID(r.Key).String()
-	r.Status.Details.Rack = r.Key
-	r.Status.Name = r.Name
-	return r.Status
+	stat := status.Status[StatusDetails](*r.Status)
+	stat.Key = OntologyID(r.Key).String()
+	stat.Details.Rack = r.Key
+	stat.Name = r.Name
+	return &stat
 }
 
 // Create creates or updates a rack. If the rack key is zero or a rack with the key

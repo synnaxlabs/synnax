@@ -11,6 +11,7 @@ import { sendRequired, type UnaryClient } from "@synnaxlabs/freighter";
 import { type DataType } from "@synnaxlabs/x";
 import { z } from "zod";
 
+import { type CacheRetriever } from "@/channel/retriever";
 import {
   type Key,
   keyZ,
@@ -19,8 +20,7 @@ import {
   newZ,
   type Payload,
   payloadZ,
-} from "@/channel/payload";
-import { type CacheRetriever } from "@/channel/retriever";
+} from "@/channel/types.gen";
 
 const createReqZ = z.object({ channels: newZ.array() });
 const createResZ = z.object({ channels: payloadZ.array() });

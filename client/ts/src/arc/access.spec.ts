@@ -26,12 +26,14 @@ describe("arc", () => {
       });
       const a: arc.New = {
         name: "test",
+        mode: "text",
         graph: {
           nodes: [],
           edges: [],
+          viewport: { position: { x: 0, y: 0 }, zoom: 1 },
+          functions: [],
         },
         text: { raw: "" },
-        version: "1.0.0",
       };
       const randomArc = await client.arcs.create(a);
       await expect(userClient.arcs.retrieve({ key: randomArc.key })).rejects.toThrow(
@@ -47,12 +49,14 @@ describe("arc", () => {
       });
       const randomArc = await client.arcs.create({
         name: "test",
+        mode: "text",
         graph: {
           nodes: [],
           edges: [],
+          viewport: { position: { x: 0, y: 0 }, zoom: 1 },
+          functions: [],
         },
         text: { raw: "" },
-        version: "1.0.0",
       });
       const retrieved = await userClient.arcs.retrieve({ key: randomArc.key });
       expect(retrieved.key).toBe(randomArc.key);
@@ -67,12 +71,14 @@ describe("arc", () => {
       });
       await userClient.arcs.create({
         name: "test",
+        mode: "text",
         graph: {
           nodes: [],
           edges: [],
+          viewport: { position: { x: 0, y: 0 }, zoom: 1 },
+          functions: [],
         },
         text: { raw: "" },
-        version: "1.0.0",
       });
     });
 
@@ -85,12 +91,14 @@ describe("arc", () => {
       await expect(
         userClient.arcs.create({
           name: "test",
+          mode: "text",
           graph: {
             nodes: [],
             edges: [],
+            viewport: { position: { x: 0, y: 0 }, zoom: 1 },
+            functions: [],
           },
           text: { raw: "" },
-          version: "1.0.0",
         }),
       ).rejects.toThrow(AuthError);
     });
@@ -103,12 +111,14 @@ describe("arc", () => {
       });
       const randomArc = await client.arcs.create({
         name: "test",
+        mode: "text",
         graph: {
           nodes: [],
           edges: [],
+          viewport: { position: { x: 0, y: 0 }, zoom: 1 },
+          functions: [],
         },
         text: { raw: "" },
-        version: "1.0.0",
       });
       await userClient.arcs.delete(randomArc.key);
       await expect(userClient.arcs.retrieve({ key: randomArc.key })).rejects.toThrow(
@@ -124,12 +134,14 @@ describe("arc", () => {
       });
       const randomArc = await client.arcs.create({
         name: "test",
+        mode: "text",
         graph: {
           nodes: [],
           edges: [],
+          viewport: { position: { x: 0, y: 0 }, zoom: 1 },
+          functions: [],
         },
         text: { raw: "" },
-        version: "1.0.0",
       });
       await expect(userClient.arcs.delete(randomArc.key)).rejects.toThrow(AuthError);
     });

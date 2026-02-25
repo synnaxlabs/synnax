@@ -16,7 +16,7 @@ import { createTestClient } from "@/testutil/client";
 
 const client = createTestClient();
 
-describe("Ranger", () => {
+describe("range", () => {
   describe("payload", () => {
     it("should validate the time range", () => {
       const payload = ranger.payloadZ.parse({

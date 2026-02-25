@@ -8,7 +8,7 @@ cc_library(
 )
 
 cc_test(
-    name = "spsc_test",
+    name = "queue_test",
     size = "small",
     srcs = ["spsc_test.cpp"],
     deps = [

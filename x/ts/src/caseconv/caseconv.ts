@@ -7,56 +7,191 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { type z } from "zod";
+
 import { type record } from "@/record";
 
-const snakeToCamelStr = (str: string): string => {
-  const c = str.replace(/_[a-z]/g, (m) => m[1].toUpperCase());
-  // if both first and second characters are upper case, leave as is
-  // if only first character is upper case, convert to lower case
-  if (c.length > 1 && c[0] === c[0].toUpperCase() && c[1] === c[1].toUpperCase())
-    return c;
-  if (c.length === 0) return c;
-  return c[0].toLowerCase() + c.slice(1);
+/**
+ * Global symbol used to mark Zod schemas that should not have their keys converted.
+ * Uses Symbol.for() to ensure the same symbol is used across different module instances.
+ */
+const PRESERVE_CASE_SYMBOL = "synnax.caseconv.preserveCase";
+
+/**
+ * Marks a Zod schema to prevent case conversion of its keys and nested content.
+ * Use this for schemas where keys are semantic values (like OPC UA NodeIds or Modbus channel keys)
+ * rather than property names.
+ *
+ * @param schema - The Zod schema to mark
+ * @returns The same schema with a preserve case marker
+ *
+ * @example
+ * const propertiesZ = z.object({
+ *   read: z.object({
+ *     channels: preserveCase(z.record(z.string(), z.number()))
+ *   })
+ * });
+ */
+export const preserveCase = <T extends z.ZodType>(schema: T): T => {
+  (schema as any)[PRESERVE_CASE_SYMBOL] = true;
+  return schema;
 };
+
+/**
+ * Checks if a Zod schema has the preserve case marker.
+ * Traverses through wrapper schemas (optional, nullable, union, transform, etc.)
+ * to find markers on inner schemas.
+ */
+const hasPreserveCaseMarker = (schema: unknown): boolean => {
+  if (schema == null || typeof schema !== "object") return false;
+
+  // Direct marker check
+  if (PRESERVE_CASE_SYMBOL in schema) return true;
+
+  const def = (schema as any)._zod?.def ?? (schema as any).def;
+  if (def == null) return false;
+
+  // Traverse through wrappers with innerType (optional, nullable, default, catch)
+  if (def.innerType && hasPreserveCaseMarker(def.innerType)) return true;
+
+  // Traverse through unions - check all options
+  if (def.type === "union" && Array.isArray(def.options))
+    return def.options.some(hasPreserveCaseMarker);
+
+  // Traverse through pipes/transforms - check both ends
+  if (def.type === "pipe")
+    return hasPreserveCaseMarker(def.in) || hasPreserveCaseMarker(def.out);
+
+  return false;
+};
+
+/**
+ * Unwraps an array schema to get its element schema.
+ * Handles direct arrays and unions containing arrays (e.g., from nullishToEmpty).
+ * Returns undefined if the schema is not an array or is undefined.
+ */
+const getArrayElementSchema = (
+  schema: z.ZodType | undefined,
+): z.ZodType | undefined => {
+  if (schema == null) return undefined;
+  const def = (schema as any).def;
+  if (def?.type === "array" && def.element != null) return def.element;
+  // Handle union types that may contain arrays (e.g., nullishToEmpty)
+  if (def?.type === "union" && Array.isArray(def.options))
+    for (const option of def.options) {
+      const result = getArrayElementSchema(option);
+      if (result != null) return result;
+    }
+
+  return undefined;
+};
+
+/**
+ * Extracts the shape (field name → ZodType map) from a Zod schema.
+ * Traverses through wrappers (optional, nullable, default, catch, union, pipe)
+ * to find the inner object schema's shape. Returns null for non-object schemas.
+ */
+const getSchemaShape = (
+  schema: z.ZodType | undefined,
+): Record<string, z.ZodType> | null => {
+  if (schema == null) return null;
+  const s = schema as any;
+  if (s.shape != null) return s.shape;
+  if (typeof s.sourceType === "function") {
+    const st = s.sourceType();
+    if (st?.shape != null) return st.shape;
+  }
+  const def = s._zod?.def ?? s.def;
+  if (def == null) return null;
+  if (def.innerType != null) return getSchemaShape(def.innerType);
+  if (def.type === "union" && Array.isArray(def.options)) {
+    for (const option of def.options) {
+      const result = getSchemaShape(option);
+      if (result != null) return result;
+    }
+  }
+  if (def.type === "pipe") return getSchemaShape(def.in) ?? getSchemaShape(def.out);
+  return null;
+};
+
+const snakeToCamelStr = (str: string): string => {
+  if (str.length === 0) return str;
+  const hasUnderscore = str.indexOf("_") !== -1;
+  const c = hasUnderscore ? str.replace(/_[a-z]/g, (m) => m[1].toUpperCase()) : str;
+  const first = c.charCodeAt(0);
+  if (first < 65 || first > 90) return c; // not uppercase A-Z
+  if (c.length > 1 && c.charCodeAt(1) >= 65 && c.charCodeAt(1) <= 90) return c;
+  return String.fromCharCode(first + 32) + c.slice(1);
+};
+
 /**
  * Convert string keys in an object to snake_case format.
  * @param obj: object to convert keys. If `obj` isn't a json object, `null` is returned.
  * @param opt: (optional) Options parameter, default is non-recursive.
+ * @param schema: (optional) Zod schema to check for preserve case markers
  */
 const createConverter = (
   f: (v: string) => string,
 ): (<V>(obj: V, opt?: Options) => V) => {
   const converter = <V>(obj: V, opt: Options = defaultOptions): V => {
     if (typeof obj === "string") return f(obj) as any;
-    if (Array.isArray(obj)) return obj.map((v) => converter(v, opt)) as V;
+    if (Array.isArray(obj)) {
+      const elementSchema = getArrayElementSchema(opt.schema);
+      const elemOpt: Options = {
+        recursive: opt.recursive,
+        recursiveInArray: opt.recursiveInArray,
+        schema: elementSchema,
+      };
+      return obj.map((v) => converter(v, elemOpt)) as V;
+    }
     if (!isValidObject(obj)) return obj;
-    opt = validateOptions(opt);
+
+    if (opt.schema != null && hasPreserveCaseMarker(opt.schema)) return obj;
+
+    const recursive = opt.recursive ?? true;
+    const recursiveInArray = opt.recursiveInArray ?? recursive;
+    const schema = opt.schema;
     const res: record.Unknown = {};
     const anyObj = obj as record.Unknown;
     if ("toJSON" in anyObj && typeof anyObj.toJSON === "function")
       return converter(anyObj.toJSON(), opt);
-    Object.keys(anyObj).forEach((key) => {
+
+    const shape = getSchemaShape(schema);
+    const childOpt: Options = { recursive, recursiveInArray, schema: undefined };
+    const keys = Object.keys(anyObj);
+    for (let i = 0; i < keys.length; i++) {
+      const key = keys[i];
       let value = anyObj[key];
       const nkey = f(key);
-      if (opt.recursive)
+
+      // Look up schema using BOTH original key and converted key since:
+      // - For snakeToCamel: schema has camelCase keys, input has snake_case, nkey is camelCase (matches)
+      // - For camelToSnake: schema has camelCase keys, input has camelCase, nkey is snake_case (key matches)
+      const propSchema: z.ZodType | undefined =
+        shape != null ? (shape[key] ?? shape[nkey] ?? undefined) : undefined;
+
+      if (recursive)
         if (isValidObject(value)) {
-          if (!belongToTypes(value)) value = converter(value, opt);
-        } else if (opt.recursiveInArray && isArrayObject(value))
-          value = [...(value as unknown[])].map((v) => {
-            let ret = v;
+          if (!isPreservedType(value)) {
+            childOpt.schema = propSchema;
+            value = converter(value, childOpt);
+          }
+        } else if (recursiveInArray && Array.isArray(value)) {
+          const elementSchema = getArrayElementSchema(propSchema);
+          childOpt.schema = elementSchema;
+          value = (value as unknown[]).map((v) => {
             if (isValidObject(v)) {
-              // object in array
-              if (!belongToTypes(ret)) ret = converter(v, opt);
-            } else if (isArrayObject(v)) {
-              // array in array
-              // workaround by using an object holding array value
-              const temp: record.Unknown = converter({ key: v }, opt);
-              ret = temp.key;
+              if (!isPreservedType(v)) return converter(v, childOpt);
+            } else if (Array.isArray(v)) {
+              const temp: record.Unknown = converter({ key: v }, childOpt);
+              return temp.key;
             }
-            return ret;
+            return v;
           });
+        }
+
       res[nkey] = value;
-    });
+    }
 
     return res as V;
   };
@@ -113,33 +248,22 @@ export const capitalize = (str: string): string => {
  * Example Date, RegExp. These types will be right-hand side of 'instanceof' operator.
  */
 export interface Options {
-  recursive: boolean;
+  recursive?: boolean;
   recursiveInArray?: boolean;
+  schema?: z.ZodType;
 }
 
-const keepTypesOnRecursion = [Number, String, Uint8Array];
-
-/**
- * Default options for convert function. This option is not recursive.
- */
 const defaultOptions: Options = {
   recursive: true,
   recursiveInArray: true,
+  schema: undefined,
 };
-
-const validateOptions = (opt: Options = defaultOptions): Options => {
-  if (opt.recursive == null) opt = defaultOptions;
-  else opt.recursiveInArray ??= false;
-  return opt;
-};
-
-const isArrayObject = (obj: unknown): boolean => obj != null && Array.isArray(obj);
 
 const isValidObject = (obj: unknown): boolean =>
   obj != null && typeof obj === "object" && !Array.isArray(obj);
 
-const belongToTypes = (obj: unknown): boolean =>
-  keepTypesOnRecursion.some((type) => obj instanceof type);
+const isPreservedType = (obj: unknown): boolean =>
+  obj instanceof Uint8Array || obj instanceof Number || obj instanceof String;
 
 /**
  * Converts a string to kebab-case.

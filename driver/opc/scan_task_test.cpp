@@ -80,20 +80,25 @@ TEST_F(TestScanTask, testBasicScan) {
         {"connection", conn_cfg.to_json()},
     };
 
-    task::Command cmd(task.key, BROWSE_CMD_TYPE, scan_cmd);
-    cmd.key = "scan_cmd";
+    synnax::task::Command cmd{
+        .task = task.key,
+        .type = BROWSE_CMD_TYPE,
+        .key = "scan_cmd",
+        .args = scan_cmd
+    };
 
     scan_task->exec(cmd);
 
     ASSERT_EVENTUALLY_GE(ctx->statuses.size(), 1);
     const auto &state = ctx->statuses[0];
-    EXPECT_EQ(state.key, task.status_key());
+    EXPECT_EQ(state.key, synnax::task::status_key(task));
     EXPECT_EQ(state.details.cmd, "scan_cmd");
     EXPECT_EQ(state.variant, x::status::VARIANT_SUCCESS);
 
-    auto data = state.details.data;
+    ASSERT_TRUE(state.details.data.has_value());
+    auto &data = *state.details.data;
     ASSERT_TRUE(data.contains("channels"));
-    auto channels = data["channels"];
+    auto channels = data.at("channels");
     ASSERT_TRUE(channels.is_array());
     EXPECT_GE(channels.size(), 11);
 
@@ -154,15 +159,23 @@ TEST_F(TestScanTask, testConnectionPooling) {
         {"connection", conn_cfg.to_json()},
     };
 
-    task::Command cmd1(task.key, BROWSE_CMD_TYPE, scan_cmd);
-    cmd1.key = "scan_cmd_1";
+    synnax::task::Command cmd1{
+        .task = task.key,
+        .type = BROWSE_CMD_TYPE,
+        .key = "scan_cmd_1",
+        .args = scan_cmd
+    };
 
     scan_task->exec(cmd1);
     ASSERT_EVENTUALLY_GE(ctx->statuses.size(), 1);
     EXPECT_EQ(ctx->statuses[0].variant, x::status::VARIANT_SUCCESS);
 
-    task::Command cmd2(task.key, BROWSE_CMD_TYPE, scan_cmd);
-    cmd2.key = "scan_cmd_2";
+    synnax::task::Command cmd2{
+        .task = task.key,
+        .type = BROWSE_CMD_TYPE,
+        .key = "scan_cmd_2",
+        .args = scan_cmd
+    };
 
     scan_task->exec(cmd2);
     ASSERT_EVENTUALLY_GE(ctx->statuses.size(), 2);
@@ -189,14 +202,18 @@ TEST_F(TestScanTask, testTestConnection) {
         {"connection", conn_cfg.to_json()},
     };
 
-    task::Command cmd(task.key, TEST_CONNECTION_CMD_TYPE, test_conn_cmd);
-    cmd.key = "test_conn_cmd";
+    synnax::task::Command cmd{
+        .task = task.key,
+        .type = TEST_CONNECTION_CMD_TYPE,
+        .key = "test_conn_cmd",
+        .args = test_conn_cmd
+    };
 
     scan_task->exec(cmd);
 
     ASSERT_EVENTUALLY_GE(ctx->statuses.size(), 1);
     const auto &state = ctx->statuses[0];
-    EXPECT_EQ(state.key, task.status_key());
+    EXPECT_EQ(state.key, synnax::task::status_key(task));
     EXPECT_EQ(state.details.cmd, "test_conn_cmd");
     EXPECT_EQ(state.variant, x::status::VARIANT_SUCCESS);
     EXPECT_EQ(state.message, "Connection successful");
@@ -222,14 +239,18 @@ TEST_F(TestScanTask, testInvalidConnection) {
         {"connection", conn_cfg.to_json()},
     };
 
-    task::Command cmd(task.key, BROWSE_CMD_TYPE, scan_cmd);
-    cmd.key = "invalid_scan_cmd";
+    synnax::task::Command cmd{
+        .task = task.key,
+        .type = BROWSE_CMD_TYPE,
+        .key = "invalid_scan_cmd",
+        .args = scan_cmd
+    };
 
     scan_task->exec(cmd);
 
     ASSERT_EVENTUALLY_GE(ctx->statuses.size(), 1);
     const auto &state = ctx->statuses[0];
-    EXPECT_EQ(state.key, task.status_key());
+    EXPECT_EQ(state.key, synnax::task::status_key(task));
     EXPECT_EQ(state.details.cmd, "invalid_scan_cmd");
     EXPECT_EQ(state.variant, x::status::VARIANT_ERROR);
 }
@@ -244,7 +265,7 @@ TEST_F(TestScanTask, testConfigReturnsCorrectValues) {
 /// @brief Tests that exec() returns false for unknown commands.
 TEST_F(TestScanTask, testExecReturnsFalseForUnknownCommand) {
     Scanner scanner(ctx, task, conn_pool);
-    task::Command cmd(task.key, "unknown_command", x::json::json{});
+    synnax::task::Command cmd{.task = task.key, .type = "unknown_command"};
     bool handled = scanner.exec(cmd, task, ctx);
     EXPECT_FALSE(handled);
 }
@@ -275,8 +296,8 @@ TEST_F(TestScanTask, testScanChecksDeviceHealth) {
 
     auto devices = ASSERT_NIL_P(scanner.scan(scan_ctx));
     ASSERT_EQ(devices.size(), 1);
-    EXPECT_EQ(devices[0].status.variant, x::status::VARIANT_SUCCESS);
-    EXPECT_EQ(devices[0].status.message, "Server connected");
+    EXPECT_EQ(devices[0].status->variant, x::status::VARIANT_SUCCESS);
+    EXPECT_EQ(devices[0].status->message, "Server connected");
 }
 
 /// @brief Tests that health check detects connection state changes (server up/down/up).
@@ -308,8 +329,8 @@ TEST_F(TestScanTask, testHealthCheckDetectsConnectionStateChanges) {
     {
         auto devices = ASSERT_NIL_P(scanner.scan(scan_ctx));
         ASSERT_EQ(devices.size(), 1);
-        EXPECT_EQ(devices[0].status.variant, x::status::VARIANT_SUCCESS);
-        EXPECT_EQ(devices[0].status.message, "Server connected");
+        EXPECT_EQ(devices[0].status->variant, x::status::VARIANT_SUCCESS);
+        EXPECT_EQ(devices[0].status->message, "Server connected");
     }
 
     // Step 2: Stop the server - health should be bad
@@ -323,12 +344,12 @@ TEST_F(TestScanTask, testHealthCheckDetectsConnectionStateChanges) {
         auto devices = ASSERT_NIL_P(scanner2.scan(scan_ctx));
         ASSERT_EQ(devices.size(), 1);
         // When server is down, health check should return WARNING with connection error
-        EXPECT_EQ(devices[0].status.variant, x::status::VARIANT_WARNING);
+        EXPECT_EQ(devices[0].status->variant, x::status::VARIANT_WARNING);
         // The message should indicate a connection failure (not empty)
-        EXPECT_FALSE(devices[0].status.message.empty());
-        EXPECT_NE(devices[0].status.message, "Server connected");
-        LOG(INFO) << "[test] Server down - status: " << devices[0].status.variant
-                  << ", message: " << devices[0].status.message;
+        EXPECT_FALSE(devices[0].status->message.empty());
+        EXPECT_NE(devices[0].status->message, "Server connected");
+        LOG(INFO) << "[test] Server down - status: " << devices[0].status->variant
+                  << ", message: " << devices[0].status->message;
     }
 
     // Step 3: Restart the server - health should be good again
@@ -355,8 +376,8 @@ TEST_F(TestScanTask, testHealthCheckDetectsConnectionStateChanges) {
     {
         auto devices = ASSERT_NIL_P(scanner3.scan(scan_ctx));
         ASSERT_EQ(devices.size(), 1);
-        EXPECT_EQ(devices[0].status.variant, x::status::VARIANT_SUCCESS);
-        EXPECT_EQ(devices[0].status.message, "Server connected");
+        EXPECT_EQ(devices[0].status->variant, x::status::VARIANT_SUCCESS);
+        EXPECT_EQ(devices[0].status->message, "Server connected");
     }
 }
 }

@@ -8,6 +8,7 @@
 // included in the file licenses/APL.txt.
 
 #include <atomic>
+#include <vector>
 
 #include "gtest/gtest.h"
 
@@ -170,24 +171,28 @@ TEST_F(XTestTest, TestEventuallyFalseWithCustomTimeout) {
     t.join();
 }
 
-/// @brief ASSERT_NIL should only evaluate the expression once.
+/// @brief ASSERT_NIL should only evaluate its expression once.
+/// Regression test for double-evaluation bug.
 TEST_F(XTestTest, TestAssertNilSingleEvaluation) {
     auto nil_with_side_effect = [this]() -> errors::Error {
         inc_counter();
         return errors::NIL;
     };
     ASSERT_NIL(nil_with_side_effect());
-    EXPECT_EQ(counter.load(), 1);
+    EXPECT_EQ(this->counter, 1)
+        << "ASSERT_NIL evaluated expression " << this->counter << " times instead of 1";
 }
 
-/// @brief ASSERT_OCCURRED_AS should only evaluate the expression once.
+/// @brief ASSERT_OCCURRED_AS should only evaluate its expression once.
+/// Regression test for double-evaluation bug.
 TEST_F(XTestTest, TestAssertOccurredAsSingleEvaluation) {
-    const auto expected = errors::Error("test error");
+    const auto expected = errors::Error("test.error", "");
     auto error_with_side_effect = [this, &expected]() -> errors::Error {
         inc_counter();
         return expected;
     };
-    ASSERT_OCCURRED_AS(error_with_side_effect(), expected);
-    EXPECT_EQ(counter.load(), 1);
+    ASSERT_OCCURRED_AS(error_with_side_effect(), errors::Error("test.error", ""));
+    EXPECT_EQ(this->counter, 1) << "ASSERT_OCCURRED_AS evaluated expression "
+                                << this->counter << " times instead of 1";
 }
 }

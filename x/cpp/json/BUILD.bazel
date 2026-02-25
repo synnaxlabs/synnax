@@ -4,12 +4,15 @@ load("@rules_cc//cc:cc_test.bzl", "cc_test")
 cc_library(
     name = "json",
     hdrs = [
+        "any.h",
         "json.h",
         "struct.h",
+        "value.h",
     ],
     visibility = ["//visibility:public"],
     deps = [
         "//x/cpp/errors",
+        "//x/cpp/mem",
         "@nlohmann_json//:json",
         "@protobuf",
     ],

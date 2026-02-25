@@ -28,9 +28,9 @@ class TestGroupClient:
     def test_create_nested(self, client: sy.Synnax):
         """Should create a group nested under another group."""
         parent = client.groups.create(sy.ontology.ROOT_ID, str(uuid4()))
-        child = client.groups.create(parent.ontology_id, str(uuid4()))
+        child = client.groups.create(sy.group.ontology_id(parent.key), str(uuid4()))
         assert child.key is not None
-        children = client.ontology.retrieve_children(parent.ontology_id)
+        children = client.ontology.retrieve_children(sy.group.ontology_id(parent.key))
         assert len(children) == 1
         assert children[0].name == child.name
 
@@ -39,7 +39,7 @@ class TestGroupClient:
         g = client.groups.create(sy.ontology.ROOT_ID, str(uuid4()))
         new_name = str(uuid4())
         client.groups.rename(g.key, new_name)
-        resource = client.ontology.retrieve(g.ontology_id)
+        resource = client.ontology.retrieve(sy.group.ontology_id(g.key))
         assert resource.name == new_name
 
     def test_delete(self, client: sy.Synnax):

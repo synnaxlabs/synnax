@@ -1630,7 +1630,7 @@ export const analogReadStatusDataZ = z
   .object({
     errors: z.array(z.object({ message: z.string(), path: z.string() })),
   })
-  .or(z.null());
+  .nullish();
 
 export type AnalogReadStatusDetails = task.Status<typeof analogReadStatusDataZ>;
 

@@ -1,0 +1,31 @@
+// Copyright 2026 Synnax Labs, Inc.
+//
+// Use of this software is governed by the Business Source License included in the file
+// licenses/BSL.txt.
+//
+// As of the Change Date specified in that file, in accordance with the Business Source
+// License, use of this software will be governed by the Apache License, Version 2.0,
+// included in the file licenses/APL.txt.
+
+import "schemas/ranger"
+
+@go output "core/pkg/service/ranger/kv"
+@ts output "client/ts/src/range/kv"
+@pb
+
+Pair struct {
+    range ranger.Key {
+        @doc value "is the unique identifier of the range owning this key-value pair."
+    }
+    key   string     {
+        @doc value "is the metadata key name."
+    }
+    value string     {
+        @doc value "is the metadata value stored as a string for flexibility."
+    }
+
+    @doc value """
+        is a key-value metadata pair associated with a specific range, enabling
+        arbitrary metadata storage on time ranges.
+    """
+}

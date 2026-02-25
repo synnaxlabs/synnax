@@ -12,6 +12,7 @@ import "@/notifications/Notifications.css";
 import { type Button, Flex, Status } from "@synnaxlabs/pluto";
 import { type ReactElement } from "react";
 import { createPortal } from "react-dom";
+import type z from "zod";
 
 import { CSS } from "@/css";
 
@@ -20,7 +21,7 @@ export interface Sugared extends Status.NotificationSpec {
   content?: ReactElement;
 }
 
-export interface Adapter<Details = never> {
+export interface Adapter<Details extends z.ZodType = z.ZodNever> {
   (
     status: Status.NotificationSpec<Details>,
     silence: (key: string) => void,

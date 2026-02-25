@@ -12,7 +12,8 @@
 #include "freighter/cpp/freighter.h"
 #include "x/cpp/test/test.h"
 
-class BasicMiddleware final : public freighter::PassthroughMiddleware {
+namespace freighter {
+class BasicMiddleware final : public PassthroughMiddleware {
     std::string value;
 
 public:
@@ -25,7 +26,7 @@ public:
     }
 };
 
-class BasicFinalizer final : public freighter::Finalizer<int, int> {
+class BasicFinalizer final : public Finalizer<int, int> {
 public:
     freighter::FinalizerReturn<int>
     operator()(const freighter::Context context, int &req) override {
@@ -35,7 +36,7 @@ public:
 
 /// @brief it should execute middleware chain and return incremented result.
 TEST(testFreighter, testMiddlewareCollector) {
-    auto collector = freighter::MiddlewareCollector<int, int>();
+    auto collector = MiddlewareCollector<int, int>();
     const auto mw1 = std::make_shared<BasicMiddleware>("5");
     const auto mw2 = std::make_shared<BasicMiddleware>("6");
     auto f = BasicFinalizer();
@@ -45,4 +46,5 @@ TEST(testFreighter, testMiddlewareCollector) {
     auto req = 1;
     const auto res = ASSERT_NIL_P(collector.exec(ctx, &f, req));
     ASSERT_EQ(res, 2);
+}
 }

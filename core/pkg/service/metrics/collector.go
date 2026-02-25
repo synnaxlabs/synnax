@@ -27,9 +27,9 @@ import (
 type collector struct {
 	confluence.AbstractUnarySource[framer.WriterRequest]
 	stop     chan struct{}
+	idx      channel.Channel
 	ins      alamos.Instrumentation
 	metrics  []metric
-	idx      channel.Channel
 	interval time.Duration
 }
 

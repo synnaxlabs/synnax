@@ -1,0 +1,72 @@
+// Copyright 2025 Synnax Labs, Inc.
+//
+// Use of this software is governed by the Business Source License included in the file
+// licenses/BSL.txt.
+//
+// As of the Change Date specified in that file, in accordance with the Business Source
+// License, use of this software will be governed by the Apache License, Version 2.0,
+// included in the file licenses/APL.txt.
+
+syntax = "proto3";
+
+package grpc.alias;
+
+import "google/protobuf/empty.proto";
+
+option go_package = "github.com/synnaxlabs/synnax/pkg/api/grpc/alias";
+
+service AliasSetService {
+  rpc Exec(SetRequest) returns (google.protobuf.Empty) {}
+}
+
+service AliasResolveService {
+  rpc Exec(ResolveRequest) returns (ResolveResponse) {}
+}
+
+service AliasDeleteService {
+  rpc Exec(DeleteRequest) returns (google.protobuf.Empty) {}
+}
+
+service AliasListService {
+  rpc Exec(ListRequest) returns (ListResponse) {}
+}
+
+service AliasRetrieveService {
+  rpc Exec(RetrieveRequest) returns (RetrieveResponse) {}
+}
+
+message SetRequest {
+  string range = 1;
+  map<uint32, string> aliases = 2;
+}
+
+message ResolveRequest {
+  string range = 1;
+  repeated string aliases = 2;
+}
+
+message ResolveResponse {
+  map<string, uint32> aliases = 1;
+}
+
+message DeleteRequest {
+  string range = 1;
+  repeated uint32 channels = 2;
+}
+
+message ListRequest {
+  string range = 1;
+}
+
+message ListResponse {
+  map<uint32, string> aliases = 1;
+}
+
+message RetrieveRequest {
+  string range = 1;
+  repeated uint32 channels = 2;
+}
+
+message RetrieveResponse {
+  map<uint32, string> aliases = 1;
+}

@@ -44,7 +44,7 @@ Scanner::scan(const common::ScannerContext &scan_ctx) {
 }
 
 bool Scanner::exec(
-    task::Command &cmd,
+    synnax::task::Command &cmd,
     const synnax::task::Task &,
     const std::shared_ptr<task::Context> &
 ) {
@@ -61,7 +61,7 @@ void Scanner::check_device_health(synnax::device::Device &dev) const {
     const auto conn_cfg = device::ConnectionConfig(parser.child("connection"));
     if (parser.error()) {
         dev.status = synnax::device::Status{
-            .key = dev.status_key(),
+            .key = synnax::device::status_key(dev),
             .name = dev.name,
             .variant = x::status::VARIANT_WARNING,
             .message = "Invalid device properties",
@@ -75,7 +75,7 @@ void Scanner::check_device_health(synnax::device::Device &dev) const {
     auto [conn, conn_err] = this->devices->acquire(conn_cfg);
     if (conn_err)
         dev.status = synnax::device::Status{
-            .key = dev.status_key(),
+            .key = synnax::device::status_key(dev),
             .name = dev.name,
             .variant = x::status::VARIANT_WARNING,
             .message = "Failed to reach device",
@@ -85,7 +85,7 @@ void Scanner::check_device_health(synnax::device::Device &dev) const {
         };
     else
         dev.status = synnax::device::Status{
-            .key = dev.status_key(),
+            .key = synnax::device::status_key(dev),
             .name = dev.name,
             .variant = x::status::VARIANT_SUCCESS,
             .message = "Device connected",
@@ -94,17 +94,17 @@ void Scanner::check_device_health(synnax::device::Device &dev) const {
         };
 }
 
-void Scanner::test_connection(const task::Command &cmd) const {
+void Scanner::test_connection(const synnax::task::Command &cmd) const {
     x::json::Parser parser(cmd.args);
     const ScanCommandArgs args(parser);
     synnax::task::Status status{
-        .key = this->task.status_key(),
+        .key = synnax::task::status_key(this->task),
         .name = this->task.name,
         .variant = x::status::VARIANT_ERROR,
         .details = synnax::task::StatusDetails{
             .task = task.key,
-            .cmd = cmd.key,
             .running = true,
+            .cmd = cmd.key,
         }
     };
     if (!parser.ok()) {

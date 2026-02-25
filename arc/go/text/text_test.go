@@ -164,7 +164,7 @@ var _ = Describe("Text", func() {
 				Expect(channelNode.Config).To(HaveLen(1))
 				Expect(channelNode.Config[0].Name).To(Equal("channel"))
 				Expect(channelNode.Config[0].Type).To(Equal(types.Chan(types.I32())))
-				Expect(channelNode.Channels.Read.Contains(10042)).To(BeTrue())
+				Expect(channelNode.Channels.Read).To(HaveKey(uint32(10042)))
 
 				printNode := findNodeByKey(inter.Nodes, "print_0")
 				Expect(printNode.Type).To(Equal("print"))
@@ -341,7 +341,7 @@ var _ = Describe("Text", func() {
 				Expect(readerNode.Config[0].Name).To(Equal("channel"))
 				Expect(readerNode.Config[0].Type).To(Equal(types.Chan(types.F64())))
 				Expect(readerNode.Config[0].Value).To(Equal(uint32(10042)))
-				Expect(readerNode.Channels.Read.Contains(uint32(10042))).To(BeTrue())
+				Expect(readerNode.Channels.Read).To(HaveKey(uint32(10042)))
 			})
 
 			It("Should produce diagnostic error when channel config type mismatches", func() {
@@ -442,8 +442,8 @@ var _ = Describe("Text", func() {
 				Expect(writerNode.Config[0].Name).To(Equal("channel"))
 				Expect(writerNode.Config[0].Type).To(Equal(types.Chan(types.F64())))
 				Expect(writerNode.Config[0].Value).To(Equal(uint32(10055)))
-				Expect(writerNode.Channels.Write.Contains(uint32(10055))).To(BeTrue())
-				Expect(writerNode.Channels.Read.Contains(uint32(10055))).To(BeFalse())
+				Expect(writerNode.Channels.Write).To(HaveKey(uint32(10055)))
+				Expect(writerNode.Channels.Read).NotTo(HaveKey(uint32(10055)))
 			})
 
 			It("Should register separate write channels when function with channel config is used multiple times", func() {
@@ -474,11 +474,11 @@ var _ = Describe("Text", func() {
 				node2 := findNodeByKey(inter.Nodes, "count_rising_1")
 
 				// Each node should have its own write channel
-				Expect(node1.Channels.Write.Contains(uint32(10013))).To(BeTrue(), "first node should write to counter_1")
-				Expect(node2.Channels.Write.Contains(uint32(10014))).To(BeTrue(), "second node should write to counter_2")
+				Expect(node1.Channels.Write).To(HaveKey(uint32(10013)), "first node should write to counter_1")
+				Expect(node2.Channels.Write).To(HaveKey(uint32(10014)), "second node should write to counter_2")
 
-				Expect(node1.Channels.Read.Contains(uint32(10013))).To(BeTrue(), "first node should read from counter_1")
-				Expect(node2.Channels.Read.Contains(uint32(10014))).To(BeTrue(), "second node should read from counter_2")
+				Expect(node1.Channels.Read).To(HaveKey(uint32(10013)), "first node should read from counter_1")
+				Expect(node2.Channels.Read).To(HaveKey(uint32(10014)), "second node should read from counter_2")
 			})
 
 			It("Should not add stateful variable to write channels when initialized from global channel", func() {
@@ -506,7 +506,7 @@ var _ = Describe("Text", func() {
 				node := findNodeByKey(inter.Nodes, "count_rising_0")
 
 				// counter_1 should be in Read (stateful var is initialized from channel value)
-				Expect(node.Channels.Read.Contains(uint32(10102))).To(BeTrue(), "should read from counter_1")
+				Expect(node.Channels.Read).To(HaveKey(uint32(10102)), "should read from counter_1")
 				// Write channels should be empty - we write to a stateful variable, not a channel
 				Expect(node.Channels.Write).To(BeEmpty(), "should not have any write channels")
 			})
@@ -542,8 +542,8 @@ var _ = Describe("Text", func() {
 				Expect(diagnostics.Ok()).To(BeTrue(), diagnostics.String())
 
 				node := findNodeByKey(inter.Nodes, "count_rising_test_0")
-				Expect(node.Channels.Write.Contains(uint32(10202))).To(BeTrue(), "should write to do_0_counter")
-				Expect(node.Channels.Read.Contains(uint32(10203))).To(BeTrue(), "should read from do_0_counter_max")
+				Expect(node.Channels.Write).To(HaveKey(uint32(10202)), "should write to do_0_counter")
+				Expect(node.Channels.Read).To(HaveKey(uint32(10203)), "should read from do_0_counter_max")
 				Expect(node.Config).To(HaveLen(2))
 				Expect(node.Config[0].Value).To(Equal(uint32(10202)))
 				Expect(node.Config[1].Value).To(Equal(uint32(10203)))
@@ -1001,12 +1001,12 @@ var _ = Describe("Text", func() {
 
 				inputNode := inter.Nodes[0]
 				Expect(inputNode.Type).To(Equal("on"))
-				Expect(inputNode.Channels.Read.Contains(uint32(10021))).To(BeTrue())
+				Expect(inputNode.Channels.Read).To(HaveKey(uint32(10021)))
 				Expect(inputNode.Outputs).To(HaveLen(1))
 
 				outputNode := inter.Nodes[2]
 				Expect(outputNode.Type).To(Equal("write"))
-				Expect(outputNode.Channels.Write.Contains(uint32(10022))).To(BeTrue())
+				Expect(outputNode.Channels.Write).To(HaveKey(uint32(10022)))
 				Expect(outputNode.Inputs).To(HaveLen(1))
 				Expect(outputNode.Inputs[0].Name).To(Equal("input"))
 				Expect(outputNode.Outputs).To(BeEmpty())
@@ -1024,9 +1024,9 @@ var _ = Describe("Text", func() {
 
 				Expect(inter.Nodes).To(HaveLen(2))
 				Expect(inter.Nodes[0].Type).To(Equal("on"))
-				Expect(inter.Nodes[0].Channels.Read.Contains(uint32(10031))).To(BeTrue())
+				Expect(inter.Nodes[0].Channels.Read).To(HaveKey(uint32(10031)))
 				Expect(inter.Nodes[1].Type).To(Equal("write"))
-				Expect(inter.Nodes[1].Channels.Write.Contains(uint32(10032))).To(BeTrue())
+				Expect(inter.Nodes[1].Channels.Write).To(HaveKey(uint32(10032)))
 			})
 
 			It("Should handle channel sinks in routing tables", func() {
@@ -1221,7 +1221,7 @@ var _ = Describe("Text", func() {
 				Expect(entryNode.Type).To(Equal("stage_entry"))
 
 				writeNode := findNodeByType(inter.Nodes, "write")
-				Expect(writeNode.Channels.Write.Contains(uint32(10071))).To(BeTrue())
+				Expect(writeNode.Channels.Write).To(HaveKey(uint32(10071)))
 
 				Expect(inter.Edges).To(HaveLen(2))
 
@@ -1329,11 +1329,11 @@ var _ = Describe("Text", func() {
 
 				triggerNode := findNodeByKey(inter.Nodes, "on_sensor_0")
 				Expect(triggerNode.Type).To(Equal("on"))
-				Expect(triggerNode.Channels.Read.Contains(uint32(10142))).To(BeTrue())
+				Expect(triggerNode.Channels.Read).To(HaveKey(uint32(10142)))
 
 				exprNode := inter.Nodes[1]
 				Expect(exprNode.Type).To(HavePrefix("expression_"))
-				Expect(exprNode.Channels.Read.Contains(uint32(10142))).To(BeTrue())
+				Expect(exprNode.Channels.Read).To(HaveKey(uint32(10142)))
 
 				Expect(inter.Edges).To(HaveLen(2))
 
@@ -1377,8 +1377,8 @@ var _ = Describe("Text", func() {
 					}
 				}
 				Expect(exprNode.Channels.Read).To(HaveLen(2))
-				Expect(exprNode.Channels.Read.Contains(uint32(10151))).To(BeTrue())
-				Expect(exprNode.Channels.Read.Contains(uint32(10152))).To(BeTrue())
+				Expect(exprNode.Channels.Read).To(HaveKey(uint32(10151)))
+				Expect(exprNode.Channels.Read).To(HaveKey(uint32(10152)))
 
 				Expect(inter.Edges).To(HaveLen(3))
 
@@ -1450,7 +1450,7 @@ var _ = Describe("Text", func() {
 				Expect(triggerCount).To(Equal(1))
 
 				triggerNode := findNodeByType(inter.Nodes, "on")
-				Expect(triggerNode.Channels.Read.Contains(uint32(10142))).To(BeTrue())
+				Expect(triggerNode.Channels.Read).To(HaveKey(uint32(10142)))
 			})
 		})
 
@@ -1734,7 +1734,7 @@ var _ = Describe("Text", func() {
 			Expect(diagnostics.Ok()).To(BeTrue(), diagnostics.String())
 			Expect(ir.Nodes).To(HaveLen(3))
 			Expect(ir.Nodes[1].Channels.Read).To(HaveLen(1))
-			Expect(ir.Nodes[1].Channels.Read.Contains(10025)).To(BeTrue())
+			Expect(ir.Nodes[1].Channels.Read).To(HaveKey(uint32(10025)))
 
 			module := MustSucceed(text.Compile(ctx, ir))
 			Expect(module.Output.WASM).ToNot(BeEmpty())
@@ -1786,7 +1786,7 @@ var _ = Describe("Text", func() {
 			writerNode := ir.Nodes[1]
 			Expect(writerNode.Type).To(Equal("writer"))
 			Expect(writerNode.Channels.Write).To(HaveLen(1))
-			Expect(writerNode.Channels.Write.Contains(10200)).To(BeTrue())
+			Expect(writerNode.Channels.Write).To(HaveKey(uint32(10200)))
 
 			module := MustSucceed(text.Compile(ctx, ir))
 			Expect(module.Output.WASM).ToNot(BeEmpty())
@@ -1833,7 +1833,7 @@ var _ = Describe("Text", func() {
 			writerNode := ir.Nodes[1]
 			Expect(writerNode.Type).To(Equal("writer"))
 			Expect(writerNode.Channels.Write).To(HaveLen(1))
-			Expect(writerNode.Channels.Write.Contains(10210)).To(BeTrue())
+			Expect(writerNode.Channels.Write).To(HaveKey(uint32(10210)))
 
 			module := MustSucceed(text.Compile(ctx, ir))
 			Expect(module.Output.WASM).ToNot(BeEmpty())

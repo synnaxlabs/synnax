@@ -16,13 +16,13 @@
 #include "x/cpp/url/url.h"
 
 namespace freighter {
-const std::string TYPE_UNREACHABLE = "freighter.unreachable";
-const std::string TYPE_NIL = "nil";
-const std::string TYPE_UNKNOWN = "unknown";
+const std::string ERR_TYPE_UNREACHABLE = "freighter.unreachable";
+const std::string ERR_TYPE_NIL = "nil";
+const std::string ERR_TYPE_UNKNOWN = "unknown";
 
-const x::errors::Error STREAM_CLOSED = {"freighter.stream_closed", "Stream closed"};
-const x::errors::Error EOF_ERR = {"freighter.eof", "EOF"};
-const x::errors::Error UNREACHABLE = {TYPE_UNREACHABLE, "Unreachable"};
+const x::errors::Error STREAM_CLOSED = {"freighter.stream_closed",    "Stream closed"};
+const x::errors::Error ERR_EOF = {"freighter.eof", "EOF"};
+const x::errors::Error UNREACHABLE = {ERR_TYPE_UNREACHABLE, "Unreachable"};
 
 enum TransportVariant { UNARY, STREAM };
 
@@ -151,7 +151,7 @@ public:
 template<typename RQ, typename RS>
 class MiddlewareCollector {
     /// @brief The middlewares in the chain.
-    std::vector<std::shared_ptr<freighter::Middleware>> middlewares;
+    std::vector<std::shared_ptr<Middleware>> middlewares;
 
 public:
     MiddlewareCollector() = default;
@@ -161,7 +161,7 @@ public:
     /// middleware before the finalizer.
     /// @implements UnaryClient::use
     /// @implements StreamClient::use
-    void use(std::shared_ptr<freighter::Middleware> middleware) {
+    void use(std::shared_ptr<Middleware> middleware) {
         this->middlewares.push_back(std::move(middleware));
     }
 
@@ -181,14 +181,14 @@ public:
             std::size_t index;
             const MiddlewareCollector &collector;
             RQ req;
-            freighter::Finalizer<RQ, RS> *finalizer;
+            Finalizer<RQ, RS> *finalizer;
 
         public:
             RS res;
 
             NextImpl(
                 const MiddlewareCollector &collector,
-                freighter::Finalizer<RQ, RS> *finalizer,
+                Finalizer<RQ, RS> *finalizer,
                 RQ &req
             ):
                 index(0), collector(collector), req(req), finalizer(finalizer) {}

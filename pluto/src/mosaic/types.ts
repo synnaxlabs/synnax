@@ -34,7 +34,7 @@ export const nodeZ: z.ZodType<BaseNode> = z.object({
   key: z.number(),
   tabs: z.array(Tabs.tabZ).optional(),
   selected: z.string().optional(),
-  direction: direction.direction.optional(),
+  direction: direction.directionZ.optional(),
   size: z.number().optional(),
   get first() {
     return nodeZ.optional();

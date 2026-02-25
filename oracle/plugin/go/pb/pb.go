@@ -366,7 +366,7 @@ func (p *Plugin) processFieldForTranslation(
 
 	forwardExpr, backwardExpr, backwardCast, hasError, hasBackwardError := p.generateFieldConversion(field, data, parentStruct)
 
-	return fieldTranslatorData{
+	fd := fieldTranslatorData{
 		GoName:           goName,
 		PBName:           pbName,
 		ForwardExpr:      forwardExpr,
@@ -377,6 +377,41 @@ func (p *Plugin) processFieldForTranslation(
 		HasError:         hasError,
 		HasBackwardError: hasBackwardError,
 	}
+
+	typeRef := field.Type
+
+	// Hard optional primitives that need type conversion (e.g., *uint8 <-> *uint32)
+	// require pointer dereference before casting and re-addressing after.
+	if isHardOptional && resolution.IsPrimitive(typeRef.Name) && primitiveNeedsConversion(typeRef.Name) {
+		fd.NeedsPtrConversion = true
+		goFieldDeref := "*r." + goName
+		pbFieldDeref := "*pb." + pbName
+		fd.ForwardExpr, fd.BackwardExpr, _, _ = p.generatePrimitiveConversion(typeRef.Name, goFieldDeref, pbFieldDeref, data)
+	}
+
+	// Maps with value types that need conversion (e.g., map[uint32]uint8 <-> map[uint32]uint32)
+	// require element-wise conversion loops. Force into OptionalFields so the template
+	// renders a nil-guarded loop rather than a direct struct initializer assignment.
+	if typeRef.Name == "Map" && len(typeRef.TypeArgs) == 2 {
+		valArg := typeRef.TypeArgs[1]
+		if resolution.IsPrimitive(valArg.Name) && primitiveNeedsConversion(valArg.Name) {
+			keyType := primitiveToProtoType(typeRef.TypeArgs[0].Name)
+			goValType := valArg.Name
+			pbValType := primitiveToProtoType(valArg.Name)
+			fwd, bwd, _, _ := p.generatePrimitiveConversion(valArg.Name, "v", "v", data)
+			fd.MapValueConversion = &mapValueConversionData{
+				GoMapType:         fmt.Sprintf("map[%s]%s", keyType, goValType),
+				PBMapType:         fmt.Sprintf("map[%s]%s", keyType, pbValType),
+				ForwardValueExpr:  fwd,
+				BackwardValueExpr: bwd,
+			}
+			fd.IsOptional = true
+			fd.ForwardExpr = ""
+			fd.BackwardExpr = ""
+		}
+	}
+
+	return fd
 }
 
 func (p *Plugin) processGenericStructForTranslation(
@@ -1312,17 +1347,11 @@ func (p *Plugin) generateEnumTranslator(
 	var goDefault string
 
 	goAlias := data.parentAlias
-	isGoOmitted := omit.IsType(*enumRef, "go")
 
 	for i, v := range form.Values {
 		valueName := toPascalCase(v.Name)
 
-		var goValue string
-		if isGoOmitted {
-			goValue = fmt.Sprintf("%s.%s%s", goAlias, valueName, enumRef.Name)
-		} else {
-			goValue = fmt.Sprintf("%s.%s%s", goAlias, enumRef.Name, valueName)
-		}
+		goValue := fmt.Sprintf("%s.%s%s", goAlias, enumRef.Name, valueName)
 
 		enumPrefix := toScreamingSnake(enumRef.Name) + "_"
 		pbValueName := fmt.Sprintf("%s_%s%s", enumRef.Name, enumPrefix, toScreamingSnake(v.Name))
@@ -1549,6 +1578,10 @@ func primitiveToProtoType(primitive string) string {
 	}
 }
 
+func primitiveNeedsConversion(primitive string) bool {
+	return primitiveToProtoType(primitive) != primitive
+}
+
 func toScreamingSnake(s string) string {
 	return strings.ToUpper(lo.SnakeCase(s))
 }
@@ -1634,10 +1667,26 @@ type fieldTranslatorData struct {
 	BackwardCast     string
 	IsOptional       bool
 	IsOptionalStruct bool
+	// NeedsPtrConversion is true when a hard-optional primitive needs type conversion
+	// (e.g., *uint8 <-> *uint32). The template must dereference, convert, and re-address.
+	NeedsPtrConversion bool
+	// MapValueConversion holds the forward and backward conversion expressions for map
+	// value types that need conversion (e.g., uint8 <-> uint32). When set, the template
+	// generates an element-wise conversion loop instead of a direct assignment.
+	MapValueConversion *mapValueConversionData
 	// HasError is true if forward conversion returns (result, error).
 	HasError bool
 	// HasBackwardError is true if backward conversion returns (result, error).
 	HasBackwardError bool
+}
+
+type mapValueConversionData struct {
+	GoMapType string // e.g., "map[uint32]uint8"
+	PBMapType string // e.g., "map[uint32]uint32"
+	// ForwardValueExpr is the conversion for a single value, using "v" as placeholder.
+	ForwardValueExpr string // e.g., "uint32(v)"
+	// BackwardValueExpr is the conversion for a single value, using "v" as placeholder.
+	BackwardValueExpr string // e.g., "uint8(v)"
 }
 
 // enumTranslatorData holds data for enum translator functions.

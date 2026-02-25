@@ -1,11 +1,17 @@
 cc_library(
     name = "graph",
-    hdrs = ["graph.h"],
+    hdrs = [
+        "graph.h",
+        "json.gen.h",
+        "proto.gen.h",
+        "types.gen.h",
+    ],
     visibility = ["//visibility:public"],
     deps = [
+        "//x/cpp/pb",
         "//arc/cpp/ir",
         "//arc/go/graph:graph_grpc",
+        "//x/cpp/json",
         "//x/cpp/spatial",
-        "@nlohmann_json//:json",
     ],
 )

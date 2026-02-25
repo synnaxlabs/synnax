@@ -95,16 +95,16 @@ describe("record", () => {
         2: [1, 2, 3],
         function: () => {},
       };
-      expect(record.unknownZ.parse(validRecord)).toEqual(validRecord);
+      expect(record.unknownZ().parse(validRecord)).toEqual(validRecord);
     });
     it("should reject symbol keys", () => {
       const invalidRecord = { [Symbol("test")]: "value" };
-      expect(() => record.unknownZ.parse(invalidRecord)).toThrowError(z.ZodError);
+      expect(() => record.unknownZ().parse(invalidRecord)).toThrowError(z.ZodError);
     });
 
     it("should accept empty objects", () => {
       const emptyRecord = {};
-      expect(record.unknownZ.parse(emptyRecord)).toEqual(emptyRecord);
+      expect(record.unknownZ().parse(emptyRecord)).toEqual(emptyRecord);
     });
 
     it("should accept null and undefined values", () => {
@@ -114,7 +114,7 @@ describe("record", () => {
         string: "value",
       };
 
-      expect(record.unknownZ.parse(recordWithNulls)).toEqual(recordWithNulls);
+      expect(record.unknownZ().parse(recordWithNulls)).toEqual(recordWithNulls);
     });
   });
 

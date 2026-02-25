@@ -9,7 +9,7 @@
 
 
 from synnax.access.role.client import Client
-from synnax.access.role.payload import ONTOLOGY_TYPE, Role, ontology_id
+from synnax.access.role.types_gen import ONTOLOGY_TYPE, Role, ontology_id
 from synnax.util.deprecation import deprecated_getattr
 
 _DEPRECATED = {

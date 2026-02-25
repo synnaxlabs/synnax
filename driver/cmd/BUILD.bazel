@@ -25,9 +25,9 @@ cc_library(
     deps = [
         "//driver/daemon",
         "//driver/rack",
+        "//x/cpp/args",
         "//x/cpp/breaker",
         "//x/cpp/cli",
-        "//x/cpp/args",
         "//x/cpp/log",
         "//x/cpp/shutdown",
         "@gflags",

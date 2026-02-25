@@ -15,16 +15,6 @@ import (
 	"github.com/synnaxlabs/x/zyn"
 )
 
-// TimeRange represents a range of time between two TimeStamp. It's important
-// to note that the start of the range is inclusive, while the end of the range is
-// exclusive.
-type TimeRange struct {
-	// Start is the start of the range.
-	Start TimeStamp `json:"start" msgpack:"start"`
-	// End is the end of the range.
-	End TimeStamp `json:"end" msgpack:"end"`
-}
-
 // TimeRangeSchema is a zyn schema for parsing a time range.
 var TimeRangeSchema = zyn.Object(map[string]zyn.Schema{
 	"start": zyn.Int64().Coerce(),

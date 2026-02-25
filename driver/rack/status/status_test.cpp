@@ -23,17 +23,14 @@ TEST(stateTests, testNominal) {
     auto ch = ASSERT_NIL_P(
         client->channels.retrieve(synnax::status::STATUS_SET_CHANNEL_NAME)
     );
-    auto ctx = std::make_shared<task::SynnaxContext>(client);
-    auto hb = Task::configure(
-        ctx,
-        synnax::task::Task{
-            .key = synnax::task::create_key(rack.key, 0),
-            .name = "state",
-            .type = "state",
-            .internal = true
-        }
-    );
-    auto cmd = task::Command(0, "start", {});
+    auto ctx = std::make_shared<driver::task::SynnaxContext>(client);
+    auto task = synnax::task::Task{.name = "state", .type = "state", .internal = true};
+    ASSERT_NIL(rack.tasks.create(task));
+    auto hb = driver::rack::status::Task::configure(ctx, task);
+    auto cmd = synnax::task::Command{
+        .task = task.key,
+        .type = "start",
+    };
     hb->exec(cmd);
     x::defer::defer stop([&hb]() { hb->stop(false); });
     auto streamer = ASSERT_NIL_P(client->telem.open_streamer(

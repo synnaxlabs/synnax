@@ -1365,20 +1365,20 @@ TEST_F(SchedulerTest, testResetClearsFiredOneShots) {
 
 /// @brief Helper to create IR with interval node that has proper params
 ir::IR build_interval_ir(const std::string &key, const int64_t period_ns) {
-    ir::Param output_param;
+    types::Param output_param;
     output_param.name = "output";
-    output_param.type = arc::types::Type(arc::types::Kind::U8);
+    output_param.type = arc::types::Type{.kind = arc::types::Kind::U8};
 
-    ir::Param cfg_param;
+    types::Param cfg_param;
     cfg_param.name = "period";
-    cfg_param.type = arc::types::Type(arc::types::Kind::I64);
+    cfg_param.type = arc::types::Type{.kind = arc::types::Kind::I64};
     cfg_param.value = period_ns;
 
     ir::Node ir_node;
     ir_node.key = key;
     ir_node.type = "interval";
-    ir_node.outputs.params.push_back(output_param);
-    ir_node.config.params.push_back(cfg_param);
+    ir_node.outputs.push_back(output_param);
+    ir_node.config.push_back(cfg_param);
 
     ir::Function fn;
     fn.key = "test";
@@ -1407,14 +1407,14 @@ TEST(RealNodeSchedulerTest, IntervalOneShotEdgeFires) {
     auto interval_ir = build_interval_ir("interval_0", x::telem::SECOND.nanoseconds());
 
     // Add a mock target node to the IR
-    ir::Param target_input;
+    types::Param target_input;
     target_input.name = "input";
-    target_input.type = arc::types::Type(arc::types::Kind::U8);
+    target_input.type = arc::types::Type{.kind = arc::types::Kind::U8};
 
     ir::Node target_node;
     target_node.key = "target_0";
     target_node.type = "target";
-    target_node.inputs.params.push_back(target_input);
+    target_node.inputs.push_back(target_input);
     interval_ir.nodes.push_back(target_node);
 
     // Add one-shot edge: interval => target
@@ -1479,14 +1479,14 @@ TEST(RealNodeSchedulerTest, IntervalTruthyCheckBeforeFiring) {
     auto interval_ir = build_interval_ir("interval_0", x::telem::SECOND.nanoseconds());
 
     // Add a mock target node to the IR
-    ir::Param target_input;
+    types::Param target_input;
     target_input.name = "input";
-    target_input.type = arc::types::Type(arc::types::Kind::U8);
+    target_input.type = arc::types::Type{.kind = arc::types::Kind::U8};
 
     ir::Node target_node;
     target_node.key = "target_0";
     target_node.type = "target";
-    target_node.inputs.params.push_back(target_input);
+    target_node.inputs.push_back(target_input);
     interval_ir.nodes.push_back(target_node);
 
     // Add one-shot edge

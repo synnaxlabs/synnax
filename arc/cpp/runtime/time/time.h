@@ -18,6 +18,7 @@
 #include "arc/cpp/runtime/loop/loop.h"
 #include "arc/cpp/runtime/node/factory.h"
 #include "arc/cpp/runtime/node/node.h"
+#include "arc/cpp/types/types.h"
 
 namespace arc::runtime::time {
 /// @brief Sentinel value indicating base_interval hasn't been set yet.
@@ -45,8 +46,8 @@ inline x::telem::TimeSpan calculate_tolerance(
 struct IntervalConfig {
     x::telem::TimeSpan interval;
 
-    explicit IntervalConfig(const ir::Params &params) {
-        const auto interval_ns = params["period"].get<std::int64_t>();
+    explicit IntervalConfig(const types::Params &params) {
+        const auto interval_ns = params["period"].value.get<std::int64_t>();
         this->interval = x::telem::TimeSpan(interval_ns);
     }
 };
@@ -85,8 +86,8 @@ public:
 struct WaitConfig {
     x::telem::TimeSpan duration;
 
-    explicit WaitConfig(const ir::Params &params) {
-        const auto duration_ns = params["duration"].get<std::int64_t>();
+    explicit WaitConfig(const types::Params &params) {
+        const auto duration_ns = params["duration"].value.get<std::int64_t>();
         this->duration = x::telem::TimeSpan(duration_ns);
     }
 };

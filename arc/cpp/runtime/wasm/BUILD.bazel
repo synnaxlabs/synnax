@@ -20,8 +20,8 @@ cc_library(
         "//arc/cpp/runtime/node",
         "//arc/cpp/runtime/state",
         "//vendor/wasmtime",
-        "//x/cpp/telem",
         "//x/cpp/errors",
+        "//x/cpp/telem",
     ],
 )
 

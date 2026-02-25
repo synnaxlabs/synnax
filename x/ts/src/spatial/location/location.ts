@@ -14,37 +14,39 @@ import {
   type AngularDirection,
   CENTER_LOCATIONS,
   type CenterLocation,
-  centerLocation,
+  centerLocationZ,
   type CrudeLocation,
   crudeLocation,
   type Direction,
   DIRECTIONS,
   type Location,
-  location,
+  LOCATIONS,
+  locationZ,
   OUTER_LOCATIONS,
   type OuterLocation,
-  outerLocation,
+  outerLocationZ,
   X_LOCATIONS,
   type XLocation,
-  xLocation,
+  xLocationZ,
   Y_LOCATIONS,
   type YLocation,
-  yLocation,
+  yLocationZ,
 } from "@/spatial/base";
 
 export {
   CENTER_LOCATIONS,
   type Location,
-  location,
-  outerLocation as outer,
+  LOCATIONS,
+  locationZ,
   OUTER_LOCATIONS,
   X_LOCATIONS,
   Y_LOCATIONS,
 };
 
-export const x = xLocation;
-export const y = yLocation;
-export const center = centerLocation;
+export const x = xLocationZ;
+export const y = yLocationZ;
+export const center = centerLocationZ;
+export const outerZ = outerLocationZ;
 
 export type X = XLocation;
 export type Y = YLocation;
@@ -88,10 +90,10 @@ export const direction = (cl: Crude): Direction => {
 };
 
 export const xy = z.object({
-  x: xLocation.or(centerLocation),
-  y: yLocation.or(centerLocation),
+  x: xLocationZ.or(centerLocationZ),
+  y: yLocationZ.or(centerLocationZ),
 });
-export const corner = z.object({ x: xLocation, y: yLocation });
+export const corner = z.object({ x: xLocationZ, y: yLocationZ });
 
 export type XY = z.infer<typeof xy>;
 export type CornerXY = z.infer<typeof corner>;

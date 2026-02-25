@@ -11,11 +11,11 @@ import { sendRequired, type UnaryClient } from "@synnaxlabs/freighter";
 import { array } from "@synnaxlabs/x";
 import { z } from "zod";
 
-import { type Pair, pairZ } from "@/ranger/kv/payload";
-import { type Key, keyZ } from "@/ranger/payload";
+import { type Pair, pairZ } from "@/ranger/kv/types.gen";
+import { type Key, keyZ } from "@/ranger/types.gen";
 
 const getReqZ = z.object({ range: keyZ, keys: z.string().array() });
-const getResZ = z.object({ pairs: array.nullableZ(pairZ) });
+const getResZ = z.object({ pairs: array.nullishToEmpty(pairZ) });
 const setReqZ = z.object({ range: keyZ, pairs: pairZ.array() });
 const deleteReqZ = z.object({ range: keyZ, keys: z.string().array() });
 

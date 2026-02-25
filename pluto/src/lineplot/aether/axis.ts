@@ -29,7 +29,7 @@ import { render } from "@/vis/render";
 export const baseAxisStateZ = axis.axisStateZ
   .extend({
     axisKey: z.string().optional(),
-    bounds: bounds.bounds.optional(),
+    bounds: bounds.boundsZ.optional(),
     autoBounds: z
       .object({
         lower: z.boolean().default(true),

@@ -208,9 +208,40 @@ var _ = Describe("C++ Types Plugin", func() {
 				Entry("uint64", "uint64", "std::uint64_t field = 0;"),
 				Entry("float32", "float32", "float field = 0;"),
 				Entry("float64", "float64", "double field = 0;"),
-				Entry("json", "json", "x::json::json field;"),
+				Entry("json", "json", "x::json::json::object_t field;"),
 			)
+		})
 
+		Context("nil primitive type", func() {
+			It("Should map nil to std::monostate", func() {
+				source := `
+					@cpp output "x/cpp/status"
+
+					Status struct<Details?> {
+						key string
+						details Details?
+					}
+				`
+				loader.Add("schemas/status", source)
+
+				channelSource := `
+					import "schemas/status"
+
+					@cpp output "client/cpp/channel"
+
+					ChannelStatus = status.Status<nil>
+
+					Channel struct {
+						key uint32
+						status ChannelStatus??
+					}
+				`
+				resp := MustGenerate(ctx, channelSource, "channel", loader, cppPlugin)
+
+				content := MustContentOf(resp, "client/cpp/channel/types.gen.h")
+				Expect(content).To(ContainSubstring(`std::monostate`))
+				Expect(content).NotTo(ContainSubstring(`void`))
+			})
 		})
 
 		It("Should treat soft optional as bare type", func() {
@@ -362,7 +393,7 @@ var _ = Describe("C++ Types Plugin", func() {
 
 			content := string(resp.Files[0].Content)
 			Expect(content).To(ContainSubstring(`#include "x/cpp/json/json.h"`))
-			Expect(content).To(ContainSubstring(`x::json::json config;`))
+			Expect(content).To(ContainSubstring(`x::json::json::object_t config;`))
 		})
 
 		It("Should handle map types", func() {
@@ -476,6 +507,30 @@ var _ = Describe("C++ Types Plugin", func() {
 			Expect(content).To(ContainSubstring(`bool is_virtual = false;`))
 			// The original snake_case name should NOT appear
 			Expect(content).NotTo(ContainSubstring(`bool virtual`))
+		})
+
+		It("Should automatically escape C++ reserved keyword field names", func() {
+			source := `
+				@cpp output "arc/cpp/ir"
+
+				Authorities struct {
+					default uint8 { @optional }
+					channels Map<uint32, uint8>
+				}
+			`
+			table, diag := analyzer.AnalyzeSource(ctx, source, "ir", loader)
+			Expect(diag.Ok()).To(BeTrue())
+
+			req := &plugin.Request{
+				Resolutions: table,
+			}
+
+			resp, err := cppPlugin.Generate(req)
+			Expect(err).To(BeNil())
+
+			content := string(resp.Files[0].Content)
+			Expect(content).To(ContainSubstring(`default_`))
+			Expect(content).NotTo(MatchRegexp(`\bstd::optional<std::uint8_t> default[^_]`))
 		})
 
 		It("Should handle @cpp omit", func() {

@@ -17,12 +17,6 @@ import (
 	"github.com/synnaxlabs/x/errors"
 )
 
-// Authority is an 8-bit unsigned integer that represents the authority that a
-// particular controlling subject has over a resource. A higher authority means higher
-// precedence over the resource. AuthorityAbsolute authority (255) maintains exclusive control
-// over the resource.
-type Authority uint8
-
 const (
 	errorPrefix  = "sy.control"
 	unauthorized = errorPrefix + ".unauthorized"
@@ -36,17 +30,6 @@ var (
 	// ErrUnauthorized is returned when a subject does not have authority to perform
 	// actions on a resource.
 	ErrUnauthorized = errors.Wrap(ErrControl, "unauthorized")
-)
-
-// Concurrency defines whether a resource can have multiple subjects acting on it at once.
-type Concurrency uint8
-
-const (
-	// ConcurrencyExclusive means that only a single subject has control over a resource
-	// at once.
-	ConcurrencyExclusive Concurrency = iota
-	// ConcurrencyShared means that multiple subjects can share control over a resource.
-	ConcurrencyShared
 )
 
 func encode(_ context.Context, err error) (errors.Payload, bool) {

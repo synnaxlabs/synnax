@@ -49,8 +49,8 @@ var _ = Describe("Polymorphic func Analysis", func() {
 	resolver := newMockPolymorphicResolver()
 
 	type polymorphicCase struct {
-		source       string
 		expectedType types.Type
+		source       string
 	}
 
 	DescribeTable("Simple Polymorphic Flow",

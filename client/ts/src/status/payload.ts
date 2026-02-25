@@ -17,18 +17,21 @@ export type Key = z.infer<typeof keyZ>;
 
 export type Params = Key | Key[];
 
+// Wrapper functions with single-param style
 export const statusZ = <Details extends z.ZodType = z.ZodNever>(
   detailsSchema?: Details,
-) => status.statusZ(detailsSchema);
+) => status.statusZ({ details: detailsSchema });
 
 export const newZ = <DetailsSchema extends z.ZodType = z.ZodNever>(
   detailsSchema?: DetailsSchema,
-) => statusZ(detailsSchema).omit({ labels: true }).extend({ key: keyZ.optional() });
+) => status.newZ({ details: detailsSchema }).omit({ labels: true });
 
+// Input type derived from Zod schema for consistency
 export type New<DetailsSchema extends z.ZodType = z.ZodNever> = z.input<
   ReturnType<typeof newZ<DetailsSchema>>
 >;
 
+// Output type re-exported from x package
 export type Status<Details extends z.ZodType = z.ZodNever> = status.Status<Details>;
 
 export const SET_CHANNEL_NAME = "sy_status_set";

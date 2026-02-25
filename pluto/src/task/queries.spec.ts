@@ -230,16 +230,13 @@ describe("queries", () => {
       });
       await waitFor(() => expect(result.current.variant).toEqual("success"));
 
-      const taskStatus: task.Status = status.create<
-        ReturnType<typeof task.statusDetailsZ>
-      >({
+      const taskStatus: task.Status = status.create<task.StatusDetailsZodObject>({
         key: id.create(),
         variant: "error",
         message: "Task failed",
         details: {
           task: testTask.key,
           running: false,
-          data: {},
         },
       });
 
@@ -325,16 +322,13 @@ describe("queries", () => {
         config: {},
       });
 
-      const taskStatus: task.Status = status.create<
-        ReturnType<typeof task.statusDetailsZ>
-      >({
+      const taskStatus: task.Status = status.create<task.StatusDetailsZodObject>({
         key: task.statusKey(testTask.key),
         variant: "success",
         message: "Task running",
         details: {
           task: testTask.key,
           running: true,
-          data: {},
         },
       });
 
@@ -400,9 +394,11 @@ describe("queries", () => {
       });
       await waitFor(() => expect(result.current.variant).toEqual("success"));
 
-      const newStatus: task.Status = status.create<
-        ReturnType<typeof task.statusDetailsZ>
-      >({
+      const errorStatusDataZ = z.object({ error: z.string() });
+      // eslint-disable-next-line @typescript-eslint/no-unused-vars
+      const errorStatusDetailsZ = task.statusDetailsZ(errorStatusDataZ);
+
+      const newStatus = status.create<typeof errorStatusDetailsZ>({
         key: task.statusKey(testTask.key),
         variant: "error",
         message: "Task failed",
@@ -437,12 +433,12 @@ describe("queries", () => {
       });
 
       const schemas = {
-        typeSchema: z.literal("typedTask"),
-        configSchema: z.object({
+        type: z.literal("typedTask"),
+        config: z.object({
           port: z.number(),
           host: z.string(),
         }),
-        statusDataSchema: z.any(),
+        statusData: z.any(),
       };
 
       const { useRetrieve } = Task.createRetrieve(schemas);
@@ -704,9 +700,9 @@ describe("queries", () => {
     it("should initialize a form with default values", async () => {
       const useForm = Task.createForm({
         schemas: {
-          typeSchema: z.literal("testType"),
-          configSchema: z.object({}),
-          statusDataSchema: z.any(),
+          type: z.literal("testType"),
+          config: z.object({}),
+          statusData: z.any(),
         },
         initialValues: {
           key: "123",
@@ -738,9 +734,9 @@ describe("queries", () => {
 
       const useForm = Task.createForm({
         schemas: {
-          typeSchema: z.literal("testType"),
-          configSchema: z.object({ setting: z.string() }),
-          statusDataSchema: z.any().or(z.null()),
+          type: z.literal("testType"),
+          config: z.object({ setting: z.string() }),
+          statusData: z.any().nullish(),
         },
         initialValues: {
           key: "0",
@@ -771,9 +767,9 @@ describe("queries", () => {
 
       const useForm = Task.createForm({
         schemas: {
-          typeSchema: z.literal("testType"),
-          configSchema: z.object({}),
-          statusDataSchema: z.any(),
+          type: z.literal("testType"),
+          config: z.object({}),
+          statusData: z.any(),
         },
         initialValues: {
           key: testTask.key,
@@ -811,12 +807,12 @@ describe("queries", () => {
     it("should validate form fields according to schema", async () => {
       const useForm = Task.createForm({
         schemas: {
-          typeSchema: z.literal("testType"),
-          configSchema: z.object({
+          type: z.literal("testType"),
+          config: z.object({
             port: z.number().min(1).max(65535),
             host: z.string().min(1),
           }),
-          statusDataSchema: z.any(),
+          statusData: z.any(),
         },
         initialValues: {
           key: "0",
@@ -866,9 +862,9 @@ describe("queries", () => {
 
       const useForm = Task.createForm({
         schemas: {
-          typeSchema: z.literal("testType"),
-          configSchema: z.object({}),
-          statusDataSchema: z.any(),
+          type: z.literal("testType"),
+          config: z.object({}),
+          statusData: z.any(),
         },
         initialValues: {
           key: testTask.key,
@@ -919,9 +915,9 @@ describe("queries", () => {
 
       const useForm = Task.createForm({
         schemas: {
-          typeSchema: z.literal("testType"),
-          configSchema: z.object({}),
-          statusDataSchema: z.any(),
+          type: z.literal("testType"),
+          config: z.object({}),
+          statusData: z.any(),
         },
         initialValues: {
           key: testTask.key,
@@ -973,9 +969,9 @@ describe("queries", () => {
 
       const useForm = Task.createForm({
         schemas: {
-          typeSchema: z.literal("testType"),
-          configSchema: z.object({}),
-          statusDataSchema: statusDataSchema.or(z.null()),
+          type: z.literal("testType"),
+          config: z.object({}),
+          statusData: statusDataSchema.nullish(),
         },
         initialValues: {
           key: testTask.key,
@@ -991,9 +987,10 @@ describe("queries", () => {
 
       await waitFor(() => expect(result.current.variant).toEqual("success"));
 
-      const taskStatus: task.Status = status.create<
-        ReturnType<typeof task.statusDetailsZ>
-      >({
+      const errorStatusDataZ = z.object({ errorCode: z.number() });
+      // eslint-disable-next-line @typescript-eslint/no-unused-vars
+      const errorStatusDetailsZ = task.statusDetailsZ(errorStatusDataZ);
+      const taskStatus: task.Status = status.create<typeof errorStatusDetailsZ>({
         key: task.statusKey(testTask.key),
         variant: "error",
         message: "Task error",
@@ -1013,16 +1010,16 @@ describe("queries", () => {
           result.current.form.get<task.Status<typeof statusDataSchema>>("status").value;
         expect(status?.variant).toEqual("error");
         expect(status?.message).toEqual("Task error");
-        expect(status?.details.data.errorCode).toEqual(500);
+        expect(status?.details.data?.errorCode).toEqual(500);
       });
     });
 
     it("should handle field changes and mark form as touched", async () => {
       const useForm = Task.createForm({
         schemas: {
-          typeSchema: z.literal("testType"),
-          configSchema: z.object({}),
-          statusDataSchema: z.any(),
+          type: z.literal("testType"),
+          config: z.object({}),
+          statusData: z.any(),
         },
         initialValues: {
           key: "123",
@@ -1057,9 +1054,9 @@ describe("queries", () => {
 
       const useForm = Task.createForm({
         schemas: {
-          typeSchema: z.literal("testType"),
-          configSchema: z.object({ value: z.string() }),
-          statusDataSchema: z.any(),
+          type: z.literal("testType"),
+          config: z.object({ value: z.string() }),
+          statusData: z.any(),
         },
         initialValues: {
           key: testTask.key,
@@ -1107,9 +1104,9 @@ describe("queries", () => {
 
       const useForm = Task.createForm({
         schemas: {
-          typeSchema: z.literal("testType"),
-          configSchema: z.object({}),
-          statusDataSchema: statusDataSchema.or(z.null()),
+          type: z.literal("testType"),
+          config: z.object({}),
+          statusData: statusDataSchema.nullish(),
         },
         initialValues: {
           key: testTask.key,
@@ -1125,10 +1122,10 @@ describe("queries", () => {
 
       await waitFor(() => expect(result.current.variant).toEqual("success"));
       expect(result.current.form.get("name").touched).toBe(false);
-
-      const taskStatus: task.Status = status.create<
-        ReturnType<typeof task.statusDetailsZ>
-      >({
+      const errorStatusDataZ = z.object({ errorCode: z.number() });
+      // eslint-disable-next-line @typescript-eslint/no-unused-vars
+      const errorStatusDetailsZ = task.statusDetailsZ(errorStatusDataZ);
+      const taskStatus: task.Status = status.create<typeof errorStatusDetailsZ>({
         key: task.statusKey(testTask.key),
         variant: "error",
         message: "Task error from server",
@@ -1161,9 +1158,9 @@ describe("queries", () => {
 
       const useForm = Task.createForm({
         schemas: {
-          typeSchema: z.literal("testType"),
-          configSchema: z.object({ setting: z.string() }),
-          statusDataSchema: z.any(),
+          type: z.literal("testType"),
+          config: z.object({ setting: z.string() }),
+          statusData: z.any(),
         },
         initialValues: {
           key: testTask.key,
@@ -1207,9 +1204,9 @@ describe("queries", () => {
 
       const useForm = Task.createForm({
         schemas: {
-          typeSchema: z.literal("testType"),
-          configSchema: z.object({}),
-          statusDataSchema: z.any(),
+          type: z.literal("testType"),
+          config: z.object({}),
+          statusData: z.any(),
         },
         initialValues: {
           key: testTask.key,
@@ -1254,9 +1251,9 @@ describe("queries", () => {
 
       const useForm = Task.createForm({
         schemas: {
-          typeSchema: z.literal("testType"),
-          configSchema: z.object({ value: z.string() }),
-          statusDataSchema: z.any(),
+          type: z.literal("testType"),
+          config: z.object({ value: z.string() }),
+          statusData: z.any(),
         },
         initialValues: {
           key: testTask.key,
@@ -1291,9 +1288,9 @@ describe("queries", () => {
     it("should handle error states in form operations", async () => {
       const useForm = Task.createForm({
         schemas: {
-          typeSchema: z.literal("testType"),
-          configSchema: z.object({}),
-          statusDataSchema: z.any(),
+          type: z.literal("testType"),
+          config: z.object({}),
+          statusData: z.any(),
         },
         initialValues: {
           key: "999999",
@@ -1326,9 +1323,9 @@ describe("queries", () => {
 
       const useForm = Task.createForm({
         schemas: {
-          typeSchema: z.literal("testType"),
-          configSchema: z.object({}),
-          statusDataSchema: z.any(),
+          type: z.literal("testType"),
+          config: z.object({}),
+          statusData: z.any(),
         },
         initialValues: {
           key: testTask.key,
@@ -1397,9 +1394,9 @@ describe("queries", () => {
       });
       const statusDataSchema = z.any();
       const schemas = {
-        typeSchema,
-        configSchema,
-        statusDataSchema,
+        type: typeSchema,
+        config: configSchema,
+        statusData: statusDataSchema,
       };
 
       const useForm = Task.createForm({
@@ -1433,12 +1430,13 @@ describe("queries", () => {
 
       await waitFor(
         async () => {
-          const updatedTask = await client.tasks.retrieve<
-            typeof typeSchema,
-            typeof configSchema,
-            typeof statusDataSchema
-          >({
+          const updatedTask = await client.tasks.retrieve({
             key: testTask.key,
+            schemas: {
+              type: typeSchema,
+              config: configSchema,
+              statusData: statusDataSchema,
+            },
           });
           expect(updatedTask.config.connection.port).toEqual(9090);
         },

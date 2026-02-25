@@ -22,6 +22,7 @@ import (
 	"github.com/synnaxlabs/oracle/domain/ontology"
 	"github.com/synnaxlabs/oracle/exec"
 	"github.com/synnaxlabs/oracle/plugin"
+	"github.com/synnaxlabs/oracle/plugin/cpp/keywords"
 	cppprimitives "github.com/synnaxlabs/oracle/plugin/cpp/primitives"
 	"github.com/synnaxlabs/oracle/plugin/domain"
 	"github.com/synnaxlabs/oracle/plugin/enum"
@@ -788,6 +789,7 @@ func (p *Plugin) processField(field resolution.Field, entry resolution.Type, dat
 	if cppFieldName == field.Name {
 		cppFieldName = toSnakeCase(field.Name)
 	}
+	cppFieldName = keywords.Escape(cppFieldName)
 
 	return fieldData{
 		Name:         cppFieldName,

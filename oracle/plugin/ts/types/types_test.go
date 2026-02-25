@@ -1045,6 +1045,85 @@ var _ = Describe("TS Types Plugin", func() {
 			Expect(content).To(ContainSubstring(`newZ`), "should generate newZ schema")
 		})
 
+		It("Should generate record.Unknown constraint for json-constrained type param", func() {
+			source := `
+				@ts output "out"
+
+				Task struct<Config extends json = json> {
+					name   string
+					config Config
+				}
+			`
+			table, diag := analyzer.AnalyzeSource(ctx, source, "test", loader)
+			Expect(diag.Ok()).To(BeTrue())
+
+			req := &plugin.Request{
+				Resolutions: table,
+			}
+
+			resp, err := typesPlugin.Generate(req)
+			Expect(err).To(BeNil())
+
+			content := string(resp.Files[0].Content)
+			Expect(content).To(ContainSubstring(`Config extends z.ZodType<record.Unknown> = z.ZodType<record.Unknown>`), "json constraint should generate record.Unknown")
+			Expect(content).To(ContainSubstring(`config: config ?? record.nullishToEmpty()`), "json field should use record fallback")
+			Expect(content).To(ContainSubstring(`import { record`), "should import record")
+		})
+
+		It("Should generate ZodNever default and z.unknown() fallback for optional type param", func() {
+			source := `
+				@ts output "out"
+
+				Status struct<Data?> {
+					running bool
+					data    Data
+				}
+			`
+			table, diag := analyzer.AnalyzeSource(ctx, source, "test", loader)
+			Expect(diag.Ok()).To(BeTrue())
+
+			req := &plugin.Request{
+				Resolutions: table,
+			}
+
+			resp, err := typesPlugin.Generate(req)
+			Expect(err).To(BeNil())
+
+			content := string(resp.Files[0].Content)
+			Expect(content).To(ContainSubstring(`Data extends z.ZodType = z.ZodNever`), "optional param should have ZodNever default")
+			Expect(content).To(ContainSubstring(`data: data ?? z.unknown().optional()`), "optional param field should use z.unknown().optional() fallback")
+		})
+
+		It("Should handle mixed json-constrained and optional type params", func() {
+			source := `
+				@ts output "out"
+
+				Task struct<
+					Config extends json = json,
+					StatusData?
+				> {
+					name       string
+					config     Config
+					statusData StatusData
+				}
+			`
+			table, diag := analyzer.AnalyzeSource(ctx, source, "test", loader)
+			Expect(diag.Ok()).To(BeTrue())
+
+			req := &plugin.Request{
+				Resolutions: table,
+			}
+
+			resp, err := typesPlugin.Generate(req)
+			Expect(err).To(BeNil())
+
+			content := string(resp.Files[0].Content)
+			Expect(content).To(ContainSubstring(`Config extends z.ZodType<record.Unknown> = z.ZodType<record.Unknown>`), "constrained json param should use record.Unknown")
+			Expect(content).To(ContainSubstring(`StatusData extends z.ZodType = z.ZodNever`), "optional param should have ZodNever default")
+			Expect(content).To(ContainSubstring(`config: config ?? record.nullishToEmpty()`), "constrained json field should use record fallback")
+			Expect(content).To(ContainSubstring(`statusData: statusData ?? z.unknown().optional()`), "optional param field should use z.unknown().optional() fallback")
+		})
+
 		It("Should generate .extend() for basic struct extension", func() {
 			source := `
 				@ts output "out"

@@ -14,7 +14,6 @@ import (
 	"go/types"
 
 	"github.com/google/uuid"
-	"github.com/samber/lo"
 	"github.com/synnaxlabs/synnax/pkg/api/auth"
 	"github.com/synnaxlabs/synnax/pkg/api/config"
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
@@ -46,29 +45,10 @@ func NewService(cfgs ...config.LayerConfig) (*Service, error) {
 	}, nil
 }
 
-type Status struct {
-	status.Status[any]
-	Labels []label.Label
-}
-
-func translateStatusesToService(statuses []Status) []status.Status[any] {
-	return lo.Map(statuses, func(s Status, _ int) status.Status[any] {
-		return s.Status
-	})
-}
-
-func translateStatusesFromService(
-	statuses []status.Status[any],
-) []Status {
-	return lo.Map(statuses, func(s status.Status[any], _ int) Status {
-		return Status{Status: s}
-	})
-}
-
-func statusAccessOntologyIDs(statuses []Status) []ontology.ID {
+func statusAccessOntologyIDs(statuses []status.Status[any]) []ontology.ID {
 	ids := make([]ontology.ID, 0, len(statuses))
 	for _, s := range statuses {
-		ids = append(ids, s.OntologyID())
+		ids = append(ids, status.OntologyID(s.Key))
 		ids = append(ids, label.OntologyIDsFromLabels(s.Labels)...)
 	}
 	return ids
@@ -79,13 +59,13 @@ type SetRequest struct {
 	// Parent is the parent ontology ID for the statuses.
 	Parent ontology.ID `json:"parent" msgpack:"parent"`
 	// Statuses are the statuses to set.
-	Statuses []Status `json:"statuses" msgpack:"statuses"`
+	Statuses []status.Status[any] `json:"statuses" msgpack:"statuses"`
 }
 
 // SetResponse is a response to a SetRequest.
 type SetResponse struct {
 	// Statuses are the statuses that were set.
-	Statuses []Status `json:"statuses" msgpack:"statuses"`
+	Statuses []status.Status[any] `json:"statuses" msgpack:"statuses"`
 }
 
 // Set creates or updates statuses in the cluster.
@@ -102,15 +82,14 @@ func (s *Service) Set(
 		return res, err
 	}
 	return res, s.db.WithTx(ctx, func(tx gorp.Tx) error {
-		translated := translateStatusesToService(req.Statuses)
 		if err = s.internal.NewWriter(tx).SetManyWithParent(
 			ctx,
-			&translated,
+			&req.Statuses,
 			req.Parent,
 		); err != nil {
 			return err
 		}
-		res.Statuses = translateStatusesFromService(translated)
+		res.Statuses = req.Statuses
 		return nil
 	})
 }
@@ -133,7 +112,7 @@ type RetrieveRequest struct {
 
 type RetrieveResponse struct {
 	// Statuses are the statuses that were retrieved.
-	Statuses []Status `json:"statuses" msgpack:"statuses"`
+	Statuses []status.Status[any] `json:"statuses" msgpack:"statuses"`
 }
 
 func (s *Service) Retrieve(
@@ -161,18 +140,17 @@ func (s *Service) Retrieve(
 	if err = q.Entries(&resStatuses).Exec(ctx, nil); err != nil {
 		return RetrieveResponse{}, err
 	}
-	res.Statuses = translateStatusesFromService(resStatuses)
+	res.Statuses = resStatuses
 	ids := statusAccessOntologyIDs(res.Statuses)
 	if req.IncludeLabels {
 		for i, stat := range res.Statuses {
-			labels, err := s.label.RetrieveFor(ctx, stat.OntologyID(), nil)
+			labels, err := s.label.RetrieveFor(ctx, status.OntologyID(stat.Key), nil)
 			if err != nil {
 				return RetrieveResponse{}, err
 			}
 			res.Statuses[i].Labels = labels
 		}
 	}
-
 	if err = s.access.Enforce(ctx, access.Request{
 		Subject: auth.GetSubject(ctx),
 		Action:  access.ActionRetrieve,

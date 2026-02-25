@@ -90,8 +90,8 @@ func (r Retrieve[K, E]) Entry(entry *E) Retrieve[K, E] {
 }
 
 // Exec executes the Params against the provided Writer. If the WhereKeys method is set on
-// the query, Retrieve will return a query.NotFound  error if ANY of the keys do not
-// exist in the database. If Where is set on the query, Retrieve will return a query.NotFound
+// the query, Retrieve will return a query.ErrNotFound  error if ANY of the keys do not
+// exist in the database. If Where is set on the query, Retrieve will return a query.ErrNotFound
 // if NO keys pass the Where filter.
 func (r Retrieve[K, E]) Exec(ctx context.Context, tx Tx) error {
 	checkForNilTx("Retriever.Exec", tx)

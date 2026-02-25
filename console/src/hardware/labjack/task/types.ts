@@ -268,7 +268,7 @@ export const readStatusDataZ = z
   .object({
     errors: z.array(z.object({ message: z.string(), path: z.string() })),
   })
-  .or(z.null());
+  .nullish();
 
 export type ReadStatus = task.Status<typeof readStatusDataZ>;
 
@@ -295,14 +295,14 @@ export interface ReadTask extends task.Task<
 > {}
 export interface NewReadTask extends task.New<typeof readTypeZ, typeof readConfigZ> {}
 
-export const READ_SCHEMAS: task.Schemas<
+export const READ_SCHEMAS: task.PayloadSchemas<
   typeof readTypeZ,
   typeof readConfigZ,
   typeof readStatusDataZ
 > = {
-  typeSchema: readTypeZ,
-  configSchema: readConfigZ,
-  statusDataSchema: readStatusDataZ,
+  type: readTypeZ,
+  config: readConfigZ,
+  statusData: readStatusDataZ,
 };
 
 export const writeConfigZ = Common.Task.baseConfigZ.extend({
@@ -360,12 +360,12 @@ export interface NewWriteTask extends task.New<
   typeof writeConfigZ
 > {}
 
-export const WRITE_SCHEMAS: task.Schemas<
+export const WRITE_SCHEMAS: task.PayloadSchemas<
   typeof writeTypeZ,
   typeof writeConfigZ,
   typeof writeStatusDataZ
 > = {
-  typeSchema: writeTypeZ,
-  configSchema: writeConfigZ,
-  statusDataSchema: writeStatusDataZ,
+  type: writeTypeZ,
+  config: writeConfigZ,
+  statusData: writeStatusDataZ,
 };

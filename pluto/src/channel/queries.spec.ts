@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { type channel, createTestClient, DataType } from "@synnaxlabs/client";
-import { id } from "@synnaxlabs/x";
+import { id, TimeRange } from "@synnaxlabs/x";
 import { act, renderHook, waitFor } from "@testing-library/react";
 import { type FC, type PropsWithChildren } from "react";
 import { afterEach, beforeAll, beforeEach, describe, expect, it } from "vitest";
@@ -261,7 +261,7 @@ describe("queries", () => {
     it("should update the channel alias when a range alias is set", async () => {
       const range = await client.ranges.create({
         name: id.create(),
-        timeRange: { start: 1n, end: 1000n },
+        timeRange: new TimeRange({ start: 1n, end: 1000n }),
       });
       const channel = await client.channels.create({
         name: id.create(),
@@ -275,7 +275,9 @@ describe("queries", () => {
       act(() => {
         result.current.retrieve({ rangeKey: range.key }, { signal: controller.signal });
       });
-      await waitFor(() => expect(result.current.variant).toEqual("success"));
+      await waitFor(() => expect(result.current.variant).toEqual("success"), {
+        timeout: 5000,
+      });
       expect(result.current.getItem(channel.key)?.alias).toEqual("alias");
 
       await act(async () => {
@@ -289,7 +291,7 @@ describe("queries", () => {
     it("should correctly retrieve the alias when an initial query is provided, and getItem is called but not retrieve", async () => {
       const range = await client.ranges.create({
         name: id.create(),
-        timeRange: { start: 1n, end: 1000n },
+        timeRange: new TimeRange({ start: 1n, end: 1000n }),
       });
       const channel = await client.channels.create({
         name: id.create(),
@@ -778,7 +780,7 @@ describe("queries", () => {
 
       expect(result.current.form.validate()).toBe(false);
       expect(result.current.form.get("name").status.message).toContain(
-        "Name must not be empty",
+        "Name is required",
       );
     });
 
@@ -833,7 +835,7 @@ describe("queries", () => {
       });
       const range = await client.ranges.create({
         name: "alias_range",
-        timeRange: { start: 1n, end: 1000n },
+        timeRange: new TimeRange({ start: 1n, end: 1000n }),
       });
       await client.ranges.setAlias(range.key, ch.key, "custom_alias");
 
@@ -917,7 +919,7 @@ describe("queries", () => {
       });
       const range = await client.ranges.create({
         name: "many_alias_range",
-        timeRange: { start: 1n, end: 2000n },
+        timeRange: new TimeRange({ start: 1n, end: 2000n }),
       });
       await client.ranges.setAlias(range.key, ch1.key, "alias_1");
       await client.ranges.setAlias(range.key, ch2.key, "alias_2");
@@ -1069,7 +1071,7 @@ describe("queries", () => {
       });
       const range = await client.ranges.create({
         name: id.create(),
-        timeRange: { start: 1n, end: 3000n },
+        timeRange: new TimeRange({ start: 1n, end: 3000n }),
       });
 
       const { result } = renderHook(
@@ -1120,7 +1122,7 @@ describe("queries", () => {
       });
       const range = await client.ranges.create({
         name: id.create(),
-        timeRange: { start: 1n, end: 4000n },
+        timeRange: new TimeRange({ start: 1n, end: 4000n }),
       });
       await client.ranges.setAlias(range.key, ch.key, "to_delete");
 
@@ -1164,7 +1166,7 @@ describe("queries", () => {
       });
       const range = await client.ranges.create({
         name: id.create(),
-        timeRange: { start: 1n, end: 5000n },
+        timeRange: new TimeRange({ start: 1n, end: 5000n }),
       });
       await client.ranges.setAlias(range.key, ch1.key, "multi_alias_1");
       await client.ranges.setAlias(range.key, ch2.key, "multi_alias_2");

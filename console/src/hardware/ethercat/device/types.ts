@@ -10,9 +10,8 @@
 import { type device } from "@synnaxlabs/client";
 import { z } from "zod";
 
-export const PREFIX = "ethercat";
+export const MAKE = "ethercat";
 
-export const MAKE = PREFIX;
 export type Make = typeof MAKE;
 export const makeZ = z.literal(MAKE);
 

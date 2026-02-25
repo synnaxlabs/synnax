@@ -18,7 +18,7 @@
 /// needed.
 namespace x::shutdown {
 /// @brief internal namespace. do not use directly.
-namespace priv {
+namespace details {
 // These need to be declared as extern and defined in os-specific cpp files
 // so that we don't cause internal linkage issues.
 extern std::mutex shutdown_mutex;
@@ -44,10 +44,10 @@ inline bool should_shutdown() {
 /// @brief signals the shutdown condition to all listeners.
 inline void signal_shutdown() {
     {
-        std::lock_guard lock(priv::shutdown_mutex);
-        priv::should_stop = true;
+        std::lock_guard lock(details::shutdown_mutex);
+        details::should_stop = true;
     }
-    priv::shutdown_cv.notify_all();
+    details::shutdown_cv.notify_all();
 }
 
 /// @brief listens for shutdown signals from SIGINT, SIGTERM, and stdin.
@@ -55,9 +55,9 @@ inline void signal_shutdown() {
 /// true.
 /// @param stdin_enabled whether to listen for stdin input. Default is true.
 inline void listen(const bool sig_enabled = true, const bool stdin_enabled = true) {
-    if (sig_enabled) priv::listen_signal();
-    if (stdin_enabled) return priv::listen_stdin();
-    std::unique_lock lock(priv::shutdown_mutex);
-    priv::shutdown_cv.wait(lock, [] { return priv::should_stop; });
+    if (sig_enabled) details::listen_signal();
+    if (stdin_enabled) return details::listen_stdin();
+    std::unique_lock lock(details::shutdown_mutex);
+    details::shutdown_cv.wait(lock, [] { return details::should_stop; });
 }
 }

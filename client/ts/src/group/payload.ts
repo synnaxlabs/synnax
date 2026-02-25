@@ -9,16 +9,10 @@
 
 import { z } from "zod";
 
-import { createIDFactory } from "@/ontology/payload";
+import { type Key } from "@/ranger/types.gen";
 
-export const keyZ = z.uuid();
-export type Key = z.infer<typeof keyZ>;
-export const nameZ = z.string();
+export const nameZ = z.string().min(1);
 export type Name = z.infer<typeof nameZ>;
 export type Keys = Key[];
 export type Names = Name[];
 export type Params = Key | Name | Keys | Names;
-export const groupZ = z.object({ key: keyZ, name: nameZ });
-export interface Group extends z.infer<typeof groupZ> {}
-
-export const ontologyID = createIDFactory("group");

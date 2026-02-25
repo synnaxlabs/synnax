@@ -1,0 +1,59 @@
+// Copyright 2025 Synnax Labs, Inc.
+//
+// Use of this software is governed by the Business Source License included in the file
+// licenses/BSL.txt.
+//
+// As of the Change Date specified in that file, in accordance with the Business Source
+// License, use of this software will be governed by the Apache License, Version 2.0,
+// included in the file licenses/APL.txt.
+
+syntax = "proto3";
+
+package grpc.device;
+
+import "core/pkg/service/device/pb/device.proto";
+import "google/protobuf/empty.proto";
+
+option go_package = "github.com/synnaxlabs/synnax/pkg/api/grpc/device";
+
+service DeviceCreateService {
+  rpc Exec(CreateRequest) returns (CreateResponse);
+}
+
+service DeviceRetrieveService {
+  rpc Exec(RetrieveRequest) returns (RetrieveResponse);
+}
+
+service DeviceDeleteService {
+  rpc Exec(DeleteRequest) returns (google.protobuf.Empty);
+}
+
+message CreateRequest {
+  repeated service.device.pb.Device devices = 1;
+}
+
+message CreateResponse {
+  repeated service.device.pb.Device devices = 1;
+}
+
+message RetrieveRequest {
+  repeated string keys = 1;
+  repeated string names = 2;
+  repeated string makes = 3;
+  repeated string models = 4;
+  repeated string locations = 5;
+  repeated uint32 racks = 6;
+  string search = 7;
+  uint32 limit = 8;
+  uint32 offset = 9;
+  bool ignore_not_found = 10;
+  bool include_status = 11;
+}
+
+message RetrieveResponse {
+  repeated service.device.pb.Device devices = 1;
+}
+
+message DeleteRequest {
+  repeated string keys = 1;
+}

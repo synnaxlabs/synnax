@@ -25,7 +25,7 @@ const std::string TASK_NAME = "Rack Status";
 const std::string TASK_TYPE = TASK_NAME;
 const auto EMISSION_RATE = x::telem::HERTZ * 1;
 
-class Source final : public pipeline::Base {
+class Source final : public driver::pipeline::Base {
     /// @brief the key of the rack the heartbeat is for.
     const synnax::rack::Rack rack;
     const synnax::task::Task task;
@@ -56,7 +56,7 @@ public:
 
     void run() override {
         synnax::task::Status stat{
-            .key = this->task.status_key(),
+            .key = synnax::task::status_key(this->task),
             .name = this->task.name,
             .variant = ::x::status::VARIANT_SUCCESS,
             .message = "Started",
@@ -89,7 +89,7 @@ public:
 
 /// @brief a task that periodically
 /// to indicate that the driver is still alive.
-class Task final : public task::Task {
+class Task final : public driver::task::Task {
     Source pipe;
 
 public:
@@ -102,7 +102,7 @@ public:
         this->pipe.start();
     }
 
-    /// @brief implements task::Task.
+    /// @brief implements driver::task::Task.
     std::string name() const override { return TASK_NAME; }
 
     /// @brief stop the heartbeat process
@@ -117,7 +117,7 @@ public:
         auto [rack, rack_err] = ctx->client->racks.retrieve(rack_key);
         if (rack_err) {
             synnax::task::Status stat{
-                .key = task.status_key(),
+                .key = synnax::task::status_key(task),
                 .name = TASK_NAME,
                 .variant = ::x::status::VARIANT_ERROR,
                 .message = "Failed to retrieve rack for status task",

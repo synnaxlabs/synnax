@@ -52,7 +52,7 @@ Scanner::scan(const common::ScannerContext &scan_ctx) {
 }
 
 bool Scanner::exec(
-    task::Command &cmd,
+    synnax::task::Command &cmd,
     const synnax::task::Task &,
     const std::shared_ptr<task::Context> &
 ) {
@@ -73,7 +73,7 @@ x::errors::Error Scanner::check_device_health(synnax::device::Device &dev) {
     const auto props = device::Properties(parser);
     if (parser.error()) {
         dev.status = synnax::device::Status{
-            .key = dev.status_key(),
+            .key = synnax::device::status_key(dev),
             .name = dev.name,
             .variant = x::status::VARIANT_WARNING,
             .message = "Invalid device properties",
@@ -87,7 +87,7 @@ x::errors::Error Scanner::check_device_health(synnax::device::Device &dev) {
     auto [conn, conn_err] = this->conn_pool->acquire(props.connection, SCAN_LOG_PREFIX);
     if (conn_err)
         dev.status = synnax::device::Status{
-            .key = dev.status_key(),
+            .key = synnax::device::status_key(dev),
             .name = dev.name,
             .variant = x::status::VARIANT_WARNING,
             .message = "Failed to reach server",
@@ -97,7 +97,7 @@ x::errors::Error Scanner::check_device_health(synnax::device::Device &dev) {
         };
     else
         dev.status = synnax::device::Status{
-            .key = dev.status_key(),
+            .key = synnax::device::status_key(dev),
             .name = dev.name,
             .variant = x::status::VARIANT_SUCCESS,
             .message = "Server connected",
@@ -162,11 +162,11 @@ node_iter(UA_NodeId child_id, UA_Boolean is_inverse, UA_NodeId _, void *raw_ctx)
     return status;
 }
 
-void Scanner::browse_nodes(const task::Command &cmd) const {
+void Scanner::browse_nodes(const synnax::task::Command &cmd) const {
     x::json::Parser parser(cmd.args);
     const ScanCommandArgs args(parser);
     synnax::task::Status status{
-        .key = this->task.status_key(),
+        .key = synnax::task::status_key(this->task),
         .name = this->task.name,
         .variant = x::status::VARIANT_ERROR,
         .details = synnax::task::StatusDetails{.task = task.key, .cmd = cmd.key}
@@ -201,17 +201,17 @@ void Scanner::browse_nodes(const task::Command &cmd) const {
     ctx->set_status(status);
 }
 
-void Scanner::test_connection(const task::Command &cmd) const {
+void Scanner::test_connection(const synnax::task::Command &cmd) const {
     x::json::Parser parser(cmd.args);
     const ScanCommandArgs args(parser);
     synnax::task::Status status{
-        .key = this->task.status_key(),
+        .key = synnax::task::status_key(this->task),
         .name = this->task.name,
         .variant = x::status::VARIANT_ERROR,
         .details = synnax::task::StatusDetails{
             .task = task.key,
-            .cmd = cmd.key,
             .running = true,
+            .cmd = cmd.key,
         }
     };
     if (!parser.ok()) {

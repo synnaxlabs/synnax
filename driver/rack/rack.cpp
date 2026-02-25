@@ -39,7 +39,7 @@ void Rack::run(x::args::Parser &args, const std::function<void()> &on_shutdown) 
         }
         VLOG(1) << "loaded config. starting task manager";
         if (!this->breaker.running()) return;
-        this->task_manager = std::make_unique<task::Manager>(
+        this->task_manager = std::make_unique<driver::task::Manager>(
             cfg.rack,
             cfg.new_client(),
             cfg.new_factory(),

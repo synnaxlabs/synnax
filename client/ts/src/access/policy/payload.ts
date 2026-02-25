@@ -10,7 +10,7 @@
 import { array, zod } from "@synnaxlabs/x";
 import { z } from "zod";
 
-import { actionZ } from "@/access/payload";
+import { actionZ } from "@/access/types.gen";
 import { ontology } from "@/ontology";
 
 export const keyZ = z.uuid();
@@ -19,8 +19,8 @@ export type Key = z.infer<typeof keyZ>;
 export const policyZ = z.object({
   key: keyZ,
   name: z.string(),
-  objects: array.nullableZ(ontology.idZ),
-  actions: array.nullableZ(actionZ),
+  objects: array.nullishToEmpty(ontology.idZ),
+  actions: array.nullishToEmpty(actionZ),
   internal: z.boolean(),
 });
 export interface Policy extends z.infer<typeof policyZ> {}

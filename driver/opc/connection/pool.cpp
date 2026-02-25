@@ -152,7 +152,7 @@ x::errors::Error Pool::run_iterate_checked(
     if (status != UA_STATUSCODE_GOOD) {
         LOG(WARNING) << log_prefix
                      << "run_iterate failed: " << UA_StatusCode_name(status);
-        return opc::errors::parse(status);
+        return driver::opc::errors::parse(status);
     }
 
     // Re-verify session state after run_iterate to catch any state transition
@@ -183,7 +183,7 @@ x::errors::Error Pool::run_iterate_checked(
     if (read_status != UA_STATUSCODE_GOOD) {
         LOG(WARNING) << log_prefix
                      << "Health probe failed: " << UA_StatusCode_name(read_status);
-        return opc::errors::parse(read_status);
+        return driver::opc::errors::parse(read_status);
     }
 
     return x::errors::NIL;

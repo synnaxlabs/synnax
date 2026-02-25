@@ -74,7 +74,7 @@ public:
 
     /// @brief Handle OPC-specific commands (scan nodes, test connection).
     bool exec(
-        task::Command &cmd,
+        synnax::task::Command &cmd,
         const synnax::task::Task &task,
         const std::shared_ptr<task::Context> &ctx
     ) override;
@@ -86,10 +86,10 @@ private:
     ScanTaskConfig cfg;
 
     /// @brief Browse child nodes of a given OPC UA node.
-    void browse_nodes(const task::Command &cmd) const;
+    void browse_nodes(const synnax::task::Command &cmd) const;
 
     /// @brief Test connection to an OPC UA server.
-    void test_connection(const task::Command &cmd) const;
+    void test_connection(const synnax::task::Command &cmd) const;
 
     /// @brief Check health of a single device by testing its connection.
     [[nodiscard]] x::errors::Error check_device_health(synnax::device::Device &dev);

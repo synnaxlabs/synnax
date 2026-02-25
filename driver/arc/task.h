@@ -34,7 +34,7 @@
 namespace driver::arc {
 /// @brief configuration for an arc runtime task.
 struct TaskConfig : common::BaseTaskConfig {
-    std::string arc_key;
+    x::uuid::UUID arc_key;
     ::arc::module::Module module;
     ::arc::runtime::loop::Config loop;
 
@@ -49,21 +49,21 @@ struct TaskConfig : common::BaseTaskConfig {
 
     explicit TaskConfig(x::json::Parser &parser):
         BaseTaskConfig(parser),
-        arc_key(parser.field<std::string>("arc_key")),
+        arc_key(parser.field<x::uuid::UUID>("arc_key")),
         loop(parser) {}
 
     static std::pair<TaskConfig, x::errors::Error>
     parse(const std::shared_ptr<synnax::Synnax> &client, x::json::Parser &parser) {
         auto cfg = TaskConfig(parser);
         if (!parser.ok()) return {std::move(cfg), parser.error()};
-        auto [arc_key, key_err] = x::uuid::UUID::parse(cfg.arc_key);
-        if (key_err) return {std::move(cfg), key_err};
         auto [arc_data, arc_err] = client->arcs.retrieve_by_key(
-            arc_key,
+            cfg.arc_key,
             synnax::arc::RetrieveOptions{.compile = true}
         );
         if (arc_err) return {std::move(cfg), arc_err};
-        cfg.module = ::arc::module::Module(arc_data.module);
+        if (!arc_data.module.has_value())
+            return {std::move(cfg), x::errors::Error("arc module not compiled")};
+        cfg.module = *arc_data.module;
         return {std::move(cfg), x::errors::NIL};
     }
 };
@@ -170,7 +170,7 @@ public:
         auto source = std::make_unique<Source>(*task);
         auto sink = std::make_unique<Sink>(*task);
         if (!writer_factory)
-            writer_factory = std::make_shared<pipeline::SynnaxWriterFactory>(
+            writer_factory = std::make_shared<driver::pipeline::SynnaxWriterFactory>(
                 ctx->client
             );
         if (!streamer_factory)
@@ -189,8 +189,8 @@ public:
                 .authorities = std::move(initial_authorities),
                 .subject =
                     x::control::Subject{
-                        .name = task_meta.name,
                         .key = std::to_string(task_meta.key),
+                        .name = task_meta.name,
                     },
                 .mode = common::data_saving_writer_mode(cfg.data_saving),
             },
@@ -227,7 +227,7 @@ public:
         return control_stopped && acq_stopped && runtime_stopped;
     }
 
-    void exec(task::Command &cmd) override {
+    void exec(synnax::task::Command &cmd) override {
         if (cmd.type == "start")
             this->start(cmd.key);
         else if (cmd.type == "stop")

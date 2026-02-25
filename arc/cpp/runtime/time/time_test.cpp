@@ -50,20 +50,20 @@ struct TestSetup {
 private:
     static arc::ir::IR
     build_ir(const std::string &type, const std::string &param_name, const int64_t ns) {
-        arc::ir::Param output_param;
+        arc::types::Param output_param;
         output_param.name = "output";
-        output_param.type = arc::types::Type(arc::types::Kind::U8);
+        output_param.type = arc::types::Type{.kind = arc::types::Kind::U8};
 
-        arc::ir::Param cfg_param;
+        arc::types::Param cfg_param;
         cfg_param.name = param_name;
-        cfg_param.type = arc::types::Type(arc::types::Kind::I64);
+        cfg_param.type = arc::types::Type{.kind = arc::types::Kind::I64};
         cfg_param.value = ns;
 
         arc::ir::Node ir_node;
         ir_node.key = "timer";
         ir_node.type = type;
-        ir_node.outputs.params.push_back(output_param);
-        ir_node.config.params.push_back(cfg_param);
+        ir_node.outputs.push_back(output_param);
+        ir_node.config.push_back(cfg_param);
 
         arc::ir::Function fn;
         fn.key = "test";

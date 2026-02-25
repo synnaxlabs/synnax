@@ -8,7 +8,6 @@
 // included in the file licenses/APL.txt.
 
 import { DisconnectedError } from "@synnaxlabs/client";
-import { type record } from "@synnaxlabs/x";
 
 import { Export } from "@/export";
 import { Layout } from "@/layout";
@@ -41,7 +40,7 @@ export const extract: Export.Extractor = async (key, { client, store }) => {
     // type assertion okay for the moment because all of our current configs are object
     // types. We will want to get rid of this once we refactor to a more general
     // exporter and tighten up export / import logic more.
-    data: JSON.stringify({ ...(task.config as record.Unknown), type: task.type }),
+    data: JSON.stringify({ ...task.config, type: task.type }),
     name: task.name,
   };
 };

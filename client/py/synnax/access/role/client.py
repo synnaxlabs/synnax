@@ -14,7 +14,7 @@ from alamos import NOOP, Instrumentation
 from freighter import Empty, UnaryClient, send_required
 from pydantic import BaseModel
 
-from synnax.access.role.payload import Role
+from synnax.access.role.types_gen import Role
 from synnax.util.normalize import normalize
 
 

@@ -130,7 +130,8 @@ func Analyze(
 						aCtx.Diagnostics.Add(diagnostics.Error(err, nil))
 						return ir.IR{}, aCtx.Diagnostics
 					}
-					node.Channels.ResolveConfigChannel(
+					symbol.ResolveConfigChannel(
+						&node.Channels,
 						fnSym,
 						configParam.Name,
 						k,

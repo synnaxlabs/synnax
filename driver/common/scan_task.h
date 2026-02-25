@@ -15,7 +15,6 @@
 #include <unordered_set>
 
 #include "glog/logging.h"
-#include "nlohmann/json.hpp"
 
 #include "x/cpp/breaker/breaker.h"
 #include "x/cpp/json/json.h"
@@ -34,7 +33,7 @@ const auto DEFAULT_SCAN_RATE = x::telem::Rate(x::telem::SECOND * 5);
 /// @brief Merges scanner-discovered properties with existing remote properties.
 /// Scanner properties take precedence on conflicts, but remote properties are preserved
 /// if the scanner doesn't specify them.
-/// @param remote_props JSON string of properties from the remote/cluster.
+/// @param remote_props JSON properties from the remote/cluster.
 /// @param scanned_props JSON properties from the scanner.
 /// @return Merged JSON with scanner properties overriding remote on conflicts.
 inline x::json::json merge_device_properties(
@@ -103,7 +102,7 @@ struct Scanner {
 
     /// @brief Optional: Handle custom commands. Return true if handled.
     virtual bool exec(
-        task::Command &cmd,
+        synnax::task::Command &cmd,
         const synnax::task::Task &task,
         const std::shared_ptr<task::Context> &ctx
     ) {
@@ -212,8 +211,9 @@ class ScanTask final : public task::Task, public pipeline::Base {
     [[nodiscard]] bool update_threshold_exceeded(const std::string &dev_key) {
         auto last_updated = x::telem::TimeStamp(0);
         if (const auto dev_state = this->dev_states.find(dev_key);
-            dev_state != this->dev_states.end()) {
-            last_updated = dev_state->second.status.time;
+            dev_state != this->dev_states.end() &&
+            dev_state->second.status.has_value()) {
+            last_updated = dev_state->second.status->time;
         }
         const auto delta = x::telem::TimeStamp::now() - last_updated;
         return delta > x::telem::SECOND * 30;
@@ -324,7 +324,7 @@ public:
         if (this->log_prefix.empty())
             throw std::invalid_argument("log_prefix must be provided in ScannerConfig");
         this->key = task.key;
-        this->status.key = task.status_key();
+        this->status.key = synnax::task::status_key(task);
         this->status.name = task.name;
         this->status.details.task = task.key;
     }
@@ -349,7 +349,7 @@ public:
     /// This is called automatically by run(), but can be called separately for testing.
     x::errors::Error init() {
         auto [remote_devs_vec, ret_err] = this->client->retrieve_devices(
-            this->task.rack(),
+            synnax::task::rack_key(this->task),
             this->scanner->config().make
         );
         if (ret_err) return ret_err;
@@ -402,7 +402,7 @@ public:
         this->ctx->set_status(this->status);
     }
 
-    void exec(task::Command &cmd) override {
+    void exec(synnax::task::Command &cmd) override {
         this->status.details.cmd = cmd.key;
         if (cmd.type == STOP_CMD_TYPE) return this->stop(false);
         if (cmd.type == START_CMD_TYPE) {
@@ -481,30 +481,34 @@ public:
                     remote_dev.properties,
                     scanned_dev.properties
                 );
-                if (merged_props != remote_dev.properties) {
-                    VLOG(1) << this->log_prefix << "device properties changed for "
-                            << scanned_dev.key;
-                    needs_update = true;
-                }
+                //                if (merged_props != remote_dev.properties) {
+                //                    VLOG(1) << this->log_prefix << "device properties
+                //                    changed for "
+                //                            << scanned_dev.key;
+                //                    needs_update = true;
+                //                }
                 scanned_dev.properties = merged_props;
                 scanned_dev.name = remote_dev.name;
                 scanned_dev.configured = remote_dev.configured;
 
                 if (needs_update) to_create.push_back(scanned_dev);
 
-                scanned_dev.status.time = last_available;
+                if (!scanned_dev.status.has_value())
+                    scanned_dev.status = synnax::device::Status{};
+                scanned_dev.status->time = last_available;
                 this->dev_states[scanned_dev.key] = scanned_dev;
             }
 
             for (auto &[key, dev]: this->dev_states) {
                 if (present.find(key) != present.end()) continue;
-                dev.status.variant = x::status::VARIANT_WARNING;
-                dev.status.message = "Device disconnected";
+                if (!dev.status.has_value()) dev.status = synnax::device::Status{};
+                dev.status->variant = x::status::VARIANT_WARNING;
+                dev.status->message = "Device disconnected";
             }
 
             statuses.reserve(this->dev_states.size());
             for (auto &info: this->dev_states | std::views::values)
-                statuses.push_back(info.status);
+                if (info.status.has_value()) statuses.push_back(*info.status);
         }
 
         if (const auto state_err = this->client->update_statuses(statuses))
@@ -529,8 +533,8 @@ public:
 
     std::string name() const override { return this->task.name; }
 
-    using pipeline::Base::stop;
+    using driver::pipeline::Base::stop;
 
-    void stop(bool will_reconfigure) override { pipeline::Base::stop(); }
+    void stop(bool will_reconfigure) override { driver::pipeline::Base::stop(); }
 };
 }

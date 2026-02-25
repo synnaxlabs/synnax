@@ -50,7 +50,7 @@ export type WindowProps = Omit<Drift.WindowProps, "key" | "url"> & {
 
 const layoutTabPropsZ = Tabs.tabZ.pick({ closable: true, editable: true }).extend({
   tab: Tabs.tabZ,
-  location: location.location.optional(),
+  location: location.locationZ.optional(),
   mosaicKey: z.number().optional(),
 });
 
