@@ -172,7 +172,6 @@ configure_encryption(const Config &cfg, const std::shared_ptr<UA_Client> &client
 
     const std::string uri = SECURITY_URI_BASE + cfg.security_policy;
     client_config->securityPolicyUri = UA_STRING_ALLOC(uri.c_str());
-    client_config->authSecurityPolicyUri = UA_STRING_ALLOC(uri.c_str());
 
     std::string app_uri = app_uri_from_cert(cfg.client_cert);
     if (app_uri.empty()) app_uri = "urn:synnax.opcua.client";
@@ -203,7 +202,6 @@ configure_encryption(const Config &cfg, const std::shared_ptr<UA_Client> &client
     if (e_err != UA_STATUSCODE_GOOD) {
         // Clean up the strings we allocated before the failure
         UA_String_clear(&client_config->securityPolicyUri);
-        UA_String_clear(&client_config->authSecurityPolicyUri);
         UA_String_clear(&client_config->clientDescription.applicationUri);
 
         LOG(ERROR) << "[opc.scanner] Failed to configure encryption: "
@@ -257,8 +255,7 @@ void fetch_endpoint_diagnostic_info(
             if (policy.tokenType == UA_USERTOKENTYPE_ANONYMOUS)
                 LOG(INFO) << "[opc.scanner] \t supports anonymous authentication";
             else if (policy.tokenType == UA_USERTOKENTYPE_USERNAME)
-                LOG(
-                    INFO
+                LOG(INFO
                 ) << "[opc.scanner] \t supports username/password authentication";
             else if (policy.tokenType == UA_USERTOKENTYPE_ISSUEDTOKEN)
                 LOG(INFO) << "[opc.scanner] \t supports issued token authentication";
@@ -298,8 +295,7 @@ connect(const Config &cfg, std::string log_prefix) {
             return {nullptr, err};
     }
 
-    const auto err = errors::parse(
-        UA_Client_connect(client.get(), cfg.endpoint.c_str())
+    const auto err = errors::parse(UA_Client_connect(client.get(), cfg.endpoint.c_str())
     );
     return {std::move(client), err};
 }
