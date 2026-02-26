@@ -165,9 +165,7 @@ class DevicesClient:
             self.layout.page.locator(f"div[id^='{self.RACK_PREFIX}']").filter(
                 has_text=rack.name
             ).first.wait_for(state="visible", timeout=10000)
-            rack_item = self.tree.find_by_name(
-                self.RACK_PREFIX, rack.name, exact=False
-            )
+            rack_item = self.tree.find_by_name(self.RACK_PREFIX, rack.name, exact=False)
         if rack_item is not None:
             self.tree.expand(rack_item)
         self._expand_visible_groups()
