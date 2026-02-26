@@ -213,6 +213,30 @@ def create_app(auth_type: str = "none") -> Flask:
             data["count"] = int(elapsed)
         return jsonify(data), 200
 
+    @app.route("/api/v1/device", methods=["GET"])
+    def api_device() -> tuple[Response, int]:
+        """Returns device data with string enum values for testing enum parsing.
+
+        Fields like "power" and "mode" return string values ("ON"/"OFF",
+        "AUTO"/"MANUAL"/"STANDBY") that can be mapped to numbers via enum_values.
+        """
+        elapsed = time.time() - start_time
+        cycle = int(elapsed) % 20
+        power = "ON" if cycle < 15 else "OFF"
+        mode_options = ["AUTO", "MANUAL", "STANDBY"]
+        mode = mode_options[int(elapsed) % len(mode_options)]
+        return (
+            jsonify(
+                {
+                    "power": power,
+                    "mode": mode,
+                    "temperature": round(math.sin(elapsed * 0.1) * 25 + 20, 2),
+                    "setpoint": 22.5,
+                }
+            ),
+            200,
+        )
+
     @app.route("/api/v1/headers", methods=["GET"])
     def api_headers() -> tuple[Response, int]:
         """Echoes back all request headers as JSON. Tests per-endpoint headers."""
@@ -269,9 +293,7 @@ def _generate_self_signed_cert(cert_dir: str) -> tuple[str, str]:
     from cryptography.x509.oid import NameOID
 
     key = rsa.generate_private_key(public_exponent=65537, key_size=2048)
-    subject = issuer = x509.Name(
-        [x509.NameAttribute(NameOID.COMMON_NAME, "localhost")]
-    )
+    subject = issuer = x509.Name([x509.NameAttribute(NameOID.COMMON_NAME, "localhost")])
     cert = (
         x509.CertificateBuilder()
         .subject_name(subject)
@@ -280,8 +302,7 @@ def _generate_self_signed_cert(cert_dir: str) -> tuple[str, str]:
         .serial_number(x509.random_serial_number())
         .not_valid_before(datetime.datetime.now(datetime.timezone.utc))
         .not_valid_after(
-            datetime.datetime.now(datetime.timezone.utc)
-            + datetime.timedelta(days=365)
+            datetime.datetime.now(datetime.timezone.utc) + datetime.timedelta(days=365)
         )
         .add_extension(
             x509.SubjectAlternativeName(
@@ -344,44 +365,39 @@ def run_server(
         "     - Degraded status (200)"
     )
     print(
-        f"  GET  {scheme}://{host}:{port}/health/failing"
-        "      - Failing status (503)"
+        f"  GET  {scheme}://{host}:{port}/health/failing" "      - Failing status (503)"
     )
     print(
-        f"  GET  {scheme}://{host}:{port}/health/flapping"
-        "     - Alternates every 10s"
+        f"  GET  {scheme}://{host}:{port}/health/flapping" "     - Alternates every 10s"
     )
     print(
-        f"  GET  {scheme}://{host}:{port}/api/v1/status"
-        "       - Alternative status"
+        f"  GET  {scheme}://{host}:{port}/api/v1/status" "       - Alternative status"
     )
     print(f"  GET  {scheme}://{host}:{port}/api/v1/ping         - Ping/pong")
     print(f"  POST {scheme}://{host}:{port}/api/v1/ping         - Ping/pong (POST)")
     print(f"  GET  {scheme}://{host}:{port}/api/v1/metrics      - Sensor metrics")
-    print(
-        f"  POST {scheme}://{host}:{port}/api/v1/echo"
-        "         - Echo request body"
-    )
+    print(f"  POST {scheme}://{host}:{port}/api/v1/echo" "         - Echo request body")
     print(f"  GET  {scheme}://{host}:{port}/api/v1/data         - Mixed data types")
     print(
-        f"  GET  {scheme}://{host}:{port}/api/v1/headers"
-        "      - Echo request headers"
+        f"  GET  {scheme}://{host}:{port}/api/v1/device"
+        "       - Device with enum values"
+    )
+    print(
+        f"  GET  {scheme}://{host}:{port}/api/v1/headers" "      - Echo request headers"
     )
     print(
         f"  GET  {scheme}://{host}:{port}/api/v1/query"
         "        - Echo query parameters"
     )
     print(
-        f"  GET  {scheme}://{host}:{port}/auth/bearer"
-        "         - Bearer auth required"
+        f"  GET  {scheme}://{host}:{port}/auth/bearer" "         - Bearer auth required"
     )
     print(
         f"  GET  {scheme}://{host}:{port}/auth/api-key"
         "        - API key auth required"
     )
     print(
-        f"  GET  {scheme}://{host}:{port}/auth/basic"
-        "          - Basic auth required"
+        f"  GET  {scheme}://{host}:{port}/auth/basic" "          - Basic auth required"
     )
     print()
 

@@ -9,6 +9,9 @@
 
 #pragma once
 
+#include <map>
+#include <string>
+
 #include <nlohmann/json.hpp>
 
 #include "x/cpp/errors/errors.h"
@@ -37,18 +40,26 @@ enum class TimeFormat {
 /// string is unknown.
 std::pair<TimeFormat, errors::Error> parse_time_format(const std::string &str);
 
+/// @brief a mapping from string values to numeric values for enum-style conversion.
+using EnumMap = std::map<std::string, double>;
+
 /// @brief converts a JSON value to a SampleValue of the given target DataType.
 /// Inspects the JSON value's type at runtime to determine the conversion path.
 /// @param value the JSON value to convert.
 /// @param target the Synnax DataType to convert to.
 /// @param time_format the expected time format for TIMESTAMP_T conversions. Ignored
 /// when the target type is not TIMESTAMP_T.
+/// @param enum_values optional mapping of string values to numbers. When non-null and
+/// the JSON value is a string targeting a numeric type, the map is checked first. If the
+/// string is found, the mapped numeric value is used; otherwise normal conversion
+/// applies.
 /// @returns the converted SampleValue and errors::NIL, or a zero SampleValue and one of
 /// CONVERSION_ERROR if an issue occurred while trying to convert the value.
 std::pair<telem::SampleValue, errors::Error> to_sample_value(
     const nlohmann::json &value,
     const telem::DataType &target,
-    TimeFormat time_format = TimeFormat::ISO8601
+    TimeFormat time_format = TimeFormat::ISO8601,
+    const EnumMap *enum_values = nullptr
 );
 
 /// @brief returns true if a JSON value can at least sometimes be converted to the given

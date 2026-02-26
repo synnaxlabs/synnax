@@ -305,7 +305,8 @@ telem::SampleValue number_to_timestamp(const double v, TimeFormat time_format) {
 telem::SampleValue convert(
     const nlohmann::json &value,
     const telem::DataType &target,
-    TimeFormat time_format
+    TimeFormat time_format,
+    const EnumMap *enum_values
 ) {
     if (target == telem::TIMESTAMP_T) {
         if (value.is_number())
@@ -332,8 +333,15 @@ telem::SampleValue convert(
     if (value.is_number_integer())
         return number_to_numeric(value.get<int64_t>(), target);
     if (value.is_number()) return number_to_numeric(value.get<double>(), target);
-    if (value.is_string())
-        return string_to_numeric(value.get_ref<const std::string &>(), target);
+    if (value.is_string()) {
+        const auto &str = value.get_ref<const std::string &>();
+        if (enum_values != nullptr) {
+            auto it = enum_values->find(str);
+            if (it != enum_values->end())
+                return number_to_numeric(it->second, target);
+        }
+        return string_to_numeric(str, target);
+    }
 
     throw std::runtime_error("");
 }
@@ -343,10 +351,11 @@ telem::SampleValue convert(
 std::pair<telem::SampleValue, errors::Error> to_sample_value(
     const nlohmann::json &value,
     const telem::DataType &target,
-    TimeFormat time_format
+    TimeFormat time_format,
+    const EnumMap *enum_values
 ) {
     try {
-        return {convert(value, target, time_format), errors::NIL};
+        return {convert(value, target, time_format, enum_values), errors::NIL};
     } catch (const std::exception &e) {
         auto msg = std::string("cannot convert ") + value.dump() + " to " +
                    target.name();
