@@ -116,12 +116,14 @@ func (r *region[R]) shouldBeInControl(candidate *Gate[R]) bool {
 	return higherAuth || betterPos
 }
 
-// release a gate from the region.
+// release a gate from the region. The region lock is released before calling
+// controller.remove to maintain consistent lock ordering (controller.mu before
+// region.RWMutex), preventing AB-BA deadlocks with OpenGate.
 func (r *region[R]) release(g *Gate[R]) (res R, transfer Transfer) {
 	r.Lock()
-	defer r.Unlock()
 	r.gates.Remove(g)
 	if r.curr != g {
+		r.Unlock()
 		return res, transfer
 	}
 	r.curr = nil
@@ -132,10 +134,13 @@ func (r *region[R]) release(g *Gate[R]) (res R, transfer Transfer) {
 			transfer.To = candidate.state()
 		}
 	}
-	if transfer.IsRelease() {
+	shouldRemove := transfer.IsRelease()
+	res = r.resource
+	r.Unlock()
+	if shouldRemove {
 		r.controller.remove(r)
 	}
-	return r.resource, transfer
+	return res, transfer
 }
 
 // update a gate's authority.
