@@ -13,27 +13,46 @@ to an OPC UA server.
 
 Before running this example:
 1. Start the OPC UA test server:
-   uv run python driver/opc/dev/server_extended.py
+   uv run python -m examples.opcua.server
 
 2. Connect the OPC UA server device in Synnax:
-   See: https://docs.synnaxlabs.com/reference/driver/opc-ua/connect-server
-   Use endpoint: opc.tcp://127.0.0.1:4841/
+   uv run python examples/opcua/connect_server.py
 
 3. The server will print the node IDs for the command variables on startup.
    Update the node_id values below with the actual IDs from your server output.
+
+Use --tls to target the TLS-encrypted server instead.
 """
 
+import argparse
 import time
 
 import synnax as sy
+
+parser = argparse.ArgumentParser(description="Write commands to OPC UA server")
+parser.add_argument(
+    "--tls", action="store_true", help="Target the TLS-encrypted server"
+)
+parser.add_argument(
+    "--tls-auth",
+    action="store_true",
+    help="Target the TLS-encrypted server with username/password (port 4843)",
+)
+args = parser.parse_args()
+
+if args.tls_auth:
+    DEVICE_NAME = "OPC UA TLS Auth Server"
+elif args.tls:
+    DEVICE_NAME = "OPC UA TLS Server"
+else:
+    DEVICE_NAME = "OPC UA Server"
 
 # We've logged in via the command-line interface, so there's no need to provide
 # credentials here. See https://docs.synnaxlabs.com/reference/client/quick-start.
 client = sy.Synnax()
 
 # Retrieve the OPC UA server from Synnax
-# Update this with the name you gave the device in the Synnax Console
-dev = client.devices.retrieve(name="OPC UA Server")
+dev = client.devices.retrieve(name=DEVICE_NAME)
 
 # Create an index channel for the command channels
 opcua_cmd_time = client.channels.create(
@@ -87,7 +106,7 @@ client.tasks.configure(tsk)
 print("=" * 70)
 print("Starting OPC UA Write Task")
 print("=" * 70)
-print("Sending commands to server_extended.py...")
+print("Sending commands to the OPC UA server...")
 print("Writing 10 commands at 1 Hz (10 seconds)")
 
 print(f"{'Cycle':<8} {'command_0':>12} {'command_1':>12} {'command_2':>12}")

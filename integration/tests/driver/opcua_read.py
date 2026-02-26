@@ -8,6 +8,7 @@
 #  included in the file licenses/APL.txt.
 
 import synnax as sy
+from examples.opcua import OPCUATLSAuthSim, OPCUATLSSim
 
 from tests.driver.opcua_task import OPCUAReadTaskCase
 from tests.driver.task import create_channel, create_index
@@ -141,6 +142,73 @@ class OPCUAReadMixed(OPCUAReadTaskCase):
                 ),
                 node_id=f"NS=2;I={13 + i}",
                 data_type="bool",
+            )
+            for i in range(2)
+        ]
+
+
+class OPCUATLSReadFloat(OPCUAReadTaskCase):
+    task_name = "OPCUA TLS Read Float"
+    sim_classes = [OPCUATLSSim]
+
+    @staticmethod
+    def create_channels(client: sy.Synnax) -> list[sy.opcua.ReadChannel]:
+        idx = create_index(client, "opcua_encrypted_float_index")
+        return [
+            sy.opcua.ReadChannel(
+                channel=create_channel(
+                    client,
+                    name=f"encrypted_my_float_{i}",
+                    data_type=sy.DataType.FLOAT32,
+                    index=idx.key,
+                ),
+                node_id=f"NS=2;I={8 + i}",
+                data_type="float32",
+            )
+            for i in range(2)
+        ]
+
+
+class OPCUATLSReadArray(OPCUAReadTaskCase):
+    task_name = "OPCUA TLS Read Array"
+    sim_classes = [OPCUATLSSim]
+    array_mode = True
+
+    @staticmethod
+    def create_channels(client: sy.Synnax) -> list[sy.opcua.ReadChannel]:
+        idx = create_index(client, "opcua_encrypted_array_index")
+        return [
+            sy.opcua.ReadChannel(
+                channel=create_channel(
+                    client,
+                    name=f"encrypted_my_array_{i}",
+                    data_type=sy.DataType.FLOAT32,
+                    index=idx.key,
+                ),
+                node_id=f"NS=2;I={2 + i}",
+                data_type="float32",
+            )
+            for i in range(2)
+        ]
+
+
+class OPCUATLSAuthReadFloat(OPCUAReadTaskCase):
+    task_name = "OPCUA TLS Auth Read Float"
+    sim_classes = [OPCUATLSAuthSim]
+
+    @staticmethod
+    def create_channels(client: sy.Synnax) -> list[sy.opcua.ReadChannel]:
+        idx = create_index(client, "opcua_enc_userpass_float_index")
+        return [
+            sy.opcua.ReadChannel(
+                channel=create_channel(
+                    client,
+                    name=f"enc_userpass_float_{i}",
+                    data_type=sy.DataType.FLOAT32,
+                    index=idx.key,
+                ),
+                node_id=f"NS=2;I={8 + i}",
+                data_type="float32",
             )
             for i in range(2)
         ]

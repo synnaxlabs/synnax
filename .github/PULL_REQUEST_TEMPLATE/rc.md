@@ -389,7 +389,6 @@ I can successfully:
 
 - [ ] Enable and disable OPC UA integration when starting the server.
 - [ ] Connect to and read data from a physical device.
-- [ ] Connect to an encrypted OPC UA server (Write and Read).
 
 ### Modbus
 
