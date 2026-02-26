@@ -110,6 +110,32 @@ var _ = Describe("Device", func() {
 			).To(Succeed())
 			Expect(res.ID).To(Equal(d.OntologyID()))
 		})
+		It("Should include properties in the ontology resource data", func() {
+			d := device.Device{
+				Key:      "chassis1",
+				Rack:     rackSvc.EmbeddedKey,
+				Location: "Slot 1",
+				Name:     "cDAQ-9178",
+				Make:     "NI",
+				Model:    "cDAQ-9178",
+				Properties: map[string]any{
+					"is_chassis":   true,
+					"is_simulated": true,
+				},
+			}
+			Expect(w.Create(ctx, d)).To(Succeed())
+			var res ontology.Resource
+			Expect(
+				otg.NewRetrieve().WhereIDs(d.OntologyID()).Entry(&res).Exec(ctx, tx),
+			).To(Succeed())
+			data, ok := res.Data.(map[string]any)
+			Expect(ok).To(BeTrue(), "resource data should be map[string]any")
+			props, ok := data["properties"]
+			Expect(ok).To(BeTrue(), "resource data should contain 'properties' key")
+			propsMap, ok := props.(map[string]any)
+			Expect(ok).To(BeTrue(), "properties should be map[string]any")
+			Expect(propsMap["is_chassis"]).To(Equal(true))
+		})
 		It("Should correctly create an ontology relationship between the device and the rack", func() {
 			d := device.Device{
 				Key:      "device3",

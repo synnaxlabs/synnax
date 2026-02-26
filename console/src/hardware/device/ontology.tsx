@@ -133,10 +133,9 @@ export const ONTOLOGY_SERVICE: Ontology.Service = {
   hasChildren: ({ data }) => {
     const props = data?.properties;
     if (props == null || typeof props !== "object") return false;
-    // Safe narrowing — typeof guard above proves props is a non-null object.
-    // properties can't be added to the zyn ontology schema because MsgpackEncodedJSON
-    // (a named map type) panics in zyn's ObjectZ.Dump when nil.
-    return (props as Record<string, unknown>).is_chassis === true;
+    // Key is camelCase because Freighter's HTTP codec recursively converts
+    // snake_case keys to camelCase (is_chassis → isChassis).
+    return "isChassis" in props && props.isChassis === true;
   },
   TreeContextMenu,
   Item,
