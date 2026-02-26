@@ -34,6 +34,7 @@ class RackLifecycle(ConsoleCase):
     def test_rack_visible_in_toolbar(self) -> None:
         """Test that a rack appears in the devices toolbar."""
         self.log("Testing: Rack visible in devices toolbar")
+        self.console.devices.wait_for_rack(self.rack_name)
         exists = self.console.devices.rack_exists(self.rack_name)
         assert exists, f"Rack '{self.rack_name}' should be visible in devices toolbar"
 
@@ -67,6 +68,7 @@ class RackLifecycle(ConsoleCase):
         self.log("Testing: Delete rack")
         delete_name = f"RackToDelete_{self.rand_suffix}"
         self.client.racks.create(name=delete_name)
+        self.console.devices.wait_for_rack(delete_name)
         assert self.console.devices.rack_exists(
             delete_name
         ), f"Rack '{delete_name}' should exist before deletion"

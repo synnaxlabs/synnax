@@ -88,6 +88,13 @@ class DevicesClient:
         """Check if a rack exists in the devices panel."""
         return self._find_item(self.RACK_PREFIX, name) is not None
 
+    def wait_for_rack(self, name: str) -> None:
+        """Wait for a rack to appear in the devices panel."""
+        self.show_toolbar()
+        self.layout.page.locator(f"div[id^='{self.RACK_PREFIX}']").filter(
+            has_text=name
+        ).first.wait_for(state="visible", timeout=10000)
+
     def wait_for_rack_removed(self, name: str) -> None:
         """Wait for a rack to be removed from the devices panel."""
         self.show_toolbar()
