@@ -1,3 +1,6 @@
+load("@rules_cc//cc:cc_binary.bzl", "cc_binary")
+load("@rules_cc//cc:cc_library.bzl", "cc_library")
+
 cc_library(
     name = "mock",
     hdrs = ["server.h"],
@@ -16,6 +19,6 @@ cc_binary(
         ":mock",
         "//driver/opc/testutil",
         "//vendor/open62541",
-        "@glog//:glog",
+        "@glog",
     ],
 )

@@ -54,8 +54,8 @@ cc_library(
     visibility = ["//visibility:public"],
     deps = [
         "//x/cpp/date",
-        "//x/cpp/telem",
         "//x/cpp/errors",
+        "//x/cpp/telem",
         "@nlohmann_json//:json",
     ],
 )
@@ -67,8 +67,8 @@ cc_test(
     ],
     visibility = ["//visibility:public"],
     deps = [
-        "//x/cpp/telem",
         "//x/cpp/json:convert",
+        "//x/cpp/telem",
         "//x/cpp/test",
         "@googletest//:gtest_main",
         "@nlohmann_json//:json",

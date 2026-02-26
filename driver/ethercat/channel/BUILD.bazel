@@ -1,3 +1,6 @@
+load("@rules_cc//cc:cc_library.bzl", "cc_library")
+load("@rules_cc//cc:cc_test.bzl", "cc_test")
+
 cc_library(
     name = "channel",
     hdrs = ["channel.h"],
@@ -5,8 +8,8 @@ cc_library(
     deps = [
         "//client/cpp:synnax",
         "//driver/ethercat/master",
-        "//x/cpp/telem",
         "//x/cpp/json",
+        "//x/cpp/telem",
     ],
 )
 
