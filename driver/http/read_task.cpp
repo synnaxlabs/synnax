@@ -252,9 +252,8 @@ ReadTaskSource::read(x::breaker::Breaker &breaker, x::telem::Frame &fr) {
             auto tf = x::json::TimeFormat::ISO8601;
             if (field.time_format.has_value()) tf = *field.time_format;
 
-            const auto *enum_ptr = field.enum_values.empty()
-                                       ? nullptr
-                                       : &field.enum_values;
+            const auto *enum_ptr = field.enum_values.empty() ? nullptr
+                                                             : &field.enum_values;
             auto [sample_val, conv_err] = x::json::to_sample_value(
                 json_val,
                 ch.data_type,
