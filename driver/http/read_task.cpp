@@ -58,6 +58,11 @@ std::pair<ReadTaskConfig, x::errors::Error> ReadTaskConfig::parse(
                     field.time_format = fmt;
             }
 
+            field.enum_values = fp.field<x::json::EnumMap>(
+                "enum_values",
+                x::json::EnumMap{}
+            );
+
             if (!field_keys.insert(field.channel_key).second)
                 fp.field_err(
                     "channel",
@@ -247,10 +252,13 @@ ReadTaskSource::read(x::breaker::Breaker &breaker, x::telem::Frame &fr) {
             auto tf = x::json::TimeFormat::ISO8601;
             if (field.time_format.has_value()) tf = *field.time_format;
 
+            const auto *enum_ptr = field.enum_values.empty() ? nullptr
+                                                             : &field.enum_values;
             auto [sample_val, conv_err] = x::json::to_sample_value(
                 json_val,
                 ch.data_type,
-                tf
+                tf,
+                enum_ptr
             );
             if (conv_err) {
                 warnings.push_back(

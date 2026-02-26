@@ -38,6 +38,9 @@ struct ReadField {
     synnax::channel::Key channel_key;
     /// @brief if the Synnax channel is a timestamp, the format of the JSON value.
     std::optional<x::json::TimeFormat> time_format;
+    /// @brief optional mapping of string values to numbers for enum-style parsing
+    /// (e.g., "ON" -> 1, "OFF" -> 0).
+    x::json::EnumMap enum_values;
 };
 
 /// @brief a single HTTP endpoint to poll.

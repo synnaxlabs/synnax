@@ -28,6 +28,7 @@ const readFieldZ = Common.Task.readChannelZ.extend({
   pointer: jsonPointerZ,
   dataType: z.string().default("float64"),
   timestampFormat: timeFormatZ.optional(),
+  enumValues: z.record(z.string(), z.number()).optional(),
 });
 export interface ReadField extends z.infer<typeof readFieldZ> {}
 

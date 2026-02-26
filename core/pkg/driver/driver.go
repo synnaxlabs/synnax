@@ -116,11 +116,12 @@ var (
 	_               config.Config[Config] = Config{}
 	AllIntegrations                       = []string{
 		"arc",
+		"ethercat",
+		"http",
 		"labjack",
 		"modbus",
 		"ni",
 		"opc",
-		"ethercat",
 	}
 	DefaultConfig = Config{
 		Integrations:        []string{},
