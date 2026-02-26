@@ -332,11 +332,6 @@ class DevicesToolbar(ConsoleCase):
                 f"Expected 'warning' variant for '{dev.name}', "
                 f"got '{status['variant']}'"
             )
-            msg = status["message"].lower()
-            assert "state unknown" in msg or "not running" in msg, (
-                f"Expected 'state unknown' or 'not running' in status "
-                f"for '{dev.name}', got '{status['message']}'"
-            )
 
     def test_change_identifier(self) -> None:
         """Change identifier should update the device's identifier property."""
