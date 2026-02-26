@@ -337,8 +337,7 @@ telem::SampleValue convert(
         const auto &str = value.get_ref<const std::string &>();
         if (enum_values != nullptr) {
             auto it = enum_values->find(str);
-            if (it != enum_values->end())
-                return number_to_numeric(it->second, target);
+            if (it != enum_values->end()) return number_to_numeric(it->second, target);
         }
         return string_to_numeric(str, target);
     }

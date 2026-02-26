@@ -50,8 +50,8 @@ using EnumMap = std::map<std::string, double>;
 /// @param time_format the expected time format for TIMESTAMP_T conversions. Ignored
 /// when the target type is not TIMESTAMP_T.
 /// @param enum_values optional mapping of string values to numbers. When non-null and
-/// the JSON value is a string targeting a numeric type, the map is checked first. If the
-/// string is found, the mapped numeric value is used; otherwise normal conversion
+/// the JSON value is a string targeting a numeric type, the map is checked first. If
+/// the string is found, the mapped numeric value is used; otherwise normal conversion
 /// applies.
 /// @returns the converted SampleValue and errors::NIL, or a zero SampleValue and one of
 /// CONVERSION_ERROR if an issue occurred while trying to convert the value.

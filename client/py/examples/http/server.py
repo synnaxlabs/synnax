@@ -17,7 +17,6 @@ import time
 
 from flask import Flask, Response, jsonify, request
 
-
 AUTH_CREDENTIALS = {
     "username": "admin",
     "password": "password",
