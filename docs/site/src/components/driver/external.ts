@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-export { default as DownloadURL } from "@/components/driver/DownloadURL.astro";
+export { DownloadURL } from "@/components/driver/DownloadURL";
 export { default as MoveCommand } from "@/components/driver/MoveCommand.astro";
 export * from "@/components/driver/Tabs";
 export { default as VersionOutput } from "@/components/driver/VersionOutput.astro";

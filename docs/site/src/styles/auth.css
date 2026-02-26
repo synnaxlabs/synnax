@@ -1,0 +1,67 @@
+/*
+ * Copyright 2026 Synnax Labs, Inc.
+ *
+ * Use of this software is governed by the Business Source License included in the file
+ * licenses/BSL.txt.
+ *
+ * As of the Change Date specified in that file, in accordance with the Business Source
+ * License, use of this software will be governed by the Apache License, Version 2.0,
+ * included in the file licenses/APL.txt.
+ */
+
+.auth-modal-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.5);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 10000;
+}
+
+.auth-modal {
+  background: var(--pluto-gray-l1);
+  border: 1px solid var(--pluto-gray-l4);
+  border-radius: 8px;
+  width: 400px;
+  max-width: 90vw;
+  padding: 2rem;
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.auth-modal__header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.auth-modal__body {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.auth-modal__label {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+}
+
+.auth-modal__error {
+  color: var(--pluto-error-z);
+}
+
+.auth-modal__divider {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+}
+
+.auth-modal__divider::before,
+.auth-modal__divider::after {
+  content: "";
+  flex: 1;
+  border-bottom: 1px solid var(--pluto-gray-l4);
+}

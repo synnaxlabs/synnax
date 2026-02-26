@@ -7,7 +7,4 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-export { DownloadURL } from "@/components/core/DownloadURL";
-export { default as MoveCommand } from "@/components/core/MoveCommand.astro";
-export { default as VersionOutput } from "@/components/core/VersionOutput.astro";
-export { WindowsDownloadButton } from "@/components/core/WindowsDownloadButton";
+export * as Auth from "@/components/auth/external";

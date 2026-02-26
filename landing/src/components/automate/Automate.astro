@@ -1,0 +1,310 @@
+---
+import { grammar as arcGrammar } from "@synnaxlabs/arc";
+import { Flex, Text } from "@synnaxlabs/pluto";
+import { createCssVariablesTheme, createHighlighter } from "shiki";
+
+const cssVarsTheme = createCssVariablesTheme({ name: "css-variables" });
+
+const highlighter = await createHighlighter({
+    themes: [cssVarsTheme],
+    langs: [arcGrammar],
+});
+
+const highlight = (code: string) =>
+    highlighter.codeToHtml(code, { lang: "arc", theme: "css-variables" });
+
+const pressureSequence = `sequence main {
+    stage press {
+        1 -> press_vlv_cmd,
+        press_pt > 500 => maintain
+    }
+    stage maintain {
+        0 -> press_vlv_cmd,
+        wait{duration=5s} => vent
+    }
+    stage vent {
+        1 -> vent_vlv_cmd,
+        press_pt < 10 => complete
+    }
+    stage complete {
+        0 -> vent_vlv_cmd,
+        0 -> press_vlv_cmd
+    }
+}`;
+
+const alarmMonitoring = `func check_pressure(p f64) u8 {
+    return p > 750.0
+}
+
+press_pt -> check_pressure{}
+    -> stable_for{duration=500ms}
+    -> select{} -> {
+        true: set_status{
+            status_key="press_alarm",
+            variant="warning",
+            message="Pressure exceeds 750 PSI"
+        },
+        false: set_status{
+            status_key="press_ok",
+            variant="success",
+            message="Pressure nominal"
+        }
+    }`;
+
+const authorityControl = `authority (
+    200
+    press_vlv_cmd 100
+    vent_vlv_cmd 100
+)
+
+start_cmd => main
+
+sequence main {
+    stage normal {
+        1 -> press_vlv_cmd,
+        press_pt > 800 => emergency
+    }
+    stage emergency {
+        set_authority{value=255},
+        0 -> press_vlv_cmd,
+        1 -> vent_vlv_cmd,
+        press_pt < 50 => safed
+    }
+    stage safed {
+        0 -> press_vlv_cmd,
+        0 -> vent_vlv_cmd
+    }
+}`;
+---
+
+<Flex.Box el="section" className="automate">
+    <Text.Text level="h4" variant="code" className="automate-label">
+        03. Automate & Control
+    </Text.Text>
+
+    <!-- Hero -->
+    <div class="automate-hero">
+        <Text.Text level="h2" className="automate-title">
+            Write sequences,<br />not boilerplate
+        </Text.Text>
+        <Text.Text level="p" className="automate-description">
+            Arc is a reactive programming language built for hardware automation.
+            Define control sequences, manage authority, and orchestrate your
+            hardware — all in a few lines of code.
+        </Text.Text>
+    </div>
+
+    <!-- Tabbed code examples -->
+    <div class="automate-examples">
+        <div class="automate-tabs">
+            <button class="automate-tab automate-tab--active" data-example="0">
+                Pressure Sequence
+            </button>
+            <button class="automate-tab" data-example="1">
+                Alarm Monitoring
+            </button>
+            <button class="automate-tab" data-example="2">
+                Abort Sequence
+            </button>
+        </div>
+        <div class="automate-code">
+            <div class="automate-panel automate-panel--active" data-panel="0">
+                <Fragment set:html={highlight(pressureSequence)} />
+            </div>
+            <div class="automate-panel" data-panel="1">
+                <Fragment set:html={highlight(alarmMonitoring)} />
+            </div>
+            <div class="automate-panel" data-panel="2">
+                <Fragment set:html={highlight(authorityControl)} />
+            </div>
+        </div>
+    </div>
+
+    <!-- Bento grid -->
+    <div class="automate-bento">
+        <div class="automate-bento-card">
+            <Text.Text level="h4" className="automate-bento-title">
+                Real-Time Ready
+            </Text.Text>
+            <Text.Text level="p" className="automate-bento-description">
+            </Text.Text>
+        </div>
+        <div class="automate-bento-card">
+            <Text.Text level="h4" className="automate-bento-title">
+                Seamless Control Handoff
+            </Text.Text>
+            <Text.Text level="p" className="automate-bento-description">
+            </Text.Text>
+        </div>
+    </div>
+</Flex.Box>
+
+<style is:global>
+    .automate {
+        padding: 10rem 0 15rem;
+        gap: 20rem;
+    }
+
+    .automate-label {
+        color: var(--pluto-gray-l7);
+        font-weight: 500;
+    }
+
+    /* Hero */
+    .automate-hero {
+        display: flex;
+        flex-direction: column;
+        gap: 3rem;
+        max-width: 800px;
+    }
+
+    .automate-title {
+        display: block;
+    }
+
+    .automate-description {
+        color: var(--pluto-gray-l8);
+    }
+
+    /* Tabbed code examples */
+    .automate-examples {
+        display: flex;
+        flex-direction: column;
+        width: 100%;
+        border: var(--pluto-border);
+        border-radius: 2rem;
+        overflow: hidden;
+        background: var(--pluto-gray-l1);
+    }
+
+    .automate-tabs {
+        display: flex;
+        gap: 0;
+        border-bottom: var(--pluto-border);
+    }
+
+    .automate-tab {
+        padding: 2.5rem 4rem;
+        background: transparent;
+        border: none;
+        border-right: var(--pluto-border);
+        cursor: pointer;
+        font-family: var(--pluto-font-family);
+        font-size: 2.5rem;
+        font-weight: 500;
+        color: var(--pluto-gray-l6);
+        transition: color 0.2s ease, background 0.2s ease;
+
+        &:hover {
+            color: var(--pluto-gray-l9);
+            background: var(--pluto-gray-l2);
+        }
+
+        &:last-child {
+            border-right: none;
+        }
+    }
+
+    .automate-tab--active {
+        color: var(--pluto-text-color);
+        background: var(--pluto-gray-l2);
+    }
+
+    .automate-code {
+        padding: 4rem;
+        min-height: 300px;
+    }
+
+    .automate-code pre {
+        margin: 0;
+        padding: 0;
+        background: transparent !important;
+        font-size: 2.4rem;
+        line-height: 3.6rem;
+    }
+
+    .automate-code code {
+        font-family: var(--pluto-mono-font-family);
+    }
+
+    .automate-panel {
+        display: none;
+    }
+
+    .automate-panel--active {
+        display: block;
+    }
+
+    /* Bento grid */
+    .automate-bento {
+        display: grid;
+        grid-template-columns: repeat(2, 1fr);
+        gap: 1px;
+        width: 100%;
+        border: var(--pluto-border);
+        border-radius: 2rem;
+        overflow: hidden;
+        background: var(--pluto-gray-l3);
+    }
+
+    .automate-bento-card {
+        display: flex;
+        flex-direction: column;
+        gap: 2rem;
+        padding: 5rem 4rem;
+        background: var(--pluto-gray-l1);
+    }
+
+    .automate-bento-title {
+        display: block;
+    }
+
+    .automate-bento-description {
+        color: var(--pluto-gray-l8);
+    }
+
+    /* Responsive */
+    @media (max-width: 900px) {
+        .automate-bento {
+            grid-template-columns: repeat(2, 1fr);
+        }
+    }
+
+    @media (max-width: 600px) {
+        .automate-tabs {
+            flex-direction: column;
+        }
+
+        .automate-tab {
+            border-right: none;
+            border-bottom: var(--pluto-border);
+
+            &:last-child {
+                border-bottom: none;
+            }
+        }
+
+        .automate-bento {
+            grid-template-columns: 1fr;
+        }
+
+    }
+</style>
+
+<script>
+    const tabs = document.querySelectorAll(".automate-tab");
+    const panels = document.querySelectorAll(".automate-panel");
+
+    tabs.forEach((tab) => {
+        tab.addEventListener("click", () => {
+            const example = tab.getAttribute("data-example");
+            tabs.forEach((t) => t.classList.remove("automate-tab--active"));
+            panels.forEach((p) => p.classList.remove("automate-panel--active"));
+            tab.classList.add("automate-tab--active");
+            const panel = document.querySelector(
+                `.automate-panel[data-panel="${example}"]`,
+            );
+            if (panel) panel.classList.add("automate-panel--active");
+        });
+    });
+</script>

@@ -7,10 +7,10 @@ platforms: ["Linux", "Windows", "macOS", "Docker"]
 
 import { Flex, Note, Divider, Video as PVideo } from "@synnaxlabs/pluto";
 
-import { Console, Platform } from "@/components";
-import DownloadURL from "@/components/core/DownloadURL.astro";
+import { Auth, Console, Platform } from "@/components";
+import { DownloadURL } from "@/components/core/DownloadURL";
 import MoveCommand from "@/components/core/MoveCommand.astro";
-import WindowsDownloadButton from "@/components/core/WindowsDownloadButton.astro";
+import { WindowsDownloadButton } from "@/components/core/WindowsDownloadButton";
 import { mdxOverrides } from "@/components/mdxOverrides";
 import { Image, Video } from "@/components/media/Media";
 
@@ -40,9 +40,11 @@ download the latest version of the Console for your OS:
 
 <br />
 <br />
-<Flex.Box direction="y" justify="center" align="center">
-  <Console.DownloadButton client:load />
-</Flex.Box>
+<Auth.AuthGate client:only="react">
+  <Flex.Box direction="y" justify="center" align="center">
+    <Console.DownloadButton />
+  </Flex.Box>
+</Auth.AuthGate>
 <br />
 <br />
 
@@ -76,7 +78,8 @@ Core is the heart of every Synnax deployment. It's where all sensor and actuator
 stored, and it serves as a central hub where all of our devices, Consoles, and control
 sequences will communicate.
 
-<Platform.Tabs client:only="react">
+<Auth.AuthGate client:only="react">
+<Platform.Tabs>
 
 <Fragment slot="Docker">
 
@@ -311,6 +314,7 @@ To stop the Core, simply press `Ctrl+C` in the terminal.
 </Fragment>
 
 </Platform.Tabs>
+</Auth.AuthGate>
 
 ### Connecting the Console to the Core
 

@@ -5,6 +5,7 @@ use (
 	./arc/go
 	./aspen
 	./cesium
+	./cloud
 	./core
 	./freighter/go
 	./freighter/integration

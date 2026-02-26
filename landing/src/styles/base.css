@@ -1,5 +1,5 @@
 :root {
-    --max-width: 1400px;
+    --max-width: 1300px;
     --content-padding: 7rem;
     --nav-height: 9rem;
 
@@ -7,6 +7,28 @@
     --pluto-h1-weight: 500;
     --pluto-h1-line-height: 120%;
     --pluto-h1-letter-spacing: -0.02em;
+
+    --pluto-h2-size: 9.5rem;
+    --pluto-h2-weight: 500;
+    --pluto-h2-line-height: 120%;
+    --pluto-h2-letter-spacing: -0.02em;
+
+    --pluto-h4-size: 3.5rem;
+    --pluto-h4-weight: 500;
+    --pluto-h4-line-height: 130%;
+
+    --pluto-p-size: 2.8rem;
+    --pluto-p-line-height: 4rem;
+
+    --shiki-background: transparent;
+    --shiki-foreground: var(--pluto-text-color);
+    --shiki-token-comment: var(--pluto-gray-l7);
+    --shiki-token-string-expression: var(--pluto-secondary-m1);
+    --shiki-token-string: var(--pluto-secondary-m1);
+    --shiki-token-function: #556bf8;
+    --shiki-token-punctuation: var(--pluto-text-color);
+    --shiki-token-keyword: #cc255f;
+    --shiki-token-constant: var(--pluto-text-color);
 }
 
 html {

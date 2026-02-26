@@ -9,15 +9,17 @@
 
 import synnax as sy
 
+from uuid import uuid4
+
 client = sy.Synnax()
 
-rack = client.racks.create(name="NI / LabJack Test Rack")
+rack_key = 65537
 
 client.devices.create(
     [
         sy.Device(
-            key="130227d9-02aa-47e4-b370-0d590add1bc1",
-            rack=rack.key,
+            key="pxi-6255",
+            rack=65537,
             name="PXI-6255",
             make="NI",
             model="PXI-6255",
@@ -25,35 +27,27 @@ client.devices.create(
         ),
         sy.Device(
             key="labjack-t4",
-            rack=rack.key,
+            rack=65537,
             name="LabJack T4",
             make="LabJack",
             model="LJM_dtT4",
             location="dev2",
         ),
         sy.Device(
-            key="labjack-t7",
-            rack=rack.key,
-            name="LabJack T7",
-            make="LabJack",
-            model="LJM_dtT7",
-            location="dev3",
-        ),
-        sy.Device(
-            key="labjack-t8",
-            rack=rack.key,
-            name="LabJack T8",
-            make="LabJack",
-            model="LJM_dtT8",
-            location="dev4",
-        ),
-        sy.Device(
-            key="a0e37b26-5401-413e-8e65-c7ad9d9afd70",
-            rack=rack.key,
+            key="ni-usb",
+            rack=65537,
             name="USB-6000",
             make="NI",
             model="USB-6000",
             location="dev3",
         ),
+        sy.Device(
+            key="ethercat",
+            rack=65537,
+            make="EtherCAT",
+            model="Beckhoff 1005",
+            name="Beckhoff 1005",
+            location="dev4"
+        )
     ]
 )

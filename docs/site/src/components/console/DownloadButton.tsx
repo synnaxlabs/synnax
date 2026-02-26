@@ -9,7 +9,10 @@
 
 import { Button, Icon } from "@synnaxlabs/pluto";
 import { runtime } from "@synnaxlabs/x";
-import { type ReactElement, useEffect, useState } from "react";
+import { type ReactElement, useCallback, useEffect, useState } from "react";
+
+import { useAuth } from "@/components/auth/AuthProvider";
+import { pb } from "@/util/pocketbase";
 
 interface PlatformEntry {
   url: string;
@@ -33,22 +36,46 @@ const SUFFIXES: Record<runtime.OS, string | null> = {
 const JSON_URL =
   "https://raw.githubusercontent.com/synnaxlabs/synnax/main/console/release-spec.json";
 
+const POCKETBASE_URL =
+  import.meta.env.PUBLIC_POCKETBASE_URL ?? "https://api.synnaxlabs.com";
+
 export const DownloadButton = (): ReactElement | null => {
+  const { isAuthenticated, showAuthModal } = useAuth();
   const [updateFile, setUpdateFile] = useState<UpdateFile | null>(null);
+
   useEffect(() => {
     fetch(JSON_URL)
       .then(async (response) => (await response.json()) as UpdateFile)
       .then(setUpdateFile)
       .catch(() => setUpdateFile(null));
   }, []);
+
+  const handleClick = useCallback(async () => {
+    if (!isAuthenticated) {
+      showAuthModal();
+      return;
+    }
+    if (updateFile == null) return;
+    try {
+      const os = runtime.getOS();
+      const suffix = SUFFIXES[os];
+      if (suffix == null) return;
+      const res = await pb.send("/api/downloads/token", { method: "POST" });
+      const url = `${POCKETBASE_URL}/api/downloads/console/${os.toLowerCase()}/${res.token}`;
+      window.location.href = url;
+    } catch {
+      showAuthModal();
+    }
+  }, [isAuthenticated, showAuthModal, updateFile]);
+
   if (updateFile == null) return null;
   const version = updateFile.version;
-  const baseURL = `https://github.com/synnaxlabs/synnax/releases/download/console-${version}/Synnax_${version.slice(1)}`;
   const os = runtime.getOS();
   const suffix = SUFFIXES[os];
   if (suffix == null) return null;
+
   return (
-    <Button.Button href={`${baseURL}${suffix}`} variant="filled">
+    <Button.Button variant="filled" onClick={handleClick}>
       <Icon.Download />
       Download {version} for {os}
     </Button.Button>

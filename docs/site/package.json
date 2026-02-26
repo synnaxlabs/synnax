@@ -30,6 +30,7 @@
     "astro": "^5.17.1",
     "astro-seo": "^1.1.0",
     "clsx": "catalog:",
+    "pocketbase": "^0.25.0",
     "posthog-js": "^1.336.4",
     "react": "catalog:",
     "react-dom": "catalog:",

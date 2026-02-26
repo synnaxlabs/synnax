@@ -526,6 +526,9 @@ importers:
       clsx:
         specifier: 'catalog:'
         version: 2.1.1
+      pocketbase:
+        specifier: ^0.25.0
+        version: 0.25.2
       posthog-js:
         specifier: ^1.336.4
         version: 1.336.4
@@ -721,6 +724,9 @@ importers:
       '@astrojs/vercel':
         specifier: ^9.0.4
         version: 9.0.4(astro@5.17.1(@types/node@25.1.0)(@vercel/functions@2.2.13)(jiti@2.6.1)(rollup@4.57.1)(terser@5.44.0)(tsx@4.20.5)(typescript@5.9.3)(yaml@2.8.2))(react@19.2.4)(rollup@4.57.1)
+      '@synnaxlabs/arc':
+        specifier: workspace:^
+        version: link:../arc/ts
       '@synnaxlabs/media':
         specifier: workspace:^
         version: link:../x/media
@@ -742,6 +748,9 @@ importers:
       react-dom:
         specifier: 'catalog:'
         version: 19.2.4(react@19.2.4)
+      shiki:
+        specifier: ^1.29.2
+        version: 1.29.2
     devDependencies:
       '@astrojs/check':
         specifier: ^0.9.6
@@ -5710,6 +5719,9 @@ packages:
   pluralize@8.0.0:
     resolution: {integrity: sha512-Nc3IT5yHzflTfbjgqWcCPpo7DaKy4FnpB0l/zCAW0Tc7jxAiuqSxHasntB3D7887LSrA93kDJ9IXovxJYxyLCA==}
     engines: {node: '>=4'}
+
+  pocketbase@0.25.2:
+    resolution: {integrity: sha512-ONZl1+qHJMnhR2uacBlBJ90lm7njtL/zy0606+1ROfK9hSL4LRBRc8r89rMcNRzPzRqCNyoFTh2Qg/lYXdEC1w==}
 
   possible-typed-array-names@1.1.0:
     resolution: {integrity: sha512-/+5VFTchJDoVj3bhoqi6UeymcD00DAwb1nJwamzPvHEszJ4FpF6SNNbUbOS8yI56qHzdV8eK0qEfOSiodkTdxg==}
@@ -13193,6 +13205,8 @@ snapshots:
       pathe: 2.0.3
 
   pluralize@8.0.0: {}
+
+  pocketbase@0.25.2: {}
 
   possible-typed-array-names@1.1.0: {}
 
