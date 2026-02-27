@@ -52,11 +52,10 @@ func (h *SimpleHTTPBranch) Routing() (i BranchRouting) {
 
 // Serve implements Branch.
 func (h *SimpleHTTPBranch) Serve(ctx BranchContext) error {
-	server := &http.Server{Handler: h.handler}
 	h.mu.Lock()
-	h.server = server
+	h.server = &http.Server{Handler: h.handler}
 	h.mu.Unlock()
-	err := server.Serve(ctx.Lis)
+	err := h.server.Serve(ctx.Lis)
 	if !errors.Is(err, http.ErrServerClosed) {
 		return err
 	}
@@ -66,12 +65,11 @@ func (h *SimpleHTTPBranch) Serve(ctx BranchContext) error {
 // Stop implements Branch.
 func (h *SimpleHTTPBranch) Stop() {
 	h.mu.Lock()
-	server := h.server
-	h.mu.Unlock()
-	if server == nil {
+	defer h.mu.Unlock()
+	if h.server == nil {
 		return
 	}
-	h.stopErr <- server.Shutdown(context.TODO())
+	h.stopErr <- h.server.Shutdown(context.TODO())
 }
 
 func secureHTTPRedirect(w http.ResponseWriter, r *http.Request) {

@@ -48,25 +48,23 @@ func (b *SecureHTTPBranch) Key() string { return "http" }
 
 // Serve implements Branch.
 func (b *SecureHTTPBranch) Serve(ctx BranchContext) error {
-	app := fiber.New(b.getConfig(ctx))
 	b.mu.Lock()
-	b.internal = app
+	b.internal = fiber.New(b.getConfig(ctx))
 	b.mu.Unlock()
-	b.maybeRouteDebugUtil(app, ctx)
-	app.Use(cors.New(cors.Config{AllowOrigins: "*"}))
+	b.maybeRouteDebugUtil(b.internal, ctx)
+	b.internal.Use(cors.New(cors.Config{AllowOrigins: "*"}))
 	for _, t := range b.Transports {
-		t.BindTo(app)
+		t.BindTo(b.internal)
 	}
-	return app.Listener(ctx.Lis)
+	return b.internal.Listener(ctx.Lis)
 }
 
 // Stop	implements Branch. Stop is safe to call even if Serve has not been called.
 func (b *SecureHTTPBranch) Stop() {
 	b.mu.Lock()
-	app := b.internal
-	b.mu.Unlock()
-	if app != nil {
-		_ = app.Shutdown()
+	defer b.mu.Unlock()
+	if b.internal != nil {
+		_ = b.internal.Shutdown()
 	}
 }
 

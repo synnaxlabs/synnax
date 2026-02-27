@@ -44,21 +44,19 @@ func (g *GRPCBranch) Serve(ctx BranchContext) error {
 	opts := []grpc.ServerOption{g.credentials(ctx)}
 	g.mu.Lock()
 	g.server = grpc.NewServer(opts...)
-	server := g.server
 	g.mu.Unlock()
 	for _, t := range g.Transports {
-		t.BindTo(server)
+		t.BindTo(g.server)
 	}
-	return server.Serve(ctx.Lis)
+	return g.server.Serve(ctx.Lis)
 }
 
 // Stop implements Branch. Stop is safe to call even if Serve has not been called.
 func (g *GRPCBranch) Stop() {
 	g.mu.Lock()
-	server := g.server
-	g.mu.Unlock()
-	if server != nil {
-		server.Stop()
+	defer g.mu.Unlock()
+	if g.server != nil {
+		g.server.Stop()
 	}
 }
 
