@@ -12,7 +12,6 @@ package address_test
 import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-
 	"github.com/synnaxlabs/x/address"
 )
 
@@ -63,6 +62,24 @@ var _ = Describe("Address", func() {
 			It("Should still extract port string even if invalid", func() {
 				addr := address.Address("localhost:invalid")
 				Expect(addr.PortString()).To(Equal(":invalid"))
+			})
+		})
+
+		Context("With empty string", func() {
+			var addr address.Address
+
+			BeforeEach(func() {
+				addr = address.Address("")
+			})
+
+			It("Should return default port string for an empty string", func() {
+				Expect(addr.PortString()).To(Equal(""))
+			})
+			It("Should return default port for an empty string", func() {
+				Expect(addr.Port()).To(Equal(0))
+			})
+			It("Should return default host for an empty string", func() {
+				Expect(addr.Host()).To(Equal(""))
 			})
 		})
 	})

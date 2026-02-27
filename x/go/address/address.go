@@ -30,9 +30,9 @@ func Newf(format string, args ...any) Address {
 // String implements fmt.Stringer.
 func (a Address) String() string { return string(a) }
 
-// PortString returns a string in the format ":port" where port is the port portion
-// of the address.
-// For example, Address("localhost:9090").PortString() would return ":9090".
+// PortString returns a string in the format ":port" where port is the port portion of
+// the address. For example, Address("localhost:9090").PortString() would return
+// ":9090".
 func (a Address) PortString() string {
 	parts := strings.Split(string(a), ":")
 	if len(parts) != 2 {
@@ -41,8 +41,8 @@ func (a Address) PortString() string {
 	return ":" + parts[1]
 }
 
-// Port returns the port portion of the address.
-// For example, Address("localhost:9090").Port() would return 9090.
+// Port returns the port portion of the address. For example,
+// Address("localhost:9090").Port() would return 9090.
 func (a Address) Port() int {
 	parts := strings.Split(string(a), ":")
 	if len(parts) != 2 {
@@ -55,17 +55,12 @@ func (a Address) Port() int {
 	return port
 }
 
-// Host returns the host portion of the address.
-// For example, Address("localhost:9090").Host() would return "localhost".
+// Host returns the host portion of the address. For example,
+// Address("localhost:9090").Host() would return "localhost".
 func (a Address) Host() string {
 	parts := strings.Split(string(a), ":")
-	if len(parts) == 0 {
-		return ""
-	}
 	return parts[0]
 }
 
 // Rand returns a random address.
-func Rand() Address {
-	return Address(uuid.New().String())
-}
+func Rand() Address { return Address(uuid.New().String()) }
