@@ -157,6 +157,10 @@ const FieldListItem = ({ epKey, ...props }: FieldListItemProps) => {
   const { itemKey } = props;
   const path = `config.endpoints.${epKey}.fields.${itemKey}`;
   const fieldChannel = PForm.useFieldValue<number>(`${path}.channel`);
+  const enumValues = PForm.useFieldValue<Record<string, number>>(`${path}.enumValues`, {
+    defaultValue: {},
+  });
+  const hasEnums = Object.keys(enumValues).length > 0;
   return (
     <Select.ListItem {...props} justify="between" align="center" x>
       <PForm.TextField
@@ -182,6 +186,12 @@ const FieldListItem = ({ epKey, ...props }: FieldListItemProps) => {
             />
           )}
         </PForm.Field>
+      )}
+      {hasEnums && (
+        <Text.Text level="small" color={7}>
+          {Object.keys(enumValues).length} enum
+          {Object.keys(enumValues).length !== 1 ? "s" : ""}
+        </Text.Text>
       )}
       <Flex.Box x align="center" grow justify="end">
         <Common.Task.ChannelName
@@ -273,44 +283,61 @@ const FieldList: FC<{ epKey: string }> = ({ epKey }) => {
     [epKey],
   );
 
+  const selectedFieldKey = selected.length === 1 ? selected[0] : null;
+  const selectedFieldPath =
+    selectedFieldKey != null ? `${path}.${selectedFieldKey}.enumValues` : null;
+
   return (
-    <BaseChannelList<ReadField>
-      data={data}
-      remove={remove}
-      onDuplicate={handleDuplicate}
-      onSelect={setSelected}
-      selected={selected}
-      path={path}
-      header={
-        <Header.Header>
-          <Header.Title weight={500} color={10}>
-            Fields
-          </Header.Title>
-          {!isSnapshot && (
-            <Header.Actions>
-              <Button.Button
-                onClick={handleAdd}
-                variant="text"
-                contrast={2}
-                tooltip="Add Field"
-                sharp
-              >
-                <Icon.Add />
-              </Button.Button>
-            </Header.Actions>
-          )}
-        </Header.Header>
-      }
-      emptyContent={
-        <EmptyAction
-          message="No fields."
-          action="Add a field"
-          onClick={isSnapshot ? undefined : handleAdd}
-        />
-      }
-      listItem={listItem}
-      contextMenuItems={Common.Task.readChannelContextMenuItem}
-    />
+    <Flex.Box y grow empty>
+      <BaseChannelList<ReadField>
+        data={data}
+        remove={remove}
+        onDuplicate={handleDuplicate}
+        onSelect={setSelected}
+        selected={selected}
+        path={path}
+        header={
+          <Header.Header>
+            <Header.Title weight={500} color={10}>
+              Fields
+            </Header.Title>
+            {!isSnapshot && (
+              <Header.Actions>
+                <Button.Button
+                  onClick={handleAdd}
+                  variant="text"
+                  contrast={2}
+                  tooltip="Add Field"
+                  sharp
+                >
+                  <Icon.Add />
+                </Button.Button>
+              </Header.Actions>
+            )}
+          </Header.Header>
+        }
+        emptyContent={
+          <EmptyAction
+            message="No fields."
+            action="Add a field"
+            onClick={isSnapshot ? undefined : handleAdd}
+          />
+        }
+        listItem={listItem}
+        contextMenuItems={Common.Task.readChannelContextMenuItem}
+      />
+      {selectedFieldPath != null && (
+        <>
+          <Divider.Divider x padded />
+          <KeyValueEditor
+            path={selectedFieldPath}
+            label="Enum Mapping"
+            keyPlaceholder="String (e.g. ON)"
+            valueType="number"
+          />
+        </>
+      )}
+    </Flex.Box>
   );
 };
 

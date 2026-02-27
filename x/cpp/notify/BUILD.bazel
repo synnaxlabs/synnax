@@ -1,12 +1,15 @@
+load("@rules_cc//cc:cc_library.bzl", "cc_library")
+load("@rules_cc//cc:cc_test.bzl", "cc_test")
+
 cc_library(
     name = "notify",
-    hdrs = ["notify.h"],
     srcs = select({
         "@platforms//os:linux": ["eventfd_notifier.cpp"],
         "@platforms//os:macos": ["kqueue_notifier.cpp"],
         "@platforms//os:windows": ["event_notifier.cpp"],
         "//conditions:default": ["polling_notifier.cpp"],
     }),
+    hdrs = ["notify.h"],
     copts = select({
         "@platforms//os:windows": [
             "/DWIN32_LEAN_AND_MEAN",

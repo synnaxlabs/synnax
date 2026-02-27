@@ -2046,3 +2046,60 @@ TEST(ZeroValue, String) {
 TEST(ZeroValue, Boolean) {
     ASSERT_EQ(x::json::zero_value(x::json::Type::Boolean), false);
 }
+
+// ==================== EnumMap ====================
+
+TEST(ToSampleValueEnum, StringToFloat64ViaEnum) {
+    x::json::EnumMap enums = {{"ON", 1.0}, {"OFF", 0.0}};
+    const auto sv = ASSERT_NIL_P(
+        x::json::to_sample_value(json("ON"), x::telem::FLOAT64_T, {}, &enums)
+    );
+    ASSERT_EQ(std::get<double>(sv), 1.0);
+}
+
+TEST(ToSampleValueEnum, StringToUint8ViaEnum) {
+    x::json::EnumMap enums = {{"ON", 1.0}, {"OFF", 0.0}};
+    const auto sv = ASSERT_NIL_P(
+        x::json::to_sample_value(json("OFF"), x::telem::UINT8_T, {}, &enums)
+    );
+    ASSERT_EQ(std::get<uint8_t>(sv), 0);
+}
+
+TEST(ToSampleValueEnum, StringToInt32ViaEnum) {
+    x::json::EnumMap enums = {{"AUTO", 0}, {"MANUAL", 1}, {"STANDBY", 2}};
+    const auto sv = ASSERT_NIL_P(
+        x::json::to_sample_value(json("STANDBY"), x::telem::INT32_T, {}, &enums)
+    );
+    ASSERT_EQ(std::get<int32_t>(sv), 2);
+}
+
+TEST(ToSampleValueEnum, StringNotInEnumFallsBackToNumericParsing) {
+    x::json::EnumMap enums = {{"ON", 1.0}, {"OFF", 0.0}};
+    const auto sv = ASSERT_NIL_P(
+        x::json::to_sample_value(json("42"), x::telem::FLOAT64_T, {}, &enums)
+    );
+    ASSERT_EQ(std::get<double>(sv), 42.0);
+}
+
+TEST(ToSampleValueEnum, StringNotInEnumAndNotNumericFails) {
+    x::json::EnumMap enums = {{"ON", 1.0}, {"OFF", 0.0}};
+    ASSERT_OCCURRED_AS_P(
+        x::json::to_sample_value(json("UNKNOWN"), x::telem::FLOAT64_T, {}, &enums),
+        x::json::CONVERSION_ERROR
+    );
+}
+
+TEST(ToSampleValueEnum, NullEnumMapUsesNormalConversion) {
+    const auto sv = ASSERT_NIL_P(
+        x::json::to_sample_value(json("42"), x::telem::FLOAT64_T, {}, nullptr)
+    );
+    ASSERT_EQ(std::get<double>(sv), 42.0);
+}
+
+TEST(ToSampleValueEnum, NumberBypassesEnumMap) {
+    x::json::EnumMap enums = {{"ON", 1.0}, {"OFF", 0.0}};
+    const auto sv = ASSERT_NIL_P(
+        x::json::to_sample_value(json(99), x::telem::INT32_T, {}, &enums)
+    );
+    ASSERT_EQ(std::get<int32_t>(sv), 99);
+}

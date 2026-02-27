@@ -1,3 +1,5 @@
+load("@rules_cc//cc:cc_library.bzl", "cc_library")
+
 cc_library(
     name = "device",
     hdrs = [
@@ -9,8 +11,8 @@ cc_library(
         "//driver/opc/telem",
         "//driver/opc/types",
         "//vendor/open62541",
-        "//x/cpp/telem",
         "//x/cpp/errors",
+        "//x/cpp/telem",
         "@glog",
     ],
 )
