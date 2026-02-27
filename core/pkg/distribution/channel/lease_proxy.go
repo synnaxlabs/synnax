@@ -566,7 +566,7 @@ func (lp *leaseProxy) maybeSetResources(
 
 func (lp *leaseProxy) createRemote(
 	ctx context.Context,
-	target node.NodeKey,
+	target node.Key,
 	channels []Channel,
 	opts CreateOptions,
 ) ([]Channel, error) {
@@ -669,7 +669,7 @@ func (lp *leaseProxy) maybeDeleteResources(
 	return w.DeleteManyResources(ctx, ids)
 }
 
-func (lp *leaseProxy) deleteRemote(ctx context.Context, target node.NodeKey, keys Keys) error {
+func (lp *leaseProxy) deleteRemote(ctx context.Context, target node.Key, keys Keys) error {
 	addr, err := lp.cfg.HostResolver.Resolve(target)
 	if err != nil {
 		return err
@@ -685,7 +685,7 @@ type renameBatchEntry struct {
 
 var _ proxy.Entry = renameBatchEntry{}
 
-func (r renameBatchEntry) Lease() node.NodeKey { return r.key.Lease() }
+func (r renameBatchEntry) Lease() node.Key { return r.key.Lease() }
 
 func unzipRenameBatch(entries []renameBatchEntry) ([]Key, []string) {
 	return lo.UnzipBy2(entries, func(e renameBatchEntry) (Key, string) {
@@ -735,7 +735,7 @@ func (lp *leaseProxy) rename(
 	return nil
 }
 
-func (lp *leaseProxy) renameRemote(ctx context.Context, target node.NodeKey, keys Keys, names []string) error {
+func (lp *leaseProxy) renameRemote(ctx context.Context, target node.Key, keys Keys, names []string) error {
 	addr, err := lp.cfg.HostResolver.Resolve(target)
 	if err != nil {
 		return err

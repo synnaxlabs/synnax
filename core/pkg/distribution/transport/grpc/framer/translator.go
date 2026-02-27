@@ -107,7 +107,7 @@ func (writerResponseTranslator) Backward(
 	return writer.Response{
 		Command:    writer.Command(res.Command),
 		SeqNum:     int(res.SeqNum),
-		NodeKey:    node.NodeKey(res.NodeKey),
+		NodeKey:    node.Key(res.NodeKey),
 		Authorized: res.Authorized,
 		End:        telem.TimeStamp(res.End),
 	}, nil
@@ -170,7 +170,7 @@ func (iteratorResponseTranslator) Backward(
 ) (iterator.Response, error) {
 	return iterator.Response{
 		Variant: iterator.ResponseVariant(res.Variant),
-		NodeKey: node.NodeKey(res.NodeKey),
+		NodeKey: node.Key(res.NodeKey),
 		Ack:     res.Ack,
 		SeqNum:  int(res.SeqNum),
 		Command: iterator.Command(res.Command),

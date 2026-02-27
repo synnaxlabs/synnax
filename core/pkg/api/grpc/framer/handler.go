@@ -243,7 +243,7 @@ func (t iteratorResponseTranslator) Backward(
 	return apiframer.IteratorResponse{
 		Variant: iterator.ResponseVariant(msg.Variant),
 		Command: iterator.Command(msg.Command),
-		NodeKey: node.NodeKey(msg.NodeKey),
+		NodeKey: node.Key(msg.NodeKey),
 		Ack:     msg.Ack,
 		SeqNum:  int(msg.SeqNum),
 		Frame:   translateBackward(msg.Frame),

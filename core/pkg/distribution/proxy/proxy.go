@@ -25,13 +25,13 @@ type BatchFactory[E Entry] struct {
 }
 
 type Batch[E Entry] struct {
-	Peers   map[node.NodeKey][]E
+	Peers   map[node.Key][]E
 	Gateway []E
 	Free    []E
 }
 
 func (f BatchFactory[E]) Batch(entries []E) Batch[E] {
-	b := Batch[E]{Peers: make(map[node.NodeKey][]E)}
+	b := Batch[E]{Peers: make(map[node.Key][]E)}
 	for _, entry := range entries {
 		lease := entry.Lease()
 		if lease.IsFree() {
@@ -45,4 +45,4 @@ func (f BatchFactory[E]) Batch(entries []E) Batch[E] {
 	return b
 }
 
-type AddressMap map[node.NodeKey]address.Address
+type AddressMap map[node.Key]address.Address

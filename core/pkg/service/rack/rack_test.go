@@ -84,7 +84,7 @@ var _ = Describe("Rack", Ordered, func() {
 	Describe("Key", func() {
 		It("Should correctly construct and deconstruct key from its components", func() {
 			k := rack.NewKey(1, 2)
-			Expect(k.Node()).To(Equal(node.NodeKey(1)))
+			Expect(k.Node()).To(Equal(node.Key(1)))
 			Expect(k.LocalKey()).To(Equal(uint16(2)))
 		})
 	})
@@ -152,7 +152,7 @@ var _ = Describe("Rack", Ordered, func() {
 			r := &rack.Rack{Name: "rack1"}
 			Expect(writer.Create(ctx, r)).To(Succeed())
 			Expect(!r.Key.IsZero()).To(BeTrue())
-			Expect(r.Key.Node()).To(Equal(node.NodeKey(1)))
+			Expect(r.Key.Node()).To(Equal(node.Key(1)))
 			Expect(r.Key.LocalKey()).To(Equal(uint16(2)))
 		})
 		It("Should correctly increment the local key counter", func() {

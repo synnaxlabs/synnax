@@ -60,7 +60,7 @@ type Response struct {
 	// validate during calls to WriterCommit.
 	End telem.TimeStamp `json:"end" msgpack:"end"`
 	// The NodeKey of the node that sent the response.
-	NodeKey node.NodeKey `json:"node_key" msgpack:"node_key"`
+	NodeKey node.Key `json:"node_key" msgpack:"node_key"`
 	// Command is the command that was executed on the writer.
 	Command Command `json:"command" msgpack:"command"`
 	// Authorized flags whether the writer or commit operation was authorized. It is only

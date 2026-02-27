@@ -38,7 +38,7 @@ type Key uint32
 type LocalKey types.Uint20
 
 // NewKey generates a new Key from the provided components.
-func NewKey(nodeKey node.NodeKey, localKey LocalKey) (key Key) {
+func NewKey(nodeKey node.Key, localKey LocalKey) (key Key) {
 	// Node key is the first 12 bits,
 	k1 := uint32(nodeKey) << 20
 	// Local key is the last 20 bits
@@ -57,7 +57,7 @@ func ParseKey(s string) (Key, error) {
 
 // Leaseholder returns the id of the node embedded in the key. This node is the leaseholder
 // node for the Channel.
-func (c Key) Leaseholder() node.NodeKey { return node.NodeKey(c >> 20) }
+func (c Key) Leaseholder() node.Key { return node.Key(c >> 20) }
 
 // Free returns true when the channel has a leaseholder node i.e. it is not a non-leased
 // virtual channel.
@@ -71,7 +71,7 @@ func (c Key) LocalKey() LocalKey { return LocalKey(c & 0xFFFFF) }
 
 // Lease implements the proxy.Entry interface, which routes Channel operations to the
 // correct node in the cluster.
-func (c Key) Lease() node.NodeKey { return c.Leaseholder() }
+func (c Key) Lease() node.Key { return c.Leaseholder() }
 
 // String implements fmt.Stringer.
 func (c Key) String() string { return strconv.Itoa(int(c)) }
@@ -117,7 +117,7 @@ func (k Keys) Storage() []ts.ChannelKey { return k.Uint32() }
 func (k Keys) Uint32() []uint32 { return unsafe.ReinterpretSlice[Key, uint32](k) }
 
 // UniqueLeaseholders returns a slice of all UNIQUE leaseholders for the given Keys.
-func (k Keys) UniqueLeaseholders() (keys []node.NodeKey) {
+func (k Keys) UniqueLeaseholders() (keys []node.Key) {
 	for _, key := range k {
 		keys = append(keys, key.Leaseholder())
 	}
@@ -185,7 +185,7 @@ type Channel struct {
 	// indexed using its rate. One of LocalIndex or Rate must be non-zero.
 	LocalIndex LocalKey `json:"local_index" msgpack:"local_index"`
 	// Leaseholder is the leaseholder node for the channel.
-	Leaseholder node.NodeKey `json:"node_id" msgpack:"node_id"`
+	Leaseholder node.Key `json:"node_id" msgpack:"node_id"`
 	// Concurrency sets the policy for concurrent writes to the same region of the
 	// channel's data. Only virtual channels can have a policy of control.Shared.
 	Concurrency control.Concurrency `json:"concurrency" msgpack:"concurrency"`
@@ -274,7 +274,7 @@ func (c Channel) SetOptions() []any {
 }
 
 // Lease implements the proxy.UnaryServer interface.
-func (c Channel) Lease() node.NodeKey { return c.Leaseholder }
+func (c Channel) Lease() node.Key { return c.Leaseholder }
 
 // Free returns true if the channel is leased to a particular node i.e. it is not
 // a non-leased virtual channel.

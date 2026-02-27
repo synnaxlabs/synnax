@@ -25,16 +25,16 @@ var _ = Describe("Channel Tests", func() {
 	Describe("Key Tests", func() {
 		Describe("Construction", func() {
 			It("Should return the correct leaseholder for the key", func() {
-				k := channel.NewKey(node.NodeKey(1), 1)
-				Expect(k.Leaseholder()).To(Equal(node.NodeKey(1)))
+				k := channel.NewKey(node.Key(1), 1)
+				Expect(k.Leaseholder()).To(Equal(node.Key(1)))
 			})
 			It("Should return the correct localKey for the key", func() {
-				k := channel.NewKey(node.NodeKey(1), 2)
+				k := channel.NewKey(node.Key(1), 2)
 				Expect(k.LocalKey()).To(Equal(channel.LocalKey(2)))
 			})
 			It("Should correctly handle the maximum value of a 12 bit node key and 20 bit cesium key", func() {
-				k := channel.NewKey(node.NodeKey(math.MaxUint12), channel.LocalKey(math.MaxUint20))
-				Expect(k.Leaseholder()).To(Equal(node.NodeKey(math.MaxUint12)))
+				k := channel.NewKey(node.Key(math.MaxUint12), channel.LocalKey(math.MaxUint20))
+				Expect(k.Leaseholder()).To(Equal(node.Key(math.MaxUint12)))
 				Expect(k.LocalKey()).To(Equal(channel.LocalKey(math.MaxUint20)))
 			})
 		})
@@ -52,16 +52,16 @@ var _ = Describe("Channel Tests", func() {
 		})
 		Describe("Lease", func() {
 			It("Should return the leaseholder node Name", func() {
-				k := channel.NewKey(node.NodeKey(1), 1)
+				k := channel.NewKey(node.Key(1), 1)
 				Expect(k.Lease()).To(Equal(k.Leaseholder()))
 			})
 		})
 		Describe("OntologyID", func() {
 			It("Should return the ontology Name for the channel", func() {
-				ok := channel.OntologyID(channel.NewKey(node.NodeKey(1), 2))
+				ok := channel.OntologyID(channel.NewKey(node.Key(1), 2))
 				Expect(ok).To(Equal(ontology.ID{
 					Type: "channel",
-					Key:  channel.NewKey(node.NodeKey(1), 2).String(),
+					Key:  channel.NewKey(node.Key(1), 2).String(),
 				}))
 			})
 		})
@@ -71,7 +71,7 @@ var _ = Describe("Channel Tests", func() {
 				Expect(k.Free()).To(BeTrue())
 			})
 			It("Should return false if the channel is not a free channel", func() {
-				k := channel.NewKey(node.NodeKey(1), 1)
+				k := channel.NewKey(node.Key(1), 1)
 				Expect(k.Free()).To(BeFalse())
 			})
 		})
@@ -85,8 +85,8 @@ var _ = Describe("Channel Tests", func() {
 				}
 				keys := channel.KeysFromChannels(channels)
 				Expect(keys).To(Equal(channel.Keys{
-					channel.NewKey(node.NodeKey(1), 1),
-					channel.NewKey(node.NodeKey(1), 2),
+					channel.NewKey(node.Key(1), 1),
+					channel.NewKey(node.Key(1), 2),
 				}))
 			})
 		})
@@ -129,11 +129,11 @@ var _ = Describe("Channel Tests", func() {
 		Describe("UniqueLeaseholders", func() {
 			It("Should return a slice of the unique node ids for a set of keys", func() {
 				ids := channel.Keys{
-					channel.NewKey(node.NodeKey(1), 2),
-					channel.NewKey(node.NodeKey(3), 4),
-					channel.NewKey(node.NodeKey(1), 2),
+					channel.NewKey(node.Key(1), 2),
+					channel.NewKey(node.Key(3), 4),
+					channel.NewKey(node.Key(1), 2),
 				}
-				Expect(ids.UniqueLeaseholders()).To(Equal([]node.NodeKey{1, 3}))
+				Expect(ids.UniqueLeaseholders()).To(Equal([]node.Key{1, 3}))
 			})
 		})
 		Describe("Uint32", func() {

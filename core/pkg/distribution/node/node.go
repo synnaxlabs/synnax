@@ -13,7 +13,7 @@ import "github.com/synnaxlabs/aspen"
 
 type (
 	Node         = aspen.Node
-	NodeKey      = aspen.NodeKey
+	Key          = aspen.NodeKey
 	NodeState    = aspen.NodeState
 	NodeChange   = aspen.NodeChange
 	Cluster      = aspen.Cluster

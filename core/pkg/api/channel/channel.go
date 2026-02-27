@@ -45,7 +45,7 @@ type Channel struct {
 	Key         channel.Key         `json:"key" msgpack:"key"`
 	Density     telem.Density       `json:"density" msgpack:"density"`
 	Index       channel.Key         `json:"index" msgpack:"index"`
-	Leaseholder node.NodeKey     `json:"leaseholder" msgpack:"leaseholder"`
+	Leaseholder node.Key     `json:"leaseholder" msgpack:"leaseholder"`
 	IsIndex     bool                `json:"is_index" msgpack:"is_index"`
 	Virtual     bool                `json:"virtual" msgpack:"virtual"`
 	Internal    bool                `json:"internal" msgpack:"internal"`
@@ -155,7 +155,7 @@ type RetrieveRequest struct {
 	Offset int `json:"offset" msgpack:"offset"`
 	// NodeKey is an optional parameter that queries a Channel by its node
 	// Name.
-	NodeKey node.NodeKey `json:"node_key" msgpack:"node_key"`
+	NodeKey node.Key `json:"node_key" msgpack:"node_key"`
 	// RangeKey is used for fetching aliases.
 	RangeKey uuid.UUID `json:"range_key" msgpack:"range_key"`
 }

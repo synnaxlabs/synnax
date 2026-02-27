@@ -100,7 +100,7 @@ func (r Retrieve) Offset(offset int) Retrieve {
 }
 
 // WhereNode filters for racks that are embedded within the provided node.
-func (r Retrieve) WhereNode(node node.NodeKey, opts ...gorp.FilterOption) Retrieve {
+func (r Retrieve) WhereNode(node node.Key, opts ...gorp.FilterOption) Retrieve {
 	r.gorp = r.gorp.Where(func(ctx gorp.Context, rack *Rack) (bool, error) {
 		return rack.Key.Node() == node, nil
 	}, opts...)

@@ -80,7 +80,7 @@ func (lp *leaseProxy) deleteTimeRangeByName(
 
 func (lp *leaseProxy) deleteTimeRangeRemote(
 	ctx context.Context,
-	target node.NodeKey,
+	target node.Key,
 	keys channel.Keys,
 	tr telem.TimeRange,
 ) error {

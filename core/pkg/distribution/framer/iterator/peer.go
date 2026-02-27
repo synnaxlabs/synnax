@@ -48,7 +48,7 @@ func (s *Service) openManyPeers(
 	ctx context.Context,
 	bounds telem.TimeRange,
 	chunkSize int64,
-	targets map[node.NodeKey][]channel.Key,
+	targets map[node.Key][]channel.Key,
 	generateSeqNums bool,
 ) (*peerSender, []*freightfluence.Receiver[Response], error) {
 	var (

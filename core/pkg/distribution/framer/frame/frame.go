@@ -48,8 +48,8 @@ func Alloc(cap int) Frame { return Frame{telem.AllocFrame[channel.Key](cap)} }
 // SplitByLeaseholder splits the frame into multiple frames based on the leaseholder
 // node of each channel. Returns a map where each key is a node key and the value is a
 // frame containing all series for channels leased by that node.
-func (f Frame) SplitByLeaseholder() map[node.NodeKey]Frame {
-	frames := make(map[node.NodeKey]Frame)
+func (f Frame) SplitByLeaseholder() map[node.Key]Frame {
+	frames := make(map[node.Key]Frame)
 	for key, ser := range f.Entries() {
 		nodeKey := key.Leaseholder()
 		frames[nodeKey] = frames[nodeKey].Append(key, ser)
@@ -62,7 +62,7 @@ func (f Frame) SplitByLeaseholder() map[node.NodeKey]Frame {
 //   - local: contains series for channels leased by the specified host
 //   - remote: contains series for channels leased by other hosts
 //   - free: contains series for channels that are not leased by any host
-func (f Frame) SplitByHost(host node.NodeKey) (local Frame, remote Frame, free Frame) {
+func (f Frame) SplitByHost(host node.Key) (local Frame, remote Frame, free Frame) {
 	for key, series := range f.Entries() {
 		if key.Leaseholder() == host {
 			local = local.Append(key, series)

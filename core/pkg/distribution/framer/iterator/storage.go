@@ -18,7 +18,7 @@ import (
 )
 
 func newStorageResponseTranslator(
-	host node.NodeKey,
+	host node.Key,
 ) func(ctx context.Context, in ts.IteratorResponse) (Response, bool, error) {
 	return func(ctx context.Context, res ts.IteratorResponse) (Response, bool, error) {
 		return Response{

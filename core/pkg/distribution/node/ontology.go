@@ -31,7 +31,7 @@ const OntologyType ontology.Type = "node"
 
 // OntologyID returns a unique identifier for a Node to use within a resource
 // Ontology.
-func OntologyID(key NodeKey) ontology.ID {
+func OntologyID(key Key) ontology.ID {
 	return ontology.ID{Type: OntologyType, Key: strconv.Itoa(int(key))}
 }
 
@@ -79,7 +79,7 @@ func (s *OntologyService) OnChange(f func(context.Context, iter.Seq[ontology.Cha
 
 // OpenNexter implements ontology.Service.
 func (s *OntologyService) OpenNexter(context.Context) (iter.Seq[ontology.Resource], io.Closer, error) {
-	return slices.Values(lo.MapToSlice(s.Cluster.CopyState().Nodes, func(_ NodeKey, n Node) ontology.Resource {
+	return slices.Values(lo.MapToSlice(s.Cluster.CopyState().Nodes, func(_ Key, n Node) ontology.Resource {
 		return newResource(n)
 	})), xio.NopCloser, nil
 }
@@ -93,12 +93,15 @@ func (s *OntologyService) RetrieveResource(_ context.Context, key string, _ gorp
 	if err != nil {
 		return ontology.Resource{}, err
 	}
-	nKey := NodeKey(_nKey)
+	nKey := Key(_nKey)
 	if nKey.IsFree() {
 		return newResource(Node{Key: nKey}), nil
 	}
 	n, err := s.Cluster.Node(nKey)
-	return newResource(n), err
+	if err != nil {
+		return ontology.Resource{}, err
+	}
+	return newResource(n), nil
 }
 
 func newResource(n Node) ontology.Resource {

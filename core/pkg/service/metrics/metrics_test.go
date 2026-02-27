@@ -458,7 +458,7 @@ var _ = Describe("Metrics", func() {
 	})
 })
 
-func getNames(hostKey node.NodeKey) []string {
+func getNames(hostKey node.Key) []string {
 	prefix := "sy_node_" + hostKey.String() + "_metrics_"
 	return []string{
 		prefix + "time",

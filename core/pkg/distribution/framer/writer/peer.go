@@ -25,7 +25,7 @@ import (
 func (s *Service) openManyPeers(
 	ctx context.Context,
 	cfg Config,
-	targets map[node.NodeKey][]keyAuthority,
+	targets map[node.Key][]keyAuthority,
 ) (confluence.Sink[Request], []*freightfluence.Receiver[Response], []address.Address, error) {
 	var (
 		receivers         = make([]*freightfluence.Receiver[Response], 0, len(targets))

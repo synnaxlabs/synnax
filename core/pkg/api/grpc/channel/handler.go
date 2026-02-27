@@ -120,7 +120,7 @@ func (t retrieveRequestTranslator) Backward(
 	msg *gapi.ChannelRetrieveRequest,
 ) (apichannel.RetrieveRequest, error) {
 	return apichannel.RetrieveRequest{
-		NodeKey:    node.NodeKey(msg.NodeKey),
+		NodeKey:    node.Key(msg.NodeKey),
 		Names:      msg.Names,
 		SearchTerm: msg.Search,
 		Keys:       unsafe.ReinterpretSlice[uint32, distchannel.Key](msg.Keys),
@@ -184,7 +184,7 @@ func TranslateBackward(
 	return apichannel.Channel{
 		Key:         distchannel.Key(msg.Key),
 		Name:        msg.Name,
-		Leaseholder: node.NodeKey(msg.Leaseholder),
+		Leaseholder: node.Key(msg.Leaseholder),
 		DataType:    telem.DataType(msg.DataType),
 		Density:     telem.Density(msg.Density),
 		IsIndex:     msg.IsIndex,

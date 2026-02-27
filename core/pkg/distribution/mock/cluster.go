@@ -38,7 +38,7 @@ type Node struct {
 
 type Cluster struct {
 	storage     *mock.Cluster
-	Nodes       map[node.NodeKey]Node
+	Nodes       map[node.Key]Node
 	writerNet   *tmock.FramerWriterNetwork
 	iterNet     *tmock.FramerIteratorNetwork
 	channelNet  *tmock.ChannelNetwork
@@ -76,7 +76,7 @@ func NewCluster(cfgs ...distribution.LayerConfig) *Cluster {
 		deleteNet:   tmock.NewDeleterNetwork(),
 		aspenNet:    aspentransmock.NewNetwork(),
 		addrFactory: address.NewLocalFactory(0),
-		Nodes:       make(map[node.NodeKey]Node),
+		Nodes:       make(map[node.Key]Node),
 	}
 }
 
@@ -162,10 +162,10 @@ type StaticHostProvider struct {
 
 var _ node.HostProvider = StaticHostProvider{}
 
-func StaticHostKeyProvider(key node.NodeKey) StaticHostProvider {
+func StaticHostKeyProvider(key node.Key) StaticHostProvider {
 	return StaticHostProvider{Node: node.Node{Key: key}}
 }
 
 func (s StaticHostProvider) Host() node.Node { return s.Node }
 
-func (s StaticHostProvider) HostKey() node.NodeKey { return s.Node.Key }
+func (s StaticHostProvider) HostKey() node.Key { return s.Node.Key }

@@ -76,7 +76,7 @@ func (c createMessageTranslator) Backward(
 	for _, ch := range msg.Channels {
 		tr.Channels = append(tr.Channels, channel.Channel{
 			Name:        ch.Name,
-			Leaseholder: node.NodeKey(ch.Leaseholder),
+			Leaseholder: node.Key(ch.Leaseholder),
 			DataType:    telem.DataType(ch.DataType),
 			IsIndex:     ch.IsIndex,
 			LocalKey:    channel.LocalKey(ch.LocalKey),

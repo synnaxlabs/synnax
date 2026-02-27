@@ -63,7 +63,7 @@ func (rs *peerSwitchSender) _switch(
 
 type peerGatewayFreeSwitch struct {
 	confluence.BatchSwitch[Request, Request]
-	host node.NodeKey
+	host node.Key
 	has  struct {
 		peer    bool
 		gateway bool
@@ -72,7 +72,7 @@ type peerGatewayFreeSwitch struct {
 }
 
 func newPeerGatewayFreeSwitch(
-	host node.NodeKey,
+	host node.Key,
 	hasPeer bool,
 	hasGateway bool,
 	hasFree bool,

@@ -121,7 +121,7 @@ type keyAuthority struct {
 var _ proxy.Entry = keyAuthority{}
 
 // Lease implements proxy.Entry.
-func (k keyAuthority) Lease() node.NodeKey { return k.key.Lease() }
+func (k keyAuthority) Lease() node.Key { return k.key.Lease() }
 
 var _ config.Config[Config] = Config{}
 

@@ -79,7 +79,7 @@ type Response struct {
 	// SeqNum
 	SeqNum int `json:"seq_num" msgpack:"seq_num"`
 	// NodeKey is the node Name where the remote Iterator lives.
-	NodeKey node.NodeKey `json:"node_key" msgpack:"node_key"`
+	NodeKey node.Key `json:"node_key" msgpack:"node_key"`
 	// Variant is the type of response returned.
 	Variant ResponseVariant `json:"variant" msgpack:"variant"`
 	// Command is non-zero when the

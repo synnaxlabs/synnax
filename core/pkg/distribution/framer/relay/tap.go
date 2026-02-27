@@ -61,7 +61,7 @@ type tapper struct {
 	// demands track the current channels demanded by each entity.
 	demands map[address.Address]channel.Keys
 	// taps tracks the current taps we have open.
-	taps map[node.NodeKey]tapController
+	taps map[node.Key]tapController
 	Config
 }
 
@@ -69,7 +69,7 @@ func newTapper(config Config) confluence.Segment[demand, Response] {
 	t := &tapper{
 		Config:     config,
 		demands:    make(map[address.Address]channel.Keys),
-		taps:       make(map[node.NodeKey]tapController),
+		taps:       make(map[node.Key]tapController),
 		freeWrites: config.FreeWrites,
 	}
 	t.Sink = t.sink
@@ -86,13 +86,13 @@ func (t *tapper) sink(ctx context.Context, d demand) error {
 
 // updateDemands modifies the current set of locations that the relay needs to stream
 // channel data from.
-func (t *tapper) updateDemands(d demand) map[node.NodeKey]channel.Keys {
+func (t *tapper) updateDemands(d demand) map[node.Key]channel.Keys {
 	if d.Variant == change.VariantDelete {
 		delete(t.demands, d.Key)
 	} else {
 		t.demands[d.Key] = d.Value.Keys
 	}
-	nodeDemands := make(map[node.NodeKey]channel.Keys, len(t.taps))
+	nodeDemands := make(map[node.Key]channel.Keys, len(t.taps))
 	for _, d := range t.demands {
 		for _, k := range d {
 			nodeDemands[k.Lease()] = append(nodeDemands[k.Lease()], k)
@@ -124,7 +124,7 @@ func (t *tapper) close() {
 
 func (t *tapper) updateTaps(
 	ctx context.Context,
-	nodeDemands map[node.NodeKey]channel.Keys,
+	nodeDemands map[node.Key]channel.Keys,
 ) {
 	// Open any new taps we may need
 	for node, keys := range nodeDemands {
@@ -157,7 +157,7 @@ func (t *tapper) updateTaps(
 
 func (t *tapper) tapInto(
 	ctx context.Context,
-	nodeKey node.NodeKey,
+	nodeKey node.Key,
 	keys channel.Keys,
 ) (tapController, error) {
 	var (
@@ -198,7 +198,7 @@ func (t *tapper) tapIntoGateway(keys channel.Keys) (tap, error) {
 
 // tapIntoPeer opens a new tap that sends requests and receives responses
 // over the given stream.
-func (t *tapper) tapIntoPeer(ctx context.Context, nodeKey node.NodeKey) (tap, error) {
+func (t *tapper) tapIntoPeer(ctx context.Context, nodeKey node.Key) (tap, error) {
 	addr, err := t.HostResolver.Resolve(nodeKey)
 	if err != nil {
 		return nil, err

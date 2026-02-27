@@ -92,7 +92,7 @@ func (l loginResponseTranslator) Backward(
 		ClusterInfo: apiauth.ClusterInfo{
 			ClusterKey:  r.ClusterInfo.ClusterKey,
 			NodeVersion: r.ClusterInfo.NodeVersion,
-			NodeKey:     node.NodeKey(r.ClusterInfo.NodeKey),
+			NodeKey:     node.Key(r.ClusterInfo.NodeKey),
 			NodeTime:    telem.TimeStamp(r.ClusterInfo.NodeTime),
 		},
 	}, err
