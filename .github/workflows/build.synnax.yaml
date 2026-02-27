@@ -386,12 +386,12 @@ jobs:
           </plist>
           EOF
 
-          CERT_INFO=$(security find-identity -v -p codesigning $KEYCHAIN_NAME | grep "Developer ID Application")
+          CERT_INFO=$(security find-identity -v -p codesigning "$KEYCHAIN_NAME" | grep "Developer ID Application")
           CERT_ID=$(echo "$CERT_INFO" | awk -F'"' '{print $2}')
           codesign --force --options runtime --timestamp --entitlements driver-entitlements.plist --sign "$CERT_ID" bazel-bin/driver/driver
 
           # Unlock keychain before verification (in case it locked)
-          security unlock-keychain -p "$KEYCHAIN_PASSWORD" $KEYCHAIN_NAME
+          security unlock-keychain -p "$KEYCHAIN_PASSWORD" "$KEYCHAIN_NAME"
 
           codesign --verify --verbose bazel-bin/driver/driver
 
@@ -573,14 +573,14 @@ jobs:
           </plist>
           EOF
 
-          CERT_INFO=$(security find-identity -v -p codesigning $KEYCHAIN_NAME | grep "Developer ID Application")
+          CERT_INFO=$(security find-identity -v -p codesigning "$KEYCHAIN_NAME" | grep "Developer ID Application")
           CERT_ID=$(echo "$CERT_INFO" | awk -F'"' '{print $2}')
           codesign --force --options runtime --timestamp \
             --entitlements server-entitlements.plist \
             --sign "$CERT_ID" ./synnax-v${{ needs.setup.outputs.VERSION }}
 
           # Unlock keychain before verification (in case it locked)
-          security unlock-keychain -p "$KEYCHAIN_PASSWORD" $KEYCHAIN_NAME
+          security unlock-keychain -p "$KEYCHAIN_PASSWORD" "$KEYCHAIN_NAME"
 
           codesign --verify --verbose ./synnax-v${{ needs.setup.outputs.VERSION }}
 
