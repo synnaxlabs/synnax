@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type Stream, type StreamClient } from "@synnaxlabs/freighter";
+import { type Stream, type WebSocketClient } from "@synnaxlabs/freighter";
 import {
   type CrudeTimeRange,
   type CrudeTimeSpan,
@@ -21,6 +21,7 @@ import { z } from "zod";
 
 import { channel } from "@/channel";
 import { ReadAdapter } from "@/framer/adapter";
+import { WSIteratorCodec } from "@/framer/codec";
 import { Frame, frameZ } from "@/framer/frame";
 import { StreamProxy } from "@/framer/streamProxy";
 
@@ -73,6 +74,9 @@ export interface IteratorConfig {
    * less than or equal to 1, no downsampling will be performed.
    */
   downsampleFactor?: number;
+  /** useHighPerformanceCodec sets whether the iterator will use the Synnax frame
+   * encoder as opposed to the standard JSON encoding mechanisms for frames. */
+  useHighPerformanceCodec?: boolean;
 }
 
 /**
@@ -109,10 +113,12 @@ export class Iterator {
     tr: CrudeTimeRange,
     channels: channel.Params,
     retriever: channel.Retriever,
-    client: StreamClient,
+    client: WebSocketClient,
     opts: IteratorConfig = {},
   ): Promise<Iterator> {
     const adapter = await ReadAdapter.open(retriever, channels);
+    const useHighPerf = opts.useHighPerformanceCodec ?? true;
+    if (useHighPerf) client = client.withCodec(new WSIteratorCodec(adapter.codec));
     const stream = await client.stream("/frame/iterate", reqZ, resZ);
     const iter = new Iterator(stream, adapter);
     await iter.execute({

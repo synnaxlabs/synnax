@@ -391,3 +391,42 @@ export class WSStreamerCodec implements binary.Codec {
     return v as z.infer<P>;
   }
 }
+
+const ITERATOR_RESPONSE_VARIANT_DATA = 2;
+
+export class WSIteratorCodec implements binary.Codec {
+  contentType = CONTENT_TYPE;
+  private base: Codec;
+  private lowPerfCodec: binary.Codec;
+
+  constructor(base: Codec) {
+    this.base = base;
+    this.lowPerfCodec = binary.JSON_CODEC;
+  }
+
+  encode(payload: unknown): Uint8Array {
+    return this.lowPerfCodec.encode(payload);
+  }
+
+  decode<P extends z.ZodType>(data: Uint8Array | ArrayBuffer, schema?: P): z.infer<P> {
+    const dv = new DataView(data instanceof Uint8Array ? data.buffer : data);
+    const codec = dv.getUint8(0);
+    if (codec === LOW_PER_SPECIAL_CHAR)
+      return this.lowPerfCodec.decode(data.slice(1), schema);
+    const v: WebsocketMessage<{
+      variant: number;
+      ack: boolean;
+      command: number;
+      frame: Payload;
+    }> = {
+      type: "data",
+      payload: {
+        variant: ITERATOR_RESPONSE_VARIANT_DATA,
+        ack: false,
+        command: 0,
+        frame: this.base.decode(data, 1),
+      },
+    };
+    return v as z.infer<P>;
+  }
+}

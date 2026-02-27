@@ -135,6 +135,7 @@ class Client:
         channels: channel.Params,
         chunk_size: int = 100000,
         downsample_factor: int = 1,
+        use_experimental_codec: bool = True,
     ) -> Iterator:
         """Opens a new iterator over the given channels within the provided time range.
 
@@ -145,6 +146,8 @@ class Client:
         :param downsample_factor: The factor to downsample the data by. If
             downsample_factor is less than or equal to 1, no downsampling will be
             performed. Defaults to 1.
+        :param use_experimental_codec: Whether to use the high-performance frame
+            codec for encoding/decoding frames. Defaults to True.
         :returns: An Iterator over the given channels within the provided time
         range. See the Iterator documentation for more.
         """
@@ -156,6 +159,7 @@ class Client:
             client=self.__stream_client,
             chunk_size=chunk_size,
             downsample_factor=downsample_factor,
+            use_experimental_codec=use_experimental_codec,
             instrumentation=self.instrumentation,
         )
 

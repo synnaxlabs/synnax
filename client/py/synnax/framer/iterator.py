@@ -10,14 +10,18 @@
 from __future__ import annotations
 
 from enum import Enum
+from typing import cast
 
 from alamos import NOOP, Instrumentation
-from freighter import EOF, Stream, StreamClient
+from freighter import EOF, Stream, WebsocketClient
+from freighter.transport import P
+from freighter.websocket import Message
 from pydantic import BaseModel
 
 import synnax.channel.payload as channel
 from synnax.exceptions import UnexpectedError
 from synnax.framer.adapter import ReadFrameAdapter
+from synnax.framer.codec import LOW_PERF_SPECIAL_CHAR, WSFramerCodec
 from synnax.framer.frame import Frame, FramePayload
 from synnax.telem import TimeRange, TimeSpan, TimeStamp
 
@@ -60,6 +64,29 @@ class _Response(BaseModel):
     frame: FramePayload
 
 
+class WSIteratorCodec(WSFramerCodec):
+    def encode(self, data: BaseModel) -> bytes:
+        return self.lower_perf_codec.encode(data)
+
+    def decode(self, data: bytes, pld_t: type[P]) -> P:
+        if data[0] == LOW_PERF_SPECIAL_CHAR:
+            return self.lower_perf_codec.decode(data[1:], pld_t)
+        frame = self.codec.decode(data, 1)
+        return cast(
+            P,
+            Message(
+                type="data",
+                payload=_Response(
+                    variant=_ResponseVariant.DATA,
+                    command=_Command.OPEN,
+                    ack=False,
+                    error=None,
+                    frame=frame,
+                ),
+            ),
+        )
+
+
 class Iterator:
     """Used to iterate over a databases telemetry in time-order. It should not be
     instantiated directly, and should instead be instantiated using the segment Client.
@@ -82,15 +109,18 @@ class Iterator:
     def __init__(
         self,
         tr: TimeRange,
-        client: StreamClient,
+        client: WebsocketClient,
         adapter: ReadFrameAdapter,
         chunk_size: int = 100000,
         downsample_factor: int = 1,
+        use_experimental_codec: bool = True,
         instrumentation: Instrumentation = NOOP,
     ) -> None:
         self.tr = tr
         self.instrumentation = instrumentation
         self.__adapter = adapter
+        if use_experimental_codec:
+            client = client.with_codec(WSIteratorCodec(self.__adapter.codec))
         self.__stream = client.stream("/frame/iterate", _Request, _Response)
         self._chunk_size = chunk_size
         self._downsample_factor = downsample_factor
