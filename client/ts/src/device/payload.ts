@@ -43,6 +43,7 @@ export const deviceZ = <
     model: model ?? z.string().min(1, "Model is required"),
     location: z.string().min(1, "Location is required"),
     configured: z.boolean().optional(),
+    parentDevice: keyZ.optional(),
     properties: properties ?? record.nullishToEmpty(),
     status: zod.nullToUndefined(statusZ),
   });

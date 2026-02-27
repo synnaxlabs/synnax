@@ -575,5 +575,129 @@ TEST(DeviceTests, testParseFromJSONDefaults) {
     ASSERT_EQ(d.model, "");
     ASSERT_EQ(x::json::json(d.properties), x::json::json::object());
     ASSERT_EQ(d.configured, false);
+    ASSERT_EQ(d.parent_device, "");
+}
+
+/// @brief it should parse parent_device from JSON.
+TEST(DeviceTests, testParseParentDeviceFromJSON) {
+    x::json::json j = {
+        {"key", "module-key"},
+        {"name", "module"},
+        {"rack", 1},
+        {"location", "slot-1"},
+        {"make", "NI"},
+        {"model", "9205"},
+        {"parent_device", "chassis-key"},
+        {"configured", false}
+    };
+    x::json::Parser parser(j);
+    auto d = Device::parse(parser);
+    ASSERT_NIL(parser.error());
+    ASSERT_EQ(d.parent_device, "chassis-key");
+}
+
+/// @brief it should default parent_device to empty when not present in JSON.
+TEST(DeviceTests, testParseParentDeviceDefaultsEmpty) {
+    x::json::json j = {
+        {"key", "standalone-key"},
+        {"name", "standalone"},
+        {"rack", 1},
+        {"location", "slot-1"},
+    };
+    x::json::Parser parser(j);
+    auto d = Device::parse(parser);
+    ASSERT_EQ(d.parent_device, "");
+}
+
+/// @brief it should round-trip parent_device through proto serialization.
+TEST(DeviceTests, testParentDeviceProtoRoundTrip) {
+    Device original;
+    original.key = "module-proto";
+    original.name = "Module";
+    original.rack = 42;
+    original.location = "slot-1";
+    original.make = "NI";
+    original.model = "9205";
+    original.parent_device = "chassis-proto";
+
+    api::v1::Device proto;
+    original.to_proto(&proto);
+
+    ASSERT_EQ(proto.parent_device(), "chassis-proto");
+
+    auto [recovered, err] = Device::from_proto(proto);
+    ASSERT_NIL(err);
+    ASSERT_EQ(recovered.parent_device, "chassis-proto");
+}
+
+/// @brief it should not set parent_device in proto when empty.
+TEST(DeviceTests, testEmptyParentDeviceProtoRoundTrip) {
+    Device original;
+    original.key = "standalone-proto";
+    original.name = "Standalone";
+    original.rack = 42;
+    original.location = "slot-1";
+
+    api::v1::Device proto;
+    original.to_proto(&proto);
+
+    ASSERT_EQ(proto.parent_device(), "");
+
+    auto [recovered, err] = Device::from_proto(proto);
+    ASSERT_NIL(err);
+    ASSERT_EQ(recovered.parent_device, "");
+}
+
+/// @brief it should create and retrieve a device with parent_device via the server.
+TEST(DeviceTests, testCreateAndRetrieveParentDevice) {
+    const auto client = new_test_client();
+    auto r = rack::Rack{.name = "test_rack"};
+    ASSERT_NIL(client.racks.create(r));
+    const auto rand = std::to_string(gen_rand_device());
+
+    auto chassis = Device{
+        .key = "pd-chassis-" + rand,
+        .name = "chassis",
+        .rack = r.key,
+        .location = "slot-0",
+        .make = "NI",
+        .model = "cDAQ-9178",
+    };
+    ASSERT_NIL(client.devices.create(chassis));
+
+    auto module = Device{
+        .key = "pd-module-" + rand,
+        .name = "module",
+        .rack = r.key,
+        .location = "slot-1",
+        .make = "NI",
+        .model = "9205",
+        .parent_device = chassis.key,
+    };
+    ASSERT_NIL(client.devices.create(module));
+
+    const auto retrieved = ASSERT_NIL_P(client.devices.retrieve(module.key));
+    ASSERT_EQ(retrieved.parent_device, chassis.key);
+}
+
+/// @brief it should retrieve empty parent_device for a standalone device.
+TEST(DeviceTests, testRetrieveEmptyParentDevice) {
+    const auto client = new_test_client();
+    auto r = rack::Rack{.name = "test_rack"};
+    ASSERT_NIL(client.racks.create(r));
+    const auto rand = std::to_string(gen_rand_device());
+
+    auto d = Device{
+        .key = "pd-standalone-" + rand,
+        .name = "standalone",
+        .rack = r.key,
+        .location = "slot-0",
+        .make = "LabJack",
+        .model = "T7",
+    };
+    ASSERT_NIL(client.devices.create(d));
+
+    const auto retrieved = ASSERT_NIL_P(client.devices.retrieve(d.key));
+    ASSERT_EQ(retrieved.parent_device, "");
 }
 }

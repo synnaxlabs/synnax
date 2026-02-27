@@ -477,6 +477,13 @@ public:
                     needs_update = true;
                 }
 
+                if (scanned_dev.parent_device != remote_dev.parent_device) {
+                    VLOG(1) << this->log_prefix << "device parent changed for "
+                            << scanned_dev.key << " from '" << remote_dev.parent_device
+                            << "' to '" << scanned_dev.parent_device << "'";
+                    needs_update = true;
+                }
+
                 auto merged_props = merge_device_properties(
                     remote_dev.properties,
                     scanned_dev.properties

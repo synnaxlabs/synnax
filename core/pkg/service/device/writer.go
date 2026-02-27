@@ -72,16 +72,34 @@ func (w Writer) Create(ctx context.Context, device Device) error {
 		return err
 	}
 	exists := !isNotFound
+
+	// Resolve the ontology parent. If ParentDevice is set, validate that the
+	// parent device exists. If it doesn't, clear ParentDevice so the stored
+	// record reflects reality. On the next scan cycle, the scanner will re-send
+	// with ParentDevice set, detect a difference, and trigger an update — at
+	// which point the parent should exist, producing the correct link.
+	parentID := device.Rack.OntologyID()
+	if device.ParentDevice != "" {
+		var parent Device
+		if pErr := gorp.NewRetrieve[string, Device]().
+			WhereKeys(device.ParentDevice).
+			Entry(&parent).
+			Exec(ctx, w.tx); pErr == nil {
+			parentID = OntologyID(device.ParentDevice)
+		} else {
+			device.ParentDevice = ""
+		}
+	}
+
 	if err = gorp.
 		NewCreate[string, Device]().
 		Entry(&device).
 		Exec(ctx, w.tx); err != nil {
 		return err
 	}
-	// If the device already exists, don't redefine the resource and relationship in the
-	// ontology, as to not mess with existing groups or relationships.
-	if exists && device.Rack == existing.Rack {
-		// If the device is being renamed, update the status name.
+	// If the device already exists and neither its rack nor parent changed,
+	// don't redefine the resource and relationship in the ontology.
+	if exists && device.Rack == existing.Rack && device.ParentDevice == existing.ParentDevice {
 		if device.Name != existing.Name {
 			stat := resolveStatus(&device, providedStatus)
 			return w.status.Set(ctx, stat)
@@ -105,7 +123,7 @@ func (w Writer) Create(ctx context.Context, device Device) error {
 	}
 	return w.otg.DefineRelationship(
 		ctx,
-		device.Rack.OntologyID(),
+		parentID,
 		ontology.RelationshipTypeParentOf,
 		otgID,
 	)

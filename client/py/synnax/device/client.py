@@ -65,6 +65,7 @@ class Client:
         make: str = "",
         model: str = "",
         configured: bool = False,
+        parent_device: str = "",
         properties: dict[str, Any] | None = None,
     ) -> Device: ...
 
@@ -85,6 +86,7 @@ class Client:
         make: str = "",
         model: str = "",
         configured: bool = False,
+        parent_device: str = "",
         properties: dict[str, Any] | None = None,
     ) -> Device | list[Device]:
         is_single = not isinstance(devices, list)
@@ -98,6 +100,7 @@ class Client:
                     make=make,
                     model=model,
                     configured=configured,
+                    parent_device=parent_device,
                     properties=properties if properties is not None else {},
                 )
             ]

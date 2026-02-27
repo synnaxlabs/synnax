@@ -130,7 +130,13 @@ export const ONTOLOGY_SERVICE: Ontology.Service = {
   ...Ontology.NOOP_SERVICE,
   type: "device",
   icon,
-  hasChildren: false,
+  hasChildren: ({ data }) => {
+    const props = data?.properties;
+    if (props == null || typeof props !== "object") return false;
+    // Key is camelCase because Freighter's HTTP codec recursively converts
+    // snake_case keys to camelCase (is_chassis → isChassis).
+    return "isChassis" in props && props.isChassis === true;
+  },
   TreeContextMenu,
   Item,
 };

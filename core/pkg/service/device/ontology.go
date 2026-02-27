@@ -53,17 +53,27 @@ func KeysFromOntologyIDs(ids []ontology.ID) []string {
 }
 
 var schema = zyn.Object(map[string]zyn.Schema{
-	"key":        zyn.String(),
-	"rack":       zyn.Uint32().Coerce(),
-	"location":   zyn.String(),
-	"name":       zyn.String(),
-	"make":       zyn.String(),
-	"model":      zyn.String(),
-	"configured": zyn.Bool(),
+	"key":           zyn.String(),
+	"rack":          zyn.Uint32().Coerce(),
+	"location":      zyn.String(),
+	"name":          zyn.String(),
+	"make":          zyn.String(),
+	"model":         zyn.String(),
+	"configured":    zyn.Bool(),
+	"parent_device": zyn.String(),
 })
 
 func newResource(d Device) ontology.Resource {
-	return ontology.NewResource(schema, OntologyID(d.Key), d.Name, d)
+	r := ontology.NewResource(schema, OntologyID(d.Key), d.Name, d)
+	// Inject properties outside the zyn schema. MsgpackEncodedJSON is a named map
+	// type that fails Go's .(map[string]any) assertion inside ObjectZ.Dump, so we
+	// add it to the resource data after the schema dump.
+	if d.Properties != nil {
+		if data, ok := r.Data.(map[string]any); ok {
+			data["properties"] = map[string]any(d.Properties)
+		}
+	}
+	return r
 }
 
 var _ ontology.Service = (*Service)(nil)

@@ -132,19 +132,6 @@ I can successfully:
   - [ ] See the user avatar and username in the top-right corner after logging in.
   - [ ] Click the user badge to open the logout menu.
 
-### Devices
-
-I can successfully:
-
-- **Resources Toolbar**
-  - [ ] See a device's state get updated.
-  - **Context Menu**
-    - [ ] Group devices.
-    - [ ] Configure an unconfigured device.
-    - [ ] Change the identifier on a configured device.
-    - [ ] Rename a device.
-    - [ ] Delete a device.
-
 ### Layout
 
 I can successfully:

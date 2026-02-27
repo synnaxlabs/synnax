@@ -42,6 +42,9 @@ type Device struct {
 	Rack rack.Key `json:"rack" msgpack:"rack"`
 	// Configured sets whether the device has been configured yet.
 	Configured bool `json:"configured" msgpack:"configured"`
+	// ParentDevice is the key of the parent device (e.g., chassis key for an NI
+	// module). When empty, the device is parented directly to its rack in the ontology.
+	ParentDevice string `json:"parent_device" msgpack:"parent_device"`
 }
 
 var _ gorp.Entry[string] = Device{}

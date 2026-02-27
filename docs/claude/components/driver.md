@@ -116,7 +116,17 @@ Factory → {Read|Write|Scan}Task → Source/Sink → Device API
 
 - Analog/digital read
 - Analog/digital write
-- Scanner
+- Scanner (with chassis/module hierarchy resolution)
+
+**Chassis/Module Hierarchy:**
+
+The NI scanner discovers CompactDAQ chassis and their installed modules using NISysCfg
+link properties (`ConnectsToLinkName` / `ProvidesLinkName`). The scan uses a two-pass
+algorithm: first collect all devices and build a link-name-to-chassis-key map, then
+resolve each module's `parent_device` via that map. Chassis are sorted before modules to
+ensure parents are created first. The common scan task
+(`driver/task/common/scan_task.h`) detects `parent_device` changes between scan cycles
+and triggers updates.
 
 **Error Handling:**
 
@@ -275,6 +285,25 @@ linkopts = select({
     "@platforms//os:windows": ["ws2_32.lib", "Iphlpapi.lib"],
 })
 ```
+
+## Device Hierarchy (Parent-Child Relationships)
+
+Devices support a `parent_device` field that creates parent-child relationships in the
+ontology. When `parent_device` is set to another device's key, the child device appears
+nested under the parent in the Console's resource tree.
+
+**How it works:**
+
+- The Go server (`core/pkg/service/device/writer.go`) validates parent existence on
+  create. If the parent doesn't exist yet, it clears `parent_device` and falls back to
+  the rack as parent. On the next scan cycle the scanner re-sends with the parent set,
+  detects the difference, and triggers an update.
+- The server creates an ontology `ParentOf` relationship from the parent device (or
+  rack) to the child device.
+- The Console checks `is_chassis` in device properties to determine if a device node
+  should be expandable.
+
+**Currently used by:** NI integration (cDAQ chassis with swappable modules).
 
 ## Key Architectural Patterns
 
