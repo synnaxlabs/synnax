@@ -23,7 +23,6 @@ export const resourceTypeZ = z.enum([
   "label",
   "log",
   "builtin",
-  "cluster",
   "channel",
   "node",
   "group",

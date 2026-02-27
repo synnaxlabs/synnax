@@ -40,7 +40,6 @@ import (
 var allObjects = []ontology.ID{
 	{Type: label.OntologyType},
 	{Type: log.OntologyType},
-	{Type: cluster.OntologyType},
 	{Type: cluster.OntologyTypeNode},
 	{Type: channel.OntologyType},
 	{Type: group.OntologyType},
@@ -94,7 +93,6 @@ var (
 			Objects: []ontology.ID{
 				{Type: label.OntologyType},
 				{Type: log.OntologyType},
-				{Type: cluster.OntologyType},
 				{Type: cluster.OntologyTypeNode},
 				{Type: channel.OntologyType},
 				{Type: group.OntologyType},

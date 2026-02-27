@@ -260,8 +260,6 @@ func OpenLayer(ctx context.Context, cfgs ...LayerConfig) (l *Layer, err error) {
 		Ontology: l.Ontology,
 		Cluster:  l.Cluster,
 	}
-	clusterOntologySvc := &cluster.OntologyService{Cluster: l.Cluster}
-	l.Ontology.RegisterService(clusterOntologySvc)
 	l.Ontology.RegisterService(nodeOntologySvc)
 
 	nodeOntologySvc.ListenForChanges(ctx)

@@ -17,7 +17,6 @@ import (
 	"slices"
 	"strconv"
 
-	"github.com/google/uuid"
 	"github.com/samber/lo"
 	"github.com/synnaxlabs/alamos"
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
@@ -28,10 +27,7 @@ import (
 	"go.uber.org/zap"
 )
 
-const (
-	OntologyTypeNode ontology.Type = "node"
-	OntologyType     ontology.Type = "cluster"
-)
+const OntologyTypeNode ontology.Type = "node"
 
 // NodeOntologyID returns a unique identifier for a Node to use within a resource
 // Ontology.
@@ -39,20 +35,11 @@ func NodeOntologyID(key NodeKey) ontology.ID {
 	return ontology.ID{Type: OntologyTypeNode, Key: strconv.Itoa(int(key))}
 }
 
-// OntologyID returns a unique identifier for a Cluster to use with a
-// resource Ontology.
-func OntologyID(key uuid.UUID) ontology.ID {
-	return ontology.ID{Type: OntologyType, Key: key.String()}
-}
-
-var (
-	nodeSchema = zyn.Object(map[string]zyn.Schema{
-		"key":     zyn.Uint16().Coerce(),
-		"address": zyn.String(),
-		"state":   zyn.Uint32().Coerce(),
-	})
-	schema = zyn.Object(map[string]zyn.Schema{"key": zyn.UUID()})
-)
+var nodeSchema = zyn.Object(map[string]zyn.Schema{
+	"key":     zyn.Uint16().Coerce(),
+	"address": zyn.String(),
+	"state":   zyn.Uint32().Coerce(),
+})
 
 // NodeOntologyService implements the ontology.Service interface to provide resource access
 // to a cluster's nodes.
@@ -123,36 +110,3 @@ func newNodeResource(n Node) ontology.Resource {
 	)
 }
 
-// OntologyService implements the ontology.Service to provide resource access
-// to metadata about a Cluster.
-type OntologyService struct {
-	// Nothing will ever change about the cluster.
-	observe.Noop[iter.Seq[ontology.Change]]
-	Cluster Cluster
-}
-
-var _ ontology.Service = (*OntologyService)(nil)
-
-func (s *OntologyService) Type() ontology.Type { return OntologyType }
-
-// Schema implements ontology.Service.
-func (s *OntologyService) Schema() zyn.Schema { return schema }
-
-// RetrieveResource implements ontology.Service.
-func (s *OntologyService) RetrieveResource(context.Context, string, gorp.Tx) (ontology.Resource, error) {
-	return newClusterResource(s.Cluster.Key()), nil
-}
-
-// OpenNexter implements ontology.Service.
-func (s *OntologyService) OpenNexter(context.Context) (iter.Seq[ontology.Resource], io.Closer, error) {
-	return slices.Values([]ontology.Resource{}), xio.NopCloser, nil
-}
-
-func newClusterResource(key uuid.UUID) ontology.Resource {
-	return ontology.NewResource(
-		schema,
-		OntologyID(key),
-		"Cluster",
-		map[string]any{"key": key},
-	)
-}
