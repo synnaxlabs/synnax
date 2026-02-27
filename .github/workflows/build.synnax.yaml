@@ -768,6 +768,9 @@ jobs:
         os: ${{ fromJSON(needs.setup.outputs.console_tauri_matrix) }}
     runs-on: ${{ matrix.os }}
     steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v6
+
       - name: Import Apple Developer Certificate
         if: startsWith(matrix.os, 'macos') && inputs.sign_binaries
         env:
@@ -776,9 +779,6 @@ jobs:
           KEYCHAIN_PASSWORD: ${{ secrets.KEYCHAIN_PASSWORD }}
           KEYCHAIN_NAME: build-${{ runner.name }}.keychain
         run: scripts/import_apple_certificate.sh
-
-      - name: Checkout Repository
-        uses: actions/checkout@v6
 
       - name: Get Console Version
         id: console-version
