@@ -23,7 +23,9 @@ func (c *Int32Counter) Value() int32 { return atomic.LoadInt32(&c.value) }
 // Int64Counter is an int64 counter that is safe for concurrent use.
 type Int64Counter struct{ value int64 }
 
-func (c *Int64Counter) Add(delta int64) int64 { return atomic.AddInt64(&c.value, delta) }
+func (c *Int64Counter) Add(delta int64) int64 {
+	return atomic.AddInt64(&c.value, delta)
+}
 
 func (c *Int64Counter) Set(value int64) { atomic.StoreInt64(&c.value, value) }
 
