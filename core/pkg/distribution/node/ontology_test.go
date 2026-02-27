@@ -11,21 +11,31 @@ package node_test
 
 import (
 	"context"
+	"iter"
 	"slices"
+	"strconv"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"github.com/synnaxlabs/aspen"
 	"github.com/synnaxlabs/synnax/pkg/distribution/mock"
 	"github.com/synnaxlabs/synnax/pkg/distribution/node"
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
+	"github.com/synnaxlabs/x/change"
+	. "github.com/synnaxlabs/x/testutil"
 )
 
-var ctx = context.Background()
-
 var _ = Describe("Ontology", Ordered, func() {
-	var mockCluster *mock.Cluster
-	BeforeAll(func() { mockCluster = mock.ProvisionCluster(ctx, 3) })
+	var (
+		mockCluster *mock.Cluster
+		ctx         context.Context
+	)
+	BeforeAll(func() {
+		ctx = context.Background()
+		mockCluster = mock.ProvisionCluster(ctx, 3)
+	})
 	AfterAll(func() { Expect(mockCluster.Close()).To(Succeed()) })
+	BeforeEach(func() { ctx = context.Background() })
 
 	Describe("OntologyID", func() {
 		It("Should return a correctly formatted ontology ID", func() {
@@ -58,22 +68,35 @@ var _ = Describe("Ontology", Ordered, func() {
 		})
 
 		Describe("Schema", func() {
-			It("Should return a non-nil schema", func() {
-				Expect(svc.Schema()).ToNot(BeNil())
+			It("Should successfully dump a node to a standardized format", func() {
+				n := node.Node{Key: 1, Address: "localhost:9090"}
+				dumped, err := svc.Schema().Dump(n)
+				Expect(err).ToNot(HaveOccurred())
+				m, ok := dumped.(map[string]any)
+				Expect(ok).To(BeTrue())
+				Expect(m).To(HaveKey("key"))
+				Expect(m).To(HaveKey("address"))
+				Expect(m).To(HaveKey("state"))
+			})
+		})
+
+		Describe("ListenForChanges", func() {
+			It("Should define the free node resource in the ontology", func() {
+				svc.ListenForChanges(ctx)
+				r := MustSucceed(svc.RetrieveResource(ctx, "0", nil))
+				Expect(r.ID).To(Equal(node.OntologyID(node.KeyFree)))
 			})
 		})
 
 		Describe("RetrieveResource", func() {
 			It("Should retrieve a node resource by key", func() {
-				r, err := svc.RetrieveResource(ctx, "1", nil)
-				Expect(err).ToNot(HaveOccurred())
+				r := MustSucceed(svc.RetrieveResource(ctx, "1", nil))
 				Expect(r.ID.Type).To(Equal(node.OntologyType))
 				Expect(r.ID.Key).To(Equal("1"))
 			})
 
 			It("Should retrieve the free node resource", func() {
-				r, err := svc.RetrieveResource(ctx, "0", nil)
-				Expect(err).ToNot(HaveOccurred())
+				r := MustSucceed(svc.RetrieveResource(ctx, "0", nil))
 				Expect(r.ID.Type).To(Equal(node.OntologyType))
 				Expect(r.ID.Key).To(Equal("0"))
 			})
@@ -81,24 +104,45 @@ var _ = Describe("Ontology", Ordered, func() {
 			It("Should return an error for an invalid key", func() {
 				_, err := svc.RetrieveResource(ctx, "invalid", nil)
 				Expect(err).To(HaveOccurred())
+				Expect(err).To(BeAssignableToTypeOf(&strconv.NumError{}))
 			})
 
 			It("Should return an error for a non-existent node", func() {
 				_, err := svc.RetrieveResource(ctx, "999", nil)
-				Expect(err).To(HaveOccurred())
+				Expect(err).To(HaveOccurredAs(aspen.ErrNodeNotFound))
+				Expect(err.Error()).To(ContainSubstring("999"))
 			})
 		})
 
 		Describe("OpenNexter", func() {
 			It("Should iterate over all nodes", func() {
-				seq, closer, err := svc.OpenNexter(ctx)
-				Expect(err).ToNot(HaveOccurred())
+				seq, closer := MustSucceed2(svc.OpenNexter(ctx))
 				defer closer.Close()
 				resources := slices.Collect(seq)
 				Expect(len(resources)).To(BeNumerically(">=", 3))
 				for _, r := range resources {
 					Expect(r.ID.Type).To(Equal(node.OntologyType))
 				}
+			})
+		})
+
+		Describe("OnChange", func() {
+			It("Should propagate cluster topology changes", func() {
+				changes := make(chan []ontology.Change, 5)
+				dc := svc.OnChange(func(
+					ctx context.Context,
+					seq iter.Seq[ontology.Change],
+				) {
+					changes <- slices.Collect(seq)
+				})
+				defer dc()
+				mockCluster.Provision(ctx)
+				Eventually(func(g Gomega) {
+					c := <-changes
+					g.Expect(len(c)).To(BeNumerically(">", 0))
+					g.Expect(c[0].Variant).To(Equal(change.VariantSet))
+					g.Expect(c[0].Key.Type).To(Equal(node.OntologyType))
+				}).Should(Succeed())
 			})
 		})
 	})
