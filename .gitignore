@@ -206,6 +206,7 @@ integration/tests/results/
 # |||| LANDING SITE ||||
 
 synnax-data/**
+*.mp4
 
 # |||||| BAZEL ||||||
 # Ignore all bazel-* symlinks. There is no full list since this can change

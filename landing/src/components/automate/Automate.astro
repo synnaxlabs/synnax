@@ -2,6 +2,9 @@
 import { grammar as arcGrammar } from "@synnaxlabs/arc";
 import { Flex, Text } from "@synnaxlabs/pluto";
 import { createCssVariablesTheme, createHighlighter } from "shiki";
+import { AutomateVisualizer } from "@/components/automate/AutomateVisualizer";
+import { ControlSystemGraphic } from "@/components/automate/ControlSystemGraphic";
+import { ControlHandoffGraphic } from "@/components/automate/ControlHandoffGraphic";
 
 const cssVarsTheme = createCssVariablesTheme({ name: "css-variables" });
 
@@ -75,11 +78,17 @@ sequence main {
         0 -> vent_vlv_cmd
     }
 }`;
+
+const codeHtmls = [
+    highlight(pressureSequence),
+    highlight(alarmMonitoring),
+    highlight(authorityControl),
+];
 ---
 
 <Flex.Box el="section" className="automate">
     <Text.Text level="h4" variant="code" className="automate-label">
-        03. Automate & Control
+        3 -> Automate & Control
     </Text.Text>
 
     <!-- Hero -->
@@ -88,37 +97,14 @@ sequence main {
             Write sequences,<br />not boilerplate
         </Text.Text>
         <Text.Text level="p" className="automate-description">
-            Arc is a reactive programming language built for hardware automation.
-            Define control sequences, manage authority, and orchestrate your
-            hardware — all in a few lines of code.
+            Arc is a reactive programming language built for hardware automation. Define
+            control sequences, manage authority, and orchestrate your hardware — all in
+            a few lines of code.
         </Text.Text>
     </div>
 
-    <!-- Tabbed code examples -->
-    <div class="automate-examples">
-        <div class="automate-tabs">
-            <button class="automate-tab automate-tab--active" data-example="0">
-                Pressure Sequence
-            </button>
-            <button class="automate-tab" data-example="1">
-                Alarm Monitoring
-            </button>
-            <button class="automate-tab" data-example="2">
-                Abort Sequence
-            </button>
-        </div>
-        <div class="automate-code">
-            <div class="automate-panel automate-panel--active" data-panel="0">
-                <Fragment set:html={highlight(pressureSequence)} />
-            </div>
-            <div class="automate-panel" data-panel="1">
-                <Fragment set:html={highlight(alarmMonitoring)} />
-            </div>
-            <div class="automate-panel" data-panel="2">
-                <Fragment set:html={highlight(authorityControl)} />
-            </div>
-        </div>
-    </div>
+    <!-- Animated code visualizer -->
+    <AutomateVisualizer client:visible codeHtmls={codeHtmls} />
 
     <!-- Bento grid -->
     <div class="automate-bento">
@@ -126,14 +112,22 @@ sequence main {
             <Text.Text level="h4" className="automate-bento-title">
                 Real-Time Ready
             </Text.Text>
+            <ControlSystemGraphic client:visible className="automate-bento-graphic" />
             <Text.Text level="p" className="automate-bento-description">
+                Deploy Arc sequences on real-time targets like NI Linux RT for
+                deterministic execution at cycle rates up to 5 kHz. Same code, same
+                behavior, from prototyping on Ubuntu to production on dedicated RT
+                hardware.
             </Text.Text>
         </div>
         <div class="automate-bento-card">
             <Text.Text level="h4" className="automate-bento-title">
                 Seamless Control Handoff
             </Text.Text>
+            <ControlHandoffGraphic client:visible className="handoff-graphic" />
             <Text.Text level="p" className="automate-bento-description">
+                Synnax's control negotiation system transitions actuator authority
+                between automated and manual operation without interruption.
             </Text.Text>
         </div>
     </div>
@@ -166,8 +160,8 @@ sequence main {
         color: var(--pluto-gray-l8);
     }
 
-    /* Tabbed code examples */
-    .automate-examples {
+    /* Visualizer container */
+    .automate-visualizer {
         display: flex;
         flex-direction: column;
         width: 100%;
@@ -177,13 +171,14 @@ sequence main {
         background: var(--pluto-gray-l1);
     }
 
-    .automate-tabs {
+    /* Tabs */
+    .automate-viz-tabs {
         display: flex;
         gap: 0;
         border-bottom: var(--pluto-border);
     }
 
-    .automate-tab {
+    .automate-viz-tab {
         padding: 2.5rem 4rem;
         background: transparent;
         border: none;
@@ -193,7 +188,9 @@ sequence main {
         font-size: 2.5rem;
         font-weight: 500;
         color: var(--pluto-gray-l6);
-        transition: color 0.2s ease, background 0.2s ease;
+        transition:
+            color 0.2s ease,
+            background 0.2s ease;
 
         &:hover {
             color: var(--pluto-gray-l9);
@@ -205,17 +202,26 @@ sequence main {
         }
     }
 
-    .automate-tab--active {
+    .automate-viz-tab--active {
         color: var(--pluto-text-color);
         background: var(--pluto-gray-l2);
     }
 
-    .automate-code {
-        padding: 4rem;
-        min-height: 300px;
+    /* Two-column content area */
+    .automate-viz-content {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        min-height: 380px;
     }
 
-    .automate-code pre {
+    /* Code panel */
+    .automate-viz-code {
+        padding: 4rem;
+        border-right: var(--pluto-border);
+        overflow: auto;
+    }
+
+    .automate-code-panel pre {
         margin: 0;
         padding: 0;
         background: transparent !important;
@@ -223,22 +229,163 @@ sequence main {
         line-height: 3.6rem;
     }
 
-    .automate-code code {
+    .automate-code-panel code {
         font-family: var(--pluto-mono-font-family);
+        display: flex;
+        flex-direction: column;
+        counter-reset: line;
     }
 
-    .automate-panel {
-        display: none;
+    .automate-code-panel .line {
+        min-height: 3.6rem;
+        padding: 0 1rem;
+        border-left: 3px solid transparent;
+        counter-increment: line;
+        transition:
+            border-color 0.3s ease,
+            background 0.3s ease;
     }
 
-    .automate-panel--active {
-        display: block;
+    .automate-code-panel .line::before {
+        content: counter(line);
+        display: inline-block;
+        width: 2.5rem;
+        margin-right: 2.5rem;
+        text-align: right;
+        color: var(--pluto-gray-l7);
+        font-size: 2.2rem;
+        user-select: none;
+    }
+
+    .automate-code-panel .line[data-active] {
+        border-left-color: var(--pluto-primary-p1);
+        background: var(--pluto-primary-z-20);
+    }
+
+    /* Diagram panel */
+    .automate-viz-diagram {
+        display: flex;
+        align-items: stretch;
+        justify-content: stretch;
+        padding: 0;
+    }
+
+    .automate-diagram-svg {
+        width: 100%;
+        height: 100%;
+    }
+
+    .automate-diagram-svg path,
+    .automate-diagram-svg line,
+    .automate-diagram-svg rect,
+    .automate-diagram-svg circle,
+    .automate-diagram-svg polygon {
+        vector-effect: non-scaling-stroke;
+    }
+
+    .automate-diagram-svg .valve-shape {
+        transition: fill 0.3s ease;
+    }
+
+    .automate-diagram-svg .vessel-fill {
+        transition:
+            height 0.5s ease,
+            y 0.5s ease,
+            fill 0.3s ease;
+    }
+
+    .automate-diagram-svg .authority-fill {
+        transition:
+            width 0.4s ease,
+            fill 0.3s ease;
+    }
+
+    .automate-diagram-svg .diagram-node {
+        transition:
+            stroke 0.3s ease,
+            fill 0.3s ease,
+            fill-opacity 0.3s ease;
+    }
+
+    .automate-diagram-svg .diagram-label {
+        font-family: var(--pluto-mono-font-family);
+        font-size: 10px;
+    }
+
+    .automate-diagram-svg .diagram-label-sm {
+        font-family: var(--pluto-mono-font-family);
+        font-size: 9px;
+    }
+
+    .automate-diagram-svg .diagram-value {
+        font-family: var(--pluto-mono-font-family);
+        font-size: 14px;
+        font-weight: 400;
+    }
+
+    .automate-diagram-svg .diagram-value-sm {
+        font-family: var(--pluto-mono-font-family);
+        font-size: 12px;
+        font-weight: 600;
+    }
+
+    .automate-diagram-svg .diagram-badge {
+        font-family: var(--pluto-mono-font-family);
+        font-size: 11px;
+        font-weight: 500;
+    }
+
+    /* Flow animation for dashed pipe lines */
+    .automate-diagram-svg .flow-line {
+        animation: flow-dash 0.8s linear infinite;
+    }
+
+    @keyframes flow-dash {
+        to {
+            stroke-dashoffset: -20;
+        }
+    }
+
+    /* Emergency pulse for abort diagram */
+    .automate-diagram-svg .emergency-border {
+        animation: emergency-pulse 1s ease-in-out infinite;
+    }
+
+    @keyframes emergency-pulse {
+        0%,
+        100% {
+            opacity: 1;
+        }
+        50% {
+            opacity: 0.6;
+        }
+    }
+
+    /* Step progress dots */
+    .automate-viz-progress {
+        display: flex;
+        justify-content: center;
+        gap: 0.8rem;
+        padding: 2rem;
+        border-top: var(--pluto-border);
+    }
+
+    .automate-viz-dot {
+        width: 6px;
+        height: 6px;
+        border-radius: 50%;
+        background: var(--pluto-gray-l4);
+        transition: background 0.2s ease;
+    }
+
+    .automate-viz-dot--active {
+        background: var(--pluto-primary-p1);
     }
 
     /* Bento grid */
     .automate-bento {
         display: grid;
-        grid-template-columns: repeat(2, 1fr);
+        grid-template-columns: 2fr 3fr;
         gap: 1px;
         width: 100%;
         border: var(--pluto-border);
@@ -255,27 +402,164 @@ sequence main {
         background: var(--pluto-gray-l1);
     }
 
+    .automate-bento-card .automate-bento-description {
+        margin-top: auto;
+        height: 96px;
+        display: flex;
+        align-items: flex-start;
+    }
+
+    .automate-bento-card:first-child {
+        background:
+            linear-gradient(var(--pluto-gray-l3) 1px, transparent 1px),
+            linear-gradient(90deg, var(--pluto-gray-l3) 1px, transparent 1px),
+            var(--pluto-gray-l1);
+        background-size:
+            25px 25px,
+            25px 25px,
+            auto;
+        position: relative;
+    }
+
+    .automate-bento-card:first-child::after {
+        content: "";
+        position: absolute;
+        bottom: 0;
+        left: 0;
+        right: 0;
+        height: 40%;
+        background: linear-gradient(to bottom, transparent, var(--pluto-gray-l1));
+        pointer-events: none;
+    }
+
     .automate-bento-title {
         display: block;
+        position: relative;
+        z-index: 1;
     }
 
     .automate-bento-description {
         color: var(--pluto-gray-l8);
+        position: relative;
+        z-index: 1;
+    }
+
+    /* Handoff graphic */
+    .handoff-graphic {
+        position: relative;
+        width: 100%;
+        z-index: 1;
+        margin-top: 4rem;
+    }
+
+    .handoff-entities {
+        display: flex;
+        flex-direction: column;
+        justify-content: space-between;
+        height: 267px;
+    }
+
+    .handoff-entity {
+        display: flex;
+        align-items: center;
+    }
+
+    .handoff-chip {
+        position: relative;
+        min-width: 105px;
+        border: var(--pluto-border);
+        padding: 1rem 2rem;
+        border-radius: 1rem;
+        text-align: center;
+        font-family: var(--pluto-font-family);
+        font-size: 2.2rem;
+        color: var(--pluto-text-color);
+    }
+
+    .handoff-chip::after {
+        content: "";
+        position: absolute;
+        top: 50%;
+        right: -1.5rem;
+        transform: translateY(-50%);
+        border-top: 1.5rem solid transparent;
+        border-bottom: 1.5rem solid transparent;
+        border-left: 1.5rem solid var(--pluto-gray-l3);
+    }
+
+    .handoff-line {
+        height: 2px;
+        flex-grow: 1;
+        background: var(--pluto-gray-l3);
+    }
+
+    .handoff-paths {
+        position: absolute;
+        top: 50%;
+        left: 105px;
+        width: calc(100% - 105px);
+        height: calc(100% - 4.2rem);
+        transform: translateY(-50%);
+        z-index: 1;
+    }
+
+    .handoff-path-1 {
+        stroke-dasharray: 800;
+        stroke-dashoffset: 800;
+    }
+
+    .handoff-path-2 {
+        stroke-dasharray: 800;
+        stroke-dashoffset: 800;
+    }
+
+    .handoff-paths.animated .handoff-path-1 {
+        animation: handoff-dash 3s linear forwards;
+    }
+
+    .handoff-paths.animated .handoff-path-2 {
+        animation: handoff-dash 3s linear forwards;
+    }
+
+    @keyframes handoff-dash {
+        0% {
+            stroke-dashoffset: 800;
+        }
+        100% {
+            stroke-dashoffset: 0;
+        }
+    }
+
+    .automate-bento-graphic {
+        width: 70%;
+        height: auto;
+        align-self: center;
+        position: relative;
+        z-index: 1;
     }
 
     /* Responsive */
     @media (max-width: 900px) {
+        .automate-viz-content {
+            grid-template-columns: 1fr;
+        }
+
+        .automate-viz-code {
+            border-right: none;
+            border-bottom: var(--pluto-border);
+        }
+
         .automate-bento {
             grid-template-columns: repeat(2, 1fr);
         }
     }
 
     @media (max-width: 600px) {
-        .automate-tabs {
+        .automate-viz-tabs {
             flex-direction: column;
         }
 
-        .automate-tab {
+        .automate-viz-tab {
             border-right: none;
             border-bottom: var(--pluto-border);
 
@@ -287,24 +571,5 @@ sequence main {
         .automate-bento {
             grid-template-columns: 1fr;
         }
-
     }
 </style>
-
-<script>
-    const tabs = document.querySelectorAll(".automate-tab");
-    const panels = document.querySelectorAll(".automate-panel");
-
-    tabs.forEach((tab) => {
-        tab.addEventListener("click", () => {
-            const example = tab.getAttribute("data-example");
-            tabs.forEach((t) => t.classList.remove("automate-tab--active"));
-            panels.forEach((p) => p.classList.remove("automate-panel--active"));
-            tab.classList.add("automate-tab--active");
-            const panel = document.querySelector(
-                `.automate-panel[data-panel="${example}"]`,
-            );
-            if (panel) panel.classList.add("automate-panel--active");
-        });
-    });
-</script>

@@ -48,12 +48,13 @@ import OPCUA from "./logos/OPCUA.astro";
 
 <Flex.Box el="section" className="integrations">
     <Text.Text level="h4" variant="code" className="integrations-label">
-        02. Device Integrations
+        2 -> Device Integrations
     </Text.Text>
     <div class="integrations-content">
         <Flex.Box className="integrations-text">
             <Text.Text level="h2" className="integrations-title">
-                Works with your<br /><span class="integrations-vendor">existing</span><br />hardware
+                Works with your<br /><span class="integrations-vendor">existing</span
+                ><br />hardware
             </Text.Text>
             <Text.Text level="p" className="integrations-description">
                 Synnax natively integrates with the most popular data acquisition and
@@ -61,78 +62,169 @@ import OPCUA from "./logos/OPCUA.astro";
             </Text.Text>
         </Flex.Box>
         <div class="integrations-grid">
-            <div class="integration-cell" style="--logo-w: 12rem; --logo-h: 6rem; --brand-color: #03B584;" data-vendor="National Instruments"><NI /></div>
-            <div class="integration-cell" style="--logo-w: 14rem; --logo-h: 8.5rem; --brand-color: #C1131E;" data-vendor="LabJack"><LabJack /></div>
-            <div class="integration-cell" style="--logo-w: 17rem; --logo-h: 6rem; --brand-color: #F15D2E;" data-vendor="Dewesoft"><Dewesoft /></div>
-            <div class="integration-cell" style="--logo-w: 31rem; --logo-h: 12rem; --brand-color: #4A90D9;" data-vendor="OPC UA"><OPCUA /></div>
-            <div class="integration-cell" style="--logo-w: 10rem; --logo-h: 10rem; --brand-color: #6B4C9A;" data-vendor="Modbus"><Modbus /></div>
-            <div class="integration-cell" style="--logo-w: 17rem; --logo-h: 8.5rem; --brand-color: #E2001A;" data-vendor="EtherCAT"><EtherCAT /></div>
-            <div class="integration-cell" style="--logo-w: 22rem; --logo-h: 8.5rem; --brand-color: #E2001A;" data-vendor="Beckhoff"><Beckhoff /></div>
-            <div class="integration-cell" style="--logo-w: 29rem; --logo-h: 11rem; --brand-color: #009999;" data-vendor="Siemens"><Siemens /></div>
-            <div class="integration-cell" style="--logo-w: 24rem; --logo-h: 8.5rem; --brand-color: #C1131E;" data-vendor="Rockwell"><Rockwell /></div>
-            <div class="integration-cell" style="--logo-w: 19rem; --logo-h: 8.5rem; --brand-color: #8bb63a;" data-vendor="WAGO"><Wago /></div>
-            <div class="integration-cell" style="--logo-w: 20rem; --logo-h: 8rem; --brand-color: #166fc0;" data-vendor="Omron"><Omron /></div>
-            <div class="integration-cell integration-cell--custom" data-vendor="custom" style="--brand-color: var(--pluto-gray-l8);"><span class="integration-custom-label">+ Custom</span></div>
+            <div
+                class="integration-cell"
+                style="--logo-w: 12rem; --logo-h: 6rem; --brand-color: #03B584;"
+                data-vendor="National Instruments"
+            >
+                <NI />
+            </div>
+            <div
+                class="integration-cell"
+                style="--logo-w: 14rem; --logo-h: 8.5rem; --brand-color: #C1131E;"
+                data-vendor="LabJack"
+            >
+                <LabJack />
+            </div>
+            <div
+                class="integration-cell"
+                style="--logo-w: 17rem; --logo-h: 6rem; --brand-color: #F15D2E;"
+                data-vendor="Dewesoft"
+            >
+                <Dewesoft />
+            </div>
+            <div
+                class="integration-cell"
+                style="--logo-w: 31rem; --logo-h: 12rem; --brand-color: #4A90D9;"
+                data-vendor="OPC UA"
+            >
+                <OPCUA />
+            </div>
+            <div
+                class="integration-cell"
+                style="--logo-w: 10rem; --logo-h: 10rem; --brand-color: #6B4C9A;"
+                data-vendor="Modbus"
+            >
+                <Modbus />
+            </div>
+            <div
+                class="integration-cell"
+                style="--logo-w: 17rem; --logo-h: 8.5rem; --brand-color: #E2001A;"
+                data-vendor="EtherCAT"
+            >
+                <EtherCAT />
+            </div>
+            <div
+                class="integration-cell"
+                style="--logo-w: 22rem; --logo-h: 8.5rem; --brand-color: #E2001A;"
+                data-vendor="Beckhoff"
+            >
+                <Beckhoff />
+            </div>
+            <div
+                class="integration-cell"
+                style="--logo-w: 29rem; --logo-h: 11rem; --brand-color: #009999;"
+                data-vendor="Siemens"
+            >
+                <Siemens />
+            </div>
+            <div
+                class="integration-cell"
+                style="--logo-w: 24rem; --logo-h: 8.5rem; --brand-color: #C1131E;"
+                data-vendor="Rockwell"
+            >
+                <Rockwell />
+            </div>
+            <div
+                class="integration-cell"
+                style="--logo-w: 19rem; --logo-h: 8.5rem; --brand-color: #8bb63a;"
+                data-vendor="WAGO"
+            >
+                <Wago />
+            </div>
+            <div
+                class="integration-cell"
+                style="--logo-w: 20rem; --logo-h: 8rem; --brand-color: #166fc0;"
+                data-vendor="Omron"
+            >
+                <Omron />
+            </div>
+            <div
+                class="integration-cell integration-cell--custom"
+                data-vendor="custom"
+                style="--brand-color: var(--pluto-gray-l8);"
+            >
+                <span class="integration-custom-label">+ Custom</span>
+            </div>
         </div>
     </div>
     <div class="workflow-wrapper">
-    <div class="workflow">
-        <div class="workflow-tabs">
-            <button class="workflow-tab workflow-tab--active" data-step="0">
-                <div class="workflow-tab-header">
-                    <div class="workflow-step-number-box">
-                        <span class="workflow-step-number">01</span>
+        <div class="workflow">
+            <div class="workflow-tabs">
+                <button class="workflow-tab workflow-tab--active" data-step="0">
+                    <div class="workflow-tab-header">
+                        <div class="workflow-step-number-box">
+                            <span class="workflow-step-number">01</span>
+                        </div>
+                        <Text.Text level="h4" className="workflow-tab-title">
+                            Attach device
+                        </Text.Text>
                     </div>
-                    <Text.Text level="h4" className="workflow-tab-title">
-                        Attach device
+                    <Text.Text level="p" className="workflow-tab-description">
+                        Connect your hardware to the Synnax cluster. Our drivers
+                        automatically detect and establish communication with your
+                        devices.
                     </Text.Text>
-                </div>
-                <Text.Text level="p" className="workflow-tab-description">
-                    Connect your hardware to the Synnax cluster. Our drivers
-                    automatically detect and establish communication with your devices.
-                </Text.Text>
-            </button>
-            <button class="workflow-tab" data-step="1">
-                <div class="workflow-tab-header">
-                    <div class="workflow-step-number-box">
-                        <span class="workflow-step-number">02</span>
+                </button>
+                <button class="workflow-tab" data-step="1">
+                    <div class="workflow-tab-header">
+                        <div class="workflow-step-number-box">
+                            <span class="workflow-step-number">02</span>
+                        </div>
+                        <Text.Text level="h4" className="workflow-tab-title">
+                            Configure instrumentation
+                        </Text.Text>
                     </div>
-                    <Text.Text level="h4" className="workflow-tab-title">
-                        Configure instrumentation
+                    <Text.Text level="p" className="workflow-tab-description">
+                        Define your channels, set sample rates, and map physical signals
+                        to logical names. All from a single interface.
                     </Text.Text>
-                </div>
-                <Text.Text level="p" className="workflow-tab-description">
-                    Define your channels, set sample rates, and map physical signals
-                    to logical names. All from a single interface.
-                </Text.Text>
-            </button>
-            <button class="workflow-tab" data-step="2">
-                <div class="workflow-tab-header">
-                    <div class="workflow-step-number-box">
-                        <span class="workflow-step-number">03</span>
+                </button>
+                <button class="workflow-tab" data-step="2">
+                    <div class="workflow-tab-header">
+                        <div class="workflow-step-number-box">
+                            <span class="workflow-step-number">03</span>
+                        </div>
+                        <Text.Text level="h4" className="workflow-tab-title">
+                            Acquire data & control actuators
+                        </Text.Text>
                     </div>
-                    <Text.Text level="h4" className="workflow-tab-title">
-                        Acquire data & control actuators
+                    <Text.Text level="p" className="workflow-tab-description">
+                        Stream live telemetry, build dashboards, and send commands to
+                        your hardware — all in real time with microsecond precision.
                     </Text.Text>
+                </button>
+            </div>
+            <div class="workflow-screenshot">
+                <div
+                    class="workflow-panel workflow-panel--active"
+                    data-panel="0"
+                    style="--img-br: 3.5rem 1rem 1rem 1rem; --img-w: 170%;"
+                >
+                    <img src="/images/workflow-attach-device.png" alt="Attach device" />
                 </div>
-                <Text.Text level="p" className="workflow-tab-description">
-                    Stream live telemetry, build dashboards, and send commands to your
-                    hardware — all in real time with microsecond precision.
-                </Text.Text>
-            </button>
+                <div
+                    class="workflow-panel"
+                    data-panel="1"
+                    style="--img-br: 1.5rem 1rem 1rem 1rem;"
+                >
+                    <img
+                        src="/images/workflow-configure.png"
+                        alt="Configure instrumentation"
+                    />
+                </div>
+                <div
+                    class="workflow-panel"
+                    data-panel="2"
+                    style="--img-br: 2rem 1rem 1rem 1rem; --img-w: 120%;"
+                >
+                    <img
+                        src="/images/workflow-acquire.png"
+                        alt="Acquire data and control"
+                    />
+                </div>
+            </div>
         </div>
-        <div class="workflow-screenshot">
-            <div class="workflow-panel workflow-panel--active" data-panel="0" style="--img-br: 3.5rem 1rem 1rem 1rem; --img-w: 170%;">
-                <img src="/images/workflow-attach-device.png" alt="Attach device" />
-            </div>
-            <div class="workflow-panel" data-panel="1" style="--img-br: 1.5rem 1rem 1rem 1rem;">
-                <img src="/images/workflow-configure.png" alt="Configure instrumentation" />
-            </div>
-            <div class="workflow-panel" data-panel="2" style="--img-br: 2rem 1rem 1rem 1rem; --img-w: 120%;">
-                <img src="/images/workflow-acquire.png" alt="Acquire data and control" />
-            </div>
-        </div>
-    </div>
     </div>
 </Flex.Box>
 
@@ -239,8 +331,12 @@ import OPCUA from "./logos/OPCUA.astro";
             border-radius: 2.5rem;
             border: 1px solid rgba(255, 255, 255, 0.2);
             pointer-events: none;
-            mask-image: linear-gradient(135deg, rgba(0,0,0,1) 0%, transparent 50%);
-            -webkit-mask-image: linear-gradient(135deg, rgba(0,0,0,1) 0%, transparent 50%);
+            mask-image: linear-gradient(135deg, rgba(0, 0, 0, 1) 0%, transparent 50%);
+            -webkit-mask-image: linear-gradient(
+                135deg,
+                rgba(0, 0, 0, 1) 0%,
+                transparent 50%
+            );
         }
     }
 
@@ -433,7 +529,9 @@ import OPCUA from "./logos/OPCUA.astro";
             tabs.forEach((t) => t.classList.remove("workflow-tab--active"));
             panels.forEach((p) => p.classList.remove("workflow-panel--active"));
             tab.classList.add("workflow-tab--active");
-            const panel = document.querySelector(`.workflow-panel[data-panel="${step}"]`);
+            const panel = document.querySelector(
+                `.workflow-panel[data-panel="${step}"]`
+            );
             if (panel) panel.classList.add("workflow-panel--active");
         });
     });
