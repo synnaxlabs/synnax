@@ -15,7 +15,7 @@ import (
 	"github.com/samber/lo"
 	"github.com/synnaxlabs/aspen"
 	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
-	"github.com/synnaxlabs/synnax/pkg/distribution/cluster"
+	"github.com/synnaxlabs/synnax/pkg/distribution/node"
 	"github.com/synnaxlabs/synnax/pkg/distribution/proxy"
 	"github.com/synnaxlabs/synnax/pkg/storage/ts"
 	"github.com/synnaxlabs/x/errors"
@@ -80,7 +80,7 @@ func (lp *leaseProxy) deleteTimeRangeByName(
 
 func (lp *leaseProxy) deleteTimeRangeRemote(
 	ctx context.Context,
-	target cluster.NodeKey,
+	target node.NodeKey,
 	keys channel.Keys,
 	tr telem.TimeRange,
 ) error {

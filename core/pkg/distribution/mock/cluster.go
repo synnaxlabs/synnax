@@ -16,7 +16,7 @@ import (
 	"github.com/synnaxlabs/aspen"
 	aspentransmock "github.com/synnaxlabs/aspen/transport/mock"
 	"github.com/synnaxlabs/synnax/pkg/distribution"
-	"github.com/synnaxlabs/synnax/pkg/distribution/cluster"
+	"github.com/synnaxlabs/synnax/pkg/distribution/node"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer/deleter"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer/iterator"
@@ -38,7 +38,7 @@ type Node struct {
 
 type Cluster struct {
 	storage     *mock.Cluster
-	Nodes       map[cluster.NodeKey]Node
+	Nodes       map[node.NodeKey]Node
 	writerNet   *tmock.FramerWriterNetwork
 	iterNet     *tmock.FramerIteratorNetwork
 	channelNet  *tmock.ChannelNetwork
@@ -76,7 +76,7 @@ func NewCluster(cfgs ...distribution.LayerConfig) *Cluster {
 		deleteNet:   tmock.NewDeleterNetwork(),
 		aspenNet:    aspentransmock.NewNetwork(),
 		addrFactory: address.NewLocalFactory(0),
-		Nodes:       make(map[cluster.NodeKey]Node),
+		Nodes:       make(map[node.NodeKey]Node),
 	}
 }
 
@@ -157,15 +157,15 @@ func (m mockFramerTransport) Deleter() deleter.Transport {
 }
 
 type StaticHostProvider struct {
-	Node cluster.Node
+	Node node.Node
 }
 
-var _ cluster.HostProvider = StaticHostProvider{}
+var _ node.HostProvider = StaticHostProvider{}
 
-func StaticHostKeyProvider(key cluster.NodeKey) StaticHostProvider {
-	return StaticHostProvider{Node: cluster.Node{Key: key}}
+func StaticHostKeyProvider(key node.NodeKey) StaticHostProvider {
+	return StaticHostProvider{Node: node.Node{Key: key}}
 }
 
-func (s StaticHostProvider) Host() cluster.Node { return s.Node }
+func (s StaticHostProvider) Host() node.Node { return s.Node }
 
-func (s StaticHostProvider) HostKey() cluster.NodeKey { return s.Node.Key }
+func (s StaticHostProvider) HostKey() node.NodeKey { return s.Node.Key }

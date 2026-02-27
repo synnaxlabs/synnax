@@ -17,7 +17,7 @@ import (
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/cesium"
 	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
-	"github.com/synnaxlabs/synnax/pkg/distribution/cluster"
+	"github.com/synnaxlabs/synnax/pkg/distribution/node"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer/frame"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer/writer"
@@ -132,13 +132,13 @@ var _ = Describe("Writer", func() {
 					Name:        "free_time",
 					IsIndex:     true,
 					DataType:    telem.TimeStampT,
-					Leaseholder: cluster.NodeKeyFree,
+					Leaseholder: node.KeyFree,
 					Virtual:     true,
 				}
 				dataCh = channel.Channel{
 					Name:        "free",
 					DataType:    telem.Float32T,
-					Leaseholder: cluster.NodeKeyFree,
+					Leaseholder: node.KeyFree,
 					Virtual:     true,
 				}
 			)
@@ -240,7 +240,7 @@ func peerOnlyScenario() scenario {
 	builder := mock.ProvisionCluster(ctx, 4)
 	dist := builder.Nodes[1]
 	for i, ch := range channels {
-		ch.Leaseholder = cluster.NodeKey(i + 2)
+		ch.Leaseholder = node.NodeKey(i + 2)
 		channels[i] = ch
 	}
 	Expect(dist.Channel.NewWriter(nil).CreateMany(ctx, &channels)).To(Succeed())
@@ -259,7 +259,7 @@ func mixedScenario() scenario {
 	builder := mock.ProvisionCluster(ctx, 3)
 	svc := builder.Nodes[1]
 	for i, ch := range channels {
-		ch.Leaseholder = cluster.NodeKey(i + 1)
+		ch.Leaseholder = node.NodeKey(i + 1)
 		channels[i] = ch
 	}
 	Expect(svc.Channel.NewWriter(nil).CreateMany(ctx, &channels)).To(Succeed())
@@ -278,7 +278,7 @@ func freeWriterScenario() scenario {
 	builder := mock.ProvisionCluster(ctx, 3)
 	svc := builder.Nodes[1]
 	for i, ch := range channels {
-		ch.Leaseholder = cluster.NodeKeyFree
+		ch.Leaseholder = node.KeyFree
 		ch.Virtual = true
 		channels[i] = ch
 	}

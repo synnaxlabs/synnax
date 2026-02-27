@@ -13,7 +13,7 @@ import (
 	"context"
 
 	"github.com/samber/lo"
-	"github.com/synnaxlabs/synnax/pkg/distribution/cluster"
+	"github.com/synnaxlabs/synnax/pkg/distribution/node"
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
 	"github.com/synnaxlabs/x/gorp"
 )
@@ -22,7 +22,7 @@ type Retrieve struct {
 	baseTX       gorp.Tx
 	otg          *ontology.Ontology
 	gorp         gorp.Retrieve[Key, Rack]
-	hostProvider cluster.HostProvider
+	hostProvider node.HostProvider
 	searchTerm   string
 }
 
@@ -100,7 +100,7 @@ func (r Retrieve) Offset(offset int) Retrieve {
 }
 
 // WhereNode filters for racks that are embedded within the provided node.
-func (r Retrieve) WhereNode(node cluster.NodeKey, opts ...gorp.FilterOption) Retrieve {
+func (r Retrieve) WhereNode(node node.NodeKey, opts ...gorp.FilterOption) Retrieve {
 	r.gorp = r.gorp.Where(func(ctx gorp.Context, rack *Rack) (bool, error) {
 		return rack.Key.Node() == node, nil
 	}, opts...)

@@ -16,7 +16,7 @@ import (
 	"sync"
 
 	"github.com/samber/lo"
-	"github.com/synnaxlabs/synnax/pkg/distribution/cluster"
+	"github.com/synnaxlabs/synnax/pkg/distribution/node"
 	"github.com/synnaxlabs/synnax/pkg/distribution/group"
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
 	"github.com/synnaxlabs/synnax/pkg/distribution/proxy"
@@ -78,7 +78,7 @@ func newLeaseProxy(
 		group:         group,
 	}
 	p.mu.externalNonVirtualSet = set.NewInteger(KeysFromChannels(externalNonVirtualChannels))
-	if cfg.HostResolver.HostKey() == cluster.NodeKeyBootstrapper {
+	if cfg.HostResolver.HostKey() == node.KeyBootstrapper {
 		freeCounterKey := []byte(cfg.HostResolver.HostKey().String() + ".distribution.channel.counter.free")
 		c, err := openCounter(ctx, cfg.ClusterDB, freeCounterKey)
 		if err != nil {
@@ -140,7 +140,7 @@ func (lp *leaseProxy) create(ctx context.Context, tx gorp.Tx, _channels *[]Chann
 					"local_index",
 				)
 			}
-			channels[i].Leaseholder = cluster.NodeKeyFree
+			channels[i].Leaseholder = node.KeyFree
 			channels[i].Virtual = true
 			if lp.analyzeCalculation != nil {
 				dt, err := lp.analyzeCalculation(ctx, ch.Expression)
@@ -164,7 +164,7 @@ func (lp *leaseProxy) create(ctx context.Context, tx gorp.Tx, _channels *[]Chann
 				DataType:    telem.TimeStampT,
 				IsIndex:     true,
 				Virtual:     true,
-				Leaseholder: cluster.NodeKeyFree,
+				Leaseholder: node.KeyFree,
 				Internal:    ch.Internal,
 			}
 			indexChannels = append(indexChannels, indexCh)
@@ -185,7 +185,7 @@ func (lp *leaseProxy) create(ctx context.Context, tx gorp.Tx, _channels *[]Chann
 	}
 	if len(batch.Free) > 0 {
 		if !lp.cfg.HostResolver.HostKey().IsBootstrapper() {
-			remoteChannels, err := lp.createRemote(ctx, cluster.NodeKeyBootstrapper, batch.Free, opts)
+			remoteChannels, err := lp.createRemote(ctx, node.KeyBootstrapper, batch.Free, opts)
 			if err != nil {
 				return err
 			}
@@ -266,7 +266,7 @@ func (lp *leaseProxy) createAndUpdateFreeVirtual(
 				DataType:    telem.TimeStampT,
 				IsIndex:     true,
 				Virtual:     true,
-				Leaseholder: cluster.NodeKeyFree,
+				Leaseholder: node.KeyFree,
 				Internal:    ch.Internal,
 			}
 			indexChannelsForExisting = append(indexChannelsForExisting, indexCh)
@@ -566,7 +566,7 @@ func (lp *leaseProxy) maybeSetResources(
 
 func (lp *leaseProxy) createRemote(
 	ctx context.Context,
-	target cluster.NodeKey,
+	target node.NodeKey,
 	channels []Channel,
 	opts CreateOptions,
 ) ([]Channel, error) {
@@ -669,7 +669,7 @@ func (lp *leaseProxy) maybeDeleteResources(
 	return w.DeleteManyResources(ctx, ids)
 }
 
-func (lp *leaseProxy) deleteRemote(ctx context.Context, target cluster.NodeKey, keys Keys) error {
+func (lp *leaseProxy) deleteRemote(ctx context.Context, target node.NodeKey, keys Keys) error {
 	addr, err := lp.cfg.HostResolver.Resolve(target)
 	if err != nil {
 		return err
@@ -685,7 +685,7 @@ type renameBatchEntry struct {
 
 var _ proxy.Entry = renameBatchEntry{}
 
-func (r renameBatchEntry) Lease() cluster.NodeKey { return r.key.Lease() }
+func (r renameBatchEntry) Lease() node.NodeKey { return r.key.Lease() }
 
 func unzipRenameBatch(entries []renameBatchEntry) ([]Key, []string) {
 	return lo.UnzipBy2(entries, func(e renameBatchEntry) (Key, string) {
@@ -735,7 +735,7 @@ func (lp *leaseProxy) rename(
 	return nil
 }
 
-func (lp *leaseProxy) renameRemote(ctx context.Context, target cluster.NodeKey, keys Keys, names []string) error {
+func (lp *leaseProxy) renameRemote(ctx context.Context, target node.NodeKey, keys Keys, names []string) error {
 	addr, err := lp.cfg.HostResolver.Resolve(target)
 	if err != nil {
 		return err

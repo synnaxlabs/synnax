@@ -18,7 +18,7 @@ import (
 	apiauth "github.com/synnaxlabs/synnax/pkg/api/auth"
 
 	gapi "github.com/synnaxlabs/synnax/pkg/api/grpc/v1"
-	"github.com/synnaxlabs/synnax/pkg/distribution/cluster"
+	"github.com/synnaxlabs/synnax/pkg/distribution/node"
 	svcauth "github.com/synnaxlabs/synnax/pkg/service/auth"
 	"github.com/synnaxlabs/synnax/pkg/service/auth/password"
 	"github.com/synnaxlabs/synnax/pkg/service/user"
@@ -92,7 +92,7 @@ func (l loginResponseTranslator) Backward(
 		ClusterInfo: apiauth.ClusterInfo{
 			ClusterKey:  r.ClusterInfo.ClusterKey,
 			NodeVersion: r.ClusterInfo.NodeVersion,
-			NodeKey:     cluster.NodeKey(r.ClusterInfo.NodeKey),
+			NodeKey:     node.NodeKey(r.ClusterInfo.NodeKey),
 			NodeTime:    telem.TimeStamp(r.ClusterInfo.NodeTime),
 		},
 	}, err

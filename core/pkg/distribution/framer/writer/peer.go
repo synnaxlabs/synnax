@@ -15,7 +15,7 @@ import (
 
 	"github.com/synnaxlabs/freighter"
 	"github.com/synnaxlabs/freighter/freightfluence"
-	"github.com/synnaxlabs/synnax/pkg/distribution/cluster"
+	"github.com/synnaxlabs/synnax/pkg/distribution/node"
 
 	"github.com/synnaxlabs/synnax/pkg/distribution/proxy"
 	"github.com/synnaxlabs/x/address"
@@ -25,7 +25,7 @@ import (
 func (s *Service) openManyPeers(
 	ctx context.Context,
 	cfg Config,
-	targets map[cluster.NodeKey][]keyAuthority,
+	targets map[node.NodeKey][]keyAuthority,
 ) (confluence.Sink[Request], []*freightfluence.Receiver[Response], []address.Address, error) {
 	var (
 		receivers         = make([]*freightfluence.Receiver[Response], 0, len(targets))

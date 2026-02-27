@@ -14,7 +14,7 @@ import (
 
 	"github.com/synnaxlabs/alamos"
 	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
-	"github.com/synnaxlabs/synnax/pkg/distribution/cluster"
+	"github.com/synnaxlabs/synnax/pkg/distribution/node"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer"
 	"github.com/synnaxlabs/synnax/pkg/service/rack"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
@@ -29,7 +29,7 @@ type Config struct {
 	// Factory is the factory for creating tasks.
 	Factory Factory
 	// Host is the node key of the current host.
-	Host cluster.HostProvider
+	Host node.HostProvider
 	// DB is the gorp database for observing task changes.
 	DB *gorp.DB
 	// Rack is the rack service for creating/managing racks.

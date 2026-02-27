@@ -16,7 +16,7 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
-	"github.com/synnaxlabs/synnax/pkg/distribution/cluster"
+	"github.com/synnaxlabs/synnax/pkg/distribution/node"
 	distFramer "github.com/synnaxlabs/synnax/pkg/distribution/framer"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer/frame"
 	"github.com/synnaxlabs/synnax/pkg/distribution/group"
@@ -458,7 +458,7 @@ var _ = Describe("Metrics", func() {
 	})
 })
 
-func getNames(hostKey cluster.NodeKey) []string {
+func getNames(hostKey node.NodeKey) []string {
 	prefix := "sy_node_" + hostKey.String() + "_metrics_"
 	return []string{
 		prefix + "time",

@@ -13,7 +13,7 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
-	"github.com/synnaxlabs/synnax/pkg/distribution/cluster"
+	"github.com/synnaxlabs/synnax/pkg/distribution/node"
 	"github.com/synnaxlabs/synnax/pkg/distribution/mock"
 	"github.com/synnaxlabs/x/telem"
 )
@@ -65,7 +65,7 @@ var _ = Describe("Service", Ordered, func() {
 			virtualCh := channel.Channel{
 				Name:        channel.NewRandomName(),
 				DataType:    telem.Float64T,
-				Leaseholder: cluster.NodeKeyFree,
+				Leaseholder: node.KeyFree,
 				Virtual:     true,
 			}
 			Expect(mockCluster.Nodes[1].Channel.Create(ctx, &virtualCh)).To(Succeed())

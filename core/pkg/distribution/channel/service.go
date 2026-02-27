@@ -12,7 +12,7 @@ package channel
 import (
 	"context"
 
-	"github.com/synnaxlabs/synnax/pkg/distribution/cluster"
+	"github.com/synnaxlabs/synnax/pkg/distribution/node"
 	"github.com/synnaxlabs/synnax/pkg/distribution/group"
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
 	"github.com/synnaxlabs/synnax/pkg/storage/ts"
@@ -44,7 +44,7 @@ func (s *Service) SetCalculationAnalyzer(analyzer CalculationAnalyzer) {
 type IntOverflowChecker = func(types.Uint20) error
 
 type ServiceConfig struct {
-	HostResolver     cluster.HostResolver
+	HostResolver     node.HostResolver
 	ClusterDB        *gorp.DB
 	TSChannel        *ts.DB
 	Transport        Transport

@@ -12,7 +12,7 @@ package writer
 import (
 	"context"
 
-	"github.com/synnaxlabs/synnax/pkg/distribution/cluster"
+	"github.com/synnaxlabs/synnax/pkg/distribution/node"
 	"github.com/synnaxlabs/synnax/pkg/storage/ts"
 )
 
@@ -27,7 +27,7 @@ func newRequestTranslator() func(ctx context.Context, in Request) (ts.WriterRequ
 	}
 }
 
-func newResponseTranslator(host cluster.NodeKey) func(ctx context.Context, in ts.WriterResponse) (Response, bool, error) {
+func newResponseTranslator(host node.NodeKey) func(ctx context.Context, in ts.WriterResponse) (Response, bool, error) {
 	return func(ctx context.Context, in ts.WriterResponse) (Response, bool, error) {
 		return Response{
 			Command:    Command(in.Command),

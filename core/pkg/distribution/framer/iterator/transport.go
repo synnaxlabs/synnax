@@ -12,7 +12,7 @@ package iterator
 import (
 	"github.com/synnaxlabs/freighter"
 	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
-	"github.com/synnaxlabs/synnax/pkg/distribution/cluster"
+	"github.com/synnaxlabs/synnax/pkg/distribution/node"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer/frame"
 	"github.com/synnaxlabs/synnax/pkg/storage/ts"
 	"github.com/synnaxlabs/x/telem"
@@ -79,7 +79,7 @@ type Response struct {
 	// SeqNum
 	SeqNum int `json:"seq_num" msgpack:"seq_num"`
 	// NodeKey is the node Name where the remote Iterator lives.
-	NodeKey cluster.NodeKey `json:"node_key" msgpack:"node_key"`
+	NodeKey node.NodeKey `json:"node_key" msgpack:"node_key"`
 	// Variant is the type of response returned.
 	Variant ResponseVariant `json:"variant" msgpack:"variant"`
 	// Command is non-zero when the

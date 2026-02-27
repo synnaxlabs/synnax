@@ -11,7 +11,7 @@ package proxy
 
 import (
 	"github.com/synnaxlabs/aspen"
-	"github.com/synnaxlabs/synnax/pkg/distribution/cluster"
+	"github.com/synnaxlabs/synnax/pkg/distribution/node"
 
 	"github.com/synnaxlabs/x/address"
 )
@@ -25,13 +25,13 @@ type BatchFactory[E Entry] struct {
 }
 
 type Batch[E Entry] struct {
-	Peers   map[cluster.NodeKey][]E
+	Peers   map[node.NodeKey][]E
 	Gateway []E
 	Free    []E
 }
 
 func (f BatchFactory[E]) Batch(entries []E) Batch[E] {
-	b := Batch[E]{Peers: make(map[cluster.NodeKey][]E)}
+	b := Batch[E]{Peers: make(map[node.NodeKey][]E)}
 	for _, entry := range entries {
 		lease := entry.Lease()
 		if lease.IsFree() {
@@ -45,4 +45,4 @@ func (f BatchFactory[E]) Batch(entries []E) Batch[E] {
 	return b
 }
 
-type AddressMap map[cluster.NodeKey]address.Address
+type AddressMap map[node.NodeKey]address.Address

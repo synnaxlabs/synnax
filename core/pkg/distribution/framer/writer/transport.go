@@ -11,7 +11,7 @@ package writer
 
 import (
 	"github.com/synnaxlabs/freighter"
-	"github.com/synnaxlabs/synnax/pkg/distribution/cluster"
+	"github.com/synnaxlabs/synnax/pkg/distribution/node"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer/frame"
 	"github.com/synnaxlabs/synnax/pkg/storage/ts"
 	"github.com/synnaxlabs/x/telem"
@@ -60,7 +60,7 @@ type Response struct {
 	// validate during calls to WriterCommit.
 	End telem.TimeStamp `json:"end" msgpack:"end"`
 	// The NodeKey of the node that sent the response.
-	NodeKey cluster.NodeKey `json:"node_key" msgpack:"node_key"`
+	NodeKey node.NodeKey `json:"node_key" msgpack:"node_key"`
 	// Command is the command that was executed on the writer.
 	Command Command `json:"command" msgpack:"command"`
 	// Authorized flags whether the writer or commit operation was authorized. It is only

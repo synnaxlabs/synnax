@@ -14,7 +14,7 @@ import (
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/cesium"
 	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
-	"github.com/synnaxlabs/synnax/pkg/distribution/cluster"
+	"github.com/synnaxlabs/synnax/pkg/distribution/node"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer/frame"
 	"github.com/synnaxlabs/synnax/pkg/storage/ts"
 	"github.com/synnaxlabs/x/telem"
@@ -53,7 +53,7 @@ var _ = Describe("Frame", func() {
 		It("Should split a frame into a local, remote, and free frame", func() {
 			localNodeCh := channel.NewKey(1, 1)
 			remoteNodeCh := channel.NewKey(2, 1)
-			freeNodeCh := channel.NewKey(cluster.NodeKeyFree, 1)
+			freeNodeCh := channel.NewKey(node.KeyFree, 1)
 			f := frame.NewMulti(
 				[]channel.Key{localNodeCh, remoteNodeCh, freeNodeCh},
 				[]telem.Series{

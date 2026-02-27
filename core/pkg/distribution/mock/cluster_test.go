@@ -13,7 +13,7 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
-	"github.com/synnaxlabs/synnax/pkg/distribution/cluster"
+	"github.com/synnaxlabs/synnax/pkg/distribution/node"
 	"github.com/synnaxlabs/synnax/pkg/distribution/mock"
 	"github.com/synnaxlabs/x/telem"
 	. "github.com/synnaxlabs/x/testutil"
@@ -28,9 +28,9 @@ var _ = Describe("Cluster", func() {
 			coreTwo := mockCluster.Provision(ctx)
 			coreThree := mockCluster.Provision(ctx)
 
-			Expect(coreOne.Cluster.HostKey()).To(Equal(cluster.NodeKey(1)))
-			Expect(coreTwo.Cluster.HostKey()).To(Equal(cluster.NodeKey(2)))
-			Expect(coreThree.Cluster.HostKey()).To(Equal(cluster.NodeKey(3)))
+			Expect(coreOne.Cluster.HostKey()).To(Equal(node.NodeKey(1)))
+			Expect(coreTwo.Cluster.HostKey()).To(Equal(node.NodeKey(2)))
+			Expect(coreThree.Cluster.HostKey()).To(Equal(node.NodeKey(3)))
 
 			ch := channel.Channel{
 				Name:        "SG_01",
@@ -40,7 +40,7 @@ var _ = Describe("Cluster", func() {
 			}
 
 			Expect(coreOne.Channel.NewWriter(nil).Create(ctx, &ch)).To(Succeed())
-			Expect(ch.Key().Leaseholder()).To(Equal(cluster.NodeKey(1)))
+			Expect(ch.Key().Leaseholder()).To(Equal(node.NodeKey(1)))
 
 			Eventually(func(g Gomega) {
 				var resCh channel.Channel

@@ -11,7 +11,7 @@ package access
 
 import (
 	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
-	"github.com/synnaxlabs/synnax/pkg/distribution/cluster"
+	"github.com/synnaxlabs/synnax/pkg/distribution/node"
 	"github.com/synnaxlabs/synnax/pkg/distribution/group"
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
 	"github.com/synnaxlabs/synnax/pkg/service/access"
@@ -40,7 +40,7 @@ import (
 var allObjects = []ontology.ID{
 	{Type: label.OntologyType},
 	{Type: log.OntologyType},
-	{Type: cluster.OntologyTypeNode},
+	{Type: node.OntologyType},
 	{Type: channel.OntologyType},
 	{Type: group.OntologyType},
 	{Type: ranger.OntologyType},
@@ -93,7 +93,7 @@ var (
 			Objects: []ontology.ID{
 				{Type: label.OntologyType},
 				{Type: log.OntologyType},
-				{Type: cluster.OntologyTypeNode},
+				{Type: node.OntologyType},
 				{Type: channel.OntologyType},
 				{Type: group.OntologyType},
 				{Type: ranger.OntologyType},

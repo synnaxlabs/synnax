@@ -11,7 +11,7 @@ package deleter
 
 import (
 	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
-	"github.com/synnaxlabs/synnax/pkg/distribution/cluster"
+	"github.com/synnaxlabs/synnax/pkg/distribution/node"
 	"github.com/synnaxlabs/synnax/pkg/storage/ts"
 	"github.com/synnaxlabs/x/config"
 	"github.com/synnaxlabs/x/override"
@@ -25,7 +25,7 @@ type Service struct {
 }
 
 type ServiceConfig struct {
-	HostResolver cluster.HostResolver
+	HostResolver node.HostResolver
 	Channel      *channel.Service
 	TSChannel    *ts.DB
 	Transport    Transport

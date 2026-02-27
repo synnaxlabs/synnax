@@ -12,7 +12,7 @@ package rack
 import (
 	"strconv"
 
-	"github.com/synnaxlabs/synnax/pkg/distribution/cluster"
+	"github.com/synnaxlabs/synnax/pkg/distribution/node"
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
 	"github.com/synnaxlabs/x/binary"
@@ -38,12 +38,12 @@ import (
 type Key uint32
 
 // NewKey instantiates a new rack key from its node and local key components.
-func NewKey(node cluster.NodeKey, localKey uint16) Key {
+func NewKey(node node.NodeKey, localKey uint16) Key {
 	return Key(uint32(node)<<16 | uint32(localKey))
 }
 
 // Node returns the node that the rack is leased to.
-func (k Key) Node() cluster.NodeKey { return cluster.NodeKey(k >> 16) }
+func (k Key) Node() node.NodeKey { return node.NodeKey(k >> 16) }
 
 // LocalKey returns unique key for the rack on its leaseholder node.
 func (k Key) LocalKey() uint16 { return uint16(uint32(k) & 0xFFFF) }

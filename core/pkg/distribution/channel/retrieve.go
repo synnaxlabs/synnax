@@ -15,7 +15,7 @@ import (
 	"strings"
 
 	"github.com/samber/lo"
-	"github.com/synnaxlabs/synnax/pkg/distribution/cluster"
+	"github.com/synnaxlabs/synnax/pkg/distribution/node"
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/gorp"
@@ -47,7 +47,7 @@ func (r Retrieve) Entries(ch *[]Channel) Retrieve { r.gorp.Entries(ch); return r
 
 // WhereNodeKey filters for channels whose Leaseholder attribute matches the provided
 // leaseholder node Key.
-func (r Retrieve) WhereNodeKey(nodeKey cluster.NodeKey) Retrieve {
+func (r Retrieve) WhereNodeKey(nodeKey node.NodeKey) Retrieve {
 	r.gorp.Where(func(ctx gorp.Context, ch *Channel) (bool, error) {
 		return ch.Leaseholder == nodeKey, nil
 	})

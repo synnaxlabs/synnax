@@ -20,7 +20,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
 	channelsignals "github.com/synnaxlabs/synnax/pkg/distribution/channel/signals"
 	"github.com/synnaxlabs/synnax/pkg/distribution/channel/verification"
-	"github.com/synnaxlabs/synnax/pkg/distribution/cluster"
+	"github.com/synnaxlabs/synnax/pkg/distribution/node"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer"
 	"github.com/synnaxlabs/synnax/pkg/distribution/group"
 	groupsignals "github.com/synnaxlabs/synnax/pkg/distribution/group/signals"
@@ -169,7 +169,7 @@ type Layer struct {
 	// DB is the database for storing cluster wide meta-data.
 	DB *gorp.DB
 	// Cluster provides information about the cluster topology. Nodes, keys, addresses, states, etc.
-	Cluster cluster.Cluster
+	Cluster node.Cluster
 	// Channel is for creating, deleting, and retrieving channels across the cluster.
 	Channel *channel.Service
 	// Framer is for reading, writing, and streaming frames of telemetry across the
@@ -256,7 +256,7 @@ func OpenLayer(ctx context.Context, cfgs ...LayerConfig) (l *Layer, err error) {
 		return nil, err
 	}
 
-	nodeOntologySvc := &cluster.NodeOntologyService{
+	nodeOntologySvc := &node.OntologyService{
 		Ontology: l.Ontology,
 		Cluster:  l.Cluster,
 	}
@@ -326,7 +326,7 @@ func OpenLayer(ctx context.Context, cfgs ...LayerConfig) (l *Layer, err error) {
 		}
 	}
 
-	if l.Cluster.HostKey() == cluster.NodeKeyBootstrapper {
+	if l.Cluster.HostKey() == node.KeyBootstrapper {
 		var ontologyCDCCloser io.Closer
 		if ontologyCDCCloser, err = ontologysignals.Publish(
 			ctx,

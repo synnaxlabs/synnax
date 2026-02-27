@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-package cluster
+package node
 
 import (
 	"context"
@@ -27,86 +27,85 @@ import (
 	"go.uber.org/zap"
 )
 
-const OntologyTypeNode ontology.Type = "node"
+const OntologyType ontology.Type = "node"
 
-// NodeOntologyID returns a unique identifier for a Node to use within a resource
+// OntologyID returns a unique identifier for a Node to use within a resource
 // Ontology.
-func NodeOntologyID(key NodeKey) ontology.ID {
-	return ontology.ID{Type: OntologyTypeNode, Key: strconv.Itoa(int(key))}
+func OntologyID(key NodeKey) ontology.ID {
+	return ontology.ID{Type: OntologyType, Key: strconv.Itoa(int(key))}
 }
 
-var nodeSchema = zyn.Object(map[string]zyn.Schema{
+var schema = zyn.Object(map[string]zyn.Schema{
 	"key":     zyn.Uint16().Coerce(),
 	"address": zyn.String(),
 	"state":   zyn.Uint32().Coerce(),
 })
 
-// NodeOntologyService implements the ontology.Service interface to provide resource access
+// OntologyService implements the ontology.Service interface to provide resource access
 // to a cluster's nodes.
-type NodeOntologyService struct {
+type OntologyService struct {
 	Cluster  Cluster
 	Ontology *ontology.Ontology
 	alamos.Instrumentation
 }
 
-var _ ontology.Service = (*NodeOntologyService)(nil)
+var _ ontology.Service = (*OntologyService)(nil)
 
-func (s *NodeOntologyService) Type() ontology.Type { return OntologyTypeNode }
+func (s *OntologyService) Type() ontology.Type { return OntologyType }
 
 // ListenForChanges starts listening for changes to the cluster topology (nodes leaving,
 // joining, changing state, etc.) and updates the ontology accordingly.
-func (s *NodeOntologyService) ListenForChanges(ctx context.Context) {
-	if err := s.Ontology.NewWriter(nil).DefineResource(ctx, NodeOntologyID(NodeKeyFree)); err != nil {
+func (s *OntologyService) ListenForChanges(ctx context.Context) {
+	if err := s.Ontology.NewWriter(nil).DefineResource(ctx, OntologyID(KeyFree)); err != nil {
 		s.L.Error("failed to define free node ontology resource", zap.Error(err))
 	}
 }
 
-func translateNodeChange(ch NodeChange, _ int) ontology.Change {
+func translateChange(ch NodeChange, _ int) ontology.Change {
 	return ontology.Change{
 		Variant: ch.Variant,
-		Key:     NodeOntologyID(ch.Key),
-		Value:   newNodeResource(ch.Value),
+		Key:     OntologyID(ch.Key),
+		Value:   newResource(ch.Value),
 	}
 }
 
 // OnChange implements ontology.Service.
-func (s *NodeOntologyService) OnChange(f func(context.Context, iter.Seq[ontology.Change])) observe.Disconnect {
+func (s *OntologyService) OnChange(f func(context.Context, iter.Seq[ontology.Change])) observe.Disconnect {
 	onChange := func(ctx context.Context, ch Change) {
-		f(ctx, slices.Values(lo.Map(ch.Changes, translateNodeChange)))
+		f(ctx, slices.Values(lo.Map(ch.Changes, translateChange)))
 	}
 	return s.Cluster.OnChange(onChange)
 }
 
 // OpenNexter implements ontology.Service.
-func (s *NodeOntologyService) OpenNexter(context.Context) (iter.Seq[ontology.Resource], io.Closer, error) {
+func (s *OntologyService) OpenNexter(context.Context) (iter.Seq[ontology.Resource], io.Closer, error) {
 	return slices.Values(lo.MapToSlice(s.Cluster.CopyState().Nodes, func(_ NodeKey, n Node) ontology.Resource {
-		return newNodeResource(n)
+		return newResource(n)
 	})), xio.NopCloser, nil
 }
 
 // Schema implements ontology.Service.
-func (s *NodeOntologyService) Schema() zyn.Schema { return nodeSchema }
+func (s *OntologyService) Schema() zyn.Schema { return schema }
 
 // RetrieveResource implements ontology.Service.
-func (s *NodeOntologyService) RetrieveResource(_ context.Context, key string, _ gorp.Tx) (ontology.Resource, error) {
+func (s *OntologyService) RetrieveResource(_ context.Context, key string, _ gorp.Tx) (ontology.Resource, error) {
 	_nKey, err := strconv.Atoi(key)
 	if err != nil {
 		return ontology.Resource{}, err
 	}
 	nKey := NodeKey(_nKey)
 	if nKey.IsFree() {
-		return newNodeResource(Node{Key: nKey}), nil
+		return newResource(Node{Key: nKey}), nil
 	}
 	n, err := s.Cluster.Node(nKey)
-	return newNodeResource(n), err
+	return newResource(n), err
 }
 
-func newNodeResource(n Node) ontology.Resource {
+func newResource(n Node) ontology.Resource {
 	return ontology.NewResource(
-		nodeSchema,
-		NodeOntologyID(n.Key),
+		schema,
+		OntologyID(n.Key),
 		fmt.Sprintf("Node %v", n.Key),
 		n,
 	)
 }
-

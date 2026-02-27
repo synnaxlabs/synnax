@@ -16,7 +16,7 @@ import (
 	"sync"
 
 	"github.com/synnaxlabs/alamos"
-	"github.com/synnaxlabs/synnax/pkg/distribution/cluster"
+	"github.com/synnaxlabs/synnax/pkg/distribution/node"
 	"github.com/synnaxlabs/synnax/pkg/distribution/group"
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
 	"github.com/synnaxlabs/synnax/pkg/distribution/signals"
@@ -38,7 +38,7 @@ import (
 type ServiceConfig struct {
 	// HostProvider is used to assign keys to racks.
 	// [REQUIRED]
-	HostProvider cluster.HostProvider
+	HostProvider node.HostProvider
 	// DB is the gorp database that racks will be stored in.
 	// [REQUIRED]
 	DB *gorp.DB

@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-package cluster
+package node
 
 import "github.com/synnaxlabs/aspen"
 
@@ -25,6 +25,6 @@ type (
 )
 
 const (
-	NodeKeyFree         = aspen.NodeKeyFree
-	NodeKeyBootstrapper = aspen.NodeKeyBootstrapper
+	KeyFree         = aspen.NodeKeyFree
+	KeyBootstrapper = aspen.NodeKeyBootstrapper
 )
