@@ -12,6 +12,7 @@ package server
 import (
 	"context"
 	"net/http"
+	"sync"
 
 	"github.com/cockroachdb/cmux"
 	"github.com/synnaxlabs/x/errors"
@@ -19,6 +20,7 @@ import (
 
 // SimpleHTTPBranch is a single handler Branch that serves HTTP requests.
 type SimpleHTTPBranch struct {
+	mu      sync.Mutex
 	stopErr chan error
 	server  *http.Server
 	handler http.Handler
@@ -50,8 +52,11 @@ func (h *SimpleHTTPBranch) Routing() (i BranchRouting) {
 
 // Serve implements Branch.
 func (h *SimpleHTTPBranch) Serve(ctx BranchContext) error {
-	h.server = &http.Server{Handler: h.handler}
-	err := h.server.Serve(ctx.Lis)
+	server := &http.Server{Handler: h.handler}
+	h.mu.Lock()
+	h.server = server
+	h.mu.Unlock()
+	err := server.Serve(ctx.Lis)
 	if !errors.Is(err, http.ErrServerClosed) {
 		return err
 	}
@@ -60,11 +65,13 @@ func (h *SimpleHTTPBranch) Serve(ctx BranchContext) error {
 
 // Stop implements Branch.
 func (h *SimpleHTTPBranch) Stop() {
-	// If the serve is nil, it means we never served this branch.
-	if h.server == nil {
+	h.mu.Lock()
+	server := h.server
+	h.mu.Unlock()
+	if server == nil {
 		return
 	}
-	h.stopErr <- h.server.Shutdown(context.TODO())
+	h.stopErr <- server.Shutdown(context.TODO())
 }
 
 func secureHTTPRedirect(w http.ResponseWriter, r *http.Request) {

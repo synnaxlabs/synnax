@@ -193,10 +193,10 @@ func (s *Server) startBranches(
 	for i, b := range branches {
 		listeners[i] = mux.Match(b.Routing().Matchers...)
 	}
-	bc := s.baseBranchContext()
 	for i, b := range branches {
+		bc := s.baseBranchContext()
+		bc.Lis = listeners[i]
 		sCtx.Go(func(context.Context) error {
-			bc.Lis = listeners[i]
 			return filterCloserError(b.Serve(bc))
 		}, signal.WithKey(b.Key()))
 	}

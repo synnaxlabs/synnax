@@ -10,6 +10,8 @@
 package server
 
 import (
+	"sync"
+
 	"github.com/cockroachdb/cmux"
 	fgrpc "github.com/synnaxlabs/freighter/grpc"
 	"google.golang.org/grpc"
@@ -18,6 +20,7 @@ import (
 
 // GRPCBranch is a Branch that serves gRPC traffic.
 type GRPCBranch struct {
+	mu     sync.Mutex
 	server *grpc.Server
 	// Transports is a list of bindable transports that the Branch will serve.
 	Transports []fgrpc.BindableTransport
@@ -39,15 +42,25 @@ func (g *GRPCBranch) Key() string { return "grpc" }
 // Serve implements Branch.
 func (g *GRPCBranch) Serve(ctx BranchContext) error {
 	opts := []grpc.ServerOption{g.credentials(ctx)}
+	g.mu.Lock()
 	g.server = grpc.NewServer(opts...)
+	server := g.server
+	g.mu.Unlock()
 	for _, t := range g.Transports {
-		t.BindTo(g.server)
+		t.BindTo(server)
 	}
-	return g.server.Serve(ctx.Lis)
+	return server.Serve(ctx.Lis)
 }
 
 // Stop implements Branch. Stop is safe to call even if Serve has not been called.
-func (g *GRPCBranch) Stop() { g.server.Stop() }
+func (g *GRPCBranch) Stop() {
+	g.mu.Lock()
+	server := g.server
+	g.mu.Unlock()
+	if server != nil {
+		server.Stop()
+	}
+}
 
 func (g *GRPCBranch) credentials(ctx BranchContext) grpc.ServerOption {
 	if *ctx.Security.Insecure {

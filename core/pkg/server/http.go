@@ -10,6 +10,7 @@
 package server
 
 import (
+	"sync"
 	"time"
 
 	"github.com/cockroachdb/cmux"
@@ -24,6 +25,7 @@ import (
 // SecureHTTPBranch is a Branch that serves HTTP requests behind a TLS multiplexer in
 // secure mode.
 type SecureHTTPBranch struct {
+	mu sync.Mutex
 	// ContentTypes is a  list of content types that the Branch will serve.
 	// internal is the underlying fiber.App instance used to serve requests.
 	internal *fiber.App
@@ -46,28 +48,34 @@ func (b *SecureHTTPBranch) Key() string { return "http" }
 
 // Serve implements Branch.
 func (b *SecureHTTPBranch) Serve(ctx BranchContext) error {
-	b.internal = fiber.New(b.getConfig(ctx))
-	b.maybeRouteDebugUtil(ctx)
-	b.internal.Use(cors.New(cors.Config{AllowOrigins: "*"}))
+	app := fiber.New(b.getConfig(ctx))
+	b.mu.Lock()
+	b.internal = app
+	b.mu.Unlock()
+	b.maybeRouteDebugUtil(app, ctx)
+	app.Use(cors.New(cors.Config{AllowOrigins: "*"}))
 	for _, t := range b.Transports {
-		t.BindTo(b.internal)
+		t.BindTo(app)
 	}
-	return b.internal.Listener(ctx.Lis)
+	return app.Listener(ctx.Lis)
 }
 
 // Stop	implements Branch. Stop is safe to call even if Serve has not been called.
 func (b *SecureHTTPBranch) Stop() {
-	if b.internal != nil {
-		_ = b.internal.Shutdown()
+	b.mu.Lock()
+	app := b.internal
+	b.mu.Unlock()
+	if app != nil {
+		_ = app.Shutdown()
 	}
 }
 
-func (b *SecureHTTPBranch) maybeRouteDebugUtil(ctx BranchContext) {
+func (b *SecureHTTPBranch) maybeRouteDebugUtil(app *fiber.App, ctx BranchContext) {
 	if !ctx.Debug {
 		return
 	}
-	b.internal.Get("/metrics", monitor.New(monitor.Config{Title: "Synnax Metrics"}))
-	b.internal.Use(pprof.New())
+	app.Get("/metrics", monitor.New(monitor.Config{Title: "Synnax Metrics"}))
+	app.Use(pprof.New())
 }
 
 var baseFiberConfig = fiber.Config{
