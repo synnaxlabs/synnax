@@ -21,12 +21,20 @@ const mockResource = (data?: Record<string, unknown>): ontology.Resource =>
 
 describe("resolveHasChildren", () => {
   it("should return the boolean value when hasChildren is a boolean", () => {
-    const service = { ...NOOP_SERVICE, type: "test", hasChildren: true } as Service;
+    const service = {
+      ...NOOP_SERVICE,
+      type: "test",
+      hasChildren: true,
+    } as unknown as Service;
     expect(resolveHasChildren(service, mockResource())).toBe(true);
   });
 
   it("should return false when hasChildren is false", () => {
-    const service = { ...NOOP_SERVICE, type: "test", hasChildren: false } as Service;
+    const service = {
+      ...NOOP_SERVICE,
+      type: "test",
+      hasChildren: false,
+    } as unknown as Service;
     expect(resolveHasChildren(service, mockResource())).toBe(false);
   });
 
@@ -35,7 +43,7 @@ describe("resolveHasChildren", () => {
       ...NOOP_SERVICE,
       type: "test",
       hasChildren: (r: ontology.Resource) => r.name === "test",
-    } as Service;
+    } as unknown as Service;
     expect(resolveHasChildren(service, mockResource())).toBe(true);
   });
 
@@ -44,7 +52,7 @@ describe("resolveHasChildren", () => {
       ...NOOP_SERVICE,
       type: "test",
       hasChildren: (r: ontology.Resource) => r.name === "other",
-    } as Service;
+    } as unknown as Service;
     expect(resolveHasChildren(service, mockResource())).toBe(false);
   });
 });
