@@ -10,6 +10,7 @@
 import { ranger } from "@synnaxlabs/client";
 import {
   Button,
+  Color,
   Divider,
   Flex,
   Form,
@@ -19,7 +20,7 @@ import {
   Status,
   Text,
 } from "@synnaxlabs/pluto";
-import { type NumericTimeRange, TimeStamp } from "@synnaxlabs/x";
+import { color, type NumericTimeRange, TimeStamp } from "@synnaxlabs/x";
 import { type FC, type ReactElement, useCallback } from "react";
 
 import { Cluster } from "@/cluster";
@@ -215,7 +216,7 @@ export const Details: FC<DetailsProps> = ({ rangeKey }) => {
             )}
           </Form.Field>
         </Flex.Box>
-        <Flex.Box x>
+        <Flex.Box x gap="large">
           <Form.Field<NumericTimeRange> path="timeRange" label="Stage">
             {(props) => (
               <Ranger.SelectStage
@@ -223,6 +224,20 @@ export const Details: FC<DetailsProps> = ({ rangeKey }) => {
                 allowNone={false}
                 triggerProps={{ variant: "text", hideCaret: true }}
                 variant="floating"
+              />
+            )}
+          </Form.Field>
+          <Form.Field<string>
+            label="Annotation Color"
+            path="color"
+            padHelpText={false}
+            hideIfNull
+          >
+            {({ onChange, variant: _, ...p }) => (
+              <Color.Swatch
+                onChange={(v) => onChange(color.hex(v))}
+                onlyChangeOnBlur
+                {...p}
               />
             )}
           </Form.Field>
