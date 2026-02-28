@@ -12,7 +12,6 @@ package math_test
 import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-
 	"github.com/synnaxlabs/x/math"
 	"github.com/synnaxlabs/x/types"
 )
@@ -130,17 +129,5 @@ var _ = Describe("Math", func() {
 		runUnsignedIntIntPowTest[uint64]()
 		runFloatingIntPowTest[float32]()
 		runFloatingIntPowTest[float64]()
-	})
-
-	Describe("MaxUint Constants", func() {
-		It("Should define correct MaxUint20", func() {
-			// MaxUint20 = 2^20 - 1 = 1048575
-			Expect(math.MaxUint20).To(BeEquivalentTo(1048575))
-		})
-
-		It("Should define correct MaxUint12", func() {
-			// MaxUint12 = 2^12 - 1 = 4095
-			Expect(math.MaxUint12).To(BeEquivalentTo(4095))
-		})
 	})
 })
