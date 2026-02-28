@@ -1,0 +1,154 @@
+---
+interface Brick {
+    channel: string;
+    dataRate: string;
+    dataType: string;
+    samples: string;
+}
+
+const bricks: Brick[] = [
+    { channel: "press_pt_001", dataRate: "1 kHz", dataType: "float64", samples: "3.2M" },
+    { channel: "tc_inlet_temp", dataRate: "100 Hz", dataType: "float32", samples: "890K" },
+    { channel: "flow_valve_cmd", dataRate: "500 Hz", dataType: "uint8", samples: "1.1M" },
+    { channel: "load_cell_z", dataRate: "5 kHz", dataType: "float64", samples: "12.8M" },
+    { channel: "accel_x", dataRate: "2 kHz", dataType: "float32", samples: "6.4M" },
+    { channel: "strain_gauge_03", dataRate: "1 kHz", dataType: "float64", samples: "2.9M" },
+    { channel: "vent_vlv_state", dataRate: "250 Hz", dataType: "uint8", samples: "540K" },
+    { channel: "chamber_press", dataRate: "10 kHz", dataType: "float64", samples: "28.1M" },
+    { channel: "ox_tank_level", dataRate: "100 Hz", dataType: "float32", samples: "720K" },
+    { channel: "igniter_cmd", dataRate: "500 Hz", dataType: "uint8", samples: "1.4M" },
+    { channel: "thrust_main", dataRate: "5 kHz", dataType: "float64", samples: "15.6M" },
+    { channel: "fuel_temp_02", dataRate: "200 Hz", dataType: "float32", samples: "1.1M" },
+    { channel: "gps_lat", dataRate: "10 Hz", dataType: "float64", samples: "42K" },
+    { channel: "servo_pos_y", dataRate: "1 kHz", dataType: "float32", samples: "3.0M" },
+    { channel: "batt_voltage", dataRate: "50 Hz", dataType: "float32", samples: "180K" },
+    { channel: "imu_gyro_z", dataRate: "2 kHz", dataType: "float64", samples: "7.2M" },
+    { channel: "rcs_valve_04", dataRate: "500 Hz", dataType: "uint8", samples: "1.5M" },
+    { channel: "cabin_press", dataRate: "100 Hz", dataType: "float32", samples: "620K" },
+    { channel: "motor_rpm", dataRate: "1 kHz", dataType: "float64", samples: "4.1M" },
+    { channel: "helium_reg_press", dataRate: "250 Hz", dataType: "float64", samples: "980K" },
+    { channel: "pyrometer_01", dataRate: "500 Hz", dataType: "float64", samples: "1.8M" },
+    { channel: "tank_press_ox", dataRate: "1 kHz", dataType: "float32", samples: "3.5M" },
+    { channel: "tvc_pitch_cmd", dataRate: "2 kHz", dataType: "float32", samples: "5.8M" },
+    { channel: "prop_flow_rate", dataRate: "500 Hz", dataType: "float64", samples: "2.1M" },
+    { channel: "vibration_rms", dataRate: "4 kHz", dataType: "float32", samples: "9.6M" },
+    { channel: "ox_injector_t", dataRate: "200 Hz", dataType: "float64", samples: "1.3M" },
+    { channel: "gn2_reg_press", dataRate: "1 kHz", dataType: "float64", samples: "3.8M" },
+    { channel: "tvc_yaw_cmd", dataRate: "2 kHz", dataType: "float32", samples: "5.8M" },
+    { channel: "main_valve_pos", dataRate: "500 Hz", dataType: "float32", samples: "1.9M" },
+    { channel: "nozzle_temp_01", dataRate: "100 Hz", dataType: "float64", samples: "780K" },
+    { channel: "abort_signal", dataRate: "1 kHz", dataType: "uint8", samples: "2.4M" },
+    { channel: "turbo_rpm", dataRate: "5 kHz", dataType: "float64", samples: "14.2M" },
+];
+
+// 14-column grid, wider than viewport with overflow:hidden on wrapper.
+// Edge bricks are partially clipped, creating staggered edges.
+//
+// ZERO shared joints between adjacent rows:
+//   R1: [4, 3, 3, 4]     → {4, 7, 10}
+//   R2: [3, 2, 3, 3, 3]  → {3, 5, 8, 11}
+//   R3: [2, 4, 3, 3, 2]  → {2, 6, 9, 12}
+//   R4: [4, 3, 4, 3]     → {4, 7, 11}
+//   R5: [2, 3, 3, 4, 2]  → {2, 5, 8, 12}
+//   R6: [3, 3, 4, 4]     → {3, 6, 10}
+const layout: number[][] = [
+    [4, 3, 3, 4],
+    [3, 2, 3, 3, 3],
+    [2, 4, 3, 3, 2],
+    [4, 3, 4, 3],
+    [2, 3, 3, 4, 2],
+    [3, 3, 4, 4],
+];
+
+interface Position {
+    col: number;
+    span: number;
+    row: number;
+}
+
+const positions: Position[] = [];
+for (let r = 0; r < layout.length; r++) {
+    let col = 1;
+    for (const span of layout[r]) {
+        positions.push({ col, span, row: r + 1 });
+        col += span;
+    }
+}
+---
+
+<div class="brick-wall-wrapper">
+    <div class="brick-wall">
+        {positions.map((pos, i) => {
+            const brick = bricks[i % bricks.length];
+            return (
+                <div
+                    class="brick"
+                    style={`grid-column: ${pos.col} / span ${pos.span}; grid-row: ${pos.row};`}
+                >
+                    <span class="brick-channel">{brick.channel}</span>
+                    <div class="brick-meta">
+                        <span class="brick-detail">{brick.dataRate}</span>
+                        <span class="brick-detail">{brick.dataType}</span>
+                        <span class="brick-detail">{brick.samples}</span>
+                    </div>
+                </div>
+            );
+        })}
+    </div>
+</div>
+
+<style is:global>
+    .brick-wall-wrapper {
+        overflow: hidden;
+        width: 100%;
+        margin-top: 12rem;
+        margin-bottom: 15rem;
+        border-top: var(--pluto-border);
+        border-bottom: var(--pluto-border);
+    }
+
+    .brick-wall {
+        display: grid;
+        grid-template-columns: repeat(14, 1fr);
+        gap: 1px;
+        background: var(--pluto-gray-l3);
+        width: calc(100vw * 14 / 12);
+        margin-left: calc(-100vw / 6);
+    }
+
+    .brick {
+        background: var(--pluto-gray-l1);
+        padding: 2.5rem 3rem;
+        display: flex;
+        flex-direction: column;
+        gap: 1.25rem;
+    }
+
+    .brick-channel {
+        font-family: var(--pluto-code-font-family);
+        font-size: 2.1rem;
+        font-weight: 500;
+        color: var(--pluto-secondary-z-60);
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+    }
+
+    .brick-meta {
+        display: flex;
+        gap: 1.75rem;
+    }
+
+    .brick-detail {
+        font-family: var(--pluto-code-font-family);
+        font-size: 1.7rem;
+        color: var(--pluto-gray-l7);
+        white-space: nowrap;
+    }
+
+    @media (max-width: 600px) {
+        .brick-meta {
+            display: none;
+        }
+    }
+</style>

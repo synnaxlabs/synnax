@@ -1,0 +1,281 @@
+---
+import { Button, Flex, Icon, Text } from "@synnaxlabs/pluto";
+import BrickWall from "./BrickWall.astro";
+---
+
+<Flex.Box el="section" className="review">
+    <Text.Text level="h4" variant="code" className="review-label">
+        5 -> Store, Organize, Review
+    </Text.Text>
+
+    <div class="review-hero">
+        <Text.Text level="h2" className="review-title">
+            Understand what happened,<br />and why
+        </Text.Text>
+        <Text.Text level="p" className="review-description">
+            Review test data, compare runs side-by-side, and drill into anomalies —
+            all without leaving the platform.
+        </Text.Text>
+    </div>
+</Flex.Box>
+
+<Flex.Box el="section" className="review-feature">
+    <Text.Text level="h4" variant="code" className="review-feature-label">
+        5.1 -> Storage Engine
+    </Text.Text>
+    <div class="review-feature-header">
+        <Text.Text level="h3" className="review-feature-title">
+            The only deeply integrated control system and database engine
+        </Text.Text>
+        <div class="review-feature-right">
+            <Text.Text level="p" className="review-feature-description">
+                Permanently store and organize kilohertz-rate data from thousands
+                of channels with read and write speeds exceeding 10 million
+                samples per second.
+            </Text.Text>
+            <Button.Button variant="text" href="https://docs.synnaxlabs.com/guides/comparison/performance/one-billion-rows">
+                See the benchmarks →
+            </Button.Button>
+        </div>
+    </div>
+</Flex.Box>
+
+<BrickWall />
+
+<Flex.Box el="section" className="review-feature">
+    <Text.Text level="h4" variant="code" className="review-feature-label">
+        5.2 -> Organize with Ranges
+    </Text.Text>
+    <div class="review-feature-header">
+        <Text.Text level="h3" className="review-feature-title">
+            Name it, tag it,<br />find it later
+        </Text.Text>
+        <div class="review-feature-right">
+            <Text.Text level="p" className="review-feature-description">
+                Mark test runs, events, and anomalies as named time ranges. Attach
+                metadata, label and nest them into hierarchies, and build an audit
+                trail that makes every data point traceable.
+            </Text.Text>
+            <Button.Button variant="text" href="https://docs.synnaxlabs.com/reference/concepts/ranges">
+                Learn about ranges →
+            </Button.Button>
+        </div>
+    </div>
+    <div class="review-ranges-showcase">
+        <div class="review-ranges-explorer-container">
+            <div class="review-ranges-tab">
+                <Icon.Explore className="review-ranges-tab-icon" />
+                <span>Explorer</span>
+            </div>
+            <img
+                class="review-ranges-explorer"
+                src="/images/range-explorer.png"
+                alt="Range explorer showing labeled test runs with stage indicators"
+            />
+        </div>
+        <div class="review-ranges-detail-container">
+            <div class="review-ranges-tab">
+                <Icon.Range className="review-ranges-tab-icon" />
+                <span>Range</span>
+            </div>
+            <img
+                class="review-ranges-detail"
+                src="/images/range-overview.png"
+                alt="Range detail panel showing metadata, labels, and hierarchy"
+            />
+        </div>
+    </div>
+</Flex.Box>
+
+<style is:global>
+    .review {
+        padding: 10rem 0 15rem;
+        gap: 20rem;
+    }
+
+    .review-label {
+        color: var(--pluto-gray-l7);
+        font-weight: 500;
+    }
+
+    .review-hero {
+        display: flex;
+        flex-direction: column;
+        gap: 3rem;
+        max-width: 800px;
+    }
+
+    .review-title {
+        display: block;
+    }
+
+    .review-description {
+        color: var(--pluto-gray-l8);
+    }
+
+    .review-feature {
+        padding: 10rem 0 15rem;
+        gap: 4rem;
+        border-top: var(--pluto-border);
+    }
+
+    .review-feature-label {
+        color: var(--pluto-gray-l7);
+        font-weight: 500;
+        font-size: 3rem;
+        margin-bottom: 4rem;
+    }
+
+    .review-feature-header {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 4rem;
+        width: 100%;
+        align-items: start;
+    }
+
+    .review-feature-title {
+        display: block;
+    }
+
+    .review-feature-right {
+        display: flex;
+        flex-direction: column;
+        gap: 3rem;
+        align-items: flex-start;
+        margin-left: auto;
+    }
+
+    .review-feature-description {
+        color: var(--pluto-gray-l9);
+        font-size: 3.2rem;
+        line-height: 4.5rem;
+        font-weight: 350;
+        max-width: 450px;
+    }
+
+    .review-feature-right .pluto-btn {
+        color: var(--pluto-gray-l8);
+        text-decoration: none;
+        font-size: var(--pluto-h5-size);
+        margin-left: -2rem;
+    }
+
+    .review-feature-right .pluto-btn:hover {
+        text-decoration: none;
+    }
+
+    .review-ranges-showcase {
+        position: relative;
+        margin-top: 24rem;
+        padding-bottom: 8rem;
+    }
+
+
+    /* Layer 3: Fade paint — covers bottom of explorer + glow */
+    .review-ranges-showcase::after {
+        content: "";
+        position: absolute;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        height: 40%;
+        z-index: 3;
+        background: linear-gradient(
+            to bottom,
+            transparent 0%,
+            var(--pluto-gray-l0) 70%
+        );
+        pointer-events: none;
+    }
+
+    .review-ranges-tab {
+        display: flex;
+        align-items: center;
+        gap: 1rem;
+        padding: 1.5rem 2rem;
+        font-family: var(--pluto-code-font-family);
+        font-size: 2.2rem;
+        font-weight: 500;
+        color: var(--pluto-gray-l8);
+        border-bottom: var(--pluto-border);
+        background: var(--pluto-gray-l0);
+    }
+
+    .review-ranges-tab-icon {
+        font-size: 2rem;
+        color: var(--pluto-gray-l7);
+    }
+
+    /* Layer 2: Explorer */
+    .review-ranges-explorer-container {
+        position: relative;
+        z-index: 2;
+        width: 95%;
+        padding: 0;
+        background: color-mix(in srgb, var(--pluto-gray-l1) 50%, var(--pluto-gray-l2));
+        border-radius: 2rem;
+        border: var(--pluto-border);
+        overflow: hidden;
+    }
+
+    .review-ranges-explorer {
+        width: 100%;
+        height: auto;
+        display: block;
+        padding: 3rem;
+        mix-blend-mode: lighten;
+    }
+
+    /* Layer 4: Detail panel — above everything */
+    .review-ranges-detail-container {
+        position: absolute;
+        z-index: 4;
+        bottom: 10rem;
+        right: 0;
+        width: 45%;
+        padding: 0;
+        border-radius: 1.6rem;
+        border: var(--pluto-border);
+        overflow: hidden;
+        background: color-mix(in srgb, var(--pluto-gray-l1) 50%, var(--pluto-gray-l2));
+        box-shadow:
+            0 2px 4px rgba(0, 0, 0, 0.3),
+            0 8px 24px rgba(0, 0, 0, 0.4),
+            0 24px 64px rgba(0, 0, 0, 0.5);
+    }
+
+    .review-ranges-detail {
+        width: 100%;
+        height: auto;
+        display: block;
+        padding: 3rem;
+        mix-blend-mode: lighten;
+    }
+
+    @media (max-width: 900px) {
+        .review-ranges-showcase {
+            padding-bottom: 0;
+        }
+
+        .review-ranges-explorer-container {
+            mask-image: none;
+        }
+
+        .review-ranges-detail-container {
+            position: relative;
+            bottom: auto;
+            right: auto;
+            width: 100%;
+            margin-top: 3rem;
+            mask-image: none;
+        }
+    }
+
+    @media (max-width: 600px) {
+        .review-feature-header {
+            grid-template-columns: 1fr;
+            gap: 2rem;
+        }
+    }
+</style>

@@ -1,5 +1,5 @@
 ---
-import { Button, Flex, Text } from "@synnaxlabs/pluto";
+import { Button, Flex, Icon, Text } from "@synnaxlabs/pluto";
 ---
 
 <Flex.Box el="section" className="visualize">
@@ -62,9 +62,30 @@ import { Button, Flex, Text } from "@synnaxlabs/pluto";
             </Button.Button>
         </div>
     </div>
-    <video autoplay muted loop playsinline>
-        <source src="/images/lineplot.mp4" type="video/mp4" />
-    </video>
+    <div class="visualize-lineplot-showcase">
+        <div class="visualize-lineplot-video-container">
+            <div class="visualize-lineplot-video-tab">
+                <Icon.Visualize className="visualize-lineplot-video-tab-icon" />
+                <span>Line Plot</span>
+            </div>
+            <video autoplay muted loop playsinline>
+                <source src="/images/lineplot.mp4" type="video/mp4" />
+            </video>
+        </div>
+        <div class="visualize-lineplot-detail-container">
+            <div class="visualize-lineplot-detail-tab">
+                <Icon.Rule className="visualize-lineplot-detail-tab-icon" />
+                <span>Measure</span>
+            </div>
+            <div class="visualize-lineplot-detail-image-area">
+                <img
+                    class="visualize-lineplot-detail"
+                    src="/images/lineplot-detail.png"
+                    alt="Line plot measurement detail showing slope, delta X, and delta Y"
+                />
+            </div>
+        </div>
+    </div>
 </Flex.Box>
 
 <style is:global>
@@ -127,7 +148,7 @@ import { Button, Flex, Text } from "@synnaxlabs/pluto";
     }
 
     .visualize-feature-right .pluto-btn {
-        color: var(--pluto-gray-l7);
+        color: var(--pluto-gray-l8);
         text-decoration: none;
         font-size: var(--pluto-h5-size);
         margin-left: -2rem;
@@ -138,16 +159,10 @@ import { Button, Flex, Text } from "@synnaxlabs/pluto";
     }
 
     .visualize-feature-description {
-        color: var(--pluto-gray-l8);
+        color: var(--pluto-gray-l9);
         font-size: 3.2rem;
         line-height: 4.5rem;
         font-weight: 350;
-    }
-
-    .visualize-feature video {
-        display: block;
-        width: 100%;
-        height: auto;
     }
 
     .visualize-video-clip {
@@ -155,11 +170,120 @@ import { Button, Flex, Text } from "@synnaxlabs/pluto";
         overflow: hidden;
     }
 
-    .visualize-feature > video {
+    .visualize-lineplot-showcase {
+        position: relative;
         margin-top: 12rem;
+        padding-bottom: 8rem;
+    }
+
+    /* Fade paint — covers bottom of video */
+    .visualize-lineplot-showcase::after {
+        content: "";
+        position: absolute;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        height: 40%;
+        z-index: 3;
+        background: linear-gradient(
+            to bottom,
+            transparent 0%,
+            var(--pluto-gray-l0) 70%
+        );
+        pointer-events: none;
+    }
+
+    .visualize-lineplot-video-container {
+        position: relative;
+        z-index: 1;
+        padding: 0;
+        background: color-mix(in srgb, var(--pluto-gray-l1) 50%, var(--pluto-gray-l2));
+        border-radius: 2rem;
+        border: var(--pluto-border);
+        overflow: hidden;
+    }
+
+    .visualize-lineplot-video-tab {
+        display: flex;
+        align-items: center;
+        gap: 1rem;
+        padding: 1.5rem 2rem;
+        font-family: var(--pluto-code-font-family);
+        font-size: 2.2rem;
+        font-weight: 500;
+        color: var(--pluto-gray-l8);
+        border-bottom: var(--pluto-border);
+        background: var(--pluto-gray-l0);
+    }
+
+    .visualize-lineplot-video-tab-icon {
+        font-size: 2rem;
+        color: var(--pluto-gray-l7);
+    }
+
+    .visualize-lineplot-video-container video {
+        display: block;
+        width: 100%;
+        height: auto;
+        padding: 3rem;
+        mix-blend-mode: lighten;
+    }
+
+    .visualize-lineplot-detail-container {
+        position: absolute;
+        z-index: 4;
+        bottom: 3rem;
+        left: 6%;
+        width: 35%;
+        padding: 0;
+        border-radius: 1.6rem;
+        border: var(--pluto-border);
+        overflow: hidden;
+        background: color-mix(in srgb, var(--pluto-gray-l1) 50%, var(--pluto-gray-l2));
+        box-shadow:
+            0 2px 4px rgba(0, 0, 0, 0.3),
+            0 8px 24px rgba(0, 0, 0, 0.4),
+            0 24px 64px rgba(0, 0, 0, 0.5);
+    }
+
+    .visualize-lineplot-detail-tab {
+        display: flex;
+        align-items: center;
+        gap: 1rem;
+        padding: 1.5rem 2rem;
+        font-family: var(--pluto-code-font-family);
+        font-size: 2.2rem;
+        font-weight: 500;
+        color: var(--pluto-gray-l8);
+        border-bottom: var(--pluto-border);
+        background: var(--pluto-gray-l0);
+    }
+
+    .visualize-lineplot-detail-tab-icon {
+        font-size: 2rem;
+        color: var(--pluto-gray-l7);
+    }
+
+    .visualize-lineplot-detail-image-area {
+        position: relative;
+        background-image:
+            linear-gradient(rgba(255, 255, 255, 0.02) 1px, transparent 1px),
+            linear-gradient(90deg, rgba(255, 255, 255, 0.02) 1px, transparent 1px);
+        background-size: 5rem 5rem;
+    }
+
+    .visualize-lineplot-detail {
+        position: relative;
+        width: 100%;
+        height: auto;
+        display: block;
+        mix-blend-mode: lighten;
     }
 
     .visualize-video--schematic {
+        display: block;
+        width: 100%;
+        height: auto;
         margin-top: -7%;
         margin-bottom: -7%;
     }
