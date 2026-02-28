@@ -18,7 +18,7 @@ import { Layout } from "@/layout";
 import { useExport } from "@/log/export";
 import { useSyncComponent } from "@/log/Log";
 import { useSelectOptional } from "@/log/selectors";
-import { setChannels } from "@/log/slice";
+import { setChannels, setShowIndex } from "@/log/slice";
 
 export interface ToolbarProps {
   layoutKey: string;
@@ -51,6 +51,13 @@ export const Toolbar = ({ layoutKey }: ToolbarProps): ReactElement | null => {
             value={state.channels[0]}
             onChange={handleChannelChange}
             initialQuery={{ internal: IS_DEV ? undefined : false }}
+            disabled={!hasEditPermission}
+          />
+        </Input.Item>
+        <Input.Item label="Show Timestamps">
+          <Input.Switch
+            value={state.showIndex}
+            onChange={(v) => dispatch(setShowIndex({ key: layoutKey, showIndex: v }))}
             disabled={!hasEditPermission}
           />
         </Input.Item>

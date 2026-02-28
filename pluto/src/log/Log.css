@@ -20,15 +20,48 @@
         height: 100%;
     }
 
-    & .pluto-log__live {
+    & .pluto-log__text-overlay {
         position: absolute;
-        top: 2rem;
+        top: 0;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        padding: 6px;
+        overflow: hidden;
+        z-index: 1;
+        user-select: text;
+    }
+
+    & .pluto-log__line {
+        font-family: var(--pluto-code-font-family);
+        font-size: var(--pluto-p-size);
+        line-height: var(--pluto-p-size);
+        color: transparent;
+        width: 100%;
+    }
+
+    & .pluto-log__line::selection {
+        background: var(--pluto-primary-z-20);
+    }
+
+    & .pluto-log__live,
+    & .pluto-log__copy {
+        z-index: 2;
+        position: absolute;
         right: 2rem;
+    }
+
+    & .pluto-log__live {
+        top: 2rem;
         & .pluto-icon {
             color: var(--pluto-success-z) !important;
         }
         &.pluto--active .pluto-icon {
             color: var(--pluto-error-z) !important;
         }
+    }
+
+    & .pluto-log__copy {
+        top: calc(2rem + 36px);
     }
 }

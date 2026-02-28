@@ -81,6 +81,8 @@ class LogLifecycle(ConsoleCase):
         self.test_rename_from_tab(log)
         self.test_copy_link(log)
         self.test_pause_resume_scrolling(log)
+        self.test_copy_all_text(log)
+        self.test_show_timestamps(log)
         self.test_virtual_channel_streaming(log)
 
         log_link = log.copy_link()
@@ -221,6 +223,32 @@ class LogLifecycle(ConsoleCase):
         assert (
             not log.is_scrolling_paused()
         ), "Log should not be paused after resume_scrolling()"
+
+    def test_copy_all_text(self, log: Log) -> None:
+        """Test that Copy All button copies log text to clipboard."""
+        self.log("Testing copy all text")
+        copied = log.click_copy_all()
+        assert len(copied) > 0, "Copied text should not be empty"
+        assert "42" in copied, "Copied text should contain written data"
+
+    def test_show_timestamps(self, log: Log) -> None:
+        """Test enabling Show Timestamps and verifying timestamps in copied text."""
+        self.log("Testing show timestamps")
+        log.toggle_show_timestamps(True)
+        assert log.has_timestamps_enabled(), "Timestamps should be enabled"
+
+        copied = log.click_copy_all()
+        assert (
+            "[" in copied and "]" in copied
+        ), "Copied text should contain timestamp brackets"
+
+        log.toggle_show_timestamps(False)
+        assert not log.has_timestamps_enabled(), "Timestamps should be disabled"
+
+        copied_no_ts = log.click_copy_all()
+        assert (
+            "[" not in copied_no_ts
+        ), "Copied text should not contain timestamps when disabled"
 
     def test_open_log_from_resources(self, log_name: str, expected_link: str) -> None:
         """Test opening a log by double-clicking it in the workspace resources toolbar."""

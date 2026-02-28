@@ -59,15 +59,24 @@ const Loaded: Layout.Renderer = ({ layoutKey, visible }) => {
   }, [name, prevName, layoutKey]);
 
   let t: telem.SeriesSourceSpec;
+  let indexT: telem.SeriesSourceSpec = telem.noopSeriesSourceSpec;
   const ch = log.channels[0];
   const zeroChannel = primitive.isZero(ch);
   if (zeroChannel) t = telem.noopSeriesSourceSpec;
-  else
+  else {
     t = telem.streamChannelData({
       channel: ch,
       timeSpan: PRELOAD,
       keepFor: DEFAULT_RETENTION,
     });
+    if (log.showIndex)
+      indexT = telem.streamChannelData({
+        channel: ch,
+        useIndexOfChannel: true,
+        timeSpan: PRELOAD,
+        keepFor: DEFAULT_RETENTION,
+      });
+  }
   const handleDoubleClick = useCallback(() => {
     dispatch(
       Layout.setNavDrawerVisible({
@@ -81,6 +90,8 @@ const Loaded: Layout.Renderer = ({ layoutKey, visible }) => {
   return (
     <Base.Log
       telem={t}
+      indexTelem={indexT}
+      showIndex={log.showIndex}
       onDoubleClick={handleDoubleClick}
       emptyContent={
         <EmptyAction
