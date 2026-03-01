@@ -6,6 +6,11 @@ import Integrations from "@/components/integrations/Integrations.astro";
 import Automate from "@/components/automate/Automate.astro";
 import Visualize from "@/components/visualize/Visualize.astro";
 import Review from "@/components/review/Review.astro";
+import SDKs from "@/components/sdks/SDKs.astro";
+import StreamProcess from "@/components/stream/StreamProcess.astro";
+import CalcChannels from "@/components/stream/CalcChannels.astro";
+import Alarms from "@/components/stream/Alarms.astro";
+import Contact from "@/components/contact/Contact.astro";
 
 import { Divider } from "@synnaxlabs/pluto";
 ---
@@ -15,12 +20,20 @@ import { Divider } from "@synnaxlabs/pluto";
     <Divider.Divider direction="x" />
     <Testimonials />
     <Divider.Divider direction="x" />
-    <Integrations />
+    <Visualize />
     <Divider.Divider direction="x" />
     <Automate />
     <Divider.Divider direction="x" />
-    <Visualize />
-    <Divider.Divider direction="x" />
     <Review />
+    <Divider.Divider direction="x" />
+    <StreamProcess />
+    <CalcChannels />
+    <Alarms />
+    <Divider.Divider direction="x" />
+    <Integrations />
+    <Divider.Divider direction="x" />
+    <SDKs />
+    <Divider.Divider direction="x" />
+    <Contact />
 </Layout>
 

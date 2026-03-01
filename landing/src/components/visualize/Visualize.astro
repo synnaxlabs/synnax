@@ -2,16 +2,16 @@
 import { Button, Flex, Icon, Text } from "@synnaxlabs/pluto";
 ---
 
-<Flex.Box el="section" className="visualize">
-    <Text.Text level="h4" variant="code" className="visualize-label">
-        4 -> Visualize & Operate
+<Flex.Box el="section" id="visualize" className="visualize">
+    <Text.Text level="h5" variant="code" className="visualize-label">
+        2 -> Visualize & Operate
     </Text.Text>
 
     <div class="visualize-hero">
         <Text.Text level="h2" className="visualize-title">
             See everything,<br />control anything
         </Text.Text>
-        <Text.Text level="p" className="visualize-description">
+        <Text.Text level="h5" className="visualize-description">
             Build real-time dashboards, plot live telemetry, and command your hardware —
             all from a single, unified console.
         </Text.Text>
@@ -19,15 +19,15 @@ import { Button, Flex, Icon, Text } from "@synnaxlabs/pluto";
 </Flex.Box>
 
 <Flex.Box el="section" className="visualize-feature">
-    <Text.Text level="h4" variant="code" className="visualize-feature-label">
-        4.1 -> Schematics
+    <Text.Text level="h5" variant="code" className="visualize-feature-label">
+        2.1 -> Schematics
     </Text.Text>
     <div class="visualize-feature-header">
         <Text.Text level="h3" className="visualize-feature-title">
             Your system,<br />at a glance
         </Text.Text>
         <div class="visualize-feature-right">
-            <Text.Text level="p" className="visualize-feature-description">
+            <Text.Text level="h5" className="visualize-feature-description">
                 Build interactive schematics that reflect live system state. Drag valves,
                 sensors, and actuators onto a canvas and bind them directly to your hardware
                 channels.
@@ -45,15 +45,15 @@ import { Button, Flex, Icon, Text } from "@synnaxlabs/pluto";
 </Flex.Box>
 
 <Flex.Box el="section" className="visualize-feature">
-    <Text.Text level="h4" variant="code" className="visualize-feature-label">
-        4.2 -> Line Plots
+    <Text.Text level="h5" variant="code" className="visualize-feature-label">
+        2.2 -> Line Plots
     </Text.Text>
     <div class="visualize-feature-header">
         <Text.Text level="h3" className="visualize-feature-title">
             Millions of points,<br />zero lag
         </Text.Text>
         <div class="visualize-feature-right">
-            <Text.Text level="p" className="visualize-feature-description">
+            <Text.Text level="h5" className="visualize-feature-description">
                 Plot millions of points of live and historical telemetry with
                 sub-millisecond precision. Pan, zoom, and annotate without dropping a frame.
             </Text.Text>
@@ -100,10 +100,11 @@ import { Button, Flex, Icon, Text } from "@synnaxlabs/pluto";
     }
 
     .visualize-hero {
-        display: flex;
-        flex-direction: column;
-        gap: 3rem;
-        max-width: 800px;
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 4rem;
+        width: 100%;
+        align-items: start;
     }
 
     .visualize-title {
@@ -111,7 +112,7 @@ import { Button, Flex, Icon, Text } from "@synnaxlabs/pluto";
     }
 
     .visualize-description {
-        color: var(--pluto-gray-l8);
+        color: var(--pluto-gray-l9);
     }
 
     /* Features */
@@ -150,7 +151,6 @@ import { Button, Flex, Icon, Text } from "@synnaxlabs/pluto";
     .visualize-feature-right .pluto-btn {
         color: var(--pluto-gray-l8);
         text-decoration: none;
-        font-size: var(--pluto-h5-size);
         margin-left: -2rem;
     }
 
@@ -160,9 +160,6 @@ import { Button, Flex, Icon, Text } from "@synnaxlabs/pluto";
 
     .visualize-feature-description {
         color: var(--pluto-gray-l9);
-        font-size: 3.2rem;
-        line-height: 4.5rem;
-        font-weight: 350;
     }
 
     .visualize-video-clip {

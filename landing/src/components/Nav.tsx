@@ -1,4 +1,4 @@
-import { Caret, Flex, Icon, Text } from "@synnaxlabs/pluto";
+import { Button, Flex, Icon, Text } from "@synnaxlabs/pluto";
 import { type ReactElement, useCallback, useRef, useState } from "react";
 
 interface ProductItem {
@@ -13,37 +13,37 @@ const PRODUCTS: ProductItem[] = [
     icon: Icon.Visualize,
     title: "Visualize & Operate",
     description: "Operator dashboards and real-time monitoring interfaces",
-    href: "/product/visualize",
+    href: "/#visualize",
   },
   {
     icon: Icon.Control,
     title: "Automate & Control",
     description: "Process control, safety interlocks, and test automation",
-    href: "/product/automate",
+    href: "/#automate",
   },
   {
     icon: Icon.Analyze,
     title: "Review & Analyze",
     description: "Post-test analysis, data comparison, and trend review",
-    href: "/product/analyze",
+    href: "/#review",
   },
   {
     icon: Icon.Acquire,
     title: "Stream & Process",
     description: "Real-time data pipelines, alerting, and live streaming",
-    href: "/product/stream",
+    href: "/#stream",
   },
   {
     icon: Icon.Hardware,
     title: "Device Integrations",
     description: "OPC UA, Modbus, EtherCAT, NI, Dewesoft, and more",
-    href: "/product/integrations",
+    href: "/#integrations",
   },
   {
-    icon: Icon.LinkExternal,
+    icon: Icon.Terminal,
     title: "Extend with SDKs",
     description: "Python, TypeScript, and C++ clients for custom workflows",
-    href: "/product/sdks",
+    href: "/#sdks",
   },
 ];
 
@@ -66,23 +66,15 @@ export const Nav = (): ReactElement => {
   }, []);
 
   return (
-    <Flex.Box direction="x" className="nav-links" align="center" gap={5}>
+    <Flex.Box direction="x" className="nav-links" align="center" gap={2}>
       <Flex.Box
         className="nav-dropdown-wrap"
         onMouseEnter={handleEnter}
         onMouseLeave={handleLeave}
       >
-        <Flex.Box direction="x" align="center" gap={1} className="nav-link-trigger">
-          <Text.Text level="h5" className="nav-link">
-            Product
-          </Text.Text>
-          <Caret.Animated
-            enabled={open}
-            enabledLoc="bottom"
-            disabledLoc="left"
-            className="nav-caret"
-          />
-        </Flex.Box>
+        <Button.Button variant="text" className="nav-link">
+          Product
+        </Button.Button>
         {open && (
           <Flex.Box
             className="product-dropdown"
@@ -117,12 +109,12 @@ export const Nav = (): ReactElement => {
           </Flex.Box>
         )}
       </Flex.Box>
-      <Text.Text level="h5" className="nav-link">
-        <a href="https://docs.synnaxlabs.com">Docs</a>
-      </Text.Text>
-      <Text.Text level="h5" className="nav-link">
-        <a href="/#company">Company</a>
-      </Text.Text>
+      <Button.Button variant="text" className="nav-link" href="https://docs.synnaxlabs.com">
+        Docs
+      </Button.Button>
+      <Button.Button variant="text" className="nav-link" href="/#company">
+        Company
+      </Button.Button>
     </Flex.Box>
   );
 };

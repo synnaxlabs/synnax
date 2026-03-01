@@ -86,8 +86,8 @@ const codeHtmls = [
 ];
 ---
 
-<Flex.Box el="section" className="automate">
-    <Text.Text level="h4" variant="code" className="automate-label">
+<Flex.Box el="section" id="automate" className="automate">
+    <Text.Text level="h5" variant="code" className="automate-label">
         3 -> Automate & Control
     </Text.Text>
 
@@ -96,7 +96,7 @@ const codeHtmls = [
         <Text.Text level="h2" className="automate-title">
             Write sequences,<br />not boilerplate
         </Text.Text>
-        <Text.Text level="p" className="automate-description">
+        <Text.Text level="h5" className="automate-description">
             Arc is a reactive programming language built for hardware automation. Define
             control sequences, manage authority, and orchestrate your hardware — all in
             a few lines of code.
@@ -113,7 +113,7 @@ const codeHtmls = [
                 Real-Time Ready
             </Text.Text>
             <ControlSystemGraphic client:visible className="automate-bento-graphic" />
-            <Text.Text level="p" className="automate-bento-description">
+            <Text.Text level="h5" className="automate-bento-description">
                 Deploy Arc sequences on real-time targets like NI Linux RT for
                 deterministic execution at cycle rates up to 5 kHz. Same code, same
                 behavior, from prototyping on Ubuntu to production on dedicated RT
@@ -125,7 +125,7 @@ const codeHtmls = [
                 Seamless Control Handoff
             </Text.Text>
             <ControlHandoffGraphic client:visible className="handoff-graphic" />
-            <Text.Text level="p" className="automate-bento-description">
+            <Text.Text level="h5" className="automate-bento-description">
                 Synnax's control negotiation system transitions actuator authority
                 between automated and manual operation without interruption.
             </Text.Text>
@@ -146,10 +146,11 @@ const codeHtmls = [
 
     /* Hero */
     .automate-hero {
-        display: flex;
-        flex-direction: column;
-        gap: 3rem;
-        max-width: 800px;
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 4rem;
+        width: 100%;
+        align-items: start;
     }
 
     .automate-title {
@@ -157,7 +158,7 @@ const codeHtmls = [
     }
 
     .automate-description {
-        color: var(--pluto-gray-l8);
+        color: var(--pluto-gray-l9);
     }
 
     /* Visualizer container */
@@ -439,7 +440,7 @@ const codeHtmls = [
     }
 
     .automate-bento-description {
-        color: var(--pluto-gray-l8);
+        color: var(--pluto-gray-l9);
         position: relative;
         z-index: 1;
     }

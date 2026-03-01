@@ -15,13 +15,13 @@ const { brandColor, quote, name, title, variant = "standard" } = Astro.props;
 <div class={`testimonial-card testimonial-card--${variant}`} style={`--brand-color: ${brandColor};`}>
     <div class="testimonial-bg-decoration"><slot name="bg" /></div>
     <Flex.Box className="testimonial-card-content" justify="start" align="start">
-        <Text.Text level="h4" el="p" className="testimonial-quote">
+        <Text.Text level="h4" className="testimonial-quote">
             "{quote}"
         </Text.Text>
         <Flex.Box className="testimonial-bottom" direction="x" justify="between" align="end">
             <Flex.Box className="testimonial-author">
-                <Text.Text level="h3" el="p" className="testimonial-name">{name}</Text.Text>
-                {title && <Text.Text level="h5" el="p" className="testimonial-title">{title}</Text.Text>}
+                <Text.Text level="h5" className="testimonial-name">{name}</Text.Text>
+                {title && <Text.Text level="h5" className="testimonial-title">{title}</Text.Text>}
             </Flex.Box>
             <div class="testimonial-logo"><slot name="logo" /></div>
         </Flex.Box>
@@ -119,8 +119,6 @@ const { brandColor, quote, name, title, variant = "standard" } = Astro.props;
     }
 
     .testimonial-quote {
-        --pluto-h4-size: 4.5rem;
-        --pluto-h4-line-height: 130%;
         color: #fff;
         max-width: 75%;
     }
@@ -133,22 +131,15 @@ const { brandColor, quote, name, title, variant = "standard" } = Astro.props;
 
     .testimonial-name {
         color: #fff;
-        font-weight: 700;
     }
 
     .testimonial-title {
-        --pluto-h5-size: 2.5rem;
-        --pluto-h5-weight: 500;
         color: #fff;
     }
 
     /* Hero variant — larger card */
     .testimonial-card--hero {
         padding: 5rem;
-    }
-
-    .testimonial-card--hero .testimonial-quote {
-        --pluto-h4-size: 5.5rem;
     }
 
 

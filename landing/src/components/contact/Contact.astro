@@ -1,0 +1,192 @@
+---
+import { Text } from "@synnaxlabs/pluto";
+import { ContactForm } from "@/components/contact/ContactForm";
+import { TopoCanvas } from "@/components/contact/TopoCanvas";
+---
+
+<div class="contact-outer">
+    <TopoCanvas client:load />
+    <section id="contact" class="contact">
+        <Text.Text level="h5" variant="code" className="contact-label">
+            8 -> Get In Touch
+        </Text.Text>
+
+        <div class="contact-layout">
+            <div class="contact-left">
+                <Text.Text level="h2" className="contact-title">
+                    Let's talk about<br />your project
+                </Text.Text>
+                <Text.Text level="h5" className="contact-description">
+                    Request a demo, get detailed pricing, or ask us anything.
+                    We'll get back to you within 24 hours.
+                </Text.Text>
+                <Text.Text level="h5" className="contact-email">
+                    info@synnaxlabs.com
+                </Text.Text>
+            </div>
+            <div class="contact-form-wrapper">
+                <ContactForm client:load />
+            </div>
+        </div>
+    </section>
+</div>
+
+<style is:global>
+    .contact-outer {
+        position: relative;
+        overflow: hidden;
+    }
+
+    .contact-topo {
+        position: absolute;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        z-index: 0;
+        pointer-events: none;
+        display: block;
+    }
+
+    .contact {
+        position: relative;
+        z-index: 1;
+        padding: 10rem var(--content-padding) 25rem;
+        max-width: var(--max-width);
+        margin: 0 auto;
+    }
+
+    .contact-label {
+        color: var(--pluto-gray-l7);
+        font-weight: 500;
+        margin-bottom: 20rem;
+    }
+
+    .contact-layout {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 8rem;
+        align-items: start;
+    }
+
+    .contact-left {
+        display: flex;
+        flex-direction: column;
+        gap: 3rem;
+        position: sticky;
+        top: 12rem;
+    }
+
+    .contact-title {
+        display: block;
+    }
+
+    .contact-description {
+        color: var(--pluto-gray-l8);
+    }
+
+    .contact-email {
+        color: var(--pluto-primary-p1);
+        font-family: var(--pluto-mono-font-family);
+    }
+
+    .contact-form-wrapper {
+        width: 100%;
+        padding: 5rem;
+        border-radius: 1.2rem;
+        background: linear-gradient(
+            160deg,
+            rgba(255, 255, 255, 0.05) 0%,
+            rgba(255, 255, 255, 0.02) 50%,
+            rgba(255, 255, 255, 0.04) 100%
+        );
+        backdrop-filter: blur(4px);
+        -webkit-backdrop-filter: blur(4px);
+        border: 1px solid rgba(255, 255, 255, 0.08);
+        box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
+    }
+
+    .contact-form-container {
+        position: relative;
+        width: 100%;
+        overflow: hidden;
+        min-height: 450px;
+
+        & form {
+            transform: translate(0);
+            transition: transform 0.5s ease-in-out;
+        }
+
+        & .contact-success-message {
+            width: 100%;
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transition: transform 0.5s ease-in-out;
+            transform: translate(1300px, -50%);
+        }
+
+        &.success {
+            & form {
+                transform: translate(-1300px);
+            }
+
+            & .contact-success-message {
+                transform: translate(-50%, -50%);
+            }
+        }
+    }
+
+    .contact-success-sub {
+        color: var(--pluto-gray-l8);
+    }
+
+    .contact-form-row {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 3rem;
+        width: 100%;
+    }
+
+    .contact-form-wrapper .pluto-input-item {
+        width: 100%;
+    }
+
+    .contact-message-input {
+        width: 100%;
+        min-height: 25rem;
+        padding: 1.5rem;
+        border: var(--pluto-border-width) solid var(--pluto-gray-l5);
+        border-radius: var(--pluto-border-radius);
+        background: var(--pluto-gray-l2);
+        color: var(--pluto-text-color);
+        font-family: var(--pluto-font-family);
+        font-size: var(--pluto-p-size);
+        line-height: 1.5;
+        resize: vertical;
+        outline: none;
+
+        &:focus {
+            border-color: var(--pluto-primary-z);
+            box-shadow: inset 0 0 0 0.5px var(--pluto-primary-z);
+        }
+    }
+
+
+    @media (max-width: 900px) {
+        .contact-layout {
+            grid-template-columns: 1fr;
+            gap: 5rem;
+        }
+
+        .contact-left {
+            position: static;
+        }
+    }
+
+    @media (max-width: 600px) {
+        .contact-form-row {
+            grid-template-columns: 1fr;
+        }
+    }
+</style>

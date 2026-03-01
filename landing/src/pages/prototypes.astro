@@ -1,0 +1,70 @@
+---
+import Layout from "@/layouts/Layout.astro";
+import { PrototypeDiagram } from "@/components/stream/diagrams";
+
+const DEMO_STATE = {
+  activeNodes: ["p1", "p2", "p3", "vote"],
+  nodeValues: { p1: "748.2", p2: "749.1", p3: "782.1", vote: "2 of 3" },
+  excludedNodes: ["p3"],
+  alarmNodes: [],
+};
+---
+
+<Layout title="Diagram Prototypes">
+  <section>
+    <div class="proto-grid">
+      <div class="proto-card">
+        <h3 class="proto-title">Schematic — Voting</h3>
+        <div class="proto-canvas">
+          <PrototypeDiagram
+            diagramKey="voting"
+            state={DEMO_STATE}
+            client:load
+          />
+        </div>
+      </div>
+    </div>
+  </section>
+</Layout>
+
+<style>
+  section {
+    padding-top: 6rem;
+    padding-bottom: 6rem;
+  }
+
+  .proto-grid {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 1.5rem;
+    max-width: 1400px;
+    margin: 0 auto;
+    padding: 0 2rem;
+  }
+
+  .proto-card {
+    border: 1px solid rgba(255, 255, 255, 0.06);
+    border-radius: 8px;
+    overflow: hidden;
+    background: rgba(0, 0, 0, 0.3);
+  }
+
+  .proto-title {
+    font-family: var(--pluto-mono-font-family);
+    font-size: 11px;
+    font-weight: 500;
+    color: rgba(255, 255, 255, 0.5);
+    letter-spacing: 0.3px;
+    padding: 10px 14px;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+    margin: 0;
+  }
+
+  .proto-canvas {
+    padding: 32px;
+    min-height: 500px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+</style>

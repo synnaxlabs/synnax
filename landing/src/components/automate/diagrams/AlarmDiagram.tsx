@@ -1,13 +1,25 @@
-import type { DiagramState } from "@/components/automate/timeline";
 import type { ReactElement } from "react";
+
+import {
+  ACCENT,
+  COMPUTE_LABEL_STYLE,
+  LABEL_STYLE,
+  LINE_IDLE,
+  RULE_OFF,
+  RULE_ON,
+  TEXT_OFF,
+  TEXT_ON,
+  VALUE_OFF,
+  VALUE_ON,
+  VALUE_STYLE,
+  WARNING_ACCENT,
+} from "@/components/diagrams/diagramConstants";
+import { DiagramDefs, useDiagramDefs } from "@/components/diagrams/DiagramDefs";
+import type { DiagramState } from "@/components/automate/timeline";
 
 interface AlarmDiagramProps {
   state: DiagramState;
 }
-
-const ACTIVE = "var(--pluto-primary-p1)";
-const INACTIVE = "var(--pluto-gray-l9)";
-const WARNING = "var(--pluto-warning-z)";
 
 interface NodeDef {
   x: number;
@@ -17,10 +29,17 @@ interface NodeDef {
 }
 
 const NODES: NodeDef[] = [
-  { x: 40, y: 100, label: "press_pt", id: "sensor" },
-  { x: 130, y: 100, label: "check", id: "check" },
-  { x: 220, y: 100, label: "stable_for", id: "stable" },
+  { x: 50, y: 130, label: "press_pt", id: "sensor" },
+  { x: 150, y: 130, label: "check", id: "check" },
+  { x: 250, y: 130, label: "stable_for", id: "stable" },
 ];
+
+const SELECT_X = 320;
+const SELECT_Y = 130;
+const WARN_X = 290;
+const WARN_Y = 55;
+const NOM_X = 290;
+const NOM_Y = 210;
 
 const isNodeActive = (activeNode: string, nodeId: string): boolean => {
   if (activeNode === nodeId) return true;
@@ -31,152 +50,186 @@ const isNodeActive = (activeNode: string, nodeId: string): boolean => {
 };
 
 export const AlarmDiagram = ({ state }: AlarmDiagramProps): ReactElement => {
+  const ids = useDiagramDefs();
   const selectActive =
     state.activeNode === "select-true" || state.activeNode === "select-false";
   const trueActive = state.activeNode === "select-true";
   const falseActive = state.activeNode === "select-false";
 
   return (
-    <svg viewBox="0 0 320 260" className="automate-diagram-svg">
+    <svg viewBox="0 0 380 260" className="automate-diagram-svg">
+      <DiagramDefs ids={ids} />
+
       {/* Pipeline nodes */}
       {NODES.map((node, i) => {
         const active = isNodeActive(state.activeNode, node.id);
-        const nodeColor = active ? ACTIVE : INACTIVE;
+
         return (
           <g key={node.id}>
-            <rect
-              x={node.x - 32}
-              y={node.y - 16}
-              width="64"
-              height="32"
-              rx="6"
-              fill="none"
-              stroke={nodeColor}
-              strokeWidth="2"
-              className="diagram-node"
-            />
             <text
               x={node.x}
-              y={node.y + 4}
+              y={node.y - 10}
               textAnchor="middle"
-              className="diagram-label"
-              fill={active ? "var(--pluto-text-color)" : "var(--pluto-gray-l6)"}
+              fill={active ? TEXT_ON : TEXT_OFF}
+              style={LABEL_STYLE}
             >
               {node.label}
             </text>
-            {/* Connector to next node */}
+            <line
+              x1={node.x - 28}
+              y1={node.y}
+              x2={node.x + 28}
+              y2={node.y}
+              stroke={active ? RULE_ON : RULE_OFF}
+              strokeWidth="1"
+              style={{ transition: "stroke 0.5s ease" }}
+            />
+
+            {active && (
+              <circle
+                cx={node.x + 28}
+                cy={node.y}
+                r="12"
+                fill={`url(#${ids.accentEndpoint})`}
+              />
+            )}
+
+            {/* Connector bezier to next node */}
             {i < NODES.length - 1 && (
-              <line
-                x1={node.x + 32}
-                y1={node.y}
-                x2={NODES[i + 1].x - 32}
-                y2={NODES[i + 1].y}
-                stroke={active ? ACTIVE : INACTIVE}
-                strokeWidth="2"
-                strokeDasharray={active ? "4 3" : "none"}
-                className={active ? "flow-line" : ""}
+              <path
+                d={`M${node.x + 32},${node.y} C${node.x + 55},${node.y} ${NODES[i + 1].x - 50},${NODES[i + 1].y} ${NODES[i + 1].x - 32},${NODES[i + 1].y}`}
+                fill="none"
+                stroke={
+                  active ? `url(#${ids.accentFlow})` : LINE_IDLE
+                }
+                strokeWidth={active ? "0.75" : "0.5"}
+                style={{ transition: "all 0.6s ease" }}
               />
             )}
           </g>
         );
       })}
 
-      {/* select node */}
-      <line
-        x1="252"
-        y1="100"
-        x2="280"
-        y2="100"
-        stroke={selectActive ? ACTIVE : INACTIVE}
-        strokeWidth="2"
-        className={selectActive ? "flow-line" : ""}
-      />
-      <polygon
-        points="280,80 320,100 280,120"
+      {/* Last node → select bezier */}
+      <path
+        d={`M${NODES[2].x + 32},${NODES[2].y} C${NODES[2].x + 55},${NODES[2].y} ${SELECT_X - 40},${SELECT_Y} ${SELECT_X - 22},${SELECT_Y}`}
         fill="none"
-        stroke={selectActive ? ACTIVE : INACTIVE}
-        strokeWidth="2"
-        className="diagram-node"
+        stroke={selectActive ? `url(#${ids.accentFlow})` : LINE_IDLE}
+        strokeWidth={selectActive ? "0.75" : "0.5"}
+        style={{ transition: "all 0.6s ease" }}
       />
+
+      {/* Select circle */}
+      <circle
+        cx={SELECT_X}
+        cy={SELECT_Y}
+        r="20"
+        fill="none"
+        stroke={selectActive ? ACCENT : "rgba(255,255,255,0.04)"}
+        strokeWidth="0.75"
+        style={{ transition: "stroke 0.5s ease" }}
+      />
+      {selectActive && (
+        <circle
+          cx={SELECT_X}
+          cy={SELECT_Y}
+          r="28"
+          fill={`url(#${ids.accentEndpoint})`}
+        />
+      )}
       <text
-        x="296"
-        y="104"
+        x={SELECT_X}
+        y={SELECT_Y + 4}
         textAnchor="middle"
-        className="diagram-label-sm"
-        fill={selectActive ? "var(--pluto-text-color)" : "var(--pluto-gray-l6)"}
+        fill={selectActive ? TEXT_ON : TEXT_OFF}
+        style={COMPUTE_LABEL_STYLE}
       >
         select
       </text>
 
-      {/* True branch (warning) */}
-      <line
-        x1="300"
-        y1="80"
-        x2="260"
-        y2="40"
-        stroke={trueActive ? WARNING : INACTIVE}
-        strokeWidth="2"
+      {/* Select → warning branch (up-left bezier) */}
+      <path
+        d={`M${SELECT_X - 14},${SELECT_Y - 14} C${SELECT_X - 30},${SELECT_Y - 40} ${WARN_X + 40},${WARN_Y + 10} ${WARN_X + 28},${WARN_Y}`}
+        fill="none"
+        stroke={
+          trueActive ? `url(#${ids.warningFlow})` : LINE_IDLE
+        }
+        strokeWidth={trueActive ? "0.75" : "0.5"}
+        style={{ transition: "all 0.6s ease" }}
       />
-      <rect
-        x="190"
-        y="24"
-        width="72"
-        height="32"
-        rx="6"
-        fill={trueActive ? WARNING : "none"}
-        fillOpacity={trueActive ? 0.15 : 0}
-        stroke={trueActive ? WARNING : INACTIVE}
-        strokeWidth="2"
-        className="diagram-node"
-      />
+
+      {trueActive && (
+        <circle
+          cx={WARN_X + 28}
+          cy={WARN_Y}
+          r="12"
+          fill={`url(#${ids.warningEndpoint})`}
+        />
+      )}
       <text
-        x="226"
-        y="44"
+        x={WARN_X}
+        y={WARN_Y - 10}
         textAnchor="middle"
-        className="diagram-label"
-        fill={trueActive ? WARNING : "var(--pluto-gray-l6)"}
+        fill={trueActive ? WARNING_ACCENT : TEXT_OFF}
+        style={LABEL_STYLE}
       >
         warning
       </text>
-
-      {/* False branch (ok) */}
       <line
-        x1="300"
-        y1="120"
-        x2="260"
-        y2="170"
-        stroke={falseActive ? ACTIVE : INACTIVE}
-        strokeWidth="2"
+        x1={WARN_X - 28}
+        y1={WARN_Y}
+        x2={WARN_X + 28}
+        y2={WARN_Y}
+        stroke={trueActive ? WARNING_ACCENT : RULE_OFF}
+        strokeWidth="1"
+        style={{ transition: "stroke 0.5s ease" }}
       />
-      <rect
-        x="198"
-        y="154"
-        width="64"
-        height="32"
-        rx="6"
-        fill={falseActive ? ACTIVE : "none"}
-        fillOpacity={falseActive ? 0.15 : 0}
-        stroke={falseActive ? ACTIVE : INACTIVE}
-        strokeWidth="2"
-        className="diagram-node"
+
+      {/* Select → nominal branch (down-left bezier) */}
+      <path
+        d={`M${SELECT_X - 14},${SELECT_Y + 14} C${SELECT_X - 30},${SELECT_Y + 40} ${NOM_X + 40},${NOM_Y - 10} ${NOM_X + 28},${NOM_Y}`}
+        fill="none"
+        stroke={
+          falseActive ? `url(#${ids.accentFlow})` : LINE_IDLE
+        }
+        strokeWidth={falseActive ? "0.75" : "0.5"}
+        style={{ transition: "all 0.6s ease" }}
       />
+
+      {falseActive && (
+        <circle
+          cx={NOM_X + 28}
+          cy={NOM_Y}
+          r="12"
+          fill={`url(#${ids.accentEndpoint})`}
+        />
+      )}
       <text
-        x="230"
-        y="174"
+        x={NOM_X}
+        y={NOM_Y - 10}
         textAnchor="middle"
-        className="diagram-label"
-        fill={falseActive ? "var(--pluto-text-color)" : "var(--pluto-gray-l6)"}
+        fill={falseActive ? TEXT_ON : TEXT_OFF}
+        style={LABEL_STYLE}
       >
         nominal
       </text>
+      <line
+        x1={NOM_X - 28}
+        y1={NOM_Y}
+        x2={NOM_X + 28}
+        y2={NOM_Y}
+        stroke={falseActive ? RULE_ON : RULE_OFF}
+        strokeWidth="1"
+        style={{ transition: "stroke 0.5s ease" }}
+      />
 
-      {/* Pressure reading */}
+      {/* Pressure value below press_pt */}
       <text
-        x="40"
-        y="145"
+        x={NODES[0].x}
+        y={NODES[0].y + 16}
         textAnchor="middle"
-        className="diagram-value-sm"
-        fill="var(--pluto-gray-l9)"
+        fill={VALUE_OFF}
+        style={VALUE_STYLE}
       >
         {state.pressure} PSI
       </text>

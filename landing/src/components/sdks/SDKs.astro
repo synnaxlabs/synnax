@@ -1,0 +1,262 @@
+---
+import { Flex, Text } from "@synnaxlabs/pluto";
+import { createCssVariablesTheme, createHighlighter } from "shiki";
+import { EcosystemDiagram } from "@/components/sdks/EcosystemDiagram";
+import { SDKShowcase } from "@/components/sdks/SDKShowcase";
+
+const cssVarsTheme = createCssVariablesTheme({ name: "css-variables" });
+
+const highlighter = await createHighlighter({
+    themes: [cssVarsTheme],
+    langs: ["python", "typescript", "cpp"],
+});
+
+const highlight = (code: string, lang: string) =>
+    highlighter.codeToHtml(code, { lang, theme: "css-variables" });
+
+// -- Stream --
+
+const pyStream = `import synnax as sy
+
+client = sy.Synnax()
+
+with client.open_streamer(
+    ["temperature", "pressure"],
+) as s:
+    for frame in s:
+        print(frame)`;
+
+const tsStream = `import Synnax from "@synnaxlabs/client";
+
+const client = new Synnax();
+
+const streamer = await client.openStreamer(
+    ["temperature", "pressure"],
+);
+for await (const frame of streamer) {
+    console.log(frame);
+}`;
+
+const cppStream = `#include "client/cpp/synnax.h"
+
+auto client = synnax::Synnax(cfg);
+
+auto [s, err] = client.telem.open_streamer({
+    .channels = {"temperature", "pressure"},
+});
+for (auto frame : s) {
+    process(frame);
+}`;
+
+// -- Write --
+
+const pyWrite = `import synnax as sy
+
+client = sy.Synnax()
+
+with client.open_writer(
+    sy.TimeStamp.now(),
+    ["time", "sensor"],
+) as w:
+    w.write({
+        "time": sy.TimeStamp.now(),
+        "sensor": 25.3,
+    })
+    w.commit()`;
+
+const tsWrite = `import Synnax from "@synnaxlabs/client";
+
+const client = new Synnax();
+
+const writer = await client.openWriter({
+    start: TimeStamp.now(),
+    channels: ["time", "sensor"],
+});
+await writer.write({
+    time: Date.now(),
+    sensor: 25.3,
+});
+await writer.commit();
+await writer.close();`;
+
+const cppWrite = `#include "client/cpp/synnax.h"
+
+auto client = synnax::Synnax(cfg);
+
+auto [w, err] = client.telem.open_writer({
+    .channels = {"time", "sensor"},
+    .start = synnax::TimeStamp::now(),
+});
+w.write({
+    {time, synnax::Series(ts)},
+    {data, synnax::Series(vals)},
+});
+w.commit();`;
+
+// -- Read --
+
+const pyRead = `import synnax as sy
+
+client = sy.Synnax()
+
+data = client.read(
+    sy.TimeRange(start, end),
+    ["temperature", "pressure"],
+)
+print(data.to_df())`;
+
+const tsRead = `import Synnax from "@synnaxlabs/client";
+
+const client = new Synnax();
+
+const data = await client.read(
+    start.range(end),
+    ["temperature", "pressure"],
+);
+console.log(data.at(-1));`;
+
+const cppRead = `#include "client/cpp/synnax.h"
+
+auto client = synnax::Synnax(cfg);
+
+auto [frame, err] = client.telem.read(
+    synnax::TimeRange{start, end},
+    {"temperature", "pressure"},
+);
+for (auto& s : frame.series) {
+    process(s);
+}`;
+
+const codeHtmls = [
+    [highlight(pyStream, "python"), highlight(pyWrite, "python"), highlight(pyRead, "python")],
+    [highlight(tsStream, "typescript"), highlight(tsWrite, "typescript"), highlight(tsRead, "typescript")],
+    [highlight(cppStream, "cpp"), highlight(cppWrite, "cpp"), highlight(cppRead, "cpp")],
+];
+---
+
+<Flex.Box el="section" id="sdks" className="sdks">
+    <Text.Text level="h5" variant="code" className="sdks-label">
+        7 -> Extend with SDKs
+    </Text.Text>
+
+    <div class="sdks-hero">
+        <Text.Text level="h2" className="sdks-title">
+            Build on the platform
+        </Text.Text>
+        <Text.Text level="h5" className="sdks-description">
+            Use Synnax as a framework to build advanced industrial systems.
+            Connect AI models, embed real-time processing, interface with
+            external controllers — all through native client libraries in
+            Python, TypeScript, and C++.
+        </Text.Text>
+    </div>
+
+    <EcosystemDiagram client:visible />
+    <SDKShowcase client:visible codeHtmls={codeHtmls} />
+</Flex.Box>
+
+<style is:global>
+    .sdks {
+        padding: 10rem 0 15rem;
+        gap: 20rem;
+    }
+
+    .sdks-label {
+        color: var(--pluto-gray-l7);
+        font-weight: 500;
+    }
+
+    .sdks-hero {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 4rem;
+        width: 100%;
+        align-items: start;
+    }
+
+    .sdks-title {
+        display: block;
+    }
+
+    .sdks-description {
+        color: var(--pluto-gray-l8);
+    }
+
+    /* Ecosystem diagram */
+    .sdks-ecosystem {
+        width: 100%;
+        aspect-ratio: 1100 / 360;
+        border: var(--pluto-border);
+        border-radius: 2rem;
+        overflow: hidden;
+    }
+
+    /* Tab icons */
+    .sdks-showcase .automate-viz-tab {
+        display: flex;
+        align-items: center;
+        gap: 1.2rem;
+    }
+
+    .sdks-showcase .automate-viz-tab svg {
+        width: 2.4rem;
+        height: 2.4rem;
+    }
+
+    /* Showcase */
+    .sdks-showcase {
+        display: flex;
+        flex-direction: column;
+        width: 100%;
+        border: var(--pluto-border);
+        border-radius: 2rem;
+        overflow: hidden;
+        background: var(--pluto-gray-l1);
+    }
+
+    .sdks-panels {
+        display: grid;
+        grid-template-columns: 1fr 1fr 1fr;
+        min-width: 0;
+    }
+
+    .sdks-panel {
+        padding: 3rem 4rem 4rem;
+        overflow: hidden;
+        min-width: 0;
+    }
+
+    .sdks-panel .automate-code-panel pre {
+        overflow: hidden;
+    }
+
+    .sdks-panel + .sdks-panel {
+        border-left: var(--pluto-border);
+    }
+
+    .sdks-panel-label {
+        display: block;
+        font-family: var(--pluto-mono-font-family);
+        font-size: 2rem;
+        font-weight: 500;
+        color: var(--pluto-gray-l6);
+        margin-bottom: 2rem;
+    }
+
+    @media (max-width: 900px) {
+        .sdks-panels {
+            grid-template-columns: 1fr;
+        }
+
+        .sdks-panel + .sdks-panel {
+            border-left: none;
+            border-top: var(--pluto-border);
+        }
+    }
+
+    @media (max-width: 600px) {
+        .sdks-hero {
+            grid-template-columns: 1fr;
+        }
+    }
+</style>

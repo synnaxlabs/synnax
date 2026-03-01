@@ -46,9 +46,9 @@ import OPCUA from "./logos/OPCUA.astro";
     </defs>
 </svg>
 
-<Flex.Box el="section" className="integrations">
-    <Text.Text level="h4" variant="code" className="integrations-label">
-        2 -> Device Integrations
+<Flex.Box el="section" id="integrations" className="integrations">
+    <Text.Text level="h5" variant="code" className="integrations-label">
+        6 -> Device Integrations
     </Text.Text>
     <div class="integrations-content">
         <Flex.Box className="integrations-text">
@@ -56,7 +56,7 @@ import OPCUA from "./logos/OPCUA.astro";
                 Works with your<br /><span class="integrations-vendor">existing</span
                 ><br />hardware
             </Text.Text>
-            <Text.Text level="p" className="integrations-description">
+            <Text.Text level="h5" className="integrations-description">
                 Synnax natively integrates with the most popular data acquisition and
                 control hardware. Connect your devices in minutes, not weeks.
             </Text.Text>
@@ -160,7 +160,7 @@ import OPCUA from "./logos/OPCUA.astro";
                             Attach device
                         </Text.Text>
                     </div>
-                    <Text.Text level="p" className="workflow-tab-description">
+                    <Text.Text level="h5" className="workflow-tab-description">
                         Connect your hardware to the Synnax cluster. Our drivers
                         automatically detect and establish communication with your
                         devices.
@@ -175,7 +175,7 @@ import OPCUA from "./logos/OPCUA.astro";
                             Configure instrumentation
                         </Text.Text>
                     </div>
-                    <Text.Text level="p" className="workflow-tab-description">
+                    <Text.Text level="h5" className="workflow-tab-description">
                         Define your channels, set sample rates, and map physical signals
                         to logical names. All from a single interface.
                     </Text.Text>
@@ -189,7 +189,7 @@ import OPCUA from "./logos/OPCUA.astro";
                             Acquire data & control actuators
                         </Text.Text>
                     </div>
-                    <Text.Text level="p" className="workflow-tab-description">
+                    <Text.Text level="h5" className="workflow-tab-description">
                         Stream live telemetry, build dashboards, and send commands to
                         your hardware — all in real time with microsecond precision.
                     </Text.Text>
@@ -263,7 +263,7 @@ import OPCUA from "./logos/OPCUA.astro";
     }
 
     .integrations-description {
-        color: var(--pluto-gray-l8);
+        color: var(--pluto-gray-l9);
     }
 
     .integrations-grid {
@@ -430,7 +430,7 @@ import OPCUA from "./logos/OPCUA.astro";
     }
 
     .workflow-tab-description {
-        color: var(--pluto-gray-l8);
+        color: var(--pluto-gray-l9);
     }
 
     .workflow-screenshot {

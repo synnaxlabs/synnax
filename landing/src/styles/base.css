@@ -18,12 +18,13 @@
     --pluto-h3-line-height: 120%;
     --pluto-h3-letter-spacing: -0.02em;
 
-    --pluto-h4-size: 3.5rem;
+    --pluto-h4-size: 4rem;
     --pluto-h4-weight: 500;
     --pluto-h4-line-height: 130%;
 
-    --pluto-p-size: 2.8rem;
-    --pluto-p-line-height: 4rem;
+    --pluto-h5-size: 3rem;
+    --pluto-h5-line-height: 4.5rem;
+    --pluto-h5-weight: 350;
 
     --shiki-background: transparent;
     --shiki-foreground: var(--pluto-text-color);
@@ -38,6 +39,7 @@
 
 html {
     background: var(--pluto-gray-l0);
+    scroll-behavior: smooth;
 }
 
 body {
@@ -53,6 +55,12 @@ a:not(.pluto-btn) {
 
     &:hover {
         text-decoration: underline;
+    }
+}
+
+@media (-webkit-min-device-pixel-ratio: 2), (min-resolution: 2dppx) {
+    :root {
+        --pluto-border-width: 0.5px;
     }
 }
 

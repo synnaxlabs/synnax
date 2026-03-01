@@ -1,0 +1,350 @@
+---
+import { grammar as arcGrammar } from "@synnaxlabs/arc";
+import { Button, Flex, Text } from "@synnaxlabs/pluto";
+import { createCssVariablesTheme, createHighlighter } from "shiki";
+import { CalcVisualizer } from "@/components/stream/CalcVisualizer";
+
+const cssVarsTheme = createCssVariablesTheme({ name: "css-variables" });
+
+const highlighter = await createHighlighter({
+    themes: [cssVarsTheme],
+    langs: [arcGrammar],
+});
+
+const highlight = (code: string) =>
+    highlighter.codeToHtml(code, { lang: "arc", theme: "css-variables" });
+
+const unitConversion = `fahrenheit := celsius * 9 / 5 + 32`;
+
+const mixtureRatio = `return ox_flow / fuel_flow`;
+
+const thresholdAlarm = `if pressure > 750 {
+    return 1
+}
+return 0`;
+
+const massFlow = `dp := upstream_pt - downstream_pt
+rho := fluids.density(
+    fluid="LOX",
+    pressure=upstream_pt,
+    temp=ox_temp,
+)
+return fluids.orifice_flow(
+    dp=dp,
+    rho=rho,
+    cd=0.62,
+    area=0.00045,
+)`;
+
+const sensorVoting = `tol := 5.0
+a := abs(press_1 - press_2) < tol
+b := abs(press_1 - press_3) < tol
+
+if a and b {
+    return (press_1 + press_2 + press_3) / 3
+}
+if a { return (press_1 + press_2) / 2 }
+if b { return (press_1 + press_3) / 2 }
+return (press_2 + press_3) / 2`;
+
+const fftAnalysis = `window := series.last(accel_x, 1024)
+spectrum := math.fft(window)
+freqs := math.fft_freqs(n=1024, sample_rate=10000)
+peak_idx := series.argmax(spectrum[1:512]) + 1
+return freqs[peak_idx]`;
+
+const codeHtmls = [
+    highlight(unitConversion),
+    highlight(mixtureRatio),
+    highlight(thresholdAlarm),
+    highlight(massFlow),
+    highlight(sensorVoting),
+    highlight(fftAnalysis),
+];
+---
+
+<Flex.Box el="section" className="stream-feature">
+    <Text.Text level="h5" variant="code" className="stream-feature-label">
+        5.1 -> Calculated Channels
+    </Text.Text>
+    <div class="stream-feature-header">
+        <Text.Text level="h3" className="stream-feature-title">
+            Sensor voting in 10 lines,<br />not 10 services
+        </Text.Text>
+        <div class="stream-feature-right">
+            <Text.Text level="h5" className="stream-feature-description">
+                Attach Arc expressions to channels and Synnax computes them on every
+                sample — live and historical. Stateful variables, vector math, and
+                reactive execution replace entire processing pipelines.
+            </Text.Text>
+            <Button.Button variant="text" href="https://docs.synnaxlabs.com/reference/concepts/calculated-channels">
+                Read More →
+            </Button.Button>
+        </div>
+    </div>
+
+    <CalcVisualizer client:visible codeHtmls={codeHtmls} />
+</Flex.Box>
+
+<style is:global>
+    /* Sub-section */
+    .stream-feature {
+        padding: 10rem 0 15rem;
+        gap: 4rem;
+        border-top: var(--pluto-border);
+    }
+
+    .stream-feature-label {
+        color: var(--pluto-gray-l7);
+        font-weight: 500;
+        font-size: 3rem;
+        margin-bottom: 4rem;
+    }
+
+    .stream-feature-header {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 4rem;
+        width: 100%;
+        align-items: start;
+    }
+
+    .stream-feature-title {
+        display: block;
+    }
+
+    .stream-feature-right {
+        display: flex;
+        flex-direction: column;
+        gap: 3rem;
+        align-items: flex-start;
+    }
+
+    .stream-feature-right .pluto-btn {
+        color: var(--pluto-gray-l8);
+        text-decoration: none;
+        margin-left: -2rem;
+    }
+
+    .stream-feature-right .pluto-btn:hover {
+        text-decoration: none;
+    }
+
+    .stream-feature-description {
+        color: var(--pluto-gray-l9);
+    }
+
+    /* Visualizer container */
+    .calc-visualizer {
+        display: flex;
+        flex-direction: column;
+        width: 100%;
+        border: var(--pluto-border);
+        border-radius: 2rem;
+        overflow: hidden;
+        background: var(--pluto-gray-l1);
+        margin-top: 8rem;
+    }
+
+    /* Tabs */
+    .calc-viz-tabs {
+        display: flex;
+        gap: 0;
+        border-bottom: var(--pluto-border);
+    }
+
+    .calc-viz-tab {
+        padding: 2.5rem 4rem;
+        background: transparent;
+        border: none;
+        border-right: var(--pluto-border);
+        cursor: pointer;
+        font-family: var(--pluto-font-family);
+        font-size: 2.5rem;
+        font-weight: 500;
+        color: var(--pluto-gray-l6);
+        transition:
+            color 0.2s ease,
+            background 0.2s ease;
+
+        &:hover {
+            color: var(--pluto-gray-l9);
+            background: var(--pluto-gray-l2);
+        }
+
+        &:last-child {
+            border-right: none;
+        }
+    }
+
+    .calc-viz-tab--active {
+        color: var(--pluto-text-color);
+        background: var(--pluto-gray-l2);
+    }
+
+    /* Two-column content area */
+    .calc-viz-content {
+        display: grid;
+        grid-template-columns: 2fr 3fr;
+        min-height: 380px;
+    }
+
+    /* Code panel */
+    .calc-viz-code {
+        padding: 4rem;
+        border-right: var(--pluto-border);
+        overflow: auto;
+    }
+
+    .calc-code-panel pre {
+        margin: 0;
+        padding: 0;
+        background: transparent !important;
+        font-size: 2.4rem;
+        line-height: 3.6rem;
+    }
+
+    .calc-code-panel code {
+        font-family: var(--pluto-mono-font-family);
+        display: flex;
+        flex-direction: column;
+        counter-reset: line;
+    }
+
+    .calc-code-panel .line {
+        min-height: 3.6rem;
+        padding: 0 1rem;
+        border-left: 3px solid transparent;
+        counter-increment: line;
+        transition:
+            border-color 0.3s ease,
+            background 0.3s ease;
+    }
+
+    .calc-code-panel .line::before {
+        content: counter(line);
+        display: inline-block;
+        width: 2.5rem;
+        margin-right: 2.5rem;
+        text-align: right;
+        color: var(--pluto-gray-l7);
+        font-size: 2.2rem;
+        user-select: none;
+    }
+
+    .calc-code-panel .line[data-active] {
+        border-left-color: var(--pluto-primary-p1);
+        background: var(--pluto-primary-z-20);
+    }
+
+    /* Diagram panel */
+    .calc-viz-diagram {
+        display: flex;
+        align-items: stretch;
+        justify-content: stretch;
+        padding: 0;
+    }
+
+    .calc-diagram-svg {
+        width: 100%;
+        height: 100%;
+    }
+
+    .calc-diagram-svg path,
+    .calc-diagram-svg line,
+    .calc-diagram-svg rect,
+    .calc-diagram-svg circle,
+    .calc-diagram-svg polygon {
+        vector-effect: non-scaling-stroke;
+    }
+
+    .calc-diagram-svg .diagram-node {
+        transition:
+            stroke 0.3s ease,
+            fill 0.3s ease,
+            fill-opacity 0.3s ease;
+    }
+
+    .calc-diagram-svg .diagram-label {
+        font-family: var(--pluto-mono-font-family);
+        font-size: 10px;
+    }
+
+    .calc-diagram-svg .diagram-label-sm {
+        font-family: var(--pluto-mono-font-family);
+        font-size: 9px;
+    }
+
+    .calc-diagram-svg .diagram-value-sm {
+        font-family: var(--pluto-mono-font-family);
+        font-size: 12px;
+        font-weight: 600;
+    }
+
+    .calc-diagram-svg .diagram-badge {
+        font-family: var(--pluto-mono-font-family);
+        font-size: 11px;
+        font-weight: 500;
+    }
+
+    .calc-diagram-svg .flow-line {
+        animation: flow-dash 0.8s linear infinite;
+    }
+
+    .calc-diagram-svg .emergency-border {
+        animation: emergency-pulse 1s ease-in-out infinite;
+    }
+
+    /* Step progress dots */
+    .calc-viz-progress {
+        display: flex;
+        justify-content: center;
+        gap: 0.8rem;
+        padding: 2rem;
+        border-top: var(--pluto-border);
+    }
+
+    .calc-viz-dot {
+        width: 6px;
+        height: 6px;
+        border-radius: 50%;
+        background: var(--pluto-gray-l4);
+        transition: background 0.2s ease;
+    }
+
+    .calc-viz-dot--active {
+        background: var(--pluto-primary-p1);
+    }
+
+    /* Responsive */
+    @media (max-width: 900px) {
+        .calc-viz-content {
+            grid-template-columns: 1fr;
+        }
+
+        .calc-viz-code {
+            border-right: none;
+            border-bottom: var(--pluto-border);
+        }
+    }
+
+    @media (max-width: 600px) {
+        .stream-feature-header {
+            grid-template-columns: 1fr;
+            gap: 2rem;
+        }
+
+        .calc-viz-tabs {
+            flex-direction: column;
+        }
+
+        .calc-viz-tab {
+            border-right: none;
+            border-bottom: var(--pluto-border);
+
+            &:last-child {
+                border-bottom: none;
+            }
+        }
+    }
+</style>

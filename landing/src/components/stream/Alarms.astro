@@ -1,0 +1,84 @@
+---
+import { Button, Flex, Icon, Text } from "@synnaxlabs/pluto";
+---
+
+<Flex.Box el="section" className="stream-feature">
+    <Text.Text level="h5" variant="code" className="stream-feature-label">
+        5.2 -> Alarms
+    </Text.Text>
+    <div class="stream-feature-header">
+        <Text.Text level="h3" className="stream-feature-title">
+            Define alarms visually,<br />monitor everything at a glance
+        </Text.Text>
+        <div class="stream-feature-right">
+            <Text.Text level="h5" className="stream-feature-description">
+                Build alarm logic with a visual node editor — wire sources, conditions,
+                and actions without writing code. A unified status bar shows every alarm,
+                device, and system health indicator in one place.
+            </Text.Text>
+            <Button.Button variant="text" href="https://docs.synnaxlabs.com/reference/concepts/alarms">
+                Read More →
+            </Button.Button>
+        </div>
+    </div>
+    <div class="alarm-showcase">
+        <div class="alarm-flow-container">
+            <div class="alarm-tab">
+                <Icon.Arc className="alarm-tab-icon" />
+                <span>Alarm Editor</span>
+            </div>
+            <img
+                class="alarm-flow"
+                src="/images/alarm-flow.png"
+                alt="Visual Arc alarm editor showing a node graph with source, constant, comparison, stable-for, and change-status nodes"
+            />
+        </div>
+    </div>
+</Flex.Box>
+
+<style is:global>
+    .alarm-showcase {
+        display: flex;
+        flex-direction: column;
+        gap: 3rem;
+        margin-top: 12rem;
+    }
+
+    .alarm-tab {
+        display: flex;
+        align-items: center;
+        gap: 1rem;
+        padding: 1.5rem 2rem;
+        font-family: var(--pluto-code-font-family);
+        font-size: 2.2rem;
+        font-weight: 500;
+        color: var(--pluto-gray-l8);
+        border-bottom: var(--pluto-border);
+        background: var(--pluto-gray-l0);
+    }
+
+    .alarm-tab-icon {
+        font-size: 2rem;
+        color: var(--pluto-gray-l7);
+    }
+
+    .alarm-flow-container {
+        padding: 0;
+        background:
+            radial-gradient(circle, rgba(255, 255, 255, 0.15) 0.75px, transparent 0.75px),
+            color-mix(in srgb, var(--pluto-gray-l0) 50%, var(--pluto-gray-l2));
+        background-size: 20px 20px, 100% 100%;
+        border-radius: 2rem;
+        border: var(--pluto-border);
+        overflow: hidden;
+    }
+
+    .alarm-flow {
+        width: 65%;
+        height: auto;
+        display: block;
+        margin: 0 auto;
+        padding: 24rem 0 20rem;
+    }
+
+</style>

@@ -3,16 +3,16 @@ import { Button, Flex, Icon, Text } from "@synnaxlabs/pluto";
 import BrickWall from "./BrickWall.astro";
 ---
 
-<Flex.Box el="section" className="review">
-    <Text.Text level="h4" variant="code" className="review-label">
-        5 -> Store, Organize, Review
+<Flex.Box el="section" id="review" className="review">
+    <Text.Text level="h5" variant="code" className="review-label">
+        4 -> Store, Organize, Review
     </Text.Text>
 
     <div class="review-hero">
         <Text.Text level="h2" className="review-title">
             Understand what happened,<br />and why
         </Text.Text>
-        <Text.Text level="p" className="review-description">
+        <Text.Text level="h5" className="review-description">
             Review test data, compare runs side-by-side, and drill into anomalies —
             all without leaving the platform.
         </Text.Text>
@@ -20,15 +20,15 @@ import BrickWall from "./BrickWall.astro";
 </Flex.Box>
 
 <Flex.Box el="section" className="review-feature">
-    <Text.Text level="h4" variant="code" className="review-feature-label">
-        5.1 -> Storage Engine
+    <Text.Text level="h5" variant="code" className="review-feature-label">
+        4.1 -> Storage Engine
     </Text.Text>
     <div class="review-feature-header">
         <Text.Text level="h3" className="review-feature-title">
             The only deeply integrated control system and database engine
         </Text.Text>
         <div class="review-feature-right">
-            <Text.Text level="p" className="review-feature-description">
+            <Text.Text level="h5" className="review-feature-description">
                 Permanently store and organize kilohertz-rate data from thousands
                 of channels with read and write speeds exceeding 10 million
                 samples per second.
@@ -43,15 +43,15 @@ import BrickWall from "./BrickWall.astro";
 <BrickWall />
 
 <Flex.Box el="section" className="review-feature">
-    <Text.Text level="h4" variant="code" className="review-feature-label">
-        5.2 -> Organize with Ranges
+    <Text.Text level="h5" variant="code" className="review-feature-label">
+        4.2 -> Organize with Ranges
     </Text.Text>
     <div class="review-feature-header">
         <Text.Text level="h3" className="review-feature-title">
             Name it, tag it,<br />find it later
         </Text.Text>
         <div class="review-feature-right">
-            <Text.Text level="p" className="review-feature-description">
+            <Text.Text level="h5" className="review-feature-description">
                 Mark test runs, events, and anomalies as named time ranges. Attach
                 metadata, label and nest them into hierarchies, and build an audit
                 trail that makes every data point traceable.
@@ -99,10 +99,11 @@ import BrickWall from "./BrickWall.astro";
     }
 
     .review-hero {
-        display: flex;
-        flex-direction: column;
-        gap: 3rem;
-        max-width: 800px;
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 4rem;
+        width: 100%;
+        align-items: start;
     }
 
     .review-title {
@@ -110,7 +111,7 @@ import BrickWall from "./BrickWall.astro";
     }
 
     .review-description {
-        color: var(--pluto-gray-l8);
+        color: var(--pluto-gray-l9);
     }
 
     .review-feature {
@@ -148,16 +149,12 @@ import BrickWall from "./BrickWall.astro";
 
     .review-feature-description {
         color: var(--pluto-gray-l9);
-        font-size: 3.2rem;
-        line-height: 4.5rem;
-        font-weight: 350;
         max-width: 450px;
     }
 
     .review-feature-right .pluto-btn {
         color: var(--pluto-gray-l8);
         text-decoration: none;
-        font-size: var(--pluto-h5-size);
         margin-left: -2rem;
     }
 
