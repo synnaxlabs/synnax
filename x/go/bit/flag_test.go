@@ -19,12 +19,21 @@ var _ = Describe("Flag", func() {
 	Describe("FlagPos", func() {
 		It("Should set a bit flag at a particular position", func() {
 			var (
-				b    uint8
+				b    byte
 				flag bit.FlagPos = 7
 			)
 			b = flag.Set(b, true)
 			Expect(flag.Get(b)).To(BeTrue())
-			Expect(b).To(Equal(uint8(128)))
+			Expect(b).To(Equal(byte(128)))
+		})
+		It("Should be a no-op when setting out of bounds", func() {
+			var (
+				b    byte
+				flag bit.FlagPos = 128
+			)
+			b = flag.Set(b, true)
+			Expect(b).To(Equal(byte(0)))
+			Expect(flag.Get(b)).To(BeFalse())
 		})
 	})
 
