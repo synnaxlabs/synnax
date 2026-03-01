@@ -14,7 +14,7 @@ import (
 
 	"github.com/synnaxlabs/freighter/freightfluence"
 	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
-	"github.com/synnaxlabs/synnax/pkg/distribution/node"
+	"github.com/synnaxlabs/synnax/pkg/distribution/core"
 
 	"github.com/synnaxlabs/x/address"
 	"github.com/synnaxlabs/x/telem"
@@ -48,7 +48,7 @@ func (s *Service) openManyPeers(
 	ctx context.Context,
 	bounds telem.TimeRange,
 	chunkSize int64,
-	targets map[node.Key][]channel.Key,
+	targets map[core.Key][]channel.Key,
 	generateSeqNums bool,
 ) (*peerSender, []*freightfluence.Receiver[Response], error) {
 	var (

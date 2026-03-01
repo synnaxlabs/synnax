@@ -18,7 +18,7 @@ import (
 	. "github.com/onsi/gomega"
 	"github.com/samber/lo"
 	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
-	"github.com/synnaxlabs/synnax/pkg/distribution/node"
+	"github.com/synnaxlabs/synnax/pkg/distribution/core"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer/frame"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer/relay"
@@ -157,7 +157,7 @@ func peerOnlyScenario() scenario {
 	builder := mock.ProvisionCluster(ctx, 4)
 	dist := builder.Nodes[1]
 	for i, ch := range channels {
-		ch.Leaseholder = node.Key(i + 2)
+		ch.Leaseholder = core.Key(i + 2)
 		channels[i] = ch
 	}
 	Expect(dist.Channel.NewWriter(nil).CreateMany(ctx, &channels)).To(Succeed())
@@ -177,25 +177,25 @@ func peerOnlyScenario() scenario {
 }
 func mixedScenario() scenario {
 	channels := newChannelSet()
-	clstr := mock.ProvisionCluster(ctx, 3)
-	node := clstr.Nodes[1]
+	cluster := mock.ProvisionCluster(ctx, 3)
+	n := cluster.Nodes[1]
 	for i, ch := range channels {
-		ch.Leaseholder = node.Key(i + 1)
+		ch.Leaseholder = core.Key(i + 1)
 		channels[i] = ch
 	}
-	Expect(node.Channel.NewWriter(nil).CreateMany(ctx, &channels)).To(Succeed())
+	Expect(n.Channel.NewWriter(nil).CreateMany(ctx, &channels)).To(Succeed())
 	keys := channel.KeysFromChannels(channels)
 	Eventually(func(g Gomega) {
 		var chs []channel.Channel
-		g.Expect(node.Channel.NewRetrieve().Entries(&chs).WhereKeys(keys...).Exec(ctx, nil)).To(Succeed())
+		g.Expect(n.Channel.NewRetrieve().Entries(&chs).WhereKeys(keys...).Exec(ctx, nil)).To(Succeed())
 		g.Expect(chs).To(HaveLen(len(channels)))
 	}).Should(Succeed())
 	return scenario{
 		resCount: 3,
 		name:     "Mixed Gateway and Peer",
 		channels: channels,
-		dist:     node,
-		close:    clstr,
+		dist:     n,
+		close:    cluster,
 	}
 }
 
@@ -204,7 +204,7 @@ func freeScenario() scenario {
 	builder := mock.ProvisionCluster(ctx, 1)
 	dist := builder.Nodes[1]
 	for i, ch := range channels {
-		ch.Leaseholder = node.KeyFree
+		ch.Leaseholder = core.KeyFree
 		ch.Virtual = true
 		channels[i] = ch
 	}

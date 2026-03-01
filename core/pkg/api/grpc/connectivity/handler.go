@@ -39,7 +39,7 @@ func (c responseTranslator) Forward(
 ) (*gapi.ConnectivityCheckResponse, error) {
 	return &gapi.ConnectivityCheckResponse{
 		ClusterKey:  r.ClusterKey,
-		NodeVersion: r.NodeVersion,
+		NodeVersion: r.CoreVersion,
 	}, nil
 }
 
@@ -49,7 +49,7 @@ func (c responseTranslator) Backward(
 ) (apiconnectivity.CheckResponse, error) {
 	return apiconnectivity.CheckResponse{
 		ClusterKey:  r.ClusterKey,
-		NodeVersion: r.NodeVersion,
+		CoreVersion: r.NodeVersion,
 	}, nil
 }
 

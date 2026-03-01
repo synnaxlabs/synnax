@@ -16,9 +16,8 @@ import (
 	"github.com/synnaxlabs/freighter/grpc"
 	"github.com/synnaxlabs/synnax/pkg/api"
 	apiauth "github.com/synnaxlabs/synnax/pkg/api/auth"
-
 	gapi "github.com/synnaxlabs/synnax/pkg/api/grpc/v1"
-	"github.com/synnaxlabs/synnax/pkg/distribution/node"
+	"github.com/synnaxlabs/synnax/pkg/distribution/core"
 	svcauth "github.com/synnaxlabs/synnax/pkg/service/auth"
 	"github.com/synnaxlabs/synnax/pkg/service/auth/password"
 	"github.com/synnaxlabs/synnax/pkg/service/user"
@@ -71,8 +70,8 @@ func (l loginResponseTranslator) Forward(
 		},
 		ClusterInfo: &gapi.ClusterInfo{
 			ClusterKey:  r.ClusterInfo.ClusterKey,
-			NodeVersion: r.ClusterInfo.NodeVersion,
-			NodeKey:     uint32(r.ClusterInfo.NodeKey),
+			NodeVersion: r.ClusterInfo.CoreVersion,
+			NodeKey:     uint32(r.ClusterInfo.CoreKey),
 			NodeTime:    int64(r.ClusterInfo.NodeTime),
 		},
 	}, nil
@@ -91,8 +90,8 @@ func (l loginResponseTranslator) Backward(
 		},
 		ClusterInfo: apiauth.ClusterInfo{
 			ClusterKey:  r.ClusterInfo.ClusterKey,
-			NodeVersion: r.ClusterInfo.NodeVersion,
-			NodeKey:     node.Key(r.ClusterInfo.NodeKey),
+			CoreVersion: r.ClusterInfo.NodeVersion,
+			CoreKey:     core.Key(r.ClusterInfo.NodeKey),
 			NodeTime:    telem.TimeStamp(r.ClusterInfo.NodeTime),
 		},
 	}, err

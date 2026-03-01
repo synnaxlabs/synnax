@@ -7,21 +7,21 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-package node
+package core
 
 import "github.com/synnaxlabs/aspen"
 
 type (
-	Node         = aspen.Node
-	Key          = aspen.NodeKey
-	NodeState    = aspen.NodeState
-	NodeChange   = aspen.NodeChange
-	Cluster      = aspen.Cluster
-	Change       = aspen.ClusterChange
-	Resolver     = aspen.Resolver
-	HostResolver = aspen.HostResolver
-	HostProvider = aspen.HostProvider
-	State        = aspen.ClusterState
+	Core          = aspen.Node
+	Key           = aspen.NodeKey
+	State         = aspen.NodeState
+	Change        = aspen.NodeChange
+	Cluster       = aspen.Cluster
+	ClusterChange = aspen.ClusterChange
+	Resolver      = aspen.Resolver
+	HostResolver  = aspen.HostResolver
+	HostProvider  = aspen.HostProvider
+	ClusterState  = aspen.ClusterState
 )
 
 const (

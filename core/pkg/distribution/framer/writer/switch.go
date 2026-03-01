@@ -14,7 +14,7 @@ import (
 
 	"github.com/synnaxlabs/freighter"
 	"github.com/synnaxlabs/freighter/freightfluence"
-	"github.com/synnaxlabs/synnax/pkg/distribution/node"
+	"github.com/synnaxlabs/synnax/pkg/distribution/core"
 
 	"github.com/synnaxlabs/synnax/pkg/distribution/proxy"
 	"github.com/synnaxlabs/x/address"
@@ -63,7 +63,7 @@ func (rs *peerSwitchSender) _switch(
 
 type peerGatewayFreeSwitch struct {
 	confluence.BatchSwitch[Request, Request]
-	host node.Key
+	host core.Key
 	has  struct {
 		peer    bool
 		gateway bool
@@ -72,7 +72,7 @@ type peerGatewayFreeSwitch struct {
 }
 
 func newPeerGatewayFreeSwitch(
-	host node.Key,
+	host core.Key,
 	hasPeer bool,
 	hasGateway bool,
 	hasFree bool,

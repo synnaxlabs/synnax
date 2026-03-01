@@ -15,7 +15,7 @@ import (
 
 	"github.com/samber/lo"
 	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
-	"github.com/synnaxlabs/synnax/pkg/distribution/node"
+	"github.com/synnaxlabs/synnax/pkg/distribution/core"
 
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer/writer"
@@ -84,8 +84,8 @@ func (c ObservablePublisherConfig) Override(other ObservablePublisherConfig) Obs
 	c.Observable = override.Nil(c.Observable, other.Observable)
 	c.SetChannel.Virtual = true
 	c.DeleteChannel.Virtual = true
-	c.SetChannel.Leaseholder = node.KeyFree
-	c.DeleteChannel.Leaseholder = node.KeyFree
+	c.SetChannel.Leaseholder = core.KeyFree
+	c.DeleteChannel.Leaseholder = core.KeyFree
 	return c
 }
 

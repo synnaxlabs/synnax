@@ -14,7 +14,7 @@ import (
 
 	"github.com/synnaxlabs/freighter/grpc"
 	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
-	"github.com/synnaxlabs/synnax/pkg/distribution/node"
+	"github.com/synnaxlabs/synnax/pkg/distribution/core"
 
 	channelv1 "github.com/synnaxlabs/synnax/pkg/distribution/transport/grpc/channel/v1"
 	"github.com/synnaxlabs/x/control"
@@ -76,7 +76,7 @@ func (c createMessageTranslator) Backward(
 	for _, ch := range msg.Channels {
 		tr.Channels = append(tr.Channels, channel.Channel{
 			Name:        ch.Name,
-			Leaseholder: node.Key(ch.Leaseholder),
+			Leaseholder: core.Key(ch.Leaseholder),
 			DataType:    telem.DataType(ch.DataType),
 			IsIndex:     ch.IsIndex,
 			LocalKey:    channel.LocalKey(ch.LocalKey),

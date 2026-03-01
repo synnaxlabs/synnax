@@ -14,7 +14,7 @@ import (
 	"go/types"
 
 	"github.com/synnaxlabs/synnax/pkg/api/config"
-	"github.com/synnaxlabs/synnax/pkg/distribution/node"
+	"github.com/synnaxlabs/synnax/pkg/distribution/core"
 	"github.com/synnaxlabs/synnax/pkg/service/auth"
 	"github.com/synnaxlabs/synnax/pkg/service/auth/password"
 	"github.com/synnaxlabs/synnax/pkg/service/auth/token"
@@ -31,7 +31,7 @@ type Service struct {
 	authenticator auth.Authenticator
 	token         *token.Service
 	user          *user.Service
-	cluster       node.Cluster
+	cluster       core.Cluster
 }
 
 func NewService(cfgs ...config.LayerConfig) (*Service, error) {
@@ -53,10 +53,10 @@ func NewService(cfgs ...config.LayerConfig) (*Service, error) {
 type ClusterInfo struct {
 	// ClusterKey is the key of the cluster.
 	ClusterKey string `json:"cluster_key" msgpack:"cluster_key"`
-	// NodeVersion is the current version of the Synnax Core being used.
-	NodeVersion string `json:"node_version" msgpack:"node_version"`
-	// NodeKey is the key of the node in the cluster that the request was sent to.
-	NodeKey node.Key `json:"node_key" msgpack:"node_key"`
+	// CoreVersion is the current version of the Synnax Core being used.
+	CoreVersion string `json:"node_version" msgpack:"node_version"`
+	// CoreKey is the key of the Core in the cluster that the request was sent to.
+	CoreKey core.Key `json:"node_key" msgpack:"node_key"`
 	// NodeTime is the time of the node that the request was sent to.
 	NodeTime telem.TimeStamp `json:"node_time" msgpack:"node_time"`
 }
@@ -93,8 +93,8 @@ func (s *Service) Login(ctx context.Context, req LoginRequest) (LoginResponse, e
 		Token: tk,
 		ClusterInfo: ClusterInfo{
 			ClusterKey:  s.cluster.Key().String(),
-			NodeKey:     s.cluster.HostKey(),
-			NodeVersion: version.Get(),
+			CoreKey:     s.cluster.HostKey(),
+			CoreVersion: version.Get(),
 			NodeTime:    midPoint,
 		},
 	}, err

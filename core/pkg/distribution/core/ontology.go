@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-package node
+package core
 
 import (
 	"context"
@@ -29,8 +29,7 @@ import (
 
 const OntologyType ontology.Type = "node"
 
-// OntologyID returns a unique identifier for a Node to use within a resource
-// Ontology.
+// OntologyID returns a unique identifier for a Node to use within a resource Ontology.
 func OntologyID(key Key) ontology.ID {
 	return ontology.ID{Type: OntologyType, Key: strconv.Itoa(int(key))}
 }
@@ -56,12 +55,15 @@ func (s *OntologyService) Type() ontology.Type { return OntologyType }
 // ListenForChanges starts listening for changes to the cluster topology (nodes leaving,
 // joining, changing state, etc.) and updates the ontology accordingly.
 func (s *OntologyService) ListenForChanges(ctx context.Context) {
-	if err := s.Ontology.NewWriter(nil).DefineResource(ctx, OntologyID(KeyFree)); err != nil {
+	if err := s.
+		Ontology.
+		NewWriter(nil).
+		DefineResource(ctx, OntologyID(KeyFree)); err != nil {
 		s.L.Error("failed to define free node ontology resource", zap.Error(err))
 	}
 }
 
-func translateChange(ch NodeChange, _ int) ontology.Change {
+func translateChange(ch Change, _ int) ontology.Change {
 	return ontology.Change{
 		Variant: ch.Variant,
 		Key:     OntologyID(ch.Key),
@@ -70,32 +72,41 @@ func translateChange(ch NodeChange, _ int) ontology.Change {
 }
 
 // OnChange implements ontology.Service.
-func (s *OntologyService) OnChange(f func(context.Context, iter.Seq[ontology.Change])) observe.Disconnect {
-	onChange := func(ctx context.Context, ch Change) {
+func (s *OntologyService) OnChange(
+	f func(context.Context, iter.Seq[ontology.Change]),
+) observe.Disconnect {
+	onChange := func(ctx context.Context, ch ClusterChange) {
 		f(ctx, slices.Values(lo.Map(ch.Changes, translateChange)))
 	}
 	return s.Cluster.OnChange(onChange)
 }
 
 // OpenNexter implements ontology.Service.
-func (s *OntologyService) OpenNexter(context.Context) (iter.Seq[ontology.Resource], io.Closer, error) {
-	return slices.Values(lo.MapToSlice(s.Cluster.CopyState().Nodes, func(_ Key, n Node) ontology.Resource {
-		return newResource(n)
-	})), xio.NopCloser, nil
+func (s *OntologyService) OpenNexter(
+	context.Context,
+) (iter.Seq[ontology.Resource], io.Closer, error) {
+	return slices.Values(lo.MapToSlice(
+		s.Cluster.CopyState().Nodes,
+		func(_ Key, n Core) ontology.Resource { return newResource(n) },
+	)), xio.NopCloser, nil
 }
 
 // Schema implements ontology.Service.
 func (s *OntologyService) Schema() zyn.Schema { return schema }
 
 // RetrieveResource implements ontology.Service.
-func (s *OntologyService) RetrieveResource(_ context.Context, key string, _ gorp.Tx) (ontology.Resource, error) {
-	_nKey, err := strconv.Atoi(key)
+func (s *OntologyService) RetrieveResource(
+	_ context.Context,
+	key string,
+	_ gorp.Tx,
+) (ontology.Resource, error) {
+	iKey, err := strconv.Atoi(key)
 	if err != nil {
 		return ontology.Resource{}, err
 	}
-	nKey := Key(_nKey)
+	nKey := Key(iKey)
 	if nKey.IsFree() {
-		return newResource(Node{Key: nKey}), nil
+		return newResource(Core{Key: nKey}), nil
 	}
 	n, err := s.Cluster.Node(nKey)
 	if err != nil {
@@ -104,7 +115,7 @@ func (s *OntologyService) RetrieveResource(_ context.Context, key string, _ gorp
 	return newResource(n), nil
 }
 
-func newResource(n Node) ontology.Resource {
+func newResource(n Core) ontology.Resource {
 	return ontology.NewResource(
 		schema,
 		OntologyID(n.Key),

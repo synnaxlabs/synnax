@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-package node_test
+package core_test
 
 import (
 	"context"
@@ -18,8 +18,8 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/aspen"
+	"github.com/synnaxlabs/synnax/pkg/distribution/core"
 	"github.com/synnaxlabs/synnax/pkg/distribution/mock"
-	"github.com/synnaxlabs/synnax/pkg/distribution/node"
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
 	"github.com/synnaxlabs/x/change"
 	. "github.com/synnaxlabs/x/testutil"
@@ -39,23 +39,17 @@ var _ = Describe("Ontology", Ordered, func() {
 
 	Describe("OntologyID", func() {
 		It("Should return a correctly formatted ontology ID", func() {
-			id := node.OntologyID(1)
-			Expect(id.Type).To(Equal(node.OntologyType))
+			id := core.OntologyID(1)
+			Expect(id.Type).To(Equal(core.OntologyType))
 			Expect(id.Key).To(Equal("1"))
-		})
-
-		It("Should handle the free node key", func() {
-			id := node.OntologyID(node.KeyFree)
-			Expect(id.Type).To(Equal(node.OntologyType))
-			Expect(id.Key).To(Equal("0"))
 		})
 	})
 
 	Describe("OntologyService", func() {
-		var svc *node.OntologyService
+		var svc *core.OntologyService
 
 		BeforeAll(func() {
-			svc = &node.OntologyService{
+			svc = &core.OntologyService{
 				Cluster:  mockCluster.Nodes[1].Cluster,
 				Ontology: mockCluster.Nodes[1].Ontology,
 			}
@@ -69,7 +63,7 @@ var _ = Describe("Ontology", Ordered, func() {
 
 		Describe("Schema", func() {
 			It("Should successfully dump a node to a standardized format", func() {
-				n := node.Node{Key: 1, Address: "localhost:9090"}
+				n := core.Core{Key: 1, Address: "localhost:9090"}
 				dumped, err := svc.Schema().Dump(n)
 				Expect(err).ToNot(HaveOccurred())
 				m, ok := dumped.(map[string]any)
@@ -83,22 +77,22 @@ var _ = Describe("Ontology", Ordered, func() {
 		Describe("ListenForChanges", func() {
 			It("Should define the free node resource in the ontology", func() {
 				svc.ListenForChanges(ctx)
-				r := MustSucceed(svc.RetrieveResource(ctx, "0", nil))
-				Expect(r.ID).To(Equal(node.OntologyID(node.KeyFree)))
+				r := MustSucceed(svc.RetrieveResource(ctx, "4095", nil))
+				Expect(r.ID).To(Equal(core.OntologyID(core.KeyFree)))
 			})
 		})
 
 		Describe("RetrieveResource", func() {
 			It("Should retrieve a node resource by key", func() {
 				r := MustSucceed(svc.RetrieveResource(ctx, "1", nil))
-				Expect(r.ID.Type).To(Equal(node.OntologyType))
+				Expect(r.ID.Type).To(Equal(core.OntologyType))
 				Expect(r.ID.Key).To(Equal("1"))
 			})
 
 			It("Should retrieve the free node resource", func() {
-				r := MustSucceed(svc.RetrieveResource(ctx, "0", nil))
-				Expect(r.ID.Type).To(Equal(node.OntologyType))
-				Expect(r.ID.Key).To(Equal("0"))
+				r := MustSucceed(svc.RetrieveResource(ctx, "4095", nil))
+				Expect(r.ID.Type).To(Equal(core.OntologyType))
+				Expect(r.ID.Key).To(Equal("4095"))
 			})
 
 			It("Should return an error for an invalid key", func() {
@@ -121,7 +115,7 @@ var _ = Describe("Ontology", Ordered, func() {
 				resources := slices.Collect(seq)
 				Expect(len(resources)).To(BeNumerically(">=", 3))
 				for _, r := range resources {
-					Expect(r.ID.Type).To(Equal(node.OntologyType))
+					Expect(r.ID.Type).To(Equal(core.OntologyType))
 				}
 			})
 		})
@@ -130,7 +124,7 @@ var _ = Describe("Ontology", Ordered, func() {
 			It("Should propagate cluster topology changes", func() {
 				changes := make(chan []ontology.Change, 5)
 				dc := svc.OnChange(func(
-					ctx context.Context,
+					_ context.Context,
 					seq iter.Seq[ontology.Change],
 				) {
 					changes <- slices.Collect(seq)
@@ -141,7 +135,7 @@ var _ = Describe("Ontology", Ordered, func() {
 					c := <-changes
 					g.Expect(len(c)).To(BeNumerically(">", 0))
 					g.Expect(c[0].Variant).To(Equal(change.VariantSet))
-					g.Expect(c[0].Key.Type).To(Equal(node.OntologyType))
+					g.Expect(c[0].Key.Type).To(Equal(core.OntologyType))
 				}).Should(Succeed())
 			})
 		})

@@ -26,7 +26,7 @@ import (
 	"github.com/samber/lo"
 	"github.com/synnaxlabs/alamos"
 	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
-	"github.com/synnaxlabs/synnax/pkg/distribution/node"
+	"github.com/synnaxlabs/synnax/pkg/distribution/core"
 
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer/relay"
 	"github.com/synnaxlabs/synnax/pkg/distribution/proxy"
@@ -121,7 +121,7 @@ type keyAuthority struct {
 var _ proxy.Entry = keyAuthority{}
 
 // Lease implements proxy.Entry.
-func (k keyAuthority) Lease() node.Key { return k.key.Lease() }
+func (k keyAuthority) Lease() core.Key { return k.key.Lease() }
 
 var _ config.Config[Config] = Config{}
 
@@ -208,7 +208,7 @@ type ServiceConfig struct {
 	// HostResolver is used to resolve the host address for nodes in the cluster in order
 	// to route writes.
 	// [REQUIRED]
-	HostResolver node.HostResolver
+	HostResolver core.HostResolver
 	// TS is the local time series store to write to.
 	// [REQUIRED]
 	TS *ts.DB

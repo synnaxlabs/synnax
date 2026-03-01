@@ -18,7 +18,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/api/auth"
 	"github.com/synnaxlabs/synnax/pkg/api/config"
 	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
-	"github.com/synnaxlabs/synnax/pkg/distribution/node"
+	"github.com/synnaxlabs/synnax/pkg/distribution/core"
 	"github.com/synnaxlabs/synnax/pkg/distribution/group"
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
 	"github.com/synnaxlabs/synnax/pkg/service/access"
@@ -45,7 +45,7 @@ type Channel struct {
 	Key         channel.Key         `json:"key" msgpack:"key"`
 	Density     telem.Density       `json:"density" msgpack:"density"`
 	Index       channel.Key         `json:"index" msgpack:"index"`
-	Leaseholder node.Key     `json:"leaseholder" msgpack:"leaseholder"`
+	Leaseholder core.Key            `json:"leaseholder" msgpack:"leaseholder"`
 	IsIndex     bool                `json:"is_index" msgpack:"is_index"`
 	Virtual     bool                `json:"virtual" msgpack:"virtual"`
 	Internal    bool                `json:"internal" msgpack:"internal"`
@@ -153,9 +153,8 @@ type RetrieveRequest struct {
 	Limit int `json:"limit" msgpack:"limit"`
 	// Offset offsets the results returned.
 	Offset int `json:"offset" msgpack:"offset"`
-	// NodeKey is an optional parameter that queries a Channel by its node
-	// Name.
-	NodeKey node.Key `json:"node_key" msgpack:"node_key"`
+	// CoreKey is an optional parameter that queries a Channel by its Core Key.
+	NodeKey core.Key `json:"node_key" msgpack:"node_key"`
 	// RangeKey is used for fetching aliases.
 	RangeKey uuid.UUID `json:"range_key" msgpack:"range_key"`
 }
