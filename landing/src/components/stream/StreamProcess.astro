@@ -1,47 +1,11 @@
 ---
-import { Flex, Text } from "@synnaxlabs/pluto";
+import SectionHero from "@/components/shared/SectionHero.astro";
 ---
 
-<Flex.Box el="section" id="stream" className="stream">
-    <Text.Text level="h5" variant="code" className="stream-label">
-        5 -> Stream & Process
-    </Text.Text>
-
-    <div class="stream-hero">
-        <Text.Text level="h2" className="stream-title">
-            Process data at the speed<br />it arrives
-        </Text.Text>
-        <Text.Text level="h5" className="stream-description">
-            Build real-time data pipelines that transform, aggregate, and alert on live
-            telemetry — without deploying infrastructure.
-        </Text.Text>
-    </div>
-</Flex.Box>
-
-<style is:global>
-    .stream {
-        padding: 10rem 0 15rem;
-        gap: 20rem;
-    }
-
-    .stream-label {
-        color: var(--pluto-gray-l7);
-        font-weight: 500;
-    }
-
-    .stream-hero {
-        display: grid;
-        grid-template-columns: 1fr 1fr;
-        gap: 4rem;
-        width: 100%;
-        align-items: start;
-    }
-
-    .stream-title {
-        display: block;
-    }
-
-    .stream-description {
-        color: var(--pluto-gray-l9);
-    }
-</style>
+<SectionHero id="stream" label="5 -> Stream & Process">
+    Process data at the speed it arrives
+    <Fragment slot="description">
+        Build real-time data pipelines that transform, aggregate, and alert on live
+        telemetry. No infrastructure to deploy.
+    </Fragment>
+</SectionHero>

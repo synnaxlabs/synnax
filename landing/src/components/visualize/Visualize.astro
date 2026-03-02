@@ -1,82 +1,61 @@
 ---
-import { Button, Flex, Icon, Text } from "@synnaxlabs/pluto";
+import { Button, Icon } from "@synnaxlabs/pluto";
+import SectionHero from "@/components/shared/SectionHero.astro";
+import FeatureSection from "@/components/shared/FeatureSection.astro";
+import PanelTab from "@/components/shared/PanelTab.astro";
 ---
 
-<Flex.Box el="section" id="visualize" className="visualize">
-    <Text.Text level="h5" variant="code" className="visualize-label">
-        2 -> Visualize & Operate
-    </Text.Text>
+<SectionHero id="visualize" label="2 -> Visualize & Operate">
+    See everything, control anything
+    <Fragment slot="description">
+        Build real-time dashboards, plot live telemetry, and command your hardware
+        from a single, unified console.
+    </Fragment>
+</SectionHero>
 
-    <div class="visualize-hero">
-        <Text.Text level="h2" className="visualize-title">
-            See everything,<br />control anything
-        </Text.Text>
-        <Text.Text level="h5" className="visualize-description">
-            Build real-time dashboards, plot live telemetry, and command your hardware —
-            all from a single, unified console.
-        </Text.Text>
-    </div>
-</Flex.Box>
-
-<Flex.Box el="section" className="visualize-feature">
-    <Text.Text level="h5" variant="code" className="visualize-feature-label">
-        2.1 -> Schematics
-    </Text.Text>
-    <div class="visualize-feature-header">
-        <Text.Text level="h3" className="visualize-feature-title">
-            Your system,<br />at a glance
-        </Text.Text>
-        <div class="visualize-feature-right">
-            <Text.Text level="h5" className="visualize-feature-description">
-                Build interactive schematics that reflect live system state. Drag valves,
-                sensors, and actuators onto a canvas and bind them directly to your hardware
-                channels.
-            </Text.Text>
-            <Button.Button variant="text" href="https://docs.synnaxlabs.com/reference/console/schematics">
-                Read More →
-            </Button.Button>
-        </div>
-    </div>
+<FeatureSection label="2.1 -> Schematics">
+    <Fragment slot="title">
+        Your system, at a glance
+    </Fragment>
+    <Fragment slot="description">
+        Build interactive schematics that reflect live system state. Drag valves,
+        sensors, and actuators onto a canvas and bind them directly to your hardware
+        channels.
+    </Fragment>
+    <Button.Button slot="action" variant="text" href="https://docs.synnaxlabs.com/reference/console/schematics">
+        Read More →
+    </Button.Button>
     <div class="visualize-video-clip">
         <video class="visualize-video--schematic" autoplay muted loop playsinline>
             <source src="/images/schematic.mp4" type="video/mp4" />
         </video>
     </div>
-</Flex.Box>
+</FeatureSection>
 
-<Flex.Box el="section" className="visualize-feature">
-    <Text.Text level="h5" variant="code" className="visualize-feature-label">
-        2.2 -> Line Plots
-    </Text.Text>
-    <div class="visualize-feature-header">
-        <Text.Text level="h3" className="visualize-feature-title">
-            Millions of points,<br />zero lag
-        </Text.Text>
-        <div class="visualize-feature-right">
-            <Text.Text level="h5" className="visualize-feature-description">
-                Plot millions of points of live and historical telemetry with
-                sub-millisecond precision. Pan, zoom, and annotate without dropping a frame.
-            </Text.Text>
-            <Button.Button variant="text" href="https://docs.synnaxlabs.com/reference/console/line-plots">
-                Read More →
-            </Button.Button>
-        </div>
-    </div>
+<FeatureSection label="2.2 -> Line Plots">
+    <Fragment slot="title">
+        Millions of points, zero lag
+    </Fragment>
+    <Fragment slot="description">
+        Plot millions of points of live and historical telemetry with
+        sub-millisecond precision. Pan, zoom, and annotate without dropping a frame.
+    </Fragment>
+    <Button.Button slot="action" variant="text" href="https://docs.synnaxlabs.com/reference/console/line-plots">
+        Read More →
+    </Button.Button>
     <div class="visualize-lineplot-showcase">
         <div class="visualize-lineplot-video-container">
-            <div class="visualize-lineplot-video-tab">
-                <Icon.Visualize className="visualize-lineplot-video-tab-icon" />
-                <span>Line Plot</span>
-            </div>
+            <PanelTab label="Line Plot">
+                <Icon.Visualize slot="icon" className="panel-tab-icon" />
+            </PanelTab>
             <video autoplay muted loop playsinline>
                 <source src="/images/lineplot.mp4" type="video/mp4" />
             </video>
         </div>
         <div class="visualize-lineplot-detail-container">
-            <div class="visualize-lineplot-detail-tab">
-                <Icon.Rule className="visualize-lineplot-detail-tab-icon" />
-                <span>Measure</span>
-            </div>
+            <PanelTab label="Measure">
+                <Icon.Rule slot="icon" className="panel-tab-icon" />
+            </PanelTab>
             <div class="visualize-lineplot-detail-image-area">
                 <img
                     class="visualize-lineplot-detail"
@@ -86,82 +65,9 @@ import { Button, Flex, Icon, Text } from "@synnaxlabs/pluto";
             </div>
         </div>
     </div>
-</Flex.Box>
+</FeatureSection>
 
 <style is:global>
-    .visualize {
-        padding: 10rem 0 15rem;
-        gap: 20rem;
-    }
-
-    .visualize-label {
-        color: var(--pluto-gray-l7);
-        font-weight: 500;
-    }
-
-    .visualize-hero {
-        display: grid;
-        grid-template-columns: 1fr 1fr;
-        gap: 4rem;
-        width: 100%;
-        align-items: start;
-    }
-
-    .visualize-title {
-        display: block;
-    }
-
-    .visualize-description {
-        color: var(--pluto-gray-l9);
-    }
-
-    /* Features */
-    .visualize-feature {
-        padding: 10rem 0 15rem;
-        gap: 4rem;
-        border-top: var(--pluto-border);
-    }
-
-    .visualize-feature-label {
-        color: var(--pluto-gray-l7);
-        font-weight: 500;
-        font-size: 3rem;
-        margin-bottom: 4rem;
-    }
-
-    .visualize-feature-header {
-        display: grid;
-        grid-template-columns: 1fr 1fr;
-        gap: 4rem;
-        width: 100%;
-        align-items: start;
-    }
-
-    .visualize-feature-title {
-        display: block;
-    }
-
-    .visualize-feature-right {
-        display: flex;
-        flex-direction: column;
-        gap: 3rem;
-        align-items: flex-start;
-    }
-
-    .visualize-feature-right .pluto-btn {
-        color: var(--pluto-gray-l8);
-        text-decoration: none;
-        margin-left: -2rem;
-    }
-
-    .visualize-feature-right .pluto-btn:hover {
-        text-decoration: none;
-    }
-
-    .visualize-feature-description {
-        color: var(--pluto-gray-l9);
-    }
-
     .visualize-video-clip {
         margin-top: 12rem;
         overflow: hidden;
@@ -173,7 +79,6 @@ import { Button, Flex, Icon, Text } from "@synnaxlabs/pluto";
         padding-bottom: 8rem;
     }
 
-    /* Fade paint — covers bottom of video */
     .visualize-lineplot-showcase::after {
         content: "";
         position: absolute;
@@ -198,24 +103,6 @@ import { Button, Flex, Icon, Text } from "@synnaxlabs/pluto";
         border-radius: 2rem;
         border: var(--pluto-border);
         overflow: hidden;
-    }
-
-    .visualize-lineplot-video-tab {
-        display: flex;
-        align-items: center;
-        gap: 1rem;
-        padding: 1.5rem 2rem;
-        font-family: var(--pluto-code-font-family);
-        font-size: 2.2rem;
-        font-weight: 500;
-        color: var(--pluto-gray-l8);
-        border-bottom: var(--pluto-border);
-        background: var(--pluto-gray-l0);
-    }
-
-    .visualize-lineplot-video-tab-icon {
-        font-size: 2rem;
-        color: var(--pluto-gray-l7);
     }
 
     .visualize-lineplot-video-container video {
@@ -243,24 +130,6 @@ import { Button, Flex, Icon, Text } from "@synnaxlabs/pluto";
             0 24px 64px rgba(0, 0, 0, 0.5);
     }
 
-    .visualize-lineplot-detail-tab {
-        display: flex;
-        align-items: center;
-        gap: 1rem;
-        padding: 1.5rem 2rem;
-        font-family: var(--pluto-code-font-family);
-        font-size: 2.2rem;
-        font-weight: 500;
-        color: var(--pluto-gray-l8);
-        border-bottom: var(--pluto-border);
-        background: var(--pluto-gray-l0);
-    }
-
-    .visualize-lineplot-detail-tab-icon {
-        font-size: 2rem;
-        color: var(--pluto-gray-l7);
-    }
-
     .visualize-lineplot-detail-image-area {
         position: relative;
         background-image:
@@ -283,12 +152,5 @@ import { Button, Flex, Icon, Text } from "@synnaxlabs/pluto";
         height: auto;
         margin-top: -7%;
         margin-bottom: -7%;
-    }
-
-    @media (max-width: 600px) {
-        .visualize-feature-header {
-            grid-template-columns: 1fr;
-            gap: 2rem;
-        }
     }
 </style>

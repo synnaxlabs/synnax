@@ -1,72 +1,52 @@
 ---
-import { Button, Flex, Icon, Text } from "@synnaxlabs/pluto";
+import { Button, Icon } from "@synnaxlabs/pluto";
+import SectionHero from "@/components/shared/SectionHero.astro";
+import FeatureSection from "@/components/shared/FeatureSection.astro";
+import PanelTab from "@/components/shared/PanelTab.astro";
 import BrickWall from "./BrickWall.astro";
 ---
 
-<Flex.Box el="section" id="review" className="review">
-    <Text.Text level="h5" variant="code" className="review-label">
-        4 -> Store, Organize, Review
-    </Text.Text>
+<SectionHero id="review" label="4 -> Store, Organize, Review">
+    Understand what happened, and why
+    <Fragment slot="description">
+        Review test data, compare runs side-by-side, and drill into anomalies
+        without ever leaving the platform.
+    </Fragment>
+</SectionHero>
 
-    <div class="review-hero">
-        <Text.Text level="h2" className="review-title">
-            Understand what happened,<br />and why
-        </Text.Text>
-        <Text.Text level="h5" className="review-description">
-            Review test data, compare runs side-by-side, and drill into anomalies —
-            all without leaving the platform.
-        </Text.Text>
-    </div>
-</Flex.Box>
-
-<Flex.Box el="section" className="review-feature">
-    <Text.Text level="h5" variant="code" className="review-feature-label">
-        4.1 -> Storage Engine
-    </Text.Text>
-    <div class="review-feature-header">
-        <Text.Text level="h3" className="review-feature-title">
-            The only deeply integrated control system and database engine
-        </Text.Text>
-        <div class="review-feature-right">
-            <Text.Text level="h5" className="review-feature-description">
-                Permanently store and organize kilohertz-rate data from thousands
-                of channels with read and write speeds exceeding 10 million
-                samples per second.
-            </Text.Text>
-            <Button.Button variant="text" href="https://docs.synnaxlabs.com/guides/comparison/performance/one-billion-rows">
-                See the benchmarks →
-            </Button.Button>
-        </div>
-    </div>
-</Flex.Box>
+<FeatureSection label="4.1 -> Storage Engine" class="review-feature">
+    <Fragment slot="title">
+        The only deeply integrated control system and database engine
+    </Fragment>
+    <Fragment slot="description">
+        Permanently store and organize kilohertz-rate data from thousands
+        of channels with read and write speeds exceeding 10 million
+        samples per second.
+    </Fragment>
+    <Button.Button slot="action" variant="text" href="https://docs.synnaxlabs.com/guides/comparison/performance/one-billion-rows">
+        See the benchmarks →
+    </Button.Button>
+</FeatureSection>
 
 <BrickWall />
 
-<Flex.Box el="section" className="review-feature">
-    <Text.Text level="h5" variant="code" className="review-feature-label">
-        4.2 -> Organize with Ranges
-    </Text.Text>
-    <div class="review-feature-header">
-        <Text.Text level="h3" className="review-feature-title">
-            Name it, tag it,<br />find it later
-        </Text.Text>
-        <div class="review-feature-right">
-            <Text.Text level="h5" className="review-feature-description">
-                Mark test runs, events, and anomalies as named time ranges. Attach
-                metadata, label and nest them into hierarchies, and build an audit
-                trail that makes every data point traceable.
-            </Text.Text>
-            <Button.Button variant="text" href="https://docs.synnaxlabs.com/reference/concepts/ranges">
-                Learn about ranges →
-            </Button.Button>
-        </div>
-    </div>
+<FeatureSection label="4.2 -> Organize with Ranges">
+    <Fragment slot="title">
+        Name it, tag it, find it later
+    </Fragment>
+    <Fragment slot="description">
+        Mark test runs, events, and anomalies as named time ranges. Attach
+        metadata, label and nest them into hierarchies, and build an audit
+        trail that makes every data point traceable.
+    </Fragment>
+    <Button.Button slot="action" variant="text" href="https://docs.synnaxlabs.com/reference/concepts/ranges">
+        Learn about ranges →
+    </Button.Button>
     <div class="review-ranges-showcase">
         <div class="review-ranges-explorer-container">
-            <div class="review-ranges-tab">
-                <Icon.Explore className="review-ranges-tab-icon" />
-                <span>Explorer</span>
-            </div>
+            <PanelTab label="Explorer">
+                <Icon.Explore slot="icon" className="panel-tab-icon" />
+            </PanelTab>
             <img
                 class="review-ranges-explorer"
                 src="/images/range-explorer.png"
@@ -74,10 +54,9 @@ import BrickWall from "./BrickWall.astro";
             />
         </div>
         <div class="review-ranges-detail-container">
-            <div class="review-ranges-tab">
-                <Icon.Range className="review-ranges-tab-icon" />
-                <span>Range</span>
-            </div>
+            <PanelTab label="Range">
+                <Icon.Range slot="icon" className="panel-tab-icon" />
+            </PanelTab>
             <img
                 class="review-ranges-detail"
                 src="/images/range-overview.png"
@@ -85,81 +64,15 @@ import BrickWall from "./BrickWall.astro";
             />
         </div>
     </div>
-</Flex.Box>
+</FeatureSection>
 
 <style is:global>
-    .review {
-        padding: 10rem 0 15rem;
-        gap: 20rem;
-    }
-
-    .review-label {
-        color: var(--pluto-gray-l7);
-        font-weight: 500;
-    }
-
-    .review-hero {
-        display: grid;
-        grid-template-columns: 1fr 1fr;
-        gap: 4rem;
-        width: 100%;
-        align-items: start;
-    }
-
-    .review-title {
-        display: block;
-    }
-
-    .review-description {
-        color: var(--pluto-gray-l9);
-    }
-
-    .review-feature {
-        padding: 10rem 0 15rem;
-        gap: 4rem;
-        border-top: var(--pluto-border);
-    }
-
-    .review-feature-label {
-        color: var(--pluto-gray-l7);
-        font-weight: 500;
-        font-size: 3rem;
-        margin-bottom: 4rem;
-    }
-
-    .review-feature-header {
-        display: grid;
-        grid-template-columns: 1fr 1fr;
-        gap: 4rem;
-        width: 100%;
-        align-items: start;
-    }
-
-    .review-feature-title {
-        display: block;
-    }
-
-    .review-feature-right {
-        display: flex;
-        flex-direction: column;
-        gap: 3rem;
-        align-items: flex-start;
+    .review-feature .feature-right {
         margin-left: auto;
     }
 
-    .review-feature-description {
-        color: var(--pluto-gray-l9);
+    .review-feature .feature-description {
         max-width: 450px;
-    }
-
-    .review-feature-right .pluto-btn {
-        color: var(--pluto-gray-l8);
-        text-decoration: none;
-        margin-left: -2rem;
-    }
-
-    .review-feature-right .pluto-btn:hover {
-        text-decoration: none;
     }
 
     .review-ranges-showcase {
@@ -168,8 +81,6 @@ import BrickWall from "./BrickWall.astro";
         padding-bottom: 8rem;
     }
 
-
-    /* Layer 3: Fade paint — covers bottom of explorer + glow */
     .review-ranges-showcase::after {
         content: "";
         position: absolute;
@@ -186,25 +97,6 @@ import BrickWall from "./BrickWall.astro";
         pointer-events: none;
     }
 
-    .review-ranges-tab {
-        display: flex;
-        align-items: center;
-        gap: 1rem;
-        padding: 1.5rem 2rem;
-        font-family: var(--pluto-code-font-family);
-        font-size: 2.2rem;
-        font-weight: 500;
-        color: var(--pluto-gray-l8);
-        border-bottom: var(--pluto-border);
-        background: var(--pluto-gray-l0);
-    }
-
-    .review-ranges-tab-icon {
-        font-size: 2rem;
-        color: var(--pluto-gray-l7);
-    }
-
-    /* Layer 2: Explorer */
     .review-ranges-explorer-container {
         position: relative;
         z-index: 2;
@@ -224,7 +116,6 @@ import BrickWall from "./BrickWall.astro";
         mix-blend-mode: lighten;
     }
 
-    /* Layer 4: Detail panel — above everything */
     .review-ranges-detail-container {
         position: absolute;
         z-index: 4;
@@ -266,13 +157,6 @@ import BrickWall from "./BrickWall.astro";
             width: 100%;
             margin-top: 3rem;
             mask-image: none;
-        }
-    }
-
-    @media (max-width: 600px) {
-        .review-feature-header {
-            grid-template-columns: 1fr;
-            gap: 2rem;
         }
     }
 </style>

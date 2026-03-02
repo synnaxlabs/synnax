@@ -3,9 +3,14 @@ import { type ReactElement, useEffect, useRef } from "react";
 interface CodePanelProps {
   html: string;
   activeLines: number[];
+  className?: string;
 }
 
-export const CodePanel = ({ html, activeLines }: CodePanelProps): ReactElement => {
+export const CodePanel = ({
+  html,
+  activeLines,
+  className,
+}: CodePanelProps): ReactElement => {
   const ref = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -21,7 +26,7 @@ export const CodePanel = ({ html, activeLines }: CodePanelProps): ReactElement =
   return (
     <div
       ref={ref}
-      className="automate-code-panel"
+      className={`code-panel ${className ?? ""}`}
       dangerouslySetInnerHTML={{ __html: html }}
     />
   );

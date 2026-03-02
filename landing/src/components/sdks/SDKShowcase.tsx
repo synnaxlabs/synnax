@@ -25,11 +25,11 @@ export const SDKShowcase = ({ codeHtmls }: SDKShowcaseProps): ReactElement => {
 
   return (
     <div className="sdks-showcase">
-      <div className="automate-viz-tabs">
+      <div className="viz-tabs">
         {LANG_TABS.map(({ title, icon: TabIcon }, i) => (
           <button
             key={title}
-            className={`automate-viz-tab${i === activeLang ? " automate-viz-tab--active" : ""}`}
+            className={`viz-tab${i === activeLang ? " viz-tab--active" : ""}`}
             onClick={() => handleLangClick(i)}
           >
             <TabIcon />
@@ -42,7 +42,7 @@ export const SDKShowcase = ({ codeHtmls }: SDKShowcaseProps): ReactElement => {
           <div key={label} className="sdks-panel">
             <span className="sdks-panel-label">{label}</span>
             <div
-              className="automate-code-panel"
+              className="code-panel"
               dangerouslySetInnerHTML={{
                 __html: codeHtmls[activeLang][opIdx],
               }}

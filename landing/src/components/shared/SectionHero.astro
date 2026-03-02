@@ -1,0 +1,26 @@
+---
+import { Flex, Text } from "@synnaxlabs/pluto";
+
+interface Props {
+    id?: string;
+    label: string;
+    class?: string;
+}
+
+const { id, label, class: className } = Astro.props;
+---
+
+<Flex.Box el="section" id={id} className={`section-hero-wrapper ${className ?? ""}`}>
+    <Text.Text level="h5" variant="code" className="section-label">
+        {label}
+    </Text.Text>
+
+    <div class="section-hero">
+        <Text.Text level="h2" className="section-hero-title">
+            <slot />
+        </Text.Text>
+        <Text.Text level="h4" className="section-hero-description section-description">
+            <slot name="description" />
+        </Text.Text>
+    </div>
+</Flex.Box>

@@ -1,4 +1,4 @@
-import { CodePanel } from "@/components/automate/CodePanel";
+import { CodePanel } from "@/components/shared/CodePanel";
 import { AbortDiagram } from "@/components/automate/diagrams/AbortDiagram";
 import { PressureDiagram } from "@/components/automate/diagrams/PressureDiagram";
 import {
@@ -105,26 +105,26 @@ export const AutomateVisualizer = ({
 
   return (
     <div
-      className="automate-visualizer"
+      className="viz-container"
       onMouseEnter={() => setPaused(true)}
       onMouseLeave={() => setPaused(false)}
     >
-      <div className="automate-viz-tabs">
+      <div className="viz-tabs">
         {EXAMPLES.map((ex, i) => (
           <button
             key={ex.id}
-            className={`automate-viz-tab${i === activeTab ? " automate-viz-tab--active" : ""}`}
+            className={`viz-tab${i === activeTab ? " viz-tab--active" : ""}`}
             onClick={() => handleTabClick(i)}
           >
             {ex.title}
           </button>
         ))}
       </div>
-      <div className="automate-viz-content">
-        <div className="automate-viz-code">
+      <div className="viz-content">
+        <div className="viz-code">
           <CodePanel html={codeHtmls[activeTab]} activeLines={step.activeLines} />
         </div>
-        <div className="automate-viz-diagram">
+        <div className="viz-diagram">
           {isAlarm ? (
             <Diagram
               def={AUTOMATE_ALARM_DIAGRAM}
@@ -135,11 +135,11 @@ export const AutomateVisualizer = ({
           )}
         </div>
       </div>
-      <div className="automate-viz-progress">
+      <div className="viz-progress">
         {example.steps.map((_, i) => (
           <div
             key={i}
-            className={`automate-viz-dot${i === stepIndex ? " automate-viz-dot--active" : ""}`}
+            className={`viz-dot${i === stepIndex ? " viz-dot--active" : ""}`}
           />
         ))}
       </div>

@@ -4,9 +4,9 @@ import { ContactForm } from "@/components/contact/ContactForm";
 import { TopoCanvas } from "@/components/contact/TopoCanvas";
 ---
 
-<div class="contact-outer">
+<div id="contact" class="contact-outer">
     <TopoCanvas client:load />
-    <section id="contact" class="contact">
+    <section class="contact">
         <Text.Text level="h5" variant="code" className="contact-label">
             8 -> Get In Touch
         </Text.Text>
@@ -14,9 +14,9 @@ import { TopoCanvas } from "@/components/contact/TopoCanvas";
         <div class="contact-layout">
             <div class="contact-left">
                 <Text.Text level="h2" className="contact-title">
-                    Let's talk about<br />your project
+                    Let's talk about your project
                 </Text.Text>
-                <Text.Text level="h5" className="contact-description">
+                <Text.Text level="h5" className="contact-description section-description">
                     Request a demo, get detailed pricing, or ask us anything.
                     We'll get back to you within 24 hours.
                 </Text.Text>
@@ -64,8 +64,8 @@ import { TopoCanvas } from "@/components/contact/TopoCanvas";
 
     .contact-layout {
         display: grid;
-        grid-template-columns: 1fr 1fr;
-        gap: 8rem;
+        grid-template-columns: 5fr 7fr;
+        gap: 12rem;
         align-items: start;
     }
 

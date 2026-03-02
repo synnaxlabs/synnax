@@ -21,7 +21,7 @@ const { brandColor, quote, name, title, variant = "standard" } = Astro.props;
         <Flex.Box className="testimonial-bottom" direction="x" justify="between" align="end">
             <Flex.Box className="testimonial-author">
                 <Text.Text level="h5" className="testimonial-name">{name}</Text.Text>
-                {title && <Text.Text level="h5" className="testimonial-title">{title}</Text.Text>}
+                {title && <Text.Text level="p" className="testimonial-title">{title}</Text.Text>}
             </Flex.Box>
             <div class="testimonial-logo"><slot name="logo" /></div>
         </Flex.Box>
@@ -131,10 +131,12 @@ const { brandColor, quote, name, title, variant = "standard" } = Astro.props;
 
     .testimonial-name {
         color: #fff;
+        font-weight: 500;
     }
 
     .testimonial-title {
         color: #fff;
+        font-weight: 500;
     }
 
     /* Hero variant — larger card */

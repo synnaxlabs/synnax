@@ -196,6 +196,7 @@ import {
   SiYarn,
 } from "react-icons/si";
 import {
+  TbAnalyze,
   TbArrowAutofitWidth,
   TbArrowDown,
   TbArrowLeft,
@@ -253,7 +254,7 @@ export const View = wrapSVGIcon(IoTvOutline, "view");
 export const Delete = wrapSVGIcon(AiFillDelete, "delete");
 export const Time = wrapSVGIcon(IoTime, "time");
 export const Acquire = wrapSVGIcon(FaStream, "acquire");
-export const Analyze = wrapSVGIcon(FaBezierCurve, "analyze");
+export const Analyze = wrapSVGIcon(TbAnalyze, "analyze");
 export const Concepts = wrapSVGIcon(BsLightbulbFill, "concepts");
 export const Visualize = wrapSVGIcon(MdAreaChart, "visualize");
 export const LinePlot = wrapSVGIcon(MdAreaChart, "line-plot");

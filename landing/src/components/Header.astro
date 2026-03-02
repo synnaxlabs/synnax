@@ -9,12 +9,12 @@ import { Nav } from "@/components/Nav";
         <a href="/" class="logo-link">
             <Logo variant="title" />
         </a>
-        <Flex.Box x gap={7} align="center">
+        <Flex.Box x gap={4} align="center">
             <div class="header-nav">
                 <Nav client:load />
             </div>
-            <Button.Button variant="filled" href="https://docs.synnaxlabs.com">
-                Get Started
+            <Button.Button variant="filled" href="/#contact">
+                Book a Demo
             </Button.Button>
         </Flex.Box>
     </Flex.Box>
@@ -31,32 +31,51 @@ import { Nav } from "@/components/Nav";
         backdrop-filter: blur(2rem);
         -webkit-backdrop-filter: blur(2rem);
         border-bottom: var(--pluto-border);
+        transition: background 0.25s ease, border-color 0.25s ease;
+    }
 
-        .header-content {
-            width: 100%;
-            max-width: var(--max-width);
-            padding: 0 var(--content-padding);
+    .header--top {
+        background: transparent;
+        backdrop-filter: none;
+        -webkit-backdrop-filter: none;
+        border-bottom-color: transparent;
+    }
+
+    .header .header-content {
+        width: 100%;
+        max-width: var(--max-width);
+        padding: 0 var(--content-padding);
+    }
+
+    .header .logo-link {
+        text-decoration: none;
+        display: flex;
+        align-items: center;
+
+        & .synnax-logo--title {
+            height: 4.5rem;
         }
+    }
 
-        .logo-link {
-            text-decoration: none;
-            display: flex;
-            align-items: center;
+    .header .pluto-btn.pluto-btn--filled {
+        padding: 1rem 2rem;
+        font-weight: 550;
+    }
 
-            & .synnax-logo--title {
-                height: 4.5rem;
-            }
+    .header .pluto-btn.pluto-btn--text .pluto-icon {
+        color: var(--pluto-gray-l8);
+        height: 3rem;
+        width: 3rem;
+
+        &:hover {
+            color: var(--pluto-gray-l10);
         }
+    }
 
-        & .pluto-btn.pluto-btn--text .pluto-icon {
-            color: var(--pluto-gray-l8);
-            height: 3rem;
-            width: 3rem;
-
-            &:hover {
-                color: var(--pluto-gray-l10);
-            }
-        }
+    .nav-divider {
+        width: 1px;
+        height: 2rem;
+        background: var(--pluto-gray-l4);
     }
 
     /* Nav link styles */
@@ -146,6 +165,11 @@ import { Nav } from "@/components/Nav";
             color: var(--pluto-gray-l9);
         }
 
+        .product-card__section {
+            font-family: var(--pluto-mono-font-family);
+            color: var(--pluto-gray-l6);
+        }
+
         .product-card__title {
             font-weight: 500;
             color: var(--pluto-gray-l10);
@@ -179,3 +203,16 @@ import { Nav } from "@/components/Nav";
         }
     }
 </style>
+
+<script>
+    const header = document.querySelector(".header");
+    const updateHeader = () => {
+        if (window.scrollY <= 10) {
+            header?.classList.add("header--top");
+        } else {
+            header?.classList.remove("header--top");
+        }
+    };
+    updateHeader();
+    window.addEventListener("scroll", updateHeader, { passive: true });
+</script>

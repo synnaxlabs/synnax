@@ -6,7 +6,7 @@ import {
   useState,
 } from "react";
 
-import { CalcCodePanel } from "@/components/stream/CalcCodePanel";
+import { CodePanel } from "@/components/shared/CodePanel";
 import {
   CALC_EXAMPLES,
   ZERO_CALC_STATE,
@@ -63,37 +63,37 @@ export const CalcVisualizer = ({
 
   return (
     <div
-      className="calc-visualizer"
+      className="calc-visualizer viz-container"
       onMouseEnter={() => setPaused(true)}
       onMouseLeave={() => setPaused(false)}
     >
-      <div className="calc-viz-tabs">
+      <div className="viz-tabs">
         {CALC_EXAMPLES.map((ex, i) => (
           <button
             key={ex.id}
-            className={`calc-viz-tab${i === activeTab ? " calc-viz-tab--active" : ""}`}
+            className={`viz-tab${i === activeTab ? " viz-tab--active" : ""}`}
             onClick={() => handleTabClick(i)}
           >
             {ex.title}
           </button>
         ))}
       </div>
-      <div className="calc-viz-content">
-        <div className="calc-viz-code">
-          <CalcCodePanel
+      <div className="viz-content">
+        <div className="viz-code">
+          <CodePanel
             html={codeHtmls[activeTab]}
             activeLines={step.activeLines}
           />
         </div>
-        <div className="calc-viz-diagram">
+        <div className="viz-diagram">
           <Diagram def={example.diagram} state={diagramState} />
         </div>
       </div>
-      <div className="calc-viz-progress">
+      <div className="viz-progress">
         {example.steps.map((_, i) => (
           <div
             key={i}
-            className={`calc-viz-dot${i === stepIndex ? " calc-viz-dot--active" : ""}`}
+            className={`viz-dot${i === stepIndex ? " viz-dot--active" : ""}`}
           />
         ))}
       </div>

@@ -6,6 +6,7 @@ interface ProductItem {
   title: string;
   description: string;
   href: string;
+  section: number;
 }
 
 const PRODUCTS: ProductItem[] = [
@@ -14,36 +15,42 @@ const PRODUCTS: ProductItem[] = [
     title: "Visualize & Operate",
     description: "Operator dashboards and real-time monitoring interfaces",
     href: "/#visualize",
+    section: 2,
   },
   {
-    icon: Icon.Control,
+    icon: Icon.Arc,
     title: "Automate & Control",
     description: "Process control, safety interlocks, and test automation",
     href: "/#automate",
+    section: 3,
   },
   {
     icon: Icon.Analyze,
     title: "Review & Analyze",
     description: "Post-test analysis, data comparison, and trend review",
     href: "/#review",
+    section: 4,
   },
   {
     icon: Icon.Acquire,
     title: "Stream & Process",
     description: "Real-time data pipelines, alerting, and live streaming",
     href: "/#stream",
+    section: 5,
   },
   {
     icon: Icon.Hardware,
     title: "Device Integrations",
     description: "OPC UA, Modbus, EtherCAT, NI, Dewesoft, and more",
     href: "/#integrations",
+    section: 6,
   },
   {
     icon: Icon.Terminal,
     title: "Extend with SDKs",
     description: "Python, TypeScript, and C++ clients for custom workflows",
     href: "/#sdks",
+    section: 7,
   },
 ];
 
@@ -84,7 +91,7 @@ export const Nav = (): ReactElement => {
             background={1}
           >
             <Flex.Box className="product-grid" wrap gap={0}>
-              {PRODUCTS.map(({ icon: ItemIcon, title, description, href }) => (
+              {PRODUCTS.map(({ icon: ItemIcon, title, description, href, section }) => (
                 <a key={title} className="product-card" href={href}>
                   <Flex.Box direction="x" gap={3} align="start">
                     <Flex.Box
@@ -96,6 +103,7 @@ export const Nav = (): ReactElement => {
                     </Flex.Box>
                     <Flex.Box direction="y" gap={1}>
                       <Text.Text level="p" className="product-card__title">
+                        <span className="product-card__section">{section} -&gt; </span>
                         {title}
                       </Text.Text>
                       <Text.Text level="small" className="product-card__desc">
@@ -109,11 +117,19 @@ export const Nav = (): ReactElement => {
           </Flex.Box>
         )}
       </Flex.Box>
-      <Button.Button variant="text" className="nav-link" href="https://docs.synnaxlabs.com">
-        Docs
+      <Button.Button variant="text" className="nav-link" href="/#testimonials">
+        Testimonials
       </Button.Button>
       <Button.Button variant="text" className="nav-link" href="/#company">
         Company
+      </Button.Button>
+      <div className="nav-divider" />
+      <Button.Button
+        variant="text"
+        className="nav-link"
+        href="https://docs.synnaxlabs.com"
+      >
+        Docs
       </Button.Button>
     </Flex.Box>
   );

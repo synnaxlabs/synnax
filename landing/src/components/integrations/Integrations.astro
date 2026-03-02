@@ -11,7 +11,11 @@ import LabJack from "./logos/LabJack.astro";
 import EtherCAT from "./logos/EtherCAT.astro";
 import Modbus from "./logos/Modbus.astro";
 import OPCUA from "./logos/OPCUA.astro";
+import SectionHero from "@/components/shared/SectionHero.astro";
+import FeatureSection from "@/components/shared/FeatureSection.astro";
 ---
+
+
 
 <!-- Dither SVG filter definition -->
 <svg class="dither-filters" xmlns="http://www.w3.org/2000/svg">
@@ -46,108 +50,128 @@ import OPCUA from "./logos/OPCUA.astro";
     </defs>
 </svg>
 
-<Flex.Box el="section" id="integrations" className="integrations">
-    <Text.Text level="h5" variant="code" className="integrations-label">
-        6 -> Device Integrations
+<SectionHero id="integrations" label="6 -> Device Integrations">
+    Plug in your hardware, start streaming
+    <Fragment slot="description">
+        Synnax ships with native drivers for the most popular data acquisition
+        and control hardware, and a setup workflow that gets you from unboxing
+        to streaming in minutes.
+    </Fragment>
+</SectionHero>
+
+<Flex.Box el="section" className="feature-section">
+    <Text.Text level="h5" variant="code" className="feature-label">
+        6.1 -> Supported Hardware
     </Text.Text>
-    <div class="integrations-content">
-        <Flex.Box className="integrations-text">
-            <Text.Text level="h2" className="integrations-title">
+    <div class="integrations-hardware">
+        <Flex.Box className="integrations-hardware-text">
+            <Text.Text level="h3" className="feature-title">
                 Works with your<br /><span class="integrations-vendor">existing</span
                 ><br />hardware
             </Text.Text>
-            <Text.Text level="h5" className="integrations-description">
-                Synnax natively integrates with the most popular data acquisition and
-                control hardware. Connect your devices in minutes, not weeks.
+            <Text.Text level="h5" className="feature-description">
+                Native drivers for industry-standard protocols and vendors. If your
+                device speaks OPC UA, Modbus, or EtherCAT, Synnax connects to it
+                out of the box.
             </Text.Text>
         </Flex.Box>
         <div class="integrations-grid">
-            <div
-                class="integration-cell"
-                style="--logo-w: 12rem; --logo-h: 6rem; --brand-color: #03B584;"
-                data-vendor="National Instruments"
-            >
-                <NI />
-            </div>
-            <div
-                class="integration-cell"
-                style="--logo-w: 14rem; --logo-h: 8.5rem; --brand-color: #C1131E;"
-                data-vendor="LabJack"
-            >
-                <LabJack />
-            </div>
-            <div
-                class="integration-cell"
-                style="--logo-w: 17rem; --logo-h: 6rem; --brand-color: #F15D2E;"
-                data-vendor="Dewesoft"
-            >
-                <Dewesoft />
-            </div>
-            <div
-                class="integration-cell"
-                style="--logo-w: 31rem; --logo-h: 12rem; --brand-color: #4A90D9;"
-                data-vendor="OPC UA"
-            >
-                <OPCUA />
-            </div>
-            <div
-                class="integration-cell"
-                style="--logo-w: 10rem; --logo-h: 10rem; --brand-color: #6B4C9A;"
-                data-vendor="Modbus"
-            >
-                <Modbus />
-            </div>
-            <div
-                class="integration-cell"
-                style="--logo-w: 17rem; --logo-h: 8.5rem; --brand-color: #E2001A;"
-                data-vendor="EtherCAT"
-            >
-                <EtherCAT />
-            </div>
-            <div
-                class="integration-cell"
-                style="--logo-w: 22rem; --logo-h: 8.5rem; --brand-color: #E2001A;"
-                data-vendor="Beckhoff"
-            >
-                <Beckhoff />
-            </div>
-            <div
-                class="integration-cell"
-                style="--logo-w: 29rem; --logo-h: 11rem; --brand-color: #009999;"
-                data-vendor="Siemens"
-            >
-                <Siemens />
-            </div>
-            <div
-                class="integration-cell"
-                style="--logo-w: 24rem; --logo-h: 8.5rem; --brand-color: #C1131E;"
-                data-vendor="Rockwell"
-            >
-                <Rockwell />
-            </div>
-            <div
-                class="integration-cell"
-                style="--logo-w: 19rem; --logo-h: 8.5rem; --brand-color: #8bb63a;"
-                data-vendor="WAGO"
-            >
-                <Wago />
-            </div>
-            <div
-                class="integration-cell"
-                style="--logo-w: 20rem; --logo-h: 8rem; --brand-color: #166fc0;"
-                data-vendor="Omron"
-            >
-                <Omron />
-            </div>
-            <div
-                class="integration-cell integration-cell--custom"
-                data-vendor="custom"
-                style="--brand-color: var(--pluto-gray-l8);"
-            >
-                <span class="integration-custom-label">+ Custom</span>
-            </div>
+        <div
+            class="integration-cell"
+            style="--logo-w: 12rem; --logo-h: 6rem; --brand-color: #03B584;"
+            data-vendor="National Instruments"
+        >
+            <NI />
+        </div>
+        <div
+            class="integration-cell"
+            style="--logo-w: 14rem; --logo-h: 8.5rem; --brand-color: #C1131E;"
+            data-vendor="LabJack"
+        >
+            <LabJack />
+        </div>
+        <div
+            class="integration-cell"
+            style="--logo-w: 17rem; --logo-h: 6rem; --brand-color: #F15D2E;"
+            data-vendor="Dewesoft"
+        >
+            <Dewesoft />
+        </div>
+        <div
+            class="integration-cell"
+            style="--logo-w: 31rem; --logo-h: 12rem; --brand-color: #4A90D9;"
+            data-vendor="OPC UA"
+        >
+            <OPCUA />
+        </div>
+        <div
+            class="integration-cell"
+            style="--logo-w: 10rem; --logo-h: 10rem; --brand-color: #6B4C9A;"
+            data-vendor="Modbus"
+        >
+            <Modbus />
+        </div>
+        <div
+            class="integration-cell"
+            style="--logo-w: 17rem; --logo-h: 8.5rem; --brand-color: #E2001A;"
+            data-vendor="EtherCAT"
+        >
+            <EtherCAT />
+        </div>
+        <div
+            class="integration-cell"
+            style="--logo-w: 22rem; --logo-h: 8.5rem; --brand-color: #E2001A;"
+            data-vendor="Beckhoff"
+        >
+            <Beckhoff />
+        </div>
+        <div
+            class="integration-cell"
+            style="--logo-w: 29rem; --logo-h: 11rem; --brand-color: #009999;"
+            data-vendor="Siemens"
+        >
+            <Siemens />
+        </div>
+        <div
+            class="integration-cell"
+            style="--logo-w: 24rem; --logo-h: 8.5rem; --brand-color: #C1131E;"
+            data-vendor="Rockwell"
+        >
+            <Rockwell />
+        </div>
+        <div
+            class="integration-cell"
+            style="--logo-w: 19rem; --logo-h: 8.5rem; --brand-color: #8bb63a;"
+            data-vendor="WAGO"
+        >
+            <Wago />
+        </div>
+        <div
+            class="integration-cell"
+            style="--logo-w: 20rem; --logo-h: 8rem; --brand-color: #166fc0;"
+            data-vendor="Omron"
+        >
+            <Omron />
+        </div>
+        <div
+            class="integration-cell integration-cell--custom"
+            data-vendor="custom"
+            style="--brand-color: var(--pluto-gray-l8);"
+        >
+            <span class="integration-custom-label">+ Custom</span>
         </div>
     </div>
+    </div>
+</Flex.Box>
+
+<FeatureSection label="6.2 -> Getting Started">
+    <Fragment slot="title">
+        Streaming in three steps
+    </Fragment>
+    <Fragment slot="description">
+        Connect your hardware, configure your channels, and start acquiring
+        data. No custom driver code, no middleware, no separate data historian.
+    </Fragment>
     <div class="workflow-wrapper">
         <div class="workflow">
             <div class="workflow-tabs">
@@ -156,11 +180,11 @@ import OPCUA from "./logos/OPCUA.astro";
                         <div class="workflow-step-number-box">
                             <span class="workflow-step-number">01</span>
                         </div>
-                        <Text.Text level="h4" className="workflow-tab-title">
+                        <Text.Text level="h5" className="workflow-tab-title">
                             Attach device
                         </Text.Text>
                     </div>
-                    <Text.Text level="h5" className="workflow-tab-description">
+                    <Text.Text level="p" className="workflow-tab-description">
                         Connect your hardware to the Synnax cluster. Our drivers
                         automatically detect and establish communication with your
                         devices.
@@ -171,11 +195,11 @@ import OPCUA from "./logos/OPCUA.astro";
                         <div class="workflow-step-number-box">
                             <span class="workflow-step-number">02</span>
                         </div>
-                        <Text.Text level="h4" className="workflow-tab-title">
+                        <Text.Text level="h5" className="workflow-tab-title">
                             Configure instrumentation
                         </Text.Text>
                     </div>
-                    <Text.Text level="h5" className="workflow-tab-description">
+                    <Text.Text level="p" className="workflow-tab-description">
                         Define your channels, set sample rates, and map physical signals
                         to logical names. All from a single interface.
                     </Text.Text>
@@ -185,13 +209,13 @@ import OPCUA from "./logos/OPCUA.astro";
                         <div class="workflow-step-number-box">
                             <span class="workflow-step-number">03</span>
                         </div>
-                        <Text.Text level="h4" className="workflow-tab-title">
+                        <Text.Text level="h5" className="workflow-tab-title">
                             Acquire data & control actuators
                         </Text.Text>
                     </div>
-                    <Text.Text level="h5" className="workflow-tab-description">
+                    <Text.Text level="p" className="workflow-tab-description">
                         Stream live telemetry, build dashboards, and send commands to
-                        your hardware — all in real time with microsecond precision.
+                        your hardware in real time with microsecond precision.
                     </Text.Text>
                 </button>
             </div>
@@ -226,7 +250,7 @@ import OPCUA from "./logos/OPCUA.astro";
             </div>
         </div>
     </div>
-</Flex.Box>
+</FeatureSection>
 
 <style is:global>
     .dither-filters {
@@ -236,17 +260,7 @@ import OPCUA from "./logos/OPCUA.astro";
         overflow: hidden;
     }
 
-    .integrations {
-        padding: 10rem 0 15rem;
-        gap: 20rem;
-    }
-
-    .integrations-label {
-        color: var(--pluto-gray-l7);
-        font-weight: 500;
-    }
-
-    .integrations-content {
+    .integrations-hardware {
         display: grid;
         grid-template-columns: 2fr 3fr;
         gap: 12rem;
@@ -254,16 +268,8 @@ import OPCUA from "./logos/OPCUA.astro";
         align-items: start;
     }
 
-    .integrations-text {
+    .integrations-hardware-text {
         gap: 3rem;
-    }
-
-    .integrations-title {
-        display: block;
-    }
-
-    .integrations-description {
-        color: var(--pluto-gray-l9);
     }
 
     .integrations-grid {
@@ -318,6 +324,10 @@ import OPCUA from "./logos/OPCUA.astro";
 
     .integrations-vendor {
         transition: color 0.3s ease;
+    }
+
+    .feature-section .workflow-wrapper {
+        margin-top: 16rem;
     }
 
     .workflow-wrapper {
@@ -431,6 +441,9 @@ import OPCUA from "./logos/OPCUA.astro";
 
     .workflow-tab-description {
         color: var(--pluto-gray-l9);
+        font-size: 2.8rem;
+        line-height: 4.2rem;
+        font-weight: 350;
     }
 
     .workflow-screenshot {
@@ -467,12 +480,8 @@ import OPCUA from "./logos/OPCUA.astro";
     }
 
     @media (max-width: 900px) {
-        .integrations-content {
+        .integrations-hardware {
             grid-template-columns: 1fr;
-        }
-
-        .integrations-text {
-            position: static;
         }
 
         .integrations-grid {
@@ -508,14 +517,14 @@ import OPCUA from "./logos/OPCUA.astro";
             const color = getComputedStyle(cell).getPropertyValue("--brand-color");
             if (vendor && name) {
                 vendor.textContent = name;
-                vendor.style.color = color;
+                (vendor as HTMLElement).style.color = color;
             }
         });
 
         cell.addEventListener("mouseleave", () => {
             if (vendor) {
                 vendor.textContent = "existing";
-                vendor.style.color = "";
+                (vendor as HTMLElement).style.color = "";
             }
         });
     });

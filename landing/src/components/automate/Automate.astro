@@ -1,10 +1,12 @@
 ---
 import { grammar as arcGrammar } from "@synnaxlabs/arc";
-import { Flex, Text } from "@synnaxlabs/pluto";
+import { Button, Text } from "@synnaxlabs/pluto";
 import { createCssVariablesTheme, createHighlighter } from "shiki";
 import { AutomateVisualizer } from "@/components/automate/AutomateVisualizer";
 import { ControlSystemGraphic } from "@/components/automate/ControlSystemGraphic";
 import { ControlHandoffGraphic } from "@/components/automate/ControlHandoffGraphic";
+import SectionHero from "@/components/shared/SectionHero.astro";
+import FeatureSection from "@/components/shared/FeatureSection.astro";
 
 const cssVarsTheme = createCssVariablesTheme({ name: "css-variables" });
 
@@ -86,27 +88,39 @@ const codeHtmls = [
 ];
 ---
 
-<Flex.Box el="section" id="automate" className="automate">
-    <Text.Text level="h5" variant="code" className="automate-label">
-        3 -> Automate & Control
-    </Text.Text>
+<SectionHero id="automate" label="3 -> Automate & Control">
+    Close the loop on hardware automation
+    <Fragment slot="description">
+        Synnax unifies test automation and production control into a single
+        platform. Write reactive sequences, deploy to real-time hardware,
+        and transition between automated and manual operation seamlessly.
+    </Fragment>
+</SectionHero>
 
-    <!-- Hero -->
-    <div class="automate-hero">
-        <Text.Text level="h2" className="automate-title">
-            Write sequences,<br />not boilerplate
-        </Text.Text>
-        <Text.Text level="h5" className="automate-description">
-            Arc is a reactive programming language built for hardware automation. Define
-            control sequences, manage authority, and orchestrate your hardware — all in
-            a few lines of code.
-        </Text.Text>
-    </div>
-
-    <!-- Animated code visualizer -->
+<FeatureSection label="3.1 -> The Arc Language">
+    <Fragment slot="title">
+        Write sequences, not boilerplate
+    </Fragment>
+    <Fragment slot="description">
+        Arc is a reactive programming language purpose-built for hardware
+        automation. Define control sequences, manage authority, and orchestrate
+        your entire system in a few lines of code.
+    </Fragment>
+    <Button.Button slot="action" variant="text" href="https://docs.synnaxlabs.com/reference/concepts/arc">
+        Read More →
+    </Button.Button>
     <AutomateVisualizer client:visible codeHtmls={codeHtmls} />
+</FeatureSection>
 
-    <!-- Bento grid -->
+<FeatureSection label="3.2 -> Built for Production">
+    <Fragment slot="title">
+        From prototype to deterministic control
+    </Fragment>
+    <Fragment slot="description">
+        Deploy to real-time targets for deterministic execution, and negotiate
+        control authority between automated sequences and manual operators
+        without ever interrupting your system.
+    </Fragment>
     <div class="automate-bento">
         <div class="automate-bento-card">
             <Text.Text level="h4" className="automate-bento-title">
@@ -131,146 +145,9 @@ const codeHtmls = [
             </Text.Text>
         </div>
     </div>
-</Flex.Box>
+</FeatureSection>
 
 <style is:global>
-    .automate {
-        padding: 10rem 0 15rem;
-        gap: 20rem;
-    }
-
-    .automate-label {
-        color: var(--pluto-gray-l7);
-        font-weight: 500;
-    }
-
-    /* Hero */
-    .automate-hero {
-        display: grid;
-        grid-template-columns: 1fr 1fr;
-        gap: 4rem;
-        width: 100%;
-        align-items: start;
-    }
-
-    .automate-title {
-        display: block;
-    }
-
-    .automate-description {
-        color: var(--pluto-gray-l9);
-    }
-
-    /* Visualizer container */
-    .automate-visualizer {
-        display: flex;
-        flex-direction: column;
-        width: 100%;
-        border: var(--pluto-border);
-        border-radius: 2rem;
-        overflow: hidden;
-        background: var(--pluto-gray-l1);
-    }
-
-    /* Tabs */
-    .automate-viz-tabs {
-        display: flex;
-        gap: 0;
-        border-bottom: var(--pluto-border);
-    }
-
-    .automate-viz-tab {
-        padding: 2.5rem 4rem;
-        background: transparent;
-        border: none;
-        border-right: var(--pluto-border);
-        cursor: pointer;
-        font-family: var(--pluto-font-family);
-        font-size: 2.5rem;
-        font-weight: 500;
-        color: var(--pluto-gray-l6);
-        transition:
-            color 0.2s ease,
-            background 0.2s ease;
-
-        &:hover {
-            color: var(--pluto-gray-l9);
-            background: var(--pluto-gray-l2);
-        }
-
-        &:last-child {
-            border-right: none;
-        }
-    }
-
-    .automate-viz-tab--active {
-        color: var(--pluto-text-color);
-        background: var(--pluto-gray-l2);
-    }
-
-    /* Two-column content area */
-    .automate-viz-content {
-        display: grid;
-        grid-template-columns: 1fr 1fr;
-        min-height: 380px;
-    }
-
-    /* Code panel */
-    .automate-viz-code {
-        padding: 4rem;
-        border-right: var(--pluto-border);
-        overflow: auto;
-    }
-
-    .automate-code-panel pre {
-        margin: 0;
-        padding: 0;
-        background: transparent !important;
-        font-size: 2.4rem;
-        line-height: 3.6rem;
-    }
-
-    .automate-code-panel code {
-        font-family: var(--pluto-mono-font-family);
-        display: flex;
-        flex-direction: column;
-        counter-reset: line;
-    }
-
-    .automate-code-panel .line {
-        min-height: 3.6rem;
-        padding: 0 1rem;
-        border-left: 3px solid transparent;
-        counter-increment: line;
-        transition:
-            border-color 0.3s ease,
-            background 0.3s ease;
-    }
-
-    .automate-code-panel .line::before {
-        content: counter(line);
-        display: inline-block;
-        width: 2.5rem;
-        margin-right: 2.5rem;
-        text-align: right;
-        color: var(--pluto-gray-l7);
-        font-size: 2.2rem;
-        user-select: none;
-    }
-
-    .automate-code-panel .line[data-active] {
-        border-left-color: var(--pluto-primary-p1);
-        background: var(--pluto-primary-z-20);
-    }
-
-    /* Diagram panel */
-    .automate-viz-diagram {
-        display: flex;
-        align-items: stretch;
-        justify-content: stretch;
-        padding: 0;
-    }
-
     .automate-diagram-svg {
         width: 100%;
         height: 100%;
@@ -336,7 +213,6 @@ const codeHtmls = [
         font-weight: 500;
     }
 
-    /* Flow animation for dashed pipe lines */
     .automate-diagram-svg .flow-line {
         animation: flow-dash 0.8s linear infinite;
     }
@@ -347,7 +223,6 @@ const codeHtmls = [
         }
     }
 
-    /* Emergency pulse for abort diagram */
     .automate-diagram-svg .emergency-border {
         animation: emergency-pulse 1s ease-in-out infinite;
     }
@@ -360,27 +235,6 @@ const codeHtmls = [
         50% {
             opacity: 0.6;
         }
-    }
-
-    /* Step progress dots */
-    .automate-viz-progress {
-        display: flex;
-        justify-content: center;
-        gap: 0.8rem;
-        padding: 2rem;
-        border-top: var(--pluto-border);
-    }
-
-    .automate-viz-dot {
-        width: 6px;
-        height: 6px;
-        border-radius: 50%;
-        background: var(--pluto-gray-l4);
-        transition: background 0.2s ease;
-    }
-
-    .automate-viz-dot--active {
-        background: var(--pluto-primary-p1);
     }
 
     /* Bento grid */
@@ -539,36 +393,13 @@ const codeHtmls = [
         z-index: 1;
     }
 
-    /* Responsive */
     @media (max-width: 900px) {
-        .automate-viz-content {
-            grid-template-columns: 1fr;
-        }
-
-        .automate-viz-code {
-            border-right: none;
-            border-bottom: var(--pluto-border);
-        }
-
         .automate-bento {
             grid-template-columns: repeat(2, 1fr);
         }
     }
 
     @media (max-width: 600px) {
-        .automate-viz-tabs {
-            flex-direction: column;
-        }
-
-        .automate-viz-tab {
-            border-right: none;
-            border-bottom: var(--pluto-border);
-
-            &:last-child {
-                border-bottom: none;
-            }
-        }
-
         .automate-bento {
             grid-template-columns: 1fr;
         }
