@@ -21,6 +21,10 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/arc"
 	"github.com/synnaxlabs/synnax/pkg/service/framer/calculation/calculator"
 	"github.com/synnaxlabs/synnax/pkg/service/framer/calculation/compiler"
+	"github.com/synnaxlabs/synnax/pkg/service/label"
+	"github.com/synnaxlabs/synnax/pkg/service/rack"
+	"github.com/synnaxlabs/synnax/pkg/service/status"
+	"github.com/synnaxlabs/synnax/pkg/service/task"
 	"github.com/synnaxlabs/x/telem"
 )
 
@@ -36,11 +40,52 @@ func newBenchEnv(b *testing.B) *benchEnv {
 	distB := mock.NewCluster()
 	dist := distB.Provision(ctx)
 
+	labelSvc, err := label.OpenService(ctx, label.ServiceConfig{
+		DB:       dist.DB,
+		Ontology: dist.Ontology,
+		Group:    dist.Group,
+		Signals:  dist.Signals,
+	})
+	if err != nil {
+		b.Fatalf("failed to open label service: %v", err)
+	}
+	statusSvc, err := status.OpenService(ctx, status.ServiceConfig{
+		DB:       dist.DB,
+		Group:    dist.Group,
+		Signals:  dist.Signals,
+		Ontology: dist.Ontology,
+		Label:    labelSvc,
+	})
+	if err != nil {
+		b.Fatalf("failed to open status service: %v", err)
+	}
+	rackSvc, err := rack.OpenService(ctx, rack.ServiceConfig{
+		DB:           dist.DB,
+		Ontology:     dist.Ontology,
+		Group:        dist.Group,
+		HostProvider: mock.StaticHostKeyProvider(1),
+		Status:       statusSvc,
+	})
+	if err != nil {
+		b.Fatalf("failed to open rack service: %v", err)
+	}
+	taskSvc, err := task.OpenService(ctx, task.ServiceConfig{
+		DB:       dist.DB,
+		Ontology: dist.Ontology,
+		Group:    dist.Group,
+		Rack:     rackSvc,
+		Status:   statusSvc,
+	})
+	if err != nil {
+		b.Fatalf("failed to open task service: %v", err)
+	}
+
 	arcSvc, err := arc.OpenService(ctx, arc.ServiceConfig{
 		Channel:  dist.Channel,
 		Ontology: dist.Ontology,
 		DB:       dist.DB,
 		Signals:  dist.Signals,
+		Task:     taskSvc,
 	})
 	if err != nil {
 		b.Fatalf("failed to open arc service: %v", err)
@@ -339,6 +384,111 @@ func BenchmarkCalculator_ComplexExpression(b *testing.B) {
 	}
 	b.StopTimer()
 	b.ReportMetric(float64(3*b.N)/b.Elapsed().Seconds(), "samples/sec")
+}
+
+// frameSink is a package-level variable used to prevent the compiler from optimizing
+// away benchmark results via escape analysis. In production, calculator output frames
+// are sent through channels to writers — this simulates that escape.
+var frameSink frame.Frame
+
+func BenchmarkCalculator_VaryingSampleCount(b *testing.B) {
+	env := newBenchEnv(b)
+	defer env.close(b)
+
+	bases := []channel.Channel{
+		{Name: "a", DataType: telem.Float64T, Virtual: true},
+		{Name: "b", DataType: telem.Float64T, Virtual: true},
+	}
+	calc := channel.Channel{
+		Name:       "result",
+		DataType:   telem.Float64T,
+		Virtual:    true,
+		Expression: "return a + b",
+	}
+
+	c := env.openCalculator(b, nil, bases, &calc)
+	defer func() {
+		if err := c.Close(); err != nil {
+			b.Errorf("failed to close calculator: %v", err)
+		}
+	}()
+
+	// Pre-build frames with varying sample counts to simulate realistic streaming
+	// where each cycle may deliver a different number of samples.
+	sizes := []int{1, 3, 10, 25, 50, 100, 50, 25, 10, 3}
+	frames := make([]frame.Frame, len(sizes))
+	totalSamples := 0
+	for i, size := range sizes {
+		aData := make([]float64, size)
+		bData := make([]float64, size)
+		for j := range size {
+			aData[j] = float64(j)
+			bData[j] = float64(j + 1)
+		}
+		frames[i] = frame.NewMulti(
+			[]channel.Key{bases[0].Key(), bases[1].Key()},
+			[]telem.Series{telem.NewSeriesV(aData...), telem.NewSeriesV(bData...)},
+		)
+		totalSamples += size
+	}
+	outputFrame := frame.Frame{}
+
+	b.ReportAllocs()
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		frameSink, _, _ = c.Next(env.ctx, frames[i%len(frames)], outputFrame)
+	}
+	b.StopTimer()
+	b.ReportMetric(float64(totalSamples*(b.N/len(frames)))/b.Elapsed().Seconds(), "samples/sec")
+}
+
+func BenchmarkCalculator_VaryingSampleCount_Group(b *testing.B) {
+	env := newBenchEnv(b)
+	defer env.close(b)
+
+	base := []channel.Channel{{Name: "base", DataType: telem.Float64T, Virtual: true}}
+	calc1 := channel.Channel{
+		Name:       "calc1",
+		DataType:   telem.Float64T,
+		Virtual:    true,
+		Expression: "return base + 1",
+	}
+	c1 := env.openCalculator(b, nil, base, &calc1)
+
+	calc2 := channel.Channel{
+		Name:       "calc2",
+		DataType:   telem.Float64T,
+		Virtual:    true,
+		Expression: "return calc1 * 2",
+	}
+	c2 := env.openCalculator(b, nil, nil, &calc2)
+
+	group := calculator.Group{c1, c2}
+	defer func() {
+		if err := group.Close(); err != nil {
+			b.Errorf("failed to close calculator group: %v", err)
+		}
+	}()
+
+	sizes := []int{1, 3, 10, 25, 50, 100, 50, 25, 10, 3}
+	frames := make([]frame.Frame, len(sizes))
+	totalSamples := 0
+	for i, size := range sizes {
+		data := make([]float64, size)
+		for j := range size {
+			data[j] = float64(j)
+		}
+		frames[i] = frame.NewUnary(base[0].Key(), telem.NewSeriesV(data...))
+		totalSamples += size
+	}
+
+	b.ReportAllocs()
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		frameSink, _, _ = group.Next(env.ctx, frames[i%len(frames)])
+	}
+	b.StopTimer()
+	b.ReportMetric(float64(totalSamples*(b.N/len(frames)))/b.Elapsed().Seconds(), "samples/sec")
 }
 
 func BenchmarkCalculator_GroupScaling(b *testing.B) {

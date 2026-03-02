@@ -1,4 +1,4 @@
-import { type ReactElement, useEffect, useRef } from "react";
+import { type ReactElement, useMemo } from "react";
 
 interface CodePanelProps {
   html: string;
@@ -6,28 +6,26 @@ interface CodePanelProps {
   className?: string;
 }
 
+const LINE_TAG = '<span class="line">';
+const ACTIVE_LINE_TAG = '<span class="line" data-active="true">';
+
 export const CodePanel = ({
   html,
   activeLines,
   className,
 }: CodePanelProps): ReactElement => {
-  const ref = useRef<HTMLDivElement>(null);
-
-  useEffect(() => {
-    if (ref.current == null) return;
-    const lines = ref.current.querySelectorAll(".line");
-    lines.forEach((line, i) => {
-      const lineNum = i + 1;
-      if (activeLines.includes(lineNum)) line.setAttribute("data-active", "true");
-      else line.removeAttribute("data-active");
+  const processedHtml = useMemo(() => {
+    let lineIndex = 0;
+    return html.replace(/<span class="line">/g, () => {
+      lineIndex++;
+      return activeLines.includes(lineIndex) ? ACTIVE_LINE_TAG : LINE_TAG;
     });
-  }, [activeLines, html]);
+  }, [html, activeLines]);
 
   return (
     <div
-      ref={ref}
       className={`code-panel ${className ?? ""}`}
-      dangerouslySetInnerHTML={{ __html: html }}
+      dangerouslySetInnerHTML={{ __html: processedHtml }}
     />
   );
 };

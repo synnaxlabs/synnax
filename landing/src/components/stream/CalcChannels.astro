@@ -15,7 +15,8 @@ const highlighter = await createHighlighter({
 const highlight = (code: string) =>
     highlighter.codeToHtml(code, { lang: "arc", theme: "css-variables" });
 
-const unitConversion = `fahrenheit := celsius * 9 / 5 + 32`;
+const unitConversion = `fahrenheit := celsius * 9 / 5 + 32
+return fahrenheit`;
 
 const mixtureRatio = `return ox_flow / fuel_flow`;
 
@@ -65,15 +66,17 @@ const codeHtmls = [
 ---
 
 <FeatureSection label="5.1 -> Calculated Channels">
-    <Fragment slot="title">
-        Sensor voting in 10 lines, not 10 services
-    </Fragment>
+    <Fragment slot="title"> Sensor voting in 10 lines, not 10 services </Fragment>
     <Fragment slot="description">
-        Attach Arc expressions to channels and Synnax evaluates them on every
-        sample, whether live or historical. Stateful variables, vector math, and
-        reactive execution replace entire processing pipelines.
+        Attach Arc expressions to channels and Synnax evaluates them on every sample,
+        whether live or historical. Stateful variables, vector math, and reactive
+        execution replace entire processing pipelines.
     </Fragment>
-    <Button.Button slot="action" variant="text" href="https://docs.synnaxlabs.com/reference/concepts/calculated-channels">
+    <Button.Button
+        slot="action"
+        variant="text"
+        href="https://docs.synnaxlabs.com/reference/concepts/calculated-channels"
+    >
         Read More →
     </Button.Button>
 
@@ -135,7 +138,23 @@ const codeHtmls = [
         animation: flow-dash 0.8s linear infinite;
     }
 
+    @keyframes flow-dash {
+        to {
+            stroke-dashoffset: -20;
+        }
+    }
+
     .calc-diagram-svg .emergency-border {
         animation: emergency-pulse 1s ease-in-out infinite;
+    }
+
+    @keyframes emergency-pulse {
+        0%,
+        100% {
+            opacity: 1;
+        }
+        50% {
+            opacity: 0.6;
+        }
     }
 </style>

@@ -70,7 +70,11 @@ export const AutomateVisualizer = ({
   const [activeTab, setActiveTab] = useState(0);
   const [stepIndex, setStepIndex] = useState(0);
   const [paused, setPaused] = useState(false);
+  const [remainingDuration, setRemainingDuration] = useState(0);
   const timeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const startTimeRef = useRef(0);
+  const elapsedRef = useRef(0);
+  const resumeCountRef = useRef(0);
 
   const example = EXAMPLES[activeTab];
   const step = example.steps[stepIndex];
@@ -86,17 +90,26 @@ export const AutomateVisualizer = ({
   }, []);
 
   useEffect(() => {
-    if (paused) return;
+    if (paused) {
+      elapsedRef.current += Date.now() - startTimeRef.current;
+      return;
+    }
     clearTimer();
+    const remaining = Math.max(0, step.duration - elapsedRef.current);
+    setRemainingDuration(remaining);
+    if (remaining !== step.duration) resumeCountRef.current += 1;
+    startTimeRef.current = Date.now();
     timeoutRef.current = setTimeout(() => {
+      elapsedRef.current = 0;
       setStepIndex((prev) => (prev + 1) % example.steps.length);
-    }, step.duration);
+    }, remaining);
     return clearTimer;
   }, [stepIndex, activeTab, paused, example.steps.length, step.duration, clearTimer]);
 
   const handleTabClick = useCallback(
     (index: number) => {
       if (index === activeTab) return;
+      elapsedRef.current = 0;
       setActiveTab(index);
       setStepIndex(0);
     },
@@ -106,6 +119,7 @@ export const AutomateVisualizer = ({
   return (
     <div
       className="viz-container"
+      style={{ "--play-state": paused ? "paused" : "running" } as React.CSSProperties}
       onMouseEnter={() => setPaused(true)}
       onMouseLeave={() => setPaused(false)}
     >
@@ -138,8 +152,19 @@ export const AutomateVisualizer = ({
       <div className="viz-progress">
         {example.steps.map((_, i) => (
           <div
-            key={i}
+            key={
+              i === stepIndex
+                ? `${activeTab}-${stepIndex}-${resumeCountRef.current}`
+                : i
+            }
             className={`viz-dot${i === stepIndex ? " viz-dot--active" : ""}`}
+            style={
+              i === stepIndex
+                ? ({
+                    "--step-duration": `${remainingDuration}ms`,
+                  } as React.CSSProperties)
+                : undefined
+            }
           />
         ))}
       </div>

@@ -243,6 +243,8 @@ a:not(.pluto-btn) {
     text-align: right;
     color: var(--pluto-gray-l7);
     font-size: 2.2rem;
+    line-height: 3.6rem;
+    vertical-align: middle;
     user-select: none;
 }
 
@@ -295,11 +297,38 @@ a:not(.pluto-btn) {
     height: 6px;
     border-radius: 50%;
     background: var(--pluto-gray-l4);
-    transition: background 0.2s ease;
+    transition: all 0.2s ease;
+    flex-shrink: 0;
 }
 
 .viz-dot--active {
+    width: 20px;
+    height: 6px;
+    border-radius: 3px;
+    background: var(--pluto-gray-l4);
+    position: relative;
+    overflow: hidden;
+}
+
+.viz-dot--active::after {
+    content: "";
+    position: absolute;
+    inset: 0;
+    border-radius: inherit;
     background: var(--pluto-primary-p1);
+    transform-origin: left center;
+    transform: scaleX(0);
+    animation: viz-dot-fill var(--step-duration, 1200ms) linear forwards;
+    animation-play-state: var(--play-state, running);
+}
+
+@keyframes viz-dot-fill {
+    from {
+        transform: scaleX(0);
+    }
+    to {
+        transform: scaleX(1);
+    }
 }
 
 /* ── Responsive ──────────────────────────────────────────────── */

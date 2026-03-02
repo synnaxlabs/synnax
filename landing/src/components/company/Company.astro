@@ -1,0 +1,185 @@
+---
+import { Flex, Text, Button } from "@synnaxlabs/pluto";
+import profileEB from "@/components/company/profile-eb.png";
+import profilePD from "@/components/company/profile-pd.png";
+import logoNASA from "@/components/company/nasa.svg";
+import logoFirefly from "@/components/company/firefly.png";
+import logoLockheed from "@/components/company/lockheed.png";
+import logoSpaceX from "@/components/company/spacex.png";
+import logoYC from "@/components/company/yc.svg";
+---
+
+<Flex.Box el="section" direction="y" justify="center" gap={15} className="company">
+    <Flex.Box
+        direction="y"
+        className="company-description"
+        justify="between"
+        align="start"
+        gap={4}
+    >
+        <Text.Text level="h3">
+            Our team is grounded in an obsession to provide the worlds best engineering
+            teams with the software tools they need to build the hardware technology of
+            tomorrow.
+        </Text.Text>
+        <Button.Button href="/#contact" level="p" size="large" variant="filled">
+            Get In Touch -&gt;
+        </Button.Button>
+    </Flex.Box>
+    <Flex.Box direction="x" align="center" justify="center" gap={6} className="company-credibility">
+        <Flex.Box direction="x" align="center" gap={3} className="company-credibility__yc">
+            <img src={logoYC.src} alt="Y Combinator" width="100" height="100" />
+            <Text.Text level="p" className="company-credibility__label">
+                Backed by Y Combinator
+            </Text.Text>
+        </Flex.Box>
+        <div class="company-credibility__divider"></div>
+        <Flex.Box direction="x" align="center" gap={3} className="company-credibility__origins" wrap>
+            <Text.Text level="p" className="company-credibility__label">
+                Engineers from
+            </Text.Text>
+            <Flex.Box direction="x" align="center" gap={4} className="company-credibility__logos">
+                <img src={logoNASA.src} alt="NASA" width="508" height="142" />
+                <img src={logoSpaceX.src} alt="SpaceX" width="3840" height="480" />
+                <img src={logoLockheed.src} alt="Lockheed Martin" width="3840" height="581" />
+                <img src={logoFirefly.src} alt="Firefly Aerospace" width="3840" height="616" />
+            </Flex.Box>
+        </Flex.Box>
+    </Flex.Box>
+    <Flex.Box
+        className="company-founders"
+        direction="x"
+        justify="around"
+        wrap
+        gap={8}
+    >
+        <Flex.Box className="company-profile" direction="y" align="center">
+            <img src={profileEB.src} alt="Emiliano Bonilla" width="1080" height="1440" />
+            <Flex.Box direction="y" align="center" gap={0}>
+                <Text.Text
+                    level="h5"
+                    href="https://www.linkedin.com/in/emiliano-bonilla-8a0a95187/"
+                >
+                    Emiliano Bonilla
+                </Text.Text>
+                <Text.Text level="p" className="company-profile__title">
+                    Co-Founder & CEO
+                </Text.Text>
+            </Flex.Box>
+        </Flex.Box>
+        <Flex.Box className="company-profile" direction="y" align="center">
+            <img src={profilePD.src} alt="Patrick Dotson" width="2531" height="3375" />
+            <Flex.Box direction="y" align="center" gap={0}>
+                <Text.Text level="h5" href="https://www.linkedin.com/in/patrick-dotson/">
+                    Patrick Dotson
+                </Text.Text>
+                <Text.Text level="p" className="company-profile__title">
+                    Co-Founder & CTO
+                </Text.Text>
+            </Flex.Box>
+        </Flex.Box>
+    </Flex.Box>
+</Flex.Box>
+
+<style is:global>
+    .company {
+        overflow: hidden;
+        position: relative;
+        margin: 0 auto;
+        padding: 30rem 0;
+        max-width: 1300px;
+        min-height: 90vh;
+
+        @media (max-width: 450px) {
+            padding-top: 2rem;
+        }
+    }
+
+    .company-description {
+        padding: 20rem 15rem;
+        background-image:
+            linear-gradient(var(--pluto-gray-l1) 1px, transparent 1px),
+            linear-gradient(to right, var(--pluto-gray-l1) 1px, transparent 1px);
+        background-size: 5rem 5rem;
+        box-shadow: inset 0 0 5rem var(--pluto-gray-l1);
+        border: var(--pluto-border);
+        border-radius: 2rem;
+
+        & h3 {
+            font-weight: 400;
+        }
+
+        @media (max-width: 600px) {
+            padding: 20rem 5rem;
+        }
+    }
+
+    .company-credibility {
+        width: 100%;
+        padding: 6rem 0;
+        gap: 8rem;
+    }
+
+    .company-credibility__yc img {
+        height: 5.5rem;
+        width: auto;
+        border-radius: 0.8rem;
+    }
+
+    .company-credibility__divider {
+        width: 1px;
+        height: 4rem;
+        background: var(--pluto-gray-l3);
+        flex-shrink: 0;
+    }
+
+    .company-credibility__label {
+        color: var(--pluto-gray-l7) !important;
+        white-space: nowrap;
+    }
+
+    .company-credibility__logos img {
+        display: block;
+        height: 3.5rem;
+        width: auto;
+        filter: brightness(0) invert(1);
+        opacity: 0.5;
+    }
+
+    .company-founders {
+        padding: 15rem 10rem;
+        border: var(--pluto-border);
+        border-radius: 2rem;
+        width: 100%;
+    }
+
+    .company-profile {
+        max-width: 340px;
+        min-width: 280px;
+        flex-basis: 280px;
+        flex-shrink: 1;
+        flex-grow: 1;
+
+        & > img {
+            border-radius: 1rem;
+            width: 100%;
+            height: auto;
+        }
+    }
+
+    .company-profile__title {
+        color: var(--pluto-gray-l7) !important;
+    }
+
+    @media (max-width: 900px) {
+        .company-credibility {
+            flex-direction: column;
+            gap: 3rem;
+        }
+
+        .company-credibility__divider {
+            width: 3rem;
+            height: 1px;
+        }
+    }
+</style>

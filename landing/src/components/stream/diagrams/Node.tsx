@@ -18,6 +18,7 @@ interface NodeProps {
   value?: string;
   colors: NodeColors;
   state: NodeState;
+  filterId?: string;
 }
 
 export const Node = ({
@@ -124,6 +125,7 @@ export const PillNode = ({
   value,
   colors,
   state,
+  filterId,
 }: NodeProps): ReactElement => {
   const hw = w / 2;
   const hh = h / 2;
@@ -144,19 +146,8 @@ export const PillNode = ({
           fill="white"
           stroke="var(--pluto-primary-z-30)"
           strokeWidth={1}
-          filter="url(#pill-glow)"
+          filter={filterId != null ? `url(#${filterId})` : undefined}
         />
-        <defs>
-          <filter id="pill-glow" x="-50%" y="-50%" width="200%" height="200%">
-            <feDropShadow
-              dx={0}
-              dy={0}
-              stdDeviation={8}
-              floodColor="var(--pluto-primary-p1)"
-              floodOpacity={0.4}
-            />
-          </filter>
-        </defs>
         <foreignObject x={x - hw} y={y - hh} width={w} height={h}>
           <div
             style={{

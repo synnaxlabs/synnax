@@ -43,9 +43,24 @@ export const Diagram = ({ def, state }: DiagramProps): ReactElement => {
 
   const NodeComp = isPill ? PillNode : Node;
 
+  const pillGlowId = `${uid}-pill-glow`;
+
   return (
     <div style={WRAPPER_STYLE}>
       <svg viewBox={def.viewBox} style={SVG_STYLE}>
+        {isPill && (
+          <defs>
+            <filter id={pillGlowId} x="-50%" y="-50%" width="200%" height="200%">
+              <feDropShadow
+                dx={0}
+                dy={0}
+                stdDeviation={8}
+                floodColor="var(--pluto-primary-p1)"
+                floodOpacity={0.4}
+              />
+            </filter>
+          </defs>
+        )}
         {/* Traces */}
         {def.edges.map((edge, i) => {
           const from = nodeMap.get(edge.from)!;
@@ -126,6 +141,7 @@ export const Diagram = ({ def, state }: DiagramProps): ReactElement => {
               value={state.nodeValues[node.id]}
               colors={colors}
               state={nodeState}
+              filterId={isPill ? pillGlowId : undefined}
             />
           );
         })}

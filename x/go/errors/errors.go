@@ -96,7 +96,7 @@ func As(err error, target any) bool { return errors.As(err, target) }
 // Skip returns nil if the error satisfied errors.Is for any of the reference errors.
 // Otherwise, it returns the error itself.
 func Skip(err error, refs ...error) error {
-	if errors.IsAny(err, refs...) {
+	if IsAny(err, refs...) {
 		return nil
 	}
 	return err
