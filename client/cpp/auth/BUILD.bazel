@@ -1,3 +1,6 @@
+load("@rules_cc//cc:cc_library.bzl", "cc_library")
+load("@rules_cc//cc:cc_test.bzl", "cc_test")
+
 cc_library(
     name = "auth",
     srcs = [],
@@ -6,8 +9,8 @@ cc_library(
     deps = [
         "//core/pkg/api/grpc/v1:api_grpc",
         "//freighter/cpp/grpc",
-        "//x/cpp/telem",
         "//x/cpp/os",
+        "//x/cpp/telem",
         "//x/cpp/uuid",
         "@grpc//:grpc++",
     ],
