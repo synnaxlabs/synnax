@@ -30,7 +30,7 @@ const Content = (): ReactElement => {
               onClick={() => placeLayout(REGISTER_LAYOUT)}
               tooltip="Create user"
             >
-              <User.CreateIcon />
+              <Icon.Add />
             </Toolbar.Action>
           )}
         </Toolbar.Actions>
