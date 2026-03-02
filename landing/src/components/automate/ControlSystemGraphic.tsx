@@ -29,16 +29,18 @@ export function ControlSystemGraphic({
     return points;
   }
 
+  const r4 = (n: number) => Math.round(n * 1e4) / 1e4;
+
   function pointsToSmoothPath(points: [number, number][]) {
     if (points.length < 2) return "";
-    let d = `M ${points[0][0]} ${points[0][1]}`;
+    let d = `M ${r4(points[0][0])} ${r4(points[0][1])}`;
     for (let i = 1; i < points.length - 1; i++) {
       const xc = (points[i][0] + points[i + 1][0]) / 2;
       const yc = (points[i][1] + points[i + 1][1]) / 2;
-      d += ` Q ${points[i][0]} ${points[i][1]} ${xc} ${yc}`;
+      d += ` Q ${r4(points[i][0])} ${r4(points[i][1])} ${r4(xc)} ${r4(yc)}`;
     }
     const last = points[points.length - 1];
-    d += ` L ${last[0]} ${last[1]}`;
+    d += ` L ${r4(last[0])} ${r4(last[1])}`;
     return d;
   }
 

@@ -79,7 +79,7 @@ export const Nav = (): ReactElement => {
         onMouseEnter={handleEnter}
         onMouseLeave={handleLeave}
       >
-        <Button.Button variant="text" className="nav-link">
+        <Button.Button variant="text" className="nav-link" href="/#visualize">
           Product
         </Button.Button>
         {open && (

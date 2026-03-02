@@ -70,11 +70,8 @@ export const AutomateVisualizer = ({
   const [activeTab, setActiveTab] = useState(0);
   const [stepIndex, setStepIndex] = useState(0);
   const [paused, setPaused] = useState(false);
-  const [remainingDuration, setRemainingDuration] = useState(0);
+  const [tick, setTick] = useState(0);
   const timeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const startTimeRef = useRef(0);
-  const elapsedRef = useRef(0);
-  const resumeCountRef = useRef(0);
 
   const example = EXAMPLES[activeTab];
   const step = example.steps[stepIndex];
@@ -90,38 +87,36 @@ export const AutomateVisualizer = ({
   }, []);
 
   useEffect(() => {
-    if (paused) {
-      elapsedRef.current += Date.now() - startTimeRef.current;
-      return;
-    }
+    if (paused) return;
     clearTimer();
-    const remaining = Math.max(0, step.duration - elapsedRef.current);
-    setRemainingDuration(remaining);
-    if (remaining !== step.duration) resumeCountRef.current += 1;
-    startTimeRef.current = Date.now();
     timeoutRef.current = setTimeout(() => {
-      elapsedRef.current = 0;
       setStepIndex((prev) => (prev + 1) % example.steps.length);
-    }, remaining);
+    }, step.duration);
     return clearTimer;
-  }, [stepIndex, activeTab, paused, example.steps.length, step.duration, clearTimer]);
+  }, [stepIndex, activeTab, paused, tick, example.steps.length, step.duration, clearTimer]);
 
   const handleTabClick = useCallback(
     (index: number) => {
       if (index === activeTab) return;
-      elapsedRef.current = 0;
+      setPaused(false);
       setActiveTab(index);
       setStepIndex(0);
     },
     [activeTab],
   );
 
+  const handleMouseEnter = useCallback(() => setPaused(true), []);
+  const handleMouseLeave = useCallback(() => {
+    setPaused(false);
+    setTick((t) => t + 1);
+  }, []);
+
   return (
     <div
       className="viz-container"
       style={{ "--play-state": paused ? "paused" : "running" } as React.CSSProperties}
-      onMouseEnter={() => setPaused(true)}
-      onMouseLeave={() => setPaused(false)}
+      onMouseEnter={handleMouseEnter}
+      onMouseLeave={handleMouseLeave}
     >
       <div className="viz-tabs">
         {EXAMPLES.map((ex, i) => (
@@ -150,19 +145,13 @@ export const AutomateVisualizer = ({
         </div>
       </div>
       <div className="viz-progress">
-        {example.steps.map((_, i) => (
+        {example.steps.map((s, i) => (
           <div
-            key={
-              i === stepIndex
-                ? `${activeTab}-${stepIndex}-${resumeCountRef.current}`
-                : i
-            }
+            key={i === stepIndex ? `${activeTab}-${stepIndex}-${tick}` : i}
             className={`viz-dot${i === stepIndex ? " viz-dot--active" : ""}`}
             style={
               i === stepIndex
-                ? ({
-                    "--step-duration": `${remainingDuration}ms`,
-                  } as React.CSSProperties)
+                ? ({ "--step-duration": `${s.duration}ms` } as React.CSSProperties)
                 : undefined
             }
           />
