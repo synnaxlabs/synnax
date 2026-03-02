@@ -103,7 +103,7 @@ func (n *nodeImpl) Next(ctx node.Context) {
 			inputLen := n.Input(j).Len()
 			n.params[n.configCount+j] = valueAt(n.Input(j), int(i%inputLen))
 		}
-		res, err := n.wasm.Call(ctx, n.params...)
+		res, err := n.wasm.Call(ctx.Context, n.params...)
 		if err != nil {
 			ctx.ReportError(errors.Wrapf(
 				err,
