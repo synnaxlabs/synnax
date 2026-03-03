@@ -1,0 +1,25 @@
+---
+
+---
+
+<div class="bento-grid">
+    <slot />
+</div>
+
+<style is:global>
+    .bento-grid {
+        display: grid;
+        grid-template-columns: repeat(2, 1fr);
+        gap: 2.5rem;
+        margin: 2rem 0;
+    }
+
+    @media (max-width: 600px) {
+        .bento-grid {
+            grid-template-columns: 1fr;
+        }
+        .bento-grid .bento-item {
+            grid-column: span 1 !important;
+        }
+    }
+</style>
