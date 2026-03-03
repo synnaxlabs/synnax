@@ -1,8 +1,7 @@
 {
   "name": "@synnaxlabs/vite-plugin",
-  "version": "0.52.3",
+  "private": true,
   "type": "module",
-  "description": "Vite plugin for Synnax Labs",
   "scripts": {
     "build": "tsc",
     "lint": "eslint",
@@ -16,9 +15,9 @@
     }
   },
   "devDependencies": {
+    "@synnaxlabs/eslint-config": "workspace:^",
     "@synnaxlabs/tsconfig": "workspace:^",
     "eslint": "catalog:",
-    "eslint-config-synnaxlabs": "workspace:^",
     "typescript": "catalog:",
     "vite": "catalog:",
     "vite-plugin-dts": "^4.5.4"

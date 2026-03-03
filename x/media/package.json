@@ -33,10 +33,10 @@
     "@types/react": "catalog:",
     "@vitejs/plugin-react": "catalog:",
     "eslint": "catalog:",
-    "eslint-config-synnaxlabs": "workspace:^",
+    "@synnaxlabs/eslint-config": "workspace:^",
     "madge": "catalog:",
     "stylelint": "catalog:",
-    "stylelint-config-synnaxlabs": "workspace:^",
+    "@synnaxlabs/stylelint-config": "workspace:^",
     "typescript": "catalog:",
     "vite": "catalog:"
   },

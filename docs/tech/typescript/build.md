@@ -25,12 +25,14 @@ We have two main applications:
 There are also a few packages that are specifically for defining configurations for
 various build/developments tools:
 
-- `eslint-config-synnaxlabs` - path `configs/eslint` - The eslint configuration for
-  Synnax typescript software.
-- `@synnaxlabs/tsconfig` - path `configs/ts` - The typescript configuration for Synnax
-  typescript software.
+- `@synnaxlabs/eslint-config` - path `configs/eslint` - The ESLint configuration for
+  Synnax TypeScript software.
+- `@synnaxlabs/stylelint-config` - path `configs/stylelint` - The Stylelint
+  configuration for Synnax TypeScript software.
+- `@synnaxlabs/tsconfig` - path `configs/ts` - The TypeScript configuration for Synnax
+  TypeScript software.
 - `@synnaxlabs/vite-plugin` - path `configs/vite` - A custom plugin for building
-  typescript applications using [vite](https://vitejs.dev/). We'll discuss vite in more
+  TypeScript applications using [Vite](https://vitejs.dev/). We'll discuss Vite in more
   detail later.
 
 Each of these packages are developed, built, and published independently. The current

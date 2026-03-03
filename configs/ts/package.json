@@ -1,9 +1,6 @@
 {
   "name": "@synnaxlabs/tsconfig",
-  "version": "0.52.3",
-  "publishConfig": {
-    "access": "public"
-  },
+  "private": true,
   "devDependencies": {
     "typescript": "catalog:"
   }

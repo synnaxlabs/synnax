@@ -1,11 +1,7 @@
 {
-  "name": "stylelint-config-synnaxlabs",
-  "version": "0.52.3",
-  "description": "Synnax Style Lint Configuration",
+  "name": "@synnaxlabs/stylelint-config",
+  "private": true,
   "main": "index.ts",
-  "repository": "https://github.com/synnaxlabs/synnax/tree/main/configs/stylelint",
-  "author": "emilbon99@gmail.com",
-  "license": "MIT",
   "type": "module",
   "dependencies": {
     "stylelint-config-standard": "catalog:"
@@ -16,9 +12,9 @@
     "fix": "eslint --fix"
   },
   "devDependencies": {
+    "@synnaxlabs/eslint-config": "workspace:^",
     "@synnaxlabs/tsconfig": "workspace:^",
     "eslint": "catalog:",
-    "eslint-config-synnaxlabs": "workspace:^",
     "stylelint": "catalog:",
     "typescript": "catalog:"
   }

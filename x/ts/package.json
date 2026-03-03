@@ -33,7 +33,7 @@
     "@types/node": "catalog:",
     "@vitest/coverage-v8": "catalog:",
     "eslint": "catalog:",
-    "eslint-config-synnaxlabs": "workspace:^",
+    "@synnaxlabs/eslint-config": "workspace:^",
     "madge": "catalog:",
     "typescript": "catalog:",
     "vite": "catalog:",
