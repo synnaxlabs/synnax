@@ -1,6 +1,6 @@
 {
   "name": "@synnaxlabs/vite-plugin",
-  "version": "0.52.2",
+  "version": "0.52.3",
   "type": "module",
   "description": "Vite plugin for Synnax Labs",
   "scripts": {
