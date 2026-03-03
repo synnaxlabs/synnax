@@ -377,6 +377,16 @@ func analyzePostfix(ctx context.Context[parser.IPostfixExpressionContext]) {
 		}
 		if scope.Kind == symbol.KindFunction {
 			validateFunctionCall(ctx, scope.Type, funcName, funcCalls[0])
+			// Propagate called function's channel accesses to the caller
+			callerFn, fnErr := ctx.Scope.ClosestAncestorOfKind(symbol.KindFunction)
+			if fnErr == nil && callerFn != nil {
+				for id, name := range scope.Channels.Read {
+					callerFn.Channels.Read[id] = name
+				}
+				for id, name := range scope.Channels.Write {
+					callerFn.Channels.Write[id] = name
+				}
+			}
 		} else {
 			ctx.Diagnostics.Add(diagnostics.Errorf(
 				funcCalls[0], "cannot call non-function %s of type %s", funcName, scope.Type,
