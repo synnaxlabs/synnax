@@ -44,6 +44,7 @@ jobs:
         with:
           node-version-file: package.json
           cache: pnpm
+          registry-url: https://registry.npmjs.org
 
       - name: Install Dependencies
         run: pnpm install
