@@ -167,7 +167,8 @@
   "_id": "@synnaxlabs/pluto@0.0.1",
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/synnaxlabs/synnax/pluto"
+    "url": "git+https://github.com/synnaxlabs/synnax/synnax.git",
+    "directory": "pluto"
   },
   "license": "MIT",
   "bugs": {
