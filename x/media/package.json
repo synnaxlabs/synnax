@@ -27,16 +27,16 @@
     "react-icons": "catalog:"
   },
   "devDependencies": {
+    "@synnaxlabs/eslint-config": "workspace:^",
+    "@synnaxlabs/stylelint-config": "workspace:^",
     "@synnaxlabs/tsconfig": "workspace:^",
     "@synnaxlabs/vite-plugin": "workspace:^",
     "@types/node": "catalog:",
     "@types/react": "catalog:",
     "@vitejs/plugin-react": "catalog:",
     "eslint": "catalog:",
-    "@synnaxlabs/eslint-config": "workspace:^",
     "madge": "catalog:",
     "stylelint": "catalog:",
-    "@synnaxlabs/stylelint-config": "workspace:^",
     "typescript": "catalog:",
     "vite": "catalog:"
   },
