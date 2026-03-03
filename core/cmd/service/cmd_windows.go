@@ -23,6 +23,7 @@ import (
 	"github.com/synnaxlabs/synnax/cmd/cert"
 	"github.com/synnaxlabs/synnax/cmd/instrumentation"
 	cmdstart "github.com/synnaxlabs/synnax/cmd/start"
+	"github.com/synnaxlabs/x/errors"
 )
 
 const (
@@ -248,12 +249,14 @@ var importantLogLevels = map[string]logLevelInfo{
 }
 
 // readRecentLogs reads the log file and returns formatted important log entries.
-func readRecentLogs(filePath string, maxEntries int) ([]string, error) {
+func readRecentLogs(filePath string, maxEntries int) (_ []string, err error) {
 	f, err := os.Open(filePath)
 	if err != nil {
 		return nil, err
 	}
-	defer func() { _ = f.Close() }()
+	defer func() {
+		err = errors.Combine(err, errors.Wrap(f.Close(), "failed to close log file"))
+	}()
 
 	var entries []logEntry
 	scanner := bufio.NewScanner(f)
@@ -264,7 +267,7 @@ func readRecentLogs(filePath string, maxEntries int) ([]string, error) {
 	for scanner.Scan() {
 		line := scanner.Text()
 		var entry logEntry
-		if err := json.Unmarshal([]byte(line), &entry); err != nil {
+		if jsonErr := json.Unmarshal([]byte(line), &entry); jsonErr != nil {
 			continue // Skip non-JSON lines
 		}
 		if _, ok := importantLogLevels[entry.Level]; ok {
