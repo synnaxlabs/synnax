@@ -34,9 +34,9 @@ DEFAULT_RATE = 50  # Hz
 BOOL_OFFSET = 0.2  # seconds between each boolean transition
 
 # Error injection configuration
-ERROR_INJECTION_RATE = 0.5  # 10% error rate for stress testing
-ERROR_ARRAY_INDEX = -1 # -1 = ALL arrays get errors
-ERROR_FLOAT_INDEX = -1  # -1 = ALL floats get errors
+ERROR_INJECTION_RATE = 0.1  # 10% error rate for stress testing
+ERROR_ARRAY_INDEX = 2  # Which array index to inject errors into
+ERROR_FLOAT_INDEX = 2  # Which float index to inject errors into
 
 # Encryption certificate directory
 CERT_DIR = Path(__file__).parent / "certificates"
@@ -160,7 +160,7 @@ async def update_arrays(arrays, values):
     for i, arr in enumerate(arrays):
         offset_values = [v + i for v in values]
 
-        if (ERROR_ARRAY_INDEX == -1 or i == ERROR_ARRAY_INDEX) and random.random() < ERROR_INJECTION_RATE:
+        if i == ERROR_ARRAY_INDEX and random.random() < ERROR_INJECTION_RATE:
             offset_values = inject_error(offset_values)
 
         await arr.set_value(offset_values, varianttype=ua.VariantType.Float)
@@ -175,7 +175,7 @@ async def update_floats(floats, elapsed):
     for idx, float_var in enumerate(floats):
 
         value = math.sin(elapsed) + idx
-        if (ERROR_FLOAT_INDEX == -1 or idx == ERROR_FLOAT_INDEX) and random.random() < ERROR_INJECTION_RATE:
+        if idx == ERROR_FLOAT_INDEX and random.random() < ERROR_INJECTION_RATE:
             value = inject_error([value])
 
         await float_var.set_value(value, varianttype=ua.VariantType.Float)
@@ -186,7 +186,7 @@ async def update_bools(bools, elapsed):
     for idx, bool_var in enumerate(bools):
         offset_elapsed = elapsed + (idx * BOOL_OFFSET)
         square_wave = int(offset_elapsed) % 2 == 0
-        if (ERROR_FLOAT_INDEX == -1 or idx == ERROR_FLOAT_INDEX) and random.random() < ERROR_INJECTION_RATE:
+        if idx == ERROR_FLOAT_INDEX and random.random() < ERROR_INJECTION_RATE:
             square_wave = inject_error([square_wave])
 
         await bool_var.set_value(square_wave, varianttype=ua.VariantType.Boolean)

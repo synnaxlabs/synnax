@@ -8,6 +8,7 @@
         { "case": "driver/modbus_read" },
         { "case": "driver/modbus_write" },
         { "case": "driver/opcua_read" },
+        { "case": "driver/opcua_status_spam" },
         { "case": "driver/opcua_write" },
         { "case": "driver/grand_finale" }
       ]

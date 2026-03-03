@@ -9,6 +9,8 @@
 
 #pragma once
 
+#include <unordered_map>
+
 #include "driver/common/common.h"
 #include "driver/task/task.h"
 
@@ -44,6 +46,7 @@ struct StatusHandler {
     void reset() {
         this->status.variant = x::status::VARIANT_SUCCESS;
         this->accumulated_err = x::errors::NIL;
+        this->recent_statuses.clear();
     }
 
     /// @brief register the provided error in the task state. If err is nil, then it
@@ -66,13 +69,13 @@ struct StatusHandler {
         this->status.details.running = false;
         this->status.message = err.data;
         this->accumulated_err = err;
-        this->ctx->set_status(this->status);
+        this->maybe_set_status("err");
     }
 
     void send_warning(const x::errors::Error &err) { this->send_warning(err.data); }
 
     /// @brief sends the provided warning string to the task. If the task is in
-    /// error state, the warning will not be sent.
+    /// error state, the error message will be communicated instead.
     void send_warning(const std::string &warning) {
         this->status.key = this->task.status_key();
         // If there's already an error bound, communicate it instead.
@@ -81,20 +84,21 @@ struct StatusHandler {
             this->status.message = warning;
         } else
             this->status.message = this->accumulated_err.data;
-        this->ctx->set_status(this->status);
+        this->maybe_set_status("warn");
     }
 
     void clear_warning() {
         if (this->status.variant != x::status::VARIANT_WARNING) return;
         this->status.variant = x::status::VARIANT_SUCCESS;
         this->status.message = "Task running";
-        this->ctx->set_status(this->status);
+        this->maybe_set_status("clr");
     }
 
     /// @brief sends a start message to the task state, using the provided command
     /// key as part of the state. If an error has been accumulated, then the error
     /// will be sent as part of the state. If the error is nil, then the task will
-    /// be marked as running.
+    /// be marked as running. Bypasses the rate limiter because the Console waits
+    /// for command acknowledgments keyed by cmd.
     void send_start(const std::string &cmd_key) {
         this->status.key = this->task.status_key();
         this->status.details.cmd = cmd_key;
@@ -106,13 +110,14 @@ struct StatusHandler {
             this->status.details.running = false;
             this->status.message = this->accumulated_err.data;
         }
-        this->ctx->set_status(this->status);
+        this->set_status();
     }
 
     /// @brief sends a stop message to the task state, using the provided command
     /// key as part of the state. If an error has been accumulated, then the error
     /// will be sent as part of the state. Regardless of the error state, the task
-    /// will be marked as not running.
+    /// will be marked as not running. Bypasses the rate limiter because the
+    /// Console waits for command acknowledgments keyed by cmd.
     void send_stop(const std::string &cmd_key) {
         this->status.key = this->task.status_key();
         this->status.details.cmd = cmd_key;
@@ -122,6 +127,44 @@ struct StatusHandler {
             this->status.message = this->accumulated_err.data;
         } else
             this->status.message = "Task stopped successfully";
+        this->set_status();
+    }
+
+    /// @brief max entries in the dedup map to bound memory usage.
+    static constexpr size_t MAX_RECENT_STATUSES = 50;
+
+private:
+    /// @brief tracks recently sent statuses to suppress identical repeated
+    /// updates. Key is "tag:variant:message", value is the timestamp it was
+    /// last sent. The tag distinguishes different send methods so that e.g.
+    /// send_error and send_stop with the same message don't suppress each other.
+    std::unordered_map<std::string, x::telem::TimeStamp> recent_statuses;
+    /// @brief how long a status stays suppressed after being sent.
+    static inline const auto STATUS_RATE_LIMIT = 5 * x::telem::SECOND;
+
+    /// @brief unconditionally sends the current status to the server. Used by
+    /// send_start and send_stop which must always deliver because the Console
+    /// waits for command acknowledgments.
+    void set_status() {
+        this->status.time = x::telem::TimeStamp::now();
+        this->ctx->set_status(this->status);
+    }
+
+    /// @brief sends the current status to the server, suppressing identical
+    /// statuses that were already sent within STATUS_RATE_LIMIT. The tag
+    /// parameter namespaces the dedup key per send method.
+    void maybe_set_status(const std::string &tag) {
+        const auto now = x::telem::TimeStamp::now();
+        std::erase_if(this->recent_statuses, [&](const auto &entry) {
+            return (now - entry.second) >= STATUS_RATE_LIMIT;
+        });
+        if (this->recent_statuses.size() >= MAX_RECENT_STATUSES)
+            this->recent_statuses.clear();
+        const auto key = tag + ":" + std::string(this->status.variant) + ":" +
+                         this->status.message;
+        if (this->recent_statuses.contains(key)) return;
+        this->recent_statuses[key] = now;
+        this->status.time = now;
         this->ctx->set_status(this->status);
     }
 };
