@@ -468,12 +468,12 @@ var _ = Describe("Analyzer Integration", func() {
 			Expect(caller.Channels.Write[20]).To(Equal("valve"))
 		})
 
-		It("Should propagate channels through mutual recursion without infinite loop", func() {
+		It("Should error on mutual recursion", func() {
 			resolver := symbol.MapResolver{
 				"ch1": {Name: "ch1", Kind: symbol.KindChannel, Type: types.Chan(types.F32()), ID: 10},
 				"ch2": {Name: "ch2", Kind: symbol.KindChannel, Type: types.Chan(types.F32()), ID: 20},
 			}
-			ctx := analyzeAndExpectWithResolver(`
+			prog := MustSucceed(parser.Parse(`
 				func a() {
 					ch1 = 1.0
 					b()
@@ -482,38 +482,37 @@ var _ = Describe("Analyzer Integration", func() {
 					ch2 = 2.0
 					a()
 				}
-			`, resolver)
-			a := MustSucceed(ctx.Scope.Resolve(ctx, "a"))
-			Expect(a.Channels.Write).To(HaveLen(2))
-			Expect(a.Channels.Write[10]).To(Equal("ch1"))
-			Expect(a.Channels.Write[20]).To(Equal("ch2"))
-			b := MustSucceed(ctx.Scope.Resolve(ctx, "b"))
-			Expect(b.Channels.Write).To(HaveLen(2))
-			Expect(b.Channels.Write[10]).To(Equal("ch1"))
-			Expect(b.Channels.Write[20]).To(Equal("ch2"))
+			`))
+			ctx := context.CreateRoot(bCtx, prog, resolver)
+			analyzer.AnalyzeProgram(ctx)
+			Expect(ctx.Diagnostics.Ok()).To(BeFalse())
+			Expect((*ctx.Diagnostics)[0].Message).To(ContainSubstring("circular function call:"))
+			Expect((*ctx.Diagnostics)[0].Message).To(ContainSubstring("a -> b -> a"))
 		})
 
-		It("Should handle self-recursion without infinite loop", func() {
+		It("Should error on self-recursion", func() {
 			resolver := symbol.MapResolver{
 				"ch": {Name: "ch", Kind: symbol.KindChannel, Type: types.Chan(types.F32()), ID: 10},
 			}
-			ctx := analyzeAndExpectWithResolver(`
+			prog := MustSucceed(parser.Parse(`
 				func a() {
 					ch = 1.0
 					a()
 				}
-			`, resolver)
-			a := MustSucceed(ctx.Scope.Resolve(ctx, "a"))
-			Expect(a.Channels.Write).To(HaveLen(1))
-			Expect(a.Channels.Write[10]).To(Equal("ch"))
+			`))
+			ctx := context.CreateRoot(bCtx, prog, resolver)
+			analyzer.AnalyzeProgram(ctx)
+			Expect(ctx.Diagnostics.Ok()).To(BeFalse())
+			Expect((*ctx.Diagnostics)[0].Message).To(ContainSubstring("circular function call:"))
+			Expect((*ctx.Diagnostics)[0].Message).To(ContainSubstring("a -> a"))
 		})
 
-		It("Should propagate channels through circular dependency chain", func() {
+		It("Should error on circular dependency chain", func() {
 			resolver := symbol.MapResolver{
 				"ch_a": {Name: "ch_a", Kind: symbol.KindChannel, Type: types.Chan(types.F32()), ID: 10},
 				"ch_d": {Name: "ch_d", Kind: symbol.KindChannel, Type: types.Chan(types.F32()), ID: 40},
 			}
-			ctx := analyzeAndExpectWithResolver(`
+			prog := MustSucceed(parser.Parse(`
 				func a() {
 					ch_a = 1.0
 					b()
@@ -528,19 +527,160 @@ var _ = Describe("Analyzer Integration", func() {
 					ch_d = 4.0
 					a()
 				}
+			`))
+			ctx := context.CreateRoot(bCtx, prog, resolver)
+			analyzer.AnalyzeProgram(ctx)
+			Expect(ctx.Diagnostics.Ok()).To(BeFalse())
+			msg := (*ctx.Diagnostics)[0].Message
+			Expect(msg).To(ContainSubstring("circular function call:"))
+			Expect(msg).To(ContainSubstring("a"))
+			Expect(msg).To(ContainSubstring("b"))
+			Expect(msg).To(ContainSubstring("c"))
+			Expect(msg).To(ContainSubstring("d"))
+		})
+
+		It("Should error on diamond with back edge to root", func() {
+			resolver := symbol.MapResolver{
+				"ch": {Name: "ch", Kind: symbol.KindChannel, Type: types.Chan(types.F32()), ID: 10},
+			}
+			prog := MustSucceed(parser.Parse(`
+				func a() {
+					ch = 1.0
+					b()
+					c()
+				}
+				func b() {
+					a()
+				}
+				func c() {
+					a()
+				}
+			`))
+			ctx := context.CreateRoot(bCtx, prog, resolver)
+			analyzer.AnalyzeProgram(ctx)
+			Expect(ctx.Diagnostics.Ok()).To(BeFalse())
+			Expect((*ctx.Diagnostics)[0].Message).To(ContainSubstring("circular function call:"))
+			Expect((*ctx.Diagnostics)[0].Message).To(ContainSubstring("a"))
+		})
+
+		It("Should error on cycle buried in a larger call tree", func() {
+			resolver := symbol.MapResolver{
+				"ch1": {Name: "ch1", Kind: symbol.KindChannel, Type: types.Chan(types.F32()), ID: 10},
+				"ch2": {Name: "ch2", Kind: symbol.KindChannel, Type: types.Chan(types.F32()), ID: 20},
+				"ch3": {Name: "ch3", Kind: symbol.KindChannel, Type: types.Chan(types.F32()), ID: 30},
+			}
+			prog := MustSucceed(parser.Parse(`
+				func leaf1() { ch1 = 1.0 }
+				func leaf2() { ch2 = 2.0 }
+				func leaf3() { ch3 = 3.0 }
+				func safe_mid() {
+					leaf1()
+					leaf2()
+				}
+				func cycle_a() {
+					ch3 = 3.0
+					cycle_b()
+				}
+				func cycle_b() {
+					cycle_a()
+					leaf3()
+				}
+				func top() {
+					safe_mid()
+					cycle_a()
+				}
+			`))
+			ctx := context.CreateRoot(bCtx, prog, resolver)
+			analyzer.AnalyzeProgram(ctx)
+			Expect(ctx.Diagnostics.Ok()).To(BeFalse())
+			Expect((*ctx.Diagnostics)[0].Message).To(ContainSubstring("circular function call:"))
+			Expect((*ctx.Diagnostics)[0].Message).To(ContainSubstring("cycle_a"))
+			Expect((*ctx.Diagnostics)[0].Message).To(ContainSubstring("cycle_b"))
+		})
+
+		It("Should error on multiple independent cycles", func() {
+			resolver := symbol.MapResolver{
+				"ch1": {Name: "ch1", Kind: symbol.KindChannel, Type: types.Chan(types.F32()), ID: 10},
+				"ch2": {Name: "ch2", Kind: symbol.KindChannel, Type: types.Chan(types.F32()), ID: 20},
+			}
+			prog := MustSucceed(parser.Parse(`
+				func ping() {
+					ch1 = 1.0
+					pong()
+				}
+				func pong() {
+					ping()
+				}
+				func tick() {
+					ch2 = 2.0
+					tock()
+				}
+				func tock() {
+					tick()
+				}
+			`))
+			ctx := context.CreateRoot(bCtx, prog, resolver)
+			analyzer.AnalyzeProgram(ctx)
+			Expect(ctx.Diagnostics.Ok()).To(BeFalse())
+			Expect(len(*ctx.Diagnostics)).To(BeNumerically(">=", 2))
+		})
+
+		It("Should not false-positive on a deep acyclic call tree", func() {
+			resolver := symbol.MapResolver{
+				"ch": {Name: "ch", Kind: symbol.KindChannel, Type: types.Chan(types.F32()), ID: 10},
+			}
+			ctx := analyzeAndExpectWithResolver(`
+				func d() { ch = 1.0 }
+				func c() { d() }
+				func b() { c() }
+				func a() { b() }
 			`, resolver)
 			a := MustSucceed(ctx.Scope.Resolve(ctx, "a"))
-			Expect(a.Channels.Write).To(HaveLen(2))
-			Expect(a.Channels.Write[10]).To(Equal("ch_a"))
-			Expect(a.Channels.Write[40]).To(Equal("ch_d"))
-			b := MustSucceed(ctx.Scope.Resolve(ctx, "b"))
-			Expect(b.Channels.Write).To(HaveLen(2))
-			c := MustSucceed(ctx.Scope.Resolve(ctx, "c"))
-			Expect(c.Channels.Write).To(HaveLen(2))
-			d := MustSucceed(ctx.Scope.Resolve(ctx, "d"))
-			Expect(d.Channels.Write).To(HaveLen(2))
-			Expect(d.Channels.Write[10]).To(Equal("ch_a"))
-			Expect(d.Channels.Write[40]).To(Equal("ch_d"))
+			Expect(a.Channels.Write[10]).To(Equal("ch"))
+		})
+
+		It("Should error when a function both self-recurses and participates in a mutual cycle", func() {
+			resolver := symbol.MapResolver{
+				"ch": {Name: "ch", Kind: symbol.KindChannel, Type: types.Chan(types.F32()), ID: 10},
+			}
+			prog := MustSucceed(parser.Parse(`
+				func a() {
+					ch = 1.0
+					a()
+					b()
+				}
+				func b() {
+					a()
+				}
+			`))
+			ctx := context.CreateRoot(bCtx, prog, resolver)
+			analyzer.AnalyzeProgram(ctx)
+			Expect(ctx.Diagnostics.Ok()).To(BeFalse())
+			Expect((*ctx.Diagnostics)[0].Message).To(ContainSubstring("circular function call:"))
+		})
+
+		It("Should not false-positive on a non-cyclic caller that reaches a cycle", func() {
+			resolver := symbol.MapResolver{
+				"ch": {Name: "ch", Kind: symbol.KindChannel, Type: types.Chan(types.F32()), ID: 10},
+			}
+			prog := MustSucceed(parser.Parse(`
+				func cycle_a() {
+					ch = 1.0
+					cycle_b()
+				}
+				func cycle_b() {
+					cycle_a()
+				}
+				func wrapper() {
+					cycle_a()
+				}
+			`))
+			ctx := context.CreateRoot(bCtx, prog, resolver)
+			analyzer.AnalyzeProgram(ctx)
+			Expect(ctx.Diagnostics.Ok()).To(BeFalse())
+			for _, d := range *ctx.Diagnostics {
+				Expect(d.Message).ToNot(ContainSubstring("wrapper"))
+			}
 		})
 
 		It("Should handle diamond dependency without duplication", func() {

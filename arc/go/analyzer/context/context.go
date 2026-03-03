@@ -55,8 +55,9 @@ import (
 // channel accesses through function calls, handling forward references where the
 // callee is declared after the caller in source order.
 type CallEdge struct {
-	Caller *symbol.Scope
-	Callee *symbol.Scope
+	Caller   *symbol.Scope
+	Callee   *symbol.Scope
+	CallSite antlr.ParserRuleContext
 }
 
 // Context is a generic container for analysis state that flows through the semantic
