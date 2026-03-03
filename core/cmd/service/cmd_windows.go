@@ -253,7 +253,7 @@ func readRecentLogs(filePath string, maxEntries int) ([]string, error) {
 	if err != nil {
 		return nil, err
 	}
-	defer f.Close()
+	defer func() { _ = f.Close() }()
 
 	var entries []logEntry
 	scanner := bufio.NewScanner(f)

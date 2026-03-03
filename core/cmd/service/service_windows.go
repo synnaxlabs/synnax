@@ -287,14 +287,14 @@ func status() (StatusInfo, error) {
 	if err != nil {
 		return info, errors.Wrap(err, "failed to connect to service manager")
 	}
-	defer m.Disconnect()
+	defer func() { _ = m.Disconnect() }()
 
 	s, err := m.OpenService(name)
 	if err != nil {
 		// Service not installed
 		return info, nil
 	}
-	defer s.Close()
+	defer func() { _ = s.Close() }()
 
 	info.Installed = true
 
