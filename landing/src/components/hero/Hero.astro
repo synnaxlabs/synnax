@@ -1,28 +1,50 @@
 ---
-import { Flex, Text } from "@synnaxlabs/pluto";
+import { Button, Flex, Text } from "@synnaxlabs/pluto";
 ---
 
 <div class="hero-wrapper">
-<div class="hero-bg-field"></div>
-<div class="hero-clip">
-<Flex.Box el="section" className="hero" gap={13}>
-    <Flex.Box className="hero-text" gap="large">
-        <Text.Text level="h1" className="hero-title">
-            Unified mission control and data review for hardware operations
-        </Text.Text>
-        <Text.Text level="h5" className="hero-description section-description">
-            Next generation engineering teams build and operate the world's most
-            advanced hardware using Synnax. One platform for real-time data acquisition,
-            hardware control, visualization, and analysis.
-        </Text.Text>
-    </Flex.Box>
-    <div class="screenshot-frame-outer">
-        <div class="screenshot-frame">
-            <img class="hero-screenshot" src="/images/console-screenshot.png" alt="Synnax Console" />
-        </div>
+    <div class="hero-bg-field"></div>
+    <div class="hero-clip">
+        <Flex.Box el="section" className="hero" gap={10}>
+            <Flex.Box className="hero-text" gap="large">
+                <Text.Text level="h1" className="hero-title">
+                    Unified mission control and data review for hardware operations
+                </Text.Text>
+                <Flex.Box gap={3}>
+                    <Text.Text
+                        level="h5"
+                        className="hero-description section-description"
+                    >
+                        Next generation engineering teams build and operate the world's
+                        most advanced hardware using Synnax. One platform for real-time
+                        data acquisition, hardware control, visualization, and analysis.
+                    </Text.Text>
+                    <Flex.Box direction="x" align="center" gap={3}>
+                        <Text.Text level="p" color={9} weight={500}> New </Text.Text>
+                        <Text.Text level="p" variant="code" color={8}>
+                            Arc, the modern standard for writing automations
+                        </Text.Text>
+                        <Button.Button
+                            variant="text"
+                            className="hero-cta"
+                            href="https://docs.synnaxlabs.com/reference/control/arc/introduction"
+                        >
+                            Learn More -&gt;
+                        </Button.Button>
+                    </Flex.Box>
+                </Flex.Box>
+            </Flex.Box>
+            <div class="screenshot-frame-outer">
+                <div class="screenshot-frame">
+                    <img
+                        class="hero-screenshot"
+                        src="/images/console-screenshot.png"
+                        alt="Synnax Console"
+                    />
+                </div>
+            </div>
+        </Flex.Box>
     </div>
-</Flex.Box>
-</div>
 </div>
 
 <style is:global>
@@ -70,7 +92,7 @@ import { Flex, Text } from "@synnaxlabs/pluto";
 
     .hero {
         padding-top: 17.5rem;
-            padding-bottom: 0;
+        padding-bottom: 0;
 
         .hero-title {
             max-width: 1100px;
@@ -79,7 +101,7 @@ import { Flex, Text } from "@synnaxlabs/pluto";
         }
 
         .hero-description {
-            max-width: 800px;
+            max-width: 650px;
             color: var(--pluto-gray-l9);
             animation: text-reveal 0.8s cubic-bezier(0.16, 1, 0.3, 1) 0.15s both;
         }
@@ -88,16 +110,11 @@ import { Flex, Text } from "@synnaxlabs/pluto";
             position: relative;
             width: 100%;
             padding: 6px;
-            border-radius: 2.8rem;
+            border-radius: 1.8rem;
             border: var(--pluto-border);
             background: rgba(255, 255, 255, 0.03);
             animation: screenshot-reveal 1.2s cubic-bezier(0.16, 1, 0.3, 1) 0.3s both;
-            mask-image: linear-gradient(
-                to bottom,
-                #000 0%,
-                #000 65%,
-                transparent 100%
-            );
+            mask-image: linear-gradient(to bottom, #000 0%, #000 65%, transparent 100%);
             -webkit-mask-image: linear-gradient(
                 to bottom,
                 #000 0%,
@@ -112,16 +129,15 @@ import { Flex, Text } from "@synnaxlabs/pluto";
             position: absolute;
             inset: -20px;
             z-index: -1;
-            border-radius: 3.4rem;
-            background:
-                conic-gradient(
-                    from 45deg at 50% 50%,
-                    rgba(55, 116, 208, 0.15) 0%,
-                    rgba(80, 160, 240, 0.1) 25%,
-                    rgba(55, 116, 208, 0.05) 50%,
-                    rgba(100, 140, 220, 0.1) 75%,
-                    rgba(55, 116, 208, 0.15) 100%
-                );
+            border-radius: 2.4rem;
+            background: conic-gradient(
+                from 45deg at 50% 50%,
+                rgba(55, 116, 208, 0.15) 0%,
+                rgba(80, 160, 240, 0.1) 25%,
+                rgba(55, 116, 208, 0.05) 50%,
+                rgba(100, 140, 220, 0.1) 75%,
+                rgba(55, 116, 208, 0.15) 100%
+            );
             pointer-events: none;
         }
 
@@ -129,7 +145,7 @@ import { Flex, Text } from "@synnaxlabs/pluto";
             position: relative;
             width: 100%;
             padding: 6px;
-            border-radius: 2.4rem;
+            border-radius: 1.4rem;
             border: var(--pluto-border);
             background: rgba(255, 255, 255, 0.04);
         }
@@ -138,7 +154,7 @@ import { Flex, Text } from "@synnaxlabs/pluto";
             position: relative;
             z-index: 1;
             width: 100%;
-            border-radius: 2rem;
+            border-radius: 1rem;
             border: none;
             outline: var(--pluto-border);
             outline-offset: -1px;
@@ -151,6 +167,19 @@ import { Flex, Text } from "@synnaxlabs/pluto";
         }
     }
 
+    .hero-cta,
+    .hero-cta a {
+        text-transform: none;
+        font-weight: 500;
+        color: var(--pluto-gray-l8);
+        text-decoration: none;
+        cursor: pointer;
+
+        &:hover {
+            color: var(--pluto-gray-l10);
+            text-decoration: none;
+        }
+    }
 
     @keyframes text-reveal {
         from {
