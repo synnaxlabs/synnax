@@ -77,13 +77,13 @@ import { Flex, Text, Icon } from "@synnaxlabs/pluto";
 
 <style is:global>
   footer {
-    padding: 5rem var(--content-padding);
+    padding: var(--space-lg) var(--content-padding);
     border-top: var(--pluto-border);
 
     .footer-content {
       width: 100%;
       max-width: var(--max-width);
-      gap: 5rem;
+      gap: var(--space-lg);
     }
 
     .footer-logo-link {
@@ -134,7 +134,7 @@ import { Flex, Text, Icon } from "@synnaxlabs/pluto";
     }
 
     .footer-flag {
-      width: 15rem;
+      width: clamp(8rem, 5rem + 3vw, 15rem);
       height: auto;
       display: block;
     }
@@ -165,12 +165,12 @@ import { Flex, Text, Icon } from "@synnaxlabs/pluto";
 
     .footer-bottom-bar {
       width: 100%;
-      padding-top: 5rem;
+      padding-top: var(--space-lg);
       border-top: var(--pluto-border);
     }
 
     .footer-bottom-right {
-      gap: 5rem;
+      gap: clamp(2rem, 1rem + 2vw, 5rem);
     }
 
     .footer-social {
@@ -186,6 +186,49 @@ import { Flex, Text, Icon } from "@synnaxlabs/pluto";
       &:hover {
         color: var(--pluto-gray-l10);
       }
+    }
+  }
+
+  @media (max-width: 900px) {
+    footer .footer-main {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: var(--space-md);
+    }
+
+    footer .footer-link-column {
+      align-items: flex-start;
+    }
+
+    footer .footer-bottom-bar {
+      flex-direction: column;
+      align-items: center;
+      gap: 2rem;
+    }
+
+    footer .footer-bottom-right {
+      flex-direction: column;
+      align-items: center;
+      gap: 2rem;
+    }
+
+    footer .footer-built-in {
+      align-items: center;
+    }
+
+    footer .footer-social {
+      flex-direction: row;
+    }
+  }
+
+  @media (max-width: 600px) {
+    footer .footer-logo-link .synnax-logo--title {
+      height: 3.5rem;
+    }
+
+    footer .footer-social-link {
+      height: 3rem;
+      width: 3rem;
     }
   }
 
