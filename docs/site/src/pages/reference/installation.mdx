@@ -242,7 +242,7 @@ controlling hardware. Download the latest release for your operating system:
 <br />
 <br />
 
-After installing, you'll see the following splash screen:
+After installing, you'll see the login page:
 
 <Image id="console/get-started/window" client:only="react" />
 
@@ -250,21 +250,13 @@ After installing, you'll see the following splash screen:
 
 ## <Step step={4} level="h2">Connect the Console to the Core</Step>
 
-The Console ships with a pre-configured connection to a local Core. To connect, open the
-Core Selector in the top-right corner of the Console and select `Local`.
+The Console ships with a pre-configured connection to a local Core. It should appear in
+the list of available cors on the login page as 'Local'. If the core you started in the
+previous step is reachable, the status badge will turn blue and say 'Connected'.
 
-The connection status badge will turn blue when the connection is healthy. If you need
-to re-add the connection, use these details:
+To log in, simply enter the root username and password:
 
 <table>
-  <tr>
-    <th>Host</th>
-    <td>localhost</td>
-  </tr>
-  <tr>
-    <th>Port</th>
-    <td>9090</td>
-  </tr>
   <tr>
     <th>Username</th>
     <td>synnax</td>
@@ -272,10 +264,6 @@ to re-add the connection, use these details:
   <tr>
     <th>Password</th>
     <td>seldon</td>
-  </tr>
-  <tr>
-    <th>Secure</th>
-    <td>false</td>
   </tr>
 </table>
 
