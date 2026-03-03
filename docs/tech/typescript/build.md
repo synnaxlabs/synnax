@@ -35,7 +35,7 @@ various build/developments tools:
   TypeScript applications using [Vite](https://vitejs.dev/). We'll discuss Vite in more
   detail later.
 
-Each of these packages are developed, built, and published independently. The current
+Each of these packages are developed and built independently. Note that the configuration packages above are marked private and are not published to npm — they are only used within this monorepo.
 dependency hierarchy for these packages is as follows:
 
 <p align="middle">
