@@ -539,6 +539,24 @@ var _ = Describe("Function Analyzer", func() {
 				Expect(mainFn.Channels.Write[30]).To(Equal("virt1"))
 				Expect(mainFn.Channels.Write[31]).To(Equal("virt2"))
 			})
+
+			It("should propagate channels from callee declared after caller", func() {
+				resolver := symbol.MapResolver{
+					"virt": {Name: "virt", Kind: symbol.KindChannel, Type: types.Chan(types.F32()), ID: 30},
+				}
+				ctx := analyzeExpectSuccess(`
+					func caller() {
+						callee()
+					}
+					func callee() {
+						virt = 1.0
+					}
+				`, resolver)
+
+				caller := MustSucceed(ctx.Scope.Resolve(ctx, "caller"))
+				Expect(caller.Channels.Write).To(HaveLen(1))
+				Expect(caller.Channels.Write[30]).To(Equal("virt"))
+			})
 		})
 	})
 
