@@ -467,6 +467,166 @@ var _ = Describe("Analyzer Integration", func() {
 			Expect(caller.Channels.Read[10]).To(Equal("sensor"))
 			Expect(caller.Channels.Write[20]).To(Equal("valve"))
 		})
+
+		It("Should propagate channels through mutual recursion without infinite loop", func() {
+			resolver := symbol.MapResolver{
+				"ch1": {Name: "ch1", Kind: symbol.KindChannel, Type: types.Chan(types.F32()), ID: 10},
+				"ch2": {Name: "ch2", Kind: symbol.KindChannel, Type: types.Chan(types.F32()), ID: 20},
+			}
+			ctx := analyzeAndExpectWithResolver(`
+				func a() {
+					ch1 = 1.0
+					b()
+				}
+				func b() {
+					ch2 = 2.0
+					a()
+				}
+			`, resolver)
+			a := MustSucceed(ctx.Scope.Resolve(ctx, "a"))
+			Expect(a.Channels.Write).To(HaveLen(2))
+			Expect(a.Channels.Write[10]).To(Equal("ch1"))
+			Expect(a.Channels.Write[20]).To(Equal("ch2"))
+			b := MustSucceed(ctx.Scope.Resolve(ctx, "b"))
+			Expect(b.Channels.Write).To(HaveLen(2))
+			Expect(b.Channels.Write[10]).To(Equal("ch1"))
+			Expect(b.Channels.Write[20]).To(Equal("ch2"))
+		})
+
+		It("Should handle self-recursion without infinite loop", func() {
+			resolver := symbol.MapResolver{
+				"ch": {Name: "ch", Kind: symbol.KindChannel, Type: types.Chan(types.F32()), ID: 10},
+			}
+			ctx := analyzeAndExpectWithResolver(`
+				func a() {
+					ch = 1.0
+					a()
+				}
+			`, resolver)
+			a := MustSucceed(ctx.Scope.Resolve(ctx, "a"))
+			Expect(a.Channels.Write).To(HaveLen(1))
+			Expect(a.Channels.Write[10]).To(Equal("ch"))
+		})
+
+		It("Should propagate channels through circular dependency chain", func() {
+			resolver := symbol.MapResolver{
+				"ch_a": {Name: "ch_a", Kind: symbol.KindChannel, Type: types.Chan(types.F32()), ID: 10},
+				"ch_d": {Name: "ch_d", Kind: symbol.KindChannel, Type: types.Chan(types.F32()), ID: 40},
+			}
+			ctx := analyzeAndExpectWithResolver(`
+				func a() {
+					ch_a = 1.0
+					b()
+				}
+				func b() {
+					c()
+				}
+				func c() {
+					d()
+				}
+				func d() {
+					ch_d = 4.0
+					a()
+				}
+			`, resolver)
+			a := MustSucceed(ctx.Scope.Resolve(ctx, "a"))
+			Expect(a.Channels.Write).To(HaveLen(2))
+			Expect(a.Channels.Write[10]).To(Equal("ch_a"))
+			Expect(a.Channels.Write[40]).To(Equal("ch_d"))
+			b := MustSucceed(ctx.Scope.Resolve(ctx, "b"))
+			Expect(b.Channels.Write).To(HaveLen(2))
+			c := MustSucceed(ctx.Scope.Resolve(ctx, "c"))
+			Expect(c.Channels.Write).To(HaveLen(2))
+			d := MustSucceed(ctx.Scope.Resolve(ctx, "d"))
+			Expect(d.Channels.Write).To(HaveLen(2))
+			Expect(d.Channels.Write[10]).To(Equal("ch_a"))
+			Expect(d.Channels.Write[40]).To(Equal("ch_d"))
+		})
+
+		It("Should handle diamond dependency without duplication", func() {
+			resolver := symbol.MapResolver{
+				"ch": {Name: "ch", Kind: symbol.KindChannel, Type: types.Chan(types.F32()), ID: 10},
+			}
+			ctx := analyzeAndExpectWithResolver(`
+				func d() {
+					ch = 1.0
+				}
+				func b() {
+					d()
+				}
+				func c() {
+					d()
+				}
+				func a() {
+					b()
+					c()
+				}
+			`, resolver)
+			a := MustSucceed(ctx.Scope.Resolve(ctx, "a"))
+			Expect(a.Channels.Write).To(HaveLen(1))
+			Expect(a.Channels.Write[10]).To(Equal("ch"))
+		})
+
+		It("Should merge channels from multiple callees", func() {
+			resolver := symbol.MapResolver{
+				"ch1": {Name: "ch1", Kind: symbol.KindChannel, Type: types.Chan(types.F32()), ID: 10},
+				"ch2": {Name: "ch2", Kind: symbol.KindChannel, Type: types.Chan(types.F32()), ID: 20},
+			}
+			ctx := analyzeAndExpectWithResolver(`
+				func helper1() {
+					ch1 = 1.0
+				}
+				func helper2() {
+					ch2 = 2.0
+				}
+				func caller() {
+					helper1()
+					helper2()
+				}
+			`, resolver)
+			caller := MustSucceed(ctx.Scope.Resolve(ctx, "caller"))
+			Expect(caller.Channels.Write).To(HaveLen(2))
+			Expect(caller.Channels.Write[10]).To(Equal("ch1"))
+			Expect(caller.Channels.Write[20]).To(Equal("ch2"))
+		})
+
+		It("Should deduplicate when multiple callees write the same channel", func() {
+			resolver := symbol.MapResolver{
+				"ch1": {Name: "ch1", Kind: symbol.KindChannel, Type: types.Chan(types.F32()), ID: 10},
+			}
+			ctx := analyzeAndExpectWithResolver(`
+				func helper1() {
+					ch1 = 1.0
+				}
+				func helper2() {
+					ch1 = 2.0
+				}
+				func caller() {
+					helper1()
+					helper2()
+				}
+			`, resolver)
+			caller := MustSucceed(ctx.Scope.Resolve(ctx, "caller"))
+			Expect(caller.Channels.Write).To(HaveLen(1))
+			Expect(caller.Channels.Write[10]).To(Equal("ch1"))
+		})
+
+		It("Should propagate when callee both reads and writes the same channel", func() {
+			resolver := symbol.MapResolver{
+				"sensor": {Name: "sensor", Kind: symbol.KindChannel, Type: types.Chan(types.F32()), ID: 10},
+			}
+			ctx := analyzeAndExpectWithResolver(`
+				func callee() {
+					sensor = sensor + 1
+				}
+				func caller() {
+					callee()
+				}
+			`, resolver)
+			caller := MustSucceed(ctx.Scope.Resolve(ctx, "caller"))
+			Expect(caller.Channels.Read[10]).To(Equal("sensor"))
+			Expect(caller.Channels.Write[10]).To(Equal("sensor"))
+		})
 	})
 
 	Describe("Complete Analysis", func() {
