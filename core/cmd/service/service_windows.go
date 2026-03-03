@@ -263,13 +263,13 @@ func stateToString(state svc.State) string {
 	}
 }
 
-func status() (StatusInfo, error) {
+func status() (_ StatusInfo, err error) {
 	info := StatusInfo{
 		ConfigPath: ConfigPath(),
 	}
 
 	// Try to read config file for paths
-	if _, err := os.Stat(info.ConfigPath); err == nil {
+	if _, err = os.Stat(info.ConfigPath); err == nil {
 		v := viper.New()
 		v.SetConfigFile(info.ConfigPath)
 		if err := v.ReadInConfig(); err != nil {
@@ -287,14 +287,24 @@ func status() (StatusInfo, error) {
 	if err != nil {
 		return info, errors.Wrap(err, "failed to connect to service manager")
 	}
-	defer func() { _ = m.Disconnect() }()
+	defer func() {
+		err = errors.Combine(
+			err,
+			errors.Wrap(m.Disconnect(), "failed to disconnect from service manager"),
+		)
+	}()
 
 	s, err := m.OpenService(name)
 	if err != nil {
 		// Service not installed
 		return info, nil
 	}
-	defer func() { _ = s.Close() }()
+	defer func() {
+		err = errors.Combine(
+			err,
+			errors.Wrapf(s.Close(), "failed to close %s handle", name),
+		)
+	}()
 
 	info.Installed = true
 
