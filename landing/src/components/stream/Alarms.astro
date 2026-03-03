@@ -9,12 +9,16 @@ import PanelTab from "@/components/shared/PanelTab.astro";
         Define alarms visually, monitor everything at a glance
     </Fragment>
     <Fragment slot="description">
-        Build alarm logic with a visual node editor. Wire sources, conditions,
-        and actions together without writing code. A unified status bar surfaces
-        every alarm, device, and system health indicator in one place.
+        Build alarm logic with a visual node editor. Wire sources, conditions, and
+        actions together without writing code. A unified status bar surfaces every
+        alarm, device, and system health indicator in one place.
     </Fragment>
-    <Button.Button slot="action" variant="text" href="https://docs.synnaxlabs.com/reference/concepts/alarms">
-        Read More →
+    <Button.Button
+        slot="action"
+        variant="text"
+        href="https://docs.synnaxlabs.com/reference/concepts/alarms"
+    >
+        Learn More →
     </Button.Button>
     <div class="alarm-showcase">
         <div class="alarm-flow-container">
@@ -41,9 +45,15 @@ import PanelTab from "@/components/shared/PanelTab.astro";
     .alarm-flow-container {
         padding: 0;
         background:
-            radial-gradient(circle, rgba(255, 255, 255, 0.15) 0.75px, transparent 0.75px),
+            radial-gradient(
+                circle,
+                rgba(255, 255, 255, 0.15) 0.75px,
+                transparent 0.75px
+            ),
             color-mix(in srgb, var(--pluto-gray-l0) 50%, var(--pluto-gray-l2));
-        background-size: 20px 20px, 100% 100%;
+        background-size:
+            20px 20px,
+            100% 100%;
         border-radius: 2rem;
         border: var(--pluto-border);
         overflow: hidden;

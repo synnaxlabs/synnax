@@ -25,6 +25,17 @@ const DIAGRAMS: Record<string, React.FC<{ state: DiagramState }>> = {
   abort: AbortDiagram,
 };
 
+const PID_WRAPPER_STYLE: React.CSSProperties = {
+  position: "relative",
+  width: "100%",
+  height: "100%",
+  overflow: "hidden",
+  backgroundColor: "var(--pluto-gray-l2-30)",
+  backgroundImage:
+    "radial-gradient(circle, var(--pluto-gray-l5) 0.5px, transparent 0.5px)",
+  backgroundSize: "16px 16px",
+};
+
 const alarmToCalcState = (state: DiagramState): CalcDiagramState => {
   const activeNodes: string[] = [];
   const nodeValues: Record<string, string> = {};
@@ -140,7 +151,11 @@ export const AutomateVisualizer = ({
               state={alarmToCalcState(diagramState)}
             />
           ) : (
-            DiagramComponent != null && <DiagramComponent state={diagramState} />
+            DiagramComponent != null && (
+              <div style={PID_WRAPPER_STYLE}>
+                <DiagramComponent state={diagramState} />
+              </div>
+            )
           )}
         </div>
       </div>

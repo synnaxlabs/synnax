@@ -68,11 +68,11 @@ export const PressureDiagram = ({ state }: PressureDiagramProps): ReactElement =
   const fillY = tankY + tankH - fillHeight;
 
   return (
-    <svg viewBox="0 0 300 300" className="automate-diagram-svg">
+    <svg viewBox="-30 -10 360 350" className="automate-diagram-svg">
       {/* Top pipe */}
       <line
         x1="150"
-        y1="0"
+        y1="-10"
         x2="150"
         y2="53"
         stroke={pressColor}
@@ -98,7 +98,7 @@ export const PressureDiagram = ({ state }: PressureDiagramProps): ReactElement =
       {/* Tank vessel */}
       <path
         d={tankPath}
-        fill="none"
+        fill="var(--pluto-gray-l2)"
         stroke="var(--pluto-gray-l9)"
         strokeWidth="2"
       />
@@ -119,12 +119,12 @@ export const PressureDiagram = ({ state }: PressureDiagramProps): ReactElement =
         clipPath="url(#tank-clip-pressure)"
       />
 
-      {/* Pressure value (Pluto Value style) */}
+      {/* Pressure value */}
       <text
         x="150"
         y="175"
         textAnchor="middle"
-        className="diagram-value"
+        className="diagram-value-sm"
         fill="var(--pluto-text-color)"
       >
         {state.pressure.toFixed(1)} psi
@@ -135,21 +135,21 @@ export const PressureDiagram = ({ state }: PressureDiagramProps): ReactElement =
         x1="150"
         y1="230"
         x2="150"
-        y2="240"
+        y2="260"
         stroke={ventColor}
         strokeWidth="2"
         strokeDasharray={ventActive ? "8 4" : "none"}
         className={ventActive ? "flow-line" : ""}
       />
 
-      <Valve x={150} y={255} color={ventColor} active={ventActive} label="Vent Valve" />
+      <Valve x={150} y={275} color={ventColor} active={ventActive} label="Vent Valve" />
 
       {/* Bottom pipe */}
       <line
         x1="150"
-        y1="270"
+        y1="290"
         x2="150"
-        y2="300"
+        y2="340"
         stroke={ventColor}
         strokeWidth="2"
         strokeDasharray={ventActive ? "8 4" : "none"}
@@ -158,21 +158,22 @@ export const PressureDiagram = ({ state }: PressureDiagramProps): ReactElement =
 
       {/* Stage badge */}
       <rect
-        x="205"
-        y="165"
-        width="72"
-        height="24"
-        rx="4"
+        x="258"
+        y="-2"
+        width="64"
+        height="20"
+        rx="2"
         fill="var(--pluto-gray-l2)"
         stroke="var(--pluto-gray-l4)"
         strokeWidth="1"
       />
       <text
-        x="241"
-        y="181"
+        x="290"
+        y="8"
         textAnchor="middle"
-        className="diagram-badge"
-        fill="var(--pluto-text-color)"
+        dominantBaseline="central"
+        className="diagram-badge-sm"
+        style={{ fill: "var(--pluto-gray-l9)" }}
       >
         {state.stage}
       </text>

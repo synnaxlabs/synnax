@@ -64,38 +64,37 @@ export const AbortDiagram = ({ state }: AbortDiagramProps): ReactElement => {
       : COLOR_ACTIVE
     : COLOR_INACTIVE;
   const tankStroke = isEmergency ? COLOR_EMERGENCY : "var(--pluto-gray-l9)";
-  const aTankX = 75;
-  const aTankY = 110;
-  const aTankW = 70;
-  const aTankH = 100;
-  const aRX = 35;
-  const aRY = 20;
-  const abortTankPath = `M${aTankX},${aTankY + aRY} a${aRX},${aRY} 0 0 1 ${aTankW},0 v${aTankH - 2 * aRY} a${aRX},${aRY} 0 0 1 -${aTankW},0 Z`;
-  const fillHeight = Math.min((state.pressure / 900) * 65, 65);
-  const fillY = aTankY + aTankH - fillHeight;
-  const authBarWidth = (state.authority / 255) * 90;
+  const tankX = 110;
+  const tankY = 110;
+  const tankW = 80;
+  const tankH = 120;
+  const rX = 40;
+  const rY = 22;
+  const tankPath = `M${tankX},${tankY + rY} a${rX},${rY} 0 0 1 ${tankW},0 v${tankH - 2 * rY} a${rX},${rY} 0 0 1 -${tankW},0 Z`;
+  const fillHeight = Math.min((state.pressure / 900) * 80, 80);
+  const fillY = tankY + tankH - fillHeight;
 
   return (
-    <svg viewBox="0 0 300 290" className="automate-diagram-svg">
+    <svg viewBox="-30 -10 360 350" className="automate-diagram-svg">
       {/* Top pipe */}
       <line
-        x1="110"
-        y1="0"
-        x2="110"
-        y2="78"
+        x1="150"
+        y1="-10"
+        x2="150"
+        y2="53"
         stroke={pressColor}
         strokeWidth="2"
         strokeDasharray={pressActive ? "8 4" : "none"}
         className={pressActive ? "flow-line" : ""}
       />
 
-      <Valve x={110} y={90} color={pressColor} active={pressActive} label="Press Valve" />
+      <Valve x={150} y={68} color={pressColor} active={pressActive} label="Press Valve" />
 
       {/* Pipe to tank */}
       <line
-        x1="110"
-        y1="103"
-        x2="110"
+        x1="150"
+        y1="83"
+        x2="150"
         y2="110"
         stroke={pressColor}
         strokeWidth="2"
@@ -105,31 +104,31 @@ export const AbortDiagram = ({ state }: AbortDiagramProps): ReactElement => {
 
       {/* Tank */}
       <path
-        d={abortTankPath}
-        fill="none"
+        d={tankPath}
+        fill="var(--pluto-gray-l2)"
         stroke={tankStroke}
         strokeWidth="2"
         className={isEmergency ? "emergency-border" : ""}
       />
       <defs>
         <clipPath id="tank-clip-abort">
-          <path d={abortTankPath} />
+          <path d={tankPath} />
         </clipPath>
       </defs>
       <rect
-        x={aTankX}
+        x={tankX}
         y={fillY}
-        width={aTankW}
+        width={tankW}
         height={fillHeight}
         fill={isEmergency ? COLOR_EMERGENCY : COLOR_ACTIVE}
         opacity="0.2"
         className="vessel-fill"
         clipPath="url(#tank-clip-abort)"
       />
-      {/* Pressure value (Pluto Value style) */}
+      {/* Pressure value */}
       <text
-        x="110"
-        y="166"
+        x="150"
+        y="175"
         textAnchor="middle"
         className="diagram-value-sm"
         fill="var(--pluto-text-color)"
@@ -139,24 +138,24 @@ export const AbortDiagram = ({ state }: AbortDiagramProps): ReactElement => {
 
       {/* Pipe to vent */}
       <line
-        x1="110"
-        y1="210"
-        x2="110"
-        y2="225"
+        x1="150"
+        y1="230"
+        x2="150"
+        y2="260"
         stroke={ventColor}
         strokeWidth="2"
         strokeDasharray={ventActive ? "8 4" : "none"}
         className={ventActive ? "flow-line" : ""}
       />
 
-      <Valve x={110} y={238} color={ventColor} active={ventActive} label="Vent Valve" />
+      <Valve x={150} y={275} color={ventColor} active={ventActive} label="Vent Valve" />
 
       {/* Bottom pipe */}
       <line
-        x1="110"
-        y1="251"
-        x2="110"
-        y2="290"
+        x1="150"
+        y1="290"
+        x2="150"
+        y2="340"
         stroke={ventColor}
         strokeWidth="2"
         strokeDasharray={ventActive ? "8 4" : "none"}
@@ -164,53 +163,46 @@ export const AbortDiagram = ({ state }: AbortDiagramProps): ReactElement => {
       />
 
       {/* Authority meter */}
-      <g transform="translate(185, 50)">
-        <text
-          x="0"
-          y="0"
-          className="diagram-label"
-          fill="var(--pluto-gray-l9)"
-        >
-          authority
-        </text>
+      <g transform="translate(188, -2)">
         <rect
           x="0"
-          y="10"
-          width="90"
-          height="14"
-          rx="3"
+          y="0"
+          width="64"
+          height="20"
+          rx="2"
           fill="var(--pluto-gray-l2)"
           stroke="var(--pluto-gray-l4)"
           strokeWidth="1"
         />
         <rect
           x="0"
-          y="10"
-          width={authBarWidth}
-          height="14"
-          rx="3"
+          y="0"
+          width={(state.authority / 255) * 64}
+          height="20"
+          rx="2"
           fill={isEmergency ? COLOR_EMERGENCY : COLOR_ACTIVE}
-          opacity="0.7"
+          opacity="0.25"
           className="authority-fill"
         />
         <text
-          x="45"
-          y="21"
+          x="32"
+          y="10"
           textAnchor="middle"
-          className="diagram-badge"
-          fill="var(--pluto-text-color)"
+          dominantBaseline="central"
+          className="diagram-badge-sm"
+          style={{ fill: "var(--pluto-gray-l9)" }}
         >
-          {state.authority}
+          auth {state.authority}
         </text>
       </g>
 
       {/* Stage badge */}
       <rect
-        x="185"
-        y="90"
-        width="90"
-        height="24"
-        rx="4"
+        x="258"
+        y="-2"
+        width="64"
+        height="20"
+        rx="2"
         fill={isEmergency ? COLOR_EMERGENCY : "var(--pluto-gray-l2)"}
         fillOpacity={isEmergency ? 0.15 : 1}
         stroke={isEmergency ? COLOR_EMERGENCY : "var(--pluto-gray-l4)"}
@@ -218,37 +210,39 @@ export const AbortDiagram = ({ state }: AbortDiagramProps): ReactElement => {
         className={isEmergency ? "emergency-border" : ""}
       />
       <text
-        x="230"
-        y="106"
+        x="290"
+        y="8"
         textAnchor="middle"
-        className="diagram-badge"
-        fill={isEmergency ? COLOR_EMERGENCY : "var(--pluto-text-color)"}
+        dominantBaseline="central"
+        className="diagram-badge-sm"
+        style={{ fill: isEmergency ? COLOR_EMERGENCY : "var(--pluto-gray-l9)" }}
       >
         {state.stage}
       </text>
 
       {/* Safed indicator */}
       {state.stage === "safed" && (
-        <g transform="translate(185, 128)">
+        <g transform="translate(258, 22)">
           <rect
             x="0"
             y="0"
-            width="90"
-            height="24"
-            rx="4"
-            fill={COLOR_ACTIVE}
+            width="64"
+            height="20"
+            rx="2"
+            fill="var(--pluto-secondary-z)"
             fillOpacity="0.15"
-            stroke={COLOR_ACTIVE}
+            stroke="var(--pluto-secondary-z)"
             strokeWidth="1"
           />
           <text
-            x="45"
-            y="16"
+            x="32"
+            y="10"
             textAnchor="middle"
-            className="diagram-badge"
-            fill={COLOR_ACTIVE}
+            dominantBaseline="central"
+            className="diagram-badge-sm"
+            style={{ fill: "var(--pluto-secondary-z)" }}
           >
-            SYSTEM SAFE
+            SAFE
           </text>
         </g>
       )}

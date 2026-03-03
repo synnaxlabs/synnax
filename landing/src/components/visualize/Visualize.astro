@@ -8,22 +8,24 @@ import PanelTab from "@/components/shared/PanelTab.astro";
 <SectionHero id="visualize" label="2 -> Visualize & Operate">
     See everything, control anything
     <Fragment slot="description">
-        Build real-time dashboards, plot live telemetry, and command your hardware
-        from a single, unified console.
+        Build real-time dashboards, plot live telemetry, and command your hardware from
+        a single, unified console.
     </Fragment>
 </SectionHero>
 
 <FeatureSection label="2.1 -> Schematics">
-    <Fragment slot="title">
-        Your system, at a glance
-    </Fragment>
+    <Fragment slot="title"> Your system, at a glance </Fragment>
     <Fragment slot="description">
         Build interactive schematics that reflect live system state. Drag valves,
         sensors, and actuators onto a canvas and bind them directly to your hardware
-        channels.
+        channels. No programming required.
     </Fragment>
-    <Button.Button slot="action" variant="text" href="https://docs.synnaxlabs.com/reference/console/schematics">
-        Read More →
+    <Button.Button
+        slot="action"
+        variant="text"
+        href="https://docs.synnaxlabs.com/reference/console/schematics"
+    >
+        Learn More →
     </Button.Button>
     <div class="visualize-video-clip">
         <video class="visualize-video--schematic" autoplay muted loop playsinline>
@@ -33,15 +35,17 @@ import PanelTab from "@/components/shared/PanelTab.astro";
 </FeatureSection>
 
 <FeatureSection label="2.2 -> Line Plots">
-    <Fragment slot="title">
-        Millions of points, zero lag
-    </Fragment>
+    <Fragment slot="title"> Millions of points, zero lag </Fragment>
     <Fragment slot="description">
-        Plot millions of points of live and historical telemetry with
-        sub-millisecond precision. Pan, zoom, and annotate without dropping a frame.
+        Plot millions of points of live and historical telemetry with sub-millisecond
+        precision. Pan, zoom, and annotate without dropping a frame.
     </Fragment>
-    <Button.Button slot="action" variant="text" href="https://docs.synnaxlabs.com/reference/console/line-plots">
-        Read More →
+    <Button.Button
+        slot="action"
+        variant="text"
+        href="https://docs.synnaxlabs.com/reference/console/line-plots"
+    >
+        Learn More →
     </Button.Button>
     <div class="visualize-lineplot-showcase">
         <div class="visualize-lineplot-video-container">

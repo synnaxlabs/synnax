@@ -50,7 +50,7 @@ press_pt -> check_pressure{}
             message="Pressure exceeds 750 PSI"
         },
         false: set_status{
-            status_key="press_ok",
+            status_key="press_alarm",
             variant="success",
             message="Pressure nominal"
         }
@@ -91,35 +91,35 @@ const codeHtmls = [
 <SectionHero id="automate" label="3 -> Automate & Control">
     Close the loop on hardware automation
     <Fragment slot="description">
-        Synnax unifies test automation and production control into a single
-        platform. Write reactive sequences, deploy to real-time hardware,
-        and transition between automated and manual operation seamlessly.
+        Synnax unifies test automation and production control into a single platform.
+        Write reactive sequences, deploy to real-time hardware, and transition between
+        automated and manual operation seamlessly.
     </Fragment>
 </SectionHero>
 
 <FeatureSection label="3.1 -> The Arc Language">
-    <Fragment slot="title">
-        Write sequences, not boilerplate
-    </Fragment>
+    <Fragment slot="title"> Write sequences, not boilerplate </Fragment>
     <Fragment slot="description">
-        Arc is a reactive programming language purpose-built for hardware
-        automation. Define control sequences, manage authority, and orchestrate
-        your entire system in a few lines of code.
+        Arc is a reactive programming language purpose-built for hardware automation.
+        Define control sequences, manage authority, and orchestrate your entire system
+        in a few lines of code.
     </Fragment>
-    <Button.Button slot="action" variant="text" href="https://docs.synnaxlabs.com/reference/concepts/arc">
-        Read More →
+    <Button.Button
+        slot="action"
+        variant="text"
+        href="https://docs.synnaxlabs.com/reference/concepts/arc"
+    >
+        Learn More →
     </Button.Button>
     <AutomateVisualizer client:visible codeHtmls={codeHtmls} />
 </FeatureSection>
 
 <FeatureSection label="3.2 -> Built for Production">
-    <Fragment slot="title">
-        From prototype to deterministic control
-    </Fragment>
+    <Fragment slot="title"> From prototype to deterministic control </Fragment>
     <Fragment slot="description">
-        Deploy to real-time targets for deterministic execution, and negotiate
-        control authority between automated sequences and manual operators
-        without ever interrupting your system.
+        Deploy to real-time targets for deterministic execution, and negotiate control
+        authority between automated sequences and manual operators without ever
+        interrupting your system.
     </Fragment>
     <div class="automate-bento">
         <div class="automate-bento-card">
@@ -186,31 +186,37 @@ const codeHtmls = [
     }
 
     .automate-diagram-svg .diagram-label {
-        font-family: var(--pluto-mono-font-family);
+        font-family: var(--pluto-code-font-family);
         font-size: 10px;
     }
 
     .automate-diagram-svg .diagram-label-sm {
-        font-family: var(--pluto-mono-font-family);
+        font-family: var(--pluto-code-font-family);
         font-size: 9px;
     }
 
     .automate-diagram-svg .diagram-value {
-        font-family: var(--pluto-mono-font-family);
+        font-family: var(--pluto-code-font-family);
         font-size: 14px;
         font-weight: 400;
     }
 
     .automate-diagram-svg .diagram-value-sm {
-        font-family: var(--pluto-mono-font-family);
-        font-size: 12px;
-        font-weight: 600;
+        font-family: var(--pluto-code-font-family);
+        font-size: 11px;
+        font-weight: 500;
     }
 
     .automate-diagram-svg .diagram-badge {
-        font-family: var(--pluto-mono-font-family);
+        font-family: var(--pluto-code-font-family);
         font-size: 11px;
         font-weight: 500;
+    }
+
+    .automate-diagram-svg .diagram-badge-sm {
+        font-family: var(--pluto-code-font-family);
+        font-size: 8px;
+        font-weight: 450;
     }
 
     .automate-diagram-svg .flow-line {
