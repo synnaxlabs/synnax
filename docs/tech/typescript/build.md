@@ -35,8 +35,10 @@ various build/developments tools:
   TypeScript applications using [Vite](https://vitejs.dev/). We'll discuss Vite in more
   detail later.
 
-Each of these packages are developed and built independently. Note that the configuration packages above are marked private and are not published to npm — they are only used within this monorepo.
-dependency hierarchy for these packages is as follows:
+Each of these packages are developed and built independently. Note that the
+configuration packages above are marked private and are not published to npm — they are
+only used within this monorepo. The current dependency hierarchy for these packages is
+as follows:
 
 <p align="middle">
     <img src="./img/build/deps.png" width="500px">
