@@ -382,7 +382,11 @@ func analyzePostfix(ctx context.Context[parser.IPostfixExpressionContext]) {
 			// the caller. Forward references are resolved by the post-pass in
 			// AnalyzeProgram.
 			callerFn, fnErr := ctx.Scope.ClosestAncestorOfKind(symbol.KindFunction)
-			if fnErr == nil && callerFn != nil {
+			if fnErr != nil && !errors.Is(fnErr, query.ErrNotFound) {
+				ctx.Diagnostics.Add(diagnostics.Error(fnErr, ctx.AST))
+				return
+			}
+			if callerFn != nil {
 				for id, name := range scope.Channels.Read {
 					callerFn.Channels.Read[id] = name
 				}

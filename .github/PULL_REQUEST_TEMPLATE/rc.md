@@ -260,9 +260,6 @@ I can successfully:
 - **Arc Toolbar**
   - [ ] Toggle Arc toolbar visibility with "A" keyboard shortcut
 
-- **Arc Editor**
-  - [ ] Create an alarm automation that changes statuses and includes the following blocks: channel source, constant, comparison, stable for, select, and status change.
-
 ### Version
 
 I can successfully:

@@ -23,10 +23,14 @@ import (
 // analyzeAndExpect is a helper that parses source, analyzes it, and returns the context.
 // It asserts the analysis succeeds when expectSuccess is true.
 func analyzeAndExpect(source string) context.Context[parser.IProgramContext] {
+	return analyzeAndExpectWithResolver(source, nil)
+}
+
+func analyzeAndExpectWithResolver(source string, resolver symbol.Resolver) context.Context[parser.IProgramContext] {
 	prog := MustSucceed(parser.Parse(source))
-	ctx := context.CreateRoot(bCtx, prog, nil)
+	ctx := context.CreateRoot(bCtx, prog, resolver)
 	analyzer.AnalyzeProgram(ctx)
-	Expect(ctx.Diagnostics.Ok()).To(BeTrue())
+	ExpectWithOffset(1, ctx.Diagnostics.Ok()).To(BeTrue(), ctx.Diagnostics.String())
 	return ctx
 }
 
@@ -389,6 +393,79 @@ var _ = Describe("Analyzer Integration", func() {
 			constScope := MustSucceed(ctx.Scope.Resolve(ctx, "LIMIT"))
 			Expect(constScope.Kind).To(Equal(symbol.KindGlobalConstant))
 			Expect(constScope.Type).To(Equal(types.I64()))
+		})
+	})
+
+	Describe("Channel Propagation Through Function Calls", func() {
+		It("Should propagate callee channels to caller when callee is declared first", func() {
+			resolver := symbol.MapResolver{
+				"ch": {Name: "ch", Kind: symbol.KindChannel, Type: types.Chan(types.F32()), ID: 10},
+			}
+			ctx := analyzeAndExpectWithResolver(`
+				func callee() {
+					ch = 1.0
+				}
+				func caller() {
+					callee()
+				}
+			`, resolver)
+			caller := MustSucceed(ctx.Scope.Resolve(ctx, "caller"))
+			Expect(caller.Channels.Write[10]).To(Equal("ch"))
+		})
+
+		It("Should propagate callee channels to caller for forward references", func() {
+			resolver := symbol.MapResolver{
+				"ch": {Name: "ch", Kind: symbol.KindChannel, Type: types.Chan(types.F32()), ID: 10},
+			}
+			ctx := analyzeAndExpectWithResolver(`
+				func caller() {
+					callee()
+				}
+				func callee() {
+					ch = 1.0
+				}
+			`, resolver)
+			caller := MustSucceed(ctx.Scope.Resolve(ctx, "caller"))
+			Expect(caller.Channels.Write[10]).To(Equal("ch"))
+		})
+
+		It("Should propagate channels through multi-level forward reference chains", func() {
+			resolver := symbol.MapResolver{
+				"ch": {Name: "ch", Kind: symbol.KindChannel, Type: types.Chan(types.F32()), ID: 10},
+			}
+			ctx := analyzeAndExpectWithResolver(`
+				func a() {
+					b()
+				}
+				func b() {
+					c()
+				}
+				func c() {
+					ch = 1.0
+				}
+			`, resolver)
+			a := MustSucceed(ctx.Scope.Resolve(ctx, "a"))
+			Expect(a.Channels.Write[10]).To(Equal("ch"))
+			b := MustSucceed(ctx.Scope.Resolve(ctx, "b"))
+			Expect(b.Channels.Write[10]).To(Equal("ch"))
+		})
+
+		It("Should propagate both read and write channels", func() {
+			resolver := symbol.MapResolver{
+				"sensor": {Name: "sensor", Kind: symbol.KindChannel, Type: types.Chan(types.F32()), ID: 10},
+				"valve":  {Name: "valve", Kind: symbol.KindChannel, Type: types.Chan(types.F32()), ID: 20},
+			}
+			ctx := analyzeAndExpectWithResolver(`
+				func caller() {
+					callee()
+				}
+				func callee() {
+					valve = sensor * 2
+				}
+			`, resolver)
+			caller := MustSucceed(ctx.Scope.Resolve(ctx, "caller"))
+			Expect(caller.Channels.Read[10]).To(Equal("sensor"))
+			Expect(caller.Channels.Write[20]).To(Equal("valve"))
 		})
 	})
 
