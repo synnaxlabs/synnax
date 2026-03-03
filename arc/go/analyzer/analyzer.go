@@ -10,6 +10,8 @@
 package analyzer
 
 import (
+	"strings"
+
 	"github.com/antlr4-go/antlr/v4"
 	"github.com/synnaxlabs/arc/analyzer/constant"
 	"github.com/synnaxlabs/arc/analyzer/constraints"
@@ -27,6 +29,7 @@ func AnalyzeProgram(ctx acontext.Context[parser.IProgramContext]) {
 	collectDeclarations(ctx)
 	analyzeDeclarations(ctx)
 	propagateCallChannels(ctx.CallEdges)
+	detectCallCycles(ctx.CallEdges, ctx.Diagnostics)
 	if ctx.Constraints.HasTypeVariables() {
 		if err := ctx.Constraints.Unify(); err != nil {
 			addUnificationError(ctx.Diagnostics, err, ctx.AST)
@@ -68,6 +71,68 @@ func propagateCallChannels(edges *[]acontext.CallEdge) {
 					edge.Caller.Channels.Write[id] = name
 					changed = true
 				}
+			}
+		}
+	}
+}
+
+// detectCallCycles detects circular function calls in the call graph and reports
+// them as errors. Uses DFS with a recursion stack to find back edges.
+func detectCallCycles(edges *[]acontext.CallEdge, diag *diagnostics.Diagnostics) {
+	type edgeInfo struct {
+		callee   string
+		callSite antlr.ParserRuleContext
+	}
+	graph := make(map[string][]edgeInfo)
+	for _, edge := range *edges {
+		graph[edge.Caller.Name] = append(graph[edge.Caller.Name], edgeInfo{
+			callee:   edge.Callee.Name,
+			callSite: edge.CallSite,
+		})
+	}
+
+	visited := make(map[string]bool)
+	recStack := make(map[string]bool)
+	var path []string
+	var cycleSite antlr.ParserRuleContext
+
+	var dfs func(node string) bool
+	dfs = func(node string) bool {
+		visited[node] = true
+		recStack[node] = true
+		path = append(path, node)
+		for _, edge := range graph[node] {
+			if !visited[edge.callee] {
+				if dfs(edge.callee) {
+					return true
+				}
+			} else if recStack[edge.callee] {
+				cycleSite = edge.callSite
+				cycleStart := -1
+				for i, n := range path {
+					if n == edge.callee {
+						cycleStart = i
+						break
+					}
+				}
+				if cycleStart >= 0 {
+					path = append(path[cycleStart:], edge.callee)
+				}
+				return true
+			}
+		}
+		recStack[node] = false
+		path = path[:len(path)-1]
+		return false
+	}
+
+	for caller := range graph {
+		if !visited[caller] {
+			path = nil
+			clear(recStack)
+			if dfs(caller) {
+				chain := strings.Join(path, " -> ")
+				diag.Add(diagnostics.Errorf(cycleSite, "circular function call: %s", chain))
 			}
 		}
 	}

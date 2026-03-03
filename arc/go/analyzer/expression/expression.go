@@ -12,6 +12,7 @@ package expression
 
 import (
 	"fmt"
+	"maps"
 
 	"github.com/antlr4-go/antlr/v4"
 	"github.com/synnaxlabs/arc/analyzer/codes"
@@ -387,13 +388,9 @@ func analyzePostfix(ctx context.Context[parser.IPostfixExpressionContext]) {
 				return
 			}
 			if callerFn != nil {
-				for id, name := range scope.Channels.Read {
-					callerFn.Channels.Read[id] = name
-				}
-				for id, name := range scope.Channels.Write {
-					callerFn.Channels.Write[id] = name
-				}
-				*ctx.CallEdges = append(*ctx.CallEdges, context.CallEdge{Caller: callerFn, Callee: scope})
+				maps.Copy(callerFn.Channels.Read, scope.Channels.Read)
+				maps.Copy(callerFn.Channels.Write, scope.Channels.Write)
+				*ctx.CallEdges = append(*ctx.CallEdges, context.CallEdge{Caller: callerFn, Callee: scope, CallSite: ctx.AST})
 			}
 		} else {
 			ctx.Diagnostics.Add(diagnostics.Errorf(
