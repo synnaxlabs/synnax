@@ -39,7 +39,7 @@ import PanelTab from "@/components/shared/PanelTab.astro";
         display: flex;
         flex-direction: column;
         gap: 3rem;
-        margin-top: 12rem;
+        margin-top: var(--space-lg);
     }
 
     .alarm-flow-container {
@@ -60,10 +60,10 @@ import PanelTab from "@/components/shared/PanelTab.astro";
     }
 
     .alarm-flow {
-        width: 65%;
+        width: clamp(80%, 50% + 15vw, 65%);
         height: auto;
         display: block;
         margin: 0 auto;
-        padding: 24rem 0 20rem;
+        padding: clamp(8rem, 4rem + 8vw, 24rem) 0 clamp(8rem, 4rem + 6vw, 20rem);
     }
 </style>

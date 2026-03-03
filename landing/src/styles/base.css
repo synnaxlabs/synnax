@@ -1,30 +1,38 @@
 :root {
     --max-width: 1300px;
-    --content-padding: 7rem;
-    --nav-height: 9rem;
+    --content-padding: clamp(2rem, 1rem + 2vw, 7rem);
+    --nav-height: clamp(7rem, 5.5rem + 2vw, 9rem);
 
-    --pluto-h1-size: 10.5rem;
+    --pluto-h1-size: clamp(4.8rem, 2rem + 5.5vw, 10.5rem);
     --pluto-h1-weight: 500;
     --pluto-h1-line-height: 110%;
     --pluto-h1-letter-spacing: -0.035em;
 
-    --pluto-h2-size: 9.5rem;
+    --pluto-h2-size: clamp(4rem, 1.5rem + 5vw, 9.5rem);
     --pluto-h2-weight: 500;
     --pluto-h2-line-height: 120%;
     --pluto-h2-letter-spacing: -0.02em;
 
-    --pluto-h3-size: 6rem;
+    --pluto-h3-size: clamp(3.2rem, 1.5rem + 3vw, 6rem);
     --pluto-h3-weight: 500;
     --pluto-h3-line-height: 120%;
     --pluto-h3-letter-spacing: -0.02em;
 
-    --pluto-h4-size: 3.75rem;
+    --pluto-h4-size: clamp(2.4rem, 1.2rem + 2vw, 3.75rem);
     --pluto-h4-weight: 500;
     --pluto-h4-line-height: 130%;
 
-    --pluto-h5-size: 3.25rem;
-    --pluto-h5-line-height: 4.5rem;
+    --pluto-h5-size: clamp(2rem, 1rem + 1.6vw, 3.25rem);
+    --pluto-h5-line-height: clamp(3rem, 1.5rem + 2vw, 4.5rem);
     --pluto-h5-weight: 350;
+
+    /* Fluid spacing scale */
+    --space-sm: clamp(2rem, 1rem + 1vw, 4rem);
+    --space-md: clamp(3rem, 1.5rem + 2vw, 6rem);
+    --space-lg: clamp(5rem, 2rem + 3vw, 10rem);
+    --space-xl: clamp(6rem, 2rem + 4vw, 15rem);
+    --space-2xl: clamp(8rem, 3rem + 5vw, 20rem);
+    --space-3xl: clamp(10rem, 4rem + 6vw, 25rem);
 
     --shiki-background: transparent;
     --shiki-foreground: var(--pluto-text-color);
@@ -76,9 +84,9 @@ a:not(.pluto-btn) {
 /* ── Section Hero ─────────────────────────────────────────────── */
 
 .section-hero-wrapper {
-    padding-top: 15rem;
-    padding-bottom: 15rem;
-    gap: 20rem;
+    padding-top: var(--space-xl);
+    padding-bottom: var(--space-xl);
+    gap: var(--space-2xl);
 }
 
 .section-label {
@@ -89,7 +97,7 @@ a:not(.pluto-btn) {
 .section-hero {
     display: grid;
     grid-template-columns: 3fr 2fr;
-    gap: 12rem;
+    gap: var(--space-lg);
     width: 100%;
     align-items: start;
 }
@@ -105,23 +113,23 @@ a:not(.pluto-btn) {
 /* ── Feature Section ─────────────────────────────────────────── */
 
 .feature-section {
-    padding-top: 15rem;
-    padding-bottom: 15rem;
-    gap: 10rem;
+    padding-top: var(--space-lg);
+    padding-bottom: var(--space-lg);
+    gap: var(--space-md);
     border-top: var(--pluto-border);
 }
 
 .feature-label {
     color: var(--pluto-gray-l7);
     font-weight: 500;
-    font-size: 3rem;
-    margin-bottom: 4rem;
+    font-size: clamp(2rem, 1.5rem + 0.5vw, 3rem);
+    margin-bottom: var(--space-sm);
 }
 
 .feature-header {
     display: grid;
     grid-template-columns: 1fr 1fr;
-    gap: 4rem;
+    gap: var(--space-sm);
     width: 100%;
     align-items: start;
 }
@@ -159,7 +167,7 @@ a:not(.pluto-btn) {
     gap: 1rem;
     padding: 1.5rem 2rem;
     font-family: var(--pluto-code-font-family);
-    font-size: 2.2rem;
+    font-size: clamp(1.6rem, 1rem + 0.6vw, 2.2rem);
     font-weight: 500;
     color: var(--pluto-gray-l8);
     border-bottom: var(--pluto-border);
@@ -180,13 +188,13 @@ a:not(.pluto-btn) {
 }
 
 .viz-tab {
-    padding: 2.5rem 4rem;
+    padding: clamp(1.5rem, 1rem + 0.8vw, 2.5rem) clamp(2rem, 1.5rem + 1.5vw, 4rem);
     background: transparent;
     border: none;
     border-right: var(--pluto-border);
     cursor: pointer;
     font-family: var(--pluto-font-family);
-    font-size: 2.5rem;
+    font-size: clamp(1.8rem, 1rem + 1vw, 2.5rem);
     font-weight: 500;
     color: var(--pluto-gray-l6);
     transition:
@@ -214,8 +222,8 @@ a:not(.pluto-btn) {
     margin: 0;
     padding: 0;
     background: transparent !important;
-    font-size: 2.4rem;
-    line-height: 3.6rem;
+    font-size: clamp(1.6rem, 1rem + 0.7vw, 2.4rem);
+    line-height: clamp(2.4rem, 1.5rem + 1vw, 3.6rem);
 }
 
 .code-panel code {
@@ -226,7 +234,7 @@ a:not(.pluto-btn) {
 }
 
 .code-panel .line {
-    min-height: 3.6rem;
+    min-height: clamp(2.4rem, 1.5rem + 1vw, 3.6rem);
     padding: 0 1rem;
     border-left: 3px solid transparent;
     counter-increment: line;
@@ -239,11 +247,11 @@ a:not(.pluto-btn) {
     content: counter(line);
     display: inline-block;
     width: 2.5rem;
-    margin-right: 2.5rem;
+    margin-right: clamp(1.5rem, 1rem + 0.5vw, 2.5rem);
     text-align: right;
     color: var(--pluto-gray-l7);
-    font-size: 2.2rem;
-    line-height: 3.6rem;
+    font-size: clamp(1.6rem, 1rem + 0.6vw, 2.2rem);
+    line-height: clamp(2.4rem, 1.5rem + 1vw, 3.6rem);
     vertical-align: middle;
     user-select: none;
 }
@@ -272,7 +280,7 @@ a:not(.pluto-btn) {
 }
 
 .viz-code {
-    padding: 4rem;
+    padding: clamp(2rem, 1.5rem + 1.5vw, 4rem);
     border-right: var(--pluto-border);
     overflow: auto;
 }
@@ -338,6 +346,10 @@ a:not(.pluto-btn) {
         grid-template-columns: 1fr;
     }
 
+    .feature-header {
+        grid-template-columns: 1fr;
+    }
+
     .viz-content {
         grid-template-columns: 1fr;
     }
@@ -348,26 +360,7 @@ a:not(.pluto-btn) {
     }
 }
 
-@media (max-width: 800px) {
-    :root {
-        --content-padding: 4rem;
-    }
-}
-
 @media (max-width: 600px) {
-    :root {
-        --content-padding: 3rem;
-    }
-
-    .section-hero {
-        grid-template-columns: 1fr;
-    }
-
-    .feature-header {
-        grid-template-columns: 1fr;
-        gap: 2rem;
-    }
-
     .viz-tabs {
         flex-direction: column;
     }

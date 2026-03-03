@@ -263,7 +263,7 @@ import FeatureSection from "@/components/shared/FeatureSection.astro";
     .integrations-hardware {
         display: grid;
         grid-template-columns: 2fr 3fr;
-        gap: 12rem;
+        gap: var(--space-lg);
         width: 100%;
         align-items: start;
     }
@@ -288,7 +288,7 @@ import FeatureSection from "@/components/shared/FeatureSection.astro";
         display: flex;
         align-items: center;
         justify-content: center;
-        padding: 5rem 3rem;
+        padding: clamp(3rem, 2rem + 1.5vw, 5rem) clamp(1.5rem, 1rem + 1vw, 3rem);
         background: var(--pluto-gray-l1);
         filter: url(#dither);
         transition: filter 0.3s ease;
@@ -301,6 +301,8 @@ import FeatureSection from "@/components/shared/FeatureSection.astro";
         & svg {
             width: var(--logo-w, 12rem);
             height: var(--logo-h, 7rem);
+            max-width: 80%;
+            max-height: 80%;
             color: var(--pluto-gray-l6);
             object-fit: contain;
             transition: color 0.3s ease;
@@ -312,7 +314,7 @@ import FeatureSection from "@/components/shared/FeatureSection.astro";
     }
 
     .integration-custom-label {
-        font-size: 5rem;
+        font-size: clamp(2.5rem, 1.5rem + 2vw, 5rem);
         font-weight: 500;
         color: var(--pluto-gray-l5);
         transition: color 0.3s ease;
@@ -327,7 +329,7 @@ import FeatureSection from "@/components/shared/FeatureSection.astro";
     }
 
     .feature-section .workflow-wrapper {
-        margin-top: 16rem;
+        margin-top: var(--space-xl);
     }
 
     .workflow-wrapper {
@@ -403,9 +405,9 @@ import FeatureSection from "@/components/shared/FeatureSection.astro";
         display: flex;
         align-items: center;
         justify-content: center;
-        width: 7rem;
-        height: 7rem;
-        border-radius: 1.5rem;
+        width: clamp(5rem, 3.5rem + 2vw, 7rem);
+        height: clamp(5rem, 3.5rem + 2vw, 7rem);
+        border-radius: clamp(1rem, 0.5rem + 0.5vw, 1.5rem);
         border: 1px solid rgba(80, 160, 240, 0.08);
         background: rgba(55, 116, 208, 0.1);
         backdrop-filter: blur(16px);
@@ -427,7 +429,7 @@ import FeatureSection from "@/components/shared/FeatureSection.astro";
     }
 
     .workflow-step-number {
-        font-size: 2.5rem;
+        font-size: clamp(1.8rem, 1.2rem + 0.8vw, 2.5rem);
         font-weight: 600;
         line-height: 1;
         letter-spacing: -0.02em;
@@ -441,8 +443,8 @@ import FeatureSection from "@/components/shared/FeatureSection.astro";
 
     .workflow-tab-description {
         color: var(--pluto-gray-l9);
-        font-size: 2.8rem;
-        line-height: 4.2rem;
+        font-size: clamp(2rem, 1.5rem + 0.6vw, 2.8rem);
+        line-height: clamp(3rem, 2rem + 1vw, 4.2rem);
         font-weight: 350;
     }
 
@@ -459,7 +461,7 @@ import FeatureSection from "@/components/shared/FeatureSection.astro";
             max-width: none;
             display: block;
             border-radius: var(--img-br, 4rem 1rem 1rem 1rem);
-            margin: 10rem 0 0 10rem;
+            margin: clamp(3rem, 2rem + 3vw, 10rem) 0 0 clamp(3rem, 2rem + 3vw, 10rem);
             outline: var(--pluto-border);
             outline-offset: -1px;
         }
@@ -490,10 +492,27 @@ import FeatureSection from "@/components/shared/FeatureSection.astro";
 
         .workflow {
             grid-template-columns: 1fr;
+            max-height: none;
+        }
+
+        .workflow-tabs {
+            padding: 2rem;
+            gap: 1rem;
+        }
+
+        .workflow-tab {
+            padding: 2rem;
+            gap: 1.5rem;
         }
 
         .workflow-screenshot {
-            min-height: 300px;
+            max-height: 400px;
+        }
+
+        .workflow-panel img {
+            width: 95% !important;
+            margin: 3rem auto 0 !important;
+            border-radius: 1rem 0.6rem 0.6rem 0.6rem !important;
         }
     }
 
@@ -503,7 +522,16 @@ import FeatureSection from "@/components/shared/FeatureSection.astro";
         }
 
         .integration-cell {
-            padding: 4rem 2rem;
+            padding: 2.5rem 1.5rem;
+
+            & svg {
+                max-width: 60%;
+                max-height: 60%;
+            }
+        }
+
+        .workflow-step-number {
+            font-size: 1.4rem;
         }
     }
 </style>

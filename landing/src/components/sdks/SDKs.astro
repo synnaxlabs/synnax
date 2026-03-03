@@ -157,10 +157,10 @@ const codeHtmls = [
     .sdks-content {
         display: flex;
         flex-direction: column;
-        gap: 20rem;
+        gap: var(--space-2xl);
         max-width: var(--max-width);
         padding: 0 var(--content-padding);
-        padding-bottom: 15rem;
+        padding-bottom: var(--space-xl);
         width: 100%;
         margin: 0 auto;
     }
@@ -173,6 +173,12 @@ const codeHtmls = [
         border-radius: 2rem;
         overflow: hidden;
     }
+
+    .sdks-ecosystem svg {
+        width: 100%;
+        height: 100%;
+    }
+
 
     /* Tab icons */
     .sdks-showcase .viz-tab {
@@ -204,7 +210,7 @@ const codeHtmls = [
     }
 
     .sdks-panel {
-        padding: 3rem 4rem 4rem;
+        padding: clamp(2rem, 1.5rem + 1vw, 3rem) clamp(2rem, 1.5rem + 1.5vw, 4rem) clamp(2rem, 1.5rem + 1.5vw, 4rem);
         overflow: hidden;
         min-width: 0;
     }
@@ -236,4 +242,5 @@ const codeHtmls = [
             border-top: var(--pluto-border);
         }
     }
+
 </style>

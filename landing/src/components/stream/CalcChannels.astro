@@ -85,11 +85,35 @@ const codeHtmls = [
 
 <style is:global>
     .calc-visualizer {
-        margin-top: 8rem;
+        margin-top: var(--space-md);
     }
 
     .calc-visualizer .viz-content {
         grid-template-columns: 2fr 3fr;
+    }
+
+    @media (max-width: 900px) {
+        .calc-visualizer .viz-content {
+            grid-template-columns: 1fr;
+        }
+
+        .calc-visualizer .viz-tabs {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+        }
+
+        .calc-visualizer .viz-tab {
+            border-right: none;
+            border-bottom: var(--pluto-border);
+        }
+
+        .calc-visualizer .viz-tab:nth-child(odd) {
+            border-right: var(--pluto-border);
+        }
+
+        .calc-visualizer .viz-tab:nth-last-child(-n+2) {
+            border-bottom: none;
+        }
     }
 
     .calc-diagram-svg {

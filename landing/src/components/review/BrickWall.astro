@@ -101,8 +101,8 @@ for (let r = 0; r < layout.length; r++) {
     .brick-wall-wrapper {
         overflow: hidden;
         width: 100%;
-        margin-top: 12rem;
-        margin-bottom: 15rem;
+        margin-top: var(--space-lg);
+        margin-bottom: var(--space-xl);
         border-top: var(--pluto-border);
         border-bottom: var(--pluto-border);
     }
@@ -118,7 +118,7 @@ for (let r = 0; r < layout.length; r++) {
 
     .brick {
         background: var(--pluto-gray-l1);
-        padding: 2.5rem 3rem;
+        padding: clamp(1.5rem, 1rem + 1vw, 2.5rem) clamp(1.5rem, 1rem + 1.2vw, 3rem);
         display: flex;
         flex-direction: column;
         gap: 1.25rem;
@@ -126,7 +126,7 @@ for (let r = 0; r < layout.length; r++) {
 
     .brick-channel {
         font-family: var(--pluto-code-font-family);
-        font-size: 2.1rem;
+        font-size: clamp(1.5rem, 1rem + 0.7vw, 2.1rem);
         font-weight: 500;
         color: var(--pluto-secondary-z-60);
         white-space: nowrap;
@@ -141,7 +141,7 @@ for (let r = 0; r < layout.length; r++) {
 
     .brick-detail {
         font-family: var(--pluto-code-font-family);
-        font-size: 1.7rem;
+        font-size: clamp(1.3rem, 0.8rem + 0.6vw, 1.7rem);
         color: var(--pluto-gray-l7);
         white-space: nowrap;
     }

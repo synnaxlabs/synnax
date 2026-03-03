@@ -63,8 +63,9 @@ import Firehawk from "@/components/logos/Firehawk.astro";
 
 <style is:global>
     .testimonials {
-        padding: 6rem 0 25rem;
-        gap: 20rem;
+        padding-top: var(--space-md);
+        padding-bottom: var(--space-3xl);
+        gap: var(--space-2xl);
     }
 
     .testimonials-label {
@@ -76,9 +77,9 @@ import Firehawk from "@/components/logos/Firehawk.astro";
         display: grid;
         grid-template-columns: 5fr 4fr;
         grid-template-rows: 1fr 1fr;
-        gap: 4rem;
+        gap: clamp(2rem, 1rem + 1.5vw, 4rem);
         width: 100%;
-        height: 700px;
+        height: clamp(400px, 30vw + 200px, 700px);
         position: relative;
     }
 
@@ -101,7 +102,7 @@ import Firehawk from "@/components/logos/Firehawk.astro";
         grid-row: 1 / -1;
     }
 
-    @media (max-width: 800px) {
+    @media (max-width: 900px) {
         .testimonials-grid {
             grid-template-columns: 1fr;
             grid-auto-rows: auto;

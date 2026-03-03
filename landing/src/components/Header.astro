@@ -16,9 +16,52 @@ import { Nav } from "@/components/Nav";
             <Button.Button variant="filled" href="/#contact">
                 Book a Demo
             </Button.Button>
+            <button class="mobile-menu-btn" aria-label="Open menu">
+                <span class="mobile-menu-icon"></span>
+            </button>
         </Flex.Box>
     </Flex.Box>
 </Flex.Box>
+
+<!-- Mobile drawer -->
+<div class="mobile-overlay"></div>
+<nav class="mobile-drawer">
+    <div class="mobile-drawer-header">
+        <a href="/" class="logo-link">
+            <Logo variant="title" />
+        </a>
+        <button class="mobile-close-btn" aria-label="Close menu">
+            <span class="mobile-close-icon"></span>
+        </button>
+    </div>
+    <div class="mobile-drawer-links">
+        <span class="mobile-drawer-section-label">Product</span>
+        <a href="/#visualize" class="mobile-drawer-link mobile-product-link">
+            <span class="mobile-product-section">2 &rarr;</span> Visualize & Operate
+        </a>
+        <a href="/#automate" class="mobile-drawer-link mobile-product-link">
+            <span class="mobile-product-section">3 &rarr;</span> Automate & Control
+        </a>
+        <a href="/#review" class="mobile-drawer-link mobile-product-link">
+            <span class="mobile-product-section">4 &rarr;</span> Review & Analyze
+        </a>
+        <a href="/#stream" class="mobile-drawer-link mobile-product-link">
+            <span class="mobile-product-section">5 &rarr;</span> Stream & Process
+        </a>
+        <a href="/#integrations" class="mobile-drawer-link mobile-product-link">
+            <span class="mobile-product-section">6 &rarr;</span> Device Integrations
+        </a>
+        <a href="/#sdks" class="mobile-drawer-link mobile-product-link">
+            <span class="mobile-product-section">7 &rarr;</span> Extend with SDKs
+        </a>
+        <div class="mobile-drawer-divider"></div>
+        <a href="/#testimonials" class="mobile-drawer-link">Testimonials</a>
+        <a href="/company" class="mobile-drawer-link">Company</a>
+        <a href="https://docs.synnaxlabs.com" class="mobile-drawer-link">Docs</a>
+        <div class="mobile-drawer-divider"></div>
+        <a href="/#contact" class="mobile-drawer-cta">Book a Demo</a>
+    </div>
+</nav>
 
 <style is:global>
     .header {
@@ -60,7 +103,7 @@ import { Nav } from "@/components/Nav";
     }
 
     .header .pluto-btn.pluto-btn--filled {
-        padding: 1rem 2rem;
+        padding: clamp(0.6rem, 0.3rem + 0.5vw, 1rem) clamp(1.2rem, 0.8rem + 0.8vw, 2rem);
         font-weight: 550;
     }
 
@@ -194,14 +237,218 @@ import { Nav } from "@/components/Nav";
         }
     }
 
+    /* ── Mobile menu button ──────────────────────────────────── */
+
+    .mobile-menu-btn {
+        display: none;
+        background: none;
+        border: none;
+        cursor: pointer;
+        padding: 0.8rem;
+        margin-right: -0.8rem;
+    }
+
+    .mobile-menu-icon,
+    .mobile-menu-icon::before,
+    .mobile-menu-icon::after {
+        display: block;
+        width: 2.2rem;
+        height: 2px;
+        background: var(--pluto-gray-l9);
+        border-radius: 1px;
+        transition: all 0.2s ease;
+    }
+
+    .mobile-menu-icon {
+        position: relative;
+    }
+
+    .mobile-menu-icon::before,
+    .mobile-menu-icon::after {
+        content: "";
+        position: absolute;
+        left: 0;
+    }
+
+    .mobile-menu-icon::before {
+        top: -0.7rem;
+    }
+
+    .mobile-menu-icon::after {
+        top: 0.7rem;
+    }
+
+    /* ── Mobile overlay ──────────────────────────────────────── */
+
+    .mobile-overlay {
+        display: none;
+        position: fixed;
+        inset: 0;
+        background: rgba(0, 0, 0, 0.5);
+        z-index: 49;
+        opacity: 0;
+        transition: opacity 0.25s ease;
+    }
+
+    .mobile-overlay--open {
+        display: block;
+        opacity: 1;
+    }
+
+    /* ── Mobile drawer ───────────────────────────────────────── */
+
+    .mobile-drawer {
+        position: fixed;
+        inset: 0;
+        width: 100%;
+        height: 100dvh;
+        background: var(--pluto-gray-l1);
+        z-index: 50;
+        transform: translateX(100%);
+        transition: transform 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+        display: none;
+        flex-direction: column;
+        overflow-y: auto;
+        -webkit-overflow-scrolling: touch;
+    }
+
+    .mobile-drawer--open {
+        transform: translateX(0);
+    }
+
+    .mobile-drawer-header {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        padding: 0 2rem;
+        height: var(--nav-height);
+        border-bottom: var(--pluto-border);
+        flex-shrink: 0;
+    }
+
+    .mobile-drawer-header .logo-link .synnax-logo--title {
+        height: 3.5rem;
+    }
+
+    .mobile-close-btn {
+        background: none;
+        border: none;
+        cursor: pointer;
+        padding: 0.8rem;
+        margin-right: -0.8rem;
+    }
+
+    .mobile-close-icon {
+        display: block;
+        width: 2.2rem;
+        height: 2.2rem;
+        position: relative;
+    }
+
+    .mobile-close-icon::before,
+    .mobile-close-icon::after {
+        content: "";
+        position: absolute;
+        top: 50%;
+        left: 0;
+        width: 100%;
+        height: 2px;
+        background: var(--pluto-gray-l9);
+        border-radius: 1px;
+    }
+
+    .mobile-close-icon::before {
+        transform: rotate(45deg);
+    }
+
+    .mobile-close-icon::after {
+        transform: rotate(-45deg);
+    }
+
+    .mobile-drawer-links {
+        display: flex;
+        flex-direction: column;
+        padding: 1.5rem 0;
+    }
+
+    .mobile-drawer-section-label {
+        font-size: 1.4rem;
+        font-weight: 600;
+        color: var(--pluto-gray-l6);
+        text-transform: uppercase;
+        letter-spacing: 0.05em;
+        padding: 1rem 2rem 0.5rem;
+    }
+
+    .mobile-drawer-link {
+        display: block;
+        padding: 1.2rem 2rem;
+        font-size: 1.8rem;
+        font-weight: 500;
+        color: var(--pluto-gray-l9);
+        text-decoration: none;
+
+        &:hover {
+            background: var(--pluto-gray-l2);
+            text-decoration: none;
+        }
+    }
+
+    .mobile-product-link {
+        padding-left: 2.5rem;
+    }
+
+    .mobile-product-section {
+        font-family: var(--pluto-mono-font-family);
+        color: var(--pluto-gray-l6);
+        font-size: 1.5rem;
+        margin-right: 0.5rem;
+    }
+
+    .mobile-drawer-divider {
+        height: 1px;
+        background: var(--pluto-gray-l3);
+        margin: 0.8rem 2rem;
+    }
+
+    .mobile-drawer-cta {
+        display: block;
+        margin: 0.5rem 2rem;
+        padding: 1.2rem 2rem;
+        background: var(--pluto-primary-p1);
+        color: var(--pluto-gray-l0);
+        font-size: 1.8rem;
+        font-weight: 550;
+        text-align: center;
+        text-decoration: none;
+        border-radius: 0.8rem;
+
+        &:hover {
+            text-decoration: none;
+        }
+    }
+
+    body.mobile-menu-open {
+        overflow: hidden;
+    }
+
     @media (max-width: 600px) {
         .header {
             .header-nav {
                 display: none;
             }
-            .header-content {
-                padding: 0 3rem;
+
+            .header .pluto-btn.pluto-btn--filled {
+                display: none;
             }
+        }
+
+        .mobile-menu-btn {
+            display: block;
+        }
+
+        .mobile-drawer {
+            display: flex;
         }
     }
 </style>
@@ -217,4 +464,28 @@ import { Nav } from "@/components/Nav";
     };
     updateHeader();
     window.addEventListener("scroll", updateHeader, { passive: true });
+
+    // Mobile drawer
+    const menuBtn = document.querySelector(".mobile-menu-btn");
+    const closeBtn = document.querySelector(".mobile-close-btn");
+    const overlay = document.querySelector(".mobile-overlay");
+    const drawer = document.querySelector(".mobile-drawer");
+    const drawerLinks = drawer?.querySelectorAll("a");
+
+    const openDrawer = () => {
+        drawer?.classList.add("mobile-drawer--open");
+        overlay?.classList.add("mobile-overlay--open");
+        document.body.classList.add("mobile-menu-open");
+    };
+
+    const closeDrawer = () => {
+        drawer?.classList.remove("mobile-drawer--open");
+        overlay?.classList.remove("mobile-overlay--open");
+        document.body.classList.remove("mobile-menu-open");
+    };
+
+    menuBtn?.addEventListener("click", openDrawer);
+    closeBtn?.addEventListener("click", closeDrawer);
+    overlay?.addEventListener("click", closeDrawer);
+    drawerLinks?.forEach((link) => link.addEventListener("click", closeDrawer));
 </script>

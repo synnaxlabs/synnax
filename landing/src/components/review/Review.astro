@@ -77,8 +77,8 @@ import BrickWall from "./BrickWall.astro";
 
     .review-ranges-showcase {
         position: relative;
-        margin-top: 24rem;
-        padding-bottom: 8rem;
+        margin-top: var(--space-2xl);
+        padding-bottom: var(--space-md);
     }
 
     .review-ranges-showcase::after {
@@ -88,7 +88,7 @@ import BrickWall from "./BrickWall.astro";
         right: 0;
         bottom: 0;
         height: 40%;
-        z-index: 3;
+        z-index: 10;
         background: linear-gradient(
             to bottom,
             transparent 0%,
@@ -112,7 +112,7 @@ import BrickWall from "./BrickWall.astro";
         width: 100%;
         height: auto;
         display: block;
-        padding: 3rem;
+        padding: clamp(1.5rem, 1rem + 1vw, 3rem);
         mix-blend-mode: lighten;
     }
 
@@ -137,16 +137,18 @@ import BrickWall from "./BrickWall.astro";
         width: 100%;
         height: auto;
         display: block;
-        padding: 3rem;
+        padding: clamp(1.5rem, 1rem + 1vw, 3rem);
         mix-blend-mode: lighten;
     }
 
     @media (max-width: 900px) {
         .review-ranges-showcase {
             padding-bottom: 0;
+            overflow: hidden;
         }
 
         .review-ranges-explorer-container {
+            width: 100%;
             mask-image: none;
         }
 
@@ -155,7 +157,7 @@ import BrickWall from "./BrickWall.astro";
             bottom: auto;
             right: auto;
             width: 100%;
-            margin-top: 3rem;
+            margin-top: var(--space-sm);
             mask-image: none;
         }
     }

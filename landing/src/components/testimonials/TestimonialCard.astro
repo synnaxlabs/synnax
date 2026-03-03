@@ -44,7 +44,7 @@ const { brandColor, quote, name, title, variant = "standard" } = Astro.props;
                 color-mix(in srgb, var(--brand-color), #000 20%) 100%
             );
         border-radius: 2rem;
-        padding: 5rem;
+        padding: clamp(2.5rem, 1.5rem + 2vw, 5rem);
         border: none;
         box-shadow:
             inset 0 1px 0 0 rgba(255, 255, 255, 0.04),
@@ -120,7 +120,16 @@ const { brandColor, quote, name, title, variant = "standard" } = Astro.props;
 
     .testimonial-quote {
         color: #fff;
-        max-width: 75%;
+        max-width: 85%;
+        font-size: clamp(1.8rem, 1rem + 1.5vw, var(--pluto-h4-size));
+    }
+
+    .testimonial-name {
+        font-size: clamp(1.6rem, 0.8rem + 1.2vw, var(--pluto-h5-size));
+    }
+
+    .testimonial-title {
+        font-size: clamp(1.4rem, 0.8rem + 0.8vw, var(--pluto-p-size));
     }
 
     .testimonial-author {
@@ -141,8 +150,34 @@ const { brandColor, quote, name, title, variant = "standard" } = Astro.props;
 
     /* Hero variant — larger card */
     .testimonial-card--hero {
-        padding: 5rem;
+        padding: clamp(2.5rem, 1.5rem + 2vw, 5rem);
     }
 
+    @media (max-width: 900px) {
+        .testimonial-logo {
+            transform-origin: bottom right;
+            scale: 0.6;
+        }
+    }
 
+    @media (max-width: 900px) {
+        .testimonial-card-content {
+            height: auto;
+        }
+
+        .testimonial-bottom {
+            margin-top: 0;
+        }
+    }
+
+    @media (max-width: 600px) {
+        .testimonial-quote {
+            max-width: 100%;
+        }
+
+        .testimonial-logo {
+            transform-origin: bottom right;
+            scale: 0.5;
+        }
+    }
 </style>

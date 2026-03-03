@@ -114,34 +114,31 @@ const codeHtmls = [
     <AutomateVisualizer client:visible codeHtmls={codeHtmls} />
 </FeatureSection>
 
-<FeatureSection label="3.2 -> Built for Production">
-    <Fragment slot="title"> From prototype to deterministic control </Fragment>
+<FeatureSection label="3.2 -> Production Ready">
+    <Fragment slot="title"> Built for the Systems That Matter Most </Fragment>
     <Fragment slot="description">
-        Deploy to real-time targets for deterministic execution, and negotiate control
-        authority between automated sequences and manual operators without ever
-        interrupting your system.
+        Arc eliminates the most common sources of automation failures. Develop on your
+        laptop, deploy to real-time hardware, and think in procedures, not programs.
     </Fragment>
     <div class="automate-bento">
         <div class="automate-bento-card">
-            <Text.Text level="h4" className="automate-bento-title">
-                Real-Time Ready
+            <Text.Text level="h4" weight={450} color="var(--pluto-gray-l10)" className="automate-bento-title">
+                Predictable Execution
             </Text.Text>
             <ControlSystemGraphic client:visible className="automate-bento-graphic" />
-            <Text.Text level="h5" className="automate-bento-description">
-                Deploy Arc sequences on real-time targets like NI Linux RT for
-                deterministic execution at cycle rates up to 5 kHz. Same code, same
-                behavior, from prototyping on Ubuntu to production on dedicated RT
-                hardware.
+            <Text.Text level="h5" weight={350} className="automate-bento-description">
+                Every cycle runs the same way, every time. Consistent behavior from
+                bench test to production at rates up to 5 kHz.
             </Text.Text>
         </div>
         <div class="automate-bento-card">
-            <Text.Text level="h4" className="automate-bento-title">
+            <Text.Text level="h4" weight={450} color="var(--pluto-gray-l10)" className="automate-bento-title">
                 Seamless Control Handoff
             </Text.Text>
             <ControlHandoffGraphic client:visible className="handoff-graphic" />
-            <Text.Text level="h5" className="automate-bento-description">
-                Synnax's control negotiation system transitions actuator authority
-                between automated and manual operation without interruption.
+            <Text.Text level="h5" weight={350} className="automate-bento-description">
+                Operators take manual control without interrupting automation. Emergency
+                overrides take priority instantly.
             </Text.Text>
         </div>
     </div>
@@ -247,53 +244,49 @@ const codeHtmls = [
     .automate-bento {
         display: grid;
         grid-template-columns: 2fr 3fr;
-        gap: 1px;
+        grid-template-rows: auto 1fr auto;
+        gap: clamp(2rem, 1rem + 1vw, 4rem);
+        margin-top: var(--space-sm);
         width: 100%;
-        border: var(--pluto-border);
-        border-radius: 2rem;
-        overflow: hidden;
-        background: var(--pluto-gray-l3);
     }
 
     .automate-bento-card {
-        display: flex;
-        flex-direction: column;
+        position: relative;
+        display: grid;
+        grid-template-rows: subgrid;
+        grid-row: span 3;
         gap: 2rem;
-        padding: 5rem 4rem;
+        padding: clamp(2rem, 1.5rem + 1vw, 3.5rem) clamp(2rem, 1.5rem + 1.5vw, 4rem) clamp(2.5rem, 1.5rem + 1.5vw, 5rem);
         background: var(--pluto-gray-l1);
+        border: var(--pluto-border);
+        border-radius: 2rem;
+        box-shadow:
+            inset 0 1px 0 0 rgba(255, 255, 255, 0.03),
+            0 4px 24px -4px rgba(0, 0, 0, 0.25);
     }
 
     .automate-bento-card .automate-bento-description {
-        margin-top: auto;
-        height: 96px;
         display: flex;
         align-items: flex-start;
     }
 
     .automate-bento-card:first-child {
-        background:
-            linear-gradient(var(--pluto-gray-l3) 1px, transparent 1px),
-            linear-gradient(90deg, var(--pluto-gray-l3) 1px, transparent 1px),
-            var(--pluto-gray-l1);
-        background-size:
-            25px 25px,
-            25px 25px,
-            auto;
         position: relative;
+        background:
+            radial-gradient(ellipse at 25% 30%, var(--pluto-gray-l2) 0%, transparent 55%),
+            radial-gradient(ellipse at 80% 75%, var(--pluto-gray-l2-75) 0%, transparent 50%),
+            var(--pluto-gray-l0);
     }
 
-    .automate-bento-card:first-child::after {
-        content: "";
-        position: absolute;
-        bottom: 0;
-        left: 0;
-        right: 0;
-        height: 40%;
-        background: linear-gradient(to bottom, transparent, var(--pluto-gray-l1));
-        pointer-events: none;
+    .automate-bento-card:last-child {
+        position: relative;
+        background:
+            radial-gradient(ellipse at 90% 10%, var(--pluto-gray-l1) 0%, transparent 45%),
+            radial-gradient(ellipse at 20% 85%, var(--pluto-gray-l2-75) 0%, transparent 55%),
+            var(--pluto-gray-l0);
     }
 
-    .automate-bento-title {
+.automate-bento-title {
         display: block;
         position: relative;
         z-index: 1;
@@ -301,6 +294,8 @@ const codeHtmls = [
 
     .automate-bento-description {
         color: var(--pluto-gray-l9);
+        font-size: clamp(2rem, 1.5rem + 0.7vw, 2.7rem);
+        line-height: clamp(2.8rem, 1.8rem + 1vw, 3.8rem);
         position: relative;
         z-index: 1;
     }
@@ -310,91 +305,49 @@ const codeHtmls = [
         position: relative;
         width: 100%;
         z-index: 1;
-        margin-top: 4rem;
+        align-self: center;
     }
 
-    .handoff-entities {
-        display: flex;
-        flex-direction: column;
-        justify-content: space-between;
-        height: 267px;
-    }
-
-    .handoff-entity {
+    .handoff-bar {
+        position: relative;
+        margin-top: 1.2rem;
+        margin-bottom: 2rem;
+        height: clamp(3rem, 2rem + 1.5vw, 4.4rem);
+        border-radius: 0.3rem;
+        border: var(--pluto-border);
         display: flex;
         align-items: center;
+        overflow: hidden;
     }
 
-    .handoff-chip {
-        position: relative;
-        min-width: 105px;
-        border: var(--pluto-border);
-        padding: 1rem 2rem;
-        border-radius: 1rem;
+    .handoff-bar-highlight {
+        position: absolute;
+        top: 0;
+        left: 0;
+        width: 6rem;
+        height: 100%;
+        transform: translateX(-50%);
+        pointer-events: none;
+    }
+
+    .handoff-bar-label {
+        flex: 1;
         text-align: center;
-        font-family: var(--pluto-font-family);
-        font-size: 2.2rem;
-        color: var(--pluto-text-color);
-    }
-
-    .handoff-chip::after {
-        content: "";
-        position: absolute;
-        top: 50%;
-        right: -1.5rem;
-        transform: translateY(-50%);
-        border-top: 1.5rem solid transparent;
-        border-bottom: 1.5rem solid transparent;
-        border-left: 1.5rem solid var(--pluto-gray-l3);
-    }
-
-    .handoff-line {
-        height: 2px;
-        flex-grow: 1;
-        background: var(--pluto-gray-l3);
-    }
-
-    .handoff-paths {
-        position: absolute;
-        top: 50%;
-        left: 105px;
-        width: calc(100% - 105px);
-        height: calc(100% - 4.2rem);
-        transform: translateY(-50%);
+        color: var(--pluto-gray-l5);
+        font-size: clamp(1.4rem, 0.8rem + 0.8vw, 2rem);
+        font-weight: 500;
+        font-family: "Geist Mono", monospace;
+        letter-spacing: 0.08em;
+        text-transform: uppercase;
+        position: relative;
         z-index: 1;
-    }
-
-    .handoff-path-1 {
-        stroke-dasharray: 800;
-        stroke-dashoffset: 800;
-    }
-
-    .handoff-path-2 {
-        stroke-dasharray: 800;
-        stroke-dashoffset: 800;
-    }
-
-    .handoff-paths.animated .handoff-path-1 {
-        animation: handoff-dash 3s linear forwards;
-    }
-
-    .handoff-paths.animated .handoff-path-2 {
-        animation: handoff-dash 3s linear forwards;
-    }
-
-    @keyframes handoff-dash {
-        0% {
-            stroke-dashoffset: 800;
-        }
-        100% {
-            stroke-dashoffset: 0;
-        }
+        transition: color 0.3s;
     }
 
     .automate-bento-graphic {
         width: 70%;
-        height: auto;
         align-self: center;
+        justify-self: center;
         position: relative;
         z-index: 1;
     }
@@ -408,6 +361,12 @@ const codeHtmls = [
     @media (max-width: 600px) {
         .automate-bento {
             grid-template-columns: 1fr;
+            grid-template-rows: auto;
+        }
+
+        .automate-bento-card {
+            grid-template-rows: auto;
+            grid-row: span 1;
         }
     }
 </style>

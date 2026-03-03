@@ -73,14 +73,14 @@ import PanelTab from "@/components/shared/PanelTab.astro";
 
 <style is:global>
     .visualize-video-clip {
-        margin-top: 12rem;
+        margin-top: var(--space-lg);
         overflow: hidden;
     }
 
     .visualize-lineplot-showcase {
         position: relative;
-        margin-top: 12rem;
-        padding-bottom: 8rem;
+        margin-top: var(--space-lg);
+        padding-bottom: var(--space-md);
     }
 
     .visualize-lineplot-showcase::after {
@@ -113,7 +113,7 @@ import PanelTab from "@/components/shared/PanelTab.astro";
         display: block;
         width: 100%;
         height: auto;
-        padding: 3rem;
+        padding: clamp(1.5rem, 1rem + 1vw, 3rem);
         mix-blend-mode: lighten;
     }
 
@@ -156,5 +156,11 @@ import PanelTab from "@/components/shared/PanelTab.astro";
         height: auto;
         margin-top: -7%;
         margin-bottom: -7%;
+    }
+
+    @media (max-width: 900px) {
+        .visualize-lineplot-detail-container {
+            display: none;
+        }
     }
 </style>

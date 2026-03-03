@@ -51,7 +51,7 @@ import { TopoCanvas } from "@/components/contact/TopoCanvas";
     .contact {
         position: relative;
         z-index: 1;
-        padding: 10rem var(--content-padding) 25rem;
+        padding: var(--space-lg) var(--content-padding) var(--space-3xl);
         max-width: var(--max-width);
         margin: 0 auto;
     }
@@ -59,13 +59,13 @@ import { TopoCanvas } from "@/components/contact/TopoCanvas";
     .contact-label {
         color: var(--pluto-gray-l7);
         font-weight: 500;
-        margin-bottom: 20rem;
+        margin-bottom: var(--space-2xl);
     }
 
     .contact-layout {
         display: grid;
         grid-template-columns: 5fr 7fr;
-        gap: 12rem;
+        gap: var(--space-lg);
         align-items: start;
     }
 
@@ -92,7 +92,7 @@ import { TopoCanvas } from "@/components/contact/TopoCanvas";
 
     .contact-form-wrapper {
         width: 100%;
-        padding: 5rem;
+        padding: clamp(2.5rem, 1.5rem + 2vw, 5rem);
         border-radius: 1.2rem;
         background: linear-gradient(
             160deg,
@@ -110,7 +110,7 @@ import { TopoCanvas } from "@/components/contact/TopoCanvas";
         position: relative;
         width: 100%;
         overflow: hidden;
-        min-height: 450px;
+        min-height: clamp(300px, 20vw + 200px, 450px);
 
         & form {
             transform: translate(0);
