@@ -16,13 +16,35 @@ import { toCSSVars } from "@/theming/css";
 
 const INDENTATION = "    ";
 
-/**
- * Generates a static css file containing the specified dark and light themes.
- * @param light - The light theme.
- * @param dark - The dark theme.
- * @param defaultTheme - The default theme to use.
- * @returns A string containing the generated css.
+const formatVars = (
+  vars: Record<string, string | number | undefined>,
+  indentationLevel: number = 1,
+): string =>
+  `${INDENTATION.repeat(indentationLevel)}${Object.entries(vars)
+    .filter(([_, value]) => value != null)
+    .map(([key, value]) => `${key}: ${value};`)
+    .join(`\n${INDENTATION.repeat(indentationLevel)}`)}`;
+
+const copyrightHeader = (): string => {
+  const __filename = fileURLToPath(import.meta.url);
+  const __dirname = path.dirname(__filename);
+  const headerPath = path.resolve(
+    __dirname,
+    "../../../../licenses/headers/template.txt",
+  );
+  const headerContent = fs.readFileSync(headerPath, "utf-8").trim();
+  const currentYear = new Date().getFullYear();
+  const processedHeader = headerContent.replace(
+    /\{\{YEAR\}\}/g,
+    currentYear.toString(),
+  );
+  return `/*
+ * ${processedHeader.split("\n").join("\n * ")}
  */
+
+`;
+};
+
 const generateStatic = (
   light: Theme,
   dark: Theme,
@@ -32,45 +54,11 @@ const generateStatic = (
   const darkVars = toCSSVars(dark);
   const darkPrefixedVars = toCSSVars(dark, "dark-");
 
-  // Convert record to CSS variable declarations
-  const formatVars = (
-    vars: Record<string, string | number | undefined>,
-    indentationLevel: number = 1,
-  ): string =>
-    `${INDENTATION.repeat(indentationLevel)}${Object.entries(vars)
-      .filter(([_, value]) => value != null)
-      .map(([key, value]) => `${key}: ${value};`)
-      .join(`\n${INDENTATION.repeat(indentationLevel)}`)}`;
-
-  // Determine which theme to use as default and which for the media query
   const defaultVars = defaultTheme === "light" ? lightVars : darkVars;
   const mediaQueryVars = defaultTheme === "light" ? darkVars : lightVars;
   const mediaQueryTheme = defaultTheme === "light" ? "dark" : "light";
 
-  // Read the copyright header from the licenses directory
-  const __filename = fileURLToPath(import.meta.url);
-  const __dirname = path.dirname(__filename);
-  const headerPath = path.resolve(
-    __dirname,
-    "../../../../licenses/headers/template.txt",
-  );
-  const headerContent = fs.readFileSync(headerPath, "utf-8").trim();
-
-  // Replace template arguments
-  const currentYear = new Date().getFullYear();
-  const processedHeader = headerContent.replace(
-    /\{\{YEAR\}\}/g,
-    currentYear.toString(),
-  );
-
-  // Format as CSS comment
-  const copyrightHeader = `/*
- * ${processedHeader.split("\n").join("\n * ")}
- */
-
-`;
-
-  return `${copyrightHeader}:root {
+  return `${copyrightHeader()}:root {
 ${formatVars(defaultVars)}
 ${formatVars(darkPrefixedVars)}
 }
@@ -84,11 +72,23 @@ ${formatVars(darkPrefixedVars, 2)}
 `;
 };
 
-const writeToFile = (content: string) => {
-  // get the path of this file
-  const __filename = fileURLToPath(import.meta.url);
-  const __dirname = path.dirname(__filename);
-  fs.writeFileSync(path.join(__dirname, "theme.css"), content, "utf-8");
+const generateDarkOnly = (dark: Theme): string => {
+  const darkVars = toCSSVars(dark);
+  const darkPrefixedVars = toCSSVars(dark, "dark-");
+  return `${copyrightHeader()}:root {
+${formatVars(darkVars)}
+${formatVars(darkPrefixedVars)}
+}
+`;
 };
 
-writeToFile(generateStatic(themeZ.parse(SYNNAX_LIGHT), themeZ.parse(SYNNAX_DARK)));
+const writeToFile = (filename: string, content: string) => {
+  const __filename = fileURLToPath(import.meta.url);
+  const __dirname = path.dirname(__filename);
+  fs.writeFileSync(path.join(__dirname, filename), content, "utf-8");
+};
+
+const light = themeZ.parse(SYNNAX_LIGHT);
+const dark = themeZ.parse(SYNNAX_DARK);
+writeToFile("theme.css", generateStatic(light, dark));
+writeToFile("theme-dark.css", generateDarkOnly(dark));
