@@ -50,6 +50,15 @@ import (
 	"github.com/synnaxlabs/x/diagnostics"
 )
 
+// CallEdge records a function call relationship between a caller and callee scope.
+// These edges are collected during analysis and used in a post-pass to propagate
+// channel accesses through function calls, handling forward references where the
+// callee is declared after the caller in source order.
+type CallEdge struct {
+	Caller *symbol.Scope
+	Callee *symbol.Scope
+}
+
 // Context is a generic container for analysis state that flows through the semantic
 // analysis pipeline. It is parametrized over AST node types to provide type-safe
 // traversal of the parse tree.
@@ -72,6 +81,8 @@ type Context[AST antlr.ParserRuleContext] struct {
 	Constraints *constraints.System
 	// TypeMap caches resolved types for AST nodes.
 	TypeMap map[antlr.ParserRuleContext]types.Type
+	// CallEdges tracks function call relationships for post-analysis channel propagation.
+	CallEdges *[]CallEdge
 	// AST is the current AST node being analyzed.
 	AST AST
 	// TypeHint is the expected type from surrounding context for type inference.
@@ -120,6 +131,7 @@ func CreateRoot[ASTNode antlr.ParserRuleContext](
 		Diagnostics: &diagnostics.Diagnostics{},
 		Constraints: constraints.New(),
 		TypeMap:     make(map[antlr.ParserRuleContext]types.Type),
+		CallEdges:   &[]CallEdge{},
 		AST:         ast,
 	}
 
@@ -141,6 +153,7 @@ func Child[P, N antlr.ParserRuleContext](ctx Context[P], next N) Context[N] {
 		Diagnostics:         ctx.Diagnostics,
 		Constraints:         ctx.Constraints,
 		TypeMap:             ctx.TypeMap,
+		CallEdges:           ctx.CallEdges,
 		AST:                 next,
 		TypeHint:            ctx.TypeHint,
 		InTypeInferenceMode: ctx.InTypeInferenceMode,

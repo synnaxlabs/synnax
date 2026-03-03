@@ -35,16 +35,18 @@ press_pt -> check_high_pressure{} -> stable_for{duration=500ms} -> select{} -> {
     }
 }
 
+// Functions are deliberately scrambled (1, 3, 2) to test that channel
+// accumulation works with both forward and backward references.
+func nested_write_1() {
+    nested_write_2(press_pt)
+}
+
 func nested_write_3(val f32) {
     arc_lifecycle_virt = val
 }
 
 func nested_write_2(val f32) {
     nested_write_3(val)
-}
-
-func nested_write_1() {
-    nested_write_2(press_pt)
 }
 
 interval{period=100ms} -> nested_write_1{}

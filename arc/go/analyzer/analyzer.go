@@ -26,6 +26,7 @@ import (
 func AnalyzeProgram(ctx acontext.Context[parser.IProgramContext]) {
 	collectDeclarations(ctx)
 	analyzeDeclarations(ctx)
+	propagateCallChannels(ctx.CallEdges)
 	if ctx.Constraints.HasTypeVariables() {
 		if err := ctx.Constraints.Unify(); err != nil {
 			addUnificationError(ctx.Diagnostics, err, ctx.AST)
@@ -46,6 +47,30 @@ func collectDeclarations(ctx acontext.Context[parser.IProgramContext]) {
 	constant.CollectDeclarations(ctx)
 	function.CollectDeclarations(ctx)
 	sequence.CollectDeclarations(ctx)
+}
+
+// propagateCallChannels runs a fixpoint loop over recorded call edges to ensure
+// that callee channel accesses are propagated to callers even when the callee is
+// declared after the caller in source order (forward references).
+func propagateCallChannels(edges *[]acontext.CallEdge) {
+	changed := true
+	for changed {
+		changed = false
+		for _, edge := range *edges {
+			for id, name := range edge.Callee.Channels.Read {
+				if !edge.Caller.Channels.Read.Contains(id) {
+					edge.Caller.Channels.Read[id] = name
+					changed = true
+				}
+			}
+			for id, name := range edge.Callee.Channels.Write {
+				if !edge.Caller.Channels.Write.Contains(id) {
+					edge.Caller.Channels.Write[id] = name
+					changed = true
+				}
+			}
+		}
+	}
 }
 
 func analyzeDeclarations(ctx acontext.Context[parser.IProgramContext]) {

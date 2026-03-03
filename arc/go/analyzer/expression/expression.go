@@ -377,7 +377,10 @@ func analyzePostfix(ctx context.Context[parser.IPostfixExpressionContext]) {
 		}
 		if scope.Kind == symbol.KindFunction {
 			validateFunctionCall(ctx, scope.Type, funcName, funcCalls[0])
-			// Propagate called function's channel accesses to the caller
+			// Propagate called function's channel accesses to the caller.
+			// This handles the common case where the callee is declared before
+			// the caller. Forward references are resolved by the post-pass in
+			// AnalyzeProgram.
 			callerFn, fnErr := ctx.Scope.ClosestAncestorOfKind(symbol.KindFunction)
 			if fnErr == nil && callerFn != nil {
 				for id, name := range scope.Channels.Read {
@@ -386,6 +389,7 @@ func analyzePostfix(ctx context.Context[parser.IPostfixExpressionContext]) {
 				for id, name := range scope.Channels.Write {
 					callerFn.Channels.Write[id] = name
 				}
+				*ctx.CallEdges = append(*ctx.CallEdges, context.CallEdge{Caller: callerFn, Callee: scope})
 			}
 		} else {
 			ctx.Diagnostics.Add(diagnostics.Errorf(
