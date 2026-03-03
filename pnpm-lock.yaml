@@ -135,6 +135,9 @@ importers:
         specifier: workspace:^
         version: link:../../x/ts
     devDependencies:
+      '@synnaxlabs/eslint-config':
+        specifier: workspace:^
+        version: link:../../configs/eslint
       '@synnaxlabs/tsconfig':
         specifier: workspace:^
         version: link:../../configs/ts
@@ -150,9 +153,6 @@ importers:
       eslint:
         specifier: 'catalog:'
         version: 9.39.2(jiti@2.6.1)
-      eslint-config-synnaxlabs:
-        specifier: workspace:^
-        version: link:../../configs/eslint
       madge:
         specifier: 'catalog:'
         version: 8.0.0(typescript@5.9.3)
@@ -196,6 +196,9 @@ importers:
         specifier: 'catalog:'
         version: 4.3.6
     devDependencies:
+      '@synnaxlabs/eslint-config':
+        specifier: workspace:^
+        version: link:../../configs/eslint
       '@synnaxlabs/tsconfig':
         specifier: workspace:^
         version: link:../../configs/ts
@@ -211,9 +214,6 @@ importers:
       eslint:
         specifier: 'catalog:'
         version: 9.39.2(jiti@2.6.1)
-      eslint-config-synnaxlabs:
-        specifier: workspace:^
-        version: link:../../configs/eslint
       madge:
         specifier: 'catalog:'
         version: 8.0.0(typescript@5.9.3)
@@ -270,15 +270,15 @@ importers:
         specifier: 'catalog:'
         version: 40.0.0(stylelint@17.1.0(typescript@5.9.3))
     devDependencies:
+      '@synnaxlabs/eslint-config':
+        specifier: workspace:^
+        version: link:../eslint
       '@synnaxlabs/tsconfig':
         specifier: workspace:^
         version: link:../ts
       eslint:
         specifier: 'catalog:'
         version: 9.39.2(jiti@2.6.1)
-      eslint-config-synnaxlabs:
-        specifier: workspace:^
-        version: link:../eslint
       stylelint:
         specifier: 'catalog:'
         version: 17.1.0(typescript@5.9.3)
@@ -294,15 +294,15 @@ importers:
 
   configs/vite:
     devDependencies:
+      '@synnaxlabs/eslint-config':
+        specifier: workspace:^
+        version: link:../eslint
       '@synnaxlabs/tsconfig':
         specifier: workspace:^
         version: link:../ts
       eslint:
         specifier: 'catalog:'
         version: 9.39.2(jiti@2.6.1)
-      eslint-config-synnaxlabs:
-        specifier: workspace:^
-        version: link:../eslint
       typescript:
         specifier: 'catalog:'
         version: 5.9.3
@@ -430,6 +430,12 @@ importers:
       '@codingame/esbuild-import-meta-url-plugin':
         specifier: ^1.0.3
         version: 1.0.3
+      '@synnaxlabs/eslint-config':
+        specifier: workspace:^
+        version: link:../configs/eslint
+      '@synnaxlabs/stylelint-config':
+        specifier: workspace:^
+        version: link:../configs/stylelint
       '@synnaxlabs/tsconfig':
         specifier: workspace:^
         version: link:../configs/ts
@@ -463,18 +469,12 @@ importers:
       eslint:
         specifier: 'catalog:'
         version: 9.39.2(jiti@2.6.1)
-      eslint-config-synnaxlabs:
-        specifier: workspace:^
-        version: link:../configs/eslint
       madge:
         specifier: 'catalog:'
         version: 8.0.0(typescript@5.9.3)
       stylelint:
         specifier: 'catalog:'
         version: 17.1.0(typescript@5.9.3)
-      stylelint-config-synnaxlabs:
-        specifier: workspace:^
-        version: link:../configs/stylelint
       typescript:
         specifier: 'catalog:'
         version: 5.9.3
@@ -548,6 +548,12 @@ importers:
       '@astrojs/check':
         specifier: ^0.9.6
         version: 0.9.6(prettier-plugin-astro@0.14.1)(prettier@3.8.1)(typescript@5.9.3)
+      '@synnaxlabs/eslint-config':
+        specifier: workspace:^
+        version: link:../../configs/eslint
+      '@synnaxlabs/stylelint-config':
+        specifier: workspace:^
+        version: link:../../configs/stylelint
       '@synnaxlabs/tsconfig':
         specifier: workspace:^
         version: link:../../configs/ts
@@ -572,9 +578,6 @@ importers:
       eslint:
         specifier: 'catalog:'
         version: 9.39.2(jiti@2.6.1)
-      eslint-config-synnaxlabs:
-        specifier: workspace:^
-        version: link:../../configs/eslint
       gray-matter:
         specifier: ^4.0.3
         version: 4.0.3
@@ -596,9 +599,6 @@ importers:
       stylelint:
         specifier: 'catalog:'
         version: 17.1.0(typescript@5.9.3)
-      stylelint-config-synnaxlabs:
-        specifier: workspace:^
-        version: link:../../configs/stylelint
       typescript:
         specifier: 'catalog:'
         version: 5.9.3
@@ -633,6 +633,9 @@ importers:
         specifier: 'catalog:'
         version: 4.3.6
     devDependencies:
+      '@synnaxlabs/eslint-config':
+        specifier: workspace:^
+        version: link:../configs/eslint
       '@synnaxlabs/tsconfig':
         specifier: workspace:^
         version: link:../configs/ts
@@ -654,9 +657,6 @@ importers:
       eslint:
         specifier: 'catalog:'
         version: 9.39.2(jiti@2.6.1)
-      eslint-config-synnaxlabs:
-        specifier: workspace:^
-        version: link:../configs/eslint
       madge:
         specifier: 'catalog:'
         version: 8.0.0(typescript@5.9.3)
@@ -682,6 +682,9 @@ importers:
         specifier: 'catalog:'
         version: 4.3.6
     devDependencies:
+      '@synnaxlabs/eslint-config':
+        specifier: workspace:^
+        version: link:../../configs/eslint
       '@synnaxlabs/tsconfig':
         specifier: workspace:^
         version: link:../../configs/ts
@@ -697,9 +700,6 @@ importers:
       eslint:
         specifier: 'catalog:'
         version: 9.39.2(jiti@2.6.1)
-      eslint-config-synnaxlabs:
-        specifier: workspace:^
-        version: link:../../configs/eslint
       madge:
         specifier: 'catalog:'
         version: 8.0.0(typescript@5.9.3)
@@ -788,6 +788,12 @@ importers:
       '@juggle/resize-observer':
         specifier: ^3.4.0
         version: 3.4.0
+      '@synnaxlabs/eslint-config':
+        specifier: workspace:^
+        version: link:../configs/eslint
+      '@synnaxlabs/stylelint-config':
+        specifier: workspace:^
+        version: link:../configs/stylelint
       '@synnaxlabs/tsconfig':
         specifier: workspace:^
         version: link:../configs/ts
@@ -833,9 +839,6 @@ importers:
       eslint:
         specifier: 'catalog:'
         version: 9.39.2(jiti@2.6.1)
-      eslint-config-synnaxlabs:
-        specifier: workspace:^
-        version: link:../configs/eslint
       jsdom:
         specifier: ^27.4.0
         version: 27.4.0
@@ -848,9 +851,6 @@ importers:
       stylelint:
         specifier: 'catalog:'
         version: 17.1.0(typescript@5.9.3)
-      stylelint-config-synnaxlabs:
-        specifier: workspace:^
-        version: link:../configs/stylelint
       typescript:
         specifier: 'catalog:'
         version: 5.9.3
@@ -873,6 +873,12 @@ importers:
         specifier: 'catalog:'
         version: 5.5.0(react@19.2.4)
     devDependencies:
+      '@synnaxlabs/eslint-config':
+        specifier: workspace:^
+        version: link:../../configs/eslint
+      '@synnaxlabs/stylelint-config':
+        specifier: workspace:^
+        version: link:../../configs/stylelint
       '@synnaxlabs/tsconfig':
         specifier: workspace:^
         version: link:../../configs/ts
@@ -891,18 +897,12 @@ importers:
       eslint:
         specifier: 'catalog:'
         version: 9.39.2(jiti@2.6.1)
-      eslint-config-synnaxlabs:
-        specifier: workspace:^
-        version: link:../../configs/eslint
       madge:
         specifier: 'catalog:'
         version: 8.0.0(typescript@5.9.3)
       stylelint:
         specifier: 'catalog:'
         version: 17.1.0(typescript@5.9.3)
-      stylelint-config-synnaxlabs:
-        specifier: workspace:^
-        version: link:../../configs/stylelint
       typescript:
         specifier: 'catalog:'
         version: 5.9.3
@@ -925,6 +925,9 @@ importers:
         specifier: 'catalog:'
         version: 4.3.6
     devDependencies:
+      '@synnaxlabs/eslint-config':
+        specifier: workspace:^
+        version: link:../../configs/eslint
       '@synnaxlabs/tsconfig':
         specifier: workspace:^
         version: link:../../configs/ts
@@ -940,9 +943,6 @@ importers:
       eslint:
         specifier: 'catalog:'
         version: 9.39.2(jiti@2.6.1)
-      eslint-config-synnaxlabs:
-        specifier: workspace:^
-        version: link:../../configs/eslint
       madge:
         specifier: 'catalog:'
         version: 8.0.0(typescript@5.9.3)
