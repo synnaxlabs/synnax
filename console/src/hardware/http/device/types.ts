@@ -40,13 +40,6 @@ const headerAPIKeyAuthConfigZ = baseAPIKeyAuthConfigZ.extend({
   header: z.string().min(1, "Header is required"),
 });
 
-const apiKeyAuthConfigZ = z.discriminatedUnion("sendAs", [
-  queryParamAPIKeyAuthConfigZ,
-  headerAPIKeyAuthConfigZ,
-]);
-
-export type APIKeyAuthConfigSendAs = z.infer<typeof apiKeyAuthConfigZ>["sendAs"];
-
 const basicAuthConfigZ = z.object({
   type: z.literal("basic"),
   username: z.string().min(1, "Username is required"),
@@ -59,6 +52,13 @@ const v0AuthConfigZ = z.discriminatedUnion("type", [
   v0APIKeyAuthConfigZ,
   basicAuthConfigZ,
 ]);
+
+const apiKeyAuthConfigZ = z.discriminatedUnion("sendAs", [
+  queryParamAPIKeyAuthConfigZ,
+  headerAPIKeyAuthConfigZ,
+]);
+
+export type APIKeyAuthConfigSendAs = z.infer<typeof apiKeyAuthConfigZ>["sendAs"];
 
 const authConfigZ = z.discriminatedUnion("type", [
   noneAuthConfigZ,
