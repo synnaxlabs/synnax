@@ -35,6 +35,20 @@ press_pt -> check_high_pressure{} -> stable_for{duration=500ms} -> select{} -> {
     }
 }
 
+func nested_write_3(val f32) {
+    arc_lifecycle_virt = val
+}
+
+func nested_write_2(val f32) {
+    nested_write_3(val)
+}
+
+func nested_write_1() {
+    nested_write_2(press_pt)
+}
+
+interval{period=100ms} -> nested_write_1{}
+
 sequence main {
     stage press {
         1 -> press_vlv_cmd,
@@ -68,17 +82,30 @@ class ArcLifecycle(ArcConsoleCase):
     4. Create a status with the name of the automation when it starts running
     5. stable_for filters values until stable for a specified duration
     6. select routes boolean output to true/false branches
+    7. Channel writes propagate through function calls (regression for channel
+       accumulation bug where transitive channel accesses were lost)
     """
 
     arc_source = ARC_LIFECYCLE_SOURCE
     arc_name_prefix = "ArcLifecycle"
     start_cmd_channel = "start_lifecycle_cmd"
     end_cmd_channel = "end_test_cmd"
-    subscribe_channels = ["press_vlv_state", "press_pt", "end_test_cmd"]
+    subscribe_channels = [
+        "press_vlv_state",
+        "press_pt",
+        "arc_lifecycle_virt",
+        "end_test_cmd",
+    ]
     sim_daq_class = PressSimDAQ
 
     def setup(self) -> None:
         self.new_name = f"ArcRenamed_{get_random_name()}"
+        self.client.channels.create(
+            name="arc_lifecycle_virt",
+            data_type=sy.DataType.FLOAT32,
+            retrieve_if_name_exists=True,
+            virtual=True,
+        )
         self.client.statuses.set(
             sy.Status(
                 key="lifecycle_press_alarm",
@@ -90,6 +117,13 @@ class ArcLifecycle(ArcConsoleCase):
         super().setup()
 
     def verify_sequence_execution(self) -> None:
+        # --- 0. Verify transitive channel write through function calls ---
+        # nested_write_1() calls nested_write_2() which calls nested_write_3()
+        # which writes to arc_lifecycle_virt. This validates that channel
+        # accumulation propagates through function calls.
+        self.log("Verifying transitive channel write (function call propagation)")
+        self.wait_for_gt("arc_lifecycle_virt", 20, is_virtual=True)
+
         # --- 1. Verify select true branch: stable_for emits after pressure
         # stays above 25 PSI for 500ms, then select routes to warning status ---
         self.log("Waiting for 'Pressure stable above 25 PSI' (select true branch)")
