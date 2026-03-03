@@ -10,6 +10,7 @@
 #pragma once
 
 #include <map>
+#include <memory>
 #include <optional>
 #include <string>
 #include <utility>
@@ -73,31 +74,56 @@ struct ReadTaskConfig {
     std::map<synnax::channel::Key, synnax::channel::Channel> channels;
 
     /// @brief parses a read task config from a Synnax task definition.
+    /// @param ctx the task context providing access to the Synnax client.
+    /// @param task the Synnax task definition containing the configuration JSON.
+    /// @returns the parsed config paired with an error.
     static std::pair<ReadTaskConfig, x::errors::Error>
-    parse(const std::shared_ptr<task::Context> &, const synnax::task::Task &);
+    parse(const std::shared_ptr<task::Context> &ctx, const synnax::task::Task &task);
 };
 
 /// @brief source that polls HTTP endpoints and writes extracted values to a frame.
 class ReadTaskSource : public common::Source {
     ReadTaskConfig cfg;
-    device::Client client;
-    /// @brief regulates the polling rate.
+    device::Processor *processor;
+    std::vector<device::Request> requests;
     common::SoftwareTimedSampleClock sample_clock;
     std::vector<synnax::channel::Channel> chs;
-    std::vector<std::string> bodies;
     std::vector<x::json::json> parsed_bodies;
 
 public:
-    ReadTaskSource(ReadTaskConfig, device::Client);
+    /// @param cfg the read task configuration.
+    /// @param processor the shared HTTP processor for executing requests.
+    /// @param requests pre-built requests (one per endpoint).
+    ReadTaskSource(
+        ReadTaskConfig cfg,
+        device::Processor *processor,
+        std::vector<device::Request> requests
+    );
 
+    /// @brief returns the writer configuration for the task.
+    /// @returns the writer configuration for the task.
     [[nodiscard]] synnax::framer::WriterConfig writer_config() const override;
 
+    /// @brief returns the channels used in this task.
+    /// @returns the channels used in this task.
     [[nodiscard]] std::vector<synnax::channel::Channel> channels() const override;
 
-    common::ReadResult read(x::breaker::Breaker &, x::telem::Frame &) override;
+    /// @brief reads data from the task.
+    /// @param breaker the breaker used to stop the read.
+    /// @param fr the frame to write the data to.
+    /// @returns the read result.
+    common::ReadResult
+    read(x::breaker::Breaker &breaker, x::telem::Frame &frame) override;
 };
 
 /// @brief configures an HTTP read task from a Synnax task definition.
-std::pair<common::ConfigureResult, x::errors::Error>
-configure_read(const std::shared_ptr<task::Context> &, const synnax::task::Task &);
+/// @param ctx the task context providing access to the Synnax client.
+/// @param task the Synnax task definition containing the configuration JSON.
+/// @param processor the shared HTTP processor for executing requests.
+/// @returns the configured result paired with an error.
+std::pair<common::ConfigureResult, x::errors::Error> configure_read(
+    const std::shared_ptr<task::Context> &ctx,
+    const synnax::task::Task &task,
+    const std::shared_ptr<device::Processor> &processor
+);
 }

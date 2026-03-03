@@ -19,6 +19,9 @@
 
 namespace driver::http {
 namespace {
+/// @brief shared processor for all read task tests.
+auto test_processor = std::make_shared<device::Processor>();
+
 /// @brief helper to build a ReadTaskSource from config and a mock server URL.
 std::pair<std::unique_ptr<ReadTaskSource>, x::errors::Error> make_source(
     const ReadTaskConfig &cfg,
@@ -34,15 +37,20 @@ std::pair<std::unique_ptr<ReadTaskSource>, x::errors::Error> make_source(
     auto conn_parser = x::json::Parser(conn_json);
     auto conn = device::ConnectionConfig(conn_parser);
 
-    std::vector<device::RequestConfig> request_configs;
-    request_configs.reserve(cfg.endpoints.size());
-    for (const auto &ep: cfg.endpoints)
-        request_configs.push_back(ep.request);
+    std::vector<device::Request> requests;
+    requests.reserve(cfg.endpoints.size());
+    for (const auto &ep: cfg.endpoints) {
+        auto req = device::build_request(conn, ep.request);
+        req.body = ep.body;
+        requests.push_back(std::move(req));
+    }
 
-    auto [client, err] = device::Client::create(std::move(conn), request_configs);
-    if (err) return {nullptr, err};
     return {
-        std::make_unique<ReadTaskSource>(ReadTaskConfig(cfg), std::move(client)),
+        std::make_unique<ReadTaskSource>(
+            ReadTaskConfig(cfg),
+            test_processor.get(),
+            std::move(requests)
+        ),
         x::errors::NIL,
     };
 }
@@ -842,7 +850,11 @@ protected:
             client->racks.create(make_unique_channel_name("http_read_test_rack"))
         );
         device_key = make_unique_channel_name("http_read_test_device");
-        x::json::json props = {{"secure", false}, {"timeout_ms", 1000}};
+        x::json::json props = {
+            {"secure", false},
+            {"timeout_ms", 1000},
+            {"verify_ssl", false},
+        };
         synnax::device::Device dev{
             .key = device_key,
             .name = "HTTP Read Test Device",
@@ -1202,13 +1214,15 @@ TEST(HTTPReadTask, DisabledFieldsExcludedFromWriterConfig) {
         }
     );
     auto conn = device::ConnectionConfig(conn_parser);
-    std::vector<device::RequestConfig> request_configs;
-    for (const auto &e: cfg.endpoints)
-        request_configs.push_back(e.request);
-    auto [client, err] = device::Client::create(std::move(conn), request_configs);
-    ASSERT_NIL(err);
 
-    ReadTaskSource source(std::move(cfg), std::move(client));
+    std::vector<device::Request> requests;
+    for (const auto &e: cfg.endpoints) {
+        auto req = device::build_request(conn, e.request);
+        req.body = e.body;
+        requests.push_back(std::move(req));
+    }
+
+    ReadTaskSource source(std::move(cfg), test_processor.get(), std::move(requests));
     auto wc = source.writer_config();
     EXPECT_EQ(wc.channels.size(), 1);
     EXPECT_EQ(wc.channels[0], 1);
