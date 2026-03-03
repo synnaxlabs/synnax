@@ -72,11 +72,11 @@ ${formatVars(darkPrefixedVars, 2)}
 `;
 };
 
-const generateDarkOnly = (dark: Theme): string => {
-  const darkVars = toCSSVars(dark);
+const generateSingleTheme = (theme: Theme, dark: Theme): string => {
+  const vars = toCSSVars(theme);
   const darkPrefixedVars = toCSSVars(dark, "dark-");
   return `${copyrightHeader()}:root {
-${formatVars(darkVars)}
+${formatVars(vars)}
 ${formatVars(darkPrefixedVars)}
 }
 `;
@@ -91,4 +91,5 @@ const writeToFile = (filename: string, content: string) => {
 const light = themeZ.parse(SYNNAX_LIGHT);
 const dark = themeZ.parse(SYNNAX_DARK);
 writeToFile("theme.css", generateStatic(light, dark));
-writeToFile("theme-dark.css", generateDarkOnly(dark));
+writeToFile("theme-dark.css", generateSingleTheme(dark, dark));
+writeToFile("theme-light.css", generateSingleTheme(light, dark));
