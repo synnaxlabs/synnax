@@ -96,9 +96,7 @@ var _ = Describe("CheapIs", func() {
 
 	Describe("zero allocations", func() {
 		sentinel := errors.New("sentinel")
-		wrapped := errors.Wrap(
-			errors.Wrap(sentinel, "inner"), "outer",
-		)
+		wrapped := errors.Wrap(errors.Wrap(sentinel, "inner"), "outer")
 		It("Should not allocate when matching a wrapped sentinel", func() {
 			Expect(testing.AllocsPerRun(100, func() {
 				errors.CheapIs(wrapped, sentinel)
