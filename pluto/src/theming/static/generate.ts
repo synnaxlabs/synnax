@@ -28,16 +28,10 @@ const formatVars = (
     .map(([key, value]) => `${key}: ${value};`)
     .join(`\n${INDENTATION.repeat(indentationLevel)}`)}`;
 
-const headerPath = path.resolve(
-  __dirname,
-  "../../../../licenses/headers/template.txt",
-);
+const headerPath = path.resolve(__dirname, "../../../../licenses/headers/template.txt");
 const headerContent = fs.readFileSync(headerPath, "utf-8").trim();
 const currentYear = new Date().getFullYear();
-const processedHeader = headerContent.replace(
-  /\{\{YEAR\}\}/g,
-  currentYear.toString(),
-);
+const processedHeader = headerContent.replace(/\{\{YEAR\}\}/g, currentYear.toString());
 const COPYRIGHT_HEADER = `/*\n${processedHeader
   .split("\n")
   .map((line) => (line.length > 0 ? ` * ${line}` : " *"))
