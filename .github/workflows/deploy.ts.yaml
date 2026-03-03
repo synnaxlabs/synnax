@@ -21,6 +21,9 @@ on:
       - x/ts/**
   workflow_dispatch:
 
+permissions:
+  id-token: write
+
 jobs:
   publish:
     name: Publish
