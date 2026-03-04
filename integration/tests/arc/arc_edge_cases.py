@@ -76,11 +76,61 @@ func fwd_callee() {
     edge_fwd = 55.0
 }
 
+// Edge case 6: Basic write through chan input param.
+func chan_write(ch chan f32) {
+    ch = 77.0
+}
+func test_chan_param_write() {
+    chan_write(edge_chan_basic)
+}
+
+// Edge case 7: Multi-level chain through chan params.
+func chan_chain_leaf(ch chan f32) {
+    ch = 88.0
+}
+func chan_chain_mid(ch chan f32) {
+    chan_chain_leaf(ch)
+}
+func test_chan_chain() {
+    chan_chain_mid(edge_chan_chain)
+}
+
+// Edge case 8: Same function called with different chan args.
+func chan_set(ch chan f32) {
+    ch = 33.0
+}
+func test_chan_diff_args() {
+    chan_set(edge_chan_arg_a)
+    chan_set(edge_chan_arg_b)
+}
+
+// Edge case 9: Multiple chan params written in one function.
+func chan_multi_write(a chan f32, b chan f32) {
+    a = 11.0
+    b = 22.0
+}
+func test_chan_multi_param() {
+    chan_multi_write(edge_chan_mp_a, edge_chan_mp_b)
+}
+
+// Edge case 10: Forward reference with chan param.
+func test_chan_fwd_ref() {
+    chan_fwd_callee(edge_chan_fwd)
+}
+func chan_fwd_callee(ch chan f32) {
+    ch = 66.0
+}
+
 interval{period=100ms} -> test_same_channel_write{}
 interval{period=100ms} -> test_diamond{}
 interval{period=100ms} -> test_multi_callee{}
 interval{period=100ms} -> test_chain{}
 interval{period=100ms} -> test_fwd_ref{}
+interval{period=100ms} -> test_chan_param_write{}
+interval{period=100ms} -> test_chan_chain{}
+interval{period=100ms} -> test_chan_diff_args{}
+interval{period=100ms} -> test_chan_multi_param{}
+interval{period=100ms} -> test_chan_fwd_ref{}
 """
 
 # ── Circular dependency sources (invalid, caught at configure time) ──
@@ -221,6 +271,13 @@ CHANNEL_VIRTUAL = [
     "edge_multi_b",
     "edge_chain",
     "edge_fwd",
+    "edge_chan_basic",
+    "edge_chan_chain",
+    "edge_chan_arg_a",
+    "edge_chan_arg_b",
+    "edge_chan_mp_a",
+    "edge_chan_mp_b",
+    "edge_chan_fwd",
     "ch1",
 ]
 
@@ -305,6 +362,23 @@ class ArcEdgeCases(ArcConsoleCase):
 
         self.log("[FwdRef] fwd_callee -> 55.0")
         self.wait_for_near("edge_fwd", 55.0, tolerance=0.01, is_virtual=True)
+
+        self.log("[ChanParam] chan_write -> 77.0")
+        self.wait_for_near("edge_chan_basic", 77.0, tolerance=0.01, is_virtual=True)
+
+        self.log("[ChanChain] chan_chain_leaf -> 88.0")
+        self.wait_for_near("edge_chan_chain", 88.0, tolerance=0.01, is_virtual=True)
+
+        self.log("[ChanDiffArgs] chan_set -> 33.0 for both")
+        self.wait_for_near("edge_chan_arg_a", 33.0, tolerance=0.01, is_virtual=True)
+        self.wait_for_near("edge_chan_arg_b", 33.0, tolerance=0.01, is_virtual=True)
+
+        self.log("[ChanMultiParam] chan_multi_write -> 11.0, 22.0")
+        self.wait_for_near("edge_chan_mp_a", 11.0, tolerance=0.01, is_virtual=True)
+        self.wait_for_near("edge_chan_mp_b", 22.0, tolerance=0.01, is_virtual=True)
+
+        self.log("[ChanFwdRef] chan_fwd_callee -> 66.0")
+        self.wait_for_near("edge_chan_fwd", 66.0, tolerance=0.01, is_virtual=True)
 
     def _assert_circular_error(self, case: CircularCase) -> None:
         arc_name = f"Circ{case.label}_{get_random_name()}"
