@@ -2527,7 +2527,7 @@ var _ = Describe("Compiler", func() {
 			Expect(results[0]).To(Equal(uint64(20)))
 		})
 
-		It("Should handle recursive function calls", func() {
+		It("Should handle guarded recursive calls", func() {
 			output := MustSucceed(compile(`
 			func factorial(n i64) i64 {
 				if n <= 1 {
