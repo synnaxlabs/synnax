@@ -20,14 +20,15 @@ import (
 
 type nodeImpl struct {
 	*state.Node
-	ir          ir.Node
-	wasm        *Function
-	runtime     *runtimebindings.Runtime
-	params      []uint64
-	configCount int
-	offsets     []int
-	initialized bool
-	isEntryNode bool
+	ir            ir.Node
+	wasm          *Function
+	runtime       *runtimebindings.Runtime
+	params        []uint64
+	configCount   int
+	stringConfigs map[int]string
+	offsets       []int
+	initialized   bool
+	isEntryNode   bool
 }
 
 func (n *nodeImpl) Init(node.Context) {}
@@ -98,6 +99,10 @@ func (n *nodeImpl) Next(ctx node.Context) {
 		longestInputTime = n.InputTime(longestInputIdx)
 	}
 	n.runtime.SetCurrentNodeKey(n.ir.Key)
+	// Refresh string config handles — state.Flush clears them between execution cycles.
+	for i, s := range n.stringConfigs {
+		n.params[i] = uint64(n.runtime.CreateString(s))
+	}
 	for i := int64(0); i < maxLength; i++ {
 		for j := range n.ir.Inputs {
 			inputLen := n.Input(j).Len()

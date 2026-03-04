@@ -41,7 +41,13 @@ func (w *factory) Create(_ context.Context, cfg node2.Config) (node2.Node, error
 
 	configCount := len(cfg.Node.Config)
 	params := make([]uint64, configCount+len(irFn.Inputs))
+	stringConfigs := make(map[int]string)
 	for i, param := range cfg.Node.Config {
+		if s, ok := param.Value.(string); ok {
+			// String handles are transient (cleared on Flush); refresh per-cycle in Next().
+			stringConfigs[i] = s
+			continue
+		}
 		val, err := convertConfigValue(param.Value)
 		if err != nil {
 			return nil, err
@@ -58,11 +64,12 @@ func (w *factory) Create(_ context.Context, cfg node2.Config) (node2.Node, error
 			irFn.Outputs,
 			cfg.Module.OutputMemoryBases[cfg.Node.Type],
 		),
-		runtime:     w.runtime,
-		params:      params,
-		configCount: configCount,
-		offsets:     make([]int, len(irFn.Outputs)),
-		isEntryNode: isEntryNode,
+		runtime:       w.runtime,
+		params:        params,
+		configCount:   configCount,
+		stringConfigs: stringConfigs,
+		offsets:       make([]int, len(irFn.Outputs)),
+		isEntryNode:   isEntryNode,
 	}
 	return n, nil
 }

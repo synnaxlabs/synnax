@@ -42,7 +42,6 @@ var _ = Describe("convertConfigValue", func() {
 			_, err := convertConfigValue(v)
 			Expect(err).To(HaveOccurred())
 		},
-		Entry("string", "did this work"),
 		Entry("bool", true),
 	)
 })

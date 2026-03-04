@@ -14,6 +14,12 @@ import (
 	compilerbindings "github.com/synnaxlabs/arc/compiler/bindings"
 )
 
+// CreateString stores a Go string in the runtime state and returns its handle.
+// The handle is valid until the next state.Flush call.
+func (r *Runtime) CreateString(s string) uint32 {
+	return r.state.StringCreate(s)
+}
+
 // BindRuntime connects a Runtime implementation to the static compiler Bindings.
 func BindRuntime(runtime *Runtime, b *compilerbindings.Bindings) {
 	// Channel operations
