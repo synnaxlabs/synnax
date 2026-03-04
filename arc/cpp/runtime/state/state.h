@@ -160,12 +160,19 @@ class State {
     std::unordered_map<types::ChannelKey, std::vector<Series>> reads;
     std::unordered_map<types::ChannelKey, Series> writes;
 
+    /// @brief Starting value for config string handles. Config string handles are
+    /// stable for the State lifetime and are never cleared by flush(). Using a high
+    /// base value ensures they cannot collide with transient string handles, which
+    /// start at 1 and reset back to 1 on every flush() call — so transient handles
+    /// can never reach this value within a single cycle.
+    static constexpr uint32_t k_config_string_handle_base = 1 << 24;
+
     /// @brief Transient string handles - cleared each execution cycle.
     std::unordered_map<uint32_t, std::string> strings;
     uint32_t string_handle_counter = 1;
     /// @brief Persistent config string handles - not cleared by flush().
     std::unordered_map<uint32_t, std::string> config_strings;
-    uint32_t config_string_handle_counter = 1 << 24;
+    uint32_t config_string_handle_counter = k_config_string_handle_base;
 
     /// @brief Transient series handles - cleared each execution cycle.
     std::unordered_map<uint32_t, x::telem::Series> series_handles;

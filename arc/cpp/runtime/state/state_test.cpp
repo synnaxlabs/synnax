@@ -759,3 +759,10 @@ TEST(StateTest, StringGet_TransientClearedConfigPreservedAfterFlush) {
     EXPECT_TRUE(s.string_exists(config));
     EXPECT_EQ(s.string_get(config), "config");
 }
+
+TEST(StateTest, StringCreateConfig_ClearedByReset) {
+    State s = create_minimal_state();
+    const uint32_t handle = s.string_create_config("config");
+    s.reset();
+    EXPECT_FALSE(s.string_exists(handle));
+}

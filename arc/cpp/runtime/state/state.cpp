@@ -208,6 +208,8 @@ void State::reset() {
     this->series_handles.clear();
     this->string_handle_counter = 1;
     this->series_handle_counter = 1;
+    this->config_strings.clear();
+    this->config_string_handle_counter = k_config_string_handle_base;
     this->var_u8.clear();
     this->var_u16.clear();
     this->var_u32.clear();

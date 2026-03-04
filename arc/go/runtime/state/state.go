@@ -34,6 +34,13 @@ import (
 // slices.Delete zeroes old references (allowing GC) without allocating.
 const clearReadsReallocThreshold = 64
 
+// configStringHandleBase is the starting value for config string handles.
+// Config string handles are stable for the State lifetime and are never cleared
+// by Flush. Using a high base value ensures they cannot collide with transient
+// string handles, which start at 1 and reset back to 1 on every Flush call —
+// so transient handles can never reach this value within a single cycle.
+const configStringHandleBase uint32 = 1 << 24
+
 type value struct {
 	data telem.Series
 	time telem.Series
@@ -97,7 +104,7 @@ func New(cfg Config) *State {
 		strings:                   make(map[uint32]string),
 		stringHandleCounter:       1,
 		configStrings:             make(map[uint32]string),
-		configStringHandleCounter: 1 << 24,
+		configStringHandleCounter: configStringHandleBase,
 	}
 	s.channel.reads = make(map[uint32]telem.MultiSeries)
 	s.channel.writes = make(map[uint32]telem.Series)

@@ -99,8 +99,9 @@ func convertConfigValue(v any) (uint64, error) {
 	case telem.TimeStamp:
 		return uint64(val), nil
 	default:
-		zap.S().DPanicf("unsupported config value type: %T", v)
-		return 0, errors.Newf("unsupported config value type: %T", v)
+		err := errors.Newf("unsupported config value type: %T", v)
+		zap.S().DPanic(err.Error())
+		return 0, err
 	}
 }
 
