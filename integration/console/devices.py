@@ -176,14 +176,13 @@ class DevicesClient:
         if rack_item is not None:
             self.tree.expand(rack_item)
         self._expand_visible_groups()
-        # If the device has a parent chassis, expand that too.
-        if device.parent_device:
-            parent = self.client.devices.retrieve(key=device.parent_device)
-            parent_item = self.tree.find_by_name(
-                self.DEVICE_PREFIX, parent.name, exact=False
-            )
-            if parent_item is not None:
-                self.tree.expand(parent_item)
+        # Expand any visible chassis nodes that might contain this device.
+        chassis_items = self.layout.page.locator(
+            f"div[id^='{self.DEVICE_PREFIX}']"
+        ).all()
+        for item in chassis_items:
+            if item.is_visible() and not self.tree.is_expanded(item):
+                self.tree.expand(item)
         self._expand_visible_groups()
         return self.tree.find_by_name(self.DEVICE_PREFIX, name, exact=False)
 

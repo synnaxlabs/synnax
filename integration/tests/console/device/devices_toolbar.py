@@ -56,7 +56,7 @@ class DevicesToolbar(ConsoleCase):
             make="NI",
             model="NI 9205",
             location="Analog Input",
-            parent_device=self.chassis_a.key,
+            parent=self.chassis_a.key,
             properties={"is_simulated": True, "resource_name": "cDAQ1Mod1"},
         )
         self.mod_2 = self._create_device(
@@ -65,7 +65,7 @@ class DevicesToolbar(ConsoleCase):
             make="NI",
             model="NI 9263",
             location="Analog Output",
-            parent_device=self.chassis_a.key,
+            parent=self.chassis_a.key,
             properties={"is_simulated": True, "resource_name": "cDAQ1Mod2"},
         )
         self.mod_3 = self._create_device(
@@ -74,7 +74,7 @@ class DevicesToolbar(ConsoleCase):
             make="NI",
             model="NI 9401",
             location="Digital I/O",
-            parent_device=self.chassis_a.key,
+            parent=self.chassis_a.key,
             properties={"is_simulated": True, "resource_name": "cDAQ1Mod3"},
         )
         self.modules = [self.mod_1, self.mod_2, self.mod_3]
@@ -165,7 +165,7 @@ class DevicesToolbar(ConsoleCase):
         make: str,
         model: str,
         location: str,
-        parent_device: str = "",
+        parent: str = "",
         configured: bool = False,
         properties: dict[str, object] | None = None,
     ) -> sy.Device:
@@ -178,16 +178,16 @@ class DevicesToolbar(ConsoleCase):
                 make=make,
                 model=model,
                 location=location,
-                parent_device=parent_device,
                 configured=configured,
                 properties=properties or {},
-            )
+            ),
+            parent=f"device:{parent}" if parent else "",
         )
         self._live_keys.add(dev.key)
         return dev
 
     def _move_device(self, device: sy.Device, target_chassis: sy.Device) -> sy.Device:
-        """Move a device to a different chassis and verify in client and UI."""
+        """Move a device to a different chassis and verify in UI."""
         updated = self.client.devices.create(
             sy.Device(
                 key=device.key,
@@ -196,14 +196,9 @@ class DevicesToolbar(ConsoleCase):
                 make=device.make,
                 model=device.model,
                 location=device.location,
-                parent_device=target_chassis.key,
                 properties=device.properties,
-            )
-        )
-        retrieved = self.client.devices.retrieve(key=device.key)
-        assert retrieved.parent_device == target_chassis.key, (
-            f"Expected parent '{target_chassis.key}', "
-            f"got '{retrieved.parent_device}'"
+            ),
+            parent=f"device:{target_chassis.key}",
         )
         self.console.devices.expand_chassis(target_chassis.name)
         assert self.console.devices.is_child_of(
@@ -368,13 +363,6 @@ class DevicesToolbar(ConsoleCase):
         )
 
         self._assert_modules_under(new_name)
-
-        for mod in self.modules:
-            retrieved = self.client.devices.retrieve(key=mod.key)
-            assert retrieved.parent_device == self.chassis_a.key, (
-                f"Module '{mod.name}' parent should still be "
-                f"'{self.chassis_a.key}', got '{retrieved.parent_device}'"
-            )
 
         self.chassis_a = updated_chassis
 

@@ -45,7 +45,6 @@ class Device(BaseModel):
     make: str = ""
     model: str = ""
     configured: bool = False
-    parent_device: str = ""
     properties: dict[str, Any] = {}
     status: Status | None = None
 

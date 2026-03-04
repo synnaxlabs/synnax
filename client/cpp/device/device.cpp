@@ -80,6 +80,8 @@ Client::retrieve(RetrieveRequest &req) const {
 x::errors::Error Client::create(Device &device) const {
     auto req = api::v1::DeviceCreateRequest();
     device.to_proto(req.add_devices());
+    if (!device.parent_device.empty())
+        req.set_parent("device:" + device.parent_device);
     auto [res, err] = device_create_client->send("/device/create", req);
     if (err) return err;
     if (res.devices_size() == 0) return errors::unexpected_missing_error("device");
@@ -124,7 +126,6 @@ std::pair<Device, x::errors::Error> Device::from_proto(const api::v1::Device &de
         d.properties = v;
     }
     d.configured = device.configured();
-    d.parent_device = device.parent_device();
     if (device.has_status()) {
         auto [s, err] = Status::from_proto(device.status());
         if (err) return {d, err};
@@ -142,7 +143,6 @@ void Device::to_proto(api::v1::Device *device) const {
     device->set_model(model);
     x::json::to_struct(properties, device->mutable_properties());
     device->set_configured(configured);
-    if (!parent_device.empty()) device->set_parent_device(parent_device);
     if (!status.is_zero()) status.to_proto(device->mutable_status());
 }
 
@@ -155,7 +155,6 @@ Device Device::parse(x::json::Parser &parser) {
     d.make = parser.field<std::string>("make", "");
     d.model = parser.field<std::string>("model", "");
     d.configured = parser.field<bool>("configured", false);
-    d.parent_device = parser.field<std::string>("parent_device", "");
     auto props = parser.field<x::json::json>("properties", x::json::json::object());
     if (props.is_object()) d.properties = props;
     return d;

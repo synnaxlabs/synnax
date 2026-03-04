@@ -64,14 +64,13 @@ var (
 
 func translateForward(d *apidevice.Device) (*gapi.Device, error) {
 	gd := &gapi.Device{
-		Key:          d.Key,
-		Name:         d.Name,
-		Location:     d.Location,
-		Rack:         uint32(d.Rack),
-		Make:         d.Make,
-		Model:        d.Model,
-		Configured:   d.Configured,
-		ParentDevice: d.ParentDevice,
+		Key:        d.Key,
+		Name:       d.Name,
+		Location:   d.Location,
+		Rack:       uint32(d.Rack),
+		Make:       d.Make,
+		Model:      d.Model,
+		Configured: d.Configured,
 	}
 	if d.Properties != nil {
 		s, err := structpb.NewStruct(map[string]any(d.Properties))
@@ -92,14 +91,13 @@ func translateForward(d *apidevice.Device) (*gapi.Device, error) {
 
 func translateBackward(d *gapi.Device) (*apidevice.Device, error) {
 	ad := &apidevice.Device{
-		Key:          d.Key,
-		Name:         d.Name,
-		Rack:         rack.Key(d.Rack),
-		Location:     d.Location,
-		Make:         d.Make,
-		Model:        d.Model,
-		Configured:   d.Configured,
-		ParentDevice: d.ParentDevice,
+		Key:        d.Key,
+		Name:       d.Name,
+		Rack:       rack.Key(d.Rack),
+		Location:   d.Location,
+		Make:       d.Make,
+		Model:      d.Model,
+		Configured: d.Configured,
 	}
 	if d.Properties != nil {
 		ad.Properties = d.Properties.AsMap()
@@ -144,7 +142,7 @@ func (createRequestTranslator) Forward(_ context.Context, req apidevice.CreateRe
 	if err != nil {
 		return nil, err
 	}
-	return &gapi.DeviceCreateRequest{Devices: devices}, nil
+	return &gapi.DeviceCreateRequest{Devices: devices, Parent: req.Parent}, nil
 }
 
 func (createRequestTranslator) Backward(_ context.Context, req *gapi.DeviceCreateRequest) (apidevice.CreateRequest, error) {
@@ -152,7 +150,7 @@ func (createRequestTranslator) Backward(_ context.Context, req *gapi.DeviceCreat
 	if err != nil {
 		return apidevice.CreateRequest{}, err
 	}
-	return apidevice.CreateRequest{Devices: devices}, nil
+	return apidevice.CreateRequest{Devices: devices, Parent: req.Parent}, nil
 }
 
 func (createResponseTranslator) Forward(_ context.Context, res apidevice.CreateResponse) (*gapi.DeviceCreateResponse, error) {

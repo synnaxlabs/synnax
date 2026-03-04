@@ -44,7 +44,6 @@ type Device struct {
 	Properties    *structpb.Struct       `protobuf:"bytes,8,opt,name=properties,proto3" json:"properties,omitempty"`
 	Configured    bool                   `protobuf:"varint,9,opt,name=configured,proto3" json:"configured,omitempty"`
 	Status        *status.PBStatus       `protobuf:"bytes,10,opt,name=status,proto3" json:"status,omitempty"`
-	ParentDevice  string                 `protobuf:"bytes,11,opt,name=parent_device,json=parentDevice,proto3" json:"parent_device,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -142,16 +141,10 @@ func (x *Device) GetStatus() *status.PBStatus {
 	return nil
 }
 
-func (x *Device) GetParentDevice() string {
-	if x != nil {
-		return x.ParentDevice
-	}
-	return ""
-}
-
 type DeviceCreateRequest struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	Devices       []*Device              `protobuf:"bytes,1,rep,name=devices,proto3" json:"devices,omitempty"`
+	Parent        string                 `protobuf:"bytes,2,opt,name=parent,proto3" json:"parent,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -191,6 +184,13 @@ func (x *DeviceCreateRequest) GetDevices() []*Device {
 		return x.Devices
 	}
 	return nil
+}
+
+func (x *DeviceCreateRequest) GetParent() string {
+	if x != nil {
+		return x.Parent
+	}
+	return ""
 }
 
 type DeviceCreateResponse struct {
@@ -453,7 +453,7 @@ var File_core_pkg_api_grpc_v1_device_proto protoreflect.FileDescriptor
 
 const file_core_pkg_api_grpc_v1_device_proto_rawDesc = "" +
 	"\n" +
-	"!core/pkg/api/grpc/v1/device.proto\x12\x06api.v1\x1a\x1bgoogle/protobuf/empty.proto\x1a\x1cgoogle/protobuf/struct.proto\x1a\x18x/go/status/status.proto\"\xb0\x02\n" +
+	"!core/pkg/api/grpc/v1/device.proto\x12\x06api.v1\x1a\x1bgoogle/protobuf/empty.proto\x1a\x1cgoogle/protobuf/struct.proto\x1a\x18x/go/status/status.proto\"\x8b\x02\n" +
 	"\x06Device\x12\x10\n" +
 	"\x03key\x18\x01 \x01(\tR\x03key\x12\x12\n" +
 	"\x04name\x18\x02 \x01(\tR\x04name\x12\x12\n" +
@@ -468,10 +468,10 @@ const file_core_pkg_api_grpc_v1_device_proto_rawDesc = "" +
 	"configured\x18\t \x01(\bR\n" +
 	"configured\x12(\n" +
 	"\x06status\x18\n" +
-	" \x01(\v2\x10.status.PBStatusR\x06status\x12#\n" +
-	"\rparent_device\x18\v \x01(\tR\fparentDevice\"?\n" +
+	" \x01(\v2\x10.status.PBStatusR\x06status\"W\n" +
 	"\x13DeviceCreateRequest\x12(\n" +
-	"\adevices\x18\x01 \x03(\v2\x0e.api.v1.DeviceR\adevices\"@\n" +
+	"\adevices\x18\x01 \x03(\v2\x0e.api.v1.DeviceR\adevices\x12\x16\n" +
+	"\x06parent\x18\x02 \x01(\tR\x06parent\"@\n" +
 	"\x14DeviceCreateResponse\x12(\n" +
 	"\adevices\x18\x01 \x03(\v2\x0e.api.v1.DeviceR\adevices\"\xba\x02\n" +
 	"\x15DeviceRetrieveRequest\x12\x12\n" +

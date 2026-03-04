@@ -108,7 +108,8 @@ struct Device {
     /// @brief whether the device has been configured.
     bool configured = false;
     /// @brief the key of the parent device (e.g., chassis for NI module).
-    /// Empty means the device is parented directly to its rack.
+    /// This field is used locally by the driver for change detection but is not
+    /// stored on the server. It is mapped to the create request's parent field.
     std::string parent_device;
     /// @brief Status information about the device.
     Status status;

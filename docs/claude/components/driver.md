@@ -123,10 +123,11 @@ Factory → {Read|Write|Scan}Task → Source/Sink → Device API
 The NI scanner discovers CompactDAQ chassis and their installed modules using NISysCfg
 link properties (`ConnectsToLinkName` / `ProvidesLinkName`). The scan uses a two-pass
 algorithm: first collect all devices and build a link-name-to-chassis-key map, then
-resolve each module's `parent_device` via that map. Chassis are sorted before modules to
-ensure parents are created first. The common scan task
-(`driver/task/common/scan_task.h`) detects `parent_device` changes between scan cycles
-and triggers updates.
+resolve each module's parent via that map. Chassis are sorted before modules to ensure
+parents are created first. The driver keeps a local `parent_device` field on the C++
+Device struct for change detection; when it changes, the common scan task
+(`driver/task/common/scan_task.h`) re-sends the device create request with the
+appropriate `parent` ontology ID.
 
 **Error Handling:**
 
@@ -288,20 +289,25 @@ linkopts = select({
 
 ## Device Hierarchy (Parent-Child Relationships)
 
-Devices support a `parent_device` field that creates parent-child relationships in the
-ontology. When `parent_device` is set to another device's key, the child device appears
-nested under the parent in the Console's resource tree.
+Devices support parent-child relationships via the ontology. The device create API
+accepts an optional `parent` ontology ID (e.g., `"device:SERIAL123"`) that atomically
+creates both the device and the `ParentOf` relationship in a single transaction. When no
+parent is provided, the device defaults to being parented under its rack.
 
 **How it works:**
 
-- The Go server (`core/pkg/service/device/writer.go`) validates parent existence on
-  create. If the parent doesn't exist yet, it clears `parent_device` and falls back to
-  the rack as parent. On the next scan cycle the scanner re-sends with the parent set,
-  detects the difference, and triggers an update.
-- The server creates an ontology `ParentOf` relationship from the parent device (or
-  rack) to the child device.
-- The Console checks `is_chassis` in device properties to determine if a device node
-  should be expandable.
+- The device create endpoint (`core/pkg/service/device/writer.go`) accepts an optional
+  `parent ontology.ID`. If non-zero, the device is parented to that resource; otherwise
+  it defaults to the device's rack.
+- The C++ driver keeps a local `parent_device` field on the Device struct for change
+  detection between scan cycles. This field is not stored on the server — instead, the
+  driver maps it to the `parent` field on the create request (e.g.,
+  `"device:" + parent_device`).
+- The common scan task (`driver/common/scan_task.h`) detects local `parent_device`
+  changes and triggers updates.
+- The Console uses a make-based dispatch (`console/src/hardware/device/make.tsx`) to
+  determine if a device node should be expandable (e.g., NI checks `is_chassis` in
+  device properties).
 
 **Currently used by:** NI integration (cDAQ chassis with swappable modules).
 

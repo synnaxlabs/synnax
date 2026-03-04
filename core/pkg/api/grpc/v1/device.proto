@@ -30,11 +30,11 @@ message Device {
   google.protobuf.Struct properties = 8;
   bool configured = 9;
   status.PBStatus status = 10;
-  string parent_device = 11;
 }
 
 message DeviceCreateRequest {
   repeated Device devices = 1;
+  string parent = 2;
 }
 
 message DeviceCreateResponse {

@@ -60,7 +60,7 @@ client.devices.create(
     ]
 )
 
-# Create a cDAQ chassis with nested modules to demonstrate parent_device
+# Create a cDAQ chassis with nested modules to demonstrate parent ontology
 # relationships. The chassis appears as an expandable node in the Console's
 # resource tree with the modules nested underneath it.
 chassis = client.devices.create(
@@ -91,11 +91,11 @@ for key, model, location, resource_name in modules:
             model=model,
             location=location,
             rack=rack_key,
-            parent_device=chassis.key,
             properties={"is_simulated": True, "resource_name": resource_name},
-        )
+        ),
+        parent=f"device:{chassis.key}",
     )
-    print(f"  Created module: {mod.name} (parent={mod.parent_device})")
+    print(f"  Created module: {mod.name}")
 
 # Create a standalone module with no parent chassis (should appear at rack level).
 standalone = client.devices.create(
@@ -109,4 +109,4 @@ standalone = client.devices.create(
         properties={"is_simulated": True, "resource_name": "Dev1"},
     )
 )
-print(f"  Created standalone: {standalone.name} (parent={standalone.parent_device!r})")
+print(f"  Created standalone: {standalone.name}")

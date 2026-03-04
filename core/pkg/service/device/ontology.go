@@ -60,7 +60,6 @@ var schema = zyn.Object(map[string]zyn.Schema{
 	"make":          zyn.String(),
 	"model":         zyn.String(),
 	"configured":    zyn.Bool(),
-	"parent_device": zyn.String(),
 })
 
 func newResource(d Device) ontology.Resource {

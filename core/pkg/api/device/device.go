@@ -53,6 +53,7 @@ type (
 
 type CreateRequest struct {
 	Devices []device.Device `json:"devices" msgpack:"devices"`
+	Parent  string          `json:"parent" msgpack:"parent"`
 }
 
 type CreateResponse struct {
@@ -70,10 +71,18 @@ func (s *Service) Create(
 	}); err != nil {
 		return res, err
 	}
+	var parent ontology.ID
+	if req.Parent != "" {
+		var err error
+		parent, err = ontology.ParseID(req.Parent)
+		if err != nil {
+			return res, err
+		}
+	}
 	return res, s.db.WithTx(ctx, func(tx gorp.Tx) error {
 		w := s.device.NewWriter(tx)
 		for _, d := range req.Devices {
-			if err := w.Create(ctx, d); err != nil {
+			if err := w.Create(ctx, d, parent); err != nil {
 				return err
 			}
 		}

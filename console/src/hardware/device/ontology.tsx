@@ -25,7 +25,12 @@ import { useMemo } from "react";
 import { Menu } from "@/components";
 import { CSS } from "@/css";
 import { Group } from "@/group";
-import { getContextMenuItems, getIcon, getMake } from "@/hardware/device/make";
+import {
+  getContextMenuItems,
+  getHasChildren,
+  getIcon,
+  getMake,
+} from "@/hardware/device/make";
 import { Ontology } from "@/ontology";
 import { createUseDelete } from "@/ontology/createUseDelete";
 import { createUseRename } from "@/ontology/createUseRename";
@@ -130,13 +135,7 @@ export const ONTOLOGY_SERVICE: Ontology.Service = {
   ...Ontology.NOOP_SERVICE,
   type: "device",
   icon,
-  hasChildren: ({ data }) => {
-    const props = data?.properties;
-    if (props == null || typeof props !== "object") return false;
-    // Key is camelCase because Freighter's HTTP codec recursively converts
-    // snake_case keys to camelCase (is_chassis → isChassis).
-    return "isChassis" in props && props.isChassis === true;
-  },
+  hasChildren: (resource) => getHasChildren(resource),
   TreeContextMenu,
   Item,
 };
