@@ -1,0 +1,280 @@
+---
+title: "Installation"
+layout: "@/layouts/Reference.astro"
+platforms: ["Linux", "Windows", "macOS", "Docker"]
+---
+
+import { Flex, Note, Divider } from "@synnaxlabs/pluto";
+
+import { Console, Platform } from "@/components";
+import DownloadURL from "@/components/core/DownloadURL.astro";
+import MoveCommand from "@/components/core/MoveCommand.astro";
+import VersionOutput from "@/components/core/VersionOutput.astro";
+import WindowsDownloadButton from "@/components/core/WindowsDownloadButton.astro";
+import Step from "@/components/text/Step.astro";
+import { mdxOverrides } from "@/components/mdxOverrides";
+import { Image } from "@/components/media/Media";
+
+export const components = mdxOverrides;
+
+This page will walk you through installing and running Synnax locally. By the end,
+you'll have a running Core and a Console connected to it. Select your operating system
+to get started.
+
+<Divider.Divider x />
+
+## <Step step={1} level="h2">Install the Core</Step>
+
+The Core is the heart of every Synnax deployment. It stores all sensor and actuator data
+and serves as a central hub where devices, Consoles, and control sequences communicate.
+
+<Platform.Tabs client:only="react">
+
+<Fragment slot="Docker">
+
+### Docker
+
+<Note.Note variant="warning">
+  A Synnax Core within a container has an isolated runtime, which means that it can't
+  access devices attached to the host machine. If you plan to connect data acquisition
+  devices using the Synnax Driver, install Synnax directly on the host OS using one of
+  the other methods.
+</Note.Note>
+
+Pull the latest image from Docker Hub:
+
+```bash
+docker pull synnaxlabs/synnax:latest
+```
+
+</Fragment>
+
+<Fragment slot="Linux">
+
+### Linux
+
+Download the latest binary:
+
+<DownloadURL os="linux" />
+
+Move the binary to `/usr/local/bin` and make it executable:
+
+<MoveCommand os="linux" />
+
+```bash
+chmod +x /usr/local/bin/synnax
+```
+
+If `/usr/local/bin` is not in your `PATH`, add it permanently:
+
+```bash
+echo 'export PATH=$PATH:/usr/local/bin' >> ~/.bashrc
+```
+
+For `zsh`, replace `~/.bashrc` with `~/.zshrc`.
+
+Verify the installation:
+
+```bash
+synnax --version
+```
+
+You should see:
+
+<VersionOutput />
+
+</Fragment>
+
+<Fragment slot="macOS">
+
+### macOS
+
+Download the latest binary:
+
+<DownloadURL os="macos" />
+
+Move the binary to `/usr/local/bin` and make it executable:
+
+<MoveCommand os="macos" />
+
+```bash
+chmod +x /usr/local/bin/synnax
+```
+
+If `/usr/local/bin` is not in your `PATH`, add it permanently:
+
+```bash
+echo 'export PATH=$PATH:/usr/local/bin' >> ~/.zshrc
+```
+
+Verify the installation:
+
+```bash
+synnax --version
+```
+
+You should see:
+
+<VersionOutput />
+
+</Fragment>
+
+<Fragment slot="Windows">
+
+### Windows
+
+Download and run the latest installer:
+
+<br />
+<br />
+<Flex.Box direction="y" justify="center" align="center">
+  <WindowsDownloadButton />
+  <small>
+    Releases for other operating systems and older versions can be found on the
+    <a href="https://github.com/synnaxlabs/synnax/releases"> releases page</a>.
+  </small>
+</Flex.Box>
+<br />
+<br />
+
+Verify the installation by running the following in a **PowerShell** terminal:
+
+```powershell
+synnax --version
+```
+
+You should see:
+
+<VersionOutput />
+
+</Fragment>
+
+</Platform.Tabs>
+
+<Divider.Divider x />
+
+## <Step step={2} level="h2">Start the Core</Step>
+
+<Platform.Tabs client:only="react">
+
+<Fragment slot="Docker">
+
+```bash
+docker run -p 9090:9090 synnaxlabs/synnax --listen=localhost:9090 --mem --insecure
+```
+
+</Fragment>
+
+<Fragment slot="Linux">
+
+```bash
+synnax start --listen=localhost:9090 --mem --insecure
+```
+
+</Fragment>
+
+<Fragment slot="macOS">
+
+```bash
+synnax start --listen=localhost:9090 --mem --insecure
+```
+
+</Fragment>
+
+<Fragment slot="Windows">
+
+```powershell
+synnax start --listen=localhost:9090 --mem --insecure
+```
+
+</Fragment>
+
+</Platform.Tabs>
+
+This starts a Core with the following configuration:
+
+<table>
+  <thead>
+    <tr>
+      <th>Flag</th>
+      <th>Description</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>`--listen=localhost:9090`</td>
+      <td>Sets the address the Core will listen on</td>
+    </tr>
+    <tr>
+      <td>`--mem`</td>
+      <td>Store all data in memory (useful for learning and development)</td>
+    </tr>
+    <tr>
+      <td>`--insecure`</td>
+      <td>Run without TLS</td>
+    </tr>
+  </tbody>
+</table>
+
+The `--mem` flag is great for getting started, but data will be lost when the Core
+stops. See the [CLI Reference](/reference/core/cli-reference) for persistent storage
+options and other configuration flags. For production deployments, see
+[Production](/reference/core/production).
+
+To stop the Core, press `Ctrl+C` in the terminal.
+
+<Divider.Divider x />
+
+## <Step step={3} level="h2">Install the Console</Step>
+
+The Console is a desktop application for visualizing data, configuring devices, and
+controlling hardware. Download the latest release for your operating system:
+
+<br />
+<br />
+<Flex.Box direction="y" justify="center" align="center">
+  <Console.DownloadButton client:load />
+  <small>
+    Releases for other operating systems and older versions can be found on the
+    [releases page](https://github.com/synnaxlabs/synnax/releases).
+  </small>
+</Flex.Box>
+<br />
+<br />
+
+After installing, you'll see the login page:
+
+<Image id="console/get-started/window" client:only="react" />
+
+<Divider.Divider x />
+
+## <Step step={4} level="h2">Connect the Console to the Core</Step>
+
+The Console ships with a pre-configured connection to a local Core. It should appear in
+the list of available cors on the login page as 'Local'. If the core you started in the
+previous step is reachable, the status badge will turn blue and say 'Connected'.
+
+To log in, simply enter the root username and password:
+
+<table>
+  <tr>
+    <th>Username</th>
+    <td>synnax</td>
+  </tr>
+  <tr>
+    <th>Password</th>
+    <td>seldon</td>
+  </tr>
+</table>
+
+<Divider.Divider x />
+
+## Next Steps
+
+Now that you have a running Core and Console, here are some places to go next:
+
+- [Connect a data acquisition device](/reference/driver/get-started) using the Synnax
+  Driver
+- Learn about [channels and other key concepts](/reference/concepts/overview)
+- Write and read data using the
+  [Python or TypeScript client](/reference/client/quick-start)

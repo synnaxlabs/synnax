@@ -8,11 +8,6 @@
 // included in the file licenses/APL.txt.
 
 import { type PageNavNode } from "@/components/nav/Page";
-import { ANALYST_NAV } from "@/pages/guides/analyst/_nav";
-import { COMPARISON_NAV } from "@/pages/guides/comparison/_nav";
-import { GET_STARTED_NAV } from "@/pages/guides/get-started/_nav";
-import { OPERATIONS_NAV } from "@/pages/guides/operations/_nav";
-import { SYS_ADMIN_NAV } from "@/pages/guides/sys-admin/_nav";
 import { CLIENT_NAV } from "@/pages/reference/client/_nav";
 import { CONCEPTS_NAV } from "@/pages/reference/concepts/_nav";
 import { CONSOLE_NAV } from "@/pages/reference/console/_nav";
@@ -23,6 +18,11 @@ import { PLUTO_NAV } from "@/pages/reference/pluto/_nav";
 
 export const REFERENCE_PAGES: PageNavNode[] = [
   { name: "Get Started", key: "/reference/", href: "/reference/" },
+  {
+    name: "Installation",
+    key: "/reference/installation",
+    href: "/reference/installation",
+  },
   CONCEPTS_NAV,
   CORE_NAV,
   CONSOLE_NAV,
@@ -30,13 +30,4 @@ export const REFERENCE_PAGES: PageNavNode[] = [
   CLIENT_NAV,
   CONTROL_NAV,
   PLUTO_NAV,
-];
-
-export const GUIDES_PAGES: PageNavNode[] = [
-  { name: "Why Synnax?", key: "/guides/", href: "/guides/" },
-  GET_STARTED_NAV,
-  ANALYST_NAV,
-  SYS_ADMIN_NAV,
-  OPERATIONS_NAV,
-  COMPARISON_NAV,
 ];

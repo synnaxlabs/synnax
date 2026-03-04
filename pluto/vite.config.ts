@@ -23,11 +23,13 @@ export default defineConfig({
       closeBundle() {
         // Ensure dist directory exists
         mkdirSync("dist", { recursive: true });
-        // Copy the theme CSS file to dist
-        copyFileSync(
-          path.resolve("src/theming/static/theme.css"),
-          path.resolve("dist/theme.css"),
-        );
+        // Copy theme CSS files to dist
+        for (const file of ["theme.css", "theme-dark.css", "theme-light.css"]) {
+          copyFileSync(
+            path.resolve(`src/theming/static/${file}`),
+            path.resolve(`dist/${file}`),
+          );
+        }
       },
     },
   ],
