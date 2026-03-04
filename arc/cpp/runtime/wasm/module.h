@@ -289,9 +289,11 @@ public:
                     // String config params get a stable handle created once at
                     // configure time — not cleared by flush(), no per-call refresh.
                     if (module.cfg.bindings != nullptr)
-                        this->args[i] = wasmtime::Val(static_cast<int32_t>(
-                            module.cfg.bindings->string_create_config(*s)
-                        ));
+                        this->args[i] = wasmtime::Val(
+                            static_cast<int32_t>(
+                                module.cfg.bindings->string_create_config(*s)
+                            )
+                        );
                     continue;
                 }
                 this->args[i] = sample_to_wasm(*config[i].value, config[i].type);

@@ -744,7 +744,8 @@ TEST(StateTest, StringCreateConfig_NoCollisionWithTransient) {
 TEST(StateTest, StringCreateConfig_StableAcrossMultipleFlushCycles) {
     State s = create_minimal_state();
     const uint32_t handle = s.string_create_config("stable");
-    for (int i = 0; i < 5; i++) s.flush();
+    for (int i = 0; i < 5; i++)
+        s.flush();
     EXPECT_TRUE(s.string_exists(handle));
     EXPECT_EQ(s.string_get(handle), "stable");
 }
