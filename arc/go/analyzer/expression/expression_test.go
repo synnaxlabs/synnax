@@ -775,6 +775,54 @@ var _ = Describe("Expressions", func() {
 				}
 			`, "cannot call non-function"),
 		)
+
+		It("Should record a call edge when a function calls another function", func() {
+			resolver := symbol.MapResolver{
+				"ch": {Name: "ch", Kind: symbol.KindChannel, Type: types.Chan(types.F32()), ID: 10},
+			}
+			ast := MustSucceed(parser.Parse(`
+				func callee() {
+					ch = 1.0
+				}
+				func caller() {
+					callee()
+				}
+			`))
+			ctx := context.CreateRoot(bCtx, ast, resolver)
+			analyzer.AnalyzeProgram(ctx)
+			Expect(ctx.Diagnostics.Ok()).To(BeTrue(), ctx.Diagnostics.String())
+			Expect(*ctx.CallEdges).To(HaveLen(1))
+			Expect((*ctx.CallEdges)[0].Caller.Name).To(Equal("caller"))
+			Expect((*ctx.CallEdges)[0].Callee.Name).To(Equal("callee"))
+		})
+
+		It("Should not record a call edge when no enclosing function exists", func() {
+			resolver := symbol.MapResolver{
+				"ch": {Name: "ch", Kind: symbol.KindChannel, Type: types.Chan(types.F32()), ID: 10},
+				"interval": {
+					Name: "interval",
+					Kind: symbol.KindFunction,
+					Type: types.Function(types.FunctionProperties{
+						Config:  types.Params{{Name: "duration", Type: types.TimeSpan()}},
+						Outputs: types.Params{{Name: "output", Type: types.U8()}},
+					}),
+				},
+			}
+			ast := MustSucceed(parser.Parse(`
+				func helper() {
+					ch = 1.0
+				}
+				sequence main {
+					stage start {
+						interval{duration=1s} => next
+					}
+					stage done {}
+				}
+			`))
+			ctx := context.CreateRoot(bCtx, ast, resolver)
+			analyzer.AnalyzeProgram(ctx)
+			Expect(ctx.Diagnostics.Ok()).To(BeTrue(), ctx.Diagnostics.String())
+		})
 	})
 
 	Describe("Optional Parameter Function Calls", func() {
