@@ -124,7 +124,7 @@ struct ConnectionConfig {
 /// @param devices the Synnax device client.
 /// @param device_key the key of the device to retrieve.
 /// @returns the connection config paired with an error (nil on success).
-std::pair<ConnectionConfig, x::errors::Error> retrieve_connection(
+[[nodiscard]] std::pair<ConnectionConfig, x::errors::Error> retrieve_connection(
     const synnax::device::Client &devices,
     const std::string &device_key
 );
