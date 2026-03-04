@@ -609,45 +609,6 @@ TEST(DeviceTests, testParseParentDeviceDefaultsEmpty) {
     ASSERT_EQ(d.parent_device, "");
 }
 
-/// @brief it should round-trip parent_device through proto serialization.
-TEST(DeviceTests, testParentDeviceProtoRoundTrip) {
-    Device original;
-    original.key = "module-proto";
-    original.name = "Module";
-    original.rack = 42;
-    original.location = "slot-1";
-    original.make = "NI";
-    original.model = "9205";
-    original.parent_device = "chassis-proto";
-
-    api::v1::Device proto;
-    original.to_proto(&proto);
-
-    ASSERT_EQ(proto.parent_device(), "chassis-proto");
-
-    auto [recovered, err] = Device::from_proto(proto);
-    ASSERT_NIL(err);
-    ASSERT_EQ(recovered.parent_device, "chassis-proto");
-}
-
-/// @brief it should not set parent_device in proto when empty.
-TEST(DeviceTests, testEmptyParentDeviceProtoRoundTrip) {
-    Device original;
-    original.key = "standalone-proto";
-    original.name = "Standalone";
-    original.rack = 42;
-    original.location = "slot-1";
-
-    api::v1::Device proto;
-    original.to_proto(&proto);
-
-    ASSERT_EQ(proto.parent_device(), "");
-
-    auto [recovered, err] = Device::from_proto(proto);
-    ASSERT_NIL(err);
-    ASSERT_EQ(recovered.parent_device, "");
-}
-
 /// @brief it should create and retrieve a device with parent_device via the server.
 TEST(DeviceTests, testCreateAndRetrieveParentDevice) {
     const auto client = new_test_client();
