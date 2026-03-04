@@ -226,3 +226,28 @@ sequences. We figured out that there are a few reasons why:
    `if itereation == 1` made writing Lua sequences harder than Python ones.
 
 ### The Third (and Hopefully Final) Iteration: Arc
+
+When we went back to the drawing bord for the third time our approach was different.
+With Python and Lua we took the approach of building something that worked while pawning
+off as much of the work needed to implement it as possible.
+
+This time, we took a different approach. If we wanted to set the _standard_ for a new
+industrial automation language, what would it look like?
+
+In our design, we were armed with three pieces of information: what we'd seen in
+industry, what we'd learned from our wounds and feedback of previous iterations, and
+extensive user interviews and research from the wider world of industrial automation.
+
+You'll notice within this post I haven't mentioned the most common IEC 61131-3 languages
+in industrial automation: Ladder Diagram (LD), Function Block Diagram (FBD), Sequential
+Function Chart (SFC), Structured Text (ST), and Instruction List (IL). It's not because
+we didn't extensively study these, it's that if I was to write about the industrial
+automation paradigm this would become a book, not a blog post. At some point I'll find
+time to write about how we think Arc can replace and consolidate several of these into
+one.
+
+Aside over, we came up with the following principles:
+
+1. The language _had_ to be diffable in plain text.
+2. It had to be _progressive_. Simple to get started with, but more powerful as you
+   learned the features.
