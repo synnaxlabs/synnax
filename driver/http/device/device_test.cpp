@@ -1823,6 +1823,9 @@ TEST(ClientTest, SerialSingleHandleRecoveryFromServerError) {
 
 /// @brief it should construct a ConnectionConfig with https from device location when
 /// secure defaults to true.
+
+// ─── retrieve_connection Tests ──────────────────────────────────────────────
+
 TEST(RetrieveConnectionTest, SecureDefaultBaseURL) {
     auto client = new_test_client();
     auto r = synnax::rack::Rack{.name = "test_rack"};
@@ -1842,7 +1845,6 @@ TEST(RetrieveConnectionTest, SecureDefaultBaseURL) {
     EXPECT_EQ(conn.timeout, 5 * x::telem::SECOND);
 }
 
-/// @brief it should use http when secure is false.
 TEST(RetrieveConnectionTest, InsecureBaseURL) {
     auto client = new_test_client();
     auto r = synnax::rack::Rack{.name = "test_rack"};
@@ -1861,7 +1863,6 @@ TEST(RetrieveConnectionTest, InsecureBaseURL) {
     EXPECT_EQ(conn.base_url, "http://10.0.0.1:9090");
 }
 
-/// @brief it should return an error for a non-existent device.
 TEST(RetrieveConnectionTest, DeviceNotFound) {
     auto client = new_test_client();
     ASSERT_OCCURRED_AS_P(
