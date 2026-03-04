@@ -418,18 +418,15 @@ uint32_t State::var_load_str(const uint32_t var_id, const uint32_t init_handle) 
         this->strings[this->string_handle_counter] = it->second;
         return this->string_handle_counter++;
     }
-    if (const auto init_it = this->strings.find(init_handle);
-        init_it != this->strings.end())
-        inner[var_id] = init_it->second;
-    else
-        inner[var_id] = "";
+    // Use string_get to resolve both transient and config string handles.
+    inner[var_id] = this->string_get(init_handle);
     this->strings[this->string_handle_counter] = inner[var_id];
     return this->string_handle_counter++;
 }
 
 void State::var_store_str(const uint32_t var_id, const uint32_t str_handle) {
-    if (const auto it = this->strings.find(str_handle); it != this->strings.end())
-        this->var_string[this->current_node_key][var_id] = it->second;
+    // Use string_get to resolve both transient and config string handles.
+    this->var_string[this->current_node_key][var_id] = this->string_get(str_handle);
 }
 
 uint32_t State::var_load_series(const uint32_t var_id, const uint32_t init_handle) {
