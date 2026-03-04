@@ -219,7 +219,7 @@ ReadTaskSource::read(x::breaker::Breaker &breaker, x::telem::Frame &fr) {
             return res;
         }
 
-        if (auto status_err = device::classify_status(resp.status_code); status_err) {
+        if (auto status_err = errors::classify_status(resp.status_code); status_err) {
             res.error = status_err;
             return res;
         }

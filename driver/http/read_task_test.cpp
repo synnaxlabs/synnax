@@ -262,7 +262,7 @@ TEST(HTTPReadTask, MissingJSONFieldWarning) {
     EXPECT_EQ(fr.size(), 0);
 }
 
-/// @brief it should return SERVER_ERROR on 5xx status codes.
+/// @brief it should return TEMPORARY_ERROR on 5xx status codes.
 TEST(HTTPReadTask, ServerErrorOn5xx) {
     mock::Server server(
         mock::ServerConfig{
@@ -304,18 +304,18 @@ TEST(HTTPReadTask, ServerErrorOn5xx) {
     x::telem::Frame fr;
     auto res = source->read(breaker, fr);
     breaker.stop();
-    ASSERT_OCCURRED_AS(res.error, errors::SERVER_ERROR);
+    ASSERT_OCCURRED_AS(res.error, errors::TEMPORARY_ERROR);
 }
 
-/// @brief it should return CLIENT_ERROR on 4xx status codes.
-TEST(HTTPReadTask, ClientErrorOn4xx) {
+/// @brief it should return CRITICAL_ERROR on non-retryable 4xx status codes.
+TEST(HTTPReadTask, CriticalErrorOnNonRetryable4xx) {
     mock::Server server(
         mock::ServerConfig{
             .routes = {{
                 .method = Method::GET,
                 .path = "/api/data",
-                .status_code = 404,
-                .response_body = R"({"error":"not found"})",
+                .status_code = 400,
+                .response_body = R"({"error":"bad request"})",
             }},
         }
     );
@@ -349,7 +349,7 @@ TEST(HTTPReadTask, ClientErrorOn4xx) {
     x::telem::Frame fr;
     auto res = source->read(breaker, fr);
     breaker.stop();
-    ASSERT_OCCURRED_AS(res.error, errors::CLIENT_ERROR);
+    ASSERT_OCCURRED_AS(res.error, errors::CRITICAL_ERROR);
 }
 
 /// @brief it should convert JSON types correctly (bool to uint8, string to string).
@@ -1532,7 +1532,7 @@ TEST(HTTPReadTask, HTTPSPOSTWithBody) {
 ///////////////////////////// Partial Failures ////////////////////////////////
 
 /// @brief when the first endpoint returns 5xx but the second would succeed,
-/// the read should fail with SERVER_ERROR.
+/// the read should fail with TEMPORARY_ERROR.
 TEST(HTTPReadTask, PartialFailureFirstEndpoint5xx) {
     mock::Server server(
         mock::ServerConfig{
@@ -1592,12 +1592,12 @@ TEST(HTTPReadTask, PartialFailureFirstEndpoint5xx) {
     x::telem::Frame fr;
     auto res = source->read(breaker, fr);
     breaker.stop();
-    ASSERT_OCCURRED_AS(res.error, errors::SERVER_ERROR);
+    ASSERT_OCCURRED_AS(res.error, errors::TEMPORARY_ERROR);
 }
 
 /// @brief when the second endpoint returns 4xx but the first succeeds,
 /// the read should fail with CLIENT_ERROR.
-TEST(HTTPReadTask, PartialFailureSecondEndpoint4xx) {
+TEST(HTTPReadTask, PartialFailureSecondEndpointCritical4xx) {
     mock::Server server(
         mock::ServerConfig{
             .routes = {
@@ -1610,8 +1610,8 @@ TEST(HTTPReadTask, PartialFailureSecondEndpoint4xx) {
                 {
                     .method = Method::GET,
                     .path = "/api/failing",
-                    .status_code = 404,
-                    .response_body = R"({"error":"not found"})",
+                    .status_code = 400,
+                    .response_body = R"({"error":"bad request"})",
                 },
             },
         }
@@ -1656,7 +1656,7 @@ TEST(HTTPReadTask, PartialFailureSecondEndpoint4xx) {
     x::telem::Frame fr;
     auto res = source->read(breaker, fr);
     breaker.stop();
-    ASSERT_OCCURRED_AS(res.error, errors::CLIENT_ERROR);
+    ASSERT_OCCURRED_AS(res.error, errors::CRITICAL_ERROR);
 }
 
 /// @brief when one endpoint has a missing field pointer, the other endpoint's
