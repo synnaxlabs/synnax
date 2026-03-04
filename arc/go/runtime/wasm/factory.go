@@ -11,13 +11,13 @@ package wasm
 
 import (
 	"context"
-	"fmt"
 	"math"
 	"strings"
 
 	node2 "github.com/synnaxlabs/arc/runtime/node"
 	"github.com/synnaxlabs/arc/runtime/state"
 	"github.com/synnaxlabs/arc/runtime/wasm/bindings"
+	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/query"
 	"github.com/synnaxlabs/x/telem"
 	"github.com/tetratelabs/wazero/api"
@@ -100,7 +100,7 @@ func convertConfigValue(v any) (uint64, error) {
 	case telem.TimeStamp:
 		return uint64(val), nil
 	default:
-		return 0, fmt.Errorf("unsupported config value type: %T", v)
+		return 0, errors.Newf("unsupported config value type: %T", v)
 	}
 }
 
