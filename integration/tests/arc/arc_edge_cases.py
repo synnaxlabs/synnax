@@ -84,6 +84,9 @@ interval{period=100ms} -> test_fwd_ref{}
 """
 
 # ── Circular dependency sources (invalid, caught at configure time) ──
+# Comprehensive topology coverage is in the Go unit tests
+# (arc/go/analyzer/analyzer_test.go). These integration tests verify that
+# circular detection works end-to-end through the console UI.
 
 # a -> a
 ARC_SELF_REC = """
@@ -94,71 +97,121 @@ func self_rec() {
 interval{period=100ms} -> self_rec{}
 """
 
-# a -> b -> a
-ARC_MUTUAL = """
+# Callee called in ALL branches of if-else (no exit path)
+ARC_ALL_BRANCHES = """
 func ping() {
     ch1 = 1.0
-    pong()
+    if ch1 > 0 {
+        pong()
+    } else {
+        pong()
+    }
 }
-func pong() {
-    ping()
-}
+func pong() { ping() }
 interval{period=100ms} -> ping{}
 """
 
-# a -> b -> c -> d -> a
-ARC_CHAIN = """
-func a() {
+# Tangled web of 5 functions forming one big cycle. Branches decide arithmetic,
+# calls are unconditional after the branching. No exit path anywhere.
+ARC_TANGLED_WEB = """
+func init_seq() {
     ch1 = 1.0
-    b()
+    if ch1 > 50 {
+        ch1 = ch1 + 20.0
+    } else if ch1 > 20 {
+        ch1 = ch1 + 5.0
+    }
+    proc_alpha()
 }
-func b() { c() }
-func c() { d() }
-func d() { a() }
-interval{period=100ms} -> a{}
+func proc_alpha() {
+    if ch1 > 80 {
+        ch1 = ch1 - 30.0
+    } else {
+        ch1 = ch1 + 10.0
+    }
+    xform()
+}
+func xform() {
+    ch1 = ch1 + 15.0
+    if ch1 > 120 {
+        ch1 = 100.0
+    } else {
+        ch1 = ch1 + 20.0
+    }
+    route_beta()
+}
+func route_beta() {
+    if ch1 > 90 {
+        ch1 = ch1 - 40.0
+    } else if ch1 > 60 {
+        ch1 = ch1 + 15.0
+    }
+    commit()
+}
+func commit() {
+    ch1 = 50.0
+    init_seq()
+}
+interval{period=100ms} -> init_seq{}
 """
 
-# a -> b, a -> c, b -> a, c -> a (diamond with back edge)
-ARC_DIAMOND = """
-func root() {
-    ch1 = 1.0
-    left()
-    right()
+# ── Guarded circular calls (valid, should configure successfully) ──
+# Comprehensive guarded topology coverage is in the Go unit tests.
+
+# Self-recursion guarded by if
+ARC_GUARDED_SELF_REC = """
+func self_rec() {
+    if ch1 > 0 {
+        ch1 = ch1 - 1.0
+        self_rec()
+    }
 }
-func left() { root() }
-func right() { root() }
-interval{period=100ms} -> root{}
+interval{period=100ms} -> self_rec{}
 """
 
-# Cycle buried in a larger acyclic tree
-ARC_BURIED = """
-func leaf1() { ch1 = 1.0 }
-func leaf2() { ch2 = 2.0 }
-func safe_mid() {
-    leaf1()
-    leaf2()
-}
-func cycle_a() {
-    ch3 = 3.0
-    cycle_b()
-}
-func cycle_b() { cycle_a() }
-func top() {
-    safe_mid()
-    cycle_a()
-}
-interval{period=100ms} -> top{}
-"""
-
-# a self-recurses AND participates in a mutual cycle
-ARC_OVERLAP = """
-func a() {
+# Same tangled web but route_beta wraps its call in if ch1 > 0, providing one exit path.
+ARC_GUARDED_TANGLED_WEB = """
+func init_seq() {
     ch1 = 1.0
-    a()
-    b()
+    if ch1 > 50 {
+        ch1 = ch1 + 20.0
+    } else if ch1 > 20 {
+        ch1 = ch1 + 5.0
+    }
+    proc_alpha()
 }
-func b() { a() }
-interval{period=100ms} -> a{}
+func proc_alpha() {
+    if ch1 > 80 {
+        ch1 = ch1 - 30.0
+    } else {
+        ch1 = ch1 + 10.0
+    }
+    xform()
+}
+func xform() {
+    ch1 = ch1 + 15.0
+    if ch1 > 120 {
+        ch1 = 100.0
+    } else {
+        ch1 = ch1 + 20.0
+    }
+    route_beta()
+}
+func route_beta() {
+    if ch1 > 0 {
+        if ch1 > 90 {
+            ch1 = ch1 - 40.0
+        } else if ch1 > 60 {
+            ch1 = ch1 + 15.0
+        }
+        commit()
+    }
+}
+func commit() {
+    ch1 = 50.0
+    init_seq()
+}
+interval{period=100ms} -> init_seq{}
 """
 
 CHANNEL_VIRTUAL = [
@@ -169,8 +222,6 @@ CHANNEL_VIRTUAL = [
     "edge_chain",
     "edge_fwd",
     "ch1",
-    "ch2",
-    "ch3",
 ]
 
 
@@ -180,32 +231,43 @@ class CircularCase:
     source: str
     wait_substr: str
     expect: list[str] = field(default_factory=list)
-    reject: list[str] = field(default_factory=list)
 
 
 CIRCULAR_CASES = [
     CircularCase("SelfRec", ARC_SELF_REC, "self_rec -> self_rec"),
     CircularCase(
-        "Mutual", ARC_MUTUAL, "circular function call", expect=["ping", "pong"]
-    ),
-    CircularCase(
-        "Chain", ARC_CHAIN, "circular function call", expect=["a", "b", "c", "d"]
-    ),
-    CircularCase("Diamond", ARC_DIAMOND, "circular function call", expect=["root"]),
-    CircularCase(
-        "Buried",
-        ARC_BURIED,
+        "AllBranches",
+        ARC_ALL_BRANCHES,
         "circular function call",
-        expect=["cycle_a", "cycle_b"],
-        reject=["top", "safe_mid", "leaf1", "leaf2"],
+        expect=["ping", "pong"],
     ),
-    CircularCase("Overlap", ARC_OVERLAP, "a -> a"),
+    CircularCase(
+        "TangledWeb",
+        ARC_TANGLED_WEB,
+        "circular function call",
+        expect=["init_seq"],
+    ),
+]
+
+
+@dataclass
+class GuardedCase:
+    label: str
+    source: str
+
+
+GUARDED_CASES = [
+    GuardedCase("SelfRec", ARC_GUARDED_SELF_REC),
+    GuardedCase("TangledWeb", ARC_GUARDED_TANGLED_WEB),
 ]
 
 
 class ArcEdgeCases(ArcConsoleCase):
     """Test channel propagation edge cases at runtime and circular dependency
-    detection at configure time."""
+    detection at configure time. Comprehensive circular/guarded topology
+    coverage (mutual, chain, diamond, buried, overlap) is in the Go unit tests
+    at arc/go/analyzer/analyzer_test.go. This file focuses on end-to-end
+    verification through the console UI."""
 
     arc_source = ARC_CHANNEL_EDGE_CASES_SOURCE
     arc_name_prefix = "ArcEdgeCases"
@@ -261,11 +323,6 @@ class ArcEdgeCases(ArcConsoleCase):
                 name in status
             ), f"[{case.label}] Expected '{name}' in error, got: {status}"
 
-        for name in case.reject:
-            assert (
-                name not in status
-            ), f"[{case.label}] '{name}' should NOT be in error, got: {status}"
-
         notifications = self.console.notifications.check(timeout=5)
         error_notifications = [n for n in notifications if n.get("type") == "error"]
         assert (
@@ -278,17 +335,33 @@ class ArcEdgeCases(ArcConsoleCase):
         for case in CIRCULAR_CASES:
             self._assert_circular_error(case)
 
+    def _assert_guarded_configures(self, case: GuardedCase) -> None:
+        arc_name = f"Guard{case.label}_{get_random_name()}"
+        self.log(f"[Guarded {case.label}] Testing {arc_name}")
+
+        self.console.arc.create(arc_name, case.source, mode="Text")
+        self._extra_arcs.append(arc_name)
+        assert self.rack is not None
+        self.console.arc.select_rack(self.rack.name)
+
+        self.console.arc.configure()
+
+    def _verify_guarded_cases(self) -> None:
+        self.log("=== Guarded recursion (should configure successfully) ===")
+        for case in GUARDED_CASES:
+            self._assert_guarded_configures(case)
+
     def verify_sequence_execution(self) -> None:
         self._verify_channel_edge_cases()
         self._verify_circular_cases()
+        self._verify_guarded_cases()
 
     def teardown(self) -> None:
-        for name in reversed(self._extra_arcs):
+        if self._extra_arcs:
             try:
-                if self.console.arc.is_running():
-                    self.console.arc.stop()
-                self.console.arc.open(name)
-                self.console.arc.delete(name)
+                arcs = self.client.arcs.retrieve(names=self._extra_arcs)
+                if arcs:
+                    self.client.arcs.delete([a.key for a in arcs])
             except Exception as e:
-                self.log(f"Cleanup failed for {name}: {e}")
+                self.log(f"Cleanup failed for extra arcs: {e}")
         super().teardown()
