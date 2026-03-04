@@ -42,6 +42,73 @@ TEST(AuthConfigTest, ParsesAPIKey) {
     EXPECT_EQ(auth.type, "api_key");
     EXPECT_EQ(auth.header, "X-API-Key");
     EXPECT_EQ(auth.key, "secret123");
+    EXPECT_TRUE(auth.parameter.empty());
+}
+
+TEST(AuthConfigTest, V1APIKeyHeader) {
+    x::json::json j = {
+        {"type", "api_key"},
+        {"send_as", "header"},
+        {"header", "X-API-Key"},
+        {"key", "secret123"}
+    };
+    x::json::Parser parser(j);
+    AuthConfig auth(parser);
+    EXPECT_TRUE(parser.ok());
+    EXPECT_EQ(auth.send_as, "header");
+    EXPECT_EQ(auth.header, "X-API-Key");
+    EXPECT_EQ(auth.key, "secret123");
+    EXPECT_TRUE(auth.parameter.empty());
+}
+
+TEST(AuthConfigTest, V1APIKeyQueryParam) {
+    x::json::json j = {
+        {"type", "api_key"},
+        {"send_as", "query_param"},
+        {"parameter", "api_key"},
+        {"key", "secret123"}
+    };
+    x::json::Parser parser(j);
+    AuthConfig auth(parser);
+    EXPECT_TRUE(parser.ok());
+    EXPECT_EQ(auth.send_as, "query_param");
+    EXPECT_EQ(auth.parameter, "api_key");
+    EXPECT_EQ(auth.key, "secret123");
+    EXPECT_TRUE(auth.header.empty());
+}
+
+TEST(AuthConfigTest, V1APIKeyQueryParamMissingParameterErrors) {
+    x::json::json j = {
+        {"type", "api_key"},
+        {"send_as", "query_param"},
+        {"key", "secret123"}
+    };
+    x::json::Parser parser(j);
+    AuthConfig auth(parser);
+    EXPECT_FALSE(parser.ok());
+}
+
+TEST(AuthConfigTest, V1APIKeyHeaderMissingHeaderErrors) {
+    x::json::json j = {
+        {"type", "api_key"},
+        {"send_as", "header"},
+        {"key", "secret123"}
+    };
+    x::json::Parser parser(j);
+    AuthConfig auth(parser);
+    EXPECT_FALSE(parser.ok());
+}
+
+TEST(AuthConfigTest, APIKeyInvalidSendAsErrors) {
+    x::json::json j = {
+        {"type", "api_key"},
+        {"header", "X-Key"},
+        {"key", "secret"},
+        {"send_as", "body"}
+    };
+    x::json::Parser parser(j);
+    AuthConfig auth(parser);
+    EXPECT_FALSE(parser.ok());
 }
 
 TEST(AuthConfigTest, ParsesBearerToken) {
@@ -77,8 +144,15 @@ TEST(AuthConfigTest, BasicMissingFieldsErrors) {
     EXPECT_FALSE(parser.ok());
 }
 
-TEST(AuthConfigTest, APIKeyMissingFieldsErrors) {
+TEST(AuthConfigTest, V0APIKeyMissingKeyErrors) {
     x::json::json j = {{"type", "api_key"}, {"header", "X-Key"}};
+    x::json::Parser parser(j);
+    AuthConfig auth(parser);
+    EXPECT_FALSE(parser.ok());
+}
+
+TEST(AuthConfigTest, V0APIKeyMissingHeaderErrors) {
+    x::json::json j = {{"type", "api_key"}, {"key", "secret"}};
     x::json::Parser parser(j);
     AuthConfig auth(parser);
     EXPECT_FALSE(parser.ok());
@@ -105,6 +179,42 @@ TEST(AuthConfigTest, DefaultsToNone) {
     EXPECT_TRUE(parser.ok());
     EXPECT_EQ(auth.type, "none");
 }
+
+TEST(AuthConfigTest, V1APIKeyHeaderRoundtrip) {
+    x::json::json j = {
+        {"type", "api_key"},
+        {"send_as", "header"},
+        {"header", "X-Key"},
+        {"parameter", "key"},
+        {"key", "val"},
+    };
+    x::json::Parser parser(j);
+    AuthConfig auth(parser);
+    ASSERT_TRUE(parser.ok());
+    auto out = auth.to_json();
+    EXPECT_EQ(out["send_as"], "header");
+    EXPECT_EQ(out["header"], "X-Key");
+    EXPECT_EQ(out["key"], "val");
+    EXPECT_FALSE(out.contains("parameter"));
+}
+
+TEST(AuthConfigTest, V1APIKeyQueryParamRoundtrip) {
+    x::json::json j = {
+        {"type", "api_key"},
+        {"send_as", "query_param"},
+        {"parameter", "api_key"},
+        {"key", "val"},
+    };
+    x::json::Parser parser(j);
+    AuthConfig auth(parser);
+    ASSERT_TRUE(parser.ok());
+    auto out = auth.to_json();
+    EXPECT_EQ(out["send_as"], "query_param");
+    EXPECT_EQ(out["parameter"], "api_key");
+    EXPECT_EQ(out["key"], "val");
+    EXPECT_FALSE(out.contains("header"));
+}
+
 
 TEST(ConnectionConfigTest, FromJSON) {
     x::json::json j = {
@@ -1796,5 +1906,4 @@ TEST(ClassifyStatus, Status503ReturnsServerError) {
 TEST(ClassifyStatus, Status301ReturnsClientError) {
     ASSERT_OCCURRED_AS(classify_status(301), errors::CLIENT_ERROR);
 }
-
 }

@@ -34,12 +34,18 @@ struct AuthConfig {
     std::string username;
     /// @brief basic auth password (when type == "basic").
     std::string password;
-    /// @brief API key header name (when type == "api_key").
+    /// @brief header name (when type == "api_key" and send_as == "header").
     std::string header;
+    /// @brief query parameter name (when type == "api_key" and send_as ==
+    /// "query_param").
+    std::string parameter;
     /// @brief API key value (when type == "api_key").
     std::string key;
+    /// @brief how to send the API key: "header" or "query_param"
+    /// (when type == "api_key").
+    std::string send_as = "header";
 
-    explicit AuthConfig(x::json::Parser parser):
+    [[nodiscard]] explicit AuthConfig(x::json::Parser parser):
         type(parser.field<std::string>("type", "none")) {
         if (type == "bearer") {
             token = parser.field<std::string>("token");
@@ -47,8 +53,17 @@ struct AuthConfig {
             username = parser.field<std::string>("username");
             password = parser.field<std::string>("password");
         } else if (type == "api_key") {
-            header = parser.field<std::string>("header");
             key = parser.field<std::string>("key");
+            send_as = parser.field<std::string>("send_as", "header");
+            if (send_as == "header")
+                header = parser.field<std::string>("header");
+            else if (send_as == "query_param")
+                parameter = parser.field<std::string>("parameter");
+            else
+                parser.field_err(
+                    "send_as",
+                    "must be 'header' or 'query_param', got '" + send_as + "'"
+                );
         } else if (type != "none") {
             parser.field_err(
                 "type",
@@ -66,8 +81,12 @@ struct AuthConfig {
             j["username"] = username;
             j["password"] = password;
         } else if (type == "api_key") {
-            j["header"] = header;
             j["key"] = key;
+            j["send_as"] = send_as;
+            if (send_as == "query_param")
+                j["parameter"] = parameter;
+            else
+                j["header"] = header;
         }
         return j;
     }
