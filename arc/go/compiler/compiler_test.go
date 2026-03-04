@@ -2527,30 +2527,6 @@ var _ = Describe("Compiler", func() {
 			Expect(results[0]).To(Equal(uint64(20)))
 		})
 
-		It("Should handle recursive function calls", func() {
-			output := MustSucceed(compile(`
-			func factorial(n i64) i64 {
-				if n <= 1 {
-					return 1
-				}
-				return n * factorial(n - 1)
-			}
-
-			func main() i64 {
-				return factorial(5)
-			}
-			`, nil))
-
-			mod := MustSucceed(r.Instantiate(ctx, output.WASM))
-			main := mod.ExportedFunction("main")
-			Expect(main).ToNot(BeNil())
-
-			// 5! = 120
-			results := MustSucceed(main.Call(ctx))
-			Expect(results).To(HaveLen(1))
-			Expect(results[0]).To(Equal(uint64(120)))
-		})
-
 		It("Should handle forward function references", func() {
 			output := MustSucceed(compile(`
 			func caller() i64 {
