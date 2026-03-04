@@ -12,13 +12,12 @@ import { Component, Dialog, Flex, Icon, List, Text } from "@synnaxlabs/pluto";
 import { Tree } from "@synnaxlabs/pluto/tree";
 import { type CSSProperties, type ReactElement, useEffect, useState } from "react";
 
-import { GUIDES_PAGES, REFERENCE_PAGES } from "@/pages/_nav";
+import { REFERENCE_PAGES } from "@/pages/_nav";
 
 interface InternalTreeProps {
   currentPage: string;
 }
 
-// Icon map for section headers - stored here to avoid SSR serialization issues
 const SECTION_ICONS: Record<string, ReactElement> = {
   concepts: <Icon.Reference />,
   core: <Icon.Cluster />,
@@ -27,11 +26,6 @@ const SECTION_ICONS: Record<string, ReactElement> = {
   console: <Icon.Dashboard />,
   driver: <Icon.Device />,
   pluto: <Icon.Visualize />,
-  "get-started": <Icon.Bolt />,
-  analyst: <Icon.Analyze />,
-  "sys-admin": <Icon.Settings />,
-  operations: <Icon.Task />,
-  comparison: <Icon.Explore />,
 };
 
 export type PageNavNode = Omit<Tree.Node<string>, "children"> & {
@@ -136,7 +130,6 @@ const REFERENCE_SECTION_KEYS = REFERENCE_PAGES.filter((p) => p.children != null)
 const Reference = ({ currentPage }: InternalTreeProps): ReactElement => {
   let parts = currentPage.split("/").filter((part) => part !== "");
   if (parts.length <= 1) parts = REFERENCE_PAGES.map((p) => p.key);
-  if (currentPage === "/guides/") currentPage = "/reference/";
   const referenceData = flatten(REFERENCE_PAGES);
   const nodesStore = List.useMapData({ initialData: referenceData });
   const treeProps = Tree.use({
@@ -161,51 +154,13 @@ const Reference = ({ currentPage }: InternalTreeProps): ReactElement => {
   );
 };
 
-const GUIDES_SECTION_KEYS = GUIDES_PAGES.filter((p) => p.children != null).map(
-  (p) => p.key,
-);
-
-const Guides = ({ currentPage }: InternalTreeProps): ReactElement => {
-  let parts = currentPage.split("/").filter((part) => part !== "");
-  if (parts.length <= 1) parts = GUIDES_PAGES.map((p) => p.key);
-  if (currentPage === "/reference/") currentPage = "/guides/";
-  const guidesData = flatten(GUIDES_PAGES);
-  const nodesStore = List.useMapData({ initialData: guidesData });
-  const treeProps = Tree.use({
-    nodes: GUIDES_PAGES,
-    initialExpanded: [...parts, ...GUIDES_SECTION_KEYS],
-    onExpand: ({ action, clicked }) => {
-      if (action === "contract" && GUIDES_SECTION_KEYS.includes(clicked))
-        treeProps.expand(clicked);
-    },
-  });
-  return (
-    <Tree.Tree
-      {...treeProps}
-      className="tree role-tree styled-scrollbar"
-      virtual={false}
-      selected={[currentPage]}
-      getItem={nodesStore.getItem}
-      subscribe={nodesStore.subscribe}
-    >
-      {item}
-    </Tree.Tree>
-  );
-};
-
 export const Page = ({ currentPage: initialPage }: TOCProps): ReactElement | null => {
   const currentPage = useCurrentPage(initialPage);
-  const selectedTab = currentPage.split("/").filter((part) => part !== "")[0];
-  let tree = <Reference currentPage={currentPage} />;
-  if (selectedTab === "guides") tree = <Guides currentPage={currentPage} />;
-  return tree;
+  return <Reference currentPage={currentPage} />;
 };
 
 export const PageMobile = ({ currentPage: initialPage }: TOCProps): ReactElement => {
   const currentPage = useCurrentPage(initialPage);
-  const selectedTab = currentPage.split("/").filter((part) => part !== "")[0];
-  let tree = <Reference currentPage={currentPage} />;
-  if (selectedTab === "guides") tree = <Guides currentPage={currentPage} />;
   return (
     <Dialog.Frame variant="modal" location="top" className="page-nav-mobile">
       <Dialog.Trigger size="large" variant="outlined">
@@ -229,7 +184,7 @@ export const PageMobile = ({ currentPage: initialPage }: TOCProps): ReactElement
           >
             <Logo variant="title" />
           </Flex.Box>
-          {tree}
+          <Reference currentPage={currentPage} />
         </Flex.Box>
       </Dialog.Dialog>
     </Dialog.Frame>
