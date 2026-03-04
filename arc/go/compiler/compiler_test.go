@@ -567,6 +567,196 @@ var _ = Describe("Compiler", func() {
 		})
 	})
 
+	Describe("Chan-typed Input Parameter Operations", func() {
+		It("Should write to a channel through a chan-typed input param", func() {
+			mockRuntime := bindings.NewBindings()
+			var writtenKey uint32
+			var writtenValue float32
+			mockRuntime.ChannelWriteF32 = func(_ context.Context, key uint32, val float32) {
+				writtenKey = key
+				writtenValue = val
+			}
+			Expect(mockRuntime.Bind(ctx, r)).To(Succeed())
+
+			resolver := symbol.MapResolver(map[string]symbol.Symbol{
+				"sensor": {
+					Name: "sensor",
+					Kind: symbol.KindChannel,
+					Type: types.Chan(types.F32()),
+					ID:   500,
+				},
+			})
+
+			output := MustSucceed(compileWithHostImports(`
+			func write_chan(ch chan f32) {
+				ch = 77.0
+			}
+			func main() {
+				write_chan(sensor)
+			}
+			`, resolver))
+
+			mod := MustSucceed(r.Instantiate(ctx, output.WASM))
+			main := mod.ExportedFunction("main")
+			Expect(main).ToNot(BeNil())
+
+			MustSucceed(main.Call(ctx))
+			Expect(writtenKey).To(Equal(uint32(500)))
+			Expect(writtenValue).To(Equal(float32(77.0)))
+		})
+
+		It("Should read from a channel through a chan-typed input param", func() {
+			mockRuntime := bindings.NewBindings()
+			mockRuntime.ChannelReadF64 = func(_ context.Context, key uint32) float64 {
+				if key == 600 {
+					return 42.5
+				}
+				return 0
+			}
+			Expect(mockRuntime.Bind(ctx, r)).To(Succeed())
+
+			resolver := symbol.MapResolver(map[string]symbol.Symbol{
+				"sensor": {
+					Name: "sensor",
+					Kind: symbol.KindChannel,
+					Type: types.Chan(types.F64()),
+					ID:   600,
+				},
+			})
+
+			output := MustSucceed(compileWithHostImports(`
+			func read_chan(ch chan f64) f64 {
+				return ch * 2.0
+			}
+			func main() f64 {
+				return read_chan(sensor)
+			}
+			`, resolver))
+
+			mod := MustSucceed(r.Instantiate(ctx, output.WASM))
+			main := mod.ExportedFunction("main")
+			Expect(main).ToNot(BeNil())
+
+			results := MustSucceed(main.Call(ctx))
+			Expect(results).To(HaveLen(1))
+			assertResult(results[0], float64(85.0))
+		})
+
+		It("Should write different values to different channels via same function", func() {
+			mockRuntime := bindings.NewBindings()
+			writes := make(map[uint32]int32)
+			mockRuntime.ChannelWriteI32 = func(_ context.Context, key uint32, val int32) {
+				writes[key] = val
+			}
+			Expect(mockRuntime.Bind(ctx, r)).To(Succeed())
+
+			resolver := symbol.MapResolver(map[string]symbol.Symbol{
+				"ch_a": {Name: "ch_a", Kind: symbol.KindChannel, Type: types.Chan(types.I32()), ID: 700},
+				"ch_b": {Name: "ch_b", Kind: symbol.KindChannel, Type: types.Chan(types.I32()), ID: 800},
+			})
+
+			output := MustSucceed(compileWithHostImports(`
+			func set_value(ch chan i32) {
+				ch = 33
+			}
+			func main() {
+				set_value(ch_a)
+				set_value(ch_b)
+			}
+			`, resolver))
+
+			mod := MustSucceed(r.Instantiate(ctx, output.WASM))
+			main := mod.ExportedFunction("main")
+			Expect(main).ToNot(BeNil())
+
+			MustSucceed(main.Call(ctx))
+			Expect(writes[700]).To(Equal(int32(33)))
+			Expect(writes[800]).To(Equal(int32(33)))
+		})
+
+		It("Should read and write through chan-typed input param", func() {
+			mockRuntime := bindings.NewBindings()
+			channelData := map[uint32]float64{900: 10.0}
+			var writtenKey uint32
+			var writtenValue float64
+			mockRuntime.ChannelReadF64 = func(_ context.Context, key uint32) float64 {
+				return channelData[key]
+			}
+			mockRuntime.ChannelWriteF64 = func(_ context.Context, key uint32, val float64) {
+				writtenKey = key
+				writtenValue = val
+			}
+			Expect(mockRuntime.Bind(ctx, r)).To(Succeed())
+
+			resolver := symbol.MapResolver(map[string]symbol.Symbol{
+				"sensor": {
+					Name: "sensor",
+					Kind: symbol.KindChannel,
+					Type: types.Chan(types.F64()),
+					ID:   900,
+				},
+			})
+
+			output := MustSucceed(compileWithHostImports(`
+			func double_channel(ch chan f64) {
+				value f64 := ch
+				ch = value * 2.0
+			}
+			func main() {
+				double_channel(sensor)
+			}
+			`, resolver))
+
+			mod := MustSucceed(r.Instantiate(ctx, output.WASM))
+			main := mod.ExportedFunction("main")
+			Expect(main).ToNot(BeNil())
+
+			MustSucceed(main.Call(ctx))
+			Expect(writtenKey).To(Equal(uint32(900)))
+			Expect(writtenValue).To(Equal(float64(20.0)))
+		})
+
+		It("Should propagate channel writes through multi-level chan param calls", func() {
+			mockRuntime := bindings.NewBindings()
+			var writtenKey uint32
+			var writtenValue float32
+			mockRuntime.ChannelWriteF32 = func(_ context.Context, key uint32, val float32) {
+				writtenKey = key
+				writtenValue = val
+			}
+			Expect(mockRuntime.Bind(ctx, r)).To(Succeed())
+
+			resolver := symbol.MapResolver(map[string]symbol.Symbol{
+				"output": {
+					Name: "output",
+					Kind: symbol.KindChannel,
+					Type: types.Chan(types.F32()),
+					ID:   1000,
+				},
+			})
+
+			output := MustSucceed(compileWithHostImports(`
+			func leaf(ch chan f32) {
+				ch = 88.0
+			}
+			func middle(ch chan f32) {
+				leaf(ch)
+			}
+			func main() {
+				middle(output)
+			}
+			`, resolver))
+
+			mod := MustSucceed(r.Instantiate(ctx, output.WASM))
+			main := mod.ExportedFunction("main")
+			Expect(main).ToNot(BeNil())
+
+			MustSucceed(main.Call(ctx))
+			Expect(writtenKey).To(Equal(uint32(1000)))
+			Expect(writtenValue).To(Equal(float32(88.0)))
+		})
+	})
+
 	Describe("Named Output Routing", func() {
 		It("Should compile a debug multi-param function", func() {
 			output := MustSucceed(compile(`
@@ -2527,7 +2717,7 @@ var _ = Describe("Compiler", func() {
 			Expect(results[0]).To(Equal(uint64(20)))
 		})
 
-		It("Should handle recursive function calls", func() {
+		It("Should handle guarded recursive calls", func() {
 			output := MustSucceed(compile(`
 			func factorial(n i64) i64 {
 				if n <= 1 {

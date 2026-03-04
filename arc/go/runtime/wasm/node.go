@@ -103,7 +103,10 @@ func (n *nodeImpl) Next(ctx node.Context) {
 			inputLen := n.Input(j).Len()
 			n.params[n.configCount+j] = valueAt(n.Input(j), int(i%inputLen))
 		}
-		res, err := n.wasm.Call(ctx, n.params...)
+		// Pass ctx.Context instead of ctx to avoid boxing the node.Context
+		// struct (64 bytes) into a context.Context interface on every sample.
+		// Passing the embedded interface directly avoids a runtime.convT call.
+		res, err := n.wasm.Call(ctx.Context, n.params...)
 		if err != nil {
 			ctx.ReportError(errors.Wrapf(
 				err,

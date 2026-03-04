@@ -3,26 +3,41 @@ import Feedback from "@/components/feedback/Feedback.astro";
 import { OnThisPage as OTP } from "@/components/nav/OnThisPage";
 import { Icon, Divider, Text, Flex } from "@synnaxlabs/pluto";
 const props = Astro.props;
+const hasHeadings =
+    props.headings &&
+    props.headings.filter((h: any) => h.depth > 1 && h.depth <= 3).length > 0;
 ---
 
 <Flex.Box el="nav" className="on-this-page" gap="medium">
-    <Flex.Box direction="y" gap={2} className="on-this-page__header">
-        <Text.Text level="h5">
-            <Icon.Log style={{ transform: "scale(0.8)" }} />
-            On this page
-        </Text.Text>
-    </Flex.Box>
-    <Flex.Box direction="y" gap={2} className="on-this-page__content styled-scrollbar">
-        <OTP
-            client:only="react"
-            headings={props.headings}
-            url={props.url}
-            clients={props.clients}
-            platforms={props.platforms}
-        />
-    </Flex.Box>
+    {
+        hasHeadings && (
+            <Flex.Box direction="y" gap={2} className="on-this-page__header">
+                <Text.Text level="h5">
+                    <Icon.Log style={{ transform: "scale(0.8)" }} />
+                    On this page
+                </Text.Text>
+            </Flex.Box>
+        )
+    }
+    {
+        hasHeadings && (
+            <Flex.Box
+                direction="y"
+                gap={2}
+                className="on-this-page__content styled-scrollbar"
+            >
+                <OTP
+                    client:only="react"
+                    headings={props.headings}
+                    url={props.url}
+                    clients={props.clients}
+                    platforms={props.platforms}
+                />
+            </Flex.Box>
+        )
+    }
     <Flex.Box direction="y" gap={2}>
-        <Divider.Divider direction="x" />
+        {hasHeadings && <Divider.Divider direction="x" />}
         <Flex.Box direction="x" justify="end">
             <Feedback />
         </Flex.Box>

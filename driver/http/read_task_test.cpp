@@ -2015,4 +2015,184 @@ TEST(HTTPReadTask, ConnectionLevelQueryParams) {
     EXPECT_EQ(params.find("format")->second, "json");
 }
 
+/// @brief string values should be converted to numbers using the enum map.
+TEST(HTTPReadTask, EnumValuesMapStringsToNumbers) {
+    mock::Server server(
+        mock::ServerConfig{
+            .routes = {{
+                .method = Method::GET,
+                .path = "/api/device",
+                .status_code = 200,
+                .response_body =
+                    R"({"power": "ON", "mode": "STANDBY", "temperature": 22.5})",
+            }},
+        }
+    );
+    ASSERT_NIL(server.start());
+    x::defer::defer stop_server([&server] { server.stop(); });
+
+    ReadTaskConfig cfg;
+    cfg.device = "test-device";
+    cfg.data_saving = false;
+    cfg.auto_start = false;
+    cfg.rate = x::telem::Rate(10000);
+
+    ReadField power_field;
+    power_field.pointer = x::json::json::json_pointer("/power");
+    power_field.channel_key = 1;
+    power_field.enum_values = {{"ON", 1.0}, {"OFF", 0.0}};
+
+    ReadField mode_field;
+    mode_field.pointer = x::json::json::json_pointer("/mode");
+    mode_field.channel_key = 2;
+    mode_field.enum_values = {{"AUTO", 0}, {"MANUAL", 1}, {"STANDBY", 2}};
+
+    ReadField temp_field;
+    temp_field.pointer = x::json::json::json_pointer("/temperature");
+    temp_field.channel_key = 3;
+
+    ReadEndpoint ep;
+    ep.request.method = Method::GET;
+    ep.request.path = "/api/device";
+    ep.body = "";
+    ep.fields = {power_field, mode_field, temp_field};
+
+    cfg.endpoints = {ep};
+
+    cfg.channels[1] = {
+        .name = "power",
+        .data_type = x::telem::FLOAT64_T,
+        .key = 1,
+    };
+    cfg.channels[2] = {
+        .name = "mode",
+        .data_type = x::telem::INT32_T,
+        .key = 2,
+    };
+    cfg.channels[3] = {
+        .name = "temperature",
+        .data_type = x::telem::FLOAT64_T,
+        .key = 3,
+    };
+
+    auto source = ASSERT_NIL_P(make_source(cfg, server.base_url()));
+
+    auto breaker = x::breaker::Breaker(x::breaker::Config{.name = "test"});
+    breaker.start();
+    x::telem::Frame fr;
+    auto res = source->read(breaker, fr);
+    breaker.stop();
+    ASSERT_NIL(res.error);
+    EXPECT_TRUE(res.warning.empty());
+    EXPECT_EQ(fr.size(), 3);
+    EXPECT_NEAR(fr.at<double>(1, 0), 1.0, 0.001);
+    EXPECT_EQ(fr.at<int32_t>(2, 0), 2);
+    EXPECT_NEAR(fr.at<double>(3, 0), 22.5, 0.001);
+}
+
+/// @brief a string not in the enum map and not numeric should produce a warning.
+TEST(HTTPReadTask, EnumValuesMissingKeyWarns) {
+    mock::Server server(
+        mock::ServerConfig{
+            .routes = {{
+                .method = Method::GET,
+                .path = "/api/device",
+                .status_code = 200,
+                .response_body = R"({"power": "UNKNOWN"})",
+            }},
+        }
+    );
+    ASSERT_NIL(server.start());
+    x::defer::defer stop_server([&server] { server.stop(); });
+
+    ReadTaskConfig cfg;
+    cfg.device = "test-device";
+    cfg.data_saving = false;
+    cfg.auto_start = false;
+    cfg.rate = x::telem::Rate(10000);
+
+    ReadField power_field;
+    power_field.pointer = x::json::json::json_pointer("/power");
+    power_field.channel_key = 1;
+    power_field.enum_values = {{"ON", 1.0}, {"OFF", 0.0}};
+
+    ReadEndpoint ep;
+    ep.request.method = Method::GET;
+    ep.request.path = "/api/device";
+    ep.body = "";
+    ep.fields = {power_field};
+
+    cfg.endpoints = {ep};
+
+    cfg.channels[1] = {
+        .name = "power",
+        .data_type = x::telem::FLOAT64_T,
+        .key = 1,
+    };
+
+    auto source = ASSERT_NIL_P(make_source(cfg, server.base_url()));
+
+    auto breaker = x::breaker::Breaker(x::breaker::Config{.name = "test"});
+    breaker.start();
+    x::telem::Frame fr;
+    auto res = source->read(breaker, fr);
+    breaker.stop();
+    ASSERT_NIL(res.error);
+    EXPECT_FALSE(res.warning.empty());
+    EXPECT_EQ(fr.size(), 0);
+}
+
+/// @brief fields without enum_values should still parse numeric strings normally.
+TEST(HTTPReadTask, EnumValuesEmptyMapFallsBackToNumericParsing) {
+    mock::Server server(
+        mock::ServerConfig{
+            .routes = {{
+                .method = Method::GET,
+                .path = "/api/data",
+                .status_code = 200,
+                .response_body = R"({"value": "42.5"})",
+            }},
+        }
+    );
+    ASSERT_NIL(server.start());
+    x::defer::defer stop_server([&server] { server.stop(); });
+
+    ReadTaskConfig cfg;
+    cfg.device = "test-device";
+    cfg.data_saving = false;
+    cfg.auto_start = false;
+    cfg.rate = x::telem::Rate(10000);
+
+    ReadField field;
+    field.pointer = x::json::json::json_pointer("/value");
+    field.channel_key = 1;
+    // no enum_values set — should use normal string-to-numeric
+
+    ReadEndpoint ep;
+    ep.request.method = Method::GET;
+    ep.request.path = "/api/data";
+    ep.body = "";
+    ep.fields = {field};
+
+    cfg.endpoints = {ep};
+
+    cfg.channels[1] = {
+        .name = "value",
+        .data_type = x::telem::FLOAT64_T,
+        .key = 1,
+    };
+
+    auto source = ASSERT_NIL_P(make_source(cfg, server.base_url()));
+
+    auto breaker = x::breaker::Breaker(x::breaker::Config{.name = "test"});
+    breaker.start();
+    x::telem::Frame fr;
+    auto res = source->read(breaker, fr);
+    breaker.stop();
+    ASSERT_NIL(res.error);
+    EXPECT_TRUE(res.warning.empty());
+    EXPECT_EQ(fr.size(), 1);
+    EXPECT_NEAR(fr.at<double>(1, 0), 42.5, 0.001);
+}
+
 }
