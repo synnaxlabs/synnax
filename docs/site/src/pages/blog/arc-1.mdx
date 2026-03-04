@@ -1,0 +1,228 @@
+---
+layout: "@/layouts/Blog.astro"
+title: "Introducing Arc: Why We Built a New Programming Language"
+description: "The first release of Arc"
+published: 2026-03-03
+---
+
+import { Divider, Note } from "@synnaxlabs/pluto";
+import { mdxOverrides } from "@/components/mdxOverrides";
+
+export const components = mdxOverrides;
+
+All of our blog posts were written and edited carefully by humans.
+
+A month ago we released the first version of our new controls and automation language:
+Arc. To make this project a reality, we built a parser, analyzer, compiler, runtimes in
+two languages, and an LSP to power editor syntax highlighting.
+
+In total, the first releas of arc includes 100,000 lines of carefully architected code,
+all written by a small team of engineers supporting the rest of our platform.
+
+This begs the question: _why build your own programming language for automation and
+controls_? _Why not use something existing like Python_?
+
+The short answer is: we did. We actually tried _twice_ to get around building our own
+language. Here's the story of why those two attempts weren't enough, and the problems
+that drove us to implement Arc.
+
+### The Need for Automation
+
+If you don't already know, Synnax is an test and industrial operations and automation
+platform. It replaces tools like
+[LabVIEW](https://www.ni.com/en/support/downloads/software-products/download.labview.html#585712),
+[Ignition](https://inductiveautomation.com/scada-software/).
+
+We hook up to sensors and actuators from data acquistion devices and industrial
+controllers, let operators visualize and manually control their system, and, critically,
+let engineers write scripts to automate repetitive, safety critical, or time sensitive
+operations.
+
+Naturally, we tackled the first two problems and then left automation until the end.
+Most of our team has an aerospace pedigree, and we'd all had experience writing
+automations at several different companies in the industry. As you would expect, we drew
+on those experiences when evaluating an architecture for user-written automations.
+
+### The Early SpaceX Way: Sequences in Excel Sheets
+
+Let me start off with a disclaimer: I did not work at SpaceX, and although some of the
+engineers on our team have, they were not there during the days of Falcon 1 and early
+Falcon 9. So, it goes without saying, most of what I write here is secondhand knowledge
+pased down through word of mouth.
+
+Spacex did and still does use Excel to write automation sequences for their Falcon
+series of vehicles. The reduced version is that sequences steps were written as rows in
+the sheet, each row had some sort of an instruction keyword: open this actuator, check
+this condition, and, critically, go-to this step. They would then feed this excel sheet
+into a LabVIEW program that would check it for errors, and then execute the sequences as
+LabVIEW code.
+
+There are a number of benefits to this approach:
+
+1. It makes it easy for non-software engineers to write sequences because they use a
+   familiar program with a restricted set of keywords.
+2. It's easy to read for simple, step-based sequencing.
+3. Because everything is executed in LabVIEW, you can run it on one of NI's real-time
+   targets (like a cRIO) and get deterministic cycles times.
+4. You don't need to support extensive tooling for a custom programming language: the
+   editor exists, parsing the sheet is easy, and you can rely on a trusted host runtime.
+
+SpaceX sparked the new space revolution. In a matter of a few years, Ex-SpaceX founders
+were building new launch vehicle, satellite, propulsion, and other space related
+companies. And with them they brought Excel-based sequencing for all of their test
+operations.
+
+Let me be clear: I don't think that SpaceX engineers _invented_ Excel based sequencing.
+We've seen it in various places across the controls and automation industry.
+
+I first encountered a second-generation Excel sequencer during my time at
+[Firefly Aerospace](https://fireflyspace.com/). This is where I wrote my first sequence
+for pressure testing, and where I met one of our engineers, Nico.
+
+He has been pivotal in the design of our language, Arc, and we recently spoke about our
+thoughts on the downsides of Excel based sequencing:
+
+1. Difficult to diff: Excel files are not git diffable by default, and reviewing changes
+   to these automations was impossible in a standard pull request viewer. In fact, this
+   was such a significant problem that Nico himself built an internal tool to diff excel
+   files.
+2. Large or complex sequences were hard to read: needless to say, there is a reason that
+   go-to statements have largely been removed from modern, high level languages. As
+   sequences grew more complex, complex nested for loops and edge case aborts were all
+   expressed with go-tos. Sub-sequences were split across multiple tabs in the file, and
+   everything got hard to follow.
+3. Sub-par editing experience: as a software engineer this one hit me the hardest. With
+   languages like C++ I get syntax highlighting, real-time error checking, and linting.
+   With excel based sequences, you had no way to know if what you were writing was
+   _correct_ until you fed it into the LabVIEW machine.
+
+#### Our First Iteration: Python
+
+During the early designs of our first automation framework the requirement was clear:
+_build something that works and get it into the hands of our users_. We had already
+build a Python SDK for importing CSV data into Synnax, we didn't want to lock ourselves
+into Excel (and go-to statements), so oru answer was to extend the Python toolign with a
+few useful functions for building automations. Here's what we came up with:
+
+```python
+with client.control.acquire(
+    name="My Sequence",
+    read=["pressure"],
+    write=["valve_cmd"]
+) as controller:
+    controller["valve_cmd"] = True
+
+    controller.wait_until(lambda c: c["pressure"] > 20)
+
+    controller["valve_cmd"] = False
+```
+
+Ignoring all of the logic to open the controller, there were only two fundamental
+operations we had to implement: wait for a condition and set a value on a channel.
+
+And, as it turns out, this approach worked suprisingly well. Over the course of the last
+few years, we've had engineers use our Python sequences to control manufacturing
+processes, launch rockets, and test electronics.
+
+The beauty of our Python-based sequences were how easy they were to support. All we had
+to do was write about 400 lines of code to implement the controller logic and we were
+off to the races. Want to implement looping? Write a `for` loop. Want to do a fluid
+calculation? Import `coolprop`. Vibration analysis? Easy, import `scipy.fft`.
+
+With a relatively simple implementation we allowed engineers to use the full power of
+the Python ecosystem to automate anything. In fact, our Python sequencing system was so
+well received that we will
+[continue](https://docs.synnaxlabs.com/reference/control/python/get-started) to support
+it well into the future.
+
+### The Problems With Python: Attempt 1.5: Embedding an Interpreter
+
+As the rest of this story foreshadows, Python sequences were not all rosey. There were a
+number of glaring problems:
+
+1. Determinism: when expensive things that explode are on the line, timing and safety
+   are absolutely critical. Python is garbage collected, interpreted, and we were doing
+   control via TCP connections. Existing users and potential customers were constantly
+   asking for more performance and safety.
+2. Ease of use: to run our Python-based sequences, you had to manually start scripts in
+   a separate terminal. Needless to say, managing multiple automations in various
+   terminals alongside our operator console was not the easiest. We were asked
+   constantly to make it possible to manage automations from within the console
+   directly.
+3. It's still programming: Most new grads studied MATLAB and/or Python in college, but
+   even then, they probably wouldn't be able to understand what a `lambda` expression
+   was. Python isn't as user friendly as an excel sheet.
+4. Concurrency: It's very common to want to do many things at once. Open this valve and
+   wait while checking for these 5 different abort scenarios. Control the pressure in
+   these two tanks at the same time while listening for an operator hold. Expressing
+   concurrency in Python is hard and error prone.
+
+In a somewhat naive endeavor, we decided to try to solve problem #2 by embedding a full
+blow Python interpeter directly inside of the main go program that runs Synnax. With
+this solution, we could have complete control over the Python execution environment,
+allow our users to edit and run automations directly within the Console. This attempt
+failed: as it turns out, it's incredibly painful to compile and embed a Python
+interpeter from scracth. Even if you succeed, it's a nightmare to maintain such a
+complex build toolchain across the three major platforms.
+
+However, through this journey, we remained stuck on the fact that embedding a
+programming language was surpisingly benefitial. We could control the runtime, make it
+easy for our users to manage, and we could run it closer to the hardware.
+
+### The Second Attempt: Lua Embedded in C++
+
+Along came Lua on an early Sunday morning in March of 2025. It was the perfect
+candidate: a mature language written in C that was specifically designed to be embedded.
+We could even take the Lua C interpeter and run it in soft real-time on an operating
+system like NI Linux RT or Ubuntu 24.04 Pro.
+
+So after a month of work, we came up with this:
+
+```lua
+  if iteration == 1 then
+      state = "pressurizing"
+  end
+
+  if tank_pressure == nil then return end
+
+  if state == "pressurizing" then
+      if tank_pressure < 50 then
+          set("press_vlv_cmd", true)
+          set("vent_vlv_cmd", false)
+      else
+          state = "holding"
+          hold_start = elapsed_time
+      end
+  else if state == "holding" then
+      if elapsed_time - hold_start > 5 then
+          state = "venting"
+      end
+  else if state == "venting" then
+      if tank_pressure > 3 then
+          set("press_vlv_cmd", false)
+          set("vent_vlv_cmd", true)
+      end
+  end
+```
+
+The most notable difference from Python is that Lua sequences were state machines.
+Instead of a sequnce executing sequentially, the engineer would define an execution rate
+i.e. 100 Hz. Then, when the sequence would run, the _entire_ script would run 100 times
+a second. Waits were largely implemented by a global `elapsed` variable which told you
+the time since the seqence was started.
+
+We had achieved our goal: it was possible to deploy these sequences on real-time
+targets, edit scripts with beautiful syntax highlighting directly from within the
+console, and run them using an easy play and pause button.
+
+But this new automation strategy fell flat: most of our users stuck with Python-based
+sequences. We figured out that there are a few reasons why:
+
+1. Sequential > State Machine: Most engineers understand control as a sequence of
+   repeated steps. Although most programs are, under the hood, state machines, users
+   like sequences.
+2. It's still programming, and Lua's syntax is painful: The strange
+   `if ... then ... end` clauses, the strange patterns of defining globals using
+   `if itereation == 1` made writing Lua sequences harder than Python ones.
+
+### The Third (and Hopefully Final) Iteration: Arc
