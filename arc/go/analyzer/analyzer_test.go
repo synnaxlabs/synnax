@@ -485,9 +485,10 @@ var _ = Describe("Analyzer Integration", func() {
 					a()
 				}
 			`, resolver)
-			msg := (*ctx.Diagnostics)[0].Message
-			Expect(msg).To(ContainSubstring("a"))
-			Expect(msg).To(ContainSubstring("b"))
+			diag := (*ctx.Diagnostics)[0]
+			Expect(diag.Message).To(ContainSubstring("a"))
+			Expect(diag.Message).To(ContainSubstring("b"))
+			Expect(diag.Start.Line).To(Equal(8))
 		})
 
 		It("Should error on self-recursion", func() {
@@ -497,7 +498,9 @@ var _ = Describe("Analyzer Integration", func() {
 					a()
 				}
 			`, chResolver)
-			Expect((*ctx.Diagnostics)[0].Message).To(ContainSubstring("a -> a"))
+			diag := (*ctx.Diagnostics)[0]
+			Expect(diag.Message).To(ContainSubstring("a -> a"))
+			Expect(diag.Start.Line).To(Equal(4))
 		})
 
 		It("Should error on circular dependency chain", func() {
@@ -521,11 +524,12 @@ var _ = Describe("Analyzer Integration", func() {
 					a()
 				}
 			`, resolver)
-			msg := (*ctx.Diagnostics)[0].Message
-			Expect(msg).To(ContainSubstring("a"))
-			Expect(msg).To(ContainSubstring("b"))
-			Expect(msg).To(ContainSubstring("c"))
-			Expect(msg).To(ContainSubstring("d"))
+			diag := (*ctx.Diagnostics)[0]
+			Expect(diag.Message).To(ContainSubstring("a"))
+			Expect(diag.Message).To(ContainSubstring("b"))
+			Expect(diag.Message).To(ContainSubstring("c"))
+			Expect(diag.Message).To(ContainSubstring("d"))
+			Expect(diag.Start.Line).To(Equal(14))
 		})
 
 		It("Should error on diamond with back edge to root", func() {
@@ -958,6 +962,103 @@ var _ = Describe("Analyzer Integration", func() {
 			`, chResolver)
 			msg := (*ctx.Diagnostics)[0].Message
 			Expect(msg).To(ContainSubstring("a"))
+		})
+
+		It("Should allow self-recursion guarded by early return", func() {
+			analyzeAndExpectWithResolver(`
+				func a() {
+					if ch <= 0 {
+						return
+					}
+					a()
+				}
+			`, chResolver)
+		})
+
+		It("Should allow recursion guarded by early return with value", func() {
+			analyzeAndExpectWithResolver(`
+				func factorial(n i64) i64 {
+					if n <= 1 {
+						return 1
+					}
+					return n * factorial(n - 1)
+				}
+				func main() i64 {
+					return factorial(5)
+				}
+			`, nil)
+		})
+
+		It("Should allow recursion when if/else always returns before call", func() {
+			analyzeAndExpectWithResolver(`
+				func a() {
+					if ch > 0 {
+						ch = 1.0
+						return
+					} else {
+						ch = 2.0
+						return
+					}
+					a()
+				}
+			`, chResolver)
+		})
+
+		It("Should allow recursion when if/else-if/else always returns before call", func() {
+			analyzeAndExpectWithResolver(`
+				func a() {
+					if ch > 10 {
+						return
+					} else if ch > 0 {
+						return
+					} else {
+						return
+					}
+					a()
+				}
+			`, chResolver)
+		})
+
+		It("Should allow mutual recursion guarded by early return", func() {
+			analyzeAndExpectWithResolver(`
+				func a() {
+					if ch <= 0 {
+						return
+					}
+					b()
+				}
+				func b() {
+					a()
+				}
+			`, chResolver)
+		})
+
+		It("Should allow recursion when nested if/else always returns before call", func() {
+			analyzeAndExpectWithResolver(`
+				func a() {
+					if ch > 100 {
+						if ch > 200 {
+							return
+						} else {
+							return
+						}
+					} else {
+						return
+					}
+					a()
+				}
+			`, chResolver)
+		})
+
+		It("Should error when return comes after recursive call", func() {
+			ctx := analyzeAndExpectErrorWithResolver(`
+				func a() {
+					a()
+					return
+				}
+			`, chResolver)
+			diag := (*ctx.Diagnostics)[0]
+			Expect(diag.Start.Line).To(Equal(3))
 		})
 
 		It("Should handle diamond dependency without duplication", func() {

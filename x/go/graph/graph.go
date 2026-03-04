@@ -9,13 +9,19 @@
 
 package graph
 
-import "github.com/synnaxlabs/x/set"
+import (
+	"cmp"
+	"slices"
+
+	"github.com/synnaxlabs/x/set"
+)
 
 // TarjanSCC returns all strongly connected components of the directed graph
 // represented by the adjacency list adj. Each SCC is a slice of nodes. Singleton
 // nodes that do not participate in a cycle are still returned as single-element
-// SCCs. The order of SCCs is reverse topological. O(V + E) time and space.
-func TarjanSCC[T comparable](adj map[T][]T) [][]T {
+// SCCs. The order of SCCs is reverse topological. Node visitation order and SCC
+// member order are sorted for deterministic output. O(V log V + E) time, O(V + E) space.
+func TarjanSCC[T cmp.Ordered](adj map[T][]T) [][]T {
 	var (
 		idx      int
 		stack    []T
@@ -33,7 +39,10 @@ func TarjanSCC[T comparable](adj map[T][]T) [][]T {
 		defined.Add(v)
 		stack = append(stack, v)
 		onStack.Add(v)
-		for _, w := range adj[v] {
+		neighbors := make([]T, len(adj[v]))
+		copy(neighbors, adj[v])
+		slices.Sort(neighbors)
+		for _, w := range neighbors {
 			if !defined.Contains(w) {
 				strongconnect(w)
 				if lowlinks[w] < lowlinks[v] {
@@ -59,10 +68,18 @@ func TarjanSCC[T comparable](adj map[T][]T) [][]T {
 			sccs = append(sccs, scc)
 		}
 	}
+	keys := make([]T, 0, len(adj))
 	for v := range adj {
+		keys = append(keys, v)
+	}
+	slices.Sort(keys)
+	for _, v := range keys {
 		if !defined.Contains(v) {
 			strongconnect(v)
 		}
+	}
+	for _, scc := range sccs {
+		slices.Sort(scc)
 	}
 	return sccs
 }

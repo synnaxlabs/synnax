@@ -10,12 +10,14 @@
 package analyzer
 
 import (
+	"slices"
 	"strings"
 
 	"github.com/antlr4-go/antlr/v4"
 	"github.com/synnaxlabs/arc/analyzer/constant"
 	"github.com/synnaxlabs/arc/analyzer/constraints"
 	acontext "github.com/synnaxlabs/arc/analyzer/context"
+	"github.com/synnaxlabs/arc/analyzer/expression"
 	"github.com/synnaxlabs/arc/analyzer/flow"
 	"github.com/synnaxlabs/arc/analyzer/function"
 	"github.com/synnaxlabs/arc/analyzer/sequence"
@@ -56,22 +58,48 @@ func collectDeclarations(ctx acontext.Context[parser.IProgramContext]) {
 
 // propagateCallChannels runs a fixpoint loop over recorded call edges to ensure
 // that callee channel accesses are propagated to callers even when the callee is
-// declared after the caller in source order (forward references). O(N * C * E)
-// where N = functions, C = channels, E = call edges.
+// declared after the caller in source order (forward references). When a callee
+// accesses channels through chan-typed parameters, the ArgChannels on the edge
+// remaps those accesses to the actual channels passed at the call site.
+//
+// ArgChannels is keyed by param index (position), which is resolved to param symbol
+// IDs here since all functions are guaranteed to be fully analyzed at this point.
+// O(N * C * E) where N = functions, C = channels, E = call edges.
 func propagateCallChannels(edges *[]acontext.CallEdge) {
+	type resolvedEdge struct {
+		acontext.CallEdge
+		paramMap map[int]acontext.ChannelMapping
+	}
+	resolved := make([]resolvedEdge, len(*edges))
+	for i, edge := range *edges {
+		resolved[i] = resolvedEdge{
+			CallEdge: edge,
+			paramMap: expression.ResolveArgChannels(edge.Callee, edge.ArgChannels),
+		}
+	}
 	changed := true
 	for changed {
 		changed = false
-		for _, edge := range *edges {
+		for _, edge := range resolved {
 			for id, name := range edge.Callee.Channels.Read {
-				if !edge.Caller.Channels.Read.Contains(id) {
-					edge.Caller.Channels.Read[id] = name
+				resolvedID, resolvedName := id, name
+				if mapping, ok := edge.paramMap[int(id)]; ok {
+					resolvedID = mapping.ChannelID
+					resolvedName = mapping.ChannelName
+				}
+				if !edge.Caller.Channels.Read.Contains(resolvedID) {
+					edge.Caller.Channels.Read[resolvedID] = resolvedName
 					changed = true
 				}
 			}
 			for id, name := range edge.Callee.Channels.Write {
-				if !edge.Caller.Channels.Write.Contains(id) {
-					edge.Caller.Channels.Write[id] = name
+				resolvedID, resolvedName := id, name
+				if mapping, ok := edge.paramMap[int(id)]; ok {
+					resolvedID = mapping.ChannelID
+					resolvedName = mapping.ChannelName
+				}
+				if !edge.Caller.Channels.Write.Contains(resolvedID) {
+					edge.Caller.Channels.Write[resolvedID] = resolvedName
 					changed = true
 				}
 			}
@@ -95,6 +123,12 @@ func detectCallCycles(edges *[]acontext.CallEdge, diag *diagnostics.Diagnostics)
 		callGraph[edge.Caller.Name] = append(callGraph[edge.Caller.Name], callEdgeInfo{
 			callee:   edge.Callee.Name,
 			callSite: edge.CallSite,
+		})
+	}
+
+	for _, edges := range callGraph {
+		slices.SortFunc(edges, func(a, b callEdgeInfo) int {
+			return strings.Compare(a.callee, b.callee)
 		})
 	}
 
@@ -207,16 +241,24 @@ func blockAlwaysCalls(block parser.IBlockContext, sites []antlr.ParserRuleContex
 	if block == nil {
 		return false
 	}
-	statements := block.AllStatement()
-	for i := len(statements) - 1; i >= 0; i-- {
-		stmt := statements[i]
-		if stmt.IfStatement() == nil && stmtContainsSite(stmt, sites) {
-			return true
+	for _, stmt := range block.AllStatement() {
+		if stmt.ReturnStatement() != nil {
+			return false
 		}
 		if ifStmt := stmt.IfStatement(); ifStmt != nil {
+			if function.IfStmtAlwaysReturns(ifStmt) {
+				return false
+			}
 			if ifAlwaysCalls(ifStmt, sites) {
 				return true
 			}
+			if ifSometimesReturns(ifStmt) {
+				return false
+			}
+			continue
+		}
+		if stmtContainsSite(stmt, sites) {
+			return true
 		}
 	}
 	return false
@@ -234,6 +276,23 @@ func ifAlwaysCalls(ifStmt parser.IIfStatementContext, sites []antlr.ParserRuleCo
 		}
 	}
 	return blockAlwaysCalls(ifStmt.ElseClause().Block(), sites)
+}
+
+// ifSometimesReturns returns true if any branch of the if-statement contains a return,
+// meaning some execution paths exit early and subsequent statements are not on all paths.
+func ifSometimesReturns(ifStmt parser.IIfStatementContext) bool {
+	if function.BlockAlwaysReturns(ifStmt.Block()) {
+		return true
+	}
+	for _, elseIf := range ifStmt.AllElseIfClause() {
+		if function.BlockAlwaysReturns(elseIf.Block()) {
+			return true
+		}
+	}
+	if ifStmt.ElseClause() != nil {
+		return function.BlockAlwaysReturns(ifStmt.ElseClause().Block())
+	}
+	return false
 }
 
 // stmtContainsSite checks if any call site is a descendant of the given statement.

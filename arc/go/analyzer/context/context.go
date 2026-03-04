@@ -50,6 +50,13 @@ import (
 	"github.com/synnaxlabs/x/diagnostics"
 )
 
+// ChannelMapping records the actual channel passed for a chan-typed parameter at a
+// call site.
+type ChannelMapping struct {
+	ChannelID   uint32
+	ChannelName string
+}
+
 // CallEdge records a function call relationship between a caller and callee scope.
 // These edges are collected during analysis and used in a post-pass to propagate
 // channel accesses through function calls, handling forward references where the
@@ -58,6 +65,11 @@ type CallEdge struct {
 	Caller   *symbol.Scope
 	Callee   *symbol.Scope
 	CallSite antlr.ParserRuleContext
+	// ArgChannels maps input parameter index (position in the callee's input list)
+	// to the actual channel ID/name passed at this call site. Only populated for
+	// chan-typed parameters. Keyed by index rather than symbol ID so the mapping
+	// is valid even when the callee hasn't been fully analyzed yet (forward refs).
+	ArgChannels map[int]ChannelMapping
 }
 
 // Context is a generic container for analysis state that flows through the semantic

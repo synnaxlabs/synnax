@@ -109,4 +109,52 @@ var _ = Describe("TarjanSCC", func() {
 			Expect(scc).To(HaveLen(1))
 		}
 	})
+
+	It("Should return SCC members in sorted order", func() {
+		adj := map[string][]string{
+			"z": {"y"},
+			"y": {"x"},
+			"x": {"z"},
+		}
+		sccs := graph.TarjanSCC(adj)
+		Expect(sccs).To(HaveLen(1))
+		Expect(sccs[0]).To(Equal([]string{"x", "y", "z"}))
+	})
+
+	It("Should produce deterministic output across repeated calls", func() {
+		adj := map[string][]string{
+			"d": {"a"},
+			"c": {"d"},
+			"b": {"c"},
+			"a": {"b"},
+		}
+		first := graph.TarjanSCC(adj)
+		for i := 0; i < 50; i++ {
+			Expect(graph.TarjanSCC(adj)).To(Equal(first))
+		}
+	})
+
+	It("Should return multiple SCCs in deterministic order", func() {
+		adj := map[string][]string{
+			"a": {"b"},
+			"b": {"a"},
+			"x": {"y"},
+			"y": {"x"},
+		}
+		sccs := graph.TarjanSCC(adj)
+		Expect(sccs).To(HaveLen(2))
+		Expect(sccs[0]).To(Equal([]string{"a", "b"}))
+		Expect(sccs[1]).To(Equal([]string{"x", "y"}))
+	})
+
+	It("Should sort integer SCC members", func() {
+		adj := map[int][]int{
+			3: {1},
+			1: {2},
+			2: {3},
+		}
+		sccs := graph.TarjanSCC(adj)
+		Expect(sccs).To(HaveLen(1))
+		Expect(sccs[0]).To(Equal([]int{1, 2, 3}))
+	})
 })
