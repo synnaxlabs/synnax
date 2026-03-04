@@ -1,0 +1,29 @@
+---
+import Article from "@/components/article/Article.astro";
+import OnThisPage from "@/components/nav/OnThisPage.astro";
+import Root from "@/layouts/Root.astro";
+const { headings, frontmatter } = Astro.props;
+const { title, heading, description, published } = frontmatter;
+---
+
+<Root frontmatter={frontmatter} headings={headings}>
+    <section>
+        <Article
+            url={Astro.url.pathname}
+            title={heading ?? title}
+            description={description}
+        >
+            {published && <p class="blog-published">Published {published}</p>}
+            <slot />
+        </Article>
+        <OnThisPage headings={headings} url={Astro.url} />
+    </section>
+</Root>
+
+<style is:global>
+    .blog-published {
+        color: var(--pluto-gray-l8);
+        font-size: 14px;
+        margin-top: -1rem;
+    }
+</style>

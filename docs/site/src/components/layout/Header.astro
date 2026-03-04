@@ -36,23 +36,16 @@ const url = Astro.url.pathname;
     <Flex.Box className="bottom" justify="center" align="center">
         <Flex.Box direction="x" className="header-content" gap={5} justify="start">
             <Text.Text
-                href="/"
-                className={url === "/" ? "active" : ""}
-                level="h5"
-                overflow="nowrap">Docs Home</Text.Text
-            >
-            <Text.Text
-                href="/guides/"
-                className={url.includes("guides") ? "active" : ""}
-                level="h5"
-                variant="prose"
-                overflow="nowrap">Guides</Text.Text
-            >
-            <Text.Text
                 href="/reference/"
                 className={url.includes("reference") ? "active" : ""}
                 level="h5"
                 overflow="nowrap">Reference</Text.Text
+            >
+            <Text.Text
+                href="/blog/"
+                className={url.includes("blog") ? "active" : ""}
+                level="h5"
+                overflow="nowrap">Blog</Text.Text
             >
             <Text.Text
                 href="/releases/"

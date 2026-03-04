@@ -1,0 +1,140 @@
+---
+import { Flex, Text } from "@synnaxlabs/pluto";
+
+interface Props {
+    href: string;
+    title: string;
+    description: string;
+    span?: number;
+}
+
+const { href, title, description, span } = Astro.props;
+---
+
+<Flex.Box
+    el="a"
+    href={href}
+    className="bento-item"
+    direction="y"
+    gap="small"
+    style={span ? { gridColumn: `span ${span}` } : {}}
+>
+    <div class="bento-graphic">
+        <div class="bento-glow"></div>
+        <div class="bento-graphic-icon">
+            <slot name="graphic" />
+        </div>
+    </div>
+    <Text.Text level="p" weight={500} color={10} className="bento-title">
+        {title}
+    </Text.Text>
+    <Text.Text level="small" color={8} weight={400}>
+        {description}
+    </Text.Text>
+</Flex.Box>
+
+<style is:global>
+    @property --border-angle {
+        syntax: "<angle>";
+        initial-value: 0deg;
+        inherits: false;
+    }
+
+    @keyframes border-shimmer {
+        to {
+            --border-angle: 360deg;
+        }
+    }
+
+    .bento-item {
+        padding: 2.5rem;
+        justify-content: flex-end;
+        min-height: 35rem;
+        border: none;
+        border-radius: 1.25rem;
+        background-color: var(--pluto-gray-l1);
+        text-decoration: none !important;
+        cursor: pointer;
+        position: relative;
+        transition: transform 0.3s;
+
+        &:hover {
+            transform: scale(1.01);
+        }
+
+        &::before {
+            content: "";
+            position: absolute;
+            inset: 0;
+            border-radius: 1.25rem;
+            padding: 1px;
+            background: var(--pluto-gray-l4);
+            -webkit-mask:
+                linear-gradient(#fff 0 0) content-box,
+                linear-gradient(#fff 0 0);
+            -webkit-mask-composite: xor;
+            mask-composite: exclude;
+            pointer-events: none;
+        }
+
+        &:hover {
+            &::before {
+                background: conic-gradient(
+                    from var(--border-angle),
+                    var(--pluto-gray-l4) 20%,
+                    var(--pluto-primary-z) 50%,
+                    var(--pluto-gray-l4) 80%
+                );
+                animation: border-shimmer 3s linear infinite;
+            }
+
+            .bento-graphic-icon {
+                transform: scale(1.08);
+                color: var(--pluto-gray-l7);
+            }
+        }
+
+        .bento-graphic {
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 40%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            pointer-events: none;
+            overflow: hidden;
+        }
+
+        .bento-glow {
+            position: absolute;
+            width: 16rem;
+            height: 16rem;
+            border-radius: 50%;
+            background: radial-gradient(
+                circle,
+                var(--pluto-primary-z) 0%,
+                transparent 70%
+            );
+            opacity: 0.12;
+            transition: opacity 0.3s;
+        }
+
+        .bento-graphic-icon {
+            color: var(--pluto-gray-l5);
+            transition:
+                transform 0.3s,
+                color 0.3s;
+
+            & .pluto-icon {
+                width: 7rem;
+                height: 7rem;
+            }
+        }
+
+        .bento-title {
+            margin: 0 !important;
+        }
+    }
+</style>

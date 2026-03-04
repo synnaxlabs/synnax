@@ -103,6 +103,7 @@ type streamWriter struct {
 	confluence.AbstractUnarySource[WriterResponse]
 	relay           confluence.Inlet[Frame]
 	accumulatedErr  error
+	errSent         bool
 	virtual         *virtualWriter
 	updateDBControl func(ctx context.Context, u ControlUpdate) error
 	internal        []*idxWriter
@@ -216,11 +217,15 @@ func (w *streamWriter) maybeSendRes(
 	res := WriterResponse{Command: req.Command, SeqNum: req.SeqNum, End: end, Authorized: true}
 	if w.accumulatedErr != nil && errors.Is(w.accumulatedErr, xcontrol.ErrUnauthorized) {
 		w.accumulatedErr = nil
+		w.errSent = false
 		res.Authorized = false
 	}
 	res.Err = w.accumulatedErr
-	if res.Err == nil && req.Command == WriterCommandWrite && !*w.Sync {
+	if req.Command == WriterCommandWrite && !*w.Sync && (res.Err == nil || w.errSent) {
 		return nil
+	}
+	if res.Err != nil {
+		w.errSent = true
 	}
 	return signal.SendUnderContext(ctx, w.Out.Inlet(), res)
 }
