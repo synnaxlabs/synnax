@@ -11,11 +11,15 @@ const {
     nextURL,
     prevURL,
     showBreadcrumb = true,
+    published,
 } = Astro.props;
 ---
 
 <article transition:animate="none">
     {showBreadcrumb && url.split("/").length > 2 && <Breadcrumb url={url} />}
+    {published && <div class="blog-meta">
+        <span class="blog-published">{published}</span>
+    </div>}
     <Text.Text className="article-title" level={title.length > 30 ? "h2" : "h1"}
         >{title}</Text.Text
     >
@@ -78,7 +82,7 @@ const {
             content: "";
             display: block;
             width: 100px;
-            margin-top: 2rem;
+            margin-top: 2.3rem;
             height: 2px;
             background: var(--pluto-primary-z);
         }
@@ -86,8 +90,8 @@ const {
         .article-description {
             color: var(--pluto-gray-l9);
             font-weight: 350;
-            margin-top: 1rem;
-            margin-bottom: 6rem;
+            margin-top: 1.15rem;
+            margin-bottom: 6.9rem;
 
             & + :is(h2, h2.pluto-text) {
                 margin-top: 4rem;

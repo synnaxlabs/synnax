@@ -22,11 +22,15 @@ html {
 
 :root {
     /* Layout variables */
-    --nav-height: 5rem;
+    --nav-height: clamp(7rem, 5.5rem + 2vw, 9rem);
     --max-width: 1400px;
+    --pluto-border-width: 1px;
 
     /* Breakpoints (for reference - CSS can't use vars in media queries) */
     /* Mobile: 800px, Small mobile: 600px, Tablet: 1100px */
+
+    /* Lighten secondary text globally */
+    --pluto-gray-l8: #7C7C7C;
 
     /* Docs body text - softer than l10 */
     --docs-body-color: #3f4140;
@@ -74,11 +78,27 @@ html {
     --pluto-tiny-line-height: 150%;
     --pluto-height-large: 5.75rem;
     --pluto-height-medium: 5rem;
+
+    --pluto-shadow-v1:
+        0px 1px 1px rgba(0, 0, 0, 0.02),
+        0px 4px 8px -4px rgba(0, 0, 0, 0.1),
+        0px 16px 24px -8px rgba(0, 0, 0, 0.12);
+}
+
+@media (-webkit-min-device-pixel-ratio: 2), (min-resolution: 192dpi) {
+    :root {
+        --pluto-border-width: 0.5px;
+    }
 }
 
 @media (prefers-color-scheme: dark) {
     :root {
         --docs-body-color: #9fa1a0;
+        --pluto-gray-l8: #838383;
+        --pluto-shadow-v1:
+            lch(0 0 0 / 0.188) 0px 3px 8px,
+            lch(0 0 0 / 0.188) 0px 2px 5px,
+            lch(0 0 0 / 0.188) 0px 1px 1px;
     }
 }
 

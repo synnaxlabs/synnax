@@ -44,7 +44,7 @@ export const Search = (): ReactElement => (
       <Dialog.Trigger
         variant="outlined"
         justify="center"
-        size="large"
+        size="medium"
         textColor={8}
         trigger={["Control", "K"]}
         triggerIndicator

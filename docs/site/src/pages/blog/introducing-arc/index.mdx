@@ -1,16 +1,112 @@
 ---
 layout: "@/layouts/Blog.astro"
 title: "Introducing Arc: Why We Built a New Programming Language"
-description: "The first release of Arc"
-published: 2026-03-03
+description: "From Excel sheets to Python to Lua, nothing quite worked. So we built our own language for hardware automation."
+published: "Mar 4, 2026"
 ---
 
 import { Divider, Note } from "@synnaxlabs/pluto";
 import { mdxOverrides } from "@/components/mdxOverrides";
+import Diagram from "@/components/diagram/Diagram.astro";
 
 export const components = mdxOverrides;
 
-All of our blog posts were written and edited carefully by humans.
+<Diagram style={{
+  padding: "12rem 5rem",
+  backgroundImage: `
+    radial-gradient(ellipse 50% 60% at 50% 50%, rgba(55, 116, 208, 0.08) 0%, transparent 70%),
+    repeating-linear-gradient(0deg, transparent, transparent 59px, rgba(55, 116, 208, 0.04) 59px, rgba(55, 116, 208, 0.04) 60px),
+    repeating-linear-gradient(90deg, transparent, transparent 59px, rgba(55, 116, 208, 0.04) 59px, rgba(55, 116, 208, 0.04) 60px),
+    radial-gradient(ellipse at 50% 50%, var(--pluto-dark-gray-l1) 40%, rgba(5,5,5,1) 100%)
+  `,
+  backgroundColor: "var(--pluto-dark-gray-l1)",
+}}>
+  <svg viewBox="0 0 800 200" style={{ width: "100%", maxWidth: 700 }}>
+    <defs>
+      <filter id="blog-arc-glow" x="-50%" y="-50%" width="200%" height="200%">
+        <feGaussianBlur in="SourceGraphic" stdDeviation="6" result="blur1" />
+        <feGaussianBlur in="SourceGraphic" stdDeviation="2" result="blur2" />
+        <feMerge>
+          <feMergeNode in="blur1" />
+          <feMergeNode in="blur2" />
+          <feMergeNode in="SourceGraphic" />
+        </feMerge>
+      </filter>
+      <filter id="blog-arc-outer" x="-50%" y="-50%" width="200%" height="200%">
+        <feGaussianBlur in="SourceGraphic" stdDeviation="16" />
+      </filter>
+      <linearGradient id="blog-arc-grad" x1="0%" y1="0%" x2="100%" y2="0%">
+        <stop offset="0%" stop-color="#3774D0" stop-opacity="0" />
+        <stop offset="15%" stop-color="#3774D0" stop-opacity="1" />
+        <stop offset="50%" stop-color="#7EB4FF" stop-opacity="1" />
+        <stop offset="85%" stop-color="#3774D0" stop-opacity="1" />
+        <stop offset="100%" stop-color="#3774D0" stop-opacity="0" />
+      </linearGradient>
+      <linearGradient id="blog-arc-core" x1="0%" y1="0%" x2="100%" y2="0%">
+        <stop offset="0%" stop-color="#fff" stop-opacity="0" />
+        <stop offset="20%" stop-color="#fff" stop-opacity="0.9" />
+        <stop offset="50%" stop-color="#fff" stop-opacity="1" />
+        <stop offset="80%" stop-color="#fff" stop-opacity="0.9" />
+        <stop offset="100%" stop-color="#fff" stop-opacity="0" />
+      </linearGradient>
+    </defs>
+    <polyline
+      points="0,100 80,95 140,108 200,85 260,115 320,78 380,120 440,75 500,118 560,82 620,112 680,90 720,105 800,100"
+      fill="none" stroke="#3774D0" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"
+      opacity="0.15" filter="url(#blog-arc-outer)"
+    />
+    <style>
+      {`
+        .blog-arc-main { animation: blog-arc-flicker 3s ease-in-out infinite; }
+        .blog-arc-core { animation: blog-arc-flicker 3s ease-in-out infinite 0.1s; }
+        .blog-arc-branch { animation: blog-arc-branch-flicker 2s ease-in-out infinite; }
+        .blog-arc-branch-2 { animation: blog-arc-branch-flicker 2s ease-in-out infinite 0.7s; }
+        .blog-arc-branch-3 { animation: blog-arc-branch-flicker 2s ease-in-out infinite 1.4s; }
+        @keyframes blog-arc-flicker {
+          0%, 100% { opacity: 0.7; }
+          10% { opacity: 1; }
+          12% { opacity: 0.5; }
+          14% { opacity: 0.95; }
+          50% { opacity: 0.85; }
+          70% { opacity: 1; }
+          72% { opacity: 0.6; }
+          74% { opacity: 0.9; }
+        }
+        @keyframes blog-arc-branch-flicker {
+          0%, 100% { opacity: 0; }
+          20% { opacity: 0.5; }
+          25% { opacity: 0.1; }
+          30% { opacity: 0.4; }
+          60% { opacity: 0; }
+        }
+      `}
+    </style>
+    <polyline class="blog-arc-main"
+      points="0,100 80,95 140,108 200,85 260,115 320,78 380,120 440,75 500,118 560,82 620,112 680,90 720,105 800,100"
+      fill="none" stroke="url(#blog-arc-grad)" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"
+      filter="url(#blog-arc-glow)"
+    />
+    <polyline class="blog-arc-core"
+      points="0,100 80,95 140,108 200,85 260,115 320,78 380,120 440,75 500,118 560,82 620,112 680,90 720,105 800,100"
+      fill="none" stroke="url(#blog-arc-core)" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round"
+    />
+    <polyline class="blog-arc-branch"
+      points="260,115 280,135 310,128 340,145"
+      fill="none" stroke="#3774D0" stroke-width="1" stroke-linecap="round" stroke-linejoin="round"
+      filter="url(#blog-arc-glow)"
+    />
+    <polyline class="blog-arc-branch-2"
+      points="500,118 515,95 540,90 555,70"
+      fill="none" stroke="#3774D0" stroke-width="1" stroke-linecap="round" stroke-linejoin="round"
+      filter="url(#blog-arc-glow)"
+    />
+    <polyline class="blog-arc-branch-3"
+      points="380,120 395,140 420,148"
+      fill="none" stroke="#3774D0" stroke-width="1" stroke-linecap="round" stroke-linejoin="round"
+      filter="url(#blog-arc-glow)"
+    />
+  </svg>
+</Diagram>
 
 A month ago we released the first version of our new controls and automation language:
 Arc. To make this project a reality, we built a parser, analyzer, compiler, runtimes in
@@ -19,13 +115,15 @@ two languages, and an LSP to power editor syntax highlighting.
 In total, the first release of Arc includes 100,000 lines of carefully architected code,
 all written by a small team of engineers while supporting the rest of our platform.
 
-This begs the question: _why build your own programming language for automation and
+This begs the question: _why build our own programming language for automation and
 controls_? _Why not use something existing like Python? Or an industrial language like
 Structured Text (ST)?_
 
 The short answer is: we did. We actually tried _twice_ to get around building our own
 language. Here's the story of why those two attempts weren't enough, and the problems
 that drove us to implement Arc.
+
+<Divider.Divider x />
 
 ## The Need for Automation
 
@@ -46,6 +144,8 @@ Our team has an aerospace pedigree, and we'd all had experience writing
 automations in industry. We drew on those experiences when evaluating an architecture
 for user-written automations.
 
+<Divider.Divider x />
+
 ## The Early SpaceX Way: Sequences in Excel Sheets
 
 Let me start with a disclaimer: I did not work at SpaceX, and although some of the
@@ -58,6 +158,21 @@ vehicles. Sequence steps are written as rows in the sheet. Each row has an
 instruction keyword: open this actuator, check this condition, and, critically, go-to
 this step. They would feed this Excel sheet into a LabVIEW program that would check
 it for errors, and then execute the sequences within the LabVIEW runtime.
+
+<table style={{ fontFamily: "var(--pluto-code-font-family)" }}>
+<thead>
+<tr><th>Step</th><th>Instruction</th><th>Target</th><th>Value</th><th>Go-To</th></tr>
+</thead>
+<tbody>
+<tr><td>1</td><td>OPEN</td><td>press_valve</td><td></td><td></td></tr>
+<tr><td>2</td><td>CLOSE</td><td>vent_valve</td><td></td><td></td></tr>
+<tr><td>3</td><td>CHECK_GE</td><td>pressure</td><td>500</td><td></td></tr>
+<tr><td>4</td><td>CLOSE</td><td>press_valve</td><td></td><td></td></tr>
+<tr><td>5</td><td>WAIT</td><td></td><td>5s</td><td></td></tr>
+<tr><td>6</td><td>CHECK_GE</td><td>pressure</td><td>490</td><td>1</td></tr>
+<tr><td>7</td><td>OPEN</td><td>vent_valve</td><td></td><td></td></tr>
+</tbody>
+</table>
 
 There are several benefits to this approach:
 
@@ -74,7 +189,7 @@ instruction uncluttered by complex control flow.
 #### Benefit 3 -> Determinism
 
 Because everything is executed in LabVIEW, you can run it on one of NI's real-time
-targets (like a cRIO) and get deterministic cycles times.
+targets (like a cRIO) and get deterministic cycle times.
 
 #### Benefit 4 -> Tooling
 
@@ -118,11 +233,13 @@ languages like C++ I get syntax highlighting, real-time error checking, and lint
 With excel based sequences, you had no way to know if what you were writing was
 _correct_ until you fed it into the LabVIEW machine.
 
+<Divider.Divider x />
+
 ## Iteration 1 -> Python
 
 During the early designs of our first automation framework the requirement was clear:
 _build something that works and get it into the hands of our users_. We had already
-build a Python SDK for importing CSV data into Synnax and we didn't want to lock ourselves
+built a Python SDK for importing CSV data into Synnax and we didn't want to lock ourselves
 into Excel (and go-to statements), so our answer was to extend the Python tooling with a
 few useful functions for building automations. Here's what we came up with:
 
@@ -148,7 +265,7 @@ And, as it turns out, this approach worked surprisingly well. Over the course of
 few years, we've had engineers use our Python sequences to control manufacturing
 processes, launch rockets, and test electronics.
 
-The beauty of our Python-based sequences were how easy they were to support. All we had
+The beauty of our Python-based sequences was how easy they were to support. All we had
 to do was write about 400 lines of code to implement the controller logic and we were
 off to the races. Want to implement looping? Write a `for` loop. Want to do a fluid
 calculation? Import `coolprop`. Vibration analysis? Easy, import `scipy.fft`.
@@ -191,10 +308,12 @@ checking for these 5 different abort scenarios. Control the pressure in these tw
 tanks at the same time while listening for an operator hold. Expressing concurrency
 in Python is hard and error prone.
 
+<Divider.Divider x />
+
 ## Attempt 1.5 -> Embedding a Python Interpreter
 
 In a somewhat naive endeavor, we decided to try to solve problem #2 by embedding a full
-blown Python interpreter directly inside of the main go program that runs Synnax. With
+blown Python interpreter directly inside of the main Go program that runs Synnax. With
 this solution, we could have complete control over the Python execution environment,
 allow our users to edit and run automations directly within the Console.
 
@@ -203,14 +322,16 @@ and embed a Python interpreter from scratch. Even if you succeed, it's a
 nightmare to maintain such a complex build toolchain across the three major platforms.
 
 However, through this journey, we remained stuck on the fact that embedding a
-programming language was surpisingly benefitial. We could control the runtime, make it
+programming language was surprisingly beneficial. We could control the runtime, make it
 easy for our users to manage, and we could run it closer to the hardware.
+
+<Divider.Divider x />
 
 ## Attempt 2 -> Lua Embedded in C++
 
 Along came Lua on an early Sunday morning in March of 2025. It was the perfect
 candidate: a mature language written in C that was specifically designed to be embedded.
-We could even take the Lua C interpeter and run it in soft real-time on an operating
+We could even take the Lua C interpreter and run it in soft real-time on an operating
 system like NI Linux RT or Ubuntu 24.04 Pro.
 
 So after a month of work, we came up with this:
@@ -286,7 +407,7 @@ automation paradigm this would become a book, not a blog post. At some point I'l
 time to write about how we think Arc can replace and consolidate several of these into
 one.
 
-Aside over, established the following requirements:
+Aside over, we established the following requirements:
 
 #### Principle 1 -> The Language Has to Be Diffable in Plain Text
 
@@ -346,7 +467,7 @@ taking.
 One of Synnax's most important strengths is its ability to integrate and operate
 heterogeneous hardware systems. A new automation engine should _not_ be architected
 for a single hardware architecture (e.g. an NI cRIO or a Beckhoff PLC). Instead,
-it's design allows it to be deployed on a variety of different targets with as little
+its design allows it to be deployed on a variety of different targets with as little
 difference in runtime implementation as possible.
 
 ## The Design of Arc
@@ -358,7 +479,7 @@ sequence main {
   stage pressurizing {
     1 -> press_valve_cmd,
     0 -> vent_valve_cmd,
-    press_pt > 100psi => next,
+    pressure > 100psi => next,
   }
   stage waiting {
     0 -> press_valve_cmd,
@@ -366,7 +487,7 @@ sequence main {
   }
   stage venting {
     1 -> vent_valve_cmd,
-    vent_pt < 5psi => next,
+    pressure < 5psi => next,
   }
   stage complete {
     0 -> press_valve_cmd,
@@ -406,7 +527,7 @@ sequence main {
     1 -> press_valve_cmd,
     0 -> vent_valve_cmd,
     temp > 35C => abort,
-    press_pt > 100psi => next,
+    pressure > 100psi => next,
   }
   stage waiting {
     0 -> press_valve_cmd,
@@ -414,7 +535,7 @@ sequence main {
   }
   stage venting {
     1 -> vent_valve_cmd,
-    vent_pt < 5psi => next,
+    pressure < 5psi => next,
   }
   stage complete {
     0 -> press_valve_cmd,
@@ -434,8 +555,8 @@ the pressurization stage simply becomes:
 stage pressurizing {
   1 -> press_valve_cmd,
   0 -> vent_valve_cmd,
-  temp > 35C or press_pt > 150psi => abort,
-  press_pt > 100psi => next,
+  temp > 35C or pressure > 150psi => abort,
+  pressure > 100psi => next,
 }
 ```
 
@@ -445,8 +566,8 @@ stage pressurizing {
   1 -> press_valve_cmd,
   0 -> vent_valve_cmd,
   temp > 35C => abort,
-  press_pt > 150psi => abort,
-  press_pt > 100psi => next,
+  pressure > 150psi => abort,
+  pressure > 100psi => next,
 }
 ```
 
