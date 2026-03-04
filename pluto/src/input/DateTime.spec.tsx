@@ -8,8 +8,8 @@
 // included in the file licenses/APL.txt.
 
 import { TimeStamp } from "@synnaxlabs/x";
-import { fireEvent, render } from "@testing-library/react";
-import { describe, expect, it, vi } from "vitest";
+import { fireEvent, render, screen } from "@testing-library/react";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { Input } from "@/input";
 
@@ -76,6 +76,100 @@ describe("Input.DateTime", () => {
       const expectedValue = Number(expectedTS.valueOf());
 
       expect(receivedValue).toEqual(expectedValue);
+    });
+  });
+
+  describe("timezone sensitive", () => {
+    let originalTZ: string | undefined;
+    beforeEach(() => {
+      originalTZ = process.env.TZ;
+      process.env.TZ = "Pacific/Auckland";
+    });
+    afterEach(() => {
+      process.env.TZ = originalTZ;
+    });
+
+    const openCalendarModal = (container: HTMLElement) => {
+      const calendarBtn = container.querySelector<HTMLButtonElement>(
+        ".pluto-input__container > button",
+      );
+      if (calendarBtn != null) fireEvent.click(calendarBtn);
+    };
+
+    it("should display the local date in the input when crossing a date boundary", () => {
+      const handleChange = vi.fn();
+      // 2022-12-31T23:00:00Z -> Auckland (UTC+13): 2023-01-01T12:00:00
+      const utcNanos = Date.UTC(2022, 11, 31, 23, 0, 0, 0) * 1e6;
+      const { container } = render(
+        <Input.DateTime value={utcNanos} onChange={handleChange} />,
+      );
+      const input = container.querySelector<HTMLInputElement>(
+        'input[type="datetime-local"]',
+      );
+      expect(input?.value).toContain("2023-01-01");
+    });
+
+    it("should display the local month in the calendar", () => {
+      const handleChange = vi.fn();
+      // 2022-06-30T23:00:00Z -> Auckland (UTC+12): 2022-07-01T11:00:00
+      const utcNanos = Date.UTC(2022, 5, 30, 23, 0, 0, 0) * 1e6;
+      const { container } = render(
+        <Input.DateTime value={utcNanos} onChange={handleChange} />,
+      );
+      openCalendarModal(container);
+      expect(screen.getByText("July")).toBeTruthy();
+    });
+
+    it("should display the local year in the calendar", () => {
+      const handleChange = vi.fn();
+      // 2022-12-31T23:00:00Z -> Auckland (UTC+13): 2023-01-01T12:00:00
+      const utcNanos = Date.UTC(2022, 11, 31, 23, 0, 0, 0) * 1e6;
+      const { container } = render(
+        <Input.DateTime value={utcNanos} onChange={handleChange} />,
+      );
+      openCalendarModal(container);
+      expect(screen.getByText("2023")).toBeTruthy();
+    });
+
+    it("should select the local day in the calendar", () => {
+      const handleChange = vi.fn();
+      // 2022-06-15T23:00:00Z -> Auckland (UTC+12): 2022-06-16T11:00:00
+      const utcNanos = Date.UTC(2022, 5, 15, 23, 0, 0, 0) * 1e6;
+      const { container } = render(
+        <Input.DateTime value={utcNanos} onChange={handleChange} />,
+      );
+      openCalendarModal(container);
+      const dialog = screen.getByRole("dialog");
+      // Day 16 (local) should have the "outlined" variant (selected state)
+      const dayButtons = dialog.querySelectorAll("button");
+      const day16 = Array.from(dayButtons).find((b) => b.textContent?.trim() === "16");
+      expect(day16).toBeTruthy();
+      expect(day16?.className).toContain("outlined");
+    });
+
+    it("should select the correct local hour in the time selector", () => {
+      const handleChange = vi.fn();
+      // 2022-06-15T23:30:45Z -> Auckland (UTC+12): 2022-06-16T11:30:45
+      const utcNanos = Date.UTC(2022, 5, 15, 23, 30, 45, 0) * 1e6;
+      const { container } = render(
+        <Input.DateTime value={utcNanos} onChange={handleChange} />,
+      );
+      openCalendarModal(container);
+      const dialog = screen.getByRole("dialog");
+      const timeLists = dialog.querySelectorAll(".pluto-time-list");
+      expect(timeLists.length).toEqual(3);
+      // First list is hours — local hour 11 should be selected
+      const selectedHour = timeLists[0].querySelector(".pluto--selected");
+      expect(selectedHour).toBeTruthy();
+      expect(selectedHour?.textContent?.trim()).toEqual("11");
+      // Second list is minutes — minute 30 should be selected
+      const selectedMinute = timeLists[1].querySelector(".pluto--selected");
+      expect(selectedMinute).toBeTruthy();
+      expect(selectedMinute?.textContent?.trim()).toEqual("30");
+      // Third list is seconds — second 45 should be selected
+      const selectedSecond = timeLists[2].querySelector(".pluto--selected");
+      expect(selectedSecond).toBeTruthy();
+      expect(selectedSecond?.textContent?.trim()).toEqual("45");
     });
   });
 });

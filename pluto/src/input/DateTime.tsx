@@ -300,15 +300,15 @@ interface CalendarProps {
 }
 
 const Calendar = ({ value, onChange }: CalendarProps): ReactElement => {
-  const month = value.month;
-  const year = value.year;
-  const day = value.day;
+  const month = value.localMonth;
+  const year = value.localYear;
+  const day = value.localDay;
 
-  const handleMonthChange = (next: number): void => onChange(value.setMonth(next));
+  const handleMonthChange = (next: number): void => onChange(value.setLocalMonth(next));
 
-  const handleYearChange = (next: number): void => onChange(value.setYear(next));
+  const handleYearChange = (next: number): void => onChange(value.setLocalYear(next));
 
-  const handleDayChange = (next: number): void => onChange(value.setDay(next));
+  const handleDayChange = (next: number): void => onChange(value.setLocalDay(next));
 
   return (
     <Flex.Box pack x className={CSS.B("datetime-picker")} rounded>
@@ -416,22 +416,22 @@ const TimeSelector = ({ value, onChange }: TimeSelectorProps): ReactElement => (
   <Flex.Box pack y className={CSS.B("time-selector")}>
     <Flex.Box pack x grow className={CSS.B("time-selector-list")}>
       <HoursList
-        value={value.hour}
-        onChange={(next) => onChange(value.setHour(next))}
+        value={value.localHour}
+        onChange={(next) => onChange(value.setLocalHour(next))}
       />
       <MinutesList
-        value={value.minute}
-        onChange={(next) => onChange(value.setMinute(next))}
+        value={value.localMinute}
+        onChange={(next) => onChange(value.setLocalMinute(next))}
       />
       <SecondsList
-        value={value.second}
-        onChange={(next) => onChange(value.setSecond(next))}
+        value={value.localSecond}
+        onChange={(next) => onChange(value.setLocalSecond(next))}
       />
     </Flex.Box>
     <Numeric
       size="small"
-      value={value.millisecond}
-      onChange={(next) => onChange(value.setMillisecond(next))}
+      value={value.localMillisecond}
+      onChange={(next) => onChange(value.setLocalMillisecond(next))}
       endContent="ms"
       showDragHandle={false}
       borderColor={5}
