@@ -283,9 +283,24 @@ public:
             config_count(config.size()),
             base(base) {
             this->args.resize(config.size() + inputs.size(), wasmtime::Val(0));
-            for (size_t i = 0; i < config.size(); i++)
-                if (config[i].value.has_value())
-                    this->args[i] = sample_to_wasm(*config[i].value, config[i].type);
+            for (size_t i = 0; i < config.size(); i++) {
+                if (!config[i].value.has_value()) continue;
+                if (const auto *s = std::get_if<std::string>(&*config[i].value)) {
+                    // String config params get a stable handle created once at
+                    // configure time — not cleared by flush(), no per-call refresh.
+                    // bindings is always non-null in production; the null branch is
+                    // only reachable in tests that construct a Module without WASM
+                    // host bindings, where args[i] stays 0 (unused).
+                    if (module.cfg.bindings != nullptr)
+                        this->args[i] = wasmtime::Val(
+                            static_cast<int32_t>(
+                                module.cfg.bindings->string_create_config(*s)
+                            )
+                        );
+                    continue;
+                }
+                this->args[i] = sample_to_wasm(*config[i].value, config[i].type);
+            }
             uint32_t offset = base + 8;
             for (const auto &param: outputs) {
                 this->offsets.push_back(offset);

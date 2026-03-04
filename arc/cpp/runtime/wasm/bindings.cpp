@@ -245,6 +245,11 @@ uint32_t Bindings::string_create(const std::string &str) {
     return this->state->string_create(str);
 }
 
+uint32_t Bindings::string_create_config(const std::string &str) {
+    if (this->state == nullptr) return 0;
+    return this->state->string_create_config(str);
+}
+
 std::string Bindings::string_get(const uint32_t handle) const {
     if (this->state == nullptr) return "";
     return this->state->string_get(handle);
