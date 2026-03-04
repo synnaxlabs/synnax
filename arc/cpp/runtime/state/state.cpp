@@ -425,6 +425,7 @@ uint32_t State::var_load_str(const uint32_t var_id, const uint32_t init_handle) 
 }
 
 void State::var_store_str(const uint32_t var_id, const uint32_t str_handle) {
+    if (!this->string_exists(str_handle)) return;
     // Use string_get to resolve both transient and config string handles.
     this->var_string[this->current_node_key][var_id] = this->string_get(str_handle);
 }

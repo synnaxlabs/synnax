@@ -766,3 +766,35 @@ TEST(StateTest, StringCreateConfig_ClearedByReset) {
     s.reset();
     EXPECT_FALSE(s.string_exists(handle));
 }
+
+TEST(StateTest, VarLoadStr_InitializesFromConfigStringHandle) {
+    State s = create_minimal_state();
+    const uint32_t config_handle = s.string_create_config("hello");
+    s.set_current_node_key("node_a");
+    // First load: var not yet stored, should init from config handle.
+    const uint32_t result = s.var_load_str(1, config_handle);
+    EXPECT_EQ(s.string_get(result), "hello");
+}
+
+TEST(StateTest, VarStoreStr_ResolvesConfigStringHandle) {
+    State s = create_minimal_state();
+    const uint32_t config_handle = s.string_create_config("world");
+    s.set_current_node_key("node_a");
+    s.var_store_str(1, config_handle);
+    // After flush, transient handles are gone but the stored value should survive.
+    s.flush();
+    const uint32_t result = s.var_load_str(1, 0);
+    EXPECT_EQ(s.string_get(result), "world");
+}
+
+TEST(StateTest, VarStoreStr_InvalidHandleIsNoOp) {
+    State s = create_minimal_state();
+    const uint32_t config_handle = s.string_create_config("initial");
+    s.set_current_node_key("node_a");
+    s.var_store_str(1, config_handle);
+    s.flush();
+    // Passing an invalid handle (0) must not overwrite the stored value.
+    s.var_store_str(1, 0);
+    const uint32_t result = s.var_load_str(1, 0);
+    EXPECT_EQ(s.string_get(result), "initial");
+}

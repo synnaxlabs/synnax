@@ -288,6 +288,9 @@ public:
                 if (const auto *s = std::get_if<std::string>(&*config[i].value)) {
                     // String config params get a stable handle created once at
                     // configure time — not cleared by flush(), no per-call refresh.
+                    // bindings is always non-null in production; the null branch is
+                    // only reachable in tests that construct a Module without WASM
+                    // host bindings, where args[i] stays 0 (unused).
                     if (module.cfg.bindings != nullptr)
                         this->args[i] = wasmtime::Val(
                             static_cast<int32_t>(
