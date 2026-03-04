@@ -53,13 +53,13 @@ func KeysFromOntologyIDs(ids []ontology.ID) []string {
 }
 
 var schema = zyn.Object(map[string]zyn.Schema{
-	"key":           zyn.String(),
-	"rack":          zyn.Uint32().Coerce(),
-	"location":      zyn.String(),
-	"name":          zyn.String(),
-	"make":          zyn.String(),
-	"model":         zyn.String(),
-	"configured":    zyn.Bool(),
+	"key":        zyn.String(),
+	"rack":       zyn.Uint32().Coerce(),
+	"location":   zyn.String(),
+	"name":       zyn.String(),
+	"make":       zyn.String(),
+	"model":      zyn.String(),
+	"configured": zyn.Bool(),
 })
 
 func newResource(d Device) ontology.Resource {

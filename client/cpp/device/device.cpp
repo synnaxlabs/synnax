@@ -80,8 +80,7 @@ Client::retrieve(RetrieveRequest &req) const {
 x::errors::Error Client::create(Device &device) const {
     auto req = api::v1::DeviceCreateRequest();
     device.to_proto(req.add_devices());
-    if (!device.parent_device.empty())
-        req.set_parent("device:" + device.parent_device);
+    if (!device.parent_device.empty()) req.set_parent("device:" + device.parent_device);
     auto [res, err] = device_create_client->send("/device/create", req);
     if (err) return err;
     if (res.devices_size() == 0) return errors::unexpected_missing_error("device");

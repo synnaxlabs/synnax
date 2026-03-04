@@ -1133,7 +1133,6 @@ describe("queries", () => {
           rack: rack.key,
           configured: true,
           properties: {},
-          parentDevice: "",
           status: undefined,
         });
       });

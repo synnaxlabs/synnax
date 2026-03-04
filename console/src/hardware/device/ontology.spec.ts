@@ -22,22 +22,22 @@ const mockResource = (data?: Record<string, unknown>): ontology.Resource =>
 
 describe("Device ONTOLOGY_SERVICE hasChildren", () => {
   it("should return true when isChassis is true", () => {
-    const resource = mockResource({ properties: { isChassis: true } });
+    const resource = mockResource({ make: "NI", properties: { isChassis: true } });
     expect(resolveHasChildren(ONTOLOGY_SERVICE, resource)).toBe(true);
   });
 
   it("should return false when isChassis is false", () => {
-    const resource = mockResource({ properties: { isChassis: false } });
+    const resource = mockResource({ make: "NI", properties: { isChassis: false } });
     expect(resolveHasChildren(ONTOLOGY_SERVICE, resource)).toBe(false);
   });
 
   it("should return false when isChassis is not present", () => {
-    const resource = mockResource({ properties: {} });
+    const resource = mockResource({ make: "NI", properties: {} });
     expect(resolveHasChildren(ONTOLOGY_SERVICE, resource)).toBe(false);
   });
 
   it("should return false when properties is null", () => {
-    const resource = mockResource({ properties: null });
+    const resource = mockResource({ make: "NI", properties: null });
     expect(resolveHasChildren(ONTOLOGY_SERVICE, resource)).toBe(false);
   });
 
