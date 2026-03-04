@@ -20,14 +20,14 @@ In total, the first release of Arc includes 100,000 lines of carefully architect
 all written by a small team of engineers while supporting the rest of our platform.
 
 This begs the question: _why build your own programming language for automation and
-controls_? _Why not use something existing like Python?_ Or an industrial language like
-Structured Text (ST)?
+controls_? _Why not use something existing like Python? Or an industrial language like
+Structured Text (ST)?_
 
 The short answer is: we did. We actually tried _twice_ to get around building our own
 language. Here's the story of why those two attempts weren't enough, and the problems
 that drove us to implement Arc.
 
-### The Need for Automation
+## The Need for Automation
 
 If you don't already know, Synnax is a test and industrial operations and automation
 platform. It replaces tools like
@@ -46,7 +46,7 @@ Our team has an aerospace pedigree, and we'd all had experience writing
 automations in industry. We drew on those experiences when evaluating an architecture
 for user-written automations.
 
-### The Early SpaceX Way: Sequences in Excel Sheets
+## The Early SpaceX Way: Sequences in Excel Sheets
 
 Let me start with a disclaimer: I did not work at SpaceX, and although some of the
 engineers on our team have, they were not there during the days of Falcon 1 and early
@@ -118,7 +118,7 @@ languages like C++ I get syntax highlighting, real-time error checking, and lint
 With excel based sequences, you had no way to know if what you were writing was
 _correct_ until you fed it into the LabVIEW machine.
 
-### Our First Iteration: Python
+## Iteration 1 -> Python
 
 During the early designs of our first automation framework the requirement was clear:
 _build something that works and get it into the hands of our users_. We had already
@@ -191,7 +191,7 @@ checking for these 5 different abort scenarios. Control the pressure in these tw
 tanks at the same time while listening for an operator hold. Expressing concurrency
 in Python is hard and error prone.
 
-### Attempt 1.5: Embedding a Python Interpreter
+## Attempt 1.5 -> Embedding a Python Interpreter
 
 In a somewhat naive endeavor, we decided to try to solve problem #2 by embedding a full
 blown Python interpreter directly inside of the main go program that runs Synnax. With
@@ -206,7 +206,7 @@ However, through this journey, we remained stuck on the fact that embedding a
 programming language was surpisingly benefitial. We could control the runtime, make it
 easy for our users to manage, and we could run it closer to the hardware.
 
-### The Second Attempt: Lua Embedded in C++
+## Attempt 2 -> Lua Embedded in C++
 
 Along came Lua on an early Sunday morning in March of 2025. It was the perfect
 candidate: a mature language written in C that was specifically designed to be embedded.
@@ -265,7 +265,7 @@ programs are, under the hood, state machines, users like sequences.
 The strange `if ... then ... end` clauses, the strange patterns of defining globals using
 `if iteration == 1` made writing Lua sequences harder than Python ones.
 
-### The Third (and Hopefully Final) Approach: Arc
+## The Current Approach -> Arc
 
 When we went back to the drawing board for the third time our approach was different.
 With Python and Lua we took the approach of building something that worked while pawning
@@ -286,16 +286,171 @@ automation paradigm this would become a book, not a blog post. At some point I'l
 time to write about how we think Arc can replace and consolidate several of these into
 one.
 
-Aside over, established the following principles:
+Aside over, established the following requirements:
 
 #### Principle 1 -> The Language Has to Be Diffable in Plain Text
 
+The ability to version control and review the differences between automations as a
+formal release process is critical for modern engineering teams. Solely graphical
+and/or table based representations cannot be diffed by standard tools such as git.
+
 #### Principle 2 -> Progressive Introduction of Complexity and Power
 
-#### Principle 3 -> Graphical Representation
+Writing simple control sequences should be as simple as possible. Expressing a series
+of timed steps should be as straightforward as writing a list of items on a napkin.
 
-#### Principle 4 -> Easy to Express Concurrency
+As operators and engineers become more comfortable with the language, it should not
+hold them back. Full-blown functional programming is possible, with sophisticated
+control flow, layers of abstraction, and built-in support for vector operations.
 
-#### Principle 5 -> Full Control Over Analysis Toolchain
+It should be natural to express abort scenarios, system holds, fault tolerant states,
+and other sophisticated logic.
 
-#### Principle 6 -> Avoid the Chasm of Useless DSL
+We named this principle a 'progressive' language. One that requires a minor subset of
+keywords and knowledge to run most simple tasks, but does not hold the user back as
+they grow.
+
+#### Principle 3 -> Simple Concurrency
+
+Concurrency is one of the most challenging aspects of automations. Engineers often
+ask us: _How do I write that I simultaneously want to be controlling pressure in this
+tank and that tank, while also checking a number of abort conditions, and a manual
+operator hold/abort?_
+
+Standard thinking lends us to two options: long state machines with lots of conditions
+changed by nested `switch` or `if-else` statements, or threading logic to run truly
+independent processes that then share state by communicating.
+
+The first option is ugly, inflexible, and difficult to manage. The second requires a
+talented software engineer to develop the system without accidentally introducing
+catastrophic bugs. There has to be a better way.
+
+#### Principle 4 -> Statically Prevent Dangerous Mistakes
+
+All automation (and even general purpose programming) languages have to make some
+degree of tradeoff between safety, performance, and power. We're constantly asking
+ourselves the question: _should we let our users do this?_ How often should we
+enable a new, fancy workflow if it increases the likelihood of catastrophic failure?
+
+Through static analysis, we can guide the user towards safer workflows. We can
+identify potential locations of infinite recursion, prevent unbounded memory use, and
+even pre-calculate the number of instructions required to run a safety critical
+sequence.
+
+By providing powerful tools, we can't completely eliminate safety risks, but we can at
+least make sure the user is consciously aware of the dangerous actions they may be
+taking.
+
+#### Principle 5 -> Portable Execution
+
+One of Synnax's most important strengths is its ability to integrate and operate
+heterogeneous hardware systems. A new automation engine should _not_ be architected
+for a single hardware architecture (e.g. an NI cRIO or a Beckhoff PLC). Instead,
+it's design allows it to be deployed on a variety of different targets with as little
+difference in runtime implementation as possible.
+
+## The Design of Arc
+
+Here is a simple pressurization sequence expressed as an Arc program:
+
+```arc
+sequence main {
+  stage pressurizing {
+    1 -> press_valve_cmd,
+    0 -> vent_valve_cmd,
+    press_pt > 100psi => next,
+  }
+  stage waiting {
+    0 -> press_valve_cmd,
+    wait{duration=5s} => next,
+  }
+  stage venting {
+    1 -> vent_valve_cmd,
+    vent_pt < 5psi => next,
+  }
+  stage complete {
+    0 -> press_valve_cmd,
+    0 -> vent_valve_cmd,
+  }
+}
+```
+
+When developing this syntax, we thought about what the comparable napkin would look like:
+
+ 1. Open the pressurization and vent valves.
+ 2. Wait until the pressure reaches 100 psi, then continue.
+ 3. Close the press valve.
+ 4. Wait 5 seconds, then continue.
+ 5. Open the vent valve.
+ 6. Wait until the pressure drops below 5 psi, then continue.
+ 7. Close the vent and press valves.
+
+Now let's say we want to handle an overpressure condition. Let's start with the napkin
+this time:
+
+ 1. Open the pressurization and vent valves.
+ 2. Wait until the pressure reaches 100 psi, then continue. At the same time, if the
+    temperature exceeds 35°C, abort.
+      1. If we aborted, close the pressurization and vent valves.
+ 3. Close the press valve.
+ 4. Wait 5 seconds, then continue.
+ 5. Open the vent valve.
+ 6. Wait until the pressure drops below 5 psi, then continue.
+ 7. Close the vent and press valves.
+ 8. If the pressure exceeds 150 psi, abort.
+
+Now here's the Arc code for this sequence:
+```arc
+sequence main {
+  stage pressurizing {
+    1 -> press_valve_cmd,
+    0 -> vent_valve_cmd,
+    temp > 35C => abort,
+    press_pt > 100psi => next,
+  }
+  stage waiting {
+    0 -> press_valve_cmd,
+    wait{duration=5s} => next,
+  }
+  stage venting {
+    1 -> vent_valve_cmd,
+    vent_pt < 5psi => next,
+  }
+  stage complete {
+    0 -> press_valve_cmd,
+    0 -> vent_valve_cmd,
+  }
+  stage abort {
+    0 -> press_valve_cmd,
+    0 -> vent_valve_cmd,
+  }
+}
+```
+
+We don't really need the `abort` stage as its the same as the `complete` stage, so
+really all we did was add a single line. If we want to check for two abort conditions,
+the pressurization stage simply becomes:
+```arc
+stage pressurizing {
+  1 -> press_valve_cmd,
+  0 -> vent_valve_cmd,
+  temp > 35C or press_pt > 150psi => abort,
+  press_pt > 100psi => next,
+}
+```
+
+we can also write it as
+```arc
+stage pressurizing {
+  1 -> press_valve_cmd,
+  0 -> vent_valve_cmd,
+  temp > 35C => abort,
+  press_pt > 150psi => abort,
+  press_pt > 100psi => next,
+}
+```
+
+We didn't design the language to be _as simple as possible_. We designed it to be
+simple _enough_ for most engineers to learn simple sequence writing over the course of
+an hour, while making sure we didn't limit the syntax choices for more powerful
+use cases.
