@@ -42,7 +42,11 @@ func (w *factory) Create(_ context.Context, cfg node2.Config) (node2.Node, error
 	configCount := len(cfg.Node.Config)
 	params := make([]uint64, configCount+len(irFn.Inputs))
 	for i, param := range cfg.Node.Config {
-		params[i] = convertConfigValue(param.Value)
+		val, err := convertConfigValue(param.Value)
+		if err != nil {
+			return nil, err
+		}
+		params[i] = val
 	}
 
 	n := &nodeImpl{
@@ -64,32 +68,32 @@ func (w *factory) Create(_ context.Context, cfg node2.Config) (node2.Node, error
 }
 
 // convertConfigValue converts a config value to uint64 for WASM function calls.
-func convertConfigValue(v any) uint64 {
+func convertConfigValue(v any) (uint64, error) {
 	switch val := v.(type) {
 	case int8:
-		return uint64(val)
+		return uint64(val), nil
 	case int16:
-		return uint64(val)
+		return uint64(val), nil
 	case int32:
-		return uint64(val)
+		return uint64(val), nil
 	case int64:
-		return uint64(val)
+		return uint64(val), nil
 	case uint8:
-		return uint64(val)
+		return uint64(val), nil
 	case uint16:
-		return uint64(val)
+		return uint64(val), nil
 	case uint32:
-		return uint64(val)
+		return uint64(val), nil
 	case uint64:
-		return val
+		return val, nil
 	case float32:
-		return uint64(math.Float32bits(val))
+		return uint64(math.Float32bits(val)), nil
 	case float64:
-		return math.Float64bits(val)
+		return math.Float64bits(val), nil
 	case telem.TimeStamp:
-		return uint64(val)
+		return uint64(val), nil
 	default:
-		panic(fmt.Sprintf("unsupported config value type: %T", v))
+		return 0, fmt.Errorf("unsupported config value type: %T", v)
 	}
 }
 
