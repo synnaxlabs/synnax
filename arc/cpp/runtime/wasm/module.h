@@ -9,6 +9,7 @@
 
 #pragma once
 
+#include <map>
 #include <memory>
 #include <string>
 #include <vector>
@@ -267,6 +268,7 @@ public:
         uint32_t base;
         std::vector<wasmtime::Val> args;
         std::vector<uint32_t> offsets;
+        std::map<size_t, std::string> string_configs;
 
     public:
         Function(
@@ -283,9 +285,15 @@ public:
             config_count(config.size()),
             base(base) {
             this->args.resize(config.size() + inputs.size(), wasmtime::Val(0));
-            for (size_t i = 0; i < config.size(); i++)
-                if (config[i].value.has_value())
-                    this->args[i] = sample_to_wasm(*config[i].value, config[i].type);
+            for (size_t i = 0; i < config.size(); i++) {
+                if (!config[i].value.has_value()) continue;
+                if (const auto *s = std::get_if<std::string>(&*config[i].value)) {
+                    // String handles are transient — refreshed per-call in call().
+                    this->string_configs[i] = *s;
+                    continue;
+                }
+                this->args[i] = sample_to_wasm(*config[i].value, config[i].type);
+            }
             uint32_t offset = base + 8;
             for (const auto &param: outputs) {
                 this->offsets.push_back(offset);
@@ -298,6 +306,13 @@ public:
             std::vector<Result> &output_vals
         ) {
             output_vals.assign(this->outputs.size(), Result{});
+
+            // Refresh string config handles — bindings flush them between cycles.
+            if (!this->string_configs.empty() && this->module.cfg.bindings != nullptr)
+                for (const auto &[i, s] : this->string_configs)
+                    this->args[i] = wasmtime::Val(
+                        static_cast<int32_t>(this->module.cfg.bindings->string_create(s))
+                    );
 
             for (size_t i = 0; i < input_vals.size(); i++)
                 this->args[this->config_count + i] = sample_to_wasm(input_vals[i]);
