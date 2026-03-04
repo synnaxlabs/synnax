@@ -21,6 +21,7 @@ import (
 	"github.com/synnaxlabs/x/query"
 	"github.com/synnaxlabs/x/telem"
 	"github.com/tetratelabs/wazero/api"
+	"go.uber.org/zap"
 )
 
 type factory struct {
@@ -98,6 +99,7 @@ func convertConfigValue(v any) (uint64, error) {
 	case telem.TimeStamp:
 		return uint64(val), nil
 	default:
+		zap.S().DPanicf("unsupported config value type: %T", v)
 		return 0, errors.Newf("unsupported config value type: %T", v)
 	}
 }
