@@ -22,15 +22,9 @@
 #include "driver/http/mock/server.h"
 
 namespace driver::http::device {
-namespace {
-ConnectionConfig make_config(x::json::json j, const bool verify_ssl = true) {
-    j["verify_ssl"] = verify_ssl;
-    x::json::Parser p(j);
-    return ConnectionConfig(p);
-}
-}
+// ─── AuthConfig Tests ───────────────────────────────────────────────────────
 
-TEST(AuthConfigTest, ParsesAPIKey) {
+TEST(AuthConfigTest, V0APIKeyDefaultsToHeader) {
     x::json::json j = {
         {"type", "api_key"},
         {"header", "X-API-Key"},
@@ -40,6 +34,7 @@ TEST(AuthConfigTest, ParsesAPIKey) {
     AuthConfig auth(parser);
     EXPECT_TRUE(parser.ok());
     EXPECT_EQ(auth.type, "api_key");
+    EXPECT_EQ(auth.send_as, "header");
     EXPECT_EQ(auth.header, "X-API-Key");
     EXPECT_EQ(auth.key, "secret123");
     EXPECT_TRUE(auth.parameter.empty());
@@ -180,53 +175,22 @@ TEST(AuthConfigTest, DefaultsToNone) {
     EXPECT_EQ(auth.type, "none");
 }
 
-TEST(AuthConfigTest, V1APIKeyHeaderRoundtrip) {
-    x::json::json j = {
-        {"type", "api_key"},
-        {"send_as", "header"},
-        {"header", "X-Key"},
-        {"parameter", "key"},
-        {"key", "val"},
-    };
-    x::json::Parser parser(j);
-    AuthConfig auth(parser);
-    ASSERT_TRUE(parser.ok());
-    auto out = auth.to_json();
-    EXPECT_EQ(out["send_as"], "header");
-    EXPECT_EQ(out["header"], "X-Key");
-    EXPECT_EQ(out["key"], "val");
-    EXPECT_FALSE(out.contains("parameter"));
-}
-
-TEST(AuthConfigTest, V1APIKeyQueryParamRoundtrip) {
-    x::json::json j = {
-        {"type", "api_key"},
-        {"send_as", "query_param"},
-        {"parameter", "api_key"},
-        {"key", "val"},
-    };
-    x::json::Parser parser(j);
-    AuthConfig auth(parser);
-    ASSERT_TRUE(parser.ok());
-    auto out = auth.to_json();
-    EXPECT_EQ(out["send_as"], "query_param");
-    EXPECT_EQ(out["parameter"], "api_key");
-    EXPECT_EQ(out["key"], "val");
-    EXPECT_FALSE(out.contains("header"));
-}
-
+// ─── ConnectionConfig Tests ─────────────────────────────────────────────────
 
 TEST(ConnectionConfigTest, FromJSON) {
     x::json::json j = {
         {"base_url", "http://192.168.1.100:8080"},
         {"timeout_ms", 5000},
+        {"verify_ssl", true},
         {"auth", {{"type", "bearer"}, {"token", "abc123"}}},
         {"headers", {{"X-Custom", "value"}}}
     };
     x::json::Parser parser(j);
     ConnectionConfig config(parser);
+    EXPECT_TRUE(parser.ok());
     EXPECT_EQ(config.base_url, "http://192.168.1.100:8080");
     EXPECT_EQ(config.timeout, 5 * x::telem::SECOND);
+    EXPECT_TRUE(config.verify_ssl);
     EXPECT_EQ(config.auth.type, "bearer");
     EXPECT_EQ(config.auth.token, "abc123");
     EXPECT_EQ(config.headers["X-Custom"], "value");
@@ -236,30 +200,67 @@ TEST(ConnectionConfigTest, DefaultsApplied) {
     x::json::json j = {{"base_url", "http://localhost"}};
     x::json::Parser parser(j);
     ConnectionConfig config(parser);
+    EXPECT_TRUE(parser.ok());
     EXPECT_EQ(config.base_url, "http://localhost");
     EXPECT_EQ(config.timeout, 100 * x::telem::MILLISECOND);
+    EXPECT_TRUE(config.verify_ssl);
     EXPECT_EQ(config.auth.type, "none");
     EXPECT_TRUE(config.headers.empty());
 }
 
-TEST(ConnectionConfigTest, ToJSONRoundtrip) {
-    auto config = make_config({
-        {"base_url", "http://10.0.0.1:9090"},
-        {"timeout_ms", 10000},
-        {"auth", {{"type", "basic"}, {"username", "user"}, {"password", "pass"}}},
-        {"headers", {{"Accept", "application/json"}}},
-    });
-
-    auto j = config.to_json();
+TEST(ConnectionConfigTest, VerifySSLFalse) {
+    x::json::json j = {
+        {"base_url", "http://localhost"},
+        {"verify_ssl", false},
+    };
     x::json::Parser parser(j);
-    ConnectionConfig parsed(parser);
+    ConnectionConfig config(parser);
+    EXPECT_TRUE(parser.ok());
+    EXPECT_FALSE(config.verify_ssl);
+}
 
-    EXPECT_EQ(parsed.base_url, config.base_url);
-    EXPECT_EQ(parsed.timeout, config.timeout);
-    EXPECT_EQ(parsed.auth.type, config.auth.type);
-    EXPECT_EQ(parsed.auth.username, config.auth.username);
-    EXPECT_EQ(parsed.auth.password, config.auth.password);
-    EXPECT_EQ(parsed.headers, config.headers);
+TEST(ConnectionConfigTest, BaseURLMustStartWithHTTP) {
+    x::json::json j = {{"base_url", "ftp://example.com"}};
+    x::json::Parser parser(j);
+    ConnectionConfig config(parser);
+    EXPECT_FALSE(parser.ok());
+}
+
+TEST(ConnectionConfigTest, BaseURLAcceptsHTTPS) {
+    x::json::json j = {{"base_url", "https://example.com"}};
+    x::json::Parser parser(j);
+    ConnectionConfig config(parser);
+    EXPECT_TRUE(parser.ok());
+    EXPECT_EQ(config.base_url, "https://example.com");
+}
+
+TEST(ConnectionConfigTest, BaseURLAcceptsHTTP) {
+    x::json::json j = {{"base_url", "http://example.com"}};
+    x::json::Parser parser(j);
+    ConnectionConfig config(parser);
+    EXPECT_TRUE(parser.ok());
+    EXPECT_EQ(config.base_url, "http://example.com");
+}
+
+TEST(ConnectionConfigTest, BaseURLRejectsBareHostname) {
+    x::json::json j = {{"base_url", "example.com"}};
+    x::json::Parser parser(j);
+    ConnectionConfig config(parser);
+    EXPECT_FALSE(parser.ok());
+}
+
+TEST(ConnectionConfigTest, BaseURLRejectsBareHTTPScheme) {
+    x::json::json j = {{"base_url", "http://"}};
+    x::json::Parser parser(j);
+    ConnectionConfig config(parser);
+    EXPECT_FALSE(parser.ok());
+}
+
+TEST(ConnectionConfigTest, BaseURLRejectsBareHTTPSScheme) {
+    x::json::json j = {{"base_url", "https://"}};
+    x::json::Parser parser(j);
+    ConnectionConfig config(parser);
+    EXPECT_FALSE(parser.ok());
 }
 
 TEST(ConnectionConfigTest, MissingBaseURLErrors) {

@@ -72,24 +72,6 @@ struct AuthConfig {
             );
         }
     }
-
-    [[nodiscard]] x::json::json to_json() const {
-        x::json::json j = {{"type", type}};
-        if (type == "bearer") {
-            j["token"] = token;
-        } else if (type == "basic") {
-            j["username"] = username;
-            j["password"] = password;
-        } else if (type == "api_key") {
-            j["key"] = key;
-            j["send_as"] = send_as;
-            if (send_as == "query_param")
-                j["parameter"] = parameter;
-            else
-                j["header"] = header;
-        }
-        return j;
-    }
 };
 
 /// @brief connection configuration for an HTTP device.
@@ -100,15 +82,15 @@ struct ConnectionConfig {
     x::telem::TimeSpan timeout;
     /// @brief authentication configuration.
     AuthConfig auth;
-    /// @brief custom headers applied to every request.
+    /// @brief custom headers applied to every request (legacy compat).
     std::map<std::string, std::string> headers;
-    /// @brief query parameters applied to every request.
+    /// @brief query parameters applied to every request (legacy compat).
     std::map<std::string, std::string> query_params;
     /// @brief whether to verify SSL certificates.
     bool verify_ssl;
 
     /// @param parser the JSON parser to read configuration from.
-    explicit ConnectionConfig(x::json::Parser parser):
+    [[nodiscard]] explicit ConnectionConfig(x::json::Parser parser):
         base_url(parser.field<std::string>("base_url")),
         timeout(parser.field<uint32_t>("timeout_ms", 100) * x::telem::MILLISECOND),
         auth(AuthConfig(parser.optional_child("auth"))),
@@ -121,30 +103,19 @@ struct ConnectionConfig {
             std::map<std::string, std::string>{}
         )),
         verify_ssl(parser.field<bool>("verify_ssl", true)) {
+        if (!base_url.starts_with("http://") && !base_url.starts_with("https://"))
+            parser.field_err(
+                "base_url",
+                "must start with 'http://' or 'https://' followed by a host, got '" +
+                    base_url + "'"
+            );
+        else if (base_url == "http://" || base_url == "https://")
+            parser.field_err(
+                "base_url",
+                "must include a host after the scheme, got '" + base_url + "'"
+            );
         if (timeout <= x::telem::TimeSpan::ZERO())
             parser.field_err("timeout_ms", "must be positive");
-    }
-
-    [[nodiscard]] x::json::json to_json() const {
-        x::json::json j = {
-            {"base_url", base_url},
-            {"timeout_ms", timeout.milliseconds()},
-            {"auth", auth.to_json()},
-            {"verify_ssl", verify_ssl},
-        };
-        if (!headers.empty()) {
-            x::json::json h;
-            for (const auto &[k, v]: headers)
-                h[k] = v;
-            j["headers"] = h;
-        }
-        if (!query_params.empty()) {
-            x::json::json qp;
-            for (const auto &[k, v]: query_params)
-                qp[k] = v;
-            j["query_params"] = qp;
-        }
-        return j;
     }
 };
 
