@@ -163,6 +163,9 @@ class State {
     /// @brief Transient string handles - cleared each execution cycle.
     std::unordered_map<uint32_t, std::string> strings;
     uint32_t string_handle_counter = 1;
+    /// @brief Persistent config string handles - not cleared by flush().
+    std::unordered_map<uint32_t, std::string> config_strings;
+    uint32_t config_string_handle_counter = 1 << 24;
 
     /// @brief Transient series handles - cleared each execution cycle.
     std::unordered_map<uint32_t, x::telem::Series> series_handles;
@@ -227,7 +230,11 @@ public:
     /// @brief Creates a string handle from a C++ string.
     uint32_t string_create(const std::string &str);
 
+    /// @brief Creates a persistent config string handle that is not cleared by flush().
+    uint32_t string_create_config(const std::string &str);
+
     /// @brief Gets the string value for a handle. Returns empty string if not found.
+    /// Checks transient strings first, then persistent config strings.
     std::string string_get(uint32_t handle) const;
 
     /// @brief Checks if a string handle exists.

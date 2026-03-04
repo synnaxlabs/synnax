@@ -725,3 +725,36 @@ TEST(StateTest, SetAuthority_MultipleChanges) {
     EXPECT_EQ(changes[2].authority, 50);
     EXPECT_TRUE(s.flush_authority_changes().empty());
 }
+
+TEST(StateTest, StringCreateConfig_PersistsAcrossFlush) {
+    State s = create_minimal_state();
+    const uint32_t handle = s.string_create_config("persistent");
+    s.flush();
+    EXPECT_TRUE(s.string_exists(handle));
+    EXPECT_EQ(s.string_get(handle), "persistent");
+}
+
+TEST(StateTest, StringCreateConfig_NoCollisionWithTransient) {
+    State s = create_minimal_state();
+    const uint32_t transient = s.string_create("transient");
+    const uint32_t config = s.string_create_config("config");
+    EXPECT_NE(transient, config);
+}
+
+TEST(StateTest, StringCreateConfig_StableAcrossMultipleFlushCycles) {
+    State s = create_minimal_state();
+    const uint32_t handle = s.string_create_config("stable");
+    for (int i = 0; i < 5; i++) s.flush();
+    EXPECT_TRUE(s.string_exists(handle));
+    EXPECT_EQ(s.string_get(handle), "stable");
+}
+
+TEST(StateTest, StringGet_TransientClearedConfigPreservedAfterFlush) {
+    State s = create_minimal_state();
+    const uint32_t transient = s.string_create("transient");
+    const uint32_t config = s.string_create_config("config");
+    s.flush();
+    EXPECT_FALSE(s.string_exists(transient));
+    EXPECT_TRUE(s.string_exists(config));
+    EXPECT_EQ(s.string_get(config), "config");
+}

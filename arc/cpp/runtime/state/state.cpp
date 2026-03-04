@@ -346,14 +346,22 @@ uint32_t State::string_create(const std::string &str) {
     return handle;
 }
 
+uint32_t State::string_create_config(const std::string &str) {
+    const uint32_t handle = this->config_string_handle_counter++;
+    this->config_strings[handle] = str;
+    return handle;
+}
+
 std::string State::string_get(const uint32_t handle) const {
     const auto it = this->strings.find(handle);
-    if (it == this->strings.end()) return "";
-    return it->second;
+    if (it != this->strings.end()) return it->second;
+    const auto cfg_it = this->config_strings.find(handle);
+    if (cfg_it == this->config_strings.end()) return "";
+    return cfg_it->second;
 }
 
 bool State::string_exists(const uint32_t handle) const {
-    return this->strings.contains(handle);
+    return this->strings.contains(handle) || this->config_strings.contains(handle);
 }
 
 x::telem::Series *State::series_get(const uint32_t handle) {
