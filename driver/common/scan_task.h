@@ -165,8 +165,11 @@ struct SynnaxClusterAPI final : ClusterAPI {
 
     x::errors::Error
     create_devices(std::vector<synnax::device::Device> &devs) override {
-        if (devs.empty()) return x::errors::NIL;
-        return this->client->devices.create(devs);
+        for (auto &dev: devs) {
+            auto err = this->client->devices.create(dev);
+            if (err) return err;
+        }
+        return x::errors::NIL;
     }
 
     x::errors::Error
