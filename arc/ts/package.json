@@ -3,11 +3,6 @@
   "private": true,
   "type": "module",
   "description": "TypeScript/JavaScript utilities for the Arc language",
-  "repository": {
-    "type": "git",
-    "url": "https://github.com/synnaxlabs/synnax.git",
-    "directory": "arc/ts"
-  },
   "exports": {
     ".": {
       "types": "./dist/src/index.d.ts",

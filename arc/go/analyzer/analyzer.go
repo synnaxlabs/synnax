@@ -23,6 +23,8 @@ import (
 	"github.com/synnaxlabs/arc/parser"
 	"github.com/synnaxlabs/arc/symbol"
 	"github.com/synnaxlabs/x/diagnostics"
+	"github.com/synnaxlabs/x/graph"
+	"github.com/synnaxlabs/x/set"
 )
 
 func AnalyzeProgram(ctx acontext.Context[parser.IProgramContext]) {
@@ -54,7 +56,8 @@ func collectDeclarations(ctx acontext.Context[parser.IProgramContext]) {
 
 // propagateCallChannels runs a fixpoint loop over recorded call edges to ensure
 // that callee channel accesses are propagated to callers even when the callee is
-// declared after the caller in source order (forward references).
+// declared after the caller in source order (forward references). O(N * C * E)
+// where N = functions, C = channels, E = call edges.
 func propagateCallChannels(edges *[]acontext.CallEdge) {
 	changed := true
 	for changed {
@@ -84,32 +87,31 @@ type callEdgeInfo struct {
 // detectCallCycles finds strongly connected components in the call graph and reports
 // an error for any SCC where no node has an exit path. A node is "safe" if its
 // function body has at least one execution path that calls no other SCC member.
+// O(V + E) for SCC detection, then O(|SCC| * S * K * D) per SCC for exit-path
+// analysis where S = statements, K = call sites, D = AST depth.
 func detectCallCycles(edges *[]acontext.CallEdge, diag *diagnostics.Diagnostics) {
-	graph := make(map[string][]callEdgeInfo)
+	callGraph := make(map[string][]callEdgeInfo)
 	for _, edge := range *edges {
-		graph[edge.Caller.Name] = append(graph[edge.Caller.Name], callEdgeInfo{
+		callGraph[edge.Caller.Name] = append(callGraph[edge.Caller.Name], callEdgeInfo{
 			callee:   edge.Callee.Name,
 			callSite: edge.CallSite,
 		})
 	}
 
 	adj := make(map[string][]string)
-	for name, edgeList := range graph {
+	for name, edgeList := range callGraph {
 		for _, e := range edgeList {
 			adj[name] = append(adj[name], e.callee)
 		}
 	}
 
-	sccs := tarjanSCC(adj)
+	sccs := graph.TarjanSCC(adj)
 
 	for _, scc := range sccs {
-		sccSet := make(map[string]bool)
-		for _, name := range scc {
-			sccSet[name] = true
-		}
+		sccSet := set.FromSlice(scc)
 		if len(scc) == 1 {
 			hasSelfLoop := false
-			for _, e := range graph[scc[0]] {
+			for _, e := range callGraph[scc[0]] {
 				if e.callee == scc[0] {
 					hasSelfLoop = true
 					break
@@ -124,7 +126,7 @@ func detectCallCycles(edges *[]acontext.CallEdge, diag *diagnostics.Diagnostics)
 		for _, node := range scc {
 			var sites []antlr.ParserRuleContext
 			for _, e := range *edges {
-				if e.Caller.Name == node && sccSet[e.Callee.Name] {
+				if e.Caller.Name == node && sccSet.Contains(e.Callee.Name) {
 					sites = append(sites, e.CallSite)
 				}
 			}
@@ -144,69 +146,17 @@ func detectCallCycles(edges *[]acontext.CallEdge, diag *diagnostics.Diagnostics)
 		}
 
 		if !anySafe {
-			cycle, closingSite := findCycleInSCC(scc, sccSet, graph)
+			cycle, closingSite := findCycleInSCC(scc, sccSet, callGraph)
 			chain := strings.Join(cycle, " -> ")
 			diag.Add(diagnostics.Errorf(closingSite, "circular function call: %s", chain))
 		}
 	}
 }
 
-// tarjanSCC returns all strongly connected components of the directed graph.
-func tarjanSCC(adj map[string][]string) [][]string {
-	var (
-		idx      int
-		stack    []string
-		onStack  = make(map[string]bool)
-		indices  = make(map[string]int)
-		lowlinks = make(map[string]int)
-		defined  = make(map[string]bool)
-		sccs     [][]string
-	)
-	var strongconnect func(v string)
-	strongconnect = func(v string) {
-		indices[v] = idx
-		lowlinks[v] = idx
-		idx++
-		defined[v] = true
-		stack = append(stack, v)
-		onStack[v] = true
-		for _, w := range adj[v] {
-			if !defined[w] {
-				strongconnect(w)
-				if lowlinks[w] < lowlinks[v] {
-					lowlinks[v] = lowlinks[w]
-				}
-			} else if onStack[w] {
-				if indices[w] < lowlinks[v] {
-					lowlinks[v] = indices[w]
-				}
-			}
-		}
-		if lowlinks[v] == indices[v] {
-			var scc []string
-			for {
-				w := stack[len(stack)-1]
-				stack = stack[:len(stack)-1]
-				onStack[w] = false
-				scc = append(scc, w)
-				if w == v {
-					break
-				}
-			}
-			sccs = append(sccs, scc)
-		}
-	}
-	for v := range adj {
-		if !defined[v] {
-			strongconnect(v)
-		}
-	}
-	return sccs
-}
-
 // findCycleInSCC finds a simple cycle within the SCC for error reporting and returns
 // the cycle as a list of names (ending with the start node) and the closing call site.
-func findCycleInSCC(scc []string, sccSet map[string]bool, graph map[string][]callEdgeInfo) ([]string, antlr.ParserRuleContext) {
+// O(|SCC| + edges within SCC). Only called for error SCCs.
+func findCycleInSCC(scc []string, sccSet set.Set[string], graph map[string][]callEdgeInfo) ([]string, antlr.ParserRuleContext) {
 	start := scc[0]
 
 	if len(scc) == 1 {
@@ -218,16 +168,16 @@ func findCycleInSCC(scc []string, sccSet map[string]bool, graph map[string][]cal
 		return []string{start, start}, nil
 	}
 
-	visited := make(map[string]bool)
+	visited := make(set.Set[string])
 	var path []string
 	var closingSite antlr.ParserRuleContext
 
 	var dfs func(node string) bool
 	dfs = func(node string) bool {
-		visited[node] = true
+		visited.Add(node)
 		path = append(path, node)
 		for _, e := range graph[node] {
-			if !sccSet[e.callee] {
+			if !sccSet.Contains(e.callee) {
 				continue
 			}
 			if e.callee == start && len(path) > 1 {
@@ -235,14 +185,14 @@ func findCycleInSCC(scc []string, sccSet map[string]bool, graph map[string][]cal
 				closingSite = e.callSite
 				return true
 			}
-			if !visited[e.callee] {
+			if !visited.Contains(e.callee) {
 				if dfs(e.callee) {
 					return true
 				}
 			}
 		}
 		path = path[:len(path)-1]
-		visited[node] = false
+		visited.Remove(node)
 		return false
 	}
 
@@ -252,6 +202,7 @@ func findCycleInSCC(scc []string, sccSet map[string]bool, graph map[string][]cal
 
 // blockAlwaysCalls returns true if every execution path through the block reaches at
 // least one of the given call sites. Mirrors blockAlwaysReturns in function.go.
+// O(S * K * D) where S = statements, K = call sites, D = AST depth.
 func blockAlwaysCalls(block parser.IBlockContext, sites []antlr.ParserRuleContext) bool {
 	if block == nil {
 		return false
@@ -295,7 +246,7 @@ func stmtContainsSite(stmt parser.IStatementContext, sites []antlr.ParserRuleCon
 	return false
 }
 
-// isDescendant returns true if child is a descendant of ancestor in the AST.
+// isDescendant returns true if child is a descendant of ancestor in the AST. O(D).
 func isDescendant(child, ancestor antlr.Tree) bool {
 	node := child.GetParent()
 	for node != nil {
@@ -308,7 +259,7 @@ func isDescendant(child, ancestor antlr.Tree) bool {
 }
 
 // findFuncBody walks up from a call site to the enclosing function declaration and
-// returns its body block.
+// returns its body block. O(D).
 func findFuncBody(callSite antlr.ParserRuleContext) parser.IBlockContext {
 	node := callSite.GetParent()
 	for node != nil {

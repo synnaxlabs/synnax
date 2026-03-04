@@ -20,6 +20,10 @@ func check_high_pressure(p f32) u8 {
     return p > 25
 }
 
+func event_log{msg str} () {
+    lifecycle_log = msg
+}
+
 press_pt -> check_high_pressure{} -> stable_for{duration=500ms} -> select{} -> {
     true: set_status{
         status_key="lifecycle_press_alarm",
@@ -54,6 +58,7 @@ interval{period=100ms} -> nested_write_1{}
 sequence main {
     stage press {
         1 -> press_vlv_cmd,
+        event_log{msg="pressurizing"},
         press_pt > 30 => maintain
     }
 
@@ -64,6 +69,7 @@ sequence main {
 
     stage vent {
         1 -> vent_vlv_cmd,
+        event_log{msg="venting"},
         press_pt < 5 => complete
     }
 
@@ -97,6 +103,7 @@ class ArcLifecycle(ArcConsoleCase):
         "press_pt",
         "arc_lifecycle_virt",
         "end_test_cmd",
+        "lifecycle_log",
     ]
     sim_daq_class = PressSimDAQ
 
@@ -107,6 +114,12 @@ class ArcLifecycle(ArcConsoleCase):
             data_type=sy.DataType.FLOAT32,
             retrieve_if_name_exists=True,
             virtual=True,
+        )
+        self.client.channels.create(
+            name="lifecycle_log",
+            data_type=sy.DataType.STRING,
+            virtual=True,
+            retrieve_if_name_exists=True,
         )
         self.client.statuses.set(
             sy.Status(
@@ -129,6 +142,7 @@ class ArcLifecycle(ArcConsoleCase):
         # --- 1. Verify select true branch: stable_for emits after pressure
         # stays above 25 PSI for 500ms, then select routes to warning status ---
         self.log("Waiting for 'Pressure stable above 25 PSI' (select true branch)")
+        self.wait_for_eq("lifecycle_log", "pressurizing", is_virtual=True)
         if not self.console.notifications.wait_for("Pressure stable above 25 PSI"):
             self.fail("Notification 'Pressure stable above 25 PSI' not found")
 
@@ -138,6 +152,8 @@ class ArcLifecycle(ArcConsoleCase):
         self.log("Checking for 'Pressure below 25 PSI' (select false branch)")
         if not self.console.notifications.wait_for("Pressure below 25 PSI"):
             self.fail("Notification 'Pressure below 25 PSI' not found")
+        self.wait_for_eq("lifecycle_log", "venting", is_virtual=True)
+
         self.console.notifications.close_all()
 
         # --- 3. Rename while running (triggers redeployment warning) ---
