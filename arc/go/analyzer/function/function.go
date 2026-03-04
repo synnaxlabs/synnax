@@ -215,7 +215,7 @@ func Analyze(ctx acontext.Context[parser.IFunctionDeclarationContext]) {
 	if block := ctx.AST.Block(); block != nil {
 		statement.AnalyzeBlock(acontext.Child(ctx, block).WithScope(fn))
 		oParam, hasOutput := fn.Type.Outputs.Get(ir.DefaultOutputParam)
-		if hasOutput && !blockAlwaysReturns(block) {
+		if hasOutput && !BlockAlwaysReturns(block) {
 			ctx.Diagnostics.Add(diagnostics.Errorf(ctx.AST,
 				"function '%s' must return a value of type %s on all paths",
 				name,
@@ -358,7 +358,7 @@ func addInputsToScope(
 	}
 }
 
-func blockAlwaysReturns(block parser.IBlockContext) bool {
+func BlockAlwaysReturns(block parser.IBlockContext) bool {
 	if block == nil {
 		return false
 	}
@@ -367,23 +367,23 @@ func blockAlwaysReturns(block parser.IBlockContext) bool {
 		if statements[i].ReturnStatement() != nil {
 			return true
 		}
-		if ifStmt := statements[i].IfStatement(); ifStmt != nil && ifStmtAlwaysReturns(ifStmt) {
+		if ifStmt := statements[i].IfStatement(); ifStmt != nil && IfStmtAlwaysReturns(ifStmt) {
 			return true
 		}
 	}
 	return false
 }
 
-func ifStmtAlwaysReturns(ifStmt parser.IIfStatementContext) bool {
-	if ifStmt.ElseClause() == nil || !blockAlwaysReturns(ifStmt.Block()) {
+func IfStmtAlwaysReturns(ifStmt parser.IIfStatementContext) bool {
+	if ifStmt.ElseClause() == nil || !BlockAlwaysReturns(ifStmt.Block()) {
 		return false
 	}
 	for _, elseIf := range ifStmt.AllElseIfClause() {
-		if !blockAlwaysReturns(elseIf.Block()) {
+		if !BlockAlwaysReturns(elseIf.Block()) {
 			return false
 		}
 	}
-	return blockAlwaysReturns(ifStmt.ElseClause().Block())
+	return BlockAlwaysReturns(ifStmt.ElseClause().Block())
 }
 
 // addConfigToScope adds config parameters to the function's scope.

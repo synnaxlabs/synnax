@@ -208,6 +208,8 @@ void State::reset() {
     this->series_handles.clear();
     this->string_handle_counter = 1;
     this->series_handle_counter = 1;
+    this->config_strings.clear();
+    this->config_string_handle_counter = k_config_string_handle_base;
     this->var_u8.clear();
     this->var_u16.clear();
     this->var_u32.clear();
@@ -346,14 +348,22 @@ uint32_t State::string_create(const std::string &str) {
     return handle;
 }
 
+uint32_t State::string_create_config(const std::string &str) {
+    const uint32_t handle = this->config_string_handle_counter++;
+    this->config_strings[handle] = str;
+    return handle;
+}
+
 std::string State::string_get(const uint32_t handle) const {
     const auto it = this->strings.find(handle);
-    if (it == this->strings.end()) return "";
-    return it->second;
+    if (it != this->strings.end()) return it->second;
+    const auto cfg_it = this->config_strings.find(handle);
+    if (cfg_it == this->config_strings.end()) return "";
+    return cfg_it->second;
 }
 
 bool State::string_exists(const uint32_t handle) const {
-    return this->strings.contains(handle);
+    return this->strings.contains(handle) || this->config_strings.contains(handle);
 }
 
 x::telem::Series *State::series_get(const uint32_t handle) {
@@ -408,18 +418,16 @@ uint32_t State::var_load_str(const uint32_t var_id, const uint32_t init_handle) 
         this->strings[this->string_handle_counter] = it->second;
         return this->string_handle_counter++;
     }
-    if (const auto init_it = this->strings.find(init_handle);
-        init_it != this->strings.end())
-        inner[var_id] = init_it->second;
-    else
-        inner[var_id] = "";
+    // Use string_get to resolve both transient and config string handles.
+    inner[var_id] = this->string_get(init_handle);
     this->strings[this->string_handle_counter] = inner[var_id];
     return this->string_handle_counter++;
 }
 
 void State::var_store_str(const uint32_t var_id, const uint32_t str_handle) {
-    if (const auto it = this->strings.find(str_handle); it != this->strings.end())
-        this->var_string[this->current_node_key][var_id] = it->second;
+    if (!this->string_exists(str_handle)) return;
+    // Use string_get to resolve both transient and config string handles.
+    this->var_string[this->current_node_key][var_id] = this->string_get(str_handle);
 }
 
 uint32_t State::var_load_series(const uint32_t var_id, const uint32_t init_handle) {

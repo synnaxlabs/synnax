@@ -34,6 +34,13 @@ import (
 // slices.Delete zeroes old references (allowing GC) without allocating.
 const clearReadsReallocThreshold = 64
 
+// configStringHandleBase is the starting value for config string handles.
+// Config string handles are stable for the State lifetime and are never cleared
+// by Flush. Using a high base value ensures they cannot collide with transient
+// string handles, which start at 1 and reset back to 1 on every Flush call —
+// so transient handles can never reach this value within a single cycle.
+const configStringHandleBase uint32 = 1 << 24
+
 type value struct {
 	data telem.Series
 	time telem.Series
@@ -66,6 +73,10 @@ type State struct {
 	seriesHandleCounter uint32
 	strings             map[uint32]string
 	stringHandleCounter uint32
+	// configStrings holds strings created via StringCreateConfig. Unlike strings,
+	// these are NOT cleared by Flush — handles are stable for the State lifetime.
+	configStrings             map[uint32]string
+	configStringHandleCounter uint32
 }
 
 // ChannelDigest provides metadata about a channel for state initialization.
@@ -85,13 +96,15 @@ type Config struct {
 // It initializes output storage for all node outputs and maps channel keys to their indexes.
 func New(cfg Config) *State {
 	s := &State{
-		cfg:                 cfg,
-		outputs:             make(map[ir.Handle]*value),
-		indexes:             make(map[uint32]uint32),
-		series:              make(map[uint32]telem.Series),
-		seriesHandleCounter: 1,
-		strings:             make(map[uint32]string),
-		stringHandleCounter: 1,
+		cfg:                       cfg,
+		outputs:                   make(map[ir.Handle]*value),
+		indexes:                   make(map[uint32]uint32),
+		series:                    make(map[uint32]telem.Series),
+		seriesHandleCounter:       1,
+		strings:                   make(map[uint32]string),
+		stringHandleCounter:       1,
+		configStrings:             make(map[uint32]string),
+		configStringHandleCounter: configStringHandleBase,
 	}
 	s.channel.reads = make(map[uint32]telem.MultiSeries)
 	s.channel.writes = make(map[uint32]telem.Series)
@@ -487,9 +500,23 @@ func (s *State) StringCreate(str string) uint32 {
 	return handle
 }
 
+// StringCreateConfig stores a string and returns a stable handle that persists
+// for the lifetime of the State and is never cleared by Flush. Use this for
+// config param strings whose handles are baked into node args at configure time.
+func (s *State) StringCreateConfig(str string) uint32 {
+	handle := s.configStringHandleCounter
+	s.configStringHandleCounter++
+	s.configStrings[handle] = str
+	return handle
+}
+
 // StringGet retrieves a string by its handle.
 // Returns the string and true if found, or an empty string and false if not found.
+// Checks transient strings first, then persistent config strings.
 func (s *State) StringGet(handle uint32) (string, bool) {
-	str, ok := s.strings[handle]
+	if str, ok := s.strings[handle]; ok {
+		return str, true
+	}
+	str, ok := s.configStrings[handle]
 	return str, ok
 }

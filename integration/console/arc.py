@@ -206,6 +206,33 @@ class ArcClient:
             state="visible", timeout=15000
         )
 
+    def configure_no_wait(self) -> None:
+        """Click the Configure button without waiting for a success message.
+
+        Waits only for the status bar to update (any message change).
+        """
+        controls = self._get_controls()
+        configure_btn = controls.locator("button:has-text('Configure')")
+        configure_btn.wait_for(state="visible", timeout=5000)
+        self.notifications.close_all()
+        configure_btn.click()
+
+    def wait_for_status(self, substr: str) -> str:
+        """Wait for the status bar to contain a specific substring.
+
+        Args:
+            substr: The substring to wait for in the status message.
+
+        Returns:
+            The full status message text.
+        """
+        controls = self._get_controls()
+        msg = controls.locator(
+            f".console-task-status__message-text:has-text('{substr}')"
+        )
+        msg.wait_for(state="visible", timeout=15000)
+        return msg.inner_text().strip()
+
     def start(self) -> None:
         """Click the Play button to start the Arc.
 
