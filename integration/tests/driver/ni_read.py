@@ -20,7 +20,7 @@ class NIAnalogReadHS(NIAnalogReadTaskCase):
 
     # TODO: Create a task with a sample rate that is too low and verify status/error
     task_name = "NI Analog Voltage Read"
-    device_name = "E101Mod1"  # NI 9229 
+    device_location = "E101Mod1"  # NI 9229
 
     SAMPLE_RATE = 10000 * sy.Rate.HZ  # Min sample rate for NI 9229: 1612.9 Hz
     STREAM_RATE = 50 * sy.Rate.HZ

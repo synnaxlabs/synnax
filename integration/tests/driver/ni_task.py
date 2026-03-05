@@ -25,7 +25,7 @@ class _NITaskMixin:
     location = NI MAX alias (e.g. "E101Mod1").
 
     Subclasses must set:
-        device_name: str  — the NI MAX identifier (e.g. "E101Mod1")
+        device_location: str  — the NI MAX identifier (e.g. "E101Mod1")
     """
 
     def setup(self) -> None:
@@ -33,7 +33,7 @@ class _NITaskMixin:
             self.auto_pass(msg="Windows DAQmx drivers required")
         # The NI scanner registers devices with location = NI MAX alias,
         # but TaskCase.setup() retrieves by name. Resolve here.
-        dev = self.client.devices.retrieve(location=self.device_name)
+        dev = self.client.devices.retrieve(location=self.device_location)
         self.device_name = dev.name
         super().setup()
 

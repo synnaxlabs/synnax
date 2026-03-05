@@ -333,11 +333,8 @@ I can successfully:
 I can successfully:
 
 - [ ] Enable and disable NI integration when starting the server.
-- [x] Recognize and connect to an NI device locally. (driver_ni_digital_write.py)
-- [ ] Recognize and connect to NI devices over the network.
-- [x] Recognize and connect to physical and simulated devices. (driver_ni_digital_write.py)
 - [ ] Disconnect a physical device while a task is running without causing faults.
-- [ ] Ignore chassis and view devices connected to it.
+- [ ] View a chassis and it's child devices.
 - [ ] Run the Driver without NI-DAQmx and System Configuration libraries installed.
 - [ ] Receive feedback when trying to create an NI task on a machine lacking the necessary libraries.
 - **Handle invalid device configurations and receive meaningful feedback:**
@@ -348,22 +345,11 @@ I can successfully:
 - [ ] Shut down the driver without errors during embedded operation.
 - [ ] Run various tasks on a single device.
 - [ ] Run multiple tasks across multiple devices concurrently.
-- **Reliable data streaming at the following sample rates:**
-  - [ ] 1 Hz
-  - [ ] 10 Hz
-  - [ ] 100 Hz
-  - [ ] 1 kHz
-  - [ ] 5 kHz
-- **Configure the following stream rates:**
-  - [ ] 1 Hz
-  - [ ] 10 Hz
-  - [ ] 30 Hz
 - **Analog Read Task**
   - [ ] Plot live data.
   - [ ] Tare data.
   - [ ] Handle device disconnection during active tasks with appropriate feedback.
   - [ ] Start multiple tasks at different times and view live data.
-  - [ ] Enable and disable data saving.
   - [ ] Enabled auto-start, and ensure that the task automatically starts after configuration.
   - [ ] Ensure no lag between sensor input and Core data recording.
   - [ ] Configure and run an analog read task for the following channels:
