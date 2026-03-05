@@ -83,6 +83,7 @@ public:
     /// ensuring that when a stage is (re-)activated it only responds to
     /// data that arrives after activation rather than stale pre-existing data.
     void reset() override {
+        node::Node::reset();
         auto [data, index_data, ok] = state.read_chan(channel_key);
         if (!ok || data.series.empty()) return;
         const auto &last = data.series.back();
