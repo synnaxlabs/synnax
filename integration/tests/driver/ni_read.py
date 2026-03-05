@@ -209,11 +209,11 @@ class NIReadRTD(NIAnalogReadTaskCase):
 
 
 class NIReadResistance(NIAnalogReadTaskCase):
-    """Read resistance on NI 9219 with varied wire configurations.
+    """Read resistance on NI 9219 (2-wire and 4-wire only, 500 uA excitation).
 
-    Port 0: 4-wire, 0-1 kOhm, 1 mA excitation
-    Port 1: 2-wire, 0-10 kOhm, 100 uA excitation
-    Port 2: 3-wire, 0-1 kOhm, 1 mA excitation
+    Port 0: 4-wire, 0-1 kOhm
+    Port 1: 2-wire, 0-10 kOhm
+    Port 2: 4-wire, 0-1 kOhm
     """
 
     task_name = "NI Resistance Read"
@@ -262,12 +262,12 @@ class NIReadResistance(NIAnalogReadTaskCase):
                 port=2,
                 channel=create_channel(
                     client,
-                    name="ni_res_3w_1k",
+                    name="ni_res_4w_1k_b",
                     data_type=sy.DataType.FLOAT32,
                     index=idx.key,
                 ),
                 terminal_config="Cfg_Default",
-                resistance_config="3Wire",
+                resistance_config="4Wire",
                 current_excit_source="Internal",
                 current_excit_val=0.0005,
                 min_val=0.0,
