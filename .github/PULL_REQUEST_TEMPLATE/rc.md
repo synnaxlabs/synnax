@@ -249,16 +249,6 @@ I can successfully:
 - [ ] Change a user's username and log in with the new username.
 - [ ] Change a user's role and verify their permissions change accordingly.
 
-### Arc
-
-I can successfully:
-
-- **Arc Toolbar**
-  - [ ] Toggle Arc toolbar visibility with "A" keyboard shortcut
-
-- **Arc Editor**
-  - [ ] Create an alarm automation that changes statuses and includes the following blocks: channel source, constant, comparison, stable for, select, and status change.
-
 ### Version
 
 I can successfully:

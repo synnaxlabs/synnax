@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { Logo } from "@synnaxlabs/media";
-import { Component, Dialog, Flex, Icon, List, Text } from "@synnaxlabs/pluto";
+import { Component, Icon, List, Text } from "@synnaxlabs/pluto";
 import { Tree } from "@synnaxlabs/pluto/tree";
 import { type CSSProperties, type ReactElement, useEffect, useState } from "react";
 
@@ -161,32 +161,71 @@ export const Page = ({ currentPage: initialPage }: TOCProps): ReactElement | nul
 
 export const PageMobile = ({ currentPage: initialPage }: TOCProps): ReactElement => {
   const currentPage = useCurrentPage(initialPage);
+  const [open, setOpen] = useState(false);
+
+  useEffect(() => {
+    if (open) document.body.classList.add("mobile-menu-open");
+    else document.body.classList.remove("mobile-menu-open");
+    return () => document.body.classList.remove("mobile-menu-open");
+  }, [open]);
+
   return (
-    <Dialog.Frame variant="modal" location="top" className="page-nav-mobile">
-      <Dialog.Trigger size="large" variant="outlined">
-        <Icon.Menu />
-      </Dialog.Trigger>
-      <Dialog.Dialog>
-        <Flex.Box
-          borderColor={5}
-          background={0}
-          bordered
-          rounded
-          className="page-nav-mobile-content"
-        >
-          <Flex.Box
-            style={{
-              width: "100%",
-              padding: "2rem 2rem",
-              borderBottom: "var(--pluto-border)",
-            }}
-            direction="x"
-          >
+    <>
+      <button
+        className="mobile-menu-btn"
+        aria-label="Open menu"
+        onClick={() => setOpen(true)}
+      >
+        <span className="mobile-menu-icon" />
+      </button>
+      {open && (
+        <div
+          className="mobile-overlay mobile-overlay--open"
+          onClick={() => setOpen(false)}
+        />
+      )}
+      <nav className={`mobile-drawer ${open ? "mobile-drawer--open" : ""}`}>
+        <div className="mobile-drawer-header">
+          <a href="https://synnaxlabs.com" className="logo-link">
             <Logo variant="title" />
-          </Flex.Box>
+          </a>
+          <button
+            className="mobile-close-btn"
+            aria-label="Close menu"
+            onClick={() => setOpen(false)}
+          >
+            <span className="mobile-close-icon" />
+          </button>
+        </div>
+        <div className="mobile-drawer-links">
+          <a
+            href="/reference/"
+            className="mobile-drawer-link"
+            onClick={() => setOpen(false)}
+          >
+            Reference
+          </a>
+          <a
+            href="/blog/"
+            className="mobile-drawer-link"
+            onClick={() => setOpen(false)}
+          >
+            Blog
+          </a>
+          <a
+            href="/releases/"
+            className="mobile-drawer-link"
+            onClick={() => setOpen(false)}
+          >
+            Releases
+          </a>
+          <div className="mobile-drawer-divider" />
+          <span className="mobile-drawer-section-label">Reference</span>
+        </div>
+        <div className="mobile-drawer-tree">
           <Reference currentPage={currentPage} />
-        </Flex.Box>
-      </Dialog.Dialog>
-    </Dialog.Frame>
+        </div>
+      </nav>
+    </>
   );
 };
