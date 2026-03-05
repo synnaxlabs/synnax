@@ -208,6 +208,176 @@ class NIReadRTD(NIAnalogReadTaskCase):
         ]
 
 
+class NIReadTC(NIAnalogReadTaskCase):
+    """Read thermocouples across two NI 9211 modules — all 8 TC types.
+
+    E101Mod5:
+        Port 0: J-type, DegC
+        Port 1: K-type, DegF
+        Port 2: T-type, DegC
+        Port 3: E-type, Kelvins
+    E101Mod6:
+        Port 0: R-type, DegC
+        Port 1: S-type, DegF
+        Port 2: B-type, DegC
+        Port 3: N-type, DegR
+    """
+
+    task_name = "NI Thermocouple Read"
+    device_locations = ["E101Mod5", "E101Mod6"]  # NI 9211
+
+    SAMPLE_RATE = 20 * sy.Rate.HZ
+    STREAM_RATE = 5 * sy.Rate.HZ
+
+    @staticmethod
+    def create_channels(
+        client: sy.Synnax, devices: dict[str, sy.Device]
+    ) -> list[sy.ni.AIThermocoupleChan]:
+        idx = create_index(client, "ni_tc_index")
+        mod5 = devices["E101Mod5"]
+        mod6 = devices["E101Mod6"]
+        return [
+            # --- E101Mod5 (ports 0-3) ---
+            sy.ni.AIThermocoupleChan(
+                device=mod5.key,
+                port=0,
+                channel=create_channel(
+                    client,
+                    name="ni_tc_j",
+                    data_type=sy.DataType.FLOAT32,
+                    index=idx.key,
+                ),
+                units="DegC",
+                thermocouple_type="J",
+                cjc_source="BuiltIn",
+                cjc_val=0.0,
+                cjc_port=0,
+                min_val=-50.0,
+                max_val=500.0,
+            ),
+            sy.ni.AIThermocoupleChan(
+                device=mod5.key,
+                port=1,
+                channel=create_channel(
+                    client,
+                    name="ni_tc_k",
+                    data_type=sy.DataType.FLOAT32,
+                    index=idx.key,
+                ),
+                units="DegF",
+                thermocouple_type="K",
+                cjc_source="BuiltIn",
+                cjc_val=0.0,
+                cjc_port=0,
+                min_val=32.0,
+                max_val=932.0,
+            ),
+            sy.ni.AIThermocoupleChan(
+                device=mod5.key,
+                port=2,
+                channel=create_channel(
+                    client,
+                    name="ni_tc_t",
+                    data_type=sy.DataType.FLOAT32,
+                    index=idx.key,
+                ),
+                units="DegC",
+                thermocouple_type="T",
+                cjc_source="BuiltIn",
+                cjc_val=0.0,
+                cjc_port=0,
+                min_val=-50.0,
+                max_val=300.0,
+            ),
+            sy.ni.AIThermocoupleChan(
+                device=mod5.key,
+                port=3,
+                channel=create_channel(
+                    client,
+                    name="ni_tc_e",
+                    data_type=sy.DataType.FLOAT32,
+                    index=idx.key,
+                ),
+                units="Kelvins",
+                thermocouple_type="E",
+                cjc_source="BuiltIn",
+                cjc_val=0.0,
+                cjc_port=0,
+                min_val=223.0,
+                max_val=773.0,
+            ),
+            # --- E101Mod6 (ports 0-3) ---
+            sy.ni.AIThermocoupleChan(
+                device=mod6.key,
+                port=0,
+                channel=create_channel(
+                    client,
+                    name="ni_tc_r",
+                    data_type=sy.DataType.FLOAT32,
+                    index=idx.key,
+                ),
+                units="DegC",
+                thermocouple_type="R",
+                cjc_source="BuiltIn",
+                cjc_val=0.0,
+                cjc_port=0,
+                min_val=0.0,
+                max_val=1500.0,
+            ),
+            sy.ni.AIThermocoupleChan(
+                device=mod6.key,
+                port=1,
+                channel=create_channel(
+                    client,
+                    name="ni_tc_s",
+                    data_type=sy.DataType.FLOAT32,
+                    index=idx.key,
+                ),
+                units="DegF",
+                thermocouple_type="S",
+                cjc_source="BuiltIn",
+                cjc_val=0.0,
+                cjc_port=0,
+                min_val=32.0,
+                max_val=2732.0,
+            ),
+            sy.ni.AIThermocoupleChan(
+                device=mod6.key,
+                port=2,
+                channel=create_channel(
+                    client,
+                    name="ni_tc_b",
+                    data_type=sy.DataType.FLOAT32,
+                    index=idx.key,
+                ),
+                units="DegC",
+                thermocouple_type="B",
+                cjc_source="BuiltIn",
+                cjc_val=0.0,
+                cjc_port=0,
+                min_val=100.0,
+                max_val=1700.0,
+            ),
+            sy.ni.AIThermocoupleChan(
+                device=mod6.key,
+                port=3,
+                channel=create_channel(
+                    client,
+                    name="ni_tc_n",
+                    data_type=sy.DataType.FLOAT32,
+                    index=idx.key,
+                ),
+                units="DegR",
+                thermocouple_type="N",
+                cjc_source="BuiltIn",
+                cjc_val=0.0,
+                cjc_port=0,
+                min_val=491.0,
+                max_val=1851.0,
+            ),
+        ]
+
+
 class NIReadResistance(NIAnalogReadTaskCase):
     """Read resistance on NI 9219 (2-wire and 4-wire only, 500 uA excitation).
 
@@ -217,7 +387,7 @@ class NIReadResistance(NIAnalogReadTaskCase):
     """
 
     task_name = "NI Resistance Read"
-    device_locations = ["E101Mod5"]  # NI 9219
+    device_locations = ["E101Mod2"]  # NI 9219
 
     SAMPLE_RATE = 100 * sy.Rate.HZ
     STREAM_RATE = 25 * sy.Rate.HZ
