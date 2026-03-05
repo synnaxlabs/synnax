@@ -345,6 +345,13 @@ type idxWriter struct {
 	// writingToIdx is true when the Write is writing to the index channel. This is
 	// typically true, which allows us to avoid unnecessary lookups.
 	writingToIdx bool
+	// hasUncommittedData tracks whether new data has been written since the last
+	// successful commit. This prevents stale commits when a control transfer
+	// advances the domain writer's prevCommit beyond this writer's highWaterMark.
+	hasUncommittedData bool
+	// lastCommitEnd stores the end timestamp from the last successful commit,
+	// returned when Commit is called with no new data to commit.
+	lastCommitEnd telem.TimeStamp
 }
 
 func (w *idxWriter) write(
@@ -388,16 +395,20 @@ func (w *idxWriter) write(
 		if !incrementedSampleCount {
 			w.sampleCount = int64(alignment.SampleIndex()) + series.Len()
 			incrementedSampleCount = true
+			w.hasUncommittedData = true
 		}
 		series.Alignment = alignment
 		fr.SetRawSeriesAt(i, series)
+	}
+	if errors.Is(accumulatedErr, xcontrol.ErrUnauthorized) {
+		w.hasUncommittedData = false
 	}
 	return fr, accumulatedErr
 }
 
 func (w *idxWriter) Commit(ctx context.Context) (telem.TimeStamp, error) {
-	if w.sampleCount == 0 {
-		return w.start, nil
+	if w.sampleCount == 0 || !w.hasUncommittedData {
+		return w.lastCommitEnd, nil
 	}
 	end, err := w.resolveCommitEnd(ctx)
 	if err != nil {
@@ -407,6 +418,12 @@ func (w *idxWriter) Commit(ctx context.Context) (telem.TimeStamp, error) {
 	end.Lower++
 	for _, chW := range w.internal {
 		err = errors.Join(err, chW.CommitWithEnd(ctx, end.Lower))
+	}
+	if err == nil {
+		w.lastCommitEnd = end.Lower
+	}
+	if err == nil || errors.Is(err, xcontrol.ErrUnauthorized) {
+		w.hasUncommittedData = false
 	}
 	return end.Lower, err
 }
