@@ -30,24 +30,24 @@ import { Search as S } from "@/components/search/Search";
         }
     }
 
-    @media (max-width: 800px) {
+    @media (max-width: 1100px) {
         .search-box {
-            width: 200px !important;
+            width: auto !important;
+            max-width: none !important;
             & button {
-                justify-content: start !important;
-            }
-        }
-    }
-
-    @media (max-width: 600px) {
-        .search-box {
-            width: 6rem !important;
-            & button {
+                width: auto !important;
+                min-width: unset !important;
                 justify-content: center !important;
+                font-size: 0 !important;
+                gap: 0 !important;
+                aspect-ratio: 1;
+                padding: 0 !important;
             }
-            .pluto-text,
-            .pluto-btn__end-content {
-                display: none;
+            & button > .pluto-icon {
+                font-size: var(--pluto-small-size) !important;
+            }
+            .pluto-trigger-indicator {
+                display: none !important;
             }
         }
     }
