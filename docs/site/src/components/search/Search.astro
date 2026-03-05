@@ -6,32 +6,33 @@ import { Search as S } from "@/components/search/Search";
 
 <style is:global>
     .search-box {
-        position: absolute;
-        left: 50%;
-        top: 1.5rem;
-        transform: translateX(-50%);
-        max-width: 700px !important;
-        width: 50vw !important;
+        position: relative;
+        max-width: 280px !important;
+        width: 280px !important;
 
-        & button * {
+        & button {
             color: var(--pluto-gray-l8);
-            font-size: var(--pluto-small-size);
+            font-size: var(--pluto-small-size) !important;
             font-weight: 400;
-        }
 
-        & .pluto-text--keyboard {
-            height: 3rem !important;
-            background: var(--pluto-gray-l0) !important;
+            & * {
+                color: var(--pluto-gray-l8);
+                font-size: var(--pluto-small-size) !important;
+                font-weight: 400;
+            }
+
+            & .pluto-text--keyboard {
+                width: 3.5rem !important;
+                height: 3.5rem !important;
+                background: var(--pluto-gray-l0) !important;
+                border-color: var(--pluto-gray-l5) !important;
+            }
         }
     }
 
     @media (max-width: 800px) {
         .search-box {
-            width: 45vw;
-            top: unset;
-            transform: none;
-            position: relative;
-            left: 0;
+            width: 200px !important;
             & button {
                 justify-content: start !important;
             }
@@ -62,6 +63,10 @@ import { Search as S } from "@/components/search/Search";
 
         & a:hover {
             text-decoration: none !important;
+        }
+
+        & .pluto-list__items {
+            flex: 1;
         }
     }
 

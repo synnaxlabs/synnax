@@ -3,6 +3,7 @@ import Root from "@/layouts/Root.astro";
 import { Flex, Text, Icon } from "@synnaxlabs/pluto";
 import { Logo } from "@synnaxlabs/media";
 import OneBillionRowsTile from "./one-billion-rows/OneBillionRowsTile.astro";
+import ArcTile from "./introducing-arc/ArcTile.astro";
 ---
 
 <Root frontmatter={{ title: "Blog" }}>
@@ -16,7 +17,8 @@ import OneBillionRowsTile from "./one-billion-rows/OneBillionRowsTile.astro";
                     </Text.Text>
                 </Flex.Box>
             </Flex.Box>
-            <Flex.Box direction="y" className="blog-entries" gap={4}>
+            <Flex.Box direction="y" className="blog-entries" gap={6}>
+                <ArcTile />
                 <OneBillionRowsTile />
             </Flex.Box>
         </Flex.Box>
@@ -25,7 +27,7 @@ import OneBillionRowsTile from "./one-billion-rows/OneBillionRowsTile.astro";
 
 <style is:global>
     main > section:has(.blog) {
-        max-width: 1400px;
+        max-width: 1150px;
     }
 
     .blog {
@@ -55,6 +57,7 @@ import OneBillionRowsTile from "./one-billion-rows/OneBillionRowsTile.astro";
 
     .blog-entries {
         padding-top: 3rem;
+        padding-bottom: 20rem;
     }
 
     a.blog-entry {
