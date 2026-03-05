@@ -19,13 +19,13 @@ import { REGISTER_LAYOUT } from "@/user/Register";
 const Content = (): ReactElement => {
   const { data: groupID } = User.useRetrieveGroupID({});
   const placeLayout = Layout.usePlacer();
-  const canEditUser = Access.useUpdateGranted(user.TYPE_ONTOLOGY_ID);
+  const canCreateUser = Access.useCreateGranted(user.TYPE_ONTOLOGY_ID);
   return (
     <Toolbar.Content>
       <Toolbar.Header padded>
         <Toolbar.Title icon={<Icon.User />}>Users</Toolbar.Title>
         <Toolbar.Actions>
-          {canEditUser && (
+          {canCreateUser && (
             <Toolbar.Action
               onClick={() => placeLayout(REGISTER_LAYOUT)}
               tooltip="Create user"
