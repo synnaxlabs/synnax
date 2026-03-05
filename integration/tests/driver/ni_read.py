@@ -15,15 +15,15 @@ from tests.driver.ni_task import NIAnalogReadTaskCase
 from tests.driver.task import create_channel, create_index
 
 
-class NIAnalogVoltageRead(NIAnalogReadTaskCase):
-    """Read analog voltage from NI device ports 0 and 1."""
+class NIAnalogReadHS(NIAnalogReadTaskCase):
+    """Read "high speed" analog voltage from NI 9229."""
 
     # TODO: Create a task with a sample rate that is too low and verify status/error
     task_name = "NI Analog Voltage Read"
     device_name = "E101Mod1"  # NI 9229 
 
-    SAMPLE_RATE = 2000 * sy.Rate.HZ. # Min sample rate for NI 9229: 1612.9 Hz
-    STREAM_RATE = 20 * sy.Rate.HZ
+    SAMPLE_RATE = 10000 * sy.Rate.HZ  # Min sample rate for NI 9229: 1612.9 Hz
+    STREAM_RATE = 50 * sy.Rate.HZ
 
     @staticmethod
     def create_channels(client: sy.Synnax) -> list[sy.ni.AIVoltageChan]:
