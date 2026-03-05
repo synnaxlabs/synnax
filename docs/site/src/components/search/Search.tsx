@@ -20,7 +20,7 @@ import { Input } from "@synnaxlabs/pluto/input";
 import { List } from "@synnaxlabs/pluto/list";
 import { Text } from "@synnaxlabs/pluto/text";
 import { caseconv, deep } from "@synnaxlabs/x";
-import { type ReactElement, useCallback, useEffect, useRef, useState } from "react";
+import { type ReactElement, useCallback, useRef, useState } from "react";
 import z from "zod";
 
 interface SearchResult {

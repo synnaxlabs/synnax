@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { Logo } from "@synnaxlabs/media";
-import { Component, Flex, Icon, List, Text } from "@synnaxlabs/pluto";
+import { Component, Icon, List, Text } from "@synnaxlabs/pluto";
 import { Tree } from "@synnaxlabs/pluto/tree";
 import { type CSSProperties, type ReactElement, useEffect, useState } from "react";
 
