@@ -363,7 +363,7 @@ literal
 // The unit suffix (IDENTIFIER) is only consumed if it immediately follows
 // the number with no whitespace. This is checked via semantic predicate.
 numericLiteral
-    : (INTEGER_LITERAL | FLOAT_LITERAL)
+    : MINUS? (INTEGER_LITERAL | FLOAT_LITERAL)
       ({p.TokensAdjacent(p.GetTokenStream().LT(-1), p.GetTokenStream().LT(1))}? IDENTIFIER)?
     ;
 

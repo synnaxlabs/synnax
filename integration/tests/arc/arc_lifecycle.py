@@ -19,7 +19,7 @@ PRESS_HIGH_LIMIT f32 := 25
 PRESS_LOW_LIMIT f32 := 5
 
 SOME_CONST_1 f32 := 42.0
-SOME_CONST_2 f32 := 99.0
+SOME_CONST_2 f32 := -49.5
 start_lifecycle_cmd => main
 
 func check_high_pressure(p f32) u8 {
@@ -75,7 +75,7 @@ sequence main {
     }
 
     stage vent {
-        SOME_CONST_2 => const_output,
+        SOME_CONST_2 * 2 => const_output,
         1 -> vent_vlv_cmd,
         event_log{msg="venting"},
         press_pt < PRESS_LOW_LIMIT => complete
@@ -174,8 +174,8 @@ class ArcLifecycle(ArcConsoleCase):
         self.wait_for_eq("lifecycle_log", "venting", is_virtual=True)
 
         # --- 2a. Verify global constant changed in vent stage ---
-        self.log("Verifying SOME_CONST_2 (99.0) => const_output during vent stage")
-        self.wait_for_near("const_output", 99.0, tolerance=0.01, is_virtual=True)
+        self.log("Verifying SOME_CONST_2 (-99.0) => const_output during vent stage")
+        self.wait_for_near("const_output", -99.0, tolerance=0.01, is_virtual=True)
 
         self.console.notifications.close_all()
 
