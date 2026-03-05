@@ -9,7 +9,11 @@
 
 package errors
 
-import "github.com/cockroachdb/errors"
+import (
+	stderrors "errors"
+
+	"github.com/cockroachdb/errors"
+)
 
 const (
 	// TypeEmpty represents an error that hasn't been properly parsed or detected.
@@ -30,21 +34,23 @@ const (
 //
 // As in the Go standard library, an error is considered to match a reference error if
 // it is equal to that target or if it implements a method Is(error) bool such that
-// Is(reference) returns true
+// Is(reference) returns true.
+//
+// If this is used while encoding, use CheapIs instead.
 func Is(err, ref error) bool { return errors.Is(err, ref) }
 
 // IsAny determines whether any causes the given error or any of its causes is
 // equivalent to one of the reference errors.
 //
-// Note that IsAny returns true if err matches errors.Is for ANY of the reference errors
-// i.e., this is an OR operation, not an AND operation.
+// Note that IsAny returns true if err matches errors.Is for ANY of the reference
+// errors, i.e., this is an OR operation, not an AND operation.
 //
 // As in the Go standard library, an error is considered to match a reference error if
 // it is equal to that target or if it implements a method Is(error) bool such that
 // Is(reference) returns true
 func IsAny(err error, refs ...error) bool {
 	for _, e := range refs {
-		if errors.Is(err, e) {
+		if Is(err, e) {
 			return true
 		}
 	}
@@ -93,10 +99,21 @@ func Newf(format string, args ...any) error { return errors.Newf(format, args...
 // type to which target points.
 func As(err error, target any) bool { return errors.As(err, target) }
 
+// CheapIs is a zero-allocation alternative to Is for cases where the reference error is
+// a known sentinel value (package-level var). It uses the standard library's errors.Is
+// which walks the Unwrap chain with pointer comparison and Is() method delegation, but
+// skips Pebble's expensive marker-based fallback that formats the entire error
+// tree.
+//
+// Use this in error encode functions where the reference is always a sentinel. If
+// CheapIs returns a false negative the error simply falls through to roach encoding, so
+// correctness is preserved.
+func CheapIs(err, ref error) bool { return stderrors.Is(err, ref) }
+
 // Skip returns nil if the error satisfied errors.Is for any of the reference errors.
 // Otherwise, it returns the error itself.
 func Skip(err error, refs ...error) error {
-	if errors.IsAny(err, refs...) {
+	if IsAny(err, refs...) {
 		return nil
 	}
 	return err

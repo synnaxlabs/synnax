@@ -7,8 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import cfg from "@synnaxlabs/eslint-config";
 import type { Linter } from "eslint";
-import synnaxConfig from "eslint-config-synnaxlabs";
 
-const cfg: Linter.Config[] = [...synnaxConfig, { ignores: ["examples"] }];
-export default cfg;
+export default [...cfg, { ignores: ["examples"] }] as Linter.Config[];
