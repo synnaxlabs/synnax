@@ -75,6 +75,9 @@ class StatusRateLimit(OPCUAReadArray):
                             )
                             return
                         seen[msg] = status.time
+        if warning_count == 0:
+            self.fail("No warnings received — rate-limiter was not exercised")
+            return
         self.log(
             f"Received {warning_count} warnings, "
             f"no duplicates within {RATE_LIMIT_SECONDS}s"
