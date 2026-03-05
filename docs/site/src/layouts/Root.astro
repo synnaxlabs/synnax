@@ -7,8 +7,16 @@ import { ClientRouter } from "astro:transitions";
 import { SEO } from "astro-seo";
 import Footer from "@/components/layout/Footer.astro";
 const {
-    frontmatter: { title, description, url },
+    frontmatter: { title, description, url, image },
 } = Astro.props;
+const DEFAULT_OG_IMAGE =
+    "https://synnax.nyc3.cdn.digitaloceanspaces.com/docs/og-default.png";
+const ogImage = image || DEFAULT_OG_IMAGE;
+const canonicalUrl = new URL(
+    Astro.url.pathname,
+    Astro.site || "https://docs.synnaxlabs.com",
+).href;
+const fullTitle = title ? `${title} | Synnax` : "Synnax";
 ---
 
 <html>
@@ -19,6 +27,27 @@ const {
             titleTemplate="%s | Synnax"
             titleDefault="Synnax"
             description={description}
+            openGraph={{
+                basic: {
+                    title: fullTitle,
+                    type: "website",
+                    image: ogImage,
+                    url: canonicalUrl,
+                },
+                optional: {
+                    description: description,
+                    siteName: "Synnax",
+                },
+                image: {
+                    alt: title || "Synnax",
+                },
+            }}
+            twitter={{
+                card: "summary_large_image",
+                title: fullTitle,
+                description: description,
+                image: ogImage,
+            }}
             extend={{
                 link: [
                     {
