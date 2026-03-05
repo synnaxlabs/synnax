@@ -861,6 +861,7 @@ class TestCase(ABC):
         if message is not None:
             self.log(f"FAILED: {message}")
         self.STATUS = STATUS.FAILED
+        raise RuntimeError(message or "Test failed")
 
     def execute(self) -> None:
         """Execute complete test lifecycle: setup -> run -> teardown."""

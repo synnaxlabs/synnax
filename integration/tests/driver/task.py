@@ -262,7 +262,6 @@ class TaskCase(TestCase):
             self.log(f"Task '{self.task_name}' configured")
         except Exception as e:
             self.fail(f"Task configuration failed: {e}")
-            return
 
     def teardown(self) -> None:
         """Delete the task created during setup, then delegate to parent."""
