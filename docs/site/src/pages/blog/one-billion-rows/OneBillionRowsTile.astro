@@ -9,18 +9,26 @@ import { Logo } from "@synnaxlabs/media";
     className="one-billion-rows"
     direction="x"
     justify="between"
+    align="start"
     gap={8}
 >
-    <Flex.Box direction="y">
-        <Text.Text level="h4" color={10}>One Billion Rows</Text.Text>
-        <Text.Text level="small" color={9} weight={500} style={{ maxWidth: 300 }}
+    <Text.Text level="small" className="tile-date" color={8}>Oct 15, 2024</Text.Text>
+    <Flex.Box direction="y" justify="between" style={{ height: "100%" }}>
+        <Text.Text level="h3" color={10}>Database Performance Compared</Text.Text>
+        <Text.Text level="p" color={9} weight={400} style={{ maxWidth: 450 }}
             >See how Synnax stacks up against InfluxDB and Timescale in a head to head
             ingestion and retrieval of 1 billion rows.
         </Text.Text>
         <Text.Text level="h1">1,000,000,000</Text.Text>
     </Flex.Box>
 
-    <Flex.Box direction="x" align="center" justify="around" grow>
+    <Flex.Box
+        direction="x"
+        align="center"
+        justify="around"
+        grow
+        style={{ height: "100%", paddingBottom: "2rem" }}
+    >
         <svg
             class="influx"
             xmlns="http://www.w3.org/2000/svg"
@@ -75,28 +83,40 @@ import { Logo } from "@synnaxlabs/media";
                 </linearGradient>
             </defs>
         </svg>
-        <Logo variant="icon" color="white" />
+        <Logo variant="icon" />
     </Flex.Box>
 </Flex.Box>
 
 <style is:global>
     .one-billion-rows {
-        --pluto-gray-l1: var(--pluto-dark-gray-l1);
-        --pluto-gray-l9: var(--pluto-dark-gray-l9);
-        --pluto-gray-l10: var(--pluto-dark-gray-l10);
-        --pluto-gray-l8: var(--pluto-dark-gray-l8);
         position: relative;
-        background-color: var(--pluto-dark-gray-l1);
+        background-color: var(--pluto-gray-l1);
         padding: 5rem;
         cursor: pointer;
         transition: all 0.2s;
         text-decoration: none !important;
+        & .tile-date {
+            position: absolute;
+            top: 3rem;
+            right: 3rem;
+            z-index: 2;
+            font-weight: 400;
+            background-color: var(--pluto-gray-l2);
+            border: var(--pluto-border);
+            border-radius: 1rem;
+            padding: 0.75rem 1.5rem;
+        }
+
+        & h3 {
+            margin: 0;
+        }
+
         &:hover {
             --pluto-shadow-v1:
                 0px 1px 1px rgba(0, 0, 0, 0.06), 0px 4px 8px -4px rgba(0, 0, 0, 0.1),
                 0px 16px 24px -8px rgba(0, 0, 0, 0.2);
             & h1 {
-                color: var(--pluto-dark-gray-l5-80);
+                color: var(--pluto-gray-l5);
             }
         }
         *:not(h1) {
@@ -116,17 +136,17 @@ import { Logo } from "@synnaxlabs/media";
         }
         & h1 {
             transition: all 0.2s;
-            color: var(--pluto-dark-gray-l4);
+            color: var(--pluto-gray-l4);
             position: absolute;
             z-index: 0;
             top: 50%;
-            left: 50%;
-            transform: translate(-50%, -50%);
+            right: 8rem;
+            transform: translateY(-50%);
             font-size: 20rem;
         }
-        border: var(--pluto-border);
+        border: var(--pluto-border-l5);
         box-shadow: var(--pluto-shadow-v1);
         border-radius: 2rem;
-        height: 200px;
+        height: 300px;
     }
 </style>
