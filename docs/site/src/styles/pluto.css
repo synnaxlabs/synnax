@@ -189,6 +189,20 @@
     }
 }
 
+/* Table cell overrides - Pluto sets font-family directly on td, breaking
+   inheritance from table. Reset so inline styles on table can cascade. */
+table td {
+    font-family: inherit;
+}
+
+table td p,
+table th p {
+    font-size: inherit;
+    line-height: inherit;
+    font-family: inherit;
+    margin: 0;
+}
+
 /* Dialog component */
 .pluto-dialog__bg.pluto--visible {
     backdrop-filter: blur(2px);
