@@ -1,7 +1,9 @@
 ---
 layout: "@/layouts/Blog.astro"
 title: "Introducing Arc: Why We Built a New Programming Language"
-description: "From Excel sheets to Python to Lua, nothing quite worked. So we built our own language for hardware automation."
+description:
+  "From Excel sheets to Python to Lua, nothing quite worked. So we built our own
+  language for hardware automation."
 published: "Mar 4, 2026"
 ---
 
@@ -11,16 +13,18 @@ import Diagram from "@/components/diagram/Diagram.astro";
 
 export const components = mdxOverrides;
 
-<Diagram style={{
-  padding: "12rem 5rem",
-  backgroundImage: `
+<Diagram
+  style={{
+    padding: "12rem 5rem",
+    backgroundImage: `
     radial-gradient(ellipse 50% 60% at 50% 50%, rgba(55, 116, 208, 0.08) 0%, transparent 70%),
     repeating-linear-gradient(0deg, transparent, transparent 59px, rgba(55, 116, 208, 0.04) 59px, rgba(55, 116, 208, 0.04) 60px),
     repeating-linear-gradient(90deg, transparent, transparent 59px, rgba(55, 116, 208, 0.04) 59px, rgba(55, 116, 208, 0.04) 60px),
     radial-gradient(ellipse at 50% 50%, var(--pluto-dark-gray-l1) 40%, rgba(5,5,5,1) 100%)
   `,
-  backgroundColor: "var(--pluto-dark-gray-l1)",
-}}>
+    backgroundColor: "var(--pluto-dark-gray-l1)",
+  }}
+>
   <svg viewBox="0 0 800 200" style={{ width: "100%", maxWidth: 700 }}>
     <defs>
       <filter id="blog-arc-glow" x="-50%" y="-50%" width="200%" height="200%">
@@ -52,8 +56,13 @@ export const components = mdxOverrides;
     </defs>
     <polyline
       points="0,100 80,95 140,108 200,85 260,115 320,78 380,120 440,75 500,118 560,82 620,112 680,90 720,105 800,100"
-      fill="none" stroke="#3774D0" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"
-      opacity="0.15" filter="url(#blog-arc-outer)"
+      fill="none"
+      stroke="#3774D0"
+      stroke-width="4"
+      stroke-linecap="round"
+      stroke-linejoin="round"
+      opacity="0.15"
+      filter="url(#blog-arc-outer)"
     />
     <style>
       {`
@@ -81,28 +90,53 @@ export const components = mdxOverrides;
         }
       `}
     </style>
-    <polyline class="blog-arc-main"
+    <polyline
+      class="blog-arc-main"
       points="0,100 80,95 140,108 200,85 260,115 320,78 380,120 440,75 500,118 560,82 620,112 680,90 720,105 800,100"
-      fill="none" stroke="url(#blog-arc-grad)" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"
+      fill="none"
+      stroke="url(#blog-arc-grad)"
+      stroke-width="2.5"
+      stroke-linecap="round"
+      stroke-linejoin="round"
       filter="url(#blog-arc-glow)"
     />
-    <polyline class="blog-arc-core"
+    <polyline
+      class="blog-arc-core"
       points="0,100 80,95 140,108 200,85 260,115 320,78 380,120 440,75 500,118 560,82 620,112 680,90 720,105 800,100"
-      fill="none" stroke="url(#blog-arc-core)" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round"
+      fill="none"
+      stroke="url(#blog-arc-core)"
+      stroke-width="1.2"
+      stroke-linecap="round"
+      stroke-linejoin="round"
     />
-    <polyline class="blog-arc-branch"
+    <polyline
+      class="blog-arc-branch"
       points="260,115 280,135 310,128 340,145"
-      fill="none" stroke="#3774D0" stroke-width="1" stroke-linecap="round" stroke-linejoin="round"
+      fill="none"
+      stroke="#3774D0"
+      stroke-width="1"
+      stroke-linecap="round"
+      stroke-linejoin="round"
       filter="url(#blog-arc-glow)"
     />
-    <polyline class="blog-arc-branch-2"
+    <polyline
+      class="blog-arc-branch-2"
       points="500,118 515,95 540,90 555,70"
-      fill="none" stroke="#3774D0" stroke-width="1" stroke-linecap="round" stroke-linejoin="round"
+      fill="none"
+      stroke="#3774D0"
+      stroke-width="1"
+      stroke-linecap="round"
+      stroke-linejoin="round"
       filter="url(#blog-arc-glow)"
     />
-    <polyline class="blog-arc-branch-3"
+    <polyline
+      class="blog-arc-branch-3"
       points="380,120 395,140 420,148"
-      fill="none" stroke="#3774D0" stroke-width="1" stroke-linecap="round" stroke-linejoin="round"
+      fill="none"
+      stroke="#3774D0"
+      stroke-width="1"
+      stroke-linecap="round"
+      stroke-linejoin="round"
       filter="url(#blog-arc-glow)"
     />
   </svg>
@@ -129,20 +163,20 @@ that drove us to implement Arc.
 
 If you don't already know, Synnax is a test and industrial operations and automation
 platform. It replaces tools like
-[LabVIEW](https://www.ni.com/en/support/downloads/software-products/download.labview.html#585712) and
-[Ignition](https://inductiveautomation.com/scada-software/).
+[LabVIEW](https://www.ni.com/en/support/downloads/software-products/download.labview.html#585712)
+and [Ignition](https://inductiveautomation.com/scada-software/).
 
 We hook up to sensors and actuators from data acquisition devices and industrial
 controllers, let operators visualize and manually control their system, and, critically,
-enable engineers to write scripts for automating repetitive, safety critical, or
-time sensitive operations.
+enable engineers to write scripts for automating repetitive, safety critical, or time
+sensitive operations.
 
-We tackled the first two pieces of functionality as a foundation, and left designing
-an automation system as one of the final features before the first release of Synnax.
+We tackled the first two pieces of functionality as a foundation, and left designing an
+automation system as one of the final features before the first release of Synnax.
 
-Our team has an aerospace pedigree, and we'd all had experience writing
-automations in industry. We drew on those experiences when evaluating an architecture
-for user-written automations.
+Our team has an aerospace pedigree, and we'd all had experience writing automations in
+industry. We drew on those experiences when evaluating an architecture for user-written
+automations.
 
 <Divider.Divider x />
 
@@ -150,28 +184,124 @@ for user-written automations.
 
 Let me start with a disclaimer: I did not work at SpaceX, and although some of the
 engineers on our team have, they were not there during the days of Falcon 1 and early
-Falcon 9. Most of what I write here is secondhand knowledge passed down through
-word of mouth.
+Falcon 9. Most of what I write here is secondhand knowledge passed down through word of
+mouth.
 
 SpaceX did and still does use Excel to write automation sequences for their Falcon
-vehicles. Sequence steps are written as rows in the sheet. Each row has an
-instruction keyword: open this actuator, check this condition, and, critically, go-to
-this step. They would feed this Excel sheet into a LabVIEW program that would check
-it for errors, and then execute the sequences within the LabVIEW runtime.
+vehicles. Sequence steps are written as rows in the sheet. Each row has an instruction
+keyword: open this actuator, check this condition, and, critically, go-to this step.
+They would feed this Excel sheet into a LabVIEW program that would check it for errors,
+and then execute the sequences within the LabVIEW runtime.
 
 <table style={{ fontFamily: "var(--pluto-code-font-family)" }}>
-<thead>
-<tr><th>Step</th><th>Instruction</th><th>Target</th><th>Value</th><th>Go-To</th></tr>
-</thead>
-<tbody>
-<tr><td>1</td><td>OPEN</td><td>press_valve</td><td></td><td></td></tr>
-<tr><td>2</td><td>CLOSE</td><td>vent_valve</td><td></td><td></td></tr>
-<tr><td>3</td><td>CHECK_GE</td><td>pressure</td><td>500</td><td></td></tr>
-<tr><td>4</td><td>CLOSE</td><td>press_valve</td><td></td><td></td></tr>
-<tr><td>5</td><td>WAIT</td><td></td><td>5s</td><td></td></tr>
-<tr><td>6</td><td>CHECK_GE</td><td>pressure</td><td>490</td><td>1</td></tr>
-<tr><td>7</td><td>OPEN</td><td>vent_valve</td><td></td><td></td></tr>
-</tbody>
+  <thead>
+    <tr>
+      <th>Step</th>
+      <th>Instruction</th>
+      <th>Target</th>
+      <th>Value</th>
+      <th>Go-To</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>
+        <p>1</p>
+      </td>
+      <td>
+        <p>OPEN</p>
+      </td>
+      <td>
+        <p>press_valve</p>
+      </td>
+      <td></td>
+      <td></td>
+    </tr>
+    <tr>
+      <td>
+        <p>2</p>
+      </td>
+      <td>
+        <p>CLOSE</p>
+      </td>
+      <td>
+        <p>vent_valve</p>
+      </td>
+      <td></td>
+      <td></td>
+    </tr>
+    <tr>
+      <td>
+        <p>3</p>
+      </td>
+      <td>
+        <p>CHECK_GE</p>
+      </td>
+      <td>
+        <p>pressure</p>
+      </td>
+      <td>
+        <p>500</p>
+      </td>
+      <td></td>
+    </tr>
+    <tr>
+      <td>
+        <p>4</p>
+      </td>
+      <td>
+        <p>CLOSE</p>
+      </td>
+      <td>
+        <p>press_valve</p>
+      </td>
+      <td></td>
+      <td></td>
+    </tr>
+    <tr>
+      <td>
+        <p>5</p>
+      </td>
+      <td>
+        <p>WAIT</p>
+      </td>
+      <td></td>
+      <td>
+        <p>5s</p>
+      </td>
+      <td></td>
+    </tr>
+    <tr>
+      <td>
+        <p>6</p>
+      </td>
+      <td>
+        <p>CHECK_GE</p>
+      </td>
+      <td>
+        <p>pressure</p>
+      </td>
+      <td>
+        <p>490</p>
+      </td>
+      <td>
+        <p>1</p>
+      </td>
+    </tr>
+    <tr>
+      <td>
+        <p>7</p>
+      </td>
+      <td>
+        <p>OPEN</p>
+      </td>
+      <td>
+        <p>vent_valve</p>
+      </td>
+      <td></td>
+      <td></td>
+    </tr>
+  </tbody>
 </table>
 
 There are several benefits to this approach:
@@ -201,8 +331,8 @@ were building new launch vehicle, satellite, propulsion, and other space related
 companies. With them, they brought Excel-based sequencing for all of their test
 operations.
 
-Note: I don't think that SpaceX engineers _invented_ Excel based sequencing.
-We've seen it in various places across the controls and automation industry.
+Note: I don't think that SpaceX engineers _invented_ Excel based sequencing. We've seen
+it in various places across the controls and automation industry.
 
 I first encountered a second-generation Excel sequencer during my time at
 [Firefly Aerospace](https://fireflyspace.com/). This is where I wrote my first sequence
@@ -213,10 +343,9 @@ thoughts on the downsides of Excel based sequencing:
 
 #### Downside 1 -> Diffing
 
-Excel files are not git diffable by default, and reviewing changes
- to these automations was impossible in a standard pull request viewer. In fact, this
-   was such a significant problem that Nico himself built an internal tool to diff excel
-   files.
+Excel files are not git diffable by default, and reviewing changes to these automations
+was impossible in a standard pull request viewer. In fact, this was such a significant
+problem that Nico himself built an internal tool to diff excel files.
 
 #### Downside 2 -> Readability Degrades with Complexity
 
@@ -239,9 +368,10 @@ _correct_ until you fed it into the LabVIEW machine.
 
 During the early designs of our first automation framework the requirement was clear:
 _build something that works and get it into the hands of our users_. We had already
-built a Python SDK for importing CSV data into Synnax and we didn't want to lock ourselves
-into Excel (and go-to statements), so our answer was to extend the Python tooling with a
-few useful functions for building automations. Here's what we came up with:
+built a Python SDK for importing CSV data into Synnax and we didn't want to lock
+ourselves into Excel (and go-to statements), so our answer was to extend the Python
+tooling with a few useful functions for building automations. Here's what we came up
+with:
 
 ```python
 with client.control.acquire(
@@ -257,12 +387,12 @@ with client.control.acquire(
     controller["valve_cmd"] = False
 ```
 
-There were only two fundamental operations we had to implement: wait for a
-condition and set a value on a channel. All other operations were built using standard
-Python based on these primitives.
+There were only two fundamental operations we had to implement: wait for a condition and
+set a value on a channel. All other operations were built using standard Python based on
+these primitives.
 
-And, as it turns out, this approach worked surprisingly well. Over the course of the last
-few years, we've had engineers use our Python sequences to control manufacturing
+And, as it turns out, this approach worked surprisingly well. Over the course of the
+last few years, we've had engineers use our Python sequences to control manufacturing
 processes, launch rockets, and test electronics.
 
 The beauty of our Python-based sequences was how easy they were to support. All we had
@@ -282,18 +412,17 @@ Python sequences were not all rosey. There were a number of glaring problems:
 
 #### Problem 1 -> Determinism
 
-When expensive things that explode are on the line, timing and safety
-are absolutely critical. Python is garbage collected, interpreted, and we were doing
-control via TCP connections. Existing users and potential customers were constantly
-asking for more performance and safety.
+When expensive things that explode are on the line, timing and safety are absolutely
+critical. Python is garbage collected, interpreted, and we were doing control via TCP
+connections. Existing users and potential customers were constantly asking for more
+performance and safety.
 
 #### Problem 2 -> Ease of use and Integration
 
-To run our Python-based sequences, you had to manually start scripts in
-a separate terminal. Needless to say, managing multiple automations in various
-terminals alongside our operator console was not the easiest. We were asked
-constantly to make it possible to manage automations from within the console
-directly.
+To run our Python-based sequences, you had to manually start scripts in a separate
+terminal. Needless to say, managing multiple automations in various terminals alongside
+our operator console was not the easiest. We were asked constantly to make it possible
+to manage automations from within the console directly.
 
 #### Problem 3 -> It's still programming
 
@@ -304,9 +433,9 @@ friendly as an excel sheet.
 #### Problem 4 -> Concurrency
 
 It's very common to want to do many things at once. Open this valve and wait while
-checking for these 5 different abort scenarios. Control the pressure in these two
-tanks at the same time while listening for an operator hold. Expressing concurrency
-in Python is hard and error prone.
+checking for these 5 different abort scenarios. Control the pressure in these two tanks
+at the same time while listening for an operator hold. Expressing concurrency in Python
+is hard and error prone.
 
 <Divider.Divider x />
 
@@ -317,9 +446,9 @@ blown Python interpreter directly inside of the main Go program that runs Synnax
 this solution, we could have complete control over the Python execution environment,
 allow our users to edit and run automations directly within the Console.
 
-This attempt ultimately failed. As it turns out, it's incredibly painful to compile
-and embed a Python interpreter from scratch. Even if you succeed, it's a
-nightmare to maintain such a complex build toolchain across the three major platforms.
+This attempt ultimately failed. As it turns out, it's incredibly painful to compile and
+embed a Python interpreter from scratch. Even if you succeed, it's a nightmare to
+maintain such a complex build toolchain across the three major platforms.
 
 However, through this journey, we remained stuck on the fact that embedding a
 programming language was surprisingly beneficial. We could control the runtime, make it
@@ -364,14 +493,14 @@ So after a month of work, we came up with this:
 ```
 
 The most notable difference from Python is that Lua sequences were state machines.
-Instead of a set of steps, the engineer would define an execution rate
-i.e. 100 Hz. Then, when the sequence would run, the _entire_ script would run 100 times
-a second. Waits were largely implemented by a global `elapsed` variable which told you
-the time since the sequence was started.
+Instead of a set of steps, the engineer would define an execution rate i.e. 100 Hz.
+Then, when the sequence would run, the _entire_ script would run 100 times a second.
+Waits were largely implemented by a global `elapsed` variable which told you the time
+since the sequence was started.
 
-We had achieved our goal: it was possible to deploy these sequences on embedded
-targets, edit scripts with beautiful syntax highlighting directly from within the
-console, and run them using an easy play and pause button.
+We had achieved our goal: it was possible to deploy these sequences on embedded targets,
+edit scripts with beautiful syntax highlighting directly from within the console, and
+run them using an easy play and pause button.
 
 But this new automation strategy fell flat: most of our users stuck with Python-based
 sequences. We figured out that there are a few reasons why:
@@ -383,8 +512,8 @@ programs are, under the hood, state machines, users like sequences.
 
 #### Problem 2 -> It's still programming, and Lua's syntax is painful
 
-The strange `if ... then ... end` clauses, the strange patterns of defining globals using
-`if iteration == 1` made writing Lua sequences harder than Python ones.
+The strange `if ... then ... end` clauses, the strange patterns of defining globals
+using `if iteration == 1` made writing Lua sequences harder than Python ones.
 
 ## The Current Approach -> Arc
 
@@ -412,31 +541,31 @@ Aside over, we established the following requirements:
 #### Principle 1 -> The Language Has to Be Diffable in Plain Text
 
 The ability to version control and review the differences between automations as a
-formal release process is critical for modern engineering teams. Solely graphical
-and/or table based representations cannot be diffed by standard tools such as git.
+formal release process is critical for modern engineering teams. Solely graphical and/or
+table based representations cannot be diffed by standard tools such as git.
 
 #### Principle 2 -> Progressive Introduction of Complexity and Power
 
-Writing simple control sequences should be as simple as possible. Expressing a series
-of timed steps should be as straightforward as writing a list of items on a napkin.
+Writing simple control sequences should be as simple as possible. Expressing a series of
+timed steps should be as straightforward as writing a list of items on a napkin.
 
-As operators and engineers become more comfortable with the language, it should not
-hold them back. Full-blown functional programming is possible, with sophisticated
-control flow, layers of abstraction, and built-in support for vector operations.
+As operators and engineers become more comfortable with the language, it should not hold
+them back. Full-blown functional programming is possible, with sophisticated control
+flow, layers of abstraction, and built-in support for vector operations.
 
 It should be natural to express abort scenarios, system holds, fault tolerant states,
 and other sophisticated logic.
 
 We named this principle a 'progressive' language. One that requires a minor subset of
-keywords and knowledge to run most simple tasks, but does not hold the user back as
-they grow.
+keywords and knowledge to run most simple tasks, but does not hold the user back as they
+grow.
 
 #### Principle 3 -> Simple Concurrency
 
-Concurrency is one of the most challenging aspects of automations. Engineers often
-ask us: _How do I write that I simultaneously want to be controlling pressure in this
-tank and that tank, while also checking a number of abort conditions, and a manual
-operator hold/abort?_
+Concurrency is one of the most challenging aspects of automations. Engineers often ask
+us: _How do I write that I simultaneously want to be controlling pressure in this tank
+and that tank, while also checking a number of abort conditions, and a manual operator
+hold/abort?_
 
 Standard thinking lends us to two options: long state machines with lots of conditions
 changed by nested `switch` or `if-else` statements, or threading logic to run truly
@@ -448,15 +577,14 @@ catastrophic bugs. There has to be a better way.
 
 #### Principle 4 -> Statically Prevent Dangerous Mistakes
 
-All automation (and even general purpose programming) languages have to make some
-degree of tradeoff between safety, performance, and power. We're constantly asking
-ourselves the question: _should we let our users do this?_ How often should we
-enable a new, fancy workflow if it increases the likelihood of catastrophic failure?
+All automation (and even general purpose programming) languages have to make some degree
+of tradeoff between safety, performance, and power. We're constantly asking ourselves
+the question: _should we let our users do this?_ How often should we enable a new, fancy
+workflow if it increases the likelihood of catastrophic failure?
 
-Through static analysis, we can guide the user towards safer workflows. We can
-identify potential locations of infinite recursion, prevent unbounded memory use, and
-even pre-calculate the number of instructions required to run a safety critical
-sequence.
+Through static analysis, we can guide the user towards safer workflows. We can identify
+potential locations of infinite recursion, prevent unbounded memory use, and even
+pre-calculate the number of instructions required to run a safety critical sequence.
 
 By providing powerful tools, we can't completely eliminate safety risks, but we can at
 least make sure the user is consciously aware of the dangerous actions they may be
@@ -465,10 +593,10 @@ taking.
 #### Principle 5 -> Portable Execution
 
 One of Synnax's most important strengths is its ability to integrate and operate
-heterogeneous hardware systems. A new automation engine should _not_ be architected
-for a single hardware architecture (e.g. an NI cRIO or a Beckhoff PLC). Instead,
-its design allows it to be deployed on a variety of different targets with as little
-difference in runtime implementation as possible.
+heterogeneous hardware systems. A new automation engine should _not_ be architected for
+a single hardware architecture (e.g. an NI cRIO or a Beckhoff PLC). Instead, its design
+allows it to be deployed on a variety of different targets with as little difference in
+runtime implementation as possible.
 
 ## The Design of Arc
 
@@ -496,31 +624,33 @@ sequence main {
 }
 ```
 
-When developing this syntax, we thought about what the comparable napkin would look like:
+When developing this syntax, we thought about what the comparable napkin would look
+like:
 
- 1. Open the pressurization and vent valves.
- 2. Wait until the pressure reaches 100 psi, then continue.
- 3. Close the press valve.
- 4. Wait 5 seconds, then continue.
- 5. Open the vent valve.
- 6. Wait until the pressure drops below 5 psi, then continue.
- 7. Close the vent and press valves.
+1.  Open the pressurization and vent valves.
+2.  Wait until the pressure reaches 100 psi, then continue.
+3.  Close the press valve.
+4.  Wait 5 seconds, then continue.
+5.  Open the vent valve.
+6.  Wait until the pressure drops below 5 psi, then continue.
+7.  Close the vent and press valves.
 
 Now let's say we want to handle an overpressure condition. Let's start with the napkin
 this time:
 
- 1. Open the pressurization and vent valves.
- 2. Wait until the pressure reaches 100 psi, then continue. At the same time, if the
+1.  Open the pressurization and vent valves.
+2.  Wait until the pressure reaches 100 psi, then continue. At the same time, if the
     temperature exceeds 35°C, abort.
-      1. If we aborted, close the pressurization and vent valves.
- 3. Close the press valve.
- 4. Wait 5 seconds, then continue.
- 5. Open the vent valve.
- 6. Wait until the pressure drops below 5 psi, then continue.
- 7. Close the vent and press valves.
- 8. If the pressure exceeds 150 psi, abort.
+    1. If we aborted, close the pressurization and vent valves.
+3.  Close the press valve.
+4.  Wait 5 seconds, then continue.
+5.  Open the vent valve.
+6.  Wait until the pressure drops below 5 psi, then continue.
+7.  Close the vent and press valves.
+8.  If the pressure exceeds 150 psi, abort.
 
 Now here's the Arc code for this sequence:
+
 ```arc
 sequence main {
   stage pressurizing {
@@ -551,6 +681,7 @@ sequence main {
 We don't really need the `abort` stage as its the same as the `complete` stage, so
 really all we did was add a single line. If we want to check for two abort conditions,
 the pressurization stage simply becomes:
+
 ```arc
 stage pressurizing {
   1 -> press_valve_cmd,
@@ -561,6 +692,7 @@ stage pressurizing {
 ```
 
 we can also write it as
+
 ```arc
 stage pressurizing {
   1 -> press_valve_cmd,
@@ -571,7 +703,6 @@ stage pressurizing {
 }
 ```
 
-We didn't design the language to be _as simple as possible_. We designed it to be
-simple _enough_ for most engineers to learn simple sequence writing over the course of
-an hour, while making sure we didn't limit the syntax choices for more powerful
-use cases.
+We didn't design the language to be _as simple as possible_. We designed it to be simple
+_enough_ for most engineers to learn simple sequence writing over the course of an hour,
+while making sure we didn't limit the syntax choices for more powerful use cases.

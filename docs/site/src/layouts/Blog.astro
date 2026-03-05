@@ -19,7 +19,9 @@ const { title, heading, description, published } = frontmatter;
             <slot />
         </Article>
         <OnThisPage headings={headings} url={Astro.url} hideFeedback>
-            <div class="blog-human-note">All of our blog posts were written and edited carefully by humans</div>
+            <div class="blog-human-note">
+                All of our blog posts were written and edited carefully by humans
+            </div>
         </OnThisPage>
     </section>
 </Root>

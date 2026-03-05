@@ -17,9 +17,13 @@ const {
 
 <article transition:animate="none">
     {showBreadcrumb && url.split("/").length > 2 && <Breadcrumb url={url} />}
-    {published && <div class="blog-meta">
-        <span class="blog-published">{published}</span>
-    </div>}
+    {
+        published && (
+            <div class="blog-meta">
+                <span class="blog-published">{published}</span>
+            </div>
+        )
+    }
     <Text.Text className="article-title" level={title.length > 30 ? "h2" : "h1"}
         >{title}</Text.Text
     >

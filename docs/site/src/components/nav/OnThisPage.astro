@@ -37,12 +37,16 @@ const hasHeadings =
             </Flex.Box>
         )
     }
-    {!hideFeedback && <Flex.Box direction="y" gap={2}>
-        {hasHeadings && <Divider.Divider direction="x" />}
-        <Flex.Box direction="x" justify="end">
-            <Feedback />
-        </Flex.Box>
-    </Flex.Box>}
+    {
+        !hideFeedback && (
+            <Flex.Box direction="y" gap={2}>
+                {hasHeadings && <Divider.Divider direction="x" />}
+                <Flex.Box direction="x" justify="end">
+                    <Feedback />
+                </Flex.Box>
+            </Flex.Box>
+        )
+    }
     <slot />
 </Flex.Box>
 

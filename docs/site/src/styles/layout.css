@@ -130,7 +130,9 @@ article {
         margin-bottom: 3rem;
         letter-spacing: -0.01em;
         color: var(--pluto-gray-l11);
-        font-feature-settings: "liga" 1, "calt" 1;
+        font-feature-settings:
+            "liga" 1,
+            "calt" 1;
     }
 
     h2:has(+ .pluto-divider),
