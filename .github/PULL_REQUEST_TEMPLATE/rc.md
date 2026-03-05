@@ -356,7 +356,7 @@ I can successfully:
     - [ ] Current (NI-9203)
     - [x] Resistance (NI-9219)
     - [x] RTD (NI-9217)
-      - [ ] All RTD types and resistance configurations.
+      - [x] All RTD types and resistance configurations.
     - [ ] Built-in temperature sensor (USB-6289)
     - [ ] Thermocouple (NI-9211A)
       - [ ] All thermocouple types and CJC options.
