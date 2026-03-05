@@ -355,7 +355,7 @@ class NIReadTC(NIAnalogReadTaskCase):
                 cjc_source="BuiltIn",
                 cjc_val=0.0,
                 cjc_port=0,
-                min_val=100.0,
+                min_val=250.0,
                 max_val=1700.0,
             ),
             sy.ni.AIThermocoupleChan(
