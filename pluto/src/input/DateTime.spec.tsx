@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { TimeStamp } from "@synnaxlabs/x";
-import { fireEvent, render, screen } from "@testing-library/react";
+import { fireEvent, render, screen, within } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { Input } from "@/input";
@@ -18,6 +18,17 @@ interface DateTimeTestCase {
   initialValue: string;
   changeValue: string;
 }
+
+const openCalendarModal = (result: ReturnType<typeof render>): void => {
+  const { container } = result;
+  // The calendar icon button is the only button rendered before the modal opens
+  fireEvent.click(within(container).getByRole("button"));
+};
+
+const getDayButtons = (dialog: HTMLElement): HTMLElement[] =>
+  within(dialog)
+    .getAllByRole("button")
+    .filter((b) => /^\d+$/.test(b.textContent?.trim() ?? ""));
 
 describe("Input.DateTime", () => {
   const testCases: DateTimeTestCase[] = [
@@ -58,14 +69,11 @@ describe("Input.DateTime", () => {
       const handleChange = vi.fn();
       const ts = new TimeStamp(initialValue, "local");
 
-      const c = render(
+      render(
         <Input.DateTime value={Number(ts.valueOf())} onChange={handleChange} />,
       );
 
-      const input = c.container.querySelector(
-        'input[type="datetime-local"]',
-      ) as HTMLInputElement;
-      expect(input).toBeTruthy();
+      const input = screen.getByRole("textbox");
 
       fireEvent.change(input, { target: { value: changeValue } });
 
@@ -89,26 +97,14 @@ describe("Input.DateTime", () => {
       process.env.TZ = originalTZ;
     });
 
-    const openCalendarModal = (container: HTMLElement) => {
-      const calendarBtn = container.querySelector<HTMLButtonElement>(
-        ".pluto-input__container > button",
-      );
-      if (calendarBtn != null) fireEvent.click(calendarBtn);
-    };
-
     it("should show 29 days for February in a leap year", () => {
       const handleChange = vi.fn();
       const utcNanos = Date.UTC(2024, 1, 15, 12, 0, 0, 0) * 1e6;
-      const { container } = render(
-        <Input.DateTime value={utcNanos} onChange={handleChange} />,
-      );
-      openCalendarModal(container);
+      const result = render(<Input.DateTime value={utcNanos} onChange={handleChange} />);
+      openCalendarModal(result);
       expect(screen.getByText("February")).toBeTruthy();
       const dialog = screen.getByRole("dialog");
-      const allButtons = dialog.querySelectorAll(".pluto-calendar button");
-      const calendarDays = Array.from(allButtons).filter((b) =>
-        /^\d+$/.test(b.textContent?.trim() ?? ""),
-      );
+      const calendarDays = getDayButtons(dialog);
       expect(calendarDays.length).toEqual(29);
       expect(calendarDays[28].textContent?.trim()).toEqual("29");
     });
@@ -116,16 +112,11 @@ describe("Input.DateTime", () => {
     it("should show 28 days for February in a non-leap year", () => {
       const handleChange = vi.fn();
       const utcNanos = Date.UTC(2025, 1, 15, 12, 0, 0, 0) * 1e6;
-      const { container } = render(
-        <Input.DateTime value={utcNanos} onChange={handleChange} />,
-      );
-      openCalendarModal(container);
+      const result = render(<Input.DateTime value={utcNanos} onChange={handleChange} />);
+      openCalendarModal(result);
       expect(screen.getByText("February")).toBeTruthy();
       const dialog = screen.getByRole("dialog");
-      const allButtons = dialog.querySelectorAll(".pluto-calendar button");
-      const calendarDays = Array.from(allButtons).filter((b) =>
-        /^\d+$/.test(b.textContent?.trim() ?? ""),
-      );
+      const calendarDays = getDayButtons(dialog);
       expect(calendarDays.length).toEqual(28);
       expect(calendarDays[27].textContent?.trim()).toEqual("28");
     });
@@ -141,34 +132,24 @@ describe("Input.DateTime", () => {
       process.env.TZ = originalTZ;
     });
 
-    const openCalendarModal = (container: HTMLElement) => {
-      const calendarBtn = container.querySelector<HTMLButtonElement>(
-        ".pluto-input__container > button",
-      );
-      if (calendarBtn != null) fireEvent.click(calendarBtn);
-    };
-
     it("should display the local date in the input when crossing a date boundary", () => {
       const handleChange = vi.fn();
       // 2022-12-31T23:00:00Z -> Auckland (UTC+13): 2023-01-01T12:00:00
       const utcNanos = Date.UTC(2022, 11, 31, 23, 0, 0, 0) * 1e6;
-      const { container } = render(
-        <Input.DateTime value={utcNanos} onChange={handleChange} />,
+      render(<Input.DateTime value={utcNanos} onChange={handleChange} />);
+      expect(screen.getByRole<HTMLInputElement>("textbox").value).toContain(
+        "2023-01-01",
       );
-      const input = container.querySelector<HTMLInputElement>(
-        'input[type="datetime-local"]',
-      );
-      expect(input?.value).toContain("2023-01-01");
     });
 
     it("should display the local month in the calendar", () => {
       const handleChange = vi.fn();
       // 2022-06-30T23:00:00Z -> Auckland (UTC+12): 2022-07-01T11:00:00
       const utcNanos = Date.UTC(2022, 5, 30, 23, 0, 0, 0) * 1e6;
-      const { container } = render(
+      const result = render(
         <Input.DateTime value={utcNanos} onChange={handleChange} />,
       );
-      openCalendarModal(container);
+      openCalendarModal(result);
       expect(screen.getByText("July")).toBeTruthy();
     });
 
@@ -176,10 +157,10 @@ describe("Input.DateTime", () => {
       const handleChange = vi.fn();
       // 2022-12-31T23:00:00Z -> Auckland (UTC+13): 2023-01-01T12:00:00
       const utcNanos = Date.UTC(2022, 11, 31, 23, 0, 0, 0) * 1e6;
-      const { container } = render(
+      const result = render(
         <Input.DateTime value={utcNanos} onChange={handleChange} />,
       );
-      openCalendarModal(container);
+      openCalendarModal(result);
       expect(screen.getByText("2023")).toBeTruthy();
     });
 
@@ -187,14 +168,14 @@ describe("Input.DateTime", () => {
       const handleChange = vi.fn();
       // 2022-06-15T23:00:00Z -> Auckland (UTC+12): 2022-06-16T11:00:00
       const utcNanos = Date.UTC(2022, 5, 15, 23, 0, 0, 0) * 1e6;
-      const { container } = render(
+      const result = render(
         <Input.DateTime value={utcNanos} onChange={handleChange} />,
       );
-      openCalendarModal(container);
+      openCalendarModal(result);
       const dialog = screen.getByRole("dialog");
-      // Day 16 (local) should have the "outlined" variant (selected state)
-      const dayButtons = dialog.querySelectorAll("button");
-      const day16 = Array.from(dayButtons).find((b) => b.textContent?.trim() === "16");
+      const day16 = within(dialog)
+        .getAllByRole("button")
+        .find((b) => b.textContent?.trim() === "16");
       expect(day16).toBeTruthy();
       expect(day16?.className).toContain("outlined");
     });
@@ -203,10 +184,10 @@ describe("Input.DateTime", () => {
       const handleChange = vi.fn();
       // 2022-06-15T23:30:45Z -> Auckland (UTC+12): 2022-06-16T11:30:45
       const utcNanos = Date.UTC(2022, 5, 15, 23, 30, 45, 0) * 1e6;
-      const { container } = render(
+      const result = render(
         <Input.DateTime value={utcNanos} onChange={handleChange} />,
       );
-      openCalendarModal(container);
+      openCalendarModal(result);
       const dialog = screen.getByRole("dialog");
       const timeLists = dialog.querySelectorAll(".pluto-time-list");
       expect(timeLists.length).toEqual(3);
