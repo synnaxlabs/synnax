@@ -358,8 +358,8 @@ I can successfully:
     - [x] RTD (NI-9217)
       - [x] All RTD types and resistance configurations.
     - [ ] Built-in temperature sensor (USB-6289)
-    - [ ] Thermocouple (NI-9211A)
-      - [ ] All thermocouple types and CJC options.
+    - [x] Thermocouple (NI-9211A)
+      - [x] All thermocouple types and CJC options.
     - [ ] Voltage (USB-6000)
       - **Terminal configurations:**
         - [ ] Default (USB-6000)
