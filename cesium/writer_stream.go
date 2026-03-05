@@ -400,6 +400,9 @@ func (w *idxWriter) write(
 		series.Alignment = alignment
 		fr.SetRawSeriesAt(i, series)
 	}
+	// When write returns ErrUnauthorized, the caller (streamWriter.write) skips
+	// auto-commit via continue, so we must reset hasUncommittedData here to prevent
+	// a stale commit when the writer regains control.
 	if errors.Is(accumulatedErr, xcontrol.ErrUnauthorized) {
 		w.hasUncommittedData = false
 	}
@@ -422,6 +425,9 @@ func (w *idxWriter) Commit(ctx context.Context) (telem.TimeStamp, error) {
 	if err == nil {
 		w.lastCommitEnd = end.Lower
 	}
+	// Reset on ErrUnauthorized as well: after a control transfer, the new controller
+	// may advance prevCommit, making any future commit with this writer's stale
+	// highWaterMark invalid.
 	if err == nil || errors.Is(err, xcontrol.ErrUnauthorized) {
 		w.hasUncommittedData = false
 	}
