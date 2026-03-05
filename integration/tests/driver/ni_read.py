@@ -48,17 +48,19 @@ class NIAnalogReadHS(NIAnalogReadTaskCase):
 
 
 class NIReadRTD(NIAnalogReadTaskCase):
-    """Read RTD sensors across two NI 9219 modules — all 7 RTD types, all 3 wire configs.
+    """Read RTD sensors across two NI 9219 modules — all 7 RTD types, 3/4-wire configs.
+
+    NI 9219 only supports 3-wire and 4-wire RTD configurations.
 
     E101Mod7:
-        Port 0: Pt3750, 4-wire, DegC, PT100
-        Port 1: Pt3851, 3-wire, DegF, PT100
-        Port 2: Pt3911, 2-wire, DegC, PT100
-        Port 3: Pt3916, 4-wire, Kelvins, PT1000
+        Port 0: Pt3750, 4-wire, DegC
+        Port 1: Pt3851, 3-wire, DegF
+        Port 2: Pt3911, 3-wire, DegC
+        Port 3: Pt3916, 4-wire, Kelvins
     E101Mod8:
-        Port 0: Pt3920, 3-wire, DegR, PT100
-        Port 1: Pt3928, 2-wire, DegC, PT100
-        Port 2: Pt3850, 4-wire, DegF, PT1000
+        Port 0: Pt3920, 3-wire, DegR
+        Port 1: Pt3928, 3-wire, DegC
+        Port 2: Pt3850, 4-wire, DegF
     """
 
     task_name = "NI RTD Read"
@@ -117,13 +119,13 @@ class NIReadRTD(NIAnalogReadTaskCase):
                 port=2,
                 channel=create_channel(
                     client,
-                    name="ni_rtd_pt3911_2w",
+                    name="ni_rtd_pt3911_3w",
                     data_type=sy.DataType.FLOAT32,
                     index=idx.key,
                 ),
                 units="DegC",
                 rtd_type="Pt3911",
-                resistance_config="2Wire",
+                resistance_config="3Wire",
                 current_excit_source="Internal",
                 current_excit_val=0.001,
                 r0=100.0,
@@ -172,13 +174,13 @@ class NIReadRTD(NIAnalogReadTaskCase):
                 port=1,
                 channel=create_channel(
                     client,
-                    name="ni_rtd_pt3928_2w",
+                    name="ni_rtd_pt3928_3w",
                     data_type=sy.DataType.FLOAT32,
                     index=idx.key,
                 ),
                 units="DegC",
                 rtd_type="Pt3928",
-                resistance_config="2Wire",
+                resistance_config="3Wire",
                 current_excit_source="Internal",
                 current_excit_val=0.001,
                 r0=100.0,
