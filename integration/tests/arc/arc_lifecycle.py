@@ -14,10 +14,16 @@ from framework.utils import get_random_name
 from tests.arc.arc_case import ArcConsoleCase
 
 ARC_LIFECYCLE_SOURCE = """
+
+PRESS_HIGH_LIMIT f32 := 25
+PRESS_LOW_LIMIT f32 := 5
+
+SOME_CONST_1 f32 := 42.0
+SOME_CONST_2 f32 := 99.0
 start_lifecycle_cmd => main
 
 func check_high_pressure(p f32) u8 {
-    return p > 25
+    return p > PRESS_HIGH_LIMIT
 }
 
 func event_log{msg str} () {
@@ -57,9 +63,10 @@ interval{period=100ms} -> nested_write_1{}
 
 sequence main {
     stage press {
+        SOME_CONST_1 => const_output,
         1 -> press_vlv_cmd,
         event_log{msg="pressurizing"},
-        press_pt > 30 => maintain
+        press_pt > PRESS_HIGH_LIMIT + 5 => maintain
     }
 
     stage maintain {
@@ -68,9 +75,10 @@ sequence main {
     }
 
     stage vent {
+        SOME_CONST_2 => const_output,
         1 -> vent_vlv_cmd,
         event_log{msg="venting"},
-        press_pt < 5 => complete
+        press_pt < PRESS_LOW_LIMIT => complete
     }
 
     stage complete {
@@ -102,6 +110,7 @@ class ArcLifecycle(ArcConsoleCase):
         "press_vlv_state",
         "press_pt",
         "arc_lifecycle_virt",
+        "const_output",
         "end_test_cmd",
         "lifecycle_log",
     ]
@@ -114,6 +123,12 @@ class ArcLifecycle(ArcConsoleCase):
             data_type=sy.DataType.FLOAT32,
             retrieve_if_name_exists=True,
             virtual=True,
+        )
+        self.client.channels.create(
+            name="const_output",
+            data_type=sy.DataType.FLOAT32,
+            virtual=True,
+            retrieve_if_name_exists=True,
         )
         self.client.channels.create(
             name="lifecycle_log",
@@ -132,7 +147,11 @@ class ArcLifecycle(ArcConsoleCase):
         super().setup()
 
     def verify_sequence_execution(self) -> None:
-        # --- 0. Verify transitive channel write through function calls ---
+        # --- 0a. Verify global constant as flow source in press stage ---
+        self.log("Verifying SOME_CONST_1 (42.0) => const_output during press stage")
+        self.wait_for_near("const_output", 42.0, tolerance=0.01, is_virtual=True)
+
+        # --- 0b. Verify transitive channel write through function calls ---
         # nested_write_1() calls nested_write_2() which calls nested_write_3()
         # which writes to arc_lifecycle_virt. This validates that channel
         # accumulation propagates through function calls.
@@ -153,6 +172,10 @@ class ArcLifecycle(ArcConsoleCase):
         if not self.console.notifications.wait_for("Pressure below 25 PSI"):
             self.fail("Notification 'Pressure below 25 PSI' not found")
         self.wait_for_eq("lifecycle_log", "venting", is_virtual=True)
+
+        # --- 2a. Verify global constant changed in vent stage ---
+        self.log("Verifying SOME_CONST_2 (99.0) => const_output during vent stage")
+        self.wait_for_near("const_output", 99.0, tolerance=0.01, is_virtual=True)
 
         self.console.notifications.close_all()
 
