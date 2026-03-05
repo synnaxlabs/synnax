@@ -109,8 +109,8 @@ class NIReadRTD(NIAnalogReadTaskCase):
                 current_excit_source="Internal",
                 current_excit_val=0.001,
                 r0=100.0,
-                min_val=-58.0,
-                max_val=392.0,
+                min_val=32.0,
+                max_val=212.0,
             ),
             sy.ni.AIRTDChan(
                 device=mod7.key,
@@ -145,8 +145,8 @@ class NIReadRTD(NIAnalogReadTaskCase):
                 current_excit_source="Internal",
                 current_excit_val=0.001,
                 r0=1000.0,
-                min_val=223.0,
-                max_val=473.0,
+                min_val=273.0,
+                max_val=373.0,
             ),
             # --- E101Mod8 (ports 0-2) ---
             sy.ni.AIRTDChan(
@@ -164,8 +164,8 @@ class NIReadRTD(NIAnalogReadTaskCase):
                 current_excit_source="Internal",
                 current_excit_val=0.001,
                 r0=100.0,
-                min_val=400.0,
-                max_val=850.0,
+                min_val=491.0,
+                max_val=671.0,
             ),
             sy.ni.AIRTDChan(
                 device=mod8.key,
@@ -200,8 +200,8 @@ class NIReadRTD(NIAnalogReadTaskCase):
                 current_excit_source="Internal",
                 current_excit_val=0.001,
                 r0=1000.0,
-                min_val=-58.0,
-                max_val=392.0,
+                min_val=32.0,
+                max_val=212.0,
             ),
         ]
 
