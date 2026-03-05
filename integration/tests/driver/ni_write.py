@@ -19,10 +19,12 @@ class NIDigitalWrite(NIDigitalWriteTaskCase):
     """Write digital output on NI device port 0, lines 0 and 1."""
 
     task_name = "NI Digital Write"
-    device_location = "SYMod1"
+    device_locations = ["SYMod1"]
 
     @staticmethod
-    def create_channels(client: sy.Synnax) -> list[sy.ni.DOChan]:
+    def create_channels(
+        client: sy.Synnax, devices: dict[str, sy.Device]
+    ) -> list[sy.ni.DOChan]:
         cmd_idx = create_index(client, "ni_do_cmd_time")
         state_idx = create_index(client, "ni_do_state_time")
         return [

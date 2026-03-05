@@ -25,16 +25,24 @@ class _NITaskMixin:
     location = NI MAX alias (e.g. "E101Mod1").
 
     Subclasses must set:
-        device_location: str  — the NI MAX identifier (e.g. "E101Mod1")
+        device_locations: list[str]  — NI MAX identifiers (e.g. ["E101Mod1"])
     """
+
+    device_locations: list[str] = []
+    devices: dict[str, sy.Device] = {}
 
     def setup(self) -> None:
         if platform.system().lower() != "windows":
             self.auto_pass(msg="Windows DAQmx drivers required")
-        # The NI scanner registers devices with location = NI MAX alias,
-        # but TaskCase.setup() retrieves by name. Resolve here.
-        dev = self.client.devices.retrieve(location=self.device_location)
-        self.device_name = dev.name
+        # The NI scanner registers devices with location = NI MAX alias.
+        # Resolve all locations upfront so concrete tests can use
+        # devices[location] in create_channels without additional retrieves.
+        self.devices = {
+            loc: self.client.devices.retrieve(location=loc)
+            for loc in self.device_locations
+        }
+        # TaskCase.setup() retrieves by name — use the first device.
+        self.device_name = self.devices[self.device_locations[0]].name
         super().setup()
 
 
@@ -43,7 +51,9 @@ class NIAnalogReadTaskCase(_NITaskMixin, ReadTaskCase):
 
     @staticmethod
     @abstractmethod
-    def create_channels(client: sy.Synnax) -> list[sy.ni.AIChan]: ...
+    def create_channels(
+        client: sy.Synnax, devices: dict[str, sy.Device]
+    ) -> list[sy.ni.AIChan]: ...
 
     def create(
         self,
@@ -54,7 +64,7 @@ class NIAnalogReadTaskCase(_NITaskMixin, ReadTaskCase):
         stream_rate: sy.Rate,
     ) -> sy.ni.AnalogReadTask:
         """Create an NI analog read task."""
-        channels = self.create_channels(self.client)
+        channels = self.create_channels(self.client, self.devices)
 
         return sy.ni.AnalogReadTask(
             name=task_name,
@@ -71,7 +81,9 @@ class NIDigitalReadTaskCase(_NITaskMixin, ReadTaskCase):
 
     @staticmethod
     @abstractmethod
-    def create_channels(client: sy.Synnax) -> list[sy.ni.DIChan]: ...
+    def create_channels(
+        client: sy.Synnax, devices: dict[str, sy.Device]
+    ) -> list[sy.ni.DIChan]: ...
 
     def create(
         self,
@@ -82,7 +94,7 @@ class NIDigitalReadTaskCase(_NITaskMixin, ReadTaskCase):
         stream_rate: sy.Rate,
     ) -> sy.ni.DigitalReadTask:
         """Create an NI digital read task."""
-        channels = self.create_channels(self.client)
+        channels = self.create_channels(self.client, self.devices)
 
         return sy.ni.DigitalReadTask(
             name=task_name,
@@ -99,7 +111,9 @@ class NICounterReadTaskCase(_NITaskMixin, ReadTaskCase):
 
     @staticmethod
     @abstractmethod
-    def create_channels(client: sy.Synnax) -> list[sy.ni.CIChan]: ...
+    def create_channels(
+        client: sy.Synnax, devices: dict[str, sy.Device]
+    ) -> list[sy.ni.CIChan]: ...
 
     def create(
         self,
@@ -110,7 +124,7 @@ class NICounterReadTaskCase(_NITaskMixin, ReadTaskCase):
         stream_rate: sy.Rate,
     ) -> sy.ni.CounterReadTask:
         """Create an NI counter read task."""
-        channels = self.create_channels(self.client)
+        channels = self.create_channels(self.client, self.devices)
 
         return sy.ni.CounterReadTask(
             name=task_name,
@@ -130,7 +144,9 @@ class NIAnalogWriteTaskCase(_NITaskMixin, WriteTaskCase):
 
     @staticmethod
     @abstractmethod
-    def create_channels(client: sy.Synnax) -> list[sy.ni.AOChan]: ...
+    def create_channels(
+        client: sy.Synnax, devices: dict[str, sy.Device]
+    ) -> list[sy.ni.AOChan]: ...
 
     def create(
         self,
@@ -141,7 +157,7 @@ class NIAnalogWriteTaskCase(_NITaskMixin, WriteTaskCase):
         stream_rate: sy.Rate,
     ) -> sy.ni.AnalogWriteTask:
         """Create an NI analog write task."""
-        channels = self.create_channels(self.client)
+        channels = self.create_channels(self.client, self.devices)
         return sy.ni.AnalogWriteTask(
             name=task_name,
             device=device.key,
@@ -158,7 +174,9 @@ class NIDigitalWriteTaskCase(_NITaskMixin, WriteTaskCase):
 
     @staticmethod
     @abstractmethod
-    def create_channels(client: sy.Synnax) -> list[sy.ni.DOChan]: ...
+    def create_channels(
+        client: sy.Synnax, devices: dict[str, sy.Device]
+    ) -> list[sy.ni.DOChan]: ...
 
     def create(
         self,
@@ -169,7 +187,7 @@ class NIDigitalWriteTaskCase(_NITaskMixin, WriteTaskCase):
         stream_rate: sy.Rate,
     ) -> sy.ni.DigitalWriteTask:
         """Create an NI digital write task."""
-        channels = self.create_channels(self.client)
+        channels = self.create_channels(self.client, self.devices)
         return sy.ni.DigitalWriteTask(
             name=task_name,
             device=device.key,

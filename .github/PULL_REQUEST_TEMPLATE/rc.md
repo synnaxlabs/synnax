@@ -354,8 +354,8 @@ I can successfully:
   - [ ] Ensure no lag between sensor input and Core data recording.
   - [ ] Configure and run an analog read task for the following channels:
     - [ ] Current (NI-9203)
-    - [ ] Resistance (NI-9219)
-    - [ ] RTD (NI-9217)
+    - [x] Resistance (NI-9219)
+    - [x] RTD (NI-9217)
       - [ ] All RTD types and resistance configurations.
     - [ ] Built-in temperature sensor (USB-6289)
     - [ ] Thermocouple (NI-9211A)
