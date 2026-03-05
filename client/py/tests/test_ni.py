@@ -798,6 +798,72 @@ class TestNITask:
             )
 
 
+    def test_multi_device_duplicate_ports_allowed(self):
+        """Channels on different devices can reuse the same port number."""
+        sy.ni.AnalogReadTaskConfig(
+            sample_rate=100,
+            stream_rate=25,
+            data_saving=False,
+            channels=[
+                sy.ni.AIVoltageChan(
+                    key="test1",
+                    device="device-a",
+                    terminal_config="Cfg_Default",
+                    channel=1,
+                    port=0,
+                    enabled=True,
+                    min_val=-10,
+                    max_val=10,
+                    units="Volts",
+                ),
+                sy.ni.AIVoltageChan(
+                    key="test2",
+                    device="device-b",
+                    terminal_config="Cfg_Default",
+                    channel=2,
+                    port=0,
+                    enabled=True,
+                    min_val=-10,
+                    max_val=10,
+                    units="Volts",
+                ),
+            ],
+        )
+
+    def test_same_device_duplicate_ports_rejected(self):
+        """Channels on the same device cannot reuse the same port number."""
+        with pytest.raises(ValidationError):
+            sy.ni.AnalogReadTaskConfig(
+                sample_rate=100,
+                stream_rate=25,
+                data_saving=False,
+                channels=[
+                    sy.ni.AIVoltageChan(
+                        key="test1",
+                        device="device-a",
+                        terminal_config="Cfg_Default",
+                        channel=1,
+                        port=0,
+                        enabled=True,
+                        min_val=-10,
+                        max_val=10,
+                        units="Volts",
+                    ),
+                    sy.ni.AIVoltageChan(
+                        key="test2",
+                        device="device-a",
+                        terminal_config="Cfg_Default",
+                        channel=2,
+                        port=0,
+                        enabled=True,
+                        min_val=-10,
+                        max_val=10,
+                        units="Volts",
+                    ),
+                ],
+            )
+
+
 @pytest.mark.ni
 class TestNIDeviceHelpers:
     """Tests for NI Device class."""

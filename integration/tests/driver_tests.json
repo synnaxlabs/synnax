@@ -9,6 +9,8 @@
         { "case": "driver/modbus_write" },
         { "case": "driver/opcua_read" },
         { "case": "driver/opcua_write" },
+        { "case": "driver/ni_read" },
+        { "case": "driver/ni_write" },
         { "case": "driver/grand_finale" }
       ]
     }
