@@ -79,6 +79,58 @@ describe("Input.DateTime", () => {
     });
   });
 
+  describe("leap year", () => {
+    let originalTZ: string | undefined;
+    beforeEach(() => {
+      originalTZ = process.env.TZ;
+      process.env.TZ = "UTC";
+    });
+    afterEach(() => {
+      process.env.TZ = originalTZ;
+    });
+
+    const openCalendarModal = (container: HTMLElement) => {
+      const calendarBtn = container.querySelector<HTMLButtonElement>(
+        ".pluto-input__container > button",
+      );
+      if (calendarBtn != null) fireEvent.click(calendarBtn);
+    };
+
+    it("should show 29 days for February in a leap year", () => {
+      const handleChange = vi.fn();
+      const utcNanos = Date.UTC(2024, 1, 15, 12, 0, 0, 0) * 1e6;
+      const { container } = render(
+        <Input.DateTime value={utcNanos} onChange={handleChange} />,
+      );
+      openCalendarModal(container);
+      expect(screen.getByText("February")).toBeTruthy();
+      const dialog = screen.getByRole("dialog");
+      const allButtons = dialog.querySelectorAll(".pluto-calendar button");
+      const calendarDays = Array.from(allButtons).filter((b) =>
+        /^\d+$/.test(b.textContent?.trim() ?? ""),
+      );
+      expect(calendarDays.length).toEqual(29);
+      expect(calendarDays[28].textContent?.trim()).toEqual("29");
+    });
+
+    it("should show 28 days for February in a non-leap year", () => {
+      const handleChange = vi.fn();
+      const utcNanos = Date.UTC(2025, 1, 15, 12, 0, 0, 0) * 1e6;
+      const { container } = render(
+        <Input.DateTime value={utcNanos} onChange={handleChange} />,
+      );
+      openCalendarModal(container);
+      expect(screen.getByText("February")).toBeTruthy();
+      const dialog = screen.getByRole("dialog");
+      const allButtons = dialog.querySelectorAll(".pluto-calendar button");
+      const calendarDays = Array.from(allButtons).filter((b) =>
+        /^\d+$/.test(b.textContent?.trim() ?? ""),
+      );
+      expect(calendarDays.length).toEqual(28);
+      expect(calendarDays[27].textContent?.trim()).toEqual("28");
+    });
+  });
+
   describe("timezone sensitive", () => {
     let originalTZ: string | undefined;
     beforeEach(() => {

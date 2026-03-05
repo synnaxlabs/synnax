@@ -263,25 +263,23 @@ const AISelector = ({
   );
 };
 
-interface Month {
-  name: string;
-  days: number;
-}
-
-const MONTHS: Month[] = [
-  { name: "January", days: 31 },
-  { name: "February", days: 28 },
-  { name: "March", days: 31 },
-  { name: "April", days: 30 },
-  { name: "May", days: 31 },
-  { name: "June", days: 30 },
-  { name: "July", days: 31 },
-  { name: "August", days: 31 },
-  { name: "September", days: 30 },
-  { name: "October", days: 31 },
-  { name: "November", days: 30 },
-  { name: "December", days: 31 },
+const MONTH_NAMES = [
+  "January",
+  "February",
+  "March",
+  "April",
+  "May",
+  "June",
+  "July",
+  "August",
+  "September",
+  "October",
+  "November",
+  "December",
 ];
+
+const daysInMonth = (month: number, year: number): number =>
+  new Date(year, month + 1, 0).getDate();
 
 interface DateInfo {
   start: string;
@@ -325,7 +323,7 @@ const Calendar = ({ value, onChange }: CalendarProps): ReactElement => {
             style={{ flexGrow: 1, paddingLeft: "1rem" }}
             className={CSS.BE("calendar-header", "month")}
           >
-            {MONTHS[month].name}
+            {MONTH_NAMES[month]}
           </Text.Text>
           <Button.Button
             onClick={() => handleMonthChange(month + 1)}
@@ -347,7 +345,7 @@ const Calendar = ({ value, onChange }: CalendarProps): ReactElement => {
           </Button.Button>
         </Flex.Box>
         <Flex.Box x wrap gap="tiny" style={{ padding: "0.5rem", height: "100%" }}>
-          {Array.from({ length: MONTHS[month].days }).map((_, i) => (
+          {Array.from({ length: daysInMonth(month, year) }).map((_, i) => (
             <Button.Button
               key={i}
               variant={i + 1 === day ? "outlined" : "text"}
