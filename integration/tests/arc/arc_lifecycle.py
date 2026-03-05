@@ -77,6 +77,26 @@ sequence main {
         0 -> vent_vlv_cmd
     }
 }
+
+// Regression: stale virtual channel signal must not trigger stage re-entry.
+// When yield is first entered, the pre-existing bb_signal_start_cmd value
+// should be ignored; only a new write after activation should fire => start.
+bb_signal_start_cmd => signal_ctrl
+
+sequence signal_ctrl {
+    stage start {
+        "start" -> signal_stage_log,
+        bb_signal_stop_cmd => stop
+    }
+    stage stop {
+        "stop" -> signal_stage_log,
+        wait{duration=250ms} => yield
+    }
+    stage yield {
+        "yield" -> signal_stage_log,
+        bb_signal_start_cmd => start
+    }
+}
 """
 
 
@@ -92,6 +112,8 @@ class ArcLifecycle(ArcConsoleCase):
     6. select routes boolean output to true/false branches
     7. Channel writes propagate through function calls (regression for channel
        accumulation bug where transitive channel accesses were lost)
+    8. Stale virtual channel signal does not trigger stage re-entry on first
+       yield activation (regression for source node watermark bug)
     """
 
     arc_source = ARC_LIFECYCLE_SOURCE
@@ -104,6 +126,7 @@ class ArcLifecycle(ArcConsoleCase):
         "arc_lifecycle_virt",
         "end_test_cmd",
         "lifecycle_log",
+        "signal_stage_log",
     ]
     sim_daq_class = PressSimDAQ
 
@@ -118,6 +141,24 @@ class ArcLifecycle(ArcConsoleCase):
         self.client.channels.create(
             name="lifecycle_log",
             data_type=sy.DataType.STRING,
+            virtual=True,
+            retrieve_if_name_exists=True,
+        )
+        self.client.channels.create(
+            name="signal_stage_log",
+            data_type=sy.DataType.STRING,
+            virtual=True,
+            retrieve_if_name_exists=True,
+        )
+        self.client.channels.create(
+            name="bb_signal_start_cmd",
+            data_type=sy.DataType.UINT8,
+            virtual=True,
+            retrieve_if_name_exists=True,
+        )
+        self.client.channels.create(
+            name="bb_signal_stop_cmd",
+            data_type=sy.DataType.UINT8,
             virtual=True,
             retrieve_if_name_exists=True,
         )
@@ -156,7 +197,36 @@ class ArcLifecycle(ArcConsoleCase):
 
         self.console.notifications.close_all()
 
-        # --- 3. Rename while running (triggers redeployment warning) ---
+        # --- 3. Regression: stale virtual channel must not trigger re-entry ---
+        # Trigger signal_ctrl via bb_signal_start_cmd, then stop it. The yield
+        # stage's source node must advance its watermark on activation so the
+        # pre-existing bb_signal_start_cmd value is not seen as new data.
+        self.log("Phase 3: Testing stale virtual channel regression (signal_ctrl)")
+        with self.client.open_writer(sy.TimeStamp.now(), "bb_signal_start_cmd") as w:
+            w.write("bb_signal_start_cmd", 1)
+
+        self.wait_for_eq("signal_stage_log", "start", is_virtual=True)
+        self.log("signal_ctrl entered start stage")
+
+        with self.client.open_writer(sy.TimeStamp.now(), "bb_signal_stop_cmd") as w:
+            w.write("bb_signal_stop_cmd", 1)
+
+        self.wait_for_eq("signal_stage_log", "yield", is_virtual=True)
+        self.log("signal_ctrl entered yield stage")
+
+        # Wait then confirm no spurious re-entry from the stale start signal.
+        sy.sleep(0.501)  #  > 2 * wait{250ms}
+        assert self.read_tlm("signal_stage_log") == "yield", (
+            f"Stale signal regression: expected 'yield' but got "
+            f"'{self.read_tlm('signal_stage_log')}'"
+        )
+
+        # Confirm a fresh start signal correctly re-enters start.
+        with self.client.open_writer(sy.TimeStamp.now(), "bb_signal_start_cmd") as w:
+            w.write("bb_signal_start_cmd", 1)
+        self.wait_for_eq("signal_stage_log", "start", is_virtual=True)
+
+        # --- 4. Rename while running (triggers redeployment warning) ---
         self.log(f"Renaming Arc from '{self.arc_name}' to '{self.new_name}'")
         self.console.arc.rename(old_name=self.arc_name, new_name=self.new_name)
         self._arc_started = False  # Rename stops the arc
@@ -170,7 +240,7 @@ class ArcLifecycle(ArcConsoleCase):
         # Update arc_name so parent teardown uses the new name
         self.arc_name = self.new_name
 
-        # --- 4. Re-configure and re-start with new name ---
+        # --- 5. Re-configure and re-start with new name ---
         self.log("Opening renamed Arc")
         self.console.arc.open(self.new_name)
 
@@ -183,7 +253,7 @@ class ArcLifecycle(ArcConsoleCase):
         self.console.arc.start()
         self._arc_started = True
 
-        # --- 5. Stop, then delete and verify tab removal ---
+        # --- 6. Stop, then delete and verify tab removal ---
         self.log("Stopping Arc")
         self.console.arc.stop()
         self._arc_started = False
