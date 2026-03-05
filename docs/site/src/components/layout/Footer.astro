@@ -4,55 +4,256 @@ import { Icon, Flex } from "@synnaxlabs/pluto";
 import { Text } from "@synnaxlabs/pluto/text";
 ---
 
-<Flex.Box el="footer">
-    <Flex.Box className="content" align="start" justify="between" direction="x">
-        <Flex.Box align="start">
-            <a href="https://synnaxlabs.com">
-                <Logo style={{ height: "5rem" }} variant="title" />
-            </a>
-            <Text.Text level="small" className="copyright">
-                &copy 2024 Synnax Labs Inc.
-            </Text.Text>
-            <Text.Text level="small" href="/privacy-policy"> Privacy Policy </Text.Text>
+<Flex.Box el="footer" justify="center" align="center">
+    <Flex.Box className="footer-content" align="stretch">
+        <a href="https://synnaxlabs.com" class="footer-logo-link">
+            <Logo variant="title" />
+        </a>
+        <Flex.Box direction="x" justify="between" align="start" className="footer-main">
+            <Flex.Box align="start" className="footer-link-column">
+                <Text.Text level="small" className="footer-column-header">
+                    Documentation
+                </Text.Text>
+                <a href="/reference/">Reference</a>
+                <a href="/reference/concepts/overview">Concepts</a>
+                <a href="/reference/client/quick-start">Client Libraries</a>
+                <a href="/reference/control/get-started">Control</a>
+            </Flex.Box>
+            <Flex.Box align="start" className="footer-link-column">
+                <Text.Text level="small" className="footer-column-header">
+                    Resources
+                </Text.Text>
+                <a href="/blog/">Blog</a>
+                <a href="/releases/">Releases</a>
+                <a href="https://github.com/synnaxlabs/synnax">GitHub</a>
+            </Flex.Box>
+            <Flex.Box align="start" className="footer-link-column">
+                <Text.Text level="small" className="footer-column-header">
+                    Company
+                </Text.Text>
+                <a href="https://synnaxlabs.com/company">About</a>
+                <a href="https://synnaxlabs.com/#contact">Contact</a>
+                <a href="/privacy-policy">Privacy Policy</a>
+            </Flex.Box>
+            <Flex.Box align="end" className="footer-link-column">
+                <Text.Text level="small" className="footer-column-header">
+                    Location
+                </Text.Text>
+                <Text.Text level="small" className="footer-muted">
+                    6045 Whitman Drive, St. 4
+                </Text.Text>
+                <Text.Text level="small" className="footer-muted">
+                    Evergreen, CO
+                </Text.Text>
+            </Flex.Box>
         </Flex.Box>
-        <Flex.Box direction="x">
-            <Text.Text href="https://www.linkedin.com/company/synnaxlabs/">
-                <Icon.Logo.LinkedIn className="link" />
+        <Flex.Box
+            direction="x"
+            justify="between"
+            align="center"
+            className="footer-bottom-bar"
+        >
+            <Text.Text level="small" className="footer-muted">
+                &copy; {new Date().getFullYear()} Synnax Labs Inc.
             </Text.Text>
-            <Text.Text href="https://github.com/synnaxlabs/synnax">
-                <Icon.Logo.Github className="link" />
-            </Text.Text>
+            <Flex.Box direction="x" align="center" className="footer-bottom-right">
+                <Flex.Box className="footer-built-in">
+                    <Text.Text level="small" variant="code" className="footer-muted"
+                        >Proudly built in</Text.Text
+                    >
+                    <Text.Text level="small" variant="code" className="footer-muted"
+                        >Denver, CO</Text.Text
+                    >
+                </Flex.Box>
+                <div class="footer-flag-wrapper">
+                    <img
+                        src="/images/us-flag.svg"
+                        alt="American flag"
+                        class="footer-flag"
+                    />
+                    <div class="footer-flag-shimmer"></div>
+                </div>
+                <Flex.Box className="footer-social">
+                    <Text.Text href="https://www.linkedin.com/company/synnaxlabs/">
+                        <Icon.Logo.LinkedIn className="footer-social-link" />
+                    </Text.Text>
+                    <Text.Text href="https://github.com/synnaxlabs/synnax">
+                        <Icon.Logo.Github className="footer-social-link" />
+                    </Text.Text>
+                </Flex.Box>
+            </Flex.Box>
         </Flex.Box>
     </Flex.Box>
 </Flex.Box>
 
 <style is:global>
     footer {
-        height: 175px;
-        padding: 5rem;
-        background: var(--pluto-gray-l2-20);
+        padding: 8rem 7rem;
+        border-top: var(--pluto-border);
 
-        .content {
-            margin: 0 auto;
-            max-width: 1250px;
+        .footer-content {
+            width: 100%;
+            max-width: var(--max-width);
+            gap: 8rem;
+        }
+
+        .footer-logo-link {
+            text-decoration: none;
+            display: flex;
+            & .synnax-logo--title {
+                height: 4.5rem;
+            }
+        }
+
+        .footer-main {
             width: 100%;
         }
 
-        .link {
-            height: 4rem;
-            width: 4rem;
-            color: var(--pluto-gray-l7);
-            transition: all 0.2s ease-in-out;
+        .footer-link-column {
+            gap: 2rem;
+
+            a {
+                color: var(--pluto-gray-l8);
+                text-decoration: none;
+                font-family: var(--pluto-font-family);
+                font-size: 2rem;
+                transition: color 0.2s ease-in-out;
+
+                &:hover {
+                    color: var(--pluto-gray-l10);
+                }
+            }
+        }
+
+        .footer-column-header {
+            color: var(--pluto-text-color);
+            font-size: 2rem;
+            font-weight: 500;
+            font-family: var(--pluto-font-family);
+            text-transform: uppercase;
+            letter-spacing: 0.08em;
+            margin-bottom: 0.5rem;
+        }
+
+        .footer-muted {
+            color: var(--pluto-gray-l8);
+        }
+
+        .footer-built-in {
+            gap: 0.25rem;
+            font-family: var(--pluto-mono-font-family);
+        }
+
+        .footer-flag-wrapper {
+            position: relative;
+            overflow: hidden;
+            border-radius: 0.5rem;
+            line-height: 0;
+        }
+
+        .footer-flag {
+            width: clamp(8rem, 5rem + 3vw, 15rem);
+            height: auto;
+            display: block;
+        }
+
+        .footer-flag-shimmer {
+            position: absolute;
+            top: 0;
+            width: 50%;
+            height: 100%;
+            background: linear-gradient(
+                105deg,
+                transparent 0%,
+                rgba(255, 255, 255, 0.5) 50%,
+                transparent 100%
+            );
+            transform: translateX(-150%);
+            animation: flag-shimmer 4s ease-in-out infinite;
+        }
+
+        .footer-bottom-bar {
+            width: 100%;
+            padding-top: 8rem;
+            border-top: var(--pluto-border);
+        }
+
+        .footer-bottom-right {
+            gap: clamp(2rem, 1rem + 2vw, 5rem);
+        }
+
+        .footer-social {
+            gap: 0.5rem;
+        }
+
+        .footer-social-link {
+            height: 3rem;
+            width: 3rem;
+            color: var(--pluto-gray-l8);
+            transition: color 0.2s ease-in-out;
 
             &:hover {
                 color: var(--pluto-gray-l10);
             }
         }
+    }
 
-        .copyright {
-            color: var(--pluto-gray-l7);
+    @media (max-width: 900px) {
+        footer .footer-main {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 5rem;
         }
 
-        border-top: var(--pluto-border);
+        footer .footer-link-column {
+            align-items: flex-start;
+        }
+
+        footer .footer-bottom-bar {
+            flex-direction: column;
+            align-items: center;
+            gap: 2rem;
+        }
+
+        footer .footer-bottom-right {
+            flex-direction: column;
+            align-items: center;
+            gap: 2rem;
+        }
+
+        footer .footer-built-in {
+            align-items: center;
+        }
+
+        footer .footer-social {
+            flex-direction: row;
+        }
+    }
+
+    @media (max-width: 600px) {
+        footer {
+            padding: 5rem 3rem;
+        }
+
+        footer .footer-logo-link .synnax-logo--title {
+            height: 3.5rem;
+        }
+
+        footer .footer-social-link {
+            height: 2.5rem;
+            width: 2.5rem;
+        }
+    }
+
+    @keyframes flag-shimmer {
+        0% {
+            transform: translateX(-150%);
+        }
+        50% {
+            transform: translateX(350%);
+        }
+        100% {
+            transform: translateX(350%);
+        }
     }
 </style>

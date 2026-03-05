@@ -20,7 +20,7 @@ import { Input } from "@synnaxlabs/pluto/input";
 import { List } from "@synnaxlabs/pluto/list";
 import { Text } from "@synnaxlabs/pluto/text";
 import { caseconv, deep } from "@synnaxlabs/x";
-import { type ReactElement, useCallback, useEffect, useRef, useState } from "react";
+import { type ReactElement, useCallback, useRef, useState } from "react";
 import z from "zod";
 
 interface SearchResult {
@@ -44,7 +44,7 @@ export const Search = (): ReactElement => (
       <Dialog.Trigger
         variant="outlined"
         justify="center"
-        size="large"
+        size="medium"
         textColor={8}
         trigger={["Control", "K"]}
         triggerIndicator
@@ -74,6 +74,7 @@ const ICONS: Record<string, Icon.ReactElement> = {
   driver: <Icon.Device />,
   pluto: <Icon.Table />,
   releases: <Icon.Release />,
+  client: <Icon.Terminal />,
 };
 
 export const SearchListItem = (props: List.ItemRenderProps<string>) => {
@@ -108,14 +109,16 @@ export const SearchListItem = (props: List.ItemRenderProps<string>) => {
     >
       <Flex.Box direction="y" empty>
         <Text.Text level="h5" dangerouslySetInnerHTML={{ __html: title }} empty />
-        <Breadcrumb.Breadcrumb level="small" gap="tiny" highlightVariant="last">
-          {icon}
-          {path.split("/").map((segment, index) => (
-            <Breadcrumb.Segment key={index} color={8}>
-              {segment}
-            </Breadcrumb.Segment>
-          ))}
-        </Breadcrumb.Breadcrumb>
+        {path.length > 0 && (
+          <Breadcrumb.Breadcrumb level="small" gap="tiny" highlightVariant="last">
+            {icon}
+            {path.split("/").map((segment, index) => (
+              <Breadcrumb.Segment key={index} color={8}>
+                {segment}
+              </Breadcrumb.Segment>
+            ))}
+          </Breadcrumb.Breadcrumb>
+        )}
       </Flex.Box>
       <Text.Text level="small" dangerouslySetInnerHTML={{ __html: content }} />
     </Select.ListItem>
@@ -172,6 +175,44 @@ const search = async (term: string) => {
   })) as SearchResult[];
 };
 
+const DEFAULT_ITEMS: SearchResult[] = [
+  {
+    key: "default-get-started",
+    title: "Get Started",
+    description: "Get started with Synnax",
+    content: "Learn how to set up and start using Synnax",
+    href: "/reference",
+  },
+  {
+    key: "default-deploy",
+    title: "Deploy",
+    description: "Deploy a Synnax cluster",
+    content: "Deploy and configure a Synnax server",
+    href: "/reference/core/quick-start",
+  },
+  {
+    key: "default-console",
+    title: "Console",
+    description: "Get started with the Console",
+    content: "Set up and use the Synnax Console application",
+    href: "/reference/console/get-started",
+  },
+  {
+    key: "default-client",
+    title: "Client Libraries",
+    description: "Quick start with client libraries",
+    content: "Connect to Synnax using Python or TypeScript",
+    href: "/reference/client/quick-start",
+  },
+  {
+    key: "default-driver",
+    title: "Device Drivers",
+    description: "Get started with device drivers",
+    content: "Connect hardware devices to Synnax",
+    href: "/reference/driver/get-started",
+  },
+];
+
 const SearchDialogContent = () => {
   const { close, visible } = Dialog.useContext();
   const [value, setValue] = useState<string>("");
@@ -180,6 +221,7 @@ const SearchDialogContent = () => {
   const handleSearch = useCallback(
     (query: string) => {
       setValue(query);
+      if (query.length === 0) return;
       void search(query)
         .then((data) => {
           setData(data);
@@ -188,11 +230,9 @@ const SearchDialogContent = () => {
     },
     [visible],
   );
-  useEffect(() => {
-    if (visible) handleSearch("");
-  }, [visible]);
+  const displayData = value.length === 0 ? DEFAULT_ITEMS : data;
   const { data: items, getItem } = List.useStaticData<string, SearchResult>({
-    data: data ?? [],
+    data: displayData,
   });
   return (
     <Select.Frame<string, SearchResult>
@@ -228,7 +268,7 @@ const SearchDialogContent = () => {
         borderColor={6}
         emptyContent={
           <Text.Text center status="disabled">
-            {value.length === 0 ? "Type to search..." : "No Results"}
+            No Results
           </Text.Text>
         }
       >
