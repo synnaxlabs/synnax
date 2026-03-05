@@ -18,11 +18,23 @@ from tests.driver.task import ReadTaskCase, WriteTaskCase
 
 
 class _NITaskMixin:
-    """Shared setup for all NI task tests — auto-passes on non-Windows platforms."""
+    """Shared setup for all NI task tests.
+
+    Auto-passes on non-Windows platforms. The NI driver scanner
+    automatically discovers devices and registers them with
+    location = NI MAX alias (e.g. "E101Mod1").
+
+    Subclasses must set:
+        device_name: str  — the NI MAX identifier (e.g. "E101Mod1")
+    """
 
     def setup(self) -> None:
         if platform.system().lower() != "windows":
             self.auto_pass(msg="Windows DAQmx drivers required")
+        # The NI scanner registers devices with location = NI MAX alias,
+        # but TaskCase.setup() retrieves by name. Resolve here.
+        dev = self.client.devices.retrieve(location=self.device_name)
+        self.device_name = dev.name
         super().setup()
 
 
