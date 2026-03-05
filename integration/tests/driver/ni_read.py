@@ -1,4 +1,4 @@
-#  Copyright 2026 Synnax Labs, Inc.
+Tha#  Copyright 2026 Synnax Labs, Inc.
 #
 #  Use of this software is governed by the Business Source License included in the file
 #  licenses/BSL.txt.
@@ -72,10 +72,12 @@ class NIReadRTD(NIAnalogReadTaskCase):
         client: sy.Synnax, devices: dict[str, sy.Device]
     ) -> list[sy.ni.AIRTDChan]:
         idx = create_index(client, "ni_rtd_index")
+        mod7 = devices["E101Mod7"]
         mod8 = devices["E101Mod8"]
         return [
-            # --- E101Mod7 (ports 0-3) — device inherited from task ---
+            # --- E101Mod7 (ports 0-3) ---
             sy.ni.AIRTDChan(
+                device=mod7.key,
                 port=0,
                 channel=create_channel(
                     client,
@@ -93,6 +95,7 @@ class NIReadRTD(NIAnalogReadTaskCase):
                 max_val=200.0,
             ),
             sy.ni.AIRTDChan(
+                device=mod7.key,
                 port=1,
                 channel=create_channel(
                     client,
@@ -110,6 +113,7 @@ class NIReadRTD(NIAnalogReadTaskCase):
                 max_val=392.0,
             ),
             sy.ni.AIRTDChan(
+                device=mod7.key,
                 port=2,
                 channel=create_channel(
                     client,
@@ -127,6 +131,7 @@ class NIReadRTD(NIAnalogReadTaskCase):
                 max_val=200.0,
             ),
             sy.ni.AIRTDChan(
+                device=mod7.key,
                 port=3,
                 channel=create_channel(
                     client,
@@ -143,7 +148,7 @@ class NIReadRTD(NIAnalogReadTaskCase):
                 min_val=223.0,
                 max_val=473.0,
             ),
-            # --- E101Mod8 (ports 0-2) — device set per channel ---
+            # --- E101Mod8 (ports 0-2) ---
             sy.ni.AIRTDChan(
                 device=mod8.key,
                 port=0,
@@ -267,3 +272,4 @@ class NIReadResistance(NIAnalogReadTaskCase):
                 max_val=1000.0,
             ),
         ]
+ 

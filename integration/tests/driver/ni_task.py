@@ -65,10 +65,12 @@ class NIAnalogReadTaskCase(_NITaskMixin, ReadTaskCase):
     ) -> sy.ni.AnalogReadTask:
         """Create an NI analog read task."""
         channels = self.create_channels(self.client, self.devices)
-
+        device_key = (
+            "cross-device" if len(self.device_locations) > 1 else device.key
+        )
         return sy.ni.AnalogReadTask(
             name=task_name,
-            device=device.key,
+            device=device_key,
             sample_rate=sample_rate,
             stream_rate=stream_rate,
             data_saving=True,
