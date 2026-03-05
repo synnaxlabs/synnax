@@ -69,9 +69,7 @@ describe("Input.DateTime", () => {
       const handleChange = vi.fn();
       const ts = new TimeStamp(initialValue, "local");
 
-      render(
-        <Input.DateTime value={Number(ts.valueOf())} onChange={handleChange} />,
-      );
+      render(<Input.DateTime value={Number(ts.valueOf())} onChange={handleChange} />);
 
       const input = screen.getByRole("textbox");
 
@@ -100,7 +98,9 @@ describe("Input.DateTime", () => {
     it("should show 29 days for February in a leap year", () => {
       const handleChange = vi.fn();
       const utcNanos = Date.UTC(2024, 1, 15, 12, 0, 0, 0) * 1e6;
-      const result = render(<Input.DateTime value={utcNanos} onChange={handleChange} />);
+      const result = render(
+        <Input.DateTime value={utcNanos} onChange={handleChange} />,
+      );
       openCalendarModal(result);
       expect(screen.getByText("February")).toBeTruthy();
       const dialog = screen.getByRole("dialog");
@@ -112,7 +112,9 @@ describe("Input.DateTime", () => {
     it("should show 28 days for February in a non-leap year", () => {
       const handleChange = vi.fn();
       const utcNanos = Date.UTC(2025, 1, 15, 12, 0, 0, 0) * 1e6;
-      const result = render(<Input.DateTime value={utcNanos} onChange={handleChange} />);
+      const result = render(
+        <Input.DateTime value={utcNanos} onChange={handleChange} />,
+      );
       openCalendarModal(result);
       expect(screen.getByText("February")).toBeTruthy();
       const dialog = screen.getByRole("dialog");
