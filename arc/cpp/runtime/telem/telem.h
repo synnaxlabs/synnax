@@ -89,8 +89,7 @@ public:
         const auto lower = last.alignment;
         const auto upper_val = lower.uint64() + (last.size() > 0 ? last.size() - 1 : 0);
         const auto upper = x::telem::Alignment(upper_val + 1);
-        if (upper.uint64() > high_water_mark.uint64())
-            high_water_mark = upper;
+        if (upper.uint64() > high_water_mark.uint64()) high_water_mark = upper;
     }
 
     [[nodiscard]] bool is_output_truthy(const std::string &param_name) const override {
