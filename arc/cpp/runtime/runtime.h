@@ -28,8 +28,11 @@
 #include "arc/cpp/runtime/loop/loop.h"
 #include "arc/cpp/runtime/node/factory.h"
 #include "arc/cpp/runtime/scheduler/scheduler.h"
+#include "arc/cpp/runtime/selector/selector.h"
+#include "arc/cpp/runtime/stable/stable.h"
 #include "arc/cpp/runtime/stage/stage.h"
 #include "arc/cpp/runtime/state/state.h"
+#include "arc/cpp/runtime/status/status.h"
 #include "arc/cpp/runtime/telem/telem.h"
 #include "arc/cpp/runtime/time/time.h"
 #include "arc/cpp/runtime/wasm/bindings.h"
@@ -57,6 +60,8 @@ struct Config {
     size_t output_queue_capacity = 1024;
     /// @brief Loop configuration. Fields with default values are auto-selected.
     loop::Config loop;
+    /// @brief Callback for set_status nodes to deliver notifications.
+    status::Setter status_setter = status::noop_setter;
 };
 
 /// @brief callback invoked when a fatal error occurs in the runtime.
@@ -251,6 +256,9 @@ load(const Config &cfg, errors::Handler error_handler = errors::noop_handler) {
     auto io_factory = std::make_shared<io::Factory>();
     auto constant_factory = std::make_shared<constant::Factory>();
     auto authority_factory = std::make_shared<authority::Factory>(state);
+    auto stable_factory = std::make_shared<stable::Factory>();
+    auto selector_factory = std::make_shared<selector::Factory>();
+    auto status_factory = std::make_shared<status::Factory>(cfg.status_setter);
     node::MultiFactory fact(
         std::vector<std::shared_ptr<node::Factory>>{
             wasm_factory,
@@ -259,6 +267,9 @@ load(const Config &cfg, errors::Handler error_handler = errors::noop_handler) {
             io_factory,
             constant_factory,
             authority_factory,
+            stable_factory,
+            selector_factory,
+            status_factory,
         }
     );
 
