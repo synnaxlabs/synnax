@@ -9,9 +9,6 @@
 
 #pragma once
 
-#include <deque>
-#include <unordered_map>
-
 #include "driver/common/common.h"
 #include "driver/task/task.h"
 
@@ -35,10 +32,9 @@ struct StatusHandler {
 
     StatusHandler(
         const std::shared_ptr<task::Context> &ctx,
-        const synnax::task::Task &task,
-        x::telem::TimeSpan rate_limit = 5 * x::telem::SECOND
+        const synnax::task::Task &task
     ):
-        ctx(ctx), task(task), rate_limit(rate_limit) {
+        ctx(ctx), task(task) {
         this->status.name = task.name;
         this->status.details.task = task.key;
         this->status.variant = x::status::VARIANT_SUCCESS;
@@ -48,8 +44,6 @@ struct StatusHandler {
     void reset() {
         this->status.variant = x::status::VARIANT_SUCCESS;
         this->accumulated_err = x::errors::NIL;
-        this->recent_statuses.clear();
-        this->insertion_order.clear();
     }
 
     /// @brief register the provided error in the task state. If err is nil, then it
@@ -72,13 +66,13 @@ struct StatusHandler {
         this->status.details.running = false;
         this->status.message = err.data;
         this->accumulated_err = err;
-        this->maybe_set_status();
+        this->ctx->set_status(this->status);
     }
 
     void send_warning(const x::errors::Error &err) { this->send_warning(err.data); }
 
     /// @brief sends the provided warning string to the task. If the task is in
-    /// error state, the error message will be communicated instead.
+    /// error state, the warning will not be sent.
     void send_warning(const std::string &warning) {
         this->status.key = this->task.status_key();
         // If there's already an error bound, communicate it instead.
@@ -87,21 +81,20 @@ struct StatusHandler {
             this->status.message = warning;
         } else
             this->status.message = this->accumulated_err.data;
-        this->maybe_set_status();
+        this->ctx->set_status(this->status);
     }
 
     void clear_warning() {
         if (this->status.variant != x::status::VARIANT_WARNING) return;
         this->status.variant = x::status::VARIANT_SUCCESS;
         this->status.message = "Task running";
-        this->maybe_set_status();
+        this->ctx->set_status(this->status);
     }
 
     /// @brief sends a start message to the task state, using the provided command
     /// key as part of the state. If an error has been accumulated, then the error
     /// will be sent as part of the state. If the error is nil, then the task will
-    /// be marked as running. Bypasses the rate limiter because the Console waits
-    /// for command acknowledgments keyed by cmd.
+    /// be marked as running.
     void send_start(const std::string &cmd_key) {
         this->status.key = this->task.status_key();
         this->status.details.cmd = cmd_key;
@@ -113,14 +106,13 @@ struct StatusHandler {
             this->status.details.running = false;
             this->status.message = this->accumulated_err.data;
         }
-        this->set_status();
+        this->ctx->set_status(this->status);
     }
 
     /// @brief sends a stop message to the task state, using the provided command
     /// key as part of the state. If an error has been accumulated, then the error
     /// will be sent as part of the state. Regardless of the error state, the task
-    /// will be marked as not running. Bypasses the rate limiter because the
-    /// Console waits for command acknowledgments keyed by cmd.
+    /// will be marked as not running.
     void send_stop(const std::string &cmd_key) {
         this->status.key = this->task.status_key();
         this->status.details.cmd = cmd_key;
@@ -130,64 +122,6 @@ struct StatusHandler {
             this->status.message = this->accumulated_err.data;
         } else
             this->status.message = "Task stopped successfully";
-        this->set_status();
-    }
-
-    /// @brief max entries in the dedup map to bound memory usage.
-    static constexpr size_t MAX_RECENT_STATUSES = 50;
-
-private:
-    /// @brief tracks recently sent statuses to suppress identical repeated
-    /// updates. Key is "variant:message", value is the timestamp it was last sent.
-    std::unordered_map<std::string, x::telem::TimeStamp> recent_statuses;
-    /// @brief maintains insertion order of recent_statuses keys so the oldest
-    /// entry can be evicted in O(1) when the map reaches MAX_RECENT_STATUSES.
-    std::deque<std::string> insertion_order;
-    /// @brief how long a status stays suppressed after being sent.
-    const x::telem::TimeSpan rate_limit;
-
-    /// @brief unconditionally sends the current status to the server. Used by
-    /// send_start and send_stop which must always deliver because the Console
-    /// waits for command acknowledgments.
-    void set_status() {
-        this->status.time = x::telem::TimeStamp::now();
-        this->ctx->set_status(this->status);
-    }
-
-    /// @brief sends the current status to the server, suppressing identical
-    /// statuses that were already sent within STATUS_RATE_LIMIT.
-    void maybe_set_status() {
-        const auto now = x::telem::TimeStamp::now();
-        const auto key = std::string(this->status.variant) + ":" + this->status.message;
-        // Check if this key was recently sent. If so, suppress it only when the
-        // window has not yet expired. If the window has expired, erase the stale
-        // entry from both structures so it re-enters below as a fresh insertion
-        // (avoids duplicate deque entries on re-insertion).
-        const auto existing = this->recent_statuses.find(key);
-        if (existing != this->recent_statuses.end()) {
-            if ((now - existing->second) < this->rate_limit) return;
-            this->recent_statuses.erase(existing);
-            this->insertion_order.erase(std::ranges::find(this->insertion_order, key));
-        }
-        // Retire expired entries from the front. Because entries are always
-        // pushed with the current timestamp, the front is always the oldest,
-        // so we can stop as soon as we find one that is still within the limit.
-        while (!this->insertion_order.empty()) {
-            const auto it = this->recent_statuses.find(this->insertion_order.front());
-            if (it == this->recent_statuses.end() ||
-                (now - it->second) < this->rate_limit)
-                break;
-            this->recent_statuses.erase(it);
-            this->insertion_order.pop_front();
-        }
-        // If still at capacity after expiry cleanup, evict the single oldest entry.
-        if (this->recent_statuses.size() >= MAX_RECENT_STATUSES) {
-            this->recent_statuses.erase(this->insertion_order.front());
-            this->insertion_order.pop_front();
-        }
-        this->recent_statuses[key] = now;
-        this->insertion_order.push_back(key);
-        this->status.time = now;
         this->ctx->set_status(this->status);
     }
 };

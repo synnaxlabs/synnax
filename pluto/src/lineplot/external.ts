@@ -8,7 +8,6 @@
 // included in the file licenses/APL.txt.
 
 export * from "@/lineplot/Axis";
-export * from "@/lineplot/Icons";
 export * from "@/lineplot/Legend";
 export * from "@/lineplot/Line";
 export * from "@/lineplot/LinePlot";

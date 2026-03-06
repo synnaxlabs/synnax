@@ -254,57 +254,6 @@ var _ = Describe("Telem", func() {
 			})
 		})
 
-		Describe("Reset", func() {
-			It("Should advance the watermark to prevent stale data from triggering", func() {
-				source := MustSucceed(factory.Create(ctx, rnode.Config{
-					Node: ir.Node{
-						Type:   "on",
-						Config: types.Params{{Name: "channel", Type: types.U32(), Value: uint32(10)}},
-					},
-					State: s.Node("source"),
-				}))
-				d1 := telem.NewSeriesV[float32](1.0)
-				d1.Alignment = telem.NewAlignment(1, 0)
-				t1 := telem.NewSeriesSecondsTSV(100)
-				t1.Alignment = telem.NewAlignment(1, 0)
-				fr1 := telem.Frame[uint32]{}
-				fr1 = fr1.Append(10, d1)
-				fr1 = fr1.Append(11, t1)
-				s.Ingest(fr1)
-
-				source.Reset()
-
-				var triggered bool
-				source.Next(rnode.Context{Context: ctx, MarkChanged: func(string) { triggered = true }})
-				Expect(triggered).To(BeFalse(), "stale pre-reset data should not trigger the source")
-
-				d2 := telem.NewSeriesV[float32](2.0)
-				d2.Alignment = telem.NewAlignment(2, 0)
-				t2 := telem.NewSeriesSecondsTSV(200)
-				t2.Alignment = telem.NewAlignment(2, 0)
-				fr2 := telem.Frame[uint32]{}
-				fr2 = fr2.Append(10, d2)
-				fr2 = fr2.Append(11, t2)
-				s.Ingest(fr2)
-
-				source.Next(rnode.Context{Context: ctx, MarkChanged: func(string) { triggered = true }})
-				Expect(triggered).To(BeTrue(), "data written after reset should trigger the source")
-			})
-			It("Should be a no-op when channel has no data", func() {
-				source := MustSucceed(factory.Create(ctx, rnode.Config{
-					Node: ir.Node{
-						Type:   "on",
-						Config: types.Params{{Name: "channel", Type: types.U32(), Value: uint32(10)}},
-					},
-					State: s.Node("source"),
-				}))
-				Expect(func() { source.Reset() }).ToNot(Panic())
-				var triggered bool
-				source.Next(rnode.Context{Context: ctx, MarkChanged: func(string) { triggered = true }})
-				Expect(triggered).To(BeFalse())
-			})
-		})
-
 		Describe("Alignment Validation", func() {
 			It("Should skip data when index series count mismatch", func() {
 				source := MustSucceed(factory.Create(ctx, rnode.Config{

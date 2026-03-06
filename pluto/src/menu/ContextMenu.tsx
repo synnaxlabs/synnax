@@ -17,7 +17,7 @@ import { type RenderProp } from "@/component/renderProp";
 import { CSS } from "@/css";
 import { Dialog } from "@/dialog";
 import { Flex } from "@/flex";
-import { useClickOutside, useCombinedRefs, useResize, useWindowResize } from "@/hooks";
+import { useClickOutside } from "@/hooks";
 import { CONTEXT_MENU_CLASS, CONTEXT_SELECTED, CONTEXT_TARGET } from "@/menu/types";
 
 interface ContextMenuState {
@@ -111,8 +111,8 @@ export const useContextMenu = (): UseContextMenuReturn => {
     setMenuState({ visible: true, keys, position: p, cursor: p });
   }, []);
 
-  const calculatePosition = useCallback(() => {
-    const el = menuRef.current;
+  const refCallback = useCallback((el: HTMLDivElement): void => {
+    menuRef.current = el;
     if (el == null) return;
     setMenuState((prev) => {
       if (!prev.visible) return prev;
@@ -128,11 +128,6 @@ export const useContextMenu = (): UseContextMenuReturn => {
     });
   }, []);
 
-  const resizeRef = useResize(calculatePosition, { enabled: state.visible });
-  const combinedRef = useCombinedRefs(menuRef, resizeRef);
-
-  useWindowResize(calculatePosition, { enabled: state.visible });
-
   const hideMenu = (): void => setMenuState(INITIAL_STATE);
 
   useClickOutside({ ref: menuRef, onClickOutside: hideMenu });
@@ -141,7 +136,7 @@ export const useContextMenu = (): UseContextMenuReturn => {
     ...state,
     close: hideMenu,
     open: handleOpen,
-    ref: combinedRef,
+    ref: refCallback,
     className: CONTEXT_MENU_CONTAINER,
   };
 };

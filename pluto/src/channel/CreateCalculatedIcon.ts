@@ -9,4 +9,6 @@
 
 import { Icon } from "@/icon";
 
-export const CreateIcon = Icon.createComposite(Icon.Table, { topRight: Icon.Add });
+export const CreateCalculatedIcon = Icon.createComposite(Icon.Calculation, {
+  topRight: Icon.Add,
+});

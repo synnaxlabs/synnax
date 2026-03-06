@@ -11,6 +11,7 @@ import { type Import } from "@/import";
 import { LinePlot } from "@/lineplot";
 import { ingest } from "@/lineplot/services/import";
 
+export * from "@/lineplot/services/Icon";
 export * from "@/lineplot/services/import";
 export * from "@/lineplot/services/link";
 export * from "@/lineplot/services/ontology";

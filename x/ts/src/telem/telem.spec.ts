@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { afterEach, beforeEach, describe, expect, it, test } from "vitest";
+import { describe, expect, it, test } from "vitest";
 
 import { binary } from "@/binary";
 import {
@@ -726,122 +726,6 @@ describe("TimeStamp", () => {
       // but should be within 1 second
       const diff = Math.abs(Number(roundTrip.valueOf() - ts.valueOf()));
       expect(diff).toBeLessThan(1000000000); // Less than 1 second in nanoseconds
-    });
-
-    describe("timezone sensitive", () => {
-      let originalTZ: string | undefined;
-      beforeEach(() => {
-        originalTZ = process.env.TZ;
-        process.env.TZ = "Pacific/Auckland";
-      });
-      afterEach(() => {
-        process.env.TZ = originalTZ;
-      });
-
-      test("localYear", () => {
-        // 2022-12-31T23:00:00Z -> Auckland (UTC+13): 2023-01-01T12:00:00
-        const ts = new TimeStamp(Date.UTC(2022, 11, 31, 23, 0, 0, 0) * 1e6);
-        expect(ts.year).toEqual(2022);
-        expect(ts.localYear).toEqual(2023);
-      });
-
-      test("setLocalYear", () => {
-        const ts = new TimeStamp(Date.UTC(2022, 5, 15, 10, 30, 20, 0) * 1e6);
-        const updated = ts.setLocalYear(2025);
-        expect(updated.localYear).toEqual(2025);
-        expect(updated.localMonth).toEqual(ts.localMonth);
-        expect(updated.localDay).toEqual(ts.localDay);
-        expect(updated.localHour).toEqual(ts.localHour);
-      });
-
-      test("localMonth", () => {
-        // 2022-06-30T23:00:00Z -> Auckland (UTC+12): 2022-07-01T11:00:00
-        const ts = new TimeStamp(Date.UTC(2022, 5, 30, 23, 0, 0, 0) * 1e6);
-        expect(ts.month).toEqual(5); // June (0-indexed)
-        expect(ts.localMonth).toEqual(6); // July (0-indexed)
-      });
-
-      test("setLocalMonth", () => {
-        const ts = new TimeStamp(Date.UTC(2022, 5, 15, 10, 30, 0, 0) * 1e6);
-        const updated = ts.setLocalMonth(11);
-        expect(updated.localMonth).toEqual(11);
-        expect(updated.localDay).toEqual(ts.localDay);
-        expect(updated.localHour).toEqual(ts.localHour);
-      });
-
-      test("localDay", () => {
-        // 2022-06-15T23:00:00Z -> Auckland (UTC+12): 2022-06-16T11:00:00
-        const ts = new TimeStamp(Date.UTC(2022, 5, 15, 23, 0, 0, 0) * 1e6);
-        expect(ts.day).toEqual(15);
-        expect(ts.localDay).toEqual(16);
-      });
-
-      test("setLocalDay", () => {
-        const ts = new TimeStamp(Date.UTC(2022, 5, 15, 10, 30, 0, 0) * 1e6);
-        const updated = ts.setLocalDay(25);
-        expect(updated.localDay).toEqual(25);
-        expect(updated.localMonth).toEqual(ts.localMonth);
-        expect(updated.localHour).toEqual(ts.localHour);
-      });
-
-      test("localMinute", () => {
-        const ts = new TimeStamp(Date.UTC(2022, 5, 15, 10, 30, 0, 0) * 1e6);
-        expect(ts.localMinute).toEqual(ts.date().getMinutes());
-      });
-
-      test("setLocalMinute", () => {
-        const ts = new TimeStamp(Date.UTC(2022, 5, 15, 10, 0, 0, 0) * 1e6);
-        const updated = ts.setLocalMinute(45);
-        expect(updated.localMinute).toEqual(45);
-        expect(updated.localHour).toEqual(ts.localHour);
-        expect(updated.localSecond).toEqual(ts.localSecond);
-      });
-
-      test("localSecond", () => {
-        const ts = new TimeStamp(Date.UTC(2022, 5, 15, 10, 0, 42, 0) * 1e6);
-        expect(ts.localSecond).toEqual(ts.date().getSeconds());
-      });
-
-      test("setLocalSecond", () => {
-        const ts = new TimeStamp(Date.UTC(2022, 5, 15, 10, 0, 0, 0) * 1e6);
-        const updated = ts.setLocalSecond(30);
-        expect(updated.localSecond).toEqual(30);
-        expect(updated.localMinute).toEqual(ts.localMinute);
-        expect(updated.localHour).toEqual(ts.localHour);
-      });
-
-      test("localMillisecond", () => {
-        const ts = new TimeStamp(Date.UTC(2022, 5, 15, 10, 0, 0, 500) * 1e6);
-        expect(ts.localMillisecond).toEqual(ts.date().getMilliseconds());
-      });
-
-      test("setLocalMillisecond", () => {
-        const ts = new TimeStamp(Date.UTC(2022, 5, 15, 10, 0, 0, 0) * 1e6);
-        const updated = ts.setLocalMillisecond(750);
-        expect(updated.localMillisecond).toEqual(750);
-        expect(updated.localSecond).toEqual(ts.localSecond);
-        expect(updated.localHour).toEqual(ts.localHour);
-      });
-
-      test("local getters and setters round trip", () => {
-        const ts = new TimeStamp(Date.UTC(2022, 5, 15, 10, 30, 20, 500) * 1e6);
-        const roundTrip = ts
-          .setLocalYear(ts.localYear)
-          .setLocalMonth(ts.localMonth)
-          .setLocalDay(ts.localDay)
-          .setLocalHour(ts.localHour)
-          .setLocalMinute(ts.localMinute)
-          .setLocalSecond(ts.localSecond)
-          .setLocalMillisecond(ts.localMillisecond);
-
-        expect(roundTrip.localYear).toEqual(ts.localYear);
-        expect(roundTrip.localMonth).toEqual(ts.localMonth);
-        expect(roundTrip.localDay).toEqual(ts.localDay);
-        expect(roundTrip.localHour).toEqual(ts.localHour);
-        expect(roundTrip.localMinute).toEqual(ts.localMinute);
-        expect(roundTrip.localSecond).toEqual(ts.localSecond);
-        expect(roundTrip.localMillisecond).toEqual(ts.localMillisecond);
-      });
     });
   });
 

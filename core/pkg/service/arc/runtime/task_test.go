@@ -1088,7 +1088,7 @@ var _ = Describe("Task", Ordered, func() {
 			Expect(w2.Write(frame.NewUnary(ch2.Key(), telem.NewSeriesV[uint8](99)))).To(BeTrue())
 		})
 
-		It("Should release authority on both channels when entering yield, ignoring stale virtual start signal", func() {
+		It("Should reclaim authority symmetrically on both channels when start signal stays active through yield", func() {
 			ch1 := createVirtualCh("bb2_ch1", telem.Uint8T)
 			ch2 := createVirtualCh("bb2_ch2", telem.Uint8T)
 			stopSignal := createVirtualCh("bb2_stop", telem.Uint8T)
@@ -1128,7 +1128,7 @@ var _ = Describe("Task", Ordered, func() {
 				Sync:        new(true),
 			}))
 			defer func() { Expect(w1.Close()).To(Succeed()) }()
-			Expect(w1.Write(frame.NewUnary(ch1.Key(), telem.NewSeriesV[uint8](99)))).To(BeTrue())
+			Expect(w1.Write(frame.NewUnary(ch1.Key(), telem.NewSeriesV[uint8](99)))).To(BeFalse())
 
 			w2 := MustSucceed(dist.Framer.OpenWriter(ctx, framer.WriterConfig{
 				Keys:        channel.Keys{ch2.Key()},
@@ -1137,7 +1137,7 @@ var _ = Describe("Task", Ordered, func() {
 				Sync:        new(true),
 			}))
 			defer func() { Expect(w2.Close()).To(Succeed()) }()
-			Expect(w2.Write(frame.NewUnary(ch2.Key(), telem.NewSeriesV[uint8](99)))).To(BeTrue())
+			Expect(w2.Write(frame.NewUnary(ch2.Key(), telem.NewSeriesV[uint8](99)))).To(BeFalse())
 		})
 	})
 

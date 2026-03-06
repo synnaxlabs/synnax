@@ -7,11 +7,6 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-export * from "@/ranger/Breadcrumb";
-export * from "@/ranger/CreateIcon";
-export * from "@/ranger/queries";
-export * from "@/ranger/Select";
-export * from "@/ranger/SelectStage";
-export * from "@/ranger/stage";
-export * from "@/ranger/StageIcon";
-export * from "@/ranger/types";
+import { Icon } from "@/icon";
+
+export const CreateIcon = Icon.createComposite(Icon.Policy, { topRight: Icon.Add });

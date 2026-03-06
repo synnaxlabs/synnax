@@ -11,12 +11,19 @@ package kv
 
 import (
 	"context"
-	"sync"
+	"maps"
 
 	"github.com/synnaxlabs/x/confluence"
+	xstore "github.com/synnaxlabs/x/store"
 )
 
 type storeState map[string]Operation
+
+func (s storeState) Copy() storeState {
+	mCopy := make(storeState, len(s))
+	maps.Copy(mCopy, s)
+	return mCopy
+}
 
 func (s storeState) toBatchRequest(ctx context.Context) TxRequest {
 	b := TxRequest{Context: ctx, Operations: make([]Operation, 0, len(s))}
@@ -31,38 +38,18 @@ func (s storeState) toBatchRequest(ctx context.Context) TxRequest {
 	return b
 }
 
-// kvStore manages the storeState map with its own mutex. apply() mutates entries
-// in-place under the write lock, avoiding the full map copy that the previous
-// CopyState()+SetState() pattern incurred on every write.
-type kvStore struct {
-	mu   sync.RWMutex
-	data storeState
-}
+type store xstore.Store[storeState]
 
-func newStore() *kvStore {
-	return &kvStore{data: make(storeState)}
-}
-
-func (s *kvStore) PeekState() (storeState, func()) {
-	s.mu.RLock()
-	return s.data, s.mu.RUnlock
-}
-
-// apply writes operations directly into the map under the write lock.
-func (s *kvStore) apply(ops []Operation) {
-	s.mu.Lock()
-	defer s.mu.Unlock()
-	for _, op := range ops {
-		s.data[string(op.Key)] = op
-	}
+func newStore() store {
+	return xstore.New(func(m storeState) storeState { return m.Copy() })
 }
 
 type storeEmitter struct {
-	store *kvStore
+	store store
 	confluence.Emitter[TxRequest]
 }
 
-func newStoreEmitter(s *kvStore, cfg Config) source {
+func newStoreEmitter(s store, cfg Config) source {
 	se := &storeEmitter{store: s}
 	se.Interval = cfg.GossipInterval
 	se.Emitter.Emit = se.Emit
@@ -77,16 +64,20 @@ func (e *storeEmitter) Emit(ctx context.Context) (TxRequest, error) {
 
 type storeSink struct {
 	confluence.UnarySink[TxRequest]
-	store *kvStore
+	store store
 }
 
-func newStoreSink(s *kvStore) sink {
+func newStoreSink(s store) sink {
 	ss := &storeSink{store: s}
 	ss.Sink = ss.Store
 	return ss
 }
 
-func (s *storeSink) Store(_ context.Context, br TxRequest) error {
-	s.store.apply(br.Operations)
+func (s *storeSink) Store(ctx context.Context, br TxRequest) error {
+	snap := s.store.CopyState()
+	for _, op := range br.Operations {
+		snap[string(op.Key)] = op
+	}
+	s.store.SetState(ctx, snap)
 	return nil
 }

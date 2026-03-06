@@ -11,10 +11,6 @@
 
 .console-layout-selector__frame {
     container-type: size;
-    overflow-y: auto;
-    justify-content: safe center;
-    padding-block: 5rem;
-
     & .pluto-btn {
         width: 100px;
     }

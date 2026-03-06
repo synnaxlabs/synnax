@@ -8,26 +8,27 @@
 // included in the file licenses/APL.txt.
 
 import { workspace } from "@synnaxlabs/client";
-import { Access, Workspace as PWorkspace } from "@synnaxlabs/pluto";
+import { Access, Icon } from "@synnaxlabs/pluto";
 import { useCallback } from "react";
 
 import { useFileIngesters } from "@/import/FileIngestersProvider";
 import { Palette } from "@/palette";
 import { Workspace } from "@/workspace";
+import { ImportIcon } from "@/workspace/services/Icon";
 import { import_ } from "@/workspace/services/import";
 
-const useCreateVisible = () => Access.useCreateGranted(workspace.TYPE_ONTOLOGY_ID);
+const useUpdateVisible = () => Access.useUpdateGranted(workspace.TYPE_ONTOLOGY_ID);
 const useViewVisible = () => Access.useRetrieveGranted(workspace.TYPE_ONTOLOGY_ID);
 
-const CreateCommand = Palette.createSimpleCommand({
+export const CreateCommand = Palette.createSimpleCommand({
   key: "workspace-create",
   name: "Create a workspace",
-  icon: <PWorkspace.CreateIcon />,
+  icon: <Icon.Workspace />,
   layout: Workspace.CREATE_LAYOUT,
-  useVisible: useCreateVisible,
+  useVisible: useUpdateVisible,
 });
 
-const ImportWorkspaceCommand: Palette.Command = ({
+export const ImportWorkspaceCommand: Palette.Command = ({
   placeLayout,
   handleError,
   store,
@@ -45,7 +46,7 @@ const ImportWorkspaceCommand: Palette.Command = ({
     <Palette.CommandListItem
       {...listProps}
       name="Import a workspace"
-      icon={<PWorkspace.ImportIcon />}
+      icon={<ImportIcon />}
       onSelect={handleSelect}
     />
   );
@@ -53,16 +54,16 @@ const ImportWorkspaceCommand: Palette.Command = ({
 ImportWorkspaceCommand.key = "workspace-import";
 ImportWorkspaceCommand.commandName = "Import a workspace";
 ImportWorkspaceCommand.sortOrder = -1;
-ImportWorkspaceCommand.useVisible = useCreateVisible;
+ImportWorkspaceCommand.useVisible = useUpdateVisible;
 
-const ExportWorkspaceCommand: Palette.Command = (listProps) => {
+export const ExportWorkspaceCommand: Palette.Command = (listProps) => {
   const handleExport = Workspace.useExport();
   const handleSelect = useCallback(() => handleExport(null), [handleExport]);
   return (
     <Palette.CommandListItem
       {...listProps}
       name="Export current workspace"
-      icon={<PWorkspace.ExportIcon />}
+      icon={<Icon.Workspace />}
       onSelect={handleSelect}
     />
   );

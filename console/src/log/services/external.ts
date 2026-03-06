@@ -11,6 +11,7 @@ import { type Import } from "@/import";
 import { Log } from "@/log";
 import { ingest } from "@/log/services/import";
 
+export * from "@/log/services/Icon";
 export * from "@/log/services/import";
 export * from "@/log/services/link";
 export * from "@/log/services/ontology";

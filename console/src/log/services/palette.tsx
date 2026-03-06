@@ -8,25 +8,28 @@
 // included in the file licenses/APL.txt.
 
 import { log } from "@synnaxlabs/client";
-import { Access, Log as PLog } from "@synnaxlabs/pluto";
+import { Access } from "@synnaxlabs/pluto";
 import { useCallback } from "react";
 
 import { Log } from "@/log";
+import { CreateIcon } from "@/log/services/Icon";
 import { Palette } from "@/palette";
 
-const CreateCommand: Palette.Command = ({ placeLayout, ...listProps }) => {
+const useVisible = () => Access.useUpdateGranted(log.TYPE_ONTOLOGY_ID);
+
+export const CreateCommand: Palette.Command = ({ placeLayout, ...listProps }) => {
   const handleSelect = useCallback(() => placeLayout(Log.create()), [placeLayout]);
   return (
     <Palette.CommandListItem
       {...listProps}
       name="Create a log"
-      icon={<PLog.CreateIcon />}
+      icon={<CreateIcon />}
       onSelect={handleSelect}
     />
   );
 };
 CreateCommand.key = "create-log";
 CreateCommand.commandName = "Create a log";
-CreateCommand.useVisible = () => Access.useCreateGranted(log.TYPE_ONTOLOGY_ID);
+CreateCommand.useVisible = useVisible;
 
 export const COMMANDS = [CreateCommand];

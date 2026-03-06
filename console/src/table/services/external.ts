@@ -11,6 +11,7 @@ import { type Import } from "@/import";
 import { Table } from "@/table";
 import { ingest } from "@/table/services/import";
 
+export * from "@/table/services/Icon";
 export * from "@/table/services/import";
 export * from "@/table/services/link";
 export * from "@/table/services/ontology";

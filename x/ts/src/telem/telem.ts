@@ -398,18 +398,13 @@ export class TimeStamp
     return Number(this.valueOf());
   }
 
-  /** @returns the integer year that the timestamp corresponds to in UTC. */
+  /** @returns the integer year that the timestamp corresponds to. */
   get year(): number {
     return this.date().getUTCFullYear();
   }
 
-  /** @returns the integer year that the timestamp corresponds to in local time. */
-  get localYear(): number {
-    return this.date().getFullYear();
-  }
-
   /**
-   * @returns a copy of the timestamp with the year changed in UTC.
+   * @returns a copy of the timestamp with the year changed.
    * @param year the value to set the year to.
    */
   setYear(year: number): TimeStamp {
@@ -418,30 +413,13 @@ export class TimeStamp
     return new TimeStamp(d);
   }
 
-  /**
-   * @returns a copy of the timestamp with the year changed in local time.
-   * @param year the value to set the year to.
-   */
-  setLocalYear(year: number): TimeStamp {
-    const d = this.date();
-    d.setFullYear(year);
-    return new TimeStamp(d);
-  }
-
-  /** @returns the integer month that the timestamp corresponds to within its year in
-   * UTC. */
+  /** @returns the integer month that the timestamp corresponds to with its year. */
   get month(): number {
     return this.date().getUTCMonth();
   }
 
-  /** @returns the integer month that the timestamp corresponds to within its year in
-   * local time. */
-  get localMonth(): number {
-    return this.date().getMonth();
-  }
-
   /**
-   * @returns a copy of the timestamp with the month changed in UTC.
+   * @returns a copy of the timestamp with the month changed.
    * @param month the value to set the month to.
    */
   setMonth(month: number): TimeStamp {
@@ -450,45 +428,18 @@ export class TimeStamp
     return new TimeStamp(d);
   }
 
-  /**
-   * @returns a copy of the timestamp with the month changed in local time.
-   * @param month the value to set the month to.
-   */
-  setLocalMonth(month: number): TimeStamp {
-    const d = this.date();
-    d.setMonth(month);
-    return new TimeStamp(d);
-  }
-
-  /** @returns the integer day that the timestamp corresponds to within its month in
-   * UTC. */
+  /** @returns the integer day that the timestamp corresponds to within its month. */
   get day(): number {
     return this.date().getUTCDate();
   }
 
-  /** @returns the integer day that the timestamp corresponds to within its month in
-   * local time. */
-  get localDay(): number {
-    return this.date().getDate();
-  }
-
   /**
-   * @returns a copy of the timestamp with the day changed in UTC.
+   * @returns a copy of the timestamp with the day changed.
    * @param day the value the set the day to.
    */
   setDay(day: number): TimeStamp {
     const d = this.date();
     d.setUTCDate(day);
-    return new TimeStamp(d);
-  }
-
-  /**
-   * @returns a copy of the timestamp with the day changed in local time.
-   * @param day the value to set the day to.
-   */
-  setLocalDay(day: number): TimeStamp {
-    const d = this.date();
-    d.setDate(day);
     return new TimeStamp(d);
   }
 
@@ -500,8 +451,7 @@ export class TimeStamp
   }
 
   /**
-   * @returns the integer hour that the timestamp corresponds to within its day in local
-   * time.
+   * @returns the integer hour that the timestamp corresponds to within its day in local time.
    */
   get localHour(): number {
     return this.date().getHours();
@@ -527,20 +477,13 @@ export class TimeStamp
     return new TimeStamp(d);
   }
 
-  /** @returns the integer minute that the timestamp corresponds to within its hour in
-   * UTC. */
+  /** @returns the integer minute that the timestamp corresponds to within its hour. */
   get minute(): number {
     return this.date().getUTCMinutes();
   }
 
-  /** @returns the integer minute that the timestamp corresponds to within its hour in
-   * local time. */
-  get localMinute(): number {
-    return this.date().getMinutes();
-  }
-
   /**
-   * @returns a copy of the timestamp with the minute changed in UTC.
+   * @returns a copy of the timestamp with the minute changed.
    * @param minute the value to set the minute to.
    */
   setMinute(minute: number): TimeStamp {
@@ -550,33 +493,15 @@ export class TimeStamp
   }
 
   /**
-   * @returns a copy of the timestamp with the minute changed in local time.
-   * @param minute the value to set the minute to.
-   */
-  setLocalMinute(minute: number): TimeStamp {
-    const d = this.date();
-    d.setMinutes(minute);
-    return new TimeStamp(d);
-  }
-
-  /**
    * @returns the integer second that the timestamp corresponds to within its
-   * minute in UTC.
+   * minute.
    */
   get second(): number {
     return this.date().getUTCSeconds();
   }
 
   /**
-   * @returns the integer second that the timestamp corresponds to within its minute in
-   * local time.
-   */
-  get localSecond(): number {
-    return this.date().getSeconds();
-  }
-
-  /**
-   * @returns a copy of the timestamp with the second changed in UTC.
+   * @returns a copy of the timestamp with the second changed.
    * @param second the value to set the second to.
    */
   setSecond(second: number): TimeStamp {
@@ -586,48 +511,20 @@ export class TimeStamp
   }
 
   /**
-   * @returns a copy of the timestamp with the second changed in local time.
-   * @param second the value to set the second to.
-   */
-  setLocalSecond(second: number): TimeStamp {
-    const d = this.date();
-    d.setSeconds(second);
-    return new TimeStamp(d);
-  }
-
-  /**
    * @returns the integer millisecond that the timestamp corresponds to within its
-   * second in UTC.
+   * second.
    */
   get millisecond(): number {
     return this.date().getUTCMilliseconds();
   }
 
   /**
-   * @returns the integer millisecond that the timestamp corresponds to within its
-   * second in local time.
-   */
-  get localMillisecond(): number {
-    return this.date().getMilliseconds();
-  }
-
-  /**
-   * @returns a copy of the timestamp with the milliseconds changed in UTC.
+   * @returns a copy of the timestamp with the milliseconds changed.
    * @param millisecond the value to set the millisecond to.
    */
   setMillisecond(millisecond: number): TimeStamp {
     const d = this.date();
     d.setUTCMilliseconds(millisecond);
-    return new TimeStamp(d);
-  }
-
-  /**
-   * @returns a copy of the timestamp with the milliseconds changed in local time.
-   * @param millisecond the value to set the millisecond to.
-   */
-  setLocalMillisecond(millisecond: number): TimeStamp {
-    const d = this.date();
-    d.setMilliseconds(millisecond);
     return new TimeStamp(d);
   }
 

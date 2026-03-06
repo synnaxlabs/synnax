@@ -263,23 +263,25 @@ const AISelector = ({
   );
 };
 
-const MONTH_NAMES = [
-  "January",
-  "February",
-  "March",
-  "April",
-  "May",
-  "June",
-  "July",
-  "August",
-  "September",
-  "October",
-  "November",
-  "December",
-];
+interface Month {
+  name: string;
+  days: number;
+}
 
-const daysInMonth = (month: number, year: number): number =>
-  new Date(year, month + 1, 0).getDate();
+const MONTHS: Month[] = [
+  { name: "January", days: 31 },
+  { name: "February", days: 28 },
+  { name: "March", days: 31 },
+  { name: "April", days: 30 },
+  { name: "May", days: 31 },
+  { name: "June", days: 30 },
+  { name: "July", days: 31 },
+  { name: "August", days: 31 },
+  { name: "September", days: 30 },
+  { name: "October", days: 31 },
+  { name: "November", days: 30 },
+  { name: "December", days: 31 },
+];
 
 interface DateInfo {
   start: string;
@@ -298,15 +300,15 @@ interface CalendarProps {
 }
 
 const Calendar = ({ value, onChange }: CalendarProps): ReactElement => {
-  const month = value.localMonth;
-  const year = value.localYear;
-  const day = value.localDay;
+  const month = value.month;
+  const year = value.year;
+  const day = value.day;
 
-  const handleMonthChange = (next: number): void => onChange(value.setLocalMonth(next));
+  const handleMonthChange = (next: number): void => onChange(value.setMonth(next));
 
-  const handleYearChange = (next: number): void => onChange(value.setLocalYear(next));
+  const handleYearChange = (next: number): void => onChange(value.setYear(next));
 
-  const handleDayChange = (next: number): void => onChange(value.setLocalDay(next));
+  const handleDayChange = (next: number): void => onChange(value.setDay(next));
 
   return (
     <Flex.Box pack x className={CSS.B("datetime-picker")} rounded>
@@ -323,7 +325,7 @@ const Calendar = ({ value, onChange }: CalendarProps): ReactElement => {
             style={{ flexGrow: 1, paddingLeft: "1rem" }}
             className={CSS.BE("calendar-header", "month")}
           >
-            {MONTH_NAMES[month]}
+            {MONTHS[month].name}
           </Text.Text>
           <Button.Button
             onClick={() => handleMonthChange(month + 1)}
@@ -345,7 +347,7 @@ const Calendar = ({ value, onChange }: CalendarProps): ReactElement => {
           </Button.Button>
         </Flex.Box>
         <Flex.Box x wrap gap="tiny" style={{ padding: "0.5rem", height: "100%" }}>
-          {Array.from({ length: daysInMonth(month, year) }).map((_, i) => (
+          {Array.from({ length: MONTHS[month].days }).map((_, i) => (
             <Button.Button
               key={i}
               variant={i + 1 === day ? "outlined" : "text"}
@@ -414,22 +416,22 @@ const TimeSelector = ({ value, onChange }: TimeSelectorProps): ReactElement => (
   <Flex.Box pack y className={CSS.B("time-selector")}>
     <Flex.Box pack x grow className={CSS.B("time-selector-list")}>
       <HoursList
-        value={value.localHour}
-        onChange={(next) => onChange(value.setLocalHour(next))}
+        value={value.hour}
+        onChange={(next) => onChange(value.setHour(next))}
       />
       <MinutesList
-        value={value.localMinute}
-        onChange={(next) => onChange(value.setLocalMinute(next))}
+        value={value.minute}
+        onChange={(next) => onChange(value.setMinute(next))}
       />
       <SecondsList
-        value={value.localSecond}
-        onChange={(next) => onChange(value.setLocalSecond(next))}
+        value={value.second}
+        onChange={(next) => onChange(value.setSecond(next))}
       />
     </Flex.Box>
     <Numeric
       size="small"
-      value={value.localMillisecond}
-      onChange={(next) => onChange(value.setLocalMillisecond(next))}
+      value={value.millisecond}
+      onChange={(next) => onChange(value.setMillisecond(next))}
       endContent="ms"
       showDragHandle={false}
       borderColor={5}

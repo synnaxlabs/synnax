@@ -388,30 +388,6 @@ func (fc *fileController) hasWriter(fileKey uint16) bool {
 	return ok
 }
 
-// prepareForGC atomically checks whether a file can be garbage collected and, if so,
-// removes it from the writer pool to prevent a writer from opening on it during GC.
-// Returns whether GC can proceed and whether the file was in the unopened set (so
-// the caller can restore it on a no-op).
-func (fc *fileController) prepareForGC(fileKey uint16) (canGC bool, wasUnopened bool) {
-	fc.writers.Lock()
-	defer fc.writers.Unlock()
-	if _, ok := fc.writers.open[fileKey]; ok {
-		return false, false
-	}
-	_, wasUnopened = fc.writers.unopened[fileKey]
-	fc.writers.unopened.Remove(fileKey)
-	return true, wasUnopened
-}
-
-// restoreUnopened adds a file key back to the unopened writer set. Called when
-// garbageCollectFile determines that no GC is needed for a file that was temporarily
-// removed from the writer pool.
-func (fc *fileController) restoreUnopened(fileKey uint16) {
-	fc.writers.Lock()
-	defer fc.writers.Unlock()
-	fc.writers.unopened.Add(fileKey)
-}
-
 // rejuvenate adds a file key to the unopened writers set. If there is an open writer
 // for it, it is removed. rejuvenate is called after a file is garbage collected.
 func (fc *fileController) rejuvenate(fileKey uint16) error {
