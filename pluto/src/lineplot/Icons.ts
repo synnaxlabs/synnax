@@ -9,4 +9,4 @@
 
 import { Icon } from "@/icon";
 
-export const CreateIcon = Icon.createComposite(Icon.Role, { topRight: Icon.Add });
+export const CreateIcon = Icon.createComposite(Icon.LinePlot, { topRight: Icon.Add });

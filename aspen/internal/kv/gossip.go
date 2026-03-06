@@ -61,12 +61,12 @@ func (g *operationClient) send(_ context.Context, sync TxRequest) (TxRequest, bo
 
 type operationServer struct {
 	confluence.NopFlow
-	store store
+	store *kvStore
 	confluence.AbstractUnarySource[TxRequest]
 	Config
 }
 
-func newOperationServer(cfg Config, s store) source {
+func newOperationServer(cfg Config, s *kvStore) source {
 	or := &operationServer{Config: cfg, store: s}
 	or.BatchTransportServer.BindHandler(or.handle)
 	return or

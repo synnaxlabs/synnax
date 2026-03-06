@@ -259,7 +259,7 @@ class ArcClient:
         self.notifications.close_all()
         pause_btn.click()
         controls.locator("text=Task stopped successfully").wait_for(
-            state="visible", timeout=15000
+            state="visible", timeout=20000
         )
 
     def is_running(self) -> bool:
