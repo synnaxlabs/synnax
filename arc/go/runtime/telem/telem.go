@@ -55,6 +55,21 @@ type source struct {
 
 func (s *source) Init(node.Context) {}
 
+// Reset advances the high water mark to the current channel alignment,
+// ensuring that when a stage is (re-)activated it only responds to
+// data that arrives after activation rather than stale pre-existing data.
+func (s *source) Reset() {
+	s.Node.Reset()
+	data, _, ok := s.ReadChan(s.key)
+	if !ok || len(data.Series) == 0 {
+		return
+	}
+	ab := data.Series[len(data.Series)-1].AlignmentBounds()
+	if ab.Upper > s.highWaterMark {
+		s.highWaterMark = ab.Upper
+	}
+}
+
 func (s *source) Next(ctx node.Context) {
 	data, indexData, ok := s.ReadChan(s.key)
 	if !ok {
