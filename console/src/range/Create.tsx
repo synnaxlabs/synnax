@@ -12,6 +12,7 @@ import "@/range/Create.css";
 import { type ranger, TimeStamp } from "@synnaxlabs/client";
 import {
   Button,
+  Color,
   Flex,
   Form,
   Icon,
@@ -21,7 +22,7 @@ import {
   Synnax,
   Text,
 } from "@synnaxlabs/pluto";
-import { type NumericTimeRange, TimeRange, uuid } from "@synnaxlabs/x";
+import { color, type NumericTimeRange, TimeRange, uuid } from "@synnaxlabs/x";
 import { useCallback, useRef } from "react";
 import { useDispatch } from "react-redux";
 import { type z } from "zod";
@@ -71,6 +72,7 @@ export const Create: Layout.Renderer = (props) => {
       labels: [],
       timeRange: { start: now, end: now },
       parent: "",
+      color: [...color.ZERO],
       ...args,
     },
     afterSave: (form) => {
@@ -165,6 +167,20 @@ export const Create: Layout.Renderer = (props) => {
                   onChange={onChange}
                   icon={<ParentRangeIcon />}
                   allowNone
+                />
+              )}
+            </Form.Field>
+            <Form.Field<string>
+              label="Annotation Color"
+              path="color"
+              padHelpText={false}
+              hideIfNull
+            >
+              {({ onChange, variant: _, ...p }) => (
+                <Color.Swatch
+                  onChange={(v) => onChange(color.hex(v))}
+                  onlyChangeOnBlur
+                  {...p}
                 />
               )}
             </Form.Field>
