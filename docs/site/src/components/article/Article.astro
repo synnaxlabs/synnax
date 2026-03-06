@@ -12,6 +12,9 @@ const {
     prevURL,
     showBreadcrumb = true,
     published,
+    author,
+    authorImage,
+    authorLink,
 } = Astro.props;
 ---
 
@@ -28,6 +31,23 @@ const {
         >{title}</Text.Text
     >
     <h4 class="article-description">{description}</h4>
+    {
+        author && (
+            <a
+                class="blog-author"
+                href={authorLink}
+                target="_blank"
+                rel="noopener noreferrer"
+            >
+                {authorImage && (
+                    <img class="blog-author__photo" src={authorImage} alt={author} />
+                )}
+                <span class="blog-author__name">
+                    Written by <strong>{author}</strong>
+                </span>
+            </a>
+        )
+    }
     <slot />
     <NextPrev prev={prev} next={next} prevURL={prevURL} nextURL={nextURL} />
 </article>
@@ -100,6 +120,10 @@ const {
             & + :is(h2, h2.pluto-text) {
                 margin-top: 4rem;
             }
+
+            & + .blog-author {
+                margin-top: -4rem;
+            }
         }
 
         .pluto-tabs-selector {
@@ -107,7 +131,7 @@ const {
         }
 
         & video,
-        img:not(.diagram img) {
+        img:not(.diagram img):not(.blog-author__photo) {
             width: 100%;
             border-radius: 1rem;
             border: var(--pluto-border);
