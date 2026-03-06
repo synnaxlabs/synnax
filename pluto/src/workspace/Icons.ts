@@ -7,10 +7,14 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { Icon } from "@synnaxlabs/pluto";
+import { Icon } from "@/icon";
 
-export const CreateIcon = Icon.createComposite(Icon.LinePlot, { topRight: Icon.Add });
+export const CreateIcon = Icon.createComposite(Icon.Workspace, { topRight: Icon.Add });
 
-export const ImportIcon = Icon.createComposite(Icon.LinePlot, {
+export const ImportIcon = Icon.createComposite(Icon.Workspace, {
   topRight: Icon.Import,
+});
+
+export const ExportIcon = Icon.createComposite(Icon.Workspace, {
+  topRight: Icon.Export,
 });
