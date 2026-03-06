@@ -36,11 +36,13 @@ class StatusRateLimit(OPCUAReadArray):
     Status rate-limit integration test.
 
     Verifies that the driver's StatusHandler rate limiter (5-second window) works
-    end-to-end. Inherits OPCUAReadArray which configures a normal array-mode read
-    task. The OPC UA sim injects array-size errors at 10% rate on my_array_2,
-    triggering driver warnings. Asserts that no identical warning message repeats
-    within 5 seconds.
+    end-to-end. Inherits OPCUAReadArray but overrides array_size to 2 so the task
+    expects 2-element arrays while the sim serves 5, producing a persistent
+    "array too large" warning every read cycle. Asserts that no identical warning
+    message repeats within 5 seconds.
     """
+
+    array_size = 2
 
     def run(self) -> None:
         if self.tsk is None:
