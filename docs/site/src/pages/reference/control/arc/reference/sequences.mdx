@@ -190,6 +190,8 @@ When entering a stage:
 1. All one-shot (`=>`) transition states reset (can fire again)
 2. All stateful variables in stage nodes reset
 3. Continuous flows (`->`) start fresh
+4. Channel triggers only react to new writes — values written before stage activation
+   are ignored
 
 Stages are stateless between entries.
 

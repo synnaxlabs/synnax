@@ -676,6 +676,58 @@ var _ = Describe("Text", func() {
 				Expect(node.Config[0].Type).To(Equal(types.I32()))
 				Expect(node.Config[0].Value).To(Equal(int32(255)))
 			})
+
+			It("Should handle global constant as flow source to channel", func() {
+				resolver := symbol.MapResolver{
+					"my_channel": {Name: "my_channel", Kind: symbol.KindChannel, Type: types.Chan(types.I64()), ID: 10001},
+				}
+				source := `
+				SETPOINT := 42
+
+				SETPOINT => my_channel
+				`
+				parsedText := MustSucceed(text.Parse(text.Text{Raw: source}))
+				inter, diagnostics := text.Analyze(ctx, parsedText, resolver)
+				Expect(diagnostics.Ok()).To(BeTrue(), diagnostics.String())
+
+				constNode := findNodeByKey(inter.Nodes, "const_SETPOINT_0")
+				Expect(constNode.Type).To(Equal("constant"))
+				Expect(constNode.Config).To(HaveLen(1))
+				Expect(constNode.Config[0].Value).To(Equal(int64(42)))
+				Expect(constNode.Channels.Read).To(BeEmpty())
+				Expect(constNode.Channels.Write).To(BeEmpty())
+
+				writeNode := findNodeByType(inter.Nodes, "write")
+				Expect(writeNode.Channels.Write).To(HaveLen(1))
+				Expect(writeNode.Channels.Write.Contains(uint32(10001))).To(BeTrue())
+			})
+
+			It("Should handle global constant as flow source in a sequence stage", func() {
+				resolver := symbol.MapResolver{
+					"drive_speed_sp": {Name: "drive_speed_sp", Kind: symbol.KindChannel, Type: types.Chan(types.I64()), ID: 10001},
+				}
+				source := `
+				DRIVE_SP := 2500
+
+				sequence main {
+					stage init {
+						DRIVE_SP => drive_speed_sp
+					}
+				}
+				`
+				parsedText := MustSucceed(text.Parse(text.Text{Raw: source}))
+				inter, diagnostics := text.Analyze(ctx, parsedText, resolver)
+				Expect(diagnostics.Ok()).To(BeTrue(), diagnostics.String())
+
+				for _, n := range inter.Nodes {
+					for key := range n.Channels.Read {
+						Expect(key).ToNot(Equal(uint32(0)), "channel key 0 should not appear in any node's Read set")
+					}
+					for key := range n.Channels.Write {
+						Expect(key).ToNot(Equal(uint32(0)), "channel key 0 should not appear in any node's Write set")
+					}
+				}
+			})
 		})
 
 		Context("Edge Parameter Validation", func() {

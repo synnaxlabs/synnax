@@ -11,7 +11,6 @@ import { type Import } from "@/import";
 import { Schematic } from "@/schematic";
 import { ingest } from "@/schematic/services/import";
 
-export * from "@/schematic/services/Icon";
 export * from "@/schematic/services/import";
 export * from "@/schematic/services/link";
 export * from "@/schematic/services/ontology";
