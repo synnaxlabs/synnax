@@ -575,5 +575,52 @@ TEST(DeviceTests, testParseFromJSONDefaults) {
     ASSERT_EQ(d.model, "");
     ASSERT_EQ(x::json::json(d.properties), x::json::json::object());
     ASSERT_EQ(d.configured, false);
+    ASSERT_EQ(d.parent_device, "");
+}
+
+/// @brief it should default parent_device to empty when not present in JSON.
+TEST(DeviceTests, testParseParentDeviceDefaultsEmpty) {
+    x::json::json j = {
+        {"key", "standalone-key"},
+        {"name", "standalone"},
+        {"rack", 1},
+        {"location", "slot-1"},
+    };
+    x::json::Parser parser(j);
+    auto d = Device::parse(parser);
+    ASSERT_EQ(d.parent_device, "");
+}
+
+/// @brief it should create a device with parent_device and retrieve it.
+/// parent_device is not stored in proto; only used to set the ontology parent.
+TEST(DeviceTests, testCreateWithParentDevice) {
+    const auto client = new_test_client();
+    auto r = rack::Rack{.name = "test_rack"};
+    ASSERT_NIL(client.racks.create(r));
+    const auto rand = std::to_string(gen_rand_device());
+
+    auto chassis = Device{
+        .key = "pd-chassis-" + rand,
+        .name = "chassis",
+        .rack = r.key,
+        .location = "slot-0",
+        .make = "NI",
+        .model = "cDAQ-9178",
+    };
+    ASSERT_NIL(client.devices.create(chassis));
+
+    auto module = Device{
+        .key = "pd-module-" + rand,
+        .name = "module",
+        .rack = r.key,
+        .location = "slot-1",
+        .make = "NI",
+        .model = "9205",
+        .parent_device = chassis.key,
+    };
+    ASSERT_NIL(client.devices.create(module));
+
+    const auto retrieved = ASSERT_NIL_P(client.devices.retrieve(module.key));
+    ASSERT_EQ(retrieved.key, module.key);
 }
 }

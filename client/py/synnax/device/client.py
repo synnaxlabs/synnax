@@ -20,6 +20,7 @@ from synnax.util.normalize import check_for_none, normalize, override
 
 class _CreateRequest(BaseModel):
     devices: list[Device]
+    parent: str = ""
 
 
 _CreateResponse = _CreateRequest
@@ -65,14 +66,25 @@ class Client:
         make: str = "",
         model: str = "",
         configured: bool = False,
+        parent: str = "",
         properties: dict[str, Any] | None = None,
     ) -> Device: ...
 
     @overload
-    def create(self, devices: Device) -> Device: ...
+    def create(
+        self,
+        devices: Device,
+        *,
+        parent: str = "",
+    ) -> Device: ...
 
     @overload
-    def create(self, devices: list[Device]) -> list[Device]: ...
+    def create(
+        self,
+        devices: list[Device],
+        *,
+        parent: str = "",
+    ) -> list[Device]: ...
 
     def create(
         self,
@@ -85,6 +97,7 @@ class Client:
         make: str = "",
         model: str = "",
         configured: bool = False,
+        parent: str = "",
         properties: dict[str, Any] | None = None,
     ) -> Device | list[Device]:
         is_single = not isinstance(devices, list)
@@ -101,7 +114,7 @@ class Client:
                     properties=properties if properties is not None else {},
                 )
             ]
-        req = _CreateRequest(devices=normalize(devices))
+        req = _CreateRequest(devices=normalize(devices), parent=parent)
         res = send_required(
             self._client,
             "/device/create",

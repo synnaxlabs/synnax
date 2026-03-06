@@ -50,6 +50,12 @@ struct Device : synnax::device::Device {
     std::string resource_name;
     /// @brief whether the device is simulated.
     bool is_simulated = false;
+    /// @brief whether this device is a chassis.
+    bool is_chassis = false;
+    /// @brief link name this device connects to (modules connect to chassis links).
+    std::string connects_to_link_name;
+    /// @brief link name this device provides (chassis provide links for modules).
+    std::string provides_link_name;
 
     Device() = default;
 
@@ -72,10 +78,14 @@ struct Device : synnax::device::Device {
             .location = this->location,
             .make = this->make,
             .model = this->model,
-            .properties = x::json::json{
-                {"is_simulated", this->is_simulated},
-                {"resource_name", this->resource_name}
-            }.get<x::json::json::object_t>(),
+            .properties =
+                x::json::json{
+                    {"is_simulated", this->is_simulated},
+                    {"resource_name", this->resource_name},
+                    {"is_chassis", this->is_chassis},
+                }
+                    .get<x::json::json::object_t>(),
+            .parent_device = this->parent_device,
         };
         dev.status = this->status;
         return dev;

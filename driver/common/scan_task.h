@@ -165,8 +165,11 @@ struct SynnaxClusterAPI final : ClusterAPI {
 
     x::errors::Error
     create_devices(std::vector<synnax::device::Device> &devs) override {
-        if (devs.empty()) return x::errors::NIL;
-        return this->client->devices.create(devs);
+        for (auto &dev: devs) {
+            auto err = this->client->devices.create(dev);
+            if (err) return err;
+        }
+        return x::errors::NIL;
     }
 
     x::errors::Error
@@ -474,6 +477,13 @@ public:
                 if (scanned_dev.rack != remote_dev.rack &&
                     this->update_threshold_exceeded(scanned_dev.key)) {
                     LOG(INFO) << this->log_prefix << "taking ownership over device";
+                    needs_update = true;
+                }
+
+                if (scanned_dev.parent_device != remote_dev.parent_device) {
+                    VLOG(1) << this->log_prefix << "device parent changed for "
+                            << scanned_dev.key << " from '" << remote_dev.parent_device
+                            << "' to '" << scanned_dev.parent_device << "'";
                     needs_update = true;
                 }
 

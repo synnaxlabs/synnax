@@ -142,7 +142,7 @@ func (createRequestTranslator) Forward(_ context.Context, req apidevice.CreateRe
 	if err != nil {
 		return nil, err
 	}
-	return &gapi.DeviceCreateRequest{Devices: devices}, nil
+	return &gapi.DeviceCreateRequest{Devices: devices, Parent: req.Parent}, nil
 }
 
 func (createRequestTranslator) Backward(_ context.Context, req *gapi.DeviceCreateRequest) (apidevice.CreateRequest, error) {
@@ -150,7 +150,7 @@ func (createRequestTranslator) Backward(_ context.Context, req *gapi.DeviceCreat
 	if err != nil {
 		return apidevice.CreateRequest{}, err
 	}
-	return apidevice.CreateRequest{Devices: devices}, nil
+	return apidevice.CreateRequest{Devices: devices, Parent: req.Parent}, nil
 }
 
 func (createResponseTranslator) Forward(_ context.Context, res apidevice.CreateResponse) (*gapi.DeviceCreateResponse, error) {

@@ -34,6 +34,7 @@ message Device {
 
 message DeviceCreateRequest {
   repeated Device devices = 1;
+  string parent = 2;
 }
 
 message DeviceCreateResponse {

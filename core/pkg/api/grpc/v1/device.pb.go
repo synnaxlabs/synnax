@@ -144,6 +144,7 @@ func (x *Device) GetStatus() *status.PBStatus {
 type DeviceCreateRequest struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	Devices       []*Device              `protobuf:"bytes,1,rep,name=devices,proto3" json:"devices,omitempty"`
+	Parent        string                 `protobuf:"bytes,2,opt,name=parent,proto3" json:"parent,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -183,6 +184,13 @@ func (x *DeviceCreateRequest) GetDevices() []*Device {
 		return x.Devices
 	}
 	return nil
+}
+
+func (x *DeviceCreateRequest) GetParent() string {
+	if x != nil {
+		return x.Parent
+	}
+	return ""
 }
 
 type DeviceCreateResponse struct {
@@ -460,9 +468,10 @@ const file_core_pkg_api_grpc_v1_device_proto_rawDesc = "" +
 	"configured\x18\t \x01(\bR\n" +
 	"configured\x12(\n" +
 	"\x06status\x18\n" +
-	" \x01(\v2\x10.status.PBStatusR\x06status\"?\n" +
+	" \x01(\v2\x10.status.PBStatusR\x06status\"W\n" +
 	"\x13DeviceCreateRequest\x12(\n" +
-	"\adevices\x18\x01 \x03(\v2\x0e.api.v1.DeviceR\adevices\"@\n" +
+	"\adevices\x18\x01 \x03(\v2\x0e.api.v1.DeviceR\adevices\x12\x16\n" +
+	"\x06parent\x18\x02 \x01(\tR\x06parent\"@\n" +
 	"\x14DeviceCreateResponse\x12(\n" +
 	"\adevices\x18\x01 \x03(\v2\x0e.api.v1.DeviceR\adevices\"\xba\x02\n" +
 	"\x15DeviceRetrieveRequest\x12\x12\n" +

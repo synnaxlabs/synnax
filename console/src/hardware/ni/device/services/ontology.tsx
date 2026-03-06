@@ -7,6 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { type ontology } from "@synnaxlabs/client";
 import { Menu } from "@synnaxlabs/pluto";
 
 import { Common } from "@/hardware/common";
@@ -42,6 +43,14 @@ const TASK_CONTEXT_MENU_ITEM_CONFIGS: Common.DeviceServices.TaskContextMenuItemC
       layout: Task.DIGITAL_WRITE_LAYOUT,
     },
   ];
+
+export const hasChildren = (resource: ontology.Resource): boolean => {
+  const props = resource.data?.properties;
+  if (props == null || typeof props !== "object") return false;
+  // Key is camelCase because Freighter's HTTP codec recursively converts
+  // snake_case keys to camelCase (is_chassis → isChassis).
+  return "isChassis" in props && props.isChassis === true;
+};
 
 export const ContextMenuItems = (props: Ontology.TreeContextMenuProps) => (
   <>

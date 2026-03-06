@@ -171,15 +171,19 @@ class Tree:
     def is_expanded(self, item: Locator) -> bool:
         """Check if a tree node is currently expanded.
 
+        The Caret.Animated component uses location classes to indicate
+        direction: ``pluto--location-bottom`` when expanded (pointing
+        down) and ``pluto--location-right`` when collapsed (pointing
+        right).
+
         :param item: The Locator for the tree item to check.
         :returns: True if expanded, False otherwise.
         """
-        # Check for expanded class on the expansion indicator
         expand_icon = item.locator("svg.pluto-tree__expansion-indicator").first
         if expand_icon.count() == 0:
             return False
         class_attr = expand_icon.get_attribute("class") or ""
-        return "pluto-tree__expansion-indicator--expanded" in class_attr
+        return "pluto--location-bottom" in class_attr
 
     def get_editable_text(self, item: Locator) -> str:
         """Get the editable text content from a tree item.

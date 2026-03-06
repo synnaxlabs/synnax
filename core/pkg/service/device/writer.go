@@ -52,10 +52,11 @@ func resolveStatus(d *Device, provided *Status) *Status {
 	return provided
 }
 
-// Create creates or updates the given device. Create will redefine ontology
-// relationships in the ontology if the device has moved racks. If a status is
-// provided on the device, it will be used instead of the default "unknown" status.
-func (w Writer) Create(ctx context.Context, device Device) error {
+// Create creates or updates the given device. If parent is non-zero, the device
+// is parented to that ontology resource; otherwise it defaults to the device's rack.
+// If a status is provided on the device, it will be used instead of the default
+// "unknown" status.
+func (w Writer) Create(ctx context.Context, device Device, parent ontology.ID) error {
 	if err := device.Validate(); err != nil {
 		return err
 	}
@@ -72,16 +73,21 @@ func (w Writer) Create(ctx context.Context, device Device) error {
 		return err
 	}
 	exists := !isNotFound
+
+	parentID := device.Rack.OntologyID()
+	if !parent.IsZero() {
+		parentID = parent
+	}
+
 	if err = gorp.
 		NewCreate[string, Device]().
 		Entry(&device).
 		Exec(ctx, w.tx); err != nil {
 		return err
 	}
-	// If the device already exists, don't redefine the resource and relationship in the
-	// ontology, as to not mess with existing groups or relationships.
-	if exists && device.Rack == existing.Rack {
-		// If the device is being renamed, update the status name.
+	// If the device already exists and its rack hasn't changed and no explicit
+	// parent was provided, skip redefining the ontology relationship.
+	if exists && device.Rack == existing.Rack && parent.IsZero() {
 		if device.Name != existing.Name {
 			stat := resolveStatus(&device, providedStatus)
 			return w.status.Set(ctx, stat)
@@ -105,7 +111,7 @@ func (w Writer) Create(ctx context.Context, device Device) error {
 	}
 	return w.otg.DefineRelationship(
 		ctx,
-		device.Rack.OntologyID(),
+		parentID,
 		ontology.RelationshipTypeParentOf,
 		otgID,
 	)
