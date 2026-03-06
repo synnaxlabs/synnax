@@ -241,6 +241,38 @@ TEST(ConstantTest, TimestampOutputOnFirstNext) {
     EXPECT_GT(output_time->at<int64_t>(0), 0);
 }
 
+/// @brief Test that string values are correctly output.
+TEST(ConstantTest, StringValueIsOutput) {
+    const std::string val = "hello";
+    TestSetup setup(types::Kind::String, val);
+    Constant node(setup.make_node(), val, x::telem::STRING_T);
+
+    auto ctx = make_context();
+    ASSERT_NIL(node.next(ctx));
+
+    auto checker = setup.make_node();
+    const auto &output = checker.output(0);
+    EXPECT_EQ(output->size(), 1);
+    EXPECT_EQ(output->at<std::string>(0), val);
+}
+
+/// @brief Test that reset() allows the string value to be output again.
+TEST(ConstantTest, StringResetAllowsValueToBeOutputAgain) {
+    const std::string val = "hello";
+    TestSetup setup(types::Kind::String, val);
+    Constant node(setup.make_node(), val, x::telem::STRING_T);
+
+    auto ctx = make_context();
+    node.next(ctx);
+    node.reset();
+    ASSERT_NIL(node.next(ctx));
+
+    auto checker = setup.make_node();
+    const auto &output = checker.output(0);
+    EXPECT_EQ(output->size(), 1);
+    EXPECT_EQ(output->at<std::string>(0), val);
+}
+
 /// @brief Test that reset produces a new timestamp on subsequent next().
 TEST(ConstantTest, ResetProducesNewTimestamp) {
     TestSetup setup(types::Kind::F32, 42.5f);

@@ -14,10 +14,16 @@ from framework.utils import get_random_name
 from tests.arc.arc_case import ArcConsoleCase
 
 ARC_LIFECYCLE_SOURCE = """
+
+PRESS_HIGH_LIMIT f32 := 25
+PRESS_LOW_LIMIT f32 := 5
+
+SOME_CONST_1 f32 := 42.0
+SOME_CONST_2 f32 := -49.5
 start_lifecycle_cmd => main
 
 func check_high_pressure(p f32) u8 {
-    return p > 25
+    return p > PRESS_HIGH_LIMIT
 }
 
 func event_log{msg str} () {
@@ -57,9 +63,10 @@ interval{period=100ms} -> nested_write_1{}
 
 sequence main {
     stage press {
+        SOME_CONST_1 => const_output,
         1 -> press_vlv_cmd,
         event_log{msg="pressurizing"},
-        press_pt > 30 => maintain
+        press_pt > PRESS_HIGH_LIMIT + 5 => maintain
     }
 
     stage maintain {
@@ -68,13 +75,34 @@ sequence main {
     }
 
     stage vent {
+        SOME_CONST_2 * 2 => const_output,
         1 -> vent_vlv_cmd,
         event_log{msg="venting"},
-        press_pt < 5 => complete
+        press_pt < PRESS_LOW_LIMIT => complete
     }
 
     stage complete {
         0 -> vent_vlv_cmd
+    }
+}
+
+// Regression: stale virtual channel signal must not trigger stage re-entry.
+// When yield is first entered, the pre-existing bb_signal_start_cmd value
+// should be ignored; only a new write after activation should fire => start.
+bb_signal_start_cmd => signal_ctrl
+
+sequence signal_ctrl {
+    stage start {
+        "start" -> signal_stage_log,
+        bb_signal_stop_cmd => stop
+    }
+    stage stop {
+        "stop" -> signal_stage_log,
+        wait{duration=250ms} => yield
+    }
+    stage yield {
+        "yield" -> signal_stage_log,
+        bb_signal_start_cmd => start
     }
 }
 """
@@ -92,6 +120,8 @@ class ArcLifecycle(ArcConsoleCase):
     6. select routes boolean output to true/false branches
     7. Channel writes propagate through function calls (regression for channel
        accumulation bug where transitive channel accesses were lost)
+    8. Stale virtual channel signal does not trigger stage re-entry on first
+       yield activation (regression for source node watermark bug)
     """
 
     arc_source = ARC_LIFECYCLE_SOURCE
@@ -102,8 +132,10 @@ class ArcLifecycle(ArcConsoleCase):
         "press_vlv_state",
         "press_pt",
         "arc_lifecycle_virt",
+        "const_output",
         "end_test_cmd",
         "lifecycle_log",
+        "signal_stage_log",
     ]
     sim_daq_class = PressSimDAQ
 
@@ -116,8 +148,32 @@ class ArcLifecycle(ArcConsoleCase):
             virtual=True,
         )
         self.client.channels.create(
+            name="const_output",
+            data_type=sy.DataType.FLOAT32,
+            virtual=True,
+            retrieve_if_name_exists=True,
+        )
+        self.client.channels.create(
             name="lifecycle_log",
             data_type=sy.DataType.STRING,
+            virtual=True,
+            retrieve_if_name_exists=True,
+        )
+        self.client.channels.create(
+            name="signal_stage_log",
+            data_type=sy.DataType.STRING,
+            virtual=True,
+            retrieve_if_name_exists=True,
+        )
+        self.client.channels.create(
+            name="bb_signal_start_cmd",
+            data_type=sy.DataType.UINT8,
+            virtual=True,
+            retrieve_if_name_exists=True,
+        )
+        self.client.channels.create(
+            name="bb_signal_stop_cmd",
+            data_type=sy.DataType.UINT8,
             virtual=True,
             retrieve_if_name_exists=True,
         )
@@ -132,7 +188,11 @@ class ArcLifecycle(ArcConsoleCase):
         super().setup()
 
     def verify_sequence_execution(self) -> None:
-        # --- 0. Verify transitive channel write through function calls ---
+        # --- 0a. Verify global constant as flow source in press stage ---
+        self.log("Verifying SOME_CONST_1 (42.0) => const_output during press stage")
+        self.wait_for_near("const_output", 42.0, tolerance=0.01, is_virtual=True)
+
+        # --- 0b. Verify transitive channel write through function calls ---
         # nested_write_1() calls nested_write_2() which calls nested_write_3()
         # which writes to arc_lifecycle_virt. This validates that channel
         # accumulation propagates through function calls.
@@ -154,9 +214,42 @@ class ArcLifecycle(ArcConsoleCase):
             self.fail("Notification 'Pressure below 25 PSI' not found")
         self.wait_for_eq("lifecycle_log", "venting", is_virtual=True)
 
+        # --- 2a. Verify global constant changed in vent stage ---
+        self.log("Verifying SOME_CONST_2 *2 (-99.0) => const_output during vent stage")
+        self.wait_for_near("const_output", -99.0, tolerance=0.01, is_virtual=True)
+
         self.console.notifications.close_all()
 
-        # --- 3. Rename while running (triggers redeployment warning) ---
+        # --- 3. Regression: stale virtual channel must not trigger re-entry ---
+        # Trigger signal_ctrl via bb_signal_start_cmd, then stop it. The yield
+        # stage's source node must advance its watermark on activation so the
+        # pre-existing bb_signal_start_cmd value is not seen as new data.
+        self.log("Phase 3: Testing stale virtual channel regression (signal_ctrl)")
+        with self.client.open_writer(sy.TimeStamp.now(), "bb_signal_start_cmd") as w:
+            w.write("bb_signal_start_cmd", 1)
+
+        self.wait_for_eq("signal_stage_log", "start", is_virtual=True)
+        self.log("signal_ctrl entered start stage")
+
+        with self.client.open_writer(sy.TimeStamp.now(), "bb_signal_stop_cmd") as w:
+            w.write("bb_signal_stop_cmd", 1)
+
+        self.wait_for_eq("signal_stage_log", "yield", is_virtual=True)
+        self.log("signal_ctrl entered yield stage")
+
+        # Wait then confirm no spurious re-entry from the stale start signal.
+        sy.sleep(0.501)  #  > 2 * wait{250ms}
+        assert self.read_tlm("signal_stage_log", "") == "yield", (
+            f"Stale signal regression: expected 'yield' but got "
+            f"'{self.read_tlm('signal_stage_log', '')}'"
+        )
+
+        # Confirm a fresh start signal correctly re-enters start.
+        with self.client.open_writer(sy.TimeStamp.now(), "bb_signal_start_cmd") as w:
+            w.write("bb_signal_start_cmd", 1)
+        self.wait_for_eq("signal_stage_log", "start", is_virtual=True)
+
+        # --- 4. Rename while running (triggers redeployment warning) ---
         self.log(f"Renaming Arc from '{self.arc_name}' to '{self.new_name}'")
         self.console.arc.rename(old_name=self.arc_name, new_name=self.new_name)
         self._arc_started = False  # Rename stops the arc
@@ -170,7 +263,7 @@ class ArcLifecycle(ArcConsoleCase):
         # Update arc_name so parent teardown uses the new name
         self.arc_name = self.new_name
 
-        # --- 4. Re-configure and re-start with new name ---
+        # --- 5. Re-configure and re-start with new name ---
         self.log("Opening renamed Arc")
         self.console.arc.open(self.new_name)
 
@@ -183,7 +276,7 @@ class ArcLifecycle(ArcConsoleCase):
         self.console.arc.start()
         self._arc_started = True
 
-        # --- 5. Stop, then delete and verify tab removal ---
+        # --- 6. Stop, then delete and verify tab removal ---
         self.log("Stopping Arc")
         self.console.arc.stop()
         self._arc_started = False

@@ -34,9 +34,9 @@ DEFAULT_RATE = 50  # Hz
 BOOL_OFFSET = 0.2  # seconds between each boolean transition
 
 # Error injection configuration
-ERROR_INJECTION_RATE = 0.1  # 10% error rate
-ERROR_ARRAY_INDEX = 2  # Which array to inject errors into
-ERROR_FLOAT_INDEX = 2  # Which float to inject errors into
+ERROR_INJECTION_RATE = 0.1  # 10% error rate for stress testing
+ERROR_ARRAY_INDEX = 2  # Which array index to inject errors into
+ERROR_FLOAT_INDEX = 2  # Which float index to inject errors into
 
 # Encryption certificate directory
 CERT_DIR = Path(__file__).parent / "certificates"
