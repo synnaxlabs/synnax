@@ -189,6 +189,27 @@
     }
 }
 
+/* Override Pluto's typography.css which sets font-family directly on td/th.
+   Use inherit so inline font-family on <table> (e.g. code font in blog)
+   cascades into cells. Set font-family on article table so the default
+   inheritance resolves to Inter, not the browser default. */
+article table {
+    font-family: var(--pluto-font-family);
+}
+
+article table td,
+article table th {
+    font-family: inherit;
+}
+
+article table td p,
+article table th p {
+    font-size: inherit;
+    line-height: inherit;
+    font-family: inherit;
+    margin: 0;
+}
+
 /* Dialog component */
 .pluto-dialog__bg.pluto--visible {
     backdrop-filter: blur(2px);
