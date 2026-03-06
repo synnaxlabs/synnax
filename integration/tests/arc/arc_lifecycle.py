@@ -239,10 +239,7 @@ class ArcLifecycle(ArcConsoleCase):
 
         # Wait then confirm no spurious re-entry from the stale start signal.
         sy.sleep(0.501)  #  > 2 * wait{250ms}
-        assert self.read_tlm("signal_stage_log", "") == "yield", (
-            f"Stale signal regression: expected 'yield' but got "
-            f"'{self.read_tlm('signal_stage_log', '')}'"
-        )
+        self.wait_for_eq("signal_stage_log", "yield", is_virtual=True)
 
         # Confirm a fresh start signal correctly re-enters start.
         with self.client.open_writer(sy.TimeStamp.now(), "bb_signal_start_cmd") as w:

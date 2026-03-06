@@ -150,6 +150,18 @@ public:
                 return {digests, x::errors::NIL};
             },
             .loop = cfg.loop,
+            .status_setter = [client = ctx->client](
+                                 const ::arc::runtime::status::Info &info
+                             ) -> x::errors::Error {
+                synnax::status::Status s{
+                    .key = info.key,
+                    .name = info.name,
+                    .variant = info.variant,
+                    .message = info.message,
+                    .time = x::telem::TimeStamp::now(),
+                };
+                return client->statuses.set(s);
+            },
         };
 
         auto [rt, err] = ::arc::runtime::load(

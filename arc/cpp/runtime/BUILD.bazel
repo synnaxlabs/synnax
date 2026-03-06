@@ -8,6 +8,9 @@ cc_library(
     deps = [
         "//arc/cpp/runtime/authority",
         "//arc/cpp/runtime/constant",
+        "//arc/cpp/runtime/selector",
+        "//arc/cpp/runtime/stable",
+        "//arc/cpp/runtime/status",
         "//arc/cpp/runtime/errors",
         "//arc/cpp/runtime/loop",
         "//arc/cpp/runtime/node",
