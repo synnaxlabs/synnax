@@ -1537,6 +1537,9 @@ var _ = Describe("Writer Behavior", func() {
 							telem.NewSeriesV[uint8](1),
 						},
 					)))
+					// Commit is synchronous, so this ensures the async auto-commit
+					// from the first write is fully processed before the arc opens.
+					MustSucceed(schematic.Commit())
 
 					By("Opening the arc automation writer with higher authority")
 					arc := MustSucceed(db.OpenWriter(ctx, cesium.WriterConfig{
