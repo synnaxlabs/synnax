@@ -9,6 +9,7 @@
 
 #pragma once
 
+#include <deque>
 #include <unordered_map>
 
 #include "driver/common/common.h"
@@ -47,6 +48,7 @@ struct StatusHandler {
         this->status.variant = x::status::VARIANT_SUCCESS;
         this->accumulated_err = x::errors::NIL;
         this->recent_statuses.clear();
+        this->insertion_order.clear();
     }
 
     /// @brief register the provided error in the task state. If err is nil, then it
@@ -69,7 +71,7 @@ struct StatusHandler {
         this->status.details.running = false;
         this->status.message = err.data;
         this->accumulated_err = err;
-        this->maybe_set_status("err");
+        this->maybe_set_status();
     }
 
     void send_warning(const x::errors::Error &err) { this->send_warning(err.data); }
@@ -84,14 +86,14 @@ struct StatusHandler {
             this->status.message = warning;
         } else
             this->status.message = this->accumulated_err.data;
-        this->maybe_set_status("warn");
+        this->maybe_set_status();
     }
 
     void clear_warning() {
         if (this->status.variant != x::status::VARIANT_WARNING) return;
         this->status.variant = x::status::VARIANT_SUCCESS;
         this->status.message = "Task running";
-        this->maybe_set_status("clr");
+        this->maybe_set_status();
     }
 
     /// @brief sends a start message to the task state, using the provided command
@@ -135,10 +137,11 @@ struct StatusHandler {
 
 private:
     /// @brief tracks recently sent statuses to suppress identical repeated
-    /// updates. Key is "tag:variant:message", value is the timestamp it was
-    /// last sent. The tag distinguishes different send methods so that e.g.
-    /// send_error and send_stop with the same message don't suppress each other.
+    /// updates. Key is "variant:message", value is the timestamp it was last sent.
     std::unordered_map<std::string, x::telem::TimeStamp> recent_statuses;
+    /// @brief maintains insertion order of recent_statuses keys so the oldest
+    /// entry can be evicted in O(1) when the map reaches MAX_RECENT_STATUSES.
+    std::deque<std::string> insertion_order;
     /// @brief how long a status stays suppressed after being sent.
     static inline const auto STATUS_RATE_LIMIT = 5 * x::telem::SECOND;
 
@@ -151,19 +154,30 @@ private:
     }
 
     /// @brief sends the current status to the server, suppressing identical
-    /// statuses that were already sent within STATUS_RATE_LIMIT. The tag
-    /// parameter namespaces the dedup key per send method.
-    void maybe_set_status(const std::string &tag) {
+    /// statuses that were already sent within STATUS_RATE_LIMIT.
+    void maybe_set_status() {
         const auto now = x::telem::TimeStamp::now();
-        std::erase_if(this->recent_statuses, [&](const auto &entry) {
-            return (now - entry.second) >= STATUS_RATE_LIMIT;
-        });
-        if (this->recent_statuses.size() >= MAX_RECENT_STATUSES)
-            this->recent_statuses.clear();
-        const auto key = tag + ":" + std::string(this->status.variant) + ":" +
-                         this->status.message;
+        const auto key = std::string(this->status.variant) + ":" + this->status.message;
+        // Suppress duplicate before doing any eviction work.
         if (this->recent_statuses.contains(key)) return;
+        // Retire expired entries from the front. Because entries are always
+        // pushed with the current timestamp, the front is always the oldest,
+        // so we can stop as soon as we find one that is still within the limit.
+        while (!this->insertion_order.empty()) {
+            const auto it = this->recent_statuses.find(this->insertion_order.front());
+            if (it == this->recent_statuses.end() ||
+                (now - it->second) < STATUS_RATE_LIMIT)
+                break;
+            this->recent_statuses.erase(it);
+            this->insertion_order.pop_front();
+        }
+        // If still at capacity after expiry cleanup, evict the single oldest entry.
+        if (this->recent_statuses.size() >= MAX_RECENT_STATUSES) {
+            this->recent_statuses.erase(this->insertion_order.front());
+            this->insertion_order.pop_front();
+        }
         this->recent_statuses[key] = now;
+        this->insertion_order.push_back(key);
         this->status.time = now;
         this->ctx->set_status(this->status);
     }

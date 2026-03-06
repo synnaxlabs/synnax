@@ -290,25 +290,58 @@ TEST(TestStatusRateLimit, testResetClearsRateLimitState) {
     EXPECT_EQ(ctx->statuses.size(), 2);
 }
 
-/// @brief when the dedup map exceeds MAX_RECENT_STATUSES, it should clear and
-/// allow previously suppressed messages through again.
-TEST(TestStatusRateLimit, testMaxMapSizeEviction) {
+/// @brief when the dedup map reaches MAX_RECENT_STATUSES, the single oldest
+/// entry should be evicted to make room for the new one.
+TEST(TestStatusRateLimit, testEvictsOldestOnOverflow) {
     const auto ctx = std::make_shared<task::MockContext>(nullptr);
     const synnax::task::Task task{.name = "task1", .type = "ni_analog_read"};
     auto handler = StatusHandler(ctx, task);
 
-    // Fill the map to the limit with unique warnings.
+    // Fill the map to capacity with unique warnings (0 is the oldest).
     for (size_t i = 0; i < StatusHandler::MAX_RECENT_STATUSES; ++i)
         handler.send_warning("warning " + std::to_string(i));
     EXPECT_EQ(ctx->statuses.size(), StatusHandler::MAX_RECENT_STATUSES);
 
-    // The next unique warning should trigger a clear, letting it through.
+    // One overflow: evicts "warning 0" (oldest), inserts the new message.
     handler.send_warning("overflow warning");
     EXPECT_EQ(ctx->statuses.size(), StatusHandler::MAX_RECENT_STATUSES + 1);
 
-    // A previously suppressed message should now go through too.
+    // "warning 0" was the evicted entry — it should go through again.
     handler.send_warning("warning 0");
     EXPECT_EQ(ctx->statuses.size(), StatusHandler::MAX_RECENT_STATUSES + 2);
+
+    // "warning 49" is the newest original entry and was never evicted — still
+    // suppressed.
+    handler.send_warning("warning 49");
+    EXPECT_EQ(ctx->statuses.size(), StatusHandler::MAX_RECENT_STATUSES + 2);
+}
+
+/// @brief N sequential overflows should evict exactly the N oldest entries and
+/// leave the rest of the map intact.
+TEST(TestStatusRateLimit, testEvictsNOldestOnNOverflows) {
+    const auto ctx = std::make_shared<task::MockContext>(nullptr);
+    const synnax::task::Task task{.name = "task1", .type = "ni_analog_read"};
+    auto handler = StatusHandler(ctx, task);
+
+    // Fill to capacity.
+    for (size_t i = 0; i < StatusHandler::MAX_RECENT_STATUSES; ++i)
+        handler.send_warning("warning " + std::to_string(i));
+
+    // 3 overflows evict the 3 oldest entries: "warning 0", "warning 1", "warning 2".
+    handler.send_warning("overflow 0");
+    handler.send_warning("overflow 1");
+    handler.send_warning("overflow 2");
+
+    // The 3 evicted entries should now go through.
+    handler.send_warning("warning 0");
+    handler.send_warning("warning 1");
+    handler.send_warning("warning 2");
+    EXPECT_EQ(ctx->statuses.size(), StatusHandler::MAX_RECENT_STATUSES + 6);
+
+    // "warning 49" is the newest original entry and was never evicted — still
+    // suppressed.
+    handler.send_warning("warning 49");
+    EXPECT_EQ(ctx->statuses.size(), StatusHandler::MAX_RECENT_STATUSES + 6);
 }
 
 /// @brief a warning followed by an error with the same message text should go
