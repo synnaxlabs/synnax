@@ -1,0 +1,8 @@
+---
+import { AuthenticateWithRedirectCallback } from "@clerk/astro/components";
+import Root from "@/layouts/Root.astro";
+---
+
+<Root frontmatter={{ title: "Signing up...", description: "Completing sign up" }}>
+    <AuthenticateWithRedirectCallback />
+</Root>

@@ -1,0 +1,21 @@
+---
+import { SignInForm } from "@/components/auth/SignInForm";
+import Root from "@/layouts/Root.astro";
+---
+
+<Root frontmatter={{ title: "Sign In", description: "Sign in to Synnax" }}>
+    <div class="auth-page">
+        <SignInForm client:load />
+    </div>
+</Root>
+
+<style is:global>
+    .auth-page {
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        width: 100%;
+        min-height: calc(100vh - 100px);
+        padding: 4rem 2rem;
+    }
+</style>

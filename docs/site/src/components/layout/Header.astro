@@ -1,6 +1,7 @@
 ---
 import { Logo } from "@synnaxlabs/media";
 import { Icon, Button, Text, Flex } from "@synnaxlabs/pluto";
+import { Show, UserButton } from "@clerk/astro/components";
 import Search from "@/components/search/Search.astro";
 import { PageMobile } from "@/components/nav/Page";
 const url = Astro.url.pathname;
@@ -51,6 +52,18 @@ const url = Astro.url.pathname;
                 >
                     Book a Demo
                 </Button.Button>
+                <Show when="signed-out">
+                    <Button.Button
+                        className="sign-in-button"
+                        variant="text"
+                        href="/sign-in"
+                    >
+                        Sign In
+                    </Button.Button>
+                </Show>
+                <Show when="signed-in">
+                    <UserButton />
+                </Show>
                 <Button.Button
                     className="version-button"
                     variant="outlined"
@@ -133,6 +146,20 @@ const url = Astro.url.pathname;
                 height: 2.5rem;
                 width: 2.5rem;
             }
+        }
+
+        .sign-in-button {
+            font-size: 2rem;
+            font-weight: 500;
+            text-decoration: none;
+        }
+
+        [data-clerk-id] {
+            zoom: 2.667;
+        }
+
+        .cl-userButtonTrigger {
+            zoom: 2.667;
         }
 
         .mobile-menu-btn {
@@ -317,6 +344,12 @@ const url = Astro.url.pathname;
                 display: none;
             }
             .demo-button {
+                display: none;
+            }
+            .sign-in-button {
+                display: none;
+            }
+            .cl-userButtonTrigger {
                 display: none;
             }
             .version-button {

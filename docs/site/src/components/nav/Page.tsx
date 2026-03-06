@@ -7,6 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { useAuth } from "@clerk/astro/react";
 import { Logo } from "@synnaxlabs/media";
 import { Component, Icon, List, Text } from "@synnaxlabs/pluto";
 import { Tree } from "@synnaxlabs/pluto/tree";
@@ -162,6 +163,7 @@ export const Page = ({ currentPage: initialPage }: TOCProps): ReactElement | nul
 export const PageMobile = ({ currentPage: initialPage }: TOCProps): ReactElement => {
   const currentPage = useCurrentPage(initialPage);
   const [open, setOpen] = useState(false);
+  const { isSignedIn } = useAuth();
 
   useEffect(() => {
     if (open) document.body.classList.add("mobile-menu-open");
@@ -219,6 +221,24 @@ export const PageMobile = ({ currentPage: initialPage }: TOCProps): ReactElement
           >
             Releases
           </a>
+          <div className="mobile-drawer-divider" />
+          {!isSignedIn ? (
+            <a
+              href="/sign-in"
+              className="mobile-drawer-link"
+              onClick={() => setOpen(false)}
+            >
+              Sign In
+            </a>
+          ) : (
+            <a
+              href="/sign-in"
+              className="mobile-drawer-link"
+              onClick={() => setOpen(false)}
+            >
+              Account
+            </a>
+          )}
           <div className="mobile-drawer-divider" />
           <span className="mobile-drawer-section-label">Reference</span>
         </div>

@@ -2,6 +2,7 @@
 import Inline from "@/components/code/Inline.astro";
 import { fetchVersion } from "@/util/fetchVersion";
 const { os } = Astro.props;
+const { userId } = Astro.locals.auth();
 
 const version = await fetchVersion();
 const url = `github.com/synnaxlabs/synnax/releases/download/synnax-v${version.trim()}/synnax-v${version.trim()}-${os.toLowerCase()}`;
@@ -13,4 +14,10 @@ if (os === "windows") {
 }
 ---
 
-<Inline lang={lang} code={code} theme="css-variables" wrap={os === "windows"} />
+{userId ? (
+    <Inline lang={lang} code={code} theme="css-variables" wrap={os === "windows"} />
+) : (
+    <p class="download-gate">
+        <a href="/sign-in">Sign in</a> to access download commands.
+    </p>
+)}

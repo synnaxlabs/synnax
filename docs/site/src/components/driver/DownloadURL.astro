@@ -2,6 +2,7 @@
 import Inline from "@/components/code/Inline.astro";
 import { fetchVersion } from "@/util/fetchVersion";
 const { os } = Astro.props;
+const { userId } = Astro.locals.auth();
 
 const version = await fetchVersion();
 const baseURL = `github.com/synnaxlabs/synnax/releases/download/synnax-v${version.trim()}`;
@@ -15,8 +16,14 @@ if (os === "windows")
     cmd = `Invoke-WebRequest -Uri "https://${url}" -OutFile "synnax-driver.exe"`;
 ---
 
-<Inline
-    lang={os === "windows" ? "powershell" : "bash"}
-    theme="css-variables"
-    code={cmd}
-/>
+{userId ? (
+    <Inline
+        lang={os === "windows" ? "powershell" : "bash"}
+        theme="css-variables"
+        code={cmd}
+    />
+) : (
+    <p class="download-gate">
+        <a href="/sign-in">Sign in</a> to access download commands.
+    </p>
+)}

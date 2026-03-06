@@ -7,6 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { useAuth } from "@clerk/astro/react";
 import { Button, Icon } from "@synnaxlabs/pluto";
 import { runtime } from "@synnaxlabs/x";
 import { type ReactElement, useEffect, useState } from "react";
@@ -34,6 +35,7 @@ const JSON_URL =
   "https://raw.githubusercontent.com/synnaxlabs/synnax/main/console/release-spec.json";
 
 export const DownloadButton = (): ReactElement | null => {
+  const { isSignedIn } = useAuth();
   const [updateFile, setUpdateFile] = useState<UpdateFile | null>(null);
   useEffect(() => {
     fetch(JSON_URL)
@@ -47,6 +49,13 @@ export const DownloadButton = (): ReactElement | null => {
   const os = runtime.getOS();
   const suffix = SUFFIXES[os];
   if (suffix == null) return null;
+  if (!isSignedIn)
+    return (
+      <Button.Button href="/sign-in" variant="filled">
+        <Icon.Download />
+        Sign in to Download for {os}
+      </Button.Button>
+    );
   return (
     <Button.Button href={`${baseURL}${suffix}`} variant="filled">
       <Icon.Download />

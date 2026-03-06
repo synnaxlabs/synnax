@@ -10,6 +10,7 @@
 import mdx from "@astrojs/mdx";
 import react from "@astrojs/react";
 import vercel from "@astrojs/vercel";
+import clerk from "@clerk/astro";
 import { grammar as arcGrammar } from "@synnaxlabs/arc";
 import { defineConfig } from "astro/config";
 
@@ -22,7 +23,7 @@ const shikiResourcePaths = Object.keys(
 
 // https://astro.build/config
 export default defineConfig({
-  integrations: [react(), mdx()],
+  integrations: [react(), mdx(), clerk()],
   output: "server",
   adapter: vercel({ includeFiles: shikiResourcePaths }),
   markdown: {

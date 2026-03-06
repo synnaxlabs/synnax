@@ -8,3 +8,4 @@
 // included in the file licenses/APL.txt.
 
 /// <reference types="astro/client" />
+/// <reference types="@clerk/astro/env" />
