@@ -18,7 +18,7 @@ const url = Astro.url.pathname;
                 <a href="https://synnaxlabs.com" class="logo-link">
                     <Logo variant="title" />
                 </a>
-                <Flex.Box direction="x" className="header-nav" align="center" gap={2}>
+                <Flex.Box direction="x" className="header-nav" align="center" gap={1}>
                     <Button.Button
                         variant="text"
                         className={`nav-link ${url.includes("reference") ? "nav-link--active" : ""}`}
@@ -44,6 +44,13 @@ const url = Astro.url.pathname;
             </Flex.Box>
             <Flex.Box direction="x" align="center" gap="small">
                 <Search />
+                <Button.Button
+                    className="demo-button"
+                    variant="filled"
+                    href="https://synnaxlabs.com/#contact"
+                >
+                    Book a Demo
+                </Button.Button>
                 <Button.Button
                     className="version-button"
                     variant="outlined"
@@ -104,6 +111,12 @@ const url = Astro.url.pathname;
 
         .nav-link--active {
             color: var(--pluto-gray-l10);
+        }
+
+        .demo-button {
+            text-decoration: none;
+            font-size: 2rem;
+            font-weight: 500;
         }
 
         .version-button {
@@ -301,6 +314,9 @@ const url = Astro.url.pathname;
                 padding: 0 3rem;
             }
             .header-nav {
+                display: none;
+            }
+            .demo-button {
                 display: none;
             }
             .version-button {
