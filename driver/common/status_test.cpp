@@ -7,6 +7,8 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+#include <thread>
+
 #include "gtest/gtest.h"
 
 #include "x/cpp/test/test.h"
@@ -342,6 +344,28 @@ TEST(TestStatusRateLimit, testEvictsNOldestOnNOverflows) {
     // suppressed.
     handler.send_warning("warning 49");
     EXPECT_EQ(ctx->statuses.size(), StatusHandler::MAX_RECENT_STATUSES + 6);
+}
+
+/// @brief the same message should be re-sent once the rate-limit window expires.
+/// This guards against the bug where contains(key) suppresses entries forever
+/// rather than for only STATUS_RATE_LIMIT.
+TEST(TestStatusRateLimit, testWindowExpires) {
+    const auto ctx = std::make_shared<task::MockContext>(nullptr);
+    const synnax::task::Task task{.name = "task1", .type = "ni_analog_read"};
+    // Use a 1 ms window so the test completes quickly.
+    auto handler = StatusHandler(ctx, task, 1 * x::telem::MILLISECOND);
+
+    handler.send_warning("array mismatch");
+    EXPECT_EQ(ctx->statuses.size(), 1);
+
+    // Still within the window — should be suppressed.
+    handler.send_warning("array mismatch");
+    EXPECT_EQ(ctx->statuses.size(), 1);
+
+    // Wait for the window to expire, then re-send.
+    std::this_thread::sleep_for(std::chrono::milliseconds(5));
+    handler.send_warning("array mismatch");
+    EXPECT_EQ(ctx->statuses.size(), 2);
 }
 
 /// @brief a warning followed by an error with the same message text should go

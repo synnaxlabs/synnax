@@ -19,6 +19,7 @@ import (
 	"github.com/synnaxlabs/aspen/internal/cluster"
 	"github.com/synnaxlabs/aspen/internal/kv"
 	"github.com/synnaxlabs/aspen/internal/kv/kvmock"
+	. "github.com/synnaxlabs/x/testutil"
 )
 
 var _ = Describe("kvStore", func() {
@@ -32,9 +33,7 @@ var _ = Describe("kvStore", func() {
 			kv.Config{GossipInterval: 10 * time.Millisecond},
 			cluster.Config{},
 		)
-		var err error
-		db, err = builder.New(ctx, kv.Config{}, cluster.Config{})
-		Expect(err).ToNot(HaveOccurred())
+		db = MustSucceed(builder.New(ctx, kv.Config{}, cluster.Config{}))
 	})
 
 	AfterEach(func() {
@@ -44,8 +43,7 @@ var _ = Describe("kvStore", func() {
 	It("should write and retrieve values", func() {
 		Expect(db.Set(ctx, []byte("a"), []byte("1"))).To(Succeed())
 		Expect(db.Set(ctx, []byte("b"), []byte("2"))).To(Succeed())
-		v, closer, err := db.Get(ctx, []byte("a"))
-		Expect(err).ToNot(HaveOccurred())
+		v, closer := MustSucceed2(db.Get(ctx, []byte("a")))
 		Expect(v).To(Equal([]byte("1")))
 		Expect(closer.Close()).To(Succeed())
 	})
@@ -53,8 +51,7 @@ var _ = Describe("kvStore", func() {
 	It("should overwrite existing entries", func() {
 		Expect(db.Set(ctx, []byte("k"), []byte("first"))).To(Succeed())
 		Expect(db.Set(ctx, []byte("k"), []byte("second"))).To(Succeed())
-		v, closer, err := db.Get(ctx, []byte("k"))
-		Expect(err).ToNot(HaveOccurred())
+		v, closer := MustSucceed2(db.Get(ctx, []byte("k")))
 		Expect(v).To(Equal([]byte("second")))
 		Expect(closer.Close()).To(Succeed())
 	})

@@ -35,9 +35,10 @@ struct StatusHandler {
 
     StatusHandler(
         const std::shared_ptr<task::Context> &ctx,
-        const synnax::task::Task &task
+        const synnax::task::Task &task,
+        x::telem::TimeSpan rate_limit = 5 * x::telem::SECOND
     ):
-        ctx(ctx), task(task) {
+        ctx(ctx), task(task), rate_limit(rate_limit) {
         this->status.name = task.name;
         this->status.details.task = task.key;
         this->status.variant = x::status::VARIANT_SUCCESS;
@@ -143,7 +144,7 @@ private:
     /// entry can be evicted in O(1) when the map reaches MAX_RECENT_STATUSES.
     std::deque<std::string> insertion_order;
     /// @brief how long a status stays suppressed after being sent.
-    static inline const auto STATUS_RATE_LIMIT = 5 * x::telem::SECOND;
+    const x::telem::TimeSpan rate_limit;
 
     /// @brief unconditionally sends the current status to the server. Used by
     /// send_start and send_stop which must always deliver because the Console
@@ -158,15 +159,23 @@ private:
     void maybe_set_status() {
         const auto now = x::telem::TimeStamp::now();
         const auto key = std::string(this->status.variant) + ":" + this->status.message;
-        // Suppress duplicate before doing any eviction work.
-        if (this->recent_statuses.contains(key)) return;
+        // Check if this key was recently sent. If so, suppress it only when the
+        // window has not yet expired. If the window has expired, erase the stale
+        // entry from both structures so it re-enters below as a fresh insertion
+        // (avoids duplicate deque entries on re-insertion).
+        const auto existing = this->recent_statuses.find(key);
+        if (existing != this->recent_statuses.end()) {
+            if ((now - existing->second) < this->rate_limit) return;
+            this->recent_statuses.erase(existing);
+            this->insertion_order.erase(std::ranges::find(this->insertion_order, key));
+        }
         // Retire expired entries from the front. Because entries are always
         // pushed with the current timestamp, the front is always the oldest,
         // so we can stop as soon as we find one that is still within the limit.
         while (!this->insertion_order.empty()) {
             const auto it = this->recent_statuses.find(this->insertion_order.front());
             if (it == this->recent_statuses.end() ||
-                (now - it->second) < STATUS_RATE_LIMIT)
+                (now - it->second) < this->rate_limit)
                 break;
             this->recent_statuses.erase(it);
             this->insertion_order.pop_front();
