@@ -15,6 +15,7 @@ const {
     prevURL,
     clients,
     platforms,
+    showOnThisPage = true,
 } = frontmatter;
 ---
 
@@ -32,11 +33,15 @@ const {
         >
             <slot /></Article
         >
-        <OnThisPage
-            headings={headings}
-            url={Astro.url}
-            clients={clients}
-            platforms={platforms}
-        />
+        {
+            showOnThisPage && (
+                <OnThisPage
+                    headings={headings}
+                    url={Astro.url}
+                    clients={clients}
+                    platforms={platforms}
+                />
+            )
+        }
     </section>
 </Main>

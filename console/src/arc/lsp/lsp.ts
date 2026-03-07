@@ -1,0 +1,440 @@
+// Copyright 2026 Synnax Labs, Inc.
+//
+// Use of this software is governed by the Business Source License included in the file
+// licenses/BSL.txt.
+//
+// As of the Change Date specified in that file, in accordance with the Business Source
+// License, use of this software will be governed by the Apache License, Version 2.0,
+// included in the file licenses/APL.txt.
+
+import {
+  ExtensionHostKind,
+  registerExtension,
+} from "@codingame/monaco-vscode-api/extensions";
+import { grammarRaw as arcGrammarRaw } from "@synnaxlabs/arc";
+import { type arc, type Synnax } from "@synnaxlabs/client";
+import { type Stream } from "@synnaxlabs/freighter";
+import { breaker, type destructor, TimeSpan } from "@synnaxlabs/x";
+import { MonacoLanguageClient } from "monaco-languageclient";
+import { useEffect } from "react";
+import { type Message, type MessageReader, type MessageWriter } from "vscode-jsonrpc";
+import { CloseAction, ErrorAction } from "vscode-languageclient/browser";
+
+import arcLanguageConfigurationRaw from "@/arc/lsp/language-configuration.json?raw";
+
+export const LANGUAGE = "arc";
+
+const TOKEN_CONFIG = {
+  keyword: {
+    dark: "#CC255F",
+    light: "#CC255F",
+    scopes: [
+      "keyword.control.arc",
+      "keyword.other.arc",
+      "keyword.operator.logical.arc",
+      "constant.language.boolean.arc",
+      "constant.language.null.arc",
+    ],
+  },
+  operator: {
+    dark: "#dadada",
+    light: "#292929",
+    scopes: [
+      "keyword.operator.arithmetic.arc",
+      "keyword.operator.comparison.arc",
+      "keyword.operator.assignment.arc",
+      "keyword.operator.assignment.declare.arc",
+      "keyword.operator.channel.arc",
+    ],
+  },
+  statefulVariable: {
+    dark: "#E5A84B",
+    light: "#B45000",
+    scopes: ["keyword.operator.assignment.stateful.arc"],
+  },
+  edgeOneShot: {
+    dark: "#E06C75",
+    light: "#BE3E4A",
+    scopes: ["keyword.operator.transition.arc"],
+  },
+  edgeContinuous: {
+    dark: "#56c8d8",
+    light: "#0097A7",
+    scopes: ["keyword.operator.flow.arc"],
+  },
+  string: {
+    dark: "#98C379",
+    light: "#0A7D00",
+    scopes: ["string.quoted.double.arc", "string.quoted.single.arc"],
+  },
+  number: {
+    dark: "#98C379",
+    light: "#0A7D00",
+    scopes: ["constant.numeric"],
+  },
+  type: {
+    dark: "#4EC9B0",
+    light: "#267F99",
+    scopes: ["support.type.primitive.arc", "support.type.composite.arc"],
+  },
+  channel: {
+    dark: "#61AFEF",
+    light: "#0070C1",
+    scopes: ["support.type.channel.arc"],
+  },
+  comment: {
+    dark: "#5C6370",
+    light: "#9DA5B4",
+    scopes: ["comment"],
+  },
+  function: {
+    dark: "#556bf8",
+    light: "#3774D0",
+    scopes: ["entity.name.function.arc", "support.function.builtin.arc"],
+  },
+  stage: {
+    dark: "#dadada",
+    light: "#292929",
+    scopes: ["support.function.builtin.stage.arc", "entity.name.type.stage.arc"],
+  },
+  sequence: {
+    dark: "#dadada",
+    light: "#292929",
+    scopes: ["entity.name.type.sequence.arc"],
+  },
+  variable: {
+    dark: "#dadada",
+    light: "#292929",
+    scopes: ["variable.other.arc"],
+  },
+  block: {
+    dark: "#dadada",
+    light: "#292929",
+    scopes: [],
+  },
+  parameter: {
+    dark: "#dadada",
+    light: "#292929",
+    scopes: [],
+  },
+  config: {
+    dark: "#dadada",
+    light: "#292929",
+    scopes: [],
+  },
+  input: {
+    dark: "#dadada",
+    light: "#292929",
+    scopes: [],
+  },
+  output: {
+    dark: "#dadada",
+    light: "#292929",
+    scopes: [],
+  },
+  constant: {
+    dark: "#dadada",
+    light: "#292929",
+    scopes: [],
+  },
+  unit: {
+    dark: "#dadada",
+    light: "#292929",
+    scopes: [],
+  },
+} as const;
+
+export type SemanticTokenType = keyof typeof TOKEN_CONFIG;
+
+type Theme = "dark" | "light";
+
+export type SemanticTokenColors = Record<SemanticTokenType, string>;
+
+export interface ThemedSemanticTokenColors {
+  dark: SemanticTokenColors;
+  light: SemanticTokenColors;
+}
+
+const deriveSemanticTokenColors = (): ThemedSemanticTokenColors => ({
+  dark: Object.fromEntries(
+    Object.entries(TOKEN_CONFIG).map(([key, value]) => [key, value.dark]),
+  ) as SemanticTokenColors,
+  light: Object.fromEntries(
+    Object.entries(TOKEN_CONFIG).map(([key, value]) => [key, value.light]),
+  ) as SemanticTokenColors,
+});
+
+export const SEMANTIC_TOKEN_COLORS: ThemedSemanticTokenColors =
+  deriveSemanticTokenColors();
+
+interface TextMateRule {
+  scope: string;
+  settings: { foreground: string };
+}
+
+const deriveTextMateRules = (theme: Theme): TextMateRule[] =>
+  Object.values(TOKEN_CONFIG).flatMap((config) =>
+    config.scopes.map((scope) => ({
+      scope,
+      settings: { foreground: config[theme] },
+    })),
+  );
+
+const TEXTMATE_RULES = {
+  dark: deriveTextMateRules("dark"),
+  light: deriveTextMateRules("light"),
+};
+
+const NOOP_DISPOSER = () => ({ dispose: () => {} });
+
+export type LSPStream = Stream<typeof arc.lspMessageZ, typeof arc.lspMessageZ>;
+
+interface FreighterTransportProps {
+  stream: LSPStream;
+}
+
+const createFreighterTransport = ({
+  stream,
+}: FreighterTransportProps): {
+  reader: MessageReader;
+  writer: MessageWriter;
+  closed: Promise<void>;
+} => {
+  let isClosed = false;
+  let onCloseCallback: (() => void) | null = null;
+  let onErrorCallback: ((error: Error) => void) | null = null;
+  let onMessageCallback: ((message: Message) => void) | null = null;
+
+  let resolveClosed: () => void;
+  const closed = new Promise<void>((r) => (resolveClosed = r));
+
+  const receiveLoop = async () => {
+    try {
+      while (!isClosed) {
+        const [msg, err] = await stream.receive();
+        if (err != null) {
+          onErrorCallback?.(err);
+          break;
+        }
+        if (msg == null) break;
+        try {
+          const parsed = JSON.parse(msg.content);
+          onMessageCallback?.(parsed);
+        } catch (parseError) {
+          onErrorCallback?.(
+            parseError instanceof Error ? parseError : new Error(String(parseError)),
+          );
+        }
+      }
+    } finally {
+      isClosed = true;
+      onCloseCallback?.();
+      resolveClosed();
+    }
+  };
+
+  const reader: MessageReader = {
+    listen: (callback) => {
+      onMessageCallback = callback as (message: Message) => void;
+      receiveLoop().catch((err) => onErrorCallback?.(err));
+      return { dispose: () => (onMessageCallback = null) };
+    },
+    dispose: () => (isClosed = true),
+    onError: (callback) => {
+      onErrorCallback = callback;
+      return { dispose: () => (onErrorCallback = null) };
+    },
+    onClose: (callback) => {
+      onCloseCallback = callback;
+      return { dispose: () => (onCloseCallback = null) };
+    },
+    onPartialMessage: NOOP_DISPOSER,
+  };
+
+  const writer: MessageWriter = {
+    write: async (message) => {
+      if (isClosed) throw new Error("Stream is closed");
+      stream.send({ content: JSON.stringify(message) });
+    },
+    dispose: () => (isClosed = true),
+    onError: (callback) => {
+      onErrorCallback = (err: Error) => callback([err, undefined, undefined]);
+      return { dispose: () => (onErrorCallback = null) };
+    },
+    onClose: (callback) => {
+      onCloseCallback = callback;
+      return { dispose: () => (onCloseCallback = null) };
+    },
+    end: () => {
+      isClosed = true;
+      stream.closeSend();
+    },
+  };
+
+  return { reader, writer, closed };
+};
+
+export interface LSPClientHandle {
+  client: MonacoLanguageClient;
+  closed: Promise<void>;
+}
+
+export const openLSPStream = async (client: Synnax): Promise<LSPStream> =>
+  await client.arcs.openLSP();
+
+export const closeLSPStream = (stream: LSPStream): void => {
+  stream.closeSend();
+};
+
+export const startLSPClient = async (stream: LSPStream): Promise<LSPClientHandle> => {
+  const { reader, writer, closed } = createFreighterTransport({ stream });
+  const client = new MonacoLanguageClient({
+    name: "Arc Language Server",
+    clientOptions: {
+      documentSelector: [LANGUAGE],
+      errorHandler: {
+        error: () => ({ action: ErrorAction.Continue }),
+        closed: () => ({ action: CloseAction.DoNotRestart }),
+      },
+    },
+    messageTransports: { reader, writer },
+  });
+  await client.start();
+  return { client, closed };
+};
+
+export const stopLSPClient = async (client: MonacoLanguageClient): Promise<void> => {
+  try {
+    await client.stop();
+  } catch {
+    // Client may already be stopped if the stream died.
+  }
+};
+
+const GRAMMAR_PATH = "./arc.tmLanguage.json";
+const LANGUAGE_CONFIGURATION_PATH = "./language-configuration.json";
+const GRAMMAR_DATA_URL = `data:application/json;base64,${btoa(arcGrammarRaw)}`;
+const LANGUAGE_CONFIG_DATA_URL = `data:application/json;base64,${btoa(arcLanguageConfigurationRaw)}`;
+
+const registerArcLanguage = async (): Promise<destructor.Async> => {
+  const { registerFileUrl } = registerExtension(
+    {
+      name: "arc-language",
+      publisher: "synnaxlabs",
+      version: "1.0.0",
+      engines: { vscode: "*" },
+      contributes: {
+        languages: [
+          {
+            id: LANGUAGE,
+            aliases: ["Arc", "arc"],
+            extensions: [".arc"],
+            configuration: LANGUAGE_CONFIGURATION_PATH,
+          },
+        ],
+        grammars: [
+          {
+            language: LANGUAGE,
+            scopeName: "source.arc",
+            path: GRAMMAR_PATH,
+          },
+        ],
+      },
+    },
+    ExtensionHostKind.LocalProcess,
+  );
+
+  registerFileUrl(GRAMMAR_PATH, GRAMMAR_DATA_URL);
+  registerFileUrl(LANGUAGE_CONFIGURATION_PATH, LANGUAGE_CONFIG_DATA_URL);
+
+  return async () => {};
+};
+
+const applySemanticTokenColors = async (): Promise<destructor.Async> => {
+  try {
+    const vscode = await import("vscode");
+    const config = vscode.workspace.getConfiguration("editor");
+
+    await config.update(
+      "semanticTokenColorCustomizations",
+      {
+        "[Default Dark+]": { rules: SEMANTIC_TOKEN_COLORS.dark },
+        "[Default Light+]": { rules: SEMANTIC_TOKEN_COLORS.light },
+      },
+      vscode.ConfigurationTarget.Global,
+    );
+
+    await config.update(
+      "tokenColorCustomizations",
+      {
+        "[Default Dark+]": { textMateRules: TEXTMATE_RULES.dark },
+        "[Default Light+]": { textMateRules: TEXTMATE_RULES.light },
+      },
+      vscode.ConfigurationTarget.Global,
+    );
+  } catch (error) {
+    console.warn("Failed to apply Arc semantic token colors:", error);
+  }
+  return async () => {};
+};
+
+const LSP_BREAKER_CONFIG: breaker.Config = {
+  baseInterval: TimeSpan.seconds(1),
+  maxRetries: 50,
+  scale: 1.5,
+};
+
+export const use = (client: Synnax | null, monaco: unknown): void => {
+  useEffect(() => {
+    if (monaco == null || client == null) return;
+    const abortController = new AbortController();
+    const { signal } = abortController;
+    const abortPromise = new Promise<void>((r) =>
+      signal.addEventListener("abort", () => r()),
+    );
+    let currentHandle: LSPClientHandle | null = null;
+    let currentStream: LSPStream | null = null;
+    const run = async () => {
+      const b = new breaker.Breaker(LSP_BREAKER_CONFIG);
+      while (!signal.aborted) {
+        try {
+          const stream = await openLSPStream(client);
+          if (signal.aborted) {
+            closeLSPStream(stream);
+            return;
+          }
+          currentStream = stream;
+          const handle = await startLSPClient(stream);
+          if (signal.aborted) {
+            await stopLSPClient(handle.client);
+            closeLSPStream(stream);
+            return;
+          }
+          currentHandle = handle;
+          b.reset();
+          await Promise.race([handle.closed, abortPromise]);
+          currentHandle = null;
+          currentStream = null;
+          if (signal.aborted) return;
+        } catch (e) {
+          console.error("Arc LSP connection failed:", e);
+          currentHandle = null;
+          currentStream = null;
+        }
+        if (!(await b.wait())) {
+          console.error("Arc LSP breaker exhausted, giving up reconnection");
+          return;
+        }
+      }
+    };
+    run().catch(console.error);
+    return () => {
+      abortController.abort();
+      if (currentHandle != null)
+        stopLSPClient(currentHandle.client).catch(console.error);
+      if (currentStream != null) closeLSPStream(currentStream);
+    };
+  }, [client, monaco]);
+};
+
+export const SERVICES = [registerArcLanguage, applySemanticTokenColors];

@@ -8,28 +8,25 @@
 // included in the file licenses/APL.txt.
 
 import { lineplot } from "@synnaxlabs/client";
-import { Access } from "@synnaxlabs/pluto";
+import { Access, LinePlot as PLinePlot } from "@synnaxlabs/pluto";
 import { useCallback } from "react";
 
 import { LinePlot } from "@/lineplot";
-import { CreateIcon } from "@/lineplot/services/Icon";
 import { Palette } from "@/palette";
 
-const useVisible = () => Access.useUpdateGranted(lineplot.TYPE_ONTOLOGY_ID);
-
-export const CreateCommand: Palette.Command = ({ placeLayout, ...listProps }) => {
+const CreateCommand: Palette.Command = ({ placeLayout, ...listProps }) => {
   const handleSelect = useCallback(() => placeLayout(LinePlot.create()), [placeLayout]);
   return (
     <Palette.CommandListItem
       {...listProps}
       name="Create a line plot"
-      icon={<CreateIcon />}
+      icon={<PLinePlot.CreateIcon />}
       onSelect={handleSelect}
     />
   );
 };
 CreateCommand.key = "create-line-plot";
 CreateCommand.commandName = "Create a line plot";
-CreateCommand.useVisible = useVisible;
+CreateCommand.useVisible = () => Access.useCreateGranted(lineplot.TYPE_ONTOLOGY_ID);
 
 export const COMMANDS = [CreateCommand];

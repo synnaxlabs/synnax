@@ -89,7 +89,7 @@ func encode(ctx context.Context, err error) (errors.Payload, bool) {
 			}))),
 		}, true
 	}
-	if errors.Is(err, ErrValidation) {
+	if errors.CheapIs(err, ErrValidation) {
 		return errors.Payload{Type: "sy.validation", Data: err.Error()}, true
 	}
 	return errors.Payload{}, false

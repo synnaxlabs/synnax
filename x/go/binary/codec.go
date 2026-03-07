@@ -350,8 +350,10 @@ func (e *MsgpackEncodedJSON) DecodeMsgpack(dec *msgpack.Decoder) error {
 	switch val := v.(type) {
 	case string:
 		m := make(map[string]any)
-		if err := json.Unmarshal([]byte(val), &m); err != nil {
-			return errors.Wrapf(err, "failed to unmarshal JSON string into MsgpackEncodedJSON")
+		if len(val) != 0 {
+			if err = json.Unmarshal([]byte(val), &m); err != nil {
+				return errors.Wrapf(err, "failed to unmarshal JSON string into MsgpackEncodedJSON")
+			}
 		}
 		*e = m
 	case map[string]any:

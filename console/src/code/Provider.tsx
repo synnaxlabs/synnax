@@ -7,10 +7,10 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { context, useCombinedStateAndRef } from "@synnaxlabs/pluto";
+import { context } from "@synnaxlabs/pluto";
 import { type destructor } from "@synnaxlabs/x";
 import type * as monacoT from "monaco-editor";
-import { type PropsWithChildren, useCallback, useMemo, useRef } from "react";
+import { type PropsWithChildren, useEffect, useRef, useState } from "react";
 
 import { initializeMonaco, type Service } from "@/code/init/initialize";
 
@@ -18,13 +18,8 @@ export type * as Monaco from "monaco-editor";
 
 type Monaco = typeof monacoT;
 
-interface ContextValue {
-  monaco: Monaco | null;
-  requestInit: () => void;
-}
-
-const [Context, useContext] = context.create<ContextValue>({
-  defaultValue: { monaco: null, requestInit: () => {} },
+const [Context, useContext] = context.create<Monaco | null>({
+  defaultValue: null,
   displayName: "Code.Context",
 });
 
@@ -33,10 +28,10 @@ export interface ProviderProps extends PropsWithChildren {
 }
 
 export const Provider = ({ children, initServices: services }: ProviderProps) => {
-  const [monaco, setMonaco, monacoRef] = useCombinedStateAndRef<Monaco | null>(null);
+  const [monaco, setMonaco] = useState<Monaco | null>(null);
   const destructorRef = useRef<destructor.Async>(null);
-  const requestInit = useCallback(() => {
-    if (monacoRef.current != null) return;
+
+  useEffect(() => {
     initializeMonaco({ services })
       .then((ret) => {
         destructorRef.current = ret.destructor;
@@ -44,12 +39,8 @@ export const Provider = ({ children, initServices: services }: ProviderProps) =>
       })
       .catch(console.error);
   }, []);
-  const value = useMemo(() => ({ monaco, requestInit }), [monaco, requestInit]);
-  return <Context value={value}>{children}</Context>;
+
+  return <Context value={monaco}>{children}</Context>;
 };
 
-export const useMonaco = () => {
-  const { monaco, requestInit } = useContext();
-  requestInit();
-  return monaco;
-};
+export const useMonaco = (): Monaco | null => useContext();

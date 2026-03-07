@@ -154,7 +154,7 @@ class SchematicLifecycle(ConsoleCase):
 
         entries = schematic.get_control_legend_entries()
         assert len(entries) > 0, "Control legend should have at least one entry"
-        assert schematic.page_name in entries, (
+        assert any(schematic.page_name in e for e in entries), (
             f"Expected writer '{schematic.page_name}' in control legend!\n"
             f"Actual entries: {entries}"
         )

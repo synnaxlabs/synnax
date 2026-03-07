@@ -9,32 +9,38 @@
 
 import "@/hardware/http/device/Connect.css";
 
-import { type rack } from "@synnaxlabs/client";
+import { type device, type rack, TimeSpan } from "@synnaxlabs/client";
 import {
   Button,
   Device as PDevice,
   Divider,
   Flex,
   Form,
-  Icon,
-  Input,
+  type Flux,
   Nav,
   Rack,
   Select,
   Status,
+  Task,
   Text,
 } from "@synnaxlabs/pluto";
-import { status } from "@synnaxlabs/x";
-import { type ReactElement, useCallback, useState } from "react";
+import { status as xstatus } from "@synnaxlabs/x";
+import { useCallback } from "react";
 
 import { CSS } from "@/css";
 import {
+  type APIKeyAuthConfigSendAs,
   type AuthType,
   type Device,
   SCHEMAS,
   ZERO_AUTH_CONFIGS,
   ZERO_PROPERTIES,
 } from "@/hardware/http/device/types";
+import {
+  SCAN_SCHEMAS,
+  SCAN_TYPE,
+  TEST_CONNECTION_COMMAND_TYPE,
+} from "@/hardware/http/task/types";
 import { type Layout } from "@/layout";
 import { Modals } from "@/modals";
 import { Triggers } from "@/triggers";
@@ -47,7 +53,7 @@ export const CONNECT_LAYOUT: Layout.BaseState = {
   name: "Server.Connect",
   icon: "Logo.HTTP",
   location: "modal",
-  window: { resizable: false, size: { height: 720, width: 700 }, navTop: true },
+  window: { resizable: false, size: { height: 530, width: 700 }, navTop: true },
 };
 
 const INITIAL_VALUES: Device = {
@@ -63,80 +69,66 @@ const INITIAL_VALUES: Device = {
 
 const useForm = PDevice.createForm(SCHEMAS);
 
-interface HeaderEntry {
-  key: string;
-  value: string;
-}
+const beforeValidate = ({
+  get,
+  set,
+}: Flux.BeforeValidateArgs<
+  PDevice.RetrieveQuery,
+  typeof PDevice.formSchema,
+  PDevice.FluxSubStore
+>) => {
+  const host = get<string>("location").value;
+  const secure = get<boolean>("properties.secure").value;
+  const protocol = secure ? "https://" : "http://";
+  // Build a ConnectionConfig-compatible object for the test_connection command.
+  set("__test_base_url", `${protocol}${host}`, {
+    notifyOnChange: false,
+    markTouched: false,
+  });
+};
 
-interface HeadersFieldProps {
-  form: Form.UseReturn<typeof PDevice.formSchema>;
-}
-
-const HeadersField = ({ form }: HeadersFieldProps): ReactElement => {
-  const value = Form.useFieldValue<
-    Record<string, string>,
-    Record<string, string>,
-    typeof PDevice.formSchema
-  >("properties.headers", { ctx: form, defaultValue: {} });
-  const entries: HeaderEntry[] = Object.entries(value).map(([k, v]) => ({
-    key: k,
-    value: v,
-  }));
-  const [draft, setDraft] = useState<HeaderEntry[]>(entries);
-  const sync = useCallback(
-    (next: HeaderEntry[]) => {
-      setDraft(next);
-      const record: Record<string, string> = {};
-      for (const { key, value: v } of next) if (key.length > 0) record[key] = v;
-      form.set("properties.headers", record);
+const beforeSave = async ({
+  client,
+  get,
+  store,
+  set,
+}: Flux.FormBeforeSaveParams<
+  PDevice.RetrieveQuery,
+  typeof PDevice.formSchema,
+  PDevice.FluxSubStore
+>) => {
+  const scanTask = await Task.retrieveSingle({
+    client,
+    store,
+    query: { type: SCAN_TYPE, rack: get<rack.Key>("rack").value },
+    schemas: SCAN_SCHEMAS,
+  });
+  const props = get("properties").value as Record<string, unknown>;
+  const host = get<string>("location").value;
+  const secure = props.secure as boolean;
+  const protocol = secure ? "https://" : "http://";
+  const connection = {
+    base_url: `${protocol}${host}`,
+    timeout_ms: props.timeoutMs,
+    verify_ssl: props.verifySsl,
+    auth: props.auth,
+  };
+  const state = await scanTask.executeCommandSync({
+    type: TEST_CONNECTION_COMMAND_TYPE,
+    timeout: TimeSpan.seconds(10),
+    args: { connection },
+  });
+  if (state.variant === "error") throw new Error(state.message);
+  const devStatus: device.Status = xstatus.create<typeof device.statusDetailsZ>({
+    message: "Server connected",
+    variant: "success",
+    details: {
+      rack: get<rack.Key>("rack").value,
+      device: get<device.Key>("key").value,
     },
-    [form],
-  );
-  const addRow = useCallback(
-    () => sync([...draft, { key: "", value: "" }]),
-    [draft, sync],
-  );
-  const updateRow = useCallback(
-    (i: number, field: "key" | "value", v: string) => {
-      const next = [...draft];
-      next[i] = { ...next[i], [field]: v };
-      sync(next);
-    },
-    [draft, sync],
-  );
-  const removeRow = useCallback(
-    (i: number) => sync(draft.filter((_, j) => j !== i)),
-    [draft, sync],
-  );
-  return (
-    <Flex.Box y gap="small">
-      <Flex.Box x align="center" justify="between">
-        <Input.Label>Headers</Input.Label>
-        <Button.Button variant="text" size="small" onClick={addRow}>
-          <Icon.Add />
-        </Button.Button>
-      </Flex.Box>
-      <Flex.Box y gap="small">
-        {draft.map((entry, i) => (
-          <Flex.Box x key={i} align="center" gap="small">
-            <Input.Text
-              placeholder="Field Name"
-              value={entry.key}
-              onChange={(v) => updateRow(i, "key", v)}
-            />
-            <Input.Text
-              placeholder="Field Value"
-              value={entry.value}
-              onChange={(v) => updateRow(i, "value", v)}
-            />
-            <Button.Button variant="text" size="small" onClick={() => removeRow(i)}>
-              <Icon.Close />
-            </Button.Button>
-          </Flex.Box>
-        ))}
-      </Flex.Box>
-    </Flex.Box>
-  );
+  });
+  set("status", devStatus, { notifyOnChange: false, markTouched: false });
+  return true;
 };
 
 export const Connect: Layout.Renderer = ({ layoutKey, onClose }) => {
@@ -148,12 +140,47 @@ export const Connect: Layout.Renderer = ({ layoutKey, onClose }) => {
   } = useForm({
     query: { key: layoutKey === CONNECT_LAYOUT_TYPE ? "" : layoutKey },
     initialValues: INITIAL_VALUES,
+    beforeSave,
     afterSave: useCallback(() => onClose(), [onClose]),
   });
 
   const authType = Form.useFieldValue<AuthType, AuthType, typeof PDevice.formSchema>(
     "properties.auth.type",
     { ctx: form },
+  );
+
+  const sendAs = Form.useFieldValue<string, string, typeof PDevice.formSchema>(
+    "properties.auth.sendAs",
+    { ctx: form, optional: true },
+  );
+
+  const renderAuthType = useCallback(
+    ({
+      onChange,
+      ...rest
+    }: SelectAuthTypeProps & { onChange: (v: AuthType) => void }) => {
+      const handleChange = (value: AuthType) => {
+        form.set("properties.auth", ZERO_AUTH_CONFIGS[value]);
+        onChange(value);
+      };
+      return <SelectAuthType {...rest} onChange={handleChange} />;
+    },
+    [form.set],
+  );
+
+  const renderSendAs = useCallback(
+    ({
+      onChange,
+      ...rest
+    }: SelectSendAsProps & { onChange: (v: APIKeyAuthConfigSendAs) => void }) => {
+      const handleChange = (value: APIKeyAuthConfigSendAs) => {
+        if (value === "header") form.set("properties.auth.header", "");
+        else form.set("properties.auth.parameter", "");
+        onChange(value);
+      };
+      return <SelectSendAs {...rest} onChange={handleChange} />;
+    },
+    [form.set],
   );
 
   return (
@@ -174,6 +201,7 @@ export const Connect: Layout.Renderer = ({ layoutKey, onClose }) => {
               inputProps={HOST_INPUT_PROPS}
             />
             <Form.SwitchField path="properties.secure" label="HTTPS" />
+            <Form.SwitchField path="properties.verifySsl" label="Verify SSL" />
           </Flex.Box>
           <Form.NumericField
             path="properties.timeoutMs"
@@ -181,16 +209,8 @@ export const Connect: Layout.Renderer = ({ layoutKey, onClose }) => {
             inputProps={TIMEOUT_INPUT_PROPS}
           />
           <Divider.Divider x padded="bottom" />
-          <HeadersField form={form} />
-          <Divider.Divider x padded="bottom" />
           <Form.Field<AuthType> path="properties.auth.type" label="Authentication">
-            {({ onChange, ...rest }) => {
-              const handleChange = (value: AuthType) => {
-                form.set("properties.auth", ZERO_AUTH_CONFIGS[value]);
-                onChange(value);
-              };
-              return <SelectAuthType {...rest} onChange={handleChange} />;
-            }}
+            {renderAuthType}
           </Form.Field>
           {authType === "bearer" && (
             <Form.TextField
@@ -200,20 +220,37 @@ export const Connect: Layout.Renderer = ({ layoutKey, onClose }) => {
             />
           )}
           {authType === "api_key" && (
-            <Flex.Box x justify="between">
-              <Form.TextField
-                grow
-                path="properties.auth.header"
-                label="Header Name"
-                inputProps={AUTH_HEADER_INPUT_PROPS}
-              />
-              <Form.TextField
-                grow
-                path="properties.auth.key"
-                label="API Key"
-                inputProps={AUTH_KEY_INPUT_PROPS}
-              />
-            </Flex.Box>
+            <>
+              <Form.Field<APIKeyAuthConfigSendAs>
+                path="properties.auth.sendAs"
+                label="Send as"
+              >
+                {renderSendAs}
+              </Form.Field>
+              <Flex.Box x justify="between">
+                {sendAs === "query_param" ? (
+                  <Form.TextField
+                    grow
+                    path="properties.auth.parameter"
+                    label="Parameter Name"
+                    inputProps={AUTH_PARAM_INPUT_PROPS}
+                  />
+                ) : (
+                  <Form.TextField
+                    grow
+                    path="properties.auth.header"
+                    label="Header Name"
+                    inputProps={AUTH_HEADER_INPUT_PROPS}
+                  />
+                )}
+                <Form.TextField
+                  grow
+                  path="properties.auth.key"
+                  label="API Key"
+                  inputProps={AUTH_KEY_INPUT_PROPS}
+                />
+              </Flex.Box>
+            </>
           )}
           {authType === "basic" && (
             <Flex.Box x justify="between">
@@ -236,18 +273,18 @@ export const Connect: Layout.Renderer = ({ layoutKey, onClose }) => {
       <Modals.BottomNavBar>
         <Nav.Bar.Start gap="small">
           {variant == "success" ? (
-            <Triggers.SaveHelpText action="Save" noBar />
+            <Triggers.SaveHelpText action="Connect" noBar />
           ) : (
             <Status.Summary variant={variant} message={stat.description} />
           )}
         </Nav.Bar.Start>
         <Nav.Bar.End>
           <Button.Button
-            status={status.keepVariants(variant, "loading")}
+            status={xstatus.keepVariants(variant, "loading")}
             onClick={() => save()}
             variant="filled"
           >
-            Save
+            Connect
           </Button.Button>
         </Nav.Bar.End>
       </Modals.BottomNavBar>
@@ -271,6 +308,8 @@ const AUTH_TOKEN_INPUT_PROPS = {
 } as const;
 
 const AUTH_HEADER_INPUT_PROPS = { placeholder: "X-API-Key" } as const;
+
+const AUTH_PARAM_INPUT_PROPS = { placeholder: "key" } as const;
 
 const AUTH_KEY_INPUT_PROPS = {
   placeholder: "sk_live_51N8...",
@@ -297,7 +336,7 @@ const SelectAuthType = (props: SelectAuthTypeProps) => (
     </Select.Button>
     <Select.Button<AuthType>
       itemKey="api_key"
-      tooltip="Adds a custom HTTP header with your API key"
+      tooltip="Sends your API key as a header or query parameter"
       tooltipLocation="top"
     >
       API Key
@@ -308,6 +347,22 @@ const SelectAuthType = (props: SelectAuthTypeProps) => (
       tooltipLocation="top"
     >
       Basic
+    </Select.Button>
+  </Select.Buttons>
+);
+
+const SEND_AS_DATA: APIKeyAuthConfigSendAs[] = ["header", "query_param"];
+
+interface SelectSendAsProps extends Omit<
+  Select.ButtonsProps<APIKeyAuthConfigSendAs>,
+  "keys"
+> {}
+
+const SelectSendAs = (props: SelectSendAsProps) => (
+  <Select.Buttons<APIKeyAuthConfigSendAs> {...props} keys={SEND_AS_DATA}>
+    <Select.Button<APIKeyAuthConfigSendAs> itemKey="header">Header</Select.Button>
+    <Select.Button<APIKeyAuthConfigSendAs> itemKey="query_param">
+      Query Parameter
     </Select.Button>
   </Select.Buttons>
 );

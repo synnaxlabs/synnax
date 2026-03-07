@@ -138,11 +138,23 @@ var _ = Describe("Color", func() {
 			Expect(msgpack.Unmarshal(data, &decoded)).To(Succeed())
 			Expect(decoded).To(Equal(original))
 		})
-		It("Should decode an empty string as zero color", func() {
+		It("Should decode #000000 as black with full alpha", func() {
 			encoded := MustSucceed(msgpack.Marshal("#000000"))
 			var c color.Color
 			Expect(msgpack.Unmarshal(encoded, &c)).To(Succeed())
 			Expect(c).To(Equal(color.Color{R: 0, G: 0, B: 0, A: 1}))
+		})
+		It("Should decode an empty string as zero color", func() {
+			encoded := MustSucceed(msgpack.Marshal(""))
+			var c color.Color
+			Expect(msgpack.Unmarshal(encoded, &c)).To(Succeed())
+			Expect(c).To(Equal(color.Color{}))
+		})
+		It("Should decode nil as zero color", func() {
+			encoded := MustSucceed(msgpack.Marshal(nil))
+			var c color.Color
+			Expect(msgpack.Unmarshal(encoded, &c)).To(Succeed())
+			Expect(c).To(Equal(color.Color{}))
 		})
 	})
 })

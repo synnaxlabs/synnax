@@ -2,6 +2,10 @@
   "$schema": "test_schema.json",
   "sequences": [
     {
+      "sequence_name": "Core_Stress",
+      "tests": [{ "case": "latency/writer_open_close_stress" }]
+    },
+    {
       "sequence_name": "Driver_Latency",
       "sequence_order": "sequential",
       "tests": [{ "case": "latency/driver_ni_digital_write" }]

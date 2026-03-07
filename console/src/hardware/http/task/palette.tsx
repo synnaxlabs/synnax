@@ -10,15 +10,15 @@
 import { task } from "@synnaxlabs/client";
 import { Access, Icon } from "@synnaxlabs/pluto";
 
-import { SCAN_LAYOUT } from "@/hardware/http/task/Scan";
+import { READ_LAYOUT } from "@/hardware/http/task/Read";
 import { Palette } from "@/palette";
 
-const CreateScanCommand = Palette.createSimpleCommand({
-  key: "http-create-scan-task",
-  name: "Create an HTTP Scan Task",
+const CreateReadCommand = Palette.createSimpleCommand({
+  key: "http_create_read_task",
+  name: "Create an HTTP Read Task",
   icon: <Icon.Logo.HTTP />,
-  layout: SCAN_LAYOUT,
+  layout: READ_LAYOUT,
   useVisible: () => Access.useCreateGranted(task.TYPE_ONTOLOGY_ID),
 });
 
-export const COMMANDS = [CreateScanCommand];
+export const COMMANDS = [CreateReadCommand];

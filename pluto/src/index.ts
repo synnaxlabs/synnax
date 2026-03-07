@@ -9,6 +9,7 @@
 
 export { Access } from "@/access";
 export { Aether } from "@/aether";
+export { Alamos } from "@/alamos";
 export { Arc } from "@/arc";
 export { Breadcrumb } from "@/breadcrumb";
 export { Button } from "@/button";

@@ -139,8 +139,7 @@ void Device::to_proto(api::v1::Device *device) const {
     device->set_location(location);
     device->set_make(make);
     device->set_model(model);
-    if (!properties.empty())
-        x::json::to_struct(properties, device->mutable_properties());
+    x::json::to_struct(properties, device->mutable_properties());
     device->set_configured(configured);
     if (!status.is_zero()) status.to_proto(device->mutable_status());
 }
@@ -154,7 +153,8 @@ Device Device::parse(x::json::Parser &parser) {
     d.make = parser.field<std::string>("make", "");
     d.model = parser.field<std::string>("model", "");
     d.configured = parser.field<bool>("configured", false);
-    d.properties = parser.field<x::json::json>("properties", x::json::json::object());
+    auto props = parser.field<x::json::json>("properties", x::json::json::object());
+    if (props.is_object()) d.properties = props;
     return d;
 }
 }

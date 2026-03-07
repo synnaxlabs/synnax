@@ -10,9 +10,9 @@ cc_library(
         "//client/cpp/ontology",
         "//core/pkg/api/grpc/v1:api_grpc",
         "//freighter/cpp:freighter",
-        "//x/cpp/status",
-        "//x/cpp/json",
         "//x/cpp/errors",
+        "//x/cpp/json",
+        "//x/cpp/status",
     ],
 )
 

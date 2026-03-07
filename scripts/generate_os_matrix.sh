@@ -14,9 +14,8 @@ fi
 
 if [ "$BUILD_MACOS" = "true" ]; then
     [ -n "$OS_LIST" ] && OS_LIST="$OS_LIST,"
-    # If signing, use specific runner-2; otherwise any macos-build-bot
     if [ "$SIGN_BINARIES" = "true" ]; then
-        OS_LIST="${OS_LIST}{\"os\":\"macos-build-bot-2\",\"os-name\":\"macos\",\"executable\":\"\"}"
+        OS_LIST="${OS_LIST}{\"os\":\"macos-latest\",\"os-name\":\"macos\",\"executable\":\"\"}"
     else
         OS_LIST="${OS_LIST}{\"os\":\"macos-build-bot\",\"os-name\":\"macos\",\"executable\":\"\"}"
     fi

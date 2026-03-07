@@ -11,6 +11,12 @@ import { createRoot } from "react-dom/client";
 
 import { Console } from "@/Console";
 
+if (import.meta.env.DEV) {
+  const script = document.createElement("script");
+  script.src = "http://localhost:8097";
+  document.head.appendChild(script);
+}
+
 const rootEl = document.getElementById("root") as HTMLElement;
 
 createRoot(rootEl).render(<Console />);

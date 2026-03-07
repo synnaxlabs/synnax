@@ -6,6 +6,8 @@ cc_library(
     srcs = [
         "factory.cpp",
         "http.h",
+        "read_task.cpp",
+        "read_task.h",
         "scan_task.cpp",
         "scan_task.h",
     ],
@@ -15,9 +17,12 @@ cc_library(
         "//driver/errors",
         "//driver/http/device",
         "//driver/http/errors",
+        "//driver/http/processor",
         "//driver/http/types",
         "//driver/pipeline",
         "//driver/task",
+        "//x/cpp/json",
+        "//x/cpp/json:convert",
         "//x/cpp/loop",
         "@glog",
         "@nlohmann_json//:json",
@@ -25,11 +30,16 @@ cc_library(
 )
 
 cc_test(
-    name = "scan_task_test",
-    srcs = ["scan_task_test.cpp"],
+    name = "read_task_test",
+    srcs = ["read_task_test.cpp"],
+    data = [
+        "//driver/http/mock:test_cert.pem",
+        "//driver/http/mock:test_key.pem",
+    ],
     linkstatic = True,
     deps = [
         ":http",
+        "//client/cpp/testutil",
         "//driver/http/mock",
         "//x/cpp/defer",
         "//x/cpp/test",

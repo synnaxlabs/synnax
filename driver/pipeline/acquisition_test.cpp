@@ -806,6 +806,45 @@ TEST(AcquisitionPipeline, testAuthorityAppliedBeforeWrite) {
         << ") must be called before write (index " << first_write << ")";
 }
 
+/// @brief err_on_unauthorized should default to true on the writer config when no
+/// explicit value is provided (the default for hardware acquisition tasks).
+TEST(AcquisitionPipeline, testErrOnUnauthorizedDefaultsToTrue) {
+    auto writes = std::make_shared<std::vector<x::telem::Frame>>();
+    const auto mock_factory = std::make_shared<mock::WriterFactory>(writes);
+    const auto source = std::make_shared<MockSource>(x::telem::TimeStamp::now());
+    auto pipe = Acquisition(
+        mock_factory,
+        synnax::framer::WriterConfig(),
+        source,
+        x::breaker::Config()
+    );
+    ASSERT_TRUE(pipe.start());
+    ASSERT_EVENTUALLY_GE(writes->size(), 1);
+    ASSERT_TRUE(pipe.stop());
+    ASSERT_TRUE(mock_factory->config.err_on_unauthorized);
+}
+
+/// @brief err_on_unauthorized should be set to false on the writer config when the
+/// pipeline is constructed with err_on_unauthorized = false (e.g. for Arc tasks that
+/// need authority handoff).
+TEST(AcquisitionPipeline, testErrOnUnauthorizedCanBeDisabled) {
+    auto writes = std::make_shared<std::vector<x::telem::Frame>>();
+    const auto mock_factory = std::make_shared<mock::WriterFactory>(writes);
+    const auto source = std::make_shared<MockSource>(x::telem::TimeStamp::now());
+    auto pipe = Acquisition(
+        mock_factory,
+        synnax::framer::WriterConfig(),
+        source,
+        x::breaker::Config(),
+        "",
+        false
+    );
+    ASSERT_TRUE(pipe.start());
+    ASSERT_EVENTUALLY_GE(writes->size(), 1);
+    ASSERT_TRUE(pipe.stop());
+    ASSERT_FALSE(mock_factory->config.err_on_unauthorized);
+}
+
 /// @brief a global authority change buffered before the writer opens should clear
 /// any previously buffered per-channel changes.
 TEST(AcquisitionPipeline, testAuthorityBufferGlobalClearsChannels) {

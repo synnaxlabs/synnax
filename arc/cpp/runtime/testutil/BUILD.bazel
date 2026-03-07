@@ -1,3 +1,5 @@
+load("@rules_cc//cc:cc_library.bzl", "cc_library")
+
 cc_library(
     name = "testutil",
     hdrs = [
@@ -7,7 +9,7 @@ cc_library(
     deps = [
         "//arc/cpp/runtime/loop",
         "//x/cpp/breaker",
-        "//x/cpp/notify",
         "//x/cpp/errors",
+        "//x/cpp/notify",
     ],
 )

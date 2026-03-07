@@ -56,7 +56,7 @@ export const taskZ = <
 >(
   schemas: Schemas<Type, Config, StatusData> = {
     typeSchema: z.string() as unknown as Type,
-    configSchema: z.unknown() as unknown as Config,
+    configSchema: record.nullishToEmpty() as unknown as Config,
     statusDataSchema: z.unknown() as unknown as StatusData,
   },
 ) =>
@@ -105,7 +105,7 @@ export const newZ = <
     .omit({ key: true, status: true })
     .extend({
       key: keyZ.transform((k) => k.toString()).optional(),
-      config: schemas?.configSchema ?? z.unknown(),
+      config: schemas?.configSchema ?? record.nullishToEmpty(),
       status: newStatusZ(schemas?.statusDataSchema ?? z.unknown())
         .optional()
         .nullable(),

@@ -9,91 +9,72 @@
 
 #pragma once
 
-#include <optional>
+#include <memory>
 #include <string>
 #include <utility>
+#include <vector>
 
 #include "x/cpp/json/json.h"
-#include "x/cpp/telem/telem.h"
 
-#include "driver/common/common.h"
-#include "driver/common/status.h"
+#include "driver/common/scan_task.h"
 #include "driver/http/device/device.h"
 #include "driver/http/http.h"
-#include "driver/pipeline/base.h"
+#include "driver/http/processor/processor.h"
 #include "driver/task/task.h"
 
 namespace driver::http {
 const std::string SCAN_TASK_TYPE = INTEGRATION_NAME + "_scan";
+const std::string SCAN_LOG_PREFIX = "[" + INTEGRATION_NAME + ".scan_task]";
+const std::string TEST_CONNECTION_CMD_TYPE = "test_connection";
 
-/// @brief optional response body validation for a health-check endpoint.
-struct ResponseConfig {
-    /// @brief JSON Pointer (RFC 6901) to the field to validate.
-    x::json::json::json_pointer field;
-    /// @brief expected value at the field (any JSON type).
-    x::json::json expected_value;
-
-    explicit ResponseConfig(x::json::Parser parser):
-        field(parser.field<std::string>("field")),
-        expected_value(parser.field<x::json::json>("expected_value")) {}
+/// @brief configuration for the HTTP scanner.
+struct ScanTaskConfig : common::ScanTaskConfig {
+    ScanTaskConfig() = default;
+    explicit ScanTaskConfig(x::json::Parser &cfg): common::ScanTaskConfig(cfg) {}
 };
 
-/// @brief configuration for an HTTP scan (health-check) task.
-struct ScanTaskConfig {
-    /// @brief key of the device to health-check.
-    std::string device;
-    /// @brief whether to auto-start the task.
-    bool auto_start;
-    /// @brief health check frequency.
-    x::telem::Rate rate;
-    /// @brief endpoint path for the health check.
-    std::string path;
-    /// @brief optional response body validation.
-    std::optional<ResponseConfig> response;
+/// @brief arguments for the test_connection command.
+struct ScanCommandArgs {
+    /// @brief connection configuration to test.
+    device::ConnectionConfig connection;
 
-    /// @brief parses the scan task config from the task's JSON config.
-    static std::pair<ScanTaskConfig, x::errors::Error>
-    parse(const synnax::task::Task &task);
+    explicit ScanCommandArgs(const x::json::Parser &parser):
+        connection(device::ConnectionConfig(parser.child("connection"))) {}
 };
 
-/// @brief a per-device health-check task that periodically probes an HTTP endpoint and
-/// updates the device's status in the cluster.
-class ScanTask final : public task::Task, private pipeline::Base {
-    using pipeline::Base::stop;
-
+/// @brief HTTP scanner implementing the common::Scanner interface.
+/// Handles device health monitoring by pinging each HTTP device.
+class Scanner final : public common::Scanner {
 public:
-    ScanTask(
+    Scanner(
         std::shared_ptr<task::Context> ctx,
         synnax::task::Task task,
-        ScanTaskConfig cfg,
-        device::ConnectionConfig conn
+        std::shared_ptr<Processor> processor
     );
 
-    /// @brief handles start and stop commands.
-    void exec(task::Command &cmd) override;
+    /// @brief returns scanner configuration for common::ScanTask.
+    [[nodiscard]] common::ScannerConfig config() const override;
 
-    /// @brief stops the health-check loop.
-    void stop(bool will_reconfigure) override;
+    /// @brief periodic scan method - checks health of all tracked devices.
+    std::pair<std::vector<synnax::device::Device>, x::errors::Error>
+    scan(const common::ScannerContext &scan_ctx) override;
 
-    [[nodiscard]] std::string name() const override { return task.name; }
+    /// @brief handle HTTP-specific commands (test connection).
+    bool exec(
+        task::Command &cmd,
+        const synnax::task::Task &task,
+        const std::shared_ptr<task::Context> &ctx
+    ) override;
 
 private:
     std::shared_ptr<task::Context> ctx;
     synnax::task::Task task;
-    ScanTaskConfig cfg;
-    device::ConnectionConfig conn;
-    common::StatusHandler status_handler;
+    std::shared_ptr<Processor> processor;
 
-    /// @brief the main health-check loop.
-    void run() override;
+    /// @brief test connection to an HTTP server.
+    void test_connection(const task::Command &cmd) const;
 
-    /// @brief updates the device status in the cluster.
-    void set_device_status(const std::string &variant, const std::string &message);
+    /// @brief check health of a single device by pinging it.
+    void check_device_health(synnax::device::Device &dev) const;
 };
-
-/// @brief configures a scan task from a synnax task definition.
-std::pair<common::ConfigureResult, x::errors::Error> configure_scan(
-    const std::shared_ptr<task::Context> &ctx,
-    const synnax::task::Task &task
-);
 }

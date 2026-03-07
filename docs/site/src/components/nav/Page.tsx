@@ -8,17 +8,16 @@
 // included in the file licenses/APL.txt.
 
 import { Logo } from "@synnaxlabs/media";
-import { Component, Dialog, Flex, Icon, List, Text } from "@synnaxlabs/pluto";
+import { Component, Icon, List, Text } from "@synnaxlabs/pluto";
 import { Tree } from "@synnaxlabs/pluto/tree";
 import { type CSSProperties, type ReactElement, useEffect, useState } from "react";
 
-import { GUIDES_PAGES, REFERENCE_PAGES } from "@/pages/_nav";
+import { REFERENCE_PAGES } from "@/pages/_nav";
 
 interface InternalTreeProps {
   currentPage: string;
 }
 
-// Icon map for section headers - stored here to avoid SSR serialization issues
 const SECTION_ICONS: Record<string, ReactElement> = {
   concepts: <Icon.Reference />,
   core: <Icon.Cluster />,
@@ -27,11 +26,6 @@ const SECTION_ICONS: Record<string, ReactElement> = {
   console: <Icon.Dashboard />,
   driver: <Icon.Device />,
   pluto: <Icon.Visualize />,
-  "get-started": <Icon.Bolt />,
-  analyst: <Icon.Analyze />,
-  "sys-admin": <Icon.Settings />,
-  operations: <Icon.Task />,
-  comparison: <Icon.Explore />,
 };
 
 export type PageNavNode = Omit<Tree.Node<string>, "children"> & {
@@ -136,7 +130,6 @@ const REFERENCE_SECTION_KEYS = REFERENCE_PAGES.filter((p) => p.children != null)
 const Reference = ({ currentPage }: InternalTreeProps): ReactElement => {
   let parts = currentPage.split("/").filter((part) => part !== "");
   if (parts.length <= 1) parts = REFERENCE_PAGES.map((p) => p.key);
-  if (currentPage === "/guides/") currentPage = "/reference/";
   const referenceData = flatten(REFERENCE_PAGES);
   const nodesStore = List.useMapData({ initialData: referenceData });
   const treeProps = Tree.use({
@@ -161,77 +154,78 @@ const Reference = ({ currentPage }: InternalTreeProps): ReactElement => {
   );
 };
 
-const GUIDES_SECTION_KEYS = GUIDES_PAGES.filter((p) => p.children != null).map(
-  (p) => p.key,
-);
-
-const Guides = ({ currentPage }: InternalTreeProps): ReactElement => {
-  let parts = currentPage.split("/").filter((part) => part !== "");
-  if (parts.length <= 1) parts = GUIDES_PAGES.map((p) => p.key);
-  if (currentPage === "/reference/") currentPage = "/guides/";
-  const guidesData = flatten(GUIDES_PAGES);
-  const nodesStore = List.useMapData({ initialData: guidesData });
-  const treeProps = Tree.use({
-    nodes: GUIDES_PAGES,
-    initialExpanded: [...parts, ...GUIDES_SECTION_KEYS],
-    onExpand: ({ action, clicked }) => {
-      if (action === "contract" && GUIDES_SECTION_KEYS.includes(clicked))
-        treeProps.expand(clicked);
-    },
-  });
-  return (
-    <Tree.Tree
-      {...treeProps}
-      className="tree role-tree styled-scrollbar"
-      virtual={false}
-      selected={[currentPage]}
-      getItem={nodesStore.getItem}
-      subscribe={nodesStore.subscribe}
-    >
-      {item}
-    </Tree.Tree>
-  );
-};
-
 export const Page = ({ currentPage: initialPage }: TOCProps): ReactElement | null => {
   const currentPage = useCurrentPage(initialPage);
-  const selectedTab = currentPage.split("/").filter((part) => part !== "")[0];
-  let tree = <Reference currentPage={currentPage} />;
-  if (selectedTab === "guides") tree = <Guides currentPage={currentPage} />;
-  return tree;
+  return <Reference currentPage={currentPage} />;
 };
 
 export const PageMobile = ({ currentPage: initialPage }: TOCProps): ReactElement => {
   const currentPage = useCurrentPage(initialPage);
-  const selectedTab = currentPage.split("/").filter((part) => part !== "")[0];
-  let tree = <Reference currentPage={currentPage} />;
-  if (selectedTab === "guides") tree = <Guides currentPage={currentPage} />;
+  const [open, setOpen] = useState(false);
+
+  useEffect(() => {
+    if (open) document.body.classList.add("mobile-menu-open");
+    else document.body.classList.remove("mobile-menu-open");
+    return () => document.body.classList.remove("mobile-menu-open");
+  }, [open]);
+
   return (
-    <Dialog.Frame variant="modal" location="top" className="page-nav-mobile">
-      <Dialog.Trigger size="large" variant="outlined">
-        <Icon.Menu />
-      </Dialog.Trigger>
-      <Dialog.Dialog>
-        <Flex.Box
-          borderColor={5}
-          background={0}
-          bordered
-          rounded
-          className="page-nav-mobile-content"
-        >
-          <Flex.Box
-            style={{
-              width: "100%",
-              padding: "2rem 2rem",
-              borderBottom: "var(--pluto-border)",
-            }}
-            direction="x"
-          >
+    <>
+      <button
+        className="mobile-menu-btn"
+        aria-label="Open menu"
+        onClick={() => setOpen(true)}
+      >
+        <span className="mobile-menu-icon" />
+      </button>
+      {open && (
+        <div
+          className="mobile-overlay mobile-overlay--open"
+          onClick={() => setOpen(false)}
+        />
+      )}
+      <nav className={`mobile-drawer ${open ? "mobile-drawer--open" : ""}`}>
+        <div className="mobile-drawer-header">
+          <a href="https://synnaxlabs.com" className="logo-link">
             <Logo variant="title" />
-          </Flex.Box>
-          {tree}
-        </Flex.Box>
-      </Dialog.Dialog>
-    </Dialog.Frame>
+          </a>
+          <button
+            className="mobile-close-btn"
+            aria-label="Close menu"
+            onClick={() => setOpen(false)}
+          >
+            <span className="mobile-close-icon" />
+          </button>
+        </div>
+        <div className="mobile-drawer-links">
+          <a
+            href="/reference/"
+            className="mobile-drawer-link"
+            onClick={() => setOpen(false)}
+          >
+            Reference
+          </a>
+          <a
+            href="/blog/"
+            className="mobile-drawer-link"
+            onClick={() => setOpen(false)}
+          >
+            Blog
+          </a>
+          <a
+            href="/releases/"
+            className="mobile-drawer-link"
+            onClick={() => setOpen(false)}
+          >
+            Releases
+          </a>
+          <div className="mobile-drawer-divider" />
+          <span className="mobile-drawer-section-label">Reference</span>
+        </div>
+        <div className="mobile-drawer-tree">
+          <Reference currentPage={currentPage} />
+        </div>
+      </nav>
+    </>
   );
 };

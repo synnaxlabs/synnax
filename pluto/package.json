@@ -1,6 +1,6 @@
 {
   "name": "@synnaxlabs/pluto",
-  "version": "0.51.1",
+  "version": "0.52.5",
   "type": "module",
   "scripts": {
     "build": "tsc --noEmit && vite build",
@@ -44,6 +44,8 @@
   },
   "devDependencies": {
     "@juggle/resize-observer": "^3.4.0",
+    "@synnaxlabs/eslint-config": "workspace:^",
+    "@synnaxlabs/stylelint-config": "workspace:^",
     "@synnaxlabs/tsconfig": "workspace:^",
     "@synnaxlabs/vite-plugin": "workspace:^",
     "@testing-library/react": "catalog:",
@@ -59,12 +61,10 @@
     "@vitejs/plugin-react": "catalog:",
     "@vitest/coverage-v8": "catalog:",
     "eslint": "catalog:",
-    "eslint-config-synnaxlabs": "workspace:^",
     "jsdom": "^27.4.0",
     "madge": "catalog:",
     "react-dom": "catalog:",
     "stylelint": "catalog:",
-    "stylelint-config-synnaxlabs": "workspace:^",
     "typescript": "catalog:",
     "vite": "catalog:",
     "vitest": "catalog:"
@@ -163,11 +163,10 @@
     },
     "./dist/*": "./dist/*"
   },
-  "readme": "ERROR: No README data found!",
-  "_id": "@synnaxlabs/pluto@0.0.1",
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/synnaxlabs/synnax/pluto"
+    "url": "git+https://github.com/synnaxlabs/synnax.git",
+    "directory": "pluto"
   },
   "license": "MIT",
   "bugs": {
