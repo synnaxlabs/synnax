@@ -91,12 +91,6 @@ std::pair<ReadTaskConfig, x::errors::Error> ReadTaskConfig::parse(
 
     if (!parser.ok()) return {std::move(cfg), parser.error()};
 
-    auto [conn, conn_err] = device::retrieve_connection(
-        ctx->client->devices,
-        cfg.device
-    );
-    if (conn_err) return {{}, conn_err};
-
     const std::vector<synnax::channel::Key> all_keys(
         enabled_field_keys.begin(),
         enabled_field_keys.end()
