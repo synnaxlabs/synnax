@@ -8,23 +8,18 @@ cc_library(
     visibility = ["//visibility:public"],
     deps = [
         "//client/cpp/device",
-        "//driver/http/errors",
         "//driver/http/types",
+        "//x/cpp/base64",
         "//x/cpp/errors",
         "//x/cpp/json",
         "//x/cpp/telem",
         "@curl",
-        "@glog",
     ],
 )
 
 cc_test(
     name = "device_test",
     srcs = ["device_test.cpp"],
-    data = [
-        "//driver/http/mock:test_cert.pem",
-        "//driver/http/mock:test_key.pem",
-    ],
     linkstatic = True,
     visibility = ["//visibility:public"],
     deps = [
@@ -32,7 +27,6 @@ cc_test(
         "//client/cpp:synnax",
         "//client/cpp/testutil",
         "//driver/http/errors",
-        "//driver/http/mock",
         "//x/cpp/base64",
         "//x/cpp/test",
         "@googletest//:gtest_main",

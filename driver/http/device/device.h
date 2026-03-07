@@ -10,10 +10,8 @@
 #pragma once
 
 #include <map>
-#include <memory>
 #include <string>
 #include <utility>
-#include <vector>
 
 #include "client/cpp/device/device.h"
 #include "x/cpp/errors/errors.h"
@@ -129,73 +127,11 @@ struct ConnectionConfig {
     const std::string &device_key
 );
 
-/// @brief static request configuration, set once at task setup time.
-struct RequestConfig {
-    /// @brief HTTP method.
-    Method method;
-    /// @brief URL path (appended to base_url).
-    std::string path;
-    /// @brief query parameters.
-    std::map<std::string, std::string> query_params;
-    /// @brief per-request headers.
-    std::map<std::string, std::string> headers;
-    /// @brief expected response Content-Type; also sent as Accept.
-    std::string response_content_type;
-    /// @brief request body Content-Type; omitted when empty.
-    std::string request_content_type;
-};
+/// @brief merges a ConnectionConfig and RequestConfig into a fully resolved Request.
+/// @param conn the device-level connection configuration.
+/// @param req the per-endpoint request configuration.
+/// @returns the resolved request.
+[[nodiscard]] Request
+build_request(const ConnectionConfig &conn, const RequestConfig &req);
 
-/// @brief an HTTP response.
-struct Response {
-    /// @brief HTTP status code.
-    int status_code = 0;
-    /// @brief response body.
-    std::string body;
-    /// @brief time range spanning the request.
-    x::telem::TimeRange time_range;
-};
-
-/// @brief a handle to a curl request. Should not be constructed or used directly.
-struct Handle;
-/// @brief RAII wrapper around a curl multi handle.
-struct MultiHandle;
-
-/// @brief RAII wrapper around libcurl for making HTTP requests. Curl handles are
-/// pre-built at construction time from the connection and request configurations so the
-/// hot-path request() only needs to set the body, perform I/O, and read results.
-class Client {
-    std::unique_ptr<MultiHandle> multi_handle;
-    std::vector<Handle> handles;
-
-    Client(const Client &) = delete;
-    Client &operator=(const Client &) = delete;
-
-    Client(ConnectionConfig config, const std::vector<RequestConfig> &requests);
-
-    Client();
-
-public:
-    Client(Client &&other) noexcept;
-
-    /// @brief constructs and validates a client with pre-built curl handles.
-    /// @param config the connection configuration.
-    /// @param requests the static request configurations.
-    /// @returns the client paired with a validation error (nil on success).
-    static std::pair<Client, x::errors::Error>
-    create(ConnectionConfig config, const std::vector<RequestConfig> &requests);
-
-    ~Client();
-
-    /// @brief executes pre-configured requests with the given bodies.
-    /// @param bodies one body per pre-configured request. For TRACE requests or
-    /// requests without a body, pass an empty string.
-    /// @param poll_timeout maximum time to wait for socket activity between polls.
-    /// @returns the per-request responses paired with a transfer-level error
-    /// (non-nil when the entire batch fails, e.g. curl_multi_perform error).
-    std::pair<std::vector<std::pair<Response, x::errors::Error>>, x::errors::Error>
-    execute_requests(
-        const std::vector<std::string> &bodies,
-        x::telem::TimeSpan poll_timeout = 1 * x::telem::SECOND
-    );
-};
 }

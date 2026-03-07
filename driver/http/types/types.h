@@ -123,7 +123,7 @@ struct Request {
 /// @brief an HTTP response.
 struct Response {
     /// @brief HTTP status code.
-    int status_code = 0;
+    int status_code;
     /// @brief response body.
     std::string body;
     /// @brief time range spanning the request.
