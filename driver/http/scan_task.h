@@ -33,13 +33,54 @@ struct ScanTaskConfig : common::ScanTaskConfig {
     explicit ScanTaskConfig(x::json::Parser &cfg): common::ScanTaskConfig(cfg) {}
 };
 
+/// @brief configurable health check request and optional response validation.
+struct HealthCheckConfig {
+    /// @brief request configuration (method, path, headers, query params).
+    RequestConfig request;
+    /// @brief optional request body.
+    std::string body;
+    /// @brief JSON Pointer for response validation (empty = just check 200).
+    std::string response_pointer;
+    /// @brief expected value at the pointer (as string).
+    std::string expected_value;
+
+    HealthCheckConfig(): request{.method = Method::GET, .path = "/health"} {}
+
+    explicit HealthCheckConfig(x::json::Parser parser):
+        request{
+            .method = parse_method(parser, "method"),
+            .path = parser.field<std::string>("path"),
+            .query_params = parser.field<std::map<std::string, std::string>>(
+                "query_params",
+                std::map<std::string, std::string>{}
+            ),
+            .headers = parser.field<std::map<std::string, std::string>>(
+                "headers",
+                std::map<std::string, std::string>{}
+            ),
+        },
+        body(parser.field<std::string>("body", "")) {
+        auto resp = parser.optional_child("response");
+        if (resp.ok()) {
+            response_pointer = resp.field<std::string>("pointer", "");
+            expected_value = resp.field<std::string>("expected_value", "");
+        }
+    }
+};
+
 /// @brief arguments for the test_connection command.
 struct ScanCommandArgs {
     /// @brief connection configuration to test.
     device::ConnectionConfig connection;
+    /// @brief health check configuration.
+    HealthCheckConfig health_check;
 
     explicit ScanCommandArgs(const x::json::Parser &parser):
-        connection(device::ConnectionConfig(parser.child("connection"))) {}
+        connection(device::ConnectionConfig(parser.child("connection"))),
+        health_check(
+            parser.has("health_check") ? HealthCheckConfig(parser.child("health_check"))
+                                       : HealthCheckConfig()
+        ) {}
 };
 
 /// @brief HTTP scanner implementing the common::Scanner interface.

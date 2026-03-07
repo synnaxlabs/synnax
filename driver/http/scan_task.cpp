@@ -54,6 +54,31 @@ bool Scanner::exec(
     return false;
 }
 
+/// @brief validates the response body against the health check's expected
+/// pointer/value.
+/// @returns empty string on success, error message on failure.
+static std::string
+validate_health_response(const HealthCheckConfig &hc, const Response &resp) {
+    if (hc.response_pointer.empty()) return "";
+    x::json::json body;
+    try {
+        body = x::json::json::parse(resp.body);
+    } catch (const x::json::json::parse_error &e) {
+        return "failed to parse response body as JSON: " + std::string(e.what());
+    }
+    const auto ptr = x::json::json::json_pointer(hc.response_pointer);
+    if (!body.contains(ptr))
+        return "response body does not contain pointer '" + hc.response_pointer + "'";
+    const auto actual = body[ptr].dump();
+    // Compare the dumped JSON value (strips quotes from strings) against expected.
+    // For strings, dump() produces quoted output, so also try unquoted comparison.
+    if (actual == hc.expected_value) return "";
+    if (body[ptr].is_string() && body[ptr].get<std::string>() == hc.expected_value)
+        return "";
+    return "expected value at '" + hc.response_pointer + "' to be '" +
+           hc.expected_value + "', got " + actual;
+}
+
 void Scanner::check_device_health(synnax::device::Device &dev) const {
     const auto rack_key = synnax::task::rack_key_from_task_key(this->task.key);
     auto props = x::json::json(dev.properties);
@@ -75,10 +100,14 @@ void Scanner::check_device_health(synnax::device::Device &dev) const {
         return;
     }
 
-    const RequestConfig req_cfg{.method = Method::GET, .path = "/health"};
-    auto request = device::build_request(conn, req_cfg);
+    HealthCheckConfig hc;
+    if (parser.has("health_check"))
+        hc = HealthCheckConfig(parser.child("health_check"));
+
+    auto request = device::build_request(conn, hc.request);
+    if (!hc.body.empty()) request.body = hc.body;
     auto [resp, err] = this->processor->execute(request);
-    if (err)
+    if (err) {
         dev.status = synnax::device::Status{
             .key = dev.status_key(),
             .name = dev.name,
@@ -88,15 +117,31 @@ void Scanner::check_device_health(synnax::device::Device &dev) const {
             .time = x::telem::TimeStamp::now(),
             .details = {.rack = rack_key, .device = dev.key},
         };
-    else
+        return;
+    }
+
+    const auto validation_err = validate_health_response(hc, resp);
+    if (!validation_err.empty()) {
         dev.status = synnax::device::Status{
             .key = dev.status_key(),
             .name = dev.name,
-            .variant = x::status::VARIANT_SUCCESS,
-            .message = "Device connected",
+            .variant = x::status::VARIANT_WARNING,
+            .message = "Health check validation failed",
+            .description = validation_err,
             .time = x::telem::TimeStamp::now(),
             .details = {.rack = rack_key, .device = dev.key},
         };
+        return;
+    }
+
+    dev.status = synnax::device::Status{
+        .key = dev.status_key(),
+        .name = dev.name,
+        .variant = x::status::VARIANT_SUCCESS,
+        .message = "Device connected",
+        .time = x::telem::TimeStamp::now(),
+        .details = {.rack = rack_key, .device = dev.key},
+    };
 }
 
 void Scanner::test_connection(const task::Command &cmd) const {
@@ -117,11 +162,16 @@ void Scanner::test_connection(const task::Command &cmd) const {
         status.details.data = parser.error_json();
         return ctx->set_status(status);
     }
-    const RequestConfig req_cfg{.method = Method::GET, .path = "/health"};
-    auto request = device::build_request(args.connection, req_cfg);
+    auto request = device::build_request(args.connection, args.health_check.request);
+    if (!args.health_check.body.empty()) request.body = args.health_check.body;
     auto [resp, err] = this->processor->execute(request);
     if (err) {
         status.message = err.data;
+        return ctx->set_status(status);
+    }
+    const auto validation_err = validate_health_response(args.health_check, resp);
+    if (!validation_err.empty()) {
+        status.message = validation_err;
         return ctx->set_status(status);
     }
     status.variant = x::status::VARIANT_SUCCESS;

@@ -15,8 +15,8 @@ import {
   Device as PDevice,
   Divider,
   Flex,
-  Form,
   type Flux,
+  Form,
   Nav,
   Rack,
   Select,
@@ -32,6 +32,7 @@ import {
   type APIKeyAuthConfigSendAs,
   type AuthType,
   type Device,
+  type HealthCheckMethod,
   SCHEMAS,
   ZERO_AUTH_CONFIGS,
   ZERO_PROPERTIES,
@@ -53,7 +54,7 @@ export const CONNECT_LAYOUT: Layout.BaseState = {
   name: "Server.Connect",
   icon: "Logo.HTTP",
   location: "modal",
-  window: { resizable: false, size: { height: 530, width: 700 }, navTop: true },
+  window: { resizable: false, size: { height: 680, width: 700 }, navTop: true },
 };
 
 const INITIAL_VALUES: Device = {
@@ -68,24 +69,6 @@ const INITIAL_VALUES: Device = {
 };
 
 const useForm = PDevice.createForm(SCHEMAS);
-
-const beforeValidate = ({
-  get,
-  set,
-}: Flux.BeforeValidateArgs<
-  PDevice.RetrieveQuery,
-  typeof PDevice.formSchema,
-  PDevice.FluxSubStore
->) => {
-  const host = get<string>("location").value;
-  const secure = get<boolean>("properties.secure").value;
-  const protocol = secure ? "https://" : "http://";
-  // Build a ConnectionConfig-compatible object for the test_connection command.
-  set("__test_base_url", `${protocol}${host}`, {
-    notifyOnChange: false,
-    markTouched: false,
-  });
-};
 
 const beforeSave = async ({
   client,
@@ -113,10 +96,11 @@ const beforeSave = async ({
     verify_ssl: props.verifySsl,
     auth: props.auth,
   };
+  const healthCheck = props.health_check;
   const state = await scanTask.executeCommandSync({
     type: TEST_CONNECTION_COMMAND_TYPE,
     timeout: TimeSpan.seconds(10),
-    args: { connection },
+    args: { connection, health_check: healthCheck },
   });
   if (state.variant === "error") throw new Error(state.message);
   const devStatus: device.Status = xstatus.create<typeof device.statusDetailsZ>({
@@ -153,6 +137,18 @@ export const Connect: Layout.Renderer = ({ layoutKey, onClose }) => {
     "properties.auth.sendAs",
     { ctx: form, optional: true },
   );
+
+  const healthCheckMethod = Form.useFieldValue<
+    HealthCheckMethod,
+    HealthCheckMethod,
+    typeof PDevice.formSchema
+  >("properties.health_check.method", { ctx: form, optional: true });
+
+  const validateResponse = Form.useFieldValue<
+    boolean,
+    boolean,
+    typeof PDevice.formSchema
+  >("__validate_health_response", { ctx: form, optional: true });
 
   const renderAuthType = useCallback(
     ({
@@ -268,6 +264,51 @@ export const Connect: Layout.Renderer = ({ layoutKey, onClose }) => {
               />
             </Flex.Box>
           )}
+          <Divider.Divider x padded="bottom" />
+          <Text.Text level="p" weight={500}>
+            Health Check
+          </Text.Text>
+          <Flex.Box x align="end">
+            <Form.Field<HealthCheckMethod>
+              path="properties.health_check.method"
+              label="Method"
+            >
+              {(props) => <SelectHealthCheckMethod {...props} />}
+            </Form.Field>
+            <Form.TextField
+              grow
+              path="properties.health_check.path"
+              label="Path"
+              inputProps={HEALTH_PATH_INPUT_PROPS}
+            />
+          </Flex.Box>
+          {healthCheckMethod === "POST" && (
+            <Form.TextField
+              path="properties.health_check.body"
+              label="Body"
+              inputProps={HEALTH_BODY_INPUT_PROPS}
+            />
+          )}
+          <Form.SwitchField
+            path="__validate_health_response"
+            label="Validate response body"
+          />
+          {validateResponse && (
+            <Flex.Box x justify="between">
+              <Form.TextField
+                grow
+                path="properties.health_check.response.pointer"
+                label="JSON Pointer"
+                inputProps={HEALTH_POINTER_INPUT_PROPS}
+              />
+              <Form.TextField
+                grow
+                path="properties.health_check.response.expected_value"
+                label="Expected Value"
+                inputProps={HEALTH_EXPECTED_INPUT_PROPS}
+              />
+            </Flex.Box>
+          )}
         </Form.Form>
       </Flex.Box>
       <Modals.BottomNavBar>
@@ -364,6 +405,25 @@ const SelectSendAs = (props: SelectSendAsProps) => (
     <Select.Button<APIKeyAuthConfigSendAs> itemKey="query_param">
       Query Parameter
     </Select.Button>
+  </Select.Buttons>
+);
+
+const HEALTH_PATH_INPUT_PROPS = { placeholder: "/health" } as const;
+
+const HEALTH_BODY_INPUT_PROPS = { placeholder: '{"check": "ping"}' } as const;
+
+const HEALTH_POINTER_INPUT_PROPS = { placeholder: "/status" } as const;
+
+const HEALTH_EXPECTED_INPUT_PROPS = { placeholder: "ok" } as const;
+
+const HEALTH_METHOD_DATA: HealthCheckMethod[] = ["GET", "POST"];
+
+const SelectHealthCheckMethod = (
+  props: Omit<Select.ButtonsProps<HealthCheckMethod>, "keys">,
+) => (
+  <Select.Buttons<HealthCheckMethod> {...props} keys={HEALTH_METHOD_DATA}>
+    <Select.Button<HealthCheckMethod> itemKey="GET">GET</Select.Button>
+    <Select.Button<HealthCheckMethod> itemKey="POST">POST</Select.Button>
   </Select.Buttons>
 );
 

@@ -78,6 +78,35 @@ export const ZERO_AUTH_CONFIGS: Record<AuthType, AuthConfig> = {
   basic: { type: "basic", username: "", password: "" },
 };
 
+const jsonPointerZ = z
+  .string()
+  .regex(/^(?:$|(?:\/(?:[^~/]|~0|~1)*)+)$/, "must be a valid JSON pointer (RFC 6901)");
+
+const healthCheckResponseZ = z.object({
+  pointer: jsonPointerZ,
+  expected_value: z.string(),
+});
+
+const healthCheckMethodZ = z.enum(["GET", "POST"]);
+
+const healthCheckZ = z.object({
+  method: healthCheckMethodZ,
+  path: z.string().min(1, "Path is required"),
+  headers: z.record(z.string(), z.string()).optional(),
+  query_params: z.record(z.string(), z.string()).optional(),
+  body: z.string().optional(),
+  response: healthCheckResponseZ.optional(),
+});
+
+export type HealthCheck = z.infer<typeof healthCheckZ>;
+
+export type HealthCheckMethod = z.infer<typeof healthCheckMethodZ>;
+
+export const ZERO_HEALTH_CHECK: HealthCheck = {
+  method: "GET",
+  path: "/health",
+};
+
 const defaultTimeoutMs = TimeSpan.milliseconds(100).milliseconds;
 
 const v0PropertiesZ = z.object({
@@ -95,7 +124,11 @@ const v0PropertiesZ = z.object({
 
 const v1PropertiesZ = v0PropertiesZ
   .omit({ auth: true, headers: true, queryParams: true })
-  .extend({ auth: authConfigZ, version: z.literal(1) });
+  .extend({
+    auth: authConfigZ,
+    health_check: healthCheckZ.optional(),
+    version: z.literal(1),
+  });
 
 export interface Properties extends z.infer<typeof v1PropertiesZ> {}
 
@@ -126,6 +159,7 @@ export const ZERO_PROPERTIES = {
   verifySsl: true,
   timeoutMs: defaultTimeoutMs,
   auth: ZERO_AUTH_CONFIGS.none,
+  health_check: ZERO_HEALTH_CHECK,
   readIndexes: {},
   version: 1,
 } as const satisfies Properties;
