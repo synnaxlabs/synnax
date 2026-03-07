@@ -10,7 +10,6 @@
 #include <vector>
 
 #include "glog/logging.h"
-#include "nlohmann/json.hpp"
 
 #include "x/cpp/os/os.h"
 
