@@ -1381,6 +1381,83 @@ TEST(ProcessorTest, RapidInterleavedBatchAndSingle) {
     server.stop();
 }
 
+TEST(ProcessorTest, RedirectSingleHop) {
+    mock::ServerConfig server_cfg;
+    server_cfg.routes = {
+        {
+            .method = Method::GET,
+            .path = "/old",
+            .status_code = 302,
+            .redirect_to = "/new",
+        },
+        {
+            .method = Method::GET,
+            .path = "/new",
+            .status_code = 200,
+            .response_body = "arrived",
+            .content_type = "text/plain",
+        },
+    };
+    mock::Server server(server_cfg);
+    ASSERT_NIL(server.start());
+
+    auto req = make_request(server.base_url(), "/old");
+
+    Processor proc;
+    const auto resp = ASSERT_NIL_P(proc.execute(req));
+    EXPECT_EQ(resp.status_code, 200);
+    EXPECT_EQ(resp.body, "arrived");
+
+    auto reqs = server.received_requests();
+    ASSERT_EQ(reqs.size(), 2);
+    EXPECT_EQ(reqs[0].path, "/old");
+    EXPECT_EQ(reqs[1].path, "/new");
+
+    server.stop();
+}
+
+TEST(ProcessorTest, RedirectMultipleHops) {
+    mock::ServerConfig server_cfg;
+    server_cfg.routes = {
+        {
+            .method = Method::GET,
+            .path = "/hop1",
+            .status_code = 301,
+            .redirect_to = "/hop2",
+        },
+        {
+            .method = Method::GET,
+            .path = "/hop2",
+            .status_code = 302,
+            .redirect_to = "/hop3",
+        },
+        {
+            .method = Method::GET,
+            .path = "/hop3",
+            .status_code = 200,
+            .response_body = "final",
+            .content_type = "text/plain",
+        },
+    };
+    mock::Server server(server_cfg);
+    ASSERT_NIL(server.start());
+
+    auto req = make_request(server.base_url(), "/hop1");
+
+    Processor proc;
+    const auto resp = ASSERT_NIL_P(proc.execute(req));
+    EXPECT_EQ(resp.status_code, 200);
+    EXPECT_EQ(resp.body, "final");
+
+    auto reqs = server.received_requests();
+    ASSERT_EQ(reqs.size(), 3);
+    EXPECT_EQ(reqs[0].path, "/hop1");
+    EXPECT_EQ(reqs[1].path, "/hop2");
+    EXPECT_EQ(reqs[2].path, "/hop3");
+
+    server.stop();
+}
+
 TEST(ProcessorTest, MultipleServersBothSucceed) {
     mock::ServerConfig cfg_a;
     cfg_a.routes = {{
