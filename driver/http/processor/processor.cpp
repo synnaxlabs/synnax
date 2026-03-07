@@ -150,7 +150,11 @@ CURL *create_handle(const Request &req, ActiveTransfer &t) {
     if (has_request_body(req.method)) {
         if (!req.body.empty()) {
             curl_easy_setopt(handle, CURLOPT_POSTFIELDS, req.body.c_str());
-            curl_easy_setopt(handle, CURLOPT_POSTFIELDSIZE, req.body.size());
+            curl_easy_setopt(
+                handle,
+                CURLOPT_POSTFIELDSIZE,
+                static_cast<long>(req.body.size())
+            );
         } else {
             curl_easy_setopt(handle, CURLOPT_POSTFIELDS, nullptr);
             curl_easy_setopt(handle, CURLOPT_POSTFIELDSIZE, 0L);
@@ -281,6 +285,16 @@ struct Processor::Impl {
             curl_easy_cleanup(handle);
         }
         active.clear();
+
+        std::lock_guard lock(queue_mutex);
+        const auto err = x::errors::Error(
+            http::errors::CRITICAL_ERROR,
+            "processor shutting down"
+        );
+        while (!pending.empty()) {
+            pending.front().promise.set_value({Response{}, err});
+            pending.pop_front();
+        }
     }
 };
 
