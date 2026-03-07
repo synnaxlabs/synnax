@@ -24,6 +24,17 @@
 
 namespace driver::http {
 namespace {
+/// @brief maximum time the event loop blocks when no transfers are active. Only affects
+/// shutdown latency — new submissions interrupt the wait immediately via
+/// curl_multi_wakeup.
+const auto IDLE_POLL_TIMEOUT = static_cast<long>(x::telem::SECOND.milliseconds());
+
+/// @brief maximum time the event loop blocks between I/O checks while transfers are
+/// in-flight. Caps how long newly submitted requests wait to be picked up when no
+/// socket activity occurs.
+const auto ACTIVE_POLL_TIMEOUT = static_cast<long>(
+    x::telem::MILLISECOND.milliseconds()
+);
 struct CurlGlobal {
     CurlGlobal() { curl_global_init(CURL_GLOBAL_DEFAULT); }
     ~CurlGlobal() { curl_global_cleanup(); }
@@ -211,7 +222,7 @@ struct Processor::Impl {
             }
 
             if (active.empty()) {
-                curl_multi_poll(multi, nullptr, 0, 1000, nullptr);
+                curl_multi_poll(multi, nullptr, 0, IDLE_POLL_TIMEOUT, nullptr);
                 continue;
             }
 
@@ -238,7 +249,8 @@ struct Processor::Impl {
                 active.erase(it);
             }
 
-            if (!active.empty()) curl_multi_poll(multi, nullptr, 0, 100, nullptr);
+            if (!active.empty())
+                curl_multi_poll(multi, nullptr, 0, ACTIVE_POLL_TIMEOUT, nullptr);
         }
 
         for (auto &[handle, transfer]: active) {
