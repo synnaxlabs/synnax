@@ -22,8 +22,6 @@ const x::errors::Error CRITICAL_ERROR = driver::errors::CRITICAL_HARDWARE_ERROR.
 const x::errors::Error TEMPORARY_ERROR = driver::errors::TEMPORARY_HARDWARE_ERROR.sub(
     "http"
 );
-/// @brief HTTP response parse error.
-const x::errors::Error PARSE_ERROR = TEMPORARY_ERROR.sub("parse");
 /// @brief HTTP server unreachable (connection refused, DNS failure, or timeout).
 const x::errors::Error UNREACHABLE_ERROR = TEMPORARY_ERROR.sub("unreachable");
 
