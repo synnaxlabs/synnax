@@ -1381,6 +1381,91 @@ TEST(ProcessorTest, RapidInterleavedBatchAndSingle) {
     server.stop();
 }
 
+TEST(ProcessorTest, MultipleServersBothSucceed) {
+    mock::ServerConfig cfg_a;
+    cfg_a.routes = {{
+        .method = Method::GET,
+        .path = "/api/a",
+        .status_code = 200,
+        .response_body = R"({"source": "A"})",
+    }};
+    mock::Server server_a(cfg_a);
+    ASSERT_NIL(server_a.start());
+
+    mock::ServerConfig cfg_b;
+    cfg_b.routes = {{
+        .method = Method::POST,
+        .path = "/api/b",
+        .status_code = 201,
+        .response_body = R"({"source": "B"})",
+    }};
+    mock::Server server_b(cfg_b);
+    ASSERT_NIL(server_b.start());
+
+    std::vector<Request> reqs = {
+        make_request(server_a.base_url(), "/api/a"),
+        make_request(server_b.base_url(), "/api/b", Method::POST),
+    };
+    reqs[1].body = R"({"data": 1})";
+
+    Processor proc;
+    const auto results = ASSERT_NIL_P(proc.execute(reqs));
+    ASSERT_EQ(results.size(), 2);
+
+    const auto &resp_a = ASSERT_NIL_P(results[0]);
+    EXPECT_EQ(resp_a.status_code, 200);
+    EXPECT_EQ(resp_a.body, R"({"source": "A"})");
+
+    const auto &resp_b = ASSERT_NIL_P(results[1]);
+    EXPECT_EQ(resp_b.status_code, 201);
+    EXPECT_EQ(resp_b.body, R"({"source": "B"})");
+
+    server_a.stop();
+    server_b.stop();
+}
+
+TEST(ProcessorTest, MultipleServersOneTimesOut) {
+    mock::ServerConfig cfg_fast;
+    cfg_fast.routes = {{
+        .method = Method::GET,
+        .path = "/api/fast",
+        .status_code = 200,
+        .response_body = "fast",
+    }};
+    mock::Server server_fast(cfg_fast);
+    ASSERT_NIL(server_fast.start());
+
+    mock::ServerConfig cfg_slow;
+    cfg_slow.routes = {{
+        .method = Method::GET,
+        .path = "/api/slow",
+        .status_code = 200,
+        .response_body = "slow",
+        .delay = 2 * x::telem::SECOND,
+    }};
+    mock::Server server_slow(cfg_slow);
+    ASSERT_NIL(server_slow.start());
+
+    auto fast = make_request(server_fast.base_url(), "/api/fast");
+    fast.timeout = 500 * x::telem::MILLISECOND;
+    auto slow = make_request(server_slow.base_url(), "/api/slow");
+    slow.timeout = 500 * x::telem::MILLISECOND;
+    std::vector<Request> reqs = {fast, slow};
+
+    Processor proc;
+    const auto results = ASSERT_NIL_P(proc.execute(reqs));
+    ASSERT_EQ(results.size(), 2);
+
+    const auto &fast_resp = ASSERT_NIL_P(results[0]);
+    EXPECT_EQ(fast_resp.status_code, 200);
+    EXPECT_EQ(fast_resp.body, "fast");
+
+    ASSERT_OCCURRED_AS_P(results[1], errors::UNREACHABLE_ERROR);
+
+    server_fast.stop();
+    server_slow.stop();
+}
+
 TEST(ProcessorTest, MultiThreadedParallelBatches) {
     mock::ServerConfig server_cfg;
     server_cfg.routes = {
