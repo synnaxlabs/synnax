@@ -11,7 +11,7 @@
 
 #include <memory>
 
-#include "driver/http/device/device.h"
+#include "driver/http/processor/processor.h"
 #include "driver/task/task.h"
 
 namespace driver::http {
@@ -22,10 +22,10 @@ const std::string INTEGRATION_NAME = "http";
 /// shared Processor that all tasks use for HTTP I/O.
 class Factory final : public task::Factory {
     /// @brief shared processor that drives all HTTP I/O through a single event loop.
-    std::shared_ptr<device::Processor> processor;
+    std::shared_ptr<Processor> processor;
 
 public:
-    Factory(): processor(std::make_shared<device::Processor>()) {}
+    Factory(): processor(std::make_shared<Processor>()) {}
 
     /// @brief returns the integration name.
     /// @returns the integration name.

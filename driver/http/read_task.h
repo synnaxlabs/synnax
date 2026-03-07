@@ -22,8 +22,9 @@
 
 #include "driver/common/read_task.h"
 #include "driver/common/sample_clock.h"
-#include "driver/http/device/device.h"
 #include "driver/http/http.h"
+#include "driver/http/processor/processor.h"
+#include "driver/http/types/types.h"
 #include "driver/task/task.h"
 
 namespace driver::http {
@@ -47,7 +48,7 @@ struct ReadField {
 /// @brief a single HTTP endpoint to poll.
 struct ReadEndpoint {
     /// @brief static request configuration.
-    device::RequestConfig request;
+    RequestConfig request;
     /// @brief optional static body to send with the request.
     std::string body;
     /// @brief fields to extract from the response.
@@ -84,8 +85,8 @@ struct ReadTaskConfig {
 /// @brief source that polls HTTP endpoints and writes extracted values to a frame.
 class ReadTaskSource : public common::Source {
     ReadTaskConfig cfg;
-    device::Processor *processor;
-    std::vector<device::Request> requests;
+    Processor *processor;
+    std::vector<Request> requests;
     common::SoftwareTimedSampleClock sample_clock;
     std::vector<synnax::channel::Channel> chs;
     std::vector<x::json::json> parsed_bodies;
@@ -96,8 +97,8 @@ public:
     /// @param requests pre-built requests (one per endpoint).
     ReadTaskSource(
         ReadTaskConfig cfg,
-        device::Processor *processor,
-        std::vector<device::Request> requests
+        Processor *processor,
+        std::vector<Request> requests
     );
 
     /// @brief returns the writer configuration for the task.
@@ -124,6 +125,6 @@ public:
 std::pair<common::ConfigureResult, x::errors::Error> configure_read(
     const std::shared_ptr<task::Context> &ctx,
     const synnax::task::Task &task,
-    const std::shared_ptr<device::Processor> &processor
+    const std::shared_ptr<Processor> &processor
 );
 }

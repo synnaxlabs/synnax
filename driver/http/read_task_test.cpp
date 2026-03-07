@@ -13,6 +13,7 @@
 #include "x/cpp/defer/defer.h"
 #include "x/cpp/test/test.h"
 
+#include "driver/http/device/device.h"
 #include "driver/http/errors/errors.h"
 #include "driver/http/mock/server.h"
 #include "driver/http/read_task.h"
@@ -20,7 +21,7 @@
 namespace driver::http {
 namespace {
 /// @brief shared processor for all read task tests.
-auto test_processor = std::make_shared<device::Processor>();
+auto test_processor = std::make_shared<Processor>();
 
 /// @brief helper to build a ReadTaskSource from config and a mock server URL.
 std::pair<std::unique_ptr<ReadTaskSource>, x::errors::Error> make_source(
@@ -37,7 +38,7 @@ std::pair<std::unique_ptr<ReadTaskSource>, x::errors::Error> make_source(
     auto conn_parser = x::json::Parser(conn_json);
     auto conn = device::ConnectionConfig(conn_parser);
 
-    std::vector<device::Request> requests;
+    std::vector<Request> requests;
     requests.reserve(cfg.endpoints.size());
     for (const auto &ep: cfg.endpoints) {
         auto req = device::build_request(conn, ep.request);
@@ -1215,7 +1216,7 @@ TEST(HTTPReadTask, DisabledFieldsExcludedFromWriterConfig) {
     );
     auto conn = device::ConnectionConfig(conn_parser);
 
-    std::vector<device::Request> requests;
+    std::vector<Request> requests;
     for (const auto &e: cfg.endpoints) {
         auto req = device::build_request(conn, e.request);
         req.body = e.body;

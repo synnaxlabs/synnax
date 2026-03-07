@@ -9,6 +9,8 @@
 
 #include <set>
 
+#include "driver/http/device/device.h"
+#include "driver/http/errors/errors.h"
 #include "driver/http/read_task.h"
 
 namespace driver::http {
@@ -157,8 +159,8 @@ std::pair<ReadTaskConfig, x::errors::Error> ReadTaskConfig::parse(
 
 ReadTaskSource::ReadTaskSource(
     ReadTaskConfig cfg,
-    device::Processor *processor,
-    std::vector<device::Request> requests
+    Processor *processor,
+    std::vector<Request> requests
 ):
     cfg(std::move(cfg)),
     processor(processor),
@@ -304,7 +306,7 @@ ReadTaskSource::read(x::breaker::Breaker &breaker, x::telem::Frame &fr) {
 std::pair<common::ConfigureResult, x::errors::Error> configure_read(
     const std::shared_ptr<task::Context> &ctx,
     const synnax::task::Task &task,
-    const std::shared_ptr<device::Processor> &processor
+    const std::shared_ptr<Processor> &processor
 ) {
     auto [cfg, parse_err] = ReadTaskConfig::parse(ctx, task);
     if (parse_err) return {common::ConfigureResult{}, parse_err};
@@ -315,12 +317,7 @@ std::pair<common::ConfigureResult, x::errors::Error> configure_read(
     );
     if (conn_err) return {common::ConfigureResult{}, conn_err};
 
-    for (const auto &ep: cfg.endpoints) {
-        if (auto err = ep.request.validate(); err)
-            return {common::ConfigureResult{}, err};
-    }
-
-    std::vector<device::Request> requests;
+    std::vector<Request> requests;
     requests.reserve(cfg.endpoints.size());
     for (const auto &ep: cfg.endpoints) {
         auto req = device::build_request(conn, ep.request);
