@@ -528,5 +528,4 @@ TEST(BuildRequestTest, ContentTypeForGETIfRequestContentTypeIsSet) {
     auto r = build_request(conn, req);
     EXPECT_EQ(find_header(r.headers, "Content-Type"), "Content-Type: application/xml");
 }
-
 }
