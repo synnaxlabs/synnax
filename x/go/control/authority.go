@@ -50,7 +50,7 @@ const (
 )
 
 func encode(_ context.Context, err error) (errors.Payload, bool) {
-	if errors.Is(err, ErrUnauthorized) {
+	if errors.CheapIs(err, ErrUnauthorized) {
 		return errors.Payload{Type: unauthorized, Data: err.Error()}, true
 	}
 	return errors.Payload{}, false

@@ -40,9 +40,13 @@ public:
         this->initialized = true;
         const auto &o = this->state.output(0);
         const auto &o_time = this->state.output_time(0);
-        o->resize(1);
+        if (o->data_type().is_variable())
+            *o = x::telem::Series(this->value);
+        else {
+            o->resize(1);
+            o->set(0, this->value);
+        }
         o_time->resize(1);
-        o->set(0, this->value);
         o_time->set(0, x::telem::TimeStamp::now());
         ctx.mark_changed(ir::default_output_param);
         return x::errors::NIL;

@@ -30,6 +30,7 @@ import (
 type Module struct {
 	wasmRuntime wazero.Runtime
 	wasmModule  api.Module
+	strings     *state.StringHandleStore
 }
 
 func (m *Module) Close() error {
@@ -92,5 +93,6 @@ func OpenModule(ctx context.Context, cfg ModuleConfig) (*Module, error) {
 	return &Module{
 		wasmModule:  wasmModule,
 		wasmRuntime: wasmRuntime,
+		strings:     cfg.State.Strings,
 	}, nil
 }

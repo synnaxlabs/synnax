@@ -263,6 +263,7 @@ load(const Config &cfg, errors::Handler error_handler = errors::noop_handler) {
     wasm::ModuleConfig module_cfg{
         .module = cfg.mod,
         .modules = stl_modules,
+        .strings = str_st,
     };
     auto [mod, mod_err] = wasm::Module::open(module_cfg);
     if (mod_err) return {nullptr, mod_err};

@@ -83,6 +83,18 @@ public:
         return x::errors::NIL;
     }
 
+    void reset() override {
+        runtime::node::Node::reset();
+        auto [data, index_data, ok] = this->state.read_series(this->channel_key);
+        if (!ok || data.series.empty()) return;
+        const auto &last = data.series.back();
+        const auto lower = last.alignment;
+        const auto upper_val = lower.uint64() + (last.size() > 0 ? last.size() - 1 : 0);
+        const auto upper = x::telem::Alignment(upper_val + 1);
+        if (upper.uint64() > this->high_water_mark.uint64())
+            this->high_water_mark = upper;
+    }
+
     [[nodiscard]] bool is_output_truthy(const std::string &param_name) const override {
         return this->state.is_output_truthy(param_name);
     }

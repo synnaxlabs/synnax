@@ -29,17 +29,13 @@ import { Group } from "@/group";
 import { Import } from "@/import";
 import { Layout } from "@/layout";
 import { LinePlot } from "@/lineplot";
-import { LinePlotServices } from "@/lineplot/services";
 import { Link } from "@/link";
 import { Log } from "@/log";
-import { LogServices } from "@/log/services";
 import { Ontology } from "@/ontology";
 import { createUseDelete } from "@/ontology/createUseDelete";
 import { createUseRename } from "@/ontology/createUseRename";
 import { Schematic } from "@/schematic";
-import { SchematicServices } from "@/schematic/services";
 import { Table } from "@/table";
-import { TableServices } from "@/table/services";
 import { useExport } from "@/workspace/export";
 import { selectActiveKey, useSelectActiveKey } from "@/workspace/selectors";
 import { maybeRename, setActive } from "@/workspace/slice";
@@ -229,19 +225,19 @@ const TreeContextMenu: Ontology.TreeContextMenu = (props): ReactElement => {
       {singleResource && (
         <>
           <PMenu.Item itemKey="createPlot">
-            <LinePlotServices.CreateIcon />
+            <PLinePlot.CreateIcon />
             Create line plot
           </PMenu.Item>
           <PMenu.Item itemKey="createLog">
-            <LogServices.CreateIcon />
+            <PLog.CreateIcon />
             Create log
           </PMenu.Item>
           <PMenu.Item itemKey="createTable">
-            <TableServices.CreateIcon />
+            <PTable.CreateIcon />
             Create table
           </PMenu.Item>
           <PMenu.Item itemKey="createSchematic">
-            <SchematicServices.CreateIcon />
+            <PSchematic.CreateIcon />
             Create schematic
           </PMenu.Item>
           <PMenu.Divider />

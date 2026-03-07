@@ -25,21 +25,27 @@ func compileIdentifier[ASTNode antlr.ParserRuleContext](
 	if err != nil {
 		return types.Type{}, err
 	}
+	chanRef := ctx.Hint.Kind == types.KindChan
 	switch scope.Kind {
 	case symbol.KindVariable, symbol.KindInput:
 		ctx.Writer.WriteLocalGet(scope.ID)
 		if scope.Type.Kind == types.KindChan {
+			if chanRef {
+				return scope.Type, nil
+			}
 			emitChannelRead(ctx, scope.Type)
 			return scope.Type.Unwrap(), nil
 		}
 		return scope.Type, nil
 	case symbol.KindConfig:
+		ctx.Writer.WriteLocalGet(scope.ID)
 		if scope.Type.Kind == types.KindChan {
-			ctx.Writer.WriteLocalGet(scope.ID)
+			if chanRef {
+				return scope.Type, nil
+			}
 			emitChannelRead(ctx, scope.Type)
 			return scope.Type.Unwrap(), nil
 		}
-		ctx.Writer.WriteLocalGet(scope.ID)
 		return scope.Type, nil
 	case symbol.KindGlobalConstant:
 		if err := emitLiteralValue(ctx, scope.Type, scope.DefaultValue); err != nil {
@@ -51,6 +57,9 @@ func compileIdentifier[ASTNode antlr.ParserRuleContext](
 		return scope.Type, nil
 	case symbol.KindChannel:
 		ctx.Writer.WriteI32Const(int32(scope.ID))
+		if chanRef {
+			return scope.Type, nil
+		}
 		emitChannelRead(ctx, scope.Type)
 		return scope.Type.Unwrap(), nil
 	default:

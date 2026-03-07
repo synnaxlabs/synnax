@@ -11,18 +11,21 @@ package wasm
 
 import (
 	"context"
-	"fmt"
 	"math"
 	"strings"
 
 	runtimenode "github.com/synnaxlabs/arc/runtime/node"
+	"github.com/synnaxlabs/arc/runtime/state"
+	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/query"
 	"github.com/synnaxlabs/x/telem"
 	"github.com/tetratelabs/wazero/api"
+	"go.uber.org/zap"
 )
 
 type factory struct {
-	wasm api.Module
+	wasm    api.Module
+	strings *state.StringHandleStore
 }
 
 func (w *factory) Create(_ context.Context, cfg runtimenode.Config) (runtimenode.Node, error) {
@@ -39,7 +42,16 @@ func (w *factory) Create(_ context.Context, cfg runtimenode.Config) (runtimenode
 	configCount := len(cfg.Node.Config)
 	params := make([]uint64, configCount+len(irFn.Inputs))
 	for i, param := range cfg.Node.Config {
-		params[i] = convertConfigValue(param.Value)
+		if s, ok := param.Value.(string); ok {
+			// String config params get a stable handle that persists across Flush calls.
+			params[i] = uint64(w.strings.CreateConfig(s))
+			continue
+		}
+		val, err := convertConfigValue(param.Value)
+		if err != nil {
+			return nil, err
+		}
+		params[i] = val
 	}
 
 	n := &nodeImpl{
@@ -60,35 +72,37 @@ func (w *factory) Create(_ context.Context, cfg runtimenode.Config) (runtimenode
 }
 
 // convertConfigValue converts a config value to uint64 for WASM function calls.
-func convertConfigValue(v any) uint64 {
+func convertConfigValue(v any) (uint64, error) {
 	switch val := v.(type) {
 	case int8:
-		return uint64(val)
+		return uint64(val), nil
 	case int16:
-		return uint64(val)
+		return uint64(val), nil
 	case int32:
-		return uint64(val)
+		return uint64(val), nil
 	case int64:
-		return uint64(val)
+		return uint64(val), nil
 	case uint8:
-		return uint64(val)
+		return uint64(val), nil
 	case uint16:
-		return uint64(val)
+		return uint64(val), nil
 	case uint32:
-		return uint64(val)
+		return uint64(val), nil
 	case uint64:
-		return val
+		return val, nil
 	case float32:
-		return uint64(math.Float32bits(val))
+		return uint64(math.Float32bits(val)), nil
 	case float64:
-		return math.Float64bits(val)
+		return math.Float64bits(val), nil
 	case telem.TimeStamp:
-		return uint64(val)
+		return uint64(val), nil
 	default:
-		panic(fmt.Sprintf("unsupported config value type: %T", v))
+		err := errors.Newf("unsupported config value type: %T", v)
+		zap.S().DPanic(err.Error())
+		return 0, err
 	}
 }
 
 func NewFactory(mod *Module) (runtimenode.Factory, error) {
-	return &factory{wasm: mod.wasmModule}, nil
+	return &factory{wasm: mod.wasmModule, strings: mod.strings}, nil
 }

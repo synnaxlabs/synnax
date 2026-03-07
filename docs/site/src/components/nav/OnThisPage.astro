@@ -3,45 +3,68 @@ import Feedback from "@/components/feedback/Feedback.astro";
 import { OnThisPage as OTP } from "@/components/nav/OnThisPage";
 import { Icon, Divider, Text, Flex } from "@synnaxlabs/pluto";
 const props = Astro.props;
+const { hideFeedback = false } = props;
+const hasHeadings =
+    props.headings &&
+    props.headings.filter((h: any) => h.depth > 1 && h.depth <= 3).length > 0;
 ---
 
 <Flex.Box el="nav" className="on-this-page" gap="medium">
-    <Flex.Box direction="y" gap={2} className="on-this-page__header">
-        <Text.Text level="h5">
-            <Icon.Log style={{ transform: "scale(0.8)" }} />
-            On this page
-        </Text.Text>
-    </Flex.Box>
-    <Flex.Box direction="y" gap={2} className="on-this-page__content styled-scrollbar">
-        <OTP
-            client:only="react"
-            headings={props.headings}
-            url={props.url}
-            clients={props.clients}
-            platforms={props.platforms}
-        />
-    </Flex.Box>
-    <Flex.Box direction="y" gap={2}>
-        <Divider.Divider direction="x" />
-        <Flex.Box direction="x" justify="end">
-            <Feedback />
-        </Flex.Box>
-    </Flex.Box>
+    {
+        hasHeadings && (
+            <Flex.Box direction="y" gap={2} className="on-this-page__header">
+                <Text.Text level="h5">
+                    <Icon.Log style={{ transform: "scale(0.8)" }} />
+                    On this page
+                </Text.Text>
+            </Flex.Box>
+        )
+    }
+    {
+        hasHeadings && (
+            <Flex.Box
+                direction="y"
+                gap={2}
+                className="on-this-page__content styled-scrollbar"
+            >
+                <OTP
+                    client:only="react"
+                    headings={props.headings}
+                    url={props.url}
+                    clients={props.clients}
+                    platforms={props.platforms}
+                />
+            </Flex.Box>
+        )
+    }
+    {
+        !hideFeedback && (
+            <Flex.Box direction="y" gap={2}>
+                {hasHeadings && <Divider.Divider direction="x" />}
+                <Flex.Box direction="x" justify="end">
+                    <Feedback />
+                </Flex.Box>
+            </Flex.Box>
+        )
+    }
+    <slot />
 </Flex.Box>
 
 <style is:global>
     nav.on-this-page {
         position: sticky;
-        top: 22rem;
+        top: calc(var(--nav-height) + 7rem);
         width: 235px;
         align-self: flex-start;
-        max-height: calc(100vh - 26rem);
+        max-height: calc(100vh - var(--nav-height) - 11rem);
+        margin-bottom: 10rem;
 
         .on-this-page__header {
             flex-shrink: 0;
 
             & h5 {
                 font-weight: 500;
+                color: var(--pluto-gray-l10);
             }
         }
 
@@ -94,6 +117,7 @@ const props = Astro.props;
             display: block;
             padding: 1rem 2rem;
             font-size: var(--pluto-small-size);
+            line-height: 130%;
             font-family: var(--pluto-font-family);
             color: var(--pluto-gray-l8);
             text-decoration: none;

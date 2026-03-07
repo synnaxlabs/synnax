@@ -2757,4 +2757,25 @@ input_ch -> count_local{} -> sink_ch
 			Expect(outFr.Get(200).Series).To(BeEmpty())
 		})
 	})
+
+	Describe("String config params", func() {
+		It("should create and execute a node with a string config param without error", func() {
+			g := arc.Graph{
+				Functions: []ir.Function{{
+					Key:     "log_fn",
+					Config:  types.Params{{Name: "msg", Type: types.String()}},
+					Outputs: types.Params{},
+					Body:    ir.Body{Raw: `{}`},
+				}},
+				Nodes: []graph.Node{{
+					Key:    "log_fn",
+					Type:   "log_fn",
+					Config: map[string]any{"msg": "hello"},
+				}},
+			}
+			h := newHarness(ctx, g, nil, nil)
+			defer h.Close()
+			h.Execute(ctx, "log_fn")
+		})
+	})
 })

@@ -15,17 +15,30 @@
 
 namespace arc::stl::str {
 
-/// Transient handle store for strings created during a single execution cycle.
-/// Handles are uint32_t keys that WASM code uses to reference string objects.
+/// Handle store for strings created during WASM execution.
+/// Manages both transient handles (cleared each cycle) and config handles
+/// (stable for the State lifetime).
 class State {
+    static constexpr uint32_t CONFIG_HANDLE_BASE = 1 << 24;
+
     std::unordered_map<uint32_t, std::string> handles;
     uint32_t counter = 1;
+    std::unordered_map<uint32_t, std::string> config_handles;
+    uint32_t config_counter = CONFIG_HANDLE_BASE;
 
 public:
-    /// Creates a string handle from a C++ string.
+    /// Creates a transient string handle from a C++ string.
     uint32_t create(const std::string &s) {
         const uint32_t handle = this->counter++;
         this->handles[handle] = s;
+        return handle;
+    }
+
+    /// Creates a stable config string handle that persists across clear() calls.
+    /// Use for config param strings whose handles are baked into node args.
+    uint32_t create_config(const std::string &s) {
+        const uint32_t handle = this->config_counter++;
+        this->config_handles[handle] = s;
         return handle;
     }
 
@@ -37,20 +50,32 @@ public:
         return handle;
     }
 
-    /// Gets the string value for a handle. Returns empty string if not found.
+    /// Gets the string value for a handle. Checks transient first, then config.
+    /// Returns empty string if not found.
     std::string get(uint32_t handle) const {
         const auto it = this->handles.find(handle);
-        if (it == this->handles.end()) return "";
-        return it->second;
+        if (it != this->handles.end()) return it->second;
+        const auto cit = this->config_handles.find(handle);
+        if (cit != this->config_handles.end()) return cit->second;
+        return "";
     }
 
-    /// Checks if a string handle exists.
-    bool exists(uint32_t handle) const { return this->handles.contains(handle); }
+    /// Checks if a string handle exists (transient or config).
+    bool exists(uint32_t handle) const {
+        return this->handles.contains(handle) || this->config_handles.contains(handle);
+    }
 
-    /// Clears all transient handles. Called at end of each execution cycle.
+    /// Clears transient handles. Config handles are preserved.
     void clear() {
         this->handles.clear();
         this->counter = 1;
+    }
+
+    /// Clears all handles including config handles.
+    void reset() {
+        this->clear();
+        this->config_handles.clear();
+        this->config_counter = CONFIG_HANDLE_BASE;
     }
 };
 

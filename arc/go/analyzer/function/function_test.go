@@ -14,6 +14,7 @@ import (
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/arc/analyzer"
 	"github.com/synnaxlabs/arc/analyzer/context"
+	"github.com/synnaxlabs/arc/analyzer/function"
 	"github.com/synnaxlabs/arc/ir"
 	"github.com/synnaxlabs/arc/parser"
 	"github.com/synnaxlabs/arc/symbol"
@@ -437,6 +438,273 @@ var _ = Describe("Function Analyzer", func() {
 			Expect(f.Channels.Write).To(HaveLen(1))
 			Expect(f.Channels.Write[20]).To(Equal("valve"))
 		})
+
+		Context("channel propagation through function calls", func() {
+			It("should propagate channel writes from called function to caller", func() {
+				resolver := symbol.MapResolver{
+					"virt": {Name: "virt", Kind: symbol.KindChannel, Type: types.Chan(types.F32()), ID: 30},
+				}
+				ctx := analyzeExpectSuccess(`
+					func dog(cat f32) {
+						virt = cat
+					}
+					func abc() {
+						dog(-3.1)
+					}
+				`, resolver)
+
+				dog := MustSucceed(ctx.Scope.Resolve(ctx, "dog"))
+				Expect(dog.Channels.Write).To(HaveLen(1))
+				Expect(dog.Channels.Write[30]).To(Equal("virt"))
+
+				abc := MustSucceed(ctx.Scope.Resolve(ctx, "abc"))
+				Expect(abc.Channels.Write).To(HaveLen(1))
+				Expect(abc.Channels.Write[30]).To(Equal("virt"))
+			})
+
+			It("should propagate channel reads from called function to caller", func() {
+				resolver := symbol.MapResolver{
+					"ox_pt_1": {Name: "ox_pt_1", Kind: symbol.KindChannel, Type: types.Chan(types.F32()), ID: 12},
+				}
+				ctx := analyzeExpectSuccess(`
+					func readSensor() f32 {
+						return ox_pt_1
+					}
+					func process() {
+						x := readSensor()
+					}
+				`, resolver)
+
+				readSensor := MustSucceed(ctx.Scope.Resolve(ctx, "readSensor"))
+				Expect(readSensor.Channels.Read).To(HaveLen(1))
+				Expect(readSensor.Channels.Read[12]).To(Equal("ox_pt_1"))
+
+				process := MustSucceed(ctx.Scope.Resolve(ctx, "process"))
+				Expect(process.Channels.Read).To(HaveLen(1))
+				Expect(process.Channels.Read[12]).To(Equal("ox_pt_1"))
+			})
+
+			It("should propagate channels through multi-level call chains", func() {
+				resolver := symbol.MapResolver{
+					"virt": {Name: "virt", Kind: symbol.KindChannel, Type: types.Chan(types.F32()), ID: 30},
+				}
+				ctx := analyzeExpectSuccess(`
+					func abc3(val f32) {
+						virt = val
+					}
+					func abc2(val f32) {
+						abc3(val)
+					}
+					func abc1(val f32) {
+						abc2(val)
+					}
+					func abc_entry() {
+						abc1(3.3)
+					}
+				`, resolver)
+
+				abc3 := MustSucceed(ctx.Scope.Resolve(ctx, "abc3"))
+				Expect(abc3.Channels.Write).To(HaveLen(1))
+				Expect(abc3.Channels.Write[30]).To(Equal("virt"))
+
+				abc2 := MustSucceed(ctx.Scope.Resolve(ctx, "abc2"))
+				Expect(abc2.Channels.Write).To(HaveLen(1))
+				Expect(abc2.Channels.Write[30]).To(Equal("virt"))
+
+				abc1 := MustSucceed(ctx.Scope.Resolve(ctx, "abc1"))
+				Expect(abc1.Channels.Write).To(HaveLen(1))
+				Expect(abc1.Channels.Write[30]).To(Equal("virt"))
+
+				abcEntry := MustSucceed(ctx.Scope.Resolve(ctx, "abc_entry"))
+				Expect(abcEntry.Channels.Write).To(HaveLen(1))
+				Expect(abcEntry.Channels.Write[30]).To(Equal("virt"))
+			})
+
+			It("should combine direct and transitive channel accesses", func() {
+				resolver := symbol.MapResolver{
+					"virt1": {Name: "virt1", Kind: symbol.KindChannel, Type: types.Chan(types.F32()), ID: 30},
+					"virt2": {Name: "virt2", Kind: symbol.KindChannel, Type: types.Chan(types.F32()), ID: 31},
+				}
+				ctx := analyzeExpectSuccess(`
+					func helper() {
+						virt2 = 2.0
+					}
+					func main_fn() {
+						virt1 = 1.0
+						helper()
+					}
+				`, resolver)
+
+				mainFn := MustSucceed(ctx.Scope.Resolve(ctx, "main_fn"))
+				Expect(mainFn.Channels.Write).To(HaveLen(2))
+				Expect(mainFn.Channels.Write[30]).To(Equal("virt1"))
+				Expect(mainFn.Channels.Write[31]).To(Equal("virt2"))
+			})
+
+			It("should propagate channels from callee declared after caller", func() {
+				resolver := symbol.MapResolver{
+					"virt": {Name: "virt", Kind: symbol.KindChannel, Type: types.Chan(types.F32()), ID: 30},
+				}
+				ctx := analyzeExpectSuccess(`
+					func caller() {
+						callee()
+					}
+					func callee() {
+						virt = 1.0
+					}
+				`, resolver)
+
+				caller := MustSucceed(ctx.Scope.Resolve(ctx, "caller"))
+				Expect(caller.Channels.Write).To(HaveLen(1))
+				Expect(caller.Channels.Write[30]).To(Equal("virt"))
+			})
+
+			It("should track correct channel ID for write through chan input param", func() {
+				resolver := symbol.MapResolver{
+					"ox_pt_1": {Name: "ox_pt_1", Kind: symbol.KindChannel, Type: types.Chan(types.F32()), ID: 50},
+				}
+				ctx := analyzeExpectSuccess(`
+					func helper(my_chan chan f32) {
+						my_chan = 1.0
+					}
+					func abc() {
+						helper(ox_pt_1)
+					}
+				`, resolver)
+
+				helper := MustSucceed(ctx.Scope.Resolve(ctx, "helper"))
+				Expect(helper.Channels.Write).To(HaveLen(1))
+
+				abc := MustSucceed(ctx.Scope.Resolve(ctx, "abc"))
+				Expect(abc.Channels.Write).To(HaveLen(1))
+				Expect(abc.Channels.Write[50]).To(Equal("ox_pt_1"))
+			})
+
+			It("should propagate caller write channels when callee uses chan input param", func() {
+				resolver := symbol.MapResolver{
+					"ox_pt_1": {Name: "ox_pt_1", Kind: symbol.KindChannel, Type: types.Chan(types.F32()), ID: 50},
+				}
+				ctx := analyzeExpectSuccess(`
+					func helper(my_chan chan f32) {
+						my_chan = 1.0
+					}
+					func abc() {
+						helper(ox_pt_1)
+					}
+				`, resolver)
+
+				abc := MustSucceed(ctx.Scope.Resolve(ctx, "abc"))
+				Expect(abc.Channels.Read).To(HaveLen(1))
+				Expect(abc.Channels.Read[50]).To(Equal("ox_pt_1"))
+				Expect(abc.Channels.Write).To(HaveLen(1))
+				Expect(abc.Channels.Write[50]).To(Equal("ox_pt_1"))
+			})
+
+			It("should propagate read channels through chan input param", func() {
+				resolver := symbol.MapResolver{
+					"ox_pt_1": {Name: "ox_pt_1", Kind: symbol.KindChannel, Type: types.Chan(types.F32()), ID: 50},
+				}
+				ctx := analyzeExpectSuccess(`
+					func helper(my_chan chan f32) f32 {
+						return my_chan
+					}
+					func abc() f32 {
+						return helper(ox_pt_1)
+					}
+				`, resolver)
+
+				abc := MustSucceed(ctx.Scope.Resolve(ctx, "abc"))
+				Expect(abc.Channels.Read).To(HaveLen(1))
+				Expect(abc.Channels.Read[50]).To(Equal("ox_pt_1"))
+			})
+
+			It("should propagate channel writes through multi-level chan input param chain", func() {
+				resolver := symbol.MapResolver{
+					"ox_pt_1": {Name: "ox_pt_1", Kind: symbol.KindChannel, Type: types.Chan(types.F32()), ID: 50},
+				}
+				ctx := analyzeExpectSuccess(`
+					func leaf(ch chan f32) {
+						ch = 1.0
+					}
+					func middle(ch chan f32) {
+						leaf(ch)
+					}
+					func top() {
+						middle(ox_pt_1)
+					}
+				`, resolver)
+
+				top := MustSucceed(ctx.Scope.Resolve(ctx, "top"))
+				Expect(top.Channels.Write).To(HaveLen(1))
+				Expect(top.Channels.Write[50]).To(Equal("ox_pt_1"))
+			})
+
+			It("should propagate multiple channel params correctly", func() {
+				resolver := symbol.MapResolver{
+					"sensor":   {Name: "sensor", Kind: symbol.KindChannel, Type: types.Chan(types.F32()), ID: 10},
+					"actuator": {Name: "actuator", Kind: symbol.KindChannel, Type: types.Chan(types.F32()), ID: 20},
+				}
+				ctx := analyzeExpectSuccess(`
+					func process(input chan f32, output chan f32) {
+						output = input * 2.0
+					}
+					func abc() {
+						process(sensor, actuator)
+					}
+				`, resolver)
+
+				abc := MustSucceed(ctx.Scope.Resolve(ctx, "abc"))
+				Expect(abc.Channels.Read).To(HaveLen(2))
+				Expect(abc.Channels.Read[10]).To(Equal("sensor"))
+				Expect(abc.Channels.Read[20]).To(Equal("actuator"))
+				Expect(abc.Channels.Write).To(HaveLen(1))
+				Expect(abc.Channels.Write[20]).To(Equal("actuator"))
+			})
+
+			It("should propagate channels when same function called with different channel args", func() {
+				resolver := symbol.MapResolver{
+					"valve_a": {Name: "valve_a", Kind: symbol.KindChannel, Type: types.Chan(types.F32()), ID: 100},
+					"valve_b": {Name: "valve_b", Kind: symbol.KindChannel, Type: types.Chan(types.F32()), ID: 200},
+				}
+				ctx := analyzeExpectSuccess(`
+					func write_to(ch chan f32) {
+						ch = 1.0
+					}
+					func abc() {
+						write_to(valve_a)
+						write_to(valve_b)
+					}
+				`, resolver)
+
+				abc := MustSucceed(ctx.Scope.Resolve(ctx, "abc"))
+				Expect(abc.Channels.Read).To(HaveLen(2))
+				Expect(abc.Channels.Read[100]).To(Equal("valve_a"))
+				Expect(abc.Channels.Read[200]).To(Equal("valve_b"))
+				Expect(abc.Channels.Write).To(HaveLen(2))
+				Expect(abc.Channels.Write[100]).To(Equal("valve_a"))
+				Expect(abc.Channels.Write[200]).To(Equal("valve_b"))
+			})
+
+			It("should propagate chan param channels when callee is declared after caller", func() {
+				resolver := symbol.MapResolver{
+					"ox_pt_1": {Name: "ox_pt_1", Kind: symbol.KindChannel, Type: types.Chan(types.F32()), ID: 50},
+				}
+				ctx := analyzeExpectSuccess(`
+					func top() {
+						middle(ox_pt_1)
+					}
+					func middle(ch chan f32) {
+						ch = 1.0
+					}
+				`, resolver)
+
+				top := MustSucceed(ctx.Scope.Resolve(ctx, "top"))
+				Expect(top.Channels.Write).To(HaveLen(1))
+				Expect(top.Channels.Write[50]).To(Equal("ox_pt_1"))
+				Expect(top.Channels.Read).To(HaveLen(1))
+				Expect(top.Channels.Read[50]).To(Equal("ox_pt_1"))
+			})
+		})
 	})
 
 	Describe("Optional Parameters", func() {
@@ -490,6 +758,42 @@ var _ = Describe("Function Analyzer", func() {
 					`func foo(x i32 = 3.14) i32 { return x }`,
 					ContainSubstring("cannot convert non-integer float")),
 			)
+		})
+	})
+
+	Describe("BlockAlwaysReturns", func() {
+		parseBlock := func(src string) parser.IBlockContext {
+			prog := MustSucceed(parser.Parse(src))
+			return prog.TopLevelItem(0).FunctionDeclaration().Block()
+		}
+		DescribeTable("should return true when all paths return",
+			func(src string) {
+				Expect(function.BlockAlwaysReturns(parseBlock(src))).To(BeTrue())
+			},
+			Entry("bare return", `func f() { return }`),
+			Entry("return with value", `func f() i64 { return 1 }`),
+			Entry("if/else both return", `func f() i64 { if 1 > 0 { return 1 } else { return 2 } }`),
+			Entry("if/else-if/else all return",
+				`func f() i64 { if 1 > 2 { return 1 } else if 2 > 3 { return 2 } else { return 3 } }`),
+			Entry("nested if/else all return",
+				`func f() i64 { if 1 > 0 { if 2 > 0 { return 1 } else { return 2 } } else { return 3 } }`),
+			Entry("return after non-returning statement",
+				`func f() i64 { x := 1 return x }`),
+		)
+		DescribeTable("should return false when some paths do not return",
+			func(src string) {
+				Expect(function.BlockAlwaysReturns(parseBlock(src))).To(BeFalse())
+			},
+			Entry("empty body", `func f() {}`),
+			Entry("no return", `func f() { x := 1 }`),
+			Entry("if without else", `func f() { if 1 > 0 { return } }`),
+			Entry("if/else with one branch missing return",
+				`func f() { if 1 > 0 { return } else { x := 1 } }`),
+			Entry("if/else-if missing else",
+				`func f() { if 1 > 0 { return } else if 2 > 0 { return } }`),
+		)
+		It("should return false for nil block", func() {
+			Expect(function.BlockAlwaysReturns(nil)).To(BeFalse())
 		})
 	})
 

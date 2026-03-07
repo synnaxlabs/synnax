@@ -1,0 +1,91 @@
+---
+import Root from "@/layouts/Root.astro";
+import { Flex, Text, Icon } from "@synnaxlabs/pluto";
+import { Logo } from "@synnaxlabs/media";
+import OneBillionRowsTile from "./one-billion-rows/OneBillionRowsTile.astro";
+import ArcTile from "./introducing-arc/ArcTile.astro";
+---
+
+<Root frontmatter={{ title: "Blog" }}>
+    <section>
+        <Flex.Box direction="y" className="blog" el="article" grow>
+            <Flex.Box direction="x" className="header" justify="between" align="center">
+                <Flex.Box direction="y" justify="center" gap="large">
+                    <Text.Text level="h1">Blog</Text.Text>
+                    <Text.Text color={8}>
+                        Articles and insights from the Synnax team.
+                    </Text.Text>
+                </Flex.Box>
+            </Flex.Box>
+            <Flex.Box direction="y" className="blog-entries" gap={6}>
+                <ArcTile />
+                <OneBillionRowsTile />
+            </Flex.Box>
+        </Flex.Box>
+    </section>
+</Root>
+
+<style is:global>
+    main > section:has(.blog) {
+        max-width: 1150px;
+    }
+
+    .blog {
+        flex-basis: 840px;
+        flex-shrink: 1;
+        flex-grow: 1;
+        min-width: 0;
+        padding: 5rem 8rem;
+
+        .header {
+            width: 100%;
+            min-height: 200px;
+            height: 25vh;
+            margin: 0 -8rem;
+            padding-left: 8rem;
+            padding-right: 8rem;
+            width: calc(100% + 16rem);
+            background-size: 2rem 2rem;
+            background-image: radial-gradient(
+                var(--pluto-gray-l4) 0.5px,
+                transparent 0.5px
+            );
+            position: relative;
+            mask-image: radial-gradient(circle, black 90%, transparent);
+        }
+    }
+
+    .blog-entries {
+        padding-top: 3rem;
+        padding-bottom: 20rem;
+    }
+
+    a.blog-entry {
+        text-decoration: none !important;
+
+        & > .pluto-flex-box {
+            padding: 3rem 4rem;
+            transition: all 0.2s;
+            cursor: pointer;
+            border-color: var(--pluto-gray-l4);
+
+            &:hover {
+                background-color: var(--pluto-gray-l2);
+                border-color: var(--pluto-gray-l5);
+            }
+        }
+    }
+
+    @media (max-width: 800px) {
+        .blog {
+            padding: 3rem 3rem;
+
+            .header {
+                margin: 0 -3rem;
+                padding-left: 3rem;
+                padding-right: 3rem;
+                width: calc(100% + 6rem);
+            }
+        }
+    }
+</style>

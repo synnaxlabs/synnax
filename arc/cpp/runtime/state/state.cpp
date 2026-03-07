@@ -203,7 +203,7 @@ std::vector<std::pair<types::ChannelKey, Series>> State::flush() {
 
 void State::reset() {
     this->channel->reset();
-    this->strings->clear();
+    this->strings->reset();
     this->series->clear();
     this->vars->reset();
 }

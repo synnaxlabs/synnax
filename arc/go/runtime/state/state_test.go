@@ -1635,6 +1635,33 @@ var _ = Describe("State", func() {
 				h3 := s.Strings.Create("third")
 				Expect(h3).To(Equal(uint32(1)))
 			})
+
+			It("Should preserve config string handles across Clear", func() {
+				s := state.New(state.Config{IR: ir.IR{Nodes: []ir.Node{{Key: "test"}}}})
+				handle := s.Strings.CreateConfig("persistent")
+				s.Strings.Clear()
+				retrieved, ok := s.Strings.Get(handle)
+				Expect(ok).To(BeTrue())
+				Expect(retrieved).To(Equal("persistent"))
+			})
+
+			It("Should not collide config handles with transient handles", func() {
+				s := state.New(state.Config{IR: ir.IR{Nodes: []ir.Node{{Key: "test"}}}})
+				transient := s.Strings.Create("transient")
+				config := s.Strings.CreateConfig("config")
+				Expect(transient).ToNot(Equal(config))
+			})
+
+			It("Should still resolve config handles after multiple Clear cycles", func() {
+				s := state.New(state.Config{IR: ir.IR{Nodes: []ir.Node{{Key: "test"}}}})
+				handle := s.Strings.CreateConfig("stable")
+				for range 5 {
+					s.Strings.Clear()
+				}
+				retrieved, ok := s.Strings.Get(handle)
+				Expect(ok).To(BeTrue())
+				Expect(retrieved).To(Equal("stable"))
+			})
 		})
 
 		Describe("Flush Integration", func() {

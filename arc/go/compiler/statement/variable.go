@@ -391,13 +391,9 @@ func compileAssignment(
 			// Direct reference: scope.ID is the Synnax channel key
 			ctx.Writer.WriteI32Const(int32(scope.ID))
 		}
-	} else if sym.Kind == symbol.KindConfig && varType.Kind == types.KindChan {
-		// For config params with channel type, scope.ID is a WASM local index
-		// that holds the channel key at runtime - read it from the local
-		ctx.Writer.WriteLocalGet(scope.ID)
-	} else if sym.Kind == symbol.KindVariable && varType.Kind == types.KindChan {
-		// For variables with channel type (e.g., out := output where output is chan f32),
-		// the variable holds the channel key - read it from the local
+	} else if varType.Kind == types.KindChan && (sym.Kind == symbol.KindConfig || sym.Kind == symbol.KindVariable || sym.Kind == symbol.KindInput) {
+		// For config params, variables, and input params with channel type,
+		// scope.ID is a WASM local index that holds the channel key at runtime
 		ctx.Writer.WriteLocalGet(scope.ID)
 	}
 
@@ -420,7 +416,11 @@ func compileAssignment(
 			ctx.Writer.WriteLocalSet(scope.ID)
 		}
 	case symbol.KindInput:
-		ctx.Writer.WriteLocalSet(scope.ID)
+		if varType.Kind == types.KindChan {
+			ctx.Resolver.EmitChannelWrite(ctx.Writer, ctx.WriterID, varType.Unwrap())
+		} else {
+			ctx.Writer.WriteLocalSet(scope.ID)
+		}
 	case symbol.KindStatefulVariable:
 		// Stack: [value]
 		// Need: [varID, value]

@@ -132,7 +132,8 @@ start_cmd => main
 emergency_stop => abort
 ```
 
-The sequence starts when the source channel has a truthy value (non-zero).
+The sequence starts when the source channel **receives a new truthy write** (non-zero).
+A historical truthy channel value does not trigger the sequence.
 
 ### Triggering from Schematics
 
@@ -152,9 +153,33 @@ When entering a stage:
 1. All one-shot transition states reset (can fire again)
 2. All stateful variables in the stage reset to initial values
 3. Reactive flows start fresh
+4. Channel triggers only react to new writes — values written before stage entry are
+   ignored
 
 Stages don't remember their previous state. If you transition away and come back,
 everything starts over.
+
+This is important for **resumable sequences** — a common pattern where a sequence parks
+in a `yield` stage and waits for a fresh command to re-enter:
+
+```arc
+sequence controller {
+    stage run {
+        // ... control logic ...
+        stop_cmd => stop
+    }
+    stage stop {
+        0 -> valve_cmd,
+        wait{duration=250ms} => yield
+    }
+    stage yield {
+        // Only a new write to start_cmd will re-enter run.
+        start_cmd => run
+    }
+}
+
+start_cmd => controller
+```
 
 <Divider.Divider x />
 

@@ -134,6 +134,8 @@ func analyzeIdentifierByRole(
 		return analyzeSequenceRef(ctx, sym, kg)
 	case symbol.KindStage:
 		return analyzeStageRef(sym, kg)
+	case symbol.KindGlobalConstant:
+		return buildGlobalConstantNode(name, sym, kg)
 	default:
 		if isSink {
 			return buildChannelWriteNode(name, sym, kg)
@@ -193,6 +195,22 @@ func buildChannelWriteNode(name string, sym *symbol.Scope, kg *keyGenerator) (no
 	}
 	n.Channels.Write[chKey] = sym.Name
 	return newNodeResult(n, ir.DefaultInputParam, ""), true
+}
+
+func buildGlobalConstantNode(
+	name string,
+	sym *symbol.Scope,
+	kg *keyGenerator,
+) (nodeResult, bool) {
+	key := kg.generate("const", name)
+	n := ir.Node{
+		Key:      key,
+		Type:     "constant",
+		Channels: symbol.NewChannels(),
+		Config:   types.Params{{Name: "value", Type: sym.Type, Value: sym.DefaultValue}},
+		Outputs:  types.Params{{Name: ir.DefaultOutputParam, Type: sym.Type}},
+	}
+	return newNodeResult(n, ir.DefaultInputParam, ir.DefaultOutputParam), true
 }
 
 func analyzeNextToken(

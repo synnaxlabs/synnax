@@ -1516,4 +1516,96 @@ var _ = Describe("Statement Compiler", func() {
 			})
 		})
 	})
+
+	Describe("Chan-typed Input Parameter Operations", func() {
+		compileWithChanInput := func(source string, inputName string, inputType types.Type) []byte {
+			block := MustSucceed(parser.ParseBlock("{" + source + "}"))
+			aCtx := acontext.CreateRoot(bCtx, block, nil)
+			fnScope := MustSucceed(aCtx.Scope.Add(aCtx, symbol.Symbol{
+				Name: "testFunc",
+				Kind: symbol.KindFunction,
+			}))
+			Expect(fnScope).ToNot(BeNil())
+			fnScope.Channels = symbol.NewChannels()
+			fn := MustSucceed(aCtx.Scope.Resolve(aCtx, "testFunc"))
+			aCtx.Scope = fn
+			MustSucceed(aCtx.Scope.Add(aCtx, symbol.Symbol{
+				Name: inputName,
+				Kind: symbol.KindInput,
+				Type: inputType,
+			}))
+			analyzer.AnalyzeBlock(aCtx)
+			Expect(aCtx.Diagnostics.Ok()).To(BeTrue(), aCtx.Diagnostics.String())
+			ctx := context.CreateRoot(bCtx, aCtx.Scope, aCtx.TypeMap, resolve.NewResolver(NewStdlibResolver()))
+			diverged := MustSucceed(statement.CompileBlock(context.Child(ctx, block)))
+			Expect(diverged).To(BeFalse())
+			return FinalizeContext(ctx)
+		}
+
+		It("Should compile f32 channel write through chan-typed input param", func() {
+			bytecode := compileWithChanInput(
+				`ch = 77.0`,
+				"ch", types.Chan(types.F32()),
+			)
+			Expect(bytecode).To(MatchOpcodes(
+				OpLocalGet, 0,
+				OpF32Const, float32(77.0),
+				OpCall, uint32(0),
+			))
+		})
+
+		It("Should compile f64 channel write through chan-typed input param", func() {
+			bytecode := compileWithChanInput(
+				`ch = 3.14`,
+				"ch", types.Chan(types.F64()),
+			)
+			Expect(bytecode).To(MatchOpcodes(
+				OpLocalGet, 0,
+				OpF64Const, float64(3.14),
+				OpCall, uint32(0),
+			))
+		})
+
+		It("Should compile i32 channel write through chan-typed input param", func() {
+			bytecode := compileWithChanInput(
+				`ch = 42`,
+				"ch", types.Chan(types.I32()),
+			)
+			Expect(bytecode).To(MatchOpcodes(
+				OpLocalGet, 0,
+				OpI32Const, int32(42),
+				OpCall, uint32(0),
+			))
+		})
+
+		It("Should compile channel read from chan-typed input param", func() {
+			bytecode := compileWithChanInput(
+				`x f32 := ch`,
+				"ch", types.Chan(types.F32()),
+			)
+			Expect(bytecode).To(MatchOpcodes(
+				OpLocalGet, 0,
+				OpCall, uint32(0),
+				OpLocalSet, 1,
+			))
+		})
+
+		It("Should compile read and write through chan-typed input param", func() {
+			bytecode := compileWithChanInput(
+				`value f64 := ch
+				ch = value * 2.0`,
+				"ch", types.Chan(types.F64()),
+			)
+			Expect(bytecode).To(MatchOpcodes(
+				OpLocalGet, 0,
+				OpCall, uint32(0),
+				OpLocalSet, 1,
+				OpLocalGet, 0,
+				OpLocalGet, 1,
+				OpF64Const, float64(2.0),
+				OpF64Mul,
+				OpCall, uint32(1),
+			))
+		})
+	})
 })

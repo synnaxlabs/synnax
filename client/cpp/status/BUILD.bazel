@@ -1,3 +1,6 @@
+load("@rules_cc//cc:cc_library.bzl", "cc_library")
+load("@rules_cc//cc:cc_test.bzl", "cc_test")
+
 cc_library(
     name = "status",
     hdrs = ["status.h"],
@@ -7,9 +10,9 @@ cc_library(
         "//core/pkg/api/grpc/v1:api_grpc",
         "//freighter/cpp:freighter",
         "//freighter/cpp/grpc",
+        "//x/cpp/errors",
         "//x/cpp/status",
         "//x/cpp/telem",
-        "//x/cpp/errors",
         "@grpc//:grpc++",
     ],
 )

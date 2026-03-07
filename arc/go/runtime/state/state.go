@@ -81,23 +81,33 @@ func (s *SeriesHandleStore) Clear() {
 	s.counter = 1
 }
 
-// StringHandleStore manages transient string handles.
-// Handles are short-lived references used within a single execution cycle
-// and cleared on each flush.
+// configStringHandleBase is the starting value for config string handles.
+// Config string handles are stable for the State lifetime and are never cleared
+// by Flush. Using a high base value ensures they cannot collide with transient
+// string handles, which start at 1 and reset back to 1 on every Flush call.
+const configStringHandleBase uint32 = 1 << 24
+
+// StringHandleStore manages transient and config string handles.
+// Transient handles are short-lived references used within a single execution cycle
+// and cleared on each flush. Config handles persist for the State lifetime.
 type StringHandleStore struct {
-	strings map[uint32]string
-	counter uint32
+	strings             map[uint32]string
+	counter             uint32
+	configStrings       map[uint32]string
+	configStringCounter uint32
 }
 
 // NewStringHandleStore creates a new StringHandleStore.
 func NewStringHandleStore() *StringHandleStore {
 	return &StringHandleStore{
-		strings: make(map[uint32]string),
-		counter: 1,
+		strings:             make(map[uint32]string),
+		counter:             1,
+		configStrings:       make(map[uint32]string),
+		configStringCounter: configStringHandleBase,
 	}
 }
 
-// Create stores a string and returns a handle for later retrieval.
+// Create stores a string and returns a transient handle for later retrieval.
 func (s *StringHandleStore) Create(str string) uint32 {
 	handle := s.counter
 	s.counter++
@@ -105,16 +115,39 @@ func (s *StringHandleStore) Create(str string) uint32 {
 	return handle
 }
 
+// CreateConfig stores a string and returns a stable handle that persists
+// for the lifetime of the StringHandleStore and is never cleared by Clear.
+// Use this for config param strings whose handles are baked into node args
+// at configure time.
+func (s *StringHandleStore) CreateConfig(str string) uint32 {
+	handle := s.configStringCounter
+	s.configStringCounter++
+	s.configStrings[handle] = str
+	return handle
+}
+
 // Get retrieves a string by its handle.
+// Checks transient strings first, then persistent config strings.
 func (s *StringHandleStore) Get(handle uint32) (string, bool) {
-	str, ok := s.strings[handle]
+	if str, ok := s.strings[handle]; ok {
+		return str, true
+	}
+	str, ok := s.configStrings[handle]
 	return str, ok
 }
 
-// Clear removes all stored strings and resets the counter.
+// Clear removes transient strings and resets the transient counter.
+// Config strings are preserved.
 func (s *StringHandleStore) Clear() {
 	clear(s.strings)
 	s.counter = 1
+}
+
+// Reset removes all strings including config strings.
+func (s *StringHandleStore) Reset() {
+	s.Clear()
+	clear(s.configStrings)
+	s.configStringCounter = configStringHandleBase
 }
 
 // AuthorityBuffer buffers authority change requests produced during

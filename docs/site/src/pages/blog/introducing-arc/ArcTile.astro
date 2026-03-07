@@ -1,0 +1,246 @@
+---
+import { Flex, Text } from "@synnaxlabs/pluto";
+---
+
+<Flex.Box
+    el="a"
+    href="/blog/introducing-arc"
+    className="arc-tile"
+    direction="x"
+    justify="between"
+    align="start"
+>
+    <Text.Text level="small" className="tile-date" color={8}>Mar 4, 2026</Text.Text>
+    <Flex.Box direction="y" justify="between" style={{ zIndex: 2, height: "100%" }}>
+        <Text.Text level="h3" color={10}>Introducing Arc</Text.Text>
+        <Text.Text level="p" color={9} weight={400} style={{ maxWidth: 450 }}>
+            Why we built a new programming language for automation and controls.
+        </Text.Text>
+    </Flex.Box>
+
+    <svg class="arc-bolt" viewBox="0 0 800 200" preserveAspectRatio="none">
+        <defs>
+            <filter id="arc-glow-filter" x="-50%" y="-50%" width="200%" height="200%">
+                <feGaussianBlur in="SourceGraphic" stdDeviation="6" result="blur1"
+                ></feGaussianBlur>
+                <feGaussianBlur in="SourceGraphic" stdDeviation="2" result="blur2"
+                ></feGaussianBlur>
+                <feMerge>
+                    <feMergeNode in="blur1"></feMergeNode>
+                    <feMergeNode in="blur2"></feMergeNode>
+                    <feMergeNode in="SourceGraphic"></feMergeNode>
+                </feMerge>
+            </filter>
+            <filter id="arc-outer-glow" x="-50%" y="-50%" width="200%" height="200%">
+                <feGaussianBlur in="SourceGraphic" stdDeviation="16"></feGaussianBlur>
+            </filter>
+            <linearGradient id="arc-grad" x1="0%" y1="0%" x2="100%" y2="0%">
+                <stop offset="0%" stop-color="#3774D0" stop-opacity="0"></stop>
+                <stop offset="15%" stop-color="#3774D0" stop-opacity="1"></stop>
+                <stop offset="50%" stop-color="#7EB4FF" stop-opacity="1"></stop>
+                <stop offset="85%" stop-color="#3774D0" stop-opacity="1"></stop>
+                <stop offset="100%" stop-color="#3774D0" stop-opacity="0"></stop>
+            </linearGradient>
+            <linearGradient id="arc-grad-core" x1="0%" y1="0%" x2="100%" y2="0%">
+                <stop offset="0%" stop-color="#fff" stop-opacity="0"></stop>
+                <stop offset="20%" stop-color="#fff" stop-opacity="0.9"></stop>
+                <stop offset="50%" stop-color="#fff" stop-opacity="1"></stop>
+                <stop offset="80%" stop-color="#fff" stop-opacity="0.9"></stop>
+                <stop offset="100%" stop-color="#fff" stop-opacity="0"></stop>
+            </linearGradient>
+        </defs>
+
+        <!-- outer glow -->
+        <polyline
+            class="arc-path arc-outer"
+            points="0,100 80,95 140,108 200,85 260,115 320,78 380,120 440,75 500,118 560,82 620,112 680,90 720,105 800,100"
+            filter="url(#arc-outer-glow)"></polyline>
+
+        <!-- main arc -->
+        <polyline
+            class="arc-path arc-main"
+            points="0,100 80,95 140,108 200,85 260,115 320,78 380,120 440,75 500,118 560,82 620,112 680,90 720,105 800,100"
+            filter="url(#arc-glow-filter)"></polyline>
+
+        <!-- bright core -->
+        <polyline
+            class="arc-path arc-core"
+            points="0,100 80,95 140,108 200,85 260,115 320,78 380,120 440,75 500,118 560,82 620,112 680,90 720,105 800,100"
+        ></polyline>
+
+        <!-- secondary branch 1 -->
+        <polyline
+            class="arc-path arc-branch"
+            points="260,115 280,135 310,128 340,145"
+            filter="url(#arc-glow-filter)"></polyline>
+
+        <!-- secondary branch 2 -->
+        <polyline
+            class="arc-path arc-branch"
+            points="500,118 515,95 540,90 555,70"
+            filter="url(#arc-glow-filter)"></polyline>
+
+        <!-- secondary branch 3 -->
+        <polyline
+            class="arc-path arc-branch"
+            points="380,120 395,140 420,148"
+            filter="url(#arc-glow-filter)"></polyline>
+    </svg>
+</Flex.Box>
+
+<style is:global>
+    .arc-tile {
+        position: relative;
+        background-color: var(--pluto-gray-l1);
+        padding: 5rem;
+        cursor: pointer;
+        transition: all 0.2s;
+        text-decoration: none !important;
+        border: var(--pluto-border-l5);
+        box-shadow: var(--pluto-shadow-v1);
+        border-radius: 2rem;
+        height: 300px;
+
+        & h3 {
+            margin: 0;
+        }
+
+        &:hover {
+            --pluto-shadow-v1:
+                0px 1px 1px rgba(0, 0, 0, 0.06), 0px 4px 8px -4px rgba(0, 0, 0, 0.1),
+                0px 16px 24px -8px rgba(0, 0, 0, 0.2);
+
+            & .arc-bolt {
+                opacity: 1;
+            }
+
+            & .arc-main {
+                stroke-width: 2.5;
+            }
+
+            & .arc-core {
+                stroke-width: 1.5;
+            }
+        }
+    }
+
+    .tile-date {
+        position: absolute;
+        top: 3rem;
+        right: 3rem;
+        z-index: 2;
+        font-weight: 400;
+        background-color: var(--pluto-gray-l2);
+        border: var(--pluto-border);
+        border-radius: 1rem;
+        padding: 0.75rem 1.5rem;
+    }
+
+    @media (prefers-color-scheme: light) {
+        .arc-tile .arc-outer {
+            stroke: #1a4a8a;
+        }
+        .arc-tile .arc-branch {
+            stroke: #1a4a8a;
+        }
+    }
+
+    .arc-bolt {
+        position: absolute;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        z-index: 1;
+        opacity: 0.8;
+        transition: opacity 0.3s;
+    }
+
+    .arc-path {
+        fill: none;
+        stroke-linecap: round;
+        stroke-linejoin: round;
+    }
+
+    .arc-outer {
+        stroke: #3774d0;
+        stroke-width: 4;
+        opacity: 0.15;
+    }
+
+    .arc-main {
+        stroke: url(#arc-grad);
+        stroke-width: 2;
+        transition: stroke-width 0.3s;
+        animation: arc-flicker 3s ease-in-out infinite;
+    }
+
+    .arc-core {
+        stroke: url(#arc-grad-core);
+        stroke-width: 1;
+        transition: stroke-width 0.3s;
+        animation: arc-flicker 3s ease-in-out infinite 0.1s;
+    }
+
+    .arc-branch {
+        stroke: #3774d0;
+        stroke-width: 1;
+        opacity: 0.4;
+        animation: arc-branch-flicker 2s ease-in-out infinite;
+    }
+
+    .arc-branch:nth-child(5) {
+        animation-delay: 0.7s;
+    }
+
+    .arc-branch:nth-child(6) {
+        animation-delay: 1.4s;
+    }
+
+    @keyframes arc-flicker {
+        0%,
+        100% {
+            opacity: 0.7;
+        }
+        10% {
+            opacity: 1;
+        }
+        12% {
+            opacity: 0.5;
+        }
+        14% {
+            opacity: 0.95;
+        }
+        50% {
+            opacity: 0.85;
+        }
+        70% {
+            opacity: 1;
+        }
+        72% {
+            opacity: 0.6;
+        }
+        74% {
+            opacity: 0.9;
+        }
+    }
+
+    @keyframes arc-branch-flicker {
+        0%,
+        100% {
+            opacity: 0;
+        }
+        20% {
+            opacity: 0.5;
+        }
+        25% {
+            opacity: 0.1;
+        }
+        30% {
+            opacity: 0.4;
+        }
+        60% {
+            opacity: 0;
+        }
+    }
+</style>

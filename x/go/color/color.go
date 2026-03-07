@@ -142,10 +142,22 @@ func (c *Color) DecodeMsgpack(dec *msgpack.Decoder) error {
 		return err
 	}
 
+	if code == msgpcode.Nil {
+		if err := dec.DecodeNil(); err != nil {
+			return err
+		}
+		*c = Color{}
+		return nil
+	}
+
 	if msgpcode.IsString(code) {
 		s, err := dec.DecodeString()
 		if err != nil {
 			return err
+		}
+		if s == "" {
+			*c = Color{}
+			return nil
 		}
 		parsed, err := FromHex(s)
 		if err != nil {

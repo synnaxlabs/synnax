@@ -18,6 +18,7 @@
 #include "arc/cpp/module/module.h"
 #include "arc/cpp/runtime/errors/errors.h"
 #include "arc/cpp/stl/stl.h"
+#include "arc/cpp/stl/str/state.h"
 #include "arc/cpp/types/types.h"
 #include "wasmtime.hh"
 
@@ -152,6 +153,7 @@ const auto INITIALIZATION_ERROR = BASE_ERROR.sub("initialization");
 struct ModuleConfig {
     module::Module module;
     std::vector<std::shared_ptr<stl::Module>> modules;
+    std::shared_ptr<stl::str::State> strings;
     std::uint32_t stack_size = 2 * 1024 * 1024; // 2MB (Wasmtime default)
     std::uint32_t host_managed_heap_size = 10 * 1024 * 1024; // 10MB
 };
@@ -299,9 +301,17 @@ public:
             config_count(config.size()),
             base(base) {
             this->args.resize(config.size() + inputs.size(), wasmtime::Val(0));
-            for (size_t i = 0; i < config.size(); i++)
-                if (config[i].value.has_value())
-                    this->args[i] = sample_to_wasm(*config[i].value, config[i].type);
+            for (size_t i = 0; i < config.size(); i++) {
+                if (!config[i].value.has_value()) continue;
+                if (const auto *s = std::get_if<std::string>(&*config[i].value)) {
+                    if (module.cfg.strings != nullptr)
+                        this->args[i] = wasmtime::Val(
+                            static_cast<int32_t>(module.cfg.strings->create_config(*s))
+                        );
+                    continue;
+                }
+                this->args[i] = sample_to_wasm(*config[i].value, config[i].type);
+            }
             uint32_t offset = base + 8;
             for (const auto &param: outputs) {
                 this->offsets.push_back(offset);

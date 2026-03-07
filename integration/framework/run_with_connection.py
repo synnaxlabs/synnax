@@ -76,4 +76,6 @@ if __name__ == "__main__":
     )
     _syn.try_load_options_if_none_provided = lambda *a, **k: _opts
 
-    importlib.import_module(sys.argv[1])
+    _module = sys.argv[1]
+    sys.argv = [_module]  # Clean argv so argparse in imported modules works
+    importlib.import_module(_module)
