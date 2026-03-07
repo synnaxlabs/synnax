@@ -77,14 +77,11 @@ struct ScanCommandArgs {
 
     explicit ScanCommandArgs(const x::json::Parser &parser):
         connection(device::ConnectionConfig(parser.child("connection"))),
-        health_check(
-            parser.has("health_check") ? HealthCheckConfig(parser.child("health_check"))
-                                       : HealthCheckConfig()
-        ) {}
+        health_check(HealthCheckConfig(parser.child("health_check"))) {}
 };
 
-/// @brief HTTP scanner implementing the common::Scanner interface.
-/// Handles device health monitoring by pinging each HTTP device.
+/// @brief HTTP scanner implementing the common::Scanner interface. Handles device
+/// health monitoring by pinging each HTTP device.
 class Scanner final : public common::Scanner {
 public:
     Scanner(
