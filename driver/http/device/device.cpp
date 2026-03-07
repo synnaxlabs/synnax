@@ -60,27 +60,32 @@ Request build_request(const ConnectionConfig &conn, const RequestConfig &req) {
     r.timeout = conn.timeout;
     r.verify_ssl = conn.verify_ssl;
 
+    // Merge headers into a map first to handle deduplication, then format.
+    std::map<std::string, std::string> merged;
     for (const auto &[k, v]: conn.headers)
-        r.headers[k] = v;
+        merged[k] = v;
     for (const auto &[k, v]: req.headers)
-        r.headers[k] = v;
+        merged[k] = v;
 
     if (conn.auth.type == "bearer") {
-        r.headers["Authorization"] = "Bearer " + conn.auth.token;
+        merged["Authorization"] = "Bearer " + conn.auth.token;
     } else if (conn.auth.type == "basic") {
-        r.headers["Authorization"] = "Basic " +
-                                     x::base64::encode(
-                                         conn.auth.username + ":" + conn.auth.password
-                                     );
+        merged["Authorization"] = "Basic " +
+                                  x::base64::encode(
+                                      conn.auth.username + ":" + conn.auth.password
+                                  );
     } else if (conn.auth.type == "api_key" && conn.auth.send_as != "query_param") {
-        r.headers[conn.auth.header] = conn.auth.key;
+        merged[conn.auth.header] = conn.auth.key;
     }
 
-    if (!req.request_content_type.empty()) {
-        r.headers["Content-Type"] = req.request_content_type;
-    } else {
-        r.headers.erase("Content-Type");
-    }
+    if (!req.request_content_type.empty())
+        merged["Content-Type"] = req.request_content_type;
+    else
+        merged.erase("Content-Type");
+
+    r.headers.reserve(merged.size());
+    for (const auto &[k, v]: merged)
+        r.headers.push_back(k + ": " + v);
 
     return r;
 }

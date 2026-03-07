@@ -99,8 +99,8 @@ TEST(ProcessorTest, CustomHeaders) {
     ASSERT_NIL(server.start());
 
     auto req = make_request(server.base_url(), "/api/check");
-    req.headers["X-Global"] = "global-val";
-    req.headers["X-Request"] = "req-val";
+    req.headers.push_back("X-Global: global-val");
+    req.headers.push_back("X-Request: req-val");
 
     Processor proc;
     const auto resp = ASSERT_NIL_P(proc.execute(req));
@@ -128,7 +128,7 @@ TEST(ProcessorTest, BasicAuth) {
     ASSERT_NIL(server.start());
 
     auto req = make_request(server.base_url(), "/api/secure");
-    req.headers["Authorization"] = "Basic " + x::base64::encode("user:pass");
+    req.headers.push_back("Authorization: Basic " + x::base64::encode("user:pass"));
 
     Processor proc;
     const auto resp = ASSERT_NIL_P(proc.execute(req));
@@ -155,7 +155,7 @@ TEST(ProcessorTest, BearerAuth) {
     ASSERT_NIL(server.start());
 
     auto req = make_request(server.base_url(), "/api/secure");
-    req.headers["Authorization"] = "Bearer my-token";
+    req.headers.push_back("Authorization: Bearer my-token");
 
     Processor proc;
     const auto resp = ASSERT_NIL_P(proc.execute(req));
@@ -181,7 +181,7 @@ TEST(ProcessorTest, APIKeyAuthAsHeader) {
     ASSERT_NIL(server.start());
 
     auto req = make_request(server.base_url(), "/api/keyed");
-    req.headers["X-API-Key"] = "secret123";
+    req.headers.push_back("X-API-Key: secret123");
 
     Processor proc;
     const auto resp = ASSERT_NIL_P(proc.execute(req));
@@ -637,7 +637,7 @@ TEST(ProcessorTest, ContentTypeValidation) {
     ASSERT_NIL(server.start());
 
     auto req = make_request(server.base_url(), "/api/json");
-    req.headers["Accept"] = "application/json";
+    req.headers.push_back("Accept: application/json");
 
     Processor proc;
     const auto resp = ASSERT_NIL_P(proc.execute(req));
@@ -660,7 +660,7 @@ TEST(ProcessorTest, ContentTypeMismatchStillSucceeds) {
     ASSERT_NIL(server.start());
 
     auto req = make_request(server.base_url(), "/api/text");
-    req.headers["Accept"] = "application/json";
+    req.headers.push_back("Accept: application/json");
 
     Processor proc;
     const auto resp = ASSERT_NIL_P(proc.execute(req));
@@ -683,7 +683,7 @@ TEST(ProcessorTest, ContentTypeHeaderSent) {
     ASSERT_NIL(server.start());
 
     auto req = make_request(server.base_url(), "/api/xml", Method::POST);
-    req.headers["Content-Type"] = "application/xml";
+    req.headers.push_back("Content-Type: application/xml");
     req.body = "<req/>";
 
     Processor proc;
@@ -712,7 +712,7 @@ TEST(ProcessorTest, AcceptHeaderSent) {
     ASSERT_NIL(server.start());
 
     auto req = make_request(server.base_url(), "/api/accept");
-    req.headers["Accept"] = "application/json";
+    req.headers.push_back("Accept: application/json");
 
     Processor proc;
     const auto resp = ASSERT_NIL_P(proc.execute(req));
@@ -873,7 +873,7 @@ TEST(ProcessorTest, ContentTypeCharsetSuffix) {
     ASSERT_NIL(server.start());
 
     auto req = make_request(server.base_url(), "/api/charset");
-    req.headers["Accept"] = "application/json";
+    req.headers.push_back("Accept: application/json");
 
     Processor proc;
     const auto resp = ASSERT_NIL_P(proc.execute(req));
@@ -895,7 +895,7 @@ TEST(ProcessorTest, RequestContentTypeOmittedWhenEmpty) {
     ASSERT_NIL(server.start());
 
     auto req = make_request(server.base_url(), "/api/raw", Method::POST);
-    req.headers["Content-Type"] = "";
+    req.headers.push_back("Content-Type: ");
     req.body = "data";
 
     Processor proc;
@@ -1026,7 +1026,7 @@ TEST(ProcessorTest, SerialGETRequestsReuseHandles) {
     ASSERT_NIL(server.start());
 
     auto req = make_request(server.base_url(), "/api/data");
-    req.headers["X-Header"] = "test-value";
+    req.headers.push_back("X-Header: test-value");
 
     Processor proc;
     for (int i = 0; i < 3; i++) {

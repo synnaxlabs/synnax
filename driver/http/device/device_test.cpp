@@ -7,6 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+#include <algorithm>
 #include <string>
 
 #include "gtest/gtest.h"
@@ -18,6 +19,23 @@
 #include "x/cpp/test/test.h"
 
 #include "driver/http/device/device.h"
+
+namespace {
+/// @brief finds a pre-formatted header matching "Key: Value" in a Request's header
+/// vector. Returns the full header string, or empty string if not found.
+std::string
+find_header(const std::vector<std::string> &headers, const std::string &key) {
+    const auto prefix = key + ": ";
+    auto it = std::find_if(headers.begin(), headers.end(), [&](const std::string &h) {
+        return h.compare(0, prefix.size(), prefix) == 0;
+    });
+    return it != headers.end() ? *it : "";
+}
+
+bool has_header(const std::vector<std::string> &headers, const std::string &key) {
+    return !find_header(headers, key).empty();
+}
+}
 
 namespace driver::http::device {
 
@@ -364,8 +382,8 @@ TEST(BuildRequestTest, MergesConnectionAndRequestHeaders) {
         .headers = {{"X-Request", "r"}},
     };
     auto r = build_request(conn, req);
-    EXPECT_EQ(r.headers["X-Global"], "g");
-    EXPECT_EQ(r.headers["X-Request"], "r");
+    EXPECT_EQ(find_header(r.headers, "X-Global"), "X-Global: g");
+    EXPECT_EQ(find_header(r.headers, "X-Request"), "X-Request: r");
 }
 
 TEST(BuildRequestTest, MergesConnectionAndRequestQueryParams) {
@@ -414,7 +432,7 @@ TEST(BuildRequestTest, ResolvesBearerAuth) {
     );
     RequestConfig req{.method = Method::GET, .path = "/"};
     auto r = build_request(conn, req);
-    EXPECT_EQ(r.headers["Authorization"], "Bearer my-jwt");
+    EXPECT_EQ(find_header(r.headers, "Authorization"), "Authorization: Bearer my-jwt");
 }
 
 TEST(BuildRequestTest, ResolvesBasicAuth) {
@@ -426,7 +444,10 @@ TEST(BuildRequestTest, ResolvesBasicAuth) {
     );
     RequestConfig req{.method = Method::GET, .path = "/"};
     auto r = build_request(conn, req);
-    EXPECT_EQ(r.headers["Authorization"], "Basic " + x::base64::encode("user:pass"));
+    EXPECT_EQ(
+        find_header(r.headers, "Authorization"),
+        "Authorization: Basic " + x::base64::encode("user:pass")
+    );
 }
 
 TEST(BuildRequestTest, ResolvesAPIKeyAsHeader) {
@@ -438,7 +459,7 @@ TEST(BuildRequestTest, ResolvesAPIKeyAsHeader) {
     );
     RequestConfig req{.method = Method::GET, .path = "/"};
     auto r = build_request(conn, req);
-    EXPECT_EQ(r.headers["X-API-Key"], "s123");
+    EXPECT_EQ(find_header(r.headers, "X-API-Key"), "X-API-Key: s123");
     EXPECT_EQ(r.url.find("X-API-Key"), std::string::npos);
 }
 
@@ -458,7 +479,7 @@ TEST(BuildRequestTest, ResolvesV1APIKeyAsQueryParam) {
     RequestConfig req{.method = Method::GET, .path = "/"};
     auto r = build_request(conn, req);
     EXPECT_EQ(r.url, "http://example.com/?api_key=s123");
-    EXPECT_TRUE(r.headers.find("api_key") == r.headers.end());
+    EXPECT_FALSE(has_header(r.headers, "api_key"));
 }
 
 TEST(BuildRequestTest, SetsContentTypeForRequestBody) {
@@ -469,21 +490,21 @@ TEST(BuildRequestTest, SetsContentTypeForRequestBody) {
         .request_content_type = "application/xml",
     };
     auto r = build_request(conn, req);
-    EXPECT_EQ(r.headers["Content-Type"], "application/xml");
+    EXPECT_EQ(find_header(r.headers, "Content-Type"), "Content-Type: application/xml");
 }
 
 TEST(BuildRequestTest, NoContentTypeIfRequestContentTypeIsEmpty) {
     auto conn = ConnectionConfig(x::json::Parser({{"base_url", "http://example.com"}}));
     RequestConfig req{.method = Method::GET, .path = "/"};
     auto r = build_request(conn, req);
-    EXPECT_TRUE(r.headers.find("Content-Type") == r.headers.end());
+    EXPECT_FALSE(has_header(r.headers, "Content-Type"));
 }
 
 TEST(BuildRequestTest, NoContentTypeForPOSTIfRequestContentTypeIsEmpty) {
     auto conn = ConnectionConfig(x::json::Parser({{"base_url", "http://example.com"}}));
     RequestConfig req{.method = Method::POST, .path = "/", .request_content_type = ""};
     auto r = build_request(conn, req);
-    EXPECT_TRUE(r.headers.find("Content-Type") == r.headers.end());
+    EXPECT_FALSE(has_header(r.headers, "Content-Type"));
 }
 
 TEST(BuildRequestTest, ContentTypeForPOSTIfRequestContentTypeIsSet) {
@@ -494,7 +515,7 @@ TEST(BuildRequestTest, ContentTypeForPOSTIfRequestContentTypeIsSet) {
         .request_content_type = "application/xml"
     };
     auto r = build_request(conn, req);
-    EXPECT_EQ(r.headers["Content-Type"], "application/xml");
+    EXPECT_EQ(find_header(r.headers, "Content-Type"), "Content-Type: application/xml");
 }
 
 TEST(BuildRequestTest, ContentTypeForGETIfRequestContentTypeIsSet) {
@@ -505,6 +526,6 @@ TEST(BuildRequestTest, ContentTypeForGETIfRequestContentTypeIsSet) {
         .request_content_type = "application/xml"
     };
     auto r = build_request(conn, req);
-    EXPECT_EQ(r.headers["Content-Type"], "application/xml");
+    EXPECT_EQ(find_header(r.headers, "Content-Type"), "Content-Type: application/xml");
 }
 }

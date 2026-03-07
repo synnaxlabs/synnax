@@ -139,10 +139,8 @@ CURL *create_handle(const Request &req, ActiveTransfer &t) {
     else if (req.method != Method::GET)
         curl_easy_setopt(handle, CURLOPT_CUSTOMREQUEST, to_string(req.method));
 
-    for (const auto &[k, v]: req.headers) {
-        const std::string hdr = k + ": " + v;
+    for (const auto &hdr: req.headers)
         t.headers = curl_slist_append(t.headers, hdr.c_str());
-    }
 
     if (t.headers != nullptr) curl_easy_setopt(handle, CURLOPT_HTTPHEADER, t.headers);
 
