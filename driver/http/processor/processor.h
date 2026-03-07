@@ -39,7 +39,7 @@ public:
     /// path — does not create a vector or delegate to the batch overload.
     /// @param request the request to execute.
     /// @returns the response paired with an error.
-    std::pair<Response, x::errors::Error> execute(const Request &request);
+    [[nodiscard]] std::pair<Response, x::errors::Error> execute(const Request &request);
 
 private:
     struct Impl;
