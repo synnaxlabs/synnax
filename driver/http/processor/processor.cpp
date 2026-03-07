@@ -229,6 +229,19 @@ struct Processor::Impl {
             if (mc != CURLM_OK) {
                 LOG(ERROR) << "[http.processor] curl_multi_perform error: "
                            << curl_multi_strerror(mc);
+                const auto err = x::errors::Error(
+                    http::errors::CRITICAL_ERROR,
+                    curl_multi_strerror(mc)
+                );
+                for (auto &[handle, transfer]: active) {
+                    transfer.promise.set_value({Response{}, err});
+                    curl_multi_remove_handle(multi, handle);
+                    if (transfer.headers != nullptr)
+                        curl_slist_free_all(transfer.headers);
+                    curl_easy_cleanup(handle);
+                }
+                active.clear();
+                continue;
             }
 
             // Check for completed transfers.
