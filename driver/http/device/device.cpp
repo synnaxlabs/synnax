@@ -11,6 +11,9 @@
 #include <string>
 #include <utility>
 
+#ifdef _WIN32
+#include <winsock2.h>
+#endif
 #include <curl/curl.h>
 
 #include "x/cpp/base64/base64.h"

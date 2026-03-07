@@ -17,6 +17,9 @@
 #include <utility>
 
 #include "glog/logging.h"
+#ifdef _WIN32
+#include <winsock2.h>
+#endif
 #include <curl/curl.h>
 
 #include "driver/http/errors/errors.h"
