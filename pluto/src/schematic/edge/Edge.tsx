@@ -87,7 +87,7 @@ export const ConnectionLine = ({
             ? "var(--pluto-error-z)"
             : "var(--pluto-gray-l11)",
         ),
-        strokeWidth: 2,
+        strokeWidth: 1.5,
         fill: "none",
       }}
     />

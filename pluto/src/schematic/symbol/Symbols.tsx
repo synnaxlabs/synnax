@@ -88,6 +88,8 @@ const labelGridItem = (
         className={CSS(CSS.BE("symbol", "label"), CSS.dir(direction))}
         level={level}
         value={label}
+        color={10}
+        weight={400}
         onChange={(value: string) => onChange?.({ label: { ...props, label: value } })}
         allowEmpty
         style={{ textAlign: align as CSSProperties["textAlign"], maxInlineSize }}

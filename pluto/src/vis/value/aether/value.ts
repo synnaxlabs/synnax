@@ -156,7 +156,7 @@ export class Value
     const bTopLeft = box.topLeft(b);
     const bWidth = box.width(b);
     const bHeight = box.height(b);
-    const canvas = renderCtx.lower2d.applyScale(viewportScale);
+    const canvas = renderCtx.upper2d.applyScale(viewportScale);
     let value = telem.value();
     canvas.font = fontString;
     const fontHeight = this.fontHeight;

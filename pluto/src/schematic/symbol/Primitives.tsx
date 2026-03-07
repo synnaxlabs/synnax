@@ -1419,7 +1419,7 @@ export const Tank = ({
   boxBorderRadius,
   color: colorVal,
   backgroundColor,
-  strokeWidth = 2,
+  strokeWidth = 1.5,
   ...rest
 }: TankProps): ReactElement => {
   const detailedRadius = parseBorderRadius(borderRadius);
@@ -1447,7 +1447,7 @@ export const Tank = ({
       style={{
         ...dimensions,
         borderRadius: boxBorderRadius ?? cssBorderRadius(detailedRadius),
-        borderColor: color.cssString(colorVal ?? t.colors.gray.l11),
+        borderColor: color.cssString(colorVal ?? t.colors.gray.l5),
         backgroundColor: color.cssString(backgroundColor),
         borderWidth: strokeWidth,
       }}
@@ -1921,20 +1921,17 @@ export const Value = ({
   inlineSize = 80,
   ...rest
 }: ValueProps): ReactElement => {
-  const borderColor = color.cssString(colorVal);
-  const theme = Theming.use();
-  const textColor: string | undefined =
-    colorVal == null
-      ? "var(--pluto-gray-l0)"
-      : color.cssString(
-          color.pickByContrast(colorVal, theme.colors.gray.l0, theme.colors.gray.l11),
-        );
+  const hasColor = colorVal != null;
+  const [r, g, b] = hasColor ? color.construct(colorVal) : [0, 0, 0];
+  const borderColor = hasColor ? `rgba(${r}, ${g}, ${b}, 1)` : undefined;
+  const background = hasColor ? `rgba(${r}, ${g}, ${b}, 0.06)` : undefined;
   return (
     <Div
       className={CSS(CSS.B("value"), className)}
       {...rest}
       style={{
         borderColor,
+        background,
         height: dimensions?.height,
       }}
     >
@@ -1955,11 +1952,8 @@ export const Value = ({
         <Handle location="top" orientation="left" left={50} top={-2} id="3" />
         <Handle location="bottom" orientation="left" left={50} top={102} id="4" />
       </HandleBoundary>
-      <div
-        className={CSS(CSS.BE("value", "units"), CSS.M(unitsLevel))}
-        style={{ background: borderColor }}
-      >
-        <Text.Text level={unitsLevel} color={textColor}>
+      <div className={CSS(CSS.BE("value", "units"), CSS.M(unitsLevel))}>
+        <Text.Text level={unitsLevel} color={9}>
           {units}
         </Text.Text>
       </div>
@@ -2558,45 +2552,73 @@ export interface LightProps extends DivProps, SVGBasedPrimitiveProps {
 
 export const Light = ({
   className,
-  color,
+  color: colorVal,
   orientation = "left",
   enabled,
   scale,
   ...rest
-}: LightProps): ReactElement => (
-  <Div
-    {...rest}
-    orientation={orientation}
-    className={CSS(CSS.B("light"), enabled && CSS.M("enabled"), className)}
-  >
-    <HandleBoundary orientation={orientation}>
-      <Handle location="left" orientation={orientation} left={3.125} top={50} id="1" />
-      <Handle
-        location="right"
-        orientation={orientation}
-        left={96.875}
-        top={50}
-        id="2"
-      />
-      <Handle location="top" orientation={orientation} left={50} top={3.125} id="3" />
-      <Handle
-        location="bottom"
-        orientation={orientation}
-        left={50}
-        top={96.75}
-        id="4"
-      />
-    </HandleBoundary>
-    <InternalSVG
-      dimensions={{ width: 64, height: 64 }}
-      color={color}
+}: LightProps): ReactElement => {
+  const hasColor = colorVal != null;
+  const [r, g, b] = hasColor ? color.construct(colorVal) : [0, 0, 0];
+  const fillColor = enabled && hasColor
+    ? `rgba(${r}, ${g}, ${b}, 0.85)`
+    : "none";
+  const strokeColor = hasColor
+    ? enabled
+      ? `rgba(${r}, ${g}, ${b}, 1)`
+      : `rgba(${r}, ${g}, ${b}, 0.4)`
+    : undefined;
+  return (
+    <Div
+      {...rest}
       orientation={orientation}
-      scale={scale}
+      className={CSS(CSS.B("light"), enabled && CSS.M("enabled"), className)}
     >
-      <Circle cx="32" cy="32" r="30" />
-    </InternalSVG>
-  </Div>
-);
+      <HandleBoundary orientation={orientation}>
+        <Handle
+          location="left"
+          orientation={orientation}
+          left={3.125}
+          top={50}
+          id="1"
+        />
+        <Handle
+          location="right"
+          orientation={orientation}
+          left={96.875}
+          top={50}
+          id="2"
+        />
+        <Handle
+          location="top"
+          orientation={orientation}
+          left={50}
+          top={3.125}
+          id="3"
+        />
+        <Handle
+          location="bottom"
+          orientation={orientation}
+          left={50}
+          top={96.75}
+          id="4"
+        />
+      </HandleBoundary>
+      <InternalSVG
+        dimensions={{ width: 64, height: 64 }}
+        color={colorVal}
+        orientation={orientation}
+        scale={scale}
+        style={{
+          fill: fillColor,
+          stroke: strokeColor,
+        }}
+      >
+        <Circle cx="32" cy="32" r="30" />
+      </InternalSVG>
+    </Div>
+  );
+};
 
 export interface ElectricRegulatorProps extends DivProps, SVGBasedPrimitiveProps {}
 
@@ -4760,15 +4782,20 @@ export const StateIndicator = ({
 }: StateIndicatorProps): ReactElement => {
   const matched = options.find((o) => o.key === matchedOptionKey);
   const stateColor = matched?.color;
-  const borderColor = colorVal != null ? color.cssString(colorVal) : undefined;
-  const backgroundColor = stateColor != null ? color.cssString(stateColor) : undefined;
-  const theme = Theming.use();
-  const textColor =
-    stateColor != null
-      ? color.cssString(
-          color.pickByContrast(stateColor, theme.colors.gray.l0, theme.colors.gray.l11),
-        )
-      : undefined;
+  const hasStateColor = stateColor != null;
+  const [r, g, b] = hasStateColor ? color.construct(stateColor) : [0, 0, 0];
+  const borderColor = hasStateColor
+    ? `rgba(${r}, ${g}, ${b}, 1)`
+    : undefined;
+  const backgroundColor = hasStateColor
+    ? `rgba(${r}, ${g}, ${b}, 0.06)`
+    : undefined;
+  const dotColor = hasStateColor
+    ? `rgba(${r}, ${g}, ${b}, 1)`
+    : "var(--pluto-gray-l6)";
+  const textColor = hasStateColor
+    ? color.cssString(stateColor)
+    : "var(--pluto-gray-l9)";
   const label = matched != null ? matched.name || `Option ${matched.value}` : "Unknown";
   return (
     <Div
@@ -4783,7 +4810,11 @@ export const StateIndicator = ({
         <Handle location="bottom" orientation="left" left={50} top={102} id="4" />
       </HandleBoundary>
       <div className={CSS.BE("state-indicator", "content")}>
-        <Text.Text level="p" color={textColor} variant="code">
+        <div
+          className={CSS.BE("state-indicator", "dot")}
+          style={{ background: dotColor }}
+        />
+        <Text.Text level="p" color={textColor}>
           {label}
         </Text.Text>
       </div>

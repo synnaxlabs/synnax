@@ -17,6 +17,7 @@ export * from "./HeaderShowcase";
 export * from "./InputShowcase";
 export * from "./MenuShowcase";
 export * from "./NoteShowcase";
+export * from "./SchematicSymbolShowcase";
 export * from "./SelectShowcase";
 export * from "./Showcase";
 export * from "./SubcategorySection";

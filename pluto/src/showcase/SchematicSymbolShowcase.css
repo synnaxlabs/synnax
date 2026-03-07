@@ -1,0 +1,445 @@
+/*
+ * Copyright 2026 Synnax Labs, Inc.
+ *
+ * Use of this software is governed by the Business Source License included in the file
+ * licenses/BSL.txt.
+ *
+ * As of the Change Date specified in that file, in accordance with the Business Source
+ * License, use of this software will be governed by the Apache License, Version 2.0,
+ * included in the file licenses/APL.txt.
+ */
+
+/* ---- Value Variations ---- */
+
+.exp-value {
+    display: flex;
+    flex-direction: row;
+    align-items: center;
+    justify-content: center;
+    padding: 0;
+    flex-grow: 0;
+    font-feature-settings: "tnum" 1;
+}
+
+/* Variation A: Minimal - thin border, inline units suffix */
+.exp-value--a {
+    border: 1px solid var(--pluto-gray-l5);
+    border-radius: var(--pluto-border-radius);
+    padding: 0.5rem 1.5rem;
+    gap: 0.75rem;
+}
+
+.exp-value--a .exp-value__number {
+    font-family: var(--pluto-code-font-family);
+    font-weight: 500;
+    font-size: 2.1666rem;
+    color: var(--pluto-gray-l11);
+}
+
+.exp-value--a .exp-value__units {
+    font-family: var(--pluto-font-family);
+    font-weight: 400;
+    font-size: 1.916666rem;
+    color: var(--pluto-gray-l8);
+}
+
+/* Variation B: Separated - thin border, divider for units, shadow */
+.exp-value--b {
+    border: 1px solid var(--pluto-gray-l5);
+    border-radius: var(--pluto-border-radius);
+    box-shadow: var(--pluto-shadow-v1);
+}
+
+.exp-value--b .exp-value__number {
+    font-family: var(--pluto-code-font-family);
+    font-weight: 500;
+    font-size: 2.1666rem;
+    color: var(--pluto-gray-l11);
+    padding: 0.5rem 1.5rem;
+}
+
+.exp-value--b .exp-value__units {
+    font-family: var(--pluto-font-family);
+    font-weight: 400;
+    font-size: 1.916666rem;
+    color: var(--pluto-gray-l8);
+    padding: 0.5rem 1rem;
+    border-left: 1px solid var(--pluto-gray-l4);
+}
+
+/* Variation C: Borderless - background tint, shadow, inline units */
+.exp-value--c {
+    border: none;
+    border-radius: var(--pluto-border-radius);
+    background: var(--pluto-gray-l2);
+    box-shadow: var(--pluto-shadow-v1);
+    padding: 0.5rem 1.5rem;
+    gap: 0.75rem;
+}
+
+.exp-value--c .exp-value__number {
+    font-family: var(--pluto-code-font-family);
+    font-weight: 500;
+    font-size: 2.1666rem;
+    color: var(--pluto-gray-l11);
+}
+
+.exp-value--c .exp-value__units {
+    font-family: var(--pluto-font-family);
+    font-weight: 400;
+    font-size: 1.916666rem;
+    color: var(--pluto-gray-l8);
+}
+
+/* Variation D: Border + Divided + Background tint */
+.exp-value--d {
+    border: 1px solid var(--pluto-gray-l5);
+    border-radius: var(--pluto-border-radius);
+    background: var(--pluto-gray-l2);
+    box-shadow: var(--pluto-shadow-v1);
+}
+
+.exp-value--d .exp-value__number {
+    font-family: var(--pluto-code-font-family);
+    font-weight: 500;
+    font-size: 2.1666rem;
+    color: var(--pluto-gray-l11);
+    padding: 0.5rem 1.5rem;
+}
+
+.exp-value--d .exp-value__units {
+    font-family: var(--pluto-font-family);
+    font-weight: 400;
+    font-size: 1.916666rem;
+    color: var(--pluto-gray-l9);
+    padding: 0.5rem 1rem;
+    border-left: 1px solid var(--pluto-gray-l4);
+}
+
+/* ---- Light Variations ---- */
+
+.exp-light {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-feature-settings: "tnum" 1;
+}
+
+/* Variation A: Apollo rectangle - text label, transparent fill */
+.exp-light--a {
+    border-radius: var(--pluto-border-radius);
+    padding: 0.5rem 1.5rem;
+}
+
+.exp-light--a .exp-light__label {
+    font-family: var(--pluto-font-family);
+    font-weight: 500;
+    font-size: 1.916666rem;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    white-space: nowrap;
+}
+
+/* Variation B: Apollo with glow */
+.exp-light--b {
+    border-radius: var(--pluto-border-radius);
+    padding: 0.5rem 1.5rem;
+    transition: box-shadow 0.15s ease-in-out;
+}
+
+.exp-light--b .exp-light__label {
+    font-family: var(--pluto-font-family);
+    font-weight: 500;
+    font-size: 1.916666rem;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    white-space: nowrap;
+}
+
+/* Variation C: Refined circle - transparent fill when off, glow when on */
+.exp-light--c {
+    width: 4rem;
+    height: 4rem;
+    border-radius: 50%;
+    transition: box-shadow 0.15s ease-in-out, background-color 0.15s ease-in-out;
+}
+
+/* Light size modifiers */
+.exp-light--sm.exp-light--a,
+.exp-light--sm.exp-light--b {
+    padding: 0.25rem 0.75rem;
+}
+
+.exp-light--sm .exp-light__label {
+    font-size: 1.333rem;
+}
+
+.exp-light--sm.exp-light--c {
+    width: 2.5rem;
+    height: 2.5rem;
+}
+
+.exp-light--lg.exp-light--a,
+.exp-light--lg.exp-light--b {
+    padding: 0.75rem 2rem;
+}
+
+.exp-light--lg .exp-light__label {
+    font-size: 2.5rem;
+}
+
+.exp-light--lg.exp-light--c {
+    width: 5.5rem;
+    height: 5.5rem;
+}
+
+/* ---- State Indicator Variations ---- */
+
+.exp-state {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+/* Variation A: Status pill */
+.exp-state--a {
+    border-radius: 100px;
+    padding: 0.333rem 1.5rem;
+    gap: 0.75rem;
+}
+
+.exp-state--a .exp-state__dot {
+    width: 1rem;
+    height: 1rem;
+    border-radius: 50%;
+    flex-shrink: 0;
+}
+
+.exp-state--a .exp-state__label {
+    font-family: var(--pluto-font-family);
+    font-weight: 500;
+    font-size: 1.916666rem;
+    white-space: nowrap;
+}
+
+/* Variation B: Labeled light (shares Apollo style with light) */
+.exp-state--b {
+    border-radius: var(--pluto-border-radius);
+    padding: 0.5rem 1.5rem;
+}
+
+.exp-state--b .exp-state__label {
+    font-family: var(--pluto-font-family);
+    font-weight: 500;
+    font-size: 1.916666rem;
+    white-space: nowrap;
+}
+
+/* Variation C: Apollo rectangle + dot indicator */
+.exp-state--c {
+    border-radius: var(--pluto-border-radius);
+    padding: 0.5rem 1.5rem;
+    gap: 0.75rem;
+}
+
+.exp-state--c .exp-state__dot {
+    width: 1rem;
+    height: 1rem;
+    border-radius: 50%;
+    flex-shrink: 0;
+}
+
+.exp-state--c .exp-state__label {
+    font-family: var(--pluto-font-family);
+    font-weight: 500;
+    font-size: 1.916666rem;
+    white-space: nowrap;
+}
+
+/* State size modifiers */
+.exp-state--sm.exp-state--a {
+    padding: 0.2rem 0.75rem;
+    gap: 0.5rem;
+}
+
+.exp-state--sm.exp-state--b,
+.exp-state--sm.exp-state--c {
+    padding: 0.25rem 0.75rem;
+    gap: 0.5rem;
+}
+
+.exp-state--sm .exp-state__dot {
+    width: 0.666rem;
+    height: 0.666rem;
+}
+
+.exp-state--sm .exp-state__label {
+    font-size: 1.333rem;
+}
+
+.exp-state--lg.exp-state--a {
+    padding: 0.5rem 2rem;
+    gap: 1rem;
+}
+
+.exp-state--lg.exp-state--b,
+.exp-state--lg.exp-state--c {
+    padding: 0.75rem 2rem;
+    gap: 1rem;
+}
+
+.exp-state--lg .exp-state__dot {
+    width: 1.333rem;
+    height: 1.333rem;
+}
+
+.exp-state--lg .exp-state__label {
+    font-size: 2.5rem;
+}
+
+/* ---- Button Variations ---- */
+
+.exp-button {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    font-family: var(--pluto-font-family);
+    font-weight: 500;
+    font-size: 1.916666rem;
+    white-space: nowrap;
+    border: none;
+    padding: 0;
+    background: none;
+}
+
+/* Variation A: Current filled style */
+.exp-button--a {
+    padding: 0.5rem 2rem;
+    border-radius: var(--pluto-border-radius);
+}
+
+/* Variation B: Outlined with subtle fill */
+.exp-button--b {
+    padding: 0.5rem 2rem;
+    border-radius: var(--pluto-border-radius);
+    box-shadow: var(--pluto-shadow-v1);
+}
+
+/* Variation C: Outlined, no fill */
+.exp-button--c {
+    padding: 0.5rem 2rem;
+    border-radius: var(--pluto-border-radius);
+}
+
+/* ---- Tank Variations ---- */
+
+.exp-tank {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    box-sizing: border-box;
+}
+
+/* Variation A: Current - 2px border */
+.exp-tank--a {
+    border-width: 2px;
+    border-style: solid;
+}
+
+/* Variation B: 1px border + subtle fill */
+.exp-tank--b {
+    border-width: 1px;
+    border-style: solid;
+}
+
+/* Variation C: 1px border + fill + inner shadow */
+.exp-tank--c {
+    border-width: 1px;
+    border-style: solid;
+    box-shadow: inset 0 2px 4px rgba(0, 0, 0, 0.06);
+}
+
+/* ---- Input/Setpoint Variations ---- */
+
+.exp-input {
+    display: inline-flex;
+    align-items: center;
+    font-family: var(--pluto-font-family);
+    font-size: 1.916666rem;
+    border-radius: var(--pluto-border-radius);
+    overflow: hidden;
+}
+
+.exp-input__field {
+    padding: 0.5rem 1.5rem;
+    border: none;
+    background: none;
+    outline: none;
+    font-family: var(--pluto-code-font-family);
+    font-size: inherit;
+    color: var(--pluto-gray-l11);
+    width: 8rem;
+    font-feature-settings: "tnum" 1;
+}
+
+.exp-input__units {
+    font-family: var(--pluto-font-family);
+    font-weight: 400;
+    color: var(--pluto-gray-l8);
+    padding-right: 1rem;
+    font-size: 1.666rem;
+}
+
+.exp-input__action {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 0.5rem 1.5rem;
+    border: none;
+    cursor: pointer;
+    font-family: var(--pluto-font-family);
+    font-weight: 500;
+    font-size: 1.666rem;
+    white-space: nowrap;
+}
+
+/* Variation A: border + solid action button */
+.exp-input--a {
+    border: 1px solid var(--pluto-gray-l5);
+}
+
+.exp-input--a .exp-input__action {
+    border-left: 1px solid var(--pluto-gray-l4);
+}
+
+/* Variation B: border + fill + shadow + subtle action */
+.exp-input--b {
+    border: 1px solid var(--pluto-gray-l5);
+    background: var(--pluto-gray-l2);
+    box-shadow: var(--pluto-shadow-v1);
+}
+
+.exp-input--b .exp-input__action {
+    border-left: 1px solid var(--pluto-gray-l4);
+}
+
+/* ---- Valve Variations ---- */
+
+.exp-valve {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.exp-valve svg {
+    overflow: visible;
+    fill: none;
+}
+
+.exp-valve svg path,
+.exp-valve svg line,
+.exp-valve svg rect,
+.exp-valve svg circle {
+    vector-effect: non-scaling-stroke;
+}

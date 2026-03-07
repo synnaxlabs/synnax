@@ -135,7 +135,7 @@ const HydraulicLSymbol = ({
       d={pathData}
       stroke={color.cssString(colorVal)}
       fill="none"
-      strokeWidth={2}
+      strokeWidth={1.5}
       transform={`translate(${position.x},${position.y}) rotate(${rotationAngle})`}
       strokeLinecap="round"
     />
@@ -163,7 +163,7 @@ const ContinuousPneumaticSignalSymbol = ({
         d={pathData}
         stroke={color.cssString(colorVal)}
         fill="none"
-        strokeWidth={2}
+        strokeWidth={1.5}
         transform={`translate(${position.x},${position.y}) rotate(${rotate})`}
         strokeLinecap="round"
       />
@@ -171,7 +171,7 @@ const ContinuousPneumaticSignalSymbol = ({
         d={pathData}
         stroke={color.cssString(colorVal)}
         fill="none"
-        strokeWidth={2}
+        strokeWidth={1.5}
         transform={`translate(${pointTwo.x},${pointTwo.y}) rotate(${rotate})`}
         strokeLinecap="round"
       />

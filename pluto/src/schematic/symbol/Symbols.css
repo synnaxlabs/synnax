@@ -15,7 +15,7 @@
 }
 
 .pluto-control-state.pluto--direction-y {
-    padding: 0 1rem 1rem;
+    padding: 0 0 1rem;
 }
 
 .pluto-grid__item {
@@ -25,7 +25,7 @@
     width: max-content;
     height: max-content;
     position: absolute;
-    --offset: 0.666rem;
+    --offset: round(0.333rem, 1px);
     justify-content: center;
     align-items: center;
     outline: none;

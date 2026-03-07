@@ -24,4 +24,5 @@ export const DISPLAY = [
   "divider",
   "nav",
   "header",
+  "schematicSymbols",
 ];

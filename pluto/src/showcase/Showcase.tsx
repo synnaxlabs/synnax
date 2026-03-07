@@ -21,6 +21,7 @@ import { HeaderShowcase } from "./HeaderShowcase";
 import { InputShowcase } from "./InputShowcase";
 import { MenuShowcase } from "./MenuShowcase";
 import { NoteShowcase } from "./NoteShowcase";
+import { SchematicSymbolShowcase } from "./SchematicSymbolShowcase";
 import { SelectShowcase } from "./SelectShowcase";
 import { TagShowcase } from "./TagShowcase";
 import { TextShowcase } from "./TextShowcase";
@@ -130,6 +131,13 @@ export const Showcase = () => {
       description:
         "Visual separator components for content organization and layout structure.",
       component: <DividerShowcase />,
+    },
+    {
+      key: "schematicSymbols",
+      title: "Schematic Symbols",
+      description:
+        "All schematic symbols organized by category, showing their preview representations.",
+      component: <SchematicSymbolShowcase />,
     },
   ];
 
