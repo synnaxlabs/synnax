@@ -11,6 +11,7 @@
 
 #include <map>
 #include <string>
+#include <vector>
 
 #include "x/cpp/json/json.h"
 #include "x/cpp/telem/telem.h"
@@ -114,8 +115,9 @@ struct Request {
     x::telem::TimeSpan timeout;
     /// @brief whether to verify SSL certificates.
     bool verify_ssl;
-    /// @brief merged headers (connection-level + per-request + auth).
-    std::map<std::string, std::string> headers;
+    /// @brief pre-formatted headers ("Key: Value"), merged from connection-level,
+    /// per-request, and auth sources at build time.
+    std::vector<std::string> headers;
     /// @brief request body.
     std::string body;
 };
