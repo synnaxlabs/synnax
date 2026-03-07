@@ -9,9 +9,11 @@
 
 #pragma once
 
+#include <map>
 #include <string>
 
 #include "x/cpp/json/json.h"
+#include "x/cpp/telem/telem.h"
 
 namespace driver::http {
 /// @brief supported HTTP methods.
@@ -87,5 +89,45 @@ constexpr bool has_response_body(const Method m) {
             return true;
     }
 }
+
+/// @brief static request configuration, set once at task setup time.
+struct RequestConfig {
+    /// @brief HTTP method.
+    Method method;
+    /// @brief URL path (appended to base_url).
+    std::string path;
+    /// @brief query parameters.
+    std::map<std::string, std::string> query_params;
+    /// @brief per-request headers.
+    std::map<std::string, std::string> headers;
+    /// @brief request body Content-Type; omitted when empty.
+    std::string request_content_type;
+};
+
+/// @brief a fully resolved HTTP request.
+struct Request {
+    /// @brief fully resolved URL (base + path + query params).
+    std::string url;
+    /// @brief HTTP method.
+    Method method;
+    /// @brief request timeout.
+    x::telem::TimeSpan timeout;
+    /// @brief whether to verify SSL certificates.
+    bool verify_ssl;
+    /// @brief merged headers (connection-level + per-request + auth).
+    std::map<std::string, std::string> headers;
+    /// @brief request body.
+    std::string body;
+};
+
+/// @brief an HTTP response.
+struct Response {
+    /// @brief HTTP status code.
+    int status_code = 0;
+    /// @brief response body.
+    std::string body;
+    /// @brief time range spanning the request.
+    x::telem::TimeRange time_range;
+};
 
 }
