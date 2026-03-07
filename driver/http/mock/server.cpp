@@ -72,6 +72,11 @@ struct Server::Impl {
             log_request(req);
             if (route.delay > x::telem::TimeSpan::ZERO())
                 std::this_thread::sleep_for(route.delay.chrono());
+            if (!route.redirect_to.empty()) {
+                res.status = route.status_code;
+                res.set_redirect(route.redirect_to, route.status_code);
+                return;
+            }
             res.status = route.status_code;
             res.set_content(route.response_body, route.content_type);
         };

@@ -405,3 +405,46 @@ TEST(MockServerTest, CONNECTRouteRegistrationErrors) {
     cfg.routes = {{.method = Method::CONNECT, .path = "/x", .response_body = "x"}};
     EXPECT_THROW(mock::Server server(cfg), std::runtime_error);
 }
+
+TEST(MockServerTest, RedirectRoute) {
+    mock::ServerConfig cfg;
+    cfg.routes = {
+        {
+            .method = Method::GET,
+            .path = "/old",
+            .status_code = 302,
+            .redirect_to = "/new",
+        },
+        {
+            .method = Method::GET,
+            .path = "/new",
+            .status_code = 200,
+            .response_body = "arrived",
+            .content_type = "text/plain",
+        },
+    };
+    mock::Server server(cfg);
+    ASSERT_NIL(server.start());
+
+    // Without following redirects, the client should see the 302.
+    httplib::Client cli(server.base_url());
+    cli.set_follow_location(false);
+    auto res = cli.Get("/old");
+    ASSERT_NE(res, nullptr);
+    EXPECT_EQ(res->status, 302);
+    EXPECT_EQ(res->get_header_value("Location"), "/new");
+
+    // The redirect endpoint itself should serve normally.
+    auto res2 = cli.Get("/new");
+    ASSERT_NE(res2, nullptr);
+    EXPECT_EQ(res2->status, 200);
+    EXPECT_EQ(res2->body, "arrived");
+
+    // Both requests should be logged.
+    auto reqs = server.received_requests();
+    ASSERT_EQ(reqs.size(), 2);
+    EXPECT_EQ(reqs[0].path, "/old");
+    EXPECT_EQ(reqs[1].path, "/new");
+
+    server.stop();
+}
