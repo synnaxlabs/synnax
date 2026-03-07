@@ -229,7 +229,8 @@ struct Processor::Impl {
             int still_running = 0;
             const auto mc = curl_multi_perform(multi, &still_running);
             if (mc != CURLM_OK) {
-                LOG(ERROR) << "curl_multi_perform error: " << curl_multi_strerror(mc);
+                LOG(ERROR) << "[http.processor] curl_multi_perform error: "
+                           << curl_multi_strerror(mc);
             }
 
             // Check for completed transfers.
