@@ -201,11 +201,7 @@ ReadTaskSource::read(x::breaker::Breaker &breaker, x::telem::Frame &fr) {
     common::ReadResult res;
     sample_clock.wait(breaker);
 
-    auto [results, batch_err] = processor->execute(requests);
-    if (batch_err) {
-        res.error = batch_err;
-        return res;
-    }
+    auto results = processor->execute(requests);
 
     fr.reserve(cfg.channels.size() + cfg.software_timed_indexes.size());
 

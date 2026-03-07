@@ -31,10 +31,9 @@ public:
 
     /// @brief executes requests in parallel and blocks until all complete.
     /// @param requests the requests to execute concurrently.
-    /// @returns per-request response/error pairs, plus a batch-level error.
-    [[nodiscard]] std::
-        pair<std::vector<std::pair<Response, x::errors::Error>>, x::errors::Error>
-        execute(const std::vector<Request> &requests);
+    /// @returns per-request response/error pairs.
+    [[nodiscard]] std::vector<std::pair<Response, x::errors::Error>>
+    execute(const std::vector<Request> &requests);
 
     /// @brief executes a single request and blocks until complete. Zero-allocation fast
     /// path — does not create a vector or delegate to the batch overload.

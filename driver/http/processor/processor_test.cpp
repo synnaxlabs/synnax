@@ -390,7 +390,7 @@ TEST(ProcessorTest, ParallelRequests) {
     };
 
     Processor proc;
-    const auto results = ASSERT_NIL_P(proc.execute(reqs));
+    const auto results = proc.execute(reqs);
     ASSERT_EQ(results.size(), 3);
     for (auto &[resp, err]: results) {
         ASSERT_NIL(err);
@@ -429,7 +429,7 @@ TEST(ProcessorTest, ParallelRequestsWithMixedStatusCodes) {
     };
 
     Processor proc;
-    const auto results = ASSERT_NIL_P(proc.execute(reqs));
+    const auto results = proc.execute(reqs);
     ASSERT_EQ(results.size(), 3);
     for (auto &[resp, err]: results)
         ASSERT_NIL(err);
@@ -466,7 +466,7 @@ TEST(ProcessorTest, ParallelOneTimesOut) {
     std::vector<Request> reqs = {fast, slow};
 
     Processor proc;
-    const auto results = ASSERT_NIL_P(proc.execute(reqs));
+    const auto results = proc.execute(reqs);
     ASSERT_EQ(results.size(), 2);
     const auto &fast_resp = ASSERT_NIL_P(results[0]);
     EXPECT_EQ(fast_resp.status_code, 200);
@@ -980,7 +980,7 @@ TEST(ProcessorTest, MixedGETAndPOST) {
     std::vector<Request> reqs = {get_req, post_req};
 
     Processor proc;
-    const auto results = ASSERT_NIL_P(proc.execute(reqs));
+    const auto results = proc.execute(reqs);
     ASSERT_EQ(results.size(), 2);
     const auto &get_resp = ASSERT_NIL_P(results[0]);
     const auto &post_resp = ASSERT_NIL_P(results[1]);
@@ -1105,16 +1105,15 @@ TEST(ProcessorTest, SerialRequestsRecoverFromServerError) {
 
     Processor proc;
     for (int i = 0; i < 3; i++) {
-    const auto r1 = ASSERT_NIL_P(proc.execute(reqs));
-    ASSERT_EQ(r1.size(), 2);
-    const auto &ok_resp = ASSERT_NIL_P(r1[0]);
-    const auto &fail_resp = ASSERT_NIL_P(r1[1]);
-    EXPECT_EQ(ok_resp.status_code, 200);
-    EXPECT_EQ(ok_resp.body, R"({"status": "ok"})");
-    EXPECT_EQ(fail_resp.status_code, 500);
-    EXPECT_EQ(fail_resp.body, R"({"error": "internal"})");
+        const auto r1 = proc.execute(reqs);
+        ASSERT_EQ(r1.size(), 2);
+        const auto &ok_resp = ASSERT_NIL_P(r1[0]);
+        const auto &fail_resp = ASSERT_NIL_P(r1[1]);
+        EXPECT_EQ(ok_resp.status_code, 200);
+        EXPECT_EQ(ok_resp.body, R"({"status": "ok"})");
+        EXPECT_EQ(fail_resp.status_code, 500);
+        EXPECT_EQ(fail_resp.body, R"({"error": "internal"})");
     }
-
 
     auto server_reqs = server.received_requests();
     EXPECT_EQ(server_reqs.size(), 6);
@@ -1177,7 +1176,7 @@ TEST(ProcessorTest, ParallelFirstTimesOutSecondSucceeds) {
     std::vector<Request> reqs = {slow, fast};
 
     Processor proc;
-    const auto results = ASSERT_NIL_P(proc.execute(reqs));
+    const auto results = proc.execute(reqs);
     ASSERT_EQ(results.size(), 2);
     const auto &slow_resp = ASSERT_OCCURRED_AS_P(results[0], errors::UNREACHABLE_ERROR);
     EXPECT_EQ(slow_resp.status_code, 0);
@@ -1212,7 +1211,7 @@ TEST(ProcessorTest, ParallelPerResponseTimeRanges) {
     };
 
     Processor proc;
-    const auto results = ASSERT_NIL_P(proc.execute(reqs));
+    const auto results = proc.execute(reqs);
     ASSERT_EQ(results.size(), 2);
     ASSERT_NIL(results[0].second);
     ASSERT_NIL(results[1].second);
@@ -1236,7 +1235,7 @@ TEST(ProcessorTest, ParallelPerResponseTimeRanges) {
 TEST(ProcessorTest, EmptyBatchExecute) {
     Processor proc;
     std::vector<Request> reqs;
-    const auto results = ASSERT_NIL_P(proc.execute(reqs));
+    const auto results = proc.execute(reqs);
     EXPECT_TRUE(results.empty());
 }
 
@@ -1346,17 +1345,13 @@ TEST(ProcessorTest, RapidInterleavedBatchAndSingle) {
                         make_request(server.base_url(), "/api/a"),
                         make_request(server.base_url(), "/api/a"),
                     };
-                    auto [results, batch_err] = proc.execute(reqs);
-                    if (!batch_err) {
-                        for (auto &[resp, err]: results) {
-                            if (!err && resp.status_code == 200) success_count++;
-                        }
+                    auto results = proc.execute(reqs);
+                    for (auto &[resp, err]: results) {
+                        if (!err && resp.status_code == 200) success_count++;
                     }
                 } else if (t % 3 == 1) {
                     // Single POST.
-                    auto req = make_request(
-                        server.base_url(), "/api/b", Method::POST
-                    );
+                    auto req = make_request(server.base_url(), "/api/b", Method::POST);
                     req.body = R"({"i": )" + std::to_string(i) + "}";
                     auto [resp, err] = proc.execute(req);
                     if (!err && resp.status_code == 201) success_count++;
@@ -1486,7 +1481,7 @@ TEST(ProcessorTest, MultipleServersBothSucceed) {
     reqs[1].body = R"({"data": 1})";
 
     Processor proc;
-    const auto results = ASSERT_NIL_P(proc.execute(reqs));
+    const auto results = proc.execute(reqs);
     ASSERT_EQ(results.size(), 2);
 
     const auto &resp_a = ASSERT_NIL_P(results[0]);
@@ -1530,7 +1525,7 @@ TEST(ProcessorTest, MultipleServersOneTimesOut) {
     std::vector<Request> reqs = {fast, slow};
 
     Processor proc;
-    const auto results = ASSERT_NIL_P(proc.execute(reqs));
+    const auto results = proc.execute(reqs);
     ASSERT_EQ(results.size(), 2);
 
     const auto &fast_resp = ASSERT_NIL_P(results[0]);
@@ -1574,11 +1569,9 @@ TEST(ProcessorTest, MultiThreadedParallelBatches) {
                         make_request(server.base_url(), "/api/a"),
                         make_request(server.base_url(), "/api/a"),
                     };
-                    auto [results, batch_err] = proc.execute(reqs);
-                    if (!batch_err) {
-                        for (auto &[resp, err]: results) {
-                            if (!err && resp.status_code == 200) success_count++;
-                        }
+                    auto results = proc.execute(reqs);
+                    for (auto &[resp, err]: results) {
+                        if (!err && resp.status_code == 200) success_count++;
                     }
                 } else {
                     // Odd threads: single execute with POST body.

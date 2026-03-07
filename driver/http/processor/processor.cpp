@@ -102,26 +102,24 @@ CURL *create_handle(const Request &req, ActiveTransfer &t) {
     if (handle == nullptr) return nullptr;
 
     curl_easy_setopt(handle, CURLOPT_URL, req.url.c_str());
+    curl_easy_setopt(handle, CURLOPT_NOSIGNAL, 1L);
     curl_easy_setopt(handle, CURLOPT_FOLLOWLOCATION, 1L);
 
-    // Timeout.
     curl_easy_setopt(
         handle,
         CURLOPT_TIMEOUT_MS,
         static_cast<long>(req.timeout.milliseconds())
     );
 
-    // Write callback — WRITEDATA is set after the transfer is in its final
-    // location (see run()) to avoid a dangling pointer from std::move.
+    // Write callback — WRITEDATA is set after the transfer is in its final location
+    // (see run()) to avoid a dangling pointer from std::move.
     curl_easy_setopt(handle, CURLOPT_WRITEFUNCTION, write_callback);
 
-    // SSL verification.
     if (!req.verify_ssl) {
         curl_easy_setopt(handle, CURLOPT_SSL_VERIFYPEER, 0L);
         curl_easy_setopt(handle, CURLOPT_SSL_VERIFYHOST, 0L);
     }
 
-    // HTTP method.
     t.method = req.method;
     if (req.method == Method::HEAD)
         curl_easy_setopt(handle, CURLOPT_NOBODY, 1L);
@@ -130,7 +128,6 @@ CURL *create_handle(const Request &req, ActiveTransfer &t) {
     else if (req.method != Method::GET)
         curl_easy_setopt(handle, CURLOPT_CUSTOMREQUEST, to_string(req.method));
 
-    // Headers.
     for (const auto &[k, v]: req.headers) {
         const std::string hdr = k + ": " + v;
         t.headers = curl_slist_append(t.headers, hdr.c_str());
@@ -138,7 +135,6 @@ CURL *create_handle(const Request &req, ActiveTransfer &t) {
 
     if (t.headers != nullptr) curl_easy_setopt(handle, CURLOPT_HTTPHEADER, t.headers);
 
-    // Body.
     if (has_request_body(req.method)) {
         if (!req.body.empty()) {
             curl_easy_setopt(handle, CURLOPT_POSTFIELDS, req.body.c_str());
@@ -171,7 +167,6 @@ struct Processor::Impl {
         running.store(false);
         curl_multi_wakeup(multi);
         if (io_thread.joinable()) io_thread.join();
-        // Clean up any remaining active transfers.
         for (auto &[handle, transfer]: active) {
             curl_multi_remove_handle(multi, handle);
             if (transfer.headers != nullptr) curl_slist_free_all(transfer.headers);
@@ -203,8 +198,8 @@ struct Processor::Impl {
                         continue;
                     }
                     auto [it, _] = active.emplace(handle, std::move(t));
-                    // Set WRITEDATA after emplace so it points to the
-                    // response_body at its final address in the map.
+                    // Set WRITEDATA after emplace so it points to the response_body at
+                    // its final address in the map.
                     curl_easy_setopt(
                         handle,
                         CURLOPT_WRITEDATA,
@@ -215,14 +210,11 @@ struct Processor::Impl {
                 }
             }
 
-            // If no active transfers and still running, poll/wait for new work.
             if (active.empty()) {
-                // Use curl_multi_poll to wait for wakeup signal.
                 curl_multi_poll(multi, nullptr, 0, 1000, nullptr);
                 continue;
             }
 
-            // Drive I/O.
             int still_running = 0;
             const auto mc = curl_multi_perform(multi, &still_running);
             if (mc != CURLM_OK) {
@@ -246,11 +238,9 @@ struct Processor::Impl {
                 active.erase(it);
             }
 
-            // If there are still active handles, poll for socket activity.
             if (!active.empty()) curl_multi_poll(multi, nullptr, 0, 100, nullptr);
         }
 
-        // On shutdown, cancel any remaining active transfers.
         for (auto &[handle, transfer]: active) {
             transfer.promise.set_value({
                 Response{},
@@ -271,7 +261,7 @@ Processor::Processor(): impl(std::make_unique<Impl>()) {}
 
 Processor::~Processor() = default;
 
-std::pair<std::vector<std::pair<Response, x::errors::Error>>, x::errors::Error>
+std::vector<std::pair<Response, x::errors::Error>>
 Processor::execute(const std::vector<Request> &requests) {
     std::vector<std::future<std::pair<Response, x::errors::Error>>> futures;
     futures.reserve(requests.size());
@@ -291,7 +281,7 @@ Processor::execute(const std::vector<Request> &requests) {
     results.reserve(requests.size());
     for (auto &f: futures)
         results.push_back(f.get());
-    return {std::move(results), x::errors::NIL};
+    return results;
 }
 
 std::pair<Response, x::errors::Error> Processor::execute(const Request &request) {
