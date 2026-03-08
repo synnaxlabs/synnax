@@ -20,8 +20,8 @@ class EnduranceSimDAQ(SimDAQ):
     description = "Run endurance test simulator standalone"
     end_cmd_channel = None
 
-    DRIVE_TAU = 0.5
-    LOAD_TAU = 0.3
+    DRIVE_TAU = 5.0
+    LOAD_TAU = 2.0
     DRIVE_NOISE = 5.0
     LOAD_NOISE = 0.5
     SIM_RATE = 50
@@ -116,13 +116,6 @@ class EnduranceSimDAQ(SimDAQ):
         client.channels.create(
             name="gen_field_relay_sp",
             data_type=sy.DataType.UINT8,
-            virtual=True,
-            retrieve_if_name_exists=True,
-        )
-
-        client.channels.create(
-            name="cycle_count_segment_a",
-            data_type=sy.DataType.UINT32,
             virtual=True,
             retrieve_if_name_exists=True,
         )
