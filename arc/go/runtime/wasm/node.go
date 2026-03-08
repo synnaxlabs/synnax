@@ -22,13 +22,14 @@ var _ node.Node = (*nodeImpl)(nil)
 
 type nodeImpl struct {
 	*state.Node
-	ir          ir.Node
-	wasm        *Function
-	params      []uint64
-	configCount int
-	offsets     []int
-	initialized bool
-	isEntryNode bool
+	ir            ir.Node
+	wasm          *Function
+	params        []uint64
+	configCount   int
+	offsets       []int
+	initialized   bool
+	isEntryNode   bool
+	nodeKeySetter stl.NodeKeySetter
 }
 
 func (n *nodeImpl) Init(node.Context) {}
@@ -98,13 +99,15 @@ func (n *nodeImpl) Next(ctx node.Context) {
 	if len(n.ir.Inputs) > 0 {
 		longestInputTime = n.InputTime(longestInputIdx)
 	}
-	wasmCtx := stl.WithNodeKey(ctx.Context, n.ir.Key)
+	if n.nodeKeySetter != nil {
+		n.nodeKeySetter.SetNodeKey(n.ir.Key)
+	}
 	for i := int64(0); i < maxLength; i++ {
 		for j := range n.ir.Inputs {
 			inputLen := n.Input(j).Len()
 			n.params[n.configCount+j] = valueAt(n.Input(j), int(i%inputLen))
 		}
-		res, err := n.wasm.Call(wasmCtx, n.params...)
+		res, err := n.wasm.Call(ctx.Context, n.params...)
 		if err != nil {
 			ctx.ReportError(errors.Wrapf(
 				err,

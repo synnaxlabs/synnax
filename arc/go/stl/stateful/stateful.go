@@ -25,6 +25,8 @@ type Module struct {
 	series  *state.SeriesHandleStore
 	strings *state.StringHandleStore
 
+	currentNodeKey string
+
 	stateU8     map[string]map[uint32]uint8
 	stateU16    map[string]map[uint32]uint16
 	stateU32    map[string]map[uint32]uint32
@@ -38,6 +40,8 @@ type Module struct {
 	stateString map[string]map[uint32]string
 	stateSeries map[string]map[uint32]telem.Series
 }
+
+func (m *Module) SetNodeKey(key string) { m.currentNodeKey = key }
 
 func NewModule(series *state.SeriesHandleStore, strings *state.StringHandleStore) *Module {
 	return &Module{
@@ -141,7 +145,7 @@ func bindScalarI32[T i32Compatible](
 ) {
 	stl.MustExport(rt, "state", "load_"+suffix,
 		func(ctx context.Context, varID uint32, initValue uint32) uint32 {
-			key := stl.NodeKeyFromContext(ctx)
+			key := m.currentNodeKey
 			inner, ok := store[key]
 			if !ok {
 				inner = make(map[uint32]T)
@@ -155,7 +159,7 @@ func bindScalarI32[T i32Compatible](
 		})
 	stl.MustExport(rt, "state", "store_"+suffix,
 		func(ctx context.Context, varID uint32, value uint32) {
-			key := stl.NodeKeyFromContext(ctx)
+			key := m.currentNodeKey
 			inner, ok := store[key]
 			if !ok {
 				inner = make(map[uint32]T)
@@ -177,7 +181,7 @@ func bindScalarI64[T i64Compatible](
 ) {
 	stl.MustExport(rt, "state", "load_"+suffix,
 		func(ctx context.Context, varID uint32, initValue uint64) uint64 {
-			key := stl.NodeKeyFromContext(ctx)
+			key := m.currentNodeKey
 			inner, ok := store[key]
 			if !ok {
 				inner = make(map[uint32]T)
@@ -191,7 +195,7 @@ func bindScalarI64[T i64Compatible](
 		})
 	stl.MustExport(rt, "state", "store_"+suffix,
 		func(ctx context.Context, varID uint32, value uint64) {
-			key := stl.NodeKeyFromContext(ctx)
+			key := m.currentNodeKey
 			inner, ok := store[key]
 			if !ok {
 				inner = make(map[uint32]T)
@@ -204,7 +208,7 @@ func bindScalarI64[T i64Compatible](
 func bindScalarF32(rt stl.HostRuntime, m *Module) {
 	stl.MustExport(rt, "state", "load_f32",
 		func(ctx context.Context, varID uint32, initValue float32) float32 {
-			key := stl.NodeKeyFromContext(ctx)
+			key := m.currentNodeKey
 			inner, ok := m.stateF32[key]
 			if !ok {
 				inner = make(map[uint32]float32)
@@ -218,7 +222,7 @@ func bindScalarF32(rt stl.HostRuntime, m *Module) {
 		})
 	stl.MustExport(rt, "state", "store_f32",
 		func(ctx context.Context, varID uint32, value float32) {
-			key := stl.NodeKeyFromContext(ctx)
+			key := m.currentNodeKey
 			inner, ok := m.stateF32[key]
 			if !ok {
 				inner = make(map[uint32]float32)
@@ -231,7 +235,7 @@ func bindScalarF32(rt stl.HostRuntime, m *Module) {
 func bindScalarF64(rt stl.HostRuntime, m *Module) {
 	stl.MustExport(rt, "state", "load_f64",
 		func(ctx context.Context, varID uint32, initValue float64) float64 {
-			key := stl.NodeKeyFromContext(ctx)
+			key := m.currentNodeKey
 			inner, ok := m.stateF64[key]
 			if !ok {
 				inner = make(map[uint32]float64)
@@ -245,7 +249,7 @@ func bindScalarF64(rt stl.HostRuntime, m *Module) {
 		})
 	stl.MustExport(rt, "state", "store_f64",
 		func(ctx context.Context, varID uint32, value float64) {
-			key := stl.NodeKeyFromContext(ctx)
+			key := m.currentNodeKey
 			inner, ok := m.stateF64[key]
 			if !ok {
 				inner = make(map[uint32]float64)
@@ -258,7 +262,7 @@ func bindScalarF64(rt stl.HostRuntime, m *Module) {
 func bindStr(rt stl.HostRuntime, m *Module) {
 	stl.MustExport(rt, "state", "load_str",
 		func(ctx context.Context, varID uint32, initHandle uint32) uint32 {
-			key := stl.NodeKeyFromContext(ctx)
+			key := m.currentNodeKey
 			inner, ok := m.stateString[key]
 			if !ok {
 				inner = make(map[uint32]string)
@@ -278,7 +282,7 @@ func bindStr(rt stl.HostRuntime, m *Module) {
 			if !ok {
 				return
 			}
-			key := stl.NodeKeyFromContext(ctx)
+			key := m.currentNodeKey
 			inner, ok := m.stateString[key]
 			if !ok {
 				inner = make(map[uint32]string)
@@ -291,7 +295,7 @@ func bindStr(rt stl.HostRuntime, m *Module) {
 func bindSeries(rt stl.HostRuntime, m *Module, suffix string) {
 	stl.MustExport(rt, "state", "load_series_"+suffix,
 		func(ctx context.Context, varID uint32, initHandle uint32) uint32 {
-			key := stl.NodeKeyFromContext(ctx)
+			key := m.currentNodeKey
 			inner, ok := m.stateSeries[key]
 			if !ok {
 				inner = make(map[uint32]telem.Series)
@@ -307,7 +311,7 @@ func bindSeries(rt stl.HostRuntime, m *Module, suffix string) {
 		})
 	stl.MustExport(rt, "state", "store_series_"+suffix,
 		func(ctx context.Context, varID uint32, handle uint32) {
-			key := stl.NodeKeyFromContext(ctx)
+			key := m.currentNodeKey
 			inner, ok := m.stateSeries[key]
 			if !ok {
 				inner = make(map[uint32]telem.Series)

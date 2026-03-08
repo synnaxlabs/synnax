@@ -13,8 +13,6 @@
 package stl
 
 import (
-	"context"
-
 	"github.com/synnaxlabs/arc/runtime/node"
 	"github.com/synnaxlabs/arc/symbol"
 	"github.com/tetratelabs/wazero/api"
@@ -37,6 +35,14 @@ type Module interface {
 // implements this interface.
 type MemorySetter interface {
 	SetMemory(memory api.Memory)
+}
+
+// NodeKeySetter is implemented by modules that need to know which node is
+// currently executing (e.g., stateful variable scoping). The runtime calls
+// SetNodeKey before each WASM invocation. This follows the same optional
+// interface pattern as MemorySetter.
+type NodeKeySetter interface {
+	SetNodeKey(key string)
 }
 
 // HostRuntime abstracts the WASM runtime engine so modules don't import
@@ -72,19 +78,4 @@ func MultiFactory(modules ...Module) node.MultiFactory {
 		factories[i] = m
 	}
 	return factories
-}
-
-type nodeKeyCtxKey struct{}
-
-// WithNodeKey returns a new context with the given node key attached.
-func WithNodeKey(ctx context.Context, key string) context.Context {
-	return context.WithValue(ctx, nodeKeyCtxKey{}, key)
-}
-
-// NodeKeyFromContext retrieves the node key from the context.
-func NodeKeyFromContext(ctx context.Context) string {
-	if key, ok := ctx.Value(nodeKeyCtxKey{}).(string); ok {
-		return key
-	}
-	return ""
 }

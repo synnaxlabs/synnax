@@ -16,6 +16,7 @@ import (
 
 	runtimenode "github.com/synnaxlabs/arc/runtime/node"
 	"github.com/synnaxlabs/arc/runtime/state"
+	"github.com/synnaxlabs/arc/stl"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/query"
 	"github.com/synnaxlabs/x/telem"
@@ -24,8 +25,9 @@ import (
 )
 
 type factory struct {
-	wasm    api.Module
-	strings *state.StringHandleStore
+	wasm          api.Module
+	strings       *state.StringHandleStore
+	nodeKeySetter stl.NodeKeySetter
 }
 
 func (w *factory) Create(_ context.Context, cfg runtimenode.Config) (runtimenode.Node, error) {
@@ -63,10 +65,11 @@ func (w *factory) Create(_ context.Context, cfg runtimenode.Config) (runtimenode
 			irFn.Outputs,
 			cfg.Module.OutputMemoryBases[cfg.Node.Type],
 		),
-		params:      params,
-		configCount: configCount,
-		offsets:     make([]int, len(irFn.Outputs)),
-		isEntryNode: isEntryNode,
+		params:        params,
+		configCount:   configCount,
+		offsets:       make([]int, len(irFn.Outputs)),
+		isEntryNode:   isEntryNode,
+		nodeKeySetter: w.nodeKeySetter,
 	}
 	return n, nil
 }
@@ -104,5 +107,9 @@ func convertConfigValue(v any) (uint64, error) {
 }
 
 func NewFactory(mod *Module) (runtimenode.Factory, error) {
-	return &factory{wasm: mod.wasmModule, strings: mod.strings}, nil
+	return &factory{
+		wasm:          mod.wasmModule,
+		strings:       mod.strings,
+		nodeKeySetter: mod.nodeKeySetter,
+	}, nil
 }

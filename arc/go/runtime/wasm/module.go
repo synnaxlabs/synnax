@@ -28,9 +28,10 @@ import (
 )
 
 type Module struct {
-	wasmRuntime wazero.Runtime
-	wasmModule  api.Module
-	strings     *state.StringHandleStore
+	wasmRuntime   wazero.Runtime
+	wasmModule    api.Module
+	strings       *state.StringHandleStore
+	nodeKeySetter stl.NodeKeySetter
 }
 
 func (m *Module) Close() error {
@@ -85,14 +86,19 @@ func OpenModule(ctx context.Context, cfg ModuleConfig) (*Module, error) {
 	if err != nil {
 		return nil, err
 	}
+	var nodeKeySetter stl.NodeKeySetter
 	for _, m := range modules {
 		if ms, ok := m.(stl.MemorySetter); ok {
 			ms.SetMemory(wasmModule.Memory())
 		}
+		if nks, ok := m.(stl.NodeKeySetter); ok {
+			nodeKeySetter = nks
+		}
 	}
 	return &Module{
-		wasmModule:  wasmModule,
-		wasmRuntime: wasmRuntime,
-		strings:     cfg.State.Strings,
+		wasmModule:    wasmModule,
+		wasmRuntime:   wasmRuntime,
+		strings:       cfg.State.Strings,
+		nodeKeySetter: nodeKeySetter,
 	}, nil
 }
