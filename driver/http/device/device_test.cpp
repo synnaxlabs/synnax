@@ -21,6 +21,7 @@
 #include "driver/http/device/device.h"
 
 namespace {
+using json = nlohmann::json;
 /// @brief finds a pre-formatted header matching "Key: Value" in a Request's header
 /// vector. Returns the full header string, or empty string if not found.
 std::string
@@ -353,7 +354,9 @@ TEST(RetrieveConnectionTest, DeviceNotFound) {
 }
 
 TEST(BuildRequestTest, MergesURLAndPath) {
-    auto conn = ConnectionConfig(x::json::Parser({{"base_url", "http://example.com"}}));
+    auto conn = ConnectionConfig(
+        x::json::Parser(json{{"base_url", "http://example.com"}})
+    );
     RequestConfig req{.method = Method::GET, .path = "/api/data"};
     auto r = build_request(conn, req);
     EXPECT_EQ(r.url, "http://example.com/api/data");
@@ -363,7 +366,9 @@ TEST(BuildRequestTest, MergesURLAndPath) {
 }
 
 TEST(BuildRequestTest, PreservesDoubleSlashInPath) {
-    auto conn = ConnectionConfig(x::json::Parser({{"base_url", "http://example.com"}}));
+    auto conn = ConnectionConfig(
+        x::json::Parser(json{{"base_url", "http://example.com"}})
+    );
     RequestConfig req{.method = Method::GET, .path = "//twoslashes"};
     auto r = build_request(conn, req);
     EXPECT_EQ(r.url, "http://example.com//twoslashes");
@@ -371,10 +376,12 @@ TEST(BuildRequestTest, PreservesDoubleSlashInPath) {
 
 TEST(BuildRequestTest, MergesConnectionAndRequestHeaders) {
     auto conn = ConnectionConfig(
-        x::json::Parser({
-            {"base_url", "http://example.com"},
-            {"headers", {{"X-Global", "g"}}},
-        })
+        x::json::Parser(
+            json{
+                {"base_url", "http://example.com"},
+                {"headers", {{"X-Global", "g"}}},
+            }
+        )
     );
     RequestConfig req{
         .method = Method::GET,
@@ -388,10 +395,12 @@ TEST(BuildRequestTest, MergesConnectionAndRequestHeaders) {
 
 TEST(BuildRequestTest, MergesConnectionAndRequestQueryParams) {
     auto conn = ConnectionConfig(
-        x::json::Parser({
-            {"base_url", "http://example.com"},
-            {"query_params", {{"api_key", "secret"}}},
-        })
+        x::json::Parser(
+            json{
+                {"base_url", "http://example.com"},
+                {"query_params", {{"api_key", "secret"}}},
+            }
+        )
     );
     RequestConfig req{
         .method = Method::GET,
@@ -404,9 +413,11 @@ TEST(BuildRequestTest, MergesConnectionAndRequestQueryParams) {
 
 TEST(BuildRequestTest, TestQueryParamsEncoding) {
     auto conn = ConnectionConfig(
-        x::json::Parser({
-            {"base_url", "http://example.com"},
-        })
+        x::json::Parser(
+            json{
+                {"base_url", "http://example.com"},
+            }
+        )
     );
     RequestConfig req{
         .method = Method::GET,
@@ -425,10 +436,12 @@ TEST(BuildRequestTest, TestQueryParamsEncoding) {
 
 TEST(BuildRequestTest, ResolvesBearerAuth) {
     auto conn = ConnectionConfig(
-        x::json::Parser({
-            {"base_url", "http://example.com"},
-            {"auth", {{"type", "bearer"}, {"token", "my-jwt"}}},
-        })
+        x::json::Parser(
+            json{
+                {"base_url", "http://example.com"},
+                {"auth", {{"type", "bearer"}, {"token", "my-jwt"}}},
+            }
+        )
     );
     RequestConfig req{.method = Method::GET, .path = "/"};
     auto r = build_request(conn, req);
@@ -437,10 +450,13 @@ TEST(BuildRequestTest, ResolvesBearerAuth) {
 
 TEST(BuildRequestTest, ResolvesBasicAuth) {
     auto conn = ConnectionConfig(
-        x::json::Parser({
-            {"base_url", "http://example.com"},
-            {"auth", {{"type", "basic"}, {"username", "user"}, {"password", "pass"}}},
-        })
+        x::json::Parser(
+            json{
+                {"base_url", "http://example.com"},
+                {"auth",
+                 {{"type", "basic"}, {"username", "user"}, {"password", "pass"}}},
+            }
+        )
     );
     RequestConfig req{.method = Method::GET, .path = "/"};
     auto r = build_request(conn, req);
@@ -452,10 +468,13 @@ TEST(BuildRequestTest, ResolvesBasicAuth) {
 
 TEST(BuildRequestTest, ResolvesAPIKeyAsHeader) {
     auto conn = ConnectionConfig(
-        x::json::Parser({
-            {"base_url", "http://example.com"},
-            {"auth", {{"type", "api_key"}, {"header", "X-API-Key"}, {"key", "s123"}}},
-        })
+        x::json::Parser(
+            json{
+                {"base_url", "http://example.com"},
+                {"auth",
+                 {{"type", "api_key"}, {"header", "X-API-Key"}, {"key", "s123"}}},
+            }
+        )
     );
     RequestConfig req{.method = Method::GET, .path = "/"};
     auto r = build_request(conn, req);
@@ -465,16 +484,18 @@ TEST(BuildRequestTest, ResolvesAPIKeyAsHeader) {
 
 TEST(BuildRequestTest, ResolvesV1APIKeyAsQueryParam) {
     auto conn = ConnectionConfig(
-        x::json::Parser({
-            {"base_url", "http://example.com"},
-            {"auth",
-             {
-                 {"type", "api_key"},
-                 {"parameter", "api_key"},
-                 {"key", "s123"},
-                 {"send_as", "query_param"},
-             }},
-        })
+        x::json::Parser(
+            json{
+                {"base_url", "http://example.com"},
+                {"auth",
+                 {
+                     {"type", "api_key"},
+                     {"parameter", "api_key"},
+                     {"key", "s123"},
+                     {"send_as", "query_param"},
+                 }},
+            }
+        )
     );
     RequestConfig req{.method = Method::GET, .path = "/"};
     auto r = build_request(conn, req);
@@ -483,7 +504,9 @@ TEST(BuildRequestTest, ResolvesV1APIKeyAsQueryParam) {
 }
 
 TEST(BuildRequestTest, SetsContentTypeForRequestBody) {
-    auto conn = ConnectionConfig(x::json::Parser({{"base_url", "http://example.com"}}));
+    auto conn = ConnectionConfig(
+        x::json::Parser(json{{"base_url", "http://example.com"}})
+    );
     RequestConfig req{
         .method = Method::POST,
         .path = "/",
@@ -494,21 +517,27 @@ TEST(BuildRequestTest, SetsContentTypeForRequestBody) {
 }
 
 TEST(BuildRequestTest, NoContentTypeIfRequestContentTypeIsEmpty) {
-    auto conn = ConnectionConfig(x::json::Parser({{"base_url", "http://example.com"}}));
+    auto conn = ConnectionConfig(
+        x::json::Parser(json{{"base_url", "http://example.com"}})
+    );
     RequestConfig req{.method = Method::GET, .path = "/"};
     auto r = build_request(conn, req);
     EXPECT_FALSE(has_header(r.headers, "Content-Type"));
 }
 
 TEST(BuildRequestTest, NoContentTypeForPOSTIfRequestContentTypeIsEmpty) {
-    auto conn = ConnectionConfig(x::json::Parser({{"base_url", "http://example.com"}}));
+    auto conn = ConnectionConfig(
+        x::json::Parser(json{{"base_url", "http://example.com"}})
+    );
     RequestConfig req{.method = Method::POST, .path = "/", .request_content_type = ""};
     auto r = build_request(conn, req);
     EXPECT_FALSE(has_header(r.headers, "Content-Type"));
 }
 
 TEST(BuildRequestTest, ContentTypeForPOSTIfRequestContentTypeIsSet) {
-    auto conn = ConnectionConfig(x::json::Parser({{"base_url", "http://example.com"}}));
+    auto conn = ConnectionConfig(
+        x::json::Parser(json{{"base_url", "http://example.com"}})
+    );
     RequestConfig req{
         .method = Method::GET,
         .path = "/",
@@ -519,7 +548,9 @@ TEST(BuildRequestTest, ContentTypeForPOSTIfRequestContentTypeIsSet) {
 }
 
 TEST(BuildRequestTest, ContentTypeForGETIfRequestContentTypeIsSet) {
-    auto conn = ConnectionConfig(x::json::Parser({{"base_url", "http://example.com"}}));
+    auto conn = ConnectionConfig(
+        x::json::Parser(json{{"base_url", "http://example.com"}})
+    );
     RequestConfig req{
         .method = Method::GET,
         .path = "/",
