@@ -33,6 +33,7 @@ import {
   type AuthType,
   type Device,
   type HealthCheckMethod,
+  type JsonPrimitiveType,
   SCHEMAS,
   ZERO_AUTH_CONFIGS,
   ZERO_PROPERTIES,
@@ -142,13 +143,63 @@ export const Connect: Layout.Renderer = ({ layoutKey, onClose }) => {
     HealthCheckMethod,
     HealthCheckMethod,
     typeof PDevice.formSchema
-  >("properties.health_check.method", { ctx: form, optional: true });
+  >("properties.health_check.method", { ctx: form });
 
   const validateResponse = Form.useFieldValue<
     boolean,
     boolean,
     typeof PDevice.formSchema
-  >("__validate_health_response", { ctx: form, optional: true });
+  >("properties.health_check.validate_response", { ctx: form });
+
+  const expectedValueType =
+    Form.useFieldValue<
+      JsonPrimitiveType,
+      JsonPrimitiveType,
+      typeof PDevice.formSchema
+    >("properties.health_check.response.expected_value_type", {
+      ctx: form,
+      optional: true,
+    }) ?? "string";
+
+  const handleValidateResponseChange = useCallback(
+    (value: boolean) => {
+      if (value) {
+        const response = form.get("properties.health_check.response").value;
+        if (response == null)
+          form.set("properties.health_check.response", {
+            pointer: "",
+            expected_value_type: "string",
+            expected_value: "",
+          });
+      }
+    },
+    [form.get, form.set],
+  );
+
+  const renderExpectedValueType = useCallback(
+    ({
+      onChange,
+      ...rest
+    }: SelectExpectedValueTypeProps & {
+      onChange: (v: JsonPrimitiveType) => void;
+    }) => {
+      const handleChange = (value: JsonPrimitiveType) => {
+        const defaults: Record<JsonPrimitiveType, unknown> = {
+          string: "",
+          number: 0,
+          boolean: true,
+          null: null,
+        };
+        form.set(
+          "properties.health_check.response.expected_value",
+          defaults[value],
+        );
+        onChange(value);
+      };
+      return <SelectExpectedValueType {...rest} onChange={handleChange} />;
+    },
+    [form.set],
+  );
 
   const renderAuthType = useCallback(
     ({
@@ -290,24 +341,46 @@ export const Connect: Layout.Renderer = ({ layoutKey, onClose }) => {
             />
           )}
           <Form.SwitchField
-            path="__validate_health_response"
+            path="properties.health_check.validate_response"
             label="Validate response body"
+            onChange={handleValidateResponseChange}
           />
           {validateResponse && (
-            <Flex.Box x justify="between">
-              <Form.TextField
-                grow
-                path="properties.health_check.response.pointer"
-                label="JSON Pointer"
-                inputProps={HEALTH_POINTER_INPUT_PROPS}
-              />
-              <Form.TextField
-                grow
-                path="properties.health_check.response.expected_value"
-                label="Expected Value"
-                inputProps={HEALTH_EXPECTED_INPUT_PROPS}
-              />
-            </Flex.Box>
+            <>
+              <Flex.Box x align="end">
+                <Form.TextField
+                  grow
+                  path="properties.health_check.response.pointer"
+                  label="JSON Pointer"
+                  inputProps={HEALTH_POINTER_INPUT_PROPS}
+                />
+                <Form.Field<JsonPrimitiveType>
+                  path="properties.health_check.response.expected_value_type"
+                  label="Value Type"
+                >
+                  {renderExpectedValueType}
+                </Form.Field>
+              </Flex.Box>
+              {expectedValueType === "string" && (
+                <Form.TextField
+                  path="properties.health_check.response.expected_value"
+                  label="Expected Value"
+                  inputProps={HEALTH_EXPECTED_STRING_INPUT_PROPS}
+                />
+              )}
+              {expectedValueType === "number" && (
+                <Form.NumericField
+                  path="properties.health_check.response.expected_value"
+                  label="Expected Value"
+                />
+              )}
+              {expectedValueType === "boolean" && (
+                <Form.SwitchField
+                  path="properties.health_check.response.expected_value"
+                  label="Expected Value"
+                />
+              )}
+            </>
           )}
         </Form.Form>
       </Flex.Box>
@@ -414,7 +487,7 @@ const HEALTH_BODY_INPUT_PROPS = { placeholder: '{"check": "ping"}' } as const;
 
 const HEALTH_POINTER_INPUT_PROPS = { placeholder: "/status" } as const;
 
-const HEALTH_EXPECTED_INPUT_PROPS = { placeholder: "ok" } as const;
+const HEALTH_EXPECTED_STRING_INPUT_PROPS = { placeholder: "ok" } as const;
 
 const HEALTH_METHOD_DATA: HealthCheckMethod[] = ["GET", "POST"];
 
@@ -424,6 +497,25 @@ const SelectHealthCheckMethod = (
   <Select.Buttons<HealthCheckMethod> {...props} keys={HEALTH_METHOD_DATA}>
     <Select.Button<HealthCheckMethod> itemKey="GET">GET</Select.Button>
     <Select.Button<HealthCheckMethod> itemKey="POST">POST</Select.Button>
+  </Select.Buttons>
+);
+
+const EXPECTED_VALUE_TYPE_DATA: JsonPrimitiveType[] = [
+  "string",
+  "number",
+  "boolean",
+  "null",
+];
+
+interface SelectExpectedValueTypeProps
+  extends Omit<Select.ButtonsProps<JsonPrimitiveType>, "keys"> {}
+
+const SelectExpectedValueType = (props: SelectExpectedValueTypeProps) => (
+  <Select.Buttons<JsonPrimitiveType> {...props} keys={EXPECTED_VALUE_TYPE_DATA}>
+    <Select.Button<JsonPrimitiveType> itemKey="string">String</Select.Button>
+    <Select.Button<JsonPrimitiveType> itemKey="number">Number</Select.Button>
+    <Select.Button<JsonPrimitiveType> itemKey="boolean">Boolean</Select.Button>
+    <Select.Button<JsonPrimitiveType> itemKey="null">Null</Select.Button>
   </Select.Buttons>
 );
 

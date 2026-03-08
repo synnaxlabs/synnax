@@ -82,9 +82,16 @@ const jsonPointerZ = z
   .string()
   .regex(/^(?:$|(?:\/(?:[^~/]|~0|~1)*)+)$/, "must be a valid JSON pointer (RFC 6901)");
 
+const jsonPrimitiveZ = z.union([z.string(), z.number(), z.boolean(), z.null()]);
+
+export type JsonPrimitiveType = "string" | "number" | "boolean" | "null";
+
+const jsonPrimitiveTypeZ = z.enum(["string", "number", "boolean", "null"]);
+
 const healthCheckResponseZ = z.object({
   pointer: jsonPointerZ,
-  expected_value: z.string(),
+  expected_value_type: jsonPrimitiveTypeZ,
+  expected_value: jsonPrimitiveZ,
 });
 
 const healthCheckMethodZ = z.enum(["GET", "POST"]);
@@ -95,6 +102,7 @@ const healthCheckZ = z.object({
   headers: z.record(z.string(), z.string()).optional(),
   query_params: z.record(z.string(), z.string()).optional(),
   body: z.string().optional(),
+  validate_response: z.boolean(),
   response: healthCheckResponseZ.optional(),
 });
 
@@ -105,6 +113,13 @@ export type HealthCheckMethod = z.infer<typeof healthCheckMethodZ>;
 export const ZERO_HEALTH_CHECK: HealthCheck = {
   method: "GET",
   path: "/health",
+  body: "",
+  validate_response: false,
+  response: {
+    pointer: "",
+    expected_value_type: "string",
+    expected_value: "",
+  },
 };
 
 const defaultTimeoutMs = TimeSpan.milliseconds(100).milliseconds;

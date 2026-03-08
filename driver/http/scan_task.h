@@ -41,8 +41,8 @@ struct HealthCheckConfig {
     std::string body;
     /// @brief JSON Pointer for response validation (empty = just check 200).
     std::string response_pointer;
-    /// @brief expected value at the pointer (as string).
-    std::string expected_value;
+    /// @brief expected JSON value at the pointer.
+    x::json::json expected_value;
 
     HealthCheckConfig(): request{.method = Method::GET, .path = "/health"} {}
 
@@ -63,7 +63,8 @@ struct HealthCheckConfig {
         auto resp = parser.optional_child("response");
         if (resp.ok()) {
             response_pointer = resp.field<std::string>("pointer", "");
-            expected_value = resp.field<std::string>("expected_value", "");
+            if (resp.has("expected_value"))
+                expected_value = resp.get_json()["expected_value"];
         }
     }
 };

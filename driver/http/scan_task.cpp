@@ -69,14 +69,9 @@ validate_health_response(const HealthCheckConfig &hc, const Response &resp) {
     const auto ptr = x::json::json::json_pointer(hc.response_pointer);
     if (!body.contains(ptr))
         return "response body does not contain pointer '" + hc.response_pointer + "'";
-    const auto actual = body[ptr].dump();
-    // Compare the dumped JSON value (strips quotes from strings) against expected.
-    // For strings, dump() produces quoted output, so also try unquoted comparison.
-    if (actual == hc.expected_value) return "";
-    if (body[ptr].is_string() && body[ptr].get<std::string>() == hc.expected_value)
-        return "";
-    return "expected value at '" + hc.response_pointer + "' to be '" +
-           hc.expected_value + "', got " + actual;
+    if (body[ptr] == hc.expected_value) return "";
+    return "expected value at '" + hc.response_pointer + "' to be " +
+           hc.expected_value.dump() + ", got " + body[ptr].dump();
 }
 
 void Scanner::check_device_health(synnax::device::Device &dev) const {
@@ -100,9 +95,7 @@ void Scanner::check_device_health(synnax::device::Device &dev) const {
         return;
     }
 
-    HealthCheckConfig hc;
-    if (parser.has("health_check"))
-        hc = HealthCheckConfig(parser.child("health_check"));
+    const auto hc = HealthCheckConfig(parser.child("health_check"));
 
     auto request = device::build_request(conn, hc.request);
     if (!hc.body.empty()) request.body = hc.body;
