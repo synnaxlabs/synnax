@@ -15,8 +15,8 @@ import (
 	"strings"
 
 	runtimenode "github.com/synnaxlabs/arc/runtime/node"
-	"github.com/synnaxlabs/arc/runtime/state"
 	"github.com/synnaxlabs/arc/stl"
+	stringsstate "github.com/synnaxlabs/arc/stl/strings/state"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/query"
 	"github.com/synnaxlabs/x/telem"
@@ -26,7 +26,7 @@ import (
 
 type factory struct {
 	wasm          api.Module
-	strings       *state.StringHandleStore
+	strings       *stringsstate.State
 	nodeKeySetter stl.NodeKeySetter
 }
 

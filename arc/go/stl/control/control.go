@@ -14,8 +14,8 @@ import (
 
 	"github.com/synnaxlabs/arc/ir"
 	"github.com/synnaxlabs/arc/runtime/node"
-	"github.com/synnaxlabs/arc/runtime/state"
 	"github.com/synnaxlabs/arc/stl"
+	"github.com/synnaxlabs/arc/stl/control/state"
 	"github.com/synnaxlabs/arc/symbol"
 	"github.com/synnaxlabs/arc/types"
 	"github.com/synnaxlabs/x/errors"
@@ -42,12 +42,12 @@ var (
 )
 
 type Module struct {
-	auth *state.AuthorityBuffer
+	auth *state.State
 }
 
 var _ stl.Module = (*Module)(nil)
 
-func NewModule(ab *state.AuthorityBuffer) *Module {
+func NewModule(ab *state.State) *Module {
 	return &Module{auth: ab}
 }
 
@@ -93,7 +93,7 @@ type nodeConfig struct {
 }
 
 type setAuthority struct {
-	auth        *state.AuthorityBuffer
+	auth        *state.State
 	authority   uint8
 	channelKey  *uint32
 	initialized bool

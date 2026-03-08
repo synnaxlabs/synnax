@@ -13,8 +13,8 @@ import (
 	"context"
 
 	"github.com/synnaxlabs/arc/runtime/node"
-	"github.com/synnaxlabs/arc/runtime/state"
 	"github.com/synnaxlabs/arc/stl"
+	"github.com/synnaxlabs/arc/stl/strings/state"
 	"github.com/synnaxlabs/arc/symbol"
 	"github.com/synnaxlabs/arc/types"
 	"github.com/synnaxlabs/x/query"
@@ -56,11 +56,11 @@ var symResolver = &symbol.ModuleResolver{
 }
 
 type Module struct {
-	strings *state.StringHandleStore
+	strings *state.State
 	memory  api.Memory
 }
 
-func NewModule(s *state.StringHandleStore) *Module { return &Module{strings: s} }
+func NewModule(s *state.State) *Module { return &Module{strings: s} }
 
 func (m *Module) SetMemory(mem api.Memory) { m.memory = mem }
 

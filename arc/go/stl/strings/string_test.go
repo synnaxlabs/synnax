@@ -14,8 +14,8 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	"github.com/synnaxlabs/arc/runtime/state"
 	"github.com/synnaxlabs/arc/stl/strings"
+	stringsstate "github.com/synnaxlabs/arc/stl/strings/state"
 	"github.com/synnaxlabs/arc/stl/testutil"
 	. "github.com/synnaxlabs/x/testutil"
 	"github.com/tetratelabs/wazero/experimental/wazerotest"
@@ -26,13 +26,13 @@ var ctx = context.Background()
 var _ = Describe("Strings", func() {
 	var (
 		rt  *testutil.MockHostRuntime
-		ss  *state.StringHandleStore
+		ss  *stringsstate.State
 		mod *strings.Module
 	)
 
 	BeforeEach(func() {
 		rt = testutil.NewMockHostRuntime()
-		ss = state.NewStringHandleStore()
+		ss = stringsstate.New()
 		mod = strings.NewModule(ss)
 		Expect(mod.BindTo(rt)).To(Succeed())
 	})

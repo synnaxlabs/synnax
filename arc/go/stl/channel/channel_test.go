@@ -19,6 +19,8 @@ import (
 	rnode "github.com/synnaxlabs/arc/runtime/node"
 	"github.com/synnaxlabs/arc/runtime/state"
 	"github.com/synnaxlabs/arc/stl/channel"
+	channelstate "github.com/synnaxlabs/arc/stl/channel/state"
+	stringsstate "github.com/synnaxlabs/arc/stl/strings/state"
 	"github.com/synnaxlabs/arc/stl/testutil"
 	"github.com/synnaxlabs/arc/types"
 	"github.com/synnaxlabs/x/query"
@@ -32,19 +34,19 @@ var _ = Describe("Channel", func() {
 	Describe("WASM Bindings", func() {
 		var (
 			rt  *testutil.MockHostRuntime
-			cs  *state.ChannelState
-			ss  *state.StringHandleStore
+			cs  *channelstate.State
+			ss  *stringsstate.State
 			mod *channel.Module
 		)
 
 		BeforeEach(func() {
 			rt = testutil.NewMockHostRuntime()
-			cs = state.NewChannelState([]state.ChannelDigest{
+			cs = channelstate.New([]channelstate.Digest{
 				{Key: 1, DataType: telem.Float64T},
 				{Key: 2, DataType: telem.Int32T},
 				{Key: 3, DataType: telem.StringT},
 			})
-			ss = state.NewStringHandleStore()
+			ss = stringsstate.New()
 			mod = channel.NewModule(cs, ss)
 			Expect(mod.BindTo(rt)).To(Succeed())
 		})
@@ -261,7 +263,7 @@ var _ = Describe("Channel", func() {
 			Expect(diagnostics.Ok()).To(BeTrue())
 			s = state.New(state.Config{
 				IR: analyzed,
-				ChannelDigests: []state.ChannelDigest{
+				ChannelDigests: []channelstate.Digest{
 					{Key: 10, DataType: telem.Float32T, Index: 11},
 					{Key: 20, DataType: telem.Int32T, Index: 0},
 				},
@@ -448,7 +450,7 @@ var _ = Describe("Channel", func() {
 				Expect(diagnostics2.Ok()).To(BeTrue())
 				cfg := state.Config{
 					IR: analyzed2,
-					ChannelDigests: []state.ChannelDigest{
+					ChannelDigests: []channelstate.Digest{
 						{Key: 30, DataType: telem.Float64T, Index: 31},
 					},
 				}
@@ -507,7 +509,7 @@ var _ = Describe("Channel", func() {
 			Expect(diagnostics.Ok()).To(BeTrue())
 			s = state.New(state.Config{
 				IR: analyzed,
-				ChannelDigests: []state.ChannelDigest{
+				ChannelDigests: []channelstate.Digest{
 					{Key: 100, DataType: telem.Float32T, Index: 101},
 				},
 			})
@@ -632,7 +634,7 @@ var _ = Describe("Channel", func() {
 				Expect(diagnostics.Ok()).To(BeTrue())
 				s := state.New(state.Config{
 					IR: analyzed,
-					ChannelDigests: []state.ChannelDigest{
+					ChannelDigests: []channelstate.Digest{
 						{Key: 1, DataType: telem.Int32T, Index: 2},
 						{Key: 3, DataType: telem.Int32T, Index: 4},
 					},
@@ -697,7 +699,7 @@ var _ = Describe("Channel", func() {
 				Expect(diagnostics.Ok()).To(BeTrue())
 				s := state.New(state.Config{
 					IR: analyzed,
-					ChannelDigests: []state.ChannelDigest{
+					ChannelDigests: []channelstate.Digest{
 						{Key: 10, DataType: telem.Float32T, Index: 11},
 						{Key: 20, DataType: telem.Float64T, Index: 21},
 						{Key: 30, DataType: telem.Float32T, Index: 31},

@@ -21,6 +21,7 @@ import (
 	"github.com/synnaxlabs/arc/stl/series"
 	"github.com/synnaxlabs/arc/stl/stateful"
 	"github.com/synnaxlabs/arc/stl/strings"
+	stringsstate "github.com/synnaxlabs/arc/stl/strings/state"
 	"github.com/synnaxlabs/arc/stl/time"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/tetratelabs/wazero"
@@ -30,7 +31,7 @@ import (
 type Module struct {
 	wasmRuntime   wazero.Runtime
 	wasmModule    api.Module
-	strings       *state.StringHandleStore
+	strings       *stringsstate.State
 	nodeKeySetter stl.NodeKeySetter
 }
 

@@ -15,6 +15,7 @@ import (
 	"github.com/synnaxlabs/arc/graph"
 	"github.com/synnaxlabs/arc/ir"
 	"github.com/synnaxlabs/arc/runtime/state"
+	channelstate "github.com/synnaxlabs/arc/stl/channel/state"
 	"github.com/synnaxlabs/arc/types"
 	"github.com/synnaxlabs/x/telem"
 	. "github.com/synnaxlabs/x/testutil"
@@ -49,7 +50,7 @@ var _ = Describe("State", func() {
 				ir, diagnostics := graph.Analyze(ctx, g, nil)
 				Expect(diagnostics.Ok()).To(BeTrue())
 				cfg := state.Config{
-					ChannelDigests: []state.ChannelDigest{
+					ChannelDigests: []channelstate.Digest{
 						{Key: 5, Index: 6},
 					},
 					IR: ir,
@@ -91,7 +92,7 @@ var _ = Describe("State", func() {
 				ir, diagnostics := graph.Analyze(ctx, g, nil)
 				Expect(diagnostics.Ok()).To(BeTrue())
 				cfg := state.Config{
-					ChannelDigests: []state.ChannelDigest{
+					ChannelDigests: []channelstate.Digest{
 						{Key: 1, Index: 2},
 					},
 					IR: ir,
@@ -118,7 +119,7 @@ var _ = Describe("State", func() {
 				ir, diagnostics := graph.Analyze(ctx, g, nil)
 				Expect(diagnostics.Ok()).To(BeTrue())
 				cfg := state.Config{
-					ChannelDigests: []state.ChannelDigest{
+					ChannelDigests: []channelstate.Digest{
 						{Key: 10, Index: 11},
 						{Key: 20, Index: 21},
 					},
@@ -146,7 +147,7 @@ var _ = Describe("State", func() {
 				ir, diagnostics := graph.Analyze(ctx, g, nil)
 				Expect(diagnostics.Ok()).To(BeTrue())
 				cfg := state.Config{
-					ChannelDigests: []state.ChannelDigest{
+					ChannelDigests: []channelstate.Digest{
 						{Key: 1, Index: 2},
 					},
 					IR: ir,
@@ -170,7 +171,7 @@ var _ = Describe("State", func() {
 				ir, diagnostics := graph.Analyze(ctx, g, nil)
 				Expect(diagnostics.Ok()).To(BeTrue())
 				cfg := state.Config{
-					ChannelDigests: []state.ChannelDigest{
+					ChannelDigests: []channelstate.Digest{
 						{Key: 1, Index: 2},
 						{Key: 3, Index: 4},
 					},
@@ -190,7 +191,7 @@ var _ = Describe("State", func() {
 		Describe("WriteChannelValue", func() {
 			It("Should write to indexed channel and auto-generate timestamp", func() {
 				cfg := state.Config{
-					ChannelDigests: []state.ChannelDigest{
+					ChannelDigests: []channelstate.Digest{
 						{Key: 100, Index: 101},
 					},
 					IR: ir.IR{Nodes: []ir.Node{{Key: "test"}}},
@@ -211,7 +212,7 @@ var _ = Describe("State", func() {
 
 			It("Should not write to index channel when index is zero", func() {
 				cfg := state.Config{
-					ChannelDigests: []state.ChannelDigest{
+					ChannelDigests: []channelstate.Digest{
 						{Key: 200, Index: 0},
 					},
 					IR: ir.IR{Nodes: []ir.Node{{Key: "test"}}},
@@ -226,7 +227,7 @@ var _ = Describe("State", func() {
 
 			It("Should handle multiple WriteChannelValue calls to different channels", func() {
 				cfg := state.Config{
-					ChannelDigests: []state.ChannelDigest{
+					ChannelDigests: []channelstate.Digest{
 						{Key: 10, Index: 11},
 						{Key: 20, Index: 21},
 					},
@@ -245,7 +246,7 @@ var _ = Describe("State", func() {
 
 			It("Should produce matching behavior with WriteSeries for indexed channels", func() {
 				cfg := state.Config{
-					ChannelDigests: []state.ChannelDigest{
+					ChannelDigests: []channelstate.Digest{
 						{Key: 50, Index: 51},
 					},
 					IR: ir.IR{Nodes: []ir.Node{{Key: "test"}}},
@@ -325,7 +326,7 @@ var _ = Describe("State", func() {
 
 			It("Should preserve data across multiple channels", func() {
 				cfg := state.Config{
-					ChannelDigests: []state.ChannelDigest{
+					ChannelDigests: []channelstate.Digest{
 						{Key: 1, Index: 2},
 						{Key: 3, Index: 4},
 					},
@@ -407,7 +408,7 @@ var _ = Describe("State", func() {
 
 			It("Should not affect channels that had no data", func() {
 				cfg := state.Config{
-					ChannelDigests: []state.ChannelDigest{
+					ChannelDigests: []channelstate.Digest{
 						{Key: 10, Index: 11},
 					},
 					IR: ir.IR{Nodes: []ir.Node{{Key: "test"}}},

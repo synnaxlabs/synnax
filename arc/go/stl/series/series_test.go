@@ -14,8 +14,8 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	"github.com/synnaxlabs/arc/runtime/state"
 	"github.com/synnaxlabs/arc/stl/series"
+	seriesstate "github.com/synnaxlabs/arc/stl/series/state"
 	"github.com/synnaxlabs/arc/stl/testutil"
 	"github.com/synnaxlabs/x/telem"
 	. "github.com/synnaxlabs/x/testutil"
@@ -52,12 +52,12 @@ var ctx = context.Background()
 var _ = Describe("Series", func() {
 	var (
 		rt *testutil.MockHostRuntime
-		ss *state.SeriesHandleStore
+		ss *seriesstate.State
 	)
 
 	BeforeEach(func() {
 		rt = testutil.NewMockHostRuntime()
-		ss = state.NewSeriesHandleStore()
+		ss = seriesstate.New()
 		mod := series.NewModule(ss)
 		Expect(mod.BindTo(rt)).To(Succeed())
 	})

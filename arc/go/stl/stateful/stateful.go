@@ -13,8 +13,9 @@ import (
 	"context"
 
 	"github.com/synnaxlabs/arc/runtime/node"
-	"github.com/synnaxlabs/arc/runtime/state"
 	"github.com/synnaxlabs/arc/stl"
+	seriesstate "github.com/synnaxlabs/arc/stl/series/state"
+	stringsstate "github.com/synnaxlabs/arc/stl/strings/state"
 	"github.com/synnaxlabs/arc/symbol"
 	"github.com/synnaxlabs/arc/types"
 	"github.com/synnaxlabs/x/query"
@@ -22,8 +23,8 @@ import (
 )
 
 type Module struct {
-	series  *state.SeriesHandleStore
-	strings *state.StringHandleStore
+	series  *seriesstate.State
+	strings *stringsstate.State
 
 	currentNodeKey string
 
@@ -43,7 +44,7 @@ type Module struct {
 
 func (m *Module) SetNodeKey(key string) { m.currentNodeKey = key }
 
-func NewModule(series *state.SeriesHandleStore, strings *state.StringHandleStore) *Module {
+func NewModule(series *seriesstate.State, strings *stringsstate.State) *Module {
 	return &Module{
 		series:      series,
 		strings:     strings,

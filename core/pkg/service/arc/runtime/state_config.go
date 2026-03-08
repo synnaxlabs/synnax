@@ -16,6 +16,7 @@ import (
 	"github.com/samber/lo"
 	"github.com/synnaxlabs/arc"
 	"github.com/synnaxlabs/arc/runtime/state"
+	channelstate "github.com/synnaxlabs/arc/stl/channel/state"
 	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
 	"github.com/synnaxlabs/x/set"
 )
@@ -74,9 +75,9 @@ func NewStateConfig(
 	if err != nil {
 		return ExtendedStateConfig{}, err
 	}
-	channelDigests := make([]state.ChannelDigest, 0, len(channels))
+	channelDigests := make([]channelstate.Digest, 0, len(channels))
 	for _, ch := range channels {
-		channelDigests = append(channelDigests, state.ChannelDigest{
+		channelDigests = append(channelDigests, channelstate.Digest{
 			Key:      uint32(ch.Key()),
 			DataType: ch.DataType,
 			Index:    uint32(ch.Index()),

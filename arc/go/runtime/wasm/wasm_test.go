@@ -23,6 +23,7 @@ import (
 	"github.com/synnaxlabs/arc/runtime/node"
 	"github.com/synnaxlabs/arc/runtime/state"
 	"github.com/synnaxlabs/arc/runtime/wasm"
+	channelstate "github.com/synnaxlabs/arc/stl/channel/state"
 	"github.com/synnaxlabs/arc/stl/series"
 	"github.com/synnaxlabs/arc/symbol"
 	"github.com/synnaxlabs/arc/text"
@@ -47,7 +48,7 @@ func newHarness(
 	ctx context.Context,
 	g arc.Graph,
 	resolver symbol.Resolver,
-	channelDigests []state.ChannelDigest,
+	channelDigests []channelstate.Digest,
 	opts ...arc.Option,
 ) *testHarness {
 	stdlib := testutil.NewStdlibResolver()
@@ -119,7 +120,7 @@ func newTextHarness(
 	ctx context.Context,
 	source string,
 	resolver symbol.Resolver,
-	channelDigests []state.ChannelDigest,
+	channelDigests []channelstate.Digest,
 ) *testHarness {
 	parsedText := MustSucceed(text.Parse(text.Text{Raw: source}))
 	analyzed, diagnostics := text.Analyze(ctx, parsedText, resolver)
@@ -307,7 +308,7 @@ var _ = Describe("WASM", func() {
 				return value * 2
 			}`)
 
-			h := newHarness(ctx, g, resolver, []state.ChannelDigest{{Key: 0, DataType: telem.Int32T}})
+			h := newHarness(ctx, g, resolver, []channelstate.Digest{{Key: 0, DataType: telem.Int32T}})
 			defer h.Close()
 
 			fr := telem.Frame[uint32]{}
@@ -1080,7 +1081,7 @@ var _ = Describe("WASM", func() {
 					return 42
 				}`)
 
-				h := newHarness(ctx, g, resolver, []state.ChannelDigest{
+				h := newHarness(ctx, g, resolver, []channelstate.Digest{
 					{Key: 100, DataType: telem.Int32T},
 				})
 				defer h.Close()
@@ -1111,7 +1112,7 @@ var _ = Describe("WASM", func() {
 					return 99
 				}`)
 
-				h := newHarness(ctx, g, resolver, []state.ChannelDigest{
+				h := newHarness(ctx, g, resolver, []channelstate.Digest{
 					{Key: 100, Index: 101, DataType: telem.Int32T},
 				})
 				defer h.Close()
@@ -1144,7 +1145,7 @@ var _ = Describe("WASM", func() {
 					return 42
 				}`)
 
-				h := newHarness(ctx, g, resolver, []state.ChannelDigest{
+				h := newHarness(ctx, g, resolver, []channelstate.Digest{
 					{Key: 200, Index: 201, DataType: telem.Int32T},
 				})
 				defer h.Close()
@@ -1184,7 +1185,7 @@ var _ = Describe("WASM", func() {
 					return 0
 				}`)
 
-				h := newHarness(ctx, g, resolver, []state.ChannelDigest{
+				h := newHarness(ctx, g, resolver, []channelstate.Digest{
 					{Key: 10, Index: 11, DataType: telem.Int32T},
 					{Key: 20, Index: 21, DataType: telem.Int32T},
 				})
@@ -1222,7 +1223,7 @@ var _ = Describe("WASM", func() {
 					return count
 				}`)
 
-				h := newHarness(ctx, g, resolver, []state.ChannelDigest{
+				h := newHarness(ctx, g, resolver, []channelstate.Digest{
 					{Key: 300, Index: 301, DataType: telem.Int32T},
 				})
 				defer h.Close()
@@ -1261,7 +1262,7 @@ var _ = Describe("WASM", func() {
 					return -50000
 				}`)
 
-				h := newHarness(ctx, g, resolver, []state.ChannelDigest{
+				h := newHarness(ctx, g, resolver, []channelstate.Digest{
 					{Key: 700, Index: 701, DataType: telem.Int32T},
 				})
 				defer h.Close()
@@ -1291,7 +1292,7 @@ var _ = Describe("WASM", func() {
 					return 255
 				}`)
 
-				h := newHarness(ctx, g, resolver, []state.ChannelDigest{
+				h := newHarness(ctx, g, resolver, []channelstate.Digest{
 					{Key: 800, Index: 801, DataType: telem.Uint8T},
 				})
 				defer h.Close()
@@ -1323,7 +1324,7 @@ var _ = Describe("WASM", func() {
 					return 3.14159
 				}`)
 
-				h := newHarness(ctx, g, resolver, []state.ChannelDigest{
+				h := newHarness(ctx, g, resolver, []channelstate.Digest{
 					{Key: 1100, Index: 1101, DataType: telem.Float64T},
 				})
 				defer h.Close()
@@ -1353,7 +1354,7 @@ var _ = Describe("WASM", func() {
 					return 2.718
 				}`)
 
-				h := newHarness(ctx, g, resolver, []state.ChannelDigest{
+				h := newHarness(ctx, g, resolver, []channelstate.Digest{
 					{Key: 1200, Index: 1201, DataType: telem.Float32T},
 				})
 				defer h.Close()
@@ -1399,7 +1400,7 @@ var _ = Describe("WASM", func() {
 					return 123
 				}`)
 
-				h := newHarness(ctx, g, resolver, []state.ChannelDigest{
+				h := newHarness(ctx, g, resolver, []channelstate.Digest{
 					{Key: 900, Index: 0, DataType: telem.Int32T},
 				})
 				defer h.Close()
@@ -1430,7 +1431,7 @@ var _ = Describe("WASM", func() {
 					return 123
 				}`)
 
-				h := newHarness(ctx, g, resolver, []state.ChannelDigest{
+				h := newHarness(ctx, g, resolver, []channelstate.Digest{
 					{Key: 1000, Index: 1001, DataType: telem.Int32T},
 				})
 				defer h.Close()
@@ -1518,7 +1519,7 @@ var _ = Describe("WASM", func() {
 					{Source: ir.Handle{Node: "trigger_source", Param: ir.DefaultOutputParam}, Target: ir.Handle{Node: "void_with_state", Param: "trigger"}},
 				},
 			}
-			h := newHarness(ctx, g, resolver, []state.ChannelDigest{{Key: 100, DataType: telem.Int32T}})
+			h := newHarness(ctx, g, resolver, []channelstate.Digest{{Key: 100, DataType: telem.Int32T}})
 			defer h.Close()
 
 			h.SetInput("trigger_source", 0, telem.NewSeriesV[uint8](1), telem.NewSeriesSecondsTSV(1))
@@ -1643,7 +1644,7 @@ var _ = Describe("WASM", func() {
 				Edges: []graph.Edge{},
 			}
 
-			h := newHarness(ctx, g, resolver, []state.ChannelDigest{
+			h := newHarness(ctx, g, resolver, []channelstate.Digest{
 				{Key: 100, DataType: telem.Float32T},
 			})
 			defer h.Close()
@@ -1707,7 +1708,7 @@ var _ = Describe("WASM", func() {
 				},
 			}
 
-			h := newHarness(ctx, g, resolver, []state.ChannelDigest{
+			h := newHarness(ctx, g, resolver, []channelstate.Digest{
 				{Key: 100, DataType: telem.Float32T},
 			})
 			defer h.Close()
@@ -1828,7 +1829,7 @@ var _ = Describe("WASM", func() {
 				Edges: []graph.Edge{},
 			}
 
-			h := newHarness(ctx, g, resolver, []state.ChannelDigest{
+			h := newHarness(ctx, g, resolver, []channelstate.Digest{
 				{Key: 100, DataType: telem.Float32T},
 				{Key: 101, DataType: telem.Float32T},
 				{Key: 102, DataType: telem.Float32T},
@@ -1920,7 +1921,7 @@ var _ = Describe("WASM", func() {
 				Edges: []graph.Edge{},
 			}
 
-			h := newHarness(ctx, g, resolver, []state.ChannelDigest{
+			h := newHarness(ctx, g, resolver, []channelstate.Digest{
 				{Key: 200, DataType: telem.Float64T},
 				{Key: 201, DataType: telem.Float64T},
 				{Key: 202, DataType: telem.Float64T},
@@ -1996,7 +1997,7 @@ var _ = Describe("WASM", func() {
 				Edges: []graph.Edge{},
 			}
 
-			h := newHarness(ctx, g, resolver, []state.ChannelDigest{
+			h := newHarness(ctx, g, resolver, []channelstate.Digest{
 				{Key: 300, DataType: telem.Float32T},
 				{Key: 301, DataType: telem.Float32T},
 			})
@@ -2093,7 +2094,7 @@ var _ = Describe("WASM", func() {
 				},
 			}
 
-			h := newHarness(ctx, g, resolver, []state.ChannelDigest{
+			h := newHarness(ctx, g, resolver, []channelstate.Digest{
 				{Key: 400, DataType: telem.Float32T},
 			})
 			defer h.Close()
@@ -2189,7 +2190,7 @@ func tolerance_alarm{
 
 input_val -> tolerance_alarm{tolerance_upper=10.0, tolerance_lower=5.0, set_point=set_point_ch, samples=3} -> output_ch
 `
-			h := newTextHarness(ctx, source, resolver, []state.ChannelDigest{
+			h := newTextHarness(ctx, source, resolver, []channelstate.Digest{
 				{Key: 100, DataType: telem.Float32T},
 				{Key: 200, DataType: telem.Float32T},
 				{Key: 300, DataType: telem.Uint8T},
@@ -2296,7 +2297,7 @@ func writer{
 
 input_ch -> writer{output=write_target} -> sink_ch
 `
-			h := newTextHarness(ctx, source, resolver, []state.ChannelDigest{
+			h := newTextHarness(ctx, source, resolver, []channelstate.Digest{
 				{Key: 100, DataType: telem.Float32T},
 				{Key: 200, DataType: telem.Float32T},
 				{Key: 300, DataType: telem.Uint8T},
@@ -2354,7 +2355,7 @@ func writer{
 
 input_ch -> writer{output=write_target} -> sink_ch
 `
-			h := newTextHarness(ctx, source, resolver, []state.ChannelDigest{
+			h := newTextHarness(ctx, source, resolver, []channelstate.Digest{
 				{Key: 100, DataType: telem.Float32T},
 				{Key: 200, DataType: telem.Float32T},
 				{Key: 300, DataType: telem.Uint8T},
@@ -2408,7 +2409,7 @@ func writer{} (value f32) u8 {
 
 input_ch -> writer{} -> sink_ch
 `
-			h := newTextHarness(ctx, source, resolver, []state.ChannelDigest{
+			h := newTextHarness(ctx, source, resolver, []channelstate.Digest{
 				{Key: 100, DataType: telem.Float32T},
 				{Key: 200, DataType: telem.Float32T},
 				{Key: 300, DataType: telem.Uint8T},
@@ -2466,7 +2467,7 @@ func writer{} (value f32) u8 {
 
 input_ch -> writer{} -> sink_ch
 `
-			h := newTextHarness(ctx, source, resolver, []state.ChannelDigest{
+			h := newTextHarness(ctx, source, resolver, []channelstate.Digest{
 				{Key: 100, DataType: telem.Float32T},
 				{Key: 200, DataType: telem.Float32T},
 				{Key: 300, DataType: telem.Uint8T},
@@ -2523,7 +2524,7 @@ func writer{} (value f32) u8 {
 
 input_ch -> writer{} -> sink_ch
 `
-			h := newTextHarness(ctx, source, resolver, []state.ChannelDigest{
+			h := newTextHarness(ctx, source, resolver, []channelstate.Digest{
 				{Key: 100, DataType: telem.Float32T},
 				{Key: 200, DataType: telem.Float32T},
 				{Key: 300, DataType: telem.Uint8T},
@@ -2583,7 +2584,7 @@ func checker{} (value f32) u8 {
 
 input_ch -> checker{} -> output_ch
 `
-			h := newTextHarness(ctx, source, resolver, []state.ChannelDigest{
+			h := newTextHarness(ctx, source, resolver, []channelstate.Digest{
 				{Key: 100, DataType: telem.Float32T},
 				{Key: 200, DataType: telem.Float32T},
 				{Key: 300, DataType: telem.Uint8T},
@@ -2661,7 +2662,7 @@ func increment{
 input_1 -> increment{counter=counter_1} -> sink_1
 input_2 -> increment{counter=counter_2} -> sink_2
 `
-			h := newTextHarness(ctx, source, resolver, []state.ChannelDigest{
+			h := newTextHarness(ctx, source, resolver, []channelstate.Digest{
 				{Key: 101, DataType: telem.Uint8T},
 				{Key: 102, DataType: telem.Uint8T},
 				{Key: 201, DataType: telem.Float32T},
@@ -2726,7 +2727,7 @@ func count_local (trigger u8) u8 {
 
 input_ch -> count_local{} -> sink_ch
 `
-			h := newTextHarness(ctx, source, resolver, []state.ChannelDigest{
+			h := newTextHarness(ctx, source, resolver, []channelstate.Digest{
 				{Key: 100, DataType: telem.Uint8T},
 				{Key: 200, DataType: telem.Float32T},
 				{Key: 300, DataType: telem.Uint8T},

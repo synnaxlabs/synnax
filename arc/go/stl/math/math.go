@@ -82,6 +82,11 @@ type i64Powable interface {
 	uint64 | int64
 }
 
+// bindI32Pow binds an integer power function for a WASM i32-compatible type.
+// The exponent arrives as uint32 from WASM, so negative Arc exponents appear as
+// large positive values (e.g. -1 becomes 4294967295). On 64-bit platforms,
+// int(uint32(x)) is always non-negative, making the 0^(-n) panic in IntPow
+// unreachable through this interface.
 func bindI32Pow[T i32Powable](rt stl.HostRuntime, suffix string) {
 	stl.MustExport(rt, "math", "pow_"+suffix,
 		func(_ context.Context, base uint32, exp uint32) uint32 {
@@ -89,6 +94,8 @@ func bindI32Pow[T i32Powable](rt stl.HostRuntime, suffix string) {
 		})
 }
 
+// bindI64Pow binds an integer power function for a WASM i64-compatible type.
+// Same unsigned exponent representation as bindI32Pow.
 func bindI64Pow[T i64Powable](rt stl.HostRuntime, suffix string) {
 	stl.MustExport(rt, "math", "pow_"+suffix,
 		func(_ context.Context, base uint64, exp uint64) uint64 {

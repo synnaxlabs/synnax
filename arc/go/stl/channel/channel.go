@@ -16,6 +16,8 @@ import (
 	"github.com/synnaxlabs/arc/runtime/node"
 	"github.com/synnaxlabs/arc/runtime/state"
 	"github.com/synnaxlabs/arc/stl"
+	channelstate "github.com/synnaxlabs/arc/stl/channel/state"
+	stringsstate "github.com/synnaxlabs/arc/stl/strings/state"
 	"github.com/synnaxlabs/arc/symbol"
 	"github.com/synnaxlabs/arc/types"
 	"github.com/synnaxlabs/x/query"
@@ -64,11 +66,11 @@ var nodeResolver = symbol.MapResolver{
 }
 
 type Module struct {
-	channel *state.ChannelState
-	strings *state.StringHandleStore
+	channel *channelstate.State
+	strings *stringsstate.State
 }
 
-func NewModule(cs *state.ChannelState, ss *state.StringHandleStore) *Module {
+func NewModule(cs *channelstate.State, ss *stringsstate.State) *Module {
 	return &Module{channel: cs, strings: ss}
 }
 
@@ -207,7 +209,7 @@ type i32Compatible interface {
 
 func bindI32[T i32Compatible](
 	rt stl.HostRuntime,
-	cs *state.ChannelState,
+	cs *channelstate.State,
 	suffix string,
 ) {
 	stl.MustExport(rt, "channel", "read_"+suffix,
@@ -230,7 +232,7 @@ type i64Compatible interface {
 
 func bindI64[T i64Compatible](
 	rt stl.HostRuntime,
-	cs *state.ChannelState,
+	cs *channelstate.State,
 	suffix string,
 ) {
 	stl.MustExport(rt, "channel", "read_"+suffix,
@@ -247,7 +249,7 @@ func bindI64[T i64Compatible](
 		})
 }
 
-func bindF32(rt stl.HostRuntime, cs *state.ChannelState) {
+func bindF32(rt stl.HostRuntime, cs *channelstate.State) {
 	stl.MustExport(rt, "channel", "read_f32",
 		func(_ context.Context, chID uint32) float32 {
 			series, ok := cs.ReadValue(chID)
@@ -262,7 +264,7 @@ func bindF32(rt stl.HostRuntime, cs *state.ChannelState) {
 		})
 }
 
-func bindF64(rt stl.HostRuntime, cs *state.ChannelState) {
+func bindF64(rt stl.HostRuntime, cs *channelstate.State) {
 	stl.MustExport(rt, "channel", "read_f64",
 		func(_ context.Context, chID uint32) float64 {
 			series, ok := cs.ReadValue(chID)
@@ -277,7 +279,7 @@ func bindF64(rt stl.HostRuntime, cs *state.ChannelState) {
 		})
 }
 
-func bindStr(rt stl.HostRuntime, cs *state.ChannelState, ss *state.StringHandleStore) {
+func bindStr(rt stl.HostRuntime, cs *channelstate.State, ss *stringsstate.State) {
 	stl.MustExport(rt, "channel", "read_str",
 		func(_ context.Context, chID uint32) uint32 {
 			series, ok := cs.ReadValue(chID)

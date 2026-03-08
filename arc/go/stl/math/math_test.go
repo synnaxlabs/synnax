@@ -40,6 +40,16 @@ var _ = Describe("Math", func() {
 			Expect(pow(ctx, 2, 10)).To(Equal(uint32(1024)))
 		})
 
+		It("Should compute i32 power with negative base", func() {
+			pow := testutil.Get[func(context.Context, uint32, uint32) uint32](rt, "math", "pow_i32")
+			// Simulate how WASM represents signed negatives as uint32
+			var negThree int32 = -3
+			Expect(pow(ctx, uint32(negThree), 2)).To(Equal(uint32(9)))
+			var negTwo int32 = -2
+			var expected int32 = -8
+			Expect(pow(ctx, uint32(negTwo), 3)).To(Equal(uint32(expected)))
+		})
+
 		It("Should compute u64 power", func() {
 			pow := testutil.Get[func(context.Context, uint64, uint64) uint64](rt, "math", "pow_u64")
 			Expect(pow(ctx, 2, 10)).To(Equal(uint64(1024)))
@@ -69,6 +79,19 @@ var _ = Describe("Math", func() {
 		It("Should compute f32 negative exponents", func() {
 			pow := testutil.Get[func(context.Context, float32, float32) float32](rt, "math", "pow_f32")
 			Expect(pow(ctx, 4.0, -0.5)).To(BeNumerically("~", 0.5, 0.001))
+		})
+
+		It("Should compute f64 with negative base", func() {
+			pow := testutil.Get[func(context.Context, float64, float64) float64](rt, "math", "pow_f64")
+			Expect(pow(ctx, -3.0, 2.0)).To(BeNumerically("~", 9.0, 0.0001))
+			Expect(pow(ctx, -2.0, 3.0)).To(BeNumerically("~", -8.0, 0.0001))
+			Expect(pow(ctx, -2.0, -1.0)).To(BeNumerically("~", -0.5, 0.0001))
+		})
+
+		It("Should compute f32 with negative base", func() {
+			pow := testutil.Get[func(context.Context, float32, float32) float32](rt, "math", "pow_f32")
+			Expect(pow(ctx, -3.0, 2.0)).To(BeNumerically("~", 9.0, 0.001))
+			Expect(pow(ctx, -2.0, 3.0)).To(BeNumerically("~", -8.0, 0.001))
 		})
 
 	})
