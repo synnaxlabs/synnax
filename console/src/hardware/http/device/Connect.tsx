@@ -152,14 +152,13 @@ export const Connect: Layout.Renderer = ({ layoutKey, onClose }) => {
   >("properties.health_check.validate_response", { ctx: form });
 
   const expectedValueType =
-    Form.useFieldValue<
-      JsonPrimitiveType,
-      JsonPrimitiveType,
-      typeof PDevice.formSchema
-    >("properties.health_check.response.expected_value_type", {
-      ctx: form,
-      optional: true,
-    }) ?? "string";
+    Form.useFieldValue<JsonPrimitiveType, JsonPrimitiveType, typeof PDevice.formSchema>(
+      "properties.health_check.response.expected_value_type",
+      {
+        ctx: form,
+        optional: true,
+      },
+    ) ?? "string";
 
   const handleValidateResponseChange = useCallback(
     (value: boolean) => {
@@ -190,10 +189,7 @@ export const Connect: Layout.Renderer = ({ layoutKey, onClose }) => {
           boolean: true,
           null: null,
         };
-        form.set(
-          "properties.health_check.response.expected_value",
-          defaults[value],
-        );
+        form.set("properties.health_check.response.expected_value", defaults[value]);
         onChange(value);
       };
       return <SelectExpectedValueType {...rest} onChange={handleChange} />;
@@ -507,8 +503,10 @@ const EXPECTED_VALUE_TYPE_DATA: JsonPrimitiveType[] = [
   "null",
 ];
 
-interface SelectExpectedValueTypeProps
-  extends Omit<Select.ButtonsProps<JsonPrimitiveType>, "keys"> {}
+interface SelectExpectedValueTypeProps extends Omit<
+  Select.ButtonsProps<JsonPrimitiveType>,
+  "keys"
+> {}
 
 const SelectExpectedValueType = (props: SelectExpectedValueTypeProps) => (
   <Select.Buttons<JsonPrimitiveType> {...props} keys={EXPECTED_VALUE_TYPE_DATA}>
