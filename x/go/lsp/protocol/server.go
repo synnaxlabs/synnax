@@ -1072,7 +1072,7 @@ func (s *server) Initialized(ctx context.Context, params *InitializedParams) (er
 	s.logger.Debug("notify " + MethodInitialized)
 	defer s.logger.Debug("end "+MethodInitialized, zap.Error(err))
 
-	return s.Conn.Notify(ctx, MethodInitialized, params)
+	return s.Notify(ctx, MethodInitialized, params)
 }
 
 // Shutdown sents the request from the client to the server.
@@ -1096,7 +1096,7 @@ func (s *server) Exit(ctx context.Context) (err error) {
 	s.logger.Debug("notify " + MethodExit)
 	defer s.logger.Debug("end "+MethodExit, zap.Error(err))
 
-	return s.Conn.Notify(ctx, MethodExit, nil)
+	return s.Notify(ctx, MethodExit, nil)
 }
 
 // LogTrace a notification to log the trace of the server’s execution.
@@ -1111,7 +1111,7 @@ func (s *server) LogTrace(ctx context.Context, params *LogTraceParams) (err erro
 	s.logger.Debug("notify " + MethodLogTrace)
 	defer s.logger.Debug("end "+MethodLogTrace, zap.Error(err))
 
-	return s.Conn.Notify(ctx, MethodLogTrace, params)
+	return s.Notify(ctx, MethodLogTrace, params)
 }
 
 // SetTrace a notification that should be used by the client to modify the trace setting of the server.
@@ -1121,7 +1121,7 @@ func (s *server) SetTrace(ctx context.Context, params *SetTraceParams) (err erro
 	s.logger.Debug("notify " + MethodSetTrace)
 	defer s.logger.Debug("end "+MethodSetTrace, zap.Error(err))
 
-	return s.Conn.Notify(ctx, MethodSetTrace, params)
+	return s.Notify(ctx, MethodSetTrace, params)
 }
 
 // WorkDoneProgressCancel is the sends notification from the client to the server to cancel a progress initiated on the
@@ -1130,7 +1130,7 @@ func (s *server) WorkDoneProgressCancel(ctx context.Context, params *WorkDonePro
 	s.logger.Debug("call " + MethodWorkDoneProgressCancel)
 	defer s.logger.Debug("end "+MethodWorkDoneProgressCancel, zap.Error(err))
 
-	return s.Conn.Notify(ctx, MethodWorkDoneProgressCancel, params)
+	return s.Notify(ctx, MethodWorkDoneProgressCancel, params)
 }
 
 // CodeAction sends the request is from the client to the server to compute commands for a given text document and range.
@@ -1271,7 +1271,7 @@ func (s *server) DidChange(ctx context.Context, params *DidChangeTextDocumentPar
 	s.logger.Debug("notify " + MethodTextDocumentDidChange)
 	defer s.logger.Debug("end "+MethodTextDocumentDidChange, zap.Error(err))
 
-	return s.Conn.Notify(ctx, MethodTextDocumentDidChange, params)
+	return s.Notify(ctx, MethodTextDocumentDidChange, params)
 }
 
 // DidChangeConfiguration sends the notification from the client to the server to signal the change of configuration settings.
@@ -1279,7 +1279,7 @@ func (s *server) DidChangeConfiguration(ctx context.Context, params *DidChangeCo
 	s.logger.Debug("call " + MethodWorkspaceDidChangeConfiguration)
 	defer s.logger.Debug("end "+MethodWorkspaceDidChangeConfiguration, zap.Error(err))
 
-	return s.Conn.Notify(ctx, MethodWorkspaceDidChangeConfiguration, params)
+	return s.Notify(ctx, MethodWorkspaceDidChangeConfiguration, params)
 }
 
 // DidChangeWatchedFiles sends the notification from the client to the server when the client detects changes to files watched by the language client.
@@ -1290,7 +1290,7 @@ func (s *server) DidChangeWatchedFiles(ctx context.Context, params *DidChangeWat
 	s.logger.Debug("call " + MethodWorkspaceDidChangeWatchedFiles)
 	defer s.logger.Debug("end "+MethodWorkspaceDidChangeWatchedFiles, zap.Error(err))
 
-	return s.Conn.Notify(ctx, MethodWorkspaceDidChangeWatchedFiles, params)
+	return s.Notify(ctx, MethodWorkspaceDidChangeWatchedFiles, params)
 }
 
 // DidChangeWorkspaceFolders sents the notification from the client to the server to inform the server about workspace folder configuration changes.
@@ -1304,7 +1304,7 @@ func (s *server) DidChangeWorkspaceFolders(ctx context.Context, params *DidChang
 	s.logger.Debug("call " + MethodWorkspaceDidChangeWorkspaceFolders)
 	defer s.logger.Debug("end "+MethodWorkspaceDidChangeWorkspaceFolders, zap.Error(err))
 
-	return s.Conn.Notify(ctx, MethodWorkspaceDidChangeWorkspaceFolders, params)
+	return s.Notify(ctx, MethodWorkspaceDidChangeWorkspaceFolders, params)
 }
 
 // DidClose sends the notification from the client to the server when the document got closed in the client.
@@ -1319,7 +1319,7 @@ func (s *server) DidClose(ctx context.Context, params *DidCloseTextDocumentParam
 	s.logger.Debug("call " + MethodTextDocumentDidClose)
 	defer s.logger.Debug("end "+MethodTextDocumentDidClose, zap.Error(err))
 
-	return s.Conn.Notify(ctx, MethodTextDocumentDidClose, params)
+	return s.Notify(ctx, MethodTextDocumentDidClose, params)
 }
 
 // DidOpen sends the open notification from the client to the server to signal newly opened text documents.
@@ -1334,7 +1334,7 @@ func (s *server) DidOpen(ctx context.Context, params *DidOpenTextDocumentParams)
 	s.logger.Debug("call " + MethodTextDocumentDidOpen)
 	defer s.logger.Debug("end "+MethodTextDocumentDidOpen, zap.Error(err))
 
-	return s.Conn.Notify(ctx, MethodTextDocumentDidOpen, params)
+	return s.Notify(ctx, MethodTextDocumentDidOpen, params)
 }
 
 // DidSave sends the notification from the client to the server when the document was saved in the client.
@@ -1342,7 +1342,7 @@ func (s *server) DidSave(ctx context.Context, params *DidSaveTextDocumentParams)
 	s.logger.Debug("call " + MethodTextDocumentDidSave)
 	defer s.logger.Debug("end "+MethodTextDocumentDidSave, zap.Error(err))
 
-	return s.Conn.Notify(ctx, MethodTextDocumentDidSave, params)
+	return s.Notify(ctx, MethodTextDocumentDidSave, params)
 }
 
 // DocumentColor sends the request from the client to the server to list all color references found in a given text document.
@@ -1597,7 +1597,7 @@ func (s *server) WillSave(ctx context.Context, params *WillSaveTextDocumentParam
 	s.logger.Debug("call " + MethodTextDocumentWillSave)
 	defer s.logger.Debug("end "+MethodTextDocumentWillSave, zap.Error(err))
 
-	return s.Conn.Notify(ctx, MethodTextDocumentWillSave, params)
+	return s.Notify(ctx, MethodTextDocumentWillSave, params)
 }
 
 // WillSaveWaitUntil sends the request from the client to the server before the document is actually saved.
@@ -1655,7 +1655,7 @@ func (s *server) DidCreateFiles(ctx context.Context, params *CreateFilesParams) 
 	s.logger.Debug("call " + MethodDidCreateFiles)
 	defer s.logger.Debug("end "+MethodDidCreateFiles, zap.Error(err))
 
-	return s.Conn.Notify(ctx, MethodDidCreateFiles, params)
+	return s.Notify(ctx, MethodDidCreateFiles, params)
 }
 
 // WillRenameFiles sends the will rename files request is sent from the client to the server before files are actually renamed as long as the rename is triggered from within the client.
@@ -1683,7 +1683,7 @@ func (s *server) DidRenameFiles(ctx context.Context, params *RenameFilesParams) 
 	s.logger.Debug("call " + MethodDidRenameFiles)
 	defer s.logger.Debug("end "+MethodDidRenameFiles, zap.Error(err))
 
-	return s.Conn.Notify(ctx, MethodDidRenameFiles, params)
+	return s.Notify(ctx, MethodDidRenameFiles, params)
 }
 
 // WillDeleteFiles sends the will delete files request is sent from the client to the server before files are actually deleted as long as the deletion is triggered from within the client.
@@ -1711,7 +1711,7 @@ func (s *server) DidDeleteFiles(ctx context.Context, params *DeleteFilesParams) 
 	s.logger.Debug("call " + MethodDidDeleteFiles)
 	defer s.logger.Debug("end "+MethodDidDeleteFiles, zap.Error(err))
 
-	return s.Conn.Notify(ctx, MethodDidDeleteFiles, params)
+	return s.Notify(ctx, MethodDidDeleteFiles, params)
 }
 
 // CodeLensRefresh sent from the server to the client.
