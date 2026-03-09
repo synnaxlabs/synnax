@@ -78,7 +78,7 @@ export interface WrapFormArgs<
   StatusData extends z.ZodType = z.ZodType,
 > {
   Properties?: FC<{}>;
-  Form?: FC<FormProps<Type, Config, StatusData>>;
+  Form: FC<FormProps<Type, Config, StatusData>>;
   type: z.infer<Type>;
   onConfigure: OnConfigure<Config>;
   schemas: task.Schemas<Type, Config, StatusData>;
