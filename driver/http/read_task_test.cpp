@@ -794,48 +794,6 @@ TEST(HTTPReadTask, POSTWithBody) {
     EXPECT_NEAR(fr.at<double>(1, 0), 99.9, 0.001);
 }
 
-/// @brief it should reject PUT method in read task config.
-TEST(HTTPReadTask, ParseConfigRejectsPUT) {
-    synnax::task::Task task;
-    task.config = {
-        {"device", "dev-001"},
-        {"rate", 1.0},
-        {"endpoints",
-         {{
-             {"method", "PUT"},
-             {"path", "/api/data"},
-             {"fields",
-              {{
-                  {"pointer", "/temp"},
-                  {"channel", 1},
-              }}},
-         }}},
-    };
-    auto ctx = std::make_shared<task::MockContext>(nullptr);
-    ASSERT_OCCURRED_AS_P(ReadTaskConfig::parse(ctx, task), x::errors::VALIDATION);
-}
-
-/// @brief it should reject DELETE method in read task config.
-TEST(HTTPReadTask, ParseConfigRejectsDELETE) {
-    synnax::task::Task task;
-    task.config = {
-        {"device", "dev-001"},
-        {"rate", 1.0},
-        {"endpoints",
-         {{
-             {"method", "DELETE"},
-             {"path", "/api/data"},
-             {"fields",
-              {{
-                  {"pointer", "/temp"},
-                  {"channel", 1},
-              }}},
-         }}},
-    };
-    auto ctx = std::make_shared<task::MockContext>(nullptr);
-    ASSERT_OCCURRED_AS_P(ReadTaskConfig::parse(ctx, task), x::errors::VALIDATION);
-}
-
 /// @brief test fixture for parse tests that need a real Synnax client with pre-created
 /// channels and device.
 class HTTPReadTaskParseTest : public ::testing::Test {

@@ -32,9 +32,6 @@ std::pair<ReadTaskConfig, x::errors::Error> ReadTaskConfig::parse(
     parser.iter("endpoints", [&](x::json::Parser &ep) {
         ReadEndpoint endpoint;
         endpoint.request.method = parse_method(ep, "method");
-        if (endpoint.request.method != Method::GET &&
-            endpoint.request.method != Method::POST)
-            ep.field_err("method", "read tasks only support GET and POST methods");
         endpoint.request.path = ep.field<std::string>("path");
         endpoint.request.query_params = ep.field<std::map<std::string, std::string>>(
             "query_params",
