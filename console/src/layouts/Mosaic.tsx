@@ -340,7 +340,7 @@ const Internal = ({ windowKey, mosaic }: MosaicProps): ReactElement => {
         onCreate={selectorVisible ? handleCreate : undefined}
         activeTab={activeTab.layoutKey ?? undefined}
         onFileDrop={handleFileDrop}
-        addTooltip="Create component"
+        addTooltip="Create Component"
         className={CSS.B("mosaic")}
       >
         {renderProp}

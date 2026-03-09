@@ -133,7 +133,7 @@ export interface ChannelListItemProps extends List.ItemProps<string> {}
 export interface ChannelListProps<C extends Channel>
   extends
     Omit<ContextMenuProps<C>, "keys">,
-    Pick<Flex.BoxProps, "onDragOver" | "onDrop" | "grow" | "style"> {
+    Pick<Flex.BoxProps, "onDragOver" | "onDrop" | "grow"> {
   emptyContent: ReactElement;
   header: ReactNode;
   isDragging?: boolean;
@@ -150,7 +150,6 @@ export const ChannelList = <C extends Channel>({
   onDrop,
   selected,
   grow,
-  style,
   ...rest
 }: ChannelListProps<C>) => {
   const { onSelect, path, data } = rest;
@@ -160,7 +159,7 @@ export const ChannelList = <C extends Channel>({
   );
   const menuProps = PMenu.useContextMenu();
   return (
-    <Flex.Box className={CSS.B("channel-list")} empty grow={grow} style={style}>
+    <Flex.Box className={CSS.B("channel-list")} empty grow={grow}>
       {header}
       <PMenu.ContextMenu
         {...menuProps}
