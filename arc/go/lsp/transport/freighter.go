@@ -23,7 +23,7 @@ import (
 	"github.com/synnaxlabs/x/override"
 	"github.com/synnaxlabs/x/validate"
 	"go.lsp.dev/jsonrpc2"
-	"go.lsp.dev/protocol"
+	"github.com/synnaxlabs/x/lsp/protocol"
 )
 
 type JSONRPCMessage struct {

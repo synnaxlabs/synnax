@@ -24,7 +24,7 @@ import (
 	"github.com/synnaxlabs/x/diagnostics"
 	xlsp "github.com/synnaxlabs/x/lsp"
 	"go.lsp.dev/jsonrpc2"
-	"go.lsp.dev/protocol"
+	"github.com/synnaxlabs/x/lsp/protocol"
 	"go.uber.org/zap"
 )
 

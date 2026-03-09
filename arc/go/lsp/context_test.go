@@ -13,7 +13,7 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/arc/lsp"
-	"go.lsp.dev/protocol"
+	"github.com/synnaxlabs/x/lsp/protocol"
 )
 
 var _ = Describe("Context Detection", func() {

@@ -12,7 +12,7 @@ package lsp
 import (
 	"github.com/antlr4-go/antlr/v4"
 	"github.com/synnaxlabs/arc/parser"
-	"go.lsp.dev/protocol"
+	"github.com/synnaxlabs/x/lsp/protocol"
 )
 
 type CompletionContext int

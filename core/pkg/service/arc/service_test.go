@@ -23,7 +23,7 @@ import (
 	"github.com/synnaxlabs/x/query"
 	"github.com/synnaxlabs/x/telem"
 	. "github.com/synnaxlabs/x/testutil"
-	"go.lsp.dev/protocol"
+	"github.com/synnaxlabs/x/lsp/protocol"
 )
 
 var _ = Describe("AnalyzeCalculation", func() {

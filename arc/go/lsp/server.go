@@ -30,7 +30,7 @@ import (
 	lsp "github.com/synnaxlabs/x/lsp"
 	"github.com/synnaxlabs/x/observe"
 	"github.com/synnaxlabs/x/override"
-	"go.lsp.dev/protocol"
+	"github.com/synnaxlabs/x/lsp/protocol"
 	"go.uber.org/zap"
 )
 

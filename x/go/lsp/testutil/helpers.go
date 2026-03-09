@@ -15,7 +15,7 @@ import (
 	"github.com/onsi/gomega"
 	"github.com/samber/lo"
 	xutil "github.com/synnaxlabs/x/testutil"
-	"go.lsp.dev/protocol"
+	"github.com/synnaxlabs/x/lsp/protocol"
 )
 
 // OpenDocument is a helper to open a document in the LSP server.

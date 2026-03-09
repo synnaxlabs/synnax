@@ -13,7 +13,7 @@ import (
 	"context"
 
 	"github.com/synnaxlabs/arc/formatter"
-	"go.lsp.dev/protocol"
+	"github.com/synnaxlabs/x/lsp/protocol"
 )
 
 func (s *Server) Formatting(

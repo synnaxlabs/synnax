@@ -16,7 +16,7 @@ import (
 	"github.com/synnaxlabs/arc/parser"
 	"github.com/synnaxlabs/arc/types"
 	lsp "github.com/synnaxlabs/x/lsp"
-	"go.lsp.dev/protocol"
+	"github.com/synnaxlabs/x/lsp/protocol"
 	"go.uber.org/zap"
 )
 

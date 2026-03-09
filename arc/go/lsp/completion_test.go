@@ -20,7 +20,7 @@ import (
 	"github.com/synnaxlabs/arc/types"
 	. "github.com/synnaxlabs/x/lsp/testutil"
 	. "github.com/synnaxlabs/x/testutil"
-	"go.lsp.dev/protocol"
+	"github.com/synnaxlabs/x/lsp/protocol"
 )
 
 var _ = Describe("Completion", func() {

@@ -17,7 +17,7 @@ import (
 	"github.com/synnaxlabs/arc/lsp"
 	. "github.com/synnaxlabs/arc/lsp/testutil"
 	. "github.com/synnaxlabs/x/testutil"
-	"go.lsp.dev/protocol"
+	"github.com/synnaxlabs/x/lsp/protocol"
 )
 
 var _ = Describe("Formatting", func() {

@@ -16,7 +16,7 @@ import (
 	. "github.com/onsi/gomega"
 	. "github.com/synnaxlabs/arc/lsp/testutil"
 	. "github.com/synnaxlabs/x/testutil"
-	"go.lsp.dev/protocol"
+	"github.com/synnaxlabs/x/lsp/protocol"
 )
 
 var _ = Describe("FoldingRange", func() {

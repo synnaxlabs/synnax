@@ -21,7 +21,7 @@ import (
 	"github.com/synnaxlabs/arc/types"
 	. "github.com/synnaxlabs/x/lsp/testutil"
 	"github.com/synnaxlabs/x/observe"
-	"go.lsp.dev/protocol"
+	"github.com/synnaxlabs/x/lsp/protocol"
 )
 
 var _ = Describe("Server Diagnostics", func() {
@@ -245,7 +245,7 @@ var _ = Describe("Incremental Sync", func() {
 			},
 			ContentChanges: []protocol.TextDocumentContentChangeEvent{
 				{
-					Range: protocol.Range{
+					Range: &protocol.Range{
 						Start: protocol.Position{Line: 1, Character: 6},
 						End:   protocol.Position{Line: 1, Character: 8},
 					},
@@ -257,6 +257,75 @@ var _ = Describe("Incremental Sync", func() {
 		Expect(client.WaitForDiagnostics(baseline, 500*time.Millisecond)).To(BeTrue())
 		Expect(client.Diagnostics()).To(HaveLen(1))
 		Expect(client.Diagnostics()[0].Message).To(ContainSubstring("undefined symbol"))
+	})
+
+	It("Should not treat a newline insertion at position (0,0) as a full replacement", func() {
+		OpenArcDocument(server, ctx, uri, "func test() {\n\tx := 42\n}")
+		Expect(client.Diagnostics()).To(BeEmpty())
+		baseline := client.PublishCount()
+
+		// Insert a newline at the very start of the document. The editor
+		// sends Range{(0,0)-(0,0)} with Text="\n". Because the protocol
+		// library deserializes an absent range to the same zero value,
+		// IsFullReplacement incorrectly treats this as a full replacement,
+		// wiping the document content to just "\n".
+		Expect(server.DidChange(ctx, &protocol.DidChangeTextDocumentParams{
+			TextDocument: protocol.VersionedTextDocumentIdentifier{
+				TextDocumentIdentifier: protocol.TextDocumentIdentifier{URI: uri},
+				Version:                2,
+			},
+			ContentChanges: []protocol.TextDocumentContentChangeEvent{
+				{
+					Range: &protocol.Range{
+						Start: protocol.Position{Line: 0, Character: 0},
+						End:   protocol.Position{Line: 0, Character: 0},
+					},
+					Text: "\n",
+				},
+			},
+		})).To(Succeed())
+
+		Expect(client.WaitForDiagnostics(baseline, 500*time.Millisecond)).To(BeTrue())
+		// The document should now be "\nfunc test() {\n\tx := 42\n}".
+		// If IsFullReplacement incorrectly fires, it becomes just "\n"
+		// and semantic tokens will be empty.
+		tokens := SemanticTokens(server, ctx, uri)
+		Expect(tokens).ToNot(BeNil())
+		Expect(tokens.Data).ToNot(BeEmpty())
+	})
+
+	It("Should not break when selecting and replacing the first line", func() {
+		program := "sequence main {\n    stage first {\n         1 -> ox_mpv_cmd,\n    }\n}"
+		OpenArcDocument(server, ctx, uri, program)
+		baseline := client.PublishCount()
+
+		// Simulate selecting from col 0 to the end of the first line
+		// and pressing Enter (replacing the selection with a newline).
+		Expect(server.DidChange(ctx, &protocol.DidChangeTextDocumentParams{
+			TextDocument: protocol.VersionedTextDocumentIdentifier{
+				TextDocumentIdentifier: protocol.TextDocumentIdentifier{URI: uri},
+				Version:                2,
+			},
+			ContentChanges: []protocol.TextDocumentContentChangeEvent{
+				{
+					Range: &protocol.Range{
+						Start: protocol.Position{Line: 0, Character: 0},
+						End:   protocol.Position{Line: 0, Character: 16},
+					},
+					Text: "\n",
+				},
+			},
+		})).To(Succeed())
+
+		Expect(client.WaitForDiagnostics(baseline, 500*time.Millisecond)).To(BeTrue())
+
+		// After the edit the document is "\n\n    stage first {...". The
+		// exact diagnostics don't matter as much as verifying that the
+		// server still produces them (analysis didn't silently break).
+		// With the bug, the document would be wiped to just "\n".
+		tokens := SemanticTokens(server, ctx, uri)
+		Expect(tokens).ToNot(BeNil())
+		Expect(tokens.Data).ToNot(BeEmpty())
 	})
 })
 
