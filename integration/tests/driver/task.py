@@ -63,8 +63,10 @@ def send_and_verify_commands(
     cmd_keys: list[int],
     writer_name: str,
     task_name: str = "",
+    task_key: int = 0,
     max_attempts: int = 3,
     timeout_per_round: sy.TimeSpan = 10 * sy.TimeSpan.SECOND,
+    command_values: list[list[float]] | None = None,
 ) -> None:
     """Open a streamer/writer pair, send two rounds of commands, and verify.
 
@@ -73,7 +75,19 @@ def send_and_verify_commands(
 
     Automatically detects whether command channels are indexed (non-virtual)
     and includes timestamp writes for their index channels.
+
+    Args:
+        command_values: Two lists of values to send in each round, one value per
+            command key. If None, defaults to [42+i, ...] and [100+i, ...].
+        task_key: If non-zero, also streams ``sy_status_set`` and fails if the
+            driver emits any warning or error status for this task.
     """
+    if command_values is None:
+        command_values = [
+            [42.0 + i for i in range(len(cmd_keys))],
+            [100.0 + i for i in range(len(cmd_keys))],
+        ]
+
     channels = client.channels.retrieve(cmd_keys)
     index_keys = list({ch.index for ch in channels if ch.index != 0})
     all_writer_keys = cmd_keys + index_keys
@@ -91,7 +105,10 @@ def send_and_verify_commands(
                     enable_auto_commit=True,
                 )
                 try:
-                    expected = {key: float(42.0 + i) for i, key in enumerate(cmd_keys)}
+                    expected = {
+                        key: float(v)
+                        for key, v in zip(cmd_keys, command_values[0])
+                    }
                     writer.write(
                         {**expected, **{k: sy.TimeStamp.now() for k in index_keys}}
                     )
@@ -103,7 +120,10 @@ def send_and_verify_commands(
                         task_name=task_name,
                     )
 
-                    expected = {key: float(100.0 + i) for i, key in enumerate(cmd_keys)}
+                    expected = {
+                        key: float(v)
+                        for key, v in zip(cmd_keys, command_values[1])
+                    }
                     writer.write(
                         {**expected, **{k: sy.TimeStamp.now() for k in index_keys}}
                     )
@@ -114,6 +134,7 @@ def send_and_verify_commands(
                         timeout=timeout_per_round,
                         task_name=task_name,
                     )
+
                     verified = True
                 except Exception as e:
                     last_err = e
@@ -126,6 +147,10 @@ def send_and_verify_commands(
             if not verified:
                 last_err = e
         if verified:
+            if task_key:
+                _assert_no_task_errors(
+                    client, task_key, task_name=task_name
+                )
             return
         if attempt < max_attempts - 1:
             print(
@@ -136,6 +161,36 @@ def send_and_verify_commands(
         f"{prefix}Failed to send and verify commands after "
         f"{max_attempts} attempts: {last_err}"
     )
+
+
+def _assert_no_task_errors(
+    client: sy.Synnax,
+    task_key: int,
+    *,
+    task_name: str = "",
+    drain_timeout: sy.TimeSpan = 2 * sy.TimeSpan.SECOND,
+) -> None:
+    """Stream task status briefly and fail if warnings/errors were emitted."""
+    from synnax.task.payload import Status
+
+    prefix = f"{task_name}: " if task_name else ""
+    with client.open_streamer(["sy_status_set"]) as streamer:
+        timer = sy.Timer()
+        while timer.elapsed() < drain_timeout:
+            frame = streamer.read(timeout=drain_timeout)
+            if frame is None:
+                break
+            if "sy_status_set" not in frame:
+                continue
+            for raw in frame["sy_status_set"]:
+                status = Status.model_validate(raw)
+                if status.details is None or status.details.task != task_key:
+                    continue
+                if status.variant in ("warning", "error"):
+                    raise AssertionError(
+                        f"{prefix}Driver reported {status.variant}: "
+                        f"{status.message}"
+                    )
 
 
 def assert_streamed_values(
@@ -497,7 +552,12 @@ class WriteTaskCase(TaskCase):
     """Base for write task lifecycle tests.
 
     Adds command sending and task reconfiguration testing.
+
+    Subclasses can override ``command_values`` to provide two rounds of
+    values appropriate for the channel type (e.g. [0, 1] for digital).
     """
+
+    command_values: list[list[float]] | None = None
 
     def run(self) -> None:
         """Execute the standard write task lifecycle test."""
@@ -519,6 +579,8 @@ class WriteTaskCase(TaskCase):
                 cmd_keys=self._channel_keys(self.tsk),
                 writer_name=f"{self.task_name}_test_writer",
                 task_name=self.tsk.name,
+                task_key=self.tsk.key,
+                command_values=self.command_values,
             )
 
     def test_reconfigure_name(self) -> None:
@@ -544,4 +606,6 @@ class WriteTaskCase(TaskCase):
                 cmd_keys=self._channel_keys(self.tsk),
                 writer_name=f"{new_name}_test_writer",
                 task_name=self.tsk.name,
+                task_key=self.tsk.key,
+                command_values=self.command_values,
             )
