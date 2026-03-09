@@ -14,7 +14,7 @@
 namespace driver::http::errors {
 x::errors::Error classify_status(const int status_code) {
     if (status_code >= 200 && status_code < 300) return x::errors::NIL;
-    if (status_code == 404 || status_code == 408 || status_code == 429 ||
+    if (status_code == 408 || status_code == 429 ||
         (status_code >= 500 && status_code < 600))
         return TEMPORARY_ERROR.sub(std::to_string(status_code));
     return CRITICAL_ERROR.sub(std::to_string(status_code));

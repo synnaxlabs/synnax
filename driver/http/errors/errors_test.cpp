@@ -55,8 +55,8 @@ TEST(ClassifyStatus, Status400ReturnsCriticalError) {
     ASSERT_OCCURRED_AS(classify_status(400), CRITICAL_ERROR);
 }
 
-TEST(ClassifyStatus, Status404ReturnsTemporaryError) {
-    ASSERT_OCCURRED_AS(classify_status(404), TEMPORARY_ERROR);
+TEST(ClassifyStatus, Status404ReturnsCriticalError) {
+    ASSERT_OCCURRED_AS(classify_status(404), CRITICAL_ERROR);
 }
 
 TEST(ClassifyStatus, Status408ReturnsTemporaryError) {
