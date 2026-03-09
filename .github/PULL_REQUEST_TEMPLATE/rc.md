@@ -338,13 +338,13 @@ I can successfully:
 - [ ] Run the Driver without NI-DAQmx and System Configuration libraries installed.
 - [ ] Receive feedback when trying to create an NI task on a machine lacking the necessary libraries.
 - **Handle invalid device configurations and receive meaningful feedback:**
-  - [ ] Invalid ports.
-  - [ ] Incorrect task type for devices.
-  - [ ] Out-of-range values.
-  - [ ] Multiple tasks using the same channel.
+  - [x] Invalid ports.
+  - [x] Incorrect task type for devices.
+  - [x] Out-of-range values.
+  - [x] Multiple tasks using the same channel.
 - [ ] Shut down the driver without errors during embedded operation.
-- [ ] Run various tasks on a single device.
-- [ ] Run multiple tasks across multiple devices concurrently.
+- [x] Run various tasks on a single device.
+- [x] Run multiple tasks across multiple devices concurrently.
 - **Analog Read Task**
   - [ ] Plot live data.
   - [ ] Tare data.
@@ -368,8 +368,8 @@ I can successfully:
         - [x] Differential (NI-9206)
         - [x] Pseudo-Differential (NI-9234)
   - **Apply the following scales:**
-    - [ ] Linear
-    - [ ] Map
+    - [x] Linear
+    - [x] Map
 - **Digital Read Task**
   - [ ] Plot live data.
   - [x] Stop, start, and reconfigure tasks.

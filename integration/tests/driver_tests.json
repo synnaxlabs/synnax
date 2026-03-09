@@ -11,6 +11,7 @@
         { "case": "driver/opcua_write" },
         { "case": "driver/ni_read" },
         { "case": "driver/ni_write" },
+        { "case": "driver/ni_invalid" },
         { "case": "driver/grand_finale" }
       ]
     }
