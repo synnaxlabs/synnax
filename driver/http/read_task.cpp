@@ -79,14 +79,14 @@ std::pair<ReadTaskConfig, x::errors::Error> ReadTaskConfig::parse(
             endpoint.fields.push_back(std::move(field));
         });
 
-        if (enabled_field_count == 0) {
-            ep.field_err("fields", "at least one enabled field is required");
-        }
-        cfg.endpoints.push_back(std::move(endpoint));
+        if (endpoint.fields.empty())
+            ep.field_err("fields", "at least one field is required");
+        else if (enabled_field_count > 0)
+            cfg.endpoints.push_back(std::move(endpoint));
     });
 
-    if (cfg.endpoints.empty()) {
-        parser.field_err("endpoints", "at least one endpoint is required");
+    if (enabled_field_keys.empty()) {
+        parser.field_err("endpoints", "at least one endpoint with enabled fields is required");
     }
 
     if (!parser.ok()) return {std::move(cfg), parser.error()};

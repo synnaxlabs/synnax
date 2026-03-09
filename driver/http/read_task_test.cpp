@@ -1059,6 +1059,77 @@ TEST_F(HTTPReadTaskParseTest, TimestampFormatOnNonTimestamp) {
     auto cfg = ASSERT_NIL_P(ReadTaskConfig::parse(ctx, task));
 }
 
+/// @brief parse() should drop endpoints where every field is disabled and only
+/// keep endpoints that have at least one enabled field.
+TEST_F(HTTPReadTaskParseTest, DisabledEndpointFilteredOut) {
+    auto idx1 = ASSERT_NIL_P(
+        client->channels.create(
+            make_unique_channel_name("idx1"), x::telem::TIMESTAMP_T, 0, true
+        )
+    );
+    auto idx2 = ASSERT_NIL_P(
+        client->channels.create(
+            make_unique_channel_name("idx2"), x::telem::TIMESTAMP_T, 0, true
+        )
+    );
+    auto idx3 = ASSERT_NIL_P(
+        client->channels.create(
+            make_unique_channel_name("idx3"), x::telem::TIMESTAMP_T, 0, true
+        )
+    );
+    auto ch1 = ASSERT_NIL_P(client->channels.create(
+        make_unique_channel_name("temp"),
+        x::telem::FLOAT64_T,
+        idx1.key,
+        false
+    ));
+    auto ch2 = ASSERT_NIL_P(client->channels.create(
+        make_unique_channel_name("humidity"),
+        x::telem::FLOAT64_T,
+        idx2.key,
+        false
+    ));
+    auto ch3 = ASSERT_NIL_P(client->channels.create(
+        make_unique_channel_name("pressure"),
+        x::telem::FLOAT64_T,
+        idx3.key,
+        false
+    ));
+
+    synnax::task::Task task;
+    task.config = {
+        {"device", device_key},
+        {"rate", 1.0},
+        {"endpoints",
+         {
+             {
+                 {"method", "GET"},
+                 {"path", "/api/temp"},
+                 {"fields", {{{"pointer", "/temp"}, {"channel", ch1.key}}}},
+             },
+             {
+                 {"method", "GET"},
+                 {"path", "/api/humidity"},
+                 {"fields",
+                  {{
+                      {"pointer", "/humidity"},
+                      {"channel", ch2.key},
+                      {"enabled", false},
+                  }}},
+             },
+             {
+                 {"method", "GET"},
+                 {"path", "/api/pressure"},
+                 {"fields", {{{"pointer", "/pressure"}, {"channel", ch3.key}}}},
+             },
+         }},
+    };
+    auto cfg = ASSERT_NIL_P(ReadTaskConfig::parse(ctx, task));
+    EXPECT_EQ(cfg.endpoints.size(), 2);
+    EXPECT_EQ(cfg.endpoints[0].request.path, "/api/temp");
+    EXPECT_EQ(cfg.endpoints[1].request.path, "/api/pressure");
+}
+
 /// @brief it should successfully read 10 times in succession from the same endpoint.
 TEST(HTTPReadTask, RepeatedReads) {
     mock::Server server(
@@ -1249,6 +1320,134 @@ TEST(HTTPReadTask, ParseConfigAllFieldsDisabled) {
     };
     auto ctx = std::make_shared<task::MockContext>(nullptr);
     ASSERT_OCCURRED_AS_P(ReadTaskConfig::parse(ctx, task), x::errors::VALIDATION);
+}
+
+/// @brief an endpoint with no fields at all should produce a validation error.
+TEST(HTTPReadTask, ParseConfigEndpointWithNoFields) {
+    synnax::task::Task task;
+    task.config = {
+        {"device", "dev-001"},
+        {"rate", 1.0},
+        {"endpoints",
+         {{
+             {"method", "GET"},
+             {"path", "/api/data"},
+             {"fields", x::json::json::array()},
+         }}},
+    };
+    auto ctx = std::make_shared<task::MockContext>(nullptr);
+    ASSERT_OCCURRED_AS_P(ReadTaskConfig::parse(ctx, task), x::errors::VALIDATION);
+}
+
+/// @brief when all fields on every endpoint are disabled, parsing should fail
+/// because the task has no enabled fields at all.
+TEST(HTTPReadTask, ParseConfigAllEndpointsAllFieldsDisabled) {
+    synnax::task::Task task;
+    task.config = {
+        {"device", "dev-001"},
+        {"rate", 1.0},
+        {"endpoints",
+         {
+             {
+                 {"method", "GET"},
+                 {"path", "/api/temp"},
+                 {"fields",
+                  {{
+                      {"pointer", "/temp"},
+                      {"channel", 1},
+                      {"enabled", false},
+                  }}},
+             },
+             {
+                 {"method", "GET"},
+                 {"path", "/api/pressure"},
+                 {"fields",
+                  {{
+                      {"pointer", "/pressure"},
+                      {"channel", 2},
+                      {"enabled", false},
+                  }}},
+             },
+         }},
+    };
+    auto ctx = std::make_shared<task::MockContext>(nullptr);
+    ASSERT_OCCURRED_AS_P(ReadTaskConfig::parse(ctx, task), x::errors::VALIDATION);
+}
+
+/// @brief when only the second of three endpoints has all fields disabled, the
+/// disabled endpoint should be skipped and the other two should be requested.
+TEST(HTTPReadTask, MiddleEndpointAllFieldsDisabledSkipped) {
+    mock::Server server(
+        mock::ServerConfig{
+            .routes = {
+                {
+                    .method = Method::GET,
+                    .path = "/api/temp",
+                    .status_code = 200,
+                    .response_body = R"({"temp": 25.0})",
+                },
+                {
+                    .method = Method::GET,
+                    .path = "/api/pressure",
+                    .status_code = 200,
+                    .response_body = R"({"pressure": 1013.25})",
+                },
+            },
+        }
+    );
+    ASSERT_NIL(server.start());
+    x::defer::defer stop_server([&server] { server.stop(); });
+
+    ReadTaskConfig cfg;
+    cfg.device = "test-device";
+    cfg.data_saving = false;
+    cfg.auto_start = false;
+    cfg.rate = x::telem::Rate(10000);
+
+    ReadField temp_field;
+    temp_field.pointer = x::json::json::json_pointer("/temp");
+    temp_field.channel_key = 1;
+    temp_field.enabled = true;
+
+    ReadField pressure_field;
+    pressure_field.pointer = x::json::json::json_pointer("/pressure");
+    pressure_field.channel_key = 3;
+    pressure_field.enabled = true;
+
+    // ep1 and ep3 have enabled fields; ep2 (middle) is entirely disabled and
+    // excluded from the config — parse() would filter it out.
+    ReadEndpoint ep1;
+    ep1.request.method = Method::GET;
+    ep1.request.path = "/api/temp";
+    ep1.body = "";
+    ep1.fields = {temp_field};
+
+    ReadEndpoint ep3;
+    ep3.request.method = Method::GET;
+    ep3.request.path = "/api/pressure";
+    ep3.body = "";
+    ep3.fields = {pressure_field};
+
+    cfg.endpoints = {ep1, ep3};
+
+    cfg.channels[1] = {
+        .name = "temp", .data_type = x::telem::FLOAT64_T, .key = 1
+    };
+    cfg.channels[3] = {
+        .name = "pressure", .data_type = x::telem::FLOAT64_T, .key = 3
+    };
+
+    auto [source, processor] = make_source(cfg, server.base_url());
+
+    auto breaker = x::breaker::Breaker(x::breaker::Config{.name = "test"});
+    breaker.start();
+    x::telem::Frame fr;
+    auto res = source->read(breaker, fr);
+    breaker.stop();
+    ASSERT_NIL(res.error);
+    EXPECT_EQ(fr.size(), 2);
+    EXPECT_NEAR(fr.at<double>(1, 0), 25.0, 0.001);
+    EXPECT_NEAR(fr.at<double>(3, 0), 1013.25, 0.001);
 }
 
 /// @brief disabled fields should not cause a missing-field error even if the
