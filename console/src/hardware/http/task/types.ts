@@ -8,6 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { type task } from "@synnaxlabs/client";
+import { DataType } from "@synnaxlabs/x";
 import { z } from "zod";
 
 import { Common } from "@/hardware/common";
@@ -26,16 +27,17 @@ export const readTypeZ = z.literal(READ_TYPE);
 
 const readFieldZ = Common.Task.readChannelZ.extend({
   pointer: jsonPointerZ,
-  dataType: z.string().default("float64"),
+  dataType: DataType.z,
   timestampFormat: timeFormatZ.optional(),
   enumValues: z.record(z.string(), z.number()).optional(),
 });
+
 export interface ReadField extends z.infer<typeof readFieldZ> {}
 
 export const ZERO_READ_FIELD = {
   ...Common.Task.ZERO_READ_CHANNEL,
   pointer: "",
-  dataType: "float64",
+  dataType: DataType.FLOAT64,
 } as const satisfies ReadField;
 
 const baseReadEndpointZ = z.object({
@@ -46,7 +48,9 @@ const baseReadEndpointZ = z.object({
   fields: z.array(readFieldZ).check(Common.Task.validateReadChannels),
   index: z.string().nullable().default(null),
 });
+
 const getReadEndpointZ = baseReadEndpointZ.extend({ method: z.literal("GET") });
+
 const postReadEndpointZ = baseReadEndpointZ.extend({
   method: z.literal("POST"),
   body: z.string().optional(),
@@ -56,6 +60,7 @@ const readEndpointZ = z.discriminatedUnion("method", [
   getReadEndpointZ,
   postReadEndpointZ,
 ]);
+
 export type ReadEndpoint = z.infer<typeof readEndpointZ>;
 
 export const ZERO_READ_ENDPOINT = {
@@ -66,10 +71,13 @@ export const ZERO_READ_ENDPOINT = {
   index: null,
 } as const satisfies ReadEndpoint;
 
+export type ReadMethod = ReadEndpoint["method"];
+
 export const readConfigZ = Common.Task.baseReadConfigZ.extend({
   rate: z.number().positive("Rate must be positive"),
   endpoints: z.array(readEndpointZ),
 });
+
 export interface ReadConfig extends z.infer<typeof readConfigZ> {}
 
 export const ZERO_READ_CONFIG = {
@@ -99,8 +107,4 @@ export const READ_SCHEMAS = {
   typeSchema: readTypeZ,
   configSchema: readConfigZ,
   statusDataSchema: readStatusDataZ,
-} as const satisfies task.Schemas<
-  typeof readTypeZ,
-  typeof readConfigZ,
-  typeof readStatusDataZ
->;
+} as const satisfies task.Schemas;

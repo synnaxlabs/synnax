@@ -77,8 +77,6 @@ const Properties = () => (
   </>
 );
 
-// ─── Endpoint Context Menu ───
-
 interface EndpointContextMenuProps {
   keys: string[];
   onDelete: (keys: string[]) => void;
@@ -92,19 +90,15 @@ const EndpointContextMenu = ({
 }: EndpointContextMenuProps) => {
   const isSnapshot = Common.Task.useIsSnapshot();
   const canAct = keys.length > 0;
-  const handleSelect: Record<string, () => void> = {
-    duplicate: () => onDuplicate(keys),
-    delete: () => onDelete(keys),
-  };
   return (
-    <PMenu.Menu onChange={handleSelect} level="small">
+    <PMenu.Menu level="small">
       {!isSnapshot && canAct && (
         <>
-          <PMenu.Item itemKey="duplicate">
+          <PMenu.Item itemKey="duplicate" onClick={() => onDuplicate(keys)}>
             <Icon.Copy />
             Duplicate
           </PMenu.Item>
-          <PMenu.Item itemKey="delete">
+          <PMenu.Item itemKey="delete" onClick={() => onDelete(keys)}>
             <Icon.Close />
             Delete
           </PMenu.Item>
@@ -121,21 +115,20 @@ const EndpointListItem = (props: List.ItemProps<string>) => {
   const method = PForm.useFieldValue<string>(`config.endpoints.${itemKey}.method`);
   const epPath = PForm.useFieldValue<string>(`config.endpoints.${itemKey}.path`);
   const fields = PForm.useFieldValue<ReadField[]>(`config.endpoints.${itemKey}.fields`);
+  const shownPath = epPath === "" ? "(no path)" : epPath;
   return (
     <Select.ListItem {...props} justify="between" align="center" x>
       <Text.Text level="small" weight={500}>
-        {method} {epPath || "(no path)"}
+        {method} {shownPath}
       </Text.Text>
       <Text.Text level="small" color={7}>
-        {fields?.length ?? 0}
+        {fields.length}
       </Text.Text>
     </Select.ListItem>
   );
 };
 
 const endpointListItem = Component.renderProp(EndpointListItem);
-
-// ─── Time Format Data ───
 
 const TIME_FORMAT_DATA: Select.StaticEntry<string>[] = [
   { key: "iso8601", name: "ISO 8601" },
@@ -146,8 +139,6 @@ const TIME_FORMAT_DATA: Select.StaticEntry<string>[] = [
 ];
 
 const isTimingField = (f: ReadField): boolean => f.timestampFormat != null;
-
-// ─── Field List Item ───
 
 interface FieldListItemProps extends Common.Task.ChannelListItemProps {
   epKey: string;
@@ -190,7 +181,11 @@ const FieldListItem = ({ epKey, ...props }: FieldListItemProps) => {
       {hasEnums && (
         <Text.Text level="small" color={7}>
           {Object.keys(enumValues).length} enum
-          {Object.keys(enumValues).length !== 1 ? "s" : ""}
+          {
+            Object.keys(enumValues).length !== 1
+              ? "s"
+              : "" /*TODO: Fix the space with the s */
+          }
         </Text.Text>
       )}
       <Flex.Box x align="center" grow justify="end">
@@ -288,7 +283,7 @@ const FieldList: FC<{ epKey: string }> = ({ epKey }) => {
     selectedFieldKey != null ? `${path}.${selectedFieldKey}.enumValues` : null;
 
   return (
-    <Flex.Box y grow empty>
+    <>
       <BaseChannelList<ReadField>
         data={data}
         remove={remove}
@@ -296,6 +291,8 @@ const FieldList: FC<{ epKey: string }> = ({ epKey }) => {
         onSelect={setSelected}
         selected={selected}
         path={path}
+        style={{ paddingBottom: "1rem", maxWidth: "100%" }}
+        grow
         header={
           <Header.Header>
             <Header.Title weight={500} color={10}>
@@ -327,7 +324,7 @@ const FieldList: FC<{ epKey: string }> = ({ epKey }) => {
         contextMenuItems={Common.Task.readChannelContextMenuItem}
       />
       {selectedFieldPath != null && (
-        <>
+        <Flex.Box y empty style={{ flexShrink: 0, minHeight: 200, overflowY: "auto" }}>
           <Divider.Divider x padded />
           <KeyValueEditor
             path={selectedFieldPath}
@@ -335,9 +332,9 @@ const FieldList: FC<{ epKey: string }> = ({ epKey }) => {
             keyPlaceholder="String (e.g. ON)"
             valueType="number"
           />
-        </>
+        </Flex.Box>
       )}
-    </Flex.Box>
+    </>
   );
 };
 
@@ -374,7 +371,7 @@ const TimingToggle: FC<{ path: string }> = ({ path }) => {
   );
 
   return (
-    <Flex.Box y gap="small" style={{ padding: "0.5rem 1rem" }}>
+    <Flex.Box y gap={3} style={{ padding: "2rem", flexShrink: 0 }}>
       <Flex.Box x align="center" gap="small">
         <Text.Text level="small" weight={500} style={{ marginRight: "0.25rem" }}>
           Timing
@@ -392,7 +389,7 @@ const TimingToggle: FC<{ path: string }> = ({ path }) => {
         <Flex.Box x align="center" gap="large">
           <PForm.TextField
             path={`${path}.fields.${indexField.key}.pointer`}
-            label="Timestamp Pointer"
+            label="Timestamp pointer"
             inputProps={{ placeholder: "/timestamp" }}
             grow
           />
@@ -420,50 +417,44 @@ const EndpointDetails: FC<{ epKey: string }> = ({ epKey }) => {
   const path = `config.endpoints.${epKey}`;
   const method = PForm.useFieldValue<string>(`${path}.method`);
   return (
-    <Flex.Box
-      y
-      grow
-      empty
-      style={{ overflowY: "auto" }}
-      className={CSS.B("http-read-endpoint")}
-    >
-      <Flex.Box x align="end" gap="large" style={{ padding: "1rem" }}>
-        <MethodSelect path={`${path}.method`} epPath={path} />
-        <PForm.TextField
-          path={`${path}.path`}
-          label="Path"
-          grow
-          inputProps={{ placeholder: "/api/data" }}
-        />
-      </Flex.Box>
-      {method === "POST" && (
-        <Flex.Box style={{ padding: "0 1rem" }}>
+    <Flex.Box y grow empty className={CSS.B("endpoint-details")}>
+      <Flex.Box gap="small" empty className={CSS.B("endpoint-details-form")}>
+        <Flex.Box x align="end" gap="large">
+          <MethodSelect path={`${path}.method`} epPath={path} />
           <PForm.TextField
-            path={`${path}.body`}
-            label="Request Body"
+            path={`${path}.path`}
+            label="Path"
             grow
-            inputProps={{ placeholder: '{"query": "latest"}' }}
+            inputProps={{ placeholder: "/api/data" }}
           />
         </Flex.Box>
-      )}
-      <Divider.Divider x padded />
-      <Flex.Box y style={{ padding: "0 1rem" }}>
+        {method === "POST" && (
+          <Flex.Box>
+            <PForm.TextField
+              path={`${path}.body`}
+              label="Request body"
+              grow
+              inputProps={{ placeholder: '{"query": "latest"}' }}
+            />
+          </Flex.Box>
+        )}
         <KeyValueEditor
           path={`${path}.headers`}
           label="Headers"
           keyPlaceholder="Header Name"
           valuePlaceholder="Header Value"
+          className={CSS.B("endpoint-details-headers")}
         />
-        <Divider.Divider x padded />
         <KeyValueEditor
           path={`${path}.queryParams`}
-          label="Query Parameters"
+          label="Query parameters"
           keyPlaceholder="Parameter"
           valuePlaceholder="Value"
         />
       </Flex.Box>
       <Divider.Divider x padded />
       <TimingToggle path={path} />
+      <Divider.Divider x />
       <FieldList key={epKey} epKey={epKey} />
     </Flex.Box>
   );
@@ -517,10 +508,20 @@ const Form: FC<
   );
 
   const menuProps = PMenu.useContextMenu();
+  const menuRenderProp = useCallback(
+    (p: PMenu.ContextMenuMenuProps) => (
+      <EndpointContextMenu
+        keys={p.keys}
+        onDelete={handleDeleteEndpoints}
+        onDuplicate={handleDuplicateEndpoints}
+      />
+    ),
+    [handleDeleteEndpoints, handleDuplicateEndpoints],
+  );
 
   return (
     <Flex.Box x grow empty>
-      <Flex.Box y style={{ width: 250, flexShrink: 0 }}>
+      <Flex.Box className={CSS.B("endpoint-list")} y empty>
         <Header.Header>
           <Header.Title weight={500} color={10}>
             Endpoints
@@ -531,7 +532,7 @@ const Form: FC<
                 onClick={handleAddEndpoint}
                 variant="text"
                 contrast={2}
-                tooltip="Add Endpoint"
+                tooltip="Add endpoint"
                 sharp
               >
                 <Icon.Add />
@@ -539,16 +540,7 @@ const Form: FC<
             </Header.Actions>
           )}
         </Header.Header>
-        <PMenu.ContextMenu
-          {...menuProps}
-          menu={(p) => (
-            <EndpointContextMenu
-              keys={p.keys}
-              onDelete={handleDeleteEndpoints}
-              onDuplicate={handleDuplicateEndpoints}
-            />
-          )}
-        >
+        <PMenu.ContextMenu {...menuProps} menu={menuRenderProp}>
           <Select.Frame<string, ReadEndpoint>
             multiple
             data={data}
@@ -580,9 +572,7 @@ const Form: FC<
         <EndpointDetails epKey={selectedEndpoints[0]} />
       ) : (
         <Flex.Box y grow align="center" justify="center">
-          <Text.Text level="small" status="disabled">
-            Select an endpoint to configure
-          </Text.Text>
+          <Text.Text status="disabled">Select an endpoint to configure</Text.Text>
         </Flex.Box>
       )}
     </Flex.Box>
@@ -618,7 +608,7 @@ const onConfigure: Common.Task.OnConfigure<typeof readConfigZ> = async (
 
     // we need to create an index channel for this endpoint.
     const newIndexCh = await client.channels.create({
-      name: `${safeDevName}_${channel.escapeInvalidName(ep.path)}_time`,
+      name: `${safeDevName}${channel.escapeInvalidName(ep.path)}_time`,
       dataType: "timestamp",
       isIndex: true,
     });
@@ -637,7 +627,7 @@ const onConfigure: Common.Task.OnConfigure<typeof readConfigZ> = async (
       }
       const newCh = await client.channels.create({
         name: `${safeDevName}_${channel.escapeInvalidName(ep.path + field.pointer)}`,
-        dataType: field.dataType, //TODO: set this for NEW CHANNELS ONLY on task form
+        dataType: field.dataType,
         index,
       });
       field.channel = newCh.key;

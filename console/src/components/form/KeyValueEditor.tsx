@@ -15,7 +15,7 @@ interface Entry {
   value: string | number;
 }
 
-export interface KeyValueEditorProps {
+export interface KeyValueEditorProps extends Flex.BoxProps {
   path: string;
   label: string;
   keyPlaceholder?: string;
@@ -29,6 +29,7 @@ export const KeyValueEditor: FC<KeyValueEditorProps> = ({
   keyPlaceholder = "Key",
   valuePlaceholder = "Value",
   valueType = "string",
+  ...rest
 }) => {
   const defaultValue = valueType === "number" ? 0 : "";
   const { set } = Form.useContext();
@@ -92,7 +93,7 @@ export const KeyValueEditor: FC<KeyValueEditorProps> = ({
   };
 
   return (
-    <Flex.Box y gap="small">
+    <Flex.Box y gap="small" {...rest}>
       <Flex.Box x align="center" justify="between">
         <Input.Label>{label}</Input.Label>
         <Button.Button variant="text" size="small" onClick={addRow}>
