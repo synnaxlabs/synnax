@@ -386,10 +386,10 @@ func (r *tickerRuntime) Flow(sCtx signal.Context, opts ...confluence.Option) {
 		var (
 			runReason node.RunReason
 			// Fire immediately so timer nodes seed their first deadline
-		// even when no streaming input is connected.
-		timer = stdtime.NewTimer(0)
-			res       framer.StreamerResponse
-			ok        bool
+			// even when no streaming input is connected.
+			timer = stdtime.NewTimer(0)
+			res   framer.StreamerResponse
+			ok    bool
 		)
 		defer timer.Stop()
 		for {
