@@ -28,9 +28,9 @@ import (
 	"github.com/synnaxlabs/x/diagnostics"
 	"github.com/synnaxlabs/x/errors"
 	lsp "github.com/synnaxlabs/x/lsp"
+	"github.com/synnaxlabs/x/lsp/protocol"
 	"github.com/synnaxlabs/x/observe"
 	"github.com/synnaxlabs/x/override"
-	"github.com/synnaxlabs/x/lsp/protocol"
 	"go.uber.org/zap"
 )
 

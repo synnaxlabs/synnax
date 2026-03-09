@@ -20,10 +20,10 @@ import (
 	"github.com/synnaxlabs/freighter"
 	"github.com/synnaxlabs/x/config"
 	"github.com/synnaxlabs/x/errors"
+	"github.com/synnaxlabs/x/lsp/protocol"
 	"github.com/synnaxlabs/x/override"
 	"github.com/synnaxlabs/x/validate"
 	"go.lsp.dev/jsonrpc2"
-	"github.com/synnaxlabs/x/lsp/protocol"
 )
 
 type JSONRPCMessage struct {

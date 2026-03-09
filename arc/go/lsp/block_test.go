@@ -17,9 +17,9 @@ import (
 	"github.com/synnaxlabs/arc/lsp"
 	"github.com/synnaxlabs/arc/symbol"
 	"github.com/synnaxlabs/arc/types"
+	"github.com/synnaxlabs/x/lsp/protocol"
 	. "github.com/synnaxlabs/x/lsp/testutil"
 	. "github.com/synnaxlabs/x/testutil"
-	"github.com/synnaxlabs/x/lsp/protocol"
 )
 
 // generateBlockURI creates a URI with block metadata

@@ -12,9 +12,9 @@ package testutil_test
 import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"github.com/synnaxlabs/x/lsp/protocol"
 	"github.com/synnaxlabs/x/lsp/testutil"
 	. "github.com/synnaxlabs/x/testutil"
-	"github.com/synnaxlabs/x/lsp/protocol"
 )
 
 var _ = Describe("FindCompletion", func() {

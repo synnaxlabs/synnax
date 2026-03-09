@@ -14,8 +14,8 @@ import (
 
 	"github.com/onsi/gomega"
 	"github.com/samber/lo"
-	xutil "github.com/synnaxlabs/x/testutil"
 	"github.com/synnaxlabs/x/lsp/protocol"
+	xutil "github.com/synnaxlabs/x/testutil"
 )
 
 // OpenDocument is a helper to open a document in the LSP server.

@@ -16,8 +16,8 @@ import (
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/arc/lsp"
 	. "github.com/synnaxlabs/arc/lsp/testutil"
-	. "github.com/synnaxlabs/x/testutil"
 	"github.com/synnaxlabs/x/lsp/protocol"
+	. "github.com/synnaxlabs/x/testutil"
 )
 
 var _ = Describe("Formatting", func() {

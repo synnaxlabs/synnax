@@ -15,8 +15,8 @@ import (
 	"github.com/synnaxlabs/arc/parser"
 	"github.com/synnaxlabs/arc/symbol"
 	"github.com/synnaxlabs/x/errors"
-	"github.com/synnaxlabs/x/query"
 	"github.com/synnaxlabs/x/lsp/protocol"
+	"github.com/synnaxlabs/x/query"
 	"go.uber.org/zap"
 )
 

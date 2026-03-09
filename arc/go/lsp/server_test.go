@@ -19,9 +19,9 @@ import (
 	. "github.com/synnaxlabs/arc/lsp/testutil"
 	"github.com/synnaxlabs/arc/symbol"
 	"github.com/synnaxlabs/arc/types"
+	"github.com/synnaxlabs/x/lsp/protocol"
 	. "github.com/synnaxlabs/x/lsp/testutil"
 	"github.com/synnaxlabs/x/observe"
-	"github.com/synnaxlabs/x/lsp/protocol"
 )
 
 var _ = Describe("Server Diagnostics", func() {
