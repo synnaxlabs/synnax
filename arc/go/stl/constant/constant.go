@@ -13,9 +13,9 @@ import (
 	"context"
 
 	"github.com/synnaxlabs/arc/ir"
-	"github.com/synnaxlabs/arc/runtime/node"
+	rnode "github.com/synnaxlabs/arc/runtime/node"
 	"github.com/synnaxlabs/arc/runtime/state"
-	"github.com/synnaxlabs/arc/stl"
+
 	"github.com/synnaxlabs/arc/symbol"
 	"github.com/synnaxlabs/arc/types"
 	"github.com/synnaxlabs/x/query"
@@ -39,38 +39,24 @@ var (
 
 type Module struct{}
 
-var _ stl.Module = (*Module)(nil)
-
 func NewModule() *Module { return &Module{} }
 
-func (m *Module) Resolve(ctx context.Context, name string) (symbol.Symbol, error) {
-	return SymbolResolver.Resolve(ctx, name)
-}
-
-func (m *Module) Search(ctx context.Context, term string) ([]symbol.Symbol, error) {
-	return SymbolResolver.Search(ctx, term)
-}
-
-func (m *Module) Create(_ context.Context, cfg node.Config) (node.Node, error) {
+func (m *Module) Create(_ context.Context, cfg rnode.Config) (rnode.Node, error) {
 	if cfg.Node.Type != symName {
 		return nil, query.ErrNotFound
 	}
-	return &constantNode{Node: cfg.State, value: cfg.Node.Config[0].Value}, nil
+	return &node{Node: cfg.State, value: cfg.Node.Config[0].Value}, nil
 }
 
-func (m *Module) BindTo(_ stl.HostRuntime) error {
-	return nil
-}
-
-type constantNode struct {
+type node struct {
 	*state.Node
 	value       any
 	initialized bool
 }
 
-var _ node.Node = (*constantNode)(nil)
+var _ rnode.Node = (*node)(nil)
 
-func (c *constantNode) Next(ctx node.Context) {
+func (c *node) Next(ctx rnode.Context) {
 	if c.initialized {
 		return
 	}
@@ -82,6 +68,4 @@ func (c *constantNode) Next(ctx node.Context) {
 	ctx.MarkChanged(ir.DefaultOutputParam)
 }
 
-func (c *constantNode) Reset() {
-	c.initialized = false
-}
+func (c *node) Reset() { c.initialized = false }

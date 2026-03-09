@@ -7,22 +7,22 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-// Package module provides the compiled Arc module representation.
+// Package program provides the compiled Arc program representation.
 //
-// A Module combines an intermediate representation (IR) with compiled WebAssembly
-// bytecode, representing a complete executable Arc program. Modules are the final
+// A Program combines an intermediate representation (IR) with compiled WebAssembly
+// bytecode, representing a complete executable Arc program. Programs are the final
 // output of the Arc compilation pipeline and can be serialized for storage or
 // executed by a WebAssembly runtime.
 //
 // # Compilation Pipeline
 //
-// Modules fit into the Arc compilation pipeline as follows:
+// Programs fit into the Arc compilation pipeline as follows:
 //
-//	Parser → AST → Analyzer → IR → Compiler → Module (IR + WASM)
+//	Parser → AST → Analyzer → IR → Compiler → Program (IR + WASM)
 //
 // # Usage Example
 //
-// Creating a module from Arc source code:
+// Creating a program from Arc source code:
 //
 //	import (
 //	    "context"
@@ -42,17 +42,17 @@
 //	    panic(diag.Error())
 //	}
 //
-//	// Compile to module with WASM
-//	module, err := text.Compile(context.Background(), ir)
+//	// Compile to program with WASM
+//	prog, err := text.Compile(context.Background(), ir)
 //	if err != nil {
 //	    panic(err)
 //	}
 //
-//	// Module now contains both IR and compiled WASM bytecode
-//	wasm := module.WASM              // WebAssembly bytecode
-//	functions := module.Functions    // Function definitions
-//	symbols := module.Symbols        // Symbol table
-package module
+//	// Program now contains both IR and compiled WASM bytecode
+//	wasm := prog.WASM              // WebAssembly bytecode
+//	functions := prog.Functions    // Function definitions
+//	symbols := prog.Symbols        // Symbol table
+package program
 
 import (
 	"crypto/sha256"
@@ -64,49 +64,49 @@ import (
 	"github.com/synnaxlabs/arc/ir"
 )
 
-// Module represents a fully compiled Arc program combining intermediate representation
+// Program represents a fully compiled Arc program combining intermediate representation
 // with executable WebAssembly bytecode.
 //
-// A Module embeds both the IR (containing the dataflow graph, function definitions,
+// A Program embeds both the IR (containing the dataflow graph, function definitions,
 // and symbol table) and the compiler Output (containing WASM bytecode and memory
-// layout information). This makes a Module self-contained and ready for execution
+// layout information). This makes a Program self-contained and ready for execution
 // by a WebAssembly runtime.
 //
 // The embedded compiler.Output provides:
 //   - WASM: Compiled WebAssembly bytecode ready for execution
 //   - OutputMemoryBases: Memory addresses for multi-output functions
 //
-// Modules can be serialized to disk for caching or distributed execution, though
+// Programs can be serialized to disk for caching or distributed execution, though
 // the Symbols and TypeMap fields are not serialized (they are only needed during
 // compilation and tooling).
-type Module struct {
+type Program struct {
 	ir.IR
 	compiler.Output
 }
 
-// IsZero reports whether the Module is empty (uninitialized or contains no content).
+// IsZero reports whether the Program is empty (uninitialized or contains no content).
 //
-// A Module is considered zero if it has no compiled WASM bytecode and the embedded
+// A Program is considered zero if it has no compiled WASM bytecode and the embedded
 // IR is also zero. This is useful for validating that compilation succeeded and
-// produced a valid module.
+// produced a valid program.
 //
 // Example:
 //
-//	module, err := text.Compile(ctx, ir)
+//	prog, err := text.Compile(ctx, ir)
 //	if err != nil {
 //	    return err
 //	}
-//	if module.IsZero() {
-//	    return errors.New("compilation produced empty module")
+//	if prog.IsZero() {
+//	    return errors.New("compilation produced empty program")
 //	}
-func (m Module) IsZero() bool { return len(m.WASM) == 0 && m.IR.IsZero() }
+func (m Program) IsZero() bool { return len(m.WASM) == 0 && m.IR.IsZero() }
 
-// String returns a human-readable string representation of the module.
+// String returns a human-readable string representation of the program.
 // The output includes a summary of the WASM bytecode (size and SHA256 hash)
 // and the full IR tree structure with functions, nodes, edges, strata, and sequences.
-func (m Module) String() string {
+func (m Program) String() string {
 	var b strings.Builder
-	b.WriteString("Arc Module\n")
+	b.WriteString("Arc Program\n")
 
 	hasContent := len(m.Functions) > 0 || len(m.Nodes) > 0 ||
 		len(m.Edges) > 0 || len(m.Strata) > 0 || len(m.Sequences) > 0
@@ -125,7 +125,7 @@ func (m Module) String() string {
 }
 
 // wasmSummary returns a summary of the WASM bytecode.
-func (m Module) wasmSummary() string {
+func (m Program) wasmSummary() string {
 	if len(m.WASM) == 0 {
 		return "WASM: (none)"
 	}

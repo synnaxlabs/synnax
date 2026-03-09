@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-package state_test
+package strings_test
 
 import (
 	"math"
@@ -15,15 +15,15 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	"github.com/synnaxlabs/arc/stl/strings/state"
+	stlstrings "github.com/synnaxlabs/arc/stl/strings"
 	. "github.com/synnaxlabs/x/testutil"
 )
 
 var _ = Describe("State", func() {
-	var s *state.State
+	var s *stlstrings.State
 
 	BeforeEach(func() {
-		s = state.New()
+		s = stlstrings.NewState()
 	})
 
 	Describe("Create", func() {

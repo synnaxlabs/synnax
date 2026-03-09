@@ -209,6 +209,6 @@ func (s *Service) compileArc(ctx context.Context, arc *Arc) error {
 		return err
 	}
 	// Step 4: Attach compiled module to Arc
-	arc.Module = mod
+	arc.Program = mod
 	return nil
 }

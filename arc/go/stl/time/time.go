@@ -16,13 +16,14 @@ import (
 	"github.com/synnaxlabs/arc/ir"
 	"github.com/synnaxlabs/arc/runtime/node"
 	"github.com/synnaxlabs/arc/runtime/state"
-	"github.com/synnaxlabs/arc/stl"
+
 	"github.com/synnaxlabs/arc/symbol"
 	"github.com/synnaxlabs/arc/types"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/query"
 	"github.com/synnaxlabs/x/telem"
 	"github.com/synnaxlabs/x/validate"
+	"github.com/tetratelabs/wazero"
 )
 
 const (
@@ -71,13 +72,22 @@ type Module struct {
 	BaseInterval telem.TimeSpan
 }
 
-var _ stl.Module = (*Module)(nil)
-
-func NewModule() *Module {
-	return &Module{BaseInterval: unsetBaseInterval}
+func NewModule(
+	ctx context.Context,
+	rat wazero.Runtime,
+) (*Module, error) {
+	builder := rat.NewHostModuleBuilder("time")
+	builder = builder.NewFunctionBuilder().
+		WithFunc(func(_ context.Context) uint64 {
+			return uint64(telem.Now())
+		}).Export("now")
+	if _, err := builder.Instantiate(ctx); err != nil {
+		return nil, err
+	}
+	return &Module{BaseInterval: unsetBaseInterval}, nil
 }
 
-var compilerModResolver = &symbol.ModuleResolver{
+var CompilerSymbolResolver = &symbol.ModuleResolver{
 	Name: "time",
 	Members: symbol.MapResolver{
 		"now": {
@@ -87,19 +97,6 @@ var compilerModResolver = &symbol.ModuleResolver{
 			}),
 		},
 	},
-}
-
-func (m *Module) Resolve(ctx context.Context, name string) (symbol.Symbol, error) {
-	if sym, err := SymbolResolver.Resolve(ctx, name); err == nil {
-		return sym, nil
-	}
-	return compilerModResolver.Resolve(ctx, name)
-}
-
-func (m *Module) Search(ctx context.Context, term string) ([]symbol.Symbol, error) {
-	syms1, _ := SymbolResolver.Search(ctx, term)
-	syms2, _ := compilerModResolver.Search(ctx, term)
-	return append(syms1, syms2...), nil
 }
 
 func (m *Module) Create(_ context.Context, cfg node.Config) (node.Node, error) {
@@ -142,12 +139,6 @@ func (m *Module) Create(_ context.Context, cfg node.Config) (node.Node, error) {
 	}
 }
 
-func (m *Module) BindTo(rt stl.HostRuntime) error {
-	stl.MustExport(rt, "time", "now", func(_ context.Context) uint64 {
-		return uint64(telem.Now())
-	})
-	return nil
-}
 
 // CalculateTolerance returns the timing tolerance for the given base interval.
 func CalculateTolerance(baseInterval telem.TimeSpan) telem.TimeSpan {

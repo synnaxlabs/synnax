@@ -12,16 +12,13 @@ package strings
 import (
 	"context"
 
-	"github.com/synnaxlabs/arc/runtime/node"
-	"github.com/synnaxlabs/arc/stl"
-	"github.com/synnaxlabs/arc/stl/strings/state"
 	"github.com/synnaxlabs/arc/symbol"
 	"github.com/synnaxlabs/arc/types"
-	"github.com/synnaxlabs/x/query"
+	"github.com/tetratelabs/wazero"
 	"github.com/tetratelabs/wazero/api"
 )
 
-var symResolver = &symbol.ModuleResolver{
+var SymbolResolver = &symbol.ModuleResolver{
 	Name: "string",
 	Members: symbol.MapResolver{
 		"from_literal": {
@@ -56,30 +53,22 @@ var symResolver = &symbol.ModuleResolver{
 }
 
 type Module struct {
-	strings *state.State
+	strings *State
 	memory  api.Memory
 }
 
-func NewModule(s *state.State) *Module { return &Module{strings: s} }
+func (m *Module) SetMemory(memory api.Memory) { m.memory = memory }
 
-func (m *Module) SetMemory(mem api.Memory) { m.memory = mem }
-
-func (m *Module) Resolve(ctx context.Context, name string) (symbol.Symbol, error) {
-	return symResolver.Resolve(ctx, name)
-}
-
-func (m *Module) Search(ctx context.Context, term string) ([]symbol.Symbol, error) {
-	return symResolver.Search(ctx, term)
-}
-
-func (m *Module) Create(_ context.Context, _ node.Config) (node.Node, error) {
-	return nil, query.ErrNotFound
-}
-
-func (m *Module) BindTo(rt stl.HostRuntime) error {
-	s := m.strings
-	stl.MustExport(rt, "string", "from_literal",
-		func(_ context.Context, ptr uint32, length uint32) uint32 {
+func NewModule(
+	ctx context.Context,
+	s *State,
+	rat wazero.Runtime,
+	memory api.Memory,
+) (*Module, error) {
+	m := &Module{strings: s, memory: memory}
+	builder := rat.NewHostModuleBuilder("string")
+	builder = builder.NewFunctionBuilder().
+		WithFunc(func(_ context.Context, ptr uint32, length uint32) uint32 {
 			if m.memory == nil {
 				return 0
 			}
@@ -88,33 +77,34 @@ func (m *Module) BindTo(rt stl.HostRuntime) error {
 				return 0
 			}
 			return s.Create(string(data))
-		})
-	stl.MustExport(rt, "string", "concat",
-		func(_ context.Context, h1 uint32, h2 uint32) uint32 {
+		}).Export("from_literal")
+	builder = builder.NewFunctionBuilder().
+		WithFunc(func(_ context.Context, h1 uint32, h2 uint32) uint32 {
 			s1, ok1 := s.Get(h1)
 			s2, ok2 := s.Get(h2)
 			if !ok1 || !ok2 {
 				return 0
 			}
 			return s.Create(s1 + s2)
-		})
-	stl.MustExport(rt, "string", "equal",
-		func(_ context.Context, h1 uint32, h2 uint32) uint32 {
+		}).Export("concat")
+	builder = builder.NewFunctionBuilder().
+		WithFunc(func(_ context.Context, h1 uint32, h2 uint32) uint32 {
 			s1, ok1 := s.Get(h1)
 			s2, ok2 := s.Get(h2)
 			if ok1 && ok2 && s1 == s2 {
 				return 1
 			}
 			return 0
-		})
-	stl.MustExport(rt, "string", "len",
-		func(_ context.Context, handle uint32) uint64 {
+		}).Export("equal")
+	builder = builder.NewFunctionBuilder().
+		WithFunc(func(_ context.Context, handle uint32) uint64 {
 			if str, ok := s.Get(handle); ok {
 				return uint64(len(str))
 			}
 			return 0
-		})
-	return nil
+		}).Export("len")
+	if _, err := builder.Instantiate(ctx); err != nil {
+		return nil, err
+	}
+	return m, nil
 }
-
-var _ stl.Module = (*Module)(nil)

@@ -83,7 +83,7 @@ var _ = Describe("StableFor", func() {
 		}
 		analyzed, diagnostics := graph.Analyze(ctx, g, stable.SymbolResolver)
 		Expect(diagnostics.Ok()).To(BeTrue())
-		s = state.New(state.Config{IR: analyzed})
+		s = state.New(analyzed)
 	})
 
 	Describe("Factory.Create", func() {

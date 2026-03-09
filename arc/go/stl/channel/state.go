@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-package state
+package channel
 
 import (
 	"slices"
@@ -29,8 +29,8 @@ type State struct {
 	indexes map[uint32]uint32
 }
 
-// New creates a new State from channel digests.
-func New(digests []Digest) *State {
+// NewState creates a new State from channel digests.
+func NewState(digests []Digest) *State {
 	cs := &State{
 		reads:   make(map[uint32]telem.MultiSeries),
 		writes:  make(map[uint32]telem.Series),
@@ -100,15 +100,15 @@ func (cs *State) ReadValue(key uint32) (telem.Series, bool) {
 	return ms.Series[len(ms.Series)-1], ok
 }
 
-// WriteValue writes a single value to a channel (for WASM runtime bindings).
+// writeValue writes a single value to a channel (for WASM runtime bindings).
 // For channels with an index, it auto-generates a timestamp using telem.Now()
 // and writes to both the data channel and its index channel.
-func (cs *State) WriteValue(key uint32, value telem.Series) {
+func (cs *State) writeValue(key uint32, value telem.Series) {
 	cs.writeChannel(key, value, telem.NewSeriesV(telem.Now()))
 }
 
-// ReadSeries reads buffered data and time series from a channel.
-func (cs *State) ReadSeries(
+// readSeries reads buffered data and time series from a channel.
+func (cs *State) readSeries(
 	key uint32,
 ) (data telem.MultiSeries, time telem.MultiSeries, ok bool) {
 	data, ok = cs.reads[key]
@@ -126,8 +126,8 @@ func (cs *State) ReadSeries(
 	return data, time, len(time.Series) > 0 && len(data.Series) > 0
 }
 
-// WriteSeries buffers data and time series for writing to a channel.
-func (cs *State) WriteSeries(key uint32, value, time telem.Series) {
+// writeSeries buffers data and time series for writing to a channel.
+func (cs *State) writeSeries(key uint32, value, time telem.Series) {
 	cs.writeChannel(key, value, time)
 }
 

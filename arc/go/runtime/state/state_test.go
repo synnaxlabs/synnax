@@ -23,7 +23,7 @@ import (
 
 var _ = Describe("State", func() {
 	Describe("Channel Operations", func() {
-		Describe("ReadSeries", func() {
+		Describe("readSeries", func() {
 			It("Should read channel data after ingestion", func() {
 				g := graph.Graph{
 					Nodes:     []graph.Node{{Key: "test", Type: "test"}},
@@ -83,7 +83,7 @@ var _ = Describe("State", func() {
 			})
 		})
 
-		Describe("WriteSeries", func() {
+		Describe("writeSeries", func() {
 			It("Should write channel data", func() {
 				g := graph.Graph{
 					Nodes:     []graph.Node{{Key: "writer", Type: "writer"}},
@@ -244,7 +244,7 @@ var _ = Describe("State", func() {
 				Expect(fr.Get(21).Series).To(HaveLen(1))
 			})
 
-			It("Should produce matching behavior with WriteSeries for indexed channels", func() {
+			It("Should produce matching behavior with writeSeries for indexed channels", func() {
 				cfg := state.Config{
 					ChannelDigests: []channelstate.Digest{
 						{Key: 50, Index: 51},
@@ -1894,8 +1894,8 @@ var _ = Describe("State", func() {
 
 		It("Should buffer and flush authority changes", func() {
 			channelKey := uint32(42)
-			s.Auth.Set(&channelKey, 200)
-			changes := s.Auth.Flush()
+			s.Control.Set(&channelKey, 200)
+			changes := s.Control.Flush()
 			Expect(changes).To(HaveLen(1))
 			Expect(changes[0].Channel).ToNot(BeNil())
 			Expect(*changes[0].Channel).To(Equal(uint32(42)))
@@ -1903,33 +1903,33 @@ var _ = Describe("State", func() {
 		})
 
 		It("Should return nil when no authority changes", func() {
-			changes := s.Auth.Flush()
+			changes := s.Control.Flush()
 			Expect(changes).To(BeNil())
 		})
 
 		It("Should buffer authority change for all channels", func() {
-			s.Auth.Set(nil, 254)
-			changes := s.Auth.Flush()
+			s.Control.Set(nil, 254)
+			changes := s.Control.Flush()
 			Expect(changes).To(HaveLen(1))
 			Expect(changes[0].Channel).To(BeNil())
 			Expect(changes[0].Authority).To(Equal(uint8(254)))
 		})
 
 		It("Should clear authority changes after flush", func() {
-			s.Auth.Set(nil, 200)
-			changes := s.Auth.Flush()
+			s.Control.Set(nil, 200)
+			changes := s.Control.Flush()
 			Expect(changes).To(HaveLen(1))
-			changes = s.Auth.Flush()
+			changes = s.Control.Flush()
 			Expect(changes).To(BeNil())
 		})
 
 		It("Should buffer multiple authority changes", func() {
 			k1 := uint32(10)
 			k2 := uint32(20)
-			s.Auth.Set(&k1, 100)
-			s.Auth.Set(&k2, 200)
-			s.Auth.Set(nil, 254)
-			changes := s.Auth.Flush()
+			s.Control.Set(&k1, 100)
+			s.Control.Set(&k2, 200)
+			s.Control.Set(nil, 254)
+			changes := s.Control.Flush()
 			Expect(changes).To(HaveLen(3))
 			Expect(*changes[0].Channel).To(Equal(uint32(10)))
 			Expect(changes[0].Authority).To(Equal(uint8(100)))

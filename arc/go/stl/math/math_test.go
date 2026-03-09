@@ -11,7 +11,6 @@ package math_test
 
 import (
 	"context"
-	"math"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -22,77 +21,84 @@ import (
 var _ = Describe("Math", func() {
 	var (
 		ctx context.Context
-		rt  *testutil.MockHostRuntime
-		mod *stlmath.Module
+		rt  *testutil.Runtime
 	)
 
 	BeforeEach(func() {
 		ctx = context.Background()
-		rt = testutil.NewMockHostRuntime()
-		mod = stlmath.NewModule()
-		Expect(mod.BindTo(rt)).To(Succeed())
+		rt = testutil.NewRuntime(ctx)
+		_, err := stlmath.NewModule(ctx, rt.Underlying())
+		Expect(err).ToNot(HaveOccurred())
+		rt.Passthrough(ctx, "math")
+	})
+
+	AfterEach(func() {
+		Expect(rt.Close(ctx)).To(Succeed())
 	})
 
 	Describe("pow", func() {
 		It("Should compute i32 power", func() {
-			pow := testutil.Get[func(context.Context, uint32, uint32) uint32](rt, "math", "pow_i32")
-			Expect(pow(ctx, 3, 2)).To(Equal(uint32(9)))
-			Expect(pow(ctx, 2, 10)).To(Equal(uint32(1024)))
+			res := rt.Call(ctx, "math", "pow_i32", testutil.U32(3), testutil.U32(2))
+			Expect(testutil.AsU32(res[0])).To(Equal(uint32(9)))
+			res = rt.Call(ctx, "math", "pow_i32", testutil.U32(2), testutil.U32(10))
+			Expect(testutil.AsU32(res[0])).To(Equal(uint32(1024)))
 		})
 
 		It("Should compute i32 power with negative base", func() {
-			pow := testutil.Get[func(context.Context, uint32, uint32) uint32](rt, "math", "pow_i32")
-			// Simulate how WASM represents signed negatives as uint32
 			var negThree int32 = -3
-			Expect(pow(ctx, uint32(negThree), 2)).To(Equal(uint32(9)))
+			res := rt.Call(ctx, "math", "pow_i32", testutil.I32(negThree), testutil.U32(2))
+			Expect(testutil.AsU32(res[0])).To(Equal(uint32(9)))
 			var negTwo int32 = -2
 			var expected int32 = -8
-			Expect(pow(ctx, uint32(negTwo), 3)).To(Equal(uint32(expected)))
+			res = rt.Call(ctx, "math", "pow_i32", testutil.I32(negTwo), testutil.U32(3))
+			Expect(testutil.AsU32(res[0])).To(Equal(uint32(uint32(expected))))
 		})
 
 		It("Should compute u64 power", func() {
-			pow := testutil.Get[func(context.Context, uint64, uint64) uint64](rt, "math", "pow_u64")
-			Expect(pow(ctx, 2, 10)).To(Equal(uint64(1024)))
+			res := rt.Call(ctx, "math", "pow_u64", testutil.U64(2), testutil.U64(10))
+			Expect(testutil.AsU64(res[0])).To(Equal(uint64(1024)))
 		})
 
 		It("Should compute f32 power", func() {
-			pow := testutil.Get[func(context.Context, float32, float32) float32](rt, "math", "pow_f32")
-			Expect(pow(ctx, 2.0, 3.0)).To(BeNumerically("~", 8.0, 0.001))
+			res := rt.Call(ctx, "math", "pow_f32", testutil.F32(2.0), testutil.F32(3.0))
+			Expect(testutil.AsF32(res[0])).To(BeNumerically("~", 8.0, 0.001))
 		})
 
 		It("Should compute f64 power", func() {
-			pow := testutil.Get[func(context.Context, float64, float64) float64](rt, "math", "pow_f64")
-			Expect(pow(ctx, 2.0, 0.5)).To(BeNumerically("~", math.Sqrt2, 0.0001))
+			res := rt.Call(ctx, "math", "pow_f64", testutil.F64(2.0), testutil.F64(0.5))
+			Expect(testutil.AsF64(res[0])).To(BeNumerically("~", 1.41421356, 0.0001))
 		})
 
 		It("Should truncate negative integer exponents to zero", func() {
-			pow := testutil.Get[func(context.Context, uint32, uint32) uint32](rt, "math", "pow_i32")
 			negOne := int32(-1)
-			Expect(pow(ctx, 2, uint32(negOne))).To(Equal(uint32(0)))
+			res := rt.Call(ctx, "math", "pow_i32", testutil.U32(2), testutil.I32(negOne))
+			Expect(testutil.AsU32(res[0])).To(Equal(uint32(0)))
 		})
 
 		It("Should compute f64 negative exponents", func() {
-			pow := testutil.Get[func(context.Context, float64, float64) float64](rt, "math", "pow_f64")
-			Expect(pow(ctx, 2.0, -1.0)).To(BeNumerically("~", 0.5, 0.0001))
+			res := rt.Call(ctx, "math", "pow_f64", testutil.F64(2.0), testutil.F64(-1.0))
+			Expect(testutil.AsF64(res[0])).To(BeNumerically("~", 0.5, 0.0001))
 		})
 
 		It("Should compute f32 negative exponents", func() {
-			pow := testutil.Get[func(context.Context, float32, float32) float32](rt, "math", "pow_f32")
-			Expect(pow(ctx, 4.0, -0.5)).To(BeNumerically("~", 0.5, 0.001))
+			res := rt.Call(ctx, "math", "pow_f32", testutil.F32(4.0), testutil.F32(-0.5))
+			Expect(testutil.AsF32(res[0])).To(BeNumerically("~", 0.5, 0.001))
 		})
 
 		It("Should compute f64 with negative base", func() {
-			pow := testutil.Get[func(context.Context, float64, float64) float64](rt, "math", "pow_f64")
-			Expect(pow(ctx, -3.0, 2.0)).To(BeNumerically("~", 9.0, 0.0001))
-			Expect(pow(ctx, -2.0, 3.0)).To(BeNumerically("~", -8.0, 0.0001))
-			Expect(pow(ctx, -2.0, -1.0)).To(BeNumerically("~", -0.5, 0.0001))
+			res := rt.Call(ctx, "math", "pow_f64", testutil.F64(-3.0), testutil.F64(2.0))
+			Expect(testutil.AsF64(res[0])).To(BeNumerically("~", 9.0, 0.0001))
+			res = rt.Call(ctx, "math", "pow_f64", testutil.F64(-2.0), testutil.F64(3.0))
+			Expect(testutil.AsF64(res[0])).To(BeNumerically("~", -8.0, 0.0001))
+			res = rt.Call(ctx, "math", "pow_f64", testutil.F64(-2.0), testutil.F64(-1.0))
+			Expect(testutil.AsF64(res[0])).To(BeNumerically("~", -0.5, 0.0001))
 		})
 
 		It("Should compute f32 with negative base", func() {
-			pow := testutil.Get[func(context.Context, float32, float32) float32](rt, "math", "pow_f32")
-			Expect(pow(ctx, -3.0, 2.0)).To(BeNumerically("~", 9.0, 0.001))
-			Expect(pow(ctx, -2.0, 3.0)).To(BeNumerically("~", -8.0, 0.001))
+			res := rt.Call(ctx, "math", "pow_f32", testutil.F32(-3.0), testutil.F32(2.0))
+			Expect(testutil.AsF32(res[0])).To(BeNumerically("~", 9.0, 0.001))
+			res = rt.Call(ctx, "math", "pow_f32", testutil.F32(-2.0), testutil.F32(3.0))
+			Expect(testutil.AsF32(res[0])).To(BeNumerically("~", -8.0, 0.001))
 		})
-
 	})
 })

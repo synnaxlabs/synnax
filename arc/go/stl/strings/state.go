@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-package state
+package strings
 
 // configHandleBase is the starting value for config string handles.
 // Config string handles are stable for the State lifetime and are never
@@ -27,8 +27,8 @@ type State struct {
 	configStringCounter uint32
 }
 
-// New creates a new State.
-func New() *State {
+// NewState creates a new State.
+func NewState() *State {
 	return &State{
 		strings:             make(map[uint32]string),
 		counter:             1,

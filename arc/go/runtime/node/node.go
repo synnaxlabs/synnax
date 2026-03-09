@@ -19,7 +19,6 @@
 //   - Next: Called each execution cycle when the node or its inputs change
 //
 // Factories create node instances from IR (intermediate representation) definitions.
-// MultiFactory allows composition of multiple factories with fallback behavior.
 package node
 
 // Node executes computational operations within the arc runtime.

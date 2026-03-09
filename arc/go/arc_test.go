@@ -23,6 +23,7 @@ import (
 	"github.com/synnaxlabs/arc/stl/control"
 	stlerrors "github.com/synnaxlabs/arc/stl/errors"
 	stlmath "github.com/synnaxlabs/arc/stl/math"
+	"github.com/synnaxlabs/arc/stl/module"
 	stlop "github.com/synnaxlabs/arc/stl/op"
 	"github.com/synnaxlabs/arc/stl/selector"
 	"github.com/synnaxlabs/arc/stl/series"
@@ -38,7 +39,7 @@ import (
 )
 
 var _ = Describe("Arc", func() {
-	compile := func(code string, resolver arc.SymbolResolver) arc.Module {
+	compile := func(code string, resolver arc.SymbolResolver) arc.Program {
 		t := arc.Text{Raw: code}
 		Expect(t.Raw).ToNot(BeEmpty())
 		return MustSucceed(arc.CompileText(ctx, t, arc.WithResolver(resolver)))
@@ -322,7 +323,7 @@ sequence main {
 		// Regression test: stateful variables must produce typed WASM imports
 		// like "state::load_i64", not bare "state::load". This mirrors the
 		// exact program used in the C++ NodeTest.StatefulVariablesAreIsolatedBetweenNodeInstances.
-		modules := []stl.Module{
+		modules := []module.Module{
 			stlchannel.NewModule(nil, nil),
 			stateful.NewModule(nil, nil),
 			series.NewModule(nil),

@@ -15,7 +15,6 @@ import (
 	"github.com/synnaxlabs/arc/ir"
 	"github.com/synnaxlabs/arc/runtime/node"
 	"github.com/synnaxlabs/arc/runtime/state"
-	"github.com/synnaxlabs/arc/stl"
 	"github.com/synnaxlabs/arc/symbol"
 	"github.com/synnaxlabs/x/query"
 	"github.com/synnaxlabs/x/telem"
@@ -23,8 +22,6 @@ import (
 )
 
 type Module struct{}
-
-var _ stl.Module = (*Module)(nil)
 
 func NewModule() *Module { return &Module{} }
 
@@ -54,10 +51,6 @@ func (m *Module) Create(_ context.Context, cfg node.Config) (node.Node, error) {
 		return &unary{Node: cfg.State, op: unOpFn}, nil
 	}
 	return nil, query.ErrNotFound
-}
-
-func (m *Module) BindTo(_ stl.HostRuntime) error {
-	return nil
 }
 
 type binary struct {

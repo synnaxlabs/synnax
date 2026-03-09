@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-package state
+package series
 
 import "github.com/synnaxlabs/x/telem"
 
@@ -19,8 +19,8 @@ type State struct {
 	counter uint32
 }
 
-// New creates a new State.
-func New() *State {
+// NewState creates a new State.
+func NewState() *State {
 	return &State{
 		series:  make(map[uint32]telem.Series),
 		counter: 1,

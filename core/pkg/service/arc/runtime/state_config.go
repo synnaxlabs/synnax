@@ -54,13 +54,13 @@ func retrieveChannels(
 func NewStateConfig(
 	ctx context.Context,
 	channelSvc *channel.Service,
-	module arc.Module,
+	prog arc.Program,
 ) (ExtendedStateConfig, error) {
 	var (
 		reads  = make(set.Set[channel.Key])
 		writes = make(set.Set[channel.Key])
 	)
-	for _, n := range module.Nodes {
+	for _, n := range prog.Nodes {
 		for rawChanKey := range n.Channels.Read {
 			reads.Add(channel.Key(rawChanKey))
 		}
@@ -68,7 +68,7 @@ func NewStateConfig(
 			writes.Add(channel.Key(chanKey))
 		}
 	}
-	for key := range module.Authorities.Channels {
+	for key := range prog.Authorities.Channels {
 		writes.Add(channel.Key(key))
 	}
 	channels, err := retrieveChannels(ctx, channelSvc, slices.Concat(reads.Keys(), writes.Keys()))
@@ -94,7 +94,7 @@ func NewStateConfig(
 		Writes: writes,
 		State: state.Config{
 			ChannelDigests: lo.Uniq(channelDigests),
-			IR:             module.IR,
+			IR:             prog.IR,
 		},
 	}, nil
 }

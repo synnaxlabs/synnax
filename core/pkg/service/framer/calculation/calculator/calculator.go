@@ -20,6 +20,7 @@ import (
 	"github.com/synnaxlabs/arc/stl"
 	stlchannel "github.com/synnaxlabs/arc/stl/channel"
 	"github.com/synnaxlabs/arc/stl/constant"
+	"github.com/synnaxlabs/arc/stl/module"
 	stlop "github.com/synnaxlabs/arc/stl/op"
 	"github.com/synnaxlabs/arc/stl/selector"
 	"github.com/synnaxlabs/arc/stl/stable"
@@ -82,7 +83,7 @@ func Open(
 	}
 
 	progState := state.New(cfg.Module.StateConfig.State)
-	modules := []stl.Module{
+	modules := []module.Module{
 		stlchannel.NewModule(nil, nil),
 		selector.NewModule(),
 		constant.NewModule(),
@@ -92,9 +93,9 @@ func Open(
 	}
 	f := stl.MultiFactory(modules...)
 	if len(cfg.Module.WASM) > 0 {
-		wasmMod, err := wasm.OpenModule(ctx, wasm.ModuleConfig{
-			Module: cfg.Module.Module,
-			State:  progState,
+		wasmMod, err := wasm.OpenState(ctx, wasm.RuntimeConfig{
+			Program: cfg.Module.Program,
+			State:   progState,
 		})
 		if err != nil {
 			return nil, err
@@ -108,9 +109,9 @@ func Open(
 	nodes := make(map[string]node.Node)
 	for _, irNode := range cfg.Module.Nodes {
 		n, err := f.Create(ctx, node.Config{
-			Node:   irNode,
-			Module: cfg.Module.Module,
-			State:  progState.Node(irNode.Key),
+			Node:    irNode,
+			Program: cfg.Module.Program,
+			State:   progState.Node(irNode.Key),
 		})
 		if err != nil {
 			return nil, err

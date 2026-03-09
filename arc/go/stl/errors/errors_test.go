@@ -22,51 +22,53 @@ import (
 var _ = Describe("errors", func() {
 	var (
 		ctx context.Context
-		rt  *testutil.MockHostRuntime
+		rt  *testutil.Runtime
 		mod *errors.Module
 	)
 
 	BeforeEach(func() {
 		ctx = context.Background()
-		rt = testutil.NewMockHostRuntime()
-		mod = errors.NewModule()
-		Expect(mod.BindTo(rt)).To(Succeed())
+		rt = testutil.NewRuntime(ctx)
+		var err error
+		mod, err = errors.NewModule(ctx, nil, rt.Underlying())
+		Expect(err).ToNot(HaveOccurred())
+		rt.Passthrough(ctx, "error")
+	})
+
+	AfterEach(func() {
+		Expect(rt.Close(ctx)).To(Succeed())
 	})
 
 	Describe("panic", func() {
 		It("Should panic with 'memory not set' when memory is nil", func() {
-			panicFn := testutil.Get[func(context.Context, uint32, uint32)](rt, "error", "panic")
-			Expect(func() { panicFn(ctx, 0, 5) }).To(PanicWith(
-				ContainSubstring("memory not set"),
-			))
+			Expect(func() {
+				rt.Call(ctx, "error", "panic", testutil.U32(0), testutil.U32(5))
+			}).To(PanicWith(ContainSubstring("memory not set")))
 		})
 
 		It("Should panic with the message read from memory", func() {
-			panicFn := testutil.Get[func(context.Context, uint32, uint32)](rt, "error", "panic")
 			mem := wazerotest.NewMemory(1)
 			mem.Write(0, []byte("test error"))
 			mod.SetMemory(mem)
-			Expect(func() { panicFn(ctx, 0, 10) }).To(PanicWith(
-				Equal("arc panic: test error"),
-			))
+			Expect(func() {
+				rt.Call(ctx, "error", "panic", testutil.U32(0), testutil.U32(10))
+			}).To(PanicWith(ContainSubstring("arc panic: test error")))
 		})
 
 		It("Should panic with 'message unreadable' when memory read fails", func() {
-			panicFn := testutil.Get[func(context.Context, uint32, uint32)](rt, "error", "panic")
 			mem := wazerotest.NewMemory(1)
 			mod.SetMemory(mem)
-			Expect(func() { panicFn(ctx, 100000, 5) }).To(PanicWith(
-				Equal("arc panic (message unreadable)"),
-			))
+			Expect(func() {
+				rt.Call(ctx, "error", "panic", testutil.U32(100000), testutil.U32(5))
+			}).To(PanicWith(ContainSubstring("arc panic (message unreadable)")))
 		})
 
 		It("Should panic with empty message when length is zero", func() {
-			panicFn := testutil.Get[func(context.Context, uint32, uint32)](rt, "error", "panic")
 			mem := wazerotest.NewMemory(1)
 			mod.SetMemory(mem)
-			Expect(func() { panicFn(ctx, 0, 0) }).To(PanicWith(
-				Equal("arc panic: "),
-			))
+			Expect(func() {
+				rt.Call(ctx, "error", "panic", testutil.U32(0), testutil.U32(0))
+			}).To(PanicWith(ContainSubstring("arc panic: ")))
 		})
 	})
 })

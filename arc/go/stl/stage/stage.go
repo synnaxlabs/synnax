@@ -17,7 +17,6 @@ import (
 
 	"github.com/synnaxlabs/arc/runtime/node"
 	"github.com/synnaxlabs/arc/runtime/state"
-	"github.com/synnaxlabs/arc/stl"
 	"github.com/synnaxlabs/arc/symbol"
 	"github.com/synnaxlabs/arc/types"
 	"github.com/synnaxlabs/x/query"
@@ -36,7 +35,7 @@ var EntryNodeInputs = types.Params{{
 }}
 
 var (
-	entryNode = symbol.Symbol{
+	entryNodeSymbol = symbol.Symbol{
 		Name: EntryNodeName,
 		Kind: symbol.KindFunction,
 		Type: types.Function(types.FunctionProperties{
@@ -44,12 +43,10 @@ var (
 		}),
 	}
 	// SymbolResolver provides the stage_entry symbol for the Arc analyzer.
-	SymbolResolver = symbol.MapResolver{EntryNodeName: entryNode}
+	SymbolResolver = symbol.MapResolver{EntryNodeName: entryNodeSymbol}
 )
 
 type Module struct{}
-
-var _ stl.Module = (*Module)(nil)
 
 func NewModule() *Module { return &Module{} }
 
@@ -68,16 +65,8 @@ func (m *Module) Create(_ context.Context, cfg node.Config) (node.Node, error) {
 	return &entry{Node: cfg.State}, nil
 }
 
-func (m *Module) BindTo(_ stl.HostRuntime) error {
-	return nil
-}
-
-type entry struct {
-	*state.Node
-}
+type entry struct{ *state.Node }
 
 var _ node.Node = (*entry)(nil)
 
-func (s *entry) Next(ctx node.Context) {
-	ctx.ActivateStage()
-}
+func (s *entry) Next(ctx node.Context) { ctx.ActivateStage() }

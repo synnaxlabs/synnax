@@ -59,7 +59,7 @@ var _ = Describe("OP", func() {
 		}
 		analyzed, diagnostics := graph.Analyze(ctx, g, op.SymbolResolver)
 		Expect(diagnostics.Ok()).To(BeTrue())
-		s := state.New(state.Config{IR: analyzed})
+		s := state.New(analyzed)
 		lhsNode := s.Node("lhs")
 		rhsNode := s.Node("rhs")
 		*lhsNode.Output(0) = lhs
@@ -149,7 +149,7 @@ var _ = Describe("OP", func() {
 		}
 		analyzed, diagnostics := graph.Analyze(ctx, g, op.SymbolResolver)
 		Expect(diagnostics.Ok()).To(BeTrue())
-		s := state.New(state.Config{IR: analyzed})
+		s := state.New(analyzed)
 		inputNode := s.Node("input")
 		*inputNode.Output(0) = input
 		*inputNode.OutputTime(0) = inputTime
@@ -211,7 +211,7 @@ var _ = Describe("OP", func() {
 			}
 			analyzed, diagnostics := graph.Analyze(ctx, g, op.SymbolResolver)
 			Expect(diagnostics.Ok()).To(BeTrue())
-			s := state.New(state.Config{IR: analyzed})
+			s := state.New(analyzed)
 			lhsNode := s.Node("lhs")
 			rhsNode := s.Node("rhs")
 			*lhsNode.Output(0) = telem.NewSeriesV[float32](1, 2, 3, 4, 5)
@@ -262,7 +262,7 @@ var _ = Describe("OP", func() {
 			}
 			analyzed, diagnostics := graph.Analyze(ctx, g, op.SymbolResolver)
 			Expect(diagnostics.Ok()).To(BeTrue())
-			s := state.New(state.Config{IR: analyzed})
+			s := state.New(analyzed)
 			lhsNode := s.Node("lhs")
 			rhsNode := s.Node("rhs")
 			*lhsNode.Output(0) = telem.NewSeriesV[int32](2, 3, 4)
@@ -313,7 +313,7 @@ var _ = Describe("OP", func() {
 			}
 			analyzed, diagnostics := graph.Analyze(ctx, g, op.SymbolResolver)
 			Expect(diagnostics.Ok()).To(BeTrue())
-			s := state.New(state.Config{IR: analyzed})
+			s := state.New(analyzed)
 			lhsNode := s.Node("lhs")
 			rhsNode := s.Node("rhs")
 			*lhsNode.Output(0) = telem.NewSeriesV[float64](1.5, 2.5)
@@ -366,7 +366,7 @@ var _ = Describe("OP", func() {
 			}
 			analyzed, diagnostics := graph.Analyze(ctx, g, op.SymbolResolver)
 			Expect(diagnostics.Ok()).To(BeTrue())
-			s := state.New(state.Config{IR: analyzed})
+			s := state.New(analyzed)
 			lhsNode := s.Node("lhs")
 			rhsNode := s.Node("rhs")
 			*lhsNode.Output(0) = telem.NewSeriesV[int64](100)
@@ -425,7 +425,7 @@ var _ = Describe("OP", func() {
 			}
 			analyzed, diagnostics := graph.Analyze(ctx, g, op.SymbolResolver)
 			Expect(diagnostics.Ok()).To(BeTrue())
-			s := state.New(state.Config{IR: analyzed})
+			s := state.New(analyzed)
 			lhsNode := s.Node("lhs")
 			rhsNode := s.Node("rhs")
 			*lhsNode.Output(0) = telem.NewSeriesV[uint32](7)
@@ -475,7 +475,7 @@ var _ = Describe("OP", func() {
 			}
 			analyzed, diagnostics := graph.Analyze(ctx, g, op.SymbolResolver)
 			Expect(diagnostics.Ok()).To(BeTrue())
-			s := state.New(state.Config{IR: analyzed})
+			s := state.New(analyzed)
 			lhsNode := s.Node("lhs")
 			rhsNode := s.Node("rhs")
 			*lhsNode.Output(0) = telem.NewSeriesV[float32](1, 2, 3, 4, 5, 6, 7)
@@ -526,7 +526,7 @@ var _ = Describe("OP", func() {
 			}
 			analyzed, diagnostics := graph.Analyze(ctx, g, op.SymbolResolver)
 			Expect(diagnostics.Ok()).To(BeTrue())
-			s := state.New(state.Config{IR: analyzed})
+			s := state.New(analyzed)
 			lhsNode := s.Node("lhs")
 			rhsNode := s.Node("rhs")
 			*lhsNode.Output(0) = telem.NewSeriesV[int16](10, 20)
@@ -578,7 +578,7 @@ var _ = Describe("OP", func() {
 			}
 			analyzed, diagnostics := graph.Analyze(ctx, g, op.SymbolResolver)
 			Expect(diagnostics.Ok()).To(BeTrue())
-			s := state.New(state.Config{IR: analyzed})
+			s := state.New(analyzed)
 			lhsNode := s.Node("lhs")
 			rhsNode := s.Node("rhs")
 			*lhsNode.Output(0) = telem.NewSeriesV[uint8](0, 1, 0, 1, 1)
@@ -630,7 +630,7 @@ var _ = Describe("OP", func() {
 			}
 			analyzed, diagnostics := graph.Analyze(ctx, g, op.SymbolResolver)
 			Expect(diagnostics.Ok()).To(BeTrue())
-			s := state.New(state.Config{IR: analyzed})
+			s := state.New(analyzed)
 			lhsNode := s.Node("lhs")
 			rhsNode := s.Node("rhs")
 			*lhsNode.Output(0) = telem.NewSeriesV[uint8](1, 1)
@@ -682,7 +682,7 @@ var _ = Describe("OP", func() {
 			}
 			analyzed, diagnostics := graph.Analyze(ctx, g, op.SymbolResolver)
 			Expect(diagnostics.Ok()).To(BeTrue())
-			s := state.New(state.Config{IR: analyzed})
+			s := state.New(analyzed)
 			lhsNode := s.Node("lhs")
 			rhsNode := s.Node("rhs")
 			*lhsNode.Output(0) = telem.NewSeriesV[uint8](0)
@@ -733,7 +733,7 @@ var _ = Describe("OP", func() {
 			}
 			analyzed, diagnostics := graph.Analyze(ctx, g, op.SymbolResolver)
 			Expect(diagnostics.Ok()).To(BeTrue())
-			s := state.New(state.Config{IR: analyzed})
+			s := state.New(analyzed)
 			lhsNode := s.Node("lhs")
 			rhsNode := s.Node("rhs")
 			*lhsNode.Output(0) = telem.NewSeriesV[uint8](1)
@@ -785,7 +785,7 @@ var _ = Describe("OP", func() {
 			}
 			analyzed, diagnostics := graph.Analyze(ctx, g, op.SymbolResolver)
 			Expect(diagnostics.Ok()).To(BeTrue())
-			s := state.New(state.Config{IR: analyzed})
+			s := state.New(analyzed)
 			lhsNode := s.Node("lhs")
 			rhsNode := s.Node("rhs")
 
@@ -842,7 +842,7 @@ var _ = Describe("OP", func() {
 			}
 			analyzed, diagnostics := graph.Analyze(ctx, g, op.SymbolResolver)
 			Expect(diagnostics.Ok()).To(BeTrue())
-			s := state.New(state.Config{IR: analyzed})
+			s := state.New(analyzed)
 			inputNode := s.Node("input")
 
 			inputSeries := telem.NewSeriesV[int64](10, 20, 30)

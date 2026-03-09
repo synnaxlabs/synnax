@@ -21,6 +21,7 @@ import (
 	"github.com/synnaxlabs/arc/stl/control"
 	"github.com/synnaxlabs/arc/stl/errors"
 	"github.com/synnaxlabs/arc/stl/math"
+	"github.com/synnaxlabs/arc/stl/module"
 	stlop "github.com/synnaxlabs/arc/stl/op"
 	"github.com/synnaxlabs/arc/stl/selector"
 	"github.com/synnaxlabs/arc/stl/series"
@@ -80,8 +81,8 @@ func (r *channelResolver) Search(ctx context.Context, name string) ([]arc.Symbol
 // DefaultResolverModules returns the default set of STL modules used for symbol
 // resolution by the analyzer and LSP. These modules only need static symbol
 // definitions and do not require runtime state.
-func DefaultResolverModules() []stl.Module {
-	return []stl.Module{
+func DefaultResolverModules() []module.Module {
+	return []module.Module{
 		stlchannel.NewModule(nil, nil),
 		stateful.NewModule(nil, nil),
 		series.NewModule(nil),
@@ -99,7 +100,7 @@ func DefaultResolverModules() []stl.Module {
 	}
 }
 
-func CreateResolver(channelSvc *channel.Service, modules ...stl.Module) arc.SymbolResolver {
+func CreateResolver(channelSvc *channel.Service, modules ...module.Module) arc.SymbolResolver {
 	if len(modules) == 0 {
 		modules = DefaultResolverModules()
 	}

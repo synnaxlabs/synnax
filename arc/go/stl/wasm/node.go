@@ -13,12 +13,19 @@ import (
 	"github.com/synnaxlabs/arc/ir"
 	"github.com/synnaxlabs/arc/runtime/node"
 	"github.com/synnaxlabs/arc/runtime/state"
-	"github.com/synnaxlabs/arc/stl"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/telem"
 )
 
 var _ node.Node = (*nodeImpl)(nil)
+
+// NodeKeySetter is implemented by modules that need to know which node is
+// currently executing (e.g., stateful variable scoping). The runtime calls
+// SetNodeKey before each WASM invocation. This follows the same optional
+// interface pattern as MemorySetter.
+type NodeKeySetter interface {
+	SetNodeKey(key string)
+}
 
 type nodeImpl struct {
 	*state.Node
@@ -29,7 +36,7 @@ type nodeImpl struct {
 	offsets       []int
 	initialized   bool
 	isEntryNode   bool
-	nodeKeySetter stl.NodeKeySetter
+	nodeKeySetter NodeKeySetter
 }
 
 func (n *nodeImpl) Init(node.Context) {}
@@ -125,8 +132,8 @@ func (n *nodeImpl) Next(ctx node.Context) {
 			ts = uint64(telem.Now())
 		}
 		for j, value := range res {
-			if value.changed {
-				setValueAt(*n.Output(j), n.offsets[j], value.value)
+			if value.Changed {
+				setValueAt(*n.Output(j), n.offsets[j], value.Value)
 				setValueAt(*n.OutputTime(j), n.offsets[j], ts)
 				n.offsets[j]++
 			}

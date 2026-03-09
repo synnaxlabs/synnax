@@ -15,7 +15,7 @@ import (
 	"github.com/synnaxlabs/arc/ir"
 	"github.com/synnaxlabs/arc/runtime/node"
 	"github.com/synnaxlabs/arc/runtime/state"
-	"github.com/synnaxlabs/arc/stl"
+
 	"github.com/synnaxlabs/arc/symbol"
 	"github.com/synnaxlabs/arc/types"
 	"github.com/synnaxlabs/x/query"
@@ -44,8 +44,6 @@ var (
 
 type Module struct{}
 
-var _ stl.Module = (*Module)(nil)
-
 func NewModule() *Module { return &Module{} }
 
 func (m *Module) Resolve(ctx context.Context, name string) (symbol.Symbol, error) {
@@ -61,10 +59,6 @@ func (m *Module) Create(_ context.Context, cfg node.Config) (node.Node, error) {
 		return nil, query.ErrNotFound
 	}
 	return &selectNode{Node: cfg.State}, nil
-}
-
-func (m *Module) BindTo(_ stl.HostRuntime) error {
-	return nil
 }
 
 type selectNode struct{ *state.Node }

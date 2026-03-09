@@ -15,7 +15,6 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/arc/stl/strings"
-	stringsstate "github.com/synnaxlabs/arc/stl/strings/state"
 	"github.com/synnaxlabs/arc/stl/testutil"
 	. "github.com/synnaxlabs/x/testutil"
 	"github.com/tetratelabs/wazero/experimental/wazerotest"
@@ -25,116 +24,118 @@ var ctx = context.Background()
 
 var _ = Describe("Strings", func() {
 	var (
-		rt  *testutil.MockHostRuntime
-		ss  *stringsstate.State
-		mod *strings.Module
+		rt  *testutil.Runtime
+		ss  *strings.State
+		mem *wazerotest.Memory
 	)
 
+	call := func(fn string, args ...uint64) []uint64 {
+		return rt.Call(ctx, "string", fn, args...)
+	}
+	callU32 := func(fn string, args ...uint64) uint32 {
+		return testutil.AsU32(call(fn, args...)[0])
+	}
+	callU64 := func(fn string, args ...uint64) uint64 {
+		return call(fn, args...)[0]
+	}
+
 	BeforeEach(func() {
-		rt = testutil.NewMockHostRuntime()
-		ss = stringsstate.New()
-		mod = strings.NewModule(ss)
-		Expect(mod.BindTo(rt)).To(Succeed())
+		ctx = context.Background()
+		rt = testutil.NewRuntime(ctx)
+		ss = strings.NewState()
+		mem = wazerotest.NewMemory(1)
+		_, err := strings.NewModule(ctx, ss, rt.Underlying(), mem)
+		Expect(err).ToNot(HaveOccurred())
+		rt.Passthrough(ctx, "string")
+	})
+
+	AfterEach(func() {
+		Expect(rt.Close(ctx)).To(Succeed())
 	})
 
 	Describe("from_literal", func() {
 		It("Should create a handle from WASM memory", func() {
-			fromLiteral := testutil.Get[func(context.Context, uint32, uint32) uint32](rt, "string", "from_literal")
-			mem := wazerotest.NewMemory(1)
 			mem.Write(0, []byte("hello"))
-			mod.SetMemory(mem)
-			h := fromLiteral(ctx, 0, 5)
+			h := callU32("from_literal", testutil.U32(0), testutil.U32(5))
 			Expect(h).ToNot(BeZero())
 			Expect(MustBeOk(ss.Get(h))).To(Equal("hello"))
 		})
 
-		It("Should return 0 when memory is nil", func() {
-			fromLiteral := testutil.Get[func(context.Context, uint32, uint32) uint32](rt, "string", "from_literal")
-			Expect(fromLiteral(ctx, 0, 5)).To(Equal(uint32(0)))
-		})
-
 		It("Should return 0 when memory read fails", func() {
-			fromLiteral := testutil.Get[func(context.Context, uint32, uint32) uint32](rt, "string", "from_literal")
-			mem := wazerotest.NewMemory(1)
-			mod.SetMemory(mem)
-			Expect(fromLiteral(ctx, 100000, 5)).To(Equal(uint32(0)))
+			Expect(callU32("from_literal", testutil.U32(100000), testutil.U32(5))).To(Equal(uint32(0)))
 		})
 
 		It("Should handle empty string with length 0", func() {
-			fromLiteral := testutil.Get[func(context.Context, uint32, uint32) uint32](rt, "string", "from_literal")
-			mem := wazerotest.NewMemory(1)
-			mod.SetMemory(mem)
-			h := fromLiteral(ctx, 0, 0)
+			h := callU32("from_literal", testutil.U32(0), testutil.U32(0))
 			Expect(h).ToNot(BeZero())
-			lenFn := testutil.Get[func(context.Context, uint32) uint64](rt, "string", "len")
-			Expect(lenFn(ctx, h)).To(Equal(uint64(0)))
+			Expect(callU64("len", testutil.U32(h))).To(Equal(uint64(0)))
+		})
+	})
+
+	Describe("from_literal with nil memory", func() {
+		It("Should return 0 when memory is nil", func() {
+			rt2 := testutil.NewRuntime(ctx)
+			defer rt2.Close(ctx)
+			ss2 := strings.NewState()
+			_, err := strings.NewModule(ctx, ss2, rt2.Underlying(), nil)
+			Expect(err).ToNot(HaveOccurred())
+			rt2.Passthrough(ctx, "string")
+			res := rt2.Call(ctx, "string", "from_literal", testutil.U32(0), testutil.U32(5))
+			Expect(testutil.AsU32(res[0])).To(Equal(uint32(0)))
 		})
 	})
 
 	Describe("concat", func() {
 		It("Should concatenate two strings", func() {
-			concat := testutil.Get[func(context.Context, uint32, uint32) uint32](rt, "string", "concat")
 			h1 := ss.Create("hello ")
 			h2 := ss.Create("world")
-			rh := concat(ctx, h1, h2)
+			rh := callU32("concat", testutil.U32(h1), testutil.U32(h2))
 			Expect(rh).ToNot(BeZero())
 			Expect(MustBeOk(ss.Get(rh))).To(Equal("hello world"))
 		})
 
 		It("Should return 0 for invalid handles", func() {
-			concat := testutil.Get[func(context.Context, uint32, uint32) uint32](rt, "string", "concat")
-			Expect(concat(ctx, 9999, 9998)).To(Equal(uint32(0)))
+			Expect(callU32("concat", testutil.U32(9999), testutil.U32(9998))).To(Equal(uint32(0)))
 		})
 	})
 
 	Describe("equal", func() {
 		It("Should return 1 for equal strings", func() {
-			equal := testutil.Get[func(context.Context, uint32, uint32) uint32](rt, "string", "equal")
 			h1 := ss.Create("same")
 			h2 := ss.Create("same")
-			Expect(equal(ctx, h1, h2)).To(Equal(uint32(1)))
+			Expect(callU32("equal", testutil.U32(h1), testutil.U32(h2))).To(Equal(uint32(1)))
 		})
 
 		It("Should return 0 for different strings", func() {
-			equal := testutil.Get[func(context.Context, uint32, uint32) uint32](rt, "string", "equal")
 			h1 := ss.Create("foo")
 			h2 := ss.Create("bar")
-			Expect(equal(ctx, h1, h2)).To(Equal(uint32(0)))
+			Expect(callU32("equal", testutil.U32(h1), testutil.U32(h2))).To(Equal(uint32(0)))
 		})
 
 		It("Should return 0 for invalid handles", func() {
-			equal := testutil.Get[func(context.Context, uint32, uint32) uint32](rt, "string", "equal")
-			Expect(equal(ctx, 9999, 9998)).To(Equal(uint32(0)))
+			Expect(callU32("equal", testutil.U32(9999), testutil.U32(9998))).To(Equal(uint32(0)))
 		})
 	})
 
 	Describe("len", func() {
 		It("Should return byte length", func() {
-			lenFn := testutil.Get[func(context.Context, uint32) uint64](rt, "string", "len")
 			h := ss.Create("hello")
-			Expect(lenFn(ctx, h)).To(Equal(uint64(5)))
+			Expect(callU64("len", testutil.U32(h))).To(Equal(uint64(5)))
 		})
 
 		It("Should return 0 for invalid handle", func() {
-			lenFn := testutil.Get[func(context.Context, uint32) uint64](rt, "string", "len")
-			Expect(lenFn(ctx, 9999)).To(Equal(uint64(0)))
+			Expect(callU64("len", testutil.U32(9999))).To(Equal(uint64(0)))
 		})
 	})
 
 	Describe("cross-function handle reuse", func() {
 		It("Should use from_literal result in concat and verify with equal", func() {
-			fromLiteral := testutil.Get[func(context.Context, uint32, uint32) uint32](rt, "string", "from_literal")
-			concat := testutil.Get[func(context.Context, uint32, uint32) uint32](rt, "string", "concat")
-			equal := testutil.Get[func(context.Context, uint32, uint32) uint32](rt, "string", "equal")
-
-			mem := wazerotest.NewMemory(1)
 			mem.Write(0, []byte("helloworld"))
-			mod.SetMemory(mem)
-			h1 := fromLiteral(ctx, 0, 5)
-			h2 := fromLiteral(ctx, 5, 5)
-			result := concat(ctx, h1, h2)
+			h1 := callU32("from_literal", testutil.U32(0), testutil.U32(5))
+			h2 := callU32("from_literal", testutil.U32(5), testutil.U32(5))
+			result := callU32("concat", testutil.U32(h1), testutil.U32(h2))
 			expected := ss.Create("helloworld")
-			Expect(equal(ctx, result, expected)).To(Equal(uint32(1)))
+			Expect(callU32("equal", testutil.U32(result), testutil.U32(expected))).To(Equal(uint32(1)))
 		})
 	})
 })

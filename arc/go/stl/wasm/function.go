@@ -18,8 +18,8 @@ import (
 )
 
 type result struct {
-	value   uint64
-	changed bool
+	Value   uint64
+	Changed bool
 }
 
 type Function struct {
@@ -33,7 +33,7 @@ type Function struct {
 
 func (f *Function) Call(ctx context.Context, params ...uint64) ([]result, error) {
 	for i := range f.outputValues {
-		f.outputValues[i].changed = false
+		f.outputValues[i].Changed = false
 	}
 	results, err := f.fn.Call(ctx, params...)
 	if err != nil {
@@ -41,7 +41,7 @@ func (f *Function) Call(ctx context.Context, params ...uint64) ([]result, error)
 	}
 	if f.base == 0 {
 		if len(f.outputValues) > 0 {
-			f.outputValues[0] = result{value: results[0], changed: true}
+			f.outputValues[0] = result{Value: results[0], Changed: true}
 		}
 		return f.outputValues, nil
 	}
@@ -49,8 +49,8 @@ func (f *Function) Call(ctx context.Context, params ...uint64) ([]result, error)
 	for i := range f.outputs {
 		if (dirtyFlags & (1 << i)) != 0 {
 			f.outputValues[i] = result{
-				value:   lo.Must(f.mem.ReadUint64Le(f.offsets[i])),
-				changed: true,
+				Value:   lo.Must(f.mem.ReadUint64Le(f.offsets[i])),
+				Changed: true,
 			}
 		}
 	}

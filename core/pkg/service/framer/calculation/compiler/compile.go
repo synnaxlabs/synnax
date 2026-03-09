@@ -58,7 +58,7 @@ const (
 	writeKey       = "write"
 )
 
-func preProcess(ctx context.Context, cfg Config) (arc.Module, error) {
+func preProcess(ctx context.Context, cfg Config) (arc.Program, error) {
 	outputDataType := types.FromTelem(cfg.Channel.DataType)
 	fn := ir.Function{
 		Key:     calculationKey,
@@ -71,7 +71,7 @@ func preProcess(ctx context.Context, cfg Config) (arc.Module, error) {
 
 type Module struct {
 	StateConfig runtime.ExtendedStateConfig
-	arc.Module
+	arc.Program
 	Channel channel.Channel
 }
 
@@ -185,5 +185,5 @@ func Compile(ctx context.Context, cfgs ...Config) (Module, error) {
 	if err != nil {
 		return Module{}, err
 	}
-	return Module{Channel: cfg.Channel, StateConfig: stateCfg, Module: mod}, nil
+	return Module{Channel: cfg.Channel, StateConfig: stateCfg, Program: mod}, nil
 }

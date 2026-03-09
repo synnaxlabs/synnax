@@ -13,18 +13,18 @@ import (
 	"context"
 
 	"github.com/synnaxlabs/arc/runtime/node"
-	"github.com/synnaxlabs/arc/stl"
-	seriesstate "github.com/synnaxlabs/arc/stl/series/state"
-	stringsstate "github.com/synnaxlabs/arc/stl/strings/state"
+	"github.com/synnaxlabs/arc/stl/series"
+	"github.com/synnaxlabs/arc/stl/strings"
 	"github.com/synnaxlabs/arc/symbol"
 	"github.com/synnaxlabs/arc/types"
 	"github.com/synnaxlabs/x/query"
 	"github.com/synnaxlabs/x/telem"
+	"github.com/tetratelabs/wazero"
 )
 
 type Module struct {
-	series  *seriesstate.State
-	strings *stringsstate.State
+	series  *series.State
+	strings *strings.State
 
 	currentNodeKey string
 
@@ -44,10 +44,15 @@ type Module struct {
 
 func (m *Module) SetNodeKey(key string) { m.currentNodeKey = key }
 
-func NewModule(series *seriesstate.State, strings *stringsstate.State) *Module {
-	return &Module{
-		series:      series,
-		strings:     strings,
+func NewModule(
+	ctx context.Context,
+	seriesState *series.State,
+	stringsState *strings.State,
+	rat wazero.Runtime,
+) (*Module, error) {
+	m := &Module{
+		series:      seriesState,
+		strings:     stringsState,
 		stateU8:     make(map[string]map[uint32]uint8),
 		stateU16:    make(map[string]map[uint32]uint16),
 		stateU32:    make(map[string]map[uint32]uint32),
@@ -61,11 +66,37 @@ func NewModule(series *seriesstate.State, strings *stringsstate.State) *Module {
 		stateString: make(map[string]map[uint32]string),
 		stateSeries: make(map[string]map[uint32]telem.Series),
 	}
+	builder := rat.NewHostModuleBuilder("state")
+	bindScalarI32[uint8](builder, m, m.stateU8, "u8")
+	bindScalarI32[uint16](builder, m, m.stateU16, "u16")
+	bindScalarI32[uint32](builder, m, m.stateU32, "u32")
+	bindScalarI32[int8](builder, m, m.stateI8, "i8")
+	bindScalarI32[int16](builder, m, m.stateI16, "i16")
+	bindScalarI32[int32](builder, m, m.stateI32, "i32")
+	bindScalarI64[uint64](builder, m, m.stateU64, "u64")
+	bindScalarI64[int64](builder, m, m.stateI64, "i64")
+	bindScalarF32(builder, m)
+	bindScalarF64(builder, m)
+	bindStr(builder, m)
+	bindSeries(builder, m, "u8")
+	bindSeries(builder, m, "u16")
+	bindSeries(builder, m, "u32")
+	bindSeries(builder, m, "u64")
+	bindSeries(builder, m, "i8")
+	bindSeries(builder, m, "i16")
+	bindSeries(builder, m, "i32")
+	bindSeries(builder, m, "i64")
+	bindSeries(builder, m, "f32")
+	bindSeries(builder, m, "f64")
+	if _, err := builder.Instantiate(ctx); err != nil {
+		return nil, err
+	}
+	return m, nil
 }
 
 var numConstraint = types.NumericConstraint()
 
-var symResolver = &symbol.ModuleResolver{
+var SymbolResolver = &symbol.ModuleResolver{
 	Name: "state",
 	Members: symbol.MapResolver{
 		"load": {
@@ -98,40 +129,15 @@ var symResolver = &symbol.ModuleResolver{
 }
 
 func (m *Module) Resolve(ctx context.Context, name string) (symbol.Symbol, error) {
-	return symResolver.Resolve(ctx, name)
+	return SymbolResolver.Resolve(ctx, name)
 }
 
 func (m *Module) Search(ctx context.Context, term string) ([]symbol.Symbol, error) {
-	return symResolver.Search(ctx, term)
+	return SymbolResolver.Search(ctx, term)
 }
 
 func (m *Module) Create(_ context.Context, _ node.Config) (node.Node, error) {
 	return nil, query.ErrNotFound
-}
-
-func (m *Module) BindTo(rt stl.HostRuntime) error {
-	bindScalarI32[uint8](rt, m, m.stateU8, "u8")
-	bindScalarI32[uint16](rt, m, m.stateU16, "u16")
-	bindScalarI32[uint32](rt, m, m.stateU32, "u32")
-	bindScalarI32[int8](rt, m, m.stateI8, "i8")
-	bindScalarI32[int16](rt, m, m.stateI16, "i16")
-	bindScalarI32[int32](rt, m, m.stateI32, "i32")
-	bindScalarI64[uint64](rt, m, m.stateU64, "u64")
-	bindScalarI64[int64](rt, m, m.stateI64, "i64")
-	bindScalarF32(rt, m)
-	bindScalarF64(rt, m)
-	bindStr(rt, m)
-	bindSeries(rt, m, "u8")
-	bindSeries(rt, m, "u16")
-	bindSeries(rt, m, "u32")
-	bindSeries(rt, m, "u64")
-	bindSeries(rt, m, "i8")
-	bindSeries(rt, m, "i16")
-	bindSeries(rt, m, "i32")
-	bindSeries(rt, m, "i64")
-	bindSeries(rt, m, "f32")
-	bindSeries(rt, m, "f64")
-	return nil
 }
 
 type i32Compatible interface {
@@ -139,13 +145,13 @@ type i32Compatible interface {
 }
 
 func bindScalarI32[T i32Compatible](
-	rt stl.HostRuntime,
+	builder wazero.HostModuleBuilder,
 	m *Module,
 	store map[string]map[uint32]T,
 	suffix string,
 ) {
-	stl.MustExport(rt, "state", "load_"+suffix,
-		func(ctx context.Context, varID uint32, initValue uint32) uint32 {
+	builder.NewFunctionBuilder().
+		WithFunc(func(_ context.Context, varID uint32, initValue uint32) uint32 {
 			key := m.currentNodeKey
 			inner, ok := store[key]
 			if !ok {
@@ -157,9 +163,9 @@ func bindScalarI32[T i32Compatible](
 			}
 			inner[varID] = T(initValue)
 			return initValue
-		})
-	stl.MustExport(rt, "state", "store_"+suffix,
-		func(ctx context.Context, varID uint32, value uint32) {
+		}).Export("load_" + suffix)
+	builder.NewFunctionBuilder().
+		WithFunc(func(_ context.Context, varID uint32, value uint32) {
 			key := m.currentNodeKey
 			inner, ok := store[key]
 			if !ok {
@@ -167,7 +173,7 @@ func bindScalarI32[T i32Compatible](
 				store[key] = inner
 			}
 			inner[varID] = T(value)
-		})
+		}).Export("store_" + suffix)
 }
 
 type i64Compatible interface {
@@ -175,13 +181,13 @@ type i64Compatible interface {
 }
 
 func bindScalarI64[T i64Compatible](
-	rt stl.HostRuntime,
+	builder wazero.HostModuleBuilder,
 	m *Module,
 	store map[string]map[uint32]T,
 	suffix string,
 ) {
-	stl.MustExport(rt, "state", "load_"+suffix,
-		func(ctx context.Context, varID uint32, initValue uint64) uint64 {
+	builder.NewFunctionBuilder().
+		WithFunc(func(_ context.Context, varID uint32, initValue uint64) uint64 {
 			key := m.currentNodeKey
 			inner, ok := store[key]
 			if !ok {
@@ -193,9 +199,9 @@ func bindScalarI64[T i64Compatible](
 			}
 			inner[varID] = T(initValue)
 			return initValue
-		})
-	stl.MustExport(rt, "state", "store_"+suffix,
-		func(ctx context.Context, varID uint32, value uint64) {
+		}).Export("load_" + suffix)
+	builder.NewFunctionBuilder().
+		WithFunc(func(_ context.Context, varID uint32, value uint64) {
 			key := m.currentNodeKey
 			inner, ok := store[key]
 			if !ok {
@@ -203,12 +209,12 @@ func bindScalarI64[T i64Compatible](
 				store[key] = inner
 			}
 			inner[varID] = T(value)
-		})
+		}).Export("store_" + suffix)
 }
 
-func bindScalarF32(rt stl.HostRuntime, m *Module) {
-	stl.MustExport(rt, "state", "load_f32",
-		func(ctx context.Context, varID uint32, initValue float32) float32 {
+func bindScalarF32(builder wazero.HostModuleBuilder, m *Module) {
+	builder.NewFunctionBuilder().
+		WithFunc(func(_ context.Context, varID uint32, initValue float32) float32 {
 			key := m.currentNodeKey
 			inner, ok := m.stateF32[key]
 			if !ok {
@@ -220,9 +226,9 @@ func bindScalarF32(rt stl.HostRuntime, m *Module) {
 			}
 			inner[varID] = initValue
 			return initValue
-		})
-	stl.MustExport(rt, "state", "store_f32",
-		func(ctx context.Context, varID uint32, value float32) {
+		}).Export("load_f32")
+	builder.NewFunctionBuilder().
+		WithFunc(func(_ context.Context, varID uint32, value float32) {
 			key := m.currentNodeKey
 			inner, ok := m.stateF32[key]
 			if !ok {
@@ -230,12 +236,12 @@ func bindScalarF32(rt stl.HostRuntime, m *Module) {
 				m.stateF32[key] = inner
 			}
 			inner[varID] = value
-		})
+		}).Export("store_f32")
 }
 
-func bindScalarF64(rt stl.HostRuntime, m *Module) {
-	stl.MustExport(rt, "state", "load_f64",
-		func(ctx context.Context, varID uint32, initValue float64) float64 {
+func bindScalarF64(builder wazero.HostModuleBuilder, m *Module) {
+	builder.NewFunctionBuilder().
+		WithFunc(func(_ context.Context, varID uint32, initValue float64) float64 {
 			key := m.currentNodeKey
 			inner, ok := m.stateF64[key]
 			if !ok {
@@ -247,9 +253,9 @@ func bindScalarF64(rt stl.HostRuntime, m *Module) {
 			}
 			inner[varID] = initValue
 			return initValue
-		})
-	stl.MustExport(rt, "state", "store_f64",
-		func(ctx context.Context, varID uint32, value float64) {
+		}).Export("load_f64")
+	builder.NewFunctionBuilder().
+		WithFunc(func(_ context.Context, varID uint32, value float64) {
 			key := m.currentNodeKey
 			inner, ok := m.stateF64[key]
 			if !ok {
@@ -257,12 +263,12 @@ func bindScalarF64(rt stl.HostRuntime, m *Module) {
 				m.stateF64[key] = inner
 			}
 			inner[varID] = value
-		})
+		}).Export("store_f64")
 }
 
-func bindStr(rt stl.HostRuntime, m *Module) {
-	stl.MustExport(rt, "state", "load_str",
-		func(ctx context.Context, varID uint32, initHandle uint32) uint32 {
+func bindStr(builder wazero.HostModuleBuilder, m *Module) {
+	builder.NewFunctionBuilder().
+		WithFunc(func(_ context.Context, varID uint32, initHandle uint32) uint32 {
 			key := m.currentNodeKey
 			inner, ok := m.stateString[key]
 			if !ok {
@@ -276,9 +282,9 @@ func bindStr(rt stl.HostRuntime, m *Module) {
 				inner[varID] = initStr
 			}
 			return initHandle
-		})
-	stl.MustExport(rt, "state", "store_str",
-		func(ctx context.Context, varID uint32, handle uint32) {
+		}).Export("load_str")
+	builder.NewFunctionBuilder().
+		WithFunc(func(_ context.Context, varID uint32, handle uint32) {
 			str, ok := m.strings.Get(handle)
 			if !ok {
 				return
@@ -290,12 +296,12 @@ func bindStr(rt stl.HostRuntime, m *Module) {
 				m.stateString[key] = inner
 			}
 			inner[varID] = str
-		})
+		}).Export("store_str")
 }
 
-func bindSeries(rt stl.HostRuntime, m *Module, suffix string) {
-	stl.MustExport(rt, "state", "load_series_"+suffix,
-		func(ctx context.Context, varID uint32, initHandle uint32) uint32 {
+func bindSeries(builder wazero.HostModuleBuilder, m *Module, suffix string) {
+	builder.NewFunctionBuilder().
+		WithFunc(func(_ context.Context, varID uint32, initHandle uint32) uint32 {
 			key := m.currentNodeKey
 			inner, ok := m.stateSeries[key]
 			if !ok {
@@ -309,9 +315,9 @@ func bindSeries(rt stl.HostRuntime, m *Module, suffix string) {
 				inner[varID] = initS.DeepCopy()
 			}
 			return initHandle
-		})
-	stl.MustExport(rt, "state", "store_series_"+suffix,
-		func(ctx context.Context, varID uint32, handle uint32) {
+		}).Export("load_series_" + suffix)
+	builder.NewFunctionBuilder().
+		WithFunc(func(_ context.Context, varID uint32, handle uint32) {
 			key := m.currentNodeKey
 			inner, ok := m.stateSeries[key]
 			if !ok {
@@ -321,7 +327,5 @@ func bindSeries(rt stl.HostRuntime, m *Module, suffix string) {
 			if s, ok := m.series.Get(handle); ok {
 				inner[varID] = s.DeepCopy()
 			}
-		})
+		}).Export("store_series_" + suffix)
 }
-
-var _ stl.Module = (*Module)(nil)

@@ -38,18 +38,19 @@ var _ = Describe("Authority", func() {
 				Nodes:     []graph.Node{{Key: "set_auth", Type: "set_authority"}},
 				Functions: []graph.Function{{Key: "set_authority"}},
 			}
-			analyzed, diagnostics := graph.Analyze(ctx, g, control.SymbolResolver)
+			inter, diagnostics := graph.Analyze(ctx, g, control.SymbolResolver)
 			Expect(diagnostics.Ok()).To(BeTrue())
-			s := state.New(state.Config{IR: analyzed})
-			factory := control.NewModule(s.Auth)
+			_ = state.New(inter)
+			factory := control.NewModule(&control.State{})
 			Expect(factory).ToNot(BeNil())
 		})
 	})
 
 	Describe("Factory.Create", func() {
 		var (
-			factory node.Factory
-			s       *state.State
+			factory      node.Factory
+			s            *state.State
+			controlState *control.State
 		)
 		BeforeEach(func() {
 			g := graph.Graph{
@@ -58,8 +59,9 @@ var _ = Describe("Authority", func() {
 			}
 			analyzed, diagnostics := graph.Analyze(ctx, g, control.SymbolResolver)
 			Expect(diagnostics.Ok()).To(BeTrue())
-			s = state.New(state.Config{IR: analyzed})
-			factory = control.NewModule(s.Auth)
+			s = state.New(analyzed)
+			controlState = &control.State{}
+			factory = control.NewModule(controlState)
 		})
 		It("Should create node for set_authority type", func() {
 			cfg := node.Config{
@@ -96,7 +98,7 @@ var _ = Describe("Authority", func() {
 			Expect(n).ToNot(BeNil())
 			// Verify by exercising the node and checking the authority change
 			n.Next(node.Context{Context: ctx, MarkChanged: func(string) {}})
-			changes := s.Auth.Flush()
+			changes := controlState.Flush()
 			Expect(changes).To(HaveLen(1))
 			Expect(changes[0].Channel).ToNot(BeNil())
 			Expect(*changes[0].Channel).To(Equal(uint32(42)))
@@ -115,7 +117,7 @@ var _ = Describe("Authority", func() {
 			n := MustSucceed(factory.Create(ctx, cfg))
 			// Verify by exercising the node and checking the authority change
 			n.Next(node.Context{Context: ctx, MarkChanged: func(string) {}})
-			changes := s.Auth.Flush()
+			changes := controlState.Flush()
 			Expect(changes).To(HaveLen(1))
 			Expect(changes[0].Channel).To(BeNil())
 		})
@@ -123,9 +125,10 @@ var _ = Describe("Authority", func() {
 
 	Describe("Next", func() {
 		var (
-			s       *state.State
-			factory node.Factory
-			outputs []string
+			progState    *state.State
+			controlState *control.State
+			factory      node.Factory
+			outputs      []string
 		)
 		BeforeEach(func() {
 			g := graph.Graph{
@@ -134,8 +137,9 @@ var _ = Describe("Authority", func() {
 			}
 			analyzed, diagnostics := graph.Analyze(ctx, g, control.SymbolResolver)
 			Expect(diagnostics.Ok()).To(BeTrue())
-			s = state.New(state.Config{IR: analyzed})
-			factory = control.NewModule(s.Auth)
+			progState = state.New(analyzed)
+			controlState = &control.State{}
+			factory = control.NewModule(controlState)
 			outputs = []string{}
 		})
 
@@ -148,11 +152,11 @@ var _ = Describe("Authority", func() {
 						{Name: "channel", Type: types.U8(), Value: uint32(42)},
 					},
 				},
-				State: s.Node("set_auth"),
+				State: progState.Node("set_auth"),
 			}
 			n := MustSucceed(factory.Create(ctx, cfg))
 			n.Next(node.Context{Context: ctx, MarkChanged: func(string) {}})
-			changes := s.Auth.Flush()
+			changes := controlState.Flush()
 			Expect(changes).To(HaveLen(1))
 			Expect(changes[0].Authority).To(Equal(uint8(200)))
 			Expect(changes[0].Channel).ToNot(BeNil())
@@ -168,11 +172,11 @@ var _ = Describe("Authority", func() {
 						{Name: "channel", Type: types.U8(), Value: uint32(0)},
 					},
 				},
-				State: s.Node("set_auth"),
+				State: progState.Node("set_auth"),
 			}
 			n := MustSucceed(factory.Create(ctx, cfg))
 			n.Next(node.Context{Context: ctx, MarkChanged: func(string) {}})
-			changes := s.Auth.Flush()
+			changes := controlState.Flush()
 			Expect(changes).To(HaveLen(1))
 			Expect(changes[0].Authority).To(Equal(uint8(150)))
 			Expect(changes[0].Channel).To(BeNil())
@@ -187,14 +191,14 @@ var _ = Describe("Authority", func() {
 						{Name: "channel", Type: types.U8(), Value: uint32(42)},
 					},
 				},
-				State: s.Node("set_auth"),
+				State: progState.Node("set_auth"),
 			}
 			n := MustSucceed(factory.Create(ctx, cfg))
 			nCtx := node.Context{Context: ctx, MarkChanged: func(string) {}}
 			n.Next(nCtx)
 			n.Next(nCtx)
 			n.Next(nCtx)
-			changes := s.Auth.Flush()
+			changes := controlState.Flush()
 			Expect(changes).To(HaveLen(1))
 		})
 
@@ -207,7 +211,7 @@ var _ = Describe("Authority", func() {
 						{Name: "channel", Type: types.U8(), Value: uint32(42)},
 					},
 				},
-				State: s.Node("set_auth"),
+				State: progState.Node("set_auth"),
 			}
 			n := MustSucceed(factory.Create(ctx, cfg))
 			n.Next(node.Context{Context: ctx, MarkChanged: func(output string) {
@@ -219,8 +223,9 @@ var _ = Describe("Authority", func() {
 
 	Describe("Reset", func() {
 		var (
-			s       *state.State
-			factory node.Factory
+			s            *state.State
+			controlState *control.State
+			factory      node.Factory
 		)
 		BeforeEach(func() {
 			g := graph.Graph{
@@ -229,8 +234,9 @@ var _ = Describe("Authority", func() {
 			}
 			analyzed, diagnostics := graph.Analyze(ctx, g, control.SymbolResolver)
 			Expect(diagnostics.Ok()).To(BeTrue())
-			s = state.New(state.Config{IR: analyzed})
-			factory = control.NewModule(s.Auth)
+			s = state.New(analyzed)
+			controlState = &control.State{}
+			factory = control.NewModule(controlState)
 		})
 
 		It("Should allow re-fire after Reset", func() {
@@ -247,11 +253,11 @@ var _ = Describe("Authority", func() {
 			n := MustSucceed(factory.Create(ctx, cfg))
 			nCtx := node.Context{Context: ctx, MarkChanged: func(string) {}}
 			n.Next(nCtx)
-			changes := s.Auth.Flush()
+			changes := controlState.Flush()
 			Expect(changes).To(HaveLen(1))
 			n.Reset()
 			n.Next(nCtx)
-			changes = s.Auth.Flush()
+			changes = controlState.Flush()
 			Expect(changes).To(HaveLen(1))
 		})
 
@@ -269,11 +275,11 @@ var _ = Describe("Authority", func() {
 			n := MustSucceed(factory.Create(ctx, cfg))
 			nCtx := node.Context{Context: ctx, MarkChanged: func(string) {}}
 			n.Next(nCtx)
-			first := s.Auth.Flush()
+			first := controlState.Flush()
 			Expect(first).To(HaveLen(1))
 			n.Reset()
 			n.Next(nCtx)
-			second := s.Auth.Flush()
+			second := controlState.Flush()
 			Expect(second).To(HaveLen(1))
 			Expect(second[0].Authority).To(Equal(first[0].Authority))
 			Expect(*second[0].Channel).To(Equal(*first[0].Channel))
@@ -288,8 +294,8 @@ var _ = Describe("Authority", func() {
 			}
 			analyzed, diagnostics := graph.Analyze(ctx, g, control.SymbolResolver)
 			Expect(diagnostics.Ok()).To(BeTrue())
-			s := state.New(state.Config{IR: analyzed})
-			factory := control.NewModule(s.Auth)
+			s := state.New(analyzed)
+			factory := control.NewModule(&control.State{})
 			cfg := node.Config{
 				Node: ir.Node{
 					Type: "set_authority",

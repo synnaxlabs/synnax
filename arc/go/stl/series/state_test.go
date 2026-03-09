@@ -7,23 +7,23 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-package state_test
+package series_test
 
 import (
 	"math"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	"github.com/synnaxlabs/arc/stl/series/state"
+	"github.com/synnaxlabs/arc/stl/series"
 	"github.com/synnaxlabs/x/telem"
 	. "github.com/synnaxlabs/x/testutil"
 )
 
 var _ = Describe("State", func() {
-	var s *state.State
+	var s *series.State
 
 	BeforeEach(func() {
-		s = state.New()
+		s = series.NewState()
 	})
 
 	Describe("Store", func() {
@@ -183,7 +183,7 @@ var _ = Describe("State", func() {
 		})
 	})
 
-	Describe("New", func() {
+	Describe("NewState", func() {
 		It("Should create a state where first handle is 1", func() {
 			h := s.Store(telem.NewSeriesV[uint8](255))
 			Expect(h).To(Equal(uint32(1)))

@@ -13,17 +13,16 @@ import (
 	"context"
 	"math"
 
-	"github.com/synnaxlabs/arc/runtime/node"
-	"github.com/synnaxlabs/arc/stl"
+	"github.com/tetratelabs/wazero"
+
 	"github.com/synnaxlabs/arc/symbol"
 	"github.com/synnaxlabs/arc/types"
 	xmath "github.com/synnaxlabs/x/math"
-	"github.com/synnaxlabs/x/query"
 )
 
 var numConstraint = types.NumericConstraint()
 
-var symResolver = &symbol.ModuleResolver{
+var SymbolResolver = &symbol.ModuleResolver{
 	Name: "math",
 	Members: symbol.MapResolver{
 		"pow": {
@@ -38,40 +37,34 @@ var symResolver = &symbol.ModuleResolver{
 
 type Module struct{}
 
-func NewModule() *Module { return &Module{} }
-
-func (m *Module) Resolve(ctx context.Context, name string) (symbol.Symbol, error) {
-	return symResolver.Resolve(ctx, name)
-}
-
-func (m *Module) Search(ctx context.Context, term string) ([]symbol.Symbol, error) {
-	return symResolver.Search(ctx, term)
-}
-
-func (m *Module) Create(_ context.Context, _ node.Config) (node.Node, error) {
-	return nil, query.ErrNotFound
-}
-
-func (m *Module) BindTo(rt stl.HostRuntime) error {
+func NewModule(
+	ctx context.Context,
+	rt wazero.Runtime,
+) (*Module, error) {
+	m := &Module{}
+	builder := rt.NewHostModuleBuilder("math")
 	// i32-compatible types: WASM uses uint32, convert internally
-	bindI32Pow[uint8](rt, "u8")
-	bindI32Pow[uint16](rt, "u16")
-	bindI32Pow[uint32](rt, "u32")
-	bindI32Pow[int8](rt, "i8")
-	bindI32Pow[int16](rt, "i16")
-	bindI32Pow[int32](rt, "i32")
+	builder = bindI32Pow[uint8](builder, "u8")
+	builder = bindI32Pow[uint16](builder, "u16")
+	builder = bindI32Pow[uint32](builder, "u32")
+	builder = bindI32Pow[int8](builder, "i8")
+	builder = bindI32Pow[int16](builder, "i16")
+	builder = bindI32Pow[int32](builder, "i32")
 	// i64-compatible types
-	bindI64Pow[uint64](rt, "u64")
-	bindI64Pow[int64](rt, "i64")
-	stl.MustExport(rt, "math", "pow_f32",
-		func(_ context.Context, base float32, exp float32) float32 {
+	builder = bindI64Pow[uint64](builder, "u64")
+	builder = bindI64Pow[int64](builder, "i64")
+	builder = builder.NewFunctionBuilder().
+		WithFunc(func(_ context.Context, base float32, exp float32) float32 {
 			return float32(math.Pow(float64(base), float64(exp)))
-		})
-	stl.MustExport(rt, "math", "pow_f64",
-		func(_ context.Context, base float64, exp float64) float64 {
+		}).Export("pow_f32")
+	builder = builder.NewFunctionBuilder().
+		WithFunc(func(_ context.Context, base float64, exp float64) float64 {
 			return math.Pow(base, exp)
-		})
-	return nil
+		}).Export("pow_f64")
+	if _, err := builder.Instantiate(ctx); err != nil {
+		return nil, err
+	}
+	return m, nil
 }
 
 type i32Powable interface {
@@ -87,20 +80,18 @@ type i64Powable interface {
 // large positive values (e.g. -1 becomes 4294967295). On 64-bit platforms,
 // int(uint32(x)) is always non-negative, making the 0^(-n) panic in IntPow
 // unreachable through this interface.
-func bindI32Pow[T i32Powable](rt stl.HostRuntime, suffix string) {
-	stl.MustExport(rt, "math", "pow_"+suffix,
-		func(_ context.Context, base uint32, exp uint32) uint32 {
+func bindI32Pow[T i32Powable](builder wazero.HostModuleBuilder, suffix string) wazero.HostModuleBuilder {
+	return builder.NewFunctionBuilder().
+		WithFunc(func(_ context.Context, base uint32, exp uint32) uint32 {
 			return uint32(xmath.IntPow(T(base), int(exp)))
-		})
+		}).Export("pow_" + suffix)
 }
 
 // bindI64Pow binds an integer power function for a WASM i64-compatible type.
 // Same unsigned exponent representation as bindI32Pow.
-func bindI64Pow[T i64Powable](rt stl.HostRuntime, suffix string) {
-	stl.MustExport(rt, "math", "pow_"+suffix,
-		func(_ context.Context, base uint64, exp uint64) uint64 {
+func bindI64Pow[T i64Powable](builder wazero.HostModuleBuilder, suffix string) wazero.HostModuleBuilder {
+	return builder.NewFunctionBuilder().
+		WithFunc(func(_ context.Context, base uint64, exp uint64) uint64 {
 			return uint64(xmath.IntPow(T(base), int(exp)))
-		})
+		}).Export("pow_" + suffix)
 }
-
-var _ stl.Module = (*Module)(nil)

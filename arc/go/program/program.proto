@@ -1,4 +1,4 @@
-// Copyright 2026 Synnax Labs, Inc.
+// Copyright 2025 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -7,16 +7,16 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-package state_test
+syntax = "proto3";
 
-import (
-	"testing"
+package arc.v1.program;
 
-	. "github.com/onsi/ginkgo/v2"
-	. "github.com/onsi/gomega"
-)
+import "arc/go/ir/ir.proto";
 
-func TestStringsState(t *testing.T) {
-	RegisterFailHandler(Fail)
-	RunSpecs(t, "Strings State Suite")
+option go_package = "github.com/synnaxlabs/arc/program";
+
+message PBProgram {
+  arc.v1.ir.PBIR ir = 1;
+  bytes wasm = 2;
+  map<string, uint32> output_memory_bases = 3;
 }

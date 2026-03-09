@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-package testutil_test
+package program_test
 
 import (
 	"testing"
@@ -16,7 +16,7 @@ import (
 	. "github.com/onsi/gomega"
 )
 
-func TestTestutil(t *testing.T) {
+func TestProgram(t *testing.T) {
 	RegisterFailHandler(Fail)
-	RunSpecs(t, "STL Testutil Suite")
+	RunSpecs(t, "Program Suite")
 }

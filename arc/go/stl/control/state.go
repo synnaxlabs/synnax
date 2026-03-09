@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-package state
+package control
 
 // AuthorityChange represents a buffered authority change request.
 // It is produced by set_authority nodes during reactive execution and consumed

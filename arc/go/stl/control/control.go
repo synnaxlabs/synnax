@@ -14,8 +14,6 @@ import (
 
 	"github.com/synnaxlabs/arc/ir"
 	"github.com/synnaxlabs/arc/runtime/node"
-	"github.com/synnaxlabs/arc/stl"
-	"github.com/synnaxlabs/arc/stl/control/state"
 	"github.com/synnaxlabs/arc/symbol"
 	"github.com/synnaxlabs/arc/types"
 	"github.com/synnaxlabs/x/errors"
@@ -42,14 +40,10 @@ var (
 )
 
 type Module struct {
-	auth *state.State
+	auth *State
 }
 
-var _ stl.Module = (*Module)(nil)
-
-func NewModule(ab *state.State) *Module {
-	return &Module{auth: ab}
-}
+func NewModule(ab *State) *Module { return &Module{auth: ab} }
 
 func (m *Module) Resolve(ctx context.Context, name string) (symbol.Symbol, error) {
 	return SymbolResolver.Resolve(ctx, name)
@@ -78,10 +72,6 @@ func (m *Module) Create(_ context.Context, cfg node.Config) (node.Node, error) {
 	}, nil
 }
 
-func (m *Module) BindTo(_ stl.HostRuntime) error {
-	return nil
-}
-
 var schema = zyn.Object(map[string]zyn.Schema{
 	"value":   zyn.Number().Uint8(),
 	"channel": zyn.Number().Uint32(),
@@ -93,7 +83,7 @@ type nodeConfig struct {
 }
 
 type setAuthority struct {
-	auth        *state.State
+	auth        *State
 	authority   uint8
 	channelKey  *uint32
 	initialized bool

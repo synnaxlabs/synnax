@@ -27,6 +27,7 @@ import (
 	stlcontrol "github.com/synnaxlabs/arc/stl/control"
 	stlerrors "github.com/synnaxlabs/arc/stl/errors"
 	stlmath "github.com/synnaxlabs/arc/stl/math"
+	"github.com/synnaxlabs/arc/stl/module"
 	stlop "github.com/synnaxlabs/arc/stl/op"
 	"github.com/synnaxlabs/arc/stl/selector"
 	"github.com/synnaxlabs/arc/stl/series"
@@ -94,7 +95,7 @@ func (t *taskImpl) start(ctx context.Context) error {
 		return nil
 	}
 	drt := dataRuntime{}
-	stateCfg, err := NewStateConfig(ctx, t.factoryCfg.Channel, t.prog.Module)
+	stateCfg, err := NewStateConfig(ctx, t.factoryCfg.Channel, t.prog.Program)
 	if err != nil {
 		t.setStatus(status.VariantError, false, err.Error())
 		return err
@@ -102,7 +103,7 @@ func (t *taskImpl) start(ctx context.Context) error {
 	drt.state = state.New(stateCfg.State)
 
 	timeMod := time.NewModule()
-	modules := []stl.Module{
+	modules := []module.Module{
 		channel.NewModule(drt.state.Channel, drt.state.Strings),
 		stateful.NewModule(drt.state.Series, drt.state.Strings),
 		series.NewModule(drt.state.Series),
@@ -116,18 +117,18 @@ func (t *taskImpl) start(ctx context.Context) error {
 		stage.NewModule(),
 		stable.NewModule(),
 		arcstatus.NewModule(t.factoryCfg.Status),
-		stlcontrol.NewModule(drt.state.Auth),
+		stlcontrol.NewModule(drt.state.Control),
 		&stat.Module{},
 	}
 	f := stl.MultiFactory(modules...)
 	var closers xio.MultiCloser
 
-	if len(t.prog.Module.WASM) > 0 {
+	if len(t.prog.Program.WASM) > 0 {
 		var err error
-		wasmMod, err := wasm.OpenModule(ctx, wasm.ModuleConfig{
-			Module:     t.prog.Module,
-			State:      drt.state,
-			STLModules: modules,
+		wasmMod, err := wasm.OpenState(ctx, wasm.RuntimeConfig{
+			Program: t.prog.Program,
+			State:   drt.state,
+			Modules: modules,
 		})
 		if err != nil {
 			t.setStatus(status.VariantError, false, err.Error())
@@ -143,11 +144,11 @@ func (t *taskImpl) start(ctx context.Context) error {
 	}
 
 	nodes := make(map[string]node.Node)
-	for _, irNode := range t.prog.Module.Nodes {
+	for _, irNode := range t.prog.Program.Nodes {
 		n, err := f.Create(ctx, node.Config{
-			Node:   irNode,
-			Module: t.prog.Module,
-			State:  drt.state.Node(irNode.Key),
+			Node:    irNode,
+			Program: t.prog.Program,
+			State:   drt.state.Node(irNode.Key),
 		})
 		if err != nil {
 			t.setStatus(status.VariantError, false, err.Error())
@@ -157,7 +158,7 @@ func (t *taskImpl) start(ctx context.Context) error {
 	}
 
 	tolerance := time.CalculateTolerance(timeMod.BaseInterval)
-	drt.scheduler = scheduler.New(t.prog.Module.IR, nodes, tolerance)
+	drt.scheduler = scheduler.New(t.prog.Program.IR, nodes, tolerance)
 
 	drt.scheduler.SetErrorHandler(scheduler.ErrorHandlerFunc(func(nodeKey string, err error) {
 		t.factoryCfg.L.Warn("runtime error in arc node",
@@ -215,7 +216,7 @@ func (t *taskImpl) start(ctx context.Context) error {
 			Keys:  writeKeys,
 		}
 		if authorities := buildAuthorities(
-			t.prog.Module.Authorities,
+			t.prog.Program.Authorities,
 			writeKeys,
 		); len(authorities) > 0 {
 			writerCfg.Authorities = authorities
@@ -307,13 +308,13 @@ func (t *taskImpl) setStatus(variant status.Variant, running bool, message strin
 
 func (t *taskImpl) setRuntimeError(nodeKey string, err error) {
 	nodeType := nodeKey
-	if n, ok := t.prog.Module.Nodes.Find(nodeKey); ok {
+	if n, ok := t.prog.Program.Nodes.Find(nodeKey); ok {
 		nodeType = n.Type
 	}
 	stat := task.Status{
 		Key:         task.OntologyID(t.task.Key).String(),
 		Variant:     status.VariantWarning,
-		Message:     fmt.Sprintf("Runtime error in %s", nodeType),
+		Message:     fmt.Sprintf("State error in %s", nodeType),
 		Description: err.Error(),
 		Time:        telem.Now(),
 		Details:     task.StatusDetails{Task: t.task.Key, Running: true},
@@ -357,7 +358,7 @@ func (d *dataRuntime) next(
 }
 
 func (d *dataRuntime) flushAuthorityChanges(ctx context.Context) error {
-	changes := d.state.Auth.Flush()
+	changes := d.state.Control.Flush()
 	if len(changes) == 0 {
 		return nil
 	}

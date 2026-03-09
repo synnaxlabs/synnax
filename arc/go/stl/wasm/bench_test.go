@@ -18,7 +18,7 @@ import (
 	"github.com/synnaxlabs/arc/ir"
 	"github.com/synnaxlabs/arc/runtime/node"
 	"github.com/synnaxlabs/arc/runtime/state"
-	"github.com/synnaxlabs/arc/runtime/wasm"
+	"github.com/synnaxlabs/arc/stl/wasm"
 	"github.com/synnaxlabs/arc/types"
 	"github.com/synnaxlabs/x/telem"
 )
@@ -112,15 +112,15 @@ func BenchmarkWASMNodeSimpleArithmetic(b *testing.B) {
 	}
 
 	// Create state manager
-	s := state.New(state.Config{IR: a})
+	s := state.New(a)
 
 	xNode := s.Node("x")
 	aNode := s.Node("a")
 	bNode := s.Node("b")
 
-	wasmMod, err := wasm.OpenModule(ctx, wasm.ModuleConfig{
-		Module: mod,
-		State:  s,
+	wasmMod, err := wasm.Open(ctx, wasm.RuntimeConfig{
+		Program: mod,
+		State:   s,
 	})
 	if err != nil {
 		b.Fatalf("Failed to open WASM module: %v", err)
@@ -131,16 +131,13 @@ func BenchmarkWASMNodeSimpleArithmetic(b *testing.B) {
 		}
 	}()
 
-	factory, err := wasm.NewFactory(wasmMod)
-	if err != nil {
-		b.Fatalf("Failed to create WASM factory: %v", err)
-	}
+	factory := wasm.NewFactory(wasmMod)
 
 	affineNode := s.Node("affine")
 	n, err := factory.Create(ctx, node.Config{
-		Node:   a.Nodes.Get("affine"),
-		State:  affineNode,
-		Module: mod,
+		Node:    a.Nodes.Get("affine"),
+		State:   affineNode,
+		Program: mod,
 	})
 	if err != nil {
 		b.Fatalf("Failed to create WASM node: %v", err)
@@ -244,15 +241,15 @@ func BenchmarkWASMNodeZeroAlloc(b *testing.B) {
 		b.Fatalf("Failed to analyze graph: %s", diagnostics.String())
 	}
 
-	s := state.New(state.Config{IR: a})
+	s := state.New(a)
 
 	xNode := s.Node("x")
 	aNode := s.Node("a")
 	bNode := s.Node("b")
 
-	wasmMod, err := wasm.OpenModule(ctx, wasm.ModuleConfig{
-		Module: mod,
-		State:  s,
+	wasmMod, err := wasm.Open(ctx, wasm.RuntimeConfig{
+		Program: mod,
+		State:   s,
 	})
 	if err != nil {
 		b.Fatalf("Failed to open WASM module: %v", err)
@@ -263,16 +260,13 @@ func BenchmarkWASMNodeZeroAlloc(b *testing.B) {
 		}
 	}()
 
-	factory, err := wasm.NewFactory(wasmMod)
-	if err != nil {
-		b.Fatalf("Failed to create WASM factory: %v", err)
-	}
+	factory := wasm.NewFactory(wasmMod)
 
 	affineNode := s.Node("affine")
 	n, err := factory.Create(ctx, node.Config{
-		Node:   a.Nodes.Get("affine"),
-		State:  affineNode,
-		Module: mod,
+		Node:    a.Nodes.Get("affine"),
+		State:   affineNode,
+		Program: mod,
 	})
 	if err != nil {
 		b.Fatalf("Failed to create WASM node: %v", err)

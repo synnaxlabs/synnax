@@ -72,7 +72,7 @@ var _ = Describe("Select", func() {
 			}
 			analyzed, diagnostics := graph.Analyze(ctx, g, selector.SymbolResolver)
 			Expect(diagnostics.Ok()).To(BeTrue())
-			s = state.New(state.Config{IR: analyzed})
+			s = state.New(analyzed)
 		})
 		It("Should create node for select type", func() {
 			cfg := node.Config{
@@ -128,7 +128,7 @@ var _ = Describe("Select", func() {
 			}
 			analyzed, diagnostics := graph.Analyze(ctx, g, selector.SymbolResolver)
 			Expect(diagnostics.Ok()).To(BeTrue())
-			s = state.New(state.Config{IR: analyzed})
+			s = state.New(analyzed)
 		})
 		It("Should handle empty input", func() {
 			cfg := node.Config{
@@ -401,7 +401,7 @@ var _ = Describe("Select", func() {
 			}
 			analyzed, diagnostics := graph.Analyze(ctx, g, selector.SymbolResolver)
 			Expect(diagnostics.Ok()).To(BeTrue())
-			s := state.New(state.Config{IR: analyzed})
+			s := state.New(analyzed)
 			factory := selector.NewModule()
 			cfg := node.Config{
 				Node:  ir.Node{Type: "select"},

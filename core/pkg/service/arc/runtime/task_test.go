@@ -87,7 +87,7 @@ var _ = Describe("Task", Ordered, func() {
 			Channel:   dist.Channel,
 			Framer:    dist.Framer,
 			Status:    statusSvc,
-			GetModule: getModule,
+			GetProgram: getModule,
 		}))
 	}
 
@@ -98,7 +98,7 @@ var _ = Describe("Task", Ordered, func() {
 			if err != nil {
 				return svcarc.Arc{}, err
 			}
-			return svcarc.Arc{Key: key, Name: "test-arc", Graph: g, Module: module}, nil
+			return svcarc.Arc{Key: key, Name: "test-arc", Graph: g, Program: module}, nil
 		})
 	}
 
@@ -109,7 +109,7 @@ var _ = Describe("Task", Ordered, func() {
 			if err != nil {
 				return svcarc.Arc{}, err
 			}
-			return svcarc.Arc{Key: uuid.New(), Name: "test-arc", Text: prof, Module: module}, nil
+			return svcarc.Arc{Key: uuid.New(), Name: "test-arc", Text: prof, Program: module}, nil
 		})
 	}
 
@@ -221,7 +221,7 @@ var _ = Describe("Task", Ordered, func() {
 				Channel: dist.Channel,
 				Framer:  dist.Framer,
 				Status:  statusSvc,
-				GetModule: func(context.Context, uuid.UUID) (svcarc.Arc, error) {
+				GetProgram: func(context.Context, uuid.UUID) (svcarc.Arc, error) {
 					return svcarc.Arc{}, nil
 				},
 			}))
@@ -247,7 +247,7 @@ var _ = Describe("Task", Ordered, func() {
 				Channel:   dist.Channel,
 				Framer:    dist.Framer,
 				Status:    statusSvc,
-				GetModule: func(context.Context, uuid.UUID) (svcarc.Arc, error) { return svcarc.Arc{}, nil },
+				GetProgram: func(context.Context, uuid.UUID) (svcarc.Arc, error) { return svcarc.Arc{}, nil },
 			}))
 			svcTask := task.Task{
 				Key:    task.NewKey(rack.NewKey(1, 1), 1),
@@ -260,12 +260,12 @@ var _ = Describe("Task", Ordered, func() {
 			Expect(task).To(BeNil())
 		})
 
-		It("Should return error when CompileModule fails", func() {
+		It("Should return error when CompileProgram fails", func() {
 			factory := MustSucceed(runtime.NewFactory(runtime.FactoryConfig{
 				Channel:   dist.Channel,
 				Framer:    dist.Framer,
 				Status:    statusSvc,
-				GetModule: moduleNotFoundGetter,
+				GetProgram: moduleNotFoundGetter,
 			}))
 			svcTask := task.Task{
 				Key:    task.NewKey(rack.NewKey(1, 1), 1),
@@ -283,7 +283,7 @@ var _ = Describe("Task", Ordered, func() {
 				Channel:   dist.Channel,
 				Framer:    dist.Framer,
 				Status:    statusSvc,
-				GetModule: func(context.Context, uuid.UUID) (svcarc.Arc, error) { return svcarc.Arc{}, nil },
+				GetProgram: func(context.Context, uuid.UUID) (svcarc.Arc, error) { return svcarc.Arc{}, nil },
 			}))
 			svcTask := task.Task{
 				Key:    task.NewKey(rack.NewKey(1, 1), 2),
@@ -302,12 +302,12 @@ var _ = Describe("Task", Ordered, func() {
 			Expect(stat.Details.Running).To(BeFalse())
 		})
 
-		It("Should set error status when GetModule fails", func() {
+		It("Should set error status when GetProgram fails", func() {
 			factory := MustSucceed(runtime.NewFactory(runtime.FactoryConfig{
 				Channel:   dist.Channel,
 				Framer:    dist.Framer,
 				Status:    statusSvc,
-				GetModule: moduleNotFoundGetter,
+				GetProgram: moduleNotFoundGetter,
 			}))
 			svcTask := task.Task{
 				Key:    task.NewKey(rack.NewKey(1, 1), 3),

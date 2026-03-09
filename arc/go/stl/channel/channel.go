@@ -15,19 +15,18 @@ import (
 	"github.com/synnaxlabs/arc/ir"
 	"github.com/synnaxlabs/arc/runtime/node"
 	"github.com/synnaxlabs/arc/runtime/state"
-	"github.com/synnaxlabs/arc/stl"
-	channelstate "github.com/synnaxlabs/arc/stl/channel/state"
-	stringsstate "github.com/synnaxlabs/arc/stl/strings/state"
+	"github.com/synnaxlabs/arc/stl/strings"
 	"github.com/synnaxlabs/arc/symbol"
 	"github.com/synnaxlabs/arc/types"
 	"github.com/synnaxlabs/x/query"
 	"github.com/synnaxlabs/x/telem"
 	"github.com/synnaxlabs/x/zyn"
+	"github.com/tetratelabs/wazero"
 )
 
 var numConstraint = types.NumericConstraint()
 
-var symResolver = &symbol.ModuleResolver{
+var CompilerSymbolResolver = &symbol.ModuleResolver{
 	Name: "channel",
 	Members: symbol.MapResolver{
 		"read": {
@@ -46,7 +45,7 @@ var symResolver = &symbol.ModuleResolver{
 	},
 }
 
-var nodeResolver = symbol.MapResolver{
+var SymbolResolver = symbol.MapResolver{
 	"on": {
 		Name: "on",
 		Kind: symbol.KindFunction,
@@ -66,25 +65,36 @@ var nodeResolver = symbol.MapResolver{
 }
 
 type Module struct {
-	channel *channelstate.State
-	strings *stringsstate.State
+	state   *State
+	strings *strings.State
 }
 
-func NewModule(cs *channelstate.State, ss *stringsstate.State) *Module {
-	return &Module{channel: cs, strings: ss}
-}
-
-func (m *Module) Resolve(ctx context.Context, name string) (symbol.Symbol, error) {
-	if sym, err := symResolver.Resolve(ctx, name); err == nil {
-		return sym, nil
+func NewModule(
+	ctx context.Context,
+	cs *State,
+	stringState *strings.State,
+	rat wazero.Runtime,
+) (*Module, error) {
+	mod := &Module{state: cs, strings: stringState}
+	if rat == nil {
+		return mod, nil
 	}
-	return nodeResolver.Resolve(ctx, name)
-}
-
-func (m *Module) Search(ctx context.Context, term string) ([]symbol.Symbol, error) {
-	r1, _ := symResolver.Search(ctx, term)
-	r2, _ := nodeResolver.Search(ctx, term)
-	return append(r1, r2...), nil
+	builder := rat.NewHostModuleBuilder("channel")
+	builder = bindI32[uint8](builder, cs, "u8")
+	builder = bindI32[uint16](builder, cs, "u16")
+	builder = bindI32[uint32](builder, cs, "u32")
+	builder = bindI32[int8](builder, cs, "i8")
+	builder = bindI32[int16](builder, cs, "i16")
+	builder = bindI32[int32](builder, cs, "i32")
+	builder = bindI64[uint64](builder, cs, "u64")
+	builder = bindI64[int64](builder, cs, "i64")
+	builder = bindF32(builder, cs)
+	builder = bindF64(builder, cs)
+	builder = bindStr(builder, cs, stringState)
+	if _, err := builder.Instantiate(ctx); err != nil {
+		return nil, err
+	}
+	return mod, nil
 }
 
 func (m *Module) Create(_ context.Context, cfg node.Config) (node.Node, error) {
@@ -98,28 +108,13 @@ func (m *Module) Create(_ context.Context, cfg node.Config) (node.Node, error) {
 		return nil, err
 	}
 	if isSource {
-		return &source{Node: cfg.State, key: nodeCfg.Channel}, nil
+		return &source{
+			Node:  cfg.State,
+			key:   nodeCfg.Channel,
+			state: m.state,
+		}, nil
 	}
-	return &sink{Node: cfg.State, key: nodeCfg.Channel}, nil
-}
-
-func (m *Module) BindTo(rt stl.HostRuntime) error {
-	if m.channel == nil {
-		return nil
-	}
-	cs := m.channel
-	bindI32[uint8](rt, cs, "u8")
-	bindI32[uint16](rt, cs, "u16")
-	bindI32[uint32](rt, cs, "u32")
-	bindI32[int8](rt, cs, "i8")
-	bindI32[int16](rt, cs, "i16")
-	bindI32[int32](rt, cs, "i32")
-	bindI64[uint64](rt, cs, "u64")
-	bindI64[int64](rt, cs, "i64")
-	bindF32(rt, cs)
-	bindF64(rt, cs)
-	bindStr(rt, cs, m.strings)
-	return nil
+	return &sink{Node: cfg.State, state: m.state, key: nodeCfg.Channel}, nil
 }
 
 var schema = zyn.Object(map[string]zyn.Schema{
@@ -132,6 +127,7 @@ type config struct {
 
 type source struct {
 	*state.Node
+	state         *State
 	key           uint32
 	highWaterMark telem.Alignment
 }
@@ -143,7 +139,7 @@ func (s *source) Init(node.Context) {}
 // data that arrives after activation rather than stale pre-existing data.
 func (s *source) Reset() {
 	s.Node.Reset()
-	data, _, ok := s.ReadSeries(s.key)
+	data, _, ok := s.state.readSeries(s.key)
 	if !ok || len(data.Series) == 0 {
 		return
 	}
@@ -154,7 +150,7 @@ func (s *source) Reset() {
 }
 
 func (s *source) Next(ctx node.Context) {
-	data, indexData, ok := s.ReadSeries(s.key)
+	data, indexData, ok := s.state.readSeries(s.key)
 	if !ok {
 		return
 	}
@@ -188,7 +184,8 @@ func (s *source) Next(ctx node.Context) {
 
 type sink struct {
 	*state.Node
-	key uint32
+	state *State
+	key   uint32
 }
 
 func (s *sink) Next(node.Context) {
@@ -200,7 +197,7 @@ func (s *sink) Next(node.Context) {
 	if data.Len() == 0 {
 		return
 	}
-	s.WriteSeries(s.key, data, time)
+	s.state.writeSeries(s.key, data, time)
 }
 
 type i32Compatible interface {
@@ -208,22 +205,23 @@ type i32Compatible interface {
 }
 
 func bindI32[T i32Compatible](
-	rt stl.HostRuntime,
-	cs *channelstate.State,
+	builder wazero.HostModuleBuilder,
+	cs *State,
 	suffix string,
-) {
-	stl.MustExport(rt, "channel", "read_"+suffix,
-		func(_ context.Context, chID uint32) uint32 {
+) wazero.HostModuleBuilder {
+	builder =  builder.NewFunctionBuilder().
+		WithFunc(func(_ context.Context, chID uint32) uint32 {
 			series, ok := cs.ReadValue(chID)
 			if !ok || series.Len() == 0 {
 				return 0
 			}
 			return uint32(telem.ValueAt[T](series, -1))
-		})
-	stl.MustExport(rt, "channel", "write_"+suffix,
-		func(_ context.Context, chID uint32, val uint32) {
-			cs.WriteValue(chID, telem.NewSeriesV[T](T(val)))
-		})
+		}).Export("read_"+suffix)
+	builder = builder.NewFunctionBuilder().
+		WithFunc(func(_ context.Context, chID uint32, val uint32) {
+			cs.writeValue(chID, telem.NewSeriesV[T](T(val)))
+		}).Export("write_"+suffix)
+	return builder
 }
 
 type i64Compatible interface {
@@ -231,75 +229,77 @@ type i64Compatible interface {
 }
 
 func bindI64[T i64Compatible](
-	rt stl.HostRuntime,
-	cs *channelstate.State,
+	builder wazero.HostModuleBuilder,
+	cs *State,
 	suffix string,
-) {
-	stl.MustExport(rt, "channel", "read_"+suffix,
-		func(_ context.Context, chID uint32) uint64 {
+) wazero.HostModuleBuilder {
+	builder = builder.NewFunctionBuilder().
+		WithFunc(func(_ context.Context, chID uint32) uint64 {
 			series, ok := cs.ReadValue(chID)
 			if !ok || series.Len() == 0 {
 				return 0
 			}
 			return uint64(telem.ValueAt[T](series, -1))
-		})
-	stl.MustExport(rt, "channel", "write_"+suffix,
-		func(_ context.Context, chID uint32, val uint64) {
-			cs.WriteValue(chID, telem.NewSeriesV[T](T(val)))
-		})
+		}).Export("read_"+suffix)
+	builder = builder.NewFunctionBuilder().
+		WithFunc(func(_ context.Context, chID uint32, val uint64) {
+			cs.writeValue(chID, telem.NewSeriesV[T](T(val)))
+		}).Export("write_"+suffix)
+	return builder
 }
 
-func bindF32(rt stl.HostRuntime, cs *channelstate.State) {
-	stl.MustExport(rt, "channel", "read_f32",
-		func(_ context.Context, chID uint32) float32 {
+func bindF32(builder wazero.HostModuleBuilder, cs *State) wazero.HostModuleBuilder {
+	builder = builder.NewFunctionBuilder().
+		WithFunc(func(_ context.Context, chID uint32) float32 {
 			series, ok := cs.ReadValue(chID)
 			if !ok || series.Len() == 0 {
 				return 0
 			}
 			return telem.ValueAt[float32](series, -1)
-		})
-	stl.MustExport(rt, "channel", "write_f32",
-		func(_ context.Context, chID uint32, val float32) {
-			cs.WriteValue(chID, telem.NewSeriesV[float32](val))
-		})
+		}).Export("read_f32")
+	builder = builder.NewFunctionBuilder().
+		WithFunc(func(_ context.Context, chID uint32, val float32) {
+			cs.writeValue(chID, telem.NewSeriesV[float32](val))
+		}).Export("write_f32")
+	return builder
 }
 
-func bindF64(rt stl.HostRuntime, cs *channelstate.State) {
-	stl.MustExport(rt, "channel", "read_f64",
-		func(_ context.Context, chID uint32) float64 {
+func bindF64(builder wazero.HostModuleBuilder, cs *State) wazero.HostModuleBuilder {
+	builder = builder.NewFunctionBuilder().
+		WithFunc(func(_ context.Context, chID uint32) float64 {
 			series, ok := cs.ReadValue(chID)
 			if !ok || series.Len() == 0 {
 				return 0
 			}
 			return telem.ValueAt[float64](series, -1)
-		})
-	stl.MustExport(rt, "channel", "write_f64",
-		func(_ context.Context, chID uint32, val float64) {
-			cs.WriteValue(chID, telem.NewSeriesV[float64](val))
-		})
+		}).Export("read_f64")
+	builder = builder.NewFunctionBuilder().
+		WithFunc(func(_ context.Context, chID uint32, val float64) {
+			cs.writeValue(chID, telem.NewSeriesV[float64](val))
+		}).Export("write_f64")
+	return builder
 }
 
-func bindStr(rt stl.HostRuntime, cs *channelstate.State, ss *stringsstate.State) {
-	stl.MustExport(rt, "channel", "read_str",
-		func(_ context.Context, chID uint32) uint32 {
+func bindStr(builder wazero.HostModuleBuilder, cs *State, ss *strings.State) wazero.HostModuleBuilder {
+	builder = builder.NewFunctionBuilder().
+		WithFunc(func(_ context.Context, chID uint32) uint32 {
 			series, ok := cs.ReadValue(chID)
 			if !ok || series.Len() == 0 {
 				return 0
 			}
-			strings := telem.UnmarshalSeries[string](series)
-			if len(strings) == 0 {
+			unmarshaled := telem.UnmarshalSeries[string](series)
+			if len(unmarshaled) == 0 {
 				return 0
 			}
-			return ss.Create(strings[len(strings)-1])
-		})
-	stl.MustExport(rt, "channel", "write_str",
-		func(_ context.Context, chID uint32, handle uint32) {
+			return ss.Create(unmarshaled[len(unmarshaled)-1])
+		}).Export("read_str")
+	builder = builder.NewFunctionBuilder().
+		WithFunc(func(_ context.Context, chID uint32, handle uint32) {
 			str, ok := ss.Get(handle)
 			if !ok {
 				return
 			}
-			cs.WriteValue(chID, telem.NewSeriesV[string](str))
-		})
+			cs.writeValue(chID, telem.NewSeriesV[string](str))
+		}).Export("write_str")
+	return builder
 }
-
-var _ stl.Module = (*Module)(nil)

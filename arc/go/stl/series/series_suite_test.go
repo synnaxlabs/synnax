@@ -16,7 +16,7 @@ import (
 	. "github.com/onsi/gomega"
 )
 
-func TestSeries(t *testing.T) {
+func TestSeriesState(t *testing.T) {
 	RegisterFailHandler(Fail)
 	RunSpecs(t, "Series Suite")
 }

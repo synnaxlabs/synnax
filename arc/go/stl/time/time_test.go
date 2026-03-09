@@ -24,6 +24,7 @@ import (
 	"github.com/synnaxlabs/x/query"
 	"github.com/synnaxlabs/x/telem"
 	. "github.com/synnaxlabs/x/testutil"
+	"github.com/tetratelabs/wazero"
 )
 
 var ctx = context.Background()
@@ -31,7 +32,7 @@ var ctx = context.Background()
 var _ = Describe("Time", func() {
 	Describe("NewModule", func() {
 		It("Should create module with max timing base", func() {
-			factory := time.NewModule()
+			factory := MustSucceed(time.NewModule(ctx, wazero.NewRuntimeWithConfig(ctx, wazero.NewRuntimeConfigInterpreter())))
 			Expect(factory).ToNot(BeNil())
 		})
 	})
@@ -40,7 +41,7 @@ var _ = Describe("Time", func() {
 		var s *state.State
 		var changedOutputs []string
 		BeforeEach(func() {
-			factory = time.NewModule()
+			factory = MustSucceed(time.NewModule(ctx, wazero.NewRuntimeWithConfig(ctx, wazero.NewRuntimeConfigInterpreter())))
 			changedOutputs = []string{}
 			g := graph.Graph{
 				Nodes: []graph.Node{{
@@ -62,7 +63,7 @@ var _ = Describe("Time", func() {
 			}
 			analyzed, diagnostics := graph.Analyze(ctx, g, time.SymbolResolver)
 			Expect(diagnostics.Ok()).To(BeTrue())
-			s = state.New(state.Config{IR: analyzed})
+			s = state.New(analyzed)
 		})
 		It("Should create node for interval type", func() {
 			cfg := node.Config{
@@ -232,7 +233,7 @@ var _ = Describe("Time", func() {
 		var s *state.State
 		var changedOutputs []string
 		BeforeEach(func() {
-			factory = time.NewModule()
+			factory = MustSucceed(time.NewModule(ctx, wazero.NewRuntimeWithConfig(ctx, wazero.NewRuntimeConfigInterpreter())))
 			changedOutputs = []string{}
 			g := graph.Graph{
 				Nodes: []graph.Node{{
@@ -254,7 +255,7 @@ var _ = Describe("Time", func() {
 			}
 			analyzed, diagnostics := graph.Analyze(ctx, g, time.SymbolResolver)
 			Expect(diagnostics.Ok()).To(BeTrue())
-			s = state.New(state.Config{IR: analyzed})
+			s = state.New(analyzed)
 		})
 		It("Should create node for wait type", func() {
 			cfg := node.Config{
@@ -482,7 +483,7 @@ var _ = Describe("Time", func() {
 	})
 	Describe("TimingBase", func() {
 		It("Should compute GCD of multiple intervals", func() {
-			factory := time.NewModule()
+			factory := MustSucceed(time.NewModule(ctx, wazero.NewRuntimeWithConfig(ctx, wazero.NewRuntimeConfigInterpreter())))
 			g := graph.Graph{
 				Nodes: []graph.Node{
 					{
@@ -512,7 +513,7 @@ var _ = Describe("Time", func() {
 			}
 			analyzed, diagnostics := graph.Analyze(ctx, g, time.SymbolResolver)
 			Expect(diagnostics.Ok()).To(BeTrue())
-			s := state.New(state.Config{IR: analyzed})
+			s := state.New(analyzed)
 
 			// Create first interval with 100ms period
 			cfg1 := node.Config{
@@ -577,7 +578,7 @@ var _ = Describe("Time", func() {
 		var s *state.State
 		var changedOutputs []string
 		BeforeEach(func() {
-			factory = time.NewModule()
+			factory = MustSucceed(time.NewModule(ctx, wazero.NewRuntimeWithConfig(ctx, wazero.NewRuntimeConfigInterpreter())))
 			changedOutputs = []string{}
 			g := graph.Graph{
 				Nodes: []graph.Node{{
@@ -599,7 +600,7 @@ var _ = Describe("Time", func() {
 			}
 			analyzed, diagnostics := graph.Analyze(ctx, g, time.SymbolResolver)
 			Expect(diagnostics.Ok()).To(BeTrue())
-			s = state.New(state.Config{IR: analyzed})
+			s = state.New(analyzed)
 		})
 		Describe("Interval with tolerance", func() {
 			It("Should fire on early tick within tolerance", func() {
@@ -780,8 +781,8 @@ var _ = Describe("Time", func() {
 				}
 				analyzed, diagnostics := graph.Analyze(ctx, g, time.SymbolResolver)
 				Expect(diagnostics.Ok()).To(BeTrue())
-				waitState := state.New(state.Config{IR: analyzed})
-				waitFactory := time.NewModule()
+				waitState := state.New(analyzed)
+				waitFactory := MustSucceed(time.NewModule(ctx, wazero.NewRuntimeWithConfig(ctx, wazero.NewRuntimeConfigInterpreter())))
 
 				cfg := node.Config{
 					Node: ir.Node{

@@ -12,7 +12,7 @@ package arc
 import (
 	"github.com/google/uuid"
 	"github.com/synnaxlabs/arc/graph"
-	"github.com/synnaxlabs/arc/module"
+	"github.com/synnaxlabs/arc/program"
 	"github.com/synnaxlabs/arc/text"
 	"github.com/synnaxlabs/x/gorp"
 )
@@ -34,7 +34,7 @@ type Arc struct {
 	Version string        `json:"version" msgpack:"version"`
 	Name    string        `json:"name" msgpack:"name"`
 	Mode    Mode          `json:"mode" msgpack:"mode"`
-	Module  module.Module `json:"module" msgpack:"module"`
+	Program program.Program `json:"program" msgpack:"program"`
 	Graph   graph.Graph   `json:"graph" msgpack:"graph"`
 	Key     uuid.UUID     `json:"key" msgpack:"key"`
 }

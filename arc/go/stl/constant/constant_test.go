@@ -53,7 +53,7 @@ var _ = Describe("Constant", func() {
 			}
 			analyzed, diagnostics := graph.Analyze(ctx, g, constant.SymbolResolver)
 			Expect(diagnostics.Ok()).To(BeTrue())
-			s = state.New(state.Config{IR: analyzed})
+			s = state.New(analyzed)
 		})
 		It("Should create node for constant type", func() {
 			cfg := node.Config{
@@ -128,9 +128,9 @@ var _ = Describe("Constant", func() {
 					},
 				}},
 			}
-			analyzed, diagnostics := graph.Analyze(ctx, g, constant.SymbolResolver)
+			inter, diagnostics := graph.Analyze(ctx, g, constant.SymbolResolver)
 			Expect(diagnostics.Ok()).To(BeTrue())
-			s = state.New(state.Config{IR: analyzed})
+			s = state.New(inter)
 			outputs = []string{}
 		})
 
@@ -243,9 +243,9 @@ var _ = Describe("Constant", func() {
 					},
 				},
 			}
-			analyzed, diagnostics := graph.Analyze(ctx, g, constant.SymbolResolver)
+			inter, diagnostics := graph.Analyze(ctx, g, constant.SymbolResolver)
 			Expect(diagnostics.Ok()).To(BeTrue())
-			s = state.New(state.Config{IR: analyzed})
+			s = state.New(inter)
 			cfg := node.Config{
 				Node:  ir.Node{Type: "constant", Config: types.Params{{Name: "value", Type: types.I64(), Value: int64(999)}}},
 				State: s.Node("const"),

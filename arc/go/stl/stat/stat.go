@@ -15,7 +15,7 @@ import (
 	"github.com/synnaxlabs/arc/ir"
 	"github.com/synnaxlabs/arc/runtime/node"
 	"github.com/synnaxlabs/arc/runtime/state"
-	"github.com/synnaxlabs/arc/stl"
+
 	"github.com/synnaxlabs/arc/symbol"
 	"github.com/synnaxlabs/arc/types"
 	"github.com/synnaxlabs/x/query"
@@ -67,16 +67,6 @@ var (
 
 type Module struct{}
 
-var _ stl.Module = (*Module)(nil)
-
-func (m *Module) Resolve(ctx context.Context, name string) (symbol.Symbol, error) {
-	return SymbolResolver.Resolve(ctx, name)
-}
-
-func (m *Module) Search(ctx context.Context, term string) ([]symbol.Symbol, error) {
-	return SymbolResolver.Search(ctx, term)
-}
-
 func (m *Module) Create(_ context.Context, nodeCfg node.Config) (node.Node, error) {
 	reductionMap, ok := ops[nodeCfg.Node.Type]
 	if !ok {
@@ -87,7 +77,7 @@ func (m *Module) Create(_ context.Context, nodeCfg node.Config) (node.Node, erro
 		reductionFn = reductionMap[inputData.DataType]
 		resetIdx    = -1
 	)
-	if _, found := nodeCfg.Module.Edges.FindByTarget(ir.Handle{
+	if _, found := nodeCfg.Program.Edges.FindByTarget(ir.Handle{
 		Node:  nodeCfg.Node.Key,
 		Param: resetInputParam,
 	}); found {
@@ -109,10 +99,6 @@ func (m *Module) Create(_ context.Context, nodeCfg node.Config) (node.Node, erro
 		sampleCount: 0,
 		cfg:         cfg,
 	}, nil
-}
-
-func (m *Module) BindTo(_ stl.HostRuntime) error {
-	return nil
 }
 
 type ConfigValues struct {

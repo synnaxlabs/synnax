@@ -67,7 +67,7 @@ var _ = Describe("Stage", func() {
 			}
 			analyzed, diagnostics := graph.Analyze(ctx, g, stage.SymbolResolver)
 			Expect(diagnostics.Ok()).To(BeTrue())
-			s = state.New(state.Config{IR: analyzed})
+			s = state.New(analyzed)
 		})
 
 		It("Should create node for stage_entry type", func() {
@@ -121,7 +121,7 @@ var _ = Describe("Stage", func() {
 			}
 			analyzed, diagnostics := graph.Analyze(ctx, g, stage.SymbolResolver)
 			Expect(diagnostics.Ok()).To(BeTrue())
-			s = state.New(state.Config{IR: analyzed})
+			s = state.New(analyzed)
 		})
 
 		It("Should call ActivateStage when receiving activation signal (1)", func() {

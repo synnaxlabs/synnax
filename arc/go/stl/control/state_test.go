@@ -7,21 +7,21 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-package state_test
+package control_test
 
 import (
 	"math"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	"github.com/synnaxlabs/arc/stl/control/state"
+	"github.com/synnaxlabs/arc/stl/control"
 )
 
 var _ = Describe("State", func() {
-	var s *state.State
+	var s *control.State
 
 	BeforeEach(func() {
-		s = &state.State{}
+		s = &control.State{}
 	})
 
 	Describe("Set", func() {
@@ -154,7 +154,7 @@ var _ = Describe("State", func() {
 
 	Describe("Zero Value", func() {
 		It("Should be usable without explicit construction", func() {
-			var zeroState state.State
+			var zeroState control.State
 			zeroState.Set(nil, 128)
 			changes := zeroState.Flush()
 			Expect(changes).To(HaveLen(1))
@@ -162,7 +162,7 @@ var _ = Describe("State", func() {
 		})
 
 		It("Should return nil flush on zero value", func() {
-			var zeroState state.State
+			var zeroState control.State
 			Expect(zeroState.Flush()).To(BeNil())
 		})
 	})

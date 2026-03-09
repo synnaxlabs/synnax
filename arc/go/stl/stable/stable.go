@@ -15,7 +15,7 @@ import (
 	"github.com/synnaxlabs/arc/ir"
 	"github.com/synnaxlabs/arc/runtime/node"
 	"github.com/synnaxlabs/arc/runtime/state"
-	"github.com/synnaxlabs/arc/stl"
+
 	"github.com/synnaxlabs/arc/symbol"
 	"github.com/synnaxlabs/arc/types"
 	"github.com/synnaxlabs/x/query"
@@ -47,8 +47,6 @@ type Module struct {
 	now func() telem.TimeStamp
 }
 
-var _ stl.Module = (*Module)(nil)
-
 func NewModule(opts ...func(*Module)) *Module {
 	m := &Module{now: telem.Now}
 	for _, opt := range opts {
@@ -61,14 +59,6 @@ func WithNow(fn func() telem.TimeStamp) func(*Module) {
 	return func(m *Module) { m.now = fn }
 }
 
-func (m *Module) Resolve(ctx context.Context, name string) (symbol.Symbol, error) {
-	return SymbolResolver.Resolve(ctx, name)
-}
-
-func (m *Module) Search(ctx context.Context, term string) ([]symbol.Symbol, error) {
-	return SymbolResolver.Search(ctx, term)
-}
-
 func (m *Module) Create(_ context.Context, cfg node.Config) (node.Node, error) {
 	if cfg.Node.Type != symbolName {
 		return nil, query.ErrNotFound
@@ -77,11 +67,7 @@ func (m *Module) Create(_ context.Context, cfg node.Config) (node.Node, error) {
 	if err := configSchema.Parse(cfg.Node.Config.ValueMap(), &cfgVals); err != nil {
 		return nil, err
 	}
-	return &stableFor{Node: cfg.State, duration: cfgVals.Duration, now: m.now}, nil
-}
-
-func (m *Module) BindTo(_ stl.HostRuntime) error {
-	return nil
+	return &forNode{Node: cfg.State, duration: cfgVals.Duration, now: m.now}, nil
 }
 
 type config struct {
@@ -92,7 +78,7 @@ var configSchema = zyn.Object(map[string]zyn.Schema{
 	"duration": zyn.Int64().Coerce(),
 })
 
-type stableFor struct {
+type forNode struct {
 	*state.Node
 	value       *uint8
 	lastSent    *uint8
@@ -101,16 +87,16 @@ type stableFor struct {
 	lastChanged telem.TimeStamp
 }
 
-func (s *stableFor) Reset() {
+func (s *forNode) Reset() {
 	s.Node.Reset()
 	s.value = nil
 	s.lastSent = nil
 	s.lastChanged = 0
 }
 
-var _ node.Node = (*stableFor)(nil)
+var _ node.Node = (*forNode)(nil)
 
-func (s *stableFor) Next(ctx node.Context) {
+func (s *forNode) Next(ctx node.Context) {
 	if s.RefreshInputs() {
 		inputData := s.Input(0)
 		inputTime := s.InputTime(0)

@@ -14,7 +14,8 @@ import (
 
 	"github.com/synnaxlabs/alamos"
 	"github.com/synnaxlabs/arc/runtime/node"
-	"github.com/synnaxlabs/arc/stl"
+	"github.com/synnaxlabs/arc/stl/host"
+	"github.com/synnaxlabs/arc/stl/module"
 	"github.com/synnaxlabs/arc/symbol"
 	"github.com/synnaxlabs/arc/types"
 	"github.com/synnaxlabs/x/errors"
@@ -52,7 +53,7 @@ type Module struct {
 	stat *status.Service
 }
 
-var _ stl.Module = (*Module)(nil)
+var _ module.Module = (*Module)(nil)
 
 func NewModule(stat *status.Service) *Module {
 	return &Module{stat: stat}
@@ -71,7 +72,7 @@ func (m *Module) Create(ctx context.Context, cfg node.Config) (node.Node, error)
 	return f.Create(ctx, cfg)
 }
 
-func (m *Module) BindTo(_ stl.HostRuntime) error {
+func (m *Module) BindTo(_ host.Runtime) error {
 	return nil
 }
 

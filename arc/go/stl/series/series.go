@@ -14,13 +14,13 @@ import (
 
 	"github.com/synnaxlabs/arc/ir"
 	"github.com/synnaxlabs/arc/runtime/node"
-	"github.com/synnaxlabs/arc/stl"
-	"github.com/synnaxlabs/arc/stl/series/state"
+
 	"github.com/synnaxlabs/arc/symbol"
 	"github.com/synnaxlabs/arc/types"
 	"github.com/synnaxlabs/x/query"
 	"github.com/synnaxlabs/x/telem"
 	"github.com/synnaxlabs/x/telem/op"
+	"github.com/tetratelabs/wazero"
 )
 
 var numConstraint = types.NumericConstraint()
@@ -48,93 +48,75 @@ var SymbolResolver = symbol.MapResolver{
 // CompilerSymbolResolver contains the full set of symbol definitions used by
 // the compiler for WASM coordinate derivation. This is the canonical source of
 // truth for series host function type signatures.
-var CompilerSymbolResolver = symbol.MapResolver{
-	"element_add":       {Name: "element_add", Type: polyFunc(types.Params{{Name: "handle", Type: i32}, {Name: "scalar", Type: tv()}}, types.Params{{Name: "result", Type: i32}})},
-	"element_sub":       {Name: "element_sub", Type: polyFunc(types.Params{{Name: "handle", Type: i32}, {Name: "scalar", Type: tv()}}, types.Params{{Name: "result", Type: i32}})},
-	"element_mul":       {Name: "element_mul", Type: polyFunc(types.Params{{Name: "handle", Type: i32}, {Name: "scalar", Type: tv()}}, types.Params{{Name: "result", Type: i32}})},
-	"element_div":       {Name: "element_div", Type: polyFunc(types.Params{{Name: "handle", Type: i32}, {Name: "scalar", Type: tv()}}, types.Params{{Name: "result", Type: i32}})},
-	"element_mod":       {Name: "element_mod", Type: polyFunc(types.Params{{Name: "handle", Type: i32}, {Name: "scalar", Type: tv()}}, types.Params{{Name: "result", Type: i32}})},
-	"element_radd":      {Name: "element_radd", Type: polyFunc(types.Params{{Name: "scalar", Type: tv()}, {Name: "handle", Type: i32}}, types.Params{{Name: "result", Type: i32}})},
-	"element_rsub":      {Name: "element_rsub", Type: polyFunc(types.Params{{Name: "scalar", Type: tv()}, {Name: "handle", Type: i32}}, types.Params{{Name: "result", Type: i32}})},
-	"element_rmul":      {Name: "element_rmul", Type: polyFunc(types.Params{{Name: "scalar", Type: tv()}, {Name: "handle", Type: i32}}, types.Params{{Name: "result", Type: i32}})},
-	"element_rdiv":      {Name: "element_rdiv", Type: polyFunc(types.Params{{Name: "scalar", Type: tv()}, {Name: "handle", Type: i32}}, types.Params{{Name: "result", Type: i32}})},
-	"element_rmod":      {Name: "element_rmod", Type: polyFunc(types.Params{{Name: "scalar", Type: tv()}, {Name: "handle", Type: i32}}, types.Params{{Name: "result", Type: i32}})},
-	"series_add":        {Name: "series_add", Type: polyFunc(types.Params{{Name: "a", Type: i32}, {Name: "b", Type: i32}}, types.Params{{Name: "result", Type: i32}})},
-	"series_sub":        {Name: "series_sub", Type: polyFunc(types.Params{{Name: "a", Type: i32}, {Name: "b", Type: i32}}, types.Params{{Name: "result", Type: i32}})},
-	"series_mul":        {Name: "series_mul", Type: polyFunc(types.Params{{Name: "a", Type: i32}, {Name: "b", Type: i32}}, types.Params{{Name: "result", Type: i32}})},
-	"series_div":        {Name: "series_div", Type: polyFunc(types.Params{{Name: "a", Type: i32}, {Name: "b", Type: i32}}, types.Params{{Name: "result", Type: i32}})},
-	"series_mod":        {Name: "series_mod", Type: polyFunc(types.Params{{Name: "a", Type: i32}, {Name: "b", Type: i32}}, types.Params{{Name: "result", Type: i32}})},
-	"compare_gt":        {Name: "compare_gt", Type: polyFunc(types.Params{{Name: "a", Type: i32}, {Name: "b", Type: i32}}, types.Params{{Name: "result", Type: i32}})},
-	"compare_lt":        {Name: "compare_lt", Type: polyFunc(types.Params{{Name: "a", Type: i32}, {Name: "b", Type: i32}}, types.Params{{Name: "result", Type: i32}})},
-	"compare_ge":        {Name: "compare_ge", Type: polyFunc(types.Params{{Name: "a", Type: i32}, {Name: "b", Type: i32}}, types.Params{{Name: "result", Type: i32}})},
-	"compare_le":        {Name: "compare_le", Type: polyFunc(types.Params{{Name: "a", Type: i32}, {Name: "b", Type: i32}}, types.Params{{Name: "result", Type: i32}})},
-	"compare_eq":        {Name: "compare_eq", Type: polyFunc(types.Params{{Name: "a", Type: i32}, {Name: "b", Type: i32}}, types.Params{{Name: "result", Type: i32}})},
-	"compare_ne":        {Name: "compare_ne", Type: polyFunc(types.Params{{Name: "a", Type: i32}, {Name: "b", Type: i32}}, types.Params{{Name: "result", Type: i32}})},
-	"compare_gt_scalar": {Name: "compare_gt_scalar", Type: polyFunc(types.Params{{Name: "handle", Type: i32}, {Name: "scalar", Type: tv()}}, types.Params{{Name: "result", Type: i32}})},
-	"compare_lt_scalar": {Name: "compare_lt_scalar", Type: polyFunc(types.Params{{Name: "handle", Type: i32}, {Name: "scalar", Type: tv()}}, types.Params{{Name: "result", Type: i32}})},
-	"compare_ge_scalar": {Name: "compare_ge_scalar", Type: polyFunc(types.Params{{Name: "handle", Type: i32}, {Name: "scalar", Type: tv()}}, types.Params{{Name: "result", Type: i32}})},
-	"compare_le_scalar": {Name: "compare_le_scalar", Type: polyFunc(types.Params{{Name: "handle", Type: i32}, {Name: "scalar", Type: tv()}}, types.Params{{Name: "result", Type: i32}})},
-	"compare_eq_scalar": {Name: "compare_eq_scalar", Type: polyFunc(types.Params{{Name: "handle", Type: i32}, {Name: "scalar", Type: tv()}}, types.Params{{Name: "result", Type: i32}})},
-	"compare_ne_scalar": {Name: "compare_ne_scalar", Type: polyFunc(types.Params{{Name: "handle", Type: i32}, {Name: "scalar", Type: tv()}}, types.Params{{Name: "result", Type: i32}})},
-	"create_empty":      {Name: "create_empty", Type: polyFunc(types.Params{{Name: "len", Type: i32}}, types.Params{{Name: "handle", Type: i32}})},
-	"set_element":       {Name: "set_element", Type: polyFunc(types.Params{{Name: "handle", Type: i32}, {Name: "idx", Type: i32}, {Name: "value", Type: tv()}}, types.Params{{Name: "result", Type: i32}})},
-	"index":             {Name: "index", Type: polyFunc(types.Params{{Name: "handle", Type: i32}, {Name: "idx", Type: i32}}, types.Params{{Name: "value", Type: tv()}})},
-	"negate":            {Name: "negate", Type: polyFunc(types.Params{{Name: "handle", Type: i32}}, types.Params{{Name: "result", Type: i32}})},
-	"not_u8":            {Name: "not_u8", Type: polyFunc(types.Params{{Name: "handle", Type: i32}}, types.Params{{Name: "result", Type: i32}})},
-	"len":               {Name: "len", Type: polyFunc(types.Params{{Name: "handle", Type: i32}}, types.Params{{Name: "length", Type: i64}})},
-	"slice":             {Name: "slice", Type: polyFunc(types.Params{{Name: "handle", Type: i32}, {Name: "start", Type: i32}, {Name: "end", Type: i32}}, types.Params{{Name: "result", Type: i32}})},
+var CompilerSymbolResolver = &symbol.ModuleResolver{
+	Name: "series",
+	Members: symbol.MapResolver{
+		"element_add":       {Name: "element_add", Type: polyFunc(types.Params{{Name: "handle", Type: i32}, {Name: "scalar", Type: tv()}}, types.Params{{Name: "result", Type: i32}})},
+		"element_sub":       {Name: "element_sub", Type: polyFunc(types.Params{{Name: "handle", Type: i32}, {Name: "scalar", Type: tv()}}, types.Params{{Name: "result", Type: i32}})},
+		"element_mul":       {Name: "element_mul", Type: polyFunc(types.Params{{Name: "handle", Type: i32}, {Name: "scalar", Type: tv()}}, types.Params{{Name: "result", Type: i32}})},
+		"element_div":       {Name: "element_div", Type: polyFunc(types.Params{{Name: "handle", Type: i32}, {Name: "scalar", Type: tv()}}, types.Params{{Name: "result", Type: i32}})},
+		"element_mod":       {Name: "element_mod", Type: polyFunc(types.Params{{Name: "handle", Type: i32}, {Name: "scalar", Type: tv()}}, types.Params{{Name: "result", Type: i32}})},
+		"element_radd":      {Name: "element_radd", Type: polyFunc(types.Params{{Name: "scalar", Type: tv()}, {Name: "handle", Type: i32}}, types.Params{{Name: "result", Type: i32}})},
+		"element_rsub":      {Name: "element_rsub", Type: polyFunc(types.Params{{Name: "scalar", Type: tv()}, {Name: "handle", Type: i32}}, types.Params{{Name: "result", Type: i32}})},
+		"element_rmul":      {Name: "element_rmul", Type: polyFunc(types.Params{{Name: "scalar", Type: tv()}, {Name: "handle", Type: i32}}, types.Params{{Name: "result", Type: i32}})},
+		"element_rdiv":      {Name: "element_rdiv", Type: polyFunc(types.Params{{Name: "scalar", Type: tv()}, {Name: "handle", Type: i32}}, types.Params{{Name: "result", Type: i32}})},
+		"element_rmod":      {Name: "element_rmod", Type: polyFunc(types.Params{{Name: "scalar", Type: tv()}, {Name: "handle", Type: i32}}, types.Params{{Name: "result", Type: i32}})},
+		"series_add":        {Name: "series_add", Type: polyFunc(types.Params{{Name: "a", Type: i32}, {Name: "b", Type: i32}}, types.Params{{Name: "result", Type: i32}})},
+		"series_sub":        {Name: "series_sub", Type: polyFunc(types.Params{{Name: "a", Type: i32}, {Name: "b", Type: i32}}, types.Params{{Name: "result", Type: i32}})},
+		"series_mul":        {Name: "series_mul", Type: polyFunc(types.Params{{Name: "a", Type: i32}, {Name: "b", Type: i32}}, types.Params{{Name: "result", Type: i32}})},
+		"series_div":        {Name: "series_div", Type: polyFunc(types.Params{{Name: "a", Type: i32}, {Name: "b", Type: i32}}, types.Params{{Name: "result", Type: i32}})},
+		"series_mod":        {Name: "series_mod", Type: polyFunc(types.Params{{Name: "a", Type: i32}, {Name: "b", Type: i32}}, types.Params{{Name: "result", Type: i32}})},
+		"compare_gt":        {Name: "compare_gt", Type: polyFunc(types.Params{{Name: "a", Type: i32}, {Name: "b", Type: i32}}, types.Params{{Name: "result", Type: i32}})},
+		"compare_lt":        {Name: "compare_lt", Type: polyFunc(types.Params{{Name: "a", Type: i32}, {Name: "b", Type: i32}}, types.Params{{Name: "result", Type: i32}})},
+		"compare_ge":        {Name: "compare_ge", Type: polyFunc(types.Params{{Name: "a", Type: i32}, {Name: "b", Type: i32}}, types.Params{{Name: "result", Type: i32}})},
+		"compare_le":        {Name: "compare_le", Type: polyFunc(types.Params{{Name: "a", Type: i32}, {Name: "b", Type: i32}}, types.Params{{Name: "result", Type: i32}})},
+		"compare_eq":        {Name: "compare_eq", Type: polyFunc(types.Params{{Name: "a", Type: i32}, {Name: "b", Type: i32}}, types.Params{{Name: "result", Type: i32}})},
+		"compare_ne":        {Name: "compare_ne", Type: polyFunc(types.Params{{Name: "a", Type: i32}, {Name: "b", Type: i32}}, types.Params{{Name: "result", Type: i32}})},
+		"compare_gt_scalar": {Name: "compare_gt_scalar", Type: polyFunc(types.Params{{Name: "handle", Type: i32}, {Name: "scalar", Type: tv()}}, types.Params{{Name: "result", Type: i32}})},
+		"compare_lt_scalar": {Name: "compare_lt_scalar", Type: polyFunc(types.Params{{Name: "handle", Type: i32}, {Name: "scalar", Type: tv()}}, types.Params{{Name: "result", Type: i32}})},
+		"compare_ge_scalar": {Name: "compare_ge_scalar", Type: polyFunc(types.Params{{Name: "handle", Type: i32}, {Name: "scalar", Type: tv()}}, types.Params{{Name: "result", Type: i32}})},
+		"compare_le_scalar": {Name: "compare_le_scalar", Type: polyFunc(types.Params{{Name: "handle", Type: i32}, {Name: "scalar", Type: tv()}}, types.Params{{Name: "result", Type: i32}})},
+		"compare_eq_scalar": {Name: "compare_eq_scalar", Type: polyFunc(types.Params{{Name: "handle", Type: i32}, {Name: "scalar", Type: tv()}}, types.Params{{Name: "result", Type: i32}})},
+		"compare_ne_scalar": {Name: "compare_ne_scalar", Type: polyFunc(types.Params{{Name: "handle", Type: i32}, {Name: "scalar", Type: tv()}}, types.Params{{Name: "result", Type: i32}})},
+		"create_empty":      {Name: "create_empty", Type: polyFunc(types.Params{{Name: "len", Type: i32}}, types.Params{{Name: "handle", Type: i32}})},
+		"set_element":       {Name: "set_element", Type: polyFunc(types.Params{{Name: "handle", Type: i32}, {Name: "idx", Type: i32}, {Name: "value", Type: tv()}}, types.Params{{Name: "result", Type: i32}})},
+		"index":             {Name: "index", Type: polyFunc(types.Params{{Name: "handle", Type: i32}, {Name: "idx", Type: i32}}, types.Params{{Name: "value", Type: tv()}})},
+		"negate":            {Name: "negate", Type: polyFunc(types.Params{{Name: "handle", Type: i32}}, types.Params{{Name: "result", Type: i32}})},
+		"not_u8":            {Name: "not_u8", Type: polyFunc(types.Params{{Name: "handle", Type: i32}}, types.Params{{Name: "result", Type: i32}})},
+		"len":               {Name: "len", Type: polyFunc(types.Params{{Name: "handle", Type: i32}}, types.Params{{Name: "length", Type: i64}})},
+		"slice":             {Name: "slice", Type: polyFunc(types.Params{{Name: "handle", Type: i32}, {Name: "start", Type: i32}, {Name: "end", Type: i32}}, types.Params{{Name: "result", Type: i32}})},
+	},
 }
 
 type Module struct {
-	series *state.State
+	series *State
 }
 
-func NewModule(s *state.State) *Module { return &Module{series: s} }
-
-var compilerModResolver = &symbol.ModuleResolver{
-	Name:    "series",
-	Members: CompilerSymbolResolver,
-}
-
-func (m *Module) Resolve(ctx context.Context, name string) (symbol.Symbol, error) {
-	if sym, err := SymbolResolver.Resolve(ctx, name); err == nil {
-		return sym, nil
-	}
-	return compilerModResolver.Resolve(ctx, name)
-}
-
-func (m *Module) Search(ctx context.Context, term string) ([]symbol.Symbol, error) {
-	syms1, _ := SymbolResolver.Search(ctx, term)
-	syms2, _ := compilerModResolver.Search(ctx, term)
-	return append(syms1, syms2...), nil
-}
-
-func (m *Module) Create(_ context.Context, _ node.Config) (node.Node, error) {
-	return nil, query.ErrNotFound
-}
-
-func (m *Module) BindTo(rt stl.HostRuntime) error {
-	s := m.series
-	bindU8(rt, s)
-	bindU16(rt, s)
-	bindU32(rt, s)
-	bindU64(rt, s)
-	bindI8(rt, s)
-	bindI16(rt, s)
-	bindI32(rt, s)
-	bindI64(rt, s)
-	bindF32(rt, s)
-	bindF64(rt, s)
-
-	// Untyped operations
-	stl.MustExport(rt, "series", "len", func(_ context.Context, handle uint32) uint64 {
-		if ser, ok := s.Get(handle); ok {
-			return uint64(ser.Len())
-		}
-		return 0
-	})
-	stl.MustExport(rt, "series", "slice",
-		func(_ context.Context, handle uint32, start uint32, end uint32) uint32 {
+func NewModule(
+	ctx context.Context,
+	s *State,
+	rat wazero.Runtime,
+) (*Module, error) {
+	builder := rat.NewHostModuleBuilder("series")
+	builder = bindU8(builder, s)
+	builder = bindU16(builder, s)
+	builder = bindU32(builder, s)
+	builder = bindU64(builder, s)
+	builder = bindI8(builder, s)
+	builder = bindI16(builder, s)
+	builder = bindI32(builder, s)
+	builder = bindI64(builder, s)
+	builder = bindF32(builder, s)
+	builder = bindF64(builder, s)
+	builder = builder.NewFunctionBuilder().
+		WithFunc(func(_ context.Context, handle uint32) uint64 {
+			if ser, ok := s.Get(handle); ok {
+				return uint64(ser.Len())
+			}
+			return 0
+		}).Export("len")
+	builder = builder.NewFunctionBuilder().
+		WithFunc(func(_ context.Context, handle uint32, start uint32, end uint32) uint32 {
 			ser, ok := s.Get(handle)
 			if !ok {
 				return 0
@@ -157,17 +139,25 @@ func (m *Module) BindTo(rt stl.HostRuntime) error {
 				Data:     ser.Data[startIdx*density : endIdx*density],
 			}
 			return s.Store(sliced)
-		})
-	stl.MustExport(rt, "series", "not_u8", func(_ context.Context, handle uint32) uint32 {
-		ser, ok := s.Get(handle)
-		if !ok {
-			return 0
-		}
-		result := telem.Series{DataType: telem.Uint8T}
-		op.NotU8(ser, &result)
-		return s.Store(result)
-	})
-	return nil
+		}).Export("slice")
+	builder = builder.NewFunctionBuilder().
+		WithFunc(func(_ context.Context, handle uint32) uint32 {
+			ser, ok := s.Get(handle)
+			if !ok {
+				return 0
+			}
+			result := telem.Series{DataType: telem.Uint8T}
+			op.NotU8(ser, &result)
+			return s.Store(result)
+		}).Export("not_u8")
+	if _, err := builder.Instantiate(ctx); err != nil {
+		return nil, err
+	}
+	return &Module{series: s}, nil
+}
+
+func (m *Module) Create(_ context.Context, _ node.Config) (node.Node, error) {
+	return nil, query.ErrNotFound
 }
 
 // i32Scalar is used for types that map to i32 in WASM.
@@ -207,50 +197,51 @@ type seriesOps[T any] struct {
 }
 
 func bindI32Type[T i32Scalar](
-	rt stl.HostRuntime,
-	s *state.State,
+	builder wazero.HostModuleBuilder,
+	s *State,
 	suffix string,
 	ops seriesOps[T],
-) {
+) wazero.HostModuleBuilder {
 	dt := ops.dt
-	stl.MustExport(rt, "series", "create_empty_"+suffix,
-		func(_ context.Context, length uint32) uint32 {
+	builder = builder.NewFunctionBuilder().
+		WithFunc(func(_ context.Context, length uint32) uint32 {
 			return s.Store(telem.MakeSeries(dt, int(length)))
-		})
-	stl.MustExport(rt, "series", "set_element_"+suffix,
-		func(_ context.Context, handle uint32, index uint32, value uint32) uint32 {
+		}).Export("create_empty_" + suffix)
+	builder = builder.NewFunctionBuilder().
+		WithFunc(func(_ context.Context, handle uint32, index uint32, value uint32) uint32 {
 			if ser, ok := s.Get(handle); ok {
 				if int64(index) < ser.Len() {
 					telem.SetValueAt[T](ser, int(index), T(value))
 				}
 			}
 			return handle
-		})
-	stl.MustExport(rt, "series", "index_"+suffix,
-		func(_ context.Context, handle uint32, index uint32) uint32 {
+		}).Export("set_element_" + suffix)
+	builder = builder.NewFunctionBuilder().
+		WithFunc(func(_ context.Context, handle uint32, index uint32) uint32 {
 			if ser, ok := s.Get(handle); ok {
 				if int64(index) < ser.Len() {
 					return uint32(telem.ValueAt[T](ser, int(index)))
 				}
 			}
 			return 0
-		})
+		}).Export("index_" + suffix)
 
-	bindElementOpsI32(rt, s, suffix, ops)
-	bindSeriesOps(rt, s, suffix, ops)
-	bindCompareOps(rt, s, suffix, ops)
-	bindCompareScalarI32(rt, s, suffix, ops)
+	builder = bindElementOpsI32(builder, s, suffix, ops)
+	builder = bindSeriesOps(builder, s, suffix, ops)
+	builder = bindCompareOps(builder, s, suffix, ops)
+	builder = bindCompareScalarI32(builder, s, suffix, ops)
 	if ops.negate != nil {
-		bindNegate(rt, s, suffix, ops.negate)
+		builder = bindNegate(builder, s, suffix, ops.negate)
 	}
+	return builder
 }
 
 func bindElementOpsI32[T i32Scalar](
-	rt stl.HostRuntime,
-	s *state.State,
+	builder wazero.HostModuleBuilder,
+	s *State,
 	suffix string,
 	ops seriesOps[T],
-) {
+) wazero.HostModuleBuilder {
 	for _, entry := range []struct {
 		name string
 		fn   func(telem.Series, T, *telem.Series)
@@ -262,8 +253,8 @@ func bindElementOpsI32[T i32Scalar](
 		{"element_mod_", ops.modScalar},
 	} {
 		fn := entry.fn
-		stl.MustExport(rt, "series", entry.name+suffix,
-			func(_ context.Context, handle uint32, scalar uint32) uint32 {
+		builder = builder.NewFunctionBuilder().
+			WithFunc(func(_ context.Context, handle uint32, scalar uint32) uint32 {
 				ser, ok := s.Get(handle)
 				if !ok {
 					return 0
@@ -271,7 +262,7 @@ func bindElementOpsI32[T i32Scalar](
 				result := telem.Series{DataType: ser.DataType}
 				fn(ser, T(scalar), &result)
 				return s.Store(result)
-			})
+			}).Export(entry.name + suffix)
 	}
 	for _, entry := range []struct {
 		name string
@@ -282,8 +273,8 @@ func bindElementOpsI32[T i32Scalar](
 		{"element_rmod_", ops.rModScalar},
 	} {
 		fn := entry.fn
-		stl.MustExport(rt, "series", entry.name+suffix,
-			func(_ context.Context, scalar uint32, handle uint32) uint32 {
+		builder = builder.NewFunctionBuilder().
+			WithFunc(func(_ context.Context, scalar uint32, handle uint32) uint32 {
 				ser, ok := s.Get(handle)
 				if !ok {
 					return 0
@@ -291,11 +282,11 @@ func bindElementOpsI32[T i32Scalar](
 				result := telem.Series{DataType: ser.DataType}
 				fn(ser, T(scalar), &result)
 				return s.Store(result)
-			})
+			}).Export(entry.name + suffix)
 	}
 	// Reverse add and mul are commutative - reuse add/mul scalar ops
-	stl.MustExport(rt, "series", "element_radd_"+suffix,
-		func(_ context.Context, scalar uint32, handle uint32) uint32 {
+	builder = builder.NewFunctionBuilder().
+		WithFunc(func(_ context.Context, scalar uint32, handle uint32) uint32 {
 			ser, ok := s.Get(handle)
 			if !ok {
 				return 0
@@ -303,9 +294,9 @@ func bindElementOpsI32[T i32Scalar](
 			result := telem.Series{DataType: ser.DataType}
 			ops.addScalar(ser, T(scalar), &result)
 			return s.Store(result)
-		})
-	stl.MustExport(rt, "series", "element_rmul_"+suffix,
-		func(_ context.Context, scalar uint32, handle uint32) uint32 {
+		}).Export("element_radd_" + suffix)
+	builder = builder.NewFunctionBuilder().
+		WithFunc(func(_ context.Context, scalar uint32, handle uint32) uint32 {
 			ser, ok := s.Get(handle)
 			if !ok {
 				return 0
@@ -313,15 +304,16 @@ func bindElementOpsI32[T i32Scalar](
 			result := telem.Series{DataType: ser.DataType}
 			ops.mulScalar(ser, T(scalar), &result)
 			return s.Store(result)
-		})
+		}).Export("element_rmul_" + suffix)
+	return builder
 }
 
 func bindCompareScalarI32[T i32Scalar](
-	rt stl.HostRuntime,
-	s *state.State,
+	builder wazero.HostModuleBuilder,
+	s *State,
 	suffix string,
 	ops seriesOps[T],
-) {
+) wazero.HostModuleBuilder {
 	for _, entry := range []struct {
 		name string
 		fn   func(telem.Series, T, *telem.Series)
@@ -334,8 +326,8 @@ func bindCompareScalarI32[T i32Scalar](
 		{"compare_ne_scalar_", ops.neScalar},
 	} {
 		fn := entry.fn
-		stl.MustExport(rt, "series", entry.name+suffix,
-			func(_ context.Context, handle uint32, scalar uint32) uint32 {
+		builder = builder.NewFunctionBuilder().
+			WithFunc(func(_ context.Context, handle uint32, scalar uint32) uint32 {
 				ser, ok := s.Get(handle)
 				if !ok {
 					return 0
@@ -343,16 +335,17 @@ func bindCompareScalarI32[T i32Scalar](
 				result := telem.Series{DataType: telem.Uint8T}
 				fn(ser, T(scalar), &result)
 				return s.Store(result)
-			})
+			}).Export(entry.name + suffix)
 	}
+	return builder
 }
 
 func bindSeriesOps[T any](
-	rt stl.HostRuntime,
-	s *state.State,
+	builder wazero.HostModuleBuilder,
+	s *State,
 	suffix string,
 	ops seriesOps[T],
-) {
+) wazero.HostModuleBuilder {
 	for _, entry := range []struct {
 		name string
 		fn   func(telem.Series, telem.Series, *telem.Series)
@@ -366,8 +359,8 @@ func bindSeriesOps[T any](
 	} {
 		fn := entry.fn
 		opName := entry.op
-		stl.MustExport(rt, "series", entry.name+suffix,
-			func(_ context.Context, h1 uint32, h2 uint32) uint32 {
+		builder = builder.NewFunctionBuilder().
+			WithFunc(func(_ context.Context, h1 uint32, h2 uint32) uint32 {
 				s1, ok1 := s.Get(h1)
 				s2, ok2 := s.Get(h2)
 				if !ok1 || !ok2 {
@@ -379,16 +372,17 @@ func bindSeriesOps[T any](
 				result := telem.Series{DataType: s1.DataType}
 				fn(s1, s2, &result)
 				return s.Store(result)
-			})
+			}).Export(entry.name + suffix)
 	}
+	return builder
 }
 
 func bindCompareOps[T any](
-	rt stl.HostRuntime,
-	s *state.State,
+	builder wazero.HostModuleBuilder,
+	s *State,
 	suffix string,
 	ops seriesOps[T],
-) {
+) wazero.HostModuleBuilder {
 	for _, entry := range []struct {
 		name string
 		fn   func(telem.Series, telem.Series, *telem.Series)
@@ -401,8 +395,8 @@ func bindCompareOps[T any](
 		{"compare_ne_", ops.ne},
 	} {
 		fn := entry.fn
-		stl.MustExport(rt, "series", entry.name+suffix,
-			func(_ context.Context, h1 uint32, h2 uint32) uint32 {
+		builder = builder.NewFunctionBuilder().
+			WithFunc(func(_ context.Context, h1 uint32, h2 uint32) uint32 {
 				s1, ok1 := s.Get(h1)
 				s2, ok2 := s.Get(h2)
 				if !ok1 || !ok2 {
@@ -414,18 +408,19 @@ func bindCompareOps[T any](
 				result := telem.Series{DataType: telem.Uint8T}
 				fn(s1, s2, &result)
 				return s.Store(result)
-			})
+			}).Export(entry.name + suffix)
 	}
+	return builder
 }
 
 func bindNegate(
-	rt stl.HostRuntime,
-	s *state.State,
+	builder wazero.HostModuleBuilder,
+	s *State,
 	suffix string,
 	fn func(telem.Series, *telem.Series),
-) {
-	stl.MustExport(rt, "series", "negate_"+suffix,
-		func(_ context.Context, handle uint32) uint32 {
+) wazero.HostModuleBuilder {
+	builder = builder.NewFunctionBuilder().
+		WithFunc(func(_ context.Context, handle uint32) uint32 {
 			ser, ok := s.Get(handle)
 			if !ok {
 				return 0
@@ -433,39 +428,40 @@ func bindNegate(
 			result := telem.Series{DataType: ser.DataType}
 			fn(ser, &result)
 			return s.Store(result)
-		})
+		}).Export("negate_" + suffix)
+	return builder
 }
 
 // bindI64Type handles uint64 and int64 which use i64 in WASM.
 func bindI64Type[T uint64 | int64](
-	rt stl.HostRuntime,
-	s *state.State,
+	builder wazero.HostModuleBuilder,
+	s *State,
 	suffix string,
 	dt telem.DataType,
 	ops seriesOps[T],
-) {
-	stl.MustExport(rt, "series", "create_empty_"+suffix,
-		func(_ context.Context, length uint32) uint32 {
+) wazero.HostModuleBuilder {
+	builder = builder.NewFunctionBuilder().
+		WithFunc(func(_ context.Context, length uint32) uint32 {
 			return s.Store(telem.MakeSeries(dt, int(length)))
-		})
-	stl.MustExport(rt, "series", "set_element_"+suffix,
-		func(_ context.Context, handle uint32, index uint32, value uint64) uint32 {
+		}).Export("create_empty_" + suffix)
+	builder = builder.NewFunctionBuilder().
+		WithFunc(func(_ context.Context, handle uint32, index uint32, value uint64) uint32 {
 			if ser, ok := s.Get(handle); ok {
 				if int64(index) < ser.Len() {
 					telem.SetValueAt[T](ser, int(index), T(value))
 				}
 			}
 			return handle
-		})
-	stl.MustExport(rt, "series", "index_"+suffix,
-		func(_ context.Context, handle uint32, index uint32) uint64 {
+		}).Export("set_element_" + suffix)
+	builder = builder.NewFunctionBuilder().
+		WithFunc(func(_ context.Context, handle uint32, index uint32) uint64 {
 			if ser, ok := s.Get(handle); ok {
 				if int64(index) < ser.Len() {
 					return uint64(telem.ValueAt[T](ser, int(index)))
 				}
 			}
 			return 0
-		})
+		}).Export("index_" + suffix)
 
 	// Element scalar ops
 	for _, entry := range []struct {
@@ -479,8 +475,8 @@ func bindI64Type[T uint64 | int64](
 		{"element_mod_", ops.modScalar},
 	} {
 		fn := entry.fn
-		stl.MustExport(rt, "series", entry.name+suffix,
-			func(_ context.Context, handle uint32, scalar uint64) uint32 {
+		builder = builder.NewFunctionBuilder().
+			WithFunc(func(_ context.Context, handle uint32, scalar uint64) uint32 {
 				ser, ok := s.Get(handle)
 				if !ok {
 					return 0
@@ -488,7 +484,7 @@ func bindI64Type[T uint64 | int64](
 				result := telem.Series{DataType: ser.DataType}
 				fn(ser, T(scalar), &result)
 				return s.Store(result)
-			})
+			}).Export(entry.name + suffix)
 	}
 	for _, entry := range []struct {
 		name string
@@ -499,8 +495,8 @@ func bindI64Type[T uint64 | int64](
 		{"element_rmod_", ops.rModScalar},
 	} {
 		fn := entry.fn
-		stl.MustExport(rt, "series", entry.name+suffix,
-			func(_ context.Context, scalar uint64, handle uint32) uint32 {
+		builder = builder.NewFunctionBuilder().
+			WithFunc(func(_ context.Context, scalar uint64, handle uint32) uint32 {
 				ser, ok := s.Get(handle)
 				if !ok {
 					return 0
@@ -508,10 +504,10 @@ func bindI64Type[T uint64 | int64](
 				result := telem.Series{DataType: ser.DataType}
 				fn(ser, T(scalar), &result)
 				return s.Store(result)
-			})
+			}).Export(entry.name + suffix)
 	}
-	stl.MustExport(rt, "series", "element_radd_"+suffix,
-		func(_ context.Context, scalar uint64, handle uint32) uint32 {
+	builder = builder.NewFunctionBuilder().
+		WithFunc(func(_ context.Context, scalar uint64, handle uint32) uint32 {
 			ser, ok := s.Get(handle)
 			if !ok {
 				return 0
@@ -519,9 +515,9 @@ func bindI64Type[T uint64 | int64](
 			result := telem.Series{DataType: ser.DataType}
 			ops.addScalar(ser, T(scalar), &result)
 			return s.Store(result)
-		})
-	stl.MustExport(rt, "series", "element_rmul_"+suffix,
-		func(_ context.Context, scalar uint64, handle uint32) uint32 {
+		}).Export("element_radd_" + suffix)
+	builder = builder.NewFunctionBuilder().
+		WithFunc(func(_ context.Context, scalar uint64, handle uint32) uint32 {
 			ser, ok := s.Get(handle)
 			if !ok {
 				return 0
@@ -529,7 +525,7 @@ func bindI64Type[T uint64 | int64](
 			result := telem.Series{DataType: ser.DataType}
 			ops.mulScalar(ser, T(scalar), &result)
 			return s.Store(result)
-		})
+		}).Export("element_rmul_" + suffix)
 
 	// Scalar comparisons for i64 types
 	for _, entry := range []struct {
@@ -544,8 +540,8 @@ func bindI64Type[T uint64 | int64](
 		{"compare_ne_scalar_", ops.neScalar},
 	} {
 		fn := entry.fn
-		stl.MustExport(rt, "series", entry.name+suffix,
-			func(_ context.Context, handle uint32, scalar uint64) uint32 {
+		builder = builder.NewFunctionBuilder().
+			WithFunc(func(_ context.Context, handle uint32, scalar uint64) uint32 {
 				ser, ok := s.Get(handle)
 				if !ok {
 					return 0
@@ -553,46 +549,47 @@ func bindI64Type[T uint64 | int64](
 				result := telem.Series{DataType: telem.Uint8T}
 				fn(ser, T(scalar), &result)
 				return s.Store(result)
-			})
+			}).Export(entry.name + suffix)
 	}
 
-	bindSeriesOps(rt, s, suffix, ops)
-	bindCompareOps(rt, s, suffix, ops)
+	builder = bindSeriesOps(builder, s, suffix, ops)
+	builder = bindCompareOps(builder, s, suffix, ops)
 	if ops.negate != nil {
-		bindNegate(rt, s, suffix, ops.negate)
+		builder = bindNegate(builder, s, suffix, ops.negate)
 	}
+	return builder
 }
 
 // bindFloatType handles f32 or f64.
 func bindFloatType[T float32 | float64](
-	rt stl.HostRuntime,
-	s *state.State,
+	builder wazero.HostModuleBuilder,
+	s *State,
 	suffix string,
 	dt telem.DataType,
 	ops seriesOps[T],
-) {
-	stl.MustExport(rt, "series", "create_empty_"+suffix,
-		func(_ context.Context, length uint32) uint32 {
+) wazero.HostModuleBuilder {
+	builder = builder.NewFunctionBuilder().
+		WithFunc(func(_ context.Context, length uint32) uint32 {
 			return s.Store(telem.MakeSeries(dt, int(length)))
-		})
-	stl.MustExport(rt, "series", "set_element_"+suffix,
-		func(_ context.Context, handle uint32, index uint32, value T) uint32 {
+		}).Export("create_empty_" + suffix)
+	builder = builder.NewFunctionBuilder().
+		WithFunc(func(_ context.Context, handle uint32, index uint32, value T) uint32 {
 			if ser, ok := s.Get(handle); ok {
 				if int64(index) < ser.Len() {
 					telem.SetValueAt[T](ser, int(index), value)
 				}
 			}
 			return handle
-		})
-	stl.MustExport(rt, "series", "index_"+suffix,
-		func(_ context.Context, handle uint32, index uint32) T {
+		}).Export("set_element_" + suffix)
+	builder = builder.NewFunctionBuilder().
+		WithFunc(func(_ context.Context, handle uint32, index uint32) T {
 			if ser, ok := s.Get(handle); ok {
 				if int64(index) < ser.Len() {
 					return telem.ValueAt[T](ser, int(index))
 				}
 			}
 			return 0
-		})
+		}).Export("index_" + suffix)
 
 	// Element scalar ops
 	for _, entry := range []struct {
@@ -606,8 +603,8 @@ func bindFloatType[T float32 | float64](
 		{"element_mod_", ops.modScalar},
 	} {
 		fn := entry.fn
-		stl.MustExport(rt, "series", entry.name+suffix,
-			func(_ context.Context, handle uint32, scalar T) uint32 {
+		builder = builder.NewFunctionBuilder().
+			WithFunc(func(_ context.Context, handle uint32, scalar T) uint32 {
 				ser, ok := s.Get(handle)
 				if !ok {
 					return 0
@@ -615,7 +612,7 @@ func bindFloatType[T float32 | float64](
 				result := telem.Series{DataType: ser.DataType}
 				fn(ser, scalar, &result)
 				return s.Store(result)
-			})
+			}).Export(entry.name + suffix)
 	}
 	for _, entry := range []struct {
 		name string
@@ -626,8 +623,8 @@ func bindFloatType[T float32 | float64](
 		{"element_rmod_", ops.rModScalar},
 	} {
 		fn := entry.fn
-		stl.MustExport(rt, "series", entry.name+suffix,
-			func(_ context.Context, scalar T, handle uint32) uint32 {
+		builder = builder.NewFunctionBuilder().
+			WithFunc(func(_ context.Context, scalar T, handle uint32) uint32 {
 				ser, ok := s.Get(handle)
 				if !ok {
 					return 0
@@ -635,10 +632,10 @@ func bindFloatType[T float32 | float64](
 				result := telem.Series{DataType: ser.DataType}
 				fn(ser, scalar, &result)
 				return s.Store(result)
-			})
+			}).Export(entry.name + suffix)
 	}
-	stl.MustExport(rt, "series", "element_radd_"+suffix,
-		func(_ context.Context, scalar T, handle uint32) uint32 {
+	builder = builder.NewFunctionBuilder().
+		WithFunc(func(_ context.Context, scalar T, handle uint32) uint32 {
 			ser, ok := s.Get(handle)
 			if !ok {
 				return 0
@@ -646,9 +643,9 @@ func bindFloatType[T float32 | float64](
 			result := telem.Series{DataType: ser.DataType}
 			ops.addScalar(ser, scalar, &result)
 			return s.Store(result)
-		})
-	stl.MustExport(rt, "series", "element_rmul_"+suffix,
-		func(_ context.Context, scalar T, handle uint32) uint32 {
+		}).Export("element_radd_" + suffix)
+	builder = builder.NewFunctionBuilder().
+		WithFunc(func(_ context.Context, scalar T, handle uint32) uint32 {
 			ser, ok := s.Get(handle)
 			if !ok {
 				return 0
@@ -656,7 +653,7 @@ func bindFloatType[T float32 | float64](
 			result := telem.Series{DataType: ser.DataType}
 			ops.mulScalar(ser, scalar, &result)
 			return s.Store(result)
-		})
+		}).Export("element_rmul_" + suffix)
 
 	// Scalar comparisons for float types
 	for _, entry := range []struct {
@@ -671,8 +668,8 @@ func bindFloatType[T float32 | float64](
 		{"compare_ne_scalar_", ops.neScalar},
 	} {
 		fn := entry.fn
-		stl.MustExport(rt, "series", entry.name+suffix,
-			func(_ context.Context, handle uint32, scalar T) uint32 {
+		builder = builder.NewFunctionBuilder().
+			WithFunc(func(_ context.Context, handle uint32, scalar T) uint32 {
 				ser, ok := s.Get(handle)
 				if !ok {
 					return 0
@@ -680,18 +677,19 @@ func bindFloatType[T float32 | float64](
 				result := telem.Series{DataType: telem.Uint8T}
 				fn(ser, scalar, &result)
 				return s.Store(result)
-			})
+			}).Export(entry.name + suffix)
 	}
 
-	bindSeriesOps(rt, s, suffix, ops)
-	bindCompareOps(rt, s, suffix, ops)
+	builder = bindSeriesOps(builder, s, suffix, ops)
+	builder = bindCompareOps(builder, s, suffix, ops)
 	if ops.negate != nil {
-		bindNegate(rt, s, suffix, ops.negate)
+		builder = bindNegate(builder, s, suffix, ops.negate)
 	}
+	return builder
 }
 
-func bindU8(rt stl.HostRuntime, s *state.State) {
-	bindI32Type[uint8](rt, s, "u8", seriesOps[uint8]{
+func bindU8(builder wazero.HostModuleBuilder, s *State) wazero.HostModuleBuilder {
+	return bindI32Type[uint8](builder, s, "u8", seriesOps[uint8]{
 		dt:        telem.Uint8T,
 		addScalar: op.AddScalarU8, subScalar: op.SubtractScalarU8,
 		mulScalar: op.MultiplyScalarU8, divScalar: op.DivideScalarU8,
@@ -710,8 +708,8 @@ func bindU8(rt stl.HostRuntime, s *state.State) {
 	})
 }
 
-func bindU16(rt stl.HostRuntime, s *state.State) {
-	bindI32Type[uint16](rt, s, "u16", seriesOps[uint16]{
+func bindU16(builder wazero.HostModuleBuilder, s *State) wazero.HostModuleBuilder {
+	return bindI32Type[uint16](builder, s, "u16", seriesOps[uint16]{
 		dt:        telem.Uint16T,
 		addScalar: op.AddScalarU16, subScalar: op.SubtractScalarU16,
 		mulScalar: op.MultiplyScalarU16, divScalar: op.DivideScalarU16,
@@ -730,8 +728,8 @@ func bindU16(rt stl.HostRuntime, s *state.State) {
 	})
 }
 
-func bindU32(rt stl.HostRuntime, s *state.State) {
-	bindI32Type[uint32](rt, s, "u32", seriesOps[uint32]{
+func bindU32(builder wazero.HostModuleBuilder, s *State) wazero.HostModuleBuilder {
+	return bindI32Type[uint32](builder, s, "u32", seriesOps[uint32]{
 		dt:        telem.Uint32T,
 		addScalar: op.AddScalarU32, subScalar: op.SubtractScalarU32,
 		mulScalar: op.MultiplyScalarU32, divScalar: op.DivideScalarU32,
@@ -750,8 +748,8 @@ func bindU32(rt stl.HostRuntime, s *state.State) {
 	})
 }
 
-func bindI8(rt stl.HostRuntime, s *state.State) {
-	bindI32Type[int8](rt, s, "i8", seriesOps[int8]{
+func bindI8(builder wazero.HostModuleBuilder, s *State) wazero.HostModuleBuilder {
+	return bindI32Type[int8](builder, s, "i8", seriesOps[int8]{
 		dt:        telem.Int8T,
 		addScalar: op.AddScalarI8, subScalar: op.SubtractScalarI8,
 		mulScalar: op.MultiplyScalarI8, divScalar: op.DivideScalarI8,
@@ -771,8 +769,8 @@ func bindI8(rt stl.HostRuntime, s *state.State) {
 	})
 }
 
-func bindI16(rt stl.HostRuntime, s *state.State) {
-	bindI32Type[int16](rt, s, "i16", seriesOps[int16]{
+func bindI16(builder wazero.HostModuleBuilder, s *State) wazero.HostModuleBuilder {
+	return bindI32Type[int16](builder, s, "i16", seriesOps[int16]{
 		dt:        telem.Int16T,
 		addScalar: op.AddScalarI16, subScalar: op.SubtractScalarI16,
 		mulScalar: op.MultiplyScalarI16, divScalar: op.DivideScalarI16,
@@ -792,8 +790,8 @@ func bindI16(rt stl.HostRuntime, s *state.State) {
 	})
 }
 
-func bindI32(rt stl.HostRuntime, s *state.State) {
-	bindI32Type[int32](rt, s, "i32", seriesOps[int32]{
+func bindI32(builder wazero.HostModuleBuilder, s *State) wazero.HostModuleBuilder {
+	return bindI32Type[int32](builder, s, "i32", seriesOps[int32]{
 		dt:        telem.Int32T,
 		addScalar: op.AddScalarI32, subScalar: op.SubtractScalarI32,
 		mulScalar: op.MultiplyScalarI32, divScalar: op.DivideScalarI32,
@@ -813,8 +811,8 @@ func bindI32(rt stl.HostRuntime, s *state.State) {
 	})
 }
 
-func bindU64(rt stl.HostRuntime, s *state.State) {
-	bindI64Type[uint64](rt, s, "u64", telem.Uint64T, seriesOps[uint64]{
+func bindU64(builder wazero.HostModuleBuilder, s *State) wazero.HostModuleBuilder {
+	return bindI64Type[uint64](builder, s, "u64", telem.Uint64T, seriesOps[uint64]{
 		dt:        telem.Uint64T,
 		addScalar: op.AddScalarU64, subScalar: op.SubtractScalarU64,
 		mulScalar: op.MultiplyScalarU64, divScalar: op.DivideScalarU64,
@@ -833,8 +831,8 @@ func bindU64(rt stl.HostRuntime, s *state.State) {
 	})
 }
 
-func bindI64(rt stl.HostRuntime, s *state.State) {
-	bindI64Type[int64](rt, s, "i64", telem.Int64T, seriesOps[int64]{
+func bindI64(builder wazero.HostModuleBuilder, s *State) wazero.HostModuleBuilder {
+	return bindI64Type[int64](builder, s, "i64", telem.Int64T, seriesOps[int64]{
 		dt:        telem.Int64T,
 		addScalar: op.AddScalarI64, subScalar: op.SubtractScalarI64,
 		mulScalar: op.MultiplyScalarI64, divScalar: op.DivideScalarI64,
@@ -854,8 +852,8 @@ func bindI64(rt stl.HostRuntime, s *state.State) {
 	})
 }
 
-func bindF32(rt stl.HostRuntime, s *state.State) {
-	bindFloatType[float32](rt, s, "f32", telem.Float32T, seriesOps[float32]{
+func bindF32(builder wazero.HostModuleBuilder, s *State) wazero.HostModuleBuilder {
+	return bindFloatType[float32](builder, s, "f32", telem.Float32T, seriesOps[float32]{
 		dt:        telem.Float32T,
 		addScalar: op.AddScalarF32, subScalar: op.SubtractScalarF32,
 		mulScalar: op.MultiplyScalarF32, divScalar: op.DivideScalarF32,
@@ -875,8 +873,8 @@ func bindF32(rt stl.HostRuntime, s *state.State) {
 	})
 }
 
-func bindF64(rt stl.HostRuntime, s *state.State) {
-	bindFloatType[float64](rt, s, "f64", telem.Float64T, seriesOps[float64]{
+func bindF64(builder wazero.HostModuleBuilder, s *State) wazero.HostModuleBuilder {
+	return bindFloatType[float64](builder, s, "f64", telem.Float64T, seriesOps[float64]{
 		dt:        telem.Float64T,
 		addScalar: op.AddScalarF64, subScalar: op.SubtractScalarF64,
 		mulScalar: op.MultiplyScalarF64, divScalar: op.DivideScalarF64,
@@ -895,5 +893,3 @@ func bindF64(rt stl.HostRuntime, s *state.State) {
 		negate: op.NegateF64,
 	})
 }
-
-var _ stl.Module = (*Module)(nil)
