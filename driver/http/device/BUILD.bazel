@@ -20,7 +20,6 @@ cc_library(
 cc_test(
     name = "device_test",
     srcs = ["device_test.cpp"],
-    linkstatic = True,
     visibility = ["//visibility:public"],
     deps = [
         ":device",
