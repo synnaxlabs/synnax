@@ -13,7 +13,9 @@
 #include "glog/logging.h"
 
 #include "x/cpp/json/json.h"
+#include "x/cpp/status/status.h"
 
+#include "driver/http/errors/errors.h"
 #include "driver/http/scan_task.h"
 
 namespace driver::http {
@@ -54,8 +56,8 @@ bool Scanner::exec(
     return false;
 }
 
-/// @brief validates the response body against the health check's expected
-/// response config.
+/// @brief validates the response body against the health check's expected response
+/// config.
 /// @returns empty string on success, error message on failure.
 static std::string
 validate_health_response(const HealthCheckConfig &hc, const Response &resp) {
@@ -100,28 +102,28 @@ void Scanner::check_device_health(synnax::device::Device &dev) const {
     const auto hc = HealthCheckConfig(parser.child("health_check"));
 
     auto request = device::build_request(conn, hc.request);
-    if (!hc.body.empty()) request.body = hc.body;
+    if (!hc.body.empty()) request.body = std::move(hc.body);
     auto [resp, err] = this->processor->execute(request);
     if (err) {
         dev.status = synnax::device::Status{
             .key = dev.status_key(),
             .name = dev.name,
             .variant = x::status::VARIANT_WARNING,
-            .message = "Failed to reach device",
+            .message = "Failed to reach server",
             .description = err.message(),
             .time = x::telem::TimeStamp::now(),
             .details = {.rack = rack_key, .device = dev.key},
         };
         return;
     }
-
-    if (resp.status_code < 200 || resp.status_code >= 300) {
+    const auto error = errors::classify_status(resp.status_code);
+    if (error) {
         dev.status = synnax::device::Status{
             .key = dev.status_key(),
             .name = dev.name,
-            .variant = x::status::VARIANT_WARNING,
-            .message = "Health check returned status " +
-                       std::to_string(resp.status_code),
+            .variant = x::status::VARIANT_ERROR,
+            .message = "HTTP " + std::to_string(resp.status_code),
+            .description = resp.body,
             .time = x::telem::TimeStamp::now(),
             .details = {.rack = rack_key, .device = dev.key},
         };
@@ -167,19 +169,28 @@ void Scanner::test_connection(const task::Command &cmd) const {
     };
     if (!parser.ok()) {
         status.message = "Failed to parse test command";
-        status.details.data = parser.error_json();
+        status.description = parser.error().message();
         return ctx->set_status(status);
     }
     auto request = device::build_request(args.connection, args.health_check.request);
-    if (!args.health_check.body.empty()) request.body = args.health_check.body;
+    if (!args.health_check.body.empty()) request.body = std::move(args.health_check.body);
     auto [resp, err] = this->processor->execute(request);
     if (err) {
-        status.message = err.data;
+        status.message = "Failed to execute HTTP request";
+        status.description = err.message();
         return ctx->set_status(status);
     }
+    const auto status_err = errors::classify_status(resp.status_code);
+    if (status_err) {
+        status.message = "HTTP " + std::to_string(resp.status_code);
+        status.description = resp.body;
+        return ctx->set_status(status);
+    }
+
     const auto validation_err = validate_health_response(args.health_check, resp);
     if (!validation_err.empty()) {
-        status.message = validation_err;
+        status.message = "Invalid health check response";
+        status.description = validation_err;
         return ctx->set_status(status);
     }
     status.variant = x::status::VARIANT_SUCCESS;

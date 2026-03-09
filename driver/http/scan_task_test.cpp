@@ -350,8 +350,8 @@ TEST(HTTPScanTask, ScanFailsOnNon2xxStatus) {
 
     const auto result = ASSERT_NIL_P(scanner.scan(scan_ctx));
     ASSERT_EQ(result.size(), 1);
-    EXPECT_EQ(result[0].status.variant, x::status::VARIANT_WARNING);
-    EXPECT_EQ(result[0].status.message, "Health check returned status 503");
+    EXPECT_EQ(result[0].status.variant, x::status::VARIANT_ERROR);
+    EXPECT_EQ(result[0].status.message, "HTTP 503");
 
     server.stop();
 }
@@ -393,7 +393,7 @@ TEST(HTTPScanTask, ScanRepeatedScans) {
     const auto result = ASSERT_NIL_P(scanner.scan(scan_ctx));
     ASSERT_EQ(result.size(), 1);
     EXPECT_EQ(result[0].status.variant, x::status::VARIANT_WARNING);
-    EXPECT_EQ(result[0].status.message, "Failed to reach device");
+    EXPECT_EQ(result[0].status.message, "Failed to reach server");
 }
 
 TEST(HTTPScanTask, ScanUnreachableDevice) {
@@ -414,7 +414,7 @@ TEST(HTTPScanTask, ScanUnreachableDevice) {
     const auto result = ASSERT_NIL_P(scanner.scan(scan_ctx));
     ASSERT_EQ(result.size(), 1);
     EXPECT_EQ(result[0].status.variant, x::status::VARIANT_WARNING);
-    EXPECT_EQ(result[0].status.message, "Failed to reach device");
+    EXPECT_EQ(result[0].status.message, "Failed to reach server");
 }
 
 TEST(HTTPScanTask, ScanHealthCheckValidationFailure) {
@@ -816,6 +816,11 @@ TEST(HTTPScanTask, TestConnectionUnreachable) {
     EXPECT_TRUE(scanner.exec(cmd, task, ctx));
     ASSERT_FALSE(ctx->statuses.empty());
     EXPECT_EQ(ctx->statuses.back().variant, x::status::VARIANT_ERROR);
+    EXPECT_EQ(ctx->statuses.back().message, "Failed to execute HTTP request");
+    EXPECT_NE(
+        ctx->statuses.back().description.find("Could not connect to server"),
+        std::string::npos
+    );
 }
 
 TEST(HTTPScanTask, TestConnectionValidationFailure) {
@@ -863,6 +868,58 @@ TEST(HTTPScanTask, TestConnectionValidationFailure) {
     EXPECT_TRUE(scanner.exec(cmd, task, ctx));
     ASSERT_FALSE(ctx->statuses.empty());
     EXPECT_EQ(ctx->statuses.back().variant, x::status::VARIANT_ERROR);
+    EXPECT_EQ(ctx->statuses.back().message, "Invalid health check response");
+    EXPECT_EQ(
+        ctx->statuses.back().description,
+        "expected value at '/status' to be \"ok\", got \"bad\""
+    );
+
+    server.stop();
+}
+
+TEST(HTTPScanTask, TestConnectionNon2xxStatus) {
+    mock::Server server(
+        mock::ServerConfig{
+            .routes = {{
+                .method = Method::GET,
+                .path = "/health",
+                .status_code = 503,
+                .response_body = "Service Unavailable",
+            }},
+        }
+    );
+    ASSERT_NIL(server.start());
+
+    synnax::task::Task task;
+    task.key = synnax::task::create_key(1, 100);
+    task.name = "HTTP Scanner";
+
+    auto ctx = std::make_shared<task::MockContext>(nullptr);
+    auto processor = std::make_shared<Processor>();
+    Scanner scanner(ctx, task, processor);
+
+    task::Command cmd;
+    cmd.type = TEST_CONNECTION_CMD_TYPE;
+    cmd.key = "cmd-1";
+    cmd.args = {
+        {"connection",
+         {
+             {"base_url", server.base_url()},
+             {"timeout_ms", 1000},
+             {"verify_ssl", false},
+         }},
+        {"health_check",
+         {
+             {"method", "GET"},
+             {"path", "/health"},
+         }},
+    };
+
+    EXPECT_TRUE(scanner.exec(cmd, task, ctx));
+    ASSERT_FALSE(ctx->statuses.empty());
+    EXPECT_EQ(ctx->statuses.back().variant, x::status::VARIANT_ERROR);
+    EXPECT_EQ(ctx->statuses.back().message, "HTTP 503");
+    EXPECT_EQ(ctx->statuses.back().description, "Service Unavailable");
 
     server.stop();
 }
@@ -899,6 +956,14 @@ TEST(HTTPScanTask, TestConnectionInvalidArgs) {
     ASSERT_FALSE(ctx->statuses.empty());
     EXPECT_EQ(ctx->statuses.back().variant, x::status::VARIANT_ERROR);
     EXPECT_EQ(ctx->statuses.back().message, "Failed to parse test command");
+    EXPECT_NE(
+        ctx->statuses.back().description.find("connection"),
+        std::string::npos
+    );
+    EXPECT_NE(
+        ctx->statuses.back().description.find("health_check"),
+        std::string::npos
+    );
 }
 
 }
