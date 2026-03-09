@@ -15,29 +15,15 @@ import { Common } from "@/hardware/common";
 
 export const PREFIX = "http";
 
-// --- Scan task types (internal, used by Connect dialog) ---
-
 export const SCAN_TYPE = `${PREFIX}_scan`;
 
 export const TEST_CONNECTION_COMMAND_TYPE = "test_connection";
 
-const scanTypeZ = z.literal(SCAN_TYPE);
-
-const scanConfigZ = z.object({}).or(z.null());
-
-const scanStatusDataZ = z.object({}).or(z.null());
-
-export const SCAN_SCHEMAS: task.Schemas<
-  typeof scanTypeZ,
-  typeof scanConfigZ,
-  typeof scanStatusDataZ
-> = {
-  typeSchema: scanTypeZ,
-  configSchema: scanConfigZ,
-  statusDataSchema: scanStatusDataZ,
-};
-
-// --- Read task types ---
+export const SCAN_SCHEMAS = {
+  typeSchema: z.literal(SCAN_TYPE),
+  configSchema: z.null(),
+  statusDataSchema: z.null(),
+} as const satisfies task.Schemas;
 
 const timeFormatZ = z.enum(["iso8601", "unix_sec", "unix_ms", "unix_us", "unix_ns"]);
 
