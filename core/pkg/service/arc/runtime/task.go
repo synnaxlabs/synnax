@@ -385,7 +385,9 @@ func (r *tickerRuntime) Flow(sCtx signal.Context, opts ...confluence.Option) {
 	sCtx.Go(func(ctx context.Context) error {
 		var (
 			runReason node.RunReason
-			timer     = stdtime.NewTimer(0)
+			// Fire immediately so timer nodes seed their first deadline
+		// even when no streaming input is connected.
+		timer = stdtime.NewTimer(0)
 			res       framer.StreamerResponse
 			ok        bool
 		)
