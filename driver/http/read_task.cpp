@@ -83,7 +83,10 @@ std::pair<ReadTaskConfig, x::errors::Error> ReadTaskConfig::parse(
     });
 
     if (enabled_field_keys.empty()) {
-        parser.field_err("endpoints", "at least one endpoint with enabled fields is required");
+        parser.field_err(
+            "endpoints",
+            "at least one endpoint with enabled fields is required"
+        );
     }
 
     if (!parser.ok()) return {std::move(cfg), parser.error()};
@@ -145,6 +148,40 @@ std::pair<ReadTaskConfig, x::errors::Error> ReadTaskConfig::parse(
 
     if (!parser.ok()) return {std::move(cfg), parser.error()};
 
+    // Build sampling groups: fields sharing an index channel must be written
+    // atomically. Fields with no index (ch.index == 0) get their own group.
+    std::map<std::pair<int, synnax::channel::Key>, size_t> group_map;
+    for (int ei = 0; ei < static_cast<int>(cfg.endpoints.size()); ei++) {
+        const auto &ep = cfg.endpoints[ei];
+        for (size_t fi = 0; fi < ep.fields.size(); fi++) {
+            const auto &field = ep.fields[fi];
+            if (!field.enabled) continue;
+            const auto &ch = cfg.channels.at(field.channel_key);
+            if (ch.index == 0) {
+                cfg.groups.push_back({
+                    .index_key = 0,
+                    .software_timed_index = false,
+                    .endpoint_index = static_cast<size_t>(ei),
+                    .field_indices = {fi},
+                });
+                continue;
+            }
+            auto key = std::make_pair(ei, ch.index);
+            auto [it, inserted] = group_map.try_emplace(key, cfg.groups.size());
+            if (inserted) {
+                cfg.groups.push_back({
+                    .index_key = ch.index,
+                    .software_timed_index = cfg.software_timed_indexes.count(ch.index) >
+                                            0,
+                    .endpoint_index = static_cast<size_t>(ei),
+                    .field_indices = {fi},
+                });
+            } else {
+                cfg.groups[it->second].field_indices.push_back(fi);
+            }
+        }
+    }
+
     return {std::move(cfg), x::errors::NIL};
 }
 
@@ -198,11 +235,12 @@ ReadTaskSource::read(x::breaker::Breaker &breaker, x::telem::Frame &fr) {
 
     std::vector<std::string> warnings;
 
+    // Parse all response bodies up front so sampling groups can reference them.
+    std::vector<bool> ep_parsed(cfg.endpoints.size(), false);
     for (size_t ei = 0; ei < cfg.endpoints.size(); ei++) {
         const auto &ep = cfg.endpoints[ei];
         auto &[resp, req_err] = results[ei];
 
-        // Transport-level errors are fatal — the endpoint is unreachable.
         if (req_err) {
             res.error = req_err;
             return res;
@@ -213,31 +251,39 @@ ReadTaskSource::read(x::breaker::Breaker &breaker, x::telem::Frame &fr) {
             return res;
         }
 
-        // If the entire response body is unparseable, skip all fields on this
-        // endpoint but keep going.
-        bool ep_parsed = true;
         try {
             parsed_bodies[ei] = x::json::json::parse(resp.body);
+            ep_parsed[ei] = true;
         } catch (const x::json::json::parse_error &e) {
             warnings.push_back(
                 "failed to parse response from " + ep.request.path + ": " + e.what()
             );
-            ep_parsed = false;
         }
+    }
 
-        if (!ep_parsed) continue;
+    // Process each sampling group atomically: either all fields in the group
+    // succeed and are written to the frame, or the entire group is skipped.
+    for (const auto &group: cfg.groups) {
+        const auto ei = group.endpoint_index;
+        if (!ep_parsed[ei]) continue;
+
+        const auto &ep = cfg.endpoints[ei];
         const auto &body = parsed_bodies[ei];
-        bool any_field_ok = false;
+        const auto &resp = results[ei].first;
 
-        for (const auto &field: ep.fields) {
-            if (!field.enabled) continue;
+        bool group_ok = true;
+        std::vector<std::pair<synnax::channel::Key, x::telem::Series>> group_data;
+        group_data.reserve(group.field_indices.size());
 
+        for (const auto fi: group.field_indices) {
+            const auto &field = ep.fields[fi];
             if (!body.contains(field.pointer)) {
                 warnings.push_back(
                     "field " + field.pointer.to_string() +
                     " not found in response from " + ep.request.path
                 );
-                continue;
+                group_ok = false;
+                break;
             }
 
             const auto &ch = cfg.channels.at(field.channel_key);
@@ -259,25 +305,26 @@ ReadTaskSource::read(x::breaker::Breaker &breaker, x::telem::Frame &fr) {
                     "failed to convert " + field.pointer.to_string() + " for channel " +
                     ch.name + ": " + conv_err.message()
                 );
-                continue;
+                group_ok = false;
+                break;
             }
 
-            fr.emplace(field.channel_key, x::telem::Series(sample_val));
-            any_field_ok = true;
+            group_data.emplace_back(field.channel_key, x::telem::Series(sample_val));
         }
 
-        // Only write software-timed index timestamps if at least one field on
-        // this endpoint was successfully parsed.
-        if (!any_field_ok) continue;
-        for (const auto &[idx_key, ep_idx]: cfg.software_timed_indexes) {
-            if (ep_idx != static_cast<int>(ei)) continue;
+        if (!group_ok) continue;
+
+        for (auto &[key, series]: group_data)
+            fr.emplace(key, std::move(series));
+
+        if (group.software_timed_index) {
             auto ts = x::telem::TimeStamp::midpoint(
                 resp.time_range.start,
                 resp.time_range.end
             );
             auto s = x::telem::Series(x::telem::TIMESTAMP_T, 1);
             s.write(ts);
-            fr.emplace(idx_key, std::move(s));
+            fr.emplace(group.index_key, std::move(s));
         }
     }
 
