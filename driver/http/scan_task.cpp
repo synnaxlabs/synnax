@@ -116,7 +116,7 @@ void Scanner::check_device_health(synnax::device::Device &dev) const {
         };
         return;
     }
-    const auto error = errors::classify_status(resp.status_code);
+    const auto error = errors::from_status(resp.status_code);
     if (error) {
         dev.status = synnax::device::Status{
             .key = dev.status_key(),
@@ -181,7 +181,7 @@ void Scanner::test_connection(const task::Command &cmd) const {
         status.description = err.message();
         return ctx->set_status(status);
     }
-    const auto status_err = errors::classify_status(resp.status_code);
+    const auto status_err = errors::from_status(resp.status_code);
     if (status_err) {
         status.message = "HTTP " + std::to_string(resp.status_code);
         status.description = resp.body;
