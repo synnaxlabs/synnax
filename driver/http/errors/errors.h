@@ -29,5 +29,5 @@ const x::errors::Error UNREACHABLE_ERROR = TEMPORARY_ERROR.sub("unreachable");
 /// @param status_code the HTTP response status code.
 /// @returns nil for 2xx, TEMPORARY_ERROR for retryable codes (404, 408, 429, 5xx),
 /// CRITICAL_ERROR for permanent failures (other 4xx, 3xx, etc.).
-[[nodiscard]] x::errors::Error classify_status(int status_code);
+[[nodiscard]] x::errors::Error from_status(int status_code);
 }
