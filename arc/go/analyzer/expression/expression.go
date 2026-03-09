@@ -201,6 +201,14 @@ func validateType[T antlr.ParserRuleContext, N antlr.ParserRuleContext](
 				ctx.Diagnostics.Add(diagnostics.Error(err, ctx.AST))
 				return
 			}
+			// When the first operand is a literal (type variable) and we encounter
+			// a concrete type, adopt it so subsequent operands are checked against
+			// the concrete type rather than the permissive constraint. Without this,
+			// `1000.0 - f32_ch + f64_ch` would pass because both f32 and f64
+			// individually satisfy FloatConstraint, even though f32 != f64.
+			if firstType.Kind == basetypes.KindVariable && nextType.Kind != basetypes.KindVariable {
+				firstType = nextType
+			}
 		} else {
 			// Unit compatibility is already validated above by units.ValidateBinaryOp
 			if !types.Compatible(firstType, nextType) {
