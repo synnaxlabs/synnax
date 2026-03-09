@@ -15,14 +15,14 @@
 
 namespace driver::http::errors {
 
-#define STATUS_TEST(code, expected_err) \
-    TEST(FromStatus, Status##code##Returns##expected_err) { \
-        ASSERT_OCCURRED_AS(from_status(code), expected_err); \
+#define STATUS_TEST(code, expected_err)                                                \
+    TEST(FromStatus, Status##code##Returns##expected_err) {                            \
+        ASSERT_OCCURRED_AS(from_status(code), expected_err);                           \
     }
 
-#define STATUS_TEST_NIL(code) \
-    TEST(FromStatus, Status##code##ReturnsNil) { \
-        ASSERT_NIL(from_status(code)); \
+#define STATUS_TEST_NIL(code)                                                          \
+    TEST(FromStatus, Status##code##ReturnsNil) {                                       \
+        ASSERT_NIL(from_status(code));                                                 \
     }
 
 STATUS_TEST(000, CRITICAL_ERROR)
