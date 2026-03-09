@@ -135,7 +135,7 @@ void Scanner::check_device_health(synnax::device::Device &dev) const {
         dev.status = synnax::device::Status{
             .key = dev.status_key(),
             .name = dev.name,
-            .variant = x::status::VARIANT_WARNING,
+            .variant = x::status::VARIANT_ERROR,
             .message = "Health check validation failed",
             .description = validation_err,
             .time = x::telem::TimeStamp::now(),
@@ -173,7 +173,8 @@ void Scanner::test_connection(const task::Command &cmd) const {
         return ctx->set_status(status);
     }
     auto request = device::build_request(args.connection, args.health_check.request);
-    if (!args.health_check.body.empty()) request.body = std::move(args.health_check.body);
+    if (!args.health_check.body.empty())
+        request.body = std::move(args.health_check.body);
     auto [resp, err] = this->processor->execute(request);
     if (err) {
         status.message = "Failed to execute HTTP request";
