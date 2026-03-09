@@ -462,6 +462,165 @@ class NIReadCurrentVoltage(NIAnalogReadTaskCase):
         ]
 
 
+class NIReadVoltageUSB(NIAnalogReadTaskCase):
+    """Read voltage on USB-6000.
+
+    The USB-6000 has 8 single-ended (RSE) analog inputs at 10 kS/s max.
+
+    Port 0: RSE, +/- 10V
+    Port 1: RSE, +/- 10V
+    """
+
+    task_name = "NI Voltage Read (USB-6000)"
+    device_locations = ["USB-6000"]
+
+    SAMPLE_RATE = 1000 * sy.Rate.HZ
+    STREAM_RATE = 50 * sy.Rate.HZ
+
+    @staticmethod
+    def create_channels(
+        client: sy.Synnax, devices: dict[str, sy.Device]
+    ) -> list[sy.ni.AIVoltageChan]:
+        idx = create_index(client, "ni_usb6000_index")
+        return [
+            sy.ni.AIVoltageChan(
+                port=0,
+                channel=create_channel(
+                    client,
+                    name="ni_usb6000_ai0",
+                    data_type=sy.DataType.FLOAT32,
+                    index=idx.key,
+                ),
+                terminal_config="RSE",
+                min_val=-10.0,
+                max_val=10.0,
+            ),
+            sy.ni.AIVoltageChan(
+                port=1,
+                channel=create_channel(
+                    client,
+                    name="ni_usb6000_ai1",
+                    data_type=sy.DataType.FLOAT32,
+                    index=idx.key,
+                ),
+                terminal_config="RSE",
+                min_val=-10.0,
+                max_val=10.0,
+            ),
+        ]
+
+
+class NIReadVoltageDiffNRSE(NIAnalogReadTaskCase):
+    """Read voltage with differential and NRSE terminal configs on NI 9206.
+
+    NI 9206: 16 differential / 32 single-ended channels, 250 kS/s aggregate,
+    +/-200mV to +/-10V programmable ranges, 16-bit.
+
+    Port 0: Differential, +/- 10V
+    Port 1: Differential, +/- 5V
+    Port 2: NRSE, +/- 10V
+    """
+
+    task_name = "NI Voltage Read (Diff + NRSE)"
+    device_locations = ["E102Mod1"]  # NI 9206
+
+    SAMPLE_RATE = 10000 * sy.Rate.HZ
+    STREAM_RATE = 50 * sy.Rate.HZ
+
+    @staticmethod
+    def create_channels(
+        client: sy.Synnax, devices: dict[str, sy.Device]
+    ) -> list[sy.ni.AIVoltageChan]:
+        idx = create_index(client, "ni_9206_index")
+        return [
+            sy.ni.AIVoltageChan(
+                port=0,
+                channel=create_channel(
+                    client,
+                    name="ni_9206_diff_10v",
+                    data_type=sy.DataType.FLOAT32,
+                    index=idx.key,
+                ),
+                terminal_config="Diff",
+                min_val=-10.0,
+                max_val=10.0,
+            ),
+            sy.ni.AIVoltageChan(
+                port=1,
+                channel=create_channel(
+                    client,
+                    name="ni_9206_diff_5v",
+                    data_type=sy.DataType.FLOAT32,
+                    index=idx.key,
+                ),
+                terminal_config="Diff",
+                min_val=-5.0,
+                max_val=5.0,
+            ),
+            sy.ni.AIVoltageChan(
+                port=2,
+                channel=create_channel(
+                    client,
+                    name="ni_9206_nrse_10v",
+                    data_type=sy.DataType.FLOAT32,
+                    index=idx.key,
+                ),
+                terminal_config="NRSE",
+                min_val=-10.0,
+                max_val=10.0,
+            ),
+        ]
+
+
+class NIReadVoltagePseudoDiff(NIAnalogReadTaskCase):
+    """Read voltage with pseudo-differential terminal config on NI 9234.
+
+    NI 9234: 4 channels (BNC), simultaneous sampling at up to 51.2 kS/s
+    per channel, +/-5V, 24-bit, designed for IEPE/sound & vibration.
+
+    Port 0: PseudoDiff, +/- 5V
+    Port 1: PseudoDiff, +/- 5V
+    """
+
+    task_name = "NI Voltage Read (PseudoDiff)"
+    device_locations = ["E102Mod2"]  # NI 9234
+
+    SAMPLE_RATE = 25600 * sy.Rate.HZ
+    STREAM_RATE = 50 * sy.Rate.HZ
+
+    @staticmethod
+    def create_channels(
+        client: sy.Synnax, devices: dict[str, sy.Device]
+    ) -> list[sy.ni.AIVoltageChan]:
+        idx = create_index(client, "ni_9234_index")
+        return [
+            sy.ni.AIVoltageChan(
+                port=0,
+                channel=create_channel(
+                    client,
+                    name="ni_9234_pdiff_0",
+                    data_type=sy.DataType.FLOAT32,
+                    index=idx.key,
+                ),
+                terminal_config="PseudoDiff",
+                min_val=-5.0,
+                max_val=5.0,
+            ),
+            sy.ni.AIVoltageChan(
+                port=1,
+                channel=create_channel(
+                    client,
+                    name="ni_9234_pdiff_1",
+                    data_type=sy.DataType.FLOAT32,
+                    index=idx.key,
+                ),
+                terminal_config="PseudoDiff",
+                min_val=-5.0,
+                max_val=5.0,
+            ),
+        ]
+
+
 class NIReadResistance(NIAnalogReadTaskCase):
     """Read resistance on NI 9219 (2-wire and 4-wire only, 500 uA excitation).
 
@@ -526,6 +685,40 @@ class NIReadResistance(NIAnalogReadTaskCase):
                 current_excit_val=0.0005,
                 min_val=0.0,
                 max_val=1000.0,
+            ),
+        ]
+
+
+class NIReadTempBuiltIn(NIAnalogReadTaskCase):
+    """Read built-in temperature sensor on USB-6289.
+
+    The USB-6289 has an onboard temperature sensor accessible via
+    AITempBuiltInChan. No external sensor required.
+
+    Port 0: Built-in temp, DegC
+    """
+
+    task_name = "NI Built-In Temp Read (USB-6289)"
+    device_locations = ["USB-6289"]
+
+    SAMPLE_RATE = 25 * sy.Rate.HZ
+    STREAM_RATE = 5 * sy.Rate.HZ
+
+    @staticmethod
+    def create_channels(
+        client: sy.Synnax, devices: dict[str, sy.Device]
+    ) -> list[sy.ni.AITempBuiltInChan]:
+        idx = create_index(client, "ni_temp_builtin_index")
+        return [
+            sy.ni.AITempBuiltInChan(
+                port=0,
+                channel=create_channel(
+                    client,
+                    name="ni_usb6289_temp",
+                    data_type=sy.DataType.FLOAT32,
+                    index=idx.key,
+                ),
+                units="DegC",
             ),
         ]
  

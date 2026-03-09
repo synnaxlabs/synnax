@@ -351,22 +351,22 @@ I can successfully:
   - [ ] Handle device disconnection during active tasks with appropriate feedback.
   - [ ] Start multiple tasks at different times and view live data.
   - [ ] Enabled auto-start, and ensure that the task automatically starts after configuration.
-  - [ ] Ensure no lag between sensor input and Core data recording.
-  - [ ] Configure and run an analog read task for the following channels:
-    - [ ] Current (NI-9203)
+  - [x] Ensure no lag between sensor input and Core data recording.
+  - [x] Configure and run an analog read task for the following channels:
+    - [x] Current (NI-9203)
     - [x] Resistance (NI-9219)
     - [x] RTD (NI-9217)
       - [x] All RTD types and resistance configurations.
-    - [ ] Built-in temperature sensor (USB-6289)
+    - [x] Built-in temperature sensor (USB-6289)
     - [x] Thermocouple (NI-9211A)
       - [x] All thermocouple types and CJC options.
-    - [ ] Voltage (USB-6000)
+    - [x] Voltage (USB-6000)
       - **Terminal configurations:**
-        - [ ] Default (USB-6000)
-        - [ ] Reference Single-Ended (USB-6000)
-        - [ ] Non-Referenced Single-Ended (NI-9206)
-        - [ ] Differential (NI-9206)
-        - [ ] Pseudo-Differential (NI-9234)
+        - [x] Default (USB-6000)
+        - [x] Reference Single-Ended (USB-6000)
+        - [x] Non-Referenced Single-Ended (NI-9206)
+        - [x] Differential (NI-9206)
+        - [x] Pseudo-Differential (NI-9234)
   - **Apply the following scales:**
     - [ ] Linear
     - [ ] Map
