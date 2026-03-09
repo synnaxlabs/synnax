@@ -1644,6 +1644,43 @@ var _ = Describe("Text", func() {
 			Expect(seq.Stages[0].Nodes).To(ContainElement(exprNode.Key))
 		})
 
+		It("Should not create phantom output edges for void functions in flow chains", func() {
+			resolver := symbol.MapResolver{
+				"counter": {Name: "counter", Kind: symbol.KindChannel, Type: types.Chan(types.U32()), ID: 10201},
+				"trigger": {Name: "trigger", Kind: symbol.KindChannel, Type: types.Chan(types.U8()), ID: 10202},
+			}
+			source := `
+			func increment{ch chan u32}() {
+				ch = ch + 1
+			}
+
+			sequence main {
+				stage first {
+					trigger => increment{ch=counter} => next,
+				}
+				stage second {
+				}
+			}
+			`
+			parsedText := MustSucceed(text.Parse(text.Text{Raw: source}))
+			inter, diagnostics := text.Analyze(ctx, parsedText, resolver)
+			Expect(diagnostics.Ok()).To(BeTrue(), diagnostics.String())
+
+			// Verify that every edge source references a node output that actually exists.
+			// This is the invariant that was violated when void functions appeared mid-chain,
+			// causing a nil pointer dereference in state.Node().
+			outputSet := make(map[ir.Handle]bool)
+			for _, n := range inter.Nodes {
+				for _, p := range n.Outputs {
+					outputSet[ir.Handle{Node: n.Key, Param: p.Name}] = true
+				}
+			}
+			for _, edge := range inter.Edges {
+				Expect(outputSet).To(HaveKey(edge.Source),
+					"edge source %v references a non-existent node output", edge.Source)
+			}
+		})
+
 		It("Should place single invocation nodes in stratum 0", func() {
 			source := `
 			func initialize() u8 {

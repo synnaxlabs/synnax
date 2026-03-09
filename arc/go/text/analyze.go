@@ -488,7 +488,9 @@ func (p *flowChainProcessor) processFlowNode(flowNode parser.IFlowNodeContext) b
 		p.additionalTriggers = nil
 	}
 
-	p.prevOutput = result.output
+	if len(result.node.Outputs) > 0 {
+		p.prevOutput = result.output
+	}
 	p.prevNode = &result.node
 	if result.node.Key != "" {
 		p.nodes = append(p.nodes, result.node)
@@ -705,7 +707,9 @@ func analyzeOutputRoutingTable(
 				edges[len(edges)-1].Target.Param = targetParamName
 			}
 
-			prevOutputHandle = result.output
+			if len(result.node.Outputs) > 0 {
+				prevOutputHandle = result.output
+			}
 			if result.node.Key != "" {
 				nodes = append(nodes, result.node)
 			}
