@@ -13,7 +13,6 @@ Each test attempts to configure a task with an invalid setting and verifies
 the driver rejects it with a ConfigurationError.
 """
 
-import os
 import platform
 
 import synnax as sy
@@ -32,11 +31,10 @@ class NIInvalidConfig(TestCase):
         4. Duplicate channel — two tasks using the same channel on the same port.
     """
 
-    RACK_NAME: str = os.environ.get("SYNNAX_DRIVER_RACK", "Node 1 Embedded Driver")
-
     def setup(self) -> None:
         if platform.system().lower() != "windows":
             self.auto_pass(msg="Windows DAQmx drivers required")
+            return
         self.devices = {
             loc: self.client.devices.retrieve(location=loc)
             for loc in ["E101Mod4"]
@@ -213,6 +211,62 @@ class NIInvalidConfig(TestCase):
             )
         self._cleanup_task(task)
         self.fail(f"Driver did not reject {label} — configure succeeded unexpectedly")
+
+    def _cleanup_task(self, task: sy.Task) -> None:
+        """Delete the task if it was assigned a key during configure."""
+        if task.key and task.key != 0:
+            try:
+                self.client.tasks.delete(task.key)
+            except sy.NotFoundError:
+                pass  # task was already deleted or never fully created
+
+
+class NIMissingLibraries(TestCase):
+    """Verify the driver rejects NI tasks when DAQmx libraries are not installed.
+
+    Only runs on non-Windows platforms where NI-DAQmx is unavailable.
+    """
+
+    def setup(self) -> None:
+        if platform.system().lower() == "windows":
+            self.auto_pass(msg="NI-DAQmx is available on Windows")
+
+    def run(self) -> None:
+        self.log("Testing: NI task on machine without DAQmx libraries")
+        idx = create_index(self.client, "ni_no_libs_idx")
+        ch_key = create_channel(
+            self.client,
+            name="ni_no_libs_ch",
+            data_type=sy.DataType.FLOAT32,
+            index=idx.key,
+        )
+        task = sy.ni.AnalogReadTask(
+            name="NI Missing Libraries Test",
+            device="nonexistent",
+            sample_rate=100 * sy.Rate.HZ,
+            stream_rate=25 * sy.Rate.HZ,
+            channels=[
+                sy.ni.AIVoltageChan(
+                    port=0,
+                    channel=ch_key,
+                    terminal_config="Cfg_Default",
+                    min_val=-10.0,
+                    max_val=10.0,
+                ),
+            ],
+        )
+        try:
+            self.client.tasks.configure(task)
+        except sy.ConfigurationError as e:
+            self.log(f"  Correctly rejected: {e}")
+            msg = str(e).lower()
+            assert "ni-daqmx" in msg and "libraries" in msg, (
+                f"Expected error about missing libraries, got: {e}"
+            )
+            self._cleanup_task(task)
+            return
+        self._cleanup_task(task)
+        self.fail("Driver did not reject NI task on machine without DAQmx libraries")
 
     def _cleanup_task(self, task: sy.Task) -> None:
         """Delete the task if it was assigned a key during configure."""

@@ -336,7 +336,7 @@ I can successfully:
 - [ ] Disconnect a physical device while a task is running without causing faults.
 - [ ] View a chassis and it's child devices.
 - [ ] Run the Driver without NI-DAQmx and System Configuration libraries installed.
-- [ ] Receive feedback when trying to create an NI task on a machine lacking the necessary libraries.
+- [x] Receive feedback when trying to create an NI task on a machine lacking the necessary libraries.
 - **Handle invalid device configurations and receive meaningful feedback:**
   - [x] Invalid ports.
   - [x] Incorrect task type for devices.
