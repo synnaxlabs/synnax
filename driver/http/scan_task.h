@@ -119,7 +119,28 @@ private:
     /// @brief test connection to an HTTP server.
     void test_connection(const task::Command &cmd) const;
 
-    /// @brief check health of a single device by pinging it.
-    void check_device_health(synnax::device::Device &dev) const;
+    /// @brief holds a successfully built health check request along with the
+    /// information needed to validate the response and update the device status.
+    struct PreparedHealthCheck {
+        /// @brief index into the devices_out vector.
+        std::size_t device_index;
+        /// @brief optional expected response validation config.
+        std::optional<ExpectedResponseConfig> expected_response;
+        /// @brief the built HTTP request.
+        Request request;
+    };
+
+    /// @brief attempts to build a health check request for a device. If config parsing
+    /// fails, sets the device status and returns nullopt.
+    [[nodiscard]] std::optional<PreparedHealthCheck>
+    prepare_health_check(synnax::device::Device &dev, std::size_t device_index) const;
+
+    /// @brief processes a health check response and sets the device status.
+    void process_health_response(
+        synnax::device::Device &dev,
+        const std::optional<ExpectedResponseConfig> &expected_response,
+        const Response &resp,
+        const x::errors::Error &err
+    ) const;
 };
 }

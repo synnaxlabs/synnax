@@ -956,6 +956,57 @@ TEST(HTTPScanTask, ExecUnknownCommand) {
     EXPECT_FALSE(scanner.exec(cmd, task, ctx));
 }
 
+TEST(HTTPScanTask, ScanExecutesHealthChecksInParallel) {
+    // Each server has a 300ms delay. With 5 servers, serial execution would take
+    // ~1500ms. Parallel execution should complete well under 1000ms.
+    constexpr int NUM_SERVERS = 5;
+    const auto DELAY = x::telem::MILLISECOND * 300;
+    constexpr int MAX_PARALLEL_MS = 1000;
+
+    std::vector<std::unique_ptr<mock::Server>> servers;
+    std::unordered_map<std::string, synnax::device::Device> devices;
+
+    for (int i = 0; i < NUM_SERVERS; i++) {
+        auto server = std::make_unique<mock::Server>(mock::ServerConfig{
+            .routes = {{
+                .method = Method::GET,
+                .path = "/health",
+                .response_body = "{}",
+                .delay = DELAY,
+            }},
+        });
+        ASSERT_NIL(server->start());
+        auto dev = make_device(host_port_from_url(server->base_url()));
+        devices[dev.key] = dev;
+        servers.push_back(std::move(server));
+    }
+
+    synnax::task::Task task;
+    task.key = synnax::task::create_key(1, 100);
+    task.name = "HTTP Scanner";
+
+    auto ctx = std::make_shared<task::MockContext>(nullptr);
+    auto processor = std::make_shared<Processor>();
+    Scanner scanner(ctx, task, processor);
+
+    common::ScannerContext scan_ctx{.devices = &devices};
+
+    const auto start = x::telem::TimeStamp::now();
+    const auto result = ASSERT_NIL_P(scanner.scan(scan_ctx));
+    const auto elapsed = x::telem::TimeStamp::now() - start;
+
+    ASSERT_EQ(result.size(), NUM_SERVERS);
+    for (const auto &dev: result)
+        EXPECT_EQ(dev.status.variant, x::status::VARIANT_SUCCESS);
+
+    EXPECT_LT(elapsed, x::telem::MILLISECOND * MAX_PARALLEL_MS)
+        << "Scan took " << elapsed.milliseconds()
+        << "ms — requests are likely executing in series";
+
+    for (auto &s: servers)
+        s->stop();
+}
+
 TEST(HTTPScanTask, TestConnectionInvalidArgs) {
     synnax::task::Task task;
     task.key = synnax::task::create_key(1, 100);

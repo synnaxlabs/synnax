@@ -37,10 +37,38 @@ std::pair<std::vector<synnax::device::Device>, x::errors::Error>
 Scanner::scan(const common::ScannerContext &scan_ctx) {
     std::vector<synnax::device::Device> devices_out;
     if (scan_ctx.devices == nullptr) return {devices_out, x::errors::NIL};
+
+    // Phase 1: build all requests, setting status immediately for devices that
+    // fail config parsing.
+    std::vector<PreparedHealthCheck> prepared;
     for (auto [key, dev]: *scan_ctx.devices) {
-        this->check_device_health(dev);
+        const auto idx = devices_out.size();
         devices_out.push_back(dev);
+        auto hc = this->prepare_health_check(devices_out[idx], idx);
+        if (hc.has_value()) prepared.push_back(std::move(*hc));
     }
+
+    if (prepared.empty()) return {devices_out, x::errors::NIL};
+
+    // Phase 2: execute all health check requests in parallel.
+    std::vector<Request> requests;
+    requests.reserve(prepared.size());
+    for (const auto &p: prepared)
+        requests.push_back(p.request);
+    auto results = this->processor->execute(requests);
+
+    // Phase 3: process all responses.
+    for (std::size_t i = 0; i < prepared.size(); i++) {
+        auto &p = prepared[i];
+        auto &[resp, err] = results[i];
+        this->process_health_response(
+            devices_out[p.device_index],
+            p.expected_response,
+            resp,
+            err
+        );
+    }
+
     return {devices_out, x::errors::NIL};
 }
 
@@ -56,14 +84,14 @@ bool Scanner::exec(
     return false;
 }
 
-/// @brief validates the response body against the health check's expected response
-/// config.
+/// @brief validates the response body against an expected response config.
 /// @returns empty string on success, error message on failure.
-static std::string
-validate_health_response(const HealthCheckConfig &hc, const Response &resp) {
-    if (!hc.expected_response.has_value() || hc.expected_response->pointer.empty())
-        return "";
-    const auto &er = *hc.expected_response;
+static std::string validate_health_response(
+    const std::optional<ExpectedResponseConfig> &expected_response,
+    const Response &resp
+) {
+    if (!expected_response.has_value() || expected_response->pointer.empty()) return "";
+    const auto &er = *expected_response;
     x::json::json body;
     try {
         body = x::json::json::parse(resp.body);
@@ -78,7 +106,10 @@ validate_health_response(const HealthCheckConfig &hc, const Response &resp) {
            ", got " + body[ptr].dump();
 }
 
-void Scanner::check_device_health(synnax::device::Device &dev) const {
+std::optional<Scanner::PreparedHealthCheck> Scanner::prepare_health_check(
+    synnax::device::Device &dev,
+    const std::size_t device_index
+) const {
     const auto rack_key = synnax::task::rack_key_from_task_key(this->task.key);
     auto props = x::json::json(dev.properties);
     const bool secure = props.value("secure", true);
@@ -96,14 +127,27 @@ void Scanner::check_device_health(synnax::device::Device &dev) const {
             .time = x::telem::TimeStamp::now(),
             .details = {.rack = rack_key, .device = dev.key},
         };
-        return;
+        return std::nullopt;
     }
 
-    const auto hc = HealthCheckConfig(parser.child("health_check"));
-
+    auto hc = HealthCheckConfig(parser.child("health_check"));
     auto request = device::build_request(conn, hc.request);
     if (!hc.body.empty()) request.body = std::move(hc.body);
-    auto [resp, err] = this->processor->execute(request);
+
+    return PreparedHealthCheck{
+        .device_index = device_index,
+        .expected_response = std::move(hc.expected_response),
+        .request = std::move(request),
+    };
+}
+
+void Scanner::process_health_response(
+    synnax::device::Device &dev,
+    const std::optional<ExpectedResponseConfig> &expected_response,
+    const Response &resp,
+    const x::errors::Error &err
+) const {
+    const auto rack_key = synnax::task::rack_key_from_task_key(this->task.key);
     if (err) {
         dev.status = synnax::device::Status{
             .key = dev.status_key(),
@@ -116,8 +160,8 @@ void Scanner::check_device_health(synnax::device::Device &dev) const {
         };
         return;
     }
-    const auto error = errors::from_status(resp.status_code);
-    if (error) {
+    const auto status_err = errors::from_status(resp.status_code);
+    if (status_err) {
         dev.status = synnax::device::Status{
             .key = dev.status_key(),
             .name = dev.name,
@@ -130,7 +174,7 @@ void Scanner::check_device_health(synnax::device::Device &dev) const {
         return;
     }
 
-    const auto validation_err = validate_health_response(hc, resp);
+    const auto validation_err = validate_health_response(expected_response, resp);
     if (!validation_err.empty()) {
         dev.status = synnax::device::Status{
             .key = dev.status_key(),
@@ -188,7 +232,10 @@ void Scanner::test_connection(const task::Command &cmd) const {
         return ctx->set_status(status);
     }
 
-    const auto validation_err = validate_health_response(args.health_check, resp);
+    const auto validation_err = validate_health_response(
+        args.health_check.expected_response,
+        resp
+    );
     if (!validation_err.empty()) {
         status.message = "Invalid health check response";
         status.description = validation_err;
