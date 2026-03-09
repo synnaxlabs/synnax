@@ -23,3 +23,10 @@ export type Primitive = z.infer<typeof primitiveZ>;
 export const primitiveTypeZ = z.enum(["string", "number", "boolean", "null"]);
 
 export type PrimitiveType = z.infer<typeof primitiveTypeZ>;
+
+export const ZERO_PRIMITIVES = {
+  string: "",
+  number: 0,
+  boolean: false,
+  null: null,
+} as const satisfies Record<PrimitiveType, Primitive>;

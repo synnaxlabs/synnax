@@ -24,9 +24,10 @@ import {
   Task,
   Text,
 } from "@synnaxlabs/pluto";
-import { type json, status } from "@synnaxlabs/x";
+import { json, status } from "@synnaxlabs/x";
 import { useCallback } from "react";
 
+import { KeyValueEditor } from "@/components/form/KeyValueEditor";
 import { CSS } from "@/css";
 import {
   type APIKeyAuthConfigSendAs,
@@ -37,6 +38,7 @@ import {
   SCHEMAS,
   ZERO_AUTH_CONFIGS,
   ZERO_PROPERTIES,
+  ZERO_RESPONSE,
 } from "@/hardware/http/device/types";
 import {
   SCAN_SCHEMAS,
@@ -55,7 +57,7 @@ export const CONNECT_LAYOUT: Layout.BaseState = {
   name: "Server.Connect",
   icon: "Logo.HTTP",
   location: "modal",
-  window: { resizable: false, size: { height: 680, width: 700 }, navTop: true },
+  window: { resizable: true, size: { height: 900, width: 700 }, navTop: true },
 };
 
 const INITIAL_VALUES: Device = {
@@ -89,8 +91,7 @@ const beforeSave = async ({
   });
   const props = get<Properties>("properties").value;
   const host = get<string>("location").value;
-  const secure = props.secure;
-  const protocol = secure ? "https://" : "http://";
+  const protocol = props.secure ? "https://" : "http://";
   const connection = {
     base_url: `${protocol}${host}`,
     timeout_ms: props.timeoutMs,
@@ -112,7 +113,7 @@ const beforeSave = async ({
       device: get<device.Key>("key").value,
     },
   });
-  set("status", devStatus, { notifyOnChange: false, markTouched: false });
+  set("status", devStatus, { markTouched: false });
   return true;
 };
 
@@ -151,29 +152,21 @@ export const Connect: Layout.Renderer = ({ layoutKey, onClose }) => {
     typeof PDevice.formSchema
   >("properties.healthCheck.validateResponse", { ctx: form });
 
-  const expectedValueType =
-    Form.useFieldValue<
-      json.PrimitiveType,
-      json.PrimitiveType,
-      typeof PDevice.formSchema
-    >("properties.healthCheck.response.expectedValueType", {
-      ctx: form,
-      optional: true,
-    }) ?? "string";
+  const expectedValueType = Form.useFieldValue<
+    json.PrimitiveType,
+    json.PrimitiveType,
+    typeof PDevice.formSchema
+  >("properties.healthCheck.response.value.expectedValueType", {
+    ctx: form,
+    defaultValue: "string",
+  });
 
   const handleValidateResponseChange = useCallback(
     (value: boolean) => {
-      if (value) {
-        const response = form.get("properties.healthCheck.response").value;
-        if (response == null)
-          form.set("properties.healthCheck.response", {
-            pointer: "",
-            expectedValueType: "string",
-            expectedValue: "",
-          });
-      }
+      form.set("properties.healthCheck.validateResponse", value);
+      form.set("properties.healthCheck.response", value ? ZERO_RESPONSE : undefined);
     },
-    [form.get, form.set],
+    [form.set],
   );
 
   const renderExpectedValueType = useCallback(
@@ -184,13 +177,10 @@ export const Connect: Layout.Renderer = ({ layoutKey, onClose }) => {
       onChange: (v: json.PrimitiveType) => void;
     }) => {
       const handleChange = (value: json.PrimitiveType) => {
-        const defaults: Record<json.PrimitiveType, unknown> = {
-          string: "",
-          number: 0,
-          boolean: true,
-          null: null,
-        };
-        form.set("properties.healthCheck.response.expectedValue", defaults[value]);
+        form.set(
+          "properties.healthCheck.response.value.expectedValue",
+          json.ZERO_PRIMITIVES[value],
+        );
         onChange(value);
       };
       return <SelectExpectedValueType {...rest} onChange={handleChange} />;
@@ -212,6 +202,22 @@ export const Connect: Layout.Renderer = ({ layoutKey, onClose }) => {
     [form.set],
   );
 
+  const renderHealthCheckMethod = useCallback(
+    ({
+      onChange,
+      ...rest
+    }: Omit<Select.ButtonsProps<HealthCheckMethod>, "keys"> & {
+      onChange: (v: HealthCheckMethod) => void;
+    }) => {
+      const handleChange = (method: HealthCheckMethod) => {
+        onChange(method);
+        form.set("properties.healthCheck.body", method === "POST" ? "" : undefined);
+      };
+      return <SelectHealthCheckMethod {...rest} onChange={handleChange} />;
+    },
+    [form.set],
+  );
+
   const renderSendAs = useCallback(
     ({
       onChange,
@@ -229,156 +235,184 @@ export const Connect: Layout.Renderer = ({ layoutKey, onClose }) => {
 
   return (
     <Flex.Box grow className={CSS.B("http-connect")}>
-      <Flex.Box className={CSS.B("content")} grow gap="small">
+      <Flex.Box className={CSS.B("content")} grow gap="large">
         <Form.Form<typeof PDevice.formSchema> {...form}>
-          <Form.TextField path="name" inputProps={NAME_INPUT_PROPS} />
-          <Form.Field<rack.Key> path="rack" label="Connect from" required>
-            {({ value, onChange }) => (
-              <Rack.SelectSingle value={value} onChange={onChange} allowNone={false} />
-            )}
-          </Form.Field>
-          <Flex.Box x align="end">
-            <Form.TextField
-              grow
-              path="location"
-              label="Host"
-              inputProps={HOST_INPUT_PROPS}
+          <Flex.Box gap="small">
+            <Form.TextField path="name" inputProps={NAME_INPUT_PROPS} />
+            <Form.Field<rack.Key> path="rack" label="Connect from" required>
+              {({ value, onChange }) => (
+                <Rack.SelectSingle
+                  value={value}
+                  onChange={onChange}
+                  allowNone={false}
+                />
+              )}
+            </Form.Field>
+            <Flex.Box x align="end">
+              <Form.TextField
+                grow
+                path="location"
+                label="Host"
+                inputProps={HOST_INPUT_PROPS}
+              />
+              <Form.SwitchField path="properties.secure" label="HTTPS" />
+              <Form.SwitchField path="properties.verifySsl" label="Verify SSL" />
+            </Flex.Box>
+            <Form.NumericField
+              path="properties.timeoutMs"
+              label="Expected response time"
+              inputProps={TIMEOUT_INPUT_PROPS}
             />
-            <Form.SwitchField path="properties.secure" label="HTTPS" />
-            <Form.SwitchField path="properties.verifySsl" label="Verify SSL" />
+            <Divider.Divider x />
           </Flex.Box>
-          <Form.NumericField
-            path="properties.timeoutMs"
-            label="Expected response time"
-            inputProps={TIMEOUT_INPUT_PROPS}
-          />
-          <Divider.Divider x padded="bottom" />
-          <Form.Field<AuthType> path="properties.auth.type" label="Authentication">
-            {renderAuthType}
-          </Form.Field>
-          {authType === "bearer" && (
-            <Form.TextField
-              path="properties.auth.token"
-              label="Token"
-              inputProps={AUTH_TOKEN_INPUT_PROPS}
-            />
-          )}
-          {authType === "api_key" && (
-            <>
-              <Form.Field<APIKeyAuthConfigSendAs>
-                path="properties.auth.sendAs"
-                label="Send as"
-              >
-                {renderSendAs}
-              </Form.Field>
+          <Flex.Box gap="small">
+            <Form.Field<AuthType> path="properties.auth.type" label="Authentication">
+              {renderAuthType}
+            </Form.Field>
+            {authType === "bearer" && (
+              <Form.TextField
+                path="properties.auth.token"
+                label="Token"
+                inputProps={AUTH_TOKEN_INPUT_PROPS}
+              />
+            )}
+            {authType === "api_key" && (
+              <>
+                <Form.Field<APIKeyAuthConfigSendAs>
+                  path="properties.auth.sendAs"
+                  label="Send as"
+                >
+                  {renderSendAs}
+                </Form.Field>
+                <Flex.Box x justify="between">
+                  {sendAs === "query_param" ? (
+                    <Form.TextField
+                      grow
+                      path="properties.auth.parameter"
+                      label="Parameter Name"
+                      inputProps={AUTH_PARAM_INPUT_PROPS}
+                    />
+                  ) : (
+                    <Form.TextField
+                      grow
+                      path="properties.auth.header"
+                      label="Header Name"
+                      inputProps={AUTH_HEADER_INPUT_PROPS}
+                    />
+                  )}
+                  <Form.TextField
+                    grow
+                    path="properties.auth.key"
+                    label="API Key"
+                    inputProps={AUTH_KEY_INPUT_PROPS}
+                  />
+                </Flex.Box>
+              </>
+            )}
+            {authType === "basic" && (
               <Flex.Box x justify="between">
-                {sendAs === "query_param" ? (
-                  <Form.TextField
-                    grow
-                    path="properties.auth.parameter"
-                    label="Parameter Name"
-                    inputProps={AUTH_PARAM_INPUT_PROPS}
-                  />
-                ) : (
-                  <Form.TextField
-                    grow
-                    path="properties.auth.header"
-                    label="Header Name"
-                    inputProps={AUTH_HEADER_INPUT_PROPS}
-                  />
-                )}
                 <Form.TextField
                   grow
-                  path="properties.auth.key"
-                  label="API Key"
-                  inputProps={AUTH_KEY_INPUT_PROPS}
+                  path="properties.auth.username"
+                  label="Username"
+                  inputProps={AUTH_USERNAME_INPUT_PROPS}
+                />
+                <Form.TextField
+                  grow
+                  path="properties.auth.password"
+                  label="Password"
+                  inputProps={AUTH_PASSWORD_INPUT_PROPS}
                 />
               </Flex.Box>
-            </>
-          )}
-          {authType === "basic" && (
-            <Flex.Box x justify="between">
-              <Form.TextField
-                grow
-                path="properties.auth.username"
-                label="Username"
-                inputProps={AUTH_USERNAME_INPUT_PROPS}
+            )}
+            <Divider.Divider x />
+          </Flex.Box>
+          <Flex.Box gap="large">
+            <Text.Text level="h4" weight={500}>
+              Health Check
+            </Text.Text>
+            <Flex.Box gap="small">
+              <Flex.Box x align="end">
+                <Form.Field<HealthCheckMethod>
+                  path="properties.healthCheck.method"
+                  label="Method"
+                >
+                  {renderHealthCheckMethod}
+                </Form.Field>
+                <Form.TextField
+                  grow
+                  path="properties.healthCheck.path"
+                  label="Path"
+                  inputProps={HEALTH_PATH_INPUT_PROPS}
+                />
+              </Flex.Box>
+              {healthCheckMethod === "POST" && (
+                <Form.TextField
+                  path="properties.healthCheck.body"
+                  label="Body"
+                  inputProps={HEALTH_BODY_INPUT_PROPS}
+                />
+              )}
+              <KeyValueEditor
+                path="properties.healthCheck.headers"
+                label="Headers"
+                keyPlaceholder="Header Name"
+                valuePlaceholder="Header Value"
               />
-              <Form.TextField
-                grow
-                path="properties.auth.password"
-                label="Password"
-                inputProps={AUTH_PASSWORD_INPUT_PROPS}
+              <KeyValueEditor
+                path="properties.healthCheck.queryParams"
+                label="Query parameters"
+                keyPlaceholder="Parameter"
+                valuePlaceholder="Value"
               />
             </Flex.Box>
-          )}
-          <Divider.Divider x padded="bottom" />
-          <Text.Text level="p" weight={500}>
-            Health Check
-          </Text.Text>
-          <Flex.Box x align="end">
-            <Form.Field<HealthCheckMethod>
-              path="properties.healthCheck.method"
-              label="Method"
-            >
-              {(props) => <SelectHealthCheckMethod {...props} />}
-            </Form.Field>
-            <Form.TextField
-              grow
-              path="properties.healthCheck.path"
-              label="Path"
-              inputProps={HEALTH_PATH_INPUT_PROPS}
-            />
+            <Flex.Box>
+              <Form.SwitchField
+                path="properties.healthCheck.validateResponse"
+                label="Validate response body"
+                align="start"
+                onChange={handleValidateResponseChange}
+              />
+              {validateResponse && (
+                <>
+                  <Form.TextField
+                    grow
+                    path="properties.healthCheck.response.pointer"
+                    label="JSON pointer"
+                    inputProps={HEALTH_POINTER_INPUT_PROPS}
+                  />
+
+                  <Flex.Box x align="end">
+                    <Form.Field<json.PrimitiveType>
+                      path="properties.healthCheck.response.value.expectedValueType"
+                      label="Value type"
+                    >
+                      {renderExpectedValueType}
+                    </Form.Field>
+                    {expectedValueType === "string" && (
+                      <Form.TextField
+                        path="properties.healthCheck.response.value.expectedValue"
+                        label="Expected value"
+                        inputProps={HEALTH_EXPECTED_STRING_INPUT_PROPS}
+                      />
+                    )}
+                    {expectedValueType === "number" && (
+                      <Form.NumericField
+                        path="properties.healthCheck.response.value.expectedValue"
+                        label="Expected value"
+                      />
+                    )}
+                    {expectedValueType === "boolean" && (
+                      <Form.SwitchField
+                        path="properties.healthCheck.response.value.expectedValue"
+                        label="Expected value"
+                      />
+                    )}
+                  </Flex.Box>
+                </>
+              )}
+            </Flex.Box>
           </Flex.Box>
-          {healthCheckMethod === "POST" && (
-            <Form.TextField
-              path="properties.healthCheck.body"
-              label="Body"
-              inputProps={HEALTH_BODY_INPUT_PROPS}
-            />
-          )}
-          <Form.SwitchField
-            path="properties.healthCheck.validateResponse"
-            label="Validate response body"
-            onChange={handleValidateResponseChange}
-          />
-          {validateResponse && (
-            <>
-              <Flex.Box x align="end">
-                <Form.TextField
-                  grow
-                  path="properties.healthCheck.response.pointer"
-                  label="JSON Pointer"
-                  inputProps={HEALTH_POINTER_INPUT_PROPS}
-                />
-                <Form.Field<json.PrimitiveType>
-                  path="properties.healthCheck.response.expectedValueType"
-                  label="Value Type"
-                >
-                  {renderExpectedValueType}
-                </Form.Field>
-              </Flex.Box>
-              {expectedValueType === "string" && (
-                <Form.TextField
-                  path="properties.healthCheck.response.expectedValue"
-                  label="Expected Value"
-                  inputProps={HEALTH_EXPECTED_STRING_INPUT_PROPS}
-                />
-              )}
-              {expectedValueType === "number" && (
-                <Form.NumericField
-                  path="properties.healthCheck.response.expectedValue"
-                  label="Expected Value"
-                />
-              )}
-              {expectedValueType === "boolean" && (
-                <Form.SwitchField
-                  path="properties.healthCheck.response.expectedValue"
-                  label="Expected Value"
-                />
-              )}
-            </>
-          )}
         </Form.Form>
       </Flex.Box>
       <Modals.BottomNavBar>

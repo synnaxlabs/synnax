@@ -79,7 +79,7 @@ export const ZERO_AUTH_CONFIGS: Record<AuthType, AuthConfig> = {
 };
 
 const sharedHealthCheckZ = z.object({
-  path: z.string().min(1, "Path is required"),
+  path: z.string(),
   headers: z.record(z.string(), z.string()).optional(),
   queryParams: z.record(z.string(), z.string()).optional(),
 });
@@ -88,13 +88,45 @@ const noValidateHealthCheckZ = sharedHealthCheckZ.extend({
   validateResponse: z.literal(false),
 });
 
+const stringResponseValueZ = z.object({
+  expectedValueType: z.literal("string"),
+  expectedValue: z.string(),
+});
+
+const numberResponseValueZ = z.object({
+  expectedValueType: z.literal("number"),
+  expectedValue: z.number(),
+});
+
+const booleanResponseValueZ = z.object({
+  expectedValueType: z.literal("boolean"),
+  expectedValue: z.boolean(),
+});
+
+const nullResponseValueZ = z.object({
+  expectedValueType: z.literal("null"),
+  expectedValue: z.null(),
+});
+
+const responseValueZ = z.discriminatedUnion("expectedValueType", [
+  stringResponseValueZ,
+  numberResponseValueZ,
+  booleanResponseValueZ,
+  nullResponseValueZ,
+]);
+
+const responseZ = z.object({ pointer: json.pointerZ, value: responseValueZ });
+
+export type Response = z.infer<typeof responseZ>;
+
+export const ZERO_RESPONSE = {
+  pointer: "",
+  value: { expectedValueType: "string", expectedValue: "" },
+} as const satisfies Response;
+
 const validateHealthCheckZ = sharedHealthCheckZ.extend({
   validateResponse: z.literal(true),
-  response: z.object({
-    pointer: json.pointerZ,
-    expectedValueType: json.primitiveTypeZ,
-    expectedValue: json.primitiveZ,
-  }),
+  response: responseZ,
 });
 
 const getShapeZ = { method: z.literal("GET") } as const;
@@ -120,7 +152,7 @@ export type HealthCheck = z.infer<typeof healthCheckZ>;
 
 export const ZERO_HEALTH_CHECK = {
   method: "GET",
-  path: "/health",
+  path: "",
   validateResponse: false,
 } as const satisfies HealthCheck;
 

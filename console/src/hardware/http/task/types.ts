@@ -47,7 +47,7 @@ export const ZERO_READ_FIELD = {
 
 const baseReadEndpointZ = z.object({
   key: z.string(),
-  path: z.string().min(1, "Path is required"),
+  path: z.string(),
   headers: z.record(z.string(), z.string()).optional(),
   queryParams: z.record(z.string(), z.string()).optional(),
   fields: z.array(readFieldZ).check(Common.Task.validateReadChannels),

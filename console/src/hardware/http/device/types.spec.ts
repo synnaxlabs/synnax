@@ -225,8 +225,7 @@ describe("HTTP Device Properties", () => {
           validateResponse: true,
           response: {
             pointer: "/status",
-            expectedValueType: "string",
-            expectedValue: "ok",
+            value: { expectedValueType: "string", expectedValue: "ok" },
           },
         },
       };
@@ -259,8 +258,7 @@ describe("HTTP Device Properties", () => {
           validateResponse: true,
           response: {
             pointer: "/alive",
-            expectedValueType: "boolean",
-            expectedValue: true,
+            value: { expectedValueType: "boolean", expectedValue: true },
           },
         },
       };
@@ -322,8 +320,7 @@ describe("HTTP Device Properties", () => {
         validateResponse: true,
         response: {
           pointer: "no-leading-slash",
-          expectedValueType: "string",
-          expectedValue: "ok",
+          value: { expectedValueType: "string", expectedValue: "ok" },
         },
       });
       expect(result.success).toBe(false);
