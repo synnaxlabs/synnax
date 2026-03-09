@@ -578,6 +578,39 @@ TEST(HTTPScanTask, ScanMultipleDevices) {
     server.stop();
 }
 
+TEST(HTTPScanTask, ScanInvalidHealthCheck) {
+    synnax::device::Device dev;
+    dev.key = make_unique_channel_name("dev");
+    dev.name = dev.key;
+    dev.make = INTEGRATION_NAME;
+    dev.location = "127.0.0.1:8080";
+    dev.properties = x::json::json{
+        {"timeout_ms", 1000},
+        {"verify_ssl", false},
+        {"secure", false},
+        {"base_url", "http://127.0.0.1:8080"},
+        {"health_check", x::json::json::object()},
+    };
+
+    std::unordered_map<std::string, synnax::device::Device> devices;
+    devices[dev.key] = dev;
+    common::ScannerContext scan_ctx{.devices = &devices};
+
+    synnax::task::Task task;
+    task.key = synnax::task::create_key(1, 100);
+    task.name = "HTTP Scanner";
+
+    auto ctx = std::make_shared<task::MockContext>(nullptr);
+    auto processor = std::make_shared<Processor>();
+    Scanner scanner(ctx, task, processor);
+
+    const auto result = ASSERT_NIL_P(scanner.scan(scan_ctx));
+    ASSERT_EQ(result.size(), 1);
+    EXPECT_EQ(result[0].status.variant, x::status::VARIANT_WARNING);
+    EXPECT_EQ(result[0].status.message, "Invalid device properties");
+    EXPECT_NE(result[0].status.description.find("health_check"), std::string::npos);
+}
+
 TEST(HTTPScanTask, ScanInvalidDeviceProperties) {
     synnax::device::Device dev;
     dev.key = make_unique_channel_name("dev");

@@ -136,6 +136,7 @@ std::optional<Scanner::PreparedHealthCheck> Scanner::prepare_health_check(
     props["base_url"] = protocol + dev.location;
     auto parser = x::json::Parser(props);
     const auto conn = device::ConnectionConfig(parser);
+    auto hc = HealthCheckConfig(parser.child("health_check"));
     if (parser.error()) {
         this->set_device_status(
             dev,
@@ -145,8 +146,6 @@ std::optional<Scanner::PreparedHealthCheck> Scanner::prepare_health_check(
         );
         return std::nullopt;
     }
-
-    auto hc = HealthCheckConfig(parser.child("health_check"));
     auto request = device::build_request(conn, hc.request);
     if (!hc.body.empty()) request.body = std::move(hc.body);
 
