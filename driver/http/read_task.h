@@ -102,7 +102,7 @@ struct ReadTaskConfig {
 /// @brief source that polls HTTP endpoints and writes extracted values to a frame.
 class ReadTaskSource : public common::Source {
     ReadTaskConfig cfg;
-    Processor *processor;
+    std::shared_ptr<Processor> processor;
     std::vector<Request> requests;
     common::SoftwareTimedSampleClock sample_clock;
     std::vector<synnax::channel::Channel> chs;
@@ -114,7 +114,7 @@ public:
     /// @param requests pre-built requests (one per endpoint).
     ReadTaskSource(
         ReadTaskConfig cfg,
-        Processor *processor,
+        std::shared_ptr<Processor> processor,
         std::vector<Request> requests
     );
 

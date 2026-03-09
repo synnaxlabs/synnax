@@ -84,11 +84,11 @@ std::pair<std::unique_ptr<ReadTaskSource>, std::unique_ptr<Processor>> make_sour
         requests.push_back(std::move(req));
     }
 
-    auto processor = std::make_unique<Processor>();
+    auto processor = std::make_shared<Processor>();
     return {
         std::make_unique<ReadTaskSource>(
             ReadTaskConfig(cfg),
-            processor.get(),
+            processor,
             std::move(requests)
         ),
         std::move(processor),
@@ -1300,8 +1300,8 @@ TEST(HTTPReadTask, DisabledFieldsExcludedFromWriterConfig) {
         requests.push_back(std::move(req));
     }
 
-    Processor processor;
-    ReadTaskSource source(std::move(cfg), &processor, std::move(requests));
+    auto processor = std::make_shared<Processor>();
+    ReadTaskSource source(std::move(cfg), processor, std::move(requests));
     auto wc = source.writer_config();
     EXPECT_EQ(wc.channels.size(), 1);
     EXPECT_EQ(wc.channels[0], 1);

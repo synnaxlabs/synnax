@@ -187,11 +187,11 @@ std::pair<ReadTaskConfig, x::errors::Error> ReadTaskConfig::parse(
 
 ReadTaskSource::ReadTaskSource(
     ReadTaskConfig cfg,
-    Processor *processor,
+    std::shared_ptr<Processor> processor,
     std::vector<Request> requests
 ):
     cfg(std::move(cfg)),
-    processor(processor),
+    processor(std::move(processor)),
     requests(std::move(requests)),
     sample_clock(this->cfg.rate) {
     parsed_bodies.resize(this->cfg.endpoints.size());
@@ -250,7 +250,7 @@ ReadTaskSource::read(x::breaker::Breaker &breaker, x::telem::Frame &fr) {
             continue;
         }
 
-        if (auto status_err = errors::classify_status(resp.status_code); status_err) {
+        if (auto status_err = errors::from_status(resp.status_code); status_err) {
             const auto &req = requests[ei];
             auto msg = std::string(to_string(req.method)) + " " + req.url +
                        " returned " + std::to_string(resp.status_code);
@@ -370,7 +370,7 @@ std::pair<common::ConfigureResult, x::errors::Error> configure_read(
     const bool auto_start = cfg.auto_start;
     auto source = std::make_unique<ReadTaskSource>(
         std::move(cfg),
-        processor.get(),
+        processor,
         std::move(requests)
     );
 
