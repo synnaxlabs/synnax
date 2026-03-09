@@ -135,6 +135,7 @@ class NIAnalogReadScaled(NIAnalogReadTaskCase):
         assert self.tsk is not None
         self.test_task_exists()
         self.test_scaled_values()
+        self.test_tare()
 
     def test_scaled_values(self) -> None:
         """Stream data and verify each channel's values fall within its scaled bounds."""
@@ -148,7 +149,7 @@ class NIAnalogReadScaled(NIAnalogReadTaskCase):
                 streamer.read(timeout=30)  # wait for first frame
             sy.sleep(0.5)
             start = sy.TimeStamp.now()
-            sy.sleep(2)
+            sy.sleep(1)
 
         end = sy.TimeStamp.now()
         tr = sy.TimeRange(start, end)
@@ -179,6 +180,85 @@ class NIAnalogReadScaled(NIAnalogReadTaskCase):
                 )
                 return
             self.log(f"  {name}: [{vmin:.2f}, {vmax:.2f}] within [{lo}, {hi}]")
+
+    def test_tare(self) -> None:
+        """Tare all channels and verify values shift to ~0."""
+        assert self.tsk is not None
+        self.log("Testing: Tare")
+        channel_keys = self._channel_keys(self.tsk)
+        names = ["ni_scaled_map", "ni_scaled_lin", "ni_scaled_none"]
+
+        with self.tsk.run():
+            with self.client.open_streamer(channel_keys) as streamer:
+                streamer.read(timeout=30)
+
+            # Capture pre-tare averages
+            pre_start = sy.TimeStamp.now()
+            sy.sleep(0.5)
+            pre_end = sy.TimeStamp.now()
+            pre_tr = sy.TimeRange(pre_start, pre_end)
+
+            pre_avgs: dict[int, float] = {}
+            for key, name in zip(channel_keys, names):
+                data = np.array(self.client.channels.retrieve(key).read(pre_tr))
+                if len(data) == 0:
+                    self.fail(f"No pre-tare samples for '{name}'")
+                    return
+                pre_avgs[key] = float(np.mean(data))
+            self.log(
+                "  Pre-tare averages: "
+                + ", ".join(
+                    f"{n}={pre_avgs[k]:.2f}"
+                    for k, n in zip(channel_keys, names)
+                )
+            )
+
+            # Execute tare on all channels (async — tare doesn't send an ACK)
+            self.tsk._internal.execute_command("tare", {"keys": channel_keys})
+            self.log("  Tare command sent")
+
+            # Capture post-tare values
+            sy.sleep(0.5)
+            post_start = sy.TimeStamp.now()
+            sy.sleep(0.5)
+            post_end = sy.TimeStamp.now()
+
+        post_tr = sy.TimeRange(post_start, post_end)
+
+        # Post-tare range should be original bounds shifted by -pre_avg.
+        bounds = [
+            ("ni_scaled_map", 500, 700),
+            ("ni_scaled_lin", 600, 1800),
+            ("ni_scaled_none", -10, 10),
+        ]
+        for key, (name, orig_lo, orig_hi) in zip(channel_keys, bounds):
+            data = np.array(self.client.channels.retrieve(key).read(post_tr))
+            if len(data) == 0:
+                self.fail(f"No post-tare samples for '{name}'")
+                return
+            avg = float(np.mean(data))
+            vmin, vmax = float(np.min(data)), float(np.max(data))
+
+            offset = pre_avgs[key]
+            tared_lo = orig_lo - offset
+            tared_hi = orig_hi - offset
+            tolerance = 2
+            if vmin < tared_lo - tolerance or vmax > tared_hi + tolerance:
+                self.fail(
+                    f"'{name}' post-tare [{vmin:.2f}, {vmax:.2f}] "
+                    f"outside expected [{tared_lo:.2f}, {tared_hi:.2f}]"
+                )
+                return
+            if abs(avg) > abs(offset) * 0.5 + tolerance:
+                self.fail(
+                    f"'{name}' post-tare avg={avg:.2f} not near 0 "
+                    f"(pre-tare avg was {offset:.2f})"
+                )
+                return
+            self.log(
+                f"  {name}: avg={avg:.2f}, range=[{vmin:.2f}, {vmax:.2f}], "
+                f"expected ~[{tared_lo:.2f}, {tared_hi:.2f}]"
+            )
 
 
 class NIReadTemperature(NIAnalogReadTaskCase):
