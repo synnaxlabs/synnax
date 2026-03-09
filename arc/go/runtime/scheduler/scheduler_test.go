@@ -1484,7 +1484,7 @@ var _ = Describe("Scheduler", func() {
 				}).
 				Build()
 
-			s := build(prog)
+			build(prog)
 
 			// Activate the "first" stage
 			trigger := mock("trigger")
@@ -1510,7 +1510,7 @@ var _ = Describe("Scheduler", func() {
 				}).
 				Build()
 
-			s = scheduler.New(prog, nodes, 0)
+			s := scheduler.New(prog, nodes, 0)
 
 			// Tick 0: trigger fires, stage activates, comparison fires one-shot to wait,
 			// wait starts timing and calls MarkSelfChanged

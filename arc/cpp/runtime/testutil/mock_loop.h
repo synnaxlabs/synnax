@@ -18,6 +18,7 @@
 #include "x/cpp/breaker/breaker.h"
 #include "x/cpp/errors/errors.h"
 #include "x/cpp/notify/notify.h"
+#include "x/cpp/telem/telem.h"
 
 #include "arc/cpp/runtime/loop/loop.h"
 
@@ -43,7 +44,10 @@ public:
         return x::errors::NIL;
     }
 
-    loop::WakeReason wait(x::breaker::Breaker &breaker) override {
+    loop::WakeReason wait(
+        x::breaker::Breaker &breaker,
+        x::telem::TimeSpan max_timeout = x::telem::TimeSpan(0)
+    ) override {
         this->wait_count++;
         std::unique_lock lock(this->mu);
         this->cv.wait_for(lock, std::chrono::milliseconds(10), [&] {
