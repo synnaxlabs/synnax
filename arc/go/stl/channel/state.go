@@ -126,11 +126,6 @@ func (cs *State) readSeries(
 	return data, time, len(time.Series) > 0 && len(data.Series) > 0
 }
 
-// writeSeries buffers data and time series for writing to a channel.
-func (cs *State) writeSeries(key uint32, value, time telem.Series) {
-	cs.writeChannel(key, value, time)
-}
-
 func (cs *State) writeChannel(key uint32, data, time telem.Series) {
 	cs.writes[key] = data
 	idx := cs.indexes[key]

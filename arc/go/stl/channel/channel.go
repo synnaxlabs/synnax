@@ -197,7 +197,7 @@ func (s *sink) Next(node.Context) {
 	if data.Len() == 0 {
 		return
 	}
-	s.state.writeSeries(s.key, data, time)
+	s.state.writeChannel(s.key, data, time)
 }
 
 type i32Compatible interface {

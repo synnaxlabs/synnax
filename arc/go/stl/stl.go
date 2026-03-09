@@ -13,7 +13,6 @@
 package stl
 
 import (
-	"github.com/synnaxlabs/arc/ir"
 	"github.com/synnaxlabs/arc/stl/channel"
 	"github.com/synnaxlabs/arc/stl/constant"
 	"github.com/synnaxlabs/arc/stl/control"
@@ -29,11 +28,9 @@ import (
 	stringsstate "github.com/synnaxlabs/arc/stl/strings"
 	"github.com/synnaxlabs/arc/stl/time"
 	"github.com/synnaxlabs/arc/symbol"
-	"github.com/synnaxlabs/arc/types"
 )
 
 var SymbolResolver = symbol.CompoundResolver{
-	topLevelSymbolResolver,
 	channel.CompilerSymbolResolver,
 	constant.SymbolResolver,
 	control.SymbolResolver,
@@ -41,7 +38,7 @@ var SymbolResolver = symbol.CompoundResolver{
 	math.SymbolResolver,
 	op.SymbolResolver,
 	selector.SymbolResolver,
-	series.CompilerSymbolResolver,
+	series.SymbolResolver,
 	stable.SymbolResolver,
 	stage.SymbolResolver,
 	stat.SymbolResolver,
@@ -49,22 +46,4 @@ var SymbolResolver = symbol.CompoundResolver{
 	stringsstate.SymbolResolver,
 	stringsstate.SymbolResolver,
 	time.SymbolResolver,
-}
-
-var topLevelSymbolResolver = symbol.MapResolver{
-	"now": {
-		Name: "now",
-		Kind: symbol.KindFunction,
-		Type: types.Function(types.FunctionProperties{
-			Outputs: types.Params{{Name: ir.DefaultOutputParam, Type: types.TimeStamp()}},
-		}),
-	},
-	"len": {
-		Name: "len",
-		Kind: symbol.KindFunction,
-		Type: types.Function(types.FunctionProperties{
-			Inputs:  types.Params{{Name: ir.DefaultInputParam, Type: types.Variable("T", nil)}},
-			Outputs: types.Params{{Name: ir.DefaultOutputParam, Type: types.I64()}},
-		}),
-	},
 }

@@ -41,7 +41,7 @@ const MinTolerance = 5 * telem.Millisecond
 // unsetBaseInterval is the sentinel value indicating BaseInterval hasn't been set yet.
 const unsetBaseInterval = telem.TimeSpanMax
 
-var SymbolResolver = symbol.MapResolver{
+var baseSymbolResolver = symbol.MapResolver{
 	intervalSymbolName: {
 		Name: intervalSymbolName,
 		Kind: symbol.KindFunction,
@@ -87,16 +87,9 @@ func NewModule(
 	return &Module{BaseInterval: unsetBaseInterval}, nil
 }
 
-var CompilerSymbolResolver = &symbol.ModuleResolver{
-	Name: "time",
-	Members: symbol.MapResolver{
-		"now": {
-			Name: "now",
-			Type: types.Function(types.FunctionProperties{
-				Outputs: types.Params{{Name: "ts", Type: types.I64()}},
-			}),
-		},
-	},
+var SymbolResolver = symbol.CompoundResolver{
+	baseSymbolResolver,
+	&symbol.ModuleResolver{Name: "time", Members: baseSymbolResolver},
 }
 
 func (m *Module) Create(_ context.Context, cfg node.Config) (node.Node, error) {
@@ -138,7 +131,6 @@ func (m *Module) Create(_ context.Context, cfg node.Config) (node.Node, error) {
 		return nil, query.ErrNotFound
 	}
 }
-
 
 // CalculateTolerance returns the timing tolerance for the given base interval.
 func CalculateTolerance(baseInterval telem.TimeSpan) telem.TimeSpan {
