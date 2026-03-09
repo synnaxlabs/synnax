@@ -52,7 +52,8 @@ Acquisition::Acquisition(
     std::shared_ptr<Source> source,
     const x::breaker::Config &breaker_config,
     std::string thread_name,
-    bool err_on_unauthorized
+    bool err_on_unauthorized,
+    bool open_eagerly
 ):
     Acquisition(
         std::make_shared<SynnaxWriterFactory>(std::move(client)),
@@ -60,7 +61,8 @@ Acquisition::Acquisition(
         std::move(source),
         breaker_config,
         std::move(thread_name),
-        err_on_unauthorized
+        err_on_unauthorized,
+        open_eagerly
     ) {}
 
 Acquisition::Acquisition(
@@ -69,13 +71,15 @@ Acquisition::Acquisition(
     std::shared_ptr<Source> source,
     const x::breaker::Config &breaker_config,
     std::string thread_name,
-    bool err_on_unauthorized
+    bool err_on_unauthorized,
+    bool open_eagerly
 ):
     Base(breaker_config, std::move(thread_name)),
     factory(std::move(factory)),
     source(std::move(source)),
     writer_config(std::move(writer_config)),
-    err_on_unauthorized(err_on_unauthorized) {}
+    err_on_unauthorized(err_on_unauthorized),
+    open_eagerly(open_eagerly) {}
 
 /// @brief attempts to resolve the start timestamp for the writer from a series in
 /// the frame with a timestamp data type. If that can't be found, resolveStart falls
@@ -102,6 +106,22 @@ void Acquisition::run() {
     x::errors::Error source_err;
     x::telem::Frame fr(0);
     Authorities authorities;
+    if (this->open_eagerly) {
+        this->writer_config.err_on_unauthorized = this->err_on_unauthorized;
+        auto [writer_i, writer_err_i] = factory->open_writer(writer_config);
+        writer_err = writer_err_i;
+        if (writer_err) {
+            if (writer_err.matches(freighter::UNREACHABLE) &&
+                this->breaker.wait(writer_err.message()))
+                return this->run();
+            LOG(ERROR) << "[acquisition] failed to eagerly open writer: "
+                       << writer_err.message();
+            this->source->stopped_with_err(writer_err);
+            return;
+        }
+        writer = std::move(writer_i);
+        writer_opened = true;
+    }
     // A running breaker means the pipeline user has not called stop.
     while (this->breaker.running()) {
         fr.clear();
