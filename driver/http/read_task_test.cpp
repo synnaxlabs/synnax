@@ -14,7 +14,6 @@
 #include "x/cpp/test/test.h"
 
 #include "driver/http/device/device.h"
-#include "driver/http/errors/errors.h"
 #include "driver/http/mock/server.h"
 #include "driver/http/read_task.h"
 
@@ -303,8 +302,9 @@ TEST(HTTPReadTask, MissingJSONFieldWarning) {
     EXPECT_EQ(fr.size(), 0);
 }
 
-/// @brief it should return TEMPORARY_ERROR on 5xx status codes.
-TEST(HTTPReadTask, ServerErrorOn5xx) {
+/// @brief a 5xx status should produce a warning (not a fatal error) and skip the
+/// endpoint's sampling groups.
+TEST(HTTPReadTask, ServerErrorOn5xxWarning) {
     mock::Server server(
         mock::ServerConfig{
             .routes = {{
@@ -345,15 +345,17 @@ TEST(HTTPReadTask, ServerErrorOn5xx) {
     x::telem::Frame fr;
     auto res = source->read(breaker, fr);
     breaker.stop();
-    ASSERT_OCCURRED_AS(res.error, errors::TEMPORARY_ERROR);
-    EXPECT_NE(res.error.data.find("GET"), std::string::npos);
-    EXPECT_NE(res.error.data.find("/api/data"), std::string::npos);
-    EXPECT_NE(res.error.data.find("500"), std::string::npos);
-    EXPECT_NE(res.error.data.find(R"({"error":"internal"})"), std::string::npos);
+    ASSERT_NIL(res.error);
+    EXPECT_NE(res.warning.find("GET"), std::string::npos);
+    EXPECT_NE(res.warning.find("/api/data"), std::string::npos);
+    EXPECT_NE(res.warning.find("500"), std::string::npos);
+    EXPECT_NE(res.warning.find(R"({"error":"internal"})"), std::string::npos);
+    EXPECT_EQ(fr.size(), 0);
 }
 
-/// @brief it should return CRITICAL_ERROR on non-retryable 4xx status codes.
-TEST(HTTPReadTask, CriticalErrorOnNonRetryable4xx) {
+/// @brief a non-retryable 4xx status should produce a warning and skip the endpoint's
+/// sampling groups.
+TEST(HTTPReadTask, CriticalErrorOn4xxWarning) {
     mock::Server server(
         mock::ServerConfig{
             .routes = {{
@@ -394,11 +396,12 @@ TEST(HTTPReadTask, CriticalErrorOnNonRetryable4xx) {
     x::telem::Frame fr;
     auto res = source->read(breaker, fr);
     breaker.stop();
-    ASSERT_OCCURRED_AS(res.error, errors::CRITICAL_ERROR);
-    EXPECT_NE(res.error.data.find("GET"), std::string::npos);
-    EXPECT_NE(res.error.data.find("/api/data"), std::string::npos);
-    EXPECT_NE(res.error.data.find("400"), std::string::npos);
-    EXPECT_NE(res.error.data.find(R"({"error":"bad request"})"), std::string::npos);
+    ASSERT_NIL(res.error);
+    EXPECT_NE(res.warning.find("GET"), std::string::npos);
+    EXPECT_NE(res.warning.find("/api/data"), std::string::npos);
+    EXPECT_NE(res.warning.find("400"), std::string::npos);
+    EXPECT_NE(res.warning.find(R"({"error":"bad request"})"), std::string::npos);
+    EXPECT_EQ(fr.size(), 0);
 }
 
 /// @brief it should convert JSON types correctly (bool to uint8, string to string).
@@ -1729,10 +1732,140 @@ TEST(HTTPReadTask, HTTPSPOSTWithBody) {
     EXPECT_NEAR(fr.at<double>(1, 0), 88.8, 0.001);
 }
 
+////////////////////////////// Transport Errors ////////////////////////////////
+
+/// @brief a transport error (timeout) should produce a warning with the full URL and
+/// skip the endpoint, not kill the task.
+TEST(HTTPReadTask, TransportErrorTimeoutWarning) {
+    mock::Server server(
+        mock::ServerConfig{
+            .routes = {{
+                .method = Method::GET,
+                .path = "/api/slow",
+                .status_code = 200,
+                .response_body = R"({"value": 1.0})",
+                .delay = 2 * x::telem::SECOND,
+            }},
+        }
+    );
+    ASSERT_NIL(server.start());
+    x::defer::defer stop_server([&server] { server.stop(); });
+
+    ReadTaskConfig cfg;
+    cfg.device = "test-device";
+    cfg.data_saving = false;
+    cfg.auto_start = false;
+    cfg.rate = x::telem::Rate(10000);
+
+    ReadField field;
+    field.pointer = x::json::json::json_pointer("/value");
+    field.channel_key = 1;
+
+    ReadEndpoint ep;
+    ep.request.method = Method::GET;
+    ep.request.path = "/api/slow";
+    ep.body = "";
+    ep.fields = {field};
+
+    cfg.endpoints = {ep};
+    cfg.channels[1] = {.name = "val", .data_type = x::telem::FLOAT64_T, .key = 1};
+
+    auto [source, processor] = make_source(
+        cfg,
+        server.base_url(),
+        {{"timeout_ms", 100}}
+    );
+
+    auto breaker = x::breaker::Breaker(x::breaker::Config{.name = "test"});
+    breaker.start();
+    x::telem::Frame fr;
+    auto res = source->read(breaker, fr);
+    breaker.stop();
+    ASSERT_NIL(res.error);
+    EXPECT_NE(res.warning.find("GET"), std::string::npos);
+    EXPECT_NE(res.warning.find("/api/slow"), std::string::npos);
+    EXPECT_NE(res.warning.find("failed"), std::string::npos);
+    EXPECT_EQ(fr.size(), 0);
+}
+
+/// @brief when one endpoint times out but another responds, the successful endpoint's
+/// data should come through with a warning for the timeout.
+TEST(HTTPReadTask, TransportErrorPartialTimeout) {
+    mock::Server server(
+        mock::ServerConfig{
+            .routes = {
+                {
+                    .method = Method::GET,
+                    .path = "/api/fast",
+                    .status_code = 200,
+                    .response_body = R"({"value": 42.0})",
+                },
+                {
+                    .method = Method::GET,
+                    .path = "/api/slow",
+                    .status_code = 200,
+                    .response_body = R"({"value": 1.0})",
+                    .delay = 2 * x::telem::SECOND,
+                },
+            },
+        }
+    );
+    ASSERT_NIL(server.start());
+    x::defer::defer stop_server([&server] { server.stop(); });
+
+    ReadTaskConfig cfg;
+    cfg.device = "test-device";
+    cfg.data_saving = false;
+    cfg.auto_start = false;
+    cfg.rate = x::telem::Rate(10000);
+
+    ReadField fast_field;
+    fast_field.pointer = x::json::json::json_pointer("/value");
+    fast_field.channel_key = 1;
+
+    ReadField slow_field;
+    slow_field.pointer = x::json::json::json_pointer("/value");
+    slow_field.channel_key = 2;
+
+    ReadEndpoint ep1;
+    ep1.request.method = Method::GET;
+    ep1.request.path = "/api/fast";
+    ep1.body = "";
+    ep1.fields = {fast_field};
+
+    ReadEndpoint ep2;
+    ep2.request.method = Method::GET;
+    ep2.request.path = "/api/slow";
+    ep2.body = "";
+    ep2.fields = {slow_field};
+
+    cfg.endpoints = {ep1, ep2};
+    cfg.channels[1] = {.name = "fast", .data_type = x::telem::FLOAT64_T, .key = 1};
+    cfg.channels[2] = {.name = "slow", .data_type = x::telem::FLOAT64_T, .key = 2};
+
+    auto [source, processor] = make_source(
+        cfg,
+        server.base_url(),
+        {{"timeout_ms", 500}}
+    );
+
+    auto breaker = x::breaker::Breaker(x::breaker::Config{.name = "test"});
+    breaker.start();
+    x::telem::Frame fr;
+    auto res = source->read(breaker, fr);
+    breaker.stop();
+    ASSERT_NIL(res.error);
+    EXPECT_NE(res.warning.find("/api/slow"), std::string::npos);
+    EXPECT_NE(res.warning.find("failed"), std::string::npos);
+    // Fast endpoint succeeded, slow endpoint timed out.
+    EXPECT_EQ(fr.size(), 1);
+    EXPECT_NEAR(fr.at<double>(1, 0), 42.0, 0.001);
+}
+
 ///////////////////////////// Partial Failures ////////////////////////////////
 
-/// @brief when the first endpoint returns 5xx but the second would succeed,
-/// the read should fail with TEMPORARY_ERROR.
+/// @brief when the first endpoint returns 5xx, its groups should be skipped but the
+/// second endpoint's data should still come through.
 TEST(HTTPReadTask, PartialFailureFirstEndpoint5xx) {
     mock::Server server(
         mock::ServerConfig{
@@ -1792,15 +1925,18 @@ TEST(HTTPReadTask, PartialFailureFirstEndpoint5xx) {
     x::telem::Frame fr;
     auto res = source->read(breaker, fr);
     breaker.stop();
-    ASSERT_OCCURRED_AS(res.error, errors::TEMPORARY_ERROR);
-    EXPECT_NE(res.error.data.find("GET"), std::string::npos);
-    EXPECT_NE(res.error.data.find("/api/failing"), std::string::npos);
-    EXPECT_NE(res.error.data.find("500"), std::string::npos);
-    EXPECT_NE(res.error.data.find(R"({"error":"internal"})"), std::string::npos);
+    ASSERT_NIL(res.error);
+    EXPECT_NE(res.warning.find("GET"), std::string::npos);
+    EXPECT_NE(res.warning.find("/api/failing"), std::string::npos);
+    EXPECT_NE(res.warning.find("500"), std::string::npos);
+    EXPECT_NE(res.warning.find(R"({"error":"internal"})"), std::string::npos);
+    // Second endpoint succeeded.
+    EXPECT_EQ(fr.size(), 1);
+    EXPECT_NEAR(fr.at<double>(2, 0), 42.0, 0.001);
 }
 
-/// @brief when the second endpoint returns 4xx but the first succeeds,
-/// the read should fail with CLIENT_ERROR.
+/// @brief when the second endpoint returns 4xx, its groups should be skipped but the
+/// first endpoint's data should still come through.
 TEST(HTTPReadTask, PartialFailureSecondEndpointCritical4xx) {
     mock::Server server(
         mock::ServerConfig{
@@ -1860,11 +1996,14 @@ TEST(HTTPReadTask, PartialFailureSecondEndpointCritical4xx) {
     x::telem::Frame fr;
     auto res = source->read(breaker, fr);
     breaker.stop();
-    ASSERT_OCCURRED_AS(res.error, errors::CRITICAL_ERROR);
-    EXPECT_NE(res.error.data.find("GET"), std::string::npos);
-    EXPECT_NE(res.error.data.find("/api/failing"), std::string::npos);
-    EXPECT_NE(res.error.data.find("400"), std::string::npos);
-    EXPECT_NE(res.error.data.find(R"({"error":"bad request"})"), std::string::npos);
+    ASSERT_NIL(res.error);
+    EXPECT_NE(res.warning.find("GET"), std::string::npos);
+    EXPECT_NE(res.warning.find("/api/failing"), std::string::npos);
+    EXPECT_NE(res.warning.find("400"), std::string::npos);
+    EXPECT_NE(res.warning.find(R"({"error":"bad request"})"), std::string::npos);
+    // First endpoint succeeded.
+    EXPECT_EQ(fr.size(), 1);
+    EXPECT_NEAR(fr.at<double>(1, 0), 42.0, 0.001);
 }
 
 /// @brief when one endpoint has a missing field pointer, the other endpoint's

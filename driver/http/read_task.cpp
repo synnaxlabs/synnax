@@ -243,22 +243,20 @@ ReadTaskSource::read(x::breaker::Breaker &breaker, x::telem::Frame &fr) {
 
         if (req_err) {
             const auto &req = requests[ei];
-            res.error = x::errors::Error(
-                req_err,
+            warnings.push_back(
                 std::string(to_string(req.method)) + " " + req.url +
-                    " failed: " + req_err.data
+                " failed: " + req_err.data
             );
-            return res;
+            continue;
         }
 
-        if (auto status_err = errors::classify_status(resp.status_code);
-            status_err) {
+        if (auto status_err = errors::classify_status(resp.status_code); status_err) {
             const auto &req = requests[ei];
             auto msg = std::string(to_string(req.method)) + " " + req.url +
                        " returned " + std::to_string(resp.status_code);
             if (!resp.body.empty()) msg += ": " + resp.body;
-            res.error = x::errors::Error(status_err, msg);
-            return res;
+            warnings.push_back(msg);
+            continue;
         }
 
         try {
@@ -271,8 +269,8 @@ ReadTaskSource::read(x::breaker::Breaker &breaker, x::telem::Frame &fr) {
         }
     }
 
-    // Process each sampling group atomically: either all fields in the group
-    // succeed and are written to the frame, or the entire group is skipped.
+    // Process each sampling group atomically: either all fields in the group succeed
+    // and are written to the frame, or the entire group is skipped.
     for (const auto &group: cfg.groups) {
         const auto ei = group.endpoint_index;
         if (!ep_parsed[ei]) continue;
