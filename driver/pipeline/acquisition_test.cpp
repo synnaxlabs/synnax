@@ -877,7 +877,7 @@ TEST(AcquisitionPipeline, testEagerOpenWriterBeforeFirstFrame) {
         source,
         x::breaker::Config(),
         "",
-        true,
+        /* err_on_unauthorized */ true,
         /* open_eagerly */ true
     );
     ASSERT_TRUE(pipe.start());
