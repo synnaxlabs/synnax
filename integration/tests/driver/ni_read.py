@@ -9,6 +9,7 @@
 
 """NI read task integration tests."""
 
+import numpy as np
 import synnax as sy
 
 from tests.driver.ni_task import (
@@ -49,6 +50,135 @@ class NIAnalogReadHS(NIAnalogReadTaskCase):
             )
             for i in range(2)
         ]
+
+
+class NIAnalogReadScaled(NIAnalogReadTaskCase):
+    """Read voltage with custom scales, verify values fall in scaled bounds.
+
+    E101Mod4 (NI 9205) — sim DAQ outputs a sine wave in -10V to +10V.
+
+    Port | Scale    | Params                       | Output Range
+    -----|----------|------------------------------|-------------
+    0    | MapScale | -10V..+10V → 500..700        | [500, 700]
+    1    | LinScale | slope=60, intercept=1200      | [600, 1800]
+    2    | None     | nominal volts (control)       | [-10, 10]
+    """
+
+    task_name = "NI Analog Voltage Read (Scaled)"
+    device_locations = ["E101Mod4"]  # NI 9205
+
+    SAMPLE_RATE = 25 * sy.Rate.HZ
+    STREAM_RATE = 5 * sy.Rate.HZ
+
+    @staticmethod
+    def create_channels(
+        client: sy.Synnax, devices: dict[str, sy.Device]
+    ) -> list[sy.ni.AIVoltageChan]:
+        idx = create_index(client, "ni_scaled_index")
+        map_scale = sy.ni.MapScale(
+            pre_scaled_min=-10,
+            pre_scaled_max=10,
+            scaled_min=500,
+            scaled_max=700,
+            pre_scaled_units="Volts",
+        )
+        # slope=60: each volt = 60 scaled units, intercept=1200: 0V = 1200
+        # -10V → 600, 0V → 1200, +10V → 1800
+        lin_scale = sy.ni.LinScale(
+            slope=60,
+            y_intercept=1200,
+            pre_scaled_units="Volts",
+            scaled_units="Volts",
+        )
+        return [
+            sy.ni.AIVoltageChan(
+                port=0,
+                channel=create_channel(
+                    client,
+                    name="ni_scaled_map",
+                    data_type=sy.DataType.FLOAT32,
+                    index=idx.key,
+                ),
+                terminal_config="Cfg_Default",
+                min_val=500,
+                max_val=700,
+                custom_scale=map_scale,
+            ),
+            sy.ni.AIVoltageChan(
+                port=1,
+                channel=create_channel(
+                    client,
+                    name="ni_scaled_lin",
+                    data_type=sy.DataType.FLOAT32,
+                    index=idx.key,
+                ),
+                terminal_config="Cfg_Default",
+                min_val=600,
+                max_val=1800,
+                custom_scale=lin_scale,
+            ),
+            sy.ni.AIVoltageChan(
+                port=2,
+                channel=create_channel(
+                    client,
+                    name="ni_scaled_none",
+                    data_type=sy.DataType.FLOAT32,
+                    index=idx.key,
+                ),
+                terminal_config="Cfg_Default",
+                min_val=-10.0,
+                max_val=10.0,
+            ),
+        ]
+
+    def run(self) -> None:
+        assert self.tsk is not None
+        self.test_task_exists()
+        self.test_scaled_values()
+
+    def test_scaled_values(self) -> None:
+        """Stream data and verify each channel's values fall within its scaled bounds."""
+        assert self.tsk is not None
+        self.log("Testing: Verify scaled value ranges")
+        channel_keys = self._channel_keys(self.tsk)
+
+        # Collect samples for 2 seconds
+        with self.tsk.run():
+            with self.client.open_streamer(channel_keys) as streamer:
+                streamer.read(timeout=30)  # wait for first frame
+            sy.sleep(0.5)
+            start = sy.TimeStamp.now()
+            sy.sleep(2)
+
+        end = sy.TimeStamp.now()
+        tr = sy.TimeRange(start, end)
+
+        # Expected bounds per channel (port order: map, lin, none)
+        bounds = [
+            ("ni_scaled_map", 500, 700),
+            ("ni_scaled_lin", 600, 1800),
+            ("ni_scaled_none", -10, 10),
+        ]
+        for key, (name, lo, hi) in zip(channel_keys, bounds):
+            data = np.array(self.client.channels.retrieve(key).read(tr))
+            if len(data) == 0:
+                self.fail(f"No samples for '{name}'")
+                return
+            vmin, vmax = float(np.min(data)), float(np.max(data))
+            if vmin < lo - 1 or vmax > hi + 1:
+                self.fail(
+                    f"'{name}' values [{vmin:.2f}, {vmax:.2f}] "
+                    f"outside expected [{lo}, {hi}]"
+                )
+                return
+            # Confirm the scaled channels actually produce values outside [-10, 10]
+            if lo > 10 and vmax <= 10:
+                self.fail(
+                    f"'{name}' max={vmax:.2f} — scaling not applied "
+                    f"(expected values above 10)"
+                )
+                return
+            self.log(f"  {name}: [{vmin:.2f}, {vmax:.2f}] within [{lo}, {hi}]")
 
 
 class NIReadTemperature(NIAnalogReadTaskCase):
@@ -792,6 +922,3 @@ class NICounterReadFrequency(NICounterReadTaskCase):
                 divisor=4,
             ),
         ]
-
-
- 
