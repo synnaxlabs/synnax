@@ -84,6 +84,9 @@ type Scheduler struct {
 	currSeqIdx int
 	// tolerance is the timing tolerance for interval/wait comparisons.
 	tolerance telem.TimeSpan
+	// nextDeadline is the minimum deadline (absolute elapsed time) reported by
+	// nodes during the current Next() call. Reset to max at the start of each call.
+	nextDeadline telem.TimeSpan
 }
 
 // ErrorHandler receives errors from node execution.
@@ -150,6 +153,7 @@ func New(prog ir.IR, nodes map[string]rnode.Node, tolerance telem.TimeSpan) *Sch
 	s.nodeCtx = rnode.Context{
 		MarkChanged:     s.markChanged,
 		MarkSelfChanged: s.markSelfChanged,
+		SetDeadline:     s.setDeadline,
 		ReportError:     s.reportError,
 		ActivateStage:   s.transitionStage,
 	}
@@ -224,6 +228,7 @@ func (s *Scheduler) reportError(err error) {
 // The reason parameter indicates what triggered this scheduler run (timer tick or
 // channel input). Time-based nodes use this to only fire on timer ticks.
 func (s *Scheduler) Next(ctx context.Context, elapsed telem.TimeSpan, reason rnode.RunReason) {
+	s.nextDeadline = telem.TimeSpanMax
 	s.nodeCtx.Context = ctx
 	s.nodeCtx.Elapsed = elapsed
 	s.nodeCtx.Tolerance = s.tolerance
@@ -233,6 +238,16 @@ func (s *Scheduler) Next(ctx context.Context, elapsed telem.TimeSpan, reason rno
 	s.execStrata(s.globalStrata)
 	s.execStages()
 	clear(s.changed)
+}
+
+// NextDeadline returns the minimum deadline (absolute elapsed time) reported by nodes
+// during the last Next() call. Returns telem.TimeSpanMax if no node reported a deadline.
+func (s *Scheduler) NextDeadline() telem.TimeSpan { return s.nextDeadline }
+
+func (s *Scheduler) setDeadline(d telem.TimeSpan) {
+	if d < s.nextDeadline {
+		s.nextDeadline = d
+	}
 }
 
 // execStrata executes nodes in a stage strata, propagating changes between layers.

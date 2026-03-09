@@ -1668,4 +1668,110 @@ var _ = Describe("Scheduler", func() {
 			Expect(mocks["A"].NextCalled).To(Equal(1))
 		})
 	})
+	Describe("NextDeadline", func() {
+		It("Should return TimeSpanMax when no node sets a deadline", func() {
+			nodeA := NewMockNode()
+			nodeA.MarkOnNext("output")
+			mocks["A"] = nodeA
+			nodes["A"] = nodeA
+
+			prog := testutil.NewIRBuilder().
+				Node("A").
+				Strata([][]string{{"A"}}).
+				Build()
+
+			s := build(prog)
+			s.Next(ctx, telem.Microsecond, node.ReasonTimerTick)
+			Expect(s.NextDeadline()).To(Equal(telem.TimeSpanMax))
+		})
+		It("Should return the minimum deadline across nodes", func() {
+			nodeA := NewMockNode()
+			nodeA.OnNext = func(ctx node.Context) {
+				if ctx.SetDeadline != nil {
+					ctx.SetDeadline(3 * telem.Second)
+				}
+			}
+			mocks["A"] = nodeA
+			nodes["A"] = nodeA
+
+			nodeB := NewMockNode()
+			nodeB.OnNext = func(ctx node.Context) {
+				if ctx.SetDeadline != nil {
+					ctx.SetDeadline(1 * telem.Second)
+				}
+			}
+			mocks["B"] = nodeB
+			nodes["B"] = nodeB
+
+			prog := testutil.NewIRBuilder().
+				Node("A").
+				Node("B").
+				Strata([][]string{{"A", "B"}}).
+				Build()
+
+			s := build(prog)
+			s.Next(ctx, telem.Microsecond, node.ReasonTimerTick)
+			Expect(s.NextDeadline()).To(Equal(telem.Second))
+		})
+		It("Should reset to max between cycles", func() {
+			call := 0
+			nodeA := NewMockNode()
+			nodeA.OnNext = func(ctx node.Context) {
+				call++
+				if call == 1 && ctx.SetDeadline != nil {
+					ctx.SetDeadline(telem.Second)
+				}
+			}
+			mocks["A"] = nodeA
+			nodes["A"] = nodeA
+
+			prog := testutil.NewIRBuilder().
+				Node("A").
+				Strata([][]string{{"A"}}).
+				Build()
+
+			s := build(prog)
+			s.Next(ctx, telem.Microsecond, node.ReasonTimerTick)
+			Expect(s.NextDeadline()).To(Equal(telem.Second))
+
+			s.Next(ctx, 2*telem.Microsecond, node.ReasonTimerTick)
+			Expect(s.NextDeadline()).To(Equal(telem.TimeSpanMax))
+		})
+		It("Should track deadlines from stage nodes", func() {
+			nodeA := NewMockNode()
+			nodeA.OnNext = func(ctx node.Context) {
+				if ctx.SetDeadline != nil {
+					ctx.SetDeadline(2 * telem.Second)
+				}
+			}
+			mocks["A"] = nodeA
+			nodes["A"] = nodeA
+
+			trigger := NewMockNode()
+			trigger.MarkOnNext("activate")
+			trigger.ParamTruthy["activate"] = true
+			mocks["trigger"] = trigger
+			nodes["trigger"] = trigger
+
+			entry := NewMockNode()
+			entry.ActivateOnNext()
+			mocks["entry_seq_stage"] = entry
+			nodes["entry_seq_stage"] = entry
+
+			prog := testutil.NewIRBuilder().
+				Node("trigger").
+				Node("entry_seq_stage").
+				Node("A").
+				OneShot("trigger", "activate", "entry_seq_stage", "input").
+				Strata([][]string{{"trigger"}, {"entry_seq_stage"}}).
+				Sequence("seq", []testutil.StageSpec{
+					{Key: "stage", Strata: [][]string{{"A"}}},
+				}).
+				Build()
+
+			s := build(prog)
+			s.Next(ctx, telem.Microsecond, node.ReasonTimerTick)
+			Expect(s.NextDeadline()).To(Equal(2 * telem.Second))
+		})
+	})
 })

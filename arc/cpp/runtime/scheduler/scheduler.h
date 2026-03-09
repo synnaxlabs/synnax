@@ -79,6 +79,9 @@ class Scheduler {
     /// @brief Nodes that requested re-execution on the next cycle.
     /// Unlike changed, self_changed persists across next() calls.
     std::unordered_set<std::string> self_changed;
+    /// @brief Minimum deadline (absolute elapsed time) across all nodes in the
+    /// current next() call. Reset to max at the start of each next() call.
+    x::telem::TimeSpan next_deadline_ = x::telem::TimeSpan::max();
     /// @brief One-shot edges that have fired in global strata (never reset).
     std::unordered_set<ir::Edge> global_fired_one_shots;
     /// @brief Key of the currently executing node.
@@ -98,7 +101,13 @@ public:
     ):
         tolerance_(tolerance), error_handler(std::move(error_handler)) {
         this->ctx.mark_changed = std::bind_front(&Scheduler::mark_changed, this);
-        this->ctx.mark_self_changed = std::bind_front(&Scheduler::mark_self_changed, this);
+        this->ctx.mark_self_changed = std::bind_front(
+            &Scheduler::mark_self_changed,
+            this
+        );
+        this->ctx.set_deadline = [this](const x::telem::TimeSpan d) {
+            if (d < this->next_deadline_) this->next_deadline_ = d;
+        };
         this->ctx.report_error = std::bind_front(&Scheduler::report_error, this);
         this->ctx.activate_stage = std::bind_front(&Scheduler::transition_stage, this);
         for (auto &[key, node]: node_impls)
@@ -151,6 +160,7 @@ public:
     /// @param reason Why this scheduler run was triggered (timer tick or channel
     /// input).
     void next(const x::telem::TimeSpan elapsed, const node::RunReason reason) {
+        this->next_deadline_ = x::telem::TimeSpan::max();
         this->ctx.elapsed = elapsed;
         this->ctx.tolerance = this->tolerance_;
         this->ctx.reason = reason;
@@ -158,6 +168,13 @@ public:
         this->curr_stage_idx = NO_INDEX;
         this->execute_strata(this->global_strata);
         this->exec_stages();
+    }
+
+    /// @brief Returns the minimum deadline reported by nodes during the last next()
+    /// call. The deadline is an absolute elapsed time. Returns TimeSpan::max() if no
+    /// node reported a deadline.
+    [[nodiscard]] x::telem::TimeSpan next_deadline() const {
+        return this->next_deadline_;
     }
 
 private:
@@ -223,9 +240,7 @@ private:
     }
 
     /// @brief Resets all nodes in a strata to their initial state.
-    void mark_self_changed() {
-        this->self_changed.insert(this->curr_node_key);
-    }
+    void mark_self_changed() { this->self_changed.insert(this->curr_node_key); }
 
     void reset_strata(const ir::Strata &strata) {
         for (const auto &stratum: strata)
