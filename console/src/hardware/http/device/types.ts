@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { channel, type device } from "@synnaxlabs/client";
-import { TimeSpan } from "@synnaxlabs/x";
+import { json, TimeSpan } from "@synnaxlabs/x";
 import { z } from "zod/v4";
 
 export const MAKE = "http";
@@ -78,20 +78,12 @@ export const ZERO_AUTH_CONFIGS: Record<AuthType, AuthConfig> = {
   basic: { type: "basic", username: "", password: "" },
 };
 
-const jsonPointerZ = z
-  .string()
-  .regex(/^(?:$|(?:\/(?:[^~/]|~0|~1)*)+)$/, "must be a valid JSON pointer (RFC 6901)");
-
-const jsonPrimitiveZ = z.union([z.string(), z.number(), z.boolean(), z.null()]);
-
-export type JsonPrimitiveType = "string" | "number" | "boolean" | "null";
-
-const jsonPrimitiveTypeZ = z.enum(["string", "number", "boolean", "null"]);
+export type JsonPrimitiveType = json.PrimitiveType;
 
 const healthCheckResponseZ = z.object({
-  pointer: jsonPointerZ,
-  expected_value_type: jsonPrimitiveTypeZ,
-  expected_value: jsonPrimitiveZ,
+  pointer: json.pointerZ,
+  expectedValueType: json.primitiveTypeZ,
+  expectedValue: json.primitiveZ,
 });
 
 const healthCheckMethodZ = z.enum(["GET", "POST"]);
@@ -100,9 +92,9 @@ const healthCheckZ = z.object({
   method: healthCheckMethodZ,
   path: z.string().min(1, "Path is required"),
   headers: z.record(z.string(), z.string()).optional(),
-  query_params: z.record(z.string(), z.string()).optional(),
+  queryParams: z.record(z.string(), z.string()).optional(),
   body: z.string().optional(),
-  validate_response: z.boolean(),
+  validateResponse: z.boolean(),
   response: healthCheckResponseZ.optional(),
 });
 
@@ -114,11 +106,11 @@ export const ZERO_HEALTH_CHECK: HealthCheck = {
   method: "GET",
   path: "/health",
   body: "",
-  validate_response: false,
+  validateResponse: false,
   response: {
     pointer: "",
-    expected_value_type: "string",
-    expected_value: "",
+    expectedValueType: "string",
+    expectedValue: "",
   },
 };
 
@@ -141,7 +133,7 @@ const v1PropertiesZ = v0PropertiesZ
   .omit({ auth: true, headers: true, queryParams: true })
   .extend({
     auth: authConfigZ,
-    health_check: healthCheckZ.optional(),
+    healthCheck: healthCheckZ.default(ZERO_HEALTH_CHECK),
     version: z.literal(1),
   });
 
@@ -165,7 +157,12 @@ export const propertiesZ: z.ZodType<Properties> = v1PropertiesZ.or(
         newAuth = { type: "api_key", sendAs: "query_param", parameter, key };
       }
     } else newAuth = auth;
-    return { ...rest, auth: newAuth, version: 1 } as const;
+    return {
+      ...rest,
+      auth: newAuth,
+      version: 1,
+      healthCheck: ZERO_HEALTH_CHECK,
+    } as const;
   }),
 );
 
@@ -174,7 +171,7 @@ export const ZERO_PROPERTIES = {
   verifySsl: true,
   timeoutMs: defaultTimeoutMs,
   auth: ZERO_AUTH_CONFIGS.none,
-  health_check: ZERO_HEALTH_CHECK,
+  healthCheck: ZERO_HEALTH_CHECK,
   readIndexes: {},
   version: 1,
 } as const satisfies Properties;

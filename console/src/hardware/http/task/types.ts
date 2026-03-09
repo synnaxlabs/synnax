@@ -8,6 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { type task } from "@synnaxlabs/client";
+import { json } from "@synnaxlabs/x";
 import { z } from "zod";
 
 import { Common } from "@/hardware/common";
@@ -22,7 +23,7 @@ export const TEST_CONNECTION_COMMAND_TYPE = "test_connection";
 
 const scanTypeZ = z.literal(SCAN_TYPE);
 
-const scanConfigZ = z.object({});
+const scanConfigZ = z.object({}).or(z.null());
 
 const scanStatusDataZ = z.object({}).or(z.null());
 
@@ -38,10 +39,6 @@ export const SCAN_SCHEMAS: task.Schemas<
 
 // --- Read task types ---
 
-const jsonPointerZ = z
-  .string()
-  .regex(/^(?:$|(?:\/(?:[^~/]|~0|~1)*)+)$/, "must be a valid JSON pointer (RFC 6901)");
-
 const timeFormatZ = z.enum(["iso8601", "unix_sec", "unix_ms", "unix_us", "unix_ns"]);
 
 export const READ_TYPE = `${PREFIX}_read`;
@@ -49,7 +46,7 @@ export const READ_TYPE = `${PREFIX}_read`;
 export const readTypeZ = z.literal(READ_TYPE);
 
 const readFieldZ = Common.Task.readChannelZ.extend({
-  pointer: jsonPointerZ,
+  pointer: json.pointerZ,
   dataType: z.string().default("float64"),
   timestampFormat: timeFormatZ.optional(),
   enumValues: z.record(z.string(), z.number()).optional(),

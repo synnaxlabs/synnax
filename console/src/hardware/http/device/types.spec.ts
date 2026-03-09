@@ -12,6 +12,7 @@ import { describe, expect, it } from "vitest";
 import {
   type Properties,
   propertiesZ,
+  ZERO_HEALTH_CHECK,
   ZERO_PROPERTIES,
 } from "@/hardware/http/device/types";
 
@@ -27,6 +28,7 @@ describe("HTTP Device Properties", () => {
         verifySsl: false,
         timeoutMs: 500,
         auth: { type: "none" },
+        healthCheck: ZERO_HEALTH_CHECK,
         readIndexes: {},
         version: 1,
       };
@@ -40,6 +42,7 @@ describe("HTTP Device Properties", () => {
         verifySsl: true,
         timeoutMs: 100,
         auth: { type: "bearer", token: "my-token" },
+        healthCheck: ZERO_HEALTH_CHECK,
         readIndexes: {},
         version: 1,
       };
@@ -66,6 +69,7 @@ describe("HTTP Device Properties", () => {
         verifySsl: true,
         timeoutMs: 100,
         auth: { type: "basic", username: "user", password: "pass" },
+        healthCheck: ZERO_HEALTH_CHECK,
         readIndexes: {},
         version: 1,
       };
@@ -114,6 +118,7 @@ describe("HTTP Device Properties", () => {
           header: "X-API-Key",
           key: "secret",
         },
+        healthCheck: ZERO_HEALTH_CHECK,
         readIndexes: {},
         version: 1,
       };
@@ -150,6 +155,7 @@ describe("HTTP Device Properties", () => {
           parameter: "api_key",
           key: "secret",
         },
+        healthCheck: ZERO_HEALTH_CHECK,
         readIndexes: {},
         version: 1,
       };
