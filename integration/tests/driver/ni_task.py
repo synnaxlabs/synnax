@@ -31,6 +31,13 @@ class _NITaskMixin:
     device_locations: list[str] = []
     devices: dict[str, sy.Device] = {}
 
+    @property
+    def _device_key(self) -> str:
+        """Return 'cross-device' for multi-device tasks, else the single device key."""
+        if len(self.device_locations) > 1:
+            return "cross-device"
+        return self.devices[self.device_locations[0]].key
+
     def setup(self) -> None:
         if platform.system().lower() != "windows":
             self.auto_pass(msg="Windows DAQmx drivers required")
@@ -65,12 +72,9 @@ class NIAnalogReadTaskCase(_NITaskMixin, ReadTaskCase):
     ) -> sy.ni.AnalogReadTask:
         """Create an NI analog read task."""
         channels = self.create_channels(self.client, self.devices)
-        device_key = (
-            "cross-device" if len(self.device_locations) > 1 else device.key
-        )
         return sy.ni.AnalogReadTask(
             name=task_name,
-            device=device_key,
+            device=self._device_key,
             sample_rate=sample_rate,
             stream_rate=stream_rate,
             data_saving=True,
@@ -100,7 +104,7 @@ class NIDigitalReadTaskCase(_NITaskMixin, ReadTaskCase):
 
         return sy.ni.DigitalReadTask(
             name=task_name,
-            device=device.key,
+            device=self._device_key,
             sample_rate=sample_rate,
             stream_rate=stream_rate,
             data_saving=True,
@@ -130,7 +134,7 @@ class NICounterReadTaskCase(_NITaskMixin, ReadTaskCase):
 
         return sy.ni.CounterReadTask(
             name=task_name,
-            device=device.key,
+            device=self._device_key,
             sample_rate=sample_rate,
             stream_rate=stream_rate,
             data_saving=True,
@@ -162,7 +166,7 @@ class NIAnalogWriteTaskCase(_NITaskMixin, WriteTaskCase):
         channels = self.create_channels(self.client, self.devices)
         return sy.ni.AnalogWriteTask(
             name=task_name,
-            device=device.key,
+            device=self._device_key,
             state_rate=sample_rate,
             channels=channels,
         )
@@ -192,7 +196,7 @@ class NIDigitalWriteTaskCase(_NITaskMixin, WriteTaskCase):
         channels = self.create_channels(self.client, self.devices)
         return sy.ni.DigitalWriteTask(
             name=task_name,
-            device=device.key,
+            device=self._device_key,
             state_rate=sample_rate,
             channels=channels,
         )

@@ -376,7 +376,7 @@ I can successfully:
   - [x] Enable and disable data saving.
 - **Digital Write Task**
   - [ ] Perform control actions using a schematic.
-  - [ ] Stop, start, and reconfigure tasks.
+  - [x] Stop, start, and reconfigure tasks.
   - [ ] Handle device disconnection during active tasks with appropriate feedback.
   - **Configure response time for specified state rates:**
     - [ ] 1 Hz (visible delay)

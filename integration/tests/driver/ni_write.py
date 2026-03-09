@@ -11,7 +11,7 @@
 
 import synnax as sy
 
-from tests.driver.ni_task import NIDigitalWriteTaskCase
+from tests.driver.ni_task import NIAnalogWriteTaskCase, NIDigitalWriteTaskCase
 from tests.driver.task import (
     create_channel,
     create_index,
@@ -93,3 +93,259 @@ class NIDigitalWriteInvalidData(NIDigitalWriteTaskCase):
                 self.log("Driver correctly rejected invalid digital data")
                 return
         self.fail("Driver did not report an error for invalid digital data (42)")
+
+
+def _ao_voltage_channels(
+    client: sy.Synnax, devices: dict[str, sy.Device]
+) -> list[sy.ni.AOVoltageChan]:
+    """Create two voltage output channels on E102Mod4 (NI 9263).
+
+    Port 0: MapScale (-10V..+10V → 0%..100%) — user writes percent
+    Port 1: No scale — user writes volts (-10 to +10)
+    """
+    cmd_idx = create_index(client, "ni_ao_volt_cmd_time")
+    state_idx = create_index(client, "ni_ao_volt_state_time")
+    scale = sy.ni.MapScale(
+        pre_scaled_min=-10,
+        pre_scaled_max=10,
+        scaled_min=0,
+        scaled_max=100,
+        pre_scaled_units="Volts",
+    )
+    scaled = sy.ni.AOVoltageChan(
+        cmd_channel=create_channel(
+            client,
+            name="ni_ao_volt_cmd_0",
+            data_type=sy.DataType.FLOAT64,
+            index=cmd_idx.key,
+        ),
+        state_channel=create_channel(
+            client,
+            name="ni_ao_volt_state_0",
+            data_type=sy.DataType.FLOAT64,
+            index=state_idx.key,
+        ),
+        port=0,
+        min_val=0,
+        max_val=100,
+        custom_scale=scale,
+    )
+    nominal = sy.ni.AOVoltageChan(
+        cmd_channel=create_channel(
+            client,
+            name="ni_ao_volt_cmd_1",
+            data_type=sy.DataType.FLOAT64,
+            index=cmd_idx.key,
+        ),
+        state_channel=create_channel(
+            client,
+            name="ni_ao_volt_state_1",
+            data_type=sy.DataType.FLOAT64,
+            index=state_idx.key,
+        ),
+        port=1,
+        min_val=-10,
+        max_val=10,
+    )
+    return [scaled, nominal]
+
+
+def _ao_current_channels(
+    client: sy.Synnax, devices: dict[str, sy.Device]
+) -> list[sy.ni.AOCurrentChan]:
+    """Create two current output channels on E102Mod5 (NI 9265).
+
+    Port 0: MapScale (4mA..20mA → 0%..100%) — user writes percent
+    Port 1: No scale — user writes amps (0.004 to 0.020)
+    """
+    cmd_idx = create_index(client, "ni_ao_curr_cmd_time")
+    state_idx = create_index(client, "ni_ao_curr_state_time")
+    scale = sy.ni.MapScale(
+        pre_scaled_min=0.004,
+        pre_scaled_max=0.020,
+        scaled_min=0,
+        scaled_max=100,
+        pre_scaled_units="Amps",
+    )
+    scaled = sy.ni.AOCurrentChan(
+        cmd_channel=create_channel(
+            client,
+            name="ni_ao_curr_cmd_0",
+            data_type=sy.DataType.FLOAT64,
+            index=cmd_idx.key,
+        ),
+        state_channel=create_channel(
+            client,
+            name="ni_ao_curr_state_0",
+            data_type=sy.DataType.FLOAT64,
+            index=state_idx.key,
+        ),
+        port=0,
+        min_val=0,
+        max_val=100,
+        custom_scale=scale,
+    )
+    nominal = sy.ni.AOCurrentChan(
+        cmd_channel=create_channel(
+            client,
+            name="ni_ao_curr_cmd_1",
+            data_type=sy.DataType.FLOAT64,
+            index=cmd_idx.key,
+        ),
+        state_channel=create_channel(
+            client,
+            name="ni_ao_curr_state_1",
+            data_type=sy.DataType.FLOAT64,
+            index=state_idx.key,
+        ),
+        port=1,
+        min_val=0.004,
+        max_val=0.020,
+    )
+    return [scaled, nominal]
+
+
+class NIAnalogWriteVoltage(NIAnalogWriteTaskCase):
+    """Write voltage on NI 9263 (E102Mod4): port 0 scaled (%), port 1 nominal (V)."""
+
+    task_name = "NI Analog Write Voltage"
+    device_locations = ["E102Mod4"]
+    # port 0: 25% = -5V, 75% = 5V | port 1: -5V, 5V
+    command_values = [[25, -5], [75, 5]]
+
+    @staticmethod
+    def create_channels(
+        client: sy.Synnax, devices: dict[str, sy.Device]
+    ) -> list[sy.ni.AOVoltageChan]:
+        return _ao_voltage_channels(client, devices)
+
+
+class NIAnalogWriteCurrent(NIAnalogWriteTaskCase):
+    """Write current on NI 9265 (E102Mod5): port 0 scaled (%), port 1 nominal (A)."""
+
+    task_name = "NI Analog Write Current"
+    device_locations = ["E102Mod5"]
+    # port 0: 25% = 8mA, 75% = 16mA | port 1: 0.008A, 0.016A
+    command_values = [[25, 0.008], [75, 0.016]]
+
+    @staticmethod
+    def create_channels(
+        client: sy.Synnax, devices: dict[str, sy.Device]
+    ) -> list[sy.ni.AOCurrentChan]:
+        return _ao_current_channels(client, devices)
+
+
+def _send_oob_and_assert_state_clamped(
+    client: sy.Synnax,
+    tsk: sy.Task,
+    *,
+    oob_values: list[float],
+    task_name: str,
+    timeout: sy.TimeSpan = 10 * sy.TimeSpan.SECOND,
+) -> None:
+    """Send out-of-bounds values and verify state channels reflect clamped output.
+
+    NI-DAQmx silently clamps analog values to hardware limits. This helper
+    writes OOB command values, then reads the state channels and asserts
+    the actual state does NOT match the commanded OOB values.
+    """
+    cmd_keys = [ch.cmd_channel for ch in tsk.config.channels]
+    state_keys = [ch.state_channel for ch in tsk.config.channels]
+
+    channels = client.channels.retrieve(cmd_keys)
+    index_keys = list({ch.index for ch in channels if ch.index != 0})
+    all_writer_keys = cmd_keys + index_keys
+
+    with client.open_streamer(state_keys) as streamer:
+        writer = client.open_writer(
+            start=sy.TimeStamp.now(),
+            channels=all_writer_keys,
+            name=f"{task_name}_oob_writer",
+            enable_auto_commit=True,
+        )
+        try:
+            cmd_frame = {key: float(v) for key, v in zip(cmd_keys, oob_values)}
+            cmd_frame.update({k: sy.TimeStamp.now() for k in index_keys})
+            writer.write(cmd_frame)
+
+            received: dict[int, float] = {}
+            timer = sy.Timer()
+            while len(received) < len(state_keys):
+                if timer.elapsed() > timeout:
+                    missing = set(state_keys) - set(received.keys())
+                    raise AssertionError(
+                        f"{task_name}: Timeout waiting for state values. "
+                        f"Missing keys: {missing}"
+                    )
+                frame = streamer.read(timeout=timeout)
+                if frame is None:
+                    continue
+                for key in state_keys:
+                    if key in frame and len(frame[key]) > 0:
+                        received[key] = float(frame[key][-1])
+
+            for state_key, cmd_key, oob_val in zip(state_keys, cmd_keys, oob_values):
+                state_val = received[state_key]
+                if state_val == oob_val:
+                    cmd_ch = client.channels.retrieve(cmd_key)
+                    raise AssertionError(
+                        f"{task_name}: Channel '{cmd_ch.name}' state "
+                        f"matches OOB command {oob_val} — expected "
+                        f"clamped value"
+                    )
+        finally:
+            writer.close()
+
+
+class NIAnalogWriteVoltageOOB(NIAnalogWriteTaskCase):
+    """Send out-of-bounds voltage and verify state is clamped by hardware."""
+
+    task_name = "NI Analog Write Voltage OOB"
+    device_locations = ["E102Mod4"]
+    command_values = [[25, -5], [75, 5]]
+
+    @staticmethod
+    def create_channels(
+        client: sy.Synnax, devices: dict[str, sy.Device]
+    ) -> list[sy.ni.AOVoltageChan]:
+        return _ao_voltage_channels(client, devices)
+
+    def run(self) -> None:
+        assert self.tsk is not None
+        self.log("Testing: Send OOB voltage values and verify state clamping")
+        with self.tsk.run():
+            # port 0: 200% is beyond 0-100% scale, port 1: 15V beyond ±10V
+            _send_oob_and_assert_state_clamped(
+                self.client,
+                self.tsk,
+                oob_values=[200, 15],
+                task_name=self.task_name,
+            )
+        self.log("State channels correctly show clamped values")
+
+
+class NIAnalogWriteCurrentOOB(NIAnalogWriteTaskCase):
+    """Send out-of-bounds current and verify state is clamped by hardware."""
+
+    task_name = "NI Analog Write Current OOB"
+    device_locations = ["E102Mod5"]
+    command_values = [[25, 0.008], [75, 0.016]]
+
+    @staticmethod
+    def create_channels(
+        client: sy.Synnax, devices: dict[str, sy.Device]
+    ) -> list[sy.ni.AOCurrentChan]:
+        return _ao_current_channels(client, devices)
+
+    def run(self) -> None:
+        assert self.tsk is not None
+        self.log("Testing: Send OOB current values and verify state clamping")
+        with self.tsk.run():
+            # port 0: 200% beyond 0-100% scale, port 1: 0.025A beyond 4-20mA
+            _send_oob_and_assert_state_clamped(
+                self.client,
+                self.tsk,
+                oob_values=[200, 0.025],
+                task_name=self.task_name,
+            )
+        self.log("State channels correctly show clamped values")
