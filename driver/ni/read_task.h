@@ -315,8 +315,10 @@ private:
         auto start = this->sample_clock->wait(breaker);
         const auto hw_res = this->hw_reader->read(n_samples, this->buf);
         // A non-zero skew means that our application cannot keep up with the
-        // hardware acquisition rate.
-        if (static_cast<size_t>(std::abs(hw_res.skew)) > this->cfg.skew_warn_on_count)
+        // hardware acquisition rate. Skew tracking is only meaningful for
+        // hardware-timed tasks.
+        if (!this->cfg.software_timed &&
+            static_cast<size_t>(std::abs(hw_res.skew)) > this->cfg.skew_warn_on_count)
             res.warning = common::skew_warning(hw_res.skew);
 
         auto prev_read_err = this->curr_read_err;
