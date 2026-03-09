@@ -130,6 +130,14 @@ private:
         Request request;
     };
 
+    /// @brief sets the device status with fields derived from the device and task.
+    void set_device_status(
+        synnax::device::Device &dev,
+        const std::string &variant,
+        const std::string &message,
+        const std::string &description = ""
+    ) const;
+
     /// @brief attempts to build a health check request for a device. If config parsing
     /// fails, sets the device status and returns nullopt.
     [[nodiscard]] std::optional<PreparedHealthCheck>

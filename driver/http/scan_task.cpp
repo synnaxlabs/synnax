@@ -106,11 +106,30 @@ static std::string validate_health_response(
            ", got " + body[ptr].dump();
 }
 
+void Scanner::set_device_status(
+    synnax::device::Device &dev,
+    const std::string &variant,
+    const std::string &message,
+    const std::string &description
+) const {
+    dev.status = synnax::device::Status{
+        .key = dev.status_key(),
+        .name = dev.name,
+        .variant = variant,
+        .message = message,
+        .description = description,
+        .time = x::telem::TimeStamp::now(),
+        .details = {
+            .rack = synnax::task::rack_key_from_task_key(this->task.key),
+            .device = dev.key,
+        },
+    };
+}
+
 std::optional<Scanner::PreparedHealthCheck> Scanner::prepare_health_check(
     synnax::device::Device &dev,
     const std::size_t device_index
 ) const {
-    const auto rack_key = synnax::task::rack_key_from_task_key(this->task.key);
     auto props = x::json::json(dev.properties);
     const bool secure = props.value("secure", true);
     const std::string protocol = secure ? "https://" : "http://";
@@ -118,15 +137,12 @@ std::optional<Scanner::PreparedHealthCheck> Scanner::prepare_health_check(
     auto parser = x::json::Parser(props);
     const auto conn = device::ConnectionConfig(parser);
     if (parser.error()) {
-        dev.status = synnax::device::Status{
-            .key = dev.status_key(),
-            .name = dev.name,
-            .variant = x::status::VARIANT_WARNING,
-            .message = "Invalid device properties",
-            .description = parser.error().message(),
-            .time = x::telem::TimeStamp::now(),
-            .details = {.rack = rack_key, .device = dev.key},
-        };
+        this->set_device_status(
+            dev,
+            x::status::VARIANT_WARNING,
+            "Invalid device properties",
+            parser.error().message()
+        );
         return std::nullopt;
     }
 
@@ -147,55 +163,29 @@ void Scanner::process_health_response(
     const Response &resp,
     const x::errors::Error &err
 ) const {
-    const auto rack_key = synnax::task::rack_key_from_task_key(this->task.key);
-    if (err) {
-        dev.status = synnax::device::Status{
-            .key = dev.status_key(),
-            .name = dev.name,
-            .variant = x::status::VARIANT_WARNING,
-            .message = "Failed to reach server",
-            .description = err.message(),
-            .time = x::telem::TimeStamp::now(),
-            .details = {.rack = rack_key, .device = dev.key},
-        };
-        return;
-    }
-    const auto status_err = errors::from_status(resp.status_code);
-    if (status_err) {
-        dev.status = synnax::device::Status{
-            .key = dev.status_key(),
-            .name = dev.name,
-            .variant = x::status::VARIANT_ERROR,
-            .message = "HTTP " + std::to_string(resp.status_code),
-            .description = resp.body,
-            .time = x::telem::TimeStamp::now(),
-            .details = {.rack = rack_key, .device = dev.key},
-        };
-        return;
-    }
-
-    const auto validation_err = validate_health_response(expected_response, resp);
-    if (!validation_err.empty()) {
-        dev.status = synnax::device::Status{
-            .key = dev.status_key(),
-            .name = dev.name,
-            .variant = x::status::VARIANT_ERROR,
-            .message = "Health check validation failed",
-            .description = validation_err,
-            .time = x::telem::TimeStamp::now(),
-            .details = {.rack = rack_key, .device = dev.key},
-        };
-        return;
-    }
-
-    dev.status = synnax::device::Status{
-        .key = dev.status_key(),
-        .name = dev.name,
-        .variant = x::status::VARIANT_SUCCESS,
-        .message = "Device connected",
-        .time = x::telem::TimeStamp::now(),
-        .details = {.rack = rack_key, .device = dev.key},
-    };
+    if (err)
+        return this->set_device_status(
+            dev,
+            x::status::VARIANT_WARNING,
+            "Failed to reach server",
+            err.message()
+        );
+    if (const auto status_err = errors::from_status(resp.status_code))
+        return this->set_device_status(
+            dev,
+            x::status::VARIANT_ERROR,
+            "HTTP " + std::to_string(resp.status_code),
+            resp.body
+        );
+    if (const auto v_err = validate_health_response(expected_response, resp);
+        !v_err.empty())
+        return this->set_device_status(
+            dev,
+            x::status::VARIANT_ERROR,
+            "Health check validation failed",
+            v_err
+        );
+    this->set_device_status(dev, x::status::VARIANT_SUCCESS, "Device connected");
 }
 
 void Scanner::test_connection(const task::Command &cmd) const {
