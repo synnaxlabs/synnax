@@ -7,6 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+#include <memory>
 #include "gtest/gtest.h"
 
 #include "client/cpp/testutil/testutil.h"
@@ -61,7 +62,7 @@ void build_groups(ReadTaskConfig &cfg) {
 
 /// @brief helper to build a ReadTaskSource from config and a mock server URL.
 /// Each call creates its own Processor so tests have independent lifecycles.
-std::pair<std::unique_ptr<ReadTaskSource>, std::unique_ptr<Processor>> make_source(
+std::pair<std::unique_ptr<ReadTaskSource>, std::shared_ptr<Processor>> make_source(
     ReadTaskConfig &cfg,
     const std::string &base_url,
     const x::json::json &conn_extra = x::json::json::object()
