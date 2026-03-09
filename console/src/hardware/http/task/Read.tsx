@@ -283,7 +283,7 @@ const FieldList: FC<{ epKey: string }> = ({ epKey }) => {
     selectedFieldKey != null ? `${path}.${selectedFieldKey}.enumValues` : null;
 
   return (
-    <Flex.Box y grow empty style={{ minHeight: 200 }}>
+    <>
       <BaseChannelList<ReadField>
         data={data}
         remove={remove}
@@ -291,7 +291,8 @@ const FieldList: FC<{ epKey: string }> = ({ epKey }) => {
         onSelect={setSelected}
         selected={selected}
         path={path}
-        grow={data.length === 0}
+        style={{ paddingBottom: "1rem", maxWidth: "100%" }}
+        grow
         header={
           <Header.Header>
             <Header.Title weight={500} color={10}>
@@ -333,7 +334,7 @@ const FieldList: FC<{ epKey: string }> = ({ epKey }) => {
           />
         </Flex.Box>
       )}
-    </Flex.Box>
+    </>
   );
 };
 

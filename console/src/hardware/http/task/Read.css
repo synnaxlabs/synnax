@@ -24,12 +24,5 @@
         .console-endpoint-details-headers {
             padding-bottom: 1rem;
         }
-
-        & .console-channel-list {
-            max-width: unset;
-            flex-basis: unset;
-            flex-grow: 1;
-            overflow: visible;
-        }
     }
 }
