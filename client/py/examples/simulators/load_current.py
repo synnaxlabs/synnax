@@ -19,7 +19,7 @@ class LoadCurrentSimDAQ(SimDAQ):
     description = "Run load current simulator standalone"
     end_cmd_channel = "end_test_cmd"
 
-    RAMP_RATE = 10.0
+    RAMP_RATE = 50.0
     NOISE = 0.3
     SIM_RATE = 50
 
@@ -34,7 +34,7 @@ class LoadCurrentSimDAQ(SimDAQ):
         )
 
         client.channels.create(
-            name="Load_Current",
+            name="load_current",
             index=self.daq_time.key,
             data_type=sy.DataType.FLOAT32,
             retrieve_if_name_exists=True,
@@ -59,7 +59,7 @@ class LoadCurrentSimDAQ(SimDAQ):
             now,
             {
                 self.daq_time.name: [now],
-                "Load_Current": [0.0],
+                "load_current": [0.0],
             },
         )
         self.log("Channels created successfully")
@@ -73,7 +73,7 @@ class LoadCurrentSimDAQ(SimDAQ):
 
         with self.client.open_writer(
             start=sy.TimeStamp.now(),
-            channels=[self.daq_time.name, "Load_Current"],
+            channels=[self.daq_time.name, "load_current"],
             name="Load Current Sim DAQ",
         ) as writer:
             while self._running and loop.wait():
@@ -83,13 +83,13 @@ class LoadCurrentSimDAQ(SimDAQ):
                 writer.write(
                     {
                         self.daq_time.name: sy.TimeStamp.now(),
-                        "Load_Current": noisy_current,
+                        "load_current": noisy_current,
                     }
                 )
 
                 loop_count += 1
                 if loop_count % (self.SIM_RATE * 2) == 0:
-                    self.log(f"Load_Current={load_current:.1f}")
+                    self.log(f"load_current={load_current:.1f}")
 
         self.log("Simulation loop stopped")
 

@@ -1530,8 +1530,11 @@ var _ = Describe("Scheduler", func() {
 		})
 
 		It("Should not execute a self-changed node if it stops calling MarkSelfChanged", func() {
+			trigger := mock("trigger")
 			nodeA := mock("A")
-			nodeB := mock("B")
+
+			trigger.MarkOnNext("output")
+			trigger.ParamTruthy["output"] = true
 
 			callCount := 0
 			nodeA.OnNext = func(nCtx node.Context) {
@@ -1542,26 +1545,30 @@ var _ = Describe("Scheduler", func() {
 			}
 
 			prog := testutil.NewIRBuilder().
+				Node("trigger").
 				Node("A").
-				Node("B").
-				Strata([][]string{{"A"}, {"B"}}).
+				OneShot("trigger", "output", "A", "input").
+				Strata([][]string{{"trigger"}, {"A"}}).
 				Build()
 
 			s := build(prog)
 
+			// Tick 0: trigger fires one-shot to A, A executes and self-changes
 			s.Next(ctx, 0, node.ReasonTimerTick)
 			Expect(nodeA.NextCalled).To(Equal(1))
 
+			// Tick 1: A executes via self-changed (one-shot already fired)
 			s.Next(ctx, telem.Microsecond, node.ReasonTimerTick)
 			Expect(nodeA.NextCalled).To(Equal(2))
 
-			// callCount is now 2, so MarkSelfChanged was called
+			// Tick 2: A executes via self-changed (callCount=2, still calls MarkSelfChanged)
 			s.Next(ctx, 2*telem.Microsecond, node.ReasonTimerTick)
 			Expect(nodeA.NextCalled).To(Equal(3))
 
-			// callCount is now 3, MarkSelfChanged was NOT called
-			// A is in stratum 0 so it executes anyway, but let's check B
-			Expect(nodeB.NextCalled).To(Equal(0))
+			// Tick 3: A should NOT execute (callCount=3, stopped calling MarkSelfChanged,
+			// one-shot already fired, not in changed set)
+			s.Next(ctx, 3*telem.Microsecond, node.ReasonTimerTick)
+			Expect(nodeA.NextCalled).To(Equal(3))
 		})
 
 		It("Should clear self-changed when a node is reset via stage transition", func() {

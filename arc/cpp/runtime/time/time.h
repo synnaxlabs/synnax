@@ -61,10 +61,16 @@ public:
         state(std::move(state)), cfg(cfg), last_fired(-1 * this->cfg.interval) {}
 
     x::errors::Error next(node::Context &ctx) override {
-        if (ctx.reason != node::RunReason::TimerTick) return x::errors::NIL;
-        if (ctx.elapsed - this->last_fired < this->cfg.interval - ctx.tolerance)
+        if (ctx.reason != node::RunReason::TimerTick) {
+            if (ctx.mark_self_changed) ctx.mark_self_changed();
             return x::errors::NIL;
+        }
+        if (ctx.elapsed - this->last_fired < this->cfg.interval - ctx.tolerance) {
+            if (ctx.mark_self_changed) ctx.mark_self_changed();
+            return x::errors::NIL;
+        }
         this->last_fired = ctx.elapsed;
+        if (ctx.mark_self_changed) ctx.mark_self_changed();
         const auto &o = this->state.output(0);
         const auto &o_time = this->state.output_time(0);
         o->resize(1);

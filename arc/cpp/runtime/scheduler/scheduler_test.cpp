@@ -1369,10 +1369,15 @@ TEST_F(SchedulerTest, testSelfChangedNodeKeepsExecuting) {
     ASSERT_EQ(entry_next.next_called, 1);
 }
 
-/// @brief it should not execute a self-changed node after it stops calling mark_self_changed
+/// @brief it should not execute a self-changed node after it stops calling mark_self_changed.
+/// Node A is in stratum 1 (behind a one-shot) so it only executes when in changed or
+/// self_changed. Once it stops calling mark_self_changed, it should stop executing.
 TEST_F(SchedulerTest, testSelfChangedDropsWhenNotRenewed) {
+    auto &trigger = mock("trigger");
     auto &nodeA = mock("A");
-    mock("B");
+
+    trigger.mark_on_next("output");
+    trigger.param_truthy["output"] = true;
 
     int call_count = 0;
     nodeA.on_next = [&](node::Context &ctx) {
@@ -1381,25 +1386,30 @@ TEST_F(SchedulerTest, testSelfChangedDropsWhenNotRenewed) {
     };
 
     auto ir = ir::testutil::Builder()
+                  .node("trigger")
                   .node("A")
-                  .node("B")
-                  .strata({{"A"}, {"B"}})
+                  .oneshot("trigger", "output", "A", "input")
+                  .strata({{"trigger"}, {"A"}})
                   .build();
 
     const auto scheduler = build(std::move(ir));
 
+    // Tick 0: trigger fires one-shot to A, A executes and self-changes
     scheduler->next(x::telem::TimeSpan(0), node::RunReason::TimerTick);
     ASSERT_EQ(nodeA.next_called, 1);
 
+    // Tick 1: A executes via self-changed (one-shot already fired)
     scheduler->next(x::telem::MILLISECOND, node::RunReason::TimerTick);
     ASSERT_EQ(nodeA.next_called, 2);
 
-    // call_count is now 2, MarkSelfChanged was called
+    // Tick 2: A executes via self-changed (callCount=2, still calls mark_self_changed)
     scheduler->next(x::telem::MILLISECOND * 2, node::RunReason::TimerTick);
     ASSERT_EQ(nodeA.next_called, 3);
 
-    // call_count is now 3, MarkSelfChanged was NOT called, but A is stratum 0
-    // so it still executes. The key behavior is that self_changed is cleared.
+    // Tick 3: A should NOT execute (stopped calling mark_self_changed, one-shot
+    // already fired, not in changed set)
+    scheduler->next(x::telem::MILLISECOND * 3, node::RunReason::TimerTick);
+    ASSERT_EQ(nodeA.next_called, 3);
 }
 
 /// @brief it should clear self-changed when a node is reset via stage transition
@@ -1692,6 +1702,113 @@ TEST(RealNodeSchedulerTest, IntervalTruthyCheckBeforeFiring) {
     EXPECT_EQ(target_ptr->next_called, 1);
     // Tick at t=1s - Interval fires again but one-shot already fired
     scheduler->next(x::telem::SECOND, node::RunReason::TimerTick);
+    EXPECT_EQ(target_ptr->next_called, 1);
+}
+
+/// @brief Helper to create IR with wait node that has proper params
+ir::IR build_wait_ir(const std::string &key, const int64_t duration_ns) {
+    ir::Param output_param;
+    output_param.name = "output";
+    output_param.type = arc::types::Type(arc::types::Kind::U8);
+
+    ir::Param cfg_param;
+    cfg_param.name = "duration";
+    cfg_param.type = arc::types::Type(arc::types::Kind::I64);
+    cfg_param.value = duration_ns;
+
+    ir::Node ir_node;
+    ir_node.key = key;
+    ir_node.type = "wait";
+    ir_node.outputs.params.push_back(output_param);
+    ir_node.config.params.push_back(cfg_param);
+
+    ir::Function fn;
+    fn.key = "test";
+
+    ir::IR ir;
+    ir.nodes.push_back(ir_node);
+    ir.functions.push_back(fn);
+    return ir;
+}
+
+/// @brief Test with real Wait node behind a one-shot edge. Verifies the Wait
+/// survives via mark_self_changed and eventually fires.
+TEST(RealNodeSchedulerTest, WaitOneShotEdgeFiresAfterDuration) {
+    auto wait_ir = build_wait_ir("wait_0", x::telem::SECOND.nanoseconds());
+
+    ir::Param target_input;
+    target_input.name = "input";
+    target_input.type = arc::types::Type(arc::types::Kind::U8);
+
+    // Trigger node in stratum 0
+    ir::Node trigger_node;
+    trigger_node.key = "trigger_0";
+    trigger_node.type = "trigger";
+    wait_ir.nodes.push_back(trigger_node);
+
+    // Target node in stratum 2
+    ir::Node target_node;
+    target_node.key = "target_0";
+    target_node.type = "target";
+    target_node.inputs.params.push_back(target_input);
+    wait_ir.nodes.push_back(target_node);
+
+    // Trigger => wait (one-shot), wait -> target (continuous)
+    wait_ir.edges.emplace_back(
+        ir::Handle{"trigger_0", "output"},
+        ir::Handle{"wait_0", "input"},
+        ir::EdgeKind::OneShot
+    );
+    wait_ir.edges.emplace_back(
+        ir::Handle{"wait_0", "output"},
+        ir::Handle{"target_0", "input"},
+        ir::EdgeKind::Continuous
+    );
+
+    wait_ir.strata = ir::Strata({{"trigger_0"}, {"wait_0"}, {"target_0"}});
+
+    state::State state(
+        state::Config{.ir = wait_ir, .channels = {}},
+        errors::noop_handler
+    );
+
+    time::Factory factory;
+    auto [wait_node, err] = factory.create(
+        node::Config(wait_ir, wait_ir.nodes[0], ASSERT_NIL_P(state.node("wait_0")))
+    );
+    ASSERT_NIL(err);
+
+    // Trigger mock: always marks output as changed and truthy
+    auto trigger = std::make_unique<MockNode>();
+    trigger->on_next = [](node::Context &ctx) { ctx.mark_changed("output"); };
+    trigger->param_truthy["output"] = true;
+
+    auto target = std::make_unique<MockNode>();
+    auto *target_ptr = target.get();
+
+    std::unordered_map<std::string, std::unique_ptr<node::Node>> nodes;
+    nodes["trigger_0"] = std::move(trigger);
+    nodes["wait_0"] = std::move(wait_node);
+    nodes["target_0"] = std::move(target);
+
+    auto scheduler = std::make_unique<Scheduler>(
+        std::move(wait_ir), nodes, x::telem::TimeSpan(0)
+    );
+
+    // Tick 0: trigger fires one-shot to wait, wait starts timing
+    scheduler->next(x::telem::TimeSpan(0), node::RunReason::TimerTick);
+    EXPECT_EQ(target_ptr->next_called, 0);
+
+    // Tick 500ms: wait survives via self-changed, still timing
+    scheduler->next(x::telem::MILLISECOND * 500, node::RunReason::TimerTick);
+    EXPECT_EQ(target_ptr->next_called, 0);
+
+    // Tick 1s: wait fires, propagates to target
+    scheduler->next(x::telem::SECOND, node::RunReason::TimerTick);
+    EXPECT_EQ(target_ptr->next_called, 1);
+
+    // Tick 2s: wait already fired, target should not be called again
+    scheduler->next(x::telem::SECOND * 2, node::RunReason::TimerTick);
     EXPECT_EQ(target_ptr->next_called, 1);
 }
 

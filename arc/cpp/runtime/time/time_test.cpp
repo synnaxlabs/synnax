@@ -566,6 +566,47 @@ TEST(WaitTest, CallsMarkSelfChangedWhenActiveButNotFired) {
     EXPECT_TRUE(changed_called);
 }
 
+/// @brief Test that Wait calls mark_self_changed on channel input to survive
+/// non-tick cycles without being starved.
+TEST(WaitTest, CallsMarkSelfChangedOnChannelInputToSurvive) {
+    TestSetup setup("wait", "duration", x::telem::SECOND.nanoseconds());
+    const WaitConfig cfg(setup.ir.nodes[0].config);
+    Wait node(cfg, setup.make_node());
+
+    int self_changed_calls = 0;
+    bool changed_called = false;
+
+    // Tick at t=0: starts timer
+    auto ctx1 = make_context(x::telem::TimeSpan(0));
+    ctx1.mark_self_changed = [&]() { self_changed_calls++; };
+    ctx1.mark_changed = [&](const std::string &) { changed_called = true; };
+    ASSERT_NIL(node.next(ctx1));
+    EXPECT_EQ(self_changed_calls, 1);
+    EXPECT_FALSE(changed_called);
+
+    // Channel input at 200ms: duration not elapsed, should call mark_self_changed
+    self_changed_calls = 0;
+    auto ctx2 = make_context(
+        x::telem::MILLISECOND * 200,
+        x::telem::TimeSpan(0),
+        node::RunReason::ChannelInput
+    );
+    ctx2.mark_self_changed = [&]() { self_changed_calls++; };
+    ctx2.mark_changed = [&](const std::string &) { changed_called = true; };
+    ASSERT_NIL(node.next(ctx2));
+    EXPECT_EQ(self_changed_calls, 1);
+    EXPECT_FALSE(changed_called);
+
+    // Timer tick at 1s: should fire normally
+    self_changed_calls = 0;
+    auto ctx3 = make_context(x::telem::SECOND);
+    ctx3.mark_self_changed = [&]() { self_changed_calls++; };
+    ctx3.mark_changed = [&](const std::string &) { changed_called = true; };
+    ASSERT_NIL(node.next(ctx3));
+    EXPECT_EQ(self_changed_calls, 0);
+    EXPECT_TRUE(changed_called);
+}
+
 /// @brief Test that Wait sets the timestamp to elapsed time when firing.
 TEST(WaitTest, SetsTimestampOnFire) {
     TestSetup setup("wait", "duration", x::telem::SECOND.nanoseconds());
