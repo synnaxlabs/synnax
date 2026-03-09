@@ -285,7 +285,7 @@ func (c *client) Progress(ctx context.Context, params *ProgressParams) (err erro
 	c.logger.Debug("call " + MethodProgress)
 	defer c.logger.Debug("end "+MethodProgress, zap.Error(err))
 
-	return c.Conn.Notify(ctx, MethodProgress, params)
+	return c.Notify(ctx, MethodProgress, params)
 }
 
 // WorkDoneProgressCreate sends the request is sent from the server to the client to ask the client to create a work done progress.
@@ -303,12 +303,12 @@ func (c *client) LogMessage(ctx context.Context, params *LogMessageParams) (err 
 	c.logger.Debug("call " + MethodWindowLogMessage)
 	defer c.logger.Debug("end "+MethodWindowLogMessage, zap.Error(err))
 
-	return c.Conn.Notify(ctx, MethodWindowLogMessage, params)
+	return c.Notify(ctx, MethodWindowLogMessage, params)
 }
 
 // PublishDiagnostics sends the notification from the server to the client to signal results of validation runs.
 //
-// Diagnostics are “owned” by the server so it is the server’s responsibility to clear them if necessary. The following rule is used for VS Code servers that generate diagnostics:
+// Diagnostics are "owned" by the server so it is the server’s responsibility to clear them if necessary. The following rule is used for VS Code servers that generate diagnostics:
 //
 // - if a language is single file only (for example HTML) then diagnostics are cleared by the server when the file is closed.
 // - if a language has a project system (for example C#) diagnostics are not cleared when a file closes. When a project is opened all diagnostics for all files are recomputed (or read from a cache).
@@ -320,13 +320,13 @@ func (c *client) PublishDiagnostics(ctx context.Context, params *PublishDiagnost
 	c.logger.Debug("call " + MethodTextDocumentPublishDiagnostics)
 	defer c.logger.Debug("end "+MethodTextDocumentPublishDiagnostics, zap.Error(err))
 
-	return c.Conn.Notify(ctx, MethodTextDocumentPublishDiagnostics, params)
+	return c.Notify(ctx, MethodTextDocumentPublishDiagnostics, params)
 }
 
 // ShowMessage sends the notification from a server to a client to ask the
 // client to display a particular message in the user interface.
 func (c *client) ShowMessage(ctx context.Context, params *ShowMessageParams) (err error) {
-	return c.Conn.Notify(ctx, MethodWindowShowMessage, params)
+	return c.Notify(ctx, MethodWindowShowMessage, params)
 }
 
 // ShowMessageRequest sends the request from a server to a client to ask the client to display a particular message in the user interface.
@@ -349,7 +349,7 @@ func (c *client) Telemetry(ctx context.Context, params interface{}) (err error) 
 	c.logger.Debug("call " + MethodTelemetryEvent)
 	defer c.logger.Debug("end "+MethodTelemetryEvent, zap.Error(err))
 
-	return c.Conn.Notify(ctx, MethodTelemetryEvent, params)
+	return c.Notify(ctx, MethodTelemetryEvent, params)
 }
 
 // RegisterCapability sends the request from the server to the client to register for a new capability on the client side.

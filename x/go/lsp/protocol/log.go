@@ -144,7 +144,7 @@ func (s *loggingStream) logCommon(msg jsonrpc2.Message, isRead bool) {
 	case *jsonrpc2.Response:
 		id := fmt.Sprint(msg.ID())
 		if err := msg.Err(); err != nil {
-			fmt.Fprintf(s.log, "[Error - %s] %s #%s %s%s", pastTense, tmfmt, id, err, eor)
+			_, _ = fmt.Fprintf(s.log, "[Error - %s] %s #%s %s%s", pastTense, tmfmt, id, err, eor)
 
 			return
 		}
@@ -156,7 +156,7 @@ func (s *loggingStream) logCommon(msg jsonrpc2.Message, isRead bool) {
 		fmt.Fprintf(&buf, "Result: %s%s", msg.Result(), eor)
 	}
 
-	s.log.Write(buf.Bytes())
+	_, _ = s.log.Write(buf.Bytes())
 
 	s.logMu.Unlock()
 }

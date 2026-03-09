@@ -15,9 +15,12 @@ import (
 	"go.uber.org/zap"
 )
 
+type ctxLoggerKey struct{}
+type ctxClientKey struct{}
+
 var (
-	ctxLogger struct{}
-	ctxClient struct{}
+	ctxLogger ctxLoggerKey
+	ctxClient ctxClientKey
 )
 
 // WithLogger returns the context with zap.Logger value.
