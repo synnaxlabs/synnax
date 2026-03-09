@@ -7,20 +7,10 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-#include <atomic>
-#include <deque>
-#include <future>
-#include <mutex>
 #include <string>
-#include <thread>
-#include <unordered_map>
 #include <utility>
 
 #include "glog/logging.h"
-#ifdef _WIN32
-#include <winsock2.h>
-#endif
-#include <curl/curl.h>
 
 #include "driver/http/errors/errors.h"
 #include "driver/http/processor/processor.h"
@@ -73,24 +63,10 @@ x::errors::Error parse_curl_error(CURLcode code) {
     }
 }
 
-/// @brief internal state for a single in-flight curl transfer.
-struct ActiveTransfer {
-    std::promise<std::pair<Response, x::errors::Error>> promise;
-    std::string response_body;
-    struct curl_slist *headers = nullptr;
-    Method method;
-    x::telem::TimeStamp start;
-};
+}
 
-/// @brief a pending request waiting to be picked up by the event loop.
-struct PendingRequest {
-    const Request *request;
-    std::promise<std::pair<Response, x::errors::Error>> promise;
-};
-
-/// @brief builds a Response + Error pair from a completed curl handle.
 std::pair<Response, x::errors::Error>
-build_result(CURL *handle, CURLcode result_code, ActiveTransfer &t) {
+Processor::build_result(CURL *handle, CURLcode result_code, ActiveTransfer &t) {
     long status_code = 0;
     curl_easy_getinfo(handle, CURLINFO_RESPONSE_CODE, &status_code);
     double total_secs = 0;
@@ -110,8 +86,7 @@ build_result(CURL *handle, CURLcode result_code, ActiveTransfer &t) {
     };
 }
 
-/// @brief creates a curl easy handle from a Request and ActiveTransfer.
-CURL *create_handle(const Request &req, ActiveTransfer &t) {
+CURL *Processor::create_handle(const Request &req, ActiveTransfer &t) {
     CURL *handle = curl_easy_init();
     if (handle == nullptr) return nullptr;
 
@@ -163,144 +138,122 @@ CURL *create_handle(const Request &req, ActiveTransfer &t) {
 
     return handle;
 }
+
+Processor::Processor() {
+    ensure_curl_initialized();
+    multi = curl_multi_init();
+    io_thread = std::thread([this] { run(); });
 }
 
-struct Processor::Impl {
-    CURLM *multi = nullptr;
-    std::thread io_thread;
-    std::atomic<bool> running{true};
-    std::mutex queue_mutex;
-    std::deque<PendingRequest> pending;
-    std::unordered_map<CURL *, ActiveTransfer> active;
-
-    Impl() {
-        ensure_curl_initialized();
-        multi = curl_multi_init();
-        io_thread = std::thread([this] { run(); });
+Processor::~Processor() {
+    running.store(false);
+    curl_multi_wakeup(multi);
+    if (io_thread.joinable()) io_thread.join();
+    for (auto &[handle, transfer]: active) {
+        curl_multi_remove_handle(multi, handle);
+        if (transfer.headers != nullptr) curl_slist_free_all(transfer.headers);
+        curl_easy_cleanup(handle);
     }
+    curl_multi_cleanup(multi);
+}
 
-    ~Impl() {
-        running.store(false);
-        curl_multi_wakeup(multi);
-        if (io_thread.joinable()) io_thread.join();
-        for (auto &[handle, transfer]: active) {
-            curl_multi_remove_handle(multi, handle);
-            if (transfer.headers != nullptr) curl_slist_free_all(transfer.headers);
-            curl_easy_cleanup(handle);
-        }
-        curl_multi_cleanup(multi);
-    }
-
-    void run() {
-        while (running.load()) {
-            // Dequeue pending requests under the lock.
-            {
-                std::lock_guard lock(queue_mutex);
-                while (!pending.empty()) {
-                    auto &p = pending.front();
-                    ActiveTransfer t;
-                    t.start = x::telem::TimeStamp::now();
-                    t.promise = std::move(p.promise);
-                    CURL *handle = create_handle(*p.request, t);
-                    if (handle == nullptr) {
-                        t.promise.set_value({
-                            Response{},
-                            x::errors::Error(
-                                http::errors::CRITICAL_ERROR,
-                                "failed to create curl handle"
-                            ),
-                        });
-                        pending.pop_front();
-                        continue;
-                    }
-                    auto [it, _] = active.emplace(handle, std::move(t));
-                    // Set WRITEDATA after emplace so it points to the response_body at
-                    // its final address in the map.
-                    curl_easy_setopt(
-                        handle,
-                        CURLOPT_WRITEDATA,
-                        &it->second.response_body
-                    );
-                    curl_multi_add_handle(multi, handle);
+void Processor::run() {
+    while (running.load()) {
+        // Dequeue pending requests under the lock.
+        {
+            std::lock_guard lock(queue_mutex);
+            while (!pending.empty()) {
+                auto &p = pending.front();
+                ActiveTransfer t;
+                t.start = x::telem::TimeStamp::now();
+                t.promise = std::move(p.promise);
+                CURL *handle = create_handle(*p.request, t);
+                if (handle == nullptr) {
+                    t.promise.set_value({
+                        Response{},
+                        x::errors::Error(
+                            http::errors::CRITICAL_ERROR,
+                            "failed to create curl handle"
+                        ),
+                    });
                     pending.pop_front();
+                    continue;
                 }
+                auto [it, _] = active.emplace(handle, std::move(t));
+                // Set WRITEDATA after emplace so it points to the response_body at its
+                // final address in the map.
+                curl_easy_setopt(handle, CURLOPT_WRITEDATA, &it->second.response_body);
+                curl_multi_add_handle(multi, handle);
+                pending.pop_front();
             }
+        }
 
-            if (active.empty()) {
-                curl_multi_poll(multi, nullptr, 0, IDLE_POLL_TIMEOUT, nullptr);
-                continue;
-            }
+        if (active.empty()) {
+            curl_multi_poll(multi, nullptr, 0, IDLE_POLL_TIMEOUT, nullptr);
+            continue;
+        }
 
-            int still_running = 0;
-            const auto mc = curl_multi_perform(multi, &still_running);
-            if (mc != CURLM_OK) {
-                LOG(ERROR) << "[http.processor] curl_multi_perform error: "
-                           << curl_multi_strerror(mc);
-                const auto err = x::errors::Error(
-                    http::errors::CRITICAL_ERROR,
-                    curl_multi_strerror(mc)
-                );
-                for (auto &[handle, transfer]: active) {
-                    transfer.promise.set_value({Response{}, err});
-                    curl_multi_remove_handle(multi, handle);
-                    if (transfer.headers != nullptr)
-                        curl_slist_free_all(transfer.headers);
-                    curl_easy_cleanup(handle);
-                }
-                active.clear();
-                continue;
-            }
-
-            // Check for completed transfers.
-            CURLMsg *msg;
-            int msgs_left;
-            while ((msg = curl_multi_info_read(multi, &msgs_left)) != nullptr) {
-                if (msg->msg != CURLMSG_DONE) continue;
-                CURL *handle = msg->easy_handle;
-                auto it = active.find(handle);
-                if (it == active.end()) continue;
-                auto &transfer = it->second;
-                auto result = build_result(handle, msg->data.result, transfer);
-                transfer.promise.set_value(std::move(result));
+        int still_running = 0;
+        const auto mc = curl_multi_perform(multi, &still_running);
+        if (mc != CURLM_OK) {
+            LOG(ERROR) << "[http.processor] curl_multi_perform error: "
+                       << curl_multi_strerror(mc);
+            const auto err = x::errors::Error(
+                http::errors::CRITICAL_ERROR,
+                curl_multi_strerror(mc)
+            );
+            for (auto &[handle, transfer]: active) {
+                transfer.promise.set_value({Response{}, err});
                 curl_multi_remove_handle(multi, handle);
                 if (transfer.headers != nullptr) curl_slist_free_all(transfer.headers);
                 curl_easy_cleanup(handle);
-                active.erase(it);
             }
-
-            if (!active.empty())
-                curl_multi_poll(multi, nullptr, 0, ACTIVE_POLL_TIMEOUT, nullptr);
+            active.clear();
+            continue;
         }
 
-        for (auto &[handle, transfer]: active) {
-            transfer.promise.set_value({
-                Response{},
-                x::errors::Error(
-                    http::errors::CRITICAL_ERROR,
-                    "processor shutting down"
-                ),
-            });
+        // Check for completed transfers.
+        CURLMsg *msg;
+        int msgs_left;
+        while ((msg = curl_multi_info_read(multi, &msgs_left)) != nullptr) {
+            if (msg->msg != CURLMSG_DONE) continue;
+            CURL *handle = msg->easy_handle;
+            auto it = active.find(handle);
+            if (it == active.end()) continue;
+            auto &transfer = it->second;
+            auto result = build_result(handle, msg->data.result, transfer);
+            transfer.promise.set_value(std::move(result));
             curl_multi_remove_handle(multi, handle);
             if (transfer.headers != nullptr) curl_slist_free_all(transfer.headers);
             curl_easy_cleanup(handle);
+            active.erase(it);
         }
-        active.clear();
 
-        std::lock_guard lock(queue_mutex);
-        const auto err = x::errors::Error(
-            http::errors::CRITICAL_ERROR,
-            "processor shutting down"
-        );
-        while (!pending.empty()) {
-            pending.front().promise.set_value({Response{}, err});
-            pending.pop_front();
-        }
+        if (!active.empty())
+            curl_multi_poll(multi, nullptr, 0, ACTIVE_POLL_TIMEOUT, nullptr);
     }
-};
 
-Processor::Processor(): impl(std::make_unique<Impl>()) {}
+    for (auto &[handle, transfer]: active) {
+        transfer.promise.set_value({
+            Response{},
+            x::errors::Error(http::errors::CRITICAL_ERROR, "processor shutting down"),
+        });
+        curl_multi_remove_handle(multi, handle);
+        if (transfer.headers != nullptr) curl_slist_free_all(transfer.headers);
+        curl_easy_cleanup(handle);
+    }
+    active.clear();
 
-Processor::~Processor() = default;
+    std::lock_guard lock(queue_mutex);
+    const auto err = x::errors::Error(
+        http::errors::CRITICAL_ERROR,
+        "processor shutting down"
+    );
+    while (!pending.empty()) {
+        pending.front().promise.set_value({Response{}, err});
+        pending.pop_front();
+    }
+}
 
 std::vector<std::pair<Response, x::errors::Error>>
 Processor::execute(const std::vector<Request> &requests) {
@@ -308,15 +261,15 @@ Processor::execute(const std::vector<Request> &requests) {
     futures.reserve(requests.size());
 
     {
-        std::lock_guard lock(impl->queue_mutex);
+        std::lock_guard lock(queue_mutex);
         for (const auto &req: requests) {
             PendingRequest p;
             p.request = &req;
             futures.push_back(p.promise.get_future());
-            impl->pending.push_back(std::move(p));
+            pending.push_back(std::move(p));
         }
     }
-    curl_multi_wakeup(impl->multi);
+    curl_multi_wakeup(multi);
 
     std::vector<std::pair<Response, x::errors::Error>> results;
     results.reserve(requests.size());
@@ -328,13 +281,13 @@ Processor::execute(const std::vector<Request> &requests) {
 std::pair<Response, x::errors::Error> Processor::execute(const Request &request) {
     std::future<std::pair<Response, x::errors::Error>> fut;
     {
-        std::lock_guard lock(impl->queue_mutex);
+        std::lock_guard lock(queue_mutex);
         PendingRequest p;
         p.request = &request;
         fut = p.promise.get_future();
-        impl->pending.push_back(std::move(p));
+        pending.push_back(std::move(p));
     }
-    curl_multi_wakeup(impl->multi);
+    curl_multi_wakeup(multi);
     return fut.get();
 }
 
