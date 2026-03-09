@@ -215,11 +215,14 @@ type Wait struct {
 func (w *Wait) Init(_ node.Context) {}
 
 func (w *Wait) Next(ctx node.Context) {
-	if ctx.Reason != node.ReasonTimerTick || w.fired {
+	if w.fired {
 		return
 	}
 	if w.startTime < 0 {
 		w.startTime = ctx.Elapsed
+	}
+	if ctx.Reason != node.ReasonTimerTick {
+		return
 	}
 	if ctx.Elapsed-w.startTime < w.duration-ctx.Tolerance {
 		return

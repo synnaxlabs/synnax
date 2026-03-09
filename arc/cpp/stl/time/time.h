@@ -104,9 +104,9 @@ public:
         state(std::move(state)), cfg(cfg) {}
 
     x::errors::Error next(runtime::node::Context &ctx) override {
-        if (ctx.reason != runtime::node::RunReason::TimerTick) return x::errors::NIL;
         if (this->fired) return x::errors::NIL;
         if (this->start_time.nanoseconds() < 0) this->start_time = ctx.elapsed;
+        if (ctx.reason != runtime::node::RunReason::TimerTick) return x::errors::NIL;
         if (ctx.elapsed - this->start_time < this->cfg.duration - ctx.tolerance)
             return x::errors::NIL;
         this->fired = true;
