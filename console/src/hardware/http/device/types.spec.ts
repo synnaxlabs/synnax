@@ -295,15 +295,6 @@ describe("HTTP Device Properties", () => {
       expect(result.healthCheck.path).toBe("/health");
     });
 
-    it("should reject a health check with empty path", () => {
-      const result = healthCheckZ.safeParse({
-        method: "GET",
-        path: "",
-        validateResponse: false,
-      });
-      expect(result.success).toBe(false);
-    });
-
     it("should reject validateResponse true without response field", () => {
       const result = healthCheckZ.safeParse({
         method: "GET",

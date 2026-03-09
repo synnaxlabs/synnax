@@ -158,7 +158,7 @@ export const Connect: Layout.Renderer = ({ layoutKey, onClose }) => {
     typeof PDevice.formSchema
   >("properties.healthCheck.response.value.expectedValueType", {
     ctx: form,
-    defaultValue: "string",
+    optional: true,
   });
 
   const handleValidateResponseChange = useCallback(
