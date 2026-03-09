@@ -219,23 +219,21 @@ export const wrapForm = <
                 <Properties />
               </Flex.Box>
             )}
-            {Form != null && (
-              <Flex.Box
-                x
-                className={CSS.B("task-channel-form-container")}
-                bordered
-                rounded
-                grow
-                empty
-              >
-                <Form
-                  layoutKey={layoutKey}
-                  status={status}
-                  onConfigure={save}
-                  {...form}
-                />
-              </Flex.Box>
-            )}
+            <Flex.Box
+              x
+              className={CSS.B("task-channel-form-container")}
+              bordered
+              rounded
+              grow
+              empty
+            >
+              <Form
+                layoutKey={layoutKey}
+                status={status}
+                onConfigure={save}
+                {...form}
+              />
+            </Flex.Box>
             {showControls && (
               <Controls.Controls
                 layoutKey={layoutKey}
@@ -248,6 +246,6 @@ export const wrapForm = <
       </Flex.Box>
     );
   };
-  Wrapper.displayName = `Form(${Form?.displayName ?? Form?.name ?? "EmptyForm"})`;
+  Wrapper.displayName = `Form(${Form.displayName ?? Form.name})`;
   return Wrapper;
 };
