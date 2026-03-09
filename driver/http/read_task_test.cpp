@@ -346,6 +346,10 @@ TEST(HTTPReadTask, ServerErrorOn5xx) {
     auto res = source->read(breaker, fr);
     breaker.stop();
     ASSERT_OCCURRED_AS(res.error, errors::TEMPORARY_ERROR);
+    EXPECT_NE(res.error.data.find("GET"), std::string::npos);
+    EXPECT_NE(res.error.data.find("/api/data"), std::string::npos);
+    EXPECT_NE(res.error.data.find("500"), std::string::npos);
+    EXPECT_NE(res.error.data.find(R"({"error":"internal"})"), std::string::npos);
 }
 
 /// @brief it should return CRITICAL_ERROR on non-retryable 4xx status codes.
@@ -391,6 +395,10 @@ TEST(HTTPReadTask, CriticalErrorOnNonRetryable4xx) {
     auto res = source->read(breaker, fr);
     breaker.stop();
     ASSERT_OCCURRED_AS(res.error, errors::CRITICAL_ERROR);
+    EXPECT_NE(res.error.data.find("GET"), std::string::npos);
+    EXPECT_NE(res.error.data.find("/api/data"), std::string::npos);
+    EXPECT_NE(res.error.data.find("400"), std::string::npos);
+    EXPECT_NE(res.error.data.find(R"({"error":"bad request"})"), std::string::npos);
 }
 
 /// @brief it should convert JSON types correctly (bool to uint8, string to string).
@@ -1785,6 +1793,10 @@ TEST(HTTPReadTask, PartialFailureFirstEndpoint5xx) {
     auto res = source->read(breaker, fr);
     breaker.stop();
     ASSERT_OCCURRED_AS(res.error, errors::TEMPORARY_ERROR);
+    EXPECT_NE(res.error.data.find("GET"), std::string::npos);
+    EXPECT_NE(res.error.data.find("/api/failing"), std::string::npos);
+    EXPECT_NE(res.error.data.find("500"), std::string::npos);
+    EXPECT_NE(res.error.data.find(R"({"error":"internal"})"), std::string::npos);
 }
 
 /// @brief when the second endpoint returns 4xx but the first succeeds,
@@ -1849,6 +1861,10 @@ TEST(HTTPReadTask, PartialFailureSecondEndpointCritical4xx) {
     auto res = source->read(breaker, fr);
     breaker.stop();
     ASSERT_OCCURRED_AS(res.error, errors::CRITICAL_ERROR);
+    EXPECT_NE(res.error.data.find("GET"), std::string::npos);
+    EXPECT_NE(res.error.data.find("/api/failing"), std::string::npos);
+    EXPECT_NE(res.error.data.find("400"), std::string::npos);
+    EXPECT_NE(res.error.data.find(R"({"error":"bad request"})"), std::string::npos);
 }
 
 /// @brief when one endpoint has a missing field pointer, the other endpoint's

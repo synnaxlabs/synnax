@@ -242,12 +242,22 @@ ReadTaskSource::read(x::breaker::Breaker &breaker, x::telem::Frame &fr) {
         auto &[resp, req_err] = results[ei];
 
         if (req_err) {
-            res.error = req_err;
+            const auto &req = requests[ei];
+            res.error = x::errors::Error(
+                req_err,
+                std::string(to_string(req.method)) + " " + req.url +
+                    " failed: " + req_err.data
+            );
             return res;
         }
 
-        if (auto status_err = errors::classify_status(resp.status_code); status_err) {
-            res.error = status_err;
+        if (auto status_err = errors::classify_status(resp.status_code);
+            status_err) {
+            const auto &req = requests[ei];
+            auto msg = std::string(to_string(req.method)) + " " + req.url +
+                       " returned " + std::to_string(resp.status_code);
+            if (!resp.body.empty()) msg += ": " + resp.body;
+            res.error = x::errors::Error(status_err, msg);
             return res;
         }
 
