@@ -1530,6 +1530,54 @@ TEST_F(SchedulerTest, testResetClearsFiredOneShots) {
     ASSERT_EQ(nodeB.next_called, 2);
 }
 
+/// @brief it should clear self-changed entries after reset. Node A is behind a
+/// one-shot edge and stays alive via mark_self_changed. After reset, A should not
+/// execute because its self-changed entry was cleared and the one-shot source
+/// (trigger) no longer fires the edge (trigger stops marking its output after the
+/// first tick).
+TEST_F(SchedulerTest, testResetClearsSelfChanged) {
+    auto &trigger = mock("trigger");
+    auto &nodeA = mock("A");
+
+    int trigger_call_count = 0;
+    trigger.on_next = [&](node::Context &ctx) {
+        trigger_call_count++;
+        if (trigger_call_count == 1) ctx.mark_changed("output");
+    };
+    trigger.param_truthy["output"] = true;
+
+    nodeA.on_next = [&](node::Context &ctx) { ctx.mark_self_changed(); };
+
+    auto ir = ir::testutil::Builder()
+                  .node("trigger")
+                  .node("A")
+                  .oneshot("trigger", "output", "A", "input")
+                  .strata({{"trigger"}, {"A"}})
+                  .build();
+
+    const auto scheduler = build(std::move(ir));
+
+    // Tick 0: trigger fires one-shot to A, A executes and self-changes
+    scheduler->next(x::telem::TimeSpan(0), node::RunReason::TimerTick);
+    ASSERT_EQ(nodeA.next_called, 1);
+
+    // Tick 1: A executes via self-changed (one-shot already consumed)
+    scheduler->next(x::telem::MILLISECOND, node::RunReason::TimerTick);
+    ASSERT_EQ(nodeA.next_called, 2);
+
+    scheduler->reset();
+
+    // After reset, the one-shot is available again but trigger no longer fires it
+    // (trigger_call_count > 1), and A's self-changed entry was cleared.
+    // A should NOT execute.
+    scheduler->next(x::telem::MILLISECOND, node::RunReason::TimerTick);
+    ASSERT_EQ(nodeA.next_called, 2);
+
+    // Confirm A stays dormant on subsequent ticks.
+    scheduler->next(x::telem::MILLISECOND * 2, node::RunReason::TimerTick);
+    ASSERT_EQ(nodeA.next_called, 2);
+}
+
 /// @brief Helper to create IR with interval node that has proper params
 ir::IR build_interval_ir(const std::string &key, const int64_t period_ns) {
     ir::Param output_param;
