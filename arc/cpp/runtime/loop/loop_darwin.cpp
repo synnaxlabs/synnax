@@ -214,8 +214,7 @@ private:
         const auto block_ns = max_timeout.nanoseconds() > 0
                                 ? max_timeout.nanoseconds()
                                 : timing::HYBRID_BLOCK_TIMEOUT.nanoseconds();
-        timeout.tv_sec = block_ns / 1000000000;
-        timeout.tv_nsec = block_ns % 1000000000;
+        timeout = ns_to_timespec(block_ns);
         const int n = kevent(this->kqueue_fd_, nullptr, 0, events, 8, &timeout);
         if (n > 0) return this->classify_events(events, n);
         return WakeReason::Timeout;
@@ -227,10 +226,7 @@ private:
         const auto timeout_ns = max_timeout.nanoseconds() > 0
                                   ? max_timeout.nanoseconds()
                                   : timing::EVENT_DRIVEN_TIMEOUT.nanoseconds();
-        const struct timespec timeout = {
-            timeout_ns / 1000000000,
-            timeout_ns % 1000000000,
-        };
+        const auto timeout = ns_to_timespec(timeout_ns);
         const int n = kevent(this->kqueue_fd_, nullptr, 0, events, 8, &timeout);
 
         if (n > 0) return this->classify_events(events, n);
@@ -249,6 +245,10 @@ private:
         }
         if (input_fired) return WakeReason::Input;
         return WakeReason::Shutdown;
+    }
+
+    static constexpr timespec ns_to_timespec(const int64_t ns) {
+        return {ns / 1'000'000'000, ns % 1'000'000'000};
     }
 
     Config config_;
