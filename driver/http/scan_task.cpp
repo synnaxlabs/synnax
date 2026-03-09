@@ -55,23 +55,25 @@ bool Scanner::exec(
 }
 
 /// @brief validates the response body against the health check's expected
-/// pointer/value.
+/// response config.
 /// @returns empty string on success, error message on failure.
 static std::string
 validate_health_response(const HealthCheckConfig &hc, const Response &resp) {
-    if (hc.response_pointer.empty()) return "";
+    if (!hc.expected_response.has_value() || hc.expected_response->pointer.empty())
+        return "";
+    const auto &er = *hc.expected_response;
     x::json::json body;
     try {
         body = x::json::json::parse(resp.body);
     } catch (const x::json::json::parse_error &e) {
         return "failed to parse response body as JSON: " + std::string(e.what());
     }
-    const auto ptr = x::json::json::json_pointer(hc.response_pointer);
+    const auto ptr = x::json::json::json_pointer(er.pointer);
     if (!body.contains(ptr))
-        return "response body does not contain pointer '" + hc.response_pointer + "'";
-    if (body[ptr] == hc.expected_value) return "";
-    return "expected value at '" + hc.response_pointer + "' to be " +
-           hc.expected_value.dump() + ", got " + body[ptr].dump();
+        return "response body does not contain pointer '" + er.pointer + "'";
+    if (body[ptr] == er.expected_value) return "";
+    return "expected value at '" + er.pointer + "' to be " + er.expected_value.dump() +
+           ", got " + body[ptr].dump();
 }
 
 void Scanner::check_device_health(synnax::device::Device &dev) const {
@@ -107,6 +109,19 @@ void Scanner::check_device_health(synnax::device::Device &dev) const {
             .variant = x::status::VARIANT_WARNING,
             .message = "Failed to reach device",
             .description = err.message(),
+            .time = x::telem::TimeStamp::now(),
+            .details = {.rack = rack_key, .device = dev.key},
+        };
+        return;
+    }
+
+    if (resp.status_code < 200 || resp.status_code >= 300) {
+        dev.status = synnax::device::Status{
+            .key = dev.status_key(),
+            .name = dev.name,
+            .variant = x::status::VARIANT_WARNING,
+            .message = "Health check returned status " +
+                       std::to_string(resp.status_code),
             .time = x::telem::TimeStamp::now(),
             .details = {.rack = rack_key, .device = dev.key},
         };

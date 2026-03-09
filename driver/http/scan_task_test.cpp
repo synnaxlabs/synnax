@@ -9,6 +9,7 @@
 
 #include "gtest/gtest.h"
 
+#include "client/cpp/testutil/testutil.h"
 #include "x/cpp/test/test.h"
 
 #include "driver/http/mock/server.h"
@@ -23,17 +24,16 @@ std::string host_port_from_url(const std::string &url) {
     return url.substr(pos + 3);
 }
 
-/// @brief builds a synnax device with the given key and location.
-/// check_device_health constructs base_url from "http://" + dev.location,
-/// so set location to the mock server's host:port.
+/// @brief builds a synnax device with an auto-generated unique key.
+/// check_device_health constructs base_url from "http://" + dev.location, so set
+/// location to the mock server's host:port.
 synnax::device::Device make_device(
-    const std::string &key,
     const std::string &location,
     const x::json::json &extra_props = x::json::json::object()
 ) {
     synnax::device::Device dev;
-    dev.key = key;
-    dev.name = key;
+    dev.key = make_unique_channel_name("dev");
+    dev.name = dev.key;
     dev.make = INTEGRATION_NAME;
     dev.location = location;
     auto props = x::json::json{
@@ -49,9 +49,53 @@ synnax::device::Device make_device(
 }
 }
 
-////////////////////// HealthCheckConfig parsing //////////////////////
+TEST(HTTPScanTask, ExpectedResponseConfigParsesFields) {
+    auto j = x::json::json{{"pointer", "/data/ok"}, {"expected_value", 42}};
+    auto parser = x::json::Parser(j);
+    const ExpectedResponseConfig cfg(parser);
+    ASSERT_TRUE(parser.ok());
+    EXPECT_EQ(cfg.pointer, "/data/ok");
+    EXPECT_EQ(cfg.expected_value, 42);
+}
 
-/// @brief it should parse a health check config with all fields.
+TEST(HTTPScanTask, ExpectedResponseConfigBooleanValue) {
+    auto j = x::json::json{{"pointer", "/alive"}, {"expected_value", true}};
+    auto parser = x::json::Parser(j);
+    const ExpectedResponseConfig cfg(parser);
+    ASSERT_TRUE(parser.ok());
+    EXPECT_EQ(cfg.expected_value, true);
+}
+
+TEST(HTTPScanTask, ExpectedResponseConfigObjectValue) {
+    auto expected = x::json::json{{"nested", "value"}};
+    auto j = x::json::json{{"pointer", "/obj"}, {"expected_value", expected}};
+    auto parser = x::json::Parser(j);
+    const ExpectedResponseConfig cfg(parser);
+    ASSERT_TRUE(parser.ok());
+    EXPECT_EQ(cfg.expected_value, expected);
+}
+
+TEST(HTTPScanTask, ExpectedResponseConfigMissingPointer) {
+    auto j = x::json::json{{"expected_value", "ok"}};
+    auto parser = x::json::Parser(j);
+    const ExpectedResponseConfig cfg(parser);
+    EXPECT_FALSE(parser.ok());
+}
+
+TEST(HTTPScanTask, ExpectedResponseConfigMissingExpectedValue) {
+    auto j = x::json::json{{"pointer", "/status"}};
+    auto parser = x::json::Parser(j);
+    const ExpectedResponseConfig cfg(parser);
+    EXPECT_FALSE(parser.ok());
+}
+
+TEST(HTTPScanTask, ExpectedResponseConfigMissingBoth) {
+    auto j = x::json::json::object();
+    auto parser = x::json::Parser(j);
+    const ExpectedResponseConfig cfg(parser);
+    EXPECT_FALSE(parser.ok());
+}
+
 TEST(HTTPScanTask, HealthCheckConfigParsesAllFields) {
     auto j = x::json::json{
         {"method", "POST"},
@@ -59,10 +103,11 @@ TEST(HTTPScanTask, HealthCheckConfigParsesAllFields) {
         {"query_params", {{"key", "val"}}},
         {"headers", {{"X-Custom", "abc"}}},
         {"body", R"({"ping": true})"},
-        {"response", {
-            {"pointer", "/status"},
-            {"expected_value", "ok"},
-        }},
+        {"response",
+         {
+             {"pointer", "/status"},
+             {"expected_value", "ok"},
+         }},
     };
     auto parser = x::json::Parser(j);
     const HealthCheckConfig hc(parser);
@@ -72,11 +117,11 @@ TEST(HTTPScanTask, HealthCheckConfigParsesAllFields) {
     EXPECT_EQ(hc.request.query_params.at("key"), "val");
     EXPECT_EQ(hc.request.headers.at("X-Custom"), "abc");
     EXPECT_EQ(hc.body, R"({"ping": true})");
-    EXPECT_EQ(hc.response_pointer, "/status");
-    EXPECT_EQ(hc.expected_value, "ok");
+    ASSERT_TRUE(hc.expected_response.has_value());
+    EXPECT_EQ(hc.expected_response->pointer, "/status");
+    EXPECT_EQ(hc.expected_response->expected_value, "ok");
 }
 
-/// @brief it should use defaults when optional fields are omitted.
 TEST(HTTPScanTask, HealthCheckConfigDefaults) {
     auto j = x::json::json{
         {"method", "GET"},
@@ -90,22 +135,139 @@ TEST(HTTPScanTask, HealthCheckConfigDefaults) {
     EXPECT_TRUE(hc.request.query_params.empty());
     EXPECT_TRUE(hc.request.headers.empty());
     EXPECT_TRUE(hc.body.empty());
-    EXPECT_TRUE(hc.response_pointer.empty());
+    EXPECT_FALSE(hc.expected_response.has_value());
 }
 
-////////////////////// Scanner::scan — device health checks //////////////////////
+TEST(HTTPScanTask, HealthCheckConfigMissingMethod) {
+    auto j = x::json::json{{"path", "/health"}};
+    auto parser = x::json::Parser(j);
+    const HealthCheckConfig hc(parser);
+    EXPECT_FALSE(parser.ok());
+}
 
-/// @brief it should mark a healthy device as connected.
+TEST(HTTPScanTask, HealthCheckConfigMissingPath) {
+    auto j = x::json::json{{"method", "GET"}};
+    auto parser = x::json::Parser(j);
+    const HealthCheckConfig hc(parser);
+    EXPECT_FALSE(parser.ok());
+}
+
+TEST(HTTPScanTask, HealthCheckConfigInvalidExpectedResponse) {
+    auto j = x::json::json{
+        {"method", "GET"},
+        {"path", "/health"},
+        {"response", {{"pointer", "/status"}}},
+    };
+    auto parser = x::json::Parser(j);
+    const HealthCheckConfig hc(parser);
+    EXPECT_FALSE(parser.ok());
+}
+
+TEST(HTTPScanTask, ScanCommandArgsParsesValid) {
+    auto j = x::json::json{
+        {"connection",
+         {
+             {"base_url", "http://127.0.0.1:8080"},
+             {"timeout_ms", 2000},
+             {"verify_ssl", false},
+         }},
+        {"health_check",
+         {
+             {"method", "GET"},
+             {"path", "/health"},
+         }},
+    };
+    auto parser = x::json::Parser(j);
+    const ScanCommandArgs args(parser);
+    ASSERT_TRUE(parser.ok());
+    EXPECT_EQ(args.connection.base_url, "http://127.0.0.1:8080");
+    EXPECT_EQ(args.health_check.request.method, Method::GET);
+    EXPECT_EQ(args.health_check.request.path, "/health");
+}
+
+TEST(HTTPScanTask, ScanCommandArgsMissingConnection) {
+    auto j = x::json::json{
+        {"health_check", {{"method", "GET"}, {"path", "/health"}}},
+    };
+    auto parser = x::json::Parser(j);
+    const ScanCommandArgs args(parser);
+    EXPECT_FALSE(parser.ok());
+}
+
+TEST(HTTPScanTask, ScanCommandArgsMissingHealthCheck) {
+    auto j = x::json::json{
+        {"connection",
+         {
+             {"base_url", "http://127.0.0.1:8080"},
+             {"timeout_ms", 1000},
+             {"verify_ssl", false},
+         }},
+    };
+    auto parser = x::json::Parser(j);
+    const ScanCommandArgs args(parser);
+    EXPECT_FALSE(parser.ok());
+}
+
+TEST(HTTPScanTask, ScanCommandArgsInvalidConnection) {
+    auto j = x::json::json{
+        {"connection", x::json::json::object()},
+        {"health_check", {{"method", "GET"}, {"path", "/health"}}},
+    };
+    auto parser = x::json::Parser(j);
+    const ScanCommandArgs args(parser);
+    EXPECT_FALSE(parser.ok());
+}
+
+TEST(HTTPScanTask, ScanCommandArgsInvalidHealthCheck) {
+    auto j = x::json::json{
+        {"connection",
+         {
+             {"base_url", "http://127.0.0.1:8080"},
+             {"timeout_ms", 1000},
+             {"verify_ssl", false},
+         }},
+        {"health_check", x::json::json::object()},
+    };
+    auto parser = x::json::Parser(j);
+    const ScanCommandArgs args(parser);
+    EXPECT_FALSE(parser.ok());
+}
+
+TEST(HTTPScanTask, ScanCommandArgsEmptyArgs) {
+    auto j = x::json::json::object();
+    auto parser = x::json::Parser(j);
+    const ScanCommandArgs args(parser);
+    EXPECT_FALSE(parser.ok());
+}
+
+TEST(HTTPScanTask, ScannerConfig) {
+    synnax::task::Task task;
+    task.key = synnax::task::create_key(1, 100);
+    task.name = "HTTP Scanner";
+
+    auto ctx = std::make_shared<task::MockContext>(nullptr);
+    auto processor = std::make_shared<Processor>();
+    Scanner scanner(ctx, task, processor);
+
+    auto cfg = scanner.config();
+    EXPECT_EQ(cfg.make, INTEGRATION_NAME);
+    EXPECT_EQ(cfg.log_prefix, SCAN_LOG_PREFIX);
+}
+
 TEST(HTTPScanTask, ScanHealthyDevice) {
-    mock::Server server(mock::ServerConfig{
-        .routes = {{.method = Method::GET, .path = "/health", .response_body = "{}"}},
-    });
+    mock::Server server(
+        mock::ServerConfig{
+            .routes = {
+                {.method = Method::GET, .path = "/health", .response_body = "{}"}
+            },
+        }
+    );
     ASSERT_NIL(server.start());
 
-    auto dev = make_device("dev-1", host_port_from_url(server.base_url()));
+    auto dev = make_device(host_port_from_url(server.base_url()));
 
     std::unordered_map<std::string, synnax::device::Device> devices;
-    devices["dev-1"] = dev;
+    devices[dev.key] = dev;
     common::ScannerContext scan_ctx{.devices = &devices};
 
     synnax::task::Task task;
@@ -116,8 +278,7 @@ TEST(HTTPScanTask, ScanHealthyDevice) {
     auto processor = std::make_shared<Processor>();
     Scanner scanner(ctx, task, processor);
 
-    auto [result, err] = scanner.scan(scan_ctx);
-    ASSERT_NIL(err);
+    const auto result = ASSERT_NIL_P(scanner.scan(scan_ctx));
     ASSERT_EQ(result.size(), 1);
     EXPECT_EQ(result[0].status.variant, x::status::VARIANT_SUCCESS);
     EXPECT_EQ(result[0].status.message, "Device connected");
@@ -125,12 +286,23 @@ TEST(HTTPScanTask, ScanHealthyDevice) {
     server.stop();
 }
 
-/// @brief it should mark device as warning when server is unreachable.
-TEST(HTTPScanTask, ScanUnreachableDevice) {
-    auto dev = make_device("dev-1", "127.0.0.1:1", {{"timeout_ms", 500}});
+TEST(HTTPScanTask, ScanSuccessOnHTTP200) {
+    mock::Server server(
+        mock::ServerConfig{
+            .routes = {{
+                .method = Method::GET,
+                .path = "/health",
+                .status_code = 200,
+                .response_body = "anything",
+            }},
+        }
+    );
+    ASSERT_NIL(server.start());
+
+    auto dev = make_device(host_port_from_url(server.base_url()));
 
     std::unordered_map<std::string, synnax::device::Device> devices;
-    devices["dev-1"] = dev;
+    devices[dev.key] = dev;
     common::ScannerContext scan_ctx{.devices = &devices};
 
     synnax::task::Task task;
@@ -141,37 +313,94 @@ TEST(HTTPScanTask, ScanUnreachableDevice) {
     auto processor = std::make_shared<Processor>();
     Scanner scanner(ctx, task, processor);
 
-    auto [result, err] = scanner.scan(scan_ctx);
-    ASSERT_NIL(err);
+    const auto result = ASSERT_NIL_P(scanner.scan(scan_ctx));
+    ASSERT_EQ(result.size(), 1);
+    EXPECT_EQ(result[0].status.variant, x::status::VARIANT_SUCCESS);
+    EXPECT_EQ(result[0].status.message, "Device connected");
+
+    server.stop();
+}
+
+TEST(HTTPScanTask, ScanFailsOnNon2xxStatus) {
+    mock::Server server(
+        mock::ServerConfig{
+            .routes = {{
+                .method = Method::GET,
+                .path = "/health",
+                .status_code = 503,
+                .response_body = "Service Unavailable",
+            }},
+        }
+    );
+    ASSERT_NIL(server.start());
+
+    auto dev = make_device(host_port_from_url(server.base_url()));
+
+    std::unordered_map<std::string, synnax::device::Device> devices;
+    devices[dev.key] = dev;
+    common::ScannerContext scan_ctx{.devices = &devices};
+
+    synnax::task::Task task;
+    task.key = synnax::task::create_key(1, 100);
+    task.name = "HTTP Scanner";
+
+    auto ctx = std::make_shared<task::MockContext>(nullptr);
+    auto processor = std::make_shared<Processor>();
+    Scanner scanner(ctx, task, processor);
+
+    const auto result = ASSERT_NIL_P(scanner.scan(scan_ctx));
+    ASSERT_EQ(result.size(), 1);
+    EXPECT_EQ(result[0].status.variant, x::status::VARIANT_WARNING);
+    EXPECT_EQ(result[0].status.message, "Health check returned status 503");
+
+    server.stop();
+}
+
+TEST(HTTPScanTask, ScanRepeatedScans) {
+    mock::Server server(
+        mock::ServerConfig{
+            .routes = {
+                {.method = Method::GET, .path = "/health", .response_body = "{}"}
+            },
+        }
+    );
+    ASSERT_NIL(server.start());
+
+    auto dev = make_device(host_port_from_url(server.base_url()));
+
+    std::unordered_map<std::string, synnax::device::Device> devices;
+    devices[dev.key] = dev;
+    common::ScannerContext scan_ctx{.devices = &devices};
+
+    synnax::task::Task task;
+    task.key = synnax::task::create_key(1, 100);
+    task.name = "HTTP Scanner";
+
+    auto ctx = std::make_shared<task::MockContext>(nullptr);
+    auto processor = std::make_shared<Processor>();
+    Scanner scanner(ctx, task, processor);
+
+    for (int i = 0; i < 3; i++) {
+        const auto result = ASSERT_NIL_P(scanner.scan(scan_ctx));
+        ASSERT_EQ(result.size(), 1);
+        EXPECT_EQ(result[0].status.variant, x::status::VARIANT_SUCCESS);
+        EXPECT_EQ(result[0].status.message, "Device connected");
+    }
+
+    // Stop server and verify device becomes unreachable on next scan.
+    server.stop();
+
+    const auto result = ASSERT_NIL_P(scanner.scan(scan_ctx));
     ASSERT_EQ(result.size(), 1);
     EXPECT_EQ(result[0].status.variant, x::status::VARIANT_WARNING);
     EXPECT_EQ(result[0].status.message, "Failed to reach device");
 }
 
-/// @brief it should mark device as warning when response validation fails.
-TEST(HTTPScanTask, ScanHealthCheckValidationFailure) {
-    mock::Server server(mock::ServerConfig{
-        .routes = {{
-            .method = Method::GET,
-            .path = "/health",
-            .response_body = R"({"status": "degraded"})",
-        }},
-    });
-    ASSERT_NIL(server.start());
-
-    auto dev = make_device("dev-1", host_port_from_url(server.base_url()), {
-        {"health_check", {
-            {"method", "GET"},
-            {"path", "/health"},
-            {"response", {
-                {"pointer", "/status"},
-                {"expected_value", "ok"},
-            }},
-        }},
-    });
+TEST(HTTPScanTask, ScanUnreachableDevice) {
+    auto dev = make_device("127.0.0.1:1", {{"timeout_ms", 500}});
 
     std::unordered_map<std::string, synnax::device::Device> devices;
-    devices["dev-1"] = dev;
+    devices[dev.key] = dev;
     common::ScannerContext scan_ctx{.devices = &devices};
 
     synnax::task::Task task;
@@ -182,8 +411,53 @@ TEST(HTTPScanTask, ScanHealthCheckValidationFailure) {
     auto processor = std::make_shared<Processor>();
     Scanner scanner(ctx, task, processor);
 
-    auto [result, err] = scanner.scan(scan_ctx);
-    ASSERT_NIL(err);
+    const auto result = ASSERT_NIL_P(scanner.scan(scan_ctx));
+    ASSERT_EQ(result.size(), 1);
+    EXPECT_EQ(result[0].status.variant, x::status::VARIANT_WARNING);
+    EXPECT_EQ(result[0].status.message, "Failed to reach device");
+}
+
+TEST(HTTPScanTask, ScanHealthCheckValidationFailure) {
+    mock::Server server(
+        mock::ServerConfig{
+            .routes = {{
+                .method = Method::GET,
+                .path = "/health",
+                .response_body = R"({"status": "degraded"})",
+            }},
+        }
+    );
+    ASSERT_NIL(server.start());
+
+    auto dev = make_device(
+        host_port_from_url(server.base_url()),
+        {
+            {"health_check",
+             {
+                 {"method", "GET"},
+                 {"path", "/health"},
+                 {"response",
+                  {
+                      {"pointer", "/status"},
+                      {"expected_value", "ok"},
+                  }},
+             }},
+        }
+    );
+
+    std::unordered_map<std::string, synnax::device::Device> devices;
+    devices[dev.key] = dev;
+    common::ScannerContext scan_ctx{.devices = &devices};
+
+    synnax::task::Task task;
+    task.key = synnax::task::create_key(1, 100);
+    task.name = "HTTP Scanner";
+
+    auto ctx = std::make_shared<task::MockContext>(nullptr);
+    auto processor = std::make_shared<Processor>();
+    Scanner scanner(ctx, task, processor);
+
+    const auto result = ASSERT_NIL_P(scanner.scan(scan_ctx));
     ASSERT_EQ(result.size(), 1);
     EXPECT_EQ(result[0].status.variant, x::status::VARIANT_WARNING);
     EXPECT_EQ(result[0].status.message, "Health check validation failed");
@@ -191,30 +465,36 @@ TEST(HTTPScanTask, ScanHealthCheckValidationFailure) {
     server.stop();
 }
 
-/// @brief it should succeed validation when response matches expected value.
 TEST(HTTPScanTask, ScanHealthCheckValidationSuccess) {
-    mock::Server server(mock::ServerConfig{
-        .routes = {{
-            .method = Method::GET,
-            .path = "/health",
-            .response_body = R"({"status": "ok"})",
-        }},
-    });
+    mock::Server server(
+        mock::ServerConfig{
+            .routes = {{
+                .method = Method::GET,
+                .path = "/health",
+                .response_body = R"({"status": "ok"})",
+            }},
+        }
+    );
     ASSERT_NIL(server.start());
 
-    auto dev = make_device("dev-1", host_port_from_url(server.base_url()), {
-        {"health_check", {
-            {"method", "GET"},
-            {"path", "/health"},
-            {"response", {
-                {"pointer", "/status"},
-                {"expected_value", "ok"},
-            }},
-        }},
-    });
+    auto dev = make_device(
+        host_port_from_url(server.base_url()),
+        {
+            {"health_check",
+             {
+                 {"method", "GET"},
+                 {"path", "/health"},
+                 {"response",
+                  {
+                      {"pointer", "/status"},
+                      {"expected_value", "ok"},
+                  }},
+             }},
+        }
+    );
 
     std::unordered_map<std::string, synnax::device::Device> devices;
-    devices["dev-1"] = dev;
+    devices[dev.key] = dev;
     common::ScannerContext scan_ctx{.devices = &devices};
 
     synnax::task::Task task;
@@ -225,8 +505,7 @@ TEST(HTTPScanTask, ScanHealthCheckValidationSuccess) {
     auto processor = std::make_shared<Processor>();
     Scanner scanner(ctx, task, processor);
 
-    auto [result, err] = scanner.scan(scan_ctx);
-    ASSERT_NIL(err);
+    const auto result = ASSERT_NIL_P(scanner.scan(scan_ctx));
     ASSERT_EQ(result.size(), 1);
     EXPECT_EQ(result[0].status.variant, x::status::VARIANT_SUCCESS);
     EXPECT_EQ(result[0].status.message, "Device connected");
@@ -234,7 +513,6 @@ TEST(HTTPScanTask, ScanHealthCheckValidationSuccess) {
     server.stop();
 }
 
-/// @brief it should return an empty list when no devices are tracked.
 TEST(HTTPScanTask, ScanNoDevices) {
     synnax::task::Task task;
     task.key = synnax::task::create_key(1, 100);
@@ -245,27 +523,26 @@ TEST(HTTPScanTask, ScanNoDevices) {
     Scanner scanner(ctx, task, processor);
 
     common::ScannerContext scan_ctx{.devices = nullptr};
-    auto [result, err] = scanner.scan(scan_ctx);
-    ASSERT_NIL(err);
+    const auto result = ASSERT_NIL_P(scanner.scan(scan_ctx));
     EXPECT_TRUE(result.empty());
 }
 
-/// @brief it should scan multiple devices and report individual statuses.
 TEST(HTTPScanTask, ScanMultipleDevices) {
-    mock::Server server(mock::ServerConfig{
-        .routes = {{.method = Method::GET, .path = "/health", .response_body = "{}"}},
-    });
+    mock::Server server(
+        mock::ServerConfig{
+            .routes = {
+                {.method = Method::GET, .path = "/health", .response_body = "{}"}
+            },
+        }
+    );
     ASSERT_NIL(server.start());
 
-    auto healthy_dev = make_device(
-        "dev-healthy",
-        host_port_from_url(server.base_url())
-    );
-    auto bad_dev = make_device("dev-bad", "127.0.0.1:1", {{"timeout_ms", 500}});
+    auto healthy_dev = make_device(host_port_from_url(server.base_url()));
+    auto bad_dev = make_device("127.0.0.1:1", {{"timeout_ms", 500}});
 
     std::unordered_map<std::string, synnax::device::Device> devices;
-    devices["dev-healthy"] = healthy_dev;
-    devices["dev-bad"] = bad_dev;
+    devices[healthy_dev.key] = healthy_dev;
+    devices[bad_dev.key] = bad_dev;
     common::ScannerContext scan_ctx{.devices = &devices};
 
     synnax::task::Task task;
@@ -276,14 +553,13 @@ TEST(HTTPScanTask, ScanMultipleDevices) {
     auto processor = std::make_shared<Processor>();
     Scanner scanner(ctx, task, processor);
 
-    auto [result, err] = scanner.scan(scan_ctx);
-    ASSERT_NIL(err);
+    const auto result = ASSERT_NIL_P(scanner.scan(scan_ctx));
     ASSERT_EQ(result.size(), 2);
 
-    for (const auto &dev : result) {
-        if (dev.key == "dev-healthy") {
+    for (const auto &dev: result) {
+        if (dev.key == healthy_dev.key) {
             EXPECT_EQ(dev.status.variant, x::status::VARIANT_SUCCESS);
-        } else if (dev.key == "dev-bad") {
+        } else if (dev.key == bad_dev.key) {
             EXPECT_EQ(dev.status.variant, x::status::VARIANT_WARNING);
         } else {
             FAIL() << "Unexpected device key: " << dev.key;
@@ -293,17 +569,16 @@ TEST(HTTPScanTask, ScanMultipleDevices) {
     server.stop();
 }
 
-/// @brief it should warn when device properties are invalid JSON config.
 TEST(HTTPScanTask, ScanInvalidDeviceProperties) {
     synnax::device::Device dev;
-    dev.key = "dev-bad";
-    dev.name = "Bad Device";
+    dev.key = make_unique_channel_name("dev");
+    dev.name = dev.key;
     dev.make = INTEGRATION_NAME;
     dev.location = "127.0.0.1:0";
     dev.properties = x::json::json{{"secure", false}};
 
     std::unordered_map<std::string, synnax::device::Device> devices;
-    devices["dev-bad"] = dev;
+    devices[dev.key] = dev;
     common::ScannerContext scan_ctx{.devices = &devices};
 
     synnax::task::Task task;
@@ -314,19 +589,169 @@ TEST(HTTPScanTask, ScanInvalidDeviceProperties) {
     auto processor = std::make_shared<Processor>();
     Scanner scanner(ctx, task, processor);
 
-    auto [result, err] = scanner.scan(scan_ctx);
-    ASSERT_NIL(err);
+    const auto result = ASSERT_NIL_P(scanner.scan(scan_ctx));
     ASSERT_EQ(result.size(), 1);
     EXPECT_EQ(result[0].status.variant, x::status::VARIANT_WARNING);
 }
 
-////////////////////// Scanner::exec — test_connection command //////////////////////
+TEST(HTTPScanTask, ScanWithPOSTHealthCheck) {
+    mock::Server server(
+        mock::ServerConfig{
+            .routes = {{
+                .method = Method::POST,
+                .path = "/ping",
+                .response_body = R"({"alive": true})",
+            }},
+        }
+    );
+    ASSERT_NIL(server.start());
 
-/// @brief it should succeed test_connection when server is healthy.
+    auto dev = make_device(
+        host_port_from_url(server.base_url()),
+        {
+            {"health_check",
+             {
+                 {"method", "POST"},
+                 {"path", "/ping"},
+                 {"body", R"({"check": "heartbeat"})"},
+                 {"response",
+                  {
+                      {"pointer", "/alive"},
+                      {"expected_value", true},
+                  }},
+             }},
+        }
+    );
+
+    std::unordered_map<std::string, synnax::device::Device> devices;
+    devices[dev.key] = dev;
+    common::ScannerContext scan_ctx{.devices = &devices};
+
+    synnax::task::Task task;
+    task.key = synnax::task::create_key(1, 100);
+    task.name = "HTTP Scanner";
+
+    auto ctx = std::make_shared<task::MockContext>(nullptr);
+    auto processor = std::make_shared<Processor>();
+    Scanner scanner(ctx, task, processor);
+
+    const auto result = ASSERT_NIL_P(scanner.scan(scan_ctx));
+    ASSERT_EQ(result.size(), 1);
+    EXPECT_EQ(result[0].status.variant, x::status::VARIANT_SUCCESS);
+
+    auto received = server.received_requests();
+    ASSERT_FALSE(received.empty());
+    EXPECT_EQ(received[0].method, Method::POST);
+    EXPECT_EQ(received[0].body, R"({"check": "heartbeat"})");
+
+    server.stop();
+}
+
+TEST(HTTPScanTask, ScanHealthCheckNonJSONResponse) {
+    mock::Server server(
+        mock::ServerConfig{
+            .routes = {{
+                .method = Method::GET,
+                .path = "/health",
+                .response_body = "not json",
+                .content_type = "text/plain",
+            }},
+        }
+    );
+    ASSERT_NIL(server.start());
+
+    auto dev = make_device(
+        host_port_from_url(server.base_url()),
+        {
+            {"health_check",
+             {
+                 {"method", "GET"},
+                 {"path", "/health"},
+                 {"response",
+                  {
+                      {"pointer", "/status"},
+                      {"expected_value", "ok"},
+                  }},
+             }},
+        }
+    );
+
+    std::unordered_map<std::string, synnax::device::Device> devices;
+    devices[dev.key] = dev;
+    common::ScannerContext scan_ctx{.devices = &devices};
+
+    synnax::task::Task task;
+    task.key = synnax::task::create_key(1, 100);
+    task.name = "HTTP Scanner";
+
+    auto ctx = std::make_shared<task::MockContext>(nullptr);
+    auto processor = std::make_shared<Processor>();
+    Scanner scanner(ctx, task, processor);
+
+    const auto result = ASSERT_NIL_P(scanner.scan(scan_ctx));
+    ASSERT_EQ(result.size(), 1);
+    EXPECT_EQ(result[0].status.variant, x::status::VARIANT_WARNING);
+    EXPECT_EQ(result[0].status.message, "Health check validation failed");
+
+    server.stop();
+}
+
+TEST(HTTPScanTask, ScanHealthCheckMissingPointer) {
+    mock::Server server(
+        mock::ServerConfig{
+            .routes = {{
+                .method = Method::GET,
+                .path = "/health",
+                .response_body = R"({"other": "value"})",
+            }},
+        }
+    );
+    ASSERT_NIL(server.start());
+
+    auto dev = make_device(
+        host_port_from_url(server.base_url()),
+        {
+            {"health_check",
+             {
+                 {"method", "GET"},
+                 {"path", "/health"},
+                 {"response",
+                  {
+                      {"pointer", "/status"},
+                      {"expected_value", "ok"},
+                  }},
+             }},
+        }
+    );
+
+    std::unordered_map<std::string, synnax::device::Device> devices;
+    devices[dev.key] = dev;
+    common::ScannerContext scan_ctx{.devices = &devices};
+
+    synnax::task::Task task;
+    task.key = synnax::task::create_key(1, 100);
+    task.name = "HTTP Scanner";
+
+    auto ctx = std::make_shared<task::MockContext>(nullptr);
+    auto processor = std::make_shared<Processor>();
+    Scanner scanner(ctx, task, processor);
+
+    const auto result = ASSERT_NIL_P(scanner.scan(scan_ctx));
+    ASSERT_EQ(result.size(), 1);
+    EXPECT_EQ(result[0].status.variant, x::status::VARIANT_WARNING);
+    EXPECT_EQ(result[0].status.message, "Health check validation failed");
+
+    server.stop();
+}
+
 TEST(HTTPScanTask, TestConnectionSuccess) {
-    mock::Server server(mock::ServerConfig{
-        .routes = {{.method = Method::GET, .path = "/health", .response_body = "{}"}},
-    });
+    mock::Server server(
+        mock::ServerConfig{
+            .routes = {
+                {.method = Method::GET, .path = "/health", .response_body = "{}"}
+            },
+        }
+    );
     ASSERT_NIL(server.start());
 
     synnax::task::Task task;
@@ -341,15 +766,17 @@ TEST(HTTPScanTask, TestConnectionSuccess) {
     cmd.type = TEST_CONNECTION_CMD_TYPE;
     cmd.key = "cmd-1";
     cmd.args = {
-        {"connection", {
-            {"base_url", server.base_url()},
-            {"timeout_ms", 1000},
-            {"verify_ssl", false},
-        }},
-        {"health_check", {
-            {"method", "GET"},
-            {"path", "/health"},
-        }},
+        {"connection",
+         {
+             {"base_url", server.base_url()},
+             {"timeout_ms", 1000},
+             {"verify_ssl", false},
+         }},
+        {"health_check",
+         {
+             {"method", "GET"},
+             {"path", "/health"},
+         }},
     };
 
     EXPECT_TRUE(scanner.exec(cmd, task, ctx));
@@ -360,7 +787,6 @@ TEST(HTTPScanTask, TestConnectionSuccess) {
     server.stop();
 }
 
-/// @brief it should fail test_connection when server is unreachable.
 TEST(HTTPScanTask, TestConnectionUnreachable) {
     synnax::task::Task task;
     task.key = synnax::task::create_key(1, 100);
@@ -374,15 +800,17 @@ TEST(HTTPScanTask, TestConnectionUnreachable) {
     cmd.type = TEST_CONNECTION_CMD_TYPE;
     cmd.key = "cmd-1";
     cmd.args = {
-        {"connection", {
-            {"base_url", "http://127.0.0.1:1"},
-            {"timeout_ms", 500},
-            {"verify_ssl", false},
-        }},
-        {"health_check", {
-            {"method", "GET"},
-            {"path", "/health"},
-        }},
+        {"connection",
+         {
+             {"base_url", "http://127.0.0.1:1"},
+             {"timeout_ms", 500},
+             {"verify_ssl", false},
+         }},
+        {"health_check",
+         {
+             {"method", "GET"},
+             {"path", "/health"},
+         }},
     };
 
     EXPECT_TRUE(scanner.exec(cmd, task, ctx));
@@ -390,15 +818,16 @@ TEST(HTTPScanTask, TestConnectionUnreachable) {
     EXPECT_EQ(ctx->statuses.back().variant, x::status::VARIANT_ERROR);
 }
 
-/// @brief it should fail test_connection when response validation fails.
 TEST(HTTPScanTask, TestConnectionValidationFailure) {
-    mock::Server server(mock::ServerConfig{
-        .routes = {{
-            .method = Method::GET,
-            .path = "/health",
-            .response_body = R"({"status": "bad"})",
-        }},
-    });
+    mock::Server server(
+        mock::ServerConfig{
+            .routes = {{
+                .method = Method::GET,
+                .path = "/health",
+                .response_body = R"({"status": "bad"})",
+            }},
+        }
+    );
     ASSERT_NIL(server.start());
 
     synnax::task::Task task;
@@ -413,19 +842,22 @@ TEST(HTTPScanTask, TestConnectionValidationFailure) {
     cmd.type = TEST_CONNECTION_CMD_TYPE;
     cmd.key = "cmd-1";
     cmd.args = {
-        {"connection", {
-            {"base_url", server.base_url()},
-            {"timeout_ms", 1000},
-            {"verify_ssl", false},
-        }},
-        {"health_check", {
-            {"method", "GET"},
-            {"path", "/health"},
-            {"response", {
-                {"pointer", "/status"},
-                {"expected_value", "ok"},
-            }},
-        }},
+        {"connection",
+         {
+             {"base_url", server.base_url()},
+             {"timeout_ms", 1000},
+             {"verify_ssl", false},
+         }},
+        {"health_check",
+         {
+             {"method", "GET"},
+             {"path", "/health"},
+             {"response",
+              {
+                  {"pointer", "/status"},
+                  {"expected_value", "ok"},
+              }},
+         }},
     };
 
     EXPECT_TRUE(scanner.exec(cmd, task, ctx));
@@ -435,7 +867,6 @@ TEST(HTTPScanTask, TestConnectionValidationFailure) {
     server.stop();
 }
 
-/// @brief it should not handle unknown command types.
 TEST(HTTPScanTask, ExecUnknownCommand) {
     synnax::task::Task task;
     task.key = synnax::task::create_key(1, 100);
@@ -450,7 +881,6 @@ TEST(HTTPScanTask, ExecUnknownCommand) {
     EXPECT_FALSE(scanner.exec(cmd, task, ctx));
 }
 
-/// @brief it should fail test_connection with invalid args.
 TEST(HTTPScanTask, TestConnectionInvalidArgs) {
     synnax::task::Task task;
     task.key = synnax::task::create_key(1, 100);
@@ -471,157 +901,4 @@ TEST(HTTPScanTask, TestConnectionInvalidArgs) {
     EXPECT_EQ(ctx->statuses.back().message, "Failed to parse test command");
 }
 
-////////////////////// Scanner::config //////////////////////
-
-/// @brief it should return the correct scanner config.
-TEST(HTTPScanTask, ScannerConfig) {
-    synnax::task::Task task;
-    task.key = synnax::task::create_key(1, 100);
-    task.name = "HTTP Scanner";
-
-    auto ctx = std::make_shared<task::MockContext>(nullptr);
-    auto processor = std::make_shared<Processor>();
-    Scanner scanner(ctx, task, processor);
-
-    auto cfg = scanner.config();
-    EXPECT_EQ(cfg.make, INTEGRATION_NAME);
-    EXPECT_EQ(cfg.log_prefix, SCAN_LOG_PREFIX);
-}
-
-////////////////////// Health check with POST body //////////////////////
-
-/// @brief it should send a POST body for health check when configured.
-TEST(HTTPScanTask, ScanWithPOSTHealthCheck) {
-    mock::Server server(mock::ServerConfig{
-        .routes = {{
-            .method = Method::POST,
-            .path = "/ping",
-            .response_body = R"({"alive": true})",
-        }},
-    });
-    ASSERT_NIL(server.start());
-
-    auto dev = make_device("dev-post", host_port_from_url(server.base_url()), {
-        {"health_check", {
-            {"method", "POST"},
-            {"path", "/ping"},
-            {"body", R"({"check": "heartbeat"})"},
-            {"response", {
-                {"pointer", "/alive"},
-                {"expected_value", true},
-            }},
-        }},
-    });
-
-    std::unordered_map<std::string, synnax::device::Device> devices;
-    devices["dev-post"] = dev;
-    common::ScannerContext scan_ctx{.devices = &devices};
-
-    synnax::task::Task task;
-    task.key = synnax::task::create_key(1, 100);
-    task.name = "HTTP Scanner";
-
-    auto ctx = std::make_shared<task::MockContext>(nullptr);
-    auto processor = std::make_shared<Processor>();
-    Scanner scanner(ctx, task, processor);
-
-    auto [result, err] = scanner.scan(scan_ctx);
-    ASSERT_NIL(err);
-    ASSERT_EQ(result.size(), 1);
-    EXPECT_EQ(result[0].status.variant, x::status::VARIANT_SUCCESS);
-
-    auto received = server.received_requests();
-    ASSERT_FALSE(received.empty());
-    EXPECT_EQ(received[0].method, Method::POST);
-    EXPECT_EQ(received[0].body, R"({"check": "heartbeat"})");
-
-    server.stop();
-}
-
-/// @brief it should warn when response body is not valid JSON and pointer is set.
-TEST(HTTPScanTask, ScanHealthCheckNonJSONResponse) {
-    mock::Server server(mock::ServerConfig{
-        .routes = {{
-            .method = Method::GET,
-            .path = "/health",
-            .response_body = "not json",
-            .content_type = "text/plain",
-        }},
-    });
-    ASSERT_NIL(server.start());
-
-    auto dev = make_device("dev-1", host_port_from_url(server.base_url()), {
-        {"health_check", {
-            {"method", "GET"},
-            {"path", "/health"},
-            {"response", {
-                {"pointer", "/status"},
-                {"expected_value", "ok"},
-            }},
-        }},
-    });
-
-    std::unordered_map<std::string, synnax::device::Device> devices;
-    devices["dev-1"] = dev;
-    common::ScannerContext scan_ctx{.devices = &devices};
-
-    synnax::task::Task task;
-    task.key = synnax::task::create_key(1, 100);
-    task.name = "HTTP Scanner";
-
-    auto ctx = std::make_shared<task::MockContext>(nullptr);
-    auto processor = std::make_shared<Processor>();
-    Scanner scanner(ctx, task, processor);
-
-    auto [result, err] = scanner.scan(scan_ctx);
-    ASSERT_NIL(err);
-    ASSERT_EQ(result.size(), 1);
-    EXPECT_EQ(result[0].status.variant, x::status::VARIANT_WARNING);
-    EXPECT_EQ(result[0].status.message, "Health check validation failed");
-
-    server.stop();
-}
-
-/// @brief it should warn when response JSON doesn't contain the expected pointer.
-TEST(HTTPScanTask, ScanHealthCheckMissingPointer) {
-    mock::Server server(mock::ServerConfig{
-        .routes = {{
-            .method = Method::GET,
-            .path = "/health",
-            .response_body = R"({"other": "value"})",
-        }},
-    });
-    ASSERT_NIL(server.start());
-
-    auto dev = make_device("dev-1", host_port_from_url(server.base_url()), {
-        {"health_check", {
-            {"method", "GET"},
-            {"path", "/health"},
-            {"response", {
-                {"pointer", "/status"},
-                {"expected_value", "ok"},
-            }},
-        }},
-    });
-
-    std::unordered_map<std::string, synnax::device::Device> devices;
-    devices["dev-1"] = dev;
-    common::ScannerContext scan_ctx{.devices = &devices};
-
-    synnax::task::Task task;
-    task.key = synnax::task::create_key(1, 100);
-    task.name = "HTTP Scanner";
-
-    auto ctx = std::make_shared<task::MockContext>(nullptr);
-    auto processor = std::make_shared<Processor>();
-    Scanner scanner(ctx, task, processor);
-
-    auto [result, err] = scanner.scan(scan_ctx);
-    ASSERT_NIL(err);
-    ASSERT_EQ(result.size(), 1);
-    EXPECT_EQ(result[0].status.variant, x::status::VARIANT_WARNING);
-    EXPECT_EQ(result[0].status.message, "Health check validation failed");
-
-    server.stop();
-}
 }

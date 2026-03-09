@@ -35,6 +35,7 @@ cc_test(
     linkstatic = True,
     deps = [
         ":http",
+        "//client/cpp/testutil",
         "//driver/http/mock",
         "//x/cpp/test",
         "@googletest//:gtest_main",

@@ -10,6 +10,7 @@
 #pragma once
 
 #include <memory>
+#include <optional>
 #include <string>
 #include <utility>
 #include <vector>
@@ -29,8 +30,21 @@ const std::string TEST_CONNECTION_CMD_TYPE = "test_connection";
 
 /// @brief configuration for the HTTP scanner.
 struct ScanTaskConfig : common::ScanTaskConfig {
-    ScanTaskConfig() = default;
-    explicit ScanTaskConfig(x::json::Parser &cfg): common::ScanTaskConfig(cfg) {}
+    [[nodiscard]] explicit ScanTaskConfig(x::json::Parser &cfg):
+        common::ScanTaskConfig(cfg) {}
+};
+
+/// @brief optional expected response validation config. When set, the health check
+/// validates that the JSON value at the given pointer matches the expected value.
+struct ExpectedResponseConfig {
+    /// @brief JSON Pointer into the response body (e.g. "/status").
+    std::string pointer;
+    /// @brief expected JSON value at the pointer.
+    x::json::json expected_value;
+
+    [[nodiscard]] explicit ExpectedResponseConfig(x::json::Parser parser):
+        pointer(parser.field<std::string>("pointer")),
+        expected_value(parser.field<x::json::json>("expected_value")) {}
 };
 
 /// @brief configurable health check request and optional response validation.
@@ -39,14 +53,10 @@ struct HealthCheckConfig {
     RequestConfig request;
     /// @brief optional request body.
     std::string body;
-    /// @brief JSON Pointer for response validation (empty = just check 200).
-    std::string response_pointer;
-    /// @brief expected JSON value at the pointer.
-    x::json::json expected_value;
+    /// @brief optional expected response validation.
+    std::optional<ExpectedResponseConfig> expected_response;
 
-    HealthCheckConfig(): request{.method = Method::GET, .path = "/health"} {}
-
-    explicit HealthCheckConfig(x::json::Parser parser):
+    [[nodiscard]] explicit HealthCheckConfig(x::json::Parser parser):
         request{
             .method = parse_method(parser, "method"),
             .path = parser.field<std::string>("path"),
@@ -61,11 +71,7 @@ struct HealthCheckConfig {
         },
         body(parser.field<std::string>("body", "")) {
         auto resp = parser.optional_child("response");
-        if (resp.ok()) {
-            response_pointer = resp.field<std::string>("pointer", "");
-            if (resp.has("expected_value"))
-                expected_value = resp.get_json()["expected_value"];
-        }
+        if (resp.ok()) expected_response.emplace(ExpectedResponseConfig(resp));
     }
 };
 
@@ -76,7 +82,7 @@ struct ScanCommandArgs {
     /// @brief health check configuration.
     HealthCheckConfig health_check;
 
-    explicit ScanCommandArgs(const x::json::Parser &parser):
+    [[nodiscard]] explicit ScanCommandArgs(const x::json::Parser &parser):
         connection(device::ConnectionConfig(parser.child("connection"))),
         health_check(HealthCheckConfig(parser.child("health_check"))) {}
 };
@@ -85,7 +91,7 @@ struct ScanCommandArgs {
 /// health monitoring by pinging each HTTP device.
 class Scanner final : public common::Scanner {
 public:
-    Scanner(
+    [[nodiscard]] Scanner(
         std::shared_ptr<task::Context> ctx,
         synnax::task::Task task,
         std::shared_ptr<Processor> processor
@@ -95,11 +101,11 @@ public:
     [[nodiscard]] common::ScannerConfig config() const override;
 
     /// @brief periodic scan method - checks health of all tracked devices.
-    std::pair<std::vector<synnax::device::Device>, x::errors::Error>
+    [[nodiscard]] std::pair<std::vector<synnax::device::Device>, x::errors::Error>
     scan(const common::ScannerContext &scan_ctx) override;
 
     /// @brief handle HTTP-specific commands (test connection).
-    bool exec(
+    [[nodiscard]] bool exec(
         task::Command &cmd,
         const synnax::task::Task &task,
         const std::shared_ptr<task::Context> &ctx
