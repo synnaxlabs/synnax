@@ -24,7 +24,7 @@ import {
   Task,
   Text,
 } from "@synnaxlabs/pluto";
-import { status } from "@synnaxlabs/x";
+import { type json, status } from "@synnaxlabs/x";
 import { useCallback } from "react";
 
 import { CSS } from "@/css";
@@ -33,7 +33,6 @@ import {
   type AuthType,
   type Device,
   type HealthCheckMethod,
-  type JsonPrimitiveType,
   type Properties,
   SCHEMAS,
   ZERO_AUTH_CONFIGS,
@@ -153,13 +152,14 @@ export const Connect: Layout.Renderer = ({ layoutKey, onClose }) => {
   >("properties.healthCheck.validateResponse", { ctx: form });
 
   const expectedValueType =
-    Form.useFieldValue<JsonPrimitiveType, JsonPrimitiveType, typeof PDevice.formSchema>(
-      "properties.healthCheck.response.expectedValueType",
-      {
-        ctx: form,
-        optional: true,
-      },
-    ) ?? "string";
+    Form.useFieldValue<
+      json.PrimitiveType,
+      json.PrimitiveType,
+      typeof PDevice.formSchema
+    >("properties.healthCheck.response.expectedValueType", {
+      ctx: form,
+      optional: true,
+    }) ?? "string";
 
   const handleValidateResponseChange = useCallback(
     (value: boolean) => {
@@ -181,10 +181,10 @@ export const Connect: Layout.Renderer = ({ layoutKey, onClose }) => {
       onChange,
       ...rest
     }: SelectExpectedValueTypeProps & {
-      onChange: (v: JsonPrimitiveType) => void;
+      onChange: (v: json.PrimitiveType) => void;
     }) => {
-      const handleChange = (value: JsonPrimitiveType) => {
-        const defaults: Record<JsonPrimitiveType, unknown> = {
+      const handleChange = (value: json.PrimitiveType) => {
+        const defaults: Record<json.PrimitiveType, unknown> = {
           string: "",
           number: 0,
           boolean: true,
@@ -351,7 +351,7 @@ export const Connect: Layout.Renderer = ({ layoutKey, onClose }) => {
                   label="JSON Pointer"
                   inputProps={HEALTH_POINTER_INPUT_PROPS}
                 />
-                <Form.Field<JsonPrimitiveType>
+                <Form.Field<json.PrimitiveType>
                   path="properties.healthCheck.response.expectedValueType"
                   label="Value Type"
                 >
@@ -497,7 +497,7 @@ const SelectHealthCheckMethod = (
   </Select.Buttons>
 );
 
-const EXPECTED_VALUE_TYPE_DATA: JsonPrimitiveType[] = [
+const EXPECTED_VALUE_TYPE_DATA: json.PrimitiveType[] = [
   "string",
   "number",
   "boolean",
@@ -505,16 +505,16 @@ const EXPECTED_VALUE_TYPE_DATA: JsonPrimitiveType[] = [
 ];
 
 interface SelectExpectedValueTypeProps extends Omit<
-  Select.ButtonsProps<JsonPrimitiveType>,
+  Select.ButtonsProps<json.PrimitiveType>,
   "keys"
 > {}
 
 const SelectExpectedValueType = (props: SelectExpectedValueTypeProps) => (
-  <Select.Buttons<JsonPrimitiveType> {...props} keys={EXPECTED_VALUE_TYPE_DATA}>
-    <Select.Button<JsonPrimitiveType> itemKey="string">String</Select.Button>
-    <Select.Button<JsonPrimitiveType> itemKey="number">Number</Select.Button>
-    <Select.Button<JsonPrimitiveType> itemKey="boolean">Boolean</Select.Button>
-    <Select.Button<JsonPrimitiveType> itemKey="null">Null</Select.Button>
+  <Select.Buttons<json.PrimitiveType> {...props} keys={EXPECTED_VALUE_TYPE_DATA}>
+    <Select.Button<json.PrimitiveType> itemKey="string">String</Select.Button>
+    <Select.Button<json.PrimitiveType> itemKey="number">Number</Select.Button>
+    <Select.Button<json.PrimitiveType> itemKey="boolean">Boolean</Select.Button>
+    <Select.Button<json.PrimitiveType> itemKey="null">Null</Select.Button>
   </Select.Buttons>
 );
 
