@@ -76,6 +76,9 @@ class Scheduler {
     node::Context ctx;
     /// @brief Set of node keys that need execution in the current stratum pass.
     std::unordered_set<std::string> changed;
+    /// @brief Nodes that requested re-execution on the next cycle.
+    /// Unlike changed, self_changed persists across next() calls.
+    std::unordered_set<std::string> self_changed;
     /// @brief One-shot edges that have fired in global strata (never reset).
     std::unordered_set<ir::Edge> global_fired_one_shots;
     /// @brief Key of the currently executing node.
@@ -95,6 +98,7 @@ public:
     ):
         tolerance_(tolerance), error_handler(std::move(error_handler)) {
         this->ctx.mark_changed = std::bind_front(&Scheduler::mark_changed, this);
+        this->ctx.mark_self_changed = std::bind_front(&Scheduler::mark_self_changed, this);
         this->ctx.report_error = std::bind_front(&Scheduler::report_error, this);
         this->ctx.activate_stage = std::bind_front(&Scheduler::transition_stage, this);
         for (auto &[key, node]: node_impls)
@@ -128,6 +132,7 @@ public:
     /// @brief Resets all execution state for runtime restart.
     void reset() {
         this->changed.clear();
+        this->self_changed.clear();
         this->global_fired_one_shots.clear();
         this->curr_node_key.clear();
         this->curr_seq_idx = NO_INDEX;
@@ -169,11 +174,13 @@ private:
         this->changed.clear();
         bool first_stratum = true;
         for (const auto &stratum: strata) {
-            for (const auto &key: stratum)
-                if (first_stratum || this->changed.contains(key)) {
+            for (const auto &key: stratum) {
+                const bool was_self_changed = this->self_changed.erase(key) > 0;
+                if (first_stratum || this->changed.contains(key) || was_self_changed) {
                     this->curr_node_key = key;
                     this->curr_node().node->next(this->ctx);
                 }
+            }
             first_stratum = false;
         }
     }
@@ -216,16 +223,32 @@ private:
     }
 
     /// @brief Resets all nodes in a strata to their initial state.
+    void mark_self_changed() {
+        this->self_changed.insert(this->curr_node_key);
+    }
+
     void reset_strata(const ir::Strata &strata) {
         for (const auto &stratum: strata)
-            for (const auto &key: stratum)
+            for (const auto &key: stratum) {
+                this->self_changed.erase(key);
                 this->nodes[key].node->reset();
+            }
     }
 
     /// @brief Transitions to a new stage, deactivating the current one.
+    void clear_self_changed(const ir::Strata &strata) {
+        for (const auto &stratum: strata)
+            for (const auto &key: stratum)
+                this->self_changed.erase(key);
+    }
+
     void transition_stage() {
-        if (this->curr_seq_idx != NO_INDEX)
+        if (this->curr_seq_idx != NO_INDEX) {
+            auto &source = this->sequences[this->curr_seq_idx]
+                               .stages[this->curr_stage_idx];
+            this->clear_self_changed(source.strata);
             this->sequences[this->curr_seq_idx].active_stage_idx = NO_INDEX;
+        }
         const auto [target_seq_idx, target_stage_idx] = this->transitions
                                                             [this->curr_node_key];
         auto &target = this->sequences[target_seq_idx].stages[target_stage_idx];

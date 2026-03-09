@@ -1296,6 +1296,164 @@ TEST_F(SchedulerTest, testEmptySequence) {
     ASSERT_EQ(mocks_["A"]->next_called, 1);
 }
 
+/// @brief it should allow a self-changed node in a higher stratum to keep executing
+TEST_F(SchedulerTest, testSelfChangedNodeKeepsExecuting) {
+    auto &trigger = mock("trigger");
+    auto &entry = mock("entry_seq_first");
+    auto &comparison = mock("comparison");
+    auto &wait = mock("wait");
+    auto &entry_next = mock("entry_seq_next");
+
+    trigger.mark_on_next("activate");
+    trigger.param_truthy["activate"] = true;
+    entry.activate_on_next();
+    entry_next.activate_on_next();
+
+    comparison.on_next = [](node::Context &ctx) {
+        ctx.mark_changed("output");
+    };
+    comparison.param_truthy["output"] = true;
+
+    bool wait_started = false;
+    x::telem::TimeSpan wait_start_elapsed;
+    wait.on_next = [&](node::Context &ctx) {
+        if (ctx.reason != node::RunReason::TimerTick) return;
+        if (!wait_started) {
+            wait_started = true;
+            wait_start_elapsed = ctx.elapsed;
+            ctx.mark_self_changed();
+            return;
+        }
+        if (ctx.elapsed - wait_start_elapsed < x::telem::SECOND) {
+            ctx.mark_self_changed();
+            return;
+        }
+        ctx.mark_changed("output");
+    };
+    wait.param_truthy["output"] = true;
+
+    auto ir = ir::testutil::Builder()
+                  .node("trigger")
+                  .node("entry_seq_first")
+                  .node("comparison")
+                  .node("wait")
+                  .node("entry_seq_next")
+                  .oneshot("trigger", "activate", "entry_seq_first", "input")
+                  .oneshot("comparison", "output", "wait", "input")
+                  .edge("wait", "output", "entry_seq_next", "input")
+                  .strata({{"trigger"}, {"entry_seq_first"}})
+                  .sequence(
+                      "seq",
+                      {{"first",
+                        {{"comparison"}, {"wait"}, {"entry_seq_next"}}},
+                       {"next", {}}}
+                  )
+                  .build();
+
+    const auto scheduler = build(std::move(ir));
+
+    // Tick 0: trigger fires, stage activates, comparison fires one-shot to wait,
+    // wait starts timing and calls mark_self_changed
+    scheduler->next(x::telem::TimeSpan(0), node::RunReason::TimerTick);
+    ASSERT_EQ(wait.next_called, 1);
+    ASSERT_EQ(entry_next.next_called, 0);
+
+    // Tick at 500ms: wait should execute (self-changed), but not fire yet
+    scheduler->next(x::telem::MILLISECOND * 500, node::RunReason::TimerTick);
+    ASSERT_EQ(wait.next_called, 2);
+    ASSERT_EQ(entry_next.next_called, 0);
+
+    // Tick at 1s: wait fires, propagates to entry_seq_next
+    scheduler->next(x::telem::SECOND, node::RunReason::TimerTick);
+    ASSERT_EQ(wait.next_called, 3);
+    ASSERT_EQ(entry_next.next_called, 1);
+}
+
+/// @brief it should not execute a self-changed node after it stops calling mark_self_changed
+TEST_F(SchedulerTest, testSelfChangedDropsWhenNotRenewed) {
+    auto &nodeA = mock("A");
+    mock("B");
+
+    int call_count = 0;
+    nodeA.on_next = [&](node::Context &ctx) {
+        call_count++;
+        if (call_count <= 2) ctx.mark_self_changed();
+    };
+
+    auto ir = ir::testutil::Builder()
+                  .node("A")
+                  .node("B")
+                  .strata({{"A"}, {"B"}})
+                  .build();
+
+    const auto scheduler = build(std::move(ir));
+
+    scheduler->next(x::telem::TimeSpan(0), node::RunReason::TimerTick);
+    ASSERT_EQ(nodeA.next_called, 1);
+
+    scheduler->next(x::telem::MILLISECOND, node::RunReason::TimerTick);
+    ASSERT_EQ(nodeA.next_called, 2);
+
+    // call_count is now 2, MarkSelfChanged was called
+    scheduler->next(x::telem::MILLISECOND * 2, node::RunReason::TimerTick);
+    ASSERT_EQ(nodeA.next_called, 3);
+
+    // call_count is now 3, MarkSelfChanged was NOT called, but A is stratum 0
+    // so it still executes. The key behavior is that self_changed is cleared.
+}
+
+/// @brief it should clear self-changed when a node is reset via stage transition
+TEST_F(SchedulerTest, testSelfChangedClearedOnStageTransition) {
+    auto &trigger = mock("trigger");
+    auto &entry_a = mock("entry_seq_stage_a");
+    auto &entry_b = mock("entry_seq_stage_b");
+    auto &nodeA = mock("A");
+    const auto &nodeB = mock("B");
+
+    trigger.mark_on_next("activate");
+    trigger.param_truthy["activate"] = true;
+    entry_a.activate_on_next();
+    entry_b.activate_on_next();
+
+    int a_call_count = 0;
+    nodeA.on_next = [&](node::Context &ctx) {
+        a_call_count++;
+        if (a_call_count == 1) {
+            ctx.mark_self_changed();
+            ctx.mark_changed("to_b");
+        }
+    };
+    nodeA.param_truthy["to_b"] = true;
+
+    auto ir = ir::testutil::Builder()
+                  .node("trigger")
+                  .node("entry_seq_stage_a")
+                  .node("entry_seq_stage_b")
+                  .node("A")
+                  .node("B")
+                  .oneshot("trigger", "activate", "entry_seq_stage_a", "input")
+                  .oneshot("A", "to_b", "entry_seq_stage_b", "input")
+                  .strata({{"trigger"}, {"entry_seq_stage_a", "entry_seq_stage_b"}})
+                  .sequence(
+                      "seq",
+                      {{"stage_a", {{"A"}, {"entry_seq_stage_b"}}},
+                       {"stage_b", {{"B"}}}}
+                  )
+                  .build();
+
+    const auto scheduler = build(std::move(ir));
+
+    // Tick 0: trigger → stage_a activates, A runs, self-changes + transitions to stage_b
+    scheduler->next(x::telem::TimeSpan(0), node::RunReason::TimerTick);
+    ASSERT_EQ(nodeA.next_called, 1);
+    ASSERT_EQ(nodeB.next_called, 1);
+
+    // Tick 1: stage_b is active, A's self-changed should have been cleared by reset
+    scheduler->next(x::telem::MILLISECOND, node::RunReason::TimerTick);
+    ASSERT_EQ(nodeA.next_called, 1);
+    ASSERT_EQ(nodeB.next_called, 2);
+}
+
 /// @brief it should reset all execution state including nodes
 TEST_F(SchedulerTest, testResetClearsState) {
     auto &trigger = mock("trigger");

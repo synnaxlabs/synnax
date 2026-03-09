@@ -29,6 +29,7 @@ node::Context make_context(
         .tolerance = tolerance,
         .reason = reason,
         .mark_changed = [](const std::string &) {},
+        .mark_self_changed = [] {},
         .report_error = [](const x::errors::Error &) {},
         .activate_stage = [] {},
     };
@@ -527,6 +528,42 @@ TEST(WaitTest, StartsTimingFromChannelInputAfterReset) {
     node.next(ctx4);
 
     EXPECT_EQ(output->size(), 1);
+}
+
+/// @brief Test that Wait calls mark_self_changed when active but not yet fired.
+TEST(WaitTest, CallsMarkSelfChangedWhenActiveButNotFired) {
+    TestSetup setup("wait", "duration", x::telem::SECOND.nanoseconds());
+    const WaitConfig cfg(setup.ir.nodes[0].config);
+    Wait node(cfg, setup.make_node());
+
+    int self_changed_calls = 0;
+    bool changed_called = false;
+
+    // Tick at t=0: starts timer, should call mark_self_changed
+    auto ctx1 = make_context(x::telem::TimeSpan(0));
+    ctx1.mark_self_changed = [&]() { self_changed_calls++; };
+    ctx1.mark_changed = [&](const std::string &) { changed_called = true; };
+    ASSERT_NIL(node.next(ctx1));
+    EXPECT_EQ(self_changed_calls, 1);
+    EXPECT_FALSE(changed_called);
+
+    // Tick at 500ms: still timing, should call mark_self_changed again
+    self_changed_calls = 0;
+    auto ctx2 = make_context(x::telem::MILLISECOND * 500);
+    ctx2.mark_self_changed = [&]() { self_changed_calls++; };
+    ctx2.mark_changed = [&](const std::string &) { changed_called = true; };
+    ASSERT_NIL(node.next(ctx2));
+    EXPECT_EQ(self_changed_calls, 1);
+    EXPECT_FALSE(changed_called);
+
+    // Tick at 1s: fires, should NOT call mark_self_changed
+    self_changed_calls = 0;
+    auto ctx3 = make_context(x::telem::SECOND);
+    ctx3.mark_self_changed = [&]() { self_changed_calls++; };
+    ctx3.mark_changed = [&](const std::string &) { changed_called = true; };
+    ASSERT_NIL(node.next(ctx3));
+    EXPECT_EQ(self_changed_calls, 0);
+    EXPECT_TRUE(changed_called);
 }
 
 /// @brief Test that Wait sets the timestamp to elapsed time when firing.

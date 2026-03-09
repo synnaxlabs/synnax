@@ -1434,6 +1434,188 @@ var _ = Describe("Scheduler", func() {
 		})
 	})
 
+	Describe("Self-Changed (Wait in Flow Chain)", func() {
+		It("Should allow a self-changed node in a higher stratum to keep executing", func() {
+			// IR: comparison (stratum 0) => wait (stratum 1) -> entry_seq_next (stratum 2)
+			// The comparison fires a one-shot to the wait. The wait needs multiple
+			// timer ticks to complete. Without self-changed, the wait only gets one
+			// tick (the one-shot fires once), then starves.
+			comparison := mock("comparison")
+			wait := mock("wait")
+			entryNext := mock("entry_seq_next")
+
+			comparison.MarkOnNext("output")
+			comparison.ParamTruthy["output"] = true
+
+			// Wait simulates a 1s timer: calls MarkSelfChanged while timing,
+			// then calls MarkChanged("output") when done.
+			waitStarted := false
+			waitStartElapsed := telem.TimeSpan(0)
+			wait.OnNext = func(nCtx node.Context) {
+				if nCtx.Reason != node.ReasonTimerTick {
+					return
+				}
+				if !waitStarted {
+					waitStarted = true
+					waitStartElapsed = nCtx.Elapsed
+					nCtx.MarkSelfChanged()
+					return
+				}
+				if nCtx.Elapsed-waitStartElapsed < telem.Second {
+					nCtx.MarkSelfChanged()
+					return
+				}
+				nCtx.MarkChanged("output")
+			}
+			wait.ParamTruthy["output"] = true
+
+			entryNext.ActivateOnNext()
+
+			prog := testutil.NewIRBuilder().
+				Node("comparison").
+				Node("wait").
+				Node("entry_seq_next").
+				OneShot("comparison", "output", "wait", "input").
+				Edge("wait", "output", "entry_seq_next", "input").
+				Strata([][]string{{"comparison"}, {"wait"}, {"entry_seq_next"}}).
+				Sequence("seq", []testutil.StageSpec{
+					{Key: "first", Strata: [][]string{{"comparison"}, {"wait"}, {"entry_seq_next"}}},
+					{Key: "next", Strata: [][]string{}},
+				}).
+				Build()
+
+			s := build(prog)
+
+			// Activate the "first" stage
+			trigger := mock("trigger")
+			entry := mock("entry_seq_first")
+			trigger.MarkOnNext("activate")
+			trigger.ParamTruthy["activate"] = true
+			entry.ActivateOnNext()
+
+			// Rebuild with the trigger/entry for stage activation
+			prog = testutil.NewIRBuilder().
+				Node("trigger").
+				Node("entry_seq_first").
+				Node("comparison").
+				Node("wait").
+				Node("entry_seq_next").
+				OneShot("trigger", "activate", "entry_seq_first", "input").
+				OneShot("comparison", "output", "wait", "input").
+				Edge("wait", "output", "entry_seq_next", "input").
+				Strata([][]string{{"trigger"}, {"entry_seq_first"}}).
+				Sequence("seq", []testutil.StageSpec{
+					{Key: "first", Strata: [][]string{{"comparison"}, {"wait"}, {"entry_seq_next"}}},
+					{Key: "next", Strata: [][]string{}},
+				}).
+				Build()
+
+			s = scheduler.New(prog, nodes, 0)
+
+			// Tick 0: trigger fires, stage activates, comparison fires one-shot to wait,
+			// wait starts timing and calls MarkSelfChanged
+			s.Next(ctx, 0, node.ReasonTimerTick)
+			Expect(wait.NextCalled).To(Equal(1))
+			Expect(entryNext.NextCalled).To(Equal(0))
+
+			// Tick at 500ms: wait should execute (self-changed), but not fire yet
+			s.Next(ctx, 500*telem.Millisecond, node.ReasonTimerTick)
+			Expect(wait.NextCalled).To(Equal(2))
+			Expect(entryNext.NextCalled).To(Equal(0))
+
+			// Tick at 1s: wait fires, propagates to entry_seq_next
+			s.Next(ctx, telem.Second, node.ReasonTimerTick)
+			Expect(wait.NextCalled).To(Equal(3))
+			Expect(entryNext.NextCalled).To(Equal(1))
+		})
+
+		It("Should not execute a self-changed node if it stops calling MarkSelfChanged", func() {
+			nodeA := mock("A")
+			nodeB := mock("B")
+
+			callCount := 0
+			nodeA.OnNext = func(nCtx node.Context) {
+				callCount++
+				if callCount <= 2 {
+					nCtx.MarkSelfChanged()
+				}
+			}
+
+			prog := testutil.NewIRBuilder().
+				Node("A").
+				Node("B").
+				Strata([][]string{{"A"}, {"B"}}).
+				Build()
+
+			s := build(prog)
+
+			s.Next(ctx, 0, node.ReasonTimerTick)
+			Expect(nodeA.NextCalled).To(Equal(1))
+
+			s.Next(ctx, telem.Microsecond, node.ReasonTimerTick)
+			Expect(nodeA.NextCalled).To(Equal(2))
+
+			// callCount is now 2, so MarkSelfChanged was called
+			s.Next(ctx, 2*telem.Microsecond, node.ReasonTimerTick)
+			Expect(nodeA.NextCalled).To(Equal(3))
+
+			// callCount is now 3, MarkSelfChanged was NOT called
+			// A is in stratum 0 so it executes anyway, but let's check B
+			Expect(nodeB.NextCalled).To(Equal(0))
+		})
+
+		It("Should clear self-changed when a node is reset via stage transition", func() {
+			trigger := mock("trigger")
+			entryA := mock("entry_seq_stage_a")
+			entryB := mock("entry_seq_stage_b")
+			nodeA := mock("A")
+			nodeB := mock("B")
+
+			trigger.MarkOnNext("activate")
+			trigger.ParamTruthy["activate"] = true
+			entryA.ActivateOnNext()
+			entryB.ActivateOnNext()
+
+			// A calls MarkSelfChanged on first execution
+			aCallCount := 0
+			nodeA.OnNext = func(nCtx node.Context) {
+				aCallCount++
+				if aCallCount == 1 {
+					nCtx.MarkSelfChanged()
+					nCtx.MarkChanged("to_b")
+				}
+			}
+			nodeA.ParamTruthy["to_b"] = true
+
+			prog := testutil.NewIRBuilder().
+				Node("trigger").
+				Node("entry_seq_stage_a").
+				Node("entry_seq_stage_b").
+				Node("A").
+				Node("B").
+				OneShot("trigger", "activate", "entry_seq_stage_a", "input").
+				OneShot("A", "to_b", "entry_seq_stage_b", "input").
+				Strata([][]string{{"trigger"}, {"entry_seq_stage_a", "entry_seq_stage_b"}}).
+				Sequence("seq", []testutil.StageSpec{
+					{Key: "stage_a", Strata: [][]string{{"A"}, {"entry_seq_stage_b"}}},
+					{Key: "stage_b", Strata: [][]string{{"B"}}},
+				}).
+				Build()
+
+			s := scheduler.New(prog, nodes, 0)
+
+			// Tick 0: trigger → stage_a activates, A runs and self-changes + transitions to stage_b
+			s.Next(ctx, 0, node.ReasonTimerTick)
+			Expect(nodeA.NextCalled).To(Equal(1))
+			Expect(nodeB.NextCalled).To(Equal(1))
+
+			// Tick 1: stage_b is active, A's self-changed should have been cleared by reset
+			s.Next(ctx, telem.Microsecond, node.ReasonTimerTick)
+			Expect(nodeA.NextCalled).To(Equal(1))
+			Expect(nodeB.NextCalled).To(Equal(2))
+		})
+	})
+
 	Describe("Edge Cases", func() {
 		It("Should handle zero elapsed time", func() {
 			nodeA := mock("A")

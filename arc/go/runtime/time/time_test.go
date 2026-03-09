@@ -543,6 +543,69 @@ var _ = Describe("Time", func() {
 			})
 			Expect(changedOutputs).To(HaveLen(1))
 		})
+		It("Should call MarkSelfChanged when active but not yet fired", func() {
+			cfg := node.Config{
+				Node: ir.Node{
+					Type: "wait",
+					Config: types.Params{
+						{Name: "duration", Type: types.TimeSpan(), Value: telem.Second},
+					},
+				},
+				State: s.Node("wait_1"),
+			}
+			n := MustSucceed(factory.Create(ctx, cfg))
+			waitNode := s.Node("wait_1")
+			*waitNode.Output(0) = telem.NewSeriesV[uint8]()
+			*waitNode.OutputTime(0) = telem.NewSeriesV[telem.TimeStamp]()
+
+			selfChangedCalls := 0
+			// First tick at 0: starts timer, should call MarkSelfChanged
+			n.Next(node.Context{
+				Context: ctx,
+				Elapsed: 0,
+				Reason:  node.ReasonTimerTick,
+				MarkChanged: func(output string) {
+					changedOutputs = append(changedOutputs, output)
+				},
+				MarkSelfChanged: func() {
+					selfChangedCalls++
+				},
+			})
+			Expect(changedOutputs).To(BeEmpty())
+			Expect(selfChangedCalls).To(Equal(1))
+
+			// Tick at 500ms: still timing, should call MarkSelfChanged again
+			selfChangedCalls = 0
+			n.Next(node.Context{
+				Context: ctx,
+				Elapsed: 500 * telem.Millisecond,
+				Reason:  node.ReasonTimerTick,
+				MarkChanged: func(output string) {
+					changedOutputs = append(changedOutputs, output)
+				},
+				MarkSelfChanged: func() {
+					selfChangedCalls++
+				},
+			})
+			Expect(changedOutputs).To(BeEmpty())
+			Expect(selfChangedCalls).To(BeNumerically(">=", 1))
+
+			// Tick at 1s: fires, should NOT call MarkSelfChanged
+			selfChangedCalls = 0
+			n.Next(node.Context{
+				Context: ctx,
+				Elapsed: telem.Second,
+				Reason:  node.ReasonTimerTick,
+				MarkChanged: func(output string) {
+					changedOutputs = append(changedOutputs, output)
+				},
+				MarkSelfChanged: func() {
+					selfChangedCalls++
+				},
+			})
+			Expect(changedOutputs).To(HaveLen(1))
+			Expect(selfChangedCalls).To(Equal(0))
+		})
 		It("Should not fire on channel input even when duration elapsed", func() {
 			cfg := node.Config{
 				Node: ir.Node{

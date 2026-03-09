@@ -106,9 +106,14 @@ public:
     x::errors::Error next(node::Context &ctx) override {
         if (this->fired) return x::errors::NIL;
         if (this->start_time.nanoseconds() < 0) this->start_time = ctx.elapsed;
-        if (ctx.reason != node::RunReason::TimerTick) return x::errors::NIL;
-        if (ctx.elapsed - this->start_time < this->cfg.duration - ctx.tolerance)
+        if (ctx.reason != node::RunReason::TimerTick) {
+            if (ctx.mark_self_changed) ctx.mark_self_changed();
             return x::errors::NIL;
+        }
+        if (ctx.elapsed - this->start_time < this->cfg.duration - ctx.tolerance) {
+            if (ctx.mark_self_changed) ctx.mark_self_changed();
+            return x::errors::NIL;
+        }
         this->fired = true;
         const auto &o = this->state.output(0);
         const auto &o_time = this->state.output_time(0);

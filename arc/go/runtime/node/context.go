@@ -33,6 +33,10 @@ type Context struct {
 	// MarkChanged signals that an output parameter has new data.
 	// This triggers dependent nodes to execute in the next scheduler pass.
 	MarkChanged func(output string)
+	// MarkSelfChanged requests that this node be re-executed on the next
+	// scheduler cycle without requiring upstream re-triggering. Used by
+	// nodes like Wait that need multiple ticks to complete after activation.
+	MarkSelfChanged func()
 	// ReportError reports a runtime error without stopping execution.
 	// The node should continue where possible, using safe defaults.
 	ReportError func(err error)
