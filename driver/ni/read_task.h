@@ -36,7 +36,9 @@ struct ReadTaskConfig : common::BaseReadTaskConfig {
     const std::string timing_source;
     /// @brief the number of samples per channel to connect on each call to read.
     const std::size_t samples_per_chan;
-    /// @brief whether the task should be software timed.
+    /// @brief whether the task should be software timed. True for digital read
+    /// tasks without an explicit timing source and for counter read tasks (which
+    /// only support on-demand timing).
     const bool software_timed;
     /// @brief the indexes of the channels in the task.
     /// Dynamically populated by querying the core.
@@ -74,7 +76,10 @@ struct ReadTaskConfig : common::BaseReadTaskConfig {
         device_key(cfg.field<std::string>("device", "cross-device")),
         timing_source(cfg.field<std::string>("timing_source", "")),
         samples_per_chan(sample_rate / stream_rate),
-        software_timed(this->timing_source.empty() && task_type == "ni_digital_read"),
+        software_timed(
+            (this->timing_source.empty() && task_type == "ni_digital_read") ||
+            task_type == "ni_counter_read"
+        ),
         channels(cfg.map<std::unique_ptr<channel::Input>>(
             "channels",
             [](x::json::Parser &ch_cfg)

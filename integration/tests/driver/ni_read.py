@@ -11,7 +11,11 @@
 
 import synnax as sy
 
-from tests.driver.ni_task import NIAnalogReadTaskCase, NIDigitalReadTaskCase
+from tests.driver.ni_task import (
+    NIAnalogReadTaskCase,
+    NICounterReadTaskCase,
+    NIDigitalReadTaskCase,
+)
 from tests.driver.task import create_channel, create_index
 
 
@@ -715,6 +719,40 @@ class NIDigitalRead(NIDigitalReadTaskCase):
                 ),
             )
             for i in range(4)
+        ]
+
+
+class NICounterRead(NICounterReadTaskCase):
+    """Read edge count on USB-6289 counter 0.
+
+    NI-DAQmx only allows one counter per task on USB devices (-200147),
+    so we use a single edge count channel on ctr0.
+    """
+
+    task_name = "NI Counter Read (USB-6289)"
+    device_locations = ["USB-6289"]
+
+    SAMPLE_RATE = 100 * sy.Rate.HZ
+    STREAM_RATE = 25 * sy.Rate.HZ
+
+    @staticmethod
+    def create_channels(
+        client: sy.Synnax, devices: dict[str, sy.Device]
+    ) -> list[sy.ni.CIEdgeCountChan]:
+        idx = create_index(client, "ni_ci_index")
+        return [
+            sy.ni.CIEdgeCountChan(
+                port=0,
+                channel=create_channel(
+                    client,
+                    name="ni_ci_edge_count_0",
+                    data_type=sy.DataType.UINT32,
+                    index=idx.key,
+                ),
+                active_edge="Rising",
+                count_direction="CountUp",
+                initial_count=0,
+            ),
         ]
 
 

@@ -1875,6 +1875,7 @@ class DIChan(BaseModel):
 class BaseCIChan(BaseChan):
     device: str = ""
     port: int
+    channel: int
 
 
 class CIFrequencyChan(BaseCIChan, MinMaxVal):

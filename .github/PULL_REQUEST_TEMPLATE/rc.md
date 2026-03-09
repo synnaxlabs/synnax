@@ -372,8 +372,8 @@ I can successfully:
     - [ ] Map
 - **Digital Read Task**
   - [ ] Plot live data.
-  - [ ] Stop, start, and reconfigure tasks.
-  - [ ] Enable and disable data saving.
+  - [x] Stop, start, and reconfigure tasks.
+  - [x] Enable and disable data saving.
 - **Digital Write Task**
   - [ ] Perform control actions using a schematic.
   - [ ] Stop, start, and reconfigure tasks.
