@@ -845,6 +845,66 @@ TEST(AcquisitionPipeline, testErrOnUnauthorizedCanBeDisabled) {
     ASSERT_FALSE(mock_factory->config.err_on_unauthorized);
 }
 
+class NeverProducesSource final : public Source {
+    std::atomic<size_t> read_count{0};
+
+public:
+    std::atomic<size_t> &reads() { return this->read_count; }
+
+    x::errors::Error read(
+        x::breaker::Breaker &breaker,
+        x::telem::Frame &fr,
+        Authorities &authorities
+    ) override {
+        this->read_count.fetch_add(1);
+        std::this_thread::sleep_for(std::chrono::milliseconds(1));
+        return x::errors::NIL;
+    }
+
+    void stopped_with_err(const x::errors::Error &err) override {}
+};
+
+/// @brief when open_eagerly is true, the writer should open immediately before the
+/// first frame arrives, using the pre-configured start timestamp.
+TEST(AcquisitionPipeline, testEagerOpenWriterBeforeFirstFrame) {
+    auto writes = std::make_shared<std::vector<x::telem::Frame>>();
+    const auto mock_factory = std::make_shared<mock::WriterFactory>(writes);
+    const auto source = std::make_shared<NeverProducesSource>();
+    auto configured_start = x::telem::TimeStamp(5000000000);
+    auto pipe = Acquisition(
+        mock_factory,
+        synnax::framer::WriterConfig{.start = configured_start},
+        source,
+        x::breaker::Config(),
+        "",
+        /* err_on_unauthorized */ true,
+        /* open_eagerly */ true
+    );
+    ASSERT_TRUE(pipe.start());
+    ASSERT_EVENTUALLY_GE(source->reads().load(), 3);
+    ASSERT_TRUE(pipe.stop());
+    ASSERT_GE(mock_factory->writer_opens.load(std::memory_order_acquire), 1);
+    ASSERT_EQ(mock_factory->config.start, configured_start);
+}
+
+/// @brief with the default lazy-open behavior, the writer should never open if the
+/// source only produces empty frames.
+TEST(AcquisitionPipeline, testDefaultLazyOpenDoesNotOpenWriterOnEmptyFrames) {
+    auto writes = std::make_shared<std::vector<x::telem::Frame>>();
+    const auto mock_factory = std::make_shared<mock::WriterFactory>(writes);
+    const auto source = std::make_shared<NeverProducesSource>();
+    auto pipe = Acquisition(
+        mock_factory,
+        synnax::framer::WriterConfig(),
+        source,
+        x::breaker::Config()
+    );
+    ASSERT_TRUE(pipe.start());
+    ASSERT_EVENTUALLY_GE(source->reads().load(), 5);
+    ASSERT_TRUE(pipe.stop());
+    ASSERT_EQ(mock_factory->writer_opens.load(std::memory_order_acquire), 0);
+}
+
 /// @brief a global authority change buffered before the writer opens should clear
 /// any previously buffered per-channel changes.
 TEST(AcquisitionPipeline, testAuthorityBufferGlobalClearsChannels) {
