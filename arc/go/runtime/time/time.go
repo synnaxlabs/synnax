@@ -109,11 +109,14 @@ func (w *Wait) Init(_ node.Context) {}
 // Next checks if the duration has elapsed and fires if so (only once).
 // Only fires on timer ticks (not channel inputs) to prevent timing drift.
 func (w *Wait) Next(ctx node.Context) {
-	if ctx.Reason != node.ReasonTimerTick || w.fired {
+	if w.fired {
 		return
 	}
 	if w.startTime < 0 {
 		w.startTime = ctx.Elapsed
+	}
+	if ctx.Reason != node.ReasonTimerTick {
+		return
 	}
 	if ctx.Elapsed-w.startTime < w.duration-ctx.Tolerance {
 		return

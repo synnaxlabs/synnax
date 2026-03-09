@@ -469,6 +469,66 @@ TEST(WaitTest, MeasuresDurationFromFirstNextCall) {
     EXPECT_EQ(output->size(), 1);
 }
 
+/// @brief Test that Wait starts timing from a channel input that activates the stage.
+/// Regression: wait{duration=3s} took ~6s because startTime was only set on the first
+/// TimerTick, not when the stage was activated via channel input.
+TEST(WaitTest, StartsTimingFromChannelInputThatActivatesStage) {
+    TestSetup setup("wait", "duration", x::telem::SECOND.nanoseconds());
+    const WaitConfig cfg(setup.ir.nodes[0].config);
+    Wait node(cfg, setup.make_node());
+
+    auto ctx1 = make_context(
+        x::telem::SECOND * 5,
+        x::telem::TimeSpan(0),
+        node::RunReason::ChannelInput
+    );
+    node.next(ctx1);
+
+    auto checker = setup.make_node();
+    const auto &output = checker.output(0);
+    EXPECT_EQ(output->size(), 0);
+
+    auto ctx2 = make_context(x::telem::SECOND * 6);
+    node.next(ctx2);
+
+    EXPECT_EQ(output->size(), 1);
+}
+
+/// @brief Test that Wait starts timing from channel input after a reset.
+/// Regression: after stage re-entry via channel input, startTime was deferred to the
+/// next TimerTick, effectively doubling the wait duration.
+TEST(WaitTest, StartsTimingFromChannelInputAfterReset) {
+    TestSetup setup("wait", "duration", x::telem::SECOND.nanoseconds());
+    const WaitConfig cfg(setup.ir.nodes[0].config);
+    Wait node(cfg, setup.make_node());
+
+    auto ctx1 = make_context(x::telem::TimeSpan(0));
+    node.next(ctx1);
+
+    auto ctx2 = make_context(x::telem::SECOND);
+    node.next(ctx2);
+
+    auto checker = setup.make_node();
+    const auto &output = checker.output(0);
+    EXPECT_EQ(output->size(), 1);
+    output->resize(0);
+
+    node.reset();
+
+    auto ctx3 = make_context(
+        x::telem::SECOND * 2,
+        x::telem::TimeSpan(0),
+        node::RunReason::ChannelInput
+    );
+    node.next(ctx3);
+    EXPECT_EQ(output->size(), 0);
+
+    auto ctx4 = make_context(x::telem::SECOND * 3);
+    node.next(ctx4);
+
+    EXPECT_EQ(output->size(), 1);
+}
+
 /// @brief Test that Wait sets the timestamp to elapsed time when firing.
 TEST(WaitTest, SetsTimestampOnFire) {
     TestSetup setup("wait", "duration", x::telem::SECOND.nanoseconds());
