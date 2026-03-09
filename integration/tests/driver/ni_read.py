@@ -378,6 +378,90 @@ class NIReadTC(NIAnalogReadTaskCase):
         ]
 
 
+class NIReadCurrentVoltage(NIAnalogReadTaskCase):
+    """Read current and voltage across two modules in a single task.
+
+    E101Mod3 (NI 9203): 4-20 mA current input
+        Port 0: Current, internal shunt
+        Port 1: Current, internal shunt
+    E101Mod4 (NI 9205): Voltage input
+        Port 0: Voltage, differential
+        Port 1: Voltage, RSE
+    """
+
+    task_name = "NI Current + Voltage Read"
+    device_locations = ["E101Mod3", "E101Mod4"]
+
+    SAMPLE_RATE = 1000 * sy.Rate.HZ
+    STREAM_RATE = 50 * sy.Rate.HZ
+
+    @staticmethod
+    def create_channels(
+        client: sy.Synnax, devices: dict[str, sy.Device]
+    ) -> list[sy.ni.AIChan]:
+        idx = create_index(client, "ni_cur_volt_index")
+        mod3 = devices["E101Mod3"]
+        mod4 = devices["E101Mod4"]
+        return [
+            # --- E101Mod3 / NI 9203 (current) ---
+            sy.ni.AICurrentChan(
+                device=mod3.key,
+                port=0,
+                channel=create_channel(
+                    client,
+                    name="ni_current_0",
+                    data_type=sy.DataType.FLOAT32,
+                    index=idx.key,
+                ),
+                min_val=0.004,
+                max_val=0.02,
+                shunt_resistor_loc="Internal",
+                ext_shunt_resistor_val=249.0,
+            ),
+            sy.ni.AICurrentChan(
+                device=mod3.key,
+                port=1,
+                channel=create_channel(
+                    client,
+                    name="ni_current_1",
+                    data_type=sy.DataType.FLOAT32,
+                    index=idx.key,
+                ),
+                min_val=0.004,
+                max_val=0.02,
+                shunt_resistor_loc="Internal",
+                ext_shunt_resistor_val=249.0,
+            ),
+            # --- E101Mod4 / NI 9205 (voltage) ---
+            sy.ni.AIVoltageChan(
+                device=mod4.key,
+                port=0,
+                channel=create_channel(
+                    client,
+                    name="ni_voltage_diff",
+                    data_type=sy.DataType.FLOAT32,
+                    index=idx.key,
+                ),
+                terminal_config="Diff",
+                min_val=-10.0,
+                max_val=10.0,
+            ),
+            sy.ni.AIVoltageChan(
+                device=mod4.key,
+                port=1,
+                channel=create_channel(
+                    client,
+                    name="ni_voltage_rse",
+                    data_type=sy.DataType.FLOAT32,
+                    index=idx.key,
+                ),
+                terminal_config="RSE",
+                min_val=-10.0,
+                max_val=10.0,
+            ),
+        ]
+
+
 class NIReadResistance(NIAnalogReadTaskCase):
     """Read resistance on NI 9219 (2-wire and 4-wire only, 500 uA excitation).
 
