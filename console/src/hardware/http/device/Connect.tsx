@@ -24,7 +24,7 @@ import {
   Task,
   Text,
 } from "@synnaxlabs/pluto";
-import { status as xstatus } from "@synnaxlabs/x";
+import { status } from "@synnaxlabs/x";
 import { useCallback } from "react";
 
 import { CSS } from "@/css";
@@ -34,6 +34,7 @@ import {
   type Device,
   type HealthCheckMethod,
   type JsonPrimitiveType,
+  type Properties,
   SCHEMAS,
   ZERO_AUTH_CONFIGS,
   ZERO_PROPERTIES,
@@ -87,9 +88,9 @@ const beforeSave = async ({
     query: { type: SCAN_TYPE, rack: get<rack.Key>("rack").value },
     schemas: SCAN_SCHEMAS,
   });
-  const props = get("properties").value as Record<string, unknown>;
+  const props = get<Properties>("properties").value;
   const host = get<string>("location").value;
-  const secure = props.secure as boolean;
+  const secure = props.secure;
   const protocol = secure ? "https://" : "http://";
   const connection = {
     base_url: `${protocol}${host}`,
@@ -97,14 +98,14 @@ const beforeSave = async ({
     verify_ssl: props.verifySsl,
     auth: props.auth,
   };
-  const healthCheck = props.health_check;
+  const healthCheck = props.healthCheck;
   const state = await scanTask.executeCommandSync({
     type: TEST_CONNECTION_COMMAND_TYPE,
     timeout: TimeSpan.seconds(10),
-    args: { connection, health_check: healthCheck },
+    args: { connection, healthCheck },
   });
   if (state.variant === "error") throw new Error(state.message);
-  const devStatus: device.Status = xstatus.create<typeof device.statusDetailsZ>({
+  const devStatus: device.Status = status.create<typeof device.statusDetailsZ>({
     message: "Server connected",
     variant: "success",
     details: {
@@ -143,17 +144,17 @@ export const Connect: Layout.Renderer = ({ layoutKey, onClose }) => {
     HealthCheckMethod,
     HealthCheckMethod,
     typeof PDevice.formSchema
-  >("properties.health_check.method", { ctx: form });
+  >("properties.healthCheck.method", { ctx: form });
 
   const validateResponse = Form.useFieldValue<
     boolean,
     boolean,
     typeof PDevice.formSchema
-  >("properties.health_check.validate_response", { ctx: form });
+  >("properties.healthCheck.validateResponse", { ctx: form });
 
   const expectedValueType =
     Form.useFieldValue<JsonPrimitiveType, JsonPrimitiveType, typeof PDevice.formSchema>(
-      "properties.health_check.response.expected_value_type",
+      "properties.healthCheck.response.expectedValueType",
       {
         ctx: form,
         optional: true,
@@ -163,12 +164,12 @@ export const Connect: Layout.Renderer = ({ layoutKey, onClose }) => {
   const handleValidateResponseChange = useCallback(
     (value: boolean) => {
       if (value) {
-        const response = form.get("properties.health_check.response").value;
+        const response = form.get("properties.healthCheck.response").value;
         if (response == null)
-          form.set("properties.health_check.response", {
+          form.set("properties.healthCheck.response", {
             pointer: "",
-            expected_value_type: "string",
-            expected_value: "",
+            expectedValueType: "string",
+            expectedValue: "",
           });
       }
     },
@@ -189,7 +190,7 @@ export const Connect: Layout.Renderer = ({ layoutKey, onClose }) => {
           boolean: true,
           null: null,
         };
-        form.set("properties.health_check.response.expected_value", defaults[value]);
+        form.set("properties.healthCheck.response.expectedValue", defaults[value]);
         onChange(value);
       };
       return <SelectExpectedValueType {...rest} onChange={handleChange} />;
@@ -317,27 +318,27 @@ export const Connect: Layout.Renderer = ({ layoutKey, onClose }) => {
           </Text.Text>
           <Flex.Box x align="end">
             <Form.Field<HealthCheckMethod>
-              path="properties.health_check.method"
+              path="properties.healthCheck.method"
               label="Method"
             >
               {(props) => <SelectHealthCheckMethod {...props} />}
             </Form.Field>
             <Form.TextField
               grow
-              path="properties.health_check.path"
+              path="properties.healthCheck.path"
               label="Path"
               inputProps={HEALTH_PATH_INPUT_PROPS}
             />
           </Flex.Box>
           {healthCheckMethod === "POST" && (
             <Form.TextField
-              path="properties.health_check.body"
+              path="properties.healthCheck.body"
               label="Body"
               inputProps={HEALTH_BODY_INPUT_PROPS}
             />
           )}
           <Form.SwitchField
-            path="properties.health_check.validate_response"
+            path="properties.healthCheck.validateResponse"
             label="Validate response body"
             onChange={handleValidateResponseChange}
           />
@@ -346,12 +347,12 @@ export const Connect: Layout.Renderer = ({ layoutKey, onClose }) => {
               <Flex.Box x align="end">
                 <Form.TextField
                   grow
-                  path="properties.health_check.response.pointer"
+                  path="properties.healthCheck.response.pointer"
                   label="JSON Pointer"
                   inputProps={HEALTH_POINTER_INPUT_PROPS}
                 />
                 <Form.Field<JsonPrimitiveType>
-                  path="properties.health_check.response.expected_value_type"
+                  path="properties.healthCheck.response.expectedValueType"
                   label="Value Type"
                 >
                   {renderExpectedValueType}
@@ -359,20 +360,20 @@ export const Connect: Layout.Renderer = ({ layoutKey, onClose }) => {
               </Flex.Box>
               {expectedValueType === "string" && (
                 <Form.TextField
-                  path="properties.health_check.response.expected_value"
+                  path="properties.healthCheck.response.expectedValue"
                   label="Expected Value"
                   inputProps={HEALTH_EXPECTED_STRING_INPUT_PROPS}
                 />
               )}
               {expectedValueType === "number" && (
                 <Form.NumericField
-                  path="properties.health_check.response.expected_value"
+                  path="properties.healthCheck.response.expectedValue"
                   label="Expected Value"
                 />
               )}
               {expectedValueType === "boolean" && (
                 <Form.SwitchField
-                  path="properties.health_check.response.expected_value"
+                  path="properties.healthCheck.response.expectedValue"
                   label="Expected Value"
                 />
               )}
@@ -390,7 +391,7 @@ export const Connect: Layout.Renderer = ({ layoutKey, onClose }) => {
         </Nav.Bar.Start>
         <Nav.Bar.End>
           <Button.Button
-            status={xstatus.keepVariants(variant, "loading")}
+            status={status.keepVariants(variant, "loading")}
             onClick={() => save()}
             variant="filled"
           >
