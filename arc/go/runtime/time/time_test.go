@@ -443,6 +443,106 @@ var _ = Describe("Time", func() {
 			})
 			Expect(changedOutputs).To(HaveLen(1))
 		})
+		It("Should start timing from channel input that activates the stage", func() {
+			cfg := node.Config{
+				Node: ir.Node{
+					Type: "wait",
+					Config: types.Params{
+						{Name: "duration", Type: types.TimeSpan(), Value: telem.Second},
+					},
+				},
+				State: s.Node("wait_1"),
+			}
+			n := MustSucceed(factory.Create(ctx, cfg))
+			waitNode := s.Node("wait_1")
+			*waitNode.Output(0) = telem.NewSeriesV[uint8]()
+			*waitNode.OutputTime(0) = telem.NewSeriesV[telem.TimeStamp]()
+
+			// Simulate stage activation via channel input at elapsed=5s.
+			// The wait should record this as its start time even though it
+			// does not fire on channel inputs.
+			n.Next(node.Context{
+				Context: ctx,
+				Elapsed: 5 * telem.Second,
+				Reason:  node.ReasonChannelInput,
+				MarkChanged: func(output string) {
+					changedOutputs = append(changedOutputs, output)
+				},
+			})
+			Expect(changedOutputs).To(BeEmpty())
+
+			// First timer tick at elapsed=6s (1s after stage activation).
+			// The wait duration is 1s, so it should fire here.
+			n.Next(node.Context{
+				Context: ctx,
+				Elapsed: 6 * telem.Second,
+				Reason:  node.ReasonTimerTick,
+				MarkChanged: func(output string) {
+					changedOutputs = append(changedOutputs, output)
+				},
+			})
+			Expect(changedOutputs).To(HaveLen(1))
+		})
+		It("Should start timing from channel input after reset", func() {
+			cfg := node.Config{
+				Node: ir.Node{
+					Type: "wait",
+					Config: types.Params{
+						{Name: "duration", Type: types.TimeSpan(), Value: telem.Second},
+					},
+				},
+				State: s.Node("wait_1"),
+			}
+			n := MustSucceed(factory.Create(ctx, cfg))
+			waitNode := s.Node("wait_1")
+			*waitNode.Output(0) = telem.NewSeriesV[uint8]()
+			*waitNode.OutputTime(0) = telem.NewSeriesV[telem.TimeStamp]()
+
+			// Fire once normally
+			n.Next(node.Context{
+				Context: ctx,
+				Elapsed: 0,
+				Reason:  node.ReasonTimerTick,
+				MarkChanged: func(output string) {
+					changedOutputs = append(changedOutputs, output)
+				},
+			})
+			n.Next(node.Context{
+				Context: ctx,
+				Elapsed: telem.Second,
+				Reason:  node.ReasonTimerTick,
+				MarkChanged: func(output string) {
+					changedOutputs = append(changedOutputs, output)
+				},
+			})
+			Expect(changedOutputs).To(HaveLen(1))
+
+			// Reset simulates re-entering a stage
+			n.Reset()
+			changedOutputs = []string{}
+
+			// Channel input at elapsed=2s sets the new start time
+			n.Next(node.Context{
+				Context: ctx,
+				Elapsed: 2 * telem.Second,
+				Reason:  node.ReasonChannelInput,
+				MarkChanged: func(output string) {
+					changedOutputs = append(changedOutputs, output)
+				},
+			})
+			Expect(changedOutputs).To(BeEmpty())
+
+			// Timer tick at elapsed=3s (1s after channel input). Should fire.
+			n.Next(node.Context{
+				Context: ctx,
+				Elapsed: 3 * telem.Second,
+				Reason:  node.ReasonTimerTick,
+				MarkChanged: func(output string) {
+					changedOutputs = append(changedOutputs, output)
+				},
+			})
+			Expect(changedOutputs).To(HaveLen(1))
+		})
 		It("Should not fire on channel input even when duration elapsed", func() {
 			cfg := node.Config{
 				Node: ir.Node{
