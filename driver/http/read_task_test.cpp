@@ -8,6 +8,7 @@
 // included in the file licenses/APL.txt.
 
 #include <memory>
+
 #include "gtest/gtest.h"
 
 #include "client/cpp/testutil/testutil.h"
