@@ -78,41 +78,53 @@ export const ZERO_AUTH_CONFIGS: Record<AuthType, AuthConfig> = {
   basic: { type: "basic", username: "", password: "" },
 };
 
-export type JsonPrimitiveType = json.PrimitiveType;
-
-const healthCheckResponseZ = z.object({
-  pointer: json.pointerZ,
-  expectedValueType: json.primitiveTypeZ,
-  expectedValue: json.primitiveZ,
-});
-
-const healthCheckMethodZ = z.enum(["GET", "POST"]);
-
-const healthCheckZ = z.object({
-  method: healthCheckMethodZ,
+const sharedHealthCheckZ = z.object({
   path: z.string().min(1, "Path is required"),
   headers: z.record(z.string(), z.string()).optional(),
   queryParams: z.record(z.string(), z.string()).optional(),
-  body: z.string().optional(),
-  validateResponse: z.boolean(),
-  response: healthCheckResponseZ.optional(),
 });
+
+const noValidateHealthCheckZ = sharedHealthCheckZ.extend({
+  validateResponse: z.literal(false),
+});
+
+const validateHealthCheckZ = sharedHealthCheckZ.extend({
+  validateResponse: z.literal(true),
+  response: z.object({
+    pointer: json.pointerZ,
+    expectedValueType: json.primitiveTypeZ,
+    expectedValue: json.primitiveZ,
+  }),
+});
+
+const getShapeZ = { method: z.literal("GET") } as const;
+
+const getHealthCheckZ = z.discriminatedUnion("validateResponse", [
+  noValidateHealthCheckZ.extend(getShapeZ),
+  validateHealthCheckZ.extend(getShapeZ),
+]);
+
+const postShapeZ = { method: z.literal("POST"), body: z.string().optional() } as const;
+
+const postHealthCheckZ = z.discriminatedUnion("validateResponse", [
+  noValidateHealthCheckZ.extend(postShapeZ),
+  validateHealthCheckZ.extend(postShapeZ),
+]);
+
+export const healthCheckZ = z.discriminatedUnion("method", [
+  getHealthCheckZ,
+  postHealthCheckZ,
+]);
 
 export type HealthCheck = z.infer<typeof healthCheckZ>;
 
-export type HealthCheckMethod = z.infer<typeof healthCheckMethodZ>;
-
-export const ZERO_HEALTH_CHECK: HealthCheck = {
+export const ZERO_HEALTH_CHECK = {
   method: "GET",
   path: "/health",
-  body: "",
   validateResponse: false,
-  response: {
-    pointer: "",
-    expectedValueType: "string",
-    expectedValue: "",
-  },
-};
+} as const satisfies HealthCheck;
+
+export type HealthCheckMethod = HealthCheck["method"];
 
 const defaultTimeoutMs = TimeSpan.milliseconds(100).milliseconds;
 
