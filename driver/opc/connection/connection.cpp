@@ -275,15 +275,16 @@ connect(const Config &cfg, std::string log_prefix) {
     config->logging->log = custom_logger;
     config->logging->context = &log_prefix;
 
-    // Use configured timeouts if provided, otherwise use production defaults
+    // Use configured timeouts if provided, otherwise use production defaults.
+    // Short defaults prevent one unresponsive PLC from tying up worker threads.
     config->secureChannelLifeTime = cfg.secure_channel_lifetime_ms > 0
                                       ? cfg.secure_channel_lifetime_ms
-                                      : 7200000; // Default: 2 hours
+                                      : 600000; // Default: 10 minutes
     config->requestedSessionTimeout = cfg.session_timeout_ms > 0
                                         ? cfg.session_timeout_ms
-                                        : 14400000; // Default: 4 hours
+                                        : 1200000; // Default: 20 minutes
     config->timeout = cfg.client_timeout_ms > 0 ? cfg.client_timeout_ms
-                                                : 7200000; // Default: 2 hours
+                                                : 5000; // Default: 5 seconds
 
     if (const auto enc_err = configure_encryption(cfg, client))
         return {nullptr, enc_err};

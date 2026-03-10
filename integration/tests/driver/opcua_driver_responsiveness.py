@@ -10,6 +10,11 @@
 """
 OPC UA connection pool behavior with an unresponsive server.
 
+Verifies that the driver remains responsive to non-OPC-UA tasks when an OPC UA
+server becomes unresponsive. Uses a Modbus read task as the health probe —
+if the driver can start, stream, and stop a Modbus task while OPC UA connections
+are hung, the driver is responsive.
+
 See: Desktop/Claude_Runbooks/OPCUA_Bug/opcua-connection-pool-bug.md
 """
 
@@ -19,12 +24,15 @@ import subprocess
 import threading
 
 import synnax as sy
+from examples.modbus import ModbusSim
+from synnax import modbus
 
+from tests.driver.modbus_read import ModbusReadInputRegister
 from tests.driver.opcua_task import OPCUAReadTaskCase
 from tests.driver.task import create_channel, create_index
 
 DEADLOCK_DURATION = 1 * sy.TimeSpan.SECOND
-HEALTH_TIMEOUT = 5 * sy.TimeSpan.SECOND
+HEALTH_TIMEOUT = 30 * sy.TimeSpan.SECOND
 
 
 def _create_read_channels(client: sy.Synnax, prefix: str) -> list[sy.opcua.ReadChannel]:
@@ -51,15 +59,17 @@ class OPCUADriverResponsiveness(OPCUAReadTaskCase):
     The OPC UA connection pool bug can block all driver worker threads,
     making the entire driver unresponsive — not just OPC UA operations.
 
-    1. Start 4 tasks with a healthy sim (primes the connection pool).
-    2. Stop all tasks (connections returned to pool as cached).
-    3. SIGSTOP the sim (frozen process, TCP connections alive).
-    4. Start all 4 tasks again — each calls pool.acquire().
-    5. Health probe — task.stop() in a thread with wall-clock timeout.
-       If the thread hangs, the driver is unresponsive.
+    1. Start both OPC UA and Modbus simulators.
+    2. Start 4 OPC UA tasks with a healthy sim (primes the connection pool).
+    3. Stop all OPC UA tasks (connections returned to pool as cached).
+    4. SIGSTOP the OPC UA sim (frozen process, TCP connections alive).
+    5. Start all 4 OPC UA tasks again — each calls pool.acquire().
+    6. Health probe: start a Modbus read task, verify it streams data, stop it.
+       If this works, the driver worker threads are NOT all blocked.
     """
 
     task_name = "OPCUA Driver Responsiveness 0"
+    sim_classes = [OPCUAReadTaskCase.sim_classes[0], ModbusSim]
     NUM_TASKS = 4
 
     @staticmethod
@@ -70,6 +80,7 @@ class OPCUADriverResponsiveness(OPCUAReadTaskCase):
         super().setup()
         self.extra_tasks: list[sy.Task] = []
         self.frozen_pid: int | None = None
+        self.modbus_task: sy.Task | None = None
         device = self.client.devices.retrieve(name=self.device_name)
         for i in range(1, self.NUM_TASKS):
             channels = _create_read_channels(self.client, f"concurrent_ss_{i}")
@@ -84,6 +95,21 @@ class OPCUADriverResponsiveness(OPCUAReadTaskCase):
             self.client.tasks.configure(task)
             self.extra_tasks.append(task)
 
+        self._setup_modbus_probe()
+
+    def _setup_modbus_probe(self) -> None:
+        modbus_device = self.client.devices.retrieve(name=ModbusSim.device_name)
+        channels = ModbusReadInputRegister.create_channels(self.client)
+        self.modbus_task = modbus.ReadTask(
+            name="Driver Responsiveness Modbus Probe",
+            device=modbus_device.key,
+            sample_rate=self.SAMPLE_RATE,
+            stream_rate=self.STREAM_RATE,
+            data_saving=True,
+            channels=channels,
+        )
+        self.client.tasks.configure(self.modbus_task)
+
     def run(self) -> None:
         if self.tsk is None:
             self.fail("Primary task not configured")
@@ -95,7 +121,7 @@ class OPCUADriverResponsiveness(OPCUAReadTaskCase):
         if not self._prime_pool(all_tasks):
             return
 
-        # Step 3: Freeze the sim
+        # Step 3: Freeze the OPC UA sim
         self._freeze_sim()
 
         # Step 4: Fire-and-forget start commands (don't wait for ack)
@@ -105,11 +131,11 @@ class OPCUADriverResponsiveness(OPCUAReadTaskCase):
 
         sy.sleep(DEADLOCK_DURATION)
 
-        # Step 5: Health probe — can the server still respond?
-        self._check_server_responsive()
+        # Step 5: Health probe — can the driver still run a Modbus task?
+        self._check_driver_responsive()
 
     def _prime_pool(self, tasks: list[sy.Task]) -> bool:
-        self.log("Phase 1: Priming connection pool")
+        self.log("Priming task connection pool")
         for task in tasks:
             try:
                 task.start(timeout=5)
@@ -125,7 +151,6 @@ class OPCUADriverResponsiveness(OPCUAReadTaskCase):
                 self.fail(f"Phase 1: failed to stop {task.name}: {e}")
                 return False
 
-        self.log(f"Phase 1 complete: {len(tasks)} tasks primed")
         return True
 
     def _find_server_pid(self) -> int:
@@ -140,46 +165,65 @@ class OPCUADriverResponsiveness(OPCUAReadTaskCase):
         pids = set(int(p) for p in result.stdout.strip().split("\n") if p)
         if not pids:
             raise RuntimeError(f"No process found listening on port {port}")
-        # The LISTEN pid is the server; return it
         return pids.pop() if len(pids) == 1 else max(pids)
 
     def _freeze_sim(self) -> None:
         pid = self._find_server_pid()
         self.frozen_pid = pid
-        self.log(f"Freezing simulator (SIGSTOP pid={pid})")
+        self.log(f"Freezing OPC UA simulator (SIGSTOP pid={pid})")
         os.kill(pid, signal.SIGSTOP)
         sy.sleep(0.5)
 
-    def _check_server_responsive(self) -> None:
-        self.log("Health probe: trying to stop a task (requires driver worker)")
-        task = self.extra_tasks[0]
-        result: list[bool] = [False]
+    def _check_driver_responsive(self) -> None:
+        """Start a Modbus read task and verify it streams data.
 
-        def try_stop() -> None:
+        The entire probe runs in a daemon thread with a wall-clock timeout
+        so the test never hangs if the driver is deadlocked.
+        """
+        assert self.modbus_task is not None
+        self.log("Health probe: starting Modbus read task")
+
+        result: list[str] = []
+
+        def probe() -> None:
             try:
-                task.stop(timeout=HEALTH_TIMEOUT)
-                result[0] = True
-            except (TimeoutError, sy.UnexpectedError):
-                result[0] = True
+                self.modbus_task.start(timeout=HEALTH_TIMEOUT.seconds)
+                keys = [ch.channel for ch in self.modbus_task.config.channels]
+                with self.client.open_streamer(keys) as streamer:
+                    frame = streamer.read(timeout=HEALTH_TIMEOUT.seconds)
+                    if frame is None:
+                        result.append("Modbus task not streaming data")
+                        return
+                self.modbus_task.stop(timeout=HEALTH_TIMEOUT.seconds)
+                result.append("ok")
+            except Exception as e:
+                result.append(str(e))
 
-        t = threading.Thread(target=try_stop, daemon=True)
+        t = threading.Thread(target=probe, daemon=True)
         t.start()
         t.join(timeout=HEALTH_TIMEOUT.seconds)
 
         if t.is_alive():
             self.fail(
-                f"Driver unresponsive — task.stop() hung for "
-                f"{HEALTH_TIMEOUT.seconds:.0f}s — deadlock confirmed"
+                f"Driver unresponsive — health probe hung for "
+                f"{HEALTH_TIMEOUT.seconds:.0f}s"
             )
+        elif not result or result[0] != "ok":
+            err = result[0] if result else "unknown"
+            self.fail(f"Driver unresponsive — Modbus probe failed: {err}")
         else:
-            self.log("Health probe OK — task responded")
+            self.log("Health probe OK — Modbus task started, streamed, stopped")
 
     def teardown(self) -> None:
-        # Resume the actual server process so parent teardown can terminate it
         if self.frozen_pid is not None:
             try:
                 os.kill(self.frozen_pid, signal.SIGCONT)
             except OSError:
+                pass
+        if self.modbus_task is not None:
+            try:
+                self.client.tasks.delete(self.modbus_task.key)
+            except sy.NotFoundError:
                 pass
         for task in self.extra_tasks:
             try:
