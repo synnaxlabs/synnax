@@ -130,6 +130,7 @@ class OPCUADriverResponsiveness(OPCUAReadTaskCase):
 
     def _find_server_pid(self) -> int:
         """Find the actual process listening on the sim port via lsof."""
+        assert self.sim is not None
         port = self.sim.port
         result = subprocess.run(
             ["lsof", "-ti", f":{port}"],
@@ -154,7 +155,7 @@ class OPCUADriverResponsiveness(OPCUAReadTaskCase):
         task = self.extra_tasks[0]
         result: list[bool] = [False]
 
-        def try_stop():
+        def try_stop() -> None:
             try:
                 task.stop(timeout=HEALTH_TIMEOUT)
                 result[0] = True
