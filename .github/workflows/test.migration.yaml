@@ -14,8 +14,6 @@ on:
       - core/**
       - freighter/go/**
       - freighter/py/**
-      - go.work
-      - go.work.sum
       - pyproject.toml
       - uv.lock
       - uv.toml
@@ -36,8 +34,6 @@ on:
       - core/**
       - freighter/go/**
       - freighter/py/**
-      - go.work
-      - go.work.sum
       - pyproject.toml
       - uv.lock
       - uv.toml

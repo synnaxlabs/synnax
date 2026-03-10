@@ -20,8 +20,6 @@ on:
       - drift/**
       - freighter/go/**
       - freighter/ts/**
-      - go.work
-      - go.work.sum
       - package.json
       - pluto/**
       - pnpm-lock.yaml
@@ -52,8 +50,6 @@ on:
       - drift/**
       - freighter/go/**
       - freighter/ts/**
-      - go.work
-      - go.work.sum
       - package.json
       - pluto/**
       - pnpm-lock.yaml

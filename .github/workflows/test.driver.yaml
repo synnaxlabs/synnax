@@ -17,8 +17,6 @@ on:
       - driver/**
       - freighter/cpp/**
       - freighter/go/**
-      - go.work
-      - go.work.sum
       - MODULE.bazel
       - MODULE.bazel.lock
       - scripts/check_clang_format.sh
@@ -45,8 +43,6 @@ on:
       - driver/**
       - freighter/cpp/**
       - freighter/go/**
-      - go.work
-      - go.work.sum
       - MODULE.bazel
       - MODULE.bazel.lock
       - scripts/check_clang_format.sh

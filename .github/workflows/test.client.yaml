@@ -27,8 +27,6 @@ on:
       - freighter/go/**
       - freighter/py/**
       - freighter/ts/**
-      - go.work
-      - go.work.sum
       - MODULE.bazel
       - MODULE.bazel.lock
       - package.json
@@ -72,8 +70,6 @@ on:
       - freighter/go/**
       - freighter/py/**
       - freighter/ts/**
-      - go.work
-      - go.work.sum
       - MODULE.bazel
       - MODULE.bazel.lock
       - package.json
@@ -115,8 +111,6 @@ jobs:
               - cesium/**
               - core/**
               - freighter/go/**
-              - go.work
-              - go.work.sum
               - x/go/**
             cpp:
               - *shared

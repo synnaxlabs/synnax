@@ -10,8 +10,6 @@ on:
       - .github/workflows/test.arc.yaml
       - arc/**
       - alamos/go/**
-      - go.work
-      - go.work.sum
       - MODULE.bazel
       - MODULE.bazel.lock
       - scripts/check_clang_format.sh
@@ -32,8 +30,6 @@ on:
       - .github/workflows/test.arc.yaml
       - arc/**
       - alamos/go/**
-      - go.work
-      - go.work.sum
       - MODULE.bazel
       - MODULE.bazel.lock
       - scripts/check_clang_format.sh

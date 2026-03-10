@@ -8,8 +8,6 @@ on:
       - arc/cpp/**
       - arc/go/**
       - arc/scripts/validate_bindings.sh
-      - go.work
-      - go.work.sum
       - x/go/**
   push:
     branches:
@@ -21,8 +19,6 @@ on:
       - arc/cpp/**
       - arc/go/**
       - arc/scripts/validate_bindings.sh
-      - go.work
-      - go.work.sum
       - x/go/**
   workflow_dispatch:
 

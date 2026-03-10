@@ -17,8 +17,6 @@ on:
       - core/**
       - freighter/go/**
       - freighter/ts/**
-      - go.work
-      - go.work.sum
       - package.json
       - pluto/**
       - pnpm-lock.yaml
@@ -46,8 +44,6 @@ on:
       - core/**
       - freighter/go/**
       - freighter/ts/**
-      - go.work
-      - go.work.sum
       - package.json
       - pluto/**
       - pnpm-lock.yaml

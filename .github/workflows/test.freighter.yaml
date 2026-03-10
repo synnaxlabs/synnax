@@ -17,8 +17,6 @@ on:
       - freighter/integration/**
       - freighter/py/**
       - freighter/ts/**
-      - go.work
-      - go.work.sum
       - package.json
       - pnpm-lock.yaml
       - pnpm-workspace.yaml
@@ -47,8 +45,6 @@ on:
       - freighter/integration/**
       - freighter/py/**
       - freighter/ts/**
-      - go.work
-      - go.work.sum
       - package.json
       - pnpm-lock.yaml
       - pnpm-workspace.yaml
@@ -83,8 +79,6 @@ jobs:
               - alamos/go/**
               - freighter/go/**
               - freighter/integration/**
-              - go.work
-              - go.work.sum
               - x/go/**
             py:
               - *server
