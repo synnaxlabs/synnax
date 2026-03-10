@@ -8,12 +8,11 @@
 // included in the file licenses/APL.txt.
 
 import { describe, expect, it } from "vitest";
-import { type z } from "zod";
 
 import {
+  type OutputChannel,
   SCAN_SCHEMAS,
-  type WriteChannel,
-  writeConfigZ,
+  WRITE_SCHEMAS,
 } from "@/hardware/opc/task/types";
 
 describe("OPC Scan Task Types", () => {
@@ -32,7 +31,7 @@ describe("OPC Scan Task Types", () => {
 
 describe("OPC Write Task Types", () => {
   it("should validate the write config", () => {
-    const config: z.input<typeof writeConfigZ> = {
+    const config = {
       channels: [
         {
           channel: 432,
@@ -43,11 +42,11 @@ describe("OPC Write Task Types", () => {
           nodeId: "1",
           name: "test",
           nodeName: "test",
-        } as WriteChannel,
+        } as OutputChannel,
       ],
       device: "1",
     };
-    const result = writeConfigZ.safeParse(config);
+    const result = WRITE_SCHEMAS.configSchema.safeParse(config);
     expect(result.success).toBe(true);
     expect(result.data?.channels[0].cmdChannel).toBe(432);
   });

@@ -16,12 +16,10 @@ import { Common } from "@/hardware/common";
 import { Device } from "@/hardware/opc/device";
 import { type ChannelKeyAndIDGetter, Form } from "@/hardware/opc/task/Form";
 import {
+  type OutputChannel,
   WRITE_SCHEMAS,
   WRITE_TYPE,
-  type WriteChannel,
-  writeConfigZ,
-  type writeStatusDataZ,
-  type writeTypeZ,
+  type WriteSchemas,
   ZERO_WRITE_PAYLOAD,
 } from "@/hardware/opc/task/types";
 import { Selector } from "@/selector";
@@ -46,7 +44,7 @@ const Properties = () => (
   </>
 );
 
-const convertHaulItemToChannel = ({ data }: Haul.Item): WriteChannel => {
+const convertHaulItemToChannel = ({ data }: Haul.Item): OutputChannel => {
   if (typeof data?.name !== "string") throw new Error("Invalid name");
   const nodeName = data?.name;
   if (typeof data?.nodeId !== "string")
@@ -64,7 +62,7 @@ const convertHaulItemToChannel = ({ data }: Haul.Item): WriteChannel => {
   };
 };
 
-const getChannelKeyAndID: ChannelKeyAndIDGetter<WriteChannel> = ({
+const getChannelKeyAndID: ChannelKeyAndIDGetter<OutputChannel> = ({
   cmdChannel,
   key,
 }) => ({
@@ -72,7 +70,8 @@ const getChannelKeyAndID: ChannelKeyAndIDGetter<WriteChannel> = ({
   id: Common.Task.getChannelNameID(key, "cmd"),
 });
 
-interface ContextMenuItemProps extends Common.Task.ContextMenuItemProps<WriteChannel> {}
+interface ContextMenuItemProps extends Common.Task
+  .ContextMenuItemProps<OutputChannel> {}
 
 const ContextMenuItem: React.FC<ContextMenuItemProps> = ({ channels, keys }) => {
   if (keys.length !== 1) return null;
@@ -93,9 +92,7 @@ const ContextMenuItem: React.FC<ContextMenuItemProps> = ({ channels, keys }) => 
 
 const contextMenuItems = Component.renderProp(ContextMenuItem);
 
-const TaskForm: FC<
-  Common.Task.FormProps<typeof writeTypeZ, typeof writeConfigZ, typeof writeStatusDataZ>
-> = () => (
+const TaskForm: FC<Common.Task.FormProps<WriteSchemas>> = () => (
   <Form
     convertHaulItemToChannel={convertHaulItemToChannel}
     getChannelKeyAndID={getChannelKeyAndID}
@@ -106,19 +103,21 @@ const TaskForm: FC<
 const getChannelByNodeID = (props: Device.Properties, nodeId: string) =>
   props.write.channels[nodeId] ?? props.write.channels[caseconv.snakeToCamel(nodeId)];
 
-const getInitialValues: Common.Task.GetInitialValues<
-  typeof writeTypeZ,
-  typeof writeConfigZ,
-  typeof writeStatusDataZ
-> = ({ deviceKey, config }) => {
-  const cfg = config != null ? writeConfigZ.parse(config) : ZERO_WRITE_PAYLOAD.config;
+const getInitialValues: Common.Task.GetInitialValues<WriteSchemas> = ({
+  deviceKey,
+  config,
+}) => {
+  const cfg =
+    config != null
+      ? WRITE_SCHEMAS.configSchema.parse(config)
+      : ZERO_WRITE_PAYLOAD.config;
   return {
     ...ZERO_WRITE_PAYLOAD,
     config: { ...cfg, device: deviceKey ?? cfg.device },
   };
 };
 
-const onConfigure: Common.Task.OnConfigure<typeof writeConfigZ> = async (
+const onConfigure: Common.Task.OnConfigure<WriteSchemas["configSchema"]> = async (
   client,
   config,
 ) => {
@@ -128,7 +127,7 @@ const onConfigure: Common.Task.OnConfigure<typeof writeConfigZ> = async (
   });
   try {
     dev = { ...dev, properties: Device.migrateProperties(dev.properties) };
-    const commandsToCreate: WriteChannel[] = [];
+    const commandsToCreate: OutputChannel[] = [];
     for (const channel of config.channels) {
       const key = getChannelByNodeID(dev.properties, channel.nodeId);
       if (!key) {
@@ -185,7 +184,7 @@ export const Write = Common.Task.wrapForm({
   Properties,
   Form: TaskForm,
   schemas: WRITE_SCHEMAS,
-  type: WRITE_TYPE,
+  type: "opc_write",
   getInitialValues,
   onConfigure,
 });
