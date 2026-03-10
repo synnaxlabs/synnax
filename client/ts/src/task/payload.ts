@@ -40,7 +40,7 @@ const newStatusDetailsZ = <DataSchema extends z.ZodType>(data: DataSchema) =>
 export const newStatusZ = <DataSchema extends z.ZodType>(data: DataSchema) =>
   status.statusZ(newStatusDetailsZ(data)).partial({ key: true, name: true });
 
-export interface NewStatus<DataSchema extends z.ZodType> extends z.infer<
+export interface NewStatus<DataSchema extends z.ZodType = z.ZodType> extends z.infer<
   ReturnType<typeof newStatusZ<DataSchema>>
 > {}
 
