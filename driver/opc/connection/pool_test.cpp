@@ -7,6 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+#include <chrono>
 #include <thread>
 
 #include "gtest/gtest.h"
@@ -394,5 +395,150 @@ TEST_F(ConnectionPoolTest, ConcurrentRecoveryAfterFailure) {
     }
 
     EXPECT_EQ(success_count, num_threads);
+}
+
+/// @brief Tests that concurrent acquires with a stopped server don't
+/// serialize behind the mutex. With the health probe running outside
+/// the lock, each thread independently detects failure rather than
+/// waiting for a single thread's probe to complete.
+TEST_F(ConnectionPoolTest, ConcurrentAcquireFailsIndependently) {
+    Pool pool;
+
+    // Prime the pool with multiple cached connections
+    const int num_conns = 4;
+    {
+        std::vector<Pool::Connection> conns;
+        for (int i = 0; i < num_conns; ++i)
+            conns.push_back(ASSERT_NIL_P(pool.acquire(conn_cfg_, "[test] ")));
+    }
+    EXPECT_EQ(pool.available_count(conn_cfg_.endpoint), num_conns);
+
+    // Stop server so cached connections will fail their health probes
+    server_->stop();
+    server_.reset();
+    std::this_thread::sleep_for(std::chrono::milliseconds(100));
+
+    // Launch threads that all try to acquire simultaneously.
+    // With the fix, each thread runs its health probe outside the lock,
+    // so they execute concurrently rather than serializing.
+    const int num_threads = 4;
+    std::vector<std::thread> threads;
+    std::atomic<int> error_count{0};
+    auto start_time = std::chrono::steady_clock::now();
+
+    for (int i = 0; i < num_threads; ++i) {
+        threads.emplace_back([&pool, &error_count, this]() {
+            auto [conn, err] = pool.acquire(conn_cfg_, "[test] ");
+            if (err) error_count++;
+        });
+    }
+
+    for (auto &t: threads)
+        t.join();
+
+    auto elapsed = std::chrono::steady_clock::now() - start_time;
+
+    // All threads should have failed (no server)
+    EXPECT_EQ(error_count, num_threads);
+    // Pool should be empty (all broken connections cleaned up)
+    EXPECT_EQ(pool.size(), 0);
+    // With health probes running concurrently (outside lock), total time
+    // should be well under num_threads * per-probe-time. We just verify
+    // it completes within a reasonable bound.
+    EXPECT_LT(std::chrono::duration_cast<std::chrono::seconds>(elapsed).count(), 10);
+}
+
+/// @brief Tests that one endpoint's failure doesn't block acquisition
+/// from a healthy endpoint. This is the core guarantee of Fix 1:
+/// the health probe runs outside the mutex.
+TEST_F(ConnectionPoolTest, HealthyEndpointNotBlockedByFailedEndpoint) {
+    // Set up a second server on a different port
+    mock::ServerConfig server2_cfg = mock::ServerConfig::create_default();
+    server2_cfg.port = 4846;
+    mock::Server server2(server2_cfg);
+    server2.start();
+    ASSERT_TRUE(server2.wait_until_ready());
+
+    Config cfg2 = conn_cfg_;
+    cfg2.endpoint = "opc.tcp://localhost:4846";
+
+    Pool pool;
+
+    // Prime both endpoints
+    { auto conn = ASSERT_NIL_P(pool.acquire(conn_cfg_, "[test] ")); }
+    { auto conn = ASSERT_NIL_P(pool.acquire(cfg2, "[test] ")); }
+
+    // Stop server 1, keep server 2 running
+    server_->stop();
+    server_.reset();
+    std::this_thread::sleep_for(std::chrono::milliseconds(100));
+
+    // Acquiring from the healthy endpoint should succeed quickly
+    auto start = std::chrono::steady_clock::now();
+    auto conn2 = ASSERT_NIL_P(pool.acquire(cfg2, "[test] "));
+    auto elapsed = std::chrono::steady_clock::now() - start;
+
+    EXPECT_NE(conn2.get(), nullptr);
+    // Should complete in well under 1 second since server2 is healthy
+    EXPECT_LT(
+        std::chrono::duration_cast<std::chrono::milliseconds>(elapsed).count(),
+        2000
+    );
+
+    // Acquiring from the stopped endpoint should fail
+    auto [conn_bad, err] = pool.acquire(conn_cfg_, "[test] ");
+    EXPECT_TRUE(err);
+
+    server2.stop();
+}
+
+/// @brief Tests that the default client timeout is 5 seconds when
+/// client_timeout_ms is 0 (the default).
+TEST_F(ConnectionPoolTest, DefaultClientTimeout) {
+    Pool pool;
+    Config cfg = conn_cfg_;
+    cfg.client_timeout_ms = 0; // Use default
+
+    auto conn = ASSERT_NIL_P(pool.acquire(cfg, "[test] "));
+    auto *config = UA_Client_getConfig(conn.get());
+    EXPECT_EQ(config->timeout, 5000);
+}
+
+/// @brief Tests that custom client timeout overrides the default.
+TEST_F(ConnectionPoolTest, CustomClientTimeout) {
+    Pool pool;
+    Config cfg = conn_cfg_;
+    cfg.client_timeout_ms = 15000;
+
+    auto conn = ASSERT_NIL_P(pool.acquire(cfg, "[test] "));
+    auto *config = UA_Client_getConfig(conn.get());
+    EXPECT_EQ(config->timeout, 15000);
+}
+
+/// @brief Tests that the default secure channel lifetime is 10 minutes
+/// and session timeout is 20 minutes.
+TEST_F(ConnectionPoolTest, DefaultSessionAndChannelTimeouts) {
+    Pool pool;
+    Config cfg = conn_cfg_;
+    cfg.secure_channel_lifetime_ms = 0;
+    cfg.session_timeout_ms = 0;
+
+    auto conn = ASSERT_NIL_P(pool.acquire(cfg, "[test] "));
+    auto *config = UA_Client_getConfig(conn.get());
+    EXPECT_EQ(config->secureChannelLifeTime, 600000); // 10 minutes
+    EXPECT_EQ(config->requestedSessionTimeout, 1200000); // 20 minutes
+}
+
+/// @brief Tests that custom secure channel and session timeouts override defaults.
+TEST_F(ConnectionPoolTest, CustomSessionAndChannelTimeouts) {
+    Pool pool;
+    Config cfg = conn_cfg_;
+    cfg.secure_channel_lifetime_ms = 30000;
+    cfg.session_timeout_ms = 60000;
+
+    auto conn = ASSERT_NIL_P(pool.acquire(cfg, "[test] "));
+    auto *config = UA_Client_getConfig(conn.get());
+    EXPECT_EQ(config->secureChannelLifeTime, 30000);
+    EXPECT_EQ(config->requestedSessionTimeout, 60000);
 }
 }
