@@ -89,7 +89,7 @@ const Form: FC<Common.Task.FormProps<ReadSchemas>> = () => (
 
 const getInitialValues: Common.Task.GetInitialValues<ReadSchemas> = ({ config }) => {
   if (config != null)
-    return { ...ZERO_READ_PAYLOAD, config: READ_SCHEMAS.configSchema.parse(config) };
+    return { ...ZERO_READ_PAYLOAD, config: READ_SCHEMAS.config.parse(config) };
   return { ...ZERO_READ_PAYLOAD };
 };
 
@@ -99,7 +99,7 @@ const READ_INDEX_OPTIONS = {
   nameSuffix: "_time" as const,
 };
 
-const onConfigure: Common.Task.OnConfigure<ReadSchemas["configSchema"]> = async (
+const onConfigure: Common.Task.OnConfigure<ReadSchemas["config"]> = async (
   client,
   config,
 ) => {

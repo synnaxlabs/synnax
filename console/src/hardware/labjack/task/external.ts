@@ -34,8 +34,8 @@ export const EXTRACTORS: Export.Extractors = {
 };
 
 export const FILE_INGESTERS: Import.FileIngesters = {
-  [READ_TYPE]: Common.Task.createIngester(READ_SCHEMAS.configSchema, READ_LAYOUT),
-  [WRITE_TYPE]: Common.Task.createIngester(WRITE_SCHEMAS.configSchema, WRITE_LAYOUT),
+  [READ_TYPE]: Common.Task.createIngester(READ_SCHEMAS.config, READ_LAYOUT),
+  [WRITE_TYPE]: Common.Task.createIngester(WRITE_SCHEMAS.config, WRITE_LAYOUT),
 };
 
 export const LAYOUTS: Record<string, Layout.Renderer> = {

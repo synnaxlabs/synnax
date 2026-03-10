@@ -18,7 +18,7 @@ import {
 } from "@/hardware/labjack/task/types";
 
 describe("readConfigZ", () => {
-  const readConfigZ = READ_SCHEMAS.configSchema;
+  const readConfigZ = READ_SCHEMAS.config;
   it("should validate a valid read configuration", () => {
     const validConfig = {
       ...Common.Task.ZERO_BASE_CONFIG,
@@ -198,7 +198,7 @@ describe("readConfigZ", () => {
 });
 
 describe("writeConfigZ", () => {
-  const writeConfigZ = WRITE_SCHEMAS.configSchema;
+  const writeConfigZ = WRITE_SCHEMAS.config;
   it("should validate a valid write configuration", () => {
     const validConfig = {
       ...ZERO_WRITE_PAYLOAD.config,

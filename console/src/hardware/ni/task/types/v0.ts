@@ -1633,9 +1633,9 @@ export type AnalogReadStatusDetails = task.Status<typeof analogReadStatusDataZ>;
 export const ANALOG_READ_TYPE = `${PREFIX}_analog_read`;
 
 export const ANALOG_READ_SCHEMAS = {
-  typeSchema: z.literal(ANALOG_READ_TYPE),
-  configSchema: analogReadConfigZ,
-  statusDataSchema: analogReadStatusDataZ,
+  type: z.literal(ANALOG_READ_TYPE),
+  config: analogReadConfigZ,
+  statusData: analogReadStatusDataZ,
 } as const satisfies task.Schemas;
 
 export type AnalogReadSchemas = typeof ANALOG_READ_SCHEMAS;
@@ -1678,9 +1678,9 @@ export const ZERO_COUNTER_READ_CONFIG: CounterReadConfig = {
 export const COUNTER_READ_TYPE = `${PREFIX}_counter_read`;
 
 export const COUNTER_READ_SCHEMAS = {
-  typeSchema: z.literal(COUNTER_READ_TYPE),
-  configSchema: counterReadConfigZ,
-  statusDataSchema: z.unknown(),
+  type: z.literal(COUNTER_READ_TYPE),
+  config: counterReadConfigZ,
+  statusData: z.unknown(),
 } as const satisfies task.Schemas;
 
 export type CounterReadSchemas = typeof COUNTER_READ_SCHEMAS;
@@ -1708,9 +1708,9 @@ const ZERO_ANALOG_WRITE_CONFIG: AnalogWriteConfig = {
 export const ANALOG_WRITE_TYPE = `${PREFIX}_analog_write`;
 
 export const ANALOG_WRITE_SCHEMAS = {
-  typeSchema: z.literal(ANALOG_WRITE_TYPE),
-  configSchema: analogWriteConfigZ,
-  statusDataSchema: z.unknown(),
+  type: z.literal(ANALOG_WRITE_TYPE),
+  config: analogWriteConfigZ,
+  statusData: z.unknown(),
 } as const satisfies task.Schemas;
 
 export type AnalogWriteSchemas = typeof ANALOG_WRITE_SCHEMAS;
@@ -1740,9 +1740,9 @@ const ZERO_DIGITAL_READ_CONFIG: DigitalReadConfig = {
 export const DIGITAL_READ_TYPE = `${PREFIX}_digital_read`;
 
 export const DIGITAL_READ_SCHEMAS = {
-  typeSchema: z.literal(DIGITAL_READ_TYPE),
-  configSchema: digitalReadConfigZ,
-  statusDataSchema: z.unknown(),
+  type: z.literal(DIGITAL_READ_TYPE),
+  config: digitalReadConfigZ,
+  statusData: z.unknown(),
 } as const satisfies task.Schemas;
 
 export type DigitalReadSchemas = typeof DIGITAL_READ_SCHEMAS;
@@ -1770,9 +1770,9 @@ const ZERO_DIGITAL_WRITE_CONFIG: DigitalWriteConfig = {
 export const DIGITAL_WRITE_TYPE = `${PREFIX}_digital_write`;
 
 export const DIGITAL_WRITE_SCHEMAS = {
-  typeSchema: z.literal(DIGITAL_WRITE_TYPE),
-  configSchema: digitalWriteConfigZ,
-  statusDataSchema: z.unknown(),
+  type: z.literal(DIGITAL_WRITE_TYPE),
+  config: digitalWriteConfigZ,
+  statusData: z.unknown(),
 } as const satisfies task.Schemas;
 
 export type DigitalWriteSchemas = typeof DIGITAL_WRITE_SCHEMAS;
@@ -1788,9 +1788,9 @@ export const ZERO_DIGITAL_WRITE_PAYLOAD: DigitalWritePayload = {
 export const SCAN_TYPE = `${PREFIX}_scanner`;
 
 export const SCAN_SCHEMAS = {
-  typeSchema: z.literal(SCAN_TYPE),
-  configSchema: z.object({ enabled: z.boolean() }),
-  statusDataSchema: z.unknown(),
+  type: z.literal(SCAN_TYPE),
+  config: z.object({ enabled: z.boolean() }),
+  statusData: z.unknown(),
 } as const satisfies task.Schemas;
 
 export type ScanSchemas = typeof SCAN_SCHEMAS;

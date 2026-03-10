@@ -236,14 +236,14 @@ const getInitialValues: Common.Task.GetInitialValues<ReadSchemas> = ({
   config,
 }) => {
   const cfg =
-    config != null ? READ_SCHEMAS.configSchema.parse(config) : ZERO_READ_PAYLOAD.config;
+    config != null ? READ_SCHEMAS.config.parse(config) : ZERO_READ_PAYLOAD.config;
   return {
     ...ZERO_READ_PAYLOAD,
     config: { ...cfg, device: deviceKey ?? cfg.device },
   };
 };
 
-const onConfigure: Common.Task.OnConfigure<ReadSchemas["configSchema"]> = async (
+const onConfigure: Common.Task.OnConfigure<ReadSchemas["config"]> = async (
   client,
   config,
 ) => {

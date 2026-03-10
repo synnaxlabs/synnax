@@ -173,7 +173,7 @@ const getInitialValues: Common.Task.GetInitialValues<ReadSchemas> = ({
   },
 });
 
-const onConfigure: Common.Task.OnConfigure<ReadSchemas["configSchema"]> = async (
+const onConfigure: Common.Task.OnConfigure<ReadSchemas["config"]> = async (
   client,
   config,
 ) => {

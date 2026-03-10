@@ -183,9 +183,9 @@ const readStatusDataZ = z
   .or(z.null());
 
 export const READ_SCHEMAS = {
-  typeSchema: z.literal(READ_TYPE),
-  configSchema: readConfigZ,
-  statusDataSchema: readStatusDataZ,
+  type: z.literal(READ_TYPE),
+  config: readConfigZ,
+  statusData: readStatusDataZ,
 } as const satisfies task.Schemas;
 
 export type ReadSchemas = typeof READ_SCHEMAS;
@@ -221,9 +221,9 @@ const writeStatusDataZ = z
   .or(z.null());
 
 export const WRITE_SCHEMAS = {
-  typeSchema: z.literal(WRITE_TYPE),
-  configSchema: writeConfigZ,
-  statusDataSchema: writeStatusDataZ,
+  type: z.literal(WRITE_TYPE),
+  config: writeConfigZ,
+  statusData: writeStatusDataZ,
 } as const satisfies task.Schemas;
 
 export type WriteSchemas = typeof WRITE_SCHEMAS;
@@ -240,9 +240,9 @@ export const ZERO_WRITE_PAYLOAD = {
 export const SCAN_TYPE = `${PREFIX}_scan`;
 
 export const SCAN_SCHEMAS = {
-  typeSchema: z.literal(SCAN_TYPE),
-  configSchema: record.nullishToEmpty(),
-  statusDataSchema: z.object({}).or(z.null()),
+  type: z.literal(SCAN_TYPE),
+  config: record.nullishToEmpty(),
+  statusData: z.object({}).or(z.null()),
 } as const satisfies task.Schemas;
 
 export const TEST_CONNECTION_COMMAND_TYPE = "test_connection";

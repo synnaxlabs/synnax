@@ -260,9 +260,9 @@ const readStatusDataZ = z
   .or(z.null());
 
 export const READ_SCHEMAS = {
-  typeSchema: z.literal(READ_TYPE),
-  configSchema: readConfigZ,
-  statusDataSchema: readStatusDataZ,
+  type: z.literal(READ_TYPE),
+  config: readConfigZ,
+  statusData: readStatusDataZ,
 } as const satisfies task.Schemas;
 
 export type ReadSchemas = typeof READ_SCHEMAS;
@@ -307,9 +307,9 @@ const ZERO_WRITE_CONFIG = {
 } as const satisfies WriteConfig;
 
 export const WRITE_SCHEMAS = {
-  typeSchema: z.literal(WRITE_TYPE),
-  configSchema: writeConfigZ,
-  statusDataSchema: z.unknown(),
+  type: z.literal(WRITE_TYPE),
+  config: writeConfigZ,
+  statusData: z.unknown(),
 } as const satisfies task.Schemas;
 
 export type WriteSchemas = typeof WRITE_SCHEMAS;

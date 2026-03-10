@@ -80,10 +80,10 @@ export class Task<S extends Schemas = Schemas> {
   readonly key: Key;
   name: string;
   internal: boolean;
-  type: z.infer<S["typeSchema"]>;
+  type: z.infer<S["type"]>;
   snapshot: boolean;
-  config: z.infer<S["configSchema"]>;
-  status?: Status<S["statusDataSchema"]>;
+  config: z.infer<S["config"]>;
+  status?: Status<S["statusData"]>;
 
   readonly schemas: S;
   private readonly frameClient_?: framer.Client;
@@ -119,9 +119,9 @@ export class Task<S extends Schemas = Schemas> {
     this.schemas =
       schemas ??
       ({
-        typeSchema: z.string() as unknown as S["typeSchema"],
-        configSchema: z.unknown() as S["configSchema"],
-        statusDataSchema: z.unknown() as S["statusDataSchema"],
+        type: z.string() as unknown as S["type"],
+        config: z.unknown() as S["config"],
+        statusData: z.unknown() as S["statusData"],
       } as S);
     this.internal = internal;
     this.snapshot = snapshot;
@@ -156,13 +156,13 @@ export class Task<S extends Schemas = Schemas> {
 
   async executeCommandSync(
     params: TaskExecuteCommandSyncParams,
-  ): Promise<Status<S["statusDataSchema"]>> {
-    return await executeCommandSync<S["statusDataSchema"]>({
+  ): Promise<Status<S["statusData"]>> {
+    return await executeCommandSync<S["statusData"]>({
       ...params,
       frameClient: this.frameClient,
       task: this.key,
       name: this.name,
-      statusDataZ: this.schemas.statusDataSchema,
+      statusDataZ: this.schemas.statusData,
     });
   }
 

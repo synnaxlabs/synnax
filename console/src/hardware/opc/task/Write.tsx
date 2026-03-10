@@ -108,16 +108,14 @@ const getInitialValues: Common.Task.GetInitialValues<WriteSchemas> = ({
   config,
 }) => {
   const cfg =
-    config != null
-      ? WRITE_SCHEMAS.configSchema.parse(config)
-      : ZERO_WRITE_PAYLOAD.config;
+    config != null ? WRITE_SCHEMAS.config.parse(config) : ZERO_WRITE_PAYLOAD.config;
   return {
     ...ZERO_WRITE_PAYLOAD,
     config: { ...cfg, device: deviceKey ?? cfg.device },
   };
 };
 
-const onConfigure: Common.Task.OnConfigure<WriteSchemas["configSchema"]> = async (
+const onConfigure: Common.Task.OnConfigure<WriteSchemas["config"]> = async (
   client,
   config,
 ) => {

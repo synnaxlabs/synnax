@@ -181,7 +181,7 @@ const getInitialValues: Common.Task.GetInitialValues<WriteSchemas> = ({
   },
 });
 
-const onConfigure: Common.Task.OnConfigure<WriteSchemas["configSchema"]> = async (
+const onConfigure: Common.Task.OnConfigure<WriteSchemas["config"]> = async (
   client,
   config,
 ) => {

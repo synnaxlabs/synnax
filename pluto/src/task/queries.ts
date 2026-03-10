@@ -89,9 +89,7 @@ export const retrieveSingle = async <S extends task.Schemas = task.Schemas>({
     const cached = store.tasks.get(query.key.toString());
     if (cached != null) {
       const tsk = cached as unknown as task.Task<S>;
-      const detailsSchema = task.statusDetailsZ(
-        schemas?.statusDataSchema ?? z.unknown(),
-      );
+      const detailsSchema = task.statusDetailsZ(schemas?.statusData ?? z.unknown());
       tsk.status = (await Status.retrieveSingle<typeof detailsSchema>({
         store,
         client,
@@ -121,7 +119,7 @@ export const createRetrieve = <S extends task.Schemas = task.Schemas>(schemas?: 
         store.statuses.onSet(
           (status) => {
             const parsed = task
-              .statusZ(schemas?.statusDataSchema ?? z.unknown())
+              .statusZ(schemas?.statusData ?? z.unknown())
               .parse(status);
             onChange((prev) => {
               if (prev == null) return null;
@@ -185,20 +183,20 @@ const createFormSchema = <S extends task.Schemas = task.Schemas>(
     key: task.keyZ.optional(),
     name: z.string(),
     rackKey: z.number(),
-    type: schemas.typeSchema,
+    type: schemas.type,
     snapshot: z.boolean(),
-    config: schemas.configSchema,
-    status: task.statusZ(schemas.statusDataSchema).optional().nullable(),
+    config: schemas.config,
+    status: task.statusZ(schemas.statusData).optional().nullable(),
   }) as unknown as FormSchema<S>;
 
 export interface FormSchema<S extends task.Schemas = task.Schemas> extends z.ZodType<{
   key?: task.Key;
   name: string;
   rackKey: rack.Key;
-  type: z.infer<S["typeSchema"]>;
+  type: z.infer<S["type"]>;
   snapshot: boolean;
-  config: z.infer<S["configSchema"]>;
-  status?: task.Status<S["statusDataSchema"]>;
+  config: z.infer<S["config"]>;
+  status?: task.Status<S["statusData"]>;
 }> {}
 
 export interface CreateFormParams<S extends task.Schemas = task.Schemas> {
@@ -271,7 +269,7 @@ export const createForm = <S extends task.Schemas = task.Schemas>({
           name: value.name,
           type: value.type,
           config: value.config,
-          status: value.status as task.NewStatus<S["statusDataSchema"]>,
+          status: value.status as task.NewStatus<S["statusData"]>,
         },
         schemas,
       );

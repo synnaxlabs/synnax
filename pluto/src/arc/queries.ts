@@ -171,9 +171,9 @@ const TASK_SCHEMAS: task.Schemas<
   typeof taskConfigZ,
   typeof taskStatusDataZ
 > = {
-  typeSchema: taskTypeZ,
-  configSchema: taskConfigZ,
-  statusDataSchema: taskStatusDataZ,
+  type: taskTypeZ,
+  config: taskConfigZ,
+  statusData: taskStatusDataZ,
 };
 
 export const { useUpdate: useCreate } = Flux.createUpdate<

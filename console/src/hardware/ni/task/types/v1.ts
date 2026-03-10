@@ -294,7 +294,7 @@ const ZERO_ANALOG_READ_CONFIG: AnalogReadConfig = { ...rest, channels: [] };
 
 export const ANALOG_READ_SCHEMAS = {
   ...v0.ANALOG_READ_SCHEMAS,
-  configSchema: analogReadConfigZ,
+  config: analogReadConfigZ,
 } as const satisfies task.Schemas;
 
 export type AnalogReadSchemas = typeof ANALOG_READ_SCHEMAS;

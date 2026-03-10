@@ -69,8 +69,8 @@ export interface FormProps<
 export interface WrapFormArgs<S extends task.Schemas = task.Schemas> {
   Properties?: FC<{}>;
   Form: FC<FormProps<S>>;
-  type: z.infer<S["typeSchema"]>;
-  onConfigure: OnConfigure<S["configSchema"]>;
+  type: z.infer<S["type"]>;
+  onConfigure: OnConfigure<S["config"]>;
   schemas: S;
   getInitialValues: GetInitialValues<S>;
   showHeader?: boolean;

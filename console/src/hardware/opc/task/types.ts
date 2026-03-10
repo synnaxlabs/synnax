@@ -112,9 +112,9 @@ const ZERO_READ_CONFIG: ReadConfig = {
 } as const satisfies ReadConfig;
 
 export const READ_SCHEMAS = {
-  typeSchema: z.literal(READ_TYPE),
-  configSchema: readConfigZ,
-  statusDataSchema: z.unknown(),
+  type: z.literal(READ_TYPE),
+  config: readConfigZ,
+  statusData: z.unknown(),
 } as const satisfies task.Schemas;
 
 export type ReadSchemas = typeof READ_SCHEMAS;
@@ -162,9 +162,9 @@ export const ZERO_WRITE_CONFIG = {
 } as const satisfies WriteConfig;
 
 export const WRITE_SCHEMAS = {
-  typeSchema: z.literal(WRITE_TYPE),
-  configSchema: writeConfigZ,
-  statusDataSchema: z.unknown(),
+  type: z.literal(WRITE_TYPE),
+  config: writeConfigZ,
+  statusData: z.unknown(),
 } as const satisfies task.Schemas;
 
 export type WriteSchemas = typeof WRITE_SCHEMAS;
@@ -202,7 +202,7 @@ export const TEST_CONNECTION_COMMAND_TYPE = "test_connection";
 export const BROWSE_COMMAND_TYPE = "browse";
 
 export const SCAN_SCHEMAS = {
-  typeSchema: z.literal(SCAN_TYPE),
-  configSchema: record.nullishToEmpty(),
-  statusDataSchema: scanCommandResponseZ,
+  type: z.literal(SCAN_TYPE),
+  config: record.nullishToEmpty(),
+  statusData: scanCommandResponseZ,
 } as const satisfies task.Schemas;

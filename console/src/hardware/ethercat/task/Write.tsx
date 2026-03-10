@@ -95,7 +95,7 @@ const Form: FC<Common.Task.FormProps<WriteSchemas>> = () => (
 
 const getInitialValues: Common.Task.GetInitialValues<WriteSchemas> = ({ config }) => {
   if (config != null)
-    return { ...ZERO_WRITE_PAYLOAD, config: WRITE_SCHEMAS.configSchema.parse(config) };
+    return { ...ZERO_WRITE_PAYLOAD, config: WRITE_SCHEMAS.config.parse(config) };
   return { ...ZERO_WRITE_PAYLOAD };
 };
 
@@ -105,7 +105,7 @@ const WRITE_INDEX_OPTIONS = {
   nameSuffix: "_state_time" as const,
 };
 
-const onConfigure: Common.Task.OnConfigure<WriteSchemas["configSchema"]> = async (
+const onConfigure: Common.Task.OnConfigure<WriteSchemas["config"]> = async (
   client,
   config,
 ) => {

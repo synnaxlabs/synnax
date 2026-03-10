@@ -49,34 +49,34 @@ export interface Schemas<
   Config extends z.ZodType = z.ZodType,
   StatusData extends z.ZodType = z.ZodType,
 > {
-  typeSchema: Type;
-  configSchema: Config;
-  statusDataSchema: StatusData;
+  type: Type;
+  config: Config;
+  statusData: StatusData;
 }
 
 export const taskZ = <S extends Schemas = Schemas>(
   schemas = {
-    typeSchema: z.string() as unknown as S["typeSchema"],
-    configSchema: record.nullishToEmpty() as S["configSchema"],
-    statusDataSchema: z.unknown() as S["statusDataSchema"],
+    type: z.string() as unknown as S["type"],
+    config: record.nullishToEmpty() as S["config"],
+    statusData: z.unknown() as S["statusData"],
   },
 ) =>
   z.object({
     key: keyZ,
     name: z.string(),
-    type: schemas.typeSchema,
+    type: schemas.type,
     internal: z.boolean().optional(),
-    config: schemas.configSchema,
-    status: statusZ(schemas.statusDataSchema).optional().nullable(),
+    config: schemas.config,
+    status: statusZ(schemas.statusData).optional().nullable(),
     snapshot: z.boolean().optional(),
   });
 
 export interface Payload<S extends Schemas = Schemas> {
   key: Key;
   name: string;
-  type: z.infer<S["typeSchema"]>;
-  config: z.infer<S["configSchema"]>;
-  status?: Status<S["statusDataSchema"]>;
+  type: z.infer<S["type"]>;
+  config: z.infer<S["config"]>;
+  status?: Status<S["statusData"]>;
   snapshot?: boolean;
   internal?: boolean;
 }
@@ -86,8 +86,8 @@ export const newZ = <S extends Schemas = Schemas>(schemas?: S) =>
     .omit({ key: true, status: true })
     .extend({
       key: keyZ.transform((k) => k.toString()).optional(),
-      config: schemas?.configSchema ?? record.nullishToEmpty(),
-      status: newStatusZ(schemas?.statusDataSchema ?? z.unknown())
+      config: schemas?.config ?? record.nullishToEmpty(),
+      status: newStatusZ(schemas?.statusData ?? z.unknown())
         .optional()
         .nullable(),
     });
@@ -95,9 +95,9 @@ export const newZ = <S extends Schemas = Schemas>(schemas?: S) =>
 export interface New<S extends Schemas = Schemas> {
   key?: Key;
   name: string;
-  type: z.infer<S["typeSchema"]>;
-  config: z.infer<S["configSchema"]>;
-  status?: NewStatus<S["statusDataSchema"]>;
+  type: z.infer<S["type"]>;
+  config: z.infer<S["config"]>;
+  status?: NewStatus<S["statusData"]>;
 }
 
 export const commandZ = z.object({
