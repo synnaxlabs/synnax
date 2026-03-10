@@ -66,6 +66,12 @@ var _ = Describe("Context Detection", func() {
 			"foo(", uint32(0), uint32(4), lsp.ContextExpression),
 		Entry("expression after COMMA in function call",
 			"foo(a, ", uint32(0), uint32(7), lsp.ContextExpression),
+		Entry("expression inside parenthesized expression after return",
+			"return (o", uint32(0), uint32(9), lsp.ContextExpression),
+		Entry("expression inside nested parentheses in assignment",
+			"x := (o", uint32(0), uint32(7), lsp.ContextExpression),
+		Entry("expression inside parenthesized expression after operator",
+			"x := y + (o", uint32(0), uint32(11), lsp.ContextExpression),
 
 		// Statement Start Context
 		Entry("statement start after LBRACE",

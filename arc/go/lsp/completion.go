@@ -417,7 +417,7 @@ func (s *Server) getCompletionItems(
 		items = append(items, item)
 	}
 
-	if completionCtx != ContextTypeAnnotation && nesting != NestingSequenceBody && doc.IR.Symbols != nil {
+	if completionCtx != ContextTypeAnnotation && nesting != NestingSequenceBody {
 		scopeAtCursor := doc.findScopeAtPosition(pos)
 		if scopeAtCursor != nil {
 			scopes, err := scopeAtCursor.Search(ctx, prefix)
