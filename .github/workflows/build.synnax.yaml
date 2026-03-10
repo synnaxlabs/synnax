@@ -175,13 +175,13 @@ jobs:
             "${{ inputs.macos }}" \
             "${{ inputs.ubuntu }}" \
             "${{ inputs.docker }}" \
+            "${{ inputs.nilinuxrt }}" \
             "${{ inputs.driver }}" \
             "${{ inputs.console }}" \
             "${{ inputs.console_tauri }}" \
             "${{ inputs.core }}" \
             "${{ inputs.debug }}" \
-            "${{ inputs.sign_binaries }}" \
-            "${{ inputs.nilinuxrt }}"
+            "${{ inputs.sign_binaries }}"
 
       - name: Generate Go Build Tags
         id: go-tags

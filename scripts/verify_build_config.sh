@@ -14,16 +14,16 @@ PLATFORM_WINDOWS=$2
 PLATFORM_MACOS=$3
 PLATFORM_UBUNTU=$4
 PLATFORM_DOCKER=$5
-BUILD_DRIVER=$6
-BUILD_CONSOLE=$7
-BUILD_CONSOLE_TAURI=$8
-BUILD_CORE=$9
-DEBUG=${10}
-SIGNED=${11}
-NILINUXRT=${12}
+PLATFORM_NILINUXRT=$6
+BUILD_DRIVER=$7
+BUILD_CONSOLE=$8
+BUILD_CONSOLE_TAURI=$9
+BUILD_CORE=${10}
+DEBUG=${11}
+SIGNED=${12}
 
 # Verify that at least one platform is selected
-if [ "$PLATFORM_WINDOWS" != "true" ] && [ "$PLATFORM_MACOS" != "true" ] && [ "$PLATFORM_UBUNTU" != "true" ] && [ "$PLATFORM_DOCKER" != "true" ]; then
+if [ "$PLATFORM_WINDOWS" != "true" ] && [ "$PLATFORM_MACOS" != "true" ] && [ "$PLATFORM_UBUNTU" != "true" ] && [ "$PLATFORM_DOCKER" != "true" ] && [ "$PLATFORM_NILINUXRT" != "true" ]; then
     echo "Error: No platforms selected. Please select at least one platform to build for."
     exit 1
 fi
@@ -61,6 +61,11 @@ if [ "$PLATFORM_DOCKER" = "true" ]; then
 else
     echo "  X Docker"
 fi
+if [ "$PLATFORM_NILINUXRT" = "true" ]; then
+    echo "  ✓ NI Linux Real-Time"
+else
+    echo "  X NI Linux Real-Time"
+fi
 echo ""
 echo "Builds:"
 if [ "$BUILD_DRIVER" = "true" ]; then
@@ -94,10 +99,5 @@ if [ "$SIGNED" = "true" ]; then
     echo "  ✓ Signed"
 else
     echo "  X Signed"
-fi
-if [ "$NILINUXRT" = "true" ]; then
-    echo "  ✓ NI Linux Real-Time"
-else
-    echo "  X NI Linux Real-Time"
 fi
 echo "─────────────────────────────────────────"
