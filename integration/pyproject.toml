@@ -14,12 +14,7 @@ dependencies = [
 classifiers = ["Private :: Do Not Upload"]
 
 [dependency-groups]
-dev = [
-    "black>=26.1.0,<27",
-    "isort>=7.0.0,<8",
-    "mypy>=1.19.1,<2",
-    "types-psutil>=7.0.0",
-]
+dev = ["black>=26.1.0,<27", "isort>=7.0.0,<8", "mypy>=1.19.1,<2", "types-psutil>=7.0.0"]
 
 [project.scripts]
 test-conductor = "framework.test_conductor:main"
