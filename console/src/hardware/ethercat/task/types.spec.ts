@@ -8,15 +8,10 @@
 // included in the file licenses/APL.txt.
 
 import { describe, expect, it } from "vitest";
-import { type z } from "zod";
 
-import {
-  SCAN_SCHEMAS,
-  type WriteChannel,
-  writeConfigZ,
-} from "@/hardware/opc/task/types";
+import { SCAN_SCHEMAS } from "@/hardware/ethercat/task/types";
 
-describe("OPC Scan Task Types", () => {
+describe("EtherCAT Scan Task Types", () => {
   it("should parse null scan config as empty object", () => {
     const result = SCAN_SCHEMAS.configSchema.safeParse(null);
     expect(result.success).toBe(true);
@@ -27,28 +22,5 @@ describe("OPC Scan Task Types", () => {
     const result = SCAN_SCHEMAS.configSchema.safeParse(undefined);
     expect(result.success).toBe(true);
     expect(result.data).toEqual({});
-  });
-});
-
-describe("OPC Write Task Types", () => {
-  it("should validate the write config", () => {
-    const config: z.input<typeof writeConfigZ> = {
-      channels: [
-        {
-          channel: 432,
-          cmdChannel: 0,
-          dataType: "float",
-          enabled: true,
-          key: "432",
-          nodeId: "1",
-          name: "test",
-          nodeName: "test",
-        } as WriteChannel,
-      ],
-      device: "1",
-    };
-    const result = writeConfigZ.safeParse(config);
-    expect(result.success).toBe(true);
-    expect(result.data?.channels[0].cmdChannel).toBe(432);
   });
 });
