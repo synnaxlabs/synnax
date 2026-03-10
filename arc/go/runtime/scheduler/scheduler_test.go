@@ -1471,28 +1471,13 @@ var _ = Describe("Scheduler", func() {
 
 			entryNext.ActivateOnNext()
 
-			prog := testutil.NewIRBuilder().
-				Node("comparison").
-				Node("wait").
-				Node("entry_seq_next").
-				OneShot("comparison", "output", "wait", "input").
-				Edge("wait", "output", "entry_seq_next", "input").
-				Strata([][]string{{"comparison"}, {"wait"}, {"entry_seq_next"}}).
-				Sequence("seq", []testutil.StageSpec{
-					{Key: "first", Strata: [][]string{{"comparison"}, {"wait"}, {"entry_seq_next"}}},
-					{Key: "next", Strata: [][]string{}},
-				}).
-				Build()
-
-			// Activate the "first" stage
 			trigger := mock("trigger")
 			entry := mock("entry_seq_first")
 			trigger.MarkOnNext("activate")
 			trigger.ParamTruthy["activate"] = true
 			entry.ActivateOnNext()
 
-			// Rebuild with the trigger/entry for stage activation
-			prog = testutil.NewIRBuilder().
+			prog := testutil.NewIRBuilder().
 				Node("trigger").
 				Node("entry_seq_first").
 				Node("comparison").
