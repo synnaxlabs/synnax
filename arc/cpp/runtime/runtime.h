@@ -275,7 +275,7 @@ load(const Config &cfg, errors::Handler error_handler = errors::noop_handler) {
     };
 
     wasm::ModuleConfig module_cfg{
-        .module = cfg.program,
+        .program = cfg.program,
         .modules = stl_modules,
         .strings = str_st,
     };

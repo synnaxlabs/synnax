@@ -103,7 +103,7 @@ func double(val f32) f32 {
 )" + ch.name + " -> double{}";
 
     auto mod = compile_arc(client, source);
-    auto wasm_mod = ASSERT_NIL_P(wasm::Module::open({.module = mod}));
+    auto wasm_mod = ASSERT_NIL_P(wasm::Module::open({.program = mod}));
     wasm::Factory factory(wasm_mod);
 
     EXPECT_TRUE(factory.handles("double"));
@@ -124,7 +124,7 @@ func double(val f32) f32 {
 )" + ch.name + " -> double{}";
 
     auto mod = compile_arc(client, source);
-    auto wasm_mod = ASSERT_NIL_P(wasm::Module::open({.module = mod}));
+    auto wasm_mod = ASSERT_NIL_P(wasm::Module::open({.program = mod}));
     wasm::Factory factory(wasm_mod);
 
     arc::ir::Node fake_node;
@@ -156,7 +156,7 @@ func double(val f32) f32 {
 )" + ch.name + " -> double{}";
 
     auto mod = compile_arc(client, source);
-    auto wasm_mod = ASSERT_NIL_P(wasm::Module::open({.module = mod}));
+    auto wasm_mod = ASSERT_NIL_P(wasm::Module::open({.program = mod}));
     wasm::Factory factory(wasm_mod);
 
     const auto *func_node = find_node_by_type(mod, "double");
@@ -188,7 +188,7 @@ func double(val f32) f32 {
 )" + ch.name + " -> double{}";
 
     auto mod = compile_arc(client, source);
-    auto wasm_mod = ASSERT_NIL_P(wasm::Module::open({.module = mod}));
+    auto wasm_mod = ASSERT_NIL_P(wasm::Module::open({.program = mod}));
     const auto *func_node = find_node_by_type(mod, "double");
     ASSERT_NE(func_node, nullptr);
 
@@ -254,7 +254,7 @@ func double(val f32) f32 {
                                output_name;
 
     auto mod = compile_arc(client, source);
-    auto wasm_mod = ASSERT_NIL_P(wasm::Module::open({.module = mod}));
+    auto wasm_mod = ASSERT_NIL_P(wasm::Module::open({.program = mod}));
     const auto *func_node = find_node_by_type(mod, "double");
     ASSERT_NE(func_node, nullptr);
 
@@ -356,7 +356,7 @@ func divide_by_zero(val i32) i32 {
                                output_name;
 
     auto mod = compile_arc(client, source);
-    auto wasm_mod = ASSERT_NIL_P(wasm::Module::open({.module = mod}));
+    auto wasm_mod = ASSERT_NIL_P(wasm::Module::open({.program = mod}));
     const auto *func_node = find_node_by_type(mod, "divide_by_zero");
     ASSERT_NE(func_node, nullptr);
 
@@ -416,7 +416,7 @@ func double(val f32) f32 {
 )" + ch.name + " -> double{}";
 
     auto mod = compile_arc(client, source);
-    auto wasm_mod = ASSERT_NIL_P(wasm::Module::open({.module = mod}));
+    auto wasm_mod = ASSERT_NIL_P(wasm::Module::open({.program = mod}));
     const auto *func_node = find_node_by_type(mod, "double");
     ASSERT_NE(func_node, nullptr);
 
@@ -467,7 +467,7 @@ func passthrough(val f32) f32 {
                                output_name;
 
     auto mod = compile_arc(client, source);
-    auto wasm_mod = ASSERT_NIL_P(wasm::Module::open({.module = mod}));
+    auto wasm_mod = ASSERT_NIL_P(wasm::Module::open({.program = mod}));
     const auto *func_node = find_node_by_type(mod, "passthrough");
     ASSERT_NE(func_node, nullptr);
 
@@ -536,7 +536,7 @@ func constant() i64 {
 constant{} -> )" + output_name;
 
     auto mod = compile_arc(client, source);
-    auto wasm_mod = ASSERT_NIL_P(wasm::Module::open({.module = mod}));
+    auto wasm_mod = ASSERT_NIL_P(wasm::Module::open({.program = mod}));
     const auto *func_node = find_node_by_type(mod, "constant");
     ASSERT_NE(func_node, nullptr);
     state::State state(
@@ -620,7 +620,7 @@ func double(val i64) i64 {
                                output_name;
 
     auto mod = compile_arc(client, source);
-    auto wasm_mod = ASSERT_NIL_P(wasm::Module::open({.module = mod}));
+    auto wasm_mod = ASSERT_NIL_P(wasm::Module::open({.program = mod}));
     const auto *func_node = find_node_by_type(mod, "double");
     ASSERT_NE(func_node, nullptr);
 
@@ -708,7 +708,7 @@ func counter() i64 {
 counter{} -> )" + output_name;
 
     auto mod = compile_arc(client, source);
-    auto wasm_mod = ASSERT_NIL_P(wasm::Module::open({.module = mod}));
+    auto wasm_mod = ASSERT_NIL_P(wasm::Module::open({.program = mod}));
     const auto *func_node = find_node_by_type(mod, "counter");
     ASSERT_NE(func_node, nullptr);
 
@@ -771,7 +771,7 @@ func counter() i64 {
 counter{} -> )" + output_name;
 
     auto mod = compile_arc(client, source);
-    auto wasm_mod = ASSERT_NIL_P(wasm::Module::open({.module = mod}));
+    auto wasm_mod = ASSERT_NIL_P(wasm::Module::open({.program = mod}));
     const auto *func_node = find_node_by_type(mod, "counter");
     ASSERT_NE(func_node, nullptr);
 
@@ -836,7 +836,7 @@ func counter() i64 {
 counter{} -> )" + output_name;
 
     auto mod = compile_arc(client, source);
-    auto wasm_mod = ASSERT_NIL_P(wasm::Module::open({.module = mod}));
+    auto wasm_mod = ASSERT_NIL_P(wasm::Module::open({.program = mod}));
     const auto *func_node = find_node_by_type(mod, "counter");
     ASSERT_NE(func_node, nullptr);
 
@@ -914,7 +914,7 @@ func add_config{x i32}(y i32) i32 {
                                output_name;
 
     auto mod = compile_arc(client, source);
-    auto wasm_mod = ASSERT_NIL_P(wasm::Module::open({.module = mod}));
+    auto wasm_mod = ASSERT_NIL_P(wasm::Module::open({.program = mod}));
     const auto *func_node = find_node_by_type(mod, "add_config");
     ASSERT_NE(func_node, nullptr);
 
@@ -1007,7 +1007,7 @@ func multi_config{a i32, b i32}(c i32) i32 {
                                output_name;
 
     auto mod = compile_arc(client, source);
-    auto wasm_mod = ASSERT_NIL_P(wasm::Module::open({.module = mod}));
+    auto wasm_mod = ASSERT_NIL_P(wasm::Module::open({.program = mod}));
     const auto *func_node = find_node_by_type(mod, "multi_config");
     ASSERT_NE(func_node, nullptr);
 
@@ -1134,7 +1134,7 @@ func counter(trigger i64) i64 {
 
     auto wasm_mod = ASSERT_NIL_P(
         wasm::Module::open(
-            {.module = mod,
+            {.program = mod,
              .modules = build_stl_modules(channel_st, str_st, series_st, var_st)}
         )
     );
@@ -1300,7 +1300,7 @@ func read_chan{ch chan f32}(trigger u8) f32 {
 
     auto wasm_mod = ASSERT_NIL_P(
         wasm::Module::open(
-            {.module = mod,
+            {.program = mod,
              .modules = build_stl_modules(channel_st, str_st, series_st, var_st)}
         )
     );
