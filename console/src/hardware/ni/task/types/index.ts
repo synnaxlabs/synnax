@@ -88,7 +88,7 @@ export type Channel = v1.Channel;
 export const analogReadConfigZ = v1.analogReadConfigZ;
 export const ANALOG_READ_TYPE = v0.ANALOG_READ_TYPE;
 export const ZERO_ANALOG_READ_PAYLOAD = v1.ZERO_ANALOG_READ_PAYLOAD;
-export const ANALOG_READ_SCHEMAS = v0.ANALOG_READ_SCHEMAS;
+export const ANALOG_READ_SCHEMAS = v1.ANALOG_READ_SCHEMAS;
 export type AnalogReadSchemas = v1.AnalogReadSchemas;
 
 export const analogWriteConfigZ = v0.analogWriteConfigZ;
