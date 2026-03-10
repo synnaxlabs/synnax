@@ -333,7 +333,7 @@ I can successfully:
 I can successfully:
 
 - [ ] Enable and disable NI integration when starting the server.
-- [ ] Disconnect a physical device while a task is running without causing faults.
+- [x] Disconnect a physical device while a task is running without causing faults.
 - [ ] View a chassis and it's child devices.
 - [x] Run the Driver without NI-DAQmx and System Configuration libraries installed.
 - [x] Receive feedback when trying to create an NI task on a machine lacking the necessary libraries.
@@ -347,7 +347,7 @@ I can successfully:
 - [x] Run multiple tasks across multiple devices concurrently.
 - **Analog Read Task**
   - [ ] Plot live data.
-  - [ ] Tare data.
+  - [x] Tare data.
   - [ ] Handle device disconnection during active tasks with appropriate feedback.
   - [x] Start multiple tasks at different times and view live data.
   - [x] Enabled auto-start, and ensure that the task automatically starts after configuration.

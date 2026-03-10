@@ -21,6 +21,15 @@ from framework.test_case import TestCase
 from tests.driver.task import create_channel, create_index
 
 
+def _cleanup_task(client: sy.Synnax, task: sy.Task) -> None:
+    """Delete the task if it was assigned a key during configure."""
+    if task.key and task.key != 0:
+        try:
+            client.tasks.delete(task.key)
+        except sy.NotFoundError:
+            pass
+
+
 class NIInvalidConfig(TestCase):
     """Verify the driver rejects invalid NI task configurations.
 
@@ -167,8 +176,8 @@ class NIInvalidConfig(TestCase):
                 self.log("  Task A running")
                 rejected = self._try_configure_and_run(task_b)
         finally:
-            self._cleanup_task(task_a)
-            self._cleanup_task(task_b)
+            _cleanup_task(self.client, task_a)
+            _cleanup_task(self.client, task_b)
 
         if not rejected:
             self.fail(
@@ -200,24 +209,16 @@ class NIInvalidConfig(TestCase):
             self.client.tasks.configure(task)
         except sy.ConfigurationError as e:
             self.log(f"  Correctly rejected ({label}): {e}")
-            self._cleanup_task(task)
+            _cleanup_task(self.client, task)
             return
         except Exception as e:
-            self._cleanup_task(task)
+            _cleanup_task(self.client, task)
             self.fail(
                 f"Expected ConfigurationError for {label}, "
                 f"got {type(e).__name__}: {e}"
             )
-        self._cleanup_task(task)
+        _cleanup_task(self.client, task)
         self.fail(f"Driver did not reject {label} — configure succeeded unexpectedly")
-
-    def _cleanup_task(self, task: sy.Task) -> None:
-        """Delete the task if it was assigned a key during configure."""
-        if task.key and task.key != 0:
-            try:
-                self.client.tasks.delete(task.key)
-            except sy.NotFoundError:
-                pass  # task was already deleted or never fully created
 
 
 class NIMissingLibraries(TestCase):
@@ -262,15 +263,7 @@ class NIMissingLibraries(TestCase):
             assert (
                 "ni-daqmx" in msg and "libraries" in msg
             ), f"Expected error about missing libraries, got: {e}"
-            self._cleanup_task(task)
+            _cleanup_task(self.client, task)
             return
-        self._cleanup_task(task)
+        _cleanup_task(self.client, task)
         self.fail("Driver did not reject NI task on machine without DAQmx libraries")
-
-    def _cleanup_task(self, task: sy.Task) -> None:
-        """Delete the task if it was assigned a key during configure."""
-        if task.key and task.key != 0:
-            try:
-                self.client.tasks.delete(task.key)
-            except sy.NotFoundError:
-                pass  # task was already deleted or never fully created
