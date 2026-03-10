@@ -50,6 +50,10 @@ on:
         description: "Upload to GitHub release"
         type: boolean
         default: false
+      nilinuxrt:
+        description: "Build: NI Linux Real-Time Driver"
+        type: boolean
+        default: false
       use_simple_artifact_names:
         description: "Use simple artifact names (e.g., synnax-core-linux)"
         type: boolean
@@ -93,6 +97,9 @@ on:
         type: boolean
         default: false
       upload_to_release:
+        type: boolean
+        default: false
+      nilinuxrt:
         type: boolean
         default: false
       use_simple_artifact_names:
@@ -173,7 +180,8 @@ jobs:
             "${{ inputs.console_tauri }}" \
             "${{ inputs.core }}" \
             "${{ inputs.debug }}" \
-            "${{ inputs.sign_binaries }}"
+            "${{ inputs.sign_binaries }}" \
+            "${{ inputs.nilinuxrt }}"
 
       - name: Generate Go Build Tags
         id: go-tags
@@ -284,20 +292,24 @@ jobs:
           retention-days: 7
           if-no-files-found: error
 
-      - name: Build Driver (NI Linux RT)
-        if: inputs.driver && matrix.os == 'ubuntu-build-bot'
+      - name: Build Driver (NI Linux Real-Time)
+        if: inputs.driver && inputs.nilinuxrt && matrix.os == 'ubuntu-build-bot'
         run: |
           bazel build $BAZEL_BUILD_FLAGS $BAZEL_REMOTE_CACHE_FLAGS \
             --config=opt-unix ${{ !inputs.debug && '--config=hide_symbols' || '' }} --define=platform=nilinuxrt //driver
           mv bazel-bin/driver/driver bazel-bin/driver/synnax-driver-v${{ needs.setup.outputs.VERSION }}-nilinuxrt
 
-      - name: Extract Debug Symbols (NI Linux RT)
-        if: inputs.driver && inputs.debug && matrix.os == 'ubuntu-build-bot'
+      - name: Extract Debug Symbols (NI Linux Real-Time)
+        if:
+          inputs.driver && inputs.nilinuxrt && inputs.debug && matrix.os ==
+          'ubuntu-build-bot'
         run: |
           objcopy --only-keep-debug bazel-bin/driver/synnax-driver-v${{ needs.setup.outputs.VERSION }}-nilinuxrt bazel-bin/driver/driver-nilinuxrt.debug
 
-      - name: Upload NI Linux RT Debug Symbols
-        if: inputs.driver && inputs.debug && matrix.os == 'ubuntu-build-bot'
+      - name: Upload NI Linux Real-Time Debug Symbols
+        if:
+          inputs.driver && inputs.nilinuxrt && inputs.debug && matrix.os ==
+          'ubuntu-build-bot'
         uses: actions/upload-artifact@v6
         with:
           name:
@@ -309,8 +321,8 @@ jobs:
           retention-days: 7
           if-no-files-found: error
 
-      - name: Upload NI Linux RT Driver as Artifact
-        if: inputs.driver && matrix.os == 'ubuntu-build-bot'
+      - name: Upload NI Linux Real-Time Driver as Artifact
+        if: inputs.driver && inputs.nilinuxrt && matrix.os == 'ubuntu-build-bot'
         uses: actions/upload-artifact@v6
         with:
           name:
@@ -321,13 +333,17 @@ jobs:
           retention-days: 7
           if-no-files-found: error
 
-      - name: Upload NI Linux RT Driver to Release
-        if: inputs.driver && inputs.upload_to_release && matrix.os == 'ubuntu-build-bot'
+      - name: Upload NI Linux Real-Time Driver to Release
+        if:
+          inputs.driver && inputs.nilinuxrt && inputs.upload_to_release && matrix.os ==
+          'ubuntu-build-bot'
         run: |
           gh release upload --clobber synnax-v${{ needs.setup.outputs.VERSION }} bazel-bin/driver/synnax-driver-v${{ needs.setup.outputs.VERSION }}-nilinuxrt
 
-      - name: Upload NI Linux RT Install Script to Release
-        if: inputs.driver && inputs.upload_to_release && matrix.os == 'ubuntu-build-bot'
+      - name: Upload NI Linux Real-Time Install Script to Release
+        if:
+          inputs.driver && inputs.nilinuxrt && inputs.upload_to_release && matrix.os ==
+          'ubuntu-build-bot'
         run: |
           # Update the install script with the current version
           sed "s/VERSION=\"\${VERSION:-.*}\"/VERSION=\"\${VERSION:-${{ needs.setup.outputs.VERSION }}}\"/" \
