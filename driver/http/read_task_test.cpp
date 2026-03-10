@@ -1188,8 +1188,6 @@ TEST(HTTPReadTask, RepeatedReads) {
     breaker.stop();
 }
 
-////////////////////////////// Disabled Channels ///////////////////////////////
-
 /// @brief it should skip disabled fields and only return enabled ones.
 TEST(HTTPReadTask, DisabledFieldsSkipped) {
     mock::Server server(
@@ -1513,8 +1511,6 @@ TEST(HTTPReadTask, DisabledFieldMissingPointerNoError) {
     EXPECT_NEAR(fr.at<double>(1, 0), 23.5, 0.001);
 }
 
-///////////////////////////////// HTTPS Tests /////////////////////////////////
-
 /// @brief it should read from an HTTPS server with SSL verification disabled.
 TEST(HTTPReadTask, HTTPSReadSingleEndpoint) {
     mock::Server server(
@@ -1734,8 +1730,6 @@ TEST(HTTPReadTask, HTTPSPOSTWithBody) {
     EXPECT_NEAR(fr.at<double>(1, 0), 88.8, 0.001);
 }
 
-////////////////////////////// Transport Errors ////////////////////////////////
-
 /// @brief a transport error (timeout) should produce a warning with the full URL and
 /// skip the endpoint, not kill the task.
 TEST(HTTPReadTask, TransportErrorTimeoutWarning) {
@@ -1863,8 +1857,6 @@ TEST(HTTPReadTask, TransportErrorPartialTimeout) {
     EXPECT_EQ(fr.size(), 1);
     EXPECT_NEAR(fr.at<double>(1, 0), 42.0, 0.001);
 }
-
-///////////////////////////// Partial Failures ////////////////////////////////
 
 /// @brief when the first endpoint returns 5xx, its groups should be skipped but the
 /// second endpoint's data should still come through.
@@ -2214,10 +2206,6 @@ TEST(HTTPReadTask, PartialFailureTypeConversionError) {
     EXPECT_NEAR(fr.at<double>(1, 0), 42.0, 0.001);
 }
 
-////////////////////// Connection-Level Query Parameters ///////////////////////
-
-//////////////////////////////// Sample Clock //////////////////////////////////
-
 /// @brief the sample clock should regulate the read rate so that multiple reads
 /// take at least the expected duration.
 TEST(HTTPReadTask, SampleClockRegulatesRate) {
@@ -2319,8 +2307,6 @@ TEST(HTTPReadTask, SampleClockDoesNotAffectData) {
     }
     breaker.stop();
 }
-
-////////////////////// Connection-Level Query Parameters ///////////////////////
 
 /// @brief it should pass connection-level query parameters to every request.
 TEST(HTTPReadTask, ConnectionLevelQueryParams) {
