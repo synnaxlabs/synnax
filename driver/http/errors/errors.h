@@ -22,12 +22,12 @@ const x::errors::Error CRITICAL_ERROR = driver::errors::CRITICAL_HARDWARE_ERROR.
 const x::errors::Error TEMPORARY_ERROR = driver::errors::TEMPORARY_HARDWARE_ERROR.sub(
     "http"
 );
-/// @brief HTTP client error (configuration issues or unrecognized curl errors).
-const x::errors::Error CLIENT_ERROR = CRITICAL_ERROR.sub("client");
-/// @brief HTTP response parse error.
-const x::errors::Error PARSE_ERROR = CRITICAL_ERROR.sub("parse");
 /// @brief HTTP server unreachable (connection refused, DNS failure, or timeout).
 const x::errors::Error UNREACHABLE_ERROR = TEMPORARY_ERROR.sub("unreachable");
-/// @brief HTTP server error (5xx responses).
-const x::errors::Error SERVER_ERROR = TEMPORARY_ERROR.sub("server");
+
+/// @brief classifies an HTTP status code into an error.
+/// @param status_code the HTTP response status code.
+/// @returns nil for 2xx, TEMPORARY_ERROR for retryable codes (404, 408, 429, 5xx),
+/// CRITICAL_ERROR for permanent failures (other 4xx, 3xx, etc.).
+[[nodiscard]] x::errors::Error from_status(int status_code);
 }

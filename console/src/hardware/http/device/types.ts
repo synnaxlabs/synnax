@@ -22,10 +22,22 @@ const bearerAuthConfigZ = z.object({
   token: z.string().min(1, "Token is required"),
 });
 
-const apiKeyAuthConfigZ = z.object({
+const v0APIKeyAuthConfigZ = z.object({
   type: z.literal("api_key"),
   header: z.string().min(1, "Header is required"),
   key: z.string().min(1, "Key is required"),
+});
+
+const baseAPIKeyAuthConfigZ = v0APIKeyAuthConfigZ.omit({ header: true });
+
+const queryParamAPIKeyAuthConfigZ = baseAPIKeyAuthConfigZ.extend({
+  sendAs: z.literal("query_param"),
+  parameter: z.string().min(1, "Parameter is required"),
+});
+
+const headerAPIKeyAuthConfigZ = baseAPIKeyAuthConfigZ.extend({
+  sendAs: z.literal("header"),
+  header: z.string().min(1, "Header is required"),
 });
 
 const basicAuthConfigZ = z.object({
@@ -33,6 +45,20 @@ const basicAuthConfigZ = z.object({
   username: z.string().min(1, "Username is required"),
   password: z.string().min(1, "Password is required"),
 });
+
+const v0AuthConfigZ = z.discriminatedUnion("type", [
+  noneAuthConfigZ,
+  bearerAuthConfigZ,
+  v0APIKeyAuthConfigZ,
+  basicAuthConfigZ,
+]);
+
+const apiKeyAuthConfigZ = z.discriminatedUnion("sendAs", [
+  queryParamAPIKeyAuthConfigZ,
+  headerAPIKeyAuthConfigZ,
+]);
+
+export type APIKeyAuthConfigSendAs = z.infer<typeof apiKeyAuthConfigZ>["sendAs"];
 
 const authConfigZ = z.discriminatedUnion("type", [
   noneAuthConfigZ,
@@ -48,26 +74,52 @@ export type AuthType = AuthConfig["type"];
 export const ZERO_AUTH_CONFIGS: Record<AuthType, AuthConfig> = {
   none: { type: "none" },
   bearer: { type: "bearer", token: "" },
-  api_key: { type: "api_key", header: "", key: "" },
+  api_key: { type: "api_key", header: "", key: "", sendAs: "header" },
   basic: { type: "basic", username: "", password: "" },
 };
 
 const defaultTimeoutMs = TimeSpan.milliseconds(100).milliseconds;
 
-const propertiesZ = z.object({
+const v0PropertiesZ = z.object({
   secure: z.boolean().default(true),
   verifySsl: z.boolean().default(true),
   timeoutMs: z
     .number()
     .nonnegative("Timeout must be non-negative")
     .default(defaultTimeoutMs),
-  auth: authConfigZ,
+  auth: v0AuthConfigZ,
   headers: z.record(z.string(), z.string()).optional(),
   queryParams: z.record(z.string(), z.string()).optional(),
   readIndexes: z.record(z.string(), channel.keyZ),
 });
 
-export interface Properties extends z.infer<typeof propertiesZ> {}
+const v1PropertiesZ = v0PropertiesZ
+  .omit({ auth: true, headers: true, queryParams: true })
+  .extend({ auth: authConfigZ, version: z.literal(1) });
+
+export interface Properties extends z.infer<typeof v1PropertiesZ> {}
+
+export const propertiesZ: z.ZodType<Properties> = v1PropertiesZ.or(
+  v0PropertiesZ.transform((p) => {
+    const { queryParams, auth, ...rest } = p;
+    delete rest.headers;
+    let newAuth: AuthConfig = { type: "none" };
+    if (auth.type === "api_key")
+      newAuth = {
+        type: "api_key",
+        sendAs: "header",
+        header: auth.header,
+        key: auth.key,
+      };
+    else if (auth.type === "none") {
+      if (queryParams != null && Object.keys(queryParams).length > 0) {
+        const [parameter, key] = Object.entries(queryParams)[0];
+        newAuth = { type: "api_key", sendAs: "query_param", parameter, key };
+      }
+    } else newAuth = auth;
+    return { ...rest, auth: newAuth, version: 1 } as const;
+  }),
+);
 
 export const ZERO_PROPERTIES = {
   secure: true,
@@ -75,6 +127,7 @@ export const ZERO_PROPERTIES = {
   timeoutMs: defaultTimeoutMs,
   auth: ZERO_AUTH_CONFIGS.none,
   readIndexes: {},
+  version: 1,
 } as const satisfies Properties;
 
 export interface Device extends device.Device<

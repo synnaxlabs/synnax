@@ -5,7 +5,10 @@ cc_library(
     name = "types",
     hdrs = ["types.h"],
     visibility = ["//visibility:public"],
-    deps = ["//x/cpp/json"],
+    deps = [
+        "//x/cpp/json",
+        "//x/cpp/telem",
+    ],
 )
 
 cc_test(
