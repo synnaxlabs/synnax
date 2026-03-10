@@ -17,7 +17,6 @@ import (
 	"github.com/synnaxlabs/arc/graph"
 	"github.com/synnaxlabs/arc/ir"
 	"github.com/synnaxlabs/arc/runtime/node"
-	"github.com/synnaxlabs/arc/runtime/state"
 	stlerrors "github.com/synnaxlabs/arc/stl/errors"
 	stlmath "github.com/synnaxlabs/arc/stl/math"
 	"github.com/synnaxlabs/arc/stl/series"
@@ -119,14 +118,14 @@ func BenchmarkWASMNodeSimpleArithmetic(b *testing.B) {
 	}
 
 	// Create state manager
-	s := state.New(a)
+	s := node.New(a)
 
 	xNode := s.Node("x")
 	aNode := s.Node("a")
 	bNode := s.Node("b")
 
-	stringsState := stlstrings.NewState()
-	seriesState := series.NewState()
+	stringsState := stlstrings.NewProgramState()
+	seriesState := series.NewProgramState()
 
 	wasmRT := wazero.NewRuntimeWithConfig(ctx, wazero.NewRuntimeConfigCompiler())
 	statefulMod, err := stateful.NewModule(ctx, seriesState, stringsState, wasmRT)
@@ -276,14 +275,14 @@ func BenchmarkWASMNodeZeroAlloc(b *testing.B) {
 		b.Fatalf("Failed to analyze graph: %s", diagnostics.String())
 	}
 
-	s := state.New(a)
+	s := node.New(a)
 
 	xNode := s.Node("x")
 	aNode := s.Node("a")
 	bNode := s.Node("b")
 
-	stringsState := stlstrings.NewState()
-	seriesState := series.NewState()
+	stringsState := stlstrings.NewProgramState()
+	seriesState := series.NewProgramState()
 
 	wasmRT := wazero.NewRuntimeWithConfig(ctx, wazero.NewRuntimeConfigCompiler())
 	statefulMod, err := stateful.NewModule(ctx, seriesState, stringsState, wasmRT)

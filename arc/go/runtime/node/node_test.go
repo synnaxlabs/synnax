@@ -17,7 +17,6 @@ import (
 	"github.com/synnaxlabs/arc/graph"
 	"github.com/synnaxlabs/arc/ir"
 	"github.com/synnaxlabs/arc/runtime/node"
-	"github.com/synnaxlabs/arc/runtime/state"
 	"github.com/synnaxlabs/x/query"
 )
 
@@ -61,7 +60,7 @@ var _ = Describe("Node", func() {
 					Functions: []graph.Function{{Key: "constant"}},
 				}
 				analyzed, _ = graph.Analyze(ctx, g, nil)
-				s           = state.New(analyzed)
+				s           = node.New(analyzed)
 				cfg         = node.Config{Node: irNode, State: s.Node("test")}
 			)
 			Expect(cfg.Node.Key).To(Equal("test"))

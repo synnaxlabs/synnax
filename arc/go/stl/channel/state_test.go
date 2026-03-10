@@ -19,20 +19,20 @@ package channel_test
 //	. "github.com/synnaxlabs/x/testutil"
 //)
 //
-//var _ = Describe("State", func() {
-//	var s *channel.State
+//var _ = Describe("ProgramState", func() {
+//	var s *channel.ProgramState
 //
 //	BeforeEach(func() {
-//		s = channel.NewState([]channel.Digest{
+//		s = channel.NewProgramState([]channel.Digest{
 //			{Key: 1, DataType: telem.Float32T, Index: 2},
 //			{Key: 3, DataType: telem.Int32T},
 //			{Key: 5, DataType: telem.Float64T, Index: 6},
 //		})
 //	})
 //
-//	Describe("NewState", func() {
+//	Describe("NewProgramState", func() {
 //		It("Should initialize index mappings from digests", func() {
-//			cs := channel.NewState([]channel.Digest{
+//			cs := channel.NewProgramState([]channel.Digest{
 //				{Key: 10, Index: 11},
 //				{Key: 20, Index: 21},
 //			})
@@ -43,21 +43,21 @@ package channel_test
 //		})
 //
 //		It("Should handle nil digests", func() {
-//			cs := channel.NewState(nil)
+//			cs := channel.NewProgramState(nil)
 //			Expect(cs).ToNot(BeNil())
 //			_, ok := cs.ReadValue(1)
 //			Expect(ok).To(BeFalse())
 //		})
 //
 //		It("Should handle empty digests", func() {
-//			cs := channel.NewState([]channel.Digest{})
+//			cs := channel.NewProgramState([]channel.Digest{})
 //			Expect(cs).ToNot(BeNil())
 //			_, ok := cs.ReadValue(1)
 //			Expect(ok).To(BeFalse())
 //		})
 //
 //		It("Should ignore zero-value index in digests", func() {
-//			cs := channel.NewState([]channel.Digest{{Key: 10, Index: 0}})
+//			cs := channel.NewProgramState([]channel.Digest{{Key: 10, Index: 0}})
 //			cs.writeValue(10, telem.NewSeriesV[int32](42))
 //			fr, changed := cs.Flush(telem.Frame[uint32]{})
 //			Expect(changed).To(BeTrue())
@@ -150,7 +150,7 @@ package channel_test
 //		})
 //
 //		It("Should return false for a channel with no data", func() {
-//			s = channel.NewState([]channel.Digest{{Key: 10}})
+//			s = channel.NewProgramState([]channel.Digest{{Key: 10}})
 //			_, ok := s.ReadValue(10)
 //			Expect(ok).To(BeFalse())
 //		})

@@ -19,11 +19,11 @@ import (
 	. "github.com/synnaxlabs/x/testutil"
 )
 
-var _ = Describe("State", func() {
-	var s *series.State
+var _ = Describe("ProgramState", func() {
+	var s *series.ProgramState
 
 	BeforeEach(func() {
-		s = series.NewState()
+		s = series.NewProgramState()
 	})
 
 	Describe("Store", func() {
@@ -183,7 +183,7 @@ var _ = Describe("State", func() {
 		})
 	})
 
-	Describe("NewState", func() {
+	Describe("NewProgramState", func() {
 		It("Should create a state where first handle is 1", func() {
 			h := s.Store(telem.NewSeriesV[uint8](255))
 			Expect(h).To(Equal(uint32(1)))

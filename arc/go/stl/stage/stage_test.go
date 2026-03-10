@@ -17,7 +17,6 @@ import (
 	"github.com/synnaxlabs/arc/graph"
 	"github.com/synnaxlabs/arc/ir"
 	"github.com/synnaxlabs/arc/runtime/node"
-	"github.com/synnaxlabs/arc/runtime/state"
 	"github.com/synnaxlabs/arc/stl/stage"
 	"github.com/synnaxlabs/arc/types"
 	"github.com/synnaxlabs/x/query"
@@ -37,7 +36,7 @@ var _ = Describe("Stage", func() {
 
 	Describe("Module.Create", func() {
 		var module *stage.Module
-		var s *state.State
+		var s *node.ProgramState
 
 		BeforeEach(func() {
 			module = stage.NewModule()
@@ -67,7 +66,7 @@ var _ = Describe("Stage", func() {
 			}
 			analyzed, diagnostics := graph.Analyze(ctx, g, stage.SymbolResolver)
 			Expect(diagnostics.Ok()).To(BeTrue())
-			s = state.New(analyzed)
+			s = node.New(analyzed)
 		})
 
 		It("Should create node for stage_entry type", func() {
@@ -91,7 +90,7 @@ var _ = Describe("Stage", func() {
 
 	Describe("entry.Next", func() {
 		var module *stage.Module
-		var s *state.State
+		var s *node.ProgramState
 
 		BeforeEach(func() {
 			module = stage.NewModule()
@@ -121,7 +120,7 @@ var _ = Describe("Stage", func() {
 			}
 			analyzed, diagnostics := graph.Analyze(ctx, g, stage.SymbolResolver)
 			Expect(diagnostics.Ok()).To(BeTrue())
-			s = state.New(analyzed)
+			s = node.New(analyzed)
 		})
 
 		It("Should call ActivateStage when receiving activation signal (1)", func() {

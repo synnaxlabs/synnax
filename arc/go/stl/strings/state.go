@@ -10,26 +10,26 @@
 package strings
 
 // configHandleBase is the starting value for config string handles.
-// Config string handles are stable for the State lifetime and are never
+// Config string handles are stable for the ProgramState lifetime and are never
 // cleared by Clear. Using a high base value ensures they cannot collide with
 // transient string handles, which start at 1 and reset back to 1 on every
 // Clear call.
 const configHandleBase uint32 = 1 << 24
 
-// State manages transient and config string handles.
+// ProgramState manages transient and config string handles.
 // Transient handles are short-lived references used within a single execution
-// cycle and cleared on each flush. Config handles persist for the State
+// cycle and cleared on each flush. Config handles persist for the ProgramState
 // lifetime.
-type State struct {
+type ProgramState struct {
 	strings             map[uint32]string
 	counter             uint32
 	configStrings       map[uint32]string
 	configStringCounter uint32
 }
 
-// NewState creates a new State.
-func NewState() *State {
-	return &State{
+// NewProgramState creates a new ProgramState.
+func NewProgramState() *ProgramState {
+	return &ProgramState{
 		strings:             make(map[uint32]string),
 		counter:             1,
 		configStrings:       make(map[uint32]string),
@@ -38,7 +38,7 @@ func NewState() *State {
 }
 
 // Create stores a string and returns a transient handle for later retrieval.
-func (s *State) Create(str string) uint32 {
+func (s *ProgramState) Create(str string) uint32 {
 	handle := s.counter
 	s.counter++
 	s.strings[handle] = str
@@ -46,10 +46,10 @@ func (s *State) Create(str string) uint32 {
 }
 
 // CreateConfig stores a string and returns a stable handle that persists
-// for the lifetime of the State and is never cleared by Clear.
+// for the lifetime of the ProgramState and is never cleared by Clear.
 // Use this for config param strings whose handles are baked into node args
 // at configure time.
-func (s *State) CreateConfig(str string) uint32 {
+func (s *ProgramState) CreateConfig(str string) uint32 {
 	handle := s.configStringCounter
 	s.configStringCounter++
 	s.configStrings[handle] = str
@@ -58,7 +58,7 @@ func (s *State) CreateConfig(str string) uint32 {
 
 // Get retrieves a string by its handle.
 // Checks transient strings first, then persistent config strings.
-func (s *State) Get(handle uint32) (string, bool) {
+func (s *ProgramState) Get(handle uint32) (string, bool) {
 	if str, ok := s.strings[handle]; ok {
 		return str, true
 	}
@@ -68,13 +68,13 @@ func (s *State) Get(handle uint32) (string, bool) {
 
 // Clear removes transient strings and resets the transient counter.
 // Config strings are preserved.
-func (s *State) Clear() {
+func (s *ProgramState) Clear() {
 	clear(s.strings)
 	s.counter = 1
 }
 
 // Reset removes all strings including config strings.
-func (s *State) Reset() {
+func (s *ProgramState) Reset() {
 	s.Clear()
 	clear(s.configStrings)
 	s.configStringCounter = configHandleBase

@@ -25,12 +25,12 @@ var ctx = context.Background()
 var _ = Describe("Series", func() {
 	var (
 		rt *testutil.Runtime
-		ss *series.State
+		ss *series.ProgramState
 	)
 
 	BeforeEach(func() {
 		rt = testutil.NewRuntime(ctx)
-		ss = series.NewState()
+		ss = series.NewProgramState()
 		_, err := series.NewModule(ctx, ss, rt.Underlying())
 		Expect(err).ToNot(HaveOccurred())
 		rt.Passthrough(ctx, "series")

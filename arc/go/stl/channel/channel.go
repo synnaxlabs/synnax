@@ -14,7 +14,6 @@ import (
 
 	"github.com/synnaxlabs/arc/ir"
 	"github.com/synnaxlabs/arc/runtime/node"
-	"github.com/synnaxlabs/arc/runtime/state"
 	"github.com/synnaxlabs/arc/stl/strings"
 	"github.com/synnaxlabs/arc/symbol"
 	"github.com/synnaxlabs/arc/types"
@@ -69,14 +68,14 @@ var SymbolResolver = symbol.CompoundResolver{
 }
 
 type Module struct {
-	state   *State
-	strings *strings.State
+	state   *ProgramState
+	strings *strings.ProgramState
 }
 
 func NewModule(
 	ctx context.Context,
-	cs *State,
-	stringState *strings.State,
+	cs *ProgramState,
+	stringState *strings.ProgramState,
 	rat wazero.Runtime,
 ) (*Module, error) {
 	mod := &Module{state: cs, strings: stringState}
@@ -113,12 +112,12 @@ func (m *Module) Create(_ context.Context, cfg node.Config) (node.Node, error) {
 	}
 	if isSource {
 		return &source{
-			Node:  cfg.State,
+			State: cfg.State,
 			key:   nodeCfg.Channel,
 			state: m.state,
 		}, nil
 	}
-	return &sink{Node: cfg.State, state: m.state, key: nodeCfg.Channel}, nil
+	return &sink{State: cfg.State, state: m.state, key: nodeCfg.Channel}, nil
 }
 
 var schema = zyn.Object(map[string]zyn.Schema{
@@ -130,8 +129,8 @@ type config struct {
 }
 
 type source struct {
-	*state.Node
-	state         *State
+	*node.State
+	state         *ProgramState
 	key           uint32
 	highWaterMark telem.Alignment
 }
@@ -142,7 +141,7 @@ func (s *source) Init(node.Context) {}
 // ensuring that when a stage is (re-)activated it only responds to
 // data that arrives after activation rather than stale pre-existing data.
 func (s *source) Reset() {
-	s.Node.Reset()
+	s.State.Reset()
 	data, _, ok := s.state.readSeries(s.key)
 	if !ok || len(data.Series) == 0 {
 		return
@@ -187,8 +186,8 @@ func (s *source) Next(ctx node.Context) {
 }
 
 type sink struct {
-	*state.Node
-	state *State
+	*node.State
+	state *ProgramState
 	key   uint32
 }
 
@@ -210,7 +209,7 @@ type i32Compatible interface {
 
 func bindI32[T i32Compatible](
 	builder wazero.HostModuleBuilder,
-	cs *State,
+	cs *ProgramState,
 	suffix string,
 ) wazero.HostModuleBuilder {
 	builder = builder.NewFunctionBuilder().
@@ -234,7 +233,7 @@ type i64Compatible interface {
 
 func bindI64[T i64Compatible](
 	builder wazero.HostModuleBuilder,
-	cs *State,
+	cs *ProgramState,
 	suffix string,
 ) wazero.HostModuleBuilder {
 	builder = builder.NewFunctionBuilder().
@@ -252,7 +251,7 @@ func bindI64[T i64Compatible](
 	return builder
 }
 
-func bindF32(builder wazero.HostModuleBuilder, cs *State) wazero.HostModuleBuilder {
+func bindF32(builder wazero.HostModuleBuilder, cs *ProgramState) wazero.HostModuleBuilder {
 	builder = builder.NewFunctionBuilder().
 		WithFunc(func(_ context.Context, chID uint32) float32 {
 			series, ok := cs.ReadValue(chID)
@@ -268,7 +267,7 @@ func bindF32(builder wazero.HostModuleBuilder, cs *State) wazero.HostModuleBuild
 	return builder
 }
 
-func bindF64(builder wazero.HostModuleBuilder, cs *State) wazero.HostModuleBuilder {
+func bindF64(builder wazero.HostModuleBuilder, cs *ProgramState) wazero.HostModuleBuilder {
 	builder = builder.NewFunctionBuilder().
 		WithFunc(func(_ context.Context, chID uint32) float64 {
 			series, ok := cs.ReadValue(chID)
@@ -284,7 +283,7 @@ func bindF64(builder wazero.HostModuleBuilder, cs *State) wazero.HostModuleBuild
 	return builder
 }
 
-func bindStr(builder wazero.HostModuleBuilder, cs *State, ss *strings.State) wazero.HostModuleBuilder {
+func bindStr(builder wazero.HostModuleBuilder, cs *ProgramState, ss *strings.ProgramState) wazero.HostModuleBuilder {
 	builder = builder.NewFunctionBuilder().
 		WithFunc(func(_ context.Context, chID uint32) uint32 {
 			series, ok := cs.ReadValue(chID)

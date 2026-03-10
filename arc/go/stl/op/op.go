@@ -14,7 +14,6 @@ import (
 
 	"github.com/synnaxlabs/arc/ir"
 	"github.com/synnaxlabs/arc/runtime/node"
-	"github.com/synnaxlabs/arc/runtime/state"
 	"github.com/synnaxlabs/arc/symbol"
 	"github.com/synnaxlabs/x/query"
 	"github.com/synnaxlabs/x/telem"
@@ -36,25 +35,25 @@ func (m *Module) Search(ctx context.Context, term string) ([]symbol.Symbol, erro
 func (m *Module) Create(_ context.Context, cfg node.Config) (node.Node, error) {
 	cat, ok := typedOps[cfg.Node.Type]
 	if ok {
-		return &binary{Node: cfg.State, op: cat[cfg.State.Input(0).DataType]}, nil
+		return &binary{State: cfg.State, op: cat[cfg.State.Input(0).DataType]}, nil
 	}
 	opFn, ok := logicalOps[cfg.Node.Type]
 	if ok {
-		return &binary{Node: cfg.State, op: opFn}, nil
+		return &binary{State: cfg.State, op: opFn}, nil
 	}
 	unCat, ok := typedUnaryOps[cfg.Node.Type]
 	if ok {
-		return &unary{Node: cfg.State, op: unCat[cfg.State.Input(0).DataType]}, nil
+		return &unary{State: cfg.State, op: unCat[cfg.State.Input(0).DataType]}, nil
 	}
 	unOpFn, ok := unaryOps[cfg.Node.Type]
 	if ok {
-		return &unary{Node: cfg.State, op: unOpFn}, nil
+		return &unary{State: cfg.State, op: unOpFn}, nil
 	}
 	return nil, query.ErrNotFound
 }
 
 type binary struct {
-	*state.Node
+	*node.State
 	op telemOp.Binary
 }
 
@@ -81,7 +80,7 @@ func (n *binary) Next(ctx node.Context) {
 }
 
 type unary struct {
-	*state.Node
+	*node.State
 	op telemOp.Unary
 }
 

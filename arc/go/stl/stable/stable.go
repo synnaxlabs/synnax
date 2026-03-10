@@ -14,8 +14,6 @@ import (
 
 	"github.com/synnaxlabs/arc/ir"
 	"github.com/synnaxlabs/arc/runtime/node"
-	"github.com/synnaxlabs/arc/runtime/state"
-
 	"github.com/synnaxlabs/arc/symbol"
 	"github.com/synnaxlabs/arc/types"
 	"github.com/synnaxlabs/x/query"
@@ -67,7 +65,7 @@ func (m *Module) Create(_ context.Context, cfg node.Config) (node.Node, error) {
 	if err := configSchema.Parse(cfg.Node.Config.ValueMap(), &cfgVals); err != nil {
 		return nil, err
 	}
-	return &forNode{Node: cfg.State, duration: cfgVals.Duration, now: m.now}, nil
+	return &forNode{State: cfg.State, duration: cfgVals.Duration, now: m.now}, nil
 }
 
 type config struct {
@@ -79,7 +77,7 @@ var configSchema = zyn.Object(map[string]zyn.Schema{
 })
 
 type forNode struct {
-	*state.Node
+	*node.State
 	value       *uint8
 	lastSent    *uint8
 	now         func() telem.TimeStamp
@@ -88,7 +86,7 @@ type forNode struct {
 }
 
 func (s *forNode) Reset() {
-	s.Node.Reset()
+	s.State.Reset()
 	s.value = nil
 	s.lastSent = nil
 	s.lastChanged = 0

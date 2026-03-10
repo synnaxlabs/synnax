@@ -7,18 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-// Package state manages runtime data flow and temporal alignment for arc programs.
-//
-// The state package provides the data infrastructure for reactive node execution:
-//   - Node input/output data storage with temporal metadata
-//   - Channel read/write buffering for external I/O
-//   - Temporal alignment of inputs across multiple sources
-//   - Watermark-based data consumption tracking
-//
-// Temporal alignment ensures that nodes process time-aligned data from multiple
-// inputs. The RefreshInputs algorithm selects the input with the earliest new
-// timestamp as the "trigger" and aligns other inputs to that temporal point.
-package state
+package node
 
 import (
 	"github.com/samber/lo"
@@ -32,9 +21,9 @@ type value struct {
 	time telem.Series
 }
 
-// State manages runtime data for an arc program.
+// ProgramState manages runtime data for an arc program.
 // It stores node outputs, channel I/O buffers, and index relationships.
-type State struct {
+type ProgramState struct {
 	ir      ir.IR
 	outputs map[ir.Handle]*value
 }
@@ -42,8 +31,8 @@ type State struct {
 // New creates a state manager from the given configuration.
 // It initializes output storage for all node outputs and maps channel keys
 // to their indexes.
-func New(inter ir.IR) *State {
-	s := &State{
+func New(inter ir.IR) *ProgramState {
+	s := &ProgramState{
 		ir:      inter,
 		outputs: make(map[ir.Handle]*value),
 	}
@@ -61,7 +50,7 @@ func New(inter ir.IR) *State {
 // Node creates a node-specific state accessor for the given node key.
 // It initializes alignment buffers and watermark tracking for the node's
 // inputs.
-func (s *State) Node(key string) *Node {
+func (s *ProgramState) Node(key string) *State {
 	var (
 		n            = s.ir.Nodes.Get(key)
 		inputs       = make([]ir.Edge, len(n.Inputs))
@@ -115,7 +104,7 @@ func (s *State) Node(key string) *Node {
 		outputCache[i] = s.outputs[handle]
 	}
 
-	nd := &Node{}
+	nd := &State{}
 	nd.ir.inputs = inputs
 	nd.ir.outputs = lo.Map(n.Outputs, func(item types.Param, _ int) ir.Handle {
 		return ir.Handle{Node: key, Param: item.Name}
@@ -138,7 +127,7 @@ type inputEntry struct {
 
 // Node provides node-specific access to state, handling input alignment and
 // output storage.
-type Node struct {
+type State struct {
 	ir struct {
 		inputs  []ir.Edge
 		outputs []ir.Handle
@@ -155,11 +144,11 @@ type Node struct {
 
 // Reset is called by the scheduler when the stage containing this node is
 // activated.
-func (n *Node) Reset() {}
+func (n *State) Reset() {}
 
 // RefreshInputs performs temporal alignment of node inputs and returns whether
 // the node should execute.
-func (n *Node) RefreshInputs() (recalculate bool) {
+func (n *State) RefreshInputs() (recalculate bool) {
 	if len(n.ir.inputs) == 0 {
 		return true
 	}
@@ -197,12 +186,12 @@ func (n *Node) RefreshInputs() (recalculate bool) {
 
 // InputTime returns the timestamp series for the input at the given parameter
 // index.
-func (n *Node) InputTime(paramIndex int) telem.Series {
+func (n *State) InputTime(paramIndex int) telem.Series {
 	return n.aligned.time[paramIndex]
 }
 
 // InitInput initializes an input's source output with dummy values.
-func (n *Node) InitInput(paramIndex int, data, time telem.Series) {
+func (n *State) InitInput(paramIndex int, data, time telem.Series) {
 	if paramIndex >= 0 && paramIndex < len(n.ir.inputs) {
 		sourceHandle := n.ir.inputs[paramIndex].Source
 		if v, ok := n.nodeOutputs[sourceHandle]; ok {
@@ -213,24 +202,24 @@ func (n *Node) InitInput(paramIndex int, data, time telem.Series) {
 }
 
 // Input returns the data series for the input at the given parameter index.
-func (n *Node) Input(paramIndex int) telem.Series {
+func (n *State) Input(paramIndex int) telem.Series {
 	return n.aligned.data[paramIndex]
 }
 
 // Output returns a mutable pointer to the data series for the output at the
 // given parameter index.
-func (n *Node) Output(paramIndex int) *telem.Series {
+func (n *State) Output(paramIndex int) *telem.Series {
 	return &n.outputCache[paramIndex].data
 }
 
 // OutputTime returns a mutable pointer to the timestamp series for the output
 // at the given parameter index.
-func (n *Node) OutputTime(paramIndex int) *telem.Series {
+func (n *State) OutputTime(paramIndex int) *telem.Series {
 	return &n.outputCache[paramIndex].time
 }
 
 // IsOutputTruthy checks if the output at the given param name is truthy.
-func (n *Node) IsOutputTruthy(paramName string) bool {
+func (n *State) IsOutputTruthy(paramName string) bool {
 	for i, h := range n.ir.outputs {
 		if h.Param == paramName {
 			series := &n.outputCache[i].data

@@ -20,15 +20,15 @@ type AuthorityChange struct {
 	Authority uint8
 }
 
-// State buffers authority change requests produced during
+// ProgramState buffers authority change requests produced during
 // reactive execution for later flushing.
-type State struct {
+type ProgramState struct {
 	changes []AuthorityChange
 }
 
 // Set buffers an authority change request.
 // If channelKey is nil, the change applies to all write channels.
-func (b *State) Set(channelKey *uint32, authority uint8) {
+func (b *ProgramState) Set(channelKey *uint32, authority uint8) {
 	b.changes = append(b.changes, AuthorityChange{
 		Channel:   channelKey,
 		Authority: authority,
@@ -36,7 +36,7 @@ func (b *State) Set(channelKey *uint32, authority uint8) {
 }
 
 // Flush returns and clears all buffered authority changes.
-func (b *State) Flush() []AuthorityChange {
+func (b *ProgramState) Flush() []AuthorityChange {
 	if len(b.changes) == 0 {
 		return nil
 	}

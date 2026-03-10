@@ -17,7 +17,6 @@ import (
 	"github.com/synnaxlabs/arc/graph"
 	"github.com/synnaxlabs/arc/ir"
 	"github.com/synnaxlabs/arc/runtime/node"
-	"github.com/synnaxlabs/arc/runtime/state"
 	"github.com/synnaxlabs/arc/stl/control"
 	"github.com/synnaxlabs/arc/symbol"
 	"github.com/synnaxlabs/arc/types"
@@ -40,8 +39,8 @@ var _ = Describe("Authority", func() {
 			}
 			inter, diagnostics := graph.Analyze(ctx, g, control.SymbolResolver)
 			Expect(diagnostics.Ok()).To(BeTrue())
-			_ = state.New(inter)
-			factory := control.NewModule(&control.State{})
+			_ = node.New(inter)
+			factory := control.NewModule(&control.ProgramState{})
 			Expect(factory).ToNot(BeNil())
 		})
 	})
@@ -49,8 +48,8 @@ var _ = Describe("Authority", func() {
 	Describe("Factory.Create", func() {
 		var (
 			factory      node.Factory
-			s            *state.State
-			controlState *control.State
+			s            *node.ProgramState
+			controlState *control.ProgramState
 		)
 		BeforeEach(func() {
 			g := graph.Graph{
@@ -59,8 +58,8 @@ var _ = Describe("Authority", func() {
 			}
 			analyzed, diagnostics := graph.Analyze(ctx, g, control.SymbolResolver)
 			Expect(diagnostics.Ok()).To(BeTrue())
-			s = state.New(analyzed)
-			controlState = &control.State{}
+			s = node.New(analyzed)
+			controlState = &control.ProgramState{}
 			factory = control.NewModule(controlState)
 		})
 		It("Should create node for set_authority type", func() {
@@ -125,8 +124,8 @@ var _ = Describe("Authority", func() {
 
 	Describe("Next", func() {
 		var (
-			progState    *state.State
-			controlState *control.State
+			progState    *node.ProgramState
+			controlState *control.ProgramState
 			factory      node.Factory
 			outputs      []string
 		)
@@ -137,8 +136,8 @@ var _ = Describe("Authority", func() {
 			}
 			analyzed, diagnostics := graph.Analyze(ctx, g, control.SymbolResolver)
 			Expect(diagnostics.Ok()).To(BeTrue())
-			progState = state.New(analyzed)
-			controlState = &control.State{}
+			progState = node.New(analyzed)
+			controlState = &control.ProgramState{}
 			factory = control.NewModule(controlState)
 			outputs = []string{}
 		})
@@ -223,8 +222,8 @@ var _ = Describe("Authority", func() {
 
 	Describe("Reset", func() {
 		var (
-			s            *state.State
-			controlState *control.State
+			s            *node.ProgramState
+			controlState *control.ProgramState
 			factory      node.Factory
 		)
 		BeforeEach(func() {
@@ -234,8 +233,8 @@ var _ = Describe("Authority", func() {
 			}
 			analyzed, diagnostics := graph.Analyze(ctx, g, control.SymbolResolver)
 			Expect(diagnostics.Ok()).To(BeTrue())
-			s = state.New(analyzed)
-			controlState = &control.State{}
+			s = node.New(analyzed)
+			controlState = &control.ProgramState{}
 			factory = control.NewModule(controlState)
 		})
 
@@ -294,8 +293,8 @@ var _ = Describe("Authority", func() {
 			}
 			analyzed, diagnostics := graph.Analyze(ctx, g, control.SymbolResolver)
 			Expect(diagnostics.Ok()).To(BeTrue())
-			s := state.New(analyzed)
-			factory := control.NewModule(&control.State{})
+			s := node.New(analyzed)
+			factory := control.NewModule(&control.ProgramState{})
 			cfg := node.Config{
 				Node: ir.Node{
 					Type: "set_authority",

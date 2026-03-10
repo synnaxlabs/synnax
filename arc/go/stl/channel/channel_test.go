@@ -17,7 +17,6 @@ import (
 	"github.com/synnaxlabs/arc/graph"
 	"github.com/synnaxlabs/arc/ir"
 	rnode "github.com/synnaxlabs/arc/runtime/node"
-	"github.com/synnaxlabs/arc/runtime/state"
 	"github.com/synnaxlabs/arc/stl/channel"
 	"github.com/synnaxlabs/arc/stl/strings"
 	"github.com/synnaxlabs/arc/stl/testutil"
@@ -33,18 +32,18 @@ var _ = Describe("Channel", func() {
 	Describe("WASM Bindings", func() {
 		var (
 			rt *testutil.Runtime
-			cs *channel.State
-			ss *strings.State
+			cs *channel.ProgramState
+			ss *strings.ProgramState
 		)
 
 		BeforeEach(func() {
 			rt = testutil.NewRuntime(ctx)
-			cs = channel.NewState([]channel.Digest{
+			cs = channel.NewProgramState([]channel.Digest{
 				{Key: 1, DataType: telem.Float64T},
 				{Key: 2, DataType: telem.Int32T},
 				{Key: 3, DataType: telem.StringT},
 			})
-			ss = strings.NewState()
+			ss = strings.NewProgramState()
 			_, err := channel.NewModule(ctx, cs, ss, rt.Underlying())
 			Expect(err).To(Succeed())
 			rt.Passthrough(ctx, "channel")
@@ -139,7 +138,7 @@ var _ = Describe("Channel", func() {
 	Describe("Node Factory", func() {
 		var (
 			factory rnode.Factory
-			rtState *state.State
+			rtState *rnode.ProgramState
 		)
 		BeforeEach(func() {
 			factory = MustSucceed(channel.NewModule(ctx, nil, nil, nil))
@@ -149,7 +148,7 @@ var _ = Describe("Channel", func() {
 			}
 			analyzed, diagnostics := graph.Analyze(ctx, g, channel.SymbolResolver)
 			Expect(diagnostics.Ok()).To(BeTrue())
-			rtState = state.New(analyzed)
+			rtState = rnode.New(analyzed)
 		})
 
 		Describe("Source Creation", func() {
@@ -242,8 +241,8 @@ var _ = Describe("Channel", func() {
 
 	Describe("Source Node", func() {
 		var (
-			progState    *state.State
-			channelState *channel.State
+			progState    *rnode.ProgramState
+			channelState *channel.ProgramState
 			factory      rnode.Factory
 		)
 		BeforeEach(func() {
@@ -258,11 +257,11 @@ var _ = Describe("Channel", func() {
 			}
 			inter, diagnostics := graph.Analyze(ctx, g, channel.SymbolResolver)
 			Expect(diagnostics.Ok()).To(BeTrue())
-			channelState = channel.NewState([]channel.Digest{
+			channelState = channel.NewProgramState([]channel.Digest{
 				{Key: 10, DataType: telem.Float32T, Index: 11},
 				{Key: 20, DataType: telem.Int32T, Index: 0},
 			})
-			progState = state.New(inter)
+			progState = rnode.New(inter)
 			factory = MustSucceed(channel.NewModule(ctx, channelState, nil, nil))
 		})
 
@@ -444,8 +443,8 @@ var _ = Describe("Channel", func() {
 				mod := MustSucceed(channel.NewModule(ctx, channelState, nil, nil))
 				analyzed2, diagnostics2 := graph.Analyze(ctx, g2, channel.SymbolResolver)
 				Expect(diagnostics2.Ok()).To(BeTrue())
-				s2 := state.New(analyzed2)
-				channelState := channel.NewState([]channel.Digest{
+				s2 := rnode.New(analyzed2)
+				channelState := channel.NewProgramState([]channel.Digest{
 					{Key: 30, DataType: telem.Float64T, Index: 31},
 				})
 				source := MustSucceed(mod.Create(ctx, rnode.Config{
@@ -472,8 +471,8 @@ var _ = Describe("Channel", func() {
 
 	Describe("Sink Node", func() {
 		var (
-			progState    *state.State
-			channelState *channel.State
+			progState    *rnode.ProgramState
+			channelState *channel.ProgramState
 			factory      rnode.Factory
 		)
 		BeforeEach(func() {
@@ -499,13 +498,13 @@ var _ = Describe("Channel", func() {
 					},
 				},
 			}
-			channelState = channel.NewState([]channel.Digest{
+			channelState = channel.NewProgramState([]channel.Digest{
 				{Key: 100, DataType: telem.Float32T, Index: 101},
 			})
 			mod := MustSucceed(channel.NewModule(ctx, channelState, nil, nil))
 			analyzed, diagnostics := graph.Analyze(ctx, g, channel.SymbolResolver)
 			Expect(diagnostics.Ok()).To(BeTrue())
-			progState = state.New(analyzed)
+			progState = rnode.New(analyzed)
 			factory = mod
 		})
 
@@ -614,14 +613,14 @@ var _ = Describe("Channel", func() {
 						},
 					},
 				}
-				channelState := channel.NewState([]channel.Digest{
+				channelState := channel.NewProgramState([]channel.Digest{
 					{Key: 1, DataType: telem.Int32T, Index: 2},
 					{Key: 3, DataType: telem.Int32T, Index: 4},
 				})
 				mod := MustSucceed(channel.NewModule(ctx, channelState, nil, nil))
 				analyzed, diagnostics := graph.Analyze(ctx, g, channel.SymbolResolver)
 				Expect(diagnostics.Ok()).To(BeTrue())
-				s := state.New(analyzed)
+				s := rnode.New(analyzed)
 				source := MustSucceed(mod.Create(ctx, rnode.Config{
 					Node: ir.Node{
 						Type:   "on",
@@ -675,7 +674,7 @@ var _ = Describe("Channel", func() {
 							{Name: ir.DefaultInputParam, Type: types.F64()}}},
 					},
 				}
-				channelState := channel.NewState([]channel.Digest{
+				channelState := channel.NewProgramState([]channel.Digest{
 					{Key: 10, DataType: telem.Float32T, Index: 11},
 					{Key: 20, DataType: telem.Float64T, Index: 21},
 					{Key: 30, DataType: telem.Float32T, Index: 31},
@@ -684,7 +683,7 @@ var _ = Describe("Channel", func() {
 				mod := MustSucceed(channel.NewModule(ctx, channelState, nil, nil))
 				analyzed, diagnostics := graph.Analyze(ctx, g, channel.SymbolResolver)
 				Expect(diagnostics.Ok()).To(BeTrue())
-				s := state.New(analyzed)
+				s := rnode.New(analyzed)
 
 				factory := mod
 				source1, _ := factory.Create(ctx, rnode.Config{

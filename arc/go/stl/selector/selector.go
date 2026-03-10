@@ -14,8 +14,6 @@ import (
 
 	"github.com/synnaxlabs/arc/ir"
 	"github.com/synnaxlabs/arc/runtime/node"
-	"github.com/synnaxlabs/arc/runtime/state"
-
 	"github.com/synnaxlabs/arc/symbol"
 	"github.com/synnaxlabs/arc/types"
 	"github.com/synnaxlabs/x/query"
@@ -58,10 +56,10 @@ func (m *Module) Create(_ context.Context, cfg node.Config) (node.Node, error) {
 	if cfg.Node.Type != symbolName {
 		return nil, query.ErrNotFound
 	}
-	return &selectNode{Node: cfg.State}, nil
+	return &selectNode{State: cfg.State}, nil
 }
 
-type selectNode struct{ *state.Node }
+type selectNode struct{ *node.State }
 
 func (s *selectNode) Next(ctx node.Context) {
 	if !s.RefreshInputs() {

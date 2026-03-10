@@ -23,8 +23,8 @@ import (
 )
 
 type Module struct {
-	series  *series.State
-	strings *strings.State
+	series  *series.ProgramState
+	strings *strings.ProgramState
 
 	currentNodeKey string
 
@@ -46,8 +46,8 @@ func (m *Module) SetNodeKey(key string) { m.currentNodeKey = key }
 
 func NewModule(
 	ctx context.Context,
-	seriesState *series.State,
-	stringsState *strings.State,
+	seriesState *series.ProgramState,
+	stringsState *strings.ProgramState,
 	rat wazero.Runtime,
 ) (*Module, error) {
 	m := &Module{

@@ -53,7 +53,7 @@ var SymbolResolver = &symbol.ModuleResolver{
 }
 
 type Module struct {
-	strings *State
+	strings *ProgramState
 	memory  api.Memory
 }
 
@@ -61,7 +61,7 @@ func (m *Module) SetMemory(memory api.Memory) { m.memory = memory }
 
 func NewModule(
 	ctx context.Context,
-	s *State,
+	s *ProgramState,
 	rat wazero.Runtime,
 	memory api.Memory,
 ) (*Module, error) {

@@ -19,11 +19,11 @@ import (
 	. "github.com/synnaxlabs/x/testutil"
 )
 
-var _ = Describe("State", func() {
-	var s *stlstrings.State
+var _ = Describe("ProgramState", func() {
+	var s *stlstrings.ProgramState
 
 	BeforeEach(func() {
-		s = stlstrings.NewState()
+		s = stlstrings.NewProgramState()
 	})
 
 	Describe("Create", func() {

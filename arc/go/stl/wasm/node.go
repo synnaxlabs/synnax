@@ -15,7 +15,6 @@ import (
 	"github.com/samber/lo"
 	"github.com/synnaxlabs/arc/ir"
 	"github.com/synnaxlabs/arc/runtime/node"
-	"github.com/synnaxlabs/arc/runtime/state"
 	"github.com/synnaxlabs/arc/types"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/telem"
@@ -38,7 +37,7 @@ type result struct {
 }
 
 type nodeImpl struct {
-	*state.Node
+	*node.State
 	ir            ir.Node
 	fn            api.Function
 	mem           api.Memory
@@ -190,7 +189,7 @@ func (n *nodeImpl) Next(ctx node.Context) {
 }
 
 func (n *nodeImpl) Reset() {
-	n.Node.Reset()
+	n.State.Reset()
 	n.initialized = false
 }
 

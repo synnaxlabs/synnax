@@ -40,10 +40,10 @@ var (
 )
 
 type Module struct {
-	auth *State
+	auth *ProgramState
 }
 
-func NewModule(ab *State) *Module { return &Module{auth: ab} }
+func NewModule(ab *ProgramState) *Module { return &Module{auth: ab} }
 
 func (m *Module) Resolve(ctx context.Context, name string) (symbol.Symbol, error) {
 	return SymbolResolver.Resolve(ctx, name)
@@ -83,7 +83,7 @@ type nodeConfig struct {
 }
 
 type setAuthority struct {
-	auth        *State
+	auth        *ProgramState
 	authority   uint8
 	channelKey  *uint32
 	initialized bool

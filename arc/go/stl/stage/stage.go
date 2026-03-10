@@ -16,7 +16,6 @@ import (
 	"context"
 
 	"github.com/synnaxlabs/arc/runtime/node"
-	"github.com/synnaxlabs/arc/runtime/state"
 	"github.com/synnaxlabs/arc/symbol"
 	"github.com/synnaxlabs/arc/types"
 	"github.com/synnaxlabs/x/query"
@@ -62,10 +61,10 @@ func (m *Module) Create(_ context.Context, cfg node.Config) (node.Node, error) {
 	if cfg.Node.Type != EntryNodeName {
 		return nil, query.ErrNotFound
 	}
-	return &entry{Node: cfg.State}, nil
+	return &entry{State: cfg.State}, nil
 }
 
-type entry struct{ *state.Node }
+type entry struct{ *node.State }
 
 var _ node.Node = (*entry)(nil)
 

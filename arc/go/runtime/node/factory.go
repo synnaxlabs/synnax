@@ -15,7 +15,6 @@ import (
 	"github.com/synnaxlabs/alamos"
 	"github.com/synnaxlabs/arc/ir"
 	"github.com/synnaxlabs/arc/program"
-	"github.com/synnaxlabs/arc/runtime/state"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/query"
 )
@@ -26,7 +25,7 @@ type Config struct {
 	// Node is the IR definition for this node.
 	Node ir.Node
 	// State provides access to input/output data and channel I/O.
-	State *state.Node
+	State *State
 	// Program contains the arc program for accessing global state and functions.
 	Program program.Program
 }

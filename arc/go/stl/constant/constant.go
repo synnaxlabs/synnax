@@ -13,9 +13,7 @@ import (
 	"context"
 
 	"github.com/synnaxlabs/arc/ir"
-	rnode "github.com/synnaxlabs/arc/runtime/node"
-	"github.com/synnaxlabs/arc/runtime/state"
-
+	node "github.com/synnaxlabs/arc/runtime/node"
 	"github.com/synnaxlabs/arc/symbol"
 	"github.com/synnaxlabs/arc/types"
 	"github.com/synnaxlabs/x/query"
@@ -41,22 +39,22 @@ type Module struct{}
 
 func NewModule() *Module { return &Module{} }
 
-func (m *Module) Create(_ context.Context, cfg rnode.Config) (rnode.Node, error) {
+func (m *Module) Create(_ context.Context, cfg node.Config) (node.Node, error) {
 	if cfg.Node.Type != symName {
 		return nil, query.ErrNotFound
 	}
-	return &node{Node: cfg.State, value: cfg.Node.Config[0].Value}, nil
+	return &constant{State: cfg.State, value: cfg.Node.Config[0].Value}, nil
 }
 
-type node struct {
-	*state.Node
+type constant struct {
+	*node.State
 	value       any
 	initialized bool
 }
 
-var _ rnode.Node = (*node)(nil)
+var _ node.Node = (*constant)(nil)
 
-func (c *node) Next(ctx rnode.Context) {
+func (c *constant) Next(ctx node.Context) {
 	if c.initialized {
 		return
 	}
@@ -68,4 +66,4 @@ func (c *node) Next(ctx rnode.Context) {
 	ctx.MarkChanged(ir.DefaultOutputParam)
 }
 
-func (c *node) Reset() { c.initialized = false }
+func (c *constant) Reset() { c.initialized = false }

@@ -26,8 +26,8 @@ var _ = Describe("Vars", func() {
 	var (
 		ctx     context.Context
 		rt      *testutil.Runtime
-		seriesS *series.State
-		strS    *strings.State
+		seriesS *series.ProgramState
+		strS    *strings.ProgramState
 		mod     *stateful.Module
 	)
 
@@ -50,8 +50,8 @@ var _ = Describe("Vars", func() {
 	BeforeEach(func() {
 		ctx = context.Background()
 		rt = testutil.NewRuntime(ctx)
-		seriesS = series.NewState()
-		strS = strings.NewState()
+		seriesS = series.NewProgramState()
+		strS = strings.NewProgramState()
 		var err error
 		mod, err = stateful.NewModule(ctx, seriesS, strS, rt.Underlying())
 		Expect(err).ToNot(HaveOccurred())

@@ -11,24 +11,24 @@ package series
 
 import "github.com/synnaxlabs/x/telem"
 
-// State manages transient series handles.
+// ProgramState manages transient series handles.
 // Handles are short-lived references used within a single execution cycle
 // and cleared on each flush.
-type State struct {
+type ProgramState struct {
 	series  map[uint32]telem.Series
 	counter uint32
 }
 
-// NewState creates a new State.
-func NewState() *State {
-	return &State{
+// NewProgramState creates a new ProgramState.
+func NewProgramState() *ProgramState {
+	return &ProgramState{
 		series:  make(map[uint32]telem.Series),
 		counter: 1,
 	}
 }
 
 // Store stores a series and returns a handle for later retrieval.
-func (s *State) Store(series telem.Series) uint32 {
+func (s *ProgramState) Store(series telem.Series) uint32 {
 	handle := s.counter
 	s.counter++
 	s.series[handle] = series
@@ -36,13 +36,13 @@ func (s *State) Store(series telem.Series) uint32 {
 }
 
 // Get retrieves a series by its handle.
-func (s *State) Get(handle uint32) (telem.Series, bool) {
+func (s *ProgramState) Get(handle uint32) (telem.Series, bool) {
 	series, ok := s.series[handle]
 	return series, ok
 }
 
 // Clear removes all stored series and resets the counter.
-func (s *State) Clear() {
+func (s *ProgramState) Clear() {
 	clear(s.series)
 	s.counter = 1
 }

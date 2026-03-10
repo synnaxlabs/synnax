@@ -46,5 +46,3 @@ var SymbolResolver = symbol.CompoundResolver{
 	stringsstate.SymbolResolver,
 	time.SymbolResolver,
 }
-
-

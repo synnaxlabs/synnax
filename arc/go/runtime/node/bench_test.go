@@ -7,14 +7,14 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-package state_test
+package node_test
 
 import (
 	"testing"
 
 	"github.com/synnaxlabs/arc/graph"
 	"github.com/synnaxlabs/arc/ir"
-	"github.com/synnaxlabs/arc/runtime/state"
+	"github.com/synnaxlabs/arc/runtime/node"
 	"github.com/synnaxlabs/arc/types"
 	"github.com/synnaxlabs/x/telem"
 )
@@ -50,7 +50,7 @@ func BenchmarkRefreshInputsSingleInput(b *testing.B) {
 	if !diagnostics.Ok() {
 		b.Fatalf("Failed to analyze graph: %s", diagnostics.String())
 	}
-	s := state.New(inter)
+	s := node.New(inter)
 	sourceNode := s.Node("source")
 	targetNode := s.Node("target")
 	*sourceNode.Output(0) = telem.NewSeriesV[float32](0)

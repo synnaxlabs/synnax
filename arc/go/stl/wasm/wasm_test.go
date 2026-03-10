@@ -20,7 +20,6 @@ import (
 	"github.com/synnaxlabs/arc/ir"
 	"github.com/synnaxlabs/arc/program"
 	"github.com/synnaxlabs/arc/runtime/node"
-	"github.com/synnaxlabs/arc/runtime/state"
 	"github.com/synnaxlabs/arc/stl"
 	"github.com/synnaxlabs/arc/stl/channel"
 	stlerrors "github.com/synnaxlabs/arc/stl/errors"
@@ -72,16 +71,16 @@ var _ = Describe("ConvertConfigValue", func() {
 // testHarness encapsulates common test setup for wasm module tests.
 type testHarness struct {
 	factory      node.Factory
-	state        *state.State
+	state        *node.ProgramState
 	wasmRT       wazero.Runtime
 	guest        api.Module
-	channelState *channel.State
+	channelState *channel.ProgramState
 	prog         program.Program
 	analyzed     ir.IR
 	graph        arc.Graph
 }
 
-func (h *testHarness) ChannelState() *channel.State { return h.channelState }
+func (h *testHarness) ChannelState() *channel.ProgramState { return h.channelState }
 
 // newHarness creates a new test harness from a graph definition.
 func newHarness(
@@ -98,11 +97,11 @@ func newHarness(
 	prog := MustSucceed(arc.CompileGraph(ctx, g, arc.WithResolver(compileResolver)))
 	analyzed, diagnostics := graph.Analyze(ctx, g, resolver)
 	Expect(diagnostics.Ok()).To(BeTrue())
-	s := state.New(analyzed)
+	s := node.New(analyzed)
 
-	stringsState := stlstrings.NewState()
-	seriesState := series.NewState()
-	channelState := channel.NewState(channelDigests)
+	stringsState := stlstrings.NewProgramState()
+	seriesState := series.NewProgramState()
+	channelState := channel.NewProgramState(channelDigests)
 
 	wasmRT := wazero.NewRuntimeWithConfig(ctx, wazero.NewRuntimeConfigCompiler())
 	statefulMod := MustSucceed(stateful.NewModule(ctx, seriesState, stringsState, wasmRT))
@@ -185,11 +184,11 @@ func newTextHarness(
 	analyzed, diagnostics := text.Analyze(ctx, parsedText, compileResolver)
 	Expect(diagnostics.Ok()).To(BeTrue(), diagnostics.String())
 	prog := MustSucceed(text.Compile(ctx, analyzed, compiler.WithHostSymbols(compileResolver)))
-	s := state.New(analyzed)
+	s := node.New(analyzed)
 
-	stringsState := stlstrings.NewState()
-	seriesState := series.NewState()
-	channelState := channel.NewState(channelDigests)
+	stringsState := stlstrings.NewProgramState()
+	seriesState := series.NewProgramState()
+	channelState := channel.NewProgramState(channelDigests)
 
 	wasmRT := wazero.NewRuntimeWithConfig(ctx, wazero.NewRuntimeConfigCompiler())
 	statefulMod := MustSucceed(stateful.NewModule(ctx, seriesState, stringsState, wasmRT))
@@ -374,7 +373,7 @@ var _ = Describe("WASM", func() {
 		})
 	})
 
-	Describe("Runtime Operations - State Persistence", func() {
+	Describe("Runtime Operations - ProgramState Persistence", func() {
 		It("Should persist stateful variables across function calls", func() {
 			g := singleFunctionGraph("counter", types.I64(), `{
 				count i64 $= 0

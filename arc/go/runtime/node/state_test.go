@@ -7,19 +7,19 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-package state_test
+package node_test
 
 import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/arc/graph"
 	"github.com/synnaxlabs/arc/ir"
-	"github.com/synnaxlabs/arc/runtime/state"
+	"github.com/synnaxlabs/arc/runtime/node"
 	"github.com/synnaxlabs/arc/types"
 	"github.com/synnaxlabs/x/telem"
 )
 
-var _ = Describe("State", func() {
+var _ = Describe("ProgramState", func() {
 	Describe("Input Alignment", func() {
 		It("Should correctly order the inputs regardless of edge order", func() {
 			g := graph.Graph{
@@ -75,7 +75,7 @@ var _ = Describe("State", func() {
 			ir, diagnostics := graph.Analyze(ctx, g, nil)
 			Expect(diagnostics.Ok()).To(BeTrue(), diagnostics.String())
 			var (
-				s      = state.New(ir)
+				s      = node.New(ir)
 				in1    = s.Node("in1")
 				in2    = s.Node("in2")
 				in3    = s.Node("in3")
@@ -120,7 +120,7 @@ var _ = Describe("State", func() {
 			}
 			ir, diagnostics := graph.Analyze(ctx, g, nil)
 			Expect(diagnostics.Ok()).To(BeTrue(), diagnostics.String())
-			s := state.New(ir)
+			s := node.New(ir)
 			first := s.Node("first")
 			second := s.Node("second")
 			Expect(first.RefreshInputs()).To(BeTrue())
@@ -162,7 +162,7 @@ var _ = Describe("State", func() {
 			}
 			ir, diagnostics := graph.Analyze(ctx, g, nil)
 			Expect(diagnostics.Ok()).To(BeTrue(), diagnostics.String())
-			s := state.New(ir)
+			s := node.New(ir)
 			src := s.Node("src")
 			dest := s.Node("dest")
 			*src.Output(0) = telem.NewSeriesV[int32]()
@@ -199,7 +199,7 @@ var _ = Describe("State", func() {
 			}
 			ir, diagnostics := graph.Analyze(ctx, g, nil)
 			Expect(diagnostics.Ok()).To(BeTrue(), diagnostics.String())
-			s := state.New(ir)
+			s := node.New(ir)
 			producer := s.Node("producer")
 			consumer := s.Node("consumer")
 			*producer.Output(0) = telem.NewSeriesV[float64](1.0)
@@ -249,7 +249,7 @@ var _ = Describe("State", func() {
 			}
 			ir, diagnostics := graph.Analyze(ctx, g, nil)
 			Expect(diagnostics.Ok()).To(BeTrue(), diagnostics.String())
-			s := state.New(ir)
+			s := node.New(ir)
 			nodeA := s.Node("a")
 			nodeB := s.Node("b")
 			target := s.Node("target")
@@ -304,7 +304,7 @@ var _ = Describe("State", func() {
 			}
 			ir, diagnostics := graph.Analyze(ctx, g, nil)
 			Expect(diagnostics.Ok()).To(BeTrue(), diagnostics.String())
-			s := state.New(ir)
+			s := node.New(ir)
 			early := s.Node("early")
 			late := s.Node("late")
 			target := s.Node("target")
@@ -345,7 +345,7 @@ var _ = Describe("State", func() {
 			}
 			ir, diagnostics := graph.Analyze(ctx, g, nil)
 			Expect(diagnostics.Ok()).To(BeTrue(), diagnostics.String())
-			s := state.New(ir)
+			s := node.New(ir)
 			source := s.Node("source")
 			sink := s.Node("sink")
 			*source.Output(0) = telem.NewSeriesV[int32](1)
@@ -398,7 +398,7 @@ var _ = Describe("State", func() {
 			}
 			ir, diagnostics := graph.Analyze(ctx, g, nil)
 			Expect(diagnostics.Ok()).To(BeTrue(), diagnostics.String())
-			s := state.New(ir)
+			s := node.New(ir)
 			nodeA := s.Node("a")
 			nodeB := s.Node("b")
 			target := s.Node("target")
@@ -443,7 +443,7 @@ var _ = Describe("State", func() {
 			}
 			ir, diagnostics := graph.Analyze(ctx, g, nil)
 			Expect(diagnostics.Ok()).To(BeTrue(), diagnostics.String())
-			s := state.New(ir)
+			s := node.New(ir)
 			src := s.Node("src")
 			dst := s.Node("dst")
 			*src.Output(0) = telem.NewSeriesV[int64](10)
@@ -500,7 +500,7 @@ var _ = Describe("State", func() {
 				}
 				ir, diagnostics := graph.Analyze(ctx, g, nil)
 				Expect(diagnostics.Ok()).To(BeTrue(), diagnostics.String())
-				s := state.New(ir)
+				s := node.New(ir)
 				lhs := s.Node("lhs")
 				rhs := s.Node("rhs")
 				op := s.Node("op")
@@ -553,7 +553,7 @@ var _ = Describe("State", func() {
 				}
 				ir, diagnostics := graph.Analyze(ctx, g, nil)
 				Expect(diagnostics.Ok()).To(BeTrue(), diagnostics.String())
-				s := state.New(ir)
+				s := node.New(ir)
 				nodeA := s.Node("a")
 				nodeB := s.Node("b")
 				compute := s.Node("compute")
@@ -607,7 +607,7 @@ var _ = Describe("State", func() {
 				}
 				ir, diagnostics := graph.Analyze(ctx, g, nil)
 				Expect(diagnostics.Ok()).To(BeTrue(), diagnostics.String())
-				s := state.New(ir)
+				s := node.New(ir)
 				early := s.Node("early")
 				late := s.Node("late")
 				target := s.Node("target")
@@ -666,7 +666,7 @@ var _ = Describe("State", func() {
 				}
 				ir, diagnostics := graph.Analyze(ctx, g, nil)
 				Expect(diagnostics.Ok()).To(BeTrue(), diagnostics.String())
-				s := state.New(ir)
+				s := node.New(ir)
 				nodeX := s.Node("x")
 				nodeY := s.Node("y")
 				processor := s.Node("processor")
@@ -735,7 +735,7 @@ var _ = Describe("State", func() {
 				}
 				ir, diagnostics := graph.Analyze(ctx, g, nil)
 				Expect(diagnostics.Ok()).To(BeTrue(), diagnostics.String())
-				s := state.New(ir)
+				s := node.New(ir)
 				nodeA := s.Node("a")
 				nodeB := s.Node("b")
 				nodeC := s.Node("c")
@@ -788,7 +788,7 @@ var _ = Describe("State", func() {
 			}
 			ir, diagnostics := graph.Analyze(ctx, g, nil)
 			Expect(diagnostics.Ok()).To(BeTrue(), diagnostics.String())
-			s := state.New(ir)
+			s := node.New(ir)
 			source := s.Node("source")
 			processor := s.Node("processor")
 			*source.Output(0) = telem.NewSeriesV[float32](5.0)
@@ -842,7 +842,7 @@ var _ = Describe("State", func() {
 			}
 			ir, diagnostics := graph.Analyze(ctx, g, nil)
 			Expect(diagnostics.Ok()).To(BeTrue(), diagnostics.String())
-			s := state.New(ir)
+			s := node.New(ir)
 			dataSource := s.Node("data_source")
 			multiplierSource := s.Node("multiplier_source")
 			processor := s.Node("processor")
@@ -890,7 +890,7 @@ var _ = Describe("State", func() {
 			}
 			ir, diagnostics := graph.Analyze(ctx, g, nil)
 			Expect(diagnostics.Ok()).To(BeTrue(), diagnostics.String())
-			s := state.New(ir)
+			s := node.New(ir)
 			input := s.Node("input")
 			calculator := s.Node("calculator")
 			*input.Output(0) = telem.NewSeriesV[float64](10.0)
@@ -947,7 +947,7 @@ var _ = Describe("State", func() {
 			}
 			ir, diagnostics := graph.Analyze(ctx, g, nil)
 			Expect(diagnostics.Ok()).To(BeTrue(), diagnostics.String())
-			s := state.New(ir)
+			s := node.New(ir)
 			src1 := s.Node("src1")
 			src2 := s.Node("src2")
 			combiner := s.Node("combiner")
@@ -995,7 +995,7 @@ var _ = Describe("State", func() {
 			}
 			ir, diagnostics := graph.Analyze(ctx, g, nil)
 			Expect(diagnostics.Ok()).To(BeTrue(), diagnostics.String())
-			s := state.New(ir)
+			s := node.New(ir)
 			data := s.Node("data")
 			processor := s.Node("processor")
 			*data.Output(0) = telem.NewSeriesV[float32](42.5)
@@ -1040,7 +1040,7 @@ var _ = Describe("State", func() {
 			}
 			ir, diagnostics := graph.Analyze(ctx, g, nil)
 			Expect(diagnostics.Ok()).To(BeTrue(), diagnostics.String())
-			s := state.New(ir)
+			s := node.New(ir)
 			source := s.Node("source")
 			processor := s.Node("processor")
 			// First execution with data at t=5
@@ -1098,7 +1098,7 @@ var _ = Describe("State", func() {
 			}
 			ir, diagnostics := graph.Analyze(ctx, g, nil)
 			Expect(diagnostics.Ok()).To(BeTrue(), diagnostics.String())
-			s := state.New(ir)
+			s := node.New(ir)
 			input := s.Node("input")
 			adder := s.Node("adder")
 			*input.Output(0) = telem.NewSeriesV[int32](50)
@@ -1129,7 +1129,7 @@ var _ = Describe("State", func() {
 			}
 			ir, diagnostics := graph.Analyze(ctx, g, nil)
 			Expect(diagnostics.Ok()).To(BeTrue(), diagnostics.String())
-			s := state.New(ir)
+			s := node.New(ir)
 			generator := s.Node("generator")
 			Expect(generator.RefreshInputs()).To(BeTrue())
 			Expect(generator.Input(0)).To(telem.MatchSeries(telem.NewSeriesV[int64](42)))
@@ -1154,7 +1154,7 @@ var _ = Describe("State", func() {
 				}
 				prog, diagnostics := graph.Analyze(ctx, g, nil)
 				Expect(diagnostics.Ok()).To(BeTrue())
-				s := state.New(prog)
+				s := node.New(prog)
 				n := s.Node("test")
 				// Output is initialized but empty
 				*n.Output(0) = telem.Series{DataType: telem.Float32T}
@@ -1173,7 +1173,7 @@ var _ = Describe("State", func() {
 				}
 				prog, diagnostics := graph.Analyze(ctx, g, nil)
 				Expect(diagnostics.Ok()).To(BeTrue())
-				s := state.New(prog)
+				s := node.New(prog)
 				n := s.Node("test")
 				*n.Output(0) = telem.NewSeriesV[float64](1.0, 2.0, 0.0)
 				Expect(n.IsOutputTruthy(outputParam)).To(BeFalse())
@@ -1191,7 +1191,7 @@ var _ = Describe("State", func() {
 				}
 				prog, diagnostics := graph.Analyze(ctx, g, nil)
 				Expect(diagnostics.Ok()).To(BeTrue())
-				s := state.New(prog)
+				s := node.New(prog)
 				n := s.Node("test")
 				*n.Output(0) = telem.NewSeriesV[float64](0.0, 0.0, 3.14)
 				Expect(n.IsOutputTruthy(outputParam)).To(BeTrue())
@@ -1209,7 +1209,7 @@ var _ = Describe("State", func() {
 				}
 				prog, diagnostics := graph.Analyze(ctx, g, nil)
 				Expect(diagnostics.Ok()).To(BeTrue())
-				s := state.New(prog)
+				s := node.New(prog)
 				n := s.Node("test")
 				*n.Output(0) = telem.NewSeriesV[uint8](1, 1, 0)
 				Expect(n.IsOutputTruthy(outputParam)).To(BeFalse())
@@ -1227,7 +1227,7 @@ var _ = Describe("State", func() {
 				}
 				prog, diagnostics := graph.Analyze(ctx, g, nil)
 				Expect(diagnostics.Ok()).To(BeTrue())
-				s := state.New(prog)
+				s := node.New(prog)
 				n := s.Node("test")
 				*n.Output(0) = telem.NewSeriesV[uint8](0, 0, 1)
 				Expect(n.IsOutputTruthy(outputParam)).To(BeTrue())
@@ -1245,7 +1245,7 @@ var _ = Describe("State", func() {
 				}
 				prog, diagnostics := graph.Analyze(ctx, g, nil)
 				Expect(diagnostics.Ok()).To(BeTrue())
-				s := state.New(prog)
+				s := node.New(prog)
 				n := s.Node("test")
 				*n.Output(0) = telem.NewSeriesV[int32](42, -10, 0)
 				Expect(n.IsOutputTruthy(outputParam)).To(BeFalse())
@@ -1263,7 +1263,7 @@ var _ = Describe("State", func() {
 				}
 				prog, diagnostics := graph.Analyze(ctx, g, nil)
 				Expect(diagnostics.Ok()).To(BeTrue())
-				s := state.New(prog)
+				s := node.New(prog)
 				n := s.Node("test")
 				*n.Output(0) = telem.NewSeriesV[int32](0, 0, -42)
 				Expect(n.IsOutputTruthy(outputParam)).To(BeTrue())
@@ -1281,7 +1281,7 @@ var _ = Describe("State", func() {
 				}
 				prog, diagnostics := graph.Analyze(ctx, g, nil)
 				Expect(diagnostics.Ok()).To(BeTrue())
-				s := state.New(prog)
+				s := node.New(prog)
 				n := s.Node("test")
 				*n.Output(0) = telem.NewSeriesV[float32](1.0)
 				Expect(n.IsOutputTruthy("nonexistent")).To(BeFalse())
@@ -1299,7 +1299,7 @@ var _ = Describe("State", func() {
 				}
 				prog, diagnostics := graph.Analyze(ctx, g, nil)
 				Expect(diagnostics.Ok()).To(BeTrue())
-				s := state.New(prog)
+				s := node.New(prog)
 				n := s.Node("test")
 				// Many truthy values followed by falsy
 				*n.Output(0) = telem.NewSeriesV[int64](100, 200, 300, 0)
@@ -1321,7 +1321,7 @@ var _ = Describe("State", func() {
 				}
 				prog, diagnostics := graph.Analyze(ctx, g, nil)
 				Expect(diagnostics.Ok()).To(BeTrue())
-				s := state.New(prog)
+				s := node.New(prog)
 				n := s.Node("test")
 				*n.Output(0) = telem.NewSeriesV[telem.TimeStamp](0)
 				Expect(n.IsOutputTruthy(outputParam)).To(BeFalse())

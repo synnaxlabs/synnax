@@ -22,16 +22,16 @@ type Digest struct {
 	Index    uint32
 }
 
-// State manages channel I/O buffers and index mapping.
-type State struct {
+// ProgramState manages channel I/O buffers and index mapping.
+type ProgramState struct {
 	reads   map[uint32]telem.MultiSeries
 	writes  map[uint32]telem.Series
 	indexes map[uint32]uint32
 }
 
-// NewState creates a new State from channel digests.
-func NewState(digests []Digest) *State {
-	cs := &State{
+// NewProgramState creates a new ProgramState from channel digests.
+func NewProgramState(digests []Digest) *ProgramState {
+	cs := &ProgramState{
 		reads:   make(map[uint32]telem.MultiSeries),
 		writes:  make(map[uint32]telem.Series),
 		indexes: make(map[uint32]uint32),
@@ -43,7 +43,7 @@ func NewState(digests []Digest) *State {
 }
 
 // Ingest adds external channel data to the read buffer.
-func (cs *State) Ingest(fr telem.Frame[uint32]) {
+func (cs *ProgramState) Ingest(fr telem.Frame[uint32]) {
 	for rawI, key := range fr.RawKeys() {
 		if fr.ShouldExcludeRaw(rawI) {
 			continue
@@ -54,7 +54,7 @@ func (cs *State) Ingest(fr telem.Frame[uint32]) {
 
 // Flush extracts buffered channel writes into a frame and clears the write
 // buffer.
-func (cs *State) Flush(
+func (cs *ProgramState) Flush(
 	fr telem.Frame[uint32],
 ) (telem.Frame[uint32], bool) {
 	if len(cs.writes) == 0 {
@@ -75,7 +75,7 @@ const clearReadsReallocThreshold = 64
 
 // ClearReads clears accumulated channel read buffers while preserving the
 // latest series for each channel.
-func (cs *State) ClearReads() {
+func (cs *ProgramState) ClearReads() {
 	for key, ser := range cs.reads {
 		if len(ser.Series) <= 1 {
 			continue
@@ -92,7 +92,7 @@ func (cs *State) ClearReads() {
 }
 
 // ReadValue reads a single value from a channel (for WASM runtime bindings).
-func (cs *State) ReadValue(key uint32) (telem.Series, bool) {
+func (cs *ProgramState) ReadValue(key uint32) (telem.Series, bool) {
 	ms, ok := cs.reads[key]
 	if !ok || len(ms.Series) == 0 {
 		return telem.Series{}, false
@@ -103,12 +103,12 @@ func (cs *State) ReadValue(key uint32) (telem.Series, bool) {
 // writeValue writes a single value to a channel (for WASM runtime bindings).
 // For channels with an index, it auto-generates a timestamp using telem.Now()
 // and writes to both the data channel and its index channel.
-func (cs *State) writeValue(key uint32, value telem.Series) {
+func (cs *ProgramState) writeValue(key uint32, value telem.Series) {
 	cs.writeChannel(key, value, telem.NewSeriesV(telem.Now()))
 }
 
 // readSeries reads buffered data and time series from a channel.
-func (cs *State) readSeries(
+func (cs *ProgramState) readSeries(
 	key uint32,
 ) (data telem.MultiSeries, time telem.MultiSeries, ok bool) {
 	data, ok = cs.reads[key]
@@ -126,7 +126,7 @@ func (cs *State) readSeries(
 	return data, time, len(time.Series) > 0 && len(data.Series) > 0
 }
 
-func (cs *State) writeChannel(key uint32, data, time telem.Series) {
+func (cs *ProgramState) writeChannel(key uint32, data, time telem.Series) {
 	cs.writes[key] = data
 	idx := cs.indexes[key]
 	if idx != 0 {

@@ -18,7 +18,7 @@ import (
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/arc/compiler"
 	"github.com/synnaxlabs/arc/ir"
-	"github.com/synnaxlabs/arc/runtime/state"
+	"github.com/synnaxlabs/arc/runtime/node"
 	"github.com/synnaxlabs/arc/stl"
 	stlchannel "github.com/synnaxlabs/arc/stl/channel"
 	stlerrors "github.com/synnaxlabs/arc/stl/errors"
@@ -100,14 +100,14 @@ func assertResult(result uint64, expected any) {
 	}
 }
 
-// bindDefaultModules creates a state.State and binds all default STL modules
+// bindDefaultModules creates a state.ProgramState and binds all default STL modules
 // to the given wazero.Runtime. Returns the state and string module for
 // post-instantiation setup.
-func bindDefaultModules(r wazero.Runtime) (*state.State, *stlstrings.Module, *stlstrings.State) {
-	s := state.New(ir.IR{Nodes: []ir.Node{{Key: "test"}}})
-	stringsState := stlstrings.NewState()
-	seriesState := series.NewState()
-	channelState := stlchannel.NewState(nil)
+func bindDefaultModules(r wazero.Runtime) (*node.ProgramState, *stlstrings.Module, *stlstrings.ProgramState) {
+	s := node.New(ir.IR{Nodes: []ir.Node{{Key: "test"}}})
+	stringsState := stlstrings.NewProgramState()
+	seriesState := series.NewProgramState()
+	channelState := stlchannel.NewProgramState(nil)
 	MustSucceed(stateful.NewModule(ctx, seriesState, stringsState, r))
 	MustSucceed(series.NewModule(ctx, seriesState, r))
 	stringsMod := MustSucceed(stlstrings.NewModule(ctx, stringsState, r, nil))
@@ -2231,7 +2231,7 @@ var _ = Describe("Compiler", func() {
 
 	Describe("String Operations", func() {
 		var strMod *stlstrings.Module
-		var strState *stlstrings.State
+		var strState *stlstrings.ProgramState
 
 		BeforeEach(func() {
 			_, strMod, strState = bindDefaultModules(r)

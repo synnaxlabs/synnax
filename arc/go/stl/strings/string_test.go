@@ -25,7 +25,7 @@ var ctx = context.Background()
 var _ = Describe("Strings", func() {
 	var (
 		rt  *testutil.Runtime
-		ss  *strings.State
+		ss  *strings.ProgramState
 		mem *wazerotest.Memory
 	)
 
@@ -42,7 +42,7 @@ var _ = Describe("Strings", func() {
 	BeforeEach(func() {
 		ctx = context.Background()
 		rt = testutil.NewRuntime(ctx)
-		ss = strings.NewState()
+		ss = strings.NewProgramState()
 		mem = wazerotest.NewMemory(1)
 		_, err := strings.NewModule(ctx, ss, rt.Underlying(), mem)
 		Expect(err).ToNot(HaveOccurred())
@@ -76,7 +76,7 @@ var _ = Describe("Strings", func() {
 		It("Should return 0 when memory is nil", func() {
 			rt2 := testutil.NewRuntime(ctx)
 			defer rt2.Close(ctx)
-			ss2 := strings.NewState()
+			ss2 := strings.NewProgramState()
 			_, err := strings.NewModule(ctx, ss2, rt2.Underlying(), nil)
 			Expect(err).ToNot(HaveOccurred())
 			rt2.Passthrough(ctx, "string")

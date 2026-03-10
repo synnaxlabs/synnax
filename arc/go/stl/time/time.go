@@ -15,8 +15,6 @@ import (
 
 	"github.com/synnaxlabs/arc/ir"
 	"github.com/synnaxlabs/arc/runtime/node"
-	"github.com/synnaxlabs/arc/runtime/state"
-
 	"github.com/synnaxlabs/arc/symbol"
 	"github.com/synnaxlabs/arc/types"
 	"github.com/synnaxlabs/x/errors"
@@ -108,7 +106,7 @@ func (m *Module) Create(_ context.Context, cfg node.Config) (node.Node, error) {
 		}
 		m.updateBaseInterval(period)
 		return &Interval{
-			Node:      cfg.State,
+			State:     cfg.State,
 			period:    period,
 			lastFired: -period,
 		}, nil
@@ -124,7 +122,7 @@ func (m *Module) Create(_ context.Context, cfg node.Config) (node.Node, error) {
 		}
 		m.updateBaseInterval(duration)
 		return &Wait{
-			Node:      cfg.State,
+			State:     cfg.State,
 			duration:  duration,
 			startTime: -1,
 			fired:     false,
@@ -177,7 +175,7 @@ func parseTime(v any, name string) (telem.TimeSpan, error) {
 
 // Interval is a node that fires repeatedly at a specified period.
 type Interval struct {
-	*state.Node
+	*node.State
 	period    telem.TimeSpan
 	lastFired telem.TimeSpan
 }
@@ -209,7 +207,7 @@ func (i *Interval) Next(ctx node.Context) {
 
 // Wait is a one-shot timer that fires once after a specified duration.
 type Wait struct {
-	*state.Node
+	*node.State
 	duration  telem.TimeSpan
 	startTime telem.TimeSpan
 	fired     bool
@@ -244,7 +242,7 @@ func (w *Wait) Next(ctx node.Context) {
 }
 
 func (w *Wait) Reset() {
-	w.Node.Reset()
+	w.State.Reset()
 	w.startTime = -1
 	w.fired = false
 }

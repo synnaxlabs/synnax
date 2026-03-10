@@ -17,11 +17,11 @@ import (
 	"github.com/synnaxlabs/arc/stl/control"
 )
 
-var _ = Describe("State", func() {
-	var s *control.State
+var _ = Describe("ProgramState", func() {
+	var s *control.ProgramState
 
 	BeforeEach(func() {
-		s = &control.State{}
+		s = &control.ProgramState{}
 	})
 
 	Describe("Set", func() {
@@ -154,7 +154,7 @@ var _ = Describe("State", func() {
 
 	Describe("Zero Value", func() {
 		It("Should be usable without explicit construction", func() {
-			var zeroState control.State
+			var zeroState control.ProgramState
 			zeroState.Set(nil, 128)
 			changes := zeroState.Flush()
 			Expect(changes).To(HaveLen(1))
@@ -162,7 +162,7 @@ var _ = Describe("State", func() {
 		})
 
 		It("Should return nil flush on zero value", func() {
-			var zeroState control.State
+			var zeroState control.ProgramState
 			Expect(zeroState.Flush()).To(BeNil())
 		})
 	})

@@ -16,7 +16,6 @@ import (
 	"github.com/synnaxlabs/arc/ir"
 	"github.com/synnaxlabs/arc/program"
 	"github.com/synnaxlabs/arc/runtime/node"
-	"github.com/synnaxlabs/arc/runtime/state"
 	"github.com/synnaxlabs/arc/stl/stat"
 	"github.com/synnaxlabs/arc/types"
 	"github.com/synnaxlabs/x/set"
@@ -51,7 +50,7 @@ var _ = Describe("Stat", func() {
 			}
 			analyzed, diagnostics := graph.Analyze(ctx, g, stat.SymbolResolver)
 			Expect(diagnostics.Ok()).To(BeTrue())
-			s := state.New(analyzed)
+			s := node.New(analyzed)
 			inputNode := s.Node("input")
 			m := &stat.Module{}
 			n := MustSucceed(m.Create(ctx, node.Config{
@@ -111,7 +110,7 @@ var _ = Describe("Stat", func() {
 			}
 			analyzed, diagnostics := graph.Analyze(ctx, g, stat.SymbolResolver)
 			Expect(diagnostics.Ok()).To(BeTrue())
-			s := state.New(analyzed)
+			s := node.New(analyzed)
 			inputNode := s.Node("input")
 			m := &stat.Module{}
 			n := MustSucceed(m.Create(ctx, node.Config{
@@ -188,7 +187,7 @@ var _ = Describe("Stat", func() {
 			}
 			analyzed, diagnostics := graph.Analyze(ctx, g, stat.SymbolResolver)
 			Expect(diagnostics.Ok()).To(BeTrue())
-			s := state.New(analyzed)
+			s := node.New(analyzed)
 			inputNode := s.Node("input")
 			resetNode := s.Node("reset_signal")
 			m := &stat.Module{}
@@ -253,7 +252,7 @@ var _ = Describe("Stat", func() {
 			}
 			analyzed, diagnostics := graph.Analyze(ctx, g, stat.SymbolResolver)
 			Expect(diagnostics.Ok()).To(BeTrue(), diagnostics.String())
-			s := state.New(analyzed)
+			s := node.New(analyzed)
 			inputNode := s.Node("input")
 			m := &stat.Module{}
 			n := MustSucceed(m.Create(ctx, node.Config{
@@ -316,7 +315,7 @@ var _ = Describe("Stat", func() {
 			}
 			analyzed, diagnostics := graph.Analyze(ctx, g, stat.SymbolResolver)
 			Expect(diagnostics.Ok()).To(BeTrue())
-			s := state.New(analyzed)
+			s := node.New(analyzed)
 			inputNode := s.Node("input")
 			resetNode := s.Node("reset_signal")
 			m := &stat.Module{}
@@ -377,7 +376,7 @@ var _ = Describe("Stat", func() {
 			}
 			analyzed, diagnostics := graph.Analyze(ctx, g, stat.SymbolResolver)
 			Expect(diagnostics.Ok()).To(BeTrue())
-			s := state.New(analyzed)
+			s := node.New(analyzed)
 			inputNode := s.Node("input")
 			m := &stat.Module{}
 			n := MustSucceed(m.Create(ctx, node.Config{
@@ -440,7 +439,7 @@ var _ = Describe("Stat", func() {
 			}
 			analyzed, diagnostics := graph.Analyze(ctx, g, stat.SymbolResolver)
 			Expect(diagnostics.Ok()).To(BeTrue())
-			s := state.New(analyzed)
+			s := node.New(analyzed)
 			inputNode := s.Node("input")
 			resetNode := s.Node("reset")
 			m := &stat.Module{}

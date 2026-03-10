@@ -26,7 +26,7 @@ import (
 type Module struct {
 	Module        api.Module
 	Memory        api.Memory
-	Strings       *stlstrings.State
+	Strings       *stlstrings.ProgramState
 	NodeKeySetter NodeKeySetter
 }
 
@@ -68,7 +68,7 @@ func (w *Module) Create(_ context.Context, cfg runtimenode.Config) (runtimenode.
 	}
 
 	n := &nodeImpl{
-		Node:          cfg.State,
+		State:         cfg.State,
 		ir:            cfg.Node,
 		fn:            fn,
 		mem:           w.Memory,

@@ -17,7 +17,6 @@ import (
 	"github.com/synnaxlabs/arc/graph"
 	"github.com/synnaxlabs/arc/ir"
 	"github.com/synnaxlabs/arc/runtime/node"
-	"github.com/synnaxlabs/arc/runtime/state"
 	"github.com/synnaxlabs/arc/stl/stable"
 	"github.com/synnaxlabs/arc/types"
 	"github.com/synnaxlabs/x/query"
@@ -31,7 +30,7 @@ var ctx = context.Background()
 var _ = Describe("StableFor", func() {
 	var (
 		module      *stable.Module
-		s           *state.State
+		s           *node.ProgramState
 		irNode      ir.Node
 		currentTime telem.TimeStamp
 	)
@@ -83,7 +82,7 @@ var _ = Describe("StableFor", func() {
 		}
 		analyzed, diagnostics := graph.Analyze(ctx, g, stable.SymbolResolver)
 		Expect(diagnostics.Ok()).To(BeTrue())
-		s = state.New(analyzed)
+		s = node.New(analyzed)
 	})
 
 	Describe("Factory.Create", func() {

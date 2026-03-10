@@ -17,7 +17,6 @@ import (
 	"github.com/synnaxlabs/arc/graph"
 	"github.com/synnaxlabs/arc/ir"
 	"github.com/synnaxlabs/arc/runtime/node"
-	"github.com/synnaxlabs/arc/runtime/state"
 	"github.com/synnaxlabs/arc/stl/selector"
 	"github.com/synnaxlabs/arc/types"
 	"github.com/synnaxlabs/x/query"
@@ -37,7 +36,7 @@ var _ = Describe("Select", func() {
 	})
 	Describe("Module.Create", func() {
 		var factory node.Factory
-		var s *state.State
+		var s *node.ProgramState
 		BeforeEach(func() {
 			factory = selector.NewModule()
 			g := graph.Graph{
@@ -72,7 +71,7 @@ var _ = Describe("Select", func() {
 			}
 			analyzed, diagnostics := graph.Analyze(ctx, g, selector.SymbolResolver)
 			Expect(diagnostics.Ok()).To(BeTrue())
-			s = state.New(analyzed)
+			s = node.New(analyzed)
 		})
 		It("Should create node for select type", func() {
 			cfg := node.Config{
@@ -92,7 +91,7 @@ var _ = Describe("Select", func() {
 		})
 	})
 	Describe("select.Next", func() {
-		var s *state.State
+		var s *node.ProgramState
 		var factory node.Factory
 		BeforeEach(func() {
 			factory = selector.NewModule()
@@ -128,7 +127,7 @@ var _ = Describe("Select", func() {
 			}
 			analyzed, diagnostics := graph.Analyze(ctx, g, selector.SymbolResolver)
 			Expect(diagnostics.Ok()).To(BeTrue())
-			s = state.New(analyzed)
+			s = node.New(analyzed)
 		})
 		It("Should handle empty input", func() {
 			cfg := node.Config{
@@ -401,7 +400,7 @@ var _ = Describe("Select", func() {
 			}
 			analyzed, diagnostics := graph.Analyze(ctx, g, selector.SymbolResolver)
 			Expect(diagnostics.Ok()).To(BeTrue())
-			s := state.New(analyzed)
+			s := node.New(analyzed)
 			factory := selector.NewModule()
 			cfg := node.Config{
 				Node:  ir.Node{Type: "select"},

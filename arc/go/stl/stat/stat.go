@@ -14,8 +14,6 @@ import (
 
 	"github.com/synnaxlabs/arc/ir"
 	"github.com/synnaxlabs/arc/runtime/node"
-	"github.com/synnaxlabs/arc/runtime/state"
-
 	"github.com/synnaxlabs/arc/symbol"
 	"github.com/synnaxlabs/arc/types"
 	"github.com/synnaxlabs/x/query"
@@ -93,7 +91,7 @@ func (m *Module) Create(_ context.Context, nodeCfg node.Config) (node.Node, erro
 		return nil, err
 	}
 	return &statNode{
-		Node:        nodeCfg.State,
+		State:       nodeCfg.State,
 		resetIdx:    resetIdx,
 		reductionFn: reductionFn,
 		sampleCount: 0,
@@ -112,7 +110,7 @@ var configSchema = zyn.Object(map[string]zyn.Schema{
 })
 
 type statNode struct {
-	*state.Node
+	*node.State
 	reductionFn   func(telem.Series, int64, *telem.Series) int64
 	cfg           ConfigValues
 	resetIdx      int
@@ -124,7 +122,7 @@ type statNode struct {
 var _ node.Node = (*statNode)(nil)
 
 func (r *statNode) Reset() {
-	r.Node.Reset()
+	r.State.Reset()
 	r.sampleCount = 0
 	r.startTime = 0
 	r.lastResetTime = 0

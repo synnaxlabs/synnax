@@ -18,7 +18,6 @@ import (
 	"github.com/synnaxlabs/arc/graph"
 	"github.com/synnaxlabs/arc/ir"
 	"github.com/synnaxlabs/arc/runtime/node"
-	"github.com/synnaxlabs/arc/runtime/state"
 	"github.com/synnaxlabs/arc/stl/time"
 	"github.com/synnaxlabs/arc/types"
 	"github.com/synnaxlabs/x/query"
@@ -38,7 +37,7 @@ var _ = Describe("Time", func() {
 	})
 	Describe("Interval", func() {
 		var factory *time.Module
-		var s *state.State
+		var s *node.ProgramState
 		var changedOutputs []string
 		BeforeEach(func() {
 			factory = MustSucceed(time.NewModule(ctx, wazero.NewRuntimeWithConfig(ctx, wazero.NewRuntimeConfigInterpreter())))
@@ -63,7 +62,7 @@ var _ = Describe("Time", func() {
 			}
 			analyzed, diagnostics := graph.Analyze(ctx, g, time.SymbolResolver)
 			Expect(diagnostics.Ok()).To(BeTrue())
-			s = state.New(analyzed)
+			s = node.New(analyzed)
 		})
 		It("Should create node for interval type", func() {
 			cfg := node.Config{
@@ -242,7 +241,7 @@ var _ = Describe("Time", func() {
 	})
 	Describe("Wait", func() {
 		var factory *time.Module
-		var s *state.State
+		var s *node.ProgramState
 		var changedOutputs []string
 		BeforeEach(func() {
 			factory = MustSucceed(time.NewModule(ctx, wazero.NewRuntimeWithConfig(ctx, wazero.NewRuntimeConfigInterpreter())))
@@ -267,7 +266,7 @@ var _ = Describe("Time", func() {
 			}
 			analyzed, diagnostics := graph.Analyze(ctx, g, time.SymbolResolver)
 			Expect(diagnostics.Ok()).To(BeTrue())
-			s = state.New(analyzed)
+			s = node.New(analyzed)
 		})
 		It("Should create node for wait type", func() {
 			cfg := node.Config{
@@ -792,7 +791,7 @@ var _ = Describe("Time", func() {
 			}
 			analyzed, diagnostics := graph.Analyze(ctx, g, time.SymbolResolver)
 			Expect(diagnostics.Ok()).To(BeTrue())
-			s := state.New(analyzed)
+			s := node.New(analyzed)
 
 			// Create first interval with 100ms period
 			cfg1 := node.Config{
@@ -854,7 +853,7 @@ var _ = Describe("Time", func() {
 	})
 	Describe("Tolerance Behavior", func() {
 		var factory *time.Module
-		var s *state.State
+		var s *node.ProgramState
 		var changedOutputs []string
 		BeforeEach(func() {
 			factory = MustSucceed(time.NewModule(ctx, wazero.NewRuntimeWithConfig(ctx, wazero.NewRuntimeConfigInterpreter())))
@@ -879,7 +878,7 @@ var _ = Describe("Time", func() {
 			}
 			analyzed, diagnostics := graph.Analyze(ctx, g, time.SymbolResolver)
 			Expect(diagnostics.Ok()).To(BeTrue())
-			s = state.New(analyzed)
+			s = node.New(analyzed)
 		})
 		Describe("Interval with tolerance", func() {
 			It("Should fire on early tick within tolerance", func() {
@@ -1074,7 +1073,7 @@ var _ = Describe("Time", func() {
 				}
 				analyzed, diagnostics := graph.Analyze(ctx, g, time.SymbolResolver)
 				Expect(diagnostics.Ok()).To(BeTrue())
-				waitState := state.New(analyzed)
+				waitState := node.New(analyzed)
 				waitFactory := MustSucceed(time.NewModule(ctx, wazero.NewRuntimeWithConfig(ctx, wazero.NewRuntimeConfigInterpreter())))
 
 				cfg := node.Config{
@@ -1125,7 +1124,7 @@ var _ = Describe("Time", func() {
 	Describe("Deadline Reporting", func() {
 		Describe("Interval", func() {
 			var factory *time.Module
-			var s *state.State
+			var s *node.ProgramState
 			BeforeEach(func() {
 				factory = MustSucceed(time.NewModule(ctx, nil))
 				g := graph.Graph{
@@ -1148,7 +1147,7 @@ var _ = Describe("Time", func() {
 				}
 				analyzed, diagnostics := graph.Analyze(ctx, g, time.SymbolResolver)
 				Expect(diagnostics.Ok()).To(BeTrue())
-				s = state.New(analyzed)
+				s = node.New(analyzed)
 			})
 			It("Should set deadline to lastFired + period", func() {
 				cfg := node.Config{
@@ -1214,7 +1213,7 @@ var _ = Describe("Time", func() {
 		})
 		Describe("Wait", func() {
 			var factory *time.Module
-			var s *state.State
+			var s *node.ProgramState
 			BeforeEach(func() {
 				factory = MustSucceed(time.NewModule(ctx, nil))
 				g := graph.Graph{
@@ -1237,7 +1236,7 @@ var _ = Describe("Time", func() {
 				}
 				analyzed, diagnostics := graph.Analyze(ctx, g, time.SymbolResolver)
 				Expect(diagnostics.Ok()).To(BeTrue())
-				s = state.New(analyzed)
+				s = node.New(analyzed)
 			})
 			It("Should set deadline to startTime + duration", func() {
 				cfg := node.Config{

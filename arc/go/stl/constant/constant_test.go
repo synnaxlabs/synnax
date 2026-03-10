@@ -17,7 +17,6 @@ import (
 	"github.com/synnaxlabs/arc/graph"
 	"github.com/synnaxlabs/arc/ir"
 	"github.com/synnaxlabs/arc/runtime/node"
-	"github.com/synnaxlabs/arc/runtime/state"
 	"github.com/synnaxlabs/arc/stl/constant"
 	"github.com/synnaxlabs/arc/types"
 	"github.com/synnaxlabs/x/query"
@@ -38,7 +37,7 @@ var _ = Describe("Constant", func() {
 	Describe("Factory.Create", func() {
 		var (
 			factory node.Factory
-			s       *state.State
+			s       *node.ProgramState
 		)
 		BeforeEach(func() {
 			factory = constant.NewModule()
@@ -53,9 +52,9 @@ var _ = Describe("Constant", func() {
 			}
 			analyzed, diagnostics := graph.Analyze(ctx, g, constant.SymbolResolver)
 			Expect(diagnostics.Ok()).To(BeTrue())
-			s = state.New(analyzed)
+			s = node.New(analyzed)
 		})
-		It("Should create node for constant type", func() {
+		It("Should create constant for constant type", func() {
 			cfg := node.Config{
 				Node:  ir.Node{Type: "constant", Config: types.Params{{Name: "value", Type: types.I64(), Value: 42}}},
 				State: s.Node("const"),
@@ -113,7 +112,7 @@ var _ = Describe("Constant", func() {
 
 	Describe("Next", func() {
 		var (
-			s       *state.State
+			s       *node.ProgramState
 			factory node.Factory
 			outputs []string
 		)
@@ -130,7 +129,7 @@ var _ = Describe("Constant", func() {
 			}
 			inter, diagnostics := graph.Analyze(ctx, g, constant.SymbolResolver)
 			Expect(diagnostics.Ok()).To(BeTrue())
-			s = state.New(inter)
+			s = node.New(inter)
 			outputs = []string{}
 		})
 
@@ -245,7 +244,7 @@ var _ = Describe("Constant", func() {
 			}
 			inter, diagnostics := graph.Analyze(ctx, g, constant.SymbolResolver)
 			Expect(diagnostics.Ok()).To(BeTrue())
-			s = state.New(inter)
+			s = node.New(inter)
 			cfg := node.Config{
 				Node:  ir.Node{Type: "constant", Config: types.Params{{Name: "value", Type: types.I64(), Value: int64(999)}}},
 				State: s.Node("const"),
