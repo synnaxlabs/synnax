@@ -25,9 +25,9 @@ import {
 import { status } from "@synnaxlabs/x";
 import { useCallback } from "react";
 
-import { KeyValueEditor } from "@/components/form/KeyValueEditor";
 import { CSS } from "@/css";
 import {
+  type APIKeyAuthConfigSendAs,
   type AuthType,
   type Device,
   SCHEMAS,
@@ -46,7 +46,7 @@ export const CONNECT_LAYOUT: Layout.BaseState = {
   name: "Server.Connect",
   icon: "Logo.HTTP",
   location: "modal",
-  window: { resizable: false, size: { height: 720, width: 700 }, navTop: true },
+  window: { resizable: false, size: { height: 530, width: 700 }, navTop: true },
 };
 
 const INITIAL_VALUES: Device = {
@@ -79,6 +79,40 @@ export const Connect: Layout.Renderer = ({ layoutKey, onClose }) => {
     { ctx: form },
   );
 
+  const sendAs = Form.useFieldValue<string, string, typeof PDevice.formSchema>(
+    "properties.auth.sendAs",
+    { ctx: form, optional: true },
+  );
+
+  const renderAuthType = useCallback(
+    ({
+      onChange,
+      ...rest
+    }: SelectAuthTypeProps & { onChange: (v: AuthType) => void }) => {
+      const handleChange = (value: AuthType) => {
+        form.set("properties.auth", ZERO_AUTH_CONFIGS[value]);
+        onChange(value);
+      };
+      return <SelectAuthType {...rest} onChange={handleChange} />;
+    },
+    [form.set],
+  );
+
+  const renderSendAs = useCallback(
+    ({
+      onChange,
+      ...rest
+    }: SelectSendAsProps & { onChange: (v: APIKeyAuthConfigSendAs) => void }) => {
+      const handleChange = (value: APIKeyAuthConfigSendAs) => {
+        if (value === "header") form.set("properties.auth.header", "");
+        else form.set("properties.auth.parameter", "");
+        onChange(value);
+      };
+      return <SelectSendAs {...rest} onChange={handleChange} />;
+    },
+    [form.set],
+  );
+
   return (
     <Flex.Box grow className={CSS.B("http-connect")}>
       <Flex.Box className={CSS.B("content")} grow gap="small">
@@ -105,28 +139,8 @@ export const Connect: Layout.Renderer = ({ layoutKey, onClose }) => {
             inputProps={TIMEOUT_INPUT_PROPS}
           />
           <Divider.Divider x padded="bottom" />
-          <KeyValueEditor
-            path="properties.headers"
-            label="Headers"
-            keyPlaceholder="Field Name"
-            valuePlaceholder="Field Value"
-          />
-          <Divider.Divider x padded />
-          <KeyValueEditor
-            path="properties.queryParams"
-            label="Query Parameters"
-            keyPlaceholder="Parameter"
-            valuePlaceholder="Value"
-          />
-          <Divider.Divider x padded="bottom" />
           <Form.Field<AuthType> path="properties.auth.type" label="Authentication">
-            {({ onChange, ...rest }) => {
-              const handleChange = (value: AuthType) => {
-                form.set("properties.auth", ZERO_AUTH_CONFIGS[value]);
-                onChange(value);
-              };
-              return <SelectAuthType {...rest} onChange={handleChange} />;
-            }}
+            {renderAuthType}
           </Form.Field>
           {authType === "bearer" && (
             <Form.TextField
@@ -136,20 +150,37 @@ export const Connect: Layout.Renderer = ({ layoutKey, onClose }) => {
             />
           )}
           {authType === "api_key" && (
-            <Flex.Box x justify="between">
-              <Form.TextField
-                grow
-                path="properties.auth.header"
-                label="Header Name"
-                inputProps={AUTH_HEADER_INPUT_PROPS}
-              />
-              <Form.TextField
-                grow
-                path="properties.auth.key"
-                label="API Key"
-                inputProps={AUTH_KEY_INPUT_PROPS}
-              />
-            </Flex.Box>
+            <>
+              <Form.Field<APIKeyAuthConfigSendAs>
+                path="properties.auth.sendAs"
+                label="Send as"
+              >
+                {renderSendAs}
+              </Form.Field>
+              <Flex.Box x justify="between">
+                {sendAs === "query_param" ? (
+                  <Form.TextField
+                    grow
+                    path="properties.auth.parameter"
+                    label="Parameter Name"
+                    inputProps={AUTH_PARAM_INPUT_PROPS}
+                  />
+                ) : (
+                  <Form.TextField
+                    grow
+                    path="properties.auth.header"
+                    label="Header Name"
+                    inputProps={AUTH_HEADER_INPUT_PROPS}
+                  />
+                )}
+                <Form.TextField
+                  grow
+                  path="properties.auth.key"
+                  label="API Key"
+                  inputProps={AUTH_KEY_INPUT_PROPS}
+                />
+              </Flex.Box>
+            </>
           )}
           {authType === "basic" && (
             <Flex.Box x justify="between">
@@ -208,6 +239,8 @@ const AUTH_TOKEN_INPUT_PROPS = {
 
 const AUTH_HEADER_INPUT_PROPS = { placeholder: "X-API-Key" } as const;
 
+const AUTH_PARAM_INPUT_PROPS = { placeholder: "key" } as const;
+
 const AUTH_KEY_INPUT_PROPS = {
   placeholder: "sk_live_51N8...",
   type: "password",
@@ -233,7 +266,7 @@ const SelectAuthType = (props: SelectAuthTypeProps) => (
     </Select.Button>
     <Select.Button<AuthType>
       itemKey="api_key"
-      tooltip="Adds a custom HTTP header with your API key"
+      tooltip="Sends your API key as a header or query parameter"
       tooltipLocation="top"
     >
       API Key
@@ -244,6 +277,22 @@ const SelectAuthType = (props: SelectAuthTypeProps) => (
       tooltipLocation="top"
     >
       Basic
+    </Select.Button>
+  </Select.Buttons>
+);
+
+const SEND_AS_DATA: APIKeyAuthConfigSendAs[] = ["header", "query_param"];
+
+interface SelectSendAsProps extends Omit<
+  Select.ButtonsProps<APIKeyAuthConfigSendAs>,
+  "keys"
+> {}
+
+const SelectSendAs = (props: SelectSendAsProps) => (
+  <Select.Buttons<APIKeyAuthConfigSendAs> {...props} keys={SEND_AS_DATA}>
+    <Select.Button<APIKeyAuthConfigSendAs> itemKey="header">Header</Select.Button>
+    <Select.Button<APIKeyAuthConfigSendAs> itemKey="query_param">
+      Query Parameter
     </Select.Button>
   </Select.Buttons>
 );
