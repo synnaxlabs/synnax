@@ -12,10 +12,8 @@ package errors
 import (
 	"context"
 
-	"github.com/synnaxlabs/arc/runtime/node"
 	"github.com/synnaxlabs/arc/symbol"
 	"github.com/synnaxlabs/arc/types"
-	"github.com/synnaxlabs/x/query"
 	"github.com/tetratelabs/wazero"
 	"github.com/tetratelabs/wazero/api"
 )
@@ -60,7 +58,3 @@ func NewModule(ctx context.Context, memory api.Memory, rat wazero.Runtime) (*Mod
 }
 
 func (m *Module) SetMemory(mem api.Memory) { m.memory = mem }
-
-func (m *Module) Create(_ context.Context, _ node.Config) (node.Node, error) {
-	return nil, query.ErrNotFound
-}

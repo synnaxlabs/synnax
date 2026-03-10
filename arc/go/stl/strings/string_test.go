@@ -75,7 +75,7 @@ var _ = Describe("Strings", func() {
 	Describe("from_literal with nil memory", func() {
 		It("Should return 0 when memory is nil", func() {
 			rt2 := testutil.NewRuntime(ctx)
-			defer rt2.Close(ctx)
+			defer func() { Expect(rt2.Close(ctx)).To(Succeed()) }()
 			ss2 := strings.NewProgramState()
 			_, err := strings.NewModule(ctx, ss2, rt2.Underlying(), nil)
 			Expect(err).ToNot(HaveOccurred())

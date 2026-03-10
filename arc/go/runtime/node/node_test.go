@@ -10,45 +10,12 @@
 package node_test
 
 import (
-	"context"
-
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/arc/graph"
 	"github.com/synnaxlabs/arc/ir"
 	"github.com/synnaxlabs/arc/runtime/node"
-	"github.com/synnaxlabs/x/query"
 )
-
-type mockNode struct {
-	initCalled bool
-	nextCalled int
-}
-
-func (m *mockNode) Init(node.Context) { m.initCalled = true }
-
-func (m *mockNode) Next(node.Context) { m.nextCalled++ }
-
-func (m *mockNode) IsOutputTruthy(param string) bool {
-	return false
-}
-
-func (m *mockNode) Reset() {}
-
-type mockFactory struct {
-	returnNode   node.Node
-	returnError  error
-	nodeType     string
-	createCalled int
-}
-
-func (m *mockFactory) Create(_ context.Context, cfg node.Config) (node.Node, error) {
-	m.createCalled++
-	if cfg.Node.Type != m.nodeType {
-		return nil, query.ErrNotFound
-	}
-	return m.returnNode, m.returnError
-}
 
 var _ = Describe("Node", func() {
 	Describe("Config", func() {

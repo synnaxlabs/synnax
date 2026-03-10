@@ -150,8 +150,6 @@ func F64(v float64) uint64 { return math.Float64bits(v) }
 
 func AsU32(v uint64) uint32  { return uint32(v) }
 func AsU64(v uint64) uint64  { return v }
-func AsI32(v uint64) int32   { return int32(uint32(v)) }
-func AsI64(v uint64) int64   { return int64(v) }
 func AsF32(v uint64) float32 { return math.Float32frombits(uint32(v)) }
 func AsF64(v uint64) float64 { return math.Float64frombits(v) }
 

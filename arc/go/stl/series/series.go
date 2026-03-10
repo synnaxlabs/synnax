@@ -13,11 +13,9 @@ import (
 	"context"
 
 	"github.com/synnaxlabs/arc/ir"
-	"github.com/synnaxlabs/arc/runtime/node"
 
 	"github.com/synnaxlabs/arc/symbol"
 	"github.com/synnaxlabs/arc/types"
-	"github.com/synnaxlabs/x/query"
 	"github.com/synnaxlabs/x/telem"
 	"github.com/synnaxlabs/x/telem/op"
 	"github.com/tetratelabs/wazero"
@@ -160,10 +158,6 @@ func NewModule(
 		return nil, err
 	}
 	return &Module{series: s}, nil
-}
-
-func (m *Module) Create(_ context.Context, _ node.Config) (node.Node, error) {
-	return nil, query.ErrNotFound
 }
 
 // i32Scalar is used for types that map to i32 in WASM.
