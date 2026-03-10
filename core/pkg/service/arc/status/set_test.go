@@ -94,9 +94,4 @@ var _ = Describe("Module", func() {
 		})
 	})
 
-	Describe("BindTo", func() {
-		It("Should return nil", func() {
-			Expect(mod.BindTo(nil)).To(Succeed())
-		})
-	})
 })

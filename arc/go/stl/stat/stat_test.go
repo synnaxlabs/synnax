@@ -193,8 +193,8 @@ var _ = Describe("Stat", func() {
 			resetNode := s.Node("reset_signal")
 			m := &stat.Module{}
 			n := MustSucceed(m.Create(ctx, node.Config{
-				Node:   ir.Node{Type: "max"},
-				State:  s.Node("max"),
+				Node:    ir.Node{Type: "max"},
+				State:   s.Node("max"),
 				Program: program.Program{IR: analyzed},
 			}))
 			*inputNode.Output(0) = telem.NewSeriesV[uint64](10, 50, 30)
@@ -257,8 +257,8 @@ var _ = Describe("Stat", func() {
 			inputNode := s.Node("input")
 			m := &stat.Module{}
 			n := MustSucceed(m.Create(ctx, node.Config{
-				Node:   ir.Node{Type: "max"},
-				State:  s.Node("max"),
+				Node:    ir.Node{Type: "max"},
+				State:   s.Node("max"),
 				Program: program.Program{IR: analyzed},
 			}))
 			// Should work even without reset signal
@@ -321,8 +321,8 @@ var _ = Describe("Stat", func() {
 			resetNode := s.Node("reset_signal")
 			m := &stat.Module{}
 			n := MustSucceed(m.Create(ctx, node.Config{
-				Node:   ir.Node{Type: "avg", Key: "avg"},
-				State:  s.Node("avg"),
+				Node:    ir.Node{Type: "avg", Key: "avg"},
+				State:   s.Node("avg"),
 				Program: program.Program{IR: analyzed},
 			}))
 			// Accumulate some data
@@ -381,8 +381,8 @@ var _ = Describe("Stat", func() {
 			inputNode := s.Node("input")
 			m := &stat.Module{}
 			n := MustSucceed(m.Create(ctx, node.Config{
-				Node:   ir.Node{Type: "avg"},
-				State:  s.Node("avg"),
+				Node:    ir.Node{Type: "avg"},
+				State:   s.Node("avg"),
 				Program: program.Program{IR: analyzed},
 			}))
 			inputSeries := telem.NewSeriesV(10.0, 20.0, 30.0)
@@ -445,8 +445,8 @@ var _ = Describe("Stat", func() {
 			resetNode := s.Node("reset")
 			m := &stat.Module{}
 			n := MustSucceed(m.Create(ctx, node.Config{
-				Node:   ir.Node{Key: "avg", Type: "avg"},
-				State:  s.Node("avg"),
+				Node:    ir.Node{Key: "avg", Type: "avg"},
+				State:   s.Node("avg"),
 				Program: program.Program{IR: analyzed},
 			}))
 

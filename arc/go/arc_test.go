@@ -18,20 +18,6 @@ import (
 	"github.com/synnaxlabs/arc"
 	"github.com/synnaxlabs/arc/ir"
 	"github.com/synnaxlabs/arc/stl"
-	stlchannel "github.com/synnaxlabs/arc/stl/channel"
-	"github.com/synnaxlabs/arc/stl/constant"
-	"github.com/synnaxlabs/arc/stl/control"
-	stlerrors "github.com/synnaxlabs/arc/stl/errors"
-	stlmath "github.com/synnaxlabs/arc/stl/math"
-	"github.com/synnaxlabs/arc/stl/module"
-	stlop "github.com/synnaxlabs/arc/stl/op"
-	"github.com/synnaxlabs/arc/stl/selector"
-	"github.com/synnaxlabs/arc/stl/series"
-	"github.com/synnaxlabs/arc/stl/stable"
-	"github.com/synnaxlabs/arc/stl/stage"
-	"github.com/synnaxlabs/arc/stl/stat"
-	"github.com/synnaxlabs/arc/stl/stateful"
-	stlstrings "github.com/synnaxlabs/arc/stl/strings"
 	"github.com/synnaxlabs/arc/stl/time"
 	"github.com/synnaxlabs/arc/symbol"
 	"github.com/synnaxlabs/arc/types"
@@ -323,23 +309,6 @@ sequence main {
 		// Regression test: stateful variables must produce typed WASM imports
 		// like "state::load_i64", not bare "state::load". This mirrors the
 		// exact program used in the C++ NodeTest.StatefulVariablesAreIsolatedBetweenNodeInstances.
-		modules := []module.Module{
-			stlchannel.NewModule(nil, nil),
-			stateful.NewModule(nil, nil),
-			series.NewModule(nil),
-			stlstrings.NewModule(nil),
-			stlmath.NewModule(),
-			stlerrors.NewModule(),
-			constant.NewModule(),
-			stlop.NewModule(),
-			selector.NewModule(),
-			stable.NewModule(),
-			control.NewModule(nil),
-			&stat.Module{},
-			time.NewModule(),
-			stage.NewModule(),
-		}
-		resolver := stl.CompoundResolver(modules...)
 		channelResolver := symbol.MapResolver{
 			"trigger": arc.Symbol{
 				Name: "trigger",
@@ -360,7 +329,7 @@ sequence main {
 				ID:   3,
 			},
 		}
-		fullResolver := append(resolver, channelResolver)
+		fullResolver := symbol.CompoundResolver{stl.SymbolResolver, channelResolver}
 
 		mod := compile(`
 func counter(trigger i64) i64 {

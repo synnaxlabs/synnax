@@ -76,6 +76,9 @@ func NewModule(
 	ctx context.Context,
 	rat wazero.Runtime,
 ) (*Module, error) {
+	if rat == nil {
+		return &Module{BaseInterval: unsetBaseInterval}, nil
+	}
 	builder := rat.NewHostModuleBuilder("time")
 	builder = builder.NewFunctionBuilder().
 		WithFunc(func(_ context.Context) uint64 {

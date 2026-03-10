@@ -22,11 +22,11 @@ import (
 	"github.com/synnaxlabs/x/telem"
 )
 
-var _ = Describe("DefaultResolverModules", func() {
-	It("Should return a non-empty list of modules", func() {
-		modules := symbol.DefaultResolverModules()
-		Expect(modules).ToNot(BeEmpty())
-		Expect(len(modules)).To(Equal(14))
+var _ = Describe("DefaultSymbolResolver", func() {
+	It("Should return a non-empty list of resolvers", func() {
+		resolvers := symbol.DefaultSymbolResolver()
+		Expect(resolvers).ToNot(BeEmpty())
+		Expect(len(resolvers)).To(Equal(14))
 	})
 })
 
@@ -78,8 +78,8 @@ var _ = Describe("CreateResolver", func() {
 		Expect(err).To(MatchError(query.ErrNotFound))
 	})
 
-	It("Should use custom modules when provided", func() {
-		resolver := symbol.CreateResolver(dist.Channel, symbol.DefaultResolverModules()...)
+	It("Should use custom resolvers when provided", func() {
+		resolver := symbol.CreateResolver(dist.Channel, symbol.DefaultSymbolResolver()...)
 		sym, err := resolver.Resolve(ctx, "set_status")
 		Expect(err).ToNot(HaveOccurred())
 		Expect(sym.Name).To(Equal("set_status"))

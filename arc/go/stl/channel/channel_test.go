@@ -32,9 +32,9 @@ var ctx = context.Background()
 var _ = Describe("Channel", func() {
 	Describe("WASM Bindings", func() {
 		var (
-			rt  *testutil.Runtime
-			cs  *channel.State
-			ss  *strings.State
+			rt *testutil.Runtime
+			cs *channel.State
+			ss *strings.State
 		)
 
 		BeforeEach(func() {

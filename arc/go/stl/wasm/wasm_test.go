@@ -23,6 +23,12 @@ import (
 	"github.com/synnaxlabs/arc/runtime/state"
 	"github.com/synnaxlabs/arc/stl"
 	"github.com/synnaxlabs/arc/stl/channel"
+	stlerrors "github.com/synnaxlabs/arc/stl/errors"
+	stlmath "github.com/synnaxlabs/arc/stl/math"
+	"github.com/synnaxlabs/arc/stl/series"
+	"github.com/synnaxlabs/arc/stl/stateful"
+	stlstrings "github.com/synnaxlabs/arc/stl/strings"
+	stltime "github.com/synnaxlabs/arc/stl/time"
 	"github.com/synnaxlabs/arc/stl/wasm"
 	"github.com/synnaxlabs/arc/symbol"
 	"github.com/synnaxlabs/arc/text"
@@ -30,6 +36,8 @@ import (
 	"github.com/synnaxlabs/x/set"
 	"github.com/synnaxlabs/x/telem"
 	. "github.com/synnaxlabs/x/testutil"
+	"github.com/tetratelabs/wazero"
+	"github.com/tetratelabs/wazero/api"
 )
 
 var _ = Describe("ConvertConfigValue", func() {
@@ -63,13 +71,17 @@ var _ = Describe("ConvertConfigValue", func() {
 
 // testHarness encapsulates common test setup for wasm module tests.
 type testHarness struct {
-	factory  node.Factory
-	state    *state.State
-	rt       *wasm.Runtime
-	prog     program.Program
-	analyzed ir.IR
-	graph    arc.Graph
+	factory      node.Factory
+	state        *state.State
+	wasmRT       wazero.Runtime
+	guest        api.Module
+	channelState *channel.State
+	prog         program.Program
+	analyzed     ir.IR
+	graph        arc.Graph
 }
+
+func (h *testHarness) ChannelState() *channel.State { return h.channelState }
 
 // newHarness creates a new test harness from a graph definition.
 func newHarness(
@@ -87,24 +99,45 @@ func newHarness(
 	analyzed, diagnostics := graph.Analyze(ctx, g, resolver)
 	Expect(diagnostics.Ok()).To(BeTrue())
 	s := state.New(analyzed)
-	rt := MustSucceed(wasm.Open(ctx, wasm.RuntimeConfig{
-		Program:        prog,
-		State:          s,
-		ChannelDigests: channelDigests,
-	}))
-	factory := wasm.NewFactory(rt)
+
+	stringsState := stlstrings.NewState()
+	seriesState := series.NewState()
+	channelState := channel.NewState(channelDigests)
+
+	wasmRT := wazero.NewRuntimeWithConfig(ctx, wazero.NewRuntimeConfigCompiler())
+	statefulMod := MustSucceed(stateful.NewModule(ctx, seriesState, stringsState, wasmRT))
+	_, _ = series.NewModule(ctx, seriesState, wasmRT)
+	stringsMod := MustSucceed(stlstrings.NewModule(ctx, stringsState, wasmRT, nil))
+	_, _ = stlmath.NewModule(ctx, wasmRT)
+	errorsMod := MustSucceed(stlerrors.NewModule(ctx, nil, wasmRT))
+	_, _ = stltime.NewModule(ctx, wasmRT)
+	_, _ = channel.NewModule(ctx, channelState, stringsState, wasmRT)
+
+	guest := MustSucceed(wasmRT.Instantiate(ctx, prog.WASM))
+	stringsMod.SetMemory(guest.Memory())
+	errorsMod.SetMemory(guest.Memory())
+
+	factory := &wasm.Module{
+		Module:        guest,
+		Memory:        guest.Memory(),
+		Strings:       stringsState,
+		NodeKeySetter: statefulMod,
+	}
 	return &testHarness{
-		graph:    g,
-		prog:     prog,
-		analyzed: analyzed,
-		state:    s,
-		rt:       rt,
-		factory:  factory,
+		graph:        g,
+		prog:         prog,
+		analyzed:     analyzed,
+		state:        s,
+		wasmRT:       wasmRT,
+		guest:        guest,
+		channelState: channelState,
+		factory:      factory,
 	}
 }
 
 func (h *testHarness) Close() {
-	Expect(h.rt.Close()).To(Succeed())
+	Expect(h.guest.Close(ctx)).To(Succeed())
+	Expect(h.wasmRT.Close(ctx)).To(Succeed())
 }
 
 func (h *testHarness) SetInput(nodeKey string, idx int, data telem.Series, time telem.Series) {
@@ -153,18 +186,38 @@ func newTextHarness(
 	Expect(diagnostics.Ok()).To(BeTrue(), diagnostics.String())
 	prog := MustSucceed(text.Compile(ctx, analyzed, compiler.WithHostSymbols(compileResolver)))
 	s := state.New(analyzed)
-	rt := MustSucceed(wasm.Open(ctx, wasm.RuntimeConfig{
-		Program:        prog,
-		State:          s,
-		ChannelDigests: channelDigests,
-	}))
-	factory := wasm.NewFactory(rt)
+
+	stringsState := stlstrings.NewState()
+	seriesState := series.NewState()
+	channelState := channel.NewState(channelDigests)
+
+	wasmRT := wazero.NewRuntimeWithConfig(ctx, wazero.NewRuntimeConfigCompiler())
+	statefulMod := MustSucceed(stateful.NewModule(ctx, seriesState, stringsState, wasmRT))
+	_, _ = series.NewModule(ctx, seriesState, wasmRT)
+	stringsMod := MustSucceed(stlstrings.NewModule(ctx, stringsState, wasmRT, nil))
+	_, _ = stlmath.NewModule(ctx, wasmRT)
+	errorsMod := MustSucceed(stlerrors.NewModule(ctx, nil, wasmRT))
+	_, _ = stltime.NewModule(ctx, wasmRT)
+	_, _ = channel.NewModule(ctx, channelState, stringsState, wasmRT)
+
+	guest := MustSucceed(wasmRT.Instantiate(ctx, prog.WASM))
+	stringsMod.SetMemory(guest.Memory())
+	errorsMod.SetMemory(guest.Memory())
+
+	factory := &wasm.Module{
+		Module:        guest,
+		Memory:        guest.Memory(),
+		Strings:       stringsState,
+		NodeKeySetter: statefulMod,
+	}
 	return &testHarness{
-		prog:     prog,
-		analyzed: analyzed,
-		state:    s,
-		rt:       rt,
-		factory:  factory,
+		prog:         prog,
+		analyzed:     analyzed,
+		state:        s,
+		wasmRT:       wasmRT,
+		guest:        guest,
+		channelState: channelState,
+		factory:      factory,
 	}
 }
 
@@ -1088,7 +1141,7 @@ var _ = Describe("WASM", func() {
 
 				h.Execute("write_test")
 
-				fr, changed := h.rt.ChannelState().Flush(telem.Frame[uint32]{})
+				fr, changed := h.ChannelState().Flush(telem.Frame[uint32]{})
 				Expect(changed).To(BeTrue())
 				Expect(fr.Get(100).Series).To(HaveLen(1))
 				Expect(fr.Get(100).Series[0]).To(telem.MatchSeriesDataV[int32](42))
@@ -1117,7 +1170,7 @@ var _ = Describe("WASM", func() {
 
 				h.Execute("write_indexed")
 
-				fr, changed := h.rt.ChannelState().Flush(telem.Frame[uint32]{})
+				fr, changed := h.ChannelState().Flush(telem.Frame[uint32]{})
 				Expect(changed).To(BeTrue())
 				Expect(fr.Get(100).Series).To(HaveLen(1))
 				Expect(fr.Get(100).Series[0]).To(telem.MatchSeriesDataV[int32](99))
@@ -1150,7 +1203,7 @@ var _ = Describe("WASM", func() {
 				h.Execute("write_ts")
 				after := telem.Now()
 
-				fr, changed := h.rt.ChannelState().Flush(telem.Frame[uint32]{})
+				fr, changed := h.ChannelState().Flush(telem.Frame[uint32]{})
 				Expect(changed).To(BeTrue())
 				Expect(fr.Get(201).Series).To(HaveLen(1))
 				ts := telem.UnmarshalSeries[telem.TimeStamp](fr.Get(201).Series[0])
@@ -1187,7 +1240,7 @@ var _ = Describe("WASM", func() {
 
 				h.Execute("multi_write")
 
-				fr, changed := h.rt.ChannelState().Flush(telem.Frame[uint32]{})
+				fr, changed := h.ChannelState().Flush(telem.Frame[uint32]{})
 				Expect(changed).To(BeTrue())
 				Expect(fr.Get(10).Series).To(HaveLen(1))
 				Expect(fr.Get(10).Series[0]).To(telem.MatchSeriesDataV[int32](15))
@@ -1226,7 +1279,7 @@ var _ = Describe("WASM", func() {
 				for i := range 3 {
 					n.Reset()
 					n.Next(node.Context{Context: ctx, MarkChanged: func(string) {}})
-					fr, changed := h.rt.ChannelState().Flush(telem.Frame[uint32]{})
+					fr, changed := h.ChannelState().Flush(telem.Frame[uint32]{})
 					Expect(changed).To(BeTrue())
 					ts := telem.UnmarshalSeries[telem.TimeStamp](fr.Get(301).Series[0])
 					timestamps[i] = ts[0]
@@ -1259,7 +1312,7 @@ var _ = Describe("WASM", func() {
 
 				h.Execute("i32_write")
 
-				fr, changed := h.rt.ChannelState().Flush(telem.Frame[uint32]{})
+				fr, changed := h.ChannelState().Flush(telem.Frame[uint32]{})
 				Expect(changed).To(BeTrue())
 				Expect(fr.Get(700).Series).To(HaveLen(1))
 				Expect(fr.Get(700).Series[0]).To(telem.MatchSeriesDataV[int32](-50000))
@@ -1287,7 +1340,7 @@ var _ = Describe("WASM", func() {
 
 				h.Execute("u8_write")
 
-				fr, changed := h.rt.ChannelState().Flush(telem.Frame[uint32]{})
+				fr, changed := h.ChannelState().Flush(telem.Frame[uint32]{})
 				Expect(changed).To(BeTrue())
 				Expect(fr.Get(800).Series).To(HaveLen(1))
 				Expect(fr.Get(800).Series[0]).To(telem.MatchSeriesDataV[uint8](255))
@@ -1317,7 +1370,7 @@ var _ = Describe("WASM", func() {
 
 				h.Execute("f64_write")
 
-				fr, changed := h.rt.ChannelState().Flush(telem.Frame[uint32]{})
+				fr, changed := h.ChannelState().Flush(telem.Frame[uint32]{})
 				Expect(changed).To(BeTrue())
 				Expect(fr.Get(1100).Series).To(HaveLen(1))
 				Expect(fr.Get(1100).Series[0]).To(telem.MatchSeriesDataV(3.14159))
@@ -1345,7 +1398,7 @@ var _ = Describe("WASM", func() {
 
 				h.Execute("f32_write")
 
-				fr, changed := h.rt.ChannelState().Flush(telem.Frame[uint32]{})
+				fr, changed := h.ChannelState().Flush(telem.Frame[uint32]{})
 				Expect(changed).To(BeTrue())
 				Expect(fr.Get(1200).Series).To(HaveLen(1))
 				Expect(fr.Get(1200).Series[0]).To(telem.MatchSeriesDataV[float32](2.718))
@@ -1361,7 +1414,7 @@ var _ = Describe("WASM", func() {
 
 				h.Execute("no_write")
 
-				fr, changed := h.rt.ChannelState().Flush(telem.Frame[uint32]{})
+				fr, changed := h.ChannelState().Flush(telem.Frame[uint32]{})
 				Expect(changed).To(BeFalse())
 				Expect(fr.RawKeys()).To(BeEmpty())
 			})
@@ -1387,7 +1440,7 @@ var _ = Describe("WASM", func() {
 
 				h.Execute("zero_idx")
 
-				fr, changed := h.rt.ChannelState().Flush(telem.Frame[uint32]{})
+				fr, changed := h.ChannelState().Flush(telem.Frame[uint32]{})
 				Expect(changed).To(BeTrue())
 				Expect(fr.Get(900).Series).To(HaveLen(1))
 				Expect(fr.Get(0).Series).To(BeEmpty())
@@ -1416,7 +1469,7 @@ var _ = Describe("WASM", func() {
 
 				h.Execute("imperative_vs_decl")
 
-				fr, _ := h.rt.ChannelState().Flush(telem.Frame[uint32]{})
+				fr, _ := h.ChannelState().Flush(telem.Frame[uint32]{})
 				dataKeys := make(set.Set[uint32])
 				for _, key := range fr.RawKeys() {
 					dataKeys.Add(key)
@@ -1505,13 +1558,13 @@ var _ = Describe("WASM", func() {
 
 			n.Reset()
 			n.Next(nCtx)
-			fr, changed := h.rt.ChannelState().Flush(telem.Frame[uint32]{})
+			fr, changed := h.ChannelState().Flush(telem.Frame[uint32]{})
 			Expect(changed).To(BeTrue())
 			Expect(fr.Get(100).Series[0]).To(telem.MatchSeriesDataV[int32](1))
 
 			h.SetInput("trigger_source", 0, telem.NewSeriesV[uint8](1), telem.NewSeriesSecondsTSV(2))
 			n.Next(nCtx)
-			fr, changed = h.rt.ChannelState().Flush(telem.Frame[uint32]{})
+			fr, changed = h.ChannelState().Flush(telem.Frame[uint32]{})
 			Expect(changed).To(BeTrue())
 			Expect(fr.Get(100).Series[0]).To(telem.MatchSeriesDataV[int32](2))
 		})
@@ -1624,9 +1677,9 @@ var _ = Describe("WASM", func() {
 			// Ingest initial channel value (5.0), execute, expect write (6.0)
 			fr := telem.Frame[uint32]{}
 			fr = fr.Append(100, telem.NewSeriesV[float32](5.0))
-			h.rt.ChannelState().Ingest(fr)
+			h.ChannelState().Ingest(fr)
 			h.Execute("increment_counter")
-			outFr, changed := h.rt.ChannelState().Flush(telem.Frame[uint32]{})
+			outFr, changed := h.ChannelState().Flush(telem.Frame[uint32]{})
 			Expect(changed).To(BeTrue())
 			Expect(outFr.Get(100).Series).To(HaveLen(1))
 			Expect(telem.UnmarshalSeries[float32](outFr.Get(100).Series[0])[0]).To(Equal(float32(6.0)))
@@ -1686,20 +1739,20 @@ var _ = Describe("WASM", func() {
 			// Initial state: counter=0, input=0, prev initializes to 0
 			fr := telem.Frame[uint32]{}
 			fr = fr.Append(100, telem.NewSeriesV[float32](0.0))
-			h.rt.ChannelState().Ingest(fr)
+			h.ChannelState().Ingest(fr)
 			h.SetInput("input_source", 0, telem.NewSeriesV[uint8](0), telem.NewSeriesSecondsTSV(1))
 			h.Execute("count_rising")
-			outFr, changed := h.rt.ChannelState().Flush(telem.Frame[uint32]{})
+			outFr, changed := h.ChannelState().Flush(telem.Frame[uint32]{})
 			Expect(changed).To(BeFalse()) // input=0, no rising edge
 			Expect(outFr.Get(100).Series).To(HaveLen(0))
 
 			// Rising edge: input goes 0->1, prev=0, should increment
 			fr = telem.Frame[uint32]{}
 			fr = fr.Append(100, telem.NewSeriesV[float32](0.0))
-			h.rt.ChannelState().Ingest(fr)
+			h.ChannelState().Ingest(fr)
 			h.SetInput("input_source", 0, telem.NewSeriesV[uint8](1), telem.NewSeriesSecondsTSV(2))
 			h.Execute("count_rising")
-			outFr, changed = h.rt.ChannelState().Flush(telem.Frame[uint32]{})
+			outFr, changed = h.ChannelState().Flush(telem.Frame[uint32]{})
 			Expect(changed).To(BeTrue())
 			Expect(outFr.Get(100).Series).To(HaveLen(1))
 			Expect(telem.UnmarshalSeries[float32](outFr.Get(100).Series[0])[0]).To(Equal(float32(1.0)))
@@ -1707,30 +1760,30 @@ var _ = Describe("WASM", func() {
 			// Stay high: input=1, prev=1, no rising edge
 			fr = telem.Frame[uint32]{}
 			fr = fr.Append(100, telem.NewSeriesV[float32](1.0))
-			h.rt.ChannelState().Ingest(fr)
+			h.ChannelState().Ingest(fr)
 			h.SetInput("input_source", 0, telem.NewSeriesV[uint8](1), telem.NewSeriesSecondsTSV(3))
 			h.Execute("count_rising")
-			outFr, changed = h.rt.ChannelState().Flush(telem.Frame[uint32]{})
+			outFr, changed = h.ChannelState().Flush(telem.Frame[uint32]{})
 			Expect(changed).To(BeFalse()) // No rising edge
 			Expect(outFr.Get(100).Series).To(HaveLen(0))
 
 			// Falling edge then rising: input 1->0->1
 			fr = telem.Frame[uint32]{}
 			fr = fr.Append(100, telem.NewSeriesV[float32](1.0))
-			h.rt.ChannelState().Ingest(fr)
+			h.ChannelState().Ingest(fr)
 			h.SetInput("input_source", 0, telem.NewSeriesV[uint8](0), telem.NewSeriesSecondsTSV(4))
 			h.Execute("count_rising")
-			outFr, changed = h.rt.ChannelState().Flush(telem.Frame[uint32]{})
+			outFr, changed = h.ChannelState().Flush(telem.Frame[uint32]{})
 			Expect(changed).To(BeFalse()) // Falling edge, no increment
 			Expect(outFr.Get(100).Series).To(HaveLen(0))
 
 			// Another rising edge
 			fr = telem.Frame[uint32]{}
 			fr = fr.Append(100, telem.NewSeriesV[float32](1.0))
-			h.rt.ChannelState().Ingest(fr)
+			h.ChannelState().Ingest(fr)
 			h.SetInput("input_source", 0, telem.NewSeriesV[uint8](1), telem.NewSeriesSecondsTSV(5))
 			h.Execute("count_rising")
-			outFr, changed = h.rt.ChannelState().Flush(telem.Frame[uint32]{})
+			outFr, changed = h.ChannelState().Flush(telem.Frame[uint32]{})
 			Expect(changed).To(BeTrue())
 			Expect(outFr.Get(100).Series).To(HaveLen(1))
 			Expect(telem.UnmarshalSeries[float32](outFr.Get(100).Series[0])[0]).To(Equal(float32(2.0)))
@@ -1800,9 +1853,9 @@ var _ = Describe("WASM", func() {
 			fr := telem.Frame[uint32]{}
 			fr = fr.Append(100, telem.NewSeriesV[float32](25.5))
 			fr = fr.Append(101, telem.NewSeriesV[float32](101.3))
-			h.rt.ChannelState().Ingest(fr)
+			h.ChannelState().Ingest(fr)
 			h.Execute("combine_sensors")
-			outFr, changed := h.rt.ChannelState().Flush(telem.Frame[uint32]{})
+			outFr, changed := h.ChannelState().Flush(telem.Frame[uint32]{})
 			Expect(changed).To(BeTrue())
 			Expect(outFr.Get(102).Series).To(HaveLen(1))
 			Expect(telem.UnmarshalSeries[float32](outFr.Get(102).Series[0])[0]).To(BeNumerically("~", float32(126.8), 0.01))
@@ -1893,9 +1946,9 @@ var _ = Describe("WASM", func() {
 			fr := telem.Frame[uint32]{}
 			fr = fr.Append(200, telem.NewSeriesV[float64](10.0))
 			fr = fr.Append(201, telem.NewSeriesV[float64](3.0))
-			h.rt.ChannelState().Ingest(fr)
+			h.ChannelState().Ingest(fr)
 			h.Execute("multi_op")
-			outFr, changed := h.rt.ChannelState().Flush(telem.Frame[uint32]{})
+			outFr, changed := h.ChannelState().Flush(telem.Frame[uint32]{})
 			Expect(changed).To(BeTrue())
 
 			Expect(outFr.Get(202).Series).To(HaveLen(1))
@@ -1962,9 +2015,9 @@ var _ = Describe("WASM", func() {
 			// Test: value=7.0, expect squared=49.0
 			fr := telem.Frame[uint32]{}
 			fr = fr.Append(300, telem.NewSeriesV[float32](7.0))
-			h.rt.ChannelState().Ingest(fr)
+			h.ChannelState().Ingest(fr)
 			h.Execute("square_value")
-			outFr, changed := h.rt.ChannelState().Flush(telem.Frame[uint32]{})
+			outFr, changed := h.ChannelState().Flush(telem.Frame[uint32]{})
 			Expect(changed).To(BeTrue())
 			Expect(outFr.Get(301).Series).To(HaveLen(1))
 			Expect(telem.UnmarshalSeries[float32](outFr.Get(301).Series[0])[0]).To(Equal(float32(49.0)))
@@ -1972,9 +2025,9 @@ var _ = Describe("WASM", func() {
 			// Test: value=0.5, expect squared=0.25
 			fr = telem.Frame[uint32]{}
 			fr = fr.Append(300, telem.NewSeriesV[float32](0.5))
-			h.rt.ChannelState().Ingest(fr)
+			h.ChannelState().Ingest(fr)
 			h.Execute("square_value")
-			outFr, changed = h.rt.ChannelState().Flush(telem.Frame[uint32]{})
+			outFr, changed = h.ChannelState().Flush(telem.Frame[uint32]{})
 			Expect(changed).To(BeTrue())
 			Expect(outFr.Get(301).Series).To(HaveLen(1))
 			Expect(telem.UnmarshalSeries[float32](outFr.Get(301).Series[0])[0]).To(Equal(float32(0.25)))
@@ -2058,7 +2111,7 @@ var _ = Describe("WASM", func() {
 			// Test 1: value=105 (within limits), should return 0
 			fr := telem.Frame[uint32]{}
 			fr = fr.Append(400, telem.NewSeriesV[float32](100.0))
-			h.rt.ChannelState().Ingest(fr)
+			h.ChannelState().Ingest(fr)
 			h.SetInput("value_source", 0, telem.NewSeriesV[float32](105.0), telem.NewSeriesSecondsTSV(1))
 			h.Execute("tolerance_check")
 			result := h.Output("tolerance_check", 0)
@@ -2067,7 +2120,7 @@ var _ = Describe("WASM", func() {
 			// Test 2: value=115 (above upper limit), count=1, should return 0
 			fr = telem.Frame[uint32]{}
 			fr = fr.Append(400, telem.NewSeriesV[float32](100.0))
-			h.rt.ChannelState().Ingest(fr)
+			h.ChannelState().Ingest(fr)
 			h.SetInput("value_source", 0, telem.NewSeriesV[float32](115.0), telem.NewSeriesSecondsTSV(2))
 			h.Execute("tolerance_check")
 			result = h.Output("tolerance_check", 0)
@@ -2076,7 +2129,7 @@ var _ = Describe("WASM", func() {
 			// Test 3: value=115 again, count=2, should return 0
 			fr = telem.Frame[uint32]{}
 			fr = fr.Append(400, telem.NewSeriesV[float32](100.0))
-			h.rt.ChannelState().Ingest(fr)
+			h.ChannelState().Ingest(fr)
 			h.SetInput("value_source", 0, telem.NewSeriesV[float32](115.0), telem.NewSeriesSecondsTSV(3))
 			h.Execute("tolerance_check")
 			result = h.Output("tolerance_check", 0)
@@ -2085,7 +2138,7 @@ var _ = Describe("WASM", func() {
 			// Test 4: value=115 again, count=3 >= samples, should return 1 (alarm!)
 			fr = telem.Frame[uint32]{}
 			fr = fr.Append(400, telem.NewSeriesV[float32](100.0))
-			h.rt.ChannelState().Ingest(fr)
+			h.ChannelState().Ingest(fr)
 			h.SetInput("value_source", 0, telem.NewSeriesV[float32](115.0), telem.NewSeriesSecondsTSV(4))
 			h.Execute("tolerance_check")
 			result = h.Output("tolerance_check", 0)
@@ -2157,7 +2210,7 @@ input_val -> tolerance_alarm{tolerance_upper=10.0, tolerance_lower=5.0, set_poin
 			// Test 1: value=105 (within limits), should return 0
 			fr := telem.Frame[uint32]{}
 			fr = fr.Append(200, telem.NewSeriesV[float32](100.0)) // set_point_ch = 100.0
-			h.rt.ChannelState().Ingest(fr)
+			h.ChannelState().Ingest(fr)
 			h.SetInput("on_input_val_0", 0, telem.NewSeriesV[float32](105.0), telem.NewSeriesSecondsTSV(1))
 			h.Execute("tolerance_alarm_0")
 			result := h.Output("tolerance_alarm_0", 0)
@@ -2166,7 +2219,7 @@ input_val -> tolerance_alarm{tolerance_upper=10.0, tolerance_lower=5.0, set_poin
 			// Test 2: value=115 (above upper=110), count=1, should return 0
 			fr = telem.Frame[uint32]{}
 			fr = fr.Append(200, telem.NewSeriesV[float32](100.0))
-			h.rt.ChannelState().Ingest(fr)
+			h.ChannelState().Ingest(fr)
 			h.SetInput("on_input_val_0", 0, telem.NewSeriesV[float32](115.0), telem.NewSeriesSecondsTSV(2))
 			h.Execute("tolerance_alarm_0")
 			result = h.Output("tolerance_alarm_0", 0)
@@ -2175,7 +2228,7 @@ input_val -> tolerance_alarm{tolerance_upper=10.0, tolerance_lower=5.0, set_poin
 			// Test 3: value=115 again, count=2, should return 0
 			fr = telem.Frame[uint32]{}
 			fr = fr.Append(200, telem.NewSeriesV[float32](100.0))
-			h.rt.ChannelState().Ingest(fr)
+			h.ChannelState().Ingest(fr)
 			h.SetInput("on_input_val_0", 0, telem.NewSeriesV[float32](115.0), telem.NewSeriesSecondsTSV(3))
 			h.Execute("tolerance_alarm_0")
 			result = h.Output("tolerance_alarm_0", 0)
@@ -2184,7 +2237,7 @@ input_val -> tolerance_alarm{tolerance_upper=10.0, tolerance_lower=5.0, set_poin
 			// Test 4: value=115 again, count=3 >= samples, should return 1 (alarm!)
 			fr = telem.Frame[uint32]{}
 			fr = fr.Append(200, telem.NewSeriesV[float32](100.0))
-			h.rt.ChannelState().Ingest(fr)
+			h.ChannelState().Ingest(fr)
 			h.SetInput(
 				"on_input_val_0",
 				0,
@@ -2201,7 +2254,7 @@ input_val -> tolerance_alarm{tolerance_upper=10.0, tolerance_lower=5.0, set_poin
 			// value = 198.0 is between 195 and 210, so count resets to 0
 			fr = telem.Frame[uint32]{}
 			fr = fr.Append(200, telem.NewSeriesV[float32](200.0)) // set_point_ch = 200.0
-			h.rt.ChannelState().Ingest(fr)
+			h.ChannelState().Ingest(fr)
 			h.SetInput(
 				"on_input_val_0",
 				0,
@@ -2261,7 +2314,7 @@ input_ch -> writer{output=write_target} -> sink_ch
 			h.Execute("writer_0")
 
 			// Check that the channel was written to with the correct value
-			fr, changed := h.rt.ChannelState().Flush(telem.Frame[uint32]{})
+			fr, changed := h.ChannelState().Flush(telem.Frame[uint32]{})
 			Expect(changed).To(BeTrue())
 			Expect(fr.Get(200).Series).To(HaveLen(1))
 			Expect(fr.Get(200).Series[0]).To(telem.MatchSeriesDataV[float32](50.0))
@@ -2317,7 +2370,7 @@ input_ch -> writer{output=write_target} -> sink_ch
 			h.Execute("writer_0")
 
 			// Check that the channel was written to with the correct value
-			fr, changed := h.rt.ChannelState().Flush(telem.Frame[uint32]{})
+			fr, changed := h.ChannelState().Flush(telem.Frame[uint32]{})
 			Expect(changed).To(BeTrue())
 			Expect(fr.Get(200).Series).To(HaveLen(1))
 			Expect(fr.Get(200).Series[0]).To(telem.MatchSeriesDataV[float32](30.0))
@@ -2369,7 +2422,7 @@ input_ch -> writer{} -> sink_ch
 			h.Execute("writer_0")
 
 			// Check that the channel was written to with the correct value
-			fr, changed := h.rt.ChannelState().Flush(telem.Frame[uint32]{})
+			fr, changed := h.ChannelState().Flush(telem.Frame[uint32]{})
 			Expect(changed).To(BeTrue())
 			Expect(fr.Get(200).Series).To(HaveLen(1))
 			Expect(fr.Get(200).Series[0]).To(telem.MatchSeriesDataV[float32](20.0))
@@ -2424,7 +2477,7 @@ input_ch -> writer{} -> sink_ch
 			h.SetInput("on_input_ch_0", 0, telem.NewSeriesV[float32](4.0), telem.NewSeriesSecondsTSV(1))
 			h.Execute("writer_0")
 
-			fr, changed := h.rt.ChannelState().Flush(telem.Frame[uint32]{})
+			fr, changed := h.ChannelState().Flush(telem.Frame[uint32]{})
 			Expect(changed).To(BeTrue())
 			Expect(fr.Get(200).Series).To(HaveLen(1))
 			Expect(fr.Get(200).Series[0]).To(telem.MatchSeriesDataV[float32](20.0))
@@ -2482,7 +2535,7 @@ input_ch -> writer{} -> sink_ch
 			h.SetInput("on_input_ch_0", 0, telem.NewSeriesV[float32](10.0), telem.NewSeriesSecondsTSV(1))
 			h.Execute("writer_0")
 
-			fr, changed := h.rt.ChannelState().Flush(telem.Frame[uint32]{})
+			fr, changed := h.ChannelState().Flush(telem.Frame[uint32]{})
 			Expect(changed).To(BeTrue())
 			// The last write (30.0) is the final value
 			Expect(fr.Get(200).Series).To(HaveLen(1))
@@ -2536,7 +2589,7 @@ input_ch -> checker{} -> output_ch
 			// Set set_point_ch to 50.0
 			fr := telem.Frame[uint32]{}
 			fr = fr.Append(200, telem.NewSeriesV[float32](50.0))
-			h.rt.ChannelState().Ingest(fr)
+			h.ChannelState().Ingest(fr)
 
 			// Test with value=60 (above threshold), should return 1
 			h.SetInput("on_input_ch_0", 0, telem.NewSeriesV[float32](60.0), telem.NewSeriesSecondsTSV(1))
@@ -2617,14 +2670,14 @@ input_2 -> increment{counter=counter_2} -> sink_2
 			fr := telem.Frame[uint32]{}
 			fr = fr.Append(201, telem.NewSeriesV[float32](0.0))
 			fr = fr.Append(202, telem.NewSeriesV[float32](0.0))
-			h.rt.ChannelState().Ingest(fr)
+			h.ChannelState().Ingest(fr)
 
 			h.SetInput("on_input_1_0", 0, telem.NewSeriesV[uint8](1), telem.NewSeriesSecondsTSV(1))
 			h.SetInput("on_input_2_0", 0, telem.NewSeriesV[uint8](1), telem.NewSeriesSecondsTSV(1))
 			h.Execute("increment_0")
 			h.Execute("increment_1")
 
-			outFr, changed := h.rt.ChannelState().Flush(telem.Frame[uint32]{})
+			outFr, changed := h.ChannelState().Flush(telem.Frame[uint32]{})
 			Expect(changed).To(BeTrue())
 			Expect(outFr.Get(201).Series).To(HaveLen(1), "counter_1 should have been written")
 			Expect(telem.UnmarshalSeries[float32](outFr.Get(201).Series[0])[0]).To(Equal(float32(1.0)))
@@ -2676,21 +2729,21 @@ input_ch -> count_local{} -> sink_ch
 
 			fr := telem.Frame[uint32]{}
 			fr = fr.Append(200, telem.NewSeriesV[float32](5.0))
-			h.rt.ChannelState().Ingest(fr)
+			h.ChannelState().Ingest(fr)
 
 			h.SetInput("on_input_ch_0", 0, telem.NewSeriesV[uint8](0), telem.NewSeriesSecondsTSV(1))
 			h.Execute("count_local_0")
 
-			outFr, _ := h.rt.ChannelState().Flush(telem.Frame[uint32]{})
+			outFr, _ := h.ChannelState().Flush(telem.Frame[uint32]{})
 			Expect(outFr.Get(200).Series).To(BeEmpty())
 
 			fr = telem.Frame[uint32]{}
 			fr = fr.Append(200, telem.NewSeriesV[float32](5.0))
-			h.rt.ChannelState().Ingest(fr)
+			h.ChannelState().Ingest(fr)
 			h.SetInput("on_input_ch_0", 0, telem.NewSeriesV[uint8](1), telem.NewSeriesSecondsTSV(2))
 			h.Execute("count_local_0")
 
-			outFr, _ = h.rt.ChannelState().Flush(telem.Frame[uint32]{})
+			outFr, _ = h.ChannelState().Flush(telem.Frame[uint32]{})
 			Expect(outFr.Get(200).Series).To(BeEmpty())
 		})
 	})

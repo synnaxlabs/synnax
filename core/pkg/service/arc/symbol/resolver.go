@@ -16,21 +16,6 @@ import (
 	"github.com/samber/lo"
 	"github.com/synnaxlabs/arc"
 	"github.com/synnaxlabs/arc/stl"
-	stlchannel "github.com/synnaxlabs/arc/stl/channel"
-	"github.com/synnaxlabs/arc/stl/constant"
-	"github.com/synnaxlabs/arc/stl/control"
-	"github.com/synnaxlabs/arc/stl/errors"
-	"github.com/synnaxlabs/arc/stl/math"
-	"github.com/synnaxlabs/arc/stl/module"
-	stlop "github.com/synnaxlabs/arc/stl/op"
-	"github.com/synnaxlabs/arc/stl/selector"
-	"github.com/synnaxlabs/arc/stl/series"
-	"github.com/synnaxlabs/arc/stl/stable"
-	"github.com/synnaxlabs/arc/stl/stage"
-	"github.com/synnaxlabs/arc/stl/stat"
-	"github.com/synnaxlabs/arc/stl/stateful"
-	"github.com/synnaxlabs/arc/stl/strings"
-	"github.com/synnaxlabs/arc/stl/time"
 	"github.com/synnaxlabs/arc/symbol"
 	"github.com/synnaxlabs/arc/types"
 	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
@@ -78,32 +63,17 @@ func (r *channelResolver) Search(ctx context.Context, name string) ([]arc.Symbol
 	}), nil
 }
 
-// DefaultResolverModules returns the default set of STL modules used for symbol
-// resolution by the analyzer and LSP. These modules only need static symbol
-// definitions and do not require runtime state.
-func DefaultResolverModules() []module.Module {
-	return []module.Module{
-		stlchannel.NewModule(nil, nil),
-		stateful.NewModule(nil, nil),
-		series.NewModule(nil),
-		strings.NewModule(nil),
-		math.NewModule(),
-		errors.NewModule(),
-		constant.NewModule(),
-		stlop.NewModule(),
-		selector.NewModule(),
-		stable.NewModule(),
-		control.NewModule(nil),
-		&stat.Module{},
-		time.NewModule(),
-		stage.NewModule(),
-	}
+// DefaultSymbolResolver returns the default set of STL symbol resolvers used by
+// the analyzer and LSP.
+func DefaultSymbolResolver() symbol.CompoundResolver {
+	resolvers := make(symbol.CompoundResolver, len(stl.SymbolResolver))
+	copy(resolvers, stl.SymbolResolver)
+	return resolvers
 }
 
-func CreateResolver(channelSvc *channel.Service, modules ...module.Module) arc.SymbolResolver {
-	if len(modules) == 0 {
-		modules = DefaultResolverModules()
-	}
-	resolvers := stl.CompoundResolver(modules...)
-	return append(resolvers, arcstatus.SymbolResolver, &channelResolver{Service: channelSvc})
+func CreateResolver(channelSvc *channel.Service, extraResolvers ...symbol.Resolver) arc.SymbolResolver {
+	resolvers := DefaultSymbolResolver()
+	resolvers = append(resolvers, arcstatus.SymbolResolver, &channelResolver{Service: channelSvc})
+	resolvers = append(resolvers, extraResolvers...)
+	return resolvers
 }

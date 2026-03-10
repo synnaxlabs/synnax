@@ -18,9 +18,16 @@ import (
 	"github.com/synnaxlabs/arc/ir"
 	"github.com/synnaxlabs/arc/runtime/node"
 	"github.com/synnaxlabs/arc/runtime/state"
+	stlerrors "github.com/synnaxlabs/arc/stl/errors"
+	stlmath "github.com/synnaxlabs/arc/stl/math"
+	"github.com/synnaxlabs/arc/stl/series"
+	"github.com/synnaxlabs/arc/stl/stateful"
+	stlstrings "github.com/synnaxlabs/arc/stl/strings"
+	stltime "github.com/synnaxlabs/arc/stl/time"
 	"github.com/synnaxlabs/arc/stl/wasm"
 	"github.com/synnaxlabs/arc/types"
 	"github.com/synnaxlabs/x/telem"
+	"github.com/tetratelabs/wazero"
 )
 
 // BenchmarkWASMNodeSimpleArithmetic measures the performance of a WASM node executing
@@ -118,20 +125,48 @@ func BenchmarkWASMNodeSimpleArithmetic(b *testing.B) {
 	aNode := s.Node("a")
 	bNode := s.Node("b")
 
-	wasmMod, err := wasm.Open(ctx, wasm.RuntimeConfig{
-		Program: mod,
-		State:   s,
-	})
+	stringsState := stlstrings.NewState()
+	seriesState := series.NewState()
+
+	wasmRT := wazero.NewRuntimeWithConfig(ctx, wazero.NewRuntimeConfigCompiler())
+	statefulMod, err := stateful.NewModule(ctx, seriesState, stringsState, wasmRT)
 	if err != nil {
-		b.Fatalf("Failed to open WASM module: %v", err)
+		b.Fatalf("Failed to create stateful module: %v", err)
 	}
+	_, _ = series.NewModule(ctx, seriesState, wasmRT)
+	stringsMod, err := stlstrings.NewModule(ctx, stringsState, wasmRT, nil)
+	if err != nil {
+		b.Fatalf("Failed to create strings module: %v", err)
+	}
+	_, _ = stlmath.NewModule(ctx, wasmRT)
+	errorsMod, err := stlerrors.NewModule(ctx, nil, wasmRT)
+	if err != nil {
+		b.Fatalf("Failed to create errors module: %v", err)
+	}
+	_, _ = stltime.NewModule(ctx, wasmRT)
+
+	guest, err := wasmRT.Instantiate(ctx, mod.WASM)
+	if err != nil {
+		b.Fatalf("Failed to instantiate WASM module: %v", err)
+	}
+	stringsMod.SetMemory(guest.Memory())
+	errorsMod.SetMemory(guest.Memory())
+
 	defer func() {
-		if err := wasmMod.Close(); err != nil {
-			b.Errorf("Failed to close WASM module: %v", err)
+		if err := guest.Close(ctx); err != nil {
+			b.Errorf("Failed to close guest module: %v", err)
+		}
+		if err := wasmRT.Close(ctx); err != nil {
+			b.Errorf("Failed to close wazero runtime: %v", err)
 		}
 	}()
 
-	factory := wasm.NewFactory(wasmMod)
+	factory := &wasm.Module{
+		Module:        guest,
+		Memory:        guest.Memory(),
+		Strings:       stringsState,
+		NodeKeySetter: statefulMod,
+	}
 
 	affineNode := s.Node("affine")
 	n, err := factory.Create(ctx, node.Config{
@@ -247,20 +282,48 @@ func BenchmarkWASMNodeZeroAlloc(b *testing.B) {
 	aNode := s.Node("a")
 	bNode := s.Node("b")
 
-	wasmMod, err := wasm.Open(ctx, wasm.RuntimeConfig{
-		Program: mod,
-		State:   s,
-	})
+	stringsState := stlstrings.NewState()
+	seriesState := series.NewState()
+
+	wasmRT := wazero.NewRuntimeWithConfig(ctx, wazero.NewRuntimeConfigCompiler())
+	statefulMod, err := stateful.NewModule(ctx, seriesState, stringsState, wasmRT)
 	if err != nil {
-		b.Fatalf("Failed to open WASM module: %v", err)
+		b.Fatalf("Failed to create stateful module: %v", err)
 	}
+	_, _ = series.NewModule(ctx, seriesState, wasmRT)
+	stringsMod, err := stlstrings.NewModule(ctx, stringsState, wasmRT, nil)
+	if err != nil {
+		b.Fatalf("Failed to create strings module: %v", err)
+	}
+	_, _ = stlmath.NewModule(ctx, wasmRT)
+	errorsMod, err := stlerrors.NewModule(ctx, nil, wasmRT)
+	if err != nil {
+		b.Fatalf("Failed to create errors module: %v", err)
+	}
+	_, _ = stltime.NewModule(ctx, wasmRT)
+
+	guest, err := wasmRT.Instantiate(ctx, mod.WASM)
+	if err != nil {
+		b.Fatalf("Failed to instantiate WASM module: %v", err)
+	}
+	stringsMod.SetMemory(guest.Memory())
+	errorsMod.SetMemory(guest.Memory())
+
 	defer func() {
-		if err := wasmMod.Close(); err != nil {
-			b.Errorf("Failed to close WASM module: %v", err)
+		if err := guest.Close(ctx); err != nil {
+			b.Errorf("Failed to close guest module: %v", err)
+		}
+		if err := wasmRT.Close(ctx); err != nil {
+			b.Errorf("Failed to close wazero runtime: %v", err)
 		}
 	}()
 
-	factory := wasm.NewFactory(wasmMod)
+	factory := &wasm.Module{
+		Module:        guest,
+		Memory:        guest.Memory(),
+		Strings:       stringsState,
+		NodeKeySetter: statefulMod,
+	}
 
 	affineNode := s.Node("affine")
 	n, err := factory.Create(ctx, node.Config{

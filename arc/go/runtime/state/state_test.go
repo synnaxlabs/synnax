@@ -15,423 +15,11 @@ import (
 	"github.com/synnaxlabs/arc/graph"
 	"github.com/synnaxlabs/arc/ir"
 	"github.com/synnaxlabs/arc/runtime/state"
-	channelstate "github.com/synnaxlabs/arc/stl/channel/state"
 	"github.com/synnaxlabs/arc/types"
 	"github.com/synnaxlabs/x/telem"
-	. "github.com/synnaxlabs/x/testutil"
 )
 
 var _ = Describe("State", func() {
-	Describe("Channel Operations", func() {
-		Describe("readSeries", func() {
-			It("Should read channel data after ingestion", func() {
-				g := graph.Graph{
-					Nodes:     []graph.Node{{Key: "test", Type: "test"}},
-					Functions: []graph.Function{{Key: "test"}},
-				}
-				ir, diagnostics := graph.Analyze(ctx, g, nil)
-				Expect(diagnostics.Ok()).To(BeTrue())
-				s := state.New(state.Config{IR: ir})
-				fr := telem.UnaryFrame[uint32](10, telem.NewSeriesV[float32](1, 2, 3))
-				s.Channel.Ingest(fr)
-				n := s.Node("test")
-				data, time, ok := n.ReadSeries(10)
-				Expect(ok).To(BeTrue())
-				Expect(data.Series).To(HaveLen(1))
-				Expect(data.Series[0]).To(telem.MatchSeries(telem.NewSeriesV[float32](1, 2, 3)))
-				Expect(time.Series).To(BeEmpty())
-			})
-
-			It("Should read channel with index", func() {
-				g := graph.Graph{
-					Nodes:     []graph.Node{{Key: "test", Type: "test"}},
-					Functions: []graph.Function{{Key: "test"}},
-				}
-				ir, diagnostics := graph.Analyze(ctx, g, nil)
-				Expect(diagnostics.Ok()).To(BeTrue())
-				cfg := state.Config{
-					ChannelDigests: []channelstate.Digest{
-						{Key: 5, Index: 6},
-					},
-					IR: ir,
-				}
-				s := state.New(cfg)
-				fr := telem.Frame[uint32]{}
-				fr = fr.Append(5, telem.NewSeriesV[int32](100, 200))
-				fr = fr.Append(6, telem.NewSeriesSecondsTSV(10, 20))
-				s.Channel.Ingest(fr)
-				n := s.Node("test")
-				data, time, ok := n.ReadSeries(5)
-				Expect(ok).To(BeTrue())
-				Expect(data.Series).To(HaveLen(1))
-				Expect(data.Series[0]).To(telem.MatchSeries(telem.NewSeriesV[int32](100, 200)))
-				Expect(time.Series).To(HaveLen(1))
-				Expect(time.Series[0]).To(telem.MatchSeries(telem.NewSeriesSecondsTSV(10, 20)))
-			})
-
-			It("Should return false for non-existent channel", func() {
-				g := graph.Graph{
-					Nodes:     []graph.Node{{Key: "test", Type: "test"}},
-					Functions: []graph.Function{{Key: "test"}},
-				}
-				ir, diagnostics := graph.Analyze(ctx, g, nil)
-				Expect(diagnostics.Ok()).To(BeTrue())
-				s := state.New(state.Config{IR: ir})
-				n := s.Node("test")
-				_, _, ok := n.ReadSeries(999)
-				Expect(ok).To(BeFalse())
-			})
-		})
-
-		Describe("writeSeries", func() {
-			It("Should write channel data", func() {
-				g := graph.Graph{
-					Nodes:     []graph.Node{{Key: "writer", Type: "writer"}},
-					Functions: []graph.Function{{Key: "writer"}},
-				}
-				ir, diagnostics := graph.Analyze(ctx, g, nil)
-				Expect(diagnostics.Ok()).To(BeTrue())
-				cfg := state.Config{
-					ChannelDigests: []channelstate.Digest{
-						{Key: 1, Index: 2},
-					},
-					IR: ir,
-				}
-				s := state.New(cfg)
-				n := s.Node("writer")
-				dataToWrite := telem.NewSeriesV[float64](3.14, 2.71)
-				timeToWrite := telem.NewSeriesSecondsTSV(100, 200)
-				n.WriteSeries(1, dataToWrite, timeToWrite)
-				fr := telem.Frame[uint32]{}
-				fr, changed := s.Channel.Flush(fr)
-				Expect(changed).To(BeTrue())
-				Expect(len(fr.Get(1).Series)).To(Equal(1))
-				Expect(len(fr.Get(2).Series)).To(Equal(1))
-				Expect(fr.Get(1).Series[0]).To(telem.MatchSeries(dataToWrite))
-				Expect(fr.Get(2).Series[0]).To(telem.MatchSeries(timeToWrite))
-			})
-
-			It("Should handle multiple channel writes", func() {
-				g := graph.Graph{
-					Nodes:     []graph.Node{{Key: "writer", Type: "writer"}},
-					Functions: []graph.Function{{Key: "writer"}},
-				}
-				ir, diagnostics := graph.Analyze(ctx, g, nil)
-				Expect(diagnostics.Ok()).To(BeTrue())
-				cfg := state.Config{
-					ChannelDigests: []channelstate.Digest{
-						{Key: 10, Index: 11},
-						{Key: 20, Index: 21},
-					},
-					IR: ir,
-				}
-				s := state.New(cfg)
-				n := s.Node("writer")
-				n.WriteSeries(10, telem.NewSeriesV[int32](42), telem.NewSeriesSecondsTSV(1))
-				n.WriteSeries(20, telem.NewSeriesV[int32](99), telem.NewSeriesSecondsTSV(2))
-				fr, changed := s.Channel.Flush(telem.Frame[uint32]{})
-				Expect(changed).To(BeTrue())
-				Expect(len(fr.Get(10).Series)).To(Equal(1))
-				Expect(len(fr.Get(11).Series)).To(Equal(1))
-				Expect(len(fr.Get(20).Series)).To(Equal(1))
-				Expect(len(fr.Get(21).Series)).To(Equal(1))
-			})
-		})
-
-		Describe("Flush", func() {
-			It("Should clear writes after flush", func() {
-				g := graph.Graph{
-					Nodes:     []graph.Node{{Key: "writer", Type: "writer"}},
-					Functions: []graph.Function{{Key: "writer"}},
-				}
-				ir, diagnostics := graph.Analyze(ctx, g, nil)
-				Expect(diagnostics.Ok()).To(BeTrue())
-				cfg := state.Config{
-					ChannelDigests: []channelstate.Digest{
-						{Key: 1, Index: 2},
-					},
-					IR: ir,
-				}
-				s := state.New(cfg)
-				n := s.Node("writer")
-				n.WriteSeries(1, telem.NewSeriesV[float32](1.0), telem.NewSeriesSecondsTSV(1))
-				fr1, changed := s.Channel.Flush(telem.Frame[uint32]{})
-				Expect(changed).To(BeTrue())
-				Expect(len(fr1.Get(1).Series)).To(Equal(1))
-				fr2, changed := s.Channel.Flush(telem.Frame[uint32]{})
-				Expect(changed).To(BeFalse())
-				Expect(len(fr2.Get(1).Series)).To(Equal(0))
-			})
-
-			It("Should accumulate multiple writes before flush", func() {
-				g := graph.Graph{
-					Nodes:     []graph.Node{{Key: "writer", Type: "writer"}},
-					Functions: []graph.Function{{Key: "writer"}},
-				}
-				ir, diagnostics := graph.Analyze(ctx, g, nil)
-				Expect(diagnostics.Ok()).To(BeTrue())
-				cfg := state.Config{
-					ChannelDigests: []channelstate.Digest{
-						{Key: 1, Index: 2},
-						{Key: 3, Index: 4},
-					},
-					IR: ir,
-				}
-				s := state.New(cfg)
-				n := s.Node("writer")
-				n.WriteSeries(1, telem.NewSeriesV[float32](1.0), telem.NewSeriesSecondsTSV(1))
-				n.WriteSeries(3, telem.NewSeriesV[float32](2.0), telem.NewSeriesSecondsTSV(2))
-				fr, changed := s.Channel.Flush(telem.Frame[uint32]{})
-				Expect(changed).To(BeTrue())
-				Expect(len(fr.Get(1).Series)).To(Equal(1))
-				Expect(len(fr.Get(3).Series)).To(Equal(1))
-			})
-		})
-
-		Describe("WriteChannelValue", func() {
-			It("Should write to indexed channel and auto-generate timestamp", func() {
-				cfg := state.Config{
-					ChannelDigests: []channelstate.Digest{
-						{Key: 100, Index: 101},
-					},
-					IR: ir.IR{Nodes: []ir.Node{{Key: "test"}}},
-				}
-				s := state.New(cfg)
-				before := telem.Now()
-				s.Channel.WriteValue(100, telem.NewSeriesV[int32](42))
-				after := telem.Now()
-				fr, changed := s.Channel.Flush(telem.Frame[uint32]{})
-				Expect(changed).To(BeTrue())
-				Expect(fr.Get(100).Series).To(HaveLen(1))
-				Expect(fr.Get(100).Series[0]).To(telem.MatchSeriesDataV[int32](42))
-				Expect(fr.Get(101).Series).To(HaveLen(1))
-				ts := telem.UnmarshalSeries[telem.TimeStamp](fr.Get(101).Series[0])
-				Expect(ts[0]).To(BeNumerically(">=", before))
-				Expect(ts[0]).To(BeNumerically("<=", after))
-			})
-
-			It("Should not write to index channel when index is zero", func() {
-				cfg := state.Config{
-					ChannelDigests: []channelstate.Digest{
-						{Key: 200, Index: 0},
-					},
-					IR: ir.IR{Nodes: []ir.Node{{Key: "test"}}},
-				}
-				s := state.New(cfg)
-				s.Channel.WriteValue(200, telem.NewSeriesV[float64](3.14))
-				fr, changed := s.Channel.Flush(telem.Frame[uint32]{})
-				Expect(changed).To(BeTrue())
-				Expect(fr.Get(200).Series).To(HaveLen(1))
-				Expect(fr.Get(0).Series).To(BeEmpty())
-			})
-
-			It("Should handle multiple WriteChannelValue calls to different channels", func() {
-				cfg := state.Config{
-					ChannelDigests: []channelstate.Digest{
-						{Key: 10, Index: 11},
-						{Key: 20, Index: 21},
-					},
-					IR: ir.IR{Nodes: []ir.Node{{Key: "test"}}},
-				}
-				s := state.New(cfg)
-				s.Channel.WriteValue(10, telem.NewSeriesV[int64](100))
-				s.Channel.WriteValue(20, telem.NewSeriesV[int64](200))
-				fr, changed := s.Channel.Flush(telem.Frame[uint32]{})
-				Expect(changed).To(BeTrue())
-				Expect(fr.Get(10).Series).To(HaveLen(1))
-				Expect(fr.Get(11).Series).To(HaveLen(1))
-				Expect(fr.Get(20).Series).To(HaveLen(1))
-				Expect(fr.Get(21).Series).To(HaveLen(1))
-			})
-
-			It("Should produce matching behavior with writeSeries for indexed channels", func() {
-				cfg := state.Config{
-					ChannelDigests: []channelstate.Digest{
-						{Key: 50, Index: 51},
-					},
-					IR: ir.IR{Nodes: []ir.Node{{Key: "test"}}},
-				}
-				s := state.New(cfg)
-				s.Channel.WriteValue(50, telem.NewSeriesV[uint8](255))
-				fr, changed := s.Channel.Flush(telem.Frame[uint32]{})
-				Expect(changed).To(BeTrue())
-				Expect(fr.Get(50).Series).To(HaveLen(1))
-				Expect(fr.Get(51).Series).To(HaveLen(1))
-				Expect(fr.Get(51).Series[0].DataType).To(Equal(telem.TimeStampT))
-			})
-		})
-
-		Describe("ReadChannelValue", func() {
-			It("Should return the last series when multiple series exist", func() {
-				s := state.New(state.Config{IR: ir.IR{Nodes: []ir.Node{{Key: "test"}}}})
-				fr1 := telem.UnaryFrame[uint32](10, telem.NewSeriesV[float32](1, 2))
-				s.Channel.Ingest(fr1)
-				fr2 := telem.UnaryFrame[uint32](10, telem.NewSeriesV[float32](3, 4))
-				s.Channel.Ingest(fr2)
-				series, ok := s.Channel.ReadValue(10)
-				Expect(ok).To(BeTrue())
-				Expect(series).To(telem.MatchSeries(telem.NewSeriesV[float32](3, 4)))
-			})
-
-			It("Should return the only series when single series exists", func() {
-				s := state.New(state.Config{IR: ir.IR{Nodes: []ir.Node{{Key: "test"}}}})
-				fr := telem.UnaryFrame[uint32](10, telem.NewSeriesV[float32](1, 2, 3))
-				s.Channel.Ingest(fr)
-				series, ok := s.Channel.ReadValue(10)
-				Expect(ok).To(BeTrue())
-				Expect(series).To(telem.MatchSeries(telem.NewSeriesV[float32](1, 2, 3)))
-			})
-
-			It("Should return false for non-existent channel", func() {
-				s := state.New(state.Config{IR: ir.IR{Nodes: []ir.Node{{Key: "test"}}}})
-				_, ok := s.Channel.ReadValue(999)
-				Expect(ok).To(BeFalse())
-			})
-
-			It("Should return false when channel has empty MultiSeries", func() {
-				s := state.New(state.Config{IR: ir.IR{Nodes: []ir.Node{{Key: "test"}}}})
-				_, ok := s.Channel.ReadValue(10)
-				Expect(ok).To(BeFalse())
-			})
-
-			It("Should handle many ingested frames without panic", func() {
-				s := state.New(state.Config{IR: ir.IR{Nodes: []ir.Node{{Key: "test"}}}})
-				for i := range 10 {
-					fr := telem.UnaryFrame[uint32](5, telem.NewSeriesV[int32](int32(i*10), int32(i*10+1)))
-					s.Channel.Ingest(fr)
-				}
-				series, ok := s.Channel.ReadValue(5)
-				Expect(ok).To(BeTrue())
-				Expect(series).To(telem.MatchSeries(telem.NewSeriesV[int32](90, 91)))
-			})
-		})
-
-		Describe("ClearReads", func() {
-			It("Should preserve the latest series for a channel", func() {
-				s := state.New(state.Config{IR: ir.IR{Nodes: []ir.Node{{Key: "test"}}}})
-				fr1 := telem.UnaryFrame[uint32](10, telem.NewSeriesV[float32](1, 2, 3))
-				s.Channel.Ingest(fr1)
-				fr2 := telem.UnaryFrame[uint32](10, telem.NewSeriesV[float32](4, 5))
-				s.Channel.Ingest(fr2)
-				n := s.Node("test")
-				data, _, ok := n.ReadSeries(10)
-				Expect(ok).To(BeTrue())
-				Expect(data.Series).To(HaveLen(2))
-				s.Channel.ClearReads()
-				data, _, ok = n.ReadSeries(10)
-				Expect(ok).To(BeTrue())
-				Expect(data.Series).To(HaveLen(1))
-				Expect(data.Series[0]).To(telem.MatchSeries(telem.NewSeriesV[float32](4, 5)))
-			})
-
-			It("Should preserve data across multiple channels", func() {
-				cfg := state.Config{
-					ChannelDigests: []channelstate.Digest{
-						{Key: 1, Index: 2},
-						{Key: 3, Index: 4},
-					},
-					IR: ir.IR{Nodes: []ir.Node{{Key: "test"}}},
-				}
-				s := state.New(cfg)
-				fr := telem.Frame[uint32]{}
-				fr = fr.Append(1, telem.NewSeriesV[int32](100, 200))
-				fr = fr.Append(2, telem.NewSeriesSecondsTSV(10, 20))
-				fr = fr.Append(3, telem.NewSeriesV[float64](1.5, 2.5))
-				fr = fr.Append(4, telem.NewSeriesSecondsTSV(30, 40))
-				s.Channel.Ingest(fr)
-				s.Channel.ClearReads()
-				n := s.Node("test")
-				data1, time1, ok1 := n.ReadSeries(1)
-				Expect(ok1).To(BeTrue())
-				Expect(data1.Series).To(HaveLen(1))
-				Expect(time1.Series).To(HaveLen(1))
-				Expect(data1.Series[0]).To(telem.MatchSeries(telem.NewSeriesV[int32](100, 200)))
-				data2, time2, ok2 := n.ReadSeries(3)
-				Expect(ok2).To(BeTrue())
-				Expect(data2.Series).To(HaveLen(1))
-				Expect(time2.Series).To(HaveLen(1))
-				Expect(data2.Series[0]).To(telem.MatchSeries(telem.NewSeriesV[float64](1.5, 2.5)))
-			})
-
-			It("Should allow preserved data to be available in subsequent cycles", func() {
-				s := state.New(state.Config{IR: ir.IR{Nodes: []ir.Node{{Key: "test"}}}})
-				fr1 := telem.UnaryFrame[uint32](10, telem.NewSeriesV[float32](1, 2))
-				s.Channel.Ingest(fr1)
-				s.Channel.ClearReads()
-				fr2 := telem.UnaryFrame[uint32](20, telem.NewSeriesV[float32](3, 4))
-				s.Channel.Ingest(fr2)
-				n := s.Node("test")
-				data10, _, ok10 := n.ReadSeries(10)
-				Expect(ok10).To(BeTrue())
-				Expect(data10.Series[0]).To(telem.MatchSeries(telem.NewSeriesV[float32](1, 2)))
-				data20, _, ok20 := n.ReadSeries(20)
-				Expect(ok20).To(BeTrue())
-				Expect(data20.Series[0]).To(telem.MatchSeries(telem.NewSeriesV[float32](3, 4)))
-				s.Channel.ClearReads()
-				data10, _, ok10 = n.ReadSeries(10)
-				Expect(ok10).To(BeTrue())
-				Expect(data10.Series[0]).To(telem.MatchSeries(telem.NewSeriesV[float32](1, 2)))
-				data20, _, ok20 = n.ReadSeries(20)
-				Expect(ok20).To(BeTrue())
-				Expect(data20.Series[0]).To(telem.MatchSeries(telem.NewSeriesV[float32](3, 4)))
-			})
-
-			It("Should overwrite preserved data when new data arrives", func() {
-				s := state.New(state.Config{IR: ir.IR{Nodes: []ir.Node{{Key: "test"}}}})
-				fr1 := telem.UnaryFrame[uint32](5, telem.NewSeriesV[uint8](10, 20))
-				s.Channel.Ingest(fr1)
-				s.Channel.ClearReads()
-				n := s.Node("test")
-				data, _, ok := n.ReadSeries(5)
-				Expect(ok).To(BeTrue())
-				Expect(data.Series[0]).To(telem.MatchSeries(telem.NewSeriesV[uint8](10, 20)))
-				fr2 := telem.UnaryFrame[uint32](5, telem.NewSeriesV[uint8](30, 40))
-				s.Channel.Ingest(fr2)
-				s.Channel.ClearReads()
-				data, _, ok = n.ReadSeries(5)
-				Expect(ok).To(BeTrue())
-				Expect(data.Series).To(HaveLen(1))
-				Expect(data.Series[0]).To(telem.MatchSeries(telem.NewSeriesV[uint8](30, 40)))
-			})
-
-			It("Should be a no-op for single series", func() {
-				s := state.New(state.Config{IR: ir.IR{Nodes: []ir.Node{{Key: "test"}}}})
-				fr := telem.UnaryFrame[uint32](10, telem.NewSeriesV[int32](1, 2, 3))
-				s.Channel.Ingest(fr)
-				s.Channel.ClearReads()
-				n := s.Node("test")
-				data, _, ok := n.ReadSeries(10)
-				Expect(ok).To(BeTrue())
-				Expect(data.Series).To(HaveLen(1))
-				Expect(data.Series[0]).To(telem.MatchSeries(telem.NewSeriesV[int32](1, 2, 3)))
-			})
-
-			It("Should not affect channels that had no data", func() {
-				cfg := state.Config{
-					ChannelDigests: []channelstate.Digest{
-						{Key: 10, Index: 11},
-					},
-					IR: ir.IR{Nodes: []ir.Node{{Key: "test"}}},
-				}
-				s := state.New(cfg)
-				fr := telem.UnaryFrame[uint32](10, telem.NewSeriesV[int32](1))
-				s.Channel.Ingest(fr)
-				s.Channel.ClearReads()
-				n := s.Node("test")
-				_, _, ok := n.ReadSeries(999)
-				Expect(ok).To(BeFalse())
-			})
-
-			It("Should handle empty state", func() {
-				s := state.New(state.Config{IR: ir.IR{Nodes: []ir.Node{{Key: "test"}}}})
-				s.Channel.ClearReads()
-				n := s.Node("test")
-				_, _, ok := n.ReadSeries(1)
-				Expect(ok).To(BeFalse())
-			})
-		})
-	})
-
 	Describe("Input Alignment", func() {
 		It("Should correctly order the inputs regardless of edge order", func() {
 			g := graph.Graph{
@@ -487,7 +75,7 @@ var _ = Describe("State", func() {
 			ir, diagnostics := graph.Analyze(ctx, g, nil)
 			Expect(diagnostics.Ok()).To(BeTrue(), diagnostics.String())
 			var (
-				s      = state.New(state.Config{IR: ir})
+				s      = state.New(ir)
 				in1    = s.Node("in1")
 				in2    = s.Node("in2")
 				in3    = s.Node("in3")
@@ -532,8 +120,7 @@ var _ = Describe("State", func() {
 			}
 			ir, diagnostics := graph.Analyze(ctx, g, nil)
 			Expect(diagnostics.Ok()).To(BeTrue(), diagnostics.String())
-			cfg := state.Config{IR: ir}
-			s := state.New(cfg)
+			s := state.New(ir)
 			first := s.Node("first")
 			second := s.Node("second")
 			Expect(first.RefreshInputs()).To(BeTrue())
@@ -575,8 +162,7 @@ var _ = Describe("State", func() {
 			}
 			ir, diagnostics := graph.Analyze(ctx, g, nil)
 			Expect(diagnostics.Ok()).To(BeTrue(), diagnostics.String())
-			cfg := state.Config{IR: ir}
-			s := state.New(cfg)
+			s := state.New(ir)
 			src := s.Node("src")
 			dest := s.Node("dest")
 			*src.Output(0) = telem.NewSeriesV[int32]()
@@ -613,7 +199,7 @@ var _ = Describe("State", func() {
 			}
 			ir, diagnostics := graph.Analyze(ctx, g, nil)
 			Expect(diagnostics.Ok()).To(BeTrue(), diagnostics.String())
-			s := state.New(state.Config{IR: ir})
+			s := state.New(ir)
 			producer := s.Node("producer")
 			consumer := s.Node("consumer")
 			*producer.Output(0) = telem.NewSeriesV[float64](1.0)
@@ -663,8 +249,7 @@ var _ = Describe("State", func() {
 			}
 			ir, diagnostics := graph.Analyze(ctx, g, nil)
 			Expect(diagnostics.Ok()).To(BeTrue(), diagnostics.String())
-			cfg := state.Config{IR: ir}
-			s := state.New(cfg)
+			s := state.New(ir)
 			nodeA := s.Node("a")
 			nodeB := s.Node("b")
 			target := s.Node("target")
@@ -719,7 +304,7 @@ var _ = Describe("State", func() {
 			}
 			ir, diagnostics := graph.Analyze(ctx, g, nil)
 			Expect(diagnostics.Ok()).To(BeTrue(), diagnostics.String())
-			s := state.New(state.Config{IR: ir})
+			s := state.New(ir)
 			early := s.Node("early")
 			late := s.Node("late")
 			target := s.Node("target")
@@ -760,7 +345,7 @@ var _ = Describe("State", func() {
 			}
 			ir, diagnostics := graph.Analyze(ctx, g, nil)
 			Expect(diagnostics.Ok()).To(BeTrue(), diagnostics.String())
-			s := state.New(state.Config{IR: ir})
+			s := state.New(ir)
 			source := s.Node("source")
 			sink := s.Node("sink")
 			*source.Output(0) = telem.NewSeriesV[int32](1)
@@ -813,8 +398,7 @@ var _ = Describe("State", func() {
 			}
 			ir, diagnostics := graph.Analyze(ctx, g, nil)
 			Expect(diagnostics.Ok()).To(BeTrue(), diagnostics.String())
-			cfg := state.Config{IR: ir}
-			s := state.New(cfg)
+			s := state.New(ir)
 			nodeA := s.Node("a")
 			nodeB := s.Node("b")
 			target := s.Node("target")
@@ -859,8 +443,7 @@ var _ = Describe("State", func() {
 			}
 			ir, diagnostics := graph.Analyze(ctx, g, nil)
 			Expect(diagnostics.Ok()).To(BeTrue(), diagnostics.String())
-			cfg := state.Config{IR: ir}
-			s := state.New(cfg)
+			s := state.New(ir)
 			src := s.Node("src")
 			dst := s.Node("dst")
 			*src.Output(0) = telem.NewSeriesV[int64](10)
@@ -917,8 +500,7 @@ var _ = Describe("State", func() {
 				}
 				ir, diagnostics := graph.Analyze(ctx, g, nil)
 				Expect(diagnostics.Ok()).To(BeTrue(), diagnostics.String())
-				cfg := state.Config{IR: ir}
-				s := state.New(cfg)
+				s := state.New(ir)
 				lhs := s.Node("lhs")
 				rhs := s.Node("rhs")
 				op := s.Node("op")
@@ -971,8 +553,7 @@ var _ = Describe("State", func() {
 				}
 				ir, diagnostics := graph.Analyze(ctx, g, nil)
 				Expect(diagnostics.Ok()).To(BeTrue(), diagnostics.String())
-				cfg := state.Config{IR: ir}
-				s := state.New(cfg)
+				s := state.New(ir)
 				nodeA := s.Node("a")
 				nodeB := s.Node("b")
 				compute := s.Node("compute")
@@ -1026,8 +607,7 @@ var _ = Describe("State", func() {
 				}
 				ir, diagnostics := graph.Analyze(ctx, g, nil)
 				Expect(diagnostics.Ok()).To(BeTrue(), diagnostics.String())
-				cfg := state.Config{IR: ir}
-				s := state.New(cfg)
+				s := state.New(ir)
 				early := s.Node("early")
 				late := s.Node("late")
 				target := s.Node("target")
@@ -1086,8 +666,7 @@ var _ = Describe("State", func() {
 				}
 				ir, diagnostics := graph.Analyze(ctx, g, nil)
 				Expect(diagnostics.Ok()).To(BeTrue(), diagnostics.String())
-				cfg := state.Config{IR: ir}
-				s := state.New(cfg)
+				s := state.New(ir)
 				nodeX := s.Node("x")
 				nodeY := s.Node("y")
 				processor := s.Node("processor")
@@ -1156,8 +735,7 @@ var _ = Describe("State", func() {
 				}
 				ir, diagnostics := graph.Analyze(ctx, g, nil)
 				Expect(diagnostics.Ok()).To(BeTrue(), diagnostics.String())
-				cfg := state.Config{IR: ir}
-				s := state.New(cfg)
+				s := state.New(ir)
 				nodeA := s.Node("a")
 				nodeB := s.Node("b")
 				nodeC := s.Node("c")
@@ -1210,7 +788,7 @@ var _ = Describe("State", func() {
 			}
 			ir, diagnostics := graph.Analyze(ctx, g, nil)
 			Expect(diagnostics.Ok()).To(BeTrue(), diagnostics.String())
-			s := state.New(state.Config{IR: ir})
+			s := state.New(ir)
 			source := s.Node("source")
 			processor := s.Node("processor")
 			*source.Output(0) = telem.NewSeriesV[float32](5.0)
@@ -1264,7 +842,7 @@ var _ = Describe("State", func() {
 			}
 			ir, diagnostics := graph.Analyze(ctx, g, nil)
 			Expect(diagnostics.Ok()).To(BeTrue(), diagnostics.String())
-			s := state.New(state.Config{IR: ir})
+			s := state.New(ir)
 			dataSource := s.Node("data_source")
 			multiplierSource := s.Node("multiplier_source")
 			processor := s.Node("processor")
@@ -1312,7 +890,7 @@ var _ = Describe("State", func() {
 			}
 			ir, diagnostics := graph.Analyze(ctx, g, nil)
 			Expect(diagnostics.Ok()).To(BeTrue(), diagnostics.String())
-			s := state.New(state.Config{IR: ir})
+			s := state.New(ir)
 			input := s.Node("input")
 			calculator := s.Node("calculator")
 			*input.Output(0) = telem.NewSeriesV[float64](10.0)
@@ -1369,7 +947,7 @@ var _ = Describe("State", func() {
 			}
 			ir, diagnostics := graph.Analyze(ctx, g, nil)
 			Expect(diagnostics.Ok()).To(BeTrue(), diagnostics.String())
-			s := state.New(state.Config{IR: ir})
+			s := state.New(ir)
 			src1 := s.Node("src1")
 			src2 := s.Node("src2")
 			combiner := s.Node("combiner")
@@ -1417,7 +995,7 @@ var _ = Describe("State", func() {
 			}
 			ir, diagnostics := graph.Analyze(ctx, g, nil)
 			Expect(diagnostics.Ok()).To(BeTrue(), diagnostics.String())
-			s := state.New(state.Config{IR: ir})
+			s := state.New(ir)
 			data := s.Node("data")
 			processor := s.Node("processor")
 			*data.Output(0) = telem.NewSeriesV[float32](42.5)
@@ -1462,7 +1040,7 @@ var _ = Describe("State", func() {
 			}
 			ir, diagnostics := graph.Analyze(ctx, g, nil)
 			Expect(diagnostics.Ok()).To(BeTrue(), diagnostics.String())
-			s := state.New(state.Config{IR: ir})
+			s := state.New(ir)
 			source := s.Node("source")
 			processor := s.Node("processor")
 			// First execution with data at t=5
@@ -1520,7 +1098,7 @@ var _ = Describe("State", func() {
 			}
 			ir, diagnostics := graph.Analyze(ctx, g, nil)
 			Expect(diagnostics.Ok()).To(BeTrue(), diagnostics.String())
-			s := state.New(state.Config{IR: ir})
+			s := state.New(ir)
 			input := s.Node("input")
 			adder := s.Node("adder")
 			*input.Output(0) = telem.NewSeriesV[int32](50)
@@ -1551,137 +1129,11 @@ var _ = Describe("State", func() {
 			}
 			ir, diagnostics := graph.Analyze(ctx, g, nil)
 			Expect(diagnostics.Ok()).To(BeTrue(), diagnostics.String())
-			s := state.New(state.Config{IR: ir})
+			s := state.New(ir)
 			generator := s.Node("generator")
 			Expect(generator.RefreshInputs()).To(BeTrue())
 			Expect(generator.Input(0)).To(telem.MatchSeries(telem.NewSeriesV[int64](42)))
 			Expect(generator.Input(1)).To(telem.MatchSeries(telem.NewSeriesV[int64](7)))
-		})
-	})
-
-	Describe("Transient Handle Management", func() {
-		Describe("Series Handles", func() {
-			It("Should store and retrieve a series by handle", func() {
-				s := state.New(state.Config{IR: ir.IR{Nodes: []ir.Node{{Key: "test"}}}})
-				series := telem.NewSeriesV[float32](1.0, 2.0, 3.0)
-				handle := s.Series.Store(series)
-				Expect(handle).To(BeNumerically(">", 0))
-				retrieved := MustBeOk(s.Series.Get(handle))
-				Expect(retrieved).To(telem.MatchSeries(series))
-			})
-
-			It("Should return false for non-existent handle", func() {
-				s := state.New(state.Config{IR: ir.IR{Nodes: []ir.Node{{Key: "test"}}}})
-				_, ok := s.Series.Get(999)
-				Expect(ok).To(BeFalse())
-			})
-
-			It("Should clear series handles on Flush", func() {
-				s := state.New(state.Config{IR: ir.IR{Nodes: []ir.Node{{Key: "test"}}}})
-				series := telem.NewSeriesV[int32](42, 43, 44)
-				handle := s.Series.Store(series)
-				retrieved := MustBeOk(s.Series.Get(handle))
-				Expect(retrieved).To(telem.MatchSeries(series))
-				s.Series.Clear()
-				s.Channel.Flush(telem.Frame[uint32]{})
-				_, ok := s.Series.Get(handle)
-				Expect(ok).To(BeFalse())
-			})
-
-			It("Should reset handle counter on Flush", func() {
-				s := state.New(state.Config{IR: ir.IR{Nodes: []ir.Node{{Key: "test"}}}})
-				h1 := s.Series.Store(telem.NewSeriesV[float64](1.0))
-				h2 := s.Series.Store(telem.NewSeriesV[float64](2.0))
-				Expect(h2).To(BeNumerically(">", h1))
-				s.Series.Clear()
-				s.Channel.Flush(telem.Frame[uint32]{})
-				h3 := s.Series.Store(telem.NewSeriesV[float64](3.0))
-				Expect(h3).To(Equal(uint32(1)))
-			})
-		})
-
-		Describe("String Handles", func() {
-			It("Should store and retrieve a string by handle", func() {
-				s := state.New(state.Config{IR: ir.IR{Nodes: []ir.Node{{Key: "test"}}}})
-				handle := s.Strings.Create("hello world")
-				Expect(handle).To(BeNumerically(">", 0))
-				retrieved := MustBeOk(s.Strings.Get(handle))
-				Expect(retrieved).To(Equal("hello world"))
-			})
-
-			It("Should return false for non-existent string handle", func() {
-				s := state.New(state.Config{IR: ir.IR{Nodes: []ir.Node{{Key: "test"}}}})
-				_, ok := s.Strings.Get(999)
-				Expect(ok).To(BeFalse())
-			})
-
-			It("Should clear string handles on Flush", func() {
-				s := state.New(state.Config{IR: ir.IR{Nodes: []ir.Node{{Key: "test"}}}})
-				handle := s.Strings.Create("test string")
-				retrieved := MustBeOk(s.Strings.Get(handle))
-				Expect(retrieved).To(Equal("test string"))
-				s.Strings.Clear()
-				s.Channel.Flush(telem.Frame[uint32]{})
-				_, ok := s.Strings.Get(handle)
-				Expect(ok).To(BeFalse())
-			})
-
-			It("Should reset string handle counter on Flush", func() {
-				s := state.New(state.Config{IR: ir.IR{Nodes: []ir.Node{{Key: "test"}}}})
-				h1 := s.Strings.Create("first")
-				h2 := s.Strings.Create("second")
-				Expect(h2).To(BeNumerically(">", h1))
-				s.Strings.Clear()
-				s.Channel.Flush(telem.Frame[uint32]{})
-				h3 := s.Strings.Create("third")
-				Expect(h3).To(Equal(uint32(1)))
-			})
-
-			It("Should preserve config string handles across Clear", func() {
-				s := state.New(state.Config{IR: ir.IR{Nodes: []ir.Node{{Key: "test"}}}})
-				handle := s.Strings.CreateConfig("persistent")
-				s.Strings.Clear()
-				retrieved, ok := s.Strings.Get(handle)
-				Expect(ok).To(BeTrue())
-				Expect(retrieved).To(Equal("persistent"))
-			})
-
-			It("Should not collide config handles with transient handles", func() {
-				s := state.New(state.Config{IR: ir.IR{Nodes: []ir.Node{{Key: "test"}}}})
-				transient := s.Strings.Create("transient")
-				config := s.Strings.CreateConfig("config")
-				Expect(transient).ToNot(Equal(config))
-			})
-
-			It("Should still resolve config handles after multiple Clear cycles", func() {
-				s := state.New(state.Config{IR: ir.IR{Nodes: []ir.Node{{Key: "test"}}}})
-				handle := s.Strings.CreateConfig("stable")
-				for range 5 {
-					s.Strings.Clear()
-				}
-				retrieved, ok := s.Strings.Get(handle)
-				Expect(ok).To(BeTrue())
-				Expect(retrieved).To(Equal("stable"))
-			})
-		})
-
-		Describe("Flush Integration", func() {
-			It("Should clear transients even when no writes exist", func() {
-				s := state.New(state.Config{IR: ir.IR{Nodes: []ir.Node{{Key: "test"}}}})
-				seriesHandle := s.Series.Store(telem.NewSeriesV[int32](1, 2, 3))
-				stringHandle := s.Strings.Create("test")
-				MustBeOk(s.Series.Get(seriesHandle))
-				MustBeOk(s.Strings.Get(stringHandle))
-				s.Series.Clear()
-				s.Strings.Clear()
-				fr, changed := s.Channel.Flush(telem.Frame[uint32]{})
-				Expect(changed).To(BeFalse())
-				Expect(len(fr.Get(0).Series)).To(Equal(0))
-				_, seriesOk := s.Series.Get(seriesHandle)
-				_, stringOk := s.Strings.Get(stringHandle)
-				Expect(seriesOk).To(BeFalse())
-				Expect(stringOk).To(BeFalse())
-			})
 		})
 	})
 
@@ -1702,7 +1154,7 @@ var _ = Describe("State", func() {
 				}
 				prog, diagnostics := graph.Analyze(ctx, g, nil)
 				Expect(diagnostics.Ok()).To(BeTrue())
-				s := state.New(state.Config{IR: prog})
+				s := state.New(prog)
 				n := s.Node("test")
 				// Output is initialized but empty
 				*n.Output(0) = telem.Series{DataType: telem.Float32T}
@@ -1721,7 +1173,7 @@ var _ = Describe("State", func() {
 				}
 				prog, diagnostics := graph.Analyze(ctx, g, nil)
 				Expect(diagnostics.Ok()).To(BeTrue())
-				s := state.New(state.Config{IR: prog})
+				s := state.New(prog)
 				n := s.Node("test")
 				*n.Output(0) = telem.NewSeriesV[float64](1.0, 2.0, 0.0)
 				Expect(n.IsOutputTruthy(outputParam)).To(BeFalse())
@@ -1739,7 +1191,7 @@ var _ = Describe("State", func() {
 				}
 				prog, diagnostics := graph.Analyze(ctx, g, nil)
 				Expect(diagnostics.Ok()).To(BeTrue())
-				s := state.New(state.Config{IR: prog})
+				s := state.New(prog)
 				n := s.Node("test")
 				*n.Output(0) = telem.NewSeriesV[float64](0.0, 0.0, 3.14)
 				Expect(n.IsOutputTruthy(outputParam)).To(BeTrue())
@@ -1757,7 +1209,7 @@ var _ = Describe("State", func() {
 				}
 				prog, diagnostics := graph.Analyze(ctx, g, nil)
 				Expect(diagnostics.Ok()).To(BeTrue())
-				s := state.New(state.Config{IR: prog})
+				s := state.New(prog)
 				n := s.Node("test")
 				*n.Output(0) = telem.NewSeriesV[uint8](1, 1, 0)
 				Expect(n.IsOutputTruthy(outputParam)).To(BeFalse())
@@ -1775,7 +1227,7 @@ var _ = Describe("State", func() {
 				}
 				prog, diagnostics := graph.Analyze(ctx, g, nil)
 				Expect(diagnostics.Ok()).To(BeTrue())
-				s := state.New(state.Config{IR: prog})
+				s := state.New(prog)
 				n := s.Node("test")
 				*n.Output(0) = telem.NewSeriesV[uint8](0, 0, 1)
 				Expect(n.IsOutputTruthy(outputParam)).To(BeTrue())
@@ -1793,7 +1245,7 @@ var _ = Describe("State", func() {
 				}
 				prog, diagnostics := graph.Analyze(ctx, g, nil)
 				Expect(diagnostics.Ok()).To(BeTrue())
-				s := state.New(state.Config{IR: prog})
+				s := state.New(prog)
 				n := s.Node("test")
 				*n.Output(0) = telem.NewSeriesV[int32](42, -10, 0)
 				Expect(n.IsOutputTruthy(outputParam)).To(BeFalse())
@@ -1811,7 +1263,7 @@ var _ = Describe("State", func() {
 				}
 				prog, diagnostics := graph.Analyze(ctx, g, nil)
 				Expect(diagnostics.Ok()).To(BeTrue())
-				s := state.New(state.Config{IR: prog})
+				s := state.New(prog)
 				n := s.Node("test")
 				*n.Output(0) = telem.NewSeriesV[int32](0, 0, -42)
 				Expect(n.IsOutputTruthy(outputParam)).To(BeTrue())
@@ -1829,7 +1281,7 @@ var _ = Describe("State", func() {
 				}
 				prog, diagnostics := graph.Analyze(ctx, g, nil)
 				Expect(diagnostics.Ok()).To(BeTrue())
-				s := state.New(state.Config{IR: prog})
+				s := state.New(prog)
 				n := s.Node("test")
 				*n.Output(0) = telem.NewSeriesV[float32](1.0)
 				Expect(n.IsOutputTruthy("nonexistent")).To(BeFalse())
@@ -1847,7 +1299,7 @@ var _ = Describe("State", func() {
 				}
 				prog, diagnostics := graph.Analyze(ctx, g, nil)
 				Expect(diagnostics.Ok()).To(BeTrue())
-				s := state.New(state.Config{IR: prog})
+				s := state.New(prog)
 				n := s.Node("test")
 				// Many truthy values followed by falsy
 				*n.Output(0) = telem.NewSeriesV[int64](100, 200, 300, 0)
@@ -1869,7 +1321,7 @@ var _ = Describe("State", func() {
 				}
 				prog, diagnostics := graph.Analyze(ctx, g, nil)
 				Expect(diagnostics.Ok()).To(BeTrue())
-				s := state.New(state.Config{IR: prog})
+				s := state.New(prog)
 				n := s.Node("test")
 				*n.Output(0) = telem.NewSeriesV[telem.TimeStamp](0)
 				Expect(n.IsOutputTruthy(outputParam)).To(BeFalse())
@@ -1879,64 +1331,4 @@ var _ = Describe("State", func() {
 		})
 	})
 
-	Describe("Authority Changes", func() {
-		var s *state.State
-
-		BeforeEach(func() {
-			g := graph.Graph{
-				Nodes:     []graph.Node{{Key: "test", Type: "test"}},
-				Functions: []graph.Function{{Key: "test"}},
-			}
-			testIR, diagnostics := graph.Analyze(ctx, g, nil)
-			Expect(diagnostics.Ok()).To(BeTrue())
-			s = state.New(state.Config{IR: testIR})
-		})
-
-		It("Should buffer and flush authority changes", func() {
-			channelKey := uint32(42)
-			s.Control.Set(&channelKey, 200)
-			changes := s.Control.Flush()
-			Expect(changes).To(HaveLen(1))
-			Expect(changes[0].Channel).ToNot(BeNil())
-			Expect(*changes[0].Channel).To(Equal(uint32(42)))
-			Expect(changes[0].Authority).To(Equal(uint8(200)))
-		})
-
-		It("Should return nil when no authority changes", func() {
-			changes := s.Control.Flush()
-			Expect(changes).To(BeNil())
-		})
-
-		It("Should buffer authority change for all channels", func() {
-			s.Control.Set(nil, 254)
-			changes := s.Control.Flush()
-			Expect(changes).To(HaveLen(1))
-			Expect(changes[0].Channel).To(BeNil())
-			Expect(changes[0].Authority).To(Equal(uint8(254)))
-		})
-
-		It("Should clear authority changes after flush", func() {
-			s.Control.Set(nil, 200)
-			changes := s.Control.Flush()
-			Expect(changes).To(HaveLen(1))
-			changes = s.Control.Flush()
-			Expect(changes).To(BeNil())
-		})
-
-		It("Should buffer multiple authority changes", func() {
-			k1 := uint32(10)
-			k2 := uint32(20)
-			s.Control.Set(&k1, 100)
-			s.Control.Set(&k2, 200)
-			s.Control.Set(nil, 254)
-			changes := s.Control.Flush()
-			Expect(changes).To(HaveLen(3))
-			Expect(*changes[0].Channel).To(Equal(uint32(10)))
-			Expect(changes[0].Authority).To(Equal(uint8(100)))
-			Expect(*changes[1].Channel).To(Equal(uint32(20)))
-			Expect(changes[1].Authority).To(Equal(uint8(200)))
-			Expect(changes[2].Channel).To(BeNil())
-			Expect(changes[2].Authority).To(Equal(uint8(254)))
-		})
-	})
 })

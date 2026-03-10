@@ -50,8 +50,7 @@ func BenchmarkRefreshInputsSingleInput(b *testing.B) {
 	if !diagnostics.Ok() {
 		b.Fatalf("Failed to analyze graph: %s", diagnostics.String())
 	}
-	cfg := state.Config{IR: inter}
-	s := state.New(cfg)
+	s := state.New(inter)
 	sourceNode := s.Node("source")
 	targetNode := s.Node("target")
 	*sourceNode.Output(0) = telem.NewSeriesV[float32](0)

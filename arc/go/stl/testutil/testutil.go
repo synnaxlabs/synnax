@@ -195,8 +195,8 @@ func buildPassthroughWASM(moduleName string, imports []funcImport) []byte {
 	for i, imp := range imports {
 		writeWASMString(&impSec, moduleName)
 		writeWASMString(&impSec, imp.name)
-		impSec.WriteByte(0x00)            // import kind: function
-		writeULEB128(&impSec, uint32(i))  // type index
+		impSec.WriteByte(0x00)           // import kind: function
+		writeULEB128(&impSec, uint32(i)) // type index
 	}
 	writeSection(&buf, 2, impSec.Bytes())
 
@@ -213,8 +213,8 @@ func buildPassthroughWASM(moduleName string, imports []funcImport) []byte {
 	writeULEB128(&expSec, uint32(n))
 	for i, imp := range imports {
 		writeWASMString(&expSec, imp.name)
-		expSec.WriteByte(0x00)                // export kind: function
-		writeULEB128(&expSec, uint32(n+i))    // func index (after imports)
+		expSec.WriteByte(0x00)             // export kind: function
+		writeULEB128(&expSec, uint32(n+i)) // func index (after imports)
 	}
 	writeSection(&buf, 7, expSec.Bytes())
 
@@ -228,9 +228,9 @@ func buildPassthroughWASM(moduleName string, imports []funcImport) []byte {
 			body.WriteByte(0x20) // local.get
 			writeULEB128(&body, uint32(j))
 		}
-		body.WriteByte(0x10) // call
+		body.WriteByte(0x10)           // call
 		writeULEB128(&body, uint32(i)) // import function index
-		body.WriteByte(0x0b) // end
+		body.WriteByte(0x0b)           // end
 
 		writeULEB128(&codeSec, uint32(body.Len()))
 		codeSec.Write(body.Bytes())

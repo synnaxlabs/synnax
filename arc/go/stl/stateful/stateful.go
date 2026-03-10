@@ -66,6 +66,9 @@ func NewModule(
 		stateString: make(map[string]map[uint32]string),
 		stateSeries: make(map[string]map[uint32]telem.Series),
 	}
+	if rat == nil {
+		return m, nil
+	}
 	builder := rat.NewHostModuleBuilder("state")
 	bindScalarI32[uint8](builder, m, m.stateU8, "u8")
 	bindScalarI32[uint16](builder, m, m.stateU16, "u16")

@@ -824,13 +824,13 @@ var _ = Describe("Time", func() {
 	})
 	Describe("SymbolResolver", func() {
 		It("Should resolve interval symbol", func() {
-			sym, ok := time.SymbolResolver["interval"]
-			Expect(ok).To(BeTrue())
+			sym, err := time.SymbolResolver.Resolve(ctx, "interval")
+			Expect(err).ToNot(HaveOccurred())
 			Expect(sym.Name).To(Equal("interval"))
 		})
 		It("Should resolve wait symbol", func() {
-			sym, ok := time.SymbolResolver["wait"]
-			Expect(ok).To(BeTrue())
+			sym, err := time.SymbolResolver.Resolve(ctx, "wait")
+			Expect(err).ToNot(HaveOccurred())
 			Expect(sym.Name).To(Equal("wait"))
 		})
 	})
@@ -1124,10 +1124,10 @@ var _ = Describe("Time", func() {
 	})
 	Describe("Deadline Reporting", func() {
 		Describe("Interval", func() {
-			var factory *arctime.Factory
+			var factory *time.Module
 			var s *state.State
 			BeforeEach(func() {
-				factory = arctime.NewFactory()
+				factory = MustSucceed(time.NewModule(ctx, nil))
 				g := graph.Graph{
 					Nodes: []graph.Node{{
 						Key:  "interval_1",
@@ -1146,9 +1146,9 @@ var _ = Describe("Time", func() {
 						},
 					}},
 				}
-				analyzed, diagnostics := graph.Analyze(ctx, g, arctime.SymbolResolver)
+				analyzed, diagnostics := graph.Analyze(ctx, g, time.SymbolResolver)
 				Expect(diagnostics.Ok()).To(BeTrue())
-				s = state.New(state.Config{IR: analyzed})
+				s = state.New(analyzed)
 			})
 			It("Should set deadline to lastFired + period", func() {
 				cfg := node.Config{
@@ -1213,10 +1213,10 @@ var _ = Describe("Time", func() {
 			})
 		})
 		Describe("Wait", func() {
-			var factory *arctime.Factory
+			var factory *time.Module
 			var s *state.State
 			BeforeEach(func() {
-				factory = arctime.NewFactory()
+				factory = MustSucceed(time.NewModule(ctx, nil))
 				g := graph.Graph{
 					Nodes: []graph.Node{{
 						Key:  "wait_1",
@@ -1235,9 +1235,9 @@ var _ = Describe("Time", func() {
 						},
 					}},
 				}
-				analyzed, diagnostics := graph.Analyze(ctx, g, arctime.SymbolResolver)
+				analyzed, diagnostics := graph.Analyze(ctx, g, time.SymbolResolver)
 				Expect(diagnostics.Ok()).To(BeTrue())
-				s = state.New(state.Config{IR: analyzed})
+				s = state.New(analyzed)
 			})
 			It("Should set deadline to startTime + duration", func() {
 				cfg := node.Config{

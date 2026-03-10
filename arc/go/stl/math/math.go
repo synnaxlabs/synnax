@@ -42,6 +42,9 @@ func NewModule(
 	rt wazero.Runtime,
 ) (*Module, error) {
 	m := &Module{}
+	if rt == nil {
+		return m, nil
+	}
 	builder := rt.NewHostModuleBuilder("math")
 	// i32-compatible types: WASM uses uint32, convert internally
 	builder = bindI32Pow[uint8](builder, "u8")

@@ -19,9 +19,14 @@ import (
 	"github.com/synnaxlabs/arc/compiler"
 	"github.com/synnaxlabs/arc/ir"
 	"github.com/synnaxlabs/arc/runtime/state"
-	"github.com/synnaxlabs/arc/runtime/wasm"
 	"github.com/synnaxlabs/arc/stl"
+	stlchannel "github.com/synnaxlabs/arc/stl/channel"
+	stlerrors "github.com/synnaxlabs/arc/stl/errors"
+	stlmath "github.com/synnaxlabs/arc/stl/math"
+	"github.com/synnaxlabs/arc/stl/series"
+	"github.com/synnaxlabs/arc/stl/stateful"
 	stlstrings "github.com/synnaxlabs/arc/stl/strings"
+	stltime "github.com/synnaxlabs/arc/stl/time"
 	"github.com/synnaxlabs/arc/symbol"
 	"github.com/synnaxlabs/arc/text"
 	"github.com/synnaxlabs/arc/types"
@@ -98,25 +103,29 @@ func assertResult(result uint64, expected any) {
 // bindDefaultModules creates a state.State and binds all default STL modules
 // to the given wazero.Runtime. Returns the state and string module for
 // post-instantiation setup.
-func bindDefaultModules(r wazero.Runtime) (*state.State, *stlstrings.Module) {
-	s := state.New(state.Config{IR: ir.IR{Nodes: []ir.Node{{Key: "test"}}}})
-	modules, strMod, _ := wasm.DefaultModules(s)
-	hostRT := wasm.NewWazeroHostRuntime(ctx, r)
-	for _, m := range modules {
-		Expect(m.BindTo(hostRT)).To(Succeed())
-	}
-	Expect(hostRT.Instantiate()).To(Succeed())
-	return s, strMod
+func bindDefaultModules(r wazero.Runtime) (*state.State, *stlstrings.Module, *stlstrings.State) {
+	s := state.New(ir.IR{Nodes: []ir.Node{{Key: "test"}}})
+	stringsState := stlstrings.NewState()
+	seriesState := series.NewState()
+	channelState := stlchannel.NewState(nil)
+	MustSucceed(stateful.NewModule(ctx, seriesState, stringsState, r))
+	MustSucceed(series.NewModule(ctx, seriesState, r))
+	stringsMod := MustSucceed(stlstrings.NewModule(ctx, stringsState, r, nil))
+	MustSucceed(stlmath.NewModule(ctx, r))
+	MustSucceed(stlerrors.NewModule(ctx, nil, r))
+	MustSucceed(stltime.NewModule(ctx, r))
+	MustSucceed(stlchannel.NewModule(ctx, channelState, stringsState, r))
+	return s, stringsMod, stringsState
 }
 
 // bindMockChannelModule registers mock channel host functions under the
 // "channel" WASM module for test use.
 func bindMockChannelModule(r wazero.Runtime, exports map[string]any) {
-	hostRT := wasm.NewWazeroHostRuntime(ctx, r)
+	builder := r.NewHostModuleBuilder("channel")
 	for name, impl := range exports {
-		Expect(hostRT.Export("channel", name, impl)).To(Succeed())
+		builder = builder.NewFunctionBuilder().WithFunc(impl).Export(name)
 	}
-	Expect(hostRT.Instantiate()).To(Succeed())
+	MustSucceed(builder.Instantiate(ctx))
 }
 
 var _ = Describe("Compiler", func() {
@@ -2221,11 +2230,11 @@ var _ = Describe("Compiler", func() {
 	})
 
 	Describe("String Operations", func() {
-		var testState *state.State
 		var strMod *stlstrings.Module
+		var strState *stlstrings.State
 
 		BeforeEach(func() {
-			testState, strMod = bindDefaultModules(r)
+			_, strMod, strState = bindDefaultModules(r)
 		})
 
 		It("Should return string handle from function", func() {
@@ -2243,7 +2252,7 @@ var _ = Describe("Compiler", func() {
 			Expect(results).To(HaveLen(1))
 			handle := uint32(results[0])
 			Expect(handle).To(BeNumerically(">", 0))
-			str, ok := testState.Strings.Get(handle)
+			str, ok := strState.Get(handle)
 			Expect(ok).To(BeTrue())
 			Expect(str).To(Equal("hello world"))
 		})
@@ -3015,7 +3024,7 @@ var _ = Describe("Compiler", func() {
 		var strMod *stlstrings.Module
 
 		BeforeEach(func() {
-			_, strMod = bindDefaultModules(r)
+			_, strMod, _ = bindDefaultModules(r)
 		})
 
 		It("Should compare strings with default", func() {

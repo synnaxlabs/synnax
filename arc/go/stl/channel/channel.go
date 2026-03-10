@@ -213,18 +213,18 @@ func bindI32[T i32Compatible](
 	cs *State,
 	suffix string,
 ) wazero.HostModuleBuilder {
-	builder =  builder.NewFunctionBuilder().
+	builder = builder.NewFunctionBuilder().
 		WithFunc(func(_ context.Context, chID uint32) uint32 {
 			series, ok := cs.ReadValue(chID)
 			if !ok || series.Len() == 0 {
 				return 0
 			}
 			return uint32(telem.ValueAt[T](series, -1))
-		}).Export("read_"+suffix)
+		}).Export("read_" + suffix)
 	builder = builder.NewFunctionBuilder().
 		WithFunc(func(_ context.Context, chID uint32, val uint32) {
 			cs.writeValue(chID, telem.NewSeriesV[T](T(val)))
-		}).Export("write_"+suffix)
+		}).Export("write_" + suffix)
 	return builder
 }
 
@@ -244,11 +244,11 @@ func bindI64[T i64Compatible](
 				return 0
 			}
 			return uint64(telem.ValueAt[T](series, -1))
-		}).Export("read_"+suffix)
+		}).Export("read_" + suffix)
 	builder = builder.NewFunctionBuilder().
 		WithFunc(func(_ context.Context, chID uint32, val uint64) {
 			cs.writeValue(chID, telem.NewSeriesV[T](T(val)))
-		}).Export("write_"+suffix)
+		}).Export("write_" + suffix)
 	return builder
 }
 

@@ -100,6 +100,9 @@ func NewModule(
 	s *State,
 	rat wazero.Runtime,
 ) (*Module, error) {
+	if rat == nil {
+		return &Module{series: s}, nil
+	}
 	builder := rat.NewHostModuleBuilder("series")
 	builder = bindU8(builder, s)
 	builder = bindU16(builder, s)

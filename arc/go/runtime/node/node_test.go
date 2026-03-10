@@ -61,7 +61,7 @@ var _ = Describe("Node", func() {
 					Functions: []graph.Function{{Key: "constant"}},
 				}
 				analyzed, _ = graph.Analyze(ctx, g, nil)
-				s           = state.New(state.Config{IR: analyzed})
+				s           = state.New(analyzed)
 				cfg         = node.Config{Node: irNode, State: s.Node("test")}
 			)
 			Expect(cfg.Node.Key).To(Equal("test"))

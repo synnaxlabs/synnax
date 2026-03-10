@@ -66,6 +66,9 @@ func NewModule(
 	memory api.Memory,
 ) (*Module, error) {
 	m := &Module{strings: s, memory: memory}
+	if rat == nil {
+		return m, nil
+	}
 	builder := rat.NewHostModuleBuilder("string")
 	builder = builder.NewFunctionBuilder().
 		WithFunc(func(_ context.Context, ptr uint32, length uint32) uint32 {

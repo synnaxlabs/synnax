@@ -15,16 +15,17 @@ import (
 
 	"github.com/samber/lo"
 	"github.com/synnaxlabs/arc"
-	"github.com/synnaxlabs/arc/runtime/state"
-	channelstate "github.com/synnaxlabs/arc/stl/channel/state"
+	"github.com/synnaxlabs/arc/ir"
+	stlchannel "github.com/synnaxlabs/arc/stl/channel"
 	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
 	"github.com/synnaxlabs/x/set"
 )
 
 type ExtendedStateConfig struct {
-	Reads  set.Set[channel.Key]
-	Writes set.Set[channel.Key]
-	State  state.Config
+	Reads          set.Set[channel.Key]
+	Writes         set.Set[channel.Key]
+	ChannelDigests []stlchannel.Digest
+	IR             ir.IR
 }
 
 func retrieveChannels(
@@ -75,9 +76,9 @@ func NewStateConfig(
 	if err != nil {
 		return ExtendedStateConfig{}, err
 	}
-	channelDigests := make([]channelstate.Digest, 0, len(channels))
+	channelDigests := make([]stlchannel.Digest, 0, len(channels))
 	for _, ch := range channels {
-		channelDigests = append(channelDigests, channelstate.Digest{
+		channelDigests = append(channelDigests, stlchannel.Digest{
 			Key:      uint32(ch.Key()),
 			DataType: ch.DataType,
 			Index:    uint32(ch.Index()),
@@ -90,11 +91,9 @@ func NewStateConfig(
 		}
 	}
 	return ExtendedStateConfig{
-		Reads:  reads,
-		Writes: writes,
-		State: state.Config{
-			ChannelDigests: lo.Uniq(channelDigests),
-			IR:             prog.IR,
-		},
+		Reads:          reads,
+		Writes:         writes,
+		ChannelDigests: lo.Uniq(channelDigests),
+		IR:             prog.IR,
 	}, nil
 }

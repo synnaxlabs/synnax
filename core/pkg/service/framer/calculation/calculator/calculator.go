@@ -16,34 +16,48 @@ import (
 	"github.com/synnaxlabs/arc/runtime/node"
 	"github.com/synnaxlabs/arc/runtime/scheduler"
 	"github.com/synnaxlabs/arc/runtime/state"
-	"github.com/synnaxlabs/arc/runtime/wasm"
 	"github.com/synnaxlabs/arc/stl"
 	stlchannel "github.com/synnaxlabs/arc/stl/channel"
 	"github.com/synnaxlabs/arc/stl/constant"
-	"github.com/synnaxlabs/arc/stl/module"
+	stlerrors "github.com/synnaxlabs/arc/stl/errors"
+	stlmath "github.com/synnaxlabs/arc/stl/math"
 	stlop "github.com/synnaxlabs/arc/stl/op"
 	"github.com/synnaxlabs/arc/stl/selector"
+	"github.com/synnaxlabs/arc/stl/series"
 	"github.com/synnaxlabs/arc/stl/stable"
 	"github.com/synnaxlabs/arc/stl/stat"
+	"github.com/synnaxlabs/arc/stl/stateful"
+	stlstrings "github.com/synnaxlabs/arc/stl/strings"
+	"github.com/synnaxlabs/arc/stl/wasm"
 	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer/frame"
 	arcruntime "github.com/synnaxlabs/synnax/pkg/service/arc/runtime"
 	"github.com/synnaxlabs/synnax/pkg/service/framer/calculation/compiler"
 	"github.com/synnaxlabs/x/config"
+	xio "github.com/synnaxlabs/x/io"
 	"github.com/synnaxlabs/x/override"
 	"github.com/synnaxlabs/x/telem"
 	"github.com/synnaxlabs/x/validate"
+	"github.com/tetratelabs/wazero"
 )
+
+type calcState struct {
+	nodes   *state.State
+	channel *stlchannel.State
+	series  *series.State
+	strings *stlstrings.State
+}
 
 // Calculator is an engine for executing expressions and operations in calculated
 // channels.
 type Calculator struct {
-	state     *state.State
+	state     calcState
 	scheduler *scheduler.Scheduler
 	stateCfg  arcruntime.ExtendedStateConfig
 	cfg       Config
 	start     telem.TimeStamp
+	closer    xio.MultiCloser
 }
 
 type Config struct {
@@ -82,36 +96,76 @@ func Open(
 		return nil, err
 	}
 
-	progState := state.New(cfg.Module.StateConfig.State)
-	modules := []module.Module{
-		stlchannel.NewModule(nil, nil),
+	var cs calcState
+	cs.channel = stlchannel.NewState(cfg.Module.StateConfig.ChannelDigests)
+	cs.series = series.NewState()
+	cs.strings = stlstrings.NewState()
+
+	channelMod, err := stlchannel.NewModule(ctx, cs.channel, cs.strings, nil)
+	if err != nil {
+		return nil, err
+	}
+
+	f := stl.CompoundFactory{
+		channelMod,
 		selector.NewModule(),
 		constant.NewModule(),
 		stlop.NewModule(),
 		stable.NewModule(),
 		&stat.Module{},
 	}
-	f := stl.MultiFactory(modules...)
+
+	var closers xio.MultiCloser
 	if len(cfg.Module.WASM) > 0 {
-		wasmMod, err := wasm.OpenState(ctx, wasm.RuntimeConfig{
-			Program: cfg.Module.Program,
-			State:   progState,
+		wasmRT := wazero.NewRuntimeWithConfig(ctx, wazero.NewRuntimeConfigCompiler())
+		statefulMod, err := stateful.NewModule(ctx, cs.series, cs.strings, wasmRT)
+		if err != nil {
+			return nil, err
+		}
+		if _, err := series.NewModule(ctx, cs.series, wasmRT); err != nil {
+			return nil, err
+		}
+		stringsMod, err := stlstrings.NewModule(ctx, cs.strings, wasmRT, nil)
+		if err != nil {
+			return nil, err
+		}
+		if _, err := stlmath.NewModule(ctx, wasmRT); err != nil {
+			return nil, err
+		}
+		errorsMod, err := stlerrors.NewModule(ctx, nil, wasmRT)
+		if err != nil {
+			return nil, err
+		}
+
+		guest, err := wasmRT.Instantiate(ctx, cfg.Module.WASM)
+		if err != nil {
+			return nil, err
+		}
+		stringsMod.SetMemory(guest.Memory())
+		errorsMod.SetMemory(guest.Memory())
+		closers = append(closers, xio.CloserFunc(func() error {
+			gErr := guest.Close(ctx)
+			rErr := wasmRT.Close(ctx)
+			if gErr != nil {
+				return gErr
+			}
+			return rErr
+		}))
+		f = append(f, &wasm.Module{
+			Module:        guest,
+			Memory:        guest.Memory(),
+			Strings:       cs.strings,
+			NodeKeySetter: statefulMod,
 		})
-		if err != nil {
-			return nil, err
-		}
-		wasmFactory, err := wasm.NewFactory(wasmMod)
-		if err != nil {
-			return nil, err
-		}
-		f = append(f, wasmFactory)
 	}
+
+	cs.nodes = state.New(cfg.Module.StateConfig.IR)
 	nodes := make(map[string]node.Node)
 	for _, irNode := range cfg.Module.Nodes {
 		n, err := f.Create(ctx, node.Config{
 			Node:    irNode,
 			Program: cfg.Module.Program,
-			State:   progState.Node(irNode.Key),
+			State:   cs.nodes.Node(irNode.Key),
 		})
 		if err != nil {
 			return nil, err
@@ -123,8 +177,9 @@ func Open(
 	return &Calculator{
 		cfg:       cfg,
 		scheduler: sched,
-		state:     progState,
+		state:     cs,
 		stateCfg:  cfg.Module.StateConfig,
+		closer:    closers,
 	}, nil
 }
 
@@ -167,7 +222,7 @@ func (c *Calculator) Next(
 	input,
 	output framer.Frame,
 ) (framer.Frame, bool, error) {
-	c.state.Channel.Ingest(input.ToStorage())
+	c.state.channel.Ingest(input.ToStorage())
 	var (
 		ofr         = output.ToStorage()
 		currChanged bool
@@ -175,7 +230,7 @@ func (c *Calculator) Next(
 	)
 	for {
 		c.scheduler.Next(ctx, telem.Since(c.start), node.ReasonChannelInput)
-		ofr, currChanged = c.state.Channel.Flush(ofr)
+		ofr, currChanged = c.state.channel.Flush(ofr)
 		if !currChanged {
 			break
 		}
@@ -184,9 +239,9 @@ func (c *Calculator) Next(
 	// ClearReads must run unconditionally, not just when changed is true. Otherwise,
 	// when a required input channel never sends data, consumed series accumulate
 	// indefinitely in channel.reads.
-	c.state.Channel.ClearReads()
-	c.state.Series.Clear()
-	c.state.Strings.Clear()
+	c.state.channel.ClearReads()
+	c.state.series.Clear()
+	c.state.strings.Clear()
 	if !changed {
 		return output, false, nil
 	}
@@ -194,5 +249,5 @@ func (c *Calculator) Next(
 }
 
 func (c *Calculator) Close() error {
-	return nil
+	return c.closer.Close()
 }

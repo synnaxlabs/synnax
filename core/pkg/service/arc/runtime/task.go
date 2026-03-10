@@ -19,15 +19,13 @@ import (
 	"github.com/synnaxlabs/arc/ir"
 	"github.com/synnaxlabs/arc/runtime/node"
 	"github.com/synnaxlabs/arc/runtime/scheduler"
-	"github.com/synnaxlabs/arc/runtime/state"
-	"github.com/synnaxlabs/arc/runtime/wasm"
+	nodestate "github.com/synnaxlabs/arc/runtime/state"
 	"github.com/synnaxlabs/arc/stl"
 	"github.com/synnaxlabs/arc/stl/channel"
 	"github.com/synnaxlabs/arc/stl/constant"
 	stlcontrol "github.com/synnaxlabs/arc/stl/control"
 	stlerrors "github.com/synnaxlabs/arc/stl/errors"
 	stlmath "github.com/synnaxlabs/arc/stl/math"
-	"github.com/synnaxlabs/arc/stl/module"
 	stlop "github.com/synnaxlabs/arc/stl/op"
 	"github.com/synnaxlabs/arc/stl/selector"
 	"github.com/synnaxlabs/arc/stl/series"
@@ -35,8 +33,9 @@ import (
 	"github.com/synnaxlabs/arc/stl/stage"
 	"github.com/synnaxlabs/arc/stl/stat"
 	"github.com/synnaxlabs/arc/stl/stateful"
-	"github.com/synnaxlabs/arc/stl/strings"
+	stlstrings "github.com/synnaxlabs/arc/stl/strings"
 	"github.com/synnaxlabs/arc/stl/time"
+	"github.com/synnaxlabs/arc/stl/wasm"
 	distchannel "github.com/synnaxlabs/synnax/pkg/distribution/channel"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer/frame"
@@ -54,6 +53,7 @@ import (
 	"github.com/synnaxlabs/x/signal"
 	"github.com/synnaxlabs/x/status"
 	"github.com/synnaxlabs/x/telem"
+	"github.com/tetratelabs/wazero"
 	"go.uber.org/zap"
 )
 
@@ -100,16 +100,55 @@ func (t *taskImpl) start(ctx context.Context) error {
 		t.setStatus(status.VariantError, false, err.Error())
 		return err
 	}
-	drt.state = state.New(stateCfg.State)
 
-	timeMod := time.NewModule()
-	modules := []module.Module{
-		channel.NewModule(drt.state.Channel, drt.state.Strings),
-		stateful.NewModule(drt.state.Series, drt.state.Strings),
-		series.NewModule(drt.state.Series),
-		strings.NewModule(drt.state.Strings),
-		stlmath.NewModule(),
-		stlerrors.NewModule(),
+	drt.state.nodes = nodestate.New(stateCfg.IR)
+	drt.state.channel = channel.NewState(stateCfg.ChannelDigests)
+	drt.state.series = series.NewState()
+	drt.state.strings = stlstrings.NewState()
+	drt.state.control = &stlcontrol.State{}
+
+	var wasmRT wazero.Runtime
+	if len(t.prog.Program.WASM) > 0 {
+		wasmRT = wazero.NewRuntimeWithConfig(ctx, wazero.NewRuntimeConfigCompiler())
+	}
+
+	timeMod, err := time.NewModule(ctx, wasmRT)
+	if err != nil {
+		t.setStatus(status.VariantError, false, err.Error())
+		return err
+	}
+	channelMod, err := channel.NewModule(ctx, drt.state.channel, drt.state.strings, wasmRT)
+	if err != nil {
+		t.setStatus(status.VariantError, false, err.Error())
+		return err
+	}
+	statefulMod, err := stateful.NewModule(ctx, drt.state.series, drt.state.strings, wasmRT)
+	if err != nil {
+		t.setStatus(status.VariantError, false, err.Error())
+		return err
+	}
+	if _, err := series.NewModule(ctx, drt.state.series, wasmRT); err != nil {
+		t.setStatus(status.VariantError, false, err.Error())
+		return err
+	}
+	stringsMod, err := stlstrings.NewModule(ctx, drt.state.strings, wasmRT, nil)
+	if err != nil {
+		t.setStatus(status.VariantError, false, err.Error())
+		return err
+	}
+	if _, err := stlmath.NewModule(ctx, wasmRT); err != nil {
+		t.setStatus(status.VariantError, false, err.Error())
+		return err
+	}
+	errorsMod, err := stlerrors.NewModule(ctx, nil, wasmRT)
+	if err != nil {
+		t.setStatus(status.VariantError, false, err.Error())
+		return err
+	}
+
+	f := stl.CompoundFactory{
+		channelMod,
+		statefulMod,
 		timeMod,
 		selector.NewModule(),
 		constant.NewModule(),
@@ -117,30 +156,28 @@ func (t *taskImpl) start(ctx context.Context) error {
 		stage.NewModule(),
 		stable.NewModule(),
 		arcstatus.NewModule(t.factoryCfg.Status),
-		stlcontrol.NewModule(drt.state.Control),
+		stlcontrol.NewModule(drt.state.control),
 		&stat.Module{},
 	}
-	f := stl.MultiFactory(modules...)
-	var closers xio.MultiCloser
 
+	var closers xio.MultiCloser
 	if len(t.prog.Program.WASM) > 0 {
-		var err error
-		wasmMod, err := wasm.OpenState(ctx, wasm.RuntimeConfig{
-			Program: t.prog.Program,
-			State:   drt.state,
-			Modules: modules,
+		guest, err := wasmRT.Instantiate(ctx, t.prog.Program.WASM)
+		if err != nil {
+			t.setStatus(status.VariantError, false, err.Error())
+			return err
+		}
+		stringsMod.SetMemory(guest.Memory())
+		errorsMod.SetMemory(guest.Memory())
+		closers = append(closers, xio.CloserFunc(func() error {
+			return errors.Join(guest.Close(ctx), wasmRT.Close(ctx))
+		}))
+		f = append(f, &wasm.Module{
+			Module:        guest,
+			Memory:        guest.Memory(),
+			Strings:       drt.state.strings,
+			NodeKeySetter: statefulMod,
 		})
-		if err != nil {
-			t.setStatus(status.VariantError, false, err.Error())
-			return err
-		}
-		closers = append(closers, wasmMod)
-		wasmFactory, err := wasm.NewFactory(wasmMod)
-		if err != nil {
-			t.setStatus(status.VariantError, false, err.Error())
-			return err
-		}
-		f = append(f, wasmFactory)
 	}
 
 	nodes := make(map[string]node.Node)
@@ -148,7 +185,7 @@ func (t *taskImpl) start(ctx context.Context) error {
 		n, err := f.Create(ctx, node.Config{
 			Node:    irNode,
 			Program: t.prog.Program,
-			State:   drt.state.Node(irNode.Key),
+			State:   drt.state.nodes.Node(irNode.Key),
 		})
 		if err != nil {
 			t.setStatus(status.VariantError, false, err.Error())
@@ -314,7 +351,7 @@ func (t *taskImpl) setRuntimeError(nodeKey string, err error) {
 	stat := task.Status{
 		Key:         task.OntologyID(t.task.Key).String(),
 		Variant:     status.VariantWarning,
-		Message:     fmt.Sprintf("State error in %s", nodeType),
+		Message:     fmt.Sprintf("Runtime error in %s", nodeType),
 		Description: err.Error(),
 		Time:        telem.Now(),
 		Details:     task.StatusDetails{Task: t.task.Key, Running: true},
@@ -324,12 +361,20 @@ func (t *taskImpl) setRuntimeError(nodeKey string, err error) {
 	}
 }
 
+type state struct {
+	nodes   *nodestate.State
+	channel *channel.State
+	series  *series.State
+	strings *stlstrings.State
+	control *stlcontrol.State
+}
+
 type dataRuntime struct {
 	confluence.AbstractLinear[framer.StreamerResponse, framer.WriterRequest]
 	startTime telem.TimeStamp
 	scheduler *scheduler.Scheduler
-	state     *state.State
 	writeKeys distchannel.Keys
+	state     state
 }
 
 func (d *dataRuntime) next(
@@ -337,17 +382,17 @@ func (d *dataRuntime) next(
 	res framer.StreamerResponse,
 	reason node.RunReason,
 ) error {
-	d.state.Channel.Ingest(res.Frame.ToStorage())
+	d.state.channel.Ingest(res.Frame.ToStorage())
 	d.scheduler.Next(ctx, telem.Since(d.startTime), reason)
-	d.state.Channel.ClearReads()
+	d.state.channel.ClearReads()
 	if d.Out != nil {
 		if err := d.flushAuthorityChanges(ctx); err != nil {
 			return err
 		}
 	}
-	d.state.Series.Clear()
-	d.state.Strings.Clear()
-	if fr, changed := d.state.Channel.Flush(telem.Frame[uint32]{}); changed && d.Out != nil {
+	d.state.series.Clear()
+	d.state.strings.Clear()
+	if fr, changed := d.state.channel.Flush(telem.Frame[uint32]{}); changed && d.Out != nil {
 		req := framer.WriterRequest{
 			Frame:   frame.NewFromStorage(fr),
 			Command: writer.CommandWrite,
@@ -358,7 +403,7 @@ func (d *dataRuntime) next(
 }
 
 func (d *dataRuntime) flushAuthorityChanges(ctx context.Context) error {
-	changes := d.state.Control.Flush()
+	changes := d.state.control.Flush()
 	if len(changes) == 0 {
 		return nil
 	}
@@ -374,10 +419,7 @@ func (d *dataRuntime) flushAuthorityChanges(ctx context.Context) error {
 			}
 		}
 	}
-	req := framer.WriterRequest{
-		Command: writer.CommandSetAuthority,
-		Config:  cfg,
-	}
+	req := framer.WriterRequest{Command: writer.CommandSetAuthority, Config: cfg}
 	return signal.SendUnderContext(ctx, d.Out.Inlet(), req)
 }
 

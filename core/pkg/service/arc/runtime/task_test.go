@@ -84,9 +84,9 @@ var _ = Describe("Task", Ordered, func() {
 
 	newFactoryWith := func(getModule func(context.Context, uuid.UUID) (svcarc.Arc, error)) *runtime.Factory {
 		return MustSucceed(runtime.NewFactory(runtime.FactoryConfig{
-			Channel:   dist.Channel,
-			Framer:    dist.Framer,
-			Status:    statusSvc,
+			Channel:    dist.Channel,
+			Framer:     dist.Framer,
+			Status:     statusSvc,
 			GetProgram: getModule,
 		}))
 	}
@@ -244,9 +244,9 @@ var _ = Describe("Task", Ordered, func() {
 
 		It("Should return error for invalid config JSON", func() {
 			factory := MustSucceed(runtime.NewFactory(runtime.FactoryConfig{
-				Channel:   dist.Channel,
-				Framer:    dist.Framer,
-				Status:    statusSvc,
+				Channel:    dist.Channel,
+				Framer:     dist.Framer,
+				Status:     statusSvc,
 				GetProgram: func(context.Context, uuid.UUID) (svcarc.Arc, error) { return svcarc.Arc{}, nil },
 			}))
 			svcTask := task.Task{
@@ -262,9 +262,9 @@ var _ = Describe("Task", Ordered, func() {
 
 		It("Should return error when CompileProgram fails", func() {
 			factory := MustSucceed(runtime.NewFactory(runtime.FactoryConfig{
-				Channel:   dist.Channel,
-				Framer:    dist.Framer,
-				Status:    statusSvc,
+				Channel:    dist.Channel,
+				Framer:     dist.Framer,
+				Status:     statusSvc,
 				GetProgram: moduleNotFoundGetter,
 			}))
 			svcTask := task.Task{
@@ -280,9 +280,9 @@ var _ = Describe("Task", Ordered, func() {
 
 		It("Should set error status when config JSON is invalid", func() {
 			factory := MustSucceed(runtime.NewFactory(runtime.FactoryConfig{
-				Channel:   dist.Channel,
-				Framer:    dist.Framer,
-				Status:    statusSvc,
+				Channel:    dist.Channel,
+				Framer:     dist.Framer,
+				Status:     statusSvc,
 				GetProgram: func(context.Context, uuid.UUID) (svcarc.Arc, error) { return svcarc.Arc{}, nil },
 			}))
 			svcTask := task.Task{
@@ -304,9 +304,9 @@ var _ = Describe("Task", Ordered, func() {
 
 		It("Should set error status when GetProgram fails", func() {
 			factory := MustSucceed(runtime.NewFactory(runtime.FactoryConfig{
-				Channel:   dist.Channel,
-				Framer:    dist.Framer,
-				Status:    statusSvc,
+				Channel:    dist.Channel,
+				Framer:     dist.Framer,
+				Status:     statusSvc,
 				GetProgram: moduleNotFoundGetter,
 			}))
 			svcTask := task.Task{
