@@ -726,7 +726,7 @@ var _ = Describe("Channel", func() {
 	Describe("NewModule nil-safety", func() {
 		It("Should not panic when channel state is nil", func() {
 			Expect(func() {
-				_, _ = channel.NewModule(ctx, nil, nil, nil)
+				MustSucceed(channel.NewModule(ctx, nil, nil, nil))
 			}).ToNot(Panic())
 		})
 	})

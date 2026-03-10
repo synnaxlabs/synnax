@@ -18,6 +18,7 @@ import (
 	"github.com/synnaxlabs/arc/types"
 	arcstatus "github.com/synnaxlabs/synnax/pkg/service/arc/status"
 	"github.com/synnaxlabs/x/query"
+	. "github.com/synnaxlabs/x/testutil"
 )
 
 var _ = Describe("SymbolResolver", func() {
@@ -88,8 +89,7 @@ var _ = Describe("Module", func() {
 					},
 				},
 			}
-			n, err := mod.Create(ctx, cfg)
-			Expect(err).ToNot(HaveOccurred())
+			n := MustSucceed(mod.Create(ctx, cfg))
 			Expect(n).ToNot(BeNil())
 		})
 	})

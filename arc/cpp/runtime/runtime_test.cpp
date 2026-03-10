@@ -24,7 +24,7 @@ std::shared_ptr<Runtime> create_test_runtime(
     arc::runtime::errors::Handler error_handler
 ) {
     Config cfg{
-        .mod = {},
+        .program = {},
         .breaker = x::breaker::Config{},
         .retrieve_channels = nullptr,
         .input_queue_capacity = input_capacity,
@@ -62,7 +62,7 @@ create_lifecycle_runtime(std::unique_ptr<testutil::MockLoop> loop) {
     );
 
     Config cfg{
-        .mod = {},
+        .program = {},
         .breaker = x::breaker::Config{},
         .retrieve_channels = nullptr,
         .input_queue_capacity = 256,
@@ -380,7 +380,7 @@ struct DeadlineRuntimeFixture {
         );
 
         Config cfg{
-            .mod = {},
+            .program = {},
             .breaker = x::breaker::Config{},
             .retrieve_channels = nullptr,
             .input_queue_capacity = 256,

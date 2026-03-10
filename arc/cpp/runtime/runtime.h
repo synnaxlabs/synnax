@@ -51,7 +51,7 @@ struct Output {
 };
 
 struct Config {
-    program::Program mod;
+    program::Program program;
     x::breaker::Config breaker;
     std::function<std::pair<std::vector<state::ChannelDigest>, x::errors::Error>(
         const std::vector<types::ChannelKey> &
@@ -222,13 +222,13 @@ inline std::pair<std::shared_ptr<Runtime>, x::errors::Error>
 load(const Config &cfg, errors::Handler error_handler = errors::noop_handler) {
     std::set<types::ChannelKey> reads;
     std::set<types::ChannelKey> writes;
-    for (const auto &n: cfg.mod.nodes) {
+    for (const auto &n: cfg.program.nodes) {
         const auto read_keys = std::views::keys(n.channels.read);
         reads.insert(read_keys.begin(), read_keys.end());
         const auto write_keys = std::views::keys(n.channels.write);
         writes.insert(write_keys.begin(), write_keys.end());
     }
-    for (const auto &[key, val]: cfg.mod.authorities.channels)
+    for (const auto &[key, val]: cfg.program.authorities.channels)
         writes.insert(key);
 
     std::vector<types::ChannelKey> keys;
@@ -247,7 +247,10 @@ load(const Config &cfg, errors::Handler error_handler = errors::noop_handler) {
     auto series_st = std::make_shared<stl::series::State>();
     auto var_st = std::make_shared<stl::stateful::Variables>();
 
-    state::Config state_cfg{.ir = (static_cast<ir::IR>(cfg.mod)), .channels = digests};
+    state::Config state_cfg{
+        .ir = (static_cast<ir::IR>(cfg.program)),
+        .channels = digests
+    };
     auto state = std::make_shared<state::State>(
         state_cfg,
         channel_st,
@@ -272,7 +275,7 @@ load(const Config &cfg, errors::Handler error_handler = errors::noop_handler) {
     };
 
     wasm::ModuleConfig module_cfg{
-        .module = cfg.mod,
+        .module = cfg.program,
         .modules = stl_modules,
         .strings = str_st,
     };
@@ -286,8 +289,8 @@ load(const Config &cfg, errors::Handler error_handler = errors::noop_handler) {
     node::MultiFactory fact(factories);
 
     std::unordered_map<std::string, std::unique_ptr<node::Node>> nodes;
-    const ir::IR prog = static_cast<ir::IR>(cfg.mod);
-    for (const auto &mod_node: cfg.mod.nodes) {
+    const ir::IR prog = static_cast<ir::IR>(cfg.program);
+    for (const auto &mod_node: cfg.program.nodes) {
         auto [node_state, node_state_err] = state->node(mod_node.key);
         if (node_state_err) return {nullptr, node_state_err};
         auto [node, err] = fact.create(
@@ -300,7 +303,7 @@ load(const Config &cfg, errors::Handler error_handler = errors::noop_handler) {
     const auto loop_cfg = cfg.loop.apply_defaults(base_interval);
     const auto tolerance = stl::time::calculate_tolerance(loop_cfg.mode, base_interval);
     auto sched = std::make_unique<scheduler::Scheduler>(
-        cfg.mod,
+        cfg.program,
         nodes,
         tolerance,
         error_handler

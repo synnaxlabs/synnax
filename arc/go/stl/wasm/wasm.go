@@ -14,7 +14,7 @@ import (
 	"math"
 	"strings"
 
-	runtimenode "github.com/synnaxlabs/arc/runtime/node"
+	"github.com/synnaxlabs/arc/runtime/node"
 	stlstrings "github.com/synnaxlabs/arc/stl/strings"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/query"
@@ -30,7 +30,7 @@ type Module struct {
 	NodeKeySetter NodeKeySetter
 }
 
-func (w *Module) Create(_ context.Context, cfg runtimenode.Config) (runtimenode.Node, error) {
+func (w *Module) Create(_ context.Context, cfg node.Config) (node.Node, error) {
 	irFn, ok := cfg.Program.Functions.Find(cfg.Node.Type)
 	if !ok {
 		return nil, query.ErrNotFound
@@ -53,6 +53,7 @@ func (w *Module) Create(_ context.Context, cfg runtimenode.Config) (runtimenode.
 			continue
 		}
 		val, err := ConvertConfigValue(param.Value)
+
 		if err != nil {
 			return nil, err
 		}

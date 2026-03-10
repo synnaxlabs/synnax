@@ -35,13 +35,13 @@ namespace driver::arc {
 /// @brief configuration for an arc runtime task.
 struct TaskConfig : common::BaseTaskConfig {
     std::string arc_key;
-    ::arc::program::Program module;
+    ::arc::program::Program program;
     ::arc::runtime::loop::Config loop;
 
     TaskConfig(TaskConfig &&other) noexcept:
         BaseTaskConfig(std::move(other)),
         arc_key(std::move(other.arc_key)),
-        module(std::move(other.module)),
+        program(std::move(other.program)),
         loop(std::move(other.loop)) {}
 
     TaskConfig(const TaskConfig &) = delete;
@@ -63,7 +63,7 @@ struct TaskConfig : common::BaseTaskConfig {
             synnax::arc::RetrieveOptions{.compile = true}
         );
         if (arc_err) return {std::move(cfg), arc_err};
-        cfg.module = ::arc::program::Program(arc_data.program);
+        cfg.program = ::arc::program::Program(arc_data.program);
         return {std::move(cfg), x::errors::NIL};
     }
 };
@@ -134,7 +134,7 @@ public:
         auto task = std::unique_ptr<Task>(new Task(task_meta, ctx));
 
         const ::arc::runtime::Config runtime_cfg{
-            .mod = cfg.module,
+            .program = cfg.program,
             .breaker = x::breaker::default_config("arc_runtime"),
             .retrieve_channels = [client = ctx->client](
                                      const std::vector<::arc::types::ChannelKey> &keys
@@ -178,7 +178,7 @@ public:
                 ctx->client
             );
         auto initial_authorities = ::arc::runtime::build_authorities(
-            cfg.module.authorities,
+            cfg.program.authorities,
             task->runtime->write_channels
         );
         task->acquisition = std::make_unique<pipeline::Acquisition>(
