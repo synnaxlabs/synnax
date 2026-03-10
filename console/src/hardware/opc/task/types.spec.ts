@@ -10,7 +10,11 @@
 import { describe, expect, it } from "vitest";
 import { type z } from "zod";
 
-import { SCAN_SCHEMAS, type WriteChannel, writeConfigZ } from "@/hardware/opc/task/types";
+import {
+  SCAN_SCHEMAS,
+  type WriteChannel,
+  writeConfigZ,
+} from "@/hardware/opc/task/types";
 
 describe("OPC Scan Task Types", () => {
   it("should parse null scan config as empty object", () => {
