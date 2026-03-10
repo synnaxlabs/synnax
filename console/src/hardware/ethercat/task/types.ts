@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { channel, type task, UnexpectedError } from "@synnaxlabs/client";
-import { caseconv, id } from "@synnaxlabs/x";
+import { caseconv, id, record } from "@synnaxlabs/x";
 import { z } from "zod/v4";
 
 import { Common } from "@/hardware/common";
@@ -226,7 +226,7 @@ export const WRITE_SCHEMAS: task.Schemas<
 };
 
 const scanTypeZ = z.literal(SCAN_TYPE);
-const scanConfigZ = z.object({});
+const scanConfigZ = record.nullishToEmpty();
 const scanStatusDataZ = z.object({}).or(z.null());
 
 export const SCAN_SCHEMAS: task.Schemas<

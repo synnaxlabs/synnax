@@ -111,9 +111,13 @@ public:
             this->error_handler(x::errors::Error("failed to watch input notifier"));
             return;
         }
+        auto next_timeout = x::telem::TimeSpan(0);
+        x::telem::TimeSpan elapsed;
         while (this->breaker.running()) {
-            const auto wake_reason = this->loop->wait(this->breaker);
-            const bool is_timer = (wake_reason == loop::WakeReason::Timer);
+            const auto wake_reason = this->loop->wait(this->breaker, next_timeout);
+            const bool is_timer =
+                (wake_reason == loop::WakeReason::Timer ||
+                 wake_reason == loop::WakeReason::Timeout);
             x::telem::Frame frame;
             bool first = true;
             while (this->inputs.try_pop(frame) || first) {
@@ -122,7 +126,7 @@ public:
                 first = false;
                 this->state->ingest(frame);
                 const auto now_steady = std::chrono::steady_clock::now();
-                const auto elapsed = x::telem::TimeSpan(
+                elapsed = x::telem::TimeSpan(
                     std::chrono::duration_cast<std::chrono::nanoseconds>(
                         now_steady - this->start_time_steady_
                     )
@@ -145,6 +149,13 @@ public:
                     }
                 }
             }
+            const auto deadline = this->scheduler->next_deadline();
+            if (deadline == x::telem::TimeSpan::max())
+                next_timeout = x::telem::TimeSpan(0);
+            else if (deadline > elapsed)
+                next_timeout = deadline - elapsed;
+            else
+                next_timeout = x::telem::TimeSpan(1);
         }
     }
 

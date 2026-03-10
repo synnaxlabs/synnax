@@ -32,6 +32,8 @@ struct Context {
     /// Time-based nodes should only fire when reason is TimerTick.
     RunReason reason;
     std::function<void(const std::string &output_param)> mark_changed;
+    std::function<void()> mark_self_changed;
+    std::function<void(x::telem::TimeSpan)> set_deadline;
     std::function<void(const x::errors::Error &)> report_error;
     std::function<void()> activate_stage;
 };

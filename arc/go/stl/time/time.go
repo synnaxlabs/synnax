@@ -182,11 +182,19 @@ type Interval struct {
 func (i *Interval) Init(_ node.Context) {}
 
 func (i *Interval) Next(ctx node.Context) {
-	if ctx.Reason != node.ReasonTimerTick ||
-		ctx.Elapsed-i.lastFired < i.period-ctx.Tolerance {
+	if ctx.Reason != node.ReasonTimerTick {
+		ctx.MarkSelfChanged()
+		ctx.SetDeadline(i.lastFired + i.period)
+		return
+	}
+	if ctx.Elapsed-i.lastFired < i.period-ctx.Tolerance {
+		ctx.MarkSelfChanged()
+		ctx.SetDeadline(i.lastFired + i.period)
 		return
 	}
 	i.lastFired = ctx.Elapsed
+	ctx.MarkSelfChanged()
+	ctx.SetDeadline(i.lastFired + i.period)
 	ctx.MarkChanged(ir.DefaultOutputParam)
 	output := i.Output(0)
 	outputTime := i.OutputTime(0)
@@ -213,10 +221,13 @@ func (w *Wait) Next(ctx node.Context) {
 	if w.startTime < 0 {
 		w.startTime = ctx.Elapsed
 	}
+	ctx.SetDeadline(w.startTime + w.duration)
 	if ctx.Reason != node.ReasonTimerTick {
+		ctx.MarkSelfChanged()
 		return
 	}
 	if ctx.Elapsed-w.startTime < w.duration-ctx.Tolerance {
+		ctx.MarkSelfChanged()
 		return
 	}
 	w.fired = true

@@ -249,8 +249,14 @@ struct Loop {
     /// @brief Block until timer/external event or breaker stops.
     /// Must be called from the runtime thread only.
     /// @param breaker Controls loop termination; wait() returns when breaker stops.
+    /// @param max_timeout Upper bound on how long to sleep. When positive, the loop
+    /// will wake after at most this duration even if no timer or input fires.
+    /// A value of 0 means no deadline constraint (use the loop's configured timing).
     /// @return WakeReason indicating why wait() returned.
-    virtual WakeReason wait(x::breaker::Breaker &breaker) = 0;
+    virtual WakeReason wait(
+        x::breaker::Breaker &breaker,
+        x::telem::TimeSpan max_timeout = x::telem::TimeSpan(0)
+    ) = 0;
 
     /// @brief Initialize loop resources. Must be called before wait().
     /// Applies RT configuration (priority, affinity, memory lock) if configured.

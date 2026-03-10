@@ -176,7 +176,7 @@ func (t *taskImpl) start(ctx context.Context) error {
 
 	var runtime confluence.Segment[framer.StreamerResponse, framer.WriterRequest] = &drt
 	if hasIntervals := timeMod.BaseInterval != telem.TimeSpan(math.MaxInt64); hasIntervals {
-		runtime = &tickerRuntime{dataRuntime: drt, interval: timeMod.BaseInterval}
+		runtime = &tickerRuntime{dataRuntime: drt}
 	}
 	plumber.SetSegment(pipeline, runtimeAddr, runtime)
 
@@ -393,7 +393,6 @@ func (d *dataRuntime) Flow(sCtx signal.Context, opts ...confluence.Option) {
 
 type tickerRuntime struct {
 	dataRuntime
-	interval telem.TimeSpan
 }
 
 func (r *tickerRuntime) Flow(sCtx signal.Context, opts ...confluence.Option) {
@@ -404,16 +403,18 @@ func (r *tickerRuntime) Flow(sCtx signal.Context, opts ...confluence.Option) {
 	sCtx.Go(func(ctx context.Context) error {
 		var (
 			runReason node.RunReason
-			ticker    = stdtime.NewTicker(r.interval.Duration())
-			res       framer.StreamerResponse
-			ok        bool
+			// Fire immediately so timer nodes seed their first deadline
+			// even when no streaming input is connected.
+			timer = stdtime.NewTimer(0)
+			res   framer.StreamerResponse
+			ok    bool
 		)
-		defer ticker.Stop()
+		defer timer.Stop()
 		for {
 			select {
 			case <-ctx.Done():
 				return ctx.Err()
-			case <-ticker.C:
+			case <-timer.C:
 				runReason = node.ReasonTimerTick
 			case res, ok = <-r.In.Outlet():
 				if !ok {
@@ -423,6 +424,24 @@ func (r *tickerRuntime) Flow(sCtx signal.Context, opts ...confluence.Option) {
 			}
 			if err := r.next(ctx, res, runReason); err != nil {
 				return err
+			}
+			// Drain the timer channel before resetting to avoid stale
+			// values from a simultaneous fire during the select.
+			if !timer.Stop() {
+				select {
+				case <-timer.C:
+				default:
+				}
+			}
+			deadline := r.scheduler.NextDeadline()
+			elapsed := telem.Since(r.startTime)
+			if deadline == telem.TimeSpanMax {
+				// No active timers. Timer stays stopped (from the
+				// drain above). We'll only wake on channel input.
+			} else if deadline > elapsed {
+				timer.Reset((deadline - elapsed).Duration())
+			} else {
+				timer.Reset(0)
 			}
 		}
 	}, o.Signal...)

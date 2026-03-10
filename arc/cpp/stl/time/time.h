@@ -62,10 +62,19 @@ public:
         state(std::move(state)), cfg(cfg), last_fired(-1 * this->cfg.interval) {}
 
     x::errors::Error next(runtime::node::Context &ctx) override {
-        if (ctx.reason != runtime::node::RunReason::TimerTick) return x::errors::NIL;
-        if (ctx.elapsed - this->last_fired < this->cfg.interval - ctx.tolerance)
+        if (ctx.reason != runtime::node::RunReason::TimerTick) {
+            ctx.mark_self_changed();
+            ctx.set_deadline(this->last_fired + this->cfg.interval);
             return x::errors::NIL;
+        }
+        if (ctx.elapsed - this->last_fired < this->cfg.interval - ctx.tolerance) {
+            ctx.mark_self_changed();
+            ctx.set_deadline(this->last_fired + this->cfg.interval);
+            return x::errors::NIL;
+        }
         this->last_fired = ctx.elapsed;
+        ctx.mark_self_changed();
+        ctx.set_deadline(this->last_fired + this->cfg.interval);
         const auto &o = this->state.output(0);
         const auto &o_time = this->state.output_time(0);
         o->resize(1);
@@ -106,9 +115,15 @@ public:
     x::errors::Error next(runtime::node::Context &ctx) override {
         if (this->fired) return x::errors::NIL;
         if (this->start_time.nanoseconds() < 0) this->start_time = ctx.elapsed;
-        if (ctx.reason != runtime::node::RunReason::TimerTick) return x::errors::NIL;
-        if (ctx.elapsed - this->start_time < this->cfg.duration - ctx.tolerance)
+        ctx.set_deadline(this->start_time + this->cfg.duration);
+        if (ctx.reason != runtime::node::RunReason::TimerTick) {
+            ctx.mark_self_changed();
             return x::errors::NIL;
+        }
+        if (ctx.elapsed - this->start_time < this->cfg.duration - ctx.tolerance) {
+            ctx.mark_self_changed();
+            return x::errors::NIL;
+        }
         this->fired = true;
         const auto &o = this->state.output(0);
         const auto &o_time = this->state.output_time(0);

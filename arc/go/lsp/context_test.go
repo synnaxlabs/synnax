@@ -13,7 +13,7 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/arc/lsp"
-	"go.lsp.dev/protocol"
+	"github.com/synnaxlabs/x/lsp/protocol"
 )
 
 var _ = Describe("Context Detection", func() {
@@ -46,6 +46,10 @@ var _ = Describe("Context Detection", func() {
 			"func foo(x i32, y ", uint32(0), uint32(18), lsp.ContextTypeAnnotation),
 		Entry("partial type annotation",
 			"func foo(x i", uint32(0), uint32(12), lsp.ContextTypeAnnotation),
+		Entry("type annotation in func with empty config block",
+			"func foo{} (x ", uint32(0), uint32(14), lsp.ContextTypeAnnotation),
+		Entry("type annotation in func with config block params",
+			"func controller{sensor chan f64} (enable ", uint32(0), uint32(41), lsp.ContextTypeAnnotation),
 
 		// Expression Context
 		Entry("expression after DECLARE",
@@ -66,6 +70,12 @@ var _ = Describe("Context Detection", func() {
 			"foo(", uint32(0), uint32(4), lsp.ContextExpression),
 		Entry("expression after COMMA in function call",
 			"foo(a, ", uint32(0), uint32(7), lsp.ContextExpression),
+		Entry("expression inside parenthesized expression after return",
+			"return (o", uint32(0), uint32(9), lsp.ContextExpression),
+		Entry("expression inside nested parentheses in assignment",
+			"x := (o", uint32(0), uint32(7), lsp.ContextExpression),
+		Entry("expression inside parenthesized expression after operator",
+			"x := y + (o", uint32(0), uint32(11), lsp.ContextExpression),
 
 		// Statement Start Context
 		Entry("statement start after LBRACE",

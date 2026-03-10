@@ -28,6 +28,8 @@ runtime::node::Context make_context(
         .tolerance = tolerance,
         .reason = reason,
         .mark_changed = [](const std::string &) {},
+        .mark_self_changed = [] {},
+        .set_deadline = [](x::telem::TimeSpan) {},
         .report_error = [](const x::errors::Error &) {},
         .activate_stage = [] {},
     };
@@ -317,6 +319,8 @@ TEST(IntervalTest, OnlyFiresOnTimerTick) {
     ctx.mark_changed = [&changed_called](const std::string &) {
         changed_called = true;
     };
+    ctx.mark_self_changed = [] {};
+    ctx.set_deadline = [](x::telem::TimeSpan) {};
     ctx.report_error = [](const x::errors::Error &) {};
     ctx.activate_stage = []() {};
 
@@ -434,6 +438,8 @@ TEST(WaitTest, OnlyFiresOnTimerTick) {
     ctx.mark_changed = [&changed_called](const std::string &) {
         changed_called = true;
     };
+    ctx.mark_self_changed = [] {};
+    ctx.set_deadline = [](x::telem::TimeSpan) {};
     ctx.report_error = [](const x::errors::Error &) {};
     ctx.activate_stage = []() {};
 
@@ -533,6 +539,83 @@ TEST(WaitTest, StartsTimingFromChannelInputAfterReset) {
     node.next(ctx4);
 
     EXPECT_EQ(output->size(), 1);
+}
+
+/// @brief Test that Wait calls mark_self_changed when active but not yet fired.
+TEST(WaitTest, CallsMarkSelfChangedWhenActiveButNotFired) {
+    TestSetup setup("wait", "duration", x::telem::SECOND.nanoseconds());
+    const WaitConfig cfg(setup.ir.nodes[0].config);
+    Wait node(cfg, setup.make_node());
+
+    int self_changed_calls = 0;
+    bool changed_called = false;
+
+    // Tick at t=0: starts timer, should call mark_self_changed
+    auto ctx1 = make_context(x::telem::TimeSpan(0));
+    ctx1.mark_self_changed = [&]() { self_changed_calls++; };
+    ctx1.mark_changed = [&](const std::string &) { changed_called = true; };
+    ASSERT_NIL(node.next(ctx1));
+    EXPECT_EQ(self_changed_calls, 1);
+    EXPECT_FALSE(changed_called);
+
+    // Tick at 500ms: still timing, should call mark_self_changed again
+    self_changed_calls = 0;
+    auto ctx2 = make_context(x::telem::MILLISECOND * 500);
+    ctx2.mark_self_changed = [&]() { self_changed_calls++; };
+    ctx2.mark_changed = [&](const std::string &) { changed_called = true; };
+    ASSERT_NIL(node.next(ctx2));
+    EXPECT_EQ(self_changed_calls, 1);
+    EXPECT_FALSE(changed_called);
+
+    // Tick at 1s: fires, should NOT call mark_self_changed
+    self_changed_calls = 0;
+    auto ctx3 = make_context(x::telem::SECOND);
+    ctx3.mark_self_changed = [&]() { self_changed_calls++; };
+    ctx3.mark_changed = [&](const std::string &) { changed_called = true; };
+    ASSERT_NIL(node.next(ctx3));
+    EXPECT_EQ(self_changed_calls, 0);
+    EXPECT_TRUE(changed_called);
+}
+
+/// @brief Test that Wait calls mark_self_changed on channel input to survive
+/// non-tick cycles without being starved.
+TEST(WaitTest, CallsMarkSelfChangedOnChannelInputToSurvive) {
+    TestSetup setup("wait", "duration", x::telem::SECOND.nanoseconds());
+    const WaitConfig cfg(setup.ir.nodes[0].config);
+    Wait node(cfg, setup.make_node());
+
+    int self_changed_calls = 0;
+    bool changed_called = false;
+
+    // Tick at t=0: starts timer
+    auto ctx1 = make_context(x::telem::TimeSpan(0));
+    ctx1.mark_self_changed = [&]() { self_changed_calls++; };
+    ctx1.mark_changed = [&](const std::string &) { changed_called = true; };
+    ASSERT_NIL(node.next(ctx1));
+    EXPECT_EQ(self_changed_calls, 1);
+    EXPECT_FALSE(changed_called);
+
+    // Channel input at 200ms: duration not elapsed, should call mark_self_changed
+    self_changed_calls = 0;
+    auto ctx2 = make_context(
+        x::telem::MILLISECOND * 200,
+        x::telem::TimeSpan(0),
+        node::RunReason::ChannelInput
+    );
+    ctx2.mark_self_changed = [&]() { self_changed_calls++; };
+    ctx2.mark_changed = [&](const std::string &) { changed_called = true; };
+    ASSERT_NIL(node.next(ctx2));
+    EXPECT_EQ(self_changed_calls, 1);
+    EXPECT_FALSE(changed_called);
+
+    // Timer tick at 1s: should fire normally
+    self_changed_calls = 0;
+    auto ctx3 = make_context(x::telem::SECOND);
+    ctx3.mark_self_changed = [&]() { self_changed_calls++; };
+    ctx3.mark_changed = [&](const std::string &) { changed_called = true; };
+    ASSERT_NIL(node.next(ctx3));
+    EXPECT_EQ(self_changed_calls, 0);
+    EXPECT_TRUE(changed_called);
 }
 
 /// @brief Test that Wait sets the timestamp to elapsed time when firing.
@@ -841,5 +924,116 @@ TEST(CalculateToleranceTest, AutoMode) {
         100 * ::x::telem::MILLISECOND
     );
     EXPECT_EQ(tolerance, 5 * ::x::telem::MILLISECOND);
+}
+
+TEST(IntervalDeadlineTest, SetsDeadlineToLastFiredPlusPeriod) {
+    TestSetup setup("interval", "period", x::telem::SECOND.nanoseconds());
+    const time::IntervalConfig cfg(setup.ir.nodes[0].config);
+    time::Interval node(cfg, setup.make_node());
+
+    x::telem::TimeSpan reported_deadline(-1);
+    auto ctx = make_context(x::telem::TimeSpan(0));
+    ctx.set_deadline = [&](x::telem::TimeSpan d) { reported_deadline = d; };
+    ASSERT_NIL(node.next(ctx));
+    EXPECT_EQ(reported_deadline, x::telem::SECOND);
+}
+
+TEST(IntervalDeadlineTest, SetsDeadlineOnNonTimerTick) {
+    TestSetup setup("interval", "period", x::telem::SECOND.nanoseconds());
+    const time::IntervalConfig cfg(setup.ir.nodes[0].config);
+    time::Interval node(cfg, setup.make_node());
+
+    auto ctx1 = make_context(x::telem::TimeSpan(0));
+    ASSERT_NIL(node.next(ctx1));
+
+    x::telem::TimeSpan reported_deadline(-1);
+    auto ctx2 = make_context(
+        x::telem::MILLISECOND * 500,
+        x::telem::TimeSpan(0),
+        node::RunReason::ChannelInput
+    );
+    ctx2.set_deadline = [&](x::telem::TimeSpan d) { reported_deadline = d; };
+    ASSERT_NIL(node.next(ctx2));
+    EXPECT_EQ(reported_deadline, x::telem::SECOND);
+}
+
+TEST(IntervalDeadlineTest, SetsDeadlineAfterFiring) {
+    TestSetup setup("interval", "period", x::telem::SECOND.nanoseconds());
+    const time::IntervalConfig cfg(setup.ir.nodes[0].config);
+    time::Interval node(cfg, setup.make_node());
+
+    auto ctx1 = make_context(x::telem::TimeSpan(0));
+    ASSERT_NIL(node.next(ctx1));
+
+    x::telem::TimeSpan reported_deadline(-1);
+    auto ctx2 = make_context(x::telem::SECOND);
+    ctx2.set_deadline = [&](x::telem::TimeSpan d) { reported_deadline = d; };
+    ASSERT_NIL(node.next(ctx2));
+    EXPECT_EQ(reported_deadline, x::telem::SECOND * 2);
+}
+
+TEST(WaitDeadlineTest, SetsDeadlineToStartTimePlusDuration) {
+    TestSetup setup("wait", "duration", x::telem::SECOND.nanoseconds());
+    const time::WaitConfig cfg(setup.ir.nodes[0].config);
+    time::Wait node(cfg, setup.make_node());
+
+    x::telem::TimeSpan reported_deadline(-1);
+    auto ctx = make_context(x::telem::SECOND * 5);
+    ctx.set_deadline = [&](x::telem::TimeSpan d) { reported_deadline = d; };
+    ASSERT_NIL(node.next(ctx));
+    EXPECT_EQ(reported_deadline, x::telem::SECOND * 6);
+}
+
+TEST(WaitDeadlineTest, SetsDeadlineOnChannelInput) {
+    TestSetup setup("wait", "duration", x::telem::SECOND.nanoseconds());
+    const time::WaitConfig cfg(setup.ir.nodes[0].config);
+    time::Wait node(cfg, setup.make_node());
+
+    x::telem::TimeSpan reported_deadline(-1);
+    auto ctx = make_context(
+        x::telem::SECOND * 2,
+        x::telem::TimeSpan(0),
+        node::RunReason::ChannelInput
+    );
+    ctx.set_deadline = [&](x::telem::TimeSpan d) { reported_deadline = d; };
+    ASSERT_NIL(node.next(ctx));
+    EXPECT_EQ(reported_deadline, x::telem::SECOND * 3);
+}
+
+TEST(WaitDeadlineTest, DoesNotSetDeadlineAfterFiring) {
+    TestSetup setup("wait", "duration", x::telem::SECOND.nanoseconds());
+    const time::WaitConfig cfg(setup.ir.nodes[0].config);
+    time::Wait node(cfg, setup.make_node());
+
+    auto ctx1 = make_context(x::telem::TimeSpan(0));
+    ASSERT_NIL(node.next(ctx1));
+
+    auto ctx2 = make_context(x::telem::SECOND);
+    ASSERT_NIL(node.next(ctx2));
+
+    x::telem::TimeSpan reported_deadline(-1);
+    auto ctx3 = make_context(x::telem::SECOND * 5);
+    ctx3.set_deadline = [&](x::telem::TimeSpan d) { reported_deadline = d; };
+    ASSERT_NIL(node.next(ctx3));
+    EXPECT_EQ(reported_deadline, x::telem::TimeSpan(-1));
+}
+
+TEST(WaitDeadlineTest, SetsCorrectDeadlineAfterReset) {
+    TestSetup setup("wait", "duration", x::telem::SECOND.nanoseconds());
+    const time::WaitConfig cfg(setup.ir.nodes[0].config);
+    time::Wait node(cfg, setup.make_node());
+
+    auto ctx1 = make_context(x::telem::TimeSpan(0));
+    ASSERT_NIL(node.next(ctx1));
+    auto ctx2 = make_context(x::telem::SECOND);
+    ASSERT_NIL(node.next(ctx2));
+
+    node.reset();
+
+    x::telem::TimeSpan reported_deadline(-1);
+    auto ctx3 = make_context(x::telem::SECOND * 10);
+    ctx3.set_deadline = [&](x::telem::TimeSpan d) { reported_deadline = d; };
+    ASSERT_NIL(node.next(ctx3));
+    EXPECT_EQ(reported_deadline, x::telem::SECOND * 11);
 }
 }

@@ -10,7 +10,25 @@
 import { describe, expect, it } from "vitest";
 import { type z } from "zod";
 
-import { type WriteChannel, writeConfigZ } from "@/hardware/opc/task/types";
+import {
+  SCAN_SCHEMAS,
+  type WriteChannel,
+  writeConfigZ,
+} from "@/hardware/opc/task/types";
+
+describe("OPC Scan Task Types", () => {
+  it("should parse null scan config as empty object", () => {
+    const result = SCAN_SCHEMAS.configSchema.safeParse(null);
+    expect(result.success).toBe(true);
+    expect(result.data).toEqual({});
+  });
+
+  it("should parse undefined scan config as empty object", () => {
+    const result = SCAN_SCHEMAS.configSchema.safeParse(undefined);
+    expect(result.success).toBe(true);
+    expect(result.data).toEqual({});
+  });
+});
 
 describe("OPC Write Task Types", () => {
   it("should validate the write config", () => {
