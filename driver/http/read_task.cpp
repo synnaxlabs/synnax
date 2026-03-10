@@ -165,44 +165,44 @@ ReadTaskSource::ReadTaskSource(
         for (const auto &field: ep.fields) {
             if (!field.enabled) continue;
             auto it = this->cfg.channels.find(field.channel_key);
-            if (it != this->cfg.channels.end()) chs.push_back(it->second);
+            if (it != this->cfg.channels.end()) this->chs.push_back(it->second);
         }
     }
 }
 
 synnax::framer::WriterConfig ReadTaskSource::writer_config() const {
     std::vector<synnax::channel::Key> keys;
-    keys.reserve(cfg.channels.size() + cfg.software_timed_indexes.size());
-    for (const auto &ep: cfg.endpoints)
+    keys.reserve(this->cfg.channels.size() + this->cfg.software_timed_indexes.size());
+    for (const auto &ep: this->cfg.endpoints)
         for (const auto &field: ep.fields) {
             if (!field.enabled) continue;
             keys.push_back(field.channel_key);
         }
-    for (const auto &[key, _]: cfg.software_timed_indexes)
+    for (const auto &[key, _]: this->cfg.software_timed_indexes)
         keys.push_back(key);
     return {
         .channels = keys,
-        .mode = common::data_saving_writer_mode(cfg.data_saving),
+        .mode = common::data_saving_writer_mode(this->cfg.data_saving),
     };
 }
 
 std::vector<synnax::channel::Channel> ReadTaskSource::channels() const {
-    return chs;
+    return this->chs;
 }
 
 common::ReadResult
 ReadTaskSource::read(x::breaker::Breaker &breaker, x::telem::Frame &fr) {
     common::ReadResult res;
-    sample_clock.wait(breaker);
+    this->sample_clock.wait(breaker);
 
-    auto results = processor->execute(requests);
+    auto results = this->processor->execute(this->requests);
 
-    fr.reserve(cfg.channels.size() + cfg.software_timed_indexes.size());
+    fr.reserve(this->cfg.channels.size() + this->cfg.software_timed_indexes.size());
 
     std::vector<std::string> warnings;
 
-    for (size_t ei = 0; ei < cfg.endpoints.size(); ei++) {
-        const auto &ep = cfg.endpoints[ei];
+    for (size_t ei = 0; ei < this->cfg.endpoints.size(); ei++) {
+        const auto &ep = this->cfg.endpoints[ei];
         auto &[resp, req_err] = results[ei];
 
         // Transport-level errors are fatal — the endpoint is unreachable.
@@ -220,7 +220,7 @@ ReadTaskSource::read(x::breaker::Breaker &breaker, x::telem::Frame &fr) {
         // endpoint but keep going.
         bool ep_parsed = true;
         try {
-            parsed_bodies[ei] = x::json::json::parse(resp.body);
+            this->parsed_bodies[ei] = x::json::json::parse(resp.body);
         } catch (const x::json::json::parse_error &e) {
             warnings.push_back(
                 "failed to parse response from " + ep.request.path + ": " + e.what()
@@ -229,7 +229,7 @@ ReadTaskSource::read(x::breaker::Breaker &breaker, x::telem::Frame &fr) {
         }
 
         if (!ep_parsed) continue;
-        const auto &body = parsed_bodies[ei];
+        const auto &body = this->parsed_bodies[ei];
         bool any_field_ok = false;
 
         for (const auto &field: ep.fields) {
@@ -243,7 +243,7 @@ ReadTaskSource::read(x::breaker::Breaker &breaker, x::telem::Frame &fr) {
                 continue;
             }
 
-            const auto &ch = cfg.channels.at(field.channel_key);
+            const auto &ch = this->cfg.channels.at(field.channel_key);
             const auto &json_val = body.at(field.pointer);
 
             auto tf = x::json::TimeFormat::ISO8601;
@@ -272,7 +272,7 @@ ReadTaskSource::read(x::breaker::Breaker &breaker, x::telem::Frame &fr) {
         // Only write software-timed index timestamps if at least one field on
         // this endpoint was successfully parsed.
         if (!any_field_ok) continue;
-        for (const auto &[idx_key, ep_idx]: cfg.software_timed_indexes) {
+        for (const auto &[idx_key, ep_idx]: this->cfg.software_timed_indexes) {
             if (ep_idx != static_cast<int>(ei)) continue;
             auto ts = x::telem::TimeStamp::midpoint(
                 resp.time_range.start,
