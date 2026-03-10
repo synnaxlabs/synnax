@@ -36,8 +36,7 @@ class NIInvalidConfig(TestCase):
             self.auto_pass(msg="Windows DAQmx drivers required")
             return
         self.devices = {
-            loc: self.client.devices.retrieve(location=loc)
-            for loc in ["E101Mod4"]
+            loc: self.client.devices.retrieve(location=loc) for loc in ["E101Mod4"]
         }
 
     def run(self) -> None:
@@ -260,9 +259,9 @@ class NIMissingLibraries(TestCase):
         except sy.ConfigurationError as e:
             self.log(f"  Correctly rejected: {e}")
             msg = str(e).lower()
-            assert "ni-daqmx" in msg and "libraries" in msg, (
-                f"Expected error about missing libraries, got: {e}"
-            )
+            assert (
+                "ni-daqmx" in msg and "libraries" in msg
+            ), f"Expected error about missing libraries, got: {e}"
             self._cleanup_task(task)
             return
         self._cleanup_task(task)

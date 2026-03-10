@@ -106,8 +106,7 @@ def send_and_verify_commands(
                 )
                 try:
                     expected = {
-                        key: float(v)
-                        for key, v in zip(cmd_keys, command_values[0])
+                        key: float(v) for key, v in zip(cmd_keys, command_values[0])
                     }
                     writer.write(
                         {**expected, **{k: sy.TimeStamp.now() for k in index_keys}}
@@ -121,8 +120,7 @@ def send_and_verify_commands(
                     )
 
                     expected = {
-                        key: float(v)
-                        for key, v in zip(cmd_keys, command_values[1])
+                        key: float(v) for key, v in zip(cmd_keys, command_values[1])
                     }
                     writer.write(
                         {**expected, **{k: sy.TimeStamp.now() for k in index_keys}}
@@ -148,9 +146,7 @@ def send_and_verify_commands(
                 last_err = e
         if verified:
             if task_key:
-                _assert_no_task_errors(
-                    client, task_key, task_name=task_name
-                )
+                _assert_no_task_errors(client, task_key, task_name=task_name)
             return
         if attempt < max_attempts - 1:
             print(
@@ -453,13 +449,20 @@ class ReadTaskCase(TaskCase):
         self.assert_sample_count(task=self.tsk, duration=self.TASK_DURATION)
 
     def test_reconfigure_rate(self) -> None:
-        """Halve the sample rate and verify samples are still collected."""
+        """Halve the sample rate with auto_start enabled.
+
+        Enables auto_start before configuring so the task starts automatically
+        after reconfiguration, removing the need for an explicit run() call.
+        """
         assert self.tsk is not None
-        self.log("Testing: Reconfigure task rate")
+        self.log("Testing: Reconfigure task rate with auto_start")
         new_rate = int(self.SAMPLE_RATE / 2)
         self.tsk.config.sample_rate = new_rate
+        self.tsk.config.auto_start = True
         self.client.tasks.configure(self.tsk)
-        self.assert_sample_count(task=self.tsk, duration=self.TASK_DURATION)
+        self.assert_sample_count(
+            task=self.tsk, duration=self.TASK_DURATION, started=True
+        )
 
     def test_survives_channel_deletion(self) -> None:
         """Attempt to delete a channel while the task is running."""
@@ -492,18 +495,34 @@ class ReadTaskCase(TaskCase):
         task: sy.Task,
         duration: sy.TimeSpan = 1 * sy.TimeSpan.SECOND,
         strict: bool = True,
+        started: bool = False,
     ) -> None:
-        """Assert that the task collects the expected number of samples."""
+        """Assert that the task collects the expected number of samples.
+
+        Args:
+            started: If True, the task is already running (e.g. via auto_start)
+                and will be stopped after collection. If False, the task will be
+                started and stopped via task.run().
+        """
         sample_rate = task.config.sample_rate
         channel_keys = self._channel_keys(task)
 
-        with task.run():
-            # Block until first frame arrives
+        def collect() -> sy.TimeStamp:
             with self.client.open_streamer(channel_keys) as streamer:
-                streamer.read(timeout=30)
+                frame = streamer.read(timeout=30)
+                if frame is None:
+                    raise AssertionError("Task did not start — no data received")
             sy.sleep(1)
-            start_time = sy.TimeStamp.now()
-            sy.sleep(duration.seconds * 1.25)  # Buffer for CI
+            start = sy.TimeStamp.now()
+            sy.sleep(duration.seconds * 1.25)
+            return start
+
+        if started:
+            start_time = collect()
+            task.stop()
+        else:
+            with task.run():
+                start_time = collect()
 
         end_time = sy.TimeStamp.now()
         expected_samples = int(sample_rate * duration.seconds)

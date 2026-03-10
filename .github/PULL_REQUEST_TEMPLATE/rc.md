@@ -349,8 +349,8 @@ I can successfully:
   - [ ] Plot live data.
   - [ ] Tare data.
   - [ ] Handle device disconnection during active tasks with appropriate feedback.
-  - [ ] Start multiple tasks at different times and view live data.
-  - [ ] Enabled auto-start, and ensure that the task automatically starts after configuration.
+  - [x] Start multiple tasks at different times and view live data.
+  - [x] Enabled auto-start, and ensure that the task automatically starts after configuration.
   - [x] Ensure no lag between sensor input and Core data recording.
   - [x] Configure and run an analog read task for the following channels:
     - [x] Current (NI-9203)

@@ -11,13 +11,14 @@
 Grand Finale: concurrent multi-protocol driver test.
 
 Launches both OPC UA and Modbus simulators, creates read and write tasks across
-both protocols, runs them all concurrently, and verifies data acquisition and
-command delivery.
+all available protocols (including NI on Windows), runs them concurrently, and
+verifies data acquisition and command delivery.
 
 Channel creation is delegated to the existing concrete test case classes
 (e.g. ModbusReadInputRegister.create_channels) to avoid duplication.
 """
 
+import platform
 from contextlib import ExitStack
 
 import synnax as sy
@@ -27,6 +28,12 @@ from synnax import modbus, opcua
 
 from tests.driver.modbus_read import ModbusReadCoil, ModbusReadInputRegister
 from tests.driver.modbus_write import ModbusWriteCoil
+from tests.driver.ni_read import (
+    NIAnalogReadHS,
+    NICounterReadFrequency,
+    NIDigitalRead,
+    NIReadTemperature,
+)
 from tests.driver.opcua_read import OPCUAReadMixed
 from tests.driver.opcua_write import OPCUAWriteFloat
 from tests.driver.simulator_case import SimulatorCase
@@ -99,9 +106,66 @@ class GrandFinale(SimulatorCase):
             ),
         ]
 
+        if platform.system().lower() == "windows":
+            self._create_ni_tasks()
+
         for task in self.all_tasks:
             self.client.tasks.configure(task)
             self.log(f"Configured task '{task.name}'")
+
+    def _create_ni_tasks(self) -> None:
+        ni_locations = [
+            "E101Mod1",  # NI 9229 (analog voltage HS)
+            "E101Mod2",  # NI 9219 (resistance)
+            "E101Mod5",  # NI 9211 (thermocouple)
+            "E101Mod6",  # NI 9211 (thermocouple)
+            "E101Mod7",  # NI 9219 (RTD)
+            "E101Mod8",  # NI 9219 (RTD)
+            "E102Mod3",  # NI 9375 (digital)
+            "USB-6289",  # USB counter
+        ]
+        devices = {
+            loc: self.client.devices.retrieve(location=loc) for loc in ni_locations
+        }
+
+        self.read_tasks.extend(
+            [
+                sy.ni.AnalogReadTask(
+                    name="GF NI Analog Read HS",
+                    device=devices["E101Mod1"].key,
+                    sample_rate=NIAnalogReadHS.SAMPLE_RATE,
+                    stream_rate=NIAnalogReadHS.STREAM_RATE,
+                    data_saving=True,
+                    channels=NIAnalogReadHS.create_channels(self.client, devices),
+                ),
+                sy.ni.AnalogReadTask(
+                    name="GF NI Temperature Read",
+                    device="cross-device",
+                    sample_rate=NIReadTemperature.SAMPLE_RATE,
+                    stream_rate=NIReadTemperature.STREAM_RATE,
+                    data_saving=True,
+                    channels=NIReadTemperature.create_channels(self.client, devices),
+                ),
+                sy.ni.DigitalReadTask(
+                    name="GF NI Digital Read",
+                    device=devices["E102Mod3"].key,
+                    sample_rate=NIDigitalRead.SAMPLE_RATE,
+                    stream_rate=NIDigitalRead.STREAM_RATE,
+                    data_saving=True,
+                    channels=NIDigitalRead.create_channels(self.client, devices),
+                ),
+                sy.ni.CounterReadTask(
+                    name="GF NI Counter Frequency",
+                    device=devices["USB-6289"].key,
+                    sample_rate=NICounterReadFrequency.SAMPLE_RATE,
+                    stream_rate=NICounterReadFrequency.STREAM_RATE,
+                    data_saving=True,
+                    channels=NICounterReadFrequency.create_channels(
+                        self.client, devices
+                    ),
+                ),
+            ]
+        )
 
     # ── Run ──────────────────────────────────────────────────────────
 

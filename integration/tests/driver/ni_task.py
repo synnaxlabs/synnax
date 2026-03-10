@@ -14,10 +14,10 @@ from abc import abstractmethod
 
 import synnax as sy
 
-from tests.driver.task import ReadTaskCase, WriteTaskCase
+from tests.driver.task import ReadTaskCase, TaskCase, WriteTaskCase
 
 
-class _NITaskMixin:
+class _NITaskMixin(TaskCase):
     """Shared setup for all NI task tests.
 
     Auto-passes on non-Windows platforms. The NI driver scanner
@@ -36,7 +36,8 @@ class _NITaskMixin:
         """Return 'cross-device' for multi-device tasks, else the single device key."""
         if len(self.device_locations) > 1:
             return "cross-device"
-        return self.devices[self.device_locations[0]].key
+        key: str = self.devices[self.device_locations[0]].key
+        return key
 
     def setup(self) -> None:
         if platform.system().lower() != "windows":

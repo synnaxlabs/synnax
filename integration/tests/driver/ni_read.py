@@ -208,8 +208,7 @@ class NIAnalogReadScaled(NIAnalogReadTaskCase):
             self.log(
                 "  Pre-tare averages: "
                 + ", ".join(
-                    f"{n}={pre_avgs[k]:.2f}"
-                    for k, n in zip(channel_keys, names)
+                    f"{n}={pre_avgs[k]:.2f}" for k, n in zip(channel_keys, names)
                 )
             )
 

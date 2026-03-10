@@ -13,10 +13,10 @@ import synnax as sy
 
 from tests.driver.ni_task import NIAnalogWriteTaskCase, NIDigitalWriteTaskCase
 from tests.driver.task import (
+    _assert_no_task_errors,
     create_channel,
     create_index,
     send_and_verify_commands,
-    _assert_no_task_errors,
 )
 
 
