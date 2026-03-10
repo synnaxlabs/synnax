@@ -46,6 +46,10 @@ var _ = Describe("Context Detection", func() {
 			"func foo(x i32, y ", uint32(0), uint32(18), lsp.ContextTypeAnnotation),
 		Entry("partial type annotation",
 			"func foo(x i", uint32(0), uint32(12), lsp.ContextTypeAnnotation),
+		Entry("type annotation in func with empty config block",
+			"func foo{} (x ", uint32(0), uint32(14), lsp.ContextTypeAnnotation),
+		Entry("type annotation in func with config block params",
+			"func controller{sensor chan f64} (enable ", uint32(0), uint32(41), lsp.ContextTypeAnnotation),
 
 		// Expression Context
 		Entry("expression after DECLARE",

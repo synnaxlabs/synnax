@@ -1484,8 +1484,6 @@ var _ = Describe("Scheduler", func() {
 				}).
 				Build()
 
-			build(prog)
-
 			// Activate the "first" stage
 			trigger := mock("trigger")
 			entry := mock("entry_seq_first")

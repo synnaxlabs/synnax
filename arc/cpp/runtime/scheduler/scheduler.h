@@ -239,9 +239,9 @@ private:
             }
     }
 
-    /// @brief Resets all nodes in a strata to their initial state.
     void mark_self_changed() { this->self_changed.insert(this->curr_node_key); }
 
+    /// @brief Resets all nodes in a strata to their initial state.
     void reset_strata(const ir::Strata &strata) {
         for (const auto &stratum: strata)
             for (const auto &key: stratum) {

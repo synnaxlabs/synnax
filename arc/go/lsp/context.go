@@ -234,7 +234,9 @@ func isTypeAnnotationContext(tokens []antlr.Token, lastToken antlr.Token) bool {
 }
 
 // isFuncParamParentheses checks whether the innermost unmatched LPAREN is part
-// of a function declaration parameter list (i.e. preceded by FUNC IDENTIFIER).
+// of a function declaration parameter list. This handles both simple declarations
+// (FUNC IDENTIFIER LPAREN) and declarations with config blocks
+// (FUNC IDENTIFIER LBRACE ... RBRACE LPAREN).
 func isFuncParamParentheses(tokens []antlr.Token) bool {
 	depth := 0
 	for i := len(tokens) - 1; i >= 0; i-- {
@@ -245,9 +247,23 @@ func isFuncParamParentheses(tokens []antlr.Token) bool {
 			if depth > 0 {
 				depth--
 			} else {
-				return i >= 2 &&
-					tokens[i-1].GetTokenType() == parser.ArcLexerIDENTIFIER &&
-					tokens[i-2].GetTokenType() == parser.ArcLexerFUNC
+				j := i - 1
+				if j >= 0 && tokens[j].GetTokenType() == parser.ArcLexerRBRACE {
+					blockDepth := 1
+					j--
+					for j >= 0 && blockDepth > 0 {
+						switch tokens[j].GetTokenType() {
+						case parser.ArcLexerRBRACE:
+							blockDepth++
+						case parser.ArcLexerLBRACE:
+							blockDepth--
+						}
+						j--
+					}
+				}
+				return j >= 1 &&
+					tokens[j].GetTokenType() == parser.ArcLexerIDENTIFIER &&
+					tokens[j-1].GetTokenType() == parser.ArcLexerFUNC
 			}
 		}
 	}
