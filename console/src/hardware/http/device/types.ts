@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { channel, type device } from "@synnaxlabs/client";
-import { TimeSpan } from "@synnaxlabs/x";
+import { json, TimeSpan } from "@synnaxlabs/x";
 import { z } from "zod/v4";
 
 export const MAKE = "http";
@@ -78,6 +78,86 @@ export const ZERO_AUTH_CONFIGS: Record<AuthType, AuthConfig> = {
   basic: { type: "basic", username: "", password: "" },
 };
 
+const sharedHealthCheckZ = z.object({
+  path: z.string(),
+  headers: z.record(z.string(), z.string()).optional(),
+  queryParams: z.record(z.string(), z.string()).optional(),
+});
+
+const noValidateHealthCheckZ = sharedHealthCheckZ.extend({
+  validateResponse: z.literal(false),
+});
+
+const stringResponseValueZ = z.object({
+  expectedValueType: z.literal("string"),
+  expectedValue: z.string(),
+});
+
+const numberResponseValueZ = z.object({
+  expectedValueType: z.literal("number"),
+  expectedValue: z.number(),
+});
+
+const booleanResponseValueZ = z.object({
+  expectedValueType: z.literal("boolean"),
+  expectedValue: z.boolean(),
+});
+
+const nullResponseValueZ = z.object({
+  expectedValueType: z.literal("null"),
+  expectedValue: z.null(),
+});
+
+const responseValueZ = z.discriminatedUnion("expectedValueType", [
+  stringResponseValueZ,
+  numberResponseValueZ,
+  booleanResponseValueZ,
+  nullResponseValueZ,
+]);
+
+const responseZ = z.object({ pointer: json.pointerZ, value: responseValueZ });
+
+export type Response = z.infer<typeof responseZ>;
+
+export const ZERO_RESPONSE = {
+  pointer: "",
+  value: { expectedValueType: "string", expectedValue: "" },
+} as const satisfies Response;
+
+const validateHealthCheckZ = sharedHealthCheckZ.extend({
+  validateResponse: z.literal(true),
+  response: responseZ,
+});
+
+const getShapeZ = { method: z.literal("GET") } as const;
+
+const getHealthCheckZ = z.discriminatedUnion("validateResponse", [
+  noValidateHealthCheckZ.extend(getShapeZ),
+  validateHealthCheckZ.extend(getShapeZ),
+]);
+
+const postShapeZ = { method: z.literal("POST"), body: z.string().optional() } as const;
+
+const postHealthCheckZ = z.discriminatedUnion("validateResponse", [
+  noValidateHealthCheckZ.extend(postShapeZ),
+  validateHealthCheckZ.extend(postShapeZ),
+]);
+
+export const healthCheckZ = z.discriminatedUnion("method", [
+  getHealthCheckZ,
+  postHealthCheckZ,
+]);
+
+export type HealthCheck = z.infer<typeof healthCheckZ>;
+
+export const ZERO_HEALTH_CHECK = {
+  method: "GET",
+  path: "",
+  validateResponse: false,
+} as const satisfies HealthCheck;
+
+export type HealthCheckMethod = HealthCheck["method"];
+
 const defaultTimeoutMs = TimeSpan.milliseconds(100).milliseconds;
 
 const v0PropertiesZ = z.object({
@@ -95,7 +175,11 @@ const v0PropertiesZ = z.object({
 
 const v1PropertiesZ = v0PropertiesZ
   .omit({ auth: true, headers: true, queryParams: true })
-  .extend({ auth: authConfigZ, version: z.literal(1) });
+  .extend({
+    auth: authConfigZ,
+    healthCheck: healthCheckZ.default(ZERO_HEALTH_CHECK),
+    version: z.literal(1),
+  });
 
 export interface Properties extends z.infer<typeof v1PropertiesZ> {}
 
@@ -117,7 +201,12 @@ export const propertiesZ: z.ZodType<Properties> = v1PropertiesZ.or(
         newAuth = { type: "api_key", sendAs: "query_param", parameter, key };
       }
     } else newAuth = auth;
-    return { ...rest, auth: newAuth, version: 1 } as const;
+    return {
+      ...rest,
+      auth: newAuth,
+      version: 1,
+      healthCheck: ZERO_HEALTH_CHECK,
+    } as const;
   }),
 );
 
@@ -126,6 +215,7 @@ export const ZERO_PROPERTIES = {
   verifySsl: true,
   timeoutMs: defaultTimeoutMs,
   auth: ZERO_AUTH_CONFIGS.none,
+  healthCheck: ZERO_HEALTH_CHECK,
   readIndexes: {},
   version: 1,
 } as const satisfies Properties;

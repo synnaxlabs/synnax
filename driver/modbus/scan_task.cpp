@@ -14,7 +14,6 @@
 
 #include "x/cpp/json/json.h"
 
-#include "driver/common/status.h"
 #include "driver/modbus/scan_task.h"
 
 namespace driver::modbus {
