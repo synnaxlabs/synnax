@@ -101,7 +101,7 @@ const readConfigZ = z.discriminatedUnion("arrayMode", [
   arraySamplingConfigZ,
 ]);
 
-type ReadConfig = z.infer<typeof readConfigZ>;
+export type ReadConfig = z.infer<typeof readConfigZ>;
 
 const ZERO_READ_CONFIG: ReadConfig = {
   ...Common.Task.ZERO_BASE_READ_CONFIG,

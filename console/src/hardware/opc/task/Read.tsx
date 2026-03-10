@@ -11,7 +11,6 @@ import { channel, NotFoundError, type Synnax } from "@synnaxlabs/client";
 import { Component, Flex, Form as PForm, type Haul, Icon } from "@synnaxlabs/pluto";
 import { caseconv, DataType, primitive } from "@synnaxlabs/x";
 import { type FC, type ReactElement } from "react";
-import { type z } from "zod";
 
 import { Common } from "@/hardware/common";
 import { Device } from "@/hardware/opc/device";
@@ -20,6 +19,7 @@ import {
   type InputChannel,
   READ_SCHEMAS,
   READ_TYPE,
+  type ReadConfig,
   type ReadSchemas,
   ZERO_READ_PAYLOAD,
 } from "@/hardware/opc/task/types";
@@ -148,7 +148,7 @@ const getInitialValues: Common.Task.GetInitialValues<ReadSchemas> = ({
 
 interface DetermineIndexChannelArgs {
   client: Synnax;
-  config: z.infer<ReadSchemas["configSchema"]>;
+  config: ReadConfig;
   device: Device.Device;
   taskName: string;
 }
