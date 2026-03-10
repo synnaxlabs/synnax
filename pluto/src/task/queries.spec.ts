@@ -1433,11 +1433,7 @@ describe("queries", () => {
 
       await waitFor(
         async () => {
-          const updatedTask = await client.tasks.retrieve<
-            typeof typeSchema,
-            typeof configSchema,
-            typeof statusDataSchema
-          >({
+          const updatedTask = await client.tasks.retrieve<typeof schemas>({
             key: testTask.key,
           });
           expect(updatedTask.config.connection.port).toEqual(9090);
