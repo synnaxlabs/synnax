@@ -40,9 +40,19 @@ const newStatusDetailsZ = <DataSchema extends z.ZodType>(data: DataSchema) =>
 export const newStatusZ = <DataSchema extends z.ZodType>(data: DataSchema) =>
   status.statusZ(newStatusDetailsZ(data)).partial({ key: true, name: true });
 
-export interface NewStatus<DataSchema extends z.ZodType = z.ZodUnknown> extends z.infer<
+export interface NewStatus<DataSchema extends z.ZodType> extends z.infer<
   ReturnType<typeof newStatusZ<DataSchema>>
 > {}
+
+export interface Schemas<
+  Type extends z.ZodLiteral<string> = z.ZodLiteral<string>,
+  Config extends z.ZodType = z.ZodType,
+  StatusData extends z.ZodType = z.ZodType,
+> {
+  typeSchema: Type;
+  configSchema: Config;
+  statusDataSchema: StatusData;
+}
 
 export const taskZ = <S extends Schemas = Schemas>(
   schemas = {
@@ -60,16 +70,6 @@ export const taskZ = <S extends Schemas = Schemas>(
     status: statusZ(schemas.statusDataSchema).optional().nullable(),
     snapshot: z.boolean().optional(),
   });
-
-export interface Schemas<
-  Type extends z.ZodLiteral<string> = z.ZodLiteral<string>,
-  Config extends z.ZodType = z.ZodType,
-  StatusData extends z.ZodType = z.ZodType,
-> {
-  typeSchema: Type;
-  configSchema: Config;
-  statusDataSchema: StatusData;
-}
 
 export interface Payload<S extends Schemas = Schemas> {
   key: Key;

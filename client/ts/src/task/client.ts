@@ -246,7 +246,6 @@ const copyResZ = <S extends Schemas = Schemas>(schemas?: S) =>
   z.object({ task: taskZ(schemas) });
 
 export class Client {
-  readonly type: string = "task";
   private readonly client: UnaryClient;
   private readonly frameClient: framer.Client;
   private readonly ontologyClient: ontology.Client;
@@ -266,15 +265,11 @@ export class Client {
 
   async create(task: New): Promise<Task>;
   async create(tasks: New[]): Promise<Task[]>;
-  async create(task: New | New[]): Promise<Task | Task[]>;
 
-  async create<S extends Schemas = Schemas>(task: New<S>, schemas: S): Promise<Task<S>>;
-  async create<S extends Schemas = Schemas>(
-    tasks: New<S>[],
-    schemas: S,
-  ): Promise<Task<S>[]>;
+  async create<S extends Schemas>(task: New<S>, schemas: S): Promise<Task<S>>;
+  async create<S extends Schemas>(tasks: New<S>[], schemas: S): Promise<Task<S>[]>;
 
-  async create<S extends Schemas = Schemas>(
+  async create<S extends Schemas>(
     task: New<S> | New<S>[],
     schemas?: S,
   ): Promise<Task<S> | Task<S>[]> {
@@ -474,14 +469,14 @@ const executeCommands = async ({
   return cmds.map((c) => c.key);
 };
 
-interface ExecuteCommandSyncInternalParams<StatusData extends z.ZodType = z.ZodType>
+interface ExecuteCommandSyncInternalParams<StatusData extends z.ZodType>
   extends
     Omit<ExecuteCommandsSyncInternalParams<StatusData>, "commands">,
     TaskExecuteCommandSyncParams {
   task: Key;
 }
 
-const executeCommandSync = async <StatusData extends z.ZodType = z.ZodType>({
+const executeCommandSync = async <StatusData extends z.ZodType>({
   frameClient,
   task,
   type,
@@ -500,7 +495,7 @@ const executeCommandSync = async <StatusData extends z.ZodType = z.ZodType>({
     })
   )[0];
 
-interface ExecuteCommandsSyncInternalParams<StatusData extends z.ZodType = z.ZodType> {
+interface ExecuteCommandsSyncInternalParams<StatusData extends z.ZodType> {
   frameClient: framer.Client | null;
   commands: NewCommand[];
   timeout?: CrudeTimeSpan;
@@ -508,7 +503,7 @@ interface ExecuteCommandsSyncInternalParams<StatusData extends z.ZodType = z.Zod
   name: string | string[] | (() => Promise<string | string[]>);
 }
 
-const executeCommandsSync = async <StatusData extends z.ZodType = z.ZodType>({
+const executeCommandsSync = async <StatusData extends z.ZodType>({
   frameClient,
   commands,
   timeout = TimeSpan.seconds(10),
