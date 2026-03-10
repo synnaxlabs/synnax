@@ -199,46 +199,46 @@ ReadTaskSource::ReadTaskSource(
         for (const auto &field: ep.fields) {
             if (!field.enabled) continue;
             auto it = this->cfg.channels.find(field.channel_key);
-            if (it != this->cfg.channels.end()) chs.push_back(it->second);
+            if (it != this->cfg.channels.end()) this->chs.push_back(it->second);
         }
     }
 }
 
 synnax::framer::WriterConfig ReadTaskSource::writer_config() const {
     std::vector<synnax::channel::Key> keys;
-    keys.reserve(cfg.channels.size() + cfg.software_timed_indexes.size());
-    for (const auto &ep: cfg.endpoints)
+    keys.reserve(this->cfg.channels.size() + this->cfg.software_timed_indexes.size());
+    for (const auto &ep: this->cfg.endpoints)
         for (const auto &field: ep.fields) {
             if (!field.enabled) continue;
             keys.push_back(field.channel_key);
         }
-    for (const auto &[key, _]: cfg.software_timed_indexes)
+    for (const auto &[key, _]: this->cfg.software_timed_indexes)
         keys.push_back(key);
     return {
         .channels = keys,
-        .mode = common::data_saving_writer_mode(cfg.data_saving),
+        .mode = common::data_saving_writer_mode(this->cfg.data_saving),
     };
 }
 
 std::vector<synnax::channel::Channel> ReadTaskSource::channels() const {
-    return chs;
+    return this->chs;
 }
 
 common::ReadResult
 ReadTaskSource::read(x::breaker::Breaker &breaker, x::telem::Frame &fr) {
     common::ReadResult res;
-    sample_clock.wait(breaker);
+    this->sample_clock.wait(breaker);
 
-    auto results = processor->execute(requests);
+    auto results = this->processor->execute(this->requests);
 
-    fr.reserve(cfg.channels.size() + cfg.software_timed_indexes.size());
+    fr.reserve(this->cfg.channels.size() + this->cfg.software_timed_indexes.size());
 
     std::vector<std::string> warnings;
 
     // Parse all response bodies up front so sampling groups can reference them.
-    std::vector<bool> ep_parsed(cfg.endpoints.size(), false);
-    for (size_t ei = 0; ei < cfg.endpoints.size(); ei++) {
-        const auto &ep = cfg.endpoints[ei];
+    std::vector<bool> ep_parsed(this->cfg.endpoints.size(), false);
+    for (size_t ei = 0; ei < this->cfg.endpoints.size(); ei++) {
+        const auto &ep = this->cfg.endpoints[ei];
         auto &[resp, req_err] = results[ei];
 
         if (req_err) {
@@ -260,7 +260,7 @@ ReadTaskSource::read(x::breaker::Breaker &breaker, x::telem::Frame &fr) {
         }
 
         try {
-            parsed_bodies[ei] = x::json::json::parse(resp.body);
+            this->parsed_bodies[ei] = x::json::json::parse(resp.body);
             ep_parsed[ei] = true;
         } catch (const x::json::json::parse_error &e) {
             warnings.push_back(
@@ -271,12 +271,12 @@ ReadTaskSource::read(x::breaker::Breaker &breaker, x::telem::Frame &fr) {
 
     // Process each sampling group atomically: either all fields in the group succeed
     // and are written to the frame, or the entire group is skipped.
-    for (const auto &group: cfg.groups) {
+    for (const auto &group: this->cfg.groups) {
         const auto ei = group.endpoint_index;
         if (!ep_parsed[ei]) continue;
 
-        const auto &ep = cfg.endpoints[ei];
-        const auto &body = parsed_bodies[ei];
+        const auto &ep = this->cfg.endpoints[ei];
+        const auto &body = this->parsed_bodies[ei];
         const auto &resp = results[ei].first;
 
         bool group_ok = true;
@@ -294,7 +294,7 @@ ReadTaskSource::read(x::breaker::Breaker &breaker, x::telem::Frame &fr) {
                 break;
             }
 
-            const auto &ch = cfg.channels.at(field.channel_key);
+            const auto &ch = this->cfg.channels.at(field.channel_key);
             const auto &json_val = body.at(field.pointer);
 
             auto tf = x::json::TimeFormat::ISO8601;
