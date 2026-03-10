@@ -8,6 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { channel, type task } from "@synnaxlabs/client";
+import { record } from "@synnaxlabs/x";
 import { z } from "zod";
 
 import { Common } from "@/hardware/common";
@@ -144,7 +145,7 @@ export const READ_SCHEMAS: task.Schemas<
   statusDataSchema: readStatusDataZ,
 };
 
-export const scanConfigZ = z.object({});
+export const scanConfigZ = record.nullishToEmpty();
 
 export type ScanConfig = z.infer<typeof scanConfigZ>;
 export const ZERO_SCAN_CONFIG: ScanConfig = {};
