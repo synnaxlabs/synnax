@@ -232,7 +232,7 @@ export const CounterRead = Common.Task.wrapForm({
   Properties,
   Form,
   schemas: COUNTER_READ_SCHEMAS,
-  type: COUNTER_READ_TYPE,
+  type: "ni_counter_read",
   getInitialValues,
   onConfigure,
 });

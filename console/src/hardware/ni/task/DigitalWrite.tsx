@@ -224,5 +224,5 @@ export const DigitalWrite = Common.Task.wrapForm({
   schemas: DIGITAL_WRITE_SCHEMAS,
   getInitialValues,
   onConfigure,
-  type: DIGITAL_WRITE_TYPE,
+  type: "ni_digital_write",
 });

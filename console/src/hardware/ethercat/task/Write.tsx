@@ -190,7 +190,7 @@ export const Write = Common.Task.wrapForm({
   Properties,
   Form,
   schemas: WRITE_SCHEMAS,
-  type: WRITE_TYPE,
+  type: "ethercat_write",
   getInitialValues,
   onConfigure,
 });

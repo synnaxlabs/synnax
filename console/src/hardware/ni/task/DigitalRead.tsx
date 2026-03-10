@@ -176,5 +176,5 @@ export const DigitalRead = Common.Task.wrapForm({
   schemas: DIGITAL_READ_SCHEMAS,
   getInitialValues,
   onConfigure,
-  type: DIGITAL_READ_TYPE,
+  type: "ni_digital_read",
 });

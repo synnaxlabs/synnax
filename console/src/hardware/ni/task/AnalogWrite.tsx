@@ -233,7 +233,7 @@ export const AnalogWrite = Common.Task.wrapForm({
   Properties,
   Form,
   schemas: ANALOG_WRITE_SCHEMAS,
-  type: ANALOG_WRITE_TYPE,
+  type: "ni_analog_write",
   getInitialValues,
   onConfigure,
 });

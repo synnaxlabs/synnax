@@ -230,7 +230,7 @@ export const AnalogRead = Common.Task.wrapForm({
   Properties,
   Form,
   schemas: ANALOG_READ_SCHEMAS,
-  type: ANALOG_READ_TYPE,
+  type: "ni_analog_read",
   getInitialValues,
   onConfigure,
 });
