@@ -61,6 +61,9 @@ type Scheduler struct {
 	transitions map[string]transitionTarget
 	// changed tracks which nodes need execution in the current strata pass.
 	changed set.Set[string]
+	// selfChanged tracks nodes that requested re-execution on the next cycle.
+	// Unlike changed, selfChanged persists across scheduler.Next() calls.
+	selfChanged set.Set[string]
 	// globalFiredOneShots tracks which one-shot edges in global strata have fired.
 	// Unlike per-stage one-shots, global one-shots fire once ever and never reset.
 	globalFiredOneShots set.Set[ir.Edge]
@@ -81,6 +84,9 @@ type Scheduler struct {
 	currSeqIdx int
 	// tolerance is the timing tolerance for interval/wait comparisons.
 	tolerance telem.TimeSpan
+	// nextDeadline is the minimum deadline (absolute elapsed time) reported by
+	// nodes during the current Next() call. Reset to max at the start of each call.
+	nextDeadline telem.TimeSpan
 }
 
 // ErrorHandler receives errors from node execution.
@@ -106,6 +112,7 @@ func New(prog ir.IR, nodes map[string]rnode.Node, tolerance telem.TimeSpan) *Sch
 		sequences:           make([]sequenceState, len(prog.Sequences)),
 		transitions:         make(map[string]transitionTarget),
 		changed:             make(set.Set[string], len(prog.Nodes)),
+		selfChanged:         make(set.Set[string]),
 		globalFiredOneShots: make(set.Set[ir.Edge]),
 		currSeqIdx:          -1,
 		currStageIdx:        -1,
@@ -144,9 +151,11 @@ func New(prog ir.IR, nodes map[string]rnode.Node, tolerance telem.TimeSpan) *Sch
 	}
 
 	s.nodeCtx = rnode.Context{
-		MarkChanged:   s.markChanged,
-		ReportError:   s.reportError,
-		ActivateStage: s.transitionStage,
+		MarkChanged:     s.markChanged,
+		MarkSelfChanged: s.markSelfChanged,
+		SetDeadline:     s.setDeadline,
+		ReportError:     s.reportError,
+		ActivateStage:   s.transitionStage,
 	}
 
 	return s
@@ -196,6 +205,12 @@ func (s *Scheduler) markChanged(param string) {
 	}
 }
 
+// markSelfChanged adds the currently executing node to the selfChanged set,
+// requesting re-execution on the next scheduler cycle.
+func (s *Scheduler) markSelfChanged() {
+	s.selfChanged.Add(s.currNodeKey)
+}
+
 // reportError reports an error from the currently executing node.
 func (s *Scheduler) reportError(err error) {
 	if s.errorHandler != nil {
@@ -213,6 +228,7 @@ func (s *Scheduler) reportError(err error) {
 // The reason parameter indicates what triggered this scheduler run (timer tick or
 // channel input). Time-based nodes use this to only fire on timer ticks.
 func (s *Scheduler) Next(ctx context.Context, elapsed telem.TimeSpan, reason rnode.RunReason) {
+	s.nextDeadline = telem.TimeSpanMax
 	s.nodeCtx.Context = ctx
 	s.nodeCtx.Elapsed = elapsed
 	s.nodeCtx.Tolerance = s.tolerance
@@ -224,6 +240,16 @@ func (s *Scheduler) Next(ctx context.Context, elapsed telem.TimeSpan, reason rno
 	clear(s.changed)
 }
 
+// NextDeadline returns the minimum deadline (absolute elapsed time) reported by nodes
+// during the last Next() call. Returns telem.TimeSpanMax if no node reported a deadline.
+func (s *Scheduler) NextDeadline() telem.TimeSpan { return s.nextDeadline }
+
+func (s *Scheduler) setDeadline(d telem.TimeSpan) {
+	if d < s.nextDeadline {
+		s.nextDeadline = d
+	}
+}
+
 // execStrata executes nodes in a stage strata, propagating changes between layers.
 // The changed set is cleared at the start to ensure independent propagation from
 // other stages.
@@ -231,7 +257,11 @@ func (s *Scheduler) execStrata(strata ir.Strata) {
 	clear(s.changed)
 	for i, stratum := range strata {
 		for _, key := range stratum {
-			if i == 0 || s.changed.Contains(key) {
+			wasSelfChanged := s.selfChanged.Contains(key)
+			if wasSelfChanged {
+				delete(s.selfChanged, key)
+			}
+			if i == 0 || s.changed.Contains(key) || wasSelfChanged {
 				s.currNodeKey = key
 				s.nodes[key].Next(s.nodeCtx)
 			}
@@ -265,6 +295,8 @@ func (s *Scheduler) execStages() {
 // This deactivates the current sequence's stage first, then activates the target stage.
 func (s *Scheduler) transitionStage() {
 	if s.currSeqIdx != -1 {
+		sourceStage := s.sequences[s.currSeqIdx].stages[s.currStageIdx]
+		s.clearSelfChanged(sourceStage.strata)
 		s.sequences[s.currSeqIdx].activeStageIdx = -1
 	}
 	target, ok := s.transitions[s.currNodeKey]
@@ -277,11 +309,22 @@ func (s *Scheduler) transitionStage() {
 	s.sequences[target.seqIdx].activeStageIdx = target.stageIdx
 }
 
+// clearSelfChanged removes all nodes in a strata from the selfChanged set
+// without resetting the nodes themselves.
+func (s *Scheduler) clearSelfChanged(strata ir.Strata) {
+	for _, stratum := range strata {
+		for _, key := range stratum {
+			delete(s.selfChanged, key)
+		}
+	}
+}
+
 // resetStrata resets all nodes in a strata to their initial state.
 // Called when a stage is activated to reset timers and other stateful nodes.
 func (s *Scheduler) resetStrata(strata ir.Strata) {
 	for _, stratum := range strata {
 		for _, key := range stratum {
+			delete(s.selfChanged, key)
 			s.nodes[key].Reset()
 		}
 	}

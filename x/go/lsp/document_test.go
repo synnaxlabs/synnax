@@ -13,7 +13,7 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/x/lsp"
-	"go.lsp.dev/protocol"
+	"github.com/synnaxlabs/x/lsp/protocol"
 )
 
 var _ = Describe("Document", func() {
@@ -57,7 +57,7 @@ var _ = Describe("Document", func() {
 
 		It("Should detect an incremental change", func() {
 			change := protocol.TextDocumentContentChangeEvent{
-				Range: protocol.Range{
+				Range: &protocol.Range{
 					Start: protocol.Position{Line: 0, Character: 0},
 					End:   protocol.Position{Line: 0, Character: 5},
 				},
@@ -66,10 +66,13 @@ var _ = Describe("Document", func() {
 			Expect(lsp.IsFullReplacement(change)).To(BeFalse())
 		})
 
-		It("Should detect an incremental change via RangeLength", func() {
+		It("Should detect an insertion at position (0,0) as incremental", func() {
 			change := protocol.TextDocumentContentChangeEvent{
-				RangeLength: 5,
-				Text:        "new",
+				Range: &protocol.Range{
+					Start: protocol.Position{Line: 0, Character: 0},
+					End:   protocol.Position{Line: 0, Character: 0},
+				},
+				Text: "\n",
 			}
 			Expect(lsp.IsFullReplacement(change)).To(BeFalse())
 		})
@@ -79,7 +82,7 @@ var _ = Describe("Document", func() {
 		It("Should apply a single edit", func() {
 			content := "hello world"
 			change := protocol.TextDocumentContentChangeEvent{
-				Range: protocol.Range{
+				Range: &protocol.Range{
 					Start: protocol.Position{Line: 0, Character: 6},
 					End:   protocol.Position{Line: 0, Character: 11},
 				},
@@ -91,7 +94,7 @@ var _ = Describe("Document", func() {
 		It("Should apply an insertion", func() {
 			content := "helloworld"
 			change := protocol.TextDocumentContentChangeEvent{
-				Range: protocol.Range{
+				Range: &protocol.Range{
 					Start: protocol.Position{Line: 0, Character: 5},
 					End:   protocol.Position{Line: 0, Character: 5},
 				},
@@ -103,7 +106,7 @@ var _ = Describe("Document", func() {
 		It("Should apply a deletion", func() {
 			content := "hello world"
 			change := protocol.TextDocumentContentChangeEvent{
-				Range: protocol.Range{
+				Range: &protocol.Range{
 					Start: protocol.Position{Line: 0, Character: 5},
 					End:   protocol.Position{Line: 0, Character: 6},
 				},
@@ -115,7 +118,7 @@ var _ = Describe("Document", func() {
 		It("Should apply a multi-line edit", func() {
 			content := "line1\nline2\nline3"
 			change := protocol.TextDocumentContentChangeEvent{
-				Range: protocol.Range{
+				Range: &protocol.Range{
 					Start: protocol.Position{Line: 1, Character: 0},
 					End:   protocol.Position{Line: 1, Character: 5},
 				},
@@ -126,7 +129,7 @@ var _ = Describe("Document", func() {
 
 		It("Should handle empty document", func() {
 			change := protocol.TextDocumentContentChangeEvent{
-				Range: protocol.Range{
+				Range: &protocol.Range{
 					Start: protocol.Position{Line: 0, Character: 0},
 					End:   protocol.Position{Line: 0, Character: 0},
 				},
@@ -138,7 +141,7 @@ var _ = Describe("Document", func() {
 		It("Should handle cross-line replacement", func() {
 			content := "line1\nline2\nline3"
 			change := protocol.TextDocumentContentChangeEvent{
-				Range: protocol.Range{
+				Range: &protocol.Range{
 					Start: protocol.Position{Line: 0, Character: 3},
 					End:   protocol.Position{Line: 2, Character: 2},
 				},

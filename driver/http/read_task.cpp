@@ -9,6 +9,8 @@
 
 #include <set>
 
+#include "driver/http/device/device.h"
+#include "driver/http/errors/errors.h"
 #include "driver/http/read_task.h"
 
 namespace driver::http {
@@ -89,12 +91,6 @@ std::pair<ReadTaskConfig, x::errors::Error> ReadTaskConfig::parse(
 
     if (!parser.ok()) return {std::move(cfg), parser.error()};
 
-    auto [conn, conn_err] = device::retrieve_connection(
-        ctx->client->devices,
-        cfg.device
-    );
-    if (conn_err) return {{}, conn_err};
-
     const std::vector<synnax::channel::Key> all_keys(
         enabled_field_keys.begin(),
         enabled_field_keys.end()
@@ -155,12 +151,17 @@ std::pair<ReadTaskConfig, x::errors::Error> ReadTaskConfig::parse(
     return {std::move(cfg), x::errors::NIL};
 }
 
-ReadTaskSource::ReadTaskSource(ReadTaskConfig cfg, device::Client client):
-    cfg(std::move(cfg)), client(std::move(client)), sample_clock(this->cfg.rate) {
-    bodies.reserve(this->cfg.endpoints.size());
+ReadTaskSource::ReadTaskSource(
+    ReadTaskConfig cfg,
+    std::shared_ptr<Processor> processor,
+    std::vector<Request> requests
+):
+    cfg(std::move(cfg)),
+    processor(std::move(processor)),
+    requests(std::move(requests)),
+    sample_clock(this->cfg.rate) {
     parsed_bodies.resize(this->cfg.endpoints.size());
     for (const auto &ep: this->cfg.endpoints) {
-        bodies.push_back(ep.body);
         for (const auto &field: ep.fields) {
             if (!field.enabled) continue;
             auto it = this->cfg.channels.find(field.channel_key);
@@ -194,11 +195,7 @@ ReadTaskSource::read(x::breaker::Breaker &breaker, x::telem::Frame &fr) {
     common::ReadResult res;
     sample_clock.wait(breaker);
 
-    auto [results, batch_err] = client.execute_requests(bodies);
-    if (batch_err) {
-        res.error = batch_err;
-        return res;
-    }
+    auto results = processor->execute(requests);
 
     fr.reserve(cfg.channels.size() + cfg.software_timed_indexes.size());
 
@@ -214,7 +211,7 @@ ReadTaskSource::read(x::breaker::Breaker &breaker, x::telem::Frame &fr) {
             return res;
         }
 
-        if (auto status_err = device::classify_status(resp.status_code); status_err) {
+        if (auto status_err = errors::from_status(resp.status_code); status_err) {
             res.error = status_err;
             return res;
         }
@@ -298,7 +295,8 @@ ReadTaskSource::read(x::breaker::Breaker &breaker, x::telem::Frame &fr) {
 
 std::pair<common::ConfigureResult, x::errors::Error> configure_read(
     const std::shared_ptr<task::Context> &ctx,
-    const synnax::task::Task &task
+    const synnax::task::Task &task,
+    const std::shared_ptr<Processor> &processor
 ) {
     auto [cfg, parse_err] = ReadTaskConfig::parse(ctx, task);
     if (parse_err) return {common::ConfigureResult{}, parse_err};
@@ -309,19 +307,20 @@ std::pair<common::ConfigureResult, x::errors::Error> configure_read(
     );
     if (conn_err) return {common::ConfigureResult{}, conn_err};
 
-    std::vector<device::RequestConfig> request_configs;
-    request_configs.reserve(cfg.endpoints.size());
-    for (const auto &ep: cfg.endpoints)
-        request_configs.push_back(ep.request);
-
-    auto [client, client_err] = device::Client::create(
-        std::move(conn),
-        request_configs
-    );
-    if (client_err) return {common::ConfigureResult{}, client_err};
+    std::vector<Request> requests;
+    requests.reserve(cfg.endpoints.size());
+    for (const auto &ep: cfg.endpoints) {
+        auto req = device::build_request(conn, ep.request);
+        req.body = ep.body;
+        requests.push_back(std::move(req));
+    }
 
     const bool auto_start = cfg.auto_start;
-    auto source = std::make_unique<ReadTaskSource>(std::move(cfg), std::move(client));
+    auto source = std::make_unique<ReadTaskSource>(
+        std::move(cfg),
+        processor,
+        std::move(requests)
+    );
 
     auto breaker_cfg = x::breaker::Config{.name = task.name};
 

@@ -147,7 +147,7 @@ export class Tooltip extends aether.Leaf<typeof tooltipStateZ, InternalState> {
         } else {
           const v = validValues[i - 1];
           label = v.label ?? "";
-          value = math.roundBySpan(v.value.y, v.bounds).toString();
+          value = math.smartRound(v.value.y, v.bounds).toString();
           color = v.color;
         }
         draw.text({
