@@ -488,7 +488,9 @@ func (p *flowChainProcessor) processFlowNode(flowNode parser.IFlowNodeContext) b
 		p.additionalTriggers = nil
 	}
 
-	p.prevOutput = result.output
+	if len(result.node.Outputs) > 0 {
+		p.prevOutput = result.output
+	}
 	p.prevNode = &result.node
 	if result.node.Key != "" {
 		p.nodes = append(p.nodes, result.node)
@@ -668,7 +670,8 @@ func analyzeOutputRoutingTable(
 			targetParamName = entry.IDENTIFIER(1).GetText()
 		}
 
-		var prevOutputHandle ir.Handle
+		sourceOutput := ir.Handle{Node: sourceNode.Key, Param: outputName}
+		prevOutputHandle := sourceOutput
 		for i, flowNode := range flowNodes {
 			isLast := i == len(flowNodes)-1
 			isSink := isLast && flowNode.Identifier() != nil
@@ -678,19 +681,11 @@ func analyzeOutputRoutingTable(
 				return nil, nil, false
 			}
 
-			if i == 0 {
-				edges = append(edges, ir.Edge{
-					Source: ir.Handle{Node: sourceNode.Key, Param: outputName},
-					Target: result.input,
-					Kind:   ir.EdgeKindContinuous,
-				})
-			} else {
-				edges = append(edges, ir.Edge{
-					Source: prevOutputHandle,
-					Target: result.input,
-					Kind:   ir.EdgeKindContinuous,
-				})
-			}
+			edges = append(edges, ir.Edge{
+				Source: prevOutputHandle,
+				Target: result.input,
+				Kind:   ir.EdgeKindContinuous,
+			})
 
 			if isLast && targetParamName != "" {
 				if !result.node.Inputs.Has(targetParamName) {
@@ -705,7 +700,9 @@ func analyzeOutputRoutingTable(
 				edges[len(edges)-1].Target.Param = targetParamName
 			}
 
-			prevOutputHandle = result.output
+			if len(result.node.Outputs) > 0 {
+				prevOutputHandle = result.output
+			}
 			if result.node.Key != "" {
 				nodes = append(nodes, result.node)
 			}

@@ -18,6 +18,7 @@
 #include "x/cpp/breaker/breaker.h"
 #include "x/cpp/errors/errors.h"
 #include "x/cpp/notify/notify.h"
+#include "x/cpp/telem/telem.h"
 
 #include "arc/cpp/runtime/loop/loop.h"
 
@@ -43,8 +44,15 @@ public:
         return x::errors::NIL;
     }
 
-    loop::WakeReason wait(x::breaker::Breaker &breaker) override {
+    loop::WakeReason wait(
+        x::breaker::Breaker &breaker,
+        x::telem::TimeSpan max_timeout = x::telem::TimeSpan(0)
+    ) override {
         this->wait_count++;
+        {
+            std::lock_guard tl(this->timeout_mu);
+            this->max_timeouts.push_back(max_timeout);
+        }
         std::unique_lock lock(this->mu);
         this->cv.wait_for(lock, std::chrono::milliseconds(10), [&] {
             return !this->should_block || !breaker.running();
@@ -70,9 +78,17 @@ public:
     /// @brief List of notifiers that have been watched.
     std::vector<x::notify::Notifier *> watched_notifiers;
 
+    /// @brief Returns a snapshot of all max_timeout values passed to wait().
+    std::vector<x::telem::TimeSpan> get_max_timeouts() {
+        std::lock_guard lock(this->timeout_mu);
+        return this->max_timeouts;
+    }
+
 private:
     std::condition_variable cv;
     std::mutex mu;
+    std::mutex timeout_mu;
+    std::vector<x::telem::TimeSpan> max_timeouts;
     bool should_block{true};
 };
 }

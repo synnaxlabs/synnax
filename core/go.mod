@@ -17,7 +17,6 @@ require (
 	github.com/spf13/viper v1.21.0
 	github.com/uptrace/uptrace-go v1.39.0
 	github.com/vmihailenco/msgpack/v5 v5.4.1
-	go.lsp.dev/protocol v0.12.0
 	go.uber.org/zap v1.27.1
 	golang.org/x/crypto v0.47.0
 	golang.org/x/sys v0.40.0

@@ -9,7 +9,6 @@ require (
 	github.com/samber/lo v1.52.0
 	github.com/tetratelabs/wazero v1.11.0
 	go.lsp.dev/jsonrpc2 v0.10.0
-	go.lsp.dev/protocol v0.12.0
 	go.uber.org/zap v1.27.1
 	google.golang.org/protobuf v1.36.11
 )

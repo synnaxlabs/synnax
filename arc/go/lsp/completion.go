@@ -16,7 +16,7 @@ import (
 	"github.com/synnaxlabs/arc/parser"
 	"github.com/synnaxlabs/arc/types"
 	lsp "github.com/synnaxlabs/x/lsp"
-	"go.lsp.dev/protocol"
+	"github.com/synnaxlabs/x/lsp/protocol"
 	"go.uber.org/zap"
 )
 
@@ -417,7 +417,7 @@ func (s *Server) getCompletionItems(
 		items = append(items, item)
 	}
 
-	if completionCtx != ContextTypeAnnotation && nesting != NestingSequenceBody && doc.IR.Symbols != nil {
+	if completionCtx != ContextTypeAnnotation && nesting != NestingSequenceBody {
 		scopeAtCursor := doc.findScopeAtPosition(pos)
 		if scopeAtCursor != nil {
 			scopes, err := scopeAtCursor.Search(ctx, prefix)

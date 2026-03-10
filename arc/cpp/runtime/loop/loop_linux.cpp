@@ -30,7 +30,10 @@ public:
 
     ~LinuxLoop() override { this->close_fds(); }
 
-    WakeReason wait(x::breaker::Breaker &breaker) override {
+    WakeReason wait(
+        x::breaker::Breaker &breaker,
+        x::telem::TimeSpan max_timeout = x::telem::TimeSpan(0)
+    ) override {
         if (this->epoll_fd_ == -1) return WakeReason::Shutdown;
 
         switch (this->config_.mode) {
@@ -39,12 +42,12 @@ public:
             case ExecutionMode::HIGH_RATE:
                 return this->high_rate_wait(breaker);
             case ExecutionMode::RT_EVENT:
-                return this->event_driven_wait(true);
+                return this->event_driven_wait(true, max_timeout);
             case ExecutionMode::HYBRID:
-                return this->hybrid_wait(breaker);
+                return this->hybrid_wait(breaker, max_timeout);
             case ExecutionMode::AUTO:
             case ExecutionMode::EVENT_DRIVEN:
-                return this->event_driven_wait(true);
+                return this->event_driven_wait(true, max_timeout);
         }
         return WakeReason::Shutdown;
     }
@@ -210,10 +213,13 @@ private:
         return WakeReason::Timer;
     }
 
-    WakeReason event_driven_wait(bool blocking) {
+    WakeReason event_driven_wait(bool blocking, const x::telem::TimeSpan max_timeout) {
         struct epoll_event events[2];
-        const int timeout_ms = blocking ? timing::EVENT_DRIVEN_TIMEOUT.milliseconds()
+        const int default_ms = blocking ? timing::EVENT_DRIVEN_TIMEOUT.milliseconds()
                                         : timing::POLL_TIMEOUT.milliseconds();
+        const int timeout_ms = max_timeout.nanoseconds() > 0
+                                 ? static_cast<int>(max_timeout.milliseconds())
+                                 : default_ms;
         const int n = epoll_wait(this->epoll_fd_, events, 2, timeout_ms);
 
         if (n > 0) return this->consume_events(events, n);
@@ -223,7 +229,10 @@ private:
         return WakeReason::Shutdown;
     }
 
-    WakeReason hybrid_wait(const x::breaker::Breaker &breaker) {
+    WakeReason hybrid_wait(
+        const x::breaker::Breaker &breaker,
+        const x::telem::TimeSpan max_timeout
+    ) {
         const auto spin_start = std::chrono::steady_clock::now();
         const auto spin_duration = std::chrono::nanoseconds(
             this->config_.spin_duration.nanoseconds()
@@ -238,7 +247,9 @@ private:
             if (n > 0) return this->consume_events(events, n);
         }
 
-        const int timeout_ms = timing::HYBRID_BLOCK_TIMEOUT.milliseconds();
+        const int timeout_ms = max_timeout.nanoseconds() > 0
+                                 ? static_cast<int>(max_timeout.milliseconds())
+                                 : timing::HYBRID_BLOCK_TIMEOUT.milliseconds();
         const int n = epoll_wait(this->epoll_fd_, events, 2, timeout_ms);
         if (n > 0) return this->consume_events(events, n);
         return WakeReason::Timeout;

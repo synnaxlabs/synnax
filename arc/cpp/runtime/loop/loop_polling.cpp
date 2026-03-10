@@ -46,7 +46,10 @@ public:
 
     ~PollingLoop() override { this->timer_.reset(); }
 
-    WakeReason wait(x::breaker::Breaker &breaker) override {
+    WakeReason wait(
+        x::breaker::Breaker &breaker,
+        x::telem::TimeSpan max_timeout = x::telem::TimeSpan(0)
+    ) override {
         if (!this->started_) return WakeReason::Shutdown;
 
         if (this->config_.interval.nanoseconds() > 0 && this->timer_) {
@@ -56,9 +59,12 @@ public:
             )
                                      .count();
 
-            if (elapsed < this->config_.interval.nanoseconds()) {
-                const int64_t remaining_ns = this->config_.interval.nanoseconds() -
-                                             elapsed;
+            auto interval_ns = this->config_.interval.nanoseconds();
+            if (max_timeout.nanoseconds() > 0)
+                interval_ns = std::min(interval_ns, max_timeout.nanoseconds());
+
+            if (elapsed < interval_ns) {
+                const int64_t remaining_ns = interval_ns - elapsed;
 
                 switch (this->config_.mode) {
                     case ExecutionMode::BUSY_WAIT:
@@ -78,7 +84,9 @@ public:
                 this->last_tick_ = now;
             }
         } else {
-            if (this->config_.mode == ExecutionMode::BUSY_WAIT) {
+            if (max_timeout.nanoseconds() > 0) {
+                std::this_thread::sleep_for(max_timeout.chrono());
+            } else if (this->config_.mode == ExecutionMode::BUSY_WAIT) {
                 std::this_thread::sleep_for(x::telem::MICROSECOND.chrono());
             } else {
                 std::this_thread::sleep_for(timing::HIGH_RATE_POLL_INTERVAL.chrono());
