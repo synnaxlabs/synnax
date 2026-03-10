@@ -227,10 +227,15 @@ export class Controller
     }
   }
 
+  // buildFrame is a callback so that frames are constructed fresh on each retry
+  // attempt. This is necessary because frames may contain index timestamps that
+  // would be stale relative to the new writer's start after a reconnection.
   async set(
-    frame: framer.CrudeFrame | Record<channel.KeyOrName, CrudeSeries>,
+    buildFrame: () => Promise<
+      framer.CrudeFrame | Record<channel.KeyOrName, CrudeSeries>
+    >,
   ): Promise<void> {
-    await this.withRetry(async () => this.writer?.write(frame));
+    await this.withRetry(async () => this.writer?.write(await buildFrame()));
   }
 
   async setAuthority(channels: channel.Keys, value: control.Authority): Promise<void> {
@@ -323,16 +328,18 @@ export class SetChannelValue
       if (client == null) throw new DisconnectedError("No Core connected");
       if (this.props.channel === 0)
         throw new ValidationError("No command channel specified for actuator");
-      const ch = await client.channels.retrieve(this.props.channel);
-      const fr: Record<channel.KeyOrName, CrudeSeries> = { [ch.key]: values };
-      if (ch.index !== 0) {
-        const index = await client.channels.retrieve(ch.index);
-        const now = TimeStamp.now();
-        fr[index.key] = Array.from({ length: values.length }, (_, i) =>
-          now.add(TimeSpan.nanoseconds(i)),
-        );
-      }
-      await this.controller.set(fr);
+      await this.controller.set(async () => {
+        const ch = await client.channels.retrieve(this.props.channel);
+        const fr: Record<channel.KeyOrName, CrudeSeries> = { [ch.key]: values };
+        if (ch.index !== 0) {
+          const index = await client.channels.retrieve(ch.index);
+          const now = TimeStamp.now();
+          fr[index.key] = Array.from({ length: values.length }, (_, i) =>
+            now.add(TimeSpan.nanoseconds(i)),
+          );
+        }
+        return fr;
+      });
     }, "Failed to command channel");
   }
 }
