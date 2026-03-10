@@ -17,6 +17,7 @@ import {
   TimeStamp,
   ValidationError,
 } from "@synnaxlabs/client";
+import { StreamClosed, Unreachable } from "@synnaxlabs/freighter";
 import {
   color,
   compare,
@@ -189,24 +190,51 @@ export class Controller
     }
   }
 
+  private static isRetryable(e: unknown): boolean {
+    return StreamClosed.matches(e) || Unreachable.matches(e);
+  }
+
+  private async closeWriter(): Promise<void> {
+    try {
+      await this.writer?.close();
+    } catch {
+      // Expected to fail on a dead stream.
+    } finally {
+      this.writer = undefined;
+    }
+  }
+
+  private async withRetry(fn: () => Promise<void>): Promise<void> {
+    if (this.writer == null) await this.doAcquire();
+    try {
+      await fn();
+    } catch (e) {
+      if (!Controller.isRetryable(e)) throw e;
+      await this.closeWriter();
+      await this.doAcquire();
+      await fn();
+    }
+  }
+
   async set(
     frame: framer.CrudeFrame | Record<channel.KeyOrName, CrudeSeries>,
   ): Promise<void> {
-    if (this.writer == null) await this.doAcquire();
-    await this.writer?.write(frame);
+    await this.withRetry(async () => this.writer?.write(frame));
   }
 
   async setAuthority(channels: channel.Keys, value: control.Authority): Promise<void> {
-    if (this.writer == null) await this.doAcquire();
-    await this.writer?.setAuthority(
-      Object.fromEntries(channels.map((k) => [k, value])),
+    await this.withRetry(async () =>
+      this.writer?.setAuthority(
+        Object.fromEntries(channels.map((k) => [k, value])),
+      ),
     );
   }
 
   async releaseAuthority(keys: channel.Keys): Promise<void> {
-    if (this.writer == null) await this.doAcquire();
-    await this.writer?.setAuthority(
-      Object.fromEntries(keys.map((k) => [k, this.state.authority])),
+    await this.withRetry(async () =>
+      this.writer?.setAuthority(
+        Object.fromEntries(keys.map((k) => [k, this.state.authority])),
+      ),
     );
   }
 
