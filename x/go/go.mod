@@ -2,6 +2,11 @@ module github.com/synnaxlabs/x
 
 go 1.26.0
 
+replace (
+	github.com/synnaxlabs/alamos => ../../alamos/go
+	google.golang.org/genproto => google.golang.org/genproto v0.0.0-20260128011058-8636f8732409
+)
+
 require (
 	github.com/antlr4-go/antlr/v4 v4.13.1
 	github.com/cockroachdb/errors v1.12.0
@@ -11,6 +16,8 @@ require (
 	github.com/onsi/ginkgo/v2 v2.27.5
 	github.com/onsi/gomega v1.39.0
 	github.com/samber/lo v1.52.0
+	github.com/segmentio/encoding v0.5.3
+	github.com/synnaxlabs/alamos v0.0.0
 	github.com/uptrace/uptrace-go v1.39.0
 	github.com/vmihailenco/msgpack/v5 v5.4.1
 	go.lsp.dev/jsonrpc2 v0.10.0
@@ -38,7 +45,6 @@ require (
 	github.com/cockroachdb/redact v1.1.6 // indirect
 	github.com/cockroachdb/swiss v0.0.0-20251224182025-b0f6560f979b // indirect
 	github.com/cockroachdb/tokenbucket v0.0.0-20250429170803-42689b6311bb // indirect
-	github.com/davecgh/go-spew v1.1.2-0.20180830191138-d8f796af33cc // indirect
 	github.com/getsentry/sentry-go v0.42.0 // indirect
 	github.com/go-logr/logr v1.4.3 // indirect
 	github.com/go-logr/stdr v1.2.2 // indirect
@@ -54,14 +60,12 @@ require (
 	github.com/minio/minlz v1.0.1 // indirect
 	github.com/munnerz/goautoneg v0.0.0-20191010083416-a7dc8b61c822 // indirect
 	github.com/pkg/errors v0.9.1 // indirect
-	github.com/pmezard/go-difflib v1.0.1-0.20181226105442-5d4384ee4fb2 // indirect
 	github.com/prometheus/client_golang v1.23.2 // indirect
 	github.com/prometheus/client_model v0.6.2 // indirect
 	github.com/prometheus/common v0.67.5 // indirect
 	github.com/prometheus/procfs v0.19.2 // indirect
 	github.com/rogpeppe/go-internal v1.14.1 // indirect
 	github.com/segmentio/asm v1.2.1 // indirect
-	github.com/segmentio/encoding v0.5.3 // indirect
 	github.com/vmihailenco/tagparser/v2 v2.0.0 // indirect
 	go.opentelemetry.io/auto/sdk v1.2.1 // indirect
 	go.opentelemetry.io/contrib/instrumentation/runtime v0.64.0 // indirect
