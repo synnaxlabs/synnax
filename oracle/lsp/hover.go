@@ -13,7 +13,7 @@ import (
 	"context"
 	"strings"
 
-	"go.lsp.dev/protocol"
+	"github.com/synnaxlabs/x/lsp/protocol"
 )
 
 var hoverDocs = map[string]string{

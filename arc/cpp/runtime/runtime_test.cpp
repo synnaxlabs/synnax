@@ -13,6 +13,7 @@
 #include "x/cpp/telem/series.h"
 #include "x/cpp/test/test.h"
 
+#include "arc/cpp/ir/testutil/testutil.h"
 #include "arc/cpp/runtime/runtime.h"
 #include "arc/cpp/runtime/testutil/mock_loop.h"
 
@@ -331,6 +332,132 @@ TEST(BuildAuthoritiesTest, NoDefaultUsesAbsolute) {
     ASSERT_EQ(result.size(), 2);
     EXPECT_EQ(result[0], 50);
     EXPECT_EQ(result[1], x::control::AUTHORITY_ABSOLUTE);
+}
+
+/// @brief Mock node that sets a configurable deadline on each execution.
+struct DeadlineNode final : public node::Node {
+    std::atomic<int64_t> deadline_ns;
+
+    explicit DeadlineNode(const x::telem::TimeSpan deadline):
+        deadline_ns(deadline.nanoseconds()) {}
+
+    x::errors::Error next(node::Context &ctx) override {
+        const auto d = x::telem::TimeSpan(this->deadline_ns.load());
+        if (d != x::telem::TimeSpan::max()) ctx.set_deadline(d);
+        return x::errors::NIL;
+    }
+
+    void reset() override {}
+
+    [[nodiscard]] bool is_output_truthy(const std::string &) const override {
+        return false;
+    }
+};
+
+/// @brief Creates a runtime with a DeadlineNode for testing timeout conversion.
+struct DeadlineRuntimeFixture {
+    std::shared_ptr<Runtime> runtime;
+    testutil::MockLoop *loop;
+    DeadlineNode *node;
+
+    static DeadlineRuntimeFixture create(const x::telem::TimeSpan deadline) {
+        auto mock_loop = std::make_unique<testutil::MockLoop>();
+        auto *loop_ptr = mock_loop.get();
+
+        auto deadline_node = std::make_unique<DeadlineNode>(deadline);
+        auto *node_ptr = deadline_node.get();
+
+        auto prog = arc::ir::testutil::Builder()
+                        .node("deadline")
+                        .strata({{"deadline"}})
+                        .build();
+
+        state::Config state_cfg{.ir = prog, .channels = {}};
+        auto state = std::make_shared<state::State>(state_cfg);
+
+        std::unordered_map<std::string, std::unique_ptr<node::Node>> node_impls;
+        node_impls["deadline"] = std::move(deadline_node);
+
+        auto scheduler = std::make_unique<scheduler::Scheduler>(
+            prog,
+            node_impls,
+            x::telem::TimeSpan(0)
+        );
+
+        Config cfg{
+            .mod = {},
+            .breaker = x::breaker::Config{},
+            .retrieve_channels = nullptr,
+            .input_queue_capacity = 256,
+            .output_queue_capacity = 256,
+            .loop = {},
+        };
+
+        auto rt = std::make_shared<Runtime>(
+            cfg,
+            nullptr,
+            nullptr,
+            state,
+            std::move(scheduler),
+            std::move(mock_loop),
+            std::vector<arc::types::ChannelKey>{},
+            std::vector<arc::types::ChannelKey>{},
+            arc::runtime::errors::noop_handler
+        );
+
+        return {rt, loop_ptr, node_ptr};
+    }
+};
+
+/// @brief When no deadline is set, runtime should pass max_timeout=0 (no constraint)
+/// on every cycle.
+TEST(RuntimeDeadlineTest, NoDeadlinePassesZeroTimeout) {
+    auto [runtime, loop, node] = DeadlineRuntimeFixture::create(
+        x::telem::TimeSpan::max()
+    );
+    ASSERT_TRUE(runtime->start());
+    ASSERT_EVENTUALLY_GE(loop->wait_count.load(), 3);
+    ASSERT_TRUE(runtime->stop());
+
+    const auto timeouts = loop->get_max_timeouts();
+    ASSERT_GE(timeouts.size(), 3);
+    for (const auto &t: timeouts)
+        EXPECT_EQ(t, x::telem::TimeSpan(0)) << "Expected 0 (no deadline constraint)";
+}
+
+/// @brief When a deadline is 10s in the future, runtime should pass a timeout close
+/// to 10s that decreases as elapsed time grows.
+TEST(RuntimeDeadlineTest, FutureDeadlinePassesDecreasingTimeout) {
+    auto [runtime, loop, node] = DeadlineRuntimeFixture::create(x::telem::SECOND * 10);
+    ASSERT_TRUE(runtime->start());
+    ASSERT_EVENTUALLY_GE(loop->wait_count.load(), 3);
+    ASSERT_TRUE(runtime->stop());
+
+    const auto timeouts = loop->get_max_timeouts();
+    ASSERT_GE(timeouts.size(), 3);
+    // First timeout after the initial cycle is close to 10s (minus small elapsed).
+    // Skip index 0 which is the initial 0-timeout seed.
+    EXPECT_GT(timeouts[1], x::telem::SECOND * 9);
+    EXPECT_LE(timeouts[1], x::telem::SECOND * 10);
+    // Subsequent timeouts should be smaller as elapsed grows.
+    for (size_t i = 2; i < timeouts.size(); i++)
+        EXPECT_LE(timeouts[i], timeouts[i - 1]);
+}
+
+/// @brief When the deadline is always in the past (1ns), runtime should pass 1ns
+/// on every cycle after the first.
+TEST(RuntimeDeadlineTest, PastDeadlinePassesMinimalTimeout) {
+    auto [runtime, loop, node] = DeadlineRuntimeFixture::create(x::telem::TimeSpan(1));
+    ASSERT_TRUE(runtime->start());
+    ASSERT_EVENTUALLY_GE(loop->wait_count.load(), 3);
+    ASSERT_TRUE(runtime->stop());
+
+    const auto timeouts = loop->get_max_timeouts();
+    ASSERT_GE(timeouts.size(), 3);
+    // After the initial seed cycle (index 0), every timeout should be 1ns
+    // because 1ns deadline is always < elapsed wall-clock time.
+    for (size_t i = 1; i < timeouts.size(); i++)
+        EXPECT_EQ(timeouts[i], x::telem::TimeSpan(1));
 }
 
 TEST(MockLoopTest, WakeReasonIsConfigurable) {

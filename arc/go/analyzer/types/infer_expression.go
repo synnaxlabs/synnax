@@ -102,11 +102,18 @@ func InferAdditive(ctx context.Context[parser.IAdditiveExpressionContext]) types
 					}
 					return elemType
 				}
-			} else if !Compatible(elemType, nextType.Unwrap()) {
-				if isSeries {
-					return types.Series(elemType)
+			} else {
+				nextElem := nextType.Unwrap()
+				// Prefer concrete type over type variable (literal)
+				if elemType.Kind == types.KindVariable && nextElem.Kind != types.KindVariable {
+					elemType = nextElem
 				}
-				return elemType
+				if !Compatible(elemType, nextElem) {
+					if isSeries {
+						return types.Series(elemType)
+					}
+					return elemType
+				}
 			}
 		}
 		if isSeries {
@@ -143,10 +150,17 @@ func InferMultiplicative(ctx context.Context[parser.IMultiplicativeExpressionCon
 					ctx.TypeMap[ctx.AST] = resultType
 					return resultType
 				}
-			} else if !Compatible(elemType, nextType.Unwrap()) {
-				resultType := lo.Ternary(isSeries, types.Series(elemType), elemType)
-				ctx.TypeMap[ctx.AST] = resultType
-				return resultType
+			} else {
+				nextElem := nextType.Unwrap()
+				// Prefer concrete type over type variable (literal)
+				if elemType.Kind == types.KindVariable && nextElem.Kind != types.KindVariable {
+					elemType = nextElem
+				}
+				if !Compatible(elemType, nextElem) {
+					resultType := lo.Ternary(isSeries, types.Series(elemType), elemType)
+					ctx.TypeMap[ctx.AST] = resultType
+					return resultType
+				}
 			}
 		}
 		resultType := lo.Ternary(isSeries, types.Series(elemType), elemType)
