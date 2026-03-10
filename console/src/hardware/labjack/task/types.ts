@@ -22,41 +22,44 @@ const digitalPortZ = portZ.regex(
   "Invalid port, port must start with DIO and end with an integer",
 );
 
-export const LINEAR_SCALE_TYPE = "linear";
-export type LinearScaleType = typeof LINEAR_SCALE_TYPE;
-
 const linearScaleZ = z.object({
-  type: z.literal(LINEAR_SCALE_TYPE),
+  type: z.literal("linear"),
   slope: z.number(),
   offset: z.number(),
 });
+
 interface LinearScale extends z.infer<typeof linearScaleZ> {}
-const ZERO_LINEAR_SCALE: LinearScale = { type: LINEAR_SCALE_TYPE, slope: 1, offset: 0 };
 
-export const NO_SCALE_TYPE = "none";
-export type NoScaleType = typeof NO_SCALE_TYPE;
+const ZERO_LINEAR_SCALE = {
+  type: "linear",
+  slope: 1,
+  offset: 0,
+} as const satisfies LinearScale;
 
-const noScaleZ = z.object({ type: z.literal(NO_SCALE_TYPE) });
+const noScaleZ = z.object({ type: z.literal("none") });
+
 interface NoScale extends z.infer<typeof noScaleZ> {}
-const NO_SCALE: NoScale = { type: NO_SCALE_TYPE };
+
+const NO_SCALE = { type: "none" } as const satisfies NoScale;
 
 const scaleZ = z.union([noScaleZ, linearScaleZ]);
+
 export type Scale = z.infer<typeof scaleZ>;
+
 export type ScaleType = Scale["type"];
+
 export const SCALE_SCHEMAS: Record<ScaleType, z.ZodType<Scale>> = {
-  [NO_SCALE_TYPE]: noScaleZ,
-  [LINEAR_SCALE_TYPE]: linearScaleZ,
-};
-export const ZERO_SCALES: Record<ScaleType, Scale> = {
-  [NO_SCALE_TYPE]: NO_SCALE,
-  [LINEAR_SCALE_TYPE]: ZERO_LINEAR_SCALE,
+  none: noScaleZ,
+  linear: linearScaleZ,
 };
 
-export const AI_CHANNEL_TYPE = "AI";
-export type AIChannelType = typeof AI_CHANNEL_TYPE;
+export const ZERO_SCALES: Record<ScaleType, Scale> = {
+  none: NO_SCALE,
+  linear: ZERO_LINEAR_SCALE,
+};
 
 const aiChannelZ = Common.Task.readChannelZ.extend({
-  type: z.literal(AI_CHANNEL_TYPE),
+  type: z.literal("AI"),
   range: z.number().positive().optional(),
   scale: scaleZ,
   port: portZ.regex(
@@ -64,65 +67,44 @@ const aiChannelZ = Common.Task.readChannelZ.extend({
     "Invalid port, ports must start with AIN and end with an integer",
   ),
 });
+
 interface AIChannel extends z.infer<typeof aiChannelZ> {}
-const ZERO_AI_CHANNEL: AIChannel = {
+
+const ZERO_AI_CHANNEL = {
   ...Common.Task.ZERO_READ_CHANNEL,
-  type: AI_CHANNEL_TYPE,
+  type: "AI",
   port: "AIN0",
   range: 10,
-  scale: ZERO_SCALES[NO_SCALE_TYPE],
-};
-
-export const DI_CHANNEL_TYPE = "DI";
-export type DIChannelType = typeof DI_CHANNEL_TYPE;
+  scale: ZERO_SCALES.none,
+} as const satisfies AIChannel;
 
 const diChannelZ = Common.Task.readChannelZ.extend({
-  type: z.literal(DI_CHANNEL_TYPE),
+  type: z.literal("DI"),
   port: digitalPortZ,
 });
+
 interface DIChannel extends z.infer<typeof diChannelZ> {}
-const ZERO_DI_CHANNEL: DIChannel = {
+
+const ZERO_DI_CHANNEL = {
   ...Common.Task.ZERO_READ_CHANNEL,
   port: "DIO4",
-  type: DI_CHANNEL_TYPE,
-};
+  type: "DI",
+} as const satisfies DIChannel;
 
-export const TC_CHANNEL_TYPE = "TC";
-export type TCChannelType = typeof TC_CHANNEL_TYPE;
+const temperatureUnitsZ = z.enum(["C", "F", "K"]);
 
-export const CELSIUS_UNIT = "C";
-export const FAHRENHEIT_UNIT = "F";
-export const KELVIN_UNIT = "K";
-const temperatureUnitsZ = z.enum([CELSIUS_UNIT, FAHRENHEIT_UNIT, KELVIN_UNIT]);
 export type TemperatureUnits = z.infer<typeof temperatureUnitsZ>;
 
-export const J_TC_TYPE = "J";
-export const K_TC_TYPE = "K";
-export const N_TC_TYPE = "N";
-export const R_TC_TYPE = "R";
-export const S_TC_TYPE = "S";
-export const T_TC_TYPE = "T";
-export const B_TC_TYPE = "B";
-export const E_TC_TYPE = "E";
-export const C_TC_TYPE = "C";
-const thermocoupleTypeZ = z.enum([
-  J_TC_TYPE,
-  K_TC_TYPE,
-  N_TC_TYPE,
-  R_TC_TYPE,
-  S_TC_TYPE,
-  T_TC_TYPE,
-  B_TC_TYPE,
-  E_TC_TYPE,
-  C_TC_TYPE,
-]);
+const thermocoupleTypeZ = z.enum(["J", "K", "N", "R", "S", "T", "B", "E", "C"]);
+
 export type ThermocoupleType = z.infer<typeof thermocoupleTypeZ>;
 
 export const DEVICE_CJC_SOURCE = "TEMPERATURE_DEVICE_K";
+
 export const AIR_CJC_SOURCE = "TEMPERATURE_AIR_K";
 
 const tcChannelZ = aiChannelZ.omit({ type: true, range: true }).extend({
-  type: z.literal(TC_CHANNEL_TYPE),
+  type: z.literal("TC"),
   thermocoupleType: thermocoupleTypeZ,
   posChan: z.number().int(),
   negChan: z.number().int(),
@@ -131,48 +113,52 @@ const tcChannelZ = aiChannelZ.omit({ type: true, range: true }).extend({
   cjcOffset: z.number(),
   units: temperatureUnitsZ,
 });
+
 interface TCChannel extends z.infer<typeof tcChannelZ> {}
-const ZERO_TC_CHANNEL: TCChannel = {
+
+const ZERO_TC_CHANNEL = {
   ...ZERO_AI_CHANNEL,
-  type: TC_CHANNEL_TYPE,
-  thermocoupleType: K_TC_TYPE,
+  type: "TC",
+  thermocoupleType: "K",
   posChan: 0,
   negChan: 199,
-  units: KELVIN_UNIT,
+  units: "K",
   cjcSource: DEVICE_CJC_SOURCE,
   cjcSlope: 1,
   cjcOffset: 0,
   scale: NO_SCALE,
-};
+} as const satisfies TCChannel;
 
 const inputChannelZ = z.union([aiChannelZ, diChannelZ, tcChannelZ]);
+
 export type InputChannel = z.infer<typeof inputChannelZ>;
+
 export type InputChannelType = InputChannel["type"];
+
 export const INPUT_CHANNEL_SCHEMAS: Record<
   InputChannelType,
   z.ZodType<InputChannel>
 > = {
-  [AI_CHANNEL_TYPE]: aiChannelZ,
-  [DI_CHANNEL_TYPE]: diChannelZ,
-  [TC_CHANNEL_TYPE]: tcChannelZ,
+  AI: aiChannelZ,
+  DI: diChannelZ,
+  TC: tcChannelZ,
 };
-export const ZERO_INPUT_CHANNELS: Record<InputChannelType, InputChannel> = {
-  [AI_CHANNEL_TYPE]: ZERO_AI_CHANNEL,
-  [DI_CHANNEL_TYPE]: ZERO_DI_CHANNEL,
-  [TC_CHANNEL_TYPE]: ZERO_TC_CHANNEL,
-};
-export const ZERO_INPUT_CHANNEL: InputChannel = ZERO_INPUT_CHANNELS[AI_CHANNEL_TYPE];
+
+export const ZERO_INPUT_CHANNELS = {
+  AI: ZERO_AI_CHANNEL,
+  DI: ZERO_DI_CHANNEL,
+  TC: ZERO_TC_CHANNEL,
+} as const satisfies Record<InputChannelType, InputChannel>;
+
+export const ZERO_INPUT_CHANNEL = ZERO_INPUT_CHANNELS.AI;
 
 const v0BaseOutputChannelZ = Common.Task.channelZ.extend({
   cmdKey: channel.keyZ,
   stateKey: channel.keyZ,
 });
 
-export const AO_CHANNEL_TYPE = "AO";
-export type AOChannelType = typeof AO_CHANNEL_TYPE;
-
 const aoChannelExtension = {
-  type: z.literal(AO_CHANNEL_TYPE),
+  type: z.literal("AO"),
   port: portZ.regex(
     Device.DAC_PORT_REGEX,
     "Invalid port, ports must start with DAC and end with an integer",
@@ -180,19 +166,19 @@ const aoChannelExtension = {
 };
 
 const v0AOChannelZ = v0BaseOutputChannelZ.extend(aoChannelExtension);
-const aoChannelZ = Common.Task.writeChannelZ.extend(aoChannelExtension);
-interface AOChannel extends z.infer<typeof aoChannelZ> {}
-const ZERO_AO_CHANNEL: AOChannel = {
-  ...Common.Task.ZERO_WRITE_CHANNEL,
-  type: AO_CHANNEL_TYPE,
-  port: "DAC0",
-};
 
-export const DO_CHANNEL_TYPE = "DO";
-export type DOChannelType = typeof DO_CHANNEL_TYPE;
+const aoChannelZ = Common.Task.writeChannelZ.extend(aoChannelExtension);
+
+interface AOChannel extends z.infer<typeof aoChannelZ> {}
+
+const ZERO_AO_CHANNEL = {
+  ...Common.Task.ZERO_WRITE_CHANNEL,
+  type: "AO",
+  port: "DAC0",
+} as const satisfies AOChannel;
 
 const doChannelExtension = {
-  type: z.literal(DO_CHANNEL_TYPE),
+  type: z.literal("DO"),
   port: portZ.regex(
     Device.DIO_PORT_REGEX,
     "Invalid port, ports must start with DIO and end with an integer",
@@ -200,28 +186,33 @@ const doChannelExtension = {
 };
 
 const v0DOChannelZ = v0BaseOutputChannelZ.extend(doChannelExtension);
+
 const doChannelZ = Common.Task.writeChannelZ.extend(doChannelExtension);
+
 interface DOChannel extends z.infer<typeof doChannelZ> {}
-const ZERO_DO_CHANNEL: DOChannel = {
+
+const ZERO_DO_CHANNEL = {
   ...Common.Task.ZERO_WRITE_CHANNEL,
-  type: DO_CHANNEL_TYPE,
+  type: "DO",
   port: "DIO4",
-};
+} as const satisfies DOChannel;
 
 const v0OutputChannelZ = z.union([v0AOChannelZ, v0DOChannelZ]);
-type V0OutputChannel = z.infer<typeof v0OutputChannelZ>;
-export type OutputChannelType = V0OutputChannel["type"];
 
 export const outputChannelZ = z.union([aoChannelZ, doChannelZ]);
+
 export type OutputChannel = z.infer<typeof outputChannelZ>;
 
+export type OutputChannelType = OutputChannel["type"];
+
 export const ZERO_OUTPUT_CHANNELS: Record<OutputChannelType, OutputChannel> = {
-  [AO_CHANNEL_TYPE]: ZERO_AO_CHANNEL,
-  [DO_CHANNEL_TYPE]: ZERO_DO_CHANNEL,
+  AO: ZERO_AO_CHANNEL,
+  DO: ZERO_DO_CHANNEL,
 };
-export const ZERO_OUTPUT_CHANNEL: OutputChannel = ZERO_OUTPUT_CHANNELS[DO_CHANNEL_TYPE];
+export const ZERO_OUTPUT_CHANNEL: OutputChannel = ZERO_OUTPUT_CHANNELS.DO;
 
 export type Channel = InputChannel | OutputChannel;
+
 export type ChannelType = Channel["type"];
 
 const validateUniquePorts: z.core.CheckFn<Channel[]> = ({
@@ -242,11 +233,9 @@ const validateUniquePorts: z.core.CheckFn<Channel[]> = ({
   });
 };
 
-export interface BaseStateDetails {
-  running: boolean;
-}
+export const READ_TYPE = `${PREFIX}_read`;
 
-export const readConfigZ = Common.Task.baseReadConfigZ
+const readConfigZ = Common.Task.baseReadConfigZ
   .extend({
     channels: z
       .array(inputChannelZ)
@@ -256,56 +245,40 @@ export const readConfigZ = Common.Task.baseReadConfigZ
     streamRate: z.number().positive().max(50000),
   })
   .check(Common.Task.validateStreamRate);
-export interface ReadConfig extends z.infer<typeof readConfigZ> {}
-const ZERO_READ_CONFIG: ReadConfig = {
+
+interface ReadConfig extends z.infer<typeof readConfigZ> {}
+
+const ZERO_READ_CONFIG = {
   ...Common.Task.ZERO_BASE_READ_CONFIG,
   channels: [],
   sampleRate: 10,
   streamRate: 5,
-};
+} as const satisfies ReadConfig;
 
-export const readStatusDataZ = z
-  .object({
-    errors: z.array(z.object({ message: z.string(), path: z.string() })),
-  })
+const readStatusDataZ = z
+  .object({ errors: z.array(z.object({ message: z.string(), path: z.string() })) })
   .or(z.null());
 
-export type ReadStatus = task.Status<typeof readStatusDataZ>;
+export const READ_SCHEMAS = {
+  typeSchema: z.literal(READ_TYPE),
+  configSchema: readConfigZ,
+  statusDataSchema: readStatusDataZ,
+} as const satisfies task.Schemas;
 
-export const READ_TYPE = `${PREFIX}_read`;
-export const readTypeZ = z.literal(READ_TYPE);
-export type ReadType = typeof READ_TYPE;
+export type ReadSchemas = typeof READ_SCHEMAS;
 
-export interface ReadPayload extends task.Payload<
-  typeof readTypeZ,
-  typeof readConfigZ,
-  typeof readStatusDataZ
-> {}
-export const ZERO_READ_PAYLOAD: ReadPayload = {
+export interface ReadPayload extends task.Payload<ReadSchemas> {}
+
+export const ZERO_READ_PAYLOAD = {
   key: "",
   name: "LabJack Read Task",
   config: ZERO_READ_CONFIG,
-  type: READ_TYPE,
-};
+  type: "labjack_read",
+} as const satisfies ReadPayload;
 
-export interface ReadTask extends task.Task<
-  typeof readTypeZ,
-  typeof readConfigZ,
-  typeof readStatusDataZ
-> {}
-export interface NewReadTask extends task.New<typeof readTypeZ, typeof readConfigZ> {}
+export const WRITE_TYPE = `${PREFIX}_write`;
 
-export const READ_SCHEMAS: task.Schemas<
-  typeof readTypeZ,
-  typeof readConfigZ,
-  typeof readStatusDataZ
-> = {
-  typeSchema: readTypeZ,
-  configSchema: readConfigZ,
-  statusDataSchema: readStatusDataZ,
-};
-
-export const writeConfigZ = Common.Task.baseConfigZ.extend({
+const writeConfigZ = Common.Task.baseConfigZ.extend({
   channels: z
     .array(v0OutputChannelZ)
     .transform((channels) =>
@@ -323,49 +296,29 @@ export const writeConfigZ = Common.Task.baseConfigZ.extend({
   stateRate: z.number().positive().max(50000),
   dataSaving: z.boolean().default(true),
 });
-export interface WriteConfig extends z.infer<typeof writeConfigZ> {}
-const ZERO_WRITE_CONFIG: WriteConfig = {
+
+interface WriteConfig extends z.infer<typeof writeConfigZ> {}
+
+const ZERO_WRITE_CONFIG = {
   ...Common.Task.ZERO_BASE_CONFIG,
   channels: [],
   dataSaving: true,
   stateRate: 10,
-};
+} as const satisfies WriteConfig;
 
-export const writeStatusDataZ = z.unknown();
-export type WriteStatus = task.Status<typeof writeStatusDataZ>;
+export const WRITE_SCHEMAS = {
+  typeSchema: z.literal(WRITE_TYPE),
+  configSchema: writeConfigZ,
+  statusDataSchema: z.unknown(),
+} as const satisfies task.Schemas;
 
-export const WRITE_TYPE = `${PREFIX}_write`;
-export const writeTypeZ = z.literal(WRITE_TYPE);
-export type WriteType = typeof WRITE_TYPE;
+export type WriteSchemas = typeof WRITE_SCHEMAS;
 
-export interface WritePayload extends task.Payload<
-  typeof writeTypeZ,
-  typeof writeConfigZ,
-  typeof writeStatusDataZ
-> {}
-export const ZERO_WRITE_PAYLOAD: WritePayload = {
+export interface WritePayload extends task.Payload<WriteSchemas> {}
+
+export const ZERO_WRITE_PAYLOAD = {
   key: "",
   name: "LabJack Write Task",
   config: ZERO_WRITE_CONFIG,
-  type: WRITE_TYPE,
-};
-
-export interface WriteTask extends task.Task<
-  typeof writeTypeZ,
-  typeof writeConfigZ,
-  typeof writeStatusDataZ
-> {}
-export interface NewWriteTask extends task.New<
-  typeof writeTypeZ,
-  typeof writeConfigZ
-> {}
-
-export const WRITE_SCHEMAS: task.Schemas<
-  typeof writeTypeZ,
-  typeof writeConfigZ,
-  typeof writeStatusDataZ
-> = {
-  typeSchema: writeTypeZ,
-  configSchema: writeConfigZ,
-  statusDataSchema: writeStatusDataZ,
-};
+  type: "labjack_write",
+} as const satisfies WritePayload;

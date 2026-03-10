@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { channel, NotFoundError } from "@synnaxlabs/client";
-import { Flex, Form as PForm, Icon, List } from "@synnaxlabs/pluto";
+import { Component, Flex, Form as PForm, Icon, List } from "@synnaxlabs/pluto";
 import { deep, id, primitive } from "@synnaxlabs/x";
 import { type FC, useCallback } from "react";
 
@@ -21,9 +21,7 @@ import {
   type OutputChannelType,
   WRITE_SCHEMAS,
   WRITE_TYPE,
-  writeConfigZ,
-  type writeStatusDataZ,
-  type writeTypeZ,
+  type WriteSchemas,
   ZERO_OUTPUT_CHANNEL,
   ZERO_WRITE_PAYLOAD,
 } from "@/hardware/labjack/task/types";
@@ -113,9 +111,7 @@ const ChannelListItem = ({ device, ...rest }: ChannelListItemProps) => {
                 }}
                 empty
               >
-                {({ value, onChange }) => (
-                  <SelectOutputChannelType value={value} onChange={onChange} />
-                )}
+                {selectOutputChannelType}
               </PForm.Field>
             </Device.SelectPort>
           )}
@@ -134,6 +130,8 @@ const ChannelListItem = ({ device, ...rest }: ChannelListItemProps) => {
     </List.Item>
   );
 };
+
+const selectOutputChannelType = Component.renderProp(SelectOutputChannelType);
 
 const getOpenChannel = (channels: OutputChannel[], device: Device.Device) => {
   if (channels.length === 0)
@@ -181,9 +179,7 @@ const ChannelList = ({ device }: ChannelListProps) => {
   );
 };
 
-const Form: FC<
-  Common.Task.FormProps<typeof writeTypeZ, typeof writeConfigZ, typeof writeStatusDataZ>
-> = () => {
+const Form: FC<Common.Task.FormProps<WriteSchemas>> = () => {
   const isSnapshot = Common.Task.useIsSnapshot();
   return (
     <Common.Device.Provider
@@ -196,19 +192,18 @@ const Form: FC<
   );
 };
 
-const getInitialValues: Common.Task.GetInitialValues<
-  typeof writeTypeZ,
-  typeof writeConfigZ,
-  typeof writeStatusDataZ
-> = ({ deviceKey, config }) => {
-  const cfg = config != null ? writeConfigZ.parse(config) : ZERO_WRITE_PAYLOAD.config;
-  return {
-    ...ZERO_WRITE_PAYLOAD,
-    config: { ...cfg, device: deviceKey ?? cfg.device },
-  };
+const getInitialValues: Common.Task.GetInitialValues<WriteSchemas> = ({
+  deviceKey,
+  config,
+}) => {
+  const cfg =
+    config != null
+      ? WRITE_SCHEMAS.configSchema.parse(config)
+      : ZERO_WRITE_PAYLOAD.config;
+  return { ...ZERO_WRITE_PAYLOAD, config: { ...cfg, device: deviceKey ?? cfg.device } };
 };
 
-const onConfigure: Common.Task.OnConfigure<typeof writeConfigZ> = async (
+const onConfigure: Common.Task.OnConfigure<WriteSchemas["configSchema"]> = async (
   client,
   config,
 ) => {
@@ -330,7 +325,7 @@ export const Write = Common.Task.wrapForm({
   Properties,
   Form,
   schemas: WRITE_SCHEMAS,
-  type: WRITE_TYPE,
+  type: "labjack_write",
   getInitialValues,
   onConfigure,
 });
