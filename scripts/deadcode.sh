@@ -12,10 +12,22 @@ done
 
 echo "deadcode -test -tags=driver $package_paths"
 
+# Packages to exclude from deadcode reporting. The deadcode tool has no built-in
+# exclude mechanism, so we filter its output. Add entries as grep -v patterns.
+exclude_patterns=(
+    "x/go/lsp/protocol/" # Vendored LSP protocol spec with many intentionally unused funcs
+)
+
 # Run deadcode once for all packages
 output="$(deadcode -test -tags=driver $package_paths 2>&1 || true)"
-printf '%s\n' "$output"
 
-if [[ -n "$output" ]]; then
+# Apply exclusions
+filtered="$output"
+for pattern in "${exclude_patterns[@]}"; do
+    filtered="$(printf '%s\n' "$filtered" | grep -v "$pattern" || true)"
+done
+printf '%s\n' "$filtered"
+
+if [[ -n "$filtered" ]]; then
     exit 1
 fi

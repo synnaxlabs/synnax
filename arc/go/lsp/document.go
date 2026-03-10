@@ -18,7 +18,7 @@ import (
 	"github.com/synnaxlabs/x/debounce"
 	"github.com/synnaxlabs/x/diagnostics"
 	lsp "github.com/synnaxlabs/x/lsp"
-	"go.lsp.dev/protocol"
+	"github.com/synnaxlabs/x/lsp/protocol"
 )
 
 type documentMetadata struct {
