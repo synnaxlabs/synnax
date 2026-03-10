@@ -59,15 +59,23 @@ func (w *Module) Create(_ context.Context, cfg runtimenode.Config) (runtimenode.
 		params[i] = val
 	}
 
+	base := cfg.Program.OutputMemoryBases[cfg.Node.Type]
+	memOffsets := make([]uint32, len(irFn.Outputs))
+	offset := base + 8
+	for i, t := range irFn.Outputs {
+		memOffsets[i] = offset
+		offset += uint32(t.Type.Density())
+	}
+
 	n := &nodeImpl{
-		Node: cfg.State,
-		ir:   cfg.Node,
-		wasm: WrapFunction(
-			fn,
-			w.Memory,
-			irFn.Outputs,
-			cfg.Program.OutputMemoryBases[cfg.Node.Type],
-		),
+		Node:          cfg.State,
+		ir:            cfg.Node,
+		fn:            fn,
+		mem:           w.Memory,
+		fnOutputs:     irFn.Outputs,
+		memOffsets:    memOffsets,
+		outputValues:  make([]result, len(irFn.Outputs)),
+		memBase:       base,
 		params:        params,
 		configCount:   configCount,
 		offsets:       make([]int, len(irFn.Outputs)),

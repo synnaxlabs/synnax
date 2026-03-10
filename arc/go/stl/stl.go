@@ -13,9 +13,6 @@
 package stl
 
 import (
-	"context"
-
-	"github.com/synnaxlabs/arc/runtime/node"
 	"github.com/synnaxlabs/arc/stl/channel"
 	"github.com/synnaxlabs/arc/stl/constant"
 	"github.com/synnaxlabs/arc/stl/control"
@@ -31,8 +28,6 @@ import (
 	stringsstate "github.com/synnaxlabs/arc/stl/strings"
 	"github.com/synnaxlabs/arc/stl/time"
 	"github.com/synnaxlabs/arc/symbol"
-	"github.com/synnaxlabs/x/errors"
-	"github.com/synnaxlabs/x/query"
 )
 
 var SymbolResolver = symbol.CompoundResolver{
@@ -52,23 +47,4 @@ var SymbolResolver = symbol.CompoundResolver{
 	time.SymbolResolver,
 }
 
-// CompoundFactory tries each factory in order until one succeeds. A factory that
-// returns query.ErrNotFound is skipped; any other error is returned immediately.
-type CompoundFactory []node.Factory
 
-func (f CompoundFactory) Create(
-	ctx context.Context,
-	cfg node.Config,
-) (node.Node, error) {
-	for _, factory := range f {
-		n, err := factory.Create(ctx, cfg)
-		if err == nil {
-			return n, nil
-		}
-		if errors.Is(err, query.ErrNotFound) {
-			continue
-		}
-		return nil, err
-	}
-	return nil, query.ErrNotFound
-}

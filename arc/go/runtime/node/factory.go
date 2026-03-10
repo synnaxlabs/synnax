@@ -16,6 +16,8 @@ import (
 	"github.com/synnaxlabs/arc/ir"
 	"github.com/synnaxlabs/arc/program"
 	"github.com/synnaxlabs/arc/runtime/state"
+	"github.com/synnaxlabs/x/errors"
+	"github.com/synnaxlabs/x/query"
 )
 
 // Config provides dependencies and context for creating node instances.
@@ -36,4 +38,22 @@ type Factory interface {
 	// Create constructs a node from the given configuration.
 	// Returns query.NotFound if this factory cannot handle cfg.Node.Type.
 	Create(ctx context.Context, cfg Config) (Node, error)
+}
+
+// CompoundFactory tries each factory in order until one succeeds. A factory that
+// returns query.ErrNotFound is skipped; any other error is returned immediately.
+type CompoundFactory []Factory
+
+func (f CompoundFactory) Create(ctx context.Context, cfg Config) (Node, error) {
+	for _, factory := range f {
+		n, err := factory.Create(ctx, cfg)
+		if err == nil {
+			return n, nil
+		}
+		if errors.Is(err, query.ErrNotFound) {
+			continue
+		}
+		return nil, err
+	}
+	return nil, query.ErrNotFound
 }

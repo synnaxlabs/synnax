@@ -10,11 +10,16 @@
 package wasm
 
 import (
+	"context"
+
+	"github.com/samber/lo"
 	"github.com/synnaxlabs/arc/ir"
 	"github.com/synnaxlabs/arc/runtime/node"
 	"github.com/synnaxlabs/arc/runtime/state"
+	"github.com/synnaxlabs/arc/types"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/telem"
+	"github.com/tetratelabs/wazero/api"
 )
 
 var _ node.Node = (*nodeImpl)(nil)
@@ -27,16 +32,52 @@ type NodeKeySetter interface {
 	SetNodeKey(key string)
 }
 
+type result struct {
+	Value   uint64
+	Changed bool
+}
+
 type nodeImpl struct {
 	*state.Node
 	ir            ir.Node
-	wasm          *Function
+	fn            api.Function
+	mem           api.Memory
+	fnOutputs     types.Params
+	memOffsets    []uint32
+	outputValues  []result
+	memBase       uint32
 	params        []uint64
 	configCount   int
 	offsets       []int
 	initialized   bool
 	isEntryNode   bool
 	nodeKeySetter NodeKeySetter
+}
+
+func (n *nodeImpl) call(ctx context.Context, params ...uint64) ([]result, error) {
+	for i := range n.outputValues {
+		n.outputValues[i].Changed = false
+	}
+	results, err := n.fn.Call(ctx, params...)
+	if err != nil {
+		return nil, err
+	}
+	if n.memBase == 0 {
+		if len(n.outputValues) > 0 {
+			n.outputValues[0] = result{Value: results[0], Changed: true}
+		}
+		return n.outputValues, nil
+	}
+	dirtyFlags := lo.Must(n.mem.ReadUint64Le(n.memBase))
+	for i := range n.fnOutputs {
+		if (dirtyFlags & (1 << i)) != 0 {
+			n.outputValues[i] = result{
+				Value:   lo.Must(n.mem.ReadUint64Le(n.memOffsets[i])),
+				Changed: true,
+			}
+		}
+	}
+	return n.outputValues, nil
 }
 
 func (n *nodeImpl) Init(node.Context) {}
@@ -114,7 +155,7 @@ func (n *nodeImpl) Next(ctx node.Context) {
 			inputLen := n.Input(j).Len()
 			n.params[n.configCount+j] = valueAt(n.Input(j), int(i%inputLen))
 		}
-		res, err := n.wasm.Call(ctx.Context, n.params...)
+		res, err := n.call(ctx.Context, n.params...)
 		if err != nil {
 			ctx.ReportError(errors.Wrapf(
 				err,
