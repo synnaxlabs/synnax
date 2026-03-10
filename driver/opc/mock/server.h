@@ -108,6 +108,7 @@ struct TestNode {
 struct ServerConfig {
     std::vector<TestNode> test_nodes;
     std::uint16_t port = 4840; // Default OPC UA port
+    std::uint16_t max_sessions = 0; // 0 = unlimited (open62541 default)
 
     // Create default test nodes for comprehensive testing
     static ServerConfig create_default() {
@@ -325,8 +326,9 @@ public:
     void run() {
         UA_Server *server = UA_Server_new();
         auto server_config = UA_Server_getConfig(server);
-        server_config->maxSessionTimeout = 3600000;
         UA_ServerConfig_setMinimal(server_config, cfg.port, nullptr);
+        server_config->maxSessionTimeout = 3600000;
+        if (cfg.max_sessions > 0) server_config->maxSessions = cfg.max_sessions;
 
         for (const auto &node: cfg.test_nodes) {
             UA_VariableAttributes attr = UA_VariableAttributes_default;

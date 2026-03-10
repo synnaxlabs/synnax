@@ -11,6 +11,7 @@
         { "case": "driver/opcua_read" },
         { "case": "driver/opcua_write" },
         { "case": "driver/opcua_driver_responsiveness" },
+        { "case": "driver/opcua_session_limit" },
         { "case": "driver/grand_finale" }
       ]
     }

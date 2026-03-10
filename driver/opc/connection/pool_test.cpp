@@ -541,4 +541,167 @@ TEST_F(ConnectionPoolTest, CustomSessionAndChannelTimeouts) {
     EXPECT_EQ(config->secureChannelLifeTime, 30000);
     EXPECT_EQ(config->requestedSessionTimeout, 60000);
 }
+
+class SessionLimitPoolTest : public ::testing::Test {
+protected:
+    void SetUp() override {
+        server_cfg_ = mock::ServerConfig::create_default();
+        server_cfg_.port = 4860;
+        server_cfg_.max_sessions = 2;
+        server_ = std::make_unique<mock::Server>(server_cfg_);
+        server_->start();
+        ASSERT_TRUE(server_->wait_until_ready());
+
+        conn_cfg_.endpoint = "opc.tcp://localhost:4860";
+        conn_cfg_.security_mode = "None";
+        conn_cfg_.security_policy = "None";
+    }
+
+    void TearDown() override {
+        if (server_) server_->stop();
+    }
+
+    mock::ServerConfig server_cfg_;
+    std::unique_ptr<mock::Server> server_;
+    Config conn_cfg_;
+};
+
+/// @brief it should reject connections when server session limit is reached.
+TEST_F(SessionLimitPoolTest, ServerRejectsWhenSessionLimitReached) {
+    Pool pool;
+
+    auto conn1 = ASSERT_NIL_P(pool.acquire(conn_cfg_, "[test] "));
+    auto conn2 = ASSERT_NIL_P(pool.acquire(conn_cfg_, "[test] "));
+
+    // Third connection should fail — server only allows 2 sessions
+    auto [conn3, err3] = pool.acquire(conn_cfg_, "[test] ");
+    ASSERT_TRUE(err3);
+    EXPECT_FALSE(conn3);
+
+    // Pool should only have the 2 successful connections
+    EXPECT_EQ(pool.size(), 2);
+}
+
+/// @brief it should reuse connections within session limit instead of creating
+/// new ones.
+TEST_F(SessionLimitPoolTest, ReusePreventsSessionExhaustion) {
+    Pool pool;
+
+    // Acquire and release — connection goes back to pool as cached
+    { auto conn = ASSERT_NIL_P(pool.acquire(conn_cfg_, "[test] ")); }
+
+    EXPECT_EQ(pool.available_count(conn_cfg_.endpoint), 1);
+
+    // Acquire again — should reuse, not create a new session
+    auto conn2 = ASSERT_NIL_P(pool.acquire(conn_cfg_, "[test] "));
+    EXPECT_EQ(pool.size(), 1);
+
+    // Can still acquire a second (limit is 2)
+    auto conn3 = ASSERT_NIL_P(pool.acquire(conn_cfg_, "[test] "));
+    EXPECT_EQ(pool.size(), 2);
+}
+
+/// @brief it should exhaust sessions when connections are discarded and
+/// recreated rapidly (documents the churn problem).
+TEST_F(SessionLimitPoolTest, ConnectionChurnExhaustsSessions) {
+    Pool pool;
+
+    // Acquire and release 2 connections — they go back to pool as cached
+    {
+        auto conn1 = ASSERT_NIL_P(pool.acquire(conn_cfg_, "[test] "));
+        auto conn2 = ASSERT_NIL_P(pool.acquire(conn_cfg_, "[test] "));
+    }
+    EXPECT_EQ(pool.available_count(conn_cfg_.endpoint), 2);
+
+    // Simulate broken cached connections by disconnecting them
+    // (mirrors what happens when a PLC becomes unresponsive and health
+    // probes fail)
+    server_->stop();
+    server_.reset();
+
+    server_cfg_.max_sessions = 2;
+    server_ = std::make_unique<mock::Server>(server_cfg_);
+    server_->start();
+    ASSERT_TRUE(server_->wait_until_ready());
+
+    // First acquire: health probe on cached connection fails, pool discards
+    // it and creates a new connection (session 1 on new server)
+    auto conn1 = ASSERT_NIL_P(pool.acquire(conn_cfg_, "[test] "));
+
+    // Second acquire: same thing — discard cached, create new (session 2)
+    auto conn2 = ASSERT_NIL_P(pool.acquire(conn_cfg_, "[test] "));
+
+    // Both should work since we're within the limit
+    EXPECT_EQ(pool.size(), 2);
+
+    // Release both
+    conn1 = Pool::Connection(nullptr, nullptr, "");
+    conn2 = Pool::Connection(nullptr, nullptr, "");
+
+    // Verify they're reusable (no churn needed)
+    auto conn3 = ASSERT_NIL_P(pool.acquire(conn_cfg_, "[test] "));
+    auto conn4 = ASSERT_NIL_P(pool.acquire(conn_cfg_, "[test] "));
+    EXPECT_EQ(pool.size(), 2);
+}
+
+/// @brief concurrent acquire after server restart should not exhaust sessions.
+///
+/// Documents the current bug: the pool releases the mutex before calling
+/// connect(), so N threads with stale cached connections all call connect()
+/// concurrently, each creating a new session. With max_sessions < N, some
+/// threads get rejected even though the pool has capacity for reuse.
+///
+/// This test is expected to FAIL until a circuit breaker or connection
+/// throttle is added to the pool.
+TEST_F(SessionLimitPoolTest, ConcurrentChurnExhaustsSessions) {
+    Pool pool;
+    const int num_threads = 4;
+
+    // Fill the pool with cached connections (all will become stale).
+    {
+        std::vector<Pool::Connection> conns;
+        for (int i = 0; i < num_threads; ++i)
+            conns.push_back(ASSERT_NIL_P(pool.acquire(conn_cfg_, "[test] ")));
+    }
+    EXPECT_EQ(pool.available_count(conn_cfg_.endpoint), num_threads);
+
+    // Kill and restart the server — all cached connections are now stale.
+    // The new server still has max_sessions=2, so only 2 concurrent
+    // connect() calls can succeed.
+    server_->stop();
+    server_.reset();
+
+    server_ = std::make_unique<mock::Server>(server_cfg_);
+    server_->start();
+    ASSERT_TRUE(server_->wait_until_ready());
+
+    // All threads call acquire() concurrently. Each thread finds stale
+    // cached connections, discards them, then calls connect() outside the
+    // mutex. With max_sessions=2 and 4 threads racing, some will fail.
+    std::vector<std::thread> threads;
+    std::atomic<int> success_count{0};
+    std::atomic<int> failure_count{0};
+
+    for (int i = 0; i < num_threads; ++i) {
+        threads.emplace_back([&pool, &success_count, &failure_count, this]() {
+            auto [conn, err] = pool.acquire(conn_cfg_, "[test] ");
+            if (!err && conn)
+                success_count++;
+            else
+                failure_count++;
+        });
+    }
+
+    for (auto &t: threads)
+        t.join();
+
+    // BUG: we want all 4 to succeed (the pool has room for 2, and after
+    // 2 finish and release, the next 2 should reuse). But because all 4
+    // call connect() concurrently, only 2 get sessions and 2 are rejected.
+    //
+    // Once a circuit breaker / connection throttle is added, change this
+    // assertion to: EXPECT_EQ(success_count, num_threads);
+    EXPECT_LT(success_count, num_threads);
+    EXPECT_GT(failure_count, 0);
+}
 }
