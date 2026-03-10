@@ -34,7 +34,10 @@ public:
 
     ~WindowsLoop() override { this->close_handles(); }
 
-    WakeReason wait(x::breaker::Breaker &breaker) override {
+    WakeReason wait(
+        x::breaker::Breaker &breaker,
+        x::telem::TimeSpan max_timeout = x::telem::TimeSpan(0)
+    ) override {
         if (this->wake_event_ == NULL) return WakeReason::Shutdown;
 
         switch (this->config_.mode) {
@@ -43,12 +46,12 @@ public:
             case ExecutionMode::HIGH_RATE:
                 return this->high_rate_wait(breaker);
             case ExecutionMode::RT_EVENT:
-                return this->event_driven_wait(false);
+                return this->event_driven_wait(false, max_timeout);
             case ExecutionMode::HYBRID:
-                return this->hybrid_wait(breaker);
+                return this->hybrid_wait(breaker, max_timeout);
             case ExecutionMode::AUTO:
             case ExecutionMode::EVENT_DRIVEN:
-                return this->event_driven_wait(true);
+                return this->event_driven_wait(true, max_timeout);
         }
         return WakeReason::Shutdown;
     }
@@ -178,18 +181,21 @@ private:
         return WakeReason::Timer;
     }
 
-    WakeReason event_driven_wait(bool blocking) {
+    WakeReason event_driven_wait(bool blocking, const x::telem::TimeSpan max_timeout) {
         HANDLE handles[3];
         const DWORD count = this->build_handles(handles);
         if (count == 0) return WakeReason::Shutdown;
 
-        const DWORD timeout_ms = blocking
+        const DWORD default_ms = blocking
                                    ? static_cast<DWORD>(
                                          timing::EVENT_DRIVEN_TIMEOUT.milliseconds()
                                      )
                                    : static_cast<DWORD>(
                                          timing::HYBRID_BLOCK_TIMEOUT.milliseconds()
                                      );
+        const DWORD timeout_ms = max_timeout.nanoseconds() > 0
+                                   ? static_cast<DWORD>(max_timeout.milliseconds())
+                                   : default_ms;
 
         const DWORD result = WaitForMultipleObjects(count, handles, FALSE, timeout_ms);
         if (result == WAIT_TIMEOUT) return WakeReason::Timeout;
@@ -200,7 +206,8 @@ private:
         return this->classify_result(result, handles);
     }
 
-    WakeReason hybrid_wait(x::breaker::Breaker &breaker) {
+    WakeReason
+    hybrid_wait(x::breaker::Breaker &breaker, const x::telem::TimeSpan max_timeout) {
         HANDLE handles[3];
         const DWORD count = this->build_handles(handles);
         if (count == 0) return WakeReason::Shutdown;
@@ -218,9 +225,11 @@ private:
                 return this->classify_result(result, handles);
         }
 
-        const DWORD timeout_ms = static_cast<DWORD>(
-            timing::HYBRID_BLOCK_TIMEOUT.milliseconds()
-        );
+        const DWORD timeout_ms = max_timeout.nanoseconds() > 0
+                                   ? static_cast<DWORD>(max_timeout.milliseconds())
+                                   : static_cast<DWORD>(
+                                         timing::HYBRID_BLOCK_TIMEOUT.milliseconds()
+                                     );
         const DWORD result = WaitForMultipleObjects(count, handles, FALSE, timeout_ms);
         if (result == WAIT_TIMEOUT) return WakeReason::Timeout;
         if (result < WAIT_OBJECT_0 + count)

@@ -25,9 +25,12 @@ Pool::acquire(const Config &cfg, const std::string &log_prefix) {
     const std::string key = cfg.endpoint + "|" + cfg.username + "|" +
                             cfg.security_mode + "|" + cfg.security_policy;
 
+    // Try to find a cached connection. We mark it in_use under the lock,
+    // then release the lock before running the blocking health probe.
+    // This prevents one slow/unresponsive server from blocking all threads.
+    std::shared_ptr<UA_Client> candidate;
     {
         std::lock_guard<std::mutex> lock(mutex_);
-
         auto it = connections_.find(key);
         if (it != connections_.end()) {
             for (auto &entry: it->second) {
@@ -41,21 +44,9 @@ Pool::acquire(const Config &cfg, const std::string &log_prefix) {
                         nullptr
                     );
                     if (session_state == UA_SESSIONSTATE_ACTIVATED) {
-                        // Perform connection maintenance with error checking
-                        if (const auto err = run_iterate_checked(
-                                entry.client,
-                                log_prefix
-                            )) {
-                            VLOG(1)
-                                << log_prefix
-                                << "Cached connection failed maintenance, trying next";
-                            entry.client.reset();
-                            continue;
-                        }
                         entry.in_use = true;
-                        VLOG(1) << log_prefix << "Reusing connection from pool for "
-                                << cfg.endpoint;
-                        return {Connection(entry.client, this, key), x::errors::NIL};
+                        candidate = entry.client;
+                        break;
                     } else {
                         VLOG(1) << log_prefix << "Removing stale connection from pool";
                         entry.client.reset();
@@ -71,6 +62,36 @@ Pool::acquire(const Config &cfg, const std::string &log_prefix) {
                 ),
                 it->second.end()
             );
+        }
+    }
+
+    // Health probe runs outside the lock so other threads can acquire
+    // different connections concurrently.
+    if (candidate) {
+        if (const auto err = run_iterate_checked(candidate, log_prefix)) {
+            VLOG(1) << log_prefix << "Cached connection failed maintenance, discarding";
+            std::lock_guard<std::mutex> lock(mutex_);
+            auto it = connections_.find(key);
+            if (it != connections_.end()) {
+                for (auto &entry: it->second) {
+                    if (entry.client == candidate) {
+                        entry.client.reset();
+                        break;
+                    }
+                }
+                it->second.erase(
+                    std::remove_if(
+                        it->second.begin(),
+                        it->second.end(),
+                        [](const Entry &e) { return !e.client; }
+                    ),
+                    it->second.end()
+                );
+            }
+        } else {
+            VLOG(1) << log_prefix << "Reusing connection from pool for "
+                    << cfg.endpoint;
+            return {Connection(candidate, this, key), x::errors::NIL};
         }
     }
 

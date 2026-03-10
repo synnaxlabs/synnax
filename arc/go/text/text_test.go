@@ -949,6 +949,46 @@ var _ = Describe("Text", func() {
 				Expect(edge1.Target.Node).To(Equal("display_0"))
 			})
 
+			It("Should not create phantom output edges for void functions in routing branches", func() {
+				resolver := symbol.MapResolver{
+					"counter": {Name: "counter", Kind: symbol.KindChannel, Type: types.Chan(types.U32()), ID: 10301},
+				}
+				source := `
+				func demux{threshold f64} (value f64) (high f64, low f64) {
+					if (value > threshold) {
+						high = value
+					} else {
+						low = value
+					}
+				}
+
+				func increment{ch chan u32}() {
+					ch = ch + 1
+				}
+
+				func alarm{} (value f64) {
+				}
+
+				demux{threshold=100.0} -> {
+					high: increment{ch=counter} -> alarm{}
+				}
+				`
+				parsedText := MustSucceed(text.Parse(text.Text{Raw: source}))
+				inter, diagnostics := text.Analyze(ctx, parsedText, resolver)
+				Expect(diagnostics.Ok()).To(BeTrue(), diagnostics.String())
+
+				outputSet := make(map[ir.Handle]bool)
+				for _, n := range inter.Nodes {
+					for _, p := range n.Outputs {
+						outputSet[ir.Handle{Node: n.Key, Param: p.Name}] = true
+					}
+				}
+				for _, edge := range inter.Edges {
+					Expect(outputSet).To(HaveKey(edge.Source),
+						"edge source %v references a non-existent node output", edge.Source)
+				}
+			})
+
 			It("Should report error for non-existent output parameter", func() {
 				source := `
 				func simple{} () (bob i64) {
@@ -1642,6 +1682,43 @@ var _ = Describe("Text", func() {
 
 			seq := MustBeOk(inter.Sequences.Find("main"))
 			Expect(seq.Stages[0].Nodes).To(ContainElement(exprNode.Key))
+		})
+
+		It("Should not create phantom output edges for void functions in flow chains", func() {
+			resolver := symbol.MapResolver{
+				"counter": {Name: "counter", Kind: symbol.KindChannel, Type: types.Chan(types.U32()), ID: 10201},
+				"trigger": {Name: "trigger", Kind: symbol.KindChannel, Type: types.Chan(types.U8()), ID: 10202},
+			}
+			source := `
+			func increment{ch chan u32}() {
+				ch = ch + 1
+			}
+
+			sequence main {
+				stage first {
+					trigger => increment{ch=counter} => next,
+				}
+				stage second {
+				}
+			}
+			`
+			parsedText := MustSucceed(text.Parse(text.Text{Raw: source}))
+			inter, diagnostics := text.Analyze(ctx, parsedText, resolver)
+			Expect(diagnostics.Ok()).To(BeTrue(), diagnostics.String())
+
+			// Verify that every edge source references a node output that actually exists.
+			// This is the invariant that was violated when void functions appeared mid-chain,
+			// causing a nil pointer dereference in state.Node().
+			outputSet := make(map[ir.Handle]bool)
+			for _, n := range inter.Nodes {
+				for _, p := range n.Outputs {
+					outputSet[ir.Handle{Node: n.Key, Param: p.Name}] = true
+				}
+			}
+			for _, edge := range inter.Edges {
+				Expect(outputSet).To(HaveKey(edge.Source),
+					"edge source %v references a non-existent node output", edge.Source)
+			}
 		})
 
 		It("Should place single invocation nodes in stratum 0", func() {

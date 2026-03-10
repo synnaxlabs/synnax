@@ -39,19 +39,22 @@ public:
 
     ~DarwinLoop() override { this->close_fds(); }
 
-    WakeReason wait(x::breaker::Breaker &breaker) override {
+    WakeReason wait(
+        x::breaker::Breaker &breaker,
+        x::telem::TimeSpan max_timeout = x::telem::TimeSpan(0)
+    ) override {
         if (this->kqueue_fd_ == -1) return WakeReason::Shutdown;
 
         switch (this->config_.mode) {
             case ExecutionMode::AUTO:
             case ExecutionMode::EVENT_DRIVEN:
-                return this->event_driven_wait();
+                return this->event_driven_wait(max_timeout);
             case ExecutionMode::BUSY_WAIT:
                 return this->busy_wait(breaker);
             case ExecutionMode::HIGH_RATE:
                 return this->high_rate_wait(breaker);
             case ExecutionMode::HYBRID:
-                return this->hybrid_wait(breaker);
+                return this->hybrid_wait(breaker, max_timeout);
             case ExecutionMode::RT_EVENT:
                 return this->high_rate_wait(breaker);
         }
@@ -195,7 +198,10 @@ private:
     }
 
     /// @brief HYBRID: Spin for configured duration, then block with timeout.
-    WakeReason hybrid_wait(const x::breaker::Breaker &breaker) const {
+    WakeReason hybrid_wait(
+        const x::breaker::Breaker &breaker,
+        const x::telem::TimeSpan max_timeout
+    ) const {
         const auto spin_start = std::chrono::steady_clock::now();
         const auto spin_duration = this->config_.spin_duration.chrono();
         struct timespec timeout = {0, 0};
@@ -205,18 +211,22 @@ private:
             const int n = kevent(this->kqueue_fd_, nullptr, 0, events, 8, &timeout);
             if (n > 0) return this->classify_events(events, n);
         }
-        const auto block_timeout_ns = timing::HYBRID_BLOCK_TIMEOUT.nanoseconds();
-        timeout.tv_sec = 0;
-        timeout.tv_nsec = block_timeout_ns;
+        const auto block_ns = max_timeout.nanoseconds() > 0
+                                ? max_timeout.nanoseconds()
+                                : timing::HYBRID_BLOCK_TIMEOUT.nanoseconds();
+        timeout = ns_to_timespec(block_ns);
         const int n = kevent(this->kqueue_fd_, nullptr, 0, events, 8, &timeout);
         if (n > 0) return this->classify_events(events, n);
         return WakeReason::Timeout;
     }
 
     /// @brief EVENT_DRIVEN: Block on kqueue events with timeout.
-    WakeReason event_driven_wait() const {
+    WakeReason event_driven_wait(const x::telem::TimeSpan max_timeout) const {
         struct kevent events[8];
-        const struct timespec timeout = {0, timing::EVENT_DRIVEN_TIMEOUT.nanoseconds()};
+        const auto timeout_ns = max_timeout.nanoseconds() > 0
+                                  ? max_timeout.nanoseconds()
+                                  : timing::EVENT_DRIVEN_TIMEOUT.nanoseconds();
+        const auto timeout = ns_to_timespec(timeout_ns);
         const int n = kevent(this->kqueue_fd_, nullptr, 0, events, 8, &timeout);
 
         if (n > 0) return this->classify_events(events, n);
@@ -235,6 +245,10 @@ private:
         }
         if (input_fired) return WakeReason::Input;
         return WakeReason::Shutdown;
+    }
+
+    static constexpr timespec ns_to_timespec(const int64_t ns) {
+        return {ns / 1'000'000'000, ns % 1'000'000'000};
     }
 
     Config config_;
