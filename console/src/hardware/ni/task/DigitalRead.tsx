@@ -25,8 +25,7 @@ import {
   DIGITAL_READ_SCHEMAS,
   DIGITAL_READ_TYPE,
   digitalReadConfigZ,
-  type digitalReadStatusDataZ,
-  type digitalReadTypeZ,
+  type DigitalReadSchemas,
   ZERO_DIGITAL_READ_PAYLOAD,
 } from "@/hardware/ni/task/types";
 import { Selector } from "@/selector";
@@ -69,13 +68,7 @@ const NameComponent = ({ channel, itemKey, path }: NameComponentProps) => (
 
 const name = Component.renderProp(NameComponent);
 
-const Form: FC<
-  Common.Task.FormProps<
-    typeof digitalReadTypeZ,
-    typeof digitalReadConfigZ,
-    typeof digitalReadStatusDataZ
-  >
-> = (props) => (
+const Form: FC<Common.Task.FormProps<DigitalReadSchemas>> = (props) => (
   <DigitalChannelList<DIChannel>
     {...props}
     createChannel={createDIChannel}
@@ -84,11 +77,10 @@ const Form: FC<
   />
 );
 
-const getInitialValues: Common.Task.GetInitialValues<
-  typeof digitalReadTypeZ,
-  typeof digitalReadConfigZ,
-  typeof digitalReadStatusDataZ
-> = ({ deviceKey, config }) => {
+const getInitialValues: Common.Task.GetInitialValues<DigitalReadSchemas> = ({
+  deviceKey,
+  config,
+}) => {
   const cfg =
     config != null
       ? digitalReadConfigZ.parse(config)

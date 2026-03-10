@@ -25,8 +25,7 @@ import {
   ANALOG_READ_SCHEMAS,
   ANALOG_READ_TYPE,
   analogReadConfigZ,
-  type analogReadStatusDataZ,
-  type analogReadTypeZ,
+  type AnalogReadSchemas,
   ZERO_AI_CHANNEL,
   ZERO_ANALOG_READ_PAYLOAD,
 } from "@/hardware/ni/task/types";
@@ -95,13 +94,7 @@ const ChannelDetails = ({ path }: Common.Task.Layouts.DetailsProps) => {
 
 const channelDetails = Component.renderProp(ChannelDetails);
 
-const Form: FC<
-  Common.Task.FormProps<
-    typeof analogReadTypeZ,
-    typeof analogReadConfigZ,
-    typeof analogReadStatusDataZ
-  >
-> = () => {
+const Form: FC<Common.Task.FormProps<AnalogReadSchemas>> = () => {
   const [tare, allowTare, handleTare] = Common.Task.useTare<AIChannel>();
   const listItem = useCallback(
     ({ key, ...rest }: Common.Task.ChannelListItemProps) => (
@@ -121,11 +114,10 @@ const Form: FC<
   );
 };
 
-const getInitialValues: Common.Task.GetInitialValues<
-  typeof analogReadTypeZ,
-  typeof analogReadConfigZ,
-  typeof analogReadStatusDataZ
-> = ({ deviceKey, config }) => {
+const getInitialValues: Common.Task.GetInitialValues<AnalogReadSchemas> = ({
+  deviceKey,
+  config,
+}) => {
   if (config != null)
     return {
       ...ZERO_ANALOG_READ_PAYLOAD,

@@ -7,8 +7,6 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type task } from "@synnaxlabs/client";
-
 import * as v0 from "@/hardware/ni/task/types/v0";
 import * as v1 from "@/hardware/ni/task/types/v1";
 
@@ -25,19 +23,11 @@ export type VelocityUnits = v0.VelocityUnits;
 export type VelocitySensitivityUnits = v0.VelocitySensitivityUnits;
 export type Units = v0.Units;
 
-export const LINEAR_SCALE_TYPE = v0.LINEAR_SCALE_TYPE;
-export const MAP_SCALE_TYPE = v0.MAP_SCALE_TYPE;
-export const TABLE_SCALE_TYPE = v0.TABLE_SCALE_TYPE;
-export const NO_SCALE_TYPE = v0.NO_SCALE_TYPE;
 export type Scale = v0.Scale;
 export type ScaleType = v0.ScaleType;
 export const ZERO_SCALES = v0.ZERO_SCALES;
 export const SCALE_SCHEMAS = v0.SCALE_SCHEMAS;
 
-export const SINE_WAVE_TYPE = v0.SINE_WAVE_TYPE;
-export const TRIANGLE_WAVE_TYPE = v0.TRIANGLE_WAVE_TYPE;
-export const SQUARE_WAVE_TYPE = v0.SQUARE_WAVE_TYPE;
-export const SAWTOOTH_WAVE_TYPE = v0.SAWTOOTH_WAVE_TYPE;
 export const WAVE_TYPES = v0.WAVE_TYPES;
 export type WaveType = v0.WaveType;
 
@@ -49,17 +39,6 @@ export const ZERO_AI_CHANNEL = v1.ZERO_AI_CHANNEL;
 export const AI_CHANNEL_TYPE_NAMES = v0.AI_CHANNEL_TYPE_NAMES;
 export const AI_CHANNEL_TYPE_ICONS = v0.AI_CHANNEL_TYPE_ICONS;
 
-export const CI_FREQUENCY_CHAN_TYPE = v0.CI_FREQUENCY_CHAN_TYPE;
-export const CI_EDGE_COUNT_CHAN_TYPE = v0.CI_EDGE_COUNT_CHAN_TYPE;
-export const CI_PERIOD_CHAN_TYPE = v0.CI_PERIOD_CHAN_TYPE;
-export const CI_PULSE_WIDTH_CHAN_TYPE = v0.CI_PULSE_WIDTH_CHAN_TYPE;
-export const CI_SEMI_PERIOD_CHAN_TYPE = v0.CI_SEMI_PERIOD_CHAN_TYPE;
-export const CI_TWO_EDGE_SEP_CHAN_TYPE = v0.CI_TWO_EDGE_SEP_CHAN_TYPE;
-export const CI_VELOCITY_LINEAR_CHAN_TYPE = v0.CI_VELOCITY_LINEAR_CHAN_TYPE;
-export const CI_VELOCITY_ANGULAR_CHAN_TYPE = v0.CI_VELOCITY_ANGULAR_CHAN_TYPE;
-export const CI_POSITION_LINEAR_CHAN_TYPE = v0.CI_POSITION_LINEAR_CHAN_TYPE;
-export const CI_POSITION_ANGULAR_CHAN_TYPE = v0.CI_POSITION_ANGULAR_CHAN_TYPE;
-export const CI_DUTY_CYCLE_CHAN_TYPE = v0.CI_DUTY_CYCLE_CHAN_TYPE;
 export type CIChannel = v0.CIChannel;
 export type CIChannelType = v0.CIChannelType;
 export type CIFreqUnits = v0.CIFreqUnits;
@@ -106,121 +85,36 @@ export type DigitalChannel = v0.DigitalChannel;
 
 export type Channel = v1.Channel;
 
-export const analogReadTypeZ = v0.analogReadTypeZ;
 export const analogReadConfigZ = v1.analogReadConfigZ;
-export const analogReadStatusDataZ = v0.analogReadStatusDataZ;
-export interface AnalogReadConfig extends v1.AnalogReadConfig {}
 export const ANALOG_READ_TYPE = v0.ANALOG_READ_TYPE;
-export type AnalogReadType = v0.AnalogReadType;
 export const ZERO_ANALOG_READ_PAYLOAD = v1.ZERO_ANALOG_READ_PAYLOAD;
-export interface AnalogReadPayload extends v1.AnalogReadPayload {}
-export interface AnalogReadTask extends v1.AnalogReadTask {}
-export interface NewAnalogReadTask extends v1.NewAnalogReadTask {}
-export const ANALOG_READ_SCHEMAS: task.Schemas<
-  typeof analogReadTypeZ,
-  typeof analogReadConfigZ,
-  typeof analogReadStatusDataZ
-> = {
-  typeSchema: analogReadTypeZ,
-  configSchema: analogReadConfigZ,
-  statusDataSchema: analogReadStatusDataZ,
-};
+export const ANALOG_READ_SCHEMAS = v0.ANALOG_READ_SCHEMAS;
+export type AnalogReadSchemas = v1.AnalogReadSchemas;
 
-export const counterReadTypeZ = v0.counterReadTypeZ;
-export const counterReadConfigZ = v0.counterReadConfigZ;
-export const counterReadStatusDataZ = v0.counterReadStatusDataZ;
-export interface CounterReadConfig extends v0.CounterReadConfig {}
-export const COUNTER_READ_TYPE = v0.COUNTER_READ_TYPE;
-export type CounterReadType = v0.CounterReadType;
-export const ZERO_COUNTER_READ_PAYLOAD = v0.ZERO_COUNTER_READ_PAYLOAD;
-export interface CounterReadPayload extends v0.CounterReadPayload {}
-export interface CounterReadTask extends v0.CounterReadTask {}
-export interface NewCounterReadTask extends v0.NewCounterReadTask {}
-export const COUNTER_READ_SCHEMAS: task.Schemas<
-  typeof counterReadTypeZ,
-  typeof counterReadConfigZ,
-  typeof counterReadStatusDataZ
-> = {
-  typeSchema: counterReadTypeZ,
-  configSchema: counterReadConfigZ,
-  statusDataSchema: counterReadStatusDataZ,
-};
-
-export const analogWriteTypeZ = v0.analogWriteTypeZ;
 export const analogWriteConfigZ = v0.analogWriteConfigZ;
-export const analogWriteStatusDataZ = v0.analogWriteStatusDataZ;
-export interface AnalogWriteConfig extends v0.AnalogWriteConfig {}
 export const ANALOG_WRITE_TYPE = v0.ANALOG_WRITE_TYPE;
-export type AnalogWriteType = v0.AnalogWriteType;
 export const ZERO_ANALOG_WRITE_PAYLOAD = v0.ZERO_ANALOG_WRITE_PAYLOAD;
-export interface AnalogWritePayload extends v0.AnalogWritePayload {}
-export interface AnalogWriteTask extends v0.AnalogWriteTask {}
-export interface NewAnalogWriteTask extends v0.NewAnalogWriteTask {}
-export const ANALOG_WRITE_SCHEMAS: task.Schemas<
-  typeof analogWriteTypeZ,
-  typeof analogWriteConfigZ,
-  typeof analogWriteStatusDataZ
-> = {
-  typeSchema: analogWriteTypeZ,
-  configSchema: analogWriteConfigZ,
-  statusDataSchema: analogWriteStatusDataZ,
-};
+export const ANALOG_WRITE_SCHEMAS = v0.ANALOG_WRITE_SCHEMAS;
+export type AnalogWriteSchemas = v0.AnalogWriteSchemas;
 
-export const digitalReadTypeZ = v0.digitalReadTypeZ;
+export const counterReadConfigZ = v0.counterReadConfigZ;
+export const COUNTER_READ_TYPE = v0.COUNTER_READ_TYPE;
+export const ZERO_COUNTER_READ_PAYLOAD = v0.ZERO_COUNTER_READ_PAYLOAD;
+export const COUNTER_READ_SCHEMAS = v0.COUNTER_READ_SCHEMAS;
+export type CounterReadSchemas = v0.CounterReadSchemas;
+
 export const digitalReadConfigZ = v0.digitalReadConfigZ;
-export const digitalReadStatusDataZ = v0.digitalReadStatusDataZ;
-export interface DigitalReadConfig extends v0.DigitalReadConfig {}
 export const DIGITAL_READ_TYPE = v0.DIGITAL_READ_TYPE;
-export type DigitalReadType = v0.DigitalReadType;
 export const ZERO_DIGITAL_READ_PAYLOAD = v0.ZERO_DIGITAL_READ_PAYLOAD;
-export interface DigitalReadPayload extends v0.DigitalReadPayload {}
-export interface DigitalReadTask extends v0.DigitalReadTask {}
-export interface NewDigitalReadTask extends v0.NewDigitalReadTask {}
-export const DIGITAL_READ_SCHEMAS: task.Schemas<
-  typeof digitalReadTypeZ,
-  typeof digitalReadConfigZ,
-  typeof digitalReadStatusDataZ
-> = {
-  typeSchema: digitalReadTypeZ,
-  configSchema: digitalReadConfigZ,
-  statusDataSchema: digitalReadStatusDataZ,
-};
+export const DIGITAL_READ_SCHEMAS = v0.DIGITAL_READ_SCHEMAS;
+export type DigitalReadSchemas = v0.DigitalReadSchemas;
 
-export const digitalWriteTypeZ = v0.digitalWriteTypeZ;
 export const digitalWriteConfigZ = v0.digitalWriteConfigZ;
-export const digitalWriteStatusDataZ = v0.digitalWriteStatusDataZ;
-export interface DigitalWriteConfig extends v0.DigitalWriteConfig {}
 export const DIGITAL_WRITE_TYPE = v0.DIGITAL_WRITE_TYPE;
-export type DigitalWriteType = v0.DigitalWriteType;
 export const ZERO_DIGITAL_WRITE_PAYLOAD = v0.ZERO_DIGITAL_WRITE_PAYLOAD;
-export interface DigitalWritePayload extends v0.DigitalWritePayload {}
-export interface DigitalWriteTask extends v0.DigitalWriteTask {}
-export interface NewDigitalWriteTask extends v0.NewDigitalWriteTask {}
-export const DIGITAL_WRITE_SCHEMAS: task.Schemas<
-  typeof digitalWriteTypeZ,
-  typeof digitalWriteConfigZ,
-  typeof digitalWriteStatusDataZ
-> = {
-  typeSchema: digitalWriteTypeZ,
-  configSchema: digitalWriteConfigZ,
-  statusDataSchema: digitalWriteStatusDataZ,
-};
+export const DIGITAL_WRITE_SCHEMAS = v0.DIGITAL_WRITE_SCHEMAS;
+export type DigitalWriteSchemas = v0.DigitalWriteSchemas;
 
-export const scanTypeZ = v0.scanTypeZ;
-export const scanConfigZ = v0.scanConfigZ;
-export const scanStatusDataZ = v0.scanStatusDataZ;
-export interface ScanConfig extends v0.ScanConfig {}
 export const SCAN_TYPE = v0.SCAN_TYPE;
-export type ScanType = v0.ScanType;
-export interface ScanPayload extends v0.ScanPayload {}
-export interface ScanTask extends v0.ScanTask {}
-export interface NewScanTask extends v0.NewScanTask {}
-export const SCAN_SCHEMAS: task.Schemas<
-  typeof scanTypeZ,
-  typeof scanConfigZ,
-  typeof scanStatusDataZ
-> = {
-  typeSchema: scanTypeZ,
-  configSchema: scanConfigZ,
-  statusDataSchema: scanStatusDataZ,
-};
+
+export const SCAN_SCHEMAS = v0.SCAN_SCHEMAS;

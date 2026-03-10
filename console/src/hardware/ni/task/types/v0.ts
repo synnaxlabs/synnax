@@ -17,69 +17,67 @@ import { createPortValidator } from "@/hardware/ni/task/types/validation";
 export const PREFIX = "ni";
 
 const portZ = z.number().int().nonnegative();
-const lineZ = z.number().int().nonnegative();
 
 const analogChannelExtensionShape = { port: portZ };
+
 interface AnalogChannelExtension extends z.infer<
   z.ZodObject<typeof analogChannelExtensionShape>
 > {}
-const ZERO_ANALOG_CHANNEL_EXTENSION: AnalogChannelExtension = { port: 0 };
 
-const digitalChannelExtensionShape = {
-  port: portZ,
-  line: lineZ,
-};
+const ZERO_ANALOG_CHANNEL_EXTENSION = {
+  port: 0,
+} as const satisfies AnalogChannelExtension;
+
+const lineZ = z.number().int().nonnegative();
+
+const digitalChannelExtensionShape = { ...analogChannelExtensionShape, line: lineZ };
+
 interface DigitalChannelExtension extends z.infer<
   z.ZodObject<typeof digitalChannelExtensionShape>
 > {}
-const ZERO_DIGITAL_CHANNEL_EXTENSION: DigitalChannelExtension = { port: 0, line: 0 };
+
+const ZERO_DIGITAL_CHANNEL_EXTENSION = {
+  ...ZERO_ANALOG_CHANNEL_EXTENSION,
+  line: 0,
+} as const satisfies DigitalChannelExtension;
 
 const baseAIChanZ = Common.Task.readChannelZ.extend(analogChannelExtensionShape);
+
 interface BaseAIChan extends z.infer<typeof baseAIChanZ> {}
-const ZERO_BASE_AI_CHAN: BaseAIChan = {
+
+const ZERO_BASE_AI_CHAN = {
   ...Common.Task.ZERO_READ_CHANNEL,
   ...ZERO_ANALOG_CHANNEL_EXTENSION,
-};
+} as const satisfies BaseAIChan;
 
 const minMaxValShape = { minVal: z.number(), maxVal: z.number() };
+
 interface MinMaxVal extends z.infer<z.ZodObject<typeof minMaxValShape>> {}
+
 const ZERO_MIN_MAX_VAL: MinMaxVal = { minVal: 0, maxVal: 1 };
 
-const DEFAULT_TERMINAL_CONFIG = "Cfg_Default";
-const RSE_TERMINAL_CONFIG = "RSE";
-const NRSE_TERMINAL_CONFIG = "NRSE";
-const DIFF_TERMINAL_CONFIG = "Diff";
-const PSEUDO_DIFF_TERMINAL_CONFIG = "PseudoDiff";
-const terminalConfigZ = z.enum([
-  DEFAULT_TERMINAL_CONFIG,
-  RSE_TERMINAL_CONFIG,
-  NRSE_TERMINAL_CONFIG,
-  DIFF_TERMINAL_CONFIG,
-  PSEUDO_DIFF_TERMINAL_CONFIG,
-]);
+const terminalShape = {
+  terminalConfig: z.enum(["Cfg_Default", "RSE", "NRSE", "Diff", "PseudoDiff"]),
+};
 
-const terminalShape = { terminalConfig: terminalConfigZ };
 interface Terminal extends z.infer<z.ZodObject<typeof terminalShape>> {}
-const ZERO_TERMINAL: Terminal = { terminalConfig: DEFAULT_TERMINAL_CONFIG };
+
+const ZERO_TERMINAL = { terminalConfig: "Cfg_Default" } as const satisfies Terminal;
 
 const INTERNAL_EXCIT_SOURCE = "Internal";
-const EXTERNAL_EXCIT_SOURCE = "External";
-const NONE_EXCIT_SOURCE = "None";
-const excitSourceZ = z.enum([
-  INTERNAL_EXCIT_SOURCE,
-  EXTERNAL_EXCIT_SOURCE,
-  NONE_EXCIT_SOURCE,
-]);
+const excitSourceZ = z.enum([INTERNAL_EXCIT_SOURCE, "External", "None"]);
 
 const currentExcitShape = {
   currentExcitSource: excitSourceZ,
   currentExcitVal: z.number(),
 };
+
 interface CurrentExcit extends z.infer<z.ZodObject<typeof currentExcitShape>> {}
-const ZERO_CURRENT_EXCIT: CurrentExcit = {
+
+const ZERO_CURRENT_EXCIT = {
   currentExcitSource: INTERNAL_EXCIT_SOURCE,
   currentExcitVal: 0,
-};
+} as const satisfies CurrentExcit;
 
 const VOLTS = "Volts";
 const AMPS = "Amps";
@@ -1627,27 +1625,27 @@ export const ZERO_ANALOG_READ_CONFIG: AnalogReadConfig = {
 };
 
 export const analogReadStatusDataZ = z
-  .object({
-    errors: z.array(z.object({ message: z.string(), path: z.string() })),
-  })
+  .object({ errors: z.array(z.object({ message: z.string(), path: z.string() })) })
   .or(z.null());
 
 export type AnalogReadStatusDetails = task.Status<typeof analogReadStatusDataZ>;
 
 export const ANALOG_READ_TYPE = `${PREFIX}_analog_read`;
-export const analogReadTypeZ = z.literal(ANALOG_READ_TYPE);
-export type AnalogReadType = z.infer<typeof analogReadTypeZ>;
 
-interface AnalogReadPayload extends task.Payload<
-  typeof analogReadTypeZ,
-  typeof analogReadConfigZ,
-  typeof analogReadStatusDataZ
-> {}
+export const ANALOG_READ_SCHEMAS = {
+  typeSchema: z.literal(ANALOG_READ_TYPE),
+  configSchema: analogReadConfigZ,
+  statusDataSchema: analogReadStatusDataZ,
+} as const satisfies task.Schemas;
+
+export type AnalogReadSchemas = typeof ANALOG_READ_SCHEMAS;
+
+export interface AnalogReadPayload extends task.Payload<AnalogReadSchemas> {}
 export const ZERO_ANALOG_READ_PAYLOAD: AnalogReadPayload = {
   key: "",
   name: "NI Analog Read Task",
   config: ZERO_ANALOG_READ_CONFIG,
-  type: ANALOG_READ_TYPE,
+  type: "ni_analog_read",
 };
 
 const validateCounterPorts = createPortValidator("Counter");
@@ -1664,9 +1662,7 @@ const baseCounterReadConfigZ = baseReadConfigZ
 export interface CounterReadConfig extends z.infer<typeof baseCounterReadConfigZ> {}
 export const counterReadConfigZ = z.union([
   baseReadConfigZ
-    .extend({
-      channels: z.array(z.any()),
-    })
+    .extend({ channels: z.array(z.any()) })
     .transform<CounterReadConfig>(({ channels, device, ...rest }) => ({
       ...rest,
       channels: channels.map((c) => ({ ...c, device })),
@@ -1679,34 +1675,23 @@ export const ZERO_COUNTER_READ_CONFIG: CounterReadConfig = {
   channels: [],
 };
 
-export const counterReadStatusDataZ = z.unknown();
-export type CounterReadStatusDetails = task.Status<typeof counterReadStatusDataZ>;
-
 export const COUNTER_READ_TYPE = `${PREFIX}_counter_read`;
-export const counterReadTypeZ = z.literal(COUNTER_READ_TYPE);
-export type CounterReadType = z.infer<typeof counterReadTypeZ>;
 
-export interface CounterReadPayload extends task.Payload<
-  typeof counterReadTypeZ,
-  typeof counterReadConfigZ,
-  typeof counterReadStatusDataZ
-> {}
+export const COUNTER_READ_SCHEMAS = {
+  typeSchema: z.literal(COUNTER_READ_TYPE),
+  configSchema: counterReadConfigZ,
+  statusDataSchema: z.unknown(),
+} as const satisfies task.Schemas;
+
+export type CounterReadSchemas = typeof COUNTER_READ_SCHEMAS;
+
+export interface CounterReadPayload extends task.Payload<CounterReadSchemas> {}
 export const ZERO_COUNTER_READ_PAYLOAD: CounterReadPayload = {
   key: "",
   name: "NI Counter Read Task",
   config: ZERO_COUNTER_READ_CONFIG,
-  type: COUNTER_READ_TYPE,
+  type: "ni_counter_read",
 };
-
-export interface CounterReadTask extends task.Task<
-  typeof counterReadTypeZ,
-  typeof counterReadConfigZ,
-  typeof counterReadStatusDataZ
-> {}
-export interface NewCounterReadTask extends task.New<
-  typeof counterReadTypeZ,
-  typeof counterReadConfigZ
-> {}
 
 export const analogWriteConfigZ = baseWriteConfigZ.extend({
   channels: z
@@ -1720,33 +1705,23 @@ const ZERO_ANALOG_WRITE_CONFIG: AnalogWriteConfig = {
   channels: [],
 };
 
-export const analogWriteStatusDataZ = z.unknown();
-
 export const ANALOG_WRITE_TYPE = `${PREFIX}_analog_write`;
-export const analogWriteTypeZ = z.literal(ANALOG_WRITE_TYPE);
-export type AnalogWriteType = z.infer<typeof analogWriteTypeZ>;
 
-export interface AnalogWritePayload extends task.Payload<
-  typeof analogWriteTypeZ,
-  typeof analogWriteConfigZ,
-  typeof analogWriteStatusDataZ
-> {}
-export const ZERO_ANALOG_WRITE_PAYLOAD: AnalogWritePayload = {
+export const ANALOG_WRITE_SCHEMAS = {
+  typeSchema: z.literal(ANALOG_WRITE_TYPE),
+  configSchema: analogWriteConfigZ,
+  statusDataSchema: z.unknown(),
+} as const satisfies task.Schemas;
+
+export type AnalogWriteSchemas = typeof ANALOG_WRITE_SCHEMAS;
+
+interface AnalogWritePayload extends task.Payload<AnalogWriteSchemas> {}
+export const ZERO_ANALOG_WRITE_PAYLOAD = {
   key: "",
   name: "NI Analog Write Task",
   config: ZERO_ANALOG_WRITE_CONFIG,
-  type: ANALOG_WRITE_TYPE,
-};
-
-export interface AnalogWriteTask extends task.Task<
-  typeof analogWriteTypeZ,
-  typeof analogWriteConfigZ,
-  typeof analogWriteStatusDataZ
-> {}
-export interface NewAnalogWriteTask extends task.New<
-  typeof analogWriteTypeZ,
-  typeof analogWriteConfigZ
-> {}
+  type: "ni_analog_write",
+} as const satisfies AnalogWritePayload;
 
 export const digitalReadConfigZ = baseReadConfigZ
   .extend({
@@ -1762,34 +1737,23 @@ const ZERO_DIGITAL_READ_CONFIG: DigitalReadConfig = {
   channels: [],
 };
 
-export const digitalReadStatusDataZ = z.unknown();
-export type DigitalReadStatusDetails = task.Status<typeof digitalReadStatusDataZ>;
-
 export const DIGITAL_READ_TYPE = `${PREFIX}_digital_read`;
-export const digitalReadTypeZ = z.literal(DIGITAL_READ_TYPE);
-export type DigitalReadType = z.infer<typeof digitalReadTypeZ>;
 
-export interface DigitalReadPayload extends task.Payload<
-  typeof digitalReadTypeZ,
-  typeof digitalReadConfigZ,
-  typeof digitalReadStatusDataZ
-> {}
+export const DIGITAL_READ_SCHEMAS = {
+  typeSchema: z.literal(DIGITAL_READ_TYPE),
+  configSchema: digitalReadConfigZ,
+  statusDataSchema: z.unknown(),
+} as const satisfies task.Schemas;
+
+export type DigitalReadSchemas = typeof DIGITAL_READ_SCHEMAS;
+
+export interface DigitalReadPayload extends task.Payload<DigitalReadSchemas> {}
 export const ZERO_DIGITAL_READ_PAYLOAD: DigitalReadPayload = {
   key: "",
   name: "NI Digital Read Task",
   config: ZERO_DIGITAL_READ_CONFIG,
-  type: DIGITAL_READ_TYPE,
+  type: "ni_digital_read",
 };
-
-export interface DigitalReadTask extends task.Task<
-  typeof digitalReadTypeZ,
-  typeof digitalReadConfigZ,
-  typeof digitalReadStatusDataZ
-> {}
-export interface NewDigitalReadTask extends task.New<
-  typeof digitalReadTypeZ,
-  typeof digitalReadConfigZ
-> {}
 
 export const digitalWriteConfigZ = baseWriteConfigZ.extend({
   channels: z
@@ -1803,56 +1767,30 @@ const ZERO_DIGITAL_WRITE_CONFIG: DigitalWriteConfig = {
   channels: [],
 };
 
-export const digitalWriteStatusDataZ = z.unknown();
-export type DigitalWriteStatusDetails = task.Status<typeof digitalWriteStatusDataZ>;
-
 export const DIGITAL_WRITE_TYPE = `${PREFIX}_digital_write`;
-export const digitalWriteTypeZ = z.literal(DIGITAL_WRITE_TYPE);
-export type DigitalWriteType = z.infer<typeof digitalWriteTypeZ>;
 
-export interface DigitalWritePayload extends task.Payload<
-  typeof digitalWriteTypeZ,
-  typeof digitalWriteConfigZ,
-  typeof digitalWriteStatusDataZ
-> {}
+export const DIGITAL_WRITE_SCHEMAS = {
+  typeSchema: z.literal(DIGITAL_WRITE_TYPE),
+  configSchema: digitalWriteConfigZ,
+  statusDataSchema: z.unknown(),
+} as const satisfies task.Schemas;
+
+export type DigitalWriteSchemas = typeof DIGITAL_WRITE_SCHEMAS;
+
+export interface DigitalWritePayload extends task.Payload<DigitalWriteSchemas> {}
 export const ZERO_DIGITAL_WRITE_PAYLOAD: DigitalWritePayload = {
   key: "",
   name: "NI Digital Write Task",
   config: ZERO_DIGITAL_WRITE_CONFIG,
-  type: DIGITAL_WRITE_TYPE,
+  type: "ni_digital_write",
 };
 
-export interface DigitalWriteTask extends task.Task<
-  typeof digitalWriteTypeZ,
-  typeof digitalWriteConfigZ,
-  typeof digitalWriteStatusDataZ
-> {}
-export interface NewDigitalWriteTask extends task.New<
-  typeof digitalWriteTypeZ,
-  typeof digitalWriteConfigZ
-> {}
-
-export const scanStatusDataZ = z.unknown();
-export type ScanStatusDetails = task.Status<typeof scanStatusDataZ>;
-
 export const SCAN_TYPE = `${PREFIX}_scanner`;
-export const scanTypeZ = z.literal(SCAN_TYPE);
-export type ScanType = z.infer<typeof scanTypeZ>;
 
-export const scanConfigZ = z.object({
-  enabled: z.boolean(),
-});
-export interface ScanConfig extends z.infer<typeof scanConfigZ> {}
+export const SCAN_SCHEMAS = {
+  typeSchema: z.literal(SCAN_TYPE),
+  configSchema: z.object({ enabled: z.boolean() }),
+  statusDataSchema: z.unknown(),
+} as const satisfies task.Schemas;
 
-export interface ScanPayload extends task.Payload<
-  typeof scanTypeZ,
-  typeof scanConfigZ,
-  typeof scanStatusDataZ
-> {}
-
-export interface ScanTask extends task.Task<
-  typeof scanTypeZ,
-  typeof scanConfigZ,
-  typeof scanStatusDataZ
-> {}
-export interface NewScanTask extends task.New<typeof scanTypeZ, typeof scanConfigZ> {}
+export type ScanSchemas = typeof SCAN_SCHEMAS;

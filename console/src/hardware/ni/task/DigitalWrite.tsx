@@ -24,8 +24,7 @@ import {
   DIGITAL_WRITE_SCHEMAS,
   DIGITAL_WRITE_TYPE,
   digitalWriteConfigZ,
-  type digitalWriteStatusDataZ,
-  type digitalWriteTypeZ,
+  type DigitalWriteSchemas,
   type DOChannel,
   ZERO_DIGITAL_WRITE_PAYLOAD,
 } from "@/hardware/ni/task/types";
@@ -75,13 +74,7 @@ const NameComponent = ({ path, ...rest }: NameComponentProps) => {
 
 const name = Component.renderProp(NameComponent);
 
-const Form: FC<
-  Common.Task.FormProps<
-    typeof digitalWriteTypeZ,
-    typeof digitalWriteConfigZ,
-    typeof digitalWriteStatusDataZ
-  >
-> = (props) => (
+const Form: FC<Common.Task.FormProps<DigitalWriteSchemas>> = (props) => (
   <DigitalChannelList
     {...props}
     createChannel={createDOChannel}
@@ -90,11 +83,10 @@ const Form: FC<
   />
 );
 
-const getInitialValues: Common.Task.GetInitialValues<
-  typeof digitalWriteTypeZ,
-  typeof digitalWriteConfigZ,
-  typeof digitalWriteStatusDataZ
-> = ({ deviceKey, config }) => {
+const getInitialValues: Common.Task.GetInitialValues<DigitalWriteSchemas> = ({
+  deviceKey,
+  config,
+}) => {
   const cfg =
     config != null
       ? digitalWriteConfigZ.parse(config)
