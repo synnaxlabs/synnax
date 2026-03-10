@@ -11,10 +11,10 @@ import { type Export } from "@/export";
 import { Common } from "@/hardware/common";
 import { Read, READ_LAYOUT, ReadSelectable } from "@/hardware/modbus/task/Read";
 import {
+  READ_SCHEMAS,
   READ_TYPE,
-  readConfigZ,
+  WRITE_SCHEMAS,
   WRITE_TYPE,
-  writeConfigZ,
 } from "@/hardware/modbus/task/types";
 import { Write, WRITE_LAYOUT, WriteSelectable } from "@/hardware/modbus/task/Write";
 import { type Import } from "@/import";
@@ -32,8 +32,8 @@ export const EXTRACTORS: Export.Extractors = {
 };
 
 export const FILE_INGESTERS: Import.FileIngesters = {
-  [READ_TYPE]: Common.Task.createIngester(readConfigZ, READ_LAYOUT),
-  [WRITE_TYPE]: Common.Task.createIngester(writeConfigZ, WRITE_LAYOUT),
+  [READ_TYPE]: Common.Task.createIngester(READ_SCHEMAS.configSchema, READ_LAYOUT),
+  [WRITE_TYPE]: Common.Task.createIngester(WRITE_SCHEMAS.configSchema, WRITE_LAYOUT),
 };
 
 export const LAYOUTS: Record<string, Layout.Renderer> = {

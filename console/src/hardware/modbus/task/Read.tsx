@@ -19,18 +19,13 @@ import { Common } from "@/hardware/common";
 import { Device } from "@/hardware/modbus/device";
 import { SelectInputChannelTypeField } from "@/hardware/modbus/task/SelectInputChannelTypeField";
 import {
-  COIL_INPUT_TYPE,
-  HOLDING_REGISTER_INPUT_TYPE,
   INPUT_CHANNEL_SCHEMAS,
   type InputChannel,
   type InputChannelType,
   isVariableDensityInputChannel,
   READ_SCHEMAS,
   READ_TYPE,
-  type readConfigZ,
-  type readStatusDataZ,
-  type readTypeZ,
-  REGISTER_INPUT_TYPE,
+  type ReadSchemas,
   type TypedInput,
   ZERO_INPUT_CHANNELS,
   ZERO_READ_PAYLOAD,
@@ -97,21 +92,14 @@ const ChannelListItem = (props: Common.Task.ChannelListItemProps) => {
           showHelpText={false}
           path={`${path}.address`}
         />
-        {(type === REGISTER_INPUT_TYPE || type === HOLDING_REGISTER_INPUT_TYPE) && (
+        {(type === "register_input" || type === "holding_register_input") && (
           <PForm.Field<string>
             path={`${path}.dataType`}
             showLabel={false}
             showHelpText={false}
             hideIfNull
           >
-            {({ value, onChange }) => (
-              <Telem.SelectDataType
-                value={value}
-                onChange={onChange}
-                hideVariableDensity
-                location="bottom"
-              />
-            )}
+            {renderTelemSelectDataType}
           </PForm.Field>
         )}
       </Flex.Box>
@@ -127,10 +115,16 @@ const ChannelListItem = (props: Common.Task.ChannelListItemProps) => {
   );
 };
 
+const renderTelemSelectDataType = Component.renderProp(
+  (props: Telem.SelectDataTypeProps) => (
+    <Telem.SelectDataType {...props} hideVariableDensity location="bottom" />
+  ),
+);
+
 const getOpenChannel = (channels: InputChannel[]): InputChannel => {
   if (channels.length === 0)
     return {
-      type: COIL_INPUT_TYPE,
+      type: "coil_input",
       address: 0,
       channel: 0,
       key: id.create(),
@@ -148,9 +142,7 @@ const getOpenChannel = (channels: InputChannel[]): InputChannel => {
 
 const listItem = Component.renderProp(ChannelListItem);
 
-const Form: FC<
-  Common.Task.FormProps<typeof readTypeZ, typeof readConfigZ, typeof readStatusDataZ>
-> = () => (
+const Form: FC<Common.Task.FormProps<ReadSchemas>> = () => (
   <Common.Task.Layouts.List<InputChannel>
     createChannel={getOpenChannel}
     contextMenuItems={Common.Task.readChannelContextMenuItem}
@@ -171,11 +163,9 @@ const channelName = (deviceName: string, channel: InputChannel) => {
   return s;
 };
 
-const getInitialValues: Common.Task.GetInitialValues<
-  typeof readTypeZ,
-  typeof readConfigZ,
-  typeof readStatusDataZ
-> = ({ deviceKey }) => ({
+const getInitialValues: Common.Task.GetInitialValues<ReadSchemas> = ({
+  deviceKey,
+}) => ({
   ...ZERO_READ_PAYLOAD,
   config: {
     ...ZERO_READ_PAYLOAD.config,
@@ -183,7 +173,7 @@ const getInitialValues: Common.Task.GetInitialValues<
   },
 });
 
-const onConfigure: Common.Task.OnConfigure<typeof readConfigZ> = async (
+const onConfigure: Common.Task.OnConfigure<ReadSchemas["configSchema"]> = async (
   client,
   config,
 ) => {
@@ -256,7 +246,7 @@ export const Read = Common.Task.wrapForm({
   Properties,
   Form,
   schemas: READ_SCHEMAS,
-  type: READ_TYPE,
+  type: "modbus_read",
   getInitialValues,
   onConfigure,
 });
