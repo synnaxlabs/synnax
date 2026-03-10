@@ -20,7 +20,7 @@ std::pair<std::unique_ptr<task::Task>, bool> Factory::configure_task(
         return common::handle_config_err(
             ctx,
             task,
-            configure_read(ctx, task, processor)
+            configure_read(ctx, task, this->processor)
         );
     return {nullptr, false};
 }
