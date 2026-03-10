@@ -14,15 +14,14 @@ Verifies that the driver remains responsive to non-OPC-UA tasks when an OPC UA
 server becomes unresponsive. Uses a Modbus read task as the health probe —
 if the driver can start, stream, and stop a Modbus task while OPC UA connections
 are hung, the driver is responsive.
-
-See: Desktop/Claude_Runbooks/OPCUA_Bug/opcua-connection-pool-bug.md
 """
 
 import os
 import signal
-import subprocess
+import sys
 import threading
 
+import psutil
 import synnax as sy
 from examples.modbus import ModbusSim
 from synnax import modbus
@@ -153,25 +152,16 @@ class OPCUADriverResponsiveness(OPCUAReadTaskCase):
 
         return True
 
-    def _find_server_pid(self) -> int:
-        """Find the actual process listening on the sim port via lsof."""
-        assert self.sim is not None
-        port = self.sim.port
-        result = subprocess.run(
-            ["lsof", "-ti", f":{port}"],
-            capture_output=True,
-            text=True,
-        )
-        pids = set(int(p) for p in result.stdout.strip().split("\n") if p)
-        if not pids:
-            raise RuntimeError(f"No process found listening on port {port}")
-        return pids.pop() if len(pids) == 1 else max(pids)
-
     def _freeze_sim(self) -> None:
-        pid = self._find_server_pid()
+        assert self.sim is not None and self.sim.process is not None
+        pid = self.sim.process.pid
+        assert pid is not None
         self.frozen_pid = pid
-        self.log(f"Freezing OPC UA simulator (SIGSTOP pid={pid})")
-        os.kill(pid, signal.SIGSTOP)
+        self.log(f"Freezing OPC UA simulator (pid={pid})")
+        if sys.platform == "win32":
+            psutil.Process(pid).suspend()
+        else:
+            os.kill(pid, signal.SIGSTOP)
         sy.sleep(0.5)
 
     def _check_driver_responsive(self) -> None:
@@ -180,21 +170,22 @@ class OPCUADriverResponsiveness(OPCUAReadTaskCase):
         The entire probe runs in a daemon thread with a wall-clock timeout
         so the test never hangs if the driver is deadlocked.
         """
-        assert self.modbus_task is not None
+        modbus_task = self.modbus_task
+        assert modbus_task is not None
         self.log("Health probe: starting Modbus read task")
 
         result: list[str] = []
 
         def probe() -> None:
             try:
-                self.modbus_task.start(timeout=HEALTH_TIMEOUT.seconds)
-                keys = [ch.channel for ch in self.modbus_task.config.channels]
+                modbus_task.start(timeout=HEALTH_TIMEOUT.seconds)
+                keys = [ch.channel for ch in modbus_task.config.channels]
                 with self.client.open_streamer(keys) as streamer:
                     frame = streamer.read(timeout=HEALTH_TIMEOUT.seconds)
                     if frame is None:
                         result.append("Modbus task not streaming data")
                         return
-                self.modbus_task.stop(timeout=HEALTH_TIMEOUT.seconds)
+                modbus_task.stop(timeout=HEALTH_TIMEOUT.seconds)
                 result.append("ok")
             except Exception as e:
                 result.append(str(e))
@@ -217,8 +208,11 @@ class OPCUADriverResponsiveness(OPCUAReadTaskCase):
     def teardown(self) -> None:
         if self.frozen_pid is not None:
             try:
-                os.kill(self.frozen_pid, signal.SIGCONT)
-            except OSError:
+                if sys.platform == "win32":
+                    psutil.Process(self.frozen_pid).resume()
+                else:
+                    os.kill(self.frozen_pid, signal.SIGCONT)
+            except (OSError, psutil.NoSuchProcess, psutil.AccessDenied):
                 pass
         if self.modbus_task is not None:
             try:
