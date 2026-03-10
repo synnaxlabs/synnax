@@ -10,7 +10,7 @@
 import { type Export } from "@/export";
 import { Common } from "@/hardware/common";
 import { Read, READ_LAYOUT, ReadSelectable } from "@/hardware/http/task/Read";
-import { READ_TYPE, readConfigZ } from "@/hardware/http/task/types";
+import { READ_SCHEMAS, READ_TYPE } from "@/hardware/http/task/types";
 import { type Import } from "@/import";
 import { type Layout } from "@/layout";
 import { type Selector } from "@/selector";
@@ -24,7 +24,7 @@ export const EXTRACTORS: Export.Extractors = {
 };
 
 export const FILE_INGESTERS: Import.FileIngesters = {
-  [READ_TYPE]: Common.Task.createIngester(readConfigZ, READ_LAYOUT),
+  [READ_TYPE]: Common.Task.createIngester(READ_SCHEMAS.configSchema, READ_LAYOUT),
 };
 
 export const LAYOUTS: Record<string, Layout.Renderer> = {
