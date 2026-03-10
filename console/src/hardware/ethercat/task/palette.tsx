@@ -14,7 +14,7 @@ import { READ_LAYOUT } from "@/hardware/ethercat/task/Read";
 import { WRITE_LAYOUT } from "@/hardware/ethercat/task/Write";
 import { Palette } from "@/palette";
 
-const useVisible = () => Access.useUpdateGranted(task.TYPE_ONTOLOGY_ID);
+const useVisible = () => Access.useCreateGranted(task.TYPE_ONTOLOGY_ID);
 
 const CreateReadCommand = Palette.createSimpleCommand({
   key: "ethercat-create-read-task",
