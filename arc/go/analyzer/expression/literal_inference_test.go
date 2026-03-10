@@ -177,11 +177,6 @@ var _ = Describe("Literal Type Inference", func() {
 				Kind: symbol.KindChannel,
 				Type: types.Chan(types.F64()),
 			}
-			testResolver["i32_ch"] = symbol.Symbol{
-				Name: "i32_ch",
-				Kind: symbol.KindChannel,
-				Type: types.Chan(types.I32()),
-			}
 		})
 
 		It("Should accept integer literal minus f32 channel with f32 return type", func() {
