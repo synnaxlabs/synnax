@@ -31,7 +31,7 @@ import (
 )
 
 var SymbolResolver = symbol.CompoundResolver{
-	channel.CompilerSymbolResolver,
+	channel.SymbolResolver,
 	constant.SymbolResolver,
 	control.SymbolResolver,
 	errors.SymbolResolver,
@@ -43,7 +43,6 @@ var SymbolResolver = symbol.CompoundResolver{
 	stage.SymbolResolver,
 	stat.SymbolResolver,
 	stateful.SymbolResolver,
-	stringsstate.SymbolResolver,
 	stringsstate.SymbolResolver,
 	time.SymbolResolver,
 }

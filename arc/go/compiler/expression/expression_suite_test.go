@@ -23,6 +23,7 @@ import (
 	"github.com/synnaxlabs/arc/compiler/resolve"
 	. "github.com/synnaxlabs/arc/compiler/testutil"
 	"github.com/synnaxlabs/arc/parser"
+	"github.com/synnaxlabs/arc/stl"
 	"github.com/synnaxlabs/arc/symbol"
 	"github.com/synnaxlabs/arc/types"
 	. "github.com/synnaxlabs/x/testutil"
@@ -74,7 +75,7 @@ func compileWithAnalyzer(exprSource string, resolver symbol.Resolver) ([]byte, t
 			analyzerCtx.TypeMap[node] = analyzerCtx.Constraints.ApplySubstitutions(typ)
 		}
 	}
-	compilerCtx := ccontext.CreateRoot(bCtx, analyzerCtx.Scope, analyzerCtx.TypeMap, resolve.NewResolver(NewStdlibResolver()))
+	compilerCtx := ccontext.CreateRoot(bCtx, analyzerCtx.Scope, analyzerCtx.TypeMap, resolve.NewResolver(stl.SymbolResolver))
 	exprType := MustSucceed(expression.Compile(ccontext.Child(compilerCtx, expr)))
 	return FinalizeContext(compilerCtx), exprType
 }
@@ -153,7 +154,7 @@ func expectSeriesLiteralWithHint(
 		}
 	}
 
-	compilerCtx := ccontext.CreateRoot(bCtx, analyzerCtx.Scope, analyzerCtx.TypeMap, resolve.NewResolver(NewStdlibResolver()))
+	compilerCtx := ccontext.CreateRoot(bCtx, analyzerCtx.Scope, analyzerCtx.TypeMap, resolve.NewResolver(stl.SymbolResolver))
 	exprType := MustSucceed(expression.Compile(ccontext.Child(compilerCtx, parsedExpr)))
 	Expect(FinalizeContext(compilerCtx)).To(MatchOpcodes(expectedOpcodes...))
 	Expect(exprType).To(Equal(hint))

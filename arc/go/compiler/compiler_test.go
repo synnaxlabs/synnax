@@ -17,10 +17,10 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/arc/compiler"
-	"github.com/synnaxlabs/arc/compiler/testutil"
 	"github.com/synnaxlabs/arc/ir"
 	"github.com/synnaxlabs/arc/runtime/state"
 	"github.com/synnaxlabs/arc/runtime/wasm"
+	"github.com/synnaxlabs/arc/stl"
 	stlstrings "github.com/synnaxlabs/arc/stl/strings"
 	"github.com/synnaxlabs/arc/symbol"
 	"github.com/synnaxlabs/arc/text"
@@ -40,7 +40,7 @@ func compileWithHostImports(source string, resolver symbol.Resolver) (compiler.O
 	prog := MustSucceed(text.Parse(text.Text{Raw: source}))
 	inter, diag := text.Analyze(ctx, prog, resolver)
 	Expect(diag.Ok()).To(BeTrue())
-	return compiler.Compile(ctx, inter, compiler.WithHostSymbols(testutil.NewStdlibResolver()))
+	return compiler.Compile(ctx, inter, compiler.WithHostSymbols(stl.SymbolResolver))
 }
 
 func inferReturnType(expected any) string {

@@ -34,7 +34,7 @@ func polyFunc(inputs, outputs types.Params) types.Type {
 var i32 = types.I32()
 var i64 = types.I64()
 
-var SymbolResolver = symbol.MapResolver{
+var userSymbols = symbol.MapResolver{
 	"len": {
 		Name: "len",
 		Kind: symbol.KindFunction,
@@ -45,47 +45,50 @@ var SymbolResolver = symbol.MapResolver{
 	},
 }
 
-// CompilerSymbolResolver contains the full set of symbol definitions used by
-// the compiler for WASM coordinate derivation. This is the canonical source of
-// truth for series host function type signatures.
-var CompilerSymbolResolver = &symbol.ModuleResolver{
-	Name: "series",
-	Members: symbol.MapResolver{
-		"element_add":       {Name: "element_add", Type: polyFunc(types.Params{{Name: "handle", Type: i32}, {Name: "scalar", Type: tv()}}, types.Params{{Name: "result", Type: i32}})},
-		"element_sub":       {Name: "element_sub", Type: polyFunc(types.Params{{Name: "handle", Type: i32}, {Name: "scalar", Type: tv()}}, types.Params{{Name: "result", Type: i32}})},
-		"element_mul":       {Name: "element_mul", Type: polyFunc(types.Params{{Name: "handle", Type: i32}, {Name: "scalar", Type: tv()}}, types.Params{{Name: "result", Type: i32}})},
-		"element_div":       {Name: "element_div", Type: polyFunc(types.Params{{Name: "handle", Type: i32}, {Name: "scalar", Type: tv()}}, types.Params{{Name: "result", Type: i32}})},
-		"element_mod":       {Name: "element_mod", Type: polyFunc(types.Params{{Name: "handle", Type: i32}, {Name: "scalar", Type: tv()}}, types.Params{{Name: "result", Type: i32}})},
-		"element_radd":      {Name: "element_radd", Type: polyFunc(types.Params{{Name: "scalar", Type: tv()}, {Name: "handle", Type: i32}}, types.Params{{Name: "result", Type: i32}})},
-		"element_rsub":      {Name: "element_rsub", Type: polyFunc(types.Params{{Name: "scalar", Type: tv()}, {Name: "handle", Type: i32}}, types.Params{{Name: "result", Type: i32}})},
-		"element_rmul":      {Name: "element_rmul", Type: polyFunc(types.Params{{Name: "scalar", Type: tv()}, {Name: "handle", Type: i32}}, types.Params{{Name: "result", Type: i32}})},
-		"element_rdiv":      {Name: "element_rdiv", Type: polyFunc(types.Params{{Name: "scalar", Type: tv()}, {Name: "handle", Type: i32}}, types.Params{{Name: "result", Type: i32}})},
-		"element_rmod":      {Name: "element_rmod", Type: polyFunc(types.Params{{Name: "scalar", Type: tv()}, {Name: "handle", Type: i32}}, types.Params{{Name: "result", Type: i32}})},
-		"series_add":        {Name: "series_add", Type: polyFunc(types.Params{{Name: "a", Type: i32}, {Name: "b", Type: i32}}, types.Params{{Name: "result", Type: i32}})},
-		"series_sub":        {Name: "series_sub", Type: polyFunc(types.Params{{Name: "a", Type: i32}, {Name: "b", Type: i32}}, types.Params{{Name: "result", Type: i32}})},
-		"series_mul":        {Name: "series_mul", Type: polyFunc(types.Params{{Name: "a", Type: i32}, {Name: "b", Type: i32}}, types.Params{{Name: "result", Type: i32}})},
-		"series_div":        {Name: "series_div", Type: polyFunc(types.Params{{Name: "a", Type: i32}, {Name: "b", Type: i32}}, types.Params{{Name: "result", Type: i32}})},
-		"series_mod":        {Name: "series_mod", Type: polyFunc(types.Params{{Name: "a", Type: i32}, {Name: "b", Type: i32}}, types.Params{{Name: "result", Type: i32}})},
-		"compare_gt":        {Name: "compare_gt", Type: polyFunc(types.Params{{Name: "a", Type: i32}, {Name: "b", Type: i32}}, types.Params{{Name: "result", Type: i32}})},
-		"compare_lt":        {Name: "compare_lt", Type: polyFunc(types.Params{{Name: "a", Type: i32}, {Name: "b", Type: i32}}, types.Params{{Name: "result", Type: i32}})},
-		"compare_ge":        {Name: "compare_ge", Type: polyFunc(types.Params{{Name: "a", Type: i32}, {Name: "b", Type: i32}}, types.Params{{Name: "result", Type: i32}})},
-		"compare_le":        {Name: "compare_le", Type: polyFunc(types.Params{{Name: "a", Type: i32}, {Name: "b", Type: i32}}, types.Params{{Name: "result", Type: i32}})},
-		"compare_eq":        {Name: "compare_eq", Type: polyFunc(types.Params{{Name: "a", Type: i32}, {Name: "b", Type: i32}}, types.Params{{Name: "result", Type: i32}})},
-		"compare_ne":        {Name: "compare_ne", Type: polyFunc(types.Params{{Name: "a", Type: i32}, {Name: "b", Type: i32}}, types.Params{{Name: "result", Type: i32}})},
-		"compare_gt_scalar": {Name: "compare_gt_scalar", Type: polyFunc(types.Params{{Name: "handle", Type: i32}, {Name: "scalar", Type: tv()}}, types.Params{{Name: "result", Type: i32}})},
-		"compare_lt_scalar": {Name: "compare_lt_scalar", Type: polyFunc(types.Params{{Name: "handle", Type: i32}, {Name: "scalar", Type: tv()}}, types.Params{{Name: "result", Type: i32}})},
-		"compare_ge_scalar": {Name: "compare_ge_scalar", Type: polyFunc(types.Params{{Name: "handle", Type: i32}, {Name: "scalar", Type: tv()}}, types.Params{{Name: "result", Type: i32}})},
-		"compare_le_scalar": {Name: "compare_le_scalar", Type: polyFunc(types.Params{{Name: "handle", Type: i32}, {Name: "scalar", Type: tv()}}, types.Params{{Name: "result", Type: i32}})},
-		"compare_eq_scalar": {Name: "compare_eq_scalar", Type: polyFunc(types.Params{{Name: "handle", Type: i32}, {Name: "scalar", Type: tv()}}, types.Params{{Name: "result", Type: i32}})},
-		"compare_ne_scalar": {Name: "compare_ne_scalar", Type: polyFunc(types.Params{{Name: "handle", Type: i32}, {Name: "scalar", Type: tv()}}, types.Params{{Name: "result", Type: i32}})},
-		"create_empty":      {Name: "create_empty", Type: polyFunc(types.Params{{Name: "len", Type: i32}}, types.Params{{Name: "handle", Type: i32}})},
-		"set_element":       {Name: "set_element", Type: polyFunc(types.Params{{Name: "handle", Type: i32}, {Name: "idx", Type: i32}, {Name: "value", Type: tv()}}, types.Params{{Name: "result", Type: i32}})},
-		"index":             {Name: "index", Type: polyFunc(types.Params{{Name: "handle", Type: i32}, {Name: "idx", Type: i32}}, types.Params{{Name: "value", Type: tv()}})},
-		"negate":            {Name: "negate", Type: polyFunc(types.Params{{Name: "handle", Type: i32}}, types.Params{{Name: "result", Type: i32}})},
-		"not_u8":            {Name: "not_u8", Type: polyFunc(types.Params{{Name: "handle", Type: i32}}, types.Params{{Name: "result", Type: i32}})},
-		"len":               {Name: "len", Type: polyFunc(types.Params{{Name: "handle", Type: i32}}, types.Params{{Name: "length", Type: i64}})},
-		"slice":             {Name: "slice", Type: polyFunc(types.Params{{Name: "handle", Type: i32}, {Name: "start", Type: i32}, {Name: "end", Type: i32}}, types.Params{{Name: "result", Type: i32}})},
-	},
+func hostSym(name string, t types.Type) symbol.Symbol {
+	return symbol.Symbol{Name: name, Internal: true, Type: t}
+}
+
+var hostSymbols = symbol.MapResolver{
+	"element_add":       hostSym("element_add", polyFunc(types.Params{{Name: "handle", Type: i32}, {Name: "scalar", Type: tv()}}, types.Params{{Name: "result", Type: i32}})),
+	"element_sub":       hostSym("element_sub", polyFunc(types.Params{{Name: "handle", Type: i32}, {Name: "scalar", Type: tv()}}, types.Params{{Name: "result", Type: i32}})),
+	"element_mul":       hostSym("element_mul", polyFunc(types.Params{{Name: "handle", Type: i32}, {Name: "scalar", Type: tv()}}, types.Params{{Name: "result", Type: i32}})),
+	"element_div":       hostSym("element_div", polyFunc(types.Params{{Name: "handle", Type: i32}, {Name: "scalar", Type: tv()}}, types.Params{{Name: "result", Type: i32}})),
+	"element_mod":       hostSym("element_mod", polyFunc(types.Params{{Name: "handle", Type: i32}, {Name: "scalar", Type: tv()}}, types.Params{{Name: "result", Type: i32}})),
+	"element_radd":      hostSym("element_radd", polyFunc(types.Params{{Name: "scalar", Type: tv()}, {Name: "handle", Type: i32}}, types.Params{{Name: "result", Type: i32}})),
+	"element_rsub":      hostSym("element_rsub", polyFunc(types.Params{{Name: "scalar", Type: tv()}, {Name: "handle", Type: i32}}, types.Params{{Name: "result", Type: i32}})),
+	"element_rmul":      hostSym("element_rmul", polyFunc(types.Params{{Name: "scalar", Type: tv()}, {Name: "handle", Type: i32}}, types.Params{{Name: "result", Type: i32}})),
+	"element_rdiv":      hostSym("element_rdiv", polyFunc(types.Params{{Name: "scalar", Type: tv()}, {Name: "handle", Type: i32}}, types.Params{{Name: "result", Type: i32}})),
+	"element_rmod":      hostSym("element_rmod", polyFunc(types.Params{{Name: "scalar", Type: tv()}, {Name: "handle", Type: i32}}, types.Params{{Name: "result", Type: i32}})),
+	"series_add":        hostSym("series_add", polyFunc(types.Params{{Name: "a", Type: i32}, {Name: "b", Type: i32}}, types.Params{{Name: "result", Type: i32}})),
+	"series_sub":        hostSym("series_sub", polyFunc(types.Params{{Name: "a", Type: i32}, {Name: "b", Type: i32}}, types.Params{{Name: "result", Type: i32}})),
+	"series_mul":        hostSym("series_mul", polyFunc(types.Params{{Name: "a", Type: i32}, {Name: "b", Type: i32}}, types.Params{{Name: "result", Type: i32}})),
+	"series_div":        hostSym("series_div", polyFunc(types.Params{{Name: "a", Type: i32}, {Name: "b", Type: i32}}, types.Params{{Name: "result", Type: i32}})),
+	"series_mod":        hostSym("series_mod", polyFunc(types.Params{{Name: "a", Type: i32}, {Name: "b", Type: i32}}, types.Params{{Name: "result", Type: i32}})),
+	"compare_gt":        hostSym("compare_gt", polyFunc(types.Params{{Name: "a", Type: i32}, {Name: "b", Type: i32}}, types.Params{{Name: "result", Type: i32}})),
+	"compare_lt":        hostSym("compare_lt", polyFunc(types.Params{{Name: "a", Type: i32}, {Name: "b", Type: i32}}, types.Params{{Name: "result", Type: i32}})),
+	"compare_ge":        hostSym("compare_ge", polyFunc(types.Params{{Name: "a", Type: i32}, {Name: "b", Type: i32}}, types.Params{{Name: "result", Type: i32}})),
+	"compare_le":        hostSym("compare_le", polyFunc(types.Params{{Name: "a", Type: i32}, {Name: "b", Type: i32}}, types.Params{{Name: "result", Type: i32}})),
+	"compare_eq":        hostSym("compare_eq", polyFunc(types.Params{{Name: "a", Type: i32}, {Name: "b", Type: i32}}, types.Params{{Name: "result", Type: i32}})),
+	"compare_ne":        hostSym("compare_ne", polyFunc(types.Params{{Name: "a", Type: i32}, {Name: "b", Type: i32}}, types.Params{{Name: "result", Type: i32}})),
+	"compare_gt_scalar": hostSym("compare_gt_scalar", polyFunc(types.Params{{Name: "handle", Type: i32}, {Name: "scalar", Type: tv()}}, types.Params{{Name: "result", Type: i32}})),
+	"compare_lt_scalar": hostSym("compare_lt_scalar", polyFunc(types.Params{{Name: "handle", Type: i32}, {Name: "scalar", Type: tv()}}, types.Params{{Name: "result", Type: i32}})),
+	"compare_ge_scalar": hostSym("compare_ge_scalar", polyFunc(types.Params{{Name: "handle", Type: i32}, {Name: "scalar", Type: tv()}}, types.Params{{Name: "result", Type: i32}})),
+	"compare_le_scalar": hostSym("compare_le_scalar", polyFunc(types.Params{{Name: "handle", Type: i32}, {Name: "scalar", Type: tv()}}, types.Params{{Name: "result", Type: i32}})),
+	"compare_eq_scalar": hostSym("compare_eq_scalar", polyFunc(types.Params{{Name: "handle", Type: i32}, {Name: "scalar", Type: tv()}}, types.Params{{Name: "result", Type: i32}})),
+	"compare_ne_scalar": hostSym("compare_ne_scalar", polyFunc(types.Params{{Name: "handle", Type: i32}, {Name: "scalar", Type: tv()}}, types.Params{{Name: "result", Type: i32}})),
+	"create_empty":      hostSym("create_empty", polyFunc(types.Params{{Name: "len", Type: i32}}, types.Params{{Name: "handle", Type: i32}})),
+	"set_element":       hostSym("set_element", polyFunc(types.Params{{Name: "handle", Type: i32}, {Name: "idx", Type: i32}, {Name: "value", Type: tv()}}, types.Params{{Name: "result", Type: i32}})),
+	"index":             hostSym("index", polyFunc(types.Params{{Name: "handle", Type: i32}, {Name: "idx", Type: i32}}, types.Params{{Name: "value", Type: tv()}})),
+	"negate":            hostSym("negate", polyFunc(types.Params{{Name: "handle", Type: i32}}, types.Params{{Name: "result", Type: i32}})),
+	"not_u8":            hostSym("not_u8", polyFunc(types.Params{{Name: "handle", Type: i32}}, types.Params{{Name: "result", Type: i32}})),
+	"len":               hostSym("len", polyFunc(types.Params{{Name: "handle", Type: i32}}, types.Params{{Name: "length", Type: i64}})),
+	"slice":             hostSym("slice", polyFunc(types.Params{{Name: "handle", Type: i32}, {Name: "start", Type: i32}, {Name: "end", Type: i32}}, types.Params{{Name: "result", Type: i32}})),
+}
+
+var SymbolResolver = symbol.CompoundResolver{
+	userSymbols,
+	&symbol.ModuleResolver{Name: "series", Members: hostSymbols},
 }
 
 type Module struct {

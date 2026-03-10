@@ -26,26 +26,7 @@ import (
 
 var numConstraint = types.NumericConstraint()
 
-var CompilerSymbolResolver = &symbol.ModuleResolver{
-	Name: "channel",
-	Members: symbol.MapResolver{
-		"read": {
-			Name: "read",
-			Type: types.Function(types.FunctionProperties{
-				Inputs:  types.Params{{Name: "ch", Type: types.I32()}},
-				Outputs: types.Params{{Name: "value", Type: types.Variable("T", &numConstraint)}},
-			}),
-		},
-		"write": {
-			Name: "write",
-			Type: types.Function(types.FunctionProperties{
-				Inputs: types.Params{{Name: "ch", Type: types.I32()}, {Name: "value", Type: types.Variable("T", &numConstraint)}},
-			}),
-		},
-	},
-}
-
-var SymbolResolver = symbol.MapResolver{
+var userSymbols = symbol.MapResolver{
 	"on": {
 		Name: "on",
 		Kind: symbol.KindFunction,
@@ -62,6 +43,29 @@ var SymbolResolver = symbol.MapResolver{
 			Config: types.Params{{Name: "channel", Type: types.WriteChan(types.Variable("T", nil))}},
 		}),
 	},
+}
+
+var hostSymbols = symbol.MapResolver{
+	"read": {
+		Name:     "read",
+		Internal: true,
+		Type: types.Function(types.FunctionProperties{
+			Inputs:  types.Params{{Name: "ch", Type: types.I32()}},
+			Outputs: types.Params{{Name: "value", Type: types.Variable("T", &numConstraint)}},
+		}),
+	},
+	"write": {
+		Name:     "write",
+		Internal: true,
+		Type: types.Function(types.FunctionProperties{
+			Inputs: types.Params{{Name: "ch", Type: types.I32()}, {Name: "value", Type: types.Variable("T", &numConstraint)}},
+		}),
+	},
+}
+
+var SymbolResolver = symbol.CompoundResolver{
+	userSymbols,
+	&symbol.ModuleResolver{Name: "channel", Members: hostSymbols},
 }
 
 type Module struct {
