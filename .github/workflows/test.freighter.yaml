@@ -125,6 +125,12 @@ jobs:
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
 
+      - name: Extract Go version
+        id: go-version
+        run:
+          echo "GO_VERSION=$(grep '^go ' freighter/integration/go.mod | awk '{print
+          $2}')" >> $GITHUB_OUTPUT
+
       - name: Build and Push Image
         uses: docker/build-push-action@v6
         with:
@@ -135,6 +141,7 @@ jobs:
           tags: ghcr.io/synnaxlabs/freighter-go-integration:latest
           cache-from: type=gha,scope=synnax-docker-cache
           cache-to: type=inline
+          build-args: GO_VERSION=${{ steps.go-version.outputs.GO_VERSION }}
 
   py:
     name: Test - Python
