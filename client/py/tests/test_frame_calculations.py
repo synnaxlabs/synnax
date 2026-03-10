@@ -2701,9 +2701,7 @@ class TestCalcChannelStress:
     chaos, cross-index references, and full numerical verification."""
 
     @pytest.mark.focus
-    def test_deep_chain_multi_domain_writer_streamer_chaos(
-        self, client: sy.Synnax
-    ):
+    def test_deep_chain_multi_domain_writer_streamer_chaos(self, client: sy.Synnax):
         S = sy.TimeSpan.SECOND
 
         # ── TOPOLOGY ──────────────────────────────────────────────────────
@@ -2809,15 +2807,13 @@ class TestCalcChannelStress:
                 c_lit_left.key: 1000 - a,
                 c_scaled.key: 2.5 * a,
                 c_product.key: a * b,
-                c_power.key: a ** 2,
+                c_power.key: a**2,
                 c_temp_conv.key: (a - 32) * 5 / 9,
                 c_inverse.key: 10000.0 / a,
                 c_chain2.key: (a + 10) * 3,
                 c_combo2.key: 2.5 * a + a * b,
                 c_deep3.key: (a + 10) * 3 - (1000 - a),
-                c_mega4.key: (
-                    ((a + 10) * 3 - (1000 - a)) + 10000.0 / a
-                ) / 10,
+                c_mega4.key: (((a + 10) * 3 - (1000 - a)) + 10000.0 / a) / 10,
             }
 
         def expect_b(g_vals):
@@ -2826,7 +2822,7 @@ class TestCalcChannelStress:
             gamma_off = g * 3 + 7
             return {
                 c_gamma_offset.key: gamma_off,
-                c_gamma_chain.key: gamma_off ** 2,
+                c_gamma_chain.key: gamma_off**2,
             }
 
         def verify_read(res, expected, label=""):
@@ -2852,9 +2848,17 @@ class TestCalcChannelStress:
                 )
 
         all_a_calc_keys = [
-            c_offset.key, c_lit_left.key, c_scaled.key, c_product.key,
-            c_power.key, c_temp_conv.key, c_inverse.key,
-            c_chain2.key, c_combo2.key, c_deep3.key, c_mega4.key,
+            c_offset.key,
+            c_lit_left.key,
+            c_scaled.key,
+            c_product.key,
+            c_power.key,
+            c_temp_conv.key,
+            c_inverse.key,
+            c_chain2.key,
+            c_combo2.key,
+            c_deep3.key,
+            c_mega4.key,
         ]
         all_b_calc_keys = [c_gamma_offset.key, c_gamma_chain.key]
 
@@ -2864,21 +2868,25 @@ class TestCalcChannelStress:
         with client.open_writer(
             1 * S, [ts_a.key, alpha.key, beta.key], enable_auto_commit=True
         ) as w:
-            w.write({
-                ts_a.key: [1 * S, 2 * S, 3 * S],
-                alpha.key: a1,
-                beta.key: b1,
-            })
+            w.write(
+                {
+                    ts_a.key: [1 * S, 2 * S, 3 * S],
+                    alpha.key: a1,
+                    beta.key: b1,
+                }
+            )
 
         # Domain 1 on index B: 2 samples (different count than A)
         g1 = [5.0, 15.0]
         with client.open_writer(
             1 * S, [ts_b.key, gamma.key], enable_auto_commit=True
         ) as w:
-            w.write({
-                ts_b.key: [1 * S, 2 * S],
-                gamma.key: g1,
-            })
+            w.write(
+                {
+                    ts_b.key: [1 * S, 2 * S],
+                    gamma.key: g1,
+                }
+            )
 
         # Verify reads after domain 1
         res_a = client.read(sy.TimeRange.MAX, all_a_calc_keys)
@@ -2892,21 +2900,25 @@ class TestCalcChannelStress:
         with client.open_writer(
             10 * S, [ts_a.key, alpha.key, beta.key], enable_auto_commit=True
         ) as w:
-            w.write({
-                ts_a.key: [10 * S, 11 * S, 12 * S, 13 * S],
-                alpha.key: a2,
-                beta.key: b2,
-            })
+            w.write(
+                {
+                    ts_a.key: [10 * S, 11 * S, 12 * S, 13 * S],
+                    alpha.key: a2,
+                    beta.key: b2,
+                }
+            )
 
         # Domain 2 on index B: 5 samples (more than A domain 2)
         g2 = [1.0, 100.0, 50.0, 8.0, 200.0]
         with client.open_writer(
             10 * S, [ts_b.key, gamma.key], enable_auto_commit=True
         ) as w:
-            w.write({
-                ts_b.key: [10 * S, 11 * S, 12 * S, 13 * S, 14 * S],
-                gamma.key: g2,
-            })
+            w.write(
+                {
+                    ts_b.key: [10 * S, 11 * S, 12 * S, 13 * S, 14 * S],
+                    gamma.key: g2,
+                }
+            )
 
         # Full read - should see both domains concatenated
         all_a = a1 + a2
@@ -2927,11 +2939,13 @@ class TestCalcChannelStress:
                 [ts_a.key, alpha.key, beta.key],
                 enable_auto_commit=True,
             ) as w:
-                w.write({
-                    ts_a.key: [20 * S, 21 * S],
-                    alpha.key: a3,
-                    beta.key: b3,
-                })
+                w.write(
+                    {
+                        ts_a.key: [20 * S, 21 * S],
+                        alpha.key: a3,
+                        beta.key: b3,
+                    }
+                )
 
             frame = streamer_a.read(timeout=5)
             verify_stream_frame(frame, expect_a(a3, b3), "phase2-domain3")
@@ -2944,11 +2958,13 @@ class TestCalcChannelStress:
                 [ts_a.key, alpha.key, beta.key],
                 enable_auto_commit=True,
             ) as w:
-                w.write({
-                    ts_a.key: [30 * S, 31 * S, 32 * S],
-                    alpha.key: a4,
-                    beta.key: b4,
-                })
+                w.write(
+                    {
+                        ts_a.key: [30 * S, 31 * S, 32 * S],
+                        alpha.key: a4,
+                        beta.key: b4,
+                    }
+                )
 
             frame = streamer_a.read(timeout=5)
             verify_stream_frame(frame, expect_a(a4, b4), "phase2-domain4")
@@ -2963,18 +2979,18 @@ class TestCalcChannelStress:
                     [ts_a.key, alpha.key, beta.key],
                     enable_auto_commit=True,
                 ) as w:
-                    w.write({
-                        ts_a.key: [t],
-                        alpha.key: [av],
-                        beta.key: [bv],
-                    })
+                    w.write(
+                        {
+                            ts_a.key: [t],
+                            alpha.key: [av],
+                            beta.key: [bv],
+                        }
+                    )
                 rapid_a.append(av)
                 rapid_b.append(bv)
 
                 frame = streamer_a.read(timeout=5)
-                verify_stream_frame(
-                    frame, expect_a([av], [bv]), f"phase2-rapid-{i}"
-                )
+                verify_stream_frame(frame, expect_a([av], [bv]), f"phase2-rapid-{i}")
 
         # ── PHASE 3: Close streamer, open new one, keep writing ───────────
         # This tests that a fresh streamer picks up new data correctly
@@ -2986,25 +3002,25 @@ class TestCalcChannelStress:
                 enable_auto_commit=True,
             ) as w:
                 # Write in two separate batches within the same writer
-                w.write({
-                    ts_a.key: [70 * S],
-                    alpha.key: [a5[0]],
-                    beta.key: [b5[0]],
-                })
-                frame = streamer_a2.read(timeout=5)
-                verify_stream_frame(
-                    frame, expect_a([a5[0]], [b5[0]]), "phase3-batch1"
+                w.write(
+                    {
+                        ts_a.key: [70 * S],
+                        alpha.key: [a5[0]],
+                        beta.key: [b5[0]],
+                    }
                 )
+                frame = streamer_a2.read(timeout=5)
+                verify_stream_frame(frame, expect_a([a5[0]], [b5[0]]), "phase3-batch1")
 
-                w.write({
-                    ts_a.key: [71 * S],
-                    alpha.key: [a5[1]],
-                    beta.key: [b5[1]],
-                })
-                frame = streamer_a2.read(timeout=5)
-                verify_stream_frame(
-                    frame, expect_a([a5[1]], [b5[1]]), "phase3-batch2"
+                w.write(
+                    {
+                        ts_a.key: [71 * S],
+                        alpha.key: [a5[1]],
+                        beta.key: [b5[1]],
+                    }
                 )
+                frame = streamer_a2.read(timeout=5)
+                verify_stream_frame(frame, expect_a([a5[1]], [b5[1]]), "phase3-batch2")
 
         # ── PHASE 4: Concurrent streamers on different indexes ────────────
         with client.open_streamer(all_b_calc_keys) as streamer_b:
@@ -3017,21 +3033,25 @@ class TestCalcChannelStress:
                     [ts_a.key, alpha.key, beta.key],
                     enable_auto_commit=True,
                 ) as wa:
-                    wa.write({
-                        ts_a.key: [80 * S],
-                        alpha.key: a6,
-                        beta.key: b6,
-                    })
+                    wa.write(
+                        {
+                            ts_a.key: [80 * S],
+                            alpha.key: a6,
+                            beta.key: b6,
+                        }
+                    )
 
                 with client.open_writer(
                     80 * S,
                     [ts_b.key, gamma.key],
                     enable_auto_commit=True,
                 ) as wb:
-                    wb.write({
-                        ts_b.key: [80 * S],
-                        gamma.key: g3,
-                    })
+                    wb.write(
+                        {
+                            ts_b.key: [80 * S],
+                            gamma.key: g3,
+                        }
+                    )
 
                 frame_a = streamer_a3.read(timeout=5)
                 verify_stream_frame(frame_a, expect_a(a6, b6), "phase4-A")
@@ -3192,32 +3212,24 @@ class TestCalcChannelEdgeCases:
     @pytest.mark.focus
     def test_float_literal_plus_i32_rejects(self, setup):
         client, _, ch = setup
-        self._expect_create_fail(
-            client, f"return 2.5 + {ch[sy.DataType.INT32].name}"
-        )
+        self._expect_create_fail(client, f"return 2.5 + {ch[sy.DataType.INT32].name}")
 
     @pytest.mark.focus
     def test_float_literal_minus_i64_rejects(self, setup):
         client, _, ch = setup
-        self._expect_create_fail(
-            client, f"return 3.7 - {ch[sy.DataType.INT64].name}"
-        )
+        self._expect_create_fail(client, f"return 3.7 - {ch[sy.DataType.INT64].name}")
 
     # --- Multiple literals, channel in middle ---
 
     @pytest.mark.focus
     def test_literal_channel_literal_add(self, setup):
         client, _, ch = setup
-        self._create_and_read(
-            client, f"return 5 + {ch[sy.DataType.FLOAT32].name} + 10"
-        )
+        self._create_and_read(client, f"return 5 + {ch[sy.DataType.FLOAT32].name} + 10")
 
     @pytest.mark.focus
     def test_literal_channel_literal_mixed_ops(self, setup):
         client, _, ch = setup
-        self._create_and_read(
-            client, f"return 2 * {ch[sy.DataType.FLOAT64].name} - 5"
-        )
+        self._create_and_read(client, f"return 2 * {ch[sy.DataType.FLOAT64].name} - 5")
 
     @pytest.mark.focus
     def test_literal_channel_literal_div_both_sides(self, setup):
@@ -3277,30 +3289,22 @@ class TestCalcChannelEdgeCases:
     @pytest.mark.focus
     def test_f32_power_int_literal(self, setup):
         client, _, ch = setup
-        self._create_and_read(
-            client, f"return {ch[sy.DataType.FLOAT32].name} ^ 2"
-        )
+        self._create_and_read(client, f"return {ch[sy.DataType.FLOAT32].name} ^ 2")
 
     @pytest.mark.focus
     def test_f64_power_int_literal(self, setup):
         client, _, ch = setup
-        self._create_and_read(
-            client, f"return {ch[sy.DataType.FLOAT64].name} ^ 3"
-        )
+        self._create_and_read(client, f"return {ch[sy.DataType.FLOAT64].name} ^ 3")
 
     @pytest.mark.focus
     def test_f32_power_float_literal(self, setup):
         client, _, ch = setup
-        self._create_and_read(
-            client, f"return {ch[sy.DataType.FLOAT32].name} ^ 2.5"
-        )
+        self._create_and_read(client, f"return {ch[sy.DataType.FLOAT32].name} ^ 2.5")
 
     @pytest.mark.focus
     def test_i32_power_int_literal(self, setup):
         client, _, ch = setup
-        self._create_and_read(
-            client, f"return {ch[sy.DataType.INT32].name} ^ 2"
-        )
+        self._create_and_read(client, f"return {ch[sy.DataType.INT32].name} ^ 2")
 
     @pytest.mark.focus
     def test_power_in_complex_expression(self, setup):
@@ -3319,9 +3323,7 @@ class TestCalcChannelEdgeCases:
     @pytest.mark.focus
     def test_negate_channel(self, setup):
         client, _, ch = setup
-        self._create_and_read(
-            client, f"return -{ch[sy.DataType.FLOAT32].name}"
-        )
+        self._create_and_read(client, f"return -{ch[sy.DataType.FLOAT32].name}")
 
     @pytest.mark.focus
     def test_negate_expression(self, setup):
@@ -3338,9 +3340,7 @@ class TestCalcChannelEdgeCases:
     @pytest.mark.focus
     def test_double_negate(self, setup):
         client, _, ch = setup
-        self._create_and_read(
-            client, f"return -(-{ch[sy.DataType.FLOAT64].name})"
-        )
+        self._create_and_read(client, f"return -(-{ch[sy.DataType.FLOAT64].name})")
 
     # --- Chained same operator ---
 
@@ -3412,41 +3412,31 @@ class TestCalcChannelEdgeCases:
     def test_three_f32_channels_mul_div_literal(self, setup):
         client, _, ch = setup
         f32 = ch[sy.DataType.FLOAT32].name
-        self._create_and_read(
-            client, f"return ({f32} * {f32} * {f32}) / 1000.0"
-        )
+        self._create_and_read(client, f"return ({f32} * {f32} * {f32}) / 1000.0")
 
     @pytest.mark.focus
     def test_three_f32_channels_nested_parens(self, setup):
         client, _, ch = setup
         f32 = ch[sy.DataType.FLOAT32].name
-        self._create_and_read(
-            client, f"return (({f32} * {f32}) * {f32}) / 1000.0"
-        )
+        self._create_and_read(client, f"return (({f32} * {f32}) * {f32}) / 1000.0")
 
     @pytest.mark.focus
     def test_three_f32_channels_right_nested(self, setup):
         client, _, ch = setup
         f32 = ch[sy.DataType.FLOAT32].name
-        self._create_and_read(
-            client, f"return ({f32} * ({f32} * {f32})) / 1000.0"
-        )
+        self._create_and_read(client, f"return ({f32} * ({f32} * {f32})) / 1000.0")
 
     @pytest.mark.focus
     def test_three_f64_channels_mul_div_int_literal(self, setup):
         client, _, ch = setup
         f64 = ch[sy.DataType.FLOAT64].name
-        self._create_and_read(
-            client, f"return ({f64} * {f64} * {f64}) / 1000"
-        )
+        self._create_and_read(client, f"return ({f64} * {f64} * {f64}) / 1000")
 
     @pytest.mark.focus
     def test_three_i32_channels_mul_div_literal(self, setup):
         client, _, ch = setup
         i32 = ch[sy.DataType.INT32].name
-        self._create_and_read(
-            client, f"return ({i32} * {i32} * {i32}) / 100"
-        )
+        self._create_and_read(client, f"return ({i32} * {i32} * {i32}) / 100")
 
     # --- Literal-only subexpressions ---
 
@@ -3494,46 +3484,34 @@ class TestCalcChannelEdgeCases:
     def test_exact_integer_float_with_i32(self, setup):
         """5.0 is an exact integer float, should coerce to i32."""
         client, _, ch = setup
-        self._create_and_read(
-            client, f"return {ch[sy.DataType.INT32].name} + 5.0"
-        )
+        self._create_and_read(client, f"return {ch[sy.DataType.INT32].name} + 5.0")
 
     @pytest.mark.focus
     def test_exact_integer_float_literal_left_i32(self, setup):
         """5.0 on left side with i32 channel."""
         client, _, ch = setup
-        self._create_and_read(
-            client, f"return 5.0 + {ch[sy.DataType.INT32].name}"
-        )
+        self._create_and_read(client, f"return 5.0 + {ch[sy.DataType.INT32].name}")
 
     @pytest.mark.focus
     def test_non_exact_float_with_i32_rejects(self, setup):
         """5.5 is not an exact integer, should reject with i32."""
         client, _, ch = setup
-        self._expect_create_fail(
-            client, f"return {ch[sy.DataType.INT32].name} + 5.5"
-        )
+        self._expect_create_fail(client, f"return {ch[sy.DataType.INT32].name} + 5.5")
 
     @pytest.mark.focus
     def test_zero_literal_plus_f32(self, setup):
         client, _, ch = setup
-        self._create_and_read(
-            client, f"return 0 + {ch[sy.DataType.FLOAT32].name}"
-        )
+        self._create_and_read(client, f"return 0 + {ch[sy.DataType.FLOAT32].name}")
 
     @pytest.mark.focus
     def test_one_literal_times_f32(self, setup):
         client, _, ch = setup
-        self._create_and_read(
-            client, f"return 1 * {ch[sy.DataType.FLOAT32].name}"
-        )
+        self._create_and_read(client, f"return 1 * {ch[sy.DataType.FLOAT32].name}")
 
     @pytest.mark.focus
     def test_zero_point_zero_plus_f64(self, setup):
         client, _, ch = setup
-        self._create_and_read(
-            client, f"return 0.0 + {ch[sy.DataType.FLOAT64].name}"
-        )
+        self._create_and_read(client, f"return 0.0 + {ch[sy.DataType.FLOAT64].name}")
 
     # --- Mixed type rejection (should all fail at creation) ---
 
@@ -3592,9 +3570,7 @@ class TestCalcChannelEdgeCases:
         f32 = ch[sy.DataType.FLOAT32].name
         f64 = ch[sy.DataType.FLOAT64].name
         i32 = ch[sy.DataType.INT32].name
-        self._expect_create_fail(
-            client, f"return 1 + {f32} + {f64} + {i32}"
-        )
+        self._expect_create_fail(client, f"return 1 + {f32} + {f64} + {i32}")
 
     # --- Nested calc channels ---
 
@@ -3729,9 +3705,7 @@ class TestCalcChannelEdgeCases:
     def test_inverse_pattern(self, setup):
         """1 / channel"""
         client, _, ch = setup
-        self._create_and_read(
-            client, f"return 1 / {ch[sy.DataType.FLOAT64].name}"
-        )
+        self._create_and_read(client, f"return 1 / {ch[sy.DataType.FLOAT64].name}")
 
     @pytest.mark.focus
     def test_scaling_offset_pattern(self, setup):
@@ -3745,15 +3719,11 @@ class TestCalcChannelEdgeCases:
         """(a - b) / (a + b) with same channel"""
         client, _, ch = setup
         f32 = ch[sy.DataType.FLOAT32].name
-        self._create_and_read(
-            client, f"return ({f32} - 5) / ({f32} + 5)"
-        )
+        self._create_and_read(client, f"return ({f32} - 5) / ({f32} + 5)")
 
     @pytest.mark.focus
     def test_literal_sandwich(self, setup):
         """lit op channel op lit op channel op lit"""
         client, _, ch = setup
         f32 = ch[sy.DataType.FLOAT32].name
-        self._create_and_read(
-            client, f"return 1 + {f32} + 2 + {f32} + 3"
-        )
+        self._create_and_read(client, f"return 1 + {f32} + 2 + {f32} + 3")
