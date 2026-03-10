@@ -150,8 +150,8 @@ std::pair<ReadTaskConfig, x::errors::Error> ReadTaskConfig::parse(
 
     // Build sampling groups: fields sharing an index channel must be written
     // atomically. Fields with no index (ch.index == 0) get their own group.
-    std::map<std::pair<int, synnax::channel::Key>, size_t> group_map;
-    for (int ei = 0; ei < static_cast<int>(cfg.endpoints.size()); ei++) {
+    std::map<std::pair<size_t, synnax::channel::Key>, size_t> group_map;
+    for (size_t ei = 0; ei < cfg.endpoints.size(); ei++) {
         const auto &ep = cfg.endpoints[ei];
         for (size_t fi = 0; fi < ep.fields.size(); fi++) {
             const auto &field = ep.fields[fi];
@@ -161,7 +161,7 @@ std::pair<ReadTaskConfig, x::errors::Error> ReadTaskConfig::parse(
                 cfg.groups.push_back({
                     .index_key = 0,
                     .software_timed_index = false,
-                    .endpoint_index = static_cast<size_t>(ei),
+                    .endpoint_index = ei,
                     .field_indices = {fi},
                 });
                 continue;
@@ -173,7 +173,7 @@ std::pair<ReadTaskConfig, x::errors::Error> ReadTaskConfig::parse(
                     .index_key = ch.index,
                     .software_timed_index = cfg.software_timed_indexes.count(ch.index) >
                                             0,
-                    .endpoint_index = static_cast<size_t>(ei),
+                    .endpoint_index = ei,
                     .field_indices = {fi},
                 });
             } else {
