@@ -15,8 +15,6 @@ import (
 
 	"github.com/synnaxlabs/arc/runtime/node"
 	"github.com/synnaxlabs/arc/runtime/scheduler"
-	"github.com/synnaxlabs/arc/runtime/state"
-	"github.com/synnaxlabs/arc/stl"
 	stlchannel "github.com/synnaxlabs/arc/stl/channel"
 	"github.com/synnaxlabs/arc/stl/constant"
 	stlerrors "github.com/synnaxlabs/arc/stl/errors"
@@ -43,10 +41,10 @@ import (
 )
 
 type calcState struct {
-	nodes   *state.State
-	channel *stlchannel.State
-	series  *series.State
-	strings *stlstrings.State
+	nodes   *node.ProgramState
+	channel *stlchannel.ProgramState
+	series  *series.ProgramState
+	strings *stlstrings.ProgramState
 }
 
 // Calculator is an engine for executing expressions and operations in calculated
@@ -97,16 +95,16 @@ func Open(
 	}
 
 	var cs calcState
-	cs.channel = stlchannel.NewState(cfg.Module.StateConfig.ChannelDigests)
-	cs.series = series.NewState()
-	cs.strings = stlstrings.NewState()
+	cs.channel = stlchannel.NewProgramState(cfg.Module.StateConfig.ChannelDigests)
+	cs.series = series.NewProgramState()
+	cs.strings = stlstrings.NewProgramState()
 
 	channelMod, err := stlchannel.NewModule(ctx, cs.channel, cs.strings, nil)
 	if err != nil {
 		return nil, err
 	}
 
-	f := stl.CompoundFactory{
+	f := node.CompoundFactory{
 		channelMod,
 		selector.NewModule(),
 		constant.NewModule(),
@@ -159,7 +157,7 @@ func Open(
 		})
 	}
 
-	cs.nodes = state.New(cfg.Module.StateConfig.IR)
+	cs.nodes = node.New(cfg.Module.StateConfig.IR)
 	nodes := make(map[string]node.Node)
 	for _, irNode := range cfg.Module.Nodes {
 		n, err := f.Create(ctx, node.Config{

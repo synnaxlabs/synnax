@@ -9,13 +9,13 @@
 
 #include "gtest/gtest.h"
 
-#include "arc/cpp/module/module.h"
-#include "arc/go/module/arc/go/module/module.pb.h"
+#include "arc/cpp/program/program.h"
+#include "arc/go/program/arc/go/program/program.pb.h"
 
-namespace arc::module {
-/// @brief it should correctly round-trip Module through protobuf
-TEST(ModuleTest, testModuleProtobufRoundTrip) {
-    Module original;
+namespace arc::program {
+/// @brief it should correctly round-trip Program through protobuf
+TEST(ProgramTest, testProgramProtobufRoundTrip) {
+    Program original;
 
     // Add some IR data
     ir::Node node;
@@ -30,10 +30,10 @@ TEST(ModuleTest, testModuleProtobufRoundTrip) {
     original.output_memory_bases["output1"] = 1024;
     original.output_memory_bases["output2"] = 2048;
 
-    v1::module::PBModule pb;
+    v1::program::PBProgram pb;
     original.to_proto(&pb);
 
-    Module reconstructed(pb);
+    Program reconstructed(pb);
 
     ASSERT_EQ(reconstructed.nodes.size(), 1);
     ASSERT_EQ(reconstructed.nodes[0].key, "test_node");

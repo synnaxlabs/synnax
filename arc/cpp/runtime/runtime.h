@@ -51,7 +51,7 @@ struct Output {
 };
 
 struct Config {
-    module::Module mod;
+    program::Program mod;
     x::breaker::Config breaker;
     std::function<std::pair<std::vector<state::ChannelDigest>, x::errors::Error>(
         const std::vector<types::ChannelKey> &

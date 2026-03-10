@@ -15,7 +15,7 @@
 
 #include "x/cpp/errors/errors.h"
 
-#include "arc/cpp/module/module.h"
+#include "arc/cpp/program/program.h"
 #include "arc/cpp/runtime/errors/errors.h"
 #include "arc/cpp/stl/stl.h"
 #include "arc/cpp/stl/str/state.h"
@@ -151,7 +151,7 @@ const auto BASE_ERROR = errors::BASE.sub("wasm");
 const auto INITIALIZATION_ERROR = BASE_ERROR.sub("initialization");
 
 struct ModuleConfig {
-    module::Module module;
+    program::Program module;
     std::vector<std::shared_ptr<stl::Module>> modules;
     std::shared_ptr<stl::str::State> strings;
     std::uint32_t stack_size = 2 * 1024 * 1024; // 2MB (Wasmtime default)

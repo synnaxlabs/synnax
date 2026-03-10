@@ -19,7 +19,7 @@
 #include "x/cpp/uuid/uuid.h"
 
 #include "arc/cpp/graph/graph.h"
-#include "arc/cpp/module/module.h"
+#include "arc/cpp/program/program.h"
 #include "arc/cpp/text/text.h"
 #include "core/pkg/api/grpc/v1/arc.pb.h"
 
@@ -79,8 +79,8 @@ struct Arc {
     ::arc::graph::Graph graph;
     /// @brief Text-based source code representation.
     ::arc::text::Text text;
-    /// @brief Compiled module with IR and WASM bytecode.
-    ::arc::module::Module module;
+    /// @brief Compiled program with IR and WASM bytecode.
+    ::arc::program::Program program;
     /// @brief Whether the Arc program should be deployed and running.
     bool deploy = false;
     /// @brief Version string for the Arc program.

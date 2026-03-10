@@ -18,7 +18,7 @@
 #include "x/cpp/json/json.h"
 #include "x/cpp/uuid/uuid.h"
 
-#include "arc/cpp/module/module.h"
+#include "arc/cpp/program/program.h"
 #include "arc/cpp/runtime/errors/errors.h"
 #include "arc/cpp/runtime/loop/loop.h"
 #include "arc/cpp/runtime/runtime.h"
@@ -35,7 +35,7 @@ namespace driver::arc {
 /// @brief configuration for an arc runtime task.
 struct TaskConfig : common::BaseTaskConfig {
     std::string arc_key;
-    ::arc::module::Module module;
+    ::arc::program::Program module;
     ::arc::runtime::loop::Config loop;
 
     TaskConfig(TaskConfig &&other) noexcept:
@@ -63,7 +63,7 @@ struct TaskConfig : common::BaseTaskConfig {
             synnax::arc::RetrieveOptions{.compile = true}
         );
         if (arc_err) return {std::move(cfg), arc_err};
-        cfg.module = ::arc::module::Module(arc_data.module);
+        cfg.module = ::arc::program::Program(arc_data.program);
         return {std::move(cfg), x::errors::NIL};
     }
 };

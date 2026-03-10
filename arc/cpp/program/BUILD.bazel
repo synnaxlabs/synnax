@@ -2,21 +2,21 @@ load("@rules_cc//cc:cc_library.bzl", "cc_library")
 load("@rules_cc//cc:cc_test.bzl", "cc_test")
 
 cc_library(
-    name = "module",
-    hdrs = ["module.h"],
+    name = "program",
+    hdrs = ["program.h"],
     visibility = ["//visibility:public"],
     deps = [
         "//arc/cpp/ir",
-        "//arc/go/module:module_grpc",
+        "//arc/go/program:program_grpc",
     ],
 )
 
 cc_test(
-    name = "module_test",
-    srcs = ["module_test.cpp"],
+    name = "program_test",
+    srcs = ["program_test.cpp"],
     deps = [
-        ":module",
-        "//arc/go/module:module_grpc",
+        ":program",
+        "//arc/go/program:program_grpc",
         "@googletest//:gtest_main",
     ],
 )

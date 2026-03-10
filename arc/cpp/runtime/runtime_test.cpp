@@ -391,7 +391,6 @@ struct DeadlineRuntimeFixture {
         auto rt = std::make_shared<Runtime>(
             cfg,
             nullptr,
-            nullptr,
             state,
             std::move(scheduler),
             std::move(mock_loop),

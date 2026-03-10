@@ -600,7 +600,7 @@ TEST(WaitTest, CallsMarkSelfChangedOnChannelInputToSurvive) {
     auto ctx2 = make_context(
         x::telem::MILLISECOND * 200,
         x::telem::TimeSpan(0),
-        node::RunReason::ChannelInput
+        runtime::node::RunReason::ChannelInput
     );
     ctx2.mark_self_changed = [&]() { self_changed_calls++; };
     ctx2.mark_changed = [&](const std::string &) { changed_called = true; };
@@ -950,7 +950,7 @@ TEST(IntervalDeadlineTest, SetsDeadlineOnNonTimerTick) {
     auto ctx2 = make_context(
         x::telem::MILLISECOND * 500,
         x::telem::TimeSpan(0),
-        node::RunReason::ChannelInput
+        runtime::node::RunReason::ChannelInput
     );
     ctx2.set_deadline = [&](x::telem::TimeSpan d) { reported_deadline = d; };
     ASSERT_NIL(node.next(ctx2));
@@ -993,7 +993,7 @@ TEST(WaitDeadlineTest, SetsDeadlineOnChannelInput) {
     auto ctx = make_context(
         x::telem::SECOND * 2,
         x::telem::TimeSpan(0),
-        node::RunReason::ChannelInput
+        runtime::node::RunReason::ChannelInput
     );
     ctx.set_deadline = [&](x::telem::TimeSpan d) { reported_deadline = d; };
     ASSERT_NIL(node.next(ctx));

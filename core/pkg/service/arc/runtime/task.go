@@ -19,8 +19,6 @@ import (
 	"github.com/synnaxlabs/arc/ir"
 	"github.com/synnaxlabs/arc/runtime/node"
 	"github.com/synnaxlabs/arc/runtime/scheduler"
-	nodestate "github.com/synnaxlabs/arc/runtime/state"
-	"github.com/synnaxlabs/arc/stl"
 	"github.com/synnaxlabs/arc/stl/channel"
 	"github.com/synnaxlabs/arc/stl/constant"
 	stlcontrol "github.com/synnaxlabs/arc/stl/control"
@@ -101,11 +99,11 @@ func (t *taskImpl) start(ctx context.Context) error {
 		return err
 	}
 
-	drt.state.nodes = nodestate.New(stateCfg.IR)
-	drt.state.channel = channel.NewState(stateCfg.ChannelDigests)
-	drt.state.series = series.NewState()
-	drt.state.strings = stlstrings.NewState()
-	drt.state.control = &stlcontrol.State{}
+	drt.state.nodes = node.New(stateCfg.IR)
+	drt.state.channel = channel.NewProgramState(stateCfg.ChannelDigests)
+	drt.state.series = series.NewProgramState()
+	drt.state.strings = stlstrings.NewProgramState()
+	drt.state.control = &stlcontrol.ProgramState{}
 
 	var wasmRT wazero.Runtime
 	if len(t.prog.Program.WASM) > 0 {
@@ -146,7 +144,7 @@ func (t *taskImpl) start(ctx context.Context) error {
 		return err
 	}
 
-	f := stl.CompoundFactory{
+	f := node.CompoundFactory{
 		channelMod,
 		statefulMod,
 		timeMod,
@@ -362,11 +360,11 @@ func (t *taskImpl) setRuntimeError(nodeKey string, err error) {
 }
 
 type state struct {
-	nodes   *nodestate.State
-	channel *channel.State
-	series  *series.State
-	strings *stlstrings.State
-	control *stlcontrol.State
+	nodes   *node.ProgramState
+	channel *channel.ProgramState
+	series  *series.ProgramState
+	strings *stlstrings.ProgramState
+	control *stlcontrol.ProgramState
 }
 
 type dataRuntime struct {

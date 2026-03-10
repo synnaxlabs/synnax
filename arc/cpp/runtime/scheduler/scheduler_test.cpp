@@ -1819,7 +1819,7 @@ TEST(RealNodeSchedulerTest, WaitOneShotEdgeFiresAfterDuration) {
         errors::noop_handler
     );
 
-    time::Factory factory;
+    stl::time::Module factory;
     auto [wait_node, err] = factory.create(
         node::Config(wait_ir, wait_ir.nodes[0], ASSERT_NIL_P(state.node("wait_0")))
     );

@@ -40,7 +40,7 @@ std::string random_name(const std::string &prefix) {
 }
 
 /// @brief Compiles an Arc program via the Synnax client.
-arc::module::Module
+arc::program::Program
 compile_arc(const synnax::Synnax &client, const std::string &source) {
     auto arc = synnax::arc::Arc{.name = random_name("test_arc")};
     arc.text.raw = source;
@@ -51,12 +51,12 @@ compile_arc(const synnax::Synnax &client, const std::string &source) {
     opts.compile = true;
     auto [compiled, err] = client.arcs.retrieve_by_key(arc.key, opts);
     if (err) throw std::runtime_error("Failed to compile arc: " + err.message());
-    return compiled.module;
+    return compiled.program;
 }
 
 /// @brief Finds the IR node with the given type in the module.
 const arc::ir::Node *
-find_node_by_type(const arc::module::Module &mod, const std::string &type) {
+find_node_by_type(const arc::program::Program &mod, const std::string &type) {
     for (const auto &node: mod.nodes)
         if (node.type == type) return &node;
     return nullptr;

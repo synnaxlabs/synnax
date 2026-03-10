@@ -30,7 +30,7 @@ std::string random_name(const std::string &prefix) {
 }
 
 /// @brief Compiles an Arc program via the Synnax client.
-arc::module::Module
+arc::program::Program
 compile_arc(const synnax::Synnax &client, const std::string &source) {
     synnax::arc::Arc arc{
         .name = random_name("test_arc"),
@@ -41,13 +41,13 @@ compile_arc(const synnax::Synnax &client, const std::string &source) {
 
     auto [compiled, err] = client.arcs.retrieve_by_key(arc.key, {.compile = true});
     if (err) throw std::runtime_error("Failed to compile arc: " + err.message());
-    return compiled.module;
+    return compiled.program;
 }
 }
 
 /// @brief Module::open returns error for empty WASM bytes.
 TEST(ModuleOpenTest, ReturnsErrorForEmptyWasmBytes) {
-    arc::module::Module mod;
+    arc::program::Program mod;
     mod.wasm = {};
     const ModuleConfig cfg{.module = mod};
     const auto [module, err] = Module::open(cfg);
@@ -57,7 +57,7 @@ TEST(ModuleOpenTest, ReturnsErrorForEmptyWasmBytes) {
 
 /// @brief Module::open returns error for invalid WASM bytes.
 TEST(ModuleOpenTest, ReturnsErrorForInvalidWasmBytes) {
-    arc::module::Module mod;
+    arc::program::Program mod;
     mod.wasm = {0x00, 0x01, 0x02, 0x03};
     const ModuleConfig cfg{.module = mod};
     const auto [module, err] = Module::open(cfg);

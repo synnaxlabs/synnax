@@ -16,20 +16,20 @@
 #include <vector>
 
 #include "arc/cpp/ir/ir.h"
-#include "arc/go/module/arc/go/module/module.pb.h"
+#include "arc/go/program/arc/go/program/program.pb.h"
 
-namespace arc::module {
-struct Module : ir::IR {
+namespace arc::program {
+struct Program : ir::IR {
     std::vector<uint8_t> wasm;
     std::map<std::string, uint32_t> output_memory_bases;
 
-    explicit Module(const v1::module::PBModule &pb): IR(pb.ir()) {
+    explicit Program(const v1::program::PBProgram &pb): IR(pb.ir()) {
         this->wasm.assign(pb.wasm().begin(), pb.wasm().end());
         for (const auto &[key, value]: pb.output_memory_bases())
             this->output_memory_bases[key] = value;
     }
 
-    void to_proto(v1::module::PBModule *pb) const {
+    void to_proto(v1::program::PBProgram *pb) const {
         IR::to_proto(pb->mutable_ir());
         pb->set_wasm(wasm.data(), wasm.size());
         auto *bases_map = pb->mutable_output_memory_bases();
@@ -37,12 +37,12 @@ struct Module : ir::IR {
             (*bases_map)[key] = value;
     }
 
-    Module() = default;
+    Program() = default;
 
-    /// @brief Returns a human-readable string representation of the module.
+    /// @brief Returns a human-readable string representation of the program.
     [[nodiscard]] std::string to_string() const {
         std::ostringstream ss;
-        ss << "Arc Module\n";
+        ss << "Arc Program\n";
 
         const bool has_content = !functions.empty() || !nodes.empty() ||
                                  !edges.empty() || !strata.empty() ||
@@ -53,7 +53,7 @@ struct Module : ir::IR {
         return ss.str();
     }
 
-    friend std::ostream &operator<<(std::ostream &os, const Module &m) {
+    friend std::ostream &operator<<(std::ostream &os, const Program &m) {
         return os << m.to_string();
     }
 
