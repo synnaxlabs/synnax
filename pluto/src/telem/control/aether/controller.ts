@@ -89,6 +89,7 @@ export class Controller
 
   private readonly registry = new Map<AetherControllerTelem, null>();
   private writer?: framer.Writer;
+  private acquirePromise?: Promise<void>;
 
   afterUpdate(ctx: aether.Context): void {
     const { internal: i } = this;
@@ -135,6 +136,16 @@ export class Controller
   }
 
   private async doAcquire(): Promise<void> {
+    if (this.acquirePromise != null) return await this.acquirePromise;
+    this.acquirePromise = this.doAcquireImpl();
+    try {
+      await this.acquirePromise;
+    } finally {
+      this.acquirePromise = undefined;
+    }
+  }
+
+  private async doAcquireImpl(): Promise<void> {
     const { client, addStatus } = this.internal;
     if (client == null)
       return addStatus({
@@ -224,9 +235,7 @@ export class Controller
 
   async setAuthority(channels: channel.Keys, value: control.Authority): Promise<void> {
     await this.withRetry(async () =>
-      this.writer?.setAuthority(
-        Object.fromEntries(channels.map((k) => [k, value])),
-      ),
+      this.writer?.setAuthority(Object.fromEntries(channels.map((k) => [k, value]))),
     );
   }
 
