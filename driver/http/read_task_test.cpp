@@ -13,6 +13,7 @@
 #include "x/cpp/defer/defer.h"
 #include "x/cpp/test/test.h"
 
+#include "driver/http/device/device.h"
 #include "driver/http/errors/errors.h"
 #include "driver/http/mock/server.h"
 #include "driver/http/read_task.h"
@@ -20,7 +21,8 @@
 namespace driver::http {
 namespace {
 /// @brief helper to build a ReadTaskSource from config and a mock server URL.
-std::pair<std::unique_ptr<ReadTaskSource>, x::errors::Error> make_source(
+/// Each call creates its own Processor so tests have independent lifecycles.
+std::pair<std::unique_ptr<ReadTaskSource>, std::shared_ptr<Processor>> make_source(
     const ReadTaskConfig &cfg,
     const std::string &base_url,
     const x::json::json &conn_extra = x::json::json::object()
@@ -34,16 +36,22 @@ std::pair<std::unique_ptr<ReadTaskSource>, x::errors::Error> make_source(
     auto conn_parser = x::json::Parser(conn_json);
     auto conn = device::ConnectionConfig(conn_parser);
 
-    std::vector<device::RequestConfig> request_configs;
-    request_configs.reserve(cfg.endpoints.size());
-    for (const auto &ep: cfg.endpoints)
-        request_configs.push_back(ep.request);
+    std::vector<Request> requests;
+    requests.reserve(cfg.endpoints.size());
+    for (const auto &ep: cfg.endpoints) {
+        auto req = device::build_request(conn, ep.request);
+        req.body = ep.body;
+        requests.push_back(std::move(req));
+    }
 
-    auto [client, err] = device::Client::create(std::move(conn), request_configs);
-    if (err) return {nullptr, err};
+    auto processor = std::make_shared<Processor>();
     return {
-        std::make_unique<ReadTaskSource>(ReadTaskConfig(cfg), std::move(client)),
-        x::errors::NIL,
+        std::make_unique<ReadTaskSource>(
+            ReadTaskConfig(cfg),
+            processor,
+            std::move(requests)
+        ),
+        std::move(processor),
     };
 }
 }
@@ -145,7 +153,7 @@ TEST(HTTPReadTask, SingleEndpointGETNumericField) {
     };
     cfg.channels[2] = {.name = "humidity", .data_type = x::telem::FLOAT64_T, .key = 2};
 
-    auto source = ASSERT_NIL_P(make_source(cfg, server.base_url()));
+    auto [source, processor] = make_source(cfg, server.base_url());
 
     auto breaker = x::breaker::Breaker(x::breaker::Config{.name = "test"});
     breaker.start();
@@ -195,7 +203,7 @@ TEST(HTTPReadTask, NestedJSONPointerPaths) {
 
     cfg.channels[1] = {.name = "sensor_0", .data_type = x::telem::FLOAT64_T, .key = 1};
 
-    auto source = ASSERT_NIL_P(make_source(cfg, server.base_url()));
+    auto [source, processor] = make_source(cfg, server.base_url());
 
     auto breaker = x::breaker::Breaker(x::breaker::Config{.name = "test"});
     breaker.start();
@@ -242,7 +250,7 @@ TEST(HTTPReadTask, MissingJSONFieldWarning) {
 
     cfg.channels[1] = {.name = "missing", .data_type = x::telem::FLOAT64_T, .key = 1};
 
-    auto source = ASSERT_NIL_P(make_source(cfg, server.base_url()));
+    auto [source, processor] = make_source(cfg, server.base_url());
 
     auto breaker = x::breaker::Breaker(x::breaker::Config{.name = "test"});
     breaker.start();
@@ -254,7 +262,7 @@ TEST(HTTPReadTask, MissingJSONFieldWarning) {
     EXPECT_EQ(fr.size(), 0);
 }
 
-/// @brief it should return SERVER_ERROR on 5xx status codes.
+/// @brief it should return TEMPORARY_ERROR on 5xx status codes.
 TEST(HTTPReadTask, ServerErrorOn5xx) {
     mock::Server server(
         mock::ServerConfig{
@@ -289,25 +297,25 @@ TEST(HTTPReadTask, ServerErrorOn5xx) {
 
     cfg.channels[1] = {.name = "val", .data_type = x::telem::FLOAT64_T, .key = 1};
 
-    auto source = ASSERT_NIL_P(make_source(cfg, server.base_url()));
+    auto [source, processor] = make_source(cfg, server.base_url());
 
     auto breaker = x::breaker::Breaker(x::breaker::Config{.name = "test"});
     breaker.start();
     x::telem::Frame fr;
     auto res = source->read(breaker, fr);
     breaker.stop();
-    ASSERT_OCCURRED_AS(res.error, errors::SERVER_ERROR);
+    ASSERT_OCCURRED_AS(res.error, errors::TEMPORARY_ERROR);
 }
 
-/// @brief it should return CLIENT_ERROR on 4xx status codes.
-TEST(HTTPReadTask, ClientErrorOn4xx) {
+/// @brief it should return CRITICAL_ERROR on non-retryable 4xx status codes.
+TEST(HTTPReadTask, CriticalErrorOnNonRetryable4xx) {
     mock::Server server(
         mock::ServerConfig{
             .routes = {{
                 .method = Method::GET,
                 .path = "/api/data",
-                .status_code = 404,
-                .response_body = R"({"error":"not found"})",
+                .status_code = 400,
+                .response_body = R"({"error":"bad request"})",
             }},
         }
     );
@@ -334,14 +342,14 @@ TEST(HTTPReadTask, ClientErrorOn4xx) {
 
     cfg.channels[1] = {.name = "val", .data_type = x::telem::FLOAT64_T, .key = 1};
 
-    auto source = ASSERT_NIL_P(make_source(cfg, server.base_url()));
+    auto [source, processor] = make_source(cfg, server.base_url());
 
     auto breaker = x::breaker::Breaker(x::breaker::Config{.name = "test"});
     breaker.start();
     x::telem::Frame fr;
     auto res = source->read(breaker, fr);
     breaker.stop();
-    ASSERT_OCCURRED_AS(res.error, errors::CLIENT_ERROR);
+    ASSERT_OCCURRED_AS(res.error, errors::CRITICAL_ERROR);
 }
 
 /// @brief it should convert JSON types correctly (bool to uint8, string to string).
@@ -390,7 +398,7 @@ TEST(HTTPReadTask, TypeConversions) {
     cfg.channels[2] = {.name = "label", .data_type = x::telem::STRING_T, .key = 2};
     cfg.channels[3] = {.name = "count", .data_type = x::telem::INT32_T, .key = 3};
 
-    auto source = ASSERT_NIL_P(make_source(cfg, server.base_url()));
+    auto [source, processor] = make_source(cfg, server.base_url());
 
     auto breaker = x::breaker::Breaker(x::breaker::Config{.name = "test"});
     breaker.start();
@@ -449,7 +457,7 @@ TEST(HTTPReadTask, StringField) {
     cfg.channels[2] = {.name = "status", .data_type = x::telem::STRING_T, .key = 2};
     cfg.channels[3] = {.name = "value", .data_type = x::telem::FLOAT64_T, .key = 3};
 
-    auto source = ASSERT_NIL_P(make_source(cfg, server.base_url()));
+    auto [source, processor] = make_source(cfg, server.base_url());
 
     auto breaker = x::breaker::Breaker(x::breaker::Config{.name = "test"});
     breaker.start();
@@ -498,7 +506,7 @@ TEST(HTTPReadTask, DecimalToIntegerWarns) {
     cfg.endpoints = {ep};
     cfg.channels[1] = {.name = "count", .data_type = x::telem::INT32_T, .key = 1};
 
-    auto source = ASSERT_NIL_P(make_source(cfg, server.base_url()));
+    auto [source, processor] = make_source(cfg, server.base_url());
 
     auto breaker = x::breaker::Breaker(x::breaker::Config{.name = "test"});
     breaker.start();
@@ -545,7 +553,7 @@ TEST(HTTPReadTask, NegativeForUnsignedWarns) {
     cfg.endpoints = {ep};
     cfg.channels[1] = {.name = "count", .data_type = x::telem::UINT32_T, .key = 1};
 
-    auto source = ASSERT_NIL_P(make_source(cfg, server.base_url()));
+    auto [source, processor] = make_source(cfg, server.base_url());
 
     auto breaker = x::breaker::Breaker(x::breaker::Config{.name = "test"});
     breaker.start();
@@ -595,7 +603,7 @@ TEST(HTTPReadTask, SoftwareTimingIndex) {
         {.name = "value", .data_type = x::telem::FLOAT64_T, .key = 1, .index = 100};
     cfg.software_timed_indexes[100] = 0;
 
-    auto source = ASSERT_NIL_P(make_source(cfg, server.base_url()));
+    auto [source, processor] = make_source(cfg, server.base_url());
 
     auto breaker = x::breaker::Breaker(x::breaker::Config{.name = "test"});
     breaker.start();
@@ -658,7 +666,7 @@ TEST(HTTPReadTask, ExplicitIndexFieldTimestamp) {
     };
     // No index_sources needed — index channel is an explicit field.
 
-    auto source = ASSERT_NIL_P(make_source(cfg, server.base_url()));
+    auto [source, processor] = make_source(cfg, server.base_url());
 
     auto breaker = x::breaker::Breaker(x::breaker::Config{.name = "test"});
     breaker.start();
@@ -726,7 +734,7 @@ TEST(HTTPReadTask, MultipleEndpoints) {
     cfg.channels[1] = {.name = "temp", .data_type = x::telem::FLOAT64_T, .key = 1};
     cfg.channels[2] = {.name = "pressure", .data_type = x::telem::FLOAT64_T, .key = 2};
 
-    auto source = ASSERT_NIL_P(make_source(cfg, server.base_url()));
+    auto [source, processor] = make_source(cfg, server.base_url());
 
     auto breaker = x::breaker::Breaker(x::breaker::Config{.name = "test"});
     breaker.start();
@@ -774,7 +782,7 @@ TEST(HTTPReadTask, POSTWithBody) {
 
     cfg.channels[1] = {.name = "result", .data_type = x::telem::FLOAT64_T, .key = 1};
 
-    auto source = ASSERT_NIL_P(make_source(cfg, server.base_url()));
+    auto [source, processor] = make_source(cfg, server.base_url());
 
     auto breaker = x::breaker::Breaker(x::breaker::Config{.name = "test"});
     breaker.start();
@@ -842,7 +850,11 @@ protected:
             client->racks.create(make_unique_channel_name("http_read_test_rack"))
         );
         device_key = make_unique_channel_name("http_read_test_device");
-        x::json::json props = {{"secure", false}, {"timeout_ms", 1000}};
+        x::json::json props = {
+            {"secure", false},
+            {"timeout_ms", 1000},
+            {"verify_ssl", false},
+        };
         synnax::device::Device dev{
             .key = device_key,
             .name = "HTTP Read Test Device",
@@ -1082,7 +1094,7 @@ TEST(HTTPReadTask, RepeatedReads) {
 
     cfg.channels[1] = {.name = "value", .data_type = x::telem::FLOAT64_T, .key = 1};
 
-    auto source = ASSERT_NIL_P(make_source(cfg, server.base_url()));
+    auto [source, processor] = make_source(cfg, server.base_url());
 
     auto breaker = x::breaker::Breaker(x::breaker::Config{.name = "test"});
     breaker.start();
@@ -1150,7 +1162,7 @@ TEST(HTTPReadTask, DisabledFieldsSkipped) {
     };
     cfg.channels[3] = {.name = "pressure", .data_type = x::telem::FLOAT64_T, .key = 3};
 
-    auto source = ASSERT_NIL_P(make_source(cfg, server.base_url()));
+    auto [source, processor] = make_source(cfg, server.base_url());
 
     auto breaker = x::breaker::Breaker(x::breaker::Config{.name = "test"});
     breaker.start();
@@ -1202,13 +1214,16 @@ TEST(HTTPReadTask, DisabledFieldsExcludedFromWriterConfig) {
         }
     );
     auto conn = device::ConnectionConfig(conn_parser);
-    std::vector<device::RequestConfig> request_configs;
-    for (const auto &e: cfg.endpoints)
-        request_configs.push_back(e.request);
-    auto [client, err] = device::Client::create(std::move(conn), request_configs);
-    ASSERT_NIL(err);
 
-    ReadTaskSource source(std::move(cfg), std::move(client));
+    std::vector<Request> requests;
+    for (const auto &e: cfg.endpoints) {
+        auto req = device::build_request(conn, e.request);
+        req.body = e.body;
+        requests.push_back(std::move(req));
+    }
+
+    auto processor = std::make_shared<Processor>();
+    ReadTaskSource source(std::move(cfg), processor, std::move(requests));
     auto wc = source.writer_config();
     EXPECT_EQ(wc.channels.size(), 1);
     EXPECT_EQ(wc.channels[0], 1);
@@ -1282,7 +1297,7 @@ TEST(HTTPReadTask, DisabledFieldMissingPointerNoError) {
         .key = 1
     };
 
-    auto source = ASSERT_NIL_P(make_source(cfg, server.base_url()));
+    auto [source, processor] = make_source(cfg, server.base_url());
 
     auto breaker = x::breaker::Breaker(x::breaker::Config{.name = "test"});
     breaker.start();
@@ -1333,7 +1348,7 @@ TEST(HTTPReadTask, HTTPSReadSingleEndpoint) {
     cfg.endpoints = {ep};
     cfg.channels[1] = {.name = "value", .data_type = x::telem::FLOAT64_T, .key = 1};
 
-    auto source = ASSERT_NIL_P(make_source(cfg, server.base_url()));
+    auto [source, processor] = make_source(cfg, server.base_url());
 
     auto breaker = x::breaker::Breaker(x::breaker::Config{.name = "test"});
     breaker.start();
@@ -1402,7 +1417,7 @@ TEST(HTTPReadTask, HTTPSMultipleEndpoints) {
     cfg.channels[1] = {.name = "temp", .data_type = x::telem::FLOAT64_T, .key = 1};
     cfg.channels[2] = {.name = "pressure", .data_type = x::telem::FLOAT64_T, .key = 2};
 
-    auto source = ASSERT_NIL_P(make_source(cfg, server.base_url()));
+    auto [source, processor] = make_source(cfg, server.base_url());
 
     auto breaker = x::breaker::Breaker(x::breaker::Config{.name = "test"});
     breaker.start();
@@ -1452,7 +1467,7 @@ TEST(HTTPReadTask, HTTPSRepeatedReads) {
     cfg.endpoints = {ep};
     cfg.channels[1] = {.name = "value", .data_type = x::telem::FLOAT64_T, .key = 1};
 
-    auto source = ASSERT_NIL_P(make_source(cfg, server.base_url()));
+    auto [source, processor] = make_source(cfg, server.base_url());
 
     auto breaker = x::breaker::Breaker(x::breaker::Config{.name = "test"});
     breaker.start();
@@ -1503,7 +1518,7 @@ TEST(HTTPReadTask, HTTPSPOSTWithBody) {
     cfg.endpoints = {ep};
     cfg.channels[1] = {.name = "result", .data_type = x::telem::FLOAT64_T, .key = 1};
 
-    auto source = ASSERT_NIL_P(make_source(cfg, server.base_url()));
+    auto [source, processor] = make_source(cfg, server.base_url());
 
     auto breaker = x::breaker::Breaker(x::breaker::Config{.name = "test"});
     breaker.start();
@@ -1518,7 +1533,7 @@ TEST(HTTPReadTask, HTTPSPOSTWithBody) {
 ///////////////////////////// Partial Failures ////////////////////////////////
 
 /// @brief when the first endpoint returns 5xx but the second would succeed,
-/// the read should fail with SERVER_ERROR.
+/// the read should fail with TEMPORARY_ERROR.
 TEST(HTTPReadTask, PartialFailureFirstEndpoint5xx) {
     mock::Server server(
         mock::ServerConfig{
@@ -1571,19 +1586,19 @@ TEST(HTTPReadTask, PartialFailureFirstEndpoint5xx) {
     cfg.channels[1] = {.name = "error_msg", .data_type = x::telem::STRING_T, .key = 1};
     cfg.channels[2] = {.name = "value", .data_type = x::telem::FLOAT64_T, .key = 2};
 
-    auto source = ASSERT_NIL_P(make_source(cfg, server.base_url()));
+    auto [source, processor] = make_source(cfg, server.base_url());
 
     auto breaker = x::breaker::Breaker(x::breaker::Config{.name = "test"});
     breaker.start();
     x::telem::Frame fr;
     auto res = source->read(breaker, fr);
     breaker.stop();
-    ASSERT_OCCURRED_AS(res.error, errors::SERVER_ERROR);
+    ASSERT_OCCURRED_AS(res.error, errors::TEMPORARY_ERROR);
 }
 
 /// @brief when the second endpoint returns 4xx but the first succeeds,
 /// the read should fail with CLIENT_ERROR.
-TEST(HTTPReadTask, PartialFailureSecondEndpoint4xx) {
+TEST(HTTPReadTask, PartialFailureSecondEndpointCritical4xx) {
     mock::Server server(
         mock::ServerConfig{
             .routes = {
@@ -1596,8 +1611,8 @@ TEST(HTTPReadTask, PartialFailureSecondEndpoint4xx) {
                 {
                     .method = Method::GET,
                     .path = "/api/failing",
-                    .status_code = 404,
-                    .response_body = R"({"error":"not found"})",
+                    .status_code = 400,
+                    .response_body = R"({"error":"bad request"})",
                 },
             },
         }
@@ -1635,14 +1650,14 @@ TEST(HTTPReadTask, PartialFailureSecondEndpoint4xx) {
     cfg.channels[1] = {.name = "value", .data_type = x::telem::FLOAT64_T, .key = 1};
     cfg.channels[2] = {.name = "error_msg", .data_type = x::telem::STRING_T, .key = 2};
 
-    auto source = ASSERT_NIL_P(make_source(cfg, server.base_url()));
+    auto [source, processor] = make_source(cfg, server.base_url());
 
     auto breaker = x::breaker::Breaker(x::breaker::Config{.name = "test"});
     breaker.start();
     x::telem::Frame fr;
     auto res = source->read(breaker, fr);
     breaker.stop();
-    ASSERT_OCCURRED_AS(res.error, errors::CLIENT_ERROR);
+    ASSERT_OCCURRED_AS(res.error, errors::CRITICAL_ERROR);
 }
 
 /// @brief when one endpoint has a missing field pointer, the other endpoint's
@@ -1700,7 +1715,7 @@ TEST(HTTPReadTask, PartialFailureMissingFieldInSecondEndpoint) {
     cfg.channels[1] = {.name = "temp", .data_type = x::telem::FLOAT64_T, .key = 1};
     cfg.channels[2] = {.name = "pressure", .data_type = x::telem::FLOAT64_T, .key = 2};
 
-    auto source = ASSERT_NIL_P(make_source(cfg, server.base_url()));
+    auto [source, processor] = make_source(cfg, server.base_url());
 
     auto breaker = x::breaker::Breaker(x::breaker::Config{.name = "test"});
     breaker.start();
@@ -1768,7 +1783,7 @@ TEST(HTTPReadTask, PartialFailureInvalidJSONInOneEndpoint) {
     cfg.channels[1] = {.name = "value", .data_type = x::telem::FLOAT64_T, .key = 1};
     cfg.channels[2] = {.name = "data", .data_type = x::telem::FLOAT64_T, .key = 2};
 
-    auto source = ASSERT_NIL_P(make_source(cfg, server.base_url()));
+    auto [source, processor] = make_source(cfg, server.base_url());
 
     auto breaker = x::breaker::Breaker(x::breaker::Config{.name = "test"});
     breaker.start();
@@ -1837,7 +1852,7 @@ TEST(HTTPReadTask, PartialFailureTypeConversionError) {
     // INT32_T will fail on 3.7 (decimal truncation) — produces warning.
     cfg.channels[2] = {.name = "count", .data_type = x::telem::INT32_T, .key = 2};
 
-    auto source = ASSERT_NIL_P(make_source(cfg, server.base_url()));
+    auto [source, processor] = make_source(cfg, server.base_url());
 
     auto breaker = x::breaker::Breaker(x::breaker::Config{.name = "test"});
     breaker.start();
@@ -1890,7 +1905,7 @@ TEST(HTTPReadTask, SampleClockRegulatesRate) {
     cfg.endpoints = {ep};
     cfg.channels[1] = {.name = "value", .data_type = x::telem::FLOAT64_T, .key = 1};
 
-    auto source = ASSERT_NIL_P(make_source(cfg, server.base_url()));
+    auto [source, processor] = make_source(cfg, server.base_url());
 
     auto breaker = x::breaker::Breaker(x::breaker::Config{.name = "test"});
     breaker.start();
@@ -1943,7 +1958,7 @@ TEST(HTTPReadTask, SampleClockDoesNotAffectData) {
     cfg.endpoints = {ep};
     cfg.channels[1] = {.name = "value", .data_type = x::telem::FLOAT64_T, .key = 1};
 
-    auto source = ASSERT_NIL_P(make_source(cfg, server.base_url()));
+    auto [source, processor] = make_source(cfg, server.base_url());
 
     auto breaker = x::breaker::Breaker(x::breaker::Config{.name = "test"});
     breaker.start();
@@ -1993,11 +2008,11 @@ TEST(HTTPReadTask, ConnectionLevelQueryParams) {
     cfg.endpoints = {ep};
     cfg.channels[1] = {.name = "value", .data_type = x::telem::FLOAT64_T, .key = 1};
 
-    auto source = ASSERT_NIL_P(make_source(
+    auto [source, processor] = make_source(
         cfg,
         server.base_url(),
         x::json::json{{"query_params", {{"api_key", "abc123"}, {"format", "json"}}}}
-    ));
+    );
 
     auto breaker = x::breaker::Breaker(x::breaker::Config{.name = "test"});
     breaker.start();
@@ -2075,7 +2090,7 @@ TEST(HTTPReadTask, EnumValuesMapStringsToNumbers) {
         .key = 3,
     };
 
-    auto source = ASSERT_NIL_P(make_source(cfg, server.base_url()));
+    auto [source, processor] = make_source(cfg, server.base_url());
 
     auto breaker = x::breaker::Breaker(x::breaker::Config{.name = "test"});
     breaker.start();
@@ -2130,7 +2145,7 @@ TEST(HTTPReadTask, EnumValuesMissingKeyWarns) {
         .key = 1,
     };
 
-    auto source = ASSERT_NIL_P(make_source(cfg, server.base_url()));
+    auto [source, processor] = make_source(cfg, server.base_url());
 
     auto breaker = x::breaker::Breaker(x::breaker::Config{.name = "test"});
     breaker.start();
@@ -2182,7 +2197,7 @@ TEST(HTTPReadTask, EnumValuesEmptyMapFallsBackToNumericParsing) {
         .key = 1,
     };
 
-    auto source = ASSERT_NIL_P(make_source(cfg, server.base_url()));
+    auto [source, processor] = make_source(cfg, server.base_url());
 
     auto breaker = x::breaker::Breaker(x::breaker::Config{.name = "test"});
     breaker.start();

@@ -17,7 +17,11 @@ std::pair<std::unique_ptr<task::Task>, bool> Factory::configure_task(
     const synnax::task::Task &task
 ) {
     if (task.type == READ_TASK_TYPE)
-        return common::handle_config_err(ctx, task, configure_read(ctx, task));
+        return common::handle_config_err(
+            ctx,
+            task,
+            configure_read(ctx, task, this->processor)
+        );
     return {nullptr, false};
 }
 
