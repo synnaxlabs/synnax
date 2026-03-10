@@ -224,8 +224,9 @@ class GrandFinale(SimulatorCase):
         end_time = sy.TimeStamp.now()
 
         time_range = sy.TimeRange(start_time, end_time)
+        actual_duration = time_range.span.seconds
         for task in self.read_tasks:
-            expected = int(task.config.sample_rate * self.TASK_DURATION.seconds)
+            expected = int(task.config.sample_rate * actual_duration)
             channel_keys = self._task_channel_keys(task)
             counts = assert_sample_counts_in_range(
                 self.client,

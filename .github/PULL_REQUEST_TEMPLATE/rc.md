@@ -348,7 +348,7 @@ I can successfully:
 - **Analog Read Task**
   - [ ] Plot live data.
   - [x] Tare data.
-  - [ ] Handle device disconnection during active tasks with appropriate feedback.
+  - [x] Handle device disconnection during active tasks with appropriate feedback.
   - [x] Start multiple tasks at different times and view live data.
   - [x] Enabled auto-start, and ensure that the task automatically starts after configuration.
   - [x] Ensure no lag between sensor input and Core data recording.
@@ -377,7 +377,7 @@ I can successfully:
 - **Digital Write Task**
   - [ ] Perform control actions using a schematic.
   - [x] Stop, start, and reconfigure tasks.
-  - [ ] Handle device disconnection during active tasks with appropriate feedback.
+  - [x] Handle device disconnection during active tasks with appropriate feedback.
   - **Configure response time for specified state rates:**
     - [ ] 1 Hz (visible delay)
     - [ ] 20 Hz (near-instant response)
