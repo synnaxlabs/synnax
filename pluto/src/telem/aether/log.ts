@@ -11,6 +11,7 @@ import { type channel } from "@synnaxlabs/client";
 import {
   DataType,
   type destructor,
+  type Series,
   status as xstatus,
   TimeSpan,
   TimeStamp,
@@ -45,6 +46,12 @@ interface ChannelMeta {
   indexKey: channel.Key;
   dataType: DataType;
   virtual: boolean;
+  // Reference to the dynamic cache's leading buffer for this channel. writeDynamic()
+  // only returns newly *allocated* buffers — subsequent writes go into the existing
+  // buffer in-place and return an empty MultiSeries. We store the allocated buffer
+  // on first write and advance readCursor on every callback to read only new samples.
+  leadingBuffer: Series | null;
+  readCursor: number;
 }
 
 export class StreamMultiChannelLog
@@ -95,37 +102,45 @@ export class StreamMultiChannelLog
           key: ch.key,
           name: ch.name,
           indexKey: ch.index,
+          leadingBuffer: null,
+          readCursor: 0,
           dataType: new DataType(ch.dataType),
           virtual: ch.virtual,
         });
 
       const streamKeys = channels.map((ch) => ch.key);
       this.stopStreaming = await this.client.stream((res) => {
-        for (const [meta] of this.channelMeta) {
-          const series = res.get(meta);
-          if (series == null) continue;
-          const chMeta = this.channelMeta.get(meta)!;
-          // Intentionally use receipt time rather than the sample's actual timestamp,
-          // and intentionally do not sort. The log is an arrival-order display — using
-          // receipt time keeps entries strictly append-only and avoids out-of-order
-          // jumps caused by natural network latency between channels. Ms-level blur
-          // between receipt and sample time is not meaningful for a human reading a log.
-          const now = this.now();
-          for (const s of series.series) {
-            const isJSON = chMeta.dataType.equals(DataType.JSON);
-            for (let i = 0; i < s.length; i++) {
-              const raw = s.at(i, true);
-              this.entries.push({
-                channelKey: chMeta.key,
-                channelName: chMeta.name,
-                timestamp: now.valueOf(),
-                value: isJSON ? JSON.stringify(raw) : String(raw),
-              });
-            }
+        // Intentionally use receipt time rather than the sample's actual timestamp,
+        // and intentionally do not sort. The log is an arrival-order display — using
+        // receipt time keeps entries strictly append-only and avoids out-of-order
+        // jumps caused by natural network latency between channels. Ms-level blur
+        // between receipt and sample time is not meaningful for a human reading a log.
+        const now = this.now();
+        const before = this.entries.length;
+        for (const [channelKey, chMeta] of this.channelMeta) {
+          const allocated = res.get(channelKey);
+          if (allocated != null && allocated.series.length > 0)
+            [chMeta.leadingBuffer, chMeta.readCursor] = [
+              allocated.series[allocated.series.length - 1],
+              0,
+            ];
+          // Read every sample appended to the leading buffer since the last callback.
+          const buf = chMeta.leadingBuffer;
+          if (buf == null || buf.length <= chMeta.readCursor) continue;
+          const isJSON = chMeta.dataType.equals(DataType.JSON);
+          for (let i = chMeta.readCursor; i < buf.length; i++) {
+            const raw = buf.at(i, true);
+            this.entries.push({
+              channelKey: chMeta.key,
+              channelName: chMeta.name,
+              timestamp: now.valueOf(),
+              value: isJSON ? JSON.stringify(raw) : String(raw),
+            });
           }
+          chMeta.readCursor = buf.length;
         }
         this.gcEntries();
-        this.notify();
+        if (this.entries.length !== before) this.notify();
       }, streamKeys);
       this.notify();
     } catch (e) {

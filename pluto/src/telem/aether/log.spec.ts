@@ -204,6 +204,41 @@ describe("StreamMultiChannelLog", () => {
     expect(log.value()).toHaveLength(100_000);
   });
 
+  it("should read entries from subsequent buffer allocations", async () => {
+    const props: StreamMultiChannelLogProps = {
+      channels: [c.channelA.key],
+      timeSpan: TimeSpan.seconds(30),
+    };
+    const log = new StreamMultiChannelLog(c, props);
+    await waitForResolve(log);
+    const series1 = new Series({ data: new Float32Array([1, 2]) });
+    c.streamHandler?.(new Map([[c.channelA.key, new MultiSeries([series1])]]));
+    expect(log.value()).toHaveLength(2);
+    // Second allocation — simulates buffer filling up and a new one being allocated
+    const series2 = new Series({ data: new Float32Array([3, 4]) });
+    c.streamHandler?.(new Map([[c.channelA.key, new MultiSeries([series2])]]));
+    expect(log.value()).toHaveLength(4);
+    expect(log.value()[2].value).toBe("3");
+    expect(log.value()[3].value).toBe("4");
+  });
+
+  it("should not re-read entries when allocated is empty", async () => {
+    const props: StreamMultiChannelLogProps = {
+      channels: [c.channelA.key],
+      timeSpan: TimeSpan.seconds(30),
+    };
+    const log = new StreamMultiChannelLog(c, props);
+    await waitForResolve(log);
+    const series = new Series({ data: new Float32Array([1, 2]) });
+    c.streamHandler?.(new Map([[c.channelA.key, new MultiSeries([series])]]));
+    expect(log.value()).toHaveLength(2);
+    // Empty allocated — simulates the common case where the dynamic cache writes
+    // new samples into the existing buffer in-place and returns no newly allocated
+    // buffers. The cursor should not advance and no entries should be duplicated.
+    c.streamHandler?.(new Map([[c.channelA.key, new MultiSeries([])]]));
+    expect(log.value()).toHaveLength(2);
+  });
+
   it("should garbage collect entries older than keepFor", async () => {
     let now = TimeStamp.milliseconds(1_000);
     const props: StreamMultiChannelLogProps = {
