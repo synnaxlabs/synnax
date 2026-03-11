@@ -161,7 +161,8 @@ Pool::acquire(const Config &cfg, const std::string &log_prefix) {
                     Connection(nullptr, nullptr, ""),
                     x::errors::Error(
                         opc::errors::NO_CONNECTION,
-                        "connection failed — no reusable connection available"
+                        "circuit breaker open — connecting thread failed, "
+                        "too many consecutive connection failures"
                     )
                 };
             }

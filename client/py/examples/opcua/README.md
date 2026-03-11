@@ -54,30 +54,30 @@ The server runs on `opc.tcp://127.0.0.1:4841/` by default (port 4842 with `--tls
 
 ### 2. Connect from the Console
 
-If you're connecting to the test servers manually from the Synnax Console
-(Server > Connect), use these settings:
+If you're connecting to the test servers manually from the Synnax Console (Server >
+Connect), use these settings:
 
 #### Plain (No Encryption)
 
-| Field           | Value                          |
-| --------------- | ------------------------------ |
-| Name            | OPC UA Server                  |
-| Endpoint        | `opc.tcp://127.0.0.1:4841/`   |
-| Username        | *(leave blank)*                |
-| Password        | *(leave blank)*                |
-| Security Mode   | None                           |
-| Security Policy | None                           |
+| Field           | Value                       |
+| --------------- | --------------------------- |
+| Name            | OPC UA Server               |
+| Endpoint        | `opc.tcp://127.0.0.1:4841/` |
+| Username        | _(leave blank)_             |
+| Password        | _(leave blank)_             |
+| Security Mode   | None                        |
+| Security Policy | None                        |
 
 #### TLS (Encryption Only)
 
-| Field           | Value                          |
-| --------------- | ------------------------------ |
-| Name            | OPC UA TLS Server              |
-| Endpoint        | `opc.tcp://127.0.0.1:4842/`   |
-| Username        | *(leave blank)*                |
-| Password        | *(leave blank)*                |
-| Security Mode   | Sign And Encrypt               |
-| Security Policy | Basic 256-bit with SHA-256     |
+| Field           | Value                       |
+| --------------- | --------------------------- |
+| Name            | OPC UA TLS Server           |
+| Endpoint        | `opc.tcp://127.0.0.1:4842/` |
+| Username        | _(leave blank)_             |
+| Password        | _(leave blank)_             |
+| Security Mode   | Sign And Encrypt            |
+| Security Policy | Basic 256-bit with SHA-256  |
 
 Certificates are auto-generated under `examples/opcua/certificates/` when the server
 starts. The driver needs these files to connect:
@@ -88,14 +88,14 @@ starts. The driver needs these files to connect:
 
 #### TLS + Username/Password
 
-| Field           | Value                          |
-| --------------- | ------------------------------ |
-| Name            | OPC UA TLS Auth Server         |
-| Endpoint        | `opc.tcp://127.0.0.1:4843/`   |
-| Username        | `testuser`                     |
-| Password        | `testpass`                     |
-| Security Mode   | Sign And Encrypt               |
-| Security Policy | Basic 256-bit with SHA-256     |
+| Field           | Value                       |
+| --------------- | --------------------------- |
+| Name            | OPC UA TLS Auth Server      |
+| Endpoint        | `opc.tcp://127.0.0.1:4843/` |
+| Username        | `testuser`                  |
+| Password        | `testpass`                  |
+| Security Mode   | Sign And Encrypt            |
+| Security Policy | Basic 256-bit with SHA-256  |
 
 Uses the same auto-generated certificates as the TLS server above.
 
