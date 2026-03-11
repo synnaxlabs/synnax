@@ -99,6 +99,111 @@ export const ZERO_READ_PAYLOAD = {
   type: "http_read",
 } as const satisfies ReadPayload;
 
+// ─── Write Task Types ───
+
+export const WRITE_TYPE = `${PREFIX}_write`;
+
+const jsonTypeZ = z.enum(["number", "string", "boolean"]);
+
+const timeConfigZ = z.object({
+  pointer: json.pointerZ,
+  time_format: timeFormatZ,
+});
+
+const channelFieldZ = z.object({
+  pointer: json.pointerZ,
+  json_type: jsonTypeZ,
+  channel: z.number().default(0),
+  dataType: z.string().default("float64"),
+  time_format: timeFormatZ.optional(),
+  time_config: timeConfigZ.optional(),
+});
+
+export interface ChannelField extends z.infer<typeof channelFieldZ> {}
+
+export const ZERO_CHANNEL_FIELD = {
+  pointer: "",
+  json_type: "number",
+  channel: 0,
+  dataType: "float64",
+} as const satisfies ChannelField;
+
+const generatorTypeZ = z.enum(["uuid", "timestamp"]);
+
+const staticFieldZ = z.object({
+  key: z.string(),
+  pointer: json.pointerZ,
+  json_type: jsonTypeZ,
+  type: z.literal("static"),
+  value: z.union([z.string(), z.number(), z.boolean(), z.null()]),
+});
+
+const generatedFieldZ = z.object({
+  key: z.string(),
+  pointer: json.pointerZ,
+  type: z.literal("generated"),
+  generator: generatorTypeZ,
+  time_format: timeFormatZ.optional(),
+});
+
+const writeFieldZ = z.discriminatedUnion("type", [staticFieldZ, generatedFieldZ]);
+
+export type WriteField = z.infer<typeof writeFieldZ>;
+
+const writeEndpointZ = z.object({
+  key: z.string(),
+  path: z.string(),
+  method: z.enum(["POST", "PUT", "PATCH"]),
+  headers: z.record(z.string(), z.string()).optional(),
+  request_content_type: z.string().default("application/json"),
+  channel: channelFieldZ,
+  fields: z.array(writeFieldZ),
+});
+
+export type WriteEndpoint = z.infer<typeof writeEndpointZ>;
+
+export const ZERO_WRITE_ENDPOINT = {
+  key: "",
+  method: "POST",
+  path: "",
+  request_content_type: "application/json",
+  channel: ZERO_CHANNEL_FIELD,
+  fields: [],
+} as const satisfies WriteEndpoint;
+
+const writeConfigZ = z.object({
+  device: z.string(),
+  auto_start: z.boolean().default(false),
+  endpoints: z.array(writeEndpointZ),
+});
+
+interface WriteConfig extends z.infer<typeof writeConfigZ> {}
+
+const ZERO_WRITE_CONFIG = {
+  device: "",
+  auto_start: false,
+  endpoints: [],
+} as const satisfies WriteConfig;
+
+export const WRITE_SCHEMAS = {
+  type: z.literal(WRITE_TYPE),
+  config: writeConfigZ,
+  statusData: z.unknown(),
+} as const satisfies task.Schemas;
+
+export type WriteSchemas = typeof WRITE_SCHEMAS;
+
+export interface WritePayload extends task.Payload<WriteSchemas> {}
+
+export const ZERO_WRITE_PAYLOAD = {
+  key: "",
+  name: "HTTP Write Task",
+  config: ZERO_WRITE_CONFIG,
+  type: WRITE_TYPE,
+} as const satisfies WritePayload;
+
+// ─── Scan Task Types ───
+
 export const SCAN_TYPE = `${PREFIX}_scan`;
 
 export const TEST_CONNECTION_COMMAND_TYPE = "test_connection";

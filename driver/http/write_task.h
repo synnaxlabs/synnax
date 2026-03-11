@@ -1,0 +1,144 @@
+// Copyright 2026 Synnax Labs, Inc.
+//
+// Use of this software is governed by the Business Source License included in the file
+// licenses/BSL.txt.
+//
+// As of the Change Date specified in that file, in accordance with the Business Source
+// License, use of this software will be governed by the Apache License, Version 2.0,
+// included in the file licenses/APL.txt.
+
+#pragma once
+
+#include <memory>
+#include <optional>
+#include <string>
+#include <unordered_map>
+#include <utility>
+#include <vector>
+
+#include "x/cpp/json/convert.h"
+#include "x/cpp/json/json.h"
+#include "x/cpp/telem/telem.h"
+
+#include "driver/common/write_task.h"
+#include "driver/http/http.h"
+#include "driver/http/processor/processor.h"
+#include "driver/http/types/types.h"
+#include "driver/task/task.h"
+
+namespace driver::http {
+const std::string WRITE_TASK_TYPE = INTEGRATION_NAME + "_write";
+
+/// @brief configuration for the timestamp field on an endpoint.
+struct TimeConfig {
+    /// @brief JSON Pointer where the timestamp value is placed in the body.
+    x::json::json::json_pointer pointer;
+    /// @brief format for the timestamp output.
+    x::json::TimeFormat time_format;
+};
+
+/// @brief configuration for the single Synnax channel field on an endpoint.
+struct ChannelField {
+    /// @brief JSON Pointer where the channel value is placed in the body.
+    x::json::json::json_pointer pointer;
+    /// @brief JSON type to serialize the channel value as.
+    x::json::Type json_type;
+    /// @brief Synnax channel key for the command channel.
+    synnax::channel::Key channel_key;
+    /// @brief if the channel data type is TIMESTAMP, the output format.
+    std::optional<x::json::TimeFormat> time_format;
+    /// @brief optional time configuration for writing the index timestamp.
+    std::optional<TimeConfig> time_config;
+};
+
+/// @brief generator type for generated fields.
+enum class GeneratorType { UUID, Timestamp };
+
+/// @brief a static field with a fixed value.
+struct StaticField {
+    /// @brief JSON Pointer where the value is placed in the body.
+    x::json::json::json_pointer pointer;
+    /// @brief pre-validated value to write.
+    x::json::json value;
+};
+
+/// @brief a generated field (UUID or timestamp).
+struct GeneratedField {
+    /// @brief JSON Pointer where the value is placed in the body.
+    x::json::json::json_pointer pointer;
+    /// @brief type of generator to use.
+    GeneratorType generator;
+    /// @brief for timestamp generators, the output format.
+    x::json::TimeFormat time_format = x::json::TimeFormat::ISO8601;
+};
+
+/// @brief a single HTTP endpoint to write to.
+struct WriteEndpoint {
+    /// @brief HTTP request configuration (method, path, headers).
+    RequestConfig request;
+    /// @brief the required channel field for this endpoint.
+    ChannelField channel;
+    /// @brief static fields with fixed values.
+    std::vector<StaticField> static_fields;
+    /// @brief generated fields (UUID, timestamp).
+    std::vector<GeneratedField> generated_fields;
+    /// @brief whether the index channel is virtual (key == 0), meaning
+    /// timestamps should use TimeStamp::now().
+    bool virtual_index = false;
+};
+
+/// @brief configuration for an HTTP write task.
+struct WriteTaskConfig {
+    /// @brief key of the device to write to.
+    std::string device;
+    /// @brief whether to auto-start the task.
+    bool auto_start;
+    /// @brief endpoints to write to.
+    std::vector<WriteEndpoint> endpoints;
+    /// @brief all command channel keys (one per endpoint).
+    std::vector<synnax::channel::Key> cmd_keys;
+
+    /// @brief parses a write task config from a Synnax task definition.
+    /// @param ctx the task context providing access to the Synnax client.
+    /// @param task the Synnax task definition containing the configuration JSON.
+    /// @returns the parsed config paired with an error.
+    static std::pair<WriteTaskConfig, x::errors::Error>
+    parse(const std::shared_ptr<task::Context> &ctx, const synnax::task::Task &task);
+};
+
+/// @brief sink that receives command frames from Synnax and sends them as HTTP
+/// requests.
+class WriteTaskSink final : public common::Sink {
+    WriteTaskConfig cfg;
+    std::shared_ptr<Processor> processor;
+    std::vector<Request> base_requests;
+    /// @brief maps command channel key to endpoint index.
+    std::unordered_map<synnax::channel::Key, size_t> channel_to_endpoint;
+
+public:
+    /// @param cfg the write task configuration.
+    /// @param processor the shared HTTP processor for executing requests.
+    /// @param base_requests pre-built requests (one per endpoint).
+    WriteTaskSink(
+        WriteTaskConfig cfg,
+        std::shared_ptr<Processor> processor,
+        std::vector<Request> base_requests
+    );
+
+    /// @brief writes a frame of command values to HTTP endpoints.
+    /// @param frame the frame containing command channel values.
+    /// @returns nil on success, or the first error encountered.
+    x::errors::Error write(x::telem::Frame &frame) override;
+};
+
+/// @brief configures an HTTP write task from a Synnax task definition.
+/// @param ctx the task context providing access to the Synnax client.
+/// @param task the Synnax task definition containing the configuration JSON.
+/// @param processor the shared HTTP processor for executing requests.
+/// @returns the configured result paired with an error.
+std::pair<common::ConfigureResult, x::errors::Error> configure_write(
+    const std::shared_ptr<task::Context> &ctx,
+    const synnax::task::Task &task,
+    const std::shared_ptr<Processor> &processor
+);
+}

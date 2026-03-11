@@ -11,6 +11,7 @@ import { task } from "@synnaxlabs/client";
 import { Access, Icon } from "@synnaxlabs/pluto";
 
 import { READ_LAYOUT } from "@/hardware/http/task/Read";
+import { WRITE_LAYOUT } from "@/hardware/http/task/Write";
 import { Palette } from "@/palette";
 
 const CreateReadCommand = Palette.createSimpleCommand({
@@ -21,4 +22,12 @@ const CreateReadCommand = Palette.createSimpleCommand({
   useVisible: () => Access.useCreateGranted(task.TYPE_ONTOLOGY_ID),
 });
 
-export const COMMANDS = [CreateReadCommand];
+const CreateWriteCommand = Palette.createSimpleCommand({
+  key: "http_create_write_task",
+  name: "Create an HTTP Write Task",
+  icon: <Icon.Logo.HTTP />,
+  layout: WRITE_LAYOUT,
+  useVisible: () => Access.useCreateGranted(task.TYPE_ONTOLOGY_ID),
+});
+
+export const COMMANDS = [CreateReadCommand, CreateWriteCommand];

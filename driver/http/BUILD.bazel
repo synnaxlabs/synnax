@@ -10,6 +10,8 @@ cc_library(
         "read_task.h",
         "scan_task.cpp",
         "scan_task.h",
+        "write_task.cpp",
+        "write_task.h",
     ],
     visibility = ["//visibility:public"],
     deps = [
@@ -24,6 +26,7 @@ cc_library(
         "//x/cpp/json",
         "//x/cpp/json:convert",
         "//x/cpp/loop",
+        "//x/cpp/uuid",
         "@glog",
         "@nlohmann_json//:json",
     ],
@@ -38,6 +41,22 @@ cc_test(
         "//client/cpp/testutil",
         "//driver/http/mock",
         "//x/cpp/test",
+        "@googletest//:gtest_main",
+        "@nlohmann_json//:json",
+    ],
+)
+
+cc_test(
+    name = "write_task_test",
+    srcs = ["write_task_test.cpp"],
+    linkstatic = True,
+    deps = [
+        ":http",
+        "//client/cpp/testutil",
+        "//driver/http/mock",
+        "//x/cpp/defer",
+        "//x/cpp/test",
+        "//x/cpp/uuid",
         "@googletest//:gtest_main",
         "@nlohmann_json//:json",
     ],

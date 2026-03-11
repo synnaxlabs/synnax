@@ -1,0 +1,554 @@
+// Copyright 2026 Synnax Labs, Inc.
+//
+// Use of this software is governed by the Business Source License included in the file
+// licenses/BSL.txt.
+//
+// As of the Change Date specified in that file, in accordance with the Business Source
+// License, use of this software will be governed by the Apache License, Version 2.0,
+// included in the file licenses/APL.txt.
+
+#include <memory>
+#include <regex>
+
+#include "gtest/gtest.h"
+
+#include "client/cpp/testutil/testutil.h"
+#include "x/cpp/defer/defer.h"
+#include "x/cpp/test/test.h"
+
+#include "driver/http/device/device.h"
+#include "driver/http/errors/errors.h"
+#include "driver/http/mock/server.h"
+#include "driver/http/write_task.h"
+
+namespace driver::http {
+namespace {
+/// @brief helper to build a WriteTaskSink from config and a mock server URL.
+std::pair<std::unique_ptr<WriteTaskSink>, std::shared_ptr<Processor>> make_sink(
+    WriteTaskConfig &cfg,
+    const std::string &base_url
+) {
+    auto conn_json = x::json::json{
+        {"base_url", base_url},
+        {"timeout_ms", 1000},
+        {"verify_ssl", false},
+    };
+    auto conn_parser = x::json::Parser(conn_json);
+    auto conn = device::ConnectionConfig(conn_parser);
+
+    std::vector<Request> base_requests;
+    base_requests.reserve(cfg.endpoints.size());
+    for (const auto &ep: cfg.endpoints)
+        base_requests.push_back(device::build_request(conn, ep.request));
+
+    auto processor = std::make_shared<Processor>();
+    return {
+        std::make_unique<WriteTaskSink>(
+            WriteTaskConfig(cfg),
+            processor,
+            std::move(base_requests)
+        ),
+        std::move(processor),
+    };
+}
+}
+
+// ─── Config Parsing Tests ───
+
+/// @brief it should fail to parse config when endpoints array is empty.
+TEST(HTTPWriteTask, ParseConfigEmptyEndpoints) {
+    synnax::task::Task task;
+    task.config = {
+        {"device", "dev-001"},
+        {"endpoints", x::json::json::array()},
+    };
+    auto ctx = std::make_shared<task::MockContext>(nullptr);
+    ASSERT_OCCURRED_AS_P(WriteTaskConfig::parse(ctx, task), x::errors::VALIDATION);
+}
+
+/// @brief it should fail to parse config when method is GET.
+TEST(HTTPWriteTask, ParseConfigRejectsGETMethod) {
+    synnax::task::Task task;
+    task.config = {
+        {"device", "dev-001"},
+        {"endpoints",
+         {{
+             {"method", "GET"},
+             {"path", "/api/data"},
+             {"channel",
+              {{"pointer", "/value"}, {"json_type", "number"}, {"channel", 1}}},
+         }}},
+    };
+    auto ctx = std::make_shared<task::MockContext>(nullptr);
+    ASSERT_OCCURRED_AS_P(WriteTaskConfig::parse(ctx, task), x::errors::VALIDATION);
+}
+
+/// @brief it should fail when duplicate pointers exist across fields.
+TEST(HTTPWriteTask, ParseConfigDuplicatePointers) {
+    synnax::task::Task task;
+    task.config = {
+        {"device", "dev-001"},
+        {"endpoints",
+         {{
+             {"method", "POST"},
+             {"path", "/api/data"},
+             {"channel",
+              {{"pointer", "/value"}, {"json_type", "number"}, {"channel", 1}}},
+             {"fields",
+              {{
+                  {"type", "static"},
+                  {"pointer", "/value"},
+                  {"json_type", "number"},
+                  {"value", 42},
+              }}},
+         }}},
+    };
+    auto ctx = std::make_shared<task::MockContext>(nullptr);
+    ASSERT_OCCURRED_AS_P(WriteTaskConfig::parse(ctx, task), x::errors::VALIDATION);
+}
+
+/// @brief it should fail when bare primitive has additional fields.
+TEST(HTTPWriteTask, ParseConfigBarePrimitiveWithAdditionalFields) {
+    synnax::task::Task task;
+    task.config = {
+        {"device", "dev-001"},
+        {"endpoints",
+         {{
+             {"method", "POST"},
+             {"path", "/api/data"},
+             {"channel",
+              {{"pointer", ""}, {"json_type", "number"}, {"channel", 1}}},
+             {"fields",
+              {{
+                  {"type", "static"},
+                  {"pointer", "/extra"},
+                  {"json_type", "number"},
+                  {"value", 42},
+              }}},
+         }}},
+    };
+    auto ctx = std::make_shared<task::MockContext>(nullptr);
+    ASSERT_OCCURRED_AS_P(WriteTaskConfig::parse(ctx, task), x::errors::VALIDATION);
+}
+
+// ─── Body Construction & Request Execution Tests ───
+
+/// @brief it should POST a numeric channel value to the server.
+TEST(HTTPWriteTask, POSTNumericValue) {
+    mock::Server server(mock::ServerConfig{
+        .routes = {{
+            .method = Method::POST,
+            .path = "/api/control",
+            .status_code = 200,
+            .response_body = R"({"status":"ok"})",
+        }},
+    });
+    ASSERT_NIL(server.start());
+    x::defer::defer stop_server([&server] { server.stop(); });
+
+    WriteTaskConfig cfg;
+    cfg.device = "test-device";
+    cfg.auto_start = false;
+
+    WriteEndpoint ep;
+    ep.request.method = Method::POST;
+    ep.request.path = "/api/control";
+    ep.request.request_content_type = "application/json";
+    ep.channel.pointer = x::json::json::json_pointer("/value");
+    ep.channel.json_type = x::json::Type::Number;
+    ep.channel.channel_key = 1;
+
+    cfg.endpoints = {ep};
+    cfg.cmd_keys = {1};
+
+    auto [sink, processor] = make_sink(cfg, server.base_url());
+
+    x::telem::Frame frame;
+    frame.emplace(
+        synnax::channel::Key(1),
+        x::telem::Series(std::vector<double>{42.5})
+    );
+
+    ASSERT_NIL(sink->write(frame));
+
+    auto reqs = server.received_requests();
+    ASSERT_EQ(reqs.size(), 1);
+    EXPECT_EQ(reqs[0].method, Method::POST);
+
+    auto body = x::json::json::parse(reqs[0].body);
+    EXPECT_NEAR(body["value"].get<double>(), 42.5, 0.001);
+}
+
+/// @brief it should PUT a string channel value to the server.
+TEST(HTTPWriteTask, PUTStringValue) {
+    mock::Server server(mock::ServerConfig{
+        .routes = {{
+            .method = Method::PUT,
+            .path = "/api/setpoint",
+            .status_code = 200,
+            .response_body = R"({"status":"ok"})",
+        }},
+    });
+    ASSERT_NIL(server.start());
+    x::defer::defer stop_server([&server] { server.stop(); });
+
+    WriteTaskConfig cfg;
+    cfg.device = "test-device";
+    cfg.auto_start = false;
+
+    WriteEndpoint ep;
+    ep.request.method = Method::PUT;
+    ep.request.path = "/api/setpoint";
+    ep.request.request_content_type = "application/json";
+    ep.channel.pointer = x::json::json::json_pointer("/state");
+    ep.channel.json_type = x::json::Type::String;
+    ep.channel.channel_key = 1;
+
+    cfg.endpoints = {ep};
+    cfg.cmd_keys = {1};
+
+    auto [sink, processor] = make_sink(cfg, server.base_url());
+
+    x::telem::Frame frame;
+    frame.emplace(
+        synnax::channel::Key(1),
+        x::telem::Series(std::string("ON"))
+    );
+
+    ASSERT_NIL(sink->write(frame));
+
+    auto reqs = server.received_requests();
+    ASSERT_EQ(reqs.size(), 1);
+    auto body = x::json::json::parse(reqs[0].body);
+    EXPECT_EQ(body["state"].get<std::string>(), "ON");
+}
+
+/// @brief it should send a bare primitive body when channel pointer is root.
+TEST(HTTPWriteTask, BarePrimitiveBody) {
+    mock::Server server(mock::ServerConfig{
+        .routes = {{
+            .method = Method::PUT,
+            .path = "/api/setpoint",
+            .status_code = 200,
+            .response_body = R"({"status":"ok"})",
+        }},
+    });
+    ASSERT_NIL(server.start());
+    x::defer::defer stop_server([&server] { server.stop(); });
+
+    WriteTaskConfig cfg;
+    cfg.device = "test-device";
+    cfg.auto_start = false;
+
+    WriteEndpoint ep;
+    ep.request.method = Method::PUT;
+    ep.request.path = "/api/setpoint";
+    ep.request.request_content_type = "application/json";
+    ep.channel.pointer = x::json::json::json_pointer("");
+    ep.channel.json_type = x::json::Type::Number;
+    ep.channel.channel_key = 1;
+
+    cfg.endpoints = {ep};
+    cfg.cmd_keys = {1};
+
+    auto [sink, processor] = make_sink(cfg, server.base_url());
+
+    x::telem::Frame frame;
+    frame.emplace(
+        synnax::channel::Key(1),
+        x::telem::Series(std::vector<double>{99.0})
+    );
+
+    ASSERT_NIL(sink->write(frame));
+
+    auto reqs = server.received_requests();
+    ASSERT_EQ(reqs.size(), 1);
+    EXPECT_EQ(reqs[0].body, "99.0");
+}
+
+/// @brief it should include static fields in the request body.
+TEST(HTTPWriteTask, StaticFields) {
+    mock::Server server(mock::ServerConfig{
+        .routes = {{
+            .method = Method::POST,
+            .path = "/api/control",
+            .status_code = 200,
+            .response_body = R"({"status":"ok"})",
+        }},
+    });
+    ASSERT_NIL(server.start());
+    x::defer::defer stop_server([&server] { server.stop(); });
+
+    WriteTaskConfig cfg;
+    cfg.device = "test-device";
+    cfg.auto_start = false;
+
+    WriteEndpoint ep;
+    ep.request.method = Method::POST;
+    ep.request.path = "/api/control";
+    ep.request.request_content_type = "application/json";
+    ep.channel.pointer = x::json::json::json_pointer("/value");
+    ep.channel.json_type = x::json::Type::Number;
+    ep.channel.channel_key = 1;
+    ep.static_fields = {{
+        .pointer = x::json::json::json_pointer("/device_id"),
+        .value = "sensor-01",
+    }};
+
+    cfg.endpoints = {ep};
+    cfg.cmd_keys = {1};
+
+    auto [sink, processor] = make_sink(cfg, server.base_url());
+
+    x::telem::Frame frame;
+    frame.emplace(
+        synnax::channel::Key(1),
+        x::telem::Series(std::vector<double>{10.0})
+    );
+
+    ASSERT_NIL(sink->write(frame));
+
+    auto reqs = server.received_requests();
+    ASSERT_EQ(reqs.size(), 1);
+    auto body = x::json::json::parse(reqs[0].body);
+    EXPECT_NEAR(body["value"].get<double>(), 10.0, 0.001);
+    EXPECT_EQ(body["device_id"].get<std::string>(), "sensor-01");
+}
+
+/// @brief it should include a generated UUID field.
+TEST(HTTPWriteTask, GeneratedUUIDField) {
+    mock::Server server(mock::ServerConfig{
+        .routes = {{
+            .method = Method::POST,
+            .path = "/api/control",
+            .status_code = 200,
+            .response_body = R"({"status":"ok"})",
+        }},
+    });
+    ASSERT_NIL(server.start());
+    x::defer::defer stop_server([&server] { server.stop(); });
+
+    WriteTaskConfig cfg;
+    cfg.device = "test-device";
+    cfg.auto_start = false;
+
+    WriteEndpoint ep;
+    ep.request.method = Method::POST;
+    ep.request.path = "/api/control";
+    ep.request.request_content_type = "application/json";
+    ep.channel.pointer = x::json::json::json_pointer("/value");
+    ep.channel.json_type = x::json::Type::Number;
+    ep.channel.channel_key = 1;
+    ep.generated_fields = {{
+        .pointer = x::json::json::json_pointer("/request_id"),
+        .generator = GeneratorType::UUID,
+    }};
+
+    cfg.endpoints = {ep};
+    cfg.cmd_keys = {1};
+
+    auto [sink, processor] = make_sink(cfg, server.base_url());
+
+    x::telem::Frame frame;
+    frame.emplace(
+        synnax::channel::Key(1),
+        x::telem::Series(std::vector<double>{5.0})
+    );
+
+    ASSERT_NIL(sink->write(frame));
+
+    auto reqs = server.received_requests();
+    ASSERT_EQ(reqs.size(), 1);
+    auto body = x::json::json::parse(reqs[0].body);
+    EXPECT_TRUE(body.contains("request_id"));
+    // Validate UUID v4 format.
+    std::regex uuid_re(
+        "[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}"
+    );
+    EXPECT_TRUE(std::regex_match(body["request_id"].get<std::string>(), uuid_re));
+}
+
+/// @brief it should return an error on 4xx responses.
+TEST(HTTPWriteTask, Error4xxResponse) {
+    mock::Server server(mock::ServerConfig{
+        .routes = {{
+            .method = Method::POST,
+            .path = "/api/control",
+            .status_code = 400,
+            .response_body = R"({"error":"bad request"})",
+        }},
+    });
+    ASSERT_NIL(server.start());
+    x::defer::defer stop_server([&server] { server.stop(); });
+
+    WriteTaskConfig cfg;
+    cfg.device = "test-device";
+    cfg.auto_start = false;
+
+    WriteEndpoint ep;
+    ep.request.method = Method::POST;
+    ep.request.path = "/api/control";
+    ep.request.request_content_type = "application/json";
+    ep.channel.pointer = x::json::json::json_pointer("/value");
+    ep.channel.json_type = x::json::Type::Number;
+    ep.channel.channel_key = 1;
+
+    cfg.endpoints = {ep};
+    cfg.cmd_keys = {1};
+
+    auto [sink, processor] = make_sink(cfg, server.base_url());
+
+    x::telem::Frame frame;
+    frame.emplace(
+        synnax::channel::Key(1),
+        x::telem::Series(std::vector<double>{42.0})
+    );
+
+    auto err = sink->write(frame);
+    ASSERT_OCCURRED_AS(err, errors::CRITICAL_ERROR);
+}
+
+/// @brief it should return a temporary error on 5xx responses.
+TEST(HTTPWriteTask, Error5xxResponse) {
+    mock::Server server(mock::ServerConfig{
+        .routes = {{
+            .method = Method::POST,
+            .path = "/api/control",
+            .status_code = 500,
+            .response_body = R"({"error":"internal error"})",
+        }},
+    });
+    ASSERT_NIL(server.start());
+    x::defer::defer stop_server([&server] { server.stop(); });
+
+    WriteTaskConfig cfg;
+    cfg.device = "test-device";
+    cfg.auto_start = false;
+
+    WriteEndpoint ep;
+    ep.request.method = Method::POST;
+    ep.request.path = "/api/control";
+    ep.request.request_content_type = "application/json";
+    ep.channel.pointer = x::json::json::json_pointer("/value");
+    ep.channel.json_type = x::json::Type::Number;
+    ep.channel.channel_key = 1;
+
+    cfg.endpoints = {ep};
+    cfg.cmd_keys = {1};
+
+    auto [sink, processor] = make_sink(cfg, server.base_url());
+
+    x::telem::Frame frame;
+    frame.emplace(
+        synnax::channel::Key(1),
+        x::telem::Series(std::vector<double>{42.0})
+    );
+
+    auto err = sink->write(frame);
+    ASSERT_OCCURRED_AS(err, errors::TEMPORARY_ERROR);
+}
+
+/// @brief it should fire multiple endpoints independently.
+TEST(HTTPWriteTask, MultipleEndpointsFireIndependently) {
+    mock::Server server(mock::ServerConfig{
+        .routes = {
+            {
+                .method = Method::POST,
+                .path = "/api/temp",
+                .status_code = 200,
+                .response_body = R"({"status":"ok"})",
+            },
+            {
+                .method = Method::PUT,
+                .path = "/api/pressure",
+                .status_code = 200,
+                .response_body = R"({"status":"ok"})",
+            },
+        },
+    });
+    ASSERT_NIL(server.start());
+    x::defer::defer stop_server([&server] { server.stop(); });
+
+    WriteTaskConfig cfg;
+    cfg.device = "test-device";
+    cfg.auto_start = false;
+
+    WriteEndpoint ep1;
+    ep1.request.method = Method::POST;
+    ep1.request.path = "/api/temp";
+    ep1.request.request_content_type = "application/json";
+    ep1.channel.pointer = x::json::json::json_pointer("/value");
+    ep1.channel.json_type = x::json::Type::Number;
+    ep1.channel.channel_key = 1;
+
+    WriteEndpoint ep2;
+    ep2.request.method = Method::PUT;
+    ep2.request.path = "/api/pressure";
+    ep2.request.request_content_type = "application/json";
+    ep2.channel.pointer = x::json::json::json_pointer("/value");
+    ep2.channel.json_type = x::json::Type::Number;
+    ep2.channel.channel_key = 2;
+
+    cfg.endpoints = {ep1, ep2};
+    cfg.cmd_keys = {1, 2};
+
+    auto [sink, processor] = make_sink(cfg, server.base_url());
+
+    // Send command to only the first endpoint.
+    x::telem::Frame frame;
+    frame.emplace(
+        synnax::channel::Key(1),
+        x::telem::Series(std::vector<double>{25.0})
+    );
+
+    ASSERT_NIL(sink->write(frame));
+
+    auto reqs = server.received_requests();
+    ASSERT_EQ(reqs.size(), 1);
+    EXPECT_EQ(reqs[0].path, "/api/temp");
+}
+
+/// @brief it should PATCH with a boolean channel value.
+TEST(HTTPWriteTask, PATCHBooleanValue) {
+    mock::Server server(mock::ServerConfig{
+        .routes = {{
+            .method = Method::PATCH,
+            .path = "/api/config",
+            .status_code = 200,
+            .response_body = R"({"status":"ok"})",
+        }},
+    });
+    ASSERT_NIL(server.start());
+    x::defer::defer stop_server([&server] { server.stop(); });
+
+    WriteTaskConfig cfg;
+    cfg.device = "test-device";
+    cfg.auto_start = false;
+
+    WriteEndpoint ep;
+    ep.request.method = Method::PATCH;
+    ep.request.path = "/api/config";
+    ep.request.request_content_type = "application/json";
+    ep.channel.pointer = x::json::json::json_pointer("/enabled");
+    ep.channel.json_type = x::json::Type::Boolean;
+    ep.channel.channel_key = 1;
+
+    cfg.endpoints = {ep};
+    cfg.cmd_keys = {1};
+
+    auto [sink, processor] = make_sink(cfg, server.base_url());
+
+    x::telem::Frame frame;
+    frame.emplace(
+        synnax::channel::Key(1),
+        x::telem::Series(std::vector<uint8_t>{1})
+    );
+
+    ASSERT_NIL(sink->write(frame));
+
+    auto reqs = server.received_requests();
+    ASSERT_EQ(reqs.size(), 1);
+    auto body = x::json::json::parse(reqs[0].body);
+    EXPECT_EQ(body["enabled"].get<bool>(), true);
+}
+}

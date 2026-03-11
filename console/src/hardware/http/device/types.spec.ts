@@ -31,6 +31,7 @@ describe("HTTP Device Properties", () => {
         auth: { type: "none" },
         healthCheck: ZERO_HEALTH_CHECK,
         readIndexes: {},
+        writeIndexes: {},
         version: 1,
       };
       const result = propertiesZ.parse(config);
@@ -45,6 +46,7 @@ describe("HTTP Device Properties", () => {
         auth: { type: "bearer", token: "my-token" },
         healthCheck: ZERO_HEALTH_CHECK,
         readIndexes: {},
+        writeIndexes: {},
         version: 1,
       };
       const result = propertiesZ.parse(config);
@@ -72,6 +74,7 @@ describe("HTTP Device Properties", () => {
         auth: { type: "basic", username: "user", password: "pass" },
         healthCheck: ZERO_HEALTH_CHECK,
         readIndexes: {},
+        writeIndexes: {},
         version: 1,
       };
       const result = propertiesZ.parse(config);
@@ -121,6 +124,7 @@ describe("HTTP Device Properties", () => {
         },
         healthCheck: ZERO_HEALTH_CHECK,
         readIndexes: {},
+        writeIndexes: {},
         version: 1,
       };
       const result = propertiesZ.parse(config);
@@ -158,6 +162,7 @@ describe("HTTP Device Properties", () => {
         },
         healthCheck: ZERO_HEALTH_CHECK,
         readIndexes: {},
+        writeIndexes: {},
         version: 1,
       };
       const result = propertiesZ.parse(config);

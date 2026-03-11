@@ -62,6 +62,14 @@ def create_app(auth_type: str = "none") -> Flask:
     app = Flask(__name__)
     start_time = time.time()
 
+    # Shared mutable state — write endpoints modify, read endpoints reflect.
+    state: dict = {
+        "setpoint": 22.5,
+        "power": "OFF",
+        "mode": "AUTO",
+        "config": {},
+    }
+
     if auth_type != "none":
         checker = AUTH_CHECKERS[auth_type]
 
@@ -214,23 +222,21 @@ def create_app(auth_type: str = "none") -> Flask:
 
     @app.route("/api/v1/device", methods=["GET"])
     def api_device() -> tuple[Response, int]:
-        """Returns device data with string enum values for testing enum parsing.
+        """Returns device data including writable state.
 
-        Fields like "power" and "mode" return string values ("ON"/"OFF",
-        "AUTO"/"MANUAL"/"STANDBY") that can be mapped to numbers via enum_values.
+        Fields "power", "mode", and "setpoint" reflect values set by the
+        write endpoints (POST /api/v1/control, PUT /api/v1/setpoint,
+        PATCH /api/v1/config). "temperature" is a simulated sensor reading.
         """
         elapsed = time.time() - start_time
-        cycle = int(elapsed) % 20
-        power = "ON" if cycle < 15 else "OFF"
-        mode_options = ["AUTO", "MANUAL", "STANDBY"]
-        mode = mode_options[int(elapsed) % len(mode_options)]
         return (
             jsonify(
                 {
-                    "power": power,
-                    "mode": mode,
+                    "power": state["power"],
+                    "mode": state["mode"],
                     "temperature": round(math.sin(elapsed * 0.1) * 25 + 20, 2),
-                    "setpoint": 22.5,
+                    "setpoint": state["setpoint"],
+                    "config": state["config"],
                 }
             ),
             200,
@@ -247,6 +253,69 @@ def create_app(auth_type: str = "none") -> Flask:
         """Echoes back all query parameters as JSON. Tests query param config."""
         params = dict(request.args)
         return jsonify({"params": params, "count": len(params)}), 200
+
+    # ─── Write Task Test Endpoints ───
+    # These modify shared state visible via GET /api/v1/device.
+
+    @app.route("/api/v1/control", methods=["POST"])
+    def api_control() -> tuple[Response, int]:
+        """Accept control commands that update device state.
+
+        Expected body: {"power": "ON"|"OFF", "mode": "AUTO"|"MANUAL"|"STANDBY"}
+        Any fields present are applied to state; missing fields are unchanged.
+        Readable via GET /api/v1/device.
+        """
+        data = request.get_json(silent=True) or {}
+        if "power" in data:
+            state["power"] = data["power"]
+        if "mode" in data:
+            state["mode"] = data["mode"]
+        app.logger.info(f"Control command: {data} → state: {state}")
+        return (
+            jsonify(
+                {
+                    "status": "accepted",
+                    "state": {
+                        "power": state["power"],
+                        "mode": state["mode"],
+                    },
+                }
+            ),
+            200,
+        )
+
+    @app.route("/api/v1/setpoint", methods=["PUT"])
+    def api_setpoint() -> tuple[Response, int]:
+        """Accept a setpoint value (bare primitive or JSON object).
+
+        Bare primitive: body is just a number (e.g. 25.0).
+        JSON object: body is {"value": 25.0} — uses the "value" field.
+        Readable via GET /api/v1/device → "setpoint" field.
+        """
+        data = request.get_json(force=True, silent=True)
+        if isinstance(data, dict):
+            state["setpoint"] = data.get("value", data)
+        else:
+            state["setpoint"] = data
+        app.logger.info(f"Setpoint: {data} → setpoint: {state['setpoint']}")
+        return (
+            jsonify({"status": "updated", "setpoint": state["setpoint"]}),
+            200,
+        )
+
+    @app.route("/api/v1/config", methods=["PATCH"])
+    def api_config_update() -> tuple[Response, int]:
+        """Accept partial config updates (merged into state).
+
+        Readable via GET /api/v1/device → "config" field.
+        """
+        data = request.get_json(silent=True) or {}
+        state["config"].update(data)
+        app.logger.info(f"Config update: {data} → config: {state['config']}")
+        return (
+            jsonify({"status": "patched", "config": state["config"]}),
+            200,
+        )
 
     @app.route("/auth/bearer", methods=["GET"])
     def auth_bearer() -> tuple[Response, int]:
@@ -387,6 +456,18 @@ def run_server(
     print(
         f"  GET  {scheme}://{host}:{port}/api/v1/query"
         "        - Echo query parameters"
+    )
+    print(
+        f"  POST {scheme}://{host}:{port}/api/v1/control"
+        "     - Accept control commands"
+    )
+    print(
+        f"  PUT  {scheme}://{host}:{port}/api/v1/setpoint"
+        "    - Accept setpoint values"
+    )
+    print(
+        f"  PATCH {scheme}://{host}:{port}/api/v1/config"
+        "     - Partial config updates"
     )
     print(
         f"  GET  {scheme}://{host}:{port}/auth/bearer" "         - Bearer auth required"
