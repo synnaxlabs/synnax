@@ -212,8 +212,7 @@ var _ = Describe("Signal", func() {
 		It("Should receive a value from the channel", func() {
 			v := make(chan int, 1)
 			v <- 1
-			val, err := signal.RecvUnderContext(context.Background(), v)
-			Expect(err).ToNot(HaveOccurred())
+			val := MustSucceed(signal.RecvUnderContext(context.Background(), v))
 			Expect(val).To(Equal(1))
 		})
 

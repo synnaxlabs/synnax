@@ -17,6 +17,7 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/x/analyzers/mustsucceedlint"
+	. "github.com/synnaxlabs/x/testutil"
 	"golang.org/x/tools/go/analysis/analysistest"
 )
 
@@ -75,8 +76,7 @@ var _ = Describe("Analyzer", func() {
 	It("Should produce correct fixed output with import", func() {
 		testdata := analysistest.TestData()
 		dir := filepath.Join(testdata, "src", "example")
-		original, err := os.ReadFile(filepath.Join(dir, "example.go"))
-		Expect(err).ToNot(HaveOccurred())
+		original := MustSucceed(os.ReadFile(filepath.Join(dir, "example.go")))
 
 		results := analysistest.Run(
 			GinkgoT(), testdata, mustsucceedlint.Analyzer, "example",

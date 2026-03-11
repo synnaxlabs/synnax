@@ -42,11 +42,9 @@ var _ = Describe("Counter", func() {
 				Expect(fsRoot.Remove("test-spec")).To(Succeed())
 			})
 			It("Should create a new counter when the file does not exist", func() {
-				f, err := fs.Open("counterfile", os.O_CREATE|os.O_EXCL|os.O_RDWR)
-				Expect(err).ToNot(HaveOccurred())
+				f := MustSucceed(fs.Open("counterfile", os.O_CREATE|os.O_EXCL|os.O_RDWR))
 
-				c, err := NewInt32Counter(f)
-				Expect(err).ToNot(HaveOccurred())
+				c := MustSucceed(NewInt32Counter(f))
 				Expect(c.Value()).To(Equal(int32(0)))
 				Expect(f.Close()).To(Succeed())
 			})
@@ -67,11 +65,9 @@ var _ = Describe("Counter", func() {
 					c    *Int32Counter
 				)
 
-				f, err := fs.Open("counterfile", os.O_CREATE|os.O_EXCL|os.O_RDWR)
-				Expect(err).ToNot(HaveOccurred())
+				f = MustSucceed(fs.Open("counterfile", os.O_CREATE|os.O_EXCL|os.O_RDWR))
 
-				c, err = NewInt32Counter(f)
-				Expect(err).ToNot(HaveOccurred())
+				c = MustSucceed(NewInt32Counter(f))
 
 				wg.Add(1000)
 				for i := range 1000 {

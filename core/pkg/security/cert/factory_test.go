@@ -34,8 +34,7 @@ var _ = Describe("Factory", func() {
 			c, k := MustSucceed2(f.Loader.LoadCAPair())
 			Expect(c).ToNot(BeNil())
 			Expect(k).ToNot(BeNil())
-			cas, err := f.Loader.LoadCAs()
-			Expect(err).ToNot(HaveOccurred())
+			cas := MustSucceed(f.Loader.LoadCAs())
 			Expect(cas).To(HaveLen(1))
 		})
 		It("Should not allow key reuse by default", func() {
@@ -68,8 +67,7 @@ var _ = Describe("Factory", func() {
 			c, k := MustSucceed2(f.Loader.LoadNodePair())
 			Expect(c).ToNot(BeNil())
 			Expect(k).ToNot(BeNil())
-			tlsC, err := f.Loader.LoadNodeTLS()
-			Expect(err).ToNot(HaveOccurred())
+			tlsC := MustSucceed(f.Loader.LoadNodeTLS())
 			Expect(tlsC).ToNot(BeNil())
 		})
 		It("Should fail to generate a node cert and key if no CA is present", func() {
