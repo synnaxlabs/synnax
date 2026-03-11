@@ -888,6 +888,62 @@ var _ = Describe("Scheduler", func() {
 			Expect(nodeB.NextCalled).To(Equal(1))
 			Expect(nodeC.NextCalled).To(Equal(1))
 		})
+
+		It("Should give priority to the first-written transition when multiple conditions are true", func() {
+			trigger := mock("trigger")
+			entryActive := mock("entry_seq_active")
+			// Two condition nodes in the active stage, both true
+			condA := mock("condA")
+			condB := mock("condB")
+			entryStageA := mock("entry_seq_stage_a")
+			entryStageB := mock("entry_seq_stage_b")
+			nodeA := mock("A")
+			nodeB := mock("B")
+
+			trigger.MarkOnNext("activate")
+			trigger.ParamTruthy["activate"] = true
+			entryActive.ActivateOnNext()
+			// Both conditions output truthy and trigger their entry nodes
+			condA.MarkOnNext("transition")
+			condA.ParamTruthy["transition"] = true
+			condB.MarkOnNext("transition")
+			condB.ParamTruthy["transition"] = true
+			entryStageA.ActivateOnNext()
+			entryStageB.ActivateOnNext()
+
+			prog := testutil.NewIRBuilder().
+				Node("trigger").
+				Node("entry_seq_active").
+				Node("condA").
+				Node("condB").
+				Node("entry_seq_stage_a").
+				Node("entry_seq_stage_b").
+				Node("A").
+				Node("B").
+				OneShot("trigger", "activate", "entry_seq_active", "input").
+				// Both conditions trigger their respective entry nodes
+				OneShot("condA", "transition", "entry_seq_stage_a", "input").
+				OneShot("condB", "transition", "entry_seq_stage_b", "input").
+				Strata([][]string{{"trigger"}, {"entry_seq_active"}}).
+				Sequence("seq", []testutil.StageSpec{
+					// Active stage has both conditions; condA is first in the stratum
+					{Key: "active", Strata: [][]string{
+						{"condA", "condB"},
+						{"entry_seq_stage_a", "entry_seq_stage_b"},
+					}},
+					{Key: "stage_a", Strata: [][]string{{"A"}}},
+					{Key: "stage_b", Strata: [][]string{{"B"}}},
+				}).
+				Build()
+
+			s := build(prog)
+			s.Next(ctx, telem.Microsecond, node.ReasonTimerTick)
+
+			// First transition (condA → stage_a) wins
+			Expect(nodeA.NextCalled).To(Equal(1))
+			// Second transition (condB → stage_b) should NOT fire
+			Expect(nodeB.NextCalled).To(Equal(0))
+		})
 	})
 
 	Describe("Convergence Loop", func() {

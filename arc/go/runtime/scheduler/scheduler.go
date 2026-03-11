@@ -87,6 +87,9 @@ type Scheduler struct {
 	// nextDeadline is the minimum deadline (absolute elapsed time) reported by
 	// nodes during the current Next() call. Reset to max at the start of each call.
 	nextDeadline telem.TimeSpan
+	// transitioned is set to true when transitionStage fires during strata execution.
+	// Used to stop executing further nodes so the first transition wins.
+	transitioned bool
 }
 
 // ErrorHandler receives errors from node execution.
@@ -255,6 +258,8 @@ func (s *Scheduler) setDeadline(d telem.TimeSpan) {
 // other stages.
 func (s *Scheduler) execStrata(strata ir.Strata) {
 	clear(s.changed)
+	s.transitioned = false
+	inStage := s.currStageIdx != -1
 	for i, stratum := range strata {
 		for _, key := range stratum {
 			wasSelfChanged := s.selfChanged.Contains(key)
@@ -264,6 +269,9 @@ func (s *Scheduler) execStrata(strata ir.Strata) {
 			if i == 0 || s.changed.Contains(key) || wasSelfChanged {
 				s.currNodeKey = key
 				s.nodes[key].Next(s.nodeCtx)
+				if inStage && s.transitioned {
+					return
+				}
 			}
 		}
 	}
@@ -307,6 +315,7 @@ func (s *Scheduler) transitionStage() {
 	clear(targetStage.firedOneShots)
 	s.resetStrata(targetStage.strata)
 	s.sequences[target.seqIdx].activeStageIdx = target.stageIdx
+	s.transitioned = true
 }
 
 // clearSelfChanged removes all nodes in a strata from the selfChanged set
