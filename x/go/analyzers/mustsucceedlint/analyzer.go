@@ -177,7 +177,7 @@ func reportDiagnostic(
 	errName string,
 ) {
 	callStr := nodeString(pass.Fset, rhsCall)
-	numLhs := len(assign.Lhs)
+	numLHS := len(assign.Lhs)
 	errIdx := -1
 	for i, lhs := range assign.Lhs {
 		if ident, ok := lhs.(*ast.Ident); ok && ident.Name == errName {
@@ -189,13 +189,13 @@ func reportDiagnostic(
 		msg     string
 		fixText string
 	)
-	if numLhs == 1 && errIdx == 0 {
+	if numLHS == 1 && errIdx == 0 {
 		msg = fmt.Sprintf(
 			"Expect(%s).ToNot(HaveOccurred()) can be replaced with Expect(%s).To(Succeed())",
 			errName, callStr,
 		)
 		fixText = fmt.Sprintf("Expect(%s).To(Succeed())", callStr)
-	} else if numLhs == 2 && errIdx == 1 {
+	} else if numLHS == 2 && errIdx == 1 {
 		resultName := nodeString(pass.Fset, assign.Lhs[0])
 		tok := ":="
 		if assign.Tok == token.ASSIGN {
@@ -206,7 +206,7 @@ func reportDiagnostic(
 			errName,
 		)
 		fixText = fmt.Sprintf("%s %s MustSucceed(%s)", resultName, tok, callStr)
-	} else if numLhs == 3 && errIdx == 2 {
+	} else if numLHS == 3 && errIdx == 2 {
 		r1 := nodeString(pass.Fset, assign.Lhs[0])
 		r2 := nodeString(pass.Fset, assign.Lhs[1])
 		tok := ":="
