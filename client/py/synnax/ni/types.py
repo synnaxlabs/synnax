@@ -1875,6 +1875,7 @@ class DIChan(BaseModel):
 class BaseCIChan(BaseChan):
     device: str = ""
     port: int
+    channel: int
 
 
 class CIFrequencyChan(BaseCIChan, MinMaxVal):
@@ -2416,11 +2417,17 @@ class AnalogReadTaskConfig(task.BaseReadConfig):
 
     @field_validator("channels")
     def validate_channel_ports(cls, v: list[AIChan], values: Any) -> list[AIChan]:
-        ports = {c.port for c in v}
-        if len(ports) < len(v):
-            used_ports = [c.port for c in v]
-            duplicate_ports = [port for port in ports if used_ports.count(port) > 1]
-            raise ValueError(f"Port {duplicate_ports[0]} has already been used")
+        device_ports = {(c.device, c.port) for c in v}
+        if len(device_ports) < len(v):
+            seen: set[tuple[str, int]] = set()
+            for c in v:
+                key = (c.device, c.port)
+                if key in seen:
+                    raise ValueError(
+                        f"Port {c.port} has already been used on device"
+                        f" '{c.device}'"
+                    )
+                seen.add(key)
         return v
 
 
@@ -2454,11 +2461,17 @@ class CounterReadConfig(task.BaseReadConfig):
 
     @field_validator("channels")
     def validate_channel_ports(cls, v: list[CIChan]) -> list[CIChan]:
-        ports = {c.port for c in v}
-        if len(ports) < len(v):
-            used_ports = [c.port for c in v]
-            duplicate_ports = [port for port in ports if used_ports.count(port) > 1]
-            raise ValueError(f"Port {duplicate_ports[0]} has already been used")
+        device_ports = {(c.device, c.port) for c in v}
+        if len(device_ports) < len(v):
+            seen: set[tuple[str, int]] = set()
+            for c in v:
+                key = (c.device, c.port)
+                if key in seen:
+                    raise ValueError(
+                        f"Port {c.port} has already been used on device"
+                        f" '{c.device}'"
+                    )
+                seen.add(key)
         return v
 
 
