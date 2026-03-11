@@ -944,6 +944,47 @@ var _ = Describe("Scheduler", func() {
 			// Second transition (condB → stage_b) should NOT fire
 			Expect(nodeB.NextCalled).To(Equal(0))
 		})
+
+		It("Should skip later write statements after a transition fires", func() {
+			trigger := mock("trigger")
+			entryOn := mock("entry_seq_stage_on")
+			toAbort := mock("to_abort")
+			writeCmd := mock("write_ox_tpc_cmd")
+			entryAbort := mock("entry_seq_stage_abort")
+			abortNode := mock("abort_node")
+
+			trigger.MarkOnNext("activate")
+			trigger.ParamTruthy["activate"] = true
+			entryOn.ActivateOnNext()
+			entryAbort.ActivateOnNext()
+
+			toAbort.MarkOnNext("check")
+			toAbort.ParamTruthy["check"] = true
+
+			prog := testutil.NewIRBuilder().
+				Node("trigger").
+				Node("entry_seq_stage_on").
+				Node("to_abort").
+				Node("write_ox_tpc_cmd").
+				Node("entry_seq_stage_abort").
+				Node("abort_node").
+				OneShot("trigger", "activate", "entry_seq_stage_on", "input").
+				OneShot("to_abort", "check", "entry_seq_stage_abort", "input").
+				Strata([][]string{{"trigger"}, {"entry_seq_stage_on"}}).
+				Sequence("seq", []testutil.StageSpec{
+					{Key: "stage_on", Strata: [][]string{{"to_abort"}, {"entry_seq_stage_abort", "write_ox_tpc_cmd"}}},
+					{Key: "stage_abort", Strata: [][]string{{"abort_node"}}},
+				}).
+				Build()
+
+			s := build(prog)
+			s.Next(ctx, telem.Microsecond, node.ReasonTimerTick)
+
+			// Transition should fire and move into abort stage.
+			Expect(abortNode.NextCalled).To(Equal(1))
+			// Statement after transition in the same stage pass should be skipped.
+			Expect(writeCmd.NextCalled).To(Equal(0))
+		})
 	})
 
 	Describe("Convergence Loop", func() {

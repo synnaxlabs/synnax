@@ -11,6 +11,7 @@ package stratifier
 
 import (
 	"context"
+	"slices"
 
 	"github.com/synnaxlabs/arc/ir"
 	"github.com/synnaxlabs/x/diagnostics"
@@ -125,40 +126,56 @@ func Stratify(
 	// Step 2: Stratify each stage independently
 	// Entry nodes that receive edges from a stage are included in that stage's
 	// stratification so they fire after their source nodes within the stage.
-	for i, seq := range sequences {
-		for j, stage := range seq.Stages {
-			stageNodeSet := make(set.Set[string])
-			for _, nodeKey := range stage.Nodes {
-				stageNodeSet.Add(nodeKey)
-			}
+		for i, seq := range sequences {
+			for j, stage := range seq.Stages {
+				stageNodeSet := make(set.Set[string])
+				for _, nodeKey := range stage.Nodes {
+					stageNodeSet.Add(nodeKey)
+				}
+
+				orderedStageKeys := append([]string(nil), stage.Nodes...)
+				orderedStageSet := make(set.Set[string])
+				for _, key := range orderedStageKeys {
+					orderedStageSet.Add(key)
+				}
+				entryInsertAnchor := make(map[string]string)
 
 			// Find entry nodes that receive edges from this stage
 			// These need to be included in the stage's strata so they can fire
 			// when their source nodes output truthy values
-			entryNodesForStage := make(set.Set[string])
-			for _, edge := range edges {
-				if stageNodeSet.Contains(edge.Source.Node) && entryNodes.Contains(edge.Target.Node) {
-					entryNodesForStage.Add(edge.Target.Node)
+				entryNodesForStage := make(set.Set[string])
+				for _, edge := range edges {
+					if stageNodeSet.Contains(edge.Source.Node) && entryNodes.Contains(edge.Target.Node) {
+						entryNodesForStage.Add(edge.Target.Node)
+						if !orderedStageSet.Contains(edge.Target.Node) {
+							anchor := edge.Source.Node
+							if last, ok := entryInsertAnchor[edge.Source.Node]; ok {
+								anchor = last
+							}
+							idx := slices.Index(orderedStageKeys, anchor)
+							if idx == -1 {
+								orderedStageKeys = append(orderedStageKeys, edge.Target.Node)
+							} else {
+								orderedStageKeys = slices.Insert(orderedStageKeys, idx+1, edge.Target.Node)
+							}
+							orderedStageSet.Add(edge.Target.Node)
+							entryInsertAnchor[edge.Source.Node] = edge.Target.Node
+						}
+					}
 				}
-			}
 
 			// Add entry nodes to stage node set for stratification
 			for entryKey := range entryNodesForStage {
 				stageNodeSet.Add(entryKey)
 			}
 
-			// Collect nodes for this stage (including entry nodes that receive edges)
-			var stageNodes []ir.Node
-			for _, nodeKey := range stage.Nodes {
-				if node, ok := nodeByKey[nodeKey]; ok {
-					stageNodes = append(stageNodes, node)
+				// Collect nodes for this stage (including entry nodes that receive edges)
+				var stageNodes []ir.Node
+				for _, nodeKey := range orderedStageKeys {
+					if node, ok := nodeByKey[nodeKey]; ok {
+						stageNodes = append(stageNodes, node)
+					}
 				}
-			}
-			for entryKey := range entryNodesForStage {
-				if node, ok := nodeByKey[entryKey]; ok {
-					stageNodes = append(stageNodes, node)
-				}
-			}
 
 			// Filter edges for this stage:
 			// - Edges where source is in this stage (including edges to entry nodes)

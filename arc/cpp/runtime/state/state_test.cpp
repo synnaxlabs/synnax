@@ -916,8 +916,8 @@ TEST(StateTest, VarStoreStr_ResolvesConfigStringHandle) {
     EXPECT_EQ(s.string_get(result), "world");
 }
 
-/// @brief Two write_channel calls to the same key in one cycle must both appear
-/// in the flush result (appended in order, not overwritten).
+/// @brief Two write_channel calls to the same key in one cycle must be preserved
+/// as two samples in a single flushed series (not overwritten).
 TEST(StateTest, WriteChannel_MultipleWritesSameKeyPreservedInFlush) {
     State s = create_minimal_state();
     auto data1 = x::mem::make_local_shared<x::telem::Series>(1.0f);
@@ -931,11 +931,11 @@ TEST(StateTest, WriteChannel_MultipleWritesSameKeyPreservedInFlush) {
     s.write_channel(10, data1, time1);
     s.write_channel(10, data2, time2);
     const auto result = s.flush();
-    ASSERT_EQ(result.size(), 2);
+    ASSERT_EQ(result.size(), 1);
     EXPECT_EQ(result[0].first, 10);
     EXPECT_EQ(result[0].second->at<float>(0), 1.0f);
-    EXPECT_EQ(result[1].first, 10);
-    EXPECT_EQ(result[1].second->at<float>(0), 2.0f);
+    EXPECT_EQ(result[0].second->size(), 2);
+    EXPECT_EQ(result[0].second->at<float>(1), 2.0f);
 }
 
 TEST(StateTest, VarStoreStr_InvalidHandleIsNoOp) {
