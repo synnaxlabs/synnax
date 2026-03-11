@@ -1,7 +1,7 @@
 # 27 - Arc Scheduler Stage Transition Semantics
 
-**Feature Name**: Arc Scheduler Stage Transition Semantics <br /> **Status**: Draft <br />
-**Start Date**: 2026-03-11 <br /> **Authors**: Emiliano Bonilla <br />
+**Feature Name**: Arc Scheduler Stage Transition Semantics <br /> **Status**: Draft
+<br /> **Start Date**: 2026-03-11 <br /> **Authors**: Emiliano Bonilla <br />
 
 # 0 - Summary
 
@@ -76,10 +76,11 @@ sequence main {
 **Phase 1**: `ss_temp_a=200, ss_temp_b=400`. Only `ss_temp_b > 300` is true, so the
 program loops between `on` and `pause` every second.
 
-**Phase 2**: `ss_temp_a=400`. Now both conditions are true. The expected behavior is that
-`=> off` wins because it appears first in source order.
+**Phase 2**: `ss_temp_a=400`. Now both conditions are true. The expected behavior is
+that `=> off` wins because it appears first in source order.
 
 The test expects this write sequence:
+
 ```
 ss_stage_str: ["on", "pause", "on", "pause", "on", "pause", "on", "off"]
 ```
@@ -90,8 +91,8 @@ ss_stage_str: ["on", "pause", "on", "pause", "on", "pause", "on", "off"]
 
 The stratification algorithm (`stratifier.go:stratifySubgraph`) assigns each node a
 stratum equal to `max(source_strata) + 1`. Nodes with no incoming edges start at
-stratum 0. This means a node's stratum depth is determined entirely by the length of
-its longest dependency chain.
+stratum 0. This means a node's stratum depth is determined entirely by the length of its
+longest dependency chain.
 
 In the `on` stage, the two transition chains have different depths:
 
@@ -130,8 +131,8 @@ by source order.
 
 ### Expected vs. Actual Behavior
 
-| Scenario | Expected | Actual |
-|----------|----------|--------|
+| Scenario             | Expected                | Actual                     |
+| -------------------- | ----------------------- | -------------------------- |
 | Both conditions true | `=> off` (source order) | `=> pause` (shorter chain) |
 
 ### Consequence
@@ -183,8 +184,8 @@ s.appendWriteSeries(key, data)
 
 Within a single `scheduler.Next()` call:
 
-1. `on` stage executes. Constants fire: `"on"` -> ss_stage_str, `0` -> ss_sim_stage,
-   `1` -> ss_heater_cmd. Interval fires, condition met, `=> pause` transition.
+1. `on` stage executes. Constants fire: `"on"` -> ss_stage_str, `0` -> ss_sim_stage, `1`
+   -> ss_heater_cmd. Interval fires, condition met, `=> pause` transition.
 2. Convergence loop: `pause` stage now active. Constants reset and fire: `"pause"` ->
    ss_stage_str, `2` -> ss_sim_stage, `0` -> ss_heater_cmd.
 3. All writes from both stages accumulate in the write buffer.
@@ -216,10 +217,10 @@ The Go `Interval` struct has **no** `Reset()` override. The embedded
 func (n *Node) Reset() {}
 ```
 
-| | Go `Interval` | C++ `Interval` |
-|---|---|---|
-| Construction | `lastFired: -period` | `last_fired: -interval` |
-| `Reset()` | No-op (retains old `lastFired`) | `last_fired = -interval` |
+|                      | Go `Interval`                                         | C++ `Interval`                      |
+| -------------------- | ----------------------------------------------------- | ----------------------------------- |
+| Construction         | `lastFired: -period`                                  | `last_fired: -interval`             |
+| `Reset()`            | No-op (retains old `lastFired`)                       | `last_fired = -interval`            |
 | After stage re-entry | Fires only when wall-clock time elapses past `period` | Fires immediately on next TimerTick |
 
 ### Consequence
@@ -264,8 +265,8 @@ Define clear semantics for what writes are visible after a convergence loop.
 before executing the target stage. Only the stable (final) stage's writes are flushed.
 
 **Option B: All intermediate writes are preserved (current append behavior).** Accept
-that a single flush can contain writes from multiple stages. Document this as intentional
-and adjust downstream consumers.
+that a single flush can contain writes from multiple stages. Document this as
+intentional and adjust downstream consumers.
 
 **Option C: Writes are committed per-stage.** Each stage's writes are flushed
 independently before transitioning to the next stage. This gives downstream consumers a
@@ -294,14 +295,14 @@ will exhibit different timing behavior than the C++ runtime.
 
 # 5 - Key Files
 
-| File | Role |
-|---|---|
-| `arc/go/runtime/scheduler/scheduler.go` | Go scheduler, convergence loop, short-circuit |
-| `arc/cpp/runtime/scheduler/scheduler.h` | C++ scheduler (mirrors Go) |
-| `arc/go/stratifier/stratifier.go` | Stratification algorithm |
-| `arc/go/runtime/time/time.go` | Go interval/wait (missing Reset) |
-| `arc/cpp/runtime/time/time.h` | C++ interval/wait (has reset) |
-| `arc/go/runtime/state/state.go` | Go write buffer, append semantics |
-| `arc/cpp/runtime/state/state.cpp` | C++ write buffer (mirrors Go) |
-| `arc/go/runtime/constant/constant.go` | Go constant node (has Reset) |
+| File                                         | Role                                           |
+| -------------------------------------------- | ---------------------------------------------- |
+| `arc/go/runtime/scheduler/scheduler.go`      | Go scheduler, convergence loop, short-circuit  |
+| `arc/cpp/runtime/scheduler/scheduler.h`      | C++ scheduler (mirrors Go)                     |
+| `arc/go/stratifier/stratifier.go`            | Stratification algorithm                       |
+| `arc/go/runtime/time/time.go`                | Go interval/wait (missing Reset)               |
+| `arc/cpp/runtime/time/time.h`                | C++ interval/wait (has reset)                  |
+| `arc/go/runtime/state/state.go`              | Go write buffer, append semantics              |
+| `arc/cpp/runtime/state/state.cpp`            | C++ write buffer (mirrors Go)                  |
+| `arc/go/runtime/constant/constant.go`        | Go constant node (has Reset)                   |
 | `integration/tests/arc/arc_short_circuit.py` | Integration test exercising all three problems |
