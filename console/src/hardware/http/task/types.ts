@@ -8,22 +8,29 @@
 // included in the file licenses/APL.txt.
 
 import { type task } from "@synnaxlabs/client";
+import { json } from "@synnaxlabs/x";
 import { z } from "zod";
 
 import { Common } from "@/hardware/common";
 
 export const PREFIX = "http";
 
-const jsonPointerZ = z
-  .string()
-  .regex(/^(?:$|(?:\/(?:[^~/]|~0|~1)*)+)$/, "must be a valid JSON pointer (RFC 6901)");
+export const SCAN_TYPE = `${PREFIX}_scan`;
+
+export const TEST_CONNECTION_COMMAND_TYPE = "test_connection";
+
+export const SCAN_SCHEMAS = {
+  typeSchema: z.literal(SCAN_TYPE),
+  configSchema: z.null(),
+  statusDataSchema: z.null(),
+} as const satisfies task.Schemas;
 
 const timeFormatZ = z.enum(["iso8601", "unix_sec", "unix_ms", "unix_us", "unix_ns"]);
 
 export const READ_TYPE = `${PREFIX}_read`;
 
 const readFieldZ = Common.Task.readChannelZ.extend({
-  pointer: jsonPointerZ,
+  pointer: json.pointerZ,
   dataType: z.string().default("float64"),
   timestampFormat: timeFormatZ.optional(),
   enumValues: z.record(z.string(), z.number()).optional(),
@@ -39,7 +46,7 @@ export const ZERO_READ_FIELD = {
 
 const baseReadEndpointZ = z.object({
   key: z.string(),
-  path: z.string().min(1, "Path is required"),
+  path: z.string(),
   headers: z.record(z.string(), z.string()).optional(),
   queryParams: z.record(z.string(), z.string()).optional(),
   fields: z.array(readFieldZ).check(Common.Task.validateReadChannels),

@@ -10,8 +10,10 @@
 import { describe, expect, it } from "vitest";
 
 import {
+  healthCheckZ,
   type Properties,
   propertiesZ,
+  ZERO_HEALTH_CHECK,
   ZERO_PROPERTIES,
 } from "@/hardware/http/device/types";
 
@@ -27,6 +29,7 @@ describe("HTTP Device Properties", () => {
         verifySsl: false,
         timeoutMs: 500,
         auth: { type: "none" },
+        healthCheck: ZERO_HEALTH_CHECK,
         readIndexes: {},
         version: 1,
       };
@@ -40,6 +43,7 @@ describe("HTTP Device Properties", () => {
         verifySsl: true,
         timeoutMs: 100,
         auth: { type: "bearer", token: "my-token" },
+        healthCheck: ZERO_HEALTH_CHECK,
         readIndexes: {},
         version: 1,
       };
@@ -66,6 +70,7 @@ describe("HTTP Device Properties", () => {
         verifySsl: true,
         timeoutMs: 100,
         auth: { type: "basic", username: "user", password: "pass" },
+        healthCheck: ZERO_HEALTH_CHECK,
         readIndexes: {},
         version: 1,
       };
@@ -114,6 +119,7 @@ describe("HTTP Device Properties", () => {
           header: "X-API-Key",
           key: "secret",
         },
+        healthCheck: ZERO_HEALTH_CHECK,
         readIndexes: {},
         version: 1,
       };
@@ -150,6 +156,7 @@ describe("HTTP Device Properties", () => {
           parameter: "api_key",
           key: "secret",
         },
+        healthCheck: ZERO_HEALTH_CHECK,
         readIndexes: {},
         version: 1,
       };
@@ -190,6 +197,123 @@ describe("HTTP Device Properties", () => {
         version: 1,
       };
       const result = propertiesZ.safeParse(config);
+      expect(result.success).toBe(false);
+    });
+  });
+
+  describe("healthCheckZ", () => {
+    it("should validate a GET health check without response validation", () => {
+      const config: Properties = {
+        ...ZERO_PROPERTIES,
+        healthCheck: {
+          method: "GET",
+          path: "/health",
+          validateResponse: false,
+        },
+      };
+      const result = propertiesZ.parse(config);
+      expect(result.healthCheck.method).toBe("GET");
+      expect(result.healthCheck.validateResponse).toBe(false);
+    });
+
+    it("should validate a GET health check with response validation", () => {
+      const config: Properties = {
+        ...ZERO_PROPERTIES,
+        healthCheck: {
+          method: "GET",
+          path: "/health",
+          validateResponse: true,
+          response: {
+            pointer: "/status",
+            value: { expectedValueType: "string", expectedValue: "ok" },
+          },
+        },
+      };
+      const result = propertiesZ.parse(config);
+      expect(result.healthCheck.validateResponse).toBe(true);
+    });
+
+    it("should validate a POST health check without response validation", () => {
+      const config: Properties = {
+        ...ZERO_PROPERTIES,
+        healthCheck: {
+          method: "POST",
+          path: "/health",
+          body: '{"check": true}',
+          validateResponse: false,
+        },
+      };
+      const result = propertiesZ.parse(config);
+      expect(result.healthCheck.method).toBe("POST");
+      expect(result.healthCheck.validateResponse).toBe(false);
+    });
+
+    it("should validate a POST health check with response validation", () => {
+      const config: Properties = {
+        ...ZERO_PROPERTIES,
+        healthCheck: {
+          method: "POST",
+          path: "/health",
+          body: '{"check": true}',
+          validateResponse: true,
+          response: {
+            pointer: "/alive",
+            value: { expectedValueType: "boolean", expectedValue: true },
+          },
+        },
+      };
+      const result = propertiesZ.parse(config);
+      expect(result.healthCheck.method).toBe("POST");
+      expect(result.healthCheck.validateResponse).toBe(true);
+    });
+
+    it("should validate a POST health check without body", () => {
+      const config: Properties = {
+        ...ZERO_PROPERTIES,
+        healthCheck: {
+          method: "POST",
+          path: "/health",
+          validateResponse: false,
+        },
+      };
+      const result = propertiesZ.parse(config);
+      expect(result.healthCheck.method).toBe("POST");
+    });
+
+    it("should validate health check with headers and query params", () => {
+      const config: Properties = {
+        ...ZERO_PROPERTIES,
+        healthCheck: {
+          method: "GET",
+          path: "/health",
+          headers: { Authorization: "Bearer token" },
+          queryParams: { verbose: "true" },
+          validateResponse: false,
+        },
+      };
+      const result = propertiesZ.parse(config);
+      expect(result.healthCheck.path).toBe("/health");
+    });
+
+    it("should reject validateResponse true without response field", () => {
+      const result = healthCheckZ.safeParse({
+        method: "GET",
+        path: "/health",
+        validateResponse: true,
+      });
+      expect(result.success).toBe(false);
+    });
+
+    it("should reject validateResponse true with invalid pointer", () => {
+      const result = healthCheckZ.safeParse({
+        method: "GET",
+        path: "/health",
+        validateResponse: true,
+        response: {
+          pointer: "no-leading-slash",
+          value: { expectedValueType: "string", expectedValue: "ok" },
+        },
+      });
       expect(result.success).toBe(false);
     });
   });

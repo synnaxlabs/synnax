@@ -17,7 +17,9 @@ import (
 	"github.com/antlr4-go/antlr/v4"
 	"github.com/onsi/gomega/types"
 	ccontext "github.com/synnaxlabs/arc/compiler/context"
+	"github.com/synnaxlabs/arc/compiler/resolve"
 	"github.com/synnaxlabs/arc/compiler/wasm"
+	"github.com/synnaxlabs/arc/stl"
 	"github.com/synnaxlabs/arc/symbol"
 	arctypes "github.com/synnaxlabs/arc/types"
 	"github.com/synnaxlabs/x/errors"
@@ -31,7 +33,17 @@ func FunctionScope(ctx context.Context) *symbol.Scope {
 }
 
 func NewContext(ctx context.Context) ccontext.Context[antlr.ParserRuleContext] {
-	return ccontext.CreateRoot(ctx, FunctionScope(ctx), make(map[antlr.ParserRuleContext]arctypes.Type), false)
+	return ccontext.CreateRoot(ctx, FunctionScope(ctx), make(map[antlr.ParserRuleContext]arctypes.Type), resolve.NewResolver(stl.SymbolResolver))
+}
+
+// FinalizeContext calls FinalizeAndPatch on the context's Resolver and returns
+// the patched bytecodes from the writer. This must be called after compilation
+// when the context has a Resolver.
+func FinalizeContext(ctx ccontext.Context[antlr.ParserRuleContext]) []byte {
+	if ctx.Resolver != nil {
+		ctx.Resolver.FinalizeAndPatch(ctx.Module)
+	}
+	return ctx.Writer.Bytes()
 }
 
 // WASM builds WASM bytecode from a variadic slice of opcodes and operands
@@ -61,14 +73,15 @@ func WASM(instructions ...any) []byte {
 				encoder.WriteLocalSet(instructions[i+1].(int))
 				i++ // Skip the operand
 			case wasm.OpCall:
-				// Handle both uint32 and uint64 for compatibility
+				// Use fixed 5-byte LEB128 to match WriteCallPlaceholder+PatchCall encoding
+				encoder.WriteOpcode(wasm.OpCall)
 				switch v := instructions[i+1].(type) {
 				case uint32:
-					encoder.WriteCall(v)
+					encoder.WriteLEB128Fixed5(uint64(v))
 				case uint64:
-					encoder.WriteCall(uint32(v))
+					encoder.WriteLEB128Fixed5(v)
 				case int:
-					encoder.WriteCall(uint32(v))
+					encoder.WriteLEB128Fixed5(uint64(v))
 				}
 				i++ // Skip the operand
 			case wasm.OpIf:

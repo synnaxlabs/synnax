@@ -55,6 +55,21 @@ struct ReadEndpoint {
     std::vector<ReadField> fields;
 };
 
+/// @brief a group of fields that share the same index channel and must be
+/// written atomically — either all fields succeed or the entire group is
+/// skipped.
+struct SamplingGroup {
+    /// @brief index channel key, or 0 if the fields have no index.
+    synnax::channel::Key index_key = 0;
+    /// @brief whether the index channel is software-timed (not an explicit
+    /// field — needs a timestamp written automatically).
+    bool software_timed_index = false;
+    /// @brief index of the endpoint this group's fields live on.
+    size_t endpoint_index;
+    /// @brief indices into ReadEndpoint::fields for the fields in this group.
+    std::vector<size_t> field_indices;
+};
+
 /// @brief configuration for an HTTP read task.
 struct ReadTaskConfig {
     /// @brief key of the device to read from.
@@ -67,9 +82,11 @@ struct ReadTaskConfig {
     x::telem::Rate rate;
     /// @brief endpoints to poll.
     std::vector<ReadEndpoint> endpoints;
-    /// @brief index channels that need software timing, mapped to their endpoint index.
-    /// These are index channels referenced by data channels but not explicitly listed
-    /// as fields.
+    /// @brief sampling groups computed at parse time.
+    std::vector<SamplingGroup> groups;
+    /// @brief index channels that need software timing, mapped to their endpoint
+    /// index. These are index channels referenced by data channels but not
+    /// explicitly listed as fields.
     std::map<synnax::channel::Key, int> software_timed_indexes;
     /// @brief mapping of channel keys to their Synnax channel definitions.
     std::map<synnax::channel::Key, synnax::channel::Channel> channels;

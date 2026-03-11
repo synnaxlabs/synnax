@@ -25,7 +25,7 @@
 #include "arc/cpp/runtime/node/node.h"
 #include "arc/cpp/runtime/scheduler/scheduler.h"
 #include "arc/cpp/runtime/state/state.h"
-#include "arc/cpp/runtime/time/time.h"
+#include "arc/cpp/stl/time/time.h"
 
 namespace arc::runtime::scheduler {
 /// @brief Configurable mock node for testing scheduler behavior.
@@ -1649,8 +1649,8 @@ TEST(RealNodeSchedulerTest, IntervalOneShotEdgeFires) {
     );
 
     // Create real Interval node using Factory
-    time::Factory factory;
-    auto [interval_node, err] = factory.create(
+    stl::time::Module time_factory;
+    auto [interval_node, err] = time_factory.create(
         node::Config(
             interval_ir,
             interval_ir.nodes[0],
@@ -1718,8 +1718,8 @@ TEST(RealNodeSchedulerTest, IntervalTruthyCheckBeforeFiring) {
         errors::noop_handler
     );
 
-    time::Factory factory;
-    auto [interval_node, err] = factory.create(
+    stl::time::Module time_factory;
+    auto [interval_node, err] = time_factory.create(
         node::Config(
             interval_ir,
             interval_ir.nodes[0],
@@ -1819,7 +1819,7 @@ TEST(RealNodeSchedulerTest, WaitOneShotEdgeFiresAfterDuration) {
         errors::noop_handler
     );
 
-    time::Factory factory;
+    stl::time::Module factory;
     auto [wait_node, err] = factory.create(
         node::Config(wait_ir, wait_ir.nodes[0], ASSERT_NIL_P(state.node("wait_0")))
     );
