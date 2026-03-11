@@ -43,6 +43,7 @@ export const Log = ({
   className,
   visible = true,
   multiChannel = false,
+  timestampPrecision = 0,
   emptyContent = (
     <Status.Summary center level="h3" variant="disabled" hideIcon>
       Empty Log
@@ -52,7 +53,7 @@ export const Log = ({
   telem,
   ...rest
 }: LogProps): ReactElement | null => {
-  const memoProps = useMemoDeepEqual({ font, color, telem, visible, multiChannel });
+  const memoProps = useMemoDeepEqual({ font, color, telem, visible, multiChannel, timestampPrecision });
   const [, { scrolling, empty }, setState] = Aether.use({
     type: log.Log.TYPE,
     schema: log.logState,

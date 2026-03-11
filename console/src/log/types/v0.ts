@@ -17,6 +17,7 @@ export const stateZ = z.object({
   version: z.literal(VERSION),
   channels: channel.keyZ.array(),
   remoteCreated: z.boolean(),
+  timestampPrecision: z.number().min(0).max(3).default(0),
 });
 
 export type State = z.infer<typeof stateZ>;
@@ -26,6 +27,7 @@ export const ZERO_STATE: State = {
   version: VERSION,
   channels: [],
   remoteCreated: false,
+  timestampPrecision: 0,
 };
 
 export const sliceStateZ = z.object({

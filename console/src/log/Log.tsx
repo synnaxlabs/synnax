@@ -83,6 +83,7 @@ const Loaded: Layout.Renderer = ({ layoutKey, visible }) => {
       // Derived once per channel selection change (O(1)) and propagated to the aether
       // renderer via state, avoiding a per-frame O(n) scan over all log entries.
       multiChannel={activeChannels.length > 1}
+      timestampPrecision={log.timestampPrecision}
       onDoubleClick={handleDoubleClick}
       emptyContent={
         <EmptyAction

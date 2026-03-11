@@ -18,7 +18,7 @@ import { Layout } from "@/layout";
 import { useExport } from "@/log/export";
 import { useSyncComponent } from "@/log/Log";
 import { useSelectOptional } from "@/log/selectors";
-import { setChannels } from "@/log/slice";
+import { setChannels, setTimestampPrecision } from "@/log/slice";
 
 export interface ToolbarProps {
   layoutKey: string;
@@ -31,6 +31,8 @@ export const Toolbar = ({ layoutKey }: ToolbarProps): ReactElement | null => {
   const hasEditPermission = Access.useUpdateGranted(log.ontologyID(layoutKey));
   const handleChannelChange = (v: channel.Key[]) =>
     dispatch(setChannels({ key: layoutKey, channels: v }));
+  const handlePrecisionChange = (v: number) =>
+    dispatch(setTimestampPrecision({ key: layoutKey, timestampPrecision: v }));
   const handleExport = useExport();
   if (state == null) return null;
   return (
@@ -45,12 +47,21 @@ export const Toolbar = ({ layoutKey }: ToolbarProps): ReactElement | null => {
           />
         </Flex.Box>
       </Base.Header>
-      <Flex.Box full style={{ padding: "2rem" }}>
+      <Flex.Box x style={{ padding: "2rem" }}>
         <Input.Item label="Channels" grow>
           <Channel.SelectMultiple
             value={state.channels}
             onChange={handleChannelChange}
             initialQuery={{ internal: IS_DEV ? undefined : false }}
+            disabled={!hasEditPermission}
+          />
+        </Input.Item>
+        <Input.Item label="Timestamp Decimal Places">
+          <Input.Numeric
+            value={state.timestampPrecision}
+            onChange={handlePrecisionChange}
+            resetValue={0}
+            bounds={{ lower: 0, upper: 3 }}
             disabled={!hasEditPermission}
           />
         </Input.Item>

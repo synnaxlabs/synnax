@@ -31,6 +31,7 @@ export const logState = z.object({
   empty: z.boolean(),
   visible: z.boolean(),
   multiChannel: z.boolean().default(false),
+  timestampPrecision: z.number().min(0).max(3).default(0),
   telem: telem.logSourceSpecZ.default(telem.noopLogSourceSpec),
   font: text.levelZ.default("p"),
   color: color.colorZ.default(color.ZERO),
@@ -210,10 +211,11 @@ export class Log extends aether.Leaf<typeof logState, InternalState> {
     // (O(n)). The render loop below is already O(n) over visible entries — adding a
     // second O(n) scan here just to answer a yes/no question would double the per-frame
     // work at up to 60fps.
-    const { multiChannel } = this.state;
+    const { multiChannel, timestampPrecision } = this.state;
+    const tsLen = timestampPrecision === 0 ? 8 : 9 + timestampPrecision;
     for (let i = 0; i < entries.length; i++) {
       const entry = entries[i];
-      const ts = new TimeStamp(entry.timestamp).toString("time", "local");
+      const ts = new TimeStamp(entry.timestamp).toString("preciseTime", "local").slice(0, tsLen);
       let line = `${ts}  ${entry.value}`;
       if (multiChannel) line = `${ts}  [${entry.channelName}]  ${entry.value}`;
       draw2D.text({
