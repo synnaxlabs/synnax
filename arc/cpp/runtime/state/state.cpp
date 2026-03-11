@@ -85,10 +85,12 @@ void append_to_write_buffer(Series &dest, const Series &src) {
         throw std::runtime_error("cannot append series with mismatched data types");
 
     if (dest->data_type().is_variable()) {
+        const auto old_time_range = dest->time_range;
         auto merged = dest->strings();
         auto incoming = src->strings();
         merged.insert(merged.end(), incoming.begin(), incoming.end());
         dest = x::mem::make_local_shared<x::telem::Series>(merged, dest->data_type());
+        dest->time_range = old_time_range;
     } else {
         const auto required_cap = dest->size() + src->size();
         if (dest->cap() < required_cap) {

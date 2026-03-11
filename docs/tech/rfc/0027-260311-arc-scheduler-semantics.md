@@ -1,15 +1,15 @@
 # 27 - Arc Scheduler Stage Transition Semantics
 
-**Feature Name**: Arc Scheduler Stage Transition Semantics <br /> **Status**: Draft
-<br /> **Start Date**: 2026-03-11 <br /> **Authors**: Emiliano Bonilla <br />
+**Feature Name**: Arc Scheduler Stage Transition Semantics <br /> **Status**: Draft <br
+/> **Start Date**: 2026-03-11 <br /> **Authors**: Emiliano Bonilla <br />
 
 # 0 - Summary
 
-The Arc scheduler has three interacting problems that produce incorrect behavior when
-multiple stage transitions can fire in the same execution cycle. These problems surface
-clearly in the `arc_short_circuit` integration test, which verifies that when multiple
-transition conditions are true simultaneously, the first-written transition takes
-priority.
+In this RFC, we address three interacting problems in the Arc scheduler that produce
+incorrect behavior when multiple stage transitions can fire in the same execution cycle.
+These problems surface clearly in the `arc_short_circuit` integration test, which
+verifies that when multiple transition conditions are true simultaneously, the
+first-written transition takes priority.
 
 The three problems are:
 
@@ -37,15 +37,15 @@ The three problems are:
   transitions until no further transitions occur (stable state).
 - **Short-circuit** - The `transitioned` flag mechanism that stops executing further
   nodes in a strata pass once a transition fires.
-- **Append semantics** - The branch's change from `writes[key] = data` (replace) to
+- **Append semantics** - The change from `writes[key] = data` (replace) to
   `appendWriteSeries(key, data)` (accumulate), preserving writes across stage
   transitions within a single flush cycle.
 
-# 2 - Problem Analysis
+# 2 - Motivation
 
 ## 2.0 - Motivating Example
 
-The `arc_short_circuit` integration test uses this program:
+The `arc_short_circuit` integration test uses the following program:
 
 ```arc
 sequence main {
@@ -85,9 +85,7 @@ The test expects this write sequence:
 ss_stage_str: ["on", "pause", "on", "pause", "on", "pause", "on", "off"]
 ```
 
-## 2.1 - Problem 1: Stratification Ordering vs. Source Order
-
-### Mechanism
+## 2.1 - Stratification Ordering vs. Source Order
 
 The stratification algorithm (`stratifier.go:stratifySubgraph`) assigns each node a
 stratum equal to `max(source_strata) + 1`. Nodes with no incoming edges start at
@@ -103,11 +101,9 @@ Chain 2 (=> pause): interval -> gt_b_300 -> entry_pause              (2 edges)
 
 The `entry_pause` node ends up at stratum ~2, while `entry_off` ends up at stratum ~4.
 
-### How the Short-Circuit Interacts
-
-The short-circuit mechanism in `execStrata` (`scheduler.go:259-278`) executes nodes
-layer by layer from stratum 0 upward. When a node calls `transitionStage()`, it sets
-`transitioned = true`, and `execStrata` returns immediately:
+The short-circuit mechanism in `execStrata` executes nodes layer by layer from stratum 0
+upward. When a node calls `transitionStage()`, it sets `transitioned = true`, and
+`execStrata` returns immediately:
 
 ```go
 func (s *Scheduler) execStrata(strata ir.Strata) {
@@ -127,25 +123,16 @@ func (s *Scheduler) execStrata(strata ir.Strata) {
 
 Since `entry_pause` is at a shallower stratum than `entry_off`, `=> pause` fires first
 and short-circuits `=> off`. The transition that wins is determined by chain length, not
-by source order.
-
-### Expected vs. Actual Behavior
+by source order. The user cannot reason about which transition will fire first by
+reading the code top-to-bottom.
 
 | Scenario             | Expected                | Actual                     |
 | -------------------- | ----------------------- | -------------------------- |
 | Both conditions true | `=> off` (source order) | `=> pause` (shorter chain) |
 
-### Consequence
+## 2.2 - Convergence Loop and Duplicate Writes
 
-Source order has no semantic meaning for transition priority. The user cannot reason
-about which transition will fire first by reading the code top-to-bottom.
-
-## 2.2 - Problem 2: Convergence Loop and Duplicate Writes
-
-### Mechanism
-
-The `execStages()` convergence loop (`scheduler.go:282-300`) re-executes stages after
-transitions until stable:
+The `execStages()` convergence loop re-executes stages after transitions until stable:
 
 ```go
 func (s *Scheduler) execStages() {
@@ -170,19 +157,7 @@ which calls `Reset()` on every node. Constants get `initialized = false`, allowi
 to re-fire. The convergence loop then executes the new stage's strata, where those
 constants fire and produce writes.
 
-### Interaction with Append Semantics
-
-The branch changed write behavior from replace to append:
-
-```go
-// Before (replace): last write wins
-s.channel.writes[key] = data
-
-// After (append): all writes accumulate
-s.appendWriteSeries(key, data)
-```
-
-Within a single `scheduler.Next()` call:
+With append semantics, all writes accumulate within a single `scheduler.Next()` call:
 
 1. `on` stage executes. Constants fire: `"on"` -> ss_stage_str, `0` -> ss_sim_stage, `1`
    -> ss_heater_cmd. Interval fires, condition met, `=> pause` transition.
@@ -191,29 +166,23 @@ Within a single `scheduler.Next()` call:
 3. All writes from both stages accumulate in the write buffer.
 4. On flush, `ss_stage_str` contains `["on", "pause"]` instead of just one value.
 
-### Consequence
-
 A single flush cycle can emit writes from multiple stages, producing unexpected
-duplicate values that break downstream consumers expecting clean, single-valued writes
-per cycle.
+duplicate values that break downstream consumers expecting single-valued writes per
+cycle.
 
-## 2.3 - Problem 3: Go/C++ Interval Reset Divergence
-
-### Mechanism
+## 2.3 - Go/C++ Interval Reset Divergence
 
 The C++ `Interval` class overrides `reset()` to make the interval fire immediately on
 the next TimerTick after stage re-entry:
 
 ```cpp
-// arc/cpp/runtime/time/time.h:87
 void reset() override { last_fired = -1 * cfg.interval; }
 ```
 
-The Go `Interval` struct has **no** `Reset()` override. The embedded
-`state.Node.Reset()` is a no-op:
+The Go `Interval` struct has no `Reset()` override. The embedded `state.Node.Reset()` is
+a no-op:
 
 ```go
-// arc/go/runtime/state/state.go:347
 func (n *Node) Reset() {}
 ```
 
@@ -223,26 +192,19 @@ func (n *Node) Reset() {}
 | `Reset()`            | No-op (retains old `lastFired`)                       | `last_fired = -interval`            |
 | After stage re-entry | Fires only when wall-clock time elapses past `period` | Fires immediately on next TimerTick |
 
-### Consequence
+The same Arc program produces different execution traces on Go and C++. Within a
+convergence loop iteration where elapsed time hasn't changed, C++ fires the interval
+immediately after reset, while Go does not fire because
+`elapsed - lastFired == 0 < period`. This is a correctness bug. Both runtimes must
+produce identical behavior for the same program.
 
-The same Arc program produces different execution traces on Go (rack 65537) and C++
-(rack 65538). Within a convergence loop iteration where elapsed time hasn't changed:
-
-- **C++**: Interval fires immediately after reset, potentially causing an additional
-  transition and more accumulated writes.
-- **Go**: Interval does not fire (elapsed - lastFired = 0 < period), so the convergence
-  loop stabilizes sooner.
-
-This is a correctness bug. Both runtimes should produce identical behavior for the same
-program.
-
-# 3 - Proposed Solutions
+# 3 - Design
 
 ## 3.0 - Source-Order Transition Priority
 
-The stratification algorithm should not determine transition priority. Instead, when
-multiple transitions can fire in the same strata execution, the scheduler should respect
-source order.
+The stratification algorithm should not determine transition priority. When multiple
+transitions can fire in the same strata execution, the scheduler should respect source
+order. We considered three approaches:
 
 **Option A: Collect-and-pick.** Instead of short-circuiting on the first transition,
 execute all nodes in the strata, collect all transitions that would fire, and pick the
@@ -257,9 +219,15 @@ compete at the same level, where source order within a stratum determines priori
 field to transition edges. The scheduler uses this to break ties when multiple
 transitions fire.
 
+We chose **Option B**. Flattening entry nodes to the same stratum is the least invasive
+change. It preserves the existing short-circuit mechanism and requires no changes to the
+scheduler itself. The stratifier already has access to entry node metadata, so the
+modification is localized to `stratifier.go`.
+
 ## 3.1 - Write Semantics During Convergence
 
-Define clear semantics for what writes are visible after a convergence loop.
+We need clear semantics for what writes are visible after a convergence loop. We
+considered three approaches:
 
 **Option A: Only final stage writes survive.** On transition, clear the write buffer
 before executing the target stage. Only the stable (final) stage's writes are flushed.
@@ -272,37 +240,93 @@ intentional and adjust downstream consumers.
 independently before transitioning to the next stage. This gives downstream consumers a
 clean, ordered sequence but requires multiple flush calls per cycle.
 
+We chose **Option B**. Preserving all intermediate writes is the correct semantic for
+control systems. When a program transitions through multiple stages in a single cycle,
+downstream consumers need the complete record of what happened. Discarding intermediate
+writes (Option A) would hide state changes that may be safety-relevant. Per-stage
+flushing (Option C) adds complexity to the flush pipeline without a clear benefit.
+
 ## 3.2 - Interval Reset Parity
 
-Add a `Reset()` override to Go's `Interval` that matches C++:
+This is a straightforward bug fix independent of the other two problems. We add a
+`Reset()` override to Go's `Interval` that matches the existing C++ behavior:
 
 ```go
 func (i *Interval) Reset() {
+    i.Node.Reset()
     i.lastFired = -i.period
 }
 ```
 
-This is a straightforward bug fix independent of the other two problems.
+After this change, both runtimes fire the interval immediately on the first tick after
+stage re-entry.
 
-# 4 - Impact
+# 4 - Implementation
+
+## 4.0 - Stratifier Changes
+
+The stratifier (`arc/go/stratifier/stratifier.go`) is modified to detect entry nodes
+within a stage's subgraph and promote them to the same stratum. After the initial
+topological stratification, we find the maximum stratum among all entry nodes for the
+current stage and move any shallower entry nodes up to that depth. This ensures the
+short-circuit mechanism compares transitions at the same level, where source order
+within the stratum determines priority.
+
+## 4.1 - State Write Buffer
+
+The state module (`arc/go/runtime/state/state.go`, `arc/cpp/runtime/state/state.cpp`)
+uses append semantics for channel writes. When a channel is written to multiple times
+within a single `scheduler.Next()` call (e.g., across stage transitions in the
+convergence loop), all values accumulate in order. The flush operation returns the
+complete series for each channel.
+
+## 4.2 - Interval Reset
+
+Both Go (`arc/go/runtime/time/time.go`) and C++ (`arc/cpp/runtime/time/time.h`) now
+implement `Reset()` with identical behavior: setting `lastFired` (or `last_fired`) to
+the negative of the period. This guarantees the interval fires on the first tick after
+stage re-entry in both runtimes.
+
+## 4.3 - Scheduler Changes
+
+The scheduler (`arc/go/runtime/scheduler/scheduler.go`,
+`arc/cpp/runtime/scheduler/scheduler.h`) handles string accumulation correctly during
+convergence. Previously, string writes could accumulate across convergence iterations in
+unexpected ways. The fix ensures string series are handled consistently with other data
+types.
+
+# 5 - Testing Strategy
+
+## 5.0 - Unit Tests
+
+- **Scheduler tests** (`arc/go/runtime/scheduler/scheduler_test.go`,
+  `arc/cpp/runtime/scheduler/scheduler_test.cpp`): Verify convergence loop behavior,
+  transition priority, and write accumulation across stage transitions.
+- **State tests** (`arc/go/runtime/state/state_test.go`,
+  `arc/cpp/runtime/state/state_test.cpp`): Verify append write semantics, flush
+  behavior, and series accumulation.
+- **Stratifier tests** (`arc/go/stratifier/stratifier_test.go`): Verify entry node
+  promotion to the same stratum depth.
+- **Series tests** (`x/cpp/telem/series_test.cpp`): Verify series append operations used
+  by the state module.
+
+## 5.1 - Integration Tests
+
+The `arc_short_circuit` integration test (`integration/tests/arc/arc_short_circuit.py`)
+exercises all three problems together. It runs the motivating example program and
+verifies:
+
+- The program loops between `on` and `pause` when only one condition is true (Phase 1).
+- The `=> off` transition wins over `=> pause` when both conditions become true (Phase
+  2), respecting source order.
+- The complete write sequence for `ss_stage_str` matches the expected output.
+- Write counts for `ss_count_on` and `ss_count_pause` are consistent across both
+  runtimes.
+
+# 6 - Impact
 
 These problems affect any Arc program with multiple competing transitions in the same
 stage. Programs with only a single transition per stage are unaffected.
 
 The interval reset divergence affects any Arc program using `interval{}` nodes across
-stage transitions, regardless of whether multiple transitions compete. The Go runtime
-will exhibit different timing behavior than the C++ runtime.
-
-# 5 - Key Files
-
-| File                                         | Role                                           |
-| -------------------------------------------- | ---------------------------------------------- |
-| `arc/go/runtime/scheduler/scheduler.go`      | Go scheduler, convergence loop, short-circuit  |
-| `arc/cpp/runtime/scheduler/scheduler.h`      | C++ scheduler (mirrors Go)                     |
-| `arc/go/stratifier/stratifier.go`            | Stratification algorithm                       |
-| `arc/go/runtime/time/time.go`                | Go interval/wait (missing Reset)               |
-| `arc/cpp/runtime/time/time.h`                | C++ interval/wait (has reset)                  |
-| `arc/go/runtime/state/state.go`              | Go write buffer, append semantics              |
-| `arc/cpp/runtime/state/state.cpp`            | C++ write buffer (mirrors Go)                  |
-| `arc/go/runtime/constant/constant.go`        | Go constant node (has Reset)                   |
-| `integration/tests/arc/arc_short_circuit.py` | Integration test exercising all three problems |
+stage transitions, regardless of whether multiple transitions compete.
