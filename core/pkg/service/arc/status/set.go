@@ -47,6 +47,27 @@ var (
 	SymbolResolver = symbol.MapResolver{symbolName: symbolSet}
 )
 
+type Module struct {
+	stat *status.Service
+}
+
+func NewModule(stat *status.Service) *Module {
+	return &Module{stat: stat}
+}
+
+func (m *Module) Resolve(ctx context.Context, name string) (symbol.Symbol, error) {
+	return SymbolResolver.Resolve(ctx, name)
+}
+
+func (m *Module) Search(ctx context.Context, term string) ([]symbol.Symbol, error) {
+	return SymbolResolver.Search(ctx, term)
+}
+
+func (m *Module) Create(ctx context.Context, cfg node.Config) (node.Node, error) {
+	f := &statusFactory{stat: m.stat}
+	return f.Create(ctx, cfg)
+}
+
 type setStatus struct {
 	statusSvc *status.Service
 	ins       alamos.Instrumentation
@@ -103,8 +124,4 @@ func (s *statusFactory) Create(ctx context.Context, cfg node.Config) (node.Node,
 	stat.Message = nodeCfg.Message
 	stat.Variant = xstatus.Variant(nodeCfg.Variant)
 	return &setStatus{ins: cfg.Instrumentation, stat: stat, statusSvc: s.stat}, nil
-}
-
-func NewFactory(stat *status.Service) node.Factory {
-	return &statusFactory{stat: stat}
 }

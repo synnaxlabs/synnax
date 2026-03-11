@@ -17,16 +17,14 @@
 #include "arc/cpp/runtime/runtime.h"
 #include "arc/cpp/runtime/testutil/mock_loop.h"
 
-using namespace arc::runtime;
-
-namespace {
+namespace arc::runtime {
 /// @brief Creates a minimal Runtime for testing queue behavior.
 std::shared_ptr<Runtime> create_test_runtime(
     size_t input_capacity,
     arc::runtime::errors::Handler error_handler
 ) {
     Config cfg{
-        .mod = {},
+        .program = {},
         .breaker = x::breaker::Config{},
         .retrieve_channels = nullptr,
         .input_queue_capacity = input_capacity,
@@ -36,7 +34,6 @@ std::shared_ptr<Runtime> create_test_runtime(
 
     return std::make_shared<Runtime>(
         cfg,
-        nullptr,
         nullptr,
         nullptr,
         nullptr,
@@ -65,7 +62,7 @@ create_lifecycle_runtime(std::unique_ptr<testutil::MockLoop> loop) {
     );
 
     Config cfg{
-        .mod = {},
+        .program = {},
         .breaker = x::breaker::Config{},
         .retrieve_channels = nullptr,
         .input_queue_capacity = 256,
@@ -76,7 +73,6 @@ create_lifecycle_runtime(std::unique_ptr<testutil::MockLoop> loop) {
     auto runtime = std::make_shared<Runtime>(
         cfg,
         nullptr,
-        nullptr,
         state,
         std::move(scheduler),
         std::move(loop),
@@ -85,7 +81,6 @@ create_lifecycle_runtime(std::unique_ptr<testutil::MockLoop> loop) {
         arc::runtime::errors::noop_handler
     );
     return {runtime, loop_ptr};
-}
 }
 
 /// @brief Test that write() calls error handler with QUEUE_FULL_INPUT when queue is
@@ -385,7 +380,7 @@ struct DeadlineRuntimeFixture {
         );
 
         Config cfg{
-            .mod = {},
+            .program = {},
             .breaker = x::breaker::Config{},
             .retrieve_channels = nullptr,
             .input_queue_capacity = 256,
@@ -395,7 +390,6 @@ struct DeadlineRuntimeFixture {
 
         auto rt = std::make_shared<Runtime>(
             cfg,
-            nullptr,
             nullptr,
             state,
             std::move(scheduler),
@@ -478,4 +472,5 @@ TEST(MockLoopTest, WakeReasonIsConfigurable) {
     ASSERT_EQ(loop.wait(breaker), loop::WakeReason::Shutdown);
 
     breaker.stop();
+}
 }

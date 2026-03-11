@@ -15,18 +15,11 @@ import (
 
 	"github.com/samber/lo"
 	"github.com/synnaxlabs/arc"
-	"github.com/synnaxlabs/arc/runtime/authority"
-	"github.com/synnaxlabs/arc/runtime/constant"
-	"github.com/synnaxlabs/arc/runtime/op"
-	"github.com/synnaxlabs/arc/runtime/selector"
-	"github.com/synnaxlabs/arc/runtime/stable"
-	"github.com/synnaxlabs/arc/runtime/stat"
-	"github.com/synnaxlabs/arc/runtime/telem"
-	"github.com/synnaxlabs/arc/runtime/time"
+	"github.com/synnaxlabs/arc/stl"
 	"github.com/synnaxlabs/arc/symbol"
 	"github.com/synnaxlabs/arc/types"
 	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
-	"github.com/synnaxlabs/synnax/pkg/service/arc/status"
+	arcstatus "github.com/synnaxlabs/synnax/pkg/service/arc/status"
 )
 
 type channelResolver struct{ *channel.Service }
@@ -70,17 +63,17 @@ func (r *channelResolver) Search(ctx context.Context, name string) ([]arc.Symbol
 	}), nil
 }
 
-func CreateResolver(channelSvc *channel.Service) arc.SymbolResolver {
-	return symbol.CompoundResolver{
-		constant.SymbolResolver,
-		op.SymbolResolver,
-		selector.SymbolResolver,
-		stable.SymbolResolver,
-		status.SymbolResolver,
-		authority.SymbolResolver,
-		telem.SymbolResolver,
-		stat.SymbolResolver,
-		time.SymbolResolver,
-		&channelResolver{Service: channelSvc},
-	}
+// DefaultSymbolResolver returns the default set of STL symbol resolvers used by
+// the analyzer and LSP.
+func DefaultSymbolResolver() symbol.CompoundResolver {
+	resolvers := make(symbol.CompoundResolver, len(stl.SymbolResolver))
+	copy(resolvers, stl.SymbolResolver)
+	return resolvers
+}
+
+func CreateResolver(channelSvc *channel.Service, extraResolvers ...symbol.Resolver) arc.SymbolResolver {
+	resolvers := DefaultSymbolResolver()
+	resolvers = append(resolvers, arcstatus.SymbolResolver, &channelResolver{Service: channelSvc})
+	resolvers = append(resolvers, extraResolvers...)
+	return resolvers
 }
