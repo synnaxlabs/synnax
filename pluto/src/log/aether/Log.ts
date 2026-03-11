@@ -30,6 +30,7 @@ export const logState = z.object({
   scrolling: z.boolean(),
   empty: z.boolean(),
   visible: z.boolean(),
+  multiChannel: z.boolean().default(false),
   telem: telem.logSourceSpecZ.default(telem.noopLogSourceSpec),
   font: text.levelZ.default("p"),
   color: color.colorZ.default(color.ZERO),
@@ -205,7 +206,11 @@ export class Log extends aether.Leaf<typeof logState, InternalState> {
 
   private renderElements(draw2D: Draw2D, entries: LogEntry[]): void {
     const reg = this.state.region;
-    const multiChannel = this.hasMultipleChannels();
+    // multiChannel is read from state (O(1)) rather than derived by scanning all entries
+    // (O(n)). The render loop below is already O(n) over visible entries — adding a
+    // second O(n) scan here just to answer a yes/no question would double the per-frame
+    // work at up to 60fps.
+    const { multiChannel } = this.state;
     for (let i = 0; i < entries.length; i++) {
       const entry = entries[i];
       const ts = new TimeStamp(entry.timestamp).toString("time", "local");
@@ -219,12 +224,6 @@ export class Log extends aether.Leaf<typeof logState, InternalState> {
         code: true,
       });
     }
-  }
-
-  private hasMultipleChannels(): boolean {
-    if (this.entries.length === 0) return false;
-    const first = this.entries[0].channelKey;
-    return this.entries.some((e) => e.channelKey !== first);
   }
 }
 

@@ -98,6 +98,11 @@ export class StreamMultiChannelLog
           const series = res.get(meta);
           if (series == null) continue;
           const chMeta = this.channelMeta.get(meta)!;
+          // Intentionally use receipt time rather than the sample's actual timestamp,
+          // and intentionally do not sort. The log is an arrival-order display — using
+          // receipt time keeps entries strictly append-only and avoids out-of-order
+          // jumps caused by natural network latency between channels. Ms-level blur
+          // between receipt and sample time is not meaningful for a human reading a log.
           const now = TimeStamp.now();
           for (const s of series.series) {
             const isJSON = chMeta.dataType.equals(DataType.JSON);
@@ -127,8 +132,12 @@ export class StreamMultiChannelLog
   private gcEntries(): void {
     const keepFor = this.props.keepFor ?? this.props.timeSpan;
     const threshold = TimeStamp.now().sub(keepFor).valueOf();
-    while (this.entries.length > 0 && this.entries[0].timestamp < threshold)
-      this.entries.shift();
+    // Find the index of the first entry that should be kept (O(n)), then remove
+    // everything before it in one splice call. Prefer this over a shift() loop, where
+    // each individual shift is also O(n) because it moves all remaining elements forward
+    // in memory — making the loop O(n²) when many entries are expired.
+    const cutoff = this.entries.findIndex((e) => e.timestamp >= threshold);
+    if (cutoff > 0) this.entries.splice(0, cutoff);
     if (this.entries.length > MAX_ENTRIES)
       this.entries.splice(0, this.entries.length - MAX_ENTRIES);
   }
