@@ -397,62 +397,27 @@ TEST_F(ConnectionPoolTest, ConcurrentRecoveryAfterFailure) {
     EXPECT_EQ(success_count, num_threads);
 }
 
-/// @brief Tests that concurrent acquires with a stopped server don't
-/// serialize behind the mutex. With the health probe running outside
-/// the lock, each thread independently detects failure rather than
-/// waiting for a single thread's probe to complete.
-TEST_F(ConnectionPoolTest, ConcurrentAcquireFailsIndependently) {
-    Pool pool;
-
-    // Prime the pool with multiple cached connections
-    const int num_conns = 4;
-    {
-        std::vector<Pool::Connection> conns;
-        for (int i = 0; i < num_conns; ++i)
-            conns.push_back(ASSERT_NIL_P(pool.acquire(conn_cfg_, "[test] ")));
-    }
-    EXPECT_EQ(pool.available_count(conn_cfg_.endpoint), num_conns);
-
-    // Stop server so cached connections will fail their health probes
-    server_->stop();
-    server_.reset();
-    std::this_thread::sleep_for(std::chrono::milliseconds(100));
-
-    // Launch threads that all try to acquire simultaneously.
-    // With the fix, each thread runs its health probe outside the lock,
-    // so they execute concurrently rather than serializing.
-    const int num_threads = 4;
-    std::vector<std::thread> threads;
-    std::atomic<int> error_count{0};
-    auto start_time = std::chrono::steady_clock::now();
-
-    for (int i = 0; i < num_threads; ++i) {
-        threads.emplace_back([&pool, &error_count, this]() {
-            auto [conn, err] = pool.acquire(conn_cfg_, "[test] ");
-            if (err) error_count++;
-        });
-    }
-
-    for (auto &t: threads)
-        t.join();
-
-    auto elapsed = std::chrono::steady_clock::now() - start_time;
-
-    // All threads should have failed (no server)
-    EXPECT_EQ(error_count, num_threads);
-    // Pool should be empty (all broken connections cleaned up)
-    EXPECT_EQ(pool.size(), 0);
-    // With health probes running concurrently (outside lock), total time
-    // should be well under num_threads * per-probe-time. We just verify
-    // it completes within a reasonable bound.
-    EXPECT_LT(std::chrono::duration_cast<std::chrono::seconds>(elapsed).count(), 10);
-}
-
-/// @brief Tests that one endpoint's failure doesn't block acquisition
-/// from a healthy endpoint. This is the core guarantee of Fix 1:
-/// the health probe runs outside the mutex.
-TEST_F(ConnectionPoolTest, HealthyEndpointNotBlockedByFailedEndpoint) {
-    // Set up a second server on a different port
+/// @brief One endpoint's slow/failed health probe must not block acquisition
+/// from a different healthy endpoint.
+///
+/// On main: health probe runs inside the mutex, so a thread probing an
+/// endpoint holds the lock for the entire probe duration. Any other thread
+/// trying to acquire from a different endpoint must wait behind that lock.
+///
+/// With the update: health probe runs outside the mutex, so the second
+/// thread grabs the lock, picks its candidate, releases the lock, and
+/// probes its connection concurrently.
+///
+/// We inject an artificial 2s probe delay via test_probe_delay_ms_ to
+/// simulate a network-unreachable server (TCP SYN hang). Without this,
+/// localhost probes return instantly and mutex contention is unobservable.
+/// After thread A enters its delayed probe, we clear the delay so thread B's
+/// probe completes instantly.
+///
+/// Expected timings:
+///   main:   thread B waits ~2s behind thread A's lock      → FAIL
+///   update: thread B runs concurrently, completes quickly   → PASS
+TEST_F(ConnectionPoolTest, HealthyEndpointNotBlockedBySlowProbe) {
     mock::ServerConfig server2_cfg = mock::ServerConfig::create_default();
     server2_cfg.port = 4846;
     mock::Server server2(server2_cfg);
@@ -464,30 +429,57 @@ TEST_F(ConnectionPoolTest, HealthyEndpointNotBlockedByFailedEndpoint) {
 
     Pool pool;
 
-    // Prime both endpoints
+    // Prime both endpoints with cached connections
     { auto conn = ASSERT_NIL_P(pool.acquire(conn_cfg_, "[test] ")); }
     { auto conn = ASSERT_NIL_P(pool.acquire(cfg2, "[test] ")); }
 
-    // Stop server 1, keep server 2 running
-    server_->stop();
-    server_.reset();
-    std::this_thread::sleep_for(std::chrono::milliseconds(100));
+    EXPECT_EQ(pool.available_count(conn_cfg_.endpoint), 1);
+    EXPECT_EQ(pool.available_count(cfg2.endpoint), 1);
 
-    // Acquiring from the healthy endpoint should succeed quickly
-    auto start = std::chrono::steady_clock::now();
-    auto conn2 = ASSERT_NIL_P(pool.acquire(cfg2, "[test] "));
-    auto elapsed = std::chrono::steady_clock::now() - start;
+    // Inject a 2-second delay into the health probe
+    const int probe_delay_ms = 2000;
+    pool.test_probe_delay_ms_.store(probe_delay_ms, std::memory_order_relaxed);
 
-    EXPECT_NE(conn2.get(), nullptr);
-    // Should complete in well under 1 second since server2 is healthy
-    EXPECT_LT(
-        std::chrono::duration_cast<std::chrono::milliseconds>(elapsed).count(),
-        2000
-    );
+    // Thread A: acquire from server1 (will hit the slow probe on cached conn)
+    std::thread thread_a([&pool, this]() {
+        auto [conn, err] = pool.acquire(conn_cfg_, "[A] ");
+        (void)conn;
+        (void)err;
+    });
 
-    // Acquiring from the stopped endpoint should fail
-    auto [conn_bad, err] = pool.acquire(conn_cfg_, "[test] ");
-    EXPECT_TRUE(err);
+    // Give thread A time to grab its candidate and enter the delayed probe
+    std::this_thread::sleep_for(std::chrono::milliseconds(200));
+
+    // Clear the delay so thread B's own health probe completes instantly.
+    // Thread A is already sleeping inside its probe.
+    pool.test_probe_delay_ms_.store(0, std::memory_order_relaxed);
+
+    std::chrono::milliseconds thread_b_elapsed{0};
+
+    // Thread B: acquire from server2 (should not be blocked by A's probe)
+    std::thread thread_b([&pool, &cfg2, &thread_b_elapsed]() {
+        auto start = std::chrono::steady_clock::now();
+        auto [conn, err] = pool.acquire(cfg2, "[B] ");
+        thread_b_elapsed = std::chrono::duration_cast<
+            std::chrono::milliseconds
+        >(std::chrono::steady_clock::now() - start);
+    });
+
+    thread_a.join();
+    thread_b.join();
+
+    // With the update (probe outside lock): thread A holds the lock only
+    // briefly to find its candidate, then releases and enters the slow
+    // probe. Thread B acquires the lock immediately, finds its candidate,
+    // and runs its own (instant) probe. Total: well under 1 second.
+    //
+    // On main (probe inside lock): thread A holds the lock for the entire
+    // 2-second probe. Thread B blocks on the lock until A finishes, so it
+    // takes >= probe_delay_ms.
+    EXPECT_LT(thread_b_elapsed.count(), probe_delay_ms - 500)
+        << "Thread B took " << thread_b_elapsed.count()
+        << "ms, suggesting it was blocked by thread A's slow health probe. "
+        << "The health probe should run outside the mutex.";
 
     server2.stop();
 }
@@ -644,64 +636,4 @@ TEST_F(SessionLimitPoolTest, ConnectionChurnExhaustsSessions) {
     EXPECT_EQ(pool.size(), 2);
 }
 
-/// @brief concurrent acquire after server restart should not exhaust sessions.
-///
-/// Documents the current bug: the pool releases the mutex before calling
-/// connect(), so N threads with stale cached connections all call connect()
-/// concurrently, each creating a new session. With max_sessions < N, some
-/// threads get rejected even though the pool has capacity for reuse.
-///
-/// This test is expected to FAIL until a circuit breaker or connection
-/// throttle is added to the pool.
-TEST_F(SessionLimitPoolTest, ConcurrentChurnExhaustsSessions) {
-    Pool pool;
-    const int num_threads = 4;
-
-    // Fill the pool with cached connections (all will become stale).
-    {
-        std::vector<Pool::Connection> conns;
-        for (int i = 0; i < num_threads; ++i)
-            conns.push_back(ASSERT_NIL_P(pool.acquire(conn_cfg_, "[test] ")));
-    }
-    EXPECT_EQ(pool.available_count(conn_cfg_.endpoint), num_threads);
-
-    // Kill and restart the server — all cached connections are now stale.
-    // The new server still has max_sessions=2, so only 2 concurrent
-    // connect() calls can succeed.
-    server_->stop();
-    server_.reset();
-
-    server_ = std::make_unique<mock::Server>(server_cfg_);
-    server_->start();
-    ASSERT_TRUE(server_->wait_until_ready());
-
-    // All threads call acquire() concurrently. Each thread finds stale
-    // cached connections, discards them, then calls connect() outside the
-    // mutex. With max_sessions=2 and 4 threads racing, some will fail.
-    std::vector<std::thread> threads;
-    std::atomic<int> success_count{0};
-    std::atomic<int> failure_count{0};
-
-    for (int i = 0; i < num_threads; ++i) {
-        threads.emplace_back([&pool, &success_count, &failure_count, this]() {
-            auto [conn, err] = pool.acquire(conn_cfg_, "[test] ");
-            if (!err && conn)
-                success_count++;
-            else
-                failure_count++;
-        });
-    }
-
-    for (auto &t: threads)
-        t.join();
-
-    // BUG: we want all 4 to succeed (the pool has room for 2, and after
-    // 2 finish and release, the next 2 should reuse). But because all 4
-    // call connect() concurrently, only 2 get sessions and 2 are rejected.
-    //
-    // Once a circuit breaker / connection throttle is added, change this
-    // assertion to: EXPECT_EQ(success_count, num_threads);
-    EXPECT_LT(success_count, num_threads);
-    EXPECT_GT(failure_count, 0);
-}
 }

@@ -10,6 +10,7 @@
 #pragma once
 
 /// std
+#include <atomic>
 #include <mutex>
 #include <string>
 #include <unordered_map>
@@ -137,6 +138,11 @@ public:
 
     Pool() = default;
     ~Pool() = default;
+
+    /// @brief artificial delay (ms) injected before each health probe.
+    /// Used in tests to simulate a network-unreachable server where TCP
+    /// SYN hangs for the full client timeout. Zero means no delay.
+    std::atomic<uint32_t> test_probe_delay_ms_{0};
 
     Pool(const Pool &) = delete;
     Pool &operator=(const Pool &) = delete;

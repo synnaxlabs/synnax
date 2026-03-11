@@ -9,6 +9,7 @@
 
 /// std
 #include <algorithm>
+#include <thread>
 
 /// external
 #include "glog/logging.h"
@@ -169,6 +170,8 @@ x::errors::Error Pool::run_iterate_checked(
     const std::shared_ptr<UA_Client> &client,
     const std::string &log_prefix
 ) {
+    if (const auto d = test_probe_delay_ms_.load(std::memory_order_relaxed); d > 0)
+        std::this_thread::sleep_for(std::chrono::milliseconds(d));
     const UA_StatusCode status = UA_Client_run_iterate(client.get(), 0);
     if (status != UA_STATUSCODE_GOOD) {
         LOG(WARNING) << log_prefix
