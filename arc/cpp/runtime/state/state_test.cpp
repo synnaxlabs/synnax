@@ -916,6 +916,28 @@ TEST(StateTest, VarStoreStr_ResolvesConfigStringHandle) {
     EXPECT_EQ(s.string_get(result), "world");
 }
 
+/// @brief Two write_channel calls to the same key in one cycle must both appear
+/// in the flush result (appended in order, not overwritten).
+TEST(StateTest, WriteChannel_MultipleWritesSameKeyPreservedInFlush) {
+    State s = create_minimal_state();
+    auto data1 = x::mem::make_local_shared<x::telem::Series>(1.0f);
+    auto time1 = x::mem::make_local_shared<x::telem::Series>(
+        x::telem::TimeStamp(x::telem::MICROSECOND)
+    );
+    auto data2 = x::mem::make_local_shared<x::telem::Series>(2.0f);
+    auto time2 = x::mem::make_local_shared<x::telem::Series>(
+        x::telem::TimeStamp(x::telem::MICROSECOND * 2)
+    );
+    s.write_channel(10, data1, time1);
+    s.write_channel(10, data2, time2);
+    const auto result = s.flush();
+    ASSERT_EQ(result.size(), 2);
+    EXPECT_EQ(result[0].first, 10);
+    EXPECT_EQ(result[0].second->at<float>(0), 1.0f);
+    EXPECT_EQ(result[1].first, 10);
+    EXPECT_EQ(result[1].second->at<float>(0), 2.0f);
+}
+
 TEST(StateTest, VarStoreStr_InvalidHandleIsNoOp) {
     State s = create_minimal_state();
     const uint32_t config_handle = s.string_create_config("initial");

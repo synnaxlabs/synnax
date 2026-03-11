@@ -91,7 +91,7 @@ class Scheduler {
     /// @brief Index of the currently executing stage, or npos if none.
     size_t curr_stage_idx = NO_INDEX;
     /// @brief Set to true when transition_stage fires during strata execution.
-    /// Used to stop evaluating remaining checkfails after the first transition.
+    /// Used to stop evaluating remaining statements after the first transition.
     bool transitioned = false;
 
 public:

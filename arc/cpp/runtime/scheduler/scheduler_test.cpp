@@ -1938,9 +1938,9 @@ TEST_F(SchedulerTest, testNextDeadlineFromStageNode) {
     EXPECT_EQ(scheduler->next_deadline(), x::telem::SECOND * 2);
 }
 
-/// @brief it should stop evaluating checkfails after the first transition fires
-TEST_F(SchedulerTest, testFirstCheckfailWinsWhenMultipleAreTrue) {
-    // Setup: trigger activates stage_on, which has two checkfail nodes (A and B)
+/// @brief it should stop evaluating statements after the first transition fires
+TEST_F(SchedulerTest, testFirstStatementWinsWhenMultipleTransitionsAreTrue) {
+    // Setup: trigger activates stage_on, which has two transition nodes (A and B)
     // in the same stratum. Both are truthy and wire to different stage entries.
     // A (first in stratum order) should win; B's transition should never fire.
     auto &trigger = mock("trigger");
@@ -1958,7 +1958,7 @@ TEST_F(SchedulerTest, testFirstCheckfailWinsWhenMultipleAreTrue) {
     entry_off.activate_on_next();
     entry_pause.activate_on_next();
 
-    // Both checkfails fire and are truthy
+    // Both transitions fire and are truthy
     nodeA.mark_on_next("check");
     nodeA.param_truthy["check"] = true;
     nodeB.mark_on_next("check");
