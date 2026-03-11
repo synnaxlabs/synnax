@@ -99,12 +99,8 @@ const EndpointContextMenu = ({
 
 const EndpointListItem = (props: List.ItemProps<string>) => {
   const { itemKey } = props;
-  const method = PForm.useFieldValue<string>(
-    `config.endpoints.${itemKey}.method`,
-  );
-  const epPath = PForm.useFieldValue<string>(
-    `config.endpoints.${itemKey}.path`,
-  );
+  const method = PForm.useFieldValue<string>(`config.endpoints.${itemKey}.method`);
+  const epPath = PForm.useFieldValue<string>(`config.endpoints.${itemKey}.path`);
   return (
     <Select.ListItem {...props} justify="between" align="center" x>
       <Text.Text level="small" weight={500}>
@@ -266,15 +262,11 @@ const ChannelFieldSection: FC<{ epPath: string }> = ({ epPath }) => {
 
 // ─── Additional Fields (static + generated) ───
 
-const FieldListItem = (
-  props: List.ItemProps<string> & { epKey: string },
-) => {
+const FieldListItem = (props: List.ItemProps<string> & { epKey: string }) => {
   const { itemKey, epKey } = props;
   const path = `config.endpoints.${epKey}.fields.${itemKey}`;
   const fieldType = PForm.useFieldValue<string>(`${path}.type`);
-  const generator = PForm.useFieldValue<string | undefined>(
-    `${path}.generator`,
-  );
+  const generator = PForm.useFieldValue<string | undefined>(`${path}.generator`);
   return (
     <Select.ListItem {...props} justify="between" align="center" x>
       <PForm.TextField
@@ -448,9 +440,7 @@ const AdditionalFields: FC<{ epKey: string }> = ({ epKey }) => {
             full="y"
             className={menuProps.className}
             onContextMenu={menuProps.open}
-            emptyContent={
-              <EmptyAction message="No additional fields." action="" />
-            }
+            emptyContent={<EmptyAction message="No additional fields." action="" />}
           >
             {listItem}
           </List.Items>
