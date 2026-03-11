@@ -82,7 +82,7 @@ var _ = Describe("storage", func() {
 	})
 	Describe("ServiceConfig", func() {
 		DescribeTable("Validate", func(
-			spec func(cfg storage.LayerConfig) storage.LayerConfig,
+			spec func(storage.LayerConfig) storage.LayerConfig,
 			contains string,
 		) {
 			iCfg := storage.DefaultLayerConfig

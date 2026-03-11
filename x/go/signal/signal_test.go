@@ -229,9 +229,8 @@ var _ = Describe("Signal", func() {
 			ctx, cancel := signal.WithTimeout(ctx, 500*time.Microsecond)
 			v := make(chan int, 1)
 			v <- 1
-			val, err := signal.RecvUnderContext(ctx, v)
+			val := MustSucceed(signal.RecvUnderContext(ctx, v))
 			cancel()
-			Expect(err).ToNot(HaveOccurred())
 			Expect(val).To(Equal(1))
 		})
 

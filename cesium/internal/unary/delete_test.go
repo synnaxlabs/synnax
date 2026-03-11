@@ -903,17 +903,14 @@ var _ = Describe("Delete", func() {
 				It("Should return whether there is data for the given range", func() {
 					Expect(unary.Write(ctx, indexDB, 10*telem.SecondTS, telem.NewSeriesSecondsTSV(10, 11, 12, 13, 14, 15, 16))).To(Succeed())
 					Expect(unary.Write(ctx, dataDB, 10*telem.SecondTS, telem.NewSeriesV[int64](0, 1, 2, 3, 4, 5, 6))).To(Succeed())
-					hasData, err := dataDB.HasDataFor(ctx, (12 * telem.SecondTS).Range(23*telem.SecondTS))
+					hasData := MustSucceed(dataDB.HasDataFor(ctx, (12 * telem.SecondTS).Range(23*telem.SecondTS)))
 					Expect(hasData).To(BeTrue())
-					Expect(err).ToNot(HaveOccurred())
 
-					hasData, err = dataDB.HasDataFor(ctx, (16*telem.SecondTS + 1).Range(25*telem.SecondTS))
+					hasData = MustSucceed(dataDB.HasDataFor(ctx, (16*telem.SecondTS + 1).Range(25*telem.SecondTS)))
 					Expect(hasData).To(BeFalse())
-					Expect(err).ToNot(HaveOccurred())
 
-					hasData, err = dataDB.HasDataFor(ctx, (5 * telem.SecondTS).Range(10*telem.SecondTS))
+					hasData = MustSucceed(dataDB.HasDataFor(ctx, (5 * telem.SecondTS).Range(10*telem.SecondTS)))
 					Expect(hasData).To(BeFalse())
-					Expect(err).ToNot(HaveOccurred())
 				})
 				It("Should return true when there is a writer starting before the given time range", func() {
 					w, _ := MustSucceed2(dataDB.OpenWriter(ctx, unary.WriterConfig{
@@ -921,15 +918,13 @@ var _ = Describe("Delete", func() {
 						Subject: control.Subject{Key: "foo_writer"},
 					}))
 
-					hasData, err := dataDB.HasDataFor(ctx, (12 * telem.SecondTS).Range(23*telem.SecondTS))
+					hasData := MustSucceed(dataDB.HasDataFor(ctx, (12 * telem.SecondTS).Range(23*telem.SecondTS)))
 					Expect(hasData).To(BeTrue())
-					Expect(err).ToNot(HaveOccurred())
 
 					MustSucceed(w.Close())
 
-					hasData, err = dataDB.HasDataFor(ctx, (12 * telem.SecondTS).Range(23*telem.SecondTS))
+					hasData = MustSucceed(dataDB.HasDataFor(ctx, (12 * telem.SecondTS).Range(23*telem.SecondTS)))
 					Expect(hasData).To(BeFalse())
-					Expect(err).ToNot(HaveOccurred())
 				})
 				It("Should return true when there is a writer starting in the middle of the given time range", func() {
 					w, _ := MustSucceed2(dataDB.OpenWriter(ctx, unary.WriterConfig{
@@ -937,15 +932,13 @@ var _ = Describe("Delete", func() {
 						Subject: control.Subject{Key: "foo_writer"},
 					}))
 
-					hasData, err := dataDB.HasDataFor(ctx, (12 * telem.SecondTS).Range(23*telem.SecondTS))
+					hasData := MustSucceed(dataDB.HasDataFor(ctx, (12 * telem.SecondTS).Range(23*telem.SecondTS)))
 					Expect(hasData).To(BeTrue())
-					Expect(err).ToNot(HaveOccurred())
 
 					MustSucceed(w.Close())
 
-					hasData, err = dataDB.HasDataFor(ctx, (12 * telem.SecondTS).Range(23*telem.SecondTS))
+					hasData = MustSucceed(dataDB.HasDataFor(ctx, (12 * telem.SecondTS).Range(23*telem.SecondTS)))
 					Expect(hasData).To(BeFalse())
-					Expect(err).ToNot(HaveOccurred())
 				})
 				It("Should return false when there is a writer starting after the given time range", func() {
 					w, _ := MustSucceed2(dataDB.OpenWriter(ctx, unary.WriterConfig{
@@ -953,9 +946,8 @@ var _ = Describe("Delete", func() {
 						Subject: control.Subject{Key: "foo_writer"},
 					}))
 
-					hasData, err := dataDB.HasDataFor(ctx, (12 * telem.SecondTS).Range(23*telem.SecondTS))
+					hasData := MustSucceed(dataDB.HasDataFor(ctx, (12 * telem.SecondTS).Range(23*telem.SecondTS)))
 					Expect(hasData).To(BeFalse())
-					Expect(err).ToNot(HaveOccurred())
 
 					MustSucceed(w.Close())
 				})

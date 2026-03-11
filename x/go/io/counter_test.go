@@ -34,9 +34,7 @@ var _ = Describe("Counter", func() {
 		Context("FS:"+fsName, Ordered, func() {
 			BeforeEach(func() {
 				fsRoot = makeFS()
-				_fs, err := fsRoot.Sub("test-spec")
-				fs = _fs
-				Expect(err).ToNot(HaveOccurred())
+				fs = MustSucceed(fsRoot.Sub("test-spec"))
 			})
 			AfterEach(func() {
 				Expect(fsRoot.Remove("test-spec")).To(Succeed())
@@ -73,9 +71,8 @@ var _ = Describe("Counter", func() {
 				for i := range 1000 {
 					go func() {
 						defer wg.Done()
-						val, err := c.Add(1)
+						val := MustSucceed(c.Add(1))
 						keys[i] = val
-						Expect(err).ToNot(HaveOccurred())
 					}()
 				}
 
