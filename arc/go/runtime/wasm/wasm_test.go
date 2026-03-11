@@ -2470,7 +2470,7 @@ input_ch -> writer{} -> sink_ch
 			// Set input value to 10.0
 			// First write: 10 * 2 = 20
 			// Second write: 10 * 3 = 30
-			// Both writes go to the same channel - the runtime coalesces them
+			// Both writes go to the same channel - the runtime accumulates them
 			h.SetInput("on_input_ch_0", 0, telem.NewSeriesV[float32](10.0), telem.NewSeriesSecondsTSV(1))
 			h.Execute(ctx, "writer_0")
 

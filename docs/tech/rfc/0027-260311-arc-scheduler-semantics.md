@@ -166,9 +166,12 @@ With append semantics, all writes accumulate within a single `scheduler.Next()` 
 3. All writes from both stages accumulate in the write buffer.
 4. On flush, `ss_stage_str` contains `["on", "pause"]` instead of just one value.
 
-A single flush cycle can emit writes from multiple stages, producing unexpected
-duplicate values that break downstream consumers expecting single-valued writes per
-cycle.
+A single flush cycle can emit writes from multiple stages, producing multiple values for
+the same channel in one flush. This is intentional: if a channel is written on the way
+out of a stage (`0 -> some_ch`) and again on entry to the next stage (`1 -> some_ch`),
+both writes should be emitted in order. Silently dropping the outgoing write would hide
+commands the operator explicitly requested. The responsibility for controlling write
+flow belongs to the automation author, not the runtime.
 
 ## 2.3 - Go/C++ Interval Reset Divergence
 
