@@ -11,7 +11,9 @@ package confluence
 
 import (
 	"context"
+	"fmt"
 
+	"github.com/synnaxlabs/alamos"
 	"github.com/synnaxlabs/x/observe"
 	"github.com/synnaxlabs/x/signal"
 )
@@ -20,6 +22,7 @@ import (
 // transforms the value through a provided transform function, and publishes the
 // transformed value to its outlets.
 type ObservableTransformPublisher[V Value, T Value] struct {
+	alamos.Instrumentation
 	AbstractUnarySource[T]
 	Transform TransformFunc[V, T]
 	observe.Observable[V]
@@ -29,12 +32,23 @@ type ObservableTransformPublisher[V Value, T Value] struct {
 func (ts *ObservableTransformPublisher[V, T]) Flow(ctx signal.Context, opts ...Option) {
 	o := NewOptions(opts)
 	o.AttachClosables(ts.Out)
+	// Register the handler synchronously so that any goroutines it spawns (e.g.
+	// async observer handlers) exist before Flow returns. This prevents goroutine
+	// leak false positives in tests that snapshot baselines between setup and spec.
+	remove := ts.OnChange(func(ctx context.Context, v V) {
+		t, ok, err := ts.Transform(ctx, v)
+		if err != nil {
+			ts.L.Error(fmt.Sprintf("observable transform publisher: transform error: %s", err))
+			return
+		}
+		if !ok {
+			return
+		}
+		if err = signal.SendUnderContext(ctx, ts.Out.Inlet(), t); err != nil {
+			ts.L.Error(fmt.Sprintf("observable transform publisher: send error: %s", err))
+		}
+	})
 	ctx.Go(func(ctx context.Context) error {
-		remove := ts.OnChange(func(ctx context.Context, v V) {
-			if t, ok, _ := ts.Transform(ctx, v); ok {
-				_ = signal.SendUnderContext(ctx, ts.Out.Inlet(), t)
-			}
-		})
 		<-ctx.Done()
 		remove()
 		return ctx.Err()
