@@ -1852,7 +1852,11 @@ export class DataType
    * @example DataType.INT32.isVariable // false
    */
   get isVariable(): boolean {
-    return this.equals(DataType.JSON) || this.equals(DataType.STRING);
+    return (
+      this.equals(DataType.JSON) ||
+      this.equals(DataType.STRING) ||
+      this.equals(DataType.BYTES)
+    );
   }
 
   /**
@@ -1985,8 +1989,6 @@ export class DataType
   static readonly UINT16 = new DataType("uint16");
   /** Represents a 8-bit unsigned integer value. */
   static readonly UINT8 = new DataType("uint8");
-  /** Represents a boolean value. Stored as a 8-bit unsigned integer. */
-  static readonly BOOLEAN = new DataType("boolean");
   /** Represents a 64-bit unix epoch. */
   static readonly TIMESTAMP = new DataType("timestamp");
   /** Represents a UUID data type. */
@@ -1997,6 +1999,9 @@ export class DataType
   /** Represents a JSON data type. JSON has an unknown density, and is separated by a
    * newline character. */
   static readonly JSON = new DataType("json");
+  /** Represents a bytes data type for arbitrary byte arrays. Bytes have an unknown
+   * density, and are separated by a newline character. */
+  static readonly BYTES = new DataType("bytes");
 
   private static readonly ARRAY_CONSTRUCTORS: Map<string, TypedArrayConstructor> =
     new Map<string, TypedArrayConstructor>([
@@ -2014,6 +2019,7 @@ export class DataType
       [DataType.STRING.toString(), Uint8Array],
       [DataType.JSON.toString(), Uint8Array],
       [DataType.UUID.toString(), Uint8Array],
+      [DataType.BYTES.toString(), Uint8Array],
     ]);
 
   private static readonly ARRAY_CONSTRUCTOR_DATA_TYPES: Map<string, DataType> = new Map<
@@ -2047,6 +2053,7 @@ export class DataType
     [DataType.STRING.toString(), Density.UNKNOWN],
     [DataType.JSON.toString(), Density.UNKNOWN],
     [DataType.UUID.toString(), Density.BIT128],
+    [DataType.BYTES.toString(), Density.UNKNOWN],
   ]);
 
   /** All the data types. */
@@ -2066,6 +2073,7 @@ export class DataType
     DataType.UUID,
     DataType.STRING,
     DataType.JSON,
+    DataType.BYTES,
   ];
 
   private static readonly SHORT_STRINGS = new Map<string, string>([
@@ -2079,11 +2087,11 @@ export class DataType
     [DataType.INT64.toString(), "i64"],
     [DataType.FLOAT32.toString(), "f32"],
     [DataType.FLOAT64.toString(), "f64"],
-    [DataType.BOOLEAN.toString(), "bool"],
     [DataType.TIMESTAMP.toString(), "ts"],
     [DataType.UUID.toString(), "uuid"],
     [DataType.STRING.toString(), "str"],
     [DataType.JSON.toString(), "json"],
+    [DataType.BYTES.toString(), "bytes"],
   ]);
 
   static readonly BIG_INT_TYPES = [DataType.INT64, DataType.UINT64, DataType.TIMESTAMP];

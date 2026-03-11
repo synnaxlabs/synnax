@@ -192,7 +192,7 @@ const FieldListItem = ({ epKey, ...props }: FieldListItemProps) => {
 
 const POINTER_INPUT_PROPS = { placeholder: "/temperature" } as const;
 
-const HIDDEN_DATA_TYPES = [DataType.UUID, DataType.JSON];
+const HIDDEN_DATA_TYPES = [DataType.UUID, DataType.JSON, DataType.BYTES];
 
 const renderTelemSelectDataType = Component.renderProp(
   (p: Telem.SelectDataTypeProps) => (

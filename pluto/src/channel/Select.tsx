@@ -18,17 +18,12 @@ import { type Flux } from "@/flux";
 import { Icon } from "@/icon";
 import { List } from "@/list";
 import { Select } from "@/select";
+import { resolveDataTypeIcon } from "@/telem/SelectDataType";
 
 export const resolveIcon = (ch?: channel.Payload): Icon.FC => {
   if (ch == null) return Icon.Channel;
   if (channel.isCalculated(ch)) return Icon.Calculation;
-  if (ch.isIndex) return Icon.Index;
-  const dt = new DataType(ch.dataType);
-  if (dt.isInteger) return Icon.Binary;
-  if (dt.isFloat) return Icon.Decimal;
-  if (dt.equals(DataType.STRING)) return Icon.String;
-  if (dt.equals(DataType.JSON)) return Icon.JSON;
-  return Icon.Channel;
+  return resolveDataTypeIcon(new DataType(ch.dataType)) ?? Icon.Channel;
 };
 
 const listItemRenderProp = Component.renderProp(
