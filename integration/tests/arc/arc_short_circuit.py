@@ -10,14 +10,24 @@
 """
 Arc Short Circuit Integration Test
 
-Verifies that when multiple stage transition conditions are true simultaneously,
-the first-written transition takes priority and short-circuits execution.
+Verifies two properties of the Arc scheduler:
+
+1. Transition priority by declaration order: when multiple stage transition
+   conditions are simultaneously true, the first-written transition wins and
+   subsequent statements in that stage pass are not executed. Statements after
+   a winning transition (including channel writes) must be skipped.
+
+2. Loop timing: the on/pause cycle runs on a 1-second interval. Each loop
+   iteration must complete within a tight timing window to confirm the scheduler
+   is not drifting or accumulating delay across stage transitions.
 
 Phase 1: ss_temp_a=200, ss_temp_b=400
-    Only the second condition is true (ss_temp_b > 300), so we loop on/pause.
+    Only the second condition (ss_temp_b > 300) is true, so the sequence loops
+    on => pause => on at 1-second intervals.
 
-Phase 2: set ss_temp_a=400
-    Both conditions become true. The first condition (=> off) should win.
+Phase 2: ss_temp_a=400
+    Both conditions become true simultaneously. The first-written transition
+    (=> off) must win. The second transition (=> pause) must never execute.
 """
 
 import threading
@@ -46,11 +56,8 @@ sequence main {
         count{c_chan = ss_count_on},
         0 -> ss_sim_stage,
         1 -> ss_heater_cmd,
-        // This needs fixing, but not now. Keep here for visibility.
-        // Chaining no-ops means the next line completes first.
-        // Shorter statements = higher priority, even if they come later, which is unintuitive.
-        // interval{period=1s} -> (ss_temp_a > 290 and ss_temp_b > 290) -> noop{} -> noop{} -> noop{} => off,
-        interval{period=1s} -> (ss_temp_a > 290 and ss_temp_b > 290) => off,
+        // Priority is declaration order, not statement size.
+        interval{period=1s} -> (ss_temp_a > 290 and ss_temp_b > 290) -> noop{} -> noop{} -> noop{} => off,
         interval{period=1s} -> ss_temp_b > 300 => pause,
     }
     stage pause {
