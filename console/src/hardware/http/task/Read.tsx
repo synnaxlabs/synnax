@@ -24,7 +24,7 @@ import {
   Telem,
   Text,
 } from "@synnaxlabs/pluto";
-import { id, primitive } from "@synnaxlabs/x";
+import { DataType, id, primitive } from "@synnaxlabs/x";
 import { type FC, useCallback, useState } from "react";
 
 import { EmptyAction, Menu } from "@/components";
@@ -38,7 +38,9 @@ import {
   READ_TYPE,
   type ReadEndpoint,
   type ReadField,
+  type ReadMethod,
   type ReadSchemas,
+  type TimeFormat,
   ZERO_READ_ENDPOINT,
   ZERO_READ_FIELD,
   ZERO_READ_PAYLOAD,
@@ -128,7 +130,7 @@ const EndpointListItem = (props: List.ItemProps<string>) => {
 
 const endpointListItem = Component.renderProp(EndpointListItem);
 
-const TIME_FORMAT_DATA: Select.StaticEntry<string>[] = [
+const TIME_FORMAT_DATA: Select.StaticEntry<TimeFormat>[] = [
   { key: "iso8601", name: "ISO 8601" },
   { key: "unix_sec", name: "Unix (s)" },
   { key: "unix_ms", name: "Unix (ms)" },
@@ -149,14 +151,16 @@ const FieldListItem = ({ epKey, ...props }: FieldListItemProps) => {
   const enumValues = PForm.useFieldValue<Record<string, number>>(`${path}.enumValues`, {
     defaultValue: {},
   });
-  const hasEnums = Object.keys(enumValues).length > 0;
+  const enumCount = Object.keys(enumValues).length;
+  const enumCountText =
+    enumCount === 0 ? "" : `${enumCount} enum${enumCount === 1 ? "" : "s"}`;
   return (
     <Select.ListItem {...props} justify="between" align="center" x>
       <PForm.TextField
         path={`${path}.pointer`}
         showLabel={false}
         showHelpText={false}
-        inputProps={{ placeholder: "/temperature" }}
+        inputProps={POINTER_INPUT_PROPS}
         grow
       />
       {fieldChannel === 0 && (
@@ -166,24 +170,12 @@ const FieldListItem = ({ epKey, ...props }: FieldListItemProps) => {
           showHelpText={false}
           hideIfNull
         >
-          {({ value, onChange }) => (
-            <Telem.SelectDataType
-              value={value}
-              onChange={onChange}
-              hideVariableDensity
-              location="bottom"
-            />
-          )}
+          {renderTelemSelectDataType}
         </PForm.Field>
       )}
-      {hasEnums && (
+      {enumCountText !== "" && (
         <Text.Text level="small" color={7}>
-          {Object.keys(enumValues).length} enum
-          {
-            Object.keys(enumValues).length !== 1
-              ? "s"
-              : "" /*TODO: Fix the space with the s */
-          }
+          {enumCountText}
         </Text.Text>
       )}
       <Flex.Box x align="center" grow justify="end">
@@ -198,39 +190,48 @@ const FieldListItem = ({ epKey, ...props }: FieldListItemProps) => {
   );
 };
 
-// ─── Method Select ───
+const POINTER_INPUT_PROPS = { placeholder: "/temperature" } as const;
 
-type HTTPMethod = "GET" | "POST";
-const HTTP_METHOD_KEYS: HTTPMethod[] = ["GET", "POST"];
+const HIDDEN_DATA_TYPES = [DataType.UUID, DataType.JSON];
+
+const renderTelemSelectDataType = Component.renderProp(
+  (p: Telem.SelectDataTypeProps) => (
+    <Telem.SelectDataType {...p} hideDataTypes={HIDDEN_DATA_TYPES} location="bottom" />
+  ),
+);
+
+const METHOD_KEYS: ReadMethod[] = ["GET", "POST"];
 
 const MethodSelect: FC<{ path: string; epPath: string }> = ({ path, epPath }) => {
   const { set } = PForm.useContext();
   const handleChange = useCallback(
-    (method: HTTPMethod) => {
+    (method: ReadMethod) => {
       set(path, method);
       if (method === "POST") set(`${epPath}.body`, "");
     },
     [set, path, epPath],
   );
+  const renderMethod = useCallback(
+    (p: Omit<Select.ButtonsProps<ReadMethod>, "keys">) => (
+      <Select.Buttons<ReadMethod> {...p} onChange={handleChange} keys={METHOD_KEYS}>
+        <Select.Button<ReadMethod> itemKey="GET">GET</Select.Button>
+        <Select.Button<ReadMethod> itemKey="POST">POST</Select.Button>
+      </Select.Buttons>
+    ),
+    [handleChange],
+  );
   return (
-    <PForm.Field<HTTPMethod> path={path} label="Method">
-      {({ value }) => (
-        <Select.Buttons<HTTPMethod>
-          value={value}
-          onChange={handleChange}
-          keys={HTTP_METHOD_KEYS}
-        >
-          <Select.Button<HTTPMethod> itemKey="GET">GET</Select.Button>
-          <Select.Button<HTTPMethod> itemKey="POST">POST</Select.Button>
-        </Select.Buttons>
-      )}
+    <PForm.Field<ReadMethod> path={path} label="Method">
+      {renderMethod}
     </PForm.Field>
   );
 };
 
-// ─── Field List ───
+interface FieldListProps {
+  epKey: string;
+}
 
-const FieldList: FC<{ epKey: string }> = ({ epKey }) => {
+const FieldList = ({ epKey }: FieldListProps) => {
   const path = `config.endpoints.${epKey}.fields`;
   const { data: allData, push, remove } = PForm.useFieldList<string, ReadField>(path);
   const [selected, setSelected] = useState<string[]>([]);

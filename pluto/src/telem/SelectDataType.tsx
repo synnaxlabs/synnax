@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { caseconv, DataType } from "@synnaxlabs/x";
-import { type ReactElement } from "react";
+import { type ReactElement, useMemo } from "react";
 
 import { Icon } from "@/icon";
 import { type Select } from "@/select";
@@ -42,12 +42,18 @@ export interface SelectDataTypeProps extends Omit<
   "data" | "resourceName"
 > {
   hideVariableDensity?: boolean;
+  hideDataTypes?: DataType[];
 }
 
 export const SelectDataType = ({
   hideVariableDensity = false,
+  hideDataTypes = [],
   ...rest
 }: SelectDataTypeProps): ReactElement => {
   const data = hideVariableDensity ? FIXED_DENSITY_DATA : DATA;
-  return <SelectStatic {...rest} data={data} resourceName="data type" />;
+  const filteredData = useMemo(
+    () => data.filter((d) => !hideDataTypes.some((h) => h.equals(d.key))),
+    [hideDataTypes, data],
+  );
+  return <SelectStatic {...rest} data={filteredData} resourceName="data type" />;
 };

@@ -16,6 +16,7 @@ import { Common } from "@/hardware/common";
 export const PREFIX = "http";
 
 const timeFormatZ = z.enum(["iso8601", "unix_sec", "unix_ms", "unix_us", "unix_ns"]);
+export type TimeFormat = z.infer<typeof timeFormatZ>;
 
 export const READ_TYPE = `${PREFIX}_read`;
 
@@ -57,6 +58,8 @@ const readEndpointZ = z.discriminatedUnion("method", [
 
 export type ReadEndpoint = z.infer<typeof readEndpointZ>;
 
+export type ReadMethod = ReadEndpoint["method"];
+
 export const ZERO_READ_ENDPOINT = {
   key: "",
   method: "GET",
@@ -64,8 +67,6 @@ export const ZERO_READ_ENDPOINT = {
   fields: [],
   index: null,
 } as const satisfies ReadEndpoint;
-
-export type ReadMethod = ReadEndpoint["method"];
 
 const readConfigZ = Common.Task.baseReadConfigZ.extend({
   rate: z.number().positive("Rate must be positive"),
