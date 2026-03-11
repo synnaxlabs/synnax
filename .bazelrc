@@ -9,11 +9,6 @@ build --enable_platform_specific_config
 # Use OpenSSl instead of BoringSSL for grpc
 build --@grpc//third_party:grpc_use_openssl=true
 
-# These hide symbols from the linker in order to prevent symbols collisions with
-# libraries we load dynamically at runtime (LabJack is the primary source of this issue,
-# as it relies an incompatible, legacy GRPC version).
-build:hide_symbols --copt=-fvisibility=hidden --cxxopt=-fvisibility-inlines-hidden
-
 # ===== Platform-Specific Compiler Settings =====
 
 # macOS (Apple Silicon)
@@ -21,6 +16,10 @@ build:macos --cpu=darwin_arm64
 build:macos --cxxopt=-std=c++23
 build:macos --host_cxxopt=-std=c++23
 build:macos --copt=-Werror
+# Hide symbols to prevent collisions with libraries loaded dynamically at runtime
+# (LabJack bundles an incompatible legacy gRPC version).
+build:macos --copt=-fvisibility=hidden
+build:macos --cxxopt=-fvisibility-inlines-hidden
 
 # Allow protobuf deprecation warnings without treating them as errors
 build:macos --copt=-Wno-error=deprecated-declarations
@@ -29,6 +28,10 @@ build:macos --copt=-Wno-error=deprecated-declarations
 build:linux --cxxopt=-std=c++23
 build:linux --host_cxxopt=-std=c++23
 build:linux --copt=-Werror
+# Hide symbols to prevent collisions with libraries loaded dynamically at runtime
+# (LabJack bundles an incompatible legacy gRPC version).
+build:linux --copt=-fvisibility=hidden
+build:linux --cxxopt=-fvisibility-inlines-hidden
 
 # Allow protobuf deprecation warnings without treating them as errors
 build:linux --copt=-Wno-error=deprecated-declarations
