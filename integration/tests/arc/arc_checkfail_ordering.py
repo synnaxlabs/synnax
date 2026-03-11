@@ -21,6 +21,7 @@ Phase 2: set cf_temp_a=400
 """
 
 import threading
+
 import synnax as sy
 from examples.simulators import PressSimDAQ
 
@@ -33,6 +34,9 @@ func count{c_chan chan u8}() {
     c_chan = n
 }
 
+func noop{}(input u8) u8 {
+    return input
+}
 cf_start_cmd => main
 
 sequence main {
@@ -41,7 +45,8 @@ sequence main {
         count{c_chan = cf_count_on},
         0 -> cf_sim_stage,
         1 -> cf_heater_cmd,
-        interval{period=1s} -> (cf_temp_a > 290 and cf_temp_b > 290) => off,
+        // This needs fixing, but not now. Keep here for visibility.
+        interval{period=1s} -> (cf_temp_a > 290 and cf_temp_b > 290) -> noop{} -> noop{} -> noop{} => off,
         interval{period=1s} -> cf_temp_b > 300 => pause,
     }
     stage pause {
@@ -74,9 +79,9 @@ class ChannelCollector:
         self._client = client
         self._channels = channels
         self._stop = threading.Event()
-        self.data: dict[str, list] = {ch: [] for ch in channels}
+        self.data: dict[str, list[int | float | str]] = {ch: [] for ch in channels}
 
-    def __enter__(self) -> dict[str, list]:
+    def __enter__(self) -> dict[str, list[int | float | str]]:
         self._thread = threading.Thread(target=self._run, daemon=True)
         self._thread.start()
         return self.data
@@ -183,9 +188,6 @@ class ArcCheckfailOrdering(ArcConsoleCase):
             "cf_count_pause_time",
         ]
         with ChannelCollector(self.client, stream_channels) as collected:
-            with self.client.open_writer(sy.TimeStamp.now(), "cf_start_cmd") as w:
-                w.write("cf_start_cmd", 1)
-
             with self.client.open_writer(
                 start=sy.TimeStamp.now(),
                 channels=["cf_sensor_time", "cf_temp_a", "cf_temp_b"],
@@ -194,6 +196,9 @@ class ArcCheckfailOrdering(ArcConsoleCase):
                 self._cf_temp_a = 200.0
                 self._cf_temp_b = 400.0
                 self._write_sensors()
+
+                with self.client.open_writer(sy.TimeStamp.now(), "cf_start_cmd") as w:
+                    w.write("cf_start_cmd", 1)
 
                 self._verify_on_pause_loop()
                 self._verify_off_transition()
@@ -226,16 +231,18 @@ class ArcCheckfailOrdering(ArcConsoleCase):
         self.wait_for_eq("cf_sim_stage", 3, is_virtual=True, timeout=5.0)
         self.log("Phase 2 complete: first transition won, later statements skipped")
 
-    def _assert_loop_writes(self, collected: dict[str, list]) -> None:
+    def _assert_loop_writes(
+        self, collected: dict[str, list[int | float | str]]
+    ) -> None:
         """Assert each channel produced the exact expected sequence."""
         for ch in ("cf_count_on_time", "cf_count_pause_time"):
             times = [int(t) for t in collected[ch]]
             deltas_s = [(times[i + 1] - times[i]) / 1e9 for i in range(len(times) - 1)]
             self.log(f"{ch} deltas (s): {[f'{d:.3f}' for d in deltas_s]}")
-            for d in deltas_s[1:]:
+            for d in deltas_s:
                 assert 1.0 <= d <= 1.005, f"{ch}: delta {d:.3f}s out of [1.000, 1.005]"
 
-        expected = {
+        expected: dict[str, list[int | float | str]] = {
             "cf_stage_str": ["on", "pause", "on", "pause", "on", "pause", "on", "off"],
             "cf_sim_stage": [0, 2, 0, 2, 0, 2, 0, 3],
             "cf_heater_cmd": [1, 0, 1, 0, 1, 0, 1, 0],

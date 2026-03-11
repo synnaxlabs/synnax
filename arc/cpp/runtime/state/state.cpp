@@ -193,12 +193,7 @@ std::vector<std::pair<types::ChannelKey, Series>> State::flush() {
     this->strings.clear();
     this->string_handle_counter = 1;
 
-    std::vector<std::pair<types::ChannelKey, Series>> result;
-    result.reserve(writes.size());
-    for (const auto &[key, data]: writes)
-        result.push_back({key, data});
-    writes.clear();
-    return result;
+    return std::exchange(writes, {});
 }
 
 void State::reset() {
@@ -242,10 +237,10 @@ void State::write_channel(
     const Series &data,
     const Series &time
 ) {
-    writes[key] = data;
+    writes.emplace_back(key, data);
     if (const auto idx_iter = indexes.find(key);
         idx_iter != indexes.end() && idx_iter->second != 0)
-        writes[idx_iter->second] = time;
+        writes.emplace_back(idx_iter->second, time);
 }
 
 bool Node::refresh_inputs() {

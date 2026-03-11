@@ -158,7 +158,7 @@ class State {
     std::unordered_map<ir::Handle, size_t> value_index;
     std::unordered_map<types::ChannelKey, types::ChannelKey> indexes;
     std::unordered_map<types::ChannelKey, std::vector<Series>> reads;
-    std::unordered_map<types::ChannelKey, Series> writes;
+    std::vector<std::pair<types::ChannelKey, Series>> writes;
 
     /// @brief Starting value for config string handles. Config string handles are
     /// stable for the State lifetime and are never cleared by flush(). Using a high
