@@ -33,14 +33,14 @@ sequence main {
         0 -> cf_sim_stage,
         1 -> cf_heater_cmd,
         "on" -> cf_stage_str,
-        interval{period=500ms} -> (cf_temp_a > 290 and cf_temp_b > 290) => off,
-        interval{period=500ms} -> cf_temp_b > 300 => pause,
+        interval{period=1s} -> (cf_temp_a > 290 and cf_temp_b > 290) => off,
+        interval{period=1s} -> cf_temp_b > 300 => pause,
     }
     stage pause {
         2 -> cf_sim_stage,
         0 -> cf_heater_cmd,
         "pause" -> cf_stage_str,
-        wait{duration=500ms} => on,
+        wait{duration=1s} => on,
     }
     stage off {
         3 -> cf_sim_stage,

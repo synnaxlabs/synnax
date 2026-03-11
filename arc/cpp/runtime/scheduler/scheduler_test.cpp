@@ -1938,4 +1938,61 @@ TEST_F(SchedulerTest, testNextDeadlineFromStageNode) {
     EXPECT_EQ(scheduler->next_deadline(), x::telem::SECOND * 2);
 }
 
+/// @brief it should stop evaluating checkfails after the first transition fires
+TEST_F(SchedulerTest, testFirstCheckfailWinsWhenMultipleAreTrue) {
+    // Setup: trigger activates stage_on, which has two checkfail nodes (A and B)
+    // in the same stratum. Both are truthy and wire to different stage entries.
+    // A (first in stratum order) should win; B's transition should never fire.
+    auto &trigger = mock("trigger");
+    auto &entry_on = mock("entry_seq_stage_on");
+    auto &nodeA = mock("A");
+    auto &nodeB = mock("B");
+    auto &entry_off = mock("entry_seq_stage_off");
+    auto &entry_pause = mock("entry_seq_stage_pause");
+    const auto &nodeOff = mock("Off");
+    const auto &nodePause = mock("Pause");
+
+    trigger.mark_on_next("activate");
+    trigger.param_truthy["activate"] = true;
+    entry_on.activate_on_next();
+    entry_off.activate_on_next();
+    entry_pause.activate_on_next();
+
+    // Both checkfails fire and are truthy
+    nodeA.mark_on_next("check");
+    nodeA.param_truthy["check"] = true;
+    nodeB.mark_on_next("check");
+    nodeB.param_truthy["check"] = true;
+
+    auto ir = ir::testutil::Builder()
+                  .node("trigger")
+                  .node("entry_seq_stage_on")
+                  .node("A")
+                  .node("B")
+                  .node("entry_seq_stage_off")
+                  .node("entry_seq_stage_pause")
+                  .node("Off")
+                  .node("Pause")
+                  .oneshot("trigger", "activate", "entry_seq_stage_on", "input")
+                  .oneshot("A", "check", "entry_seq_stage_off", "input")
+                  .oneshot("B", "check", "entry_seq_stage_pause", "input")
+                  .strata({{"trigger"}, {"entry_seq_stage_on"}})
+                  .sequence(
+                      "seq",
+                      {{"stage_on",
+                        {{"A", "B"}, {"entry_seq_stage_off", "entry_seq_stage_pause"}}},
+                       {"stage_off", {{"Off"}}},
+                       {"stage_pause", {{"Pause"}}}}
+                  )
+                  .build();
+
+    const auto scheduler = build(std::move(ir));
+    scheduler->next(x::telem::MILLISECOND, node::RunReason::TimerTick);
+
+    // A's transition to stage_off should win
+    ASSERT_EQ(nodeOff.next_called, 1);
+    // B's transition to stage_pause should never fire
+    ASSERT_EQ(nodePause.next_called, 0);
+}
+
 }
