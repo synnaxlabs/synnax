@@ -22,8 +22,8 @@ linters:
       mustsucceedlint:
         type: "module"
         description: >
-          Detects Expect(err).ToNot(HaveOccurred()) patterns that can be
-          replaced with MustSucceed.
+          Detects Expect(err).ToNot(HaveOccurred()) patterns that can be replaced with
+          MustSucceed.
 
 run:
   build-tags:
