@@ -62,7 +62,7 @@ type AuthorityChange struct {
 type State struct {
 	channel struct {
 		reads  map[uint32]telem.MultiSeries
-		writes map[uint32]telem.Series
+		writes telem.Frame[uint32]
 	}
 	outputs          map[ir.Handle]*value
 	indexes          map[uint32]uint32
@@ -107,7 +107,6 @@ func New(cfg Config) *State {
 		configStringHandleCounter: configStringHandleBase,
 	}
 	s.channel.reads = make(map[uint32]telem.MultiSeries)
-	s.channel.writes = make(map[uint32]telem.Series)
 	for _, d := range cfg.ChannelDigests {
 		s.indexes[d.Key] = d.Index
 	}
@@ -141,13 +140,13 @@ func (s *State) Flush(fr telem.Frame[uint32]) (telem.Frame[uint32], bool) {
 	clear(s.strings)
 	s.stringHandleCounter = 1
 
-	if len(s.channel.writes) == 0 {
+	if s.channel.writes.Empty() {
 		return fr, false
 	}
-	for key, data := range s.channel.writes {
-		fr = fr.Append(key, data.DeepCopy())
+	for i, key := range s.channel.writes.RawKeys() {
+		fr = fr.Append(key, s.channel.writes.RawSeriesAt(i).DeepCopy())
 	}
-	clear(s.channel.writes)
+	s.channel.writes = telem.Frame[uint32]{}
 	return fr, true
 }
 
@@ -176,10 +175,10 @@ func (s *State) readChannel(key uint32) (telem.MultiSeries, bool) {
 }
 
 func (s *State) writeChannel(key uint32, data, time telem.Series) {
-	s.channel.writes[key] = data
+	s.channel.writes = s.channel.writes.Append(key, data)
 	idx := s.indexes[key]
 	if idx != 0 {
-		s.channel.writes[idx] = time
+		s.channel.writes = s.channel.writes.Append(idx, time)
 	}
 }
 
