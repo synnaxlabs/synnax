@@ -725,4 +725,12 @@ TEST(StateTest, SetAuthority_MultipleChanges) {
     EXPECT_EQ(changes[2].authority, 50);
     EXPECT_TRUE(s.flush_authority_changes().empty());
 }
+
+TEST(StateTest, ResetClearsBufferedAuthorityChanges) {
+    State s = create_minimal_state();
+    s.set_authority(42, 200);
+    s.set_authority(std::nullopt, 100);
+    s.reset();
+    EXPECT_TRUE(s.flush_authority_changes().empty());
+}
 }

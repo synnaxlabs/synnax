@@ -13,7 +13,7 @@ import (
 	"context"
 
 	"github.com/synnaxlabs/arc/ir"
-	node "github.com/synnaxlabs/arc/runtime/node"
+	"github.com/synnaxlabs/arc/runtime/node"
 	"github.com/synnaxlabs/arc/symbol"
 	"github.com/synnaxlabs/arc/types"
 	"github.com/synnaxlabs/x/query"

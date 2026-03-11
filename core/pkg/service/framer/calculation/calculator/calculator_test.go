@@ -765,6 +765,53 @@ var _ = Describe("Calculator", Ordered, func() {
 		Expect(o.Get(calc.Key()).Series[0]).To(telem.MatchSeriesDataV[int64](35))
 	})
 
+	It("Should correctly chain multiple operations", func() {
+		idx := []channel.Channel{{
+			Name:     channel.NewRandomName(),
+			DataType: telem.TimeStampT,
+			IsIndex:  true,
+		}}
+		base := []channel.Channel{{
+			Name:     channel.NewRandomName(),
+			DataType: telem.Int64T,
+		}}
+		calc := channel.Channel{
+			Name:       channel.NewRandomName(),
+			DataType:   telem.Int64T,
+			Virtual:    true,
+			Expression: fmt.Sprintf("return %s", base[0].Name),
+			Operations: []channel.Operation{
+				{
+					Type:     "avg",
+					Duration: 3 * telem.Second,
+				},
+				{
+					Type:     "avg",
+					Duration: 6 * telem.Second,
+				},
+			},
+		}
+		c := open(&idx, &base, &calc)
+
+		d := telem.NewSeriesV[int64](10, 20, 30)
+		i := telem.NewSeriesSecondsTSV(1, 2, 3)
+		d.Alignment = telem.NewAlignment(1, 0)
+		i.Alignment = d.Alignment
+		fr := frame.NewMulti(
+			[]channel.Key{idx[0].Key(), base[0].Key()},
+			[]telem.Series{i, d},
+		)
+		o, changed := MustSucceed2(c.Next(ctx, fr, frame.Frame{}))
+		Expect(changed).To(BeTrue())
+		// The first avg (3s window) should produce output, and that output
+		// should flow into the second avg (6s window). If the operations
+		// are not correctly chained, the second avg never receives data
+		// and the calculator produces no output.
+		Expect(o.Get(calc.Key()).Series).ToNot(BeEmpty())
+
+		Expect(c.Close()).To(Succeed())
+	})
+
 	Describe("Group", func() {
 
 		It("Should aggregate ReadFrom keys from all calculators", func() {

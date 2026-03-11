@@ -206,6 +206,7 @@ void State::reset() {
     this->strings->reset();
     this->series->clear();
     this->vars->reset();
+    this->authority_changes.clear();
 }
 
 void State::set_authority(

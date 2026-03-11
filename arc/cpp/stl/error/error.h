@@ -28,6 +28,9 @@ public:
     explicit Module(runtime::errors::Handler handler): handler(std::move(handler)) {}
 
     void bind_to(wasmtime::Linker &linker, wasmtime::Store::Context cx) override {
+        // SAFETY: raw `this` capture is safe because wasm::Module owns this
+        // stl::Module via cfg.modules (shared_ptr), and Store/Memory are
+        // stable members of the heap-pinned wasm::Module.
         auto self = this;
         linker
             .func_wrap(

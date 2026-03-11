@@ -20,6 +20,7 @@ enum WriterCommand : uint32_t {
     COMMIT = 2,
     SET_AUTHORITY = 3,
 };
+
 std::pair<Writer, x::errors::Error> Client::open_writer(const WriterConfig &cfg) const {
     Codec codec;
     if (cfg.enable_experimental_codec) {

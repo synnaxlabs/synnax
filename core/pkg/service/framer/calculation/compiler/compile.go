@@ -115,7 +115,7 @@ func Compile(ctx context.Context, cfgs ...Config) (Module, error) {
 	} else {
 		for i, o := range cfg.Channel.Operations {
 			key := fmt.Sprintf("op_%d", i)
-			nextKey := fmt.Sprintf("op_%d", i)
+			nextKey := fmt.Sprintf("op_%d", i+1)
 			g.Nodes = append(g.Nodes, graph.Node{
 				Key:  fmt.Sprintf("op_%d", i),
 				Type: o.Type,
@@ -177,13 +177,13 @@ func Compile(ctx context.Context, cfgs ...Config) (Module, error) {
 		})
 	}
 
-	mod, err := arc.CompileGraph(ctx, g, arc.WithResolver(cfg.SymbolResolver))
+	program, err := arc.CompileGraph(ctx, g, arc.WithResolver(cfg.SymbolResolver))
 	if err != nil {
 		return Module{}, err
 	}
-	stateCfg, err := runtime.NewStateConfig(ctx, cfg.ChannelService, mod)
+	stateCfg, err := runtime.NewStateConfig(ctx, cfg.ChannelService, program)
 	if err != nil {
 		return Module{}, err
 	}
-	return Module{Channel: cfg.Channel, StateConfig: stateCfg, Program: mod}, nil
+	return Module{Channel: cfg.Channel, StateConfig: stateCfg, Program: program}, nil
 }

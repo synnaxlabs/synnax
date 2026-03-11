@@ -88,7 +88,7 @@ func (t *taskImpl) isRunning() bool {
 	return t.closer != nil
 }
 
-func (t *taskImpl) start(ctx context.Context) error {
+func (t *taskImpl) start(ctx context.Context) (err error) {
 	if t.isRunning() {
 		return nil
 	}
@@ -105,9 +105,19 @@ func (t *taskImpl) start(ctx context.Context) error {
 	drt.state.strings = stlstrings.NewProgramState()
 	drt.state.control = &stlcontrol.ProgramState{}
 
+	var closers xio.MultiCloser
+	defer func() {
+		if err != nil {
+			err = errors.Join(err, closers.Close())
+		}
+	}()
+
 	var wasmRT wazero.Runtime
 	if len(t.prog.Program.WASM) > 0 {
 		wasmRT = wazero.NewRuntimeWithConfig(ctx, wazero.NewRuntimeConfigCompiler())
+		closers = append(closers, xio.CloserFunc(func() error {
+			return wasmRT.Close(ctx)
+		}))
 	}
 
 	timeMod, err := time.NewModule(ctx, wasmRT)
@@ -125,7 +135,7 @@ func (t *taskImpl) start(ctx context.Context) error {
 		t.setStatus(status.VariantError, false, err.Error())
 		return err
 	}
-	if _, err := series.NewModule(ctx, drt.state.series, wasmRT); err != nil {
+	if _, err = series.NewModule(ctx, drt.state.series, wasmRT); err != nil {
 		t.setStatus(status.VariantError, false, err.Error())
 		return err
 	}
@@ -134,7 +144,7 @@ func (t *taskImpl) start(ctx context.Context) error {
 		t.setStatus(status.VariantError, false, err.Error())
 		return err
 	}
-	if _, err := stlmath.NewModule(ctx, wasmRT); err != nil {
+	if _, err = stlmath.NewModule(ctx, wasmRT); err != nil {
 		t.setStatus(status.VariantError, false, err.Error())
 		return err
 	}
@@ -158,17 +168,16 @@ func (t *taskImpl) start(ctx context.Context) error {
 		&stat.Module{},
 	}
 
-	var closers xio.MultiCloser
 	if len(t.prog.Program.WASM) > 0 {
-		guest, err := wasmRT.Instantiate(ctx, t.prog.Program.WASM)
-		if err != nil {
-			t.setStatus(status.VariantError, false, err.Error())
-			return err
+		guest, guestErr := wasmRT.Instantiate(ctx, t.prog.Program.WASM)
+		if guestErr != nil {
+			t.setStatus(status.VariantError, false, guestErr.Error())
+			return guestErr
 		}
 		stringsMod.SetMemory(guest.Memory())
 		errorsMod.SetMemory(guest.Memory())
 		closers = append(closers, xio.CloserFunc(func() error {
-			return errors.Join(guest.Close(ctx), wasmRT.Close(ctx))
+			return guest.Close(ctx)
 		}))
 		f = append(f, &wasm.Module{
 			Module:        guest,
@@ -180,14 +189,14 @@ func (t *taskImpl) start(ctx context.Context) error {
 
 	nodes := make(map[string]node.Node)
 	for _, irNode := range t.prog.Program.Nodes {
-		n, err := f.Create(ctx, node.Config{
+		n, nodeErr := f.Create(ctx, node.Config{
 			Node:    irNode,
 			Program: t.prog.Program,
 			State:   drt.state.nodes.Node(irNode.Key),
 		})
-		if err != nil {
-			t.setStatus(status.VariantError, false, err.Error())
-			return err
+		if nodeErr != nil {
+			t.setStatus(status.VariantError, false, nodeErr.Error())
+			return nodeErr
 		}
 		nodes[irNode.Key] = n
 	}
@@ -220,7 +229,8 @@ func (t *taskImpl) start(ctx context.Context) error {
 		streamerCloseSignal io.Closer
 	)
 	if len(stateCfg.Reads) > 0 {
-		streamer, err := t.factoryCfg.Framer.NewStreamer(
+		var streamer framer.Streamer
+		streamer, err = t.factoryCfg.Framer.NewStreamer(
 			ctx,
 			framer.StreamerConfig{Keys: stateCfg.Reads.Keys()},
 		)
@@ -256,7 +266,8 @@ func (t *taskImpl) start(ctx context.Context) error {
 		); len(authorities) > 0 {
 			writerCfg.Authorities = authorities
 		}
-		wrt, err := t.factoryCfg.Framer.NewStreamWriter(ctx, writerCfg)
+		var wrt framer.StreamWriter
+		wrt, err = t.factoryCfg.Framer.NewStreamWriter(ctx, writerCfg)
 		if err != nil {
 			t.setStatus(status.VariantError, false, err.Error())
 			return err
@@ -293,6 +304,7 @@ func (t *taskImpl) start(ctx context.Context) error {
 		signal.NewGracefulShutdown(sCtx, cancel),
 		streamerCloseSignal,
 	)
+	closers = nil
 	pipeline.Flow(
 		sCtx,
 		confluence.CloseOutputInletsOnExit(),

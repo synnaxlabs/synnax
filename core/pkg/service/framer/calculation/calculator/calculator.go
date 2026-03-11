@@ -33,6 +33,7 @@ import (
 	arcruntime "github.com/synnaxlabs/synnax/pkg/service/arc/runtime"
 	"github.com/synnaxlabs/synnax/pkg/service/framer/calculation/compiler"
 	"github.com/synnaxlabs/x/config"
+	"github.com/synnaxlabs/x/errors"
 	xio "github.com/synnaxlabs/x/io"
 	"github.com/synnaxlabs/x/override"
 	"github.com/synnaxlabs/x/telem"
@@ -88,7 +89,7 @@ func (c Config) Validate() error {
 func Open(
 	ctx context.Context,
 	cfgs ...Config,
-) (*Calculator, error) {
+) (_ *Calculator, err error) {
 	cfg, err := config.New(DefaultConfig, cfgs...)
 	if err != nil {
 		return nil, err
@@ -114,41 +115,45 @@ func Open(
 	}
 
 	var closers xio.MultiCloser
+	defer func() {
+		if err != nil {
+			err = errors.Join(err, closers.Close())
+		}
+	}()
+
 	if len(cfg.Module.WASM) > 0 {
+		var statefulMod *stateful.Module
+		var stringsMod *stlstrings.Module
+		var errorsMod *stlerrors.Module
 		wasmRT := wazero.NewRuntimeWithConfig(ctx, wazero.NewRuntimeConfigCompiler())
-		statefulMod, err := stateful.NewModule(ctx, cs.series, cs.strings, wasmRT)
-		if err != nil {
+		closers = append(closers, xio.CloserFunc(func() error {
+			return wasmRT.Close(ctx)
+		}))
+		if statefulMod, err = stateful.NewModule(ctx, cs.series, cs.strings, wasmRT); err != nil {
 			return nil, err
 		}
-		if _, err := series.NewModule(ctx, cs.series, wasmRT); err != nil {
+		if _, err = series.NewModule(ctx, cs.series, wasmRT); err != nil {
 			return nil, err
 		}
-		stringsMod, err := stlstrings.NewModule(ctx, cs.strings, wasmRT, nil)
-		if err != nil {
+		if stringsMod, err = stlstrings.NewModule(ctx, cs.strings, wasmRT, nil); err != nil {
 			return nil, err
 		}
-		if _, err := stlmath.NewModule(ctx, wasmRT); err != nil {
+		if _, err = stlmath.NewModule(ctx, wasmRT); err != nil {
 			return nil, err
 		}
-		errorsMod, err := stlerrors.NewModule(ctx, nil, wasmRT)
-		if err != nil {
+		if errorsMod, err = stlerrors.NewModule(ctx, nil, wasmRT); err != nil {
 			return nil, err
 		}
 
-		guest, err := wasmRT.Instantiate(ctx, cfg.Module.WASM)
-		if err != nil {
-			return nil, err
+		guest, guestErr := wasmRT.Instantiate(ctx, cfg.Module.WASM)
+		if guestErr != nil {
+			return nil, guestErr
 		}
 		stringsMod.SetMemory(guest.Memory())
 		errorsMod.SetMemory(guest.Memory())
-		closers = append(closers, xio.CloserFunc(func() error {
-			gErr := guest.Close(ctx)
-			rErr := wasmRT.Close(ctx)
-			if gErr != nil {
-				return gErr
-			}
-			return rErr
-		}))
+		closers = append(closers,
+			xio.CloserFunc(func() error { return guest.Close(ctx) }),
+		)
 		f = append(f, &wasm.Module{
 			Module:        guest,
 			Memory:        guest.Memory(),
@@ -160,25 +165,28 @@ func Open(
 	cs.nodes = node.New(cfg.Module.StateConfig.IR)
 	nodes := make(map[string]node.Node)
 	for _, irNode := range cfg.Module.Nodes {
-		n, err := f.Create(ctx, node.Config{
+		n, nodeErr := f.Create(ctx, node.Config{
 			Node:    irNode,
 			Program: cfg.Module.Program,
 			State:   cs.nodes.Node(irNode.Key),
 		})
-		if err != nil {
-			return nil, err
+		if nodeErr != nil {
+			return nil, nodeErr
 		}
 		nodes[irNode.Key] = n
 	}
 
 	sched := scheduler.New(cfg.Module.IR, nodes, 0)
-	return &Calculator{
+	c := &Calculator{
 		cfg:       cfg,
 		scheduler: sched,
 		state:     cs,
 		stateCfg:  cfg.Module.StateConfig,
 		closer:    closers,
-	}, nil
+		start:     telem.Now(),
+	}
+	closers = nil
+	return c, nil
 }
 
 func (c *Calculator) WriteTo() channel.Keys {
@@ -229,6 +237,12 @@ func (c *Calculator) Next(
 	for {
 		c.scheduler.Next(ctx, telem.Since(c.start), node.ReasonChannelInput)
 		ofr, currChanged = c.state.channel.Flush(ofr)
+		// Series and strings must be cleared after every flush, not just at the end
+		// of the loop. On each iteration the scheduler may create new series/string
+		// handles via WASM; if we don't clear them before the next iteration, stale
+		// handles accumulate and the counter keeps growing.
+		c.state.series.Clear()
+		c.state.strings.Clear()
 		if !currChanged {
 			break
 		}
@@ -238,8 +252,6 @@ func (c *Calculator) Next(
 	// when a required input channel never sends data, consumed series accumulate
 	// indefinitely in channel.reads.
 	c.state.channel.ClearReads()
-	c.state.series.Clear()
-	c.state.strings.Clear()
 	if !changed {
 		return output, false, nil
 	}

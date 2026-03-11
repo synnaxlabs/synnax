@@ -32,7 +32,7 @@ type Config struct {
 
 // Factory creates node instances from IR definitions.
 // Implementations check the node type and return query.NotFound if they cannot
-// handle the gi en type.
+// handle the given type.
 type Factory interface {
 	// Create constructs a node from the given configuration.
 	// Returns query.NotFound if this factory cannot handle cfg.Node.Type.

@@ -1331,4 +1331,35 @@ var _ = Describe("ProgramState", func() {
 		})
 	})
 
+	Describe("Reset", func() {
+		It("Should not panic on a node with inputs and outputs", func() {
+			g := graph.Graph{
+				Nodes: []graph.Node{
+					{Key: "src", Type: "src"},
+					{Key: "target", Type: "target"},
+				},
+				Edges: []ir.Edge{{
+					Source: ir.Handle{Node: "src", Param: ir.DefaultOutputParam},
+					Target: ir.Handle{Node: "target", Param: "x"},
+				}},
+				Functions: []graph.Function{
+					{
+						Key:     "src",
+						Outputs: types.Params{{Name: ir.DefaultOutputParam, Type: types.I64()}},
+					},
+					{
+						Key:     "target",
+						Inputs:  types.Params{{Name: "x", Type: types.I64()}},
+						Outputs: types.Params{{Name: ir.DefaultOutputParam, Type: types.I64()}},
+					},
+				},
+			}
+			prog, diagnostics := graph.Analyze(ctx, g, nil)
+			Expect(diagnostics.Ok()).To(BeTrue())
+			s := node.New(prog)
+			n := s.Node("target")
+			Expect(func() { n.Reset() }).ToNot(Panic())
+		})
+	})
+
 })

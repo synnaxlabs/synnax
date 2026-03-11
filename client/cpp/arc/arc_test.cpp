@@ -145,8 +145,8 @@ TEST(TestArc, testDeleteMany) {
     );
 }
 
-/// @brief it should handle the module field correctly.
-TEST(TestArc, testModuleField) {
+/// @brief it should handle the program field correctly.
+TEST(TestArc, testProgramField) {
     const auto client = new_test_client();
     auto arc = Arc{.name = "module_test"};
     arc.text.raw = "// Test program";
@@ -296,7 +296,7 @@ TEST(TestArc, testArcFromProtoEmptyKey) {
     ASSERT_OCCURRED_AS_P(Arc::from_proto(pb), x::uuid::INVALID);
 }
 
-/// @brief it should handle an Arc proto without optional graph, text, and module.
+/// @brief it should handle an Arc proto without optional graph, text, and program.
 TEST(TestArc, testArcFromProtoWithoutOptionalFields) {
     api::v1::Arc pb;
     pb.set_key("748d31e2-5732-4cb5-8bc9-64d4ad51efe8");

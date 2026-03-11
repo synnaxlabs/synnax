@@ -69,7 +69,14 @@ public:
     create(runtime::node::Config &&cfg) override {
         if (!this->handles(cfg.node.type)) return {nullptr, x::errors::NOT_FOUND};
         const auto &param = cfg.node.config["value"];
-        assert(param.value.has_value() && "constant node requires a value");
+        if (!param.value.has_value())
+            return {
+                nullptr,
+                x::errors::Error(
+                    x::errors::VALIDATION,
+                    "constant node missing required value parameter"
+                )
+            };
         auto data_type = cfg.node.outputs[0].type.telem();
         return {
             std::make_unique<Constant>(std::move(cfg.state), *param.value, data_type),

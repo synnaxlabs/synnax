@@ -23,39 +23,39 @@
 namespace arc::stl::time {
 
 /// @brief Sentinel value indicating base_interval hasn't been set yet.
-inline const x::telem::TimeSpan UNSET_BASE_INTERVAL = ::x::telem::TimeSpan::max();
+inline const x::telem::TimeSpan UNSET_BASE_INTERVAL = x::telem::TimeSpan::max();
 
 /// @brief Calculates the tolerance for timing comparisons based on execution mode.
-inline ::x::telem::TimeSpan calculate_tolerance(
+inline x::telem::TimeSpan calculate_tolerance(
     const runtime::loop::ExecutionMode mode,
-    const ::x::telem::TimeSpan base_interval
+    const x::telem::TimeSpan base_interval
 ) {
-    if (base_interval == UNSET_BASE_INTERVAL) return 5 * ::x::telem::MILLISECOND;
+    if (base_interval == UNSET_BASE_INTERVAL) return 5 * x::telem::MILLISECOND;
     const auto half = base_interval / 2;
     switch (mode) {
         case runtime::loop::ExecutionMode::RT_EVENT:
         case runtime::loop::ExecutionMode::BUSY_WAIT:
-            return std::min(half, 100 * ::x::telem::MICROSECOND);
+            return std::min(half, 100 * x::telem::MICROSECOND);
         case runtime::loop::ExecutionMode::HIGH_RATE:
-            return std::min(half, ::x::telem::MILLISECOND);
+            return std::min(half, x::telem::MILLISECOND);
         default:
-            return std::min(half, 5 * ::x::telem::MILLISECOND);
+            return std::min(half, 5 * x::telem::MILLISECOND);
     }
 }
 
 struct IntervalConfig {
-    ::x::telem::TimeSpan interval;
+    x::telem::TimeSpan interval;
 
     explicit IntervalConfig(const ir::Params &params) {
         const auto interval_ns = params["period"].get<std::int64_t>();
-        this->interval = ::x::telem::TimeSpan(interval_ns);
+        this->interval = x::telem::TimeSpan(interval_ns);
     }
 };
 
 class Interval : public runtime::node::Node {
     runtime::state::Node state;
     IntervalConfig cfg;
-    ::x::telem::TimeSpan last_fired;
+    x::telem::TimeSpan last_fired;
 
 public:
     explicit Interval(const IntervalConfig &cfg, runtime::state::Node &&state):
@@ -93,11 +93,11 @@ public:
 };
 
 struct WaitConfig {
-    ::x::telem::TimeSpan duration;
+    x::telem::TimeSpan duration;
 
     explicit WaitConfig(const ir::Params &params) {
         const auto duration_ns = params["duration"].get<std::int64_t>();
-        this->duration = ::x::telem::TimeSpan(duration_ns);
+        this->duration = x::telem::TimeSpan(duration_ns);
     }
 };
 
@@ -105,7 +105,7 @@ struct WaitConfig {
 class Wait : public runtime::node::Node {
     runtime::state::Node state;
     WaitConfig cfg;
-    ::x::telem::TimeSpan start_time = ::x::telem::TimeSpan(-1);
+    x::telem::TimeSpan start_time = x::telem::TimeSpan(-1);
     bool fired = false;
 
 public:
@@ -136,7 +136,7 @@ public:
     }
 
     void reset() override {
-        start_time = ::x::telem::TimeSpan(-1);
+        start_time = x::telem::TimeSpan(-1);
         fired = false;
     }
 
@@ -146,12 +146,12 @@ public:
 };
 
 class Module : public stl::Module {
-    ::x::telem::TimeSpan base = UNSET_BASE_INTERVAL;
+    x::telem::TimeSpan base = UNSET_BASE_INTERVAL;
 
 public:
     /// @brief Returns the GCD of all interval/wait durations seen during node
     /// creation. Returns UNSET_BASE_INTERVAL if no time nodes were created.
-    [[nodiscard]] ::x::telem::TimeSpan base_interval() const { return this->base; }
+    [[nodiscard]] x::telem::TimeSpan base_interval() const { return this->base; }
 
     bool handles(const std::string &node_type) const override {
         return node_type == "interval" || node_type == "wait";
@@ -183,17 +183,17 @@ public:
             .func_wrap(
                 "time",
                 "now",
-                []() -> int64_t { return ::x::telem::TimeStamp::now().nanoseconds(); }
+                []() -> int64_t { return x::telem::TimeStamp::now().nanoseconds(); }
             )
             .unwrap();
     }
 
 private:
-    void update_base_interval(const ::x::telem::TimeSpan span) {
+    void update_base_interval(const x::telem::TimeSpan span) {
         if (this->base == UNSET_BASE_INTERVAL)
             this->base = span;
         else
-            this->base = ::x::telem::TimeSpan(
+            this->base = x::telem::TimeSpan(
                 std::gcd(this->base.nanoseconds(), span.nanoseconds())
             );
     }

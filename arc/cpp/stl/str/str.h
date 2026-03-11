@@ -28,6 +28,9 @@ public:
         str_state(std::move(str_state)) {}
 
     void bind_to(wasmtime::Linker &linker, wasmtime::Store::Context cx) override {
+        // SAFETY: raw `this` capture is safe because wasm::Module owns this
+        // stl::Module via cfg.modules (shared_ptr), and Store/Memory are
+        // stable members of the heap-pinned wasm::Module.
         auto self = this;
         auto ss = this->str_state;
         linker
