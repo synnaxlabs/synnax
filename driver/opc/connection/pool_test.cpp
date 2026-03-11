@@ -679,6 +679,52 @@ TEST_F(SessionLimitPoolTest, CircuitBreakerTripsAfterFailures) {
         << "Error should mention circuit breaker: " << err.message();
 }
 
+/// @brief After the circuit breaker trips, acquire() must reject instantly
+/// even when there is a stale cached connection in the pool.
+///
+/// The risk: cleanup_stale_entries() calls UA_Client_disconnect() which blocks
+/// on a TCP timeout (~5s) when the server is unreachable. If cleanup runs
+/// before the breaker check, a tripped breaker offers no latency protection.
+///
+/// This test primes the pool with a cached connection, stops the server, trips
+/// the breaker via BREAKER_THRESHOLD failures, then verifies the next acquire()
+/// returns in <500ms — proving cleanup was skipped, not blocking the caller.
+TEST_F(SessionLimitPoolTest, CircuitBreakerSkipsCleanupWhenTripped) {
+    Pool pool;
+
+    // Prime pool with one cached connection
+    { auto conn = ASSERT_NIL_P(pool.acquire(conn_cfg_, "[test] ")); }
+    EXPECT_EQ(pool.available_count(conn_cfg_.endpoint), 1);
+
+    // Stop the server — cached connection is now stale, new connections fail
+    server_->stop();
+    server_.reset();
+    std::this_thread::sleep_for(std::chrono::milliseconds(100));
+
+    // Trip the breaker via BREAKER_THRESHOLD consecutive failures
+    for (int i = 0; i < 3; ++i) {
+        auto [conn, err] = pool.acquire(conn_cfg_, "[test] ");
+        ASSERT_TRUE(err) << "Attempt " << i << " should fail (server is down)";
+    }
+
+    // Breaker is now tripped. The pool still holds the original stale entry.
+    // acquire() must reject instantly — cleanup_stale_entries (which calls
+    // UA_Client_disconnect over a dead network) must NOT run before the check.
+    auto start = std::chrono::steady_clock::now();
+    auto [conn, err] = pool.acquire(conn_cfg_, "[test] ");
+    auto elapsed = std::chrono::duration_cast<std::chrono::milliseconds>(
+        std::chrono::steady_clock::now() - start
+    );
+
+    ASSERT_TRUE(err);
+    EXPECT_FALSE(conn);
+    EXPECT_LT(elapsed.count(), 500)
+        << "Breaker should reject before cleanup_stale_entries, but took "
+        << elapsed.count() << "ms";
+    EXPECT_NE(err.message().find("circuit breaker"), std::string::npos)
+        << "Error should mention circuit breaker: " << err.message();
+}
+
 /// @brief After the circuit breaker trips and the cooldown expires, a
 /// successful probe connection resets the breaker and restores normal
 /// operation.

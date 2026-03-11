@@ -100,8 +100,6 @@ Pool::acquire(const Config &cfg, const std::string &log_prefix) {
         }
     }
 
-    cleanup_stale_entries(key, log_prefix);
-
     // Serialized connection creation: only one thread connects at a time
     // per endpoint. Other threads wait for the connecting thread to finish,
     // then try to reuse the newly created connection.
@@ -109,7 +107,8 @@ Pool::acquire(const Config &cfg, const std::string &log_prefix) {
         std::unique_lock<std::mutex> lock(mutex_);
         auto &breaker = breakers[key];
 
-        // Check circuit breaker — if tripped and still in cooldown, fail fast.
+        // Check circuit breaker before cleanup_stale_entries: if tripped,
+        // fail fast without blocking on UA_Client_disconnect network calls.
         if (breaker.consecutive_failures >= BREAKER_THRESHOLD) {
             if (std::chrono::steady_clock::now() < breaker.cooldown_until) {
                 VLOG(1) << log_prefix << "Circuit breaker open, rejecting connection";
@@ -124,6 +123,27 @@ Pool::acquire(const Config &cfg, const std::string &log_prefix) {
             }
             // Cooldown expired — allow one probe attempt (half-open).
             VLOG(1) << log_prefix << "Circuit breaker half-open, allowing probe";
+        }
+
+        // Breaker is not tripped (or is half-open) — clean up stale entries.
+        // Release the lock first: cleanup_stale_entries takes mutex_ internally
+        // and calls UA_Client_disconnect which blocks on network I/O.
+        lock.unlock();
+        cleanup_stale_entries(key, log_prefix);
+        lock.lock();
+        // Re-check breaker after reacquiring: another thread may have tripped
+        // it while we were cleaning up.
+        if (breaker.consecutive_failures >= BREAKER_THRESHOLD &&
+            std::chrono::steady_clock::now() < breaker.cooldown_until) {
+            VLOG(1) << log_prefix << "Circuit breaker open after cleanup, rejecting";
+            return {
+                Connection(nullptr, nullptr, ""),
+                x::errors::Error(
+                    opc::errors::NO_CONNECTION,
+                    "circuit breaker open — too many consecutive "
+                    "connection failures"
+                )
+            };
         }
 
         // If another thread is already connecting, wait for it to finish.
