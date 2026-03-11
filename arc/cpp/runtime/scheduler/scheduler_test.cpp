@@ -1980,8 +1980,7 @@ TEST_F(SchedulerTest, testFirstStatementWinsWhenMultipleTransitionsAreTrue) {
                   .sequence(
                       "seq",
                       {{"stage_on",
-                        {{"A", "B"},
-                         {"entry_seq_stage_off", "entry_seq_stage_pause"}}},
+                        {{"A", "B"}, {"entry_seq_stage_off", "entry_seq_stage_pause"}}},
                        {"stage_off", {{"Off"}}},
                        {"stage_pause", {{"Pause"}}}}
                   )

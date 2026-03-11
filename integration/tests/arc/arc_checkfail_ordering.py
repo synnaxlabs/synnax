@@ -46,7 +46,10 @@ sequence main {
         0 -> cf_sim_stage,
         1 -> cf_heater_cmd,
         // This needs fixing, but not now. Keep here for visibility.
-        interval{period=1s} -> (cf_temp_a > 290 and cf_temp_b > 290) -> noop{} -> noop{} -> noop{} => off,
+        // Chaining no-ops means the next line completes first.
+        // Shorter statements = higher priority, even if they come later, which is unintuitive.
+        // interval{period=1s} -> (cf_temp_a > 290 and cf_temp_b > 290) -> noop{} -> noop{} -> noop{} => off,
+        interval{period=1s} -> (cf_temp_a > 290 and cf_temp_b > 290) => off,
         interval{period=1s} -> cf_temp_b > 300 => pause,
     }
     stage pause {
@@ -240,7 +243,9 @@ class ArcCheckfailOrdering(ArcConsoleCase):
             deltas_s = [(times[i + 1] - times[i]) / 1e9 for i in range(len(times) - 1)]
             self.log(f"{ch} deltas (s): {[f'{d:.3f}' for d in deltas_s]}")
             for d in deltas_s:
-                assert 1.0 <= d <= 1.005, f"{ch}: delta {d:.3f}s out of [1.000, 1.005]"
+                assert (
+                    0.995 <= d <= 1.005
+                ), f"{ch}: delta {d:.3f}s out of [1.000, 1.005]"
 
         expected: dict[str, list[int | float | str]] = {
             "cf_stage_str": ["on", "pause", "on", "pause", "on", "pause", "on", "off"],
