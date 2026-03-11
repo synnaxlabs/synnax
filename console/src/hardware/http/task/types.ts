@@ -15,21 +15,9 @@ import { Common } from "@/hardware/common";
 
 export const PREFIX = "http";
 
-export const SCAN_TYPE = `${PREFIX}_scan`;
-
-export const TEST_CONNECTION_COMMAND_TYPE = "test_connection";
-
-export const SCAN_SCHEMAS = {
-  typeSchema: z.literal(SCAN_TYPE),
-  configSchema: z.null(),
-  statusDataSchema: z.null(),
-} as const satisfies task.Schemas;
-
 const timeFormatZ = z.enum(["iso8601", "unix_sec", "unix_ms", "unix_us", "unix_ns"]);
 
 export const READ_TYPE = `${PREFIX}_read`;
-
-export const readTypeZ = z.literal(READ_TYPE);
 
 const readFieldZ = Common.Task.readChannelZ.extend({
   pointer: json.pointerZ,
@@ -37,6 +25,7 @@ const readFieldZ = Common.Task.readChannelZ.extend({
   timestampFormat: timeFormatZ.optional(),
   enumValues: z.record(z.string(), z.number()).optional(),
 });
+
 export interface ReadField extends z.infer<typeof readFieldZ> {}
 
 export const ZERO_READ_FIELD = {
@@ -53,7 +42,9 @@ const baseReadEndpointZ = z.object({
   fields: z.array(readFieldZ).check(Common.Task.validateReadChannels),
   index: z.string().nullable().default(null),
 });
+
 const getReadEndpointZ = baseReadEndpointZ.extend({ method: z.literal("GET") });
+
 const postReadEndpointZ = baseReadEndpointZ.extend({
   method: z.literal("POST"),
   body: z.string().optional(),
@@ -63,6 +54,7 @@ const readEndpointZ = z.discriminatedUnion("method", [
   getReadEndpointZ,
   postReadEndpointZ,
 ]);
+
 export type ReadEndpoint = z.infer<typeof readEndpointZ>;
 
 export const ZERO_READ_ENDPOINT = {
@@ -73,41 +65,46 @@ export const ZERO_READ_ENDPOINT = {
   index: null,
 } as const satisfies ReadEndpoint;
 
-export const readConfigZ = Common.Task.baseReadConfigZ.extend({
+const readConfigZ = Common.Task.baseReadConfigZ.extend({
   rate: z.number().positive("Rate must be positive"),
   endpoints: z.array(readEndpointZ),
 });
-export interface ReadConfig extends z.infer<typeof readConfigZ> {}
 
-export const ZERO_READ_CONFIG = {
+interface ReadConfig extends z.infer<typeof readConfigZ> {}
+
+const ZERO_READ_CONFIG = {
   ...Common.Task.ZERO_BASE_READ_CONFIG,
   rate: 1,
   endpoints: [],
 } as const satisfies ReadConfig;
 
-export const readStatusDataZ = z
+const readStatusDataZ = z
   .object({ running: z.boolean(), message: z.string() })
   .or(z.null());
 
-export interface ReadPayload extends task.Payload<
-  typeof readTypeZ,
-  typeof readConfigZ,
-  typeof readStatusDataZ
-> {}
+export const READ_SCHEMAS = {
+  type: z.literal(READ_TYPE),
+  config: readConfigZ,
+  statusData: readStatusDataZ,
+} as const satisfies task.Schemas;
+
+export type ReadSchemas = typeof READ_SCHEMAS;
+
+export interface ReadPayload extends task.Payload<ReadSchemas> {}
 
 export const ZERO_READ_PAYLOAD = {
   key: "",
   name: "HTTP Read Task",
   config: ZERO_READ_CONFIG,
-  type: READ_TYPE,
+  type: "http_read",
 } as const satisfies ReadPayload;
 
-export const READ_SCHEMAS = {
-  typeSchema: readTypeZ,
-  configSchema: readConfigZ,
-  statusDataSchema: readStatusDataZ,
-} as const satisfies task.Schemas<
-  typeof readTypeZ,
-  typeof readConfigZ,
-  typeof readStatusDataZ
->;
+export const SCAN_TYPE = `${PREFIX}_scan`;
+
+export const TEST_CONNECTION_COMMAND_TYPE = "test_connection";
+
+export const SCAN_SCHEMAS = {
+  type: z.literal(SCAN_TYPE),
+  config: z.null(),
+  statusData: z.null(),
+} as const satisfies task.Schemas;

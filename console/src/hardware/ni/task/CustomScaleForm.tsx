@@ -15,13 +15,9 @@ import { z } from "zod";
 
 import { FS } from "@/fs";
 import {
-  LINEAR_SCALE_TYPE,
-  MAP_SCALE_TYPE,
-  NO_SCALE_TYPE,
   type Scale,
   SCALE_SCHEMAS,
   type ScaleType,
-  TABLE_SCALE_TYPE,
   type Units,
   ZERO_SCALES,
 } from "@/hardware/ni/task/types";
@@ -48,15 +44,15 @@ const SelectCustomScaleTypeField = Form.buildSelectField<
   inputProps: {
     resourceName: "scale type",
     data: [
-      { key: LINEAR_SCALE_TYPE, name: "Linear", icon: <Icon.Linear /> },
-      { key: MAP_SCALE_TYPE, name: "Map", icon: <Icon.Map /> },
-      { key: TABLE_SCALE_TYPE, name: "Table", icon: <Icon.Table /> },
-      { key: NO_SCALE_TYPE, name: "None", icon: <Icon.None /> },
+      { key: "linear", name: "Linear", icon: <Icon.Linear /> },
+      { key: "map", name: "Map", icon: <Icon.Map /> },
+      { key: "table", name: "Table", icon: <Icon.Table /> },
+      { key: "none", name: "None", icon: <Icon.None /> },
     ],
   },
 });
 
-const UNIT_SYMBOLS: Record<Units, string> = {
+const UNIT_SYMBOLS = {
   Volts: "V",
   Amps: "A",
   DegF: "°F",
@@ -85,7 +81,7 @@ const UNIT_SYMBOLS: Record<Units, string> = {
   InchOunces: "in·oz",
   InchPounds: "in·lb",
   FootPounds: "ft·lb",
-};
+} as const satisfies Record<Units, string>;
 
 const unitsData = (Object.entries(UNIT_SYMBOLS) as [Units, string][]).map(
   ([key, name]) => ({ key, name }),
@@ -115,7 +111,7 @@ const CustomScaleUnitsFields = ({ prefix }: { prefix: string }) => (
 );
 
 const SCALE_FORMS: Record<ScaleType, FC<CustomScaleFormProps>> = {
-  [LINEAR_SCALE_TYPE]: ({ prefix }) => (
+  linear: ({ prefix }) => (
     <>
       <CustomScaleUnitsFields prefix={prefix} />
       <Flex.Box x>
@@ -129,7 +125,7 @@ const SCALE_FORMS: Record<ScaleType, FC<CustomScaleFormProps>> = {
       </Flex.Box>
     </>
   ),
-  [MAP_SCALE_TYPE]: ({ prefix }) => (
+  map: ({ prefix }) => (
     <>
       <CustomScaleUnitsFields prefix={prefix} />
       <Flex.Box x>
@@ -151,7 +147,7 @@ const SCALE_FORMS: Record<ScaleType, FC<CustomScaleFormProps>> = {
       </Flex.Box>
     </>
   ),
-  [TABLE_SCALE_TYPE]: ({ prefix }) => {
+  table: ({ prefix }) => {
     const [rawCol, setRawCol] = state.usePersisted<string>("Raw", `${prefix}.rawCol`);
     const [scaledCol, setScaledCol] = state.usePersisted<string>(
       "Scaled",
@@ -242,7 +238,7 @@ const SCALE_FORMS: Record<ScaleType, FC<CustomScaleFormProps>> = {
       </>
     );
   },
-  [NO_SCALE_TYPE]: () => null,
+  none: () => null,
 };
 
 export const CustomScaleForm = ({ prefix }: CustomScaleFormProps) => {

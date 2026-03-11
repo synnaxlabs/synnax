@@ -23,7 +23,7 @@ const withTaskVisibility = (
   Selectable: BaseSelector.Selectable,
 ): BaseSelector.Selectable => {
   const WrappedSelectable: BaseSelector.Selectable = (props) => {
-    const visible = Access.useUpdateGranted(task.TYPE_ONTOLOGY_ID);
+    const visible = Access.useCreateGranted(task.TYPE_ONTOLOGY_ID);
     if (!visible) return null;
     return <Selectable {...props} />;
   };

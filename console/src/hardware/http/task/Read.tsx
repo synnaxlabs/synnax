@@ -36,11 +36,9 @@ import { Device } from "@/hardware/http/device";
 import {
   READ_SCHEMAS,
   READ_TYPE,
-  type readConfigZ,
   type ReadEndpoint,
   type ReadField,
-  type readStatusDataZ,
-  type readTypeZ,
+  type ReadSchemas,
   ZERO_READ_ENDPOINT,
   ZERO_READ_FIELD,
   ZERO_READ_PAYLOAD,
@@ -471,9 +469,7 @@ const EndpointDetails: FC<{ epKey: string }> = ({ epKey }) => {
 
 // ─── Main Form ───
 
-const Form: FC<
-  Common.Task.FormProps<typeof readTypeZ, typeof readConfigZ, typeof readStatusDataZ>
-> = () => {
+const Form: FC<Common.Task.FormProps<ReadSchemas>> = () => {
   const [selectedEndpoints, setSelectedEndpoints] = useState<string[]>([]);
   const { data, push, remove } = PForm.useFieldList<string, ReadEndpoint>(
     "config.endpoints",
@@ -589,11 +585,9 @@ const Form: FC<
   );
 };
 
-const getInitialValues: Common.Task.GetInitialValues<
-  typeof readTypeZ,
-  typeof readConfigZ,
-  typeof readStatusDataZ
-> = ({ deviceKey }) => ({
+const getInitialValues: Common.Task.GetInitialValues<ReadSchemas> = ({
+  deviceKey,
+}) => ({
   ...ZERO_READ_PAYLOAD,
   config: {
     ...ZERO_READ_PAYLOAD.config,
@@ -601,7 +595,7 @@ const getInitialValues: Common.Task.GetInitialValues<
   },
 });
 
-const onConfigure: Common.Task.OnConfigure<typeof readConfigZ> = async (
+const onConfigure: Common.Task.OnConfigure<ReadSchemas["config"]> = async (
   client,
   config,
 ) => {
@@ -651,7 +645,7 @@ export const Read = Common.Task.wrapForm({
   Properties,
   Form,
   schemas: READ_SCHEMAS,
-  type: READ_TYPE,
+  type: "http_read",
   getInitialValues,
   onConfigure,
 });
