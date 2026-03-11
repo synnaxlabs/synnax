@@ -65,8 +65,7 @@ var _ = Describe("Writer Behavior", Ordered, func() {
 						Subject: control.Subject{Key: "foo"},
 					}))
 					Expect(t.Occurred()).To(BeTrue())
-					v, err := w.Write(telem.NewSeriesSecondsTSV(0, 1, 2, 3, 4, 5))
-					Expect(err).ToNot(HaveOccurred())
+					v := MustSucceed(w.Write(telem.NewSeriesSecondsTSV(0, 1, 2, 3, 4, 5)))
 					Expect(v).To(Equal(alignment.Leading(1, 0)))
 					Expect(MustSucceed(w.Write(telem.NewSeriesSecondsTSV(6, 7, 8, 9, 10, 11)))).To(Equal(alignment.Leading(1, 6)))
 					Expect(MustSucceed(w.Commit(ctx))).To(Equal(11*telem.SecondTS + 1))
@@ -156,15 +155,15 @@ var _ = Describe("Writer Behavior", Ordered, func() {
 					}))
 					Expect(MustSucceed(w.Write(telem.NewSeries([]int64{0, 1, 2, 3, 4})))).To(Equal(alignment.Leading(1, 0)))
 					Expect(MustSucceed(w.Commit(ctx))).To(Equal(14*telem.SecondTS + 1))
-					_, err := w.Close()
-					Expect(err).ToNot(HaveOccurred())
+					MustSucceed(w.Close())
 
-					_, _, err = dataDB.OpenWriter(ctx, unary.WriterConfig{
+					Expect(dataDB.OpenWriter(ctx, unary.WriterConfig{
 						Start:   12 * telem.SecondTS,
 						Subject: control.Subject{Key: "foo"},
-					})
-					Expect(err).To(MatchError(ContainSubstring("channel [Maxwell]<%d>", data)))
-					Expect(err).To(MatchError(ContainSubstring("overlaps")))
+					})).Error().To(And(
+						MatchError(ContainSubstring("channel [Maxwell]<%d>", data)),
+						MatchError(ContainSubstring("overlaps")),
+					))
 				})
 				Describe("Auto file switch", func() {
 					Specify("File cutoff on commit with no preset end", func() {
@@ -172,10 +171,8 @@ var _ = Describe("Writer Behavior", Ordered, func() {
 						w2, _ := MustSucceed2(dataDB.OpenWriter(ctx, unary.WriterConfig{Start: 10 * telem.SecondTS, Subject: control.Subject{Key: "moo"}}))
 
 						By("Writing telemetry")
-						_, err := w1.Write(telem.NewSeriesSecondsTSV(10, 11, 13, 14, 15, 16, 17))
-						Expect(err).ToNot(HaveOccurred())
-						_, err = w2.Write(telem.NewSeriesV[int64](100, 101, 103, 104, 105, 106, 107))
-						Expect(err).ToNot(HaveOccurred())
+						MustSucceed(w1.Write(telem.NewSeriesSecondsTSV(10, 11, 13, 14, 15, 16, 17)))
+						MustSucceed(w2.Write(telem.NewSeriesV[int64](100, 101, 103, 104, 105, 106, 107)))
 
 						By("Asserting that both writers have still written to one file")
 						l := filterDataFiles(MustSucceed(indexFS.List("")))
@@ -191,10 +188,8 @@ var _ = Describe("Writer Behavior", Ordered, func() {
 						Expect(w2.Commit(ctx)).To(Equal(17*telem.SecondTS + 1))
 
 						By("Writing more telemetry")
-						_, err = w1.Write(telem.NewSeriesSecondsTSV(23, 29, 31, 37, 41, 43))
-						Expect(err).ToNot(HaveOccurred())
-						_, err = w2.Write(telem.NewSeriesV[int64](203, 209, 301, 307, 401, 403))
-						Expect(err).ToNot(HaveOccurred())
+						MustSucceed(w1.Write(telem.NewSeriesSecondsTSV(23, 29, 31, 37, 41, 43)))
+						MustSucceed(w2.Write(telem.NewSeriesV[int64](203, 209, 301, 307, 401, 403)))
 
 						By("Asserting that the second writer is now writing to a different file")
 						l = filterDataFiles(MustSucceed(indexFS.List("")))
@@ -210,8 +205,7 @@ var _ = Describe("Writer Behavior", Ordered, func() {
 						Expect(w2.Commit(ctx)).To(Equal(43*telem.SecondTS + 1))
 
 						By("Writing more telemetry")
-						_, err = w1.Write(telem.NewSeriesSecondsTSV(47, 53))
-						Expect(err).ToNot(HaveOccurred())
+						MustSucceed(w1.Write(telem.NewSeriesSecondsTSV(47, 53)))
 
 						By("Asserting that the first writer is now writing to a different file")
 						l = filterDataFiles(MustSucceed(indexFS.List("")))
@@ -220,10 +214,8 @@ var _ = Describe("Writer Behavior", Ordered, func() {
 
 						Expect(w1.Commit(ctx)).To(Equal(53*telem.SecondTS + 1))
 
-						_, err = w1.Close()
-						Expect(err).ToNot(HaveOccurred())
-						_, err = w2.Close()
-						Expect(err).ToNot(HaveOccurred())
+						MustSucceed(w1.Close())
+						MustSucceed(w2.Close())
 
 						By("Asserting that the data is correct", func() {
 							i, _ := dataDB.OpenIterator(unary.IteratorConfig{Bounds: telem.TimeRangeMax})
@@ -242,10 +234,8 @@ var _ = Describe("Writer Behavior", Ordered, func() {
 						w2, _ := MustSucceed2(dataDB.OpenWriter(ctx, unary.WriterConfig{Start: 10 * telem.SecondTS, Subject: control.Subject{Key: "moo"}}))
 
 						By("Writing telemetry")
-						_, err := w1.Write(telem.NewSeriesSecondsTSV(10, 11, 13, 14, 15, 16, 17))
-						Expect(err).ToNot(HaveOccurred())
-						_, err = w2.Write(telem.NewSeriesV[int64](100, 101, 103, 104, 105, 106, 107))
-						Expect(err).ToNot(HaveOccurred())
+						MustSucceed(w1.Write(telem.NewSeriesSecondsTSV(10, 11, 13, 14, 15, 16, 17)))
+						MustSucceed(w2.Write(telem.NewSeriesV[int64](100, 101, 103, 104, 105, 106, 107)))
 
 						By("Asserting that both writers have still written to one file")
 						l := filterDataFiles(MustSucceed(indexFS.List("")))
@@ -261,10 +251,8 @@ var _ = Describe("Writer Behavior", Ordered, func() {
 						Expect(w2.Commit(ctx)).To(Equal(17*telem.SecondTS + 1))
 
 						By("Writing more telemetry")
-						_, err = w1.Write(telem.NewSeriesSecondsTSV(23, 29, 31, 37, 41, 43))
-						Expect(err).ToNot(HaveOccurred())
-						_, err = w2.Write(telem.NewSeriesV[int64](203, 209, 301, 307, 401, 403))
-						Expect(err).ToNot(HaveOccurred())
+						MustSucceed(w1.Write(telem.NewSeriesSecondsTSV(23, 29, 31, 37, 41, 43)))
+						MustSucceed(w2.Write(telem.NewSeriesV[int64](203, 209, 301, 307, 401, 403)))
 
 						By("Asserting that the second writer is now writing to a different file")
 						l = filterDataFiles(MustSucceed(indexFS.List("")))
@@ -280,8 +268,7 @@ var _ = Describe("Writer Behavior", Ordered, func() {
 						Expect(w2.Commit(ctx)).To(Equal(43*telem.SecondTS + 1))
 
 						By("Writing more telemetry")
-						_, err = w1.Write(telem.NewSeriesSecondsTSV(47, 53))
-						Expect(err).ToNot(HaveOccurred())
+						MustSucceed(w1.Write(telem.NewSeriesSecondsTSV(47, 53)))
 
 						By("Asserting that the first writer is now writing to a different file")
 						l = filterDataFiles(MustSucceed(indexFS.List("")))
@@ -290,10 +277,8 @@ var _ = Describe("Writer Behavior", Ordered, func() {
 
 						Expect(w1.Commit(ctx)).To(Equal(53*telem.SecondTS + 1))
 
-						_, err = w1.Close()
-						Expect(err).ToNot(HaveOccurred())
-						_, err = w2.Close()
-						Expect(err).ToNot(HaveOccurred())
+						MustSucceed(w1.Close())
+						MustSucceed(w2.Close())
 
 						By("Asserting that the data is correct", func() {
 							i, _ := dataDB.OpenIterator(unary.IterRange(telem.TimeRangeMax))
@@ -313,20 +298,16 @@ var _ = Describe("Writer Behavior", Ordered, func() {
 						w2, _ := MustSucceed2(dataDB.OpenWriter(ctx, unary.WriterConfig{Start: 10 * telem.SecondTS, End: 100 * telem.SecondTS, Subject: control.Subject{Key: "moo"}}))
 
 						By("Writing telemetry")
-						_, err := w1.Write(telem.NewSeriesSecondsTSV(10, 11, 13, 14, 15, 16, 17, 18, 20, 23, 25))
-						Expect(err).ToNot(HaveOccurred())
-						_, err = w2.Write(telem.NewSeriesV[int64](100, 101, 103, 104, 105, 106, 107, 108, 200, 203, 205))
-						Expect(err).ToNot(HaveOccurred())
+						MustSucceed(w1.Write(telem.NewSeriesSecondsTSV(10, 11, 13, 14, 15, 16, 17, 18, 20, 23, 25)))
+						MustSucceed(w2.Write(telem.NewSeriesV[int64](100, 101, 103, 104, 105, 106, 107, 108, 200, 203, 205)))
 
 						By("Committing the data")
 						Expect(w1.Commit(ctx)).To(Equal(25*telem.SecondTS + 1))
 						Expect(w2.Commit(ctx)).To(Equal(25*telem.SecondTS + 1))
 
 						By("Writing more telemetry")
-						_, err = w1.Write(telem.NewSeriesSecondsTSV(29, 31, 37, 41, 43))
-						Expect(err).ToNot(HaveOccurred())
-						_, err = w2.Write(telem.NewSeriesV[int64](209, 301, 307, 401, 403))
-						Expect(err).ToNot(HaveOccurred())
+						MustSucceed(w1.Write(telem.NewSeriesSecondsTSV(29, 31, 37, 41, 43)))
+						MustSucceed(w2.Write(telem.NewSeriesV[int64](209, 301, 307, 401, 403)))
 
 						By("Committing the data")
 						Expect(w1.Commit(ctx)).To(Equal(43*telem.SecondTS + 1))
@@ -341,10 +322,8 @@ var _ = Describe("Writer Behavior", Ordered, func() {
 						Expect(l).To(HaveLen(3))
 						Expect([]int64{l[0].Size(), l[1].Size(), l[2].Size()}).To(ConsistOf(int64(11*telem.Int64T.Density()), int64(5*telem.Int64T.Density()), int64(0)))
 
-						_, err = w1.Close()
-						Expect(err).ToNot(HaveOccurred())
-						_, err = w2.Close()
-						Expect(err).ToNot(HaveOccurred())
+						MustSucceed(w1.Close())
+						MustSucceed(w2.Close())
 
 						By("Asserting that the data is correct", func() {
 							i, _ := dataDB.OpenIterator(unary.IterRange(telem.TimeRangeMax))
@@ -365,20 +344,16 @@ var _ = Describe("Writer Behavior", Ordered, func() {
 						w2, _ := MustSucceed2(dataDB.OpenWriter(ctx, unary.WriterConfig{Start: 10 * telem.SecondTS, End: 100 * telem.SecondTS, Subject: control.Subject{Key: "moo"}}))
 
 						By("Writing telemetry")
-						_, err := w1.Write(telem.NewSeriesSecondsTSV(10))
-						Expect(err).ToNot(HaveOccurred())
-						_, err = w2.Write(telem.NewSeriesV[int64](100))
-						Expect(err).ToNot(HaveOccurred())
+						MustSucceed(w1.Write(telem.NewSeriesSecondsTSV(10)))
+						MustSucceed(w2.Write(telem.NewSeriesV[int64](100)))
 
 						By("Committing the data")
 						Expect(w1.Commit(ctx)).To(Equal(10*telem.SecondTS + 1))
 						Expect(w2.Commit(ctx)).To(Equal(10*telem.SecondTS + 1))
 
 						By("Writing more telemetry")
-						_, err = w1.Write(telem.NewSeriesSecondsTSV(11, 12, 13, 14, 15, 16, 17, 18, 19))
-						Expect(err).ToNot(HaveOccurred())
-						_, err = w2.Write(telem.NewSeriesV[int64](101, 102, 103, 104, 105, 106, 107, 108, 109))
-						Expect(err).ToNot(HaveOccurred())
+						MustSucceed(w1.Write(telem.NewSeriesSecondsTSV(11, 12, 13, 14, 15, 16, 17, 18, 19)))
+						MustSucceed(w2.Write(telem.NewSeriesV[int64](101, 102, 103, 104, 105, 106, 107, 108, 109)))
 
 						By("Committing the data")
 						Expect(w1.Commit(ctx)).To(Equal(19*telem.SecondTS + 1))
@@ -393,10 +368,8 @@ var _ = Describe("Writer Behavior", Ordered, func() {
 						Expect(l).To(HaveLen(2))
 						Expect([]int64{l[0].Size(), l[1].Size()}).To(ConsistOf(int64(10*telem.Int64T.Density()), int64(0)))
 
-						_, err = w1.Close()
-						Expect(err).ToNot(HaveOccurred())
-						_, err = w2.Close()
-						Expect(err).ToNot(HaveOccurred())
+						MustSucceed(w1.Close())
+						MustSucceed(w2.Close())
 
 						By("Asserting that the data is correct", func() {
 							i, _ := dataDB.OpenIterator(unary.IteratorConfig{Bounds: telem.TimeRangeMax})
@@ -542,15 +515,14 @@ var _ = Describe("Writer Behavior", Ordered, func() {
 						e = resource.NewClosedError("unary.writer")
 					)
 					Expect(t.Occurred()).To(BeTrue())
-					_, err := w.Close()
-					Expect(err).ToNot(HaveOccurred())
-					_, err = w.Commit(ctx)
-					Expect(err).To(HaveOccurredAs(e))
-					Expect(err).To(MatchError(ContainSubstring("channel [gauss]<%d>", key)))
-					_, err = w.Write(telem.Series{Data: []byte{1, 2, 3}})
-					Expect(err).To(HaveOccurredAs(e))
-					_, err = w.Close()
-					Expect(err).ToNot(HaveOccurred())
+					MustSucceed(w.Close())
+					Expect(w.Commit(ctx)).Error().To(And(
+						HaveOccurredAs(e),
+						MatchError(ContainSubstring("overlaps")),
+					))
+					Expect(w.Write(telem.Series{Data: []byte{1, 2, 3}})).
+						Error().To(HaveOccurredAs(e))
+					MustSucceed(w.Close())
 				})
 				It("Should not open a writer on a closed database", func() {
 					Expect(db.Close()).To(Succeed())

@@ -186,8 +186,7 @@ var _ = Describe("Membership", Serial, Ordered, func() {
 
 					By("Forking the databases")
 					for range 3 {
-						_, err := builder.New(ctx)
-						Expect(err).ToNot(HaveOccurred())
+						MustSucceed(builder.New(ctx))
 					}
 
 					By("Assigning the correct generation")
@@ -198,14 +197,13 @@ var _ = Describe("Membership", Serial, Ordered, func() {
 					Expect(node.DB.Close()).To(Succeed())
 
 					By("Opening the database again")
-					db, err := aspen.Open(
+					db := MustSucceed(aspen.Open(
 						ctx,
 						node.Dir,
 						node.Addr,
 						[]aspen.Address{},
 						builder.DefaultOptions...,
-					)
-					Expect(err).ToNot(HaveOccurred())
+					))
 
 					By("Assigning the correct Name")
 					Expect(db.Cluster.HostKey()).To(Equal(aspen.NodeKey(2)))
@@ -216,8 +214,7 @@ var _ = Describe("Membership", Serial, Ordered, func() {
 					By("Propagating the incremented heartbeat to other nodes")
 					ctx1 := builder.Nodes[1]
 					Eventually(func(g Gomega) {
-						n2, err := ctx1.DB.Cluster.Node(2)
-						g.Expect(err).ToNot(HaveOccurred())
+						n2 := MustSucceed(ctx1.DB.Cluster.Node(2))
 						g.Expect(n2.State).To(Equal(aspen.NodeStateHealthy))
 						g.Expect(n2.Heartbeat.Generation).To(Equal(uint32(1)))
 					}).Should(Succeed())
