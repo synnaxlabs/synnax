@@ -373,6 +373,22 @@ var _ = Describe("AsyncObserver", func() {
 		})
 	})
 
+	Describe("Cancelled context", func() {
+		It("Should not deadlock disconnect when context is already cancelled", func() {
+			preCtx, preCancel := signal.Isolated()
+			preCancel()
+			Expect(errors.Skip(preCtx.Wait(), context.Canceled)).To(Succeed())
+			preObs := observe.NewAsync[int](preCtx, signal.WithRetryOnPanic(100))
+			disconnect := preObs.OnChange(func(_ context.Context, _ int) {})
+			done := make(chan struct{})
+			go func() {
+				disconnect()
+				close(done)
+			}()
+			Eventually(done, 500*time.Millisecond).Should(BeClosed())
+		})
+	})
+
 	Describe("Panic recovery", func() {
 		It("Should survive a handler panic and keep processing", func() {
 			var count atomic.Int64

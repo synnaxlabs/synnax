@@ -11,9 +11,13 @@ package kv
 
 import (
 	"context"
+	"time"
 
+	"github.com/synnaxlabs/alamos"
 	"github.com/synnaxlabs/x/confluence"
 	"github.com/synnaxlabs/x/signal"
+	"go.uber.org/zap"
+	"go.uber.org/zap/zapcore"
 )
 
 // persistSplitter fans out persisted transactions to two outlets. Out[0] receives
@@ -22,11 +26,18 @@ import (
 type persistSplitter struct {
 	confluence.UnarySink[TxRequest]
 	confluence.AbstractMultiSource[TxRequest]
+	alamos.Instrumentation
 	bufferSize int
 }
 
-func newPersistSplitter(bufferSize int) *persistSplitter {
-	return &persistSplitter{bufferSize: bufferSize}
+func newPersistSplitter(bufferSize int, ins alamos.Instrumentation) *persistSplitter {
+	s := &persistSplitter{bufferSize: bufferSize, Instrumentation: ins}
+	if s.L != nil {
+		s.L = s.L.WithOptions(zap.WrapCore(func(core zapcore.Core) zapcore.Core {
+			return zapcore.NewSamplerWithOptions(core, time.Second, 1, 0)
+		}))
+	}
+	return s
 }
 
 func (s *persistSplitter) Flow(ctx signal.Context, opts ...confluence.Option) {
@@ -50,6 +61,7 @@ func (s *persistSplitter) Flow(ctx signal.Context, opts ...confluence.Option) {
 				select {
 				case relay <- v:
 				default:
+					s.L.Warn("observable relay buffer full, dropping transaction")
 				}
 			}
 		}

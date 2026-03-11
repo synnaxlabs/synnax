@@ -117,6 +117,7 @@ const (
 	leaseProxyAddr        = "lease_proxy"
 	executorAddr          = "executor"
 	chanBuffer            = 100
+	observableRelayBuffer = 500
 )
 
 func Open(ctx context.Context, cfgs ...Config) (*DB, error) {
@@ -177,7 +178,7 @@ func Open(ctx context.Context, cfgs ...Config) (*DB, error) {
 	plumber.SetSegment[TxRequest, TxRequest](
 		pipe,
 		persistDeltaAddr,
-		newPersistSplitter(chanBuffer*2),
+		newPersistSplitter(observableRelayBuffer, cfg.Instrumentation),
 	)
 
 	// We use a generator observable to generate a unique transaction reader for

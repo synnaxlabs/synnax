@@ -103,6 +103,7 @@ type asyncHandler[T any] struct {
 // behind. This prevents slow handlers from blocking the caller or each other.
 type async[T any] struct {
 	mu       sync.RWMutex
+	ctx      context.Context
 	g        signal.Go
 	opts     []signal.RoutineOption
 	handlers map[*asyncHandler[T]]func(context.Context, T)
@@ -113,8 +114,8 @@ type async[T any] struct {
 // falls behind, notifications are dropped rather than blocking the caller.
 // Goroutines are managed by the provided signal.Go, which handles panic
 // recovery, lifecycle tracking, and context-driven shutdown.
-func NewAsync[T any](g signal.Go, opts ...signal.RoutineOption) Observer[T] {
-	return &async[T]{g: g, opts: opts}
+func NewAsync[T any](ctx signal.Context, opts ...signal.RoutineOption) Observer[T] {
+	return &async[T]{ctx: ctx, g: ctx, opts: opts}
 }
 
 func (a *async[T]) OnChange(handler func(context.Context, T)) Disconnect {
@@ -149,7 +150,10 @@ func (a *async[T]) OnChange(handler func(context.Context, T)) Disconnect {
 		a.mu.Unlock()
 		h.closed.Do(func() {
 			close(h.ch)
-			<-h.done
+			select {
+			case <-h.done:
+			case <-a.ctx.Done():
+			}
 		})
 	}
 }
