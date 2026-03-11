@@ -12,6 +12,7 @@ package kv_test
 import (
 	"context"
 	"slices"
+	"sync"
 	"time"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -227,7 +228,7 @@ var _ = Describe("txn", func() {
 			Expect(err).ToNot(HaveOccurred())
 			Expect(kv1.Set(ctx, []byte("key"), []byte("value"))).To(Succeed())
 			Eventually(func() int {
-				return len(builder.OpNet.Entries)
+				return builder.OpNet.EntryCount()
 			}).
 				WithPolling(250 * time.Millisecond).
 				WithTimeout(500 * time.Millisecond).
@@ -240,12 +241,17 @@ var _ = Describe("txn", func() {
 			kv, err := builder.New(ctx, kv.Config{}, cluster.Config{})
 			Expect(err).ToNot(HaveOccurred())
 			Expect(kv).ToNot(BeNil())
+			var mu sync.Mutex
 			var accumulated []xkv.Change
 			kv.OnChange(func(ctx context.Context, r xkv.TxReader) {
+				mu.Lock()
+				defer mu.Unlock()
 				accumulated = slices.Collect(r)
 			})
 			Expect(kv.Set(ctx, []byte("key"), []byte("value"))).To(Succeed())
 			Eventually(func(g Gomega) {
+				mu.Lock()
+				defer mu.Unlock()
 				g.Expect(accumulated).To(HaveLen(1))
 				g.Expect(accumulated[0].Value).To(Equal([]byte("value")))
 			}).Should(Succeed())

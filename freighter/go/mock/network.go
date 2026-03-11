@@ -20,14 +20,26 @@ import (
 // Network is a mock network implementation that is ideal for in-memory testing
 // scenarios. It serves as a factory for freighter.Stream and freighter.Unary.
 type Network[RQ, RS freighter.Payload] struct {
-	// Entries is a slice of entries in the network. Entries currently only supports
-	// unary entries.
-	Entries []NetworkEntry[RQ, RS]
-	mu      struct {
+	mu struct {
+		entries      []NetworkEntry[RQ, RS]
 		unaryRoutes  map[address.Address]*UnaryServer[RQ, RS]
 		streamRoutes map[address.Address]*StreamServer[RQ, RS]
 		sync.RWMutex
 	}
+}
+
+func (n *Network[RQ, RS]) Entries() []NetworkEntry[RQ, RS] {
+	n.mu.RLock()
+	defer n.mu.RUnlock()
+	cp := make([]NetworkEntry[RQ, RS], len(n.mu.entries))
+	copy(cp, n.mu.entries)
+	return cp
+}
+
+func (n *Network[RQ, RS]) EntryCount() int {
+	n.mu.RLock()
+	defer n.mu.RUnlock()
+	return len(n.mu.entries)
 }
 
 // NetworkEntry is a single entry in the network's history. NetworkEntry
@@ -101,7 +113,7 @@ func (n *Network[RQ, RS]) parseTarget(target address.Address) address.Address {
 func (n *Network[RQ, RS]) appendEntry(target address.Address, req RQ, res RS, err error) {
 	n.mu.Lock()
 	defer n.mu.Unlock()
-	n.Entries = append(n.Entries, NetworkEntry[RQ, RS]{
+	n.mu.entries = append(n.mu.entries, NetworkEntry[RQ, RS]{
 		Target:   target,
 		Request:  req,
 		Response: res,

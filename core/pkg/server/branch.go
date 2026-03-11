@@ -82,10 +82,14 @@ type Branch interface {
 	Key() string
 	// Routing returns the BranchRouting for this Branch.
 	Routing() BranchRouting
-	// Serve starts the branch using the provided ctx and should block until the branch
-	// exits abnormally or is stopped by calling Stop.
+	// Init initializes the branch, creating any underlying servers and binding
+	// transports. Init is called synchronously before Serve, ensuring that the
+	// branch is fully initialized before any goroutines are launched.
+	Init(ctx BranchContext)
+	// Serve starts the branch and should block until the branch exits abnormally
+	// or is stopped by calling Stop. Init must be called before Serve.
 	Serve(ctx BranchContext) error
-	// Stop stops the branch gracefully.
-	// (TODO: Evaluate whether we should pass a context here to allow for a timeout.)
+	// Stop stops the branch gracefully. Stop is safe to call even if Init has
+	// not been called.
 	Stop()
 }
