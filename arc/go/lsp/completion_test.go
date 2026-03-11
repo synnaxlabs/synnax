@@ -18,9 +18,9 @@ import (
 	. "github.com/synnaxlabs/arc/lsp/testutil"
 	"github.com/synnaxlabs/arc/symbol"
 	"github.com/synnaxlabs/arc/types"
+	"github.com/synnaxlabs/x/lsp/protocol"
 	. "github.com/synnaxlabs/x/lsp/testutil"
 	. "github.com/synnaxlabs/x/testutil"
-	"go.lsp.dev/protocol"
 )
 
 var _ = Describe("Completion", func() {
@@ -317,6 +317,31 @@ var _ = Describe("Completion", func() {
 			Expect(completions).ToNot(BeNil())
 
 			Expect(HasCompletion(completions.Items, "myGlobal")).To(BeFalse(), "Expected NOT to find 'myGlobal' in completion items when prefix doesn't match")
+		})
+	})
+
+	Describe("Parenthesized Expression Completion", func() {
+		It("should suggest channels inside parenthesized expression after return", func() {
+			globalResolver := symbol.MapResolver{
+				"output_sensor": symbol.Symbol{
+					Name: "output_sensor",
+					Kind: symbol.KindChannel,
+					Type: types.Chan(types.F64()),
+					ID:   1,
+				},
+			}
+
+			server = MustSucceed(lsp.New(lsp.Config{GlobalResolver: globalResolver}))
+			server.SetClient(&MockClient{})
+
+			content := "func test() f64 {\n    return (o\n}"
+			OpenArcDocument(server, ctx, uri, content)
+
+			completions := Completion(server, ctx, uri, 1, 13)
+			Expect(completions).ToNot(BeNil())
+
+			Expect(HasCompletion(completions.Items, "output_sensor")).To(BeTrue(),
+				"Should suggest 'output_sensor' channel inside parenthesized return expression")
 		})
 	})
 

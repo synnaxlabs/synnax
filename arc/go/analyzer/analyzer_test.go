@@ -20,13 +20,28 @@ import (
 	. "github.com/synnaxlabs/x/testutil"
 )
 
-// analyzeAndExpect is a helper that parses source, analyzes it, and returns the context.
-// It asserts the analysis succeeds when expectSuccess is true.
+// chResolver is the most common resolver used across tests: a single float32 channel "ch".
+var chResolver = symbol.MapResolver{
+	"ch": {Name: "ch", Kind: symbol.KindChannel, Type: types.Chan(types.F32()), ID: 10},
+}
+
 func analyzeAndExpect(source string) context.Context[parser.IProgramContext] {
+	return analyzeAndExpectWithResolver(source, nil)
+}
+
+func analyzeAndExpectWithResolver(source string, resolver symbol.Resolver) context.Context[parser.IProgramContext] {
 	prog := MustSucceed(parser.Parse(source))
-	ctx := context.CreateRoot(bCtx, prog, nil)
+	ctx := context.CreateRoot(bCtx, prog, resolver)
 	analyzer.AnalyzeProgram(ctx)
-	Expect(ctx.Diagnostics.Ok()).To(BeTrue())
+	ExpectWithOffset(1, ctx.Diagnostics.Ok()).To(BeTrue(), ctx.Diagnostics.String())
+	return ctx
+}
+
+func analyzeAndExpectErrorWithResolver(source string, resolver symbol.Resolver) context.Context[parser.IProgramContext] {
+	prog := MustSucceed(parser.Parse(source))
+	ctx := context.CreateRoot(bCtx, prog, resolver)
+	analyzer.AnalyzeProgram(ctx)
+	ExpectWithOffset(1, ctx.Diagnostics.Ok()).To(BeFalse())
 	return ctx
 }
 
@@ -389,6 +404,743 @@ var _ = Describe("Analyzer Integration", func() {
 			constScope := MustSucceed(ctx.Scope.Resolve(ctx, "LIMIT"))
 			Expect(constScope.Kind).To(Equal(symbol.KindGlobalConstant))
 			Expect(constScope.Type).To(Equal(types.I64()))
+		})
+	})
+
+	Describe("Channel Propagation Through Function Calls", func() {
+		It("Should propagate callee channels to caller when callee is declared first", func() {
+			ctx := analyzeAndExpectWithResolver(`
+				func callee() {
+					ch = 1.0
+				}
+				func caller() {
+					callee()
+				}
+			`, chResolver)
+			caller := MustSucceed(ctx.Scope.Resolve(ctx, "caller"))
+			Expect(caller.Channels.Write[10]).To(Equal("ch"))
+		})
+
+		It("Should propagate callee channels to caller for forward references", func() {
+			ctx := analyzeAndExpectWithResolver(`
+				func caller() {
+					callee()
+				}
+				func callee() {
+					ch = 1.0
+				}
+			`, chResolver)
+			caller := MustSucceed(ctx.Scope.Resolve(ctx, "caller"))
+			Expect(caller.Channels.Write[10]).To(Equal("ch"))
+		})
+
+		It("Should propagate channels through multi-level forward reference chains", func() {
+			ctx := analyzeAndExpectWithResolver(`
+				func a() {
+					b()
+				}
+				func b() {
+					c()
+				}
+				func c() {
+					ch = 1.0
+				}
+			`, chResolver)
+			a := MustSucceed(ctx.Scope.Resolve(ctx, "a"))
+			Expect(a.Channels.Write[10]).To(Equal("ch"))
+			b := MustSucceed(ctx.Scope.Resolve(ctx, "b"))
+			Expect(b.Channels.Write[10]).To(Equal("ch"))
+		})
+
+		It("Should propagate both read and write channels", func() {
+			resolver := symbol.MapResolver{
+				"sensor": {Name: "sensor", Kind: symbol.KindChannel, Type: types.Chan(types.F32()), ID: 10},
+				"valve":  {Name: "valve", Kind: symbol.KindChannel, Type: types.Chan(types.F32()), ID: 20},
+			}
+			ctx := analyzeAndExpectWithResolver(`
+				func caller() {
+					callee()
+				}
+				func callee() {
+					valve = sensor * 2
+				}
+			`, resolver)
+			caller := MustSucceed(ctx.Scope.Resolve(ctx, "caller"))
+			Expect(caller.Channels.Read[10]).To(Equal("sensor"))
+			Expect(caller.Channels.Write[20]).To(Equal("valve"))
+		})
+
+		It("Should error on mutual recursion", func() {
+			resolver := symbol.MapResolver{
+				"ch1": {Name: "ch1", Kind: symbol.KindChannel, Type: types.Chan(types.F32()), ID: 10},
+				"ch2": {Name: "ch2", Kind: symbol.KindChannel, Type: types.Chan(types.F32()), ID: 20},
+			}
+			ctx := analyzeAndExpectErrorWithResolver(`
+				func a() {
+					ch1 = 1.0
+					b()
+				}
+				func b() {
+					ch2 = 2.0
+					a()
+				}
+			`, resolver)
+			diag := (*ctx.Diagnostics)[0]
+			Expect(diag.Message).To(ContainSubstring("a"))
+			Expect(diag.Message).To(ContainSubstring("b"))
+			Expect(diag.Start.Line).To(Equal(8))
+		})
+
+		It("Should error on self-recursion", func() {
+			ctx := analyzeAndExpectErrorWithResolver(`
+				func a() {
+					ch = 1.0
+					a()
+				}
+			`, chResolver)
+			diag := (*ctx.Diagnostics)[0]
+			Expect(diag.Message).To(ContainSubstring("a -> a"))
+			Expect(diag.Start.Line).To(Equal(4))
+		})
+
+		It("Should error on circular dependency chain", func() {
+			resolver := symbol.MapResolver{
+				"ch_a": {Name: "ch_a", Kind: symbol.KindChannel, Type: types.Chan(types.F32()), ID: 10},
+				"ch_d": {Name: "ch_d", Kind: symbol.KindChannel, Type: types.Chan(types.F32()), ID: 40},
+			}
+			ctx := analyzeAndExpectErrorWithResolver(`
+				func a() {
+					ch_a = 1.0
+					b()
+				}
+				func b() {
+					c()
+				}
+				func c() {
+					d()
+				}
+				func d() {
+					ch_d = 4.0
+					a()
+				}
+			`, resolver)
+			diag := (*ctx.Diagnostics)[0]
+			Expect(diag.Message).To(ContainSubstring("a"))
+			Expect(diag.Message).To(ContainSubstring("b"))
+			Expect(diag.Message).To(ContainSubstring("c"))
+			Expect(diag.Message).To(ContainSubstring("d"))
+			Expect(diag.Start.Line).To(Equal(14))
+		})
+
+		It("Should error on diamond with back edge to root", func() {
+			analyzeAndExpectErrorWithResolver(`
+				func a() {
+					ch = 1.0
+					b()
+					c()
+				}
+				func b() {
+					a()
+				}
+				func c() {
+					a()
+				}
+			`, chResolver)
+		})
+
+		It("Should error on cycle buried in a larger call tree", func() {
+			resolver := symbol.MapResolver{
+				"ch1": {Name: "ch1", Kind: symbol.KindChannel, Type: types.Chan(types.F32()), ID: 10},
+				"ch2": {Name: "ch2", Kind: symbol.KindChannel, Type: types.Chan(types.F32()), ID: 20},
+				"ch3": {Name: "ch3", Kind: symbol.KindChannel, Type: types.Chan(types.F32()), ID: 30},
+			}
+			ctx := analyzeAndExpectErrorWithResolver(`
+				func leaf1() { ch1 = 1.0 }
+				func leaf2() { ch2 = 2.0 }
+				func leaf3() { ch3 = 3.0 }
+				func safe_mid() {
+					leaf1()
+					leaf2()
+				}
+				func cycle_a() {
+					ch3 = 3.0
+					cycle_b()
+				}
+				func cycle_b() {
+					cycle_a()
+					leaf3()
+				}
+				func top() {
+					safe_mid()
+					cycle_a()
+				}
+			`, resolver)
+			Expect((*ctx.Diagnostics)[0].Message).To(ContainSubstring("cycle_a"))
+			Expect((*ctx.Diagnostics)[0].Message).To(ContainSubstring("cycle_b"))
+		})
+
+		It("Should error on multiple independent cycles", func() {
+			resolver := symbol.MapResolver{
+				"ch1": {Name: "ch1", Kind: symbol.KindChannel, Type: types.Chan(types.F32()), ID: 10},
+				"ch2": {Name: "ch2", Kind: symbol.KindChannel, Type: types.Chan(types.F32()), ID: 20},
+			}
+			ctx := analyzeAndExpectErrorWithResolver(`
+				func ping() {
+					ch1 = 1.0
+					pong()
+				}
+				func pong() {
+					ping()
+				}
+				func tick() {
+					ch2 = 2.0
+					tock()
+				}
+				func tock() {
+					tick()
+				}
+			`, resolver)
+			Expect(len(*ctx.Diagnostics)).To(BeNumerically(">=", 2))
+		})
+
+		It("Should not false-positive on a deep acyclic call tree", func() {
+			ctx := analyzeAndExpectWithResolver(`
+				func d() { ch = 1.0 }
+				func c() { d() }
+				func b() { c() }
+				func a() { b() }
+			`, chResolver)
+			a := MustSucceed(ctx.Scope.Resolve(ctx, "a"))
+			Expect(a.Channels.Write[10]).To(Equal("ch"))
+		})
+
+		It("Should error when a function both self-recurses and participates in a mutual cycle", func() {
+			analyzeAndExpectErrorWithResolver(`
+				func a() {
+					ch = 1.0
+					a()
+					b()
+				}
+				func b() {
+					a()
+				}
+			`, chResolver)
+		})
+
+		It("Should not false-positive on a non-cyclic caller that reaches a cycle", func() {
+			ctx := analyzeAndExpectErrorWithResolver(`
+				func cycle_a() {
+					ch = 1.0
+					cycle_b()
+				}
+				func cycle_b() {
+					cycle_a()
+				}
+				func wrapper() {
+					cycle_a()
+				}
+			`, chResolver)
+			for _, d := range *ctx.Diagnostics {
+				Expect(d.Message).ToNot(ContainSubstring("wrapper"))
+			}
+		})
+
+		It("Should allow self-recursion with if guard", func() {
+			analyzeAndExpectWithResolver(`
+				func a() {
+					if ch > 0 {
+						ch = 1.0
+						a()
+					}
+				}
+			`, chResolver)
+		})
+
+		It("Should allow mutual recursion when one edge is guarded", func() {
+			analyzeAndExpectWithResolver(`
+				func a() {
+					ch = 1.0
+					if ch > 0 {
+						b()
+					}
+				}
+				func b() {
+					a()
+				}
+			`, chResolver)
+		})
+
+		It("Should allow self-recursion in else-if block", func() {
+			analyzeAndExpectWithResolver(`
+				func a() {
+					if ch > 0 {
+						ch = 1.0
+					} else if ch < 0 {
+						a()
+					}
+				}
+			`, chResolver)
+		})
+
+		It("Should allow self-recursion when else branch is safe in if/else-if/else", func() {
+			analyzeAndExpectWithResolver(`
+				func a() {
+					if ch > 10 {
+						a()
+					} else if ch > 0 {
+						a()
+					} else {
+						ch = 1.0
+					}
+				}
+			`, chResolver)
+		})
+
+		It("Should allow self-recursion when else-if branch is safe in if/else-if/else", func() {
+			analyzeAndExpectWithResolver(`
+				func a() {
+					if ch > 10 {
+						a()
+					} else if ch > 0 {
+						ch = 1.0
+					} else {
+						a()
+					}
+				}
+			`, chResolver)
+		})
+
+		It("Should allow self-recursion when if branch is safe in if/else-if/else", func() {
+			analyzeAndExpectWithResolver(`
+				func a() {
+					if ch > 10 {
+						ch = 1.0
+					} else if ch > 0 {
+						a()
+					} else {
+						a()
+					}
+				}
+			`, chResolver)
+		})
+
+		It("Should error when call is in all branches of if-else", func() {
+			analyzeAndExpectErrorWithResolver(`
+				func ping() {
+					ch = 1.0
+					if ch > 0 {
+						pong()
+					} else {
+						pong()
+					}
+				}
+				func pong() {
+					ping()
+				}
+			`, chResolver)
+		})
+
+		It("Should allow recursion when nested if has outer guard without else", func() {
+			analyzeAndExpectWithResolver(`
+				func a() {
+					if ch > 0 {
+						if ch > 10 {
+							a()
+						} else {
+							a()
+						}
+					}
+				}
+			`, chResolver)
+		})
+
+		It("Should error when all paths through nested ifs call callee", func() {
+			analyzeAndExpectErrorWithResolver(`
+				func a() {
+					ch = 1.0
+					if ch > 0 {
+						if ch > 10 {
+							a()
+						} else {
+							a()
+						}
+					} else {
+						a()
+					}
+				}
+			`, chResolver)
+		})
+
+		It("Should error on tangled web of 5 functions with no exit path", func() {
+			analyzeAndExpectErrorWithResolver(`
+				func init_seq() {
+					ch = 1.0
+					if ch > 50 {
+						ch = ch + 20.0
+					} else if ch > 20 {
+						ch = ch + 5.0
+					}
+					proc_alpha()
+				}
+				func proc_alpha() {
+					if ch > 80 {
+						ch = ch - 30.0
+					} else {
+						ch = ch + 10.0
+					}
+					xform()
+				}
+				func xform() {
+					ch = ch + 15.0
+					if ch > 120 {
+						ch = 100.0
+					} else {
+						ch = ch + 20.0
+					}
+					route_beta()
+				}
+				func route_beta() {
+					if ch > 90 {
+						ch = ch - 40.0
+					} else if ch > 60 {
+						ch = ch + 15.0
+					}
+					commit()
+				}
+				func commit() {
+					ch = 50.0
+					init_seq()
+				}
+			`, chResolver)
+		})
+
+		It("Should allow tangled web when route_beta has a single exit condition", func() {
+			analyzeAndExpectWithResolver(`
+				func init_seq() {
+					ch = 1.0
+					if ch > 50 {
+						ch = ch + 20.0
+					} else if ch > 20 {
+						ch = ch + 5.0
+					}
+					proc_alpha()
+				}
+				func proc_alpha() {
+					if ch > 80 {
+						ch = ch - 30.0
+					} else {
+						ch = ch + 10.0
+					}
+					xform()
+				}
+				func xform() {
+					ch = ch + 15.0
+					if ch > 120 {
+						ch = 100.0
+					} else {
+						ch = ch + 20.0
+					}
+					route_beta()
+				}
+				func route_beta() {
+					if ch > 0 {
+						if ch > 90 {
+							ch = ch - 40.0
+						} else if ch > 60 {
+							ch = ch + 15.0
+						}
+						commit()
+					}
+				}
+				func commit() {
+					ch = 50.0
+					init_seq()
+				}
+			`, chResolver)
+		})
+
+		It("Should error when a guarded call coexists with an unconditional recursive cycle", func() {
+			resolver := symbol.MapResolver{
+				"ch1": {Name: "ch1", Kind: symbol.KindChannel, Type: types.Chan(types.F32()), ID: 10},
+			}
+			ctx := analyzeAndExpectErrorWithResolver(`
+				func a() {
+					if ch1 > 0 {
+						b()
+					} else {
+						ch1 = 0
+					}
+					c()
+				}
+				func b() {
+					a()
+				}
+				func c() {
+					a()
+				}
+			`, resolver)
+			Expect(*ctx.Diagnostics).To(HaveLen(1))
+			msg := (*ctx.Diagnostics)[0].Message
+			Expect(msg).To(ContainSubstring("circular function call"))
+			Expect(msg).To(ContainSubstring("a"))
+			Expect(msg).To(ContainSubstring("c"))
+		})
+
+		It("Should error when guard only covers one of two recursive paths from the same function", func() {
+			analyzeAndExpectErrorWithResolver(`
+				func a() {
+					if ch > 100 {
+						b()
+					}
+					c()
+				}
+				func b() {
+					ch = ch + 1.0
+					c()
+				}
+				func c() {
+					ch = ch - 1.0
+					a()
+				}
+			`, chResolver)
+		})
+
+		It("Should error when every branch calls a different function but all lead back", func() {
+			analyzeAndExpectErrorWithResolver(`
+				func a() {
+					if ch > 0 {
+						b()
+					} else {
+						c()
+					}
+				}
+				func b() {
+					ch = ch + 1.0
+					a()
+				}
+				func c() {
+					ch = ch - 1.0
+					a()
+				}
+			`, chResolver)
+		})
+
+		It("Should error when deep chain has one guarded link but another path bypasses it", func() {
+			analyzeAndExpectErrorWithResolver(`
+				func a() {
+					if ch > 50 {
+						b()
+					}
+					d()
+				}
+				func b() {
+					ch = ch + 10.0
+					c()
+				}
+				func c() {
+					ch = ch - 5.0
+					d()
+				}
+				func d() {
+					ch = ch + 1.0
+					a()
+				}
+			`, chResolver)
+		})
+
+		It("Should error on self-recursion hidden after a guarded call to another function", func() {
+			ctx := analyzeAndExpectErrorWithResolver(`
+				func a() {
+					if ch > 0 {
+						helper()
+					}
+					a()
+				}
+				func helper() {
+					ch = 0
+				}
+			`, chResolver)
+			msg := (*ctx.Diagnostics)[0].Message
+			Expect(msg).To(ContainSubstring("a"))
+		})
+
+		It("Should allow self-recursion guarded by early return", func() {
+			analyzeAndExpectWithResolver(`
+				func a() {
+					if ch <= 0 {
+						return
+					}
+					a()
+				}
+			`, chResolver)
+		})
+
+		It("Should allow recursion guarded by early return with value", func() {
+			analyzeAndExpectWithResolver(`
+				func factorial(n i64) i64 {
+					if n <= 1 {
+						return 1
+					}
+					return n * factorial(n - 1)
+				}
+				func main() i64 {
+					return factorial(5)
+				}
+			`, nil)
+		})
+
+		It("Should allow recursion when if/else always returns before call", func() {
+			analyzeAndExpectWithResolver(`
+				func a() {
+					if ch > 0 {
+						ch = 1.0
+						return
+					} else {
+						ch = 2.0
+						return
+					}
+					a()
+				}
+			`, chResolver)
+		})
+
+		It("Should allow recursion when if/else-if/else always returns before call", func() {
+			analyzeAndExpectWithResolver(`
+				func a() {
+					if ch > 10 {
+						return
+					} else if ch > 0 {
+						return
+					} else {
+						return
+					}
+					a()
+				}
+			`, chResolver)
+		})
+
+		It("Should allow mutual recursion guarded by early return", func() {
+			analyzeAndExpectWithResolver(`
+				func a() {
+					if ch <= 0 {
+						return
+					}
+					b()
+				}
+				func b() {
+					a()
+				}
+			`, chResolver)
+		})
+
+		It("Should allow recursion when nested if/else always returns before call", func() {
+			analyzeAndExpectWithResolver(`
+				func a() {
+					if ch > 100 {
+						if ch > 200 {
+							return
+						} else {
+							return
+						}
+					} else {
+						return
+					}
+					a()
+				}
+			`, chResolver)
+		})
+
+		It("Should error when return comes after recursive call", func() {
+			ctx := analyzeAndExpectErrorWithResolver(`
+				func a() {
+					a()
+					return
+				}
+			`, chResolver)
+			diag := (*ctx.Diagnostics)[0]
+			Expect(diag.Start.Line).To(Equal(3))
+		})
+
+		It("Should handle diamond dependency without duplication", func() {
+			ctx := analyzeAndExpectWithResolver(`
+				func d() {
+					ch = 1.0
+				}
+				func b() {
+					d()
+				}
+				func c() {
+					d()
+				}
+				func a() {
+					b()
+					c()
+				}
+			`, chResolver)
+			a := MustSucceed(ctx.Scope.Resolve(ctx, "a"))
+			Expect(a.Channels.Write).To(HaveLen(1))
+			Expect(a.Channels.Write[10]).To(Equal("ch"))
+		})
+
+		It("Should merge channels from multiple callees", func() {
+			resolver := symbol.MapResolver{
+				"ch1": {Name: "ch1", Kind: symbol.KindChannel, Type: types.Chan(types.F32()), ID: 10},
+				"ch2": {Name: "ch2", Kind: symbol.KindChannel, Type: types.Chan(types.F32()), ID: 20},
+			}
+			ctx := analyzeAndExpectWithResolver(`
+				func helper1() {
+					ch1 = 1.0
+				}
+				func helper2() {
+					ch2 = 2.0
+				}
+				func caller() {
+					helper1()
+					helper2()
+				}
+			`, resolver)
+			caller := MustSucceed(ctx.Scope.Resolve(ctx, "caller"))
+			Expect(caller.Channels.Write).To(HaveLen(2))
+			Expect(caller.Channels.Write[10]).To(Equal("ch1"))
+			Expect(caller.Channels.Write[20]).To(Equal("ch2"))
+		})
+
+		It("Should deduplicate when multiple callees write the same channel", func() {
+			resolver := symbol.MapResolver{
+				"ch1": {Name: "ch1", Kind: symbol.KindChannel, Type: types.Chan(types.F32()), ID: 10},
+			}
+			ctx := analyzeAndExpectWithResolver(`
+				func helper1() {
+					ch1 = 1.0
+				}
+				func helper2() {
+					ch1 = 2.0
+				}
+				func caller() {
+					helper1()
+					helper2()
+				}
+			`, resolver)
+			caller := MustSucceed(ctx.Scope.Resolve(ctx, "caller"))
+			Expect(caller.Channels.Write).To(HaveLen(1))
+			Expect(caller.Channels.Write[10]).To(Equal("ch1"))
+		})
+
+		It("Should propagate when callee both reads and writes the same channel", func() {
+			resolver := symbol.MapResolver{
+				"sensor": {Name: "sensor", Kind: symbol.KindChannel, Type: types.Chan(types.F32()), ID: 10},
+			}
+			ctx := analyzeAndExpectWithResolver(`
+				func callee() {
+					sensor = sensor + 1
+				}
+				func caller() {
+					callee()
+				}
+			`, resolver)
+			caller := MustSucceed(ctx.Scope.Resolve(ctx, "caller"))
+			Expect(caller.Channels.Read[10]).To(Equal("sensor"))
+			Expect(caller.Channels.Write[10]).To(Equal("sensor"))
 		})
 	})
 

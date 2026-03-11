@@ -111,10 +111,6 @@ main() {
     local NODE_DIRS=(
         "$ROOT_DIR/alamos/ts"
         "$ROOT_DIR/client/ts"
-        "$ROOT_DIR/configs/eslint"
-        "$ROOT_DIR/configs/stylelint"
-        "$ROOT_DIR/configs/ts"
-        "$ROOT_DIR/configs/vite"
         "$ROOT_DIR/drift"
         "$ROOT_DIR/freighter/ts"
         "$ROOT_DIR/pluto"

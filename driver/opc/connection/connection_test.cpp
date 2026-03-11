@@ -375,6 +375,95 @@ TEST(ConnectionTest, usernameWithEmptyPassword) {
     server.stop();
 }
 
+/// @brief it should apply default timeout of 5 seconds when client_timeout_ms is 0.
+TEST(ConnectionTest, DefaultClientTimeout) {
+    mock::ServerConfig server_cfg = mock::ServerConfig::create_default();
+    server_cfg.port = 4854;
+    mock::Server server(server_cfg);
+    server.start();
+    ASSERT_TRUE(server.wait_until_ready());
+
+    Config cfg;
+    cfg.endpoint = "opc.tcp://localhost:4854";
+    cfg.security_mode = "None";
+    cfg.security_policy = "None";
+    cfg.client_timeout_ms = 0;
+
+    auto client = ASSERT_NIL_P(connect(cfg, "test"));
+    auto *config = UA_Client_getConfig(client.get());
+    EXPECT_EQ(config->timeout, 5000);
+
+    server.stop();
+}
+
+/// @brief it should apply custom client timeout when specified.
+TEST(ConnectionTest, CustomClientTimeout) {
+    mock::ServerConfig server_cfg = mock::ServerConfig::create_default();
+    server_cfg.port = 4855;
+    mock::Server server(server_cfg);
+    server.start();
+    ASSERT_TRUE(server.wait_until_ready());
+
+    Config cfg;
+    cfg.endpoint = "opc.tcp://localhost:4855";
+    cfg.security_mode = "None";
+    cfg.security_policy = "None";
+    cfg.client_timeout_ms = 15000;
+
+    auto client = ASSERT_NIL_P(connect(cfg, "test"));
+    auto *config = UA_Client_getConfig(client.get());
+    EXPECT_EQ(config->timeout, 15000);
+
+    server.stop();
+}
+
+/// @brief it should apply default secure channel (10 min) and session (20 min)
+/// timeouts when not specified.
+TEST(ConnectionTest, DefaultSessionAndChannelTimeouts) {
+    mock::ServerConfig server_cfg = mock::ServerConfig::create_default();
+    server_cfg.port = 4856;
+    mock::Server server(server_cfg);
+    server.start();
+    ASSERT_TRUE(server.wait_until_ready());
+
+    Config cfg;
+    cfg.endpoint = "opc.tcp://localhost:4856";
+    cfg.security_mode = "None";
+    cfg.security_policy = "None";
+    cfg.secure_channel_lifetime_ms = 0;
+    cfg.session_timeout_ms = 0;
+
+    auto client = ASSERT_NIL_P(connect(cfg, "test"));
+    auto *config = UA_Client_getConfig(client.get());
+    EXPECT_EQ(config->secureChannelLifeTime, 600000); // 10 minutes
+    EXPECT_EQ(config->requestedSessionTimeout, 1200000); // 20 minutes
+
+    server.stop();
+}
+
+/// @brief it should apply custom secure channel and session timeouts.
+TEST(ConnectionTest, CustomSessionAndChannelTimeouts) {
+    mock::ServerConfig server_cfg = mock::ServerConfig::create_default();
+    server_cfg.port = 4857;
+    mock::Server server(server_cfg);
+    server.start();
+    ASSERT_TRUE(server.wait_until_ready());
+
+    Config cfg;
+    cfg.endpoint = "opc.tcp://localhost:4857";
+    cfg.security_mode = "None";
+    cfg.security_policy = "None";
+    cfg.secure_channel_lifetime_ms = 30000;
+    cfg.session_timeout_ms = 60000;
+
+    auto client = ASSERT_NIL_P(connect(cfg, "test"));
+    auto *config = UA_Client_getConfig(client.get());
+    EXPECT_EQ(config->secureChannelLifeTime, 30000);
+    EXPECT_EQ(config->requestedSessionTimeout, 60000);
+
+    server.stop();
+}
+
 /// @brief it should reject invalid security policy with missing certificates.
 TEST(ConnectionTest, invalidSecurityPolicy) {
     // Invalid security policy with missing certificates causes the server

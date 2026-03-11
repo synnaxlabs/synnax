@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { type task } from "@synnaxlabs/client";
-import { DataType, id } from "@synnaxlabs/x";
+import { DataType, id, record } from "@synnaxlabs/x";
 import { z } from "zod/v4";
 
 import { Common } from "@/hardware/common";
@@ -255,7 +255,7 @@ export const OUTPUT_CHANNEL_SCHEMAS: Record<
 
 const scanTypeZ = z.literal(SCAN_TYPE);
 
-const scanConfigZ = z.object({});
+const scanConfigZ = record.nullishToEmpty();
 
 const scanStatusDataZ = z.object({}).or(z.null());
 

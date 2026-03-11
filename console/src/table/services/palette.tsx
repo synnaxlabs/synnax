@@ -8,28 +8,25 @@
 // included in the file licenses/APL.txt.
 
 import { table } from "@synnaxlabs/client";
-import { Access } from "@synnaxlabs/pluto";
+import { Access, Table as PTable } from "@synnaxlabs/pluto";
 import { useCallback } from "react";
 
 import { Palette } from "@/palette";
 import { Table } from "@/table";
-import { CreateIcon } from "@/table/services/Icon";
 
-const useVisible = () => Access.useUpdateGranted(table.TYPE_ONTOLOGY_ID);
-
-export const CreateCommand: Palette.Command = ({ placeLayout, ...listProps }) => {
+const CreateCommand: Palette.Command = ({ placeLayout, ...listProps }) => {
   const handleSelect = useCallback(() => placeLayout(Table.create()), [placeLayout]);
   return (
     <Palette.CommandListItem
       {...listProps}
       name="Create a table"
-      icon={<CreateIcon />}
+      icon={<PTable.CreateIcon />}
       onSelect={handleSelect}
     />
   );
 };
 CreateCommand.key = "create-table";
 CreateCommand.commandName = "Create a table";
-CreateCommand.useVisible = useVisible;
+CreateCommand.useVisible = () => Access.useCreateGranted(table.TYPE_ONTOLOGY_ID);
 
 export const COMMANDS = [CreateCommand];

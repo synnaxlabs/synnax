@@ -18,9 +18,9 @@ import (
 	. "github.com/synnaxlabs/arc/lsp/testutil"
 	"github.com/synnaxlabs/arc/symbol"
 	"github.com/synnaxlabs/arc/types"
+	"github.com/synnaxlabs/x/lsp/protocol"
 	. "github.com/synnaxlabs/x/lsp/testutil"
 	. "github.com/synnaxlabs/x/testutil"
-	"go.lsp.dev/protocol"
 )
 
 var _ = Describe("SetupTestServer", func() {
