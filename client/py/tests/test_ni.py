@@ -797,7 +797,6 @@ class TestNITask:
                 ],
             )
 
-
     def test_multi_device_duplicate_ports_allowed(self):
         """Channels on different devices can reuse the same port number."""
         sy.ni.AnalogReadTaskConfig(
