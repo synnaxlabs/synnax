@@ -102,10 +102,11 @@ var _ = Describe("PledgeServer", func() {
 				}, pledge.BlazingFastConfig)
 				Expect(err).To(HaveOccurredAs(context.DeadlineExceeded))
 				Expect(res.Key).To(Equal(node.Key(0)))
-				for i, entry := range net.Entries {
+				entries := net.Entries()
+				for i, entry := range entries {
 					Expect(entry.Target).To(Equal(peers[i%4]))
 				}
-				Expect(net.Entries).ToNot(HaveLen(0))
+				Expect(entries).ToNot(HaveLen(0))
 			})
 		})
 	})

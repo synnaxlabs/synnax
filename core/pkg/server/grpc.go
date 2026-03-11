@@ -36,18 +36,25 @@ func (g *GRPCBranch) Routing() BranchRouting {
 // Key implements Branch.
 func (g *GRPCBranch) Key() string { return "grpc" }
 
-// Serve implements Branch.
-func (g *GRPCBranch) Serve(ctx BranchContext) error {
-	opts := []grpc.ServerOption{g.credentials(ctx)}
-	g.server = grpc.NewServer(opts...)
+// Init implements Branch.
+func (g *GRPCBranch) Init(ctx BranchContext) {
+	g.server = grpc.NewServer(g.credentials(ctx))
 	for _, t := range g.Transports {
 		t.BindTo(g.server)
 	}
+}
+
+// Serve implements Branch.
+func (g *GRPCBranch) Serve(ctx BranchContext) error {
 	return g.server.Serve(ctx.Lis)
 }
 
-// Stop implements Branch. Stop is safe to call even if Serve has not been called.
-func (g *GRPCBranch) Stop() { g.server.Stop() }
+// Stop implements Branch.
+func (g *GRPCBranch) Stop() {
+	if g.server != nil {
+		g.server.Stop()
+	}
+}
 
 func (g *GRPCBranch) credentials(ctx BranchContext) grpc.ServerOption {
 	if *ctx.Security.Insecure {

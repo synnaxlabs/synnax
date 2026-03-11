@@ -48,9 +48,13 @@ func (h *SimpleHTTPBranch) Routing() (i BranchRouting) {
 	}
 }
 
+// Init implements Branch.
+func (h *SimpleHTTPBranch) Init(_ BranchContext) {
+	h.server = &http.Server{Handler: h.handler}
+}
+
 // Serve implements Branch.
 func (h *SimpleHTTPBranch) Serve(ctx BranchContext) error {
-	h.server = &http.Server{Handler: h.handler}
 	err := h.server.Serve(ctx.Lis)
 	if !errors.Is(err, http.ErrServerClosed) {
 		return err
@@ -60,7 +64,6 @@ func (h *SimpleHTTPBranch) Serve(ctx BranchContext) error {
 
 // Stop implements Branch.
 func (h *SimpleHTTPBranch) Stop() {
-	// If the serve is nil, it means we never served this branch.
 	if h.server == nil {
 		return
 	}

@@ -14,6 +14,7 @@ import (
 	"crypto/tls"
 	"io"
 	"net"
+	"sync"
 
 	"github.com/cockroachdb/cmux"
 	"github.com/samber/lo"
@@ -126,13 +127,19 @@ func (s *Server) start() (err error) {
 	if err != nil {
 		return err
 	}
+	ready := make(chan struct{})
+	closeReady := sync.OnceFunc(func() { close(ready) })
 	sCtx.Go(func(ctx context.Context) error {
 		mux := cmux.New(lis)
+		defer closeReady()
+		s.initBranches()
+		closeReady()
 		if *s.Security.Insecure {
 			return s.serveInsecure(sCtx, mux)
 		}
 		return s.serveSecure(sCtx, mux)
 	}, signal.WithKey("server"), signal.RecoverWithErrOnPanic())
+	<-ready
 	return nil
 }
 
@@ -171,6 +178,13 @@ func (s *Server) serveInsecure(sCtx signal.Context, root cmux.CMux) error {
 	return filterCloserError(root.Serve())
 }
 
+func (s *Server) initBranches() {
+	bc := s.baseBranchContext()
+	for _, b := range s.Branches {
+		b.Init(bc)
+	}
+}
+
 func (s *Server) startBranches(
 	sCtx signal.Context,
 	mux cmux.CMux,
@@ -195,8 +209,9 @@ func (s *Server) startBranches(
 	}
 	bc := s.baseBranchContext()
 	for i, b := range branches {
+		bc := bc
+		bc.Lis = listeners[i]
 		sCtx.Go(func(context.Context) error {
-			bc.Lis = listeners[i]
 			return filterCloserError(b.Serve(bc))
 		}, signal.WithKey(b.Key()))
 	}
