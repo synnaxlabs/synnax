@@ -469,14 +469,14 @@ const executeCommands = async ({
   return cmds.map((c) => c.key);
 };
 
-interface ExecuteCommandSyncInternalParams<StatusData extends z.ZodType>
+interface ExecuteCommandSyncInternalParams<StatusData extends z.ZodType = z.ZodType>
   extends
     Omit<ExecuteCommandsSyncInternalParams<StatusData>, "commands">,
     TaskExecuteCommandSyncParams {
   task: Key;
 }
 
-const executeCommandSync = async <StatusData extends z.ZodType>({
+const executeCommandSync = async <StatusData extends z.ZodType = z.ZodType>({
   frameClient,
   task,
   type,
@@ -495,7 +495,7 @@ const executeCommandSync = async <StatusData extends z.ZodType>({
     })
   )[0];
 
-interface ExecuteCommandsSyncInternalParams<StatusData extends z.ZodType> {
+interface ExecuteCommandsSyncInternalParams<StatusData extends z.ZodType = z.ZodType> {
   frameClient: framer.Client | null;
   commands: NewCommand[];
   timeout?: CrudeTimeSpan;
@@ -503,7 +503,7 @@ interface ExecuteCommandsSyncInternalParams<StatusData extends z.ZodType> {
   name: string | string[] | (() => Promise<string | string[]>);
 }
 
-const executeCommandsSync = async <StatusData extends z.ZodType>({
+const executeCommandsSync = async <StatusData extends z.ZodType = z.ZodType>({
   frameClient,
   commands,
   timeout = TimeSpan.seconds(10),
