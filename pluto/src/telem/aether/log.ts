@@ -56,15 +56,22 @@ export class StreamMultiChannelLog
 
   private readonly client: client.Client;
   private readonly onStatusChange?: status.Adder;
+  private readonly now: () => TimeStamp;
   private channelMeta: Map<channel.Key, ChannelMeta> = new Map();
   private entries: LogEntry[] = [];
   private stopStreaming?: destructor.Destructor;
   private valid = false;
 
-  constructor(client: client.Client, props: unknown, options?: CreateOptions) {
+  constructor(
+    client: client.Client,
+    props: unknown,
+    options?: CreateOptions,
+    now: () => TimeStamp = () => TimeStamp.now(),
+  ) {
     super(props);
     this.client = client;
     this.onStatusChange = options?.onStatusChange;
+    this.now = now;
   }
 
   value(): LogEntry[] {
@@ -103,7 +110,7 @@ export class StreamMultiChannelLog
           // receipt time keeps entries strictly append-only and avoids out-of-order
           // jumps caused by natural network latency between channels. Ms-level blur
           // between receipt and sample time is not meaningful for a human reading a log.
-          const now = TimeStamp.now();
+          const now = this.now();
           for (const s of series.series) {
             const isJSON = chMeta.dataType.equals(DataType.JSON);
             for (let i = 0; i < s.length; i++) {
@@ -131,7 +138,7 @@ export class StreamMultiChannelLog
 
   private gcEntries(): void {
     const keepFor = this.props.keepFor ?? this.props.timeSpan;
-    const threshold = TimeStamp.now().sub(keepFor).valueOf();
+    const threshold = this.now().sub(keepFor).valueOf();
     // Find the index of the first entry that should be kept (O(n)), then remove
     // everything before it in one splice call. Prefer this over a shift() loop, where
     // each individual shift is also O(n) because it moves all remaining elements forward
