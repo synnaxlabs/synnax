@@ -7,6 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+#include <algorithm>
 #include <cstring>
 #include <utility>
 
@@ -16,6 +17,101 @@
 #include "arc/cpp/types/types.h"
 
 namespace arc::runtime::state {
+void mark_write_active(
+    std::unordered_map<types::ChannelKey, Series> &writes,
+    std::vector<types::ChannelKey> &active_write_keys,
+    const types::ChannelKey key
+) {
+    auto &buf = writes[key];
+    if (buf == nullptr || buf->empty()) active_write_keys.push_back(key);
+}
+
+template<typename T>
+void append_fixed_sample(
+    std::unordered_map<types::ChannelKey, Series> &writes,
+    std::vector<types::ChannelKey> &active_write_keys,
+    const types::ChannelKey key,
+    const x::telem::DataType dt,
+    const T value
+) {
+    mark_write_active(writes, active_write_keys, key);
+    auto &buf = writes[key];
+    if (buf == nullptr) {
+        buf = x::mem::make_local_shared<x::telem::Series>(dt, 1);
+    } else if (buf->data_type() != dt) {
+        // Defensive fallback: replace mismatched buffers with latest value.
+        buf = x::mem::make_local_shared<x::telem::Series>(dt, 1);
+        buf->write(value);
+        return;
+    } else if (buf->cap() < buf->size() + 1) {
+        const auto grown_cap = std::max(buf->size() + 1, buf->cap() * 2 + 1);
+        auto grown = x::mem::make_local_shared<x::telem::Series>(dt, grown_cap);
+        grown->write(*buf);
+        grown->time_range = buf->time_range;
+        grown->alignment = buf->alignment;
+        buf = std::move(grown);
+    }
+    buf->write(value);
+}
+
+template<typename T>
+void write_channel_fixed(
+    std::unordered_map<types::ChannelKey, Series> &writes,
+    std::vector<types::ChannelKey> &active_write_keys,
+    const std::unordered_map<types::ChannelKey, types::ChannelKey> &indexes,
+    const types::ChannelKey key,
+    const x::telem::DataType dt,
+    const T value
+) {
+    append_fixed_sample(writes, active_write_keys, key, dt, value);
+    if (const auto idx_iter = indexes.find(key);
+        idx_iter != indexes.end() && idx_iter->second != 0)
+        append_fixed_sample(
+            writes,
+            active_write_keys,
+            idx_iter->second,
+            x::telem::TIMESTAMP_T,
+            x::telem::TimeStamp::now()
+        );
+}
+
+void append_to_write_buffer(Series &dest, const Series &src) {
+    if (src == nullptr || src->empty()) return;
+    if (dest == nullptr) {
+        dest = x::mem::make_local_shared<x::telem::Series>(src->deep_copy());
+        return;
+    }
+    if (dest->data_type() != src->data_type())
+        throw std::runtime_error("cannot append series with mismatched data types");
+
+    if (dest->data_type().is_variable()) {
+        auto merged = dest->strings();
+        auto incoming = src->strings();
+        merged.insert(merged.end(), incoming.begin(), incoming.end());
+        dest = x::mem::make_local_shared<x::telem::Series>(merged, dest->data_type());
+    } else {
+        const auto required_cap = dest->size() + src->size();
+        if (dest->cap() < required_cap) {
+            const auto grown_cap = std::max(required_cap, dest->cap() * 2 + 1);
+            auto grown = x::mem::make_local_shared<x::telem::Series>(
+                dest->data_type(),
+                grown_cap
+            );
+            grown->write(*dest);
+            dest = std::move(grown);
+        }
+        dest->write(*src);
+    }
+    if (dest->time_range == x::telem::TimeRange()) {
+        dest->time_range = src->time_range;
+    } else {
+        if (src->time_range.start < dest->time_range.start)
+            dest->time_range.start = src->time_range.start;
+        if (src->time_range.end > dest->time_range.end)
+            dest->time_range.end = src->time_range.end;
+    }
+}
+
 Series parse_default_value(
     const std::optional<x::telem::SampleValue> &value,
     const types::Type &type
@@ -194,16 +290,26 @@ std::vector<std::pair<types::ChannelKey, Series>> State::flush() {
     this->string_handle_counter = 1;
 
     std::vector<std::pair<types::ChannelKey, Series>> result;
-    result.reserve(writes.size());
-    for (const auto &[key, data]: writes)
-        result.push_back({key, data});
-    writes.clear();
+    result.reserve(active_write_keys.size());
+    for (const auto key: active_write_keys) {
+        const auto it = writes.find(key);
+        if (it == writes.end() || it->second == nullptr || it->second->empty())
+            continue;
+        result.push_back(
+            {key, x::mem::make_local_shared<x::telem::Series>(it->second->deep_copy())}
+        );
+        it->second->clear();
+        it->second->time_range = x::telem::TimeRange();
+        it->second->alignment = x::telem::Alignment();
+    }
+    active_write_keys.clear();
     return result;
 }
 
 void State::reset() {
     this->reads.clear();
     this->writes.clear();
+    this->active_write_keys.clear();
     this->strings.clear();
     this->series_handles.clear();
     this->string_handle_counter = 1;
@@ -242,11 +348,45 @@ void State::write_channel(
     const Series &data,
     const Series &time
 ) {
-    writes[key] = data;
+    auto &data_buf = writes[key];
+    if (data_buf == nullptr || data_buf->empty()) active_write_keys.push_back(key);
+    append_to_write_buffer(data_buf, data);
     if (const auto idx_iter = indexes.find(key);
-        idx_iter != indexes.end() && idx_iter->second != 0)
-        writes[idx_iter->second] = time;
+        idx_iter != indexes.end() && idx_iter->second != 0) {
+        auto &time_buf = writes[idx_iter->second];
+        if (time_buf == nullptr || time_buf->empty())
+            active_write_keys.push_back(idx_iter->second);
+        append_to_write_buffer(time_buf, time);
+    }
 }
+
+#define IMPL_CHANNEL_WRITE_OPS(suffix, cpptype, data_type_const)                       \
+    void State::write_channel_##suffix(                                                \
+        const types::ChannelKey key,                                                   \
+        const cpptype value                                                            \
+    ) {                                                                                \
+        write_channel_fixed(                                                           \
+            this->writes,                                                              \
+            this->active_write_keys,                                                   \
+            this->indexes,                                                             \
+            key,                                                                       \
+            data_type_const,                                                           \
+            value                                                                      \
+        );                                                                             \
+    }
+
+IMPL_CHANNEL_WRITE_OPS(u8, uint8_t, x::telem::UINT8_T)
+IMPL_CHANNEL_WRITE_OPS(u16, uint16_t, x::telem::UINT16_T)
+IMPL_CHANNEL_WRITE_OPS(u32, uint32_t, x::telem::UINT32_T)
+IMPL_CHANNEL_WRITE_OPS(u64, uint64_t, x::telem::UINT64_T)
+IMPL_CHANNEL_WRITE_OPS(i8, int8_t, x::telem::INT8_T)
+IMPL_CHANNEL_WRITE_OPS(i16, int16_t, x::telem::INT16_T)
+IMPL_CHANNEL_WRITE_OPS(i32, int32_t, x::telem::INT32_T)
+IMPL_CHANNEL_WRITE_OPS(i64, int64_t, x::telem::INT64_T)
+IMPL_CHANNEL_WRITE_OPS(f32, float, x::telem::FLOAT32_T)
+IMPL_CHANNEL_WRITE_OPS(f64, double, x::telem::FLOAT64_T)
+
+#undef IMPL_CHANNEL_WRITE_OPS
 
 bool Node::refresh_inputs() {
     if (this->inputs.empty()) return true;

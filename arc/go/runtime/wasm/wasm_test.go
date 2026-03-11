@@ -2476,10 +2476,9 @@ input_ch -> writer{} -> sink_ch
 
 			fr, changed := h.state.Flush(telem.Frame[uint32]{})
 			Expect(changed).To(BeTrue())
-			// Both writes are preserved (accumulation, not overwrite)
-			Expect(fr.Get(200).Series).To(HaveLen(2))
-			Expect(fr.Get(200).Series[0]).To(telem.MatchSeriesDataV[float32](20.0))
-			Expect(fr.Get(200).Series[1]).To(telem.MatchSeriesDataV[float32](30.0))
+			// Both writes are preserved in a single output series for the channel.
+			Expect(fr.Get(200).Series).To(HaveLen(1))
+			Expect(fr.Get(200).Series[0]).To(telem.MatchSeriesDataV[float32](20.0, 30.0))
 		})
 
 		It("Should handle reading from global channel alias", func() {

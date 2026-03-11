@@ -401,6 +401,135 @@ State create_minimal_state() {
     return State(cfg, arc::runtime::errors::noop_handler);
 }
 
+TEST(StateTest, WriteChannel_AccumulatesSameChannelIntoSingleSeries) {
+    arc::ir::Node ir_node;
+    ir_node.key = "writer";
+    ir_node.type = "writer";
+
+    arc::ir::Function fn;
+    fn.key = "writer";
+
+    arc::ir::IR ir;
+    ir.nodes.push_back(ir_node);
+    ir.functions.push_back(fn);
+
+    Config cfg{
+        .ir = ir,
+        .channels = {{.key = 1, .data_type = x::telem::FLOAT32_T, .index = 2}}
+    };
+    State s(cfg, arc::runtime::errors::noop_handler);
+
+    auto data1 = x::mem::make_local_shared<x::telem::Series>(1.0f);
+    auto time1 = x::mem::make_local_shared<x::telem::Series>(
+        x::telem::TimeStamp(1 * x::telem::SECOND)
+    );
+    s.write_channel(1, data1, time1);
+
+    auto data2 = x::mem::make_local_shared<x::telem::Series>(2.0f);
+    auto time2 = x::mem::make_local_shared<x::telem::Series>(
+        x::telem::TimeStamp(2 * x::telem::SECOND)
+    );
+    s.write_channel(1, data2, time2);
+
+    auto out = s.flush();
+    ASSERT_EQ(out.size(), 2);
+
+    auto find_series = [&](const arc::types::ChannelKey key) -> Series {
+        for (const auto &[k, v]: out)
+            if (k == key) return v;
+        return {};
+    };
+
+    auto data = find_series(1);
+    ASSERT_NE(data, nullptr);
+    ASSERT_EQ(data->size(), 2);
+    EXPECT_EQ(data->at<float>(0), 1.0f);
+    EXPECT_EQ(data->at<float>(1), 2.0f);
+
+    auto time = find_series(2);
+    ASSERT_NE(time, nullptr);
+    ASSERT_EQ(time->size(), 2);
+    EXPECT_EQ(
+        time->at<x::telem::TimeStamp>(0),
+        x::telem::TimeStamp(1 * x::telem::SECOND)
+    );
+    EXPECT_EQ(
+        time->at<x::telem::TimeStamp>(1),
+        x::telem::TimeStamp(2 * x::telem::SECOND)
+    );
+}
+
+TEST(StateTest, WriteChannelTyped_IndexedWritesTimestamp) {
+    arc::ir::Node ir_node;
+    ir_node.key = "writer";
+    ir_node.type = "writer";
+
+    arc::ir::Function fn;
+    fn.key = "writer";
+
+    arc::ir::IR ir;
+    ir.nodes.push_back(ir_node);
+    ir.functions.push_back(fn);
+
+    Config cfg{
+        .ir = ir,
+        .channels = {{.key = 5, .data_type = x::telem::INT32_T, .index = 6}}
+    };
+    State s(cfg, arc::runtime::errors::noop_handler);
+
+    s.write_channel_i32(5, 10);
+    s.write_channel_i32(5, 20);
+
+    auto out = s.flush();
+    ASSERT_EQ(out.size(), 2);
+
+    auto find_series = [&](const arc::types::ChannelKey key) -> Series {
+        for (const auto &[k, v]: out)
+            if (k == key) return v;
+        return {};
+    };
+
+    auto data = find_series(5);
+    ASSERT_NE(data, nullptr);
+    ASSERT_EQ(data->size(), 2);
+    EXPECT_EQ(data->at<int32_t>(0), 10);
+    EXPECT_EQ(data->at<int32_t>(1), 20);
+
+    auto time = find_series(6);
+    ASSERT_NE(time, nullptr);
+    ASSERT_EQ(time->data_type(), x::telem::TIMESTAMP_T);
+    ASSERT_EQ(time->size(), 2);
+}
+
+TEST(StateTest, WriteChannelTyped_NoIndexWritesOnlyData) {
+    arc::ir::Node ir_node;
+    ir_node.key = "writer";
+    ir_node.type = "writer";
+
+    arc::ir::Function fn;
+    fn.key = "writer";
+
+    arc::ir::IR ir;
+    ir.nodes.push_back(ir_node);
+    ir.functions.push_back(fn);
+
+    Config cfg{
+        .ir = ir,
+        .channels = {{.key = 7, .data_type = x::telem::FLOAT64_T, .index = 0}}
+    };
+    State s(cfg, arc::runtime::errors::noop_handler);
+
+    s.write_channel_f64(7, 1.5);
+    s.write_channel_f64(7, 2.5);
+
+    auto out = s.flush();
+    ASSERT_EQ(out.size(), 1);
+    ASSERT_EQ(out[0].first, 7);
+    ASSERT_EQ(out[0].second->size(), 2);
+    EXPECT_DOUBLE_EQ(out[0].second->at<double>(0), 1.5);
+    EXPECT_DOUBLE_EQ(out[0].second->at<double>(1), 2.5);
+}
+
 TEST(StateTest, ClearReads_PreservesLatestSeries) {
     State s = create_minimal_state();
 

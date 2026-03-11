@@ -70,3 +70,85 @@ func BenchmarkRefreshInputsSingleInput(b *testing.B) {
 		}
 	}
 }
+
+func benchmarkStateForWrites(indexed bool) *state.State {
+	digest := state.ChannelDigest{Key: 1}
+	if indexed {
+		digest.Index = 2
+	}
+	return state.New(state.Config{
+		IR: ir.IR{Nodes: []ir.Node{{Key: "bench"}}},
+		ChannelDigests: []state.ChannelDigest{
+			digest,
+		},
+	})
+}
+
+func BenchmarkWriteChannelValueIndexed(b *testing.B) {
+	s := benchmarkStateForWrites(true)
+	b.ReportAllocs()
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		s.WriteChannelValue(1, telem.NewSeriesV[uint8](uint8(i)))
+	}
+}
+
+func BenchmarkWriteChannelU8Indexed(b *testing.B) {
+	s := benchmarkStateForWrites(true)
+	b.ReportAllocs()
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		s.WriteChannelU8(1, uint8(i))
+	}
+}
+
+func BenchmarkWriteChannelValueNoIndex(b *testing.B) {
+	s := benchmarkStateForWrites(false)
+	b.ReportAllocs()
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		s.WriteChannelValue(1, telem.NewSeriesV[uint8](uint8(i)))
+	}
+}
+
+func BenchmarkWriteChannelU8NoIndex(b *testing.B) {
+	s := benchmarkStateForWrites(false)
+	b.ReportAllocs()
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		s.WriteChannelU8(1, uint8(i))
+	}
+}
+
+func BenchmarkWriteChannelU8SameKeyFlush(b *testing.B) {
+	const writesPerCycle = 128
+	s := benchmarkStateForWrites(true)
+	b.ReportAllocs()
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		for j := 0; j < writesPerCycle; j++ {
+			s.WriteChannelU8(1, uint8(j))
+		}
+		_, _ = s.Flush(telem.Frame[uint32]{})
+	}
+}
+
+func BenchmarkFlushManyKeysSingleWrite(b *testing.B) {
+	const keys = 256
+	digests := make([]state.ChannelDigest, keys)
+	for i := 0; i < keys; i++ {
+		digests[i] = state.ChannelDigest{Key: uint32(i + 1)}
+	}
+	s := state.New(state.Config{
+		IR:             ir.IR{Nodes: []ir.Node{{Key: "bench"}}},
+		ChannelDigests: digests,
+	})
+	b.ReportAllocs()
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		for k := 0; k < keys; k++ {
+			s.WriteChannelU8(uint32(k+1), uint8(k))
+		}
+		_, _ = s.Flush(telem.Frame[uint32]{})
+	}
+}

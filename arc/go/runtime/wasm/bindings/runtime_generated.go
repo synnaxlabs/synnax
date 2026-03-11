@@ -99,11 +99,7 @@ func (r *Runtime) ChannelReadU8(ctx context.Context, channelID uint32) uint8 {
 
 // ChannelWriteU8 writes a value to a channel (queued for flush).
 func (r *Runtime) ChannelWriteU8(ctx context.Context, channelID uint32, value uint8) {
-	// Create a single-value series
-	series := telem.NewSeriesV[uint8](value)
-
-	// Queue for output
-	r.state.WriteChannelValue(channelID, series)
+	r.state.WriteChannelU8(channelID, value)
 }
 
 // ChannelReadU16 reads the latest value from a channel.
@@ -119,11 +115,7 @@ func (r *Runtime) ChannelReadU16(ctx context.Context, channelID uint32) uint16 {
 
 // ChannelWriteU16 writes a value to a channel (queued for flush).
 func (r *Runtime) ChannelWriteU16(ctx context.Context, channelID uint32, value uint16) {
-	// Create a single-value series
-	series := telem.NewSeriesV[uint16](value)
-
-	// Queue for output
-	r.state.WriteChannelValue(channelID, series)
+	r.state.WriteChannelU16(channelID, value)
 }
 
 // ChannelReadU32 reads the latest value from a channel.
@@ -139,11 +131,7 @@ func (r *Runtime) ChannelReadU32(ctx context.Context, channelID uint32) uint32 {
 
 // ChannelWriteU32 writes a value to a channel (queued for flush).
 func (r *Runtime) ChannelWriteU32(ctx context.Context, channelID uint32, value uint32) {
-	// Create a single-value series
-	series := telem.NewSeriesV[uint32](value)
-
-	// Queue for output
-	r.state.WriteChannelValue(channelID, series)
+	r.state.WriteChannelU32(channelID, value)
 }
 
 // ChannelReadU64 reads the latest value from a channel.
@@ -159,11 +147,7 @@ func (r *Runtime) ChannelReadU64(ctx context.Context, channelID uint32) uint64 {
 
 // ChannelWriteU64 writes a value to a channel (queued for flush).
 func (r *Runtime) ChannelWriteU64(ctx context.Context, channelID uint32, value uint64) {
-	// Create a single-value series
-	series := telem.NewSeriesV[uint64](value)
-
-	// Queue for output
-	r.state.WriteChannelValue(channelID, series)
+	r.state.WriteChannelU64(channelID, value)
 }
 
 // ChannelReadI8 reads the latest value from a channel.
@@ -179,11 +163,7 @@ func (r *Runtime) ChannelReadI8(ctx context.Context, channelID uint32) int8 {
 
 // ChannelWriteI8 writes a value to a channel (queued for flush).
 func (r *Runtime) ChannelWriteI8(ctx context.Context, channelID uint32, value int8) {
-	// Create a single-value series
-	series := telem.NewSeriesV[int8](value)
-
-	// Queue for output
-	r.state.WriteChannelValue(channelID, series)
+	r.state.WriteChannelI8(channelID, value)
 }
 
 // ChannelReadI16 reads the latest value from a channel.
@@ -199,11 +179,7 @@ func (r *Runtime) ChannelReadI16(ctx context.Context, channelID uint32) int16 {
 
 // ChannelWriteI16 writes a value to a channel (queued for flush).
 func (r *Runtime) ChannelWriteI16(ctx context.Context, channelID uint32, value int16) {
-	// Create a single-value series
-	series := telem.NewSeriesV[int16](value)
-
-	// Queue for output
-	r.state.WriteChannelValue(channelID, series)
+	r.state.WriteChannelI16(channelID, value)
 }
 
 // ChannelReadI32 reads the latest value from a channel.
@@ -219,11 +195,7 @@ func (r *Runtime) ChannelReadI32(ctx context.Context, channelID uint32) int32 {
 
 // ChannelWriteI32 writes a value to a channel (queued for flush).
 func (r *Runtime) ChannelWriteI32(ctx context.Context, channelID uint32, value int32) {
-	// Create a single-value series
-	series := telem.NewSeriesV[int32](value)
-
-	// Queue for output
-	r.state.WriteChannelValue(channelID, series)
+	r.state.WriteChannelI32(channelID, value)
 }
 
 // ChannelReadI64 reads the latest value from a channel.
@@ -239,11 +211,7 @@ func (r *Runtime) ChannelReadI64(ctx context.Context, channelID uint32) int64 {
 
 // ChannelWriteI64 writes a value to a channel (queued for flush).
 func (r *Runtime) ChannelWriteI64(ctx context.Context, channelID uint32, value int64) {
-	// Create a single-value series
-	series := telem.NewSeriesV[int64](value)
-
-	// Queue for output
-	r.state.WriteChannelValue(channelID, series)
+	r.state.WriteChannelI64(channelID, value)
 }
 
 // ChannelReadF32 reads the latest value from a channel.
@@ -259,11 +227,7 @@ func (r *Runtime) ChannelReadF32(ctx context.Context, channelID uint32) float32 
 
 // ChannelWriteF32 writes a value to a channel (queued for flush).
 func (r *Runtime) ChannelWriteF32(ctx context.Context, channelID uint32, value float32) {
-	// Create a single-value series
-	series := telem.NewSeriesV[float32](value)
-
-	// Queue for output
-	r.state.WriteChannelValue(channelID, series)
+	r.state.WriteChannelF32(channelID, value)
 }
 
 // ChannelReadF64 reads the latest value from a channel.
@@ -279,11 +243,7 @@ func (r *Runtime) ChannelReadF64(ctx context.Context, channelID uint32) float64 
 
 // ChannelWriteF64 writes a value to a channel (queued for flush).
 func (r *Runtime) ChannelWriteF64(ctx context.Context, channelID uint32, value float64) {
-	// Create a single-value series
-	series := telem.NewSeriesV[float64](value)
-
-	// Queue for output
-	r.state.WriteChannelValue(channelID, series)
+	r.state.WriteChannelF64(channelID, value)
 }
 
 // StateLoadU8 loads a stateful variable's value, or initializes it if it doesn't exist.

@@ -27,6 +27,7 @@ import (
 	"github.com/synnaxlabs/arc/ir"
 	"github.com/synnaxlabs/arc/types"
 	"github.com/synnaxlabs/x/telem"
+	xunsafe "github.com/synnaxlabs/x/unsafe"
 )
 
 // clearReadsReallocThreshold is the backing array capacity above which ClearReads
@@ -62,7 +63,10 @@ type AuthorityChange struct {
 type State struct {
 	channel struct {
 		reads  map[uint32]telem.MultiSeries
-		writes telem.Frame[uint32]
+		writes map[uint32]telem.Series
+		// activeWriteKeys tracks channels written in the current cycle so flush can
+		// avoid scanning all historical write keys.
+		activeWriteKeys []uint32
 	}
 	outputs          map[ir.Handle]*value
 	indexes          map[uint32]uint32
@@ -107,6 +111,7 @@ func New(cfg Config) *State {
 		configStringHandleCounter: configStringHandleBase,
 	}
 	s.channel.reads = make(map[uint32]telem.MultiSeries)
+	s.channel.writes = make(map[uint32]telem.Series)
 	for _, d := range cfg.ChannelDigests {
 		s.indexes[d.Key] = d.Index
 	}
@@ -140,14 +145,27 @@ func (s *State) Flush(fr telem.Frame[uint32]) (telem.Frame[uint32], bool) {
 	clear(s.strings)
 	s.stringHandleCounter = 1
 
-	if s.channel.writes.Empty() {
+	if len(s.channel.activeWriteKeys) == 0 {
 		return fr, false
 	}
-	for i, key := range s.channel.writes.RawKeys() {
-		fr = fr.Append(key, s.channel.writes.RawSeriesAt(i).DeepCopy())
+
+	flushed := false
+	for _, key := range s.channel.activeWriteKeys {
+		data, ok := s.channel.writes[key]
+		if !ok || len(data.Data) == 0 {
+			continue
+		}
+		fr = fr.Append(key, data.DeepCopy())
+		flushed = true
+
+		// Preserve backing capacity for the next cycle.
+		data.Data = data.Data[:0]
+		data.TimeRange = telem.TimeRangeZero
+		data.Alignment = 0
+		s.channel.writes[key] = data
 	}
-	s.channel.writes = telem.Frame[uint32]{}
-	return fr, true
+	s.channel.activeWriteKeys = s.channel.activeWriteKeys[:0]
+	return fr, flushed
 }
 
 // SetAuthority buffers an authority change request for later flushing.
@@ -175,11 +193,52 @@ func (s *State) readChannel(key uint32) (telem.MultiSeries, bool) {
 }
 
 func (s *State) writeChannel(key uint32, data, time telem.Series) {
-	s.channel.writes = s.channel.writes.Append(key, data)
+	s.appendWriteSeries(key, data)
 	idx := s.indexes[key]
 	if idx != 0 {
-		s.channel.writes = s.channel.writes.Append(idx, time)
+		s.appendWriteSeries(idx, time)
 	}
+}
+
+// appendWriteSeries appends source samples into the per-channel write accumulator while
+// preserving a single output series per channel key.
+func (s *State) appendWriteSeries(key uint32, source telem.Series) {
+	acc, exists := s.channel.writes[key]
+	if !exists {
+		acc = telem.Series{DataType: source.DataType}
+	}
+	if len(acc.Data) == 0 {
+		s.channel.activeWriteKeys = append(s.channel.activeWriteKeys, key)
+	}
+	if acc.DataType == telem.UnknownT {
+		acc.DataType = source.DataType
+	}
+	if len(source.Data) == 0 {
+		s.channel.writes[key] = acc
+		return
+	}
+
+	// DataType mismatch should never occur for a single channel key, but if it does
+	// we fail closed by replacing the accumulator with the latest payload.
+	if acc.DataType != source.DataType && len(acc.Data) > 0 {
+		acc = source.DeepCopy()
+		s.channel.writes[key] = acc
+		return
+	}
+
+	if len(acc.Data) == 0 {
+		acc.TimeRange = source.TimeRange
+		acc.Alignment = source.Alignment
+	} else {
+		if source.TimeRange.Start < acc.TimeRange.Start {
+			acc.TimeRange.Start = source.TimeRange.Start
+		}
+		if source.TimeRange.End > acc.TimeRange.End {
+			acc.TimeRange.End = source.TimeRange.End
+		}
+	}
+	acc.Data = append(acc.Data, source.Data...)
+	s.channel.writes[key] = acc
 }
 
 // ClearReads clears accumulated channel read buffers while preserving the latest series for each channel.
@@ -471,7 +530,99 @@ func (s *State) ReadChannelValue(key uint32) (telem.Series, bool) {
 // For channels with an index, it auto-generates a timestamp using telem.Now() and writes
 // to both the data channel and its index channel, matching the behavior of writeChannel.
 func (s *State) WriteChannelValue(key uint32, value telem.Series) {
-	s.writeChannel(key, value, telem.NewSeriesV(telem.Now()))
+	s.appendWriteSeries(key, value)
+	s.writeIndexedTimestamp(key)
+}
+
+// WriteChannelU8 writes a single uint8 sample to a channel (for WASM runtime bindings).
+func (s *State) WriteChannelU8(key uint32, value uint8) {
+	appendFixedWriteSample(s, key, value)
+	s.writeIndexedTimestamp(key)
+}
+
+// WriteChannelU16 writes a single uint16 sample to a channel (for WASM runtime bindings).
+func (s *State) WriteChannelU16(key uint32, value uint16) {
+	appendFixedWriteSample(s, key, value)
+	s.writeIndexedTimestamp(key)
+}
+
+// WriteChannelU32 writes a single uint32 sample to a channel (for WASM runtime bindings).
+func (s *State) WriteChannelU32(key uint32, value uint32) {
+	appendFixedWriteSample(s, key, value)
+	s.writeIndexedTimestamp(key)
+}
+
+// WriteChannelU64 writes a single uint64 sample to a channel (for WASM runtime bindings).
+func (s *State) WriteChannelU64(key uint32, value uint64) {
+	appendFixedWriteSample(s, key, value)
+	s.writeIndexedTimestamp(key)
+}
+
+// WriteChannelI8 writes a single int8 sample to a channel (for WASM runtime bindings).
+func (s *State) WriteChannelI8(key uint32, value int8) {
+	appendFixedWriteSample(s, key, value)
+	s.writeIndexedTimestamp(key)
+}
+
+// WriteChannelI16 writes a single int16 sample to a channel (for WASM runtime bindings).
+func (s *State) WriteChannelI16(key uint32, value int16) {
+	appendFixedWriteSample(s, key, value)
+	s.writeIndexedTimestamp(key)
+}
+
+// WriteChannelI32 writes a single int32 sample to a channel (for WASM runtime bindings).
+func (s *State) WriteChannelI32(key uint32, value int32) {
+	appendFixedWriteSample(s, key, value)
+	s.writeIndexedTimestamp(key)
+}
+
+// WriteChannelI64 writes a single int64 sample to a channel (for WASM runtime bindings).
+func (s *State) WriteChannelI64(key uint32, value int64) {
+	appendFixedWriteSample(s, key, value)
+	s.writeIndexedTimestamp(key)
+}
+
+// WriteChannelF32 writes a single float32 sample to a channel (for WASM runtime bindings).
+func (s *State) WriteChannelF32(key uint32, value float32) {
+	appendFixedWriteSample(s, key, value)
+	s.writeIndexedTimestamp(key)
+}
+
+// WriteChannelF64 writes a single float64 sample to a channel (for WASM runtime bindings).
+func (s *State) WriteChannelF64(key uint32, value float64) {
+	appendFixedWriteSample(s, key, value)
+	s.writeIndexedTimestamp(key)
+}
+
+func (s *State) writeIndexedTimestamp(key uint32) {
+	idx := s.indexes[key]
+	if idx != 0 {
+		appendFixedWriteSample(s, idx, telem.Now())
+	}
+}
+
+func appendFixedWriteSample[T telem.FixedSample](s *State, key uint32, value T) {
+	dt := telem.InferDataType[T]()
+	acc, exists := s.channel.writes[key]
+	if !exists {
+		acc = telem.Series{DataType: dt}
+	}
+	if len(acc.Data) == 0 {
+		s.channel.activeWriteKeys = append(s.channel.activeWriteKeys, key)
+	}
+	if acc.DataType == telem.UnknownT {
+		acc.DataType = dt
+	}
+	if acc.DataType != dt && len(acc.Data) > 0 {
+		s.channel.writes[key] = telem.NewSeriesV(value)
+		return
+	}
+	den := int(dt.Density())
+	sampleStart := len(acc.Data)
+	acc.Data = slices.Grow(acc.Data, den)
+	acc.Data = acc.Data[:sampleStart+den]
+	xunsafe.CastSlice[byte, T](acc.Data)[sampleStart/den] = value
+	s.channel.writes[key] = acc
 }
 
 // SeriesStore stores a series and returns a handle for later retrieval.
