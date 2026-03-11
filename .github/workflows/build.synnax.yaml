@@ -273,7 +273,7 @@ jobs:
         if: inputs.driver && startsWith(matrix.os, 'macos')
         run: |
           bazel build $BAZEL_BUILD_FLAGS \
-            --config=opt-unix ${{ !inputs.debug && '--config=hide_symbols' || '' }} //driver
+            --config=opt-unix //driver
 
       - name: Extract Debug Symbols (macOS)
         if: inputs.driver && inputs.debug && startsWith(matrix.os, 'macos')
@@ -296,7 +296,7 @@ jobs:
         if: inputs.driver && inputs.nilinuxrt && matrix.os == 'ubuntu-build-bot'
         run: |
           bazel build $BAZEL_BUILD_FLAGS $BAZEL_REMOTE_CACHE_FLAGS \
-            --config=opt-unix ${{ !inputs.debug && '--config=hide_symbols' || '' }} --define=platform=nilinuxrt //driver
+            --config=opt-unix --define=platform=nilinuxrt //driver
           mv bazel-bin/driver/driver bazel-bin/driver/synnax-driver-v${{ needs.setup.outputs.VERSION }}-nilinuxrt
 
       - name: Extract Debug Symbols (NI Linux Real-Time)
@@ -354,7 +354,7 @@ jobs:
         if: inputs.driver && matrix.os == 'ubuntu-build-bot'
         run: |
           bazel build $BAZEL_BUILD_FLAGS $BAZEL_REMOTE_CACHE_FLAGS \
-            --config=opt-unix ${{ !inputs.debug && '--config=hide_symbols' || '' }} //driver
+            --config=opt-unix //driver
 
       - name: Extract Debug Symbols (Linux)
         if: inputs.driver && inputs.debug && matrix.os == 'ubuntu-build-bot'
