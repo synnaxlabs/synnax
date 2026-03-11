@@ -13,6 +13,7 @@
 #pragma once
 
 #include <atomic>
+#include <chrono>
 #include <string>
 #include <thread>
 
@@ -290,6 +291,10 @@ public:
     std::atomic<bool> running{false};
     std::atomic<bool> ready{false};
     std::thread thread;
+    /// @brief artificial delay (ms) injected before each server iterate cycle.
+    /// Used in tests to simulate a slow server (e.g. network-unreachable PLC).
+    /// Zero means no delay.
+    std::atomic<uint32_t> probe_delay_ms{0};
 
     explicit Server(const ServerConfig &cfg): cfg(cfg) {}
 
@@ -386,8 +391,11 @@ public:
 
         ready = true;
 
-        while (running.load())
+        while (running.load()) {
+            if (const auto d = probe_delay_ms.load(std::memory_order_relaxed); d > 0)
+                std::this_thread::sleep_for(std::chrono::milliseconds(d));
             UA_Server_run_iterate(server, true);
+        }
 
         ready = false;
         UA_Server_run_shutdown(server);

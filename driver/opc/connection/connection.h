@@ -10,7 +10,6 @@
 #pragma once
 
 /// std
-#include <atomic>
 #include <chrono>
 #include <condition_variable>
 #include <mutex>
@@ -141,11 +140,6 @@ public:
     Pool() = default;
     ~Pool() = default;
 
-    /// @brief artificial delay (ms) injected before each health probe.
-    /// Used in tests to simulate a network-unreachable server where TCP
-    /// SYN hangs for the full client timeout. Zero means no delay.
-    std::atomic<uint32_t> test_probe_delay_ms_{0};
-
     Pool(const Pool &) = delete;
     Pool &operator=(const Pool &) = delete;
 
@@ -168,7 +162,7 @@ private:
         int consecutive_failures = 0;
         std::chrono::steady_clock::time_point cooldown_until{};
         /// @brief True while a thread is actively connecting. Other
-        /// threads wait on connect_cv_ instead of creating parallel
+        /// threads wait on connect_cv instead of creating parallel
         /// connections that could exhaust the server's session table.
         bool connecting = false;
     };
@@ -179,9 +173,9 @@ private:
     mutable std::mutex mutex_;
     /// @brief notified when a connecting thread finishes, waking threads
     /// that are waiting for a reusable connection.
-    std::condition_variable connect_cv_;
+    std::condition_variable connect_cv;
     std::unordered_map<std::string, std::vector<Entry>> connections_;
-    std::unordered_map<std::string, BreakerState> breakers_;
+    std::unordered_map<std::string, BreakerState> breakers;
 
     void release(const std::string &key, std::shared_ptr<UA_Client> client);
 

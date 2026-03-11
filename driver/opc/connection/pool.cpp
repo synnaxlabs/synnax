@@ -94,7 +94,7 @@ Pool::acquire(const Config &cfg, const std::string &log_prefix) {
             // Reset breaker on successful reuse.
             {
                 std::lock_guard<std::mutex> lock(mutex_);
-                breakers_[key].consecutive_failures = 0;
+                breakers[key].consecutive_failures = 0;
             }
             return {Connection(candidate, this, key), x::errors::NIL};
         }
@@ -107,7 +107,7 @@ Pool::acquire(const Config &cfg, const std::string &log_prefix) {
     // then try to reuse the newly created connection.
     {
         std::unique_lock<std::mutex> lock(mutex_);
-        auto &breaker = breakers_[key];
+        auto &breaker = breakers[key];
 
         // Check circuit breaker — if tripped and still in cooldown, fail fast.
         if (breaker.consecutive_failures >= BREAKER_THRESHOLD) {
@@ -130,7 +130,7 @@ Pool::acquire(const Config &cfg, const std::string &log_prefix) {
         // Then try to reuse its connection instead of creating a duplicate.
         if (breaker.connecting) {
             VLOG(1) << log_prefix << "Waiting for another thread to finish connecting";
-            connect_cv_.wait(lock, [&breaker] { return !breaker.connecting; });
+            connect_cv.wait(lock, [&breaker] { return !breaker.connecting; });
 
             // Try to grab the newly created connection.
             auto it = connections_.find(key);
@@ -176,7 +176,7 @@ Pool::acquire(const Config &cfg, const std::string &log_prefix) {
 
     if (err) {
         std::lock_guard<std::mutex> lock(mutex_);
-        auto &breaker = breakers_[key];
+        auto &breaker = breakers[key];
         breaker.connecting = false;
         breaker.consecutive_failures++;
         if (breaker.consecutive_failures >= BREAKER_THRESHOLD) {
@@ -185,7 +185,7 @@ Pool::acquire(const Config &cfg, const std::string &log_prefix) {
             LOG(WARNING) << log_prefix << "Circuit breaker tripped after "
                          << breaker.consecutive_failures << " consecutive failures";
         }
-        connect_cv_.notify_all();
+        connect_cv.notify_all();
         return {Connection(nullptr, nullptr, ""), err};
     }
 
@@ -193,7 +193,7 @@ Pool::acquire(const Config &cfg, const std::string &log_prefix) {
     if (const auto iterate_err = run_iterate_checked(client, log_prefix)) {
         LOG(WARNING) << log_prefix << "New connection failed initial maintenance";
         std::lock_guard<std::mutex> lock(mutex_);
-        auto &breaker = breakers_[key];
+        auto &breaker = breakers[key];
         breaker.connecting = false;
         breaker.consecutive_failures++;
         if (breaker.consecutive_failures >= BREAKER_THRESHOLD) {
@@ -202,7 +202,7 @@ Pool::acquire(const Config &cfg, const std::string &log_prefix) {
             LOG(WARNING) << log_prefix << "Circuit breaker tripped after "
                          << breaker.consecutive_failures << " consecutive failures";
         }
-        connect_cv_.notify_all();
+        connect_cv.notify_all();
         return {Connection(nullptr, nullptr, ""), iterate_err};
     }
 
@@ -210,11 +210,11 @@ Pool::acquire(const Config &cfg, const std::string &log_prefix) {
     {
         std::lock_guard<std::mutex> lock(mutex_);
         connections_[key].push_back({client, true});
-        auto &breaker = breakers_[key];
+        auto &breaker = breakers[key];
         breaker.connecting = false;
         breaker.consecutive_failures = 0;
     }
-    connect_cv_.notify_all();
+    connect_cv.notify_all();
 
     VLOG(1) << log_prefix << "Created new connection for " << cfg.endpoint;
     return {Connection(client, this, key), x::errors::NIL};
@@ -313,8 +313,6 @@ x::errors::Error Pool::run_iterate_checked(
     const std::shared_ptr<UA_Client> &client,
     const std::string &log_prefix
 ) {
-    if (const auto d = test_probe_delay_ms_.load(std::memory_order_relaxed); d > 0)
-        std::this_thread::sleep_for(std::chrono::milliseconds(d));
     const UA_StatusCode status = UA_Client_run_iterate(client.get(), 0);
     if (status != UA_STATUSCODE_GOOD) {
         LOG(WARNING) << log_prefix

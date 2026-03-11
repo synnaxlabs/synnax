@@ -408,11 +408,11 @@ TEST_F(ConnectionPoolTest, ConcurrentRecoveryAfterFailure) {
 /// thread grabs the lock, picks its candidate, releases the lock, and
 /// probes its connection concurrently.
 ///
-/// We inject an artificial 2s probe delay via test_probe_delay_ms_ to
-/// simulate a network-unreachable server (TCP SYN hang). Without this,
-/// localhost probes return instantly and mutex contention is unobservable.
-/// After thread A enters its delayed probe, we clear the delay so thread B's
-/// probe completes instantly.
+/// We inject an artificial 2s delay into the mock server's iterate cycle via
+/// server_->probe_delay_ms to simulate a slow server (TCP SYN hang). Without
+/// this, localhost probes return instantly and mutex contention is unobservable.
+/// After thread A enters its delayed probe, we clear the server delay so
+/// thread B's probe against server2 completes instantly.
 ///
 /// Expected timings:
 ///   main:   thread B waits ~2s behind thread A's lock      → FAIL
@@ -436,9 +436,10 @@ TEST_F(ConnectionPoolTest, HealthyEndpointNotBlockedBySlowProbe) {
     EXPECT_EQ(pool.available_count(conn_cfg_.endpoint), 1);
     EXPECT_EQ(pool.available_count(cfg2.endpoint), 1);
 
-    // Inject a 2-second delay into the health probe
+    // Inject a 2-second delay into the mock server's iterate cycle to simulate
+    // a slow/unreachable server where health probes hang.
     const int probe_delay_ms = 2000;
-    pool.test_probe_delay_ms_.store(probe_delay_ms, std::memory_order_relaxed);
+    server_->probe_delay_ms.store(probe_delay_ms, std::memory_order_relaxed);
 
     // Thread A: acquire from server1 (will hit the slow probe on cached conn)
     std::thread thread_a([&pool, this]() {
@@ -450,9 +451,9 @@ TEST_F(ConnectionPoolTest, HealthyEndpointNotBlockedBySlowProbe) {
     // Give thread A time to grab its candidate and enter the delayed probe
     std::this_thread::sleep_for(std::chrono::milliseconds(200));
 
-    // Clear the delay so thread B's own health probe completes instantly.
-    // Thread A is already sleeping inside its probe.
-    pool.test_probe_delay_ms_.store(0, std::memory_order_relaxed);
+    // Clear the server delay so subsequent iterate cycles are fast.
+    // Thread A is already blocked waiting for server1's response.
+    server_->probe_delay_ms.store(0, std::memory_order_relaxed);
 
     std::chrono::milliseconds thread_b_elapsed{0};
 
