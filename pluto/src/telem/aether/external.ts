@@ -9,6 +9,7 @@
 
 export * from "@/telem/aether/context";
 export * from "@/telem/aether/factory";
+export * from "@/telem/aether/log";
 export * from "@/telem/aether/noop";
 export * from "@/telem/aether/pipeline";
 export * from "@/telem/aether/provider";

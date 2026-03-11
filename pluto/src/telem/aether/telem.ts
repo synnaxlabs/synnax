@@ -85,6 +85,17 @@ export type SeriesSource = Source<[bounds.Bounds, MultiSeries]>;
 export const seriesSourceSpecZ = sourceSpecZ.extend({ valueType: z.literal("series") });
 export type SeriesSourceSpec = z.infer<typeof seriesSourceSpecZ>;
 
+export interface LogEntry {
+  channelKey: number;
+  channelName: string;
+  timestamp: bigint;
+  value: string;
+}
+
+export type LogSource = Source<LogEntry[]>;
+export const logSourceSpecZ = sourceSpecZ.extend({ valueType: z.literal("log") });
+export type LogSourceSpec = z.infer<typeof logSourceSpecZ>;
+
 export type BooleanSource = Source<boolean>;
 export const booleanSourceSpecZ = sourceSpecZ.extend({
   valueType: z.literal("boolean"),
