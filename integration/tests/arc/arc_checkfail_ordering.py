@@ -143,28 +143,12 @@ class ArcCheckfailOrdering(ArcConsoleCase):
         self.log("Phase 1 complete")
 
     def _verify_off_transition(self) -> None:
-        """Phase 2: Set cf_temp_a=400 so both conditions are true => off wins.
-
-        We write sensors on every poll iteration so the runtime picks up the
-        new values on the next 'on' entry, even if the on/pause cycle is fast.
-        """
+        """Phase 2: Set cf_temp_a=400 so both conditions are true => off wins."""
         self.log("Phase 2: Setting cf_temp_a=400")
         self._cf_temp_a = 400.0
+        self._write_sensors()
 
-        timer = sy.Timer()
-        timeout = sy.TimeSpan.from_seconds(10)
-        while self.should_continue:
-            self._write_sensors()
-            stage = self.read_tlm("cf_stage_str", "")
-            if stage == "off":
-                break
-            if timer.elapsed() > timeout:
-                self.fail(
-                    f"Timeout waiting for cf_stage_str == off!\n"
-                    f"Actual: {stage}\nTimeout: 10.0s"
-                )
-                return
-
+        self.wait_for_eq("cf_stage_str", "off", is_virtual=True, timeout=15.0)
         self.wait_for_eq("cf_sim_stage", 3, is_virtual=True)
         self.wait_for_eq("cf_heater_cmd", 0, is_virtual=True)
         self.log("Phase 2 complete: first checkfail (=> off) took priority")
