@@ -58,6 +58,11 @@ const MIN_DIM = 250;
 // for it. This is the interval at which we poll.
 const MACOS_FULLSCREEN_POLL_INTERVAL = TimeSpan.seconds(1);
 
+// On Windows and Linux, the OS does not automatically reposition windows when a monitor
+// is disconnected. We poll for monitor changes and move off-screen windows back onto a
+// visible display.
+const MONITOR_CHANGE_POLL_INTERVAL = TimeSpan.seconds(1);
+
 const clampDims = (dims?: dimensions.Dimensions): dimensions.Dimensions | undefined => {
   if (dims == null) return undefined;
   return {
@@ -102,6 +107,7 @@ export class TauriRuntime<
   private readonly win: WebviewWindow;
   private unsubscribe: Record<string, UnlistenFn>;
   private fullscreenPoll: NodeJS.Timeout | null = null;
+  private monitorChangePoll: NodeJS.Timeout | null = null;
 
   /**
    * @param window - The WebviewWindow to use as the underlying engine for this runtime.
@@ -116,6 +122,7 @@ export class TauriRuntime<
     // We only need to poll for fullscreen on macOS, as tauri doesn't provide an
     // emitted event for fullscreen changes.
     await this.startFullscreenPoll();
+    this.startMonitorChangePoll();
   }
 
   private async startFullscreenPoll(): Promise<void> {
@@ -144,6 +151,23 @@ export class TauriRuntime<
     }, MACOS_FULLSCREEN_POLL_INTERVAL.milliseconds);
   }
 
+  private startMonitorChangePoll(): void {
+    // macOS automatically repositions windows when a monitor is disconnected, so we
+    // only need this on Windows and Linux.
+    if (runtime.getOS() === "macOS") return;
+    if (this.monitorChangePoll != null) clearInterval(this.monitorChangePoll);
+    this.monitorChangePoll = setInterval(() => {
+      this.repositionIfOffScreen().catch(console.error);
+    }, MONITOR_CHANGE_POLL_INTERVAL.milliseconds);
+  }
+
+  private async repositionIfOffScreen(): Promise<void> {
+    const scaleFactor = await this.win.scaleFactor();
+    const position = parsePosition(await this.win.innerPosition(), scaleFactor);
+    const visible = await isPositionVisible(position);
+    if (!visible) await this.win.center();
+  }
+
   label(): string {
     return this.win.label;
   }
@@ -155,7 +179,7 @@ export class TauriRuntime<
   release(): void {
     Object.values(this.unsubscribe).forEach((f) => f?.());
     if (this.fullscreenPoll != null) clearInterval(this.fullscreenPoll);
-
+    if (this.monitorChangePoll != null) clearInterval(this.monitorChangePoll);
     this.unsubscribe = {};
   }
 
@@ -174,6 +198,7 @@ export class TauriRuntime<
   async subscribe(lis: (action: Event<S, A>) => void): Promise<void> {
     this.release();
     await this.startFullscreenPoll();
+    this.startMonitorChangePoll();
     this.unsubscribe[actionEvent] = await listen<string>(
       actionEvent,
       (event: TauriEvent<string>) => lis(decode(event.payload)),
