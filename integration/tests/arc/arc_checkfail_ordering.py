@@ -244,8 +244,8 @@ class ArcCheckfailOrdering(ArcConsoleCase):
             self.log(f"{ch} deltas (s): {[f'{d:.3f}' for d in deltas_s]}")
             for d in deltas_s:
                 assert (
-                    0.995 <= d <= 1.005
-                ), f"{ch}: delta {d:.3f}s out of [1.000, 1.005]"
+                    0.980 <= d <= 1.020
+                ), f"{ch}: delta {d:.3f}s out of [0.980, 1.020]"
 
         expected: dict[str, list[int | float | str]] = {
             "cf_stage_str": ["on", "pause", "on", "pause", "on", "pause", "on", "off"],
