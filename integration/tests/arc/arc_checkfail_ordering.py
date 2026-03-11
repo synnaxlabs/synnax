@@ -26,6 +26,12 @@ from examples.simulators import PressSimDAQ
 from tests.arc.arc_case import ArcConsoleCase
 
 ARC_CHECKFAIL_SOURCE = """
+func count(val u8) f32 {
+    n f32 $= 0
+    n = n + 1
+    return n
+}
+
 cf_start_cmd => main
 
 sequence main {
@@ -37,6 +43,7 @@ sequence main {
         interval{period=1s} -> cf_temp_b > 300 => pause,
     }
     stage pause {
+        cf_sim_stage -> count{} -> cf_count,
         2 -> cf_sim_stage,
         0 -> cf_heater_cmd,
         "pause" -> cf_stage_str,
@@ -65,6 +72,7 @@ class ArcCheckfailOrdering(ArcConsoleCase):
         "cf_heater_cmd",
         "cf_temp_a",
         "cf_temp_b",
+        "cf_count",
         "end_test_cmd",
     ]
     sim_daq_class = PressSimDAQ
@@ -75,6 +83,12 @@ class ArcCheckfailOrdering(ArcConsoleCase):
         client.channels.create(
             name="cf_stage_str",
             data_type=sy.DataType.STRING,
+            virtual=True,
+            retrieve_if_name_exists=True,
+        )
+        client.channels.create(
+            name="cf_count",
+            data_type=sy.DataType.FLOAT32,
             virtual=True,
             retrieve_if_name_exists=True,
         )
@@ -137,8 +151,8 @@ class ArcCheckfailOrdering(ArcConsoleCase):
         continuously writing sensor values so the runtime receives them.
         """
         self.log("Phase 1: Verifying on/pause loop")
-        for _ in range(3):
-            self.wait_for_eq("cf_stage_str", "pause", is_virtual=True, timeout=10.0)
+        for i in range(1, 4):
+            self.wait_for_near("cf_count", float(i), tolerance=0.01, is_virtual=True)
             self._write_sensors()
         self.log("Phase 1 complete")
 
@@ -148,7 +162,7 @@ class ArcCheckfailOrdering(ArcConsoleCase):
         self._cf_temp_a = 400.0
         self._write_sensors()
 
-        self.wait_for_eq("cf_stage_str", "off", is_virtual=True, timeout=15.0)
+        self.wait_for_eq("cf_stage_str", "off", is_virtual=True, timeout=5.0)
         self.wait_for_eq("cf_sim_stage", 3, is_virtual=True)
         self.wait_for_eq("cf_heater_cmd", 0, is_virtual=True)
         self.log("Phase 2 complete: first checkfail (=> off) took priority")
