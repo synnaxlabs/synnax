@@ -19,7 +19,7 @@
 
 #include "arc/cpp/runtime/loop/loop.h"
 
-using namespace arc::runtime::loop;
+namespace arc::runtime::loop {
 
 /// @brief Test timing constants.
 namespace test_timing {
@@ -893,4 +893,5 @@ TEST(MaxTimeoutTest, Hybrid_MaxTimeoutConstrainsBlockPhase) {
     EXPECT_EQ(reason, WakeReason::Timeout);
 
     breaker.stop();
+}
 }

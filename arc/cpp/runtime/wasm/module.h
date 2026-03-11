@@ -15,9 +15,10 @@
 
 #include "x/cpp/errors/errors.h"
 
-#include "arc/cpp/module/module.h"
+#include "arc/cpp/program/program.h"
 #include "arc/cpp/runtime/errors/errors.h"
-#include "arc/cpp/runtime/wasm/bindings.h"
+#include "arc/cpp/stl/stl.h"
+#include "arc/cpp/stl/str/state.h"
 #include "arc/cpp/types/types.h"
 #include "wasmtime.hh"
 
@@ -150,8 +151,9 @@ const auto BASE_ERROR = errors::BASE.sub("wasm");
 const auto INITIALIZATION_ERROR = BASE_ERROR.sub("initialization");
 
 struct ModuleConfig {
-    module::Module module;
-    std::shared_ptr<Bindings> bindings;
+    program::Program program;
+    std::vector<std::shared_ptr<stl::Module>> modules;
+    std::shared_ptr<stl::str::State> strings;
     std::uint32_t stack_size = 2 * 1024 * 1024; // 2MB (Wasmtime default)
     std::uint32_t host_managed_heap_size = 10 * 1024 * 1024; // 10MB
 };
@@ -182,7 +184,7 @@ public:
 
     static std::pair<std::shared_ptr<Module>, x::errors::Error>
     open(const ModuleConfig &cfg) {
-        if (cfg.module.wasm.empty())
+        if (cfg.program.wasm.empty())
             return {
                 nullptr,
                 x::errors::Error(x::errors::VALIDATION, "wasm bytes are empty")
@@ -191,7 +193,7 @@ public:
         wasmtime::Engine engine;
         wasmtime::Store store(engine);
 
-        auto &wasm_bytes = const_cast<std::vector<uint8_t> &>(cfg.module.wasm);
+        auto &wasm_bytes = const_cast<std::vector<uint8_t> &>(cfg.program.wasm);
         auto mod_result = wasmtime::Module::compile(
             engine,
             wasmtime::Span<uint8_t>(wasm_bytes.data(), wasm_bytes.size())
@@ -208,8 +210,26 @@ public:
             };
         }
         const auto mod = mod_result.ok();
-        const auto imports = create_imports(store, cfg.bindings);
-        auto instance = wasmtime::Instance::create(store, mod, imports).unwrap();
+
+        wasmtime::Linker linker(engine);
+        for (auto &m: cfg.modules)
+            m->bind_to(linker, store);
+
+        auto inst_result = linker.instantiate(store, mod);
+        if (!inst_result) {
+            auto trap_err = inst_result.err();
+            auto msg = trap_err.message();
+            return {
+                nullptr,
+                x::errors::Error(
+                    INITIALIZATION_ERROR,
+                    "failed to instantiate module: " +
+                        std::string(msg.data(), msg.size())
+                )
+            };
+        }
+        auto instance = inst_result.ok();
+
         const auto mem_opt = instance.get(store, "memory");
         if (!mem_opt)
             return {
@@ -239,10 +259,8 @@ public:
             std::move(mem),
             std::move(instance)
         );
-        if (cfg.bindings != nullptr) {
-            cfg.bindings->set_memory(&module->memory);
-            cfg.bindings->set_store(&module->store);
-        }
+        for (auto &m: module->cfg.modules)
+            m->set_wasm_context(&module->store, &module->memory);
         return {module, x::errors::NIL};
     }
 
@@ -291,11 +309,9 @@ public:
                     // bindings is always non-null in production; the null branch is
                     // only reachable in tests that construct a Module without WASM
                     // host bindings, where args[i] stays 0 (unused).
-                    if (module.cfg.bindings != nullptr)
+                    if (module.cfg.strings != nullptr)
                         this->args[i] = wasmtime::Val(
-                            static_cast<int32_t>(
-                                module.cfg.bindings->string_create_config(*s)
-                            )
+                            static_cast<int32_t>(module.cfg.strings->create_config(*s))
                         );
                     continue;
                 }
@@ -385,11 +401,11 @@ public:
                 x::errors::Error(x::errors::VALIDATION, "export is not a function")
             };
 
-        const auto &func = this->cfg.module.function(name);
+        const auto &func = this->cfg.program.function(name);
 
         uint32_t base = 0;
-        if (const auto base_it = this->cfg.module.output_memory_bases.find(name);
-            base_it != this->cfg.module.output_memory_bases.end()) {
+        if (const auto base_it = this->cfg.program.output_memory_bases.find(name);
+            base_it != this->cfg.program.output_memory_bases.end()) {
             base = base_it->second;
         }
 

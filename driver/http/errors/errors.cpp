@@ -12,10 +12,13 @@
 #include "driver/http/errors/errors.h"
 
 namespace driver::http::errors {
+constexpr int REQUEST_TIMEOUT = 408;
+constexpr int TOO_MANY_REQUESTS = 429;
+
 x::errors::Error from_status(const int status_code) {
-    if (status_code >= 200 && status_code < 300) return x::errors::NIL;
-    if (status_code == 404 || status_code == 408 || status_code == 429 ||
-        (status_code >= 500 && status_code < 600))
+    if (status_code >= 200 && status_code <= 299) return x::errors::NIL;
+    if (status_code == REQUEST_TIMEOUT || status_code == TOO_MANY_REQUESTS ||
+        (status_code >= 500 && status_code <= 599))
         return TEMPORARY_ERROR.sub(std::to_string(status_code));
     return CRITICAL_ERROR.sub(std::to_string(status_code));
 }

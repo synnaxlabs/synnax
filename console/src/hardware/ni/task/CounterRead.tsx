@@ -25,8 +25,7 @@ import {
   COUNTER_READ_SCHEMAS,
   COUNTER_READ_TYPE,
   counterReadConfigZ,
-  type counterReadStatusDataZ,
-  type counterReadTypeZ,
+  type CounterReadSchemas,
   ZERO_CI_CHANNEL,
   ZERO_COUNTER_READ_PAYLOAD,
 } from "@/hardware/ni/task/types";
@@ -95,13 +94,7 @@ const ChannelDetails = ({ path }: Common.Task.Layouts.DetailsProps) => {
 
 const channelDetails = Component.renderProp(ChannelDetails);
 
-const Form: FC<
-  Common.Task.FormProps<
-    typeof counterReadTypeZ,
-    typeof counterReadConfigZ,
-    typeof counterReadStatusDataZ
-  >
-> = () => {
+const Form: FC<Common.Task.FormProps<CounterReadSchemas>> = () => {
   const [tare, allowTare, handleTare] = Common.Task.useTare<CIChannel>();
   const listItem = useCallback(
     ({ key, itemKey, ...rest }: Common.Task.ChannelListItemProps) => (
@@ -121,11 +114,10 @@ const Form: FC<
   );
 };
 
-const getInitialValues: Common.Task.GetInitialValues<
-  typeof counterReadTypeZ,
-  typeof counterReadConfigZ,
-  typeof counterReadStatusDataZ
-> = ({ deviceKey, config }) => {
+const getInitialValues: Common.Task.GetInitialValues<CounterReadSchemas> = ({
+  deviceKey,
+  config,
+}) => {
   if (config != null)
     return {
       ...ZERO_COUNTER_READ_PAYLOAD,
@@ -232,7 +224,7 @@ export const CounterRead = Common.Task.wrapForm({
   Properties,
   Form,
   schemas: COUNTER_READ_SCHEMAS,
-  type: COUNTER_READ_TYPE,
+  type: "ni_counter_read",
   getInitialValues,
   onConfigure,
 });

@@ -14,7 +14,7 @@ import (
 
 	"github.com/synnaxlabs/arc/compiler"
 	"github.com/synnaxlabs/arc/ir"
-	"github.com/synnaxlabs/arc/module"
+	"github.com/synnaxlabs/arc/program"
 )
 
 // Compile generates WebAssembly bytecode from the provided IR.
@@ -25,10 +25,10 @@ func Compile(
 	ctx context.Context,
 	ir ir.IR,
 	opts ...compiler.Option,
-) (module.Module, error) {
+) (program.Program, error) {
 	o, err := compiler.Compile(ctx, ir, opts...)
 	if err != nil {
-		return module.Module{}, err
+		return program.Program{}, err
 	}
-	return module.Module{IR: ir, Output: o}, nil
+	return program.Program{IR: ir, Output: o}, nil
 }

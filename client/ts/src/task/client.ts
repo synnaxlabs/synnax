@@ -76,20 +76,16 @@ export interface ExecuteCommandSyncParams<StatusData extends z.ZodType> extends 
   "frameClient" | "name"
 > {}
 
-export class Task<
-  Type extends z.ZodLiteral<string> = z.ZodLiteral<string>,
-  Config extends z.ZodType = z.ZodType,
-  StatusData extends z.ZodType = z.ZodType,
-> {
+export class Task<S extends Schemas = Schemas> {
   readonly key: Key;
   name: string;
   internal: boolean;
-  type: z.infer<Type>;
+  type: z.infer<S["type"]>;
   snapshot: boolean;
-  config: z.infer<Config>;
-  status?: Status<StatusData>;
+  config: z.infer<S["config"]>;
+  status?: Status<S["statusData"]>;
 
-  readonly schemas: Schemas<Type, Config, StatusData>;
+  readonly schemas: S;
   private readonly frameClient_?: framer.Client;
   private readonly ontologyClient_?: ontology.Client;
   private readonly rangeClient_?: ranger.Client;
@@ -110,16 +106,8 @@ export class Task<
   }
 
   constructor(
-    {
-      key,
-      type,
-      name,
-      config,
-      internal = false,
-      snapshot = false,
-      status,
-    }: Payload<Type, Config, StatusData>,
-    schemas?: Schemas<Type, Config, StatusData>,
+    { key, type, name, config, internal = false, snapshot = false, status }: Payload<S>,
+    schemas?: S,
     frameClient?: framer.Client,
     ontologyClient?: ontology.Client,
     rangeClient?: ranger.Client,
@@ -128,11 +116,13 @@ export class Task<
     this.name = name;
     this.type = type;
     this.config = config;
-    this.schemas = schemas ?? {
-      typeSchema: z.string() as unknown as Type,
-      configSchema: z.unknown() as unknown as Config,
-      statusDataSchema: z.unknown() as unknown as StatusData,
-    };
+    this.schemas =
+      schemas ??
+      ({
+        type: z.string() as unknown as S["type"],
+        config: z.unknown() as S["config"],
+        statusData: z.unknown() as S["statusData"],
+      } as S);
     this.internal = internal;
     this.snapshot = snapshot;
     this.status = status;
@@ -141,7 +131,7 @@ export class Task<
     this.rangeClient_ = rangeClient;
   }
 
-  get payload(): Payload<Type, Config, StatusData> {
+  get payload(): Payload<S> {
     return {
       key: this.key,
       name: this.name,
@@ -166,13 +156,13 @@ export class Task<
 
   async executeCommandSync(
     params: TaskExecuteCommandSyncParams,
-  ): Promise<Status<StatusData>> {
-    return await executeCommandSync<StatusData>({
+  ): Promise<Status<S["statusData"]>> {
+    return await executeCommandSync<S["statusData"]>({
       ...params,
       frameClient: this.frameClient,
       task: this.key,
       name: this.name,
-      statusDataZ: this.schemas?.statusDataSchema,
+      statusDataZ: this.schemas.statusData,
     });
   }
 
@@ -236,54 +226,26 @@ export type RetrieveMultipleParams = z.input<typeof multiRetrieveArgsZ>;
 const retrieveArgsZ = z.union([singleRetrieveArgsZ, multiRetrieveArgsZ]);
 export type RetrieveArgs = z.input<typeof retrieveArgsZ>;
 
-type RetrieveSchemas<
-  Type extends z.ZodLiteral<string> = z.ZodLiteral<string>,
-  Config extends z.ZodType = z.ZodType,
-  StatusData extends z.ZodType = z.ZodType,
-> = {
-  schemas?: Schemas<Type, Config, StatusData>;
-};
+interface RetrieveSchemas<S extends Schemas = Schemas> {
+  schemas?: S;
+}
 
-const retrieveResZ = <
-  Type extends z.ZodLiteral<string> = z.ZodLiteral<string>,
-  Config extends z.ZodType = z.ZodType,
-  StatusData extends z.ZodType = z.ZodType,
->(
-  schemas?: Schemas<Type, Config, StatusData>,
-) =>
-  z.object({
-    tasks: array.nullableZ(taskZ(schemas)),
-  });
+const retrieveResZ = <S extends Schemas = Schemas>(schemas?: S) =>
+  z.object({ tasks: array.nullableZ(taskZ(schemas)) });
 
 export interface RetrieveRequest extends z.infer<typeof retrieveReqZ> {}
 
-const createReqZ = <
-  Type extends z.ZodLiteral<string> = z.ZodLiteral<string>,
-  Config extends z.ZodType = z.ZodType,
-  StatusData extends z.ZodType = z.ZodType,
->(
-  schemas?: Schemas<Type, Config, StatusData>,
-) => z.object({ tasks: newZ(schemas).array() });
-const createResZ = <
-  Type extends z.ZodLiteral<string> = z.ZodLiteral<string>,
-  Config extends z.ZodType = z.ZodType,
-  StatusData extends z.ZodType = z.ZodType,
->(
-  schemas?: Schemas<Type, Config, StatusData>,
-) => z.object({ tasks: taskZ(schemas).array() });
+const createReqZ = <S extends Schemas = Schemas>(schemas?: S) =>
+  z.object({ tasks: newZ(schemas).array() });
+const createResZ = <S extends Schemas = Schemas>(schemas?: S) =>
+  z.object({ tasks: taskZ(schemas).array() });
 const deleteReqZ = z.object({ keys: keyZ.array() });
 const deleteResZ = z.object({});
 const copyReqZ = z.object({ key: keyZ, name: z.string(), snapshot: z.boolean() });
-const copyResZ = <
-  Type extends z.ZodLiteral<string> = z.ZodLiteral<string>,
-  Config extends z.ZodType = z.ZodType,
-  StatusData extends z.ZodType = z.ZodType,
->(
-  schemas?: Schemas<Type, Config, StatusData>,
-) => z.object({ task: taskZ(schemas) });
+const copyResZ = <S extends Schemas = Schemas>(schemas?: S) =>
+  z.object({ task: taskZ(schemas) });
 
 export class Client {
-  readonly type: string = "task";
   private readonly client: UnaryClient;
   private readonly frameClient: framer.Client;
   private readonly ontologyClient: ontology.Client;
@@ -303,33 +265,14 @@ export class Client {
 
   async create(task: New): Promise<Task>;
   async create(tasks: New[]): Promise<Task[]>;
-  async create(task: New | New[]): Promise<Task | Task[]>;
 
-  async create<
-    Type extends z.ZodLiteral<string> = z.ZodLiteral<string>,
-    Config extends z.ZodType = z.ZodType,
-    StatusData extends z.ZodType = z.ZodType,
-  >(
-    task: New<Type, Config, StatusData>,
-    schemas: Schemas<Type, Config, StatusData>,
-  ): Promise<Task<Type, Config, StatusData>>;
-  async create<
-    Type extends z.ZodLiteral<string> = z.ZodLiteral<string>,
-    Config extends z.ZodType = z.ZodType,
-    StatusData extends z.ZodType = z.ZodType,
-  >(
-    tasks: New<Type, Config, StatusData>[],
-    schemas: Schemas<Type, Config, StatusData>,
-  ): Promise<Task<Type, Config, StatusData>[]>;
+  async create<S extends Schemas>(task: New<S>, schemas: S): Promise<Task<S>>;
+  async create<S extends Schemas>(tasks: New<S>[], schemas: S): Promise<Task<S>[]>;
 
-  async create<
-    Type extends z.ZodLiteral<string> = z.ZodLiteral<string>,
-    Config extends z.ZodType = z.ZodType,
-    StatusData extends z.ZodType = z.ZodType,
-  >(
-    task: New<Type, Config, StatusData> | Array<New<Type, Config, StatusData>>,
-    schemas?: Schemas<Type, Config, StatusData>,
-  ): Promise<Task<Type, Config, StatusData> | Array<Task<Type, Config, StatusData>>> {
+  async create<S extends Schemas>(
+    task: New<S> | New<S>[],
+    schemas?: S,
+  ): Promise<Task<S> | Task<S>[]> {
     const isSingle = !Array.isArray(task);
     const createReq = createReqZ(schemas);
     const createRes = createResZ(schemas);
@@ -340,10 +283,7 @@ export class Client {
       createReq,
       createRes,
     );
-    const sugared = this.sugar<Type, Config, StatusData>(
-      res.tasks as Payload<Type, Config, StatusData>[],
-      schemas,
-    );
+    const sugared = this.sugar<S>(res.tasks as Payload<S>[], schemas);
     return isSingle ? sugared[0] : sugared;
   }
 
@@ -357,32 +297,18 @@ export class Client {
     );
   }
 
-  async retrieve<
-    Type extends z.ZodLiteral<string>,
-    Config extends z.ZodType,
-    StatusData extends z.ZodType,
-  >(
-    args: RetrieveSingleParams & RetrieveSchemas<Type, Config, StatusData>,
-  ): Promise<Task<Type, Config, StatusData>>;
+  async retrieve<S extends Schemas = Schemas>(
+    args: RetrieveSingleParams & RetrieveSchemas<S>,
+  ): Promise<Task<S>>;
   async retrieve(args: RetrieveSingleParams): Promise<Task>;
-  async retrieve<
-    Type extends z.ZodLiteral<string>,
-    Config extends z.ZodType,
-    StatusData extends z.ZodType,
-  >(
-    args: RetrieveMultipleParams & RetrieveSchemas<Type, Config, StatusData>,
-  ): Promise<Task<Type, Config, StatusData>[]>;
+  async retrieve<S extends Schemas = Schemas>(
+    args: RetrieveMultipleParams & RetrieveSchemas<S>,
+  ): Promise<Task<S>[]>;
   async retrieve(args: RetrieveMultipleParams): Promise<Task[]>;
-  async retrieve<
-    Type extends z.ZodLiteral<string>,
-    Config extends z.ZodType,
-    StatusData extends z.ZodType,
-  >({
+  async retrieve<S extends Schemas = Schemas>({
     schemas,
     ...args
-  }: RetrieveArgs & RetrieveSchemas<Type, Config, StatusData>): Promise<
-    Task<Type, Config, StatusData> | Task<Type, Config, StatusData>[]
-  > {
+  }: RetrieveArgs & RetrieveSchemas<S>): Promise<Task<S> | Task<S>[]> {
     const isSingle = singleRetrieveArgsZ.safeParse(args).success;
     const res = await sendRequired(
       this.client,
@@ -391,8 +317,8 @@ export class Client {
       retrieveArgsZ,
       retrieveResZ(schemas),
     );
-    const tasks = res.tasks as Payload<Type, Config, StatusData>[];
-    const sugared = this.sugar<Type, Config, StatusData>(tasks, schemas);
+    const tasks = res.tasks as Payload<S>[];
+    const sugared = this.sugar(tasks, schemas);
     checkForMultipleOrNoResults("Task", args, sugared, isSingle);
     return isSingle ? sugared[0] : sugared;
   }
@@ -420,32 +346,14 @@ export class Client {
     return await retrieveSnapshottedTo(taskKey, this.ontologyClient);
   }
 
-  sugar<
-    Type extends z.ZodLiteral<string> = z.ZodLiteral<string>,
-    Config extends z.ZodType = z.ZodType,
-    StatusData extends z.ZodType = z.ZodType,
-  >(
-    payloads: Payload<Type, Config, StatusData>[],
-    schemas?: Schemas<Type, Config, StatusData>,
-  ): Task<Type, Config, StatusData>[];
+  sugar<S extends Schemas = Schemas>(payloads: Payload<S>[], schemas?: S): Task<S>[];
 
-  sugar<
-    Type extends z.ZodLiteral<string> = z.ZodLiteral<string>,
-    Config extends z.ZodType = z.ZodType,
-    StatusData extends z.ZodType = z.ZodType,
-  >(
-    payload: Payload<Type, Config, StatusData>,
-    schemas?: Schemas<Type, Config, StatusData>,
-  ): Task<Type, Config, StatusData>;
+  sugar<S extends Schemas = Schemas>(payload: Payload<S>, schemas?: S): Task<S>;
 
-  sugar<
-    Type extends z.ZodLiteral<string> = z.ZodLiteral<string>,
-    Config extends z.ZodType = z.ZodType,
-    StatusData extends z.ZodType = z.ZodType,
-  >(
-    payloads: Payload<Type, Config, StatusData> | Payload<Type, Config, StatusData>[],
-    schemas?: Schemas<Type, Config, StatusData>,
-  ): Task<Type, Config, StatusData>[] | Task<Type, Config, StatusData> {
+  sugar<S extends Schemas = Schemas>(
+    payloads: Payload<S> | Payload<S>[],
+    schemas?: S,
+  ): Task<S>[] | Task<S> {
     const isSingle = !Array.isArray(payloads);
     const res = array.toArray(payloads).map(
       ({ key, name, type, config, status, internal, snapshot }) =>

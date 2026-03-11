@@ -15,12 +15,8 @@ import {
   counterReadConfigZ,
   digitalReadConfigZ,
   digitalWriteConfigZ,
-  LINEAR_SCALE_TYPE,
-  MAP_SCALE_TYPE,
-  NO_SCALE_TYPE,
   type Scale,
   SCALE_SCHEMAS,
-  TABLE_SCALE_TYPE,
   ZERO_AI_CHANNEL,
   ZERO_ANALOG_READ_PAYLOAD,
   ZERO_ANALOG_WRITE_PAYLOAD,
@@ -42,10 +38,10 @@ interface ScaleExpectation {
 
 describe("scales", () => {
   const expectations: ScaleExpectation[] = [
-    { scale: ZERO_SCALES[NO_SCALE_TYPE], result: true },
-    { scale: ZERO_SCALES[LINEAR_SCALE_TYPE], result: true },
-    { scale: ZERO_SCALES[MAP_SCALE_TYPE], result: true },
-    { scale: ZERO_SCALES[TABLE_SCALE_TYPE], result: true },
+    { scale: ZERO_SCALES.none, result: true },
+    { scale: ZERO_SCALES.linear, result: true },
+    { scale: ZERO_SCALES.map, result: true },
+    { scale: ZERO_SCALES.table, result: true },
     {
       scale: {
         type: "linear",

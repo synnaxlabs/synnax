@@ -9,7 +9,7 @@
 
 import { Form as PForm, Select } from "@synnaxlabs/pluto";
 import { primitive } from "@synnaxlabs/x";
-import { type ReactElement, useEffect, useMemo } from "react";
+import { type ReactElement, useCallback, useEffect, useMemo } from "react";
 
 import { useRetrieveSlaveStateful } from "@/hardware/ethercat/device/queries";
 import { type PDOEntry } from "@/hardware/ethercat/device/types";
@@ -44,18 +44,22 @@ export const SelectPDOField = ({
     }));
   }, [slave, pdoType]);
 
+  const selectRenderProp = useCallback(
+    (props: Pick<Select.StaticProps<string, PDOOption>, "value" | "onChange">) => (
+      <Select.Static<string, PDOOption>
+        {...props}
+        data={pdoOptions}
+        resourceName="PDO"
+        allowNone={false}
+        emptyContent="No PDOs available. Select a slave device first."
+      />
+    ),
+    [pdoOptions],
+  );
+
   return (
     <PForm.Field<string> path={`${path}.pdo`} label="PDO" grow>
-      {({ value, onChange }) => (
-        <Select.Static<string, PDOOption>
-          value={value}
-          onChange={onChange}
-          data={pdoOptions}
-          resourceName="PDO"
-          allowNone={false}
-          emptyContent="No PDOs available. Select a slave device first."
-        />
-      )}
+      {selectRenderProp}
     </PForm.Field>
   );
 };

@@ -16,7 +16,7 @@ import (
 	. "github.com/onsi/gomega"
 	"github.com/samber/lo"
 	"github.com/synnaxlabs/arc/ir"
-	"github.com/synnaxlabs/arc/runtime/authority"
+	"github.com/synnaxlabs/arc/stl/control"
 	"github.com/synnaxlabs/arc/symbol"
 	"github.com/synnaxlabs/arc/text"
 	"github.com/synnaxlabs/arc/types"
@@ -394,7 +394,7 @@ var _ = Describe("Text", func() {
 
 			It("Should reject read channel for config param requiring write channel", func() {
 				resolver := symbol.CompoundResolver{
-					authority.SymbolResolver,
+					control.SymbolResolver,
 					symbol.MapResolver{
 						"read_sensor": {
 							Name: "read_sensor",
