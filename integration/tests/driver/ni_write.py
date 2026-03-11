@@ -257,16 +257,10 @@ def _ao_current_channels(
     return [map_scaled, nominal, lin_scaled]
 
 
-class NIAnalogWriteVoltage(NIAnalogWriteTaskCase):
-    """Write voltage on NI 9263 (E102Mod4).
+class _NIAnalogWriteVoltageBase(NIAnalogWriteTaskCase):
+    """Shared channel setup for voltage output tests on E102Mod4 (NI 9263)."""
 
-    Port 0: MapScale (%) | Port 1: nominal (V) | Port 2: LinScale (%)
-    """
-
-    task_name = "NI Analog Write Voltage"
     device_locations = ["E102Mod4"]
-    # port 0 (map): 25%=-5V, 75%=5V | port 1: -5V, 5V | port 2 (lin): 25%=-5V, 75%=5V
-    command_values = [[25, -5, 25], [75, 5, 75]]
 
     @staticmethod
     def create_channels(
@@ -275,22 +269,38 @@ class NIAnalogWriteVoltage(NIAnalogWriteTaskCase):
         return _ao_voltage_channels(client, devices)
 
 
-class NIAnalogWriteCurrent(NIAnalogWriteTaskCase):
-    """Write current on NI 9265 (E102Mod5).
+class _NIAnalogWriteCurrentBase(NIAnalogWriteTaskCase):
+    """Shared channel setup for current output tests on E102Mod5 (NI 9265)."""
 
-    Port 0: MapScale (%) | Port 1: nominal (A) | Port 2: LinScale (%)
-    """
-
-    task_name = "NI Analog Write Current"
     device_locations = ["E102Mod5"]
-    # port 0 (map): 25%=8mA, 75%=16mA | port 1: 0.008A, 0.016A | port 2 (lin): 25%, 75%
-    command_values = [[25, 0.008, 25], [75, 0.016, 75]]
 
     @staticmethod
     def create_channels(
         client: sy.Synnax, devices: dict[str, sy.Device]
     ) -> list[sy.ni.AOCurrentChan]:
         return _ao_current_channels(client, devices)
+
+
+class NIAnalogWriteVoltage(_NIAnalogWriteVoltageBase):
+    """Write voltage on NI 9263 (E102Mod4).
+
+    Port 0: MapScale (%) | Port 1: nominal (V) | Port 2: LinScale (%)
+    """
+
+    task_name = "NI Analog Write Voltage"
+    # port 0 (map): 25%=-5V, 75%=5V | port 1: -5V, 5V | port 2 (lin): 25%=-5V, 75%=5V
+    command_values = [[25, -5, 25], [75, 5, 75]]
+
+
+class NIAnalogWriteCurrent(_NIAnalogWriteCurrentBase):
+    """Write current on NI 9265 (E102Mod5).
+
+    Port 0: MapScale (%) | Port 1: nominal (A) | Port 2: LinScale (%)
+    """
+
+    task_name = "NI Analog Write Current"
+    # port 0 (map): 25%=8mA, 75%=16mA | port 1: 0.008A, 0.016A | port 2 (lin): 25%, 75%
+    command_values = [[25, 0.008, 25], [75, 0.016, 75]]
 
 
 def _send_oob_and_assert_state_clamped(
@@ -355,55 +365,37 @@ def _send_oob_and_assert_state_clamped(
             writer.close()
 
 
-class NIAnalogWriteVoltageOOB(NIAnalogWriteTaskCase):
+class _NIAnalogWriteOOBBase(NIAnalogWriteTaskCase):
+    """Base for OOB analog write tests — sends out-of-bounds values and verifies clamping."""
+
+    _oob_values: list[float]
+
+    def run(self) -> None:
+        assert self.tsk is not None
+        self.log("Testing: Send OOB values and verify state clamping")
+        with self.tsk.run():
+            _send_oob_and_assert_state_clamped(
+                self.client,
+                self.tsk,
+                oob_values=self._oob_values,
+                task_name=self.task_name,
+            )
+        self.log("State channels correctly show clamped values")
+
+
+class NIAnalogWriteVoltageOOB(_NIAnalogWriteOOBBase, _NIAnalogWriteVoltageBase):
     """Send out-of-bounds voltage and verify state is clamped by hardware."""
 
     task_name = "NI Analog Write Voltage OOB"
-    device_locations = ["E102Mod4"]
     command_values = [[25, -5, 25], [75, 5, 75]]
-
-    @staticmethod
-    def create_channels(
-        client: sy.Synnax, devices: dict[str, sy.Device]
-    ) -> list[sy.ni.AOVoltageChan]:
-        return _ao_voltage_channels(client, devices)
-
-    def run(self) -> None:
-        assert self.tsk is not None
-        self.log("Testing: Send OOB voltage values and verify state clamping")
-        with self.tsk.run():
-            # port 0 (map): 200% OOB, port 1: 15V OOB, port 2 (lin): 200% OOB
-            _send_oob_and_assert_state_clamped(
-                self.client,
-                self.tsk,
-                oob_values=[200, 15, 101],
-                task_name=self.task_name,
-            )
-        self.log("State channels correctly show clamped values")
+    # port 0 (map): 200% OOB, port 1: 15V OOB, port 2 (lin): 200% OOB
+    _oob_values = [200, 15, 101]
 
 
-class NIAnalogWriteCurrentOOB(NIAnalogWriteTaskCase):
+class NIAnalogWriteCurrentOOB(_NIAnalogWriteOOBBase, _NIAnalogWriteCurrentBase):
     """Send out-of-bounds current and verify state is clamped by hardware."""
 
     task_name = "NI Analog Write Current OOB"
-    device_locations = ["E102Mod5"]
     command_values = [[25, 0.008, 25], [75, 0.016, 75]]
-
-    @staticmethod
-    def create_channels(
-        client: sy.Synnax, devices: dict[str, sy.Device]
-    ) -> list[sy.ni.AOCurrentChan]:
-        return _ao_current_channels(client, devices)
-
-    def run(self) -> None:
-        assert self.tsk is not None
-        self.log("Testing: Send OOB current values and verify state clamping")
-        with self.tsk.run():
-            # port 0 (map): 200% OOB, port 1: 0.025A OOB, port 2 (lin): 200% OOB
-            _send_oob_and_assert_state_clamped(
-                self.client,
-                self.tsk,
-                oob_values=[200, 0.025, 101],
-                task_name=self.task_name,
-            )
-        self.log("State channels correctly show clamped values")
+    # port 0 (map): 200% OOB, port 1: 0.025A OOB, port 2 (lin): 200% OOB
+    _oob_values = [200, 0.025, 101]
