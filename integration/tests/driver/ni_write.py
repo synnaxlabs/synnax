@@ -61,6 +61,58 @@ class NIDigitalWrite(NIDigitalWriteTaskCase):
         return _do_channels(client, devices)
 
 
+def _assert_driver_rejects_value(
+    client: sy.Synnax,
+    task_key: int,
+    *,
+    cmd_keys: list[int],
+    value: float,
+    writer_name: str,
+    timeout: sy.TimeSpan = 10 * sy.TimeSpan.SECOND,
+) -> None:
+    """Write a value to all cmd channels and assert the driver emits a warning or error.
+
+    Opens the status streamer before writing to avoid missing events on slow runners.
+    """
+    from synnax.task.payload import Status
+
+    channels = client.channels.retrieve(cmd_keys)
+    index_keys = list({ch.index for ch in channels if ch.index != 0})
+
+    with client.open_streamer(["sy_status_set"]) as streamer:
+        writer = client.open_writer(
+            start=sy.TimeStamp.now(),
+            channels=cmd_keys + index_keys,
+            name=writer_name,
+            enable_auto_commit=True,
+        )
+        try:
+            writer.write(
+                {
+                    **{k: value for k in cmd_keys},
+                    **{k: sy.TimeStamp.now() for k in index_keys},
+                }
+            )
+        finally:
+            writer.close()
+
+        timer = sy.Timer()
+        while timer.elapsed() < timeout:
+            frame = streamer.read(timeout=timeout)
+            if frame is None:
+                break
+            if "sy_status_set" not in frame:
+                continue
+            for raw in frame["sy_status_set"]:
+                status = Status.model_validate(raw)
+                if status.details is None or status.details.task != task_key:
+                    continue
+                if status.variant in ("warning", "error"):
+                    return
+
+    raise AssertionError(f"Driver did not report an error for value {value}")
+
+
 class NIDigitalWriteInvalidData(NIDigitalWriteTaskCase):
     """Write invalid digital data (42) and verify the driver reports an error."""
 
@@ -77,22 +129,14 @@ class NIDigitalWriteInvalidData(NIDigitalWriteTaskCase):
         assert self.tsk is not None
         self.log("Testing: Send invalid digital values (42)")
         with self.tsk.run():
-            cmd_keys = self._channel_keys(self.tsk)
-            send_and_verify_commands(
+            _assert_driver_rejects_value(
                 self.client,
-                cmd_keys=cmd_keys,
+                self.tsk.key,
+                cmd_keys=self._channel_keys(self.tsk),
+                value=42.0,
                 writer_name=f"{self.task_name}_test_writer",
-                task_name=self.tsk.name,
-                command_values=[[42, 42], [100, 100]],
             )
-            try:
-                _assert_no_task_errors(
-                    self.client, self.tsk.key, task_name=self.tsk.name
-                )
-            except AssertionError:
-                self.log("Driver correctly rejected invalid digital data")
-                return
-        self.fail("Driver did not report an error for invalid digital data (42)")
+        self.log("Driver correctly rejected invalid digital data")
 
 
 def _ao_voltage_channels(

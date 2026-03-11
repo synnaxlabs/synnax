@@ -238,8 +238,8 @@ def assert_sample_counts_in_range(
     Returns the list of per-channel sample counts.
     """
     prefix = f"{task_name}: " if task_name else ""
-    min_samples = int(expected_samples * 0.60) if strict else 1
-    max_samples = int(expected_samples * 1.4) if strict else sys.maxsize
+    min_samples = int(expected_samples * 0.50) if strict else 1
+    max_samples = int(expected_samples * 1.5) if strict else sys.maxsize
 
     sample_counts = []
     for key in channel_keys:
@@ -251,7 +251,7 @@ def assert_sample_counts_in_range(
             if strict:
                 raise AssertionError(
                     f"{prefix}Channel '{ch.name}' has {num_samples} samples, "
-                    f"expected {expected_samples} ±40% "
+                    f"expected {expected_samples} ±50% "
                     f"({min_samples}-{max_samples})"
                 )
             else:

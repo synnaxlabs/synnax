@@ -65,7 +65,7 @@ class ForceIEPE(Analog):
             ).click()
             self.layout.page.locator(".pluto-list__item").get_by_text(
                 sensitivity_units, exact=True
-            ).click()
+            ).dispatch_event("click")
 
         self._configure_dropdown("Current Excitation Source", current_excitation_source)
         self._configure_input("Current Excitation Value", current_excitation_value)
