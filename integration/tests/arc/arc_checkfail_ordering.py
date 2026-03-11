@@ -8,10 +8,10 @@
 #  included in the file licenses/APL.txt.
 
 """
-Arc Checkfail Ordering Integration Test
+Arc Statement Ordering Integration Test
 
-Verifies that when multiple stage transition conditions (checkfails) are true
-simultaneously, the first-written condition takes priority.
+Verifies that when multiple stage transition conditions are true simultaneously,
+the first-written condition takes priority.
 
 Phase 1: cf_temp_a=200, cf_temp_b=400
     Only the second condition is true (cf_temp_b > 300), so we loop on/pause.
@@ -60,7 +60,7 @@ sequence main {
 
 
 class ArcCheckfailOrdering(ArcConsoleCase):
-    """Test that first-written checkfail takes priority over later ones."""
+    """Test that first-written transition takes priority and skips later statements."""
 
     arc_source = ARC_CHECKFAIL_SOURCE
     arc_name_prefix = "ArcCheckfailOrdering"
@@ -146,7 +146,7 @@ class ArcCheckfailOrdering(ArcConsoleCase):
     def _verify_on_pause_loop(self) -> None:
         """Phase 1: cf_temp_a=200, cf_temp_b=400 => only pause condition true.
 
-        With 500ms intervals, the 'on' stage may transition to 'pause' before
+        With 1s intervals, the 'on' stage may transition to 'pause' before
         we can poll it. We verify the loop by observing 'pause' entries and
         continuously writing sensor values so the runtime receives them.
         """
@@ -165,4 +165,4 @@ class ArcCheckfailOrdering(ArcConsoleCase):
         self.wait_for_eq("cf_stage_str", "off", is_virtual=True, timeout=5.0)
         self.wait_for_eq("cf_sim_stage", 3, is_virtual=True)
         self.wait_for_eq("cf_heater_cmd", 0, is_virtual=True)
-        self.log("Phase 2 complete: first checkfail (=> off) took priority")
+        self.log("Phase 2 complete: first transition won, later statements skipped")

@@ -1938,15 +1938,17 @@ TEST_F(SchedulerTest, testNextDeadlineFromStageNode) {
     EXPECT_EQ(scheduler->next_deadline(), x::telem::SECOND * 2);
 }
 
-/// @brief it should stop evaluating checkfails after the first transition fires
-TEST_F(SchedulerTest, testFirstCheckfailWinsWhenMultipleAreTrue) {
-    // Setup: trigger activates stage_on, which has two checkfail nodes (A and B)
-    // in the same stratum. Both are truthy and wire to different stage entries.
-    // A (first in stratum order) should win; B's transition should never fire.
+/// @brief it should stop evaluating ALL statements after the first transition
+/// fires, including channel writes that appear after the transition.
+TEST_F(SchedulerTest, testFirstStatementWinsWhenMultipleTransitionsAreTrue) {
+    // Setup: trigger activates stage_on, which has two transition nodes (A and B)
+    // and a channel write node (W) after them. When A transitions, both B and W
+    // should be skipped.
     auto &trigger = mock("trigger");
     auto &entry_on = mock("entry_seq_stage_on");
     auto &nodeA = mock("A");
     auto &nodeB = mock("B");
+    const auto &nodeW = mock("W");
     auto &entry_off = mock("entry_seq_stage_off");
     auto &entry_pause = mock("entry_seq_stage_pause");
     const auto &nodeOff = mock("Off");
@@ -1958,7 +1960,7 @@ TEST_F(SchedulerTest, testFirstCheckfailWinsWhenMultipleAreTrue) {
     entry_off.activate_on_next();
     entry_pause.activate_on_next();
 
-    // Both checkfails fire and are truthy
+    // Both transitions fire and are truthy
     nodeA.mark_on_next("check");
     nodeA.param_truthy["check"] = true;
     nodeB.mark_on_next("check");
@@ -1969,6 +1971,7 @@ TEST_F(SchedulerTest, testFirstCheckfailWinsWhenMultipleAreTrue) {
                   .node("entry_seq_stage_on")
                   .node("A")
                   .node("B")
+                  .node("W")
                   .node("entry_seq_stage_off")
                   .node("entry_seq_stage_pause")
                   .node("Off")
@@ -1980,7 +1983,8 @@ TEST_F(SchedulerTest, testFirstCheckfailWinsWhenMultipleAreTrue) {
                   .sequence(
                       "seq",
                       {{"stage_on",
-                        {{"A", "B"}, {"entry_seq_stage_off", "entry_seq_stage_pause"}}},
+                        {{"A", "B", "W"},
+                         {"entry_seq_stage_off", "entry_seq_stage_pause"}}},
                        {"stage_off", {{"Off"}}},
                        {"stage_pause", {{"Pause"}}}}
                   )
@@ -1993,6 +1997,8 @@ TEST_F(SchedulerTest, testFirstCheckfailWinsWhenMultipleAreTrue) {
     ASSERT_EQ(nodeOff.next_called, 1);
     // B's transition to stage_pause should never fire
     ASSERT_EQ(nodePause.next_called, 0);
+    // W (channel write after transitions) should also be skipped
+    ASSERT_EQ(nodeW.next_called, 0);
 }
 
 }
