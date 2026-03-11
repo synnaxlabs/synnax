@@ -35,7 +35,7 @@ func (ts *ObservableTransformPublisher[V, T]) Flow(ctx signal.Context, opts ...O
 	// Register the handler synchronously so that any goroutines it spawns (e.g.
 	// async observer handlers) exist before Flow returns. This prevents goroutine
 	// leak false positives in tests that snapshot baselines between setup and spec.
-	remove := ts.OnChange(func(ctx context.Context, v V) {
+	remove := ts.OnChange(func(_ context.Context, v V) {
 		t, ok, err := ts.Transform(ctx, v)
 		if err != nil {
 			ts.L.Error(fmt.Sprintf("observable transform publisher: transform error: %s", err))
@@ -44,7 +44,7 @@ func (ts *ObservableTransformPublisher[V, T]) Flow(ctx signal.Context, opts ...O
 		if !ok {
 			return
 		}
-		if err = signal.SendUnderContext(ctx, ts.Out.Inlet(), t); err != nil {
+		if err = signal.SendUnderContext(ctx, ts.Out.Inlet(), t); err != nil && ctx.Err() == nil {
 			ts.L.Error(fmt.Sprintf("observable transform publisher: send error: %s", err))
 		}
 	})

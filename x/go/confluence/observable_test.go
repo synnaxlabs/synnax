@@ -12,6 +12,7 @@ package confluence_test
 import (
 	"context"
 	"sync/atomic"
+	"time"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -88,6 +89,34 @@ var _ = Describe("Observable", func() {
 			cancel()
 			Expect(ctx.Wait()).To(MatchError(context.Canceled))
 			Eventually(outlet.Outlet()).Should(BeClosed())
+		})
+
+		It("Should not deadlock when publisher shuts down with a full outlet buffer", func() {
+			obsCtx, obsCancel := signal.Isolated()
+			defer obsCancel()
+			obs := observe.NewAsync[int](obsCtx, signal.WithRetryOnPanic(100))
+
+			outlet := NewStream[int](1)
+			pub := &ObservableTransformPublisher[int, int]{
+				Observable: obs,
+				Transform: func(_ context.Context, v int) (int, bool, error) {
+					return v, true, nil
+				},
+			}
+			pub.OutTo(outlet)
+
+			pubCtx, pubCancel := signal.Isolated()
+			pub.Flow(pubCtx, CloseOutputInletsOnExit())
+
+			obs.Notify(context.Background(), 1)
+			Eventually(outlet.Outlet()).Should(Receive(Equal(1)))
+
+			obs.Notify(context.Background(), 2)
+			time.Sleep(50 * time.Millisecond)
+			obs.Notify(context.Background(), 3)
+
+			pubCancel()
+			Eventually(pubCtx.Wait, 2*time.Second).Should(MatchError(context.Canceled))
 		})
 
 		It("Should not leak goroutines when used with an async observer", func() {
