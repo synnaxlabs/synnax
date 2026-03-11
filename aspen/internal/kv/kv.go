@@ -12,6 +12,7 @@ package kv
 import (
 	"context"
 	"io"
+	"time"
 
 	"github.com/synnaxlabs/alamos"
 	"github.com/synnaxlabs/x/address"
@@ -189,7 +190,10 @@ func Open(ctx context.Context, cfgs ...Config) (*DB, error) {
 			return func() xkv.TxReader { return tx.reader() }, true, nil
 		})
 	observable.Observer = observe.NewAsync[xkv.TxReader](
-		sCtx, signal.WithRetryOnPanic(100),
+		sCtx,
+		signal.WithRetryOnPanic(100),
+		signal.WithBaseRetryInterval(500*time.Millisecond),
+		signal.WithRetryScale(1.1),
 	)
 	plumber.SetSink[TxRequest](pipe, observableAddr, observable)
 	db.Observable = observable
