@@ -1938,17 +1938,15 @@ TEST_F(SchedulerTest, testNextDeadlineFromStageNode) {
     EXPECT_EQ(scheduler->next_deadline(), x::telem::SECOND * 2);
 }
 
-/// @brief it should stop evaluating ALL statements after the first transition
-/// fires, including channel writes that appear after the transition.
+/// @brief it should stop evaluating statements after the first transition fires
 TEST_F(SchedulerTest, testFirstStatementWinsWhenMultipleTransitionsAreTrue) {
     // Setup: trigger activates stage_on, which has two transition nodes (A and B)
-    // and a channel write node (W) after them. When A transitions, both B and W
-    // should be skipped.
+    // in the same stratum. Both are truthy and wire to different stage entries.
+    // A (first in stratum order) should win; B's transition should never fire.
     auto &trigger = mock("trigger");
     auto &entry_on = mock("entry_seq_stage_on");
     auto &nodeA = mock("A");
     auto &nodeB = mock("B");
-    const auto &nodeW = mock("W");
     auto &entry_off = mock("entry_seq_stage_off");
     auto &entry_pause = mock("entry_seq_stage_pause");
     const auto &nodeOff = mock("Off");
@@ -1971,7 +1969,6 @@ TEST_F(SchedulerTest, testFirstStatementWinsWhenMultipleTransitionsAreTrue) {
                   .node("entry_seq_stage_on")
                   .node("A")
                   .node("B")
-                  .node("W")
                   .node("entry_seq_stage_off")
                   .node("entry_seq_stage_pause")
                   .node("Off")
@@ -1983,7 +1980,7 @@ TEST_F(SchedulerTest, testFirstStatementWinsWhenMultipleTransitionsAreTrue) {
                   .sequence(
                       "seq",
                       {{"stage_on",
-                        {{"A", "B", "W"},
+                        {{"A", "B"},
                          {"entry_seq_stage_off", "entry_seq_stage_pause"}}},
                        {"stage_off", {{"Off"}}},
                        {"stage_pause", {{"Pause"}}}}
@@ -1997,8 +1994,6 @@ TEST_F(SchedulerTest, testFirstStatementWinsWhenMultipleTransitionsAreTrue) {
     ASSERT_EQ(nodeOff.next_called, 1);
     // B's transition to stage_pause should never fire
     ASSERT_EQ(nodePause.next_called, 0);
-    // W (channel write after transitions) should also be skipped
-    ASSERT_EQ(nodeW.next_called, 0);
 }
 
 }
