@@ -10,7 +10,7 @@ cc_library(
     visibility = ["//visibility:public"],
     deps = [
         "//arc/cpp/graph",
-        "//arc/cpp/module",
+        "//arc/cpp/program",
         "//arc/cpp/text",
         "//client/cpp/errors",
         "//core/pkg/api/grpc/v1:api_grpc",

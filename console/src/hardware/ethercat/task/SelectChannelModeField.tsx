@@ -12,36 +12,28 @@ import { deep, type record } from "@synnaxlabs/x";
 import { type ReactElement, useCallback } from "react";
 
 import {
-  AUTOMATIC_TYPE,
+  type Channel,
   type ChannelMode,
   type InputChannel,
-  MANUAL_TYPE,
   type OutputChannel,
 } from "@/hardware/ethercat/task/types";
 
 interface ChannelModeEntry extends record.KeyedNamed<ChannelMode> {}
 
 const DATA: ChannelModeEntry[] = [
-  { key: AUTOMATIC_TYPE, name: "Automatic (PDO)" },
-  { key: MANUAL_TYPE, name: "Manual (Address)" },
+  { key: "automatic", name: "Automatic (PDO)" },
+  { key: "manual", name: "Manual (Address)" },
 ];
 
 const Base = Form.buildSelectField<ChannelMode, ChannelModeEntry>({
   fieldKey: "type",
-  fieldProps: {
-    label: "Mode",
-    showHelpText: false,
-  },
-  inputProps: {
-    allowNone: false,
-    resourceName: "channel mode",
-    data: DATA,
-  },
+  fieldProps: { label: "Mode", showHelpText: false },
+  inputProps: { allowNone: false, resourceName: "channel mode", data: DATA },
 });
 
 export interface SelectChannelModeFieldProps {
   path: string;
-  zeroChannels: Record<ChannelMode, InputChannel | OutputChannel>;
+  zeroChannels: Record<ChannelMode, Channel>;
 }
 
 export const SelectChannelModeField = ({

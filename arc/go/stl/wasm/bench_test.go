@@ -1,0 +1,359 @@
+// Copyright 2026 Synnax Labs, Inc.
+//
+// Use of this software is governed by the Business Source License included in the file
+// licenses/BSL.txt.
+//
+// As of the Change Date specified in that file, in accordance with the Business Source
+// License, use of this software will be governed by the Apache License, Version 2.0,
+// included in the file licenses/APL.txt.
+
+package wasm_test
+
+import (
+	"context"
+	"testing"
+
+	"github.com/synnaxlabs/arc"
+	"github.com/synnaxlabs/arc/graph"
+	"github.com/synnaxlabs/arc/ir"
+	"github.com/synnaxlabs/arc/runtime/node"
+	stlerrors "github.com/synnaxlabs/arc/stl/errors"
+	stlmath "github.com/synnaxlabs/arc/stl/math"
+	"github.com/synnaxlabs/arc/stl/series"
+	"github.com/synnaxlabs/arc/stl/stateful"
+	stlstrings "github.com/synnaxlabs/arc/stl/strings"
+	stltime "github.com/synnaxlabs/arc/stl/time"
+	"github.com/synnaxlabs/arc/stl/wasm"
+	"github.com/synnaxlabs/arc/types"
+	"github.com/synnaxlabs/x/telem"
+	"github.com/tetratelabs/wazero"
+)
+
+// BenchmarkWASMNodeSimpleArithmetic measures the performance of a WASM node executing
+// simple arithmetic operations (affine transformation: y = a * x + b).
+//
+// This benchmark establishes baseline performance characteristics for:
+// - WASM function call overhead
+// - Value extraction/conversion (valueAt/setValueAt)
+// - Memory allocation patterns
+// - Scaling behavior with input data size
+//
+// The pattern tested is representative of common control system transformations like
+// sensor calibration, unit conversion, and simple signal processing.
+func BenchmarkWASMNodeSimpleArithmetic(b *testing.B) {
+	ctx := context.Background()
+
+	// Create graph: y = a * x + b
+	// This represents an affine transformation commonly used for sensor calibration
+	g := arc.Graph{
+		Functions: []ir.Function{
+			{
+				Key: "affine",
+				Inputs: types.Params{
+					{Name: "x", Type: types.F32()},
+					{Name: "a", Type: types.F32()},
+					{Name: "b", Type: types.F32()},
+				},
+				Outputs: types.Params{
+					{Name: ir.DefaultOutputParam, Type: types.F32()},
+				},
+				Body: ir.Body{Raw: `{
+							return a * x + b
+						}`},
+			},
+			{
+				Key: "x",
+				Outputs: types.Params{
+					{Name: ir.DefaultOutputParam, Type: types.F32()},
+				},
+				Body: ir.Body{Raw: `{ return 1.0 }`},
+			},
+			{
+				Key: "a",
+				Outputs: types.Params{
+					{Name: ir.DefaultOutputParam, Type: types.F32()},
+				},
+				Body: ir.Body{Raw: `{ return 1.0 }`},
+			},
+			{
+				Key: "b",
+				Outputs: types.Params{
+					{Name: ir.DefaultOutputParam, Type: types.F32()},
+				},
+				Body: ir.Body{Raw: `{ return 1.0 }`},
+			},
+		},
+		Nodes: []graph.Node{
+			{Key: "x", Type: "x"},
+			{Key: "a", Type: "a"},
+			{Key: "b", Type: "b"},
+			{Key: "affine", Type: "affine"},
+		},
+		Edges: []graph.Edge{
+			{
+				Source: ir.Handle{Node: "x", Param: ir.DefaultOutputParam},
+				Target: ir.Handle{Node: "affine", Param: "x"},
+			},
+			{
+				Source: ir.Handle{Node: "a", Param: ir.DefaultOutputParam},
+				Target: ir.Handle{Node: "affine", Param: "a"},
+			},
+			{
+				Source: ir.Handle{Node: "b", Param: ir.DefaultOutputParam},
+				Target: ir.Handle{Node: "affine", Param: "b"},
+			},
+		},
+	}
+
+	// Compile graph to WASM
+	mod, err := arc.CompileGraph(ctx, g)
+	if err != nil {
+		b.Fatalf("Failed to compile graph: %v", err)
+	}
+
+	// Analyze graph for IR
+	a, diagnostics := graph.Analyze(ctx, g, nil)
+	if diagnostics != nil && !diagnostics.Ok() {
+		b.Fatalf("Failed to analyze graph: %s", diagnostics.String())
+	}
+
+	// Create state manager
+	s := node.New(a)
+
+	xNode := s.Node("x")
+	aNode := s.Node("a")
+	bNode := s.Node("b")
+
+	stringsState := stlstrings.NewProgramState()
+	seriesState := series.NewProgramState()
+
+	wasmRT := wazero.NewRuntimeWithConfig(ctx, wazero.NewRuntimeConfigCompiler())
+	statefulMod, err := stateful.NewModule(ctx, seriesState, stringsState, wasmRT)
+	if err != nil {
+		b.Fatalf("Failed to create stateful module: %v", err)
+	}
+	_, _ = series.NewModule(ctx, seriesState, wasmRT)
+	stringsMod, err := stlstrings.NewModule(ctx, stringsState, wasmRT, nil)
+	if err != nil {
+		b.Fatalf("Failed to create strings module: %v", err)
+	}
+	_, _ = stlmath.NewModule(ctx, wasmRT)
+	errorsMod, err := stlerrors.NewModule(ctx, nil, wasmRT)
+	if err != nil {
+		b.Fatalf("Failed to create errors module: %v", err)
+	}
+	_, _ = stltime.NewModule(ctx, wasmRT)
+
+	guest, err := wasmRT.Instantiate(ctx, mod.WASM)
+	if err != nil {
+		b.Fatalf("Failed to instantiate WASM module: %v", err)
+	}
+	stringsMod.SetMemory(guest.Memory())
+	errorsMod.SetMemory(guest.Memory())
+
+	defer func() {
+		if err := guest.Close(ctx); err != nil {
+			b.Errorf("Failed to close guest module: %v", err)
+		}
+		if err := wasmRT.Close(ctx); err != nil {
+			b.Errorf("Failed to close wazero runtime: %v", err)
+		}
+	}()
+
+	factory := &wasm.Module{
+		Module:        guest,
+		Memory:        guest.Memory(),
+		Strings:       stringsState,
+		NodeKeySetter: statefulMod,
+	}
+
+	affineNode := s.Node("affine")
+	n, err := factory.Create(ctx, node.Config{
+		Node:    a.Nodes.Get("affine"),
+		State:   affineNode,
+		Program: mod,
+	})
+	if err != nil {
+		b.Fatalf("Failed to create WASM node: %v", err)
+	}
+
+	nodeCtx := node.Context{
+		Context:     ctx,
+		MarkChanged: func(output string) {},
+	}
+
+	b.ReportAllocs()
+	*aNode.Output(0) = telem.NewSeriesV[float32](1)
+	*aNode.OutputTime(0) = telem.NewSeriesSecondsTSV(1)
+	*bNode.Output(0) = telem.NewSeriesV[float32](1)
+	*bNode.OutputTime(0) = telem.NewSeriesSecondsTSV(1)
+
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		*xNode.OutputTime(0) = telem.NewSeriesSecondsTSV(telem.TimeStamp(i))
+		n.Next(nodeCtx)
+	}
+
+	b.StopTimer()
+
+	throughput := float64(b.N) / b.Elapsed().Seconds()
+	b.ReportMetric(throughput, "samples/sec")
+	b.ReportMetric(float64(b.Elapsed().Nanoseconds())/float64(b.N), "ns/sample")
+}
+
+// BenchmarkWASMNodeZeroAlloc is a variant that pre-allocates all series
+// to isolate whether nodeImpl.Next itself causes heap allocations
+// (specifically ctx boxing into context.Context).
+func BenchmarkWASMNodeZeroAlloc(b *testing.B) {
+	ctx := context.Background()
+
+	g := arc.Graph{
+		Functions: []ir.Function{
+			{
+				Key: "affine",
+				Inputs: types.Params{
+					{Name: "x", Type: types.F32()},
+					{Name: "a", Type: types.F32()},
+					{Name: "b", Type: types.F32()},
+				},
+				Outputs: types.Params{
+					{Name: ir.DefaultOutputParam, Type: types.F32()},
+				},
+				Body: ir.Body{Raw: `{ return a * x + b }`},
+			},
+			{
+				Key: "x",
+				Outputs: types.Params{
+					{Name: ir.DefaultOutputParam, Type: types.F32()},
+				},
+				Body: ir.Body{Raw: `{ return 1.0 }`},
+			},
+			{
+				Key: "a",
+				Outputs: types.Params{
+					{Name: ir.DefaultOutputParam, Type: types.F32()},
+				},
+				Body: ir.Body{Raw: `{ return 1.0 }`},
+			},
+			{
+				Key: "b",
+				Outputs: types.Params{
+					{Name: ir.DefaultOutputParam, Type: types.F32()},
+				},
+				Body: ir.Body{Raw: `{ return 1.0 }`},
+			},
+		},
+		Nodes: []graph.Node{
+			{Key: "x", Type: "x"},
+			{Key: "a", Type: "a"},
+			{Key: "b", Type: "b"},
+			{Key: "affine", Type: "affine"},
+		},
+		Edges: []graph.Edge{
+			{
+				Source: ir.Handle{Node: "x", Param: ir.DefaultOutputParam},
+				Target: ir.Handle{Node: "affine", Param: "x"},
+			},
+			{
+				Source: ir.Handle{Node: "a", Param: ir.DefaultOutputParam},
+				Target: ir.Handle{Node: "affine", Param: "a"},
+			},
+			{
+				Source: ir.Handle{Node: "b", Param: ir.DefaultOutputParam},
+				Target: ir.Handle{Node: "affine", Param: "b"},
+			},
+		},
+	}
+
+	mod, err := arc.CompileGraph(ctx, g)
+	if err != nil {
+		b.Fatalf("Failed to compile graph: %v", err)
+	}
+
+	a, diagnostics := graph.Analyze(ctx, g, nil)
+	if diagnostics != nil && !diagnostics.Ok() {
+		b.Fatalf("Failed to analyze graph: %s", diagnostics.String())
+	}
+
+	s := node.New(a)
+
+	xNode := s.Node("x")
+	aNode := s.Node("a")
+	bNode := s.Node("b")
+
+	stringsState := stlstrings.NewProgramState()
+	seriesState := series.NewProgramState()
+
+	wasmRT := wazero.NewRuntimeWithConfig(ctx, wazero.NewRuntimeConfigCompiler())
+	statefulMod, err := stateful.NewModule(ctx, seriesState, stringsState, wasmRT)
+	if err != nil {
+		b.Fatalf("Failed to create stateful module: %v", err)
+	}
+	_, _ = series.NewModule(ctx, seriesState, wasmRT)
+	stringsMod, err := stlstrings.NewModule(ctx, stringsState, wasmRT, nil)
+	if err != nil {
+		b.Fatalf("Failed to create strings module: %v", err)
+	}
+	_, _ = stlmath.NewModule(ctx, wasmRT)
+	errorsMod, err := stlerrors.NewModule(ctx, nil, wasmRT)
+	if err != nil {
+		b.Fatalf("Failed to create errors module: %v", err)
+	}
+	_, _ = stltime.NewModule(ctx, wasmRT)
+
+	guest, err := wasmRT.Instantiate(ctx, mod.WASM)
+	if err != nil {
+		b.Fatalf("Failed to instantiate WASM module: %v", err)
+	}
+	stringsMod.SetMemory(guest.Memory())
+	errorsMod.SetMemory(guest.Memory())
+
+	defer func() {
+		if err := guest.Close(ctx); err != nil {
+			b.Errorf("Failed to close guest module: %v", err)
+		}
+		if err := wasmRT.Close(ctx); err != nil {
+			b.Errorf("Failed to close wazero runtime: %v", err)
+		}
+	}()
+
+	factory := &wasm.Module{
+		Module:        guest,
+		Memory:        guest.Memory(),
+		Strings:       stringsState,
+		NodeKeySetter: statefulMod,
+	}
+
+	affineNode := s.Node("affine")
+	n, err := factory.Create(ctx, node.Config{
+		Node:    a.Nodes.Get("affine"),
+		State:   affineNode,
+		Program: mod,
+	})
+	if err != nil {
+		b.Fatalf("Failed to create WASM node: %v", err)
+	}
+
+	nodeCtx := node.Context{
+		Context:     ctx,
+		MarkChanged: func(output string) {},
+		ReportError: func(err error) {},
+	}
+
+	*aNode.Output(0) = telem.NewSeriesV[float32](1)
+	*aNode.OutputTime(0) = telem.NewSeriesSecondsTSV(1)
+	*bNode.Output(0) = telem.NewSeriesV[float32](1)
+	*bNode.OutputTime(0) = telem.NewSeriesSecondsTSV(1)
+	*xNode.Output(0) = telem.NewSeriesV[float32](1)
+	*xNode.OutputTime(0) = telem.NewSeriesSecondsTSV(1)
+
+	// Warm up to ensure all internal buffers are allocated
+	n.Next(nodeCtx)
+
+	b.ReportAllocs()
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		n.Next(nodeCtx)
+	}
+	b.StopTimer()
+}

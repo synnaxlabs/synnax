@@ -21,12 +21,7 @@ export const keyZ = z.union([
 export type Key = z.infer<typeof keyZ>;
 
 export const statusDetailsZ = <DataSchema extends z.ZodType>(data: DataSchema) =>
-  z.object({
-    task: keyZ,
-    running: z.boolean(),
-    data,
-    cmd: z.string().optional(),
-  });
+  z.object({ task: keyZ, running: z.boolean(), data, cmd: z.string().optional() });
 
 export type StatusDetails<DataSchema extends z.ZodType> = z.infer<
   ReturnType<typeof statusDetailsZ<DataSchema>>
@@ -35,9 +30,9 @@ export type StatusDetails<DataSchema extends z.ZodType> = z.infer<
 export const statusZ = <DataSchema extends z.ZodType>(data: DataSchema) =>
   status.statusZ(statusDetailsZ(data));
 
-export type Status<StatusData extends z.ZodType = z.ZodUnknown> = z.infer<
+export interface Status<StatusData extends z.ZodType = z.ZodUnknown> extends z.infer<
   ReturnType<typeof statusZ<StatusData>>
->;
+> {}
 
 const newStatusDetailsZ = <DataSchema extends z.ZodType>(data: DataSchema) =>
   statusDetailsZ(data).partial({ task: true });
@@ -45,83 +40,65 @@ const newStatusDetailsZ = <DataSchema extends z.ZodType>(data: DataSchema) =>
 export const newStatusZ = <DataSchema extends z.ZodType>(data: DataSchema) =>
   status.statusZ(newStatusDetailsZ(data)).partial({ key: true, name: true });
 
-export interface NewStatus<DataSchema extends z.ZodType = z.ZodUnknown> extends z.infer<
+export interface NewStatus<DataSchema extends z.ZodType = z.ZodType> extends z.infer<
   ReturnType<typeof newStatusZ<DataSchema>>
 > {}
-
-export const taskZ = <
-  Type extends z.ZodLiteral<string> = z.ZodLiteral<string>,
-  Config extends z.ZodType = z.ZodType,
-  StatusData extends z.ZodType = z.ZodUnknown,
->(
-  schemas: Schemas<Type, Config, StatusData> = {
-    typeSchema: z.string() as unknown as Type,
-    configSchema: record.nullishToEmpty() as unknown as Config,
-    statusDataSchema: z.unknown() as unknown as StatusData,
-  },
-) =>
-  z.object({
-    key: keyZ,
-    name: z.string(),
-    type: schemas.typeSchema,
-    internal: z.boolean().optional(),
-    config: schemas.configSchema,
-    status: statusZ(schemas.statusDataSchema).optional().nullable(),
-    snapshot: z.boolean().optional(),
-  });
 
 export interface Schemas<
   Type extends z.ZodLiteral<string> = z.ZodLiteral<string>,
   Config extends z.ZodType = z.ZodType,
   StatusData extends z.ZodType = z.ZodType,
 > {
-  typeSchema: Type;
-  configSchema: Config;
-  statusDataSchema: StatusData;
+  type: Type;
+  config: Config;
+  statusData: StatusData;
 }
 
-export type Payload<
-  Type extends z.ZodLiteral<string> = z.ZodLiteral<string>,
-  Config extends z.ZodType = z.ZodType,
-  StatusData extends z.ZodType = z.ZodType,
-> = {
+export const taskZ = <S extends Schemas = Schemas>(
+  schemas = {
+    type: z.string() as unknown as S["type"],
+    config: record.nullishToEmpty() as S["config"],
+    statusData: z.unknown() as S["statusData"],
+  },
+) =>
+  z.object({
+    key: keyZ,
+    name: z.string(),
+    type: schemas.type,
+    internal: z.boolean().optional(),
+    config: schemas.config,
+    status: statusZ(schemas.statusData).optional().nullable(),
+    snapshot: z.boolean().optional(),
+  });
+
+export interface Payload<S extends Schemas = Schemas> {
   key: Key;
   name: string;
-  type: z.infer<Type>;
-  config: z.infer<Config>;
-  status?: Status<StatusData>;
+  type: z.infer<S["type"]>;
+  config: z.infer<S["config"]>;
+  status?: Status<S["statusData"]>;
   snapshot?: boolean;
   internal?: boolean;
-};
+}
 
-export const newZ = <
-  Type extends z.ZodLiteral<string> = z.ZodLiteral<string>,
-  Config extends z.ZodType = z.ZodType,
-  StatusData extends z.ZodType = z.ZodUnknown,
->(
-  schemas?: Schemas<Type, Config, StatusData>,
-) =>
+export const newZ = <S extends Schemas = Schemas>(schemas?: S) =>
   taskZ(schemas)
     .omit({ key: true, status: true })
     .extend({
       key: keyZ.transform((k) => k.toString()).optional(),
-      config: schemas?.configSchema ?? record.nullishToEmpty(),
-      status: newStatusZ(schemas?.statusDataSchema ?? z.unknown())
+      config: schemas?.config ?? record.nullishToEmpty(),
+      status: newStatusZ(schemas?.statusData ?? z.unknown())
         .optional()
         .nullable(),
     });
 
-export type New<
-  Type extends z.ZodLiteral<string> = z.ZodLiteral<string>,
-  Config extends z.ZodType = z.ZodType,
-  StatusData extends z.ZodType = z.ZodUnknown,
-> = {
+export interface New<S extends Schemas = Schemas> {
   key?: Key;
   name: string;
-  type: z.infer<Type>;
-  config: z.infer<Config>;
-  status?: NewStatus<StatusData>;
-};
+  type: z.infer<S["type"]>;
+  config: z.infer<S["config"]>;
+  status?: NewStatus<S["statusData"]>;
+}
 
 export const commandZ = z.object({
   task: keyZ,

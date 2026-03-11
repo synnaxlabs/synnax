@@ -15,7 +15,7 @@ import (
 	"github.com/synnaxlabs/arc/compiler"
 	"github.com/synnaxlabs/arc/graph"
 	"github.com/synnaxlabs/arc/ir"
-	"github.com/synnaxlabs/arc/module"
+	"github.com/synnaxlabs/arc/program"
 	"github.com/synnaxlabs/arc/symbol"
 	"github.com/synnaxlabs/arc/text"
 )
@@ -30,7 +30,7 @@ type (
 	Symbol         = symbol.Symbol
 	Graph          = graph.Graph
 	Text           = text.Text
-	Module         = module.Module
+	Program        = program.Program
 )
 type options struct {
 	resolver SymbolResolver
@@ -50,36 +50,44 @@ func newOptions(opts []Option) *options {
 	return o
 }
 
-func CompileGraph(ctx context.Context, g Graph, opts ...Option) (Module, error) {
+func CompileGraph(ctx context.Context, g Graph, opts ...Option) (Program, error) {
 	o := newOptions(opts)
 	graphWithAST, err := graph.Parse(g)
 	if err != nil {
-		return Module{}, err
+		return Program{}, err
 	}
 	inter, diagnostics := graph.Analyze(ctx, graphWithAST, o.resolver)
 	if !diagnostics.Ok() {
-		return Module{}, diagnostics
+		return Program{}, diagnostics
 	}
-	output, cErr := compiler.Compile(ctx, inter)
+	var compOpts []compiler.Option
+	if o.resolver != nil {
+		compOpts = append(compOpts, compiler.WithHostSymbols(o.resolver))
+	}
+	output, cErr := compiler.Compile(ctx, inter, compOpts...)
 	if cErr != nil {
-		return Module{}, cErr
+		return Program{}, cErr
 	}
-	return Module{IR: inter, Output: output}, nil
+	return Program{IR: inter, Output: output}, nil
 }
 
-func CompileText(ctx context.Context, t Text, opts ...Option) (Module, error) {
+func CompileText(ctx context.Context, t Text, opts ...Option) (Program, error) {
 	o := newOptions(opts)
 	textWithAST, err := text.Parse(t)
 	if err != nil {
-		return Module{}, err
+		return Program{}, err
 	}
 	inter, diagnostics := text.Analyze(ctx, textWithAST, o.resolver)
 	if !diagnostics.Ok() {
-		return Module{}, diagnostics
+		return Program{}, diagnostics
 	}
-	output, cErr := compiler.Compile(ctx, inter)
+	var compOpts []compiler.Option
+	if o.resolver != nil {
+		compOpts = append(compOpts, compiler.WithHostSymbols(o.resolver))
+	}
+	output, cErr := compiler.Compile(ctx, inter, compOpts...)
 	if cErr != nil {
-		return Module{}, cErr
+		return Program{}, cErr
 	}
-	return Module{IR: inter, Output: output}, nil
+	return Program{IR: inter, Output: output}, nil
 }

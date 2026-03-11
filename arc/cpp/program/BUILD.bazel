@@ -1,0 +1,22 @@
+load("@rules_cc//cc:cc_library.bzl", "cc_library")
+load("@rules_cc//cc:cc_test.bzl", "cc_test")
+
+cc_library(
+    name = "program",
+    hdrs = ["program.h"],
+    visibility = ["//visibility:public"],
+    deps = [
+        "//arc/cpp/ir",
+        "//arc/go/program:program_grpc",
+    ],
+)
+
+cc_test(
+    name = "program_test",
+    srcs = ["program_test.cpp"],
+    deps = [
+        ":program",
+        "//arc/go/program:program_grpc",
+        "@googletest//:gtest_main",
+    ],
+)

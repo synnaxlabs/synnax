@@ -16,6 +16,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/samber/lo"
 	"github.com/synnaxlabs/alamos"
+	"github.com/synnaxlabs/arc/compiler"
 	arctransport "github.com/synnaxlabs/arc/lsp/transport"
 	arctext "github.com/synnaxlabs/arc/text"
 	"github.com/synnaxlabs/freighter"
@@ -203,11 +204,11 @@ func (s *Service) compileArc(ctx context.Context, arc *Arc) error {
 		return CompileError{Diagnostics: diag.Error()}
 	}
 	// Step 3: Compile IR to WebAssembly module
-	mod, err := arctext.Compile(ctx, ir)
+	mod, err := arctext.Compile(ctx, ir, compiler.WithHostSymbols(s.internal.SymbolResolver()))
 	if err != nil {
 		return err
 	}
 	// Step 4: Attach compiled module to Arc
-	arc.Module = mod
+	arc.Program = mod
 	return nil
 }
