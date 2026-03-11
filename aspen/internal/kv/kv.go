@@ -83,7 +83,11 @@ func (d *DB) apply(b []TxRequest) (err error) {
 	c := txCoordinator{}
 	for _, bd := range b {
 		c.add(&bd)
-		d.source.Out.Inlet() <- bd
+		if sendErr := signal.SendUnderContext(
+			bd.Context, d.source.Out.Inlet(), bd,
+		); sendErr != nil {
+			bd.done(sendErr)
+		}
 	}
 	return c.wait()
 }
@@ -173,7 +177,7 @@ func Open(ctx context.Context, cfgs ...Config) (*DB, error) {
 	plumber.SetSegment[TxRequest, TxRequest](
 		pipe,
 		persistDeltaAddr,
-		&confluence.DeltaMultiplier[TxRequest]{},
+		newPersistSplitter(chanBuffer*2),
 	)
 
 	// We use a generator observable to generate a unique transaction reader for
@@ -183,6 +187,9 @@ func Open(ctx context.Context, cfgs ...Config) (*DB, error) {
 		func(_ context.Context, tx TxRequest) (func() xkv.TxReader, bool, error) {
 			return func() xkv.TxReader { return tx.reader() }, true, nil
 		})
+	observable.Observer = observe.NewAsync[xkv.TxReader](
+		sCtx, signal.WithRetryOnPanic(100),
+	)
 	plumber.SetSink[TxRequest](pipe, observableAddr, observable)
 	db.Observable = observable
 
