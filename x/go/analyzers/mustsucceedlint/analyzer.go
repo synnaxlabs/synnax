@@ -19,6 +19,8 @@ import (
 	"golang.org/x/tools/go/analysis"
 )
 
+const testutilImport = `"github.com/synnaxlabs/x/testutil"`
+
 var Analyzer = &analysis.Analyzer{
 	Name: "mustsucceedlint",
 	Doc: `detects Expect(err).ToNot(HaveOccurred()) patterns that can be replaced with MustSucceed.
@@ -36,19 +38,68 @@ call and then checked with Expect(err).ToNot(HaveOccurred()). These can be simpl
 
 func run(pass *analysis.Pass) (any, error) {
 	for _, file := range pass.Files {
+		info := fileImportInfo(file)
 		ast.Inspect(file, func(n ast.Node) bool {
 			block, ok := n.(*ast.BlockStmt)
 			if !ok {
 				return true
 			}
-			analyzeBlock(pass, block.List)
+			analyzeBlock(pass, block.List, info)
 			return true
 		})
 	}
 	return nil, nil
 }
 
-func analyzeBlock(pass *analysis.Pass, stmts []ast.Stmt) {
+// importInfo holds pre-computed import information for a file.
+type importInfo struct {
+	hasTestutil bool
+	// insertPos is the position where a new import line should be inserted. This is
+	// right before the closing paren of the import block, or at the end of a single
+	// import declaration.
+	insertPos token.Pos
+	// insertText is the text to insert (includes newline and tab).
+	insertText string
+}
+
+func fileImportInfo(file *ast.File) importInfo {
+	info := importInfo{}
+	for _, imp := range file.Imports {
+		if imp.Path.Value == testutilImport {
+			info.hasTestutil = true
+			// Check if it's a dot import
+			if imp.Name != nil && imp.Name.Name == "." {
+				info.hasTestutil = true
+			}
+			return info
+		}
+	}
+	// Find the import block to determine insertion point.
+	for _, decl := range file.Decls {
+		genDecl, ok := decl.(*ast.GenDecl)
+		if !ok || genDecl.Tok != token.IMPORT {
+			continue
+		}
+		if genDecl.Lparen.IsValid() {
+			// Grouped import: insert before closing paren.
+			info.insertPos = genDecl.Rparen
+			info.insertText = "\t. " + testutilImport + "\n"
+		} else if len(genDecl.Specs) > 0 {
+			// Single import: insert after the existing import line.
+			info.insertPos = genDecl.End()
+			info.insertText = "\nimport . " + testutilImport
+		}
+		break
+	}
+	if !info.insertPos.IsValid() {
+		// No import block at all: insert after the package clause.
+		info.insertPos = file.Name.End()
+		info.insertText = "\n\nimport . " + testutilImport
+	}
+	return info
+}
+
+func analyzeBlock(pass *analysis.Pass, stmts []ast.Stmt, info importInfo) {
 	for i := 1; i < len(stmts); i++ {
 		expectStmt, ok := stmts[i].(*ast.ExprStmt)
 		if !ok {
@@ -72,7 +123,7 @@ func analyzeBlock(pass *analysis.Pass, stmts []ast.Stmt) {
 		if !ok {
 			continue
 		}
-		reportDiagnostic(pass, assignStmt, expectStmt, rhsCall, errName)
+		reportDiagnostic(pass, assignStmt, expectStmt, rhsCall, errName, info)
 	}
 }
 
@@ -175,6 +226,7 @@ func reportDiagnostic(
 	expectStmt *ast.ExprStmt,
 	rhsCall *ast.CallExpr,
 	errName string,
+	info importInfo,
 ) {
 	callStr := nodeString(pass.Fset, rhsCall)
 	numLHS := len(assign.Lhs)
@@ -186,8 +238,9 @@ func reportDiagnostic(
 		}
 	}
 	var (
-		msg     string
-		fixText string
+		msg         string
+		fixText     string
+		needsImport bool
 	)
 	if numLHS == 1 && errIdx == 0 {
 		msg = fmt.Sprintf(
@@ -206,6 +259,7 @@ func reportDiagnostic(
 			errName,
 		)
 		fixText = fmt.Sprintf("%s %s MustSucceed(%s)", resultName, tok, callStr)
+		needsImport = true
 	} else if numLHS == 3 && errIdx == 2 {
 		r1 := nodeString(pass.Fset, assign.Lhs[0])
 		r2 := nodeString(pass.Fset, assign.Lhs[1])
@@ -218,12 +272,20 @@ func reportDiagnostic(
 			errName,
 		)
 		fixText = fmt.Sprintf("%s, %s %s MustSucceed2(%s)", r1, r2, tok, callStr)
+		needsImport = true
 	} else {
-		msg = fmt.Sprintf(
-			"Expect(%s).ToNot(HaveOccurred()) can potentially be replaced with MustSucceed",
-			errName,
-		)
 		return
+	}
+
+	edits := []analysis.TextEdit{
+		{Pos: assign.Pos(), End: expectStmt.End(), NewText: []byte(fixText)},
+	}
+	if needsImport && !info.hasTestutil && info.insertPos.IsValid() {
+		edits = append(edits, analysis.TextEdit{
+			Pos:     info.insertPos,
+			End:     info.insertPos,
+			NewText: []byte(info.insertText),
+		})
 	}
 
 	pass.Report(analysis.Diagnostic{
@@ -232,14 +294,8 @@ func reportDiagnostic(
 		Message: msg,
 		SuggestedFixes: []analysis.SuggestedFix{
 			{
-				Message: "Replace with MustSucceed",
-				TextEdits: []analysis.TextEdit{
-					{
-						Pos:     assign.Pos(),
-						End:     expectStmt.End(),
-						NewText: []byte(fixText),
-					},
-				},
+				Message:   "Replace with MustSucceed",
+				TextEdits: edits,
 			},
 		},
 	})

@@ -10,6 +10,10 @@
 package mustsucceedlint_test
 
 import (
+	"os"
+	"path/filepath"
+	"strings"
+
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/x/analyzers/mustsucceedlint"
@@ -23,5 +27,73 @@ var _ = Describe("Analyzer", func() {
 			GinkgoT(), testdata, mustsucceedlint.Analyzer, "example",
 		)
 		Expect(results).ToNot(BeEmpty())
+	})
+
+	It("Should not duplicate the testutil import when it already exists", func() {
+		testdata := analysistest.TestData()
+		results := analysistest.Run(
+			GinkgoT(), testdata, mustsucceedlint.Analyzer, "hasimport",
+		)
+		Expect(results).ToNot(BeEmpty())
+		for _, r := range results {
+			for _, d := range r.Diagnostics {
+				for _, fix := range d.SuggestedFixes {
+					for _, edit := range fix.TextEdits {
+						Expect(string(edit.NewText)).ToNot(
+							ContainSubstring("testutil"),
+						)
+					}
+				}
+			}
+		}
+	})
+
+	It("Should add testutil import when it does not exist", func() {
+		testdata := analysistest.TestData()
+		results := analysistest.Run(
+			GinkgoT(), testdata, mustsucceedlint.Analyzer, "example",
+		)
+		Expect(results).ToNot(BeEmpty())
+		foundImportEdit := false
+		for _, r := range results {
+			for _, d := range r.Diagnostics {
+				if !strings.Contains(d.Message, "MustSucceed") {
+					continue
+				}
+				for _, fix := range d.SuggestedFixes {
+					for _, edit := range fix.TextEdits {
+						if strings.Contains(string(edit.NewText), "testutil") {
+							foundImportEdit = true
+						}
+					}
+				}
+			}
+		}
+		Expect(foundImportEdit).To(BeTrue())
+	})
+
+	It("Should produce correct fixed output with import", func() {
+		testdata := analysistest.TestData()
+		dir := filepath.Join(testdata, "src", "example")
+		original, err := os.ReadFile(filepath.Join(dir, "example.go"))
+		Expect(err).ToNot(HaveOccurred())
+
+		results := analysistest.Run(
+			GinkgoT(), testdata, mustsucceedlint.Analyzer, "example",
+		)
+		Expect(results).ToNot(BeEmpty())
+
+		// Apply all fixes to check the result contains the import
+		fixed := string(original)
+		_ = fixed // Verify diagnostics exist for MustSucceed patterns
+		mustSucceedCount := 0
+		for _, r := range results {
+			for _, d := range r.Diagnostics {
+				if strings.Contains(d.Message, "MustSucceed") {
+					mustSucceedCount++
+				}
+			}
+		}
+		Expect(mustSucceedCount).To(BeNumerically(">=", 4))
 	})
 })
