@@ -1,4 +1,4 @@
-package example
+package example // want "missing testutil import for MustSucceed"
 
 func Expect(_ any) Assertion      { return Assertion{} }
 func HaveOccurred() any           { return nil }

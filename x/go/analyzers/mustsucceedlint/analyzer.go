@@ -39,14 +39,36 @@ call and then checked with Expect(err).ToNot(HaveOccurred()). These can be simpl
 func run(pass *analysis.Pass) (any, error) {
 	for _, file := range pass.Files {
 		info := fileImportInfo(file)
+		var needsImport bool
 		ast.Inspect(file, func(n ast.Node) bool {
 			block, ok := n.(*ast.BlockStmt)
 			if !ok {
 				return true
 			}
-			analyzeBlock(pass, block.List, info)
+			if analyzeBlock(pass, block.List) {
+				needsImport = true
+			}
 			return true
 		})
+		if needsImport && !info.hasTestutil && info.insertPos.IsValid() {
+			pass.Report(analysis.Diagnostic{
+				Pos:     info.insertPos,
+				End:     info.insertPos,
+				Message: "missing testutil import for MustSucceed",
+				SuggestedFixes: []analysis.SuggestedFix{
+					{
+						Message: "Add testutil import",
+						TextEdits: []analysis.TextEdit{
+							{
+								Pos:     info.insertPos,
+								End:     info.insertPos,
+								NewText: []byte(info.insertText),
+							},
+						},
+					},
+				},
+			})
+		}
 	}
 	return nil, nil
 }
@@ -99,7 +121,9 @@ func fileImportInfo(file *ast.File) importInfo {
 	return info
 }
 
-func analyzeBlock(pass *analysis.Pass, stmts []ast.Stmt, info importInfo) {
+// analyzeBlock returns true if any MustSucceed replacement was emitted.
+func analyzeBlock(pass *analysis.Pass, stmts []ast.Stmt) bool {
+	var found bool
 	for i := 1; i < len(stmts); i++ {
 		expectStmt, ok := stmts[i].(*ast.ExprStmt)
 		if !ok {
@@ -123,8 +147,11 @@ func analyzeBlock(pass *analysis.Pass, stmts []ast.Stmt, info importInfo) {
 		if !ok {
 			continue
 		}
-		reportDiagnostic(pass, assignStmt, expectStmt, rhsCall, errName, info)
+		if reportDiagnostic(pass, assignStmt, expectStmt, rhsCall, errName) {
+			found = true
+		}
 	}
+	return found
 }
 
 // matchExpectErrNotHaveOccurred checks if an expression matches:
@@ -225,14 +252,15 @@ func assignsToName(assign *ast.AssignStmt, name string) bool {
 	return false
 }
 
+// reportDiagnostic reports a single code replacement diagnostic. Returns true if the
+// replacement uses MustSucceed/MustSucceed2 (meaning testutil import is needed).
 func reportDiagnostic(
 	pass *analysis.Pass,
 	assign *ast.AssignStmt,
 	expectStmt *ast.ExprStmt,
 	rhsCall *ast.CallExpr,
 	errName string,
-	info importInfo,
-) {
+) bool {
 	callStr := nodeString(pass.Fset, rhsCall)
 	numLHS := len(assign.Lhs)
 	errIdx := -1
@@ -295,18 +323,7 @@ func reportDiagnostic(
 			fixText = fmt.Sprintf("%s, %s %s MustSucceed2(%s)", r1, r2, tok, callStr)
 		}
 	} else {
-		return
-	}
-
-	edits := []analysis.TextEdit{
-		{Pos: assign.Pos(), End: expectStmt.End(), NewText: []byte(fixText)},
-	}
-	if needsImport && !info.hasTestutil && info.insertPos.IsValid() {
-		edits = append(edits, analysis.TextEdit{
-			Pos:     info.insertPos,
-			End:     info.insertPos,
-			NewText: []byte(info.insertText),
-		})
+		return false
 	}
 
 	pass.Report(analysis.Diagnostic{
@@ -315,11 +332,18 @@ func reportDiagnostic(
 		Message: msg,
 		SuggestedFixes: []analysis.SuggestedFix{
 			{
-				Message:   "Replace with MustSucceed",
-				TextEdits: edits,
+				Message: "Replace with MustSucceed",
+				TextEdits: []analysis.TextEdit{
+					{
+						Pos:     assign.Pos(),
+						End:     expectStmt.End(),
+						NewText: []byte(fixText),
+					},
+				},
 			},
 		},
 	})
+	return needsImport
 }
 
 func nodeString(fset *token.FileSet, node ast.Node) string {

@@ -87,6 +87,67 @@ var _ = Describe("Analyzer", func() {
 		Expect(mustSucceedCount).To(BeNumerically(">=", 4))
 	})
 
+	It("Should only emit a single import edit across multiple diagnostics in the same file", func() {
+		testdata := analysistest.TestData()
+		results := analysistest.Run(
+			GinkgoT(), testdata, mustsucceedlint.Analyzer, "example",
+		)
+		Expect(results).ToNot(BeEmpty())
+		importEditCount := 0
+		for _, r := range results {
+			for _, d := range r.Diagnostics {
+				for _, fix := range d.SuggestedFixes {
+					for _, edit := range fix.TextEdits {
+						if strings.Contains(string(edit.NewText), "testutil") {
+							importEditCount++
+						}
+					}
+				}
+			}
+		}
+		Expect(importEditCount).To(Equal(1))
+	})
+
+	It("Should emit the import as its own separate diagnostic, not bundled into a code fix", func() {
+		testdata := analysistest.TestData()
+		results := analysistest.Run(
+			GinkgoT(), testdata, mustsucceedlint.Analyzer, "example",
+		)
+		Expect(results).ToNot(BeEmpty())
+		// The import must be its own diagnostic so that golangci-lint can apply
+		// it independently. If it's bundled as a second TextEdit inside a code
+		// replacement diagnostic, golangci-lint silently drops it.
+		foundImportDiagnostic := false
+		for _, r := range results {
+			for _, d := range r.Diagnostics {
+				if strings.Contains(d.Message, "import") {
+					Expect(d.SuggestedFixes).To(HaveLen(1))
+					Expect(d.SuggestedFixes[0].TextEdits).To(HaveLen(1))
+					Expect(string(d.SuggestedFixes[0].TextEdits[0].NewText)).To(
+						ContainSubstring("testutil"),
+					)
+					foundImportDiagnostic = true
+				}
+			}
+		}
+		Expect(foundImportDiagnostic).To(BeTrue())
+		// Also verify no code replacement diagnostic has a testutil import
+		// edit bundled into it.
+		for _, r := range results {
+			for _, d := range r.Diagnostics {
+				if !strings.Contains(d.Message, "import") {
+					for _, fix := range d.SuggestedFixes {
+						for _, edit := range fix.TextEdits {
+							Expect(string(edit.NewText)).ToNot(
+								ContainSubstring("testutil"),
+							)
+						}
+					}
+				}
+			}
+		}
+	})
+
 	It("Should remove LHS and assignment when all LHS vars are blank", func() {
 		testdata := analysistest.TestData()
 		results := analysistest.Run(
