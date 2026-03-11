@@ -16,7 +16,6 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	. "github.com/synnaxlabs/x/confluence"
-	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/observe"
 	"github.com/synnaxlabs/x/signal"
 	. "github.com/synnaxlabs/x/testutil"
@@ -45,7 +44,7 @@ var _ = Describe("Observable", func() {
 			Eventually(outlet.Outlet()).Should(Receive(Equal(6)))
 
 			cancel()
-			Expect(errors.Skip(ctx.Wait(), context.Canceled)).To(Succeed())
+			Expect(ctx.Wait()).To(MatchError(context.Canceled))
 		})
 
 		It("Should not forward values when transform returns false", func() {
@@ -67,7 +66,7 @@ var _ = Describe("Observable", func() {
 			Eventually(outlet.Outlet()).Should(Receive(Equal(5)))
 
 			cancel()
-			Expect(errors.Skip(ctx.Wait(), context.Canceled)).To(Succeed())
+			Expect(ctx.Wait()).To(MatchError(context.Canceled))
 		})
 
 		It("Should disconnect the observer and close the outlet on shutdown", func() {
@@ -87,7 +86,7 @@ var _ = Describe("Observable", func() {
 			Eventually(outlet.Outlet()).Should(Receive(Equal(1)))
 
 			cancel()
-			Expect(errors.Skip(ctx.Wait(), context.Canceled)).To(Succeed())
+			Expect(ctx.Wait()).To(MatchError(context.Canceled))
 			Eventually(outlet.Outlet()).Should(BeClosed())
 		})
 
@@ -113,11 +112,11 @@ var _ = Describe("Observable", func() {
 			Eventually(outlet.Outlet()).Should(Receive(Equal(42)))
 
 			pubCancel()
-			Expect(errors.Skip(pubCtx.Wait(), context.Canceled)).To(Succeed())
+			Expect(pubCtx.Wait()).To(MatchError(context.Canceled))
 			Eventually(outlet.Outlet()).Should(BeClosed())
 
+			Expect(sCtx.Wait()).To(Succeed())
 			cancel()
-			Expect(errors.Skip(sCtx.Wait(), context.Canceled)).To(Succeed())
 		})
 	})
 
@@ -143,7 +142,7 @@ var _ = Describe("Observable", func() {
 			Eventually(received.Load).Should(Equal(int64(99)))
 
 			cancel()
-			Expect(errors.Skip(ctx.Wait(), context.Canceled)).To(Succeed())
+			Expect(ctx.Wait()).To(MatchError(context.Canceled))
 		})
 
 		It("Should notify multiple observers", func() {
@@ -163,7 +162,7 @@ var _ = Describe("Observable", func() {
 			Eventually(count.Load).Should(Equal(int64(2)))
 
 			cancel()
-			Expect(errors.Skip(ctx.Wait(), context.Canceled)).To(Succeed())
+			Expect(ctx.Wait()).To(MatchError(context.Canceled))
 		})
 	})
 
@@ -199,7 +198,7 @@ var _ = Describe("Observable", func() {
 			Expect(callCount.Load()).To(Equal(int64(2)))
 
 			cancel()
-			Expect(errors.Skip(ctx.Wait(), context.Canceled)).To(Succeed())
+			Expect(ctx.Wait()).To(MatchError(context.Canceled))
 		})
 
 		It("Should not notify when generator returns false", func() {
@@ -225,7 +224,7 @@ var _ = Describe("Observable", func() {
 			Eventually(received.Load).Should(Equal(int64(5)))
 
 			cancel()
-			Expect(errors.Skip(ctx.Wait(), context.Canceled)).To(Succeed())
+			Expect(ctx.Wait()).To(MatchError(context.Canceled))
 		})
 	})
 })
