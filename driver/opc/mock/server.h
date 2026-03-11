@@ -22,7 +22,9 @@
 #include "open62541/server.h"
 #include "open62541/server_config_default.h"
 
+/// module
 #include "driver/opc/types/types.h"
+#include "x/cpp/telem/telem.h"
 
 namespace mock {
 struct TestNode {
@@ -291,10 +293,10 @@ public:
     std::atomic<bool> running{false};
     std::atomic<bool> ready{false};
     std::thread thread;
-    /// @brief artificial delay (ms) injected before each server iterate cycle.
+    /// @brief artificial delay injected before each server iterate cycle.
     /// Used in tests to simulate a slow server (e.g. network-unreachable PLC).
     /// Zero means no delay.
-    std::atomic<uint32_t> probe_delay_ms{0};
+    x::telem::TimeSpan probe_delay{};
 
     explicit Server(const ServerConfig &cfg): cfg(cfg) {}
 
@@ -392,8 +394,10 @@ public:
         ready = true;
 
         while (running.load()) {
-            if (const auto d = probe_delay_ms.load(std::memory_order_relaxed); d > 0)
-                std::this_thread::sleep_for(std::chrono::milliseconds(d));
+            if (probe_delay.nanoseconds() > 0)
+                std::this_thread::sleep_for(
+                    std::chrono::nanoseconds(probe_delay.nanoseconds())
+                );
             UA_Server_run_iterate(server, true);
         }
 

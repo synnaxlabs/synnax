@@ -409,7 +409,7 @@ TEST_F(ConnectionPoolTest, ConcurrentRecoveryAfterFailure) {
 /// probes its connection concurrently.
 ///
 /// We inject an artificial 2s delay into the mock server's iterate cycle via
-/// server_->probe_delay_ms to simulate a slow server (TCP SYN hang). Without
+/// server_->probe_delay to simulate a slow server (TCP SYN hang). Without
 /// this, localhost probes return instantly and mutex contention is unobservable.
 /// After thread A enters its delayed probe, we clear the server delay so
 /// thread B's probe against server2 completes instantly.
@@ -438,8 +438,7 @@ TEST_F(ConnectionPoolTest, HealthyEndpointNotBlockedBySlowProbe) {
 
     // Inject a 2-second delay into the mock server's iterate cycle to simulate
     // a slow/unreachable server where health probes hang.
-    const int probe_delay_ms = 2000;
-    server_->probe_delay_ms.store(probe_delay_ms, std::memory_order_relaxed);
+    server_->probe_delay = 2 * x::telem::SECOND;
 
     // Thread A: acquire from server1 (will hit the slow probe on cached conn)
     std::thread thread_a([&pool, this]() {
@@ -453,7 +452,7 @@ TEST_F(ConnectionPoolTest, HealthyEndpointNotBlockedBySlowProbe) {
 
     // Clear the server delay so subsequent iterate cycles are fast.
     // Thread A is already blocked waiting for server1's response.
-    server_->probe_delay_ms.store(0, std::memory_order_relaxed);
+    server_->probe_delay = x::telem::TimeSpan{};
 
     std::chrono::milliseconds thread_b_elapsed{0};
 
@@ -476,8 +475,8 @@ TEST_F(ConnectionPoolTest, HealthyEndpointNotBlockedBySlowProbe) {
     //
     // On main (probe inside lock): thread A holds the lock for the entire
     // 2-second probe. Thread B blocks on the lock until A finishes, so it
-    // takes >= probe_delay_ms.
-    EXPECT_LT(thread_b_elapsed.count(), probe_delay_ms - 500)
+    // takes >= 2 seconds (the injected probe delay).
+    EXPECT_LT(thread_b_elapsed.count(), 1500)
         << "Thread B took " << thread_b_elapsed.count()
         << "ms, suggesting it was blocked by thread A's slow health probe. "
         << "The health probe should run outside the mutex.";
