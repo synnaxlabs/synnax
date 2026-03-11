@@ -2039,4 +2039,56 @@ TEST_F(SchedulerTest, testTransitionSkipsLaterWriteStatementInSameStage) {
     ASSERT_EQ(write_cmd.next_called, 0);
 }
 
+/// @brief it should respect source order when entry nodes are at the same stratum
+TEST_F(SchedulerTest, testSourceOrderPriorityWhenEntriesAtSameStratum) {
+    auto &trigger = mock("trigger");
+    auto &entry_active = mock("entry_seq_active");
+    auto &condA = mock("condA");
+    auto &condB = mock("condB");
+    auto &entryA = mock("entry_seq_stage_a");
+    auto &entryB = mock("entry_seq_stage_b");
+    const auto &nodeA = mock("A");
+    const auto &nodeB = mock("B");
+
+    trigger.mark_on_next("activate");
+    trigger.param_truthy["activate"] = true;
+    entry_active.activate_on_next();
+
+    condA.mark_on_next("check");
+    condA.param_truthy["check"] = true;
+    condB.mark_on_next("check");
+    condB.param_truthy["check"] = true;
+    entryA.activate_on_next();
+    entryB.activate_on_next();
+
+    auto ir = ir::testutil::Builder()
+                  .node("trigger")
+                  .node("entry_seq_active")
+                  .node("condA")
+                  .node("condB")
+                  .node("entry_seq_stage_a")
+                  .node("entry_seq_stage_b")
+                  .node("A")
+                  .node("B")
+                  .oneshot("trigger", "activate", "entry_seq_active", "input")
+                  .oneshot("condA", "check", "entry_seq_stage_a", "input")
+                  .oneshot("condB", "check", "entry_seq_stage_b", "input")
+                  .strata({{"trigger"}, {"entry_seq_active"}})
+                  .sequence(
+                      "seq",
+                      {{"active",
+                        {{"condA", "condB"},
+                         {"entry_seq_stage_a", "entry_seq_stage_b"}}},
+                       {"stage_a", {{"A"}}},
+                       {"stage_b", {{"B"}}}}
+                  )
+                  .build();
+
+    const auto scheduler = build(std::move(ir));
+    scheduler->next(x::telem::MILLISECOND, node::RunReason::TimerTick);
+
+    ASSERT_EQ(nodeA.next_called, 1);
+    ASSERT_EQ(nodeB.next_called, 0);
+}
+
 }

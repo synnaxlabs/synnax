@@ -987,6 +987,122 @@ var _ = Describe("Scheduler", func() {
 		})
 	})
 
+	Describe("Source-Order Transition Priority", func() {
+		It("Should select the shallower entry when entries are at different strata", func() {
+			// Documents the pre-fix behavior: when entry nodes are at different
+			// strata, the shallower one wins due to short-circuit, regardless of
+			// source order. This is the bug we're fixing in the stratifier.
+			trigger := mock("trigger")
+			entryActive := mock("entry_seq_active")
+			condA := mock("condA")
+			condB := mock("condB")
+			entryA := mock("entry_seq_stage_a")
+			entryB := mock("entry_seq_stage_b")
+			nodeA := mock("A")
+			nodeB := mock("B")
+
+			trigger.MarkOnNext("activate")
+			trigger.ParamTruthy["activate"] = true
+			entryActive.ActivateOnNext()
+
+			condA.MarkOnNext("check")
+			condA.ParamTruthy["check"] = true
+			condB.MarkOnNext("check")
+			condB.ParamTruthy["check"] = true
+			entryA.ActivateOnNext()
+			entryB.ActivateOnNext()
+
+			prog := testutil.NewIRBuilder().
+				Node("trigger").
+				Node("entry_seq_active").
+				Node("condA").
+				Node("condB").
+				Node("entry_seq_stage_a").
+				Node("entry_seq_stage_b").
+				Node("A").
+				Node("B").
+				OneShot("trigger", "activate", "entry_seq_active", "input").
+				OneShot("condA", "check", "entry_seq_stage_a", "input").
+				OneShot("condB", "check", "entry_seq_stage_b", "input").
+				Strata([][]string{{"trigger"}, {"entry_seq_active"}}).
+				Sequence("seq", []testutil.StageSpec{
+					// entry_b at stratum 1, entry_a at stratum 2 (different strata)
+					{Key: "active", Strata: [][]string{
+						{"condA", "condB"},
+						{"entry_seq_stage_b"},
+						{"entry_seq_stage_a"},
+					}},
+					{Key: "stage_a", Strata: [][]string{{"A"}}},
+					{Key: "stage_b", Strata: [][]string{{"B"}}},
+				}).
+				Build()
+
+			s := build(prog)
+			s.Next(ctx, telem.Microsecond, node.ReasonTimerTick)
+
+			// Short-circuit picks the shallower entry (stage_b at stratum 1)
+			// even though stage_a should win by source order.
+			Expect(nodeB.NextCalled).To(Equal(1))
+			Expect(nodeA.NextCalled).To(Equal(0))
+		})
+
+		It("Should respect source order when entries are at the same stratum", func() {
+			// Post-fix behavior: when the stratifier flattens entry nodes to the
+			// same stratum, source order (position within the stratum) determines
+			// which transition wins.
+			trigger := mock("trigger")
+			entryActive := mock("entry_seq_active")
+			condA := mock("condA")
+			condB := mock("condB")
+			entryA := mock("entry_seq_stage_a")
+			entryB := mock("entry_seq_stage_b")
+			nodeA := mock("A")
+			nodeB := mock("B")
+
+			trigger.MarkOnNext("activate")
+			trigger.ParamTruthy["activate"] = true
+			entryActive.ActivateOnNext()
+
+			condA.MarkOnNext("check")
+			condA.ParamTruthy["check"] = true
+			condB.MarkOnNext("check")
+			condB.ParamTruthy["check"] = true
+			entryA.ActivateOnNext()
+			entryB.ActivateOnNext()
+
+			prog := testutil.NewIRBuilder().
+				Node("trigger").
+				Node("entry_seq_active").
+				Node("condA").
+				Node("condB").
+				Node("entry_seq_stage_a").
+				Node("entry_seq_stage_b").
+				Node("A").
+				Node("B").
+				OneShot("trigger", "activate", "entry_seq_active", "input").
+				OneShot("condA", "check", "entry_seq_stage_a", "input").
+				OneShot("condB", "check", "entry_seq_stage_b", "input").
+				Strata([][]string{{"trigger"}, {"entry_seq_active"}}).
+				Sequence("seq", []testutil.StageSpec{
+					// Both entries at the same stratum, stage_a first (source order)
+					{Key: "active", Strata: [][]string{
+						{"condA", "condB"},
+						{"entry_seq_stage_a", "entry_seq_stage_b"},
+					}},
+					{Key: "stage_a", Strata: [][]string{{"A"}}},
+					{Key: "stage_b", Strata: [][]string{{"B"}}},
+				}).
+				Build()
+
+			s := build(prog)
+			s.Next(ctx, telem.Microsecond, node.ReasonTimerTick)
+
+			// Source-order first entry (stage_a) wins
+			Expect(nodeA.NextCalled).To(Equal(1))
+			Expect(nodeB.NextCalled).To(Equal(0))
+		})
+	})
+
 	Describe("Convergence Loop", func() {
 		It("Should converge single transition", func() {
 			trigger := mock("trigger")

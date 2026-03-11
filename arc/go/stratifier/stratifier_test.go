@@ -1120,8 +1120,10 @@ var _ = Describe("Stratification", func() {
 
 			_, diag = stratifier.Stratify(ctx, nodes, edges, sequences, diag)
 			Expect(diag == nil || diag.Ok()).To(BeTrue())
+			// Entry nodes are flattened to the end of their stratum so writes
+			// execute before the short-circuit fires.
 			Expect(sequences[0].Stages[0].Strata[2]).To(Equal(
-				[]string{"entry_main_off", "write_a", "entry_main_pause", "write_b"},
+				[]string{"write_a", "write_b", "entry_main_off", "entry_main_pause"},
 			))
 		})
 
@@ -1166,6 +1168,74 @@ var _ = Describe("Stratification", func() {
 			_, diag = stratifier.Stratify(ctx, nodes, edges, sequences, diag)
 			Expect(diag == nil || diag.Ok()).To(BeTrue())
 			Expect(sequences[0].Stages[0].Strata[2]).To(Equal(
+				[]string{"entry_main_off", "entry_main_pause"},
+			))
+		})
+
+		It("Should flatten entry nodes at different natural strata to the deepest entry stratum", func() {
+			var (
+				nodes = []ir.Node{
+					{Key: "entry_main_off", Type: "entry"},
+					{Key: "entry_main_pause", Type: "entry"},
+					{Key: "interval", Type: "interval"},
+					{Key: "check_a", Type: "gt"},
+					{Key: "check_b", Type: "gt"},
+					{Key: "and_node", Type: "and"},
+				}
+				edges = []ir.Edge{
+					// Short chain: interval -> check_a -> entry_main_off (stratum 2)
+					{
+						Source: ir.Handle{Node: "interval", Param: ir.DefaultOutputParam},
+						Target: ir.Handle{Node: "check_a", Param: "input"},
+						Kind:   ir.EdgeKindContinuous,
+					},
+					{
+						Source: ir.Handle{Node: "check_a", Param: ir.DefaultOutputParam},
+						Target: ir.Handle{Node: "entry_main_off", Param: "activate"},
+						Kind:   ir.EdgeKindOneShot,
+					},
+					// Long chain: interval -> check_b -> and_node -> entry_main_pause (stratum 3)
+					{
+						Source: ir.Handle{Node: "interval", Param: ir.DefaultOutputParam},
+						Target: ir.Handle{Node: "check_b", Param: "input"},
+						Kind:   ir.EdgeKindContinuous,
+					},
+					{
+						Source: ir.Handle{Node: "check_b", Param: ir.DefaultOutputParam},
+						Target: ir.Handle{Node: "and_node", Param: "input"},
+						Kind:   ir.EdgeKindContinuous,
+					},
+					{
+						Source: ir.Handle{Node: "and_node", Param: ir.DefaultOutputParam},
+						Target: ir.Handle{Node: "entry_main_pause", Param: "activate"},
+						Kind:   ir.EdgeKindOneShot,
+					},
+				}
+				sequences = []ir.Sequence{
+					{
+						Key: "main",
+						Stages: []ir.Stage{
+							{
+								Key:   "on",
+								Nodes: []string{"interval", "check_a", "check_b", "and_node"},
+							},
+							{Key: "off", Nodes: nil},
+							{Key: "pause", Nodes: nil},
+						},
+					},
+				}
+				diag = &diagnostics.Diagnostics{}
+			)
+
+			_, diag = stratifier.Stratify(ctx, nodes, edges, sequences, diag)
+			Expect(diag == nil || diag.Ok()).To(BeTrue())
+			// Both entry nodes should be at the same stratum (the max natural stratum
+			// among entry nodes), with source order preserved (off before pause).
+			Expect(sequences[0].Stages[0].Strata.Get("entry_main_off")).To(
+				Equal(sequences[0].Stages[0].Strata.Get("entry_main_pause")),
+			)
+			maxStratum := sequences[0].Stages[0].Strata.Get("entry_main_pause")
+			Expect(sequences[0].Stages[0].Strata[maxStratum]).To(Equal(
 				[]string{"entry_main_off", "entry_main_pause"},
 			))
 		})
