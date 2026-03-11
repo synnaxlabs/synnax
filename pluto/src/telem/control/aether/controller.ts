@@ -17,6 +17,7 @@ import {
   TimeStamp,
   ValidationError,
 } from "@synnaxlabs/client";
+import { StreamClosed, Unreachable } from "@synnaxlabs/freighter";
 import {
   color,
   compare,
@@ -88,6 +89,7 @@ export class Controller
 
   private readonly registry = new Map<AetherControllerTelem, null>();
   private writer?: framer.Writer;
+  private acquirePromise?: Promise<void>;
 
   afterUpdate(ctx: aether.Context): void {
     const { internal: i } = this;
@@ -134,6 +136,16 @@ export class Controller
   }
 
   private async doAcquire(): Promise<void> {
+    if (this.acquirePromise != null) return await this.acquirePromise;
+    this.acquirePromise = this.doAcquireImpl();
+    try {
+      await this.acquirePromise;
+    } finally {
+      this.acquirePromise = undefined;
+    }
+  }
+
+  private async doAcquireImpl(): Promise<void> {
     const { client, addStatus } = this.internal;
     if (client == null)
       return addStatus({
@@ -189,24 +201,54 @@ export class Controller
     }
   }
 
-  async set(
-    frame: framer.CrudeFrame | Record<channel.KeyOrName, CrudeSeries>,
-  ): Promise<void> {
+  private static isRetryable(e: unknown): boolean {
+    return StreamClosed.matches(e) || Unreachable.matches(e);
+  }
+
+  private async closeWriter(): Promise<void> {
+    try {
+      await this.writer?.close();
+    } catch (e) {
+      if (!Controller.isRetryable(e)) throw e;
+    } finally {
+      this.writer = undefined;
+    }
+  }
+
+  private async withRetry(fn: () => Promise<void>): Promise<void> {
     if (this.writer == null) await this.doAcquire();
-    await this.writer?.write(frame);
+    try {
+      await fn();
+    } catch (e) {
+      if (!Controller.isRetryable(e)) throw e;
+      await this.closeWriter();
+      await this.doAcquire();
+      await fn();
+    }
+  }
+
+  // buildFrame is a callback so that frames are constructed fresh on each retry
+  // attempt. This is necessary because frames may contain index timestamps that
+  // would be stale relative to the new writer's start after a reconnection.
+  async set(
+    buildFrame: () => Promise<
+      framer.CrudeFrame | Record<channel.KeyOrName, CrudeSeries>
+    >,
+  ): Promise<void> {
+    await this.withRetry(async () => this.writer?.write(await buildFrame()));
   }
 
   async setAuthority(channels: channel.Keys, value: control.Authority): Promise<void> {
-    if (this.writer == null) await this.doAcquire();
-    await this.writer?.setAuthority(
-      Object.fromEntries(channels.map((k) => [k, value])),
+    await this.withRetry(async () =>
+      this.writer?.setAuthority(Object.fromEntries(channels.map((k) => [k, value]))),
     );
   }
 
   async releaseAuthority(keys: channel.Keys): Promise<void> {
-    if (this.writer == null) await this.doAcquire();
-    await this.writer?.setAuthority(
-      Object.fromEntries(keys.map((k) => [k, this.state.authority])),
+    await this.withRetry(async () =>
+      this.writer?.setAuthority(
+        Object.fromEntries(keys.map((k) => [k, this.state.authority])),
+      ),
     );
   }
 
@@ -286,16 +328,18 @@ export class SetChannelValue
       if (client == null) throw new DisconnectedError("No Core connected");
       if (this.props.channel === 0)
         throw new ValidationError("No command channel specified for actuator");
-      const ch = await client.channels.retrieve(this.props.channel);
-      const fr: Record<channel.KeyOrName, CrudeSeries> = { [ch.key]: values };
-      if (ch.index !== 0) {
-        const index = await client.channels.retrieve(ch.index);
-        const now = TimeStamp.now();
-        fr[index.key] = Array.from({ length: values.length }, (_, i) =>
-          now.add(TimeSpan.nanoseconds(i)),
-        );
-      }
-      await this.controller.set(fr);
+      await this.controller.set(async () => {
+        const ch = await client.channels.retrieve(this.props.channel);
+        const fr: Record<channel.KeyOrName, CrudeSeries> = { [ch.key]: values };
+        if (ch.index !== 0) {
+          const index = await client.channels.retrieve(ch.index);
+          const now = TimeStamp.now();
+          fr[index.key] = Array.from({ length: values.length }, (_, i) =>
+            now.add(TimeSpan.nanoseconds(i)),
+          );
+        }
+        return fr;
+      });
     }, "Failed to command channel");
   }
 }
