@@ -9,12 +9,66 @@
 
 """NI-specific task test cases."""
 
+import ctypes
+import hashlib
+import pathlib
 import platform
+import tempfile
 from abc import abstractmethod
+from collections.abc import Callable
 
 import synnax as sy
 
 from tests.driver.task import ReadTaskCase, TaskCase, WriteTaskCase
+
+_NI_MAX_CONFIG = pathlib.Path(__file__).parent.parent / "fixtures" / "ni_max_config.nce"
+# Sentinel file stores the hash of the last successfully imported config.
+_NI_MAX_CONFIG_HASH_SENTINEL = (
+    pathlib.Path(tempfile.gettempdir()) / "synnax_ni_max_config_hash"
+)
+
+
+def _file_sha256(path: pathlib.Path) -> str:
+    return hashlib.sha256(path.read_bytes()).hexdigest()
+
+
+def _ensure_ni_max_config(log: Callable[[str], None]) -> None:
+    """Import the reference NI MAX config if it has changed since last import.
+
+    Compares the SHA-256 of tests/assets/ni_max_config.ini against a sentinel
+    file written after each successful import. If they match, this is a no-op
+    (no NI API calls). If they differ, imports the reference config and updates
+    the sentinel.
+
+    Only meaningful on Windows with NI System Configuration installed.
+    """
+    if not _NI_MAX_CONFIG.exists():
+        log("ni_max_config.ini not found in assets, skipping config sync")
+        return
+
+    current_hash = _file_sha256(_NI_MAX_CONFIG)
+    if (
+        _NI_MAX_CONFIG_HASH_SENTINEL.exists()
+        and _NI_MAX_CONFIG_HASH_SENTINEL.read_text().strip() == current_hash
+    ):
+        return
+
+    import nisyscfg  # Windows-only; caller guards with platform check
+
+    log("NI MAX config changed, importing ...")
+    with nisyscfg.Session() as session:
+        detailed_result = ctypes.POINTER(ctypes.c_char)()
+        status = session._library.ImportConfiguration(
+            session._session,
+            str(_NI_MAX_CONFIG).encode(),
+            b"",
+            nisyscfg.enums.ImportMode.MERGE_ITEMS,
+            ctypes.byref(detailed_result),
+        )
+    if status != 0:
+        raise RuntimeError(f"NISysCfgImportConfiguration failed with status {status}")
+    _NI_MAX_CONFIG_HASH_SENTINEL.write_text(current_hash)
+    log("NI MAX config imported successfully")
 
 
 class _NITaskMixin(TaskCase):
@@ -42,6 +96,7 @@ class _NITaskMixin(TaskCase):
     def setup(self) -> None:
         if platform.system().lower() != "windows":
             self.auto_pass(msg="Windows DAQmx drivers required")
+        _ensure_ni_max_config(self.log)
         # The NI scanner registers devices with location = NI MAX alias.
         # Resolve all locations upfront so concrete tests can use
         # devices[location] in create_channels without additional retrieves.
@@ -65,7 +120,9 @@ class _NIReadTaskBase(_NITaskMixin, ReadTaskCase):
 
     @staticmethod
     @abstractmethod
-    def create_channels(client: sy.Synnax, devices: dict[str, sy.Device]) -> list: ...
+    def create_channels(
+        client: sy.Synnax, devices: dict[str, sy.Device]
+    ) -> list[object]: ...
 
     def create(
         self,
@@ -100,7 +157,9 @@ class _NIWriteTaskBase(_NITaskMixin, WriteTaskCase):
 
     @staticmethod
     @abstractmethod
-    def create_channels(client: sy.Synnax, devices: dict[str, sy.Device]) -> list: ...
+    def create_channels(
+        client: sy.Synnax, devices: dict[str, sy.Device]
+    ) -> list[object]: ...
 
     def create(
         self,
