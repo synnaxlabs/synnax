@@ -56,12 +56,12 @@ export const Toolbar = ({ layoutKey }: ToolbarProps): ReactElement | null => {
             disabled={!hasEditPermission}
           />
         </Input.Item>
-        <Input.Item label="Timestamp Decimal Places">
+        <Input.Item label="Timestamp Precision">
           <Input.Numeric
             value={state.timestampPrecision}
             onChange={handlePrecisionChange}
             resetValue={0}
-            bounds={{ lower: 0, upper: 3 }}
+            bounds={{ lower: 0, upper: 4 }}
             disabled={!hasEditPermission}
           />
         </Input.Item>
