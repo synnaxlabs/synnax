@@ -8,16 +8,13 @@
 // included in the file licenses/APL.txt.
 
 import { schematic } from "@synnaxlabs/client";
-import { Access } from "@synnaxlabs/pluto";
+import { Access, Schematic as PSchematic } from "@synnaxlabs/pluto";
 import { useCallback } from "react";
 
 import { Palette } from "@/palette";
 import { Schematic } from "@/schematic";
-import { CreateIcon } from "@/schematic/services/Icon";
 
-const useVisible = () => Access.useUpdateGranted(schematic.TYPE_ONTOLOGY_ID);
-
-export const CreateCommand: Palette.Command = ({ placeLayout, ...listProps }) => {
+const CreateCommand: Palette.Command = ({ placeLayout, ...listProps }) => {
   const handleSelect = useCallback(
     () => placeLayout(Schematic.create()),
     [placeLayout],
@@ -26,13 +23,13 @@ export const CreateCommand: Palette.Command = ({ placeLayout, ...listProps }) =>
     <Palette.CommandListItem
       {...listProps}
       name="Create a schematic"
-      icon={<CreateIcon />}
+      icon={<PSchematic.CreateIcon />}
       onSelect={handleSelect}
     />
   );
 };
 CreateCommand.key = "create-schematic";
 CreateCommand.commandName = "Create a schematic";
-CreateCommand.useVisible = useVisible;
+CreateCommand.useVisible = () => Access.useCreateGranted(schematic.TYPE_ONTOLOGY_ID);
 
 export const COMMANDS = [CreateCommand];

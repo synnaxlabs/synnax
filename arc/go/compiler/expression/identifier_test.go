@@ -183,6 +183,23 @@ var _ = Describe("Identifier Compilation", func() {
 			Expect(bytecode).To(MatchOpcodes(OpLocalGet, 0))
 			Expect(exprType).To(Equal(types.F64()))
 		})
+
+		It("Should compile chan-typed input parameter read as channel_read", func() {
+			ctx := NewContext(bCtx)
+			scope := MustSucceed(ctx.Scope.Add(ctx, symbol.Symbol{
+				Name: "ch",
+				Kind: symbol.KindInput,
+				Type: types.Chan(types.F32()),
+			}))
+			Expect(scope).ToNot(BeNil())
+			bytecode, exprType := compileWithCtx(ctx, "ch")
+			readIdx := ctx.Imports.ChannelRead["f32"]
+			Expect(exprType).To(Equal(types.F32()))
+			Expect(bytecode).To(MatchOpcodes(
+				OpLocalGet, 0,
+				OpCall, uint64(readIdx),
+			))
+		})
 	})
 
 	Context("Global Constants", func() {

@@ -21,6 +21,9 @@ on:
       - x/ts/**
   workflow_dispatch:
 
+permissions:
+  id-token: write
+
 jobs:
   publish:
     name: Publish
@@ -41,15 +44,13 @@ jobs:
         with:
           node-version-file: package.json
           cache: pnpm
+          registry-url: https://registry.npmjs.org
 
       - name: Install Dependencies
         run: pnpm install
 
-      - name: Configure npm
-        run: |
-          echo "//registry.npmjs.org/:_authToken=${{ secrets.NPM_TOKEN }}" > ~/.npmrc
       - name: Build
         run: pnpm build:console-vite
 
       - name: Publish
-        run: pnpm publish -r --access public
+        run: pnpm publish -r

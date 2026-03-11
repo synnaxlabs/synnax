@@ -179,6 +179,8 @@ public:
 
     /// @brief Creates a string handle from a C++ string (for testing)
     uint32_t string_create(const std::string &str);
+    /// @brief Creates a persistent config string handle not cleared by flush().
+    uint32_t string_create_config(const std::string &str);
     /// @brief Gets the string value for a handle (for testing)
     std::string string_get(uint32_t handle) const;
 };

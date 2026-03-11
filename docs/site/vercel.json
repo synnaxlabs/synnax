@@ -1,6 +1,16 @@
 {
   "redirects": [
     {
+      "source": "/guides/comparison/performance/one-billion-rows",
+      "destination": "/blog/one-billion-rows",
+      "permanent": true
+    },
+    {
+      "source": "/guides/:slug*",
+      "destination": "/reference/",
+      "permanent": true
+    },
+    {
       "source": "/reference/cluster/:slug*",
       "destination": "/reference/core/:slug*",
       "permanent": true

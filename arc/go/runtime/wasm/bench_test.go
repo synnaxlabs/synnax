@@ -169,3 +169,135 @@ func BenchmarkWASMNodeSimpleArithmetic(b *testing.B) {
 	b.ReportMetric(throughput, "samples/sec")
 	b.ReportMetric(float64(b.Elapsed().Nanoseconds())/float64(b.N), "ns/sample")
 }
+
+// BenchmarkWASMNodeZeroAlloc is a variant that pre-allocates all series
+// to isolate whether nodeImpl.Next itself causes heap allocations
+// (specifically ctx boxing into context.Context).
+func BenchmarkWASMNodeZeroAlloc(b *testing.B) {
+	ctx := context.Background()
+
+	g := arc.Graph{
+		Functions: []ir.Function{
+			{
+				Key: "affine",
+				Inputs: types.Params{
+					{Name: "x", Type: types.F32()},
+					{Name: "a", Type: types.F32()},
+					{Name: "b", Type: types.F32()},
+				},
+				Outputs: types.Params{
+					{Name: ir.DefaultOutputParam, Type: types.F32()},
+				},
+				Body: ir.Body{Raw: `{ return a * x + b }`},
+			},
+			{
+				Key: "x",
+				Outputs: types.Params{
+					{Name: ir.DefaultOutputParam, Type: types.F32()},
+				},
+				Body: ir.Body{Raw: `{ return 1.0 }`},
+			},
+			{
+				Key: "a",
+				Outputs: types.Params{
+					{Name: ir.DefaultOutputParam, Type: types.F32()},
+				},
+				Body: ir.Body{Raw: `{ return 1.0 }`},
+			},
+			{
+				Key: "b",
+				Outputs: types.Params{
+					{Name: ir.DefaultOutputParam, Type: types.F32()},
+				},
+				Body: ir.Body{Raw: `{ return 1.0 }`},
+			},
+		},
+		Nodes: []graph.Node{
+			{Key: "x", Type: "x"},
+			{Key: "a", Type: "a"},
+			{Key: "b", Type: "b"},
+			{Key: "affine", Type: "affine"},
+		},
+		Edges: []graph.Edge{
+			{
+				Source: ir.Handle{Node: "x", Param: ir.DefaultOutputParam},
+				Target: ir.Handle{Node: "affine", Param: "x"},
+			},
+			{
+				Source: ir.Handle{Node: "a", Param: ir.DefaultOutputParam},
+				Target: ir.Handle{Node: "affine", Param: "a"},
+			},
+			{
+				Source: ir.Handle{Node: "b", Param: ir.DefaultOutputParam},
+				Target: ir.Handle{Node: "affine", Param: "b"},
+			},
+		},
+	}
+
+	mod, err := arc.CompileGraph(ctx, g)
+	if err != nil {
+		b.Fatalf("Failed to compile graph: %v", err)
+	}
+
+	a, diagnostics := graph.Analyze(ctx, g, nil)
+	if diagnostics != nil && !diagnostics.Ok() {
+		b.Fatalf("Failed to analyze graph: %s", diagnostics.String())
+	}
+
+	s := state.New(state.Config{IR: a})
+
+	xNode := s.Node("x")
+	aNode := s.Node("a")
+	bNode := s.Node("b")
+
+	wasmMod, err := wasm.OpenModule(ctx, wasm.ModuleConfig{
+		Module: mod,
+		State:  s,
+	})
+	if err != nil {
+		b.Fatalf("Failed to open WASM module: %v", err)
+	}
+	defer func() {
+		if err := wasmMod.Close(); err != nil {
+			b.Errorf("Failed to close WASM module: %v", err)
+		}
+	}()
+
+	factory, err := wasm.NewFactory(wasmMod)
+	if err != nil {
+		b.Fatalf("Failed to create WASM factory: %v", err)
+	}
+
+	affineNode := s.Node("affine")
+	n, err := factory.Create(ctx, node.Config{
+		Node:   a.Nodes.Get("affine"),
+		State:  affineNode,
+		Module: mod,
+	})
+	if err != nil {
+		b.Fatalf("Failed to create WASM node: %v", err)
+	}
+
+	nodeCtx := node.Context{
+		Context:     ctx,
+		MarkChanged: func(output string) {},
+		ReportError: func(err error) {},
+	}
+
+	*aNode.Output(0) = telem.NewSeriesV[float32](1)
+	*aNode.OutputTime(0) = telem.NewSeriesSecondsTSV(1)
+	*bNode.Output(0) = telem.NewSeriesV[float32](1)
+	*bNode.OutputTime(0) = telem.NewSeriesSecondsTSV(1)
+	*xNode.Output(0) = telem.NewSeriesV[float32](1)
+	*xNode.OutputTime(0) = telem.NewSeriesSecondsTSV(1)
+
+	// Warm up to ensure all internal buffers are allocated
+	n.Next(nodeCtx)
+
+	b.ReportAllocs()
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		n.Next(nodeCtx)
+	}
+	b.StopTimer()
+}

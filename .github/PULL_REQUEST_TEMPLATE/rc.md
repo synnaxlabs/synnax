@@ -16,10 +16,6 @@ I have verified that, when released, the following packages will not conflict wi
 - [ ] [`alamos/ts`](https://www.npmjs.com/package/@synnaxlabs/alamos)
 - [ ] [`client/py`](https://pypi.org/project/synnax/)
 - [ ] [`client/ts`](https://www.npmjs.com/package/@synnaxlabs/client)
-- [ ] [`configs/eslint`](https://www.npmjs.com/package/eslint-config-synnaxlabs)
-- [ ] [`configs/stylelint`](https://www.npmjs.com/package/stylelint-config-synnaxlabs)
-- [ ] [`configs/ts`](https://www.npmjs.com/package/@synnaxlabs/tsconfig)
-- [ ] [`configs/vite`](https://www.npmjs.com/package/@synnaxlabs/vite-plugin)
 - [ ] [`console`](https://github.com/synnaxlabs/synnax/releases)
 - [ ] [`core`](https://github.com/synnaxlabs/synnax/releases)
 - [ ] [`drift`](https://www.npmjs.com/package/@synnaxlabs/drift)
@@ -252,16 +248,6 @@ I can successfully:
   - [ ] Delete multiple users.
 - [ ] Change a user's username and log in with the new username.
 - [ ] Change a user's role and verify their permissions change accordingly.
-
-### Arc
-
-I can successfully:
-
-- **Arc Toolbar**
-  - [ ] Toggle Arc toolbar visibility with "A" keyboard shortcut
-
-- **Arc Editor**
-  - [ ] Create an alarm automation that changes statuses and includes the following blocks: channel source, constant, comparison, stable for, select, and status change.
 
 ### Version
 

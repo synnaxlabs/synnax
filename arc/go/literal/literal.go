@@ -75,10 +75,15 @@ func ParseNumeric(
 	numLit parser.INumericLiteralContext,
 	targetType types.Type,
 ) (ParsedValue, error) {
+	negate := numLit.MINUS() != nil
+
 	if intLit := numLit.INTEGER_LITERAL(); intLit != nil {
 		intValue, err := strconv.ParseInt(intLit.GetText(), 10, 64)
 		if err != nil {
 			return ParsedValue{}, errors.Wrapf(err, "invalid integer literal: %s", intLit.GetText())
+		}
+		if negate {
+			intValue = -intValue
 		}
 		if unitID := numLit.IDENTIFIER(); unitID != nil {
 			return parseNumericWithUnit(float64(intValue), true, unitID.GetText(), targetType)
@@ -90,6 +95,9 @@ func ParseNumeric(
 		floatValue, err := strconv.ParseFloat(floatLit.GetText(), 64)
 		if err != nil {
 			return ParsedValue{}, errors.Wrapf(err, "invalid float literal: %s", floatLit.GetText())
+		}
+		if negate {
+			floatValue = -floatValue
 		}
 		if unitID := numLit.IDENTIFIER(); unitID != nil {
 			return parseNumericWithUnit(floatValue, false, unitID.GetText(), targetType)

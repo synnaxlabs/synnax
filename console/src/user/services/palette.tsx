@@ -8,19 +8,17 @@
 // included in the file licenses/APL.txt.
 
 import { user } from "@synnaxlabs/client";
-import { Access, Icon } from "@synnaxlabs/pluto";
+import { Access, User as PUser } from "@synnaxlabs/pluto";
 
 import { Palette } from "@/palette";
 import { User } from "@/user";
 
-const useVisible = () => Access.useUpdateGranted(user.TYPE_ONTOLOGY_ID);
-
-export const RegisterCommand = Palette.createSimpleCommand({
+const RegisterCommand = Palette.createSimpleCommand({
   key: "register-user",
   name: "Register a user",
-  icon: <Icon.User />,
+  icon: <PUser.CreateIcon />,
   layout: User.REGISTER_LAYOUT,
-  useVisible,
+  useVisible: () => Access.useCreateGranted(user.TYPE_ONTOLOGY_ID),
 });
 
 export const COMMANDS = [RegisterCommand];

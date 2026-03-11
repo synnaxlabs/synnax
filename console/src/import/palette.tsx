@@ -17,7 +17,7 @@ export const ImportCommand: Palette.Command = (listProps) => {
   return (
     <Palette.CommandListItem
       {...listProps}
-      name="Import"
+      name="Import component(s)"
       icon={<Icon.Import />}
       onSelect={handleSelect}
     />

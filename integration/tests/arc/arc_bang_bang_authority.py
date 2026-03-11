@@ -91,8 +91,12 @@ bb_start_cmd => bang_bang_controller
 
 class ArcBangBangAuthority(ArcConsoleCase):
     """Test that a bang-bang controller with per-channel set_authority correctly
-    releases authority on both channels after transitioning through
-    start -> stop -> yield.
+    releases and reclaims authority on both channels symmetrically.
+
+    Verifies:
+    1. Stale bb_start_cmd does NOT cause re-entry on yield activation.
+    2. A fresh bb_start_cmd DOES trigger re-entry from yield.
+    3. Both channels are symmetrically reclaimed at authority 220 after re-entry.
 
     Replicates the customer-reported pattern where one valve channel would
     release authority but the other would reclaim it."""
@@ -136,26 +140,32 @@ class ArcBangBangAuthority(ArcConsoleCase):
         self.wait_for_eq("press_vlv_state", 1)
         self.log("Bang-bang controller is active")
 
-        # Phase 2: Trigger stop WITHOUT clearing bb_start_cmd.
-        # bb_start_cmd stays at 1, so yield will immediately re-enter start.
-        # This is the customer's exact scenario: stop → yield → start re-entry.
-        # The bug was that only one channel reclaims authority on re-entry.
-        self.log("Phase 2: Triggering stop (start signal still active)...")
+        # Phase 2: Trigger stop → wait for stop stage to zero the valve.
+        self.log("Phase 2: Triggering stop...")
         with self.client.open_writer(sy.TimeStamp.now(), "bb_stop_cmd") as w:
             w.write("bb_stop_cmd", 1)
-
-        # Wait for stop (writes 0) → yield → start re-entry (writes 1).
-        self.log("Waiting for stop -> yield -> start re-entry...")
         self.wait_for_eq("press_vlv_state", 0)
-        self.wait_for_eq("press_vlv_state", 1)
 
-        # Phase 3: Verify BOTH channels reclaimed authority after re-entry.
-        # The ARC should be back at authority 220 on both channels.
+        # Phase 3: Assert sequence remains in yield — the pre-existing bb_start_cmd
+        # value must be ignored on yield activation (SY-3870 fix).
+        # Wait beyond the stop wait{250ms} to ensure yield is active, then assert
+        # the valve has not returned to 1 (which would indicate spurious re-entry).
+        self.log("Phase 3: Asserting no re-entry from stale start signal...")
+        sy.sleep(0.4)
+        self.wait_for_eq("press_vlv_state", 0, timeout=0)
+        self.log("Sequence correctly remains in yield")
+
+        # Phase 4: Send a fresh start command and verify re-entry on both channels.
+        self.log("Phase 4: Sending fresh start command and verifying re-entry...")
+        with self.client.open_writer(sy.TimeStamp.now(), "bb_start_cmd") as w:
+            w.write("bb_start_cmd", 1)
+        self.wait_for_eq("press_vlv_state", 1)
+        self.log("Bang-bang re-entered start stage")
+
+        # Phase 5: Verify BOTH channels reclaimed authority after re-entry.
         # Open external writers at authority 50 — they should NOT be able to
-        # take control if the ARC reclaimed at 220 on both.
-        # Write 0 to both channels — if the ARC still has authority, the state
-        # should reflect the ARC's value (1), not our 0.
-        self.log("Phase 3: Verifying press_vlv_cmd reclaimed by ARC...")
+        # take control since ARC reclaimed at 220 on both channels.
+        self.log("Phase 5: Verifying press_vlv_cmd reclaimed by ARC...")
         self._press_writer = self.client.open_writer(
             sy.TimeStamp.now(),
             ["press_vlv_cmd_time", "press_vlv_cmd"],
@@ -190,9 +200,6 @@ class ArcBangBangAuthority(ArcConsoleCase):
             f"After external write attempt: press_vlv_state={press_state}, "
             f"vent_vlv_state={vent_state}"
         )
-        # The ARC is running bang-bang at authority 220. Our writers at 50 should
-        # have no effect. Directly verify the ARC's write (1) wins over the
-        # external writer's write (0) on the press valve state channel.
         self.wait_for_eq("press_vlv_state", 1, timeout=5)
         self.log("Both channels symmetrically reclaimed by ARC after re-entry")
 
