@@ -15,16 +15,6 @@ import { Common } from "@/hardware/common";
 
 export const PREFIX = "http";
 
-export const SCAN_TYPE = `${PREFIX}_scan`;
-
-export const TEST_CONNECTION_COMMAND_TYPE = "test_connection";
-
-export const SCAN_SCHEMAS = {
-  typeSchema: z.literal(SCAN_TYPE),
-  configSchema: z.null(),
-  statusDataSchema: z.null(),
-} as const satisfies task.Schemas;
-
 const timeFormatZ = z.enum(["iso8601", "unix_sec", "unix_ms", "unix_us", "unix_ns"]);
 
 export const READ_TYPE = `${PREFIX}_read`;
@@ -108,3 +98,13 @@ export const ZERO_READ_PAYLOAD = {
   config: ZERO_READ_CONFIG,
   type: "http_read",
 } as const satisfies ReadPayload;
+
+export const SCAN_TYPE = `${PREFIX}_scan`;
+
+export const TEST_CONNECTION_COMMAND_TYPE = "test_connection";
+
+export const SCAN_SCHEMAS = {
+  type: z.literal(SCAN_TYPE),
+  config: z.null(),
+  statusData: z.null(),
+} as const satisfies task.Schemas;
