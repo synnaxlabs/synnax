@@ -162,6 +162,7 @@ export class TauriRuntime<
   }
 
   private async repositionIfOffScreen(): Promise<void> {
+    if (await this.win.isMinimized()) return;
     const scaleFactor = await this.win.scaleFactor();
     const position = parsePosition(await this.win.innerPosition(), scaleFactor);
     const visible = await isPositionVisible(position);
