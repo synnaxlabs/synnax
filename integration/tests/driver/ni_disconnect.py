@@ -191,7 +191,6 @@ class _NIReadDisconnectMixin(ReadTaskCase):
                     f"Channel '{ch.name}' has {num_samples} samples "
                     f"after device removal, expected 0"
                 )
-                return
 
         with self.client.open_streamer(["sy_status_set"]) as streamer:
             self.log(f"Test 7 - Re-add {dev} to NI MAX")

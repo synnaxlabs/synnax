@@ -164,21 +164,18 @@ class NIAnalogReadScaled(NIAnalogReadTaskCase):
             data = np.array(self.client.channels.retrieve(key).read(tr))
             if len(data) == 0:
                 self.fail(f"No samples for '{name}'")
-                return
             vmin, vmax = float(np.min(data)), float(np.max(data))
             if vmin < lo - 1 or vmax > hi + 1:
                 self.fail(
                     f"'{name}' values [{vmin:.2f}, {vmax:.2f}] "
                     f"outside expected [{lo}, {hi}]"
                 )
-                return
             # Confirm the scaled channels actually produce values outside [-10, 10]
             if lo > 10 and vmax <= 10:
                 self.fail(
                     f"'{name}' max={vmax:.2f} — scaling not applied "
                     f"(expected values above 10)"
                 )
-                return
             self.log(f"  {name}: [{vmin:.2f}, {vmax:.2f}] within [{lo}, {hi}]")
 
     def test_tare(self) -> None:
@@ -203,7 +200,6 @@ class NIAnalogReadScaled(NIAnalogReadTaskCase):
                 data = np.array(self.client.channels.retrieve(key).read(pre_tr))
                 if len(data) == 0:
                     self.fail(f"No pre-tare samples for '{name}'")
-                    return
                 pre_avgs[key] = float(np.mean(data))
             self.log(
                 "  Pre-tare averages: "
@@ -234,7 +230,6 @@ class NIAnalogReadScaled(NIAnalogReadTaskCase):
             data = np.array(self.client.channels.retrieve(key).read(post_tr))
             if len(data) == 0:
                 self.fail(f"No post-tare samples for '{name}'")
-                return
             avg = float(np.mean(data))
             vmin, vmax = float(np.min(data)), float(np.max(data))
 
@@ -247,13 +242,11 @@ class NIAnalogReadScaled(NIAnalogReadTaskCase):
                     f"'{name}' post-tare [{vmin:.2f}, {vmax:.2f}] "
                     f"outside expected [{tared_lo:.2f}, {tared_hi:.2f}]"
                 )
-                return
             if abs(avg) > abs(offset) * 0.5 + tolerance:
                 self.fail(
                     f"'{name}' post-tare avg={avg:.2f} not near 0 "
                     f"(pre-tare avg was {offset:.2f})"
                 )
-                return
             self.log(
                 f"  {name}: avg={avg:.2f}, range=[{vmin:.2f}, {vmax:.2f}], "
                 f"expected ~[{tared_lo:.2f}, {tared_hi:.2f}]"
