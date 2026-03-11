@@ -144,6 +144,26 @@ describe("TimeStamp", () => {
 
       expect(ts1.valueOf()).toEqual(ts2.valueOf());
     });
+
+    test("should round-trip across DST boundaries", () => {
+      // 2025-03-09 is US DST spring-forward, 2025-11-02 is US DST fall-back. These
+      // dates may have a different UTC offset than the current date, so we verify the
+      // round-trip works regardless of DST transitions.
+      const dstDates = [
+        "2025-03-09T12:00:00.000",
+        "2025-03-10T12:00:00.000",
+        "2025-11-02T12:00:00.000",
+        "2025-11-03T12:00:00.000",
+        "2025-06-15T12:00:00.000",
+        "2025-01-15T12:00:00.000",
+      ];
+      for (const input of dstDates) {
+        const ts1 = new TimeStamp(input, "local");
+        const output = ts1.toString("ISO", "local").slice(0, -1);
+        const ts2 = new TimeStamp(output, "local");
+        expect(ts1.valueOf()).toEqual(ts2.valueOf());
+      }
+    });
   });
 
   test("construct from date", () => {

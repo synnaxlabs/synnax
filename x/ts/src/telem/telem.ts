@@ -192,7 +192,11 @@ export class TimeStamp
 
   private toISOString(tzInfo: TZInfo = "UTC"): string {
     if (tzInfo === "UTC") return this.date().toISOString();
-    return this.sub(TimeStamp.utcOffset).date().toISOString();
+    const d = this.date();
+    const offset = new TimeSpan(
+      BigInt(d.getTimezoneOffset()) * TimeStamp.MINUTE.valueOf(),
+    );
+    return this.sub(offset).date().toISOString();
   }
 
   private timeString(milliseconds: boolean = false, tzInfo: TZInfo = "UTC"): string {
