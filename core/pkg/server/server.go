@@ -14,6 +14,7 @@ import (
 	"crypto/tls"
 	"io"
 	"net"
+	"sync"
 
 	"github.com/cockroachdb/cmux"
 	"github.com/samber/lo"
@@ -127,10 +128,12 @@ func (s *Server) start() (err error) {
 		return err
 	}
 	ready := make(chan struct{})
+	closeReady := sync.OnceFunc(func() { close(ready) })
 	sCtx.Go(func(ctx context.Context) error {
 		mux := cmux.New(lis)
+		defer closeReady()
 		s.initBranches()
-		close(ready)
+		closeReady()
 		if *s.Security.Insecure {
 			return s.serveInsecure(sCtx, mux)
 		}
