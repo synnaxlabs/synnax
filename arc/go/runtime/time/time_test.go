@@ -238,6 +238,65 @@ var _ = Describe("Time", func() {
 			})
 			Expect(changedOutputs).To(BeEmpty())
 		})
+		It("Should fire immediately after Reset even if period has not elapsed", func() {
+			cfg := node.Config{
+				Node: ir.Node{
+					Type: "interval",
+					Config: types.Params{
+						{Name: "period", Type: types.TimeSpan(), Value: telem.Second},
+					},
+				},
+				State: s.Node("interval_1"),
+			}
+			n := MustSucceed(factory.Create(ctx, cfg))
+			intervalNode := s.Node("interval_1")
+			*intervalNode.Output(0) = telem.NewSeriesV[uint8]()
+			*intervalNode.OutputTime(0) = telem.NewSeriesV[telem.TimeStamp]()
+
+			// First tick at 0 - fires (initial fire)
+			n.Next(node.Context{
+				Context: ctx,
+				Elapsed: 0,
+				Reason:  node.ReasonTimerTick,
+				MarkChanged: func(output string) {
+					changedOutputs = append(changedOutputs, output)
+				},
+				MarkSelfChanged: func() {},
+				SetDeadline:     func(_ telem.TimeSpan) {},
+			})
+			Expect(changedOutputs).To(HaveLen(1))
+
+			// Second tick at 1s - fires
+			changedOutputs = []string{}
+			n.Next(node.Context{
+				Context: ctx,
+				Elapsed: telem.Second,
+				Reason:  node.ReasonTimerTick,
+				MarkChanged: func(output string) {
+					changedOutputs = append(changedOutputs, output)
+				},
+				MarkSelfChanged: func() {},
+				SetDeadline:     func(_ telem.TimeSpan) {},
+			})
+			Expect(changedOutputs).To(HaveLen(1))
+
+			// Reset the interval (simulates stage re-entry)
+			n.Reset()
+
+			// Third tick at 1.5s - should fire because Reset set lastFired = -period
+			changedOutputs = []string{}
+			n.Next(node.Context{
+				Context: ctx,
+				Elapsed: telem.TimeSpan(1500) * telem.Millisecond,
+				Reason:  node.ReasonTimerTick,
+				MarkChanged: func(output string) {
+					changedOutputs = append(changedOutputs, output)
+				},
+				MarkSelfChanged: func() {},
+				SetDeadline:     func(_ telem.TimeSpan) {},
+			})
+			Expect(changedOutputs).To(HaveLen(1))
+		})
 	})
 	Describe("Wait", func() {
 		var factory *arctime.Factory

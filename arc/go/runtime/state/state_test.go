@@ -185,6 +185,35 @@ var _ = Describe("State", func() {
 				Expect(len(fr.Get(1).Series)).To(Equal(1))
 				Expect(len(fr.Get(3).Series)).To(Equal(1))
 			})
+
+			It("Should preserve multiple writes to the same channel in one series", func() {
+				g := graph.Graph{
+					Nodes:     []graph.Node{{Key: "writer", Type: "writer"}},
+					Functions: []graph.Function{{Key: "writer"}},
+				}
+				ir, diagnostics := graph.Analyze(ctx, g, nil)
+				Expect(diagnostics.Ok()).To(BeTrue())
+				cfg := state.Config{
+					ChannelDigests: []state.ChannelDigest{
+						{Key: 1, Index: 2},
+					},
+					IR: ir,
+				}
+				s := state.New(cfg)
+				n := s.Node("writer")
+				n.WriteChan(1, telem.NewSeriesV[float32](10.0), telem.NewSeriesSecondsTSV(1))
+				n.WriteChan(1, telem.NewSeriesV[float32](20.0), telem.NewSeriesSecondsTSV(2))
+
+				fr, changed := s.Flush(telem.Frame[uint32]{})
+				Expect(changed).To(BeTrue())
+				Expect(fr.Get(1).Series).To(HaveLen(1))
+				Expect(fr.Get(1).Series[0]).To(telem.MatchSeriesDataV[float32](10.0, 20.0))
+				Expect(fr.Get(2).Series).To(HaveLen(1))
+				Expect(fr.Get(2).Series[0]).To(telem.MatchSeriesDataV[telem.TimeStamp](
+					telem.TimeStamp(1*telem.SecondTS),
+					telem.TimeStamp(2*telem.SecondTS),
+				))
+			})
 		})
 
 		Describe("WriteChannelValue", func() {
@@ -257,6 +286,156 @@ var _ = Describe("State", func() {
 				Expect(fr.Get(50).Series).To(HaveLen(1))
 				Expect(fr.Get(51).Series).To(HaveLen(1))
 				Expect(fr.Get(51).Series[0].DataType).To(Equal(telem.TimeStampT))
+			})
+
+			It("Should ignore empty value series when channel has no index", func() {
+				cfg := state.Config{
+					ChannelDigests: []state.ChannelDigest{
+						{Key: 77, Index: 0},
+					},
+					IR: ir.IR{Nodes: []ir.Node{{Key: "test"}}},
+				}
+				s := state.New(cfg)
+				s.WriteChannelValue(77, telem.Series{DataType: telem.Int32T})
+				fr, changed := s.Flush(telem.Frame[uint32]{})
+				Expect(changed).To(BeFalse())
+				Expect(fr.Get(77).Series).To(BeEmpty())
+			})
+
+			It("Should replace accumulated data when data type changes", func() {
+				cfg := state.Config{
+					ChannelDigests: []state.ChannelDigest{
+						{Key: 88, Index: 0},
+					},
+					IR: ir.IR{Nodes: []ir.Node{{Key: "test"}}},
+				}
+				s := state.New(cfg)
+				s.WriteChannelValue(88, telem.NewSeriesV[int32](1, 2))
+				s.WriteChannelValue(88, telem.NewSeriesV[float64](3.5))
+				fr, changed := s.Flush(telem.Frame[uint32]{})
+				Expect(changed).To(BeTrue())
+				Expect(fr.Get(88).Series).To(HaveLen(1))
+				Expect(fr.Get(88).Series[0]).To(telem.MatchSeriesDataV[float64](3.5))
+			})
+		})
+
+		Describe("WriteChannelFixed", func() {
+			It("Should write all fixed numeric types and indexed timestamps", func() {
+				cfg := state.Config{
+					ChannelDigests: []state.ChannelDigest{
+						{Key: 100, Index: 101},
+						{Key: 110, Index: 111},
+						{Key: 120, Index: 121},
+						{Key: 130, Index: 131},
+						{Key: 140, Index: 141},
+						{Key: 150, Index: 151},
+						{Key: 160, Index: 161},
+						{Key: 170, Index: 171},
+						{Key: 180, Index: 181},
+						{Key: 190, Index: 191},
+					},
+					IR: ir.IR{Nodes: []ir.Node{{Key: "test"}}},
+				}
+				s := state.New(cfg)
+				s.WriteChannelU8(100, 1)
+				s.WriteChannelU16(110, 2)
+				s.WriteChannelU32(120, 3)
+				s.WriteChannelU64(130, 4)
+				s.WriteChannelI8(140, -1)
+				s.WriteChannelI16(150, -2)
+				s.WriteChannelI32(160, -3)
+				s.WriteChannelI64(170, -4)
+				s.WriteChannelF32(180, 1.25)
+				s.WriteChannelF64(190, 2.5)
+
+				fr, changed := s.Flush(telem.Frame[uint32]{})
+				Expect(changed).To(BeTrue())
+				Expect(fr.Get(100).Series[0]).To(telem.MatchSeriesDataV[uint8](1))
+				Expect(fr.Get(110).Series[0]).To(telem.MatchSeriesDataV[uint16](2))
+				Expect(fr.Get(120).Series[0]).To(telem.MatchSeriesDataV[uint32](3))
+				Expect(fr.Get(130).Series[0]).To(telem.MatchSeriesDataV[uint64](4))
+				Expect(fr.Get(140).Series[0]).To(telem.MatchSeriesDataV[int8](-1))
+				Expect(fr.Get(150).Series[0]).To(telem.MatchSeriesDataV[int16](-2))
+				Expect(fr.Get(160).Series[0]).To(telem.MatchSeriesDataV[int32](-3))
+				Expect(fr.Get(170).Series[0]).To(telem.MatchSeriesDataV[int64](-4))
+				Expect(fr.Get(180).Series[0]).To(telem.MatchSeriesDataV[float32](1.25))
+				Expect(fr.Get(190).Series[0]).To(telem.MatchSeriesDataV[float64](2.5))
+				Expect(fr.Get(101).Series[0].DataType).To(Equal(telem.TimeStampT))
+				Expect(fr.Get(111).Series[0].DataType).To(Equal(telem.TimeStampT))
+				Expect(fr.Get(121).Series[0].DataType).To(Equal(telem.TimeStampT))
+				Expect(fr.Get(131).Series[0].DataType).To(Equal(telem.TimeStampT))
+				Expect(fr.Get(141).Series[0].DataType).To(Equal(telem.TimeStampT))
+				Expect(fr.Get(151).Series[0].DataType).To(Equal(telem.TimeStampT))
+				Expect(fr.Get(161).Series[0].DataType).To(Equal(telem.TimeStampT))
+				Expect(fr.Get(171).Series[0].DataType).To(Equal(telem.TimeStampT))
+				Expect(fr.Get(181).Series[0].DataType).To(Equal(telem.TimeStampT))
+				Expect(fr.Get(191).Series[0].DataType).To(Equal(telem.TimeStampT))
+			})
+
+			It("Should not write index samples for channels without index", func() {
+				cfg := state.Config{
+					ChannelDigests: []state.ChannelDigest{
+						{Key: 210, Index: 0},
+					},
+					IR: ir.IR{Nodes: []ir.Node{{Key: "test"}}},
+				}
+				s := state.New(cfg)
+				s.WriteChannelU32(210, 99)
+				fr, changed := s.Flush(telem.Frame[uint32]{})
+				Expect(changed).To(BeTrue())
+				Expect(fr.Get(210).Series).To(HaveLen(1))
+				Expect(fr.Get(210).Series[0]).To(telem.MatchSeriesDataV[uint32](99))
+				Expect(fr.Get(0).Series).To(BeEmpty())
+			})
+
+			It("Should replace accumulated data when fixed write data type changes", func() {
+				cfg := state.Config{
+					ChannelDigests: []state.ChannelDigest{
+						{Key: 220, Index: 0},
+					},
+					IR: ir.IR{Nodes: []ir.Node{{Key: "test"}}},
+				}
+				s := state.New(cfg)
+				s.WriteChannelU8(220, 7)
+				s.WriteChannelI8(220, -8)
+				fr, changed := s.Flush(telem.Frame[uint32]{})
+				Expect(changed).To(BeTrue())
+				Expect(fr.Get(220).Series).To(HaveLen(1))
+				Expect(fr.Get(220).Series[0]).To(telem.MatchSeriesDataV[int8](-8))
+			})
+		})
+
+		Describe("Write accumulation metadata", func() {
+			It("Should merge time ranges when multiple writes target the same channel", func() {
+				g := graph.Graph{
+					Nodes:     []graph.Node{{Key: "writer", Type: "writer"}},
+					Functions: []graph.Function{{Key: "writer"}},
+				}
+				ir, diagnostics := graph.Analyze(ctx, g, nil)
+				Expect(diagnostics.Ok()).To(BeTrue())
+				cfg := state.Config{
+					ChannelDigests: []state.ChannelDigest{
+						{Key: 300, Index: 0},
+					},
+					IR: ir,
+				}
+				s := state.New(cfg)
+				n := s.Node("writer")
+
+				first := telem.NewSeriesV[float32](1)
+				first.TimeRange = telem.TimeRange{Start: 100, End: 150}
+				second := telem.NewSeriesV[float32](2)
+				second.TimeRange = telem.TimeRange{Start: 50, End: 200}
+
+				n.WriteChan(300, first, telem.NewSeriesSecondsTSV(1))
+				n.WriteChan(300, second, telem.NewSeriesSecondsTSV(2))
+
+				fr, changed := s.Flush(telem.Frame[uint32]{})
+				Expect(changed).To(BeTrue())
+				Expect(fr.Get(300).Series).To(HaveLen(1))
+				Expect(fr.Get(300).Series[0]).To(telem.MatchSeriesDataV[float32](1, 2))
+				Expect(fr.Get(300).Series[0].TimeRange.Start).To(Equal(telem.TimeStamp(50)))
+				Expect(fr.Get(300).Series[0].TimeRange.End).To(Equal(telem.TimeStamp(200)))
 			})
 		})
 
