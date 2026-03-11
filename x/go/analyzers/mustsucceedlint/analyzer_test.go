@@ -10,14 +10,11 @@
 package mustsucceedlint_test
 
 import (
-	"os"
-	"path/filepath"
 	"strings"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/x/analyzers/mustsucceedlint"
-	. "github.com/synnaxlabs/x/testutil"
 	"golang.org/x/tools/go/analysis/analysistest"
 )
 
@@ -75,17 +72,10 @@ var _ = Describe("Analyzer", func() {
 
 	It("Should produce correct fixed output with import", func() {
 		testdata := analysistest.TestData()
-		dir := filepath.Join(testdata, "src", "example")
-		original := MustSucceed(os.ReadFile(filepath.Join(dir, "example.go")))
-
 		results := analysistest.Run(
 			GinkgoT(), testdata, mustsucceedlint.Analyzer, "example",
 		)
 		Expect(results).ToNot(BeEmpty())
-
-		// Apply all fixes to check the result contains the import
-		fixed := string(original)
-		_ = fixed // Verify diagnostics exist for MustSucceed patterns
 		mustSucceedCount := 0
 		for _, r := range results {
 			for _, d := range r.Diagnostics {
@@ -95,5 +85,28 @@ var _ = Describe("Analyzer", func() {
 			}
 		}
 		Expect(mustSucceedCount).To(BeNumerically(">=", 4))
+	})
+
+	It("Should remove LHS and assignment when all LHS vars are blank", func() {
+		testdata := analysistest.TestData()
+		results := analysistest.Run(
+			GinkgoT(), testdata, mustsucceedlint.Analyzer, "example",
+		)
+		Expect(results).ToNot(BeEmpty())
+		foundBlankFix := false
+		for _, r := range results {
+			for _, d := range r.Diagnostics {
+				for _, fix := range d.SuggestedFixes {
+					for _, edit := range fix.TextEdits {
+						text := string(edit.NewText)
+						if text == "MustSucceed(returnsValErr())" ||
+							text == "MustSucceed2(returnsTwoValErr())" {
+							foundBlankFix = true
+						}
+					}
+				}
+			}
+		}
+		Expect(foundBlankFix).To(BeTrue())
 	})
 })

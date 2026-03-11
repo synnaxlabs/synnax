@@ -48,6 +48,14 @@ func example() {
 	Expect(err).ToNot(HaveOccurred())
 	_, _ = a, b
 
+	// Pattern D: _, err := f() → MustSucceed(f()) with no LHS
+	_, err = returnsValErr() // want "can be replaced with MustSucceed"
+	Expect(err).ToNot(HaveOccurred())
+
+	// Pattern E: _, _, err := f() → MustSucceed2(f()) with no LHS
+	_, _, err = returnsTwoValErr() // want "can be replaced with MustSucceed2"
+	Expect(err).ToNot(HaveOccurred())
+
 	// Should NOT match: no preceding assignment
 	Expect(err).ToNot(HaveOccurred())
 

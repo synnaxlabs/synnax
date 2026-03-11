@@ -211,6 +211,11 @@ func isNamedFunc(call *ast.CallExpr, name string) bool {
 	return false
 }
 
+func isBlank(expr ast.Expr) bool {
+	ident, ok := expr.(*ast.Ident)
+	return ok && ident.Name == "_"
+}
+
 func assignsToName(assign *ast.AssignStmt, name string) bool {
 	for _, lhs := range assign.Lhs {
 		if ident, ok := lhs.(*ast.Ident); ok && ident.Name == name {
@@ -249,30 +254,46 @@ func reportDiagnostic(
 		)
 		fixText = fmt.Sprintf("Expect(%s).To(Succeed())", callStr)
 	} else if numLHS == 2 && errIdx == 1 {
-		resultName := nodeString(pass.Fset, assign.Lhs[0])
-		tok := ":="
-		if assign.Tok == token.ASSIGN {
-			tok = "="
-		}
-		msg = fmt.Sprintf(
-			"Expect(%s).ToNot(HaveOccurred()) can be replaced with MustSucceed",
-			errName,
-		)
-		fixText = fmt.Sprintf("%s %s MustSucceed(%s)", resultName, tok, callStr)
 		needsImport = true
+		if isBlank(assign.Lhs[0]) {
+			msg = fmt.Sprintf(
+				"Expect(%s).ToNot(HaveOccurred()) can be replaced with MustSucceed",
+				errName,
+			)
+			fixText = fmt.Sprintf("MustSucceed(%s)", callStr)
+		} else {
+			resultName := nodeString(pass.Fset, assign.Lhs[0])
+			tok := ":="
+			if assign.Tok == token.ASSIGN {
+				tok = "="
+			}
+			msg = fmt.Sprintf(
+				"Expect(%s).ToNot(HaveOccurred()) can be replaced with MustSucceed",
+				errName,
+			)
+			fixText = fmt.Sprintf("%s %s MustSucceed(%s)", resultName, tok, callStr)
+		}
 	} else if numLHS == 3 && errIdx == 2 {
-		r1 := nodeString(pass.Fset, assign.Lhs[0])
-		r2 := nodeString(pass.Fset, assign.Lhs[1])
-		tok := ":="
-		if assign.Tok == token.ASSIGN {
-			tok = "="
-		}
-		msg = fmt.Sprintf(
-			"Expect(%s).ToNot(HaveOccurred()) can be replaced with MustSucceed2",
-			errName,
-		)
-		fixText = fmt.Sprintf("%s, %s %s MustSucceed2(%s)", r1, r2, tok, callStr)
 		needsImport = true
+		if isBlank(assign.Lhs[0]) && isBlank(assign.Lhs[1]) {
+			msg = fmt.Sprintf(
+				"Expect(%s).ToNot(HaveOccurred()) can be replaced with MustSucceed2",
+				errName,
+			)
+			fixText = fmt.Sprintf("MustSucceed2(%s)", callStr)
+		} else {
+			r1 := nodeString(pass.Fset, assign.Lhs[0])
+			r2 := nodeString(pass.Fset, assign.Lhs[1])
+			tok := ":="
+			if assign.Tok == token.ASSIGN {
+				tok = "="
+			}
+			msg = fmt.Sprintf(
+				"Expect(%s).ToNot(HaveOccurred()) can be replaced with MustSucceed2",
+				errName,
+			)
+			fixText = fmt.Sprintf("%s, %s %s MustSucceed2(%s)", r1, r2, tok, callStr)
+		}
 	} else {
 		return
 	}
