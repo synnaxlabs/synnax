@@ -208,8 +208,8 @@ export class Controller
   private async closeWriter(): Promise<void> {
     try {
       await this.writer?.close();
-    } catch {
-      // Expected to fail on a dead stream.
+    } catch (e) {
+      if (!Controller.isRetryable(e)) throw e;
     } finally {
       this.writer = undefined;
     }
