@@ -204,6 +204,56 @@ describe("StreamMultiChannelLog", () => {
     expect(log.value()).toHaveLength(100_000);
   });
 
+  it("should set channelPadding to align values across channels of different name lengths", async () => {
+    const props: StreamMultiChannelLogProps = {
+      channels: [c.channelA.key, c.channelB.key],
+      timeSpan: TimeSpan.seconds(30),
+    };
+    const log = new StreamMultiChannelLog(c, props);
+    await waitForResolve(log);
+    const seriesA = new Series({ data: new Float32Array([1]) });
+    const seriesB = new Series({ data: new Float32Array([2]) });
+    c.streamHandler?.(
+      new Map([
+        [c.channelA.key, new MultiSeries([seriesA])],
+        [c.channelB.key, new MultiSeries([seriesB])],
+      ]),
+    );
+    const entries = log.value();
+    // channel_a (9 chars) and channel_b (9 chars) have equal length — both get ""
+    expect(entries[0].channelPadding).toBe("");
+    expect(entries[1].channelPadding).toBe("");
+  });
+
+  it("should pad the shorter channel name to align with the longest", async () => {
+    // Give channelB a longer name so we can observe the padding on channelA
+    c.channelB = new channel.Channel({
+      key: c.channelB.key,
+      name: "a_very_long_channel_name",
+      dataType: DataType.FLOAT32,
+      isIndex: false,
+    });
+    const props: StreamMultiChannelLogProps = {
+      channels: [c.channelA.key, c.channelB.key],
+      timeSpan: TimeSpan.seconds(30),
+    };
+    const log = new StreamMultiChannelLog(c, props);
+    await waitForResolve(log);
+    const seriesA = new Series({ data: new Float32Array([1]) });
+    const seriesB = new Series({ data: new Float32Array([2]) });
+    c.streamHandler?.(
+      new Map([
+        [c.channelA.key, new MultiSeries([seriesA])],
+        [c.channelB.key, new MultiSeries([seriesB])],
+      ]),
+    );
+    const entries = log.value();
+    const maxLen = "a_very_long_channel_name".length;
+    const shortLen = c.channelA.name.length; // "channel_a" = 9
+    expect(entries[0].channelPadding).toBe(" ".repeat(maxLen - shortLen));
+    expect(entries[1].channelPadding).toBe("");
+  });
+
   it("should read entries from subsequent buffer allocations", async () => {
     const props: StreamMultiChannelLogProps = {
       channels: [c.channelA.key],

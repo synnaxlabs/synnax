@@ -52,6 +52,9 @@ interface ChannelMeta {
   // on first write and advance readCursor on every callback to read only new samples.
   leadingBuffer: Series | null;
   readCursor: number;
+  // Whitespace appended after "]" in multi-channel mode to align the value column
+  // across channels of different name lengths. Computed once in read().
+  padding: string;
 }
 
 export class StreamMultiChannelLog
@@ -97,6 +100,7 @@ export class StreamMultiChannelLog
         this.props.channels.map((ch) => this.client.retrieveChannel(ch)),
       );
 
+      const maxNameLen = Math.max(...channels.map((ch) => ch.name.length));
       for (const ch of channels)
         this.channelMeta.set(ch.key, {
           key: ch.key,
@@ -106,6 +110,7 @@ export class StreamMultiChannelLog
           readCursor: 0,
           dataType: new DataType(ch.dataType),
           virtual: ch.virtual,
+          padding: " ".repeat(maxNameLen - ch.name.length),
         });
 
       const streamKeys = channels.map((ch) => ch.key);
@@ -133,6 +138,7 @@ export class StreamMultiChannelLog
             this.entries.push({
               channelKey: chMeta.key,
               channelName: chMeta.name,
+              channelPadding: chMeta.padding,
               timestamp: now.valueOf(),
               value: isJSON ? JSON.stringify(raw) : String(raw),
             });

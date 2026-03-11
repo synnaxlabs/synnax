@@ -88,6 +88,7 @@ export type SeriesSourceSpec = z.infer<typeof seriesSourceSpecZ>;
 export interface LogEntry {
   channelKey: number;
   channelName: string;
+  channelPadding: string;
   timestamp: bigint;
   value: string;
 }

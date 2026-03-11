@@ -217,7 +217,7 @@ export class Log extends aether.Leaf<typeof logState, InternalState> {
       const entry = entries[i];
       const ts = new TimeStamp(entry.timestamp).toString("preciseTime", "local").slice(0, tsLen);
       let line = `${ts}  ${entry.value}`;
-      if (multiChannel) line = `${ts}  [${entry.channelName}]  ${entry.value}`;
+      if (multiChannel) line = `${ts}  [${entry.channelName}]${entry.channelPadding}  ${entry.value}`;
       draw2D.text({
         text: line,
         level: this.state.font,
