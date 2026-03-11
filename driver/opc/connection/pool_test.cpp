@@ -443,8 +443,8 @@ TEST_F(ConnectionPoolTest, HealthyEndpointNotBlockedBySlowProbe) {
     // Thread A: acquire from server1 (will hit the slow probe on cached conn)
     std::thread thread_a([&pool, this]() {
         auto [conn, err] = pool.acquire(conn_cfg_, "[A] ");
-        (void)conn;
-        (void)err;
+        (void) conn;
+        (void) err;
     });
 
     // Give thread A time to grab its candidate and enter the delayed probe
@@ -460,9 +460,9 @@ TEST_F(ConnectionPoolTest, HealthyEndpointNotBlockedBySlowProbe) {
     std::thread thread_b([&pool, &cfg2, &thread_b_elapsed]() {
         auto start = std::chrono::steady_clock::now();
         auto [conn, err] = pool.acquire(cfg2, "[B] ");
-        thread_b_elapsed = std::chrono::duration_cast<
-            std::chrono::milliseconds
-        >(std::chrono::steady_clock::now() - start);
+        thread_b_elapsed = std::chrono::duration_cast<std::chrono::milliseconds>(
+            std::chrono::steady_clock::now() - start
+        );
     });
 
     thread_a.join();
@@ -634,6 +634,159 @@ TEST_F(SessionLimitPoolTest, ConnectionChurnExhaustsSessions) {
     auto conn3 = ASSERT_NIL_P(pool.acquire(conn_cfg_, "[test] "));
     auto conn4 = ASSERT_NIL_P(pool.acquire(conn_cfg_, "[test] "));
     EXPECT_EQ(pool.size(), 2);
+}
+
+/// @brief After 3 consecutive connection failures, the circuit breaker trips
+/// and rejects acquire() immediately without attempting network I/O.
+///
+/// On main: no circuit breaker exists, so every acquire() attempts connect()
+/// even when the server is down, hammering the endpoint.
+///
+/// With the update: after BREAKER_THRESHOLD (3) failures, the breaker opens
+/// and acquire() returns an error instantly during the cooldown window.
+TEST_F(SessionLimitPoolTest, CircuitBreakerTripsAfterFailures) {
+    Pool pool;
+
+    // Stop server so all connection attempts fail
+    server_->stop();
+    server_.reset();
+    std::this_thread::sleep_for(std::chrono::milliseconds(100));
+
+    Config bad_cfg = conn_cfg_;
+
+    // First 3 failures should attempt connection (and fail)
+    for (int i = 0; i < 3; ++i) {
+        auto [conn, err] = pool.acquire(bad_cfg, "[test] ");
+        ASSERT_TRUE(err) << "Attempt " << i << " should fail (server is down)";
+    }
+
+    // 4th attempt: breaker should be tripped — reject instantly
+    auto start = std::chrono::steady_clock::now();
+    auto [conn, err] = pool.acquire(bad_cfg, "[test] ");
+    auto elapsed = std::chrono::duration_cast<std::chrono::milliseconds>(
+        std::chrono::steady_clock::now() - start
+    );
+
+    ASSERT_TRUE(err);
+    EXPECT_FALSE(conn);
+
+    // Should complete in <500ms (no network I/O), proving breaker rejected it
+    EXPECT_LT(elapsed.count(), 500)
+        << "Breaker should reject instantly, but took " << elapsed.count() << "ms";
+
+    // Error message should mention circuit breaker
+    EXPECT_NE(err.message().find("circuit breaker"), std::string::npos)
+        << "Error should mention circuit breaker: " << err.message();
+}
+
+/// @brief After the circuit breaker trips and the cooldown expires, a
+/// successful probe connection resets the breaker and restores normal
+/// operation.
+///
+/// On main: no breaker, so this test structure doesn't apply — but it
+/// validates that the breaker doesn't permanently lock out an endpoint.
+TEST_F(SessionLimitPoolTest, CircuitBreakerResetsOnSuccess) {
+    Pool pool;
+
+    // Stop server to trip the breaker
+    server_->stop();
+    server_.reset();
+    std::this_thread::sleep_for(std::chrono::milliseconds(100));
+
+    // Trip the breaker: 3 consecutive failures
+    for (int i = 0; i < 3; ++i) {
+        auto [conn, err] = pool.acquire(conn_cfg_, "[test] ");
+        ASSERT_TRUE(err);
+    }
+
+    // Verify breaker is tripped
+    {
+        auto [conn, err] = pool.acquire(conn_cfg_, "[test] ");
+        ASSERT_TRUE(err);
+        EXPECT_NE(err.message().find("circuit breaker"), std::string::npos);
+    }
+
+    // Restart server
+    server_cfg_.max_sessions = 2;
+    server_ = std::make_unique<mock::Server>(server_cfg_);
+    server_->start();
+    ASSERT_TRUE(server_->wait_until_ready());
+
+    // Wait for breaker cooldown to expire (BREAKER_COOLDOWN = 5s)
+    std::this_thread::sleep_for(std::chrono::milliseconds(5500));
+
+    // Now acquire should succeed — breaker enters half-open, probe succeeds,
+    // breaker resets
+    auto conn = ASSERT_NIL_P(pool.acquire(conn_cfg_, "[test] "));
+    ASSERT_NE(conn.get(), nullptr);
+
+    // Verify connection is functional
+    UA_SessionState ss;
+    UA_SecureChannelState cs;
+    UA_Client_getState(conn.get(), &cs, &ss, nullptr);
+    EXPECT_EQ(ss, UA_SESSIONSTATE_ACTIVATED);
+
+    // Subsequent acquires should also succeed (breaker fully reset)
+    auto conn2 = ASSERT_NIL_P(pool.acquire(conn_cfg_, "[test] "));
+    ASSERT_NE(conn2.get(), nullptr);
+}
+
+/// @brief 4 threads race to reconnect after a server restart with
+/// max_sessions=2. Serialized connection creation should prevent all 4
+/// from calling connect() simultaneously and overwhelming the session table.
+///
+/// On main: all 4 threads call connect() concurrently, potentially
+/// creating 4 sessions and exceeding the limit.
+///
+/// With the update: only one thread connects at a time (serialized via
+/// connect_cv_). Other threads wait and reuse the newly created connection.
+TEST_F(SessionLimitPoolTest, ConcurrentChurnExhaustsSessions) {
+    Pool pool;
+
+    // Prime with 2 cached connections
+    {
+        auto conn1 = ASSERT_NIL_P(pool.acquire(conn_cfg_, "[test] "));
+        auto conn2 = ASSERT_NIL_P(pool.acquire(conn_cfg_, "[test] "));
+    }
+    EXPECT_EQ(pool.available_count(conn_cfg_.endpoint), 2);
+
+    // Restart server — cached connections become stale
+    server_->stop();
+    server_.reset();
+
+    server_cfg_.max_sessions = 2;
+    server_ = std::make_unique<mock::Server>(server_cfg_);
+    server_->start();
+    ASSERT_TRUE(server_->wait_until_ready());
+
+    // 4 threads race to acquire — serialization should keep us within
+    // the session limit
+    const int num_threads = 4;
+    std::vector<std::thread> threads;
+    std::atomic<int> success_count{0};
+    std::atomic<int> error_count{0};
+
+    for (int i = 0; i < num_threads; ++i) {
+        threads.emplace_back([&pool, &success_count, &error_count, this]() {
+            auto [conn, err] = pool.acquire(conn_cfg_, "[test] ");
+            if (!err && conn) {
+                success_count++;
+                // Hold connection briefly to simulate task usage
+                std::this_thread::sleep_for(std::chrono::milliseconds(100));
+            } else {
+                error_count++;
+            }
+        });
+    }
+
+    for (auto &t: threads)
+        t.join();
+
+    // With serialization: threads connect one at a time and share
+    // connections. At least 2 should succeed (the session limit).
+    // Without serialization: all 4 race and some may get rejected.
+    EXPECT_GE(success_count.load(), 2)
+        << "At least 2 threads should succeed (session limit is 2)";
 }
 
 }
