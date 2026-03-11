@@ -100,6 +100,8 @@ void append_to_write_buffer(Series &dest, const Series &src) {
                 grown_cap
             );
             grown->write(*dest);
+            grown->time_range = dest->time_range;
+            grown->alignment = dest->alignment;
             dest = std::move(grown);
         }
         dest->write(*src);
