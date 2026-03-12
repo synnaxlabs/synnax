@@ -293,16 +293,17 @@ WriteTaskSink::WriteTaskSink(
 }
 
 x::errors::Error WriteTaskSink::write(x::telem::Frame &frame) {
+    // First pass: build all requests, bailing on conversion errors.
+    std::vector<Request> requests;
+    std::vector<size_t> ep_indices;
     for (const auto &[ch_key, series]: frame) {
         auto it = channel_to_endpoint.find(ch_key);
         if (it == channel_to_endpoint.end()) continue;
         const auto ep_idx = it->second;
         const auto &ep = cfg.endpoints[ep_idx];
 
-        // Get the last sample value from the series.
         const auto sample_val = series.at(-1);
 
-        // Convert sample value to JSON.
         auto [json_val, conv_err] = x::json::from_sample_value(
             sample_val,
             ep.channel.json_type
@@ -314,7 +315,6 @@ x::errors::Error WriteTaskSink::write(x::telem::Frame &frame) {
                     conv_err.data,
             };
 
-        // If the channel is a timestamp type, format it.
         if (ep.channel.time_format.has_value()) {
             const auto ts_val = std::visit(
                 [](auto &&v) -> int64_t {
@@ -332,25 +332,55 @@ x::errors::Error WriteTaskSink::write(x::telem::Frame &frame) {
             );
         }
 
-        // Determine the timestamp for time_config and generated timestamp fields.
         auto ts = ep.virtual_index ? x::telem::TimeStamp::now()
                                    : x::telem::TimeStamp::now();
 
-        // Build the request body.
         auto [body, body_err] = build_body(ep, json_val, ts);
         if (body_err) return body_err;
 
-        // Build and execute the request.
         auto req = base_requests[ep_idx];
         req.body = std::move(body);
-        auto [resp, req_err] = processor->execute(req);
+        requests.push_back(std::move(req));
+        ep_indices.push_back(ep_idx);
+    }
+
+    if (requests.empty()) return x::errors::NIL;
+
+    // Fast path: single request doesn't need the batch overload.
+    if (requests.size() == 1) {
+        const auto ep_idx = ep_indices[0];
+        const auto &ep = cfg.endpoints[ep_idx];
+        auto [resp, req_err] = processor->execute(requests[0]);
         if (req_err)
             return {
                 req_err.type,
                 std::string(to_string(ep.request.method)) + " " +
                     base_requests[ep_idx].url + ": " + req_err.data,
             };
+        if (auto status_err = errors::from_status(resp.status_code); status_err) {
+            auto msg = std::string(to_string(ep.request.method)) + " " +
+                       base_requests[ep_idx].url + " returned " +
+                       std::to_string(resp.status_code);
+            if (!resp.body.empty()) msg += ": " + resp.body;
+            return {status_err.type, msg};
+        }
+        return x::errors::NIL;
+    }
 
+    // Second pass: execute all requests in parallel.
+    auto results = processor->execute(requests);
+
+    // Third pass: check results and return the first error.
+    for (size_t i = 0; i < results.size(); i++) {
+        const auto ep_idx = ep_indices[i];
+        const auto &ep = cfg.endpoints[ep_idx];
+        auto &[resp, req_err] = results[i];
+        if (req_err)
+            return {
+                req_err.type,
+                std::string(to_string(ep.request.method)) + " " +
+                    base_requests[ep_idx].url + ": " + req_err.data,
+            };
         if (auto status_err = errors::from_status(resp.status_code); status_err) {
             auto msg = std::string(to_string(ep.request.method)) + " " +
                        base_requests[ep_idx].url + " returned " +

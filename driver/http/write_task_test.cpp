@@ -7,6 +7,8 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+#include <chrono>
+#include <map>
 #include <memory>
 #include <regex>
 
@@ -489,6 +491,166 @@ TEST(HTTPWriteTask, MultipleEndpointsFireIndependently) {
     auto reqs = server.received_requests();
     ASSERT_EQ(reqs.size(), 1);
     EXPECT_EQ(reqs[0].path, "/api/temp");
+}
+
+/// @brief it should send requests to multiple endpoints in parallel when a single
+/// frame contains commands for all of them.
+TEST(HTTPWriteTask, ParallelMultipleEndpoints) {
+    mock::Server server(
+        mock::ServerConfig{
+            .routes = {
+                {
+                    .method = Method::POST,
+                    .path = "/api/temp",
+                    .status_code = 200,
+                    .response_body = R"({"status":"ok"})",
+                    .delay = 100 * x::telem::MILLISECOND,
+                },
+                {
+                    .method = Method::POST,
+                    .path = "/api/pressure",
+                    .status_code = 200,
+                    .response_body = R"({"status":"ok"})",
+                    .delay = 100 * x::telem::MILLISECOND,
+                },
+                {
+                    .method = Method::POST,
+                    .path = "/api/humidity",
+                    .status_code = 200,
+                    .response_body = R"({"status":"ok"})",
+                    .delay = 100 * x::telem::MILLISECOND,
+                },
+            },
+        }
+    );
+    ASSERT_NIL(server.start());
+    x::defer::defer stop_server([&server] { server.stop(); });
+
+    WriteTaskConfig cfg;
+    cfg.device = "test-device";
+    cfg.auto_start = false;
+
+    WriteEndpoint ep1;
+    ep1.request.method = Method::POST;
+    ep1.request.path = "/api/temp";
+    ep1.request.request_content_type = "application/json";
+    ep1.channel.pointer = x::json::json::json_pointer("/value");
+    ep1.channel.json_type = x::json::Type::Number;
+    ep1.channel.channel_key = 1;
+
+    WriteEndpoint ep2;
+    ep2.request.method = Method::POST;
+    ep2.request.path = "/api/pressure";
+    ep2.request.request_content_type = "application/json";
+    ep2.channel.pointer = x::json::json::json_pointer("/value");
+    ep2.channel.json_type = x::json::Type::Number;
+    ep2.channel.channel_key = 2;
+
+    WriteEndpoint ep3;
+    ep3.request.method = Method::POST;
+    ep3.request.path = "/api/humidity";
+    ep3.request.request_content_type = "application/json";
+    ep3.channel.pointer = x::json::json::json_pointer("/value");
+    ep3.channel.json_type = x::json::Type::Number;
+    ep3.channel.channel_key = 3;
+
+    cfg.endpoints = {ep1, ep2, ep3};
+    cfg.cmd_keys = {1, 2, 3};
+
+    auto [sink, processor] = make_sink(cfg, server.base_url());
+
+    x::telem::Frame frame;
+    frame.emplace(synnax::channel::Key(1), x::telem::Series(std::vector<double>{25.0}));
+    frame.emplace(
+        synnax::channel::Key(2),
+        x::telem::Series(std::vector<double>{101.3})
+    );
+    frame.emplace(synnax::channel::Key(3), x::telem::Series(std::vector<double>{60.0}));
+
+    // Each endpoint has a 100ms delay. If serial, total >= 300ms. If parallel, ~100ms.
+    const auto before = std::chrono::steady_clock::now();
+    ASSERT_NIL(sink->write(frame));
+    const auto elapsed_ms = std::chrono::duration_cast<std::chrono::milliseconds>(
+                                std::chrono::steady_clock::now() - before
+    )
+                                .count();
+
+    // Parallel execution should complete well under 300ms.
+    EXPECT_LT(elapsed_ms, 250);
+
+    auto reqs = server.received_requests();
+    ASSERT_EQ(reqs.size(), 3);
+
+    // Verify all three endpoint bodies arrived with the correct values.
+    std::map<std::string, double> path_values;
+    for (const auto &r: reqs) {
+        auto body = x::json::json::parse(r.body);
+        path_values[r.path] = body["value"].get<double>();
+    }
+    EXPECT_NEAR(path_values["/api/temp"], 25.0, 0.001);
+    EXPECT_NEAR(path_values["/api/pressure"], 101.3, 0.001);
+    EXPECT_NEAR(path_values["/api/humidity"], 60.0, 0.001);
+}
+
+/// @brief when one endpoint in a parallel batch returns an error, the write should
+/// still return that error.
+TEST(HTTPWriteTask, ParallelBatchPartialFailure) {
+    mock::Server server(
+        mock::ServerConfig{
+            .routes = {
+                {
+                    .method = Method::POST,
+                    .path = "/api/good",
+                    .status_code = 200,
+                    .response_body = R"({"status":"ok"})",
+                },
+                {
+                    .method = Method::POST,
+                    .path = "/api/bad",
+                    .status_code = 500,
+                    .response_body = R"({"error":"internal"})",
+                },
+            },
+        }
+    );
+    ASSERT_NIL(server.start());
+    x::defer::defer stop_server([&server] { server.stop(); });
+
+    WriteTaskConfig cfg;
+    cfg.device = "test-device";
+    cfg.auto_start = false;
+
+    WriteEndpoint ep1;
+    ep1.request.method = Method::POST;
+    ep1.request.path = "/api/good";
+    ep1.request.request_content_type = "application/json";
+    ep1.channel.pointer = x::json::json::json_pointer("/value");
+    ep1.channel.json_type = x::json::Type::Number;
+    ep1.channel.channel_key = 1;
+
+    WriteEndpoint ep2;
+    ep2.request.method = Method::POST;
+    ep2.request.path = "/api/bad";
+    ep2.request.request_content_type = "application/json";
+    ep2.channel.pointer = x::json::json::json_pointer("/value");
+    ep2.channel.json_type = x::json::Type::Number;
+    ep2.channel.channel_key = 2;
+
+    cfg.endpoints = {ep1, ep2};
+    cfg.cmd_keys = {1, 2};
+
+    auto [sink, processor] = make_sink(cfg, server.base_url());
+
+    x::telem::Frame frame;
+    frame.emplace(synnax::channel::Key(1), x::telem::Series(std::vector<double>{10.0}));
+    frame.emplace(synnax::channel::Key(2), x::telem::Series(std::vector<double>{20.0}));
+
+    auto err = sink->write(frame);
+    ASSERT_OCCURRED_AS(err, errors::TEMPORARY_ERROR);
+
+    // Both requests should have been sent (parallel, not short-circuit).
+    auto reqs = server.received_requests();
+    ASSERT_EQ(reqs.size(), 2);
 }
 
 /// @brief it should use only the last sample value when a series has multiple
