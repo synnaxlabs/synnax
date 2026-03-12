@@ -1938,4 +1938,157 @@ TEST_F(SchedulerTest, testNextDeadlineFromStageNode) {
     EXPECT_EQ(scheduler->next_deadline(), x::telem::SECOND * 2);
 }
 
+/// @brief it should stop evaluating statements after the first transition fires
+TEST_F(SchedulerTest, testFirstStatementWinsWhenMultipleTransitionsAreTrue) {
+    // Setup: trigger activates stage_on, which has two transition nodes (A and B)
+    // in the same stratum. Both are truthy and wire to different stage entries.
+    // A (first in stratum order) should win; B's transition should never fire.
+    auto &trigger = mock("trigger");
+    auto &entry_on = mock("entry_seq_stage_on");
+    auto &nodeA = mock("A");
+    auto &nodeB = mock("B");
+    auto &entry_off = mock("entry_seq_stage_off");
+    auto &entry_pause = mock("entry_seq_stage_pause");
+    const auto &nodeOff = mock("Off");
+    const auto &nodePause = mock("Pause");
+
+    trigger.mark_on_next("activate");
+    trigger.param_truthy["activate"] = true;
+    entry_on.activate_on_next();
+    entry_off.activate_on_next();
+    entry_pause.activate_on_next();
+
+    // Both transitions fire and are truthy
+    nodeA.mark_on_next("check");
+    nodeA.param_truthy["check"] = true;
+    nodeB.mark_on_next("check");
+    nodeB.param_truthy["check"] = true;
+
+    auto ir = ir::testutil::Builder()
+                  .node("trigger")
+                  .node("entry_seq_stage_on")
+                  .node("A")
+                  .node("B")
+                  .node("entry_seq_stage_off")
+                  .node("entry_seq_stage_pause")
+                  .node("Off")
+                  .node("Pause")
+                  .oneshot("trigger", "activate", "entry_seq_stage_on", "input")
+                  .oneshot("A", "check", "entry_seq_stage_off", "input")
+                  .oneshot("B", "check", "entry_seq_stage_pause", "input")
+                  .strata({{"trigger"}, {"entry_seq_stage_on"}})
+                  .sequence(
+                      "seq",
+                      {{"stage_on",
+                        {{"A", "B"}, {"entry_seq_stage_off", "entry_seq_stage_pause"}}},
+                       {"stage_off", {{"Off"}}},
+                       {"stage_pause", {{"Pause"}}}}
+                  )
+                  .build();
+
+    const auto scheduler = build(std::move(ir));
+    scheduler->next(x::telem::MILLISECOND, node::RunReason::TimerTick);
+
+    // A's transition to stage_off should win
+    ASSERT_EQ(nodeOff.next_called, 1);
+    // B's transition to stage_pause should never fire
+    ASSERT_EQ(nodePause.next_called, 0);
+}
+
+/// @brief it should skip later write statements after a transition fires
+TEST_F(SchedulerTest, testTransitionSkipsLaterWriteStatementInSameStage) {
+    auto &trigger = mock("trigger");
+    auto &entry_on = mock("entry_seq_stage_on");
+    auto &transition = mock("to_abort");
+    auto &write_cmd = mock("write_ox_tpc_cmd");
+    auto &entry_abort = mock("entry_seq_stage_abort");
+    const auto &abort_node = mock("abort_node");
+
+    trigger.mark_on_next("activate");
+    trigger.param_truthy["activate"] = true;
+    entry_on.activate_on_next();
+    entry_abort.activate_on_next();
+
+    transition.mark_on_next("check");
+    transition.param_truthy["check"] = true;
+
+    auto ir = ir::testutil::Builder()
+                  .node("trigger")
+                  .node("entry_seq_stage_on")
+                  .node("to_abort")
+                  .node("write_ox_tpc_cmd")
+                  .node("entry_seq_stage_abort")
+                  .node("abort_node")
+                  .oneshot("trigger", "activate", "entry_seq_stage_on", "input")
+                  .oneshot("to_abort", "check", "entry_seq_stage_abort", "input")
+                  .strata({{"trigger"}, {"entry_seq_stage_on"}})
+                  .sequence(
+                      "seq",
+                      {{"stage_on",
+                        {{"to_abort"}, {"entry_seq_stage_abort", "write_ox_tpc_cmd"}}},
+                       {"stage_abort", {{"abort_node"}}}}
+                  )
+                  .build();
+
+    const auto scheduler = build(std::move(ir));
+    scheduler->next(x::telem::MILLISECOND, node::RunReason::TimerTick);
+
+    // Transition should fire and move into abort stage.
+    ASSERT_EQ(abort_node.next_called, 1);
+    // Statement after transition in the same stage pass should be skipped.
+    ASSERT_EQ(write_cmd.next_called, 0);
+}
+
+/// @brief it should respect source order when entry nodes are at the same stratum
+TEST_F(SchedulerTest, testSourceOrderPriorityWhenEntriesAtSameStratum) {
+    auto &trigger = mock("trigger");
+    auto &entry_active = mock("entry_seq_active");
+    auto &condA = mock("condA");
+    auto &condB = mock("condB");
+    auto &entryA = mock("entry_seq_stage_a");
+    auto &entryB = mock("entry_seq_stage_b");
+    const auto &nodeA = mock("A");
+    const auto &nodeB = mock("B");
+
+    trigger.mark_on_next("activate");
+    trigger.param_truthy["activate"] = true;
+    entry_active.activate_on_next();
+
+    condA.mark_on_next("check");
+    condA.param_truthy["check"] = true;
+    condB.mark_on_next("check");
+    condB.param_truthy["check"] = true;
+    entryA.activate_on_next();
+    entryB.activate_on_next();
+
+    auto ir = ir::testutil::Builder()
+                  .node("trigger")
+                  .node("entry_seq_active")
+                  .node("condA")
+                  .node("condB")
+                  .node("entry_seq_stage_a")
+                  .node("entry_seq_stage_b")
+                  .node("A")
+                  .node("B")
+                  .oneshot("trigger", "activate", "entry_seq_active", "input")
+                  .oneshot("condA", "check", "entry_seq_stage_a", "input")
+                  .oneshot("condB", "check", "entry_seq_stage_b", "input")
+                  .strata({{"trigger"}, {"entry_seq_active"}})
+                  .sequence(
+                      "seq",
+                      {{"active",
+                        {{"condA", "condB"},
+                         {"entry_seq_stage_a", "entry_seq_stage_b"}}},
+                       {"stage_a", {{"A"}}},
+                       {"stage_b", {{"B"}}}}
+                  )
+                  .build();
+
+    const auto scheduler = build(std::move(ir));
+    scheduler->next(x::telem::MILLISECOND, node::RunReason::TimerTick);
+
+    ASSERT_EQ(nodeA.next_called, 1);
+    ASSERT_EQ(nodeB.next_called, 0);
+}
+
 }

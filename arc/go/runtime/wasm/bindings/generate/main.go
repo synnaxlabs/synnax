@@ -116,11 +116,7 @@ func (r *Runtime) ChannelRead{{.IRType | title}}(ctx context.Context, channelID 
 
 // ChannelWrite{{.IRType | title}} writes a value to a channel (queued for flush).
 func (r *Runtime) ChannelWrite{{.IRType | title}}(ctx context.Context, channelID uint32, value {{.GoType}}) {
-	// Create a single-value series
-	series := telem.NewSeriesV[{{.GoType}}](value)
-
-	// Queue for output
-	r.state.WriteChannelValue(channelID, series)
+	r.state.WriteChannel{{.IRType | title}}(channelID, value)
 }
 {{end}}{{end}}
 

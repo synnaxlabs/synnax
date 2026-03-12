@@ -467,6 +467,70 @@ TEST_F(ModbusWriteTest, testWriteVerification) {
     EXPECT_EQ(second_state.variant, x::status::VARIANT_SUCCESS);
 }
 
+/// @brief when a frame contains multiple samples for a channel, only the last
+/// sample should be written to hardware.
+TEST_F(ModbusWriteTest, testLastWriteWins) {
+    this->setup_task_config();
+    mock::SlaveConfig slave_cfg;
+    slave_cfg.host = "127.0.0.1";
+    slave_cfg.port = 1502;
+
+    auto slave = mock::Slave(slave_cfg);
+    ASSERT_NIL(slave.start());
+    x::defer::defer stop_slave([&slave] { slave.stop(); });
+
+    x::json::json task_cfg{
+        {"device", "modbus_test_dev"},
+        {"channels",
+         x::json::json::array(
+             {{{"type", "coil_output"},
+               {"address", 0},
+               {"enabled", true},
+               {"channel", coil_ch.key}},
+              {{"type", "holding_register_output"},
+               {"address", 1},
+               {"enabled", true},
+               {"channel", reg_ch.key},
+               {"data_type", "uint16"}}}
+         )}
+    };
+
+    auto p = x::json::Parser(task_cfg);
+    cfg = std::make_unique<WriteTaskConfig>(client, p);
+    ASSERT_NIL(p.error());
+
+    const auto reads = std::make_shared<std::vector<x::telem::Frame>>();
+    x::telem::Frame fr(2);
+    fr.emplace(coil_ch.key, x::telem::Series(std::vector<uint8_t>{0, 0, 1}));
+    fr.emplace(reg_ch.key, x::telem::Series(std::vector<uint16_t>{100, 200, 300}));
+    reads->push_back(std::move(fr));
+
+    mock_streamer_factory = pipeline::mock::simple_streamer_factory(
+        {coil_ch.key, reg_ch.key},
+        reads
+    );
+
+    auto dev = ASSERT_NIL_P(devs->acquire(cfg->conn));
+
+    auto wt = std::make_unique<common::WriteTask>(
+        task,
+        ctx,
+        x::breaker::default_config(task.name),
+        std::make_unique<WriteTaskSink>(dev, std::move(*cfg)),
+        nullptr,
+        mock_streamer_factory
+    );
+
+    wt->start("start_cmd");
+    ASSERT_EVENTUALLY_GE(
+        mock_streamer_factory->streamer_opens.load(std::memory_order_acquire),
+        1
+    );
+    ASSERT_EVENTUALLY_EQ(slave.get_coil(0), 1);
+    ASSERT_EVENTUALLY_EQ(slave.get_holding_register(1), 300);
+    wt->stop("stop_cmd", true);
+}
+
 /// Regression test for buffer size calculation bug with UINT8 holding registers.
 /// This test ensures that multiple sequential UINT8 holding registers can be written
 /// correctly, especially the last register which was previously affected by an

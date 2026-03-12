@@ -51,6 +51,7 @@ type source struct {
 	*state.Node
 	key           uint32
 	highWaterMark telem.Alignment
+	clock         telem.MonoClock
 }
 
 func (s *source) Init(node.Context) {}
@@ -81,8 +82,8 @@ func (s *source) Next(ctx node.Context) {
 			var timeSeries telem.Series
 			if indexData.DataType() == telem.UnknownT {
 				timeSeries = telem.Arrange(
-					telem.Now(),
-					int(data.Len()),
+					s.clock.Now(),
+					int(ser.Len()),
 					1*telem.NanosecondTS,
 				)
 				timeSeries.Alignment = ser.Alignment
