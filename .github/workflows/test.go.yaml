@@ -55,7 +55,7 @@ jobs:
         if: matrix.fmt
         uses: golangci/golangci-lint-action@v9
         with:
-          working-directory: ${{ inputs.directory }}
+          args: ./${{ inputs.directory }}/...
 
       - name: Test
         run: >-
