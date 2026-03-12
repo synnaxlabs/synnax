@@ -126,7 +126,6 @@ TEST(HTTPWriteTask, ParseConfigBarePrimitiveWithAdditionalFields) {
     ASSERT_OCCURRED_AS_P(WriteTaskConfig::parse(ctx, task), x::errors::VALIDATION);
 }
 
-
 /// @brief it should POST a numeric channel value to the server.
 TEST(HTTPWriteTask, POSTNumericValue) {
     mock::Server server(
@@ -628,7 +627,7 @@ TEST(HTTPWriteTask, RecoverFromError) {
     );
     ASSERT_NIL(sink->write(frame1));
 
-    // Stop the server to simulate an error.
+    // Stop the server to simulate an unreachable error.
     server.stop();
 
     x::telem::Frame frame2;
@@ -637,42 +636,20 @@ TEST(HTTPWriteTask, RecoverFromError) {
         x::telem::Series(std::vector<double>{20.0})
     );
     auto err = sink->write(frame2);
-    ASSERT_TRUE(err); // TODO: assert what type of error this should be
+    ASSERT_OCCURRED_AS(err, errors::TEMPORARY_ERROR);
 
-    // TODO: just allow for restarting a server.
-
-    // Restart a new server on a different port — but since we're using the same sink
-    // with the old base URL, we need to restart on the same port. Instead, create a
-    // fresh server and sink to verify the sink itself isn't corrupted.
-    mock::Server server2(
-        mock::ServerConfig{
-            .routes = {{
-                .method = Method::POST,
-                .path = "/api/control",
-                .status_code = 200,
-                .response_body = R"({"status":"ok"})",
-            }},
-        }
-    );
-    ASSERT_NIL(server2.start());
-    x::defer::defer stop_server2([&server2] { server2.stop(); });
-
-    WriteTaskConfig cfg2;
-    cfg2.device = "test-device";
-    cfg2.auto_start = false;
-    cfg2.endpoints = {ep};
-    cfg2.cmd_keys = {1};
-
-    auto [sink2, processor2] = make_sink(cfg2, server2.base_url());
+    // Restart the same server on the same port and verify recovery.
+    server.clear_requests();
+    ASSERT_NIL(server.start());
 
     x::telem::Frame frame3;
     frame3.emplace(
         synnax::channel::Key(1),
         x::telem::Series(std::vector<double>{30.0})
     );
-    ASSERT_NIL(sink2->write(frame3));
+    ASSERT_NIL(sink->write(frame3));
 
-    auto reqs = server2.received_requests();
+    auto reqs = server.received_requests();
     ASSERT_EQ(reqs.size(), 1);
     auto body = x::json::json::parse(reqs[0].body);
     EXPECT_NEAR(body["value"].get<double>(), 30.0, 0.001);
@@ -718,8 +695,7 @@ TEST(HTTPWriteTask, BadConversionStringToNumber) {
     );
 
     auto err = sink->write(frame);
-    // TODO: assert on error
-    ASSERT_TRUE(err);
+    ASSERT_OCCURRED_AS(err, x::json::CONVERSION_ERROR);
 
     // No request should have been sent.
     EXPECT_EQ(server.received_requests().size(), 0);
