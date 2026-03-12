@@ -200,7 +200,8 @@ var _ = Describe("Membership", Serial, Ordered, func() {
 					By("Propagating the incremented heartbeat to other nodes")
 					ctx1 := builder.Nodes[1]
 					Eventually(func(g Gomega) {
-						n2 := MustSucceed(ctx1.DB.Cluster.Node(2))
+						n2, err := ctx1.DB.Cluster.Node(2)
+						g.Expect(err).ToNot(HaveOccurred())
 						g.Expect(n2.State).To(Equal(aspen.NodeStateHealthy))
 						g.Expect(n2.Heartbeat.Generation).To(Equal(uint32(1)))
 					}).Should(Succeed())
