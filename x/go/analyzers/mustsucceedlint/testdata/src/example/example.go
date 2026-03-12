@@ -1,15 +1,15 @@
 package example // want "missing testutil import for MustSucceed"
 
-func Expect(_ any) Assertion      { return Assertion{} }
-func HaveOccurred() any           { return nil }
-func Not(a any) any               { return a }
-func Succeed() any                { return nil }
+func Expect(any) Assertion { return Assertion{} }
+func HaveOccurred() any    { return nil }
+func Not(any) any          { return a }
+func Succeed() any         { return nil }
 
 type Assertion struct{}
 
-func (a Assertion) ToNot(_ any) {}
-func (a Assertion) NotTo(_ any) {}
-func (a Assertion) To(_ any)    {}
+func (Assertion) ToNot(any) {}
+func (Assertion) NotTo(any) {}
+func (Assertion) To(any)    {}
 
 func returnsValErr() (int, error)            { return 0, nil }
 func returnsErr() error                      { return nil }
