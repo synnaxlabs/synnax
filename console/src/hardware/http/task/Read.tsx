@@ -9,7 +9,7 @@
 
 import "@/hardware/http/task/Read.css";
 
-import { channel, NotFoundError } from "@synnaxlabs/client";
+import { channel, NotFoundError, type Synnax as Client } from "@synnaxlabs/client";
 import {
   Button,
   Component,
@@ -39,6 +39,7 @@ import {
   type ReadEndpoint,
   type ReadField,
   type ReadMethod,
+  type ReadPayload,
   type ReadSchemas,
   type TimeFormat,
   ZERO_READ_ENDPOINT,
@@ -328,7 +329,11 @@ const FieldList = ({ epKey }: FieldListProps) => {
         contextMenuItems={Common.Task.readChannelContextMenuItem}
       />
       {selectedFieldPath != null && (
-        <Flex.Box y empty style={{ flexShrink: 0, minHeight: 200, overflowY: "auto" }}>
+        <Flex.Box
+          y
+          empty
+          style={{ minHeight: 200, maxHeight: 200, padding: "1rem 2rem" }}
+        >
           <Divider.Divider x padded />
           <KeyValueEditor
             path={selectedFieldPath}
@@ -341,8 +346,6 @@ const FieldList = ({ epKey }: FieldListProps) => {
     </>
   );
 };
-
-// ─── Endpoint Details ───
 
 type TimingMode = "software" | "value";
 const TIMING_MODE_KEYS: TimingMode[] = ["software", "value"];
@@ -375,9 +378,9 @@ const TimingToggle: FC<{ path: string }> = ({ path }) => {
   );
 
   return (
-    <Flex.Box y gap={3} style={{ padding: "2rem", flexShrink: 0 }}>
+    <Flex.Box y gap={3} style={TIMING_TOGGLE_STYLE}>
       <Flex.Box x align="center" gap="small">
-        <Text.Text level="small" weight={500} style={{ marginRight: "0.25rem" }}>
+        <Text.Text level="small" weight={500} style={TIMING_TEXT_STYLE}>
           Timing
         </Text.Text>
         <Select.Buttons<TimingMode>
@@ -394,28 +397,44 @@ const TimingToggle: FC<{ path: string }> = ({ path }) => {
           <PForm.TextField
             path={`${path}.fields.${indexField.key}.pointer`}
             label="Timestamp pointer"
-            inputProps={{ placeholder: "/timestamp" }}
+            inputProps={TIMESTAMP_POINTER_INPUT_PROPS}
             grow
           />
-          <PForm.Field<string>
+          <PForm.Field<TimeFormat>
             path={`${path}.fields.${indexField.key}.timestampFormat`}
             label="Format"
-            style={{ width: 160 }}
+            style={TIMESTAMP_FORMAT_SELECT_PROPS}
           >
-            {({ value, onChange }) => (
-              <Select.Static<string, Select.StaticEntry<string>>
-                value={value ?? "unix_sec"}
-                onChange={onChange}
-                data={TIME_FORMAT_DATA}
-                resourceName="time format"
-              />
-            )}
+            {renderSelectTimeFormat}
           </PForm.Field>
         </Flex.Box>
       )}
     </Flex.Box>
   );
 };
+
+const TIMING_TOGGLE_STYLE = { padding: "2rem", flexShrink: 0 } as const;
+
+const TIMING_TEXT_STYLE = { marginRight: "0.25rem" } as const;
+
+const TIMESTAMP_POINTER_INPUT_PROPS = { placeholder: "/timestamp" } as const;
+
+const TIMESTAMP_FORMAT_SELECT_PROPS = { width: 160 } as const;
+
+const renderSelectTimeFormat = Component.renderProp(
+  (
+    p: Omit<
+      Select.StaticProps<TimeFormat, Select.StaticEntry<TimeFormat>>,
+      "data" | "resourceName"
+    >,
+  ) => (
+    <Select.Static<TimeFormat, Select.StaticEntry<TimeFormat>>
+      {...p}
+      data={TIME_FORMAT_DATA}
+      resourceName="time format"
+    />
+  ),
+);
 
 const EndpointDetails: FC<{ epKey: string }> = ({ epKey }) => {
   const path = `config.endpoints.${epKey}`;
@@ -429,7 +448,7 @@ const EndpointDetails: FC<{ epKey: string }> = ({ epKey }) => {
             path={`${path}.path`}
             label="Path"
             grow
-            inputProps={{ placeholder: "/api/data" }}
+            inputProps={PATH_INPUT_PROPS}
           />
         </Flex.Box>
         {method === "POST" && (
@@ -438,7 +457,7 @@ const EndpointDetails: FC<{ epKey: string }> = ({ epKey }) => {
               path={`${path}.body`}
               label="Request body"
               grow
-              inputProps={{ placeholder: '{"query": "latest"}' }}
+              inputProps={REQUEST_BODY_INPUT_PROPS}
             />
           </Flex.Box>
         )}
@@ -464,7 +483,9 @@ const EndpointDetails: FC<{ epKey: string }> = ({ epKey }) => {
   );
 };
 
-// ─── Main Form ───
+const PATH_INPUT_PROPS = { placeholder: "/api/data" } as const;
+
+const REQUEST_BODY_INPUT_PROPS = { placeholder: '{"query": "latest"}' } as const;
 
 const Form: FC<Common.Task.FormProps<ReadSchemas>> = () => {
   const [selectedEndpoints, setSelectedEndpoints] = useState<string[]>([]);
@@ -583,18 +604,23 @@ const Form: FC<Common.Task.FormProps<ReadSchemas>> = () => {
 
 const getInitialValues: Common.Task.GetInitialValues<ReadSchemas> = ({
   deviceKey,
-}) => ({
-  ...ZERO_READ_PAYLOAD,
-  config: {
-    ...ZERO_READ_PAYLOAD.config,
-    device: deviceKey ?? ZERO_READ_PAYLOAD.config.device,
-  },
-});
-
-type SynnaxClient = Parameters<Common.Task.OnConfigure<ReadSchemas["config"]>>[0];
+  config,
+}) => {
+  if (config != null) {
+    const pld: ReadPayload = {
+      ...ZERO_READ_PAYLOAD,
+      config: READ_SCHEMAS.config.parse(config),
+    };
+    if (deviceKey != null) pld.config.device = deviceKey;
+    return pld;
+  }
+  const pld: ReadPayload = ZERO_READ_PAYLOAD;
+  if (deviceKey != null) pld.config = { ...pld.config, device: deviceKey };
+  return pld;
+};
 
 const retrieveChannel = async (
-  client: SynnaxClient,
+  client: Client,
   key: number,
 ): Promise<channel.Channel | null> => {
   try {
@@ -605,7 +631,7 @@ const retrieveChannel = async (
   }
 };
 
-const channelExists = async (client: SynnaxClient, key: number): Promise<boolean> =>
+const channelExists = async (client: Client, key: number): Promise<boolean> =>
   (await retrieveChannel(client, key)) != null;
 
 const onConfigure: Common.Task.OnConfigure<ReadSchemas["config"]> = async (
@@ -623,7 +649,6 @@ const onConfigure: Common.Task.OnConfigure<ReadSchemas["config"]> = async (
       dev.properties.read[ep.path] ??= { index: 0, channels: {} };
       const epProps = dev.properties.read[ep.path];
 
-      // determine if this endpoint needs an index channel
       const needsIndex = ep.fields.some(
         (f) => !isTimingField(f) && !new DataType(f.dataType).isVariable,
       );
@@ -667,11 +692,9 @@ const onConfigure: Common.Task.OnConfigure<ReadSchemas["config"]> = async (
           continue;
         }
 
-        // check if the field already has a valid channel assigned
         if (field.channel !== 0 && (await channelExists(client, field.channel)))
           continue;
 
-        // check device properties for a stored channel key
         const storedKey = epProps.channels[field.pointer];
         if (
           primitive.isNonZero(storedKey) &&
