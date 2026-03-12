@@ -96,16 +96,12 @@ var _ = Describe("txn", func() {
 					g.Expect(kv2.Set(ctx, []byte("key"), []byte("value2"))).To(Succeed())
 					g.Expect(closer.Close()).To(Succeed())
 				}).Should(Succeed())
-				Expect(func(g Gomega) {
-					v, closer, err := kv1.Get(ctx, []byte("key"))
-					g.Expect(err).ToNot(HaveOccurred())
-					g.Expect(v).To(Equal([]byte("value2")))
-					g.Expect(closer.Close()).To(Succeed())
-					v, closer, err = kv1.Get(ctx, []byte("key"))
-					g.Expect(err).ToNot(HaveOccurred())
-					g.Expect(v).To(Equal([]byte("value2")))
-					g.Expect(closer.Close()).To(Succeed())
-				})
+				v, closer := MustSucceed2(kv1.Get(ctx, []byte("key")))
+				Expect(v).To(Equal([]byte("value2")))
+				Expect(closer.Close()).To(Succeed())
+				v, closer = MustSucceed2(kv1.Get(ctx, []byte("key")))
+				Expect(v).To(Equal([]byte("value2")))
+				Expect(closer.Close()).To(Succeed())
 			})
 
 			It("Should return an error when attempting to transfer the lease",
