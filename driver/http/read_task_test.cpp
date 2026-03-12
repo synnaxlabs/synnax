@@ -80,7 +80,8 @@ std::pair<std::unique_ptr<ReadTaskSource>, std::shared_ptr<Processor>> make_sour
 
     std::vector<Request> requests;
     requests.reserve(cfg.endpoints.size());
-    for (const auto &ep: cfg.endpoints) {
+    for (auto ep: cfg.endpoints) {
+        if (!ep.body.empty()) ep.request.request_content_type = "application/json";
         auto req = device::build_request(conn, ep.request);
         req.body = ep.body;
         requests.push_back(std::move(req));
@@ -2918,6 +2919,56 @@ TEST(HTTPReadTask, SamplingGroupPartialIndexTimestamp) {
     EXPECT_EQ(fr.size(), 2);
     EXPECT_NEAR(fr.at<double>(1, 0), 25.0, 0.001);
     EXPECT_GT(fr.at<int64_t>(10, 0), 0);
+}
+
+/// @brief POST requests should include Content-Type: application/json.
+TEST(HTTPReadTask, POSTSetsContentTypeJSON) {
+    mock::Server server(
+        mock::ServerConfig{
+            .routes = {{
+                .method = Method::POST,
+                .path = "/api/query",
+                .status_code = 200,
+                .response_body = R"({"value": 42.0})",
+            }},
+        }
+    );
+    ASSERT_NIL(server.start());
+    x::defer::defer stop_server([&server] { server.stop(); });
+
+    ReadTaskConfig cfg;
+    cfg.device = "test-device";
+    cfg.data_saving = false;
+    cfg.auto_start = false;
+    cfg.rate = x::telem::Rate(10000);
+
+    ReadField field;
+    field.pointer = x::json::json::json_pointer("/value");
+    field.channel_key = 1;
+
+    ReadEndpoint ep;
+    ep.request.method = Method::POST;
+    ep.request.path = "/api/query";
+    ep.body = R"({"query": "latest"})";
+    ep.fields = {field};
+
+    cfg.endpoints = {ep};
+    cfg.channels[1] = {.name = "value", .data_type = x::telem::FLOAT64_T, .key = 1};
+
+    auto [source, processor] = make_source(cfg, server.base_url());
+
+    auto breaker = x::breaker::Breaker(x::breaker::Config{.name = "test"});
+    breaker.start();
+    x::telem::Frame fr;
+    auto res = source->read(breaker, fr);
+    breaker.stop();
+    ASSERT_NIL(res.error);
+
+    auto reqs = server.received_requests();
+    ASSERT_EQ(reqs.size(), 1);
+    auto ct = reqs[0].headers.find("Content-Type");
+    ASSERT_NE(ct, reqs[0].headers.end());
+    EXPECT_EQ(ct->second, "application/json");
 }
 
 }
