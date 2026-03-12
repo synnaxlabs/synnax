@@ -7,13 +7,12 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import "@/log/toolbar/Text.css";
-
 import { type channel, log } from "@synnaxlabs/client";
 import { Access, Channel, Color, Input, List } from "@synnaxlabs/pluto";
-import { color, DataType } from "@synnaxlabs/x";
+import { color, DataType, primitive } from "@synnaxlabs/x";
 import { type ReactElement } from "react";
 
+import { EmptyAction } from "@/components";
 import { CSS } from "@/css";
 import { useSyncComponent } from "@/log/Log";
 import { useSelectOptional } from "@/log/selectors";
@@ -88,6 +87,8 @@ export interface TextProps {
   layoutKey: string;
 }
 
+const EMPTY_CONTENT = <EmptyAction message="No channels configured." />;
+
 export const Text = ({ layoutKey }: TextProps): ReactElement | null => {
   const dispatch = useSyncComponent(layoutKey);
   const state = useSelectOptional(layoutKey);
@@ -96,10 +97,14 @@ export const Text = ({ layoutKey }: TextProps): ReactElement | null => {
     dispatch(setChannelConfig({ key: layoutKey, channelKey: chKey, config: cfg }));
   };
   if (state == null) return null;
-  const activeChannels = state.channels.filter((ch) => ch !== 0);
+  const activeChannels = state.channels.filter((ch) => !primitive.isZero(ch));
   return (
     <List.Frame data={activeChannels}>
-      <List.Items<channel.Key> full="y" className={CSS.BE("log", "toolbar", "text")}>
+      <List.Items<channel.Key>
+        full="y"
+        className={CSS.BE("log", "toolbar", "text")}
+        emptyContent={EMPTY_CONTENT}
+      >
         {({ key, index }) => (
           <ChannelRow
             key={key}

@@ -7,12 +7,15 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import "@/log/Toolbar.css";
+
 import { log } from "@synnaxlabs/client";
 import { Flex, Icon, Tabs } from "@synnaxlabs/pluto";
 import { type ReactElement, useCallback, useMemo, useState } from "react";
 
 import { Cluster } from "@/cluster";
 import { Toolbar as Base } from "@/components";
+import { CSS } from "@/css";
 import { Export } from "@/export";
 import { Layout } from "@/layout";
 import { useExport } from "@/log/export";
@@ -37,8 +40,12 @@ export const Toolbar = ({ layoutKey }: ToolbarProps): ReactElement | null => {
 
   const content = useCallback(
     ({ tabKey }: Tabs.Tab) => {
-      if (tabKey === "text") return <Text layoutKey={layoutKey} />;
-      return <Channels layoutKey={layoutKey} />;
+      switch (tabKey) {
+        case "text":
+          return <Text layoutKey={layoutKey} />;
+        default:
+          return <Channels layoutKey={layoutKey} />;
+      }
     },
     [layoutKey],
   );
@@ -50,13 +57,13 @@ export const Toolbar = ({ layoutKey }: ToolbarProps): ReactElement | null => {
 
   if (state == null) return null;
   return (
-    <Base.Content>
+    <Base.Content className={CSS.B("log-toolbar")}>
       <Tabs.Provider value={tabsValue}>
         <Base.Header>
           <Base.Title icon={<Icon.Log />}>{name}</Base.Title>
           <Flex.Box x align="center" empty>
             <Flex.Box x empty style={{ width: 66 }}>
-              <Export.ToolbarButton onExport={() => handleExport(state.key)} />
+              <Export.ToolbarButton onExport={() => handleExport(layoutKey)} />
               <Cluster.CopyLinkToolbarButton
                 name={name}
                 ontologyID={log.ontologyID(state.key)}

@@ -9,12 +9,14 @@
  * included in the file licenses/APL.txt.
  */
 
-.console-log__toolbar-text {
-    .pluto-list__item {
-        padding: 0.5rem 5rem 0.5rem 1rem;
-        & > div:nth-child(2) {
-            min-width: 50px;
-            max-width: 100px;
+.console-log-toolbar {
+    .console-log__toolbar-text {
+        .pluto-list__item {
+            padding: 0.5rem 5rem 0.5rem 1rem;
+            & > div:nth-child(2) {
+                min-width: 50px;
+                max-width: 100px;
+            }
         }
     }
 }
