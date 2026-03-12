@@ -45,7 +45,7 @@ export interface SelectDataTypeProps extends Omit<
 
 export const SelectDataType = ({
   hideVariableDensity = false,
-  hideDataTypes = [],
+  hideDataTypes = DEFAULT_HIDDEN_DATA_TYPES,
   ...rest
 }: SelectDataTypeProps): ReactElement => {
   const data = hideVariableDensity ? FIXED_DENSITY_DATA : DATA;
@@ -55,3 +55,5 @@ export const SelectDataType = ({
   );
   return <SelectStatic {...rest} data={filteredData} resourceName="data type" />;
 };
+
+const DEFAULT_HIDDEN_DATA_TYPES: DataType[] = [];
