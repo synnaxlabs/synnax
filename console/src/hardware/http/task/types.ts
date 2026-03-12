@@ -107,33 +107,39 @@ const jsonTypeZ = z.enum(["number", "string", "boolean"]);
 
 const timeConfigZ = z.object({
   pointer: json.pointerZ,
-  time_format: timeFormatZ,
+  timeFormat: timeFormatZ,
 });
+export interface TimeConfig extends z.infer<typeof timeConfigZ> {}
+export const ZERO_TIME_CONFIG = {
+  pointer: "",
+  timeFormat: "iso8601",
+} as const satisfies TimeConfig;
 
 const channelFieldZ = z.object({
   pointer: json.pointerZ,
-  json_type: jsonTypeZ,
+  jsonType: jsonTypeZ,
   channel: z.number().default(0),
   dataType: z.string().default("float64"),
-  time_format: timeFormatZ.optional(),
-  time_config: timeConfigZ.optional(),
+  timeFormat: timeFormatZ.optional(),
+  timeConfig: timeConfigZ.optional(),
 });
 
 export interface ChannelField extends z.infer<typeof channelFieldZ> {}
 
 export const ZERO_CHANNEL_FIELD = {
   pointer: "",
-  json_type: "number",
+  jsonType: "number",
   channel: 0,
   dataType: "float64",
 } as const satisfies ChannelField;
 
 const generatorTypeZ = z.enum(["uuid", "timestamp"]);
+export type GeneratorType = z.infer<typeof generatorTypeZ>;
 
 const staticFieldZ = z.object({
   key: z.string(),
   pointer: json.pointerZ,
-  json_type: jsonTypeZ,
+  jsonType: jsonTypeZ,
   type: z.literal("static"),
   value: z.union([z.string(), z.number(), z.boolean(), z.null()]),
 });
@@ -143,7 +149,7 @@ const generatedFieldZ = z.object({
   pointer: json.pointerZ,
   type: z.literal("generated"),
   generator: generatorTypeZ,
-  time_format: timeFormatZ.optional(),
+  timeFormat: timeFormatZ.optional(),
 });
 
 const writeFieldZ = z.discriminatedUnion("type", [staticFieldZ, generatedFieldZ]);
@@ -155,7 +161,7 @@ const writeEndpointZ = z.object({
   path: z.string(),
   method: z.enum(["POST", "PUT", "PATCH"]),
   headers: z.record(z.string(), z.string()).optional(),
-  request_content_type: z.string().default("application/json"),
+  requestContentType: z.string().default("application/json"),
   channel: channelFieldZ,
   fields: z.array(writeFieldZ),
 });
@@ -166,14 +172,14 @@ export const ZERO_WRITE_ENDPOINT = {
   key: "",
   method: "POST",
   path: "",
-  request_content_type: "application/json",
+  requestContentType: "application/json",
   channel: ZERO_CHANNEL_FIELD,
   fields: [],
 } as const satisfies WriteEndpoint;
 
 const writeConfigZ = z.object({
   device: z.string(),
-  auto_start: z.boolean().default(false),
+  autoStart: z.boolean().default(false),
   endpoints: z.array(writeEndpointZ),
 });
 
@@ -181,7 +187,7 @@ interface WriteConfig extends z.infer<typeof writeConfigZ> {}
 
 const ZERO_WRITE_CONFIG = {
   device: "",
-  auto_start: false,
+  autoStart: false,
   endpoints: [],
 } as const satisfies WriteConfig;
 

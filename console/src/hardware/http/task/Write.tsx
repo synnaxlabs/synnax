@@ -33,6 +33,8 @@ import { CSS } from "@/css";
 import { Common } from "@/hardware/common";
 import { Device } from "@/hardware/http/device";
 import {
+  type GeneratorType,
+  type TimeConfig,
   WRITE_SCHEMAS,
   WRITE_TYPE,
   type WriteEndpoint,
@@ -159,19 +161,19 @@ const WriteMethodSelect: FC<{ path: string }> = ({ path }) => (
 const ChannelFieldSection: FC<{ epPath: string }> = ({ epPath }) => {
   const channelPath = `${epPath}.channel`;
   const channelKey = PForm.useFieldValue<number>(`${channelPath}.channel`);
-  const hasTimeConfig = PForm.useFieldValue<object | undefined>(
-    `${channelPath}.time_config`,
-  );
+  const hasTimeConfig = PForm.useFieldValue<TimeConfig>(`${channelPath}.timeConfig`, {
+    optional: true,
+  });
   const { set } = PForm.useContext();
 
   const handleTimeToggle = useCallback(
     (enabled: boolean) => {
       if (enabled)
-        set(`${channelPath}.time_config`, {
+        set(`${channelPath}.timeConfig`, {
           pointer: "/timestamp",
-          time_format: "iso8601",
+          timeFormat: "iso8601",
         });
-      else set(`${channelPath}.time_config`, undefined);
+      else set(`${channelPath}.timeConfig`, undefined);
     },
     [set, channelPath],
   );
@@ -191,7 +193,7 @@ const ChannelFieldSection: FC<{ epPath: string }> = ({ epPath }) => {
           inputProps={{ placeholder: "/value" }}
         />
         <PForm.Field<string>
-          path={`${channelPath}.json_type`}
+          path={`${channelPath}.jsonType`}
           label="JSON Type"
           style={{ width: 140 }}
         >
@@ -235,13 +237,13 @@ const ChannelFieldSection: FC<{ epPath: string }> = ({ epPath }) => {
       {hasTimeConfig != null && (
         <Flex.Box x align="end" gap="large">
           <PForm.TextField
-            path={`${channelPath}.time_config.pointer`}
+            path={`${channelPath}.timeConfig.pointer`}
             label="Time Pointer"
             grow
             inputProps={{ placeholder: "/timestamp" }}
           />
           <PForm.Field<string>
-            path={`${channelPath}.time_config.time_format`}
+            path={`${channelPath}.timeConfig.timeFormat`}
             label="Time Format"
             style={{ width: 160 }}
           >
@@ -266,7 +268,10 @@ const FieldListItem = (props: List.ItemProps<string> & { epKey: string }) => {
   const { itemKey, epKey } = props;
   const path = `config.endpoints.${epKey}.fields.${itemKey}`;
   const fieldType = PForm.useFieldValue<string>(`${path}.type`);
-  const generator = PForm.useFieldValue<string | undefined>(`${path}.generator`);
+  const generator = PForm.useFieldValue<GeneratorType | undefined>(
+    `${path}.generator`,
+    { optional: true },
+  );
   return (
     <Select.ListItem {...props} justify="between" align="center" x>
       <PForm.TextField
@@ -278,7 +283,7 @@ const FieldListItem = (props: List.ItemProps<string> & { epKey: string }) => {
       />
       {fieldType === "static" && (
         <PForm.Field<string>
-          path={`${path}.json_type`}
+          path={`${path}.jsonType`}
           showLabel={false}
           showHelpText={false}
           style={{ width: 100 }}
@@ -321,7 +326,7 @@ const FieldListItem = (props: List.ItemProps<string> & { epKey: string }) => {
       )}
       {fieldType === "generated" && generator === "timestamp" && (
         <PForm.Field<string>
-          path={`${path}.time_format`}
+          path={`${path}.timeFormat`}
           showLabel={false}
           showHelpText={false}
           style={{ width: 130 }}
@@ -353,7 +358,7 @@ const AdditionalFields: FC<{ epKey: string }> = ({ epKey }) => {
     const field: WriteField = {
       key: id.create(),
       pointer: "",
-      json_type: "string",
+      jsonType: "string",
       type: "static",
       value: "",
     };
@@ -646,28 +651,40 @@ const onConfigure: Common.Task.OnConfigure<WriteSchemas["config"]> = async (
     const ch = ep.channel;
     if (ch.channel !== 0) continue;
 
+    const escapedPath = channel.escapeInvalidName(ep.path);
+    const indexName = `${safeDevName}_${escapedPath}_cmd_time`;
+    const cmdName = `${safeDevName}_${escapedPath}_cmd`;
+
     // Check if we already have a write index for this endpoint path.
     const existingIndex = dev.properties.writeIndexes[ep.path];
     let indexKey: number;
     if (primitive.isNonZero(existingIndex)) indexKey = existingIndex;
     else {
-      const newIndexCh = await client.channels.create({
-        name: `${safeDevName}_${channel.escapeInvalidName(ep.path)}_cmd_time`,
-        dataType: "timestamp",
-        isIndex: true,
-      });
-      indexKey = newIndexCh.key;
+      const existing = await client.channels.retrieve({ names: [indexName] });
+      if (existing.length > 0) indexKey = existing[0].key;
+      else {
+        const newIndexCh = await client.channels.create({
+          name: indexName,
+          dataType: "timestamp",
+          isIndex: true,
+        });
+        indexKey = newIndexCh.key;
+      }
       dev.properties.writeIndexes[ep.path] = indexKey;
       modified = true;
     }
 
-    // Create the command channel.
-    const newCh = await client.channels.create({
-      name: `${safeDevName}_${channel.escapeInvalidName(ep.path)}_cmd`,
-      dataType: ch.dataType,
-      index: indexKey,
-    });
-    ch.channel = newCh.key;
+    // Create or retrieve the command channel.
+    const existingCmd = await client.channels.retrieve({ names: [cmdName] });
+    if (existingCmd.length > 0) ch.channel = existingCmd[0].key;
+    else {
+      const newCh = await client.channels.create({
+        name: cmdName,
+        dataType: ch.dataType,
+        index: indexKey,
+      });
+      ch.channel = newCh.key;
+    }
   }
 
   if (modified) await client.devices.create(dev, Device.SCHEMAS);
