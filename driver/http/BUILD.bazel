@@ -35,7 +35,6 @@ cc_library(
 cc_test(
     name = "scan_task_test",
     srcs = ["scan_task_test.cpp"],
-    linkstatic = True,
     deps = [
         ":http",
         "//client/cpp/testutil",
@@ -69,7 +68,6 @@ cc_test(
         "//driver/http/mock:test_cert.pem",
         "//driver/http/mock:test_key.pem",
     ],
-    linkstatic = True,
     deps = [
         ":http",
         "//client/cpp/testutil",

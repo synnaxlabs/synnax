@@ -9,6 +9,9 @@ build --enable_platform_specific_config
 # Use OpenSSl instead of BoringSSL for grpc
 build --@grpc//third_party:grpc_use_openssl=true
 
+# Force static linking so hidden symbol visibility doesn't break shared library linking
+build --dynamic_mode=off
+
 # ===== Platform-Specific Compiler Settings =====
 
 # macOS (Apple Silicon)
