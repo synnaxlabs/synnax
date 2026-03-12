@@ -9,7 +9,7 @@
 
 import "@/hardware/http/task/Read.css";
 
-import { channel } from "@synnaxlabs/client";
+import { channel, NotFoundError } from "@synnaxlabs/client";
 import {
   Button,
   Component,
@@ -586,6 +586,23 @@ const getInitialValues: Common.Task.GetInitialValues<ReadSchemas> = ({
   },
 });
 
+type SynnaxClient = Parameters<Common.Task.OnConfigure<ReadSchemas["config"]>>[0];
+
+const retrieveChannel = async (
+  client: SynnaxClient,
+  key: number,
+): Promise<channel.Channel | null> => {
+  try {
+    return await client.channels.retrieve(key.toString());
+  } catch (e) {
+    if (NotFoundError.matches(e)) return null;
+    throw e;
+  }
+};
+
+const channelExists = async (client: SynnaxClient, key: number): Promise<boolean> =>
+  (await retrieveChannel(client, key)) != null;
+
 const onConfigure: Common.Task.OnConfigure<ReadSchemas["config"]> = async (
   client,
   config,
@@ -596,46 +613,81 @@ const onConfigure: Common.Task.OnConfigure<ReadSchemas["config"]> = async (
   });
   const safeDevName = channel.escapeInvalidName(dev.name);
   let modified = false;
-  for (const ep of config.endpoints) {
-    // first, see if the user specified an index channel for this endpoint
-    const devIndexKey = dev.properties.readIndexes[ep.path];
-    if (primitive.isNonZero(devIndexKey)) continue;
+  try {
+    for (const ep of config.endpoints) {
+      dev.properties.read[ep.path] ??= { index: 0, channels: {} };
+      const epProps = dev.properties.read[ep.path];
 
-    // check if any non-timing field needs an index (i.e. has a fixed-length data type)
-    const needsIndex = ep.fields.some(
-      (f) => !isTimingField(f) && !f.dataType.isVariable,
-    );
-    if (!needsIndex) continue;
+      // determine if this endpoint needs an index channel
+      const needsIndex = ep.fields.some(
+        (f) => !isTimingField(f) && !new DataType(f.dataType).isVariable,
+      );
 
-    // we need to create an index channel for this endpoint.
-    const newIndexCh = await client.channels.create({
-      name: `${safeDevName}${channel.escapeInvalidName(ep.path)}_time`,
-      dataType: "timestamp",
-      isIndex: true,
-    });
-    modified = true;
-    dev.properties.readIndexes[ep.path] = newIndexCh.key;
-  }
-  // now, we need to update any data channels as need be
-  for (const ep of config.endpoints) {
-    const index = dev.properties.readIndexes[ep.path];
-    const potentialTimingKey = ep.index;
-    for (const field of ep.fields) {
-      if (field.channel !== 0) continue;
-      if (field.key === potentialTimingKey) {
-        field.channel = index;
-        continue;
+      if (needsIndex) {
+        let shouldCreateIndex = !primitive.isNonZero(epProps.index);
+        shouldCreateIndex ||= !(await channelExists(client, epProps.index));
+        if (shouldCreateIndex) {
+          // check if any existing data channels share an index we can reuse
+          let recoveredIndex = 0;
+          for (const storedKey of Object.values(epProps.channels)) {
+            if (!primitive.isNonZero(storedKey)) continue;
+            const ch = await retrieveChannel(client, storedKey);
+            if (ch != null && primitive.isNonZero(ch.index)) {
+              const indexCh = await retrieveChannel(client, ch.index);
+              if (indexCh != null) {
+                recoveredIndex = ch.index;
+                break;
+              }
+            }
+          }
+          if (primitive.isNonZero(recoveredIndex)) {
+            epProps.index = recoveredIndex;
+            modified = true;
+          } else {
+            modified = true;
+            const newIndexCh = await client.channels.create({
+              name: `${safeDevName}${channel.escapeInvalidName(ep.path)}_time`,
+              dataType: "timestamp",
+              isIndex: true,
+            });
+            epProps.index = newIndexCh.key;
+          }
+        }
       }
-      const dt = new DataType(field.dataType);
-      const newCh = await client.channels.create({
-        name: `${safeDevName}${channel.escapeInvalidName(ep.path + field.pointer)}`,
-        dataType: field.dataType,
-        ...(dt.isVariable ? { virtual: true } : { index }),
-      });
-      field.channel = newCh.key;
+
+      const potentialTimingKey = ep.index;
+      for (const field of ep.fields) {
+        if (field.key === potentialTimingKey) {
+          field.channel = epProps.index;
+          continue;
+        }
+
+        // check if the field already has a valid channel assigned
+        if (field.channel !== 0 && (await channelExists(client, field.channel)))
+          continue;
+
+        // check device properties for a stored channel key
+        const storedKey = epProps.channels[field.pointer];
+        if (primitive.isNonZero(storedKey) && (await channelExists(client, storedKey))) {
+          field.channel = storedKey;
+          continue;
+        }
+
+        // create a new channel
+        const dt = new DataType(field.dataType);
+        const newCh = await client.channels.create({
+          name: `${safeDevName}${channel.escapeInvalidName(ep.path + field.pointer)}`,
+          dataType: field.dataType,
+          ...(dt.isVariable ? { virtual: true } : { index: epProps.index }),
+        });
+        modified = true;
+        field.channel = newCh.key;
+        epProps.channels[field.pointer] = newCh.key;
+      }
     }
+  } finally {
+    if (modified) await client.devices.create(dev, Device.SCHEMAS);
   }
-  if (modified) await client.devices.create(dev, Device.SCHEMAS);
   return [config, dev.rack];
 };
 
