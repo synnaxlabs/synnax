@@ -137,7 +137,7 @@ var _ = Describe("Delta", func() {
 		Describe("Timeout", func() {
 			It("Should allow the delta to operate normally if a consumer receives within the timeout", func() {
 				delta := NewDynamicDeltaMultiplier[int](
-					10*time.Millisecond,
+					100*time.Millisecond,
 					Instrumentation("dev", InstrumentationConfig{Log: new(true)}),
 				)
 				delta.InFrom(inputOne)

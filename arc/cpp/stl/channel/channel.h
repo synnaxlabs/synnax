@@ -200,17 +200,10 @@ private:
                 "channel",
                 "write_" + suffix,
                 [ch, dt](uint32_t channel_id, W value) {
-                    auto data = x::mem::make_local_shared<x::telem::Series>(
-                        static_cast<T>(value),
-                        dt
-                    );
-                    auto time = x::mem::make_local_shared<x::telem::Series>(
-                        x::telem::TimeStamp::now()
-                    );
-                    ch->write_value(
+                    ch->write_channel_typed(
                         static_cast<types::ChannelKey>(channel_id),
-                        data,
-                        time
+                        dt,
+                        static_cast<T>(value)
                     );
                 }
             )

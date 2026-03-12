@@ -388,7 +388,7 @@ TEST_F(AnalogReadTest, testErrorOnRead) {
         std::make_unique<hardware::mock::Reader<double>>(
             std::vector{x::errors::NIL},
             std::vector{x::errors::NIL},
-            std::vector<std::pair<std::vector<double>, x::errors::Error>>{
+            std::vector<hardware::mock::Reader<double>::ReadResponse>{
                 {{},
                  x::errors::Error(
                      errors::CRITICAL_HARDWARE_ERROR,
@@ -427,7 +427,7 @@ TEST_F(AnalogReadTest, testDataTypeCoersion) {
         std::make_unique<hardware::mock::Reader<double>>(
             std::vector{x::errors::NIL},
             std::vector{x::errors::NIL},
-            std::vector<std::pair<std::vector<double>, x::errors::Error>>{
+            std::vector<hardware::mock::Reader<double>::ReadResponse>{
                 {{1.23456789}, x::errors::NIL}
             }
         )
@@ -604,7 +604,7 @@ TEST_F(DigitalReadTest, testBasicDigitalRead) {
         std::make_unique<hardware::mock::Reader<uint8_t>>(
             std::vector{x::errors::NIL},
             std::vector{x::errors::NIL},
-            std::vector<std::pair<std::vector<uint8_t>, x::errors::Error>>{
+            std::vector<hardware::mock::Reader<uint8_t>::ReadResponse>{
                 {{1}, x::errors::NIL}
             } // Digital high
         )
@@ -637,6 +637,36 @@ TEST_F(DigitalReadTest, testBasicDigitalRead) {
     ASSERT_TRUE(fr.contains(index_channel.key));
     ASSERT_EQ(fr.at<uint8_t>(data_channel.key, 0), 1); // Verify digital high
     ASSERT_GE(fr.at<uint64_t>(index_channel.key, 0), 0);
+}
+
+/// @brief digital read tasks without a timing source are software-timed. On real
+/// hardware, DigitalReader does not use SkewTrackingReader, so skew is always 0.
+/// Verify that no spurious warnings are emitted during normal operation.
+TEST_F(DigitalReadTest, testNoSkewWarningsDuringNormalOperation) {
+    parse_config();
+    auto rt = create_task(
+        std::make_unique<hardware::mock::Reader<uint8_t>>(
+            std::vector{x::errors::NIL},
+            std::vector{x::errors::NIL},
+            std::vector<hardware::mock::Reader<uint8_t>::ReadResponse>{{.data = {1}}}
+        )
+    );
+
+    rt->start("start_cmd");
+    ASSERT_EVENTUALLY_GE(ctx->statuses.size(), 1);
+    EXPECT_EQ(ctx->statuses[0].variant, x::status::VARIANT_SUCCESS);
+
+    // Let a few read cycles execute
+    ASSERT_EVENTUALLY_GE(mock_factory->writes->size(), 3);
+
+    // Digital reads don't track skew (DigitalReader doesn't extend
+    // SkewTrackingReader), so no warnings should be emitted.
+    for (const auto &s: ctx->statuses) {
+        if (s.variant == x::status::VARIANT_WARNING) {
+            FAIL() << "Unexpected warning for digital read task: " << s.message;
+        }
+    }
+    rt->stop(false);
 }
 
 /// @brief Verify device locations are extracted from channels after configuration
@@ -773,7 +803,7 @@ TEST_F(CounterReadTest, testBasicCounterFrequencyRead) {
         std::make_unique<hardware::mock::Reader<double>>(
             std::vector{x::errors::NIL},
             std::vector{x::errors::NIL},
-            std::vector<std::pair<std::vector<double>, x::errors::Error>>{
+            std::vector<hardware::mock::Reader<double>::ReadResponse>{
                 {{100.5}, x::errors::NIL} // 100.5 Hz frequency reading
             }
         )
@@ -863,7 +893,7 @@ TEST_F(CounterReadTest, testCounterErrorOnRead) {
         std::make_unique<hardware::mock::Reader<double>>(
             std::vector{x::errors::NIL},
             std::vector{x::errors::NIL},
-            std::vector<std::pair<std::vector<double>, x::errors::Error>>{
+            std::vector<hardware::mock::Reader<double>::ReadResponse>{
                 {{},
                  x::errors::Error(
                      errors::CRITICAL_HARDWARE_ERROR,
@@ -901,7 +931,7 @@ TEST_F(CounterReadTest, testMultipleCounterReadings) {
         std::make_unique<hardware::mock::Reader<double>>(
             std::vector{x::errors::NIL},
             std::vector{x::errors::NIL},
-            std::vector<std::pair<std::vector<double>, x::errors::Error>>{
+            std::vector<hardware::mock::Reader<double>::ReadResponse>{
                 {{100.0}, x::errors::NIL},
                 {{150.5}, x::errors::NIL},
                 {{200.75}, x::errors::NIL}
@@ -1165,6 +1195,68 @@ TEST(ReadTaskConfigTest, testMinimumSampleRateErrorMessageFormat) {
 /// Regression test to ensure enable_auto_commit is set to true in WriterConfig.
 /// This prevents data from being written but not committed, making it unavailable for
 /// reads.
+/// @brief skew warnings should fire for analog read tasks when hardware reports
+/// significant skew.
+TEST_F(AnalogReadTest, testSkewWarningFiresForAnalogRead) {
+    parse_config();
+    auto rt = create_task(
+        std::make_unique<hardware::mock::Reader<double>>(
+            std::vector{x::errors::NIL},
+            std::vector{x::errors::NIL},
+            std::vector<hardware::mock::Reader<double>::ReadResponse>{
+                {.data = {0.5}, .skew = 1000}
+            }
+        )
+    );
+
+    rt->start("start_cmd");
+    ASSERT_EVENTUALLY_GE(ctx->statuses.size(), 1);
+    EXPECT_EQ(ctx->statuses[0].variant, x::status::VARIANT_SUCCESS);
+
+    // Wait for a read cycle to produce the skew warning
+    ASSERT_EVENTUALLY_GE(ctx->statuses.size(), 2);
+    bool found_warning = false;
+    for (const auto &s: ctx->statuses) {
+        if (s.variant == x::status::VARIANT_WARNING &&
+            s.message.find("trailing") != std::string::npos) {
+            found_warning = true;
+            break;
+        }
+    }
+    EXPECT_TRUE(found_warning) << "Expected skew warning for analog read task";
+    rt->stop(false);
+}
+
+/// @brief skew warnings should NOT fire for counter read tasks since they use
+/// software timing and skew tracking is meaningless.
+TEST_F(CounterReadTest, testSkewWarningSuppressedForCounterRead) {
+    parse_config();
+    auto rt = create_task(
+        std::make_unique<hardware::mock::Reader<double>>(
+            std::vector{x::errors::NIL},
+            std::vector{x::errors::NIL},
+            std::vector<hardware::mock::Reader<double>::ReadResponse>{
+                {.data = {100.5}, .skew = 1000}
+            }
+        )
+    );
+
+    rt->start("start_cmd");
+    ASSERT_EVENTUALLY_GE(ctx->statuses.size(), 1);
+    EXPECT_EQ(ctx->statuses[0].variant, x::status::VARIANT_SUCCESS);
+
+    // Let a few read cycles execute
+    ASSERT_EVENTUALLY_GE(mock_factory->writes->size(), 3);
+
+    // Verify no skew warnings were emitted
+    for (const auto &s: ctx->statuses) {
+        if (s.variant == x::status::VARIANT_WARNING) {
+            FAIL() << "Unexpected skew warning for counter read task: " << s.message;
+        }
+    }
+    rt->stop(false);
+}
+
 TEST(ReadTaskConfigTest, testNIDriverSetsAutoCommitTrue) {
     auto client = std::make_shared<synnax::Synnax>(new_test_client());
     auto rack = ASSERT_NIL_P(client->racks.create("test_rack"));

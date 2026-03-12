@@ -15,6 +15,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"runtime"
 	"testing"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -32,6 +33,9 @@ func TestDriver(t *testing.T) {
 var _ = BeforeSuite(func() {
 	tmpDir := GinkgoT().TempDir()
 	mockBinaryPath = filepath.Join(tmpDir, "mockdriver")
+	if runtime.GOOS == "windows" {
+		mockBinaryPath += ".exe"
+	}
 	cmd := exec.Command(
 		"go", "build", "-o", mockBinaryPath,
 		"./testdata/mockdriver",

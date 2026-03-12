@@ -16,6 +16,7 @@
 #include "arc/cpp/types/types.h"
 
 namespace arc::runtime::state {
+
 Series parse_default_value(
     const std::optional<x::telem::SampleValue> &value,
     const types::Type &type

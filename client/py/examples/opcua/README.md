@@ -52,7 +52,54 @@ This server simulates:
 The server runs on `opc.tcp://127.0.0.1:4841/` by default (port 4842 with `--tls`, port
 4843 for TLS with username/password) and prints node IDs on startup.
 
-### 2. Connect Your OPC UA Server
+### 2. Connect from the Console
+
+If you're connecting to the test servers manually from the Synnax Console (Server >
+Connect), use these settings:
+
+#### Plain (No Encryption)
+
+| Field           | Value                       |
+| --------------- | --------------------------- |
+| Name            | OPC UA Server               |
+| Endpoint        | `opc.tcp://127.0.0.1:4841/` |
+| Username        | _(leave blank)_             |
+| Password        | _(leave blank)_             |
+| Security Mode   | None                        |
+| Security Policy | None                        |
+
+#### TLS (Encryption Only)
+
+| Field           | Value                       |
+| --------------- | --------------------------- |
+| Name            | OPC UA TLS Server           |
+| Endpoint        | `opc.tcp://127.0.0.1:4842/` |
+| Username        | _(leave blank)_             |
+| Password        | _(leave blank)_             |
+| Security Mode   | Sign And Encrypt            |
+| Security Policy | Basic 256-bit with SHA-256  |
+
+Certificates are auto-generated under `examples/opcua/certificates/` when the server
+starts. The driver needs these files to connect:
+
+- `server-certificate.der`
+- `client-certificate.der`
+- `client-private-key.pem`
+
+#### TLS + Username/Password
+
+| Field           | Value                       |
+| --------------- | --------------------------- |
+| Name            | OPC UA TLS Auth Server      |
+| Endpoint        | `opc.tcp://127.0.0.1:4843/` |
+| Username        | `testuser`                  |
+| Password        | `testpass`                  |
+| Security Mode   | Sign And Encrypt            |
+| Security Policy | Basic 256-bit with SHA-256  |
+
+Uses the same auto-generated certificates as the TLS server above.
+
+### 3. Connect Your OPC UA Server (Script)
 
 Register your OPC UA server with Synnax:
 
@@ -86,7 +133,7 @@ server:
 - `PLAIN_ENDPOINT` / `TLS_ENDPOINT` / `TLS_AUTH_ENDPOINT`: OPC UA endpoint URLs
 - `TLS_AUTH_USERNAME` / `TLS_AUTH_PASSWORD`: Credentials for username/password auth
 
-### 3. Read Float Data from OPC UA Nodes
+### 4. Read Float Data from OPC UA Nodes
 
 Read scalar float values from the server:
 
@@ -108,7 +155,7 @@ This example:
 **Node IDs**: The example uses node IDs like `NS=2;I=8` to identify OPC UA variables.
 These IDs are printed by `server.py` on startup.
 
-### 4. Read Array Data from OPC UA Nodes
+### 5. Read Array Data from OPC UA Nodes
 
 Read array data in high-performance array mode:
 
@@ -131,7 +178,7 @@ This example:
 **Array mode**: More efficient for high-rate data when the OPC UA server provides data
 in array format with consistent size.
 
-### 5. Read Boolean Data from OPC UA Nodes
+### 6. Read Boolean Data from OPC UA Nodes
 
 Read boolean (digital) values from the server:
 
@@ -152,7 +199,7 @@ This example:
 
 **Note**: Boolean data is stored as UINT8 in Synnax (0 for False, 1 for True).
 
-### 6. Write Commands to OPC UA Nodes
+### 7. Write Commands to OPC UA Nodes
 
 Send commands to writable OPC UA nodes:
 
@@ -174,7 +221,7 @@ verify values were received.
 **Important**: Update the node IDs in `write_task.py` with the actual values printed by
 your server.
 
-### 7. Delete Server (Cleanup)
+### 8. Delete Server (Cleanup)
 
 When finished, remove the server registration:
 
