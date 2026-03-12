@@ -30,9 +30,12 @@ struct Server::Impl {
     std::atomic<bool> running{false};
     std::string host;
     bool secure;
+    std::string cert_path;
+    std::string key_path;
     int port = 0;
     mutable std::mutex mu;
     std::vector<ReceivedRequest> requests;
+    std::vector<Route> routes;
 
     static Method parse_httplib_method(const std::string &m) {
         if (m == "GET") return Method::GET;
@@ -64,6 +67,19 @@ struct Server::Impl {
             .headers = std::move(headers),
             .query_params = std::move(params),
         });
+    }
+
+    void create_server() {
+        if (this->secure) {
+            this->svr = std::make_unique<httplib::SSLServer>(
+                this->cert_path.c_str(),
+                this->key_path.c_str()
+            );
+        } else {
+            this->svr = std::make_unique<httplib::Server>();
+        }
+        for (const auto &route: this->routes)
+            this->register_route(route);
     }
 
     void register_route(const Route &route) {
@@ -113,16 +129,10 @@ struct Server::Impl {
 Server::Server(const ServerConfig &config): impl(std::make_unique<Impl>()) {
     this->impl->host = config.host;
     this->impl->secure = config.secure;
-    if (config.secure) {
-        this->impl->svr = std::make_unique<httplib::SSLServer>(
-            config.cert_path.c_str(),
-            config.key_path.c_str()
-        );
-    } else {
-        this->impl->svr = std::make_unique<httplib::Server>();
-    }
-    for (const auto &route: config.routes)
-        this->impl->register_route(route);
+    this->impl->cert_path = config.cert_path;
+    this->impl->key_path = config.key_path;
+    this->impl->routes = config.routes;
+    this->impl->create_server();
 }
 
 Server::~Server() {
@@ -131,11 +141,22 @@ Server::~Server() {
 
 x::errors::Error Server::start() {
     if (this->impl->running) return x::errors::NIL;
+    // Recreate the httplib server so that start() works after a stop().
+    this->impl->create_server();
     if (!this->impl->svr->is_valid())
         return x::errors::Error("mock server is not valid (bad TLS cert?)");
-    this->impl->port = this->impl->svr->bind_to_any_port(this->impl->host);
-    if (this->impl->port < 0)
-        return x::errors::Error("failed to bind mock HTTP server");
+    // If we have a previous port (restart), reuse it so existing clients keep working.
+    if (this->impl->port > 0) {
+        if (!this->impl->svr->bind_to_port(this->impl->host, this->impl->port))
+            return x::errors::Error(
+                "failed to re-bind mock HTTP server to port " +
+                std::to_string(this->impl->port)
+            );
+    } else {
+        this->impl->port = this->impl->svr->bind_to_any_port(this->impl->host);
+        if (this->impl->port < 0)
+            return x::errors::Error("failed to bind mock HTTP server");
+    }
     this->impl->running = true;
     this->impl->thread = std::thread([this] { this->impl->svr->listen_after_bind(); });
     this->impl->svr->wait_until_ready();
@@ -157,5 +178,10 @@ std::string Server::base_url() const {
 std::vector<ReceivedRequest> Server::received_requests() const {
     std::lock_guard lock(this->impl->mu);
     return this->impl->requests;
+}
+
+void Server::clear_requests() {
+    std::lock_guard lock(this->impl->mu);
+    this->impl->requests.clear();
 }
 }
