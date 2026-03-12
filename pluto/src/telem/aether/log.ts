@@ -70,7 +70,9 @@ export class StreamMultiChannelLog
   private stopStreaming?: destructor.Destructor;
   private valid = false;
   private _evictedCount: number = 0;
-  get evictedCount(): number { return this._evictedCount; }
+  get evictedCount(): number {
+    return this._evictedCount;
+  }
 
   constructor(
     client: client.Client,
