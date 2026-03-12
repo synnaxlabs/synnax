@@ -10,21 +10,11 @@
 import { caseconv, DataType } from "@synnaxlabs/x";
 import { type ReactElement, useMemo } from "react";
 
-import { Icon } from "@/icon";
 import { type Select } from "@/select";
 import { Static as SelectStatic } from "@/select/Static";
+import { resolveDataTypeIcon } from "@/telem/resolveDataTypeIcon";
 
 const ALL_CAPS = new Set([DataType.UUID, DataType.JSON]);
-
-export const resolveDataTypeIcon = (d: DataType): Icon.FC | undefined => {
-  if (d.equals(DataType.JSON)) return Icon.JSON;
-  if (d.equals(DataType.BYTES)) return Icon.Binary;
-  if (d.isInteger) return Icon.Binary;
-  if (d.isFloat) return Icon.Decimal;
-  if (d.equals(DataType.STRING) || d.equals(DataType.UUID)) return Icon.String;
-  if (d.equals(DataType.TIMESTAMP)) return Icon.Time;
-  return undefined;
-};
 
 const resolveIcon = (d: DataType) => {
   const Resolved = resolveDataTypeIcon(d);
@@ -37,7 +27,9 @@ const DATA: Select.StaticEntry<string>[] = DataType.ALL.filter(
   key: d.toString(),
   name: ALL_CAPS.has(d)
     ? d.toString().toUpperCase()
-    : caseconv.capitalize(d.toString()),
+    : d.isNumeric && d !== DataType.TIMESTAMP
+      ? d.toString()
+      : caseconv.capitalize(d.toString()),
   icon: resolveIcon(d),
 }));
 
