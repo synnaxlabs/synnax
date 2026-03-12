@@ -976,14 +976,8 @@ TEST(HTTPWriteTask, DisabledEndpointSkipped) {
 
     // Send commands for both channels.
     x::telem::Frame frame;
-    frame.emplace(
-        synnax::channel::Key(1),
-        x::telem::Series(std::vector<double>{10.0})
-    );
-    frame.emplace(
-        synnax::channel::Key(2),
-        x::telem::Series(std::vector<double>{20.0})
-    );
+    frame.emplace(synnax::channel::Key(1), x::telem::Series(std::vector<double>{10.0}));
+    frame.emplace(synnax::channel::Key(2), x::telem::Series(std::vector<double>{20.0}));
 
     ASSERT_NIL(sink->write(frame));
 

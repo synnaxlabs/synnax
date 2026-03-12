@@ -230,10 +230,7 @@ std::pair<WriteTaskConfig, x::errors::Error> WriteTaskConfig::parse(
     });
 
     if (enabled_count == 0)
-        parser.field_err(
-            "endpoints",
-            "at least one enabled endpoint is required"
-        );
+        parser.field_err("endpoints", "at least one enabled endpoint is required");
 
     if (!parser.ok()) return {std::move(cfg), parser.error()};
 
@@ -418,8 +415,10 @@ std::pair<common::ConfigureResult, x::errors::Error> configure_write(
 
     std::vector<Request> base_requests;
     base_requests.reserve(cfg.endpoints.size());
-    for (const auto &ep: cfg.endpoints)
+    for (auto ep: cfg.endpoints) {
+        ep.request.request_content_type = "application/json";
         base_requests.push_back(device::build_request(conn, ep.request));
+    }
 
     const bool auto_start = cfg.auto_start;
     auto sink = std::make_unique<WriteTaskSink>(
