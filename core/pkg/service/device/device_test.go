@@ -110,7 +110,7 @@ var _ = Describe("Device", func() {
 			).To(Succeed())
 			Expect(res.ID).To(Equal(d.OntologyID()))
 		})
-		It("Should not include properties in the ontology resource data", func() {
+		It("Should extract isChassis from properties into ontology resource data", func() {
 			d := device.Device{
 				Key:      "chassis1",
 				Rack:     rackSvc.EmbeddedKey,
@@ -132,6 +132,9 @@ var _ = Describe("Device", func() {
 			Expect(ok).To(BeTrue(), "resource data should be map[string]any")
 			_, ok = data["properties"]
 			Expect(ok).To(BeFalse(), "resource data should not contain 'properties' key")
+			isChassis, ok := data["is_chassis"]
+			Expect(ok).To(BeTrue(), "resource data should contain 'is_chassis' key")
+			Expect(isChassis).To(Equal(true))
 		})
 		It("Should correctly create an ontology relationship between the device and the rack", func() {
 			d := device.Device{

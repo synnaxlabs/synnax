@@ -170,11 +170,7 @@ class DevicesToolbar(ConsoleCase):
         properties: dict[str, object] | None = None,
     ) -> sy.Device:
         """Create a device with auto-suffixed key/name and track for teardown."""
-        parent_id = (
-            sy.ontology.ID(type="device", key=parent)
-            if parent
-            else None
-        )
+        parent_id = sy.ontology.ID(type="device", key=parent) if parent else None
         dev = self.client.devices.create(
             sy.Device(
                 key=f"{key}-{self.suffix}",
@@ -225,6 +221,7 @@ class DevicesToolbar(ConsoleCase):
     def run(self) -> None:
         self.test_devices_visible()
         self.test_device_icons()
+        self.test_expand_arrows()
         self.test_configure_device()
         self.test_chassis_children_visible()
         self.test_device_state_display()
@@ -271,6 +268,27 @@ class DevicesToolbar(ConsoleCase):
             assert (
                 icon == expected
             ), f"Device '{dev.name}' should have '{expected}' icon, got '{icon}'"
+
+    def test_expand_arrows(self) -> None:
+        """Chassis devices should have expand arrows; non-chassis should not."""
+        self.log("Testing: Expand arrows on chassis vs non-chassis")
+
+        for dev in [self.chassis_a, self.chassis_b]:
+            assert self.console.devices.has_expand_arrow(
+                dev.name
+            ), f"Chassis '{dev.name}' should have an expand arrow"
+
+        for dev in [
+            self.standalone,
+            self.labjack_dev,
+            self.opc_dev,
+            self.modbus_dev,
+            self.http_dev,
+            self.ethercat_dev,
+        ]:
+            assert not self.console.devices.has_expand_arrow(
+                dev.name
+            ), f"Device '{dev.name}' should not have an expand arrow"
 
     def test_configure_device(self) -> None:
         """Configure an unconfigured device, verify properties."""

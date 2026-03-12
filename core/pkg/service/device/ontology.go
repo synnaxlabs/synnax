@@ -60,10 +60,22 @@ var schema = zyn.Object(map[string]zyn.Schema{
 	"make":       zyn.String(),
 	"model":      zyn.String(),
 	"configured": zyn.Bool(),
+	"isChassis":  zyn.Bool(),
 })
 
+// resourceData wraps Device with a top-level IsChassis field extracted from Properties
+// so the Console can determine expandability without the full properties blob.
+type resourceData struct {
+	Device
+	IsChassis bool `json:"isChassis"`
+}
+
 func newResource(d Device) ontology.Resource {
-	return ontology.NewResource(schema, OntologyID(d.Key), d.Name, d)
+	rd := resourceData{Device: d}
+	if v, ok := d.Properties["is_chassis"]; ok {
+		rd.IsChassis, _ = v.(bool)
+	}
+	return ontology.NewResource(schema, OntologyID(d.Key), d.Name, rd)
 }
 
 var _ ontology.Service = (*Service)(nil)

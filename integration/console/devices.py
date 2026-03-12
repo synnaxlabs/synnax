@@ -416,6 +416,16 @@ class DevicesClient:
             return None
         return aria[idx + len(prefix) :]
 
+    def has_expand_arrow(self, name: str) -> bool:
+        """Check if a device has an expand arrow (i.e. can have children).
+
+        :param name: Name of the device.
+        :returns: True if the device has an expansion indicator.
+        """
+        device_item = self.get(name)
+        indicator = device_item.locator("svg.pluto-tree__expansion-indicator")
+        return indicator.count() > 0
+
     def configure(self, name: str, *, device_name: str, identifier: str) -> None:
         """Configure an unconfigured device via the two-step modal flow.
 

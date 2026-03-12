@@ -44,7 +44,8 @@ const TASK_CONTEXT_MENU_ITEM_CONFIGS: Common.DeviceServices.TaskContextMenuItemC
     },
   ];
 
-export const hasChildren = (_resource: ontology.Resource): boolean => true;
+export const hasChildren = (resource: ontology.Resource): boolean =>
+  resource.data?.isChassis === true;
 
 export const ContextMenuItems = (props: Ontology.TreeContextMenuProps) => (
   <>
