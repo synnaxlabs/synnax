@@ -133,6 +133,7 @@ type source struct {
 	state         *ProgramState
 	key           uint32
 	highWaterMark telem.Alignment
+	clock         telem.MonoClock
 }
 
 func (s *source) Init(node.Context) {}
@@ -163,8 +164,8 @@ func (s *source) Next(ctx node.Context) {
 			var timeSeries telem.Series
 			if indexData.DataType() == telem.UnknownT {
 				timeSeries = telem.Arrange(
-					telem.Now(),
-					int(data.Len()),
+					s.clock.Now(),
+					int(ser.Len()),
 					1*telem.NanosecondTS,
 				)
 				timeSeries.Alignment = ser.Alignment
@@ -222,7 +223,8 @@ func bindI32[T i32Compatible](
 		}).Export("read_" + suffix)
 	builder = builder.NewFunctionBuilder().
 		WithFunc(func(_ context.Context, chID uint32, val uint32) {
-			cs.writeValue(chID, telem.NewSeriesV[T](T(val)))
+			appendFixedWriteSample(cs, chID, T(val))
+			cs.writeIndexedTimestamp(chID)
 		}).Export("write_" + suffix)
 	return builder
 }
@@ -246,7 +248,8 @@ func bindI64[T i64Compatible](
 		}).Export("read_" + suffix)
 	builder = builder.NewFunctionBuilder().
 		WithFunc(func(_ context.Context, chID uint32, val uint64) {
-			cs.writeValue(chID, telem.NewSeriesV[T](T(val)))
+			appendFixedWriteSample(cs, chID, T(val))
+			cs.writeIndexedTimestamp(chID)
 		}).Export("write_" + suffix)
 	return builder
 }
@@ -262,7 +265,7 @@ func bindF32(builder wazero.HostModuleBuilder, cs *ProgramState) wazero.HostModu
 		}).Export("read_f32")
 	builder = builder.NewFunctionBuilder().
 		WithFunc(func(_ context.Context, chID uint32, val float32) {
-			cs.writeValue(chID, telem.NewSeriesV[float32](val))
+			cs.WriteChannelF32(chID, val)
 		}).Export("write_f32")
 	return builder
 }
@@ -278,7 +281,7 @@ func bindF64(builder wazero.HostModuleBuilder, cs *ProgramState) wazero.HostModu
 		}).Export("read_f64")
 	builder = builder.NewFunctionBuilder().
 		WithFunc(func(_ context.Context, chID uint32, val float64) {
-			cs.writeValue(chID, telem.NewSeriesV[float64](val))
+			cs.WriteChannelF64(chID, val)
 		}).Export("write_f64")
 	return builder
 }

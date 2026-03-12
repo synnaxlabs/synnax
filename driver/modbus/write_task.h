@@ -81,7 +81,7 @@ public:
         const int start_addr = channels.front().address;
         for (const auto &ch: channels)
             if (fr.contains(ch.channel))
-                state[ch.address - start_addr] = fr.at<uint8_t>(ch.channel, 0);
+                state[ch.address - start_addr] = fr.at<uint8_t>(ch.channel, -1);
         return dev->write_bits(start_addr, state.size(), state.data());
     }
 };
@@ -124,7 +124,7 @@ public:
             if (!fr.contains(channel.channel)) continue;
             const int offset = channel.address - start_addr;
             auto err = util::format_register(
-                fr.at(channel.channel, 0),
+                fr.at(channel.channel, -1),
                 state.data() + offset,
                 channel.value_type,
                 channel.swap_bytes,

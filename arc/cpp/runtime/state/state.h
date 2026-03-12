@@ -157,7 +157,6 @@ class State {
     Config cfg;
     std::vector<Value> values;
     std::unordered_map<ir::Handle, size_t> value_index;
-
     /// @brief Per-module state slices.
     std::shared_ptr<stl::channel::State> channel;
     std::shared_ptr<stl::str::State> strings;
