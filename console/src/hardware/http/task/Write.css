@@ -9,9 +9,20 @@
  * included in the file licenses/APL.txt.
  */
 
-.console-task-configure > div .console-http-write-endpoint .console-channel-list {
-    max-width: unset;
-    flex-basis: unset;
-    flex-grow: 0;
-    overflow: visible;
+.console-task-configure {
+    .console-endpoint-list {
+        width: 250px;
+    }
+
+    .console-endpoint-details {
+        overflow-y: auto;
+
+        .console-endpoint-details-form {
+            padding: 2rem;
+        }
+
+        .console-endpoint-details-headers {
+            padding-bottom: 1rem;
+        }
+    }
 }

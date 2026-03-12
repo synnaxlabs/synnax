@@ -146,11 +146,14 @@ const writeFieldZ = z.discriminatedUnion("type", [staticFieldZ, generatedFieldZ]
 
 export type WriteField = z.infer<typeof writeFieldZ>;
 
+const writeHTTPMethodZ = z.enum(["POST", "PUT", "PATCH"]);
+export type WriteHTTPMethod = z.infer<typeof writeHTTPMethodZ>;
+
 const writeEndpointZ = z.object({
   enabled: z.boolean().default(true),
   key: z.string(),
   path: z.string(),
-  method: z.enum(["POST", "PUT", "PATCH"]),
+  method: writeHTTPMethodZ,
   headers: z.record(z.string(), z.string()).optional(),
   queryParams: z.record(z.string(), z.string()).optional(),
   channel: channelFieldZ,

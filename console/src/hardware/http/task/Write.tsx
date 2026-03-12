@@ -38,6 +38,7 @@ import {
   WRITE_TYPE,
   type WriteEndpoint,
   type WriteField,
+  type WriteHTTPMethod,
   type WritePayload,
   type WriteSchemas,
   ZERO_WRITE_ENDPOINT,
@@ -63,29 +64,28 @@ export const WriteSelectable = Selector.createSimpleItem({
 interface EndpointContextMenuProps {
   keys: string[];
   onDelete: (keys: string[]) => void;
-  onDuplicate: (keys: string[]) => void;
+  onDuplicate?: (keys: string[]) => void;
 }
 
 const EndpointContextMenu = ({
   keys,
-  onDelete,
   onDuplicate,
+  onDelete,
 }: EndpointContextMenuProps) => {
   const isSnapshot = Common.Task.useIsSnapshot();
   const canAct = keys.length > 0;
-  const handleSelect: Record<string, () => void> = {
-    duplicate: () => onDuplicate(keys),
-    delete: () => onDelete(keys),
-  };
+  const canDuplicate = onDuplicate != null;
   return (
-    <PMenu.Menu onChange={handleSelect} level="small">
+    <PMenu.Menu level="small">
       {!isSnapshot && canAct && (
         <>
-          <PMenu.Item itemKey="duplicate">
-            <Icon.Copy />
-            Duplicate
-          </PMenu.Item>
-          <PMenu.Item itemKey="delete">
+          {canDuplicate && (
+            <PMenu.Item itemKey="duplicate" onClick={() => onDuplicate?.(keys)}>
+              <Icon.Copy />
+              Duplicate
+            </PMenu.Item>
+          )}
+          <PMenu.Item itemKey="delete" onClick={() => onDelete(keys)}>
             <Icon.Close />
             Delete
           </PMenu.Item>
@@ -96,8 +96,6 @@ const EndpointContextMenu = ({
     </PMenu.Menu>
   );
 };
-
-// ─── Endpoint List Item ───
 
 const EndpointListItem = (props: List.ItemProps<string>) => {
   const { itemKey } = props;
@@ -114,17 +112,6 @@ const EndpointListItem = (props: List.ItemProps<string>) => {
 
 const endpointListItem = Component.renderProp(EndpointListItem);
 
-// ─── Selectors ───
-
-const TIME_FORMAT_DATA: Select.StaticEntry<string>[] = [
-  { key: "iso8601", name: "ISO 8601" },
-  { key: "unix_sec", name: "Unix (s)" },
-  { key: "unix_ms", name: "Unix (ms)" },
-  { key: "unix_us", name: "Unix (μs)" },
-  { key: "unix_ns", name: "Unix (ns)" },
-];
-
-type WriteHTTPMethod = "POST" | "PUT" | "PATCH";
 const WRITE_METHOD_KEYS: WriteHTTPMethod[] = ["POST", "PUT", "PATCH"];
 
 const JSON_TYPE_DATA: Select.StaticEntry<string>[] = [
@@ -135,30 +122,33 @@ const JSON_TYPE_DATA: Select.StaticEntry<string>[] = [
 
 const GENERATOR_DATA: Select.StaticEntry<string>[] = [
   { key: "uuid", name: "UUID" },
-  { key: "timestamp", name: "Timestamp" },
+  { key: "iso8601", name: "Timestamp (ISO 8601)" },
+  { key: "unix_sec", name: "Timestamp (s)" },
+  { key: "unix_ms", name: "Timestamp (ms)" },
+  { key: "unix_us", name: "Timestamp (μs)" },
+  { key: "unix_ns", name: "Timestamp (ns)" },
 ];
-
-// ─── Method Select ───
 
 const WriteMethodSelect: FC<{ path: string }> = ({ path }) => (
   <PForm.Field<WriteHTTPMethod> path={path} label="Method">
-    {({ value, onChange }) => (
-      <Select.Buttons<WriteHTTPMethod>
-        value={value}
-        onChange={onChange}
-        keys={WRITE_METHOD_KEYS}
-      >
-        <Select.Button<WriteHTTPMethod> itemKey="POST">POST</Select.Button>
-        <Select.Button<WriteHTTPMethod> itemKey="PUT">PUT</Select.Button>
-        <Select.Button<WriteHTTPMethod> itemKey="PATCH">PATCH</Select.Button>
-      </Select.Buttons>
-    )}
+    {renderWriteMethodSelect}
   </PForm.Field>
 );
 
-// ─── Channel Field Section ───
+const renderWriteMethodSelect = Component.renderProp(
+  (p: Omit<Select.ButtonsProps<WriteHTTPMethod>, "keys">) => (
+    <Select.Buttons<WriteHTTPMethod> {...p} keys={WRITE_METHOD_KEYS}>
+      <Select.Button<WriteHTTPMethod> itemKey="POST">POST</Select.Button>
+      <Select.Button<WriteHTTPMethod> itemKey="PUT">PUT</Select.Button>
+      <Select.Button<WriteHTTPMethod> itemKey="PATCH">PATCH</Select.Button>
+    </Select.Buttons>
+  ),
+);
 
-const ChannelFieldSection: FC<{ epPath: string }> = ({ epPath }) => {
+const ChannelFieldSection: FC<{ epPath: string; epKey: string }> = ({
+  epPath,
+  epKey,
+}) => {
   const channelPath = `${epPath}.channel`;
   const channelKey = PForm.useFieldValue<number>(`${channelPath}.channel`);
 
@@ -168,6 +158,13 @@ const ChannelFieldSection: FC<{ epPath: string }> = ({ epPath }) => {
         <Header.Title weight={500} color={10}>
           Channel
         </Header.Title>
+        <Flex.Box x align="center" grow justify="end">
+          <Common.Task.ChannelName
+            channel={channelKey}
+            namePath={`${channelPath}.name`}
+            id={Common.Task.getChannelNameID(epKey)}
+          />
+        </Flex.Box>
       </Header.Header>
       <Flex.Box x align="end" gap="large">
         <PForm.TextField
@@ -213,16 +210,57 @@ const ChannelFieldSection: FC<{ epPath: string }> = ({ epPath }) => {
   );
 };
 
-// ─── Additional Fields (static + generated) ───
+const generatorDisplayKey = (
+  generator: string | null | undefined,
+  timeFormat: string | null | undefined,
+): string => {
+  if (generator === "timestamp") return timeFormat ?? "iso8601";
+  return "uuid";
+};
+
+const ZERO_JSON_VALUES: Record<string, string | number | boolean> = {
+  string: "",
+  number: 0,
+  boolean: false,
+};
 
 const FieldListItem = (props: List.ItemProps<string> & { epKey: string }) => {
   const { itemKey, epKey } = props;
   const path = `config.endpoints.${epKey}.fields.${itemKey}`;
   const fieldType = PForm.useFieldValue<string>(`${path}.type`);
+  const jsonType = PForm.useFieldValue<string | undefined>(`${path}.jsonType`, {
+    optional: true,
+  });
   const generator = PForm.useFieldValue<GeneratorType | undefined>(
     `${path}.generator`,
     { optional: true },
   );
+  const timeFormat = PForm.useFieldValue<string | undefined>(`${path}.timeFormat`, {
+    optional: true,
+  });
+  const { set } = PForm.useContext();
+
+  const handleJSONTypeChange = useCallback(
+    (value: string) => {
+      set(`${path}.jsonType`, value);
+      set(`${path}.value`, ZERO_JSON_VALUES[value]);
+    },
+    [set, path],
+  );
+
+  const handleGeneratorChange = useCallback(
+    (key: string) => {
+      if (key === "uuid") {
+        set(`${path}.generator`, "uuid");
+        set(`${path}.timeFormat`, undefined);
+      } else {
+        set(`${path}.generator`, "timestamp");
+        set(`${path}.timeFormat`, key);
+      }
+    },
+    [set, path],
+  );
+
   return (
     <Select.ListItem {...props} justify="between" align="center" x>
       <PForm.TextField
@@ -233,23 +271,14 @@ const FieldListItem = (props: List.ItemProps<string> & { epKey: string }) => {
         grow
       />
       {fieldType === "static" && (
-        <PForm.Field<string>
-          path={`${path}.jsonType`}
-          showLabel={false}
-          showHelpText={false}
-          style={{ width: 100 }}
-        >
-          {({ value, onChange }) => (
-            <Select.Static<string, Select.StaticEntry<string>>
-              value={value}
-              onChange={onChange}
-              data={JSON_TYPE_DATA}
-              resourceName="type"
-            />
-          )}
-        </PForm.Field>
+        <Select.Static<string, Select.StaticEntry<string>>
+          value={jsonType ?? "string"}
+          onChange={handleJSONTypeChange}
+          data={JSON_TYPE_DATA}
+          resourceName="type"
+        />
       )}
-      {fieldType === "static" && (
+      {fieldType === "static" && jsonType === "string" && (
         <PForm.TextField
           path={`${path}.value`}
           showLabel={false}
@@ -258,39 +287,28 @@ const FieldListItem = (props: List.ItemProps<string> & { epKey: string }) => {
           style={{ width: 120 }}
         />
       )}
-      {fieldType === "generated" && (
-        <PForm.Field<string>
-          path={`${path}.generator`}
+      {fieldType === "static" && jsonType === "number" && (
+        <PForm.NumericField
+          path={`${path}.value`}
           showLabel={false}
           showHelpText={false}
           style={{ width: 120 }}
-        >
-          {({ value, onChange }) => (
-            <Select.Static<string, Select.StaticEntry<string>>
-              value={value ?? "uuid"}
-              onChange={onChange}
-              data={GENERATOR_DATA}
-              resourceName="generator"
-            />
-          )}
-        </PForm.Field>
+        />
       )}
-      {fieldType === "generated" && generator === "timestamp" && (
-        <PForm.Field<string>
-          path={`${path}.timeFormat`}
+      {fieldType === "static" && jsonType === "boolean" && (
+        <PForm.SwitchField
+          path={`${path}.value`}
           showLabel={false}
           showHelpText={false}
-          style={{ width: 130 }}
-        >
-          {({ value, onChange }) => (
-            <Select.Static<string, Select.StaticEntry<string>>
-              value={value ?? "iso8601"}
-              onChange={onChange}
-              data={TIME_FORMAT_DATA}
-              resourceName="format"
-            />
-          )}
-        </PForm.Field>
+        />
+      )}
+      {fieldType === "generated" && (
+        <Select.Static<string, Select.StaticEntry<string>>
+          value={generatorDisplayKey(generator, timeFormat)}
+          onChange={handleGeneratorChange}
+          data={GENERATOR_DATA}
+          resourceName="generator"
+        />
       )}
       <Text.Text level="small" color={7} style={{ whiteSpace: "nowrap" }}>
         {fieldType}
@@ -344,6 +362,12 @@ const AdditionalFields: FC<{ epKey: string }> = ({ epKey }) => {
   );
 
   const menuProps = PMenu.useContextMenu();
+  const menuRenderProp = useCallback(
+    (p: PMenu.ContextMenuMenuProps) => (
+      <EndpointContextMenu keys={p.keys} onDelete={handleDelete} />
+    ),
+    [handleDelete],
+  );
 
   return (
     <Flex.Box y grow empty>
@@ -374,16 +398,7 @@ const AdditionalFields: FC<{ epKey: string }> = ({ epKey }) => {
           </Header.Actions>
         )}
       </Header.Header>
-      <PMenu.ContextMenu
-        {...menuProps}
-        menu={(p) => (
-          <EndpointContextMenu
-            keys={p.keys}
-            onDelete={handleDelete}
-            onDuplicate={() => {}}
-          />
-        )}
-      >
+      <PMenu.ContextMenu {...menuProps} menu={menuRenderProp}>
         <Select.Frame<string, WriteField>
           multiple
           data={data}
@@ -396,7 +411,7 @@ const AdditionalFields: FC<{ epKey: string }> = ({ epKey }) => {
             full="y"
             className={menuProps.className}
             onContextMenu={menuProps.open}
-            emptyContent={<EmptyAction message="No additional fields." action="" />}
+            emptyContent={emptyContent}
           >
             {listItem}
           </List.Items>
@@ -406,45 +421,37 @@ const AdditionalFields: FC<{ epKey: string }> = ({ epKey }) => {
   );
 };
 
-// ─── Endpoint Details ───
+const emptyContent = <EmptyAction message="No additional fields." action="" />;
 
 const EndpointDetails: FC<{ epKey: string }> = ({ epKey }) => {
   const path = `config.endpoints.${epKey}`;
   return (
-    <Flex.Box
-      y
-      grow
-      empty
-      style={{ overflowY: "auto" }}
-      className={CSS.B("http-write-endpoint")}
-    >
-      <Flex.Box x align="end" gap="large" style={{ padding: "1rem" }}>
-        <WriteMethodSelect path={`${path}.method`} />
-        <PForm.TextField
-          path={`${path}.path`}
-          label="Path"
-          grow
-          inputProps={{ placeholder: "/api/control" }}
-        />
-      </Flex.Box>
-      <Divider.Divider x padded />
-      <Flex.Box y style={{ padding: "0 1rem" }}>
+    <Flex.Box y grow empty className={CSS.B("endpoint-details")}>
+      <Flex.Box gap="small" empty className={CSS.B("endpoint-details-form")}>
+        <Flex.Box x align="end" gap="large">
+          <WriteMethodSelect path={`${path}.method`} />
+          <PForm.TextField
+            path={`${path}.path`}
+            label="Path"
+            grow
+            inputProps={{ placeholder: "/api/control" }}
+          />
+        </Flex.Box>
         <KeyValueEditor
           path={`${path}.headers`}
           label="Headers"
+          className={CSS.B("endpoint-details-headers")}
           keyPlaceholder="Header Name"
           valuePlaceholder="Header Value"
         />
       </Flex.Box>
       <Divider.Divider x padded />
-      <ChannelFieldSection epPath={path} />
-      <Divider.Divider x padded />
+      <ChannelFieldSection epPath={path} epKey={epKey} />
+      <Divider.Divider x />
       <AdditionalFields key={epKey} epKey={epKey} />
     </Flex.Box>
   );
 };
-
-// ─── Properties Panel ───
 
 const Properties = () => (
   <>
@@ -454,8 +461,6 @@ const Properties = () => (
     </Flex.Box>
   </>
 );
-
-// ─── Main Form ───
 
 const Form: FC<Common.Task.FormProps<WriteSchemas>> = () => {
   const [selectedEndpoints, setSelectedEndpoints] = useState<string[]>([]);
@@ -497,10 +502,20 @@ const Form: FC<Common.Task.FormProps<WriteSchemas>> = () => {
   );
 
   const menuProps = PMenu.useContextMenu();
+  const menuRenderProp = useCallback(
+    (p: PMenu.ContextMenuMenuProps) => (
+      <EndpointContextMenu
+        keys={p.keys}
+        onDelete={handleDeleteEndpoints}
+        onDuplicate={handleDuplicateEndpoints}
+      />
+    ),
+    [handleDeleteEndpoints, handleDuplicateEndpoints],
+  );
 
   return (
     <Flex.Box x grow empty>
-      <Flex.Box y style={{ width: 250, flexShrink: 0 }}>
+      <Flex.Box y className={CSS.B("endpoint-list")} empty>
         <Header.Header>
           <Header.Title weight={500} color={10}>
             Endpoints
@@ -519,16 +534,7 @@ const Form: FC<Common.Task.FormProps<WriteSchemas>> = () => {
             </Header.Actions>
           )}
         </Header.Header>
-        <PMenu.ContextMenu
-          {...menuProps}
-          menu={(p) => (
-            <EndpointContextMenu
-              keys={p.keys}
-              onDelete={handleDeleteEndpoints}
-              onDuplicate={handleDuplicateEndpoints}
-            />
-          )}
-        >
+        <PMenu.ContextMenu {...menuProps} menu={menuRenderProp}>
           <Select.Frame<string, WriteEndpoint>
             multiple
             data={data}
