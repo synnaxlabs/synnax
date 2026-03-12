@@ -108,7 +108,13 @@ export class Log extends aether.Leaf<typeof logState, InternalState> {
     this.checkEmpty();
     i.stopListeningTelem?.();
     i.stopListeningTelem = i.telem.onChange(() => {
+      const { evictedCount } = this.internal.telem;
       this.entries = this.internal.telem.value();
+      if (this.state.scrolling && evictedCount > 0)
+        this.scrollState.offset = Math.max(
+          this.visibleLineCount,
+          this.scrollState.offset - evictedCount,
+        );
       this.checkEmpty();
       this.requestRender();
     });

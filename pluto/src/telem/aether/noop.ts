@@ -182,6 +182,7 @@ export const noopSeriesSourceSpec: SeriesSourceSpec = {
 
 class NoopLogSource extends Noop implements LogSource {
   static readonly TYPE = "noop-log-source";
+  readonly evictedCount = 0;
 
   value(): LogEntry[] {
     return [];

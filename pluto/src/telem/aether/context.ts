@@ -93,6 +93,10 @@ class MemoizedSource<V> extends Memoized<Source<V>> {
     return this.wrapped.value();
   }
 
+  get evictedCount(): number {
+    return (this.wrapped as unknown as { evictedCount?: number }).evictedCount ?? 0;
+  }
+
   cleanup(): void {
     this.wrapped.cleanup?.();
   }

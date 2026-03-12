@@ -363,4 +363,61 @@ describe("StreamMultiChannelLog", () => {
     expect(entries).toHaveLength(2);
     expect(entries.map((e) => e.value)).toEqual(["3", "4"]);
   });
+
+  it("should set evictedCount to 0 before any GC has run", async () => {
+    const props: StreamMultiChannelLogProps = {
+      channels: [c.channelA.key],
+      timeSpan: TimeSpan.seconds(30),
+    };
+    const log = new StreamMultiChannelLog(c, props);
+    await waitForResolve(log);
+    const series = new Series({ data: new Float32Array([1, 2]) });
+    c.streamHandler?.(new Map([[c.channelA.key, new MultiSeries([series])]]));
+    expect(log.evictedCount).toBe(0);
+  });
+
+  it("should set evictedCount to the number of entries removed by GC", async () => {
+    let now = TimeStamp.milliseconds(1_000);
+    const props: StreamMultiChannelLogProps = {
+      channels: [c.channelA.key],
+      timeSpan: TimeSpan.seconds(30),
+      keepFor: TimeSpan.milliseconds(500),
+    };
+    const log = new StreamMultiChannelLog(c, props, undefined, () => now);
+    await waitForResolve(log);
+
+    const seriesA = new Series({ data: new Float32Array([1, 2]) });
+    c.streamHandler?.(new Map([[c.channelA.key, new MultiSeries([seriesA])]]));
+    expect(log.evictedCount).toBe(0);
+
+    // Advance time — both entries at t=1000ms are now stale
+    now = TimeStamp.milliseconds(2_000);
+    const seriesB = new Series({ data: new Float32Array([3]) });
+    c.streamHandler?.(new Map([[c.channelA.key, new MultiSeries([seriesB])]]));
+    expect(log.evictedCount).toBe(2);
+  });
+
+  it("should reset evictedCount to 0 on a subsequent callback where no GC occurs", async () => {
+    let now = TimeStamp.milliseconds(1_000);
+    const props: StreamMultiChannelLogProps = {
+      channels: [c.channelA.key],
+      timeSpan: TimeSpan.seconds(30),
+      keepFor: TimeSpan.milliseconds(500),
+    };
+    const log = new StreamMultiChannelLog(c, props, undefined, () => now);
+    await waitForResolve(log);
+
+    // Trigger GC
+    const seriesA = new Series({ data: new Float32Array([1, 2]) });
+    c.streamHandler?.(new Map([[c.channelA.key, new MultiSeries([seriesA])]]));
+    now = TimeStamp.milliseconds(2_000);
+    const seriesB = new Series({ data: new Float32Array([3]) });
+    c.streamHandler?.(new Map([[c.channelA.key, new MultiSeries([seriesB])]]));
+    expect(log.evictedCount).toBe(2);
+
+    // Next callback — nothing is stale, evictedCount resets to 0
+    const seriesC = new Series({ data: new Float32Array([4]) });
+    c.streamHandler?.(new Map([[c.channelA.key, new MultiSeries([seriesC])]]));
+    expect(log.evictedCount).toBe(0);
+  });
 });

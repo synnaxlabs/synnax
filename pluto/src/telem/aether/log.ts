@@ -69,6 +69,8 @@ export class StreamMultiChannelLog
   private entries: LogEntry[] = [];
   private stopStreaming?: destructor.Destructor;
   private valid = false;
+  private _evictedCount: number = 0;
+  get evictedCount(): number { return this._evictedCount; }
 
   constructor(
     client: client.Client,
@@ -154,7 +156,7 @@ export class StreamMultiChannelLog
           pushSamples(buf, chMeta.readCursor);
           chMeta.readCursor = buf.length;
         }
-        this.gcEntries();
+        this._evictedCount = this.gcEntries();
         if (pushed > 0) this.notify();
       }, streamKeys);
       this.notify();
@@ -164,7 +166,7 @@ export class StreamMultiChannelLog
     }
   }
 
-  private gcEntries(): void {
+  private gcEntries(): number {
     const keepFor = this.props.keepFor ?? this.props.timeSpan;
     const threshold = this.now().sub(keepFor).valueOf();
     // Find the index of the first entry that should be kept (O(n)), then remove
@@ -172,9 +174,17 @@ export class StreamMultiChannelLog
     // each individual shift is also O(n) because it moves all remaining elements forward
     // in memory — making the loop O(n²) when many entries are expired.
     const cutoff = this.entries.findIndex((e) => e.timestamp >= threshold);
-    if (cutoff > 0) this.entries.splice(0, cutoff);
-    if (this.entries.length > MAX_ENTRIES)
-      this.entries.splice(0, this.entries.length - MAX_ENTRIES);
+    let evicted = 0;
+    if (cutoff > 0) {
+      this.entries.splice(0, cutoff);
+      evicted += cutoff;
+    }
+    if (this.entries.length > MAX_ENTRIES) {
+      const excess = this.entries.length - MAX_ENTRIES;
+      this.entries.splice(0, excess);
+      evicted += excess;
+    }
+    return evicted;
   }
 
   cleanup(): void {
