@@ -10,8 +10,16 @@
 #include <chrono>
 #include <map>
 #include <memory>
+// Disable GCC 13 false positive warning in <regex> header
+#if defined(__GNUC__) && !defined(__clang__)
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wmaybe-uninitialized"
+#endif
 #include <regex>
-
+#if defined(__GNUC__) && !defined(__clang__)
+#pragma GCC diagnostic pop
+#endif
+#
 #include "gtest/gtest.h"
 
 #include "x/cpp/defer/defer.h"
