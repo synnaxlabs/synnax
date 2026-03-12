@@ -10,19 +10,14 @@
 import { Form } from "@synnaxlabs/pluto";
 import { type record } from "@synnaxlabs/x";
 
-import {
-  AI_CHANNEL_TYPE,
-  DI_CHANNEL_TYPE,
-  type InputChannelType,
-  TC_CHANNEL_TYPE,
-} from "@/hardware/labjack/task/types";
+import { type InputChannelType } from "@/hardware/labjack/task/types";
 
 export interface InputChannelTypeEntry extends record.KeyedNamed<InputChannelType> {}
 
 const INPUT_CHANNEL_TYPES: InputChannelTypeEntry[] = [
-  { key: AI_CHANNEL_TYPE, name: "Analog Input" },
-  { key: DI_CHANNEL_TYPE, name: "Digital Input" },
-  { key: TC_CHANNEL_TYPE, name: "Thermocouple" },
+  { key: "AI", name: "Analog Input" },
+  { key: "DI", name: "Digital Input" },
+  { key: "TC", name: "Thermocouple" },
 ];
 
 export type SelectInputChannelTypeFieldProps = Form.SelectFieldProps<

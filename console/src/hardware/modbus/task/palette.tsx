@@ -14,9 +14,9 @@ import { READ_LAYOUT } from "@/hardware/modbus/task/Read";
 import { WRITE_LAYOUT } from "@/hardware/modbus/task/Write";
 import { Palette } from "@/palette";
 
-const useVisible = () => Access.useUpdateGranted(task.TYPE_ONTOLOGY_ID);
+const useVisible = () => Access.useCreateGranted(task.TYPE_ONTOLOGY_ID);
 
-export const CreateReadCommand = Palette.createSimpleCommand({
+const CreateReadCommand = Palette.createSimpleCommand({
   key: "modbus-create-read-task",
   name: "Create a Modbus Read Task",
   icon: <Icon.Logo.Modbus />,
@@ -24,7 +24,7 @@ export const CreateReadCommand = Palette.createSimpleCommand({
   useVisible,
 });
 
-export const CreateWriteCommand = Palette.createSimpleCommand({
+const CreateWriteCommand = Palette.createSimpleCommand({
   key: "modbus-create-write-task",
   name: "Create a Modbus Write Task",
   icon: <Icon.Logo.Modbus />,

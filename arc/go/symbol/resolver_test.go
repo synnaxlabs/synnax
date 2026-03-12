@@ -85,6 +85,107 @@ var _ = Describe("MapResolver", func() {
 	})
 })
 
+var _ = Describe("ModuleResolver", func() {
+	Describe("Resolve", func() {
+		It("Should resolve a qualified name by stripping the module prefix", func() {
+			resolver := &symbol.ModuleResolver{
+				Name: "math",
+				Members: symbol.MapResolver{
+					"pi":  symbol.Symbol{Name: "pi", Kind: symbol.KindConfig, Type: types.F64()},
+					"abs": symbol.Symbol{Name: "abs", Kind: symbol.KindFunction, Type: types.F64()},
+				},
+			}
+			sym := MustSucceed(resolver.Resolve(bCtx, "math.pi"))
+			Expect(sym.Name).To(Equal("pi"))
+			Expect(sym.Kind).To(Equal(symbol.KindConfig))
+		})
+
+		It("Should return error when name doesn't have the module prefix", func() {
+			resolver := &symbol.ModuleResolver{
+				Name: "math",
+				Members: symbol.MapResolver{
+					"pi": symbol.Symbol{Name: "pi", Kind: symbol.KindConfig, Type: types.F64()},
+				},
+			}
+			Expect(resolver.Resolve(bCtx, "pi")).Error().To(MatchError(query.ErrNotFound))
+		})
+
+		It("Should return error when member doesn't exist in module", func() {
+			resolver := &symbol.ModuleResolver{
+				Name: "math",
+				Members: symbol.MapResolver{
+					"pi": symbol.Symbol{Name: "pi", Kind: symbol.KindConfig, Type: types.F64()},
+				},
+			}
+			Expect(resolver.Resolve(bCtx, "math.nonexistent")).Error().To(MatchError(query.ErrNotFound))
+		})
+
+		It("Should return error when prefix is a different module", func() {
+			resolver := &symbol.ModuleResolver{
+				Name: "math",
+				Members: symbol.MapResolver{
+					"pi": symbol.Symbol{Name: "pi", Kind: symbol.KindConfig, Type: types.F64()},
+				},
+			}
+			Expect(resolver.Resolve(bCtx, "str.pi")).Error().To(MatchError(query.ErrNotFound))
+		})
+	})
+
+	Describe("Search", func() {
+		It("Should search members when term has the module prefix", func() {
+			resolver := &symbol.ModuleResolver{
+				Name: "math",
+				Members: symbol.MapResolver{
+					"abs":  symbol.Symbol{Name: "abs", Kind: symbol.KindFunction, Type: types.F64()},
+					"acos": symbol.Symbol{Name: "acos", Kind: symbol.KindFunction, Type: types.F64()},
+					"pi":   symbol.Symbol{Name: "pi", Kind: symbol.KindConfig, Type: types.F64()},
+				},
+			}
+			symbols := MustSucceed(resolver.Search(bCtx, "math.a"))
+			Expect(symbols).To(HaveLen(2))
+			names := []string{symbols[0].Name, symbols[1].Name}
+			Expect(names).To(ContainElements("abs", "acos"))
+		})
+
+		It("Should return all members when term is a prefix of the module name", func() {
+			resolver := &symbol.ModuleResolver{
+				Name: "math",
+				Members: symbol.MapResolver{
+					"abs": symbol.Symbol{Name: "abs", Kind: symbol.KindFunction, Type: types.F64()},
+					"pi":  symbol.Symbol{Name: "pi", Kind: symbol.KindConfig, Type: types.F64()},
+				},
+			}
+			symbols := MustSucceed(resolver.Search(bCtx, "ma"))
+			Expect(symbols).To(HaveLen(2))
+		})
+
+		It("Should return all members when term is the exact module name", func() {
+			resolver := &symbol.ModuleResolver{
+				Name: "math",
+				Members: symbol.MapResolver{
+					"abs": symbol.Symbol{Name: "abs", Kind: symbol.KindFunction, Type: types.F64()},
+					"pi":  symbol.Symbol{Name: "pi", Kind: symbol.KindConfig, Type: types.F64()},
+				},
+			}
+			symbols := MustSucceed(resolver.Search(bCtx, "math"))
+			Expect(symbols).To(HaveLen(2))
+		})
+
+		It("Should delegate with raw term for non-matching prefix", func() {
+			resolver := &symbol.ModuleResolver{
+				Name: "math",
+				Members: symbol.MapResolver{
+					"abs": symbol.Symbol{Name: "abs", Kind: symbol.KindFunction, Type: types.F64()},
+					"pi":  symbol.Symbol{Name: "pi", Kind: symbol.KindConfig, Type: types.F64()},
+				},
+			}
+			symbols := MustSucceed(resolver.Search(bCtx, "abs"))
+			Expect(symbols).To(HaveLen(1))
+			Expect(symbols[0].Name).To(Equal("abs"))
+		})
+	})
+})
+
 var _ = Describe("CompoundResolver", func() {
 	Describe("Resolve", func() {
 		It("Should resolve from first matching resolver", func() {

@@ -1,0 +1,28 @@
+cc_library(
+    name = "control",
+    hdrs = ["control.h"],
+    copts = select({
+        "@platforms//os:windows": ["/wd4201"],
+        "//conditions:default": [],
+    }),
+    visibility = ["//visibility:public"],
+    deps = [
+        "//arc/cpp/runtime/node",
+        "//arc/cpp/runtime/state",
+        "//arc/cpp/stl",
+        "//x/cpp/errors",
+    ],
+)
+
+cc_test(
+    name = "control_test",
+    srcs = ["control_test.cpp"],
+    deps = [
+        "//arc/cpp/ir",
+        "//arc/cpp/runtime/errors",
+        "//arc/cpp/runtime/state",
+        "//arc/cpp/stl/control",
+        "//x/cpp/test",
+        "@googletest//:gtest_main",
+    ],
+)

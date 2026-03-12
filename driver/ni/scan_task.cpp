@@ -8,7 +8,6 @@
 // included in the file licenses/APL.txt.
 
 #include <algorithm>
-#include <regex>
 #include <string>
 #include <unordered_map>
 

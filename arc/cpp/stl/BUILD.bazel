@@ -1,0 +1,13 @@
+cc_library(
+    name = "stl",
+    hdrs = ["stl.h"],
+    copts = select({
+        "@platforms//os:windows": ["/wd4201"],
+        "//conditions:default": [],
+    }),
+    visibility = ["//visibility:public"],
+    deps = [
+        "//arc/cpp/runtime/node",
+        "//vendor/wasmtime",
+    ],
+)

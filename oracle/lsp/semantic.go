@@ -15,7 +15,7 @@ import (
 	"github.com/antlr4-go/antlr/v4"
 	"github.com/synnaxlabs/oracle/parser"
 	xlsp "github.com/synnaxlabs/x/lsp"
-	"go.lsp.dev/protocol"
+	"github.com/synnaxlabs/x/lsp/protocol"
 )
 
 const (

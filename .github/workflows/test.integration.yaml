@@ -153,15 +153,12 @@ jobs:
       packages: write
     uses: ./.github/workflows/build.synnax.yaml
     with:
-      debug: true
       windows: true
       ubuntu: true
       docker: false
       driver: true
       console: true
       core: true
-      sign_binaries: false
-      upload_to_release: false
       use_simple_artifact_names: true
       version: ${{ needs.setup.outputs.VERSION }}
     secrets: inherit

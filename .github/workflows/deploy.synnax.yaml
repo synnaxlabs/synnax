@@ -179,6 +179,7 @@ jobs:
       ubuntu: true
       docker: true
       driver: true
+      nilinuxrt: true
       console: true
       console_tauri: true
       core: true
@@ -241,7 +242,7 @@ jobs:
           gh release upload --clobber synnax-v${{ needs.setup.outputs.VERSION }} .\scripts\synnax-setup-v${{ needs.setup.outputs.VERSION }}.exe
 
   ni-install-script:
-    name: Create NI Linux RT Install Script
+    name: Create NI Linux Real-Time Install Script
     runs-on: ubuntu-latest
     needs: [setup, create-release, build]
     if: github.event_name == 'push' && !cancelled()
@@ -253,7 +254,7 @@ jobs:
       - name: Checkout Repository
         uses: actions/checkout@v6
 
-      - name: Create Driver Install Script for NI Linux RT
+      - name: Create Driver Install Script for NI Linux Real-Time
         run: |
           cat > install-driver-nilinuxrt.sh << 'EOF'
           #!/bin/bash

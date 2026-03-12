@@ -22,10 +22,16 @@
 #include "arc/cpp/runtime/wasm/factory.h"
 #include "arc/cpp/runtime/wasm/module.h"
 #include "arc/cpp/runtime/wasm/node.h"
+#include "arc/cpp/stl/channel/channel.h"
+#include "arc/cpp/stl/channel/state.h"
+#include "arc/cpp/stl/error/error.h"
+#include "arc/cpp/stl/math/math.h"
+#include "arc/cpp/stl/series/series.h"
+#include "arc/cpp/stl/stateful/stateful.h"
+#include "arc/cpp/stl/str/str.h"
+#include "arc/cpp/stl/time/time.h"
 
-using namespace arc::runtime;
-
-namespace {
+namespace arc::runtime {
 std::mt19937 gen_rand = random_generator("Node Tests");
 
 std::string random_name(const std::string &prefix) {
@@ -34,7 +40,7 @@ std::string random_name(const std::string &prefix) {
 }
 
 /// @brief Compiles an Arc program via the Synnax client.
-arc::module::Module
+arc::program::Program
 compile_arc(const synnax::Synnax &client, const std::string &source) {
     auto arc = synnax::arc::Arc{.name = random_name("test_arc")};
     arc.text.raw = source;
@@ -45,12 +51,12 @@ compile_arc(const synnax::Synnax &client, const std::string &source) {
     opts.compile = true;
     auto [compiled, err] = client.arcs.retrieve_by_key(arc.key, opts);
     if (err) throw std::runtime_error("Failed to compile arc: " + err.message());
-    return compiled.module;
+    return compiled.program;
 }
 
 /// @brief Finds the IR node with the given type in the module.
 const arc::ir::Node *
-find_node_by_type(const arc::module::Module &mod, const std::string &type) {
+find_node_by_type(const arc::program::Program &mod, const std::string &type) {
     for (const auto &node: mod.nodes)
         if (node.type == type) return &node;
     return nullptr;
@@ -64,6 +70,23 @@ node::Context make_context() {
         .activate_stage = [] {},
     };
 }
+
+/// @brief Builds a set of STL modules from the given state.
+std::vector<std::shared_ptr<stl::Module>> build_stl_modules(
+    const std::shared_ptr<stl::channel::State> &channel_st,
+    const std::shared_ptr<stl::str::State> &str_st,
+    const std::shared_ptr<stl::series::State> &series_st,
+    const std::shared_ptr<stl::stateful::Variables> &var_st
+) {
+    return {
+        std::make_shared<stl::channel::Module>(channel_st, str_st),
+        std::make_shared<stl::stateful::Module>(var_st, series_st, str_st),
+        std::make_shared<stl::series::Module>(series_st),
+        std::make_shared<stl::str::Module>(str_st),
+        std::make_shared<stl::math::Module>(),
+        std::make_shared<stl::time::Module>(),
+        std::make_shared<stl::error::Module>(arc::runtime::errors::noop_handler),
+    };
 }
 
 /// @brief Factory::handles returns true for functions in the module.
@@ -80,7 +103,7 @@ func double(val f32) f32 {
 )" + ch.name + " -> double{}";
 
     auto mod = compile_arc(client, source);
-    auto wasm_mod = ASSERT_NIL_P(wasm::Module::open({.module = mod}));
+    auto wasm_mod = ASSERT_NIL_P(wasm::Module::open({.program = mod}));
     wasm::Factory factory(wasm_mod);
 
     EXPECT_TRUE(factory.handles("double"));
@@ -101,7 +124,7 @@ func double(val f32) f32 {
 )" + ch.name + " -> double{}";
 
     auto mod = compile_arc(client, source);
-    auto wasm_mod = ASSERT_NIL_P(wasm::Module::open({.module = mod}));
+    auto wasm_mod = ASSERT_NIL_P(wasm::Module::open({.program = mod}));
     wasm::Factory factory(wasm_mod);
 
     arc::ir::Node fake_node;
@@ -133,7 +156,7 @@ func double(val f32) f32 {
 )" + ch.name + " -> double{}";
 
     auto mod = compile_arc(client, source);
-    auto wasm_mod = ASSERT_NIL_P(wasm::Module::open({.module = mod}));
+    auto wasm_mod = ASSERT_NIL_P(wasm::Module::open({.program = mod}));
     wasm::Factory factory(wasm_mod);
 
     const auto *func_node = find_node_by_type(mod, "double");
@@ -165,7 +188,7 @@ func double(val f32) f32 {
 )" + ch.name + " -> double{}";
 
     auto mod = compile_arc(client, source);
-    auto wasm_mod = ASSERT_NIL_P(wasm::Module::open({.module = mod}));
+    auto wasm_mod = ASSERT_NIL_P(wasm::Module::open({.program = mod}));
     const auto *func_node = find_node_by_type(mod, "double");
     ASSERT_NE(func_node, nullptr);
 
@@ -231,7 +254,7 @@ func double(val f32) f32 {
                                output_name;
 
     auto mod = compile_arc(client, source);
-    auto wasm_mod = ASSERT_NIL_P(wasm::Module::open({.module = mod}));
+    auto wasm_mod = ASSERT_NIL_P(wasm::Module::open({.program = mod}));
     const auto *func_node = find_node_by_type(mod, "double");
     ASSERT_NE(func_node, nullptr);
 
@@ -333,7 +356,7 @@ func divide_by_zero(val i32) i32 {
                                output_name;
 
     auto mod = compile_arc(client, source);
-    auto wasm_mod = ASSERT_NIL_P(wasm::Module::open({.module = mod}));
+    auto wasm_mod = ASSERT_NIL_P(wasm::Module::open({.program = mod}));
     const auto *func_node = find_node_by_type(mod, "divide_by_zero");
     ASSERT_NE(func_node, nullptr);
 
@@ -393,7 +416,7 @@ func double(val f32) f32 {
 )" + ch.name + " -> double{}";
 
     auto mod = compile_arc(client, source);
-    auto wasm_mod = ASSERT_NIL_P(wasm::Module::open({.module = mod}));
+    auto wasm_mod = ASSERT_NIL_P(wasm::Module::open({.program = mod}));
     const auto *func_node = find_node_by_type(mod, "double");
     ASSERT_NE(func_node, nullptr);
 
@@ -444,7 +467,7 @@ func passthrough(val f32) f32 {
                                output_name;
 
     auto mod = compile_arc(client, source);
-    auto wasm_mod = ASSERT_NIL_P(wasm::Module::open({.module = mod}));
+    auto wasm_mod = ASSERT_NIL_P(wasm::Module::open({.program = mod}));
     const auto *func_node = find_node_by_type(mod, "passthrough");
     ASSERT_NE(func_node, nullptr);
 
@@ -513,7 +536,7 @@ func constant() i64 {
 constant{} -> )" + output_name;
 
     auto mod = compile_arc(client, source);
-    auto wasm_mod = ASSERT_NIL_P(wasm::Module::open({.module = mod}));
+    auto wasm_mod = ASSERT_NIL_P(wasm::Module::open({.program = mod}));
     const auto *func_node = find_node_by_type(mod, "constant");
     ASSERT_NE(func_node, nullptr);
     state::State state(
@@ -597,7 +620,7 @@ func double(val i64) i64 {
                                output_name;
 
     auto mod = compile_arc(client, source);
-    auto wasm_mod = ASSERT_NIL_P(wasm::Module::open({.module = mod}));
+    auto wasm_mod = ASSERT_NIL_P(wasm::Module::open({.program = mod}));
     const auto *func_node = find_node_by_type(mod, "double");
     ASSERT_NE(func_node, nullptr);
 
@@ -685,7 +708,7 @@ func counter() i64 {
 counter{} -> )" + output_name;
 
     auto mod = compile_arc(client, source);
-    auto wasm_mod = ASSERT_NIL_P(wasm::Module::open({.module = mod}));
+    auto wasm_mod = ASSERT_NIL_P(wasm::Module::open({.program = mod}));
     const auto *func_node = find_node_by_type(mod, "counter");
     ASSERT_NE(func_node, nullptr);
 
@@ -748,7 +771,7 @@ func counter() i64 {
 counter{} -> )" + output_name;
 
     auto mod = compile_arc(client, source);
-    auto wasm_mod = ASSERT_NIL_P(wasm::Module::open({.module = mod}));
+    auto wasm_mod = ASSERT_NIL_P(wasm::Module::open({.program = mod}));
     const auto *func_node = find_node_by_type(mod, "counter");
     ASSERT_NE(func_node, nullptr);
 
@@ -813,7 +836,7 @@ func counter() i64 {
 counter{} -> )" + output_name;
 
     auto mod = compile_arc(client, source);
-    auto wasm_mod = ASSERT_NIL_P(wasm::Module::open({.module = mod}));
+    auto wasm_mod = ASSERT_NIL_P(wasm::Module::open({.program = mod}));
     const auto *func_node = find_node_by_type(mod, "counter");
     ASSERT_NE(func_node, nullptr);
 
@@ -891,7 +914,7 @@ func add_config{x i32}(y i32) i32 {
                                output_name;
 
     auto mod = compile_arc(client, source);
-    auto wasm_mod = ASSERT_NIL_P(wasm::Module::open({.module = mod}));
+    auto wasm_mod = ASSERT_NIL_P(wasm::Module::open({.program = mod}));
     const auto *func_node = find_node_by_type(mod, "add_config");
     ASSERT_NE(func_node, nullptr);
 
@@ -984,7 +1007,7 @@ func multi_config{a i32, b i32}(c i32) i32 {
                                output_name;
 
     auto mod = compile_arc(client, source);
-    auto wasm_mod = ASSERT_NIL_P(wasm::Module::open({.module = mod}));
+    auto wasm_mod = ASSERT_NIL_P(wasm::Module::open({.program = mod}));
     const auto *func_node = find_node_by_type(mod, "multi_config");
     ASSERT_NE(func_node, nullptr);
 
@@ -1082,6 +1105,17 @@ func counter(trigger i64) i64 {
 
     auto mod = compile_arc(client, source);
 
+    auto channel_st = std::make_shared<stl::channel::State>(
+        std::vector<state::ChannelDigest>{
+            {index_ch.key, x::telem::TIMESTAMP_T, 0},
+            {trigger_ch.key, x::telem::INT64_T, index_ch.key},
+            {output_a_ch.key, x::telem::INT64_T, index_ch.key},
+            {output_b_ch.key, x::telem::INT64_T, index_ch.key}
+        }
+    );
+    auto str_st = std::make_shared<stl::str::State>();
+    auto series_st = std::make_shared<stl::series::State>();
+    auto var_st = std::make_shared<stl::stateful::Variables>();
     auto state = std::make_shared<state::State>(
         state::Config{
             .ir = (static_cast<arc::ir::IR>(mod)),
@@ -1091,17 +1125,18 @@ func counter(trigger i64) i64 {
                  {output_a_ch.key, x::telem::INT64_T, index_ch.key},
                  {output_b_ch.key, x::telem::INT64_T, index_ch.key}}
         },
-        arc::runtime::errors::noop_handler
-    );
-
-    auto bindings = std::make_shared<wasm::Bindings>(
-        state,
-        nullptr,
+        channel_st,
+        str_st,
+        series_st,
+        var_st,
         arc::runtime::errors::noop_handler
     );
 
     auto wasm_mod = ASSERT_NIL_P(
-        wasm::Module::open({.module = mod, .bindings = bindings})
+        wasm::Module::open(
+            {.program = mod,
+             .modules = build_stl_modules(channel_st, str_st, series_st, var_st)}
+        )
     );
 
     // Find the two counter nodes
@@ -1232,6 +1267,19 @@ func read_chan{ch chan f32}(trigger u8) f32 {
         static_cast<int32_t>(data_ch.key)
     ) << "Config param value should be the channel ID";
 
+    auto channel_st = std::make_shared<stl::channel::State>(
+        std::vector<state::ChannelDigest>{
+            {trigger_idx.key, x::telem::TIMESTAMP_T, 0},
+            {trigger_ch.key, x::telem::UINT8_T, trigger_idx.key},
+            {data_idx.key, x::telem::TIMESTAMP_T, 0},
+            {data_ch.key, x::telem::FLOAT32_T, data_idx.key},
+            {output_idx.key, x::telem::TIMESTAMP_T, 0},
+            {output_ch.key, x::telem::FLOAT32_T, output_idx.key}
+        }
+    );
+    auto str_st = std::make_shared<stl::str::State>();
+    auto series_st = std::make_shared<stl::series::State>();
+    auto var_st = std::make_shared<stl::stateful::Variables>();
     auto state = std::make_shared<state::State>(
         state::Config{
             .ir = (static_cast<arc::ir::IR>(mod)),
@@ -1243,17 +1291,18 @@ func read_chan{ch chan f32}(trigger u8) f32 {
                  {output_idx.key, x::telem::TIMESTAMP_T, 0},
                  {output_ch.key, x::telem::FLOAT32_T, output_idx.key}}
         },
-        arc::runtime::errors::noop_handler
-    );
-
-    auto bindings = std::make_shared<wasm::Bindings>(
-        state,
-        nullptr,
+        channel_st,
+        str_st,
+        series_st,
+        var_st,
         arc::runtime::errors::noop_handler
     );
 
     auto wasm_mod = ASSERT_NIL_P(
-        wasm::Module::open({.module = mod, .bindings = bindings})
+        wasm::Module::open(
+            {.program = mod,
+             .modules = build_stl_modules(channel_st, str_st, series_st, var_st)}
+        )
     );
 
     // Ingest data for the config param channel so channel_read_f32 can find it.
@@ -1299,4 +1348,5 @@ func read_chan{ch chan f32}(trigger u8) f32 {
     ASSERT_EQ(output->size(), 1);
     EXPECT_FLOAT_EQ(output->at<float>(0), 42.5f)
         << "Channel config param should read the channel value, not the channel ID";
+}
 }

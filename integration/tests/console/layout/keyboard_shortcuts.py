@@ -13,11 +13,29 @@ from console.case import ConsoleCase
 class KeyboardShortcuts(ConsoleCase):
     """Test layout keyboard shortcuts."""
 
+    NAV_DRAWER_SELECTOR = (
+        ".console-nav__drawer.pluto--visible:not(.pluto--location-bottom)"
+    )
+    FLOATING_DRAWER_SELECTOR = ".console-nav__drawer.pluto--visible.console--hover:not(.pluto--location-bottom)"
+    PINNED_DRAWER_SELECTOR = ".console-nav__drawer.pluto--visible:not(.console--hover):not(.pluto--location-bottom)"
+
+    TOOLBAR_SHORTCUTS = [
+        ("a", "arc", "Arc"),
+        ("c", "channel", "Channels"),
+        ("d", "device", "Devices"),
+        ("r", "range", "Ranges"),
+        ("s", "notification", "Statuses"),
+        ("t", "task", "Tasks"),
+        ("u", "user", "Users"),
+        ("w", "workspace", "Workspaces"),
+    ]
+
     def run(self) -> None:
         """Run all keyboard shortcut tests."""
         self.test_close_with_cmd_w()
         self.test_rename_with_cmd_e()
         self.test_new_tab_with_cmd_t()
+        self.test_toolbar_toggle_shortcuts()
 
     def test_close_with_cmd_w(self) -> None:
         """Should close active tab with Cmd+W."""
@@ -103,3 +121,39 @@ class KeyboardShortcuts(ConsoleCase):
         self.page.wait_for_timeout(300)
 
         self.log("test_new_tab_with_cmd_t: PASSED")
+
+    def test_toolbar_toggle_shortcuts(self) -> None:
+        """Should show, pin, and hide each toolbar via its keyboard shortcut."""
+        self.console.layout.close_left_toolbar()
+        floating_drawer = self.page.locator(self.FLOATING_DRAWER_SELECTOR)
+        pinned_drawer = self.page.locator(self.PINNED_DRAWER_SELECTOR)
+        nav_drawer = self.page.locator(self.NAV_DRAWER_SELECTOR)
+
+        for key, icon, label in self.TOOLBAR_SHORTCUTS:
+            self.log(f"test_toolbar_toggle: {label} toolbar with '{key.upper()}'")
+
+            btn = self.page.locator(
+                f"button.console-main-nav__item:has(svg.pluto-icon--{icon})"
+            )
+
+            # Single press to show floating toolbar
+            self.page.keyboard.press(key)
+            floating_drawer.wait_for(state="visible", timeout=5000)
+            assert "pluto--selected" in (
+                btn.get_attribute("class") or ""
+            ), f"{label} nav button should be selected after single press"
+
+            # Double press to pin the toolbar
+            self.page.keyboard.press(key)
+            self.page.keyboard.press(key)
+            pinned_drawer.wait_for(state="visible", timeout=5000)
+            floating_drawer.wait_for(state="hidden", timeout=5000)
+            assert "pluto--selected" in (
+                btn.get_attribute("class") or ""
+            ), f"{label} nav button should be selected after double press"
+
+            # Click the nav button to close the pinned toolbar
+            btn.click()
+            nav_drawer.wait_for(state="hidden", timeout=5000)
+
+            self.log(f"test_toolbar_toggle: {label} toolbar PASSED")

@@ -236,13 +236,6 @@ I can successfully:
 - [ ] Change a user's username and log in with the new username.
 - [ ] Change a user's role and verify their permissions change accordingly.
 
-### Arc
-
-I can successfully:
-
-- **Arc Toolbar**
-  - [ ] Toggle Arc toolbar visibility with "A" keyboard shortcut
-
 ### Version
 
 I can successfully:

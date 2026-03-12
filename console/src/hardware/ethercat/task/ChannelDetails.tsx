@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { Flex, Form as PForm, Telem } from "@synnaxlabs/pluto";
+import { Component, Flex, Form as PForm, Telem } from "@synnaxlabs/pluto";
 import { type FC } from "react";
 
 import { type Common } from "@/hardware/common";
@@ -15,12 +15,10 @@ import { SelectSlave } from "@/hardware/ethercat/device/SelectSlave";
 import { SelectChannelModeField } from "@/hardware/ethercat/task/SelectChannelModeField";
 import { SelectPDOField } from "@/hardware/ethercat/task/SelectPDOField";
 import {
-  AUTOMATIC_TYPE,
+  type Channel,
   type ChannelMode,
-  type InputChannel,
-  type OutputChannel,
-  ZERO_READ_CHANNELS,
-  ZERO_WRITE_CHANNELS,
+  ZERO_INPUT_CHANNELS,
+  ZERO_OUTPUT_CHANNELS,
 } from "@/hardware/ethercat/task/types";
 
 const INPUT_PROPS = { showDragHandle: false };
@@ -49,30 +47,30 @@ const ManualChannelFields: FC<{ path: string }> = ({ path }) => (
         grow
       />
       <PForm.Field<string> path={`${path}.dataType`} label="Data Type" grow>
-        {({ value, onChange }) => (
-          <Telem.SelectDataType value={value} onChange={onChange} hideVariableDensity />
-        )}
+        {renderSelectDataType}
       </PForm.Field>
     </Flex.Box>
   </>
 );
 
+const renderSelectDataType = Component.renderProp(
+  (props: Telem.SelectDataTypeProps) => (
+    <Telem.SelectDataType {...props} hideVariableDensity />
+  ),
+);
+
 export interface ChannelDetailsProps extends Common.Task.Layouts.DetailsProps {
   pdoType: "inputs" | "outputs";
-  zeroChannels: Record<string, InputChannel | OutputChannel>;
+  zeroChannels: Record<ChannelMode, Channel>;
 }
 
-export const ChannelDetails: FC<ChannelDetailsProps> = ({
-  path,
-  pdoType,
-  zeroChannels,
-}) => {
+const ChannelDetails: FC<ChannelDetailsProps> = ({ path, pdoType, zeroChannels }) => {
   const channelMode = PForm.useFieldValue<ChannelMode>(`${path}.type`);
   return (
-    <Flex.Box y gap="medium" style={{ padding: "1rem" }}>
+    <Flex.Box y gap="medium" style={CHANNEL_DETAILS_STYLE}>
       <SelectSlave path={`${path}.device`} />
       <SelectChannelModeField path={path} zeroChannels={zeroChannels} />
-      {channelMode === AUTOMATIC_TYPE ? (
+      {channelMode === "automatic" ? (
         <SelectPDOField path={path} pdoType={pdoType} />
       ) : (
         <ManualChannelFields path={path} />
@@ -81,10 +79,12 @@ export const ChannelDetails: FC<ChannelDetailsProps> = ({
   );
 };
 
+const CHANNEL_DETAILS_STYLE = { padding: "1rem" } as const;
+
 export const ReadChannelDetails: FC<Common.Task.Layouts.DetailsProps> = (props) => (
-  <ChannelDetails {...props} pdoType="inputs" zeroChannels={ZERO_READ_CHANNELS} />
+  <ChannelDetails {...props} pdoType="inputs" zeroChannels={ZERO_INPUT_CHANNELS} />
 );
 
 export const WriteChannelDetails: FC<Common.Task.Layouts.DetailsProps> = (props) => (
-  <ChannelDetails {...props} pdoType="outputs" zeroChannels={ZERO_WRITE_CHANNELS} />
+  <ChannelDetails {...props} pdoType="outputs" zeroChannels={ZERO_OUTPUT_CHANNELS} />
 );

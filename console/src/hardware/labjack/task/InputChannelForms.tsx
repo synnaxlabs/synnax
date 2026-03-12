@@ -13,29 +13,12 @@ import { type FC, useMemo } from "react";
 
 import { Device } from "@/hardware/labjack/device";
 import {
-  AI_CHANNEL_TYPE,
   AIR_CJC_SOURCE,
-  B_TC_TYPE,
-  C_TC_TYPE,
-  CELSIUS_UNIT,
   DEVICE_CJC_SOURCE,
-  DI_CHANNEL_TYPE,
-  E_TC_TYPE,
-  FAHRENHEIT_UNIT,
   type InputChannelType,
-  J_TC_TYPE,
-  K_TC_TYPE,
-  KELVIN_UNIT,
-  LINEAR_SCALE_TYPE,
-  N_TC_TYPE,
-  NO_SCALE_TYPE,
-  R_TC_TYPE,
-  S_TC_TYPE,
   type Scale,
   SCALE_SCHEMAS,
   type ScaleType,
-  T_TC_TYPE,
-  TC_CHANNEL_TYPE,
   type TemperatureUnits,
   type ThermocoupleType,
   ZERO_SCALES,
@@ -69,20 +52,20 @@ const SelectScaleTypeField = PForm.buildSelectField<
   inputProps: {
     resourceName: "scale type",
     data: [
-      { key: NO_SCALE_TYPE, name: "None", icon: <Icon.None /> },
-      { key: LINEAR_SCALE_TYPE, name: "Linear", icon: <Icon.Linear /> },
+      { key: "none", name: "None", icon: <Icon.None /> },
+      { key: "linear", name: "Linear", icon: <Icon.Linear /> },
     ],
   },
 });
 
 const SCALE_FORMS: Record<ScaleType, FC<CustomScaleFormProps>> = {
-  [LINEAR_SCALE_TYPE]: ({ prefix }) => (
+  linear: ({ prefix }) => (
     <Flex.Box x>
       <PForm.NumericField path={`${prefix}.slope`} label="Slope" grow />
       <PForm.NumericField path={`${prefix}.offset`} label="Offset" grow />
     </Flex.Box>
   ),
-  [NO_SCALE_TYPE]: () => null,
+  none: () => null,
 };
 
 interface CustomScaleFormProps {
@@ -110,15 +93,15 @@ const ThermocoupleTypeField = PForm.buildSelectField<
   inputProps: {
     resourceName: "thermocouple type",
     data: [
-      { key: B_TC_TYPE, name: "B" },
-      { key: E_TC_TYPE, name: "E" },
-      { key: J_TC_TYPE, name: "J" },
-      { key: K_TC_TYPE, name: "K" },
-      { key: N_TC_TYPE, name: "N" },
-      { key: R_TC_TYPE, name: "R" },
-      { key: S_TC_TYPE, name: "S" },
-      { key: T_TC_TYPE, name: "T" },
-      { key: C_TC_TYPE, name: "C" },
+      { key: "B", name: "B" },
+      { key: "E", name: "E" },
+      { key: "J", name: "J" },
+      { key: "K", name: "K" },
+      { key: "N", name: "N" },
+      { key: "R", name: "R" },
+      { key: "S", name: "S" },
+      { key: "T", name: "T" },
+      { key: "C", name: "C" },
     ],
   },
 });
@@ -132,9 +115,9 @@ const TemperatureUnitsField = PForm.buildSelectField<
   inputProps: {
     resourceName: "temperature units",
     data: [
-      { key: CELSIUS_UNIT, name: "Celsius" },
-      { key: FAHRENHEIT_UNIT, name: "Fahrenheit" },
-      { key: KELVIN_UNIT, name: "Kelvin" },
+      { key: "C", name: "Celsius" },
+      { key: "F", name: "Fahrenheit" },
+      { key: "K", name: "Kelvin" },
     ],
   },
 });
@@ -174,15 +157,15 @@ interface FormProps {
 }
 
 export const FORMS: Record<InputChannelType, FC<FormProps>> = {
-  [AI_CHANNEL_TYPE]: ({ path }) => (
+  AI: ({ path }) => (
     <>
       <Divider.Divider x padded="bottom" />
       <MaxVoltageField path={path} />
       <CustomScaleForm prefix={path} />
     </>
   ),
-  [DI_CHANNEL_TYPE]: () => null,
-  [TC_CHANNEL_TYPE]: ({ path, deviceModel }) => (
+  DI: () => null,
+  TC: ({ path, deviceModel }) => (
     <>
       <Divider.Divider x padded="bottom" />
       <Flex.Box x>

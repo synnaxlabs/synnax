@@ -8,25 +8,25 @@
 // included in the file licenses/APL.txt.
 
 import { channel } from "@synnaxlabs/client";
-import { Access, Icon } from "@synnaxlabs/pluto";
+import { Access, Channel as PChannel } from "@synnaxlabs/pluto";
 
 import { Channel } from "@/channel";
 import { Palette } from "@/palette";
 
 const useVisible = () => Access.useCreateGranted(channel.TYPE_ONTOLOGY_ID);
 
-export const CreateCommand = Palette.createSimpleCommand({
+const CreateCommand = Palette.createSimpleCommand({
   key: "create-channel",
   name: "Create a channel",
-  icon: <Icon.Channel />,
+  icon: <PChannel.CreateIcon />,
   layout: Channel.CREATE_LAYOUT,
   useVisible,
 });
 
-export const CreateCalculatedCommand = Palette.createSimpleCommand({
+const CreateCalculatedCommand = Palette.createSimpleCommand({
   key: "create-calculated-channel",
   name: "Create a calculated channel",
-  icon: <Icon.Channel />,
+  icon: <PChannel.CreateCalculatedIcon />,
   layout: Channel.CALCULATED_LAYOUT,
   useVisible,
 });

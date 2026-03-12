@@ -20,7 +20,7 @@ import (
 	"github.com/synnaxlabs/arc/types"
 	lsp "github.com/synnaxlabs/x/lsp"
 	"github.com/synnaxlabs/x/lsp/doc"
-	"go.lsp.dev/protocol"
+	"github.com/synnaxlabs/x/lsp/protocol"
 	"go.uber.org/zap"
 )
 

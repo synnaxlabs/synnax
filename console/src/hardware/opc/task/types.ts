@@ -8,6 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { channel, type task } from "@synnaxlabs/client";
+import { record } from "@synnaxlabs/x";
 import { z } from "zod";
 
 import { Common } from "@/hardware/common";
@@ -23,22 +24,23 @@ const baseChannelZ = Common.Task.channelZ.extend({
   dataType: z.string().default("float32"),
 });
 
-const readChannelZ = baseChannelZ.extend({ useAsIndex: z.boolean() });
-export interface ReadChannel extends z.infer<typeof readChannelZ> {}
+const inputChannelZ = baseChannelZ.extend({ useAsIndex: z.boolean() });
 
-const v0WriteChannelZ = baseChannelZ;
+export interface InputChannel extends z.infer<typeof inputChannelZ> {}
 
-const v1WriteChannelZ = v0WriteChannelZ
+const v0OutputChannelZ = baseChannelZ;
+
+const v1OutputChannelZ = v0OutputChannelZ
   .omit({ channel: true })
   .extend({ cmdChannel: channel.keyZ });
 
-const writeChannelZ = v0WriteChannelZ
+const outputChannelZ = v0OutputChannelZ
   .transform(({ channel, ...rest }) => ({ ...rest, cmdChannel: channel }))
-  .or(v1WriteChannelZ);
+  .or(v1OutputChannelZ);
 
-export type WriteChannel = z.infer<typeof writeChannelZ>;
+export type OutputChannel = z.infer<typeof outputChannelZ>;
 
-export type Channel = ReadChannel | WriteChannel;
+export type Channel = InputChannel | OutputChannel;
 
 const validateNodeIDs = ({
   value: channels,
@@ -58,9 +60,11 @@ const validateNodeIDs = ({
   });
 };
 
+export const READ_TYPE = `${PREFIX}_read`;
+
 const baseReadConfigZ = Common.Task.baseReadConfigZ.extend({
   channels: z
-    .array(readChannelZ)
+    .array(inputChannelZ)
     .check(Common.Task.validateReadChannels)
     .check(validateNodeIDs)
     .check(({ value: channels, issues }) => {
@@ -82,132 +86,53 @@ const baseReadConfigZ = Common.Task.baseReadConfigZ.extend({
 });
 
 const nonArraySamplingConfigZ = baseReadConfigZ
-  .extend({
-    arrayMode: z.literal(false),
-    streamRate: z.number().positive().max(10000),
-  })
+  .extend({ arrayMode: z.literal(false), streamRate: z.number().positive().max(10000) })
   .check(Common.Task.validateStreamRate);
 
 const arraySamplingConfigZ = baseReadConfigZ
-  .extend({
-    arrayMode: z.literal(true),
-    arraySize: z.number().int().positive(),
-  })
+  .extend({ arrayMode: z.literal(true), arraySize: z.number().int().positive() })
   .refine(({ arraySize, sampleRate }) => sampleRate >= arraySize, {
     message: "Sample rate must be greater than or equal to the array size",
     path: ["sampleRate"],
   });
 
-export const readConfigZ = z.union([nonArraySamplingConfigZ, arraySamplingConfigZ]);
+const readConfigZ = z.discriminatedUnion("arrayMode", [
+  nonArraySamplingConfigZ,
+  arraySamplingConfigZ,
+]);
+
 export type ReadConfig = z.infer<typeof readConfigZ>;
+
 const ZERO_READ_CONFIG: ReadConfig = {
   ...Common.Task.ZERO_BASE_READ_CONFIG,
   arrayMode: false,
   channels: [],
   sampleRate: 50,
   streamRate: 25,
-};
+} as const satisfies ReadConfig;
 
-export const readStatusDataZ = z.unknown();
-export type ReadStatus = task.Status<typeof readStatusDataZ>;
+export const READ_SCHEMAS = {
+  type: z.literal(READ_TYPE),
+  config: readConfigZ,
+  statusData: z.unknown(),
+} as const satisfies task.Schemas;
 
-export const READ_TYPE = `${PREFIX}_read`;
-export const readTypeZ = z.literal(READ_TYPE);
-export type ReadType = typeof READ_TYPE;
+export type ReadSchemas = typeof READ_SCHEMAS;
 
-export interface ReadPayload extends task.Payload<
-  typeof readTypeZ,
-  typeof readConfigZ,
-  typeof readStatusDataZ
-> {}
-export const ZERO_READ_PAYLOAD: ReadPayload = {
+export interface ReadPayload extends task.Payload<ReadSchemas> {}
+
+export const ZERO_READ_PAYLOAD = {
   key: "",
-  type: READ_TYPE,
+  type: "opc_read",
   name: "OPC UA Read Task",
   config: ZERO_READ_CONFIG,
-};
+} as const satisfies ReadPayload;
 
-export interface ReadTask extends task.Task<
-  typeof readTypeZ,
-  typeof readConfigZ,
-  typeof readStatusDataZ
-> {}
-export interface NewReadTask extends task.New<typeof readTypeZ, typeof readConfigZ> {}
+export const WRITE_TYPE = `${PREFIX}_write`;
 
-export const READ_SCHEMAS: task.Schemas<
-  typeof readTypeZ,
-  typeof readConfigZ,
-  typeof readStatusDataZ
-> = {
-  typeSchema: readTypeZ,
-  configSchema: readConfigZ,
-  statusDataSchema: readStatusDataZ,
-};
-
-export const scanConfigZ = z.object({});
-
-export type ScanConfig = z.infer<typeof scanConfigZ>;
-export const ZERO_SCAN_CONFIG: ScanConfig = {};
-
-export const BROWSE_COMMAND_TYPE = "browse";
-
-export const scannedNodeZ = z
-  .object({
-    key: z.string().optional(),
-    dataType: z.string(),
-    isArray: z.boolean(),
-    name: z.string(),
-    nodeClass: z.string(),
-    nodeId: z.string(),
-  })
-  .transform(({ key, ...rest }) => ({ ...rest, key: key ?? rest.nodeId }));
-
-export type ScannedNode = z.infer<typeof scannedNodeZ>;
-
-export const scanCommandResponseZ = z
-  .object({
-    channels: z.array(scannedNodeZ),
-    connection: connectionConfigZ,
-  })
-  .or(z.null());
-export type ScanCommandResponse = z.infer<typeof scanCommandResponseZ>;
-
-export const TEST_CONNECTION_COMMAND_TYPE = "test_connection";
-
-export const scanStatusDataZ = scanCommandResponseZ;
-export type ScanStatus = task.Status<typeof scanCommandResponseZ>;
-
-export type TestConnectionStatus = task.Status;
-
-export const SCAN_TYPE = `${PREFIX}_scan`;
-export const scanTypeZ = z.literal(SCAN_TYPE);
-export type ScanType = typeof SCAN_TYPE;
-
-export const SCAN_SCHEMAS: task.Schemas<
-  typeof scanTypeZ,
-  typeof scanConfigZ,
-  typeof scanStatusDataZ
-> = {
-  typeSchema: scanTypeZ,
-  configSchema: scanConfigZ,
-  statusDataSchema: scanStatusDataZ,
-};
-
-export interface ScanPayload extends task.Payload<
-  typeof scanTypeZ,
-  typeof scanConfigZ,
-  typeof scanStatusDataZ
-> {}
-export interface ScanTask extends task.Task<
-  typeof scanTypeZ,
-  typeof scanConfigZ,
-  typeof scanStatusDataZ
-> {}
-export interface NewScanTask extends task.New<typeof scanTypeZ, typeof scanConfigZ> {}
-
-export const writeConfigZ = Common.Task.baseConfigZ.extend({
+const writeConfigZ = Common.Task.baseConfigZ.extend({
   channels: z
-    .array(writeChannelZ)
+    .array(outputChannelZ)
     .check(Common.Task.validateChannels)
     .check(({ value: channels, issues }) => {
       // Have to have a separate validation here as OPC UA write channels do not have
@@ -228,47 +153,56 @@ export const writeConfigZ = Common.Task.baseConfigZ.extend({
     })
     .check(validateNodeIDs),
 });
-export type WriteConfig = z.infer<typeof writeConfigZ>;
-export const ZERO_WRITE_CONFIG: WriteConfig = {
+
+interface WriteConfig extends z.infer<typeof writeConfigZ> {}
+
+export const ZERO_WRITE_CONFIG = {
   ...Common.Task.ZERO_BASE_CONFIG,
   channels: [],
-};
+} as const satisfies WriteConfig;
 
-export const writeStatusDataZ = z.unknown();
-export type WriteStatus = task.Status<typeof writeStatusDataZ>;
+export const WRITE_SCHEMAS = {
+  type: z.literal(WRITE_TYPE),
+  config: writeConfigZ,
+  statusData: z.unknown(),
+} as const satisfies task.Schemas;
 
-export const WRITE_TYPE = `${PREFIX}_write`;
-export const writeTypeZ = z.literal(WRITE_TYPE);
-export type WriteType = typeof WRITE_TYPE;
+export type WriteSchemas = typeof WRITE_SCHEMAS;
 
-export type WritePayload = task.Payload<
-  typeof writeTypeZ,
-  typeof writeConfigZ,
-  typeof writeStatusDataZ
->;
-export const ZERO_WRITE_PAYLOAD: WritePayload = {
+export interface WritePayload extends task.Payload<WriteSchemas> {}
+
+export const ZERO_WRITE_PAYLOAD = {
   key: "",
-  type: WRITE_TYPE,
+  type: "opc_write",
   name: "OPC UA Write Task",
   config: ZERO_WRITE_CONFIG,
-};
+} as const satisfies WritePayload;
 
-export interface WriteTask extends task.Task<
-  typeof writeTypeZ,
-  typeof writeConfigZ,
-  typeof writeStatusDataZ
-> {}
-export interface NewWriteTask extends task.New<
-  typeof writeTypeZ,
-  typeof writeConfigZ
-> {}
+export const SCAN_TYPE = `${PREFIX}_scan`;
 
-export const WRITE_SCHEMAS: task.Schemas<
-  typeof writeTypeZ,
-  typeof writeConfigZ,
-  typeof writeStatusDataZ
-> = {
-  typeSchema: writeTypeZ,
-  configSchema: writeConfigZ,
-  statusDataSchema: writeStatusDataZ,
-};
+const scannedNodeZ = z
+  .object({
+    key: z.string().optional(),
+    dataType: z.string(),
+    isArray: z.boolean(),
+    name: z.string(),
+    nodeClass: z.string(),
+    nodeId: z.string(),
+  })
+  .transform(({ key, ...rest }) => ({ ...rest, key: key ?? rest.nodeId }));
+
+export interface ScannedNode extends z.infer<typeof scannedNodeZ> {}
+
+const scanCommandResponseZ = z
+  .object({ channels: z.array(scannedNodeZ), connection: connectionConfigZ })
+  .or(z.null());
+
+export const TEST_CONNECTION_COMMAND_TYPE = "test_connection";
+
+export const BROWSE_COMMAND_TYPE = "browse";
+
+export const SCAN_SCHEMAS = {
+  type: z.literal(SCAN_TYPE),
+  config: record.nullishToEmpty(),
+  statusData: scanCommandResponseZ,
+} as const satisfies task.Schemas;
