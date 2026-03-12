@@ -189,7 +189,7 @@ describe("log/toolbar/Channels", () => {
     vi.mocked(Selectors.useSelectOptional).mockReturnValue(stateWithPrecision);
     render(<Channels layoutKey="test-key" />);
     const numericInput = screen.getByTestId("input-numeric");
-    expect(Number(numericInput.value)).toBe(3);
+    expect(Number((numericInput as HTMLInputElement).value)).toBe(3);
   });
 
   it("disables inputs when user lacks edit permission", () => {
