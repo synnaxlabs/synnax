@@ -12,6 +12,7 @@ from abc import abstractmethod
 import synnax as sy
 
 from console.case import ConsoleCase
+from framework.test_case import STATUS
 from framework.utils import get_random_name
 from tests.driver.sim_daq_case import SimDaqCase
 
@@ -75,13 +76,21 @@ class ArcConsoleCase(SimDaqCase, ConsoleCase):
         self.console.arc.select_rack(self.rack.name)
 
         self.log("Configuring Arc task")
-        self.console.arc.configure()
+        try:
+            self.console.arc.configure()
+        except Exception as e:
+            status = self.console.arc.get_status()
+            self.fail(f"Configure failed. Status: '{status}', Exception: {e}")
 
         arc = self.client.arcs.retrieve(name=self.arc_name)
         self.log(f"Arc saved with key: {arc.key}")
 
         self.log("Starting Arc task")
-        self.console.arc.start()
+        try:
+            self.console.arc.start()
+        except Exception as e:
+            status = self.console.arc.get_status()
+            self.fail(f"Start failed. Status: '{status}', Exception: {e}")
         self._arc_started = True
         self.log(f"Arc is running: {self.console.arc.is_running()}")
 
@@ -95,6 +104,9 @@ class ArcConsoleCase(SimDaqCase, ConsoleCase):
 
     def teardown(self) -> None:
         """Clean up Arc resources. Called even if test fails."""
+        if self._status == STATUS.FAILED:
+            self.console.screenshot(f"failure_{self.name}")
+
         if self._arc_started and self.console.arc.is_running():
             self.log("Stopping Arc task")
             try:

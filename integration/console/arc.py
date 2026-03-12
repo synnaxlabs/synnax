@@ -217,6 +217,22 @@ class ArcClient:
         self.notifications.close_all()
         configure_btn.click()
 
+    def get_status(self) -> str:
+        """Expand the diagnostics panel, click copy, and return clipboard text."""
+        controls = self.layout.page.locator(self.CONTROLS_CLASS)
+        if controls.count() == 0:
+            return ""
+        expanded = controls.locator(".console-task-controls--expanded")
+        if expanded.count() == 0:
+            status_btn = controls.locator(".console-task-status")
+            if status_btn.count() == 0:
+                return ""
+            status_btn.first.click()
+        copy_btn = controls.locator(".console-task-status button")
+        copy_btn.wait_for(state="visible", timeout=5000)
+        copy_btn.click()
+        return self.layout.page.evaluate("navigator.clipboard.readText()")
+
     def wait_for_status(self, substr: str) -> str:
         """Wait for the status bar to contain a specific substring.
 
