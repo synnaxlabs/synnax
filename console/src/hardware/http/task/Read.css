@@ -25,4 +25,27 @@
             padding-bottom: 1rem;
         }
     }
+
+    .console-rate-input {
+        max-width: 20rem;
+    }
+
+    .console-enum-mapping {
+        min-height: 200px;
+        max-height: 200px;
+        padding: 1rem 2rem;
+    }
+
+    .console-timing-toggle {
+        padding: 2rem;
+        flex-shrink: 0;
+    }
+
+    .console-timing-label {
+        margin-right: 0.25rem;
+    }
+
+    .console-timestamp-format {
+        width: 160px;
+    }
 }

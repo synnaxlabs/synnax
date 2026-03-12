@@ -61,7 +61,10 @@ export const ReadSelectable = Selector.createSimpleItem({
   layout: READ_LAYOUT,
 });
 
-const RATE_INPUT_PROPS = { endContent: "Hz", style: { maxWidth: "20rem" } } as const;
+const RATE_INPUT_PROPS = {
+  endContent: "Hz",
+  className: CSS.B("rate-input"),
+} as const;
 
 const Properties = () => (
   <>
@@ -296,7 +299,7 @@ const FieldList = ({ epKey }: FieldListProps) => {
         onSelect={setSelected}
         selected={selected}
         path={path}
-        style={{ paddingBottom: "1rem", maxWidth: "100%" }}
+        style={CHANNEL_LIST_STYLE}
         grow
         header={
           <Header.Header>
@@ -329,11 +332,7 @@ const FieldList = ({ epKey }: FieldListProps) => {
         contextMenuItems={Common.Task.readChannelContextMenuItem}
       />
       {selectedFieldPath != null && (
-        <Flex.Box
-          y
-          empty
-          style={{ minHeight: 200, maxHeight: 200, padding: "1rem 2rem" }}
-        >
+        <Flex.Box y empty className={CSS.B("enum-mapping")}>
           <Divider.Divider x padded />
           <KeyValueEditor
             path={selectedFieldPath}
@@ -346,6 +345,8 @@ const FieldList = ({ epKey }: FieldListProps) => {
     </>
   );
 };
+
+const CHANNEL_LIST_STYLE = { paddingBottom: "1rem", maxWidth: "100%" } as const;
 
 type TimingMode = "software" | "value";
 const TIMING_MODE_KEYS: TimingMode[] = ["software", "value"];
@@ -378,9 +379,9 @@ const TimingToggle: FC<{ path: string }> = ({ path }) => {
   );
 
   return (
-    <Flex.Box y gap={3} style={TIMING_TOGGLE_STYLE}>
+    <Flex.Box y gap={3} className={CSS.B("timing-toggle")}>
       <Flex.Box x align="center" gap="small">
-        <Text.Text level="small" weight={500} style={TIMING_TEXT_STYLE}>
+        <Text.Text level="small" weight={500} className={CSS.B("timing-label")}>
           Timing
         </Text.Text>
         <Select.Buttons<TimingMode>
@@ -403,7 +404,7 @@ const TimingToggle: FC<{ path: string }> = ({ path }) => {
           <PForm.Field<TimeFormat>
             path={`${path}.fields.${indexField.key}.timestampFormat`}
             label="Format"
-            style={TIMESTAMP_FORMAT_SELECT_PROPS}
+            className={CSS.B("timestamp-format")}
           >
             {renderSelectTimeFormat}
           </PForm.Field>
@@ -413,13 +414,7 @@ const TimingToggle: FC<{ path: string }> = ({ path }) => {
   );
 };
 
-const TIMING_TOGGLE_STYLE = { padding: "2rem", flexShrink: 0 } as const;
-
-const TIMING_TEXT_STYLE = { marginRight: "0.25rem" } as const;
-
 const TIMESTAMP_POINTER_INPUT_PROPS = { placeholder: "/timestamp" } as const;
-
-const TIMESTAMP_FORMAT_SELECT_PROPS = { width: 160 } as const;
 
 const renderSelectTimeFormat = Component.renderProp(
   (
