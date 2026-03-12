@@ -149,4 +149,15 @@ TEST(Variables, StoreAndLoadSeries) {
     ASSERT_NE(loaded, nullptr);
     EXPECT_FLOAT_EQ(loaded->at<float>(0), 42.0f);
 }
+
+TEST(Variables, StoreStrInvalidHandleIsNoOp) {
+    Variables vars;
+    str::State ss;
+    vars.set_current_node_key("node_a");
+    const uint32_t init_handle = ss.create("initial");
+    vars.store_str(0, init_handle, ss);
+    vars.store_str(0, 0, ss);
+    const uint32_t result = vars.load_str(0, 0, ss);
+    EXPECT_EQ(ss.get(result), "initial");
+}
 }
