@@ -9,10 +9,12 @@
 
 package example // want "missing testutil import for MustSucceed"
 
-func Expect(any) Assertion { return Assertion{} }
-func HaveOccurred() any    { return nil }
-func Not(any) any          { return nil }
-func Succeed() any         { return nil }
+func Expect(any) Assertion     { return Assertion{} }
+func HaveOccurred() any        { return nil }
+func Not(any) any              { return nil }
+func Succeed() any             { return nil }
+func Eventually(args ...any)   {}
+func Consistently(args ...any) {}
 
 type Assertion struct{}
 
@@ -72,4 +74,17 @@ func example() {
 	val, err2 := returnsValErr()
 	_ = val
 	_ = err2
+
+	// Should NOT match: inside Eventually callback
+	Eventually(func() {
+		v, err := returnsValErr()
+		Expect(err).ToNot(HaveOccurred())
+		_ = v
+	})
+
+	// Should NOT match: inside Consistently callback
+	Consistently(func() {
+		err = returnsErr()
+		Expect(err).ToNot(HaveOccurred())
+	})
 }

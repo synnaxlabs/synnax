@@ -16,6 +16,7 @@ import (
 	"go/format"
 	"go/token"
 
+	"github.com/synnaxlabs/x/set"
 	"golang.org/x/tools/go/analysis"
 )
 
@@ -36,14 +37,23 @@ call and then checked with Expect(err).ToNot(HaveOccurred()). These can be simpl
 	Run: run,
 }
 
+// asyncGomegaFuncs are Gomega functions whose callbacks should NOT be rewritten to use
+// MustSucceed, because these functions retry on failure and MustSucceed would panic
+// instead of allowing the retry.
+var asyncGomegaFuncs = set.New("Eventually", "Consistently")
+
 func run(pass *analysis.Pass) (any, error) {
 	for _, file := range pass.Files {
 		info := fileImportInfo(file)
 		var needsImport bool
+		skipFuncLits := collectAsyncFuncLits(file)
 		ast.Inspect(file, func(n ast.Node) bool {
 			block, ok := n.(*ast.BlockStmt)
 			if !ok {
 				return true
+			}
+			if skipFuncLits[block] {
+				return false
 			}
 			if analyzeBlock(pass, block.List) {
 				needsImport = true
@@ -119,6 +129,37 @@ func fileImportInfo(file *ast.File) importInfo {
 		info.insertText = "\n\nimport . " + testutilImport
 	}
 	return info
+}
+
+// collectAsyncFuncLits walks the file and returns the set of BlockStmts belonging to
+// FuncLits that are arguments to Eventually/Consistently. These blocks should be
+// skipped because those Gomega helpers retry on failure, and MustSucceed would panic
+// instead of allowing retries.
+func collectAsyncFuncLits(file *ast.File) map[*ast.BlockStmt]bool {
+	skip := map[*ast.BlockStmt]bool{}
+	ast.Inspect(file, func(n ast.Node) bool {
+		call, ok := n.(*ast.CallExpr)
+		if !ok {
+			return true
+		}
+		name := ""
+		switch fn := call.Fun.(type) {
+		case *ast.Ident:
+			name = fn.Name
+		case *ast.SelectorExpr:
+			name = fn.Sel.Name
+		}
+		if !asyncGomegaFuncs.Contains(name) {
+			return true
+		}
+		for _, arg := range call.Args {
+			if funcLit, ok := arg.(*ast.FuncLit); ok {
+				skip[funcLit.Body] = true
+			}
+		}
+		return true
+	})
+	return skip
 }
 
 // analyzeBlock returns true if any MustSucceed replacement was emitted.
