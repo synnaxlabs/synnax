@@ -184,6 +184,10 @@ void Module::bind_to(wasmtime::Linker &linker, wasmtime::Store::Context cx) {
                     auto *sa = ss->get(a);                                             \
                     auto *sb = ss->get(b);                                             \
                     if (sa == nullptr || sb == nullptr) return 0;                      \
+                    if (sa->size() != sb->size())                                      \
+                        throw std::runtime_error(                                      \
+                            "arc panic: series length mismatch in series_add_" #suffix \
+                        );                                                             \
                     auto result = *sa + *sb;                                           \
                     return ss->store(std::move(result));                               \
                 }                                                                      \
@@ -197,6 +201,10 @@ void Module::bind_to(wasmtime::Linker &linker, wasmtime::Store::Context cx) {
                     auto *sa = ss->get(a);                                             \
                     auto *sb = ss->get(b);                                             \
                     if (sa == nullptr || sb == nullptr) return 0;                      \
+                    if (sa->size() != sb->size())                                      \
+                        throw std::runtime_error(                                      \
+                            "arc panic: series length mismatch in series_mul_" #suffix \
+                        );                                                             \
                     auto result = *sa * *sb;                                           \
                     return ss->store(std::move(result));                               \
                 }                                                                      \
@@ -210,6 +218,10 @@ void Module::bind_to(wasmtime::Linker &linker, wasmtime::Store::Context cx) {
                     auto *sa = ss->get(a);                                             \
                     auto *sb = ss->get(b);                                             \
                     if (sa == nullptr || sb == nullptr) return 0;                      \
+                    if (sa->size() != sb->size())                                      \
+                        throw std::runtime_error(                                      \
+                            "arc panic: series length mismatch in series_sub_" #suffix \
+                        );                                                             \
                     auto result = *sa - *sb;                                           \
                     return ss->store(std::move(result));                               \
                 }                                                                      \
@@ -223,6 +235,10 @@ void Module::bind_to(wasmtime::Linker &linker, wasmtime::Store::Context cx) {
                     auto *sa = ss->get(a);                                             \
                     auto *sb = ss->get(b);                                             \
                     if (sa == nullptr || sb == nullptr) return 0;                      \
+                    if (sa->size() != sb->size())                                      \
+                        throw std::runtime_error(                                      \
+                            "arc panic: series length mismatch in series_div_" #suffix \
+                        );                                                             \
                     auto result = *sa / *sb;                                           \
                     return ss->store(std::move(result));                               \
                 }                                                                      \
@@ -236,6 +252,10 @@ void Module::bind_to(wasmtime::Linker &linker, wasmtime::Store::Context cx) {
                     auto *sa = ss->get(a);                                             \
                     auto *sb = ss->get(b);                                             \
                     if (sa == nullptr || sb == nullptr) return 0;                      \
+                    if (sa->size() != sb->size())                                      \
+                        throw std::runtime_error(                                      \
+                            "arc panic: series length mismatch in series_mod_" #suffix \
+                        );                                                             \
                     auto result = *sa % *sb;                                           \
                     return ss->store(std::move(result));                               \
                 }                                                                      \
@@ -249,6 +269,10 @@ void Module::bind_to(wasmtime::Linker &linker, wasmtime::Store::Context cx) {
                     auto *sa = ss->get(a);                                             \
                     auto *sb = ss->get(b);                                             \
                     if (sa == nullptr || sb == nullptr) return 0;                      \
+                    if (sa->size() != sb->size())                                      \
+                        throw std::runtime_error(                                      \
+                            "arc panic: series length mismatch in comparison"          \
+                        );                                                             \
                     auto result = *sa > *sb;                                           \
                     return ss->store(std::move(result));                               \
                 }                                                                      \
@@ -262,6 +286,10 @@ void Module::bind_to(wasmtime::Linker &linker, wasmtime::Store::Context cx) {
                     auto *sa = ss->get(a);                                             \
                     auto *sb = ss->get(b);                                             \
                     if (sa == nullptr || sb == nullptr) return 0;                      \
+                    if (sa->size() != sb->size())                                      \
+                        throw std::runtime_error(                                      \
+                            "arc panic: series length mismatch in comparison"          \
+                        );                                                             \
                     auto result = *sa < *sb;                                           \
                     return ss->store(std::move(result));                               \
                 }                                                                      \
@@ -275,6 +303,10 @@ void Module::bind_to(wasmtime::Linker &linker, wasmtime::Store::Context cx) {
                     auto *sa = ss->get(a);                                             \
                     auto *sb = ss->get(b);                                             \
                     if (sa == nullptr || sb == nullptr) return 0;                      \
+                    if (sa->size() != sb->size())                                      \
+                        throw std::runtime_error(                                      \
+                            "arc panic: series length mismatch in comparison"          \
+                        );                                                             \
                     auto result = *sa >= *sb;                                          \
                     return ss->store(std::move(result));                               \
                 }                                                                      \
@@ -288,6 +320,10 @@ void Module::bind_to(wasmtime::Linker &linker, wasmtime::Store::Context cx) {
                     auto *sa = ss->get(a);                                             \
                     auto *sb = ss->get(b);                                             \
                     if (sa == nullptr || sb == nullptr) return 0;                      \
+                    if (sa->size() != sb->size())                                      \
+                        throw std::runtime_error(                                      \
+                            "arc panic: series length mismatch in comparison"          \
+                        );                                                             \
                     auto result = *sa <= *sb;                                          \
                     return ss->store(std::move(result));                               \
                 }                                                                      \
@@ -301,6 +337,10 @@ void Module::bind_to(wasmtime::Linker &linker, wasmtime::Store::Context cx) {
                     auto *sa = ss->get(a);                                             \
                     auto *sb = ss->get(b);                                             \
                     if (sa == nullptr || sb == nullptr) return 0;                      \
+                    if (sa->size() != sb->size())                                      \
+                        throw std::runtime_error(                                      \
+                            "arc panic: series length mismatch in comparison"          \
+                        );                                                             \
                     auto result = *sa == *sb;                                          \
                     return ss->store(std::move(result));                               \
                 }                                                                      \
@@ -314,6 +354,10 @@ void Module::bind_to(wasmtime::Linker &linker, wasmtime::Store::Context cx) {
                     auto *sa = ss->get(a);                                             \
                     auto *sb = ss->get(b);                                             \
                     if (sa == nullptr || sb == nullptr) return 0;                      \
+                    if (sa->size() != sb->size())                                      \
+                        throw std::runtime_error(                                      \
+                            "arc panic: series length mismatch in comparison"          \
+                        );                                                             \
                     auto result = *sa != *sb;                                          \
                     return ss->store(std::move(result));                               \
                 }                                                                      \

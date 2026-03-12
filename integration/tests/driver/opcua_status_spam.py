@@ -53,11 +53,14 @@ class StatusRateLimit(OPCUAReadArray):
         self.log(f"Listening for warnings on task key={task_key}")
         seen: dict[str, sy.TimeStamp] = {}
         warning_count = 0
-        timer = sy.Timer()
         with self.client.open_streamer(["sy_status_set"]) as streamer:
             with self.tsk.run():
-                sy.sleep(0.5)
-                while timer.elapsed() < 6 * sy.TimeSpan.SECOND:
+                # Wait for the task to start producing data before beginning
+                # the timed window. On slow CI machines, setup overhead can
+                # consume most of a fixed window if the timer starts earlier.
+                sy.sleep(2)
+                timer = sy.Timer()
+                while timer.elapsed() < 10 * sy.TimeSpan.SECOND:
                     frame = streamer.read(timeout=1)
                     if frame is None:
                         continue
@@ -78,7 +81,11 @@ class StatusRateLimit(OPCUAReadArray):
                             return
                         seen[msg] = status.time
         if warning_count == 0:
-            self.fail("No warnings received — rate-limiter was not exercised")
+            self.fail(
+                "No warnings received from task in 10s. "
+                "Expected 'array too large/small' warnings due to array_size=2 "
+                "vs sim default of 5. Rate-limiter test was not exercised."
+            )
             return
         self.log(
             f"Received {warning_count} warnings, "

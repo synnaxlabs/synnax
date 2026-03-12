@@ -203,6 +203,37 @@ TEST_F(SingleChannelAnalogWriteTest, testBasicAnalogWrite) {
     ASSERT_EQ(written_data->at(0).at(1), 1);
 }
 
+/// @brief when a frame contains multiple samples for a channel, only the last
+/// sample should be written to hardware.
+TEST_F(SingleChannelAnalogWriteTest, testLastWriteWins) {
+    parse_config();
+    auto reads = std::make_shared<std::vector<x::telem::Frame>>();
+    x::telem::Frame fr(1);
+    fr.emplace(cmd_ch_2.key, x::telem::Series(std::vector<double>{1.0, 2.0, 3.0}));
+    reads->push_back(std::move(fr));
+    mock_streamer_factory = pipeline::mock::simple_streamer_factory(
+        {cmd_ch_2.key},
+        reads
+    );
+    auto written_data = std::make_shared<std::vector<std::vector<double>>>();
+    auto wt = create_task(
+        std::make_unique<hardware::mock::Writer<double>>(written_data)
+    );
+
+    wt->start("start_cmd");
+    ASSERT_EVENTUALLY_GE(
+        mock_streamer_factory->streamer_opens.load(std::memory_order_acquire),
+        1
+    );
+    ASSERT_EVENTUALLY_GE(written_data->size(), 1);
+
+    auto last_write = written_data->back();
+    ASSERT_EQ(last_write.size(), 2);
+    ASSERT_EQ(last_write.at(1), 3.0);
+
+    wt->stop("stop_cmd", true);
+}
+
 /// @brief Test that an invalid channel type in the configuration is properly detected
 /// and reported
 TEST(WriteTaskConfigTest, testInvalidChannelType) {

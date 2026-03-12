@@ -10,6 +10,8 @@ dependencies = [
     "psutil>=7.0.0,<8",
     "pymodbus>=3.11.4,<4",
     "asyncua>=1.1.8,<2",
+    "nidaqmx>=1.0.1,<2",
+    "nisyscfg>=0.2.0,<1",
 ]
 classifiers = ["Private :: Do Not Upload"]
 
@@ -37,6 +39,14 @@ ignore_missing_imports = true
 
 [[tool.mypy.overrides]]
 module = "examples.*"
+ignore_missing_imports = true
+
+[[tool.mypy.overrides]]
+module = "nidaqmx.*"
+ignore_missing_imports = true
+
+[[tool.mypy.overrides]]
+module = "nisyscfg.*"
 ignore_missing_imports = true
 
 [tool.pydantic-mypy]
