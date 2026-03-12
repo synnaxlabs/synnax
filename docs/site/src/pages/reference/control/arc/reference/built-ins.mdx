@@ -73,7 +73,8 @@ interval{period=1s} -> logger{}
 | **Output** | `u8`     | `1` when firing, `0` otherwise |
 
 The first tick fires immediately at t=0. Subsequent ticks fire when
-`elapsed - lastFired >= period`.
+`elapsed - lastFired >= period`. When a stage is re-entered, all intervals in that stage
+reset and fire immediately on the next tick of the interval.
 
 ```arc
 // 20Hz control loop
@@ -81,6 +82,21 @@ interval{period=50ms} -> pressure_controller{}
 
 // 1Hz data logging
 interval{period=1s} -> log_all_sensors{}
+```
+
+```arc
+// The interval resets each time the program transitions back to 'on'.
+// It fires immediately on re-entry, then every 1s after that.
+sequence main {
+    stage on {
+        1 -> heater_cmd,
+        interval{period=1s} -> temp > 200 => off,
+    }
+    stage off {
+        0 -> heater_cmd,
+        start_cmd => on,
+    }
+}
 ```
 
 ### wait

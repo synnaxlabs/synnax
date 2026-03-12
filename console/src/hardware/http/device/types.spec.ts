@@ -30,8 +30,8 @@ describe("HTTP Device Properties", () => {
         timeoutMs: 500,
         auth: { type: "none" },
         healthCheck: ZERO_HEALTH_CHECK,
-        readIndexes: {},
         writeIndexes: {},
+        read: {},
         version: 1,
       };
       const result = propertiesZ.parse(config);
@@ -45,8 +45,8 @@ describe("HTTP Device Properties", () => {
         timeoutMs: 100,
         auth: { type: "bearer", token: "my-token" },
         healthCheck: ZERO_HEALTH_CHECK,
-        readIndexes: {},
         writeIndexes: {},
+        read: {},
         version: 1,
       };
       const result = propertiesZ.parse(config);
@@ -59,7 +59,7 @@ describe("HTTP Device Properties", () => {
         verifySsl: true,
         timeoutMs: 100,
         auth: { type: "bearer", token: "" },
-        readIndexes: {},
+        read: {},
         version: 1,
       };
       const result = propertiesZ.safeParse(config);
@@ -73,8 +73,8 @@ describe("HTTP Device Properties", () => {
         timeoutMs: 100,
         auth: { type: "basic", username: "user", password: "pass" },
         healthCheck: ZERO_HEALTH_CHECK,
-        readIndexes: {},
         writeIndexes: {},
+        read: {},
         version: 1,
       };
       const result = propertiesZ.parse(config);
@@ -91,7 +91,7 @@ describe("HTTP Device Properties", () => {
         verifySsl: true,
         timeoutMs: 100,
         auth: { type: "basic", username: "", password: "pass" },
-        readIndexes: {},
+        read: {},
         version: 1,
       };
       const result = propertiesZ.safeParse(config);
@@ -104,7 +104,7 @@ describe("HTTP Device Properties", () => {
         verifySsl: true,
         timeoutMs: 100,
         auth: { type: "basic", username: "user", password: "" },
-        readIndexes: {},
+        read: {},
         version: 1,
       };
       const result = propertiesZ.safeParse(config);
@@ -123,8 +123,8 @@ describe("HTTP Device Properties", () => {
           key: "secret",
         },
         healthCheck: ZERO_HEALTH_CHECK,
-        readIndexes: {},
         writeIndexes: {},
+        read: {},
         version: 1,
       };
       const result = propertiesZ.parse(config);
@@ -142,7 +142,7 @@ describe("HTTP Device Properties", () => {
         verifySsl: true,
         timeoutMs: 100,
         auth: { type: "api_key", sendAs: "header", header: "", key: "secret" },
-        readIndexes: {},
+        read: {},
         version: 1,
       };
       const result = propertiesZ.safeParse(config);
@@ -161,8 +161,8 @@ describe("HTTP Device Properties", () => {
           key: "secret",
         },
         healthCheck: ZERO_HEALTH_CHECK,
-        readIndexes: {},
         writeIndexes: {},
+        read: {},
         version: 1,
       };
       const result = propertiesZ.parse(config);
@@ -185,7 +185,7 @@ describe("HTTP Device Properties", () => {
           parameter: "",
           key: "secret",
         },
-        readIndexes: {},
+        read: {},
         version: 1,
       };
       const result = propertiesZ.safeParse(config);
@@ -198,7 +198,7 @@ describe("HTTP Device Properties", () => {
         verifySsl: true,
         timeoutMs: -1,
         auth: { type: "none" },
-        readIndexes: {},
+        read: {},
         version: 1,
       };
       const result = propertiesZ.safeParse(config);
@@ -230,7 +230,8 @@ describe("HTTP Device Properties", () => {
           validateResponse: true,
           response: {
             pointer: "/status",
-            value: { expectedValueType: "string", expectedValue: "ok" },
+            expectedValueType: "string",
+            expectedValue: "ok",
           },
         },
       };
@@ -263,7 +264,8 @@ describe("HTTP Device Properties", () => {
           validateResponse: true,
           response: {
             pointer: "/alive",
-            value: { expectedValueType: "boolean", expectedValue: true },
+            expectedValueType: "boolean",
+            expectedValue: true,
           },
         },
       };
@@ -440,6 +442,34 @@ describe("HTTP Device Properties", () => {
       expect(result.secure).toBe(true);
       expect(result.verifySsl).toBe(true);
       expect(result.timeoutMs).toBeGreaterThan(0);
+    });
+
+    it("should migrate v0 readIndexes to v1 read", () => {
+      const v0Config = {
+        secure: true,
+        verifySsl: true,
+        timeoutMs: 100,
+        auth: { type: "none" },
+        readIndexes: { "/api/data": 42, "/api/status": 99 },
+      };
+      const result = propertiesZ.parse(v0Config);
+      expect(result.read).toEqual({
+        "/api/data": { index: 42, channels: {} },
+        "/api/status": { index: 99, channels: {} },
+      });
+      expect(result).not.toHaveProperty("readIndexes");
+    });
+
+    it("should migrate v0 empty readIndexes to v1 empty read", () => {
+      const v0Config = {
+        secure: true,
+        verifySsl: true,
+        timeoutMs: 100,
+        auth: { type: "none" },
+        readIndexes: {},
+      };
+      const result = propertiesZ.parse(v0Config);
+      expect(result.read).toEqual({});
     });
   });
 });

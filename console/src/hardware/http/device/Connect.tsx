@@ -156,7 +156,7 @@ export const Connect: Layout.Renderer = ({ layoutKey, onClose }) => {
     json.PrimitiveType,
     json.PrimitiveType,
     typeof PDevice.formSchema
-  >("properties.healthCheck.response.value.expectedValueType", {
+  >("properties.healthCheck.response.expectedValueType", {
     ctx: form,
     optional: true,
   });
@@ -178,7 +178,7 @@ export const Connect: Layout.Renderer = ({ layoutKey, onClose }) => {
     }) => {
       const handleChange = (value: json.PrimitiveType) => {
         form.set(
-          "properties.healthCheck.response.value.expectedValue",
+          "properties.healthCheck.response.expectedValue",
           json.ZERO_PRIMITIVES[value],
         );
         onChange(value);
@@ -384,27 +384,27 @@ export const Connect: Layout.Renderer = ({ layoutKey, onClose }) => {
 
                   <Flex.Box x align="end">
                     <Form.Field<json.PrimitiveType>
-                      path="properties.healthCheck.response.value.expectedValueType"
+                      path="properties.healthCheck.response.expectedValueType"
                       label="Value type"
                     >
                       {renderExpectedValueType}
                     </Form.Field>
                     {expectedValueType === "string" && (
                       <Form.TextField
-                        path="properties.healthCheck.response.value.expectedValue"
+                        path="properties.healthCheck.response.expectedValue"
                         label="Expected value"
                         inputProps={HEALTH_EXPECTED_STRING_INPUT_PROPS}
                       />
                     )}
                     {expectedValueType === "number" && (
                       <Form.NumericField
-                        path="properties.healthCheck.response.value.expectedValue"
+                        path="properties.healthCheck.response.expectedValue"
                         label="Expected value"
                       />
                     )}
                     {expectedValueType === "boolean" && (
                       <Form.SwitchField
-                        path="properties.healthCheck.response.value.expectedValue"
+                        path="properties.healthCheck.response.expectedValue"
                         label="Expected value"
                       />
                     )}

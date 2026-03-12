@@ -259,6 +259,7 @@ async def run_server(
     array_size: int = DEFAULT_ARRAY_SIZE,
     encrypted: bool = False,
     user_manager=None,
+    max_sessions: int | None = None,
 ) -> None:
     # Initialize server
     server = Server(user_manager=user_manager)
@@ -266,6 +267,11 @@ async def run_server(
     if not endpoint:
         endpoint = OPCUASim.endpoint
     server.set_endpoint(endpoint)
+
+    if max_sessions is not None and max_sessions > 0:
+        from asyncua.server.internal_session import InternalSession
+
+        InternalSession.max_connections = max_sessions
 
     if encrypted:
         await configure_encryption(server)
@@ -343,11 +349,13 @@ class OPCUASim(DeviceSim):
         verbose: bool = False,
         encrypted: bool = False,
         user_manager=None,
+        max_sessions: int | None = None,
     ):
         super().__init__(rate=rate, verbose=verbose)
         self.array_size = array_size
         self.encrypted = encrypted
         self.user_manager = user_manager
+        self.max_sessions = max_sessions
 
     async def _run_server(self) -> None:
         await run_server(
@@ -356,6 +364,7 @@ class OPCUASim(DeviceSim):
             self.array_size,
             self.encrypted,
             self.user_manager,
+            self.max_sessions,
         )
 
     @staticmethod

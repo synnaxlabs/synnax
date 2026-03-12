@@ -12,6 +12,7 @@ package kv
 import (
 	"context"
 	"io"
+	"time"
 
 	"github.com/synnaxlabs/alamos"
 	"github.com/synnaxlabs/x/address"
@@ -83,7 +84,11 @@ func (d *DB) apply(b []TxRequest) (err error) {
 	c := txCoordinator{}
 	for _, bd := range b {
 		c.add(&bd)
-		d.source.Out.Inlet() <- bd
+		if sendErr := signal.SendUnderContext(
+			bd.Context, d.source.Out.Inlet(), bd,
+		); sendErr != nil {
+			bd.done(sendErr)
+		}
 	}
 	return c.wait()
 }
@@ -113,6 +118,7 @@ const (
 	leaseProxyAddr        = "lease_proxy"
 	executorAddr          = "executor"
 	chanBuffer            = 100
+	observableRelayBuffer = 500
 )
 
 func Open(ctx context.Context, cfgs ...Config) (*DB, error) {
@@ -173,7 +179,7 @@ func Open(ctx context.Context, cfgs ...Config) (*DB, error) {
 	plumber.SetSegment[TxRequest, TxRequest](
 		pipe,
 		persistDeltaAddr,
-		&confluence.DeltaMultiplier[TxRequest]{},
+		newPersistSplitter(observableRelayBuffer, cfg.Instrumentation),
 	)
 
 	// We use a generator observable to generate a unique transaction reader for
@@ -183,6 +189,12 @@ func Open(ctx context.Context, cfgs ...Config) (*DB, error) {
 		func(_ context.Context, tx TxRequest) (func() xkv.TxReader, bool, error) {
 			return func() xkv.TxReader { return tx.reader() }, true, nil
 		})
+	observable.Observer = observe.NewAsync[xkv.TxReader](
+		sCtx,
+		signal.WithRetryOnPanic(100),
+		signal.WithBaseRetryInterval(500*time.Millisecond),
+		signal.WithRetryScale(1.1),
+	)
 	plumber.SetSink[TxRequest](pipe, observableAddr, observable)
 	db.Observable = observable
 

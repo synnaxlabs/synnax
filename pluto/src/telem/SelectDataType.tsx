@@ -8,21 +8,17 @@
 // included in the file licenses/APL.txt.
 
 import { caseconv, DataType } from "@synnaxlabs/x";
-import { type ReactElement } from "react";
+import { type ReactElement, useMemo } from "react";
 
-import { Icon } from "@/icon";
 import { type Select } from "@/select";
 import { Static as SelectStatic } from "@/select/Static";
+import { resolveDataTypeIcon } from "@/telem/resolveDataTypeIcon";
 
 const ALL_CAPS = new Set([DataType.UUID, DataType.JSON]);
 
 const resolveIcon = (d: DataType) => {
-  if (d.equals(DataType.JSON)) return <Icon.JSON />;
-  if (d.isInteger) return <Icon.Binary />;
-  if (d.isFloat) return <Icon.Decimal />;
-  if (d.equals(DataType.STRING) || d.equals(DataType.UUID)) return <Icon.String />;
-  if (d.equals(DataType.TIMESTAMP)) return <Icon.Time />;
-  return undefined;
+  const Resolved = resolveDataTypeIcon(d);
+  return Resolved != null ? <Resolved /> : undefined;
 };
 
 const DATA: Select.StaticEntry<string>[] = DataType.ALL.filter(
@@ -31,7 +27,9 @@ const DATA: Select.StaticEntry<string>[] = DataType.ALL.filter(
   key: d.toString(),
   name: ALL_CAPS.has(d)
     ? d.toString().toUpperCase()
-    : caseconv.capitalize(d.toString()),
+    : d.isNumeric && d !== DataType.TIMESTAMP
+      ? d.toString()
+      : caseconv.capitalize(d.toString()),
   icon: resolveIcon(d),
 }));
 
@@ -42,12 +40,18 @@ export interface SelectDataTypeProps extends Omit<
   "data" | "resourceName"
 > {
   hideVariableDensity?: boolean;
+  hideDataTypes?: DataType[];
 }
 
 export const SelectDataType = ({
   hideVariableDensity = false,
+  hideDataTypes = [],
   ...rest
 }: SelectDataTypeProps): ReactElement => {
   const data = hideVariableDensity ? FIXED_DENSITY_DATA : DATA;
-  return <SelectStatic {...rest} data={data} resourceName="data type" />;
+  const filteredData = useMemo(
+    () => data.filter((d) => !hideDataTypes.some((h) => h.equals(d.key))),
+    [hideDataTypes, data],
+  );
+  return <SelectStatic {...rest} data={filteredData} resourceName="data type" />;
 };

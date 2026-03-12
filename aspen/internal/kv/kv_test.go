@@ -11,7 +11,9 @@ package kv_test
 
 import (
 	"context"
+	"fmt"
 	"slices"
+	"sync/atomic"
 	"time"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -249,6 +251,41 @@ var _ = Describe("txn", func() {
 				g.Expect(accumulated).To(HaveLen(1))
 				g.Expect(accumulated[0].Value).To(Equal([]byte("value")))
 			}).Should(Succeed())
+		})
+
+		It("Should not stall writes when an observer handler is slow", func() {
+			db, err := builder.New(ctx, kv.Config{}, cluster.Config{})
+			Expect(err).ToNot(HaveOccurred())
+
+			gate := make(chan struct{})
+			db.OnChange(func(ctx context.Context, r xkv.TxReader) {
+				<-gate
+			})
+			defer close(gate)
+
+			// The pipeline has ~500 items of total buffer capacity (5 channels
+			// at capacity 100 on the critical path). We write more than that to
+			// guarantee we'd hit the clog if it exists.
+			totalWrites := 700
+			var completed atomic.Int64
+			go func() {
+				defer GinkgoRecover()
+				for i := 0; i < totalWrites; i++ {
+					key := []byte(fmt.Sprintf("key-%d", i))
+					err := db.Set(ctx, key, []byte("v"))
+					if err != nil {
+						return
+					}
+					completed.Add(1)
+				}
+			}()
+
+			// All writes should complete even though the observer is blocked.
+			Eventually(func() int64 {
+				return completed.Load()
+			}, 5*time.Second, 50*time.Millisecond).Should(
+				Equal(int64(totalWrites)),
+			)
 		})
 	})
 
