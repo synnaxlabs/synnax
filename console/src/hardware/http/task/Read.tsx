@@ -609,7 +609,7 @@ const getInitialValues: Common.Task.GetInitialValues<ReadSchemas> = ({
     if (deviceKey != null) pld.config.device = deviceKey;
     return pld;
   }
-  const pld: ReadPayload = ZERO_READ_PAYLOAD;
+  const pld: ReadPayload = { ...ZERO_READ_PAYLOAD };
   if (deviceKey != null) pld.config = { ...pld.config, device: deviceKey };
   return pld;
 };
