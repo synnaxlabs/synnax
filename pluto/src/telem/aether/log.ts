@@ -119,7 +119,7 @@ export class StreamMultiChannelLog
         // jumps caused by natural network latency between channels. Ms-level blur
         // between receipt and sample time is not meaningful for a human reading a log.
         const now = this.now();
-        const before = this.entries.length;
+        let pushed = 0;
         for (const [channelKey, chMeta] of this.channelMeta) {
           const allocated = res.get(channelKey);
           const isJSON = chMeta.dataType.equals(DataType.JSON);
@@ -133,6 +133,7 @@ export class StreamMultiChannelLog
                 timestamp: now.valueOf(),
                 value: isJSON ? JSON.stringify(raw) : String(raw),
               });
+              pushed++;
             }
           };
           if (allocated != null && allocated.series.length > 0) {
@@ -154,7 +155,7 @@ export class StreamMultiChannelLog
           chMeta.readCursor = buf.length;
         }
         this.gcEntries();
-        if (this.entries.length !== before) this.notify();
+        if (pushed > 0) this.notify();
       }, streamKeys);
       this.notify();
     } catch (e) {

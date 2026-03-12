@@ -333,4 +333,34 @@ describe("StreamMultiChannelLog", () => {
     expect(entries).toHaveLength(1);
     expect(entries[0].value).toBe("3");
   });
+
+  it("should notify when GC evicts as many entries as were pushed in the same callback", async () => {
+    let now = TimeStamp.milliseconds(1_000);
+    const props: StreamMultiChannelLogProps = {
+      channels: [c.channelA.key],
+      timeSpan: TimeSpan.seconds(30),
+      keepFor: TimeSpan.milliseconds(500),
+    };
+    const log = new StreamMultiChannelLog(c, props, undefined, () => now);
+    await waitForResolve(log);
+
+    // Fill the window with 2 entries at t=1000ms
+    const seriesA = new Series({ data: new Float32Array([1, 2]) });
+    c.streamHandler?.(new Map([[c.channelA.key, new MultiSeries([seriesA])]]));
+    expect(log.value()).toHaveLength(2);
+
+    // Advance time so both existing entries are stale (threshold = 2000 - 500 = 1500ms)
+    now = TimeStamp.milliseconds(2_000);
+
+    // Push exactly 2 new entries — GC evicts the 2 old ones, net count unchanged.
+    // The notify guard must fire because new entries arrived, not because count changed.
+    const handleChange = vi.fn();
+    log.onChange(handleChange);
+    const seriesB = new Series({ data: new Float32Array([3, 4]) });
+    c.streamHandler?.(new Map([[c.channelA.key, new MultiSeries([seriesB])]]));
+    await expect.poll(() => handleChange.mock.calls.length > 0).toBe(true);
+    const entries = log.value();
+    expect(entries).toHaveLength(2);
+    expect(entries.map((e) => e.value)).toEqual(["3", "4"]);
+  });
 });
