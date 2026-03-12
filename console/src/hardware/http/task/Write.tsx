@@ -34,7 +34,6 @@ import { Common } from "@/hardware/common";
 import { Device } from "@/hardware/http/device";
 import {
   type GeneratorType,
-  type TimeConfig,
   WRITE_SCHEMAS,
   WRITE_TYPE,
   type WriteEndpoint,
@@ -161,22 +160,6 @@ const WriteMethodSelect: FC<{ path: string }> = ({ path }) => (
 const ChannelFieldSection: FC<{ epPath: string }> = ({ epPath }) => {
   const channelPath = `${epPath}.channel`;
   const channelKey = PForm.useFieldValue<number>(`${channelPath}.channel`);
-  const hasTimeConfig = PForm.useFieldValue<TimeConfig>(`${channelPath}.timeConfig`, {
-    optional: true,
-  });
-  const { set } = PForm.useContext();
-
-  const handleTimeToggle = useCallback(
-    (enabled: boolean) => {
-      if (enabled)
-        set(`${channelPath}.timeConfig`, {
-          pointer: "/timestamp",
-          timeFormat: "iso8601",
-        });
-      else set(`${channelPath}.timeConfig`, undefined);
-    },
-    [set, channelPath],
-  );
 
   return (
     <Flex.Box y gap="small" style={{ padding: "0 1rem" }}>
@@ -225,39 +208,6 @@ const ChannelFieldSection: FC<{ epPath: string }> = ({ epPath }) => {
           </PForm.Field>
         )}
       </Flex.Box>
-      <Flex.Box x align="center" gap="small">
-        <Button.Toggle
-          value={hasTimeConfig != null}
-          onChange={handleTimeToggle}
-          size="small"
-        >
-          Include Timestamp
-        </Button.Toggle>
-      </Flex.Box>
-      {hasTimeConfig != null && (
-        <Flex.Box x align="end" gap="large">
-          <PForm.TextField
-            path={`${channelPath}.timeConfig.pointer`}
-            label="Time Pointer"
-            grow
-            inputProps={{ placeholder: "/timestamp" }}
-          />
-          <PForm.Field<string>
-            path={`${channelPath}.timeConfig.timeFormat`}
-            label="Time Format"
-            style={{ width: 160 }}
-          >
-            {({ value, onChange }) => (
-              <Select.Static<string, Select.StaticEntry<string>>
-                value={value ?? "iso8601"}
-                onChange={onChange}
-                data={TIME_FORMAT_DATA}
-                resourceName="time format"
-              />
-            )}
-          </PForm.Field>
-        </Flex.Box>
-      )}
     </Flex.Box>
   );
 };

@@ -42,22 +42,16 @@ GeneratorType parse_generator_type(x::json::Parser &parser, const std::string &p
     return GeneratorType::UUID;
 }
 
-/// @brief builds the JSON body for a write endpoint from a sample value and
-/// timestamp.
+/// @brief builds the JSON body for a write endpoint from a sample value.
 /// @param ep the write endpoint configuration.
 /// @param sample_val the channel value as JSON.
-/// @param ts the timestamp to use for time_config and timestamp generators.
 /// @returns the serialized JSON body string.
-std::pair<std::string, x::errors::Error> build_body(
-    const WriteEndpoint &ep,
-    const x::json::json &sample_val,
-    const x::telem::TimeStamp &ts
-) {
+std::pair<std::string, x::errors::Error>
+build_body(const WriteEndpoint &ep, const x::json::json &sample_val) {
     // Bare primitive: if channel pointer is root and no other fields, body IS the
     // value directly.
     if (ep.channel.pointer == x::json::json::json_pointer("") &&
-        ep.static_fields.empty() && ep.generated_fields.empty() &&
-        !ep.channel.time_config.has_value()) {
+        ep.static_fields.empty() && ep.generated_fields.empty()) {
         return {sample_val.dump(), x::errors::NIL};
     }
 
@@ -66,22 +60,17 @@ std::pair<std::string, x::errors::Error> build_body(
     // Place channel value.
     body[ep.channel.pointer] = sample_val;
 
-    // Place time config if present.
-    if (ep.channel.time_config.has_value()) {
-        const auto &tc = *ep.channel.time_config;
-        body[tc.pointer] = x::json::from_timestamp(ts, tc.time_format);
-    }
-
     // Place static fields.
     for (const auto &sf: ep.static_fields)
         body[sf.pointer] = sf.value;
 
     // Place generated fields.
+    const auto now = x::telem::TimeStamp::now();
     for (const auto &gf: ep.generated_fields) {
         if (gf.generator == GeneratorType::UUID) {
             body[gf.pointer] = x::uuid::create().to_string();
         } else {
-            body[gf.pointer] = x::json::from_timestamp(ts, gf.time_format);
+            body[gf.pointer] = x::json::from_timestamp(now, gf.time_format);
         }
     }
 
@@ -144,28 +133,6 @@ std::pair<WriteTaskConfig, x::errors::Error> WriteTaskConfig::parse(
                 endpoint.channel.time_format = fmt;
         }
 
-        // Parse optional time_config.
-        if (ch_parser.has("time_config")) {
-            auto tc_parser = ch_parser.child("time_config");
-            TimeConfig tc;
-            tc.pointer = x::json::json::json_pointer(
-                tc_parser.field<std::string>("pointer")
-            );
-            const auto tc_fmt_str = tc_parser.field<std::string>("time_format");
-            auto [tc_fmt, tc_err] = x::json::parse_time_format(tc_fmt_str);
-            if (tc_err)
-                tc_parser.field_err("time_format", tc_err.message());
-            else
-                tc.time_format = tc_fmt;
-            const auto tc_ptr_str = tc.pointer.to_string();
-            if (!all_pointers.insert(tc_ptr_str).second)
-                tc_parser.field_err(
-                    "pointer",
-                    "pointer '" + tc_ptr_str + "' is already used"
-                );
-            endpoint.channel.time_config = tc;
-        }
-
         // Parse static fields.
         ep.iter("fields", [&](x::json::Parser &fp) {
             const auto type = fp.field<std::string>("type");
@@ -213,8 +180,7 @@ std::pair<WriteTaskConfig, x::errors::Error> WriteTaskConfig::parse(
 
         // Validate bare primitive: if channel pointer is root, no other fields.
         if (endpoint.channel.pointer == x::json::json::json_pointer("") &&
-            (!endpoint.static_fields.empty() || !endpoint.generated_fields.empty() ||
-             endpoint.channel.time_config.has_value())) {
+            (!endpoint.static_fields.empty() || !endpoint.generated_fields.empty())) {
             ep.field_err(
                 "channel",
                 "bare primitive body (root pointer) cannot have additional "
@@ -275,9 +241,6 @@ std::pair<WriteTaskConfig, x::errors::Error> WriteTaskConfig::parse(
                 "channel " + ch.name + " is a timestamp channel but has no time_format"
             );
         }
-
-        // Determine if the index is virtual.
-        ep.virtual_index = (ch.index == 0);
     }
 
     if (!parser.ok()) return {std::move(cfg), parser.error()};
@@ -339,10 +302,7 @@ x::errors::Error WriteTaskSink::write(x::telem::Frame &frame) {
             );
         }
 
-        auto ts = ep.virtual_index ? x::telem::TimeStamp::now()
-                                   : x::telem::TimeStamp::now();
-
-        auto [body, body_err] = build_body(ep, json_val, ts);
+        auto [body, body_err] = build_body(ep, json_val);
         if (body_err) return body_err;
 
         auto req = base_requests[ep_idx];

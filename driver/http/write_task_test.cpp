@@ -924,6 +924,107 @@ TEST(HTTPWriteTask, PATCHBooleanValue) {
     EXPECT_EQ(body["enabled"].get<bool>(), true);
 }
 
+/// @brief it should format a TIMESTAMP channel value as ISO8601 when time_format
+/// is set.
+TEST(HTTPWriteTask, TimeFormatISO8601) {
+    mock::Server server(
+        mock::ServerConfig{
+            .routes = {{
+                .method = Method::POST,
+                .path = "/api/control",
+                .status_code = 200,
+                .response_body = R"({"status":"ok"})",
+            }},
+        }
+    );
+    ASSERT_NIL(server.start());
+    x::defer::defer stop_server([&server] { server.stop(); });
+
+    WriteTaskConfig cfg;
+    cfg.device = "test-device";
+    cfg.auto_start = false;
+
+    WriteEndpoint ep;
+    ep.request.method = Method::POST;
+    ep.request.path = "/api/control";
+    ep.request.request_content_type = "application/json";
+    ep.channel.pointer = x::json::json::json_pointer("/timestamp");
+    ep.channel.json_type = x::json::Type::String;
+    ep.channel.channel_key = 1;
+    ep.channel.time_format = x::json::TimeFormat::ISO8601;
+
+    cfg.endpoints = {ep};
+    cfg.cmd_keys = {1};
+
+    auto [sink, processor] = make_sink(cfg, server.base_url());
+
+    // Send a nanosecond timestamp: 2025-01-15T00:00:00Z = 1736899200000000000 ns.
+    const int64_t ts_ns = 1736899200000000000LL;
+    x::telem::Frame frame;
+    frame.emplace(
+        synnax::channel::Key(1),
+        x::telem::Series(std::vector<int64_t>{ts_ns})
+    );
+
+    ASSERT_NIL(sink->write(frame));
+
+    auto reqs = server.received_requests();
+    ASSERT_EQ(reqs.size(), 1);
+    auto body = x::json::json::parse(reqs[0].body);
+    const auto ts_str = body["timestamp"].get<std::string>();
+    EXPECT_TRUE(ts_str.find("2025-01-15") != std::string::npos);
+}
+
+/// @brief it should format a TIMESTAMP channel value as unix seconds when
+/// time_format is set.
+TEST(HTTPWriteTask, TimeFormatUnixSeconds) {
+    mock::Server server(
+        mock::ServerConfig{
+            .routes = {{
+                .method = Method::POST,
+                .path = "/api/control",
+                .status_code = 200,
+                .response_body = R"({"status":"ok"})",
+            }},
+        }
+    );
+    ASSERT_NIL(server.start());
+    x::defer::defer stop_server([&server] { server.stop(); });
+
+    WriteTaskConfig cfg;
+    cfg.device = "test-device";
+    cfg.auto_start = false;
+
+    WriteEndpoint ep;
+    ep.request.method = Method::POST;
+    ep.request.path = "/api/control";
+    ep.request.request_content_type = "application/json";
+    ep.channel.pointer = x::json::json::json_pointer("/ts");
+    ep.channel.json_type = x::json::Type::Number;
+    ep.channel.channel_key = 1;
+    ep.channel.time_format = x::json::TimeFormat::UnixSecond;
+
+    cfg.endpoints = {ep};
+    cfg.cmd_keys = {1};
+
+    auto [sink, processor] = make_sink(cfg, server.base_url());
+
+    // 1736899200 seconds = 2025-01-15T00:00:00Z in nanoseconds.
+    const int64_t ts_ns = 1736899200000000000LL;
+    x::telem::Frame frame;
+    frame.emplace(
+        synnax::channel::Key(1),
+        x::telem::Series(std::vector<int64_t>{ts_ns})
+    );
+
+    ASSERT_NIL(sink->write(frame));
+
+    auto reqs = server.received_requests();
+    ASSERT_EQ(reqs.size(), 1);
+    auto body = x::json::json::parse(reqs[0].body);
+    EXPECT_NEAR(body["ts"].get<double>(), 1736899200.0, 1.0);
+}
+
 /// @brief it should skip disabled endpoints and only send to enabled ones.
 TEST(HTTPWriteTask, DisabledEndpointSkipped) {
     mock::Server server(

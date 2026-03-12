@@ -108,23 +108,12 @@ export const WRITE_TYPE = `${PREFIX}_write`;
 
 const jsonTypeZ = z.enum(["number", "string", "boolean"]);
 
-const timeConfigZ = z.object({
-  pointer: json.pointerZ,
-  timeFormat: timeFormatZ,
-});
-export interface TimeConfig extends z.infer<typeof timeConfigZ> {}
-export const ZERO_TIME_CONFIG = {
-  pointer: "",
-  timeFormat: "iso8601",
-} as const satisfies TimeConfig;
-
 const channelFieldZ = z.object({
   pointer: json.pointerZ,
   jsonType: jsonTypeZ,
   channel: z.number().default(0),
   dataType: z.string().default("float64"),
   timeFormat: timeFormatZ.optional(),
-  timeConfig: timeConfigZ.optional(),
 });
 
 export interface ChannelField extends z.infer<typeof channelFieldZ> {}
