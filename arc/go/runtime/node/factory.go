@@ -14,8 +14,7 @@ import (
 
 	"github.com/synnaxlabs/alamos"
 	"github.com/synnaxlabs/arc/ir"
-	"github.com/synnaxlabs/arc/module"
-	"github.com/synnaxlabs/arc/runtime/state"
+	"github.com/synnaxlabs/arc/program"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/query"
 )
@@ -26,37 +25,34 @@ type Config struct {
 	// Node is the IR definition for this node.
 	Node ir.Node
 	// State provides access to input/output data and channel I/O.
-	State *state.Node
-	// Module contains the arc module for accessing global state and functions.
-	Module module.Module
+	State *State
+	// Program contains the arc program for accessing global state and functions.
+	Program program.Program
 }
 
 // Factory creates node instances from IR definitions.
-// Implementations check the node type and return query.NotFound if they
-// cannot handle the given type, allowing MultiFactory to try other factories.
+// Implementations check the node type and return query.NotFound if they cannot
+// handle the given type.
 type Factory interface {
 	// Create constructs a node from the given configuration.
 	// Returns query.NotFound if this factory cannot handle cfg.Node.Type.
 	Create(ctx context.Context, cfg Config) (Node, error)
 }
 
-// MultiFactory composes multiple factories with fallback behavior.
-// It tries each factory in order until one succeeds or all return NotFound.
-type MultiFactory []Factory
+// CompoundFactory tries each factory in order until one succeeds. A factory that
+// returns query.ErrNotFound is skipped; any other error is returned immediately.
+type CompoundFactory []Factory
 
-// Create attempts to create a node using each factory in sequence.
-// Returns the first successful node, or query.NotFound if no factory matches.
-// Non-NotFound errors stop the search and are returned immediately.
-func (mf MultiFactory) Create(ctx context.Context, cfg Config) (Node, error) {
-	for _, f := range mf {
-		n, err := f.Create(ctx, cfg)
-		if err != nil {
-			if errors.Is(err, query.ErrNotFound) {
-				continue
-			}
-			return nil, err
+func (f CompoundFactory) Create(ctx context.Context, cfg Config) (Node, error) {
+	for _, factory := range f {
+		n, err := factory.Create(ctx, cfg)
+		if err == nil {
+			return n, nil
 		}
-		return n, nil
+		if errors.Is(err, query.ErrNotFound) {
+			continue
+		}
+		return nil, err
 	}
 	return nil, query.ErrNotFound
 }

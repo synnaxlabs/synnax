@@ -1,24 +1,26 @@
-load("@rules_cc//cc:cc_library.bzl", "cc_library")
-load("@rules_cc//cc:cc_test.bzl", "cc_test")
-
 cc_library(
     name = "runtime",
     hdrs = ["runtime.h"],
     visibility = ["//visibility:public"],
     deps = [
-        "//arc/cpp/runtime/authority",
-        "//arc/cpp/runtime/constant",
         "//arc/cpp/runtime/errors",
         "//arc/cpp/runtime/loop",
         "//arc/cpp/runtime/node",
         "//arc/cpp/runtime/scheduler",
-        "//arc/cpp/runtime/stage",
         "//arc/cpp/runtime/state",
-        "//arc/cpp/runtime/telem",
-        "//arc/cpp/runtime/time",
         "//arc/cpp/runtime/wasm",
-        "//x/cpp/control",
+        "//arc/cpp/stl/channel",
+        "//arc/cpp/stl/constant",
+        "//arc/cpp/stl/control",
+        "//arc/cpp/stl/error",
+        "//arc/cpp/stl/math",
+        "//arc/cpp/stl/series",
+        "//arc/cpp/stl/stage",
+        "//arc/cpp/stl/stateful",
+        "//arc/cpp/stl/str",
+        "//arc/cpp/stl/time",
         "//x/cpp/thread",
+        "//x/cpp/control",
     ],
 )
 

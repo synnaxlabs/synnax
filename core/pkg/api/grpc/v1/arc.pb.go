@@ -17,7 +17,7 @@ package v1
 
 import (
 	graph "github.com/synnaxlabs/arc/graph"
-	module "github.com/synnaxlabs/arc/module"
+	program "github.com/synnaxlabs/arc/program"
 	text "github.com/synnaxlabs/arc/text"
 	protoreflect "google.golang.org/protobuf/reflect/protoreflect"
 	protoimpl "google.golang.org/protobuf/runtime/protoimpl"
@@ -41,7 +41,7 @@ type Arc struct {
 	Name          string                 `protobuf:"bytes,2,opt,name=name,proto3" json:"name,omitempty"`
 	Graph         *graph.PBGraph         `protobuf:"bytes,3,opt,name=graph,proto3" json:"graph,omitempty"`
 	Text          *text.PBText           `protobuf:"bytes,4,opt,name=text,proto3" json:"text,omitempty"`
-	Module        *module.PBModule       `protobuf:"bytes,5,opt,name=module,proto3" json:"module,omitempty"`
+	Program       *program.PBProgram     `protobuf:"bytes,5,opt,name=program,proto3" json:"program,omitempty"`
 	Deploy        bool                   `protobuf:"varint,6,opt,name=deploy,proto3" json:"deploy,omitempty"`
 	Version       string                 `protobuf:"bytes,7,opt,name=version,proto3" json:"version,omitempty"`
 	Mode          string                 `protobuf:"bytes,8,opt,name=mode,proto3" json:"mode,omitempty"` // "graph" or "text"
@@ -107,9 +107,9 @@ func (x *Arc) GetText() *text.PBText {
 	return nil
 }
 
-func (x *Arc) GetModule() *module.PBModule {
+func (x *Arc) GetProgram() *program.PBProgram {
 	if x != nil {
-		return x.Module
+		return x.Program
 	}
 	return nil
 }
@@ -407,13 +407,13 @@ var File_core_pkg_api_grpc_v1_arc_proto protoreflect.FileDescriptor
 
 const file_core_pkg_api_grpc_v1_arc_proto_rawDesc = "" +
 	"\n" +
-	"\x1ecore/pkg/api/grpc/v1/arc.proto\x12\x06api.v1\x1a\x18arc/go/graph/graph.proto\x1a\x1aarc/go/module/module.proto\x1a\x16arc/go/text/text.proto\x1a\x1bgoogle/protobuf/empty.proto\"\xf8\x01\n" +
+	"\x1ecore/pkg/api/grpc/v1/arc.proto\x12\x06api.v1\x1a\x18arc/go/graph/graph.proto\x1a\x1carc/go/program/program.proto\x1a\x16arc/go/text/text.proto\x1a\x1bgoogle/protobuf/empty.proto\"\xfc\x01\n" +
 	"\x03Arc\x12\x10\n" +
 	"\x03key\x18\x01 \x01(\tR\x03key\x12\x12\n" +
 	"\x04name\x18\x02 \x01(\tR\x04name\x12+\n" +
 	"\x05graph\x18\x03 \x01(\v2\x15.arc.v1.graph.PBGraphR\x05graph\x12'\n" +
-	"\x04text\x18\x04 \x01(\v2\x13.arc.v1.text.PBTextR\x04text\x12/\n" +
-	"\x06module\x18\x05 \x01(\v2\x17.arc.v1.module.PBModuleR\x06module\x12\x16\n" +
+	"\x04text\x18\x04 \x01(\v2\x13.arc.v1.text.PBTextR\x04text\x123\n" +
+	"\aprogram\x18\x05 \x01(\v2\x19.arc.v1.program.PBProgramR\aprogram\x12\x16\n" +
 	"\x06deploy\x18\x06 \x01(\bR\x06deploy\x12\x18\n" +
 	"\aversion\x18\a \x01(\tR\aversion\x12\x12\n" +
 	"\x04mode\x18\b \x01(\tR\x04mode\"3\n" +
@@ -465,13 +465,13 @@ var file_core_pkg_api_grpc_v1_arc_proto_goTypes = []any{
 	(*ArcDeleteRequest)(nil),    // 5: api.v1.ArcDeleteRequest
 	(*graph.PBGraph)(nil),       // 6: arc.v1.graph.PBGraph
 	(*text.PBText)(nil),         // 7: arc.v1.text.PBText
-	(*module.PBModule)(nil),     // 8: arc.v1.module.PBModule
+	(*program.PBProgram)(nil),   // 8: arc.v1.program.PBProgram
 	(*emptypb.Empty)(nil),       // 9: google.protobuf.Empty
 }
 var file_core_pkg_api_grpc_v1_arc_proto_depIdxs = []int32{
 	6, // 0: api.v1.Arc.graph:type_name -> arc.v1.graph.PBGraph
 	7, // 1: api.v1.Arc.text:type_name -> arc.v1.text.PBText
-	8, // 2: api.v1.Arc.module:type_name -> arc.v1.module.PBModule
+	8, // 2: api.v1.Arc.program:type_name -> arc.v1.program.PBProgram
 	0, // 3: api.v1.ArcCreateRequest.arcs:type_name -> api.v1.Arc
 	0, // 4: api.v1.ArcCreateResponse.arcs:type_name -> api.v1.Arc
 	0, // 5: api.v1.ArcRetrieveResponse.arcs:type_name -> api.v1.Arc

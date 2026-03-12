@@ -11,21 +11,14 @@ import { describe, expect, it } from "vitest";
 
 import { Common } from "@/hardware/common";
 import {
-  AI_CHANNEL_TYPE,
-  AO_CHANNEL_TYPE,
-  DI_CHANNEL_TYPE,
-  DO_CHANNEL_TYPE,
-  LINEAR_SCALE_TYPE,
-  NO_SCALE_TYPE,
   type OutputChannel,
-  type ReadConfig,
-  readConfigZ,
-  type WriteConfig,
-  writeConfigZ,
+  READ_SCHEMAS,
+  WRITE_SCHEMAS,
   ZERO_WRITE_PAYLOAD,
 } from "@/hardware/labjack/task/types";
 
 describe("readConfigZ", () => {
+  const readConfigZ = READ_SCHEMAS.config;
   it("should validate a valid read configuration", () => {
     const validConfig = {
       ...Common.Task.ZERO_BASE_CONFIG,
@@ -35,20 +28,20 @@ describe("readConfigZ", () => {
           key: "1",
           channel: 1,
           enabled: true,
-          type: AI_CHANNEL_TYPE,
+          type: "AI",
           name: "Test_AI_Channel",
           port: "AIN0",
-          scale: { type: NO_SCALE_TYPE },
+          scale: { type: "none" },
           range: 10,
         },
         {
           key: "2",
           channel: 2,
           enabled: true,
-          type: DI_CHANNEL_TYPE,
+          type: "DI",
           name: "Test_DI_Channel",
           port: "DIO0",
-          scale: { type: NO_SCALE_TYPE },
+          scale: { type: "none" },
         },
       ],
       sampleRate: 1000,
@@ -68,20 +61,20 @@ describe("readConfigZ", () => {
           key: "1",
           channel: 1,
           enabled: true,
-          type: AI_CHANNEL_TYPE,
+          type: "AI",
           name: "Test_AI_Channel_1",
           port: "AIN0",
-          scale: { type: NO_SCALE_TYPE },
+          scale: { type: "none" },
           range: 10,
         },
         {
           key: "2",
           channel: 2,
           enabled: true,
-          type: AI_CHANNEL_TYPE,
+          type: "AI",
           name: "Test_AI_Channel_2",
           port: "AIN0", // Duplicate port
-          scale: { type: NO_SCALE_TYPE },
+          scale: { type: "none" },
           range: 10,
         },
       ],
@@ -106,10 +99,10 @@ describe("readConfigZ", () => {
           key: "1",
           channel: 1,
           enabled: true,
-          type: AI_CHANNEL_TYPE,
+          type: "AI",
           name: "Test_AI_Channel",
           port: "AIN0",
-          scale: { type: NO_SCALE_TYPE },
+          scale: { type: "none" },
           range: 10,
         },
       ],
@@ -134,10 +127,10 @@ describe("readConfigZ", () => {
           key: "1",
           channel: 1,
           enabled: true,
-          type: AI_CHANNEL_TYPE,
+          type: "AI",
           name: "Test_AI_Channel",
           port: "AIN0",
-          scale: { type: NO_SCALE_TYPE },
+          scale: { type: "none" },
           range: 10,
         },
       ],
@@ -154,7 +147,7 @@ describe("readConfigZ", () => {
   });
 
   it("should reject a configuration with invalid stream rate refinement", () => {
-    const configWithInvalidStreamRateRefinement: ReadConfig = {
+    const configWithInvalidStreamRateRefinement = {
       ...Common.Task.ZERO_BASE_CONFIG,
       device: "labjack",
       dataSaving: true,
@@ -163,10 +156,10 @@ describe("readConfigZ", () => {
           key: "1",
           channel: 1,
           enabled: true,
-          type: AI_CHANNEL_TYPE,
+          type: "AI",
           name: "Test_AI_Channel",
           port: "AIN0",
-          scale: { type: NO_SCALE_TYPE },
+          scale: { type: "none" },
           range: 10,
         },
       ],
@@ -179,7 +172,7 @@ describe("readConfigZ", () => {
   });
 
   it("should validate a configuration with linear scale", () => {
-    const configWithLinearScale: ReadConfig = {
+    const configWithLinearScale = {
       ...Common.Task.ZERO_BASE_CONFIG,
       device: "labjack",
       channels: [
@@ -187,14 +180,10 @@ describe("readConfigZ", () => {
           key: "1",
           channel: 1,
           enabled: true,
-          type: AI_CHANNEL_TYPE,
+          type: "AI",
           name: "ai_with_scale",
           port: "AIN0",
-          scale: {
-            type: LINEAR_SCALE_TYPE,
-            slope: 2.5,
-            offset: 0.5,
-          },
+          scale: { type: "linear", slope: 2.5, offset: 0.5 },
           range: 10,
         },
       ],
@@ -209,15 +198,16 @@ describe("readConfigZ", () => {
 });
 
 describe("writeConfigZ", () => {
+  const writeConfigZ = WRITE_SCHEMAS.config;
   it("should validate a valid write configuration", () => {
-    const validConfig: WriteConfig = {
+    const validConfig = {
       ...ZERO_WRITE_PAYLOAD.config,
       device: "labjack",
       channels: [
         {
           key: "1",
           enabled: true,
-          type: AO_CHANNEL_TYPE,
+          type: "AO",
           cmdChannelName: "Test_AO_Channel",
           stateChannelName: "",
           port: "DAC0",
@@ -227,7 +217,7 @@ describe("writeConfigZ", () => {
         {
           key: "2",
           enabled: true,
-          type: DO_CHANNEL_TYPE,
+          type: "DO",
           cmdChannelName: "Test_DO_Channel",
           stateChannelName: "",
           port: "DIO0",
@@ -250,22 +240,22 @@ describe("writeConfigZ", () => {
         {
           key: "1",
           enabled: true,
-          type: AO_CHANNEL_TYPE,
+          type: "AO",
           name: "Test_AO_Channel_1",
           port: "DAC0",
           cmdKey: 1,
           stateKey: 2,
-          scale: { type: NO_SCALE_TYPE },
+          scale: { type: "none" },
         },
         {
           key: "2",
           enabled: true,
-          type: AO_CHANNEL_TYPE,
+          type: "AO",
           name: "Test_AO_Channel_2",
           port: "DAC0", // Duplicate port
           cmdKey: 3,
           stateKey: 4,
-          scale: { type: NO_SCALE_TYPE },
+          scale: { type: "none" },
         },
       ],
       stateRate: 1000,
@@ -287,24 +277,24 @@ describe("writeConfigZ", () => {
         {
           key: "1",
           enabled: true,
-          type: AO_CHANNEL_TYPE,
+          type: "AO",
           cmdName: "Test_AO_Channel_1",
           stateName: "",
           port: "DAC0",
           cmdKey: 1,
           stateKey: 2,
-          scale: { type: NO_SCALE_TYPE },
+          scale: { type: "none" },
         },
         {
           key: "2",
           enabled: true,
-          type: DO_CHANNEL_TYPE,
+          type: "DO",
           cmdName: "Test_DO_Channel",
           stateName: "",
           port: "DIO0",
           cmdKey: 1, // Duplicate cmdKey
           stateKey: 3,
-          scale: { type: NO_SCALE_TYPE },
+          scale: { type: "none" },
         },
       ],
       stateRate: 1000,
@@ -326,22 +316,22 @@ describe("writeConfigZ", () => {
         {
           key: "1",
           enabled: true,
-          type: AO_CHANNEL_TYPE,
+          type: "AO",
           name: "Test AO Channel",
           port: "DAC0",
           cmdKey: 1,
           stateKey: 2,
-          scale: { type: NO_SCALE_TYPE },
+          scale: { type: "none" },
         },
         {
           key: "2",
           enabled: true,
-          type: DO_CHANNEL_TYPE,
+          type: "DO",
           name: "Test DO Channel",
           port: "DIO0",
           cmdKey: 3,
           stateKey: 2, // Duplicate stateKey
-          scale: { type: NO_SCALE_TYPE },
+          scale: { type: "none" },
         },
       ],
       stateRate: 1000,
@@ -363,12 +353,12 @@ describe("writeConfigZ", () => {
         {
           key: "1",
           enabled: true,
-          type: AO_CHANNEL_TYPE,
+          type: "AO",
           name: "Test AO Channel",
           port: "DAC0",
           cmdKey: 1,
           stateKey: 2,
-          scale: { type: NO_SCALE_TYPE },
+          scale: { type: "none" },
         },
       ],
       stateRate: 60000, // Exceeds the max of 50000
@@ -390,17 +380,12 @@ describe("writeConfigZ", () => {
         {
           key: "1",
           enabled: true,
-          type: AO_CHANNEL_TYPE,
+          type: "AO",
           name: "Test AO Channel",
           port: "DAC0",
           cmdKey: 1,
           stateKey: 2,
-          scale: {
-            type: LINEAR_SCALE_TYPE,
-            slope: 2.5,
-            intercept: 0.5,
-            unit: "V",
-          },
+          scale: { type: "linear", slope: 2.5, intercept: 0.5, unit: "V" },
         },
       ],
       stateRate: 1000,

@@ -118,4 +118,10 @@ type Symbol struct {
 	// Channels.Read/Write can be correctly resolved at instantiation time.
 	// A nil value means this symbol is the original source (e.g., a config param).
 	SourceID *int
+	// Internal marks symbols that are only accessible to the compiler (e.g., WASM
+	// host function signatures used for type suffix derivation). Internal symbols
+	// are skipped during scope resolution so user code cannot reference them, but
+	// remain visible to the compiler's resolve.Resolver which queries the
+	// symbol.Resolver interface directly.
+	Internal bool
 }

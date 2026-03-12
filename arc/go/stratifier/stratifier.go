@@ -11,6 +11,7 @@ package stratifier
 
 import (
 	"context"
+	"slices"
 
 	"github.com/synnaxlabs/arc/ir"
 	"github.com/synnaxlabs/x/diagnostics"
@@ -132,6 +133,13 @@ func Stratify(
 				stageNodeSet.Add(nodeKey)
 			}
 
+			orderedStageKeys := append([]string(nil), stage.Nodes...)
+			orderedStageSet := make(set.Set[string])
+			for _, key := range orderedStageKeys {
+				orderedStageSet.Add(key)
+			}
+			entryInsertAnchor := make(map[string]string)
+
 			// Find entry nodes that receive edges from this stage
 			// These need to be included in the stage's strata so they can fire
 			// when their source nodes output truthy values
@@ -139,6 +147,20 @@ func Stratify(
 			for _, edge := range edges {
 				if stageNodeSet.Contains(edge.Source.Node) && entryNodes.Contains(edge.Target.Node) {
 					entryNodesForStage.Add(edge.Target.Node)
+					if !orderedStageSet.Contains(edge.Target.Node) {
+						anchor := edge.Source.Node
+						if last, ok := entryInsertAnchor[edge.Source.Node]; ok {
+							anchor = last
+						}
+						idx := slices.Index(orderedStageKeys, anchor)
+						if idx == -1 {
+							orderedStageKeys = append(orderedStageKeys, edge.Target.Node)
+						} else {
+							orderedStageKeys = slices.Insert(orderedStageKeys, idx+1, edge.Target.Node)
+						}
+						orderedStageSet.Add(edge.Target.Node)
+						entryInsertAnchor[edge.Source.Node] = edge.Target.Node
+					}
 				}
 			}
 
@@ -149,13 +171,8 @@ func Stratify(
 
 			// Collect nodes for this stage (including entry nodes that receive edges)
 			var stageNodes []ir.Node
-			for _, nodeKey := range stage.Nodes {
+			for _, nodeKey := range orderedStageKeys {
 				if node, ok := nodeByKey[nodeKey]; ok {
-					stageNodes = append(stageNodes, node)
-				}
-			}
-			for entryKey := range entryNodesForStage {
-				if node, ok := nodeByKey[entryKey]; ok {
 					stageNodes = append(stageNodes, node)
 				}
 			}
@@ -174,6 +191,8 @@ func Stratify(
 			if cycleDiag != nil && !cycleDiag.Ok() {
 				return ir.Strata{}, cycleDiag
 			}
+
+			stageStrata = flattenEntryNodes(stageStrata, entryNodesForStage, orderedStageKeys)
 
 			sequences[i].Stages[j].Strata = stageStrata
 		}
@@ -308,4 +327,54 @@ func findCycle(nodes []ir.Node, edges []ir.Edge) []string {
 	}
 
 	return []string{"unknown cycle"}
+}
+
+// flattenEntryNodes moves all entry nodes within a stage's strata to the deepest
+// stratum occupied by any entry node. This ensures that competing transitions are
+// resolved by source order (position within the stratum) rather than by chain length
+// (which determines natural stratum depth). Entry nodes are inserted into the target
+// stratum in the order they appear in orderedKeys, preserving source order.
+func flattenEntryNodes(
+	strata ir.Strata,
+	entryNodes set.Set[string],
+	orderedKeys []string,
+) ir.Strata {
+	if len(entryNodes) <= 1 {
+		return strata
+	}
+	maxStratum := -1
+	for i, stratum := range strata {
+		for _, key := range stratum {
+			if entryNodes.Contains(key) && i > maxStratum {
+				maxStratum = i
+			}
+		}
+	}
+	if maxStratum == -1 {
+		return strata
+	}
+	// Remove entry nodes from all strata
+	for i, stratum := range strata {
+		filtered := stratum[:0]
+		for _, key := range stratum {
+			if !entryNodes.Contains(key) {
+				filtered = append(filtered, key)
+			}
+		}
+		strata[i] = filtered
+	}
+	// Insert entry nodes into the max stratum in source order
+	for _, key := range orderedKeys {
+		if entryNodes.Contains(key) {
+			strata[maxStratum] = append(strata[maxStratum], key)
+		}
+	}
+	// Remove empty strata
+	result := strata[:0]
+	for _, stratum := range strata {
+		if len(stratum) > 0 {
+			result = append(result, stratum)
+		}
+	}
+	return result
 }

@@ -77,8 +77,8 @@ details):
 - **Pipeline infrastructure**: Acquisition (hardware → Synnax) and Control (Synnax →
   hardware)
 - **Connection pooling** for shared device connections (Modbus, OPC UA)
-- **Cross-platform support**: Windows, macOS, Linux, NI Linux RT (Modbus excluded on NI
-  Linux RT)
+- **Cross-platform support**: Windows, macOS, Linux, NI Linux Real-Time (Modbus excluded
+  on NI Linux Real-Time)
 - **Bazel build system** with `select()` for platform-specific compilation
 - **Heartbeat mechanism** with 1Hz health reporting to cluster
 

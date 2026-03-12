@@ -10,6 +10,7 @@
 #pragma once
 
 #include <map>
+#include <memory>
 #include <optional>
 #include <string>
 #include <utility>
@@ -21,8 +22,9 @@
 
 #include "driver/common/read_task.h"
 #include "driver/common/sample_clock.h"
-#include "driver/http/device/device.h"
 #include "driver/http/http.h"
+#include "driver/http/processor/processor.h"
+#include "driver/http/types/types.h"
 #include "driver/task/task.h"
 
 namespace driver::http {
@@ -46,11 +48,26 @@ struct ReadField {
 /// @brief a single HTTP endpoint to poll.
 struct ReadEndpoint {
     /// @brief static request configuration.
-    device::RequestConfig request;
+    RequestConfig request;
     /// @brief optional static body to send with the request.
     std::string body;
     /// @brief fields to extract from the response.
     std::vector<ReadField> fields;
+};
+
+/// @brief a group of fields that share the same index channel and must be
+/// written atomically — either all fields succeed or the entire group is
+/// skipped.
+struct SamplingGroup {
+    /// @brief index channel key, or 0 if the fields have no index.
+    synnax::channel::Key index_key = 0;
+    /// @brief whether the index channel is software-timed (not an explicit
+    /// field — needs a timestamp written automatically).
+    bool software_timed_index = false;
+    /// @brief index of the endpoint this group's fields live on.
+    size_t endpoint_index;
+    /// @brief indices into ReadEndpoint::fields for the fields in this group.
+    std::vector<size_t> field_indices;
 };
 
 /// @brief configuration for an HTTP read task.
@@ -65,39 +82,66 @@ struct ReadTaskConfig {
     x::telem::Rate rate;
     /// @brief endpoints to poll.
     std::vector<ReadEndpoint> endpoints;
-    /// @brief index channels that need software timing, mapped to their endpoint index.
-    /// These are index channels referenced by data channels but not explicitly listed
-    /// as fields.
+    /// @brief sampling groups computed at parse time.
+    std::vector<SamplingGroup> groups;
+    /// @brief index channels that need software timing, mapped to their endpoint
+    /// index. These are index channels referenced by data channels but not
+    /// explicitly listed as fields.
     std::map<synnax::channel::Key, int> software_timed_indexes;
     /// @brief mapping of channel keys to their Synnax channel definitions.
     std::map<synnax::channel::Key, synnax::channel::Channel> channels;
 
     /// @brief parses a read task config from a Synnax task definition.
+    /// @param ctx the task context providing access to the Synnax client.
+    /// @param task the Synnax task definition containing the configuration JSON.
+    /// @returns the parsed config paired with an error.
     static std::pair<ReadTaskConfig, x::errors::Error>
-    parse(const std::shared_ptr<task::Context> &, const synnax::task::Task &);
+    parse(const std::shared_ptr<task::Context> &ctx, const synnax::task::Task &task);
 };
 
 /// @brief source that polls HTTP endpoints and writes extracted values to a frame.
 class ReadTaskSource : public common::Source {
     ReadTaskConfig cfg;
-    device::Client client;
-    /// @brief regulates the polling rate.
+    std::shared_ptr<Processor> processor;
+    std::vector<Request> requests;
     common::SoftwareTimedSampleClock sample_clock;
     std::vector<synnax::channel::Channel> chs;
-    std::vector<std::string> bodies;
     std::vector<x::json::json> parsed_bodies;
 
 public:
-    ReadTaskSource(ReadTaskConfig, device::Client);
+    /// @param cfg the read task configuration.
+    /// @param processor the shared HTTP processor for executing requests.
+    /// @param requests pre-built requests (one per endpoint).
+    ReadTaskSource(
+        ReadTaskConfig cfg,
+        std::shared_ptr<Processor> processor,
+        std::vector<Request> requests
+    );
 
+    /// @brief returns the writer configuration for the task.
+    /// @returns the writer configuration for the task.
     [[nodiscard]] synnax::framer::WriterConfig writer_config() const override;
 
+    /// @brief returns the channels used in this task.
+    /// @returns the channels used in this task.
     [[nodiscard]] std::vector<synnax::channel::Channel> channels() const override;
 
-    common::ReadResult read(x::breaker::Breaker &, x::telem::Frame &) override;
+    /// @brief reads data from the task.
+    /// @param breaker the breaker used to stop the read.
+    /// @param fr the frame to write the data to.
+    /// @returns the read result.
+    common::ReadResult
+    read(x::breaker::Breaker &breaker, x::telem::Frame &frame) override;
 };
 
 /// @brief configures an HTTP read task from a Synnax task definition.
-std::pair<common::ConfigureResult, x::errors::Error>
-configure_read(const std::shared_ptr<task::Context> &, const synnax::task::Task &);
+/// @param ctx the task context providing access to the Synnax client.
+/// @param task the Synnax task definition containing the configuration JSON.
+/// @param processor the shared HTTP processor for executing requests.
+/// @returns the configured result paired with an error.
+std::pair<common::ConfigureResult, x::errors::Error> configure_read(
+    const std::shared_ptr<task::Context> &ctx,
+    const synnax::task::Task &task,
+    const std::shared_ptr<Processor> &processor
+);
 }
