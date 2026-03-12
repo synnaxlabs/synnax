@@ -73,6 +73,8 @@ struct GeneratedField {
 
 /// @brief a single HTTP endpoint to write to.
 struct WriteEndpoint {
+    /// @brief whether this endpoint is enabled.
+    bool enabled = true;
     /// @brief HTTP request configuration (method, path, headers).
     RequestConfig request;
     /// @brief the required channel field for this endpoint.

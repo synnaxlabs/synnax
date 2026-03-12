@@ -160,6 +160,7 @@ const writeFieldZ = z.discriminatedUnion("type", [staticFieldZ, generatedFieldZ]
 export type WriteField = z.infer<typeof writeFieldZ>;
 
 const writeEndpointZ = z.object({
+  enabled: z.boolean().default(true),
   key: z.string(),
   path: z.string(),
   method: z.enum(["POST", "PUT", "PATCH"]),
@@ -172,6 +173,7 @@ const writeEndpointZ = z.object({
 export type WriteEndpoint = z.infer<typeof writeEndpointZ>;
 
 export const ZERO_WRITE_ENDPOINT = {
+  enabled: true,
   key: "",
   method: "POST",
   path: "",

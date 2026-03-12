@@ -64,6 +64,24 @@ TEST(HTTPWriteTask, ParseConfigEmptyEndpoints) {
     ASSERT_OCCURRED_AS_P(WriteTaskConfig::parse(ctx, task), x::errors::VALIDATION);
 }
 
+/// @brief it should fail to parse config when all endpoints are disabled.
+TEST(HTTPWriteTask, ParseConfigAllEndpointsDisabled) {
+    synnax::task::Task task;
+    task.config = {
+        {"device", "dev-001"},
+        {"endpoints",
+         {{
+             {"enabled", false},
+             {"method", "POST"},
+             {"path", "/api/data"},
+             {"channel",
+              {{"pointer", "/value"}, {"json_type", "number"}, {"channel", 1}}},
+         }}},
+    };
+    auto ctx = std::make_shared<task::MockContext>(nullptr);
+    ASSERT_OCCURRED_AS_P(WriteTaskConfig::parse(ctx, task), x::errors::VALIDATION);
+}
+
 /// @brief it should fail to parse config when method is GET.
 TEST(HTTPWriteTask, ParseConfigRejectsGETMethod) {
     synnax::task::Task task;
@@ -904,5 +922,76 @@ TEST(HTTPWriteTask, PATCHBooleanValue) {
     ASSERT_EQ(reqs.size(), 1);
     auto body = x::json::json::parse(reqs[0].body);
     EXPECT_EQ(body["enabled"].get<bool>(), true);
+}
+
+/// @brief it should skip disabled endpoints and only send to enabled ones.
+TEST(HTTPWriteTask, DisabledEndpointSkipped) {
+    mock::Server server(
+        mock::ServerConfig{
+            .routes = {
+                {
+                    .method = Method::POST,
+                    .path = "/api/active",
+                    .status_code = 200,
+                    .response_body = R"({"status":"ok"})",
+                },
+                {
+                    .method = Method::POST,
+                    .path = "/api/inactive",
+                    .status_code = 200,
+                    .response_body = R"({"status":"ok"})",
+                },
+            },
+        }
+    );
+    ASSERT_NIL(server.start());
+    x::defer::defer stop_server([&server] { server.stop(); });
+
+    WriteTaskConfig cfg;
+    cfg.device = "test-device";
+    cfg.auto_start = false;
+
+    WriteEndpoint ep1;
+    ep1.enabled = true;
+    ep1.request.method = Method::POST;
+    ep1.request.path = "/api/active";
+    ep1.request.request_content_type = "application/json";
+    ep1.channel.pointer = x::json::json::json_pointer("/value");
+    ep1.channel.json_type = x::json::Type::Number;
+    ep1.channel.channel_key = 1;
+
+    WriteEndpoint ep2;
+    ep2.enabled = false;
+    ep2.request.method = Method::POST;
+    ep2.request.path = "/api/inactive";
+    ep2.request.request_content_type = "application/json";
+    ep2.channel.pointer = x::json::json::json_pointer("/value");
+    ep2.channel.json_type = x::json::Type::Number;
+    ep2.channel.channel_key = 2;
+
+    cfg.endpoints = {ep1, ep2};
+    cfg.cmd_keys = {1};
+
+    auto [sink, processor] = make_sink(cfg, server.base_url());
+
+    // Send commands for both channels.
+    x::telem::Frame frame;
+    frame.emplace(
+        synnax::channel::Key(1),
+        x::telem::Series(std::vector<double>{10.0})
+    );
+    frame.emplace(
+        synnax::channel::Key(2),
+        x::telem::Series(std::vector<double>{20.0})
+    );
+
+    ASSERT_NIL(sink->write(frame));
+
+    // Only the enabled endpoint should have received a request.
+    auto reqs = server.received_requests();
+    ASSERT_EQ(reqs.size(), 1);
+    EXPECT_EQ(reqs[0].path, "/api/active");
+    auto body = x::json::json::parse(reqs[0].body);
+    EXPECT_NEAR(body["value"].get<double>(), 10.0, 0.001);
 }
 }

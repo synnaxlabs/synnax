@@ -100,8 +100,10 @@ std::pair<WriteTaskConfig, x::errors::Error> WriteTaskConfig::parse(
 
     std::set<std::string> all_pointers;
 
+    size_t enabled_count = 0;
     parser.iter("endpoints", [&](x::json::Parser &ep) {
         WriteEndpoint endpoint;
+        endpoint.enabled = ep.field<bool>("enabled", true);
         endpoint.request.method = parse_method(ep, "method");
         endpoint.request.path = ep.field<std::string>("path");
         endpoint.request.request_content_type = ep.field<std::string>(
@@ -220,12 +222,18 @@ std::pair<WriteTaskConfig, x::errors::Error> WriteTaskConfig::parse(
             );
         }
 
-        cfg.cmd_keys.push_back(endpoint.channel.channel_key);
+        if (endpoint.enabled) {
+            enabled_count++;
+            cfg.cmd_keys.push_back(endpoint.channel.channel_key);
+        }
         cfg.endpoints.push_back(std::move(endpoint));
     });
 
-    if (cfg.endpoints.empty())
-        parser.field_err("endpoints", "at least one endpoint is required");
+    if (enabled_count == 0)
+        parser.field_err(
+            "endpoints",
+            "at least one enabled endpoint is required"
+        );
 
     if (!parser.ok()) return {std::move(cfg), parser.error()};
 
@@ -238,6 +246,7 @@ std::pair<WriteTaskConfig, x::errors::Error> WriteTaskConfig::parse(
         ch_map[ch.key] = ch;
 
     for (auto &ep: cfg.endpoints) {
+        if (!ep.enabled) continue;
         auto it = ch_map.find(ep.channel.channel_key);
         if (it == ch_map.end()) {
             parser.field_err(
@@ -289,7 +298,8 @@ WriteTaskSink::WriteTaskSink(
     processor(std::move(processor)),
     base_requests(std::move(base_requests)) {
     for (size_t i = 0; i < this->cfg.endpoints.size(); i++)
-        channel_to_endpoint[this->cfg.endpoints[i].channel.channel_key] = i;
+        if (this->cfg.endpoints[i].enabled)
+            channel_to_endpoint[this->cfg.endpoints[i].channel.channel_key] = i;
 }
 
 x::errors::Error WriteTaskSink::write(x::telem::Frame &frame) {
