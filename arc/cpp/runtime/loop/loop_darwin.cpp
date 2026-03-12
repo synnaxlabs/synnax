@@ -184,6 +184,7 @@ private:
                 LOG(ERROR) << "[loop] kevent error: " << strerror(errno);
                 return WakeReason::Shutdown;
             }
+            std::this_thread::yield();
         }
         return WakeReason::Shutdown;
     }

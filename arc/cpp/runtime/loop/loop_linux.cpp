@@ -201,6 +201,7 @@ private:
                 LOG(ERROR) << "[loop] epoll_wait error: " << strerror(errno);
                 return WakeReason::Shutdown;
             }
+            std::this_thread::yield();
         }
         return WakeReason::Shutdown;
     }
