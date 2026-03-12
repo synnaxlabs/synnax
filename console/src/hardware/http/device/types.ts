@@ -172,7 +172,6 @@ const v0PropertiesZ = z.object({
   headers: z.record(z.string(), z.string()).optional(),
   queryParams: z.record(z.string(), z.string()).optional(),
   readIndexes: z.record(z.string(), channel.keyZ),
-  writeIndexes: z.record(z.string(), channel.keyZ).default({}),
 });
 
 const readEndpointPropsZ = z.object({
@@ -187,7 +186,7 @@ const v1PropertiesZ = v0PropertiesZ
   .extend({
     auth: authConfigZ,
     healthCheck: healthCheckZ.default(ZERO_HEALTH_CHECK),
-    writeIndexes: z.record(z.string(), channel.keyZ).default({}),
+    write: z.record(z.string(), channel.keyZ).default({}),
     read: z.record(z.string(), readEndpointPropsZ).default({}),
     version: z.literal(1),
   });
@@ -221,7 +220,7 @@ export const propertiesZ: z.ZodType<Properties> = v1PropertiesZ.or(
       read,
       version: 1,
       healthCheck: ZERO_HEALTH_CHECK,
-      writeIndexes: {},
+      write: {},
     } as const;
   }),
 );
@@ -232,7 +231,7 @@ export const ZERO_PROPERTIES = {
   timeoutMs: defaultTimeoutMs,
   auth: ZERO_AUTH_CONFIGS.none,
   healthCheck: ZERO_HEALTH_CHECK,
-  writeIndexes: {},
+  write: {},
   read: {},
   version: 1,
 } as const satisfies Properties;

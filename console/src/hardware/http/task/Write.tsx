@@ -9,7 +9,7 @@
 
 import "@/hardware/http/task/Write.css";
 
-import { channel } from "@synnaxlabs/client";
+import { channel, type Synnax as Client } from "@synnaxlabs/client";
 import {
   Button,
   Component,
@@ -38,6 +38,7 @@ import {
   WRITE_TYPE,
   type WriteEndpoint,
   type WriteField,
+  type WritePayload,
   type WriteSchemas,
   ZERO_WRITE_ENDPOINT,
   ZERO_WRITE_PAYLOAD,
@@ -568,17 +569,36 @@ const Form: FC<Common.Task.FormProps<WriteSchemas>> = () => {
   );
 };
 
-// ─── Configure Handler ───
-
 const getInitialValues: Common.Task.GetInitialValues<WriteSchemas> = ({
   deviceKey,
-}) => ({
-  ...ZERO_WRITE_PAYLOAD,
-  config: {
-    ...ZERO_WRITE_PAYLOAD.config,
-    device: deviceKey ?? ZERO_WRITE_PAYLOAD.config.device,
-  },
-});
+  config,
+}) => {
+  if (config != null) {
+    const pld: WritePayload = {
+      ...ZERO_WRITE_PAYLOAD,
+      config: WRITE_SCHEMAS.config.parse(config),
+    };
+    if (deviceKey != null) pld.config.device = deviceKey;
+    return pld;
+  }
+  const pld: WritePayload = { ...ZERO_WRITE_PAYLOAD };
+  if (deviceKey != null) pld.config = { ...pld.config, device: deviceKey };
+  return pld;
+};
+
+const retrieveChannel = async (
+  client: Client,
+  key: number,
+): Promise<channel.Channel | null> => {
+  try {
+    return await client.channels.retrieve(key);
+  } catch {
+    return null;
+  }
+};
+
+const channelExists = async (client: Client, key: number): Promise<boolean> =>
+  (await retrieveChannel(client, key)) != null;
 
 const onConfigure: Common.Task.OnConfigure<WriteSchemas["config"]> = async (
   client,
@@ -590,54 +610,49 @@ const onConfigure: Common.Task.OnConfigure<WriteSchemas["config"]> = async (
   });
   const safeDevName = channel.escapeInvalidName(dev.name);
   let modified = false;
-
-  // Ensure writeIndexes exists.
-  if (dev.properties.writeIndexes == null) {
-    dev.properties.writeIndexes = {};
-    modified = true;
-  }
-
-  for (const ep of config.endpoints) {
-    const ch = ep.channel;
-    if (ch.channel !== 0) continue;
-
-    const escapedPath = channel.escapeInvalidName(ep.path);
-    const indexName = `${safeDevName}_${escapedPath}_cmd_time`;
-    const cmdName = `${safeDevName}_${escapedPath}_cmd`;
-
-    // Check if we already have a write index for this endpoint path.
-    const existingIndex = dev.properties.writeIndexes[ep.path];
-    let indexKey: number;
-    if (primitive.isNonZero(existingIndex)) indexKey = existingIndex;
-    else {
-      const existing = await client.channels.retrieve({ names: [indexName] });
-      if (existing.length > 0) indexKey = existing[0].key;
-      else {
-        const newIndexCh = await client.channels.create({
-          name: indexName,
-          dataType: "timestamp",
-          isIndex: true,
-        });
-        indexKey = newIndexCh.key;
+  try {
+    for (const ep of config.endpoints) {
+      if (
+        ep.channel.channel !== 0 &&
+        (await channelExists(client, ep.channel.channel))
+      ) {
+        if (dev.properties.write[ep.path] === ep.channel.channel) continue;
+        dev.properties.write[ep.path] = ep.channel.channel;
+        modified = true;
+        continue;
       }
-      dev.properties.writeIndexes[ep.path] = indexKey;
+
+      const escapedPath = channel.escapeInvalidName(ep.path);
+
+      // Ensure the index channel exists for this endpoint.
+      const storedCmdChannel = dev.properties.write[ep.path];
+      if (
+        primitive.isNonZero(storedCmdChannel) &&
+        (await channelExists(client, storedCmdChannel))
+      ) {
+        ep.channel.channel = storedCmdChannel;
+        continue;
+      }
+
+      // no channel in either device or config, create a new one
+
+      const newIndexCh = await client.channels.create({
+        name: `${safeDevName}${escapedPath}_cmd_time`,
+        dataType: "timestamp",
+        isIndex: true,
+      });
+      const newCmdCh = await client.channels.create({
+        name: `${safeDevName}${escapedPath}_cmd`,
+        dataType: ep.channel.dataType,
+        index: newIndexCh.key,
+      });
+      ep.channel.channel = newCmdCh.key;
+      dev.properties.write[ep.path] = newCmdCh.key;
       modified = true;
     }
-
-    // Create or retrieve the command channel.
-    const existingCmd = await client.channels.retrieve({ names: [cmdName] });
-    if (existingCmd.length > 0) ch.channel = existingCmd[0].key;
-    else {
-      const newCh = await client.channels.create({
-        name: cmdName,
-        dataType: ch.dataType,
-        index: indexKey,
-      });
-      ch.channel = newCh.key;
-    }
+  } finally {
+    if (modified) await client.devices.create(dev, Device.SCHEMAS);
   }
-
-  if (modified) await client.devices.create(dev, Device.SCHEMAS);
   return [config, dev.rack];
 };
 

@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type task } from "@synnaxlabs/client";
+import { channel, type task } from "@synnaxlabs/client";
 import { DataType, json } from "@synnaxlabs/x";
 import { z } from "zod";
 
@@ -102,8 +102,6 @@ export const ZERO_READ_PAYLOAD = {
   type: "http_read",
 } as const satisfies ReadPayload;
 
-// ─── Write Task Types ───
-
 export const WRITE_TYPE = `${PREFIX}_write`;
 
 const jsonTypeZ = z.enum(["number", "string", "boolean"]);
@@ -111,8 +109,8 @@ const jsonTypeZ = z.enum(["number", "string", "boolean"]);
 const channelFieldZ = z.object({
   pointer: json.pointerZ,
   jsonType: jsonTypeZ,
-  channel: z.number().default(0),
-  dataType: z.string().default("float64"),
+  channel: channel.keyZ.default(0),
+  dataType: DataType.z.default(DataType.FLOAT64),
   timeFormat: timeFormatZ.optional(),
 });
 
@@ -122,7 +120,7 @@ export const ZERO_CHANNEL_FIELD = {
   pointer: "",
   jsonType: "number",
   channel: 0,
-  dataType: "float64",
+  dataType: DataType.FLOAT64,
 } as const satisfies ChannelField;
 
 const generatorTypeZ = z.enum(["uuid", "timestamp"]);
@@ -133,7 +131,7 @@ const staticFieldZ = z.object({
   pointer: json.pointerZ,
   jsonType: jsonTypeZ,
   type: z.literal("static"),
-  value: z.union([z.string(), z.number(), z.boolean(), z.null()]),
+  value: json.primitiveZ,
 });
 
 const generatedFieldZ = z.object({
@@ -154,6 +152,7 @@ const writeEndpointZ = z.object({
   path: z.string(),
   method: z.enum(["POST", "PUT", "PATCH"]),
   headers: z.record(z.string(), z.string()).optional(),
+  queryParams: z.record(z.string(), z.string()).optional(),
   channel: channelFieldZ,
   fields: z.array(writeFieldZ),
 });
@@ -199,8 +198,6 @@ export const ZERO_WRITE_PAYLOAD = {
   config: ZERO_WRITE_CONFIG,
   type: WRITE_TYPE,
 } as const satisfies WritePayload;
-
-// ─── Scan Task Types ───
 
 export const SCAN_TYPE = `${PREFIX}_scan`;
 

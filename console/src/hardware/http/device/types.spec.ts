@@ -30,7 +30,7 @@ describe("HTTP Device Properties", () => {
         timeoutMs: 500,
         auth: { type: "none" },
         healthCheck: ZERO_HEALTH_CHECK,
-        writeIndexes: {},
+        write: {},
         read: {},
         version: 1,
       };
@@ -45,7 +45,7 @@ describe("HTTP Device Properties", () => {
         timeoutMs: 100,
         auth: { type: "bearer", token: "my-token" },
         healthCheck: ZERO_HEALTH_CHECK,
-        writeIndexes: {},
+        write: {},
         read: {},
         version: 1,
       };
@@ -73,7 +73,7 @@ describe("HTTP Device Properties", () => {
         timeoutMs: 100,
         auth: { type: "basic", username: "user", password: "pass" },
         healthCheck: ZERO_HEALTH_CHECK,
-        writeIndexes: {},
+        write: {},
         read: {},
         version: 1,
       };
@@ -123,7 +123,7 @@ describe("HTTP Device Properties", () => {
           key: "secret",
         },
         healthCheck: ZERO_HEALTH_CHECK,
-        writeIndexes: {},
+        write: {},
         read: {},
         version: 1,
       };
@@ -161,7 +161,7 @@ describe("HTTP Device Properties", () => {
           key: "secret",
         },
         healthCheck: ZERO_HEALTH_CHECK,
-        writeIndexes: {},
+        write: {},
         read: {},
         version: 1,
       };
