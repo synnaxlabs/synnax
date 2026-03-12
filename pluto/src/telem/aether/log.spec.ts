@@ -275,6 +275,22 @@ describe("StreamMultiChannelLog", () => {
     expect(log.value()[3].value).toBe("4");
   });
 
+  it("should read all entries when multiple buffers arrive in a single callback", async () => {
+    const props: StreamMultiChannelLogProps = {
+      channels: [c.channelA.key],
+      timeSpan: TimeSpan.seconds(30),
+    };
+    const log = new StreamMultiChannelLog(c, props);
+    await waitForResolve(log);
+    // Simulate a burst that crosses two buffer boundaries in one callback.
+    const series1 = new Series({ data: new Float32Array([1, 2, 3]) });
+    const series2 = new Series({ data: new Float32Array([4, 5]) });
+    c.streamHandler?.(new Map([[c.channelA.key, new MultiSeries([series1, series2])]]));
+    const entries = log.value();
+    expect(entries).toHaveLength(5);
+    expect(entries.map((e) => e.value)).toEqual(["1", "2", "3", "4", "5"]);
+  });
+
   it("should not re-read entries when allocated is empty", async () => {
     const props: StreamMultiChannelLogProps = {
       channels: [c.channelA.key],

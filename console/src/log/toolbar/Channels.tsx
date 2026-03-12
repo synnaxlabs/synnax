@@ -43,7 +43,7 @@ export const Channels = ({ layoutKey }: ChannelsProps): ReactElement | null => {
           value={state.timestampPrecision}
           onChange={handlePrecisionChange}
           resetValue={0}
-          bounds={{ lower: 0, upper: 4 }}
+          bounds={{ lower: 0, upper: 4 }} // upper is exclusive; max value is 3
           disabled={!hasEditPermission}
         />
       </Input.Item>

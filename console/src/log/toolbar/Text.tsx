@@ -16,7 +16,7 @@ import { EmptyAction } from "@/components";
 import { CSS } from "@/css";
 import { useSyncComponent } from "@/log/Log";
 import { useSelectOptional } from "@/log/selectors";
-import { setChannelConfig, type ChannelConfig, ZERO_CHANNEL_CONFIG } from "@/log/slice";
+import { type ChannelConfig, setChannelConfig, ZERO_CHANNEL_CONFIG } from "@/log/slice";
 
 interface ChannelRowProps {
   itemKey: channel.Key;

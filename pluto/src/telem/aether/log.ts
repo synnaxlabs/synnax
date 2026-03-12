@@ -122,25 +122,35 @@ export class StreamMultiChannelLog
         const before = this.entries.length;
         for (const [channelKey, chMeta] of this.channelMeta) {
           const allocated = res.get(channelKey);
-          if (allocated != null && allocated.series.length > 0)
+          const isJSON = chMeta.dataType.equals(DataType.JSON);
+          const pushSamples = (buf: Series, start: number): void => {
+            for (let i = start; i < buf.length; i++) {
+              const raw = buf.at(i, true);
+              this.entries.push({
+                channelKey: chMeta.key,
+                channelName: chMeta.name,
+                channelPadding: chMeta.padding,
+                timestamp: now.valueOf(),
+                value: isJSON ? JSON.stringify(raw) : String(raw),
+              });
+            }
+          };
+          if (allocated != null && allocated.series.length > 0) {
+            // Drain the old leading buffer's unread tail before switching.
+            if (chMeta.leadingBuffer != null)
+              pushSamples(chMeta.leadingBuffer, chMeta.readCursor);
+            // Drain intermediate allocations (burst crossed multiple boundaries).
+            for (let s = 0; s < allocated.series.length - 1; s++)
+              pushSamples(allocated.series[s], 0);
             [chMeta.leadingBuffer, chMeta.readCursor] = [
               allocated.series[allocated.series.length - 1],
               0,
             ];
-          // Read every sample appended to the leading buffer since the last callback.
+          }
+          // Read newly written samples from the current leading buffer.
           const buf = chMeta.leadingBuffer;
           if (buf == null || buf.length <= chMeta.readCursor) continue;
-          const isJSON = chMeta.dataType.equals(DataType.JSON);
-          for (let i = chMeta.readCursor; i < buf.length; i++) {
-            const raw = buf.at(i, true);
-            this.entries.push({
-              channelKey: chMeta.key,
-              channelName: chMeta.name,
-              channelPadding: chMeta.padding,
-              timestamp: now.valueOf(),
-              value: isJSON ? JSON.stringify(raw) : String(raw),
-            });
-          }
+          pushSamples(buf, chMeta.readCursor);
           chMeta.readCursor = buf.length;
         }
         this.gcEntries();
