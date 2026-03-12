@@ -223,8 +223,7 @@ var _ = Describe("txn", func() {
 		})
 
 		It("Should not stall writes when an observer handler is slow", func() {
-			db, err := builder.New(ctx, kv.Config{}, cluster.Config{})
-			Expect(err).ToNot(HaveOccurred())
+			db := MustSucceed(builder.New(ctx, kv.Config{}, cluster.Config{}))
 
 			gate := make(chan struct{})
 			db.OnChange(func(ctx context.Context, r xkv.TxReader) {
