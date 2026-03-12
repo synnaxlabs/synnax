@@ -236,10 +236,8 @@ public:
     /// @param parent Optional ontology ID of the parent resource.
     /// @returns An error if the creation failed.
     [[nodiscard]]
-    x::errors::Error create(
-        Device &device,
-        const ontology::ID &parent = ontology::ID{}
-    ) const;
+    x::errors::Error
+    create(Device &device, const ontology::ID &parent = ontology::ID{}) const;
 
     /// @brief Creates multiple devices in the cluster.
     /// @param devs The devices to create. Will be updated with the assigned keys.
