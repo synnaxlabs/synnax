@@ -18,7 +18,7 @@ import { theming } from "@/theming/aether";
 import { Draw2D } from "@/vis/draw2d";
 import { render } from "@/vis/render";
 
-const channelConfigZ = z.object({
+export const channelConfigZ = z.object({
   color: z.string().default(""),
   precision: z.number().min(-1).max(17).default(-1),
 });

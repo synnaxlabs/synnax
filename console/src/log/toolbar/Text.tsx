@@ -26,7 +26,7 @@ interface ChannelRowProps {
   disabled: boolean;
 }
 
-const PRECISION_BOUNDS = { lower: -1, upper: 17 };
+const PRECISION_BOUNDS = { lower: -1, upper: 18 };
 
 const ChannelRow = ({
   itemKey: channelKey,

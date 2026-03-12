@@ -8,16 +8,13 @@
 // included in the file licenses/APL.txt.
 
 import { channel } from "@synnaxlabs/client";
+import { Log } from "@synnaxlabs/pluto";
 import { z } from "zod";
 
 const VERSION = "0.0.0";
 
-export const channelConfigZ = z.object({
-  color: z.string().default(""),
-  precision: z.number().min(-1).max(17).default(-1),
-});
-
-export type ChannelConfig = z.infer<typeof channelConfigZ>;
+export const { channelConfigZ } = Log;
+export type ChannelConfig = z.infer<typeof Log.channelConfigZ>;
 
 export const ZERO_CHANNEL_CONFIG: ChannelConfig = { color: "", precision: -1 };
 

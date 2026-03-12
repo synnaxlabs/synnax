@@ -369,6 +369,20 @@ describe("Input", () => {
 
       it("should not call onChange when dragging the drag handle while disabled", () => {
         const onChange = vi.fn();
+        // jsdom does not implement pointer capture APIs — define stubs so vi.spyOn
+        // has a property to intercept.
+        if (!HTMLElement.prototype.setPointerCapture)
+          Object.defineProperty(HTMLElement.prototype, "setPointerCapture", {
+            value: () => {},
+            writable: true,
+            configurable: true,
+          });
+        if (!HTMLElement.prototype.releasePointerCapture)
+          Object.defineProperty(HTMLElement.prototype, "releasePointerCapture", {
+            value: () => {},
+            writable: true,
+            configurable: true,
+          });
         vi.spyOn(HTMLElement.prototype, "setPointerCapture").mockImplementation(
           vi.fn(),
         );
