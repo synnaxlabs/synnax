@@ -601,6 +601,12 @@ const onConfigure: Common.Task.OnConfigure<ReadSchemas["config"]> = async (
     const devIndexKey = dev.properties.readIndexes[ep.path];
     if (primitive.isNonZero(devIndexKey)) continue;
 
+    // check if any non-timing field needs an index (i.e. has a fixed-length data type)
+    const needsIndex = ep.fields.some(
+      (f) => !isTimingField(f) && !new DataType(f.dataType).isVariable,
+    );
+    if (!needsIndex) continue;
+
     // we need to create an index channel for this endpoint.
     const newIndexCh = await client.channels.create({
       name: `${safeDevName}${channel.escapeInvalidName(ep.path)}_time`,
@@ -620,10 +626,11 @@ const onConfigure: Common.Task.OnConfigure<ReadSchemas["config"]> = async (
         field.channel = index;
         continue;
       }
+      const dt = new DataType(field.dataType);
       const newCh = await client.channels.create({
         name: `${safeDevName}_${channel.escapeInvalidName(ep.path + field.pointer)}`,
         dataType: field.dataType,
-        index,
+        ...(dt.isVariable ? { virtual: true } : { index }),
       });
       field.channel = newCh.key;
     }
