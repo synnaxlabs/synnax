@@ -195,12 +195,12 @@ var _ = Describe("ProgramState", func() {
 			Expect(fr.Get(0).Series).To(BeEmpty())
 		})
 
-		It("Should overwrite previous write in same cycle", func() {
+		It("Should accumulate multiple writes in same cycle", func() {
 			s.WriteValue(3, telem.NewSeriesV[int32](1))
 			s.WriteValue(3, telem.NewSeriesV[int32](2))
 			fr, _ := s.Flush(telem.Frame[uint32]{})
 			Expect(fr.Get(3).Series[0]).To(
-				telem.MatchSeries(telem.NewSeriesV[int32](2)),
+				telem.MatchSeries(telem.NewSeriesV[int32](1, 2)),
 			)
 		})
 
@@ -398,6 +398,39 @@ var _ = Describe("ProgramState", func() {
 			data, _, ok := s.ReadSeries(3)
 			Expect(ok).To(BeTrue())
 			Expect(data.Series).To(HaveLen(1))
+		})
+	})
+
+	Describe("WriteChannelFixed", func() {
+		It("Should write all fixed numeric types and auto-index timestamps", func() {
+			s.WriteChannelI32(1, 42)
+			fr, changed := s.Flush(telem.Frame[uint32]{})
+			Expect(changed).To(BeTrue())
+			Expect(fr.Get(1).Series).To(HaveLen(1))
+			Expect(telem.ValueAt[int32](fr.Get(1).Series[0], 0)).To(Equal(int32(42)))
+			Expect(fr.Get(2).Series).To(HaveLen(1))
+			Expect(fr.Get(2).Series[0].DataType).To(Equal(telem.TimeStampT))
+		})
+
+		It("Should not write index for channels without one", func() {
+			s.WriteChannelI32(3, 10)
+			fr, _ := s.Flush(telem.Frame[uint32]{})
+			Expect(fr.Get(3).Series).To(HaveLen(1))
+			Expect(fr.Get(0).Series).To(BeEmpty())
+		})
+	})
+
+	Describe("Write accumulation metadata", func() {
+		It("Should merge time ranges across multiple writes", func() {
+			ser1 := telem.NewSeriesV[int32](1)
+			ser1.TimeRange = telem.TimeRange{Start: 100, End: 200}
+			ser2 := telem.NewSeriesV[int32](2)
+			ser2.TimeRange = telem.TimeRange{Start: 50, End: 300}
+			s.WriteValue(3, ser1)
+			s.WriteValue(3, ser2)
+			fr, _ := s.Flush(telem.Frame[uint32]{})
+			Expect(fr.Get(3).Series[0].TimeRange.Start).To(Equal(telem.TimeStamp(50)))
+			Expect(fr.Get(3).Series[0].TimeRange.End).To(Equal(telem.TimeStamp(300)))
 		})
 	})
 
