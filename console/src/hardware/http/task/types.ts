@@ -154,7 +154,6 @@ const writeEndpointZ = z.object({
   path: z.string(),
   method: z.enum(["POST", "PUT", "PATCH"]),
   headers: z.record(z.string(), z.string()).optional(),
-  requestContentType: z.string().default("application/json"),
   channel: channelFieldZ,
   fields: z.array(writeFieldZ),
 });
@@ -166,7 +165,6 @@ export const ZERO_WRITE_ENDPOINT = {
   key: "",
   method: "POST",
   path: "",
-  requestContentType: "application/json",
   channel: ZERO_CHANNEL_FIELD,
   fields: [],
 } as const satisfies WriteEndpoint;

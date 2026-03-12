@@ -46,35 +46,28 @@ GeneratorType parse_generator_type(x::json::Parser &parser, const std::string &p
 /// @param ep the write endpoint configuration.
 /// @param sample_val the channel value as JSON.
 /// @returns the serialized JSON body string.
-std::pair<std::string, x::errors::Error>
-build_body(const WriteEndpoint &ep, const x::json::json &sample_val) {
-    // Bare primitive: if channel pointer is root and no other fields, body IS the
-    // value directly.
+std::string build_body(const WriteEndpoint &ep, const x::json::json &sample_val) {
+    // Bare primitive: if channel pointer is root and no other fields, body IS the value
+    // directly.
     if (ep.channel.pointer == x::json::json::json_pointer("") &&
-        ep.static_fields.empty() && ep.generated_fields.empty()) {
-        return {sample_val.dump(), x::errors::NIL};
-    }
+        ep.static_fields.empty() && ep.generated_fields.empty())
+        return sample_val.dump();
 
     x::json::json body;
-
-    // Place channel value.
     body[ep.channel.pointer] = sample_val;
 
-    // Place static fields.
     for (const auto &sf: ep.static_fields)
         body[sf.pointer] = sf.value;
 
-    // Place generated fields.
     const auto now = x::telem::TimeStamp::now();
     for (const auto &gf: ep.generated_fields) {
-        if (gf.generator == GeneratorType::UUID) {
+        if (gf.generator == GeneratorType::UUID)
             body[gf.pointer] = x::uuid::create().to_string();
-        } else {
+        else
             body[gf.pointer] = x::json::from_timestamp(now, gf.time_format);
-        }
     }
 
-    return {body.dump(), x::errors::NIL};
+    return body.dump();
 }
 }
 
@@ -89,26 +82,17 @@ std::pair<WriteTaskConfig, x::errors::Error> WriteTaskConfig::parse(
 
     std::set<std::string> all_pointers;
 
-    size_t enabled_count = 0;
+    bool some_enabled = false;
     parser.iter("endpoints", [&](x::json::Parser &ep) {
         WriteEndpoint endpoint;
         endpoint.enabled = ep.field<bool>("enabled", true);
         endpoint.request.method = parse_method(ep, "method");
         endpoint.request.path = ep.field<std::string>("path");
-        endpoint.request.request_content_type = ep.field<std::string>(
-            "request_content_type",
-            "application/json"
-        );
+        endpoint.request.request_content_type = "application/json";
         endpoint.request.headers = ep.field<std::map<std::string, std::string>>(
             "headers",
             std::map<std::string, std::string>{}
         );
-
-        const auto method = endpoint.request.method;
-        if (method != Method::POST && method != Method::PUT &&
-            method != Method::PATCH) {
-            ep.field_err("method", "write tasks only support POST, PUT, or PATCH");
-        }
 
         all_pointers.clear();
 
@@ -189,13 +173,13 @@ std::pair<WriteTaskConfig, x::errors::Error> WriteTaskConfig::parse(
         }
 
         if (endpoint.enabled) {
-            enabled_count++;
+            some_enabled = true;
             cfg.cmd_keys.push_back(endpoint.channel.channel_key);
         }
         cfg.endpoints.push_back(std::move(endpoint));
     });
 
-    if (enabled_count == 0)
+    if (!some_enabled)
         parser.field_err("endpoints", "at least one enabled endpoint is required");
 
     if (!parser.ok()) return {std::move(cfg), parser.error()};
@@ -302,42 +286,17 @@ x::errors::Error WriteTaskSink::write(x::telem::Frame &frame) {
             );
         }
 
-        auto [body, body_err] = build_body(ep, json_val);
-        if (body_err) return body_err;
-
         auto req = base_requests[ep_idx];
-        req.body = std::move(body);
+        req.body = build_body(ep, json_val);
         requests.push_back(std::move(req));
         ep_indices.push_back(ep_idx);
     }
 
     if (requests.empty()) return x::errors::NIL;
 
-    // Fast path: single request doesn't need the batch overload.
-    if (requests.size() == 1) {
-        const auto ep_idx = ep_indices[0];
-        const auto &ep = cfg.endpoints[ep_idx];
-        auto [resp, req_err] = processor->execute(requests[0]);
-        if (req_err)
-            return {
-                req_err.type,
-                std::string(to_string(ep.request.method)) + " " +
-                    base_requests[ep_idx].url + ": " + req_err.data,
-            };
-        if (auto status_err = errors::from_status(resp.status_code); status_err) {
-            auto msg = std::string(to_string(ep.request.method)) + " " +
-                       base_requests[ep_idx].url + " returned " +
-                       std::to_string(resp.status_code);
-            if (!resp.body.empty()) msg += ": " + resp.body;
-            return {status_err.type, msg};
-        }
-        return x::errors::NIL;
-    }
-
-    // Second pass: execute all requests in parallel.
     auto results = processor->execute(requests);
 
-    // Third pass: check results and return the first error.
+    // Check results and return the first error.
     for (size_t i = 0; i < results.size(); i++) {
         const auto ep_idx = ep_indices[i];
         const auto &ep = cfg.endpoints[ep_idx];
@@ -375,10 +334,8 @@ std::pair<common::ConfigureResult, x::errors::Error> configure_write(
 
     std::vector<Request> base_requests;
     base_requests.reserve(cfg.endpoints.size());
-    for (auto ep: cfg.endpoints) {
-        ep.request.request_content_type = "application/json";
+    for (const auto &ep: cfg.endpoints)
         base_requests.push_back(device::build_request(conn, ep.request));
-    }
 
     const bool auto_start = cfg.auto_start;
     auto sink = std::make_unique<WriteTaskSink>(
