@@ -18,7 +18,6 @@ import (
 	"github.com/synnaxlabs/x/kv"
 	"github.com/synnaxlabs/x/kv/memkv"
 	"github.com/synnaxlabs/x/observe"
-	. "github.com/synnaxlabs/x/testutil"
 )
 
 type dataStruct struct {
@@ -42,11 +41,12 @@ var _ = Describe("Flush", func() {
 		o.Notify(ctx, dataStruct{Value: []byte("world")})
 
 		Eventually(func(g Gomega) {
-			b, closer := MustSucceed2(db.Get(ctx, []byte("key")))
+			b, closer, err := db.Get(ctx, []byte("key"))
+			g.Expect(err).ToNot(HaveOccurred())
 			var ds dataStruct
 			g.Expect(ecd.Decode(ctx, b, &ds)).To(Succeed())
 			g.Expect(ds.Value).To(Equal([]byte("hello")))
-			Expect(closer.Close()).To(Succeed())
+			g.Expect(closer.Close()).To(Succeed())
 		}).Should(Succeed())
 	})
 })
