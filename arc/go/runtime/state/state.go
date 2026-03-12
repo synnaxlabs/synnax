@@ -81,6 +81,7 @@ type State struct {
 	// these are NOT cleared by Flush — handles are stable for the State lifetime.
 	configStrings             map[uint32]string
 	configStringHandleCounter uint32
+	Clock                     telem.MonoClock
 }
 
 // ChannelDigest provides metadata about a channel for state initialization.
@@ -597,7 +598,7 @@ func (s *State) WriteChannelF64(key uint32, value float64) {
 func (s *State) writeIndexedTimestamp(key uint32) {
 	idx := s.indexes[key]
 	if idx != 0 {
-		appendFixedWriteSample(s, idx, telem.Now())
+		appendFixedWriteSample(s, idx, s.Clock.Now())
 	}
 }
 
