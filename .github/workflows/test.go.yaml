@@ -51,19 +51,11 @@ jobs:
         if: matrix.fmt
         run: scripts/check_gofmt.sh ${{ inputs.directory }}
 
-      - name: Install golangci-lint
+      - name: Lint
         if: matrix.fmt
         uses: golangci/golangci-lint-action@v9
         with:
-          install-only: true
-
-      - name: Build custom golangci-lint
-        if: matrix.fmt
-        run: golangci-lint custom
-
-      - name: Lint
-        if: matrix.fmt
-        run: ./custom-gcl run ${{ inputs.directory }}/...
+          working-directory: ${{ inputs.directory }}
 
       - name: Test
         run: >-
