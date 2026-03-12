@@ -34,10 +34,7 @@ x::json::Type parse_json_type(x::json::Parser &parser, const std::string &path) 
 /// @param parser the JSON parser.
 /// @param path the field path.
 /// @returns the parsed GeneratorType.
-GeneratorType parse_generator_type(
-    x::json::Parser &parser,
-    const std::string &path
-) {
+GeneratorType parse_generator_type(x::json::Parser &parser, const std::string &path) {
     const auto str = parser.field<std::string>(path);
     if (str == "uuid") return GeneratorType::UUID;
     if (str == "timestamp") return GeneratorType::Timestamp;
@@ -119,10 +116,7 @@ std::pair<WriteTaskConfig, x::errors::Error> WriteTaskConfig::parse(
         const auto method = endpoint.request.method;
         if (method != Method::POST && method != Method::PUT &&
             method != Method::PATCH) {
-            ep.field_err(
-                "method",
-                "write tasks only support POST, PUT, or PATCH"
-            );
+            ep.field_err("method", "write tasks only support POST, PUT, or PATCH");
         }
 
         all_pointers.clear();
@@ -133,9 +127,7 @@ std::pair<WriteTaskConfig, x::errors::Error> WriteTaskConfig::parse(
             ch_parser.field<std::string>("pointer")
         );
         endpoint.channel.json_type = parse_json_type(ch_parser, "json_type");
-        endpoint.channel.channel_key = ch_parser.field<synnax::channel::Key>(
-            "channel"
-        );
+        endpoint.channel.channel_key = ch_parser.field<synnax::channel::Key>("channel");
 
         const auto ch_ptr_str = endpoint.channel.pointer.to_string();
         all_pointers.insert(ch_ptr_str);
@@ -213,17 +205,13 @@ std::pair<WriteTaskConfig, x::errors::Error> WriteTaskConfig::parse(
                     );
                 endpoint.generated_fields.push_back(std::move(gf));
             } else {
-                fp.field_err(
-                    "type",
-                    "unknown field type '" + type + "'"
-                );
+                fp.field_err("type", "unknown field type '" + type + "'");
             }
         });
 
         // Validate bare primitive: if channel pointer is root, no other fields.
         if (endpoint.channel.pointer == x::json::json::json_pointer("") &&
-            (!endpoint.static_fields.empty() ||
-             !endpoint.generated_fields.empty() ||
+            (!endpoint.static_fields.empty() || !endpoint.generated_fields.empty() ||
              endpoint.channel.time_config.has_value())) {
             ep.field_err(
                 "channel",
@@ -264,7 +252,8 @@ std::pair<WriteTaskConfig, x::errors::Error> WriteTaskConfig::parse(
         if (auto conv_err = x::json::check_from_sample_value(
                 ch.data_type,
                 ep.channel.json_type
-            ); conv_err) {
+            );
+            conv_err) {
             parser.field_err(
                 "endpoints",
                 "channel " + ch.name + " (type " + ch.data_type.name() +
@@ -277,8 +266,7 @@ std::pair<WriteTaskConfig, x::errors::Error> WriteTaskConfig::parse(
             !ep.channel.time_format.has_value()) {
             parser.field_err(
                 "endpoints",
-                "channel " + ch.name +
-                    " is a timestamp channel but has no time_format"
+                "channel " + ch.name + " is a timestamp channel but has no time_format"
             );
         }
 
@@ -322,8 +310,8 @@ x::errors::Error WriteTaskSink::write(x::telem::Frame &frame) {
         if (conv_err)
             return {
                 conv_err.type,
-                "failed to convert value for endpoint " + ep.request.path +
-                    ": " + conv_err.data,
+                "failed to convert value for endpoint " + ep.request.path + ": " +
+                    conv_err.data,
             };
 
         // If the channel is a timestamp type, format it.
@@ -345,9 +333,8 @@ x::errors::Error WriteTaskSink::write(x::telem::Frame &frame) {
         }
 
         // Determine the timestamp for time_config and generated timestamp fields.
-        auto ts = ep.virtual_index
-                      ? x::telem::TimeStamp::now()
-                      : x::telem::TimeStamp::now();
+        auto ts = ep.virtual_index ? x::telem::TimeStamp::now()
+                                   : x::telem::TimeStamp::now();
 
         // Build the request body.
         auto [body, body_err] = build_body(ep, json_val, ts);

@@ -12,7 +12,6 @@
 
 #include "gtest/gtest.h"
 
-#include "client/cpp/testutil/testutil.h"
 #include "x/cpp/defer/defer.h"
 #include "x/cpp/test/test.h"
 
@@ -24,10 +23,8 @@
 namespace driver::http {
 namespace {
 /// @brief helper to build a WriteTaskSink from config and a mock server URL.
-std::pair<std::unique_ptr<WriteTaskSink>, std::shared_ptr<Processor>> make_sink(
-    WriteTaskConfig &cfg,
-    const std::string &base_url
-) {
+std::pair<std::unique_ptr<WriteTaskSink>, std::shared_ptr<Processor>>
+make_sink(WriteTaskConfig &cfg, const std::string &base_url) {
     auto conn_json = x::json::json{
         {"base_url", base_url},
         {"timeout_ms", 1000},
@@ -116,8 +113,7 @@ TEST(HTTPWriteTask, ParseConfigBarePrimitiveWithAdditionalFields) {
          {{
              {"method", "POST"},
              {"path", "/api/data"},
-             {"channel",
-              {{"pointer", ""}, {"json_type", "number"}, {"channel", 1}}},
+             {"channel", {{"pointer", ""}, {"json_type", "number"}, {"channel", 1}}},
              {"fields",
               {{
                   {"type", "static"},
@@ -135,14 +131,16 @@ TEST(HTTPWriteTask, ParseConfigBarePrimitiveWithAdditionalFields) {
 
 /// @brief it should POST a numeric channel value to the server.
 TEST(HTTPWriteTask, POSTNumericValue) {
-    mock::Server server(mock::ServerConfig{
-        .routes = {{
-            .method = Method::POST,
-            .path = "/api/control",
-            .status_code = 200,
-            .response_body = R"({"status":"ok"})",
-        }},
-    });
+    mock::Server server(
+        mock::ServerConfig{
+            .routes = {{
+                .method = Method::POST,
+                .path = "/api/control",
+                .status_code = 200,
+                .response_body = R"({"status":"ok"})",
+            }},
+        }
+    );
     ASSERT_NIL(server.start());
     x::defer::defer stop_server([&server] { server.stop(); });
 
@@ -164,10 +162,7 @@ TEST(HTTPWriteTask, POSTNumericValue) {
     auto [sink, processor] = make_sink(cfg, server.base_url());
 
     x::telem::Frame frame;
-    frame.emplace(
-        synnax::channel::Key(1),
-        x::telem::Series(std::vector<double>{42.5})
-    );
+    frame.emplace(synnax::channel::Key(1), x::telem::Series(std::vector<double>{42.5}));
 
     ASSERT_NIL(sink->write(frame));
 
@@ -181,14 +176,16 @@ TEST(HTTPWriteTask, POSTNumericValue) {
 
 /// @brief it should PUT a string channel value to the server.
 TEST(HTTPWriteTask, PUTStringValue) {
-    mock::Server server(mock::ServerConfig{
-        .routes = {{
-            .method = Method::PUT,
-            .path = "/api/setpoint",
-            .status_code = 200,
-            .response_body = R"({"status":"ok"})",
-        }},
-    });
+    mock::Server server(
+        mock::ServerConfig{
+            .routes = {{
+                .method = Method::PUT,
+                .path = "/api/setpoint",
+                .status_code = 200,
+                .response_body = R"({"status":"ok"})",
+            }},
+        }
+    );
     ASSERT_NIL(server.start());
     x::defer::defer stop_server([&server] { server.stop(); });
 
@@ -210,10 +207,7 @@ TEST(HTTPWriteTask, PUTStringValue) {
     auto [sink, processor] = make_sink(cfg, server.base_url());
 
     x::telem::Frame frame;
-    frame.emplace(
-        synnax::channel::Key(1),
-        x::telem::Series(std::string("ON"))
-    );
+    frame.emplace(synnax::channel::Key(1), x::telem::Series(std::string("ON")));
 
     ASSERT_NIL(sink->write(frame));
 
@@ -225,14 +219,16 @@ TEST(HTTPWriteTask, PUTStringValue) {
 
 /// @brief it should send a bare primitive body when channel pointer is root.
 TEST(HTTPWriteTask, BarePrimitiveBody) {
-    mock::Server server(mock::ServerConfig{
-        .routes = {{
-            .method = Method::PUT,
-            .path = "/api/setpoint",
-            .status_code = 200,
-            .response_body = R"({"status":"ok"})",
-        }},
-    });
+    mock::Server server(
+        mock::ServerConfig{
+            .routes = {{
+                .method = Method::PUT,
+                .path = "/api/setpoint",
+                .status_code = 200,
+                .response_body = R"({"status":"ok"})",
+            }},
+        }
+    );
     ASSERT_NIL(server.start());
     x::defer::defer stop_server([&server] { server.stop(); });
 
@@ -254,10 +250,7 @@ TEST(HTTPWriteTask, BarePrimitiveBody) {
     auto [sink, processor] = make_sink(cfg, server.base_url());
 
     x::telem::Frame frame;
-    frame.emplace(
-        synnax::channel::Key(1),
-        x::telem::Series(std::vector<double>{99.0})
-    );
+    frame.emplace(synnax::channel::Key(1), x::telem::Series(std::vector<double>{99.0}));
 
     ASSERT_NIL(sink->write(frame));
 
@@ -268,14 +261,16 @@ TEST(HTTPWriteTask, BarePrimitiveBody) {
 
 /// @brief it should include static fields in the request body.
 TEST(HTTPWriteTask, StaticFields) {
-    mock::Server server(mock::ServerConfig{
-        .routes = {{
-            .method = Method::POST,
-            .path = "/api/control",
-            .status_code = 200,
-            .response_body = R"({"status":"ok"})",
-        }},
-    });
+    mock::Server server(
+        mock::ServerConfig{
+            .routes = {{
+                .method = Method::POST,
+                .path = "/api/control",
+                .status_code = 200,
+                .response_body = R"({"status":"ok"})",
+            }},
+        }
+    );
     ASSERT_NIL(server.start());
     x::defer::defer stop_server([&server] { server.stop(); });
 
@@ -301,10 +296,7 @@ TEST(HTTPWriteTask, StaticFields) {
     auto [sink, processor] = make_sink(cfg, server.base_url());
 
     x::telem::Frame frame;
-    frame.emplace(
-        synnax::channel::Key(1),
-        x::telem::Series(std::vector<double>{10.0})
-    );
+    frame.emplace(synnax::channel::Key(1), x::telem::Series(std::vector<double>{10.0}));
 
     ASSERT_NIL(sink->write(frame));
 
@@ -317,14 +309,16 @@ TEST(HTTPWriteTask, StaticFields) {
 
 /// @brief it should include a generated UUID field.
 TEST(HTTPWriteTask, GeneratedUUIDField) {
-    mock::Server server(mock::ServerConfig{
-        .routes = {{
-            .method = Method::POST,
-            .path = "/api/control",
-            .status_code = 200,
-            .response_body = R"({"status":"ok"})",
-        }},
-    });
+    mock::Server server(
+        mock::ServerConfig{
+            .routes = {{
+                .method = Method::POST,
+                .path = "/api/control",
+                .status_code = 200,
+                .response_body = R"({"status":"ok"})",
+            }},
+        }
+    );
     ASSERT_NIL(server.start());
     x::defer::defer stop_server([&server] { server.stop(); });
 
@@ -350,10 +344,7 @@ TEST(HTTPWriteTask, GeneratedUUIDField) {
     auto [sink, processor] = make_sink(cfg, server.base_url());
 
     x::telem::Frame frame;
-    frame.emplace(
-        synnax::channel::Key(1),
-        x::telem::Series(std::vector<double>{5.0})
-    );
+    frame.emplace(synnax::channel::Key(1), x::telem::Series(std::vector<double>{5.0}));
 
     ASSERT_NIL(sink->write(frame));
 
@@ -362,22 +353,22 @@ TEST(HTTPWriteTask, GeneratedUUIDField) {
     auto body = x::json::json::parse(reqs[0].body);
     EXPECT_TRUE(body.contains("request_id"));
     // Validate UUID v4 format.
-    std::regex uuid_re(
-        "[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}"
-    );
+    std::regex uuid_re("[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}");
     EXPECT_TRUE(std::regex_match(body["request_id"].get<std::string>(), uuid_re));
 }
 
 /// @brief it should return an error on 4xx responses.
 TEST(HTTPWriteTask, Error4xxResponse) {
-    mock::Server server(mock::ServerConfig{
-        .routes = {{
-            .method = Method::POST,
-            .path = "/api/control",
-            .status_code = 400,
-            .response_body = R"({"error":"bad request"})",
-        }},
-    });
+    mock::Server server(
+        mock::ServerConfig{
+            .routes = {{
+                .method = Method::POST,
+                .path = "/api/control",
+                .status_code = 400,
+                .response_body = R"({"error":"bad request"})",
+            }},
+        }
+    );
     ASSERT_NIL(server.start());
     x::defer::defer stop_server([&server] { server.stop(); });
 
@@ -399,10 +390,7 @@ TEST(HTTPWriteTask, Error4xxResponse) {
     auto [sink, processor] = make_sink(cfg, server.base_url());
 
     x::telem::Frame frame;
-    frame.emplace(
-        synnax::channel::Key(1),
-        x::telem::Series(std::vector<double>{42.0})
-    );
+    frame.emplace(synnax::channel::Key(1), x::telem::Series(std::vector<double>{42.0}));
 
     auto err = sink->write(frame);
     ASSERT_OCCURRED_AS(err, errors::CRITICAL_ERROR);
@@ -410,14 +398,16 @@ TEST(HTTPWriteTask, Error4xxResponse) {
 
 /// @brief it should return a temporary error on 5xx responses.
 TEST(HTTPWriteTask, Error5xxResponse) {
-    mock::Server server(mock::ServerConfig{
-        .routes = {{
-            .method = Method::POST,
-            .path = "/api/control",
-            .status_code = 500,
-            .response_body = R"({"error":"internal error"})",
-        }},
-    });
+    mock::Server server(
+        mock::ServerConfig{
+            .routes = {{
+                .method = Method::POST,
+                .path = "/api/control",
+                .status_code = 500,
+                .response_body = R"({"error":"internal error"})",
+            }},
+        }
+    );
     ASSERT_NIL(server.start());
     x::defer::defer stop_server([&server] { server.stop(); });
 
@@ -439,10 +429,7 @@ TEST(HTTPWriteTask, Error5xxResponse) {
     auto [sink, processor] = make_sink(cfg, server.base_url());
 
     x::telem::Frame frame;
-    frame.emplace(
-        synnax::channel::Key(1),
-        x::telem::Series(std::vector<double>{42.0})
-    );
+    frame.emplace(synnax::channel::Key(1), x::telem::Series(std::vector<double>{42.0}));
 
     auto err = sink->write(frame);
     ASSERT_OCCURRED_AS(err, errors::TEMPORARY_ERROR);
@@ -450,22 +437,24 @@ TEST(HTTPWriteTask, Error5xxResponse) {
 
 /// @brief it should fire multiple endpoints independently.
 TEST(HTTPWriteTask, MultipleEndpointsFireIndependently) {
-    mock::Server server(mock::ServerConfig{
-        .routes = {
-            {
-                .method = Method::POST,
-                .path = "/api/temp",
-                .status_code = 200,
-                .response_body = R"({"status":"ok"})",
+    mock::Server server(
+        mock::ServerConfig{
+            .routes = {
+                {
+                    .method = Method::POST,
+                    .path = "/api/temp",
+                    .status_code = 200,
+                    .response_body = R"({"status":"ok"})",
+                },
+                {
+                    .method = Method::PUT,
+                    .path = "/api/pressure",
+                    .status_code = 200,
+                    .response_body = R"({"status":"ok"})",
+                },
             },
-            {
-                .method = Method::PUT,
-                .path = "/api/pressure",
-                .status_code = 200,
-                .response_body = R"({"status":"ok"})",
-            },
-        },
-    });
+        }
+    );
     ASSERT_NIL(server.start());
     x::defer::defer stop_server([&server] { server.stop(); });
 
@@ -496,10 +485,7 @@ TEST(HTTPWriteTask, MultipleEndpointsFireIndependently) {
 
     // Send command to only the first endpoint.
     x::telem::Frame frame;
-    frame.emplace(
-        synnax::channel::Key(1),
-        x::telem::Series(std::vector<double>{25.0})
-    );
+    frame.emplace(synnax::channel::Key(1), x::telem::Series(std::vector<double>{25.0}));
 
     ASSERT_NIL(sink->write(frame));
 
@@ -510,14 +496,16 @@ TEST(HTTPWriteTask, MultipleEndpointsFireIndependently) {
 
 /// @brief it should PATCH with a boolean channel value.
 TEST(HTTPWriteTask, PATCHBooleanValue) {
-    mock::Server server(mock::ServerConfig{
-        .routes = {{
-            .method = Method::PATCH,
-            .path = "/api/config",
-            .status_code = 200,
-            .response_body = R"({"status":"ok"})",
-        }},
-    });
+    mock::Server server(
+        mock::ServerConfig{
+            .routes = {{
+                .method = Method::PATCH,
+                .path = "/api/config",
+                .status_code = 200,
+                .response_body = R"({"status":"ok"})",
+            }},
+        }
+    );
     ASSERT_NIL(server.start());
     x::defer::defer stop_server([&server] { server.stop(); });
 
@@ -539,10 +527,7 @@ TEST(HTTPWriteTask, PATCHBooleanValue) {
     auto [sink, processor] = make_sink(cfg, server.base_url());
 
     x::telem::Frame frame;
-    frame.emplace(
-        synnax::channel::Key(1),
-        x::telem::Series(std::vector<uint8_t>{1})
-    );
+    frame.emplace(synnax::channel::Key(1), x::telem::Series(std::vector<uint8_t>{1}));
 
     ASSERT_NIL(sink->write(frame));
 

@@ -18,7 +18,6 @@
 
 #include "x/cpp/json/convert.h"
 #include "x/cpp/json/json.h"
-#include "x/cpp/telem/telem.h"
 
 #include "driver/common/write_task.h"
 #include "driver/http/http.h"
