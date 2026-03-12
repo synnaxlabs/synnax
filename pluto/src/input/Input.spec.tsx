@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { fireEvent, render } from "@testing-library/react";
-import { describe, expect, it, vi } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import { Input } from "@/input";
 
@@ -355,16 +355,35 @@ describe("Input", () => {
     });
 
     describe("disabled", () => {
-      it("should not show drag handle when disabled", () => {
+      it("should still show drag handle when disabled", () => {
         const c = render(<Input.Numeric value={0} onChange={vi.fn()} disabled />);
-        const dragButton = c.container.querySelector(".pluto-input-drag-button");
-        expect(dragButton).not.toBeTruthy();
+        const dragButton = c.container.querySelector(".pluto-input__drag-btn");
+        expect(dragButton).toBeTruthy();
       });
 
       it("should disable the input when disabled is true", () => {
         const c = render(<Input.Numeric value={0} onChange={vi.fn()} disabled />);
         const input = c.getByRole("textbox") as HTMLInputElement;
         expect(input.disabled).toBe(true);
+      });
+
+      it("should not call onChange when dragging the drag handle while disabled", () => {
+        const onChange = vi.fn();
+        vi.spyOn(HTMLElement.prototype, "setPointerCapture").mockImplementation(
+          vi.fn(),
+        );
+        vi.spyOn(HTMLElement.prototype, "releasePointerCapture").mockImplementation(
+          vi.fn(),
+        );
+        const c = render(<Input.Numeric value={5} onChange={onChange} disabled />);
+        const dragBtn = c.container.querySelector(
+          ".pluto-input__drag-btn",
+        ) as HTMLElement;
+        expect(dragBtn).toBeTruthy();
+        fireEvent.pointerDown(dragBtn, { pointerId: 1, clientX: 0, clientY: 0 });
+        fireEvent.pointerMove(dragBtn, { clientX: 200, clientY: 0 });
+        fireEvent.pointerUp(dragBtn, { pointerId: 1, clientX: 200, clientY: 0 });
+        expect(onChange).not.toHaveBeenCalled();
       });
     });
 
@@ -373,7 +392,15 @@ describe("Input", () => {
         const c = render(
           <Input.Numeric value={0} onChange={vi.fn()} showDragHandle={false} />,
         );
-        const dragButton = c.container.querySelector(".pluto-input-drag-button");
+        const dragButton = c.container.querySelector(".pluto-input__drag-btn");
+        expect(dragButton).not.toBeTruthy();
+      });
+
+      it("should hide drag handle when variant is preview", () => {
+        const c = render(
+          <Input.Numeric value={0} onChange={vi.fn()} variant="preview" />,
+        );
+        const dragButton = c.container.querySelector(".pluto-input__drag-btn");
         expect(dragButton).not.toBeTruthy();
       });
     });

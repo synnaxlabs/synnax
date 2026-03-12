@@ -36,9 +36,7 @@ const streamMultiChannelLogPropsZ = z.object({
   keepFor: TimeSpan.z.optional(),
 });
 
-export type StreamMultiChannelLogProps = z.input<
-  typeof streamMultiChannelLogPropsZ
->;
+export type StreamMultiChannelLogProps = z.input<typeof streamMultiChannelLogPropsZ>;
 
 interface ChannelMeta {
   key: channel.Key;
@@ -151,9 +149,7 @@ export class StreamMultiChannelLog
       this.notify();
     } catch (e) {
       this.valid = false;
-      this.onStatusChange?.(
-        xstatus.fromException(e, "failed to stream log channels"),
-      );
+      this.onStatusChange?.(xstatus.fromException(e, "failed to stream log channels"));
     }
   }
 

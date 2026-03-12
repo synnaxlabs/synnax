@@ -84,6 +84,7 @@ const Loaded: Layout.Renderer = ({ layoutKey, visible }) => {
       // renderer via state, avoiding a per-frame O(n) scan over all log entries.
       multiChannel={activeChannels.length > 1}
       timestampPrecision={log.timestampPrecision}
+      channelConfigs={log.channelConfigs}
       onDoubleClick={handleDoubleClick}
       emptyContent={
         <EmptyAction

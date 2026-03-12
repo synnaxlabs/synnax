@@ -12,12 +12,22 @@ import { z } from "zod";
 
 const VERSION = "0.0.0";
 
+export const channelConfigZ = z.object({
+  color: z.string().default(""),
+  precision: z.number().min(-1).max(17).default(-1),
+});
+
+export type ChannelConfig = z.infer<typeof channelConfigZ>;
+
+export const ZERO_CHANNEL_CONFIG: ChannelConfig = { color: "", precision: -1 };
+
 export const stateZ = z.object({
   key: z.string(),
   version: z.literal(VERSION),
   channels: channel.keyZ.array(),
   remoteCreated: z.boolean(),
   timestampPrecision: z.number().min(0).max(3).default(0),
+  channelConfigs: z.record(z.string(), channelConfigZ).default({}),
 });
 
 export type State = z.infer<typeof stateZ>;
@@ -28,6 +38,7 @@ export const ZERO_STATE: State = {
   channels: [],
   remoteCreated: false,
   timestampPrecision: 0,
+  channelConfigs: {},
 };
 
 export const sliceStateZ = z.object({

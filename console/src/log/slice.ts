@@ -14,6 +14,8 @@ import * as latest from "@/log/types";
 
 export type State = latest.State;
 export type SliceState = latest.SliceState;
+export type ChannelConfig = latest.ChannelConfig;
+export const ZERO_CHANNEL_CONFIG = latest.ZERO_CHANNEL_CONFIG;
 export const stateZ = latest.stateZ;
 export const ZERO_SLICE_STATE = latest.ZERO_SLICE_STATE;
 export const ZERO_STATE = latest.ZERO_STATE;
@@ -34,6 +36,12 @@ export interface SetChannelsPayload {
 export interface SetTimestampPrecisionPayload {
   key: string;
   timestampPrecision: number;
+}
+
+export interface SetChannelConfigPayload {
+  key: string;
+  channelKey: channel.Key;
+  config: Partial<ChannelConfig>;
 }
 
 export interface SetRemoteCreatedPayload {
@@ -61,6 +69,15 @@ export const { actions, reducer } = createSlice({
     ) => {
       state.logs[payload.key].timestampPrecision = payload.timestampPrecision;
     },
+    setChannelConfig: (state, { payload }: PayloadAction<SetChannelConfigPayload>) => {
+      const logState = state.logs[payload.key];
+      const existing =
+        logState.channelConfigs[String(payload.channelKey)] ?? ZERO_CHANNEL_CONFIG;
+      logState.channelConfigs[String(payload.channelKey)] = {
+        ...existing,
+        ...payload.config,
+      };
+    },
     setRemoteCreated: (state, { payload }: PayloadAction<SetRemoteCreatedPayload>) => {
       state.logs[payload.key].remoteCreated = true;
     },
@@ -74,6 +91,7 @@ export const {
   create: internalCreate,
   setChannels,
   setTimestampPrecision,
+  setChannelConfig,
   setRemoteCreated,
   remove,
 } = actions;

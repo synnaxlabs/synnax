@@ -7,13 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import {
-  box,
-  color,
-  type destructor,
-  TimeStamp,
-  xy,
-} from "@synnaxlabs/x";
+import { box, color, type destructor, TimeStamp, xy } from "@synnaxlabs/x";
 import { z } from "zod";
 
 import { aether } from "@/aether/aether";
@@ -24,6 +18,11 @@ import { theming } from "@/theming/aether";
 import { Draw2D } from "@/vis/draw2d";
 import { render } from "@/vis/render";
 
+const channelConfigZ = z.object({
+  color: z.string().default(""),
+  precision: z.number().min(-1).max(17).default(-1),
+});
+
 export const logState = z.object({
   region: box.box,
   wheelPos: z.number(),
@@ -32,6 +31,7 @@ export const logState = z.object({
   visible: z.boolean(),
   multiChannel: z.boolean().default(false),
   timestampPrecision: z.number().min(0).max(3).default(0),
+  channelConfigs: z.record(z.string(), channelConfigZ).default({}),
   telem: telem.logSourceSpecZ.default(telem.noopLogSourceSpec),
   font: text.levelZ.default("p"),
   color: color.colorZ.default(color.ZERO),
@@ -211,17 +211,27 @@ export class Log extends aether.Leaf<typeof logState, InternalState> {
     // (O(n)). The render loop below is already O(n) over visible entries — adding a
     // second O(n) scan here just to answer a yes/no question would double the per-frame
     // work at up to 60fps.
-    const { multiChannel, timestampPrecision } = this.state;
+    const { multiChannel, timestampPrecision, channelConfigs } = this.state;
     const tsLen = timestampPrecision === 0 ? 8 : 9 + timestampPrecision;
     for (let i = 0; i < entries.length; i++) {
       const entry = entries[i];
-      const ts = new TimeStamp(entry.timestamp).toString("preciseTime", "local").slice(0, tsLen);
-      let line = `${ts}  ${entry.value}`;
-      if (multiChannel) line = `${ts}  [${entry.channelName}]${entry.channelPadding}  ${entry.value}`;
+      const cfg = channelConfigs[String(entry.channelKey)];
+      const ts = new TimeStamp(entry.timestamp)
+        .toString("preciseTime", "local")
+        .slice(0, tsLen);
+      let value = entry.value;
+      if (cfg != null && cfg.precision >= 0) {
+        const num = parseFloat(value);
+        if (!isNaN(num)) value = num.toFixed(cfg.precision);
+      }
+      let line = `${ts}  ${value}`;
+      if (multiChannel)
+        line = `${ts}  [${entry.channelName}]${entry.channelPadding}  ${value}`;
       draw2D.text({
         text: line,
         level: this.state.font,
-        shade: 11,
+        shade: cfg?.color ? undefined : 11,
+        color: cfg?.color ? cfg.color : undefined,
         position: xy.translate(box.topLeft(reg), { x: 6, y: i * this.lineHeight + 6 }),
         code: true,
       });

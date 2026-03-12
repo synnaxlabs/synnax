@@ -18,7 +18,10 @@ import {
 } from "@synnaxlabs/x";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-import { StreamMultiChannelLog, type StreamMultiChannelLogProps } from "@/telem/aether/log";
+import {
+  StreamMultiChannelLog,
+  type StreamMultiChannelLogProps,
+} from "@/telem/aether/log";
 import { type Source } from "@/telem/aether/telem";
 import { type client } from "@/telem/client";
 
