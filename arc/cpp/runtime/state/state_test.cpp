@@ -733,4 +733,5 @@ TEST(StateTest, ResetClearsBufferedAuthorityChanges) {
     s.reset();
     EXPECT_TRUE(s.flush_authority_changes().empty());
 }
+
 }
