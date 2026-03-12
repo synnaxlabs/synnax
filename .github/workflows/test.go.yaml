@@ -43,7 +43,9 @@ jobs:
         uses: actions/setup-go@v6
         with:
           go-version-file: ${{ inputs.directory }}/go.mod
-          cache-dependency-path: "**/go.sum"
+          cache-dependency-path: |
+            ${{ inputs.directory }}/go.mod
+            ${{ inputs.directory }}/go.sum
 
       - name: Check formatting
         if: matrix.fmt
