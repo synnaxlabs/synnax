@@ -515,10 +515,9 @@ var _ = Describe("Writer Behavior", Ordered, func() {
 					)
 					Expect(t.Occurred()).To(BeTrue())
 					MustSucceed(w.Close())
-					Expect(w.Commit(ctx)).Error().To(And(
-						HaveOccurredAs(e),
-						MatchError(ContainSubstring("overlaps")),
-					))
+					var _, err = w.Commit(ctx)
+					Expect(err).To(HaveOccurredAs(e))
+					Expect(err).To(MatchError(ContainSubstring("channel [gauss]<%d>", key)))
 					Expect(w.Write(telem.Series{Data: []byte{1, 2, 3}})).
 						Error().To(HaveOccurredAs(e))
 					MustSucceed(w.Close())
