@@ -7,24 +7,17 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { channel } from "@synnaxlabs/client";
-import { DataType } from "@synnaxlabs/x";
+import { type channel } from "@synnaxlabs/client";
 import { type ReactElement } from "react";
 
 import { type ListQuery, useList } from "@/channel/queries";
+import { resolveIcon } from "@/channel/resolveIcon";
 import { HAUL_TYPE } from "@/channel/types";
 import { Component } from "@/component";
 import { type Flux } from "@/flux";
 import { Icon } from "@/icon";
 import { List } from "@/list";
 import { Select } from "@/select";
-import { Telem } from "@/telem";
-
-export const resolveIcon = (ch?: channel.Payload): Icon.FC => {
-  if (ch == null) return Icon.Channel;
-  if (channel.isCalculated(ch)) return Icon.Calculation;
-  return Telem.resolveDataTypeIcon(new DataType(ch.dataType)) ?? Icon.Channel;
-};
 
 const listItemRenderProp = Component.renderProp(
   ({ itemKey, ...rest }: List.ItemRenderProps<channel.Key>): ReactElement | null => {
