@@ -17,6 +17,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/api"
 	apidevice "github.com/synnaxlabs/synnax/pkg/api/device"
 	gapi "github.com/synnaxlabs/synnax/pkg/api/grpc/v1"
+	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
 	svcdevice "github.com/synnaxlabs/synnax/pkg/service/device"
 	"github.com/synnaxlabs/synnax/pkg/service/rack"
 	"github.com/synnaxlabs/x/status"
@@ -62,7 +63,21 @@ var (
 	_ fgrpc.Translator[apidevice.DeleteRequest, *gapi.DeviceDeleteRequest]       = deleteRequestTranslator{}
 )
 
-func translateForward(d *apidevice.Device) (*gapi.Device, error) {
+func ontologyIDToProto(id ontology.ID) *gapi.OntologyID {
+	if id.IsZero() {
+		return nil
+	}
+	return &gapi.OntologyID{Type: string(id.Type), Key: id.Key}
+}
+
+func ontologyIDFromProto(id *gapi.OntologyID) ontology.ID {
+	if id == nil {
+		return ontology.ID{}
+	}
+	return ontology.ID{Type: ontology.Type(id.Type), Key: id.Key}
+}
+
+func svcDeviceToProto(d *svcdevice.Device) (*gapi.Device, error) {
 	gd := &gapi.Device{
 		Key:        d.Key,
 		Name:       d.Name,
@@ -89,8 +104,8 @@ func translateForward(d *apidevice.Device) (*gapi.Device, error) {
 	return gd, nil
 }
 
-func translateBackward(d *gapi.Device) (*apidevice.Device, error) {
-	ad := &apidevice.Device{
+func svcDeviceFromProto(d *gapi.Device) (*svcdevice.Device, error) {
+	ad := &svcdevice.Device{
 		Key:        d.Key,
 		Name:       d.Name,
 		Rack:       rack.Key(d.Rack),
@@ -113,11 +128,31 @@ func translateBackward(d *gapi.Device) (*apidevice.Device, error) {
 	return ad, nil
 }
 
-func translateManyForward(ds []apidevice.Device) ([]*gapi.Device, error) {
+func apiDeviceToProto(d *apidevice.Device) (*gapi.Device, error) {
+	gd, err := svcDeviceToProto(&d.Device)
+	if err != nil {
+		return nil, err
+	}
+	gd.Parent = ontologyIDToProto(d.Parent)
+	return gd, nil
+}
+
+func apiDeviceFromProto(d *gapi.Device) (*apidevice.Device, error) {
+	sd, err := svcDeviceFromProto(d)
+	if err != nil {
+		return nil, err
+	}
+	return &apidevice.Device{
+		Device: *sd,
+		Parent: ontologyIDFromProto(d.Parent),
+	}, nil
+}
+
+func translateManyCreateForward(ds []apidevice.Device) ([]*gapi.Device, error) {
 	res := make([]*gapi.Device, len(ds))
 	for i, d := range ds {
 		var err error
-		res[i], err = translateForward(&d)
+		res[i], err = apiDeviceToProto(&d)
 		if err != nil {
 			return nil, err
 		}
@@ -125,10 +160,34 @@ func translateManyForward(ds []apidevice.Device) ([]*gapi.Device, error) {
 	return res, nil
 }
 
-func translateManyBackward(ds []*gapi.Device) ([]apidevice.Device, error) {
+func translateManyCreateBackward(ds []*gapi.Device) ([]apidevice.Device, error) {
 	res := make([]apidevice.Device, len(ds))
 	for i, d := range ds {
-		dd, err := translateBackward(d)
+		dd, err := apiDeviceFromProto(d)
+		if err != nil {
+			return nil, err
+		}
+		res[i] = *dd
+	}
+	return res, nil
+}
+
+func translateManySvcForward(ds []svcdevice.Device) ([]*gapi.Device, error) {
+	res := make([]*gapi.Device, len(ds))
+	for i, d := range ds {
+		var err error
+		res[i], err = svcDeviceToProto(&d)
+		if err != nil {
+			return nil, err
+		}
+	}
+	return res, nil
+}
+
+func translateManySvcBackward(ds []*gapi.Device) ([]svcdevice.Device, error) {
+	res := make([]svcdevice.Device, len(ds))
+	for i, d := range ds {
+		dd, err := svcDeviceFromProto(d)
 		if err != nil {
 			return nil, err
 		}
@@ -138,23 +197,23 @@ func translateManyBackward(ds []*gapi.Device) ([]apidevice.Device, error) {
 }
 
 func (createRequestTranslator) Forward(_ context.Context, req apidevice.CreateRequest) (*gapi.DeviceCreateRequest, error) {
-	devices, err := translateManyForward(req.Devices)
+	devices, err := translateManyCreateForward(req.Devices)
 	if err != nil {
 		return nil, err
 	}
-	return &gapi.DeviceCreateRequest{Devices: devices, Parent: req.Parent}, nil
+	return &gapi.DeviceCreateRequest{Devices: devices}, nil
 }
 
 func (createRequestTranslator) Backward(_ context.Context, req *gapi.DeviceCreateRequest) (apidevice.CreateRequest, error) {
-	devices, err := translateManyBackward(req.Devices)
+	devices, err := translateManyCreateBackward(req.Devices)
 	if err != nil {
 		return apidevice.CreateRequest{}, err
 	}
-	return apidevice.CreateRequest{Devices: devices, Parent: req.Parent}, nil
+	return apidevice.CreateRequest{Devices: devices}, nil
 }
 
 func (createResponseTranslator) Forward(_ context.Context, res apidevice.CreateResponse) (*gapi.DeviceCreateResponse, error) {
-	devices, err := translateManyForward(res.Devices)
+	devices, err := translateManyCreateForward(res.Devices)
 	if err != nil {
 		return nil, err
 	}
@@ -162,7 +221,7 @@ func (createResponseTranslator) Forward(_ context.Context, res apidevice.CreateR
 }
 
 func (createResponseTranslator) Backward(_ context.Context, res *gapi.DeviceCreateResponse) (apidevice.CreateResponse, error) {
-	devices, err := translateManyBackward(res.Devices)
+	devices, err := translateManyCreateBackward(res.Devices)
 	if err != nil {
 		return apidevice.CreateResponse{}, err
 	}
@@ -202,7 +261,7 @@ func (retrieveRequestTranslator) Backward(_ context.Context, req *gapi.DeviceRet
 }
 
 func (retrieveResponseTranslator) Forward(_ context.Context, res apidevice.RetrieveResponse) (*gapi.DeviceRetrieveResponse, error) {
-	devices, err := translateManyForward(res.Devices)
+	devices, err := translateManySvcForward(res.Devices)
 	if err != nil {
 		return nil, err
 	}
@@ -210,7 +269,7 @@ func (retrieveResponseTranslator) Forward(_ context.Context, res apidevice.Retri
 }
 
 func (retrieveResponseTranslator) Backward(_ context.Context, res *gapi.DeviceRetrieveResponse) (apidevice.RetrieveResponse, error) {
-	devices, err := translateManyBackward(res.Devices)
+	devices, err := translateManySvcBackward(res.Devices)
 	if err != nil {
 		return apidevice.RetrieveResponse{}, err
 	}

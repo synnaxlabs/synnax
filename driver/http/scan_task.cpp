@@ -33,10 +33,10 @@ common::ScannerConfig Scanner::config() const {
     };
 }
 
-std::pair<std::vector<synnax::device::Device>, x::errors::Error>
+std::pair<std::vector<common::ScannedDevice>, x::errors::Error>
 Scanner::scan(const common::ScannerContext &scan_ctx) {
     std::vector<synnax::device::Device> devices_out;
-    if (scan_ctx.devices == nullptr) return {devices_out, x::errors::NIL};
+    if (scan_ctx.devices == nullptr) return {{}, x::errors::NIL};
 
     // Phase 1: build all requests, setting status immediately for devices that
     // fail config parsing.
@@ -48,7 +48,12 @@ Scanner::scan(const common::ScannerContext &scan_ctx) {
         if (hc.has_value()) prepared.push_back(std::move(*hc));
     }
 
-    if (prepared.empty()) return {devices_out, x::errors::NIL};
+    if (prepared.empty()) {
+        std::vector<common::ScannedDevice> result;
+        for (auto &d: devices_out)
+            result.push_back(common::ScannedDevice{.device = d});
+        return {result, x::errors::NIL};
+    }
 
     // Phase 2: execute all health check requests in parallel.
     std::vector<Request> requests;
@@ -69,7 +74,10 @@ Scanner::scan(const common::ScannerContext &scan_ctx) {
         );
     }
 
-    return {devices_out, x::errors::NIL};
+    std::vector<common::ScannedDevice> result;
+    for (auto &d: devices_out)
+        result.push_back(common::ScannedDevice{.device = d});
+    return {result, x::errors::NIL};
 }
 
 bool Scanner::exec(

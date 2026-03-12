@@ -107,10 +107,6 @@ struct Device {
     x::json::json::object_t properties;
     /// @brief whether the device has been configured.
     bool configured = false;
-    /// @brief the key of the parent device (e.g., chassis for NI module).
-    /// This field is used locally by the driver for change detection but is not
-    /// stored on the server. It is mapped to the create request's parent field.
-    std::string parent_device;
     /// @brief Status information about the device.
     Status status;
 
@@ -235,11 +231,15 @@ public:
     std::pair<std::vector<Device>, x::errors::Error>
     retrieve(RetrieveRequest &req) const;
 
-    /// @brief Creates a device in the cluster.
+    /// @brief Creates a device in the cluster with an optional parent.
     /// @param device The device to create. Will be updated with the assigned key.
+    /// @param parent Optional ontology ID of the parent resource.
     /// @returns An error if the creation failed.
     [[nodiscard]]
-    x::errors::Error create(Device &device) const;
+    x::errors::Error create(
+        Device &device,
+        const ontology::ID &parent = ontology::ID{}
+    ) const;
 
     /// @brief Creates multiple devices in the cluster.
     /// @param devs The devices to create. Will be updated with the assigned keys.

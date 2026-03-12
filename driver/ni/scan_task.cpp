@@ -152,7 +152,7 @@ Scanner::parse_device(NISysCfgResourceHandle resource) const {
     return {dev, err};
 }
 
-std::pair<std::vector<synnax::device::Device>, x::errors::Error>
+std::pair<std::vector<common::ScannedDevice>, x::errors::Error>
 Scanner::scan(const common::ScannerContext &ctx) {
     NISysCfgEnumResourceHandle resources = nullptr;
     NISysCfgResourceHandle curr_resource = nullptr;
@@ -196,12 +196,13 @@ Scanner::scan(const common::ScannerContext &ctx) {
     for (const auto &dev: ni_devices)
         if (dev.is_chassis && !dev.provides_link_name.empty())
             link_to_chassis[dev.provides_link_name] = dev.key;
-    // For each module, look up its parent chassis.
-    for (auto &dev: ni_devices) {
+    // For each module, resolve its parent chassis key.
+    std::unordered_map<std::string, std::string> parent_keys;
+    for (const auto &dev: ni_devices) {
         if (dev.is_chassis || dev.connects_to_link_name.empty()) continue;
         if (auto it = link_to_chassis.find(dev.connects_to_link_name);
             it != link_to_chassis.end())
-            dev.parent_device = it->second;
+            parent_keys[dev.key] = it->second;
         else
             VLOG(1) << SCAN_LOG_PREFIX << "module " << dev.key << " connects to link '"
                     << dev.connects_to_link_name << "' but no chassis provides it";
@@ -216,10 +217,15 @@ Scanner::scan(const common::ScannerContext &ctx) {
         }
     );
 
-    std::vector<synnax::device::Device> devices;
+    std::vector<common::ScannedDevice> devices;
     devices.reserve(ni_devices.size());
-    for (auto &dev: ni_devices)
-        devices.push_back(dev.to_synnax());
+    for (auto &dev: ni_devices) {
+        common::ScannedDevice sd;
+        sd.device = dev.to_synnax();
+        if (auto it = parent_keys.find(dev.key); it != parent_keys.end())
+            sd.parent = synnax::device::ontology_id(it->second);
+        devices.push_back(std::move(sd));
+    }
     return {devices, close_err};
 }
 

@@ -15,12 +15,12 @@ from pydantic import BaseModel
 
 from synnax.device.payload import Device
 from synnax.exceptions import NotFoundError
+from synnax.ontology.payload import ID as OntologyID
 from synnax.util.normalize import check_for_none, normalize, override
 
 
 class _CreateRequest(BaseModel):
     devices: list[Device]
-    parent: str = ""
 
 
 _CreateResponse = _CreateRequest
@@ -66,7 +66,7 @@ class Client:
         make: str = "",
         model: str = "",
         configured: bool = False,
-        parent: str = "",
+        parent: OntologyID | None = None,
         properties: dict[str, Any] | None = None,
     ) -> Device: ...
 
@@ -74,16 +74,12 @@ class Client:
     def create(
         self,
         devices: Device,
-        *,
-        parent: str = "",
     ) -> Device: ...
 
     @overload
     def create(
         self,
         devices: list[Device],
-        *,
-        parent: str = "",
     ) -> list[Device]: ...
 
     def create(
@@ -97,7 +93,7 @@ class Client:
         make: str = "",
         model: str = "",
         configured: bool = False,
-        parent: str = "",
+        parent: OntologyID | None = None,
         properties: dict[str, Any] | None = None,
     ) -> Device | list[Device]:
         is_single = not isinstance(devices, list)
@@ -111,10 +107,11 @@ class Client:
                     make=make,
                     model=model,
                     configured=configured,
+                    parent=parent,
                     properties=properties if properties is not None else {},
                 )
             ]
-        req = _CreateRequest(devices=normalize(devices), parent=parent)
+        req = _CreateRequest(devices=normalize(devices))
         res = send_required(
             self._client,
             "/device/create",

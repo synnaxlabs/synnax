@@ -71,39 +71,6 @@ TEST(ScanTaskTest, testConfigShouldIgnore) {
     EXPECT_FALSE(cfg2.should_ignore("NI-DAQ"));
 }
 
-/// @brief to_synnax should include parent_device from the base class.
-TEST(NiDeviceTests, testToSynnaxIncludesParentDevice) {
-    ni::Device dev;
-    dev.key = "module-1";
-    dev.name = "NI 9205";
-    dev.rack = 1;
-    dev.location = "Slot2";
-    dev.make = "NI";
-    dev.model = "9205";
-    dev.resource_name = "cDAQ1Mod1";
-    dev.is_simulated = false;
-    dev.is_chassis = false;
-    dev.parent_device = "chassis-serial-123";
-
-    auto synnax_dev = dev.to_synnax();
-    EXPECT_EQ(synnax_dev.parent_device, "chassis-serial-123");
-    EXPECT_EQ(synnax_dev.key, "module-1");
-}
-
-/// @brief to_synnax should leave parent_device empty when not set.
-TEST(NiDeviceTests, testToSynnaxEmptyParentDevice) {
-    ni::Device dev;
-    dev.key = "standalone-1";
-    dev.name = "NI 6255";
-    dev.rack = 1;
-    dev.location = "PXI1Slot2";
-    dev.make = "NI";
-    dev.model = "6255";
-
-    auto synnax_dev = dev.to_synnax();
-    EXPECT_EQ(synnax_dev.parent_device, "");
-}
-
 /// @brief to_synnax should include is_chassis in properties JSON.
 TEST(NiDeviceTests, testToSynnaxIncludesIsChassisInProperties) {
     ni::Device chassis;

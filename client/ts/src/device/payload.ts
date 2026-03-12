@@ -10,6 +10,7 @@
 import { record, status, zod } from "@synnaxlabs/x";
 import { z } from "zod";
 
+import { idZ as ontologyIDZ } from "@/ontology/payload";
 import { keyZ as rackKeyZ } from "@/rack/payload";
 
 export const keyZ = z.string();
@@ -70,6 +71,7 @@ export const newZ = <
 ) =>
   deviceZ(schemas).extend({
     properties: schemas?.properties ?? record.nullishToEmpty(),
+    parent: ontologyIDZ.optional(),
   });
 
 export interface New<

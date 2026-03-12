@@ -21,28 +21,18 @@ const mockResource = (data?: Record<string, unknown>): ontology.Resource =>
   }) as unknown as ontology.Resource;
 
 describe("Device ONTOLOGY_SERVICE hasChildren", () => {
-  it("should return true when isChassis is true", () => {
-    const resource = mockResource({ make: "NI", properties: { isChassis: true } });
+  it("should return true for NI devices", () => {
+    const resource = mockResource({ make: "NI" });
     expect(resolveHasChildren(ONTOLOGY_SERVICE, resource)).toBe(true);
   });
 
-  it("should return false when isChassis is false", () => {
-    const resource = mockResource({ make: "NI", properties: { isChassis: false } });
+  it("should return false for non-NI devices", () => {
+    const resource = mockResource({ make: "LabJack" });
     expect(resolveHasChildren(ONTOLOGY_SERVICE, resource)).toBe(false);
   });
 
-  it("should return false when isChassis is not present", () => {
-    const resource = mockResource({ make: "NI", properties: {} });
-    expect(resolveHasChildren(ONTOLOGY_SERVICE, resource)).toBe(false);
-  });
-
-  it("should return false when properties is null", () => {
-    const resource = mockResource({ make: "NI", properties: null });
-    expect(resolveHasChildren(ONTOLOGY_SERVICE, resource)).toBe(false);
-  });
-
-  it("should return false when data has no properties", () => {
-    const resource = mockResource({});
+  it("should return false when make is not recognized", () => {
+    const resource = mockResource({ make: "Unknown" });
     expect(resolveHasChildren(ONTOLOGY_SERVICE, resource)).toBe(false);
   });
 

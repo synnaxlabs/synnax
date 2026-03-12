@@ -85,7 +85,6 @@ struct Device : synnax::device::Device {
                     {"is_chassis", this->is_chassis},
                 }
                     .get<x::json::json::object_t>(),
-            .parent_device = this->parent_device,
         };
         dev.status = this->status;
         return dev;
@@ -149,7 +148,7 @@ public:
 
     x::errors::Error start() override;
 
-    std::pair<std::vector<synnax::device::Device>, x::errors::Error>
+    std::pair<std::vector<common::ScannedDevice>, x::errors::Error>
     scan(const common::ScannerContext &ctx) override;
 
     x::errors::Error stop() override;

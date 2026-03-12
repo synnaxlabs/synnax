@@ -92,8 +92,8 @@ for key, model, location, resource_name in modules:
             location=location,
             rack=rack_key,
             properties={"is_simulated": True, "resource_name": resource_name},
+            parent=sy.ontology.ID(type="device", key=chassis.key),
         ),
-        parent=f"device:{chassis.key}",
     )
     print(f"  Created module: {mod.name}")
 

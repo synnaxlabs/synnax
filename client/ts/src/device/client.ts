@@ -33,7 +33,7 @@ const createReqZ = <
   Model extends z.ZodType<string> = z.ZodString,
 >(
   schemas?: DeviceSchemas<Properties, Make, Model>,
-) => z.object({ devices: zod.toArray(newZ(schemas)), parent: z.string().optional() });
+) => z.object({ devices: zod.toArray(newZ(schemas)) });
 
 const createResZ = <
   Properties extends z.ZodType<record.Unknown> = typeof record.unknownZ,
@@ -140,10 +140,9 @@ export class Client {
   >(
     device: New<Properties, Make, Model>,
     schemas: DeviceSchemas<Properties, Make, Model>,
-    parent?: string,
   ): Promise<Device<Properties, Make, Model>>;
 
-  async create(device: New, schemas?: DeviceSchemas, parent?: string): Promise<Device>;
+  async create(device: New, schemas?: DeviceSchemas): Promise<Device>;
 
   async create<
     Properties extends z.ZodType<record.Unknown>,
@@ -152,25 +151,19 @@ export class Client {
   >(
     devices: New<Properties, Make, Model>[],
     schemas: DeviceSchemas<Properties, Make, Model>,
-    parent?: string,
   ): Promise<Device<Properties, Make, Model>[]>;
 
-  async create(
-    devices: New[],
-    schemas?: DeviceSchemas,
-    parent?: string,
-  ): Promise<Device[]>;
+  async create(devices: New[], schemas?: DeviceSchemas): Promise<Device[]>;
 
   async create(
     devices: New | New[],
     schemas?: DeviceSchemas,
-    parent?: string,
   ): Promise<Device | Device[]> {
     const isSingle = !Array.isArray(devices);
     const res = await sendRequired(
       this.client,
       "/device/create",
-      { devices: array.toArray(devices), parent },
+      { devices: array.toArray(devices) },
       createReqZ(schemas),
       createResZ(schemas),
     );

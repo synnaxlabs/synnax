@@ -33,6 +33,58 @@ const (
 	_ = protoimpl.EnforceVersion(protoimpl.MaxVersion - 20)
 )
 
+type OntologyID struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Type          string                 `protobuf:"bytes,1,opt,name=type,proto3" json:"type,omitempty"`
+	Key           string                 `protobuf:"bytes,2,opt,name=key,proto3" json:"key,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *OntologyID) Reset() {
+	*x = OntologyID{}
+	mi := &file_core_pkg_api_grpc_v1_device_proto_msgTypes[0]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *OntologyID) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*OntologyID) ProtoMessage() {}
+
+func (x *OntologyID) ProtoReflect() protoreflect.Message {
+	mi := &file_core_pkg_api_grpc_v1_device_proto_msgTypes[0]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use OntologyID.ProtoReflect.Descriptor instead.
+func (*OntologyID) Descriptor() ([]byte, []int) {
+	return file_core_pkg_api_grpc_v1_device_proto_rawDescGZIP(), []int{0}
+}
+
+func (x *OntologyID) GetType() string {
+	if x != nil {
+		return x.Type
+	}
+	return ""
+}
+
+func (x *OntologyID) GetKey() string {
+	if x != nil {
+		return x.Key
+	}
+	return ""
+}
+
 type Device struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	Key           string                 `protobuf:"bytes,1,opt,name=key,proto3" json:"key,omitempty"`
@@ -44,13 +96,14 @@ type Device struct {
 	Properties    *structpb.Struct       `protobuf:"bytes,8,opt,name=properties,proto3" json:"properties,omitempty"`
 	Configured    bool                   `protobuf:"varint,9,opt,name=configured,proto3" json:"configured,omitempty"`
 	Status        *status.PBStatus       `protobuf:"bytes,10,opt,name=status,proto3" json:"status,omitempty"`
+	Parent        *OntologyID            `protobuf:"bytes,11,opt,name=parent,proto3" json:"parent,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
 
 func (x *Device) Reset() {
 	*x = Device{}
-	mi := &file_core_pkg_api_grpc_v1_device_proto_msgTypes[0]
+	mi := &file_core_pkg_api_grpc_v1_device_proto_msgTypes[1]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -62,7 +115,7 @@ func (x *Device) String() string {
 func (*Device) ProtoMessage() {}
 
 func (x *Device) ProtoReflect() protoreflect.Message {
-	mi := &file_core_pkg_api_grpc_v1_device_proto_msgTypes[0]
+	mi := &file_core_pkg_api_grpc_v1_device_proto_msgTypes[1]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -75,7 +128,7 @@ func (x *Device) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use Device.ProtoReflect.Descriptor instead.
 func (*Device) Descriptor() ([]byte, []int) {
-	return file_core_pkg_api_grpc_v1_device_proto_rawDescGZIP(), []int{0}
+	return file_core_pkg_api_grpc_v1_device_proto_rawDescGZIP(), []int{1}
 }
 
 func (x *Device) GetKey() string {
@@ -141,17 +194,23 @@ func (x *Device) GetStatus() *status.PBStatus {
 	return nil
 }
 
+func (x *Device) GetParent() *OntologyID {
+	if x != nil {
+		return x.Parent
+	}
+	return nil
+}
+
 type DeviceCreateRequest struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	Devices       []*Device              `protobuf:"bytes,1,rep,name=devices,proto3" json:"devices,omitempty"`
-	Parent        string                 `protobuf:"bytes,2,opt,name=parent,proto3" json:"parent,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
 
 func (x *DeviceCreateRequest) Reset() {
 	*x = DeviceCreateRequest{}
-	mi := &file_core_pkg_api_grpc_v1_device_proto_msgTypes[1]
+	mi := &file_core_pkg_api_grpc_v1_device_proto_msgTypes[2]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -163,7 +222,7 @@ func (x *DeviceCreateRequest) String() string {
 func (*DeviceCreateRequest) ProtoMessage() {}
 
 func (x *DeviceCreateRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_core_pkg_api_grpc_v1_device_proto_msgTypes[1]
+	mi := &file_core_pkg_api_grpc_v1_device_proto_msgTypes[2]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -176,7 +235,7 @@ func (x *DeviceCreateRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use DeviceCreateRequest.ProtoReflect.Descriptor instead.
 func (*DeviceCreateRequest) Descriptor() ([]byte, []int) {
-	return file_core_pkg_api_grpc_v1_device_proto_rawDescGZIP(), []int{1}
+	return file_core_pkg_api_grpc_v1_device_proto_rawDescGZIP(), []int{2}
 }
 
 func (x *DeviceCreateRequest) GetDevices() []*Device {
@@ -184,13 +243,6 @@ func (x *DeviceCreateRequest) GetDevices() []*Device {
 		return x.Devices
 	}
 	return nil
-}
-
-func (x *DeviceCreateRequest) GetParent() string {
-	if x != nil {
-		return x.Parent
-	}
-	return ""
 }
 
 type DeviceCreateResponse struct {
@@ -202,7 +254,7 @@ type DeviceCreateResponse struct {
 
 func (x *DeviceCreateResponse) Reset() {
 	*x = DeviceCreateResponse{}
-	mi := &file_core_pkg_api_grpc_v1_device_proto_msgTypes[2]
+	mi := &file_core_pkg_api_grpc_v1_device_proto_msgTypes[3]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -214,7 +266,7 @@ func (x *DeviceCreateResponse) String() string {
 func (*DeviceCreateResponse) ProtoMessage() {}
 
 func (x *DeviceCreateResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_core_pkg_api_grpc_v1_device_proto_msgTypes[2]
+	mi := &file_core_pkg_api_grpc_v1_device_proto_msgTypes[3]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -227,7 +279,7 @@ func (x *DeviceCreateResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use DeviceCreateResponse.ProtoReflect.Descriptor instead.
 func (*DeviceCreateResponse) Descriptor() ([]byte, []int) {
-	return file_core_pkg_api_grpc_v1_device_proto_rawDescGZIP(), []int{2}
+	return file_core_pkg_api_grpc_v1_device_proto_rawDescGZIP(), []int{3}
 }
 
 func (x *DeviceCreateResponse) GetDevices() []*Device {
@@ -256,7 +308,7 @@ type DeviceRetrieveRequest struct {
 
 func (x *DeviceRetrieveRequest) Reset() {
 	*x = DeviceRetrieveRequest{}
-	mi := &file_core_pkg_api_grpc_v1_device_proto_msgTypes[3]
+	mi := &file_core_pkg_api_grpc_v1_device_proto_msgTypes[4]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -268,7 +320,7 @@ func (x *DeviceRetrieveRequest) String() string {
 func (*DeviceRetrieveRequest) ProtoMessage() {}
 
 func (x *DeviceRetrieveRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_core_pkg_api_grpc_v1_device_proto_msgTypes[3]
+	mi := &file_core_pkg_api_grpc_v1_device_proto_msgTypes[4]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -281,7 +333,7 @@ func (x *DeviceRetrieveRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use DeviceRetrieveRequest.ProtoReflect.Descriptor instead.
 func (*DeviceRetrieveRequest) Descriptor() ([]byte, []int) {
-	return file_core_pkg_api_grpc_v1_device_proto_rawDescGZIP(), []int{3}
+	return file_core_pkg_api_grpc_v1_device_proto_rawDescGZIP(), []int{4}
 }
 
 func (x *DeviceRetrieveRequest) GetKeys() []string {
@@ -370,7 +422,7 @@ type DeviceRetrieveResponse struct {
 
 func (x *DeviceRetrieveResponse) Reset() {
 	*x = DeviceRetrieveResponse{}
-	mi := &file_core_pkg_api_grpc_v1_device_proto_msgTypes[4]
+	mi := &file_core_pkg_api_grpc_v1_device_proto_msgTypes[5]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -382,7 +434,7 @@ func (x *DeviceRetrieveResponse) String() string {
 func (*DeviceRetrieveResponse) ProtoMessage() {}
 
 func (x *DeviceRetrieveResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_core_pkg_api_grpc_v1_device_proto_msgTypes[4]
+	mi := &file_core_pkg_api_grpc_v1_device_proto_msgTypes[5]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -395,7 +447,7 @@ func (x *DeviceRetrieveResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use DeviceRetrieveResponse.ProtoReflect.Descriptor instead.
 func (*DeviceRetrieveResponse) Descriptor() ([]byte, []int) {
-	return file_core_pkg_api_grpc_v1_device_proto_rawDescGZIP(), []int{4}
+	return file_core_pkg_api_grpc_v1_device_proto_rawDescGZIP(), []int{5}
 }
 
 func (x *DeviceRetrieveResponse) GetDevices() []*Device {
@@ -414,7 +466,7 @@ type DeviceDeleteRequest struct {
 
 func (x *DeviceDeleteRequest) Reset() {
 	*x = DeviceDeleteRequest{}
-	mi := &file_core_pkg_api_grpc_v1_device_proto_msgTypes[5]
+	mi := &file_core_pkg_api_grpc_v1_device_proto_msgTypes[6]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -426,7 +478,7 @@ func (x *DeviceDeleteRequest) String() string {
 func (*DeviceDeleteRequest) ProtoMessage() {}
 
 func (x *DeviceDeleteRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_core_pkg_api_grpc_v1_device_proto_msgTypes[5]
+	mi := &file_core_pkg_api_grpc_v1_device_proto_msgTypes[6]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -439,7 +491,7 @@ func (x *DeviceDeleteRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use DeviceDeleteRequest.ProtoReflect.Descriptor instead.
 func (*DeviceDeleteRequest) Descriptor() ([]byte, []int) {
-	return file_core_pkg_api_grpc_v1_device_proto_rawDescGZIP(), []int{5}
+	return file_core_pkg_api_grpc_v1_device_proto_rawDescGZIP(), []int{6}
 }
 
 func (x *DeviceDeleteRequest) GetKeys() []string {
@@ -453,7 +505,11 @@ var File_core_pkg_api_grpc_v1_device_proto protoreflect.FileDescriptor
 
 const file_core_pkg_api_grpc_v1_device_proto_rawDesc = "" +
 	"\n" +
-	"!core/pkg/api/grpc/v1/device.proto\x12\x06api.v1\x1a\x1bgoogle/protobuf/empty.proto\x1a\x1cgoogle/protobuf/struct.proto\x1a\x18x/go/status/status.proto\"\x8b\x02\n" +
+	"!core/pkg/api/grpc/v1/device.proto\x12\x06api.v1\x1a\x1bgoogle/protobuf/empty.proto\x1a\x1cgoogle/protobuf/struct.proto\x1a\x18x/go/status/status.proto\"2\n" +
+	"\n" +
+	"OntologyID\x12\x12\n" +
+	"\x04type\x18\x01 \x01(\tR\x04type\x12\x10\n" +
+	"\x03key\x18\x02 \x01(\tR\x03key\"\xb7\x02\n" +
 	"\x06Device\x12\x10\n" +
 	"\x03key\x18\x01 \x01(\tR\x03key\x12\x12\n" +
 	"\x04name\x18\x02 \x01(\tR\x04name\x12\x12\n" +
@@ -468,10 +524,10 @@ const file_core_pkg_api_grpc_v1_device_proto_rawDesc = "" +
 	"configured\x18\t \x01(\bR\n" +
 	"configured\x12(\n" +
 	"\x06status\x18\n" +
-	" \x01(\v2\x10.status.PBStatusR\x06status\"W\n" +
+	" \x01(\v2\x10.status.PBStatusR\x06status\x12*\n" +
+	"\x06parent\x18\v \x01(\v2\x12.api.v1.OntologyIDR\x06parent\"?\n" +
 	"\x13DeviceCreateRequest\x12(\n" +
-	"\adevices\x18\x01 \x03(\v2\x0e.api.v1.DeviceR\adevices\x12\x16\n" +
-	"\x06parent\x18\x02 \x01(\tR\x06parent\"@\n" +
+	"\adevices\x18\x01 \x03(\v2\x0e.api.v1.DeviceR\adevices\"@\n" +
 	"\x14DeviceCreateResponse\x12(\n" +
 	"\adevices\x18\x01 \x03(\v2\x0e.api.v1.DeviceR\adevices\"\xba\x02\n" +
 	"\x15DeviceRetrieveRequest\x12\x12\n" +
@@ -512,35 +568,37 @@ func file_core_pkg_api_grpc_v1_device_proto_rawDescGZIP() []byte {
 	return file_core_pkg_api_grpc_v1_device_proto_rawDescData
 }
 
-var file_core_pkg_api_grpc_v1_device_proto_msgTypes = make([]protoimpl.MessageInfo, 6)
+var file_core_pkg_api_grpc_v1_device_proto_msgTypes = make([]protoimpl.MessageInfo, 7)
 var file_core_pkg_api_grpc_v1_device_proto_goTypes = []any{
-	(*Device)(nil),                 // 0: api.v1.Device
-	(*DeviceCreateRequest)(nil),    // 1: api.v1.DeviceCreateRequest
-	(*DeviceCreateResponse)(nil),   // 2: api.v1.DeviceCreateResponse
-	(*DeviceRetrieveRequest)(nil),  // 3: api.v1.DeviceRetrieveRequest
-	(*DeviceRetrieveResponse)(nil), // 4: api.v1.DeviceRetrieveResponse
-	(*DeviceDeleteRequest)(nil),    // 5: api.v1.DeviceDeleteRequest
-	(*structpb.Struct)(nil),        // 6: google.protobuf.Struct
-	(*status.PBStatus)(nil),        // 7: status.PBStatus
-	(*emptypb.Empty)(nil),          // 8: google.protobuf.Empty
+	(*OntologyID)(nil),             // 0: api.v1.OntologyID
+	(*Device)(nil),                 // 1: api.v1.Device
+	(*DeviceCreateRequest)(nil),    // 2: api.v1.DeviceCreateRequest
+	(*DeviceCreateResponse)(nil),   // 3: api.v1.DeviceCreateResponse
+	(*DeviceRetrieveRequest)(nil),  // 4: api.v1.DeviceRetrieveRequest
+	(*DeviceRetrieveResponse)(nil), // 5: api.v1.DeviceRetrieveResponse
+	(*DeviceDeleteRequest)(nil),    // 6: api.v1.DeviceDeleteRequest
+	(*structpb.Struct)(nil),        // 7: google.protobuf.Struct
+	(*status.PBStatus)(nil),        // 8: status.PBStatus
+	(*emptypb.Empty)(nil),          // 9: google.protobuf.Empty
 }
 var file_core_pkg_api_grpc_v1_device_proto_depIdxs = []int32{
-	6, // 0: api.v1.Device.properties:type_name -> google.protobuf.Struct
-	7, // 1: api.v1.Device.status:type_name -> status.PBStatus
-	0, // 2: api.v1.DeviceCreateRequest.devices:type_name -> api.v1.Device
-	0, // 3: api.v1.DeviceCreateResponse.devices:type_name -> api.v1.Device
-	0, // 4: api.v1.DeviceRetrieveResponse.devices:type_name -> api.v1.Device
-	1, // 5: api.v1.DeviceCreateService.Exec:input_type -> api.v1.DeviceCreateRequest
-	3, // 6: api.v1.DeviceRetrieveService.Exec:input_type -> api.v1.DeviceRetrieveRequest
-	5, // 7: api.v1.DeviceDeleteService.Exec:input_type -> api.v1.DeviceDeleteRequest
-	2, // 8: api.v1.DeviceCreateService.Exec:output_type -> api.v1.DeviceCreateResponse
-	4, // 9: api.v1.DeviceRetrieveService.Exec:output_type -> api.v1.DeviceRetrieveResponse
-	8, // 10: api.v1.DeviceDeleteService.Exec:output_type -> google.protobuf.Empty
-	8, // [8:11] is the sub-list for method output_type
-	5, // [5:8] is the sub-list for method input_type
-	5, // [5:5] is the sub-list for extension type_name
-	5, // [5:5] is the sub-list for extension extendee
-	0, // [0:5] is the sub-list for field type_name
+	7, // 0: api.v1.Device.properties:type_name -> google.protobuf.Struct
+	8, // 1: api.v1.Device.status:type_name -> status.PBStatus
+	0, // 2: api.v1.Device.parent:type_name -> api.v1.OntologyID
+	1, // 3: api.v1.DeviceCreateRequest.devices:type_name -> api.v1.Device
+	1, // 4: api.v1.DeviceCreateResponse.devices:type_name -> api.v1.Device
+	1, // 5: api.v1.DeviceRetrieveResponse.devices:type_name -> api.v1.Device
+	2, // 6: api.v1.DeviceCreateService.Exec:input_type -> api.v1.DeviceCreateRequest
+	4, // 7: api.v1.DeviceRetrieveService.Exec:input_type -> api.v1.DeviceRetrieveRequest
+	6, // 8: api.v1.DeviceDeleteService.Exec:input_type -> api.v1.DeviceDeleteRequest
+	3, // 9: api.v1.DeviceCreateService.Exec:output_type -> api.v1.DeviceCreateResponse
+	5, // 10: api.v1.DeviceRetrieveService.Exec:output_type -> api.v1.DeviceRetrieveResponse
+	9, // 11: api.v1.DeviceDeleteService.Exec:output_type -> google.protobuf.Empty
+	9, // [9:12] is the sub-list for method output_type
+	6, // [6:9] is the sub-list for method input_type
+	6, // [6:6] is the sub-list for extension type_name
+	6, // [6:6] is the sub-list for extension extendee
+	0, // [0:6] is the sub-list for field type_name
 }
 
 func init() { file_core_pkg_api_grpc_v1_device_proto_init() }
@@ -554,7 +612,7 @@ func file_core_pkg_api_grpc_v1_device_proto_init() {
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_core_pkg_api_grpc_v1_device_proto_rawDesc), len(file_core_pkg_api_grpc_v1_device_proto_rawDesc)),
 			NumEnums:      0,
-			NumMessages:   6,
+			NumMessages:   7,
 			NumExtensions: 0,
 			NumServices:   3,
 		},

@@ -170,6 +170,11 @@ class DevicesToolbar(ConsoleCase):
         properties: dict[str, object] | None = None,
     ) -> sy.Device:
         """Create a device with auto-suffixed key/name and track for teardown."""
+        parent_id = (
+            sy.ontology.ID(type="device", key=parent)
+            if parent
+            else None
+        )
         dev = self.client.devices.create(
             sy.Device(
                 key=f"{key}-{self.suffix}",
@@ -180,8 +185,8 @@ class DevicesToolbar(ConsoleCase):
                 location=location,
                 configured=configured,
                 properties=properties or {},
+                parent=parent_id,
             ),
-            parent=f"device:{parent}" if parent else "",
         )
         self._live_keys.add(dev.key)
         return dev
@@ -197,8 +202,8 @@ class DevicesToolbar(ConsoleCase):
                 model=device.model,
                 location=device.location,
                 properties=device.properties,
+                parent=sy.ontology.ID(type="device", key=target_chassis.key),
             ),
-            parent=f"device:{target_chassis.key}",
         )
         self.console.devices.expand_chassis(target_chassis.name)
         assert self.console.devices.is_child_of(
@@ -283,20 +288,20 @@ class DevicesToolbar(ConsoleCase):
         assert (
             props["name"] == "LabJack T4"
         ), f"Expected name 'LabJack T4', got '{props['name']}'"
-        inner = props["properties"]
-        assert isinstance(inner, dict)
+
+        retrieved = self.client.devices.retrieve(key=dev.key)
+        assert isinstance(retrieved.properties, dict)
         assert (
-            inner["identifier"] == "lt"
-        ), f"Expected identifier 'lt', got '{inner['identifier']}'"
+            retrieved.properties["identifier"] == "lt"
+        ), f"Expected identifier 'lt', got '{retrieved.properties['identifier']}'"
 
         self.console.devices.change_identifier("LabJack T4", "lt_new")
 
-        props = self.console.devices.copy_properties("LabJack T4")
-        inner = props["properties"]
-        assert isinstance(inner, dict)
+        retrieved = self.client.devices.retrieve(key=dev.key)
+        assert isinstance(retrieved.properties, dict)
         assert (
-            inner["identifier"] == "lt_new"
-        ), f"Expected identifier 'lt_new', got '{inner['identifier']}'"
+            retrieved.properties["identifier"] == "lt_new"
+        ), f"Expected identifier 'lt_new', got '{retrieved.properties['identifier']}'"
 
         self.labjack_dev = self.client.devices.retrieve(key=dev.key)
 

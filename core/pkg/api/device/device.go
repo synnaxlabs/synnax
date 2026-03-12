@@ -47,44 +47,43 @@ func NewService(cfgs ...config.LayerConfig) (*Service, error) {
 	}, nil
 }
 
-type (
-	Device = device.Device
-)
+// Device wraps the service-layer Device with an optional Parent ontology ID
+// used during creation to establish parent-child relationships.
+type Device struct {
+	device.Device
+	Parent ontology.ID `json:"parent" msgpack:"parent"`
+}
 
 type CreateRequest struct {
-	Devices []device.Device `json:"devices" msgpack:"devices"`
-	Parent  string          `json:"parent" msgpack:"parent"`
+	Devices []Device `json:"devices" msgpack:"devices"`
 }
 
 type CreateResponse struct {
-	Devices []device.Device `json:"devices" msgpack:"devices"`
+	Devices []Device `json:"devices" msgpack:"devices"`
 }
 
 func (s *Service) Create(
 	ctx context.Context,
 	req CreateRequest,
 ) (res CreateResponse, _ error) {
+	svcDevices := make([]device.Device, len(req.Devices))
+	for i, d := range req.Devices {
+		svcDevices[i] = d.Device
+	}
 	if err := s.access.Enforce(ctx, access.Request{
 		Subject: auth.GetSubject(ctx),
 		Action:  access.ActionCreate,
-		Objects: device.OntologyIDsFromDevices(req.Devices),
+		Objects: device.OntologyIDsFromDevices(svcDevices),
 	}); err != nil {
 		return res, err
 	}
-	var parent ontology.ID
-	if req.Parent != "" {
-		var err error
-		parent, err = ontology.ParseID(req.Parent)
-		if err != nil {
-			return res, err
-		}
-	}
 	return res, s.db.WithTx(ctx, func(tx gorp.Tx) error {
 		w := s.device.NewWriter(tx)
-		for _, d := range req.Devices {
-			if err := w.Create(ctx, d, parent); err != nil {
+		for i, d := range req.Devices {
+			if err := w.Create(ctx, d.Device, d.Parent); err != nil {
 				return err
 			}
+			req.Devices[i].Device = d.Device
 		}
 		res.Devices = req.Devices
 		return nil

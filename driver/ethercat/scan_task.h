@@ -67,7 +67,7 @@ public:
     x::errors::Error stop() override;
 
     /// @brief periodic scan method to discover networks and slaves.
-    std::pair<std::vector<synnax::device::Device>, x::errors::Error>
+    std::pair<std::vector<common::ScannedDevice>, x::errors::Error>
     scan(const common::ScannerContext &ctx) override;
 
     /// @brief handles EtherCAT-specific commands.

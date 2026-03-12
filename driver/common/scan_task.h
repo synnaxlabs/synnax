@@ -67,6 +67,12 @@ struct ScanTaskConfig {
         enabled(cfg.field<bool>("enabled", true)) {}
 };
 
+/// @brief A device returned by a scanner, paired with an optional parent.
+struct ScannedDevice {
+    synnax::device::Device device;
+    synnax::ontology::ID parent;
+};
+
 struct ScannerContext {
     /// @brief the number of scans run before the current one.
     std::size_t count = 0;
@@ -98,7 +104,7 @@ struct Scanner {
     virtual x::errors::Error stop() { return x::errors::NIL; }
 
     /// @brief Periodic scan method to discover/update devices.
-    virtual std::pair<std::vector<synnax::device::Device>, x::errors::Error>
+    virtual std::pair<std::vector<ScannedDevice>, x::errors::Error>
     scan(const ScannerContext &ctx) = 0;
 
     /// @brief Optional: Handle custom commands. Return true if handled.
@@ -123,8 +129,10 @@ struct ClusterAPI {
     virtual std::pair<synnax::device::Device, x::errors::Error>
     retrieve_device(const std::string &key) = 0;
 
-    virtual x::errors::Error
-    create_devices(std::vector<synnax::device::Device> &devs) = 0;
+    virtual x::errors::Error create_device(
+        synnax::device::Device &dev,
+        const synnax::ontology::ID &parent = {}
+    ) = 0;
 
     virtual x::errors::Error
     update_statuses(std::vector<synnax::device::Status> statuses) = 0;
@@ -163,13 +171,11 @@ struct SynnaxClusterAPI final : ClusterAPI {
         );
     }
 
-    x::errors::Error
-    create_devices(std::vector<synnax::device::Device> &devs) override {
-        for (auto &dev: devs) {
-            auto err = this->client->devices.create(dev);
-            if (err) return err;
-        }
-        return x::errors::NIL;
+    x::errors::Error create_device(
+        synnax::device::Device &dev,
+        const synnax::ontology::ID &parent = {}
+    ) override {
+        return this->client->devices.create(dev, parent);
     }
 
     x::errors::Error
@@ -203,6 +209,7 @@ class ScanTask final : public task::Task, public pipeline::Base {
     ScannerContext scanner_ctx;
     std::unique_ptr<ClusterAPI> client;
     std::unordered_map<std::string, synnax::device::Device> dev_states;
+    std::unordered_map<std::string, synnax::ontology::ID> parent_states;
     std::string log_prefix;
 
     // Signal monitoring infrastructure
@@ -426,7 +433,7 @@ public:
     }
 
     x::errors::Error scan() {
-        std::vector<synnax::device::Device> to_create;
+        std::vector<ScannedDevice> to_create;
         std::vector<synnax::device::Status> statuses;
         {
             std::lock_guard lock(this->mu);
@@ -441,10 +448,10 @@ public:
             // transitions NI may briefly report the same device at multiple locations.
             {
                 std::unordered_set<std::string> seen;
-                std::vector<synnax::device::Device> deduped;
+                std::vector<ScannedDevice> deduped;
                 for (auto it = scanned_devs.rbegin(); it != scanned_devs.rend(); ++it) {
-                    if (seen.count(it->key)) continue;
-                    seen.insert(it->key);
+                    if (seen.count(it->device.key)) continue;
+                    seen.insert(it->device.key);
                     deduped.push_back(std::move(*it));
                 }
                 std::reverse(deduped.begin(), deduped.end());
@@ -454,56 +461,60 @@ public:
             // Step 2: Track which devices are present that need to be created.
             std::set<std::string> present;
             auto last_available = x::telem::TimeStamp::now();
-            for (auto &scanned_dev: scanned_devs) {
-                present.insert(scanned_dev.key);
+            for (auto &sd: scanned_devs) {
+                auto &dev = sd.device;
+                present.insert(dev.key);
                 // Unless the device already exists on the remote, it should not
                 // be configured. No exceptions.
-                scanned_dev.configured = false;
-                auto iter = this->dev_states.find(scanned_dev.key);
+                dev.configured = false;
+                auto iter = this->dev_states.find(dev.key);
                 if (iter == this->dev_states.end()) {
-                    to_create.push_back(scanned_dev);
-                    this->dev_states[scanned_dev.key] = scanned_dev;
+                    to_create.push_back(sd);
+                    this->dev_states[dev.key] = dev;
+                    this->parent_states[dev.key] = sd.parent;
                     continue;
                 }
-                const auto remote_dev = iter->second;
+                const auto &remote_dev = iter->second;
                 bool needs_update = false;
 
-                if (scanned_dev.location != remote_dev.location) {
+                if (dev.location != remote_dev.location) {
                     LOG(INFO) << this->log_prefix << "device location changed from "
-                              << remote_dev.location << " to " << scanned_dev.location;
+                              << remote_dev.location << " to " << dev.location;
                     needs_update = true;
                 }
 
-                if (scanned_dev.rack != remote_dev.rack &&
-                    this->update_threshold_exceeded(scanned_dev.key)) {
+                if (dev.rack != remote_dev.rack &&
+                    this->update_threshold_exceeded(dev.key)) {
                     LOG(INFO) << this->log_prefix << "taking ownership over device";
                     needs_update = true;
                 }
 
-                if (scanned_dev.parent_device != remote_dev.parent_device) {
+                auto prev_parent = this->parent_states[dev.key];
+                if (sd.parent != prev_parent) {
                     VLOG(1) << this->log_prefix << "device parent changed for "
-                            << scanned_dev.key << " from '" << remote_dev.parent_device
-                            << "' to '" << scanned_dev.parent_device << "'";
+                            << dev.key << " from '" << prev_parent.string() << "' to '"
+                            << sd.parent.string() << "'";
                     needs_update = true;
                 }
 
                 auto merged_props = merge_device_properties(
                     remote_dev.properties,
-                    scanned_dev.properties
+                    dev.properties
                 );
                 if (merged_props != remote_dev.properties) {
                     VLOG(1) << this->log_prefix << "device properties changed for "
-                            << scanned_dev.key;
+                            << dev.key;
                     needs_update = true;
                 }
-                scanned_dev.properties = merged_props;
-                scanned_dev.name = remote_dev.name;
-                scanned_dev.configured = remote_dev.configured;
+                dev.properties = merged_props;
+                dev.name = remote_dev.name;
+                dev.configured = remote_dev.configured;
 
-                if (needs_update) to_create.push_back(scanned_dev);
+                if (needs_update) to_create.push_back(sd);
 
-                scanned_dev.status.time = last_available;
-                this->dev_states[scanned_dev.key] = scanned_dev;
+                dev.status.time = last_available;
+                this->dev_states[dev.key] = dev;
+                this->parent_states[dev.key] = sd.parent;
             }
 
             for (auto &[key, dev]: this->dev_states) {
@@ -524,15 +535,15 @@ public:
         if (to_create.empty()) return x::errors::NIL;
 
         x::errors::Error last_err = x::errors::NIL;
-        for (auto &device: to_create) {
-            std::vector single_device = {device};
-            if (const auto create_err = this->client->create_devices(single_device)) {
+        for (auto &sd: to_create) {
+            if (const auto create_err = this->client
+                                            ->create_device(sd.device, sd.parent)) {
                 LOG(WARNING) << this->log_prefix << "failed to create device "
-                             << device.key << ": " << create_err;
+                             << sd.device.key << ": " << create_err;
                 last_err = create_err;
             } else
                 LOG(INFO) << this->log_prefix << "successfully created device "
-                          << device.key;
+                          << sd.device.key;
         }
         return last_err;
     }

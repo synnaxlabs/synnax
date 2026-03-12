@@ -20,6 +20,11 @@ service DeviceDeleteService {
   rpc Exec(DeviceDeleteRequest) returns (google.protobuf.Empty);
 }
 
+message OntologyID {
+  string type = 1;
+  string key = 2;
+}
+
 message Device {
   string key = 1;
   string name = 2;
@@ -30,11 +35,11 @@ message Device {
   google.protobuf.Struct properties = 8;
   bool configured = 9;
   status.PBStatus status = 10;
+  OntologyID parent = 11;
 }
 
 message DeviceCreateRequest {
   repeated Device devices = 1;
-  string parent = 2;
 }
 
 message DeviceCreateResponse {
