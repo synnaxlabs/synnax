@@ -209,6 +209,65 @@ var _ = Describe("Telem", func() {
 				Expect(outputChanged).To(BeFalse())
 			})
 
+			It("Should generate a time series matching the current series length for virtual channels with accumulated reads", func() {
+				source := MustSucceed(factory.Create(ctx, rnode.Config{
+					Node: ir.Node{
+						Type:   "on",
+						Config: types.Params{{Name: "channel", Type: types.U32(), Value: uint32(20)}},
+					},
+					State: s.Node("source"),
+				}))
+				nodeState := s.Node("source")
+				d1 := telem.NewSeriesV[int32](10, 20, 30)
+				d1.Alignment = telem.NewAlignment(1, 0)
+				s.Ingest(telem.UnaryFrame[uint32](20, d1))
+
+				var triggered bool
+				source.Next(rnode.Context{Context: ctx, MarkChanged: func(string) { triggered = true }})
+				Expect(triggered).To(BeTrue())
+				Expect(nodeState.Output(0).Len()).To(Equal(int64(3)))
+				Expect(nodeState.OutputTime(0).Len()).To(Equal(int64(3)))
+
+				s.ClearReads()
+				triggered = false
+
+				d2 := telem.NewSeriesV[int32](40, 50)
+				d2.Alignment = telem.NewAlignment(1, 3)
+				s.Ingest(telem.UnaryFrame[uint32](20, d2))
+
+				source.Next(rnode.Context{Context: ctx, MarkChanged: func(string) { triggered = true }})
+				Expect(triggered).To(BeTrue())
+				Expect(nodeState.Output(0).Len()).To(Equal(int64(2)))
+				Expect(nodeState.OutputTime(0).Len()).To(Equal(int64(2)),
+					"time series length must match data series length, not total accumulated read buffer length")
+			})
+
+			It("Should generate monotonically increasing timestamps across calls for virtual channels", func() {
+				source := MustSucceed(factory.Create(ctx, rnode.Config{
+					Node: ir.Node{
+						Type:   "on",
+						Config: types.Params{{Name: "channel", Type: types.U32(), Value: uint32(20)}},
+					},
+					State: s.Node("source"),
+				}))
+				nodeState := s.Node("source")
+				var prevTS telem.TimeStamp
+				for i := range 10 {
+					d := telem.NewSeriesV[int32](int32(i))
+					d.Alignment = telem.NewAlignment(1, uint32(i))
+					s.Ingest(telem.UnaryFrame[uint32](20, d))
+
+					var triggered bool
+					source.Next(rnode.Context{Context: ctx, MarkChanged: func(string) { triggered = true }})
+					Expect(triggered).To(BeTrue())
+					ts := telem.ValueAt[telem.TimeStamp](*nodeState.OutputTime(0), 0)
+					Expect(ts).To(BeNumerically(">", prevTS),
+						"timestamp must strictly increase across consecutive source outputs")
+					prevTS = ts
+					s.ClearReads()
+				}
+			})
+
 			It("Should handle multiple series in MultiSeries", func() {
 				nodeState := s.Node("source")
 				source := MustSucceed(factory.Create(ctx, rnode.Config{

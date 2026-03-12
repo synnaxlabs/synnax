@@ -74,7 +74,7 @@ Bindings::Bindings(
     memory(nullptr),
     error_handler(std::move(error_handler)) {}
 
-#define IMPL_CHANNEL_OPS(suffix, cpptype, default_val, data_type_const)                \
+#define IMPL_CHANNEL_OPS(suffix, cpptype, default_val)                                 \
     cpptype Bindings::channel_read_##suffix(uint32_t channel_id) {                     \
         if (this->state == nullptr) return default_val;                                \
         auto [multi_series, ok] = this->state->read_channel(                           \
@@ -87,27 +87,22 @@ Bindings::Bindings(
     }                                                                                  \
     void Bindings::channel_write_##suffix(uint32_t channel_id, cpptype value) {        \
         if (this->state == nullptr) return;                                            \
-        auto data = x::mem::make_local_shared<x::telem::Series>(                       \
-            value,                                                                     \
-            data_type_const                                                            \
+        this->state->write_channel_##suffix(                                           \
+            static_cast<types::ChannelKey>(channel_id),                                \
+            value                                                                      \
         );                                                                             \
-        auto time = x::mem::make_local_shared<x::telem::Series>(                       \
-            x::telem::TimeStamp::now()                                                 \
-        );                                                                             \
-        this->state                                                                    \
-            ->write_channel(static_cast<types::ChannelKey>(channel_id), data, time);   \
     }
 
-IMPL_CHANNEL_OPS(u8, uint8_t, 0, x::telem::UINT8_T)
-IMPL_CHANNEL_OPS(u16, uint16_t, 0, x::telem::UINT16_T)
-IMPL_CHANNEL_OPS(u32, uint32_t, 0, x::telem::UINT32_T)
-IMPL_CHANNEL_OPS(u64, uint64_t, 0, x::telem::UINT64_T)
-IMPL_CHANNEL_OPS(i8, int8_t, 0, x::telem::INT8_T)
-IMPL_CHANNEL_OPS(i16, int16_t, 0, x::telem::INT16_T)
-IMPL_CHANNEL_OPS(i32, int32_t, 0, x::telem::INT32_T)
-IMPL_CHANNEL_OPS(i64, int64_t, 0, x::telem::INT64_T)
-IMPL_CHANNEL_OPS(f32, float, 0.0f, x::telem::FLOAT32_T)
-IMPL_CHANNEL_OPS(f64, double, 0.0, x::telem::FLOAT64_T)
+IMPL_CHANNEL_OPS(u8, uint8_t, 0)
+IMPL_CHANNEL_OPS(u16, uint16_t, 0)
+IMPL_CHANNEL_OPS(u32, uint32_t, 0)
+IMPL_CHANNEL_OPS(u64, uint64_t, 0)
+IMPL_CHANNEL_OPS(i8, int8_t, 0)
+IMPL_CHANNEL_OPS(i16, int16_t, 0)
+IMPL_CHANNEL_OPS(i32, int32_t, 0)
+IMPL_CHANNEL_OPS(i64, int64_t, 0)
+IMPL_CHANNEL_OPS(f32, float, 0.0f)
+IMPL_CHANNEL_OPS(f64, double, 0.0)
 
 #undef IMPL_CHANNEL_OPS
 

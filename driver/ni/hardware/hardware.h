@@ -182,8 +182,14 @@ public:
 template<typename T>
 class Reader final : public Base, public hardware::Reader<T> {
 public:
-    /// @brief Predefined responses for read() calls
-    std::vector<std::pair<std::vector<T>, x::errors::Error>> read_responses;
+    /// @brief Predefined responses for read() calls: {data, error, skew}
+    struct ReadResponse {
+        std::vector<T> data;
+        x::errors::Error error = x::errors::NIL;
+        int64 skew = 0;
+    };
+
+    std::vector<ReadResponse> read_responses;
     /// @brief Number of times read() was called
     size_t read_call_count;
 
@@ -194,9 +200,7 @@ public:
     explicit Reader(
         const std::vector<x::errors::Error> &start_errors = {x::errors::NIL},
         const std::vector<x::errors::Error> &stop_errors = {x::errors::NIL},
-        std::vector<std::pair<std::vector<T>, x::errors::Error>> read_responses = {
-            {{0.5}, x::errors::NIL}
-        }
+        std::vector<ReadResponse> read_responses = {{.data = {0.5}}}
     );
 
     ReadResult read(size_t samples_per_channel, std::vector<T> &data) override;

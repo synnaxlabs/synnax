@@ -118,7 +118,8 @@ func (s *Provider) PublishFromObservable(ctx context.Context, cfgs ...Observable
 		}
 	}
 	t := &confluence.ObservableTransformPublisher[[]change.Change[[]byte, struct{}], framer.WriterRequest]{
-		Observable: cfg.Observable,
+		Instrumentation: s.Instrumentation,
+		Observable:      cfg.Observable,
 		Transform: func(ctx context.Context, r []change.Change[[]byte, struct{}]) (framer.WriterRequest, bool, error) {
 			if len(r) == 0 {
 				return framer.WriterRequest{}, false, nil

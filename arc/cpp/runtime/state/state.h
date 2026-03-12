@@ -159,6 +159,7 @@ class State {
     std::unordered_map<types::ChannelKey, types::ChannelKey> indexes;
     std::unordered_map<types::ChannelKey, std::vector<Series>> reads;
     std::unordered_map<types::ChannelKey, Series> writes;
+    std::vector<types::ChannelKey> active_write_keys;
 
     /// @brief Starting value for config string handles. Config string handles are
     /// stable for the State lifetime and are never cleared by flush(). Using a high
@@ -208,6 +209,16 @@ class State {
 
 public:
     void write_channel(types::ChannelKey key, const Series &data, const Series &time);
+    void write_channel_u8(types::ChannelKey key, uint8_t value);
+    void write_channel_u16(types::ChannelKey key, uint16_t value);
+    void write_channel_u32(types::ChannelKey key, uint32_t value);
+    void write_channel_u64(types::ChannelKey key, uint64_t value);
+    void write_channel_i8(types::ChannelKey key, int8_t value);
+    void write_channel_i16(types::ChannelKey key, int16_t value);
+    void write_channel_i32(types::ChannelKey key, int32_t value);
+    void write_channel_i64(types::ChannelKey key, int64_t value);
+    void write_channel_f32(types::ChannelKey key, float value);
+    void write_channel_f64(types::ChannelKey key, double value);
     std::pair<x::telem::MultiSeries, bool> read_channel(types::ChannelKey key);
     explicit State(
         const Config &cfg,
