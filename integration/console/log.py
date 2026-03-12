@@ -36,27 +36,41 @@ class Log(ConsolePage):
         if channel_name is not None:
             self.set_channel(channel_name)
 
+    def clear_channels(self) -> None:
+        """Remove all currently selected channels from the log."""
+        self.layout.show_visualization_toolbar()
+        toolbar = self.page.locator(".console-log-toolbar")
+        while toolbar.locator(".pluto-tag").count() > 0:
+            tag = toolbar.locator(".pluto-tag").first
+            tag.hover()
+            tag.locator(".pluto-tag__close").click()
+
     def set_channel(self, channel_name: str) -> None:
         self.layout.show_visualization_toolbar()
-        self.layout.click_btn("Channel")
-        self.layout.select_from_dropdown(channel_name, "Select a Channel")
+        self.page.locator(".console-log-toolbar .pluto-dialog__trigger").click()
+        self.page.locator("input[placeholder*='Search channels']").wait_for(
+            state="attached", timeout=5000
+        )
+        self.layout.select_from_dropdown(channel_name, "Search channels")
 
     def has_channel(self, channel_name: str) -> bool:
         """Check if a channel is shown in the Log toolbar."""
         self.layout.get_tab(self.page_name).click()
         self.layout.show_visualization_toolbar()
-        channel_btn = (
-            self.page.locator("text=Channel").locator("..").locator("button").first
-        )
-        channel_text = channel_btn.inner_text().strip()
-        result = channel_name in channel_text
-        return result
+        toolbar = self.page.locator(".console-log-toolbar")
+        tags = toolbar.locator(".pluto-tag")
+        for i in range(tags.count()):
+            if channel_name in (tags.nth(i).inner_text() or ""):
+                return True
+        return False
 
     def is_empty(self) -> bool:
         """Check if the log shows any empty state message."""
         if not self.pane_locator:
             return True
-        no_channel = self.pane_locator.locator("text=No channel configured").count() > 0
+        no_channel = (
+            self.pane_locator.locator("text=No channels configured").count() > 0
+        )
         no_data = self.pane_locator.locator("text=No data received yet").count() > 0
         return no_channel or no_data
 
@@ -64,7 +78,7 @@ class Log(ConsolePage):
         """Check if the log shows 'No channel configured' message."""
         if not self.pane_locator:
             return False
-        return self.pane_locator.locator("text=No channel configured").count() > 0
+        return self.pane_locator.locator("text=No channels configured").count() > 0
 
     def is_waiting_for_data(self) -> bool:
         """Check if the log shows 'No data received yet' message."""
