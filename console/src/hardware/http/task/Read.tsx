@@ -192,7 +192,12 @@ const FieldListItem = ({ epKey, ...props }: FieldListItemProps) => {
 
 const POINTER_INPUT_PROPS = { placeholder: "/temperature" } as const;
 
-const HIDDEN_DATA_TYPES = [DataType.UUID, DataType.JSON, DataType.BYTES];
+const HIDDEN_DATA_TYPES = [
+  DataType.TIMESTAMP,
+  DataType.UUID,
+  DataType.JSON,
+  DataType.BYTES,
+];
 
 const renderTelemSelectDataType = Component.renderProp(
   (p: Telem.SelectDataTypeProps) => (
@@ -668,7 +673,10 @@ const onConfigure: Common.Task.OnConfigure<ReadSchemas["config"]> = async (
 
         // check device properties for a stored channel key
         const storedKey = epProps.channels[field.pointer];
-        if (primitive.isNonZero(storedKey) && (await channelExists(client, storedKey))) {
+        if (
+          primitive.isNonZero(storedKey) &&
+          (await channelExists(client, storedKey))
+        ) {
           field.channel = storedKey;
           continue;
         }
