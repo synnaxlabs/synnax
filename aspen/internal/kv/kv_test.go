@@ -79,9 +79,10 @@ var _ = Describe("txn", func() {
 					kv2 := MustSucceed(builder.New(ctx, kv.Config{}, cluster.Config{}))
 					Expect(kv1.Set(ctx, []byte("key"), []byte("value"))).To(Succeed())
 					Eventually(func(g Gomega) {
-						v, closer := MustSucceed2(kv2.Get(ctx, []byte("key")))
+						v, closer, err := kv2.Get(ctx, []byte("key"))
+						g.Expect(err).ToNot(HaveOccurred())
 						g.Expect(v).To(Equal([]byte("value")))
-						Expect(closer.Close()).To(Succeed())
+						g.Expect(closer.Close()).To(Succeed())
 					}).Should(Succeed())
 				})
 			It("Should forward an update to the Leaseholder", func() {
@@ -89,18 +90,21 @@ var _ = Describe("txn", func() {
 				kv2 := MustSucceed(builder.New(ctx, kv.Config{}, cluster.Config{}))
 				Expect(kv1.Set(ctx, []byte("key"), []byte("value"))).To(Succeed())
 				Eventually(func(g Gomega) {
-					v, closer := MustSucceed2(kv2.Get(ctx, []byte("key")))
+					v, closer, err := kv2.Get(ctx, []byte("key"))
+					g.Expect(err).ToNot(HaveOccurred())
 					g.Expect(v).To(Equal([]byte("value")))
 					g.Expect(kv2.Set(ctx, []byte("key"), []byte("value2"))).To(Succeed())
-					Expect(closer.Close()).To(Succeed())
+					g.Expect(closer.Close()).To(Succeed())
 				}).Should(Succeed())
 				Expect(func(g Gomega) {
-					v, closer := MustSucceed2(kv1.Get(ctx, []byte("key")))
+					v, closer, err := kv1.Get(ctx, []byte("key"))
+					g.Expect(err).ToNot(HaveOccurred())
 					g.Expect(v).To(Equal([]byte("value2")))
-					Expect(closer.Close()).To(Succeed())
-					v, closer = MustSucceed2(kv1.Get(ctx, []byte("key")))
+					g.Expect(closer.Close()).To(Succeed())
+					v, closer, err = kv1.Get(ctx, []byte("key"))
+					g.Expect(err).ToNot(HaveOccurred())
 					g.Expect(v).To(Equal([]byte("value2")))
-					Expect(closer.Close()).To(Succeed())
+					g.Expect(closer.Close()).To(Succeed())
 				})
 			})
 
@@ -123,9 +127,10 @@ var _ = Describe("txn", func() {
 				waitForClusterStateToConverge(builder)
 				Expect(kv1.Set(ctx, []byte("key"), []byte("value"), node.Key(2))).To(Succeed())
 				Eventually(func(g Gomega) {
-					v, closer := MustSucceed2(kv2.Get(ctx, []byte("key")))
+					v, closer, err := kv2.Get(ctx, []byte("key"))
+					g.Expect(err).ToNot(HaveOccurred())
 					g.Expect(v).To(Equal([]byte("value")))
-					Expect(closer.Close()).To(Succeed())
+					g.Expect(closer.Close()).To(Succeed())
 				}).Should(Succeed())
 			})
 
@@ -177,9 +182,10 @@ var _ = Describe("txn", func() {
 				waitForClusterStateToConverge(builder)
 				Expect(kv1.Set(ctx, []byte("key"), []byte("value"), node.Key(2))).To(Succeed())
 				Eventually(func(g Gomega) {
-					v, closer := MustSucceed2(kv2.Get(ctx, []byte("key")))
+					v, closer, err := kv2.Get(ctx, []byte("key"))
+					g.Expect(err).ToNot(HaveOccurred())
 					g.Expect(v).To(Equal([]byte("value")))
-					Expect(closer.Close()).To(Succeed())
+					g.Expect(closer.Close()).To(Succeed())
 				}).Should(Succeed())
 			})
 		})
@@ -265,15 +271,18 @@ var _ = Describe("txn", func() {
 			Expect(kv1.Set(ctx, []byte("key3"), []byte("value3"))).To(Succeed())
 			kv2 := MustSucceed(builder.New(ctx, kv.Config{}, cluster.Config{}))
 			Eventually(func(g Gomega) {
-				v, closer := MustSucceed2(kv2.Get(ctx, []byte("key")))
+				v, closer, err := kv2.Get(ctx, []byte("key"))
+				g.Expect(err).ToNot(HaveOccurred())
 				g.Expect(v).To(Equal([]byte("value")))
-				Expect(closer.Close()).To(Succeed())
-				v, closer = MustSucceed2(kv2.Get(ctx, []byte("key2")))
+				g.Expect(closer.Close()).To(Succeed())
+				v, closer, err = kv2.Get(ctx, []byte("key2"))
+				g.Expect(err).ToNot(HaveOccurred())
 				g.Expect(v).To(Equal([]byte("value2")))
-				Expect(closer.Close()).To(Succeed())
-				v, closer = MustSucceed2(kv2.Get(ctx, []byte("key3")))
+				g.Expect(closer.Close()).To(Succeed())
+				v, closer, err = kv2.Get(ctx, []byte("key3"))
+				g.Expect(err).ToNot(HaveOccurred())
 				g.Expect(v).To(Equal([]byte("value3")))
-				Expect(closer.Close()).To(Succeed())
+				g.Expect(closer.Close()).To(Succeed())
 			})
 		})
 
@@ -283,9 +292,10 @@ var _ = Describe("txn", func() {
 			Expect(kv1.Delete(ctx, []byte("key"))).To(Succeed())
 			kv2 := MustSucceed(builder.New(ctx, kv.Config{}, cluster.Config{}))
 			Eventually(func(g Gomega) {
-				v, closer := MustSucceed2(kv2.Get(ctx, []byte("key")))
+				v, closer, err := kv2.Get(ctx, []byte("key"))
+				g.Expect(err).ToNot(HaveOccurred())
 				g.Expect(v).To(Equal([]byte("value")))
-				Expect(closer.Close()).To(Succeed())
+				g.Expect(closer.Close()).To(Succeed())
 			})
 		})
 	})
@@ -293,6 +303,7 @@ var _ = Describe("txn", func() {
 
 func waitForClusterStateToConverge(builder *kvmock.Builder) {
 	Eventually(func(g Gomega) {
-		MustSucceed(builder.ClusterAPIs[1].Resolve(2))
+		_, err := builder.ClusterAPIs[1].Resolve(2)
+		g.Expect(err).ToNot(HaveOccurred())
 	}).Should(Succeed())
 }
