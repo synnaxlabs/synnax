@@ -88,8 +88,8 @@ func fileImportInfo(file *ast.File) importInfo {
 	info := importInfo{}
 	for _, imp := range file.Imports {
 		if imp.Path.Value == testutilImport {
-			info.hasTestutil = true
-			// Check if it's a dot import
+			// Only treat as "has testutil" if it's a dot import, since
+			// the fixes emit unqualified MustSucceed calls.
 			if imp.Name != nil && imp.Name.Name == "." {
 				info.hasTestutil = true
 			}

@@ -9,4 +9,5 @@
 
 package testutil
 
-func MustSucceed[T any](value T, err error) T { return value }
+func MustSucceed[T any](value T, err error) T          { return value }
+func MustSucceed2[A, B any](a A, b B, err error) (A, B) { return a, b }
