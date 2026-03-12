@@ -1025,6 +1025,125 @@ TEST(HTTPWriteTask, TimeFormatUnixSeconds) {
     EXPECT_NEAR(body["ts"].get<double>(), 1736899200.0, 1.0);
 }
 
+/// @brief it should include a generated timestamp field formatted as ISO8601.
+TEST(HTTPWriteTask, GeneratedTimestampField) {
+    mock::Server server(
+        mock::ServerConfig{
+            .routes = {{
+                .method = Method::POST,
+                .path = "/api/control",
+                .status_code = 200,
+                .response_body = R"({"status":"ok"})",
+            }},
+        }
+    );
+    ASSERT_NIL(server.start());
+    x::defer::defer stop_server([&server] { server.stop(); });
+
+    WriteTaskConfig cfg;
+    cfg.device = "test-device";
+    cfg.auto_start = false;
+
+    WriteEndpoint ep;
+    ep.request.method = Method::POST;
+    ep.request.path = "/api/control";
+    ep.request.request_content_type = "application/json";
+    ep.channel.pointer = x::json::json::json_pointer("/value");
+    ep.channel.json_type = x::json::Type::Number;
+    ep.channel.channel_key = 1;
+    ep.generated_fields = {{
+        .pointer = x::json::json::json_pointer("/created_at"),
+        .generator = GeneratorType::Timestamp,
+        .time_format = x::json::TimeFormat::ISO8601,
+    }};
+
+    cfg.endpoints = {ep};
+    cfg.cmd_keys = {1};
+
+    auto [sink, processor] = make_sink(cfg, server.base_url());
+
+    x::telem::Frame frame;
+    frame.emplace(synnax::channel::Key(1), x::telem::Series(std::vector<double>{7.5}));
+
+    ASSERT_NIL(sink->write(frame));
+
+    auto reqs = server.received_requests();
+    ASSERT_EQ(reqs.size(), 1);
+    auto body = x::json::json::parse(reqs[0].body);
+    EXPECT_NEAR(body["value"].get<double>(), 7.5, 0.001);
+    ASSERT_TRUE(body.contains("created_at"));
+    // ISO8601 timestamps contain 'T' and have at least 19 chars (YYYY-MM-DDTHH:MM:SS).
+    const auto ts_str = body["created_at"].get<std::string>();
+    EXPECT_GE(ts_str.size(), 19);
+    EXPECT_NE(ts_str.find('T'), std::string::npos);
+}
+
+/// @brief it should construct deeply nested JSON bodies from pointers correctly.
+TEST(HTTPWriteTask, DeeplyNestedPointer) {
+    mock::Server server(
+        mock::ServerConfig{
+            .routes = {{
+                .method = Method::POST,
+                .path = "/api/data",
+                .status_code = 200,
+                .response_body = R"({"status":"ok"})",
+            }},
+        }
+    );
+    ASSERT_NIL(server.start());
+    x::defer::defer stop_server([&server] { server.stop(); });
+
+    WriteTaskConfig cfg;
+    cfg.device = "test-device";
+    cfg.auto_start = false;
+
+    WriteEndpoint ep;
+    ep.request.method = Method::POST;
+    ep.request.path = "/api/data";
+    ep.request.request_content_type = "application/json";
+    ep.channel.pointer = x::json::json::json_pointer(
+        "/payload/sensors/temperature/reading"
+    );
+    ep.channel.json_type = x::json::Type::Number;
+    ep.channel.channel_key = 1;
+    ep.static_fields = {
+        {
+            .pointer = x::json::json::json_pointer("/payload/sensors/temperature/unit"),
+            .value = "celsius",
+        },
+        {
+            .pointer = x::json::json::json_pointer("/metadata/source"),
+            .value = "driver",
+        },
+    };
+
+    cfg.endpoints = {ep};
+    cfg.cmd_keys = {1};
+
+    auto [sink, processor] = make_sink(cfg, server.base_url());
+
+    x::telem::Frame frame;
+    frame.emplace(synnax::channel::Key(1), x::telem::Series(std::vector<double>{23.5}));
+
+    ASSERT_NIL(sink->write(frame));
+
+    auto reqs = server.received_requests();
+    ASSERT_EQ(reqs.size(), 1);
+    auto body = x::json::json::parse(reqs[0].body);
+
+    // Verify the deeply nested structure was constructed correctly.
+    EXPECT_NEAR(
+        body["payload"]["sensors"]["temperature"]["reading"].get<double>(),
+        23.5,
+        0.001
+    );
+    EXPECT_EQ(
+        body["payload"]["sensors"]["temperature"]["unit"].get<std::string>(),
+        "celsius"
+    );
+    EXPECT_EQ(body["metadata"]["source"].get<std::string>(), "driver");
+}
+
 /// @brief it should skip disabled endpoints and only send to enabled ones.
 TEST(HTTPWriteTask, DisabledEndpointSkipped) {
     mock::Server server(
