@@ -88,40 +88,41 @@ const noValidateHealthCheckZ = sharedHealthCheckZ.extend({
   validateResponse: z.literal(false),
 });
 
-const stringResponseValueZ = z.object({
+const baseResponseZ = z.object({ pointer: json.pointerZ });
+
+const stringResponseValueZ = baseResponseZ.extend({
   expectedValueType: z.literal("string"),
   expectedValue: z.string(),
 });
 
-const numberResponseValueZ = z.object({
+const numberResponseValueZ = baseResponseZ.extend({
   expectedValueType: z.literal("number"),
   expectedValue: z.number(),
 });
 
-const booleanResponseValueZ = z.object({
+const booleanResponseValueZ = baseResponseZ.extend({
   expectedValueType: z.literal("boolean"),
   expectedValue: z.boolean(),
 });
 
-const nullResponseValueZ = z.object({
+const nullResponseValueZ = baseResponseZ.extend({
   expectedValueType: z.literal("null"),
   expectedValue: z.null(),
 });
 
-const responseValueZ = z.discriminatedUnion("expectedValueType", [
+const responseZ = z.discriminatedUnion("expectedValueType", [
   stringResponseValueZ,
   numberResponseValueZ,
   booleanResponseValueZ,
   nullResponseValueZ,
 ]);
 
-const responseZ = z.object({ pointer: json.pointerZ, value: responseValueZ });
-
 export type Response = z.infer<typeof responseZ>;
 
 export const ZERO_RESPONSE = {
   pointer: "",
-  value: { expectedValueType: "string", expectedValue: "" },
+  expectedValueType: "string",
+  expectedValue: "",
 } as const satisfies Response;
 
 const validateHealthCheckZ = sharedHealthCheckZ.extend({
