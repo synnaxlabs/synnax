@@ -576,4 +576,35 @@ TEST(DeviceTests, testParseFromJSONDefaults) {
     ASSERT_EQ(x::json::json(d.properties), x::json::json::object());
     ASSERT_EQ(d.configured, false);
 }
+
+/// @brief it should create a device with a parent ontology ID.
+TEST(DeviceTests, testCreateWithParentOntologyID) {
+    const auto client = new_test_client();
+    auto r = rack::Rack{.name = "test_rack"};
+    ASSERT_NIL(client.racks.create(r));
+    const auto rand = std::to_string(gen_rand_device());
+
+    auto chassis = Device{
+        .key = "pd-chassis-" + rand,
+        .name = "chassis",
+        .rack = r.key,
+        .location = "slot-0",
+        .make = "NI",
+        .model = "cDAQ-9178",
+    };
+    ASSERT_NIL(client.devices.create(chassis));
+
+    auto module = Device{
+        .key = "pd-module-" + rand,
+        .name = "module",
+        .rack = r.key,
+        .location = "slot-1",
+        .make = "NI",
+        .model = "9205",
+    };
+    ASSERT_NIL(client.devices.create(module, ontology_id(chassis.key)));
+
+    const auto retrieved = ASSERT_NIL_P(client.devices.retrieve(module.key));
+    ASSERT_EQ(retrieved.key, module.key);
+}
 }

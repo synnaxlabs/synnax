@@ -31,13 +31,13 @@ common::ScannerConfig Scanner::config() const {
     };
 }
 
-std::pair<std::vector<synnax::device::Device>, x::errors::Error>
+std::pair<std::vector<common::ScannedDevice>, x::errors::Error>
 Scanner::scan(const common::ScannerContext &scan_ctx) {
-    std::vector<synnax::device::Device> devices_out;
+    std::vector<common::ScannedDevice> devices_out;
     if (scan_ctx.devices == nullptr) return {devices_out, x::errors::NIL};
     for (auto [key, dev]: *scan_ctx.devices) {
         this->check_device_health(dev);
-        devices_out.push_back(dev);
+        devices_out.push_back(common::ScannedDevice{.device = dev});
     }
     return {devices_out, x::errors::NIL};
 }

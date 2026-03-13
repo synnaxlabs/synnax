@@ -28,10 +28,11 @@ import (
 )
 
 type Service struct {
-	db     *gorp.DB
-	access *rbac.Service
-	device *device.Service
-	status *status.Service
+	db       *gorp.DB
+	access   *rbac.Service
+	device   *device.Service
+	status   *status.Service
+	ontology *ontology.Ontology
 }
 
 func NewService(cfgs ...config.LayerConfig) (*Service, error) {
@@ -40,42 +41,51 @@ func NewService(cfgs ...config.LayerConfig) (*Service, error) {
 		return nil, err
 	}
 	return &Service{
-		db:     cfg.Distribution.DB,
-		device: cfg.Service.Device,
-		status: cfg.Service.Status,
-		access: cfg.Service.RBAC,
+		db:       cfg.Distribution.DB,
+		device:   cfg.Service.Device,
+		status:   cfg.Service.Status,
+		access:   cfg.Service.RBAC,
+		ontology: cfg.Distribution.Ontology,
 	}, nil
 }
 
-type (
-	Device = device.Device
-)
+// Device wraps the service-layer Device with an optional Parent ontology ID
+// used during creation to establish parent-child relationships.
+type Device struct {
+	device.Device
+	Parent ontology.ID `json:"parent" msgpack:"parent"`
+}
 
 type CreateRequest struct {
-	Devices []device.Device `json:"devices" msgpack:"devices"`
+	Devices []Device `json:"devices" msgpack:"devices"`
 }
 
 type CreateResponse struct {
-	Devices []device.Device `json:"devices" msgpack:"devices"`
+	Devices []Device `json:"devices" msgpack:"devices"`
 }
 
 func (s *Service) Create(
 	ctx context.Context,
 	req CreateRequest,
 ) (res CreateResponse, _ error) {
+	svcDevices := make([]device.Device, len(req.Devices))
+	for i, d := range req.Devices {
+		svcDevices[i] = d.Device
+	}
 	if err := s.access.Enforce(ctx, access.Request{
 		Subject: auth.GetSubject(ctx),
 		Action:  access.ActionCreate,
-		Objects: device.OntologyIDsFromDevices(req.Devices),
+		Objects: device.OntologyIDsFromDevices(svcDevices),
 	}); err != nil {
 		return res, err
 	}
 	return res, s.db.WithTx(ctx, func(tx gorp.Tx) error {
 		w := s.device.NewWriter(tx)
-		for _, d := range req.Devices {
-			if err := w.Create(ctx, d); err != nil {
+		for i, d := range req.Devices {
+			if err := w.Create(ctx, d.Device, d.Parent); err != nil {
 				return err
 			}
+			req.Devices[i].Device = d.Device
 		}
 		res.Devices = req.Devices
 		return nil
@@ -97,7 +107,7 @@ type RetrieveRequest struct {
 }
 
 type RetrieveResponse struct {
-	Devices []device.Device `json:"devices" msgpack:"devices"`
+	Devices []Device `json:"devices" msgpack:"devices"`
 }
 
 func (s *Service) Retrieve(
@@ -143,30 +153,47 @@ func (s *Service) Retrieve(
 	if hasRacks {
 		q = q.WhereRacks(req.Racks...)
 	}
-	retErr := q.Entries(&res.Devices).Exec(ctx, nil)
+	var svcDevices []device.Device
+	retErr := q.Entries(&svcDevices).Exec(ctx, nil)
 
 	if req.IncludeStatus {
-		statuses := make([]device.Status, 0, len(res.Devices))
+		statuses := make([]device.Status, 0, len(svcDevices))
 		if err := status.NewRetrieve[device.StatusDetails](s.status).
-			WhereKeys(ontology.IDsToKeys(device.OntologyIDsFromDevices(res.Devices))...).
+			WhereKeys(ontology.IDsToKeys(device.OntologyIDsFromDevices(svcDevices))...).
 			Entries(&statuses).
 			Exec(ctx, nil); err != nil {
 			return res, err
 		}
 		for i, stat := range statuses {
-			res.Devices[i].Status = &stat
+			svcDevices[i].Status = &stat
 		}
 	}
 
 	if err := s.access.Enforce(ctx, access.Request{
 		Subject: auth.GetSubject(ctx),
 		Action:  access.ActionRetrieve,
-		Objects: device.OntologyIDsFromDevices(res.Devices),
+		Objects: device.OntologyIDsFromDevices(svcDevices),
 	}); err != nil {
 		return RetrieveResponse{}, err
 	}
 	if retErr != nil && req.IgnoreNotFound {
 		retErr = errors.Skip(retErr, query.ErrNotFound)
+	}
+
+	res.Devices = make([]Device, len(svcDevices))
+	for i, d := range svcDevices {
+		res.Devices[i].Device = d
+		var parents []ontology.Resource
+		_ = s.ontology.NewRetrieve().
+			WhereIDs(device.OntologyID(d.Key)).
+			TraverseTo(ontology.ParentsTraverser).
+			Limit(1).
+			ExcludeFieldData(true).
+			Entries(&parents).
+			Exec(ctx, nil)
+		if len(parents) > 0 {
+			res.Devices[i].Parent = parents[0].ID
+		}
 	}
 	return res, retErr
 }

@@ -16,6 +16,7 @@ import (
 	fgrpc "github.com/synnaxlabs/freighter/grpc"
 	"github.com/synnaxlabs/synnax/pkg/api"
 	apidevice "github.com/synnaxlabs/synnax/pkg/api/device"
+	grpcontology "github.com/synnaxlabs/synnax/pkg/api/grpc/ontology"
 	gapi "github.com/synnaxlabs/synnax/pkg/api/grpc/v1"
 	svcdevice "github.com/synnaxlabs/synnax/pkg/service/device"
 	"github.com/synnaxlabs/synnax/pkg/service/rack"
@@ -62,7 +63,7 @@ var (
 	_ fgrpc.Translator[apidevice.DeleteRequest, *gapi.DeviceDeleteRequest]       = deleteRequestTranslator{}
 )
 
-func translateForward(d *apidevice.Device) (*gapi.Device, error) {
+func svcDeviceToProto(d *svcdevice.Device) (*gapi.Device, error) {
 	gd := &gapi.Device{
 		Key:        d.Key,
 		Name:       d.Name,
@@ -89,8 +90,8 @@ func translateForward(d *apidevice.Device) (*gapi.Device, error) {
 	return gd, nil
 }
 
-func translateBackward(d *gapi.Device) (*apidevice.Device, error) {
-	ad := &apidevice.Device{
+func svcDeviceFromProto(d *gapi.Device) (*svcdevice.Device, error) {
+	ad := &svcdevice.Device{
 		Key:        d.Key,
 		Name:       d.Name,
 		Rack:       rack.Key(d.Rack),
@@ -113,11 +114,31 @@ func translateBackward(d *gapi.Device) (*apidevice.Device, error) {
 	return ad, nil
 }
 
+func apiDeviceToProto(d *apidevice.Device) (*gapi.Device, error) {
+	gd, err := svcDeviceToProto(&d.Device)
+	if err != nil {
+		return nil, err
+	}
+	gd.Parent = grpcontology.IDToProto(d.Parent)
+	return gd, nil
+}
+
+func apiDeviceFromProto(d *gapi.Device) (*apidevice.Device, error) {
+	sd, err := svcDeviceFromProto(d)
+	if err != nil {
+		return nil, err
+	}
+	return &apidevice.Device{
+		Device: *sd,
+		Parent: grpcontology.IDFromProto(d.Parent),
+	}, nil
+}
+
 func translateManyForward(ds []apidevice.Device) ([]*gapi.Device, error) {
 	res := make([]*gapi.Device, len(ds))
 	for i, d := range ds {
 		var err error
-		res[i], err = translateForward(&d)
+		res[i], err = apiDeviceToProto(&d)
 		if err != nil {
 			return nil, err
 		}
@@ -128,7 +149,7 @@ func translateManyForward(ds []apidevice.Device) ([]*gapi.Device, error) {
 func translateManyBackward(ds []*gapi.Device) ([]apidevice.Device, error) {
 	res := make([]apidevice.Device, len(ds))
 	for i, d := range ds {
-		dd, err := translateBackward(d)
+		dd, err := apiDeviceFromProto(d)
 		if err != nil {
 			return nil, err
 		}

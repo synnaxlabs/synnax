@@ -101,7 +101,7 @@ public:
     [[nodiscard]] common::ScannerConfig config() const override;
 
     /// @brief periodic scan method - checks health of all tracked devices.
-    [[nodiscard]] std::pair<std::vector<synnax::device::Device>, x::errors::Error>
+    [[nodiscard]] std::pair<std::vector<common::ScannedDevice>, x::errors::Error>
     scan(const common::ScannerContext &scan_ctx) override;
 
     /// @brief handle HTTP-specific commands (test connection).

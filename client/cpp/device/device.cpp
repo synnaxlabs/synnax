@@ -77,9 +77,15 @@ Client::retrieve(RetrieveRequest &req) const {
     return {devices, x::errors::NIL};
 }
 
-x::errors::Error Client::create(Device &device) const {
+x::errors::Error Client::create(Device &device, const ontology::ID &parent) const {
     auto req = api::v1::DeviceCreateRequest();
-    device.to_proto(req.add_devices());
+    auto *proto_dev = req.add_devices();
+    device.to_proto(proto_dev);
+    if (!parent.type.empty() && !parent.key.empty()) {
+        auto *p = proto_dev->mutable_parent();
+        p->set_type(parent.type);
+        p->set_key(parent.key);
+    }
     auto [res, err] = device_create_client->send("/device/create", req);
     if (err) return err;
     if (res.devices_size() == 0) return errors::unexpected_missing_error("device");

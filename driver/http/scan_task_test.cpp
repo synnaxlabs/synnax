@@ -280,8 +280,8 @@ TEST(HTTPScanTask, ScanHealthyDevice) {
 
     const auto result = ASSERT_NIL_P(scanner.scan(scan_ctx));
     ASSERT_EQ(result.size(), 1);
-    EXPECT_EQ(result[0].status.variant, x::status::VARIANT_SUCCESS);
-    EXPECT_EQ(result[0].status.message, "Device connected");
+    EXPECT_EQ(result[0].device.status.variant, x::status::VARIANT_SUCCESS);
+    EXPECT_EQ(result[0].device.status.message, "Device connected");
 
     server.stop();
 }
@@ -315,8 +315,8 @@ TEST(HTTPScanTask, ScanSuccessOnHTTP200) {
 
     const auto result = ASSERT_NIL_P(scanner.scan(scan_ctx));
     ASSERT_EQ(result.size(), 1);
-    EXPECT_EQ(result[0].status.variant, x::status::VARIANT_SUCCESS);
-    EXPECT_EQ(result[0].status.message, "Device connected");
+    EXPECT_EQ(result[0].device.status.variant, x::status::VARIANT_SUCCESS);
+    EXPECT_EQ(result[0].device.status.message, "Device connected");
 
     server.stop();
 }
@@ -350,9 +350,9 @@ TEST(HTTPScanTask, ScanFailsOnNon2xxStatus) {
 
     const auto result = ASSERT_NIL_P(scanner.scan(scan_ctx));
     ASSERT_EQ(result.size(), 1);
-    EXPECT_EQ(result[0].status.variant, x::status::VARIANT_ERROR);
-    EXPECT_EQ(result[0].status.message, "HTTP 503");
-    EXPECT_EQ(result[0].status.description, "Service Unavailable");
+    EXPECT_EQ(result[0].device.status.variant, x::status::VARIANT_ERROR);
+    EXPECT_EQ(result[0].device.status.message, "HTTP 503");
+    EXPECT_EQ(result[0].device.status.description, "Service Unavailable");
 
     server.stop();
 }
@@ -384,8 +384,8 @@ TEST(HTTPScanTask, ScanRepeatedScans) {
     for (int i = 0; i < 3; i++) {
         const auto result = ASSERT_NIL_P(scanner.scan(scan_ctx));
         ASSERT_EQ(result.size(), 1);
-        EXPECT_EQ(result[0].status.variant, x::status::VARIANT_SUCCESS);
-        EXPECT_EQ(result[0].status.message, "Device connected");
+        EXPECT_EQ(result[0].device.status.variant, x::status::VARIANT_SUCCESS);
+        EXPECT_EQ(result[0].device.status.message, "Device connected");
     }
 
     // Stop server and verify device becomes unreachable on next scan.
@@ -393,8 +393,8 @@ TEST(HTTPScanTask, ScanRepeatedScans) {
 
     const auto result = ASSERT_NIL_P(scanner.scan(scan_ctx));
     ASSERT_EQ(result.size(), 1);
-    EXPECT_EQ(result[0].status.variant, x::status::VARIANT_WARNING);
-    EXPECT_EQ(result[0].status.message, "Failed to reach server");
+    EXPECT_EQ(result[0].device.status.variant, x::status::VARIANT_WARNING);
+    EXPECT_EQ(result[0].device.status.message, "Failed to reach server");
 }
 
 TEST(HTTPScanTask, ScanUnreachableDevice) {
@@ -414,10 +414,10 @@ TEST(HTTPScanTask, ScanUnreachableDevice) {
 
     const auto result = ASSERT_NIL_P(scanner.scan(scan_ctx));
     ASSERT_EQ(result.size(), 1);
-    EXPECT_EQ(result[0].status.variant, x::status::VARIANT_WARNING);
-    EXPECT_EQ(result[0].status.message, "Failed to reach server");
+    EXPECT_EQ(result[0].device.status.variant, x::status::VARIANT_WARNING);
+    EXPECT_EQ(result[0].device.status.message, "Failed to reach server");
     EXPECT_NE(
-        result[0].status.description.find("Could not connect to server"),
+        result[0].device.status.description.find("Could not connect to server"),
         std::string::npos
     );
 }
@@ -464,10 +464,10 @@ TEST(HTTPScanTask, ScanHealthCheckValidationFailure) {
 
     const auto result = ASSERT_NIL_P(scanner.scan(scan_ctx));
     ASSERT_EQ(result.size(), 1);
-    EXPECT_EQ(result[0].status.variant, x::status::VARIANT_ERROR);
-    EXPECT_EQ(result[0].status.message, "Health check validation failed");
+    EXPECT_EQ(result[0].device.status.variant, x::status::VARIANT_ERROR);
+    EXPECT_EQ(result[0].device.status.message, "Health check validation failed");
     EXPECT_EQ(
-        result[0].status.description,
+        result[0].device.status.description,
         "expected value at '/status' to be \"ok\", got \"degraded\""
     );
 
@@ -516,8 +516,8 @@ TEST(HTTPScanTask, ScanHealthCheckValidationSuccess) {
 
     const auto result = ASSERT_NIL_P(scanner.scan(scan_ctx));
     ASSERT_EQ(result.size(), 1);
-    EXPECT_EQ(result[0].status.variant, x::status::VARIANT_SUCCESS);
-    EXPECT_EQ(result[0].status.message, "Device connected");
+    EXPECT_EQ(result[0].device.status.variant, x::status::VARIANT_SUCCESS);
+    EXPECT_EQ(result[0].device.status.message, "Device connected");
 
     server.stop();
 }
@@ -565,13 +565,13 @@ TEST(HTTPScanTask, ScanMultipleDevices) {
     const auto result = ASSERT_NIL_P(scanner.scan(scan_ctx));
     ASSERT_EQ(result.size(), 2);
 
-    for (const auto &dev: result) {
-        if (dev.key == healthy_dev.key) {
-            EXPECT_EQ(dev.status.variant, x::status::VARIANT_SUCCESS);
-        } else if (dev.key == bad_dev.key) {
-            EXPECT_EQ(dev.status.variant, x::status::VARIANT_WARNING);
+    for (const auto &sd: result) {
+        if (sd.device.key == healthy_dev.key) {
+            EXPECT_EQ(sd.device.status.variant, x::status::VARIANT_SUCCESS);
+        } else if (sd.device.key == bad_dev.key) {
+            EXPECT_EQ(sd.device.status.variant, x::status::VARIANT_WARNING);
         } else {
-            FAIL() << "Unexpected device key: " << dev.key;
+            FAIL() << "Unexpected device key: " << sd.device.key;
         }
     }
 
@@ -606,9 +606,12 @@ TEST(HTTPScanTask, ScanInvalidHealthCheck) {
 
     const auto result = ASSERT_NIL_P(scanner.scan(scan_ctx));
     ASSERT_EQ(result.size(), 1);
-    EXPECT_EQ(result[0].status.variant, x::status::VARIANT_WARNING);
-    EXPECT_EQ(result[0].status.message, "Invalid device properties");
-    EXPECT_NE(result[0].status.description.find("health_check"), std::string::npos);
+    EXPECT_EQ(result[0].device.status.variant, x::status::VARIANT_WARNING);
+    EXPECT_EQ(result[0].device.status.message, "Invalid device properties");
+    EXPECT_NE(
+        result[0].device.status.description.find("health_check"),
+        std::string::npos
+    );
 }
 
 TEST(HTTPScanTask, ScanInvalidDeviceProperties) {
@@ -632,9 +635,9 @@ TEST(HTTPScanTask, ScanInvalidDeviceProperties) {
 
     const auto result = ASSERT_NIL_P(scanner.scan(scan_ctx));
     ASSERT_EQ(result.size(), 1);
-    EXPECT_EQ(result[0].status.variant, x::status::VARIANT_WARNING);
-    EXPECT_EQ(result[0].status.message, "Invalid device properties");
-    EXPECT_NE(result[0].status.description.find("base_url"), std::string::npos);
+    EXPECT_EQ(result[0].device.status.variant, x::status::VARIANT_WARNING);
+    EXPECT_EQ(result[0].device.status.message, "Invalid device properties");
+    EXPECT_NE(result[0].device.status.description.find("base_url"), std::string::npos);
 }
 
 TEST(HTTPScanTask, ScanWithPOSTHealthCheck) {
@@ -680,7 +683,7 @@ TEST(HTTPScanTask, ScanWithPOSTHealthCheck) {
 
     const auto result = ASSERT_NIL_P(scanner.scan(scan_ctx));
     ASSERT_EQ(result.size(), 1);
-    EXPECT_EQ(result[0].status.variant, x::status::VARIANT_SUCCESS);
+    EXPECT_EQ(result[0].device.status.variant, x::status::VARIANT_SUCCESS);
 
     auto received = server.received_requests();
     ASSERT_FALSE(received.empty());
@@ -733,10 +736,12 @@ TEST(HTTPScanTask, ScanHealthCheckNonJSONResponse) {
 
     const auto result = ASSERT_NIL_P(scanner.scan(scan_ctx));
     ASSERT_EQ(result.size(), 1);
-    EXPECT_EQ(result[0].status.variant, x::status::VARIANT_ERROR);
-    EXPECT_EQ(result[0].status.message, "Health check validation failed");
+    EXPECT_EQ(result[0].device.status.variant, x::status::VARIANT_ERROR);
+    EXPECT_EQ(result[0].device.status.message, "Health check validation failed");
     EXPECT_NE(
-        result[0].status.description.find("failed to parse response body as JSON"),
+        result[0].device.status.description.find(
+            "failed to parse response body as JSON"
+        ),
         std::string::npos
     );
 
@@ -785,10 +790,10 @@ TEST(HTTPScanTask, ScanHealthCheckMissingPointer) {
 
     const auto result = ASSERT_NIL_P(scanner.scan(scan_ctx));
     ASSERT_EQ(result.size(), 1);
-    EXPECT_EQ(result[0].status.variant, x::status::VARIANT_ERROR);
-    EXPECT_EQ(result[0].status.message, "Health check validation failed");
+    EXPECT_EQ(result[0].device.status.variant, x::status::VARIANT_ERROR);
+    EXPECT_EQ(result[0].device.status.message, "Health check validation failed");
     EXPECT_EQ(
-        result[0].status.description,
+        result[0].device.status.description,
         "response body does not contain pointer '/status'"
     );
 
@@ -1029,8 +1034,8 @@ TEST(HTTPScanTask, ScanExecutesHealthChecksInParallel) {
     const auto elapsed = x::telem::TimeStamp::now() - start;
 
     ASSERT_EQ(result.size(), NUM_SERVERS);
-    for (const auto &dev: result)
-        EXPECT_EQ(dev.status.variant, x::status::VARIANT_SUCCESS);
+    for (const auto &sd: result)
+        EXPECT_EQ(sd.device.status.variant, x::status::VARIANT_SUCCESS);
 
     EXPECT_LT(elapsed, x::telem::MILLISECOND * MAX_PARALLEL_MS)
         << "Scan took " << elapsed.milliseconds()

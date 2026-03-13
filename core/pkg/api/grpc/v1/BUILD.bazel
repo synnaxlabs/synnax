@@ -9,6 +9,7 @@ proto_library(
         "channel.proto",
         "connectivity.proto",
         "device.proto",
+        "ontology.proto",
         "framer.proto",
         "rack.proto",
         "ranger.proto",
