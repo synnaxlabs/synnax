@@ -42,7 +42,7 @@ config_setting(
 cc_library(
     name = "modbus",
     srcs = select({
-        ":nilinuxrt": [],  # Exclude on NI Linux RT
+        ":nilinuxrt": [],  # Exclude on NI Linux Real-Time
         "//conditions:default": ["modbus.cpp"],
     }),
 )
@@ -313,7 +313,7 @@ if (err) {
 
 - Standard POSIX APIs
 - systemd integration for daemon mode
-- NI Linux RT support (subset of Linux)
+- NI Linux Real-Time support (subset of Linux)
 
 ### macOS
 
@@ -336,14 +336,15 @@ if (err) {
 - **Platform-specific code**: Always use Bazel `select()` for platform differences
 - **Include paths**: May differ between platforms (use conditional includes)
 - **SDKs required**: LabJack LJM, NI-DAQmx must be installed for compilation
-- **Modbus on NI Linux RT**: Excluded via Bazel config
+- **Modbus on NI Linux Real-Time**: Excluded via Bazel config
 - **Smart pointers**: Use `std::move` when transferring ownership
 - **Memory leaks**: Run tests with valgrind or ASAN
 - **Header guards**: Use `#pragma once` or traditional guards
 
 ## Development Best Practices
 
-- **Cross-platform compatibility**: Always consider Windows, macOS, Linux, NI Linux RT
+- **Cross-platform compatibility**: Always consider Windows, macOS, Linux, NI Linux
+  Real-Time
 - **RAII**: Use smart pointers and destructors for resource management
 - **Const correctness**: Mark methods `const` when they don't modify state
 - **Prefer stack allocation**: Use stack when possible, heap when necessary

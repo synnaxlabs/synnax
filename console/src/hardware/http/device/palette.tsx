@@ -13,14 +13,12 @@ import { Access, Icon } from "@synnaxlabs/pluto";
 import { CONNECT_LAYOUT } from "@/hardware/http/device/Connect";
 import { Palette } from "@/palette";
 
-const useVisible = () => Access.useCreateGranted(device.TYPE_ONTOLOGY_ID);
-
 const ConnectServerCommand = Palette.createSimpleCommand({
   key: "http_connect_server",
   name: "Connect an HTTP server",
   icon: <Icon.Logo.HTTP />,
   layout: CONNECT_LAYOUT,
-  useVisible,
+  useVisible: () => Access.useCreateGranted(device.TYPE_ONTOLOGY_ID),
 });
 
 export const COMMANDS = [ConnectServerCommand];

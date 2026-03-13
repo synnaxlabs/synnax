@@ -9,6 +9,8 @@
 
 #include <set>
 
+#include "driver/http/device/device.h"
+#include "driver/http/errors/errors.h"
 #include "driver/http/read_task.h"
 
 namespace driver::http {
@@ -30,9 +32,6 @@ std::pair<ReadTaskConfig, x::errors::Error> ReadTaskConfig::parse(
     parser.iter("endpoints", [&](x::json::Parser &ep) {
         ReadEndpoint endpoint;
         endpoint.request.method = parse_method(ep, "method");
-        if (endpoint.request.method != Method::GET &&
-            endpoint.request.method != Method::POST)
-            ep.field_err("method", "read tasks only support GET and POST methods");
         endpoint.request.path = ep.field<std::string>("path");
         endpoint.request.query_params = ep.field<std::map<std::string, std::string>>(
             "query_params",
@@ -77,23 +76,20 @@ std::pair<ReadTaskConfig, x::errors::Error> ReadTaskConfig::parse(
             endpoint.fields.push_back(std::move(field));
         });
 
-        if (enabled_field_count == 0) {
-            ep.field_err("fields", "at least one enabled field is required");
-        }
-        cfg.endpoints.push_back(std::move(endpoint));
+        if (endpoint.fields.empty())
+            ep.field_err("fields", "at least one field is required");
+        else if (enabled_field_count > 0)
+            cfg.endpoints.push_back(std::move(endpoint));
     });
 
-    if (cfg.endpoints.empty()) {
-        parser.field_err("endpoints", "at least one endpoint is required");
+    if (enabled_field_keys.empty()) {
+        parser.field_err(
+            "endpoints",
+            "at least one endpoint with enabled fields is required"
+        );
     }
 
     if (!parser.ok()) return {std::move(cfg), parser.error()};
-
-    auto [conn, conn_err] = device::retrieve_connection(
-        ctx->client->devices,
-        cfg.device
-    );
-    if (conn_err) return {{}, conn_err};
 
     const std::vector<synnax::channel::Key> all_keys(
         enabled_field_keys.begin(),
@@ -152,101 +148,153 @@ std::pair<ReadTaskConfig, x::errors::Error> ReadTaskConfig::parse(
 
     if (!parser.ok()) return {std::move(cfg), parser.error()};
 
+    // Build sampling groups: fields sharing an index channel must be written
+    // atomically. Fields with no index (ch.index == 0) get their own group.
+    std::map<std::pair<size_t, synnax::channel::Key>, size_t> group_map;
+    for (size_t ei = 0; ei < cfg.endpoints.size(); ei++) {
+        const auto &ep = cfg.endpoints[ei];
+        for (size_t fi = 0; fi < ep.fields.size(); fi++) {
+            const auto &field = ep.fields[fi];
+            if (!field.enabled) continue;
+            const auto &ch = cfg.channels.at(field.channel_key);
+            if (ch.index == 0) {
+                cfg.groups.push_back({
+                    .index_key = 0,
+                    .software_timed_index = false,
+                    .endpoint_index = ei,
+                    .field_indices = {fi},
+                });
+                continue;
+            }
+            auto key = std::make_pair(ei, ch.index);
+            auto [it, inserted] = group_map.try_emplace(key, cfg.groups.size());
+            if (inserted) {
+                cfg.groups.push_back({
+                    .index_key = ch.index,
+                    .software_timed_index = cfg.software_timed_indexes.count(ch.index) >
+                                            0,
+                    .endpoint_index = ei,
+                    .field_indices = {fi},
+                });
+            } else {
+                cfg.groups[it->second].field_indices.push_back(fi);
+            }
+        }
+    }
+
     return {std::move(cfg), x::errors::NIL};
 }
 
-ReadTaskSource::ReadTaskSource(ReadTaskConfig cfg, device::Client client):
-    cfg(std::move(cfg)), client(std::move(client)), sample_clock(this->cfg.rate) {
-    bodies.reserve(this->cfg.endpoints.size());
+ReadTaskSource::ReadTaskSource(
+    ReadTaskConfig cfg,
+    std::shared_ptr<Processor> processor,
+    std::vector<Request> requests
+):
+    cfg(std::move(cfg)),
+    processor(std::move(processor)),
+    requests(std::move(requests)),
+    sample_clock(this->cfg.rate) {
     parsed_bodies.resize(this->cfg.endpoints.size());
     for (const auto &ep: this->cfg.endpoints) {
-        bodies.push_back(ep.body);
         for (const auto &field: ep.fields) {
             if (!field.enabled) continue;
             auto it = this->cfg.channels.find(field.channel_key);
-            if (it != this->cfg.channels.end()) chs.push_back(it->second);
+            if (it != this->cfg.channels.end()) this->chs.push_back(it->second);
         }
     }
 }
 
 synnax::framer::WriterConfig ReadTaskSource::writer_config() const {
     std::vector<synnax::channel::Key> keys;
-    keys.reserve(cfg.channels.size() + cfg.software_timed_indexes.size());
-    for (const auto &ep: cfg.endpoints)
+    keys.reserve(this->cfg.channels.size() + this->cfg.software_timed_indexes.size());
+    for (const auto &ep: this->cfg.endpoints)
         for (const auto &field: ep.fields) {
             if (!field.enabled) continue;
             keys.push_back(field.channel_key);
         }
-    for (const auto &[key, _]: cfg.software_timed_indexes)
+    for (const auto &[key, _]: this->cfg.software_timed_indexes)
         keys.push_back(key);
     return {
         .channels = keys,
-        .mode = common::data_saving_writer_mode(cfg.data_saving),
+        .mode = common::data_saving_writer_mode(this->cfg.data_saving),
     };
 }
 
 std::vector<synnax::channel::Channel> ReadTaskSource::channels() const {
-    return chs;
+    return this->chs;
 }
 
 common::ReadResult
 ReadTaskSource::read(x::breaker::Breaker &breaker, x::telem::Frame &fr) {
     common::ReadResult res;
-    sample_clock.wait(breaker);
+    this->sample_clock.wait(breaker);
 
-    auto [results, batch_err] = client.execute_requests(bodies);
-    if (batch_err) {
-        res.error = batch_err;
-        return res;
-    }
+    auto results = this->processor->execute(this->requests);
 
-    fr.reserve(cfg.channels.size() + cfg.software_timed_indexes.size());
+    fr.reserve(this->cfg.channels.size() + this->cfg.software_timed_indexes.size());
 
     std::vector<std::string> warnings;
 
-    for (size_t ei = 0; ei < cfg.endpoints.size(); ei++) {
-        const auto &ep = cfg.endpoints[ei];
+    // Parse all response bodies up front so sampling groups can reference them.
+    std::vector<bool> ep_parsed(this->cfg.endpoints.size(), false);
+    for (size_t ei = 0; ei < this->cfg.endpoints.size(); ei++) {
+        const auto &ep = this->cfg.endpoints[ei];
         auto &[resp, req_err] = results[ei];
 
-        // Transport-level errors are fatal — the endpoint is unreachable.
         if (req_err) {
-            res.error = req_err;
-            return res;
+            const auto &req = requests[ei];
+            warnings.push_back(
+                std::string(to_string(req.method)) + " " + req.url +
+                " failed: " + req_err.data
+            );
+            continue;
         }
 
-        if (auto status_err = device::classify_status(resp.status_code); status_err) {
-            res.error = status_err;
-            return res;
+        if (auto status_err = errors::from_status(resp.status_code); status_err) {
+            const auto &req = requests[ei];
+            auto msg = std::string(to_string(req.method)) + " " + req.url +
+                       " returned " + std::to_string(resp.status_code);
+            if (!resp.body.empty()) msg += ": " + resp.body;
+            warnings.push_back(msg);
+            continue;
         }
 
-        // If the entire response body is unparseable, skip all fields on this
-        // endpoint but keep going.
-        bool ep_parsed = true;
         try {
-            parsed_bodies[ei] = x::json::json::parse(resp.body);
+            this->parsed_bodies[ei] = x::json::json::parse(resp.body);
+            ep_parsed[ei] = true;
         } catch (const x::json::json::parse_error &e) {
             warnings.push_back(
                 "failed to parse response from " + ep.request.path + ": " + e.what()
             );
-            ep_parsed = false;
         }
+    }
 
-        if (!ep_parsed) continue;
-        const auto &body = parsed_bodies[ei];
-        bool any_field_ok = false;
+    // Process each sampling group atomically: either all fields in the group succeed
+    // and are written to the frame, or the entire group is skipped.
+    for (const auto &group: this->cfg.groups) {
+        const auto ei = group.endpoint_index;
+        if (!ep_parsed[ei]) continue;
 
-        for (const auto &field: ep.fields) {
-            if (!field.enabled) continue;
+        const auto &ep = this->cfg.endpoints[ei];
+        const auto &body = this->parsed_bodies[ei];
+        const auto &resp = results[ei].first;
 
+        bool group_ok = true;
+        std::vector<std::pair<synnax::channel::Key, x::telem::Series>> group_data;
+        group_data.reserve(group.field_indices.size());
+
+        for (const auto fi: group.field_indices) {
+            const auto &field = ep.fields[fi];
             if (!body.contains(field.pointer)) {
                 warnings.push_back(
                     "field " + field.pointer.to_string() +
                     " not found in response from " + ep.request.path
                 );
-                continue;
+                group_ok = false;
+                break;
             }
 
-            const auto &ch = cfg.channels.at(field.channel_key);
+            const auto &ch = this->cfg.channels.at(field.channel_key);
             const auto &json_val = body.at(field.pointer);
 
             auto tf = x::json::TimeFormat::ISO8601;
@@ -265,25 +313,26 @@ ReadTaskSource::read(x::breaker::Breaker &breaker, x::telem::Frame &fr) {
                     "failed to convert " + field.pointer.to_string() + " for channel " +
                     ch.name + ": " + conv_err.message()
                 );
-                continue;
+                group_ok = false;
+                break;
             }
 
-            fr.emplace(field.channel_key, x::telem::Series(sample_val));
-            any_field_ok = true;
+            group_data.emplace_back(field.channel_key, x::telem::Series(sample_val));
         }
 
-        // Only write software-timed index timestamps if at least one field on
-        // this endpoint was successfully parsed.
-        if (!any_field_ok) continue;
-        for (const auto &[idx_key, ep_idx]: cfg.software_timed_indexes) {
-            if (ep_idx != static_cast<int>(ei)) continue;
+        if (!group_ok) continue;
+
+        for (auto &[key, series]: group_data)
+            fr.emplace(key, std::move(series));
+
+        if (group.software_timed_index) {
             auto ts = x::telem::TimeStamp::midpoint(
                 resp.time_range.start,
                 resp.time_range.end
             );
             auto s = x::telem::Series(x::telem::TIMESTAMP_T, 1);
             s.write(ts);
-            fr.emplace(idx_key, std::move(s));
+            fr.emplace(group.index_key, std::move(s));
         }
     }
 
@@ -298,7 +347,8 @@ ReadTaskSource::read(x::breaker::Breaker &breaker, x::telem::Frame &fr) {
 
 std::pair<common::ConfigureResult, x::errors::Error> configure_read(
     const std::shared_ptr<task::Context> &ctx,
-    const synnax::task::Task &task
+    const synnax::task::Task &task,
+    const std::shared_ptr<Processor> &processor
 ) {
     auto [cfg, parse_err] = ReadTaskConfig::parse(ctx, task);
     if (parse_err) return {common::ConfigureResult{}, parse_err};
@@ -309,19 +359,21 @@ std::pair<common::ConfigureResult, x::errors::Error> configure_read(
     );
     if (conn_err) return {common::ConfigureResult{}, conn_err};
 
-    std::vector<device::RequestConfig> request_configs;
-    request_configs.reserve(cfg.endpoints.size());
-    for (const auto &ep: cfg.endpoints)
-        request_configs.push_back(ep.request);
-
-    auto [client, client_err] = device::Client::create(
-        std::move(conn),
-        request_configs
-    );
-    if (client_err) return {common::ConfigureResult{}, client_err};
+    std::vector<Request> requests;
+    requests.reserve(cfg.endpoints.size());
+    for (auto &ep: cfg.endpoints) {
+        if (!ep.body.empty()) { ep.request.request_content_type = "application/json"; }
+        auto req = device::build_request(conn, ep.request);
+        req.body = ep.body;
+        requests.push_back(std::move(req));
+    }
 
     const bool auto_start = cfg.auto_start;
-    auto source = std::make_unique<ReadTaskSource>(std::move(cfg), std::move(client));
+    auto source = std::make_unique<ReadTaskSource>(
+        std::move(cfg),
+        processor,
+        std::move(requests)
+    );
 
     auto breaker_cfg = x::breaker::Config{.name = task.name};
 

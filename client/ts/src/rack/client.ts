@@ -148,31 +148,20 @@ export class Rack {
   }
 
   async createTask(task: task.New): Promise<task.Task>;
-  async createTask<
-    Type extends z.ZodLiteral<string> = z.ZodLiteral<string>,
-    Config extends z.ZodType = z.ZodType,
-    StatusData extends z.ZodType = z.ZodType,
-  >(
-    task: task.New<Type, Config, StatusData>,
-    schemas: task.Schemas<Type, Config, StatusData>,
-  ): Promise<task.Task<Type, Config, StatusData>>;
+  async createTask<Schemas extends task.Schemas = task.Schemas>(
+    task: task.New<Schemas>,
+    schemas: Schemas,
+  ): Promise<task.Task<Schemas>>;
 
-  async createTask<
-    Type extends z.ZodLiteral<string> = z.ZodLiteral<string>,
-    Config extends z.ZodType = z.ZodType,
-    StatusData extends z.ZodType = z.ZodType,
-  >(
-    task: task.New<Type, Config, StatusData>,
-    schemas?: task.Schemas<Type, Config, StatusData>,
-  ): Promise<task.Task<Type, Config, StatusData>> {
+  async createTask<Schemas extends task.Schemas = task.Schemas>(
+    task: task.New<Schemas>,
+    schemas?: Schemas,
+  ): Promise<task.Task<Schemas>> {
     task.key = (
       (BigInt(this.key) << 32n) +
       (BigInt(task.key ?? 0) & 0xffffffffn)
     ).toString();
-    return await this.tasks.create(
-      task,
-      schemas as Required<task.Schemas<Type, Config, StatusData>>,
-    );
+    return await this.tasks.create(task, schemas as Required<Schemas>);
   }
 
   async deleteTask(task: task.Key): Promise<void> {

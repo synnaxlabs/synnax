@@ -10,6 +10,7 @@
 #include "client/cpp/errors/errors.h"
 #include "client/cpp/task/task.h"
 #include "x/cpp/errors/errors.h"
+#include "x/cpp/json/struct.h"
 
 namespace synnax::task {
 std::pair<Task, x::errors::Error> Task::from_proto(const api::v1::Task &task) {

@@ -511,10 +511,10 @@ but that Python wasn't the right candidate.
 ## Attempt 2 -> Lua Embedded in C++
 
 During this time, a large potential customer had asked us to implement support for
-running high-performance sequences directly on NI Linux RT. After the Python embedding
-fiasco, I started doing research on the available options for implementing our own
-table/text based sequencer. On an early Sunday morning in late March 2025, I remembered
-using Lua to set up neovim, and realized it might be the perfect candidate.
+running high-performance sequences directly on NI Linux Real-Time. After the Python
+embedding fiasco, I started doing research on the available options for implementing our
+own table/text based sequencer. On an early Sunday morning in late March 2025, I
+remembered using Lua to set up neovim, and realized it might be the perfect candidate.
 
 It was written in C, easy to compile across platforms, and designed for embedding. We
 could also theoretically get soft real-time performance by restricting the language

@@ -8,5 +8,6 @@
 // included in the file licenses/APL.txt.
 
 export * from "@/telem/Provider";
+export * from "@/telem/resolveDataTypeIcon";
 export * from "@/telem/SelectDataType";
 export * from "@/telem/text";

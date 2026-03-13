@@ -19,7 +19,7 @@ import (
 	arccompiler "github.com/synnaxlabs/arc/compiler"
 	arcgraph "github.com/synnaxlabs/arc/graph"
 	arcir "github.com/synnaxlabs/arc/ir"
-	arcmodule "github.com/synnaxlabs/arc/module"
+	arcprogram "github.com/synnaxlabs/arc/program"
 	arcsymbol "github.com/synnaxlabs/arc/symbol"
 	arctext "github.com/synnaxlabs/arc/text"
 	arctypes "github.com/synnaxlabs/arc/types"
@@ -232,7 +232,7 @@ func translateForward(msg apiarc.Arc, _ int) (*gapi.Arc, error) {
 	if msg.Key != uuid.Nil {
 		keyStr = msg.Key.String()
 	}
-	modulePb, err := translateModuleToPB(msg.Module)
+	programPb, err := translateProgramToPB(msg.Program)
 	if err != nil {
 		return nil, err
 	}
@@ -241,7 +241,7 @@ func translateForward(msg apiarc.Arc, _ int) (*gapi.Arc, error) {
 		Name:    msg.Name,
 		Graph:   graphPb,
 		Text:    textPb,
-		Module:  modulePb,
+		Program: programPb,
 		Version: msg.Version,
 		Mode:    string(msg.Mode),
 	}, nil
@@ -262,7 +262,7 @@ func translateBackward(msg *gapi.Arc, _ int) (apiarc.Arc, error) {
 		return apiarc.Arc{}, err
 	}
 	textGo := translateTextFromPB(msg.Text)
-	moduleGo, err := translateModuleFromPB(msg.Module)
+	programGo, err := translateProgramFromPB(msg.Program)
 	if err != nil {
 		return apiarc.Arc{}, err
 	}
@@ -278,7 +278,7 @@ func translateBackward(msg *gapi.Arc, _ int) (apiarc.Arc, error) {
 			Name:    msg.Name,
 			Graph:   graphGo,
 			Text:    textGo,
-			Module:  moduleGo,
+			Program: programGo,
 			Version: msg.Version,
 			Mode:    svcarc.Mode(mode),
 		},
@@ -715,8 +715,8 @@ func translateGraphNodeFromPB(pb *arcgraph.PBNode) (arcgraph.Node, error) {
 	}, nil
 }
 
-// translateModuleToPB converts module.Module to *arcmodule.PBModule
-func translateModuleToPB(m arcmodule.Module) (*arcmodule.PBModule, error) {
+// translateProgramToPB converts program.Program to *arcprogram.PBProgram
+func translateProgramToPB(m arcprogram.Program) (*arcprogram.PBProgram, error) {
 	if m.IsZero() {
 		return nil, nil
 	}
@@ -724,23 +724,23 @@ func translateModuleToPB(m arcmodule.Module) (*arcmodule.PBModule, error) {
 	if err != nil {
 		return nil, err
 	}
-	return &arcmodule.PBModule{
+	return &arcprogram.PBProgram{
 		Ir:                irPb,
 		Wasm:              m.WASM,
 		OutputMemoryBases: m.OutputMemoryBases,
 	}, nil
 }
 
-// translateModuleFromPB converts *arcmodule.PBModule to module.Module
-func translateModuleFromPB(pb *arcmodule.PBModule) (arcmodule.Module, error) {
+// translateProgramFromPB converts *arcprogram.PBProgram to program.Program
+func translateProgramFromPB(pb *arcprogram.PBProgram) (arcprogram.Program, error) {
 	if pb == nil {
-		return arcmodule.Module{}, nil
+		return arcprogram.Program{}, nil
 	}
 	ir, err := translateIRFromPB(pb.Ir)
 	if err != nil {
-		return arcmodule.Module{}, err
+		return arcprogram.Program{}, err
 	}
-	return arcmodule.Module{
+	return arcprogram.Program{
 		IR: ir,
 		Output: arccompiler.Output{
 			WASM:              pb.Wasm,

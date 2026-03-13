@@ -1041,9 +1041,11 @@ TEST(ReadTaskConfigTest, testCounterPeriodConfig) {
         .model = "PCIe-6343",
     };
     ASSERT_NIL(client->devices.create(dev));
-    auto ch = ASSERT_NIL_P(
-        client->channels.create("period", x::telem::FLOAT64_T, true)
-    );
+    auto ch = ASSERT_NIL_P(client->channels.create(
+        make_unique_channel_name("period"),
+        x::telem::FLOAT64_T,
+        true
+    ));
 
     x::json::json j{
         {"data_saving", false},
@@ -1267,9 +1269,11 @@ TEST(ReadTaskConfigTest, testNIDriverSetsAutoCommitTrue) {
         .model = "PXI-6255",
     };
     ASSERT_NIL(client->devices.create(dev));
-    auto ch = ASSERT_NIL_P(
-        client->channels.create("test_channel", x::telem::FLOAT64_T, true)
-    );
+    auto ch = ASSERT_NIL_P(client->channels.create(
+        make_unique_channel_name("test_channel"),
+        x::telem::FLOAT64_T,
+        true
+    ));
 
     auto j = base_analog_config();
     j["data_saving"] = true;

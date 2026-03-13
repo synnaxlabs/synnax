@@ -7,9 +7,9 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import "@/hardware/http/task/Read.css";
+import "@/hardware/http/task/Form.css";
 
-import { channel } from "@synnaxlabs/client";
+import { channel, NotFoundError, type Synnax as Client } from "@synnaxlabs/client";
 import {
   Button,
   Component,
@@ -18,29 +18,33 @@ import {
   Form as PForm,
   Header,
   Icon,
+  Input,
   List,
   Menu as PMenu,
   Select,
   Telem,
   Text,
 } from "@synnaxlabs/pluto";
-import { id, primitive } from "@synnaxlabs/x";
+import { DataType, id, primitive } from "@synnaxlabs/x";
 import { type FC, useCallback, useState } from "react";
 
-import { EmptyAction, Menu } from "@/components";
+import { EmptyAction } from "@/components";
 import { KeyValueEditor } from "@/components/form/KeyValueEditor";
 import { CSS } from "@/css";
 import { Common } from "@/hardware/common";
 import { ChannelList as BaseChannelList } from "@/hardware/common/task/ChannelList";
 import { Device } from "@/hardware/http/device";
+import { ContextMenu } from "@/hardware/http/task/ContextMenu";
+import { EndpointListItem } from "@/hardware/http/task/EndpointListItem";
 import {
   READ_SCHEMAS,
   READ_TYPE,
-  type readConfigZ,
   type ReadEndpoint,
   type ReadField,
-  type readStatusDataZ,
-  type readTypeZ,
+  type ReadMethod,
+  type ReadPayload,
+  type ReadSchemas,
+  type TimeFormat,
   ZERO_READ_ENDPOINT,
   ZERO_READ_FIELD,
   ZERO_READ_PAYLOAD,
@@ -60,7 +64,10 @@ export const ReadSelectable = Selector.createSimpleItem({
   layout: READ_LAYOUT,
 });
 
-const RATE_INPUT_PROPS = { endContent: "Hz", style: { maxWidth: "20rem" } } as const;
+const RATE_INPUT_PROPS = {
+  endContent: "Hz",
+  className: CSS.B("rate-input"),
+} as const;
 
 const Properties = () => (
   <>
@@ -77,67 +84,24 @@ const Properties = () => (
   </>
 );
 
-// ─── Endpoint Context Menu ───
-
-interface EndpointContextMenuProps {
-  keys: string[];
-  onDelete: (keys: string[]) => void;
-  onDuplicate: (keys: string[]) => void;
-}
-
-const EndpointContextMenu = ({
-  keys,
-  onDelete,
-  onDuplicate,
-}: EndpointContextMenuProps) => {
-  const isSnapshot = Common.Task.useIsSnapshot();
-  const canAct = keys.length > 0;
-  const handleSelect: Record<string, () => void> = {
-    duplicate: () => onDuplicate(keys),
-    delete: () => onDelete(keys),
-  };
-  return (
-    <PMenu.Menu onChange={handleSelect} level="small">
-      {!isSnapshot && canAct && (
-        <>
-          <PMenu.Item itemKey="duplicate">
-            <Icon.Copy />
-            Duplicate
-          </PMenu.Item>
-          <PMenu.Item itemKey="delete">
-            <Icon.Close />
-            Delete
-          </PMenu.Item>
-          <PMenu.Divider />
-        </>
-      )}
-      <Menu.ReloadConsoleItem />
-    </PMenu.Menu>
-  );
-};
-
-const EndpointListItem = (props: List.ItemProps<string>) => {
+const ReadEndpointListItem = (props: List.ItemProps<string>) => {
   const { itemKey } = props;
-  const method = PForm.useFieldValue<string>(`config.endpoints.${itemKey}.method`);
-  const epPath = PForm.useFieldValue<string>(`config.endpoints.${itemKey}.path`);
   const fields = PForm.useFieldValue<ReadField[]>(`config.endpoints.${itemKey}.fields`);
   return (
-    <Select.ListItem {...props} justify="between" align="center" x>
-      <Text.Text level="small" weight={500}>
-        {method} {epPath || "(no path)"}
-      </Text.Text>
-      <Text.Text level="small" color={7}>
-        {fields?.length ?? 0}
-      </Text.Text>
-    </Select.ListItem>
+    <EndpointListItem
+      {...props}
+      extra={
+        <Text.Text level="small" color={7}>
+          {fields.length}
+        </Text.Text>
+      }
+    />
   );
 };
 
-const endpointListItem = Component.renderProp(EndpointListItem);
+const readEndpointListItem = Component.renderProp(ReadEndpointListItem);
 
-// ─── Time Format Data ───
-
-const TIME_FORMAT_DATA: Select.StaticEntry<string>[] = [
+const TIME_FORMAT_DATA: Select.StaticEntry<TimeFormat>[] = [
   { key: "iso8601", name: "ISO 8601" },
   { key: "unix_sec", name: "Unix (s)" },
   { key: "unix_ms", name: "Unix (ms)" },
@@ -146,8 +110,6 @@ const TIME_FORMAT_DATA: Select.StaticEntry<string>[] = [
 ];
 
 const isTimingField = (f: ReadField): boolean => f.timestampFormat != null;
-
-// ─── Field List Item ───
 
 interface FieldListItemProps extends Common.Task.ChannelListItemProps {
   epKey: string;
@@ -160,14 +122,16 @@ const FieldListItem = ({ epKey, ...props }: FieldListItemProps) => {
   const enumValues = PForm.useFieldValue<Record<string, number>>(`${path}.enumValues`, {
     defaultValue: {},
   });
-  const hasEnums = Object.keys(enumValues).length > 0;
+  const enumCount = Object.keys(enumValues).length;
+  const enumCountText =
+    enumCount === 0 ? "" : `${enumCount} enum${enumCount === 1 ? "" : "s"}`;
   return (
     <Select.ListItem {...props} justify="between" align="center" x>
       <PForm.TextField
         path={`${path}.pointer`}
         showLabel={false}
         showHelpText={false}
-        inputProps={{ placeholder: "/temperature" }}
+        inputProps={POINTER_INPUT_PROPS}
         grow
       />
       {fieldChannel === 0 && (
@@ -177,20 +141,12 @@ const FieldListItem = ({ epKey, ...props }: FieldListItemProps) => {
           showHelpText={false}
           hideIfNull
         >
-          {({ value, onChange }) => (
-            <Telem.SelectDataType
-              value={value}
-              onChange={onChange}
-              hideVariableDensity
-              location="bottom"
-            />
-          )}
+          {renderTelemSelectDataType}
         </PForm.Field>
       )}
-      {hasEnums && (
+      {enumCountText !== "" && (
         <Text.Text level="small" color={7}>
-          {Object.keys(enumValues).length} enum
-          {Object.keys(enumValues).length !== 1 ? "s" : ""}
+          {enumCountText}
         </Text.Text>
       )}
       <Flex.Box x align="center" grow justify="end">
@@ -205,39 +161,53 @@ const FieldListItem = ({ epKey, ...props }: FieldListItemProps) => {
   );
 };
 
-// ─── Method Select ───
+const POINTER_INPUT_PROPS = { placeholder: "/temperature" } as const;
 
-type HTTPMethod = "GET" | "POST";
-const HTTP_METHOD_KEYS: HTTPMethod[] = ["GET", "POST"];
+const HIDDEN_DATA_TYPES = [
+  DataType.TIMESTAMP,
+  DataType.UUID,
+  DataType.JSON,
+  DataType.BYTES,
+];
+
+const renderTelemSelectDataType = Component.renderProp(
+  (p: Telem.SelectDataTypeProps) => (
+    <Telem.SelectDataType {...p} hideDataTypes={HIDDEN_DATA_TYPES} location="bottom" />
+  ),
+);
+
+const METHOD_KEYS: ReadMethod[] = ["GET", "POST"];
 
 const MethodSelect: FC<{ path: string; epPath: string }> = ({ path, epPath }) => {
   const { set } = PForm.useContext();
   const handleChange = useCallback(
-    (method: HTTPMethod) => {
+    (method: ReadMethod) => {
       set(path, method);
       if (method === "POST") set(`${epPath}.body`, "");
     },
     [set, path, epPath],
   );
+  const renderMethod = useCallback(
+    (p: Omit<Select.ButtonsProps<ReadMethod>, "keys">) => (
+      <Select.Buttons<ReadMethod> {...p} onChange={handleChange} keys={METHOD_KEYS}>
+        <Select.Button<ReadMethod> itemKey="GET">GET</Select.Button>
+        <Select.Button<ReadMethod> itemKey="POST">POST</Select.Button>
+      </Select.Buttons>
+    ),
+    [handleChange],
+  );
   return (
-    <PForm.Field<HTTPMethod> path={path} label="Method">
-      {({ value }) => (
-        <Select.Buttons<HTTPMethod>
-          value={value}
-          onChange={handleChange}
-          keys={HTTP_METHOD_KEYS}
-        >
-          <Select.Button<HTTPMethod> itemKey="GET">GET</Select.Button>
-          <Select.Button<HTTPMethod> itemKey="POST">POST</Select.Button>
-        </Select.Buttons>
-      )}
+    <PForm.Field<ReadMethod> path={path} label="Method">
+      {renderMethod}
     </PForm.Field>
   );
 };
 
-// ─── Field List ───
+interface FieldListProps {
+  epKey: string;
+}
 
-const FieldList: FC<{ epKey: string }> = ({ epKey }) => {
+const FieldList = ({ epKey }: FieldListProps) => {
   const path = `config.endpoints.${epKey}.fields`;
   const { data: allData, push, remove } = PForm.useFieldList<string, ReadField>(path);
   const [selected, setSelected] = useState<string[]>([]);
@@ -288,7 +258,7 @@ const FieldList: FC<{ epKey: string }> = ({ epKey }) => {
     selectedFieldKey != null ? `${path}.${selectedFieldKey}.enumValues` : null;
 
   return (
-    <Flex.Box y grow empty>
+    <>
       <BaseChannelList<ReadField>
         data={data}
         remove={remove}
@@ -296,18 +266,20 @@ const FieldList: FC<{ epKey: string }> = ({ epKey }) => {
         onSelect={setSelected}
         selected={selected}
         path={path}
+        style={FIELD_LIST_STYLE}
         header={
           <Header.Header>
-            <Header.Title weight={500} color={10}>
+            <Header.Title weight={500} color={9}>
               Fields
             </Header.Title>
             {!isSnapshot && (
-              <Header.Actions>
+              <Header.Actions empty align="end">
                 <Button.Button
                   onClick={handleAdd}
                   variant="text"
                   contrast={2}
-                  tooltip="Add Field"
+                  tooltip="Add field"
+                  size="small"
                   sharp
                 >
                   <Icon.Add />
@@ -327,21 +299,25 @@ const FieldList: FC<{ epKey: string }> = ({ epKey }) => {
         contextMenuItems={Common.Task.readChannelContextMenuItem}
       />
       {selectedFieldPath != null && (
-        <>
+        <Flex.Box y empty className={CSS.B("enum-mapping")}>
           <Divider.Divider x padded />
           <KeyValueEditor
             path={selectedFieldPath}
-            label="Enum Mapping"
+            label="Enum mapping"
             keyPlaceholder="String (e.g. ON)"
             valueType="number"
           />
-        </>
+        </Flex.Box>
       )}
-    </Flex.Box>
+    </>
   );
 };
 
-// ─── Endpoint Details ───
+const FIELD_LIST_STYLE = {
+  paddingBottom: "1rem",
+  maxWidth: "100%",
+  overflow: "visible",
+} as const;
 
 type TimingMode = "software" | "value";
 const TIMING_MODE_KEYS: TimingMode[] = ["software", "value"];
@@ -374,11 +350,8 @@ const TimingToggle: FC<{ path: string }> = ({ path }) => {
   );
 
   return (
-    <Flex.Box y gap="small" style={{ padding: "0.5rem 1rem" }}>
-      <Flex.Box x align="center" gap="small">
-        <Text.Text level="small" weight={500} style={{ marginRight: "0.25rem" }}>
-          Timing
-        </Text.Text>
+    <Flex.Box x align="end" wrap>
+      <Input.Item label="Timing mode" padHelpText>
         <Select.Buttons<TimingMode>
           value={isValueTiming ? "value" : "software"}
           onChange={handleChange}
@@ -387,93 +360,99 @@ const TimingToggle: FC<{ path: string }> = ({ path }) => {
           <Select.Button<TimingMode> itemKey="software">Software</Select.Button>
           <Select.Button<TimingMode> itemKey="value">Value</Select.Button>
         </Select.Buttons>
-      </Flex.Box>
+      </Input.Item>
       {isValueTiming && indexField != null && (
-        <Flex.Box x align="center" gap="large">
+        <>
           <PForm.TextField
             path={`${path}.fields.${indexField.key}.pointer`}
-            label="Timestamp Pointer"
-            inputProps={{ placeholder: "/timestamp" }}
+            label="Timestamp pointer"
+            inputProps={TIMESTAMP_POINTER_INPUT_PROPS}
             grow
           />
-          <PForm.Field<string>
+          <PForm.Field<TimeFormat>
             path={`${path}.fields.${indexField.key}.timestampFormat`}
             label="Format"
-            style={{ width: 160 }}
+            className={CSS.B("timestamp-format")}
           >
-            {({ value, onChange }) => (
-              <Select.Static<string, Select.StaticEntry<string>>
-                value={value ?? "unix_sec"}
-                onChange={onChange}
-                data={TIME_FORMAT_DATA}
-                resourceName="time format"
-              />
-            )}
+            {renderSelectTimeFormat}
           </PForm.Field>
-        </Flex.Box>
+        </>
       )}
     </Flex.Box>
   );
 };
+
+const TIMESTAMP_POINTER_INPUT_PROPS = { placeholder: "/timestamp" } as const;
+
+const renderSelectTimeFormat = Component.renderProp(
+  (
+    p: Omit<
+      Select.StaticProps<TimeFormat, Select.StaticEntry<TimeFormat>>,
+      "data" | "resourceName"
+    >,
+  ) => (
+    <Select.Static<TimeFormat, Select.StaticEntry<TimeFormat>>
+      {...p}
+      data={TIME_FORMAT_DATA}
+      resourceName="time format"
+    />
+  ),
+);
 
 const EndpointDetails: FC<{ epKey: string }> = ({ epKey }) => {
   const path = `config.endpoints.${epKey}`;
   const method = PForm.useFieldValue<string>(`${path}.method`);
   return (
-    <Flex.Box
-      y
-      grow
-      empty
-      style={{ overflowY: "auto" }}
-      className={CSS.B("http-read-endpoint")}
-    >
-      <Flex.Box x align="end" gap="large" style={{ padding: "1rem" }}>
-        <MethodSelect path={`${path}.method`} epPath={path} />
-        <PForm.TextField
-          path={`${path}.path`}
-          label="Path"
-          grow
-          inputProps={{ placeholder: "/api/data" }}
-        />
-      </Flex.Box>
-      {method === "POST" && (
-        <Flex.Box style={{ padding: "0 1rem" }}>
+    <Flex.Box y grow empty className={CSS.B("endpoint-details")}>
+      <Flex.Box gap="small" empty className={CSS.B("endpoint-details-form")}>
+        <Flex.Box x align="end" gap="large">
+          <MethodSelect path={`${path}.method`} epPath={path} />
           <PForm.TextField
-            path={`${path}.body`}
-            label="Request Body"
+            path={`${path}.path`}
+            label="Path"
             grow
-            inputProps={{ placeholder: '{"query": "latest"}' }}
+            inputProps={PATH_INPUT_PROPS}
           />
         </Flex.Box>
-      )}
-      <Divider.Divider x padded />
-      <Flex.Box y style={{ padding: "0 1rem" }}>
+        {method === "POST" && (
+          <Flex.Box>
+            <PForm.TextField
+              path={`${path}.body`}
+              label="Request body"
+              grow
+              inputProps={REQUEST_BODY_INPUT_PROPS}
+            />
+          </Flex.Box>
+        )}
+        <TimingToggle path={path} />
+        <Divider.Divider x />
         <KeyValueEditor
           path={`${path}.headers`}
           label="Headers"
-          keyPlaceholder="Header Name"
-          valuePlaceholder="Header Value"
+          keyPlaceholder="Name"
+          valuePlaceholder="Value"
+          className={CSS.B("headers-kv-editor")}
         />
-        <Divider.Divider x padded />
+        <Divider.Divider x />
         <KeyValueEditor
           path={`${path}.queryParams`}
-          label="Query Parameters"
+          label="Query parameters"
           keyPlaceholder="Parameter"
           valuePlaceholder="Value"
+          className={CSS.B("query-params-kv-editor")}
         />
       </Flex.Box>
-      <Divider.Divider x padded />
-      <TimingToggle path={path} />
+      <Divider.Divider x />
       <FieldList key={epKey} epKey={epKey} />
     </Flex.Box>
   );
 };
 
-// ─── Main Form ───
+const PATH_INPUT_PROPS = { placeholder: "/api/data" } as const;
 
-const Form: FC<
-  Common.Task.FormProps<typeof readTypeZ, typeof readConfigZ, typeof readStatusDataZ>
-> = () => {
+const REQUEST_BODY_INPUT_PROPS = { placeholder: '{"query": "latest"}' } as const;
+
+const Form: FC<Common.Task.FormProps<ReadSchemas>> = () => {
   const [selectedEndpoints, setSelectedEndpoints] = useState<string[]>([]);
   const { data, push, remove } = PForm.useFieldList<string, ReadEndpoint>(
     "config.endpoints",
@@ -517,10 +496,20 @@ const Form: FC<
   );
 
   const menuProps = PMenu.useContextMenu();
+  const menuRenderProp = useCallback(
+    (p: PMenu.ContextMenuMenuProps) => (
+      <ContextMenu
+        keys={p.keys}
+        onDelete={handleDeleteEndpoints}
+        onDuplicate={handleDuplicateEndpoints}
+      />
+    ),
+    [handleDeleteEndpoints, handleDuplicateEndpoints],
+  );
 
   return (
     <Flex.Box x grow empty>
-      <Flex.Box y style={{ width: 250, flexShrink: 0 }}>
+      <Flex.Box className={CSS.B("endpoint-list")} y empty>
         <Header.Header>
           <Header.Title weight={500} color={10}>
             Endpoints
@@ -531,7 +520,7 @@ const Form: FC<
                 onClick={handleAddEndpoint}
                 variant="text"
                 contrast={2}
-                tooltip="Add Endpoint"
+                tooltip="Add endpoint"
                 sharp
               >
                 <Icon.Add />
@@ -539,16 +528,7 @@ const Form: FC<
             </Header.Actions>
           )}
         </Header.Header>
-        <PMenu.ContextMenu
-          {...menuProps}
-          menu={(p) => (
-            <EndpointContextMenu
-              keys={p.keys}
-              onDelete={handleDeleteEndpoints}
-              onDuplicate={handleDuplicateEndpoints}
-            />
-          )}
-        >
+        <PMenu.ContextMenu {...menuProps} menu={menuRenderProp}>
           <Select.Frame<string, ReadEndpoint>
             multiple
             data={data}
@@ -570,38 +550,66 @@ const Form: FC<
                 />
               }
             >
-              {endpointListItem}
+              {readEndpointListItem}
             </List.Items>
           </Select.Frame>
         </PMenu.ContextMenu>
       </Flex.Box>
       <Divider.Divider y />
-      {selectedEndpoints.length > 0 ? (
-        <EndpointDetails epKey={selectedEndpoints[0]} />
-      ) : (
-        <Flex.Box y grow align="center" justify="center">
-          <Text.Text level="small" status="disabled">
-            Select an endpoint to configure
-          </Text.Text>
-        </Flex.Box>
-      )}
+      <Flex.Box y grow empty>
+        <Common.Task.Layouts.DetailsHeader
+          path={
+            selectedEndpoints.length > 0
+              ? `config.endpoints.${selectedEndpoints[0]}`
+              : ""
+          }
+          disabled={selectedEndpoints.length === 0}
+        />
+        {selectedEndpoints.length > 0 ? (
+          <EndpointDetails epKey={selectedEndpoints[0]} />
+        ) : (
+          <Flex.Box y grow align="center" justify="center">
+            <Text.Text status="disabled">Select an endpoint to configure</Text.Text>
+          </Flex.Box>
+        )}
+      </Flex.Box>
     </Flex.Box>
   );
 };
 
-const getInitialValues: Common.Task.GetInitialValues<
-  typeof readTypeZ,
-  typeof readConfigZ,
-  typeof readStatusDataZ
-> = ({ deviceKey }) => ({
-  ...ZERO_READ_PAYLOAD,
-  config: {
-    ...ZERO_READ_PAYLOAD.config,
-    device: deviceKey ?? ZERO_READ_PAYLOAD.config.device,
-  },
-});
+const getInitialValues: Common.Task.GetInitialValues<ReadSchemas> = ({
+  deviceKey,
+  config,
+}) => {
+  if (config != null) {
+    const pld: ReadPayload = {
+      ...ZERO_READ_PAYLOAD,
+      config: READ_SCHEMAS.config.parse(config),
+    };
+    if (deviceKey != null) pld.config.device = deviceKey;
+    return pld;
+  }
+  const pld: ReadPayload = { ...ZERO_READ_PAYLOAD };
+  if (deviceKey != null) pld.config = { ...pld.config, device: deviceKey };
+  return pld;
+};
 
-const onConfigure: Common.Task.OnConfigure<typeof readConfigZ> = async (
+const retrieveChannel = async (
+  client: Client,
+  key: channel.Key,
+): Promise<channel.Channel | null> => {
+  try {
+    return await client.channels.retrieve(key);
+  } catch (e) {
+    if (NotFoundError.matches(e)) return null;
+    throw e;
+  }
+};
+
+const channelExists = async (client: Client, key: channel.Key): Promise<boolean> =>
+  (await retrieveChannel(client, key)) != null;
+
+const onConfigure: Common.Task.OnConfigure<ReadSchemas["config"]> = async (
   client,
   config,
 ) => {
@@ -611,39 +619,84 @@ const onConfigure: Common.Task.OnConfigure<typeof readConfigZ> = async (
   });
   const safeDevName = channel.escapeInvalidName(dev.name);
   let modified = false;
-  for (const ep of config.endpoints) {
-    // first, see if the user specified an index channel for this endpoint
-    const devIndexKey = dev.properties.readIndexes[ep.path];
-    if (primitive.isNonZero(devIndexKey)) continue;
+  try {
+    for (const ep of config.endpoints) {
+      dev.properties.read[ep.path] ??= { index: 0, channels: {} };
+      const epProps = dev.properties.read[ep.path];
 
-    // we need to create an index channel for this endpoint.
-    const newIndexCh = await client.channels.create({
-      name: `${safeDevName}_${channel.escapeInvalidName(ep.path)}_time`,
-      dataType: "timestamp",
-      isIndex: true,
-    });
-    modified = true;
-    dev.properties.readIndexes[ep.path] = newIndexCh.key;
-  }
-  // now, we need to update any data channels as need be
-  for (const ep of config.endpoints) {
-    const index = dev.properties.readIndexes[ep.path];
-    const potentialTimingKey = ep.index;
-    for (const field of ep.fields) {
-      if (field.channel !== 0) continue;
-      if (field.key === potentialTimingKey) {
-        field.channel = index;
-        continue;
+      const needsIndex = ep.fields.some(
+        (f) => !isTimingField(f) && !new DataType(f.dataType).isVariable,
+      );
+
+      if (needsIndex) {
+        let shouldCreateIndex = !primitive.isNonZero(epProps.index);
+        shouldCreateIndex ||= !(await channelExists(client, epProps.index));
+        if (shouldCreateIndex) {
+          // check if any existing data channels share an index we can reuse
+          let recoveredIndex = 0;
+          for (const storedKey of Object.values(epProps.channels)) {
+            if (!primitive.isNonZero(storedKey)) continue;
+            const ch = await retrieveChannel(client, storedKey);
+            if (ch != null && primitive.isNonZero(ch.index)) {
+              const indexCh = await retrieveChannel(client, ch.index);
+              if (indexCh != null) {
+                recoveredIndex = ch.index;
+                break;
+              }
+            }
+          }
+          if (primitive.isNonZero(recoveredIndex)) {
+            epProps.index = recoveredIndex;
+            modified = true;
+          } else {
+            modified = true;
+            const newIndexCh = await client.channels.create({
+              name: `${safeDevName}${channel.escapeInvalidName(ep.path)}_time`,
+              dataType: "timestamp",
+              isIndex: true,
+            });
+            epProps.index = newIndexCh.key;
+          }
+        }
       }
-      const newCh = await client.channels.create({
-        name: `${safeDevName}_${channel.escapeInvalidName(ep.path + field.pointer)}`,
-        dataType: field.dataType, //TODO: set this for NEW CHANNELS ONLY on task form
-        index,
-      });
-      field.channel = newCh.key;
+
+      const potentialTimingKey = ep.index;
+      for (const field of ep.fields) {
+        if (field.key === potentialTimingKey && epProps.index !== 0) {
+          field.channel = epProps.index;
+          continue;
+        }
+
+        if (field.channel !== 0 && (await channelExists(client, field.channel)))
+          continue;
+
+        const storedKey = epProps.channels[field.pointer];
+        if (
+          primitive.isNonZero(storedKey) &&
+          (await channelExists(client, storedKey))
+        ) {
+          field.channel = storedKey;
+          continue;
+        }
+
+        // create a new channel
+        const dt = new DataType(field.dataType);
+        const chName = primitive.isNonZero(field.name)
+          ? field.name
+          : `${safeDevName}${channel.escapeInvalidName(ep.path + field.pointer)}`;
+        const newCh = await client.channels.create({
+          name: chName,
+          dataType: field.dataType,
+          ...(dt.isVariable ? { virtual: true } : { index: epProps.index }),
+        });
+        modified = true;
+        field.channel = newCh.key;
+        epProps.channels[field.pointer] = newCh.key;
+      }
     }
+  } finally {
+    if (modified) await client.devices.create(dev, Device.SCHEMAS);
   }
-  if (modified) await client.devices.create(dev, Device.SCHEMAS);
   return [config, dev.rack];
 };
 
@@ -651,7 +704,7 @@ export const Read = Common.Task.wrapForm({
   Properties,
   Form,
   schemas: READ_SCHEMAS,
-  type: READ_TYPE,
+  type: "http_read",
   getInitialValues,
   onConfigure,
 });

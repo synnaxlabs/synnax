@@ -14,8 +14,9 @@
 
 #include "arc/cpp/runtime/errors/errors.h"
 #include "arc/cpp/runtime/state/state.h"
+#include "arc/cpp/stl/channel/state.h"
 
-using namespace arc::runtime::state;
+namespace arc::runtime::state {
 
 /// @brief Test basic state creation and node retrieval
 TEST(StateTest, CreateStateAndGetNode) {
@@ -384,7 +385,7 @@ TEST(StateTest, OptionalInput_OverrideDefault) {
     EXPECT_EQ(consumer_node.input(0)->at<float>(1), 200.0f);
 }
 
-/// @brief Helper to create a minimal State for channel read/write tests
+/// @brief Helper to create a minimal State for authority/node tests
 State create_minimal_state() {
     arc::ir::Node ir_node;
     ir_node.key = "test";
@@ -401,137 +402,8 @@ State create_minimal_state() {
     return State(cfg, arc::runtime::errors::noop_handler);
 }
 
-TEST(StateTest, WriteChannel_AccumulatesSameChannelIntoSingleSeries) {
-    arc::ir::Node ir_node;
-    ir_node.key = "writer";
-    ir_node.type = "writer";
-
-    arc::ir::Function fn;
-    fn.key = "writer";
-
-    arc::ir::IR ir;
-    ir.nodes.push_back(ir_node);
-    ir.functions.push_back(fn);
-
-    Config cfg{
-        .ir = ir,
-        .channels = {{.key = 1, .data_type = x::telem::FLOAT32_T, .index = 2}}
-    };
-    State s(cfg, arc::runtime::errors::noop_handler);
-
-    auto data1 = x::mem::make_local_shared<x::telem::Series>(1.0f);
-    auto time1 = x::mem::make_local_shared<x::telem::Series>(
-        x::telem::TimeStamp(1 * x::telem::SECOND)
-    );
-    s.write_channel(1, data1, time1);
-
-    auto data2 = x::mem::make_local_shared<x::telem::Series>(2.0f);
-    auto time2 = x::mem::make_local_shared<x::telem::Series>(
-        x::telem::TimeStamp(2 * x::telem::SECOND)
-    );
-    s.write_channel(1, data2, time2);
-
-    auto out = s.flush();
-    ASSERT_EQ(out.size(), 2);
-
-    auto find_series = [&](const arc::types::ChannelKey key) -> Series {
-        for (const auto &[k, v]: out)
-            if (k == key) return v;
-        return {};
-    };
-
-    auto data = find_series(1);
-    ASSERT_NE(data, nullptr);
-    ASSERT_EQ(data->size(), 2);
-    EXPECT_EQ(data->at<float>(0), 1.0f);
-    EXPECT_EQ(data->at<float>(1), 2.0f);
-
-    auto time = find_series(2);
-    ASSERT_NE(time, nullptr);
-    ASSERT_EQ(time->size(), 2);
-    EXPECT_EQ(
-        time->at<x::telem::TimeStamp>(0),
-        x::telem::TimeStamp(1 * x::telem::SECOND)
-    );
-    EXPECT_EQ(
-        time->at<x::telem::TimeStamp>(1),
-        x::telem::TimeStamp(2 * x::telem::SECOND)
-    );
-}
-
-TEST(StateTest, WriteChannelTyped_IndexedWritesTimestamp) {
-    arc::ir::Node ir_node;
-    ir_node.key = "writer";
-    ir_node.type = "writer";
-
-    arc::ir::Function fn;
-    fn.key = "writer";
-
-    arc::ir::IR ir;
-    ir.nodes.push_back(ir_node);
-    ir.functions.push_back(fn);
-
-    Config cfg{
-        .ir = ir,
-        .channels = {{.key = 5, .data_type = x::telem::INT32_T, .index = 6}}
-    };
-    State s(cfg, arc::runtime::errors::noop_handler);
-
-    s.write_channel_i32(5, 10);
-    s.write_channel_i32(5, 20);
-
-    auto out = s.flush();
-    ASSERT_EQ(out.size(), 2);
-
-    auto find_series = [&](const arc::types::ChannelKey key) -> Series {
-        for (const auto &[k, v]: out)
-            if (k == key) return v;
-        return {};
-    };
-
-    auto data = find_series(5);
-    ASSERT_NE(data, nullptr);
-    ASSERT_EQ(data->size(), 2);
-    EXPECT_EQ(data->at<int32_t>(0), 10);
-    EXPECT_EQ(data->at<int32_t>(1), 20);
-
-    auto time = find_series(6);
-    ASSERT_NE(time, nullptr);
-    ASSERT_EQ(time->data_type(), x::telem::TIMESTAMP_T);
-    ASSERT_EQ(time->size(), 2);
-}
-
-TEST(StateTest, WriteChannelTyped_NoIndexWritesOnlyData) {
-    arc::ir::Node ir_node;
-    ir_node.key = "writer";
-    ir_node.type = "writer";
-
-    arc::ir::Function fn;
-    fn.key = "writer";
-
-    arc::ir::IR ir;
-    ir.nodes.push_back(ir_node);
-    ir.functions.push_back(fn);
-
-    Config cfg{
-        .ir = ir,
-        .channels = {{.key = 7, .data_type = x::telem::FLOAT64_T, .index = 0}}
-    };
-    State s(cfg, arc::runtime::errors::noop_handler);
-
-    s.write_channel_f64(7, 1.5);
-    s.write_channel_f64(7, 2.5);
-
-    auto out = s.flush();
-    ASSERT_EQ(out.size(), 1);
-    ASSERT_EQ(out[0].first, 7);
-    ASSERT_EQ(out[0].second->size(), 2);
-    EXPECT_DOUBLE_EQ(out[0].second->at<double>(0), 1.5);
-    EXPECT_DOUBLE_EQ(out[0].second->at<double>(1), 2.5);
-}
-
-TEST(StateTest, ClearReads_PreservesLatestSeries) {
-    State s = create_minimal_state();
+TEST(ChannelStateTest, FlushPreservesLatestSeries) {
+    stl::channel::State s;
 
     auto series1 = x::telem::Series(x::telem::FLOAT32_T, 3);
     series1.write(1.0f);
@@ -544,13 +416,13 @@ TEST(StateTest, ClearReads_PreservesLatestSeries) {
     series2.write(5.0f);
     s.ingest(x::telem::Frame(10, std::move(series2)));
 
-    auto [data_before, ok_before] = s.read_channel(10);
+    auto [data_before, ok_before] = s.read_value(10);
     ASSERT_TRUE(ok_before);
     ASSERT_EQ(data_before.series.size(), 2);
 
     s.flush();
 
-    auto [data_after, ok_after] = s.read_channel(10);
+    auto [data_after, ok_after] = s.read_value(10);
     ASSERT_TRUE(ok_after);
     ASSERT_EQ(data_after.series.size(), 1);
     EXPECT_EQ(data_after.series[0].size(), 2);
@@ -558,8 +430,8 @@ TEST(StateTest, ClearReads_PreservesLatestSeries) {
     EXPECT_EQ(data_after.series[0].at<float>(1), 5.0f);
 }
 
-TEST(StateTest, ClearReads_PreservesMultipleChannels) {
-    State s = create_minimal_state();
+TEST(ChannelStateTest, FlushPreservesMultipleChannels) {
+    stl::channel::State s;
 
     auto series1 = x::telem::Series(x::telem::FLOAT32_T, 2);
     series1.write(1.0f);
@@ -574,19 +446,19 @@ TEST(StateTest, ClearReads_PreservesMultipleChannels) {
 
     s.flush();
 
-    auto [data10, ok10] = s.read_channel(10);
+    auto [data10, ok10] = s.read_value(10);
     ASSERT_TRUE(ok10);
     ASSERT_EQ(data10.series.size(), 1);
     EXPECT_EQ(data10.series[0].at<float>(-1), 2.0f);
 
-    auto [data20, ok20] = s.read_channel(20);
+    auto [data20, ok20] = s.read_value(20);
     ASSERT_TRUE(ok20);
     ASSERT_EQ(data20.series.size(), 1);
     EXPECT_EQ(data20.series[0].at<double>(-1), 30.0);
 }
 
-TEST(StateTest, ClearReads_PreservedDataAvailableNextCycle) {
-    State s = create_minimal_state();
+TEST(ChannelStateTest, PreservedDataAvailableNextCycle) {
+    stl::channel::State s;
 
     auto series1 = x::telem::Series(x::telem::FLOAT32_T, 2);
     series1.write(1.0f);
@@ -599,34 +471,34 @@ TEST(StateTest, ClearReads_PreservedDataAvailableNextCycle) {
     series2.write(4.0f);
     s.ingest(x::telem::Frame(20, std::move(series2)));
 
-    auto [data10, ok10] = s.read_channel(10);
+    auto [data10, ok10] = s.read_value(10);
     ASSERT_TRUE(ok10);
     EXPECT_EQ(data10.series[0].at<float>(-1), 2.0f);
 
-    auto [data20, ok20] = s.read_channel(20);
+    auto [data20, ok20] = s.read_value(20);
     ASSERT_TRUE(ok20);
     EXPECT_EQ(data20.series[0].at<float>(-1), 4.0f);
 
     s.flush();
 
-    auto [data10_2, ok10_2] = s.read_channel(10);
+    auto [data10_2, ok10_2] = s.read_value(10);
     ASSERT_TRUE(ok10_2);
     EXPECT_EQ(data10_2.series[0].at<float>(-1), 2.0f);
 
-    auto [data20_2, ok20_2] = s.read_channel(20);
+    auto [data20_2, ok20_2] = s.read_value(20);
     ASSERT_TRUE(ok20_2);
     EXPECT_EQ(data20_2.series[0].at<float>(-1), 4.0f);
 }
 
-TEST(StateTest, ClearReads_NewDataOverwritesPreserved) {
-    State s = create_minimal_state();
+TEST(ChannelStateTest, NewDataOverwritesPreserved) {
+    stl::channel::State s;
 
     auto series1 = x::telem::Series(x::telem::FLOAT32_T, 1);
     series1.write(100.0f);
     s.ingest(x::telem::Frame(10, std::move(series1)));
     s.flush();
 
-    auto [data1, ok1] = s.read_channel(10);
+    auto [data1, ok1] = s.read_value(10);
     ASSERT_TRUE(ok1);
     EXPECT_EQ(data1.series[0].at<float>(-1), 100.0f);
 
@@ -635,14 +507,14 @@ TEST(StateTest, ClearReads_NewDataOverwritesPreserved) {
     s.ingest(x::telem::Frame(10, std::move(series2)));
     s.flush();
 
-    auto [data2, ok2] = s.read_channel(10);
+    auto [data2, ok2] = s.read_value(10);
     ASSERT_TRUE(ok2);
     ASSERT_EQ(data2.series.size(), 1);
     EXPECT_EQ(data2.series[0].at<float>(-1), 200.0f);
 }
 
-TEST(StateTest, ClearReads_SingleSeriesNoOp) {
-    State s = create_minimal_state();
+TEST(ChannelStateTest, SingleSeriesNoOp) {
+    stl::channel::State s;
 
     auto series = x::telem::Series(x::telem::INT32_T, 3);
     series.write(1);
@@ -652,7 +524,7 @@ TEST(StateTest, ClearReads_SingleSeriesNoOp) {
 
     s.flush();
 
-    auto [data, ok] = s.read_channel(10);
+    auto [data, ok] = s.read_value(10);
     ASSERT_TRUE(ok);
     ASSERT_EQ(data.series.size(), 1);
     EXPECT_EQ(data.series[0].size(), 3);
@@ -661,44 +533,43 @@ TEST(StateTest, ClearReads_SingleSeriesNoOp) {
     EXPECT_EQ(data.series[0].at<int32_t>(2), 3);
 }
 
-TEST(StateTest, ClearReads_EmptyState) {
-    State s = create_minimal_state();
+TEST(ChannelStateTest, EmptyState) {
+    stl::channel::State s;
 
     s.flush();
 
-    auto [data, ok] = s.read_channel(10);
+    auto [data, ok] = s.read_value(10);
     ASSERT_FALSE(ok);
     EXPECT_TRUE(data.series.empty());
 }
 
-TEST(StateTest, ReadChannel_UnknownChannel) {
-    State s = create_minimal_state();
+TEST(ChannelStateTest, UnknownChannel) {
+    stl::channel::State s;
 
     auto series = x::telem::Series(x::telem::FLOAT32_T, 1);
     series.write(1.0f);
     s.ingest(x::telem::Frame(10, std::move(series)));
 
-    auto [data, ok] = s.read_channel(99);
+    auto [data, ok] = s.read_value(99);
     ASSERT_FALSE(ok);
     EXPECT_TRUE(data.series.empty());
 }
 
-/// @brief Test that State::reset clears reads and writes
-TEST(StateTest, Reset_ClearsReadsAndWrites) {
-    State s = create_minimal_state();
+TEST(ChannelStateTest, ResetClearsReadsAndWrites) {
+    stl::channel::State s;
 
     auto series = x::telem::Series(x::telem::FLOAT32_T, 2);
     series.write(1.0f);
     series.write(2.0f);
     s.ingest(x::telem::Frame(10, std::move(series)));
 
-    auto [data_before, ok_before] = s.read_channel(10);
+    auto [data_before, ok_before] = s.read_value(10);
     ASSERT_TRUE(ok_before);
     ASSERT_EQ(data_before.series.size(), 1);
 
     s.reset();
 
-    auto [data_after, ok_after] = s.read_channel(10);
+    auto [data_after, ok_after] = s.read_value(10);
     ASSERT_FALSE(ok_after);
     EXPECT_TRUE(data_after.series.empty());
 }
@@ -855,97 +726,12 @@ TEST(StateTest, SetAuthority_MultipleChanges) {
     EXPECT_TRUE(s.flush_authority_changes().empty());
 }
 
-TEST(StateTest, StringCreateConfig_PersistsAcrossFlush) {
+TEST(StateTest, ResetClearsBufferedAuthorityChanges) {
     State s = create_minimal_state();
-    const uint32_t handle = s.string_create_config("persistent");
-    s.flush();
-    EXPECT_TRUE(s.string_exists(handle));
-    EXPECT_EQ(s.string_get(handle), "persistent");
-}
-
-TEST(StateTest, StringCreateConfig_NoCollisionWithTransient) {
-    State s = create_minimal_state();
-    const uint32_t transient = s.string_create("transient");
-    const uint32_t config = s.string_create_config("config");
-    EXPECT_NE(transient, config);
-}
-
-TEST(StateTest, StringCreateConfig_StableAcrossMultipleFlushCycles) {
-    State s = create_minimal_state();
-    const uint32_t handle = s.string_create_config("stable");
-    for (int i = 0; i < 5; i++)
-        s.flush();
-    EXPECT_TRUE(s.string_exists(handle));
-    EXPECT_EQ(s.string_get(handle), "stable");
-}
-
-TEST(StateTest, StringGet_TransientClearedConfigPreservedAfterFlush) {
-    State s = create_minimal_state();
-    const uint32_t transient = s.string_create("transient");
-    const uint32_t config = s.string_create_config("config");
-    s.flush();
-    EXPECT_FALSE(s.string_exists(transient));
-    EXPECT_TRUE(s.string_exists(config));
-    EXPECT_EQ(s.string_get(config), "config");
-}
-
-TEST(StateTest, StringCreateConfig_ClearedByReset) {
-    State s = create_minimal_state();
-    const uint32_t handle = s.string_create_config("config");
+    s.set_authority(42, 200);
+    s.set_authority(std::nullopt, 100);
     s.reset();
-    EXPECT_FALSE(s.string_exists(handle));
+    EXPECT_TRUE(s.flush_authority_changes().empty());
 }
 
-TEST(StateTest, VarLoadStr_InitializesFromConfigStringHandle) {
-    State s = create_minimal_state();
-    const uint32_t config_handle = s.string_create_config("hello");
-    s.set_current_node_key("node_a");
-    // First load: var not yet stored, should init from config handle.
-    const uint32_t result = s.var_load_str(1, config_handle);
-    EXPECT_EQ(s.string_get(result), "hello");
-}
-
-TEST(StateTest, VarStoreStr_ResolvesConfigStringHandle) {
-    State s = create_minimal_state();
-    const uint32_t config_handle = s.string_create_config("world");
-    s.set_current_node_key("node_a");
-    s.var_store_str(1, config_handle);
-    // After flush, transient handles are gone but the stored value should survive.
-    s.flush();
-    const uint32_t result = s.var_load_str(1, 0);
-    EXPECT_EQ(s.string_get(result), "world");
-}
-
-/// @brief Two write_channel calls to the same key in one cycle must be preserved
-/// as two samples in a single flushed series (not overwritten).
-TEST(StateTest, WriteChannel_MultipleWritesSameKeyPreservedInFlush) {
-    State s = create_minimal_state();
-    auto data1 = x::mem::make_local_shared<x::telem::Series>(1.0f);
-    auto time1 = x::mem::make_local_shared<x::telem::Series>(
-        x::telem::TimeStamp(x::telem::MICROSECOND)
-    );
-    auto data2 = x::mem::make_local_shared<x::telem::Series>(2.0f);
-    auto time2 = x::mem::make_local_shared<x::telem::Series>(
-        x::telem::TimeStamp(x::telem::MICROSECOND * 2)
-    );
-    s.write_channel(10, data1, time1);
-    s.write_channel(10, data2, time2);
-    const auto result = s.flush();
-    ASSERT_EQ(result.size(), 1);
-    EXPECT_EQ(result[0].first, 10);
-    EXPECT_EQ(result[0].second->at<float>(0), 1.0f);
-    EXPECT_EQ(result[0].second->size(), 2);
-    EXPECT_EQ(result[0].second->at<float>(1), 2.0f);
-}
-
-TEST(StateTest, VarStoreStr_InvalidHandleIsNoOp) {
-    State s = create_minimal_state();
-    const uint32_t config_handle = s.string_create_config("initial");
-    s.set_current_node_key("node_a");
-    s.var_store_str(1, config_handle);
-    s.flush();
-    // Passing an invalid handle (0) must not overwrite the stored value.
-    s.var_store_str(1, 0);
-    const uint32_t result = s.var_load_str(1, 0);
-    EXPECT_EQ(s.string_get(result), "initial");
 }
