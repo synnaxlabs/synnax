@@ -21,8 +21,12 @@
             padding: 2rem;
         }
 
-        .console-kv-rows {
-            padding: 0 2rem 1rem;
+        .console-headers-kv-editor {
+            padding: 2rem 0;
+        }
+
+        .console-query-params-kv-editor {
+            padding: 2rem 0 0;
         }
 
         .console-channel-list {
@@ -40,11 +44,7 @@
         padding: 1rem 2rem;
     }
 
-    .console-timing-toggle {
-        flex-shrink: 0;
-    }
-
-.console-timestamp-format {
+    .console-timestamp-format {
         width: 160px;
     }
 }

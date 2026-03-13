@@ -312,7 +312,7 @@ const FieldList = ({ epKey }: FieldListProps) => {
                   onClick={handleAdd}
                   variant="text"
                   contrast={2}
-                  tooltip="Add Field"
+                  tooltip="Add field"
                   sharp
                 >
                   <Icon.Add />
@@ -336,7 +336,7 @@ const FieldList = ({ epKey }: FieldListProps) => {
           <Divider.Divider x padded />
           <KeyValueEditor
             path={selectedFieldPath}
-            label="Enum Mapping"
+            label="Enum mapping"
             keyPlaceholder="String (e.g. ON)"
             valueType="number"
           />
@@ -383,8 +383,8 @@ const TimingToggle: FC<{ path: string }> = ({ path }) => {
   );
 
   return (
-    <Flex.Box x align="end" wrap className={CSS.B("timing-toggle")}>
-      <Input.Item label="Timing Mode" padHelpText>
+    <Flex.Box x align="end" wrap>
+      <Input.Item label="Timing mode" padHelpText>
         <Select.Buttons<TimingMode>
           value={isValueTiming ? "value" : "software"}
           onChange={handleChange}
@@ -458,23 +458,23 @@ const EndpointDetails: FC<{ epKey: string }> = ({ epKey }) => {
           </Flex.Box>
         )}
         <TimingToggle path={path} />
+        <Divider.Divider x />
+        <KeyValueEditor
+          path={`${path}.headers`}
+          label="Headers"
+          keyPlaceholder="Name"
+          valuePlaceholder="Value"
+          className={CSS.B("headers-kv-editor")}
+        />
+        <Divider.Divider x />
+        <KeyValueEditor
+          path={`${path}.queryParams`}
+          label="Query parameters"
+          keyPlaceholder="Parameter"
+          valuePlaceholder="Value"
+          className={CSS.B("query-params-kv-editor")}
+        />
       </Flex.Box>
-      <Divider.Divider x />
-      <KeyValueEditor
-        path={`${path}.headers`}
-        label="Headers"
-        keyPlaceholder="Header Name"
-        valuePlaceholder="Header Value"
-        contentClassName={CSS.B("kv-rows")}
-      />
-      <Divider.Divider x />
-      <KeyValueEditor
-        path={`${path}.queryParams`}
-        label="Query Parameters"
-        keyPlaceholder="Parameter"
-        valuePlaceholder="Value"
-        contentClassName={CSS.B("kv-rows")}
-      />
       <Divider.Divider x />
       <FieldList key={epKey} epKey={epKey} />
     </Flex.Box>

@@ -289,14 +289,14 @@ export const Connect: Layout.Renderer = ({ layoutKey, onClose }) => {
                     <Form.TextField
                       grow
                       path="properties.auth.parameter"
-                      label="Parameter Name"
+                      label="Name"
                       inputProps={AUTH_PARAM_INPUT_PROPS}
                     />
                   ) : (
                     <Form.TextField
                       grow
                       path="properties.auth.header"
-                      label="Header Name"
+                      label="Name"
                       inputProps={AUTH_HEADER_INPUT_PROPS}
                     />
                   )}
@@ -356,8 +356,8 @@ export const Connect: Layout.Renderer = ({ layoutKey, onClose }) => {
               <KeyValueEditor
                 path="properties.healthCheck.headers"
                 label="Headers"
-                keyPlaceholder="Header Name"
-                valuePlaceholder="Header Value"
+                keyPlaceholder="Name"
+                valuePlaceholder="Value"
               />
               <KeyValueEditor
                 path="properties.healthCheck.queryParams"

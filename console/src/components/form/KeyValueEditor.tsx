@@ -9,7 +9,7 @@
 
 import "@/components/form/KeyValueEditor.css";
 
-import { Button, Flex, Form, Header, Icon, Input } from "@synnaxlabs/pluto";
+import { Button, Flex, Form, Icon, Input, Text } from "@synnaxlabs/pluto";
 import { type FC, useState } from "react";
 
 import { CSS } from "@/css";
@@ -25,7 +25,6 @@ export interface KeyValueEditorProps extends Flex.BoxProps {
   keyPlaceholder?: string;
   valuePlaceholder?: string;
   valueType?: "string" | "number";
-  contentClassName?: string;
 }
 
 export const KeyValueEditor: FC<KeyValueEditorProps> = ({
@@ -34,7 +33,6 @@ export const KeyValueEditor: FC<KeyValueEditorProps> = ({
   keyPlaceholder = "Key",
   valuePlaceholder = "Value",
   valueType = "string",
-  contentClassName,
   ...rest
 }) => {
   const defaultValue = valueType === "number" ? 0 : "";
@@ -100,23 +98,19 @@ export const KeyValueEditor: FC<KeyValueEditorProps> = ({
 
   return (
     <Flex.Box y gap="small" {...rest}>
-      <Header.Header>
-        <Header.Title weight={500} color={9}>
-          {label}
-        </Header.Title>
-        <Header.Actions>
-          <Button.Button
-            onClick={addRow}
-            variant="text"
-            contrast={2}
-            tooltip={`Add ${label.toLowerCase()}`}
-            sharp
-          >
-            <Icon.Add />
-          </Button.Button>
-        </Header.Actions>
-      </Header.Header>
-      <Flex.Box y gap="small" className={contentClassName}>
+      <Text.Text level="small" justify="between" size="small" color={9}>
+        {label}
+        <Button.Button
+          onClick={addRow}
+          variant="text"
+          tooltip={`Add ${label.toLowerCase()}`}
+          sharp
+          size="small"
+        >
+          <Icon.Add />
+        </Button.Button>
+      </Text.Text>
+      <Flex.Box y gap="small">
         {entries.map((entry, i) => (
           <Flex.Box x key={i} align="center" gap="small" className={CSS.B("kv-row")}>
             <Input.Text
