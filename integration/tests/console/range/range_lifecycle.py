@@ -86,6 +86,7 @@ class RangeLifecycle(ConsoleCase):
         self.test_navigate_to_parent()
         self.test_change_times_in_overview()
         self.test_change_stage_in_overview()
+        self.test_change_color_in_overview()
         self.test_add_label_in_overview()
         self.test_remove_label_in_overview()
         self.test_rename_range_from_tab()
@@ -166,16 +167,26 @@ class RangeLifecycle(ConsoleCase):
         ), "Should navigate to parent range overview"
 
     def test_create_range_with_labels(self) -> None:
-        """Test creating a range with labels attached."""
-        self.log("Testing: Create range with labels")
+        """Test creating a range with labels and a color attached."""
+        self.log("Testing: Create range with labels and color")
         self.labeled_range_name = f"LabeledRange_{self.rand_suffix}"
+        expected_color = "#ff0000"
         self.console.ranges.create(
-            self.labeled_range_name, persisted=True, labels=[self.test_label_name]
+            self.labeled_range_name,
+            persisted=True,
+            labels=[self.test_label_name],
+            color=expected_color,
         )
         self.console.ranges.open_explorer()
         assert self.console.ranges.exists_in_explorer(
             self.labeled_range_name
         ), "Labeled range should exist in explorer"
+
+        rng = self.client.ranges.retrieve(name=self.labeled_range_name)
+        actual_color = rng.color.hex()
+        assert (
+            actual_color == expected_color
+        ), f"Range color should be '{expected_color}', got '{actual_color}'"
 
     def test_open_range_explorer(self) -> None:
         """Test opening the Range Explorer."""
@@ -319,6 +330,23 @@ class RangeLifecycle(ConsoleCase):
         now = int(sy.TimeStamp.now())
         assert rng.time_range.start < now, "Start should be in the past"
         assert rng.time_range.end > now, "End should be in the future"
+
+    def test_change_color_in_overview(self) -> None:
+        """Test changing the annotation color in the range overview."""
+        assert self.labeled_range_name is not None
+        self.log("Testing: Change color in overview")
+        self.console.ranges.open_explorer()
+        self.console.ranges.open_overview_from_explorer(self.labeled_range_name)
+        self.console.ranges.wait_for_overview(self.labeled_range_name)
+
+        new_hex = "#00ff00"
+        self.console.ranges.set_color_in_overview(new_hex)
+
+        rng = self.client.ranges.retrieve(name=self.labeled_range_name)
+        actual_hex = rng.color.hex()
+        assert (
+            actual_hex == new_hex
+        ), f"Range color should be '{new_hex}', got '{actual_hex}'"
 
     def test_add_label_in_overview(self) -> None:
         """Test adding a label to a range in the overview."""
