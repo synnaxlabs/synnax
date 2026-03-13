@@ -777,17 +777,17 @@ All benchmark source code lives in `x/cpp/telem/frame_bench.cpp` and
 
 These isolate the cost of telem data operations with zero threading or bus overhead.
 
-| Benchmark | 8B (1x1 f64) | 10B (10x1 u8) | 40KB (10x1000 f32) | 480KB (30x4000 f32) |
-|---|---|---|---|---|
-| Frame deep_copy | 132 ns | 476 ns | 1,354 ns | 12,791 ns |
-| Frame move | 537 ns | 654 ns | 650 ns | 1,013 ns |
-| Frame construct | 134 ns | 652 ns | 1,538 ns | 13,321 ns |
-| Frame iterate | 1 ns | 5 ns | 5 ns | 13 ns |
+| Benchmark       | 8B (1x1 f64) | 10B (10x1 u8) | 40KB (10x1000 f32) | 480KB (30x4000 f32) |
+| --------------- | ------------ | ------------- | ------------------ | ------------------- |
+| Frame deep_copy | 132 ns       | 476 ns        | 1,354 ns           | 12,791 ns           |
+| Frame move      | 537 ns       | 654 ns        | 650 ns             | 1,013 ns            |
+| Frame construct | 134 ns       | 652 ns        | 1,538 ns           | 13,321 ns           |
+| Frame iterate   | 1 ns         | 5 ns          | 5 ns               | 13 ns               |
 
-| Benchmark | 32B | 16KB | 64KB | 480KB |
-|---|---|---|---|---|
-| Series deep_copy | 36 ns | 411 ns | 1,411 ns | 8,885 ns |
-| Series move | 509 ns | 513 ns | 1,008 ns | 1,015 ns |
+| Benchmark        | 32B    | 16KB   | 64KB     | 480KB    |
+| ---------------- | ------ | ------ | -------- | -------- |
+| Series deep_copy | 36 ns  | 411 ns | 1,411 ns | 8,885 ns |
+| Series move      | 509 ns | 513 ns | 1,008 ns | 1,015 ns |
 
 Key observations:
 
@@ -804,22 +804,22 @@ Key observations:
 
 These measure individual bus operations in isolation.
 
-| Benchmark | small_cmd (10B) | medium (40KB) | large_acq (480KB) |
-|---|---|---|---|
-| Bus publish (no subscribers) | 11 ns | 11 ns | 11 ns |
-| Bus publish (1 subscriber) | 574 ns | 1,535 ns | 12,913 ns |
-| Subscription push + try_pop | 530 ns | 1,539 ns | 11,939 ns |
-| Authority filter (all pass) | 767 ns | 1,757 ns | 13,401 ns |
-| Authority filter (half pass) | 512 ns | 981 ns | 6,925 ns |
-| Authority filter (none pass) | 49 ns | 49 ns | 121 ns |
+| Benchmark                    | small_cmd (10B) | medium (40KB) | large_acq (480KB) |
+| ---------------------------- | --------------- | ------------- | ----------------- |
+| Bus publish (no subscribers) | 11 ns           | 11 ns         | 11 ns             |
+| Bus publish (1 subscriber)   | 574 ns          | 1,535 ns      | 12,913 ns         |
+| Subscription push + try_pop  | 530 ns          | 1,539 ns      | 11,939 ns         |
+| Authority filter (all pass)  | 767 ns          | 1,757 ns      | 13,401 ns         |
+| Authority filter (half pass) | 512 ns          | 981 ns        | 6,925 ns          |
+| Authority filter (none pass) | 49 ns           | 49 ns         | 121 ns            |
 
 Subscriber scaling at large_acq (480KB):
 
-| Subscribers | Time |
-|---|---|
-| 1 | 12,984 ns |
-| 2 | 25,603 ns |
-| 5 | 67,854 ns |
+| Subscribers | Time      |
+| ----------- | --------- |
+| 1           | 12,984 ns |
+| 2           | 25,603 ns |
+| 5           | 67,854 ns |
 
 Cross-thread subscription (large_acq): 3,424 ns CPU / 14,804 ns wall.
 
@@ -845,24 +845,24 @@ Key observations:
 Full path: `bus::Writer::write` -> `Bus::publish` -> `Subscription` ->
 `AuthorityMirror::filter`.
 
-| Workload | Time | Throughput |
-|---|---|---|
-| small_cmd (10B) | 1,834 ns | 20.8 MiB/s |
-| medium (40KB) | 8,009 ns | 4.7 GiB/s |
-| large_acq (480KB) | 72,093 ns | 6.3 GiB/s |
+| Workload          | Time      | Throughput |
+| ----------------- | --------- | ---------- |
+| small_cmd (10B)   | 1,834 ns  | 20.8 MiB/s |
+| medium (40KB)     | 8,009 ns  | 4.7 GiB/s  |
+| large_acq (480KB) | 72,093 ns | 6.3 GiB/s  |
 
 ## 7.3 - Cost Breakdown (large_acq, 480KB)
 
 The end-to-end time of ~72us breaks down as:
 
-| Component | Cost | % of total |
-|---|---|---|
-| deep_copy in Bus::publish | ~13us | 18% |
-| deep_copy in mock server writer | ~13us | 18% |
-| deep_copy in AuthorityMirror::filter | ~13us | 18% |
-| Frame construction (make_frame in mock) | ~13us | 18% |
-| Mutex + deque + hash map + dedup overhead | ~2us | 3% |
-| Measurement overhead / other | ~18us | 25% |
+| Component                                 | Cost  | % of total |
+| ----------------------------------------- | ----- | ---------- |
+| deep_copy in Bus::publish                 | ~13us | 18%        |
+| deep_copy in mock server writer           | ~13us | 18%        |
+| deep_copy in AuthorityMirror::filter      | ~13us | 18%        |
+| Frame construction (make_frame in mock)   | ~13us | 18%        |
+| Mutex + deque + hash map + dedup overhead | ~2us  | 3%         |
+| Measurement overhead / other              | ~18us | 25%        |
 
 The three deep_copy operations account for roughly 54% of the measured end-to-end time.
 In production, the mock server writer's deep_copy is replaced by protobuf serialization
@@ -877,6 +877,7 @@ every passing series again to build a filtered frame. This second copy was unnec
 since the subscriber already owns the frame exclusively.
 
 The fix adds a move overload `filter(Frame&&, Subject)` that:
+
 - **All pass (common case):** Returns the input frame by move. Zero copies.
 - **Partial pass:** Builds a new frame, moving (not copying) passing series from the
   input.
@@ -889,59 +890,131 @@ The fix adds a move overload `filter(Frame&&, Subject)` that:
 
 Authority filter comparison:
 
-| Scenario | Copy (ns) | Move (ns) | Speedup |
-|---|---|---|---|
-| All pass | 13,411 | 984 | 13.6x |
-| Half pass | 6,945 | 1,572 | 4.4x |
-| None pass | 120 | 120* | 1x |
+| Scenario  | Copy (ns) | Move (ns) | Speedup |
+| --------- | --------- | --------- | ------- |
+| All pass  | 13,411    | 984       | 13.6x   |
+| Half pass | 6,945     | 1,572     | 4.4x    |
+| None pass | 120       | 120\*     | 1x      |
 
-*Move benchmark shows ~1,117ns due to PauseTiming/ResumeTiming harness overhead (frame
+\*Move benchmark shows ~1,117ns due to PauseTiming/ResumeTiming harness overhead (frame
 must be reconstructed each iteration since the move consumes it). The actual filter
 logic for none-pass is ~120ns in both cases.
 
 End-to-end comparison:
 
-| Workload | Before (ns) | After (ns) | Improvement |
-|---|---|---|---|
-| small_cmd (10B) | 1,834 | 993 | -46% |
-| medium (40KB) | 8,009 | 5,981 | -25% |
-| large_acq (480KB) | 72,093 | 58,938 | -18% |
+| Workload          | Before (ns) | After (ns) | Improvement |
+| ----------------- | ----------- | ---------- | ----------- |
+| small_cmd (10B)   | 1,834       | 993        | -46%        |
+| medium (40KB)     | 8,009       | 5,981      | -25%        |
+| large_acq (480KB) | 72,093      | 58,938     | -18%        |
 
 The large_acq improvement of ~14us matches the predicted ~13us savings from eliminating
 one deep_copy. The small_cmd improvement is proportionally larger because the filter's
 per-channel overhead (hash map lookups, frame construction) was a larger fraction of the
 total cost at small sizes.
 
-### Updated Cost Breakdown (large_acq, 480KB, post-optimization)
+### Updated Cost Breakdown (large_acq, 480KB, after move filter)
 
-| Component | Cost | % of total |
-|---|---|---|
-| deep_copy in Bus::publish | ~13us | 22% |
-| deep_copy in mock server writer | ~13us | 22% |
-| ~~deep_copy in AuthorityMirror::filter~~ | ~~13us~~ | **eliminated** |
-| Move in AuthorityMirror::filter | ~1us | 2% |
-| Frame construction (make_frame in mock) | ~13us | 22% |
-| Mutex + deque + hash map + dedup overhead | ~2us | 3% |
-| Measurement overhead / other | ~17us | 29% |
+| Component                                 | Cost     | % of total     |
+| ----------------------------------------- | -------- | -------------- |
+| deep_copy in Bus::publish                 | ~13us    | 22%            |
+| deep_copy in mock server writer           | ~13us    | 22%            |
+| ~~deep_copy in AuthorityMirror::filter~~  | ~~13us~~ | **eliminated** |
+| Move in AuthorityMirror::filter           | ~1us     | 2%             |
+| Frame construction (make_frame in mock)   | ~13us    | 22%            |
+| Mutex + deque + hash map + dedup overhead | ~2us     | 3%             |
+| Measurement overhead / other              | ~17us    | 29%            |
 
-## 7.5 - Remaining Optimization Targets
+## 7.5 - Optimization: Copy-on-Write Series Data
 
-The remaining deep_copy in `Bus::publish()` (~13us) is the next largest cost. It cannot
-be eliminated as easily because the publisher (`bus::Writer`) still needs the frame for
-`server->write(fr)` after publishing to the bus. Possible approaches:
+The remaining deep_copy in `Bus::publish()` existed because the publisher still needs
+the frame for `server->write(fr)` after publishing. A traditional deep_copy was required
+to give subscribers independent data. However, after the transform chain runs, frame
+data is never mutated again. The bus subscriber reads it. The server writer reads it.
+The authority filter reads it. The Sink reads it. All read-only.
 
-1. **Reorder write then publish.** Call `server->write(fr)` first, then move the frame
-   into a publish variant that takes ownership. The server writer serializes to protobuf
-   (consuming the frame data), so the bus would receive the frame after serialization.
-   However, this changes the ordering guarantee (server write before local delivery)
-   and the server writer takes `const Frame&`, not consuming it.
+The fix changes `Series::data_` from `unique_ptr<byte[]>` to `shared_ptr<byte[]>` and
+adds a `shallow_copy()` method that shares the underlying data buffer via reference
+counting instead of memcpy. A copy-on-write mechanism (`ensure_exclusive()`) is called
+at the top of every mutation method. If `use_count() > 1`, it materializes a private
+copy before mutating. Since mutations only happen in the transform chain (before the
+frame reaches the bus), the COW check is always a no-op in the hot path (one atomic load
+returning 1).
 
-2. **Shared ownership for multi-subscriber.** When N>1 subscribers exist, create one
-   `shared_ptr<const Frame>` and hand out shared_ptrs instead of N deep_copies. Limited
-   benefit since N=1 is the common case.
+### Changes
 
-3. **Selective publish.** Only copy series for channels the subscriber cares about,
-   instead of the entire frame. Helps when subscribers want a subset of channels.
+- `Series::data_`: `unique_ptr<byte[]>` -> `shared_ptr<byte[]>` (mutable for COW)
+- `Series::shallow_copy()`: shares data buffer, ~4ns constant regardless of size
+- `Series::ensure_exclusive()`: COW check before mutations (~1ns atomic load)
+- `Frame::shallow_copy()`: shallow-copies all series, ~230ns for 30 channels
+- `Bus::publish()`: uses `frame.shallow_copy()` instead of `frame.deep_copy()`
+- All mutation methods (`set`, `write`, `write_casted`, `resize`, `fill_from`,
+  `apply_numeric_op`) call `ensure_exclusive()` for correctness
+
+### Results
+
+Series copy comparison:
+
+| Size  | deep_copy (ns) | shallow_copy (ns) | Speedup |
+| ----- | -------------- | ----------------- | ------- |
+| 32B   | 55             | 3.8               | 14x     |
+| 16KB  | 507            | 3.8               | 133x    |
+| 64KB  | 1,367          | 3.8               | 360x    |
+| 480KB | 8,366          | 3.8               | 2,200x  |
+
+Frame copy comparison:
+
+| Workload          | deep_copy (ns) | shallow_copy (ns) | Speedup |
+| ----------------- | -------------- | ----------------- | ------- |
+| single_f64 (8B)   | 135            | 87                | 1.6x    |
+| small_cmd (10B)   | 651            | 127               | 5x      |
+| medium (40KB)     | 1,480          | 127               | 12x     |
+| large_acq (480KB) | 12,831         | 230               | 56x     |
+
+Bus publish with 1 subscriber:
+
+| Workload          | deep_copy (ns) | shallow_copy (ns) | Speedup |
+| ----------------- | -------------- | ----------------- | ------- |
+| small_cmd (10B)   | 574            | 273               | 2.1x    |
+| medium (40KB)     | 1,535          | 277               | 5.5x    |
+| large_acq (480KB) | 12,913         | 473               | **27x** |
+
+End-to-end comparison (all optimizations combined):
+
+| Workload          | Baseline (ns) | Final (ns) | Improvement |
+| ----------------- | ------------- | ---------- | ----------- |
+| small_cmd (10B)   | 1,834         | 866        | **-53%**    |
+| medium (40KB)     | 8,009         | 5,379      | **-33%**    |
+| large_acq (480KB) | 72,093        | 48,168     | **-33%**    |
+
+### Final Cost Breakdown (large_acq, 480KB)
+
+| Component                                 | Cost     | % of total     |
+| ----------------------------------------- | -------- | -------------- |
+| ~~deep_copy in Bus::publish~~             | ~~13us~~ | **eliminated** |
+| shallow_copy in Bus::publish              | ~0.5us   | 1%             |
+| deep_copy in mock server writer           | ~13us    | 27%            |
+| Move in AuthorityMirror::filter           | ~1us     | 2%             |
+| Frame construction (make_frame in mock)   | ~13us    | 27%            |
+| Mutex + deque + hash map + dedup overhead | ~2us     | 4%             |
+| Measurement overhead / other              | ~19us    | 39%            |
+
+In production, the mock server writer's deep_copy is replaced by protobuf serialization
+(comparable cost). The bus-specific overhead is now ~1.5us total (shallow_copy + move
+filter + routing), down from ~26us at baseline. The bus adds less than 0.2% overhead to
+a 1ms control loop budget.
+
+## 7.6 - Remaining Bottlenecks
+
+The bus copy path is effectively solved. Remaining costs in the end-to-end benchmark are
+dominated by the mock server writer (which deep_copies for test recording) and frame
+construction overhead in the benchmark harness. Neither is present in the production hot
+path.
+
+In production, the only remaining significant cost is protobuf serialization for the
+server write (~13us for large frames). This is unavoidable since data must reach the
+server for persistence and relay. It runs on the acquisition pipeline thread and does
+not block the local bus delivery path.
 
 Non-targets (confirmed by data, not worth optimizing):
 

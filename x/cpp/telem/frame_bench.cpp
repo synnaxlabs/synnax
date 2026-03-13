@@ -9,11 +9,11 @@
 
 #include <vector>
 
-#include "benchmark/benchmark.h"
-
 #include "x/cpp/telem/frame.h"
 #include "x/cpp/telem/series.h"
 #include "x/cpp/telem/telem.h"
+
+#include "benchmark/benchmark.h"
 
 namespace {
 x::telem::Series make_float_series(const size_t num_samples) {
@@ -79,9 +79,12 @@ static void BM_SeriesDeepCopy(benchmark::State &state) {
     state.SetBytesProcessed(state.iterations() * num_bytes);
 }
 
-BENCHMARK(BM_SeriesDeepCopy)->ArgNames({"bytes"})->Arg(32)->Arg(16384)->Arg(65536)->Arg(
-    491520
-);
+BENCHMARK(BM_SeriesDeepCopy)
+    ->ArgNames({"bytes"})
+    ->Arg(32)
+    ->Arg(16384)
+    ->Arg(65536)
+    ->Arg(491520);
 
 static void BM_SeriesMove(benchmark::State &state) {
     const auto num_bytes = state.range(0);
@@ -96,9 +99,45 @@ static void BM_SeriesMove(benchmark::State &state) {
     state.SetBytesProcessed(state.iterations() * num_bytes);
 }
 
-BENCHMARK(BM_SeriesMove)->ArgNames({"bytes"})->Arg(32)->Arg(16384)->Arg(65536)->Arg(
-    491520
-);
+BENCHMARK(BM_SeriesMove)
+    ->ArgNames({"bytes"})
+    ->Arg(32)
+    ->Arg(16384)
+    ->Arg(65536)
+    ->Arg(491520);
+
+static void BM_SeriesShallowCopy(benchmark::State &state) {
+    const auto num_bytes = state.range(0);
+    const auto num_samples = static_cast<size_t>(num_bytes) / sizeof(float);
+    auto series = make_float_series(num_samples);
+    for (auto _: state) {
+        auto copy = series.shallow_copy();
+        benchmark::DoNotOptimize(copy);
+    }
+    state.SetBytesProcessed(state.iterations() * num_bytes);
+}
+
+BENCHMARK(BM_SeriesShallowCopy)
+    ->ArgNames({"bytes"})
+    ->Arg(32)
+    ->Arg(16384)
+    ->Arg(65536)
+    ->Arg(491520);
+
+static void BM_FrameShallowCopy(benchmark::State &state) {
+    const auto &w = WORKLOADS[state.range(0)];
+    auto frame = make_frame(w.channels, w.samples, w.dt);
+    for (auto _: state) {
+        auto copy = frame.shallow_copy();
+        benchmark::DoNotOptimize(copy);
+    }
+    state.SetBytesProcessed(
+        static_cast<int64_t>(state.iterations()) * static_cast<int64_t>(w.total_bytes())
+    );
+    state.SetLabel(w.name);
+}
+
+BENCHMARK(BM_FrameShallowCopy)->DenseRange(0, 3);
 
 static void BM_FrameDeepCopy(benchmark::State &state) {
     const auto &w = WORKLOADS[state.range(0)];
@@ -108,8 +147,7 @@ static void BM_FrameDeepCopy(benchmark::State &state) {
         benchmark::DoNotOptimize(copy);
     }
     state.SetBytesProcessed(
-        static_cast<int64_t>(state.iterations()) *
-        static_cast<int64_t>(w.total_bytes())
+        static_cast<int64_t>(state.iterations()) * static_cast<int64_t>(w.total_bytes())
     );
     state.SetLabel(w.name);
 }
@@ -133,7 +171,8 @@ BENCHMARK(BM_FrameMove)->DenseRange(0, 3);
 static void BM_FrameConstruct(benchmark::State &state) {
     const auto &w = WORKLOADS[state.range(0)];
     std::vector<std::vector<float>> data(w.channels);
-    for (auto &d: data) d.assign(w.samples, 1.0f);
+    for (auto &d: data)
+        d.assign(w.samples, 1.0f);
     for (auto _: state) {
         x::telem::Frame frame(w.channels);
         for (uint32_t ch = 0; ch < w.channels; ch++)
@@ -141,8 +180,7 @@ static void BM_FrameConstruct(benchmark::State &state) {
         benchmark::DoNotOptimize(frame);
     }
     state.SetBytesProcessed(
-        static_cast<int64_t>(state.iterations()) *
-        static_cast<int64_t>(w.total_bytes())
+        static_cast<int64_t>(state.iterations()) * static_cast<int64_t>(w.total_bytes())
     );
     state.SetLabel(w.name);
 }
@@ -154,7 +192,8 @@ static void BM_FrameIterate(benchmark::State &state) {
     auto frame = make_frame(w.channels, w.samples, w.dt);
     for (auto _: state) {
         uint32_t key_sum = 0;
-        for (auto [key, series]: frame) key_sum += key;
+        for (auto [key, series]: frame)
+            key_sum += key;
         benchmark::DoNotOptimize(key_sum);
     }
     state.SetLabel(w.name);

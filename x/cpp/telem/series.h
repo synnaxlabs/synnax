@@ -12,6 +12,7 @@
 #include <cmath>
 #include <cstddef>
 #include <iostream>
+#include <memory>
 #include <string>
 #include <variant>
 #include <vector>
@@ -78,8 +79,26 @@ class Series {
     size_t cached_byte_cap = 0;
     /// @brief the size of the series in number of samples.
     size_t size_;
-    /// @brief Holds the underlying data.
-    std::unique_ptr<std::byte[]> data_;
+    /// @brief Holds the underlying data. Mutable to support copy-on-write:
+    /// shallow_copy() shares the buffer via shared_ptr, and ensure_exclusive()
+    /// materializes a private copy before any mutation.
+    mutable std::shared_ptr<std::byte[]> data_;
+
+    /// @brief allocates a zero-initialized shared byte buffer.
+    static std::shared_ptr<std::byte[]> alloc(size_t byte_size) {
+        return std::shared_ptr<std::byte[]>(new std::byte[byte_size]());
+    }
+
+    /// @brief ensures this Series has exclusive ownership of its data buffer.
+    /// If the buffer is shared (use_count > 1), materializes a private copy.
+    void ensure_exclusive() const {
+        if (this->data_ && this->data_.use_count() > 1) {
+            const auto bs = this->byte_size();
+            auto exclusive = alloc(bs);
+            memcpy(exclusive.get(), this->data_.get(), bs);
+            this->data_ = std::move(exclusive);
+        }
+    }
 
 public:
     /// @brief an optional property that defines the time range occupied by the
@@ -123,14 +142,27 @@ private:
         cap_(other.cap_),
         cached_byte_size(other.cached_byte_size),
         size_(other.size_),
-        data_(std::make_unique<std::byte[]>(other.byte_size())),
+        data_(alloc(other.byte_size())),
         time_range(other.time_range),
         alignment(other.alignment) {
         memcpy(data_.get(), other.data_.get(), other.byte_size());
     }
 
+    /// @brief Private shallow copy constructor that shares the data buffer.
+    struct ShallowTag {};
+
+    Series(const Series &other, ShallowTag):
+        data_type_(other.data_type_),
+        cap_(other.cap_),
+        cached_byte_size(other.cached_byte_size),
+        size_(other.size_),
+        data_(other.data_),
+        time_range(other.time_range),
+        alignment(other.alignment) {}
+
     template<typename SourceType, typename TargetType, typename Op>
     void apply_numeric_op(const TargetType &rhs, Op op) const {
+        this->ensure_exclusive();
         auto *data_ptr = reinterpret_cast<SourceType *>(this->data_.get());
         const auto size = this->size();
         const auto cast_rhs = static_cast<SourceType>(rhs);
@@ -442,11 +474,11 @@ public:
     Series(const DataType &data_type, const size_t cap):
         data_type_(data_type), size_(0) {
         if (data_type.is_variable()) {
-            this->data_ = std::make_unique<std::byte[]>(cap);
+            this->data_ = alloc(cap);
             this->cached_byte_cap = cap;
             this->cap_ = 0;
         } else {
-            this->data_ = std::make_unique<std::byte[]>(cap * data_type.density());
+            this->data_ = alloc(cap * data_type.density());
             this->cap_ = cap;
             this->cached_byte_cap = cap * data_type.density();
         }
@@ -462,9 +494,7 @@ public:
         data_type_(DataType::infer<NumericType>(dt)),
         cap_(size),
         size_(size),
-        data_(
-            std::make_unique<std::byte[]>(this->size() * this->data_type().density())
-        ) {
+        data_(alloc(this->size() * this->data_type().density())) {
         static_assert(
             std::is_arithmetic_v<NumericType>,
             "NumericType must be a numeric type"
@@ -489,7 +519,7 @@ public:
         data_type_(TIMESTAMP_T),
         cap_(d.size()),
         size_(d.size()),
-        data_(std::make_unique<std::byte[]>(d.size() * this->data_type().density())) {
+        data_(alloc(d.size() * this->data_type().density())) {
         for (size_t i = 0; i < d.size(); i++) {
             const auto ov = d[i].nanoseconds();
             memcpy(
@@ -504,10 +534,7 @@ public:
     /// given timestamp.
     /// @param v the timestamp to be used.
     explicit Series(const TimeStamp v):
-        data_type_(TIMESTAMP_T),
-        cap_(1),
-        size_(1),
-        data_(std::make_unique<std::byte[]>(this->byte_size())) {
+        data_type_(TIMESTAMP_T), cap_(1), size_(1), data_(alloc(this->byte_size())) {
         const auto ov = v.nanoseconds();
         memcpy(data_.get(), &ov, this->byte_size());
     }
@@ -523,7 +550,7 @@ public:
         data_type_(DataType::infer<NumericType>(override_dt)),
         cap_(1),
         size_(1),
-        data_(std::make_unique<std::byte[]>(this->byte_size())) {
+        data_(alloc(this->byte_size())) {
         static_assert(
             std::is_arithmetic_v<NumericType>,
             "NumericType must be a numeric type"
@@ -543,7 +570,7 @@ public:
         this->cached_byte_size = 0;
         for (const auto &s: d)
             this->cached_byte_size += s.size() + 1;
-        this->data_ = std::make_unique<std::byte[]>(this->byte_size());
+        this->data_ = alloc(this->byte_size());
         size_t offset = 0;
         for (const auto &s: d) {
             memcpy(this->data_.get() + offset, s.data(), s.size());
@@ -563,7 +590,7 @@ public:
         cap_(1),
         cached_byte_size(data.size() + 1),
         size_(1),
-        data_(std::make_unique<std::byte[]>(this->byte_size())) {
+        data_(alloc(this->byte_size())) {
         if (!this->data_type().matches({STRING_T, JSON_T}))
             throw std::runtime_error(
                 "cannot set a string value on a non-string or JSON series"
@@ -583,7 +610,7 @@ public:
         else
             for (const char &v: s.data())
                 if (v == NEWLINE_CHAR) ++this->size_;
-        this->data_ = std::make_unique<std::byte[]>(byte_size());
+        this->data_ = alloc(byte_size());
         memcpy(this->data_.get(), s.data().data(), byte_size());
     }
 
@@ -597,14 +624,14 @@ public:
         if (this->data_type().is_variable()) {
             const auto &str = std::get<std::string>(v);
             cached_byte_size = str.size() + 1;
-            this->data_ = std::make_unique<std::byte[]>(this->byte_size());
+            this->data_ = alloc(this->byte_size());
             memcpy(this->data_.get(), str.data(), str.size());
             this->data_[this->byte_size() - 1] = NEWLINE_TERMINATOR;
             return;
         }
         std::visit(
             [this]<typename IT>(IT &&arg) {
-                this->data_ = std::make_unique<std::byte[]>(this->byte_size());
+                this->data_ = alloc(this->byte_size());
                 memcpy(data_.get(), &arg, this->byte_size());
             },
             v
@@ -620,7 +647,7 @@ public:
         for (const auto &value: values)
             this->cached_byte_size += value.dump().size() + 1;
 
-        this->data_ = std::make_unique<std::byte[]>(this->byte_size());
+        this->data_ = alloc(this->byte_size());
         size_t offset = 0;
         for (const auto &value: values) {
             const auto str = value.dump();
@@ -642,6 +669,7 @@ public:
             std::is_arithmetic_v<NumericType>,
             "NumericType must be a numeric type"
         );
+        this->ensure_exclusive();
         const auto adjusted = this->validate_bounds(index);
         const auto dt = this->data_type();
         auto *base_ptr = data_.get() + adjusted * dt.density();
@@ -719,6 +747,7 @@ public:
             std::is_arithmetic_v<NumericType>,
             "NumericType must be a numeric type"
         );
+        this->ensure_exclusive();
         const auto adjusted = this->validate_bounds(index, count);
         memcpy(
             this->data_.get() + adjusted * this->data_type().density(),
@@ -743,6 +772,7 @@ public:
     /// exceeded, it will only write as many samples as it can hold.
     template<typename T>
     size_t write(const std::vector<T> &d) {
+        this->ensure_exclusive();
         if constexpr (std::is_same_v<T, std::string>) {
             if (!this->data_type().matches({STRING_T, JSON_T}))
                 throw std::runtime_error(
@@ -790,6 +820,7 @@ public:
     /// sample was not written.
     template<typename T>
     size_t write(const T &d) {
+        this->ensure_exclusive();
         if constexpr (std::is_same_v<T, std::string> ||
                       std::is_same_v<T, const char *> || std::is_same_v<T, char *>) {
             if (!this->data_type().matches({STRING_T, JSON_T}))
@@ -852,6 +883,7 @@ public:
             std::is_arithmetic_v<NumericType>,
             "generic argument to write must be a numeric type"
         );
+        this->ensure_exclusive();
         const size_t capped_count = std::min(count, this->cap() - this->size());
         memcpy(this->data_.get(), d, capped_count * this->data_type().density());
         this->size_ += capped_count;
@@ -1028,6 +1060,7 @@ public:
         const size_t count,
         const bool inclusive = false
     ) {
+        this->ensure_exclusive();
         if (count == 0) return 0;
         if (count == 1) return write(start);
 
@@ -1380,6 +1413,11 @@ public:
     /// avoid accidental deep copies.
     [[nodiscard]] Series deep_copy() const { return {*this}; }
 
+    /// @brief returns a shallow copy that shares the underlying data buffer.
+    /// The copy is safe to read concurrently. If either copy is mutated,
+    /// ensure_exclusive() materializes a private copy first (copy-on-write).
+    [[nodiscard]] Series shallow_copy() const { return {*this, ShallowTag{}}; }
+
     void clear() {
         this->size_ = 0;
         if (this->data_type().is_variable()) this->cached_byte_size = 0;
@@ -1391,9 +1429,10 @@ public:
                 "resize not supported for variable-size data types"
             );
         }
+        this->ensure_exclusive();
         if (new_size > this->cap_) {
             const auto density = this->data_type().density();
-            auto new_data = std::make_unique<std::byte[]>(new_size * density);
+            auto new_data = alloc(new_size * density);
             if (this->size_ > 0) {
                 memcpy(new_data.get(), this->data_.get(), this->size_ * density);
             }
@@ -1411,6 +1450,7 @@ public:
     template<typename T>
     size_t write_casted(const T *data, const size_t size) {
         static_assert(std::is_arithmetic_v<T>, "T must be a numeric type");
+        this->ensure_exclusive();
         const auto count = std::min(size, this->cap() - this->size());
         if (count == 0) return 0;
 
@@ -1466,6 +1506,7 @@ public:
     /// @returns the number of samples written
     /// @throws std::runtime_error if the data types don't match
     size_t write(const Series &other) {
+        this->ensure_exclusive();
         const size_t byte_count = std::min(
             other.byte_size(),
             this->byte_cap() - this->byte_size()
@@ -1551,6 +1592,7 @@ public:
     /// the series is full or the reader is exhausted, whichever comes first. Returns
     /// the total number of samples read.
     size_t fill_from(binary::Reader &reader) {
+        this->ensure_exclusive();
         auto n_read = reader.read(this->data() + this->byte_size(), this->byte_cap());
         this->cached_byte_size += n_read;
         if (this->data_type().is_variable()) {

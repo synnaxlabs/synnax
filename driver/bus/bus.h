@@ -101,7 +101,7 @@ public:
                 if (delivered.insert(sub).second) {
                     VLOG(1) << "[bus] routing frame with " << frame.size()
                             << " channels to subscription";
-                    sub->push(frame.deep_copy());
+                    sub->push(frame.shallow_copy());
                 }
             }
         }
