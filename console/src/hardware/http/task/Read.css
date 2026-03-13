@@ -21,8 +21,24 @@
             padding: 2rem;
         }
 
-        .console-endpoint-details-headers {
-            padding-bottom: 1rem;
+        .console-headers-kv-editor {
+            padding: 2rem 0;
+        }
+
+        .console-query-params-kv-editor {
+            padding: 2rem 0 0;
+        }
+
+        .console-channel-list {
+            overflow: visible;
+        }
+
+        .pluto-header__actions {
+            padding-right: 2rem;
+        }
+
+        .pluto-header__text {
+            padding-left: 2rem;
         }
     }
 
@@ -34,15 +50,6 @@
         min-height: 200px;
         max-height: 200px;
         padding: 1rem 2rem;
-    }
-
-    .console-timing-toggle {
-        padding: 2rem;
-        flex-shrink: 0;
-    }
-
-    .console-timing-label {
-        margin-right: 0.25rem;
     }
 
     .console-timestamp-format {
