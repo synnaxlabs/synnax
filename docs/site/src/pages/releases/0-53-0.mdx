@@ -1,0 +1,99 @@
+---
+title: "Version 0.53 Release Notes"
+---
+
+import { Image } from "@/components/media/Media";
+import Release from "@/components/releases/Release.astro";
+import { mdxOverrides } from "@/components/mdxOverrides";
+import HTTPWrite from "@/pages/releases/HTTPWrite.astro";
+
+export const components = mdxOverrides;
+
+<Release
+    version="0.53.0"
+    date="Mar 13, 2026"
+    title="HTTP Write Tasks"
+>
+
+<HTTPWrite />
+
+Synnax v0.53 completes the HTTP driver with write task support and adds Python client
+integration for programmatic HTTP task configuration. This release also includes
+stability improvements to the Arc runtime and server.
+
+### HTTP Write Task
+
+The HTTP driver now supports writing data from Synnax channels to REST API endpoints,
+completing the read/write story introduced in v0.52. Write tasks send channel data as
+POST or PUT requests to configured HTTP endpoints, enabling closed-loop integrations
+with external web services.
+
+Combined with the read tasks from v0.52, the HTTP driver provides a full bidirectional
+bridge between Synnax and any REST API.
+
+### Python Client HTTP Support
+
+The Python client can now create and configure HTTP read and write tasks
+programmatically. This provides an alternative to the Console UI for managing HTTP
+integrations, and makes it possible to script and automate HTTP task setup as part of
+larger deployment workflows.
+
+### Minor Improvements and Bug Fixes
+
+#### Arc
+
+- Fixed an issue where `wait` nodes would not fire accurately.Previously, the timer did
+  not start until the next tick, causing certain waits to take roughly double their
+  configured duration.
+- Fixed a bug where stopping an Arc program and re-entering a stage would immediately
+  re-activate because stale channel values triggered re-entry.
+- Global constants used as flow sources (e.g., `MY_CONST => channel`) no longer resolve
+  to channel key 0 at runtime. Negative numeric literals in constant declarations are
+  also now supported.
+- String-typed config parameters on Arc nodes no longer get invalidated between
+  execution cycles.
+- The Arc compiler now detects and reports circular function calls at compile time
+  instead of hanging at runtime.
+- `interval` and `wait` nodes placed after one-shot edges no longer starve. The
+  scheduler now wakes precisely when the next timer fires.
+- Arc tasks now seize control authority immediately on startup rather than waiting for
+  the first data frame.
+- The formatter no longer corrupts config blocks containing comments or incorrectly
+  collapses closing braces.
+
+#### Arc Editor
+
+- Inserting a newline at the beginning of an Arc program no longer breaks syntax
+  highlighting.
+- Parentheses in normal expressions no longer incorrectly trigger function parameter
+  suggestions in autocomplete.
+- Type mismatches in literal-first binary expressions (e.g., `1000.0 - f32_channel`) are
+  now caught correctly.
+
+#### OPC UA
+
+- Fixed anonymous authentication failing on encrypted OPC UA connections. The driver was
+  incorrectly setting the security policy, causing the server to reject anonymous
+  tokens.
+- Fixed an issue where repeated write or read task retries would exhaust the maximum
+  number of allowed active connections to a PLC.
+
+#### Core
+
+- Fixed memory growing rapidly under sustained write load.
+- Fixed a deadlock that could occur when opening and closing channel writers
+  concurrently.
+
+#### Console
+
+- Refreshed the HTTP Read Task configuration UI.
+- DateTime inputs now correctly display and select local time instead of UTC.
+- Context menus for items near the bottom of a page no longer appear off-screen.
+- Fixed a crash when loading ranges that were created before a color schema migration.
+
+#### Driver
+
+- Fixed schematic writes failing after an Arc task took and released control when
+  multiple index channel groups were involved.
+
+</Release>
