@@ -8,6 +8,7 @@
 #  included in the file licenses/APL.txt.
 
 import argparse
+import asyncio
 import datetime
 import ipaddress
 import math
@@ -16,6 +17,10 @@ import tempfile
 import time
 
 from flask import Flask, Response, jsonify, request
+
+import synnax as sy
+from examples.simulators.device_sim import DeviceSim
+from synnax import http
 
 AUTH_CREDENTIALS = {
     "username": "admin",
@@ -397,6 +402,30 @@ def _generate_self_signed_cert(cert_dir: str) -> tuple[str, str]:
             )
         )
     return cert_path, key_path
+
+
+class HTTPSim(DeviceSim):
+    """HTTP device simulator wrapping the Flask mock server."""
+
+    description = "HTTP mock server on port 8081"
+    host = "127.0.0.1"
+    port = 8081
+    device_name = "HTTP Test Server"
+
+    async def _run_server(self) -> None:
+        await asyncio.to_thread(run_server, self.host, self.port)
+
+    @staticmethod
+    def create_device(rack_key: int) -> http.Device:
+        return http.Device(
+            host=f"{HTTPSim.host}:{HTTPSim.port}",
+            secure=False,
+            verify_ssl=False,
+            timeout_ms=5000,
+            name=HTTPSim.device_name,
+            rack=rack_key,
+            health_check=http.HealthCheck(path="/health"),
+        )
 
 
 def run_server(
