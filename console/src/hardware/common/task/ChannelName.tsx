@@ -92,7 +92,7 @@ export const ChannelName = ({
     return text;
   return (
     <Tooltip.Dialog location={location.CENTER_RIGHT}>
-      <Flex.Box y gap="small">
+      <Flex.Box y gap="small" className={CSS.B("task-channel-name")}>
         <Text.Text status={variant} level="p" color={10} weight={500}>
           {stat.message}
         </Text.Text>

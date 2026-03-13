@@ -406,6 +406,131 @@ TEST(MockServerTest, CONNECTRouteRegistrationErrors) {
     EXPECT_THROW(mock::Server server(cfg), std::runtime_error);
 }
 
+/// @brief it should serve requests after a stop and restart on the same port.
+TEST(MockServerTest, RestartReusesSamePort) {
+    mock::ServerConfig cfg;
+    cfg.routes = {{
+        .method = Method::GET,
+        .path = "/ping",
+        .status_code = 200,
+        .response_body = "pong",
+        .content_type = "text/plain",
+    }};
+    mock::Server server(cfg);
+    ASSERT_NIL(server.start());
+
+    const auto url = server.base_url();
+    httplib::Client cli(url);
+
+    auto res1 = cli.Get("/ping");
+    ASSERT_NE(res1, nullptr);
+    EXPECT_EQ(res1->body, "pong");
+
+    server.stop();
+
+    // Restart — should bind to the same port.
+    ASSERT_NIL(server.start());
+    EXPECT_EQ(server.base_url(), url);
+
+    // The same client (same URL) should still work.
+    httplib::Client cli2(server.base_url());
+    auto res2 = cli2.Get("/ping");
+    ASSERT_NE(res2, nullptr);
+    EXPECT_EQ(res2->body, "pong");
+
+    server.stop();
+}
+
+/// @brief it should accumulate requests across restarts unless cleared.
+TEST(MockServerTest, RestartAccumulatesRequests) {
+    mock::ServerConfig cfg;
+    cfg.routes = {{
+        .method = Method::POST,
+        .path = "/data",
+        .status_code = 200,
+        .response_body = "ok",
+        .content_type = "text/plain",
+    }};
+    mock::Server server(cfg);
+    ASSERT_NIL(server.start());
+
+    httplib::Client cli(server.base_url());
+    cli.Post("/data", "first", "text/plain");
+    ASSERT_EQ(server.received_requests().size(), 1);
+
+    server.stop();
+    ASSERT_NIL(server.start());
+
+    httplib::Client cli2(server.base_url());
+    cli2.Post("/data", "second", "text/plain");
+
+    // Both requests should be present.
+    auto reqs = server.received_requests();
+    ASSERT_EQ(reqs.size(), 2);
+    EXPECT_EQ(reqs[0].body, "first");
+    EXPECT_EQ(reqs[1].body, "second");
+
+    server.stop();
+}
+
+/// @brief it should clear all recorded requests.
+TEST(MockServerTest, ClearRequests) {
+    mock::ServerConfig cfg;
+    cfg.routes = {{
+        .method = Method::GET,
+        .path = "/ping",
+        .status_code = 200,
+        .response_body = "pong",
+        .content_type = "text/plain",
+    }};
+    mock::Server server(cfg);
+    ASSERT_NIL(server.start());
+
+    httplib::Client cli(server.base_url());
+    cli.Get("/ping");
+    cli.Get("/ping");
+    ASSERT_EQ(server.received_requests().size(), 2);
+
+    server.clear_requests();
+    EXPECT_EQ(server.received_requests().size(), 0);
+
+    // New requests should still be recorded after clearing.
+    cli.Get("/ping");
+    EXPECT_EQ(server.received_requests().size(), 1);
+
+    server.stop();
+}
+
+/// @brief it should clear requests across a restart cycle.
+TEST(MockServerTest, ClearRequestsAcrossRestart) {
+    mock::ServerConfig cfg;
+    cfg.routes = {{
+        .method = Method::POST,
+        .path = "/data",
+        .status_code = 200,
+        .response_body = "ok",
+        .content_type = "text/plain",
+    }};
+    mock::Server server(cfg);
+    ASSERT_NIL(server.start());
+
+    httplib::Client cli(server.base_url());
+    cli.Post("/data", "before", "text/plain");
+
+    server.stop();
+    server.clear_requests();
+    ASSERT_NIL(server.start());
+
+    httplib::Client cli2(server.base_url());
+    cli2.Post("/data", "after", "text/plain");
+
+    auto reqs = server.received_requests();
+    ASSERT_EQ(reqs.size(), 1);
+    EXPECT_EQ(reqs[0].body, "after");
+
+    server.stop();
+}
+
 TEST(MockServerTest, RedirectRoute) {
     mock::ServerConfig cfg;
     cfg.routes = {

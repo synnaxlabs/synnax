@@ -7,6 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+export * from "@/hardware/common/task/layouts/DetailsHeader";
 export * from "@/hardware/common/task/layouts/List";
 export * from "@/hardware/common/task/layouts/ListAndDetails";
 export * from "@/hardware/common/task/layouts/ListAndDetailsChannelItem";
