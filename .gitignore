@@ -45,6 +45,8 @@ logs/
 *.out
 build/
 testdata/**
+go.work
+go.work.sum
 
 # |||| RUST ||||
 
