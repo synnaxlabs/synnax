@@ -16,6 +16,7 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/oracle/output"
+	. "github.com/synnaxlabs/x/testutil"
 )
 
 var _ = Describe("Output", func() {
@@ -26,9 +27,7 @@ var _ = Describe("Output", func() {
 
 	BeforeEach(func() {
 		origStdout = os.Stdout
-		var err error
-		r, w, err = os.Pipe()
-		Expect(err).ToNot(HaveOccurred())
+		r, w = MustSucceed2(os.Pipe())
 		os.Stdout = w
 	})
 
@@ -40,8 +39,7 @@ var _ = Describe("Output", func() {
 	captureOutput := func(fn func()) string {
 		fn()
 		Expect(w.Close()).To(Succeed())
-		out, err := io.ReadAll(r)
-		Expect(err).ToNot(HaveOccurred())
+		out := MustSucceed(io.ReadAll(r))
 		return string(out)
 	}
 
