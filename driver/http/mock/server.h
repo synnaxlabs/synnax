@@ -88,6 +88,9 @@ public:
     /// @brief returns all requests received by the server.
     [[nodiscard]] std::vector<ReceivedRequest> received_requests() const;
 
+    /// @brief clears all recorded requests.
+    void clear_requests();
+
 private:
     struct Impl;
     std::unique_ptr<Impl> impl;
