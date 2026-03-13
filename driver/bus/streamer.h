@@ -56,7 +56,7 @@ public:
         while (true) {
             x::telem::Frame local;
             while (this->subscription->try_pop(local)) {
-                auto filtered = this->authority.filter(local, this->subject);
+                auto filtered = this->authority.filter(std::move(local), this->subject);
                 if (!filtered.empty()) {
                     VLOG(1) << "[bus.streamer] delivering local frame with "
                             << filtered.size() << " channels (bypassed server)";

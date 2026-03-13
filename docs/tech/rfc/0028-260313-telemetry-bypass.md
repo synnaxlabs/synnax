@@ -764,7 +764,212 @@ When an operator takes control of a channel via Console with higher authority:
   local channels bypass, remote channels go through server.
 - **Latency measurement**: Compare control loop latency with and without bypass.
 
-# 7 - Future Extensions
+# 7 - Performance Baseline
+
+Benchmarks measured on Apple M4 Max (16 cores, 4096 KiB L2 per core), compiled with
+`-c opt` (Clang with full optimizations). These numbers establish the baseline cost of
+each operation in the bypass hot path before any optimization work begins.
+
+All benchmark source code lives in `x/cpp/telem/frame_bench.cpp` and
+`driver/bus/bus_bench.cpp`.
+
+## 7.0 - Frame/Series Primitives
+
+These isolate the cost of telem data operations with zero threading or bus overhead.
+
+| Benchmark | 8B (1x1 f64) | 10B (10x1 u8) | 40KB (10x1000 f32) | 480KB (30x4000 f32) |
+|---|---|---|---|---|
+| Frame deep_copy | 132 ns | 476 ns | 1,354 ns | 12,791 ns |
+| Frame move | 537 ns | 654 ns | 650 ns | 1,013 ns |
+| Frame construct | 134 ns | 652 ns | 1,538 ns | 13,321 ns |
+| Frame iterate | 1 ns | 5 ns | 5 ns | 13 ns |
+
+| Benchmark | 32B | 16KB | 64KB | 480KB |
+|---|---|---|---|---|
+| Series deep_copy | 36 ns | 411 ns | 1,411 ns | 8,885 ns |
+| Series move | 509 ns | 513 ns | 1,008 ns | 1,015 ns |
+
+Key observations:
+
+- **deep_copy is memcpy-dominated.** Cost scales linearly with data size. At 480KB
+  (large acquisition frame), a single deep_copy costs ~13us.
+- **Move is constant-time** regardless of data size (~1us, dominated by unique_ptr
+  transfer and PauseTiming overhead in the benchmark harness).
+- **Frame construction cost equals deep_copy cost.** Both allocate heap storage and
+  memcpy data. There is no "free" way to build a frame.
+- **Frame iteration is negligible.** 13ns for 30 channels. The iteration overhead in
+  `publish()` and `filter()` is not a bottleneck.
+
+## 7.1 - Bus Component Operations
+
+These measure individual bus operations in isolation.
+
+| Benchmark | small_cmd (10B) | medium (40KB) | large_acq (480KB) |
+|---|---|---|---|
+| Bus publish (no subscribers) | 11 ns | 11 ns | 11 ns |
+| Bus publish (1 subscriber) | 574 ns | 1,535 ns | 12,913 ns |
+| Subscription push + try_pop | 530 ns | 1,539 ns | 11,939 ns |
+| Authority filter (all pass) | 767 ns | 1,757 ns | 13,401 ns |
+| Authority filter (half pass) | 512 ns | 981 ns | 6,925 ns |
+| Authority filter (none pass) | 49 ns | 49 ns | 121 ns |
+
+Subscriber scaling at large_acq (480KB):
+
+| Subscribers | Time |
+|---|---|
+| 1 | 12,984 ns |
+| 2 | 25,603 ns |
+| 5 | 67,854 ns |
+
+Cross-thread subscription (large_acq): 3,424 ns CPU / 14,804 ns wall.
+
+Key observations:
+
+- **No-subscriber publish is 11ns constant.** The `routes.empty()` early exit under
+  shared_lock is effectively free regardless of frame size.
+- **Publish with subscribers is dominated by deep_copy.** 12.9us for large_acq matches
+  the 12.8us frame deep_copy from the primitives benchmark. The shared_mutex, hash map
+  lookup, and unordered_set dedup add less than 200ns combined.
+- **Subscriber scaling is linear in N.** Each additional subscriber adds one deep_copy.
+  No surprise, but confirms no hidden overhead in the routing logic.
+- **Authority filter cost equals deep_copy when all channels pass.** The shared_lock +
+  hash map lookups add ~600ns on top of the copy for small frames, negligible for large
+  frames.
+- **Authority filter with no passing channels is 49-121ns.** This is just the hash map
+  lookup cost with no copies. Confirms that copies dominate.
+- **Cross-thread CV wake-up adds ~11us wall time** beyond the CPU cost. This is OS
+  thread scheduling latency, not something we can optimize in the bus code.
+
+## 7.2 - End-to-End Path
+
+Full path: `bus::Writer::write` -> `Bus::publish` -> `Subscription` ->
+`AuthorityMirror::filter`.
+
+| Workload | Time | Throughput |
+|---|---|---|
+| small_cmd (10B) | 1,834 ns | 20.8 MiB/s |
+| medium (40KB) | 8,009 ns | 4.7 GiB/s |
+| large_acq (480KB) | 72,093 ns | 6.3 GiB/s |
+
+## 7.3 - Cost Breakdown (large_acq, 480KB)
+
+The end-to-end time of ~72us breaks down as:
+
+| Component | Cost | % of total |
+|---|---|---|
+| deep_copy in Bus::publish | ~13us | 18% |
+| deep_copy in mock server writer | ~13us | 18% |
+| deep_copy in AuthorityMirror::filter | ~13us | 18% |
+| Frame construction (make_frame in mock) | ~13us | 18% |
+| Mutex + deque + hash map + dedup overhead | ~2us | 3% |
+| Measurement overhead / other | ~18us | 25% |
+
+The three deep_copy operations account for roughly 54% of the measured end-to-end time.
+In production, the mock server writer's deep_copy is replaced by protobuf serialization
+(comparable cost), so the production breakdown is similar.
+
+## 7.4 - Optimization: Move-Based Authority Filter
+
+The first optimization target was the authority filter's redundant `deep_copy()`. The
+bus already deep-copies frames in `publish()` to give each subscriber its own copy. The
+subscriber pops the frame by move (zero cost). The authority filter then deep-copied
+every passing series again to build a filtered frame. This second copy was unnecessary
+since the subscriber already owns the frame exclusively.
+
+The fix adds a move overload `filter(Frame&&, Subject)` that:
+- **All pass (common case):** Returns the input frame by move. Zero copies.
+- **Partial pass:** Builds a new frame, moving (not copying) passing series from the
+  input.
+- **None pass:** Returns empty. No copies.
+
+`bus::Streamer::read()` now calls `filter(std::move(local), subject)` instead of
+`filter(local, subject)`.
+
+### Results (large_acq, 480KB)
+
+Authority filter comparison:
+
+| Scenario | Copy (ns) | Move (ns) | Speedup |
+|---|---|---|---|
+| All pass | 13,411 | 984 | 13.6x |
+| Half pass | 6,945 | 1,572 | 4.4x |
+| None pass | 120 | 120* | 1x |
+
+*Move benchmark shows ~1,117ns due to PauseTiming/ResumeTiming harness overhead (frame
+must be reconstructed each iteration since the move consumes it). The actual filter
+logic for none-pass is ~120ns in both cases.
+
+End-to-end comparison:
+
+| Workload | Before (ns) | After (ns) | Improvement |
+|---|---|---|---|
+| small_cmd (10B) | 1,834 | 993 | -46% |
+| medium (40KB) | 8,009 | 5,981 | -25% |
+| large_acq (480KB) | 72,093 | 58,938 | -18% |
+
+The large_acq improvement of ~14us matches the predicted ~13us savings from eliminating
+one deep_copy. The small_cmd improvement is proportionally larger because the filter's
+per-channel overhead (hash map lookups, frame construction) was a larger fraction of the
+total cost at small sizes.
+
+### Updated Cost Breakdown (large_acq, 480KB, post-optimization)
+
+| Component | Cost | % of total |
+|---|---|---|
+| deep_copy in Bus::publish | ~13us | 22% |
+| deep_copy in mock server writer | ~13us | 22% |
+| ~~deep_copy in AuthorityMirror::filter~~ | ~~13us~~ | **eliminated** |
+| Move in AuthorityMirror::filter | ~1us | 2% |
+| Frame construction (make_frame in mock) | ~13us | 22% |
+| Mutex + deque + hash map + dedup overhead | ~2us | 3% |
+| Measurement overhead / other | ~17us | 29% |
+
+## 7.5 - Remaining Optimization Targets
+
+The remaining deep_copy in `Bus::publish()` (~13us) is the next largest cost. It cannot
+be eliminated as easily because the publisher (`bus::Writer`) still needs the frame for
+`server->write(fr)` after publishing to the bus. Possible approaches:
+
+1. **Reorder write then publish.** Call `server->write(fr)` first, then move the frame
+   into a publish variant that takes ownership. The server writer serializes to protobuf
+   (consuming the frame data), so the bus would receive the frame after serialization.
+   However, this changes the ordering guarantee (server write before local delivery)
+   and the server writer takes `const Frame&`, not consuming it.
+
+2. **Shared ownership for multi-subscriber.** When N>1 subscribers exist, create one
+   `shared_ptr<const Frame>` and hand out shared_ptrs instead of N deep_copies. Limited
+   benefit since N=1 is the common case.
+
+3. **Selective publish.** Only copy series for channels the subscriber cares about,
+   instead of the entire frame. Helps when subscribers want a subset of channels.
+
+Non-targets (confirmed by data, not worth optimizing):
+
+- **Mutex/lock overhead**: ~200ns combined. Not a bottleneck.
+- **Hash map routing**: Sub-microsecond. Not a bottleneck.
+- **unordered_set dedup**: Negligible. Not a bottleneck.
+- **CV wake-up latency**: ~11us wall, but this is OS scheduler cost. Not addressable in
+  user-space code (and only matters for cross-thread latency, not throughput).
+
+## 7.6 - Platform Considerations
+
+These benchmarks were run on Apple M4 Max (ARM64) with large L2 caches (4096 KiB per
+core). Expected differences on target platforms:
+
+- **x86_64 Linux** (server deployments): Similar or slightly better memcpy throughput
+  due to AVX/AVX-512 on modern Xeon/EPYC. Relative rankings unchanged.
+- **ARM64 NI Linux Real-Time** (cRIO): Significantly lower memory bandwidth and smaller
+  caches. The 480KB large_acq frame exceeds typical embedded L2 sizes, so deep_copy
+  costs will be 2-5x higher. This makes the copy elimination optimizations even more
+  impactful on the primary real-time target.
+- **x86_64 Windows** (lab workstations): Comparable to Linux x86_64. CRT allocator may
+  differ but the relative cost structure is the same.
+
+The key insight is architecture-independent: **copies dominate, synchronization is
+cheap.** This holds across all targets because memcpy scales with data size while
+mutex/CV operations have fixed cost.
+
+# 8 - Future Extensions
 
 - **Bus-level telemetry**: Instrument the bus to report routing statistics (local vs
   server frame counts, latency distribution) for observability.

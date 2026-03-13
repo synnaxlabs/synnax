@@ -76,7 +76,7 @@ public:
         }
     }
 
-    /// @brief filters a frame, keeping only channels where subject holds
+    /// @brief filters a frame by copy, keeping only channels where subject holds
     /// authority or no authority state exists (uncontrolled).
     x::telem::Frame
     filter(const x::telem::Frame &frame, const x::control::Subject &subject) const {
@@ -86,6 +86,32 @@ public:
             auto it = this->states.find(key);
             if (it == this->states.end() || it->second.subject == subject)
                 out.emplace(key, series.deep_copy());
+        }
+        return out;
+    }
+
+    /// @brief filters a frame by move, keeping only channels where subject holds
+    /// authority or no authority state exists (uncontrolled). Takes ownership of
+    /// the input frame and moves passing series instead of copying them.
+    x::telem::Frame
+    filter(x::telem::Frame &&frame, const x::control::Subject &subject) const {
+        std::shared_lock lock(this->mu);
+        if (frame.channels == nullptr || frame.series == nullptr) return {};
+        bool all_pass = true;
+        for (size_t i = 0; i < frame.channels->size(); i++) {
+            auto it = this->states.find(frame.channels->at(i));
+            if (it != this->states.end() && it->second.subject != subject) {
+                all_pass = false;
+                break;
+            }
+        }
+        if (all_pass) return std::move(frame);
+        x::telem::Frame out;
+        for (size_t i = 0; i < frame.channels->size(); i++) {
+            auto key = frame.channels->at(i);
+            auto it = this->states.find(key);
+            if (it == this->states.end() || it->second.subject == subject)
+                out.emplace(key, std::move(frame.series->at(i)));
         }
         return out;
     }

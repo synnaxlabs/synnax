@@ -123,4 +123,66 @@ TEST(AuthorityMirrorTest, FilterAllUnauthorized) {
     auto filtered = mirror.filter(frame, ARC);
     ASSERT_TRUE(filtered.empty());
 }
+
+TEST(AuthorityMirrorTest, MoveFilterAllPass) {
+    AuthorityMirror mirror;
+    mirror.apply(
+        {.transfers = {{
+             .from = std::nullopt,
+             .to = x::control::State{.resource = 1, .subject = ARC, .authority = 200},
+         }}}
+    );
+    x::telem::Frame frame;
+    frame.emplace(1, x::telem::Series(static_cast<float>(42.0)));
+    frame.emplace(2, x::telem::Series(static_cast<float>(99.0)));
+    auto filtered = mirror.filter(std::move(frame), ARC);
+    ASSERT_EQ(filtered.size(), 2);
+    ASSERT_FLOAT_EQ(filtered.at<float>(1, 0), 42.0f);
+    ASSERT_FLOAT_EQ(filtered.at<float>(2, 0), 99.0f);
+}
+
+TEST(AuthorityMirrorTest, MoveFilterPartialPass) {
+    AuthorityMirror mirror;
+    mirror.apply(
+        {.transfers = {{
+             .from = std::nullopt,
+             .to = x::control::State{
+                 .resource = 1,
+                 .subject = OPERATOR,
+                 .authority = 250
+             },
+         }}}
+    );
+    x::telem::Frame frame;
+    frame.emplace(1, x::telem::Series(static_cast<float>(42.0)));
+    frame.emplace(2, x::telem::Series(static_cast<float>(99.0)));
+    auto filtered = mirror.filter(std::move(frame), ARC);
+    ASSERT_EQ(filtered.size(), 1);
+    ASSERT_FLOAT_EQ(filtered.at<float>(2, 0), 99.0f);
+}
+
+TEST(AuthorityMirrorTest, MoveFilterNonePass) {
+    AuthorityMirror mirror;
+    mirror.apply(
+        {.transfers = {{
+             .from = std::nullopt,
+             .to = x::control::State{
+                 .resource = 1,
+                 .subject = OPERATOR,
+                 .authority = 250
+             },
+         }}}
+    );
+    x::telem::Frame frame;
+    frame.emplace(1, x::telem::Series(static_cast<float>(42.0)));
+    auto filtered = mirror.filter(std::move(frame), ARC);
+    ASSERT_TRUE(filtered.empty());
+}
+
+TEST(AuthorityMirrorTest, MoveFilterEmptyFrame) {
+    AuthorityMirror mirror;
+    x::telem::Frame frame;
+    auto filtered = mirror.filter(std::move(frame), ARC);
+    ASSERT_TRUE(filtered.empty());
+}
 }
