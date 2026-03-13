@@ -1,6 +1,6 @@
 {
   "name": "@synnaxlabs/pluto",
-  "version": "0.52.4",
+  "version": "0.52.7",
   "type": "module",
   "scripts": {
     "build": "tsc --noEmit && vite build",
@@ -163,8 +163,6 @@
     },
     "./dist/*": "./dist/*"
   },
-  "readme": "ERROR: No README data found!",
-  "_id": "@synnaxlabs/pluto@0.0.1",
   "repository": {
     "type": "git",
     "url": "git+https://github.com/synnaxlabs/synnax.git",

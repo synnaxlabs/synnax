@@ -36,7 +36,7 @@ template<typename T>
 Reader<T>::Reader(
     const std::vector<x::errors::Error> &start_errors,
     const std::vector<x::errors::Error> &stop_errors,
-    std::vector<std::pair<std::vector<T>, x::errors::Error>> read_responses
+    std::vector<ReadResponse> read_responses
 ):
     Base(start_errors, stop_errors),
     read_responses(std::move(read_responses)),
@@ -44,12 +44,13 @@ Reader<T>::Reader(
 
 template<typename T>
 ReadResult Reader<T>::read(size_t samples_per_channel, std::vector<T> &data) {
-    auto [res_data, err] = read_responses
-        [std::min(read_call_count, read_responses.size() - 1)];
+    const auto
+        &resp = read_responses[std::min(read_call_count, read_responses.size() - 1)];
     read_call_count++;
-    if (!res_data.empty()) std::copy(res_data.begin(), res_data.end(), data.begin());
+    if (!resp.data.empty()) std::copy(resp.data.begin(), resp.data.end(), data.begin());
     ReadResult res;
-    res.error = err;
+    res.error = resp.error;
+    res.skew = resp.skew;
     return res;
 }
 

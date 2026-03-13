@@ -184,7 +184,7 @@ public:
         for (size_t i = 0; i < this->cfg.channels.size(); ++i) {
             const auto &ch = this->cfg.channels[i];
             if (!frame.contains(ch->command_key)) continue;
-            tx.write(i, frame.at(ch->command_key, 0));
+            tx.write(i, frame.at(ch->command_key, -1));
         }
         this->set_state(frame);
         return x::errors::NIL;

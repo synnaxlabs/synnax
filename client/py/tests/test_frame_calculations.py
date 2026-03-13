@@ -2584,3 +2584,499 @@ class TestStatOperationsAlignment:
         # Verify calc and index alignments match
         assert calc_multi.series[0].alignment == idx_multi.series[0].alignment
         assert calc_multi.series[1].alignment == idx_multi.series[1].alignment
+
+    @pytest.mark.focus
+    def test_literal_minus_f32_should_succeed(self, client: sy.Synnax):
+        """Regression: literal on left side of f32 channel should coerce to f32.
+
+        Previously, `1000 - f32_channel` would create successfully but fail on
+        read because the analyzer inferred the return type from the literal (i64)
+        instead of the channel (f32). Now the literal correctly coerces.
+        """
+        ts = client.channels.create(
+            name=random_name(),
+            is_index=True,
+            data_type=sy.DataType.TIMESTAMP,
+        )
+        src = client.channels.create(
+            sy.Channel(
+                name=random_name(),
+                index=ts.key,
+                data_type=sy.DataType.FLOAT32,
+            ),
+        )
+        calc = client.channels.create(
+            name=random_name(),
+            expression=f"return 1000 - {src.name}",
+        )
+        client.write(
+            1 * sy.TimeSpan.SECOND,
+            {
+                ts.key: [1 * sy.TimeSpan.SECOND, 2 * sy.TimeSpan.SECOND],
+                src.key: [10.0, 20.0],
+            },
+        )
+        res = client.read(
+            tr=sy.TimeRange.MAX,
+            channels=[calc.key, calc.index],
+        )
+        assert len(res[calc.key]) == 2
+
+    @pytest.mark.focus
+    def test_float_literal_div_f32_should_succeed(self, client: sy.Synnax):
+        """Regression: float literal on left side of f32 channel should coerce.
+
+        Previously, `1000.0 / f32_channel` would create successfully but fail
+        on read due to return type mismatch. Now the literal coerces to f32.
+        """
+        ts = client.channels.create(
+            name=random_name(),
+            is_index=True,
+            data_type=sy.DataType.TIMESTAMP,
+        )
+        src = client.channels.create(
+            sy.Channel(
+                name=random_name(),
+                index=ts.key,
+                data_type=sy.DataType.FLOAT32,
+            ),
+        )
+        calc = client.channels.create(
+            name=random_name(),
+            expression=f"return 1000.0 / {src.name}",
+        )
+        client.write(
+            1 * sy.TimeSpan.SECOND,
+            {
+                ts.key: [1 * sy.TimeSpan.SECOND, 2 * sy.TimeSpan.SECOND],
+                src.key: [10.0, 20.0],
+            },
+        )
+        res = client.read(
+            tr=sy.TimeRange.MAX,
+            channels=[calc.key, calc.index],
+        )
+        assert len(res[calc.key]) == 2
+
+    @pytest.mark.focus
+    def test_mixed_f32_f64_with_literal_should_reject_at_creation(
+        self, client: sy.Synnax
+    ):
+        """Regression: mixed f32/f64 channels with literal should be caught at creation.
+
+        Previously, `1000.0 - f32_ch + f64_ch` was accepted at creation because
+        the literal's FloatConstraint individually accepted both f32 and f64.
+        Now the analyzer correctly rejects the f32/f64 mismatch at creation time.
+        """
+        ts = client.channels.create(
+            name=random_name(),
+            is_index=True,
+            data_type=sy.DataType.TIMESTAMP,
+        )
+        f32_ch = client.channels.create(
+            sy.Channel(
+                name=random_name(),
+                index=ts.key,
+                data_type=sy.DataType.FLOAT32,
+            ),
+        )
+        f64_ch = client.channels.create(
+            sy.Channel(
+                name=random_name(),
+                index=ts.key,
+                data_type=sy.DataType.FLOAT64,
+            ),
+        )
+        with pytest.raises(Exception, match="type mismatch"):
+            client.channels.create(
+                name=random_name(),
+                expression=f"return 1000.0 - {f32_ch.name} + {f64_ch.name}",
+            )
+
+
+@pytest.mark.framer
+@pytest.mark.calculations
+class TestCalcChannelStress:
+    """Stress test: deep calc chains, multi-domain writes, writer/streamer lifecycle
+    chaos, cross-index references, and full numerical verification."""
+
+    @pytest.mark.focus
+    def test_deep_chain_multi_domain_writer_streamer_chaos(self, client: sy.Synnax):
+        S = sy.TimeSpan.SECOND
+
+        # ── TOPOLOGY ──────────────────────────────────────────────────────
+        # Two independent index channels to test cross-index behavior
+        ts_a = client.channels.create(
+            name=random_name(), is_index=True, data_type=sy.DataType.TIMESTAMP
+        )
+        ts_b = client.channels.create(
+            name=random_name(), is_index=True, data_type=sy.DataType.TIMESTAMP
+        )
+
+        # Source channels on index A (f32)
+        alpha = client.channels.create(
+            sy.Channel(
+                name=random_name(), index=ts_a.key, data_type=sy.DataType.FLOAT32
+            )
+        )
+        beta = client.channels.create(
+            sy.Channel(
+                name=random_name(), index=ts_a.key, data_type=sy.DataType.FLOAT32
+            )
+        )
+
+        # Source channel on index B (f32) - separate timeline
+        gamma = client.channels.create(
+            sy.Channel(
+                name=random_name(), index=ts_b.key, data_type=sy.DataType.FLOAT32
+            )
+        )
+
+        # ── CALC CHAIN (4 levels deep) ────────────────────────────────────
+        # Level 1: direct operations on source channels
+        c_offset = client.channels.create(
+            name=random_name(),
+            expression=f"return {alpha.name} + 10",
+        )
+        c_lit_left = client.channels.create(
+            name=random_name(),
+            expression=f"return 1000 - {alpha.name}",
+        )
+        c_scaled = client.channels.create(
+            name=random_name(),
+            expression=f"return 2.5 * {alpha.name}",
+        )
+        c_product = client.channels.create(
+            name=random_name(),
+            expression=f"return {alpha.name} * {beta.name}",
+        )
+        c_power = client.channels.create(
+            name=random_name(),
+            expression=f"return {alpha.name} ^ 2",
+        )
+        c_temp_conv = client.channels.create(
+            name=random_name(),
+            expression=f"return ({alpha.name} - 32) * 5 / 9",
+        )
+        c_inverse = client.channels.create(
+            name=random_name(),
+            expression=f"return 10000.0 / {alpha.name}",
+        )
+
+        # Calc on the separate index B
+        c_gamma_offset = client.channels.create(
+            name=random_name(),
+            expression=f"return {gamma.name} * 3 + 7",
+        )
+
+        # Level 2: calcs referencing calcs
+        c_chain2 = client.channels.create(
+            name=random_name(),
+            expression=f"return {c_offset.name} * 3",
+        )
+        c_combo2 = client.channels.create(
+            name=random_name(),
+            expression=f"return {c_scaled.name} + {c_product.name}",
+        )
+
+        # Level 3: deeper chain
+        c_deep3 = client.channels.create(
+            name=random_name(),
+            expression=f"return {c_chain2.name} - {c_lit_left.name}",
+        )
+
+        # Level 4: deepest - references L3 and L1
+        c_mega4 = client.channels.create(
+            name=random_name(),
+            expression=f"return ({c_deep3.name} + {c_inverse.name}) / 10",
+        )
+
+        # Calc referencing the L2 gamma calc (on index B)
+        c_gamma_chain = client.channels.create(
+            name=random_name(),
+            expression=f"return {c_gamma_offset.name} ^ 2",
+        )
+
+        # ── EXPECTED VALUE FUNCTIONS ──────────────────────────────────────
+        def expect_a(a_vals, b_vals):
+            """Return dict of calc_key -> expected numpy array for index A calcs."""
+            a = np.array(a_vals, dtype=np.float32)
+            b = np.array(b_vals, dtype=np.float32)
+            return {
+                c_offset.key: a + 10,
+                c_lit_left.key: 1000 - a,
+                c_scaled.key: 2.5 * a,
+                c_product.key: a * b,
+                c_power.key: a**2,
+                c_temp_conv.key: (a - 32) * 5 / 9,
+                c_inverse.key: 10000.0 / a,
+                c_chain2.key: (a + 10) * 3,
+                c_combo2.key: 2.5 * a + a * b,
+                c_deep3.key: (a + 10) * 3 - (1000 - a),
+                c_mega4.key: (((a + 10) * 3 - (1000 - a)) + 10000.0 / a) / 10,
+            }
+
+        def expect_b(g_vals):
+            """Return dict of calc_key -> expected numpy array for index B calcs."""
+            g = np.array(g_vals, dtype=np.float32)
+            gamma_off = g * 3 + 7
+            return {
+                c_gamma_offset.key: gamma_off,
+                c_gamma_chain.key: gamma_off**2,
+            }
+
+        def verify_read(res, expected, label=""):
+            for key, exp in expected.items():
+                actual = np.array(res[key], dtype=np.float32)
+                np.testing.assert_allclose(
+                    actual,
+                    np.array(exp, dtype=np.float32),
+                    rtol=1e-4,
+                    err_msg=f"{label} key={key}",
+                )
+
+        def verify_stream_frame(frame, expected, label=""):
+            for key, exp in expected.items():
+                if key not in frame.channels:
+                    continue
+                actual = np.array(frame[key], dtype=np.float32)
+                np.testing.assert_allclose(
+                    actual,
+                    np.array(exp, dtype=np.float32),
+                    rtol=1e-4,
+                    err_msg=f"stream {label} key={key}",
+                )
+
+        all_a_calc_keys = [
+            c_offset.key,
+            c_lit_left.key,
+            c_scaled.key,
+            c_product.key,
+            c_power.key,
+            c_temp_conv.key,
+            c_inverse.key,
+            c_chain2.key,
+            c_combo2.key,
+            c_deep3.key,
+            c_mega4.key,
+        ]
+        all_b_calc_keys = [c_gamma_offset.key, c_gamma_chain.key]
+
+        # ── PHASE 1: Multi-domain writes, full read verification ──────────
+        # Domain 1: 3 samples on index A
+        a1, b1 = [10.0, 20.0, 50.0], [2.0, 4.0, 1.0]
+        with client.open_writer(
+            1 * S, [ts_a.key, alpha.key, beta.key], enable_auto_commit=True
+        ) as w:
+            w.write(
+                {
+                    ts_a.key: [1 * S, 2 * S, 3 * S],
+                    alpha.key: a1,
+                    beta.key: b1,
+                }
+            )
+
+        # Domain 1 on index B: 2 samples (different count than A)
+        g1 = [5.0, 15.0]
+        with client.open_writer(
+            1 * S, [ts_b.key, gamma.key], enable_auto_commit=True
+        ) as w:
+            w.write(
+                {
+                    ts_b.key: [1 * S, 2 * S],
+                    gamma.key: g1,
+                }
+            )
+
+        # Verify reads after domain 1
+        res_a = client.read(sy.TimeRange.MAX, all_a_calc_keys)
+        verify_read(res_a, expect_a(a1, b1), "phase1-domain1-A")
+
+        res_b = client.read(sy.TimeRange.MAX, all_b_calc_keys)
+        verify_read(res_b, expect_b(g1), "phase1-domain1-B")
+
+        # Domain 2 on index A: 4 samples (different batch size)
+        a2, b2 = [100.0, 5.0, 25.0, 40.0], [3.0, 5.0, 2.0, 3.0]
+        with client.open_writer(
+            10 * S, [ts_a.key, alpha.key, beta.key], enable_auto_commit=True
+        ) as w:
+            w.write(
+                {
+                    ts_a.key: [10 * S, 11 * S, 12 * S, 13 * S],
+                    alpha.key: a2,
+                    beta.key: b2,
+                }
+            )
+
+        # Domain 2 on index B: 5 samples (more than A domain 2)
+        g2 = [1.0, 100.0, 50.0, 8.0, 200.0]
+        with client.open_writer(
+            10 * S, [ts_b.key, gamma.key], enable_auto_commit=True
+        ) as w:
+            w.write(
+                {
+                    ts_b.key: [10 * S, 11 * S, 12 * S, 13 * S, 14 * S],
+                    gamma.key: g2,
+                }
+            )
+
+        # Full read - should see both domains concatenated
+        all_a = a1 + a2
+        all_b = b1 + b2
+        all_g = g1 + g2
+        res_a = client.read(sy.TimeRange.MAX, all_a_calc_keys)
+        verify_read(res_a, expect_a(all_a, all_b), "phase1-all-A")
+        res_b = client.read(sy.TimeRange.MAX, all_b_calc_keys)
+        verify_read(res_b, expect_b(all_g), "phase1-all-B")
+
+        # ── PHASE 2: Streaming with writer lifecycle chaos ────────────────
+        # Open streamer on ALL calc channels (both indexes)
+        with client.open_streamer(all_a_calc_keys) as streamer_a:
+            # Write domain 3 on index A with a fresh writer
+            a3, b3 = [8.0, 15.0], [4.0, 1.0]
+            with client.open_writer(
+                20 * S,
+                [ts_a.key, alpha.key, beta.key],
+                enable_auto_commit=True,
+            ) as w:
+                w.write(
+                    {
+                        ts_a.key: [20 * S, 21 * S],
+                        alpha.key: a3,
+                        beta.key: b3,
+                    }
+                )
+
+            frame = streamer_a.read(timeout=5)
+            verify_stream_frame(frame, expect_a(a3, b3), "phase2-domain3")
+
+            # Close writer, open a NEW writer, write again
+            # This tests that the streamer survives writer lifecycle changes
+            a4, b4 = [200.0, 7.0, 33.0], [2.0, 8.0, 4.0]
+            with client.open_writer(
+                30 * S,
+                [ts_a.key, alpha.key, beta.key],
+                enable_auto_commit=True,
+            ) as w:
+                w.write(
+                    {
+                        ts_a.key: [30 * S, 31 * S, 32 * S],
+                        alpha.key: a4,
+                        beta.key: b4,
+                    }
+                )
+
+            frame = streamer_a.read(timeout=5)
+            verify_stream_frame(frame, expect_a(a4, b4), "phase2-domain4")
+
+            # Rapid-fire: open writer, write 1 sample, close, repeat 3 times
+            rapid_a = []
+            rapid_b = []
+            for i, (av, bv) in enumerate([(42.0, 6.0), (99.0, 1.0), (3.0, 9.0)]):
+                t = (40 + i * 10) * S
+                with client.open_writer(
+                    t,
+                    [ts_a.key, alpha.key, beta.key],
+                    enable_auto_commit=True,
+                ) as w:
+                    w.write(
+                        {
+                            ts_a.key: [t],
+                            alpha.key: [av],
+                            beta.key: [bv],
+                        }
+                    )
+                rapid_a.append(av)
+                rapid_b.append(bv)
+
+                frame = streamer_a.read(timeout=5)
+                verify_stream_frame(frame, expect_a([av], [bv]), f"phase2-rapid-{i}")
+
+        # ── PHASE 3: Close streamer, open new one, keep writing ───────────
+        # This tests that a fresh streamer picks up new data correctly
+        with client.open_streamer(all_a_calc_keys) as streamer_a2:
+            a5, b5 = [11.0, 22.0], [3.0, 6.0]
+            with client.open_writer(
+                70 * S,
+                [ts_a.key, alpha.key, beta.key],
+                enable_auto_commit=True,
+            ) as w:
+                # Write in two separate batches within the same writer
+                w.write(
+                    {
+                        ts_a.key: [70 * S],
+                        alpha.key: [a5[0]],
+                        beta.key: [b5[0]],
+                    }
+                )
+                frame = streamer_a2.read(timeout=5)
+                verify_stream_frame(frame, expect_a([a5[0]], [b5[0]]), "phase3-batch1")
+
+                w.write(
+                    {
+                        ts_a.key: [71 * S],
+                        alpha.key: [a5[1]],
+                        beta.key: [b5[1]],
+                    }
+                )
+                frame = streamer_a2.read(timeout=5)
+                verify_stream_frame(frame, expect_a([a5[1]], [b5[1]]), "phase3-batch2")
+
+        # ── PHASE 4: Concurrent streamers on different indexes ────────────
+        with client.open_streamer(all_b_calc_keys) as streamer_b:
+            with client.open_streamer(all_a_calc_keys) as streamer_a3:
+                # Write to both indexes simultaneously
+                a6, b6 = [55.0], [5.0]
+                g3 = [77.0]
+                with client.open_writer(
+                    80 * S,
+                    [ts_a.key, alpha.key, beta.key],
+                    enable_auto_commit=True,
+                ) as wa:
+                    wa.write(
+                        {
+                            ts_a.key: [80 * S],
+                            alpha.key: a6,
+                            beta.key: b6,
+                        }
+                    )
+
+                with client.open_writer(
+                    80 * S,
+                    [ts_b.key, gamma.key],
+                    enable_auto_commit=True,
+                ) as wb:
+                    wb.write(
+                        {
+                            ts_b.key: [80 * S],
+                            gamma.key: g3,
+                        }
+                    )
+
+                frame_a = streamer_a3.read(timeout=5)
+                verify_stream_frame(frame_a, expect_a(a6, b6), "phase4-A")
+
+                frame_b = streamer_b.read(timeout=5)
+                verify_stream_frame(frame_b, expect_b(g3), "phase4-B")
+
+        # ── PHASE 5: Full read of everything, verify total counts ─────────
+        # Collect all alpha/beta values written across all domains
+        final_a = a1 + a2 + a3 + a4 + rapid_a + a5 + a6
+        final_b = b1 + b2 + b3 + b4 + rapid_b + b5 + b6
+        final_g = g1 + g2 + g3
+
+        res_a = client.read(sy.TimeRange.MAX, all_a_calc_keys)
+        verify_read(res_a, expect_a(final_a, final_b), "phase5-final-A")
+        for key in all_a_calc_keys:
+            assert len(res_a[key]) == len(final_a), (
+                f"Expected {len(final_a)} samples for calc {key}, "
+                f"got {len(res_a[key])}"
+            )
+
+        res_b = client.read(sy.TimeRange.MAX, all_b_calc_keys)
+        verify_read(res_b, expect_b(final_g), "phase5-final-B")
+        for key in all_b_calc_keys:
+            assert len(res_b[key]) == len(final_g), (
+                f"Expected {len(final_g)} samples for calc {key}, "
+                f"got {len(res_b[key])}"
+            )

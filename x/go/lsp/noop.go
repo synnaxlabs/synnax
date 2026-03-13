@@ -12,7 +12,7 @@ package lsp
 import (
 	"context"
 
-	"go.lsp.dev/protocol"
+	"github.com/synnaxlabs/x/lsp/protocol"
 )
 
 // NoopServer provides stub implementations for all protocol.Server methods.

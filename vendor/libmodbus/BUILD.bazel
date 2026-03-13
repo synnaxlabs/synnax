@@ -1,7 +1,7 @@
 ###############################################################################
 # libmodbus BUILD Configuration
 #
-# This builds libmodbus from source for Windows, macOS, Linux, and NI Linux RT.
+# This builds libmodbus from source for Windows, macOS, Linux, and NI Linux Real-Time.
 # Uses manual config generation instead of autotools for hermetic Bazel builds.
 ###############################################################################
 

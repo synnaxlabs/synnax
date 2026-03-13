@@ -46,11 +46,7 @@ export const SelectAOChannelTypeField = Form.buildSelectField<AOChannelType, Ent
     resourceName: "channel type",
     data: AO_CHANNEL_TYPES.map((key) => {
       const Icon = AO_CHANNEL_TYPE_ICONS[key];
-      return {
-        key,
-        name: AO_CHANNEL_TYPE_NAMES[key],
-        icon: <Icon color={8} />,
-      };
-    }) as Entry[],
+      return { key, name: AO_CHANNEL_TYPE_NAMES[key], icon: <Icon color={8} /> };
+    }),
   },
 });

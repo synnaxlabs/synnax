@@ -20,6 +20,18 @@
         {
           "case": "arc/arc_edge_cases",
           "parameters": { "rack_key": [65537, 65538] }
+        },
+        {
+          "case": "arc/arc_wait_timing",
+          "parameters": { "rack_key": [65537, 65538] }
+        },
+        {
+          "case": "arc/arc_load_current",
+          "parameters": { "rack_key": [65537, 65538] }
+        },
+        {
+          "case": "arc/arc_short_circuit",
+          "parameters": { "rack_key": [65537, 65538] }
         }
       ]
     },

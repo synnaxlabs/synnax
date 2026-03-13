@@ -19,7 +19,7 @@
 
 #include "arc/cpp/runtime/loop/loop.h"
 
-using namespace arc::runtime::loop;
+namespace arc::runtime::loop {
 
 /// @brief Test timing constants.
 namespace test_timing {
@@ -808,4 +808,90 @@ TEST(WakeReasonTest, DistinguishesTimerFromInputWhenBothConfigured) {
     ASSERT_EQ(wait_reason, WakeReason::Timer);
 
     breaker.stop();
+}
+
+/// @brief EVENT_DRIVEN with max_timeout should wake after max_timeout.
+TEST(MaxTimeoutTest, EventDriven_WakesAfterMaxTimeout) {
+    Config config;
+    config.mode = ExecutionMode::EVENT_DRIVEN;
+    config.interval = x::telem::TimeSpan(0);
+
+    const auto loop = ASSERT_NIL_P(create(config));
+
+    x::breaker::Breaker breaker;
+
+    const auto sw = x::telem::Stopwatch();
+    const auto reason = loop->wait(breaker, 20 * x::telem::MILLISECOND);
+
+    const auto elapsed = sw.elapsed();
+    EXPECT_GE(elapsed, 15 * x::telem::MILLISECOND);
+    EXPECT_LE(elapsed, test_timing::TIMER_UPPER_BOUND);
+    EXPECT_EQ(reason, WakeReason::Timeout);
+}
+
+/// @brief max_timeout should override a longer configured interval.
+TEST(MaxTimeoutTest, EventDriven_MaxTimeoutOverridesLongerInterval) {
+    Config config;
+    config.mode = ExecutionMode::EVENT_DRIVEN;
+    config.interval = 500 * x::telem::MILLISECOND;
+
+    const auto loop = ASSERT_NIL_P(create(config));
+
+    x::breaker::Breaker breaker;
+
+    const auto sw = x::telem::Stopwatch();
+    loop->wait(breaker, 20 * x::telem::MILLISECOND);
+
+    const auto elapsed = sw.elapsed();
+    EXPECT_GE(elapsed, 15 * x::telem::MILLISECOND);
+    EXPECT_LE(elapsed, test_timing::TIMER_UPPER_BOUND);
+}
+
+/// @brief Input arriving before max_timeout should wake immediately.
+TEST(MaxTimeoutTest, EventDriven_InputWakesBeforeMaxTimeout) {
+    Config config;
+    config.mode = ExecutionMode::EVENT_DRIVEN;
+    config.interval = x::telem::TimeSpan(0);
+
+    const auto loop = ASSERT_NIL_P(create(config));
+
+    auto notifier = x::notify::create();
+    ASSERT_TRUE(loop->watch(*notifier));
+
+    x::breaker::Breaker breaker;
+
+    std::atomic<WakeReason> reason{WakeReason::Shutdown};
+    std::thread waiter([&]() {
+        reason.store(loop->wait(breaker, 500 * x::telem::MILLISECOND));
+    });
+
+    std::this_thread::sleep_for(test_timing::THREAD_STARTUP.chrono());
+    notifier->signal();
+    waiter.join();
+
+    EXPECT_EQ(reason.load(), WakeReason::Input);
+}
+
+/// @brief HYBRID mode with max_timeout should use it for the blocking phase.
+TEST(MaxTimeoutTest, Hybrid_MaxTimeoutConstrainsBlockPhase) {
+    Config config;
+    config.mode = ExecutionMode::HYBRID;
+    config.interval = x::telem::TimeSpan(0);
+    config.spin_duration = 50 * x::telem::MICROSECOND;
+
+    const auto loop = ASSERT_NIL_P(create(config));
+
+    x::breaker::Breaker breaker;
+    breaker.start();
+
+    const auto sw = x::telem::Stopwatch();
+    const auto reason = loop->wait(breaker, 20 * x::telem::MILLISECOND);
+
+    const auto elapsed = sw.elapsed();
+    EXPECT_GE(elapsed, 15 * x::telem::MILLISECOND);
+    EXPECT_LE(elapsed, test_timing::TIMER_UPPER_BOUND);
+    EXPECT_EQ(reason, WakeReason::Timeout);
+
+    breaker.stop();
+}
 }

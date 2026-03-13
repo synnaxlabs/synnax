@@ -13,9 +13,9 @@ import (
 	"context"
 
 	"github.com/synnaxlabs/arc/lsp"
+	"github.com/synnaxlabs/x/lsp/protocol"
 	"github.com/synnaxlabs/x/lsp/testutil"
 	xutil "github.com/synnaxlabs/x/testutil"
-	"go.lsp.dev/protocol"
 )
 
 // SetupTestServer creates a new arc LSP server with a MockClient for testing.

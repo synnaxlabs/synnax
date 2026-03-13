@@ -28,7 +28,7 @@ std::pair<Arc, x::errors::Error> Arc::from_proto(const api::v1::Arc &pb) {
     arc.name = pb.name();
     if (pb.has_graph()) arc.graph = ::arc::graph::Graph(pb.graph());
     if (pb.has_text()) arc.text = ::arc::text::Text(pb.text());
-    if (pb.has_module()) arc.module = ::arc::module::Module(pb.module());
+    if (pb.has_program()) arc.program = ::arc::program::Program(pb.program());
     arc.deploy = pb.deploy();
     arc.version = pb.version();
     return {arc, x::errors::NIL};
@@ -39,7 +39,7 @@ void Arc::to_proto(api::v1::Arc *pb) const {
     pb->set_name(name);
     graph.to_proto(pb->mutable_graph());
     text.to_proto(pb->mutable_text());
-    module.to_proto(pb->mutable_module());
+    program.to_proto(pb->mutable_program());
     pb->set_deploy(deploy);
     pb->set_version(version);
 }
@@ -67,7 +67,7 @@ x::errors::Error Client::create(Arc &arc) const {
     arc.name = first.name();
     if (first.has_graph()) arc.graph = ::arc::graph::Graph(first.graph());
     if (first.has_text()) arc.text = ::arc::text::Text(first.text());
-    if (first.has_module()) arc.module = ::arc::module::Module(first.module());
+    if (first.has_program()) arc.program = ::arc::program::Program(first.program());
     arc.deploy = first.deploy();
     arc.version = first.version();
 
@@ -91,7 +91,7 @@ x::errors::Error Client::create(std::vector<Arc> &arcs) const {
         arcs[i].name = pb.name();
         if (pb.has_graph()) arcs[i].graph = ::arc::graph::Graph(pb.graph());
         if (pb.has_text()) arcs[i].text = ::arc::text::Text(pb.text());
-        if (pb.has_module()) arcs[i].module = ::arc::module::Module(pb.module());
+        if (pb.has_program()) arcs[i].program = ::arc::program::Program(pb.program());
         arcs[i].deploy = pb.deploy();
         arcs[i].version = pb.version();
     }
