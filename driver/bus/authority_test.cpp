@@ -185,4 +185,35 @@ TEST(AuthorityMirrorTest, MoveFilterEmptyFrame) {
     auto filtered = mirror.filter(std::move(frame), ARC);
     ASSERT_TRUE(filtered.empty());
 }
+
+TEST(AuthorityMirrorTest, ApplyIncreaseUpdatesState) {
+    AuthorityMirror mirror;
+    mirror.apply_increase(ARC, 1, 200);
+    ASSERT_TRUE(mirror.is_authorized(1, ARC));
+    ASSERT_FALSE(mirror.is_authorized(1, OPERATOR));
+}
+
+TEST(AuthorityMirrorTest, ApplyIncreaseOverridesLowerAuthority) {
+    AuthorityMirror mirror;
+    mirror.apply_increase(ARC, 1, 100);
+    mirror.apply_increase(OPERATOR, 1, 200);
+    ASSERT_FALSE(mirror.is_authorized(1, ARC));
+    ASSERT_TRUE(mirror.is_authorized(1, OPERATOR));
+}
+
+TEST(AuthorityMirrorTest, ApplyIncreaseIgnoresEqualAuthority) {
+    AuthorityMirror mirror;
+    mirror.apply_increase(ARC, 1, 200);
+    mirror.apply_increase(OPERATOR, 1, 200);
+    ASSERT_TRUE(mirror.is_authorized(1, ARC));
+    ASSERT_FALSE(mirror.is_authorized(1, OPERATOR));
+}
+
+TEST(AuthorityMirrorTest, ApplyIncreaseIgnoresLowerAuthority) {
+    AuthorityMirror mirror;
+    mirror.apply_increase(ARC, 1, 200);
+    mirror.apply_increase(OPERATOR, 1, 100);
+    ASSERT_TRUE(mirror.is_authorized(1, ARC));
+    ASSERT_FALSE(mirror.is_authorized(1, OPERATOR));
+}
 }

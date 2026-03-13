@@ -84,9 +84,11 @@ class Series {
     /// materializes a private copy before any mutation.
     mutable std::shared_ptr<std::byte[]> data_;
 
-    /// @brief allocates a zero-initialized shared byte buffer.
+    /// @brief allocates an uninitialized shared byte buffer. Callers always
+    /// overwrite the buffer immediately (memcpy, write, etc.), so
+    /// zero-initialization is unnecessary overhead.
     static std::shared_ptr<std::byte[]> alloc(size_t byte_size) {
-        return std::shared_ptr<std::byte[]>(new std::byte[byte_size]());
+        return std::shared_ptr<std::byte[]>(new std::byte[byte_size]);
     }
 
     /// @brief ensures this Series has exclusive ownership of its data buffer.

@@ -19,13 +19,18 @@ namespace driver::bus {
 inline std::shared_ptr<pipeline::WriterFactory>
 make_writer_factory(const std::shared_ptr<task::Context> &ctx) {
     auto factory = std::make_shared<pipeline::SynnaxWriterFactory>(ctx->client);
-    if (ctx->bus() == nullptr) {
+    if (ctx->bus() == nullptr || ctx->authority_mirror() == nullptr) {
         VLOG(1) << "[bus] no bus available, using direct server writer";
         return factory;
     }
     VLOG(1) << "[bus] wrapping writer factory with bus publish, group="
             << ctx->rack_key();
-    return std::make_shared<WriterFactory>(factory, *ctx->bus(), ctx->rack_key());
+    return std::make_shared<WriterFactory>(
+        factory,
+        *ctx->bus(),
+        ctx->rack_key(),
+        *ctx->authority_mirror()
+    );
 }
 
 inline std::shared_ptr<pipeline::StreamerFactory> make_streamer_factory(

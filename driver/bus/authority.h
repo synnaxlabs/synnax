@@ -76,6 +76,27 @@ public:
         }
     }
 
+    /// @brief optimistically applies an authority increase for a single channel.
+    /// If the incoming authority is strictly greater than the current holder's,
+    /// the mirror is updated immediately. Equal or lower authority is ignored,
+    /// matching the server's position-based tiebreak (earlier gate wins ties).
+    /// This is safe because the relay will eventually overwrite with the
+    /// authoritative state from the server.
+    void apply_increase(
+        const x::control::Subject &subject,
+        synnax::channel::Key channel,
+        x::control::Authority authority
+    ) {
+        std::unique_lock lock(this->mu);
+        auto it = this->states.find(channel);
+        if (it != this->states.end() && it->second.authority >= authority) return;
+        this->states[channel] = x::control::State{
+            .resource = channel,
+            .subject = subject,
+            .authority = authority,
+        };
+    }
+
     /// @brief filters a frame by copy, keeping only channels where subject holds
     /// authority or no authority state exists (uncontrolled).
     x::telem::Frame
