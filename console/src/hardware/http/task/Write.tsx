@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import "@/hardware/http/task/Task.css";
+import "@/hardware/http/task/Form.css";
 
 import { channel, type Synnax as Client } from "@synnaxlabs/client";
 import {
@@ -174,7 +174,7 @@ const ChannelFieldSection: FC<{ epPath: string; epKey: string }> = ({
           style={{ paddingRight: "2rem" }}
         />
       </Header.Header>
-      <Flex.Box style={CHANNEL_FIELD_SECTION_STYLE}>
+      <Flex.Box className={CSS.B("channel-field-section")}>
         <Flex.Box x align="end" gap="large">
           <PForm.TextField
             path={`${channelPath}.pointer`}
@@ -185,7 +185,7 @@ const ChannelFieldSection: FC<{ epPath: string; epKey: string }> = ({
           <PForm.Field<string>
             path={`${channelPath}.jsonType`}
             label="JSON type"
-            style={JSON_TYPE_SELECT_STYLE}
+            className={CSS.B("json-type-select")}
           >
             {renderSelectJSONType}
           </PForm.Field>
@@ -195,7 +195,7 @@ const ChannelFieldSection: FC<{ epPath: string; epKey: string }> = ({
             path={`${channelPath}.dataType`}
             label="Data type"
             showHelpText={false}
-            style={DATA_TYPE_SELECT_STYLE}
+            className={CSS.B("data-type-select")}
           >
             {renderSelectDataType}
           </PForm.Field>
@@ -220,11 +220,7 @@ const renderSelectJSONType = Component.renderProp(
   ),
 );
 
-const CHANNEL_FIELD_SECTION_STYLE = { padding: "2rem" } as const;
-
 const JSON_POINTER_INPUT_PROPS = { placeholder: "/value" } as const;
-
-const JSON_TYPE_SELECT_STYLE = { width: 140 } as const;
 
 const renderSelectDataType = Component.renderProp((p: Telem.SelectDataTypeProps) => (
   <Telem.SelectDataType
@@ -234,8 +230,6 @@ const renderSelectDataType = Component.renderProp((p: Telem.SelectDataTypeProps)
     location="bottom"
   />
 ));
-
-const DATA_TYPE_SELECT_STYLE = { maxWidth: "25rem" } as const;
 
 const HIDDEN_DATA_TYPES = [
   DataType.TIMESTAMP,
@@ -315,7 +309,7 @@ const FieldListItem = (props: List.ItemProps<string> & { epKey: string }) => {
           showLabel={false}
           showHelpText={false}
           inputProps={STRING_INPUT_PROPS}
-          style={WIDTH_STYLE}
+          className={CSS.B("static-field-value")}
         />
       )}
       {fieldType === "static" && jsonType === "number" && (
@@ -323,7 +317,7 @@ const FieldListItem = (props: List.ItemProps<string> & { epKey: string }) => {
           path={`${path}.value`}
           showLabel={false}
           showHelpText={false}
-          style={WIDTH_STYLE}
+          className={CSS.B("static-field-value")}
         />
       )}
       {fieldType === "static" && jsonType === "boolean" && (
@@ -354,8 +348,6 @@ const FieldListItem = (props: List.ItemProps<string> & { epKey: string }) => {
 const STATIC_FILED_INPUT_PROPS = { placeholder: "field" } as const;
 
 const STRING_INPUT_PROPS = { placeholder: "value" } as const;
-
-const WIDTH_STYLE = { width: 120 } as const;
 
 const AdditionalFields: FC<{ epKey: string }> = ({ epKey }) => {
   const path = `config.endpoints.${epKey}.fields`;
@@ -449,9 +441,8 @@ const AdditionalFields: FC<{ epKey: string }> = ({ epKey }) => {
         >
           <List.Items<string, WriteField>
             full="y"
-            className={menuProps.className}
+            className={CSS(menuProps.className, CSS.B("field-list-items"))}
             onContextMenu={menuProps.open}
-            style={LIST_ITEM_STYLE}
             emptyContent={EMPTY_CONTENT}
           >
             {listItem}
@@ -461,8 +452,6 @@ const AdditionalFields: FC<{ epKey: string }> = ({ epKey }) => {
     </Flex.Box>
   );
 };
-
-const LIST_ITEM_STYLE = { overflow: "visible" } as const;
 
 const EMPTY_CONTENT = <EmptyAction message="No additional fields." action="" />;
 
@@ -678,17 +667,26 @@ const onConfigure: Common.Task.OnConfigure<WriteSchemas["config"]> = async (
       }
 
       // no channel in either device or config, create a new one
-
-      const newIndexCh = await client.channels.create({
-        name: `${safeDevName}${escapedPath}_cmd_time`,
-        dataType: "timestamp",
-        isIndex: true,
-      });
-      const newCmdCh = await client.channels.create({
-        name: `${safeDevName}${escapedPath}_cmd`,
-        dataType: ep.channel.dataType,
-        index: newIndexCh.key,
-      });
+      const dt = new DataType(ep.channel.dataType);
+      let newCmdCh: channel.Channel;
+      if (dt.isVariable)
+        newCmdCh = await client.channels.create({
+          name: `${safeDevName}${escapedPath}_cmd`,
+          dataType: ep.channel.dataType,
+          virtual: true,
+        });
+      else {
+        const newIndexCh = await client.channels.create({
+          name: `${safeDevName}${escapedPath}_cmd_time`,
+          dataType: "timestamp",
+          isIndex: true,
+        });
+        newCmdCh = await client.channels.create({
+          name: `${safeDevName}${escapedPath}_cmd`,
+          dataType: ep.channel.dataType,
+          index: newIndexCh.key,
+        });
+      }
       ep.channel.channel = newCmdCh.key;
       dev.properties.write[ep.path] = newCmdCh.key;
       modified = true;

@@ -9,7 +9,8 @@
  * included in the file licenses/APL.txt.
  */
 
-.console-task-configure {
+.console-task-configure--http_read,
+.console-task-configure--http_write {
     .console-endpoint-list {
         width: 250px;
     }
@@ -54,5 +55,25 @@
 
     .console-timestamp-format {
         width: 160px;
+    }
+
+    .console-channel-field-section {
+        padding: 2rem;
+    }
+
+    .console-json-type-select {
+        width: 140px;
+    }
+
+    .console-data-type-select {
+        max-width: 25rem;
+    }
+
+    .console-static-field-value {
+        width: 120px;
+    }
+
+    .console-field-list-items {
+        overflow: visible;
     }
 }
