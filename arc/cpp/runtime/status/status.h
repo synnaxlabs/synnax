@@ -14,47 +14,34 @@
 #include <string>
 #include <utility>
 
-#include "glog/logging.h"
-
 #include "x/cpp/errors/errors.h"
+#include "x/cpp/status/status.h"
 
 #include "arc/cpp/runtime/node/factory.h"
 #include "arc/cpp/runtime/node/node.h"
 
 namespace arc::runtime::status {
 
-/// @brief data for a status notification.
-struct Info {
-    std::string key;
-    std::string name;
-    std::string variant;
-    std::string message;
-};
-
 /// @brief Callback for delivering status notifications to the cluster.
-using Setter = std::function<x::errors::Error(const Info &)>;
-
-/// @brief No-op setter used in tests or when notifications are unavailable.
-inline Setter noop_setter = [](const Info &) { return x::errors::NIL; };
+using Setter = std::function<x::errors::Error(const x::status::Status<> &)>;
 
 /// @brief Sets a status notification each time it is executed by the scheduler.
 class SetStatus : public node::Node {
-    Info info;
+    x::status::Status<> info;
     Setter setter;
 
 public:
-    SetStatus(Info info, Setter setter):
+    SetStatus(x::status::Status<> info, Setter setter):
         info(std::move(info)), setter(std::move(setter)) {}
 
-    x::errors::Error next(node::Context & /*ctx*/) override {
+    x::errors::Error next(node::Context &ctx) override {
+        this->info.time = x::telem::TimeStamp::now();
         auto err = this->setter(this->info);
-        if (err) LOG(ERROR) << "[arc] set_status: " << err.message();
+        if (err) ctx.report_error(err);
         return x::errors::NIL;
     }
 
-    [[nodiscard]] bool is_output_truthy(
-        const std::string & /*param_name*/
-    ) const override {
+    [[nodiscard]] bool is_output_truthy(const std::string &) const override {
         return false;
     }
 };
@@ -63,7 +50,7 @@ class Factory : public node::Factory {
     Setter setter;
 
 public:
-    explicit Factory(Setter setter = noop_setter): setter(std::move(setter)) {}
+    explicit Factory(Setter setter): setter(std::move(setter)) {}
 
     bool handles(const std::string &node_type) const override {
         return node_type == "set_status";
@@ -72,7 +59,7 @@ public:
     std::pair<std::unique_ptr<node::Node>, x::errors::Error>
     create(node::Config &&cfg) override {
         if (!this->handles(cfg.node.type)) return {nullptr, x::errors::NOT_FOUND};
-        Info info{
+        x::status::Status<> info{
             .key = cfg.node.config["status_key"].get<std::string>(),
             .name = cfg.node.config["name"].get<std::string>(),
             .variant = cfg.node.config["variant"].get<std::string>(),

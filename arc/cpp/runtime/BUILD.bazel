@@ -10,7 +10,6 @@ cc_library(
         "//arc/cpp/runtime/selector",
         "//arc/cpp/runtime/stable",
         "//arc/cpp/runtime/state",
-        "//arc/cpp/runtime/status",
         "//arc/cpp/runtime/wasm",
         "//arc/cpp/stl/channel",
         "//arc/cpp/stl/constant",

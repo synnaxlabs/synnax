@@ -19,14 +19,11 @@
 
 namespace arc::runtime::stable {
 namespace {
-node::Context make_context(
-    const x::telem::TimeSpan elapsed,
-    const node::RunReason reason = node::RunReason::TimerTick
-) {
+node::Context make_context() {
     return node::Context{
-        .elapsed = elapsed,
+        .elapsed = x::telem::TimeSpan(0),
         .tolerance = x::telem::TimeSpan(0),
-        .reason = reason,
+        .reason = node::RunReason::TimerTick,
         .mark_changed = [](const std::string &) {},
         .report_error = [](const x::errors::Error &) {},
         .activate_stage = [] {},
@@ -47,7 +44,6 @@ struct TestSetup {
 
 private:
     static ir::IR build_ir(const int64_t duration_ns) {
-        // Upstream source node with u8 output.
         ir::Param source_output;
         source_output.name = ir::default_output_param;
         source_output.type = types::Type(types::Kind::U8);
@@ -57,7 +53,6 @@ private:
         source_node.type = "producer";
         source_node.outputs.params.push_back(source_output);
 
-        // stable_for node with u8 input and u8 output.
         ir::Param stable_input;
         stable_input.name = ir::default_input_param;
         stable_input.type = types::Type(types::Kind::U8);
@@ -78,7 +73,6 @@ private:
         stable_node.outputs.params.push_back(stable_output);
         stable_node.config.params.push_back(duration_param);
 
-        // Edge from source output to stable input.
         ir::Edge edge;
         edge.source = ir::Handle("source", ir::default_output_param);
         edge.target = ir::Handle("stable", ir::default_input_param);
@@ -104,9 +98,13 @@ void write_source(
     source.output(0) = x::mem::make_local_shared<x::telem::Series>(data);
     source.output_time(0) = x::mem::make_local_shared<x::telem::Series>(timestamps);
 }
+
+/// @brief Helper that returns a NowFn capturing a mutable time reference.
+NowFn make_now(x::telem::TimeStamp &current_time) {
+    return [&current_time]() { return current_time; };
+}
 }
 
-/// @brief Test that factory returns NOT_FOUND for non-stable_for node types.
 TEST(StableForFactoryTest, ReturnsNotFoundForWrongType) {
     TestSetup setup(x::telem::SECOND.nanoseconds());
     auto ir_node = setup.ir.nodes[1];
@@ -119,7 +117,6 @@ TEST(StableForFactoryTest, ReturnsNotFoundForWrongType) {
     );
 }
 
-/// @brief Test that factory creates a StableFor node with valid configuration.
 TEST(StableForFactoryTest, CreatesStableForNode) {
     TestSetup setup(x::telem::SECOND.nanoseconds());
     Factory factory;
@@ -129,304 +126,323 @@ TEST(StableForFactoryTest, CreatesStableForNode) {
     ASSERT_NE(node, nullptr);
 }
 
-/// @brief Test that stable_for does not emit before the duration elapses.
+/// @brief Does not emit before the duration elapses.
 TEST(StableForTest, DoesNotEmitBeforeDuration) {
     TestSetup setup(x::telem::SECOND.nanoseconds());
-    StableFor node(StableForConfig(setup.ir.nodes[1].config), setup.make_stable_node());
+    x::telem::TimeStamp current_time(0);
+    StableFor node(
+        StableForConfig(setup.ir.nodes[1].config),
+        setup.make_stable_node(),
+        make_now(current_time)
+    );
 
-    // Write value 5 at time 0.
+    // Write value 5 with timestamp at 1ns.
     auto source = setup.make_source_node();
-    write_source(source, {5}, {100});
+    write_source(source, {5}, {1});
 
     bool changed = false;
-    auto ctx = make_context(x::telem::TimeSpan(0));
+    auto ctx = make_context();
     ctx.mark_changed = [&](const std::string &) { changed = true; };
     ASSERT_NIL(node.next(ctx));
     EXPECT_FALSE(changed);
 
     // Advance to 500ms — still not enough.
-    auto ctx2 = make_context(500 * x::telem::MILLISECOND);
-    ctx2.mark_changed = [&](const std::string &) { changed = true; };
-    ASSERT_NIL(node.next(ctx2));
+    current_time = x::telem::TimeStamp(500 * x::telem::MILLISECOND.nanoseconds());
+    ASSERT_NIL(node.next(ctx));
     EXPECT_FALSE(changed);
 }
 
-/// @brief Test that stable_for emits when the value has been stable for the duration.
+/// @brief Emits when the value has been stable for the configured duration.
 TEST(StableForTest, EmitsWhenStableForDuration) {
     TestSetup setup(x::telem::SECOND.nanoseconds());
-    StableFor node(StableForConfig(setup.ir.nodes[1].config), setup.make_stable_node());
+    x::telem::TimeStamp current_time(0);
+    StableFor node(
+        StableForConfig(setup.ir.nodes[1].config),
+        setup.make_stable_node(),
+        make_now(current_time)
+    );
 
-    // Write value 5.
     auto source = setup.make_source_node();
-    write_source(source, {5}, {100});
+    write_source(source, {5}, {1});
 
-    auto ctx1 = make_context(x::telem::TimeSpan(0));
-    ASSERT_NIL(node.next(ctx1));
+    auto ctx = make_context();
+    ASSERT_NIL(node.next(ctx));
 
     // Advance past the duration.
+    current_time = x::telem::TimeStamp(x::telem::SECOND.nanoseconds());
     bool changed = false;
     std::string changed_param;
-    auto ctx2 = make_context(x::telem::SECOND);
-    ctx2.mark_changed = [&](const std::string &p) {
+    ctx.mark_changed = [&](const std::string &p) {
         changed = true;
         changed_param = p;
     };
-    ASSERT_NIL(node.next(ctx2));
+    ASSERT_NIL(node.next(ctx));
     EXPECT_TRUE(changed);
     EXPECT_EQ(changed_param, "output");
 
-    // Verify the output value.
     auto checker = setup.make_stable_node();
-    const auto &output = checker.output(0);
-    EXPECT_EQ(output->size(), 1);
-    EXPECT_EQ(output->at<uint8_t>(0), 5);
+    EXPECT_EQ(checker.output(0)->size(), 1);
+    EXPECT_EQ(checker.output(0)->at<uint8_t>(0), 5);
 
-    // Verify the output timestamp.
+    // Output timestamp should be current_time (now), not input timestamp.
     const auto &output_time = checker.output_time(0);
     EXPECT_EQ(output_time->size(), 1);
     EXPECT_EQ(output_time->at<int64_t>(0), x::telem::SECOND.nanoseconds());
 }
 
-/// @brief Test that a value change resets the stability timer.
+/// @brief A value change resets the stability timer using the new sample's timestamp.
 TEST(StableForTest, ResetsTimerOnValueChange) {
     TestSetup setup(x::telem::SECOND.nanoseconds());
-    StableFor node(StableForConfig(setup.ir.nodes[1].config), setup.make_stable_node());
+    x::telem::TimeStamp current_time(0);
+    StableFor node(
+        StableForConfig(setup.ir.nodes[1].config),
+        setup.make_stable_node(),
+        make_now(current_time)
+    );
 
-    // Write value 5 at time 0.
+    // Write value 5 with timestamp 0.
     auto source1 = setup.make_source_node();
-    write_source(source1, {5}, {100});
-    auto ctx1 = make_context(x::telem::TimeSpan(0));
-    ASSERT_NIL(node.next(ctx1));
+    write_source(source1, {5}, {1});
+    auto ctx = make_context();
+    ASSERT_NIL(node.next(ctx));
 
-    // Change to value 10 at 500ms — resets timer.
+    // Change to value 10 with timestamp 500ms — resets timer.
     auto source2 = setup.make_source_node();
-    write_source(source2, {10}, {200});
-    auto ctx2 = make_context(500 * x::telem::MILLISECOND);
-    ASSERT_NIL(node.next(ctx2));
+    const auto ts_500ms = 500 * x::telem::MILLISECOND.nanoseconds();
+    write_source(source2, {10}, {ts_500ms});
+    current_time = x::telem::TimeStamp(ts_500ms);
+    ASSERT_NIL(node.next(ctx));
 
-    // At 1s, only 500ms since the change — should NOT emit.
+    // At 1s, only 500ms since the change at 500ms — should NOT emit.
     bool changed = false;
-    auto ctx3 = make_context(x::telem::SECOND);
-    ctx3.mark_changed = [&](const std::string &) { changed = true; };
-    ASSERT_NIL(node.next(ctx3));
+    current_time = x::telem::TimeStamp(x::telem::SECOND.nanoseconds());
+    ctx.mark_changed = [&](const std::string &) { changed = true; };
+    ASSERT_NIL(node.next(ctx));
     EXPECT_FALSE(changed);
 
     // At 1.5s, 1s since the change — should emit.
-    auto ctx4 = make_context(x::telem::SECOND + 500 * x::telem::MILLISECOND);
-    ctx4.mark_changed = [&](const std::string &) { changed = true; };
-    ASSERT_NIL(node.next(ctx4));
+    const auto ts_1500ms = x::telem::SECOND.nanoseconds() +
+                           500 * x::telem::MILLISECOND.nanoseconds();
+    current_time = x::telem::TimeStamp(ts_1500ms);
+    ASSERT_NIL(node.next(ctx));
     EXPECT_TRUE(changed);
 
     auto checker = setup.make_stable_node();
     EXPECT_EQ(checker.output(0)->at<uint8_t>(0), 10);
 }
 
-/// @brief Test that the same stable value is not emitted twice.
+/// @brief The same stable value is not emitted twice.
 TEST(StableForTest, DoesNotEmitSameValueTwice) {
     TestSetup setup(x::telem::SECOND.nanoseconds());
-    StableFor node(StableForConfig(setup.ir.nodes[1].config), setup.make_stable_node());
+    x::telem::TimeStamp current_time(0);
+    StableFor node(
+        StableForConfig(setup.ir.nodes[1].config),
+        setup.make_stable_node(),
+        make_now(current_time)
+    );
 
-    // Write and stabilize.
     auto source = setup.make_source_node();
-    write_source(source, {5}, {100});
-    auto ctx1 = make_context(x::telem::TimeSpan(0));
-    ASSERT_NIL(node.next(ctx1));
+    write_source(source, {5}, {1});
+    auto ctx = make_context();
+    ASSERT_NIL(node.next(ctx));
 
-    auto ctx2 = make_context(x::telem::SECOND);
-    ASSERT_NIL(node.next(ctx2));
+    current_time = x::telem::TimeStamp(x::telem::SECOND.nanoseconds());
+    ASSERT_NIL(node.next(ctx));
 
     // Second call at 2s — same value, should NOT emit again.
     int call_count = 0;
-    auto ctx3 = make_context(2 * x::telem::SECOND);
-    ctx3.mark_changed = [&](const std::string &) { call_count++; };
-    ASSERT_NIL(node.next(ctx3));
+    current_time = x::telem::TimeStamp(2 * x::telem::SECOND.nanoseconds());
+    ctx.mark_changed = [&](const std::string &) { call_count++; };
+    ASSERT_NIL(node.next(ctx));
     EXPECT_EQ(call_count, 0);
 }
 
-/// @brief Test that a new different value emits after stabilizing.
+/// @brief A new different value emits after stabilizing.
 TEST(StableForTest, EmitsDifferentValueAfterStablePeriod) {
     TestSetup setup(x::telem::SECOND.nanoseconds());
-    StableFor node(StableForConfig(setup.ir.nodes[1].config), setup.make_stable_node());
+    x::telem::TimeStamp current_time(0);
+    StableFor node(
+        StableForConfig(setup.ir.nodes[1].config),
+        setup.make_stable_node(),
+        make_now(current_time)
+    );
 
     // First value 5 stabilizes.
     auto source1 = setup.make_source_node();
-    write_source(source1, {5}, {100});
-    auto ctx1 = make_context(x::telem::TimeSpan(0));
-    ASSERT_NIL(node.next(ctx1));
-    auto ctx2 = make_context(x::telem::SECOND);
-    ASSERT_NIL(node.next(ctx2));
+    write_source(source1, {5}, {1});
+    auto ctx = make_context();
+    ASSERT_NIL(node.next(ctx));
+    current_time = x::telem::TimeStamp(x::telem::SECOND.nanoseconds());
+    ASSERT_NIL(node.next(ctx));
 
-    // Change to 10 at 2s.
+    // Change to 10 with timestamp 2s.
     auto source2 = setup.make_source_node();
-    write_source(source2, {10}, {200});
-    auto ctx3 = make_context(2 * x::telem::SECOND);
-    ASSERT_NIL(node.next(ctx3));
+    const auto ts_2s = 2 * x::telem::SECOND.nanoseconds();
+    write_source(source2, {10}, {ts_2s});
+    current_time = x::telem::TimeStamp(ts_2s);
+    ASSERT_NIL(node.next(ctx));
 
     // At 3s, value 10 should emit.
     bool changed = false;
-    auto ctx4 = make_context(3 * x::telem::SECOND);
-    ctx4.mark_changed = [&](const std::string &) { changed = true; };
-    ASSERT_NIL(node.next(ctx4));
+    current_time = x::telem::TimeStamp(3 * x::telem::SECOND.nanoseconds());
+    ctx.mark_changed = [&](const std::string &) { changed = true; };
+    ASSERT_NIL(node.next(ctx));
     EXPECT_TRUE(changed);
 
     auto checker = setup.make_stable_node();
     EXPECT_EQ(checker.output(0)->at<uint8_t>(0), 10);
 }
 
-/// @brief Test that multiple values in a single input batch track the last change.
+/// @brief Multiple values in a single input batch track the last change timestamp.
 TEST(StableForTest, HandlesMultipleValuesInSingleInput) {
     TestSetup setup(x::telem::SECOND.nanoseconds());
-    StableFor node(StableForConfig(setup.ir.nodes[1].config), setup.make_stable_node());
+    x::telem::TimeStamp current_time(0);
+    StableFor node(
+        StableForConfig(setup.ir.nodes[1].config),
+        setup.make_stable_node(),
+        make_now(current_time)
+    );
 
-    // Write batch: [5, 10, 10] — value changes from nil->5, then 5->10.
+    // Write batch: [5, 10, 10] with timestamps [100ms, 200ms, 300ms].
+    // Value changes from nil->5 at 100ms, then 5->10 at 200ms.
+    const auto ms = x::telem::MILLISECOND.nanoseconds();
     auto source = setup.make_source_node();
-    write_source(source, {5, 10, 10}, {100, 200, 300});
-    auto ctx1 = make_context(x::telem::TimeSpan(0));
-    ASSERT_NIL(node.next(ctx1));
+    write_source(source, {5, 10, 10}, {100 * ms, 200 * ms, 300 * ms});
+    auto ctx = make_context();
+    ASSERT_NIL(node.next(ctx));
 
-    // The last change was at ctx.elapsed=0 (when 5->10 was detected).
-    // At 1s, should emit value 10.
+    // last_changed is at 200ms (when 5->10 occurred). At 1.2s, should emit.
+    current_time = x::telem::TimeStamp(1200 * ms);
     bool changed = false;
-    auto ctx2 = make_context(x::telem::SECOND);
-    ctx2.mark_changed = [&](const std::string &) { changed = true; };
-    ASSERT_NIL(node.next(ctx2));
+    ctx.mark_changed = [&](const std::string &) { changed = true; };
+    ASSERT_NIL(node.next(ctx));
     EXPECT_TRUE(changed);
 
     auto checker = setup.make_stable_node();
     EXPECT_EQ(checker.output(0)->at<uint8_t>(0), 10);
 }
 
-/// @brief Test that reset clears all tracking state.
+/// @brief Reset clears all tracking state.
 TEST(StableForTest, ResetClearsState) {
     TestSetup setup(x::telem::SECOND.nanoseconds());
-    StableFor node(StableForConfig(setup.ir.nodes[1].config), setup.make_stable_node());
+    x::telem::TimeStamp current_time(0);
+    StableFor node(
+        StableForConfig(setup.ir.nodes[1].config),
+        setup.make_stable_node(),
+        make_now(current_time)
+    );
 
-    // Write and stabilize.
     auto source = setup.make_source_node();
-    write_source(source, {5}, {100});
-    auto ctx1 = make_context(x::telem::TimeSpan(0));
-    ASSERT_NIL(node.next(ctx1));
-    auto ctx2 = make_context(x::telem::SECOND);
-    ASSERT_NIL(node.next(ctx2));
+    write_source(source, {5}, {1});
+    auto ctx = make_context();
+    ASSERT_NIL(node.next(ctx));
+    current_time = x::telem::TimeStamp(x::telem::SECOND.nanoseconds());
+    ASSERT_NIL(node.next(ctx));
 
-    // Reset and check that no output happens without new input.
     node.reset();
     bool changed = false;
-    auto ctx3 = make_context(5 * x::telem::SECOND);
-    ctx3.mark_changed = [&](const std::string &) { changed = true; };
-    ASSERT_NIL(node.next(ctx3));
-    EXPECT_FALSE(changed);
-}
-
-/// @brief Test that empty input doesn't crash or emit.
-TEST(StableForTest, HandlesEmptyInput) {
-    TestSetup setup(x::telem::SECOND.nanoseconds());
-    StableFor node(StableForConfig(setup.ir.nodes[1].config), setup.make_stable_node());
-
-    bool changed = false;
-    auto ctx = make_context(x::telem::SECOND);
+    current_time = x::telem::TimeStamp(5 * x::telem::SECOND.nanoseconds());
     ctx.mark_changed = [&](const std::string &) { changed = true; };
     ASSERT_NIL(node.next(ctx));
     EXPECT_FALSE(changed);
 }
 
-/// @brief Test that is_output_truthy delegates to state.
+/// @brief Empty input doesn't crash or emit.
+TEST(StableForTest, HandlesEmptyInput) {
+    TestSetup setup(x::telem::SECOND.nanoseconds());
+    x::telem::TimeStamp current_time(x::telem::SECOND.nanoseconds());
+    StableFor node(
+        StableForConfig(setup.ir.nodes[1].config),
+        setup.make_stable_node(),
+        make_now(current_time)
+    );
+
+    bool changed = false;
+    auto ctx = make_context();
+    ctx.mark_changed = [&](const std::string &) { changed = true; };
+    ASSERT_NIL(node.next(ctx));
+    EXPECT_FALSE(changed);
+}
+
+/// @brief is_output_truthy delegates to state.
 TEST(StableForTest, IsOutputTruthyDelegatesToState) {
     TestSetup setup(x::telem::SECOND.nanoseconds());
-    StableFor node(StableForConfig(setup.ir.nodes[1].config), setup.make_stable_node());
+    x::telem::TimeStamp current_time(0);
+    StableFor node(
+        StableForConfig(setup.ir.nodes[1].config),
+        setup.make_stable_node(),
+        make_now(current_time)
+    );
 
-    // Before any output, should be false.
     EXPECT_FALSE(node.is_output_truthy("output"));
 
-    // Write and stabilize.
     auto source = setup.make_source_node();
-    write_source(source, {1}, {100});
-    auto ctx1 = make_context(x::telem::TimeSpan(0));
-    ASSERT_NIL(node.next(ctx1));
-    auto ctx2 = make_context(x::telem::SECOND);
-    ASSERT_NIL(node.next(ctx2));
+    write_source(source, {1}, {1});
+    auto ctx = make_context();
+    ASSERT_NIL(node.next(ctx));
+    current_time = x::telem::TimeStamp(x::telem::SECOND.nanoseconds());
+    ASSERT_NIL(node.next(ctx));
 
     EXPECT_TRUE(node.is_output_truthy("output"));
 }
 
-/// @brief Test that the output timestamp uses ctx.elapsed (current time), not
-/// the input timestamp. Mirrors Go test "Should use output timestamp as current
-/// time not input time".
-TEST(StableForTest, OutputTimestampUsesCurrentTime) {
-    TestSetup setup(x::telem::SECOND.nanoseconds());
-    StableFor node(StableForConfig(setup.ir.nodes[1].config), setup.make_stable_node());
-
-    // Write value 5 at elapsed=0.
-    auto source = setup.make_source_node();
-    write_source(source, {5}, {100});
-    auto ctx1 = make_context(x::telem::TimeSpan(0));
-    ASSERT_NIL(node.next(ctx1));
-
-    // Advance elapsed far into the future (100s) — should emit with that time.
-    bool changed = false;
-    auto ctx2 = make_context(100 * x::telem::SECOND);
-    ctx2.mark_changed = [&](const std::string &) { changed = true; };
-    ASSERT_NIL(node.next(ctx2));
-    EXPECT_TRUE(changed);
-
-    auto checker = setup.make_stable_node();
-    const auto &output_time = checker.output_time(0);
-    EXPECT_EQ(output_time->size(), 1);
-    EXPECT_EQ(output_time->at<int64_t>(0), (100 * x::telem::SECOND).nanoseconds());
-}
-
-/// @brief Test that same value repeated in input uses the first occurrence
-/// for the stability timer. Mirrors Go test "Should handle same value repeated
-/// in input".
+/// @brief Same value repeated in input uses the first occurrence for stability.
 TEST(StableForTest, HandlesSameValueRepeatedInInput) {
     TestSetup setup(x::telem::SECOND.nanoseconds());
-    StableFor node(StableForConfig(setup.ir.nodes[1].config), setup.make_stable_node());
+    x::telem::TimeStamp current_time(0);
+    StableFor node(
+        StableForConfig(setup.ir.nodes[1].config),
+        setup.make_stable_node(),
+        make_now(current_time)
+    );
 
-    // Send same value [5, 5, 5, 5] — no change detected after the first,
-    // so last_changed stays at the elapsed time of the first call (0).
+    // Send same value [5, 5, 5, 5] — last_changed stays at first sample's time.
+    const auto ms = x::telem::MILLISECOND.nanoseconds();
     auto source = setup.make_source_node();
-    write_source(source, {5, 5, 5, 5}, {100, 200, 300, 400});
-    auto ctx1 = make_context(x::telem::TimeSpan(0));
-    ASSERT_NIL(node.next(ctx1));
+    write_source(source, {5, 5, 5, 5}, {100 * ms, 200 * ms, 300 * ms, 400 * ms});
+    auto ctx = make_context();
+    ASSERT_NIL(node.next(ctx));
 
-    // At 1s, should emit — value has been stable since elapsed=0.
+    // last_changed at 100ms. At 1.1s, should emit.
+    current_time = x::telem::TimeStamp(1100 * ms);
     bool changed = false;
-    auto ctx2 = make_context(x::telem::SECOND);
-    ctx2.mark_changed = [&](const std::string &) { changed = true; };
-    ASSERT_NIL(node.next(ctx2));
+    ctx.mark_changed = [&](const std::string &) { changed = true; };
+    ASSERT_NIL(node.next(ctx));
     EXPECT_TRUE(changed);
 
     auto checker = setup.make_stable_node();
     EXPECT_EQ(checker.output(0)->at<uint8_t>(0), 5);
 }
 
-/// @brief Test that after reset, the same value can be emitted again.
+/// @brief After reset, the same value can be emitted again.
 TEST(StableForTest, ResetAllowsSameValueToEmitAgain) {
     TestSetup setup(x::telem::SECOND.nanoseconds());
-    StableFor node(StableForConfig(setup.ir.nodes[1].config), setup.make_stable_node());
+    x::telem::TimeStamp current_time(0);
+    StableFor node(
+        StableForConfig(setup.ir.nodes[1].config),
+        setup.make_stable_node(),
+        make_now(current_time)
+    );
 
-    // First emission of value 5.
     auto source1 = setup.make_source_node();
-    write_source(source1, {5}, {100});
-    auto ctx1 = make_context(x::telem::TimeSpan(0));
-    ASSERT_NIL(node.next(ctx1));
-    auto ctx2 = make_context(x::telem::SECOND);
-    ASSERT_NIL(node.next(ctx2));
+    write_source(source1, {5}, {1});
+    auto ctx = make_context();
+    ASSERT_NIL(node.next(ctx));
+    current_time = x::telem::TimeStamp(x::telem::SECOND.nanoseconds());
+    ASSERT_NIL(node.next(ctx));
 
-    // Reset.
     node.reset();
 
-    // Write same value 5 again.
+    const auto ts_2s = 2 * x::telem::SECOND.nanoseconds();
     auto source2 = setup.make_source_node();
-    write_source(source2, {5}, {200});
-    auto ctx3 = make_context(2 * x::telem::SECOND);
-    ASSERT_NIL(node.next(ctx3));
+    write_source(source2, {5}, {ts_2s});
+    current_time = x::telem::TimeStamp(ts_2s);
+    ASSERT_NIL(node.next(ctx));
 
-    // After reset + stabilization, same value should emit again.
     bool changed = false;
-    auto ctx4 = make_context(3 * x::telem::SECOND);
-    ctx4.mark_changed = [&](const std::string &) { changed = true; };
-    ASSERT_NIL(node.next(ctx4));
+    current_time = x::telem::TimeStamp(3 * x::telem::SECOND.nanoseconds());
+    ctx.mark_changed = [&](const std::string &) { changed = true; };
+    ASSERT_NIL(node.next(ctx));
     EXPECT_TRUE(changed);
 
     auto checker = setup.make_stable_node();

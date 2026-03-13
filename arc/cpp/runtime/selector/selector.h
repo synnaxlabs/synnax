@@ -26,7 +26,7 @@ inline const std::string true_param = "true";
 inline const std::string false_param = "false";
 
 /// @brief Select routes u8 input to "true" or "false" outputs based on value.
-/// Values equal to 1 go to "true" output, all others go to "false" output.
+/// Input values of 1 route to 1/true, all others to 0/false.
 class Select : public node::Node {
     state::Node state;
 
@@ -37,31 +37,39 @@ public:
         if (!this->state.refresh_inputs()) return x::errors::NIL;
         const auto &data = this->state.input(0);
         const auto &time = this->state.input_time(0);
-        if (data->size() == 0) return x::errors::NIL;
+        const auto n = data->size();
+        if (n == 0) return x::errors::NIL;
 
-        std::vector<uint8_t> true_values, false_values;
-        std::vector<int64_t> true_times, false_times;
-        for (size_t i = 0; i < data->size(); i++) {
-            if (data->at<uint8_t>(i) == 1) {
-                true_values.push_back(1);
-                true_times.push_back(time->at<int64_t>(i));
-            } else {
-                false_values.push_back(0);
-                false_times.push_back(time->at<int64_t>(i));
-            }
-        }
+        // Count true values first to pre-size output buffers.
+        size_t true_count = 0;
+        for (size_t i = 0; i < n; i++)
+            if (data->at<uint8_t>(i) == 1) true_count++;
+        const size_t false_count = n - true_count;
 
         auto &true_data = this->state.output(0);
         auto &true_time = this->state.output_time(0);
         auto &false_data = this->state.output(1);
         auto &false_time = this->state.output_time(1);
-        *true_data = x::telem::Series(true_values);
-        *true_time = x::telem::Series(true_times);
-        *false_data = x::telem::Series(false_values);
-        *false_time = x::telem::Series(false_times);
+        true_data->resize(true_count);
+        true_time->resize(true_count);
+        false_data->resize(false_count);
+        false_time->resize(false_count);
 
-        if (!true_values.empty()) ctx.mark_changed(true_param);
-        if (!false_values.empty()) ctx.mark_changed(false_param);
+        size_t ti = 0, fi = 0;
+        for (size_t i = 0; i < n; i++) {
+            if (data->at<uint8_t>(i) == 1) {
+                true_data->set(static_cast<int>(ti), static_cast<uint8_t>(1));
+                true_time->set(static_cast<int>(ti), time->at<int64_t>(i));
+                ti++;
+            } else {
+                false_data->set(static_cast<int>(fi), static_cast<uint8_t>(0));
+                false_time->set(static_cast<int>(fi), time->at<int64_t>(i));
+                fi++;
+            }
+        }
+
+        if (true_count > 0) ctx.mark_changed(true_param);
+        if (false_count > 0) ctx.mark_changed(false_param);
         return x::errors::NIL;
     }
 

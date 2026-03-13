@@ -23,6 +23,7 @@
 #include "arc/cpp/runtime/loop/loop.h"
 #include "arc/cpp/runtime/runtime.h"
 #include "arc/cpp/runtime/state/state.h"
+#include "arc/cpp/runtime/status/status.h"
 #include "driver/arc/arc.h"
 #include "driver/common/common.h"
 #include "driver/common/status.h"
@@ -150,17 +151,14 @@ public:
                 return {digests, x::errors::NIL};
             },
             .loop = cfg.loop,
-            .status_setter = [client = ctx->client](
-                                 const ::arc::runtime::status::Info &info
-                             ) -> x::errors::Error {
-                synnax::status::Status s{
-                    .key = info.key,
-                    .name = info.name,
-                    .variant = info.variant,
-                    .message = info.message,
-                    .time = x::telem::TimeStamp::now(),
-                };
-                return client->statuses.set(s);
+            .factories = {
+                std::make_shared<::arc::runtime::status::Factory>(
+                    [client = ctx->client](const x::status::Status<> &s)
+                        -> x::errors::Error {
+                        auto status = s;
+                        return client->statuses.set(status);
+                    }
+                ),
             },
         };
 

@@ -9,7 +9,7 @@ cc_library(
         "//arc/cpp/ir",
         "//arc/cpp/runtime/node",
         "//x/cpp/errors",
-        "@glog",
+        "//x/cpp/status",
     ],
 )
 

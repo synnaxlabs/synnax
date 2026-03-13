@@ -17,6 +17,8 @@
 
 namespace arc::runtime::status {
 namespace {
+Setter noop_setter = [](const x::status::Status<> &) { return x::errors::NIL; };
+
 node::Context make_context() {
     return node::Context{
         .elapsed = x::telem::TimeSpan(0),
@@ -28,8 +30,8 @@ node::Context make_context() {
     };
 }
 
-Info make_info() {
-    return Info{
+x::status::Status<> make_status() {
+    return x::status::Status<>{
         .key = "test_key",
         .name = "Test Status",
         .variant = "warning",
@@ -62,7 +64,7 @@ ir::Node make_ir_node() {
 
 /// @brief Test that factory handles set_status type.
 TEST(SetStatusFactoryTest, HandlesSetStatusType) {
-    Factory factory;
+    Factory factory(noop_setter);
     EXPECT_TRUE(factory.handles("set_status"));
     EXPECT_FALSE(factory.handles("not_set_status"));
 }
@@ -84,7 +86,7 @@ TEST(SetStatusFactoryTest, CreatesSetStatusNode) {
     );
     auto st = ASSERT_NIL_P(s.node("status"));
 
-    Factory factory;
+    Factory factory(noop_setter);
     auto node = ASSERT_NIL_P(
         factory.create(node::Config(ir, ir.nodes[0], std::move(st)))
     );
@@ -93,14 +95,14 @@ TEST(SetStatusFactoryTest, CreatesSetStatusNode) {
 
 /// @brief Test that next() calls the setter with correct info.
 TEST(SetStatusTest, NextCallsSetter) {
-    Info received;
+    x::status::Status<> received;
     int call_count = 0;
-    Setter setter = [&](const Info &info) {
-        received = info;
+    Setter setter = [&](const x::status::Status<> &s) {
+        received = s;
         call_count++;
         return x::errors::NIL;
     };
-    SetStatus node(make_info(), setter);
+    SetStatus node(make_status(), setter);
     auto ctx = make_context();
     ASSERT_NIL(node.next(ctx));
     EXPECT_EQ(call_count, 1);
@@ -108,16 +110,17 @@ TEST(SetStatusTest, NextCallsSetter) {
     EXPECT_EQ(received.name, "Test Status");
     EXPECT_EQ(received.variant, "warning");
     EXPECT_EQ(received.message, "Test message");
+    EXPECT_NE(received.time.nanoseconds(), 0);
 }
 
 /// @brief Test that next() calls setter on every invocation.
 TEST(SetStatusTest, NextCallsSetterRepeatedly) {
     int call_count = 0;
-    Setter setter = [&](const Info &) {
+    Setter setter = [&](const x::status::Status<> &) {
         call_count++;
         return x::errors::NIL;
     };
-    SetStatus node(make_info(), setter);
+    SetStatus node(make_status(), setter);
     auto ctx = make_context();
     ASSERT_NIL(node.next(ctx));
     ASSERT_NIL(node.next(ctx));
@@ -127,15 +130,17 @@ TEST(SetStatusTest, NextCallsSetterRepeatedly) {
 
 /// @brief Test that next() handles setter errors gracefully.
 TEST(SetStatusTest, NextHandlesSetterError) {
-    Setter setter = [](const Info &) { return x::errors::Error("status set failed"); };
-    SetStatus node(make_info(), setter);
+    Setter setter = [](const x::status::Status<> &) {
+        return x::errors::Error("status set failed");
+    };
+    SetStatus node(make_status(), setter);
     auto ctx = make_context();
     ASSERT_NIL(node.next(ctx));
 }
 
 /// @brief Test that is_output_truthy always returns false.
 TEST(SetStatusTest, IsOutputTruthyReturnsFalse) {
-    SetStatus node(make_info(), noop_setter);
+    SetStatus node(make_status(), noop_setter);
     EXPECT_FALSE(node.is_output_truthy("output"));
     EXPECT_FALSE(node.is_output_truthy("anything"));
 }
@@ -143,7 +148,7 @@ TEST(SetStatusTest, IsOutputTruthyReturnsFalse) {
 /// @brief Test that factory passes setter to created nodes.
 TEST(SetStatusFactoryTest, PassesSetterToNode) {
     int call_count = 0;
-    Setter setter = [&](const Info &) {
+    Setter setter = [&](const x::status::Status<> &) {
         call_count++;
         return x::errors::NIL;
     };
