@@ -186,6 +186,7 @@ const v1PropertiesZ = v0PropertiesZ
   .extend({
     auth: authConfigZ,
     healthCheck: healthCheckZ.default(ZERO_HEALTH_CHECK),
+    write: z.record(z.string(), channel.keyZ).default({}),
     read: z.record(z.string(), readEndpointPropsZ).default({}),
     version: z.literal(1),
   });
@@ -219,6 +220,7 @@ export const propertiesZ: z.ZodType<Properties> = v1PropertiesZ.or(
       read,
       version: 1,
       healthCheck: ZERO_HEALTH_CHECK,
+      write: {},
     } as const;
   }),
 );
@@ -229,6 +231,7 @@ export const ZERO_PROPERTIES = {
   timeoutMs: defaultTimeoutMs,
   auth: ZERO_AUTH_CONFIGS.none,
   healthCheck: ZERO_HEALTH_CHECK,
+  write: {},
   read: {},
   version: 1,
 } as const satisfies Properties;

@@ -21,6 +21,11 @@ const TASK_CONTEXT_MENU_ITEM_CONFIGS: Common.DeviceServices.TaskContextMenuItemC
       label: "Create read task",
       layout: Task.READ_LAYOUT,
     },
+    {
+      itemKey: "http.writeTask",
+      label: "Create write task",
+      layout: Task.WRITE_LAYOUT,
+    },
   ];
 
 export const ContextMenuItems = (props: Ontology.TreeContextMenuProps) => (
