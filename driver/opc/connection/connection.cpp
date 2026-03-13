@@ -167,6 +167,22 @@ configure_encryption(const Config &cfg, const std::shared_ptr<UA_Client> &client
     else
         client_config->securityMode = UA_MESSAGESECURITYMODE_NONE;
     if (cfg.security_policy == "None") return x::errors::NIL;
+    if (cfg.client_cert.empty() || cfg.client_private_key.empty())
+        return {
+            errors::ENCRYPTION_CONFIG_FAILED,
+            "client certificate and private key paths are required"
+        };
+
+    const UA_ByteString certificate = load_file(cfg.client_cert.c_str());
+    const UA_ByteString priv_key = load_file(cfg.client_private_key.c_str());
+    if (certificate.data == nullptr || priv_key.data == nullptr) {
+        UA_ByteString_clear(const_cast<UA_ByteString *>(&certificate));
+        UA_ByteString_clear(const_cast<UA_ByteString *>(&priv_key));
+        return {
+            errors::ENCRYPTION_CONFIG_FAILED,
+            "client certificate or private key file not found"
+        };
+    }
 
     client_config->privateKeyPasswordCallback = priv_key_pass_callback;
 
@@ -176,9 +192,6 @@ configure_encryption(const Config &cfg, const std::shared_ptr<UA_Client> &client
     std::string app_uri = app_uri_from_cert(cfg.client_cert);
     if (app_uri.empty()) app_uri = "urn:synnax.opcua.client";
     client_config->clientDescription.applicationUri = UA_STRING_ALLOC(app_uri.c_str());
-
-    const UA_ByteString certificate = load_file(cfg.client_cert.c_str());
-    const UA_ByteString priv_key = load_file(cfg.client_private_key.c_str());
 
     constexpr size_t trust_list_size = 0;
     UA_STACKARRAY(UA_ByteString, trustList, trust_list_size + 1);
