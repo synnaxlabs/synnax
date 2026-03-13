@@ -629,17 +629,17 @@ const getInitialValues: Common.Task.GetInitialValues<ReadSchemas> = ({
 
 const retrieveChannel = async (
   client: Client,
-  key: number,
+  key: channel.Key,
 ): Promise<channel.Channel | null> => {
   try {
-    return await client.channels.retrieve(key.toString());
+    return await client.channels.retrieve(key);
   } catch (e) {
     if (NotFoundError.matches(e)) return null;
     throw e;
   }
 };
 
-const channelExists = async (client: Client, key: number): Promise<boolean> =>
+const channelExists = async (client: Client, key: channel.Key): Promise<boolean> =>
   (await retrieveChannel(client, key)) != null;
 
 const onConfigure: Common.Task.OnConfigure<ReadSchemas["config"]> = async (
@@ -695,7 +695,7 @@ const onConfigure: Common.Task.OnConfigure<ReadSchemas["config"]> = async (
 
       const potentialTimingKey = ep.index;
       for (const field of ep.fields) {
-        if (field.key === potentialTimingKey) {
+        if (field.key === potentialTimingKey && epProps.index !== 0) {
           field.channel = epProps.index;
           continue;
         }
