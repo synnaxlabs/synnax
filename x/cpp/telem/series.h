@@ -1380,7 +1380,10 @@ public:
     /// avoid accidental deep copies.
     [[nodiscard]] Series deep_copy() const { return {*this}; }
 
-    void clear() { this->size_ = 0; }
+    void clear() {
+        this->size_ = 0;
+        if (this->data_type().is_variable()) this->cached_byte_size = 0;
+    }
 
     void resize(size_t new_size) {
         if (this->data_type().is_variable()) {

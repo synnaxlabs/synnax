@@ -205,6 +205,12 @@ func (i *Interval) Next(ctx node.Context) {
 	telem.SetValueAt[telem.TimeStamp](*outputTime, 0, telem.TimeStamp(ctx.Elapsed))
 }
 
+// Reset resets the interval so it fires immediately on the next timer tick.
+func (i *Interval) Reset() {
+	i.State.Reset()
+	i.lastFired = -i.period
+}
+
 // Wait is a one-shot timer that fires once after a specified duration.
 type Wait struct {
 	*node.State
