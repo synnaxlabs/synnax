@@ -5,8 +5,6 @@ title: "Version 0.53 Release Notes"
 import { Image } from "@/components/media/Media";
 import Release from "@/components/releases/Release.astro";
 import { mdxOverrides } from "@/components/mdxOverrides";
-import HTTPWrite from "@/pages/releases/HTTPWrite.astro";
-
 export const components = mdxOverrides;
 
 <Release
@@ -15,7 +13,7 @@ export const components = mdxOverrides;
     title="HTTP Write Tasks"
 >
 
-<HTTPWrite />
+<Image client:only="react" id="releases/0-53-0/http-write-task" themed={false} />
 
 Synnax v0.53 completes the HTTP driver with write task support and adds Python client
 integration for programmatic HTTP task configuration. This release also includes
