@@ -4,33 +4,33 @@
     {
       "sequence_name": "simple",
       "tests": [
-        { "case": "arc/arc_lifecycle", "parameters": { "rack_key": [65538] } },
+        { "case": "arc/lifecycle", "parameters": { "rack_key": [65537, 65538] } },
         {
-          "case": "arc/arc_thermal_monitor",
+          "case": "arc/thermal_monitor",
           "parameters": { "rack_key": [65537, 65538] }
         },
         {
-          "case": "arc/arc_tpc_cold_flow",
+          "case": "arc/tpc_cold_flow",
           "parameters": { "rack_key": [65537, 65538] }
         },
         {
-          "case": "arc/arc_interval_press",
+          "case": "arc/interval_press",
           "parameters": { "rack_key": [65537, 65538] }
         },
         {
-          "case": "arc/arc_edge_cases",
+          "case": "arc/edge_cases",
           "parameters": { "rack_key": [65537, 65538] }
         },
         {
-          "case": "arc/arc_wait_timing",
+          "case": "arc/wait_timing",
           "parameters": { "rack_key": [65537, 65538] }
         },
         {
-          "case": "arc/arc_load_current",
+          "case": "arc/load_current",
           "parameters": { "rack_key": [65537, 65538] }
         },
         {
-          "case": "arc/arc_short_circuit",
+          "case": "arc/short_circuit",
           "parameters": { "rack_key": [65537, 65538] }
         }
       ]
@@ -39,23 +39,23 @@
       "sequence_name": "authority",
       "tests": [
         {
-          "case": "arc/arc_authority_python_override",
+          "case": "arc/authority_python_override",
           "parameters": { "rack_key": [65537, 65538] }
         },
         {
-          "case": "arc/arc_authority_arc_vs_arc",
+          "case": "arc/authority_arc_vs_arc",
           "parameters": { "rack_key": [65537, 65538] }
         },
         {
-          "case": "arc/arc_authority_schematic_override",
+          "case": "arc/authority_schematic_override",
           "parameters": { "rack_key": [65537, 65538] }
         },
         {
-          "case": "arc/arc_authority_emergency",
+          "case": "arc/authority_emergency",
           "parameters": { "rack_key": [65537, 65538] }
         },
         {
-          "case": "arc/arc_bang_bang_authority",
+          "case": "arc/bang_bang_authority",
           "parameters": { "rack_key": [65537, 65538] }
         }
       ]
