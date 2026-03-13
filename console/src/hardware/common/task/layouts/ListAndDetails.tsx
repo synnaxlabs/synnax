@@ -55,8 +55,7 @@ export const ListAndDetails = <C extends Channel>({
     },
     [createChannel],
   );
-  const detailsPath =
-    selected.length > 0 ? `config.channels.${selected[0]}` : null;
+  const detailsPath = selected.length > 0 ? `config.channels.${selected[0]}` : null;
   return (
     <>
       <ChannelList<C>
@@ -68,10 +67,7 @@ export const ListAndDetails = <C extends Channel>({
       />
       <Divider.Divider y />
       <Flex.Box y grow empty className={CSS.B("details")}>
-        <DetailsHeader
-          path={detailsPath ?? ""}
-          disabled={detailsPath == null}
-        />
+        <DetailsHeader path={detailsPath ?? ""} disabled={detailsPath == null} />
         {detailsPath != null && (
           <Flex.Box y className={CSS.BE("details", "form")} empty grow>
             {details({ path: detailsPath })}

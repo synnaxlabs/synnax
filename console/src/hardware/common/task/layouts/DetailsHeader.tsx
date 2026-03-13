@@ -38,9 +38,11 @@ export const DetailsHeader = ({ path, disabled = false }: DetailsHeaderProps) =>
           onClick={handleCopy}
           contrast={2}
         >
-          <Icon.JSON style={{ color: "var(--pluto-gray-l9)" }} />
+          <Icon.JSON style={ICON_STYLE} />
         </Button.Button>
       </Header.Actions>
     </Header.Header>
   );
 };
+
+const ICON_STYLE = { color: "var(--pluto-gray-l9)" };
