@@ -46,6 +46,7 @@ export const deviceZ = <
     configured: z.boolean().optional(),
     properties: properties ?? record.nullishToEmpty(),
     status: zod.nullToUndefined(statusZ),
+    parent: ontologyIDZ.nullish().catch(undefined),
   });
 
 export interface Device<
@@ -71,7 +72,6 @@ export const newZ = <
 ) =>
   deviceZ(schemas).extend({
     properties: schemas?.properties ?? record.nullishToEmpty(),
-    parent: ontologyIDZ.optional(),
   });
 
 export interface New<

@@ -110,31 +110,38 @@ var _ = Describe("Device", func() {
 			).To(Succeed())
 			Expect(res.ID).To(Equal(d.OntologyID()))
 		})
-		It("Should extract isChassis from properties into ontology resource data", func() {
-			d := device.Device{
+		It("Should set hasChildren based on ontology children", func() {
+			chassis := device.Device{
 				Key:      "chassis1",
 				Rack:     rackSvc.EmbeddedKey,
 				Location: "Slot 1",
 				Name:     "cDAQ-9178",
 				Make:     "NI",
 				Model:    "cDAQ-9178",
-				Properties: map[string]any{
-					"is_chassis":   true,
-					"is_simulated": true,
-				},
 			}
-			Expect(w.Create(ctx, d, ontology.ID{})).To(Succeed())
-			var res ontology.Resource
-			Expect(
-				otg.NewRetrieve().WhereIDs(d.OntologyID()).Entry(&res).Exec(ctx, tx),
-			).To(Succeed())
+			Expect(w.Create(ctx, chassis, ontology.ID{})).To(Succeed())
+
+			// Device with no children should have has_children=false
+			res := MustSucceed(svc.RetrieveResource(ctx, chassis.Key, tx))
 			data, ok := res.Data.(map[string]any)
 			Expect(ok).To(BeTrue(), "resource data should be map[string]any")
-			_, ok = data["properties"]
-			Expect(ok).To(BeFalse(), "resource data should not contain 'properties' key")
-			isChassis, ok := data["is_chassis"]
-			Expect(ok).To(BeTrue(), "resource data should contain 'is_chassis' key")
-			Expect(isChassis).To(Equal(true))
+			Expect(data["has_children"]).To(Equal(false))
+
+			child := device.Device{
+				Key:      "module1",
+				Rack:     rackSvc.EmbeddedKey,
+				Location: "Mod 1",
+				Name:     "NI-9205",
+				Make:     "NI",
+				Model:    "NI-9205",
+			}
+			Expect(w.Create(ctx, child, chassis.OntologyID())).To(Succeed())
+
+			// Now chassis should have has_children=true
+			res = MustSucceed(svc.RetrieveResource(ctx, chassis.Key, tx))
+			data, ok = res.Data.(map[string]any)
+			Expect(ok).To(BeTrue(), "resource data should be map[string]any")
+			Expect(data["has_children"]).To(Equal(true))
 		})
 		It("Should correctly create an ontology relationship between the device and the rack", func() {
 			d := device.Device{

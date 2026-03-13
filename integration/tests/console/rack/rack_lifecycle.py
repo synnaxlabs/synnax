@@ -28,7 +28,7 @@ class RackLifecycle(ConsoleCase):
         self.test_rack_visible_in_toolbar()
         self.test_rack_status_display()
         self.test_rename_rack()
-        self.test_copy_rack_key()
+        self.test_copy_rack_properties()
         self.test_delete_rack()
 
     def test_rack_visible_in_toolbar(self) -> None:
@@ -41,7 +41,7 @@ class RackLifecycle(ConsoleCase):
     def test_rack_status_display(self) -> None:
         """Test that rack status is displayed correctly."""
         self.log("Testing: Rack status display")
-        status = self.console.devices.get_rack_status(self.rack_name)
+        status = self.console.devices.get_status(self.rack_name)
         assert status["variant"] in [
             "disabled",
             "warning",
@@ -54,14 +54,14 @@ class RackLifecycle(ConsoleCase):
         self.console.devices.rename_rack(old_name=self.rack_name, new_name=new_name)
         self.console.devices.rename_rack(old_name=new_name, new_name=self.rack_name)
 
-    def test_copy_rack_key(self) -> None:
-        """Test copying rack key via context menu."""
-        self.log("Testing: Copy rack key")
-        rack_key = self.console.devices.copy_rack_key(self.rack_name)
-        assert rack_key, "Should have extracted rack key from element"
-        assert rack_key == str(
-            self.test_rack.key
-        ), f"Key should match: {rack_key} vs {self.test_rack.key}"
+    def test_copy_rack_properties(self) -> None:
+        """Test copying rack properties via context menu."""
+        self.log("Testing: Copy rack properties")
+        props = self.console.devices.copy_rack_properties(self.rack_name)
+        assert props, "Should have copied rack properties"
+        assert str(self.test_rack.key) in str(
+            props
+        ), f"Properties should contain rack key {self.test_rack.key}"
 
     def test_delete_rack(self) -> None:
         """Test deleting a rack via context menu."""

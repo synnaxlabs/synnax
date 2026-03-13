@@ -239,8 +239,25 @@ const Internal = ({ root, emptyContent }: InternalProps): ReactElement => {
   );
 
   const handleSyncResourceSet = useCallback(
-    () => setNodes((prevNodes) => [...prevNodes]),
-    [setNodes],
+    (resource: ontology.Resource) => {
+      const key = ontology.idToString(resource.id);
+      const svc = services[resource.id.type];
+      if (svc == null) return;
+      const shouldHaveChildren = resolveHasChildren(svc, resource);
+      setNodes((prevNodes) => {
+        const node = Base.findNode({ tree: prevNodes, key });
+        if (node == null) return [...prevNodes];
+        const currentlyHasChildren = node.children != null;
+        if (shouldHaveChildren && !currentlyHasChildren) {
+          const next = Base.deepCopy(prevNodes);
+          const target = Base.findNode({ tree: next, key });
+          if (target != null) target.children = [];
+          return [...next];
+        }
+        return [...prevNodes];
+      });
+    },
+    [setNodes, services],
   );
   Ontology.useResourceSetSynchronizer(handleSyncResourceSet);
   const handleRelationshipDelete = useCallback(
@@ -266,6 +283,12 @@ const Internal = ({ root, emptyContent }: InternalProps): ReactElement => {
   const handleRelationshipSet = useCallback((rel: ontology.Relationship) => {
     if (rel.type !== ontology.PARENT_OF_RELATIONSHIP_TYPE) return;
     const { from, to } = rel;
+    console.log(
+      "[DEBUG handleRelationshipSet] parent_of:",
+      ontology.idToString(from),
+      "->",
+      ontology.idToString(to),
+    );
     setNodes((prevNodes) => {
       let destination: string | null = ontology.idToString(from);
       if (ontology.idsEqual(from, root)) destination = null;
@@ -273,6 +296,20 @@ const Internal = ({ root, emptyContent }: InternalProps): ReactElement => {
       const [resource] = resourceStore.get([ontology.idToString(to)]);
       const hasChildren =
         resource != null ? resolveHasChildren(svc, resource) : svc.hasChildren === true;
+      const destNode =
+        destination != null
+          ? Base.findNode({ tree: prevNodes, key: destination })
+          : null;
+      console.log(
+        "[DEBUG handleRelationshipSet] destination=",
+        destination,
+        "destNodeFound=",
+        destination == null || destNode != null,
+        "childKey=",
+        ontology.idToString(to),
+        "hasChildren=",
+        hasChildren,
+      );
       const nextNodes = [
         ...Base.setNode({
           tree: Base.deepCopy(prevNodes),

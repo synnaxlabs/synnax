@@ -109,12 +109,28 @@ func (w Writer) Create(ctx context.Context, device Device, parent ontology.ID) e
 	); err != nil {
 		return err
 	}
-	return w.otg.DefineRelationship(
+	if err = w.otg.DefineRelationship(
 		ctx,
 		parentID,
 		ontology.RelationshipTypeParentOf,
 		otgID,
-	)
+	); err != nil {
+		return err
+	}
+	// If the parent is a device, re-save it to trigger a change event so the
+	// Console picks up the updated hasChildren flag.
+	if parentID.Type == OntologyType {
+		var parentDevice Device
+		if pErr := gorp.NewRetrieve[string, Device]().
+			WhereKeys(parentID.Key).
+			Entry(&parentDevice).
+			Exec(ctx, w.tx); pErr == nil {
+			_ = gorp.NewCreate[string, Device]().
+				Entry(&parentDevice).
+				Exec(ctx, w.tx)
+		}
+	}
+	return nil
 }
 
 // Delete deletes the device with the given key and its associated status.

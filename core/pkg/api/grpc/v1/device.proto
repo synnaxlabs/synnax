@@ -2,6 +2,7 @@ syntax = "proto3";
 
 package api.v1;
 
+import "core/pkg/api/grpc/v1/ontology.proto";
 import "google/protobuf/empty.proto";
 import "google/protobuf/struct.proto";
 import "x/go/status/status.proto";
@@ -18,11 +19,6 @@ service DeviceRetrieveService {
 
 service DeviceDeleteService {
   rpc Exec(DeviceDeleteRequest) returns (google.protobuf.Empty);
-}
-
-message OntologyID {
-  string type = 1;
-  string key = 2;
 }
 
 message Device {

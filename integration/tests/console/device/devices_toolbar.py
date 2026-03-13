@@ -270,15 +270,15 @@ class DevicesToolbar(ConsoleCase):
             ), f"Device '{dev.name}' should have '{expected}' icon, got '{icon}'"
 
     def test_expand_arrows(self) -> None:
-        """Chassis devices should have expand arrows; non-chassis should not."""
-        self.log("Testing: Expand arrows on chassis vs non-chassis")
+        """Devices with children should have expand arrows; others should not."""
+        self.log("Testing: Expand arrows based on ontology children")
 
-        for dev in [self.chassis_a, self.chassis_b]:
-            assert self.console.devices.has_expand_arrow(
-                dev.name
-            ), f"Chassis '{dev.name}' should have an expand arrow"
+        assert self.console.devices.has_expand_arrow(
+            self.chassis_a.name
+        ), f"Chassis '{self.chassis_a.name}' should have an expand arrow (has children)"
 
         for dev in [
+            self.chassis_b,
             self.standalone,
             self.labjack_dev,
             self.opc_dev,

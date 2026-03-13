@@ -8,7 +8,6 @@
 #  included in the file licenses/APL.txt.
 
 import json
-import re
 
 import synnax as sy
 from playwright.sync_api import Locator
@@ -31,13 +30,9 @@ class DevicesClient:
         self.ctx_menu = ContextMenu(layout.page)
         self.tree = Tree(layout.page)
 
-    # ── Panel Visibility ─────────────────────────────────────────────────
-
     def show_toolbar(self) -> None:
         """Show the devices toolbar in the left sidebar."""
         self.layout.show_resource_toolbar(self.ICON_NAME)
-
-    # ── Shared Helpers ────────────────────────────────────────────────────
 
     def _find_item(self, prefix: str, name: str) -> Locator | None:
         """Find an item in the tree by prefix and name."""
@@ -74,16 +69,6 @@ class DevicesClient:
             modal.get_by_role("button", name=button, exact=True).dispatch_event("click")
         modal.wait_for(state="hidden", timeout=5000)
 
-    # ── Rack Methods ─────────────────────────────────────────────────────
-
-    def find_rack(self, name: str) -> Locator | None:
-        """Find a rack item in the devices panel by name."""
-        return self._find_item(self.RACK_PREFIX, name)
-
-    def get_rack(self, name: str) -> Locator:
-        """Get a rack item locator from the devices panel."""
-        return self._get_item(self.RACK_PREFIX, name, "Rack")
-
     def rack_exists(self, name: str) -> bool:
         """Check if a rack exists in the devices panel."""
         return self._find_item(self.RACK_PREFIX, name) is not None
@@ -100,54 +85,35 @@ class DevicesClient:
         self.show_toolbar()
         self.tree.wait_for_removal(self.RACK_PREFIX, name, exact=False)
 
-    def get_rack_status(self, name: str) -> dict[str, str]:
-        """Get the status of a rack by hovering over its status indicator."""
-        self.show_toolbar()
-        rack_item = self.get_rack(name)
-        status_icon = rack_item.locator("svg.pluto-rack__heartbeat")
-        status_icon.wait_for(state="visible", timeout=2000)
-        status_icon.hover()
-        tooltip = self.layout.page.locator(".pluto-tooltip")
-        tooltip.wait_for(state="visible", timeout=3000)
-        message = tooltip.inner_text().strip()
-        class_attr = status_icon.get_attribute("class") or ""
-        if "pluto-rack__heartbeat--beat" in class_attr:
-            variant = "success"
-        else:
-            variant = "disabled"
-        self.layout.page.mouse.move(0, 0)
-        return {"variant": variant, "message": message}
-
     def rename_rack(self, *, old_name: str, new_name: str) -> None:
         """Rename a rack via context menu."""
         self.show_toolbar()
-        rack_item = self.get_rack(old_name)
-        self.layout.context_menu_action(rack_item, "Rename")
-        self.layout.select_all_and_type(new_name)
-        self.layout.press_enter()
-        new_item = self.layout.page.locator(f"div[id^='{self.RACK_PREFIX}']").filter(
+        rack_item = self._get_item(self.RACK_PREFIX, old_name)
+        self.tree.rename(rack_item, new_name)
+        self.layout.page.locator(f"div[id^='{self.RACK_PREFIX}']").filter(
             has_text=new_name
-        )
-        new_item.first.wait_for(state="visible", timeout=5000)
+        ).first.wait_for(state="visible", timeout=5000)
         self.wait_for_rack_removed(old_name)
 
     def delete_rack(self, name: str) -> None:
         """Delete a rack via context menu."""
         self.show_toolbar()
-        rack_item = self.get_rack(name)
+        rack_item = self._get_item(self.RACK_PREFIX, name)
         self.layout.delete_with_confirmation(rack_item)
         self.wait_for_rack_removed(name)
 
-    def copy_rack_key(self, name: str) -> str:
-        """Copy a rack's key to clipboard via context menu."""
-        self.show_toolbar()
-        rack_item = self.get_rack(name)
-        element_id = rack_item.get_attribute("id")
-        rack_key = element_id.split(":")[1] if element_id else ""
-        self.layout.context_menu_action(rack_item, "Copy properties")
-        return rack_key
+    def copy_rack_properties(self, name: str) -> dict[str, object]:
+        """Copy a rack's properties to the clipboard and return as a dict.
 
-    # ── Device Methods ───────────────────────────────────────────────────
+        :param name: Name of the rack.
+        :returns: Parsed JSON properties dict.
+        """
+        self.show_toolbar()
+        rack_item = self._get_item(self.RACK_PREFIX, name)
+        self.ctx_menu.action(rack_item, "Copy properties")
+        raw = self.layout.read_clipboard()
+        result: dict[str, object] = json.loads(raw)
+        return result
 
     def _ensure_device_visible(self, name: str) -> Locator | None:
         """Expand ancestor nodes so a device becomes visible in the tree.
@@ -193,10 +159,6 @@ class DevicesClient:
             if g.is_visible() and not self.tree.is_expanded(g):
                 self.tree.expand(g)
 
-    def find(self, name: str) -> Locator | None:
-        """Find a device item in the devices panel by name."""
-        return self._ensure_device_visible(name)
-
     def get(self, name: str) -> Locator:
         """Get a device item locator from the devices panel."""
         item = self._ensure_device_visible(name)
@@ -229,29 +191,39 @@ class DevicesClient:
     }
 
     def get_status(self, name: str) -> dict[str, str]:
-        """Get the status of a device by hovering over its status indicator.
+        """Get the status of a device or rack by hovering over its status indicator.
 
-        The device status indicator is a colored circle SVG with class
-        ``pluto-device__status-indicator``.  The variant is determined from
-        the ``color`` inline style which uses a CSS variable
-        (e.g. ``var(--pluto-warning-m1)``).
+        Automatically detects whether the item is a rack or device and uses
+        the appropriate status icon selector and variant detection.
 
         :returns: Dict with 'variant' (str) and 'message' (str).
         """
         self.show_toolbar()
-        device_item = self.get(name)
-        status_icon = device_item.locator("svg.pluto-device__status-indicator").first
+        item = self._find_item(self.DEVICE_PREFIX, name)
+        is_device = item is not None
+        if is_device:
+            item = self.get(name)
+            status_icon = item.locator("svg.pluto-device__status-indicator").first
+        else:
+            item = self._get_item(self.RACK_PREFIX, name)
+            status_icon = item.locator("svg.pluto-rack__heartbeat")
         status_icon.wait_for(state="visible", timeout=2000)
         status_icon.hover()
         tooltip = self.layout.page.locator(".pluto-tooltip")
         tooltip.wait_for(state="visible", timeout=3000)
         message = tooltip.inner_text().strip()
-        color_attr = status_icon.get_attribute("color") or ""
-        variant = "disabled"
-        for css_var, v in self._COLOR_TO_VARIANT.items():
-            if css_var in color_attr:
-                variant = v
-                break
+        if is_device:
+            color_attr = status_icon.get_attribute("color") or ""
+            variant = "disabled"
+            for css_var, v in self._COLOR_TO_VARIANT.items():
+                if css_var in color_attr:
+                    variant = v
+                    break
+        else:
+            class_attr = status_icon.get_attribute("class") or ""
+            variant = (
+                "success" if "pluto-rack__heartbeat--beat" in class_attr else "disabled"
+            )
         self.layout.page.mouse.move(0, 0)
         return {"variant": variant, "message": message}
 
@@ -305,23 +277,15 @@ class DevicesClient:
             items.append(item)
         self.tree.group(items, group_name)
 
-    def _set_chassis_expanded(self, name: str, *, expanded: bool) -> None:
-        """Expand or collapse a chassis device node."""
-        self.show_toolbar()
-        chassis = self.get(name)
-        is_expanded = self.tree.is_expanded(chassis)
-        if expanded and not is_expanded:
-            self.tree.expand(chassis)
-        elif not expanded and is_expanded:
-            self.tree.collapse(chassis)
-
     def expand_chassis(self, name: str) -> None:
         """Expand a chassis device node to reveal its children."""
-        self._set_chassis_expanded(name, expanded=True)
+        self.show_toolbar()
+        self.tree.expand(self.get(name))
 
     def collapse_chassis(self, name: str) -> None:
         """Collapse a chassis device node."""
-        self._set_chassis_expanded(name, expanded=False)
+        self.show_toolbar()
+        self.tree.collapse(self.get(name))
 
     def get_children_names(self, chassis_name: str) -> list[str]:
         """Get the visible child device names under a chassis.
@@ -336,53 +300,21 @@ class DevicesClient:
         """
         self.show_toolbar()
         self.expand_chassis(chassis_name)
-        names = self._scan_children(chassis_name)
+        chassis = self.get(chassis_name)
+        names = self.tree.get_children_names(chassis, self.DEVICE_PREFIX, chassis_name)
         if names:
             return names
 
-        # Retry logic because test cases run fast.
         for _ in range(5):
-            names = self._scan_children(chassis_name)
+            names = self.tree.get_children_names(
+                chassis, self.DEVICE_PREFIX, chassis_name
+            )
             if names:
                 return names
             self.collapse_chassis(chassis_name)
             self.expand_chassis(chassis_name)
+            chassis = self.get(chassis_name)
         return []
-
-    def _scan_children(self, chassis_name: str) -> list[str]:
-        """Scan device items after the chassis and collect those at greater depth."""
-        chassis = self.get(chassis_name)
-        all_device_items = self.layout.page.locator(
-            f"div[id^='{self.DEVICE_PREFIX}']"
-        ).all()
-        names: list[str] = []
-        found_chassis = False
-        chassis_depth = self._get_depth(chassis)
-        for item in all_device_items:
-            if not item.is_visible():
-                continue
-            item_text = self.tree.get_text(item)
-            if item_text == chassis_name or chassis_name in item_text:
-                found_chassis = True
-                continue
-            if found_chassis:
-                item_depth = self._get_depth(item)
-                if item_depth > chassis_depth:
-                    names.append(self.tree.get_text(item))
-                else:
-                    break
-        return names
-
-    def _get_depth(self, item: Locator) -> float:
-        """Get the tree depth offset of an item from its CSS variable.
-
-        The Pluto tree sets ``--pluto-tree-item-offset`` as an inline
-        style (e.g. ``--pluto-tree-item-offset: 6.5rem``).  We parse
-        the numeric value to compare parent/child relationships.
-        """
-        style = item.get_attribute("style") or ""
-        match = re.search(r"--pluto-tree-item-offset:\s*([\d.]+)", style)
-        return float(match.group(1)) if match else 0.0
 
     def is_child_of(self, device_name: str, parent_name: str) -> bool:
         """Check if a device is nested under a parent in the tree.
@@ -422,9 +354,7 @@ class DevicesClient:
         :param name: Name of the device.
         :returns: True if the device has an expansion indicator.
         """
-        device_item = self.get(name)
-        indicator = device_item.locator("svg.pluto-tree__expansion-indicator")
-        return indicator.count() > 0
+        return self.tree.has_expand_arrow(self.get(name))
 
     def configure(self, name: str, *, device_name: str, identifier: str) -> None:
         """Configure an unconfigured device via the two-step modal flow.
@@ -452,7 +382,6 @@ class DevicesClient:
         self.show_toolbar()
         device_item = self.get(name)
         self.ctx_menu.action(device_item, "Copy properties")
-        self.layout.page.wait_for_timeout(300)
         raw = self.layout.read_clipboard()
         result: dict[str, object] = json.loads(raw)
         return result

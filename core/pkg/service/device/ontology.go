@@ -53,29 +53,28 @@ func KeysFromOntologyIDs(ids []ontology.ID) []string {
 }
 
 var schema = zyn.Object(map[string]zyn.Schema{
-	"key":        zyn.String(),
-	"rack":       zyn.Uint32().Coerce(),
-	"location":   zyn.String(),
-	"name":       zyn.String(),
-	"make":       zyn.String(),
-	"model":      zyn.String(),
-	"configured": zyn.Bool(),
-	"isChassis":  zyn.Bool(),
+	"key":         zyn.String(),
+	"rack":        zyn.Uint32().Coerce(),
+	"location":    zyn.String(),
+	"name":        zyn.String(),
+	"make":        zyn.String(),
+	"model":       zyn.String(),
+	"configured":  zyn.Bool(),
+	"has_children": zyn.Bool(),
 })
 
-// resourceData wraps Device with a top-level IsChassis field extracted from Properties
-// so the Console can determine expandability without the full properties blob.
+// resourceData wraps Device with a HasChildren field derived from actual ontology
+// relationships, allowing the Console to determine expandability without extra API calls.
 type resourceData struct {
 	Device
-	IsChassis bool `json:"isChassis"`
+	HasChildren bool `json:"has_children"`
 }
 
-func newResource(d Device) ontology.Resource {
-	rd := resourceData{Device: d}
-	if v, ok := d.Properties["is_chassis"]; ok {
-		rd.IsChassis, _ = v.(bool)
-	}
-	return ontology.NewResource(schema, OntologyID(d.Key), d.Name, rd)
+func newResource(d Device, hasChildren bool) ontology.Resource {
+	return ontology.NewResource(schema, OntologyID(d.Key), d.Name, resourceData{
+		Device:      d,
+		HasChildren: hasChildren,
+	})
 }
 
 var _ ontology.Service = (*Service)(nil)
@@ -103,14 +102,34 @@ func (s *Service) RetrieveResource(
 	if err := s.NewRetrieve().WhereKeys(key).Entry(&d).Exec(ctx, tx); err != nil {
 		return ontology.Resource{}, err
 	}
-	return newResource(d), nil
+	var children []ontology.Resource
+	_ = s.cfg.Ontology.NewRetrieve().
+		WhereIDs(OntologyID(key)).
+		TraverseTo(ontology.ChildrenTraverser).
+		Limit(1).
+		ExcludeFieldData(true).
+		Entries(&children).
+		Exec(ctx, tx)
+	return newResource(d, len(children) > 0), nil
 }
 
-func translateChange(c change) ontology.Change {
+func (s *Service) translateChange(ctx context.Context, c change) ontology.Change {
+	hasChildren := false
+	if c.Variant != xchange.VariantDelete {
+		var children []ontology.Resource
+		_ = s.cfg.Ontology.NewRetrieve().
+			WhereIDs(OntologyID(c.Key)).
+			TraverseTo(ontology.ChildrenTraverser).
+			Limit(1).
+			ExcludeFieldData(true).
+			Entries(&children).
+			Exec(ctx, nil)
+		hasChildren = len(children) > 0
+	}
 	return ontology.Change{
 		Variant: c.Variant,
 		Key:     OntologyID(c.Key),
-		Value:   newResource(c.Value),
+		Value:   newResource(c.Value, hasChildren),
 	}
 }
 
@@ -118,7 +137,9 @@ func translateChange(c change) ontology.Change {
 // made to a device.
 func (s *Service) OnChange(f func(context.Context, iter.Seq[ontology.Change])) observe.Disconnect {
 	handleChange := func(ctx context.Context, reader gorp.TxReader[string, Device]) {
-		f(ctx, xiter.Map(reader, translateChange))
+		f(ctx, xiter.Map(reader, func(c change) ontology.Change {
+			return s.translateChange(ctx, c)
+		}))
 	}
 	return gorp.Observe[string, Device](s.cfg.DB).OnChange(handleChange)
 }
@@ -130,5 +151,7 @@ func (s *Service) OpenNexter(ctx context.Context) (iter.Seq[ontology.Resource], 
 	if err != nil {
 		return nil, nil, err
 	}
-	return xiter.Map(n, newResource), closer, nil
+	return xiter.Map(n, func(d Device) ontology.Resource {
+		return newResource(d, false)
+	}), closer, nil
 }

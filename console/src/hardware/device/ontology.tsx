@@ -25,12 +25,7 @@ import { useMemo } from "react";
 import { Menu } from "@/components";
 import { CSS } from "@/css";
 import { Group } from "@/group";
-import {
-  getContextMenuItems,
-  getHasChildren,
-  getIcon,
-  getMake,
-} from "@/hardware/device/make";
+import { getContextMenuItems, getIcon, getMake } from "@/hardware/device/make";
 import { Ontology } from "@/ontology";
 import { createUseDelete } from "@/ontology/createUseDelete";
 import { createUseRename } from "@/ontology/createUseRename";
@@ -135,7 +130,7 @@ export const ONTOLOGY_SERVICE: Ontology.Service = {
   ...Ontology.NOOP_SERVICE,
   type: "device",
   icon,
-  hasChildren: (resource) => getHasChildren(resource),
+  hasChildren: (resource) => resource.data?.hasChildren === true,
   TreeContextMenu,
   Item,
 };

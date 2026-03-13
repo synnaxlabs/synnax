@@ -7,7 +7,6 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type ontology } from "@synnaxlabs/client";
 import { Menu } from "@synnaxlabs/pluto";
 
 import { Common } from "@/hardware/common";
@@ -43,9 +42,6 @@ const TASK_CONTEXT_MENU_ITEM_CONFIGS: Common.DeviceServices.TaskContextMenuItemC
       layout: Task.DIGITAL_WRITE_LAYOUT,
     },
   ];
-
-export const hasChildren = (resource: ontology.Resource): boolean =>
-  resource.data?.isChassis === true;
 
 export const ContextMenuItems = (props: Ontology.TreeContextMenuProps) => (
   <>

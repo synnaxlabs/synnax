@@ -7,7 +7,6 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type ontology } from "@synnaxlabs/client";
 import { Icon } from "@synnaxlabs/pluto";
 import { type ReactElement } from "react";
 import { z } from "zod";
@@ -70,16 +69,4 @@ export const getContextMenuItems = (make: unknown) => {
   const m = getMake(make);
   if (m == null) return null;
   return CONTEXT_MENU_ITEMS[m];
-};
-
-const MAKE_HAS_CHILDREN: Partial<
-  Record<Make, (resource: ontology.Resource) => boolean>
-> = {
-  [NI.Device.MAKE]: NI.DeviceServices.hasChildren,
-};
-
-export const getHasChildren = (resource: ontology.Resource): boolean => {
-  const make = getMake(resource.data?.make);
-  if (make == null) return false;
-  return MAKE_HAS_CHILDREN[make]?.(resource) ?? false;
 };
