@@ -72,6 +72,7 @@ export const newZ = <
 ) =>
   deviceZ(schemas).extend({
     properties: schemas?.properties ?? record.nullishToEmpty(),
+    parent: ontologyIDZ.nullish(),
   });
 
 export interface New<
