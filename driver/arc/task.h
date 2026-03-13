@@ -24,6 +24,7 @@
 #include "arc/cpp/runtime/runtime.h"
 #include "arc/cpp/runtime/state/state.h"
 #include "driver/arc/arc.h"
+#include "driver/bus/factory.h"
 #include "driver/common/common.h"
 #include "driver/common/status.h"
 #include "driver/errors/errors.h"
@@ -169,13 +170,11 @@ public:
 
         auto source = std::make_unique<Source>(*task);
         auto sink = std::make_unique<Sink>(*task);
-        if (!writer_factory)
-            writer_factory = std::make_shared<pipeline::SynnaxWriterFactory>(
-                ctx->client
-            );
+        if (!writer_factory) writer_factory = bus::make_writer_factory(ctx);
         if (!streamer_factory)
-            streamer_factory = std::make_shared<pipeline::SynnaxStreamerFactory>(
-                ctx->client
+            streamer_factory = bus::make_streamer_factory(
+                ctx,
+                {task_meta.name, task_meta.name}
             );
         auto initial_authorities = ::arc::runtime::build_authorities(
             cfg.program.authorities,
