@@ -1,0 +1,62 @@
+---
+layout: "@/layouts/Reference.astro"
+title: "HTTP | Get Started"
+heading: "HTTP Device Driver"
+description:
+  "Learn how to acquire data from and send commands to HTTP/REST API endpoints using
+  Synnax."
+next: "Connect to a Server"
+nextURL: "/reference/driver/http/connect-server"
+---
+
+import { Divider, Note, Icon, Text } from "@synnaxlabs/pluto";
+import { mdxOverrides } from "@/components/mdxOverrides";
+export const components = mdxOverrides;
+
+The HTTP device driver allows the Synnax Driver to connect to REST/HTTP API endpoints
+for data acquisition and control. It supports polling JSON APIs at configurable rates
+and sending commands via HTTP requests.
+
+<Divider.Divider x />
+
+## Use Cases
+
+The HTTP driver is designed for integrating with any system that exposes an HTTP/REST
+API:
+
+- IoT platforms and gateways
+- REST APIs and web services
+- Cloud data sources and monitoring endpoints
+- Custom HTTP endpoints for sensor data
+- Industrial systems with HTTP-based interfaces
+
+<Divider.Divider x />
+
+## Supported Protocols
+
+**The Synnax Driver supports both HTTP and HTTPS.** SSL certificate verification can be
+toggled per connection, allowing integration with self-signed certificates in
+development or internal environments.
+
+<Note.Note variant="info" className="compact">
+  Set `verify_ssl` to `false` when connecting to servers with self-signed certificates.
+  This is not recommended for production environments.
+</Note.Note>
+
+<Divider.Divider x />
+
+## Supported Operating Systems
+
+| Platform                            | Status      |
+| ----------------------------------- | ----------- |
+| <Icon.Logo.Windows /> Windows       | ✓ Supported |
+| <Icon.Logo.Linux /> Linux           | ✓ Supported |
+| <Icon.Logo.NI /> NI Linux Real-Time | ✓ Supported |
+| <Icon.Logo.Apple /> macOS           | ✓ Supported |
+| <Icon.Logo.Docker /> Docker         | ✓ Supported |
+
+<Note.Note variant="info" className="compact">
+  When running in a Docker container, ensure [the container has network
+  access](https://docs.docker.com/get-started/docker-concepts/running-containers/publishing-ports/)
+  to the HTTP server(s).
+</Note.Note>

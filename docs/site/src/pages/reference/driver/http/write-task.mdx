@@ -1,0 +1,382 @@
+---
+layout: "@/layouts/Reference.astro"
+title: "HTTP Write Task"
+description: "Learn how to send commands to HTTP/REST API endpoints with Synnax."
+prev: "Read Task"
+prevURL: "/reference/driver/http/read-task"
+---
+
+import { Divider, Note, Icon, Text } from "@synnaxlabs/pluto";
+import { Video, Image } from "@/components/media/Media";
+import { Fragment } from "react";
+import Details from "@/components/details/Details.astro";
+import ChannelType from "@/components/details/ChannelType.astro";
+import DetailsGroup from "@/components/details/Group.astro";
+import { Client } from "@/components/client";
+import { mdxOverrides } from "@/components/mdxOverrides";
+export const components = mdxOverrides;
+
+For task lifecycle management, see the
+[Task Basics](/reference/driver/task-basics#how-to) page.
+
+<Divider.Divider x />
+
+## How Commands Work
+
+HTTP Write Tasks use **command channels** to send HTTP requests when values are written:
+
+- **Command channels** -> Write a value to trigger an HTTP request to the configured
+  endpoint. The written value is placed in the request body at the location specified by
+  the channel's JSON Pointer.
+- **Command time channels** (`_cmd_time`): Index channels storing command timestamps.
+
+Each endpoint has exactly one command channel. When a value is written to that channel,
+the driver constructs a JSON request body using the channel value along with any
+configured static and generated fields, then sends the HTTP request.
+
+<Divider.Divider x />
+
+## Task Configuration Reference
+
+| Parameter    | Type    | Required | Default | Description                                  |
+| ------------ | ------- | -------- | ------- | -------------------------------------------- |
+| `name`       | string  | Yes      | -       | Human-readable task name                     |
+| `device`     | string  | Yes      | -       | Key of the HTTP server device                |
+| `auto_start` | boolean | No       | `false` | Automatically start task after configuration |
+| `endpoints`  | array   | Yes      | -       | List of endpoint configurations              |
+
+<Divider.Divider x />
+
+## Endpoint Configuration
+
+Each endpoint defines an HTTP request to send when its command channel receives a value.
+
+| Parameter | Type    | Required | Default | Description                                      |
+| --------- | ------- | -------- | ------- | ------------------------------------------------ |
+| `enabled` | boolean | No       | `true`  | Whether this endpoint is active                  |
+| `method`  | string  | Yes      | -       | HTTP method (`POST`, `PUT`, `PATCH`)             |
+| `path`    | string  | Yes      | -       | URL path appended to `base_url`                  |
+| `headers` | object  | No       | `{}`    | Headers for this endpoint                        |
+| `channel` | object  | Yes      | -       | Command channel configuration (see below)        |
+| `fields`  | array   | No       | `[]`    | Static and generated fields included in the body |
+
+### Command Channel
+
+The command channel determines which Synnax channel triggers the request and where its
+value is placed in the JSON body.
+
+| Parameter     | Type   | Required    | Default | Description                                                                                                       |
+| ------------- | ------ | ----------- | ------- | ----------------------------------------------------------------------------------------------------------------- |
+| `pointer`     | string | Yes         | -       | JSON Pointer where the channel value is placed (use `""` for bare primitive)                                      |
+| `channel`     | number | Yes         | -       | Synnax command channel key                                                                                        |
+| `json_type`   | string | Yes         | -       | JSON type for the value: `"number"`, `"string"`, or `"boolean"`                                                   |
+| `time_format` | string | Conditional | -       | Required for timestamp channels (see [Read Task](/reference/driver/http/read-task#timestamp-formats) for formats) |
+
+<Note.Note variant="info" className="compact">
+  Setting `pointer` to an empty string `""` sends the channel value as the entire
+  request body (bare primitive). This cannot be combined with static or generated
+  fields.
+</Note.Note>
+
+<Divider.Divider x />
+
+## Static Fields
+
+Static fields include fixed values in every request body. They are useful for fields
+that never change, such as API version identifiers or device IDs.
+
+| Parameter | Type   | Required | Default | Description                        |
+| --------- | ------ | -------- | ------- | ---------------------------------- |
+| `type`    | string | Yes      | -       | Must be `"static"`                 |
+| `pointer` | string | Yes      | -       | JSON Pointer where value is placed |
+| `value`   | any    | Yes      | -       | Fixed JSON value to include        |
+
+### Example
+
+```json
+{
+  "type": "static",
+  "pointer": "/metadata/version",
+  "value": "1.0"
+}
+```
+
+<Divider.Divider x />
+
+## Generated Fields
+
+Generated fields produce dynamic values for each request, such as unique request IDs or
+timestamps.
+
+| Parameter     | Type   | Required | Default     | Description                                    |
+| ------------- | ------ | -------- | ----------- | ---------------------------------------------- |
+| `type`        | string | Yes      | -           | Must be `"generated"`                          |
+| `pointer`     | string | Yes      | -           | JSON Pointer where value is placed             |
+| `generator`   | string | Yes      | -           | Generator type: `"uuid"` or `"timestamp"`      |
+| `time_format` | string | No       | `"iso8601"` | Time format (only for `"timestamp"` generator) |
+
+### Example
+
+```json
+{
+  "type": "generated",
+  "pointer": "/request_id",
+  "generator": "uuid"
+}
+```
+
+```json
+{
+  "type": "generated",
+  "pointer": "/timestamp",
+  "generator": "timestamp",
+  "time_format": "iso8601"
+}
+```
+
+<Divider.Divider x />
+
+## Important Rules
+
+- **One command channel per endpoint** -> Each endpoint is triggered by exactly one
+  command channel.
+- **Write methods only** -> Endpoints should use `POST`, `PUT`, or `PATCH` methods when
+  sending data in the request body.
+- **No duplicate pointers** -> The channel pointer, static field pointers, and generated
+  field pointers must all be unique within an endpoint.
+- **Bare primitive restriction** -> When using an empty `pointer` (`""`), the channel
+  value becomes the entire request body. Static and generated fields cannot be used with
+  bare primitives.
+
+<Divider.Divider x />
+
+## How-To
+
+<Client.Tabs client:load exclude={["cpp"]}>
+  <Fragment slot="console">
+    <Video
+      client:only="react"
+      id="device-drivers/http/write-task/http-write"
+    />
+  </Fragment>
+  <Fragment slot="python">
+
+<Details>
+<Text.Text slot="summary" level="p"><Icon.Play /> Configure and run task</Text.Text>
+
+```python
+import synnax as sy
+
+client = sy.Synnax()
+
+# Retrieve device
+dev = client.devices.retrieve(name="My HTTP Server")
+
+# Create command time index
+http_cmd_time = client.channels.create(
+    name="http_cmd_time",
+    is_index=True,
+    data_type=sy.DataType.TIMESTAMP,
+    retrieve_if_name_exists=True,
+)
+
+# Create command channel
+setpoint_cmd = client.channels.create(
+    name="setpoint_cmd",
+    index=http_cmd_time.key,
+    data_type=sy.DataType.FLOAT32,
+    retrieve_if_name_exists=True,
+)
+
+# Create and configure task
+task = client.tasks.create(
+    name="HTTP Write Task",
+    type="http_write",
+    config=sy.json_encode({
+        "device": dev.key,
+        "endpoints": [
+            {
+                "method": "POST",
+                "path": "/api/control/setpoint",
+                "channel": {
+                    "pointer": "/value",
+                    "channel": setpoint_cmd.key,
+                    "json_type": "number",
+                },
+                "fields": [
+                    {
+                        "type": "generated",
+                        "pointer": "/request_id",
+                        "generator": "uuid",
+                    },
+                    {
+                        "type": "static",
+                        "pointer": "/unit",
+                        "value": "celsius",
+                    },
+                ],
+            },
+        ],
+    }),
+)
+
+# Start task and send commands
+await task.execute_command_sync("start")
+
+with client.open_writer(
+    start=sy.TimeStamp.now(),
+    channels=["setpoint_cmd"],
+) as writer:
+    # Write command - sends POST to /api/control/setpoint with body:
+    # {"value": 72.5, "request_id": "<uuid>", "unit": "celsius"}
+    writer.write({"setpoint_cmd": 72.5})
+
+await task.execute_command_sync("stop")
+```
+
+</Details>
+
+<Details>
+<Text.Text slot="summary" level="p"><Icon.Edit /> Edit task configuration</Text.Text>
+
+```python
+import json
+
+# Retrieve existing task
+task = client.tasks.retrieve(name="HTTP Write Task")
+
+# Parse and update configuration
+config = json.loads(task.config)
+
+# Update endpoint method
+config["endpoints"][0]["method"] = "PUT"
+
+# Add a static field
+config["endpoints"][0]["fields"].append({
+    "type": "static",
+    "pointer": "/source",
+    "value": "synnax",
+})
+
+# Apply changes
+task.config = sy.json_encode(config)
+client.tasks.configure(task)
+```
+
+</Details>
+
+  </Fragment>
+  <Fragment slot="typescript">
+
+<Details>
+<Text.Text slot="summary" level="p"><Icon.Play /> Configure and run task</Text.Text>
+
+```typescript
+import { Synnax, TimeStamp } from "@synnaxlabs/client";
+
+const client = new Synnax();
+
+// Retrieve device
+const dev = await client.devices.retrieve({ name: "My HTTP Server" });
+
+// Create command time index
+const httpCmdTime = await client.channels.create({
+  name: "http_cmd_time",
+  isIndex: true,
+  dataType: "timestamp",
+  retrieveIfNameExists: true,
+});
+
+// Create command channel
+const setpointCmd = await client.channels.create({
+  name: "setpoint_cmd",
+  index: httpCmdTime.key,
+  dataType: "float32",
+  retrieveIfNameExists: true,
+});
+
+// Create and configure task
+const task = await client.tasks.create({
+  name: "HTTP Write Task",
+  type: "http_write",
+  config: JSON.stringify({
+    device: dev.key,
+    endpoints: [
+      {
+        method: "POST",
+        path: "/api/control/setpoint",
+        channel: {
+          pointer: "/value",
+          channel: setpointCmd.key,
+          json_type: "number",
+        },
+        fields: [
+          {
+            type: "generated",
+            pointer: "/request_id",
+            generator: "uuid",
+          },
+          {
+            type: "static",
+            pointer: "/unit",
+            value: "celsius",
+          },
+        ],
+      },
+    ],
+  }),
+});
+
+// Start task
+await task.executeCommandSync("start");
+
+// Send commands
+const writer = await client.openWriter({
+  start: TimeStamp.now(),
+  channels: ["setpoint_cmd"],
+});
+
+// Write command - sends POST to /api/control/setpoint with body:
+// {"value": 72.5, "request_id": "<uuid>", "unit": "celsius"}
+await writer.write({ setpoint_cmd: 72.5 });
+
+// Stop task
+await task.executeCommandSync("stop");
+await writer.close();
+```
+
+</Details>
+
+<Details>
+<Text.Text slot="summary" level="p"><Icon.Edit /> Edit task configuration</Text.Text>
+
+```typescript
+// Retrieve existing task
+const task = await client.tasks.retrieve({ name: "HTTP Write Task" });
+
+// Parse and update configuration
+const config = JSON.parse(task.config);
+
+// Update endpoint method
+config.endpoints[0].method = "PUT";
+
+// Add a static field
+config.endpoints[0].fields.push({
+  type: "static",
+  pointer: "/source",
+  value: "synnax",
+});
+
+// Apply changes
+await client.tasks.create({
+  key: task.key,
+  name: task.name,
+  type: task.type,
+  config: JSON.stringify(config),
+});
+```
+
+</Details>
+
+  </Fragment>
+</Client.Tabs>

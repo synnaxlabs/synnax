@@ -1,0 +1,187 @@
+---
+layout: "@/layouts/Reference.astro"
+title: "HTTP | Connect Server"
+heading: "Connect to an HTTP Server"
+description: "Connect to an HTTP/REST API server using Synnax."
+prev: "Get Started"
+prevURL: "/reference/driver/http/get-started"
+next: "Read Task"
+nextURL: "/reference/driver/http/read-task"
+---
+
+import { Divider, Text, Icon, Note } from "@synnaxlabs/pluto";
+import { Video } from "@/components/media/Media";
+import { Fragment } from "react";
+import Details from "@/components/details/Details.astro";
+import { Client } from "@/components/client";
+import { mdxOverrides } from "@/components/mdxOverrides";
+export const components = mdxOverrides;
+
+<Divider.Divider x />
+
+## Prerequisites
+
+Before you can connect to an HTTP server, you will need to ensure that you have the
+following:
+
+1. A [Synnax Core](/reference/core/quick-start) running on your network.
+2. A [Synnax Driver](/reference/driver/get-started) running on your network. This Driver
+   must be connected to the Core and able to reach your HTTP server.
+3. The [Synnax Console](/reference/console/get-started) installed on your local machine.
+4. An HTTP server running on your network. This server must be reachable by the Driver.
+
+<Divider.Divider x />
+
+## Connection Configuration Reference
+
+| Parameter    | Type    | Required | Default | Description                                                                           |
+| ------------ | ------- | -------- | ------- | ------------------------------------------------------------------------------------- |
+| `name`       | string  | Yes      | -       | Human-readable server name for identification in Console                              |
+| `rack`       | string  | Yes      | -       | Synnax Driver (rack) key that will connect to the HTTP server                         |
+| `base_url`   | string  | Yes      | -       | Full URL with scheme (e.g., `http://192.168.1.100:8080` or `https://api.example.com`) |
+| `timeout_ms` | number  | No       | `100`   | Request timeout in milliseconds                                                       |
+| `verify_ssl` | boolean | No       | `true`  | Verify SSL certificates for HTTPS connections                                         |
+
+<Divider.Divider x />
+
+## Authentication Configuration
+
+Authentication is configured as part of the connection. The `type` field determines
+which authentication method is used.
+
+### None (Default)
+
+No authentication is applied to requests.
+
+### Bearer Token
+
+| Parameter | Type   | Required | Default  | Description        |
+| --------- | ------ | -------- | -------- | ------------------ |
+| `type`    | string | Yes      | `"none"` | Set to `"bearer"`  |
+| `token`   | string | Yes      | -        | Bearer token value |
+
+Sends an `Authorization: Bearer <token>` header with every request.
+
+### Basic Authentication
+
+| Parameter  | Type   | Required | Default  | Description      |
+| ---------- | ------ | -------- | -------- | ---------------- |
+| `type`     | string | Yes      | `"none"` | Set to `"basic"` |
+| `username` | string | Yes      | -        | Username         |
+| `password` | string | Yes      | -        | Password         |
+
+Sends an `Authorization: Basic <base64>` header with every request.
+
+### API Key
+
+| Parameter   | Type   | Required    | Default    | Description                                                       |
+| ----------- | ------ | ----------- | ---------- | ----------------------------------------------------------------- |
+| `type`      | string | Yes         | `"none"`   | Set to `"api_key"`                                                |
+| `key`       | string | Yes         | -          | API key value                                                     |
+| `send_as`   | string | No          | `"header"` | How to send: `"header"` or `"query_param"`                        |
+| `header`    | string | Conditional | -          | Header name (required when `send_as` is `"header"`)               |
+| `parameter` | string | Conditional | -          | Query parameter name (required when `send_as` is `"query_param"`) |
+
+<Divider.Divider x />
+
+## Health Check Configuration
+
+An optional health check endpoint can be configured to verify connectivity. The driver
+will send a request to this endpoint when testing the connection.
+
+| Parameter      | Type   | Required | Default | Description                                   |
+| -------------- | ------ | -------- | ------- | --------------------------------------------- |
+| `method`       | string | Yes      | -       | HTTP method (`GET`, `POST`, etc.)             |
+| `path`         | string | Yes      | -       | URL path appended to `base_url`               |
+| `query_params` | object | No       | `{}`    | Query parameters for the health check request |
+| `headers`      | object | No       | `{}`    | Headers for the health check request          |
+| `body`         | string | No       | `""`    | Request body for the health check             |
+
+### Response Validation
+
+Optionally validate the health check response by checking a specific value:
+
+| Parameter        | Type   | Required | Default | Description                                 |
+| ---------------- | ------ | -------- | ------- | ------------------------------------------- |
+| `pointer`        | string | Yes      | -       | JSON Pointer to the value in the response   |
+| `expected_value` | any    | Yes      | -       | Expected value at the JSON Pointer location |
+
+<Divider.Divider x />
+
+## How-To
+
+<Client.Tabs client:load exclude={["typescript", "cpp"]}>
+  <Fragment slot="console">
+
+<Video client:only="react" id="device-drivers/http/connect-server/http-connect" />
+
+</Fragment>
+  <Fragment slot="python">
+
+<Details open>
+<Text.Text slot="summary" level="p"><Icon.Connect /> Connect to HTTP Server</Text.Text>
+
+```python
+import synnax as sy
+
+# Initialize Synnax client
+client = sy.Synnax()
+
+# Retrieve the embedded rack
+rack = client.racks.retrieve_embedded_rack()
+
+# Create the HTTP device
+device = client.devices.create(
+    name="My HTTP Server",
+    make="http",
+    model="http",
+    location="api.example.com:8080",
+    rack=rack.key,
+    properties={
+        "secure": False,
+        "base_url": "http://api.example.com:8080",
+        "timeout_ms": 5000,
+        "verify_ssl": False,
+        "auth": {
+            "type": "bearer",
+            "token": "my-api-token",
+        },
+        "health_check": {
+            "method": "GET",
+            "path": "/health",
+        },
+    },
+)
+
+print(f"Connected to HTTP server: {device.name}")
+```
+
+</Details>
+
+<Details open>
+<Text.Text slot="summary" level="p"><Icon.Close /> Disconnect server</Text.Text>
+
+```python
+import synnax as sy
+
+# Initialize Synnax client
+client = sy.Synnax()
+
+# Retrieve the device by name
+device = client.devices.retrieve(
+    name="My HTTP Server",
+    ignore_not_found=True,
+)
+
+if device is not None:
+    # Delete the server
+    client.devices.delete([device.key])
+    print(f"Disconnected HTTP server: {device.name}")
+else:
+    print("Server not found")
+```
+
+</Details>
+
+  </Fragment>
+</Client.Tabs>

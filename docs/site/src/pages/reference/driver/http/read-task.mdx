@@ -1,0 +1,363 @@
+---
+layout: "@/layouts/Reference.astro"
+title: "HTTP Read Task"
+description: "Learn how to acquire data from HTTP/REST API endpoints with Synnax."
+next: "Write Task"
+nextURL: "/reference/driver/http/write-task"
+prev: "Connect to a Server"
+prevURL: "/reference/driver/http/connect-server"
+---
+
+import { Divider, Note, Icon, Text } from "@synnaxlabs/pluto";
+import { Video, Image } from "@/components/media/Media";
+import { Fragment } from "react";
+import Details from "@/components/details/Details.astro";
+import ChannelType from "@/components/details/ChannelType.astro";
+import DetailsGroup from "@/components/details/Group.astro";
+import { Client } from "@/components/client";
+import { mdxOverrides } from "@/components/mdxOverrides";
+export const components = mdxOverrides;
+
+For task lifecycle management, see the
+[Task Basics](/reference/driver/task-basics#how-to) page.
+
+<Divider.Divider x />
+
+## Task Configuration Reference
+
+| Parameter     | Type    | Required | Default | Description                                  |
+| ------------- | ------- | -------- | ------- | -------------------------------------------- |
+| `name`        | string  | Yes      | -       | Human-readable task name                     |
+| `device`      | string  | Yes      | -       | Key of the HTTP server device                |
+| `rate`        | number  | Yes      | -       | Polling rate in Hz (requests per second)     |
+| `data_saving` | boolean | No       | `true`  | Enable permanent storage in Synnax           |
+| `auto_start`  | boolean | No       | `false` | Automatically start task after configuration |
+| `endpoints`   | array   | Yes      | -       | List of endpoint configurations              |
+
+<Divider.Divider x />
+
+## Endpoint Configuration
+
+Each endpoint defines an HTTP request to poll and the fields to extract from the JSON
+response.
+
+| Parameter      | Type   | Required | Default | Description                                  |
+| -------------- | ------ | -------- | ------- | -------------------------------------------- |
+| `method`       | string | Yes      | -       | HTTP method (`GET`, `POST`, etc.)            |
+| `path`         | string | Yes      | -       | URL path appended to `base_url`              |
+| `query_params` | object | No       | `{}`    | Query parameters for this endpoint           |
+| `headers`      | object | No       | `{}`    | Headers for this endpoint                    |
+| `body`         | string | No       | `""`    | Request body (typically for `POST` requests) |
+| `fields`       | array  | Yes      | -       | List of field configurations to extract      |
+
+<Divider.Divider x />
+
+## Field Configuration
+
+Each field maps a value from the JSON response to a Synnax channel using a JSON Pointer.
+
+| Parameter          | Type    | Required    | Default | Description                                                                |
+| ------------------ | ------- | ----------- | ------- | -------------------------------------------------------------------------- |
+| `pointer`          | string  | Yes         | -       | JSON Pointer path to the value (e.g., `/status/temperature`)               |
+| `channel`          | number  | Yes         | -       | Synnax channel key to write the value to                                   |
+| `enabled`          | boolean | No          | `true`  | Whether this field is active                                               |
+| `timestamp_format` | string  | Conditional | -       | Required for timestamp channels (see Timestamp Formats below)              |
+| `enum_values`      | object  | No          | `{}`    | String-to-number mapping for converting string responses to numeric values |
+
+### Timestamp Formats
+
+When a field's channel has a timestamp data type, `timestamp_format` must be specified:
+
+| Format             | Description                    |
+| ------------------ | ------------------------------ |
+| `iso8601`          | ISO 8601 string                |
+| `unix_second`      | Unix timestamp in seconds      |
+| `unix_millisecond` | Unix timestamp in milliseconds |
+| `unix_microsecond` | Unix timestamp in microseconds |
+| `unix_nanosecond`  | Unix timestamp in nanoseconds  |
+
+### Enum Values
+
+The `enum_values` field allows mapping string responses to numeric channel values. For
+example, if an API returns `"on"` or `"off"`, you can map these to `1` and `0`:
+
+```json
+{
+  "enum_values": {
+    "on": 1,
+    "off": 0,
+    "standby": 2
+  }
+}
+```
+
+<Divider.Divider x />
+
+## JSON Pointer Reference
+
+Fields use [JSON Pointers (RFC 6901)](https://www.rfc-editor.org/rfc/rfc6901) to locate
+values in the response body. A JSON Pointer is a string of tokens separated by `/`:
+
+| Response JSON                                 | Pointer            | Value  |
+| --------------------------------------------- | ------------------ | ------ |
+| `{"temperature": 23.5}`                       | `/temperature`     | `23.5` |
+| `{"data": {"temp": 23.5}}`                    | `/data/temp`       | `23.5` |
+| `{"sensors": [{"value": 10}, {"value": 20}]}` | `/sensors/0/value` | `10`   |
+| `{"sensors": [{"value": 10}, {"value": 20}]}` | `/sensors/1/value` | `20`   |
+
+<Divider.Divider x />
+
+## Important Rules
+
+- **Polling rate** -> All endpoints in a task are polled at the same rate. Create
+  separate tasks for different polling rates.
+- **Software timing** -> HTTP read tasks use software timing. Timestamps are
+  automatically generated unless a field explicitly provides them via
+  `timestamp_format`.
+- **One running task per channel** -> A channel can only receive live data from one task
+  at a time.
+- **JSON Pointer accuracy** -> Each `pointer` must resolve to a valid value in the JSON
+  response. The task will report errors if the pointer does not match.
+- **Channel uniqueness** -> Each channel key can only appear once across all endpoints
+  in a task.
+
+<Divider.Divider x />
+
+## How-To
+
+<Client.Tabs client:load exclude={["cpp"]}>
+  <Fragment slot="console">
+    <Video
+      client:only="react"
+      id="device-drivers/http/read-task/http-read"
+    />
+  </Fragment>
+  <Fragment slot="python">
+
+<Details>
+<Text.Text slot="summary" level="p"><Icon.Play /> Configure and run task</Text.Text>
+
+```python
+import synnax as sy
+
+client = sy.Synnax()
+
+# Retrieve device
+dev = client.devices.retrieve(name="My HTTP Server")
+
+# Create index channel
+http_time = client.channels.create(
+    name="http_time",
+    is_index=True,
+    data_type=sy.DataType.TIMESTAMP,
+    retrieve_if_name_exists=True,
+)
+
+# Create data channels
+temperature = client.channels.create(
+    name="temperature",
+    index=http_time.key,
+    data_type=sy.DataType.FLOAT32,
+    retrieve_if_name_exists=True,
+)
+
+humidity = client.channels.create(
+    name="humidity",
+    index=http_time.key,
+    data_type=sy.DataType.FLOAT32,
+    retrieve_if_name_exists=True,
+)
+
+# Create and configure task
+task = client.tasks.create(
+    name="HTTP Read Task",
+    type="http_read",
+    config=sy.json_encode({
+        "device": dev.key,
+        "rate": 1,
+        "data_saving": True,
+        "endpoints": [
+            {
+                "method": "GET",
+                "path": "/api/sensors",
+                "fields": [
+                    {
+                        "pointer": "/temperature",
+                        "channel": temperature.key,
+                    },
+                    {
+                        "pointer": "/humidity",
+                        "channel": humidity.key,
+                    },
+                ],
+            },
+        ],
+    }),
+)
+
+# Start task and read data
+await task.execute_command_sync("start")
+
+with client.open_streamer(["temperature", "humidity"]) as streamer:
+    for _ in range(10):
+        frame = streamer.read()
+        print(frame)
+
+await task.execute_command_sync("stop")
+```
+
+</Details>
+
+<Details>
+<Text.Text slot="summary" level="p"><Icon.Edit /> Edit task configuration</Text.Text>
+
+```python
+import json
+
+# Retrieve existing task
+task = client.tasks.retrieve(name="HTTP Read Task")
+
+# Parse and update configuration
+config = json.loads(task.config)
+
+# Update polling rate
+config["rate"] = 5
+
+# Add a new endpoint
+config["endpoints"].append({
+    "method": "GET",
+    "path": "/api/status",
+    "fields": [
+        {
+            "pointer": "/status/code",
+            "channel": status_channel.key,
+        },
+    ],
+})
+
+# Apply changes
+task.config = sy.json_encode(config)
+client.tasks.configure(task)
+```
+
+</Details>
+
+  </Fragment>
+  <Fragment slot="typescript">
+
+<Details>
+<Text.Text slot="summary" level="p"><Icon.Play /> Configure and run task</Text.Text>
+
+```typescript
+import { Synnax } from "@synnaxlabs/client";
+
+const client = new Synnax();
+
+// Retrieve device
+const dev = await client.devices.retrieve({ name: "My HTTP Server" });
+
+// Create index channel
+const httpTime = await client.channels.create({
+  name: "http_time",
+  isIndex: true,
+  dataType: "timestamp",
+  retrieveIfNameExists: true,
+});
+
+// Create data channels
+const temperature = await client.channels.create({
+  name: "temperature",
+  index: httpTime.key,
+  dataType: "float32",
+  retrieveIfNameExists: true,
+});
+
+const humidity = await client.channels.create({
+  name: "humidity",
+  index: httpTime.key,
+  dataType: "float32",
+  retrieveIfNameExists: true,
+});
+
+// Create and configure task
+const task = await client.tasks.create({
+  name: "HTTP Read Task",
+  type: "http_read",
+  config: JSON.stringify({
+    device: dev.key,
+    rate: 1,
+    data_saving: true,
+    endpoints: [
+      {
+        method: "GET",
+        path: "/api/sensors",
+        fields: [
+          {
+            pointer: "/temperature",
+            channel: temperature.key,
+          },
+          {
+            pointer: "/humidity",
+            channel: humidity.key,
+          },
+        ],
+      },
+    ],
+  }),
+});
+
+// Start task
+await task.executeCommandSync("start");
+
+// Read data
+const streamer = await client.openStreamer(["temperature", "humidity"]);
+for (let i = 0; i < 10; i++) {
+  const frame = await streamer.read();
+  console.log(frame);
+}
+
+// Stop task
+await task.executeCommandSync("stop");
+await streamer.close();
+```
+
+</Details>
+
+<Details>
+<Text.Text slot="summary" level="p"><Icon.Edit /> Edit task configuration</Text.Text>
+
+```typescript
+// Retrieve existing task
+const task = await client.tasks.retrieve({ name: "HTTP Read Task" });
+
+// Parse and update configuration
+const config = JSON.parse(task.config);
+
+// Update polling rate
+config.rate = 5;
+
+// Add a new endpoint
+config.endpoints.push({
+  method: "GET",
+  path: "/api/status",
+  fields: [
+    {
+      pointer: "/status/code",
+      channel: statusChannel.key,
+    },
+  ],
+});
+
+// Apply changes
+await client.tasks.create({
+  key: task.key,
+  name: task.name,
+  type: task.type,
+  config: JSON.stringify(config),
+});
+```
+
+</Details>
+
+  </Fragment>
+</Client.Tabs>
