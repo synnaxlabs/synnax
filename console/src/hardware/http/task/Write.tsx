@@ -24,7 +24,7 @@ import {
   Telem,
   Text,
 } from "@synnaxlabs/pluto";
-import { DataType, id, primitive } from "@synnaxlabs/x";
+import { DataType, id, json, primitive } from "@synnaxlabs/x";
 import { type FC, useCallback, useState } from "react";
 
 import { EmptyAction, Menu } from "@/components";
@@ -34,6 +34,7 @@ import { Common } from "@/hardware/common";
 import { Device } from "@/hardware/http/device";
 import {
   type GeneratorType,
+  type TimeFormat,
   WRITE_SCHEMAS,
   WRITE_TYPE,
   type WriteEndpoint,
@@ -122,13 +123,13 @@ const endpointListItem = Component.renderProp(EndpointListItem);
 
 const WRITE_METHOD_KEYS: WriteMethod[] = ["POST", "PUT", "PATCH"];
 
-const JSON_TYPE_DATA: Select.StaticEntry<string>[] = [
+const JSON_TYPE_DATA: Select.StaticEntry<json.PrimitiveType>[] = [
   { key: "number", name: "Number" },
   { key: "string", name: "String" },
   { key: "boolean", name: "Boolean" },
 ];
 
-const GENERATOR_DATA: Select.StaticEntry<string>[] = [
+const GENERATOR_DATA: Select.StaticEntry<GeneratorType | TimeFormat>[] = [
   { key: "uuid", name: "UUID" },
   { key: "iso8601", name: "Timestamp (ISO 8601)" },
   { key: "unix_sec", name: "Timestamp (s)" },
@@ -173,27 +174,20 @@ const ChannelFieldSection: FC<{ epPath: string; epKey: string }> = ({
           style={{ paddingRight: "2rem" }}
         />
       </Header.Header>
-      <Flex.Box style={{ padding: "2rem" }}>
+      <Flex.Box style={CHANNEL_FIELD_SECTION_STYLE}>
         <Flex.Box x align="end" gap="large">
           <PForm.TextField
             path={`${channelPath}.pointer`}
             label="JSON pointer"
             grow
-            inputProps={{ placeholder: "/value" }}
+            inputProps={JSON_POINTER_INPUT_PROPS}
           />
           <PForm.Field<string>
             path={`${channelPath}.jsonType`}
             label="JSON type"
-            style={{ width: 140 }}
+            style={JSON_TYPE_SELECT_STYLE}
           >
-            {({ value, onChange }) => (
-              <Select.Static<string, Select.StaticEntry<string>>
-                value={value}
-                onChange={onChange}
-                data={JSON_TYPE_DATA}
-                resourceName="JSON type"
-              />
-            )}
+            {renderSelectJSONType}
           </PForm.Field>
         </Flex.Box>
         {channelKey === 0 && (
@@ -201,22 +195,47 @@ const ChannelFieldSection: FC<{ epPath: string; epKey: string }> = ({
             path={`${channelPath}.dataType`}
             label="Data type"
             showHelpText={false}
-            style={{ maxWidth: "25rem" }}
+            style={DATA_TYPE_SELECT_STYLE}
           >
-            {({ value, onChange }) => (
-              <Telem.SelectDataType
-                value={value}
-                onChange={onChange}
-                location="bottom"
-                hideDataTypes={HIDDEN_DATA_TYPES}
-              />
-            )}
+            {renderSelectDataType}
           </PForm.Field>
         )}
       </Flex.Box>
     </>
   );
 };
+
+const renderSelectJSONType = Component.renderProp(
+  (
+    p: Omit<
+      Select.StaticProps<string, Select.StaticEntry<json.PrimitiveType>>,
+      "data" | "resourceName"
+    >,
+  ) => (
+    <Select.Static<string, Select.StaticEntry<json.PrimitiveType>>
+      {...p}
+      data={JSON_TYPE_DATA}
+      resourceName="JSON type"
+    />
+  ),
+);
+
+const CHANNEL_FIELD_SECTION_STYLE = { padding: "2rem" } as const;
+
+const JSON_POINTER_INPUT_PROPS = { placeholder: "/value" } as const;
+
+const JSON_TYPE_SELECT_STYLE = { width: 140 } as const;
+
+const renderSelectDataType = Component.renderProp((p: Telem.SelectDataTypeProps) => (
+  <Telem.SelectDataType
+    {...p}
+    hideDataTypes={HIDDEN_DATA_TYPES}
+    hideVariableDensity
+    location="bottom"
+  />
+));
+
+const DATA_TYPE_SELECT_STYLE = { maxWidth: "25rem" } as const;
 
 const HIDDEN_DATA_TYPES = [
   DataType.TIMESTAMP,
@@ -226,45 +245,42 @@ const HIDDEN_DATA_TYPES = [
 ];
 
 const generatorDisplayKey = (
-  generator: string | null | undefined,
-  timeFormat: string | null | undefined,
-): string => {
+  generator: GeneratorType | null | undefined,
+  timeFormat: TimeFormat | null | undefined,
+): GeneratorType | TimeFormat => {
   if (generator === "timestamp") return timeFormat ?? "iso8601";
   return "uuid";
-};
-
-const ZERO_JSON_VALUES: Record<string, string | number | boolean> = {
-  string: "",
-  number: 0,
-  boolean: false,
 };
 
 const FieldListItem = (props: List.ItemProps<string> & { epKey: string }) => {
   const { itemKey, epKey } = props;
   const path = `config.endpoints.${epKey}.fields.${itemKey}`;
   const fieldType = PForm.useFieldValue<string>(`${path}.type`);
-  const jsonType = PForm.useFieldValue<string | undefined>(`${path}.jsonType`, {
-    optional: true,
-  });
+  const jsonType = PForm.useFieldValue<json.PrimitiveType | undefined>(
+    `${path}.jsonType`,
+    {
+      optional: true,
+    },
+  );
   const generator = PForm.useFieldValue<GeneratorType | undefined>(
     `${path}.generator`,
     { optional: true },
   );
-  const timeFormat = PForm.useFieldValue<string | undefined>(`${path}.timeFormat`, {
+  const timeFormat = PForm.useFieldValue<TimeFormat | undefined>(`${path}.timeFormat`, {
     optional: true,
   });
   const { set } = PForm.useContext();
 
   const handleJSONTypeChange = useCallback(
-    (value: string) => {
+    (value: json.PrimitiveType) => {
       set(`${path}.jsonType`, value);
-      set(`${path}.value`, ZERO_JSON_VALUES[value]);
+      set(`${path}.value`, json.ZERO_PRIMITIVES[value]);
     },
     [set, path],
   );
 
   const handleGeneratorChange = useCallback(
-    (key: string) => {
+    (key: GeneratorType | TimeFormat) => {
       if (key === "uuid") {
         set(`${path}.generator`, "uuid");
         set(`${path}.timeFormat`, undefined);
@@ -282,11 +298,11 @@ const FieldListItem = (props: List.ItemProps<string> & { epKey: string }) => {
         path={`${path}.pointer`}
         showLabel={false}
         showHelpText={false}
-        inputProps={{ placeholder: "/field" }}
+        inputProps={STATIC_FILED_INPUT_PROPS}
         grow
       />
       {fieldType === "static" && (
-        <Select.Static<string, Select.StaticEntry<string>>
+        <Select.Static<json.PrimitiveType, Select.StaticEntry<json.PrimitiveType>>
           value={jsonType ?? "string"}
           onChange={handleJSONTypeChange}
           data={JSON_TYPE_DATA}
@@ -298,8 +314,8 @@ const FieldListItem = (props: List.ItemProps<string> & { epKey: string }) => {
           path={`${path}.value`}
           showLabel={false}
           showHelpText={false}
-          inputProps={{ placeholder: "value" }}
-          style={{ width: 120 }}
+          inputProps={STRING_INPUT_PROPS}
+          style={WIDTH_STYLE}
         />
       )}
       {fieldType === "static" && jsonType === "number" && (
@@ -307,7 +323,7 @@ const FieldListItem = (props: List.ItemProps<string> & { epKey: string }) => {
           path={`${path}.value`}
           showLabel={false}
           showHelpText={false}
-          style={{ width: 120 }}
+          style={WIDTH_STYLE}
         />
       )}
       {fieldType === "static" && jsonType === "boolean" && (
@@ -318,19 +334,28 @@ const FieldListItem = (props: List.ItemProps<string> & { epKey: string }) => {
         />
       )}
       {fieldType === "generated" && (
-        <Select.Static<string, Select.StaticEntry<string>>
+        <Select.Static<
+          GeneratorType | TimeFormat,
+          Select.StaticEntry<GeneratorType | TimeFormat>
+        >
           value={generatorDisplayKey(generator, timeFormat)}
           onChange={handleGeneratorChange}
           data={GENERATOR_DATA}
           resourceName="generator"
         />
       )}
-      <Text.Text level="small" color={7} style={{ whiteSpace: "nowrap" }}>
+      <Text.Text level="small" color={7}>
         {fieldType}
       </Text.Text>
     </Select.ListItem>
   );
 };
+
+const STATIC_FILED_INPUT_PROPS = { placeholder: "field" } as const;
+
+const STRING_INPUT_PROPS = { placeholder: "value" } as const;
+
+const WIDTH_STYLE = { width: 120 } as const;
 
 const AdditionalFields: FC<{ epKey: string }> = ({ epKey }) => {
   const path = `config.endpoints.${epKey}.fields`;
@@ -426,8 +451,8 @@ const AdditionalFields: FC<{ epKey: string }> = ({ epKey }) => {
             full="y"
             className={menuProps.className}
             onContextMenu={menuProps.open}
-            style={{ overflow: "visible" }}
-            emptyContent={emptyContent}
+            style={LIST_ITEM_STYLE}
+            emptyContent={EMPTY_CONTENT}
           >
             {listItem}
           </List.Items>
@@ -437,7 +462,9 @@ const AdditionalFields: FC<{ epKey: string }> = ({ epKey }) => {
   );
 };
 
-const emptyContent = <EmptyAction message="No additional fields." action="" />;
+const LIST_ITEM_STYLE = { overflow: "visible" } as const;
+
+const EMPTY_CONTENT = <EmptyAction message="No additional fields." action="" />;
 
 const EndpointDetails: FC<{ epKey: string }> = ({ epKey }) => {
   const path = `config.endpoints.${epKey}`;
