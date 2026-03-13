@@ -48,7 +48,7 @@ var _ = Describe("AnalyzeCalculation", func() {
 	})
 })
 
-var _ = Describe("CompileModule", func() {
+var _ = Describe("CompileProgram", func() {
 	It("Should retrieve and compile an Arc with a valid graph", func() {
 		a := arc.Arc{
 			Name: "test-arc",
@@ -71,14 +71,14 @@ var _ = Describe("CompileModule", func() {
 		Expect(svc.NewWriter(tx).Create(ctx, &a)).To(Succeed())
 		Expect(tx.Commit(ctx)).To(Succeed())
 
-		result := MustSucceed(svc.CompileModule(ctx, a.Key))
+		result := MustSucceed(svc.CompileProgram(ctx, a.Key))
 		Expect(result.Key).To(Equal(a.Key))
-		Expect(result.Module.IR).ToNot(BeNil())
+		Expect(result.Program.IR).ToNot(BeNil())
 	})
 
 	It("Should return error when Arc does not exist", func() {
 		nonExistentKey := uuid.New()
-		Expect(svc.CompileModule(ctx, nonExistentKey)).Error().
+		Expect(svc.CompileProgram(ctx, nonExistentKey)).Error().
 			To(MatchError(query.ErrNotFound))
 	})
 
@@ -108,7 +108,7 @@ var _ = Describe("CompileModule", func() {
 		Expect(svc.NewWriter(tx).Create(ctx, &a)).To(Succeed())
 		Expect(tx.Commit(ctx)).To(Succeed())
 
-		Expect(svc.CompileModule(ctx, a.Key)).Error().
+		Expect(svc.CompileProgram(ctx, a.Key)).Error().
 			To(MatchError(ContainSubstring("edge target node 'nonexistent' not found")))
 	})
 })

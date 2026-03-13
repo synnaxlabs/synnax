@@ -21,8 +21,7 @@ import {
   ANALOG_WRITE_SCHEMAS,
   ANALOG_WRITE_TYPE,
   analogWriteConfigZ,
-  type analogWriteStatusDataZ,
-  type analogWriteTypeZ,
+  type AnalogWriteSchemas,
   AO_CHANNEL_TYPE_ICONS,
   AO_CHANNEL_TYPE_NAMES,
   type AOChannel,
@@ -90,13 +89,7 @@ const ChannelDetails = ({ path }: Common.Task.Layouts.DetailsProps) => {
 const channelDetails = Component.renderProp(ChannelDetails);
 const channelListItem = Component.renderProp(ChannelListItem);
 
-const Form: FC<
-  Common.Task.FormProps<
-    typeof analogWriteTypeZ,
-    typeof analogWriteConfigZ,
-    typeof analogWriteStatusDataZ
-  >
-> = () => (
+const Form: FC<Common.Task.FormProps<AnalogWriteSchemas>> = () => (
   <Common.Task.Layouts.ListAndDetails
     listItem={channelListItem}
     details={channelDetails}
@@ -105,11 +98,10 @@ const Form: FC<
   />
 );
 
-const getInitialValues: Common.Task.GetInitialValues<
-  typeof analogWriteTypeZ,
-  typeof analogWriteConfigZ,
-  typeof analogWriteStatusDataZ
-> = ({ deviceKey, config }) => {
+const getInitialValues: Common.Task.GetInitialValues<AnalogWriteSchemas> = ({
+  deviceKey,
+  config,
+}) => {
   const cfg =
     config != null
       ? analogWriteConfigZ.parse(config)
@@ -233,7 +225,7 @@ export const AnalogWrite = Common.Task.wrapForm({
   Properties,
   Form,
   schemas: ANALOG_WRITE_SCHEMAS,
-  type: ANALOG_WRITE_TYPE,
+  type: "ni_analog_write",
   getInitialValues,
   onConfigure,
 });

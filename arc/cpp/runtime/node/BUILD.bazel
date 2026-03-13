@@ -1,14 +1,13 @@
-load("@rules_cc//cc:cc_library.bzl", "cc_library")
-
 cc_library(
     name = "node",
     hdrs = [
         "factory.h",
         "node.h",
     ],
-    visibility = ["//arc/cpp/runtime:__subpackages__"],
+    visibility = ["//visibility:public"],
     deps = [
         "//arc/cpp/ir",
+        "//arc/cpp/runtime/state",
         "//x/cpp/errors",
         "//x/cpp/queue",
         "//x/cpp/telem",

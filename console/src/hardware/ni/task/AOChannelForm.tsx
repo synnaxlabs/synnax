@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { Divider, Flex, Form, Icon, Select } from "@synnaxlabs/pluto";
+import { Component, Divider, Flex, Form, Icon, Select } from "@synnaxlabs/pluto";
 import { type FC } from "react";
 
 import { Device } from "@/hardware/ni/device";
@@ -18,10 +18,6 @@ import {
   AO_FUNC_GEN_CHAN_TYPE,
   AO_VOLTAGE_CHAN_TYPE,
   type AOChannelType,
-  SAWTOOTH_WAVE_TYPE,
-  SINE_WAVE_TYPE,
-  SQUARE_WAVE_TYPE,
-  TRIANGLE_WAVE_TYPE,
   WAVE_TYPES,
   type WaveType,
 } from "@/hardware/ni/task/types";
@@ -29,20 +25,20 @@ import {
 interface SelectWaveTypeProps extends Omit<Select.ButtonsProps<WaveType>, "keys"> {}
 
 const SelectWaveType = (props: SelectWaveTypeProps) => (
-  <Select.Buttons {...props} keys={WAVE_TYPES}>
-    <Select.Button itemKey={SINE_WAVE_TYPE}>
+  <Select.Buttons<WaveType> {...props} keys={WAVE_TYPES}>
+    <Select.Button itemKey="sine">
       <Icon.Wave.Sine />
       Sine
     </Select.Button>
-    <Select.Button itemKey={TRIANGLE_WAVE_TYPE}>
+    <Select.Button itemKey="triangle">
       <Icon.Wave.Triangle />
       Triangle
     </Select.Button>
-    <Select.Button itemKey={SQUARE_WAVE_TYPE}>
+    <Select.Button itemKey="square">
       <Icon.Wave.Square />
       Square
     </Select.Button>
-    <Select.Button itemKey={SAWTOOTH_WAVE_TYPE}>
+    <Select.Button itemKey="sawtooth">
       <Icon.Wave.Sawtooth />
       Sawtooth
     </Select.Button>
@@ -67,24 +63,24 @@ const CHANNEL_FORMS: Record<AOChannelType, FC<FormProps>> = {
         <Form.NumericField
           path={`${path}.frequency`}
           label="Frequency"
-          inputProps={{ endContent: "Hz" }}
+          inputProps={HZ_END_CONTENT_INPUT_PROPS}
           grow
         />
         <Form.NumericField
           path={`${path}.amplitude`}
           label="Amplitude"
-          inputProps={{ endContent: "V" }}
+          inputProps={V_END_CONTENT_INPUT_PROPS}
           grow
         />
         <Form.NumericField
           path={`${path}.offset`}
           label="Offset"
-          inputProps={{ endContent: "V" }}
+          inputProps={V_END_CONTENT_INPUT_PROPS}
           grow
         />
       </Flex.Box>
       <Form.Field<WaveType> path={`${path}.waveType`} showLabel={false}>
-        {({ value, onChange }) => <SelectWaveType value={value} onChange={onChange} />}
+        {selectWaveType}
       </Form.Field>
     </Flex.Box>
   ),
@@ -96,6 +92,12 @@ const CHANNEL_FORMS: Record<AOChannelType, FC<FormProps>> = {
     </>
   ),
 };
+
+const HZ_END_CONTENT_INPUT_PROPS = { endContent: "Hz" } as const;
+
+const V_END_CONTENT_INPUT_PROPS = { endContent: "V" } as const;
+
+const selectWaveType = Component.renderProp(SelectWaveType);
 
 export interface AOChannelFormProps {
   type: AOChannelType;

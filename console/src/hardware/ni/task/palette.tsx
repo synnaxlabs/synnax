@@ -19,9 +19,9 @@ import { DIGITAL_WRITE_LAYOUT } from "@/hardware/ni/task/DigitalWrite";
 import { SCAN_SCHEMAS, SCAN_TYPE } from "@/hardware/ni/task/types";
 import { Palette } from "@/palette";
 
-const useVisible = () => Access.useUpdateGranted(task.TYPE_ONTOLOGY_ID);
+const useVisible = () => Access.useCreateGranted(task.TYPE_ONTOLOGY_ID);
 
-export const CreateAnalogReadCommand = Palette.createSimpleCommand({
+const CreateAnalogReadCommand = Palette.createSimpleCommand({
   key: "ni-create-analog-read-task",
   name: "Create an NI Analog Read Task",
   icon: <Icon.Logo.NI />,
@@ -29,7 +29,7 @@ export const CreateAnalogReadCommand = Palette.createSimpleCommand({
   useVisible,
 });
 
-export const CreateAnalogWriteCommand = Palette.createSimpleCommand({
+const CreateAnalogWriteCommand = Palette.createSimpleCommand({
   key: "ni-create-analog-write-task",
   name: "Create an NI Analog Write Task",
   icon: <Icon.Logo.NI />,
@@ -37,7 +37,7 @@ export const CreateAnalogWriteCommand = Palette.createSimpleCommand({
   useVisible,
 });
 
-export const CreateCounterReadCommand = Palette.createSimpleCommand({
+const CreateCounterReadCommand = Palette.createSimpleCommand({
   key: "ni-create-counter-read-task",
   name: "Create an NI Counter Read Task",
   icon: <Icon.Logo.NI />,
@@ -45,7 +45,7 @@ export const CreateCounterReadCommand = Palette.createSimpleCommand({
   useVisible,
 });
 
-export const CreateDigitalWriteCommand = Palette.createSimpleCommand({
+const CreateDigitalWriteCommand = Palette.createSimpleCommand({
   key: "ni-create-digital-write-task",
   name: "Create an NI Digital Write Task",
   icon: <Icon.Logo.NI />,
@@ -53,7 +53,7 @@ export const CreateDigitalWriteCommand = Palette.createSimpleCommand({
   useVisible,
 });
 
-export const CreateDigitalReadCommand = Palette.createSimpleCommand({
+const CreateDigitalReadCommand = Palette.createSimpleCommand({
   key: "ni-create-digital-read-task",
   name: "Create an NI Digital Read Task",
   icon: <Icon.Logo.NI />,
@@ -61,7 +61,7 @@ export const CreateDigitalReadCommand = Palette.createSimpleCommand({
   useVisible,
 });
 
-export const ToggleScannerCommand: Palette.Command = ({
+const ToggleScannerCommand: Palette.Command = ({
   client,
   addStatus,
   handleError,
@@ -81,10 +81,7 @@ export const ToggleScannerCommand: Palette.Command = ({
         const {
           config: { enabled },
         } = await client.tasks.create(
-          {
-            ...payload,
-            config: { ...config, enabled: !config.enabled },
-          },
+          { ...payload, config: { ...config, enabled: !config.enabled } },
           SCAN_SCHEMAS,
         );
         addStatus({
@@ -105,7 +102,7 @@ export const ToggleScannerCommand: Palette.Command = ({
 };
 ToggleScannerCommand.key = "ni-toggle-scan-task";
 ToggleScannerCommand.commandName = "Toggle the NI Device Scanner";
-ToggleScannerCommand.useVisible = useVisible;
+ToggleScannerCommand.useVisible = () => Access.useUpdateGranted(task.TYPE_ONTOLOGY_ID);
 
 export const COMMANDS = [
   CreateAnalogReadCommand,

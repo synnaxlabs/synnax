@@ -7,29 +7,17 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { channel } from "@synnaxlabs/client";
-import { DataType } from "@synnaxlabs/x";
+import { type channel } from "@synnaxlabs/client";
 import { type ReactElement } from "react";
 
 import { type ListQuery, useList } from "@/channel/queries";
+import { resolveIcon } from "@/channel/resolveIcon";
 import { HAUL_TYPE } from "@/channel/types";
 import { Component } from "@/component";
 import { type Flux } from "@/flux";
 import { Icon } from "@/icon";
 import { List } from "@/list";
 import { Select } from "@/select";
-
-export const resolveIcon = (ch?: channel.Payload): Icon.FC => {
-  if (ch == null) return Icon.Channel;
-  if (channel.isCalculated(ch)) return Icon.Calculation;
-  if (ch.isIndex) return Icon.Index;
-  const dt = new DataType(ch.dataType);
-  if (dt.isInteger) return Icon.Binary;
-  if (dt.isFloat) return Icon.Decimal;
-  if (dt.equals(DataType.STRING)) return Icon.String;
-  if (dt.equals(DataType.JSON)) return Icon.JSON;
-  return Icon.Channel;
-};
 
 const listItemRenderProp = Component.renderProp(
   ({ itemKey, ...rest }: List.ItemRenderProps<channel.Key>): ReactElement | null => {

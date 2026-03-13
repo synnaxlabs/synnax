@@ -20,18 +20,15 @@ import {
   retrieveAndValidateSlaves,
 } from "@/hardware/ethercat/task/configure";
 import {
-  AUTOMATIC_TYPE,
   channelMapKey,
-  createReadChannel,
+  createInputChannel,
   getChannelByMapKey,
   getPDOName,
   getPortLabel,
   type InputChannel,
   READ_SCHEMAS,
   READ_TYPE,
-  readConfigZ,
-  type readStatusDataZ,
-  type readTypeZ,
+  type ReadSchemas,
   resolvePDODataType,
   ZERO_READ_PAYLOAD,
 } from "@/hardware/ethercat/task/types";
@@ -81,27 +78,18 @@ const channelDetails = Component.renderProp(ReadChannelDetails);
 
 const listItem = Component.renderProp(ChannelListItem);
 
-const Form: FC<
-  Common.Task.FormProps<typeof readTypeZ, typeof readConfigZ, typeof readStatusDataZ>
-> = () => (
+const Form: FC<Common.Task.FormProps<ReadSchemas>> = () => (
   <Common.Task.Layouts.ListAndDetails<InputChannel>
     listItem={listItem}
     details={channelDetails}
-    createChannel={createReadChannel}
+    createChannel={createInputChannel}
     contextMenuItems={Common.Task.readChannelContextMenuItem}
   />
 );
 
-const getInitialValues: Common.Task.GetInitialValues<
-  typeof readTypeZ,
-  typeof readConfigZ,
-  typeof readStatusDataZ
-> = ({ config }) => {
+const getInitialValues: Common.Task.GetInitialValues<ReadSchemas> = ({ config }) => {
   if (config != null)
-    return {
-      ...ZERO_READ_PAYLOAD,
-      config: readConfigZ.parse(config),
-    };
+    return { ...ZERO_READ_PAYLOAD, config: READ_SCHEMAS.config.parse(config) };
   return { ...ZERO_READ_PAYLOAD };
 };
 
@@ -111,7 +99,7 @@ const READ_INDEX_OPTIONS = {
   nameSuffix: "_time" as const,
 };
 
-const onConfigure: Common.Task.OnConfigure<typeof readConfigZ> = async (
+const onConfigure: Common.Task.OnConfigure<ReadSchemas["config"]> = async (
   client,
   config,
 ) => {
@@ -136,7 +124,7 @@ const onConfigure: Common.Task.OnConfigure<typeof readConfigZ> = async (
             ? ch.name
             : `${identifier}_${getPDOName(ch)}`,
           dataType:
-            ch.type === AUTOMATIC_TYPE
+            ch.type === "automatic"
               ? resolvePDODataType(slave, ch.pdo, "inputs")
               : ch.dataType,
           index: slave.properties.readIndex,
@@ -165,7 +153,7 @@ export const Read = Common.Task.wrapForm({
   Properties,
   Form,
   schemas: READ_SCHEMAS,
-  type: READ_TYPE,
+  type: "ethercat_read",
   getInitialValues,
   onConfigure,
 });

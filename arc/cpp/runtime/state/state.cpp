@@ -7,7 +7,6 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-#include <algorithm>
 #include <cstring>
 #include <utility>
 
@@ -17,104 +16,6 @@
 #include "arc/cpp/types/types.h"
 
 namespace arc::runtime::state {
-void mark_write_active(
-    std::unordered_map<types::ChannelKey, Series> &writes,
-    std::vector<types::ChannelKey> &active_write_keys,
-    const types::ChannelKey key
-) {
-    auto &buf = writes[key];
-    if (buf == nullptr || buf->empty()) active_write_keys.push_back(key);
-}
-
-template<typename T>
-void append_fixed_sample(
-    std::unordered_map<types::ChannelKey, Series> &writes,
-    std::vector<types::ChannelKey> &active_write_keys,
-    const types::ChannelKey key,
-    const x::telem::DataType dt,
-    const T value
-) {
-    mark_write_active(writes, active_write_keys, key);
-    auto &buf = writes[key];
-    if (buf == nullptr) {
-        buf = x::mem::make_local_shared<x::telem::Series>(dt, 1);
-    } else if (buf->data_type() != dt) {
-        // Defensive fallback: replace mismatched buffers with latest value.
-        buf = x::mem::make_local_shared<x::telem::Series>(dt, 1);
-        buf->write(value);
-        return;
-    } else if (buf->cap() < buf->size() + 1) {
-        const auto grown_cap = std::max(buf->size() + 1, buf->cap() * 2 + 1);
-        auto grown = x::mem::make_local_shared<x::telem::Series>(dt, grown_cap);
-        grown->write(*buf);
-        grown->time_range = buf->time_range;
-        grown->alignment = buf->alignment;
-        buf = std::move(grown);
-    }
-    buf->write(value);
-}
-
-template<typename T>
-void write_channel_fixed(
-    std::unordered_map<types::ChannelKey, Series> &writes,
-    std::vector<types::ChannelKey> &active_write_keys,
-    const std::unordered_map<types::ChannelKey, types::ChannelKey> &indexes,
-    const types::ChannelKey key,
-    const x::telem::DataType dt,
-    const T value
-) {
-    append_fixed_sample(writes, active_write_keys, key, dt, value);
-    if (const auto idx_iter = indexes.find(key);
-        idx_iter != indexes.end() && idx_iter->second != 0)
-        append_fixed_sample(
-            writes,
-            active_write_keys,
-            idx_iter->second,
-            x::telem::TIMESTAMP_T,
-            x::telem::TimeStamp::now()
-        );
-}
-
-void append_to_write_buffer(Series &dest, const Series &src) {
-    if (src == nullptr || src->empty()) return;
-    if (dest == nullptr) {
-        dest = x::mem::make_local_shared<x::telem::Series>(src->deep_copy());
-        return;
-    }
-    if (dest->data_type() != src->data_type())
-        throw std::runtime_error("cannot append series with mismatched data types");
-
-    if (dest->data_type().is_variable()) {
-        const auto old_time_range = dest->time_range;
-        auto merged = dest->strings();
-        auto incoming = src->strings();
-        merged.insert(merged.end(), incoming.begin(), incoming.end());
-        dest = x::mem::make_local_shared<x::telem::Series>(merged, dest->data_type());
-        dest->time_range = old_time_range;
-    } else {
-        const auto required_cap = dest->size() + src->size();
-        if (dest->cap() < required_cap) {
-            const auto grown_cap = std::max(required_cap, dest->cap() * 2 + 1);
-            auto grown = x::mem::make_local_shared<x::telem::Series>(
-                dest->data_type(),
-                grown_cap
-            );
-            grown->write(*dest);
-            grown->time_range = dest->time_range;
-            grown->alignment = dest->alignment;
-            dest = std::move(grown);
-        }
-        dest->write(*src);
-    }
-    if (dest->time_range == x::telem::TimeRange()) {
-        dest->time_range = src->time_range;
-    } else {
-        if (src->time_range.start < dest->time_range.start)
-            dest->time_range.start = src->time_range.start;
-        if (src->time_range.end > dest->time_range.end)
-            dest->time_range.end = src->time_range.end;
-    }
-}
 
 Series parse_default_value(
     const std::optional<x::telem::SampleValue> &value,
@@ -162,14 +63,33 @@ Series parse_default_value(
 }
 
 State::State(const Config &cfg, errors::Handler error_handler):
-    cfg(cfg), error_handler(std::move(error_handler)) {
+    State(
+        cfg,
+        std::make_shared<stl::channel::State>(cfg.channels),
+        std::make_shared<stl::str::State>(),
+        std::make_shared<stl::series::State>(),
+        std::make_shared<stl::stateful::Variables>(),
+        std::move(error_handler)
+    ) {}
+
+State::State(
+    const Config &cfg,
+    std::shared_ptr<stl::channel::State> channel,
+    std::shared_ptr<stl::str::State> strings,
+    std::shared_ptr<stl::series::State> series,
+    std::shared_ptr<stl::stateful::Variables> vars,
+    errors::Handler error_handler
+):
+    cfg(cfg),
+    channel(std::move(channel)),
+    strings(std::move(strings)),
+    series(std::move(series)),
+    vars(std::move(vars)),
+    error_handler(std::move(error_handler)) {
     size_t total = 0;
     for (const auto &node: cfg.ir.nodes)
         total += node.outputs.size();
     this->values.reserve(total);
-
-    for (const auto &digest: cfg.channels)
-        this->indexes[digest.key] = digest.index;
 
     for (const auto &node: cfg.ir.nodes) {
         for (const auto &output: node.outputs) {
@@ -272,66 +192,22 @@ std::pair<Node, x::errors::Error> State::node(const std::string &key) {
 }
 
 void State::ingest(const x::telem::Frame &frame) {
-    for (size_t i = 0; i < frame.size(); i++)
-        reads[frame.channels->at(i)].push_back(
-            x::mem::local_shared(std::move(frame.series->at(i)))
-        );
+    this->channel->ingest(frame);
 }
 
 std::vector<std::pair<types::ChannelKey, Series>> State::flush() {
-    for (auto &series_vec: reads | std::views::values) {
-        if (series_vec.size() <= 1) continue;
-        // Keep only the last series to preserve the latest value for each channel.
-        // This allows channel_read_* calls to return the most recent value even if
-        // new frames for that channel haven't arrived yet.
-        auto last = std::move(series_vec.back());
-        series_vec.clear();
-        series_vec.push_back(std::move(last));
-    }
-    this->series_handles.clear();
-    this->series_handle_counter = 1;
-    this->strings.clear();
-    this->string_handle_counter = 1;
-
-    std::vector<std::pair<types::ChannelKey, Series>> result;
-    result.reserve(active_write_keys.size());
-    for (const auto key: active_write_keys) {
-        const auto it = writes.find(key);
-        if (it == writes.end() || it->second == nullptr || it->second->empty())
-            continue;
-        result.push_back(
-            {key, x::mem::make_local_shared<x::telem::Series>(it->second->deep_copy())}
-        );
-        it->second->clear();
-        it->second->time_range = x::telem::TimeRange();
-        it->second->alignment = x::telem::Alignment();
-    }
-    active_write_keys.clear();
+    auto result = this->channel->flush();
+    this->series->clear();
+    this->strings->clear();
     return result;
 }
 
 void State::reset() {
-    this->reads.clear();
-    this->writes.clear();
-    this->active_write_keys.clear();
-    this->strings.clear();
-    this->series_handles.clear();
-    this->string_handle_counter = 1;
-    this->series_handle_counter = 1;
-    this->config_strings.clear();
-    this->config_string_handle_counter = k_config_string_handle_base;
-    this->var_u8.clear();
-    this->var_u16.clear();
-    this->var_u32.clear();
-    this->var_u64.clear();
-    this->var_i8.clear();
-    this->var_i16.clear();
-    this->var_i32.clear();
-    this->var_i64.clear();
-    this->var_f32.clear();
-    this->var_f64.clear();
-    this->var_string.clear();
-    this->var_series.clear();
+    this->channel->reset();
+    this->strings->reset();
+    this->series->clear();
+    this->vars->reset();
+    this->authority_changes.clear();
 }
 
 void State::set_authority(
@@ -346,51 +222,6 @@ std::vector<AuthorityChange> State::flush_authority_changes() {
     result.swap(authority_changes);
     return result;
 }
-
-void State::write_channel(
-    const types::ChannelKey key,
-    const Series &data,
-    const Series &time
-) {
-    auto &data_buf = writes[key];
-    if (data_buf == nullptr || data_buf->empty()) active_write_keys.push_back(key);
-    append_to_write_buffer(data_buf, data);
-    if (const auto idx_iter = indexes.find(key);
-        idx_iter != indexes.end() && idx_iter->second != 0) {
-        auto &time_buf = writes[idx_iter->second];
-        if (time_buf == nullptr || time_buf->empty())
-            active_write_keys.push_back(idx_iter->second);
-        append_to_write_buffer(time_buf, time);
-    }
-}
-
-#define IMPL_CHANNEL_WRITE_OPS(suffix, cpptype, data_type_const)                       \
-    void State::write_channel_##suffix(                                                \
-        const types::ChannelKey key,                                                   \
-        const cpptype value                                                            \
-    ) {                                                                                \
-        write_channel_fixed(                                                           \
-            this->writes,                                                              \
-            this->active_write_keys,                                                   \
-            this->indexes,                                                             \
-            key,                                                                       \
-            data_type_const,                                                           \
-            value                                                                      \
-        );                                                                             \
-    }
-
-IMPL_CHANNEL_WRITE_OPS(u8, uint8_t, x::telem::UINT8_T)
-IMPL_CHANNEL_WRITE_OPS(u16, uint16_t, x::telem::UINT16_T)
-IMPL_CHANNEL_WRITE_OPS(u32, uint32_t, x::telem::UINT32_T)
-IMPL_CHANNEL_WRITE_OPS(u64, uint64_t, x::telem::UINT64_T)
-IMPL_CHANNEL_WRITE_OPS(i8, int8_t, x::telem::INT8_T)
-IMPL_CHANNEL_WRITE_OPS(i16, int16_t, x::telem::INT16_T)
-IMPL_CHANNEL_WRITE_OPS(i32, int32_t, x::telem::INT32_T)
-IMPL_CHANNEL_WRITE_OPS(i64, int64_t, x::telem::INT64_T)
-IMPL_CHANNEL_WRITE_OPS(f32, float, x::telem::FLOAT32_T)
-IMPL_CHANNEL_WRITE_OPS(f64, double, x::telem::FLOAT64_T)
-
-#undef IMPL_CHANNEL_WRITE_OPS
 
 bool Node::refresh_inputs() {
     if (this->inputs.empty()) return true;
@@ -422,39 +253,17 @@ bool Node::refresh_inputs() {
     return true;
 }
 
-std::pair<x::telem::MultiSeries, bool>
-State::read_channel(const types::ChannelKey key) {
-    const auto it = reads.find(key);
-    if (it == reads.end() || it->second.empty())
-        return {x::telem::MultiSeries{}, false};
-    x::telem::MultiSeries ms;
-    for (const auto &s: it->second)
-        ms.series.push_back(s->deep_copy());
-    return {std::move(ms), true};
-}
-
 std::tuple<x::telem::MultiSeries, x::telem::MultiSeries, bool>
-Node::read_chan(const types::ChannelKey key) const {
-    auto [data, ok] = this->state.read_channel(key);
-    if (!ok) return {x::telem::MultiSeries{}, x::telem::MultiSeries{}, false};
-    const auto index_it = this->state.indexes.find(key);
-    if (index_it == this->state.indexes.end() || index_it->second == 0)
-        return {std::move(data), x::telem::MultiSeries{}, !data.series.empty()};
-    auto [time, time_ok] = this->state.read_channel(index_it->second);
-    if (!time_ok) return {x::telem::MultiSeries{}, x::telem::MultiSeries{}, false};
-    return {
-        std::move(data),
-        std::move(time),
-        !data.series.empty() && !time.series.empty()
-    };
+Node::read_series(const types::ChannelKey key) const {
+    return this->state.channel->read_series(key);
 }
 
-void Node::write_chan(
+void Node::write_series(
     const types::ChannelKey key,
     const Series &data,
     const Series &time
 ) const {
-    this->state.write_channel(key, data, time);
+    this->state.channel->write_series(key, data, time);
 }
 
 const Series &Node::input_time(const size_t param_index) const {
@@ -479,123 +288,4 @@ void Node::set_current_node_key(const std::string &key) {
     this->state.set_current_node_key(key);
 }
 
-uint32_t State::string_from_memory(const uint8_t *data, const uint32_t len) {
-    const std::string str(reinterpret_cast<const char *>(data), len);
-    const uint32_t handle = this->string_handle_counter++;
-    this->strings[handle] = str;
-    return handle;
-}
-
-uint32_t State::string_create(const std::string &str) {
-    const uint32_t handle = this->string_handle_counter++;
-    this->strings[handle] = str;
-    return handle;
-}
-
-uint32_t State::string_create_config(const std::string &str) {
-    const uint32_t handle = this->config_string_handle_counter++;
-    this->config_strings[handle] = str;
-    return handle;
-}
-
-std::string State::string_get(const uint32_t handle) const {
-    const auto it = this->strings.find(handle);
-    if (it != this->strings.end()) return it->second;
-    const auto cfg_it = this->config_strings.find(handle);
-    if (cfg_it == this->config_strings.end()) return "";
-    return cfg_it->second;
-}
-
-bool State::string_exists(const uint32_t handle) const {
-    return this->strings.contains(handle) || this->config_strings.contains(handle);
-}
-
-x::telem::Series *State::series_get(const uint32_t handle) {
-    const auto it = this->series_handles.find(handle);
-    if (it == this->series_handles.end()) return nullptr;
-    return &it->second;
-}
-
-const x::telem::Series *State::series_get(const uint32_t handle) const {
-    const auto it = this->series_handles.find(handle);
-    if (it == this->series_handles.end()) return nullptr;
-    return &it->second;
-}
-
-uint32_t State::series_store(x::telem::Series series) {
-    const uint32_t handle = this->series_handle_counter++;
-    this->series_handles.emplace(handle, std::move(series));
-    return handle;
-}
-
-#define IMPL_VAR_OPS(suffix, cpptype)                                                  \
-    cpptype State::var_load_##suffix(                                                  \
-        const uint32_t var_id,                                                         \
-        const cpptype init_value                                                       \
-    ) {                                                                                \
-        auto &inner = this->var_##suffix[this->current_node_key];                      \
-        const auto it = inner.find(var_id);                                            \
-        if (it != inner.end()) return it->second;                                      \
-        inner[var_id] = init_value;                                                    \
-        return init_value;                                                             \
-    }                                                                                  \
-    void State::var_store_##suffix(const uint32_t var_id, const cpptype value) {       \
-        this->var_##suffix[this->current_node_key][var_id] = value;                    \
-    }
-
-IMPL_VAR_OPS(u8, uint8_t)
-IMPL_VAR_OPS(u16, uint16_t)
-IMPL_VAR_OPS(u32, uint32_t)
-IMPL_VAR_OPS(u64, uint64_t)
-IMPL_VAR_OPS(i8, int8_t)
-IMPL_VAR_OPS(i16, int16_t)
-IMPL_VAR_OPS(i32, int32_t)
-IMPL_VAR_OPS(i64, int64_t)
-IMPL_VAR_OPS(f32, float)
-IMPL_VAR_OPS(f64, double)
-
-#undef IMPL_VAR_OPS
-
-uint32_t State::var_load_str(const uint32_t var_id, const uint32_t init_handle) {
-    auto &inner = this->var_string[this->current_node_key];
-    if (const auto it = inner.find(var_id); it != inner.end()) {
-        this->strings[this->string_handle_counter] = it->second;
-        return this->string_handle_counter++;
-    }
-    // Use string_get to resolve both transient and config string handles.
-    inner[var_id] = this->string_get(init_handle);
-    this->strings[this->string_handle_counter] = inner[var_id];
-    return this->string_handle_counter++;
-}
-
-void State::var_store_str(const uint32_t var_id, const uint32_t str_handle) {
-    if (!this->string_exists(str_handle)) return;
-    // Use string_get to resolve both transient and config string handles.
-    this->var_string[this->current_node_key][var_id] = this->string_get(str_handle);
-}
-
-uint32_t State::var_load_series(const uint32_t var_id, const uint32_t init_handle) {
-    auto &inner = this->var_series[this->current_node_key];
-    if (const auto state_it = inner.find(var_id); state_it != inner.end()) {
-        auto copy = state_it->second.deep_copy();
-        const uint32_t handle = this->series_handle_counter++;
-        this->series_handles.emplace(handle, std::move(copy));
-        return handle;
-    }
-    if (const auto init_it = this->series_handles.find(init_handle);
-        init_it != this->series_handles.end()) {
-        inner.emplace(var_id, init_it->second.deep_copy());
-    }
-    return init_handle;
-}
-
-void State::var_store_series(const uint32_t var_id, const uint32_t handle) {
-    if (const auto it = this->series_handles.find(handle);
-        it != this->series_handles.end()) {
-        this->var_series[this->current_node_key].insert_or_assign(
-            var_id,
-            it->second.deep_copy()
-        );
-    }
-}
 }
