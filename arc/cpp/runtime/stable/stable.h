@@ -34,7 +34,7 @@ struct StableForConfig {
 
 using NowFn = std::function<x::telem::TimeStamp()>;
 
-inline NowFn default_now = [] { return x::telem::TimeStamp::now(); };
+inline const NowFn default_now = [] { return x::telem::TimeStamp::now(); };
 
 /// @brief StableFor outputs a value only after the input has remained unchanged
 /// for a configured duration. Used to debounce noisy signals.
