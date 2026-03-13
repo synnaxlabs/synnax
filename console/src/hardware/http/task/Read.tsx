@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import "@/hardware/http/task/Read.css";
+import "@/hardware/http/task/Task.css";
 
 import { channel, NotFoundError, type Synnax as Client } from "@synnaxlabs/client";
 import {

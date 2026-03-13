@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import "@/hardware/http/task/Write.css";
+import "@/hardware/http/task/Task.css";
 
 import { channel, type Synnax as Client } from "@synnaxlabs/client";
 import {
@@ -24,7 +24,7 @@ import {
   Telem,
   Text,
 } from "@synnaxlabs/pluto";
-import { id, primitive } from "@synnaxlabs/x";
+import { DataType, id, primitive } from "@synnaxlabs/x";
 import { type FC, useCallback, useState } from "react";
 
 import { EmptyAction, Menu } from "@/components";
@@ -38,7 +38,7 @@ import {
   WRITE_TYPE,
   type WriteEndpoint,
   type WriteField,
-  type WriteHTTPMethod,
+  type WriteMethod,
   type WritePayload,
   type WriteSchemas,
   ZERO_WRITE_ENDPOINT,
@@ -59,7 +59,14 @@ export const WriteSelectable = Selector.createSimpleItem({
   layout: WRITE_LAYOUT,
 });
 
-// ─── Endpoint Context Menu ───
+const Properties = () => (
+  <>
+    <Device.Select />
+    <Flex.Box x grow>
+      <Common.Task.Fields.AutoStart />
+    </Flex.Box>
+  </>
+);
 
 interface EndpointContextMenuProps {
   keys: string[];
@@ -101,10 +108,11 @@ const EndpointListItem = (props: List.ItemProps<string>) => {
   const { itemKey } = props;
   const method = PForm.useFieldValue<string>(`config.endpoints.${itemKey}.method`);
   const epPath = PForm.useFieldValue<string>(`config.endpoints.${itemKey}.path`);
+  const shownPath = epPath === "" ? "(no path)" : epPath;
   return (
     <Select.ListItem {...props} justify="between" align="center" x>
       <Text.Text level="small" weight={500}>
-        {method} {epPath || "(no path)"}
+        {method} {shownPath}
       </Text.Text>
     </Select.ListItem>
   );
@@ -112,7 +120,7 @@ const EndpointListItem = (props: List.ItemProps<string>) => {
 
 const endpointListItem = Component.renderProp(EndpointListItem);
 
-const WRITE_METHOD_KEYS: WriteHTTPMethod[] = ["POST", "PUT", "PATCH"];
+const WRITE_METHOD_KEYS: WriteMethod[] = ["POST", "PUT", "PATCH"];
 
 const JSON_TYPE_DATA: Select.StaticEntry<string>[] = [
   { key: "number", name: "Number" },
@@ -129,18 +137,18 @@ const GENERATOR_DATA: Select.StaticEntry<string>[] = [
   { key: "unix_ns", name: "Timestamp (ns)" },
 ];
 
-const WriteMethodSelect: FC<{ path: string }> = ({ path }) => (
-  <PForm.Field<WriteHTTPMethod> path={path} label="Method">
-    {renderWriteMethodSelect}
+const MethodSelect: FC<{ path: string }> = ({ path }) => (
+  <PForm.Field<WriteMethod> path={path} label="Method">
+    {renderMethodSelect}
   </PForm.Field>
 );
 
-const renderWriteMethodSelect = Component.renderProp(
-  (p: Omit<Select.ButtonsProps<WriteHTTPMethod>, "keys">) => (
-    <Select.Buttons<WriteHTTPMethod> {...p} keys={WRITE_METHOD_KEYS}>
-      <Select.Button<WriteHTTPMethod> itemKey="POST">POST</Select.Button>
-      <Select.Button<WriteHTTPMethod> itemKey="PUT">PUT</Select.Button>
-      <Select.Button<WriteHTTPMethod> itemKey="PATCH">PATCH</Select.Button>
+const renderMethodSelect = Component.renderProp(
+  (p: Omit<Select.ButtonsProps<WriteMethod>, "keys">) => (
+    <Select.Buttons<WriteMethod> {...p} keys={WRITE_METHOD_KEYS}>
+      <Select.Button<WriteMethod> itemKey="POST">POST</Select.Button>
+      <Select.Button<WriteMethod> itemKey="PUT">PUT</Select.Button>
+      <Select.Button<WriteMethod> itemKey="PATCH">PATCH</Select.Button>
     </Select.Buttons>
   ),
 );
@@ -153,62 +161,69 @@ const ChannelFieldSection: FC<{ epPath: string; epKey: string }> = ({
   const channelKey = PForm.useFieldValue<number>(`${channelPath}.channel`);
 
   return (
-    <Flex.Box y gap="small" style={{ padding: "0 1rem" }}>
+    <>
       <Header.Header>
-        <Header.Title weight={500} color={10}>
+        <Header.Title weight={500} color={9}>
           Channel
         </Header.Title>
-        <Flex.Box x align="center" grow justify="end">
-          <Common.Task.ChannelName
-            channel={channelKey}
-            namePath={`${channelPath}.name`}
-            id={Common.Task.getChannelNameID(epKey)}
-          />
-        </Flex.Box>
-      </Header.Header>
-      <Flex.Box x align="end" gap="large">
-        <PForm.TextField
-          path={`${channelPath}.pointer`}
-          label="JSON Pointer"
-          grow
-          inputProps={{ placeholder: "/value" }}
+        <Common.Task.ChannelName
+          channel={channelKey}
+          namePath={`${channelPath}.name`}
+          id={Common.Task.getChannelNameID(epKey)}
+          style={{ paddingRight: "2rem" }}
         />
-        <PForm.Field<string>
-          path={`${channelPath}.jsonType`}
-          label="JSON Type"
-          style={{ width: 140 }}
-        >
-          {({ value, onChange }) => (
-            <Select.Static<string, Select.StaticEntry<string>>
-              value={value}
-              onChange={onChange}
-              data={JSON_TYPE_DATA}
-              resourceName="JSON type"
-            />
-          )}
-        </PForm.Field>
-      </Flex.Box>
-      <Flex.Box x align="end" gap="large">
+      </Header.Header>
+      <Flex.Box style={{ padding: "2rem" }}>
+        <Flex.Box x align="end" gap="large">
+          <PForm.TextField
+            path={`${channelPath}.pointer`}
+            label="JSON pointer"
+            grow
+            inputProps={{ placeholder: "/value" }}
+          />
+          <PForm.Field<string>
+            path={`${channelPath}.jsonType`}
+            label="JSON type"
+            style={{ width: 140 }}
+          >
+            {({ value, onChange }) => (
+              <Select.Static<string, Select.StaticEntry<string>>
+                value={value}
+                onChange={onChange}
+                data={JSON_TYPE_DATA}
+                resourceName="JSON type"
+              />
+            )}
+          </PForm.Field>
+        </Flex.Box>
         {channelKey === 0 && (
           <PForm.Field<string>
             path={`${channelPath}.dataType`}
-            label="Data Type"
+            label="Data type"
             showHelpText={false}
+            style={{ maxWidth: "25rem" }}
           >
             {({ value, onChange }) => (
               <Telem.SelectDataType
                 value={value}
                 onChange={onChange}
-                hideVariableDensity
                 location="bottom"
+                hideDataTypes={HIDDEN_DATA_TYPES}
               />
             )}
           </PForm.Field>
         )}
       </Flex.Box>
-    </Flex.Box>
+    </>
   );
 };
+
+const HIDDEN_DATA_TYPES = [
+  DataType.TIMESTAMP,
+  DataType.JSON,
+  DataType.BYTES,
+  DataType.UUID,
+];
 
 const generatorDisplayKey = (
   generator: string | null | undefined,
@@ -372,7 +387,7 @@ const AdditionalFields: FC<{ epKey: string }> = ({ epKey }) => {
   return (
     <Flex.Box y grow empty>
       <Header.Header>
-        <Header.Title weight={500} color={10}>
+        <Header.Title weight={500} color={9}>
           Additional Fields
         </Header.Title>
         {!isSnapshot && (
@@ -411,6 +426,7 @@ const AdditionalFields: FC<{ epKey: string }> = ({ epKey }) => {
             full="y"
             className={menuProps.className}
             onContextMenu={menuProps.open}
+            style={{ overflow: "visible" }}
             emptyContent={emptyContent}
           >
             {listItem}
@@ -429,23 +445,24 @@ const EndpointDetails: FC<{ epKey: string }> = ({ epKey }) => {
     <Flex.Box y grow empty className={CSS.B("endpoint-details")}>
       <Flex.Box gap="small" empty className={CSS.B("endpoint-details-form")}>
         <Flex.Box x align="end" gap="large">
-          <WriteMethodSelect path={`${path}.method`} />
+          <MethodSelect path={`${path}.method`} />
           <PForm.TextField
             path={`${path}.path`}
             label="Path"
             grow
-            inputProps={{ placeholder: "/api/control" }}
+            inputProps={PATH_INPUT_PROPS}
           />
         </Flex.Box>
+        <Divider.Divider x />
         <KeyValueEditor
           path={`${path}.headers`}
           label="Headers"
-          className={CSS.B("endpoint-details-headers")}
-          keyPlaceholder="Header Name"
-          valuePlaceholder="Header Value"
+          className={CSS.B("headers-kv-editor")}
+          keyPlaceholder="Name"
+          valuePlaceholder="Value"
         />
       </Flex.Box>
-      <Divider.Divider x padded />
+      <Divider.Divider x />
       <ChannelFieldSection epPath={path} epKey={epKey} />
       <Divider.Divider x />
       <AdditionalFields key={epKey} epKey={epKey} />
@@ -453,14 +470,7 @@ const EndpointDetails: FC<{ epKey: string }> = ({ epKey }) => {
   );
 };
 
-const Properties = () => (
-  <>
-    <Device.Select />
-    <Flex.Box x grow>
-      <Common.Task.Fields.AutoStart />
-    </Flex.Box>
-  </>
-);
+const PATH_INPUT_PROPS = { placeholder: "/api/control" };
 
 const Form: FC<Common.Task.FormProps<WriteSchemas>> = () => {
   const [selectedEndpoints, setSelectedEndpoints] = useState<string[]>([]);
