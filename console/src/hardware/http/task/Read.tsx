@@ -18,6 +18,7 @@ import {
   Form as PForm,
   Header,
   Icon,
+  Input,
   List,
   Menu as PMenu,
   Select,
@@ -299,11 +300,10 @@ const FieldList = ({ epKey }: FieldListProps) => {
         onSelect={setSelected}
         selected={selected}
         path={path}
-        style={CHANNEL_LIST_STYLE}
-        grow
+        style={FIELD_LIST_STYLE}
         header={
           <Header.Header>
-            <Header.Title weight={500} color={10}>
+            <Header.Title weight={500} color={9}>
               Fields
             </Header.Title>
             {!isSnapshot && (
@@ -346,7 +346,11 @@ const FieldList = ({ epKey }: FieldListProps) => {
   );
 };
 
-const CHANNEL_LIST_STYLE = { paddingBottom: "1rem", maxWidth: "100%" } as const;
+const FIELD_LIST_STYLE = {
+  paddingBottom: "1rem",
+  maxWidth: "100%",
+  overflow: "visible",
+} as const;
 
 type TimingMode = "software" | "value";
 const TIMING_MODE_KEYS: TimingMode[] = ["software", "value"];
@@ -379,11 +383,8 @@ const TimingToggle: FC<{ path: string }> = ({ path }) => {
   );
 
   return (
-    <Flex.Box y gap={3} className={CSS.B("timing-toggle")}>
-      <Flex.Box x align="center" gap="small">
-        <Text.Text level="small" weight={500} className={CSS.B("timing-label")}>
-          Timing
-        </Text.Text>
+    <Flex.Box x align="end" wrap className={CSS.B("timing-toggle")}>
+      <Input.Item label="Timing Mode" padHelpText>
         <Select.Buttons<TimingMode>
           value={isValueTiming ? "value" : "software"}
           onChange={handleChange}
@@ -392,9 +393,9 @@ const TimingToggle: FC<{ path: string }> = ({ path }) => {
           <Select.Button<TimingMode> itemKey="software">Software</Select.Button>
           <Select.Button<TimingMode> itemKey="value">Value</Select.Button>
         </Select.Buttons>
-      </Flex.Box>
+      </Input.Item>
       {isValueTiming && indexField != null && (
-        <Flex.Box x align="center" gap="large">
+        <>
           <PForm.TextField
             path={`${path}.fields.${indexField.key}.pointer`}
             label="Timestamp pointer"
@@ -408,7 +409,7 @@ const TimingToggle: FC<{ path: string }> = ({ path }) => {
           >
             {renderSelectTimeFormat}
           </PForm.Field>
-        </Flex.Box>
+        </>
       )}
     </Flex.Box>
   );
@@ -456,22 +457,24 @@ const EndpointDetails: FC<{ epKey: string }> = ({ epKey }) => {
             />
           </Flex.Box>
         )}
-        <KeyValueEditor
-          path={`${path}.headers`}
-          label="Headers"
-          keyPlaceholder="Header Name"
-          valuePlaceholder="Header Value"
-          className={CSS.B("endpoint-details-headers")}
-        />
-        <KeyValueEditor
-          path={`${path}.queryParams`}
-          label="Query parameters"
-          keyPlaceholder="Parameter"
-          valuePlaceholder="Value"
-        />
+        <TimingToggle path={path} />
       </Flex.Box>
-      <Divider.Divider x padded />
-      <TimingToggle path={path} />
+      <Divider.Divider x />
+      <KeyValueEditor
+        path={`${path}.headers`}
+        label="Headers"
+        keyPlaceholder="Header Name"
+        valuePlaceholder="Header Value"
+        contentClassName={CSS.B("kv-rows")}
+      />
+      <Divider.Divider x />
+      <KeyValueEditor
+        path={`${path}.queryParams`}
+        label="Query Parameters"
+        keyPlaceholder="Parameter"
+        valuePlaceholder="Value"
+        contentClassName={CSS.B("kv-rows")}
+      />
       <Divider.Divider x />
       <FieldList key={epKey} epKey={epKey} />
     </Flex.Box>
@@ -586,13 +589,23 @@ const Form: FC<Common.Task.FormProps<ReadSchemas>> = () => {
         </PMenu.ContextMenu>
       </Flex.Box>
       <Divider.Divider y />
-      {selectedEndpoints.length > 0 ? (
-        <EndpointDetails epKey={selectedEndpoints[0]} />
-      ) : (
-        <Flex.Box y grow align="center" justify="center">
-          <Text.Text status="disabled">Select an endpoint to configure</Text.Text>
-        </Flex.Box>
-      )}
+      <Flex.Box y grow empty>
+        <Common.Task.Layouts.DetailsHeader
+          path={
+            selectedEndpoints.length > 0
+              ? `config.endpoints.${selectedEndpoints[0]}`
+              : ""
+          }
+          disabled={selectedEndpoints.length === 0}
+        />
+        {selectedEndpoints.length > 0 ? (
+          <EndpointDetails epKey={selectedEndpoints[0]} />
+        ) : (
+          <Flex.Box y grow align="center" justify="center">
+            <Text.Text status="disabled">Select an endpoint to configure</Text.Text>
+          </Flex.Box>
+        )}
+      </Flex.Box>
     </Flex.Box>
   );
 };

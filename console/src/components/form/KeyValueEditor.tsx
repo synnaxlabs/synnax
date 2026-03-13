@@ -7,8 +7,12 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { Button, Flex, Form, Icon, Input } from "@synnaxlabs/pluto";
+import "@/components/form/KeyValueEditor.css";
+
+import { Button, Flex, Form, Header, Icon, Input } from "@synnaxlabs/pluto";
 import { type FC, useState } from "react";
+
+import { CSS } from "@/css";
 
 interface Entry {
   key: string;
@@ -21,6 +25,7 @@ export interface KeyValueEditorProps extends Flex.BoxProps {
   keyPlaceholder?: string;
   valuePlaceholder?: string;
   valueType?: "string" | "number";
+  contentClassName?: string;
 }
 
 export const KeyValueEditor: FC<KeyValueEditorProps> = ({
@@ -29,6 +34,7 @@ export const KeyValueEditor: FC<KeyValueEditorProps> = ({
   keyPlaceholder = "Key",
   valuePlaceholder = "Value",
   valueType = "string",
+  contentClassName,
   ...rest
 }) => {
   const defaultValue = valueType === "number" ? 0 : "";
@@ -94,36 +100,53 @@ export const KeyValueEditor: FC<KeyValueEditorProps> = ({
 
   return (
     <Flex.Box y gap="small" {...rest}>
-      <Flex.Box x align="center" justify="between">
-        <Input.Label>{label}</Input.Label>
-        <Button.Button variant="text" size="small" onClick={addRow}>
-          <Icon.Add />
-        </Button.Button>
-      </Flex.Box>
-      {entries.map((entry, i) => (
-        <Flex.Box x key={i} align="center" gap="small">
-          <Input.Text
-            placeholder={keyPlaceholder}
-            value={entry.key}
-            onChange={(v) => updateRowKey(i, v)}
-          />
-          {valueType === "number" ? (
-            <Input.Numeric
-              value={entry.value as number}
-              onChange={(v) => updateRowValue(i, v)}
-            />
-          ) : (
-            <Input.Text
-              placeholder={valuePlaceholder}
-              value={entry.value as string}
-              onChange={(v) => updateRowValue(i, v)}
-            />
-          )}
-          <Button.Button variant="text" size="small" onClick={() => removeRow(i)}>
-            <Icon.Close />
+      <Header.Header>
+        <Header.Title weight={500} color={9}>
+          {label}
+        </Header.Title>
+        <Header.Actions>
+          <Button.Button
+            onClick={addRow}
+            variant="text"
+            contrast={2}
+            tooltip={`Add ${label.toLowerCase()}`}
+            sharp
+          >
+            <Icon.Add />
           </Button.Button>
-        </Flex.Box>
-      ))}
+        </Header.Actions>
+      </Header.Header>
+      <Flex.Box y gap="small" className={contentClassName}>
+        {entries.map((entry, i) => (
+          <Flex.Box x key={i} align="center" gap="small" className={CSS.B("kv-row")}>
+            <Input.Text
+              placeholder={keyPlaceholder}
+              value={entry.key}
+              onChange={(v) => updateRowKey(i, v)}
+            />
+            {valueType === "number" ? (
+              <Input.Numeric
+                value={entry.value as number}
+                onChange={(v) => updateRowValue(i, v)}
+              />
+            ) : (
+              <Input.Text
+                placeholder={valuePlaceholder}
+                value={entry.value as string}
+                onChange={(v) => updateRowValue(i, v)}
+              />
+            )}
+            <Button.Button
+              variant="text"
+              ghost
+              size="small"
+              onClick={() => removeRow(i)}
+            >
+              <Icon.Close />
+            </Button.Button>
+          </Flex.Box>
+        ))}
+      </Flex.Box>
     </Flex.Box>
   );
 };

@@ -21,8 +21,12 @@
             padding: 2rem;
         }
 
-        .console-endpoint-details-headers {
-            padding-bottom: 1rem;
+        .console-kv-rows {
+            padding: 0 2rem 1rem;
+        }
+
+        .console-channel-list {
+            overflow: visible;
         }
     }
 
@@ -37,15 +41,10 @@
     }
 
     .console-timing-toggle {
-        padding: 2rem;
         flex-shrink: 0;
     }
 
-    .console-timing-label {
-        margin-right: 0.25rem;
-    }
-
-    .console-timestamp-format {
+.console-timestamp-format {
         width: 160px;
     }
 }

@@ -7,16 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import {
-  Button,
-  type Component,
-  Divider,
-  Flex,
-  Form,
-  Header,
-  Icon,
-} from "@synnaxlabs/pluto";
-import { binary } from "@synnaxlabs/x";
+import { type Component, Divider, Flex } from "@synnaxlabs/pluto";
 import { useCallback, useState } from "react";
 
 import { CSS } from "@/css";
@@ -24,8 +15,8 @@ import {
   ChannelList,
   type ChannelListProps,
 } from "@/hardware/common/task/layouts/ChannelList";
+import { DetailsHeader } from "@/hardware/common/task/layouts/DetailsHeader";
 import { type Channel } from "@/hardware/common/task/types";
-import { useCopyToClipboard } from "@/hooks/useCopyToClipboard";
 
 export interface CreateChannel<C extends Channel> {
   (channels: C[], channelKeyToCopy?: string): C | null;
@@ -49,7 +40,6 @@ export const ListAndDetails = <C extends Channel>({
   ...rest
 }: ListAndDetailsProps<C>) => {
   const [selected, setSelected] = useState<string[]>([]);
-  const { get } = Form.useContext();
   const handleCreateChannel = useCallback(
     (channels: C[]) => createChannel(channels, selected[0]),
     [createChannel, selected],
@@ -65,14 +55,8 @@ export const ListAndDetails = <C extends Channel>({
     },
     [createChannel],
   );
-  const copy = useCopyToClipboard();
-  const handleCopyChannelDetails = useCallback(() => {
-    if (selected.length === 0) return;
-    copy(
-      binary.JSON_CODEC.encodeString(get(`config.channels.${selected[0]}`).value),
-      "channel details",
-    );
-  }, [copy, get, selected]);
+  const detailsPath =
+    selected.length > 0 ? `config.channels.${selected[0]}` : null;
   return (
     <>
       <ChannelList<C>
@@ -84,26 +68,13 @@ export const ListAndDetails = <C extends Channel>({
       />
       <Divider.Divider y />
       <Flex.Box y grow empty className={CSS.B("details")}>
-        <Header.Header>
-          <Header.Title weight={500} wrap={false} color={10}>
-            Details
-          </Header.Title>
-          <Header.Actions>
-            <Button.Button
-              disabled={selected.length === 0}
-              tooltip="Copy channel details as JSON"
-              tooltipLocation="left"
-              variant="text"
-              onClick={handleCopyChannelDetails}
-              contrast={2}
-            >
-              <Icon.JSON style={{ color: "var(--pluto-gray-l9)" }} />
-            </Button.Button>
-          </Header.Actions>
-        </Header.Header>
-        {selected.length > 0 && (
+        <DetailsHeader
+          path={detailsPath ?? ""}
+          disabled={detailsPath == null}
+        />
+        {detailsPath != null && (
           <Flex.Box y className={CSS.BE("details", "form")} empty grow>
-            {details({ path: `config.channels.${selected[0]}` })}
+            {details({ path: detailsPath })}
           </Flex.Box>
         )}
       </Flex.Box>
