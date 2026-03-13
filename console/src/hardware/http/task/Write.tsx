@@ -538,15 +538,25 @@ const Form: FC<Common.Task.FormProps<WriteSchemas>> = () => {
         </PMenu.ContextMenu>
       </Flex.Box>
       <Divider.Divider y />
-      {selectedEndpoints.length > 0 ? (
-        <EndpointDetails epKey={selectedEndpoints[0]} />
-      ) : (
-        <Flex.Box y grow align="center" justify="center">
-          <Text.Text level="small" status="disabled">
-            Select an endpoint to configure
-          </Text.Text>
-        </Flex.Box>
-      )}
+      <Flex.Box y grow empty>
+        <Common.Task.Layouts.DetailsHeader
+          path={
+            selectedEndpoints.length > 0
+              ? `config.endpoints.${selectedEndpoints[0]}`
+              : ""
+          }
+          disabled={selectedEndpoints.length === 0}
+        />
+        {selectedEndpoints.length > 0 ? (
+          <EndpointDetails epKey={selectedEndpoints[0]} />
+        ) : (
+          <Flex.Box y grow align="center" justify="center">
+            <Text.Text level="small" status="disabled">
+              Select an endpoint to configure
+            </Text.Text>
+          </Flex.Box>
+        )}
+      </Flex.Box>
     </Flex.Box>
   );
 };
