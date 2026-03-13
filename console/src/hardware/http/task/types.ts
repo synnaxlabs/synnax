@@ -110,6 +110,7 @@ const channelFieldZ = z.object({
   pointer: json.pointerZ,
   jsonType: jsonTypeZ,
   channel: channel.keyZ.default(0),
+  name: z.string().default(""),
   dataType: DataType.z.default(DataType.FLOAT64),
   timeFormat: timeFormatZ.optional(),
 });
@@ -120,6 +121,7 @@ export const ZERO_CHANNEL_FIELD = {
   pointer: "",
   jsonType: "number",
   channel: 0,
+  name: "",
   dataType: DataType.FLOAT64,
 } as const satisfies ChannelField;
 

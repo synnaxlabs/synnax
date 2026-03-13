@@ -715,8 +715,11 @@ const onConfigure: Common.Task.OnConfigure<ReadSchemas["config"]> = async (
 
         // create a new channel
         const dt = new DataType(field.dataType);
+        const chName = primitive.isNonZero(field.name)
+          ? field.name
+          : `${safeDevName}${channel.escapeInvalidName(ep.path + field.pointer)}`;
         const newCh = await client.channels.create({
-          name: `${safeDevName}${channel.escapeInvalidName(ep.path + field.pointer)}`,
+          name: chName,
           dataType: field.dataType,
           ...(dt.isVariable ? { virtual: true } : { index: epProps.index }),
         });

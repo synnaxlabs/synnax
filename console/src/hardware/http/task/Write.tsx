@@ -668,21 +668,24 @@ const onConfigure: Common.Task.OnConfigure<WriteSchemas["config"]> = async (
 
       // no channel in either device or config, create a new one
       const dt = new DataType(ep.channel.dataType);
+      const cmdName = primitive.isNonZero(ep.channel.name)
+        ? ep.channel.name
+        : `${safeDevName}${escapedPath}_cmd`;
       let newCmdCh: channel.Channel;
       if (dt.isVariable)
         newCmdCh = await client.channels.create({
-          name: `${safeDevName}${escapedPath}_cmd`,
+          name: cmdName,
           dataType: ep.channel.dataType,
           virtual: true,
         });
       else {
         const newIndexCh = await client.channels.create({
-          name: `${safeDevName}${escapedPath}_cmd_time`,
+          name: `${cmdName}_time`,
           dataType: "timestamp",
           isIndex: true,
         });
         newCmdCh = await client.channels.create({
-          name: `${safeDevName}${escapedPath}_cmd`,
+          name: cmdName,
           dataType: ep.channel.dataType,
           index: newIndexCh.key,
         });
