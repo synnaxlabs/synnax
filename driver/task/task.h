@@ -108,6 +108,10 @@ public:
     /// @brief returns the authority mirror, or nullptr if not available.
     virtual bus::AuthorityMirror *authority_mirror() { return nullptr; }
 
+    /// @brief returns the rack key for this driver, used as the group identity
+    /// for server-side deduplication filtering.
+    virtual synnax::rack::Key rack_key() { return 0; }
+
     /// @brief updates the state of the task in the Synnax cluster.
     virtual void set_status(synnax::task::Status &status) = 0;
 };
@@ -132,20 +136,27 @@ public:
 class SynnaxContext final : public Context {
     bus::Bus *bus_ptr;
     bus::AuthorityMirror *authority_mirror_ptr;
+    synnax::rack::Key rack_key_;
 
 public:
     explicit SynnaxContext(
         const std::shared_ptr<synnax::Synnax> &client,
         bus::Bus *bus_ptr = nullptr,
-        bus::AuthorityMirror *authority_mirror_ptr = nullptr
+        bus::AuthorityMirror *authority_mirror_ptr = nullptr,
+        synnax::rack::Key rack_key = 0
     ):
-        Context(client), bus_ptr(bus_ptr), authority_mirror_ptr(authority_mirror_ptr) {}
+        Context(client),
+        bus_ptr(bus_ptr),
+        authority_mirror_ptr(authority_mirror_ptr),
+        rack_key_(rack_key) {}
 
     bus::Bus *bus() override { return this->bus_ptr; }
 
     bus::AuthorityMirror *authority_mirror() override {
         return this->authority_mirror_ptr;
     }
+
+    synnax::rack::Key rack_key() override { return this->rack_key_; }
 
     void set_status(synnax::task::Status &status) override {
         if (status.time == 0) status.time = x::telem::TimeStamp::now();
@@ -280,7 +291,7 @@ public:
         bus::AuthorityMirror *authority_mirror = nullptr
     ):
         rack(std::move(rack)),
-        ctx(std::make_shared<SynnaxContext>(client, bus, authority_mirror)),
+        ctx(std::make_shared<SynnaxContext>(client, bus, authority_mirror, rack.key)),
         factory(std::move(factory)),
         op_timeout(cfg.op_timeout),
         poll_interval(cfg.poll_interval),

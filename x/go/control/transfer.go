@@ -23,6 +23,10 @@ type Subject struct {
 	Key string `json:"key" msgpack:"key"`
 	// Name is a pretty name for the subject.
 	Name string `json:"name" msgpack:"name"`
+	// Group is an optional identifier shared by multiple subjects that belong to the
+	// same logical group (e.g. all writers from the same driver rack). Streamers can
+	// use this to exclude frames from their own group.
+	Group uint32 `json:"group" msgpack:"group"`
 }
 
 // String implements fmt.Stringer to nicely print out information about the subject.

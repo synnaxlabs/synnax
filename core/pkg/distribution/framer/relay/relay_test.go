@@ -25,6 +25,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer/writer"
 	"github.com/synnaxlabs/synnax/pkg/distribution/mock"
 	"github.com/synnaxlabs/x/confluence"
+	"github.com/synnaxlabs/x/control"
 	"github.com/synnaxlabs/x/query"
 	"github.com/synnaxlabs/x/signal"
 	"github.com/synnaxlabs/x/telem"
@@ -102,6 +103,173 @@ var _ = Describe("Relay", func() {
 				confluence.Drain(readerRes)
 			})
 		}
+	})
+	Describe("ExcludeGroups", Ordered, func() {
+		It("Should filter out frames from a matching group on gateway writes", func() {
+			channels := newChannelSet()
+			builder := mock.ProvisionCluster(ctx, 1)
+			defer func() {
+				Expect(builder.Close()).To(Succeed())
+			}()
+			svc := builder.Nodes[1]
+			Expect(svc.Channel.NewWriter(nil).CreateMany(ctx, &channels)).To(Succeed())
+			keys := channel.KeysFromChannels(channels)
+
+			reader := MustSucceed(svc.Framer.Relay.NewStreamer(ctx, relay.StreamerConfig{
+				Keys:          keys,
+				ExcludeGroups: []uint32{99},
+			}))
+			sCtx, cancel := signal.Isolated()
+			defer cancel()
+			streamerReq, readerRes := confluence.Attach(reader, 10)
+			reader.Flow(sCtx, confluence.CloseOutputInletsOnExit())
+			time.Sleep(10 * time.Millisecond)
+
+			w := MustSucceed(svc.Framer.OpenWriter(ctx, writer.Config{
+				Keys:           keys,
+				Start:          10 * telem.SecondTS,
+				ControlSubject: control.Subject{Name: "grouped", Key: "grouped", Group: 99},
+			}))
+			Expect(w.Write(frame.NewMulti(
+				keys,
+				[]telem.Series{
+					telem.NewSeriesV[int64](1, 2, 3),
+					telem.NewSeriesV[int64](4, 5, 6),
+					telem.NewSeriesV[int64](7, 8, 9),
+				},
+			))).To(BeTrue())
+			Consistently(readerRes.Outlet(), 100*time.Millisecond).ShouldNot(Receive())
+
+			Expect(w.Close()).To(Succeed())
+			streamerReq.Close()
+			confluence.Drain(readerRes)
+		})
+		It("Should deliver frames from a non-matching group", func() {
+			channels := newChannelSet()
+			builder := mock.ProvisionCluster(ctx, 1)
+			defer func() {
+				Expect(builder.Close()).To(Succeed())
+			}()
+			svc := builder.Nodes[1]
+			Expect(svc.Channel.NewWriter(nil).CreateMany(ctx, &channels)).To(Succeed())
+			keys := channel.KeysFromChannels(channels)
+
+			reader := MustSucceed(svc.Framer.Relay.NewStreamer(ctx, relay.StreamerConfig{
+				Keys:          keys,
+				ExcludeGroups: []uint32{99},
+			}))
+			sCtx, cancel := signal.Isolated()
+			defer cancel()
+			streamerReq, readerRes := confluence.Attach(reader, 10)
+			reader.Flow(sCtx, confluence.CloseOutputInletsOnExit())
+			time.Sleep(10 * time.Millisecond)
+
+			w := MustSucceed(svc.Framer.OpenWriter(ctx, writer.Config{
+				Keys:           keys,
+				Start:          10 * telem.SecondTS,
+				ControlSubject: control.Subject{Name: "other", Key: "other", Group: 200},
+			}))
+			Expect(w.Write(frame.NewMulti(
+				keys,
+				[]telem.Series{
+					telem.NewSeriesV[int64](1, 2, 3),
+					telem.NewSeriesV[int64](4, 5, 6),
+					telem.NewSeriesV[int64](7, 8, 9),
+				},
+			))).To(BeTrue())
+			var res relay.Response
+			Eventually(readerRes.Outlet()).Should(Receive(&res))
+			Expect(res.Frame.Count()).To(Equal(3))
+			Expect(res.Group).To(Equal(uint32(200)))
+
+			Expect(w.Close()).To(Succeed())
+			streamerReq.Close()
+			confluence.Drain(readerRes)
+		})
+		It("Should deliver frames with no group even when ExcludeGroups is set", func() {
+			channels := newChannelSet()
+			builder := mock.ProvisionCluster(ctx, 1)
+			defer func() {
+				Expect(builder.Close()).To(Succeed())
+			}()
+			svc := builder.Nodes[1]
+			Expect(svc.Channel.NewWriter(nil).CreateMany(ctx, &channels)).To(Succeed())
+			keys := channel.KeysFromChannels(channels)
+
+			reader := MustSucceed(svc.Framer.Relay.NewStreamer(ctx, relay.StreamerConfig{
+				Keys:          keys,
+				ExcludeGroups: []uint32{99},
+			}))
+			sCtx, cancel := signal.Isolated()
+			defer cancel()
+			streamerReq, readerRes := confluence.Attach(reader, 10)
+			reader.Flow(sCtx, confluence.CloseOutputInletsOnExit())
+			time.Sleep(10 * time.Millisecond)
+
+			w := MustSucceed(svc.Framer.OpenWriter(ctx, writer.Config{
+				Keys:  keys,
+				Start: 10 * telem.SecondTS,
+			}))
+			Expect(w.Write(frame.NewMulti(
+				keys,
+				[]telem.Series{
+					telem.NewSeriesV[int64](1, 2, 3),
+					telem.NewSeriesV[int64](4, 5, 6),
+					telem.NewSeriesV[int64](7, 8, 9),
+				},
+			))).To(BeTrue())
+			var res relay.Response
+			Eventually(readerRes.Outlet()).Should(Receive(&res))
+			Expect(res.Frame.Count()).To(Equal(3))
+
+			Expect(w.Close()).To(Succeed())
+			streamerReq.Close()
+			confluence.Drain(readerRes)
+		})
+		It("Should filter out free channel frames from a matching group", func() {
+			channels := newChannelSet()
+			builder := mock.ProvisionCluster(ctx, 1)
+			defer func() {
+				Expect(builder.Close()).To(Succeed())
+			}()
+			svc := builder.Nodes[1]
+			for i, ch := range channels {
+				ch.Leaseholder = cluster.NodeKeyFree
+				ch.Virtual = true
+				channels[i] = ch
+			}
+			Expect(svc.Channel.NewWriter(nil).CreateMany(ctx, &channels)).To(Succeed())
+			keys := channel.KeysFromChannels(channels)
+
+			reader := MustSucceed(svc.Framer.Relay.NewStreamer(ctx, relay.StreamerConfig{
+				Keys:          keys,
+				ExcludeGroups: []uint32{55},
+			}))
+			sCtx, cancel := signal.Isolated()
+			defer cancel()
+			streamerReq, readerRes := confluence.Attach(reader, 10)
+			reader.Flow(sCtx, confluence.CloseOutputInletsOnExit())
+			time.Sleep(10 * time.Millisecond)
+
+			w := MustSucceed(svc.Framer.OpenWriter(ctx, writer.Config{
+				Keys:           keys,
+				Start:          10 * telem.SecondTS,
+				ControlSubject: control.Subject{Name: "free-grouped", Key: "free-grouped", Group: 55},
+			}))
+			Expect(w.Write(frame.NewMulti(
+				keys,
+				[]telem.Series{
+					telem.NewSeriesV[int64](1, 2, 3),
+					telem.NewSeriesV[int64](4, 5, 6),
+					telem.NewSeriesV[int64](7, 8, 9),
+				},
+			))).To(BeTrue())
+			Consistently(readerRes.Outlet(), 100*time.Millisecond).ShouldNot(Receive())
+
+			Expect(w.Close()).To(Succeed())
+			streamerReq.Close()
+			confluence.Drain(readerRes)
+		})
 	})
 	Describe("Errors", func() {
 		It("Should raise an error if a channel is not found", func() {

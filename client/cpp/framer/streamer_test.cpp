@@ -219,6 +219,96 @@ void test_downsample(
     ASSERT_NIL(streamer.close());
 }
 
+/// @brief a streamer with exclude_groups should not receive frames from a writer
+/// whose control subject has a matching group.
+TEST(StreamerTests, testExcludeGroupsFiltersMatchingGroup) {
+    auto client = new_test_client();
+    auto data = create_virtual_channel(client);
+    auto now = x::telem::TimeStamp::now();
+    std::vector channels = {data.key};
+
+    auto streamer = ASSERT_NIL_P(client.telem.open_streamer(
+        synnax::framer::StreamerConfig{
+            .channels = channels,
+            .exclude_groups = {42},
+        }
+    ));
+
+    auto writer = ASSERT_NIL_P(client.telem.open_writer(
+        synnax::framer::WriterConfig{
+            .channels = channels,
+            .start = now,
+            .authorities = {x::control::AUTHORITY_ABSOLUTE},
+            .subject = x::control::Subject{"grouped_writer", "gw-1", 42},
+        }
+    ));
+
+    auto frame = x::telem::Frame(1);
+    frame.emplace(data.key, x::telem::Series(static_cast<float>(1.0)));
+    ASSERT_NIL(writer.write(frame));
+    ASSERT_NIL_P(writer.commit());
+
+    // Write from a different group to verify the streamer is still alive
+    auto writer2 = ASSERT_NIL_P(client.telem.open_writer(
+        synnax::framer::WriterConfig{
+            .channels = channels,
+            .start = now + 10 * x::telem::SECOND,
+            .authorities = {x::control::AUTHORITY_ABSOLUTE},
+            .subject = x::control::Subject{"other_writer", "ow-1", 99},
+        }
+    ));
+
+    auto frame2 = x::telem::Frame(1);
+    frame2.emplace(data.key, x::telem::Series(static_cast<float>(2.0)));
+    ASSERT_NIL(writer2.write(frame2));
+    ASSERT_NIL_P(writer2.commit());
+
+    auto res = ASSERT_NIL_P(streamer.read());
+    ASSERT_EQ(res.size(), 1);
+    ASSERT_EQ(res.series->at(0).at<float>(0), 2.0);
+
+    ASSERT_NIL(writer.close());
+    ASSERT_NIL(writer2.close());
+    ASSERT_NIL(streamer.close());
+}
+
+/// @brief a streamer with exclude_groups should still receive frames from writers
+/// with no group set.
+TEST(StreamerTests, testExcludeGroupsPassesZeroGroup) {
+    auto client = new_test_client();
+    auto data = create_virtual_channel(client);
+    auto now = x::telem::TimeStamp::now();
+    std::vector channels = {data.key};
+
+    auto streamer = ASSERT_NIL_P(client.telem.open_streamer(
+        synnax::framer::StreamerConfig{
+            .channels = channels,
+            .exclude_groups = {42},
+        }
+    ));
+
+    auto writer = ASSERT_NIL_P(client.telem.open_writer(
+        synnax::framer::WriterConfig{
+            .channels = channels,
+            .start = now,
+            .authorities = {x::control::AUTHORITY_ABSOLUTE},
+            .subject = x::control::Subject{"ungrouped_writer"},
+        }
+    ));
+
+    auto frame = x::telem::Frame(1);
+    frame.emplace(data.key, x::telem::Series(static_cast<float>(7.0)));
+    ASSERT_NIL(writer.write(frame));
+    ASSERT_NIL_P(writer.commit());
+
+    auto res = ASSERT_NIL_P(streamer.read());
+    ASSERT_EQ(res.size(), 1);
+    ASSERT_EQ(res.series->at(0).at<float>(0), 7.0);
+
+    ASSERT_NIL(writer.close());
+    ASSERT_NIL(streamer.close());
+}
+
 void test_downsample_string(
     const std::vector<std::string> &raw_data,
     const std::vector<std::string> &expected,

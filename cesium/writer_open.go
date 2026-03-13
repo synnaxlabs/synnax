@@ -135,6 +135,7 @@ func (c WriterConfig) Override(other WriterConfig) WriterConfig {
 	c.Authorities = override.Slice(c.Authorities, other.Authorities)
 	c.ControlSubject.Name = override.String(c.ControlSubject.Name, other.ControlSubject.Name)
 	c.ControlSubject.Key = override.String(c.ControlSubject.Key, other.ControlSubject.Key)
+	c.ControlSubject.Group = override.Numeric(c.ControlSubject.Group, other.ControlSubject.Group)
 	c.ErrOnUnauthorized = override.Nil(c.ErrOnUnauthorized, other.ErrOnUnauthorized)
 	c.Mode = override.Numeric(c.Mode, other.Mode)
 	c.Sync = override.Nil(c.Sync, other.Sync)

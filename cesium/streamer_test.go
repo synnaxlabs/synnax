@@ -207,6 +207,70 @@ var _ = Describe("Streamer Behavior", func() {
 				})
 			})
 
+			Describe("Group Propagation", func() {
+				It("Should propagate the writer's group to the streamer response", func() {
+					var groupCh cesium.ChannelKey = 7
+					Expect(db.CreateChannel(
+						ctx,
+						cesium.Channel{Key: groupCh, Name: "GroupTest", DataType: telem.Int64T, Virtual: true},
+					)).To(Succeed())
+					w := MustSucceed(db.OpenWriter(ctx, cesium.WriterConfig{
+						Channels:       []cesium.ChannelKey{groupCh},
+						Start:          10 * telem.SecondTS,
+						ControlSubject: control.Subject{Name: "GroupWriter", Group: 42},
+					}))
+					r := MustSucceed(db.NewStreamer(ctx, cesium.StreamerConfig{
+						Channels: []cesium.ChannelKey{groupCh},
+					}))
+					i, o := confluence.Attach(r, 1)
+					sCtx, cancel := signal.WithCancel(ctx)
+					defer cancel()
+					r.Flow(sCtx, confluence.CloseOutputInletsOnExit())
+
+					MustSucceed(w.Write(telem.MultiFrame(
+						[]cesium.ChannelKey{groupCh},
+						[]telem.Series{telem.NewSeriesV[int64](1, 2, 3)},
+					)))
+					var res cesium.StreamerResponse
+					Eventually(o.Outlet()).Should(Receive(&res))
+					Expect(res.Group).To(Equal(uint32(42)))
+					Expect(res.Frame.Count()).To(Equal(1))
+					i.Close()
+					Expect(sCtx.Wait()).To(Succeed())
+					Expect(w.Close()).To(Succeed())
+				})
+				It("Should set group to zero when the writer has no group", func() {
+					var noGroupCh cesium.ChannelKey = 8
+					Expect(db.CreateChannel(
+						ctx,
+						cesium.Channel{Key: noGroupCh, Name: "NoGroupTest", DataType: telem.Int64T, Virtual: true},
+					)).To(Succeed())
+					w := MustSucceed(db.OpenWriter(ctx, cesium.WriterConfig{
+						Channels:       []cesium.ChannelKey{noGroupCh},
+						Start:          10 * telem.SecondTS,
+						ControlSubject: control.Subject{Name: "NoGroupWriter"},
+					}))
+					r := MustSucceed(db.NewStreamer(ctx, cesium.StreamerConfig{
+						Channels: []cesium.ChannelKey{noGroupCh},
+					}))
+					i, o := confluence.Attach(r, 1)
+					sCtx, cancel := signal.WithCancel(ctx)
+					defer cancel()
+					r.Flow(sCtx, confluence.CloseOutputInletsOnExit())
+
+					MustSucceed(w.Write(telem.MultiFrame(
+						[]cesium.ChannelKey{noGroupCh},
+						[]telem.Series{telem.NewSeriesV[int64](4, 5, 6)},
+					)))
+					var res cesium.StreamerResponse
+					Eventually(o.Outlet()).Should(Receive(&res))
+					Expect(res.Group).To(Equal(uint32(0)))
+					i.Close()
+					Expect(sCtx.Wait()).To(Succeed())
+					Expect(w.Close()).To(Succeed())
+				})
+			})
+
 			Describe("Closed", func() {
 				It("Should not allow opening a streamer on a closed db", func() {
 					sub := MustSucceed(fs.Sub("closed-fs"))

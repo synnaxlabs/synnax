@@ -460,6 +460,7 @@ type FrameStreamerRequest struct {
 	DownsampleFactor        int32                  `protobuf:"varint,2,opt,name=downsample_factor,json=downsampleFactor,proto3" json:"downsample_factor,omitempty"`
 	EnableExperimentalCodec bool                   `protobuf:"varint,3,opt,name=enable_experimental_codec,json=enableExperimentalCodec,proto3" json:"enable_experimental_codec,omitempty"`
 	ThrottleRateHz          float64                `protobuf:"fixed64,4,opt,name=throttle_rate_hz,json=throttleRateHz,proto3" json:"throttle_rate_hz,omitempty"`
+	ExcludeGroups           []uint32               `protobuf:"varint,5,rep,packed,name=exclude_groups,json=excludeGroups,proto3" json:"exclude_groups,omitempty"`
 	unknownFields           protoimpl.UnknownFields
 	sizeCache               protoimpl.SizeCache
 }
@@ -520,6 +521,13 @@ func (x *FrameStreamerRequest) GetThrottleRateHz() float64 {
 		return x.ThrottleRateHz
 	}
 	return 0
+}
+
+func (x *FrameStreamerRequest) GetExcludeGroups() []uint32 {
+	if x != nil {
+		return x.ExcludeGroups
+	}
+	return nil
 }
 
 type FrameStreamerResponse struct {
@@ -674,12 +682,13 @@ const file_core_pkg_api_grpc_v1_framer_proto_rawDesc = "" +
 	"\bnode_key\x18\x02 \x01(\x05R\anodeKey\x12\x18\n" +
 	"\acounter\x18\x03 \x01(\x05R\acounter\x12'\n" +
 	"\x05error\x18\x04 \x01(\v2\x11.errors.PBPayloadR\x05error\x12\x10\n" +
-	"\x03end\x18\x05 \x01(\x03R\x03end\"\xbd\x01\n" +
+	"\x03end\x18\x05 \x01(\x03R\x03end\"\xe4\x01\n" +
 	"\x14FrameStreamerRequest\x12\x12\n" +
 	"\x04keys\x18\x01 \x03(\rR\x04keys\x12+\n" +
 	"\x11downsample_factor\x18\x02 \x01(\x05R\x10downsampleFactor\x12:\n" +
 	"\x19enable_experimental_codec\x18\x03 \x01(\bR\x17enableExperimentalCodec\x12(\n" +
-	"\x10throttle_rate_hz\x18\x04 \x01(\x01R\x0ethrottleRateHz\"U\n" +
+	"\x10throttle_rate_hz\x18\x04 \x01(\x01R\x0ethrottleRateHz\x12%\n" +
+	"\x0eexclude_groups\x18\x05 \x03(\rR\rexcludeGroups\"U\n" +
 	"\x15FrameStreamerResponse\x12$\n" +
 	"\x05frame\x18\x01 \x01(\v2\x0e.telem.PBFrameR\x05frame\x12\x16\n" +
 	"\x06buffer\x18\x02 \x01(\fR\x06buffer\"j\n" +

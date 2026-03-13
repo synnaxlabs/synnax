@@ -24,14 +24,10 @@ class Writer final : public pipeline::Writer {
     std::atomic<bool> has_routes;
 
 public:
-    Writer(
-        std::unique_ptr<pipeline::Writer> server,
-        Bus &bus,
-        const bool has_routes
-    ): server(std::move(server)), bus(bus), has_routes(has_routes) {}
+    Writer(std::unique_ptr<pipeline::Writer> server, Bus &bus, const bool has_routes):
+        server(std::move(server)), bus(bus), has_routes(has_routes) {}
 
-    [[nodiscard]] x::errors::Error
-    write(const x::telem::Frame &fr) override {
+    [[nodiscard]] x::errors::Error write(const x::telem::Frame &fr) override {
         if (this->has_routes.load(std::memory_order_relaxed)) {
             VLOG(1) << "[bus.writer] publishing frame with " << fr.size()
                     << " channels to bus";
@@ -45,30 +41,33 @@ public:
         return this->server->set_authority(authorities);
     }
 
-    [[nodiscard]] x::errors::Error close() override {
-        return this->server->close();
-    }
+    [[nodiscard]] x::errors::Error close() override { return this->server->close(); }
 };
 
 /// @brief a WriterFactory that wraps writers with bus publish capability.
+/// Injects the group identity into writer configs for server-side deduplication.
 class WriterFactory final : public pipeline::WriterFactory {
     std::shared_ptr<pipeline::WriterFactory> server;
     Bus &bus;
+    std::uint32_t group;
 
 public:
     WriterFactory(
         std::shared_ptr<pipeline::WriterFactory> server,
-        Bus &bus
-    ): server(std::move(server)), bus(bus) {}
+        Bus &bus,
+        std::uint32_t group
+    ):
+        server(std::move(server)), bus(bus), group(group) {}
 
     std::pair<std::unique_ptr<pipeline::Writer>, x::errors::Error>
     open_writer(const synnax::framer::WriterConfig &config) override {
-        auto [writer, err] = this->server->open_writer(config);
+        auto cfg = config;
+        if (this->group != 0 && cfg.subject.group == 0) cfg.subject.group = this->group;
+        auto [writer, err] = this->server->open_writer(cfg);
         if (err) return {nullptr, err};
-        auto has_routes = this->bus.has_subscribers(config.channels);
-        VLOG(1) << "[bus.writer_factory] opened writer for "
-                << config.channels.size() << " channels, has_routes="
-                << has_routes;
+        auto has_routes = this->bus.has_subscribers(cfg.channels);
+        VLOG(1) << "[bus.writer_factory] opened writer for " << cfg.channels.size()
+                << " channels, has_routes=" << has_routes << ", group=" << this->group;
         return {
             std::make_unique<Writer>(std::move(writer), this->bus, has_routes),
             x::errors::NIL,

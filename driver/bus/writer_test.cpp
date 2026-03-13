@@ -17,7 +17,7 @@ TEST(WriterTest, PublishesToBusAndForwardsToServer) {
     Bus bus;
     auto sub = bus.subscribe({1});
     auto mock_factory = std::make_shared<pipeline::mock::WriterFactory>();
-    WriterFactory factory(mock_factory, bus);
+    WriterFactory factory(mock_factory, bus, 0);
     auto [writer, err] = factory.open_writer({.channels = {1}});
     ASSERT_FALSE(err) << err.message();
     x::telem::Frame frame;
@@ -32,7 +32,7 @@ TEST(WriterTest, PublishesToBusAndForwardsToServer) {
 TEST(WriterTest, SkipsBusPublishWhenNoRoutes) {
     Bus bus;
     auto mock_factory = std::make_shared<pipeline::mock::WriterFactory>();
-    WriterFactory factory(mock_factory, bus);
+    WriterFactory factory(mock_factory, bus, 0);
     auto [writer, err] = factory.open_writer({.channels = {1}});
     ASSERT_FALSE(err) << err.message();
     x::telem::Frame frame;
@@ -44,7 +44,7 @@ TEST(WriterTest, SkipsBusPublishWhenNoRoutes) {
 TEST(WriterTest, DelegatesSetAuthority) {
     Bus bus;
     auto mock_factory = std::make_shared<pipeline::mock::WriterFactory>();
-    WriterFactory factory(mock_factory, bus);
+    WriterFactory factory(mock_factory, bus, 0);
     auto [writer, err] = factory.open_writer({.channels = {1}});
     ASSERT_FALSE(err) << err.message();
     pipeline::Authorities auth{.keys = {1}, .authorities = {200}};
@@ -55,7 +55,7 @@ TEST(WriterTest, DelegatesSetAuthority) {
 TEST(WriterTest, DelegatesClose) {
     Bus bus;
     auto mock_factory = std::make_shared<pipeline::mock::WriterFactory>();
-    WriterFactory factory(mock_factory, bus);
+    WriterFactory factory(mock_factory, bus, 0);
     auto [writer, err] = factory.open_writer({.channels = {1}});
     ASSERT_FALSE(err) << err.message();
     ASSERT_FALSE(writer->close());
@@ -67,9 +67,39 @@ TEST(WriterTest, PropagatesOpenError) {
         std::make_shared<std::vector<x::telem::Frame>>(),
         std::vector<x::errors::Error>{x::errors::VALIDATION}
     );
-    WriterFactory factory(mock_factory, bus);
+    WriterFactory factory(mock_factory, bus, 0);
     auto [writer, err] = factory.open_writer({.channels = {1}});
     ASSERT_TRUE(err);
     ASSERT_EQ(writer, nullptr);
+}
+
+TEST(WriterTest, InjectsGroupIntoWriterConfig) {
+    Bus bus;
+    auto mock_factory = std::make_shared<pipeline::mock::WriterFactory>();
+    WriterFactory factory(mock_factory, bus, 77);
+    auto [writer, err] = factory.open_writer({.channels = {1}});
+    ASSERT_FALSE(err) << err.message();
+    ASSERT_EQ(mock_factory->config.subject.group, 77);
+}
+
+TEST(WriterTest, DoesNotOverrideExistingGroup) {
+    Bus bus;
+    auto mock_factory = std::make_shared<pipeline::mock::WriterFactory>();
+    WriterFactory factory(mock_factory, bus, 77);
+    auto [writer, err] = factory.open_writer({
+        .channels = {1},
+        .subject = x::control::Subject{"w", "w", 99},
+    });
+    ASSERT_FALSE(err) << err.message();
+    ASSERT_EQ(mock_factory->config.subject.group, 99);
+}
+
+TEST(WriterTest, DoesNotInjectGroupWhenZero) {
+    Bus bus;
+    auto mock_factory = std::make_shared<pipeline::mock::WriterFactory>();
+    WriterFactory factory(mock_factory, bus, 0);
+    auto [writer, err] = factory.open_writer({.channels = {1}});
+    ASSERT_FALSE(err) << err.message();
+    ASSERT_EQ(mock_factory->config.subject.group, 0);
 }
 }

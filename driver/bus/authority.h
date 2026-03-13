@@ -63,7 +63,7 @@ public:
     /// @brief applies a control update directly (for testing without a streamer).
     void apply(const x::control::Update &update) {
         std::unique_lock lock(this->mu);
-        for (const auto &transfer : update.transfers) {
+        for (const auto &transfer: update.transfers) {
             if (transfer.to.has_value()) {
                 VLOG(1) << "[bus.authority] channel " << transfer.to->resource
                         << " now held by " << transfer.to->subject.name;
@@ -78,13 +78,11 @@ public:
 
     /// @brief filters a frame, keeping only channels where subject holds
     /// authority or no authority state exists (uncontrolled).
-    x::telem::Frame filter(
-        const x::telem::Frame &frame,
-        const x::control::Subject &subject
-    ) const {
+    x::telem::Frame
+    filter(const x::telem::Frame &frame, const x::control::Subject &subject) const {
         std::shared_lock lock(this->mu);
         x::telem::Frame out;
-        for (auto [key, series] : frame) {
+        for (auto [key, series]: frame) {
             auto it = this->states.find(key);
             if (it == this->states.end() || it->second.subject == subject)
                 out.emplace(key, series.deep_copy());
@@ -93,10 +91,8 @@ public:
     }
 
     /// @brief checks if subject holds authority on a specific channel.
-    bool is_authorized(
-        synnax::channel::Key key,
-        const x::control::Subject &subject
-    ) const {
+    bool
+    is_authorized(synnax::channel::Key key, const x::control::Subject &subject) const {
         std::shared_lock lock(this->mu);
         auto it = this->states.find(key);
         if (it == this->states.end()) return true;
@@ -108,7 +104,7 @@ private:
         while (this->running.load()) {
             auto [frame, err] = this->streamer->read();
             if (err) break;
-            for (auto [key, series] : frame) {
+            for (auto [key, series]: frame) {
                 if (series.data_type() != x::telem::STRING_T) continue;
                 auto json_str = series.at<std::string>(0);
                 x::json::Parser parser(json_str);

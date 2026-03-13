@@ -11,8 +11,9 @@
 
 #include "gtest/gtest.h"
 
-#include "driver/bus/bus.h"
 #include "x/cpp/telem/series.h"
+
+#include "driver/bus/bus.h"
 
 namespace driver::bus {
 TEST(BusTest, PublishNoSubscribers) {

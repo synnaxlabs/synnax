@@ -25,10 +25,15 @@ constexpr Authority AUTHORITY_ABSOLUTE = 255;
 struct Subject {
     std::string name;
     std::string key;
+    /// @brief optional group identifier shared by subjects from the same logical
+    /// group (e.g. all writers from the same driver rack). Used for server-side
+    /// deduplication filtering.
+    std::uint32_t group = 0;
 
     void to_proto(::control::ControlSubject *s) const {
-        s->set_name(name);
-        s->set_key(key);
+        s->set_name(this->name);
+        s->set_key(this->key);
+        s->set_group(this->group);
     }
 
     bool operator==(const Subject &other) const { return this->key == other.key; }
