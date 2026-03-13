@@ -36,7 +36,7 @@ sequence main {
 """
 
 
-class ArcAuthorityEmergency(ArcConsoleCase):
+class AuthorityEmergency(ArcConsoleCase):
     """Test that Arc can escalate authority with set_authority{value=255}
     to reclaim control from a higher-authority external writer during an
     emergency condition."""

@@ -108,7 +108,7 @@ sequence signal_ctrl {
 """
 
 
-class ArcLifecycle(ArcConsoleCase):
+class Lifecycle(ArcConsoleCase):
     """Test Arc lifecycle operations: rename, delete, status, stable_for, select.
 
     Covers the following rc.md checklist items:

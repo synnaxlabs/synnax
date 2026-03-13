@@ -76,7 +76,7 @@ sequence abort {
 """
 
 
-class ArcThermalMonitor(ArcConsoleCase):
+class ThermalMonitor(ArcConsoleCase):
     """Test Arc thermal monitor with stateful variables and looping sequence."""
 
     arc_source = ARC_SOURCE

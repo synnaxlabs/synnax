@@ -27,7 +27,7 @@ sequence main {
 """
 
 
-class ArcAuthoritySchematicOverride(ArcConsoleCase):
+class AuthoritySchematicOverride(ArcConsoleCase):
     """Test that a schematic at authority 255 overrides an Arc program at
     authority 200, and Arc resumes when schematic releases control."""
 

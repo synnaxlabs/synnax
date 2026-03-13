@@ -26,7 +26,7 @@ sequence main {
 """
 
 
-class ArcAuthorityPythonOverride(ArcConsoleCase):
+class AuthorityPythonOverride(ArcConsoleCase):
     """Test that an external Python writer at higher authority overrides Arc,
     and Arc automatically resumes when the Python writer is closed."""
 
