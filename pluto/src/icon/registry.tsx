@@ -420,7 +420,6 @@ export const OpenExternal = wrapSVGIcon(MdArrowOutward, "open-external");
 export const Feedback = wrapSVGIcon(MdFeedback, "feedback");
 export const Calculation = wrapSVGIcon(MdCalculate, "calculation");
 export const Binary = wrapSVGIcon(PiBinary, "binary");
-export const Index = wrapSVGIcon(IoTime, "index");
 export const Decimal = wrapSVGIcon(TbDecimal, "decimal");
 export const String = wrapSVGIcon(VscSymbolString, "string");
 export const Control = wrapSVGIcon(MdOutlineControlCamera, "control");
@@ -599,7 +598,6 @@ const icons = {
   Feedback,
   Calculation,
   Binary,
-  Index,
   Decimal,
   String,
   Control,

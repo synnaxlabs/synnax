@@ -821,4 +821,106 @@ TEST(IntegrationTest, SourceToSinkFlow) {
     }
     EXPECT_TRUE(found_data);
 }
+
+TEST(ChannelStateTest, WriteValue_AccumulatesSameChannelIntoSingleSeries) {
+    State channel_state(
+        std::vector<Digest>{{.key = 1, .data_type = ::x::telem::FLOAT32_T, .index = 2}}
+    );
+
+    auto data1 = ::x::mem::make_local_shared<::x::telem::Series>(1.0f);
+    auto time1 = ::x::mem::make_local_shared<::x::telem::Series>(
+        ::x::telem::TimeStamp(1 * ::x::telem::SECOND)
+    );
+    channel_state.write_value(1, data1, time1);
+
+    auto data2 = ::x::mem::make_local_shared<::x::telem::Series>(2.0f);
+    auto time2 = ::x::mem::make_local_shared<::x::telem::Series>(
+        ::x::telem::TimeStamp(2 * ::x::telem::SECOND)
+    );
+    channel_state.write_value(1, data2, time2);
+
+    auto out = channel_state.flush();
+
+    auto find = [&](const uint32_t key) -> ::x::mem::local_shared<::x::telem::Series> {
+        for (const auto &[k, v]: out)
+            if (k == key) return v;
+        return {};
+    };
+
+    auto data = find(1);
+    ASSERT_NE(data, nullptr);
+    ASSERT_EQ(data->size(), 2);
+    EXPECT_EQ(data->at<float>(0), 1.0f);
+    EXPECT_EQ(data->at<float>(1), 2.0f);
+
+    auto time = find(2);
+    ASSERT_NE(time, nullptr);
+    ASSERT_EQ(time->size(), 2);
+}
+
+TEST(ChannelStateTest, WriteChannelTyped_IndexedWritesTimestamp) {
+    State channel_state(
+        std::vector<Digest>{{.key = 5, .data_type = ::x::telem::INT32_T, .index = 6}}
+    );
+
+    channel_state.write_channel_i32(5, 10);
+    channel_state.write_channel_i32(5, 20);
+
+    auto out = channel_state.flush();
+
+    auto find = [&](const uint32_t key) -> ::x::mem::local_shared<::x::telem::Series> {
+        for (const auto &[k, v]: out)
+            if (k == key) return v;
+        return {};
+    };
+
+    auto data = find(5);
+    ASSERT_NE(data, nullptr);
+    ASSERT_EQ(data->size(), 2);
+    EXPECT_EQ(data->at<int32_t>(0), 10);
+    EXPECT_EQ(data->at<int32_t>(1), 20);
+
+    auto time = find(6);
+    ASSERT_NE(time, nullptr);
+    EXPECT_EQ(time->data_type(), ::x::telem::TIMESTAMP_T);
+    ASSERT_EQ(time->size(), 2);
+}
+
+TEST(ChannelStateTest, WriteChannelTyped_NoIndexWritesOnlyData) {
+    State channel_state(
+        std::vector<Digest>{{.key = 7, .data_type = ::x::telem::FLOAT64_T, .index = 0}}
+    );
+
+    channel_state.write_channel_f64(7, 1.5);
+    channel_state.write_channel_f64(7, 2.5);
+
+    auto out = channel_state.flush();
+    ASSERT_EQ(out.size(), 1);
+    ASSERT_EQ(out[0].first, 7);
+    ASSERT_EQ(out[0].second->size(), 2);
+    EXPECT_DOUBLE_EQ(out[0].second->at<double>(0), 1.5);
+    EXPECT_DOUBLE_EQ(out[0].second->at<double>(1), 2.5);
+}
+
+TEST(ChannelStateTest, WriteValue_MultipleWritesSameKeyPreservedInFlush) {
+    State channel_state;
+
+    auto data1 = ::x::mem::make_local_shared<::x::telem::Series>(1.0f);
+    auto time1 = ::x::mem::make_local_shared<::x::telem::Series>(
+        ::x::telem::TimeStamp(::x::telem::MICROSECOND)
+    );
+    auto data2 = ::x::mem::make_local_shared<::x::telem::Series>(2.0f);
+    auto time2 = ::x::mem::make_local_shared<::x::telem::Series>(
+        ::x::telem::TimeStamp(::x::telem::MICROSECOND * 2)
+    );
+    channel_state.write_value(10, data1, time1);
+    channel_state.write_value(10, data2, time2);
+
+    const auto result = channel_state.flush();
+    ASSERT_EQ(result.size(), 1);
+    EXPECT_EQ(result[0].first, 10);
+    EXPECT_EQ(result[0].second->size(), 2);
+    EXPECT_EQ(result[0].second->at<float>(0), 1.0f);
+    EXPECT_EQ(result[0].second->at<float>(1), 2.0f);
+}
 }

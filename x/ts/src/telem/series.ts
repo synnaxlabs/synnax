@@ -330,7 +330,7 @@ export class Series<T extends TelemValue = TelemValue>
       if (typeof first === "string") this.dataType = DataType.STRING;
       else if (typeof first === "number") this.dataType = DataType.FLOAT64;
       else if (typeof first === "bigint") this.dataType = DataType.INT64;
-      else if (typeof first === "boolean") this.dataType = DataType.BOOLEAN;
+      else if (typeof first === "boolean") this.dataType = DataType.UINT8;
       else if (
         first instanceof TimeStamp ||
         first instanceof Date ||
