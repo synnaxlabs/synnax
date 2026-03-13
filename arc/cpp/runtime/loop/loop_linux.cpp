@@ -201,6 +201,9 @@ private:
                 LOG(ERROR) << "[loop] epoll_wait error: " << strerror(errno);
                 return WakeReason::Shutdown;
             }
+            // Prevent starvation of breaker-stopping threads. yield() over
+            // sleep_for() to avoid adding ~50-100us of kernel timer overhead.
+            std::this_thread::yield();
         }
         return WakeReason::Shutdown;
     }
