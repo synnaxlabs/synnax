@@ -96,7 +96,6 @@ std::pair<WriteTaskConfig, x::errors::Error> WriteTaskConfig::parse(
 
         all_pointers.clear();
 
-        // Parse channel field.
         auto ch_parser = ep.child("channel");
         endpoint.channel.pointer = x::json::json::json_pointer(
             ch_parser.field<std::string>("pointer")
@@ -117,7 +116,6 @@ std::pair<WriteTaskConfig, x::errors::Error> WriteTaskConfig::parse(
                 endpoint.channel.time_format = fmt;
         }
 
-        // Parse static fields.
         ep.iter("fields", [&](x::json::Parser &fp) {
             const auto type = fp.field<std::string>("type");
             if (type == "static") {
@@ -184,7 +182,6 @@ std::pair<WriteTaskConfig, x::errors::Error> WriteTaskConfig::parse(
 
     if (!parser.ok()) return {std::move(cfg), parser.error()};
 
-    // Fetch channels from Synnax to validate types.
     auto [sy_channels, ch_err] = ctx->client->channels.retrieve(cfg.cmd_keys);
     if (ch_err) return {{}, ch_err};
 
