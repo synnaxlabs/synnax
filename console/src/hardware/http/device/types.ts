@@ -88,40 +88,41 @@ const noValidateHealthCheckZ = sharedHealthCheckZ.extend({
   validateResponse: z.literal(false),
 });
 
-const stringResponseValueZ = z.object({
+const baseResponseZ = z.object({ pointer: json.pointerZ });
+
+const stringResponseValueZ = baseResponseZ.extend({
   expectedValueType: z.literal("string"),
   expectedValue: z.string(),
 });
 
-const numberResponseValueZ = z.object({
+const numberResponseValueZ = baseResponseZ.extend({
   expectedValueType: z.literal("number"),
   expectedValue: z.number(),
 });
 
-const booleanResponseValueZ = z.object({
+const booleanResponseValueZ = baseResponseZ.extend({
   expectedValueType: z.literal("boolean"),
   expectedValue: z.boolean(),
 });
 
-const nullResponseValueZ = z.object({
+const nullResponseValueZ = baseResponseZ.extend({
   expectedValueType: z.literal("null"),
   expectedValue: z.null(),
 });
 
-const responseValueZ = z.discriminatedUnion("expectedValueType", [
+const responseZ = z.discriminatedUnion("expectedValueType", [
   stringResponseValueZ,
   numberResponseValueZ,
   booleanResponseValueZ,
   nullResponseValueZ,
 ]);
 
-const responseZ = z.object({ pointer: json.pointerZ, value: responseValueZ });
-
 export type Response = z.infer<typeof responseZ>;
 
 export const ZERO_RESPONSE = {
   pointer: "",
-  value: { expectedValueType: "string", expectedValue: "" },
+  expectedValueType: "string",
+  expectedValue: "",
 } as const satisfies Response;
 
 const validateHealthCheckZ = sharedHealthCheckZ.extend({
@@ -173,11 +174,19 @@ const v0PropertiesZ = z.object({
   readIndexes: z.record(z.string(), channel.keyZ),
 });
 
+const readEndpointPropsZ = z.object({
+  index: channel.keyZ,
+  channels: z.record(z.string(), channel.keyZ),
+});
+
+interface ReadEndpointProps extends z.infer<typeof readEndpointPropsZ> {}
+
 const v1PropertiesZ = v0PropertiesZ
-  .omit({ auth: true, headers: true, queryParams: true })
+  .omit({ auth: true, headers: true, queryParams: true, readIndexes: true })
   .extend({
     auth: authConfigZ,
     healthCheck: healthCheckZ.default(ZERO_HEALTH_CHECK),
+    read: z.record(z.string(), readEndpointPropsZ).default({}),
     version: z.literal(1),
   });
 
@@ -185,7 +194,7 @@ export interface Properties extends z.infer<typeof v1PropertiesZ> {}
 
 export const propertiesZ: z.ZodType<Properties> = v1PropertiesZ.or(
   v0PropertiesZ.transform((p) => {
-    const { queryParams, auth, ...rest } = p;
+    const { queryParams, auth, readIndexes, ...rest } = p;
     delete rest.headers;
     let newAuth: AuthConfig = { type: "none" };
     if (auth.type === "api_key")
@@ -201,9 +210,13 @@ export const propertiesZ: z.ZodType<Properties> = v1PropertiesZ.or(
         newAuth = { type: "api_key", sendAs: "query_param", parameter, key };
       }
     } else newAuth = auth;
+    const read: Record<string, ReadEndpointProps> = {};
+    for (const [path, indexKey] of Object.entries(readIndexes))
+      read[path] = { index: indexKey, channels: {} };
     return {
       ...rest,
       auth: newAuth,
+      read,
       version: 1,
       healthCheck: ZERO_HEALTH_CHECK,
     } as const;
@@ -216,7 +229,7 @@ export const ZERO_PROPERTIES = {
   timeoutMs: defaultTimeoutMs,
   auth: ZERO_AUTH_CONFIGS.none,
   healthCheck: ZERO_HEALTH_CHECK,
-  readIndexes: {},
+  read: {},
   version: 1,
 } as const satisfies Properties;
 

@@ -9,9 +9,50 @@
  * included in the file licenses/APL.txt.
  */
 
-.console-task-configure > div .console-http-read-endpoint .console-channel-list {
-    max-width: unset;
-    flex-basis: unset;
-    flex-grow: 0;
-    overflow: visible;
+.console-task-configure {
+    .console-endpoint-list {
+        width: 250px;
+    }
+
+    .console-endpoint-details {
+        overflow-y: auto;
+
+        .console-endpoint-details-form {
+            padding: 2rem;
+        }
+
+        .console-headers-kv-editor {
+            padding: 2rem 0;
+        }
+
+        .console-query-params-kv-editor {
+            padding: 2rem 0 0;
+        }
+
+        .console-channel-list {
+            overflow: visible;
+        }
+
+        .pluto-header__actions {
+            padding-right: 2rem;
+        }
+
+        .pluto-header__text {
+            padding-left: 2rem;
+        }
+    }
+
+    .console-rate-input {
+        max-width: 20rem;
+    }
+
+    .console-enum-mapping {
+        min-height: 200px;
+        max-height: 200px;
+        padding: 1rem 2rem;
+    }
+
+    .console-timestamp-format {
+        width: 160px;
+    }
 }

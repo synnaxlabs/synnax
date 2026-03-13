@@ -20,9 +20,9 @@ export interface ActionsProps extends Omit<Flex.BoxProps, "children" | "directio
  * Custom actions to render on the right side of the header.
  *
  * @param children - The actions to render. If the action is of type
- * {@link ButtonIconProps}, a correectly sized {@link ButtonIconOnly} is rendered
- * using the given props. If the action is a JSX element, it is renderered directly.
- * It's a good idea to prefer the latter in almost all cases for simplicity.
+ * {@link ButtonIconProps}, a correctly sized {@link ButtonIconOnly} is rendered using
+ * the given props. If the action is a JSX element, it is rendered directly. It's a good
+ * idea to prefer the latter in almost all cases for simplicity.
  */
 export const Actions = ({ children = [], ...rest }: ActionsProps): ReactElement => (
   <Flex.Box

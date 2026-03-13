@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { type task } from "@synnaxlabs/client";
-import { json } from "@synnaxlabs/x";
+import { DataType, json } from "@synnaxlabs/x";
 import { z } from "zod";
 
 import { Common } from "@/hardware/common";
@@ -16,12 +16,13 @@ import { Common } from "@/hardware/common";
 export const PREFIX = "http";
 
 const timeFormatZ = z.enum(["iso8601", "unix_sec", "unix_ms", "unix_us", "unix_ns"]);
+export type TimeFormat = z.infer<typeof timeFormatZ>;
 
 export const READ_TYPE = `${PREFIX}_read`;
 
 const readFieldZ = Common.Task.readChannelZ.extend({
   pointer: json.pointerZ,
-  dataType: z.string().default("float64"),
+  dataType: DataType.z,
   timestampFormat: timeFormatZ.optional(),
   enumValues: z.record(z.string(), z.number()).optional(),
 });
@@ -31,7 +32,7 @@ export interface ReadField extends z.infer<typeof readFieldZ> {}
 export const ZERO_READ_FIELD = {
   ...Common.Task.ZERO_READ_CHANNEL,
   pointer: "",
-  dataType: "float64",
+  dataType: DataType.FLOAT64,
 } as const satisfies ReadField;
 
 const baseReadEndpointZ = z.object({
@@ -56,6 +57,8 @@ const readEndpointZ = z.discriminatedUnion("method", [
 ]);
 
 export type ReadEndpoint = z.infer<typeof readEndpointZ>;
+
+export type ReadMethod = ReadEndpoint["method"];
 
 export const ZERO_READ_ENDPOINT = {
   key: "",
