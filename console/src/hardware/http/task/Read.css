@@ -32,6 +32,14 @@
         .console-channel-list {
             overflow: visible;
         }
+
+        .pluto-header__actions {
+            padding-right: 2rem;
+        }
+
+        .pluto-header__text {
+            padding-left: 2rem;
+        }
     }
 
     .console-rate-input {

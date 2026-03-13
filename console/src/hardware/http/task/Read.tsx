@@ -307,12 +307,13 @@ const FieldList = ({ epKey }: FieldListProps) => {
               Fields
             </Header.Title>
             {!isSnapshot && (
-              <Header.Actions>
+              <Header.Actions empty align="end">
                 <Button.Button
                   onClick={handleAdd}
                   variant="text"
                   contrast={2}
                   tooltip="Add field"
+                  size="small"
                   sharp
                 >
                   <Icon.Add />
