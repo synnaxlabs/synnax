@@ -388,7 +388,7 @@ const AdditionalFields: FC<{ epKey: string }> = ({ epKey }) => {
     <Flex.Box y grow empty>
       <Header.Header>
         <Header.Title weight={500} color={9}>
-          Additional Fields
+          Additional fields
         </Header.Title>
         {!isSnapshot && (
           <Header.Actions>
@@ -396,7 +396,7 @@ const AdditionalFields: FC<{ epKey: string }> = ({ epKey }) => {
               onClick={handleAddStatic}
               variant="text"
               contrast={2}
-              tooltip="Add Static Field"
+              tooltip="Add static field"
               sharp
             >
               <Icon.Add />
@@ -405,7 +405,7 @@ const AdditionalFields: FC<{ epKey: string }> = ({ epKey }) => {
               onClick={handleAddGenerated}
               variant="text"
               contrast={2}
-              tooltip="Add Generated Field"
+              tooltip="Add generated field"
               sharp
             >
               <Icon.Time />
