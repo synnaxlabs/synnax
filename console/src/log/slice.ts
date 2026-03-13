@@ -35,6 +35,11 @@ export interface SetRemoteCreatedPayload {
   key: string;
 }
 
+export interface SetShowIndexPayload {
+  key: string;
+  showIndex: boolean;
+}
+
 export interface RemovePayload {
   keys: string[];
 }
@@ -53,6 +58,9 @@ export const { actions, reducer } = createSlice({
     setRemoteCreated: (state, { payload }: PayloadAction<SetRemoteCreatedPayload>) => {
       state.logs[payload.key].remoteCreated = true;
     },
+    setShowIndex: (state, { payload }: PayloadAction<SetShowIndexPayload>) => {
+      state.logs[payload.key].showIndex = payload.showIndex;
+    },
     remove: (state, { payload }: PayloadAction<RemovePayload>) => {
       payload.keys.forEach((key) => delete state.logs[key]);
     },
@@ -63,6 +71,7 @@ export const {
   create: internalCreate,
   setChannels,
   setRemoteCreated,
+  setShowIndex,
   remove,
 } = actions;
 
