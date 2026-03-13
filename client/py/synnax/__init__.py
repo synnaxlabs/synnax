@@ -9,7 +9,7 @@
 
 __version__ = "0.3.0"
 
-from synnax import color, ethercat, labjack, modbus, ni, opcua, status
+from synnax import color, ethercat, http, labjack, modbus, ni, opcua, status
 from synnax.access.policy import Policy
 from synnax.access.role import Role
 from synnax.arc import (
@@ -164,6 +164,7 @@ __all__ = [
     "Writer",
     "WriterMode",
     "ethercat",
+    "http",
     "labjack",
     "modbus",
     "ni",

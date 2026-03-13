@@ -73,6 +73,7 @@ markers = [
     "device: mark test as a device test",
     "ethercat: mark test as an ethercat test",
     "framer: mark test as a framer test",
+    "http: mark test as an http test",
     "group: mark test as a group test",
     "frame_codec: mark test as a frame codec test",
     "iterator: mark test as a reader test",
