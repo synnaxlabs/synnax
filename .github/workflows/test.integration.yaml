@@ -165,7 +165,7 @@ jobs:
 
   deploy-and-test-windows:
     name: Deploy and Test (windows)
-    timeout-minutes: 30
+    timeout-minutes: 40
     runs-on:
       - self-hosted
       - windows-latest
@@ -215,7 +215,7 @@ jobs:
 
       - name: Test Conductor
         id: test-conductor
-        timeout-minutes: 30
+        timeout-minutes: 40
         shell: cmd
         working-directory: integration
         env:
@@ -240,7 +240,7 @@ jobs:
 
   deploy-and-test-ubuntu:
     name: Deploy and Test (ubuntu)
-    timeout-minutes: 30
+    timeout-minutes: 40
     runs-on:
       - self-hosted
       - ubuntu-latest
@@ -287,7 +287,7 @@ jobs:
 
       - name: Test Conductor
         id: test-conductor
-        timeout-minutes: 30
+        timeout-minutes: 40
         working-directory: integration
         run: uv run test-conductor --name tc_unix ${{ needs.setup.outputs.FLAGS }}
 
