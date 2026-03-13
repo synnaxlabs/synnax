@@ -28,12 +28,14 @@ import {
 import { DataType, id, primitive } from "@synnaxlabs/x";
 import { type FC, useCallback, useState } from "react";
 
-import { EmptyAction, Menu } from "@/components";
+import { EmptyAction } from "@/components";
 import { KeyValueEditor } from "@/components/form/KeyValueEditor";
 import { CSS } from "@/css";
 import { Common } from "@/hardware/common";
 import { ChannelList as BaseChannelList } from "@/hardware/common/task/ChannelList";
 import { Device } from "@/hardware/http/device";
+import { ContextMenu } from "@/hardware/http/task/ContextMenu";
+import { EndpointListItem } from "@/hardware/http/task/EndpointListItem";
 import {
   READ_SCHEMAS,
   READ_TYPE,
@@ -82,58 +84,22 @@ const Properties = () => (
   </>
 );
 
-interface EndpointContextMenuProps {
-  keys: string[];
-  onDelete: (keys: string[]) => void;
-  onDuplicate: (keys: string[]) => void;
-}
-
-const EndpointContextMenu = ({
-  keys,
-  onDelete,
-  onDuplicate,
-}: EndpointContextMenuProps) => {
-  const isSnapshot = Common.Task.useIsSnapshot();
-  const canAct = keys.length > 0;
-  return (
-    <PMenu.Menu level="small">
-      {!isSnapshot && canAct && (
-        <>
-          <PMenu.Item itemKey="duplicate" onClick={() => onDuplicate(keys)}>
-            <Icon.Copy />
-            Duplicate
-          </PMenu.Item>
-          <PMenu.Item itemKey="delete" onClick={() => onDelete(keys)}>
-            <Icon.Close />
-            Delete
-          </PMenu.Item>
-          <PMenu.Divider />
-        </>
-      )}
-      <Menu.ReloadConsoleItem />
-    </PMenu.Menu>
-  );
-};
-
-const EndpointListItem = (props: List.ItemProps<string>) => {
+const ReadEndpointListItem = (props: List.ItemProps<string>) => {
   const { itemKey } = props;
-  const method = PForm.useFieldValue<string>(`config.endpoints.${itemKey}.method`);
-  const epPath = PForm.useFieldValue<string>(`config.endpoints.${itemKey}.path`);
   const fields = PForm.useFieldValue<ReadField[]>(`config.endpoints.${itemKey}.fields`);
-  const shownPath = epPath === "" ? "(no path)" : epPath;
   return (
-    <Select.ListItem {...props} justify="between" align="center" x>
-      <Text.Text level="small" weight={500}>
-        {method} {shownPath}
-      </Text.Text>
-      <Text.Text level="small" color={7}>
-        {fields.length}
-      </Text.Text>
-    </Select.ListItem>
+    <EndpointListItem
+      {...props}
+      extra={
+        <Text.Text level="small" color={7}>
+          {fields.length}
+        </Text.Text>
+      }
+    />
   );
 };
 
-const endpointListItem = Component.renderProp(EndpointListItem);
+const readEndpointListItem = Component.renderProp(ReadEndpointListItem);
 
 const TIME_FORMAT_DATA: Select.StaticEntry<TimeFormat>[] = [
   { key: "iso8601", name: "ISO 8601" },
@@ -532,7 +498,7 @@ const Form: FC<Common.Task.FormProps<ReadSchemas>> = () => {
   const menuProps = PMenu.useContextMenu();
   const menuRenderProp = useCallback(
     (p: PMenu.ContextMenuMenuProps) => (
-      <EndpointContextMenu
+      <ContextMenu
         keys={p.keys}
         onDelete={handleDeleteEndpoints}
         onDuplicate={handleDuplicateEndpoints}
@@ -584,7 +550,7 @@ const Form: FC<Common.Task.FormProps<ReadSchemas>> = () => {
                 />
               }
             >
-              {endpointListItem}
+              {readEndpointListItem}
             </List.Items>
           </Select.Frame>
         </PMenu.ContextMenu>

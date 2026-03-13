@@ -27,11 +27,13 @@ import {
 import { DataType, id, json, primitive } from "@synnaxlabs/x";
 import { type FC, useCallback, useState } from "react";
 
-import { EmptyAction, Menu } from "@/components";
+import { EmptyAction } from "@/components";
 import { KeyValueEditor } from "@/components/form/KeyValueEditor";
 import { CSS } from "@/css";
 import { Common } from "@/hardware/common";
 import { Device } from "@/hardware/http/device";
+import { ContextMenu } from "@/hardware/http/task/ContextMenu";
+import { endpointListItem } from "@/hardware/http/task/EndpointListItem";
 import {
   type GeneratorType,
   type TimeFormat,
@@ -68,58 +70,6 @@ const Properties = () => (
     </Flex.Box>
   </>
 );
-
-interface EndpointContextMenuProps {
-  keys: string[];
-  onDelete: (keys: string[]) => void;
-  onDuplicate?: (keys: string[]) => void;
-}
-
-const EndpointContextMenu = ({
-  keys,
-  onDuplicate,
-  onDelete,
-}: EndpointContextMenuProps) => {
-  const isSnapshot = Common.Task.useIsSnapshot();
-  const canAct = keys.length > 0;
-  const canDuplicate = onDuplicate != null;
-  return (
-    <PMenu.Menu level="small">
-      {!isSnapshot && canAct && (
-        <>
-          {canDuplicate && (
-            <PMenu.Item itemKey="duplicate" onClick={() => onDuplicate?.(keys)}>
-              <Icon.Copy />
-              Duplicate
-            </PMenu.Item>
-          )}
-          <PMenu.Item itemKey="delete" onClick={() => onDelete(keys)}>
-            <Icon.Close />
-            Delete
-          </PMenu.Item>
-          <PMenu.Divider />
-        </>
-      )}
-      <Menu.ReloadConsoleItem />
-    </PMenu.Menu>
-  );
-};
-
-const EndpointListItem = (props: List.ItemProps<string>) => {
-  const { itemKey } = props;
-  const method = PForm.useFieldValue<string>(`config.endpoints.${itemKey}.method`);
-  const epPath = PForm.useFieldValue<string>(`config.endpoints.${itemKey}.path`);
-  const shownPath = epPath === "" ? "(no path)" : epPath;
-  return (
-    <Select.ListItem {...props} justify="between" align="center" x>
-      <Text.Text level="small" weight={500}>
-        {method} {shownPath}
-      </Text.Text>
-    </Select.ListItem>
-  );
-};
-
-const endpointListItem = Component.renderProp(EndpointListItem);
 
 const WRITE_METHOD_KEYS: WriteMethod[] = ["POST", "PUT", "PATCH"];
 
@@ -396,7 +346,7 @@ const AdditionalFields: FC<{ epKey: string }> = ({ epKey }) => {
   const menuProps = PMenu.useContextMenu();
   const menuRenderProp = useCallback(
     (p: PMenu.ContextMenuMenuProps) => (
-      <EndpointContextMenu keys={p.keys} onDelete={handleDelete} />
+      <ContextMenu keys={p.keys} onDelete={handleDelete} />
     ),
     [handleDelete],
   );
@@ -530,7 +480,7 @@ const Form: FC<Common.Task.FormProps<WriteSchemas>> = () => {
   const menuProps = PMenu.useContextMenu();
   const menuRenderProp = useCallback(
     (p: PMenu.ContextMenuMenuProps) => (
-      <EndpointContextMenu
+      <ContextMenu
         keys={p.keys}
         onDelete={handleDeleteEndpoints}
         onDuplicate={handleDuplicateEndpoints}
