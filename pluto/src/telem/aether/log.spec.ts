@@ -521,21 +521,17 @@ describe("StreamMultiChannelLog", () => {
       // Add channel B — this restarts the stream. The mock's stream() will
       // call c.streamHandler again with a seed. Simulate the seed containing
       // the existing cache data for channel A.
-      c.streamF = vi.fn(
-        (handler: client.StreamHandler, _keys: channel.Keys) => {
-          // Simulate the seed: channel A has cached data we already consumed.
-          const seedA = new Series({ data: new Float32Array([1, 2, 3]) });
-          handler(new Map([[c.channelA.key, new MultiSeries([seedA])]]));
-        },
-      );
+      c.streamF = vi.fn((handler: client.StreamHandler, _keys: channel.Keys) => {
+        // Simulate the seed: channel A has cached data we already consumed.
+        const seedA = new Series({ data: new Float32Array([1, 2, 3]) });
+        handler(new Map([[c.channelA.key, new MultiSeries([seedA])]]));
+      });
       log.setChannels([c.channelA.key, c.channelB.key]);
       await waitForResolve(log);
 
       // Channel A entries should NOT be duplicated (skipSeed should have fired)
       const entries = log.value();
-      const channelAEntries = entries.filter(
-        (e) => e.channelKey === c.channelA.key,
-      );
+      const channelAEntries = entries.filter((e) => e.channelKey === c.channelA.key);
       expect(channelAEntries).toHaveLength(3);
     });
 
@@ -553,12 +549,10 @@ describe("StreamMultiChannelLog", () => {
 
       // Add channel B. Simulate the seed delivering cached data for channel B
       // that was accumulated by another component — we should NOT dump it.
-      c.streamF = vi.fn(
-        (handler: client.StreamHandler, _keys: channel.Keys) => {
-          const seedB = new Series({ data: new Float32Array([10, 20, 30]) });
-          handler(new Map([[c.channelB.key, new MultiSeries([seedB])]]));
-        },
-      );
+      c.streamF = vi.fn((handler: client.StreamHandler, _keys: channel.Keys) => {
+        const seedB = new Series({ data: new Float32Array([10, 20, 30]) });
+        handler(new Map([[c.channelB.key, new MultiSeries([seedB])]]));
+      });
       log.setChannels([c.channelA.key, c.channelB.key]);
       await waitForResolve(log);
 
@@ -580,18 +574,16 @@ describe("StreamMultiChannelLog", () => {
       c.streamHandler?.(new Map([[c.channelA.key, new MultiSeries([series])]]));
 
       // Restart with channel B added; seed is skipped
-      c.streamF = vi.fn(
-        (handler: client.StreamHandler, _keys: channel.Keys) => {
-          const seedA = new Series({ data: new Float32Array([1]) });
-          const seedB = new Series({ data: new Float32Array([10]) });
-          handler(
-            new Map([
-              [c.channelA.key, new MultiSeries([seedA])],
-              [c.channelB.key, new MultiSeries([seedB])],
-            ]),
-          );
-        },
-      );
+      c.streamF = vi.fn((handler: client.StreamHandler, _keys: channel.Keys) => {
+        const seedA = new Series({ data: new Float32Array([1]) });
+        const seedB = new Series({ data: new Float32Array([10]) });
+        handler(
+          new Map([
+            [c.channelA.key, new MultiSeries([seedA])],
+            [c.channelB.key, new MultiSeries([seedB])],
+          ]),
+        );
+      });
       log.setChannels([c.channelA.key, c.channelB.key]);
       await waitForResolve(log);
       expect(log.value()).toHaveLength(1); // only the original entry
@@ -643,12 +635,10 @@ describe("StreamMultiChannelLog", () => {
 
     it("should allow seed data on initial start (not a restart)", async () => {
       // Simulate a client that seeds data on the first stream() call
-      c.streamF = vi.fn(
-        (handler: client.StreamHandler, _keys: channel.Keys) => {
-          const seed = new Series({ data: new Float32Array([10, 20]) });
-          handler(new Map([[c.channelA.key, new MultiSeries([seed])]]));
-        },
-      );
+      c.streamF = vi.fn((handler: client.StreamHandler, _keys: channel.Keys) => {
+        const seed = new Series({ data: new Float32Array([10, 20]) });
+        handler(new Map([[c.channelA.key, new MultiSeries([seed])]]));
+      });
 
       const props: StreamMultiChannelLogProps = {
         channels: [c.channelA.key],

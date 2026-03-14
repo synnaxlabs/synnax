@@ -7,14 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import {
-  box,
-  color,
-  type destructor,
-  notation,
-  TimeStamp,
-  xy,
-} from "@synnaxlabs/x";
+import { box, color, type destructor, notation, TimeStamp, xy } from "@synnaxlabs/x";
 import { z } from "zod";
 
 import { aether } from "@/aether/aether";
@@ -148,12 +141,11 @@ export class Log extends aether.Leaf<typeof logState, InternalState> {
       i.defaultPrefixColor = muteColor(i.textColor, i.theme);
       i.prefixColors = {};
       i.valueColors = {};
-      for (const [key, cfg] of Object.entries(configs)) 
+      for (const [key, cfg] of Object.entries(configs))
         if (cfg.color) {
           i.prefixColors[key] = muteColor(cfg.color, i.theme);
           i.valueColors[key] = color.construct(cfg.color);
         }
-      
     }
 
     // Cache selection highlight colors (theme-dependent).

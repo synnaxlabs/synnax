@@ -101,8 +101,7 @@ export class StreamMultiChannelLog
 
   setChannels(channels: Array<number | string>): void {
     // Short-circuit if channels haven't actually changed.
-    if (compare.primitiveArrays(this._channels, channels) === compare.EQUAL)
-      return;
+    if (compare.primitiveArrays(this._channels, channels) === compare.EQUAL) return;
     this._channels = channels;
     this.valid = false;
     if (channels.length === 0) {
