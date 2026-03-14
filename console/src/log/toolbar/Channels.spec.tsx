@@ -57,12 +57,37 @@ vi.mock("@synnaxlabs/pluto", async (importOriginal) => {
       ...((actual as Record<string, unknown>).Access as object),
       useUpdateGranted: vi.fn(() => true),
     },
+    Theming: {
+      use: () => ({
+        colors: {
+          gray: { l11: "#888888" },
+          primary: { z: "#0000ff" },
+        },
+      }),
+    },
+    Notation: {
+      Select: ({
+        value,
+        disabled,
+      }: {
+        value: string | undefined;
+        onChange: (v: string) => void;
+        allowNone?: boolean;
+        disabled?: boolean;
+      }) => (
+        <div
+          data-testid="notation-select"
+          data-value={value ?? ""}
+          data-disabled={String(disabled ?? false)}
+        />
+      ),
+    },
     Channel: {
       ...((actual as Record<string, unknown>).Channel as object),
       SelectSingle: ({
         value,
         disabled,
-        placeholder,
+        triggerProps,
       }: {
         value: number;
         onChange: (v: number) => void;
@@ -70,10 +95,12 @@ vi.mock("@synnaxlabs/pluto", async (importOriginal) => {
         initialQuery?: object;
         grow?: boolean;
         variant?: string;
-        placeholder?: string;
+        triggerProps?: { placeholder?: string };
       }) => (
         <div
-          data-testid={placeholder ? "add-channel-select" : `channel-select-${value}`}
+          data-testid={
+            triggerProps?.placeholder ? "add-channel-select" : `channel-select-${value}`
+          }
           data-disabled={String(disabled)}
           data-value={value}
         />
@@ -81,26 +108,28 @@ vi.mock("@synnaxlabs/pluto", async (importOriginal) => {
       useRetrieve: vi.fn(() => ({
         data: {
           name: "mock-channel",
-          dataType: { equals: () => false },
+          dataType: { isNumeric: true, equals: () => false },
         },
       })),
     },
     Button: {
       ...((actual as Record<string, unknown>).Button as object),
-      Icon: ({
+      Button: ({
         children,
         onClick,
         disabled,
         tooltip,
       }: {
         children: React.ReactNode;
-        onClick: () => void;
+        onClick?: () => void;
         disabled?: boolean;
         size?: string;
+        variant?: string;
+        ghost?: boolean;
         tooltip?: string;
       }) => (
         <button
-          data-testid={`btn-${tooltip?.toLowerCase().replace(/ /g, "-")}`}
+          data-testid={`btn-${tooltip?.toLowerCase().replace(/ /g, "-") ?? "unknown"}`}
           onClick={onClick}
           disabled={disabled}
         >
@@ -120,6 +149,7 @@ vi.mock("@synnaxlabs/pluto", async (importOriginal) => {
         gap?: string;
         className?: string;
         align?: string;
+        full?: string;
       }) => (
         <div data-testid="flex-box" style={style}>
           {children}
@@ -159,6 +189,7 @@ vi.mock("@synnaxlabs/pluto", async (importOriginal) => {
       }: {
         value: unknown;
         onChange: (c: unknown) => void;
+        onDelete?: () => void;
         size?: string;
         disabled: boolean;
       }) => <div data-testid="color-swatch" data-disabled={String(disabled)} />,
@@ -210,8 +241,9 @@ describe("log/toolbar/Channels", () => {
       channels: [10],
     });
     render(<Channels layoutKey="test-key" />);
-    expect(screen.getAllByTestId("input-numeric")).toHaveLength(1);
-    expect(screen.getAllByTestId("color-swatch")).toHaveLength(1);
+    // One from the ChannelRow, one from the AddChannelRow
+    expect(screen.getAllByTestId("input-numeric")).toHaveLength(2);
+    expect(screen.getAllByTestId("color-swatch")).toHaveLength(2);
   });
 
   it("renders a remove button per channel row", () => {

@@ -9,7 +9,7 @@
 
 import { log } from "@synnaxlabs/client";
 import { Access, Flex, Input } from "@synnaxlabs/pluto";
-import { type ReactElement } from "react";
+import { type ReactElement, useCallback } from "react";
 
 import { useSyncComponent } from "@/log/Log";
 import { useSelectOptional } from "@/log/selectors";
@@ -23,10 +23,19 @@ export const Properties = ({ layoutKey }: PropertiesProps): ReactElement | null 
   const dispatch = useSyncComponent(layoutKey);
   const state = useSelectOptional(layoutKey);
   const hasEditPermission = Access.useUpdateGranted(log.ontologyID(layoutKey));
-  const handlePrecisionChange = (v: number) =>
-    dispatch(setTimestampPrecision({ key: layoutKey, timestampPrecision: v }));
-  const handleShowChannelNamesChange = (v: boolean) =>
-    dispatch(setShowChannelNames({ key: layoutKey, showChannelNames: v }));
+
+  const handlePrecisionChange = useCallback(
+    (v: number) =>
+      dispatch(setTimestampPrecision({ key: layoutKey, timestampPrecision: v })),
+    [dispatch, layoutKey],
+  );
+
+  const handleShowChannelNamesChange = useCallback(
+    (v: boolean) =>
+      dispatch(setShowChannelNames({ key: layoutKey, showChannelNames: v })),
+    [dispatch, layoutKey],
+  );
+
   if (state == null) return null;
   return (
     <Flex.Box x style={{ padding: "2rem" }}>

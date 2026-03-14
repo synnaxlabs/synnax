@@ -33,6 +33,8 @@ const mockRenderContext = () => ({
   lower2d: {
     canvas: { width: 800, height: 600 },
     getContext: vi.fn(),
+    font: "",
+    measureText: vi.fn(() => ({ width: 8 })),
   },
 });
 

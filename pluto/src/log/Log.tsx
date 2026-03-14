@@ -126,10 +126,8 @@ export const Log = ({
       if (e.button !== 0) return;
       const idx = mouseYToEntryIndex(e.clientY);
       draggingRef.current = true;
-      if (e.shiftKey)
-        setState((s) => ({ ...s, selectionEnd: idx }));
-      else
-        setState((s) => ({ ...s, selectionStart: idx, selectionEnd: idx }));
+      if (e.shiftKey) setState((s) => ({ ...s, selectionEnd: idx }));
+      else setState((s) => ({ ...s, selectionStart: idx, selectionEnd: idx }));
     },
     [mouseYToEntryIndex, setState],
   );
@@ -223,11 +221,7 @@ export const Log = ({
   );
 
   return (
-    <Menu.ContextMenu
-      className={menuClassName}
-      menu={menuContent}
-      {...menuProps}
-    >
+    <Menu.ContextMenu className={menuClassName} menu={menuContent} {...menuProps}>
       <div
         ref={resizeRef}
         className={CSS(CSS.B("log"), className)}

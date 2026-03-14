@@ -133,7 +133,7 @@ const AddChannelRow = ({ onAdd, disabled }: AddChannelRowProps): ReactElement =>
       disabled
       shrink={false}
       variant="shadow"
-      tooltip="Decimal places (-1 = no rounding)"
+      tooltip="Precision (-1 = no rounding)"
     />
     <Color.Swatch value={color.ZERO} onChange={() => {}} size="small" disabled />
     <Button.Button size="small" variant="text" ghost disabled>
@@ -170,8 +170,7 @@ export const Channels = ({ layoutKey }: ChannelsProps): ReactElement | null => {
   );
 
   const handleAdd = useCallback(
-    (channelKey: channel.Key) =>
-      dispatch(addChannel({ key: layoutKey, channelKey })),
+    (channelKey: channel.Key) => dispatch(addChannel({ key: layoutKey, channelKey })),
     [dispatch, layoutKey],
   );
 

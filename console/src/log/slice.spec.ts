@@ -86,6 +86,7 @@ describe("Log Slice", () => {
       );
       expect(store.getState()[SLICE_NAME].logs[key].channelConfigs["1"]).toEqual({
         color: "#ff0000",
+        notation: "standard",
         precision: 4,
       });
     });
