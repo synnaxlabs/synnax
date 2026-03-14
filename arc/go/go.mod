@@ -1,6 +1,6 @@
 module github.com/synnaxlabs/arc
 
-go 1.26.0
+go 1.26.1
 
 replace (
 	github.com/synnaxlabs/alamos => ../../alamos/go
