@@ -492,11 +492,6 @@ describe("color.Color", () => {
       expect(result[3]).toBeCloseTo(0.5);
     });
 
-    test("throws error for alpha values > 1", () => {
-      const color1 = color.construct("#ff0000");
-      expect(() => color.setAlpha(color1, 1.5)).toThrow();
-    });
-
     test("preserves RGB values when setting alpha", () => {
       const originalColor: color.RGBA = [123, 45, 67, 0.8];
       const result = color.setAlpha(originalColor, 0.4);

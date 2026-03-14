@@ -903,6 +903,8 @@ var _ = Describe("TS Types Plugin", func() {
 
 			content := string(resp.Files[0].Content)
 			Expect(content).To(ContainSubstring(`export interface MapNodeSchemas<K extends z.ZodType = z.ZodType, V extends z.ZodType = z.ZodType>`))
+		// Schemas use constraint as default, Z function uses specific default
+		Expect(content).To(ContainSubstring(`export const mapNodeZ = <K extends z.ZodType = z.ZodString, V extends z.ZodType = z.ZodString>`))
 			Expect(content).To(ContainSubstring(`}: Partial<MapNodeSchemas<K, V>> = {}) =>`))
 			Expect(content).To(ContainSubstring(`get children():`))
 			// Optional arrays use zod.nullToUndefined with array schema
@@ -1090,7 +1092,7 @@ var _ = Describe("TS Types Plugin", func() {
 			Expect(err).To(BeNil())
 
 			content := string(resp.Files[0].Content)
-			Expect(content).To(ContainSubstring(`Data extends z.ZodType = z.ZodType`), "optional param should default to constraint")
+			Expect(content).To(ContainSubstring(`Data extends z.ZodType = z.ZodNever`), "optional param should have ZodNever default")
 			Expect(content).To(ContainSubstring(`data: data ?? z.unknown().optional()`), "optional param field should use z.unknown().optional() fallback")
 		})
 
@@ -1119,7 +1121,7 @@ var _ = Describe("TS Types Plugin", func() {
 
 			content := string(resp.Files[0].Content)
 			Expect(content).To(ContainSubstring(`Config extends z.ZodType<record.Unknown> = z.ZodType<record.Unknown>`), "constrained json param should use record.Unknown")
-			Expect(content).To(ContainSubstring(`StatusData extends z.ZodType = z.ZodType`), "optional param should default to constraint")
+			Expect(content).To(ContainSubstring(`StatusData extends z.ZodType = z.ZodNever`), "optional param should have ZodNever default")
 			Expect(content).To(ContainSubstring(`config: config ?? record.nullishToEmpty()`), "constrained json field should use record fallback")
 			Expect(content).To(ContainSubstring(`statusData: statusData ?? z.unknown().optional()`), "optional param field should use z.unknown().optional() fallback")
 		})

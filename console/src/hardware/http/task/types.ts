@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { channel, type task } from "@synnaxlabs/client";
-import { DataType, json } from "@synnaxlabs/x";
+import { DataType, json, record } from "@synnaxlabs/x";
 import { z } from "zod";
 
 import { Common } from "@/hardware/common";
@@ -210,6 +210,6 @@ export const TEST_CONNECTION_COMMAND_TYPE = "test_connection";
 
 export const SCAN_SCHEMAS = {
   type: z.literal(SCAN_TYPE),
-  config: z.null(),
+  config: record.unknownZ(),
   statusData: z.null(),
 } as const satisfies task.Schemas;

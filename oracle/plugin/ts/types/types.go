@@ -916,7 +916,7 @@ func (p *Plugin) processTypeParam(tp resolution.TypeParam, table *resolution.Tab
 	}
 	if tp.Optional {
 		tpd.HasDefault = true
-		tpd.Default = tpd.Constraint
+		tpd.Default = "z.ZodNever"
 		tpd.DefaultValue = "z.unknown()"
 	} else if tp.Default != nil {
 		tpd.HasDefault = true

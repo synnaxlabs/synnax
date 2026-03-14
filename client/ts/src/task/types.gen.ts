@@ -19,7 +19,7 @@ export const keyZ = z
   .or(z.number().transform(String).or(z.bigint().transform(String)));
 export type Key = z.infer<typeof keyZ>;
 
-export type StatusDetailsZodObject<Data extends z.ZodType = z.ZodType> = z.ZodObject<{
+export type StatusDetailsZodObject<Data extends z.ZodType = z.ZodNever> = z.ZodObject<{
   task: typeof keyZ;
   running: z.ZodBoolean;
   cmd: z.ZodOptional<z.ZodString>;
@@ -28,7 +28,7 @@ export type StatusDetailsZodObject<Data extends z.ZodType = z.ZodType> = z.ZodOb
 
 export interface StatusDetailsZFunction {
   <Data extends z.ZodType>(data: Data): StatusDetailsZodObject<Data>;
-  <Data extends z.ZodType = z.ZodType>(data?: Data): StatusDetailsZodObject<Data>;
+  <Data extends z.ZodType = z.ZodNever>(data?: Data): StatusDetailsZodObject<Data>;
 }
 
 export const statusDetailsZ: StatusDetailsZFunction = <Data extends z.ZodType>(
@@ -40,13 +40,13 @@ export const statusDetailsZ: StatusDetailsZFunction = <Data extends z.ZodType>(
     cmd: z.string().optional(),
     data: data ?? z.unknown().optional(),
   });
-export type StatusDetails<Data extends z.ZodType = z.ZodType> = {
+export type StatusDetails<Data extends z.ZodType = z.ZodNever> = {
   task: Key;
   running: boolean;
   cmd?: string;
 } & ([Data] extends [z.ZodNever] ? {} : { data: z.infer<Data> });
 
-export type NewStatusDetailsZodObject<Data extends z.ZodType = z.ZodType> =
+export type NewStatusDetailsZodObject<Data extends z.ZodType = z.ZodNever> =
   z.ZodObject<{
     task: z.ZodOptional<typeof keyZ>;
     running: z.ZodBoolean;
@@ -56,7 +56,7 @@ export type NewStatusDetailsZodObject<Data extends z.ZodType = z.ZodType> =
 
 export interface NewStatusDetailsZFunction {
   <Data extends z.ZodType>(data: Data): NewStatusDetailsZodObject<Data>;
-  <Data extends z.ZodType = z.ZodType>(data?: Data): NewStatusDetailsZodObject<Data>;
+  <Data extends z.ZodType = z.ZodNever>(data?: Data): NewStatusDetailsZodObject<Data>;
 }
 
 export const newStatusDetailsZ: NewStatusDetailsZFunction = <Data extends z.ZodType>(
@@ -68,7 +68,7 @@ export const newStatusDetailsZ: NewStatusDetailsZFunction = <Data extends z.ZodT
     cmd: z.string().optional(),
     data: data ?? z.unknown().optional(),
   });
-export type NewStatusDetails<Data extends z.ZodType = z.ZodType> = {
+export type NewStatusDetails<Data extends z.ZodType = z.ZodNever> = {
   task?: Key;
   running: boolean;
   cmd?: string;
@@ -87,15 +87,15 @@ export const commandZ = z.object({
 });
 export interface Command extends z.infer<typeof commandZ> {}
 
-export const statusZ = <Data extends z.ZodType = z.ZodType>(data?: Data) =>
+export const statusZ = <Data extends z.ZodType = z.ZodNever>(data?: Data) =>
   status.statusZ({ details: statusDetailsZ(data) });
-export type Status<Data extends z.ZodType = z.ZodType> = z.infer<
+export type Status<Data extends z.ZodType = z.ZodNever> = z.infer<
   ReturnType<typeof statusZ<Data>>
 >;
 
-export const newStatusZ = <Data extends z.ZodType = z.ZodType>(data?: Data) =>
+export const newStatusZ = <Data extends z.ZodType = z.ZodNever>(data?: Data) =>
   status.newZ({ details: newStatusDetailsZ(data) });
-export type NewStatus<Data extends z.ZodType = z.ZodType> = z.infer<
+export type NewStatus<Data extends z.ZodType = z.ZodNever> = z.infer<
   ReturnType<typeof newStatusZ<Data>>
 >;
 
@@ -112,7 +112,7 @@ export interface PayloadSchemas<
 export const payloadZ = <
   Type extends z.ZodType<string> = z.ZodString,
   Config extends z.ZodType<record.Unknown> = z.ZodType<record.Unknown>,
-  StatusData extends z.ZodType = z.ZodType,
+  StatusData extends z.ZodType = z.ZodNever,
 >({
   type,
   config,
@@ -150,7 +150,7 @@ export interface NewSchemas<
 export const newZ = <
   Type extends z.ZodType<string> = z.ZodString,
   Config extends z.ZodType<record.Unknown> = z.ZodType<record.Unknown>,
-  StatusData extends z.ZodType = z.ZodType,
+  StatusData extends z.ZodType = z.ZodNever,
 >({ type, config, statusData }: Partial<NewSchemas<Type, Config, StatusData>> = {}) =>
   payloadZ({ type, config, statusData })
     .omit({ internal: true, snapshot: true, status: true })

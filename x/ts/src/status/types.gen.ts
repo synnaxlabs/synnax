@@ -14,7 +14,7 @@ import { z } from "zod";
 import { id } from "@/id";
 import { label } from "@/label";
 import { type optional } from "@/optional";
-import { telem,TimeStamp } from "@/telem";
+import { telem, TimeStamp } from "@/telem";
 import { zod } from "@/zod";
 export const VARIANTS = [
   "success",
@@ -42,7 +42,7 @@ export interface StatusSchemas<
 }
 
 export type StatusZodObject<
-  Details extends z.ZodType = z.ZodType,
+  Details extends z.ZodType = z.ZodNever,
   V extends z.ZodType<Variant> = typeof variantZ,
 > = z.ZodObject<{
   key: z.ZodDefault<z.ZodString>;
@@ -57,14 +57,14 @@ export type StatusZodObject<
 
 export interface StatusZFunction {
   <
-    Details extends z.ZodType = z.ZodType,
+    Details extends z.ZodType = z.ZodNever,
     V extends z.ZodType<Variant> = typeof variantZ,
   >(args: {
     details?: Details;
     v?: V;
   }): StatusZodObject<Details, V>;
   <
-    Details extends z.ZodType = z.ZodType,
+    Details extends z.ZodType = z.ZodNever,
     V extends z.ZodType<Variant> = typeof variantZ,
   >(
     args?: Partial<StatusSchemas<Details, V>>,
@@ -86,7 +86,7 @@ export const statusZ: StatusZFunction = <
     labels: zod.nullToUndefined(label.labelZ.array()),
   });
 export type Status<
-  Details extends z.ZodType = z.ZodType,
+  Details extends z.ZodType = z.ZodNever,
   V extends z.ZodType<Variant> = typeof variantZ,
 > = {
   key: string;
@@ -107,11 +107,11 @@ export interface NewSchemas<
 }
 
 export const newZ = <
-  Details extends z.ZodType = z.ZodType,
+  Details extends z.ZodType = z.ZodNever,
   V extends z.ZodType<Variant> = typeof variantZ,
 >({ details, v }: Partial<NewSchemas<Details, V>> = {}) =>
   statusZ({ details, v }).partial({ key: true, name: true, time: true });
 export type New<
-  Details extends z.ZodType = z.ZodType,
+  Details extends z.ZodType = z.ZodNever,
   V extends z.ZodType<Variant> = typeof variantZ,
 > = optional.Optional<Status<Details, V>, "key" | "name" | "time">;

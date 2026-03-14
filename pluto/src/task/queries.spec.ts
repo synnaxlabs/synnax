@@ -237,6 +237,7 @@ describe("queries", () => {
         details: {
           task: testTask.key,
           running: false,
+          data: {},
         },
       });
 
@@ -329,6 +330,7 @@ describe("queries", () => {
         details: {
           task: testTask.key,
           running: true,
+          data: {},
         },
       });
 
@@ -971,7 +973,7 @@ describe("queries", () => {
         schemas: {
           type: z.literal("testType"),
           config: z.object({}),
-          statusData: statusDataSchema.nullish(),
+          statusData: statusData.nullish(),
         },
         initialValues: {
           key: testTask.key,
@@ -1106,7 +1108,7 @@ describe("queries", () => {
         schemas: {
           type: z.literal("testType"),
           config: z.object({}),
-          statusData: statusDataSchema.nullish(),
+          statusData: statusData.nullish(),
         },
         initialValues: {
           key: testTask.key,
@@ -1432,11 +1434,7 @@ describe("queries", () => {
         async () => {
           const updatedTask = await client.tasks.retrieve<typeof schemas>({
             key: testTask.key,
-            schemas: {
-              type: typeSchema,
-              config: configSchema,
-              statusData: statusDataSchema,
-            },
+            schemas,
           });
           expect(updatedTask.config.connection.port).toEqual(9090);
         },

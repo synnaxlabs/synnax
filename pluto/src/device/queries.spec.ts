@@ -1168,7 +1168,11 @@ describe("queries", () => {
         const rack = await client.racks.create({
           name: "test custom props rack",
         });
-        const useForm = Device.createForm({ properties: customPropertiesZ });
+        const useForm = Device.createForm({
+          properties: customPropertiesZ,
+          make: z.string(),
+          model: z.string(),
+        });
         const { result } = renderHook(() => useForm({ query: { key: "" } }), {
           wrapper,
         });
@@ -1308,6 +1312,12 @@ describe("queries", () => {
       channels: z.record(z.string(), z.number()),
     });
     const makeSchema = z.literal("custom_make");
+    const modelSchema = z.string();
+    const schemas = {
+      properties: propertiesSchema,
+      make: makeSchema,
+      model: modelSchema,
+    };
 
     describe("createRetrieve", () => {
       it("should retrieve a device with typed properties", async () => {
@@ -1322,13 +1332,10 @@ describe("queries", () => {
             model: "test",
             properties: { sampleRate: 1000, channels: { ai0: 1, ai1: 2 } },
           },
-          { properties: propertiesSchema, make: makeSchema },
+          schemas,
         );
 
-        const { useRetrieve } = Device.createRetrieve({
-          properties: propertiesSchema,
-          make: makeSchema,
-        });
+        const { useRetrieve } = Device.createRetrieve(schemas);
         const { result } = renderHook(() => useRetrieve({ key: dev.key }), { wrapper });
 
         await waitFor(() => expect(result.current.variant).toEqual("success"));
@@ -1349,13 +1356,10 @@ describe("queries", () => {
             model: "test",
             properties: { sampleRate: 100, channels: {} },
           },
-          { properties: propertiesSchema, make: makeSchema },
+          schemas,
         );
 
-        const { useRetrieve } = Device.createRetrieve({
-          properties: propertiesSchema,
-          make: makeSchema,
-        });
+        const { useRetrieve } = Device.createRetrieve(schemas);
         const { result } = renderHook(() => useRetrieve({ key: dev.key }), { wrapper });
 
         await waitFor(() => expect(result.current.variant).toEqual("success"));
@@ -1367,7 +1371,7 @@ describe("queries", () => {
               ...dev,
               properties: { sampleRate: 500, channels: { ch1: 10 } },
             },
-            { properties: propertiesSchema, make: makeSchema },
+            schemas,
           );
         });
 
@@ -1381,10 +1385,7 @@ describe("queries", () => {
     describe("createCreate", () => {
       it("should create a device with typed properties", async () => {
         const rack = await client.racks.create({ name: "schema-create-rack" });
-        const { useUpdate } = Device.createCreate({
-          properties: propertiesSchema,
-          make: makeSchema,
-        });
+        const { useUpdate } = Device.createCreate(schemas);
         const { result } = renderHook(() => useUpdate(), { wrapper });
 
         const key = id.create();
@@ -1405,7 +1406,7 @@ describe("queries", () => {
 
         const retrieved = await client.devices.retrieve({
           key,
-          schemas: { properties: propertiesSchema, make: makeSchema },
+          schemas,
         });
         expect(retrieved.properties.sampleRate).toBe(2000);
         expect(retrieved.properties.channels).toEqual({ x: 5 });
@@ -1425,13 +1426,10 @@ describe("queries", () => {
             model: "test",
             properties: { sampleRate: 300, channels: { a: 1 } },
           },
-          { properties: propertiesSchema, make: makeSchema },
+          schemas,
         );
 
-        const useForm = Device.createForm({
-          properties: propertiesSchema,
-          make: makeSchema,
-        });
+        const useForm = Device.createForm(schemas);
         const { result } = renderHook(() => useForm({ query: { key: dev.key } }), {
           wrapper,
         });

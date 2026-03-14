@@ -97,7 +97,7 @@ export const retrieveSingle = async <
           ...BASE_QUERY,
           ...query,
         });
-  store.devices.set(dev.key, dev as unknown as device.Device);
+  store.devices.set(dev.key, dev);
   if (dev.status != null) store.statuses.set(dev.status);
   return dev as device.Device<Properties, Make, Model>;
 };
@@ -148,7 +148,7 @@ export const retrieveMultiple = async <
             keys: missingKeys,
           });
     devices.push(...(fetched as device.Device<Properties, Make, Model>[]));
-    store.devices.set(fetched as unknown as device.Device[]);
+    store.devices.set(fetched);
     fetched.forEach((d) => {
       if (d.status != null) store.statuses.set(d.status);
     });
@@ -279,8 +279,8 @@ export const createCreate = <
       const dev =
         schemas != null
           ? await client.devices.create(data, schemas)
-          : await client.devices.create(data as unknown as device.New);
-      rollbacks.push(store.devices.set(dev as unknown as device.Device));
+          : await client.devices.create(data as device.New);
+      rollbacks.push(store.devices.set(dev));
       return dev as device.Device<Properties, Make, Model>;
     },
   });
@@ -385,7 +385,7 @@ export const createForm = <
               schemas,
             )
           : await client.devices.create(data);
-      rollbacks.push(store.devices.set(result.key, result as unknown as device.Device));
+      rollbacks.push(store.devices.set(result.key, result));
     },
     mountListeners: ({ store, query: { key }, reset, set, get }) => {
       if (primitive.isZero(key)) return [];
