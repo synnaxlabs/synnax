@@ -37,10 +37,20 @@ export const logState = z.object({
   font: text.levelZ.default("p"),
   color: color.colorZ.default(color.ZERO),
   overshoot: xy.xy.default({ x: 0, y: 0 }),
+  selectionStart: z.number().default(-1),
+  selectionEnd: z.number().default(-1),
+  visibleStart: z.number().default(0),
+  selectedText: z.string().default(""),
+  selectedLines: z
+    .array(z.object({ text: z.string(), color: z.string() }))
+    .default([]),
+  computedLineHeight: z.number().default(0),
+  copyFlash: z.boolean().default(false),
 });
 
 const SCROLLBAR_RENDER_THRESHOLD = 0.98;
 const CANVAS: render.Canvas2DVariant = "lower2d";
+const CONTENT_PADDING = 6;
 
 interface InternalState {
   theme: theming.Theme;
@@ -111,11 +121,14 @@ export class Log extends aether.Leaf<typeof logState, InternalState> {
     i.stopListeningTelem = i.telem.onChange(() => {
       const { evictedCount } = this.internal.telem;
       this.entries = this.internal.telem.value();
-      if (this.state.scrolling && evictedCount > 0)
-        this.scrollState.offset = Math.max(
-          this.visibleLineCount,
-          this.scrollState.offset - evictedCount,
-        );
+      if (evictedCount > 0) {
+        if (this.state.scrolling)
+          this.scrollState.offset = Math.max(
+            this.visibleLineCount,
+            this.scrollState.offset - evictedCount,
+          );
+        this.clampSelection(evictedCount);
+      }
       this.checkEmpty();
       this.requestRender();
     });
@@ -158,7 +171,9 @@ export class Log extends aether.Leaf<typeof logState, InternalState> {
 
   get visibleLineCount(): number {
     return Math.min(
-      Math.floor((box.height(this.state.region) - 12) / this.lineHeight),
+      Math.floor(
+        (box.height(this.state.region) - CONTENT_PADDING * 2) / this.lineHeight,
+      ),
       this.entries.length,
     );
   }
@@ -170,18 +185,28 @@ export class Log extends aether.Leaf<typeof logState, InternalState> {
     if (!this.state.visible) return () => renderCtx.erase(region, xy.ZERO, CANVAS);
 
     const visible = this.visibleLineCount;
+    let sliceStart: number;
     let slice: LogEntry[];
-    if (!this.state.scrolling)
-      slice = this.entries.slice(this.entries.length - visible);
-    else {
+    if (!this.state.scrolling) {
+      sliceStart = Math.max(0, this.entries.length - visible);
+      slice = this.entries.slice(sliceStart);
+    } else {
       const end = this.scrollState.offset;
-      slice = this.entries.slice(Math.max(0, end - visible), end);
+      sliceStart = Math.max(0, end - visible);
+      slice = this.entries.slice(sliceStart, end);
     }
+
+    const lh = this.lineHeight;
+    if (this.state.visibleStart !== sliceStart || this.state.computedLineHeight !== lh)
+      this.setState((s) => ({ ...s, visibleStart: sliceStart, computedLineHeight: lh }));
+
+    this.updateSelectedText();
 
     const reg = this.state.region;
     const canvas = renderCtx[CANVAS];
     const draw2d = new Draw2D(canvas, this.internal.theme);
     const clearScissor = renderCtx.scissor(reg, xy.ZERO, [CANVAS]);
+    this.renderSelection(draw2d, sliceStart, slice.length);
     this.renderElements(draw2d, slice);
     this.renderScrollbar(draw2d);
     clearScissor();
@@ -212,37 +237,117 @@ export class Log extends aether.Leaf<typeof logState, InternalState> {
     });
   }
 
-  private renderElements(draw2D: Draw2D, entries: LogEntry[]): void {
+  private clampSelection(evictedCount: number): void {
+    const { selectionStart, selectionEnd } = this.state;
+    if (selectionStart < 0) return;
+    const newStart = selectionStart - evictedCount;
+    const newEnd = selectionEnd - evictedCount;
+    if (newEnd < 0)
+      this.setState((s) => ({
+        ...s,
+        selectionStart: -1,
+        selectionEnd: -1,
+        selectedText: "",
+      }));
+    else
+      this.setState((s) => ({
+        ...s,
+        selectionStart: Math.max(0, newStart),
+        selectionEnd: newEnd,
+        selectedText: "",
+      }));
+  }
+
+  private renderSelection(draw2d: Draw2D, sliceStart: number, visibleCount: number): void {
+    const { selectionStart, selectionEnd } = this.state;
+    if (selectionStart < 0 || selectionEnd < 0) return;
+    const selMin = Math.min(selectionStart, selectionEnd);
+    const selMax = Math.max(selectionStart, selectionEnd);
+    const sliceEnd = sliceStart + visibleCount;
+    if (selMax < sliceStart || selMin >= sliceEnd) return;
     const reg = this.state.region;
-    // showChannelNames is read from state (O(1)) rather than derived by scanning all
-    // entries (O(n)). The render loop below is already O(n) over visible entries —
-    // adding a second O(n) scan here just to answer a yes/no question would double the
-    // per-frame work at up to 60fps.
+    const lh = this.lineHeight;
+    const highlightStart = Math.max(selMin, sliceStart) - sliceStart;
+    const highlightEnd = Math.min(selMax, sliceEnd - 1) - sliceStart;
+    const selColor = color.setAlpha(this.internal.theme.colors.primary.z, 0.25);
+    const flashColor = color.setAlpha(this.internal.theme.colors.primary.z, 0.15);
+    const bgColor = this.state.copyFlash ? flashColor : selColor;
+    const rowCount = highlightEnd - highlightStart + 1;
+    draw2d.container({
+      region: box.construct(
+        xy.translate(box.topLeft(reg), {
+          x: 0,
+          y: highlightStart * lh + CONTENT_PADDING,
+        }),
+        { width: box.width(reg), height: rowCount * lh },
+      ),
+      bordered: false,
+      rounded: false,
+      backgroundColor: bgColor,
+    });
+  }
+
+  // showChannelNames is read from state (O(1)) rather than derived by scanning all
+  // entries (O(n)). The render loop below is already O(n) over visible entries —
+  // adding a second O(n) scan here just to answer a yes/no question would double the
+  // per-frame work at up to 60fps.
+  private formatEntry(
+    entry: LogEntry,
+  ): { line: string; cfg: z.infer<typeof channelConfigZ> | undefined } {
     const { showChannelNames, timestampPrecision, channelConfigs } = this.state;
     const tsLen = timestampPrecision === 0 ? 8 : 9 + timestampPrecision;
-    for (let i = 0; i < entries.length; i++) {
-      const entry = entries[i];
-      const cfg = channelConfigs[String(entry.channelKey)];
-      const ts = new TimeStamp(entry.timestamp)
-        .toString("preciseTime", "local")
-        .slice(0, tsLen);
-      let value = entry.value;
-      if (cfg != null && (cfg.precision >= 0 || cfg.notation !== "standard")) {
-        const num = parseFloat(value);
-        if (!isNaN(num)) {
-          const precision = cfg.precision >= 0 ? cfg.precision : 0;
-          value = notation.stringifyNumber(num, precision, cfg.notation);
-        }
+    const cfg = channelConfigs[String(entry.channelKey)];
+    const ts = new TimeStamp(entry.timestamp)
+      .toString("preciseTime", "local")
+      .slice(0, tsLen);
+    let value = entry.value;
+    if (cfg != null && (cfg.precision >= 0 || cfg.notation !== "standard")) {
+      const num = parseFloat(value);
+      if (!isNaN(num)) {
+        const precision = cfg.precision >= 0 ? cfg.precision : 0;
+        value = notation.stringifyNumber(num, precision, cfg.notation);
       }
-      let line = `${ts}  ${value}`;
-      if (showChannelNames)
-        line = `${ts}  [${entry.channelName}]${entry.channelPadding}  ${value}`;
+    }
+    const line = showChannelNames
+      ? `${ts}  [${entry.channelName}]${entry.channelPadding}  ${value}`
+      : `${ts}  ${value}`;
+    return { line, cfg };
+  }
+
+  private updateSelectedText(): void {
+    const { selectionStart, selectionEnd } = this.state;
+    if (selectionStart < 0 || selectionEnd < 0) {
+      if (this.state.selectedText !== "")
+        this.setState((s) => ({ ...s, selectedText: "", selectedLines: [] }));
+      return;
+    }
+    const selMin = Math.min(selectionStart, selectionEnd);
+    const selMax = Math.max(selectionStart, selectionEnd);
+    const selected = this.entries.slice(selMin, selMax + 1);
+    const formatted = selected.map((e) => this.formatEntry(e));
+    const text = formatted.map((f) => f.line).join("\n");
+    if (text !== this.state.selectedText) {
+      const selectedLines = formatted.map((f) => ({
+        text: f.line,
+        color: f.cfg?.color ?? "",
+      }));
+      this.setState((s) => ({ ...s, selectedText: text, selectedLines }));
+    }
+  }
+
+  private renderElements(draw2D: Draw2D, entries: LogEntry[]): void {
+    const reg = this.state.region;
+    for (let i = 0; i < entries.length; i++) {
+      const { line, cfg } = this.formatEntry(entries[i]);
       draw2D.text({
         text: line,
         level: this.state.font,
         shade: cfg?.color ? undefined : 11,
         color: cfg?.color ? cfg.color : undefined,
-        position: xy.translate(box.topLeft(reg), { x: 6, y: i * this.lineHeight + 6 }),
+        position: xy.translate(box.topLeft(reg), {
+          x: CONTENT_PADDING,
+          y: i * this.lineHeight + CONTENT_PADDING,
+        }),
         code: true,
       });
     }

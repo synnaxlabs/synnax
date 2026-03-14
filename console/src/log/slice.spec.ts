@@ -49,15 +49,6 @@ describe("Log Slice", () => {
     });
   });
 
-  describe("setChannels", () => {
-    it("should update the channel list", () => {
-      const key = "log-1";
-      store.dispatch(actions.create({ ...ZERO_STATE, key }));
-      store.dispatch(actions.setChannels({ key, channels: [1, 2, 3] }));
-      expect(store.getState()[SLICE_NAME].logs[key].channels).toEqual([1, 2, 3]);
-    });
-  });
-
   describe("setTimestampPrecision", () => {
     it("should update timestamp precision", () => {
       const key = "log-1";

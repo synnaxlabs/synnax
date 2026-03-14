@@ -28,11 +28,6 @@ export interface StoreState {
 
 export type CreatePayload = State;
 
-export interface SetChannelsPayload {
-  key: string;
-  channels: channel.Key[];
-}
-
 export interface SetTimestampPrecisionPayload {
   key: string;
   timestampPrecision: number;
@@ -81,9 +76,6 @@ export const { actions, reducer } = createSlice({
       const { key } = payload;
       state.logs[key] = payload;
     },
-    setChannels: (state, { payload }: PayloadAction<SetChannelsPayload>) => {
-      state.logs[payload.key].channels = payload.channels;
-    },
     setTimestampPrecision: (
       state,
       { payload }: PayloadAction<SetTimestampPrecisionPayload>,
@@ -131,7 +123,6 @@ export const { actions, reducer } = createSlice({
 
 export const {
   create: internalCreate,
-  setChannels,
   setTimestampPrecision,
   setChannelConfig,
   setShowChannelNames,

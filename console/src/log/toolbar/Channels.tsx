@@ -20,7 +20,7 @@ import {
   Theming,
 } from "@synnaxlabs/pluto";
 import { color, type notation, primitive } from "@synnaxlabs/x";
-import { type ReactElement } from "react";
+import { type ReactElement, useCallback } from "react";
 
 import { CSS } from "@/css";
 import { useSyncComponent } from "@/log/Log";
@@ -151,21 +151,29 @@ export const Channels = ({ layoutKey }: ChannelsProps): ReactElement | null => {
   const state = useSelectOptional(layoutKey);
   const hasEditPermission = Access.useUpdateGranted(log.ontologyID(layoutKey));
 
-  const handleChannelChange = (index: number, channelKey: channel.Key) =>
-    dispatch(setChannelAtIndex({ key: layoutKey, index, channelKey }));
+  const handleChannelChange = useCallback(
+    (index: number, channelKey: channel.Key) =>
+      dispatch(setChannelAtIndex({ key: layoutKey, index, channelKey })),
+    [dispatch, layoutKey],
+  );
 
-  const handleConfigChange = (
-    channelKey: channel.Key,
-    config: Partial<ChannelConfig>,
-  ): void => {
-    dispatch(setChannelConfig({ key: layoutKey, channelKey, config }));
-  };
+  const handleConfigChange = useCallback(
+    (channelKey: channel.Key, config: Partial<ChannelConfig>): void => {
+      dispatch(setChannelConfig({ key: layoutKey, channelKey, config }));
+    },
+    [dispatch, layoutKey],
+  );
 
-  const handleRemove = (index: number) =>
-    dispatch(removeChannelByIndex({ key: layoutKey, index }));
+  const handleRemove = useCallback(
+    (index: number) => dispatch(removeChannelByIndex({ key: layoutKey, index })),
+    [dispatch, layoutKey],
+  );
 
-  const handleAdd = (channelKey: channel.Key) =>
-    dispatch(addChannel({ key: layoutKey, channelKey }));
+  const handleAdd = useCallback(
+    (channelKey: channel.Key) =>
+      dispatch(addChannel({ key: layoutKey, channelKey })),
+    [dispatch, layoutKey],
+  );
 
   if (state == null) return null;
 

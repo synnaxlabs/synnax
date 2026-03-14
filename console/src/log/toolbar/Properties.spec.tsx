@@ -131,7 +131,7 @@ describe("log/toolbar/Properties", () => {
   it("renders timestamp precision and show channel names controls", () => {
     vi.mocked(Selectors.useSelectOptional).mockReturnValue({ ...ZERO_STATE });
     render(<Properties layoutKey="test-key" />);
-    expect(screen.getByText("Timestamp Precision")).toBeDefined();
+    expect(screen.getByText("Receipt Timestamp Precision")).toBeDefined();
     expect(screen.getByText("Show Channel Names")).toBeDefined();
   });
 
