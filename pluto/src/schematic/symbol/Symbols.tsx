@@ -1128,16 +1128,18 @@ export interface OffPageReferenceProps extends Omit<
   "label"
 > {
   label: LabelExtensionProps;
+  page?: string;
 }
 
 export const OffPageReference = ({
   label: { label, level },
   orientation,
   color,
+  page,
   onChange,
 }: SymbolProps<OffPageReferenceProps>): ReactElement => (
   <Primitives.OffPageReference
-    className={DRAG_HANDLE_CLASS}
+    className={CSS(DRAG_HANDLE_CLASS, page && CSS.M("linked"))}
     onLabelChange={(label) => onChange({ label: { label, level } })}
     label={label}
     level={level}

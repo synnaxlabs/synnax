@@ -263,6 +263,14 @@
     }
 }
 
+.pluto-symbol__container:not(.pluto--editable) .pluto-arrow.pluto--linked {
+    cursor: pointer;
+
+    &:hover .outline {
+        opacity: 0.8;
+    }
+}
+
 .pluto-arrow {
     &.pluto--location-top {
         transform: rotate(-90deg);

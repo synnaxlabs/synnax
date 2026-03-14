@@ -14,6 +14,7 @@ import { type PropsWithChildren } from "react";
 import { beforeEach, describe, expect, it } from "vitest";
 
 import { Schematic } from "@/schematic";
+import { usePages } from "@/schematic/queries";
 import { createAsyncSynnaxWrapper } from "@/testutil/Synnax";
 
 const client = createTestClient();
@@ -247,6 +248,65 @@ describe("schematic queries", () => {
       await expect(client.schematics.retrieve({ key: schematic2.key })).rejects.toThrow(
         NotFoundError,
       );
+    });
+  });
+
+  describe("usePages", () => {
+    it("should return all schematics as pages", async () => {
+      const workspace = await client.workspaces.create({
+        name: "pages_workspace",
+        layout: {},
+      });
+      const s1 = await client.schematics.create(workspace.key, {
+        name: "Page One",
+        data: {},
+      });
+      const s2 = await client.schematics.create(workspace.key, {
+        name: "Page Two",
+        data: {},
+      });
+
+      const { result } = renderHook(() => usePages(), { wrapper });
+      await waitFor(() => {
+        expect(result.current.length).toBeGreaterThanOrEqual(2);
+      });
+      const keys = result.current.map((p) => p.key);
+      expect(keys).toContain(s1.key);
+      expect(keys).toContain(s2.key);
+      const pageOne = result.current.find((p) => p.key === s1.key);
+      expect(pageOne?.name).toEqual("Page One");
+    });
+
+    it("should exclude the specified schematic", async () => {
+      const workspace = await client.workspaces.create({
+        name: "exclude_workspace",
+        layout: {},
+      });
+      const s1 = await client.schematics.create(workspace.key, {
+        name: "Self",
+        data: {},
+      });
+      const s2 = await client.schematics.create(workspace.key, {
+        name: "Other",
+        data: {},
+      });
+
+      const { result } = renderHook(() => usePages(s1.key), { wrapper });
+      await waitFor(() => {
+        expect(result.current.length).toBeGreaterThanOrEqual(1);
+      });
+      const keys = result.current.map((p) => p.key);
+      expect(keys).not.toContain(s1.key);
+      expect(keys).toContain(s2.key);
+    });
+
+    it("should return empty array when no client is available", async () => {
+      const noClientWrapper = await createAsyncSynnaxWrapper({ client: null });
+      const { result } = renderHook(() => usePages(), {
+        wrapper: noClientWrapper,
+      });
+      // Should remain empty since there's no client
+      expect(result.current).toEqual([]);
     });
   });
 });

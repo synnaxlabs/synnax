@@ -38,6 +38,7 @@ import {
   type ControlStateProps,
   type LabelExtensionProps,
 } from "@/schematic/symbol/Symbols";
+import { usePages } from "@/schematic/queries";
 import { Select } from "@/select";
 import { Tabs } from "@/tabs";
 import { telem } from "@/telem/aether";
@@ -50,7 +51,9 @@ import { type StateIndicator as BaseStateIndicator } from "@/vis/stateIndicator"
 import { type Toggle } from "@/vis/toggle";
 import { Value } from "@/vis/value";
 
-export interface SymbolFormProps extends Pick<Tabs.TabsProps, "actions"> {}
+export interface SymbolFormProps extends Pick<Tabs.TabsProps, "actions"> {
+  layoutKey?: string;
+}
 
 interface FormWrapperProps extends Flex.BoxProps {}
 
@@ -1120,15 +1123,48 @@ export const TextBoxForm = (): ReactElement => {
   );
 };
 
-export const OffPageReferenceForm = (): ReactElement => (
-  <FormWrapper x align="stretch">
-    <Flex.Box y grow>
-      <LabelControls path="label" omit={["maxInlineSize", "align", "direction"]} />
-      <ColorControl path="color" />
-    </Flex.Box>
-    <OrientationControl path="" hideOuter />
-  </FormWrapper>
-);
+export const OffPageReferenceForm = ({ layoutKey }: SymbolFormProps): ReactElement => {
+  const pages = usePages(layoutKey);
+  return (
+    <FormWrapper x align="stretch">
+      <Flex.Box x grow align="stretch">
+        <Form.Field<string> path="label.label" label="Label" padHelpText={false} grow>
+          {(p) => <Input.Text selectOnFocus {...p} />}
+        </Form.Field>
+        <Form.Field<string>
+          path="page"
+          label="Page"
+          padHelpText={false}
+          hideIfNull={false}
+          grow
+          className={CSS.BE("symbol-form", "page-field")}
+        >
+          {({ value, onChange }) => (
+            <Select.Static
+              value={value}
+              onChange={onChange}
+              data={pages}
+              resourceName="page"
+              allowNone
+            />
+          )}
+        </Form.Field>
+        <Form.Field<Text.Level>
+          hideIfNull
+          path="label.level"
+          label="Label Size"
+          padHelpText={false}
+        >
+          {({ value, onChange }) => (
+            <Select.Text.Level value={value} onChange={onChange} />
+          )}
+        </Form.Field>
+        <ColorControl path="color" />
+      </Flex.Box>
+      <OrientationControl path="" hideOuter />
+    </FormWrapper>
+  );
+};
 
 export const CylinderForm = (): ReactElement => (
   <FormWrapper x align="stretch">

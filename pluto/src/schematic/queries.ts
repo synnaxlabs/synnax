@@ -7,11 +7,18 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type ontology, schematic, type workspace } from "@synnaxlabs/client";
-import { array } from "@synnaxlabs/x";
+import {
+  type ontology,
+  schematic,
+  type workspace,
+} from "@synnaxlabs/client";
+import { array, type record } from "@synnaxlabs/x";
+import { useState } from "react";
 
 import { Flux } from "@/flux";
+import { useAsyncEffect } from "@/hooks/useAsyncEffect";
 import { Ontology } from "@/ontology";
+import { Synnax } from "@/synnax";
 
 export const FLUX_STORE_KEY = "schematics";
 const RESOURCE_NAME = "schematic";
@@ -142,6 +149,24 @@ export const { useUpdate: useSnapshot } = Flux.createUpdate<
     return data;
   },
 });
+
+export type Page = record.KeyedNamed;
+
+export const usePages = (exclude?: string): Page[] => {
+  const client = Synnax.use();
+  const [pages, setPages] = useState<Page[]>([]);
+  useAsyncEffect(async (signal) => {
+    if (client == null) return;
+    const resources = await client.ontology.retrieve({ types: ["schematic"] });
+    if (signal.aborted) return;
+    setPages(
+      resources
+        .filter((r) => r.id.key !== exclude)
+        .map((r) => ({ key: r.id.key, name: r.name })),
+    );
+  }, [client, exclude]);
+  return pages;
+};
 
 export interface RenameParams extends Pick<schematic.Schematic, "key" | "name"> {}
 

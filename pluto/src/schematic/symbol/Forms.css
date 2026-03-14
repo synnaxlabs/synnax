@@ -28,4 +28,9 @@
             width: 80px;
         }
     }
+
+    .pluto-symbol-form__page-field {
+        min-width: 0;
+        overflow: hidden;
+    }
 }

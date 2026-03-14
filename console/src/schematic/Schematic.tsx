@@ -20,6 +20,7 @@ import {
   Icon,
   Menu as PMenu,
   Schematic as Base,
+  Synnax,
   Theming,
   usePrevious,
   User,
@@ -35,13 +36,14 @@ import {
   useRef,
   useState,
 } from "react";
-import { useDispatch } from "react-redux";
+import { useDispatch, useStore } from "react-redux";
 
 import { Controls } from "@/components";
 import { createLoadRemote } from "@/hooks/useLoadRemote";
 import { useUndoableDispatch } from "@/hooks/useUndoableDispatch";
 import { Layout } from "@/layout";
 import {
+  selectNodeProps,
   selectOptional,
   selectRequired,
   useSelectLegendVisible,
@@ -189,6 +191,9 @@ export const Loaded: Layout.Renderer = ({ layoutKey, visible }) => {
   const state = useSelectRequired(layoutKey);
   const legendVisible = useSelectLegendVisible(layoutKey);
   const dispatch = useDispatch();
+  const store = useStore<RootState>();
+  const client = Synnax.use();
+  const placeLayout = Layout.usePlacer();
   const syncDispatch = useSyncComponent(layoutKey);
   const selector = useCallback(
     (state: RootState) => selectRequired(state, layoutKey),
@@ -312,6 +317,20 @@ export const Loaded: Layout.Renderer = ({ layoutKey, visible }) => {
     );
   }, [windowKey, state.editable, syncDispatch]);
 
+  const handleNodeDoubleClick = useCallback(
+    (_event: React.MouseEvent, node: { id: string }) => {
+      if (state.editable || client == null) return;
+      const props = selectNodeProps(store.getState(), layoutKey, node.id);
+      if (props?.key !== "offPageReference" || !props.page) return;
+      const page = props.page as string;
+      void (async () => {
+        const s = await client.schematics.retrieve({ key: page });
+        placeLayout(create({ ...s.data, ...s }));
+      })();
+    },
+    [state.editable, client, store, layoutKey, placeLayout],
+  );
+
   const [legendPosition, setLegendPosition] = useState<sticky.XY>(
     state.legend.position,
   );
@@ -405,6 +424,7 @@ export const Loaded: Layout.Renderer = ({ layoutKey, visible }) => {
           editable={canEdit}
           triggers={triggers}
           onDoubleClick={handleDoubleClick}
+          onNodeDoubleClick={handleNodeDoubleClick}
           fitViewOnResize={state.fitViewOnResize}
           setFitViewOnResize={handleSetFitViewOnResize}
           visible={visible}
