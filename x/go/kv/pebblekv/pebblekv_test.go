@@ -34,10 +34,9 @@ var _ = Describe("PebbleKV", func() {
 
 		BeforeAll(func() {
 			dbPath = filepath.Join(os.TempDir(), "pebblekv-test")
-			pdb, err := pebble.Open(dbPath, &pebble.Options{
+			pdb := MustSucceed(pebble.Open(dbPath, &pebble.Options{
 				Logger: pebblekv.NewNoopLogger(),
-			})
-			Expect(err).ToNot(HaveOccurred())
+			}))
 			db = pebblekv.Wrap(pdb)
 		})
 
@@ -50,19 +49,14 @@ var _ = Describe("PebbleKV", func() {
 			key := []byte("key")
 			value := []byte("value")
 			Expect(db.Set(ctx, key, value)).To(Succeed())
-			got, closer, err := db.Get(ctx, key)
-			Expect(err).ToNot(HaveOccurred())
+			got, closer := MustSucceed2(db.Get(ctx, key))
 			Expect(got).To(Equal(value))
 			Expect(closer.Close()).To(Succeed())
 
-			_, closer, err = db.Get(ctx, []byte("non-existent"))
-			Expect(err).To(Equal(kv.ErrNotFound))
-			Expect(closer).To(BeNil())
+			Expect(db.Get(ctx, []byte("non-existent"))).Error().To(Equal(kv.ErrNotFound))
 
 			Expect(db.Delete(ctx, key)).To(Succeed())
-			_, closer, err = db.Get(ctx, key)
-			Expect(err).To(Equal(kv.ErrNotFound))
-			Expect(closer).To(BeNil())
+			Expect(db.Get(ctx, key)).Error().To(Equal(kv.ErrNotFound))
 		})
 
 		It("Should handle transactions correctly", func() {
@@ -73,8 +67,7 @@ var _ = Describe("PebbleKV", func() {
 			Expect(tx.Commit(ctx)).To(Succeed())
 			Expect(tx.Close()).To(Succeed())
 
-			got, closer, err := db.Get(ctx, key)
-			Expect(err).ToNot(HaveOccurred())
+			got, closer := MustSucceed2(db.Get(ctx, key))
 			Expect(got).To(Equal(value))
 			Expect(closer.Close()).To(Succeed())
 
@@ -84,9 +77,7 @@ var _ = Describe("PebbleKV", func() {
 			Expect(tx.Set(ctx, rollbackKey, rollbackValue)).To(Succeed())
 			Expect(tx.Close()).To(Succeed())
 
-			_, closer, err = db.Get(ctx, rollbackKey)
-			Expect(err).To(Equal(kv.ErrNotFound))
-			Expect(closer).To(BeNil())
+			Expect(db.Get(ctx, rollbackKey)).Error().To(Equal(kv.ErrNotFound))
 		})
 
 		It("Should not return a value if a transaction hasn't been committed", func() {
@@ -111,11 +102,10 @@ var _ = Describe("PebbleKV", func() {
 				Expect(db.Set(ctx, []byte(k), []byte(v))).To(Succeed())
 			}
 
-			iter, err := db.OpenIterator(kv.IteratorOptions{
+			iter := MustSucceed(db.OpenIterator(kv.IteratorOptions{
 				LowerBound: []byte("a"),
 				UpperBound: []byte("d"),
-			})
-			Expect(err).ToNot(HaveOccurred())
+			}))
 			defer func() {
 				Expect(iter.Close()).To(Succeed())
 			}()
@@ -173,11 +163,10 @@ var _ = Describe("PebbleKV", func() {
 				Expect(db.Set(ctx, key, []byte{i + 10})).To(Succeed())
 			}
 
-			iter, err := db.OpenIterator(kv.IteratorOptions{
+			iter := MustSucceed(db.OpenIterator(kv.IteratorOptions{
 				LowerBound: []byte{1},
 				UpperBound: []byte{4},
-			})
-			Expect(err).ToNot(HaveOccurred())
+			}))
 
 			values := make([]byte, 0, 3)
 			for iter.First(); iter.Valid(); iter.Next() {
@@ -199,8 +188,7 @@ var _ = Describe("PebbleKV", func() {
 
 			Expect(db.Set(ctx, key, value, pebble.NoSync)).To(Succeed())
 
-			got, closer, err := db.Get(ctx, key)
-			Expect(err).ToNot(HaveOccurred())
+			got, closer := MustSucceed2(db.Get(ctx, key))
 			Expect(got).To(Equal(value))
 			Expect(closer.Close()).To(Succeed())
 
@@ -212,19 +200,17 @@ var _ = Describe("PebbleKV", func() {
 			Expect(tx.Commit(ctx, pebble.NoSync)).To(Succeed())
 			Expect(tx.Close()).To(Succeed())
 
-			got, closer, err = db.Get(ctx, txKey)
-			Expect(err).ToNot(HaveOccurred())
+			got, closer = MustSucceed2(db.Get(ctx, txKey))
 			Expect(got).To(Equal(txValue))
 			Expect(closer.Close()).To(Succeed())
 		})
 
 		It("Should handle OpenIterator errors", func() {
 			// Invalid bounds should still create a valid iterator
-			iter, err := db.OpenIterator(kv.IteratorOptions{
+			iter := MustSucceed(db.OpenIterator(kv.IteratorOptions{
 				LowerBound: []byte("z"),
 				UpperBound: []byte("a"),
-			})
-			Expect(err).ToNot(HaveOccurred())
+			}))
 			Expect(iter.Valid()).To(BeFalse())
 			Expect(iter.Close()).To(Succeed())
 		})
@@ -239,8 +225,7 @@ var _ = Describe("PebbleKV", func() {
 			Expect(closer).To(BeNil())
 
 			Expect(tx.Set(ctx, key, value)).To(Succeed())
-			got, closer, err := tx.Get(ctx, key)
-			Expect(err).ToNot(HaveOccurred())
+			got, closer := MustSucceed2(tx.Get(ctx, key))
 			Expect(got).To(Equal(value))
 			Expect(closer.Close()).To(Succeed())
 
@@ -397,8 +382,7 @@ var _ = Describe("PebbleKV", func() {
 				value := []byte("no-observer-value")
 				Expect(db.Set(ctx, key, value)).To(Succeed())
 
-				got, closer, err := db.Get(ctx, key)
-				Expect(err).ToNot(HaveOccurred())
+				got, closer := MustSucceed2(db.Get(ctx, key))
 				Expect(got).To(Equal(value))
 				Expect(closer.Close()).To(Succeed())
 			})
@@ -412,8 +396,7 @@ var _ = Describe("PebbleKV", func() {
 				Expect(tx.Commit(ctx)).To(Succeed())
 				Expect(tx.Close()).To(Succeed())
 
-				got, closer, err := db.Get(ctx, key)
-				Expect(err).ToNot(HaveOccurred())
+				got, closer := MustSucceed2(db.Get(ctx, key))
 				Expect(got).To(Equal(value))
 				Expect(closer.Close()).To(Succeed())
 			})
@@ -442,8 +425,7 @@ var _ = Describe("PebbleKV", func() {
 				for i := range 10 {
 					key := []byte{byte(100 + i)}
 					expectedValue := []byte{byte(200 + i)}
-					got, closer, err := db.Get(ctx, key)
-					Expect(err).ToNot(HaveOccurred())
+					got, closer := MustSucceed2(db.Get(ctx, key))
 					Expect(got).To(Equal(expectedValue))
 					Expect(closer.Close()).To(Succeed())
 				}
@@ -466,8 +448,7 @@ var _ = Describe("PebbleKV", func() {
 				for i := range 5 {
 					key := []byte{byte(50 + i)}
 					expectedValue := []byte{byte(150 + i)}
-					got, closer, err := db.Get(ctx, key)
-					Expect(err).ToNot(HaveOccurred())
+					got, closer := MustSucceed2(db.Get(ctx, key))
 					Expect(got).To(Equal(expectedValue))
 					Expect(closer.Close()).To(Succeed())
 				}

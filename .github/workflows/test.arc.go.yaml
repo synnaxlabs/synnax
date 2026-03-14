@@ -3,6 +3,7 @@ name: Test - Arc (Go)
 on:
   pull_request:
     paths:
+      - .custom-gcl.yml
       - .github/workflows/test.arc.go.yaml
       - .github/workflows/test.go.yaml
       - .golangci.yaml
@@ -17,6 +18,7 @@ on:
       - main
       - rc
     paths:
+      - .custom-gcl.yml
       - .github/workflows/test.arc.go.yaml
       - .github/workflows/test.go.yaml
       - .golangci.yaml

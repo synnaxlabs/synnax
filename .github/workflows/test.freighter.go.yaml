@@ -3,6 +3,7 @@ name: Test - Freighter (Go)
 on:
   pull_request:
     paths:
+      - .custom-gcl.yml
       - .github/workflows/test.freighter.go.yaml
       - .github/workflows/test.go.yaml
       - .golangci.yaml
@@ -16,6 +17,7 @@ on:
       - main
       - rc
     paths:
+      - .custom-gcl.yml
       - .github/workflows/test.freighter.go.yaml
       - .github/workflows/test.go.yaml
       - .golangci.yaml
