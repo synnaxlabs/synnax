@@ -21,7 +21,7 @@ import { Layout } from "@/layout";
 import { useExport } from "@/log/export";
 import { useSelectOptional } from "@/log/selectors";
 import { Channels } from "@/log/toolbar/Channels";
-import { Text } from "@/log/toolbar/Text";
+import { Properties } from "@/log/toolbar/Properties";
 
 export interface ToolbarProps {
   layoutKey: string;
@@ -29,7 +29,7 @@ export interface ToolbarProps {
 
 const TABS: Tabs.Tab[] = [
   { tabKey: "channels", name: "Channels" },
-  { tabKey: "text", name: "Text" },
+  { tabKey: "properties", name: "Properties" },
 ];
 
 export const Toolbar = ({ layoutKey }: ToolbarProps): ReactElement | null => {
@@ -41,8 +41,8 @@ export const Toolbar = ({ layoutKey }: ToolbarProps): ReactElement | null => {
   const content = useCallback(
     ({ tabKey }: Tabs.Tab) => {
       switch (tabKey) {
-        case "text":
-          return <Text layoutKey={layoutKey} />;
+        case "properties":
+          return <Properties layoutKey={layoutKey} />;
         default:
           return <Channels layoutKey={layoutKey} />;
       }

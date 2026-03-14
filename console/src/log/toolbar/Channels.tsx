@@ -8,12 +8,139 @@
 // included in the file licenses/APL.txt.
 
 import { type channel, log } from "@synnaxlabs/client";
-import { Access, Channel, Flex, Input } from "@synnaxlabs/pluto";
+import {
+  Access,
+  Button,
+  Channel,
+  Color,
+  Flex,
+  Icon,
+  Input,
+  Notation,
+  Theming,
+} from "@synnaxlabs/pluto";
+import { color, type notation, primitive } from "@synnaxlabs/x";
 import { type ReactElement } from "react";
 
+import { CSS } from "@/css";
 import { useSyncComponent } from "@/log/Log";
 import { useSelectOptional } from "@/log/selectors";
-import { setChannels, setTimestampPrecision } from "@/log/slice";
+import {
+  addChannel,
+  type ChannelConfig,
+  removeChannelByIndex,
+  setChannelAtIndex,
+  setChannelConfig,
+  ZERO_CHANNEL_CONFIG,
+} from "@/log/slice";
+
+const IS_DEV = import.meta.env.DEV;
+
+const PRECISION_BOUNDS = { lower: -1, upper: 18 };
+
+interface ChannelRowProps {
+  index: number;
+  channelKey: channel.Key;
+  config: ChannelConfig;
+  onChange: (index: number, channelKey: channel.Key) => void;
+  onConfigChange: (channelKey: channel.Key, config: Partial<ChannelConfig>) => void;
+  onRemove: (index: number) => void;
+  disabled: boolean;
+}
+
+const ChannelRow = ({
+  index,
+  channelKey,
+  config,
+  onChange,
+  onConfigChange,
+  onRemove,
+  disabled,
+}: ChannelRowProps): ReactElement => {
+  const { data } = Channel.useRetrieve({ key: channelKey });
+  const isNumeric = data?.dataType.isNumeric === true;
+  const theme = Theming.use();
+  const defaultColor = theme.colors.gray.l11;
+  const hasCustomColor = config.color !== "";
+
+  return (
+    <Flex.Box x align="center" gap="large" className={CSS.BE("log", "channel-row")}>
+      <Channel.SelectSingle
+        value={channelKey}
+        onChange={(v: channel.Key) => onChange(index, v)}
+        initialQuery={{ internal: IS_DEV ? undefined : false }}
+        disabled={disabled}
+        grow
+      />
+      <Notation.Select
+        value={config.notation ?? "standard"}
+        onChange={(v: notation.Notation) => onConfigChange(channelKey, { notation: v })}
+      />
+      <Input.Numeric
+        value={config.precision}
+        onChange={(v) => onConfigChange(channelKey, { precision: v })}
+        resetValue={-1}
+        bounds={PRECISION_BOUNDS}
+        disabled={disabled || !isNumeric}
+        shrink={false}
+        variant="shadow"
+        tooltip="Precision (-1 = no rounding)"
+      />
+      <Color.Swatch
+        value={hasCustomColor ? config.color : defaultColor}
+        onChange={(c) => onConfigChange(channelKey, { color: color.hex(c) })}
+        onDelete={
+          hasCustomColor ? () => onConfigChange(channelKey, { color: "" }) : undefined
+        }
+        size="small"
+        disabled={disabled}
+      />
+      <Button.Button
+        onClick={() => onRemove(index)}
+        disabled={disabled}
+        size="small"
+        variant="text"
+        ghost
+        tooltip="Remove channel"
+      >
+        <Icon.Close />
+      </Button.Button>
+    </Flex.Box>
+  );
+};
+
+interface AddChannelRowProps {
+  onAdd: (channelKey: channel.Key) => void;
+  disabled: boolean;
+}
+
+const AddChannelRow = ({ onAdd, disabled }: AddChannelRowProps): ReactElement => (
+  <Flex.Box x align="center" gap="large" className={CSS.BE("log", "channel-row")}>
+    <Channel.SelectSingle
+      value={0}
+      onChange={onAdd}
+      initialQuery={{ internal: IS_DEV ? undefined : false }}
+      disabled={disabled}
+      grow
+      triggerProps={{ placeholder: "Add a channel..." }}
+    />
+    <Notation.Select value={undefined} onChange={() => {}} allowNone />
+    <Input.Numeric
+      value={-1}
+      onChange={() => {}}
+      resetValue={-1}
+      bounds={PRECISION_BOUNDS}
+      disabled
+      shrink={false}
+      variant="shadow"
+      tooltip="Decimal places (-1 = no rounding)"
+    />
+    <Color.Swatch value={color.ZERO} onChange={() => {}} size="small" disabled />
+    <Button.Button size="small" variant="text" ghost disabled>
+      <Icon.Close />
+    </Button.Button>
+  </Flex.Box>
+);
 
 export interface ChannelsProps {
   layoutKey: string;
@@ -23,30 +150,47 @@ export const Channels = ({ layoutKey }: ChannelsProps): ReactElement | null => {
   const dispatch = useSyncComponent(layoutKey);
   const state = useSelectOptional(layoutKey);
   const hasEditPermission = Access.useUpdateGranted(log.ontologyID(layoutKey));
-  const handleChannelChange = (v: channel.Key[]) =>
-    dispatch(setChannels({ key: layoutKey, channels: v }));
-  const handlePrecisionChange = (v: number) =>
-    dispatch(setTimestampPrecision({ key: layoutKey, timestampPrecision: v }));
+
+  const handleChannelChange = (index: number, channelKey: channel.Key) =>
+    dispatch(setChannelAtIndex({ key: layoutKey, index, channelKey }));
+
+  const handleConfigChange = (
+    channelKey: channel.Key,
+    config: Partial<ChannelConfig>,
+  ): void => {
+    dispatch(setChannelConfig({ key: layoutKey, channelKey, config }));
+  };
+
+  const handleRemove = (index: number) =>
+    dispatch(removeChannelByIndex({ key: layoutKey, index }));
+
+  const handleAdd = (channelKey: channel.Key) =>
+    dispatch(addChannel({ key: layoutKey, channelKey }));
+
   if (state == null) return null;
+
+  const activeChannels = state.channels.filter((ch) => !primitive.isZero(ch));
+
   return (
-    <Flex.Box x style={{ padding: "2rem" }}>
-      <Input.Item label="Channels" grow>
-        <Channel.SelectMultiple
-          value={state.channels}
+    <Flex.Box
+      y
+      full="y"
+      style={{ overflow: "auto" }}
+      className={CSS.BE("log", "toolbar", "channels")}
+    >
+      {activeChannels.map((ch, i) => (
+        <ChannelRow
+          key={`${ch}-${i}`}
+          index={i}
+          channelKey={ch}
+          config={state.channelConfigs[String(ch)] ?? ZERO_CHANNEL_CONFIG}
           onChange={handleChannelChange}
-          initialQuery={{ internal: IS_DEV ? undefined : false }}
+          onConfigChange={handleConfigChange}
+          onRemove={handleRemove}
           disabled={!hasEditPermission}
         />
-      </Input.Item>
-      <Input.Item label="Timestamp Precision">
-        <Input.Numeric
-          value={state.timestampPrecision}
-          onChange={handlePrecisionChange}
-          resetValue={0}
-          bounds={{ lower: 0, upper: 4 }} // upper is exclusive; max value is 3
-          disabled={!hasEditPermission}
-        />
-      </Input.Item>
+      ))}
+      <AddChannelRow onAdd={handleAdd} disabled={!hasEditPermission} />
     </Flex.Box>
   );
 };

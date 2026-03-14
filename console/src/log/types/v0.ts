@@ -16,7 +16,11 @@ const VERSION = "0.0.0";
 export const { channelConfigZ } = Log;
 export type ChannelConfig = z.infer<typeof Log.channelConfigZ>;
 
-export const ZERO_CHANNEL_CONFIG: ChannelConfig = { color: "", precision: -1 };
+export const ZERO_CHANNEL_CONFIG: ChannelConfig = {
+  color: "",
+  notation: "standard",
+  precision: -1,
+};
 
 export const stateZ = z.object({
   key: z.string(),
@@ -25,6 +29,7 @@ export const stateZ = z.object({
   remoteCreated: z.boolean(),
   timestampPrecision: z.number().min(0).max(3).default(0),
   channelConfigs: z.record(z.string(), channelConfigZ).default({}),
+  showChannelNames: z.boolean().default(true),
 });
 
 export type State = z.infer<typeof stateZ>;
@@ -36,6 +41,7 @@ export const ZERO_STATE: State = {
   remoteCreated: false,
   timestampPrecision: 0,
   channelConfigs: {},
+  showChannelNames: true,
 };
 
 export const sliceStateZ = z.object({

@@ -100,6 +100,44 @@ describe("Log Slice", () => {
     });
   });
 
+  describe("setShowChannelNames", () => {
+    it("should update showChannelNames", () => {
+      const key = "log-1";
+      store.dispatch(actions.create({ ...ZERO_STATE, key }));
+      expect(store.getState()[SLICE_NAME].logs[key].showChannelNames).toBe(true);
+      store.dispatch(actions.setShowChannelNames({ key, showChannelNames: false }));
+      expect(store.getState()[SLICE_NAME].logs[key].showChannelNames).toBe(false);
+    });
+  });
+
+  describe("addChannel", () => {
+    it("should append a channel to the list", () => {
+      const key = "log-1";
+      store.dispatch(actions.create({ ...ZERO_STATE, key }));
+      store.dispatch(actions.addChannel({ key, channelKey: 10 }));
+      store.dispatch(actions.addChannel({ key, channelKey: 20 }));
+      expect(store.getState()[SLICE_NAME].logs[key].channels).toEqual([10, 20]);
+    });
+  });
+
+  describe("removeChannelByIndex", () => {
+    it("should remove the channel at the given index", () => {
+      const key = "log-1";
+      store.dispatch(actions.create({ ...ZERO_STATE, key, channels: [1, 2, 3] }));
+      store.dispatch(actions.removeChannelByIndex({ key, index: 1 }));
+      expect(store.getState()[SLICE_NAME].logs[key].channels).toEqual([1, 3]);
+    });
+  });
+
+  describe("setChannelAtIndex", () => {
+    it("should replace the channel at the given index", () => {
+      const key = "log-1";
+      store.dispatch(actions.create({ ...ZERO_STATE, key, channels: [1, 2, 3] }));
+      store.dispatch(actions.setChannelAtIndex({ key, index: 1, channelKey: 99 }));
+      expect(store.getState()[SLICE_NAME].logs[key].channels).toEqual([1, 99, 3]);
+    });
+  });
+
   describe("setRemoteCreated", () => {
     it("should mark the log as remotely created", () => {
       const key = "log-1";
@@ -144,6 +182,12 @@ describe("Log Slice", () => {
 
     it("should reject channel precision below -1", () => {
       expect(() => channelConfigZ.parse({ color: "", precision: -2 })).toThrow();
+    });
+
+    it("should default showChannelNames to true when missing", () => {
+      const { showChannelNames: _, ...withoutField } = ZERO_STATE;
+      const parsed = stateZ.parse(withoutField);
+      expect(parsed.showChannelNames).toBe(true);
     });
   });
 });

@@ -48,6 +48,27 @@ export interface SetRemoteCreatedPayload {
   key: string;
 }
 
+export interface SetShowChannelNamesPayload {
+  key: string;
+  showChannelNames: boolean;
+}
+
+export interface AddChannelPayload {
+  key: string;
+  channelKey: channel.Key;
+}
+
+export interface RemoveChannelByIndexPayload {
+  key: string;
+  index: number;
+}
+
+export interface SetChannelAtIndexPayload {
+  key: string;
+  index: number;
+  channelKey: channel.Key;
+}
+
 export interface RemovePayload {
   keys: string[];
 }
@@ -78,6 +99,27 @@ export const { actions, reducer } = createSlice({
         ...payload.config,
       };
     },
+    setShowChannelNames: (
+      state,
+      { payload }: PayloadAction<SetShowChannelNamesPayload>,
+    ) => {
+      state.logs[payload.key].showChannelNames = payload.showChannelNames;
+    },
+    addChannel: (state, { payload }: PayloadAction<AddChannelPayload>) => {
+      state.logs[payload.key].channels.push(payload.channelKey);
+    },
+    removeChannelByIndex: (
+      state,
+      { payload }: PayloadAction<RemoveChannelByIndexPayload>,
+    ) => {
+      state.logs[payload.key].channels.splice(payload.index, 1);
+    },
+    setChannelAtIndex: (
+      state,
+      { payload }: PayloadAction<SetChannelAtIndexPayload>,
+    ) => {
+      state.logs[payload.key].channels[payload.index] = payload.channelKey;
+    },
     setRemoteCreated: (state, { payload }: PayloadAction<SetRemoteCreatedPayload>) => {
       state.logs[payload.key].remoteCreated = true;
     },
@@ -92,6 +134,10 @@ export const {
   setChannels,
   setTimestampPrecision,
   setChannelConfig,
+  setShowChannelNames,
+  addChannel,
+  removeChannelByIndex,
+  setChannelAtIndex,
   setRemoteCreated,
   remove,
 } = actions;

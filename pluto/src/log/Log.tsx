@@ -42,7 +42,7 @@ export const Log = ({
   font,
   className,
   visible = true,
-  multiChannel = false,
+  showChannelNames = true,
   timestampPrecision = 0,
   channelConfigs = {},
   emptyContent = (
@@ -59,7 +59,7 @@ export const Log = ({
     color,
     telem,
     visible,
-    multiChannel,
+    showChannelNames,
     timestampPrecision,
     channelConfigs,
   });

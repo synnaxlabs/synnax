@@ -13,10 +13,6 @@ import { describe, expect, it, vi } from "vitest";
 
 import { type State } from "@/log/types/v0";
 
-// ---------------------------------------------------------------------------
-// Module mocks
-// ---------------------------------------------------------------------------
-
 const mockDispatch = vi.fn();
 
 vi.mock("@/log/Log", () => ({
@@ -31,15 +27,28 @@ vi.mock("@/log/slice", async (importOriginal) => {
   const actual = await importOriginal();
   return {
     ...(actual as object),
-    setChannels: vi.fn((payload) => ({ type: "log/setChannels", payload })),
-    setTimestampPrecision: vi.fn((payload) => ({
-      type: "log/setTimestampPrecision",
+    addChannel: vi.fn((payload) => ({ type: "log/addChannel", payload })),
+    removeChannelByIndex: vi.fn((payload) => ({
+      type: "log/removeChannelByIndex",
+      payload,
+    })),
+    setChannelAtIndex: vi.fn((payload) => ({
+      type: "log/setChannelAtIndex",
+      payload,
+    })),
+    setChannelConfig: vi.fn((payload) => ({
+      type: "log/setChannelConfig",
       payload,
     })),
   };
 });
 
-// Stub Pluto primitives that Channels.tsx uses
+vi.mock("@/css", () => ({
+  CSS: {
+    BE: (...parts: string[]) => parts.join("-"),
+  },
+}));
+
 vi.mock("@synnaxlabs/pluto", async (importOriginal) => {
   const actual = await importOriginal();
   return {
@@ -50,20 +59,53 @@ vi.mock("@synnaxlabs/pluto", async (importOriginal) => {
     },
     Channel: {
       ...((actual as Record<string, unknown>).Channel as object),
-      SelectMultiple: ({
+      SelectSingle: ({
         value,
         disabled,
+        placeholder,
       }: {
-        value: number[];
-        onChange: (v: number[]) => void;
+        value: number;
+        onChange: (v: number) => void;
         disabled: boolean;
         initialQuery?: object;
+        grow?: boolean;
+        variant?: string;
+        placeholder?: string;
       }) => (
         <div
-          data-testid="channel-select-multiple"
+          data-testid={placeholder ? "add-channel-select" : `channel-select-${value}`}
           data-disabled={String(disabled)}
-          data-value={JSON.stringify(value)}
+          data-value={value}
         />
+      ),
+      useRetrieve: vi.fn(() => ({
+        data: {
+          name: "mock-channel",
+          dataType: { equals: () => false },
+        },
+      })),
+    },
+    Button: {
+      ...((actual as Record<string, unknown>).Button as object),
+      Icon: ({
+        children,
+        onClick,
+        disabled,
+        tooltip,
+      }: {
+        children: React.ReactNode;
+        onClick: () => void;
+        disabled?: boolean;
+        size?: string;
+        tooltip?: string;
+      }) => (
+        <button
+          data-testid={`btn-${tooltip?.toLowerCase().replace(/ /g, "-")}`}
+          onClick={onClick}
+          disabled={disabled}
+        >
+          {children}
+        </button>
       ),
     },
     Flex: {
@@ -73,27 +115,22 @@ vi.mock("@synnaxlabs/pluto", async (importOriginal) => {
       }: {
         children: React.ReactNode;
         x?: boolean;
+        y?: boolean;
         style?: React.CSSProperties;
+        gap?: string;
+        className?: string;
+        align?: string;
       }) => (
         <div data-testid="flex-box" style={style}>
           {children}
         </div>
       ),
     },
+    Icon: {
+      ...((actual as Record<string, unknown>).Icon as object),
+      Close: () => <span data-testid="icon-close" />,
+    },
     Input: {
-      Item: ({
-        children,
-        label,
-      }: {
-        children: React.ReactNode;
-        label: string;
-        grow?: boolean;
-      }) => (
-        <label data-testid={`input-item-${label.toLowerCase().replace(/ /g, "-")}`}>
-          {label}
-          {children}
-        </label>
-      ),
       Numeric: ({
         value,
         disabled,
@@ -103,6 +140,9 @@ vi.mock("@synnaxlabs/pluto", async (importOriginal) => {
         disabled: boolean;
         resetValue?: number;
         bounds?: object;
+        shrink?: boolean;
+        variant?: string;
+        tooltip?: string;
       }) => (
         <input
           data-testid="input-numeric"
@@ -113,21 +153,23 @@ vi.mock("@synnaxlabs/pluto", async (importOriginal) => {
         />
       ),
     },
+    Color: {
+      Swatch: ({
+        disabled,
+      }: {
+        value: unknown;
+        onChange: (c: unknown) => void;
+        size?: string;
+        disabled: boolean;
+      }) => <div data-testid="color-swatch" data-disabled={String(disabled)} />,
+    },
   };
 });
-
-// ---------------------------------------------------------------------------
-// Import component under test
-// ---------------------------------------------------------------------------
 
 import * as Pluto from "@synnaxlabs/pluto";
 
 import * as Selectors from "@/log/selectors";
 import { Channels } from "@/log/toolbar/Channels";
-
-// ---------------------------------------------------------------------------
-// Helpers
-// ---------------------------------------------------------------------------
 
 const ZERO_STATE: State = {
   key: "test-key",
@@ -136,11 +178,8 @@ const ZERO_STATE: State = {
   remoteCreated: false,
   timestampPrecision: 0,
   channelConfigs: {},
+  showChannelNames: true,
 };
-
-// ---------------------------------------------------------------------------
-// Tests
-// ---------------------------------------------------------------------------
 
 describe("log/toolbar/Channels", () => {
   it("renders null when state is null", () => {
@@ -149,65 +188,62 @@ describe("log/toolbar/Channels", () => {
     expect(container.firstChild).toBeNull();
   });
 
-  it("renders null when state is null-ish", () => {
-    vi.mocked(Selectors.useSelectOptional).mockReturnValue(
-      null as unknown as undefined,
-    );
-    const { container } = render(<Channels layoutKey="test-key" />);
-    expect(container.firstChild).toBeNull();
-  });
-
-  it("renders the channel selector and precision input when state is present", () => {
+  it("renders the add-channel row when state is present and channels are empty", () => {
     vi.mocked(Selectors.useSelectOptional).mockReturnValue({ ...ZERO_STATE });
     render(<Channels layoutKey="test-key" />);
-    expect(screen.getByTestId("channel-select-multiple")).toBeDefined();
-    expect(screen.getByTestId("input-numeric")).toBeDefined();
+    expect(screen.getByTestId("add-channel-select")).toBeDefined();
   });
 
-  it("renders Channels label", () => {
-    vi.mocked(Selectors.useSelectOptional).mockReturnValue({ ...ZERO_STATE });
+  it("renders a row for each active channel", () => {
+    vi.mocked(Selectors.useSelectOptional).mockReturnValue({
+      ...ZERO_STATE,
+      channels: [10, 20],
+    });
     render(<Channels layoutKey="test-key" />);
-    expect(screen.getByText("Channels")).toBeDefined();
+    expect(screen.getByTestId("channel-select-10")).toBeDefined();
+    expect(screen.getByTestId("channel-select-20")).toBeDefined();
   });
 
-  it("renders Timestamp Precision label", () => {
-    vi.mocked(Selectors.useSelectOptional).mockReturnValue({ ...ZERO_STATE });
+  it("renders precision and color controls per channel row", () => {
+    vi.mocked(Selectors.useSelectOptional).mockReturnValue({
+      ...ZERO_STATE,
+      channels: [10],
+    });
     render(<Channels layoutKey="test-key" />);
-    expect(screen.getByText("Timestamp Precision")).toBeDefined();
+    expect(screen.getAllByTestId("input-numeric")).toHaveLength(1);
+    expect(screen.getAllByTestId("color-swatch")).toHaveLength(1);
   });
 
-  it("passes current channels from state to the selector", () => {
-    const stateWithChannels: State = { ...ZERO_STATE, channels: [10, 20, 30] };
-    vi.mocked(Selectors.useSelectOptional).mockReturnValue(stateWithChannels);
+  it("renders a remove button per channel row", () => {
+    vi.mocked(Selectors.useSelectOptional).mockReturnValue({
+      ...ZERO_STATE,
+      channels: [10],
+    });
     render(<Channels layoutKey="test-key" />);
-    const selector = screen.getByTestId("channel-select-multiple");
-    expect(selector.getAttribute("data-value")).toBe(JSON.stringify([10, 20, 30]));
+    expect(screen.getByTestId("btn-remove-channel")).toBeDefined();
   });
 
-  it("passes current timestampPrecision to the numeric input", () => {
-    const stateWithPrecision: State = { ...ZERO_STATE, timestampPrecision: 3 };
-    vi.mocked(Selectors.useSelectOptional).mockReturnValue(stateWithPrecision);
+  it("always renders the blank add-channel row at the bottom", () => {
+    vi.mocked(Selectors.useSelectOptional).mockReturnValue({
+      ...ZERO_STATE,
+      channels: [10, 20],
+    });
     render(<Channels layoutKey="test-key" />);
-    const numericInput = screen.getByTestId("input-numeric");
-    expect(Number((numericInput as HTMLInputElement).value)).toBe(3);
+    expect(screen.getByTestId("add-channel-select")).toBeDefined();
   });
 
-  it("disables inputs when user lacks edit permission", () => {
+  it("disables controls when user lacks edit permission", () => {
     vi.mocked(Pluto.Access.useUpdateGranted).mockReturnValueOnce(false);
-    vi.mocked(Selectors.useSelectOptional).mockReturnValue({ ...ZERO_STATE });
+    vi.mocked(Selectors.useSelectOptional).mockReturnValue({
+      ...ZERO_STATE,
+      channels: [10],
+    });
     render(<Channels layoutKey="test-key" />);
-    const selector = screen.getByTestId("channel-select-multiple");
-    expect(selector.getAttribute("data-disabled")).toBe("true");
-    const numericInput = screen.getByTestId("input-numeric");
-    expect(numericInput.getAttribute("data-disabled")).toBe("true");
-  });
-
-  it("enables inputs when user has edit permission", () => {
-    vi.mocked(Selectors.useSelectOptional).mockReturnValue({ ...ZERO_STATE });
-    render(<Channels layoutKey="test-key" />);
-    const selector = screen.getByTestId("channel-select-multiple");
-    expect(selector.getAttribute("data-disabled")).toBe("false");
-    const numericInput = screen.getByTestId("input-numeric");
-    expect(numericInput.getAttribute("data-disabled")).toBe("false");
+    expect(screen.getByTestId("channel-select-10").getAttribute("data-disabled")).toBe(
+      "true",
+    );
+    expect(screen.getByTestId("add-channel-select").getAttribute("data-disabled")).toBe(
+      "true",
+    );
   });
 });

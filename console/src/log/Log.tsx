@@ -80,7 +80,7 @@ const Loaded: Layout.Renderer = ({ layoutKey, visible }) => {
   return (
     <Base.Log
       telem={t}
-      multiChannel={activeChannels.length > 1}
+      showChannelNames={log.showChannelNames}
       timestampPrecision={log.timestampPrecision}
       channelConfigs={log.channelConfigs}
       onDoubleClick={handleDoubleClick}

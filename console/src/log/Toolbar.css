@@ -10,12 +10,15 @@
  */
 
 .console-log-toolbar {
-    .console-log__toolbar-text {
-        .pluto-list__item {
-            padding: 0.5rem 5rem 0.5rem 1rem;
-            & > div:nth-child(2) {
-                min-width: 50px;
-                max-width: 100px;
+    height: 100%;
+    .console-log__toolbar-channels {
+        padding-top: 2rem;
+        padding-bottom: 2rem;
+        .console-log__channel-row {
+            padding: 0.5rem 3rem 0.5rem 1rem;
+            & > div:nth-child(3) {
+                min-width: 60px;
+                max-width: 65px;
             }
         }
     }

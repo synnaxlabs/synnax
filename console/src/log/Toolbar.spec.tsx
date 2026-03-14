@@ -17,11 +17,6 @@ import { Log } from "@/log";
 import { type State } from "@/log/types/v0";
 import { renderWithConsole } from "@/testUtils";
 
-// ---------------------------------------------------------------------------
-// Module mocks — only external components and hooks that depend on systems
-// outside the Redux store (Synnax client, clipboard, etc.)
-// ---------------------------------------------------------------------------
-
 vi.mock("@/log/export", () => ({
   useExport: vi.fn(() => vi.fn()),
   extract: vi.fn(),
@@ -53,9 +48,9 @@ vi.mock("@/log/toolbar/Channels", () => ({
   ),
 }));
 
-vi.mock("@/log/toolbar/Text", () => ({
-  Text: ({ layoutKey }: { layoutKey: string }) => (
-    <div data-testid="text-tab" data-layout-key={layoutKey} />
+vi.mock("@/log/toolbar/Properties", () => ({
+  Properties: ({ layoutKey }: { layoutKey: string }) => (
+    <div data-testid="properties-tab" data-layout-key={layoutKey} />
   ),
 }));
 
@@ -161,16 +156,8 @@ vi.mock("@synnaxlabs/pluto", async (importOriginal) => {
   };
 });
 
-// ---------------------------------------------------------------------------
-// Import component under test (after mocks)
-// ---------------------------------------------------------------------------
-
 import * as LogExport from "@/log/export";
 import { Toolbar } from "@/log/Toolbar";
-
-// ---------------------------------------------------------------------------
-// Helpers
-// ---------------------------------------------------------------------------
 
 const LAYOUT_KEY = "test-key";
 
@@ -181,6 +168,7 @@ const ZERO_LOG_STATE: State = {
   remoteCreated: false,
   timestampPrecision: 0,
   channelConfigs: {},
+  showChannelNames: true,
 };
 
 const LAYOUT_STATE: Layout.State = {
@@ -209,10 +197,6 @@ const renderToolbar = (layoutKey: string = LAYOUT_KEY, logState?: State) => {
     preloadedState: preloadState({ ...ls, key: layoutKey }, lay),
   });
 };
-
-// ---------------------------------------------------------------------------
-// Tests
-// ---------------------------------------------------------------------------
 
 describe("log/Toolbar", () => {
   it("renders null when log state does not exist in store", () => {
@@ -245,10 +229,10 @@ describe("log/Toolbar", () => {
     expect(screen.getByText("My Log")).toBeDefined();
   });
 
-  it("renders both tab buttons (Channels and Text)", () => {
+  it("renders both tab buttons (Channels and Properties)", () => {
     renderToolbar();
     expect(screen.getByTestId("tab-channels")).toBeDefined();
-    expect(screen.getByTestId("tab-text")).toBeDefined();
+    expect(screen.getByTestId("tab-properties")).toBeDefined();
   });
 
   it("defaults to the channels tab", () => {
@@ -256,20 +240,24 @@ describe("log/Toolbar", () => {
     expect(screen.getByTestId("tab-channels").getAttribute("data-selected")).toBe(
       "true",
     );
-    expect(screen.getByTestId("tab-text").getAttribute("data-selected")).toBe("false");
+    expect(screen.getByTestId("tab-properties").getAttribute("data-selected")).toBe(
+      "false",
+    );
     expect(screen.getByTestId("channels-tab")).toBeDefined();
   });
 
-  it("switches to the Text tab when the text tab button is clicked", () => {
+  it("switches to the Properties tab when the properties tab button is clicked", () => {
     renderToolbar();
-    fireEvent.click(screen.getByTestId("tab-text"));
-    expect(screen.getByTestId("tab-text").getAttribute("data-selected")).toBe("true");
-    expect(screen.getByTestId("text-tab")).toBeDefined();
+    fireEvent.click(screen.getByTestId("tab-properties"));
+    expect(screen.getByTestId("tab-properties").getAttribute("data-selected")).toBe(
+      "true",
+    );
+    expect(screen.getByTestId("properties-tab")).toBeDefined();
   });
 
   it("switches back to channels tab", () => {
     renderToolbar();
-    fireEvent.click(screen.getByTestId("tab-text"));
+    fireEvent.click(screen.getByTestId("tab-properties"));
     fireEvent.click(screen.getByTestId("tab-channels"));
     expect(screen.getByTestId("tab-channels").getAttribute("data-selected")).toBe(
       "true",

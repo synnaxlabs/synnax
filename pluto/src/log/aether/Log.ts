@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { box, color, type destructor, TimeStamp, xy } from "@synnaxlabs/x";
+import { box, color, type destructor, notation, TimeStamp, xy } from "@synnaxlabs/x";
 import { z } from "zod";
 
 import { aether } from "@/aether/aether";
@@ -20,6 +20,7 @@ import { render } from "@/vis/render";
 
 export const channelConfigZ = z.object({
   color: z.string().default(""),
+  notation: notation.notationZ.default("standard"),
   precision: z.number().min(-1).max(17).default(-1),
 });
 
@@ -29,7 +30,7 @@ export const logState = z.object({
   scrolling: z.boolean(),
   empty: z.boolean(),
   visible: z.boolean(),
-  multiChannel: z.boolean().default(false),
+  showChannelNames: z.boolean().default(true),
   timestampPrecision: z.number().min(0).max(3).default(0),
   channelConfigs: z.record(z.string(), channelConfigZ).default({}),
   telem: telem.logSourceSpecZ.default(telem.noopLogSourceSpec),
@@ -213,11 +214,11 @@ export class Log extends aether.Leaf<typeof logState, InternalState> {
 
   private renderElements(draw2D: Draw2D, entries: LogEntry[]): void {
     const reg = this.state.region;
-    // multiChannel is read from state (O(1)) rather than derived by scanning all entries
-    // (O(n)). The render loop below is already O(n) over visible entries — adding a
-    // second O(n) scan here just to answer a yes/no question would double the per-frame
-    // work at up to 60fps.
-    const { multiChannel, timestampPrecision, channelConfigs } = this.state;
+    // showChannelNames is read from state (O(1)) rather than derived by scanning all
+    // entries (O(n)). The render loop below is already O(n) over visible entries —
+    // adding a second O(n) scan here just to answer a yes/no question would double the
+    // per-frame work at up to 60fps.
+    const { showChannelNames, timestampPrecision, channelConfigs } = this.state;
     const tsLen = timestampPrecision === 0 ? 8 : 9 + timestampPrecision;
     for (let i = 0; i < entries.length; i++) {
       const entry = entries[i];
@@ -226,12 +227,15 @@ export class Log extends aether.Leaf<typeof logState, InternalState> {
         .toString("preciseTime", "local")
         .slice(0, tsLen);
       let value = entry.value;
-      if (cfg != null && cfg.precision >= 0) {
+      if (cfg != null && (cfg.precision >= 0 || cfg.notation !== "standard")) {
         const num = parseFloat(value);
-        if (!isNaN(num)) value = num.toFixed(cfg.precision);
+        if (!isNaN(num)) {
+          const precision = cfg.precision >= 0 ? cfg.precision : 0;
+          value = notation.stringifyNumber(num, precision, cfg.notation);
+        }
       }
       let line = `${ts}  ${value}`;
-      if (multiChannel)
+      if (showChannelNames)
         line = `${ts}  [${entry.channelName}]${entry.channelPadding}  ${value}`;
       draw2D.text({
         text: line,
