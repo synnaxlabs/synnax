@@ -11,7 +11,7 @@ import "@/hardware/common/task/Form.css";
 
 import { type device, type rack, type Synnax, task } from "@synnaxlabs/client";
 import { Device, Flex, type Flux, Form as PForm, Input, Task } from "@synnaxlabs/pluto";
-import { primitive, type record, TimeStamp } from "@synnaxlabs/x";
+import { primitive, TimeStamp } from "@synnaxlabs/x";
 import { type FC, useCallback } from "react";
 import { useDispatch, useStore } from "react-redux";
 import { type z } from "zod";

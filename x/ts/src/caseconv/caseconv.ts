@@ -104,12 +104,12 @@ const getSchemaShape = (
   const def = s._zod?.def ?? s.def;
   if (def == null) return null;
   if (def.innerType != null) return getSchemaShape(def.innerType);
-  if (def.type === "union" && Array.isArray(def.options)) {
+  if (def.type === "union" && Array.isArray(def.options))
     for (const option of def.options) {
       const result = getSchemaShape(option);
       if (result != null) return result;
     }
-  }
+
   if (def.type === "pipe") return getSchemaShape(def.in) ?? getSchemaShape(def.out);
   return null;
 };
