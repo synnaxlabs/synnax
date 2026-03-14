@@ -26,6 +26,7 @@ cc_test(
     visibility = ["//visibility:public"],
     deps = [
         "//x/cpp/json",
+        "//x/cpp/test",
         "@googletest//:gtest_main",
         "@nlohmann_json//:json",
     ],

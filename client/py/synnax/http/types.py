@@ -14,7 +14,6 @@ from pydantic import BaseModel
 
 from synnax import channel as channel_
 from synnax import device, task
-from synnax.task.payload import Payload
 
 MAKE = "http"
 MODEL = "HTTP server"
@@ -226,7 +225,7 @@ class ReadTask(task.StarterStopperMixin, task.JSONConfigMixin, task.Protocol):
             endpoints=endpoints if endpoints is not None else [],
         )
 
-    def to_payload(self) -> Payload:
+    def to_payload(self) -> task.Payload:
         pld = self._internal.to_payload()
         pld.config = self.config.model_dump(exclude_none=True)
         return pld
@@ -282,7 +281,7 @@ class WriteTask(task.StarterStopperMixin, task.JSONConfigMixin, task.Protocol):
             endpoints=endpoints if endpoints is not None else [],
         )
 
-    def to_payload(self) -> Payload:
+    def to_payload(self) -> task.Payload:
         pld = self._internal.to_payload()
         pld.config = self.config.model_dump(exclude_none=True)
         return pld
