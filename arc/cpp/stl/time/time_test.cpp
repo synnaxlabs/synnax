@@ -53,11 +53,11 @@ private:
     build_ir(const std::string &type, const std::string &param_name, const int64_t ns) {
         arc::types::Param output_param;
         output_param.name = "output";
-        output_param.type = arc::types::Type{.kind=arc::types::Kind::U8};
+        output_param.type = arc::types::Type{.kind = arc::types::Kind::U8};
 
         arc::types::Param cfg_param;
         cfg_param.name = param_name;
-        cfg_param.type = arc::types::Type{.kind=arc::types::Kind::I64};
+        cfg_param.type = arc::types::Type{.kind = arc::types::Kind::I64};
         cfg_param.value = ns;
 
         ir::Node ir_node;

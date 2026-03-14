@@ -328,8 +328,7 @@ public:
                     continue;
                 }
                 auto sv = types::to_sample_value(config[i].value, config[i].type);
-                if (sv.has_value())
-                    this->args[i] = sample_to_wasm(*sv, config[i].type);
+                if (sv.has_value()) this->args[i] = sample_to_wasm(*sv, config[i].type);
             }
             uint32_t offset = base + 8;
             for (const auto &param: outputs) {
