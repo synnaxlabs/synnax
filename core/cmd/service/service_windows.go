@@ -57,7 +57,12 @@ var configKeysToExclude = set.FromSlice([]string{"auto-start", "delayed-start"})
 // WriteConfig writes the current viper configuration to the config file.
 // This captures all the core configuration flags set during service installation,
 // excluding service-specific flags like auto-start and delayed-start.
+// If a config file already exists, it is preserved to avoid overwriting
+// user-customized settings during reinstallation.
 func WriteConfig() error {
+	if _, err := os.Stat(ConfigPath()); err == nil {
+		return nil
+	}
 	dir := ConfigDir()
 	if err := os.MkdirAll(dir, 0755); err != nil {
 		return err
