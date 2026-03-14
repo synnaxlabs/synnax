@@ -54,7 +54,7 @@ jobs:
       - name: Lint
         uses: golangci/golangci-lint-action@v9
         with:
-          args: ./${{ inputs.directory }}/...
+          working-directory: ${{ inputs.directory }}
 
       - name: Test
         run: >-
