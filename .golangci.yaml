@@ -2,6 +2,7 @@ version: "2"
 linters:
   enable:
     - revive
+    - mustsucceedlint
   settings:
     govet:
       enable-all: true
@@ -19,6 +20,12 @@ linters:
             - - skip-package-name-checks: true
   exclusions:
     generated: lax
+  custom:
+    mustsucceedlint:
+      type: "module"
+      description: >
+        Detects Expect(err).ToNot(HaveOccurred()) patterns that can be replaced with
+        MustSucceed.
 
 run:
   build-tags:

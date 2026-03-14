@@ -21,6 +21,7 @@ import (
 	"github.com/synnaxlabs/freighter/test"
 	"github.com/synnaxlabs/x/address"
 	"github.com/synnaxlabs/x/httputil"
+	. "github.com/synnaxlabs/x/testutil"
 )
 
 var _ = Describe("Unary", Ordered, Serial, func() {
@@ -49,8 +50,7 @@ var _ = Describe("Unary", Ordered, Serial, func() {
 			Expect(app.Listen(addr.PortString())).To(Succeed())
 		}()
 		Eventually(func(g Gomega) {
-			_, err := http.Get("http://" + addr.String() + "/health")
-			g.Expect(err).ToNot(HaveOccurred())
+			MustSucceed(http.Get("http://" + addr.String() + "/health"))
 		}).WithPolling(1 * time.Millisecond).Should(Succeed())
 	})
 

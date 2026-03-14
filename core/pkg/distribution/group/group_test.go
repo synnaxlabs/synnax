@@ -45,26 +45,22 @@ var _ = Describe("Group", Ordered, func() {
 
 	Describe("Create", func() {
 		It("Should create a new group", func() {
-			g, err := w.Create(ctx, "test1", ontology.RootID)
-			Expect(err).ToNot(HaveOccurred())
+			g := MustSucceed(w.Create(ctx, "test1", ontology.RootID))
 			Expect(g.Key).ToNot(Equal(uuid.Nil))
 			Expect(g.Name).To(Equal("test1"))
 		})
 
 		It("Should create a group with a specific key", func() {
 			key := uuid.New()
-			g, err := w.CreateWithKey(ctx, key, "test2", ontology.RootID)
-			Expect(err).ToNot(HaveOccurred())
+			g := MustSucceed(w.CreateWithKey(ctx, key, "test2", ontology.RootID))
 			Expect(g.Key).To(Equal(key))
 			Expect(g.Name).To(Equal("test2"))
 		})
 
 		It("Should create a nested group", func() {
-			parent, err := w.Create(ctx, "parent", ontology.RootID)
-			Expect(err).ToNot(HaveOccurred())
+			parent := MustSucceed(w.Create(ctx, "parent", ontology.RootID))
 
-			child, err := w.Create(ctx, "child", group.OntologyID(parent.Key))
-			Expect(err).ToNot(HaveOccurred())
+			child := MustSucceed(w.Create(ctx, "child", group.OntologyID(parent.Key)))
 			Expect(child.Name).To(Equal("child"))
 		})
 
@@ -72,102 +68,83 @@ var _ = Describe("Group", Ordered, func() {
 
 	Describe("Retrieve", func() {
 		It("Should retrieve a group by its key", func() {
-			created, err := w.Create(ctx, "retrieve-test", ontology.RootID)
-			Expect(err).ToNot(HaveOccurred())
+			created := MustSucceed(w.Create(ctx, "retrieve-test", ontology.RootID))
 
 			var g group.Group
-			err = svc.NewRetrieve().WhereKeys(created.Key).Entry(&g).Exec(ctx, nil)
-			Expect(err).ToNot(HaveOccurred())
+			Expect(svc.NewRetrieve().WhereKeys(created.Key).Entry(&g).Exec(ctx, nil)).To(Succeed())
 			Expect(g).To(Equal(created))
 		})
 
 		It("Should retrieve multiple groups by keys", func() {
-			g1, err := w.Create(ctx, "multi1", ontology.RootID)
-			Expect(err).ToNot(HaveOccurred())
+			g1 := MustSucceed(w.Create(ctx, "multi1", ontology.RootID))
 
-			g2, err := w.Create(ctx, "multi2", ontology.RootID)
-			Expect(err).ToNot(HaveOccurred())
+			g2 := MustSucceed(w.Create(ctx, "multi2", ontology.RootID))
 
 			var ret []group.Group
-			err = svc.NewRetrieve().WhereKeys(g1.Key, g2.Key).Entries(&ret).Exec(ctx, nil)
-			Expect(err).ToNot(HaveOccurred())
+			Expect(svc.NewRetrieve().WhereKeys(g1.Key, g2.Key).Entries(&ret).Exec(ctx, nil)).To(Succeed())
 			Expect(ret).To(ConsistOf(g1, g2))
 		})
 
 		It("Should retrieve a group by its name", func() {
-			created, err := w.Create(ctx, "name-test", ontology.RootID)
-			Expect(err).ToNot(HaveOccurred())
+			created := MustSucceed(w.Create(ctx, "name-test", ontology.RootID))
 
 			var g group.Group
-			err = svc.NewRetrieve().WhereNames(created.Name).Entry(&g).Exec(ctx, nil)
-			Expect(err).ToNot(HaveOccurred())
+			Expect(svc.NewRetrieve().WhereNames(created.Name).Entry(&g).Exec(ctx, nil)).To(Succeed())
 			Expect(g).To(Equal(created))
 		})
 	})
 
 	Describe("Rename", func() {
 		It("Should rename a group", func() {
-			created, err := w.Create(ctx, "original-name", ontology.RootID)
-			Expect(err).ToNot(HaveOccurred())
+			created := MustSucceed(w.Create(ctx, "original-name", ontology.RootID))
 
 			newName := "renamed"
 			Expect(w.Rename(ctx, created.Key, newName)).To(Succeed())
 
 			var g group.Group
-			err = svc.NewRetrieve().WhereKeys(created.Key).Entry(&g).Exec(ctx, nil)
-			Expect(err).ToNot(HaveOccurred())
+			Expect(svc.NewRetrieve().WhereKeys(created.Key).Entry(&g).Exec(ctx, nil)).To(Succeed())
 			Expect(g.Name).To(Equal(newName))
 		})
 	})
 
 	Describe("Delete", func() {
 		It("Should not delete a group with children", func() {
-			parent, err := w.Create(ctx, "parent-to-keep", ontology.RootID)
-			Expect(err).ToNot(HaveOccurred())
+			parent := MustSucceed(w.Create(ctx, "parent-to-keep", ontology.RootID))
 
-			_, err = w.Create(ctx, "child-blocking-delete", group.OntologyID(parent.Key))
-			Expect(err).ToNot(HaveOccurred())
+			_ = MustSucceed(w.Create(ctx, "child-blocking-delete", group.OntologyID(parent.Key)))
 
-			err = w.Delete(ctx, parent.Key)
+			err := w.Delete(ctx, parent.Key)
 			Expect(err).To(HaveOccurred())
 			Expect(errors.Is(err, validate.ErrValidation)).To(BeTrue())
 		})
 
 		It("Should delete a group without children", func() {
-			created, err := w.Create(ctx, "to-delete", ontology.RootID)
-			Expect(err).ToNot(HaveOccurred())
+			created := MustSucceed(w.Create(ctx, "to-delete", ontology.RootID))
 
 			Expect(w.Delete(ctx, created.Key)).To(Succeed())
 
-			var g group.Group
-			err = svc.NewRetrieve().WhereKeys(created.Key).Entry(&g).Exec(ctx, nil)
-			Expect(err).To(HaveOccurred())
+			Expect(svc.NewRetrieve().WhereKeys(created.Key).Entry(new(group.Group)).
+				Exec(ctx, nil)).To(HaveOccurred())
 		})
 
 		It("Should delete multiple groups", func() {
-			parent, err := w.Create(ctx, "parent-for-deletion", ontology.RootID)
-			Expect(err).ToNot(HaveOccurred())
+			parent := MustSucceed(w.Create(ctx, "parent-for-deletion", ontology.RootID))
 
-			child, err := w.Create(ctx, "child-for-deletion", group.OntologyID(parent.Key))
-			Expect(err).ToNot(HaveOccurred())
+			child := MustSucceed(w.Create(ctx, "child-for-deletion", group.OntologyID(parent.Key)))
 
 			Expect(w.Delete(ctx, child.Key)).To(Succeed())
 			Expect(w.Delete(ctx, parent.Key)).To(Succeed())
 
-			var g group.Group
-			err = svc.NewRetrieve().WhereKeys(parent.Key, child.Key).Entry(&g).Exec(ctx, nil)
-			Expect(err).To(HaveOccurred())
+			Expect(svc.NewRetrieve().WhereKeys(parent.Key, child.Key).
+				Entry(new(group.Group)).Exec(ctx, nil)).To(HaveOccurred())
 		})
 
 		It("Should allow batch deletion when parent is being deleted along with all of its children", func() {
-			parent, err := w.Create(ctx, "parent-batch-delete", ontology.RootID)
-			Expect(err).ToNot(HaveOccurred())
+			parent := MustSucceed(w.Create(ctx, "parent-batch-delete", ontology.RootID))
 
-			child1, err := w.Create(ctx, "child1-batch-delete", group.OntologyID(parent.Key))
-			Expect(err).ToNot(HaveOccurred())
+			child1 := MustSucceed(w.Create(ctx, "child1-batch-delete", group.OntologyID(parent.Key)))
 
-			child2, err := w.Create(ctx, "child2-batch-delete", group.OntologyID(parent.Key))
-			Expect(err).ToNot(HaveOccurred())
+			child2 := MustSucceed(w.Create(ctx, "child2-batch-delete", group.OntologyID(parent.Key)))
 
 			Expect(w.Delete(ctx, child2.Key, parent.Key, child1.Key)).To(Succeed())
 
@@ -179,24 +156,19 @@ var _ = Describe("Group", Ordered, func() {
 		})
 
 		It("Should allow deleting nested hierarchy when ordered leaf to root", func() {
-			root, err := w.Create(ctx, "root-nested", ontology.RootID)
-			Expect(err).ToNot(HaveOccurred())
+			root := MustSucceed(w.Create(ctx, "root-nested", ontology.RootID))
 
-			level1, err := w.Create(ctx, "level1-nested", group.OntologyID(root.Key))
-			Expect(err).ToNot(HaveOccurred())
+			level1 := MustSucceed(w.Create(ctx, "level1-nested", group.OntologyID(root.Key)))
 
-			level2, err := w.Create(ctx, "level2-nested", group.OntologyID(level1.Key))
-			Expect(err).ToNot(HaveOccurred())
+			level2 := MustSucceed(w.Create(ctx, "level2-nested", group.OntologyID(level1.Key)))
 
-			level3, err := w.Create(ctx, "level3-nested", group.OntologyID(level2.Key))
-			Expect(err).ToNot(HaveOccurred())
+			level3 := MustSucceed(w.Create(ctx, "level3-nested", group.OntologyID(level2.Key)))
 
 			Expect(w.Delete(ctx, level3.Key, level2.Key, level1.Key, root.Key)).To(Succeed())
 
 			for _, key := range []uuid.UUID{root.Key, level1.Key, level2.Key, level3.Key} {
-				var g group.Group
-				err = svc.NewRetrieve().WhereKeys(key).Entry(&g).Exec(ctx, nil)
-				Expect(err).To(HaveOccurred())
+				Expect(svc.NewRetrieve().WhereKeys(key).Entry(new(group.Group)).
+					Exec(ctx, nil)).To(HaveOccurred())
 			}
 		})
 	})
