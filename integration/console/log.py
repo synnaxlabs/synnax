@@ -40,17 +40,20 @@ class Log(ConsolePage):
         """Remove all currently selected channels from the log."""
         self.layout.show_visualization_toolbar()
         toolbar = self.page.locator(".console-log-toolbar")
-        while toolbar.locator(".pluto-tag").count() > 0:
-            tag = toolbar.locator(".pluto-tag").first
-            tag.hover()
-            tag.locator(".pluto-tag__close").click()
+        while True:
+            remove_btns = toolbar.locator(
+                ".console-log__channel-row .pluto-btn--text:not(.pluto--disabled)"
+            )
+            if remove_btns.count() == 0:
+                break
+            remove_btns.first.click()
 
     def set_channel(self, channel_name: str) -> None:
+        """Add a channel to the log via the 'Add a channel...' row."""
         self.layout.show_visualization_toolbar()
-        self.page.locator(".console-log-toolbar .pluto-dialog__trigger").click()
-        self.page.locator("input[placeholder*='Search channels']").wait_for(
-            state="attached", timeout=5000
-        )
+        toolbar = self.page.locator(".console-log-toolbar")
+        add_trigger = toolbar.get_by_text("Add a channel...")
+        add_trigger.click()
         self.layout.select_from_dropdown(channel_name, "Search channels")
 
     def has_channel(self, channel_name: str) -> bool:
@@ -58,9 +61,10 @@ class Log(ConsolePage):
         self.layout.get_tab(self.page_name).click()
         self.layout.show_visualization_toolbar()
         toolbar = self.page.locator(".console-log-toolbar")
-        tags = toolbar.locator(".pluto-tag")
-        for i in range(tags.count()):
-            if channel_name in (tags.nth(i).inner_text() or ""):
+        rows = toolbar.locator(".console-log__channel-row")
+        for i in range(rows.count()):
+            row_text = rows.nth(i).inner_text() or ""
+            if channel_name in row_text:
                 return True
         return False
 

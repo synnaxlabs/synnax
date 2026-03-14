@@ -101,6 +101,7 @@ export const Log = ({
     region,
     visibleStart,
     computedLineHeight,
+    entryCount,
   } = state;
 
   useEffect(() => {
@@ -129,7 +130,12 @@ export const Log = ({
       const idx = mouseYToEntryIndex(e.clientY);
       draggingRef.current = true;
       if (e.shiftKey) setState((s) => ({ ...s, selectionEnd: idx }));
-      else setState((s) => ({ ...s, selectionStart: idx, selectionEnd: idx }));
+      else
+        setState((s) => {
+          if (s.selectionStart === idx && s.selectionEnd === idx)
+            return { ...s, selectionStart: -1, selectionEnd: -1 };
+          return { ...s, selectionStart: idx, selectionEnd: idx };
+        });
     },
     [mouseYToEntryIndex, setState],
   );
@@ -186,14 +192,23 @@ export const Log = ({
         }));
         return;
       }
-      if ((e.metaKey || e.ctrlKey) && e.key === "c" && selectedText.length > 0) {
+      if (!(e.metaKey || e.ctrlKey)) return;
+      if (e.key === "c" && selectedText.length > 0) {
         e.preventDefault();
         copyToClipboard();
+      } else if (e.key === "a" && entryCount > 0) {
+        // Select All
+        e.preventDefault();
+        setState((s) => ({
+          ...s,
+          selectionStart: 0,
+          selectionEnd: entryCount - 1,
+        }));
       }
     };
     window.addEventListener("keydown", handleKeyDown);
     return () => window.removeEventListener("keydown", handleKeyDown);
-  }, [selectedText, setState, copyToClipboard]);
+  }, [selectedText, entryCount, setState, copyToClipboard]);
 
   const { className: menuClassName, ...menuProps } = Menu.useContextMenu();
   const hasSelection = selectedText.length > 0;

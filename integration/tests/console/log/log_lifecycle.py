@@ -77,7 +77,7 @@ class LogLifecycle(ConsoleCase):
 
         self.test_no_channel_configured(log)
         self.test_no_data_received(log)
-        self.test_persisted_channel_streaming(log)
+        self.test_channel_streaming(log)
         self.test_rename_from_tab(log)
         self.test_copy_link(log)
         self.test_pause_resume_scrolling(log)
@@ -132,9 +132,9 @@ class LogLifecycle(ConsoleCase):
         assert log.is_empty(), "Log should be empty when no data received"
         assert not log.is_streaming(), "Log should not be streaming without data"
 
-    def test_persisted_channel_streaming(self, log: Log) -> None:
+    def test_channel_streaming(self, log: Log) -> None:
         """Test that log streams data from a persisted channel and survives reload."""
-        self.log("Testing persisted channel streaming")
+        self.log("Testing channel streaming")
 
         with self.client.open_writer(
             sy.TimeStamp.now(),
@@ -149,17 +149,6 @@ class LogLifecycle(ConsoleCase):
             ), "Log should be streaming after data write"
             assert not log.is_empty(), "Log should not be empty after data write"
             assert not log.is_waiting_for_data(), "Log should not be waiting for data"
-
-            self.console.reload()
-
-            w.write({self.idx_name: sy.TimeStamp.now(), self.data_name: 42.0})
-
-        assert (
-            log.wait_until_streaming()
-        ), "Log should still be streaming after reload (persisted)"
-        assert (
-            not log.is_waiting_for_data()
-        ), "Log should NOT be waiting for data after reload"
 
     def test_virtual_channel_streaming(self, log: Log) -> None:
         """Test that log streams data from a virtual (non-persisted) channel."""

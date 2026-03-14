@@ -51,6 +51,7 @@ export const logState = z.object({
   selectedText: z.string().default(""),
   selectedLines: z.array(z.object({ text: z.string(), color: z.string() })).default([]),
   computedLineHeight: z.number().default(0),
+  entryCount: z.number().default(0),
   copyFlash: z.boolean().default(false),
 });
 
@@ -60,7 +61,7 @@ const CONTENT_PADDING = 6;
 
 // Per-theme prefix color muting — multiplied with the base color's HSLA.
 const DARK_PREFIX = { hue: 1, saturation: 0.8, lightness: 0.85, alpha: 0.95 };
-const LIGHT_PREFIX = { hue: 1, saturation: 0.8, lightness: 0.75, alpha: 0.8 };
+const LIGHT_PREFIX = { hue: 1, saturation: 0.8, lightness: 0.8, alpha: 0.8 };
 
 interface InternalState {
   theme: theming.Theme;
@@ -215,8 +216,13 @@ export class Log extends aether.Leaf<typeof logState, InternalState> {
 
   private checkEmpty(): void {
     const actuallyEmpty = this.entries.length === 0;
-    if (actuallyEmpty === this.state.empty) return;
-    this.setState((s) => ({ ...s, empty: actuallyEmpty }));
+    const countChanged = this.entries.length !== this.state.entryCount;
+    if (actuallyEmpty === this.state.empty && !countChanged) return;
+    this.setState((s) => ({
+      ...s,
+      empty: actuallyEmpty,
+      entryCount: this.entries.length,
+    }));
   }
 
   afterDelete(): void {
