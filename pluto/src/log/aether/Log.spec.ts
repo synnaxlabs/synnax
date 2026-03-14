@@ -8,13 +8,12 @@
 // included in the file licenses/APL.txt.
 
 import { alamos } from "@synnaxlabs/alamos";
-import { box, color, TimeStamp, xy } from "@synnaxlabs/x";
+import { box, TimeStamp } from "@synnaxlabs/x";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-import { type LogEntry } from "@/telem/aether/telem";
 import { Log, logState } from "@/log/aether/Log";
-import { type Theme, SYNNAX_DARK } from "@/theming/base/theme";
-import { themeZ } from "@/theming/base/theme";
+import { type LogEntry } from "@/telem/aether/telem";
+import { SYNNAX_DARK, type Theme, themeZ } from "@/theming/base/theme";
 
 const MockSender = { send: vi.fn() };
 

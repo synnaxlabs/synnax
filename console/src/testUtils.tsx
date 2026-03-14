@@ -16,20 +16,19 @@ import { Provider } from "react-redux";
 import { Layout } from "@/layout";
 import { Log } from "@/log";
 
-type ConsoleStoreState = {
-  [Layout.SLICE_NAME]: Layout.SliceState;
-  [Drift.SLICE_NAME]: Drift.SliceState;
-  [Log.SLICE_NAME]: Log.SliceState;
-};
-
 const consoleReducer = combineReducers({
   [Layout.SLICE_NAME]: Layout.reducer,
   [Drift.SLICE_NAME]: Drift.reducer,
   [Log.SLICE_NAME]: Log.reducer,
 });
 
+type ConsolePreloadedState = {
+  [Layout.SLICE_NAME]?: Layout.SliceState;
+  [Log.SLICE_NAME]?: Log.SliceState;
+};
+
 export interface ConsoleTestProviderOptions {
-  preloadedState?: Partial<ConsoleStoreState>;
+  preloadedState?: ConsolePreloadedState;
 }
 
 export const createTestStore = (
@@ -38,7 +37,7 @@ export const createTestStore = (
   const { preloadedState } = options;
   return configureStore({
     reducer: consoleReducer,
-    preloadedState: preloadedState as ConsoleStoreState | undefined,
+    preloadedState,
   });
 };
 
@@ -50,7 +49,7 @@ export const ConsoleTestProvider = ({
 );
 
 export interface RenderWithConsoleOptions extends RenderOptions {
-  preloadedState?: Partial<ConsoleStoreState>;
+  preloadedState?: ConsolePreloadedState;
   store?: EnhancedStore;
 }
 
