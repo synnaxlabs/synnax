@@ -3,7 +3,6 @@ name: Test - X (Go)
 on:
   pull_request:
     paths:
-      - .custom-gcl.yml
       - .github/workflows/test.go.yaml
       - .github/workflows/test.x.go.yaml
       - .golangci.yaml
@@ -16,7 +15,6 @@ on:
       - main
       - rc
     paths:
-      - .custom-gcl.yml
       - .github/workflows/test.go.yaml
       - .github/workflows/test.x.go.yaml
       - .golangci.yaml
