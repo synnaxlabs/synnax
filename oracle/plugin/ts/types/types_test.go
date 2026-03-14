@@ -903,8 +903,8 @@ var _ = Describe("TS Types Plugin", func() {
 
 			content := string(resp.Files[0].Content)
 			Expect(content).To(ContainSubstring(`export interface MapNodeSchemas<K extends z.ZodType = z.ZodType, V extends z.ZodType = z.ZodType>`))
-		// Schemas use constraint as default, Z function uses specific default
-		Expect(content).To(ContainSubstring(`export const mapNodeZ = <K extends z.ZodType = z.ZodString, V extends z.ZodType = z.ZodString>`))
+			// Schemas use constraint as default, Z function uses specific default
+			Expect(content).To(ContainSubstring(`export const mapNodeZ = <K extends z.ZodType = z.ZodString, V extends z.ZodType = z.ZodString>`))
 			Expect(content).To(ContainSubstring(`}: Partial<MapNodeSchemas<K, V>> = {}) =>`))
 			Expect(content).To(ContainSubstring(`get children():`))
 			// Optional arrays use zod.nullToUndefined with array schema
