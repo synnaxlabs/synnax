@@ -87,7 +87,7 @@ func (m *monitor) checkAlive(ctx context.Context) error {
 
 	m.mu.Lock()
 	now = telem.Now()
-	var statuses []Status[StatusDetails]
+	var statuses []Status
 	for _, r := range racks {
 		state := m.mu.racks[r.Key]
 		if telem.TimeSpan(now-state.lastUpdated) < m.svc.HealthCheckInterval {

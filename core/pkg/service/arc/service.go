@@ -143,23 +143,23 @@ func (s *Service) AnalyzeCalculation(ctx context.Context, expr string) (telem.Da
 // CompileProgram retrieves an Arc program by key and compiles its Module.
 // The returned Arc has its Module field populated with the compiled module.
 func (s *Service) CompileProgram(ctx context.Context, key uuid.UUID) (Arc, error) {
-	var prog Arc
-	err := s.NewRetrieve().WhereKeys(key).Entry(&prog).Exec(ctx, nil)
+	var entry Arc
+	err := s.NewRetrieve().WhereKeys(key).Entry(&entry).Exec(ctx, nil)
 	if err != nil {
 		return Arc{}, err
 	}
 	resolverOpt := arc.WithResolver(s.symbolResolver)
 	var prog arc.Program
-	if prog.Mode == "text" {
-		prog, err = arc.CompileText(ctx, prog.Text, resolverOpt)
+	if entry.Mode == "text" {
+		prog, err = arc.CompileText(ctx, entry.Text, resolverOpt)
 	} else {
-		prog, err = arc.CompileGraph(ctx, prog.Graph, resolverOpt)
+		prog, err = arc.CompileGraph(ctx, entry.Graph, resolverOpt)
 	}
 	if err != nil {
 		return Arc{}, err
 	}
-	prog.Module = &prog
-	return prog, nil
+	entry.Program = &prog
+	return entry, nil
 }
 
 // OpenService instantiates a new Arc service using the provided configurations. Each
