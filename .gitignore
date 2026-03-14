@@ -45,6 +45,7 @@ logs/
 *.out
 build/
 testdata/**
+custom-gcl
 
 # |||| RUST ||||
 

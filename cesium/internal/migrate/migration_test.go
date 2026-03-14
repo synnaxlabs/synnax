@@ -63,12 +63,10 @@ var _ = Describe("Migration Test", func() {
 						chInMeta  cesium.Channel
 					)
 
-					_, err = r.Read(buf)
-					Expect(err).ToNot(HaveOccurred())
+					MustSucceed(r.Read(buf))
 					Expect(r.Close()).To(Succeed())
 
-					err = jsonCodec.Decode(ctx, buf, &chInMeta)
-					Expect(err).ToNot(HaveOccurred())
+					Expect(jsonCodec.Decode(ctx, buf, &chInMeta)).To(Succeed())
 					Expect(chInMeta).To(Equal(chInDB))
 
 				}
