@@ -5,7 +5,6 @@ go 1.26.1
 replace (
 	github.com/synnaxlabs/alamos => ../alamos/go
 	github.com/synnaxlabs/x => ../x/go
-	google.golang.org/genproto => google.golang.org/genproto v0.0.0-20260128011058-8636f8732409
 )
 
 require (
