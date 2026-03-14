@@ -3,9 +3,15 @@ load("@rules_cc//cc:cc_test.bzl", "cc_test")
 
 cc_library(
     name = "program",
-    hdrs = ["program.h"],
+    hdrs = [
+        "json.gen.h",
+        "program.h",
+        "proto.gen.h",
+        "types.gen.h",
+    ],
     visibility = ["//visibility:public"],
     deps = [
+        "//arc/cpp/compiler",
         "//arc/cpp/ir",
         "//arc/go/program:program_grpc",
     ],
@@ -16,7 +22,7 @@ cc_test(
     srcs = ["program_test.cpp"],
     deps = [
         ":program",
-        "//arc/go/program:program_grpc",
+        "//x/cpp/test",
         "@googletest//:gtest_main",
     ],
 )

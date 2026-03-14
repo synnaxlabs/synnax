@@ -1948,9 +1948,9 @@ TEST(ArcTests, testStaticAuthorityConfig) {
         arc::Task::create(task_meta, ctx, task_cfg, mock_writer, mock_streamer)
     );
 
-    ASSERT_TRUE(task_cfg.module.authorities.default_.has_value())
+    ASSERT_TRUE(task_cfg.program.authorities.default_.has_value())
         << "IR AuthorityConfig.default_ should be set from 'authority 200'";
-    EXPECT_EQ(*task_cfg.module.authorities.default_, 200);
+    EXPECT_EQ(*task_cfg.program.authorities.default_, 200);
 
     task->start("test_start");
     ASSERT_EVENTUALLY_GE(mock_writer->writer_opens.load(std::memory_order_acquire), 1);

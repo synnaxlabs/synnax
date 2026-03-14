@@ -150,7 +150,7 @@ TEST(TestArc, testProgramField) {
 
     auto retrieved = ASSERT_NIL_P(client.arcs.retrieve_by_key(arc.key));
     ASSERT_EQ(retrieved.key, arc.key);
-    ASSERT_FALSE(retrieved.program->has_value());
+    ASSERT_FALSE(retrieved.program.has_value());
 }
 
 /// @brief it should compile an Arc program when retrieved with compile=true.

@@ -38,6 +38,8 @@ import {
 } from "@/task/types.gen";
 import { checkForMultipleOrNoResults } from "@/util/retrieve";
 
+export type { PayloadSchemas as Schemas } from "@/task/types.gen";
+
 export const COMMAND_CHANNEL_NAME = "sy_task_cmd";
 export const SET_CHANNEL_NAME = "sy_task_set";
 export const DELETE_CHANNEL_NAME = "sy_task_delete";
@@ -125,10 +127,10 @@ export class Task<S extends Schemas = Schemas> {
     this.schemas =
       schemas ??
       ({
-        type: z.string() as unknown as S["type"],
-        config: z.unknown() as S["config"],
-        statusData: z.unknown() as S["statusData"],
-      } as S);
+        type: z.string(),
+        config: z.unknown(),
+        statusData: z.unknown(),
+      } as unknown as S);
     this.internal = internal;
     this.snapshot = snapshot;
     this.status = status;
@@ -237,19 +239,19 @@ interface RetrieveSchemas<S extends Schemas = Schemas> {
 }
 
 const retrieveResZ = <S extends Schemas = Schemas>(schemas?: S) =>
-  z.object({ tasks: array.nullableZ(taskZ(schemas)) });
+  z.object({ tasks: array.nullishToEmpty(payloadZ(schemas)) });
 
 export interface RetrieveRequest extends z.infer<typeof retrieveReqZ> {}
 
 const createReqZ = <S extends Schemas = Schemas>(schemas?: S) =>
   z.object({ tasks: newZ(schemas).array() });
 const createResZ = <S extends Schemas = Schemas>(schemas?: S) =>
-  z.object({ tasks: taskZ(schemas).array() });
+  z.object({ tasks: payloadZ(schemas).array() });
 const deleteReqZ = z.object({ keys: keyZ.array() });
 const deleteResZ = z.object({});
 const copyReqZ = z.object({ key: keyZ, name: z.string(), snapshot: z.boolean() });
 const copyResZ = <S extends Schemas = Schemas>(schemas?: S) =>
-  z.object({ task: taskZ(schemas) });
+  z.object({ task: payloadZ(schemas) });
 
 export class Client {
   private readonly client: UnaryClient;

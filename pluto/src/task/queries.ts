@@ -102,7 +102,7 @@ export const retrieveSingle = async <S extends task.Schemas = task.Schemas>({
   const tsk = await client.tasks.retrieve<S>({ ...BASE_QUERY, ...query, schemas });
   store.tasks.set(tsk.key.toString(), tsk);
   if (tsk.status != null) store.statuses.set(tsk.status);
-  return tsk as task.Task<Type, Config, StatusData>;
+  return tsk;
 };
 
 export const createRetrieve = <S extends task.Schemas = task.Schemas>(schemas?: S) =>

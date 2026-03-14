@@ -106,7 +106,7 @@ public:
 
     /// @brief handle HTTP-specific commands (test connection).
     [[nodiscard]] bool exec(
-        task::Command &cmd,
+        synnax::task::Command &cmd,
         const synnax::task::Task &task,
         const std::shared_ptr<task::Context> &ctx
     ) override;
@@ -117,7 +117,7 @@ private:
     std::shared_ptr<Processor> processor;
 
     /// @brief test connection to an HTTP server.
-    void test_connection(const task::Command &cmd) const;
+    void test_connection(const synnax::task::Command &cmd) const;
 
     /// @brief holds a successfully built health check request along with the
     /// information needed to validate the response and update the device status.

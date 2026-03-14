@@ -9,8 +9,9 @@
 
 #include "gtest/gtest.h"
 
-#include "arc/cpp/module/module.h"
-#include "arc/go/module/arc/go/module/module.pb.h"
+#include "x/cpp/test/test.h"
+
+#include "arc/cpp/program/program.h"
 
 namespace arc::program {
 /// @brief it should correctly round-trip Program through protobuf
@@ -28,7 +29,7 @@ TEST(ProgramTest, testProgramProtobufRoundTrip) {
     original.output_memory_bases["output2"] = 2048;
 
     const auto pb = original.to_proto();
-    const auto reconstructed = ASSERT_NIL_P(Module::from_proto(pb));
+    const auto reconstructed = ASSERT_NIL_P(Program::from_proto(pb));
 
     ASSERT_EQ(reconstructed.nodes.size(), 1);
     ASSERT_EQ(reconstructed.nodes[0].key, "test_node");

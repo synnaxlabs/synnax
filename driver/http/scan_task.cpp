@@ -73,7 +73,7 @@ Scanner::scan(const common::ScannerContext &scan_ctx) {
 }
 
 bool Scanner::exec(
-    task::Command &cmd,
+    synnax::task::Command &cmd,
     const synnax::task::Task &,
     const std::shared_ptr<task::Context> &
 ) {
@@ -113,7 +113,7 @@ void Scanner::set_device_status(
     const std::string &description
 ) const {
     dev.status = synnax::device::Status{
-        .key = dev.status_key(),
+        .key = synnax::device::status_key(dev),
         .name = dev.name,
         .variant = variant,
         .message = message,
@@ -187,11 +187,11 @@ void Scanner::process_health_response(
     this->set_device_status(dev, x::status::VARIANT_SUCCESS, "Device connected");
 }
 
-void Scanner::test_connection(const task::Command &cmd) const {
+void Scanner::test_connection(const synnax::task::Command &cmd) const {
     x::json::Parser parser(cmd.args);
     const ScanCommandArgs args(parser);
     synnax::task::Status status{
-        .key = this->task.status_key(),
+        .key = synnax::task::status_key(this->task),
         .name = this->task.name,
         .variant = x::status::VARIANT_ERROR,
         .details = synnax::task::StatusDetails{

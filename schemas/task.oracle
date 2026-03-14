@@ -120,6 +120,7 @@ Task struct<
     @ts {
         name "Payload"
         concrete_types
+        coalesce_type_params
     }
     @ontology type "task"
     @py name       "Payload"
@@ -142,6 +143,7 @@ New struct<Type extends string = string, Config extends json = json, StatusData?
     @ts {
         use_input
         concrete_types
+        coalesce_type_params
     }
     @go omit
     @pb omit

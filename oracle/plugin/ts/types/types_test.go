@@ -902,8 +902,8 @@ var _ = Describe("TS Types Plugin", func() {
 			Expect(err).To(BeNil())
 
 			content := string(resp.Files[0].Content)
-			Expect(content).To(ContainSubstring(`export interface MapNodeSchemas<K extends z.ZodType = z.ZodString, V extends z.ZodType = z.ZodString>`))
-			Expect(content).To(ContainSubstring(`}: MapNodeSchemas<K, V> = {}) =>`))
+			Expect(content).To(ContainSubstring(`export interface MapNodeSchemas<K extends z.ZodType = z.ZodType, V extends z.ZodType = z.ZodType>`))
+			Expect(content).To(ContainSubstring(`}: Partial<MapNodeSchemas<K, V>> = {}) =>`))
 			Expect(content).To(ContainSubstring(`get children():`))
 			// Optional arrays use zod.nullToUndefined with array schema
 			Expect(content).To(ContainSubstring(`return zod.nullToUndefined(mapNodeZ({k: k, v: v}).array())`))
@@ -1090,7 +1090,7 @@ var _ = Describe("TS Types Plugin", func() {
 			Expect(err).To(BeNil())
 
 			content := string(resp.Files[0].Content)
-			Expect(content).To(ContainSubstring(`Data extends z.ZodType = z.ZodNever`), "optional param should have ZodNever default")
+			Expect(content).To(ContainSubstring(`Data extends z.ZodType = z.ZodType`), "optional param should default to constraint")
 			Expect(content).To(ContainSubstring(`data: data ?? z.unknown().optional()`), "optional param field should use z.unknown().optional() fallback")
 		})
 
@@ -1119,7 +1119,7 @@ var _ = Describe("TS Types Plugin", func() {
 
 			content := string(resp.Files[0].Content)
 			Expect(content).To(ContainSubstring(`Config extends z.ZodType<record.Unknown> = z.ZodType<record.Unknown>`), "constrained json param should use record.Unknown")
-			Expect(content).To(ContainSubstring(`StatusData extends z.ZodType = z.ZodNever`), "optional param should have ZodNever default")
+			Expect(content).To(ContainSubstring(`StatusData extends z.ZodType = z.ZodType`), "optional param should default to constraint")
 			Expect(content).To(ContainSubstring(`config: config ?? record.nullishToEmpty()`), "constrained json field should use record fallback")
 			Expect(content).To(ContainSubstring(`statusData: statusData ?? z.unknown().optional()`), "optional param field should use z.unknown().optional() fallback")
 		})
@@ -1899,6 +1899,149 @@ var _ = Describe("TS Types Plugin", func() {
 				ExpectContent(resp, "types.gen.ts").
 					ToContain("taskZ").
 					ToContain("common")
+			})
+		})
+
+		Context("coalesce_type_params", func() {
+			It("Should generate single schema param for type interface", func() {
+				source := `
+					@ts output "out"
+
+					Task struct<
+						Type extends string = string,
+						Config extends json = json,
+						StatusData? = json
+					> {
+						key    uint64
+						name   string
+						type   Type
+						config Config
+
+						@ts {
+							concrete_types
+							coalesce_type_params
+						}
+					}
+				`
+				resp := MustGenerate(ctx, source, "test", loader, typesPlugin)
+				ExpectContent(resp, "types.gen.ts").
+					ToContain(`export interface TaskSchemas<`).
+					ToContain(`export const taskZ = <`).
+					ToContain(`export interface Task<`).
+					ToContain(`S extends TaskSchemas = TaskSchemas`).
+					ToContain(`z.infer<S["type"]>`).
+					ToContain(`z.infer<S["config"]>`)
+			})
+
+			It("Should generate coalesced type for extends struct", func() {
+				source := `
+					@ts output "out"
+
+					Task struct<
+						Type extends string = string,
+						Config extends json = json
+					> {
+						key    uint64
+						name   string
+						type   Type
+						config Config
+
+						@ts {
+							concrete_types
+							coalesce_type_params
+						}
+					}
+
+					New struct<Type extends string = string, Config extends json = json> extends Task<Type, Config> {
+						-key
+						key uint64?
+
+						@ts {
+							concrete_types
+							coalesce_type_params
+						}
+					}
+				`
+				resp := MustGenerate(ctx, source, "test", loader, typesPlugin)
+				ExpectContent(resp, "types.gen.ts").
+					ToContain(`export type New<`).
+					ToContain(`S extends NewSchemas = NewSchemas`).
+					ToContain(`Task<S>`)
+			})
+
+			It("Should coalesce conditional field references", func() {
+				source := `
+					@ts output "out"
+
+					Task struct<
+						Type extends string = string,
+						Data? = json
+					> {
+						name string
+						type Type
+						data Data??
+
+						@ts {
+							concrete_types
+							coalesce_type_params
+						}
+					}
+				`
+				resp := MustGenerate(ctx, source, "test", loader, typesPlugin)
+				ExpectContent(resp, "types.gen.ts").
+					ToContain(`S extends TaskSchemas = TaskSchemas`).
+					ToContain(`S["data"]`)
+			})
+
+			It("Should coalesce extend fields referencing type params", func() {
+				source := `
+					@ts output "out"
+
+					Wrapper struct<Data?> {
+						value string
+						data  Data??
+
+						@ts concrete_types
+					}
+
+					Task struct<
+						Type extends string = string,
+						Config extends json = json,
+						StatusData? = json
+					> {
+						key    uint64
+						name   string
+						type   Type
+						config Config
+						status Wrapper<StatusData>??
+
+						@ts {
+							concrete_types
+							coalesce_type_params
+						}
+					}
+
+					NewWrapper struct<Data?> {
+						value string
+						data  Data
+
+						@ts concrete_types
+					}
+
+					New struct<Type extends string = string, Config extends json = json, StatusData? = json> extends Task<Type, Config, StatusData> {
+						status NewWrapper<StatusData>?
+
+						@ts {
+							use_input
+							concrete_types
+							coalesce_type_params
+						}
+					}
+				`
+				resp := MustGenerate(ctx, source, "test", loader, typesPlugin)
+				ExpectContent(resp, "types.gen.ts").
+					ToContain(`export type New<S extends NewSchemas = NewSchemas>`).
+					ToContain(`NewWrapper<S["statusData"]>`)
 			})
 		})
 

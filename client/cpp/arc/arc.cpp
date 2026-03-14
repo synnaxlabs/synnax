@@ -32,7 +32,7 @@ Client::Client(
 x::errors::Error Client::create(Arc &arc) const {
     auto req = grpc::arc::CreateRequest();
     *req.add_arcs() = arc.to_proto();
-    auto [res, err] = create_client->send(ARC_CREATE_ENDPOINT, req);
+    auto [res, err] = create_client->send(CREATE_ENDPOINT, req);
     if (err) return err;
     if (res.arcs_size() == 0) return errors::unexpected_missing_error("arc");
 
@@ -49,7 +49,7 @@ x::errors::Error Client::create(std::vector<Arc> &arcs) const {
     for (const auto &arc: arcs)
         *req.add_arcs() = arc.to_proto();
 
-    auto [res, err] = create_client->send(ARC_CREATE_ENDPOINT, req);
+    auto [res, err] = create_client->send(CREATE_ENDPOINT, req);
     if (err) return err;
 
     for (int i = 0; i < res.arcs_size(); i++) {
@@ -75,7 +75,7 @@ std::pair<Arc, x::errors::Error> Client::retrieve_by_name(
     req.add_names(name);
     options.apply(req);
 
-    auto [res, err] = retrieve_client->send(ARC_RETRIEVE_ENDPOINT, req);
+    auto [res, err] = retrieve_client->send(RETRIEVE_ENDPOINT, req);
     if (err) return {Arc{}, err};
     if (res.arcs_size() == 0) return {Arc{}, errors::unexpected_missing_error("arc")};
     if (res.arcs_size() > 1) return {Arc{}, errors::multiple_found_error("arc", name)};
@@ -91,7 +91,7 @@ std::pair<Arc, x::errors::Error> Client::retrieve_by_key(
     req.add_keys(key.to_string());
     options.apply(req);
 
-    auto [res, err] = retrieve_client->send(ARC_RETRIEVE_ENDPOINT, req);
+    auto [res, err] = retrieve_client->send(RETRIEVE_ENDPOINT, req);
     if (err) return {Arc{}, err};
     if (res.arcs_size() == 0) return {Arc{}, errors::unexpected_missing_error("arc")};
 
@@ -107,7 +107,7 @@ std::pair<std::vector<Arc>, x::errors::Error> Client::retrieve(
         req.add_names(name);
     options.apply(req);
 
-    auto [res, err] = retrieve_client->send(ARC_RETRIEVE_ENDPOINT, req);
+    auto [res, err] = retrieve_client->send(RETRIEVE_ENDPOINT, req);
     if (err) return {std::vector<Arc>(), err};
 
     std::vector<Arc> arcs;
@@ -130,7 +130,7 @@ std::pair<std::vector<Arc>, x::errors::Error> Client::retrieve_by_keys(
         req.add_keys(key.to_string());
     options.apply(req);
 
-    auto [res, err] = retrieve_client->send(ARC_RETRIEVE_ENDPOINT, req);
+    auto [res, err] = retrieve_client->send(RETRIEVE_ENDPOINT, req);
     if (err) return {std::vector<Arc>(), err};
 
     std::vector<Arc> arcs;
@@ -148,7 +148,7 @@ x::errors::Error Client::del(const x::uuid::UUID &key) const {
     auto req = grpc::arc::DeleteRequest();
     req.add_keys(key.to_string());
 
-    auto [_, err] = delete_client->send(ARC_DELETE_ENDPOINT, req);
+    auto [_, err] = delete_client->send(DELETE_ENDPOINT, req);
     return err;
 }
 
@@ -156,7 +156,7 @@ x::errors::Error Client::del(const std::vector<x::uuid::UUID> &keys) const {
     auto req = grpc::arc::DeleteRequest();
     for (const auto &key: keys)
         req.add_keys(key.to_string());
-    auto [_, err] = delete_client->send(ARC_DELETE_ENDPOINT, req);
+    auto [_, err] = delete_client->send(DELETE_ENDPOINT, req);
     return err;
 }
 }

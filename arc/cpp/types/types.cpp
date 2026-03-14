@@ -268,6 +268,9 @@ to_sample_value(const x::json::json &value, const Type &type) {
         case Kind::String:
             return value.is_string() ? std::optional(value.get<std::string>())
                                      : std::nullopt;
+        case Kind::Chan:
+            return value.is_number() ? std::optional(value.get<int32_t>())
+                                     : std::nullopt;
         default:
             return std::nullopt;
     }

@@ -37,8 +37,8 @@ program::Program compile_arc(const synnax::Synnax &client, const std::string &so
 
     auto [compiled, err] = client.arcs.retrieve_by_key(arc.key, {.compile = true});
     if (err) throw std::runtime_error("Failed to compile arc: " + err.message());
-    if (!compiled.module.has_value())
-        throw std::runtime_error("Compiled arc has no module");
+    if (!compiled.program.has_value())
+        throw std::runtime_error("Compiled arc has no program");
     return *compiled.program;
 }
 }

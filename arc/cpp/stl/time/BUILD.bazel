@@ -12,7 +12,6 @@ cc_library(
         "//arc/cpp/runtime/node",
         "//arc/cpp/runtime/state",
         "//arc/cpp/stl",
-        "//x/cpp/telem",
         "//x/cpp/errors",
         "//x/cpp/telem",
     ],

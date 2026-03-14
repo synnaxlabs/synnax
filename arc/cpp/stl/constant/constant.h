@@ -18,6 +18,7 @@
 #include "arc/cpp/ir/ir.h"
 #include "arc/cpp/runtime/node/node.h"
 #include "arc/cpp/runtime/state/state.h"
+#include "arc/cpp/stl/stl.h"
 #include "arc/cpp/types/types.h"
 
 namespace arc::stl::constant {
@@ -69,9 +70,9 @@ public:
     std::pair<std::unique_ptr<runtime::node::Node>, x::errors::Error>
     create(runtime::node::Config &&cfg) override {
         if (!this->handles(cfg.node.type)) return {nullptr, x::errors::NOT_FOUND};
-        auto sample_value = types::to_sample_value(param.value, param.type);
         const auto &param = cfg.node.config["value"];
-        if (!param.value.has_value())
+        auto sample_value = types::to_sample_value(param.value, param.type);
+        if (!sample_value.has_value())
             return {
                 nullptr,
                 x::errors::Error(

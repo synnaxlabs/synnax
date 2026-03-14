@@ -1754,20 +1754,20 @@ TEST(RealNodeSchedulerTest, IntervalTruthyCheckBeforeFiring) {
 
 /// @brief Helper to create IR with wait node that has proper params
 ir::IR build_wait_ir(const std::string &key, const int64_t duration_ns) {
-    ir::Param output_param;
+    types::Param output_param;
     output_param.name = "output";
-    output_param.type = arc::types::Type(arc::types::Kind::U8);
+    output_param.type.kind = types::Kind::U8;
 
-    ir::Param cfg_param;
+    types::Param cfg_param;
     cfg_param.name = "duration";
-    cfg_param.type = arc::types::Type(arc::types::Kind::I64);
+    cfg_param.type.kind = types::Kind::I64;
     cfg_param.value = duration_ns;
 
     ir::Node ir_node;
     ir_node.key = key;
     ir_node.type = "wait";
-    ir_node.outputs.params.push_back(output_param);
-    ir_node.config.params.push_back(cfg_param);
+    ir_node.outputs.push_back(output_param);
+    ir_node.config.push_back(cfg_param);
 
     ir::Function fn;
     fn.key = "test";
@@ -1783,9 +1783,9 @@ ir::IR build_wait_ir(const std::string &key, const int64_t duration_ns) {
 TEST(RealNodeSchedulerTest, WaitOneShotEdgeFiresAfterDuration) {
     auto wait_ir = build_wait_ir("wait_0", x::telem::SECOND.nanoseconds());
 
-    ir::Param target_input;
+    types::Param target_input;
     target_input.name = "input";
-    target_input.type = arc::types::Type(arc::types::Kind::U8);
+    target_input.type.kind = types::Kind::U8;
 
     // Trigger node in stratum 0
     ir::Node trigger_node;
@@ -1797,7 +1797,7 @@ TEST(RealNodeSchedulerTest, WaitOneShotEdgeFiresAfterDuration) {
     ir::Node target_node;
     target_node.key = "target_0";
     target_node.type = "target";
-    target_node.inputs.params.push_back(target_input);
+    target_node.inputs.push_back(target_input);
     wait_ir.nodes.push_back(target_node);
 
     // Trigger => wait (one-shot), wait -> target (continuous)

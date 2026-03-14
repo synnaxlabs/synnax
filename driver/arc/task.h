@@ -35,7 +35,7 @@ namespace driver::arc {
 /// @brief configuration for an arc runtime task.
 struct TaskConfig : common::BaseTaskConfig {
     x::uuid::UUID arc_key;
-    ::arc::program::Program module;
+    ::arc::program::Program program;
     ::arc::runtime::loop::Config loop;
 
     TaskConfig(TaskConfig &&other) noexcept:
@@ -63,7 +63,7 @@ struct TaskConfig : common::BaseTaskConfig {
         if (arc_err) return {std::move(cfg), arc_err};
         if (!arc_data.program.has_value())
             return {std::move(cfg), x::errors::Error("arc module not compiled")};
-        cfg.module = *arc_data.program;
+        cfg.program = *arc_data.program;
         return {std::move(cfg), x::errors::NIL};
     }
 };

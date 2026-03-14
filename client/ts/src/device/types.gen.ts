@@ -32,19 +32,19 @@ export type Status = z.infer<typeof statusZ>;
 
 export interface DeviceSchemas<
   Properties extends z.ZodType<record.Unknown> = z.ZodType<record.Unknown>,
-  Make extends z.ZodType<string> = z.ZodString,
-  Model extends z.ZodType<string> = z.ZodString,
+  Make extends z.ZodType<string> = z.ZodType<string>,
+  Model extends z.ZodType<string> = z.ZodType<string>,
 > {
-  properties?: Properties;
-  make?: Make;
-  model?: Model;
+  properties: Properties;
+  make: Make;
+  model: Model;
 }
 
 export const deviceZ = <
   Properties extends z.ZodType<record.Unknown> = z.ZodType<record.Unknown>,
   Make extends z.ZodType<string> = z.ZodString,
   Model extends z.ZodType<string> = z.ZodString,
->({ properties, make, model }: DeviceSchemas<Properties, Make, Model> = {}) =>
+>({ properties, make, model }: Partial<DeviceSchemas<Properties, Make, Model>> = {}) =>
   z.object({
     key: keyZ,
     rack: rack.keyZ,
@@ -74,19 +74,19 @@ export interface Device<
 
 export interface NewSchemas<
   Properties extends z.ZodType<record.Unknown> = z.ZodType<record.Unknown>,
-  Make extends z.ZodType<string> = z.ZodString,
-  Model extends z.ZodType<string> = z.ZodString,
+  Make extends z.ZodType<string> = z.ZodType<string>,
+  Model extends z.ZodType<string> = z.ZodType<string>,
 > {
-  properties?: Properties;
-  make?: Make;
-  model?: Model;
+  properties: Properties;
+  make: Make;
+  model: Model;
 }
 
 export const newZ = <
   Properties extends z.ZodType<record.Unknown> = z.ZodType<record.Unknown>,
   Make extends z.ZodType<string> = z.ZodString,
   Model extends z.ZodType<string> = z.ZodString,
->({ properties, make, model }: NewSchemas<Properties, Make, Model> = {}) =>
+>({ properties, make, model }: Partial<NewSchemas<Properties, Make, Model>> = {}) =>
   deviceZ({ properties, make, model }).partial({ key: true, configured: true });
 export type New<
   Properties extends z.ZodType<record.Unknown> = z.ZodType<record.Unknown>,
