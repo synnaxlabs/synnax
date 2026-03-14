@@ -7,13 +7,15 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { createSlice, type PayloadAction } from "@reduxjs/toolkit/react";
+import { createSlice, type PayloadAction } from "@reduxjs/toolkit";
 import { type channel } from "@synnaxlabs/client";
 
 import * as latest from "@/log/types";
 
 export type State = latest.State;
 export type SliceState = latest.SliceState;
+export type ChannelConfig = latest.ChannelConfig;
+export const ZERO_CHANNEL_CONFIG = latest.ZERO_CHANNEL_CONFIG;
 export const stateZ = latest.stateZ;
 export const ZERO_SLICE_STATE = latest.ZERO_SLICE_STATE;
 export const ZERO_STATE = latest.ZERO_STATE;
@@ -26,13 +28,40 @@ export interface StoreState {
 
 export type CreatePayload = State;
 
-export interface SetChannelsPayload {
+export interface SetTimestampPrecisionPayload {
   key: string;
-  channels: channel.Key[];
+  timestampPrecision: number;
+}
+
+export interface SetChannelConfigPayload {
+  key: string;
+  channelKey: channel.Key;
+  config: Partial<ChannelConfig>;
 }
 
 export interface SetRemoteCreatedPayload {
   key: string;
+}
+
+export interface SetShowChannelNamesPayload {
+  key: string;
+  showChannelNames: boolean;
+}
+
+export interface AddChannelPayload {
+  key: string;
+  channelKey: channel.Key;
+}
+
+export interface RemoveChannelByIndexPayload {
+  key: string;
+  index: number;
+}
+
+export interface SetChannelAtIndexPayload {
+  key: string;
+  index: number;
+  channelKey: channel.Key;
 }
 
 export interface RemovePayload {
@@ -47,8 +76,41 @@ export const { actions, reducer } = createSlice({
       const { key } = payload;
       state.logs[key] = payload;
     },
-    setChannels: (state, { payload }: PayloadAction<SetChannelsPayload>) => {
-      state.logs[payload.key].channels = payload.channels;
+    setTimestampPrecision: (
+      state,
+      { payload }: PayloadAction<SetTimestampPrecisionPayload>,
+    ) => {
+      state.logs[payload.key].timestampPrecision = payload.timestampPrecision;
+    },
+    setChannelConfig: (state, { payload }: PayloadAction<SetChannelConfigPayload>) => {
+      const logState = state.logs[payload.key];
+      const existing =
+        logState.channelConfigs[String(payload.channelKey)] ?? ZERO_CHANNEL_CONFIG;
+      logState.channelConfigs[String(payload.channelKey)] = {
+        ...existing,
+        ...payload.config,
+      };
+    },
+    setShowChannelNames: (
+      state,
+      { payload }: PayloadAction<SetShowChannelNamesPayload>,
+    ) => {
+      state.logs[payload.key].showChannelNames = payload.showChannelNames;
+    },
+    addChannel: (state, { payload }: PayloadAction<AddChannelPayload>) => {
+      state.logs[payload.key].channels.push(payload.channelKey);
+    },
+    removeChannelByIndex: (
+      state,
+      { payload }: PayloadAction<RemoveChannelByIndexPayload>,
+    ) => {
+      state.logs[payload.key].channels.splice(payload.index, 1);
+    },
+    setChannelAtIndex: (
+      state,
+      { payload }: PayloadAction<SetChannelAtIndexPayload>,
+    ) => {
+      state.logs[payload.key].channels[payload.index] = payload.channelKey;
     },
     setRemoteCreated: (state, { payload }: PayloadAction<SetRemoteCreatedPayload>) => {
       state.logs[payload.key].remoteCreated = true;
@@ -61,7 +123,12 @@ export const { actions, reducer } = createSlice({
 
 export const {
   create: internalCreate,
-  setChannels,
+  setTimestampPrecision,
+  setChannelConfig,
+  setShowChannelNames,
+  addChannel,
+  removeChannelByIndex,
+  setChannelAtIndex,
   setRemoteCreated,
   remove,
 } = actions;

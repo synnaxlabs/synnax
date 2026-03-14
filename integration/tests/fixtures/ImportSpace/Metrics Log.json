@@ -3,5 +3,7 @@
   "version": "0.0.0",
   "channels": [1048581],
   "remoteCreated": true,
+  "timestampPrecision": 0,
+  "channelConfigs": {},
   "type": "log"
 }

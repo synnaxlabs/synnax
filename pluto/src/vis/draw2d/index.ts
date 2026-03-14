@@ -385,6 +385,11 @@ export class Draw2D {
     }
   }
 
+  measureCharWidth(level: text.Level): number {
+    this.canvas.font = fontString(this.theme, { level, code: true });
+    return this.canvas.measureText("M").width;
+  }
+
   drawTextInCenter({ box: b, text, level }: DrawTextInCenterProps): void {
     const dims = textDimensions(text, this.canvas.font, this.canvas);
     const pos = box.positionInCenter(box.construct(xy.ZERO, dims), b);

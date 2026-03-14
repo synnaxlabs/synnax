@@ -58,16 +58,15 @@ const Loaded: Layout.Renderer = ({ layoutKey, visible }) => {
     if (prevName !== name) dispatch(Layout.rename({ key: layoutKey, name }));
   }, [name, prevName, layoutKey]);
 
-  let t: telem.SeriesSourceSpec;
-  const ch = log.channels[0];
-  const zeroChannel = primitive.isZero(ch);
-  if (zeroChannel) t = telem.noopSeriesSourceSpec;
-  else
-    t = telem.streamChannelData({
-      channel: ch,
-      timeSpan: PRELOAD,
-      keepFor: DEFAULT_RETENTION,
-    });
+  const activeChannels = log.channels.filter((ch) => !primitive.isZero(ch));
+  const hasChannels = activeChannels.length > 0;
+  const t = hasChannels
+    ? telem.streamMultiChannelLog({
+        channels: activeChannels,
+        timeSpan: PRELOAD,
+        keepFor: DEFAULT_RETENTION,
+      })
+    : telem.noopLogSourceSpec;
   const handleDoubleClick = useCallback(() => {
     dispatch(
       Layout.setNavDrawerVisible({
@@ -81,15 +80,18 @@ const Loaded: Layout.Renderer = ({ layoutKey, visible }) => {
   return (
     <Base.Log
       telem={t}
+      showChannelNames={log.showChannelNames}
+      timestampPrecision={log.timestampPrecision}
+      channelConfigs={log.channelConfigs}
       onDoubleClick={handleDoubleClick}
       emptyContent={
         <EmptyAction
           message={
-            zeroChannel
-              ? "No channel configured for this log."
+            !hasChannels
+              ? "No channels configured for this log."
               : "No data received yet."
           }
-          action={zeroChannel ? "Configure channel" : ""}
+          action={!hasChannels ? "Configure channels" : ""}
           onClick={handleDoubleClick}
         />
       }

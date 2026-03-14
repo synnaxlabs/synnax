@@ -24,6 +24,9 @@ import {
   type BooleanSourceSpec,
   type ColorSource,
   type ColorSourceSpec,
+  type LogEntry,
+  type LogSource,
+  type LogSourceSpec,
   type NumberSink,
   type NumberSinkSpec,
   type NumberSource,
@@ -177,6 +180,22 @@ export const noopSeriesSourceSpec: SeriesSourceSpec = {
   valueType: "series",
 };
 
+class NoopLogSource extends Noop implements LogSource {
+  static readonly TYPE = "noop-log-source";
+  readonly evictedCount = 0;
+
+  value(): LogEntry[] {
+    return [];
+  }
+}
+
+export const noopLogSourceSpec: LogSourceSpec = {
+  type: NoopLogSource.TYPE,
+  props: {},
+  variant: "source",
+  valueType: "log",
+};
+
 const REGISTRY: Record<string, new () => Telem> = {
   [NoopBooleanSink.TYPE]: NoopBooleanSink,
   [NumericSink.TYPE]: NumericSink,
@@ -187,6 +206,7 @@ const REGISTRY: Record<string, new () => Telem> = {
   [NoopColorSource.TYPE]: NoopColorSource,
   [StringSource.TYPE]: StringSource,
   [NoopSeries.TYPE]: NoopSeries,
+  [NoopLogSource.TYPE]: NoopLogSource,
 };
 
 export class NoopFactory implements Factory {

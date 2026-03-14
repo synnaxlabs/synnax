@@ -114,10 +114,12 @@ class LogLifecycle(ConsoleCase):
 
     def test_no_channel_configured(self, log: Log) -> None:
         """Test that log shows 'No channel configured' when no channel is set."""
-        self.log("Testing no channel configured state")
+        self.log("Testing no channels configured state")
 
-        assert log.needs_channel_configured(), "Log should show 'No channel configured'"
-        assert log.is_empty(), "Log should be empty when no channel configured"
+        assert (
+            log.needs_channel_configured()
+        ), "Log should show 'No channels configured'"
+        assert log.is_empty(), "Log should be empty when no channels configured"
         assert not log.is_streaming(), "Log should not be streaming without channel"
 
     def test_no_data_received(self, log: Log) -> None:
@@ -142,11 +144,15 @@ class LogLifecycle(ConsoleCase):
                 w.write({self.idx_name: sy.TimeStamp.now(), self.data_name: (42.0 + i)})
                 sy.sleep(0.1)
 
-        assert log.wait_until_streaming(), "Log should be streaming after data write"
-        assert not log.is_empty(), "Log should not be empty after data write"
-        assert not log.is_waiting_for_data(), "Log should not be waiting for data"
+            assert (
+                log.wait_until_streaming()
+            ), "Log should be streaming after data write"
+            assert not log.is_empty(), "Log should not be empty after data write"
+            assert not log.is_waiting_for_data(), "Log should not be waiting for data"
 
-        self.console.reload()
+            self.console.reload()
+
+            w.write({self.idx_name: sy.TimeStamp.now(), self.data_name: 42.0})
 
         assert (
             log.wait_until_streaming()
@@ -159,6 +165,7 @@ class LogLifecycle(ConsoleCase):
         """Test that log streams data from a virtual (non-persisted) channel."""
         self.log("Testing virtual channel streaming")
 
+        log.clear_channels()
         log.set_channel(self.virtual_name)
         assert (
             log.wait_until_waiting_for_data()

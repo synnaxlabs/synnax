@@ -24,6 +24,7 @@ import { z } from "zod";
 
 import { type status } from "@/status/aether";
 import { type CreateOptions } from "@/telem/aether/factory";
+import { StreamMultiChannelLog } from "@/telem/aether/log";
 import {
   AbstractSource,
   type NumberSource,
@@ -335,6 +336,7 @@ const REGISTRY: Record<string, Constructor> = {
   [ChannelData.TYPE]: ChannelData,
   [StreamChannelData.TYPE]: StreamChannelData,
   [StreamChannelValue.TYPE]: StreamChannelValue,
+  [StreamMultiChannelLog.TYPE]: StreamMultiChannelLog,
 };
 
 export class RemoteFactory implements RemoteFactory {
