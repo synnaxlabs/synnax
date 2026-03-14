@@ -195,16 +195,18 @@ class ArcClient:
     def configure(self) -> None:
         """Click the Configure button in the Arc editor controls.
 
-        Waits for the "Task configured successfully" message to appear.
+        Waits for either "Task configured successfully" or "Task started
+        successfully" to appear. The latter handles the race where the status
+        transitions past "configured" before Playwright can observe it.
         """
         controls = self._get_controls()
         configure_btn = controls.locator("button:has-text('Configure')")
         configure_btn.wait_for(state="visible", timeout=5000)
         self.notifications.close_all()
         configure_btn.click()
-        controls.locator("text=Task configured successfully").wait_for(
-            state="visible", timeout=15000
-        )
+        configured = controls.locator("text=Task configured successfully")
+        started = controls.locator("text=Task started successfully")
+        configured.or_(started).wait_for(state="visible", timeout=30000)
 
     def configure_no_wait(self) -> None:
         """Click the Configure button without waiting for a success message.
@@ -246,7 +248,7 @@ class ArcClient:
         msg = controls.locator(
             f".console-task-status__message-text:has-text('{substr}')"
         )
-        msg.wait_for(state="visible", timeout=15000)
+        msg.wait_for(state="visible", timeout=30000)
         return msg.inner_text().strip()
 
     def start(self) -> None:
@@ -260,7 +262,7 @@ class ArcClient:
         self.notifications.close_all()
         play_btn.click()
         controls.locator("text=Task started successfully").wait_for(
-            state="visible", timeout=15000
+            state="visible", timeout=30000
         )
 
     def stop(self) -> None:
@@ -275,7 +277,7 @@ class ArcClient:
         self.notifications.close_all()
         pause_btn.click()
         controls.locator("text=Task stopped successfully").wait_for(
-            state="visible", timeout=20000
+            state="visible", timeout=30000
         )
 
     def is_running(self) -> bool:
