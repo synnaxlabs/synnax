@@ -11,18 +11,16 @@ import { channel, NotFoundError, type Synnax } from "@synnaxlabs/client";
 import { Component, Flex, Form as PForm, type Haul, Icon } from "@synnaxlabs/pluto";
 import { caseconv, DataType, primitive } from "@synnaxlabs/x";
 import { type FC, type ReactElement } from "react";
-import type z from "zod";
 
 import { Common } from "@/hardware/common";
 import { Device } from "@/hardware/opc/device";
 import { type ChannelKeyAndIDGetter, Form } from "@/hardware/opc/task/Form";
 import {
+  type InputChannel,
   READ_SCHEMAS,
   READ_TYPE,
-  type ReadChannel,
-  readConfigZ,
-  type readStatusDataZ,
-  type readTypeZ,
+  type ReadConfig,
+  type ReadSchemas,
   ZERO_READ_PAYLOAD,
 } from "@/hardware/opc/task/types";
 import { Selector } from "@/selector";
@@ -102,7 +100,7 @@ const Properties = (): ReactElement => {
   );
 };
 
-const convertHaulItemToChannel = ({ data }: Haul.Item): ReadChannel => {
+const convertHaulItemToChannel = ({ data }: Haul.Item): InputChannel => {
   if (typeof data?.name !== "string") throw new Error("Invalid name");
   const nodeName = data?.name;
   if (typeof data?.nodeId !== "string")
@@ -121,14 +119,12 @@ const convertHaulItemToChannel = ({ data }: Haul.Item): ReadChannel => {
   };
 };
 
-const getChannelKeyAndID: ChannelKeyAndIDGetter<ReadChannel> = ({ channel, key }) => ({
+const getChannelKeyAndID: ChannelKeyAndIDGetter<InputChannel> = ({ channel, key }) => ({
   key: channel,
   id: Common.Task.getChannelNameID(key),
 });
 
-const TaskForm: FC<
-  Common.Task.FormProps<typeof readTypeZ, typeof readConfigZ, typeof readStatusDataZ>
-> = () => (
+const TaskForm: FC<Common.Task.FormProps<ReadSchemas>> = () => (
   <Form
     convertHaulItemToChannel={convertHaulItemToChannel}
     getChannelKeyAndID={getChannelKeyAndID}
@@ -138,12 +134,12 @@ const TaskForm: FC<
   </Form>
 );
 
-const getInitialValues: Common.Task.GetInitialValues<
-  typeof readTypeZ,
-  typeof readConfigZ,
-  typeof readStatusDataZ
-> = ({ deviceKey, config }) => {
-  const cfg = config != null ? readConfigZ.parse(config) : ZERO_READ_PAYLOAD.config;
+const getInitialValues: Common.Task.GetInitialValues<ReadSchemas> = ({
+  deviceKey,
+  config,
+}) => {
+  const cfg =
+    config != null ? READ_SCHEMAS.config.parse(config) : ZERO_READ_PAYLOAD.config;
   return {
     ...ZERO_READ_PAYLOAD,
     config: { ...cfg, device: deviceKey ?? cfg.device },
@@ -152,7 +148,7 @@ const getInitialValues: Common.Task.GetInitialValues<
 
 interface DetermineIndexChannelArgs {
   client: Synnax;
-  config: z.infer<typeof readConfigZ>;
+  config: ReadConfig;
   device: Device.Device;
   taskName: string;
 }
@@ -217,7 +213,7 @@ const determineIndexChannel = async ({
   return idxCh.key;
 };
 
-const onConfigure: Common.Task.OnConfigure<typeof readConfigZ> = async (
+const onConfigure: Common.Task.OnConfigure<ReadSchemas["config"]> = async (
   client,
   config,
   name,
@@ -238,7 +234,7 @@ const onConfigure: Common.Task.OnConfigure<typeof readConfigZ> = async (
     taskName: name,
   });
 
-  const toCreate: ReadChannel[] = [];
+  const toCreate: InputChannel[] = [];
   for (const ch of config.channels) {
     const exKey = getChannelByNodeID(device.properties, ch.nodeId);
     if (!exKey) {
@@ -279,7 +275,7 @@ const onConfigure: Common.Task.OnConfigure<typeof readConfigZ> = async (
 };
 
 export const Read = Common.Task.wrapForm({
-  type: READ_TYPE,
+  type: "opc_read",
   Properties,
   Form: TaskForm,
   schemas: READ_SCHEMAS,

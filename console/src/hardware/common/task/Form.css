@@ -31,6 +31,7 @@
             overflow: hidden;
             background: var(--pluto-gray-l1);
             border-color: var(--pluto-gray-l5);
+
             .pluto-header {
                 background: var(--pluto-gray-l2);
             }
@@ -38,6 +39,7 @@
 
         .console-channel-list {
             overflow: hidden;
+
             & .pluto-list__items {
                 overflow-x: hidden;
             }
@@ -57,7 +59,7 @@
         }
 
         .console-details__form {
-            padding: 3rem 3rem;
+            padding: 3rem;
             overflow: auto;
             height: 100%;
         }
@@ -72,6 +74,7 @@
     .console-task-configure {
         > div {
             padding: 3rem 2rem;
+
             .console-details__form {
                 padding: 1rem 2rem;
             }
@@ -88,6 +91,7 @@
 
     .console-task-controls {
         flex-direction: column !important;
+
         .console-task-status {
             min-height: 10rem;
             border-right: none !important;

@@ -21,7 +21,7 @@ import (
 	"github.com/synnaxlabs/arc/ir"
 	"github.com/synnaxlabs/arc/literal"
 	"github.com/synnaxlabs/arc/parser"
-	"github.com/synnaxlabs/arc/runtime/stage"
+	"github.com/synnaxlabs/arc/stl/stage"
 	"github.com/synnaxlabs/arc/stratifier"
 	"github.com/synnaxlabs/arc/symbol"
 	"github.com/synnaxlabs/arc/types"
@@ -134,6 +134,8 @@ func analyzeIdentifierByRole(
 		return analyzeSequenceRef(ctx, sym, kg)
 	case symbol.KindStage:
 		return analyzeStageRef(sym, kg)
+	case symbol.KindGlobalConstant:
+		return buildGlobalConstantNode(name, sym, kg)
 	default:
 		if isSink {
 			return buildChannelWriteNode(name, sym, kg)
@@ -193,6 +195,22 @@ func buildChannelWriteNode(name string, sym *symbol.Scope, kg *keyGenerator) (no
 	}
 	n.Channels.Write[chKey] = sym.Name
 	return newNodeResult(n, ir.DefaultInputParam, ""), true
+}
+
+func buildGlobalConstantNode(
+	name string,
+	sym *symbol.Scope,
+	kg *keyGenerator,
+) (nodeResult, bool) {
+	key := kg.generate("const", name)
+	n := ir.Node{
+		Key:      key,
+		Type:     "constant",
+		Channels: symbol.NewChannels(),
+		Config:   types.Params{{Name: "value", Type: sym.Type, Value: sym.DefaultValue}},
+		Outputs:  types.Params{{Name: ir.DefaultOutputParam, Type: sym.Type}},
+	}
+	return newNodeResult(n, ir.DefaultInputParam, ir.DefaultOutputParam), true
 }
 
 func analyzeNextToken(
@@ -470,7 +488,9 @@ func (p *flowChainProcessor) processFlowNode(flowNode parser.IFlowNodeContext) b
 		p.additionalTriggers = nil
 	}
 
-	p.prevOutput = result.output
+	if len(result.node.Outputs) > 0 {
+		p.prevOutput = result.output
+	}
 	p.prevNode = &result.node
 	if result.node.Key != "" {
 		p.nodes = append(p.nodes, result.node)
@@ -650,7 +670,8 @@ func analyzeOutputRoutingTable(
 			targetParamName = entry.IDENTIFIER(1).GetText()
 		}
 
-		var prevOutputHandle ir.Handle
+		sourceOutput := ir.Handle{Node: sourceNode.Key, Param: outputName}
+		prevOutputHandle := sourceOutput
 		for i, flowNode := range flowNodes {
 			isLast := i == len(flowNodes)-1
 			isSink := isLast && flowNode.Identifier() != nil
@@ -660,19 +681,11 @@ func analyzeOutputRoutingTable(
 				return nil, nil, false
 			}
 
-			if i == 0 {
-				edges = append(edges, ir.Edge{
-					Source: ir.Handle{Node: sourceNode.Key, Param: outputName},
-					Target: result.input,
-					Kind:   ir.EdgeKindContinuous,
-				})
-			} else {
-				edges = append(edges, ir.Edge{
-					Source: prevOutputHandle,
-					Target: result.input,
-					Kind:   ir.EdgeKindContinuous,
-				})
-			}
+			edges = append(edges, ir.Edge{
+				Source: prevOutputHandle,
+				Target: result.input,
+				Kind:   ir.EdgeKindContinuous,
+			})
 
 			if isLast && targetParamName != "" {
 				if !result.node.Inputs.Has(targetParamName) {
@@ -687,7 +700,9 @@ func analyzeOutputRoutingTable(
 				edges[len(edges)-1].Target.Param = targetParamName
 			}
 
-			prevOutputHandle = result.output
+			if len(result.node.Outputs) > 0 {
+				prevOutputHandle = result.output
+			}
 			if result.node.Key != "" {
 				nodes = append(nodes, result.node)
 			}

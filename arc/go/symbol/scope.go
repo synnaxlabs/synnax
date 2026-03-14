@@ -218,7 +218,7 @@ func (s *Scope) Resolve(ctx context.Context, name string) (*Scope, error) {
 		return child, nil
 	}
 	if s.GlobalResolver != nil {
-		if sym, err := s.GlobalResolver.Resolve(ctx, name); err == nil {
+		if sym, err := s.GlobalResolver.Resolve(ctx, name); err == nil && !sym.Internal {
 			return &Scope{Symbol: sym}, nil
 		}
 	}
@@ -241,7 +241,7 @@ func (s *Scope) Search(ctx context.Context, term string) ([]*Scope, error) {
 		symbols, err := s.GlobalResolver.Search(ctx, term)
 		if err == nil {
 			for _, sym := range symbols {
-				if !seen[sym.Name] {
+				if !seen[sym.Name] && !sym.Internal {
 					scopes = append(scopes, &Scope{Symbol: sym})
 					seen[sym.Name] = true
 				}

@@ -1,0 +1,30 @@
+cc_library(
+    name = "state",
+    hdrs = ["state.h"],
+    copts = select({
+        "@platforms//os:windows": ["/wd4201"],
+        "//conditions:default": [],
+    }),
+    visibility = ["//visibility:public"],
+    deps = [
+        "//arc/cpp/stl/series:state",
+        "//arc/cpp/stl/str:state",
+        "//x/cpp/telem",
+    ],
+)
+
+cc_library(
+    name = "stateful",
+    hdrs = ["stateful.h"],
+    copts = select({
+        "@platforms//os:windows": ["/wd4201"],
+        "//conditions:default": [],
+    }),
+    visibility = ["//visibility:public"],
+    deps = [
+        ":state",
+        "//arc/cpp/stl",
+        "//arc/cpp/stl/series:state",
+        "//arc/cpp/stl/str:state",
+    ],
+)

@@ -12,7 +12,7 @@ package lsp
 import (
 	"github.com/antlr4-go/antlr/v4"
 	"github.com/synnaxlabs/arc/parser"
-	"go.lsp.dev/protocol"
+	"github.com/synnaxlabs/x/lsp/protocol"
 )
 
 type CompletionContext int
@@ -104,6 +104,19 @@ func DetectCompletionContext(content string, pos protocol.Position) CompletionCo
 	}
 	if isExpressionContext(lastToken) {
 		return ContextExpression
+	}
+	// When the last token is a partial identifier the user is typing, strip it
+	// and re-evaluate context against the preceding token. This lets all
+	// existing context rules apply correctly to the real syntactic position.
+	if lastToken.GetTokenType() == parser.ArcLexerIDENTIFIER && len(tokensBeforeCursor) >= 2 {
+		stripped := tokensBeforeCursor[:len(tokensBeforeCursor)-1]
+		strippedLast := stripped[len(stripped)-1]
+		if isExpressionContext(strippedLast) {
+			return ContextExpression
+		}
+		if isStatementStartContext(stripped, strippedLast, pos) {
+			return ContextStatementStart
+		}
 	}
 	if isStatementStartContext(tokensBeforeCursor, lastToken, pos) {
 		return ContextStatementStart
@@ -202,7 +215,7 @@ func isTypeAnnotationContext(tokens []antlr.Token, lastToken antlr.Token) bool {
 	if len(tokens) < 2 {
 		return false
 	}
-	if !isInsideParentheses(tokens) {
+	if !isFuncParamParentheses(tokens) {
 		return false
 	}
 	prevToken := tokens[len(tokens)-2]
@@ -220,17 +233,41 @@ func isTypeAnnotationContext(tokens []antlr.Token, lastToken antlr.Token) bool {
 	return false
 }
 
-func isInsideParentheses(tokens []antlr.Token) bool {
+// isFuncParamParentheses checks whether the innermost unmatched LPAREN is part
+// of a function declaration parameter list. This handles both simple declarations
+// (FUNC IDENTIFIER LPAREN) and declarations with config blocks
+// (FUNC IDENTIFIER LBRACE ... RBRACE LPAREN).
+func isFuncParamParentheses(tokens []antlr.Token) bool {
 	depth := 0
-	for _, t := range tokens {
-		switch t.GetTokenType() {
-		case parser.ArcLexerLPAREN:
-			depth++
+	for i := len(tokens) - 1; i >= 0; i-- {
+		switch tokens[i].GetTokenType() {
 		case parser.ArcLexerRPAREN:
-			depth--
+			depth++
+		case parser.ArcLexerLPAREN:
+			if depth > 0 {
+				depth--
+			} else {
+				j := i - 1
+				if j >= 0 && tokens[j].GetTokenType() == parser.ArcLexerRBRACE {
+					blockDepth := 1
+					j--
+					for j >= 0 && blockDepth > 0 {
+						switch tokens[j].GetTokenType() {
+						case parser.ArcLexerRBRACE:
+							blockDepth++
+						case parser.ArcLexerLBRACE:
+							blockDepth--
+						}
+						j--
+					}
+				}
+				return j >= 1 &&
+					tokens[j].GetTokenType() == parser.ArcLexerIDENTIFIER &&
+					tokens[j-1].GetTokenType() == parser.ArcLexerFUNC
+			}
 		}
 	}
-	return depth > 0
+	return false
 }
 
 func isExpressionContext(lastToken antlr.Token) bool {

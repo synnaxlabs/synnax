@@ -736,7 +736,7 @@ describe("queries", () => {
         schemas: {
           type: z.literal("testType"),
           config: z.object({ setting: z.string() }),
-          statusData: z.any().nullish(),
+          statusData: z.any().nullish()
         },
         initialValues: {
           key: "0",
@@ -965,7 +965,7 @@ describe("queries", () => {
         config: {},
       });
 
-      const statusDataSchema = z.object({ errorCode: z.number().optional() });
+      const statusData = z.object({ errorCode: z.number().optional() });
 
       const useForm = Task.createForm({
         schemas: {
@@ -1007,7 +1007,7 @@ describe("queries", () => {
 
       await waitFor(() => {
         const status =
-          result.current.form.get<task.Status<typeof statusDataSchema>>("status").value;
+          result.current.form.get<task.Status<typeof statusData>>("status").value;
         expect(status?.variant).toEqual("error");
         expect(status?.message).toEqual("Task error");
         expect(status?.details.data?.errorCode).toEqual(500);
@@ -1100,7 +1100,7 @@ describe("queries", () => {
         config: {},
       });
 
-      const statusDataSchema = z.object({ errorCode: z.number().optional() });
+      const statusData = z.object({ errorCode: z.number().optional() });
 
       const useForm = Task.createForm({
         schemas: {
@@ -1142,7 +1142,7 @@ describe("queries", () => {
 
       await waitFor(() => {
         const statusField =
-          result.current.form.get<task.Status<typeof statusDataSchema>>("status").value;
+          result.current.form.get<task.Status<typeof statusData>>("status").value;
         expect(statusField?.variant).toEqual("error");
       });
       expect(result.current.form.get("status").touched).toBe(false);
@@ -1380,8 +1380,8 @@ describe("queries", () => {
         config: complexConfig,
       });
 
-      const typeSchema = z.literal("complexType");
-      const configSchema = z.object({
+      const type = z.literal("complexType");
+      const config = z.object({
         connection: z.object({
           host: z.string(),
           port: z.number(),
@@ -1392,11 +1392,11 @@ describe("queries", () => {
           retryCount: z.number(),
         }),
       });
-      const statusDataSchema = z.any();
+      const statusData = z.any();
       const schemas = {
-        type: typeSchema,
-        config: configSchema,
-        statusData: statusDataSchema,
+        type,
+        config,
+        statusData,
       };
 
       const useForm = Task.createForm({
@@ -1430,7 +1430,7 @@ describe("queries", () => {
 
       await waitFor(
         async () => {
-          const updatedTask = await client.tasks.retrieve({
+          const updatedTask = await client.tasks.retrieve<typeof schemas>({
             key: testTask.key,
             schemas: {
               type: typeSchema,

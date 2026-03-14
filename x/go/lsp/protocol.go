@@ -14,7 +14,7 @@ import (
 	"context"
 
 	"github.com/synnaxlabs/x/diagnostics"
-	"go.lsp.dev/protocol"
+	"github.com/synnaxlabs/x/lsp/protocol"
 )
 
 // Client extends protocol.Client with LSP 3.16+ methods missing from

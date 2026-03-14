@@ -140,8 +140,8 @@ TEST(TestArc, testDeleteMany) {
     );
 }
 
-/// @brief it should handle the module field correctly.
-TEST(TestArc, testModuleField) {
+/// @brief it should handle the program field correctly.
+TEST(TestArc, testProgramField) {
     const auto client = new_test_client();
     auto arc = Arc{.name = "module_test"};
     arc.text.raw = "// Test program";
@@ -150,7 +150,7 @@ TEST(TestArc, testModuleField) {
 
     auto retrieved = ASSERT_NIL_P(client.arcs.retrieve_by_key(arc.key));
     ASSERT_EQ(retrieved.key, arc.key);
-    ASSERT_FALSE(retrieved.module.has_value());
+    ASSERT_FALSE(retrieved.program->has_value());
 }
 
 /// @brief it should compile an Arc program when retrieved with compile=true.
@@ -187,27 +187,32 @@ func calc(val f32) f32 {
     auto retrieved = ASSERT_NIL_P(client.arcs.retrieve_by_key(arc.key, options));
     ASSERT_EQ(retrieved.key, arc.key);
 
-    ASSERT_TRUE(retrieved.module.has_value())
-        << "Expected module to be present after compilation";
-    ASSERT_FALSE(retrieved.module->wasm.empty())
+    // Verify the module was compiled - should have WASM bytes
+    ASSERT_FALSE(retrieved.program->wasm.empty())
         << "Expected WASM bytecode to be present after compilation";
 
-    ASSERT_EQ(retrieved.module->nodes.size(), 3)
+    // Verify correct node structure (same as Go test expectations)
+    // 3 nodes: source (on), calc function, sink (write)
+    ASSERT_EQ(retrieved.program->nodes.size(), 3)
         << "Expected 3 nodes: source, calc, sink";
 
-    ASSERT_EQ(retrieved.module->nodes[0].type, "on");
-    ASSERT_GT(retrieved.module->nodes[0].channels.read.count(ox_pt_1.key), 0)
+    // First node: source channel (on)
+    ASSERT_EQ(retrieved.program->nodes[0].type, "on");
+    ASSERT_GT(retrieved.program->nodes[0].channels.read.count(ox_pt_1.key), 0)
         << "First node should read from ox_pt_1 channel";
-    ASSERT_EQ(retrieved.module->nodes[0].outputs.size(), 1);
+    ASSERT_EQ(retrieved.program->nodes[0].outputs.size(), 1);
 
-    ASSERT_EQ(retrieved.module->nodes[1].type, "calc");
+    // Second node: calc function
+    ASSERT_EQ(retrieved.program->nodes[1].type, "calc");
 
-    ASSERT_EQ(retrieved.module->nodes[2].type, "write");
-    ASSERT_GT(retrieved.module->nodes[2].channels.write.count(ox_pt_doubled.key), 0)
+    // Third node: sink channel (write)
+    ASSERT_EQ(retrieved.program->nodes[2].type, "write");
+    ASSERT_GT(retrieved.program->nodes[2].channels.write.count(ox_pt_doubled.key), 0)
         << "Third node should write to ox_pt_doubled channel";
-    ASSERT_EQ(retrieved.module->nodes[2].inputs.size(), 1);
+    ASSERT_EQ(retrieved.program->nodes[2].inputs.size(), 1);
 
-    ASSERT_EQ(retrieved.module->edges.size(), 2)
+    // Verify edges (2 edges connecting the 3 nodes)
+    ASSERT_EQ(retrieved.program->edges.size(), 2)
         << "Expected 2 edges connecting the nodes";
 }
 
@@ -234,10 +239,10 @@ sequence main {
             .compile = true,
         }
     ));
-    ASSERT_FALSE(retrieved.module->wasm.empty());
+    ASSERT_FALSE(retrieved.program->wasm.empty());
 
     bool found_interval = false;
-    for (const auto &node: retrieved.module->nodes) {
+    for (const auto &node: retrieved.program->nodes) {
         if (node.type == "interval") {
             found_interval = true;
             bool found_period = false;
@@ -249,8 +254,8 @@ sequence main {
     }
     ASSERT_TRUE(found_interval);
 
-    ASSERT_EQ(retrieved.module->sequences.size(), 1);
-    ASSERT_EQ(retrieved.module->sequences[0].key, "main");
-    ASSERT_EQ(retrieved.module->sequences[0].stages.size(), 2);
+    ASSERT_EQ(retrieved.program->sequences.size(), 1);
+    ASSERT_EQ(retrieved.program->sequences[0].key, "main");
+    ASSERT_EQ(retrieved.program->sequences[0].stages.size(), 2);
 }
 }

@@ -20,7 +20,7 @@ proto_library(
     deps = [
         "//arc/go/graph:graph_proto",
         "//arc/go/ir:ir_proto",
-        "//arc/go/module:module_proto",
+        "//arc/go/program:program_proto",
         "//arc/go/text:text_proto",
         "//core/pkg/api/channel:channel_proto",
         "//core/pkg/api/ranger:ranger_proto",
@@ -46,7 +46,7 @@ cpp_grpc_library(
     deps = [
         "//arc/go/graph:graph_grpc",
         "//arc/go/ir:ir_grpc",
-        "//arc/go/module:module_grpc",
+        "//arc/go/program:program_grpc",
         "//arc/go/text:text_grpc",
         "//core/pkg/api/channel:channel_grpc",
         "//core/pkg/api/ranger:ranger_grpc",

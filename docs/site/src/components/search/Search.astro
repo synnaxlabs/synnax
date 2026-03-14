@@ -6,47 +6,48 @@ import { Search as S } from "@/components/search/Search";
 
 <style is:global>
     .search-box {
-        position: absolute;
-        left: 50%;
-        top: 1.5rem;
-        transform: translateX(-50%);
-        max-width: 700px !important;
-        width: 50vw !important;
+        position: relative;
+        max-width: 280px !important;
+        width: 280px !important;
 
-        & button * {
+        & button {
             color: var(--pluto-gray-l8);
-            font-size: var(--pluto-small-size);
+            font-size: var(--pluto-small-size) !important;
             font-weight: 400;
-        }
 
-        & .pluto-text--keyboard {
-            height: 3rem !important;
-            background: var(--pluto-gray-l0) !important;
-        }
-    }
+            & * {
+                color: var(--pluto-gray-l8);
+                font-size: var(--pluto-small-size) !important;
+                font-weight: 400;
+            }
 
-    @media (max-width: 800px) {
-        .search-box {
-            width: 45vw;
-            top: unset;
-            transform: none;
-            position: relative;
-            left: 0;
-            & button {
-                justify-content: start !important;
+            & .pluto-text--keyboard {
+                width: 3.5rem !important;
+                height: 3.5rem !important;
+                background: var(--pluto-gray-l0) !important;
+                border-color: var(--pluto-gray-l5) !important;
             }
         }
     }
 
-    @media (max-width: 600px) {
+    @media (max-width: 1100px) {
         .search-box {
-            width: 6rem !important;
+            width: auto !important;
+            max-width: none !important;
             & button {
+                width: auto !important;
+                min-width: unset !important;
                 justify-content: center !important;
+                font-size: 0 !important;
+                gap: 0 !important;
+                aspect-ratio: 1;
+                padding: 0 !important;
             }
-            .pluto-text,
-            .pluto-btn__end-content {
-                display: none;
+            & button > .pluto-icon {
+                font-size: var(--pluto-small-size) !important;
+            }
+            .pluto-trigger-indicator {
+                display: none !important;
             }
         }
     }
@@ -54,6 +55,9 @@ import { Search as S } from "@/components/search/Search";
     .search-results__content {
         & .search-results__input {
             --pluto-h2-size: 3.5rem;
+            --pluto-h2-line-height: 4.5rem;
+            flex-shrink: 0;
+            flex-grow: 0;
         }
         width: 800px;
         max-width: 100%;
@@ -62,6 +66,10 @@ import { Search as S } from "@/components/search/Search";
 
         & a:hover {
             text-decoration: none !important;
+        }
+
+        & .pluto-list__items {
+            flex: 1;
         }
     }
 

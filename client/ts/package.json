@@ -1,6 +1,6 @@
 {
   "name": "@synnaxlabs/client",
-  "version": "0.52.0",
+  "version": "0.53.0",
   "description": "The Synnax Client Library",
   "keywords": [
     "synnax",
@@ -40,12 +40,12 @@
     "zod": "catalog:"
   },
   "devDependencies": {
+    "@synnaxlabs/eslint-config": "workspace:^",
     "@synnaxlabs/tsconfig": "workspace:^",
     "@synnaxlabs/vite-plugin": "workspace:^",
     "@vitest/coverage-v8": "catalog:",
     "@types/node": "catalog:",
     "eslint": "catalog:",
-    "eslint-config-synnaxlabs": "workspace:^",
     "madge": "catalog:",
     "typescript": "catalog:",
     "vite": "catalog:",

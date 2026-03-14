@@ -39,6 +39,8 @@
   },
   "devDependencies": {
     "@astrojs/check": "^0.9.6",
+    "@synnaxlabs/eslint-config": "workspace:^",
+    "@synnaxlabs/stylelint-config": "workspace:^",
     "@synnaxlabs/tsconfig": "workspace:^",
     "@types/html-escaper": "^3.0.4",
     "@types/offscreencanvas": "catalog:",
@@ -47,7 +49,6 @@
     "algoliasearch": "^4.25.3",
     "dotenv": "^17.2.3",
     "eslint": "catalog:",
-    "eslint-config-synnaxlabs": "workspace:^",
     "madge": "catalog:",
     "gray-matter": "^4.0.3",
     "html-escaper": "^3.0.3",
@@ -55,7 +56,6 @@
     "remark-gfm": "^4.0.1",
     "strip-markdown": "^6.0.0",
     "stylelint": "catalog:",
-    "stylelint-config-synnaxlabs": "workspace:^",
     "typescript": "catalog:"
   }
 }

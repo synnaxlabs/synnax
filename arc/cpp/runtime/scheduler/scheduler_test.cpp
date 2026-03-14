@@ -25,7 +25,7 @@
 #include "arc/cpp/runtime/node/node.h"
 #include "arc/cpp/runtime/scheduler/scheduler.h"
 #include "arc/cpp/runtime/state/state.h"
-#include "arc/cpp/runtime/time/time.h"
+#include "arc/cpp/stl/time/time.h"
 
 namespace arc::runtime::scheduler {
 /// @brief Configurable mock node for testing scheduler behavior.
@@ -1296,6 +1296,173 @@ TEST_F(SchedulerTest, testEmptySequence) {
     ASSERT_EQ(mocks_["A"]->next_called, 1);
 }
 
+/// @brief it should allow a self-changed node in a higher stratum to keep executing
+TEST_F(SchedulerTest, testSelfChangedNodeKeepsExecuting) {
+    auto &trigger = mock("trigger");
+    auto &entry = mock("entry_seq_first");
+    auto &comparison = mock("comparison");
+    auto &wait = mock("wait");
+    auto &entry_next = mock("entry_seq_next");
+
+    trigger.mark_on_next("activate");
+    trigger.param_truthy["activate"] = true;
+    entry.activate_on_next();
+    entry_next.activate_on_next();
+
+    comparison.on_next = [](node::Context &ctx) { ctx.mark_changed("output"); };
+    comparison.param_truthy["output"] = true;
+
+    bool wait_started = false;
+    x::telem::TimeSpan wait_start_elapsed;
+    wait.on_next = [&](node::Context &ctx) {
+        if (ctx.reason != node::RunReason::TimerTick) return;
+        if (!wait_started) {
+            wait_started = true;
+            wait_start_elapsed = ctx.elapsed;
+            ctx.mark_self_changed();
+            return;
+        }
+        if (ctx.elapsed - wait_start_elapsed < x::telem::SECOND) {
+            ctx.mark_self_changed();
+            return;
+        }
+        ctx.mark_changed("output");
+    };
+    wait.param_truthy["output"] = true;
+
+    auto ir = ir::testutil::Builder()
+                  .node("trigger")
+                  .node("entry_seq_first")
+                  .node("comparison")
+                  .node("wait")
+                  .node("entry_seq_next")
+                  .oneshot("trigger", "activate", "entry_seq_first", "input")
+                  .oneshot("comparison", "output", "wait", "input")
+                  .edge("wait", "output", "entry_seq_next", "input")
+                  .strata({{"trigger"}, {"entry_seq_first"}})
+                  .sequence(
+                      "seq",
+                      {{"first", {{"comparison"}, {"wait"}, {"entry_seq_next"}}},
+                       {"next", {}}}
+                  )
+                  .build();
+
+    const auto scheduler = build(std::move(ir));
+
+    // Tick 0: trigger fires, stage activates, comparison fires one-shot to wait,
+    // wait starts timing and calls mark_self_changed
+    scheduler->next(x::telem::TimeSpan(0), node::RunReason::TimerTick);
+    ASSERT_EQ(wait.next_called, 1);
+    ASSERT_EQ(entry_next.next_called, 0);
+
+    // Tick at 500ms: wait should execute (self-changed), but not fire yet
+    scheduler->next(x::telem::MILLISECOND * 500, node::RunReason::TimerTick);
+    ASSERT_EQ(wait.next_called, 2);
+    ASSERT_EQ(entry_next.next_called, 0);
+
+    // Tick at 1s: wait fires, propagates to entry_seq_next
+    scheduler->next(x::telem::SECOND, node::RunReason::TimerTick);
+    ASSERT_EQ(wait.next_called, 3);
+    ASSERT_EQ(entry_next.next_called, 1);
+}
+
+/// @brief it should not execute a self-changed node after it stops calling
+/// mark_self_changed. Node A is in stratum 1 (behind a one-shot) so it only executes
+/// when in changed or self_changed. Once it stops calling mark_self_changed, it should
+/// stop executing.
+TEST_F(SchedulerTest, testSelfChangedDropsWhenNotRenewed) {
+    auto &trigger = mock("trigger");
+    auto &nodeA = mock("A");
+
+    trigger.mark_on_next("output");
+    trigger.param_truthy["output"] = true;
+
+    int call_count = 0;
+    nodeA.on_next = [&](node::Context &ctx) {
+        call_count++;
+        if (call_count <= 2) ctx.mark_self_changed();
+    };
+
+    auto ir = ir::testutil::Builder()
+                  .node("trigger")
+                  .node("A")
+                  .oneshot("trigger", "output", "A", "input")
+                  .strata({{"trigger"}, {"A"}})
+                  .build();
+
+    const auto scheduler = build(std::move(ir));
+
+    // Tick 0: trigger fires one-shot to A, A executes and self-changes
+    scheduler->next(x::telem::TimeSpan(0), node::RunReason::TimerTick);
+    ASSERT_EQ(nodeA.next_called, 1);
+
+    // Tick 1: A executes via self-changed (one-shot already fired)
+    scheduler->next(x::telem::MILLISECOND, node::RunReason::TimerTick);
+    ASSERT_EQ(nodeA.next_called, 2);
+
+    // Tick 2: A executes via self-changed (callCount=2, still calls mark_self_changed)
+    scheduler->next(x::telem::MILLISECOND * 2, node::RunReason::TimerTick);
+    ASSERT_EQ(nodeA.next_called, 3);
+
+    // Tick 3: A should NOT execute (stopped calling mark_self_changed, one-shot
+    // already fired, not in changed set)
+    scheduler->next(x::telem::MILLISECOND * 3, node::RunReason::TimerTick);
+    ASSERT_EQ(nodeA.next_called, 3);
+}
+
+/// @brief it should clear self-changed when a node is reset via stage transition
+TEST_F(SchedulerTest, testSelfChangedClearedOnStageTransition) {
+    auto &trigger = mock("trigger");
+    auto &entry_a = mock("entry_seq_stage_a");
+    auto &entry_b = mock("entry_seq_stage_b");
+    auto &nodeA = mock("A");
+    const auto &nodeB = mock("B");
+
+    trigger.mark_on_next("activate");
+    trigger.param_truthy["activate"] = true;
+    entry_a.activate_on_next();
+    entry_b.activate_on_next();
+
+    int a_call_count = 0;
+    nodeA.on_next = [&](node::Context &ctx) {
+        a_call_count++;
+        if (a_call_count == 1) {
+            ctx.mark_self_changed();
+            ctx.mark_changed("to_b");
+        }
+    };
+    nodeA.param_truthy["to_b"] = true;
+
+    auto ir = ir::testutil::Builder()
+                  .node("trigger")
+                  .node("entry_seq_stage_a")
+                  .node("entry_seq_stage_b")
+                  .node("A")
+                  .node("B")
+                  .oneshot("trigger", "activate", "entry_seq_stage_a", "input")
+                  .oneshot("A", "to_b", "entry_seq_stage_b", "input")
+                  .strata({{"trigger"}, {"entry_seq_stage_a", "entry_seq_stage_b"}})
+                  .sequence(
+                      "seq",
+                      {{"stage_a", {{"A"}, {"entry_seq_stage_b"}}},
+                       {"stage_b", {{"B"}}}}
+                  )
+                  .build();
+
+    const auto scheduler = build(std::move(ir));
+
+    // Tick 0: trigger → stage_a activates, A runs, self-changes + transitions to
+    // stage_b
+    scheduler->next(x::telem::TimeSpan(0), node::RunReason::TimerTick);
+    ASSERT_EQ(nodeA.next_called, 1);
+    ASSERT_EQ(nodeB.next_called, 1);
+
+    // Tick 1: stage_b is active, A's self-changed should have been cleared by reset
+    scheduler->next(x::telem::MILLISECOND, node::RunReason::TimerTick);
+    ASSERT_EQ(nodeA.next_called, 1);
+    ASSERT_EQ(nodeB.next_called, 2);
+}
+
 /// @brief it should reset all execution state including nodes
 TEST_F(SchedulerTest, testResetClearsState) {
     auto &trigger = mock("trigger");
@@ -1361,6 +1528,54 @@ TEST_F(SchedulerTest, testResetClearsFiredOneShots) {
 
     scheduler->next(x::telem::MILLISECOND, node::RunReason::TimerTick);
     ASSERT_EQ(nodeB.next_called, 2);
+}
+
+/// @brief it should clear self-changed entries after reset. Node A is behind a
+/// one-shot edge and stays alive via mark_self_changed. After reset, A should not
+/// execute because its self-changed entry was cleared and the one-shot source
+/// (trigger) no longer fires the edge (trigger stops marking its output after the
+/// first tick).
+TEST_F(SchedulerTest, testResetClearsSelfChanged) {
+    auto &trigger = mock("trigger");
+    auto &nodeA = mock("A");
+
+    int trigger_call_count = 0;
+    trigger.on_next = [&](node::Context &ctx) {
+        trigger_call_count++;
+        if (trigger_call_count == 1) ctx.mark_changed("output");
+    };
+    trigger.param_truthy["output"] = true;
+
+    nodeA.on_next = [&](node::Context &ctx) { ctx.mark_self_changed(); };
+
+    auto ir = ir::testutil::Builder()
+                  .node("trigger")
+                  .node("A")
+                  .oneshot("trigger", "output", "A", "input")
+                  .strata({{"trigger"}, {"A"}})
+                  .build();
+
+    const auto scheduler = build(std::move(ir));
+
+    // Tick 0: trigger fires one-shot to A, A executes and self-changes
+    scheduler->next(x::telem::TimeSpan(0), node::RunReason::TimerTick);
+    ASSERT_EQ(nodeA.next_called, 1);
+
+    // Tick 1: A executes via self-changed (one-shot already consumed)
+    scheduler->next(x::telem::MILLISECOND, node::RunReason::TimerTick);
+    ASSERT_EQ(nodeA.next_called, 2);
+
+    scheduler->reset();
+
+    // After reset, the one-shot is available again but trigger no longer fires it
+    // (trigger_call_count > 1), and A's self-changed entry was cleared.
+    // A should NOT execute.
+    scheduler->next(x::telem::MILLISECOND, node::RunReason::TimerTick);
+    ASSERT_EQ(nodeA.next_called, 2);
+
+    // Confirm A stays dormant on subsequent ticks.
+    scheduler->next(x::telem::MILLISECOND * 2, node::RunReason::TimerTick);
+    ASSERT_EQ(nodeA.next_called, 2);
 }
 
 /// @brief Helper to create IR with interval node that has proper params
@@ -1434,8 +1649,8 @@ TEST(RealNodeSchedulerTest, IntervalOneShotEdgeFires) {
     );
 
     // Create real Interval node using Factory
-    time::Factory factory;
-    auto [interval_node, err] = factory.create(
+    stl::time::Module time_factory;
+    auto [interval_node, err] = time_factory.create(
         node::Config(
             interval_ir,
             interval_ir.nodes[0],
@@ -1503,8 +1718,8 @@ TEST(RealNodeSchedulerTest, IntervalTruthyCheckBeforeFiring) {
         errors::noop_handler
     );
 
-    time::Factory factory;
-    auto [interval_node, err] = factory.create(
+    stl::time::Module time_factory;
+    auto [interval_node, err] = time_factory.create(
         node::Config(
             interval_ir,
             interval_ir.nodes[0],
@@ -1535,6 +1750,345 @@ TEST(RealNodeSchedulerTest, IntervalTruthyCheckBeforeFiring) {
     // Tick at t=1s - Interval fires again but one-shot already fired
     scheduler->next(x::telem::SECOND, node::RunReason::TimerTick);
     EXPECT_EQ(target_ptr->next_called, 1);
+}
+
+/// @brief Helper to create IR with wait node that has proper params
+ir::IR build_wait_ir(const std::string &key, const int64_t duration_ns) {
+    ir::Param output_param;
+    output_param.name = "output";
+    output_param.type = arc::types::Type(arc::types::Kind::U8);
+
+    ir::Param cfg_param;
+    cfg_param.name = "duration";
+    cfg_param.type = arc::types::Type(arc::types::Kind::I64);
+    cfg_param.value = duration_ns;
+
+    ir::Node ir_node;
+    ir_node.key = key;
+    ir_node.type = "wait";
+    ir_node.outputs.params.push_back(output_param);
+    ir_node.config.params.push_back(cfg_param);
+
+    ir::Function fn;
+    fn.key = "test";
+
+    ir::IR ir;
+    ir.nodes.push_back(ir_node);
+    ir.functions.push_back(fn);
+    return ir;
+}
+
+/// @brief Test with real Wait node behind a one-shot edge. Verifies the Wait
+/// survives via mark_self_changed and eventually fires.
+TEST(RealNodeSchedulerTest, WaitOneShotEdgeFiresAfterDuration) {
+    auto wait_ir = build_wait_ir("wait_0", x::telem::SECOND.nanoseconds());
+
+    ir::Param target_input;
+    target_input.name = "input";
+    target_input.type = arc::types::Type(arc::types::Kind::U8);
+
+    // Trigger node in stratum 0
+    ir::Node trigger_node;
+    trigger_node.key = "trigger_0";
+    trigger_node.type = "trigger";
+    wait_ir.nodes.push_back(trigger_node);
+
+    // Target node in stratum 2
+    ir::Node target_node;
+    target_node.key = "target_0";
+    target_node.type = "target";
+    target_node.inputs.params.push_back(target_input);
+    wait_ir.nodes.push_back(target_node);
+
+    // Trigger => wait (one-shot), wait -> target (continuous)
+    wait_ir.edges.emplace_back(
+        ir::Handle{"trigger_0", "output"},
+        ir::Handle{"wait_0", "input"},
+        ir::EdgeKind::OneShot
+    );
+    wait_ir.edges.emplace_back(
+        ir::Handle{"wait_0", "output"},
+        ir::Handle{"target_0", "input"},
+        ir::EdgeKind::Continuous
+    );
+
+    wait_ir.strata = ir::Strata({{"trigger_0"}, {"wait_0"}, {"target_0"}});
+
+    state::State state(
+        state::Config{.ir = wait_ir, .channels = {}},
+        errors::noop_handler
+    );
+
+    stl::time::Module factory;
+    auto [wait_node, err] = factory.create(
+        node::Config(wait_ir, wait_ir.nodes[0], ASSERT_NIL_P(state.node("wait_0")))
+    );
+    ASSERT_NIL(err);
+
+    // Trigger mock: always marks output as changed and truthy
+    auto trigger = std::make_unique<MockNode>();
+    trigger->on_next = [](node::Context &ctx) { ctx.mark_changed("output"); };
+    trigger->param_truthy["output"] = true;
+
+    auto target = std::make_unique<MockNode>();
+    auto *target_ptr = target.get();
+
+    std::unordered_map<std::string, std::unique_ptr<node::Node>> nodes;
+    nodes["trigger_0"] = std::move(trigger);
+    nodes["wait_0"] = std::move(wait_node);
+    nodes["target_0"] = std::move(target);
+
+    auto scheduler = std::make_unique<Scheduler>(
+        std::move(wait_ir),
+        nodes,
+        x::telem::TimeSpan(0)
+    );
+
+    // Tick 0: trigger fires one-shot to wait, wait starts timing
+    scheduler->next(x::telem::TimeSpan(0), node::RunReason::TimerTick);
+    EXPECT_EQ(target_ptr->next_called, 0);
+
+    // Tick 500ms: wait survives via self-changed, still timing
+    scheduler->next(x::telem::MILLISECOND * 500, node::RunReason::TimerTick);
+    EXPECT_EQ(target_ptr->next_called, 0);
+
+    // Tick 1s: wait fires, propagates to target
+    scheduler->next(x::telem::SECOND, node::RunReason::TimerTick);
+    EXPECT_EQ(target_ptr->next_called, 1);
+
+    // Tick 2s: wait already fired, target should not be called again
+    scheduler->next(x::telem::SECOND * 2, node::RunReason::TimerTick);
+    EXPECT_EQ(target_ptr->next_called, 1);
+}
+
+TEST_F(SchedulerTest, testNextDeadlineReturnsMaxWhenNoTimeNodes) {
+    mock("A").mark_on_next("output");
+    mock("B");
+
+    auto ir = ir::testutil::Builder()
+                  .node("A")
+                  .node("B")
+                  .edge("A", "output", "B", "input")
+                  .strata({{"A"}, {"B"}})
+                  .build();
+
+    const auto scheduler = build(std::move(ir));
+    scheduler->next(x::telem::MILLISECOND, node::RunReason::TimerTick);
+    EXPECT_EQ(scheduler->next_deadline(), x::telem::TimeSpan::max());
+}
+
+TEST_F(SchedulerTest, testNextDeadlineReturnsMinimumAcrossNodes) {
+    auto &nodeA = mock("A");
+    auto &nodeB = mock("B");
+    nodeA.on_next = [](node::Context &ctx) {
+        if (ctx.set_deadline) ctx.set_deadline(x::telem::SECOND * 3);
+    };
+    nodeB.on_next = [](node::Context &ctx) {
+        if (ctx.set_deadline) ctx.set_deadline(x::telem::SECOND * 1);
+    };
+
+    auto ir = ir::testutil::Builder().node("A").node("B").strata({{"A", "B"}}).build();
+
+    const auto scheduler = build(std::move(ir));
+    scheduler->next(x::telem::MILLISECOND, node::RunReason::TimerTick);
+    EXPECT_EQ(scheduler->next_deadline(), x::telem::SECOND);
+}
+
+TEST_F(SchedulerTest, testNextDeadlineResetsEachCycle) {
+    auto &nodeA = mock("A");
+    int call = 0;
+    nodeA.on_next = [&call](node::Context &ctx) {
+        call++;
+        if (call == 1 && ctx.set_deadline) ctx.set_deadline(x::telem::SECOND);
+    };
+
+    auto ir = ir::testutil::Builder().node("A").strata({{"A"}}).build();
+
+    const auto scheduler = build(std::move(ir));
+    scheduler->next(x::telem::MILLISECOND, node::RunReason::TimerTick);
+    EXPECT_EQ(scheduler->next_deadline(), x::telem::SECOND);
+
+    scheduler->next(x::telem::MILLISECOND * 2, node::RunReason::TimerTick);
+    EXPECT_EQ(scheduler->next_deadline(), x::telem::TimeSpan::max());
+}
+
+TEST_F(SchedulerTest, testNextDeadlineFromStageNode) {
+    auto &nodeA = mock("A");
+    nodeA.on_next = [](node::Context &ctx) {
+        if (ctx.set_deadline) ctx.set_deadline(x::telem::SECOND * 2);
+    };
+
+    auto &trigger = mock("trigger");
+    trigger.mark_on_next("activate");
+    trigger.param_truthy["activate"] = true;
+    auto &entry = mock("entry_seq_stage");
+    entry.activate_on_next();
+
+    auto ir = ir::testutil::Builder()
+                  .node("trigger")
+                  .node("entry_seq_stage")
+                  .node("A")
+                  .oneshot("trigger", "activate", "entry_seq_stage", "input")
+                  .strata({{"trigger"}, {"entry_seq_stage"}})
+                  .sequence("seq", {{"stage", {{"A"}}}})
+                  .build();
+
+    const auto scheduler = build(std::move(ir));
+    scheduler->next(x::telem::MILLISECOND, node::RunReason::TimerTick);
+    EXPECT_EQ(scheduler->next_deadline(), x::telem::SECOND * 2);
+}
+
+/// @brief it should stop evaluating statements after the first transition fires
+TEST_F(SchedulerTest, testFirstStatementWinsWhenMultipleTransitionsAreTrue) {
+    // Setup: trigger activates stage_on, which has two transition nodes (A and B)
+    // in the same stratum. Both are truthy and wire to different stage entries.
+    // A (first in stratum order) should win; B's transition should never fire.
+    auto &trigger = mock("trigger");
+    auto &entry_on = mock("entry_seq_stage_on");
+    auto &nodeA = mock("A");
+    auto &nodeB = mock("B");
+    auto &entry_off = mock("entry_seq_stage_off");
+    auto &entry_pause = mock("entry_seq_stage_pause");
+    const auto &nodeOff = mock("Off");
+    const auto &nodePause = mock("Pause");
+
+    trigger.mark_on_next("activate");
+    trigger.param_truthy["activate"] = true;
+    entry_on.activate_on_next();
+    entry_off.activate_on_next();
+    entry_pause.activate_on_next();
+
+    // Both transitions fire and are truthy
+    nodeA.mark_on_next("check");
+    nodeA.param_truthy["check"] = true;
+    nodeB.mark_on_next("check");
+    nodeB.param_truthy["check"] = true;
+
+    auto ir = ir::testutil::Builder()
+                  .node("trigger")
+                  .node("entry_seq_stage_on")
+                  .node("A")
+                  .node("B")
+                  .node("entry_seq_stage_off")
+                  .node("entry_seq_stage_pause")
+                  .node("Off")
+                  .node("Pause")
+                  .oneshot("trigger", "activate", "entry_seq_stage_on", "input")
+                  .oneshot("A", "check", "entry_seq_stage_off", "input")
+                  .oneshot("B", "check", "entry_seq_stage_pause", "input")
+                  .strata({{"trigger"}, {"entry_seq_stage_on"}})
+                  .sequence(
+                      "seq",
+                      {{"stage_on",
+                        {{"A", "B"}, {"entry_seq_stage_off", "entry_seq_stage_pause"}}},
+                       {"stage_off", {{"Off"}}},
+                       {"stage_pause", {{"Pause"}}}}
+                  )
+                  .build();
+
+    const auto scheduler = build(std::move(ir));
+    scheduler->next(x::telem::MILLISECOND, node::RunReason::TimerTick);
+
+    // A's transition to stage_off should win
+    ASSERT_EQ(nodeOff.next_called, 1);
+    // B's transition to stage_pause should never fire
+    ASSERT_EQ(nodePause.next_called, 0);
+}
+
+/// @brief it should skip later write statements after a transition fires
+TEST_F(SchedulerTest, testTransitionSkipsLaterWriteStatementInSameStage) {
+    auto &trigger = mock("trigger");
+    auto &entry_on = mock("entry_seq_stage_on");
+    auto &transition = mock("to_abort");
+    auto &write_cmd = mock("write_ox_tpc_cmd");
+    auto &entry_abort = mock("entry_seq_stage_abort");
+    const auto &abort_node = mock("abort_node");
+
+    trigger.mark_on_next("activate");
+    trigger.param_truthy["activate"] = true;
+    entry_on.activate_on_next();
+    entry_abort.activate_on_next();
+
+    transition.mark_on_next("check");
+    transition.param_truthy["check"] = true;
+
+    auto ir = ir::testutil::Builder()
+                  .node("trigger")
+                  .node("entry_seq_stage_on")
+                  .node("to_abort")
+                  .node("write_ox_tpc_cmd")
+                  .node("entry_seq_stage_abort")
+                  .node("abort_node")
+                  .oneshot("trigger", "activate", "entry_seq_stage_on", "input")
+                  .oneshot("to_abort", "check", "entry_seq_stage_abort", "input")
+                  .strata({{"trigger"}, {"entry_seq_stage_on"}})
+                  .sequence(
+                      "seq",
+                      {{"stage_on",
+                        {{"to_abort"}, {"entry_seq_stage_abort", "write_ox_tpc_cmd"}}},
+                       {"stage_abort", {{"abort_node"}}}}
+                  )
+                  .build();
+
+    const auto scheduler = build(std::move(ir));
+    scheduler->next(x::telem::MILLISECOND, node::RunReason::TimerTick);
+
+    // Transition should fire and move into abort stage.
+    ASSERT_EQ(abort_node.next_called, 1);
+    // Statement after transition in the same stage pass should be skipped.
+    ASSERT_EQ(write_cmd.next_called, 0);
+}
+
+/// @brief it should respect source order when entry nodes are at the same stratum
+TEST_F(SchedulerTest, testSourceOrderPriorityWhenEntriesAtSameStratum) {
+    auto &trigger = mock("trigger");
+    auto &entry_active = mock("entry_seq_active");
+    auto &condA = mock("condA");
+    auto &condB = mock("condB");
+    auto &entryA = mock("entry_seq_stage_a");
+    auto &entryB = mock("entry_seq_stage_b");
+    const auto &nodeA = mock("A");
+    const auto &nodeB = mock("B");
+
+    trigger.mark_on_next("activate");
+    trigger.param_truthy["activate"] = true;
+    entry_active.activate_on_next();
+
+    condA.mark_on_next("check");
+    condA.param_truthy["check"] = true;
+    condB.mark_on_next("check");
+    condB.param_truthy["check"] = true;
+    entryA.activate_on_next();
+    entryB.activate_on_next();
+
+    auto ir = ir::testutil::Builder()
+                  .node("trigger")
+                  .node("entry_seq_active")
+                  .node("condA")
+                  .node("condB")
+                  .node("entry_seq_stage_a")
+                  .node("entry_seq_stage_b")
+                  .node("A")
+                  .node("B")
+                  .oneshot("trigger", "activate", "entry_seq_active", "input")
+                  .oneshot("condA", "check", "entry_seq_stage_a", "input")
+                  .oneshot("condB", "check", "entry_seq_stage_b", "input")
+                  .strata({{"trigger"}, {"entry_seq_active"}})
+                  .sequence(
+                      "seq",
+                      {{"active",
+                        {{"condA", "condB"},
+                         {"entry_seq_stage_a", "entry_seq_stage_b"}}},
+                       {"stage_a", {{"A"}}},
+                       {"stage_b", {{"B"}}}}
+                  )
+                  .build();
+
+    const auto scheduler = build(std::move(ir));
+    scheduler->next(x::telem::MILLISECOND, node::RunReason::TimerTick);
+
+    ASSERT_EQ(nodeA.next_called, 1);
+    ASSERT_EQ(nodeB.next_called, 0);
 }
 
 }

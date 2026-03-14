@@ -119,7 +119,7 @@ class TestCase(ABC):
         self.start_time: sy.TimeStamp = sy.TimeStamp.now()
         self._timeout_limit: int = self.DEFAULT_TIMEOUT_LIMIT  # -1 = no timeout
         self._manual_timeout: int = self.DEFAULT_MANUAL_TIMEOUT
-        self.read_frame: dict[str, int | float] | None = None
+        self.read_frame: dict[str, int | float | str] | None = None
         self.read_timeout = self.DEFAULT_READ_TIMEOUT
 
         self.name = validate_and_sanitize_name(name)
@@ -503,15 +503,16 @@ class TestCase(ABC):
     @overload
     def read_tlm(self, key: str, default: int | float) -> int | float: ...
 
+    @overload
+    def read_tlm(self, key: str, default: str) -> str: ...
+
     def read_tlm(
-        self, key: str, default: int | float | None = None
-    ) -> int | float | None:
+        self, key: str, default: int | float | str | None = None
+    ) -> int | float | str | None:
         try:
             if self.read_frame is not None:
-                value = self.read_frame.get(key, default)
-                return value
-            else:
-                return default
+                return self.read_frame.get(key, default)
+            return default
         except:
             return default
 
@@ -861,6 +862,7 @@ class TestCase(ABC):
         if message is not None:
             self.log(f"FAILED: {message}")
         self.STATUS = STATUS.FAILED
+        raise RuntimeError(message or "Test failed")
 
     def execute(self) -> None:
         """Execute complete test lifecycle: setup -> run -> teardown."""

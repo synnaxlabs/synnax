@@ -38,7 +38,7 @@ export const Select = () => (
   <Common.Device.Select
     configureLayout={CONNECT_LAYOUT}
     emptyContent={emptyContent}
-    label="HTTP Server"
+    label="HTTP server"
     make={MAKE}
   />
 );

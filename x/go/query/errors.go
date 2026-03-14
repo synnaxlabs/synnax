@@ -35,16 +35,16 @@ const (
 )
 
 func encode(_ context.Context, err error) (errors.Payload, bool) {
-	if errors.Is(err, ErrNotFound) {
+	if errors.CheapIs(err, ErrNotFound) {
 		return errors.Payload{Type: notFound, Data: err.Error()}, true
 	}
-	if errors.Is(err, ErrUniqueViolation) {
+	if errors.CheapIs(err, ErrUniqueViolation) {
 		return errors.Payload{Type: uniqueViolation, Data: err.Error()}, true
 	}
-	if errors.Is(err, ErrInvalidParameters) {
+	if errors.CheapIs(err, ErrInvalidParameters) {
 		return errors.Payload{Type: invalidParameters, Data: err.Error()}, true
 	}
-	if errors.Is(err, ErrQuery) {
+	if errors.CheapIs(err, ErrQuery) {
 		return errors.Payload{Type: typePrefix, Data: err.Error()}, true
 	}
 	return errors.Payload{}, false

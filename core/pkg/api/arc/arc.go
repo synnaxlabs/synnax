@@ -15,6 +15,7 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/synnaxlabs/alamos"
+	"github.com/synnaxlabs/arc/compiler"
 	arctransport "github.com/synnaxlabs/arc/lsp/transport"
 	arctext "github.com/synnaxlabs/arc/text"
 	"github.com/synnaxlabs/freighter"
@@ -25,7 +26,6 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/arc"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
 	xconfig "github.com/synnaxlabs/x/config"
-	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/gorp"
 )
 
@@ -184,22 +184,19 @@ func (s *Service) compileArc(ctx context.Context, arc *Arc) error {
 	// Step 1: Parse the Arc text
 	parsed, diag := arctext.Parse(arc.Text)
 	if diag != nil && !diag.Ok() {
-		return errors.Newf("parse failed for arc %s: %w", arc.Key, diag)
+		return CompileError{Diagnostics: diag.Error()}
 	}
-
 	// Step 2: Analyze the parsed text to produce IR
 	ir, diag := arctext.Analyze(ctx, parsed, s.internal.SymbolResolver())
 	if diag != nil && !diag.Ok() {
-		return errors.Newf("analysis failed for arc %s: %w", arc.Key, diag)
+		return CompileError{Diagnostics: diag.Error()}
 	}
-
 	// Step 3: Compile IR to WebAssembly module
-	mod, err := arctext.Compile(ctx, ir)
+	mod, err := arctext.Compile(ctx, ir, compiler.WithHostSymbols(s.internal.SymbolResolver()))
 	if err != nil {
-		return errors.Newf("compilation failed for arc %s: %w", arc.Key, err)
+		return err
 	}
-
 	// Step 4: Attach compiled module to Arc
-	arc.Module = &mod
+	arc.Program = &mod
 	return nil
 }

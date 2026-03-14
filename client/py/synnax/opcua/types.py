@@ -547,8 +547,9 @@ class Device(device.Device):
 
         # Set properties with connection info
         props = {
+            "version": "1.0.0",
             "connection": connection,
-            "read": {"index": 0, "channels": {}},
+            "read": {"indexes": [], "channels": {}},
             "write": {"channels": {}},
         }
 

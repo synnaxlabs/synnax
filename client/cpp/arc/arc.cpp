@@ -16,9 +16,9 @@
 #include "x/cpp/errors/errors.h"
 
 namespace synnax::arc {
-const std::string ARC_CREATE_ENDPOINT = "/api/v1/arc/create";
-const std::string ARC_RETRIEVE_ENDPOINT = "/api/v1/arc/retrieve";
-const std::string ARC_DELETE_ENDPOINT = "/api/v1/arc/delete";
+const std::string CREATE_ENDPOINT = "/api/v1/arc/create";
+const std::string RETRIEVE_ENDPOINT = "/api/v1/arc/retrieve";
+const std::string DELETE_ENDPOINT = "/api/v1/arc/delete";
 
 Client::Client(
     std::shared_ptr<RetrieveClient> retrieve_client,

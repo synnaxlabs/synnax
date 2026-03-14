@@ -18,7 +18,7 @@
 #include "x/cpp/json/json.h"
 #include "x/cpp/uuid/uuid.h"
 
-#include "arc/cpp/module/module.h"
+#include "arc/cpp/program/program.h"
 #include "arc/cpp/runtime/errors/errors.h"
 #include "arc/cpp/runtime/loop/loop.h"
 #include "arc/cpp/runtime/runtime.h"
@@ -35,13 +35,13 @@ namespace driver::arc {
 /// @brief configuration for an arc runtime task.
 struct TaskConfig : common::BaseTaskConfig {
     x::uuid::UUID arc_key;
-    ::arc::module::Module module;
+    ::arc::program::Program module;
     ::arc::runtime::loop::Config loop;
 
     TaskConfig(TaskConfig &&other) noexcept:
         BaseTaskConfig(std::move(other)),
         arc_key(std::move(other.arc_key)),
-        module(std::move(other.module)),
+        program(std::move(other.program)),
         loop(std::move(other.loop)) {}
 
     TaskConfig(const TaskConfig &) = delete;
@@ -61,9 +61,9 @@ struct TaskConfig : common::BaseTaskConfig {
             synnax::arc::RetrieveOptions{.compile = true}
         );
         if (arc_err) return {std::move(cfg), arc_err};
-        if (!arc_data.module.has_value())
+        if (!arc_data.program.has_value())
             return {std::move(cfg), x::errors::Error("arc module not compiled")};
-        cfg.module = *arc_data.module;
+        cfg.module = *arc_data.program;
         return {std::move(cfg), x::errors::NIL};
     }
 };
@@ -134,7 +134,7 @@ public:
         auto task = std::unique_ptr<Task>(new Task(task_meta, ctx));
 
         const ::arc::runtime::Config runtime_cfg{
-            .mod = cfg.module,
+            .program = cfg.program,
             .breaker = x::breaker::default_config("arc_runtime"),
             .retrieve_channels = [client = ctx->client](
                                      const std::vector<::arc::types::ChannelKey> &keys
@@ -178,7 +178,7 @@ public:
                 ctx->client
             );
         auto initial_authorities = ::arc::runtime::build_authorities(
-            cfg.module.authorities,
+            cfg.program.authorities,
             task->runtime->write_channels
         );
         task->acquisition = std::make_unique<pipeline::Acquisition>(
@@ -197,7 +197,8 @@ public:
             std::move(source),
             x::breaker::default_config("arc_acquisition"),
             "arc_acquisition",
-            /* err_on_unauthorized */ false
+            /* err_on_unauthorized */ false,
+            /* open_eagerly */ true
         );
         task->control = std::make_unique<pipeline::Control>(
             streamer_factory,

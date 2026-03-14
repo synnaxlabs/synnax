@@ -89,7 +89,9 @@ tank_pressure > 500 => next
 tank_pressure < 20 => log_message{}
 ```
 
-One-shot edges reset when the containing stage is re-entered.
+One-shot edges reset when the containing stage is re-entered. Timing nodes (`interval`
+and `wait`) also reset on stage re-entry. An `interval` fires immediately on the first
+tick after re-entry, and a `wait` restarts its countdown from zero.
 
 <Note.Note variant="warning">
 A common mistake is using `->` when you meant `=>`. If you want something to happen

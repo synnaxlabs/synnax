@@ -9,8 +9,6 @@
 
 #pragma once
 
-#include "x/cpp/loop/loop.h"
-
 #include "driver/common/status.h"
 #include "driver/errors/errors.h"
 #include "driver/pipeline/acquisition.h"

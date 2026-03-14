@@ -17,6 +17,7 @@ import { StateProvider, sugaredStateZ } from "@/telem/control/aether/state";
 export const legendStateZ = z.object({
   needsControlOf: channel.keyZ.array(),
   states: sugaredStateZ.array(),
+  colors: z.record(z.string(), z.string()).default({}),
 });
 
 interface InternalState {
@@ -31,6 +32,7 @@ export class Legend extends aether.Leaf<typeof legendStateZ, InternalState> {
   afterUpdate(ctx: aether.Context): void {
     const { internal: i } = this;
     i.stateProv = StateProvider.use(ctx);
+    i.stateProv.setColorOverrides(this.state.colors);
 
     const keys = this.state.needsControlOf;
     i.disconnectStateProv?.();
@@ -38,7 +40,7 @@ export class Legend extends aether.Leaf<typeof legendStateZ, InternalState> {
     const states = i.stateProv.get(keys);
     this.setState((p) => ({ ...p, states }));
     i.disconnectStateProv = i.stateProv.onChange((t) => {
-      if (filter(t).length === 0) return;
+      if (t.length > 0 && filter(t).length === 0) return;
       const states = i.stateProv.get(keys);
       this.setState((p) => ({ ...p, states }));
     });

@@ -10,17 +10,13 @@
 import { Form } from "@synnaxlabs/pluto";
 import { type record } from "@synnaxlabs/x";
 
-import {
-  COIL_OUTPUT_TYPE,
-  HOLDING_REGISTER_OUTPUT_TYPE,
-  type OutputChannelType,
-} from "@/hardware/modbus/task/types";
+import { type OutputChannelType } from "@/hardware/modbus/task/types";
 
 export interface OutputChannelTypeEntry extends record.KeyedNamed<OutputChannelType> {}
 
 const OUTPUT_CHANNEL_TYPES: OutputChannelTypeEntry[] = [
-  { key: COIL_OUTPUT_TYPE, name: "Coil" },
-  { key: HOLDING_REGISTER_OUTPUT_TYPE, name: "Holding Register" },
+  { key: "coil_output", name: "Coil" },
+  { key: "holding_register_output", name: "Holding Register" },
 ];
 
 export interface SelectOutputChannelTypeFieldProps extends Omit<

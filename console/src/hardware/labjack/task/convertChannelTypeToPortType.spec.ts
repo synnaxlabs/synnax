@@ -11,37 +11,30 @@ import { describe, expect, it } from "vitest";
 
 import { Device } from "@/hardware/labjack/device";
 import { convertChannelTypeToPortType } from "@/hardware/labjack/task/convertChannelTypeToPortType";
-import {
-  AI_CHANNEL_TYPE,
-  AO_CHANNEL_TYPE,
-  DI_CHANNEL_TYPE,
-  DO_CHANNEL_TYPE,
-  TC_CHANNEL_TYPE,
-} from "@/hardware/labjack/task/types";
 
 describe("convertChannelTypeToPortType", () => {
-  it(`should convert ${AI_CHANNEL_TYPE} to ${Device.AI_PORT_TYPE}`, () => {
-    const result = convertChannelTypeToPortType(AI_CHANNEL_TYPE);
+  it(`should convert "AI" to ${Device.AI_PORT_TYPE}`, () => {
+    const result = convertChannelTypeToPortType("AI");
     expect(result).toBe(Device.AI_PORT_TYPE);
   });
 
-  it(`should convert ${AO_CHANNEL_TYPE} to ${Device.AO_PORT_TYPE}`, () => {
-    const result = convertChannelTypeToPortType(AO_CHANNEL_TYPE);
+  it(`should convert "AO" to ${Device.AO_PORT_TYPE}`, () => {
+    const result = convertChannelTypeToPortType("AO");
     expect(result).toBe(Device.AO_PORT_TYPE);
   });
 
-  it(`should convert ${DI_CHANNEL_TYPE} to ${Device.DI_PORT_TYPE}`, () => {
-    const result = convertChannelTypeToPortType(DI_CHANNEL_TYPE);
+  it(`should convert "DI" to ${Device.DI_PORT_TYPE}`, () => {
+    const result = convertChannelTypeToPortType("DI");
     expect(result).toBe(Device.DI_PORT_TYPE);
   });
 
-  it(`should convert ${DO_CHANNEL_TYPE} to ${Device.DO_PORT_TYPE}`, () => {
-    const result = convertChannelTypeToPortType(DO_CHANNEL_TYPE);
+  it(`should convert "DO" to ${Device.DO_PORT_TYPE}`, () => {
+    const result = convertChannelTypeToPortType("DO");
     expect(result).toBe(Device.DO_PORT_TYPE);
   });
 
-  it(`should convert ${TC_CHANNEL_TYPE} to ${Device.AI_PORT_TYPE}`, () => {
-    const result = convertChannelTypeToPortType(TC_CHANNEL_TYPE);
+  it(`should convert "TC" to ${Device.AI_PORT_TYPE}`, () => {
+    const result = convertChannelTypeToPortType("TC");
     expect(result).toBe(Device.AI_PORT_TYPE);
   });
 });

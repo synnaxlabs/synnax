@@ -12,7 +12,6 @@ require (
 	github.com/spf13/cobra v1.10.2
 	github.com/spf13/viper v1.21.0
 	go.lsp.dev/jsonrpc2 v0.10.0
-	go.lsp.dev/protocol v0.12.0
 	go.uber.org/zap v1.27.1
 	golang.org/x/text v0.33.0
 )

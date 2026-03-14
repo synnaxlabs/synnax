@@ -47,7 +47,7 @@ import { Range } from "@/range";
 const EmptyContent = () => {
   const placeLayout = Layout.usePlacer();
   const handleClick = () => placeLayout(SELECTOR_LAYOUT);
-  const canCreateTask = Access.useUpdateGranted(task.TYPE_ONTOLOGY_ID);
+  const canCreateTask = Access.useCreateGranted(task.TYPE_ONTOLOGY_ID);
   return (
     <EmptyAction
       message="No existing tasks."
@@ -73,7 +73,7 @@ const Content = () => {
   const menuProps = PMenu.useContextMenu();
   const dispatch = useDispatch();
   const placeLayout = Layout.usePlacer();
-  const canCreateTask = Access.useUpdateGranted(task.TYPE_ONTOLOGY_ID);
+  const canCreateTask = Access.useCreateGranted(task.TYPE_ONTOLOGY_ID);
   const { data, getItem, subscribe, retrieve } = Task.useList({
     initialQuery: INITIAL_QUERY,
     filter,
@@ -329,8 +329,8 @@ const ContextMenu = ({
   const activeRange = Range.useSelect();
   const snapshotToActiveRange = useRangeSnapshot();
   const ontologyIDs = task.ontologyID(keys);
-  const canDeleteAccess = Access.useDeleteGranted(ontologyIDs);
-  const canEditAccess = Access.useUpdateGranted(ontologyIDs);
+  const canDelete = Access.useDeleteGranted(ontologyIDs);
+  const canEdit = Access.useUpdateGranted(ontologyIDs);
 
   const canStart = selectedTasks.some(
     ({ status }) => status?.details.running === false,
@@ -410,7 +410,7 @@ const ContextMenu = ({
     activeRange?.persisted === true && selectedTasks.length > 0;
   return (
     <PMenu.Menu level="small" gap="small" onChange={handleChange}>
-      {canEditAccess && (
+      {canEdit && (
         <>
           {canStart && (
             <PMenu.Item itemKey="start">
@@ -464,7 +464,7 @@ const ContextMenu = ({
           <PMenu.Divider />
         </>
       )}
-      {canDeleteAccess && someSelected && (
+      {canDelete && someSelected && (
         <>
           <PMenu.Item itemKey="delete">
             <Icon.Delete />

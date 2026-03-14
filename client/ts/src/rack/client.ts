@@ -150,30 +150,20 @@ export class Rack {
   }
 
   async createTask(task: task.New): Promise<task.Task>;
-  async createTask<
-    Type extends z.ZodLiteral<string> = z.ZodLiteral<string>,
-    Config extends z.ZodType<record.Unknown> = z.ZodType<record.Unknown>,
-    StatusData extends z.ZodType = z.ZodNever,
-  >(
-    task: task.New<Type, Config, StatusData>,
-    schemas: task.PayloadSchemas<Type, Config, StatusData>,
-  ): Promise<task.Task<Type, Config, StatusData>>;
+  async createTask<Schemas extends task.Schemas = task.Schemas>(
+    task: task.New<Schemas>,
+    schemas: Schemas,
+  ): Promise<task.Task<Schemas>>;
 
-  async createTask<
-    Type extends z.ZodLiteral<string> = z.ZodLiteral<string>,
-    Config extends z.ZodType<record.Unknown> = z.ZodType<record.Unknown>,
-    StatusData extends z.ZodType = z.ZodNever,
-  >(
-    task: task.New<Type, Config, StatusData>,
-    schemas?: task.PayloadSchemas<Type, Config, StatusData>,
-  ): Promise<task.Task<Type, Config, StatusData>> {
-    task.key = Number(
-      (BigInt(this.key) << 32n) + (BigInt(task.key ?? 0) & 0xffffffffn),
+  async createTask<Schemas extends task.Schemas = task.Schemas>(
+    task: task.New<Schemas>,
+    schemas?: Schemas,
+  ): Promise<task.Task<Schemas>> {
+    task.key = (
+      (BigInt(this.key) << 32n) +
+      (BigInt(task.key ?? 0) & 0xffffffffn)
     ).toString();
-    return await this.tasks.create(
-      task,
-      schemas as Required<task.PayloadSchemas<Type, Config, StatusData>>,
-    );
+    return await this.tasks.create(task, schemas as Required<Schemas>);
   }
 
   async deleteTask(task: task.Key): Promise<void> {

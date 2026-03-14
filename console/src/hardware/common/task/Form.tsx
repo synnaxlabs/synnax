@@ -54,35 +54,25 @@ export interface getInitialValuesArgs {
   config?: unknown;
 }
 
-export interface GetInitialValues<
-  Type extends z.ZodLiteral<string> = z.ZodLiteral<string>,
-  Config extends z.ZodType<record.Unknown> = z.ZodType<record.Unknown>,
-  StatusData extends z.ZodType = z.ZodNever,
-> {
-  (args: getInitialValuesArgs): Task.InitialValues<Type, Config, StatusData>;
+export interface GetInitialValues<S extends task.Schemas = task.Schemas> {
+  (args: getInitialValuesArgs): Task.InitialValues<S>;
 }
 
 export interface FormProps<
-  Type extends z.ZodLiteral<string> = z.ZodLiteral<string>,
-  Config extends z.ZodType<record.Unknown> = z.ZodType<record.Unknown>,
-  StatusData extends z.ZodType = z.ZodNever,
-> extends PForm.UseReturn<Task.FormSchema<Type, Config, StatusData>> {
+  S extends task.Schemas = task.Schemas,
+> extends PForm.UseReturn<Task.FormSchema<S>> {
   layoutKey: string;
   status: Flux.Result<undefined>["status"];
   onConfigure: () => void;
 }
 
-export interface WrapFormArgs<
-  Type extends z.ZodLiteral<string> = z.ZodLiteral<string>,
-  Config extends z.ZodType<record.Unknown> = z.ZodType<record.Unknown>,
-  StatusData extends z.ZodType = z.ZodNever,
-> {
+export interface WrapFormArgs<S extends task.Schemas = task.Schemas> {
   Properties?: FC<{}>;
-  Form: FC<FormProps<Type, Config, StatusData>>;
-  type: z.infer<Type>;
-  onConfigure: OnConfigure<Config>;
-  schemas: task.PayloadSchemas<Type, Config, StatusData>;
-  getInitialValues: GetInitialValues<Type, Config, StatusData>;
+  Form: FC<FormProps<S>>;
+  type: z.infer<S["type"]>;
+  onConfigure: OnConfigure<S["config"]>;
+  schemas: S;
+  getInitialValues: GetInitialValues<S>;
   showHeader?: boolean;
   showControls?: boolean;
 }
@@ -90,6 +80,7 @@ export interface WrapFormArgs<
 export const useIsRunning = <Schema extends z.ZodType>(
   ctx?: PForm.ContextValue<Schema>,
 ) => useStatus(ctx)?.details.running ?? false;
+
 export const useIsSnapshot = <Schema extends z.ZodType>(
   ctx?: PForm.ContextValue<Schema>,
 ) => PForm.useFieldValue<boolean>("snapshot", { ctx });
@@ -113,11 +104,7 @@ const Header = ({ isSnapshot }: HeaderProps) => (
   </>
 );
 
-export const wrapForm = <
-  Type extends z.ZodLiteral<string> = z.ZodLiteral<string>,
-  Config extends z.ZodType<record.Unknown> = z.ZodType<record.Unknown>,
-  StatusData extends z.ZodType = z.ZodNever,
->({
+export const wrapForm = <S extends task.Schemas = task.Schemas>({
   Properties,
   Form,
   schemas,
@@ -126,7 +113,7 @@ export const wrapForm = <
   onConfigure,
   showHeader = true,
   showControls = true,
-}: WrapFormArgs<Type, Config, StatusData>): Layout.Renderer => {
+}: WrapFormArgs<S>): Layout.Renderer => {
   const Wrapper: Layout.Renderer = ({ layoutKey }) => {
     const store = useStore<RootState>();
     const { deviceKey, taskKey, rackKey, config } = Layout.selectArgs<FormLayoutArgs>(
@@ -186,11 +173,9 @@ export const wrapForm = <
       onChange: (d) => form.set("rackKey", d.data?.rack),
       query: deviceKey == null ? undefined : { key: deviceKey },
     });
-    const name = PForm.useFieldValue<
-      string,
-      string,
-      Task.FormSchema<Type, Config, StatusData>
-    >("name", { ctx: form });
+    const name = PForm.useFieldValue<string, string, Task.FormSchema<S>>("name", {
+      ctx: form,
+    });
     const handleLayoutNameChange = useCallback(
       (name: string) => {
         if (status.variant !== "success") return;
@@ -200,7 +185,7 @@ export const wrapForm = <
     );
     Layout.useSyncName(layoutKey, name, handleLayoutNameChange);
 
-    const isSnapshot = useIsSnapshot<Task.FormSchema<Type, Config, StatusData>>(form);
+    const isSnapshot = useIsSnapshot<Task.FormSchema<S>>(form);
     return (
       <Flex.Box
         y
@@ -209,7 +194,7 @@ export const wrapForm = <
         empty
       >
         <Flex.Box grow>
-          <PForm.Form<Task.FormSchema<Type, Config, StatusData>>
+          <PForm.Form<Task.FormSchema<S>>
             {...form}
             mode={isSnapshot ? "preview" : "normal"}
           >

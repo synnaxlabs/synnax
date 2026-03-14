@@ -343,5 +343,6 @@ func (db *DB) openDomainIdxWriter(
 	w.idx.highWaterMark = cfg.Start
 	w.writingToIdx = false
 	w.start = cfg.Start
+	w.lastCommitEnd = cfg.Start
 	return w, nil
 }

@@ -200,8 +200,8 @@ func (db *DB) Delete(
 	return span.Error(persist())
 }
 
-// GarbageCollect rewrites all files that are over the size limit of a file and has
-// enough tombstones to garbage collect, as defined by Threshold.
+// GarbageCollect rewrites files that have accumulated enough tombstones to warrant
+// compaction, as defined by Threshold.
 func (db *DB) GarbageCollect(ctx context.Context) error {
 	_, span := db.cfg.T.Bench(ctx, "garbage_collect")
 	defer span.End()
@@ -250,10 +250,6 @@ func (db *DB) GarbageCollect(ctx context.Context) error {
 		if err != nil {
 			return span.Error(err)
 		}
-		if s.Size() < int64(db.cfg.FileSize) {
-			continue
-		}
-
 		if err = db.garbageCollectFile(fileKey, s.Size()); err != nil {
 			return span.Error(err)
 		}
@@ -269,6 +265,13 @@ func (db *DB) GarbageCollect(ctx context.Context) error {
 }
 
 func (db *DB) garbageCollectFile(key uint16, size int64) error {
+	// Atomically remove this file from the writer pool so that no writer can open
+	// on it during GC. If the file has an active writer, skip it.
+	canGC, wasUnopened := db.fc.prepareForGC(key)
+	if !canGC {
+		return nil
+	}
+
 	var (
 		name          = fileKeyToName(key)
 		copyName      = name + "_gc"
@@ -281,6 +284,12 @@ func (db *DB) garbageCollectFile(key uint16, size int64) error {
 		offsetDeltaMap = make(map[telem.TimeRange]uint32)
 	)
 
+	restore := func() {
+		if wasUnopened {
+			db.fc.restoreUnopened(key)
+		}
+	}
+
 	db.fc.readers.RLock()
 	defer db.fc.readers.RUnlock()
 	rs, ok := db.fc.readers.files[key]
@@ -292,15 +301,15 @@ func (db *DB) garbageCollectFile(key uint16, size int64) error {
 		defer rs.RUnlock()
 		// If there's any open file handles on the file, we cannot garbage collect.
 		if len(rs.open) > 0 {
+			restore()
 			return nil
 		}
 		// Otherwise, we continue with garbage collection while holding the mutex lock
 		// to prevent more readers from being created.
 	}
 
-	// Find all pointers using the file: there cannot be more pointers using the file
-	// during GC since the file must be already full — however, there can be less due to
-	// deletion.
+	// Find all pointers using the file. There can be fewer pointers than the file's
+	// data accounts for due to deletion (these gaps are tombstones).
 	db.idx.mu.RLock()
 	for _, ptr := range db.idx.mu.pointers {
 		if ptr.fileKey == key {
@@ -312,6 +321,7 @@ func (db *DB) garbageCollectFile(key uint16, size int64) error {
 
 	// Decide whether we should GC
 	if tombstoneSize < int64(db.cfg.GCThreshold*float32(db.cfg.FileSize)) {
+		restore()
 		return nil
 	}
 

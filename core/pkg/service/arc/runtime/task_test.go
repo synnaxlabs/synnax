@@ -84,10 +84,10 @@ var _ = Describe("Task", Ordered, func() {
 
 	newFactoryWith := func(getModule func(context.Context, uuid.UUID) (svcarc.Arc, error)) *runtime.Factory {
 		return MustSucceed(runtime.NewFactory(runtime.FactoryConfig{
-			Channel:   dist.Channel,
-			Framer:    dist.Framer,
-			Status:    statusSvc,
-			GetModule: getModule,
+			Channel:    dist.Channel,
+			Framer:     dist.Framer,
+			Status:     statusSvc,
+			GetProgram: getModule,
 		}))
 	}
 
@@ -98,7 +98,7 @@ var _ = Describe("Task", Ordered, func() {
 			if err != nil {
 				return svcarc.Arc{}, err
 			}
-			return svcarc.Arc{Key: key, Name: "test-arc", Graph: g, Module: &module}, nil
+			return svcarc.Arc{Key: key, Name: "test-arc", Graph: g, Program: &module}, nil
 		})
 	}
 
@@ -109,7 +109,7 @@ var _ = Describe("Task", Ordered, func() {
 			if err != nil {
 				return svcarc.Arc{}, err
 			}
-			return svcarc.Arc{Key: uuid.New(), Name: "test-arc", Text: prof, Module: &module}, nil
+			return svcarc.Arc{Key: uuid.New(), Name: "test-arc", Text: prof, Program: &module}, nil
 		})
 	}
 
@@ -221,7 +221,7 @@ var _ = Describe("Task", Ordered, func() {
 				Channel: dist.Channel,
 				Framer:  dist.Framer,
 				Status:  statusSvc,
-				GetModule: func(context.Context, uuid.UUID) (svcarc.Arc, error) {
+				GetProgram: func(context.Context, uuid.UUID) (svcarc.Arc, error) {
 					return svcarc.Arc{}, nil
 				},
 			}))
@@ -244,10 +244,10 @@ var _ = Describe("Task", Ordered, func() {
 
 		It("Should return error for invalid config", func() {
 			factory := MustSucceed(runtime.NewFactory(runtime.FactoryConfig{
-				Channel:   dist.Channel,
-				Framer:    dist.Framer,
-				Status:    statusSvc,
-				GetModule: func(context.Context, uuid.UUID) (svcarc.Arc, error) { return svcarc.Arc{}, nil },
+				Channel:    dist.Channel,
+				Framer:     dist.Framer,
+				Status:     statusSvc,
+				GetProgram: func(context.Context, uuid.UUID) (svcarc.Arc, error) { return svcarc.Arc{}, nil },
 			}))
 			svcTask := task.Task{
 				Key:    task.NewKey(rack.NewKey(1, 1), 1),
@@ -260,12 +260,12 @@ var _ = Describe("Task", Ordered, func() {
 			Expect(task).To(BeNil())
 		})
 
-		It("Should return error when CompileModule fails", func() {
+		It("Should return error when CompileProgram fails", func() {
 			factory := MustSucceed(runtime.NewFactory(runtime.FactoryConfig{
-				Channel:   dist.Channel,
-				Framer:    dist.Framer,
-				Status:    statusSvc,
-				GetModule: moduleNotFoundGetter,
+				Channel:    dist.Channel,
+				Framer:     dist.Framer,
+				Status:     statusSvc,
+				GetProgram: moduleNotFoundGetter,
 			}))
 			svcTask := task.Task{
 				Key:    task.NewKey(rack.NewKey(1, 1), 1),
@@ -280,10 +280,10 @@ var _ = Describe("Task", Ordered, func() {
 
 		It("Should set error status when config is invalid", func() {
 			factory := MustSucceed(runtime.NewFactory(runtime.FactoryConfig{
-				Channel:   dist.Channel,
-				Framer:    dist.Framer,
-				Status:    statusSvc,
-				GetModule: func(context.Context, uuid.UUID) (svcarc.Arc, error) { return svcarc.Arc{}, nil },
+				Channel:    dist.Channel,
+				Framer:     dist.Framer,
+				Status:     statusSvc,
+				GetProgram: func(context.Context, uuid.UUID) (svcarc.Arc, error) { return svcarc.Arc{}, nil },
 			}))
 			svcTask := task.Task{
 				Key:    task.NewKey(rack.NewKey(1, 1), 2),
@@ -302,12 +302,12 @@ var _ = Describe("Task", Ordered, func() {
 			Expect(stat.Details.Running).To(BeFalse())
 		})
 
-		It("Should set error status when GetModule fails", func() {
+		It("Should set error status when GetProgram fails", func() {
 			factory := MustSucceed(runtime.NewFactory(runtime.FactoryConfig{
-				Channel:   dist.Channel,
-				Framer:    dist.Framer,
-				Status:    statusSvc,
-				GetModule: moduleNotFoundGetter,
+				Channel:    dist.Channel,
+				Framer:     dist.Framer,
+				Status:     statusSvc,
+				GetProgram: moduleNotFoundGetter,
 			}))
 			svcTask := task.Task{
 				Key:    task.NewKey(rack.NewKey(1, 1), 3),
@@ -1088,7 +1088,7 @@ var _ = Describe("Task", Ordered, func() {
 			Expect(w2.Write(frame.NewUnary(ch2.Key(), telem.NewSeriesV[uint8](99)))).To(BeTrue())
 		})
 
-		It("Should reclaim authority symmetrically on both channels when start signal stays active through yield", func() {
+		It("Should release authority on both channels when entering yield, ignoring stale virtual start signal", func() {
 			ch1 := createVirtualCh("bb2_ch1", telem.Uint8T)
 			ch2 := createVirtualCh("bb2_ch2", telem.Uint8T)
 			stopSignal := createVirtualCh("bb2_stop", telem.Uint8T)
@@ -1128,7 +1128,7 @@ var _ = Describe("Task", Ordered, func() {
 				Sync:        new(true),
 			}))
 			defer func() { Expect(w1.Close()).To(Succeed()) }()
-			Expect(w1.Write(frame.NewUnary(ch1.Key(), telem.NewSeriesV[uint8](99)))).To(BeFalse())
+			Expect(w1.Write(frame.NewUnary(ch1.Key(), telem.NewSeriesV[uint8](99)))).To(BeTrue())
 
 			w2 := MustSucceed(dist.Framer.OpenWriter(ctx, framer.WriterConfig{
 				Keys:        channel.Keys{ch2.Key()},
@@ -1137,7 +1137,7 @@ var _ = Describe("Task", Ordered, func() {
 				Sync:        new(true),
 			}))
 			defer func() { Expect(w2.Close()).To(Succeed()) }()
-			Expect(w2.Write(frame.NewUnary(ch2.Key(), telem.NewSeriesV[uint8](99)))).To(BeFalse())
+			Expect(w2.Write(frame.NewUnary(ch2.Key(), telem.NewSeriesV[uint8](99)))).To(BeTrue())
 		})
 	})
 
