@@ -126,6 +126,9 @@ select_mode(const x::telem::TimeSpan timing_interval, const bool has_intervals) 
     if (timing_interval < timing::HIGH_RATE_THRESHOLD)
         return x::thread::rt::has_support() ? ExecutionMode::RT_EVENT
                                             : ExecutionMode::HIGH_RATE;
+    if (x::thread::rt::has_support() &&
+        timing_interval < 3 * x::telem::MILLISECOND)
+        return ExecutionMode::RT_EVENT;
     if (timing_interval < timing::HYBRID_THRESHOLD) return ExecutionMode::HYBRID;
     return ExecutionMode::EVENT_DRIVEN;
 }

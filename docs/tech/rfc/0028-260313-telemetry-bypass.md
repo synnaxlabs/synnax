@@ -207,6 +207,11 @@ unauthorized write never reaches Cesium (and therefore never reaches hardware th
 the normal streamer path), while the bypass must enforce this guarantee locally on the
 driver.
 
+Note: The interaction between this propagation window and the server-side group
+exclusion mechanism (Section 4.3) creates a more severe problem than the window alone
+suggests. See Section 8.0 for a detailed analysis of the dual-filter authority gap and
+Section 8.1 for the proposed solution.
+
 ### 2.3.4 - Per-Channel Authority Granularity
 
 Authority operates per-channel, not per-subject. An Arc program writing to channels A,
@@ -1042,7 +1047,351 @@ The key insight is architecture-independent: **copies dominate, synchronization 
 cheap.** This holds across all targets because memcpy scales with data size while
 mutex/CV operations have fixed cost.
 
-# 8 - Future Extensions
+# 8 - Open Problems
+
+## 8.0 - The Dual-Filter Authority Gap
+
+### 8.0.0 - Problem Statement
+
+The bus introduces two independent frame filters that, when combined, can create a
+window where the wrong controller commands hardware or the correct controller receives
+nothing.
+
+**Filter 1 (server-side, coarse):** The streamer's `ExcludeGroups` drops all frames from
+the driver's own group on the server relay path. This prevents duplicate delivery of
+frames that were already routed via the local bus. It operates per-group and has no
+knowledge of per-channel authority.
+
+**Filter 2 (client-side, fine):** The `AuthorityMirror` filter on the bus streamer drops
+local bus frames for channels where the consumer's subject does not hold authority. This
+is the local replacement for Cesium's control gate. It is eventually consistent with a
+staleness window of 1-5ms on loopback.
+
+These two filters are not coordinated. Together they can block all delivery paths during
+an authority transition.
+
+### 8.0.1 - The Scenario: Hotfire with Abort and Manual Override
+
+A realistic test stand deployment has three controllers competing for the same actuator
+channels (e.g., `main_fuel_valve`, `main_ox_valve`, `igniter`):
+
+1. **Nominal Hotfire** (Arc Task, local, authority=100): Runs the ignition sequence,
+   opening valves in timed order, holding steady state, then executing a nominal
+   shutdown.
+2. **Abort Listener** (Arc Task, local, authority=255): Monitors overpressure,
+   temperature, and leak sensors. If any threshold is exceeded, slams all valves shut
+   immediately. Must always win authority because it is the safety backstop.
+3. **Manual Override** (Console Schematic, remote, authority=200): Allows an operator to
+   take direct control of any valve for pre-test checkout, manual safing, or overriding
+   a stuck sequence.
+
+All three controllers write to the same LabJack output task's command channels. The
+Nominal Hotfire and Abort Listener run as Arc tasks on the same driver rack. The Manual
+Override runs in Console on a separate machine.
+
+The authority hierarchy is: Abort (255) > Manual Override (200) > Nominal Hotfire (100).
+
+#### Scenario A: Abort During Nominal Operation
+
+The most safety-critical scenario. The hotfire sequence is running at 1kHz. The abort
+listener detects an overpressure condition and must close all valves within a bounded
+time window (e.g., 5ms).
+
+```
+T=0    Abort Listener detects overpressure
+       Calls set_authority(valve channels, authority=255) [fire-and-forget]
+       Writes valve_close commands to its acquisition pipeline
+T=1    Server transfers authority: Hotfire (100) → Abort (255)
+       Gate updated immediately. ControlUpdate queued to digest inlet.
+T=2    Server sends response. Driver discards it (ack=false).
+T=3    Abort's valve_close commands arrive at bus
+       LabJack WriteTask's bus streamer receives frame
+       Authority filter checks mirror: Hotfire still holds authority
+       Abort's subject != Hotfire's subject → FRAME REJECTED
+T=4    Hotfire's next cycle writes valve_open commands to bus
+       Authority filter checks mirror: Hotfire holds authority → FRAME PASSES
+       LabJack executes valve_open command
+       VALVE REMAINS OPEN DURING OVERPRESSURE
+T=5    AuthorityMirror receives update from relay, applies transfer
+       Subsequent abort commands now pass the filter
+       Valve finally closes
+```
+
+Between T=1 and T=5 (1-5ms on loopback):
+- The abort listener's commands are rejected by the stale authority filter.
+- The hotfire sequence's commands continue reaching hardware.
+- The valve stays open during an overpressure condition.
+- The server path cannot help because `ExcludeGroups` blocks all same-rack frames.
+
+For a rocket engine test stand, 1-5ms of continued fuel flow during an overpressure
+event can mean the difference between a controlled shutdown and a catastrophic failure.
+
+#### Scenario B: Operator Takeover During Nominal Operation
+
+The operator grabs control from Console to manually safe the system.
+
+```
+T=0    Operator sets authority=200 on valve channels from Console
+T=1    Server transfers authority: Hotfire (100) → Operator (200)
+       ControlUpdate queued to digest inlet
+T=2    Operator sends valve_close from Console schematic
+       Console is REMOTE (different machine, different group)
+       Operator's frames arrive at server relay
+       LabJack's server streamer: ExcludeGroups=[rack_key]
+       Operator's group != rack_key → NOT excluded → FRAME DELIVERED
+T=3    Hotfire writes valve_open to bus
+       Authority filter checks mirror: Hotfire still holds authority → PASSES
+       LabJack receives BOTH operator's close AND hotfire's open
+```
+
+Between T=1 and mirror update:
+- The operator's commands arrive via the server path (correctly, because the operator is
+  remote and not subject to `ExcludeGroups`).
+- But the hotfire's commands also arrive via the bus path (incorrectly, because the
+  mirror is stale).
+- The LabJack receives conflicting commands from two controllers simultaneously.
+- The outcome depends on which command the control pipeline processes last in each cycle.
+
+This is less dangerous than Scenario A (the operator's commands do get through), but the
+conflicting commands create unpredictable actuator behavior during the transition.
+
+#### Scenario C: Abort While Operator Has Manual Control
+
+The operator is manually controlling valves (authority=200). The abort listener detects a
+hazard.
+
+```
+T=0    Abort Listener detects hazard
+       Calls set_authority(authority=255) [fire-and-forget]
+       Writes valve_close commands
+T=1    Server transfers authority: Operator (200) → Abort (255)
+T=2    Abort's commands arrive at bus
+       Authority filter: mirror says Operator holds authority
+       Abort's subject != Operator's subject → FRAME REJECTED
+T=3    Operator's commands arrive via server relay
+       ExcludeGroups=[rack_key], Operator's group != rack_key → DELIVERED
+       Operator (who may not be watching) continues commanding
+T=4    Mirror updates. Abort's commands start reaching hardware.
+```
+
+Between T=1 and T=4:
+- The abort listener's commands are rejected from both paths (bus filtered by stale
+  mirror, server blocked by `ExcludeGroups`).
+- The operator's commands continue arriving because the operator is remote.
+- The safety system is completely ineffective during the staleness window.
+
+This is the worst combined failure: the highest-priority safety mechanism (abort) is
+blocked while a lower-priority controller (operator) continues commanding hardware.
+
+### 8.0.2 - Asymmetry Between Local and Remote Controllers
+
+The scenarios above reveal a structural asymmetry in how the dual-filter system treats
+local and remote controllers:
+
+**Remote controllers (Console)** are unaffected by `ExcludeGroups` because they have a
+different group. Their frames always reach the server-side streamer. They can take
+authority and their commands arrive immediately via the server path.
+
+**Local controllers (Arc tasks on the same rack)** are subject to both filters. Their
+server path is blocked by `ExcludeGroups` (same group), and their bus path depends on the
+authority mirror being current. During transitions, local controllers can be completely
+blocked from both paths.
+
+This means authority transitions FROM a remote controller TO a local controller are the
+worst case. The local controller gains authority on the server but cannot deliver
+commands through either path until the mirror catches up. The remote controller's
+commands may continue arriving during the window.
+
+Authority transitions between two local controllers also exhibit the gap: the old local
+controller's commands pass the stale filter while the new local controller's commands are
+rejected from both paths.
+
+Authority transitions FROM a local controller TO a remote controller are less severe: the
+remote controller's commands arrive via the server path immediately. The local
+controller's commands may leak through the bus for the duration of the window, creating
+brief conflicting commands rather than a complete blockout.
+
+### 8.0.3 - Severity
+
+The staleness window is 1-5ms on a co-located deployment and 10-50ms on a multi-node
+deployment. Its duration depends on:
+- Digest writer goroutine scheduling (~microseconds)
+- Relay fan-out (~microseconds)
+- Network/loopback transport (50-200us loopback, 1-50ms remote)
+- JSON parsing and mirror lock acquisition (~microseconds)
+
+The impact during this window ranges from annoying (brief conflicting commands during
+operator takeover) to safety-critical (abort commands blocked while valves remain open).
+The severity depends on which controller is gaining authority and whether it is local or
+remote.
+
+### 8.0.4 - Root Cause
+
+The root cause is that authority is enforced in two places with different consistency
+guarantees, and neither can compensate for the other's failure mode:
+
+1. The server-side group exclusion is always correct but too coarse. It blocks all
+   same-rack frames regardless of per-channel authority, creating a hard dependency on
+   the bus path being correct.
+2. The client-side authority filter is per-channel but eventually consistent. During
+   transitions, it makes decisions based on stale state.
+
+The group exclusion was designed to prevent duplicate delivery. It assumes the bus path
+is authoritative for same-rack frames. But the bus path relies on the authority mirror,
+which lags the server. The combination creates a window where the bus path is wrong and
+the server path is blocked.
+
+The asymmetry between local and remote controllers (Section 8.0.2) is a direct
+consequence of this design: `ExcludeGroups` only penalizes same-rack traffic, so only
+local controllers suffer the dual-filter blockout.
+
+### 8.0.5 - Comparison with Current Pipeline
+
+In the current pipeline (without bypass), all three controllers write through the
+server. Cesium's control gate validates authority synchronously on every write. When the
+abort listener acquires authority, the gate immediately rejects the hotfire sequence's
+writes and accepts the abort's writes. The valve closes on the next write cycle. There
+is no staleness window because the gate is the single, synchronous enforcement point.
+
+The bypass replaces this synchronous gate with an asynchronous mirror. The tradeoff is
+latency (the mirror avoids a server round-trip per frame) for consistency (the mirror
+may be stale during transitions). This tradeoff is acceptable for the data path (frames
+per cycle) but creates a safety gap for authority transitions, particularly when the
+gaining controller is local and the losing controller is local or remote.
+
+## 8.1 - Proposed Solution: Short-Circuit Authority Increases Through the Mirror
+
+### 8.1.0 - Key Observation
+
+Authority increases are locally decidable. When a task calls `set_authority` with
+authority strictly greater than the current holder's, the outcome is deterministic: the
+caller wins. The server will confirm this, but the driver already has enough information
+to predict the result. Equal authority preserves the current holder (server uses
+position-based tiebreak favoring the earlier gate), so the driver must not optimistically
+apply equal-authority updates.
+
+Authority decreases are not locally decidable. When authority drops, the mirror cannot
+determine who takes over next because that depends on what other gates exist on the
+server. Decreases must wait for the server's relay update.
+
+### 8.1.1 - The Fix
+
+When the bus Writer's `set_authority` is called, apply the authority change directly to
+the AuthorityMirror for any channel where the new authority is strictly greater than the
+current holder's. Then forward the request to the server as before (fire-and-forget).
+The mirror update happens in the same function call, before `set_authority` returns.
+
+The timeline becomes:
+
+```
+T=0    Task B calls set_authority(authority=255)
+       Writer.set_authority calls mirror.apply_increase for each channel
+       Mirror now reflects Task B as authority holder (255 > anything)
+T=0+ε  set_authority forwards request to server (fire-and-forget)
+T=0+ε  Next data frame: authority filter uses correct mirror state
+       Task B's commands pass through the bus immediately
+T=1-5  Server relay arrives, mirror.apply() overwrites with same state (idempotent)
+```
+
+The cost is zero additional latency. The mirror update is a hash map write under a mutex,
+completing in nanoseconds. No network round-trip is required. No protocol changes are
+needed.
+
+### 8.1.2 - Implementation
+
+1. **AuthorityMirror gains `apply_increase`.** A new method that takes a subject,
+   channel key, and authority level. If the incoming authority is strictly greater than
+   the current state for that channel (or no state exists), the mirror is updated. Equal
+   or lower authority is ignored.
+
+2. **Bus Writer holds mirror reference, subject, and channels.** The Writer is
+   constructed with a reference to the AuthorityMirror, the writer's control subject,
+   and the channel keys from the WriterConfig. When `set_authority` is called with empty
+   keys (meaning "all channels"), the Writer expands to its full channel list.
+
+3. **Bus WriterFactory threads the mirror.** The factory accepts an AuthorityMirror
+   reference (matching the pattern already used by StreamerFactory) and passes it through
+   to each Writer it creates along with the subject and channels from the config.
+
+4. **`make_writer_factory` guards on mirror availability.** If `ctx->authority_mirror()`
+   is nullptr, the factory falls back to the direct server writer (matching the guard
+   in `make_streamer_factory`).
+
+### 8.1.3 - How This Addresses Each Scenario
+
+**Scenario A (Abort during hotfire):** The abort listener calls `set_authority` with
+authority 255. The Writer calls `apply_increase(abort, channel, 255)` for each channel.
+Since 255 > 200 (hotfire's authority), the mirror updates immediately. The abort's next
+valve_close command is published to the bus and passes the authority filter. The hotfire's
+commands are now filtered out. Zero latency between authority change and first correct
+command.
+
+**Scenario B (Operator takeover):** The operator is remote, so the authority change
+originates from outside the driver. The mirror updates via the relay path with 1-5ms
+staleness. During this window, the hotfire's commands may still pass through the bus.
+This scenario is unchanged from the baseline and requires server-initiated mirror
+notifications to fully address (see Section 8.1.5).
+
+**Scenario C (Abort while operator has control):** Same as Scenario A. The abort listener
+is local and calls `set_authority` with authority 255. The mirror updates immediately,
+the abort's commands pass through, and the operator's commands are filtered on the bus
+path. The operator's commands still reach hardware via the server path (unaffected by
+ExcludeGroups since they originate from a different group), but the abort's higher
+authority at the server's control gate takes precedence.
+
+### 8.1.4 - Correctness Properties
+
+**Authority=255 (abort) is guaranteed correct locally.** No gate can outrank it.
+`apply_increase` computes `255 > anything` which is always true. The mirror is correct
+before the next frame.
+
+**Idempotent with relay.** When the server's relay update arrives 1-5ms later, `apply()`
+overwrites with the same state. No conflict because the relay carries the authoritative
+transfer which matches what was optimistically applied.
+
+**Decreases are safe.** `apply_increase` is a no-op when incoming authority <= current.
+The server handles decreases and the relay corrects the mirror. No optimistic update is
+made for authority drops.
+
+**Equal authority preserves holder.** The `>=` comparison in `apply_increase` means equal
+authority does not trigger an update. This matches the server's behavior where the
+earlier gate wins ties.
+
+**Rare edge case: two tasks set authority=255 simultaneously.** Both think they won
+locally. The relay corrects the loser within 1-5ms. This is strictly better than the
+baseline where both are stale for the full window.
+
+### 8.1.5 - Future Improvement: Server-Initiated Mirror Notifications
+
+Scenario B reveals a gap: when a remote controller takes authority, local mirrors learn
+about it through the relay path with 1-5ms of staleness. During this window, the old
+local controller's commands leak through the bus.
+
+A future improvement could have the server push authority notifications directly to
+affected drivers when a remote controller takes authority over channels that have local
+bus routes. This would require the server to track which channels have active bus routes
+on each driver, adding complexity to the distribution layer.
+
+This is deferred because the primary safety scenario (abort) is locally initiated and
+fully addressed by the short-circuit fix.
+
+### 8.1.6 - Alternative Considered: Synchronous Server Round-Trip
+
+An earlier design made `set_authority` synchronous (`ack=true`), waiting for the server's
+response before returning. The response would carry the authority transfer, and the
+driver would apply it to the mirror directly. This adds one network round-trip per
+authority change (~100-500us on loopback).
+
+The short-circuit approach is preferred because it adds zero latency, requires no
+protocol changes (no need to extend `FrameWriterResponse` with transfer details), and
+handles the critical abort scenario with the same correctness guarantee. The synchronous
+approach would additionally help with authority decreases (the driver would learn
+immediately who takes over), but this is not required for the safety-critical abort use
+case where the abort always increases authority.
+
+# 9 - Future Extensions
+
+## 9.0 - Existing Ideas
 
 - **Bus-level telemetry**: Instrument the bus to report routing statistics (local vs
   server frame counts, latency distribution) for observability.
