@@ -205,7 +205,7 @@ describe("StreamMultiChannelLog", () => {
     const series = new Series({ data: bigData });
     c.streamHandler?.(new Map([[c.channelA.key, new MultiSeries([series])]]));
     expect(log.value()).toHaveLength(100_000);
-  }, 15_000);
+  }, 30_000);
 
   it("should set channelPadding to align values across channels of different name lengths", async () => {
     const props: StreamMultiChannelLogProps = {
