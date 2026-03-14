@@ -16,7 +16,6 @@ import (
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/x/status"
 	"github.com/synnaxlabs/x/telem"
-	. "github.com/synnaxlabs/x/testutil"
 )
 
 type CustomDetails struct {

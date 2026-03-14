@@ -18,14 +18,14 @@ linters:
             - []
             - []
             - - skip-package-name-checks: true
+    custom:
+      mustsucceedlint:
+        type: "module"
+        description: >
+          Detects Expect(err).ToNot(HaveOccurred()) patterns that can be replaced with
+          MustSucceed.
   exclusions:
     generated: lax
-  custom:
-    mustsucceedlint:
-      type: "module"
-      description: >
-        Detects Expect(err).ToNot(HaveOccurred()) patterns that can be replaced with
-        MustSucceed.
 
 run:
   build-tags:
