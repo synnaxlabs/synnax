@@ -19,6 +19,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/access/rbac/policy"
 	"github.com/synnaxlabs/synnax/pkg/service/access/rbac/role"
 	"github.com/synnaxlabs/x/gorp"
+	. "github.com/synnaxlabs/x/testutil"
 )
 
 var _ = Describe("Service", func() {
@@ -28,12 +29,11 @@ var _ = Describe("Service", func() {
 
 	Describe("OpenService", func() {
 		It("Should open a service with valid configuration", func() {
-			s, err := rbac.OpenService(ctx, rbac.ServiceConfig{
+			s := MustSucceed(rbac.OpenService(ctx, rbac.ServiceConfig{
 				DB:       db,
 				Ontology: otg,
 				Group:    g,
-			})
-			Expect(err).ToNot(HaveOccurred())
+			}))
 			Expect(s).ToNot(BeNil())
 			Expect(s.Policy).ToNot(BeNil())
 			Expect(s.Role).ToNot(BeNil())
@@ -273,16 +273,14 @@ var _ = Describe("Service", func() {
 			Expect(policyWriter.SetOnRole(ctx, r.Key, p1.Key, p2.Key)).To(Succeed())
 			Expect(roleWriter.AssignRole(ctx, subject, r.Key)).To(Succeed())
 
-			policies, err := svc.RetrievePoliciesForSubject(ctx, subject, tx)
-			Expect(err).ToNot(HaveOccurred())
+			policies := MustSucceed(svc.RetrievePoliciesForSubject(ctx, subject, tx))
 			Expect(policies).To(HaveLen(2))
 			policyKeys := []uuid.UUID{policies[0].Key, policies[1].Key}
 			Expect(policyKeys).To(ContainElements(p1.Key, p2.Key))
 		})
 
 		It("Should return empty list when no roles assigned", func() {
-			policies, err := svc.RetrievePoliciesForSubject(ctx, subject, tx)
-			Expect(err).ToNot(HaveOccurred())
+			policies := MustSucceed(svc.RetrievePoliciesForSubject(ctx, subject, tx))
 			Expect(policies).To(BeEmpty())
 		})
 	})

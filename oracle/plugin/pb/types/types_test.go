@@ -20,6 +20,7 @@ import (
 	"github.com/synnaxlabs/oracle/plugin/pb/types"
 	"github.com/synnaxlabs/oracle/resolution"
 	. "github.com/synnaxlabs/oracle/testutil"
+	. "github.com/synnaxlabs/x/testutil"
 )
 
 func TestPBTypes(t *testing.T) {
@@ -211,8 +212,7 @@ var _ = Describe("Plugin", func() {
 				RepoRoot:    "/tmp/test",
 			}
 
-			resp, err := p.Generate(req)
-			Expect(err).ToNot(HaveOccurred())
+			resp := MustSucceed(p.Generate(req))
 			Expect(resp.Files).To(HaveLen(1))
 
 			content := string(resp.Files[0].Content)
@@ -256,8 +256,7 @@ var _ = Describe("Plugin", func() {
 				RepoRoot:    "/tmp/test",
 			}
 
-			resp, err := p.Generate(req)
-			Expect(err).ToNot(HaveOccurred())
+			resp := MustSucceed(p.Generate(req))
 			Expect(resp.Files).To(HaveLen(1))
 
 			content := string(resp.Files[0].Content)
@@ -286,8 +285,7 @@ var _ = Describe("Plugin", func() {
 				RepoRoot:    "/tmp/test",
 			}
 
-			resp, err := p.Generate(req)
-			Expect(err).ToNot(HaveOccurred())
+			resp := MustSucceed(p.Generate(req))
 			Expect(resp.Files).To(HaveLen(1))
 
 			content := string(resp.Files[0].Content)
@@ -322,8 +320,7 @@ var _ = Describe("Plugin", func() {
 				RepoRoot:    "/tmp/test",
 			}
 
-			resp, err := p.Generate(req)
-			Expect(err).ToNot(HaveOccurred())
+			resp := MustSucceed(p.Generate(req))
 			Expect(resp.Files).To(HaveLen(1))
 
 			content := string(resp.Files[0].Content)
@@ -349,8 +346,7 @@ var _ = Describe("Plugin", func() {
 				RepoRoot:    "/tmp/test",
 			}
 
-			resp, err := p.Generate(req)
-			Expect(err).ToNot(HaveOccurred())
+			resp := MustSucceed(p.Generate(req))
 			Expect(resp.Files).To(HaveLen(1))
 
 			content := string(resp.Files[0].Content)
@@ -386,8 +382,7 @@ var _ = Describe("Plugin", func() {
 				RepoRoot:    "/tmp/test",
 			}
 
-			resp, err := p.Generate(req)
-			Expect(err).ToNot(HaveOccurred())
+			resp := MustSucceed(p.Generate(req))
 			Expect(resp.Files).To(HaveLen(1))
 
 			content := string(resp.Files[0].Content)
@@ -431,8 +426,7 @@ var _ = Describe("Plugin", func() {
 				RepoRoot:    "/tmp/test",
 			}
 
-			resp, err := p.Generate(req)
-			Expect(err).ToNot(HaveOccurred())
+			resp := MustSucceed(p.Generate(req))
 			Expect(resp.Files).To(HaveLen(1))
 
 			content := string(resp.Files[0].Content)
@@ -464,8 +458,7 @@ var _ = Describe("Plugin", func() {
 				RepoRoot:    "/tmp/test",
 			}
 
-			resp, err := p.Generate(req)
-			Expect(err).ToNot(HaveOccurred())
+			resp := MustSucceed(p.Generate(req))
 			Expect(resp.Files).To(HaveLen(1))
 
 			content := string(resp.Files[0].Content)
@@ -552,8 +545,7 @@ var _ = Describe("Plugin", func() {
 				})).To(Succeed())
 
 				req := &plugin.Request{Resolutions: table, RepoRoot: "/tmp/test"}
-				resp, err := p.Generate(req)
-				Expect(err).ToNot(HaveOccurred())
+				resp := MustSucceed(p.Generate(req))
 				content := string(resp.Files[0].Content)
 				Expect(content).To(ContainSubstring("string value = 1;"))
 			})
@@ -579,8 +571,7 @@ var _ = Describe("Plugin", func() {
 				})).To(Succeed())
 
 				req := &plugin.Request{Resolutions: table, RepoRoot: "/tmp/test"}
-				resp, err := p.Generate(req)
-				Expect(err).ToNot(HaveOccurred())
+				resp := MustSucceed(p.Generate(req))
 				content := string(resp.Files[0].Content)
 				Expect(content).To(ContainSubstring(`import "google/protobuf/any.proto";`))
 				Expect(content).To(ContainSubstring("google.protobuf.Any value = 1;"))
@@ -614,8 +605,7 @@ var _ = Describe("Plugin", func() {
 				})).To(Succeed())
 
 				req := &plugin.Request{Resolutions: table, RepoRoot: "/tmp/test"}
-				resp, err := p.Generate(req)
-				Expect(err).ToNot(HaveOccurred())
+				resp := MustSucceed(p.Generate(req))
 				content := string(resp.Files[0].Content)
 				// Should have wrapper message and use it
 				Expect(content).To(ContainSubstring("message ArrayWrapper"))
@@ -641,8 +631,7 @@ var _ = Describe("Plugin", func() {
 				})).To(Succeed())
 
 				req := &plugin.Request{Resolutions: table, RepoRoot: "/tmp/test"}
-				resp, err := p.Generate(req)
-				Expect(err).ToNot(HaveOccurred())
+				resp := MustSucceed(p.Generate(req))
 				content := string(resp.Files[0].Content)
 				Expect(content).To(ContainSubstring("string name = 1;"))
 				Expect(content).To(ContainSubstring("optional string nickname = 2;"))
@@ -672,8 +661,7 @@ var _ = Describe("Plugin", func() {
 				})).To(Succeed())
 
 				req := &plugin.Request{Resolutions: table, RepoRoot: "/tmp/test"}
-				resp, err := p.Generate(req)
-				Expect(err).ToNot(HaveOccurred())
+				resp := MustSucceed(p.Generate(req))
 				content := string(resp.Files[0].Content)
 				Expect(content).To(ContainSubstring("string id = 1;"))
 			})
@@ -724,8 +712,7 @@ var _ = Describe("Plugin", func() {
 				})).To(Succeed())
 
 				req := &plugin.Request{Resolutions: table, RepoRoot: "/tmp/test"}
-				resp, err := p.Generate(req)
-				Expect(err).ToNot(HaveOccurred())
+				resp := MustSucceed(p.Generate(req))
 				Expect(resp.Files).To(HaveLen(2))
 
 				// Find the user file
@@ -777,8 +764,7 @@ var _ = Describe("Plugin", func() {
 				})).To(Succeed())
 
 				req := &plugin.Request{Resolutions: table, RepoRoot: "/tmp/test"}
-				resp, err := p.Generate(req)
-				Expect(err).ToNot(HaveOccurred())
+				resp := MustSucceed(p.Generate(req))
 
 				// Find the task file
 				var taskContent string
@@ -829,8 +815,7 @@ var _ = Describe("Plugin", func() {
 				})).To(Succeed())
 
 				req := &plugin.Request{Resolutions: table, RepoRoot: "/tmp/test"}
-				resp, err := p.Generate(req)
-				Expect(err).ToNot(HaveOccurred())
+				resp := MustSucceed(p.Generate(req))
 				content := string(resp.Files[0].Content)
 				Expect(content).To(ContainSubstring("map<string, Info> items = 1;"))
 			})
@@ -869,8 +854,7 @@ var _ = Describe("Plugin", func() {
 				})).To(Succeed())
 
 				req := &plugin.Request{Resolutions: table, RepoRoot: "/tmp/test"}
-				resp, err := p.Generate(req)
-				Expect(err).ToNot(HaveOccurred())
+				resp := MustSucceed(p.Generate(req))
 				content := string(resp.Files[0].Content)
 				Expect(content).To(ContainSubstring("repeated Item items = 1;"))
 			})

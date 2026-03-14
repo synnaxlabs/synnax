@@ -17,6 +17,7 @@ import (
 	"github.com/synnaxlabs/x/gorp"
 	"github.com/synnaxlabs/x/kv/memkv"
 	"github.com/synnaxlabs/x/telem"
+	. "github.com/synnaxlabs/x/testutil"
 )
 
 type testUUIDEntry struct {
@@ -63,8 +64,7 @@ var _ = Describe("GorpPublisherConfig", func() {
 				Key:  uuid.MustParse("12345678-1234-1234-1234-123456789012"),
 				Name: "test",
 			}
-			b, err := signals.MarshalJSON[uuid.UUID, testUUIDEntry](entry)
-			Expect(err).ToNot(HaveOccurred())
+			b := MustSucceed(signals.MarshalJSON(entry))
 			Expect(b).To(HaveSuffix("\n"))
 			Expect(string(b)).To(ContainSubstring(`"name":"test"`))
 		})
@@ -83,8 +83,7 @@ var _ = Describe("GorpPublisherConfig", func() {
 		It("Should correctly marshal UUID for delete", func() {
 			cfg := signals.GorpPublisherConfigUUID[testUUIDEntry](db)
 			uid := uuid.MustParse("12345678-1234-1234-1234-123456789012")
-			b, err := cfg.MarshalDelete(uid)
-			Expect(err).ToNot(HaveOccurred())
+			b := MustSucceed(cfg.MarshalDelete(uid))
 			Expect(b).To(Equal(uid[:]))
 		})
 
@@ -94,8 +93,7 @@ var _ = Describe("GorpPublisherConfig", func() {
 				Key:  uuid.MustParse("12345678-1234-1234-1234-123456789012"),
 				Name: "test-entry",
 			}
-			b, err := cfg.MarshalSet(entry)
-			Expect(err).ToNot(HaveOccurred())
+			b := MustSucceed(cfg.MarshalSet(entry))
 			Expect(string(b)).To(ContainSubstring(`"name":"test-entry"`))
 		})
 	})
@@ -112,16 +110,14 @@ var _ = Describe("GorpPublisherConfig", func() {
 
 		It("Should correctly marshal numeric key for delete", func() {
 			cfg := signals.GorpPublisherConfigNumeric[uint32, testNumericEntry](db, telem.Uint32T)
-			b, err := cfg.MarshalDelete(42)
-			Expect(err).ToNot(HaveOccurred())
+			b := MustSucceed(cfg.MarshalDelete(42))
 			Expect(b).To(HaveLen(4)) // uint32 is 4 bytes
 		})
 
 		It("Should correctly marshal entry for set as JSON", func() {
 			cfg := signals.GorpPublisherConfigNumeric[uint32, testNumericEntry](db, telem.Uint32T)
 			entry := testNumericEntry{Key: 123, Value: "test-value"}
-			b, err := cfg.MarshalSet(entry)
-			Expect(err).ToNot(HaveOccurred())
+			b := MustSucceed(cfg.MarshalSet(entry))
 			Expect(string(b)).To(ContainSubstring(`"value":"test-value"`))
 		})
 	})
@@ -138,16 +134,14 @@ var _ = Describe("GorpPublisherConfig", func() {
 
 		It("Should correctly marshal numeric key for delete", func() {
 			cfg := signals.GorpPublisherConfigPureNumeric[uint32, testNumericEntry](db, telem.Uint32T)
-			b, err := cfg.MarshalDelete(42)
-			Expect(err).ToNot(HaveOccurred())
+			b := MustSucceed(cfg.MarshalDelete(42))
 			Expect(b).To(HaveLen(4)) // uint32 is 4 bytes
 		})
 
 		It("Should correctly marshal entry key for set", func() {
 			cfg := signals.GorpPublisherConfigPureNumeric[uint32, testNumericEntry](db, telem.Uint32T)
 			entry := testNumericEntry{Key: 999, Value: "ignored"}
-			b, err := cfg.MarshalSet(entry)
-			Expect(err).ToNot(HaveOccurred())
+			b := MustSucceed(cfg.MarshalSet(entry))
 			Expect(b).To(HaveLen(4)) // uint32 is 4 bytes
 		})
 	})
@@ -164,16 +158,14 @@ var _ = Describe("GorpPublisherConfig", func() {
 
 		It("Should correctly marshal string key for delete with newline", func() {
 			cfg := signals.GorpPublisherConfigString[testStringEntry](db)
-			b, err := cfg.MarshalDelete("my-key")
-			Expect(err).ToNot(HaveOccurred())
+			b := MustSucceed(cfg.MarshalDelete("my-key"))
 			Expect(string(b)).To(Equal("my-key\n"))
 		})
 
 		It("Should correctly marshal entry for set as JSON", func() {
 			cfg := signals.GorpPublisherConfigString[testStringEntry](db)
 			entry := testStringEntry{Key: "entry-key", Value: 42}
-			b, err := cfg.MarshalSet(entry)
-			Expect(err).ToNot(HaveOccurred())
+			b := MustSucceed(cfg.MarshalSet(entry))
 			Expect(string(b)).To(ContainSubstring(`"value":42`))
 		})
 	})
@@ -197,8 +189,7 @@ var _ = Describe("GorpPublisherConfig", func() {
 			cfg := signals.GorpPublisherConfigUUID[testUUIDEntry](db)
 			cfg.SetName = "test_set"
 			cfg.DeleteName = "test_delete"
-			err := cfg.Validate()
-			Expect(err).ToNot(HaveOccurred())
+			Expect(cfg.Validate()).To(Succeed())
 		})
 	})
 })

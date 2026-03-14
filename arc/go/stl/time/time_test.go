@@ -882,13 +882,11 @@ var _ = Describe("Time", func() {
 	})
 	Describe("SymbolResolver", func() {
 		It("Should resolve interval symbol", func() {
-			sym, err := time.SymbolResolver.Resolve(ctx, "interval")
-			Expect(err).ToNot(HaveOccurred())
+			sym := MustSucceed(time.SymbolResolver.Resolve(ctx, "interval"))
 			Expect(sym.Name).To(Equal("interval"))
 		})
 		It("Should resolve wait symbol", func() {
-			sym, err := time.SymbolResolver.Resolve(ctx, "wait")
-			Expect(err).ToNot(HaveOccurred())
+			sym := MustSucceed(time.SymbolResolver.Resolve(ctx, "wait"))
 			Expect(sym.Name).To(Equal("wait"))
 		})
 	})
