@@ -13,7 +13,7 @@ import { status } from "@synnaxlabs/x";
 import { z } from "zod";
 
 import { graph } from "@/arc/graph";
-import { module } from "@/arc/module";
+import { program } from "@/arc/program";
 import { text } from "@/arc/text";
 import { ontology } from "@/ontology";
 export const MODES = ["text", "graph"] as const;
@@ -73,8 +73,8 @@ export const arcZ = z.object({
   graph: graph.graphZ,
   /** text is the text-based Arc source code. */
   text: text.textZ,
-  /** module is the compiled module output including IR and WebAssembly bytecode. */
-  module: module.moduleZ.optional(),
+  /** program is the compiled module output including IR and WebAssembly bytecode. */
+  program: program.programZ.optional(),
   /** status is the current execution status of the module. */
   status: statusZ.optional(),
 });

@@ -18,22 +18,22 @@
 
 #include "arc/cpp/compiler/types.gen.h"
 #include "arc/cpp/ir/types.gen.h"
-#include "arc/go/module/pb/module.pb.h"
+#include "arc/go/program/pb/program.pb.h"
 
-namespace arc::module {
+namespace arc::program {
 
-struct Module;
+struct Program;
 
-/// @brief Module is a compiled Arc module combining the intermediate representation
+/// @brief Program is a compiled Arc program combining the intermediate representation
 /// with WebAssembly bytecode, ready for execution.
-struct Module : public ::arc::ir::IR, public ::arc::compiler::Output {
+struct Program : public ::arc::ir::IR, public ::arc::compiler::Output {
 
-    static Module parse(x::json::Parser parser);
+    static Program parse(x::json::Parser parser);
     [[nodiscard]] x::json::json to_json() const;
 
-    using proto_type = ::arc::module::pb::Module;
-    [[nodiscard]] ::arc::module::pb::Module to_proto() const;
-    static std::pair<Module, x::errors::Error>
-    from_proto(const ::arc::module::pb::Module &pb);
+    using proto_type = ::arc::program::pb::Program;
+    [[nodiscard]] ::arc::program::pb::Program to_proto() const;
+    static std::pair<Program, x::errors::Error>
+    from_proto(const ::arc::program::pb::Program &pb);
 };
 }

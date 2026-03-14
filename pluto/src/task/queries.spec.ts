@@ -736,7 +736,7 @@ describe("queries", () => {
         schemas: {
           type: z.literal("testType"),
           config: z.object({ setting: z.string() }),
-          statusData: z.any().nullish()
+          statusData: z.any().nullish(),
         },
         initialValues: {
           key: "0",

@@ -18,7 +18,7 @@
 #include "x/cpp/status/json.gen.h"
 
 #include "arc/cpp/graph/json.gen.h"
-#include "arc/cpp/module/json.gen.h"
+#include "arc/cpp/program/json.gen.h"
 #include "arc/cpp/text/json.gen.h"
 
 namespace synnax::arc {
@@ -42,7 +42,7 @@ inline Arc Arc::parse(x::json::Parser parser) {
         .mode = parser.field<std::string>("mode"),
         .graph = parser.field<::arc::graph::Graph>("graph"),
         .text = parser.field<::arc::text::Text>("text"),
-        .module = parser.field<std::optional<::arc::module::Module>>("module"),
+        .program = parser.field<std::optional<::arc::program::Program>>("program"),
         .status = parser.field<std::optional<Status>>("status"),
     };
 }
@@ -54,7 +54,7 @@ inline x::json::json Arc::to_json() const {
     j["mode"] = this->mode;
     j["graph"] = this->graph.to_json();
     j["text"] = this->text.to_json();
-    if (this->module.has_value()) j["module"] = this->module->to_json();
+    if (this->program.has_value()) j["program"] = this->program->to_json();
     if (this->status.has_value()) j["status"] = this->status->to_json();
     return j;
 }

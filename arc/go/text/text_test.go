@@ -699,7 +699,7 @@ var _ = Describe("Text", func() {
 
 				writeNode := findNodeByType(inter.Nodes, "write")
 				Expect(writeNode.Channels.Write).To(HaveLen(1))
-				Expect(writeNode.Channels.Write.Contains(uint32(10001))).To(BeTrue())
+				Expect(lo.HasKey(writeNode.Channels.Write, uint32(10001))).To(BeTrue())
 			})
 
 			It("Should handle global constant as flow source in a sequence stage", func() {

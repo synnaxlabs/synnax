@@ -16,7 +16,7 @@ import (
 	"encoding/json"
 	"github.com/google/uuid"
 	graphpb "github.com/synnaxlabs/arc/graph/pb"
-	modulepb "github.com/synnaxlabs/arc/module/pb"
+	programpb "github.com/synnaxlabs/arc/program/pb"
 	textpb "github.com/synnaxlabs/arc/text/pb"
 	"github.com/synnaxlabs/synnax/pkg/service/arc"
 	"github.com/synnaxlabs/x/status"
@@ -87,9 +87,9 @@ func ArcToPB(ctx context.Context, r arc.Arc) (*Arc, error) {
 		Graph: graphVal,
 		Text:  textVal,
 	}
-	if r.Module != nil {
+	if r.Program != nil {
 		var err error
-		pb.Module, err = modulepb.ModuleToPB(ctx, *r.Module)
+		pb.Program, err = programpb.ProgramToPB(ctx, *r.Program)
 		if err != nil {
 			return nil, err
 		}
@@ -126,12 +126,12 @@ func ArcFromPB(ctx context.Context, pb *Arc) (arc.Arc, error) {
 	}
 	r.Name = pb.Name
 	r.Mode = ModeFromPB(pb.Mode)
-	if pb.Module != nil {
-		val, err := modulepb.ModuleFromPB(ctx, pb.Module)
+	if pb.Program != nil {
+		val, err := programpb.ProgramFromPB(ctx, pb.Program)
 		if err != nil {
 			return r, err
 		}
-		r.Module = &val
+		r.Program = &val
 	}
 	if pb.Status != nil {
 		val, err := statuspb.StatusFromPB[arc.StatusDetails](ctx, pb.Status, StatusDetailsFromPBAny)

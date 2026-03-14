@@ -206,7 +206,7 @@ func buildGlobalConstantNode(
 	n := ir.Node{
 		Key:      key,
 		Type:     "constant",
-		Channels: symbol.NewChannels(),
+		Channels: types.NewChannels(),
 		Config:   types.Params{{Name: "value", Type: sym.Type, Value: sym.DefaultValue}},
 		Outputs:  types.Params{{Name: ir.DefaultOutputParam, Type: sym.Type}},
 	}
@@ -767,9 +767,9 @@ func analyzeStage(
 
 	entryNode := ir.Node{
 		Key:      kg.entry(seqName, stageName),
-		Type:     stage.EntryNode.Name,
+		Type:     stage.EntryNodeName,
 		Channels: types.NewChannels(),
-		Inputs:   stage.EntryNode.Type.Inputs,
+		Inputs:   stage.EntryNodeInputs,
 	}
 	nodes = append(nodes, entryNode)
 
