@@ -73,7 +73,7 @@ public:
                             << frame.size() << " channels";
                     return {std::move(frame), x::errors::NIL};
                 }
-                if (this->server_done) return {{}, this->server_err};
+                if (this->server_done) return {x::telem::Frame{}, this->server_err};
             }
             std::unique_lock lock(this->notify_mu);
             this->notify_cv.wait_for(lock, std::chrono::milliseconds(5));

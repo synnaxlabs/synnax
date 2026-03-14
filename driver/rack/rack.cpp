@@ -61,7 +61,8 @@ void Rack::run(x::args::Parser &args, const std::function<void()> &on_shutdown) 
             cfg.new_factory(),
             cfg.manager,
             &this->bus,
-            &this->authority_mirror
+            &this->authority_mirror,
+            &this->rt_manager
         );
         err = this->task_manager->run([this]() { this->breaker.reset(); });
         this->authority_mirror.stop();

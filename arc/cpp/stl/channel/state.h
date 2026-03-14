@@ -98,6 +98,10 @@ public:
 
     std::vector<std::pair<types::ChannelKey, Series>> flush();
 
+    /// @brief flushes read and write state directly into the provided frame,
+    /// avoiding intermediate allocations.
+    void flush_into(x::telem::Frame &out);
+
     void reset();
 };
 

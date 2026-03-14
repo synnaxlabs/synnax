@@ -1425,6 +1425,19 @@ public:
         if (this->data_type().is_variable()) this->cached_byte_size = 0;
     }
 
+    /// @brief detaches the data buffer for reuse after a shallow_copy. If the
+    /// buffer is shared (use_count > 1), allocates a fresh buffer of the same
+    /// capacity. Resets size to 0 while preserving capacity.
+    void detach_buffer() {
+        const auto bc = this->byte_cap();
+        if (this->data_ && this->data_.use_count() > 1) {
+            this->data_ = alloc(bc);
+            this->cached_byte_cap = bc;
+        }
+        this->size_ = 0;
+        this->cached_byte_size = 0;
+    }
+
     void resize(size_t new_size) {
         if (this->data_type().is_variable()) {
             throw std::runtime_error(

@@ -14,6 +14,7 @@
 #include <string>
 
 #include "glog/logging.h"
+
 #include "gperftools/profiler.h"
 
 namespace x::profile {

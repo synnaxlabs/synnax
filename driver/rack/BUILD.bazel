@@ -44,6 +44,7 @@ cc_library(
         "//x/cpp/os",
         "//x/cpp/path",
         "//x/cpp/thread",
+        "//x/cpp/thread/rt",
         "//x/cpp/uuid",
     ] + select({
         ":nilinuxrt": [],

@@ -26,7 +26,10 @@ namespace arc::runtime::loop {
 
 class LinuxLoop final : public Loop {
 public:
-    explicit LinuxLoop(const Config &config): config_(config) {}
+    explicit LinuxLoop(
+        const Config &config,
+        std::shared_ptr<x::thread::rt::Handle> rt_handle = nullptr
+    ): config_(config), rt_handle_(std::move(rt_handle)) {}
 
     ~LinuxLoop() override { this->close_fds(); }
 
@@ -128,10 +131,13 @@ public:
             }
         }
 
-        auto rt_cfg = this->config_.rt();
-        rt_cfg.prefer_deadline_scheduler = true;
-        if (auto err = x::thread::rt::apply_config(rt_cfg); err)
-            LOG(WARNING) << "[loop] Failed to apply RT config: " << err.message();
+        if (!this->rt_handle_) {
+            auto rt_cfg = this->config_.rt();
+            if (auto err = x::thread::rt::apply_config(rt_cfg); err)
+                LOG(WARNING) << "[loop] failed to apply RT config: " << err.message();
+        } else {
+            this->rt_handle_->apply();
+        }
 
         return x::errors::NIL;
     }
@@ -295,6 +301,7 @@ private:
     }
 
     Config config_;
+    std::shared_ptr<x::thread::rt::Handle> rt_handle_;
     int epoll_fd_ = -1;
     int event_fd_ = -1;
     int timer_fd_ = -1;
@@ -302,10 +309,11 @@ private:
     std::unique_ptr<::x::loop::Timer> timer_;
 };
 
-std::pair<std::unique_ptr<Loop>, x::errors::Error> create(const Config &cfg) {
-    auto loop = std::make_unique<LinuxLoop>(cfg);
-    if (auto err = loop->start(); err) return {nullptr, err};
-    return {std::move(loop), x::errors::NIL};
+std::pair<std::unique_ptr<Loop>, x::errors::Error> create(
+    const Config &cfg,
+    std::shared_ptr<x::thread::rt::Handle> rt_handle
+) {
+    return {std::make_unique<LinuxLoop>(cfg, std::move(rt_handle)), x::errors::NIL};
 }
 
 }

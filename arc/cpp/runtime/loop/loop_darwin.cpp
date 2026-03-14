@@ -32,7 +32,10 @@ static constexpr uintptr_t TIMER_EVENT_IDENT = 2;
 /// Consolidates all execution modes into a single class following the Linux pattern.
 class DarwinLoop final : public Loop {
 public:
-    explicit DarwinLoop(Config config): config_(std::move(config)) {
+    explicit DarwinLoop(
+        Config config,
+        std::shared_ptr<x::thread::rt::Handle> rt_handle = nullptr
+    ): config_(std::move(config)), rt_handle_(std::move(rt_handle)) {
         if (this->config_.lock_memory)
             LOG(WARNING) << "[loop] Memory locking not fully supported on macOS";
     }
@@ -103,8 +106,12 @@ public:
             }
         }
 
-        if (auto err = x::thread::rt::apply_config(this->config_.rt()); err)
-            LOG(WARNING) << "[loop] Failed to apply RT config: " << err.message();
+        if (!this->rt_handle_) {
+            if (auto err = x::thread::rt::apply_config(this->config_.rt()); err)
+                LOG(WARNING) << "[loop] failed to apply RT config: " << err.message();
+        } else {
+            this->rt_handle_->apply();
+        }
 
         return x::errors::NIL;
     }
@@ -252,15 +259,17 @@ private:
     }
 
     Config config_;
+    std::shared_ptr<x::thread::rt::Handle> rt_handle_;
     int kqueue_fd_ = -1;
     bool kqueue_timer_enabled_ = false;
     std::unique_ptr<x::loop::Timer> timer_;
 };
 
-std::pair<std::unique_ptr<Loop>, x::errors::Error> create(const Config &cfg) {
-    auto loop = std::make_unique<DarwinLoop>(cfg);
-    if (auto err = loop->start(); err) return {nullptr, err};
-    return {std::move(loop), x::errors::NIL};
+std::pair<std::unique_ptr<Loop>, x::errors::Error> create(
+    const Config &cfg,
+    std::shared_ptr<x::thread::rt::Handle> rt_handle
+) {
+    return {std::make_unique<DarwinLoop>(cfg, std::move(rt_handle)), x::errors::NIL};
 }
 
 }

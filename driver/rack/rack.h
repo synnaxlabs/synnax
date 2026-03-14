@@ -26,6 +26,8 @@
 #ifndef SYNNAX_NILINUXRT
 #include "driver/modbus/modbus.h"
 #endif
+#include "x/cpp/thread/rt/rt.h"
+
 #include "driver/bus/authority.h"
 #include "driver/bus/bus.h"
 #include "driver/common/sample_clock.h"
@@ -213,6 +215,7 @@ class Rack {
     std::unique_ptr<task::Manager> task_manager;
     bus::Bus bus;
     bus::AuthorityMirror authority_mirror;
+    x::thread::rt::Manager rt_manager;
     x::breaker::Breaker breaker = x::breaker::Breaker({
         .name = "driver",
         .base_interval = x::telem::SECOND,

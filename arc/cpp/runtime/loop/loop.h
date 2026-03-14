@@ -261,8 +261,10 @@ struct Loop {
         x::telem::TimeSpan max_timeout = x::telem::TimeSpan(0)
     ) = 0;
 
-    /// @brief Initialize loop resources. Must be called before wait().
-    /// Applies RT configuration (priority, affinity, memory lock) if configured.
+    /// @brief Initialize loop resources and apply RT configuration. Must be
+    /// called before wait() and from the thread that will run the event loop,
+    /// since RT scheduling (SCHED_FIFO/DEADLINE, MMCSS) is applied to the
+    /// calling thread.
     /// @return Error if resource allocation fails.
     virtual x::errors::Error start() = 0;
 
@@ -282,8 +284,15 @@ struct Loop {
     virtual bool watch(x::notify::Notifier &notifier) = 0;
 };
 
-/// @brief Creates a platform-specific loop implementation.
-/// @param cfg Loop configuration (mode, timing, RT settings).
-/// @return Pair of (loop, error). Loop is started on success.
-std::pair<std::unique_ptr<Loop>, x::errors::Error> create(const Config &cfg);
+/// @brief Creates a platform-specific loop implementation. The loop is not
+/// started; call start() from the thread that will run the event loop so
+/// that RT scheduling is applied to the correct thread.
+/// @param cfg Loop configuration.
+/// @param rt_handle Optional RT handle from the Manager. When provided, the
+/// loop calls handle->apply() instead of apply_config(config.rt()), and the
+/// handle's allocated core is used for CPU affinity.
+std::pair<std::unique_ptr<Loop>, x::errors::Error> create(
+    const Config &cfg,
+    std::shared_ptr<x::thread::rt::Handle> rt_handle = nullptr
+);
 }

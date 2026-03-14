@@ -31,6 +31,9 @@ struct Config {
     x::telem::TimeSpan max_overrun = x::telem::TimeSpan(0);
     /// @brief real-time thread configuration for the cycle thread.
     x::thread::rt::Config rt;
+    /// @brief optional RT handle from the Manager. When set, the engine
+    /// calls handle->apply() instead of apply_config(rt).
+    std::shared_ptr<x::thread::rt::Handle> rt_handle;
 
     Config() = default;
 };
