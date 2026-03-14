@@ -1,4 +1,5 @@
 from typing import Literal
+
 import synnax as sy
 
 client = sy.Synnax(
