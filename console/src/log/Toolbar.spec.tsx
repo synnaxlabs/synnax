@@ -7,28 +7,24 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { fireEvent, render, screen } from "@testing-library/react";
+import { MAIN_WINDOW } from "@synnaxlabs/drift";
+import { fireEvent, screen } from "@testing-library/react";
 import React from "react";
 import { describe, expect, it, vi } from "vitest";
 
+import { Layout } from "@/layout";
+import { Log } from "@/log";
 import { type State } from "@/log/types/v0";
+import { renderWithConsole } from "@/testUtils";
 
 // ---------------------------------------------------------------------------
-// Module mocks
+// Module mocks — only external components and hooks that depend on systems
+// outside the Redux store (Synnax client, clipboard, etc.)
 // ---------------------------------------------------------------------------
-
-vi.mock("@/log/selectors", () => ({
-  useSelectOptional: vi.fn(),
-}));
-
-vi.mock("@/layout", () => ({
-  Layout: {
-    useSelectRequired: vi.fn(() => ({ name: "Test Log" })),
-  },
-}));
 
 vi.mock("@/log/export", () => ({
   useExport: vi.fn(() => vi.fn()),
+  extract: vi.fn(),
 }));
 
 vi.mock("@/export", () => ({
@@ -51,7 +47,6 @@ vi.mock("@/cluster", () => ({
   },
 }));
 
-// Stub sub-toolbar components so Toolbar tests stay isolated
 vi.mock("@/log/toolbar/Channels", () => ({
   Channels: ({ layoutKey }: { layoutKey: string }) => (
     <div data-testid="channels-tab" data-layout-key={layoutKey} />
@@ -64,7 +59,6 @@ vi.mock("@/log/toolbar/Text", () => ({
   ),
 }));
 
-// Stub CSS to avoid missing CSS file errors
 vi.mock("@/log/Toolbar.css", () => ({}));
 
 vi.mock("@/css", () => ({
@@ -73,7 +67,6 @@ vi.mock("@/css", () => ({
   },
 }));
 
-// Minimal Toolbar / Tabs stubs — enough to render content and simulate tab switching
 vi.mock("@/components", () => ({
   Toolbar: {
     Content: ({ children }: { children: React.ReactNode }) => (
@@ -100,7 +93,6 @@ vi.mock("@/components", () => ({
 vi.mock("@synnaxlabs/pluto", async (importOriginal) => {
   const actual = await importOriginal();
 
-  // A tiny controllable Tabs implementation
   const TabsContext = React.createContext<{
     tabs: Array<{ tabKey: string; name: string }>;
     selected: string;
@@ -161,6 +153,7 @@ vi.mock("@synnaxlabs/pluto", async (importOriginal) => {
       Log: () => <span data-testid="icon-log" />,
     },
     Tabs: {
+      ...((actual as Record<string, unknown>).Tabs as object),
       Provider,
       Selector,
       Content,
@@ -169,20 +162,20 @@ vi.mock("@synnaxlabs/pluto", async (importOriginal) => {
 });
 
 // ---------------------------------------------------------------------------
-// Import component under test
+// Import component under test (after mocks)
 // ---------------------------------------------------------------------------
 
-import { Layout } from "@/layout";
 import * as LogExport from "@/log/export";
-import * as Selectors from "@/log/selectors";
 import { Toolbar } from "@/log/Toolbar";
 
 // ---------------------------------------------------------------------------
 // Helpers
 // ---------------------------------------------------------------------------
 
-const ZERO_STATE: State = {
-  key: "test-key",
+const LAYOUT_KEY = "test-key";
+
+const ZERO_LOG_STATE: State = {
+  key: LAYOUT_KEY,
   version: "0.0.0",
   channels: [],
   remoteCreated: false,
@@ -190,50 +183,76 @@ const ZERO_STATE: State = {
   channelConfigs: {},
 };
 
+const LAYOUT_STATE: Layout.State = {
+  key: LAYOUT_KEY,
+  windowKey: MAIN_WINDOW,
+  type: "log",
+  name: "Test Log",
+  location: "mosaic",
+};
+
+const preloadState = (
+  logState: State = ZERO_LOG_STATE,
+  layoutState: Layout.State = LAYOUT_STATE,
+) => ({
+  [Layout.SLICE_NAME]: {
+    ...Layout.ZERO_SLICE_STATE,
+    layouts: { ...Layout.ZERO_SLICE_STATE.layouts, [logState.key]: layoutState },
+  },
+  [Log.SLICE_NAME]: { ...Log.ZERO_SLICE_STATE, logs: { [logState.key]: logState } },
+});
+
+const renderToolbar = (layoutKey: string = LAYOUT_KEY, logState?: State) => {
+  const ls = logState ?? ZERO_LOG_STATE;
+  const lay: Layout.State = { ...LAYOUT_STATE, key: layoutKey };
+  return renderWithConsole(<Toolbar layoutKey={layoutKey} />, {
+    preloadedState: preloadState({ ...ls, key: layoutKey }, lay),
+  });
+};
+
 // ---------------------------------------------------------------------------
 // Tests
 // ---------------------------------------------------------------------------
 
 describe("log/Toolbar", () => {
-  it("renders null when state is null", () => {
-    vi.mocked(Selectors.useSelectOptional).mockReturnValue(undefined);
-    const { container } = render(<Toolbar layoutKey="test-key" />);
-    expect(container.firstChild).toBeNull();
-  });
-
-  it("renders null when state is null-ish", () => {
-    vi.mocked(Selectors.useSelectOptional).mockReturnValue(
-      null as unknown as undefined,
-    );
-    const { container } = render(<Toolbar layoutKey="test-key" />);
+  it("renders null when log state does not exist in store", () => {
+    // Layout entry exists but log state doesn't — Toolbar should render null.
+    const layoutOnly: Layout.State = {
+      ...LAYOUT_STATE,
+      key: "no-log",
+    };
+    const { container } = renderWithConsole(<Toolbar layoutKey="no-log" />, {
+      preloadedState: {
+        [Layout.SLICE_NAME]: {
+          ...Layout.ZERO_SLICE_STATE,
+          layouts: { ...Layout.ZERO_SLICE_STATE.layouts, "no-log": layoutOnly },
+        },
+        [Log.SLICE_NAME]: Log.ZERO_SLICE_STATE,
+      },
+    });
     expect(container.firstChild).toBeNull();
   });
 
   it("renders the toolbar content when state is present", () => {
-    vi.mocked(Selectors.useSelectOptional).mockReturnValue({ ...ZERO_STATE });
-    render(<Toolbar layoutKey="test-key" />);
+    renderToolbar();
     expect(screen.getByTestId("toolbar-content")).toBeDefined();
   });
 
   it("displays the layout name in the title", () => {
-    vi.mocked(Selectors.useSelectOptional).mockReturnValue({ ...ZERO_STATE });
-    vi.mocked(Layout.useSelectRequired).mockReturnValue({
-      name: "My Log",
-    } as ReturnType<typeof Layout.useSelectRequired>);
-    render(<Toolbar layoutKey="test-key" />);
+    renderWithConsole(<Toolbar layoutKey={LAYOUT_KEY} />, {
+      preloadedState: preloadState(ZERO_LOG_STATE, { ...LAYOUT_STATE, name: "My Log" }),
+    });
     expect(screen.getByText("My Log")).toBeDefined();
   });
 
   it("renders both tab buttons (Channels and Text)", () => {
-    vi.mocked(Selectors.useSelectOptional).mockReturnValue({ ...ZERO_STATE });
-    render(<Toolbar layoutKey="test-key" />);
+    renderToolbar();
     expect(screen.getByTestId("tab-channels")).toBeDefined();
     expect(screen.getByTestId("tab-text")).toBeDefined();
   });
 
   it("defaults to the channels tab", () => {
-    vi.mocked(Selectors.useSelectOptional).mockReturnValue({ ...ZERO_STATE });
-    render(<Toolbar layoutKey="test-key" />);
+    renderToolbar();
     expect(screen.getByTestId("tab-channels").getAttribute("data-selected")).toBe(
       "true",
     );
@@ -242,16 +261,14 @@ describe("log/Toolbar", () => {
   });
 
   it("switches to the Text tab when the text tab button is clicked", () => {
-    vi.mocked(Selectors.useSelectOptional).mockReturnValue({ ...ZERO_STATE });
-    render(<Toolbar layoutKey="test-key" />);
+    renderToolbar();
     fireEvent.click(screen.getByTestId("tab-text"));
     expect(screen.getByTestId("tab-text").getAttribute("data-selected")).toBe("true");
     expect(screen.getByTestId("text-tab")).toBeDefined();
   });
 
   it("switches back to channels tab", () => {
-    vi.mocked(Selectors.useSelectOptional).mockReturnValue({ ...ZERO_STATE });
-    render(<Toolbar layoutKey="test-key" />);
+    renderToolbar();
     fireEvent.click(screen.getByTestId("tab-text"));
     fireEvent.click(screen.getByTestId("tab-channels"));
     expect(screen.getByTestId("tab-channels").getAttribute("data-selected")).toBe(
@@ -261,18 +278,18 @@ describe("log/Toolbar", () => {
   });
 
   it("renders export and copy-link toolbar buttons", () => {
-    vi.mocked(Selectors.useSelectOptional).mockReturnValue({ ...ZERO_STATE });
-    render(<Toolbar layoutKey="test-key" />);
+    renderToolbar();
     expect(screen.getByTestId("export-button")).toBeDefined();
     expect(screen.getByTestId("copy-link-button")).toBeDefined();
   });
 
   it("copy-link button receives the layout name", () => {
-    vi.mocked(Selectors.useSelectOptional).mockReturnValue({ ...ZERO_STATE });
-    vi.mocked(Layout.useSelectRequired).mockReturnValue({
-      name: "CopyName",
-    } as ReturnType<typeof Layout.useSelectRequired>);
-    render(<Toolbar layoutKey="test-key" />);
+    renderWithConsole(<Toolbar layoutKey={LAYOUT_KEY} />, {
+      preloadedState: preloadState(ZERO_LOG_STATE, {
+        ...LAYOUT_STATE,
+        name: "CopyName",
+      }),
+    });
     expect(screen.getByTestId("copy-link-button").getAttribute("data-name")).toBe(
       "CopyName",
     );
@@ -281,15 +298,13 @@ describe("log/Toolbar", () => {
   it("calls handleExport when export button is clicked", () => {
     const mockHandleExport = vi.fn();
     vi.mocked(LogExport.useExport).mockReturnValue(mockHandleExport);
-    vi.mocked(Selectors.useSelectOptional).mockReturnValue({ ...ZERO_STATE });
-    render(<Toolbar layoutKey="test-key" />);
+    renderToolbar();
     fireEvent.click(screen.getByTestId("export-button"));
-    expect(mockHandleExport).toHaveBeenCalledWith("test-key");
+    expect(mockHandleExport).toHaveBeenCalledWith(LAYOUT_KEY);
   });
 
   it("passes the layoutKey to sub-components", () => {
-    vi.mocked(Selectors.useSelectOptional).mockReturnValue({ ...ZERO_STATE });
-    render(<Toolbar layoutKey="my-layout" />);
+    renderToolbar("my-layout", { ...ZERO_LOG_STATE, key: "my-layout" });
     expect(screen.getByTestId("channels-tab").getAttribute("data-layout-key")).toBe(
       "my-layout",
     );
