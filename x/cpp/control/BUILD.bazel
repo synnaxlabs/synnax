@@ -1,8 +1,21 @@
 load("@rules_cc//cc:cc_library.bzl", "cc_library")
+load("@rules_cc//cc:cc_test.bzl", "cc_test")
 
 cc_library(
     name = "control",
     hdrs = ["control.h"],
     visibility = ["//visibility:public"],
-    deps = [],
+    deps = [
+        "//x/cpp/json",
+        "//x/go/control:control_grpc",
+    ],
+)
+
+cc_test(
+    name = "control_test",
+    srcs = ["control_test.cpp"],
+    deps = [
+        ":control",
+        "@googletest//:gtest_main",
+    ],
 )

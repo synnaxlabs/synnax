@@ -100,8 +100,9 @@ func translateBackward(f *telem.PBFrame) apiframer.Frame {
 
 func translateControlSubjectForward(cs control.Subject) *control.ControlSubject {
 	return &control.ControlSubject{
-		Key:  cs.Key,
-		Name: cs.Name,
+		Key:   cs.Key,
+		Name:  cs.Name,
+		Group: cs.Group,
 	}
 }
 
@@ -111,6 +112,7 @@ func translateControlSubjectBackward(cs *control.ControlSubject) (of control.Sub
 	}
 	of.Key = cs.Key
 	of.Name = cs.Name
+	of.Group = cs.Group
 	return
 }
 
@@ -259,6 +261,7 @@ func (t streamerRequestTranslator) Forward(
 		Keys:             channelgrpc.TranslateKeysForward(msg.Keys),
 		DownsampleFactor: int32(msg.DownsampleFactor),
 		ThrottleRateHz:   float64(msg.ThrottleRate),
+		ExcludeGroups:    msg.ExcludeGroups,
 	}, nil
 }
 
@@ -270,6 +273,7 @@ func (t streamerRequestTranslator) Backward(
 		Keys:             channelgrpc.TranslateKeysBackward(msg.Keys),
 		DownsampleFactor: int(msg.DownsampleFactor),
 		ThrottleRate:     telem.Rate(msg.ThrottleRateHz),
+		ExcludeGroups:    msg.ExcludeGroups,
 	}
 	if msg.EnableExperimentalCodec {
 		return rq, t.codec.Update(ctx, rq.Keys)

@@ -64,11 +64,8 @@ public:
     x::errors::Error start() override {
         if (this->kqueue_fd_ != -1) return x::errors::NIL;
 
-        // Handle RT_EVENT fallback on macOS
-        if (this->config_.mode == ExecutionMode::RT_EVENT) {
-            LOG(INFO) << "[loop] RT_EVENT mode not supported on macOS, "
-                      << "falling back to HIGH_RATE";
-        }
+        if (this->config_.mode == ExecutionMode::RT_EVENT)
+            VLOG(1) << "[loop] RT_EVENT on macOS uses software timer";
 
         // Create kqueue for event multiplexing
         this->kqueue_fd_ = kqueue();

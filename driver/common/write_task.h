@@ -9,6 +9,7 @@
 
 #pragma once
 
+#include "driver/bus/factory.h"
 #include "driver/common/status.h"
 #include "driver/errors/errors.h"
 #include "driver/pipeline/acquisition.h"
@@ -225,8 +226,8 @@ public:
             ctx,
             breaker_cfg,
             std::move(sink),
-            std::make_shared<pipeline::SynnaxWriterFactory>(ctx->client),
-            std::make_shared<pipeline::SynnaxStreamerFactory>(ctx->client)
+            bus::make_writer_factory(ctx),
+            bus::make_streamer_factory(ctx, {task.name, task.name})
         ) {}
 
     /// @brief implements task::Task to execute the provided command on the task.

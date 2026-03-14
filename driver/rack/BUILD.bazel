@@ -27,6 +27,7 @@ cc_library(
     visibility = ["//visibility:public"],
     deps = [
         "//driver/arc",
+        "//driver/bus",
         "//driver/common",
         "//driver/ethercat",
         "//driver/http",
@@ -36,6 +37,7 @@ cc_library(
         "//driver/rack/status",
         "//driver/task",
         "//x/cpp/args",
+        "//x/cpp/profile",
         "//x/cpp/env",
         "//x/cpp/kv",
         "//x/cpp/log",

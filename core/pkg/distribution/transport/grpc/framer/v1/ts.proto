@@ -44,6 +44,7 @@ message RelayRequest {
 message RelayResponse {
   telem.PBFrame frame = 1;
   errors.PBPayload error = 2;
+  uint32 group = 3;
 }
 
 service WriterService {
