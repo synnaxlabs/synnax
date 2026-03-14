@@ -95,6 +95,7 @@ export interface LogEntry {
 
 export interface LogSource extends Source<LogEntry[]> {
   readonly evictedCount: number;
+  setChannels?: (channels: Array<number | string>) => void;
 }
 export const logSourceSpecZ = sourceSpecZ.extend({ valueType: z.literal("log") });
 export type LogSourceSpec = z.infer<typeof logSourceSpecZ>;

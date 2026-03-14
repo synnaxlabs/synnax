@@ -60,13 +60,13 @@ const Loaded: Layout.Renderer = ({ layoutKey, visible }) => {
 
   const activeChannels = log.channels.filter((ch) => !primitive.isZero(ch));
   const hasChannels = activeChannels.length > 0;
-  const t = hasChannels
-    ? telem.streamMultiChannelLog({
-        channels: activeChannels,
-        timeSpan: PRELOAD,
-        keepFor: DEFAULT_RETENTION,
-      })
-    : telem.noopLogSourceSpec;
+  // Stable spec — channels are passed separately via the `channels` prop so that
+  // adding/removing a channel does not destroy and recreate the telem source.
+  const t = telem.streamMultiChannelLog({
+    channels: [],
+    timeSpan: PRELOAD,
+    keepFor: DEFAULT_RETENTION,
+  });
   const handleDoubleClick = useCallback(() => {
     dispatch(
       Layout.setNavDrawerVisible({
@@ -80,6 +80,7 @@ const Loaded: Layout.Renderer = ({ layoutKey, visible }) => {
   return (
     <Base.Log
       telem={t}
+      channels={activeChannels}
       showChannelNames={log.showChannelNames}
       timestampPrecision={log.timestampPrecision}
       channelConfigs={log.channelConfigs}

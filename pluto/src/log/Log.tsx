@@ -62,6 +62,7 @@ export const Log = ({
   showChannelNames = true,
   timestampPrecision = 0,
   channelConfigs = {},
+  channels = [],
   emptyContent = (
     <Status.Summary center level="h3" variant="disabled" hideIcon>
       Empty Log
@@ -79,6 +80,7 @@ export const Log = ({
     showChannelNames,
     timestampPrecision,
     channelConfigs,
+    channels,
   });
   const [, state, setState] = Aether.use({
     type: log.Log.TYPE,

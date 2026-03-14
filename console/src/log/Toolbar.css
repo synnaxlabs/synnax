@@ -15,7 +15,7 @@
         padding-top: 2rem;
         padding-bottom: 2rem;
         .console-log__channel-row {
-            padding: 0.5rem 3rem 0.5rem 1rem;
+            padding: 0.2rem 3rem 0.2rem 1rem;
             & > div:nth-child(3) {
                 min-width: 60px;
                 max-width: 65px;

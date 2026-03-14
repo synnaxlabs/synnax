@@ -420,4 +420,248 @@ describe("StreamMultiChannelLog", () => {
     c.streamHandler?.(new Map([[c.channelA.key, new MultiSeries([seriesC])]]));
     expect(log.evictedCount).toBe(0);
   });
+
+  describe("setChannels", () => {
+    it("should be a no-op when channels have not changed", async () => {
+      const props: StreamMultiChannelLogProps = {
+        channels: [c.channelA.key],
+        timeSpan: TimeSpan.seconds(30),
+      };
+      const log = new StreamMultiChannelLog(c, props);
+      await waitForResolve(log);
+      const series = new Series({ data: new Float32Array([1, 2]) });
+      c.streamHandler?.(new Map([[c.channelA.key, new MultiSeries([series])]]));
+      expect(log.value()).toHaveLength(2);
+
+      // setChannels with the same list should not restart the stream
+      log.setChannels([c.channelA.key]);
+      expect(c.streamDestructorF).not.toHaveBeenCalled();
+      expect(log.value()).toHaveLength(2);
+    });
+
+    it("should preserve entries for remaining channels when a channel is removed", async () => {
+      const props: StreamMultiChannelLogProps = {
+        channels: [c.channelA.key, c.channelB.key],
+        timeSpan: TimeSpan.seconds(30),
+      };
+      const log = new StreamMultiChannelLog(c, props);
+      await waitForResolve(log);
+
+      const seriesA = new Series({ data: new Float32Array([1, 2]) });
+      const seriesB = new Series({ data: new Float32Array([3]) });
+      c.streamHandler?.(
+        new Map([
+          [c.channelA.key, new MultiSeries([seriesA])],
+          [c.channelB.key, new MultiSeries([seriesB])],
+        ]),
+      );
+      expect(log.value()).toHaveLength(3);
+
+      // Remove channel B
+      log.setChannels([c.channelA.key]);
+      const entries = await waitForResolve(log);
+      // Only channel A's 2 entries should remain
+      expect(entries).toHaveLength(2);
+      expect(entries.every((e) => e.channelKey === c.channelA.key)).toBe(true);
+    });
+
+    it("should scrub entries for a removed channel", async () => {
+      const props: StreamMultiChannelLogProps = {
+        channels: [c.channelA.key, c.channelB.key],
+        timeSpan: TimeSpan.seconds(30),
+      };
+      const log = new StreamMultiChannelLog(c, props);
+      await waitForResolve(log);
+
+      const seriesA = new Series({ data: new Float32Array([10]) });
+      const seriesB = new Series({ data: new Float32Array([20, 30]) });
+      c.streamHandler?.(
+        new Map([
+          [c.channelA.key, new MultiSeries([seriesA])],
+          [c.channelB.key, new MultiSeries([seriesB])],
+        ]),
+      );
+      expect(log.value()).toHaveLength(3);
+
+      // Remove channel A, keep channel B
+      log.setChannels([c.channelB.key]);
+      const entries = await waitForResolve(log);
+      expect(entries).toHaveLength(2);
+      expect(entries[0].value).toBe("20");
+      expect(entries[1].value).toBe("30");
+    });
+
+    it("should stop streaming when all channels are removed", async () => {
+      const props: StreamMultiChannelLogProps = {
+        channels: [c.channelA.key],
+        timeSpan: TimeSpan.seconds(30),
+      };
+      const log = new StreamMultiChannelLog(c, props);
+      await waitForResolve(log);
+
+      const series = new Series({ data: new Float32Array([1]) });
+      c.streamHandler?.(new Map([[c.channelA.key, new MultiSeries([series])]]));
+
+      log.setChannels([]);
+      expect(c.streamDestructorF).toHaveBeenCalled();
+    });
+
+    it("should not duplicate entries when the stream is restarted", async () => {
+      const props: StreamMultiChannelLogProps = {
+        channels: [c.channelA.key],
+        timeSpan: TimeSpan.seconds(30),
+      };
+      const log = new StreamMultiChannelLog(c, props);
+      await waitForResolve(log);
+
+      const series = new Series({ data: new Float32Array([1, 2, 3]) });
+      c.streamHandler?.(new Map([[c.channelA.key, new MultiSeries([series])]]));
+      expect(log.value()).toHaveLength(3);
+
+      // Add channel B — this restarts the stream. The mock's stream() will
+      // call c.streamHandler again with a seed. Simulate the seed containing
+      // the existing cache data for channel A.
+      c.streamF = vi.fn(
+        (handler: client.StreamHandler, _keys: channel.Keys) => {
+          // Simulate the seed: channel A has cached data we already consumed.
+          const seedA = new Series({ data: new Float32Array([1, 2, 3]) });
+          handler(new Map([[c.channelA.key, new MultiSeries([seedA])]]));
+        },
+      );
+      log.setChannels([c.channelA.key, c.channelB.key]);
+      await waitForResolve(log);
+
+      // Channel A entries should NOT be duplicated (skipSeed should have fired)
+      const entries = log.value();
+      const channelAEntries = entries.filter(
+        (e) => e.channelKey === c.channelA.key,
+      );
+      expect(channelAEntries).toHaveLength(3);
+    });
+
+    it("should skip seed data for newly-added channels on restart", async () => {
+      const props: StreamMultiChannelLogProps = {
+        channels: [c.channelA.key],
+        timeSpan: TimeSpan.seconds(30),
+      };
+      const log = new StreamMultiChannelLog(c, props);
+      await waitForResolve(log);
+
+      const series = new Series({ data: new Float32Array([1]) });
+      c.streamHandler?.(new Map([[c.channelA.key, new MultiSeries([series])]]));
+      expect(log.value()).toHaveLength(1);
+
+      // Add channel B. Simulate the seed delivering cached data for channel B
+      // that was accumulated by another component — we should NOT dump it.
+      c.streamF = vi.fn(
+        (handler: client.StreamHandler, _keys: channel.Keys) => {
+          const seedB = new Series({ data: new Float32Array([10, 20, 30]) });
+          handler(new Map([[c.channelB.key, new MultiSeries([seedB])]]));
+        },
+      );
+      log.setChannels([c.channelA.key, c.channelB.key]);
+      await waitForResolve(log);
+
+      // Channel B seed data should be skipped — only channel A's entry remains
+      const entries = log.value();
+      expect(entries).toHaveLength(1);
+      expect(entries[0].channelKey).toBe(c.channelA.key);
+    });
+
+    it("should accept new data after skipping the seed", async () => {
+      const props: StreamMultiChannelLogProps = {
+        channels: [c.channelA.key],
+        timeSpan: TimeSpan.seconds(30),
+      };
+      const log = new StreamMultiChannelLog(c, props);
+      await waitForResolve(log);
+
+      const series = new Series({ data: new Float32Array([1]) });
+      c.streamHandler?.(new Map([[c.channelA.key, new MultiSeries([series])]]));
+
+      // Restart with channel B added; seed is skipped
+      c.streamF = vi.fn(
+        (handler: client.StreamHandler, _keys: channel.Keys) => {
+          const seedA = new Series({ data: new Float32Array([1]) });
+          const seedB = new Series({ data: new Float32Array([10]) });
+          handler(
+            new Map([
+              [c.channelA.key, new MultiSeries([seedA])],
+              [c.channelB.key, new MultiSeries([seedB])],
+            ]),
+          );
+        },
+      );
+      log.setChannels([c.channelA.key, c.channelB.key]);
+      await waitForResolve(log);
+      expect(log.value()).toHaveLength(1); // only the original entry
+
+      // Now new data arrives AFTER the seed — should be accepted normally
+      const newA = new Series({ data: new Float32Array([2]) });
+      const newB = new Series({ data: new Float32Array([20]) });
+      c.streamHandler?.(
+        new Map([
+          [c.channelA.key, new MultiSeries([newA])],
+          [c.channelB.key, new MultiSeries([newB])],
+        ]),
+      );
+      const entries = log.value();
+      expect(entries).toHaveLength(3);
+      expect(entries[1].channelKey).toBe(c.channelA.key);
+      expect(entries[1].value).toBe("2");
+      expect(entries[2].channelKey).toBe(c.channelB.key);
+      expect(entries[2].value).toBe("20");
+    });
+
+    it("should update padding on existing entries when channels change", async () => {
+      c.channelB = new channel.Channel({
+        key: c.channelB.key,
+        name: "a_very_long_channel_name",
+        dataType: DataType.FLOAT32,
+        isIndex: false,
+      });
+      const props: StreamMultiChannelLogProps = {
+        channels: [c.channelA.key],
+        timeSpan: TimeSpan.seconds(30),
+      };
+      const log = new StreamMultiChannelLog(c, props);
+      await waitForResolve(log);
+
+      const series = new Series({ data: new Float32Array([1]) });
+      c.streamHandler?.(new Map([[c.channelA.key, new MultiSeries([series])]]));
+      // With only channel_a, padding should be ""
+      expect(log.value()[0].channelPadding).toBe("");
+
+      // Add a longer-named channel — padding on existing entries should update
+      log.setChannels([c.channelA.key, c.channelB.key]);
+      await waitForResolve(log);
+
+      const maxLen = "a_very_long_channel_name".length;
+      const shortLen = "channel_a".length;
+      expect(log.value()[0].channelPadding).toBe(" ".repeat(maxLen - shortLen));
+    });
+
+    it("should allow seed data on initial start (not a restart)", async () => {
+      // Simulate a client that seeds data on the first stream() call
+      c.streamF = vi.fn(
+        (handler: client.StreamHandler, _keys: channel.Keys) => {
+          const seed = new Series({ data: new Float32Array([10, 20]) });
+          handler(new Map([[c.channelA.key, new MultiSeries([seed])]]));
+        },
+      );
+
+      const props: StreamMultiChannelLogProps = {
+        channels: [c.channelA.key],
+        timeSpan: TimeSpan.seconds(30),
+      };
+      const log = new StreamMultiChannelLog(c, props);
+      await waitForResolve(log);
+
+      // Seed data should be accepted on initial start
+      const entries = log.value();
+      expect(entries).toHaveLength(2);
+      expect(entries[0].value).toBe("10");
+      expect(entries[1].value).toBe("20");
+    });
+  });
 });

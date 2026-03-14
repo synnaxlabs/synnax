@@ -9,6 +9,7 @@
 
 import { type channel } from "@synnaxlabs/client";
 import {
+  compare,
   DataType,
   type destructor,
   type Series,
@@ -53,6 +54,10 @@ interface ChannelMeta {
   // Whitespace appended after "]" in multi-channel mode to align the value column
   // across channels of different name lengths. Computed once in read().
   padding: string;
+  // When true, the first stream callback for this channel should skip all data
+  // (advance readCursor to end of buffer). This prevents the stream's initial seed
+  // from duplicating entries we already have for previously-active channels.
+  skipSeed: boolean;
 }
 
 export class StreamMultiChannelLog
@@ -70,6 +75,7 @@ export class StreamMultiChannelLog
   private stopStreaming?: destructor.Destructor;
   private valid = false;
   private _evictedCount: number = 0;
+  private _channels: Array<number | string> = [];
   get evictedCount(): number {
     return this._evictedCount;
   }
@@ -84,25 +90,53 @@ export class StreamMultiChannelLog
     this.client = client;
     this.onStatusChange = options?.onStatusChange;
     this.now = now;
+    this._channels = this.props.channels;
   }
 
   value(): LogEntry[] {
-    if (this.props.channels.length === 0) return this.entries;
+    if (this._channels.length === 0) return this.entries;
     if (!this.valid) void this.read();
     return this.entries;
+  }
+
+  setChannels(channels: Array<number | string>): void {
+    // Short-circuit if channels haven't actually changed.
+    if (compare.primitiveArrays(this._channels, channels) === compare.EQUAL)
+      return;
+    this._channels = channels;
+    this.valid = false;
+    if (channels.length === 0) {
+      this.stopStreaming?.();
+      this.stopStreaming = undefined;
+    }
+    this.notify();
   }
 
   private async read(): Promise<void> {
     try {
       this.valid = true;
       this.stopStreaming?.();
-      this.channelMeta.clear();
 
       const channels = await Promise.all(
-        this.props.channels.map((ch) => this.client.retrieveChannel(ch)),
+        this._channels.map((ch) => this.client.retrieveChannel(ch)),
       );
 
-      const maxNameLen = Math.max(...channels.map((ch) => ch.name.length));
+      // Compute removed channels BEFORE clearing meta
+      const newKeys = new Set(channels.map((ch) => ch.key));
+      const removedKeys = new Set(
+        [...this.channelMeta.keys()].filter((k) => !newKeys.has(k)),
+      );
+
+      // Filter entries from removed channels
+      if (removedKeys.size > 0)
+        this.entries = this.entries.filter((e) => !removedKeys.has(e.channelKey));
+
+      // When restarting an existing stream, skip the seed for ALL channels to avoid
+      // duplicating entries (previously-active) or dumping historical cache (newly-added).
+      // On initial start (no previous channels), allow the seed so data appears immediately.
+      const isRestart = this.channelMeta.size > 0;
+      this.channelMeta.clear();
+      const maxNameLen = Math.max(0, ...channels.map((ch) => ch.name.length));
       for (const ch of channels)
         this.channelMeta.set(ch.key, {
           key: ch.key,
@@ -113,7 +147,14 @@ export class StreamMultiChannelLog
           dataType: new DataType(ch.dataType),
           virtual: ch.virtual,
           padding: " ".repeat(maxNameLen - ch.name.length),
+          skipSeed: isRestart,
         });
+
+      // Update padding on existing entries (max name length may have changed)
+      for (const entry of this.entries) {
+        const meta = this.channelMeta.get(entry.channelKey);
+        if (meta != null) entry.channelPadding = meta.padding;
+      }
 
       const streamKeys = channels.map((ch) => ch.key);
       this.stopStreaming = await this.client.stream((res) => {
@@ -141,6 +182,16 @@ export class StreamMultiChannelLog
             }
           };
           if (allocated != null && allocated.series.length > 0) {
+            if (chMeta.skipSeed) {
+              // First callback after stream restart for a previously-active channel.
+              // The stream seeds us with existing dynamic buffer contents that we've
+              // already consumed — skip all of it to avoid duplicate entries.
+              const lastSeries = allocated.series[allocated.series.length - 1];
+              chMeta.leadingBuffer = lastSeries;
+              chMeta.readCursor = lastSeries.length;
+              chMeta.skipSeed = false;
+              continue;
+            }
             // Drain the old leading buffer's unread tail before switching.
             if (chMeta.leadingBuffer != null)
               pushSamples(chMeta.leadingBuffer, chMeta.readCursor);
@@ -155,6 +206,13 @@ export class StreamMultiChannelLog
           // Read newly written samples from the current leading buffer.
           const buf = chMeta.leadingBuffer;
           if (buf == null || buf.length <= chMeta.readCursor) continue;
+          // If skipSeed is still true here (no allocation in seed, just leading buffer
+          // data), skip the existing data and clear the flag.
+          if (chMeta.skipSeed) {
+            chMeta.readCursor = buf.length;
+            chMeta.skipSeed = false;
+            continue;
+          }
           pushSamples(buf, chMeta.readCursor);
           chMeta.readCursor = buf.length;
         }

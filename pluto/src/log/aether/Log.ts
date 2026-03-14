@@ -7,7 +7,14 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { box, color, type destructor, notation, TimeStamp, xy } from "@synnaxlabs/x";
+import {
+  box,
+  color,
+  type destructor,
+  notation,
+  TimeStamp,
+  xy,
+} from "@synnaxlabs/x";
 import { z } from "zod";
 
 import { aether } from "@/aether/aether";
@@ -33,6 +40,7 @@ export const logState = z.object({
   showChannelNames: z.boolean().default(true),
   timestampPrecision: z.number().min(0).max(3).default(0),
   channelConfigs: z.record(z.string(), channelConfigZ).default({}),
+  channels: z.array(z.number().or(z.string())).default([]),
   telem: telem.logSourceSpecZ.default(telem.noopLogSourceSpec),
   font: text.levelZ.default("p"),
   color: color.colorZ.default(color.ZERO),
@@ -51,8 +59,8 @@ const CANVAS: render.Canvas2DVariant = "lower2d";
 const CONTENT_PADDING = 6;
 
 // Per-theme prefix color muting — multiplied with the base color's HSLA.
-const DARK_PREFIX = { hue: 1, saturation: 0.9, lightness: 0.9, alpha: 0.95 };
-const LIGHT_PREFIX = { hue: 1, saturation: 0.85, lightness: 0.75, alpha: 0.8 };
+const DARK_PREFIX = { hue: 1, saturation: 0.8, lightness: 0.85, alpha: 0.95 };
+const LIGHT_PREFIX = { hue: 1, saturation: 0.8, lightness: 0.75, alpha: 0.8 };
 
 interface InternalState {
   theme: theming.Theme;
@@ -139,12 +147,12 @@ export class Log extends aether.Leaf<typeof logState, InternalState> {
       i.defaultPrefixColor = muteColor(i.textColor, i.theme);
       i.prefixColors = {};
       i.valueColors = {};
-      for (const [key, cfg] of Object.entries(configs)) {
+      for (const [key, cfg] of Object.entries(configs)) 
         if (cfg.color) {
           i.prefixColors[key] = muteColor(cfg.color, i.theme);
           i.valueColors[key] = color.construct(cfg.color);
         }
-      }
+      
     }
 
     // Cache selection highlight colors (theme-dependent).
@@ -152,6 +160,10 @@ export class Log extends aether.Leaf<typeof logState, InternalState> {
     i.selectionFlashColor = color.setAlpha(i.theme.colors.primary.z, 0.15);
 
     i.telem = telem.useSource(ctx, this.state.telem, i.telem);
+
+    // Always call setChannels — the source short-circuits if unchanged.
+    // This handles both initial setup (where prevState === state) and subsequent changes.
+    i.telem.setChannels?.(this.state.channels);
 
     const { scrolling, wheelPos } = this.state;
     const lh = i.lineHeight;

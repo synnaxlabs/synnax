@@ -88,6 +88,9 @@ class Memoized<V> {
   }
 }
 
+// evictedCount and setChannels only exist on LogSource, not on the generic Source<V>.
+// We cast through `unknown` to reach them because MemoizedSource can't know about
+// LogSource without losing its genericity. Optional chaining keeps this safe at runtime.
 class MemoizedSource<V> extends Memoized<Source<V>> {
   value(): V {
     return this.wrapped.value();
@@ -103,6 +106,13 @@ class MemoizedSource<V> extends Memoized<Source<V>> {
 
   onChange(handler: observe.Handler<void>): destructor.Destructor {
     return this.wrapped.onChange(handler);
+  }
+
+  setChannels(channels: Array<number | string>): void {
+    const src = this.wrapped as unknown as {
+      setChannels?: (channels: Array<number | string>) => void;
+    };
+    src.setChannels?.(channels);
   }
 }
 
