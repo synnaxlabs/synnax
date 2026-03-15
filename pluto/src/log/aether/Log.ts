@@ -22,6 +22,7 @@ export const channelConfigZ = z.object({
   color: z.string().default(""),
   notation: notation.notationZ.default("standard"),
   precision: z.number().min(-1).max(17).default(-1),
+  alias: z.string().default(""),
 });
 
 export const logState = z.object({
@@ -157,6 +158,13 @@ export class Log extends aether.Leaf<typeof logState, InternalState> {
     // Always call setChannels — the source short-circuits if unchanged.
     // This handles both initial setup (where prevState === state) and subsequent changes.
     i.telem.setChannels?.(this.state.channels);
+
+    if (configs !== prevConfigs) {
+      const aliases: Record<string, string> = {};
+      for (const [key, cfg] of Object.entries(configs))
+        if (cfg.alias) aliases[key] = cfg.alias;
+      i.telem.setAliases?.(aliases);
+    }
 
     const { scrolling, wheelPos } = this.state;
     const lh = i.lineHeight;

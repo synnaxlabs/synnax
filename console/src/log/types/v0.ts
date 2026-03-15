@@ -20,6 +20,7 @@ export const ZERO_CHANNEL_CONFIG: ChannelConfig = {
   color: "",
   notation: "standard",
   precision: -1,
+  alias: "",
 };
 
 export const stateZ = z.object({

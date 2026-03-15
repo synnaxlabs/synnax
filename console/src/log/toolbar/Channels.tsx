@@ -70,7 +70,14 @@ const ChannelRow = ({
         onChange={(v: channel.Key) => onChange(index, v)}
         initialQuery={{ internal: IS_DEV ? undefined : false }}
         disabled={disabled}
-        grow
+      />
+      <Input.Text
+        value={config.alias ?? ""}
+        onChange={(v) => onConfigChange(channelKey, { alias: v })}
+        disabled={disabled}
+        placeholder={data?.name ?? "Alias"}
+        variant="shadow"
+        shrink={false}
       />
       <Notation.Select
         value={config.notation ?? "standard"}
@@ -121,8 +128,15 @@ const AddChannelRow = ({ onAdd, disabled }: AddChannelRowProps): ReactElement =>
       onChange={onAdd}
       initialQuery={{ internal: IS_DEV ? undefined : false }}
       disabled={disabled}
-      grow
       triggerProps={{ placeholder: "Add a channel..." }}
+    />
+    <Input.Text
+      value=""
+      onChange={() => {}}
+      disabled
+      placeholder="Alias"
+      variant="shadow"
+      shrink={false}
     />
     <Notation.Select value={undefined} onChange={() => {}} allowNone />
     <Input.Numeric

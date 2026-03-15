@@ -88,6 +88,7 @@ describe("Log Slice", () => {
         color: "#ff0000",
         notation: "standard",
         precision: 4,
+        alias: "",
       });
     });
   });

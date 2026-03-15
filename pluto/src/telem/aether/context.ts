@@ -114,6 +114,13 @@ class MemoizedSource<V> extends Memoized<Source<V>> {
     };
     src.setChannels?.(channels);
   }
+
+  setAliases(aliases: Record<string, string>): void {
+    const src = this.wrapped as unknown as {
+      setAliases?: (aliases: Record<string, string>) => void;
+    };
+    src.setAliases?.(aliases);
+  }
 }
 
 class MemoizedSink<V> extends Memoized<Sink<V>> {

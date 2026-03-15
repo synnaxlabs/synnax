@@ -16,7 +16,17 @@
         padding-bottom: 2rem;
         .console-log__channel-row {
             padding: 0.2rem 3rem 0.2rem 1rem;
-            & > div:nth-child(3) {
+            & > div:nth-child(1) {
+                flex: 4;
+                min-width: 0;
+                overflow: hidden;
+            }
+            & > div:nth-child(2) {
+                flex: 1;
+                min-width: 75px;
+                overflow: hidden;
+            }
+            & > div:nth-child(4) {
                 min-width: 60px;
                 max-width: 65px;
             }

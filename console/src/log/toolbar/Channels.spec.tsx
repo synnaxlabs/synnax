@@ -182,6 +182,27 @@ vi.mock("@synnaxlabs/pluto", async (importOriginal) => {
           onChange={() => {}}
         />
       ),
+      Text: ({
+        value,
+        disabled,
+        placeholder,
+      }: {
+        value: string;
+        onChange: (v: string) => void;
+        disabled?: boolean;
+        placeholder?: string;
+        variant?: string;
+        shrink?: boolean;
+      }) => (
+        <input
+          data-testid="input-text"
+          readOnly
+          value={value}
+          data-disabled={String(disabled ?? false)}
+          placeholder={placeholder}
+          onChange={() => {}}
+        />
+      ),
     },
     Color: {
       Swatch: ({

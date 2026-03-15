@@ -42,6 +42,7 @@ export type StreamMultiChannelLogProps = z.input<typeof streamMultiChannelLogPro
 interface ChannelMeta {
   key: channel.Key;
   name: string;
+  displayName: string;
   indexKey: channel.Key;
   dataType: DataType;
   virtual: boolean;
@@ -76,6 +77,7 @@ export class StreamMultiChannelLog
   private valid = false;
   private _evictedCount: number = 0;
   private _channels: Array<number | string> = [];
+  private _aliases: Record<string, string> = {};
   get evictedCount(): number {
     return this._evictedCount;
   }
@@ -111,6 +113,36 @@ export class StreamMultiChannelLog
     this.notify();
   }
 
+  setAliases(aliases: Record<string, string>): void {
+    this._aliases = aliases;
+    let changed = false;
+    for (const [key, meta] of this.channelMeta) {
+      const displayName = aliases[String(key)] || meta.name;
+      if (meta.displayName !== displayName) {
+        meta.displayName = displayName;
+        changed = true;
+      }
+    }
+    if (!changed) return;
+    this.recomputePadding();
+    for (const entry of this.entries) {
+      const meta = this.channelMeta.get(entry.channelKey);
+      if (meta == null) continue;
+      entry.channelName = meta.displayName;
+      entry.channelPadding = meta.padding;
+    }
+    this.notify();
+  }
+
+  private recomputePadding(): void {
+    const maxLen = Math.max(
+      0,
+      ...[...this.channelMeta.values()].map((m) => m.displayName.length),
+    );
+    for (const meta of this.channelMeta.values())
+      meta.padding = " ".repeat(maxLen - meta.displayName.length);
+  }
+
   private async read(): Promise<void> {
     try {
       this.valid = true;
@@ -135,24 +167,30 @@ export class StreamMultiChannelLog
       // On initial start (no previous channels), allow the seed so data appears immediately.
       const isRestart = this.channelMeta.size > 0;
       this.channelMeta.clear();
-      const maxNameLen = Math.max(0, ...channels.map((ch) => ch.name.length));
-      for (const ch of channels)
+      for (const ch of channels) {
+        const displayName = this._aliases[String(ch.key)] || ch.name;
         this.channelMeta.set(ch.key, {
           key: ch.key,
           name: ch.name,
+          displayName,
           indexKey: ch.index,
           leadingBuffer: null,
           readCursor: 0,
           dataType: new DataType(ch.dataType),
           virtual: ch.virtual,
-          padding: " ".repeat(maxNameLen - ch.name.length),
+          padding: "",
           skipSeed: isRestart,
         });
+      }
+      this.recomputePadding();
 
-      // Update padding on existing entries (max name length may have changed)
+      // Update names and padding on existing entries (channel may have been
+      // renamed or max name length may have changed).
       for (const entry of this.entries) {
         const meta = this.channelMeta.get(entry.channelKey);
-        if (meta != null) entry.channelPadding = meta.padding;
+        if (meta == null) continue;
+        entry.channelName = meta.displayName;
+        entry.channelPadding = meta.padding;
       }
 
       const streamKeys = channels.map((ch) => ch.key);
@@ -172,7 +210,7 @@ export class StreamMultiChannelLog
               const raw = buf.at(i, true);
               this.entries.push({
                 channelKey: chMeta.key,
-                channelName: chMeta.name,
+                channelName: chMeta.displayName,
                 channelPadding: chMeta.padding,
                 timestamp: now.valueOf(),
                 value: isJSON ? JSON.stringify(raw) : String(raw),
