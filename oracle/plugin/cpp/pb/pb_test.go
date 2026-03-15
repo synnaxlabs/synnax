@@ -365,7 +365,7 @@ var _ = Describe("C++ PB Plugin", func() {
 		})
 
 		Context("any type handling", func() {
-			It("Should use x::json::to_value/from_value for any type fields", func() {
+			It("Should use json dump/parse for any type fields", func() {
 				source := `
 					@cpp output "client/cpp/types"
 					@pb output "core/pkg/service/types/pb"
@@ -379,15 +379,8 @@ var _ = Describe("C++ PB Plugin", func() {
 
 				ExpectContent(resp, "proto.gen.h").
 					ToContain(
-						// Forward: use mutable_* and to_value
-						"*pb.mutable_value() = x::json::to_value(this->value).first",
-						// Backward: use inline error handling with from_value
-						"x::json::from_value(pb.value())",
-						"if (err) return {{}, err}",
-					).
-					ToNotContain(
-						// Should NOT use set_value for any type
-						"pb.set_value(",
+						"pb.set_value(this->value.dump())",
+						"x::json::json::parse(pb.value()",
 					)
 			})
 
@@ -405,12 +398,10 @@ var _ = Describe("C++ PB Plugin", func() {
 
 				ExpectContent(resp, "proto.gen.h").
 					ToContain(
-						// Forward: check has_value() for hard optional
 						"if (this->value.has_value())",
-						"*pb.mutable_value() = x::json::to_value(*this->value).first",
-						// Backward: check has_* and use inline error handling
+						"(*this->value).dump()",
 						"if (pb.has_value())",
-						"x::json::from_value(pb.value())",
+						"x::json::json::parse(pb.value()",
 					)
 			})
 		})
@@ -423,7 +414,7 @@ var _ = Describe("C++ PB Plugin", func() {
 
 					Config struct {
 						name string
-						metadata json
+						metadata record
 					}
 				`
 				resp := MustGenerate(ctx, source, "types", loader, pbPlugin)
@@ -694,13 +685,13 @@ var _ = Describe("C++ PB Plugin", func() {
 		})
 
 		Context("json field conversion", func() {
-			It("Should include json struct header for json fields", func() {
+			It("Should include json struct header for record fields", func() {
 				source := `
 					@cpp output "client/cpp/types"
 					@pb output "core/pkg/service/types/pb"
 
 					Config struct {
-						data json
+						data record
 					}
 				`
 				resp := MustGenerate(ctx, source, "types", loader, pbPlugin)
@@ -709,13 +700,13 @@ var _ = Describe("C++ PB Plugin", func() {
 					ToContain("x::json")
 			})
 
-			It("Should handle optional json fields with has_value check", func() {
+			It("Should handle optional record fields with has_value check", func() {
 				source := `
 					@cpp output "client/cpp/types"
 					@pb output "core/pkg/service/types/pb"
 
 					Config struct {
-						data json??
+						data record??
 					}
 				`
 				resp := MustGenerate(ctx, source, "types", loader, pbPlugin)

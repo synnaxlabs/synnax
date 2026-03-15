@@ -198,7 +198,7 @@ var _ = Describe("Go Types Plugin", func() {
 				Entry("uint64", "uint64", "Field uint64"),
 				Entry("float32", "float32", "Field float32"),
 				Entry("float64", "float64", "Field float64"),
-				Entry("json", "json", "Field binary.MsgpackEncodedJSON"),
+				Entry("record", "record", "Field binary.MsgpackEncodedJSON"),
 				Entry("bytes", "bytes", "Field []byte"),
 			)
 
@@ -208,7 +208,7 @@ var _ = Describe("Go Types Plugin", func() {
 
 					AllTypes struct {
 						a uuid
-						b json
+						b record
 					}
 				`
 				resp := MustGenerate(ctx, source, "test", loader, goPlugin)
@@ -541,7 +541,7 @@ var _ = Describe("Go Types Plugin", func() {
 				source := `
 				@go output "core/container"
 
-				Container struct<D extends json> {
+				Container struct<D extends record> {
 					data D
 					name string
 				}
@@ -864,7 +864,7 @@ var _ = Describe("Go Types Plugin", func() {
 					message string
 				}
 
-				Status struct<D extends json> {
+				Status struct<D extends record> {
 					variant int32
 					data D
 				}
@@ -894,12 +894,12 @@ var _ = Describe("Go Types Plugin", func() {
 				source := `
 				@go output "core/status"
 
-				Status struct<D extends json> {
+				Status struct<D extends record> {
 					variant int32
 					data D
 				}
 
-				RackStatus struct<D extends json> extends Status<D> {
+				RackStatus struct<D extends record> extends Status<D> {
 					timestamp int64
 				}
 			`
@@ -1417,7 +1417,7 @@ var _ = Describe("Go Types Plugin", func() {
 
 					Param struct {
 						name string
-						value json?
+						value record?
 					}
 
 					Params Param[]

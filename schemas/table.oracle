@@ -23,7 +23,7 @@ Table struct {
     name string {
         @doc value "is a human-readable name for the table."
     }
-    data json   {
+    data record {
         @doc value        """
             is the table configuration including column definitions, channel
             references, and formatting options.

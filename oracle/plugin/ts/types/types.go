@@ -899,7 +899,7 @@ func coalesceTSType(tsType string, typeParams []typeParamData) string {
 func (p *Plugin) processTypeParam(tp resolution.TypeParam, table *resolution.Table, data *templateData) typeParamData {
 	tpd := typeParamData{Name: tp.Name, Constraint: "z.ZodType"}
 	if tp.Constraint != nil {
-		if resolution.IsPrimitive(tp.Constraint.Name) && tp.Constraint.Name == "json" {
+		if resolution.IsPrimitive(tp.Constraint.Name) && tp.Constraint.Name == "record" {
 			tpd.IsJSON = true
 			tpd.Constraint = "z.ZodType<record.Unknown>"
 		}
@@ -961,7 +961,7 @@ var typeParamMappings = map[string]typeParamMapping{
 	"uuid":      {zodType: "z.ZodString", zodValue: "z.string()"},
 	"timestamp": {zodType: "z.ZodNumber", zodValue: "z.number()"},
 	"timespan":  {zodType: "z.ZodNumber", zodValue: "z.number()"},
-	"json":      {zodType: "z.ZodType<record.Unknown>", zodValue: "record.nullishToEmpty()"},
+	"record":    {zodType: "z.ZodType<record.Unknown>", zodValue: "record.nullishToEmpty()"},
 }
 
 func defaultToTS(rawType string) string {
@@ -1129,7 +1129,7 @@ func (p *Plugin) processField(field resolution.Field, parentType resolution.Type
 	}
 	isAnyOptional := field.IsOptional || field.IsHardOptional
 	typeOverride := getFieldTypeOverride(field, "ts")
-	isJSON := field.Type.Name == "json" || typeOverride == "json"
+	isJSON := field.Type.Name == "record" || typeOverride == "record"
 	if isArray {
 		if isAnyOptional {
 			addXImport(data, xImport{name: "zod", submodule: "zod"})
@@ -1295,7 +1295,7 @@ func primitiveToTSType(name string) string {
 		"uint", "uint8", "uint16", "uint32", "uint64",
 		"float32", "float64":
 		return "number"
-	case "json":
+	case "record":
 		return "unknown"
 	default:
 		return "unknown"
@@ -1316,7 +1316,7 @@ func (p *Plugin) typeRefToZodInternal(typeRef *resolution.TypeRef, table *resolu
 			if effectiveRef == nil && typeRef.TypeParam.Default != nil && !typeRef.TypeParam.Optional {
 				effectiveRef = typeRef.TypeParam.Default
 			}
-			if effectiveRef != nil && effectiveRef.Name == "json" {
+			if effectiveRef != nil && effectiveRef.Name == "record" {
 				addXImport(data, xImport{name: "record", submodule: "record"})
 			}
 			return fmt.Sprintf("%s ?? %s", paramName, fallbackForConstraint(effectiveRef, table))
@@ -1553,7 +1553,7 @@ var primitiveTSTypes = map[string]string{
 	"uint8": "number", "uint12": "number", "uint16": "number", "uint20": "number", "uint32": "number", "uint64": "number",
 	"float32": "number", "float64": "number",
 	"timestamp": "TimeStamp", "timespan": "TimeSpan", "data_type": "DataType",
-	"json": "unknown", "bytes": "Uint8Array",
+	"record": "unknown", "bytes": "Uint8Array",
 }
 
 func primitiveToTS(primitive string) string {
@@ -1594,7 +1594,7 @@ var primitiveZodTypes = map[string]primitiveMapping{
 	"time_range":         {schema: "TimeRange.z", xImports: []xImport{{name: "TimeRange", submodule: "telem"}}},
 	"time_range_bounded": {schema: "TimeRange.boundedZ", xImports: []xImport{{name: "TimeRange", submodule: "telem"}}},
 	"data_type":          {schema: "DataType.z", xImports: []xImport{{name: "DataType", submodule: "telem"}}},
-	"json":               {schema: "record.unknownZ().or(z.string().transform((s) => JSON.parse(s)))", xImports: []xImport{{name: "record", submodule: "record"}}},
+	"record":             {schema: "record.unknownZ().or(z.string().transform((s) => JSON.parse(s)))", xImports: []xImport{{name: "record", submodule: "record"}}},
 	"bytes":              {schema: "z.instanceof(Uint8Array)"},
 }
 
@@ -1622,7 +1622,7 @@ var primitiveZodSchemaTypes = map[string]string{
 	"time_range":         "typeof TimeRange.z",
 	"time_range_bounded": "typeof TimeRange.boundedZ",
 	"data_type":          "typeof DataType.z",
-	"json":               "z.ZodType",
+	"record":             "z.ZodType",
 	"bytes":              "z.ZodType<Uint8Array>",
 }
 
@@ -1724,7 +1724,7 @@ func addXImport(data *templateData, imp xImport) {
 }
 
 func primitiveToZod(primitive string, data *templateData) string {
-	if primitive == "json" {
+	if primitive == "record" {
 		addXImport(data, xImport{name: "record", submodule: "record"})
 		return "record.unknownZ()"
 	}

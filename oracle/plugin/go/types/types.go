@@ -372,7 +372,7 @@ func processTypeParam(tp resolution.TypeParam, data *templateData) typeParamData
 func constraintToGo(constraint resolution.TypeRef, data *templateData) string {
 	if resolution.IsPrimitive(constraint.Name) {
 		switch constraint.Name {
-		case "json":
+		case "record":
 			return "any"
 		case "string":
 			return "~string"

@@ -39,7 +39,7 @@ Key = string {
 }
 
 Device struct<
-    Properties extends json = json,
+    Properties extends record = record,
     Make extends string = string,
     Model extends string = string
 > {
@@ -97,7 +97,7 @@ Device struct<
 }
 
 New struct<
-    Properties extends json = json,
+    Properties extends record = record,
     Make extends string = string,
     Model extends string = string
 > extends Device<Properties, Make, Model> {

@@ -289,10 +289,6 @@ func (p *Plugin) generateFile(
 		}
 	}
 
-	if data.needsAnyConverter {
-		p.collectDistinctPrimitives(data, req)
-	}
-
 	if len(data.Translators) == 0 && len(data.GenericTranslators) == 0 && len(data.EnumTranslators) == 0 && len(data.DelegationTranslators) == 0 {
 		return nil, nil
 	}
@@ -921,7 +917,7 @@ func (p *Plugin) generatePrimitiveConversion(
 		data.imports.AddExternal("github.com/synnaxlabs/x/telem")
 		return fmt.Sprintf("telem.TranslateTimeRangeForward(%s)", goField),
 			fmt.Sprintf("telem.TranslateTimeRangeBackward(%s)", pbField), false, false
-	case "json":
+	case "record":
 		data.imports.AddExternal("google.golang.org/protobuf/types/known/structpb")
 		return fmt.Sprintf("structpb.NewStruct(%s)", goField),
 			fmt.Sprintf("%s.AsMap()", pbField), true, false
@@ -938,10 +934,9 @@ func (p *Plugin) generatePrimitiveConversion(
 		return fmt.Sprintf("string(%s)", goField),
 			fmt.Sprintf("telem.DataType(%s)", pbField), false, false
 	case "any":
-		data.imports.AddExternal("google.golang.org/protobuf/types/known/structpb")
-		data.needsAnyConverter = true
-		return fmt.Sprintf("structpb.NewValue(convertAnyForPB(%s))", goField),
-			fmt.Sprintf("%s.AsInterface()", pbField), true, false
+		data.imports.AddExternal("encoding/json")
+		return fmt.Sprintf("json.Marshal(%s)", goField),
+			fmt.Sprintf("func() any { var v any; _ = json.Unmarshal(%s, &v); return v }()", pbField), true, false
 	case "int8":
 		return fmt.Sprintf("int32(%s)", goField),
 			fmt.Sprintf("int8(%s)", pbField), false, false
@@ -1506,48 +1501,6 @@ func (p *Plugin) resolvePBTranslatorInfo(
 	return translatorPrefix, translatorStructName
 }
 
-func (p *Plugin) collectDistinctPrimitives(data *templateData, req *plugin.Request) {
-	seen := make(map[string]bool)
-
-	for _, typ := range req.Resolutions.DistinctTypes() {
-		form, ok := typ.Form.(resolution.DistinctForm)
-		if !ok {
-			continue
-		}
-
-		if !resolution.IsPrimitive(form.Base.Name) {
-			continue
-		}
-
-		goOutput := output.GetPath(typ, "go")
-		if goOutput == "" {
-			continue
-		}
-
-		importPath, err := resolveGoImportPath(goOutput, data.repoRoot)
-		if err != nil {
-			continue
-		}
-
-		alias := naming.DerivePackageName(goOutput)
-		data.imports.AddInternal(alias, importPath)
-
-		goTypeName := fmt.Sprintf("%s.%s", alias, typ.Name)
-
-		if seen[goTypeName] {
-			continue
-		}
-		seen[goTypeName] = true
-
-		protoType := primitiveToProtoType(form.Base.Name)
-
-		data.DistinctPrimitives = append(data.DistinctPrimitives, distinctPrimitiveData{
-			GoType:        goTypeName,
-			PrimitiveType: protoType,
-		})
-	}
-}
-
 func hasKeyDomain(field resolution.Field) bool {
 	_, hasKey := field.Domains["key"]
 	return hasKey
@@ -1623,13 +1576,11 @@ type templateData struct {
 	Namespace             string
 	repoRoot              string
 	parentAlias           string
-	DistinctPrimitives    []distinctPrimitiveData
 	DelegationTranslators []delegationTranslatorData
 	AnyHelpers            []anyHelperData
 	EnumTranslators       []enumTranslatorData
 	GenericTranslators    []genericTranslatorData
 	Translators           []translatorData
-	needsAnyConverter     bool
 }
 
 // HasImports returns true if any imports are needed.
@@ -1759,13 +1710,4 @@ type delegationTranslatorData struct {
 	UnderlyingPBType           string
 	UnderlyingTranslatorPrefix string
 	TypeParams                 []typeParamData
-}
-
-// distinctPrimitiveData holds data for distinct types that wrap primitives.
-// Used to generate conversion cases in the any converter helper function.
-type distinctPrimitiveData struct {
-	// GoType is the fully qualified Go type (e.g., "telem.TimeSpan").
-	GoType string
-	// PrimitiveType is the proto primitive type (e.g., "int64").
-	PrimitiveType string
 }

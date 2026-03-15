@@ -280,7 +280,7 @@ var _ = Describe("Python Types Plugin", func() {
 				Entry("uint64", "uint64", "int"),
 				Entry("float32", "float32", "float"),
 				Entry("float64", "float64", "float"),
-				Entry("json", "json", "dict[str, Any]"),
+				Entry("record", "record", "dict[str, Any]"),
 				Entry("bytes", "bytes", "bytes"),
 			)
 
@@ -696,7 +696,7 @@ var _ = Describe("Python Types Plugin", func() {
 					}
 
 					InternalState struct {
-						cache json
+						cache record
 						@py omit
 					}
 				`
@@ -857,7 +857,7 @@ var _ = Describe("Python Types Plugin", func() {
 				source := `
 					@py output "out"
 
-					Container struct<V extends json> {
+					Container struct<V extends record> {
 						value V
 					}
 				`
@@ -874,7 +874,7 @@ var _ = Describe("Python Types Plugin", func() {
 				source := `
 					@py output "out"
 
-					Task struct<C extends json = json> {
+					Task struct<C extends record = record> {
 						config C
 					}
 				`
@@ -893,7 +893,7 @@ var _ = Describe("Python Types Plugin", func() {
 						variant string
 					}
 
-					TaskStatus struct extends Status<json> {
+					TaskStatus struct extends Status<record> {
 						task_key uuid
 					}
 				`

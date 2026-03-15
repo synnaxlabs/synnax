@@ -26,7 +26,7 @@ View struct {
             is the view type identifier (e.g., 'lineplot', 'table', 'schematic').
         """
     }
-    query json   {
+    query record {
         @doc value """
             is a type-agnostic JSON object containing view-specific configuration
             and query parameters.
@@ -42,13 +42,13 @@ View struct {
 }
 
 New struct extends View {
-    key   Key? {
+    key   Key?   {
         @doc value """
             is an optional key for the view. If not provided, one will be
             automatically assigned.
         """
     }
-    query json {
+    query record {
         @doc value "contains view-specific configuration and query parameters."
     }
 
