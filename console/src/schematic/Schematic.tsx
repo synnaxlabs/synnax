@@ -88,11 +88,12 @@ export const navigateToLinkedSchematic = async (
   try {
     const s = await client.schematics.retrieve({ key: page });
     placeLayout(create({ ...s.data, ...s }));
-  } catch {
+  } catch (e) {
     addStatus({
       variant: "error",
-      message: "Referenced schematic deleted",
+      message: e instanceof Error ? e.message : "Failed to navigate to referenced schematic",
     });
+  }
   }
 };
 
