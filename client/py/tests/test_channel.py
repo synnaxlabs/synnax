@@ -91,7 +91,6 @@ class TestChannel:
         with pytest.raises(sy.ValidationError):
             client.channels.create(name=channel_name(), index=idx.key)
 
-
     def test_create_from_list(self, client: sy.Synnax):
         """Should create a list of valid channels"""
         ch_one = sy.Channel(
@@ -195,7 +194,6 @@ class TestChannel:
         """Should throw a Validation Error when passing invalid numpy data type"""
         with pytest.raises(TypeError):
             client.channels.create(data_type=np.csingle)
-
 
     def test_retrieve_by_key(
         self, indexed_pair: list[sy.Channel], client: sy.Synnax

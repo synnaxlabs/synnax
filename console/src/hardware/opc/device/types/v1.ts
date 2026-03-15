@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { channel as channel, type device } from "@synnaxlabs/client";
+import { channel, type device } from "@synnaxlabs/client";
 import { migrate } from "@synnaxlabs/x";
 import { z } from "zod";
 
