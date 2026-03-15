@@ -1144,7 +1144,8 @@ export const OffPageReferenceForm = ({ layoutKey }: SymbolFormProps): ReactEleme
               value={value}
               onChange={onChange}
               data={pages}
-              resourceName="page"
+              resourceName="Workspace schematic"
+              emptyContent="No other schematics this workspace"
               allowNone
             />
           )}

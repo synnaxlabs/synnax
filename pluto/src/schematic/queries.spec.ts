@@ -252,29 +252,79 @@ describe("schematic queries", () => {
   });
 
   describe("usePages", () => {
-    it("should return all schematics as pages", async () => {
-      const workspace = await client.workspaces.create({
-        name: "pages_workspace",
+    it("should return only schematics from the same workspace across three workspaces", async () => {
+      const ws1 = await client.workspaces.create({
+        name: "pages_workspace_1",
         layout: {},
       });
-      const s1 = await client.schematics.create(workspace.key, {
-        name: "Page One",
+      const ws2 = await client.workspaces.create({
+        name: "pages_workspace_2",
+        layout: {},
+      });
+      const ws3 = await client.workspaces.create({
+        name: "pages_workspace_3",
+        layout: {},
+      });
+      const s1 = await client.schematics.create(ws1.key, {
+        name: "WS1 Page One",
         data: {},
       });
-      const s2 = await client.schematics.create(workspace.key, {
-        name: "Page Two",
+      const s2 = await client.schematics.create(ws1.key, {
+        name: "WS1 Page Two",
+        data: {},
+      });
+      const s3 = await client.schematics.create(ws2.key, {
+        name: "WS2 Page One",
+        data: {},
+      });
+      const s4 = await client.schematics.create(ws2.key, {
+        name: "WS2 Page Two",
+        data: {},
+      });
+      const s5 = await client.schematics.create(ws3.key, {
+        name: "WS3 Page One",
         data: {},
       });
 
-      const { result } = renderHook(() => usePages(), { wrapper });
+      const { result } = renderHook(() => usePages(s1.key), { wrapper });
       await waitFor(() => {
-        expect(result.current.length).toBeGreaterThanOrEqual(2);
+        expect(result.current.length).toBeGreaterThanOrEqual(1);
       });
       const keys = result.current.map((p) => p.key);
-      expect(keys).toContain(s1.key);
+      expect(keys).not.toContain(s1.key);
       expect(keys).toContain(s2.key);
-      const pageOne = result.current.find((p) => p.key === s1.key);
-      expect(pageOne?.name).toEqual("Page One");
+      expect(keys).not.toContain(s3.key);
+      expect(keys).not.toContain(s4.key);
+      expect(keys).not.toContain(s5.key);
+    });
+
+    it("should return empty when workspace has only the current schematic but others are not empty", async () => {
+      const wsEmpty = await client.workspaces.create({
+        name: "solo_workspace",
+        layout: {},
+      });
+      const wsPopulated = await client.workspaces.create({
+        name: "populated_workspace",
+        layout: {},
+      });
+      const solo = await client.schematics.create(wsEmpty.key, {
+        name: "Solo Page",
+        data: {},
+      });
+      await client.schematics.create(wsPopulated.key, {
+        name: "Populated A",
+        data: {},
+      });
+      await client.schematics.create(wsPopulated.key, {
+        name: "Populated B",
+        data: {},
+      });
+
+      const { result } = renderHook(() => usePages(solo.key), { wrapper });
+      // Wait a tick for the async effect to resolve, then verify empty
+      await waitFor(() => {
+        expect(result.current).toEqual([]);
+      });
     });
 
     it("should exclude the specified schematic", async () => {
@@ -302,10 +352,14 @@ describe("schematic queries", () => {
 
     it("should return empty array when no client is available", async () => {
       const noClientWrapper = await createAsyncSynnaxWrapper({ client: null });
-      const { result } = renderHook(() => usePages(), {
+      const { result } = renderHook(() => usePages("some-key"), {
         wrapper: noClientWrapper,
       });
-      // Should remain empty since there's no client
+      expect(result.current).toEqual([]);
+    });
+
+    it("should return empty array when exclude is not provided", async () => {
+      const { result } = renderHook(() => usePages(), { wrapper });
       expect(result.current).toEqual([]);
     });
   });

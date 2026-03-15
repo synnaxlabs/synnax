@@ -153,11 +153,18 @@ export const usePages = (exclude?: string): Page[] => {
   const [pages, setPages] = useState<Page[]>([]);
   useAsyncEffect(
     async (signal) => {
-      if (client == null) return;
-      const resources = await client.ontology.retrieve({ types: ["schematic"] });
+      if (client == null || exclude == null) return;
+      const parents = await client.ontology.retrieveParents(
+        schematic.ontologyID(exclude),
+        { types: ["workspace"] },
+      );
+      if (signal.aborted || parents.length === 0) return;
+      const children = await client.ontology.retrieveChildren(parents[0].id, {
+        types: ["schematic"],
+      });
       if (signal.aborted) return;
       setPages(
-        resources
+        children
           .filter((r) => r.id.key !== exclude)
           .map((r) => ({ key: r.id.key, name: r.name })),
       );
