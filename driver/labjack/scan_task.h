@@ -106,22 +106,14 @@ class Scanner final : public common::Scanner {
         return x::errors::NIL;
     }
 
-    std::pair<std::vector<common::ScannedDevice>, x::errors::Error>
+    std::pair<std::vector<synnax::device::Device>, x::errors::Error>
     scan(const common::ScannerContext &ctx) override {
         std::vector<synnax::device::Device> devs;
         x::errors::Error err;
-        if (err = this->scan_for(LJM_ctUSB, devs); err) {
-            std::vector<common::ScannedDevice> out;
-            for (auto &d: devs)
-                out.push_back(common::ScannedDevice{.device = d});
-            return {out, err};
-        }
+        if (err = this->scan_for(LJM_ctUSB, devs); err) return {devs, err};
         if (ctx.count % this->cfg.tcp_scan_multiplier == 0)
             err = this->scan_for(LJM_ctTCP, devs);
-        std::vector<common::ScannedDevice> out;
-        for (auto &d: devs)
-            out.push_back(common::ScannedDevice{.device = d});
-        return {out, err.skip(SCAN_SKIP_ERRORS)};
+        return {devs, err.skip(SCAN_SKIP_ERRORS)};
     }
 
 public:

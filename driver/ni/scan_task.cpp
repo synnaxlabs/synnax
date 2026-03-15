@@ -152,7 +152,7 @@ Scanner::parse_device(NISysCfgResourceHandle resource) const {
     return {dev, err};
 }
 
-std::pair<std::vector<common::ScannedDevice>, x::errors::Error>
+std::pair<std::vector<synnax::device::Device>, x::errors::Error>
 Scanner::scan(const common::ScannerContext &ctx) {
     NISysCfgEnumResourceHandle resources = nullptr;
     NISysCfgResourceHandle curr_resource = nullptr;
@@ -217,14 +217,13 @@ Scanner::scan(const common::ScannerContext &ctx) {
         }
     );
 
-    std::vector<common::ScannedDevice> devices;
+    std::vector<synnax::device::Device> devices;
     devices.reserve(ni_devices.size());
     for (auto &dev: ni_devices) {
-        common::ScannedDevice sd;
-        sd.device = dev.to_synnax();
+        auto sy_dev = dev.to_synnax();
         if (auto it = parent_keys.find(dev.key); it != parent_keys.end())
-            sd.parent = synnax::device::ontology_id(it->second);
-        devices.push_back(std::move(sd));
+            sy_dev.parent = synnax::device::ontology_id(it->second);
+        devices.push_back(std::move(sy_dev));
     }
     return {devices, close_err};
 }

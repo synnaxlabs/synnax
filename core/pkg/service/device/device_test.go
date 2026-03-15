@@ -110,7 +110,7 @@ var _ = Describe("Device", func() {
 			).To(Succeed())
 			Expect(res.ID).To(Equal(d.OntologyID()))
 		})
-		It("Should set hasChildren based on ontology children", func() {
+		It("Should create a parent-child relationship between chassis and module", func() {
 			chassis := device.Device{
 				Key:      "chassis1",
 				Rack:     rackSvc.EmbeddedKey,
@@ -120,12 +120,6 @@ var _ = Describe("Device", func() {
 				Model:    "cDAQ-9178",
 			}
 			Expect(w.Create(ctx, chassis, ontology.ID{})).To(Succeed())
-
-			// Device with no children should have has_children=false
-			res := MustSucceed(svc.RetrieveResource(ctx, chassis.Key, tx))
-			data, ok := res.Data.(map[string]any)
-			Expect(ok).To(BeTrue(), "resource data should be map[string]any")
-			Expect(data["has_children"]).To(Equal(false))
 
 			child := device.Device{
 				Key:      "module1",
@@ -137,11 +131,14 @@ var _ = Describe("Device", func() {
 			}
 			Expect(w.Create(ctx, child, chassis.OntologyID())).To(Succeed())
 
-			// Now chassis should have has_children=true
-			res = MustSucceed(svc.RetrieveResource(ctx, chassis.Key, tx))
-			data, ok = res.Data.(map[string]any)
-			Expect(ok).To(BeTrue(), "resource data should be map[string]any")
-			Expect(data["has_children"]).To(Equal(true))
+			var children []ontology.Resource
+			Expect(otg.NewRetrieve().
+				WhereIDs(chassis.OntologyID()).
+				TraverseTo(ontology.ChildrenTraverser).
+				Entries(&children).
+				Exec(ctx, tx)).To(Succeed())
+			Expect(children).To(HaveLen(1))
+			Expect(children[0].ID).To(Equal(child.OntologyID()))
 		})
 		It("Should correctly create an ontology relationship between the device and the rack", func() {
 			d := device.Device{

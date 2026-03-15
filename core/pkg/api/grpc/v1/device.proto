@@ -54,6 +54,7 @@ message DeviceRetrieveRequest {
   uint32 offset = 9;
   bool ignore_not_found = 10;
   bool include_status = 11;
+  bool include_parent = 12;
 }
 
 message DeviceRetrieveResponse {

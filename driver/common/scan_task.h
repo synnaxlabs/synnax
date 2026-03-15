@@ -67,12 +67,6 @@ struct ScanTaskConfig {
         enabled(cfg.field<bool>("enabled", true)) {}
 };
 
-/// @brief A device returned by a scanner, paired with an optional parent.
-struct ScannedDevice {
-    synnax::device::Device device;
-    synnax::ontology::ID parent;
-};
-
 struct ScannerContext {
     /// @brief the number of scans run before the current one.
     std::size_t count = 0;
@@ -104,7 +98,7 @@ struct Scanner {
     virtual x::errors::Error stop() { return x::errors::NIL; }
 
     /// @brief Periodic scan method to discover/update devices.
-    virtual std::pair<std::vector<ScannedDevice>, x::errors::Error>
+    virtual std::pair<std::vector<synnax::device::Device>, x::errors::Error>
     scan(const ScannerContext &ctx) = 0;
 
     /// @brief Optional: Handle custom commands. Return true if handled.
@@ -433,7 +427,7 @@ public:
     }
 
     x::errors::Error scan() {
-        std::vector<ScannedDevice> to_create;
+        std::vector<synnax::device::Device> to_create;
         std::vector<synnax::device::Status> statuses;
         {
             std::lock_guard lock(this->mu);
@@ -448,10 +442,10 @@ public:
             // transitions NI may briefly report the same device at multiple locations.
             {
                 std::unordered_set<std::string> seen;
-                std::vector<ScannedDevice> deduped;
+                std::vector<synnax::device::Device> deduped;
                 for (auto it = scanned_devs.rbegin(); it != scanned_devs.rend(); ++it) {
-                    if (seen.count(it->device.key)) continue;
-                    seen.insert(it->device.key);
+                    if (seen.count(it->key)) continue;
+                    seen.insert(it->key);
                     deduped.push_back(std::move(*it));
                 }
                 std::reverse(deduped.begin(), deduped.end());
@@ -461,17 +455,16 @@ public:
             // Step 2: Track which devices are present that need to be created.
             std::set<std::string> present;
             auto last_available = x::telem::TimeStamp::now();
-            for (auto &sd: scanned_devs) {
-                auto &dev = sd.device;
+            for (auto &dev: scanned_devs) {
                 present.insert(dev.key);
                 // Unless the device already exists on the remote, it should not
                 // be configured. No exceptions.
                 dev.configured = false;
                 auto iter = this->dev_states.find(dev.key);
                 if (iter == this->dev_states.end()) {
-                    to_create.push_back(sd);
+                    to_create.push_back(dev);
                     this->dev_states[dev.key] = dev;
-                    this->parent_states[dev.key] = sd.parent;
+                    this->parent_states[dev.key] = dev.parent;
                     continue;
                 }
                 const auto &remote_dev = iter->second;
@@ -490,10 +483,10 @@ public:
                 }
 
                 auto prev_parent = this->parent_states[dev.key];
-                if (sd.parent != prev_parent) {
+                if (dev.parent != prev_parent) {
                     VLOG(1) << this->log_prefix << "device parent changed for "
                             << dev.key << " from '" << prev_parent.string() << "' to '"
-                            << sd.parent.string() << "'";
+                            << dev.parent.string() << "'";
                     needs_update = true;
                 }
 
@@ -510,11 +503,11 @@ public:
                 dev.name = remote_dev.name;
                 dev.configured = remote_dev.configured;
 
-                if (needs_update) to_create.push_back(sd);
+                if (needs_update) to_create.push_back(dev);
 
                 dev.status.time = last_available;
                 this->dev_states[dev.key] = dev;
-                this->parent_states[dev.key] = sd.parent;
+                this->parent_states[dev.key] = dev.parent;
             }
 
             for (auto &[key, dev]: this->dev_states) {
@@ -535,15 +528,14 @@ public:
         if (to_create.empty()) return x::errors::NIL;
 
         x::errors::Error last_err = x::errors::NIL;
-        for (auto &sd: to_create) {
-            if (const auto create_err = this->client
-                                            ->create_device(sd.device, sd.parent)) {
+        for (auto &dev: to_create) {
+            if (const auto create_err = this->client->create_device(dev, dev.parent)) {
                 LOG(WARNING) << this->log_prefix << "failed to create device "
-                             << sd.device.key << ": " << create_err;
+                             << dev.key << ": " << create_err;
                 last_err = create_err;
             } else
                 LOG(INFO) << this->log_prefix << "successfully created device "
-                          << sd.device.key;
+                          << dev.key;
         }
         return last_err;
     }

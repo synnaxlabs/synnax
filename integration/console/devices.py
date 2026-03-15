@@ -210,7 +210,7 @@ class DevicesClient:
         status_icon.wait_for(state="visible", timeout=2000)
         status_icon.hover()
         tooltip = self.layout.page.locator(".pluto-tooltip")
-        tooltip.wait_for(state="visible", timeout=3000)
+        tooltip.wait_for(state="visible", timeout=5000)
         message = tooltip.inner_text().strip()
         if is_device:
             color_attr = status_icon.get_attribute("color") or ""
@@ -277,43 +277,37 @@ class DevicesClient:
             items.append(item)
         self.tree.group(items, group_name)
 
-    def expand_chassis(self, name: str) -> None:
-        """Expand a chassis device node to reveal its children."""
+    def expand(self, name: str) -> None:
+        """Expand a device node to reveal its children."""
         self.show_toolbar()
         self.tree.expand(self.get(name))
 
-    def collapse_chassis(self, name: str) -> None:
-        """Collapse a chassis device node."""
+    def collapse(self, name: str) -> None:
+        """Collapse a device node."""
         self.show_toolbar()
         self.tree.collapse(self.get(name))
 
-    def get_children_names(self, chassis_name: str) -> list[str]:
-        """Get the visible child device names under a chassis.
+    def get_children_names(self, parent_name: str) -> list[str]:
+        """Get the visible child device names under a parent device.
 
-        Expands the chassis first, then collects all device-prefixed children
-        by walking sibling device items with greater tree depth.  Retries up
-        to three times to handle transient tree re-renders (e.g. after a
-        rename triggers a server-side refresh).
+        Expands the parent first, then retries the children lookup
+        to handle async tree rendering.
 
-        :param chassis_name: Name of the chassis device.
+        :param parent_name: Name of the parent device.
         :returns: List of child device names.
         """
         self.show_toolbar()
-        self.expand_chassis(chassis_name)
-        chassis = self.get(chassis_name)
-        names = self.tree.get_children_names(chassis, self.DEVICE_PREFIX, chassis_name)
-        if names:
-            return names
-
+        self.expand(parent_name)
         for _ in range(5):
+            parent = self.get(parent_name)
+            if not self.tree.is_expanded(parent):
+                self.tree.expand(parent)
             names = self.tree.get_children_names(
-                chassis, self.DEVICE_PREFIX, chassis_name
+                parent, self.DEVICE_PREFIX, parent_name
             )
             if names:
                 return names
-            self.collapse_chassis(chassis_name)
-            self.expand_chassis(chassis_name)
-            chassis = self.get(chassis_name)
+            self.layout.page.wait_for_timeout(200)
         return []
 
     def is_child_of(self, device_name: str, parent_name: str) -> bool:

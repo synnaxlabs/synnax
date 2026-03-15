@@ -116,8 +116,8 @@ TEST(ScanTask, testScanChecksDeviceHealth) {
 
     auto devices = ASSERT_NIL_P(scanner.scan(scan_ctx));
     ASSERT_EQ(devices.size(), 1);
-    EXPECT_EQ(devices[0].device.status.variant, x::status::VARIANT_SUCCESS);
-    EXPECT_EQ(devices[0].device.status.message, "Device connected");
+    EXPECT_EQ(devices[0].status.variant, x::status::VARIANT_SUCCESS);
+    EXPECT_EQ(devices[0].status.message, "Device connected");
 }
 
 TEST(ScanTask, testScanReportsDisconnectedDevice) {
@@ -150,7 +150,7 @@ TEST(ScanTask, testScanReportsDisconnectedDevice) {
 
     auto devices = ASSERT_NIL_P(scanner.scan(scan_ctx));
     ASSERT_EQ(devices.size(), 1);
-    EXPECT_EQ(devices[0].device.status.variant, x::status::VARIANT_WARNING);
-    EXPECT_EQ(devices[0].device.status.message, "Failed to reach device");
+    EXPECT_EQ(devices[0].status.variant, x::status::VARIANT_WARNING);
+    EXPECT_EQ(devices[0].status.message, "Failed to reach device");
 }
 }

@@ -57,7 +57,7 @@ public:
     [[nodiscard]] common::ScannerConfig config() const override;
 
     /// @brief Periodic scan method - checks health of all tracked devices.
-    std::pair<std::vector<common::ScannedDevice>, x::errors::Error>
+    std::pair<std::vector<synnax::device::Device>, x::errors::Error>
     scan(const common::ScannerContext &scan_ctx) override;
 
     /// @brief Handle Modbus-specific commands (test connection).

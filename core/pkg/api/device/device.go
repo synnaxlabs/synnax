@@ -104,6 +104,7 @@ type RetrieveRequest struct {
 	Offset         int        `json:"offset" msgpack:"offset"`
 	IgnoreNotFound bool       `json:"ignore_not_found" msgpack:"ignore_not_found"`
 	IncludeStatus  bool       `json:"include_status" msgpack:"include_status"`
+	IncludeParent  bool       `json:"include_parent" msgpack:"include_parent"`
 }
 
 type RetrieveResponse struct {
@@ -183,16 +184,20 @@ func (s *Service) Retrieve(
 	res.Devices = make([]Device, len(svcDevices))
 	for i, d := range svcDevices {
 		res.Devices[i].Device = d
-		var parents []ontology.Resource
-		_ = s.ontology.NewRetrieve().
-			WhereIDs(device.OntologyID(d.Key)).
-			TraverseTo(ontology.ParentsTraverser).
-			Limit(1).
-			ExcludeFieldData(true).
-			Entries(&parents).
-			Exec(ctx, nil)
-		if len(parents) > 0 {
-			res.Devices[i].Parent = parents[0].ID
+		if req.IncludeParent {
+			var parents []ontology.Resource
+			if err := s.ontology.NewRetrieve().
+				WhereIDs(device.OntologyID(d.Key)).
+				TraverseTo(ontology.ParentsTraverser).
+				Limit(1).
+				ExcludeFieldData(true).
+				Entries(&parents).
+				Exec(ctx, nil); err != nil {
+				return RetrieveResponse{}, err
+			}
+			if len(parents) > 0 {
+				res.Devices[i].Parent = parents[0].ID
+			}
 		}
 	}
 	return res, retErr

@@ -57,6 +57,7 @@ const retrieveRequestZ = z.object({
   limit: z.int().optional(),
   offset: z.int().optional(),
   includeStatus: z.boolean().optional(),
+  includeParent: z.boolean().optional(),
 });
 
 const retrieveResZ = <

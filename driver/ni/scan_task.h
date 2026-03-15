@@ -148,7 +148,7 @@ public:
 
     x::errors::Error start() override;
 
-    std::pair<std::vector<common::ScannedDevice>, x::errors::Error>
+    std::pair<std::vector<synnax::device::Device>, x::errors::Error>
     scan(const common::ScannerContext &ctx) override;
 
     x::errors::Error stop() override;

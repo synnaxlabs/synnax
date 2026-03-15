@@ -124,10 +124,9 @@ The NI scanner discovers CompactDAQ chassis and their installed modules using NI
 link properties (`ConnectsToLinkName` / `ProvidesLinkName`). The scan uses a two-pass
 algorithm: first collect all devices and build a link-name-to-chassis-key map, then
 resolve each module's parent via that map. Chassis are sorted before modules to ensure
-parents are created first. The common scan task (`driver/common/scan_task.h`) tracks
-parent ontology IDs separately via a `ScannedDevice` struct (pairing device + parent).
-When the parent changes between scan cycles, the scan task re-sends the device create
-request with the appropriate `parent` ontology ID.
+parents are created first. The `synnax::device::Device` struct includes a `parent`
+ontology ID field. When the parent changes between scan cycles, the scan task re-sends
+the device create request with the appropriate `parent` ontology ID.
 
 **Error Handling:**
 
@@ -299,9 +298,9 @@ parent is provided, the device defaults to being parented under its rack.
 - The device create endpoint (`core/pkg/service/device/writer.go`) accepts an optional
   `parent ontology.ID`. If non-zero, the device is parented to that resource; otherwise
   it defaults to the device's rack.
-- The common scan task (`driver/common/scan_task.h`) returns `ScannedDevice` structs
-  pairing each device with an optional parent `ontology::ID`. The scan task tracks
-  parent changes between cycles and re-creates devices when the parent changes.
+- The `synnax::device::Device` struct includes a `parent` ontology ID field. The common
+  scan task (`driver/common/scan_task.h`) tracks parent changes between cycles and
+  re-creates devices when the parent changes.
 - The Console uses a make-based dispatch (`console/src/hardware/device/make.tsx`) to
   determine if a device node should be expandable (e.g., NI checks `is_chassis` in
   device properties).

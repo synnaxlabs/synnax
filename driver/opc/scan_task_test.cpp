@@ -275,8 +275,8 @@ TEST_F(TestScanTask, testScanChecksDeviceHealth) {
 
     auto devices = ASSERT_NIL_P(scanner.scan(scan_ctx));
     ASSERT_EQ(devices.size(), 1);
-    EXPECT_EQ(devices[0].device.status.variant, x::status::VARIANT_SUCCESS);
-    EXPECT_EQ(devices[0].device.status.message, "Server connected");
+    EXPECT_EQ(devices[0].status.variant, x::status::VARIANT_SUCCESS);
+    EXPECT_EQ(devices[0].status.message, "Server connected");
 }
 
 /// @brief Tests that health check detects connection state changes (server up/down/up).
@@ -308,8 +308,8 @@ TEST_F(TestScanTask, testHealthCheckDetectsConnectionStateChanges) {
     {
         auto devices = ASSERT_NIL_P(scanner.scan(scan_ctx));
         ASSERT_EQ(devices.size(), 1);
-        EXPECT_EQ(devices[0].device.status.variant, x::status::VARIANT_SUCCESS);
-        EXPECT_EQ(devices[0].device.status.message, "Server connected");
+        EXPECT_EQ(devices[0].status.variant, x::status::VARIANT_SUCCESS);
+        EXPECT_EQ(devices[0].status.message, "Server connected");
     }
 
     // Step 2: Stop the server - health should be bad
@@ -323,12 +323,12 @@ TEST_F(TestScanTask, testHealthCheckDetectsConnectionStateChanges) {
         auto devices = ASSERT_NIL_P(scanner2.scan(scan_ctx));
         ASSERT_EQ(devices.size(), 1);
         // When server is down, health check should return WARNING with connection error
-        EXPECT_EQ(devices[0].device.status.variant, x::status::VARIANT_WARNING);
+        EXPECT_EQ(devices[0].status.variant, x::status::VARIANT_WARNING);
         // The message should indicate a connection failure (not empty)
-        EXPECT_FALSE(devices[0].device.status.message.empty());
-        EXPECT_NE(devices[0].device.status.message, "Server connected");
-        LOG(INFO) << "[test] Server down - status: " << devices[0].device.status.variant
-                  << ", message: " << devices[0].device.status.message;
+        EXPECT_FALSE(devices[0].status.message.empty());
+        EXPECT_NE(devices[0].status.message, "Server connected");
+        LOG(INFO) << "[test] Server down - status: " << devices[0].status.variant
+                  << ", message: " << devices[0].status.message;
     }
 
     // Step 3: Restart the server - health should be good again
@@ -355,8 +355,8 @@ TEST_F(TestScanTask, testHealthCheckDetectsConnectionStateChanges) {
     {
         auto devices = ASSERT_NIL_P(scanner3.scan(scan_ctx));
         ASSERT_EQ(devices.size(), 1);
-        EXPECT_EQ(devices[0].device.status.variant, x::status::VARIANT_SUCCESS);
-        EXPECT_EQ(devices[0].device.status.message, "Server connected");
+        EXPECT_EQ(devices[0].status.variant, x::status::VARIANT_SUCCESS);
+        EXPECT_EQ(devices[0].status.message, "Server connected");
     }
 }
 }

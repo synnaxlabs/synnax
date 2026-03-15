@@ -63,7 +63,7 @@ var (
 	_ fgrpc.Translator[apidevice.DeleteRequest, *gapi.DeviceDeleteRequest]       = deleteRequestTranslator{}
 )
 
-func svcDeviceToProto(d *svcdevice.Device) (*gapi.Device, error) {
+func apiDeviceToProto(d *apidevice.Device) (*gapi.Device, error) {
 	gd := &gapi.Device{
 		Key:        d.Key,
 		Name:       d.Name,
@@ -72,6 +72,7 @@ func svcDeviceToProto(d *svcdevice.Device) (*gapi.Device, error) {
 		Make:       d.Make,
 		Model:      d.Model,
 		Configured: d.Configured,
+		Parent:     grpcontology.IDToProto(d.Parent),
 	}
 	if d.Properties != nil {
 		s, err := structpb.NewStruct(map[string]any(d.Properties))
@@ -90,15 +91,18 @@ func svcDeviceToProto(d *svcdevice.Device) (*gapi.Device, error) {
 	return gd, nil
 }
 
-func svcDeviceFromProto(d *gapi.Device) (*svcdevice.Device, error) {
-	ad := &svcdevice.Device{
-		Key:        d.Key,
-		Name:       d.Name,
-		Rack:       rack.Key(d.Rack),
-		Location:   d.Location,
-		Make:       d.Make,
-		Model:      d.Model,
-		Configured: d.Configured,
+func apiDeviceFromProto(d *gapi.Device) (*apidevice.Device, error) {
+	ad := &apidevice.Device{
+		Device: svcdevice.Device{
+			Key:        d.Key,
+			Name:       d.Name,
+			Rack:       rack.Key(d.Rack),
+			Location:   d.Location,
+			Make:       d.Make,
+			Model:      d.Model,
+			Configured: d.Configured,
+		},
+		Parent: grpcontology.IDFromProto(d.Parent),
 	}
 	if d.Properties != nil {
 		ad.Properties = d.Properties.AsMap()
@@ -112,26 +116,6 @@ func svcDeviceFromProto(d *gapi.Device) (*svcdevice.Device, error) {
 		ad.Status = &ds
 	}
 	return ad, nil
-}
-
-func apiDeviceToProto(d *apidevice.Device) (*gapi.Device, error) {
-	gd, err := svcDeviceToProto(&d.Device)
-	if err != nil {
-		return nil, err
-	}
-	gd.Parent = grpcontology.IDToProto(d.Parent)
-	return gd, nil
-}
-
-func apiDeviceFromProto(d *gapi.Device) (*apidevice.Device, error) {
-	sd, err := svcDeviceFromProto(d)
-	if err != nil {
-		return nil, err
-	}
-	return &apidevice.Device{
-		Device: *sd,
-		Parent: grpcontology.IDFromProto(d.Parent),
-	}, nil
 }
 
 func translateManyForward(ds []apidevice.Device) ([]*gapi.Device, error) {
@@ -203,6 +187,7 @@ func (retrieveRequestTranslator) Forward(_ context.Context, req apidevice.Retrie
 		Offset:         uint32(req.Offset),
 		IgnoreNotFound: req.IgnoreNotFound,
 		IncludeStatus:  req.IncludeStatus,
+		IncludeParent:  req.IncludeParent,
 	}, nil
 }
 
@@ -219,6 +204,7 @@ func (retrieveRequestTranslator) Backward(_ context.Context, req *gapi.DeviceRet
 		Offset:         int(req.Offset),
 		IgnoreNotFound: req.IgnoreNotFound,
 		IncludeStatus:  req.IncludeStatus,
+		IncludeParent:  req.IncludeParent,
 	}, nil
 }
 

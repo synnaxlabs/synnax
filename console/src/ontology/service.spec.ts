@@ -13,14 +13,14 @@ import { describe, expect, it } from "vitest";
 import { NOOP_SERVICE, resolveHasChildren, type Service } from "@/ontology/service";
 
 const MOCK_RESOURCE: ontology.Resource = {
-  key: "test:1",
-  id: { type: "test" as ontology.ResourceType, key: "1" },
+  key: "device:1",
+  id: { type: "device", key: "1" },
   name: "test",
 };
 
 const mockService = (overrides: Partial<Service>): Service => ({
   ...NOOP_SERVICE,
-  type: "test" as ontology.ResourceType,
+  type: "device",
   ...overrides,
 });
 

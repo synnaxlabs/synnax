@@ -77,7 +77,7 @@ TEST(MergeDeviceProperties, NestedObjectsReplacedNotMerged) {
 class MockScanner final : public Scanner {
 public:
     size_t scan_count = 0;
-    std::vector<std::vector<ScannedDevice>> devices;
+    std::vector<std::vector<synnax::device::Device>> devices;
     std::vector<x::errors::Error> scan_errors;
 
     size_t start_count = 0;
@@ -91,7 +91,7 @@ public:
     }
 
     MockScanner(
-        const std::vector<std::vector<ScannedDevice>> &devices_,
+        const std::vector<std::vector<synnax::device::Device>> &devices_,
         const std::vector<x::errors::Error> &scan_errors_,
         const std::vector<x::errors::Error> &start_errors_,
         const std::vector<x::errors::Error> &stop_errors_
@@ -111,9 +111,9 @@ public:
         return stop_errors[this->stop_count++];
     }
 
-    std::pair<std::vector<ScannedDevice>, x::errors::Error>
+    std::pair<std::vector<synnax::device::Device>, x::errors::Error>
     scan(const ScannerContext &ctx) override {
-        std::vector<ScannedDevice> devs = {};
+        std::vector<synnax::device::Device> devs = {};
         auto err = x::errors::NIL;
         if (this->scan_count < this->devices.size())
             devs = this->devices[this->scan_count];
@@ -193,12 +193,12 @@ public:
     std::mutex mu;
 
     size_t scan_count = 0;
-    std::vector<std::vector<ScannedDevice>> devices;
+    std::vector<std::vector<synnax::device::Device>> devices;
     std::vector<x::errors::Error> scan_errors;
 
     explicit MockScannerWithSignals(
         const ScannerConfig &config,
-        const std::vector<std::vector<ScannedDevice>> &devices_ = {},
+        const std::vector<std::vector<synnax::device::Device>> &devices_ = {},
         const std::vector<x::errors::Error> &scan_errors_ = {}
     ):
         scanner_config(config), devices(devices_), scan_errors(scan_errors_) {}
@@ -209,9 +209,9 @@ public:
 
     x::errors::Error stop() override { return x::errors::NIL; }
 
-    std::pair<std::vector<ScannedDevice>, x::errors::Error>
+    std::pair<std::vector<synnax::device::Device>, x::errors::Error>
     scan(const ScannerContext &) override {
-        std::vector<ScannedDevice> devs = {};
+        std::vector<synnax::device::Device> devs = {};
         auto err = x::errors::NIL;
         if (this->scan_count < this->devices.size())
             devs = this->devices[this->scan_count];
@@ -242,9 +242,7 @@ TEST(TestScanTask, testSingleScan) {
     dev2.key = "device2";
     dev2.name = "Device 2";
 
-    std::vector<std::vector<ScannedDevice>> devices = {
-        {ScannedDevice{.device = dev1}, ScannedDevice{.device = dev2}}
-    };
+    std::vector<std::vector<synnax::device::Device>> devices = {{dev1, dev2}};
     auto scanner = std::make_unique<MockScanner>(
         devices,
         std::vector<x::errors::Error>{},
@@ -296,9 +294,7 @@ TEST(TestScanTask, TestNoRecreateOnExistingRemote) {
     dev2.key = "device2";
     dev2.name = "Device 2";
 
-    std::vector<std::vector<ScannedDevice>> devices = {
-        {ScannedDevice{.device = dev1}, ScannedDevice{.device = dev2}}
-    };
+    std::vector<std::vector<synnax::device::Device>> devices = {{dev1, dev2}};
     auto scanner = std::make_unique<MockScanner>(
         devices,
         std::vector<x::errors::Error>{},
@@ -362,9 +358,9 @@ TEST(TestScanTask, TestRecreateWhenRackChanges) {
     dev1_moved_2.properties = x::json::json::object();
     dev1_moved_2.configured = false;
 
-    std::vector<std::vector<ScannedDevice>> devices = {
-        {ScannedDevice{.device = dev1_moved}},
-        {ScannedDevice{.device = dev1_moved_2}}
+    std::vector<std::vector<synnax::device::Device>> devices = {
+        {dev1_moved},
+        {dev1_moved_2}
     };
     auto scanner = std::make_unique<MockScanner>(
         devices,
@@ -433,9 +429,7 @@ TEST(TestScanTask, TestUpdateWhenLocationChanges) {
     dev1_renamed.properties = x::json::json::object();
     dev1_renamed.configured = false;
 
-    std::vector<std::vector<ScannedDevice>> devices = {
-        {ScannedDevice{.device = dev1_renamed}}
-    };
+    std::vector<std::vector<synnax::device::Device>> devices = {{dev1_renamed}};
     auto scanner = std::make_unique<MockScanner>(
         devices,
         std::vector<x::errors::Error>{},
@@ -497,9 +491,7 @@ TEST(TestScanTask, TestNoUpdateWhenLocationSame) {
     dev1_scanned.properties = x::json::json::object();
     dev1_scanned.configured = false;
 
-    std::vector<std::vector<ScannedDevice>> devices = {
-        {ScannedDevice{.device = dev1_scanned}}
-    };
+    std::vector<std::vector<synnax::device::Device>> devices = {{dev1_scanned}};
     auto scanner = std::make_unique<MockScanner>(
         devices,
         std::vector<x::errors::Error>{},
@@ -552,9 +544,7 @@ TEST(TestScanTask, TestDeduplicateKeepsLastNewSlot) {
     dev1_new.location = "new_slot";
 
     // Old slot first, new slot last -> new_slot should win
-    std::vector<std::vector<ScannedDevice>> devices = {
-        {ScannedDevice{.device = dev1_old}, ScannedDevice{.device = dev1_new}}
-    };
+    std::vector<std::vector<synnax::device::Device>> devices = {{dev1_old, dev1_new}};
     auto scanner = std::make_unique<MockScanner>(
         devices,
         std::vector<x::errors::Error>{},
@@ -607,9 +597,7 @@ TEST(TestScanTask, TestDeduplicateKeepsLastOldSlot) {
     dev1_new.location = "new_slot";
 
     // New slot first, old slot last -> old_slot should win
-    std::vector<std::vector<ScannedDevice>> devices = {
-        {ScannedDevice{.device = dev1_new}, ScannedDevice{.device = dev1_old}}
-    };
+    std::vector<std::vector<synnax::device::Device>> devices = {{dev1_new, dev1_old}};
     auto scanner = std::make_unique<MockScanner>(
         devices,
         std::vector<x::errors::Error>{},
@@ -670,9 +658,7 @@ TEST(TestScanTask, TestDeduplicateOnUpdate) {
     synnax::device::Device dev1_new = dev1_old;
     dev1_new.location = "final_slot";
 
-    std::vector<std::vector<ScannedDevice>> devices = {
-        {ScannedDevice{.device = dev1_old}, ScannedDevice{.device = dev1_new}}
-    };
+    std::vector<std::vector<synnax::device::Device>> devices = {{dev1_old, dev1_new}};
     auto scanner = std::make_unique<MockScanner>(
         devices,
         std::vector<x::errors::Error>{},
@@ -737,10 +723,7 @@ TEST(TestScanTask, TestStatePropagation) {
     dev2.status.details.rack = 2;
 
     // First scan will find both devices, second scan only dev1
-    std::vector<std::vector<ScannedDevice>> devices = {
-        {ScannedDevice{.device = dev1}, ScannedDevice{.device = dev2}},
-        {ScannedDevice{.device = dev1}}
-    };
+    std::vector<std::vector<synnax::device::Device>> devices = {{dev1, dev2}, {dev1}};
     auto scanner = std::make_unique<MockScanner>(
         devices,
         std::vector<x::errors::Error>{},
@@ -864,12 +847,10 @@ TEST(TestScanTask, TestUpdateWhenParentDeviceChanges) {
     dev1.location = "slot-1";
 
     synnax::device::Device dev1_with_parent = dev1;
+    dev1_with_parent.parent = synnax::device::ontology_id("chassis-1");
 
     // Scanner returns the device with a parent ontology ID
-    std::vector<std::vector<ScannedDevice>> devices = {{ScannedDevice{
-        .device = dev1_with_parent,
-        .parent = synnax::device::ontology_id("chassis-1")
-    }}};
+    std::vector<std::vector<synnax::device::Device>> devices = {{dev1_with_parent}};
     auto scanner = std::make_unique<MockScanner>(
         devices,
         std::vector<x::errors::Error>{},
@@ -931,11 +912,12 @@ TEST(TestScanTask, TestNoUpdateWhenParentDeviceSame) {
     dev1_scanned.configured = false;
 
     const auto parent_id = synnax::device::ontology_id("chassis-1");
+    dev1_scanned.parent = parent_id;
 
     // Two scans: first establishes parent state, second should see no change
-    std::vector<std::vector<ScannedDevice>> devices = {
-        {ScannedDevice{.device = dev1_scanned, .parent = parent_id}},
-        {ScannedDevice{.device = dev1_scanned, .parent = parent_id}}
+    std::vector<std::vector<synnax::device::Device>> devices = {
+        {dev1_scanned},
+        {dev1_scanned}
     };
     auto scanner = std::make_unique<MockScanner>(
         devices,
@@ -993,11 +975,12 @@ TEST(TestScanTask, TestUpdateWhenParentDeviceCleared) {
     synnax::device::Device dev1_no_parent = dev1;
 
     const auto parent_id = synnax::device::ontology_id("chassis-1");
+    dev1.parent = parent_id;
 
     // First scan establishes parent, second scan clears it
-    std::vector<std::vector<ScannedDevice>> devices = {
-        {ScannedDevice{.device = dev1, .parent = parent_id}},
-        {ScannedDevice{.device = dev1_no_parent}}
+    std::vector<std::vector<synnax::device::Device>> devices = {
+        {dev1},
+        {dev1_no_parent}
     };
     auto scanner = std::make_unique<MockScanner>(
         devices,
@@ -1068,7 +1051,7 @@ public:
 
     ScannerConfig config() const override { return scanner_config; }
 
-    std::pair<std::vector<ScannedDevice>, x::errors::Error>
+    std::pair<std::vector<synnax::device::Device>, x::errors::Error>
     scan(const ScannerContext &ctx) override {
         std::lock_guard lock(mu);
         if (ctx.devices != nullptr)
@@ -1076,10 +1059,10 @@ public:
         else
             captured_devices.push_back({});
         // Return devices from context (like OPC scanner does)
-        std::vector<ScannedDevice> result;
+        std::vector<synnax::device::Device> result;
         if (ctx.devices != nullptr)
             for (const auto &[key, dev]: *ctx.devices)
-                result.push_back(ScannedDevice{.device = dev});
+                result.push_back(dev);
         return {result, x::errors::NIL};
     }
 

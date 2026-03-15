@@ -291,19 +291,22 @@ class Tree:
         except PlaywrightTimeoutError:
             return False
 
-    def get_depth(self, item: Locator) -> float:
-        """Get the tree depth offset of an item from its CSS variable.
+    def get_depth(self, item: Locator) -> int:
+        """Get the integer tree depth level of an item from its CSS variable.
 
         The Pluto tree sets ``--pluto-tree-item-offset`` as an inline
-        style (e.g. ``--pluto-tree-item-offset: 6.5rem``).  We parse
-        the numeric value to compare parent/child relationships.
+        style using the formula ``depth * 2.5 + 1.5`` rem. We parse
+        the numeric value and reverse the formula to get the depth level.
 
         :param item: The Locator for the tree item.
-        :returns: The numeric depth offset.
+        :returns: The integer depth level (0 = root).
         """
         style = item.get_attribute("style") or ""
         match = re.search(r"--pluto-tree-item-offset:\s*([\d.]+)", style)
-        return float(match.group(1)) if match else 0.0
+        if not match:
+            return 0
+        offset = float(match.group(1))
+        return int((offset - 1.5) / 2.5)
 
     def has_expand_arrow(self, item: Locator) -> bool:
         """Check if a tree item has an expand arrow (i.e. can have children).

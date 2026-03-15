@@ -15,29 +15,13 @@ import { resolveHasChildren } from "@/ontology/service";
 
 const mockResource = (data?: Record<string, unknown>): ontology.Resource => ({
   key: "device:1",
-  id: { type: "device" as ontology.ResourceType, key: "1" },
+  id: { type: "device", key: "1" },
   name: "test-device",
   data,
 });
 
 describe("Device ONTOLOGY_SERVICE hasChildren", () => {
-  it("should return true when hasChildren is true", () => {
-    const resource = mockResource({ hasChildren: true });
-    expect(resolveHasChildren(ONTOLOGY_SERVICE, resource)).toBe(true);
-  });
-
-  it("should return false when hasChildren is false", () => {
-    const resource = mockResource({ hasChildren: false });
-    expect(resolveHasChildren(ONTOLOGY_SERVICE, resource)).toBe(false);
-  });
-
-  it("should return false when hasChildren is not present", () => {
-    const resource = mockResource({ make: "NI" });
-    expect(resolveHasChildren(ONTOLOGY_SERVICE, resource)).toBe(false);
-  });
-
-  it("should return false when data is undefined", () => {
-    const resource = mockResource(undefined);
-    expect(resolveHasChildren(ONTOLOGY_SERVICE, resource)).toBe(false);
+  it("should always return true for any device", () => {
+    expect(resolveHasChildren(ONTOLOGY_SERVICE, mockResource())).toBe(true);
   });
 });

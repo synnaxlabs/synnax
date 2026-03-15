@@ -61,9 +61,9 @@ x::errors::Error Scanner::stop() {
     return x::errors::NIL;
 }
 
-std::pair<std::vector<common::ScannedDevice>, x::errors::Error>
+std::pair<std::vector<synnax::device::Device>, x::errors::Error>
 Scanner::scan(const common::ScannerContext &scan_ctx) {
-    std::vector<common::ScannedDevice> devices;
+    std::vector<synnax::device::Device> devices;
     if (this->pool == nullptr) return {devices, x::errors::NIL};
 
     if (scan_ctx.count == 0 && scan_ctx.devices != nullptr) {
@@ -96,13 +96,7 @@ Scanner::scan(const common::ScannerContext &scan_ctx) {
 
         for (const auto &slave: slaves)
             devices.push_back(
-                common::ScannedDevice{
-                    .device = this->create_slave_device(
-                        slave,
-                        master_info.key,
-                        scan_ctx
-                    )
-                }
+                this->create_slave_device(slave, master_info.key, scan_ctx)
             );
     }
 

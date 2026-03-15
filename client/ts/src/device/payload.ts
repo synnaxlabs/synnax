@@ -10,7 +10,7 @@
 import { record, status, zod } from "@synnaxlabs/x";
 import { z } from "zod";
 
-import { idZ as ontologyIDZ } from "@/ontology/payload";
+import { ontology } from "@/ontology";
 import { keyZ as rackKeyZ } from "@/rack/payload";
 
 export const keyZ = z.string();
@@ -46,7 +46,9 @@ export const deviceZ = <
     configured: z.boolean().optional(),
     properties: properties ?? record.nullishToEmpty(),
     status: zod.nullToUndefined(statusZ),
-    parent: ontologyIDZ.nullish().catch(undefined),
+    // .catch(undefined) is required here because the server sends a zero-value
+    // ontology.ID when no parent is set, which fails idZ validation.
+    parent: ontology.idZ.nullish().catch(undefined),
   });
 
 export interface Device<
@@ -72,7 +74,6 @@ export const newZ = <
 ) =>
   deviceZ(schemas).extend({
     properties: schemas?.properties ?? record.nullishToEmpty(),
-    parent: ontologyIDZ.nullish(),
   });
 
 export interface New<

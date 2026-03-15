@@ -201,7 +201,7 @@ class DevicesToolbar(ConsoleCase):
                 parent=sy.ontology.ID(type="device", key=target_chassis.key),
             ),
         )
-        self.console.devices.expand_chassis(target_chassis.name)
+        self.console.devices.expand(target_chassis.name)
         assert self.console.devices.is_child_of(
             device.name, target_chassis.name
         ), f"'{device.name}' should be under '{target_chassis.name}'"
@@ -221,7 +221,6 @@ class DevicesToolbar(ConsoleCase):
     def run(self) -> None:
         self.test_devices_visible()
         self.test_device_icons()
-        self.test_expand_arrows()
         self.test_configure_device()
         self.test_chassis_children_visible()
         self.test_device_state_display()
@@ -268,27 +267,6 @@ class DevicesToolbar(ConsoleCase):
             assert (
                 icon == expected
             ), f"Device '{dev.name}' should have '{expected}' icon, got '{icon}'"
-
-    def test_expand_arrows(self) -> None:
-        """Devices with children should have expand arrows; others should not."""
-        self.log("Testing: Expand arrows based on ontology children")
-
-        assert self.console.devices.has_expand_arrow(
-            self.chassis_a.name
-        ), f"Chassis '{self.chassis_a.name}' should have an expand arrow (has children)"
-
-        for dev in [
-            self.chassis_b,
-            self.standalone,
-            self.labjack_dev,
-            self.opc_dev,
-            self.modbus_dev,
-            self.http_dev,
-            self.ethercat_dev,
-        ]:
-            assert not self.console.devices.has_expand_arrow(
-                dev.name
-            ), f"Device '{dev.name}' should not have an expand arrow"
 
     def test_configure_device(self) -> None:
         """Configure an unconfigured device, verify properties."""
@@ -410,7 +388,7 @@ class DevicesToolbar(ConsoleCase):
 
         group_item = self.console.devices.tree.get_group(chassis_group)
         self.console.devices.tree.expand(group_item)
-        self.console.devices.expand_chassis(self.chassis_a.name)
+        self.console.devices.expand(self.chassis_a.name)
 
         self._assert_modules_under(self.chassis_a.name)
         self.console.devices.tree.delete_group(chassis_group)
@@ -418,7 +396,7 @@ class DevicesToolbar(ConsoleCase):
     def test_group_children_outside_sibling_fails(self) -> None:
         """Grouping a module with a device outside its chassis fails."""
         self.log("Testing: Group children outside sibling group fails silently")
-        self.console.devices.expand_chassis(self.chassis_a.name)
+        self.console.devices.expand(self.chassis_a.name)
 
         bad_group = f"BadGroup_{self.suffix}"
         try:

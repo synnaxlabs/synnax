@@ -36,6 +36,7 @@ Client::retrieve(const std::string &key, const RetrieveOptions &options) const {
     auto req = api::v1::DeviceRetrieveRequest();
     req.add_keys(key);
     req.set_include_status(options.include_status);
+    req.set_include_parent(options.include_parent);
     auto [res, err] = device_retrieve_client->send("/device/retrieve", req);
     if (err) return {Device(), err};
     if (res.devices_size() == 0)
@@ -58,6 +59,7 @@ std::pair<std::vector<Device>, x::errors::Error> Client::retrieve(
     RetrieveRequest req;
     req.keys = keys;
     req.include_status = options.include_status;
+    req.include_parent = options.include_parent;
     return retrieve(req);
 }
 
