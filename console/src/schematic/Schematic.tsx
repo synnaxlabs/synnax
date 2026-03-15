@@ -20,6 +20,7 @@ import {
   Icon,
   Menu as PMenu,
   Schematic as Base,
+  Status,
   Synnax,
   Theming,
   usePrevious,
@@ -77,6 +78,23 @@ import { type RootState } from "@/store";
 import { Workspace } from "@/workspace";
 
 export const HAUL_TYPE = "schematic-element";
+
+export const navigateToLinkedSchematic = async (
+  client: { schematics: { retrieve: (arg: { key: string }) => Promise<any> } },
+  page: string,
+  placeLayout: Layout.Placer,
+  addStatus: Status.Adder,
+): Promise<void> => {
+  try {
+    const s = await client.schematics.retrieve({ key: page });
+    placeLayout(create({ ...s.data, ...s }));
+  } catch {
+    addStatus({
+      variant: "error",
+      message: "Referenced schematic deleted",
+    });
+  }
+};
 
 interface ControlToggleButtonProps {
   control: Control.Status;
@@ -193,6 +211,7 @@ export const Loaded: Layout.Renderer = ({ layoutKey, visible }) => {
   const dispatch = useDispatch();
   const store = useStore<RootState>();
   const client = Synnax.use();
+  const addStatus = Status.useAdder();
   const placeLayout = Layout.usePlacer();
   const syncDispatch = useSyncComponent(layoutKey);
   const selector = useCallback(
@@ -323,12 +342,9 @@ export const Loaded: Layout.Renderer = ({ layoutKey, visible }) => {
       const props = selectNodeProps(store.getState(), layoutKey, node.id);
       if (props?.key !== "offPageReference" || !props.page) return;
       const page = props.page as string;
-      void (async () => {
-        const s = await client.schematics.retrieve({ key: page });
-        placeLayout(create({ ...s.data, ...s }));
-      })();
+      void navigateToLinkedSchematic(client, page, placeLayout, addStatus);
     },
-    [state.editable, client, store, layoutKey, placeLayout],
+    [state.editable, client, store, layoutKey, placeLayout, addStatus],
   );
 
   const [legendPosition, setLegendPosition] = useState<sticky.XY>(

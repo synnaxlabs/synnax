@@ -117,7 +117,12 @@ const IndividualProperties = ({
   return (
     <Flex.Box style={{ height: "100%" }} y>
       <Form.Form<typeof nodePropsZ> {...formMethods}>
-        <C.Form {...formMethods} key={nodeKey} actions={actions} layoutKey={layoutKey} />
+        <C.Form
+          {...formMethods}
+          key={nodeKey}
+          actions={actions}
+          layoutKey={layoutKey}
+        />
       </Form.Form>
     </Flex.Box>
   );

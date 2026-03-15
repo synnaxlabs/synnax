@@ -9,8 +9,9 @@
 
 import { configureStore } from "@reduxjs/toolkit";
 import { type Diagram } from "@synnaxlabs/pluto";
-import { beforeEach, describe, expect, it } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 
+import { navigateToLinkedSchematic } from "@/schematic/Schematic";
 import { selectNodeProps } from "@/schematic/selectors";
 import {
   actions,
@@ -628,6 +629,45 @@ describe("Schematic Slice", () => {
       const props = selectNodeProps(store.getState(), schematicKey, nodeKey);
       expect(props?.page).toBe("target-page");
       expect(props?.color).toBe("#00ff00");
+    });
+  });
+
+  describe("navigateToLinkedSchematic", () => {
+    it("should place the layout when retrieval succeeds", async () => {
+      const mockSchematic = {
+        key: "target-key",
+        data: { nodes: [], edges: [] },
+        name: "Target",
+      };
+      const client = {
+        schematics: { retrieve: vi.fn().mockResolvedValue(mockSchematic) },
+      };
+      const placeLayout = vi.fn();
+      const addStatus = vi.fn();
+
+      await navigateToLinkedSchematic(client, "target-key", placeLayout, addStatus);
+
+      expect(client.schematics.retrieve).toHaveBeenCalledWith({ key: "target-key" });
+      expect(placeLayout).toHaveBeenCalledTimes(1);
+      expect(addStatus).not.toHaveBeenCalled();
+    });
+
+    it("should add an error status when the linked schematic has been deleted", async () => {
+      const client = {
+        schematics: {
+          retrieve: vi.fn().mockRejectedValue(new Error("not found")),
+        },
+      };
+      const placeLayout = vi.fn();
+      const addStatus = vi.fn();
+
+      await navigateToLinkedSchematic(client, "deleted-key", placeLayout, addStatus);
+
+      expect(placeLayout).not.toHaveBeenCalled();
+      expect(addStatus).toHaveBeenCalledWith({
+        variant: "error",
+        message: "Referenced schematic deleted",
+      });
     });
   });
 });

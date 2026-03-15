@@ -31,6 +31,7 @@ import { Form } from "@/form";
 import { Icon } from "@/icon";
 import { Input } from "@/input";
 import { List } from "@/list";
+import { usePages } from "@/schematic/queries";
 import { StateOverrideControls } from "@/schematic/symbol/Custom";
 import { type StateMapping } from "@/schematic/symbol/Primitives";
 import { SelectOrientation } from "@/schematic/symbol/SelectOrientation";
@@ -38,7 +39,6 @@ import {
   type ControlStateProps,
   type LabelExtensionProps,
 } from "@/schematic/symbol/Symbols";
-import { usePages } from "@/schematic/queries";
 import { Select } from "@/select";
 import { Tabs } from "@/tabs";
 import { telem } from "@/telem/aether";
