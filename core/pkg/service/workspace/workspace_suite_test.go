@@ -13,10 +13,12 @@ import (
 	"context"
 	"testing"
 
+	"github.com/google/uuid"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/synnax/pkg/distribution/group"
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
+	"github.com/synnaxlabs/synnax/pkg/service/schematic"
 	"github.com/synnaxlabs/synnax/pkg/service/user"
 	"github.com/synnaxlabs/synnax/pkg/service/workspace"
 	"github.com/synnaxlabs/x/gorp"
@@ -30,13 +32,14 @@ func TestWorkspace(t *testing.T) {
 }
 
 var (
-	ctx     = context.Background()
-	db      *gorp.DB
-	otg     *ontology.Ontology
-	svc     *workspace.Service
-	userSvc *user.Service
-	author  user.User
-	tx      gorp.Tx
+	ctx          = context.Background()
+	db           *gorp.DB
+	otg          *ontology.Ontology
+	svc          *workspace.Service
+	schematicSvc *schematic.Service
+	userSvc      *user.Service
+	author       user.User
+	tx           gorp.Tx
 )
 
 var _ = BeforeSuite(func() {
@@ -54,6 +57,13 @@ var _ = BeforeSuite(func() {
 		Ontology: otg,
 		Group:    g,
 	}))
+	schematicSvc = MustSucceed(schematic.OpenService(ctx, schematic.ServiceConfig{
+		DB:       db,
+		Ontology: otg,
+	}))
+	svc.RegisterChildDeleter(func(ctx context.Context, tx gorp.Tx, keys ...uuid.UUID) error {
+		return schematicSvc.NewWriter(tx).Delete(ctx, keys...)
+	})
 	userSvc = MustSucceed(user.OpenService(ctx, user.ServiceConfig{
 		DB:       db,
 		Ontology: otg,

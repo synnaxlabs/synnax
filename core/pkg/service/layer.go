@@ -14,6 +14,7 @@ import (
 	"time"
 
 	"github.com/synnaxlabs/alamos"
+	"github.com/google/uuid"
 	"github.com/synnaxlabs/synnax/pkg/distribution"
 	"github.com/synnaxlabs/synnax/pkg/security"
 	"github.com/synnaxlabs/synnax/pkg/service/access/rbac"
@@ -41,6 +42,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/workspace"
 	"github.com/synnaxlabs/synnax/pkg/storage"
 	"github.com/synnaxlabs/x/config"
+	"github.com/synnaxlabs/x/gorp"
 	xio "github.com/synnaxlabs/x/io"
 	"github.com/synnaxlabs/x/override"
 	"github.com/synnaxlabs/x/service"
@@ -252,6 +254,18 @@ func OpenLayer(ctx context.Context, cfgs ...LayerConfig) (l *Layer, err error) {
 	}); !ok(err, nil) {
 		return nil, err
 	}
+	l.Workspace.RegisterChildDeleter(func(ctx context.Context, tx gorp.Tx, keys ...uuid.UUID) error {
+		return l.Schematic.NewWriter(tx).Delete(ctx, keys...)
+	})
+	l.Workspace.RegisterChildDeleter(func(ctx context.Context, tx gorp.Tx, keys ...uuid.UUID) error {
+		return l.LinePlot.NewWriter(tx).Delete(ctx, keys...)
+	})
+	l.Workspace.RegisterChildDeleter(func(ctx context.Context, tx gorp.Tx, keys ...uuid.UUID) error {
+		return l.Log.NewWriter(tx).Delete(ctx, keys...)
+	})
+	l.Workspace.RegisterChildDeleter(func(ctx context.Context, tx gorp.Tx, keys ...uuid.UUID) error {
+		return l.Table.NewWriter(tx).Delete(ctx, keys...)
+	})
 	if l.Status, err = status.OpenService(
 		ctx,
 		status.ServiceConfig{

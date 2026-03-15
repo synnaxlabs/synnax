@@ -13,6 +13,7 @@ import (
 	"github.com/google/uuid"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"github.com/synnaxlabs/synnax/pkg/service/schematic"
 	"github.com/synnaxlabs/synnax/pkg/service/workspace"
 	"github.com/synnaxlabs/x/gorp"
 )
@@ -49,13 +50,28 @@ var _ = Describe("Writer", func() {
 			Expect(res.Layout).To(Equal("data"))
 		})
 	})
-	Describe("DeleteChannel", func() {
+	Describe("Delete", func() {
 		It("Should delete a workspace", func() {
 			ws := workspace.Workspace{Name: "test", Author: author.Key}
 			Expect(svc.NewWriter(tx).Create(ctx, &ws)).To(Succeed())
 			Expect(svc.NewWriter(tx).Delete(ctx, ws.Key)).To(Succeed())
 			var res workspace.Workspace
 			Expect(gorp.NewRetrieve[uuid.UUID, workspace.Workspace]().WhereKeys(ws.Key).Entry(&res).Exec(ctx, tx)).ToNot(Succeed())
+		})
+		It("Should cascade delete child schematics", func() {
+			ws := workspace.Workspace{Name: "cascade_test", Author: author.Key}
+			Expect(svc.NewWriter(tx).Create(ctx, &ws)).To(Succeed())
+
+			s1 := schematic.Schematic{Name: "schematic_1", Data: "{}"}
+			Expect(schematicSvc.NewWriter(tx).Create(ctx, ws.Key, &s1)).To(Succeed())
+			s2 := schematic.Schematic{Name: "schematic_2", Data: "{}"}
+			Expect(schematicSvc.NewWriter(tx).Create(ctx, ws.Key, &s2)).To(Succeed())
+
+			Expect(svc.NewWriter(tx).Delete(ctx, ws.Key)).To(Succeed())
+
+			var res schematic.Schematic
+			Expect(gorp.NewRetrieve[uuid.UUID, schematic.Schematic]().WhereKeys(s1.Key).Entry(&res).Exec(ctx, tx)).ToNot(Succeed())
+			Expect(gorp.NewRetrieve[uuid.UUID, schematic.Schematic]().WhereKeys(s2.Key).Entry(&res).Exec(ctx, tx)).ToNot(Succeed())
 		})
 	})
 })

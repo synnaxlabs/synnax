@@ -58,6 +58,7 @@ type Service struct {
 	cfg             ServiceConfig
 	shutdownSignals io.Closer
 	group           group.Group
+	childDeleters   []ChildDeleter
 }
 
 func OpenService(ctx context.Context, configs ...ServiceConfig) (*Service, error) {
@@ -86,11 +87,21 @@ func OpenService(ctx context.Context, configs ...ServiceConfig) (*Service, error
 
 func (s *Service) Close() error { return s.shutdownSignals.Close() }
 
+// RegisterChildDeleter registers a deleter that will be called when a
+// workspace is deleted. This allows child services (schematics, line plots,
+// etc.) to clean up their records without circular imports.
+func (s *Service) RegisterChildDeleter(d ChildDeleter) {
+	s.childDeleters = append(s.childDeleters, d)
+}
+
 func (s *Service) NewWriter(tx gorp.Tx) Writer {
+	tx = gorp.OverrideTx(s.cfg.DB, tx)
 	return Writer{
-		tx:    gorp.OverrideTx(s.cfg.DB, tx),
-		otg:   s.cfg.Ontology.NewWriter(tx),
-		group: s.group,
+		tx:            tx,
+		otg:           s.cfg.Ontology.NewWriter(tx),
+		otgR:          s.cfg.Ontology,
+		group:         s.group,
+		childDeleters: s.childDeleters,
 	}
 }
 

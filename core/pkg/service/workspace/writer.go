@@ -19,10 +19,18 @@ import (
 	"github.com/synnaxlabs/x/gorp"
 )
 
+// ChildDeleter deletes child resources of a workspace. It receives all child
+// keys regardless of resource type, and should silently ignore keys that don't
+// belong to it. Implementations should delete both data records and ontology
+// resources.
+type ChildDeleter func(ctx context.Context, tx gorp.Tx, keys ...uuid.UUID) error
+
 type Writer struct {
-	tx    gorp.Tx
-	otg   ontology.Writer
-	group group.Group
+	tx            gorp.Tx
+	otg           ontology.Writer
+	otgR          *ontology.Ontology
+	group         group.Group
+	childDeleters []ChildDeleter
 }
 
 func (w Writer) Create(
@@ -88,11 +96,45 @@ func (w Writer) Delete(
 	ctx context.Context,
 	keys ...uuid.UUID,
 ) error {
-	if err := gorp.NewDelete[uuid.UUID, Workspace]().WhereKeys(keys...).Exec(ctx, w.tx); err != nil {
+	for _, key := range keys {
+		if err := w.deleteChildren(ctx, key); err != nil {
+			return err
+		}
+	}
+	if err := gorp.NewDelete[uuid.UUID, Workspace]().
+		WhereKeys(keys...).Exec(ctx, w.tx); err != nil {
 		return err
 	}
 	for _, key := range keys {
 		if err := w.otg.DeleteResource(ctx, OntologyID(key)); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func (w Writer) deleteChildren(ctx context.Context, key uuid.UUID) error {
+	var children []ontology.Resource
+	if err := w.otgR.NewRetrieve().
+		WhereIDs(OntologyID(key)).
+		TraverseTo(ontology.ChildrenTraverser).
+		Entries(&children).
+		Exec(ctx, w.tx); err != nil {
+		return err
+	}
+	if len(children) == 0 {
+		return nil
+	}
+	childKeys := make([]uuid.UUID, 0, len(children))
+	for _, child := range children {
+		k, err := uuid.Parse(child.ID.Key)
+		if err != nil {
+			return err
+		}
+		childKeys = append(childKeys, k)
+	}
+	for _, deleter := range w.childDeleters {
+		if err := deleter(ctx, w.tx, childKeys...); err != nil {
 			return err
 		}
 	}
