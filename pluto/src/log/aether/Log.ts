@@ -278,6 +278,7 @@ export class Log extends aether.Leaf<typeof logState, InternalState> {
   }
 
   private renderScrollbar(draw2d: Draw2D, lh: number): void {
+    if (!this.state.scrolling) return;
     const reg = this.state.region;
     const totalHeight = Math.ceil(this.entries.length * lh);
     const regHeight = box.height(reg);
