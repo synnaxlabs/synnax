@@ -200,6 +200,9 @@ export const Log = ({
 
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent): void => {
+      const target = e.target as HTMLElement;
+      const tag = target.tagName;
+      if (tag === "INPUT" || tag === "TEXTAREA" || target.isContentEditable) return;
       if (e.key === "Escape") {
         setState((s) => ({
           ...s,

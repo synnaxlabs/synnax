@@ -133,7 +133,7 @@ class LogLifecycle(ConsoleCase):
         assert not log.is_streaming(), "Log should not be streaming without data"
 
     def test_channel_streaming(self, log: Log) -> None:
-        """Test that log streams data from a persisted channel and survives reload."""
+        """Test that log streams data from a persisted channel."""
         self.log("Testing channel streaming")
 
         with self.client.open_writer(
@@ -151,15 +151,18 @@ class LogLifecycle(ConsoleCase):
             assert not log.is_waiting_for_data(), "Log should not be waiting for data"
 
     def test_virtual_channel_streaming(self, log: Log) -> None:
-        """Test that log streams data from a virtual (non-persisted) channel."""
-        self.log("Testing virtual channel streaming")
+        """Test that log streams data from a virtual channel and that log data
+        does not persist across reloads.
+        """
+        self.log("Testing virtual channel streaming and reload behavior")
 
         log.clear_channels()
         log.set_channel(self.virtual_name)
         assert (
             log.wait_until_waiting_for_data()
-        ), "Log should be waiting for data initially (virtual channel)"
+        ), "Log should be waiting for data initially"
 
+        # Write live data and verify the log picks it up
         with self.client.open_writer(
             sy.TimeStamp.now(),
             channels=[self.virtual_name],
@@ -173,11 +176,12 @@ class LogLifecycle(ConsoleCase):
             ), "Log should be streaming virtual channel data"
             assert not log.is_empty(), "Log should not be empty with virtual data"
 
+        # log entries are NOT persisted across reloads,
         self.console.reload()
 
         assert (
             log.wait_until_waiting_for_data()
-        ), "Log should be waiting for data after reload (virtual channel not persisted)"
+        ), "Log should be waiting for data after reload (entries are not persisted)"
 
     def test_rename_from_tab(self, log: Log) -> None:
         """Test renaming a log by double-clicking the mosaic tab title."""

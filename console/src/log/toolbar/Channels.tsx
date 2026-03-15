@@ -190,8 +190,6 @@ export const Channels = ({ layoutKey }: ChannelsProps): ReactElement | null => {
 
   if (state == null) return null;
 
-  const activeChannels = state.channels.filter((ch) => !primitive.isZero(ch));
-
   return (
     <Flex.Box
       y
@@ -199,18 +197,20 @@ export const Channels = ({ layoutKey }: ChannelsProps): ReactElement | null => {
       style={{ overflow: "auto" }}
       className={CSS.BE("log", "toolbar", "channels")}
     >
-      {activeChannels.map((ch, i) => (
-        <ChannelRow
-          key={`${ch}-${i}`}
-          index={i}
-          channelKey={ch}
-          config={state.channelConfigs[String(ch)] ?? ZERO_CHANNEL_CONFIG}
-          onChange={handleChannelChange}
-          onConfigChange={handleConfigChange}
-          onRemove={handleRemove}
-          disabled={!hasEditPermission}
-        />
-      ))}
+      {state.channels.map((ch, i) =>
+        primitive.isZero(ch) ? null : (
+          <ChannelRow
+            key={`${ch}-${i}`}
+            index={i}
+            channelKey={ch}
+            config={state.channelConfigs[String(ch)] ?? ZERO_CHANNEL_CONFIG}
+            onChange={handleChannelChange}
+            onConfigChange={handleConfigChange}
+            onRemove={handleRemove}
+            disabled={!hasEditPermission}
+          />
+        ),
+      )}
       <AddChannelRow onAdd={handleAdd} disabled={!hasEditPermission} />
     </Flex.Box>
   );
