@@ -11,7 +11,10 @@ import { configureStore } from "@reduxjs/toolkit";
 import { type Diagram } from "@synnaxlabs/pluto";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-import { navigateToLinkedSchematic } from "@/schematic/Schematic";
+import {
+  handleNodeDoubleClickAction,
+  navigateToLinkedSchematic,
+} from "@/schematic/Schematic";
 import { selectNodeProps } from "@/schematic/selectors";
 import {
   actions,
@@ -652,7 +655,27 @@ describe("Schematic Slice", () => {
       expect(addStatus).not.toHaveBeenCalled();
     });
 
-    it("should add an error status when the linked schematic has been deleted", async () => {
+    it("should pass schematic data and metadata to placeLayout", async () => {
+      const mockSchematic = {
+        key: "page-key",
+        data: { nodes: [{ id: "n1" }], edges: [], props: {} },
+        name: "My Page",
+        workspace: "ws-1",
+      };
+      const client = {
+        schematics: { retrieve: vi.fn().mockResolvedValue(mockSchematic) },
+      };
+      const placeLayout = vi.fn();
+      const addStatus = vi.fn();
+
+      await navigateToLinkedSchematic(client, "page-key", placeLayout, addStatus);
+
+      const arg = placeLayout.mock.calls[0][0];
+      expect(arg).toBeDefined();
+      expect(addStatus).not.toHaveBeenCalled();
+    });
+
+    it("should show user-friendly error with label when retrieval fails", async () => {
       const client = {
         schematics: {
           retrieve: vi.fn().mockRejectedValue(new Error("not found")),
@@ -661,12 +684,227 @@ describe("Schematic Slice", () => {
       const placeLayout = vi.fn();
       const addStatus = vi.fn();
 
-      await navigateToLinkedSchematic(client, "deleted-key", placeLayout, addStatus);
+      await navigateToLinkedSchematic(
+        client,
+        "deleted-key",
+        placeLayout,
+        addStatus,
+        "My Schematic",
+      );
 
       expect(placeLayout).not.toHaveBeenCalled();
       expect(addStatus).toHaveBeenCalledWith({
         variant: "error",
-        message: "Referenced schematic deleted",
+        message: 'Schematic "My Schematic" not found',
+      });
+    });
+
+    it("should use fallback name when label is not provided", async () => {
+      const client = {
+        schematics: {
+          retrieve: vi.fn().mockRejectedValue(new Error("not found")),
+        },
+      };
+      const placeLayout = vi.fn();
+      const addStatus = vi.fn();
+
+      await navigateToLinkedSchematic(client, "bad-key", placeLayout, addStatus);
+
+      expect(placeLayout).not.toHaveBeenCalled();
+      expect(addStatus).toHaveBeenCalledWith({
+        variant: "error",
+        message: 'Schematic "Referenced schematic" not found',
+      });
+    });
+
+    it("should use fallback name when label is empty string", async () => {
+      const client = {
+        schematics: {
+          retrieve: vi.fn().mockRejectedValue(new Error("not found")),
+        },
+      };
+      const placeLayout = vi.fn();
+      const addStatus = vi.fn();
+
+      await navigateToLinkedSchematic(client, "bad-key", placeLayout, addStatus, "");
+
+      expect(placeLayout).not.toHaveBeenCalled();
+      expect(addStatus).toHaveBeenCalledWith({
+        variant: "error",
+        message: 'Schematic "Referenced schematic" not found',
+      });
+    });
+  });
+
+  describe("handleNodeDoubleClickAction", () => {
+    const schematicKey = "dblclick-test";
+
+    beforeEach(() => {
+      store.dispatch(actions.create({ ...ZERO_STATE, key: schematicKey }));
+    });
+
+    it("should do nothing when editable is true", () => {
+      store.dispatch(
+        actions.addElement({
+          key: schematicKey,
+          elKey: "opr-1",
+          props: { key: "offPageReference", page: "target" },
+          node: { position: { x: 0, y: 0 } },
+        }),
+      );
+      const placeLayout = vi.fn();
+      const addStatus = vi.fn();
+      const client = {
+        schematics: { retrieve: vi.fn().mockResolvedValue({}) },
+      };
+
+      handleNodeDoubleClickAction({
+        editable: true,
+        client,
+        storeState: store.getState(),
+        layoutKey: schematicKey,
+        nodeId: "opr-1",
+        placeLayout,
+        addStatus,
+      });
+
+      expect(client.schematics.retrieve).not.toHaveBeenCalled();
+      expect(placeLayout).not.toHaveBeenCalled();
+    });
+
+    it("should do nothing when client is null", () => {
+      store.dispatch(
+        actions.addElement({
+          key: schematicKey,
+          elKey: "opr-1",
+          props: { key: "offPageReference", page: "target" },
+          node: { position: { x: 0, y: 0 } },
+        }),
+      );
+      const placeLayout = vi.fn();
+      const addStatus = vi.fn();
+
+      handleNodeDoubleClickAction({
+        editable: false,
+        client: null,
+        storeState: store.getState(),
+        layoutKey: schematicKey,
+        nodeId: "opr-1",
+        placeLayout,
+        addStatus,
+      });
+
+      expect(placeLayout).not.toHaveBeenCalled();
+    });
+
+    it("should do nothing for a non-offPageReference node", () => {
+      store.dispatch(
+        actions.addElement({
+          key: schematicKey,
+          elKey: "valve-1",
+          props: { key: "valve" },
+          node: { position: { x: 0, y: 0 } },
+        }),
+      );
+      const placeLayout = vi.fn();
+      const addStatus = vi.fn();
+      const client = {
+        schematics: { retrieve: vi.fn().mockResolvedValue({}) },
+      };
+
+      handleNodeDoubleClickAction({
+        editable: false,
+        client,
+        storeState: store.getState(),
+        layoutKey: schematicKey,
+        nodeId: "valve-1",
+        placeLayout,
+        addStatus,
+      });
+
+      expect(client.schematics.retrieve).not.toHaveBeenCalled();
+    });
+
+    it("should do nothing when page is empty", () => {
+      store.dispatch(
+        actions.addElement({
+          key: schematicKey,
+          elKey: "opr-empty",
+          props: { key: "offPageReference", page: "" },
+          node: { position: { x: 0, y: 0 } },
+        }),
+      );
+      const placeLayout = vi.fn();
+      const addStatus = vi.fn();
+      const client = {
+        schematics: { retrieve: vi.fn().mockResolvedValue({}) },
+      };
+
+      handleNodeDoubleClickAction({
+        editable: false,
+        client,
+        storeState: store.getState(),
+        layoutKey: schematicKey,
+        nodeId: "opr-empty",
+        placeLayout,
+        addStatus,
+      });
+
+      expect(client.schematics.retrieve).not.toHaveBeenCalled();
+    });
+
+    it("should do nothing for a non-existent node", () => {
+      const placeLayout = vi.fn();
+      const addStatus = vi.fn();
+      const client = {
+        schematics: { retrieve: vi.fn().mockResolvedValue({}) },
+      };
+
+      handleNodeDoubleClickAction({
+        editable: false,
+        client,
+        storeState: store.getState(),
+        layoutKey: schematicKey,
+        nodeId: "nonexistent",
+        placeLayout,
+        addStatus,
+      });
+
+      expect(client.schematics.retrieve).not.toHaveBeenCalled();
+    });
+
+    it("should navigate when all conditions are met", () => {
+      store.dispatch(
+        actions.addElement({
+          key: schematicKey,
+          elKey: "opr-valid",
+          props: {
+            key: "offPageReference",
+            page: "target-page-key",
+            label: { label: "Go to Target" },
+          },
+          node: { position: { x: 0, y: 0 } },
+        }),
+      );
+      const mockSchematic = { key: "target-page-key", data: {}, name: "Target" };
+      const placeLayout = vi.fn();
+      const addStatus = vi.fn();
+      const client = {
+        schematics: { retrieve: vi.fn().mockResolvedValue(mockSchematic) },
+      };
+
+      handleNodeDoubleClickAction({
+        editable: false,
+        client,
+        storeState: store.getState(),
+        layoutKey: schematicKey,
+        nodeId: "opr-valid",
+        placeLayout,
+        addStatus,
+      });
+
+      expect(client.schematics.retrieve).toHaveBeenCalledWith({
+        key: "target-page-key",
       });
     });
   });

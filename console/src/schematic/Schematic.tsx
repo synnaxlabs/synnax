@@ -70,6 +70,7 @@ import {
   setViewport,
   setViewportMode,
   type State,
+  type StoreState,
   ZERO_STATE,
 } from "@/schematic/slice";
 import { useAddSymbol } from "@/schematic/symbols/useAddSymbol";
@@ -84,17 +85,41 @@ export const navigateToLinkedSchematic = async (
   page: string,
   placeLayout: Layout.Placer,
   addStatus: Status.Adder,
+  label?: string,
 ): Promise<void> => {
   try {
     const s = await client.schematics.retrieve({ key: page });
     placeLayout(create({ ...s.data, ...s }));
-  } catch (e) {
+  } catch {
+    const name = label != null && label.length > 0 ? label : "Referenced schematic";
     addStatus({
       variant: "error",
-      message: e instanceof Error ? e.message : "Failed to navigate to referenced schematic",
+      message: `Schematic "${name}" not found`,
     });
   }
-  }
+};
+
+export interface HandleNodeDoubleClickArgs {
+  editable: boolean;
+  client: { schematics: { retrieve: (arg: { key: string }) => Promise<any> } } | null;
+  storeState: StoreState;
+  layoutKey: string;
+  nodeId: string;
+  placeLayout: Layout.Placer;
+  addStatus: Status.Adder;
+}
+
+export const handleNodeDoubleClickAction = (
+  args: HandleNodeDoubleClickArgs,
+): void => {
+  const { editable, client, storeState, layoutKey, nodeId, placeLayout, addStatus } =
+    args;
+  if (editable || client == null) return;
+  const props = selectNodeProps(storeState, layoutKey, nodeId);
+  if (props?.key !== "offPageReference" || !props.page) return;
+  const page = props.page as string;
+  const label = (props.label as { label?: string } | undefined)?.label;
+  void navigateToLinkedSchematic(client, page, placeLayout, addStatus, label);
 };
 
 interface ControlToggleButtonProps {
@@ -338,13 +363,16 @@ export const Loaded: Layout.Renderer = ({ layoutKey, visible }) => {
   }, [windowKey, state.editable, syncDispatch]);
 
   const handleNodeDoubleClick = useCallback(
-    (_event: React.MouseEvent, node: { id: string }) => {
-      if (state.editable || client == null) return;
-      const props = selectNodeProps(store.getState(), layoutKey, node.id);
-      if (props?.key !== "offPageReference" || !props.page) return;
-      const page = props.page as string;
-      void navigateToLinkedSchematic(client, page, placeLayout, addStatus);
-    },
+    (_event: React.MouseEvent, node: { id: string }) =>
+      handleNodeDoubleClickAction({
+        editable: state.editable,
+        client,
+        storeState: store.getState(),
+        layoutKey,
+        nodeId: node.id,
+        placeLayout,
+        addStatus,
+      }),
     [state.editable, client, store, layoutKey, placeLayout, addStatus],
   );
 
