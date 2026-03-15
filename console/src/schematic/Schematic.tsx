@@ -109,9 +109,7 @@ export interface HandleNodeDoubleClickArgs {
   addStatus: Status.Adder;
 }
 
-export const handleNodeDoubleClickAction = (
-  args: HandleNodeDoubleClickArgs,
-): void => {
+export const handleNodeDoubleClickAction = (args: HandleNodeDoubleClickArgs): void => {
   const { editable, client, storeState, layoutKey, nodeId, placeLayout, addStatus } =
     args;
   if (editable || client == null) return;

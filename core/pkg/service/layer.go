@@ -13,8 +13,8 @@ import (
 	"context"
 	"time"
 
-	"github.com/synnaxlabs/alamos"
 	"github.com/google/uuid"
+	"github.com/synnaxlabs/alamos"
 	"github.com/synnaxlabs/synnax/pkg/distribution"
 	"github.com/synnaxlabs/synnax/pkg/security"
 	"github.com/synnaxlabs/synnax/pkg/service/access/rbac"
