@@ -13,6 +13,7 @@ import (
 	"fmt"
 	"os"
 
+	"charm.land/lipgloss/v2"
 	"github.com/spf13/cobra"
 	"github.com/synnaxlabs/oracle/formatter"
 	"github.com/synnaxlabs/oracle/paths"
@@ -154,12 +155,21 @@ func formatFile(path string) (formatResult, error) {
 
 func printFileFormatted(path string) {
 	f := fileStyle.Render(path)
-	fmt.Printf("  %s %s %s\n", dimStyle.Render(symbolFile), successStyle.Render("formatted"), f)
+	lipgloss.Printf(
+		"  %s %s %s\n",
+		dimStyle.Render(symbolFile),
+		successStyle.Render("formatted"),
+		f,
+	)
 }
 
 func printFormatResult(formatted, unchanged int) {
 	if formatted == 0 {
-		fmt.Printf("%s %s\n", dimStyle.Render(symbolDot), dimStyle.Render("all files already formatted"))
+		lipgloss.Printf(
+			"%s %s\n",
+			dimStyle.Render(symbolDot),
+			dimStyle.Render("all files already formatted"),
+		)
 		return
 	}
 	f := countStyle.Render(fmt.Sprintf("%d", formatted))
