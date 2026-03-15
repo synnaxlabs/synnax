@@ -13,6 +13,7 @@ import (
 	"github.com/google/uuid"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"github.com/synnaxlabs/synnax/pkg/service/lineplot"
 	"github.com/synnaxlabs/synnax/pkg/service/schematic"
 	"github.com/synnaxlabs/synnax/pkg/service/workspace"
 	"github.com/synnaxlabs/x/gorp"
@@ -72,6 +73,23 @@ var _ = Describe("Writer", func() {
 			var res schematic.Schematic
 			Expect(gorp.NewRetrieve[uuid.UUID, schematic.Schematic]().WhereKeys(s1.Key).Entry(&res).Exec(ctx, tx)).ToNot(Succeed())
 			Expect(gorp.NewRetrieve[uuid.UUID, schematic.Schematic]().WhereKeys(s2.Key).Entry(&res).Exec(ctx, tx)).ToNot(Succeed())
+		})
+		It("Should cascade delete mixed resource types", func() {
+			ws := workspace.Workspace{Name: "mixed_cascade", Author: author.Key}
+			Expect(svc.NewWriter(tx).Create(ctx, &ws)).To(Succeed())
+
+			s := schematic.Schematic{Name: "schematic", Data: "{}"}
+			Expect(schematicSvc.NewWriter(tx).Create(ctx, ws.Key, &s)).To(Succeed())
+
+			lp := lineplot.LinePlot{Name: "lineplot", Data: "{}"}
+			Expect(lineplotSvc.NewWriter(tx).Create(ctx, ws.Key, &lp)).To(Succeed())
+
+			Expect(svc.NewWriter(tx).Delete(ctx, ws.Key)).To(Succeed())
+
+			var sRes schematic.Schematic
+			Expect(gorp.NewRetrieve[uuid.UUID, schematic.Schematic]().WhereKeys(s.Key).Entry(&sRes).Exec(ctx, tx)).ToNot(Succeed())
+			var lpRes lineplot.LinePlot
+			Expect(gorp.NewRetrieve[uuid.UUID, lineplot.LinePlot]().WhereKeys(lp.Key).Entry(&lpRes).Exec(ctx, tx)).ToNot(Succeed())
 		})
 	})
 })

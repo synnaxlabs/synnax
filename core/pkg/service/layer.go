@@ -254,17 +254,29 @@ func OpenLayer(ctx context.Context, cfgs ...LayerConfig) (l *Layer, err error) {
 	}); !ok(err, nil) {
 		return nil, err
 	}
-	l.Workspace.RegisterChildDeleter(func(ctx context.Context, tx gorp.Tx, keys ...uuid.UUID) error {
-		return l.Schematic.NewWriter(tx).Delete(ctx, keys...)
+	l.Workspace.RegisterChildDeleter(workspace.ChildDeleter{
+		Type: schematic.OntologyType,
+		Delete: func(ctx context.Context, tx gorp.Tx, keys ...uuid.UUID) error {
+			return l.Schematic.NewWriter(tx).Delete(ctx, keys...)
+		},
 	})
-	l.Workspace.RegisterChildDeleter(func(ctx context.Context, tx gorp.Tx, keys ...uuid.UUID) error {
-		return l.LinePlot.NewWriter(tx).Delete(ctx, keys...)
+	l.Workspace.RegisterChildDeleter(workspace.ChildDeleter{
+		Type: lineplot.OntologyType,
+		Delete: func(ctx context.Context, tx gorp.Tx, keys ...uuid.UUID) error {
+			return l.LinePlot.NewWriter(tx).Delete(ctx, keys...)
+		},
 	})
-	l.Workspace.RegisterChildDeleter(func(ctx context.Context, tx gorp.Tx, keys ...uuid.UUID) error {
-		return l.Log.NewWriter(tx).Delete(ctx, keys...)
+	l.Workspace.RegisterChildDeleter(workspace.ChildDeleter{
+		Type: log.OntologyType,
+		Delete: func(ctx context.Context, tx gorp.Tx, keys ...uuid.UUID) error {
+			return l.Log.NewWriter(tx).Delete(ctx, keys...)
+		},
 	})
-	l.Workspace.RegisterChildDeleter(func(ctx context.Context, tx gorp.Tx, keys ...uuid.UUID) error {
-		return l.Table.NewWriter(tx).Delete(ctx, keys...)
+	l.Workspace.RegisterChildDeleter(workspace.ChildDeleter{
+		Type: table.OntologyType,
+		Delete: func(ctx context.Context, tx gorp.Tx, keys ...uuid.UUID) error {
+			return l.Table.NewWriter(tx).Delete(ctx, keys...)
+		},
 	})
 	if l.Status, err = status.OpenService(
 		ctx,

@@ -19,11 +19,15 @@ import (
 	"github.com/synnaxlabs/x/gorp"
 )
 
-// ChildDeleter deletes child resources of a workspace. It receives all child
-// keys regardless of resource type, and should silently ignore keys that don't
-// belong to it. Implementations should delete both data records and ontology
-// resources.
-type ChildDeleter func(ctx context.Context, tx gorp.Tx, keys ...uuid.UUID) error
+// ChildDeleter deletes child resources of a specific type from a workspace.
+// Each deleter is associated with an ontology type, and only receives keys
+// that match that type during cascade deletion.
+type ChildDeleter struct {
+	// Type is the ontology type this deleter handles.
+	Type ontology.Type
+	// Delete removes the resources with the given keys.
+	Delete func(ctx context.Context, tx gorp.Tx, keys ...uuid.UUID) error
+}
 
 type Writer struct {
 	tx            gorp.Tx
@@ -125,16 +129,20 @@ func (w Writer) deleteChildren(ctx context.Context, key uuid.UUID) error {
 	if len(children) == 0 {
 		return nil
 	}
-	childKeys := make([]uuid.UUID, 0, len(children))
+	byType := make(map[ontology.Type][]uuid.UUID)
 	for _, child := range children {
 		k, err := uuid.Parse(child.ID.Key)
 		if err != nil {
 			return err
 		}
-		childKeys = append(childKeys, k)
+		byType[child.ID.Type] = append(byType[child.ID.Type], k)
 	}
 	for _, deleter := range w.childDeleters {
-		if err := deleter(ctx, w.tx, childKeys...); err != nil {
+		keys, ok := byType[deleter.Type]
+		if !ok || len(keys) == 0 {
+			continue
+		}
+		if err := deleter.Delete(ctx, w.tx, keys...); err != nil {
 			return err
 		}
 	}

@@ -18,6 +18,7 @@ import (
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/synnax/pkg/distribution/group"
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
+	"github.com/synnaxlabs/synnax/pkg/service/lineplot"
 	"github.com/synnaxlabs/synnax/pkg/service/schematic"
 	"github.com/synnaxlabs/synnax/pkg/service/user"
 	"github.com/synnaxlabs/synnax/pkg/service/workspace"
@@ -37,6 +38,7 @@ var (
 	otg          *ontology.Ontology
 	svc          *workspace.Service
 	schematicSvc *schematic.Service
+	lineplotSvc  *lineplot.Service
 	userSvc      *user.Service
 	author       user.User
 	tx           gorp.Tx
@@ -61,8 +63,21 @@ var _ = BeforeSuite(func() {
 		DB:       db,
 		Ontology: otg,
 	}))
-	svc.RegisterChildDeleter(func(ctx context.Context, tx gorp.Tx, keys ...uuid.UUID) error {
-		return schematicSvc.NewWriter(tx).Delete(ctx, keys...)
+	svc.RegisterChildDeleter(workspace.ChildDeleter{
+		Type: schematic.OntologyType,
+		Delete: func(ctx context.Context, tx gorp.Tx, keys ...uuid.UUID) error {
+			return schematicSvc.NewWriter(tx).Delete(ctx, keys...)
+		},
+	})
+	lineplotSvc = MustSucceed(lineplot.NewService(lineplot.ServiceConfig{
+		DB:       db,
+		Ontology: otg,
+	}))
+	svc.RegisterChildDeleter(workspace.ChildDeleter{
+		Type: lineplot.OntologyType,
+		Delete: func(ctx context.Context, tx gorp.Tx, keys ...uuid.UUID) error {
+			return lineplotSvc.NewWriter(tx).Delete(ctx, keys...)
+		},
 	})
 	userSvc = MustSucceed(user.OpenService(ctx, user.ServiceConfig{
 		DB:       db,
