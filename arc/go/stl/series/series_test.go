@@ -31,8 +31,7 @@ var _ = Describe("Series", func() {
 	BeforeEach(func() {
 		rt = testutil.NewRuntime(ctx)
 		ss = series.NewProgramState()
-		_, err := series.NewModule(ctx, ss, rt.Underlying())
-		Expect(err).ToNot(HaveOccurred())
+		MustSucceed(series.NewModule(ctx, ss, rt.Underlying()))
 		rt.Passthrough(ctx, "series")
 	})
 

@@ -58,15 +58,13 @@ var _ = Describe("DB Metadata Operations", func() {
 			Describe("RenameChannel", func() {
 				It("Should rename the channel and persist it", func() {
 					Expect(db.RenameChannel(ctx, "new_name")).To(Succeed())
-					ch, err := meta.Read(ctx, fs, codec)
-					Expect(err).ToNot(HaveOccurred())
+					ch := MustSucceed(meta.Read(ctx, fs, codec))
 					Expect(ch.Name).To(Equal("new_name"))
 				})
 
 				It("Should be a no-op when the name is the same", func() {
 					Expect(db.RenameChannel(ctx, "test")).To(Succeed())
-					ch, err := meta.Read(ctx, fs, codec)
-					Expect(err).ToNot(HaveOccurred())
+					ch := MustSucceed(meta.Read(ctx, fs, codec))
 					Expect(ch.Name).To(Equal("test"))
 				})
 			})
@@ -75,15 +73,13 @@ var _ = Describe("DB Metadata Operations", func() {
 				It("Should change the channel key and persist it", func() {
 					newKey := testutil.GenerateChannelKey()
 					Expect(db.SetChannelKeyInMeta(ctx, newKey)).To(Succeed())
-					ch, err := meta.Read(ctx, fs, codec)
-					Expect(err).ToNot(HaveOccurred())
+					ch := MustSucceed(meta.Read(ctx, fs, codec))
 					Expect(ch.Key).To(Equal(newKey))
 				})
 
 				It("Should be a no-op when the key is the same", func() {
 					Expect(db.SetChannelKeyInMeta(ctx, dbKey)).To(Succeed())
-					ch, err := meta.Read(ctx, fs, codec)
-					Expect(err).ToNot(HaveOccurred())
+					ch := MustSucceed(meta.Read(ctx, fs, codec))
 					Expect(ch.Key).To(Equal(dbKey))
 				})
 			})
