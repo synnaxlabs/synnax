@@ -3,7 +3,6 @@ name: Test - Arc (Go)
 on:
   pull_request:
     paths:
-      - .custom-gcl.yml
       - .github/workflows/test.arc.go.yaml
       - .github/workflows/test.go.yaml
       - .golangci.yaml
@@ -11,8 +10,6 @@ on:
       - arc/go/**
       - codecov.yaml
       - freighter/go/**
-      - go.work
-      - go.work.sum
       - scripts/check_gofmt.sh
       - x/go/**
   push:
@@ -20,7 +17,6 @@ on:
       - main
       - rc
     paths:
-      - .custom-gcl.yml
       - .github/workflows/test.arc.go.yaml
       - .github/workflows/test.go.yaml
       - .golangci.yaml
@@ -28,8 +24,6 @@ on:
       - arc/go/**
       - codecov.yaml
       - freighter/go/**
-      - go.work
-      - go.work.sum
       - scripts/check_gofmt.sh
       - x/go/**
   workflow_dispatch:

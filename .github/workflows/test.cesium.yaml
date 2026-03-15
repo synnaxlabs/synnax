@@ -3,15 +3,12 @@ name: Test - Cesium
 on:
   pull_request:
     paths:
-      - .custom-gcl.yml
       - .github/workflows/test.cesium.yaml
       - .github/workflows/test.go.yaml
       - .golangci.yaml
       - alamos/go/**
       - cesium/**
       - codecov.yaml
-      - go.work
-      - go.work.sum
       - scripts/check_gofmt.sh
       - x/go/**
   push:
@@ -19,15 +16,12 @@ on:
       - main
       - rc
     paths:
-      - .custom-gcl.yml
       - .github/workflows/test.cesium.yaml
       - .github/workflows/test.go.yaml
       - .golangci.yaml
       - alamos/go/**
       - cesium/**
       - codecov.yaml
-      - go.work
-      - go.work.sum
       - scripts/check_gofmt.sh
       - x/go/**
   workflow_dispatch:
