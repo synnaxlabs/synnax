@@ -78,6 +78,7 @@ export class StreamMultiChannelLog
   private _evictedCount: number = 0;
   private _channels: Array<number | string> = [];
   private _aliases: Record<string, string> = {};
+  private _channelNames: Record<string, string> = {};
   get evictedCount(): number {
     return this._evictedCount;
   }
@@ -134,6 +135,32 @@ export class StreamMultiChannelLog
     this.notify();
   }
 
+  setChannelNames(names: Record<string, string>): void {
+    this._channelNames = names;
+    let changed = false;
+    for (const [key, meta] of this.channelMeta) {
+      const name = names[String(key)] || meta.name;
+      if (meta.name !== name) {
+        meta.name = name;
+        changed = true;
+      }
+      const displayName = this._aliases[String(key)] || meta.name;
+      if (meta.displayName !== displayName) {
+        meta.displayName = displayName;
+        changed = true;
+      }
+    }
+    if (!changed) return;
+    this.recomputePadding();
+    for (const entry of this.entries) {
+      const meta = this.channelMeta.get(entry.channelKey);
+      if (meta == null) continue;
+      entry.channelName = meta.displayName;
+      entry.channelPadding = meta.padding;
+    }
+    this.notify();
+  }
+
   private recomputePadding(): void {
     const maxLen = Math.max(
       0,
@@ -168,10 +195,11 @@ export class StreamMultiChannelLog
       const isRestart = this.channelMeta.size > 0;
       this.channelMeta.clear();
       for (const ch of channels) {
-        const displayName = this._aliases[String(ch.key)] || ch.name;
+        const name = this._channelNames[String(ch.key)] || ch.name;
+        const displayName = this._aliases[String(ch.key)] || name;
         this.channelMeta.set(ch.key, {
           key: ch.key,
-          name: ch.name,
+          name,
           displayName,
           indexKey: ch.index,
           leadingBuffer: null,

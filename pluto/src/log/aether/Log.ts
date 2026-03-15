@@ -34,6 +34,7 @@ export const logState = z.object({
   showChannelNames: z.boolean().default(true),
   timestampPrecision: z.number().min(0).max(3).default(0),
   channelConfigs: z.record(z.string(), channelConfigZ).default({}),
+  channelNames: z.record(z.string(), z.string()).default({}),
   channels: z.array(z.number().or(z.string())).default([]),
   telem: telem.logSourceSpecZ.default(telem.noopLogSourceSpec),
   font: text.levelZ.default("p"),
@@ -158,6 +159,9 @@ export class Log extends aether.Leaf<typeof logState, InternalState> {
     // Always call setChannels — the source short-circuits if unchanged.
     // This handles both initial setup (where prevState === state) and subsequent changes.
     i.telem.setChannels?.(this.state.channels);
+
+    if (this.state.channelNames !== this.prevState.channelNames)
+      i.telem.setChannelNames?.(this.state.channelNames);
 
     if (configs !== prevConfigs) {
       const aliases: Record<string, string> = {};

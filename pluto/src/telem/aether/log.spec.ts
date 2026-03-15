@@ -756,4 +756,91 @@ describe("StreamMultiChannelLog", () => {
       expect(entries[1].value).toBe("20");
     });
   });
+
+  describe("setChannelNames", () => {
+    it("should retroactively update entries when channel name changes", async () => {
+      const props: StreamMultiChannelLogProps = {
+        channels: [c.channelA.key],
+        timeSpan: TimeSpan.seconds(30),
+      };
+      const log = new StreamMultiChannelLog(c, props);
+      await waitForResolve(log);
+      const series = new Series({ data: new Float32Array([1, 2]) });
+      c.streamHandler?.(new Map([[c.channelA.key, new MultiSeries([series])]]));
+      expect(log.value()[0].channelName).toBe("channel_a");
+      log.setChannelNames({ [String(c.channelA.key)]: "renamed_a" });
+      expect(log.value()[0].channelName).toBe("renamed_a");
+      expect(log.value()[1].channelName).toBe("renamed_a");
+    });
+
+    it("should not override alias with channel name", async () => {
+      const props: StreamMultiChannelLogProps = {
+        channels: [c.channelA.key],
+        timeSpan: TimeSpan.seconds(30),
+      };
+      const log = new StreamMultiChannelLog(c, props);
+      await waitForResolve(log);
+      log.setAliases({ [String(c.channelA.key)]: "my_alias" });
+      const series = new Series({ data: new Float32Array([1]) });
+      c.streamHandler?.(new Map([[c.channelA.key, new MultiSeries([series])]]));
+      log.setChannelNames({ [String(c.channelA.key)]: "renamed_a" });
+      expect(log.value()[0].channelName).toBe("my_alias");
+    });
+
+    it("should show renamed name when alias is cleared", async () => {
+      const props: StreamMultiChannelLogProps = {
+        channels: [c.channelA.key],
+        timeSpan: TimeSpan.seconds(30),
+      };
+      const log = new StreamMultiChannelLog(c, props);
+      await waitForResolve(log);
+      log.setChannelNames({ [String(c.channelA.key)]: "renamed_a" });
+      log.setAliases({ [String(c.channelA.key)]: "my_alias" });
+      const series = new Series({ data: new Float32Array([1]) });
+      c.streamHandler?.(new Map([[c.channelA.key, new MultiSeries([series])]]));
+      expect(log.value()[0].channelName).toBe("my_alias");
+      log.setAliases({});
+      expect(log.value()[0].channelName).toBe("renamed_a");
+    });
+
+    it("should recompute padding when name length changes", async () => {
+      const props: StreamMultiChannelLogProps = {
+        channels: [c.channelA.key, c.channelB.key],
+        timeSpan: TimeSpan.seconds(30),
+      };
+      const log = new StreamMultiChannelLog(c, props);
+      await waitForResolve(log);
+      log.setChannelNames({
+        [String(c.channelA.key)]: "short",
+        [String(c.channelB.key)]: "very_long_renamed_channel",
+      });
+      const seriesA = new Series({ data: new Float32Array([1]) });
+      const seriesB = new Series({ data: new Float32Array([2]) });
+      c.streamHandler?.(
+        new Map([
+          [c.channelA.key, new MultiSeries([seriesA])],
+          [c.channelB.key, new MultiSeries([seriesB])],
+        ]),
+      );
+      const entries = log.value();
+      const maxLen = "very_long_renamed_channel".length;
+      expect(entries[0].channelPadding).toBe(" ".repeat(maxLen - "short".length));
+      expect(entries[1].channelPadding).toBe("");
+    });
+
+    it("should be a no-op when names have not changed", async () => {
+      const props: StreamMultiChannelLogProps = {
+        channels: [c.channelA.key],
+        timeSpan: TimeSpan.seconds(30),
+      };
+      const log = new StreamMultiChannelLog(c, props);
+      await waitForResolve(log);
+      const series = new Series({ data: new Float32Array([1]) });
+      c.streamHandler?.(new Map([[c.channelA.key, new MultiSeries([series])]]));
+      const handler = vi.fn();
+      log.onChange(handler);
+      log.setChannelNames({ [String(c.channelA.key)]: "channel_a" });
+      expect(handler).not.toHaveBeenCalled();
+    });
+  });
 });

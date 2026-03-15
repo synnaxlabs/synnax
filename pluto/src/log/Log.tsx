@@ -10,11 +10,12 @@
 import "@/log/Log.css";
 
 import { box, location, type optional } from "@synnaxlabs/x";
-import { type ReactElement, useCallback, useEffect, useRef } from "react";
+import { type ReactElement, useCallback, useEffect, useMemo, useRef } from "react";
 import { type z } from "zod";
 
 import { Aether } from "@/aether";
 import { Button } from "@/button";
+import { Channel } from "@/channel";
 import { CSS } from "@/css";
 import { type Flex } from "@/flex";
 import { Icon } from "@/icon";
@@ -46,6 +47,7 @@ export interface LogProps
         | "selectedLines"
         | "computedLineHeight"
         | "copyFlash"
+        | "channelNames"
       >,
       "visible"
     >,
@@ -72,6 +74,20 @@ export const Log = ({
   telem,
   ...rest
 }: LogProps): ReactElement | null => {
+  const numericChannels = useMemo(
+    () => channels.filter((ch): ch is number => typeof ch === "number" && ch > 0),
+    [channels],
+  );
+  const { data: retrievedChannels } = Channel.useRetrieveMultiple({
+    keys: numericChannels,
+  });
+  const channelNames = useMemo(() => {
+    const names: Record<string, string> = {};
+    if (retrievedChannels != null)
+      for (const ch of retrievedChannels) names[String(ch.key)] = ch.name;
+    return names;
+  }, [retrievedChannels]);
+
   const memoProps = useMemoDeepEqual({
     font,
     color,
@@ -80,6 +96,7 @@ export const Log = ({
     showChannelNames,
     timestampPrecision,
     channelConfigs,
+    channelNames,
     channels,
   });
   const [, state, setState] = Aether.use({
