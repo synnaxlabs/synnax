@@ -48,15 +48,15 @@ func FunctionPropertiesFromPB(ctx context.Context, pb *FunctionProperties) (type
 	var err error
 	r.Inputs, err = ParamsFromPB(ctx, pb.Inputs)
 	if err != nil {
-		return r, err
+		return types.FunctionProperties{}, err
 	}
 	r.Outputs, err = ParamsFromPB(ctx, pb.Outputs)
 	if err != nil {
-		return r, err
+		return types.FunctionProperties{}, err
 	}
 	r.Config, err = ParamsFromPB(ctx, pb.Config)
 	if err != nil {
-		return r, err
+		return types.FunctionProperties{}, err
 	}
 	return r, nil
 }
@@ -142,15 +142,15 @@ func TypeFromPB(ctx context.Context, pb *Type) (types.Type, error) {
 	var err error
 	r.Inputs, err = ParamsFromPB(ctx, pb.Inputs)
 	if err != nil {
-		return r, err
+		return types.Type{}, err
 	}
 	r.Outputs, err = ParamsFromPB(ctx, pb.Outputs)
 	if err != nil {
-		return r, err
+		return types.Type{}, err
 	}
 	r.Config, err = ParamsFromPB(ctx, pb.Config)
 	if err != nil {
-		return r, err
+		return types.Type{}, err
 	}
 	r.Kind = KindFromPB(pb.Kind)
 	r.Name = pb.Name
@@ -158,21 +158,21 @@ func TypeFromPB(ctx context.Context, pb *Type) (types.Type, error) {
 	if pb.Elem != nil {
 		val, err := TypeFromPB(ctx, pb.Elem)
 		if err != nil {
-			return r, err
+			return types.Type{}, err
 		}
 		r.Elem = &val
 	}
 	if pb.Unit != nil {
 		val, err := UnitFromPB(ctx, pb.Unit)
 		if err != nil {
-			return r, err
+			return types.Type{}, err
 		}
 		r.Unit = &val
 	}
 	if pb.Constraint != nil {
 		val, err := TypeFromPB(ctx, pb.Constraint)
 		if err != nil {
-			return r, err
+			return types.Type{}, err
 		}
 		r.Constraint = &val
 	}
@@ -232,7 +232,7 @@ func ParamFromPB(ctx context.Context, pb *Param) (types.Param, error) {
 	var err error
 	r.Type, err = TypeFromPB(ctx, pb.Type)
 	if err != nil {
-		return r, err
+		return types.Param{}, err
 	}
 	r.Value = func() any { var v any; _ = json.Unmarshal(pb.Value, &v); return v }()
 	r.Name = pb.Name
@@ -392,7 +392,7 @@ func UnitFromPB(ctx context.Context, pb *Unit) (types.Unit, error) {
 	var err error
 	r.Dimensions, err = DimensionsFromPB(ctx, pb.Dimensions)
 	if err != nil {
-		return r, err
+		return types.Unit{}, err
 	}
 	r.Scale = pb.Scale
 	r.Name = pb.Name

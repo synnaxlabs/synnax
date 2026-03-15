@@ -7,6 +7,16 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-#pragma once
+package keywords_test
 
-#include "x/cpp/telem/telem.h"
+import (
+	"testing"
+
+	. "github.com/onsi/ginkgo/v2"
+	. "github.com/onsi/gomega"
+)
+
+func TestKeywords(t *testing.T) {
+	RegisterFailHandler(Fail)
+	RunSpecs(t, "Keywords Suite")
+}

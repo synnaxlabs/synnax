@@ -63,7 +63,7 @@ import (
 	"github.com/synnaxlabs/arc/ir"
 )
 
-// IsZero reports whether the Module is empty (uninitialized or contains no content).
+// IsZero reports whether the Program is empty (uninitialized or contains no content).
 //
 // A Program is considered zero if it has no compiled WASM bytecode and the embedded
 // IR is also zero. This is useful for validating that compilation succeeded and

@@ -24,8 +24,6 @@ linters:
         description: >
           Detects Expect(err).ToNot(HaveOccurred()) patterns that can be replaced with
           MustSucceed.
-  exclusions:
-    generated: lax
 
 run:
   build-tags:

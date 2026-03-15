@@ -17,8 +17,11 @@ import (
 	"github.com/synnaxlabs/x/status"
 )
 
+// Status is device-specific status information including operational state and device
+// identification.
 type Status = status.Status[StatusDetails]
 
+// Key is the device's serial number, used as its unique identifier.
 type Key = string
 
 // StatusDetails contains device-specific status details identifying the device and its

@@ -41,7 +41,7 @@ func LogFromPB(_ context.Context, pb *Log) (log.Log, error) {
 	var err error
 	parsedKey, err := uuid.Parse(pb.Key)
 	if err != nil {
-		return r, err
+		return log.Log{}, err
 	}
 	r.Key = log.Key(parsedKey)
 	r.Data = pb.Data.AsMap()

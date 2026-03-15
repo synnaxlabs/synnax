@@ -63,7 +63,7 @@ func ChannelFromPB(ctx context.Context, pb *Channel) (channel.Channel, error) {
 	var err error
 	r.Operations, err = channelpb.OperationsFromPB(ctx, pb.Operations)
 	if err != nil {
-		return r, err
+		return channel.Channel{}, err
 	}
 	r.Key = distributionchannel.Key(pb.Key)
 	r.Name = distributionchannel.Name(pb.Name)
@@ -79,7 +79,7 @@ func ChannelFromPB(ctx context.Context, pb *Channel) (channel.Channel, error) {
 	if pb.Status != nil {
 		val, err := statuspb.StatusFromPB[gotypes.Nil](ctx, pb.Status, nil)
 		if err != nil {
-			return r, err
+			return channel.Channel{}, err
 		}
 		r.Status = (*channel.Status)(&val)
 	}

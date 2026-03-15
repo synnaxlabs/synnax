@@ -37,6 +37,7 @@ export enum Kind {
   stage = 23,
 }
 export const kindZ = z.enum(Kind);
+
 export enum ChanDirection {
   none = 0,
   read = 1,

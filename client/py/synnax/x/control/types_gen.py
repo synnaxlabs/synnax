@@ -16,6 +16,8 @@ from typing import Generic, TypeAlias, TypeVar
 
 from pydantic import BaseModel
 
+Authority: TypeAlias = int
+
 
 class Concurrency(IntEnum):
     exclusive = 0
@@ -23,8 +25,6 @@ class Concurrency(IntEnum):
 
 
 R = TypeVar("R")
-
-Authority: TypeAlias = int
 
 
 class Subject(BaseModel):

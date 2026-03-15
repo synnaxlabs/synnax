@@ -1603,4 +1603,68 @@ TEST(testConfig, testHasConditionalParsing) {
     EXPECT_NEAR(threshold, 3.14f, 0.0001f);
     EXPECT_EQ(count, 0); // Not parsed since field doesn't exist
 }
+
+TEST(testConfig, testOptionalFieldPresent) {
+    const json j = {{"name", "test"}, {"value", 42}};
+    Parser parser(j);
+    const auto result = parser.field<std::optional<int>>("value");
+    EXPECT_TRUE(parser.ok());
+    ASSERT_TRUE(result.has_value());
+    EXPECT_EQ(*result, 42);
+}
+
+TEST(testConfig, testOptionalFieldMissing) {
+    const json j = {{"name", "test"}};
+    Parser parser(j);
+    const auto result = parser.field<std::optional<int>>("value");
+    EXPECT_TRUE(parser.ok());
+    EXPECT_FALSE(result.has_value());
+}
+
+TEST(testConfig, testIndirectFieldPresent) {
+    const json j = {{"name", "test"}, {"value", 99}};
+    Parser parser(j);
+    const auto result = parser.field<x::mem::indirect<int>>("value");
+    EXPECT_TRUE(parser.ok());
+    ASSERT_TRUE(result != nullptr);
+    EXPECT_EQ(*result, 99);
+}
+
+TEST(testConfig, testIndirectFieldMissing) {
+    const json j = {{"name", "test"}};
+    Parser parser(j);
+    const auto result = parser.field<x::mem::indirect<int>>("value");
+    EXPECT_TRUE(parser.ok());
+    EXPECT_TRUE(result == nullptr);
+}
+
+TEST(testConfig, testToArrayWithToJson) {
+    struct Item {
+        std::string name;
+        [[nodiscard]] json to_json() const { return {{"name", this->name}}; }
+    };
+    const std::vector<Item> items = {{"alpha"}, {"beta"}, {"gamma"}};
+    const auto arr = to_array(items);
+    ASSERT_EQ(arr.size(), 3);
+    EXPECT_EQ(arr[0]["name"], "alpha");
+    EXPECT_EQ(arr[1]["name"], "beta");
+    EXPECT_EQ(arr[2]["name"], "gamma");
+}
+
+TEST(testConfig, testToArrayWithPrimitives) {
+    const std::vector<int> items = {1, 2, 3};
+    const auto arr = to_array(items);
+    ASSERT_EQ(arr.size(), 3);
+    EXPECT_EQ(arr[0], 1);
+    EXPECT_EQ(arr[1], 2);
+    EXPECT_EQ(arr[2], 3);
+}
+
+TEST(testConfig, testMonostate) {
+    const json j = {{"data", "ignored"}};
+    Parser parser(j);
+    const auto result = parser.field<std::monostate>("data");
+    EXPECT_TRUE(parser.ok());
+    (void) result;
+}
 }

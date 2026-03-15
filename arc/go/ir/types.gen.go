@@ -17,20 +17,30 @@ import (
 	"github.com/synnaxlabs/arc/types"
 )
 
+// Edges is a collection of dataflow edges in an Arc graph.
 type Edges []Edge
 
+// Stages is a collection of stages in an Arc sequence.
 type Stages []Stage
 
+// Sequences is a collection of sequences in an Arc module.
 type Sequences []Sequence
 
+// Functions is a collection of function definitions in an Arc module.
 type Functions []Function
 
+// Strata contains stratified execution layers where stratum N depends only on strata 0
+// to N-1, enabling glitch-free reactive evaluation.
 type Strata []Stratum
 
+// Nodes is a collection of node instantiations in an Arc module.
 type Nodes []Node
 
+// Stratum is a single execution layer containing node keys that can execute in
+// parallel.
 type Stratum = []string
 
+// EdgeKind defines execution semantics for dataflow edges between nodes.
 type EdgeKind uint8
 
 //go:generate stringer -type=EdgeKind

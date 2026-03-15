@@ -2019,7 +2019,7 @@ export type {{ .TSName }} = z.infer<typeof {{ .TSName | camelCase }}Z>;
 {{- end }}
 {{- range .Enums }}
 
-{{- if .IsIntEnum }}
+{{ if .IsIntEnum }}
 export enum {{ .Name }} {
 {{- range $i, $v := .Values }}
   {{ $v.Name }} = {{ $v.IntValue }},

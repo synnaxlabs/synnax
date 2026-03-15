@@ -38,15 +38,14 @@ constexpr const char *VARIANT_DISABLED = "disabled";
 /// component-specific details.
 template<typename Details = std::monostate>
 struct Status {
-    /// @brief key is a unique identifier for this status, automatically generated if
-    /// not
+    /// @brief key is a unique identifier for this status, auto-generated if not
     /// provided.
     std::string key;
     /// @brief name is an optional human-readable name for the status.
     std::string name;
-    /// @brief variant is the severity or type of the status: success, info, warning,
-    /// error,
-    /// loading, or disabled.
+    /// @brief variant indicates the severity of the status. One of success, info,
+    /// warning,
+    /// error, loading, or disabled.
     std::string variant;
     /// @brief message is the main message text describing the status.
     std::string message;

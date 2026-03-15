@@ -16,6 +16,7 @@ import { graph } from "@/arc/graph";
 import { program } from "@/arc/program";
 import { text } from "@/arc/text";
 import { ontology } from "@/ontology";
+
 export const MODES = ["text", "graph"] as const;
 export const modeZ = z.enum(MODES);
 export type Mode = z.infer<typeof modeZ>;

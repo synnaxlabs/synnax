@@ -41,7 +41,7 @@ func TableFromPB(_ context.Context, pb *Table) (table.Table, error) {
 	var err error
 	parsedKey, err := uuid.Parse(pb.Key)
 	if err != nil {
-		return r, err
+		return table.Table{}, err
 	}
 	r.Key = table.Key(parsedKey)
 	r.Data = pb.Data.AsMap()

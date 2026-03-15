@@ -83,7 +83,7 @@ def _from_hex(s: str) -> dict[str, int | float]:
     if len(s) == 8:
         return {
             "r": int(s[0:2], 16),
-            "g": int(s[2:4], 16),
+           "g": int(s[2:4], 16),
             "b": int(s[4:6], 16),
             "a": int(s[6:8], 16) / 255.0,
         }

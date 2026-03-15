@@ -12,6 +12,10 @@
 import { z } from "zod";
 
 import { zod } from "@/zod";
+
+export const authorityZ = zod.uint8;
+export type Authority = z.infer<typeof authorityZ>;
+
 export enum Concurrency {
   exclusive = 0,
   shared = 1,
@@ -29,9 +33,6 @@ export const subjectZ = z.object({
   name: z.string(),
 });
 export interface Subject extends z.infer<typeof subjectZ> {}
-
-export const authorityZ = zod.uint8;
-export type Authority = z.infer<typeof authorityZ>;
 
 export const stateZ = <R extends z.ZodType>(r: R) =>
   z.object({

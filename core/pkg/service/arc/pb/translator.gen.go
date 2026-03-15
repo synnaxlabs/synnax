@@ -113,30 +113,30 @@ func ArcFromPB(ctx context.Context, pb *Arc) (arc.Arc, error) {
 	var err error
 	parsedKey, err := uuid.Parse(pb.Key)
 	if err != nil {
-		return r, err
+		return arc.Arc{}, err
 	}
 	r.Key = arc.Key(parsedKey)
 	r.Graph, err = graphpb.GraphFromPB(ctx, pb.Graph)
 	if err != nil {
-		return r, err
+		return arc.Arc{}, err
 	}
 	r.Text, err = textpb.TextFromPB(ctx, pb.Text)
 	if err != nil {
-		return r, err
+		return arc.Arc{}, err
 	}
 	r.Name = pb.Name
 	r.Mode = ModeFromPB(pb.Mode)
 	if pb.Program != nil {
 		val, err := programpb.ProgramFromPB(ctx, pb.Program)
 		if err != nil {
-			return r, err
+			return arc.Arc{}, err
 		}
 		r.Program = &val
 	}
 	if pb.Status != nil {
 		val, err := statuspb.StatusFromPB[arc.StatusDetails](ctx, pb.Status, StatusDetailsFromPBAny)
 		if err != nil {
-			return r, err
+			return arc.Arc{}, err
 		}
 		r.Status = (*arc.Status)(&val)
 	}

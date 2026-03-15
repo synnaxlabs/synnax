@@ -109,6 +109,7 @@ func {{.Name}}FromPB({{if .UsesContext}}ctx{{else}}_{{end}} context.Context, pb 
 	if pb == nil {
 		return r, nil
 	}
+{{- $goType := .GoType}}
 {{- $needsErr := false}}
 {{- range .ErrorFields}}{{if .HasBackwardError}}{{$needsErr = true}}{{end}}{{end}}
 {{- if $needsErr}}
@@ -119,13 +120,13 @@ func {{.Name}}FromPB({{if .UsesContext}}ctx{{else}}_{{end}} context.Context, pb 
 {{- if .BackwardCast}}
 	parsed{{.GoName}}, err := {{.BackwardExpr}}
 	if err != nil {
-		return r, err
+		return {{$goType}}{}, err
 	}
 	r.{{.GoName}} = {{.BackwardCast}}(parsed{{.GoName}})
 {{- else}}
 	r.{{.GoName}}, err = {{.BackwardExpr}}
 	if err != nil {
-		return r, err
+		return {{$goType}}{}, err
 	}
 {{- end}}
 {{- else}}
@@ -153,7 +154,7 @@ func {{.Name}}FromPB({{if .UsesContext}}ctx{{else}}_{{end}} context.Context, pb 
 {{- if .IsOptionalStruct}}
 		val, err := {{.BackwardExpr}}
 		if err != nil {
-			return r, err
+			return {{$goType}}{}, err
 		}
 {{- if .BackwardCast}}
 		r.{{.GoName}} = {{.BackwardCast}}(&val)
@@ -302,6 +303,7 @@ func {{.Name}}FromPB{{if .TypeParams}}[{{range $i, $tp := .TypeParams}}{{if $i}}
 	if pb == nil {
 		return r, nil
 	}
+{{- $goType := .GoType}}
 {{- $needsErr := false}}
 {{- range .TypeParamFields}}{{$needsErr = true}}{{end}}
 {{- range .ErrorFields}}{{if .HasBackwardError}}{{$needsErr = true}}{{end}}{{end}}
@@ -311,7 +313,7 @@ func {{.Name}}FromPB{{if .TypeParams}}[{{range $i, $tp := .TypeParams}}{{if $i}}
 {{- range .TypeParamFields}}
 	r.{{.GoName}}, err = {{.BackwardExpr}}
 	if err != nil {
-		return r, err
+		return {{$goType}}{}, err
 	}
 {{- end}}
 {{- range .ErrorFields}}
@@ -319,13 +321,13 @@ func {{.Name}}FromPB{{if .TypeParams}}[{{range $i, $tp := .TypeParams}}{{if $i}}
 {{- if .BackwardCast}}
 	parsed{{.GoName}}, err := {{.BackwardExpr}}
 	if err != nil {
-		return r, err
+		return {{$goType}}{}, err
 	}
 	r.{{.GoName}} = {{.BackwardCast}}(parsed{{.GoName}})
 {{- else}}
 	r.{{.GoName}}, err = {{.BackwardExpr}}
 	if err != nil {
-		return r, err
+		return {{$goType}}{}, err
 	}
 {{- end}}
 {{- else}}
@@ -353,7 +355,7 @@ func {{.Name}}FromPB{{if .TypeParams}}[{{range $i, $tp := .TypeParams}}{{if $i}}
 {{- if .IsOptionalStruct}}
 		val, err := {{.BackwardExpr}}
 		if err != nil {
-			return r, err
+			return {{$goType}}{}, err
 		}
 {{- if .BackwardCast}}
 		r.{{.GoName}} = {{.BackwardCast}}(&val)

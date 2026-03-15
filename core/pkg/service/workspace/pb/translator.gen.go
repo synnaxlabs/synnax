@@ -42,12 +42,12 @@ func WorkspaceFromPB(_ context.Context, pb *Workspace) (workspace.Workspace, err
 	var err error
 	parsedKey, err := uuid.Parse(pb.Key)
 	if err != nil {
-		return r, err
+		return workspace.Workspace{}, err
 	}
 	r.Key = workspace.Key(parsedKey)
 	r.Author, err = uuid.Parse(pb.Author)
 	if err != nil {
-		return r, err
+		return workspace.Workspace{}, err
 	}
 	r.Layout = pb.Layout.AsMap()
 	r.Name = pb.Name

@@ -17,6 +17,7 @@ import (
 	"github.com/synnaxlabs/x/spatial"
 )
 
+// Nodes is a collection of visual nodes in an Arc graph.
 type Nodes []Node
 
 // Node is a visual node in the Arc graph editor representing a function instantiation

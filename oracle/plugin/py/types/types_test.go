@@ -247,11 +247,40 @@ var _ = Describe("Python Types Plugin", func() {
 
 			content := string(resp.Files[0].Content)
 			Expect(content).To(ContainSubstring(`from typing import Literal`))
-			Expect(content).To(ContainSubstring(`DATATYPE_FLOAT32: Literal["float32"] = "float32"`))
-			Expect(content).To(ContainSubstring(`DATATYPE_FLOAT64: Literal["float64"] = "float64"`))
-			Expect(content).To(ContainSubstring(`DATATYPE_INT32: Literal["int32"] = "int32"`))
+			Expect(content).To(ContainSubstring(`DATA_TYPE_FLOAT32: Literal["float32"] = "float32"`))
+			Expect(content).To(ContainSubstring(`DATA_TYPE_FLOAT64: Literal["float64"] = "float64"`))
+			Expect(content).To(ContainSubstring(`DATA_TYPE_INT32: Literal["int32"] = "int32"`))
 			Expect(content).To(ContainSubstring(`DataType = Literal["float32", "float64", "int32"]`))
-			Expect(content).To(ContainSubstring(`data_type: DataType`))
+		})
+
+		It("Should generate screaming snake case for multi-word enum names", func() {
+			source := `
+				@py output "out"
+
+				OperationType enum {
+					min  = "min"
+					max  = "max"
+					none = "none"
+				}
+
+				Config struct {
+					op OperationType
+				}
+			`
+			table, diag := analyzer.AnalyzeSource(ctx, source, "config", loader)
+			Expect(diag.Ok()).To(BeTrue())
+
+			req := &plugin.Request{
+				Resolutions: table,
+			}
+
+			resp, err := typesPlugin.Generate(req)
+			Expect(err).To(BeNil())
+
+			content := string(resp.Files[0].Content)
+			Expect(content).To(ContainSubstring(`OPERATION_TYPE_MIN: Literal["min"] = "min"`))
+			Expect(content).To(ContainSubstring(`OPERATION_TYPE_MAX: Literal["max"] = "max"`))
+			Expect(content).To(ContainSubstring(`OPERATION_TYPE_NONE: Literal["none"] = "none"`))
 		})
 
 		Context("primitive type mappings", func() {
@@ -1073,6 +1102,27 @@ ChannelStatus = status.Status<nil>
 				ExpectContent(resp, "types_gen.py").
 					ToContain(`class Task(BaseModel):`).
 					ToNotContain(`class GoTask`)
+			})
+
+			It("Should apply name override to self-referential fields", func() {
+				source := `
+					@py output "out"
+
+					Base struct {
+						key uuid
+						name string
+					}
+
+					APIRange struct extends Base {
+						parent APIRange??
+						@py name "Payload"
+					}
+				`
+				resp := MustGenerate(ctx, source, "ranger", loader, typesPlugin)
+				ExpectContent(resp, "types_gen.py").
+					ToContain(`class Payload(Base):`).
+					ToContain(`parent: Payload | None`).
+					ToNotContain(`APIRange`)
 			})
 		})
 

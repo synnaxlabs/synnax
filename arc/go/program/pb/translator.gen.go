@@ -62,23 +62,23 @@ func ProgramFromPB(ctx context.Context, pb *Program) (program.Program, error) {
 	var err error
 	r.Functions, err = irpb.FunctionsFromPB(ctx, pb.Functions)
 	if err != nil {
-		return r, err
+		return program.Program{}, err
 	}
 	r.Nodes, err = irpb.NodesFromPB(ctx, pb.Nodes)
 	if err != nil {
-		return r, err
+		return program.Program{}, err
 	}
 	r.Edges, err = irpb.EdgesFromPB(ctx, pb.Edges)
 	if err != nil {
-		return r, err
+		return program.Program{}, err
 	}
 	r.Sequences, err = irpb.SequencesFromPB(ctx, pb.Sequences)
 	if err != nil {
-		return r, err
+		return program.Program{}, err
 	}
 	r.Authorities, err = irpb.AuthoritiesFromPB(ctx, pb.Authorities)
 	if err != nil {
-		return r, err
+		return program.Program{}, err
 	}
 	r.Strata = lo.Map(pb.Strata, func(w *StratumWrapper, _ int) []string { return w.Values })
 	r.WASM = pb.Wasm

@@ -209,6 +209,7 @@ func processEnum(e resolution.Type) enumData {
 	}
 	return enumData{
 		Name:        e.Name,
+		Doc:         doc.Get(e.Domains),
 		Values:      values,
 		IsIntEnum:   form.IsIntEnum,
 		StartsAtOne: startsAtOne,
@@ -225,6 +226,7 @@ func processTypeDef(td resolution.Type, data *templateData) typeDefData {
 	case resolution.DistinctForm:
 		result := typeDefData{
 			Name:     name,
+			Doc:      doc.Get(td.Domains),
 			BaseType: data.resolver.ResolveTypeRef(form.Base, data.ctx),
 			IsAlias:  false,
 		}
@@ -265,6 +267,7 @@ func processTypeDef(td resolution.Type, data *templateData) typeDefData {
 		baseType := data.resolver.ResolveTypeRef(targetRef, data.ctx)
 		result := typeDefData{
 			Name:     name,
+			Doc:      doc.Get(td.Domains),
 			BaseType: baseType,
 			IsAlias:  true,
 		}
@@ -515,6 +518,7 @@ func (f fieldData) TagSuffix() string {
 
 type enumData struct {
 	Name        string
+	Doc         string
 	Values      []enumValueData
 	IsIntEnum   bool
 	StartsAtOne bool
@@ -528,6 +532,7 @@ type enumValueData struct {
 
 type typeDefData struct {
 	Name       string
+	Doc        string
 	BaseType   string
 	TypeParams []typeParamData
 	IsAlias    bool
@@ -558,18 +563,22 @@ import (
 )
 {{- end}}
 {{- range .TypeDefs}}
-{{- if .IsAlias}}
+{{- if .Doc}}
 
+{{formatDoc .Name .Doc}}
+{{- end}}
+{{- if .IsAlias}}
 type {{.Name}}{{if .IsGeneric}}[{{range $i, $tp := .TypeParams}}{{if $i}}, {{end}}{{$tp.Name}} {{$tp.Constraint}}{{end}}]{{end}} = {{.BaseType}}
 {{- else}}
-
 type {{.Name}}{{if .IsGeneric}}[{{range $i, $tp := .TypeParams}}{{if $i}}, {{end}}{{$tp.Name}} {{$tp.Constraint}}{{end}}]{{end}} {{.BaseType}}
 {{- end}}
 {{- end}}
 {{- range $enum := .Enums}}
 
+{{- if $enum.Doc}}
+{{formatDoc $enum.Name $enum.Doc}}
+{{- end}}
 {{- if $enum.IsIntEnum}}
-
 type {{$enum.Name}} uint8
 
 //go:generate stringer -type={{$enum.Name}}
@@ -585,6 +594,8 @@ const (
 )
 {{- else}}
 
+{{- if not $enum.Doc}}
+{{- end}}
 type {{$enum.Name}} string
 
 const (

@@ -42,9 +42,10 @@ class Status(BaseModel, Generic[Details]):
     and can carry component-specific details.
 
     Attributes:
-        key: Is a unique identifier for this status, automatically generated if not provided.
+        key: Is a unique identifier for this status, auto-generated if not provided.
         name: Is an optional human-readable name for the status.
-        variant: Is the severity or type of the status: success, info, warning, error, loading, or disabled.
+        variant: Indicates the severity of the status. One of success, info,
+            warning, error, loading, or disabled.
         message: Is the main message text describing the status.
         description: Is an optional detailed description providing additional context.
         time: Is the timestamp when the status was created.

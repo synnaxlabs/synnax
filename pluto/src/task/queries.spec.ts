@@ -396,11 +396,8 @@ describe("queries", () => {
       });
       await waitFor(() => expect(result.current.variant).toEqual("success"));
 
-      const errorStatusDataZ = z.object({ error: z.string() });
-      // eslint-disable-next-line @typescript-eslint/no-unused-vars
-      const errorStatusDetailsZ = task.statusDetailsZ(errorStatusDataZ);
-
-      const newStatus = status.create<typeof errorStatusDetailsZ>({
+      const _errorStatusDetailsZ = task.statusDetailsZ(z.object({ error: z.string() }));
+      const newStatus = status.create<typeof _errorStatusDetailsZ>({
         key: task.statusKey(testTask.key),
         variant: "error",
         message: "Task failed",
@@ -989,10 +986,10 @@ describe("queries", () => {
 
       await waitFor(() => expect(result.current.variant).toEqual("success"));
 
-      const errorStatusDataZ = z.object({ errorCode: z.number() });
-      // eslint-disable-next-line @typescript-eslint/no-unused-vars
-      const errorStatusDetailsZ = task.statusDetailsZ(errorStatusDataZ);
-      const taskStatus: task.Status = status.create<typeof errorStatusDetailsZ>({
+      const _errorStatusDetailsZ = task.statusDetailsZ(
+        z.object({ errorCode: z.number() }),
+      );
+      const taskStatus: task.Status = status.create<typeof _errorStatusDetailsZ>({
         key: task.statusKey(testTask.key),
         variant: "error",
         message: "Task error",
@@ -1124,10 +1121,10 @@ describe("queries", () => {
 
       await waitFor(() => expect(result.current.variant).toEqual("success"));
       expect(result.current.form.get("name").touched).toBe(false);
-      const errorStatusDataZ = z.object({ errorCode: z.number() });
-      // eslint-disable-next-line @typescript-eslint/no-unused-vars
-      const errorStatusDetailsZ = task.statusDetailsZ(errorStatusDataZ);
-      const taskStatus: task.Status = status.create<typeof errorStatusDetailsZ>({
+      const _errorStatusDetailsZ = task.statusDetailsZ(
+        z.object({ errorCode: z.number() }),
+      );
+      const taskStatus: task.Status = status.create<typeof _errorStatusDetailsZ>({
         key: task.statusKey(testTask.key),
         variant: "error",
         message: "Task error from server",

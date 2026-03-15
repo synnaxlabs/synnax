@@ -16,6 +16,7 @@ import (
 	"github.com/synnaxlabs/x/color"
 )
 
+// Key is a unique identifier for a label, represented as a UUID.
 type Key = uuid.UUID
 
 // Label is a tagging and categorization entity with a name and associated color. Labels

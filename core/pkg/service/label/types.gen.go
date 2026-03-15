@@ -15,4 +15,5 @@ import (
 	golabel "github.com/synnaxlabs/x/label"
 )
 
+// Label is a server-side label type alias for Go services.
 type Label = golabel.Label

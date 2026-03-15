@@ -16,7 +16,7 @@
 
 namespace driver::cmd::sub {
 int start(x::args::Parser &args) {
-    LOG(INFO) << x::log::BLUE() << "starting Synnax Driver " << ::driver::cmd::version()
+    LOG(INFO) << x::log::BLUE() << "starting Synnax Driver " << cmd::version()
               << x::log::RESET();
 
     const bool stdin_stop_enabled = !args.flag("--disable-stdin-stop");
@@ -30,7 +30,7 @@ int start(x::args::Parser &args) {
         return 1;
     }
 
-    driver::rack::Rack r;
+    rack::Rack r;
 
     // Register an early shutdown handler to stop the driver when the process encounters
     // an error.

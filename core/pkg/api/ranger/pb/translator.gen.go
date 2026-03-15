@@ -61,26 +61,26 @@ func RangeFromPB(ctx context.Context, pb *Range) (ranger.Range, error) {
 	var err error
 	parsedKey, err := uuid.Parse(pb.Key)
 	if err != nil {
-		return r, err
+		return ranger.Range{}, err
 	}
 	r.Key = serviceranger.Key(parsedKey)
 	r.TimeRange, err = telempb.TimeRangeFromPB(ctx, pb.TimeRange)
 	if err != nil {
-		return r, err
+		return ranger.Range{}, err
 	}
 	r.Color, err = colorpb.ColorFromPB(ctx, pb.Color)
 	if err != nil {
-		return r, err
+		return ranger.Range{}, err
 	}
 	r.Labels, err = labelpb.LabelsFromPB(ctx, pb.Labels)
 	if err != nil {
-		return r, err
+		return ranger.Range{}, err
 	}
 	r.Name = pb.Name
 	if pb.Parent != nil {
 		val, err := RangeFromPB(ctx, pb.Parent)
 		if err != nil {
-			return r, err
+			return ranger.Range{}, err
 		}
 		r.Parent = &val
 	}

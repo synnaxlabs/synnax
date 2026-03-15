@@ -19,10 +19,13 @@ import (
 	"github.com/synnaxlabs/x/status"
 )
 
+// Status is the status of an Arc module including execution state.
 type Status = status.Status[StatusDetails]
 
+// Key is a unique identifier for an Arc module.
 type Key = uuid.UUID
 
+// Mode specifies whether an Arc module uses text-based or graph-based representation.
 type Mode string
 
 const (

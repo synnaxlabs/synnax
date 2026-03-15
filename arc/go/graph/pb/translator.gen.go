@@ -48,7 +48,7 @@ func NodeFromPB(ctx context.Context, pb *Node) (graph.Node, error) {
 	r.Config = pb.Config.AsMap()
 	r.Position, err = spatialpb.XYFromPB(ctx, pb.Position)
 	if err != nil {
-		return r, err
+		return graph.Node{}, err
 	}
 	r.Key = pb.Key
 	r.Type = pb.Type
@@ -103,7 +103,7 @@ func ViewportFromPB(ctx context.Context, pb *Viewport) (graph.Viewport, error) {
 	var err error
 	r.Position, err = spatialpb.XYFromPB(ctx, pb.Position)
 	if err != nil {
-		return r, err
+		return graph.Viewport{}, err
 	}
 	r.Zoom = pb.Zoom
 	return r, nil
@@ -171,19 +171,19 @@ func GraphFromPB(ctx context.Context, pb *Graph) (graph.Graph, error) {
 	var err error
 	r.Viewport, err = ViewportFromPB(ctx, pb.Viewport)
 	if err != nil {
-		return r, err
+		return graph.Graph{}, err
 	}
 	r.Functions, err = irpb.FunctionsFromPB(ctx, pb.Functions)
 	if err != nil {
-		return r, err
+		return graph.Graph{}, err
 	}
 	r.Edges, err = irpb.EdgesFromPB(ctx, pb.Edges)
 	if err != nil {
-		return r, err
+		return graph.Graph{}, err
 	}
 	r.Nodes, err = NodesFromPB(ctx, pb.Nodes)
 	if err != nil {
-		return r, err
+		return graph.Graph{}, err
 	}
 	return r, nil
 }

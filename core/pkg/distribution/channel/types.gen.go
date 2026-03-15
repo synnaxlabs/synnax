@@ -18,12 +18,22 @@ import (
 	"github.com/synnaxlabs/x/types"
 )
 
+// Key is a unique identifier for a channel in the Synnax database. Composed of a
+// cluster node key (first 12 bits) and a local key (last 20 bits), enabling distributed
+// assignment while maintaining global uniqueness.
 type Key uint32
 
+// LocalKey is a 20-bit unsigned integer representing the locally-unique portion of a
+// channel key within a node. Combined with a NodeKey to form the global channel Key.
 type LocalKey types.Uint20
 
+// Name is a human-readable name for a channel. Must start with a letter or underscore
+// and contain only letters, digits, and underscores. Names are not guaranteed to be
+// unique across channels.
 type Name = string
 
+// OperationType is the type of aggregation operation to apply to channel data over
+// time.
 type OperationType string
 
 const (

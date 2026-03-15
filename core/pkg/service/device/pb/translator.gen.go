@@ -118,7 +118,7 @@ func DeviceFromPB(
 	if pb.Status != nil {
 		val, err := statuspb.StatusFromPB[device.StatusDetails](ctx, pb.Status, StatusDetailsFromPBAny)
 		if err != nil {
-			return r, err
+			return device.Device{}, err
 		}
 		r.Status = (*device.Status)(&val)
 	}

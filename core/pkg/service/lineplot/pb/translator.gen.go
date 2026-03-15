@@ -41,7 +41,7 @@ func LinePlotFromPB(_ context.Context, pb *LinePlot) (lineplot.LinePlot, error) 
 	var err error
 	parsedKey, err := uuid.Parse(pb.Key)
 	if err != nil {
-		return r, err
+		return lineplot.LinePlot{}, err
 	}
 	r.Key = lineplot.Key(parsedKey)
 	r.Data = pb.Data.AsMap()
