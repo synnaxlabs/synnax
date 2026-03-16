@@ -1134,7 +1134,7 @@ describe("queries", () => {
           configured: true,
           properties: {},
           status: undefined,
-          parent: { type: "rack", key: rack.key.toString() },
+          parent: undefined,
         });
       });
 
