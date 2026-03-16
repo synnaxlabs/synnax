@@ -7,7 +7,6 @@
 #  License, use of this software will be governed by the Apache License, Version 2.0,
 #  included in the file licenses/APL.txt.
 
-import time
 from typing import Any
 
 import synnax as sy
@@ -21,21 +20,21 @@ class NotificationsClient:
     def __init__(self, page: Page):
         self.page = page
 
-    def check(self, timeout: sy.CrudeTimeSpan = 0.2) -> list[dict[str, Any]]:
+    def check(
+        self, timeout: sy.CrudeTimeSpan = 200 * sy.TimeSpan.MILLISECOND
+    ) -> list[dict[str, Any]]:
         """Check for notifications in the bottom right corner.
 
-        Polls every 100ms until notifications are found or timeout is reached.
+        Polls every 50ms until notifications are found or timeout is reached.
 
-        Args:
-            timeout: Maximum time to wait for notifications in seconds (default: 0.2)
-
-        Returns:
-            List of notification dictionaries with details
+        :param timeout: Maximum time to wait for notifications.
+        :returns: List of notification dictionaries with details.
         """
-        start_time = time.time()
-        poll_interval = 50  # ms
+        timer = sy.Timer()
+        timeout_span = sy.TimeSpan.from_seconds(timeout)
+        poll_interval = 50 * sy.TimeSpan.MILLISECOND
 
-        while time.time() - start_time < timeout:
+        while timer.elapsed() < timeout_span:
             notifications = []
             notification_elements = self.page.locator(".pluto-notification").all()
 
@@ -81,7 +80,7 @@ class NotificationsClient:
 
                 return notifications
 
-            sy.sleep(poll_interval / 1000)
+            sy.sleep(poll_interval)
 
         return []
 

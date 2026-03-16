@@ -1094,7 +1094,9 @@ class TestConductor:
         result = self._execute_single_test(test_def)
         result_container.append(result)
 
-    def _timeout_monitor_thread(self, monitor_interval: float = 0.5) -> None:
+    def _timeout_monitor_thread(
+        self, monitor_interval: sy.CrudeTimeSpan = 500 * sy.TimeSpan.MILLISECOND
+    ) -> None:
         """Monitor test execution for timeout violations."""
         while self.is_running and not self.should_stop:
             self._check_test_timeouts()
@@ -1108,29 +1110,32 @@ class TestConductor:
 
             tests_to_remove = []
             for test_instance, test_range, thread in self.active_tests:
-                expected_timeout = getattr(test_instance, "Expected_Timeout", -1)
-                if expected_timeout <= 0:
+                expected_timeout: sy.CrudeTimeSpan | None = getattr(
+                    test_instance, "Expected_Timeout", None
+                )
+                if expected_timeout is None:
                     continue
 
-                elapsed_time = (
-                    sy.TimeStamp.now() - test_range.time_range.start
-                ) / sy.TimeSpan.SECOND
-                if elapsed_time <= expected_timeout:
+                elapsed = sy.TimeStamp.now() - test_range.time_range.start
+                timeout_span = sy.TimeSpan.from_seconds(expected_timeout)
+                if elapsed <= timeout_span:
                     continue
 
-                self._handle_test_timeout(test_instance, test_range, elapsed_time)
+                self._handle_test_timeout(test_instance, elapsed, timeout_span)
                 tests_to_remove.append((test_instance, test_range, thread))
 
             for test_tuple in tests_to_remove:
                 self.active_tests.remove(test_tuple)
 
     def _handle_test_timeout(
-        self, test_instance: TestCase, test_range: sy.Range, elapsed_time: float
+        self,
+        test_instance: TestCase,
+        elapsed: sy.TimeSpan,
+        timeout: sy.TimeSpan,
     ) -> None:
         """Handle a single test timeout."""
-        expected_timeout = getattr(test_instance, "Expected_Timeout", -1)
         self.log_message(
-            f"{test_instance.name} timeout detected ({elapsed_time:.1f}s > {expected_timeout}s)"
+            f"{test_instance.name} timeout detected ({elapsed} > {timeout})"
         )
         test_instance._status = STATUS.TIMEOUT
 

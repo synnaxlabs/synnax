@@ -7,8 +7,6 @@
 #  License, use of this software will be governed by the Apache License, Version 2.0,
 #  included in the file licenses/APL.txt.
 
-import time
-
 import synnax as sy
 
 from framework.test_case import SynnaxConnection, TestCase
@@ -30,9 +28,9 @@ class CheckConnectionBasic(TestCase):
         )
 
         # Or explicitly change the time out
-        self._timeout_limit = 6
+        self._timeout_limit = 6 * sy.TimeSpan.SECOND
         # Or change it via test parameters
-        self._timeout_limit = self.params.get("timeout", -1)
+        self._timeout_limit = self.params.get("timeout", None)
 
         # Just make sure to call super() last!
         super().setup()
@@ -45,8 +43,8 @@ class CheckConnectionBasic(TestCase):
         # Stuff goes here
         wait_time = self.params.get("wait_time", 0)
         self.log(f"Waiting for {wait_time} seconds")
-        self.log(f"Expected timeout: {self._timeout_limit} seconds")
-        time.sleep(wait_time)
+        self.log(f"Expected timeout: {self._timeout_limit}")
+        sy.sleep(wait_time)
 
         # Or induce a failure
         if self.params.get("fail_test", False):

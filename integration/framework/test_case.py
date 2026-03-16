@@ -93,13 +93,12 @@ class TestCase(ABC):
     """
 
     # Configuration constants
-    DEFAULT_READ_TIMEOUT: int = 1
-    DEFAULT_LOOP_RATE: float = 0.2  # 5 Hz
-    WEBSOCKET_RETRY_DELAY: float = 0.5  # s
+    DEFAULT_READ_TIMEOUT: sy.CrudeTimeSpan = 1 * sy.TimeSpan.SECOND
+    DEFAULT_LOOP_RATE: sy.CrudeTimeSpan = 200 * sy.TimeSpan.MILLISECOND
+    WEBSOCKET_RETRY_DELAY: sy.CrudeTimeSpan = 500 * sy.TimeSpan.MILLISECOND
     MAX_CLEANUP_RETRIES: int = 3
-    CLIENT_THREAD_START_DELAY: int = 1
-    DEFAULT_TIMEOUT_LIMIT: int = -1
-    DEFAULT_MANUAL_TIMEOUT: int = -1
+    DEFAULT_TIMEOUT_LIMIT: sy.CrudeTimeSpan | None = None
+    DEFAULT_MANUAL_TIMEOUT: sy.CrudeTimeSpan | None = None
 
     log_client: LogClient
     frame_in: sy.Frame | None
@@ -116,10 +115,10 @@ class TestCase(ABC):
         """Initialize test case with Synnax server connection."""
         self.params = params
         self.start_time: sy.TimeStamp = sy.TimeStamp.now()
-        self._timeout_limit: int = self.DEFAULT_TIMEOUT_LIMIT  # -1 = no timeout
-        self._manual_timeout: int = self.DEFAULT_MANUAL_TIMEOUT
+        self._timeout_limit: sy.CrudeTimeSpan | None = self.DEFAULT_TIMEOUT_LIMIT
+        self._manual_timeout: sy.CrudeTimeSpan | None = self.DEFAULT_MANUAL_TIMEOUT
         self.read_frame: dict[str, int | float | str] | None = None
-        self.read_timeout = self.DEFAULT_READ_TIMEOUT
+        self.read_timeout: sy.CrudeTimeSpan = self.DEFAULT_READ_TIMEOUT
 
         self.name = validate_and_sanitize_name(name)
         self._status: STATUS = STATUS.INITIALIZING
@@ -184,14 +183,18 @@ class TestCase(ABC):
                 """
 
                 now = sy.TimeStamp.now()
-                uptime_value = (now - self.start_time) / 1e9
+                elapsed = now - self.start_time
+                uptime_seconds = elapsed / sy.TimeSpan.SECOND
                 self.tlm[f"{self.name}_time"] = now
-                self.tlm[f"{self.name}_uptime"] = uptime_value
+                self.tlm[f"{self.name}_uptime"] = uptime_seconds
                 self.tlm[f"{self.name}_state"] = self._status.value
 
                 # Check for timeout
-                if self._timeout_limit > 0 and uptime_value > self._timeout_limit:
-                    self.log(f"Timeout at {uptime_value}s")
+                if (
+                    self._timeout_limit is not None
+                    and elapsed > sy.TimeSpan.from_seconds(self._timeout_limit)
+                ):
+                    self.log(f"Timeout at {uptime_seconds:.1f}s")
                     self.STATUS = STATUS.TIMEOUT
 
                 # Check for completion due to failure
@@ -301,13 +304,13 @@ class TestCase(ABC):
 
             # Stop streamer thread
             if self.streamer_thread and self.streamer_thread.is_alive():
-                self.streamer_thread.join(timeout=5.0)
+                self.streamer_thread.join(timeout=5)
                 if self.streamer_thread.is_alive():
                     self.log("Warning: streamer thread did not stop within timeout")
 
             # Stop writer thread
             if self.writer_thread.is_alive():
-                self.writer_thread.join(timeout=5.0)
+                self.writer_thread.join(timeout=5)
                 if self.writer_thread.is_alive():
                     self.log("Warning: writer thread did not stop within timeout")
 
@@ -315,11 +318,14 @@ class TestCase(ABC):
         if self._status == STATUS.PENDING:
             self.STATUS = STATUS.PASSED
 
-    def _wait_for_client_completion(self, timeout: float = 5.0) -> None:
+    def _wait_for_client_completion(
+        self, timeout: sy.CrudeTimeSpan = 5 * sy.TimeSpan.SECOND
+    ) -> None:
         """Wait for client threads to complete."""
+        timeout_secs = sy.TimeSpan.to_seconds(timeout)
         # Wait for streamer thread
         if self.streamer_thread.is_alive():
-            self.streamer_thread.join(timeout=timeout)
+            self.streamer_thread.join(timeout=timeout_secs)
             if self.streamer_thread.is_alive():
                 self.log(
                     "Warning: streamer thread still alive after wait_for_client_completion"
@@ -327,7 +333,7 @@ class TestCase(ABC):
 
         # Wait for writer thread
         if self.writer_thread.is_alive():
-            self.writer_thread.join(timeout=timeout)
+            self.writer_thread.join(timeout=timeout_secs)
             if self.writer_thread.is_alive():
                 self.log(
                     "Warning: writer thread still alive after wait_for_client_completion"
@@ -346,7 +352,12 @@ class TestCase(ABC):
         elif self._status == STATUS.FAILED:
             self.log(f"FAILED ({status_symbol})")
         elif self._status == STATUS.TIMEOUT:
-            self.log(f"TIMEOUT ({status_symbol}): {self._timeout_limit} seconds")
+            limit_str = (
+                sy.TimeSpan.from_seconds(self._timeout_limit)
+                if self._timeout_limit is not None
+                else "N/A"
+            )
+            self.log(f"TIMEOUT ({status_symbol}): {limit_str}")
         elif self._status == STATUS.KILLED:
             self.log(f"KILLED ({status_symbol})")
 
@@ -384,24 +395,28 @@ class TestCase(ABC):
         self.tlm[tlm_name] = initial_value
 
     def subscribe(
-        self, channels: str | list[str], timeout: sy.TimeSpan | None = 10
+        self,
+        channels: str | list[str],
+        timeout: sy.CrudeTimeSpan = 10 * sy.TimeSpan.SECOND,
     ) -> None:
-        """
-        Subscribe to channels.
+        """Subscribe to channels.
+
         Can take either a single channel name or a list of channels.
-        Timeout is the time (s) to wait for the channels to be initialized.
+
+        :param channels: Channel name(s) to subscribe to.
+        :param timeout: Maximum time to wait for channels to be initialized.
         """
-        self.log(f"Subscribing to channels: {channels} ({timeout}s timeout)")
+        timeout_span = sy.TimeSpan.from_seconds(timeout)
+        self.log(f"Subscribing to channels: {channels} ({timeout_span} timeout)")
 
         client = self.client
         time_start = sy.TimeStamp.now()
-        timeout_ns = timeout * sy.TimeSpan.SECOND
         found = False
 
         while self.loop.wait():
             time_now = sy.TimeStamp.now()
             elapsed = time_now - time_start
-            if elapsed > timeout_ns:
+            if elapsed > timeout_span:
                 break
 
             try:
@@ -505,7 +520,7 @@ class TestCase(ABC):
         channel_name: str,
         condition: Callable[[Any], bool],
         condition_desc: str,
-        timeout: float = 5.0,
+        timeout: sy.CrudeTimeSpan = 5 * sy.TimeSpan.SECOND,
         is_virtual: bool = False,
     ) -> None:
         """Base method for waiting on a channel value condition.
@@ -513,14 +528,12 @@ class TestCase(ABC):
         The condition is always checked at least once before the timeout is evaluated,
         so timeout=0 can be used for immediate assertions without waiting.
 
-        Args:
-            channel_name: Name of the channel to read
-            condition: Function that takes a value and returns True when condition is met
-            condition_desc: Human-readable description of condition (e.g., "== 1", "> 27")
-            timeout: Maximum time to wait in seconds (default: 5.0). Use 0 for immediate
-                check without waiting.
-            is_virtual: If True, read from subscribed telemetry (read_tlm).
-                       If False, read from database (get_value). Default: False.
+        :param channel_name: Name of the channel to read.
+        :param condition: Function that takes a value and returns True when met.
+        :param condition_desc: Human-readable description (e.g., "== 1", "> 27").
+        :param timeout: Maximum time to wait. Use 0 for immediate check.
+        :param is_virtual: If True, read from subscribed telemetry (read_tlm).
+            If False, read from database (get_value).
         """
         timer = sy.Timer()
         timeout_span = sy.TimeSpan.from_seconds(timeout)
@@ -545,14 +558,14 @@ class TestCase(ABC):
         self.fail(
             f"Timeout waiting for {channel_name} {condition_desc}!\n"
             f"Actual: {actual_value}\n"
-            f"Timeout: {timeout}s"
+            f"Timeout: {timeout_span}"
         )
 
     def wait_for_eq(
         self,
         channel_name: str,
         expected: Any,
-        timeout: float = 5.0,
+        timeout: sy.CrudeTimeSpan = 5 * sy.TimeSpan.SECOND,
         is_virtual: bool = False,
     ) -> None:
         """Wait for channel value == expected."""
@@ -564,7 +577,7 @@ class TestCase(ABC):
         self,
         channel_name: str,
         threshold: float | int,
-        timeout: float = 5.0,
+        timeout: sy.CrudeTimeSpan = 5 * sy.TimeSpan.SECOND,
         is_virtual: bool = False,
     ) -> None:
         """Wait for channel value > threshold."""
@@ -576,7 +589,7 @@ class TestCase(ABC):
         self,
         channel_name: str,
         threshold: float | int,
-        timeout: float = 5.0,
+        timeout: sy.CrudeTimeSpan = 5 * sy.TimeSpan.SECOND,
         is_virtual: bool = False,
     ) -> None:
         """Wait for channel value >= threshold."""
@@ -592,7 +605,7 @@ class TestCase(ABC):
         self,
         channel_name: str,
         threshold: float | int,
-        timeout: float = 5.0,
+        timeout: sy.CrudeTimeSpan = 5 * sy.TimeSpan.SECOND,
         is_virtual: bool = False,
     ) -> None:
         """Wait for channel value < threshold."""
@@ -604,7 +617,7 @@ class TestCase(ABC):
         self,
         channel_name: str,
         threshold: float | int,
-        timeout: float = 5.0,
+        timeout: sy.CrudeTimeSpan = 5 * sy.TimeSpan.SECOND,
         is_virtual: bool = False,
     ) -> None:
         """Wait for channel value <= threshold."""
@@ -621,7 +634,7 @@ class TestCase(ABC):
         channel_name: str,
         target: float,
         tolerance: float = 0.5,
-        timeout: float = 5.0,
+        timeout: sy.CrudeTimeSpan = 5 * sy.TimeSpan.SECOND,
         is_virtual: bool = False,
     ) -> None:
         """Wait for channel value to be within tolerance of target."""
@@ -702,17 +715,17 @@ class TestCase(ABC):
         return float(self.tlm.get(f"{self.name}_state", -1))
 
     @property
-    def manual_timeout(self) -> int:
+    def manual_timeout(self) -> sy.CrudeTimeSpan | None:
         """Get the manual timeout of the test case."""
         return self._manual_timeout
 
     @property
     def should_stop(self) -> bool:
         self.loop.wait()  # Rate limit checks to avoid busy loops
-        condition_1 = self._manual_timeout >= 0 and self.uptime > self._manual_timeout
-        condition_2 = self._should_stop
-
-        return condition_1 or condition_2
+        timed_out = self._manual_timeout is not None and sy.TimeStamp.since(
+            self.start_time
+        ) > sy.TimeSpan.from_seconds(self._manual_timeout)
+        return timed_out or self._should_stop
 
     @property
     def should_continue(self) -> bool:
@@ -747,29 +760,28 @@ class TestCase(ABC):
 
         raise TimeoutError("Some Channels remain active")
 
-    def set_manual_timeout(self, value: int) -> None:
+    def set_manual_timeout(self, value: sy.CrudeTimeSpan) -> None:
         """Set the manual timeout of the test case."""
         self._manual_timeout = value
-        self.log(f"Manual timeout set ({value}s)")
+        self.log(f"Manual timeout set ({sy.TimeSpan.from_seconds(value)})")
 
     def configure(
         self,
-        read_timeout: int | None = None,
-        loop_rate: float | None = None,
-        timeout_limit: int | None = None,
-        manual_timeout: int | None = None,
+        read_timeout: sy.CrudeTimeSpan | None = None,
+        loop_rate: sy.CrudeTimeSpan | None = None,
+        timeout_limit: sy.CrudeTimeSpan | None = None,
+        manual_timeout: sy.CrudeTimeSpan | None = None,
     ) -> None:
         """Configure test case parameters.
 
-        Args:
-            read_timeout: Timeout for synnax client read operations (default: 1)
-            loop_rate: Synnax Client Loop frequency in Hz (default: 1)
-            timeout_limit: Maximum execution time before failure (default: -1, no limit)
-            manual_timeout: Manual timeout for test termination (default: -1, no limit)
+        :param read_timeout: Timeout for synnax client read operations.
+        :param loop_rate: Synnax Client Loop interval.
+        :param timeout_limit: Maximum execution time before failure.
+        :param manual_timeout: Manual timeout for test termination.
         """
         params = {}
         if read_timeout is not None:
-            self._read_timeout = read_timeout
+            self.read_timeout = read_timeout
             params["read_timeout"] = read_timeout
 
         if loop_rate is not None:
