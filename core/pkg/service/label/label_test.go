@@ -61,7 +61,7 @@ var _ = Describe("Label", Ordered, func() {
 				Color: color.MustFromHex("#000000"),
 			}
 			Expect(w.Create(ctx, l)).To(Succeed())
-			Expect(l.Key).ToNot(Equal(uuid.Nil))
+			Expect(l.Key).ToNot(Equal(label.Key(uuid.Nil)))
 		})
 		It("Should create many labels", func() {
 			ls := []xlabel.Label{
@@ -76,7 +76,7 @@ var _ = Describe("Label", Ordered, func() {
 			}
 			Expect(w.CreateMany(ctx, &ls)).To(Succeed())
 			for _, l := range ls {
-				Expect(l.Key).ToNot(Equal(uuid.Nil))
+				Expect(l.Key).ToNot(Equal(label.Key(uuid.Nil)))
 			}
 		})
 	})
@@ -102,7 +102,7 @@ var _ = Describe("Label", Ordered, func() {
 				},
 			}
 			Expect(w.CreateMany(ctx, &ls)).To(Succeed())
-			Expect(w.DeleteMany(ctx, []uuid.UUID{ls[0].Key, ls[1].Key})).To(Succeed())
+			Expect(w.DeleteMany(ctx, []label.Key{ls[0].Key, ls[1].Key})).To(Succeed())
 			for _, l := range ls {
 				Expect(svc.NewRetrieve().WhereKeys(l.Key).Exec(ctx, nil)).To(MatchError(query.ErrNotFound))
 			}
@@ -120,7 +120,7 @@ var _ = Describe("Label", Ordered, func() {
 				Color: color.MustFromHex("#000000"),
 			}
 			Expect(w.Create(ctx, labeled)).To(Succeed())
-			Expect(w.Label(ctx, label.OntologyID(labeled.Key), []uuid.UUID{l.Key})).To(Succeed())
+			Expect(w.Label(ctx, label.OntologyID(labeled.Key), []label.Key{l.Key})).To(Succeed())
 			labels := MustSucceed(svc.RetrieveFor(ctx, label.OntologyID(labeled.Key), tx))
 			Expect(labels).To(HaveLen(1))
 			Expect(labels[0].Key).To(Equal(l.Key))
@@ -138,11 +138,11 @@ var _ = Describe("Label", Ordered, func() {
 				Color: color.MustFromHex("#000000"),
 			}
 			Expect(w.Create(ctx, labeled)).To(Succeed())
-			Expect(w.Label(ctx, label.OntologyID(labeled.Key), []uuid.UUID{l.Key})).To(Succeed())
+			Expect(w.Label(ctx, label.OntologyID(labeled.Key), []label.Key{l.Key})).To(Succeed())
 			labels := MustSucceed(svc.RetrieveFor(ctx, label.OntologyID(labeled.Key), tx))
 			Expect(labels).To(HaveLen(1))
 			Expect(labels[0].Key).To(Equal(l.Key))
-			Expect(w.RemoveLabel(ctx, label.OntologyID(labeled.Key), []uuid.UUID{l.Key})).To(Succeed())
+			Expect(w.RemoveLabel(ctx, label.OntologyID(labeled.Key), []label.Key{l.Key})).To(Succeed())
 			labels = MustSucceed(svc.RetrieveFor(ctx, label.OntologyID(labeled.Key), tx))
 			Expect(labels).To(HaveLen(0))
 		})
@@ -159,7 +159,7 @@ var _ = Describe("Label", Ordered, func() {
 				Color: color.MustFromHex("#000000"),
 			}
 			Expect(w.Create(ctx, labeled)).To(Succeed())
-			Expect(w.Label(ctx, label.OntologyID(labeled.Key), []uuid.UUID{l.Key})).To(Succeed())
+			Expect(w.Label(ctx, label.OntologyID(labeled.Key), []label.Key{l.Key})).To(Succeed())
 			labels := MustSucceed(svc.RetrieveFor(ctx, label.OntologyID(labeled.Key), tx))
 			Expect(labels).To(HaveLen(1))
 			Expect(labels[0].Key).To(Equal(l.Key))

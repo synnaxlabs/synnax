@@ -19,6 +19,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/api"
 	apistatus "github.com/synnaxlabs/synnax/pkg/api/status"
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
+	"github.com/synnaxlabs/synnax/pkg/service/label"
 	statuspb "github.com/synnaxlabs/x/status/pb"
 	"google.golang.org/protobuf/types/known/emptypb"
 )
@@ -133,7 +134,7 @@ func (t retrieveRequestTranslator) Backward(
 ) (apistatus.RetrieveRequest, error) {
 	var (
 		err          error
-		hasLabelKeys = make([]uuid.UUID, len(msg.HasLabels))
+		hasLabelKeys = make([]label.Key, len(msg.HasLabels))
 	)
 	for i, label := range msg.HasLabels {
 		hasLabelKeys[i], err = uuid.Parse(label)

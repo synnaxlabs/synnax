@@ -12,7 +12,6 @@ package label
 import (
 	"context"
 
-	"github.com/google/uuid"
 	"github.com/samber/lo"
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
 	"github.com/synnaxlabs/x/gorp"
@@ -22,7 +21,7 @@ import (
 // Retrieve is a builder for querying labels.
 type Retrieve struct {
 	baseTx     gorp.Tx
-	gorp       gorp.Retrieve[uuid.UUID, label.Label]
+	gorp       gorp.Retrieve[label.Key, label.Label]
 	otg        *ontology.Ontology
 	searchTerm string
 }
@@ -44,7 +43,7 @@ func (r Retrieve) Entry(label *label.Label) Retrieve { r.gorp.Entry(label); retu
 func (r Retrieve) Entries(labels *[]label.Label) Retrieve { r.gorp.Entries(labels); return r }
 
 // WhereKeys filters for labels whose Name attribute matches the provided key.
-func (r Retrieve) WhereKeys(keys ...uuid.UUID) Retrieve { r.gorp.WhereKeys(keys...); return r }
+func (r Retrieve) WhereKeys(keys ...label.Key) Retrieve { r.gorp.WhereKeys(keys...); return r }
 
 // WhereNames filters for labels whose Name attribute matches the provided name.
 func (r Retrieve) WhereNames(names ...string) Retrieve {

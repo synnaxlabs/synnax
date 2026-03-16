@@ -38,10 +38,7 @@ TEST(FromAny, EmptyAnyReturnsEmptyObject) {
 }
 
 TEST(ToAny, NestedObjectRoundTrip) {
-    const json j = {
-        {"outer", {{"inner", "value"}}},
-        {"list", {1, 2, 3}}
-    };
+    const json j = {{"outer", {{"inner", "value"}}}, {"list", {1, 2, 3}}};
     const auto any = to_any(j);
     const auto result = ASSERT_NIL_P(from_any(any));
     ASSERT_EQ(result["outer"]["inner"], "value");

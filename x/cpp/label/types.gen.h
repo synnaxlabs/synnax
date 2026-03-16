@@ -48,8 +48,6 @@ struct Label {
     from_proto(const ::x::label::pb::Label &pb);
 };
 
-using GoSVCLabel = Label;
-
 /// @brief New contains parameters for creating a new label.
 struct New : public Label {
     /// @brief key is an optional key for the label. If not provided, one will be
