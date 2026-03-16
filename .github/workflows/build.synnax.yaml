@@ -692,7 +692,7 @@ jobs:
 
       - name: Download Linux Driver Artifact
         if: inputs.driver
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v8
         with:
           name:
             ${{ inputs.use_simple_artifact_names && 'synnax-driver-linux' ||
@@ -714,7 +714,7 @@ jobs:
 
       - name: Download Console Assets
         if: inputs.console
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v8
         with:
           name:
             ${{ inputs.use_simple_artifact_names && 'synnax-console-assets-linux' ||
