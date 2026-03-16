@@ -162,18 +162,18 @@ func printFormattingDone(formatted int) {
 			dimStyle.Render(symbolArrow),
 			dimStyle.Render("all schemas formatted"),
 		)
-	} else {
-		c := countStyle.Render(fmt.Sprintf("%d", formatted))
-		word := "file"
-		if formatted != 1 {
-			word = "files"
-		}
-		fmt.Printf(
-			"    %s %s %s %s\n",
-			infoStyle.Render(symbolArrow),
-			dimStyle.Render("formatted"),
-			c,
-			word,
-		)
+		return
 	}
+	c := countStyle.Render(fmt.Sprintf("%d", formatted))
+	word := "file"
+	if formatted != 1 {
+		word = "files"
+	}
+	fmt.Printf(
+		"    %s %s %s %s\n",
+		infoStyle.Render(symbolArrow),
+		dimStyle.Render("formatted"),
+		c,
+		word,
+	)
 }
