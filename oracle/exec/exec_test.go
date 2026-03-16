@@ -91,7 +91,8 @@ var _ = Describe("FindConfigDir", func() {
 
 var _ = Describe("OnFiles", func() {
 	It("should run a command successfully", func() {
-		Expect(exec.OnFiles([]string{"echo", "hello"}, []string{"a.txt"}, "")).To(Succeed())
+		err := exec.OnFiles([]string{"echo", "hello"}, []string{"a.txt"}, "")
+		Expect(err).ToNot(HaveOccurred())
 	})
 
 	It("should return an error for a failing command", func() {

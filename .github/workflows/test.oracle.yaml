@@ -9,6 +9,8 @@ on:
       - alamos/go/**
       - codecov.yaml
       - freighter/go/**
+      - go.work
+      - go.work.sum
       - oracle/**
       - scripts/check_gofmt.sh
       - x/go/**
@@ -23,6 +25,8 @@ on:
       - alamos/go/**
       - codecov.yaml
       - freighter/go/**
+      - go.work
+      - go.work.sum
       - oracle/**
       - scripts/check_gofmt.sh
       - x/go/**

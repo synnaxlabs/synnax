@@ -365,34 +365,40 @@ var _ = Describe("Number", func() {
 	Describe("Dump", func() {
 		Describe("Basic DataTypes", func() {
 			Specify("float64", func() {
-				result := MustSucceed(zyn.Number().Dump(12.5))
+				result, err := zyn.Number().Dump(12.5)
+				Expect(err).ToNot(HaveOccurred())
 				Expect(result).To(Equal(12.5))
 			})
 
 			Specify("float32", func() {
-				result := MustSucceed(zyn.Number().Dump(float32(12.5)))
+				result, err := zyn.Number().Dump(float32(12.5))
+				Expect(err).ToNot(HaveOccurred())
 				Expect(result).To(Equal(float64(12.5)))
 			})
 
 			Specify("int", func() {
-				result := MustSucceed(zyn.Number().Dump(12))
+				result, err := zyn.Number().Dump(12)
+				Expect(err).ToNot(HaveOccurred())
 				Expect(result).To(Equal(int64(12)))
 			})
 
 			Specify("uint", func() {
-				result := MustSucceed(zyn.Number().Dump(uint(12)))
+				result, err := zyn.Number().Dump(uint(12))
+				Expect(err).ToNot(HaveOccurred())
 				Expect(result).To(Equal(uint64(12)))
 			})
 		})
 
 		Describe("DataType Validation", func() {
 			Specify("valid float64", func() {
-				result := MustSucceed(zyn.Number().Float64().Dump(12.5))
+				result, err := zyn.Number().Float64().Dump(12.5)
+				Expect(err).ToNot(HaveOccurred())
 				Expect(result).To(Equal(12.5))
 			})
 
 			Specify("valid float32", func() {
-				result := MustSucceed(zyn.Number().Float32().Dump(float32(12.5)))
+				result, err := zyn.Number().Float32().Dump(float32(12.5))
+				Expect(err).ToNot(HaveOccurred())
 				Expect(result).To(Equal(float32(12.5)))
 			})
 
@@ -402,7 +408,8 @@ var _ = Describe("Number", func() {
 			})
 
 			Specify("valid int", func() {
-				result := MustSucceed(zyn.Number().Int().Dump(12))
+				result, err := zyn.Number().Int().Dump(12)
+				Expect(err).ToNot(HaveOccurred())
 				Expect(result).To(Equal(12))
 			})
 
@@ -414,17 +421,20 @@ var _ = Describe("Number", func() {
 
 		Describe("Edge Cases", func() {
 			Specify("max int64", func() {
-				result := MustSucceed(zyn.Number().Dump(int64(1<<63 - 1)))
+				result, err := zyn.Number().Dump(int64(1<<63 - 1))
+				Expect(err).ToNot(HaveOccurred())
 				Expect(result).To(Equal(int64(1<<63 - 1)))
 			})
 
 			Specify("max uint64", func() {
-				result := MustSucceed(zyn.Number().Dump(uint64(1<<64 - 1)))
+				result, err := zyn.Number().Dump(uint64(1<<64 - 1))
+				Expect(err).ToNot(HaveOccurred())
 				Expect(result).To(Equal(uint64(1<<64 - 1)))
 			})
 
 			Specify("max float64", func() {
-				result := MustSucceed(zyn.Number().Dump(1.7976931348623157e+308))
+				result, err := zyn.Number().Dump(1.7976931348623157e+308)
+				Expect(err).ToNot(HaveOccurred())
 				Expect(result).To(Equal(1.7976931348623157e+308))
 			})
 		})
@@ -435,17 +445,20 @@ var _ = Describe("Number", func() {
 			type MyUint uint64
 
 			Specify("custom int type", func() {
-				result := MustSucceed(zyn.Number().Dump(MyInt(12)))
+				result, err := zyn.Number().Dump(MyInt(12))
+				Expect(err).ToNot(HaveOccurred())
 				Expect(result).To(Equal(int64(12)))
 			})
 
 			Specify("custom float type", func() {
-				result := MustSucceed(zyn.Number().Dump(MyFloat(12.5)))
+				result, err := zyn.Number().Dump(MyFloat(12.5))
+				Expect(err).ToNot(HaveOccurred())
 				Expect(result).To(Equal(12.5))
 			})
 
 			Specify("custom uint type", func() {
-				result := MustSucceed(zyn.Number().Dump(MyUint(1 << 63)))
+				result, err := zyn.Number().Dump(MyUint(1 << 63))
+				Expect(err).ToNot(HaveOccurred())
 				Expect(result).To(Equal(uint64(1 << 63)))
 			})
 		})
@@ -468,13 +481,15 @@ var _ = Describe("Number", func() {
 			})
 
 			Specify("optional nil value", func() {
-				result := MustSucceed(zyn.Number().Optional().Dump(nil))
+				result, err := zyn.Number().Optional().Dump(nil)
+				Expect(err).ToNot(HaveOccurred())
 				Expect(result).To(BeNil())
 			})
 
 			Specify("optional nil pointer", func() {
 				var n *int
-				result := MustSucceed(zyn.Number().Optional().Dump(n))
+				result, err := zyn.Number().Optional().Dump(n)
+				Expect(err).ToNot(HaveOccurred())
 				Expect(result).To(BeNil())
 			})
 		})
@@ -482,23 +497,27 @@ var _ = Describe("Number", func() {
 
 	Describe("Dump with Coerce", func() {
 		Specify("coerce int to float64", func() {
-			result := MustSucceed(zyn.Number().Float64().Coerce().Dump(12))
+			result, err := zyn.Number().Float64().Coerce().Dump(12)
+			Expect(err).ToNot(HaveOccurred())
 			Expect(result).To(Equal(12.0))
 		})
 
 		Specify("coerce uint to int64", func() {
-			result := MustSucceed(zyn.Number().Int64().Coerce().Dump(uint(12)))
+			result, err := zyn.Number().Int64().Coerce().Dump(uint(12))
+			Expect(err).ToNot(HaveOccurred())
 			Expect(result).To(Equal(int64(12)))
 		})
 
 		Specify("coerce float64 to uint16", func() {
-			result := MustSucceed(zyn.Number().Uint16().Coerce().Dump(12.0))
+			result, err := zyn.Number().Uint16().Coerce().Dump(12.0)
+			Expect(err).ToNot(HaveOccurred())
 			Expect(result).To(Equal(uint16(12)))
 		})
 
 		Specify("coerce custom type to float64", func() {
 			type MyInt int
-			result := MustSucceed(zyn.Number().Float64().Coerce().Dump(MyInt(12)))
+			result, err := zyn.Number().Float64().Coerce().Dump(MyInt(12))
+			Expect(err).ToNot(HaveOccurred())
 			Expect(result).To(Equal(12.0))
 		})
 

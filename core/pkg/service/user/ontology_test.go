@@ -54,7 +54,8 @@ var _ = Describe("Ontology", Ordered, func() {
 			u := user.User{Username: "test", Key: userKey}
 			w := svc.NewWriter(nil)
 			Expect(w.Create(ctx, &u)).To(Succeed())
-			resource := MustSucceed(svc.RetrieveResource(ctx, userKey.String(), nil))
+			resource, err := svc.RetrieveResource(ctx, userKey.String(), nil)
+			Expect(err).ToNot(HaveOccurred())
 			var resU user.User
 			Expect(resource.Parse(&resU)).To(Succeed())
 			Expect(resU).To(Equal(u))

@@ -134,27 +134,32 @@ var _ = Describe("String", func() {
 	Describe("Dump", func() {
 		Describe("Basic DataTypes", func() {
 			Specify("string value", func() {
-				result := MustSucceed(zyn.String().Dump("hello"))
+				result, err := zyn.String().Dump("hello")
+				Expect(err).ToNot(HaveOccurred())
 				Expect(result).To(Equal("hello"))
 			})
 
 			Specify("empty string", func() {
-				result := MustSucceed(zyn.String().Dump(""))
+				result, err := zyn.String().Dump("")
+				Expect(err).ToNot(HaveOccurred())
 				Expect(result).To(Equal(""))
 			})
 
 			Specify("numeric value", func() {
-				result := MustSucceed(zyn.String().Dump(42))
+				result, err := zyn.String().Dump(42)
+				Expect(err).ToNot(HaveOccurred())
 				Expect(result).To(Equal("42"))
 			})
 
 			Specify("float value", func() {
-				result := MustSucceed(zyn.String().Dump(42.5))
+				result, err := zyn.String().Dump(42.5)
+				Expect(err).ToNot(HaveOccurred())
 				Expect(result).To(Equal("42.5"))
 			})
 
 			Specify("boolean value", func() {
-				result := MustSucceed(zyn.String().Dump(true))
+				result, err := zyn.String().Dump(true)
+				Expect(err).ToNot(HaveOccurred())
 				Expect(result).To(Equal("true"))
 			})
 		})
@@ -166,22 +171,26 @@ var _ = Describe("String", func() {
 			type MyBool bool
 
 			Specify("custom string type", func() {
-				result := MustSucceed(zyn.String().Dump(MyString("hello")))
+				result, err := zyn.String().Dump(MyString("hello"))
+				Expect(err).ToNot(HaveOccurred())
 				Expect(result).To(Equal("hello"))
 			})
 
 			Specify("custom int type", func() {
-				result := MustSucceed(zyn.String().Dump(MyInt(42)))
+				result, err := zyn.String().Dump(MyInt(42))
+				Expect(err).ToNot(HaveOccurred())
 				Expect(result).To(Equal("42"))
 			})
 
 			Specify("custom float type", func() {
-				result := MustSucceed(zyn.String().Dump(MyFloat(42.5)))
+				result, err := zyn.String().Dump(MyFloat(42.5))
+				Expect(err).ToNot(HaveOccurred())
 				Expect(result).To(Equal("42.5"))
 			})
 
 			Specify("custom bool type", func() {
-				result := MustSucceed(zyn.String().Dump(MyBool(true)))
+				result, err := zyn.String().Dump(MyBool(true))
+				Expect(err).ToNot(HaveOccurred())
 				Expect(result).To(Equal("true"))
 			})
 		})
@@ -199,13 +208,15 @@ var _ = Describe("String", func() {
 			})
 
 			Specify("optional nil value", func() {
-				result := MustSucceed(zyn.String().Optional().Dump(nil))
+				result, err := zyn.String().Optional().Dump(nil)
+				Expect(err).ToNot(HaveOccurred())
 				Expect(result).To(BeNil())
 			})
 
 			Specify("optional nil pointer", func() {
 				var s *string
-				result := MustSucceed(zyn.String().Optional().Dump(s))
+				result, err := zyn.String().Optional().Dump(s)
+				Expect(err).ToNot(HaveOccurred())
 				Expect(result).To(BeNil())
 			})
 
@@ -283,13 +294,15 @@ var _ = Describe("String", func() {
 
 		Describe("Dump", func() {
 			Specify("valid string UUID", func() {
-				result := MustSucceed(zyn.String().UUID().Dump("123e4567-e89b-12d3-a456-426614174000"))
+				result, err := zyn.String().UUID().Dump("123e4567-e89b-12d3-a456-426614174000")
+				Expect(err).ToNot(HaveOccurred())
 				Expect(result).To(Equal("123e4567-e89b-12d3-a456-426614174000"))
 			})
 
 			Specify("valid UUID type", func() {
 				u := uuid.New()
-				result := MustSucceed(zyn.String().UUID().Dump(u))
+				result, err := zyn.String().UUID().Dump(u)
+				Expect(err).ToNot(HaveOccurred())
 				Expect(result).To(Equal(u.String()))
 			})
 
@@ -309,7 +322,8 @@ var _ = Describe("String", func() {
 			})
 
 			Specify("optional nil value", func() {
-				result := MustSucceed(zyn.String().UUID().Optional().Dump(nil))
+				result, err := zyn.String().UUID().Optional().Dump(nil)
+				Expect(err).ToNot(HaveOccurred())
 				Expect(result).To(BeNil())
 			})
 

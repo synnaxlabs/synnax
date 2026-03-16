@@ -107,7 +107,7 @@ func streamRespondWithTenMessages(
 
 var (
 	timeoutMu sync.Mutex
-	timeouts  = make(map[string]types.Nil)
+	timeouts  map[string]types.Nil = make(map[string]types.Nil)
 )
 
 func streamSlamMessages(

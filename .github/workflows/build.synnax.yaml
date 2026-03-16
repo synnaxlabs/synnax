@@ -554,7 +554,7 @@ jobs:
         if: inputs.core
         uses: actions/setup-go@v6
         with:
-          go-version-file: core/go.mod
+          go-version-file: go.work
           # Don't use github cache. Local cache is faster.
           cache: false
 
@@ -738,12 +738,6 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ github.token }}
 
-      - name: Extract Go version
-        id: go-version
-        run:
-          echo "GO_VERSION=$(grep '^go ' core/go.mod | awk '{print $2}')" >>
-          $GITHUB_OUTPUT
-
       - name: Build and Push Docker Images
         uses: docker/build-push-action@v6
         with:
@@ -774,7 +768,6 @@ jobs:
             VERSION=${{ needs.setup.outputs.VERSION }}
             GIT_COMMIT=${{ github.sha }}
             BUILD_DATE=${{ github.event.repository.updated_at }}
-            GO_VERSION=${{ steps.go-version.outputs.GO_VERSION }}
 
   build-console-tauri:
     name: Build Console App

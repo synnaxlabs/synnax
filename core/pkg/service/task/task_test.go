@@ -190,7 +190,8 @@ var _ = Describe("Task", Ordered, func() {
 			Expect(w.Create(ctx, m)).To(Succeed())
 			Expect(m.Key).To(Equal(task.NewKey(testRack.Key, 4)))
 			Expect(m.Name).To(Equal("Test Task"))
-			t := MustSucceed(w.Copy(ctx, m.Key, "Copied Task", false))
+			t, err := w.Copy(ctx, m.Key, "Copied Task", false)
+			Expect(err).ToNot(HaveOccurred())
 			Expect(t.Key).To(Equal(task.NewKey(testRack.Key, 5)))
 		})
 
@@ -202,7 +203,8 @@ var _ = Describe("Task", Ordered, func() {
 			Expect(w.Create(ctx, m)).To(Succeed())
 			Expect(m.Key).To(Equal(task.NewKey(testRack.Key, 6)))
 			Expect(m.Name).To(Equal("Test Task"))
-			t := MustSucceed(w.Copy(ctx, m.Key, "Snapshotted Task", true))
+			t, err := w.Copy(ctx, m.Key, "Snapshotted Task", true)
+			Expect(err).ToNot(HaveOccurred())
 			Expect(t.Key).To(Equal(task.NewKey(testRack.Key, 7)))
 			Expect(t.Snapshot).To(BeTrue())
 		})
@@ -401,7 +403,8 @@ var _ = Describe("Task", Ordered, func() {
 			}
 			Expect(w.Create(ctx, m)).To(Succeed())
 
-			copied := MustSucceed(w.Copy(ctx, m.Key, "Copied Task", false))
+			copied, err := w.Copy(ctx, m.Key, "Copied Task", false)
+			Expect(err).ToNot(HaveOccurred())
 
 			var copiedStatus task.Status
 			Expect(status.NewRetrieve[task.StatusDetails](stat).

@@ -1,26 +1,36 @@
 # syntax=docker/dockerfile:1
 
-ARG GO_VERSION
-FROM golang:${GO_VERSION} AS builder
+FROM golang:1.26.0 AS builder
 WORKDIR /workspace
+
+# Copy go.work files first
+COPY go.work go.work.sum ./
 
 # Copy go.mod and go.sum files for better caching
 COPY freighter/integration/go.mod freighter/integration/go.sum ./freighter/integration/
 COPY freighter/go/go.mod freighter/go/go.sum ./freighter/go/
 COPY alamos/go/go.mod alamos/go/go.sum ./alamos/go/
 COPY x/go/go.mod x/go/go.sum ./x/go/
+COPY arc/go/go.mod arc/go/go.sum ./arc/go/
+COPY aspen/go.mod aspen/go.sum ./aspen/
+COPY cesium/go.mod cesium/go.sum ./cesium/
+COPY core/go.mod core/go.sum ./core/
+COPY oracle/go.mod oracle/go.sum ./oracle/
 
 # Download dependencies with cache mount
-WORKDIR /workspace/freighter/integration
 RUN --mount=type=cache,target=/go/pkg/mod \
     go mod download
-WORKDIR /workspace
 
 # Copy source code (only what's actually needed)
 COPY freighter/go ./freighter/go
 COPY freighter/integration ./freighter/integration
 COPY alamos/go ./alamos/go
 COPY x/go ./x/go
+COPY arc ./arc
+COPY aspen ./aspen
+COPY cesium ./cesium
+COPY core ./core
+COPY oracle ./oracle
 
 # Build with cache mounts
 WORKDIR /workspace/freighter/integration

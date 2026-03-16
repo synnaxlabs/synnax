@@ -8,6 +8,8 @@ on:
       - .golangci.yaml
       - alamos/go/**
       - codecov.yaml
+      - go.work
+      - go.work.sum
       - scripts/check_gofmt.sh
       - x/go/**
   push:
@@ -20,6 +22,8 @@ on:
       - .golangci.yaml
       - alamos/go/**
       - codecov.yaml
+      - go.work
+      - go.work.sum
       - scripts/check_gofmt.sh
       - x/go/**
   workflow_dispatch:

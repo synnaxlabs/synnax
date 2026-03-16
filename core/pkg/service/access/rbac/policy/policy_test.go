@@ -470,7 +470,8 @@ var _ = Describe("Ontology Integration", func() {
 			}
 			Expect(w.Create(ctx, p)).To(Succeed())
 
-			res := MustSucceed(svc.RetrieveResource(ctx, p.Key.String(), tx))
+			res, err := svc.RetrieveResource(ctx, p.Key.String(), tx)
+			Expect(err).ToNot(HaveOccurred())
 			Expect(res.ID.Key).To(Equal(p.Key.String()))
 			Expect(res.Name).To(Equal(p.Name))
 		})

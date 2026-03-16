@@ -42,7 +42,9 @@ import (
 var _ = Describe("ConvertConfigValue", func() {
 	DescribeTable("supported numeric and timestamp types",
 		func(v any, expected uint64) {
-			Expect(wasm.ConvertConfigValue(v)).To(Equal(expected))
+			result, err := wasm.ConvertConfigValue(v)
+			Expect(err).ToNot(HaveOccurred())
+			Expect(result).To(Equal(expected))
 		},
 		Entry("int8", int8(1), uint64(1)),
 		Entry("int16", int16(2), uint64(2)),

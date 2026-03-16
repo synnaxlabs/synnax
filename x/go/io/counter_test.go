@@ -34,15 +34,19 @@ var _ = Describe("Counter", func() {
 		Context("FS:"+fsName, Ordered, func() {
 			BeforeEach(func() {
 				fsRoot = makeFS()
-				fs = MustSucceed(fsRoot.Sub("test-spec"))
+				_fs, err := fsRoot.Sub("test-spec")
+				fs = _fs
+				Expect(err).ToNot(HaveOccurred())
 			})
 			AfterEach(func() {
 				Expect(fsRoot.Remove("test-spec")).To(Succeed())
 			})
 			It("Should create a new counter when the file does not exist", func() {
-				f := MustSucceed(fs.Open("counterfile", os.O_CREATE|os.O_EXCL|os.O_RDWR))
+				f, err := fs.Open("counterfile", os.O_CREATE|os.O_EXCL|os.O_RDWR)
+				Expect(err).ToNot(HaveOccurred())
 
-				c := MustSucceed(NewInt32Counter(f))
+				c, err := NewInt32Counter(f)
+				Expect(err).ToNot(HaveOccurred())
 				Expect(c.Value()).To(Equal(int32(0)))
 				Expect(f.Close()).To(Succeed())
 			})
@@ -63,16 +67,19 @@ var _ = Describe("Counter", func() {
 					c    *Int32Counter
 				)
 
-				f = MustSucceed(fs.Open("counterfile", os.O_CREATE|os.O_EXCL|os.O_RDWR))
+				f, err := fs.Open("counterfile", os.O_CREATE|os.O_EXCL|os.O_RDWR)
+				Expect(err).ToNot(HaveOccurred())
 
-				c = MustSucceed(NewInt32Counter(f))
+				c, err = NewInt32Counter(f)
+				Expect(err).ToNot(HaveOccurred())
 
 				wg.Add(1000)
 				for i := range 1000 {
 					go func() {
 						defer wg.Done()
-						val := MustSucceed(c.Add(1))
+						val, err := c.Add(1)
 						keys[i] = val
+						Expect(err).ToNot(HaveOccurred())
 					}()
 				}
 

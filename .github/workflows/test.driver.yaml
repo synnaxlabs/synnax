@@ -17,6 +17,8 @@ on:
       - driver/**
       - freighter/cpp/**
       - freighter/go/**
+      - go.work
+      - go.work.sum
       - MODULE.bazel
       - MODULE.bazel.lock
       - scripts/check_clang_format.sh
@@ -43,6 +45,8 @@ on:
       - driver/**
       - freighter/cpp/**
       - freighter/go/**
+      - go.work
+      - go.work.sum
       - MODULE.bazel
       - MODULE.bazel.lock
       - scripts/check_clang_format.sh
@@ -57,12 +61,38 @@ env:
 
 jobs:
   server:
-    uses: ./.github/workflows/build.docker.yaml
+    name: Build - Server
+    runs-on: ubuntu-latest
     permissions:
       packages: write
-    with:
-      module: core
-      tag: ghcr.io/synnaxlabs/synnax:${{ github.sha }}-test-driver
+    env:
+      GITHUB_SHA: ${{ github.sha }}
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v6
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Login to Github Container Registry
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Build and Push Image
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: ./core/Dockerfile
+          platforms: linux/amd64
+          push: true
+          tags: ghcr.io/synnaxlabs/synnax:${{ github.sha }}-test-driver
+          cache-from: type=gha,scope=synnax-docker-cache
+          cache-to: type=inline
+          build-args: |
+            DRIVER_ENABLED=false
 
   test:
     name: Test

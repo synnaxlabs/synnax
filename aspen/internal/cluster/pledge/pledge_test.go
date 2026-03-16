@@ -259,7 +259,7 @@ var _ = Describe("PledgeServer", func() {
 						defer GinkgoRecover()
 						defer wg.Done()
 						cfg, addr := baseConfigWithAddr(net)
-						res := MustSucceed(pledge.Pledge(
+						res, err := pledge.Pledge(
 							ctx,
 							cfg,
 							pledge.Config{
@@ -268,7 +268,8 @@ var _ = Describe("PledgeServer", func() {
 								Peers:           nodes.Addresses(),
 							},
 							pledge.BlazingFastConfig,
-						))
+						)
+						Expect(err).ToNot(HaveOccurred())
 						ids[i] = res.Key
 						mu.Lock()
 						defer mu.Unlock()

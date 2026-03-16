@@ -16,7 +16,6 @@ import (
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/arc/stl/errors"
 	"github.com/synnaxlabs/arc/stl/testutil"
-	. "github.com/synnaxlabs/x/testutil"
 	"github.com/tetratelabs/wazero/experimental/wazerotest"
 )
 
@@ -30,7 +29,9 @@ var _ = Describe("errors", func() {
 	BeforeEach(func() {
 		ctx = context.Background()
 		rt = testutil.NewRuntime(ctx)
-		mod = MustSucceed(errors.NewModule(ctx, nil, rt.Underlying()))
+		var err error
+		mod, err = errors.NewModule(ctx, nil, rt.Underlying())
+		Expect(err).ToNot(HaveOccurred())
 		rt.Passthrough(ctx, "error")
 	})
 

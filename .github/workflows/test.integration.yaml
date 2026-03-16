@@ -30,6 +30,8 @@ on:
       - freighter/go/**
       - freighter/ts/**
       - freighter/py/**
+      - go.work
+      - go.work.sum
       - integration/**
       - MODULE.bazel
       - MODULE.bazel.lock

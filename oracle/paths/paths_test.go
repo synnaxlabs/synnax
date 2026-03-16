@@ -16,26 +16,29 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/oracle/paths"
-	. "github.com/synnaxlabs/x/testutil"
 )
 
 var _ = Describe("Paths", func() {
 	var repoRoot string
 
 	BeforeEach(func() {
-		repoRoot = MustSucceed(paths.RepoRoot())
+		var err error
+		repoRoot, err = paths.RepoRoot()
+		Expect(err).ToNot(HaveOccurred())
 	})
 
 	Describe("RepoRoot", func() {
 		It("Should find repo root from current directory", func() {
-			root := MustSucceed(paths.RepoRoot())
+			root, err := paths.RepoRoot()
+			Expect(err).ToNot(HaveOccurred())
 			Expect(root).To(HaveSuffix("synnax"))
 			Expect(filepath.Join(root, ".git")).To(BeADirectory())
 		})
 
 		It("Should find repo root from a subdirectory", func() {
 			// We're already in a subdirectory (oracle/paths)
-			root := MustSucceed(paths.RepoRoot())
+			root, err := paths.RepoRoot()
+			Expect(err).ToNot(HaveOccurred())
 			Expect(root).ToNot(BeEmpty())
 		})
 	})
@@ -43,12 +46,14 @@ var _ = Describe("Paths", func() {
 	Describe("Normalize", func() {
 		It("Should normalize absolute paths to repo-relative", func() {
 			absPath := filepath.Join(repoRoot, "oracle", "paths")
-			rel := MustSucceed(paths.Normalize(absPath, repoRoot))
+			rel, err := paths.Normalize(absPath, repoRoot)
+			Expect(err).ToNot(HaveOccurred())
 			Expect(rel).To(Equal(filepath.Join("oracle", "paths")))
 		})
 
 		It("Should handle already repo-relative paths", func() {
-			rel := MustSucceed(paths.Normalize("oracle/paths", repoRoot))
+			rel, err := paths.Normalize("oracle/paths", repoRoot)
+			Expect(err).ToNot(HaveOccurred())
 			Expect(rel).To(Equal(filepath.Join("oracle", "paths")))
 		})
 
@@ -79,7 +84,8 @@ var _ = Describe("Paths", func() {
 
 	Describe("ValidateOutput", func() {
 		It("Should accept valid repo-relative paths", func() {
-			Expect(paths.ValidateOutput("client/ts/src/user", repoRoot)).To(Succeed())
+			err := paths.ValidateOutput("client/ts/src/user", repoRoot)
+			Expect(err).ToNot(HaveOccurred())
 		})
 
 		It("Should reject path traversal attempts", func() {
@@ -107,27 +113,32 @@ var _ = Describe("Paths", func() {
 
 	Describe("RelativeImport", func() {
 		It("Should compute relative path between sibling directories", func() {
-			rel := MustSucceed(paths.RelativeImport("client/ts/src/user", "client/ts/src/group"))
+			rel, err := paths.RelativeImport("client/ts/src/user", "client/ts/src/group")
+			Expect(err).ToNot(HaveOccurred())
 			Expect(rel).To(Equal("../group"))
 		})
 
 		It("Should compute relative path to nested directory", func() {
-			rel := MustSucceed(paths.RelativeImport("client/ts/src", "client/ts/src/user"))
+			rel, err := paths.RelativeImport("client/ts/src", "client/ts/src/user")
+			Expect(err).ToNot(HaveOccurred())
 			Expect(rel).To(Equal("./user"))
 		})
 
 		It("Should compute relative path to parent directory", func() {
-			rel := MustSucceed(paths.RelativeImport("client/ts/src/user", "client/ts/src"))
+			rel, err := paths.RelativeImport("client/ts/src/user", "client/ts/src")
+			Expect(err).ToNot(HaveOccurred())
 			Expect(rel).To(Equal(".."))
 		})
 
 		It("Should return . for same directory", func() {
-			rel := MustSucceed(paths.RelativeImport("client/ts/src", "client/ts/src"))
+			rel, err := paths.RelativeImport("client/ts/src", "client/ts/src")
+			Expect(err).ToNot(HaveOccurred())
 			Expect(rel).To(Equal("."))
 		})
 
 		It("Should compute relative path across different branches", func() {
-			rel := MustSucceed(paths.RelativeImport("client/ts/src/user", "core/pkg/service/group"))
+			rel, err := paths.RelativeImport("client/ts/src/user", "core/pkg/service/group")
+			Expect(err).ToNot(HaveOccurred())
 			Expect(rel).To(Equal("../../../../core/pkg/service/group"))
 		})
 	})
@@ -164,17 +175,21 @@ var _ = Describe("Paths", func() {
 	Describe("Integration", func() {
 		It("Should work correctly from different working directories", func() {
 			// Save original working directory
-			originalWd := MustSucceed(os.Getwd())
+			originalWd, err := os.Getwd()
+			Expect(err).ToNot(HaveOccurred())
 			defer func() { Expect(os.Chdir(originalWd)).To(Succeed()) }()
 
 			// Get repo root from current location
-			root1 := MustSucceed(paths.RepoRoot())
+			root1, err := paths.RepoRoot()
+			Expect(err).ToNot(HaveOccurred())
 
 			// Change to a subdirectory
-			Expect(os.Chdir(filepath.Join(repoRoot, "oracle"))).To(Succeed())
+			err = os.Chdir(filepath.Join(repoRoot, "oracle"))
+			Expect(err).ToNot(HaveOccurred())
 
 			// Get repo root from subdirectory
-			root2 := MustSucceed(paths.RepoRoot())
+			root2, err := paths.RepoRoot()
+			Expect(err).ToNot(HaveOccurred())
 
 			// Both should return the same root
 			Expect(root1).To(Equal(root2))

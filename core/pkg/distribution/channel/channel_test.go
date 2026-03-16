@@ -40,7 +40,8 @@ var _ = Describe("Channel Tests", func() {
 		})
 		Describe("ParseKey", func() {
 			It("Should correctly parse a key from its string representation", func() {
-				k := MustSucceed(channel.ParseKey("123456"))
+				k, err := channel.ParseKey("123456")
+				Expect(err).ToNot(HaveOccurred())
 				Expect(k).To(Equal(channel.Key(123456)))
 			})
 			It("Should return an error when the key is not a valid integer", func() {
@@ -102,7 +103,8 @@ var _ = Describe("Channel Tests", func() {
 					{Type: "channel", Key: "1"},
 					{Type: "channel", Key: "2"},
 				}
-				keys := MustSucceed(channel.KeysFromOntologyIDs(ids))
+				keys, err := channel.KeysFromOntologyIDs(ids)
+				Expect(err).ToNot(HaveOccurred())
 				Expect(keys).To(Equal(channel.Keys{1, 2}))
 			})
 			It("Should skip any ontology IDs that are not of the correct type", func() {
@@ -110,7 +112,8 @@ var _ = Describe("Channel Tests", func() {
 					{Type: "channel", Key: "1"},
 					{Type: "not_channel", Key: "2"},
 				}
-				keys := MustSucceed(channel.KeysFromOntologyIDs(ids))
+				keys, err := channel.KeysFromOntologyIDs(ids)
+				Expect(err).ToNot(HaveOccurred())
 				Expect(keys).To(Equal(channel.Keys{1}))
 			})
 			It("Should return an error if the key cannot be parsed", func() {

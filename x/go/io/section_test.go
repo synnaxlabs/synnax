@@ -16,7 +16,6 @@ import (
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/x/errors"
 	xio "github.com/synnaxlabs/x/io"
-	. "github.com/synnaxlabs/x/testutil"
 )
 
 // mockReaderAtCloser is a test helper for SectionReaderAtCloser tests
@@ -53,7 +52,8 @@ var _ = Describe("SectionReaderAtCloser", func() {
 
 			// Read from the section
 			buf := make([]byte, 5)
-			n := MustSucceed(section.ReadAt(buf, 0))
+			n, err := section.ReadAt(buf, 0)
+			Expect(err).ToNot(HaveOccurred())
 			Expect(n).To(Equal(5))
 			Expect(string(buf)).To(Equal("World"))
 		})
@@ -67,7 +67,8 @@ var _ = Describe("SectionReaderAtCloser", func() {
 
 			// Read from offset 2 within the section
 			buf := make([]byte, 3)
-			n := MustSucceed(section.ReadAt(buf, 2))
+			n, err := section.ReadAt(buf, 2)
+			Expect(err).ToNot(HaveOccurred())
 			Expect(n).To(Equal(3))
 			Expect(string(buf)).To(Equal("789"))
 		})
@@ -132,19 +133,22 @@ var _ = Describe("SectionReaderAtCloser", func() {
 
 			// First read
 			buf1 := make([]byte, 3)
-			n := MustSucceed(section.ReadAt(buf1, 0))
+			n, err := section.ReadAt(buf1, 0)
+			Expect(err).ToNot(HaveOccurred())
 			Expect(n).To(Equal(3))
 			Expect(string(buf1)).To(Equal("EFG"))
 
 			// Second read from different offset
 			buf2 := make([]byte, 4)
-			n = MustSucceed(section.ReadAt(buf2, 3))
+			n, err = section.ReadAt(buf2, 3)
+			Expect(err).ToNot(HaveOccurred())
 			Expect(n).To(Equal(4))
 			Expect(string(buf2)).To(Equal("HIJK"))
 
 			// Third read overlapping
 			buf3 := make([]byte, 5)
-			n = MustSucceed(section.ReadAt(buf3, 2))
+			n, err = section.ReadAt(buf3, 2)
+			Expect(err).ToNot(HaveOccurred())
 			Expect(n).To(Equal(5))
 			Expect(string(buf3)).To(Equal("GHIJK"))
 		})

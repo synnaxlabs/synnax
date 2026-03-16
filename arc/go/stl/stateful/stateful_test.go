@@ -52,7 +52,9 @@ var _ = Describe("Vars", func() {
 		rt = testutil.NewRuntime(ctx)
 		seriesS = series.NewProgramState()
 		strS = strings.NewProgramState()
-		mod = MustSucceed(stateful.NewModule(ctx, seriesS, strS, rt.Underlying()))
+		var err error
+		mod, err = stateful.NewModule(ctx, seriesS, strS, rt.Underlying())
+		Expect(err).ToNot(HaveOccurred())
 		rt.Passthrough(ctx, "state")
 	})
 

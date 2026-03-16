@@ -14,7 +14,6 @@ import (
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/aspen/internal/node"
 	"github.com/synnaxlabs/x/address"
-	. "github.com/synnaxlabs/x/testutil"
 	"github.com/synnaxlabs/x/version"
 )
 
@@ -22,7 +21,8 @@ var _ = Describe("Node", func() {
 
 	Describe("Parse", func() {
 		It("Should parse the Name of a node from a string", func() {
-			id := MustSucceed(node.Key(0).Parse("1"))
+			id, err := node.Key(0).Parse("1")
+			Expect(err).ToNot(HaveOccurred())
 			Expect(id).To(Equal(node.Key(1)))
 		})
 	})

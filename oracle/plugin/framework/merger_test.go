@@ -268,10 +268,11 @@ var _ = Describe("Collector", func() {
 			}
 
 			var paths []string
-			Expect(c.ForEach(func(path string, types []resolution.Type) error {
+			err := c.ForEach(func(path string, types []resolution.Type) error {
 				paths = append(paths, path)
 				return nil
-			})).To(Succeed())
+			})
+			Expect(err).NotTo(HaveOccurred())
 			Expect(paths).To(Equal([]string{"path/first", "path/second"}))
 		})
 
@@ -304,10 +305,11 @@ var _ = Describe("Collector", func() {
 			c.Remove("path/first")
 
 			var paths []string
-			Expect(c.ForEach(func(path string, types []resolution.Type) error {
+			err := c.ForEach(func(path string, types []resolution.Type) error {
 				paths = append(paths, path)
 				return nil
-			})).To(Succeed())
+			})
+			Expect(err).NotTo(HaveOccurred())
 			Expect(paths).To(Equal([]string{"path/second"}))
 		})
 	})

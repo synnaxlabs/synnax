@@ -22,7 +22,6 @@ import (
 	"github.com/synnaxlabs/aspen/internal/node"
 	"github.com/synnaxlabs/freighter/mock"
 	"github.com/synnaxlabs/x/rand"
-	. "github.com/synnaxlabs/x/testutil"
 )
 
 type convergenceVars struct {
@@ -87,7 +86,8 @@ var _ = Describe("Convergence", func() {
 				s.SetState(ctx, store.State{Nodes: subNodes, HostKey: n.Key})
 				cfg := configs[n.Key]
 				cfg.Store = s
-				g := MustSucceed(gossip.New(cfg))
+				g, err := gossip.New(cfg)
+				Expect(err).ToNot(HaveOccurred())
 				gossips = append(gossips, g)
 				stores = append(stores, s)
 			}

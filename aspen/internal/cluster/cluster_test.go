@@ -46,8 +46,10 @@ var _ = Describe("Cluster", func() {
 	Describe("Node", func() {
 
 		It("Should return a node by its Name", func() {
-			c1 := MustSucceed(builder.New(clusterCtx, cluster.Config{}))
-			c2 := MustSucceed(builder.New(clusterCtx, cluster.Config{}))
+			c1, err := builder.New(clusterCtx, cluster.Config{})
+			Expect(err).ToNot(HaveOccurred())
+			c2, err := builder.New(clusterCtx, cluster.Config{})
+			Expect(err).ToNot(HaveOccurred())
 			Eventually(func() node.Key {
 				n, _ := c2.Node(c1.HostKey())
 				return n.Key
@@ -63,8 +65,10 @@ var _ = Describe("Cluster", func() {
 	Describe("Resolve", func() {
 
 		It("Should resolve the address of a node by its Name", func() {
-			c1 := MustSucceed(builder.New(clusterCtx, cluster.Config{}))
-			c2 := MustSucceed(builder.New(clusterCtx, cluster.Config{}))
+			c1, err := builder.New(clusterCtx, cluster.Config{})
+			Expect(err).ToNot(HaveOccurred())
+			c2, err := builder.New(clusterCtx, cluster.Config{})
+			Expect(err).ToNot(HaveOccurred())
 			Eventually(func() address.Address {
 				addr, _ := c1.Resolve(c2.HostKey())
 				return addr

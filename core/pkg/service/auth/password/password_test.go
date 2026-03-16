@@ -13,26 +13,31 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/synnax/pkg/service/auth/password"
-	. "github.com/synnaxlabs/x/testutil"
 )
 
 var _ = Describe("Password", func() {
 	Describe("Hash", func() {
 		It("Should hash a password without error", func() {
 			raw := password.Raw("password")
-			MustSucceed(raw.Hash())
+			_, err := raw.Hash()
+			Expect(err).ToNot(HaveOccurred())
 		})
 	})
 	Describe("Compare", func() {
 		It("Should return a nil error for a valid password", func() {
 			raw := password.Raw("password")
-			hashed := MustSucceed(raw.Hash())
-			Expect(hashed.Validate(raw)).To(Succeed())
+			hashed, err := raw.Hash()
+			Expect(err).ToNot(HaveOccurred())
+			err = hashed.Validate(raw)
+			Expect(err).ToNot(HaveOccurred())
 		})
 		It("Should return a password.Invalid error for an invalid password", func() {
 			raw := password.Raw("password")
-			hashed := MustSucceed(raw.Hash())
-			Expect(hashed.Validate("wrong")).To(MatchError(password.ErrInvalid))
+			hashed, err := raw.Hash()
+			Expect(err).ToNot(HaveOccurred())
+			err = hashed.Validate("wrong")
+			Expect(err).To(HaveOccurred())
+			Expect(err).To(MatchError(password.ErrInvalid))
 		})
 	})
 })

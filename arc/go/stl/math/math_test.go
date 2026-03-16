@@ -16,7 +16,6 @@ import (
 	. "github.com/onsi/gomega"
 	stlmath "github.com/synnaxlabs/arc/stl/math"
 	"github.com/synnaxlabs/arc/stl/testutil"
-	. "github.com/synnaxlabs/x/testutil"
 )
 
 var _ = Describe("Math", func() {
@@ -28,7 +27,8 @@ var _ = Describe("Math", func() {
 	BeforeEach(func() {
 		ctx = context.Background()
 		rt = testutil.NewRuntime(ctx)
-		MustSucceed(stlmath.NewModule(ctx, rt.Underlying()))
+		_, err := stlmath.NewModule(ctx, rt.Underlying())
+		Expect(err).ToNot(HaveOccurred())
 		rt.Passthrough(ctx, "math")
 	})
 

@@ -10,6 +10,8 @@ on:
       - aspen/**
       - codecov.yaml
       - freighter/go/**
+      - go.work
+      - go.work.sum
       - scripts/check_gofmt.sh
       - x/go/**
   push:
@@ -24,6 +26,8 @@ on:
       - aspen/**
       - codecov.yaml
       - freighter/go/**
+      - go.work
+      - go.work.sum
       - scripts/check_gofmt.sh
       - x/go/**
   workflow_dispatch:
