@@ -52,7 +52,7 @@ func (s *Service) BindTo(app *fiber.App) {
 		IndexNames: []string{rootHTMLFile},
 		MaxAge:     int((24 * time.Hour).Seconds()), // 1 day cache for static assets
 		NotFoundHandler: func(c fiber.Ctx) error {
-			return c.SendFile(rootHTMLFile)
+			return c.SendFile(rootHTMLFile, fiber.SendFile{FS: s.fs})
 		}, // Serve index.html for SPA routing
 	}))
 }
