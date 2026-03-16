@@ -3,8 +3,8 @@ name: Integration Test Run
 on:
   workflow_call:
     inputs:
-      target:
-        description: "Test conductor target (e.g., 'arc', 'driver,control')"
+      test_matrix:
+        description: "JSON test matrix (e.g., from validate_test_coverage.sh)"
         type: string
         required: true
       ref_run_id:
@@ -20,18 +20,17 @@ on:
         type: string
         required: false
         default: ""
-      name_suffix:
-        description: "Suffix for artifact naming (e.g., 'arc', 'console', 'driver')"
-        type: string
-        required: true
 
 jobs:
   run:
-    name: ${{ inputs.name_suffix }}
+    name: ${{ matrix.name }}
     timeout-minutes: 30
     runs-on:
       - self-hosted
       - ${{ inputs.os }}
+    strategy:
+      fail-fast: false
+      matrix: ${{ fromJSON(inputs.test_matrix) }}
     steps:
       - name: Checkout Repository
         uses: actions/checkout@v6
@@ -109,8 +108,8 @@ jobs:
         env:
           PYTHONIOENCODING: utf-8
         run: >-
-          uv run test-conductor --name tc_${{ inputs.name_suffix }}_win ${{
-          inputs.target }} ${{ inputs.flags }}
+          uv run test-conductor --name tc_${{ matrix.name }}_win ${{
+          matrix.target }} ${{ inputs.flags }}
 
       - name: Test Conductor (Unix)
         if: runner.os == 'Linux'
@@ -118,14 +117,14 @@ jobs:
         timeout-minutes: 30
         working-directory: integration
         run: >-
-          uv run test-conductor --name tc_${{ inputs.name_suffix }}_unix ${{
-          inputs.target }} ${{ inputs.flags }}
+          uv run test-conductor --name tc_${{ matrix.name }}_unix ${{
+          matrix.target }} ${{ inputs.flags }}
 
       - name: Upload Test Results
         uses: actions/upload-artifact@v6
         if: always()
         with:
-          name: test-results-${{ inputs.os }}-${{ inputs.name_suffix }}
+          name: test-results-${{ inputs.os }}-${{ matrix.name }}
           path: integration/tests/results/*
           retention-days: 7
 
@@ -134,7 +133,7 @@ jobs:
         if: ${{ failure() || cancelled() }}
         with:
           name:
-            core-logs-${{ inputs.os }}-${{ inputs.name_suffix }}-attempt-${{
+            core-logs-${{ inputs.os }}-${{ matrix.name }}-attempt-${{
             github.run_attempt }}
           path: ~/synnax-data/synnax-core.log
           retention-days: 7

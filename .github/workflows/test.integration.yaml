@@ -172,37 +172,29 @@ jobs:
     secrets: inherit
 
   test-windows:
-    name: Test (windows-${{ matrix.name }})
+    name: Test (windows)
     needs: [setup, build]
     if:
       ${{ !cancelled() && needs.setup.result == 'success' && (needs.build.result ==
       'success' || needs.build.result == 'skipped') }}
-    strategy:
-      fail-fast: false
-      matrix: ${{ fromJSON(needs.setup.outputs.TEST_MATRIX) }}
     uses: ./.github/workflows/test.integration.worker.yaml
     with:
-      target: ${{ matrix.target }}
+      test_matrix: ${{ needs.setup.outputs.TEST_MATRIX }}
       ref_run_id: ${{ needs.setup.outputs.REF_RUN_ID }}
       os: windows-latest
       flags: ${{ needs.setup.outputs.FLAGS }}
-      name_suffix: ${{ matrix.name }}
     secrets: inherit
 
   test-ubuntu:
-    name: Test (ubuntu-${{ matrix.name }})
+    name: Test (ubuntu)
     needs: [setup, build]
     if:
       ${{ !cancelled() && needs.setup.result == 'success' && (needs.build.result ==
       'success' || needs.build.result == 'skipped') }}
-    strategy:
-      fail-fast: false
-      matrix: ${{ fromJSON(needs.setup.outputs.TEST_MATRIX) }}
     uses: ./.github/workflows/test.integration.worker.yaml
     with:
-      target: ${{ matrix.target }}
+      test_matrix: ${{ needs.setup.outputs.TEST_MATRIX }}
       ref_run_id: ${{ needs.setup.outputs.REF_RUN_ID }}
       os: ubuntu-latest
       flags: ${{ needs.setup.outputs.FLAGS }}
-      name_suffix: ${{ matrix.name }}
     secrets: inherit
