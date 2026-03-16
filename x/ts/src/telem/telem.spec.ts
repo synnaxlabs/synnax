@@ -144,6 +144,26 @@ describe("TimeStamp", () => {
 
       expect(ts1.valueOf()).toEqual(ts2.valueOf());
     });
+
+    test("should round-trip across DST boundaries", () => {
+      // 2025-03-09 is US DST spring-forward, 2025-11-02 is US DST fall-back. These
+      // dates may have a different UTC offset than the current date, so we verify the
+      // round-trip works regardless of DST transitions.
+      const dstDates = [
+        "2025-03-09T12:00:00.000",
+        "2025-03-10T12:00:00.000",
+        "2025-11-02T12:00:00.000",
+        "2025-11-03T12:00:00.000",
+        "2025-06-15T12:00:00.000",
+        "2025-01-15T12:00:00.000",
+      ];
+      for (const input of dstDates) {
+        const ts1 = new TimeStamp(input, "local");
+        const output = ts1.toString("ISO", "local").slice(0, -1);
+        const ts2 = new TimeStamp(output, "local");
+        expect(ts1.valueOf()).toEqual(ts2.valueOf());
+      }
+    });
   });
 
   test("construct from date", () => {
@@ -1832,6 +1852,9 @@ describe("DataType", () => {
     it("should return false if the data type does not have a variable length", () => {
       expect(DataType.STRING.isVariable).toBe(true);
     });
+    it("should return true for BYTES", () => {
+      expect(DataType.BYTES.isVariable).toBe(true);
+    });
   });
 
   describe("construct", () => {
@@ -1877,7 +1900,6 @@ describe("DataType", () => {
       [DataType.INT32, DataType.FLOAT32, false],
       [DataType.INT32, DataType.FLOAT64, true],
       [DataType.INT32, DataType.STRING, false],
-      [DataType.INT32, DataType.BOOLEAN, false],
       [DataType.INT32, DataType.INT8, false],
       [DataType.INT64, DataType.INT32, false],
       [DataType.INT64, DataType.INT64, true],
@@ -1887,22 +1909,19 @@ describe("DataType", () => {
       [DataType.FLOAT64, DataType.FLOAT32, false],
       [DataType.FLOAT64, DataType.FLOAT64, true],
       [DataType.FLOAT64, DataType.STRING, false],
-      [DataType.FLOAT64, DataType.BOOLEAN, false],
       [DataType.FLOAT32, DataType.FLOAT64, true],
       [DataType.FLOAT32, DataType.FLOAT32, true],
       [DataType.FLOAT32, DataType.STRING, false],
-      [DataType.FLOAT32, DataType.BOOLEAN, false],
       [DataType.STRING, DataType.STRING, true],
       [DataType.STRING, DataType.INT32, false],
       [DataType.STRING, DataType.INT64, false],
       [DataType.STRING, DataType.FLOAT32, false],
       [DataType.STRING, DataType.FLOAT64, false],
-      [DataType.STRING, DataType.BOOLEAN, false],
       [DataType.STRING, DataType.INT8, false],
-      [DataType.BOOLEAN, DataType.BOOLEAN, true],
-      [DataType.BOOLEAN, DataType.INT32, false],
-      [DataType.BOOLEAN, DataType.INT64, false],
       [DataType.INT8, DataType.FLOAT32, true],
+      [DataType.BYTES, DataType.BYTES, true],
+      [DataType.BYTES, DataType.INT32, false],
+      [DataType.BYTES, DataType.STRING, false],
     ];
     TESTS.forEach(([from, to, expected]) =>
       it(`should return ${expected} when casting from ${from.toString()} to ${to.toString()}`, () => {
@@ -1923,7 +1942,7 @@ describe("DataType", () => {
         for (const to of numericTypes) expect(from.canCastTo(to)).toBe(true);
     });
     it("should return true for non-numeric data types ONLY if they are equal", () => {
-      const nonNumericTypes = [DataType.STRING, DataType.BOOLEAN];
+      const nonNumericTypes = [DataType.STRING, DataType.BYTES];
       for (const from of nonNumericTypes)
         for (const to of nonNumericTypes) expect(from.canCastTo(to)).toBe(from === to);
     });
@@ -1969,10 +1988,10 @@ describe("DataType", () => {
       { input: "float32", expected: "float32", short: "f32" },
       { input: "float64", expected: "float64", short: "f64" },
       { input: "string", expected: "string", short: "str" },
-      { input: "boolean", expected: "boolean", short: "bool" },
       { input: "timestamp", expected: "timestamp", short: "ts" },
       { input: "uuid", expected: "uuid", short: "uuid" },
       { input: "json", expected: "json", short: "json" },
+      { input: "bytes", expected: "bytes", short: "bytes" },
     ];
 
     testCases.forEach(({ input, expected, short }) => {

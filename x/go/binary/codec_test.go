@@ -27,8 +27,7 @@ type toEncode struct {
 var _ = Describe("Codec", func() {
 	DescribeTable("Encode + Decode", func(codec binary.Codec) {
 		ctx := context.Background()
-		b, err := codec.Encode(ctx, toEncode{1})
-		Expect(err).ToNot(HaveOccurred())
+		b := MustSucceed(codec.Encode(ctx, toEncode{1}))
 		var d toEncode
 		Expect(codec.Decode(ctx, b, &d)).To(Succeed())
 		Expect(d.Value).To(Equal(1))
@@ -124,8 +123,7 @@ var _ = Describe("Codec", func() {
 			}
 
 			// Test encoding
-			b, err := codec.Encode(ctx, toEncode{1})
-			Expect(err).ToNot(HaveOccurred())
+			b := MustSucceed(codec.Encode(ctx, toEncode{1}))
 
 			// Test decoding
 			var d toEncode

@@ -21,6 +21,7 @@ import (
 	"github.com/synnaxlabs/x/binary"
 	"github.com/synnaxlabs/x/kv/memkv"
 	"github.com/synnaxlabs/x/signal"
+	. "github.com/synnaxlabs/x/testutil"
 	"time"
 )
 
@@ -44,7 +45,7 @@ var _ = Describe("Open", func() {
 				By("Initializing the Cluster correctly")
 				gossipT1 := gossipNet.UnaryServer("")
 				pledgeT1 := pledgeNet.UnaryServer(gossipT1.Address)
-				clusterOne, err := cluster.Open(
+				clusterOne := MustSucceed(cluster.Open(
 					ctx,
 					cluster.Config{
 						HostAddress: gossipT1.Address,
@@ -59,14 +60,13 @@ var _ = Describe("Open", func() {
 							Interval:        100 * time.Millisecond,
 						},
 					},
-				)
-				Expect(err).ToNot(HaveOccurred())
+				))
 				Expect(clusterOne.Host().Key).To(Equal(node.Key(1)))
 
 				By("Pledging a new node to the Cluster")
 				gossipT2 := gossipNet.UnaryServer("")
 				pledgeT2 := pledgeNet.UnaryServer(gossipT2.Address)
-				clusterTwo, err := cluster.Open(
+				clusterTwo := MustSucceed(cluster.Open(
 					ctx,
 					cluster.Config{
 						HostAddress: gossipT2.Address,
@@ -81,8 +81,7 @@ var _ = Describe("Open", func() {
 							Interval:        100 * time.Millisecond,
 						},
 					},
-				)
-				Expect(err).ToNot(HaveOccurred())
+				))
 				Expect(clusterTwo.Host().Key).To(Equal(node.Key(2)))
 				By("Converging Cluster state through gossip")
 				Eventually(clusterOne.Nodes).Should(HaveLen(2))
@@ -100,7 +99,7 @@ var _ = Describe("Open", func() {
 
 				gossipT1 := gossipNet.UnaryServer("")
 				pledgeT1 := pledgeNet.UnaryServer(gossipT1.Address)
-				clusterOne, err := cluster.Open(
+				clusterOne := MustSucceed(cluster.Open(
 					ctx,
 					cluster.Config{
 						HostAddress: gossipT1.Address,
@@ -115,8 +114,7 @@ var _ = Describe("Open", func() {
 							Interval:        100 * time.Millisecond,
 						},
 					},
-				)
-				Expect(err).ToNot(HaveOccurred())
+				))
 				Expect(clusterOne.Host().Key).To(Equal(node.Key(1)))
 
 				kvDB := memkv.New()
@@ -140,13 +138,11 @@ var _ = Describe("Open", func() {
 					StorageFlushInterval: cluster.FlushOnEvery,
 					Codec:                &binary.MsgPackCodec{},
 				}
-				clusterTwo, err := cluster.Open(ctx, clusterTwoConfig)
-				Expect(err).ToNot(HaveOccurred())
+				clusterTwo := MustSucceed(cluster.Open(ctx, clusterTwoConfig))
 				Expect(clusterTwo.Host().Key).To(Equal(node.Key(2)))
 				Expect(clusterTwo.Close()).To(Succeed())
 
-				clusterTwoAgain, err := cluster.Open(ctx, clusterTwoConfig)
-				Expect(err).ToNot(HaveOccurred())
+				clusterTwoAgain := MustSucceed(cluster.Open(ctx, clusterTwoConfig))
 				Expect(clusterTwoAgain.Host().Key).To(Equal(node.Key(2)))
 				Expect(clusterTwoAgain.Nodes()).To(HaveLen(2))
 

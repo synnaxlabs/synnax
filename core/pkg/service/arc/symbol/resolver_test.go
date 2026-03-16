@@ -20,6 +20,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/arc/symbol"
 	"github.com/synnaxlabs/x/query"
 	"github.com/synnaxlabs/x/telem"
+	. "github.com/synnaxlabs/x/testutil"
 )
 
 var _ = Describe("DefaultSymbolResolver", func() {
@@ -33,8 +34,7 @@ var _ = Describe("DefaultSymbolResolver", func() {
 var _ = Describe("CreateResolver", func() {
 	It("Should resolve an STL symbol", func() {
 		resolver := symbol.CreateResolver(dist.Channel)
-		sym, err := resolver.Resolve(ctx, "set_status")
-		Expect(err).ToNot(HaveOccurred())
+		sym := MustSucceed(resolver.Resolve(ctx, "set_status"))
 		Expect(sym.Name).To(Equal("set_status"))
 		Expect(sym.Kind).To(Equal(arcsymbol.KindFunction))
 	})
@@ -48,8 +48,7 @@ var _ = Describe("CreateResolver", func() {
 		Expect(dist.Channel.Create(ctx, ch)).To(Succeed())
 
 		resolver := symbol.CreateResolver(dist.Channel)
-		sym, err := resolver.Resolve(ctx, "resolver_test_ch")
-		Expect(err).ToNot(HaveOccurred())
+		sym := MustSucceed(resolver.Resolve(ctx, "resolver_test_ch"))
 		Expect(sym.Name).To(Equal("resolver_test_ch"))
 		Expect(sym.Kind).To(Equal(arcsymbol.KindChannel))
 		Expect(sym.Type).To(Equal(types.Chan(types.F32())))
@@ -65,8 +64,7 @@ var _ = Describe("CreateResolver", func() {
 		Expect(dist.Channel.Create(ctx, ch)).To(Succeed())
 
 		resolver := symbol.CreateResolver(dist.Channel)
-		sym, err := resolver.Resolve(ctx, strconv.Itoa(int(ch.Key())))
-		Expect(err).ToNot(HaveOccurred())
+		sym := MustSucceed(resolver.Resolve(ctx, strconv.Itoa(int(ch.Key()))))
 		Expect(sym.Name).To(Equal("resolver_key_test_ch"))
 		Expect(sym.Kind).To(Equal(arcsymbol.KindChannel))
 		Expect(sym.Type).To(Equal(types.Chan(types.I64())))
@@ -80,8 +78,7 @@ var _ = Describe("CreateResolver", func() {
 
 	It("Should use custom resolvers when provided", func() {
 		resolver := symbol.CreateResolver(dist.Channel, symbol.DefaultSymbolResolver()...)
-		sym, err := resolver.Resolve(ctx, "set_status")
-		Expect(err).ToNot(HaveOccurred())
+		sym := MustSucceed(resolver.Resolve(ctx, "set_status"))
 		Expect(sym.Name).To(Equal("set_status"))
 	})
 })
