@@ -233,7 +233,7 @@ class ArcClient:
         copy_btn = controls.locator(".console-task-status button")
         copy_btn.wait_for(state="visible", timeout=5000)
         copy_btn.click()
-        return self.layout.page.evaluate("navigator.clipboard.readText()")
+        return str(self.layout.page.evaluate("navigator.clipboard.readText()"))
 
     def wait_for_status(self, substr: str) -> str:
         """Wait for the status bar to contain a specific substring.
