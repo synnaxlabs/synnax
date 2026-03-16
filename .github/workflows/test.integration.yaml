@@ -89,7 +89,11 @@ jobs:
         ${{ steps.update-outputs.outputs.REF_RUN_ID ||
         steps.set-outputs.outputs.REF_RUN_ID }}
       FLAGS: ${{ steps.set-outputs.outputs.FLAGS }}
-      TEST_MATRIX: ${{ steps.test-matrix.outputs.TEST_MATRIX }}
+      HAS_FLAGS: ${{ steps.set-outputs.outputs.FLAGS != '' }}
+      TEST_MATRIX:
+        ${{ steps.set-outputs.outputs.FLAGS != '' &&
+        '{"include":[{"name":"custom","target":""}]}' ||
+        steps.test-matrix.outputs.TEST_MATRIX }}
     steps:
       - name: Checkout Repository
         uses: actions/checkout@v6
@@ -146,6 +150,7 @@ jobs:
           fi
 
       - name: Validate Test Coverage
+        if: ${{ steps.set-outputs.outputs.FLAGS == '' }}
         id: test-matrix
         run: integration/scripts/validate_test_coverage.sh
 
@@ -171,8 +176,9 @@ jobs:
     name: Test (windows-${{ matrix.name }})
     needs: [setup, build]
     if:
-      ${{ !cancelled() && needs.setup.result == 'success' && (needs.build.result ==
-      'success' || needs.build.result == 'skipped') }}
+      ${{ !cancelled() && needs.setup.outputs.HAS_FLAGS != 'true' &&
+      needs.setup.result == 'success' && (needs.build.result == 'success' ||
+      needs.build.result == 'skipped') }}
     strategy:
       fail-fast: false
       matrix: ${{ fromJSON(needs.setup.outputs.TEST_MATRIX) }}
