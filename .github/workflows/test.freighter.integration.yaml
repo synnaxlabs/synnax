@@ -3,7 +3,6 @@ name: Test - Freighter (Integration)
 on:
   pull_request:
     paths:
-      - .custom-gcl.yml
       - .github/workflows/test.freighter.integration.yaml
       - .github/workflows/test.go.yaml
       - .golangci.yaml
@@ -11,8 +10,6 @@ on:
       - codecov.yaml
       - freighter/go/**
       - freighter/integration/**
-      - go.work
-      - go.work.sum
       - scripts/check_gofmt.sh
       - x/go/**
   push:
@@ -20,7 +17,6 @@ on:
       - main
       - rc
     paths:
-      - .custom-gcl.yml
       - .github/workflows/test.freighter.integration.yaml
       - .github/workflows/test.go.yaml
       - .golangci.yaml
@@ -28,8 +24,6 @@ on:
       - codecov.yaml
       - freighter/go/**
       - freighter/integration/**
-      - go.work
-      - go.work.sum
       - scripts/check_gofmt.sh
       - x/go/**
   workflow_dispatch:

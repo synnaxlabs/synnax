@@ -1,26 +1,24 @@
 # syntax=docker/dockerfile:1
 
 # Stage 1: Download dependencies
-FROM golang:1.26.0 AS deps
+ARG GO_VERSION
+FROM golang:${GO_VERSION} AS deps
 WORKDIR /workspace
-
-# Copy go.work files first
-COPY go.work go.work.sum ./
 
 # Copy go.mod and go.sum files from all modules for better caching
 COPY core/go.mod core/go.sum ./core/
 COPY freighter/go/go.mod freighter/go/go.sum ./freighter/go/
-COPY freighter/integration/go.mod freighter/integration/go.sum ./freighter/integration/
 COPY alamos/go/go.mod alamos/go/go.sum ./alamos/go/
 COPY x/go/go.mod x/go/go.sum ./x/go/
 COPY cesium/go.mod cesium/go.sum ./cesium/
 COPY aspen/go.mod aspen/go.sum ./aspen/
 COPY arc/go/go.mod arc/go/go.sum ./arc/go/
-COPY oracle/go.mod oracle/go.sum ./oracle/
 
 # Download dependencies with cache mount for go modules
+WORKDIR /workspace/core
 RUN --mount=type=cache,target=/go/pkg/mod \
     go mod download
+WORKDIR /workspace
 
 # Stage 2: Build the binary
 FROM deps AS builder
@@ -33,7 +31,6 @@ COPY x/go ./x/go
 COPY cesium ./cesium
 COPY aspen ./aspen
 COPY arc/go ./arc/go
-COPY oracle ./oracle
 COPY core ./core
 
 # Build with cache mounts for both go modules and build cache
