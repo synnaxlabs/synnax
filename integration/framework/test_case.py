@@ -32,6 +32,7 @@ from framework.utils import (
     WebSocketErrorFilter,
     ignore_websocket_errors,
     is_websocket_error,
+    suppress_websocket_errors,
     validate_and_sanitize_name,
 )
 
@@ -188,10 +189,6 @@ class TestCase(ABC):
             )
 
             while not self.should_stop:
-                """
-                # Update telemetry
-                """
-
                 now = sy.TimeStamp.now()
                 elapsed = now - self.start_time
                 uptime_seconds = elapsed / sy.TimeSpan.SECOND
@@ -199,7 +196,6 @@ class TestCase(ABC):
                 self.tlm[self._ch_uptime] = uptime_seconds
                 self.tlm[self._ch_state] = self._status.value
 
-                # Check for timeout
                 if (
                     self._timeout_limit is not None
                     and elapsed > sy.TimeSpan.from_seconds(self._timeout_limit)
@@ -207,7 +203,6 @@ class TestCase(ABC):
                     self.log(f"Timeout at {uptime_seconds:.1f}s")
                     self.STATUS = STATUS.TIMEOUT
 
-                # Check for completion due to failure
                 if self._status.value >= STATUS.FAILED.value:
                     self.tlm[self._ch_state] = self._status.value
                     self._should_stop = True
@@ -219,32 +214,22 @@ class TestCase(ABC):
                         sy.sleep(self.WEBSOCKET_RETRY_DELAY)
                     else:
                         self.STATUS = STATUS.FAILED
-                        raise e
+                        raise
 
                 # Final write attempt for redundancy
-                try:
+                with suppress_websocket_errors():
                     client.write(self.tlm)
-                except:
-                    pass
 
         except Exception as e:
-            if is_websocket_error(e):
-                pass
-            else:
+            if not is_websocket_error(e):
                 self.log(f"Writer thread error: {e}\n {traceback.format_exc()}")
                 self.STATUS = STATUS.FAILED
-                raise e
+                raise
 
         finally:
-            # Cleanup writer
-            try:
-                if "client" in locals() and client:
+            if client is not None:
+                with suppress_websocket_errors():
                     client.close()
-            except Exception as cleanup_error:
-                if is_websocket_error(cleanup_error):
-                    pass
-                else:
-                    self.log(f"Writer cleanup error: {cleanup_error}")
 
     def _streamer_loop(self) -> None:
         """Streamer thread that reads data on demand with timeout."""
@@ -261,7 +246,6 @@ class TestCase(ABC):
 
             while not self._should_stop:
                 try:
-                    # Read data on demand with timeout (not tied to loop.wait())
                     self.frame_in = streamer.read(self.read_timeout)
                     if self.frame_in is not None:
                         for key, value in self.frame_in.items():
@@ -275,23 +259,15 @@ class TestCase(ABC):
                         break
 
         except Exception as e:
-            if is_websocket_error(e):
-                pass
-            else:
+            if not is_websocket_error(e):
                 self.log(f"Streamer thread error: {e}\n {traceback.format_exc()}")
                 self.STATUS = STATUS.FAILED
-                raise e
+                raise
 
         finally:
-            # Cleanup streamer
-            try:
-                if "streamer" in locals() and streamer:
+            if streamer is not None:
+                with suppress_websocket_errors():
                     streamer.close()
-            except Exception as cleanup_error:
-                if is_websocket_error(cleanup_error):
-                    pass
-                else:
-                    self.log(f"Streamer cleanup error: {cleanup_error}")
 
     def log(self, message: str) -> None:
         """Log a message. Buffered by default; dumped by conductor on failure."""
@@ -872,9 +848,7 @@ class TestCase(ABC):
             # PASSED set in _check_expectation()
 
         except Exception as e:
-            if is_websocket_error(e):
-                pass
-            else:
+            if not is_websocket_error(e):
                 self.STATUS = STATUS.FAILED
                 self.log(f"EXCEPTION: {e}\n{traceback.format_exc()}")
         finally:

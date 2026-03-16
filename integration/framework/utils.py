@@ -7,6 +7,7 @@
 #  License, use of this software will be governed by the Apache License, Version 2.0,
 #  included in the file licenses/APL.txt.
 
+import contextlib
 import multiprocessing
 import os
 import platform
@@ -16,6 +17,7 @@ import string
 import subprocess
 import sys
 import uuid
+from collections.abc import Generator
 from typing import Any
 
 # Centralized results directory for all test artifacts (screenshots, CSVs, etc.)
@@ -89,6 +91,16 @@ def is_websocket_error(error: Exception) -> bool:
     """Check if an exception is a WebSocket-related error that should be ignored."""
     error_str = str(error)
     return any(phrase in error_str for phrase in WEBSOCKET_ERROR_PATTERNS)
+
+
+@contextlib.contextmanager
+def suppress_websocket_errors() -> Generator[None, None, None]:
+    """Suppress WebSocket errors, re-raising everything else."""
+    try:
+        yield
+    except Exception as e:
+        if not is_websocket_error(e):
+            raise
 
 
 def is_ci() -> bool:
