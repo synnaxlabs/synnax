@@ -20,19 +20,18 @@ import (
 	"github.com/spf13/viper"
 
 	"github.com/synnaxlabs/synnax/cmd/service"
+	"github.com/synnaxlabs/x/testutil"
 )
 
 var _ = Describe("WriteConfig", func() {
 	var (
-		tmpDir      string
-		origPD      string
-		configPath  string
+		tmpDir     string
+		origPD     string
+		configPath string
 	)
 
 	BeforeEach(func() {
-		var err error
-		tmpDir, err = os.MkdirTemp("", "synnax-service-test-*")
-		Expect(err).ToNot(HaveOccurred())
+		tmpDir = testutil.MustSucceed(os.MkdirTemp("", "synnax-service-test-*"))
 
 		origPD = os.Getenv("ProgramData")
 		Expect(os.Setenv("ProgramData", tmpDir)).To(Succeed())
@@ -53,8 +52,7 @@ var _ = Describe("WriteConfig", func() {
 	It("Should create a config file on fresh install", func() {
 		Expect(service.WriteConfig()).To(Succeed())
 		Expect(configPath).To(BeAnExistingFile())
-		data, err := os.ReadFile(configPath)
-		Expect(err).ToNot(HaveOccurred())
+		data := testutil.MustSucceed(os.ReadFile(configPath))
 		Expect(string(data)).To(ContainSubstring("listen"))
 	})
 
@@ -66,8 +64,7 @@ var _ = Describe("WriteConfig", func() {
 		viper.Set("listen", "localhost:9999")
 		Expect(service.WriteConfig()).To(Succeed())
 
-		data, err := os.ReadFile(configPath)
-		Expect(err).ToNot(HaveOccurred())
+		data := testutil.MustSucceed(os.ReadFile(configPath))
 		Expect(string(data)).To(Equal(string(originalContent)))
 	})
 })

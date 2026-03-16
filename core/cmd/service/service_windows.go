@@ -24,6 +24,7 @@ import (
 	cmdinst "github.com/synnaxlabs/synnax/cmd/instrumentation"
 	cmdstart "github.com/synnaxlabs/synnax/cmd/start"
 	"github.com/synnaxlabs/x/errors"
+	xos "github.com/synnaxlabs/x/os"
 	"github.com/synnaxlabs/x/set"
 	signal "github.com/synnaxlabs/x/signal"
 	"go.uber.org/zap"
@@ -60,7 +61,11 @@ var configKeysToExclude = set.FromSlice([]string{"auto-start", "delayed-start"})
 // If a config file already exists, it is preserved to avoid overwriting
 // user-customized settings during reinstallation.
 func WriteConfig() error {
-	if _, err := os.Stat(ConfigPath()); err == nil {
+	exists, err := xos.FileExists(ConfigPath())
+	if err != nil {
+		return err
+	}
+	if exists {
 		return nil
 	}
 	dir := ConfigDir()
