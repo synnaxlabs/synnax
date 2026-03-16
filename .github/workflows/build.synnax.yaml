@@ -258,7 +258,7 @@ jobs:
 
       - name: Upload Windows Debug Symbols
         if: inputs.driver && inputs.debug && matrix.os == 'windows-build-bot'
-        uses: actions/upload-artifact@v6
+        uses: actions/upload-artifact@v7
         with:
           name:
             ${{ inputs.use_simple_artifact_names &&
@@ -282,7 +282,7 @@ jobs:
 
       - name: Upload macOS Debug Symbols
         if: inputs.driver && inputs.debug && startsWith(matrix.os, 'macos')
-        uses: actions/upload-artifact@v6
+        uses: actions/upload-artifact@v7
         with:
           name:
             ${{ inputs.use_simple_artifact_names && 'synnax-driver-debug-symbols-macos'
@@ -310,7 +310,7 @@ jobs:
         if:
           inputs.driver && inputs.nilinuxrt && inputs.debug && matrix.os ==
           'ubuntu-build-bot'
-        uses: actions/upload-artifact@v6
+        uses: actions/upload-artifact@v7
         with:
           name:
             ${{ inputs.use_simple_artifact_names &&
@@ -323,7 +323,7 @@ jobs:
 
       - name: Upload NI Linux Real-Time Driver as Artifact
         if: inputs.driver && inputs.nilinuxrt && matrix.os == 'ubuntu-build-bot'
-        uses: actions/upload-artifact@v6
+        uses: actions/upload-artifact@v7
         with:
           name:
             ${{ inputs.use_simple_artifact_names && 'synnax-driver-nilinuxrt' ||
@@ -363,7 +363,7 @@ jobs:
 
       - name: Upload Linux Debug Symbols
         if: inputs.driver && inputs.debug && matrix.os == 'ubuntu-build-bot'
-        uses: actions/upload-artifact@v6
+        uses: actions/upload-artifact@v7
         with:
           name:
             ${{ inputs.use_simple_artifact_names && 'synnax-driver-debug-symbols-linux'
@@ -474,7 +474,7 @@ jobs:
 
       - name: Upload Driver as Artifact
         if: inputs.driver
-        uses: actions/upload-artifact@v6
+        uses: actions/upload-artifact@v7
         with:
           name:
             ${{ inputs.use_simple_artifact_names && format('synnax-driver-{0}',
@@ -530,7 +530,7 @@ jobs:
 
       - name: Upload Console Assets as Artifact
         if: inputs.console
-        uses: actions/upload-artifact@v6
+        uses: actions/upload-artifact@v7
         with:
           name:
             ${{ inputs.use_simple_artifact_names && format('synnax-console-assets-{0}',
@@ -646,7 +646,7 @@ jobs:
 
       - name: Upload Core Binary as Artifact
         if: inputs.core
-        uses: actions/upload-artifact@v6
+        uses: actions/upload-artifact@v7
         with:
           name:
             ${{ inputs.use_simple_artifact_names && format('synnax-core-{0}',
@@ -877,7 +877,7 @@ jobs:
         run: pnpm build --no-sign
 
       - name: Upload Console App as Artifact
-        uses: actions/upload-artifact@v6
+        uses: actions/upload-artifact@v7
         with:
           name:
             ${{ startsWith(matrix.os, 'macos') && format('synnax-console-v{0}-macos',
