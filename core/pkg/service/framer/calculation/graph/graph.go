@@ -132,7 +132,8 @@ func (g *Graph) Update(ctx context.Context, ch channel.Channel) error {
 		SymbolResolver: g.cfg.SymbolResolver,
 	})
 	if err != nil {
-		return errors.Wrap(err, "failed to compile channel")
+		g.logCompileError(ctx, err, ch)
+		return errors.Wrapf(err, "failed to compile calculated channel %s", ch)
 	}
 	dependencies := mod.StateConfig.Reads.Keys()
 
@@ -379,7 +380,8 @@ func (g *Graph) addInternal(ctx context.Context, ch channel.Channel, explicit bo
 	})
 	if err != nil {
 		delete(g.channels, ch.Key())
-		return errors.Wrap(err, "failed to compile channel")
+		g.logCompileError(ctx, err, ch)
+		return errors.Wrapf(err, "failed to compile calculated channel %s", ch)
 	}
 	dependencies := mod.StateConfig.Reads.Keys()
 
@@ -747,6 +749,63 @@ func (g *Graph) getChannelInfo(key channel.Key) (*channelInfo, error) {
 		return nil, errors.Wrapf(query.ErrNotFound, "channel %v not found in allocator", key)
 	}
 	return info, nil
+}
+
+// logCompileError logs detailed diagnostic information when a calculated channel
+// fails to compile, including its expression, data type, and dependency graph.
+func (g *Graph) logCompileError(
+	ctx context.Context,
+	err error,
+	ch channel.Channel,
+) {
+	fields := []zap.Field{
+		zap.String("channel", ch.String()),
+		zap.String("expression", ch.Expression),
+		zap.String("data_type", string(ch.DataType)),
+		zap.Error(err),
+	}
+	deps := g.fetchDependencyDiagnostics(ctx, ch)
+	if len(deps) > 0 {
+		depStrs := make([]string, len(deps))
+		for i, dep := range deps {
+			s := fmt.Sprintf("%s %s", dep, dep.DataType)
+			if dep.IsCalculated() {
+				s += fmt.Sprintf(" expression: %s", dep.Expression)
+			}
+			depStrs[i] = s
+		}
+		fields = append(fields, zap.Strings("dependencies", depStrs))
+	}
+	g.L.Error("failed to compile calculated channel", fields...)
+}
+
+// fetchDependencyDiagnostics attempts to discover the channels referenced by an
+// expression. This is best-effort for diagnostics only.
+func (g *Graph) fetchDependencyDiagnostics(
+	ctx context.Context,
+	ch channel.Channel,
+) []channel.Channel {
+	// Try preProcess to discover channel references from the expression
+	prog, preErr := compiler.PreProcess(ctx, compiler.Config{
+		ChannelService: g.cfg.Channel,
+		Channel:        ch,
+		SymbolResolver: g.cfg.SymbolResolver,
+	})
+	if preErr != nil || len(prog.Functions) == 0 {
+		return nil
+	}
+	keys := make([]channel.Key, 0)
+	for k := range prog.Functions[0].Channels.Read {
+		keys = append(keys, channel.Key(k))
+	}
+	if len(keys) == 0 {
+		return nil
+	}
+	deps, fetchErr := g.fetchChannels(ctx, keys)
+	if fetchErr != nil {
+		return nil
+	}
+	return deps
 }
 
 // formatDependencyTree builds a string representation of the full dependency tree for a channel.

@@ -603,4 +603,37 @@ var _ = Describe("Graph", func() {
 			Expect(calcKeys.Contains(calcs[0].Key())).To(BeTrue())
 		})
 	})
+
+	Describe("Error Messages", func() {
+		It("Should include channel name in Add compilation errors", func() {
+			calc := channel.Channel{
+				Name:       "bad_calc_add",
+				DataType:   telem.Int64T,
+				Virtual:    true,
+				Expression: "return invalid_syntax {{",
+			}
+			Expect(dist.Channel.Create(ctx, &calc)).To(Succeed())
+			err := g.Add(ctx, calc)
+			Expect(err).To(HaveOccurred())
+			Expect(err.Error()).To(ContainSubstring("bad_calc_add"))
+		})
+
+		It("Should include channel name in Update compilation errors", func() {
+			bases := []channel.Channel{{Name: "err_base", DataType: telem.Int64T, Virtual: true}}
+			Expect(dist.Channel.CreateMany(ctx, &bases)).To(Succeed())
+			calc := channel.Channel{
+				Name:       "bad_calc_update",
+				DataType:   telem.Int64T,
+				Virtual:    true,
+				Expression: "return err_base * 2",
+			}
+			Expect(dist.Channel.Create(ctx, &calc)).To(Succeed())
+			Expect(g.Add(ctx, calc)).To(Succeed())
+			calc.Expression = "return invalid_syntax {{"
+			Expect(dist.Channel.Create(ctx, &calc)).To(Succeed())
+			err := g.Update(ctx, calc)
+			Expect(err).To(HaveOccurred())
+			Expect(err.Error()).To(ContainSubstring("bad_calc_update"))
+		})
+	})
 })

@@ -219,7 +219,7 @@ func (s *Service) openOrGetCalculator(
 ) (*calculator.Calculator, error) {
 	calc, err := calculator.Open(ctx, calculator.Config{Module: mod})
 	if err != nil {
-		return nil, err
+		return nil, errors.Wrapf(err, "failed to open calculator for channel %s", mod.Channel)
 	}
 	s.mu.calculators[calc.Channel().Key()] = calc
 	return calc, err
