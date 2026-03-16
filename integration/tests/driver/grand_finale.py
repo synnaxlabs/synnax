@@ -83,7 +83,7 @@ class GrandFinale(SimulatorCase):
                 channels=ModbusReadCoil.create_channels(self.client),
             ),
             opcua.ReadTask(
-                name="GF OPC UA Mixed",
+                name="GF OPC UA Float",
                 device=opcua_device.key,
                 sample_rate=self.SAMPLE_RATE,
                 stream_rate=self.STREAM_RATE,
