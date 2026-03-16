@@ -257,13 +257,27 @@ func (s *Service) updateGroup(ctx context.Context, key int, mods []compiler.Modu
 			return err
 		}
 	}
-	calculators := make([]*calculator.Calculator, len(mods))
-	for i, m := range mods {
+	calculators := make([]*calculator.Calculator, 0, len(mods))
+	for _, m := range mods {
 		calc, err := s.openOrGetCalculator(ctx, m)
 		if err != nil {
-			return err
+			s.cfg.L.Error("failed to open calculator",
+				zap.String("channel", m.Channel.Key().String()),
+				zap.Error(err),
+			)
+			s.setStatus(ctx, calculator.Status{
+				Key:         m.Channel.Key().String(),
+				Name:        m.Channel.Name,
+				Variant:     xstatus.VariantError,
+				Message:     fmt.Sprintf("Failed to open calculator for %s", m.Channel.Name),
+				Description: err.Error(),
+			})
+			continue
 		}
-		calculators[i] = calc
+		calculators = append(calculators, calc)
+	}
+	if len(calculators) == 0 {
+		return nil
 	}
 	g, err := openGroup(
 		ctx,
