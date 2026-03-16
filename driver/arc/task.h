@@ -23,8 +23,8 @@
 #include "arc/cpp/runtime/loop/loop.h"
 #include "arc/cpp/runtime/runtime.h"
 #include "arc/cpp/runtime/state/state.h"
-#include "arc/cpp/runtime/status/status.h"
 #include "driver/arc/arc.h"
+#include "driver/arc/status/status.h"
 #include "driver/common/common.h"
 #include "driver/common/status.h"
 #include "driver/errors/errors.h"
@@ -152,13 +152,7 @@ public:
             },
             .loop = cfg.loop,
             .factories = {
-                std::make_shared<::arc::runtime::status::Factory>(
-                    [client = ctx->client](const x::status::Status<> &s)
-                        -> x::errors::Error {
-                        auto status = s;
-                        return client->statuses.set(status);
-                    }
-                ),
+                std::make_shared<::driver::arc::status::Factory>(ctx->client),
             },
         };
 

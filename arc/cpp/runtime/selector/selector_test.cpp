@@ -381,4 +381,32 @@ TEST(SelectTest, IsOutputTruthyDelegatesToState) {
     EXPECT_FALSE(node.is_output_truthy("true"));
     EXPECT_FALSE(node.is_output_truthy("false"));
 }
+
+/// @brief Test that alignment and time_range are propagated to outputs.
+TEST(SelectTest, PropagatesAlignmentAndTimeRange) {
+    TestSetup setup;
+    Select node(setup.make_select_node());
+
+    auto source = setup.make_source_node();
+    auto data = x::mem::make_local_shared<x::telem::Series>(std::vector<uint8_t>{1, 0});
+    data->alignment = x::telem::Alignment(3, 10);
+    data->time_range = x::telem::TimeRange(1000, 2000);
+    source.output(0) = data;
+    source.output_time(0) = x::mem::make_local_shared<x::telem::Series>(
+        std::vector<int64_t>{100, 200}
+    );
+
+    auto ctx = make_context();
+    ASSERT_NIL(node.next(ctx));
+
+    auto checker = setup.make_select_node();
+    EXPECT_EQ(checker.output(0)->alignment, x::telem::Alignment(3, 10));
+    EXPECT_EQ(checker.output(0)->time_range, x::telem::TimeRange(1000, 2000));
+    EXPECT_EQ(checker.output_time(0)->alignment, x::telem::Alignment(3, 10));
+    EXPECT_EQ(checker.output_time(0)->time_range, x::telem::TimeRange(1000, 2000));
+    EXPECT_EQ(checker.output(1)->alignment, x::telem::Alignment(3, 10));
+    EXPECT_EQ(checker.output(1)->time_range, x::telem::TimeRange(1000, 2000));
+    EXPECT_EQ(checker.output_time(1)->alignment, x::telem::Alignment(3, 10));
+    EXPECT_EQ(checker.output_time(1)->time_range, x::telem::TimeRange(1000, 2000));
+}
 }

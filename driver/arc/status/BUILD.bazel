@@ -8,6 +8,7 @@ cc_library(
     deps = [
         "//arc/cpp/ir",
         "//arc/cpp/runtime/node",
+        "//client/cpp:synnax",
         "//x/cpp/errors",
         "//x/cpp/status",
     ],
@@ -20,6 +21,7 @@ cc_test(
         ":status",
         "//arc/cpp/runtime/errors",
         "//arc/cpp/runtime/state",
+        "//client/cpp/testutil",
         "//x/cpp/test",
         "@googletest//:gtest_main",
     ],

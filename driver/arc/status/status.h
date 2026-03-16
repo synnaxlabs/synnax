@@ -14,19 +14,20 @@
 #include <string>
 #include <utility>
 
+#include "client/cpp/synnax.h"
 #include "x/cpp/errors/errors.h"
 #include "x/cpp/status/status.h"
 
 #include "arc/cpp/runtime/node/factory.h"
 #include "arc/cpp/runtime/node/node.h"
 
-namespace arc::runtime::status {
+namespace driver::arc::status {
 
 /// @brief Callback for delivering status notifications to the cluster.
-using Setter = std::function<x::errors::Error(const x::status::Status<> &)>;
+using Setter = std::function<x::errors::Error(x::status::Status<> &)>;
 
 /// @brief Sets a status notification each time it is executed by the scheduler.
-class SetStatus : public node::Node {
+class SetStatus : public ::arc::runtime::node::Node {
     x::status::Status<> info;
     Setter setter;
 
@@ -34,7 +35,7 @@ public:
     SetStatus(x::status::Status<> info, Setter setter):
         info(std::move(info)), setter(std::move(setter)) {}
 
-    x::errors::Error next(node::Context &ctx) override {
+    x::errors::Error next(::arc::runtime::node::Context &ctx) override {
         this->info.time = x::telem::TimeStamp::now();
         auto err = this->setter(this->info);
         if (err) ctx.report_error(err);
@@ -46,18 +47,19 @@ public:
     }
 };
 
-class Factory : public node::Factory {
-    Setter setter;
+class Factory : public ::arc::runtime::node::Factory {
+    std::shared_ptr<synnax::Synnax> client;
 
 public:
-    explicit Factory(Setter setter): setter(std::move(setter)) {}
+    explicit Factory(std::shared_ptr<synnax::Synnax> client):
+        client(std::move(client)) {}
 
     bool handles(const std::string &node_type) const override {
         return node_type == "set_status";
     }
 
-    std::pair<std::unique_ptr<node::Node>, x::errors::Error>
-    create(node::Config &&cfg) override {
+    std::pair<std::unique_ptr<::arc::runtime::node::Node>, x::errors::Error>
+    create(::arc::runtime::node::Config &&cfg) override {
         if (!this->handles(cfg.node.type)) return {nullptr, x::errors::NOT_FOUND};
         x::status::Status<> info{
             .key = cfg.node.config["status_key"].get<std::string>(),
@@ -66,7 +68,12 @@ public:
             .message = cfg.node.config["message"].get<std::string>(),
         };
         return {
-            std::make_unique<SetStatus>(std::move(info), this->setter),
+            std::make_unique<SetStatus>(
+                std::move(info),
+                [c = this->client](x::status::Status<> &s) {
+                    return c->statuses.set(s);
+                }
+            ),
             x::errors::NIL
         };
     }

@@ -54,6 +54,14 @@ public:
         true_time->resize(true_count);
         false_data->resize(false_count);
         false_time->resize(false_count);
+        true_data->alignment = data->alignment;
+        true_data->time_range = data->time_range;
+        true_time->alignment = data->alignment;
+        true_time->time_range = data->time_range;
+        false_data->alignment = data->alignment;
+        false_data->time_range = data->time_range;
+        false_time->alignment = data->alignment;
+        false_time->time_range = data->time_range;
 
         size_t ti = 0, fi = 0;
         for (size_t i = 0; i < n; i++) {

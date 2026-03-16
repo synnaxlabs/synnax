@@ -9,21 +9,22 @@
 
 #include "gtest/gtest.h"
 
+#include "client/cpp/testutil/testutil.h"
 #include "x/cpp/test/test.h"
 
 #include "arc/cpp/runtime/errors/errors.h"
 #include "arc/cpp/runtime/state/state.h"
-#include "arc/cpp/runtime/status/status.h"
+#include "driver/arc/status/status.h"
 
-namespace arc::runtime::status {
+namespace driver::arc::status {
 namespace {
-Setter noop_setter = [](const x::status::Status<> &) { return x::errors::NIL; };
+Setter noop_setter = [](x::status::Status<> &) { return x::errors::NIL; };
 
-node::Context make_context() {
-    return node::Context{
+::arc::runtime::node::Context make_context() {
+    return ::arc::runtime::node::Context{
         .elapsed = x::telem::TimeSpan(0),
         .tolerance = x::telem::TimeSpan(0),
-        .reason = node::RunReason::TimerTick,
+        .reason = ::arc::runtime::node::RunReason::TimerTick,
         .mark_changed = [](const std::string &) {},
         .report_error = [](const x::errors::Error &) {},
         .activate_stage = [] {},
@@ -39,24 +40,29 @@ x::status::Status<> make_status() {
     };
 }
 
-ir::Node make_ir_node() {
-    ir::Node node;
+::arc::ir::Node make_ir_node() {
+    ::arc::ir::Node node;
     node.key = "status";
     node.type = "set_status";
-    ir::Param key_param;
+    ::arc::ir::Param key_param;
     key_param.name = "status_key";
     key_param.value = std::string("test_key");
-    ir::Param name_param;
+    ::arc::ir::Param name_param;
     name_param.name = "name";
     name_param.value = std::string("Test Status");
-    ir::Param variant_param;
+    ::arc::ir::Param variant_param;
     variant_param.name = "variant";
     variant_param.value = std::string("warning");
-    ir::Param message_param;
+    ::arc::ir::Param message_param;
     message_param.name = "message";
     message_param.value = std::string("Test message");
-    node.config = ir::Params(
-        std::vector<ir::Param>{key_param, name_param, variant_param, message_param}
+    node.config = ::arc::ir::Params(
+        std::vector<::arc::ir::Param>{
+            key_param,
+            name_param,
+            variant_param,
+            message_param
+        }
     );
     return node;
 }
@@ -64,7 +70,8 @@ ir::Node make_ir_node() {
 
 /// @brief Test that factory handles set_status type.
 TEST(SetStatusFactoryTest, HandlesSetStatusType) {
-    Factory factory(noop_setter);
+    auto client = std::make_shared<synnax::Synnax>(new_test_client());
+    Factory factory(client);
     EXPECT_TRUE(factory.handles("set_status"));
     EXPECT_FALSE(factory.handles("not_set_status"));
 }
@@ -73,22 +80,23 @@ TEST(SetStatusFactoryTest, HandlesSetStatusType) {
 TEST(SetStatusFactoryTest, CreatesSetStatusNode) {
     auto status_node = make_ir_node();
 
-    ir::Function fn;
+    ::arc::ir::Function fn;
     fn.key = "test";
 
-    ir::IR ir;
+    ::arc::ir::IR ir;
     ir.nodes.push_back(status_node);
     ir.functions.push_back(fn);
 
-    state::State s(
-        state::Config{.ir = ir, .channels = {}},
-        runtime::errors::noop_handler
+    ::arc::runtime::state::State s(
+        ::arc::runtime::state::Config{.ir = ir, .channels = {}},
+        ::arc::runtime::errors::noop_handler
     );
     auto st = ASSERT_NIL_P(s.node("status"));
 
-    Factory factory(noop_setter);
+    auto client = std::make_shared<synnax::Synnax>(new_test_client());
+    Factory factory(client);
     auto node = ASSERT_NIL_P(
-        factory.create(node::Config(ir, ir.nodes[0], std::move(st)))
+        factory.create(::arc::runtime::node::Config(ir, ir.nodes[0], std::move(st)))
     );
     ASSERT_NE(node, nullptr);
 }
@@ -97,7 +105,7 @@ TEST(SetStatusFactoryTest, CreatesSetStatusNode) {
 TEST(SetStatusTest, NextCallsSetter) {
     x::status::Status<> received;
     int call_count = 0;
-    Setter setter = [&](const x::status::Status<> &s) {
+    Setter setter = [&](x::status::Status<> &s) {
         received = s;
         call_count++;
         return x::errors::NIL;
@@ -116,7 +124,7 @@ TEST(SetStatusTest, NextCallsSetter) {
 /// @brief Test that next() calls setter on every invocation.
 TEST(SetStatusTest, NextCallsSetterRepeatedly) {
     int call_count = 0;
-    Setter setter = [&](const x::status::Status<> &) {
+    Setter setter = [&](x::status::Status<> &) {
         call_count++;
         return x::errors::NIL;
     };
@@ -130,7 +138,7 @@ TEST(SetStatusTest, NextCallsSetterRepeatedly) {
 
 /// @brief Test that next() handles setter errors gracefully.
 TEST(SetStatusTest, NextHandlesSetterError) {
-    Setter setter = [](const x::status::Status<> &) {
+    Setter setter = [](x::status::Status<> &) {
         return x::errors::Error("status set failed");
     };
     SetStatus node(make_status(), setter);
@@ -145,33 +153,34 @@ TEST(SetStatusTest, IsOutputTruthyReturnsFalse) {
     EXPECT_FALSE(node.is_output_truthy("anything"));
 }
 
-/// @brief Test that factory passes setter to created nodes.
-TEST(SetStatusFactoryTest, PassesSetterToNode) {
-    int call_count = 0;
-    Setter setter = [&](const x::status::Status<> &) {
-        call_count++;
-        return x::errors::NIL;
-    };
-
+/// @brief Test that factory creates nodes that set status on the cluster.
+TEST(SetStatusFactoryTest, CreatedNodeSetsStatus) {
     auto status_node = make_ir_node();
-    ir::Function fn;
+    ::arc::ir::Function fn;
     fn.key = "test";
-    ir::IR ir;
+    ::arc::ir::IR ir;
     ir.nodes.push_back(status_node);
     ir.functions.push_back(fn);
 
-    state::State s(
-        state::Config{.ir = ir, .channels = {}},
-        runtime::errors::noop_handler
+    ::arc::runtime::state::State s(
+        ::arc::runtime::state::Config{.ir = ir, .channels = {}},
+        ::arc::runtime::errors::noop_handler
     );
     auto st = ASSERT_NIL_P(s.node("status"));
 
-    Factory factory(setter);
+    auto client = std::make_shared<synnax::Synnax>(new_test_client());
+    Factory factory(client);
     auto node = ASSERT_NIL_P(
-        factory.create(node::Config(ir, ir.nodes[0], std::move(st)))
+        factory.create(::arc::runtime::node::Config(ir, ir.nodes[0], std::move(st)))
     );
     auto ctx = make_context();
     ASSERT_NIL(node->next(ctx));
-    EXPECT_EQ(call_count, 1);
+
+    auto [retrieved, err] = client->statuses.retrieve("test_key");
+    ASSERT_NIL(err);
+    EXPECT_EQ(retrieved.key, "test_key");
+    EXPECT_EQ(retrieved.name, "Test Status");
+    EXPECT_EQ(retrieved.variant, "warning");
+    EXPECT_EQ(retrieved.message, "Test message");
 }
 }

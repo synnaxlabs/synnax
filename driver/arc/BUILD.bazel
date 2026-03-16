@@ -13,7 +13,7 @@ cc_library(
         "//arc/cpp/program",
         "//arc/cpp/runtime",
         "//arc/cpp/runtime/loop",
-        "//arc/cpp/runtime/status",
+        "//driver/arc/status",
         "//client/cpp/arc",
         "//driver/common",
         "//driver/pipeline",
