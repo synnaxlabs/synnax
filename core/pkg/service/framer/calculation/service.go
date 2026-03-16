@@ -219,7 +219,7 @@ func (s *Service) openOrGetCalculator(
 ) (*calculator.Calculator, error) {
 	calc, err := calculator.Open(ctx, calculator.Config{Module: mod})
 	if err != nil {
-		return nil, err
+		return nil, errors.Wrapf(err, "failed to open calculator for channel %s", mod.Channel)
 	}
 	s.mu.calculators[calc.Channel().Key()] = calc
 	return calc, err
@@ -347,9 +347,14 @@ func (s *Service) updateRequests(ctx context.Context, added, removed []channel.K
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
+	graphChanged := false
 	for _, k := range removed {
-		if err := s.mu.graph.Remove(k); err != nil {
+		found, err := s.mu.graph.Remove(k)
+		if err != nil {
 			return err
+		}
+		if found {
+			graphChanged = true
 		}
 	}
 	for _, ch := range channels {
@@ -365,12 +370,15 @@ func (s *Service) updateRequests(ctx context.Context, added, removed []channel.K
 				Description: err.Error(),
 			})
 		}
+		graphChanged = true
 	}
 	if len(statuses) > 0 {
 		s.setStatus(ctx, statuses...)
 	}
-	if err := s.rebuildGroups(ctx); err != nil {
-		return err
+	if graphChanged {
+		if err := s.rebuildGroups(ctx); err != nil {
+			return err
+		}
 	}
 	if len(added) > 0 {
 		s.cfg.L.Debug("calculation requests added", zap.Stringers("channels", added))
