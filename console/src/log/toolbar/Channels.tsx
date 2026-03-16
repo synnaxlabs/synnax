@@ -82,7 +82,6 @@ const ChannelRow = ({
       <Notation.Select
         value={config.notation ?? "standard"}
         onChange={(v: notation.Notation) => onConfigChange(channelKey, { notation: v })}
-        disabled={disabled}
       />
       <Input.Numeric
         value={config.precision}
