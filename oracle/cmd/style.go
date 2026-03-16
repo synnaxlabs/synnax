@@ -11,7 +11,6 @@ package cmd
 
 import (
 	"fmt"
-	"log"
 	"strings"
 
 	"charm.land/lipgloss/v2"
@@ -52,50 +51,38 @@ const (
 func printBanner() {
 	banner := lipgloss.NewStyle().Bold(true).Foreground(purple).Render("oracle")
 	spark := lipgloss.NewStyle().Foreground(yellow).Render(symbolSpark)
-	if _, err := lipgloss.Printf("%s %s\n\n", spark, banner); err != nil {
-		log.Println(err)
-	}
+	fmt.Printf("%s %s\n\n", spark, banner)
 }
 
 func printSuccess(msg string) {
 	sym := successStyle.Render(symbolSuccess)
-	if _, err := lipgloss.Printf("%s %s\n", sym, successStyle.Render(msg)); err != nil {
-		log.Println(err)
-	}
+	fmt.Printf("%s %s\n", sym, successStyle.Render(msg))
 }
 
 func printError(msg string) {
 	sym := errorStyle.Render(symbolError)
-	if _, err := lipgloss.Printf("%s %s\n", sym, errorStyle.Render(msg)); err != nil {
-		log.Println(err)
-	}
+	fmt.Printf("%s %s\n", sym, errorStyle.Render(msg))
 }
 
 func printInfo(msg string) {
 	sym := infoStyle.Render(symbolArrow)
-	if _, err := lipgloss.Printf("%s %s\n", sym, msg); err != nil {
-		log.Println(err)
-	}
+	fmt.Printf("%s %s\n", sym, msg)
 }
 
 func printDim(msg string) {
-	if _, err := lipgloss.Println(dimStyle.Render(msg)); err != nil {
-		log.Println(err)
-	}
+	fmt.Println(dimStyle.Render(msg))
 }
 
 func printFileWritten(plugin, path string) {
 	p := pluginStyle.Render(plugin)
 	f := fileStyle.Render(path)
-	if _, err := lipgloss.Printf(
+	fmt.Printf(
 		"  %s %s %s %s\n",
 		dimStyle.Render(symbolFile),
 		p,
 		dimStyle.Render(symbolArrow),
 		f,
-	); err != nil {
-		log.Println(err)
-	}
+	)
 }
 
 func printSchemaCount(count int) {
@@ -104,22 +91,16 @@ func printSchemaCount(count int) {
 	if count != 1 {
 		word = "schemas"
 	}
-	if _, err := lipgloss.Printf(
-		"%s %s %s found\n", infoStyle.Render(symbolCheck), c, word,
-	); err != nil {
-		log.Println(err)
-	}
+	fmt.Printf("%s %s %s found\n", infoStyle.Render(symbolCheck), c, word)
 }
 
 func printSyncedCount(written, unchanged int) {
 	if written == 0 {
-		if _, err := lipgloss.Printf(
+		fmt.Printf(
 			"%s %s\n",
 			dimStyle.Render(symbolDot),
 			dimStyle.Render("already up to date"),
-		); err != nil {
-			log.Println(err)
-		}
+		)
 		return
 	}
 	w := countStyle.Render(fmt.Sprintf("%d", written))
@@ -161,11 +142,7 @@ func printDiagnostics(diagnosticStr string) {
 		if line == "" {
 			continue
 		}
-		if _, err := lipgloss.Printf(
-			"  %s %s\n", errorStyle.Render(symbolDot), line,
-		); err != nil {
-			log.Println(err)
-		}
+		fmt.Printf("  %s %s\n", errorStyle.Render(symbolDot), line)
 	}
 }
 
@@ -175,36 +152,28 @@ func printFormattingStart(count int) {
 	if count != 1 {
 		word = "schemas"
 	}
-	if _, err := lipgloss.Printf(
-		"  %s %s %s\n", dimStyle.Render("formatting"), c, word,
-	); err != nil {
-		log.Println(err)
-	}
+	fmt.Printf("  %s %s %s\n", dimStyle.Render("formatting"), c, word)
 }
 
 func printFormattingDone(formatted int) {
 	if formatted == 0 {
-		if _, err := lipgloss.Printf(
+		fmt.Printf(
 			"    %s %s\n",
 			dimStyle.Render(symbolArrow),
 			dimStyle.Render("all schemas formatted"),
-		); err != nil {
-			log.Println(err)
-		}
-	} else {
-		c := countStyle.Render(fmt.Sprintf("%d", formatted))
-		word := "file"
-		if formatted != 1 {
-			word = "files"
-		}
-		if _, err := lipgloss.Printf(
-			"    %s %s %s %s\n",
-			infoStyle.Render(symbolArrow),
-			dimStyle.Render("formatted"),
-			c,
-			word,
-		); err != nil {
-			log.Println(err)
-		}
+		)
+		return
 	}
+	c := countStyle.Render(fmt.Sprintf("%d", formatted))
+	word := "file"
+	if formatted != 1 {
+		word = "files"
+	}
+	fmt.Printf(
+		"    %s %s %s %s\n",
+		infoStyle.Render(symbolArrow),
+		dimStyle.Render("formatted"),
+		c,
+		word,
+	)
 }
