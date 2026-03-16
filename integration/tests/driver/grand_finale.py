@@ -34,7 +34,7 @@ from tests.driver.ni_read import (
     NIDigitalRead,
     NIReadTemperature,
 )
-from tests.driver.opcua_read import OPCUAReadMixed
+from tests.driver.opcua_read import OPCUAReadFloat
 from tests.driver.opcua_write import OPCUAWriteFloat
 from tests.driver.simulator_case import SimulatorCase
 from tests.driver.task import (
@@ -89,7 +89,7 @@ class GrandFinale(SimulatorCase):
                 stream_rate=self.STREAM_RATE,
                 data_saving=True,
                 array_mode=False,
-                channels=OPCUAReadMixed.create_channels(self.client),
+                channels=OPCUAReadFloat.create_channels(self.client),
             ),
         ]
 
