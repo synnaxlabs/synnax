@@ -20,7 +20,6 @@ objc2-app-kit = { version = "0.3.2", features = [
     "NSWindowController",
 ] }
 objc2-foundation = "0.3.2"
-rand = "0.10.0"
 
 [target."cfg(any(target_os = \"macos\", windows, target_os = \"linux\"))".dependencies]
 tauri-plugin-single-instance = { version = "2.4.0", features = ["deep-link"] }
