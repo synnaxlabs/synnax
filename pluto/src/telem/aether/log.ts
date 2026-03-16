@@ -79,6 +79,7 @@ export class StreamMultiChannelLog
   private _channels: Array<number | string> = [];
   private _aliases: Record<string, string> = {};
   private _channelNames: Record<string, string> = {};
+  private readGeneration = 0;
   get evictedCount(): number {
     return this._evictedCount;
   }
@@ -110,6 +111,9 @@ export class StreamMultiChannelLog
     if (channels.length === 0) {
       this.stopStreaming?.();
       this.stopStreaming = undefined;
+      this.entries = [];
+      this.channelMeta.clear();
+      this._evictedCount = 0;
     }
     this.notify();
   }
@@ -173,11 +177,15 @@ export class StreamMultiChannelLog
   private async read(): Promise<void> {
     try {
       this.valid = true;
+      const generation = ++this.readGeneration;
       this.stopStreaming?.();
 
       const channels = await Promise.all(
         this._channels.map((ch) => this.client.retrieveChannel(ch)),
       );
+      // If setChannels was called while we were awaiting, a newer read() has
+      // been (or will be) spawned — bail out to avoid overwriting its state.
+      if (generation !== this.readGeneration) return;
 
       // Compute removed channels BEFORE clearing meta
       const newKeys = new Set(channels.map((ch) => ch.key));
