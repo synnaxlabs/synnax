@@ -25,6 +25,7 @@ from pathlib import Path
 from typing import Any, Literal, overload
 
 import synnax as sy
+from synnax.telem import SampleValue
 
 from framework.log_client import LogClient, LogMode, SynnaxChannelSink
 from framework.utils import (
@@ -518,7 +519,7 @@ class TestCase(ABC):
     def _wait_for_condition(
         self,
         channel_name: str,
-        condition: Callable[[Any], bool],
+        condition: Callable[[SampleValue], bool],
         condition_desc: str,
         timeout: sy.CrudeTimeSpan = 5 * sy.TimeSpan.SECOND,
         is_virtual: bool = False,
@@ -564,7 +565,7 @@ class TestCase(ABC):
     def wait_for_eq(
         self,
         channel_name: str,
-        expected: Any,
+        expected: SampleValue,
         timeout: sy.CrudeTimeSpan = 5 * sy.TimeSpan.SECOND,
         is_virtual: bool = False,
     ) -> None:
@@ -633,7 +634,8 @@ class TestCase(ABC):
         self,
         channel_name: str,
         target: float,
-        tolerance: float = 0.5,
+        *,
+        tolerance: float,
         timeout: sy.CrudeTimeSpan = 5 * sy.TimeSpan.SECOND,
         is_virtual: bool = False,
     ) -> None:
