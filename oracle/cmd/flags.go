@@ -10,6 +10,8 @@
 package cmd
 
 import (
+	"log"
+
 	"charm.land/lipgloss/v2"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
@@ -19,9 +21,17 @@ import (
 // This allows flags to be set via environment variables.
 func bindFlags(cmd *cobra.Command) {
 	if err := viper.BindPFlags(cmd.PersistentFlags()); err != nil {
-		lipgloss.Printf("warning: failed to bind persistent flags: %v\n", err)
+		if _, err = lipgloss.Printf(
+			"warning: failed to bind persistent flags: %v\n", err,
+		); err != nil {
+			log.Println(err)
+		}
 	}
 	if err := viper.BindPFlags(cmd.Flags()); err != nil {
-		lipgloss.Printf("warning: failed to bind flags: %v\n", err)
+		if _, err = lipgloss.Printf(
+			"warning: failed to bind flags: %v\n", err,
+		); err != nil {
+			log.Println(err)
+		}
 	}
 }

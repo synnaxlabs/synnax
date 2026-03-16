@@ -11,6 +11,7 @@ package cmd
 
 import (
 	"fmt"
+	"log"
 	"os"
 
 	"charm.land/lipgloss/v2"
@@ -155,21 +156,25 @@ func formatFile(path string) (formatResult, error) {
 
 func printFileFormatted(path string) {
 	f := fileStyle.Render(path)
-	lipgloss.Printf(
+	if _, err := lipgloss.Printf(
 		"  %s %s %s\n",
 		dimStyle.Render(symbolFile),
 		successStyle.Render("formatted"),
 		f,
-	)
+	); err != nil {
+		log.Println(err)
+	}
 }
 
 func printFormatResult(formatted, unchanged int) {
 	if formatted == 0 {
-		lipgloss.Printf(
+		if _, err := lipgloss.Printf(
 			"%s %s\n",
 			dimStyle.Render(symbolDot),
 			dimStyle.Render("all files already formatted"),
-		)
+		); err != nil {
+			log.Println(err)
+		}
 		return
 	}
 	f := countStyle.Render(fmt.Sprintf("%d", formatted))

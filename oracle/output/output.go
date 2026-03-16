@@ -37,8 +37,7 @@ const symbolArrow = "→"
 func PluginStart(name string) {
 	p := pluginStyle.Render(name)
 	a := dimStyle.Render("generating...")
-	_, err := lipgloss.Printf("  %s %s\n", p, a)
-	if err != nil {
+	if _, err := lipgloss.Printf("  %s %s\n", p, a); err != nil {
 		log.Println(err)
 	}
 }
@@ -51,8 +50,13 @@ func PluginDone(name string, fileCount int) {
 	if fileCount != 1 {
 		word = "files"
 	}
-	_, err := lipgloss.Printf("  %s %s %s %s\n", p, symbolArrow, c, word)
-	if err != nil {
+	if _, err := lipgloss.Printf(
+		"  %s %s %s %s\n",
+		p,
+		symbolArrow,
+		c,
+		word,
+	); err != nil {
 		log.Println(err)
 	}
 }
@@ -66,8 +70,9 @@ func PostWriteStep(tool string, fileCount int, action string) {
 		word = "files"
 	}
 	a := dimStyle.Render(action)
-	_, err := lipgloss.Printf("    %s %s %s %s %s\n", t, symbolArrow, a, c, word)
-	if err != nil {
+	if _, err := lipgloss.Printf(
+		"    %s %s %s %s %s\n", t, symbolArrow, a, c, word,
+	); err != nil {
 		log.Println(err)
 	}
 }
