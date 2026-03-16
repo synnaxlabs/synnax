@@ -137,6 +137,8 @@ func (w Writer) deleteChildren(ctx context.Context, key uuid.UUID) error {
 		}
 		byType[child.ID.Type] = append(byType[child.ID.Type], k)
 	}
+	// Children with no registered deleter are silently skipped. Ensure a
+	// ChildDeleter is registered for every type that can be a workspace child.
 	for _, deleter := range w.childDeleters {
 		keys, ok := byType[deleter.Type]
 		if !ok || len(keys) == 0 {

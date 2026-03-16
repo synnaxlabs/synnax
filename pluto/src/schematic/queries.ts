@@ -153,6 +153,7 @@ export const usePages = (exclude?: string): Page[] => {
   const [pages, setPages] = useState<Page[]>([]);
   useAsyncEffect(
     async (signal) => {
+      setPages([]);
       if (client == null || exclude == null) return;
       const parents = await client.ontology.retrieveParents(
         schematic.ontologyID(exclude),
