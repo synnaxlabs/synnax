@@ -63,9 +63,7 @@ class ReportClient:
                 "total_failed": total_failed,
             }
 
-    def get_current_status(
-        self, is_running: bool
-    ) -> dict[str, Any]:
+    def get_current_status(self, is_running: bool) -> dict[str, Any]:
         """Get the current status of test execution."""
         with self._active_tests_lock:
             active_snapshot = [
@@ -118,10 +116,7 @@ class ReportClient:
 
         self._log("\n" + "=" * 60, False)
         for test in tests_snapshot:
-            if (
-                test.range is not None
-                and test.range.time_range.end != sy.TimeStamp.MAX
-            ):
+            if test.range is not None and test.range.time_range.end != sy.TimeStamp.MAX:
                 duration = (
                     test.range.time_range.end - test.range.time_range.start
                 ) / sy.TimeSpan.SECOND
@@ -144,10 +139,12 @@ class ReportClient:
         self._log("=" * 60, False)
         self._log(f"Total tests: {stats['total']}", False)
         if conductor_range is not None:
-            test_time = (
+            test_time_secs = (
                 sy.TimeStamp.now() - conductor_range.time_range.start
             ) / sy.TimeSpan.SECOND
-            self._log(f"Total time: {test_time:.1f} s", False)
+            minutes = int(test_time_secs // 60)
+            seconds = int(test_time_secs % 60)
+            self._log(f"Total time: {minutes}m {seconds}s", False)
         self._log(f"Passed: {stats['passed']}", False)
         self._log(
             f"Failed: {stats['total_failed']} "

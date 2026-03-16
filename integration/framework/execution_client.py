@@ -1,0 +1,504 @@
+#  Copyright 2026 Synnax Labs, Inc.
+#
+#  Use of this software is governed by the Business Source License included in the file
+#  licenses/BSL.txt.
+#
+#  As of the Change Date specified in that file, in accordance with the Business Source
+#  License, use of this software will be governed by the Apache License, Version 2.0,
+#  included in the file licenses/APL.txt.
+
+import ctypes
+import random
+import threading
+import traceback
+from collections.abc import Callable
+from typing import Any
+
+import synnax as sy
+
+from framework.config_client import ConfigClient, Sequence, TestDefinition
+from framework.test_case import STATUS, TestCase
+
+# Range coloring
+COLORS: list[str] = [
+    "#001833",
+    "#003333",
+    "#003318",
+    "#223322",
+    "#183318",
+    "#333300",
+    "#331800",
+    "#330000",
+    "#330018",
+    "#330033",
+    "#180033",
+    "#000033",
+]
+
+
+class Test:
+    """Duplicated here to avoid circular import — use the canonical Test from
+    test_conductor for type annotations elsewhere."""
+
+    pass
+
+
+class ExecutionClient:
+    """Executes test sequences with timeout monitoring and thread management."""
+
+    def __init__(
+        self,
+        config_client: ConfigClient,
+        synnax_connection: Any,
+        client: sy.Synnax,
+        conductor_range: sy.Range | None,
+        tests: list[Any],
+        tests_lock: threading.Lock,
+        active_tests: list[tuple[TestCase, sy.Range, threading.Thread]],
+        active_tests_lock: threading.Lock,
+        test_definitions: list[TestDefinition],
+        log: Callable[[str, bool], None],
+        on_status_change: Callable[[Any], None],
+        on_test_ran: Callable[[], None],
+    ) -> None:
+        self._config_client = config_client
+        self._synnax_connection = synnax_connection
+        self._client = client
+        self._conductor_range = conductor_range
+        self._tests = tests
+        self._tests_lock = tests_lock
+        self._active_tests = active_tests
+        self._active_tests_lock = active_tests_lock
+        self._test_definitions = test_definitions
+        self._log = log
+        self._on_status_change = on_status_change
+        self._on_test_ran = on_test_ran
+        self.should_stop = False
+        self.is_running = False
+        self._timeout_thread: threading.Thread | None = None
+
+    def run(self, sequences: list[Sequence]) -> None:
+        """Execute all sequences."""
+        self.is_running = True
+        self.should_stop = False
+
+        self._timeout_thread = threading.Thread(
+            target=self._timeout_monitor_loop,
+            args=(1.0,),
+            daemon=True,
+        )
+        self._timeout_thread.start()
+
+        self._log(
+            f"Starting execution of {len(sequences)} sequences "
+            f"with {len(self._test_definitions)} total tests...\n",
+            True,
+        )
+
+        for seq_idx, sequence in enumerate(sequences):
+            if self.should_stop:
+                self._log("Test execution stopped by user request", True)
+                break
+
+            self._log(
+                f"==== SEQUENCE {seq_idx + 1}/{len(sequences)}: {sequence.name} ====",
+                True,
+            )
+            self._log(
+                f"Executing {len(sequence.tests)} tests with {sequence.order} order...\n",
+                True,
+            )
+
+            tests_to_execute = sequence.tests.copy()
+
+            if sequence.order == "asynchronous":
+                self._execute_async(sequence.name, tests_to_execute, sequence.pool_size)
+            else:
+                if sequence.order == "random":
+                    random.shuffle(tests_to_execute)
+                    self._log("Tests randomized for execution", True)
+                self._execute_sequential(tests_to_execute)
+
+            self._log(f"Completed sequence '{sequence.name}'\n", True)
+
+        self.is_running = False
+
+        if self._timeout_thread is not None and self._timeout_thread.is_alive():
+            self._timeout_thread.join(timeout=2.0)
+
+    def stop(self) -> None:
+        """Signal stop and kill active tests."""
+        self._log("Stopping test sequence...", True)
+        self.should_stop = True
+        killed = self.kill_active_tests()
+        if killed > 0:
+            self._log(f"Killed {killed} active test(s)", True)
+
+    # ----- Sequential execution -----
+
+    def _execute_sequential(self, tests: list[TestDefinition]) -> None:
+        for test_def in tests:
+            if self.should_stop:
+                self._log("Test execution stopped by user request", True)
+                break
+
+            global_idx = len(self._tests) + 1
+            self._log(f"[{global_idx}/{len(self._test_definitions)}] {test_def}", True)
+
+            result_container: list[Any] = []
+            t = threading.Thread(
+                target=self._test_runner_thread,
+                args=(test_def, result_container),
+            )
+            t.start()
+            t.join()
+
+            self._collect_result(test_def, result_container)
+
+    # ----- Async execution -----
+
+    def _execute_async(
+        self,
+        seq_name: str,
+        tests: list[TestDefinition],
+        pool_size: int = -1,
+    ) -> None:
+        if pool_size <= 0 or pool_size >= len(tests):
+            self._execute_unlimited_async(seq_name, tests)
+        else:
+            self._execute_pooled_async(seq_name, tests, pool_size)
+
+    def _execute_unlimited_async(
+        self, seq_name: str, tests: list[TestDefinition]
+    ) -> None:
+        threads: list[threading.Thread] = []
+        containers: list[list[Any]] = []
+
+        for i, test_def in enumerate(tests):
+            if self.should_stop:
+                self._log("Test execution stopped by user request", True)
+                break
+
+            global_idx = len(self._tests) + i + 1
+            self._log(f"[{global_idx}/{len(self._test_definitions)}] {test_def}", True)
+
+            container: list[Any] = []
+            t = threading.Thread(
+                target=self._test_runner_thread,
+                args=(test_def, container),
+            )
+            threads.append(t)
+            containers.append(container)
+            t.start()
+
+        self._log(
+            f"Waiting for {len(threads)} tests in sequence '{seq_name}' to complete...",
+            True,
+        )
+        for i, t in enumerate(threads):
+            if t.is_alive():
+                t.join()
+            self._collect_result(tests[i], containers[i])
+
+    def _execute_pooled_async(
+        self, seq_name: str, tests: list[TestDefinition], pool_size: int
+    ) -> None:
+        self._log(
+            f"Running tests with pool size of {pool_size} "
+            f"(max {pool_size} concurrent tests)...",
+            True,
+        )
+
+        semaphore = threading.Semaphore(pool_size)
+        threads: list[threading.Thread] = []
+        containers: list[list[Any]] = []
+
+        def run_with_semaphore(td: TestDefinition, rc: list[Any], idx: int) -> None:
+            semaphore.acquire()
+            try:
+                self._log(f"[{idx}/{len(self._test_definitions)}] {td}", True)
+                self._test_runner_thread(td, rc)
+            finally:
+                semaphore.release()
+
+        for i, test_def in enumerate(tests):
+            if self.should_stop:
+                self._log("Test execution stopped by user request", True)
+                break
+
+            global_idx = len(self._tests) + i + 1
+            container: list[Any] = []
+            t = threading.Thread(
+                target=run_with_semaphore,
+                args=(test_def, container, global_idx),
+            )
+            threads.append(t)
+            containers.append(container)
+            t.start()
+
+        self._log(
+            f"Waiting for {len(threads)} tests in sequence '{seq_name}' to complete...",
+            True,
+        )
+        for i, t in enumerate(threads):
+            if t.is_alive():
+                t.join()
+            self._collect_result(tests[i], containers[i])
+
+    # ----- Single test execution -----
+
+    def _collect_result(
+        self, test_def: TestDefinition, result_container: list[Any]
+    ) -> None:
+        if result_container:
+            result = result_container[0]
+        else:
+            from framework.test_conductor import Test
+
+            result = Test(
+                test_name=test_def.case,
+                name=test_def.name or test_def.case.split("/")[-1],
+                status=STATUS.FAILED,
+                error_message="Unknown error - no result returned",
+            )
+
+        with self._tests_lock:
+            self._tests.append(result)
+        self._on_test_ran()
+
+    def _test_runner_thread(
+        self, test_def: TestDefinition, result_container: list[Any]
+    ) -> None:
+        result = self._execute_single_test(test_def)
+        result_container.append(result)
+
+    def _execute_single_test(self, test_def: TestDefinition) -> Any:
+        from framework.test_conductor import Test
+
+        test = Test(
+            test_name=test_def.case,
+            name=test_def.name or test_def.case.split("/")[-1],
+            status=STATUS.PENDING,
+        )
+
+        test_index = len(self._tests)
+        color = COLORS[test_index % len(COLORS)]
+
+        if self._conductor_range is not None:
+            test.range = self._conductor_range.create_child_range(
+                name=test.name or test.test_name,
+                time_range=sy.TimeRange(start=sy.TimeStamp.now(), end=sy.TimeStamp.MAX),
+                color=color,
+            )
+        else:
+            test.range = None
+
+        test_instance: TestCase | None = None
+        try:
+            test_class = self._config_client.load_test_class(test_def)
+            test_instance = test_class(
+                synnax_connection=self._synnax_connection,
+                name=test_def.name or test_def.case.split("/")[-1],
+                **test_def.parameters,
+            )
+
+            current_thread = threading.current_thread()
+            with self._active_tests_lock:
+                self._active_tests.append((test_instance, test.range, current_thread))
+
+            test.status = STATUS.RUNNING
+            self._on_status_change(test)
+
+            test_instance.execute()
+            test.status = test_instance._status
+
+        except Exception as e:
+            test.status = STATUS.FAILED
+            test.error_message = str(e)
+            self._log(f"{test_def.case} FAILED: {e}", True)
+            self._log(f"Traceback: {traceback.format_exc()}", True)
+
+        finally:
+            if test.range is not None:
+                try:
+                    test.range = self._finalize_range(test.range)
+                except RuntimeError as e:
+                    self._log(f"Warning: Could not finalize range: {e}", True)
+
+            if test_instance is not None:
+                if test.status in (STATUS.FAILED, STATUS.TIMEOUT, STATUS.KILLED):
+                    self._log(f"--- Logs for {test_def} ---", True)
+                    test_instance.log_client.dump()
+                    self._log(f"--- End logs for {test_def} ---", True)
+                else:
+                    test_instance.log_client.discard()
+
+            with self._active_tests_lock:
+                self._active_tests[:] = [
+                    (t, tr, th)
+                    for t, tr, th in self._active_tests
+                    if t != test_instance
+                ]
+
+            self._on_status_change(test)
+
+        return test
+
+    def _finalize_range(self, test_range: sy.Range) -> sy.Range:
+        try:
+            return self._client.ranges.create(
+                key=test_range.key,
+                name=test_range.name,
+                time_range=sy.TimeRange(
+                    start=test_range.time_range.start,
+                    end=sy.TimeStamp.now(),
+                ),
+            )
+        except Exception as e:
+            raise RuntimeError(
+                f"Failed to finalize range '{test_range.name}': {e}"
+            ) from e
+
+    # ----- Timeout monitoring -----
+
+    def _timeout_monitor_loop(
+        self,
+        monitor_interval: sy.CrudeTimeSpan = 500 * sy.TimeSpan.MILLISECOND,
+    ) -> None:
+        while self.is_running and not self.should_stop:
+            self._check_test_timeouts()
+            sy.sleep(monitor_interval)
+
+    def _check_test_timeouts(self) -> None:
+        with self._active_tests_lock:
+            if not self._active_tests:
+                return
+
+            to_remove = []
+            for test_instance, test_range, thread in self._active_tests:
+                expected: sy.CrudeTimeSpan | None = getattr(
+                    test_instance, "Expected_Timeout", None
+                )
+                if expected is None:
+                    continue
+
+                elapsed = sy.TimeStamp.now() - test_range.time_range.start
+                timeout_span = sy.TimeSpan.from_seconds(expected)
+                if elapsed <= timeout_span:
+                    continue
+
+                self._handle_test_timeout(test_instance, elapsed, timeout_span)
+                to_remove.append((test_instance, test_range, thread))
+
+            for item in to_remove:
+                self._active_tests.remove(item)
+
+    def _handle_test_timeout(
+        self,
+        test_instance: TestCase,
+        elapsed: sy.TimeSpan,
+        timeout: sy.TimeSpan,
+    ) -> None:
+        self._log(
+            f"{test_instance.name} timeout detected ({elapsed} > {timeout})",
+            True,
+        )
+        test_instance._status = STATUS.TIMEOUT
+
+    # ----- Kill / terminate -----
+
+    def kill_active_tests(self) -> int:
+        from framework.test_conductor import Test
+
+        with self._active_tests_lock:
+            if not self._active_tests:
+                return 0
+
+            killed_results = []
+            threads_to_terminate = []
+            killed_instances = []
+
+            for test_instance, test_range, thread in self._active_tests:
+                if test_range is None:
+                    status = STATUS.KILLED
+                    error_msg = "Test was killed (no range available)"
+                    finalized_range = None
+                else:
+                    status, error_msg = self._determine_kill_status(
+                        test_instance, test_range
+                    )
+                    try:
+                        finalized_range = self._finalize_range(test_range)
+                    except RuntimeError as e:
+                        self._log(
+                            f"Warning: Could not finalize range for killed test: {e}",
+                            True,
+                        )
+                        finalized_range = test_range
+
+                test_instance._status = status
+                killed_results.append(
+                    Test(
+                        test_name=test_instance.name,
+                        name=getattr(test_instance, "custom_name", None),
+                        status=status,
+                        error_message=error_msg,
+                        range=finalized_range,
+                    )
+                )
+                threads_to_terminate.append(thread)
+                killed_instances.append(test_instance)
+
+            self._active_tests.clear()
+
+        with self._tests_lock:
+            self._tests.extend(killed_results)
+
+        for thread in threads_to_terminate:
+            self._terminate_thread(thread)
+
+        for instance in killed_instances:
+            self._log(f"--- Logs for {instance.name} ---", True)
+            instance.log_client.dump()
+            self._log(f"--- End logs for {instance.name} ---", True)
+
+        return len(killed_results)
+
+    def _determine_kill_status(
+        self, test_instance: TestCase, test_range: sy.Range
+    ) -> tuple[STATUS, str]:
+        elapsed_time = (
+            sy.TimeStamp.now() - test_range.time_range.start
+        ) / sy.TimeSpan.SECOND
+
+        expected_timeout = getattr(test_instance, "Expected_Timeout", -1)
+
+        if expected_timeout > 0 and elapsed_time > expected_timeout:
+            self._log(
+                f"Test {test_instance.name} exceeded timeout ({expected_timeout}s)",
+                True,
+            )
+            return STATUS.TIMEOUT, f"Test exceeded timeout ({expected_timeout}s)"
+
+        self._log(f"Test {test_instance.name} was manually killed", True)
+        return STATUS.KILLED, "Test was manually killed"
+
+    def _terminate_thread(self, thread: threading.Thread) -> None:
+        thread.join(timeout=0.1)
+        if not thread.is_alive():
+            return
+
+        try:
+            thread_id = thread.ident
+            if thread_id is None:
+                return
+
+            res = ctypes.pythonapi.PyThreadState_SetAsyncExc(
+                ctypes.c_long(thread_id), ctypes.py_object(SystemExit)
+            )
+            if res == 0:
+                self._log(f"Warning: Could not terminate thread {thread.name}", True)
+            elif res > 1:
+                ctypes.pythonapi.PyThreadState_SetAsyncExc(thread_id, None)
+        except Exception as e:
+            self._log(f"Warning: Failed to force-terminate thread: {e}", True)

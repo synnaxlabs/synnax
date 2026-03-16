@@ -8,6 +8,7 @@
 #  included in the file licenses/APL.txt.
 
 from framework.config_client import ConfigClient, Sequence, TestDefinition
+from framework.execution_client import ExecutionClient
 from framework.log_client import (
     LogClient,
     LogEntry,
@@ -22,6 +23,7 @@ from framework.telemetry_client import TelemetryClient
 
 __all__ = [
     "ConfigClient",
+    "ExecutionClient",
     "LogClient",
     "LogEntry",
     "LogMode",

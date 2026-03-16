@@ -87,8 +87,7 @@ class ConfigClient:
         self._log(f"Total: {len(all_defs)} tests across {len(sequences)} sequences")
         return sequences, all_defs
 
-    # JSON loading
-    # ------------------------------------------------------------------
+    # ----- JSON loading -----
 
     def _load_json(self, file_filter: str | None) -> list[dict[str, Any]]:
         """Load raw sequence dicts from JSON files."""
@@ -124,8 +123,7 @@ class ConfigClient:
 
         return all_sequences
 
-    # Sequence processing
-    # ------------------------------------------------------------------
+    # ----- Sequence processing -----
 
     def _process_sequences(
         self,
@@ -204,8 +202,7 @@ class ConfigClient:
 
         return sequences
 
-    # Parameter expansion
-    # ------------------------------------------------------------------
+    # ----- Parameter expansion -----
 
     def _expand_parameters(self, test_def: TestDefinition) -> list[TestDefinition]:
         if not test_def.parameters:
@@ -246,8 +243,7 @@ class ConfigClient:
 
         return expanded
 
-    # Test class expansion
-    # ------------------------------------------------------------------
+    # ----- Test class expansion -----
 
     def _expand_test_classes(self, test_def: TestDefinition) -> list[TestDefinition]:
         try:
@@ -274,8 +270,7 @@ class ConfigClient:
             )
             return [test_def]
 
-    # Dynamic class loading
-    # ------------------------------------------------------------------
+    # ----- Dynamic class loading -----
 
     def _load_test_classes(self, test_def: TestDefinition) -> list[type[TestCase]]:
         """Dynamically load TestCase subclass(es) from a case identifier."""
