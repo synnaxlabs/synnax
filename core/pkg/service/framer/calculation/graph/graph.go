@@ -812,13 +812,14 @@ func (g *groupInfo) MarshalLogObject(enc zapcore.ObjectEncoder) error {
 
 // Remove decrements the explicit reference count for a channel.
 // When both explicit and dependency counts reach 0, removes the channel and cascades to dependencies.
-func (g *Graph) Remove(key channel.Key) error {
+// Returns true if the channel was found in the graph (i.e., it was a calculated channel).
+func (g *Graph) Remove(key channel.Key) (bool, error) {
 	info, ok := g.channels[key]
 	if !ok {
 		g.L.Debug("channel removal requested but not found in graph",
 			zap.String("channel", key.String()),
 		)
-		return nil
+		return false, nil
 	}
 	oldExplicitCount := info.explicitCount
 	info.explicitCount--
@@ -833,13 +834,13 @@ func (g *Graph) Remove(key channel.Key) error {
 			zap.String("channel", key.String()),
 			zap.String("reason", fmt.Sprintf("explicit_count=%d or dependency_count=%d is non-zero", info.explicitCount, info.depCount)),
 		)
-		return nil
+		return true, nil
 	}
 	g.L.Debug("channel eligible for removal",
 		zap.String("channel", key.String()),
 		zap.String("reason", "explicit and dependency counts reached zero"),
 	)
-	return g.removeChannel(key)
+	return true, g.removeChannel(key)
 }
 
 // removeChannel removes a channel and cascades to its dependencies.

@@ -347,10 +347,14 @@ func (s *Service) updateRequests(ctx context.Context, added, removed []channel.K
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
-	graphChanged := len(removed) > 0
+	graphChanged := false
 	for _, k := range removed {
-		if err := s.mu.graph.Remove(k); err != nil {
+		found, err := s.mu.graph.Remove(k)
+		if err != nil {
 			return err
+		}
+		if found {
+			graphChanged = true
 		}
 	}
 	for _, ch := range channels {
