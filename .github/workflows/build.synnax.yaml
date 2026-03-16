@@ -235,7 +235,7 @@ jobs:
         run: brew install autoconf automake libtool
 
       - name: Setup Bazel
-        uses: bazel-contrib/setup-bazel@0.15.0
+        uses: bazel-contrib/setup-bazel@0.18.0
         with:
           # Use S3 cache instead of github cache.
           bazelisk-cache: false
