@@ -17,6 +17,7 @@ from framework.log_client import (
     StdoutSink,
     SynnaxChannelSink,
 )
+from framework.models import Test
 from framework.report_client import ReportClient
 from framework.target_filter import TargetFilter, parse_target
 from framework.telemetry_client import TelemetryClient
@@ -34,6 +35,7 @@ __all__ = [
     "SynnaxChannelSink",
     "TargetFilter",
     "TelemetryClient",
+    "Test",
     "TestDefinition",
     "parse_target",
 ]

@@ -133,13 +133,19 @@ class TestCase(ABC):
         self.name = validate_and_sanitize_name(name)
         self._status: STATUS = STATUS.INITIALIZING
 
+        # Cache channel name strings
+        self._ch_time = f"{self.name}_time"
+        self._ch_uptime = f"{self.name}_uptime"
+        self._ch_state = f"{self.name}_state"
+        self._ch_log = f"{self.name}_log"
+
         self.client = synnax_connection.create_client()
 
         self.log_client = LogClient(
             name=self.name,
             mode=LogMode.BUFFERED,
             persistent_sinks=[
-                SynnaxChannelSink(self.client, f"{self.name}_log"),
+                SynnaxChannelSink(self.client, self._ch_log),
             ],
         )
 
@@ -154,14 +160,14 @@ class TestCase(ABC):
         self.subscribed_channels: set[str] = set()
 
         self.time_index = self.client.channels.create(
-            name=f"{self.name}_time",
+            name=self._ch_time,
             data_type=sy.DataType.TIMESTAMP,
             is_index=True,
             retrieve_if_name_exists=True,
         )
 
         self.tlm = {
-            f"{self.name}_time": sy.TimeStamp.now(),
+            self._ch_time: sy.TimeStamp.now(),
         }
 
         self.add_channel(name="uptime", data_type=sy.DataType.UINT32, initial_value=0)
@@ -189,9 +195,9 @@ class TestCase(ABC):
                 now = sy.TimeStamp.now()
                 elapsed = now - self.start_time
                 uptime_seconds = elapsed / sy.TimeSpan.SECOND
-                self.tlm[f"{self.name}_time"] = now
-                self.tlm[f"{self.name}_uptime"] = uptime_seconds
-                self.tlm[f"{self.name}_state"] = self._status.value
+                self.tlm[self._ch_time] = now
+                self.tlm[self._ch_uptime] = uptime_seconds
+                self.tlm[self._ch_state] = self._status.value
 
                 # Check for timeout
                 if (
@@ -203,7 +209,7 @@ class TestCase(ABC):
 
                 # Check for completion due to failure
                 if self._status.value >= STATUS.FAILED.value:
-                    self.tlm[f"{self.name}_state"] = self._status.value
+                    self.tlm[self._ch_state] = self._status.value
                     self._should_stop = True
 
                 try:
@@ -698,7 +704,7 @@ class TestCase(ABC):
             # Update telemetry if client thread is running
             if hasattr(self, "tlm") and self.is_client_running():
                 try:
-                    self.tlm[f"{self.name}_state"] = value.value
+                    self.tlm[self._ch_state] = value.value
                 except Exception as e:
                     raise RuntimeError(f"Failed to set status: {e}")
         else:
@@ -707,17 +713,17 @@ class TestCase(ABC):
     @property
     def uptime(self) -> float:
         """Get the uptime of the test case."""
-        return float(self.tlm.get(f"{self.name}_uptime", -1))
+        return float(self.tlm.get(self._ch_uptime, -1))
 
     @property
     def time(self) -> float:
         """Get the uptime of the test case."""
-        return float(self.tlm.get(f"{self.name}_time", -1))
+        return float(self.tlm.get(self._ch_time, -1))
 
     @property
     def state(self) -> float:
         """Get the state of the test case."""
-        return float(self.tlm.get(f"{self.name}_state", -1))
+        return float(self.tlm.get(self._ch_state, -1))
 
     @property
     def manual_timeout(self) -> sy.CrudeTimeSpan | None:

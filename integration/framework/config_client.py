@@ -33,6 +33,11 @@ class TestDefinition:
     parameters: dict[str, Any | list[Any]] = field(default_factory=dict)
     matrix: dict[str, list[Any]] | None = None
 
+    @property
+    def display_name(self) -> str:
+        """The human-readable name: explicit name or last segment of case path."""
+        return self.name or self.case.split("/")[-1]
+
     def __str__(self) -> str:
         if self.name and self.name != self.case.split("/")[-1]:
             return f"{self.case} ({self.name})"
@@ -84,8 +89,23 @@ class ConfigClient:
         for seq in sequences:
             all_defs.extend(seq.tests)
 
+        self._validate_unique_names(all_defs)
         self._log(f"Total: {len(all_defs)} tests across {len(sequences)} sequences")
         return sequences, all_defs
+
+    def _validate_unique_names(self, defs: list[TestDefinition]) -> None:
+        """Ensure no two test definitions produce the same string key."""
+        seen: dict[str, TestDefinition] = {}
+        for td in defs:
+            key = str(td)
+            if key in seen:
+                raise ValueError(
+                    f"Duplicate test name '{key}' — "
+                    f"first in case '{seen[key].case}', "
+                    f"duplicate in case '{td.case}'. "
+                    f"Use the 'name' field to disambiguate."
+                )
+            seen[key] = td
 
     # ----- JSON loading -----
 

@@ -13,6 +13,8 @@ from typing import Any
 
 import synnax as sy
 
+from framework.config_client import TestDefinition
+from framework.models import Test
 from framework.test_case import STATUS, SYMBOLS, TestCase
 
 
@@ -21,9 +23,9 @@ class ReportClient:
 
     def __init__(
         self,
-        tests: list[Any],
+        tests: list[Test],
         tests_lock: threading.Lock,
-        test_definitions: list[Any],
+        test_definitions: list[TestDefinition],
         active_tests: list[tuple[TestCase, sy.Range, threading.Thread]],
         active_tests_lock: threading.Lock,
         log: Callable[[str, bool], None],

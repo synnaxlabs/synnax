@@ -15,7 +15,6 @@ import string
 import sys
 import threading
 from collections.abc import Callable
-from dataclasses import dataclass
 from enum import Enum, auto
 from typing import Any
 
@@ -24,10 +23,11 @@ import synnax as sy
 from framework.config_client import ConfigClient, Sequence, TestDefinition
 from framework.execution_client import ExecutionClient
 from framework.log_client import LogClient, LogMode, SynnaxChannelSink
+from framework.models import Test
 from framework.report_client import ReportClient
 from framework.target_filter import TargetFilter, parse_target
 from framework.telemetry_client import TelemetryClient
-from framework.test_case import STATUS, SYMBOLS, SynnaxConnection, TestCase
+from framework.test_case import SynnaxConnection, TestCase
 from framework.utils import validate_and_sanitize_name
 
 
@@ -41,23 +41,6 @@ class STATE(Enum):
     ERROR = auto()
     SHUTDOWN = auto()
     COMPLETED = auto()
-
-
-@dataclass
-class Test:
-    """Data class to store test execution results."""
-
-    test_name: str
-    status: STATUS
-    name: str | None = None  # Custom name from test definition
-    error_message: str | None = None
-    range: sy.Range | None = None
-
-    def __str__(self) -> str:
-        """Return display name for test result."""
-        if self.name and self.name != self.test_name.split("/")[-1]:
-            return f"{self.test_name} ({self.name})"
-        return self.test_name
 
 
 class TestConductor:
@@ -142,8 +125,8 @@ class TestConductor:
             log=self.log_message,
             on_status_change=self._notify_status_change,
             on_test_ran=lambda: self.telemetry_client.tlm.__setitem__(
-                f"{self.name}_test_cases_ran",
-                self.telemetry_client.tlm[f"{self.name}_test_cases_ran"] + 1,
+                self.telemetry_client._ch_test_cases_ran,
+                self.telemetry_client.tlm[self.telemetry_client._ch_test_cases_ran] + 1,
             ),
         )
 
@@ -173,7 +156,7 @@ class TestConductor:
         """Load test sequences using the config client."""
         self.state = STATE.LOADING
         self.sequences, self.test_definitions = self.config_client.load(target_filter)
-        self.telemetry_client.tlm[f"{self.name}_test_case_count"] = len(
+        self.telemetry_client.tlm[self.telemetry_client._ch_test_case_count] = len(
             self.test_definitions
         )
 

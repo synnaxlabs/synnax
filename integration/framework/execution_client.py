@@ -12,12 +12,13 @@ import random
 import threading
 import traceback
 from collections.abc import Callable
-from typing import Any
+from concurrent.futures import Future
 
 import synnax as sy
 
 from framework.config_client import ConfigClient, Sequence, TestDefinition
-from framework.test_case import STATUS, TestCase
+from framework.models import Test
+from framework.test_case import STATUS, SynnaxConnection, TestCase
 
 # Range coloring
 COLORS: list[str] = [
@@ -36,28 +37,21 @@ COLORS: list[str] = [
 ]
 
 
-class Test:
-    """Duplicated here to avoid circular import — use the canonical Test from
-    test_conductor for type annotations elsewhere."""
-
-    pass
-
-
 class ExecutionClient:
     """Executes test sequences with timeout monitoring and thread management."""
 
     def __init__(
         self,
         config_client: ConfigClient,
-        synnax_connection: Any,
+        synnax_connection: SynnaxConnection,
         client: sy.Synnax,
         conductor_range: sy.Range | None,
-        tests: list[Any],
+        tests: list[Test],
         tests_lock: threading.Lock,
         active_tests: list[tuple[TestCase, sy.Range, threading.Thread]],
         active_tests_lock: threading.Lock,
         log: Callable[[str, bool], None],
-        on_status_change: Callable[[Any], None],
+        on_status_change: Callable[[Test], None],
         on_test_ran: Callable[[], None],
     ) -> None:
         self._config_client = config_client
@@ -184,15 +178,15 @@ class ExecutionClient:
             global_idx = len(self._tests) - self._tests_offset + 1
             self._log(f"[{global_idx}/{self._total_tests}] {test_def}", True)
 
-            result_container: list[Any] = []
+            future: Future[Test] = Future()
             t = threading.Thread(
                 target=self._test_runner_thread,
-                args=(test_def, result_container),
+                args=(test_def, future),
             )
             t.start()
             t.join()
 
-            self._collect_result(test_def, result_container)
+            self._collect_result(test_def, future)
 
     # ----- Async execution -----
 
@@ -202,63 +196,29 @@ class ExecutionClient:
         tests: list[TestDefinition],
         pool_size: int = -1,
     ) -> None:
-        if pool_size <= 0 or pool_size >= len(tests):
-            self._execute_unlimited_async(seq_name, tests)
-        else:
-            self._execute_pooled_async(seq_name, tests, pool_size)
+        use_pool = 0 < pool_size < len(tests)
+        semaphore = threading.Semaphore(pool_size) if use_pool else None
 
-    def _execute_unlimited_async(
-        self, seq_name: str, tests: list[TestDefinition]
-    ) -> None:
-        threads: list[threading.Thread] = []
-        containers: list[list[Any]] = []
-
-        for i, test_def in enumerate(tests):
-            if self.should_stop:
-                self._log("Test execution stopped by user request", True)
-                break
-
-            global_idx = len(self._tests) - self._tests_offset + i + 1
-            self._log(f"[{global_idx}/{self._total_tests}] {test_def}", True)
-
-            container: list[Any] = []
-            t = threading.Thread(
-                target=self._test_runner_thread,
-                args=(test_def, container),
+        if use_pool:
+            self._log(
+                f"Running tests with pool size of {pool_size} "
+                f"(max {pool_size} concurrent tests)...",
+                True,
             )
-            threads.append(t)
-            containers.append(container)
-            t.start()
 
-        self._log(
-            f"Waiting for {len(threads)} tests in sequence '{seq_name}' to complete...",
-            True,
-        )
-        for i, t in enumerate(threads):
-            if t.is_alive():
-                t.join()
-            self._collect_result(tests[i], containers[i])
-
-    def _execute_pooled_async(
-        self, seq_name: str, tests: list[TestDefinition], pool_size: int
-    ) -> None:
-        self._log(
-            f"Running tests with pool size of {pool_size} "
-            f"(max {pool_size} concurrent tests)...",
-            True,
-        )
-
-        semaphore = threading.Semaphore(pool_size)
         threads: list[threading.Thread] = []
-        containers: list[list[Any]] = []
+        futures: list[Future[Test]] = []
 
-        def run_with_semaphore(td: TestDefinition, rc: list[Any], idx: int) -> None:
-            semaphore.acquire()
+        def _run(td: TestDefinition, ft: Future[Test], idx: int) -> None:
+            if semaphore is not None:
+                semaphore.acquire()
             try:
-                self._log(f"[{idx}/{self._total_tests}] {td}", True)
-                self._test_runner_thread(td, rc)
+                if semaphore is not None:
+                    self._log(f"[{idx}/{self._total_tests}] {td}", True)
+                self._test_runner_thread(td, ft)
             finally:
-                semaphore.release()
+                if semaphore is not None:
+                    semaphore.release()
 
         for i, test_def in enumerate(tests):
             if self.should_stop:
@@ -266,13 +226,16 @@ class ExecutionClient:
                 break
 
             global_idx = len(self._tests) - self._tests_offset + i + 1
-            container: list[Any] = []
+            if semaphore is None:
+                self._log(f"[{global_idx}/{self._total_tests}] {test_def}", True)
+
+            future: Future[Test] = Future()
             t = threading.Thread(
-                target=run_with_semaphore,
-                args=(test_def, container, global_idx),
+                target=_run,
+                args=(test_def, future, global_idx),
             )
             threads.append(t)
-            containers.append(container)
+            futures.append(future)
             t.start()
 
         self._log(
@@ -282,21 +245,17 @@ class ExecutionClient:
         for i, t in enumerate(threads):
             if t.is_alive():
                 t.join()
-            self._collect_result(tests[i], containers[i])
+            self._collect_result(tests[i], futures[i])
 
     # ----- Single test execution -----
 
-    def _collect_result(
-        self, test_def: TestDefinition, result_container: list[Any]
-    ) -> None:
-        if result_container:
-            result = result_container[0]
+    def _collect_result(self, test_def: TestDefinition, future: Future[Test]) -> None:
+        if future.done():
+            result = future.result()
         else:
-            from framework.test_conductor import Test
-
             result = Test(
                 test_name=test_def.case,
-                name=test_def.name or test_def.case.split("/")[-1],
+                name=test_def.display_name,
                 status=STATUS.FAILED,
                 error_message="Unknown error - no result returned",
             )
@@ -306,17 +265,15 @@ class ExecutionClient:
         self._on_test_ran()
 
     def _test_runner_thread(
-        self, test_def: TestDefinition, result_container: list[Any]
+        self, test_def: TestDefinition, future: Future[Test]
     ) -> None:
         result = self._execute_single_test(test_def)
-        result_container.append(result)
+        future.set_result(result)
 
-    def _execute_single_test(self, test_def: TestDefinition) -> Any:
-        from framework.test_conductor import Test
-
+    def _execute_single_test(self, test_def: TestDefinition) -> Test:
         test = Test(
             test_name=test_def.case,
-            name=test_def.name or test_def.case.split("/")[-1],
+            name=test_def.display_name,
             status=STATUS.PENDING,
         )
 
@@ -337,7 +294,7 @@ class ExecutionClient:
             test_class = self._config_client.load_test_class(test_def)
             test_instance = test_class(
                 synnax_connection=self._synnax_connection,
-                name=test_def.name or test_def.case.split("/")[-1],
+                name=test_def.display_name,
                 **test_def.parameters,
             )
 
@@ -447,8 +404,6 @@ class ExecutionClient:
     # ----- Kill / terminate -----
 
     def kill_active_tests(self) -> int:
-        from framework.test_conductor import Test
-
         with self._active_tests_lock:
             if not self._active_tests:
                 return 0
