@@ -13,10 +13,10 @@ import (
 	"time"
 
 	"github.com/cockroachdb/cmux"
-	"github.com/gofiber/fiber/v2"
-	"github.com/gofiber/fiber/v2/middleware/cors"
-	"github.com/gofiber/fiber/v2/middleware/monitor"
-	"github.com/gofiber/fiber/v2/middleware/pprof"
+	"github.com/gofiber/contrib/v3/monitor"
+	"github.com/gofiber/fiber/v3"
+	"github.com/gofiber/fiber/v3/middleware/cors"
+	"github.com/gofiber/fiber/v3/middleware/pprof"
 	"github.com/synnaxlabs/freighter/http"
 	"github.com/synnaxlabs/x/telem"
 )
@@ -24,7 +24,6 @@ import (
 // SecureHTTPBranch is a Branch that serves HTTP requests behind a TLS multiplexer in
 // secure mode.
 type SecureHTTPBranch struct {
-	// ContentTypes is a  list of content types that the Branch will serve.
 	// internal is the underlying fiber.App instance used to serve requests.
 	internal *fiber.App
 	// Transports is a list of transports that the Branch will serve.
@@ -34,7 +33,7 @@ type SecureHTTPBranch struct {
 var _ Branch = (*SecureHTTPBranch)(nil)
 
 // Routing implements Branch.
-func (b *SecureHTTPBranch) Routing() BranchRouting {
+func (*SecureHTTPBranch) Routing() BranchRouting {
 	return BranchRouting{
 		Policy:   RoutingPolicyServeAlwaysPreferSecure,
 		Matchers: []cmux.Matcher{cmux.HTTP1Fast()},
@@ -42,17 +41,17 @@ func (b *SecureHTTPBranch) Routing() BranchRouting {
 }
 
 // Key implements Branch.
-func (b *SecureHTTPBranch) Key() string { return "http" }
+func (*SecureHTTPBranch) Key() string { return "http" }
 
 // Serve implements Branch.
 func (b *SecureHTTPBranch) Serve(ctx BranchContext) error {
 	b.internal = fiber.New(b.getConfig(ctx))
 	b.maybeRouteDebugUtil(ctx)
-	b.internal.Use(cors.New(cors.Config{AllowOrigins: "*"}))
+	b.internal.Use(cors.New(cors.Config{AllowOrigins: []string{"*"}}))
 	for _, t := range b.Transports {
 		t.BindTo(b.internal)
 	}
-	return b.internal.Listener(ctx.Lis)
+	return b.internal.Listener(ctx.Lis, fiber.ListenConfig{DisableStartupMessage: true})
 }
 
 // Stop	implements Branch. Stop is safe to call even if Serve has not been called.
@@ -71,12 +70,11 @@ func (b *SecureHTTPBranch) maybeRouteDebugUtil(ctx BranchContext) {
 }
 
 var baseFiberConfig = fiber.Config{
-	DisableStartupMessage: true,
-	ReadBufferSize:        int(100 * telem.Kilobyte),
-	ReadTimeout:           5 * time.Second,
+	ReadBufferSize: int(100 * telem.Kilobyte),
+	ReadTimeout:    5 * time.Second,
 }
 
-func (b *SecureHTTPBranch) getConfig(ctx BranchContext) fiber.Config {
+func (*SecureHTTPBranch) getConfig(ctx BranchContext) fiber.Config {
 	baseFiberConfig.AppName = ctx.ServerName
 	return baseFiberConfig
 }
