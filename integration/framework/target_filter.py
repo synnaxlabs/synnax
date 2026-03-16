@@ -14,14 +14,14 @@ from dataclasses import dataclass
 class TargetFilter:
     """Flexible test filter supporting substring matching at every level."""
 
-    file_filter: str | None = None
+    file_filter: list[str] | None = None
     sequence_filter: str | None = None
     case_filter: str | None = None
 
     @property
     def is_empty(self) -> bool:
         return (
-            self.file_filter is None
+            not self.file_filter
             and self.sequence_filter is None
             and self.case_filter is None
         )
@@ -64,7 +64,9 @@ def parse_target(target: str) -> TargetFilter:
     if not parts:
         raise ValueError(f"Target path cannot be empty: {target!r}")
 
-    file_filter = parts[0]
+    file_filter = [f.strip() for f in parts[0].split(",") if f.strip()]
+    if not file_filter:
+        raise ValueError(f"Target path cannot be empty: {target!r}")
 
     sequence_filter: str | None = None
     case_filter: str | None = None

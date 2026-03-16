@@ -109,16 +109,16 @@ class ConfigClient:
 
     # ----- JSON loading -----
 
-    def _load_json(self, file_filter: str | None) -> list[dict[str, Any]]:
+    def _load_json(self, file_filter: list[str] | None) -> list[dict[str, Any]]:
         """Load raw sequence dicts from JSON files."""
-        if file_filter is None:
+        if not file_filter:
             test_files = glob.glob(str(self._tests_dir / "*_tests.json"))
             if not test_files:
                 raise FileNotFoundError(
                     "No *_tests.json files found for auto-discovery"
                 )
         else:
-            test_files = [f"{file_filter}_tests.json"]
+            test_files = [f"{f}_tests.json" for f in file_filter]
 
         all_sequences: list[dict[str, Any]] = []
         for test_file in test_files:
