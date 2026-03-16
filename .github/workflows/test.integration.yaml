@@ -89,7 +89,6 @@ jobs:
         ${{ steps.update-outputs.outputs.REF_RUN_ID ||
         steps.set-outputs.outputs.REF_RUN_ID }}
       FLAGS: ${{ steps.set-outputs.outputs.FLAGS }}
-      HAS_FLAGS: ${{ steps.set-outputs.outputs.FLAGS != '' }}
       TEST_MATRIX:
         ${{ steps.set-outputs.outputs.FLAGS != '' &&
         '{"include":[{"name":"custom","target":""}]}' ||
@@ -176,9 +175,8 @@ jobs:
     name: Test (windows-${{ matrix.name }})
     needs: [setup, build]
     if:
-      ${{ !cancelled() && needs.setup.outputs.HAS_FLAGS != 'true' &&
-      needs.setup.result == 'success' && (needs.build.result == 'success' ||
-      needs.build.result == 'skipped') }}
+      ${{ !cancelled() && needs.setup.result == 'success' && (needs.build.result ==
+      'success' || needs.build.result == 'skipped') }}
     strategy:
       fail-fast: false
       matrix: ${{ fromJSON(needs.setup.outputs.TEST_MATRIX) }}

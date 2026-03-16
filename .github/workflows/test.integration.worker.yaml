@@ -27,7 +27,7 @@ on:
 
 jobs:
   run:
-    name: ${{ inputs.name_suffix }} (${{ inputs.os }})
+    name: ${{ inputs.name_suffix }}
     timeout-minutes: 30
     runs-on:
       - self-hosted
