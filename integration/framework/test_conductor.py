@@ -14,7 +14,6 @@ import glob
 import importlib.util
 import itertools
 import json
-import logging
 import os
 import random
 import signal
@@ -31,8 +30,9 @@ from typing import Any, cast
 
 import synnax as sy
 
+from framework.log_client import LogClient, LogMode, SynnaxChannelSink
 from framework.test_case import STATUS, SYMBOLS, SynnaxConnection, TestCase
-from framework.utils import is_ci, validate_and_sanitize_name
+from framework.utils import validate_and_sanitize_name
 
 
 class STATE(Enum):
@@ -157,9 +157,6 @@ class TestConductor:
         else:
             self.name = validate_and_sanitize_name(str(name).lower())
 
-        # Configure logging for real-time output in CI
-        self._setup_logging()
-
         # Use provided connection or create default
         if synnax_connection is None:
             self.synnax_connection = SynnaxConnection()
@@ -177,6 +174,14 @@ class TestConductor:
             )
         except Exception as e:
             raise RuntimeError(f"Failed to initialize client: {e}")
+
+        self.log_client = LogClient(
+            name=self.name,
+            mode=LogMode.REALTIME,
+            persistent_sinks=[
+                SynnaxChannelSink(self.client, f"{self.name}_log"),
+            ],
+        )
 
         # Initialize range
         self.range: sy.Range | None = None
@@ -293,59 +298,12 @@ class TestConductor:
                     writer.write(self.tlm)
                     break
 
-    def _setup_logging(self) -> None:
-        """Configure logging for real-time output in CI environments."""
-        # Check if running in CI environment
-        ci_environment = is_ci()
-
-        # Force unbuffered output in CI environments
-        if ci_environment:
-            if hasattr(sys.stdout, "reconfigure"):
-                sys.stdout.reconfigure(line_buffering=True)
-
-        # Create logger for this test conductor (don't configure root logger)
-        self.logger = logging.getLogger(self.name)
-        self.logger.setLevel(logging.INFO)
-
-        # Remove any existing handlers to avoid duplicates
-        for handler in self.logger.handlers[:]:
-            self.logger.removeHandler(handler)
-
-        # Add single handler
-        handler = logging.StreamHandler(sys.stdout)
-        handler.setLevel(logging.INFO)
-        formatter = logging.Formatter("%(message)s")
-        handler.setFormatter(formatter)
-        self.logger.addHandler(handler)
-
-        # Prevent propagation to root logger to avoid duplicate output
-        self.logger.propagate = False
-
-        # Force immediate flush for real-time output in CI
-        for handler in self.logger.handlers:
-            if hasattr(handler, "stream") and hasattr(handler.stream, "flush"):
-
-                def make_flush(h: Any) -> Callable[[], None]:
-                    return lambda: h.stream.flush()
-
-                setattr(handler, "flush", make_flush(handler))
-
-        if ci_environment:
-            self.logger.info("CI environment detected - enabling real-time logging")
-
     def log_message(self, message: str, use_name: bool = True) -> None:
-        """Log message with real-time output using logging module."""
-        now = sy.TimeStamp.now()
-        timestamp = now.datetime().strftime("%H:%M:%S.%f")[:-4]
+        """Log message with real-time output."""
         if use_name:
-            self.logger.info(f"{timestamp} | {self.name} > {message}")
+            self.log_client.info(message)
         else:
-            self.logger.info(message)
-
-        # Force flush to ensure immediate output in CI
-        for handler in self.logger.handlers:
-            if hasattr(handler, "flush"):
-                handler.flush()
+            self.log_client.raw(message)
 
     def load_test_sequence(
         self,
@@ -677,7 +635,7 @@ class TestConductor:
             # Calculate global test index
             global_test_idx = len(self.tests) + 1
             self.log_message(
-                f"[{global_test_idx}/{len(self.test_definitions)}] ==== {test_def} ===="
+                f"[{global_test_idx}/{len(self.test_definitions)}] {test_def}"
             )
 
             # Run test in separate thread
@@ -739,7 +697,7 @@ class TestConductor:
             # Calculate global test index - each test gets a unique index
             global_test_idx = len(self.tests) + i + 1
             self.log_message(
-                f"[{global_test_idx}/{len(self.test_definitions)}] ==== {test_def} ===="
+                f"[{global_test_idx}/{len(self.test_definitions)}] {test_def}"
             )
 
             # Create result container and thread for each test
@@ -802,7 +760,7 @@ class TestConductor:
             semaphore.acquire()
             try:
                 self.log_message(
-                    f"[{test_idx}/{len(self.test_definitions)}] ==== {test_def} ===="
+                    f"[{test_idx}/{len(self.test_definitions)}] {test_def}"
                 )
                 self._test_runner_thread(test_def, result_container)
             finally:
@@ -889,6 +847,7 @@ class TestConductor:
         self.wait_for_completion()
 
         self.log_message("Shutdown complete\n")
+        self.log_client.close()
 
     def add_status_callback(self, callback: Callable[[Test], None]) -> None:
         """Add a callback function to be called when test status changes."""
@@ -1054,6 +1013,7 @@ class TestConductor:
         else:
             test.range = None
 
+        test_instance: TestCase | None = None
         try:
             # Load and instantiate the test class
             test_class = self._load_test_class(test_def)
@@ -1089,6 +1049,15 @@ class TestConductor:
                 except RuntimeError as e:
                     self.log_message(f"Warning: Could not finalize range: {e}")
 
+            # Dump buffered test logs on failure, discard on success
+            if test_instance is not None:
+                if test.status in (STATUS.FAILED, STATUS.TIMEOUT, STATUS.KILLED):
+                    self.log_message(f"--- Logs for {test_def} ---")
+                    test_instance.log_client.dump()
+                    self.log_message(f"--- End logs for {test_def} ---")
+                else:
+                    test_instance.log_client.discard()
+
             # Clean up test tracking
             with self.active_tests_lock:
                 self.active_tests = [
@@ -1113,7 +1082,7 @@ class TestConductor:
                 ),
             )
         except Exception as e:
-            self.logger.error(f"Error: Failed to finalize range: {e}")
+            self.log_client.error(f"Failed to finalize range: {e}")
             raise RuntimeError(
                 f"Failed to finalize range '{test_range.name}': {e}"
             ) from e
@@ -1213,6 +1182,7 @@ class TestConductor:
 
             killed_test_results = []
             threads_to_terminate = []
+            killed_instances = []
 
             for test_instance, test_range, thread in self.active_tests:
                 if test_range is None:
@@ -1241,6 +1211,7 @@ class TestConductor:
                 )
                 killed_test_results.append(test_result)
                 threads_to_terminate.append(thread)
+                killed_instances.append(test_instance)
 
             self.active_tests = []
 
@@ -1250,6 +1221,12 @@ class TestConductor:
         # Terminate threads outside the lock
         for thread in threads_to_terminate:
             self._terminate_thread(thread)
+
+        # Dump buffered logs for killed tests
+        for instance in killed_instances:
+            self.log_message(f"--- Logs for {instance.name} ---")
+            instance.log_client.dump()
+            self.log_message(f"--- End logs for {instance.name} ---")
 
         return len(killed_test_results)
 

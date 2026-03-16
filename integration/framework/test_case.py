@@ -13,7 +13,6 @@ import warnings
 warnings.filterwarnings("ignore", message=".*keepalive ping.*")
 warnings.filterwarnings("ignore", message=".*timed out while closing connection.*")
 
-import logging
 import sys
 import threading
 import traceback
@@ -27,10 +26,10 @@ from typing import Any, Literal, overload
 
 import synnax as sy
 
+from framework.log_client import LogClient, LogMode, SynnaxChannelSink
 from framework.utils import (
     WebSocketErrorFilter,
     ignore_websocket_errors,
-    is_ci,
     is_websocket_error,
     validate_and_sanitize_name,
 )
@@ -102,7 +101,7 @@ class TestCase(ABC):
     DEFAULT_TIMEOUT_LIMIT: int = -1
     DEFAULT_MANUAL_TIMEOUT: int = -1
 
-    logger: logging.Logger
+    log_client: LogClient
     frame_in: sy.Frame | None
 
     def __init__(
@@ -123,8 +122,6 @@ class TestCase(ABC):
         self.read_timeout = self.DEFAULT_READ_TIMEOUT
 
         self.name = validate_and_sanitize_name(name)
-
-        self._setup_logging()
         self._status: STATUS = STATUS.INITIALIZING
 
         self.client = sy.Synnax(
@@ -133,6 +130,14 @@ class TestCase(ABC):
             username=synnax_connection.username,
             password=synnax_connection.password,
             secure=synnax_connection.secure,
+        )
+
+        self.log_client = LogClient(
+            name=self.name,
+            mode=LogMode.BUFFERED,
+            persistent_sinks=[
+                SynnaxChannelSink(self.client, f"{self.name}_log"),
+            ],
         )
 
         self.loop = sy.Loop(self.DEFAULT_LOOP_RATE)
@@ -160,43 +165,6 @@ class TestCase(ABC):
         self.add_channel(
             name="state", data_type=sy.DataType.UINT8, initial_value=self._status.value
         )
-
-    def _setup_logging(self) -> None:
-        """Setup logging for real-time output (same approach as TestConductor)."""
-        # Check if running in CI environment
-        ci_environment = is_ci()
-
-        # Force unbuffered output in CI environments
-        if ci_environment:
-            if hasattr(sys.stdout, "reconfigure"):
-                sys.stdout.reconfigure(line_buffering=True)
-
-        # Create logger for this test case (don't configure root logger)
-        self.logger = logging.getLogger(self.name)
-        self.logger.setLevel(logging.INFO)
-
-        # Remove any existing handlers to avoid duplicates
-        for handler in self.logger.handlers[:]:
-            self.logger.removeHandler(handler)
-
-        # Add single handler
-        handler = logging.StreamHandler(sys.stdout)
-        handler.setLevel(logging.INFO)
-        formatter = logging.Formatter("%(message)s")
-        handler.setFormatter(formatter)
-        self.logger.addHandler(handler)
-
-        # Prevent propagation to root logger to avoid duplicate output
-        self.logger.propagate = False
-
-        # Force immediate flush for real-time output in CI
-        for handler in self.logger.handlers:
-            if hasattr(handler, "stream") and hasattr(handler.stream, "flush"):
-
-                def make_flush(h: Any) -> Callable[[], None]:
-                    return lambda: h.stream.flush()
-
-                setattr(handler, "flush", make_flush(handler))
 
     def _writer_loop(self) -> None:
         """Writer thread that writes telemetry at consistent interval."""
@@ -313,15 +281,8 @@ class TestCase(ABC):
                     self.log(f"Streamer cleanup error: {cleanup_error}")
 
     def log(self, message: str) -> None:
-        """Log a message to the console with real-time output."""
-        now = sy.TimeStamp.now()
-        timestamp = now.datetime().strftime("%H:%M:%S.%f")[:-4]
-        self.logger.info(f"{timestamp} | {self.name} > {message}")
-
-        # Force flush to ensure immediate output in CI
-        for handler in self.logger.handlers:
-            if hasattr(handler, "flush"):
-                handler.flush()
+        """Log a message. Buffered by default; dumped by conductor on failure."""
+        self.log_client.info(message)
 
     def _start_client_threads(self) -> None:
         # Start writer thread (writes telemetry at consistent interval)
@@ -901,3 +862,4 @@ class TestCase(ABC):
             self._check_expectation()
             self._stop_client()
             self._wait_for_client_completion()
+            self.log_client.close()
