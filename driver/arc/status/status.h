@@ -66,6 +66,7 @@ public:
             .name = cfg.node.config["name"].get<std::string>(),
             .variant = cfg.node.config["variant"].get<std::string>(),
             .message = cfg.node.config["message"].get<std::string>(),
+            .time = x::telem::TimeStamp::now(),
         };
         return {
             std::make_unique<SetStatus>(

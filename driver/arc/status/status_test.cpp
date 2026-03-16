@@ -182,5 +182,23 @@ TEST(SetStatusFactoryTest, CreatedNodeSetsStatus) {
     EXPECT_EQ(retrieved.name, "Test Status");
     EXPECT_EQ(retrieved.variant, "warning");
     EXPECT_EQ(retrieved.message, "Test message");
+    EXPECT_NE(retrieved.time.nanoseconds(), 0);
+}
+
+/// @brief Test that next() updates the timestamp on each invocation.
+TEST(SetStatusTest, NextUpdatesTimestamp) {
+    std::vector<int64_t> timestamps;
+    Setter setter = [&](x::status::Status<> &s) {
+        timestamps.push_back(s.time.nanoseconds());
+        return x::errors::NIL;
+    };
+    SetStatus node(make_status(), setter);
+    auto ctx = make_context();
+    ASSERT_NIL(node.next(ctx));
+    ASSERT_NIL(node.next(ctx));
+    ASSERT_EQ(timestamps.size(), 2);
+    EXPECT_NE(timestamps[0], 0);
+    EXPECT_NE(timestamps[1], 0);
+    EXPECT_GE(timestamps[1], timestamps[0]);
 }
 }
