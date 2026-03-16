@@ -16,7 +16,9 @@ from framework.log_client import (
     StdoutSink,
     SynnaxChannelSink,
 )
+from framework.report_client import ReportClient
 from framework.target_filter import TargetFilter, parse_target
+from framework.telemetry_client import TelemetryClient
 
 __all__ = [
     "ConfigClient",
@@ -24,10 +26,12 @@ __all__ = [
     "LogEntry",
     "LogMode",
     "LogSink",
+    "ReportClient",
     "Sequence",
     "StdoutSink",
     "SynnaxChannelSink",
     "TargetFilter",
+    "TelemetryClient",
     "TestDefinition",
     "parse_target",
 ]

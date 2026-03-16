@@ -25,7 +25,9 @@ import synnax as sy
 
 from framework.config_client import ConfigClient, Sequence, TestDefinition
 from framework.log_client import LogClient, LogMode, SynnaxChannelSink
+from framework.report_client import ReportClient
 from framework.target_filter import TargetFilter, parse_target
+from framework.telemetry_client import TelemetryClient
 from framework.test_case import STATUS, SYMBOLS, SynnaxConnection, TestCase
 from framework.utils import validate_and_sanitize_name
 
@@ -132,105 +134,34 @@ class TestConductor:
         self.test_definitions: list[TestDefinition] = []
         self.sequences: list[Sequence] = []
         self.timeout_monitor_thread: threading.Thread | None = None
-        self.client_manager_thread: threading.Thread | None = None
         self.is_running = False
         self.should_stop = False
         self.status_callbacks: list[Any] = []
-        # Track active tests
         self.active_tests: list[tuple[TestCase, sy.Range, threading.Thread]] = []
         self.active_tests_lock = threading.Lock()
         self.tests_lock = threading.Lock()
 
-        # Setup signal handlers
+        self.telemetry_client = TelemetryClient(
+            client=self.client,
+            name=self.name,
+            get_state=lambda: self.state,
+            get_should_stop=lambda: self.should_stop,
+        )
+
+        self.report_client = ReportClient(
+            tests=[],
+            tests_lock=self.tests_lock,
+            test_definitions=self.test_definitions,
+            active_tests=self.active_tests,
+            active_tests_lock=self.active_tests_lock,
+            log=self.log_message,
+        )
+
         signal.signal(signal.SIGINT, self._signal_handler)
         signal.signal(signal.SIGTERM, self._signal_handler)
 
-        # Start client manager
-        self._start_client_manager_async()
-        sy.sleep(1)  # Allow client manager to start
-
-    def _start_client_manager_async(self) -> None:
-        """Start client manager in separate daemon thread."""
-        self.client_manager_thread = threading.Thread(
-            target=self._client_manager, daemon=True, name=f"{self.name}_client_manager"
-        )
-        self.client_manager_thread.start()
-        self.log_message("Client manager started (async)")
-
-    def _client_manager(self) -> None:
-        """Manage telemetry channels and writer for test conductor."""
-        loop = sy.Loop(sy.Rate.HZ * 5)
-
-        # Create telemetry channels
-        time = self.client.channels.create(
-            name=f"{self.name}_time",
-            data_type=sy.DataType.TIMESTAMP,
-            is_index=True,
-            retrieve_if_name_exists=True,
-        )
-
-        uptime = self.client.channels.create(
-            name=f"{self.name}_uptime",
-            data_type=sy.DataType.UINT32,
-            index=time.key,
-            retrieve_if_name_exists=True,
-        )
-
-        state = self.client.channels.create(
-            name=f"{self.name}_state",
-            data_type=sy.DataType.UINT8,
-            index=time.key,
-            retrieve_if_name_exists=True,
-        )
-
-        test_case_count = self.client.channels.create(
-            name=f"{self.name}_test_case_count",
-            data_type=sy.DataType.UINT32,
-            index=time.key,
-            retrieve_if_name_exists=True,
-        )
-
-        test_cases_ran = self.client.channels.create(
-            name=f"{self.name}_test_cases_ran",
-            data_type=sy.DataType.UINT32,
-            index=time.key,
-            retrieve_if_name_exists=True,
-        )
-
-        # Initialize telemetry
-        start_time = sy.TimeStamp.now()
-        self.tlm = {
-            f"{self.name}_time": start_time,
-            f"{self.name}_uptime": 0,
-            f"{self.name}_state": STATE.INITIALIZING.value,
-            f"{self.name}_test_case_count": 0,
-            f"{self.name}_test_cases_ran": 0,
-        }
-
-        # Open telemetry writer
-        with self.client.open_writer(
-            start=start_time,
-            channels=[time, uptime, state, test_case_count, test_cases_ran],
-            name=self.name,
-        ) as writer:
-            writer.write(self.tlm)  # Write initial state
-
-            while loop.wait() and not self.should_stop:
-                now = sy.TimeStamp.now()
-                uptime_value = (now - start_time) / 1e9
-
-                # Update telemetry
-                self.tlm[f"{self.name}_time"] = now
-                self.tlm[f"{self.name}_uptime"] = uptime_value
-                self.tlm[f"{self.name}_state"] = self.state.value
-                writer.write(self.tlm)
-
-                # Check for shutdown
-                if self.state in [STATE.SHUTDOWN, STATE.COMPLETED]:
-                    self.state = STATE.COMPLETED
-                    self.tlm[f"{self.name}_state"] = self.state.value
-                    writer.write(self.tlm)
-                    break
+        self.telemetry_client.start()
+        sy.sleep(1)
 
     def log_message(self, message: str, use_name: bool = True) -> None:
         """Log message with real-time output."""
@@ -243,7 +174,7 @@ class TestConductor:
         """Load test sequences using the config client."""
         self.state = STATE.LOADING
         self.sequences, self.test_definitions = self.config_client.load(target_filter)
-        self.tlm[f"{self.name}_test_case_count"] = len(self.test_definitions)
+        self.telemetry_client.tlm[f"{self.name}_test_case_count"] = len(self.test_definitions)
 
     def run_sequence(self) -> list[Test]:
         """Execute all tests in the loaded sequence."""
@@ -254,6 +185,7 @@ class TestConductor:
         self.is_running = True
         self.should_stop = False
         self.tests: list[Test] = []
+        self.report_client._tests = self.tests
 
         # Start timeout monitoring
         self.timeout_monitor_thread = threading.Thread(
@@ -333,7 +265,7 @@ class TestConductor:
 
             with self.tests_lock:
                 self.tests.append(test_result)
-            self.tlm[f"{self.name}_test_cases_ran"] += 1
+            self.telemetry_client.tlm[f"{self.name}_test_cases_ran"] += 1
 
     def _execute_sequence_asynchronously(
         self,
@@ -406,7 +338,7 @@ class TestConductor:
 
             with self.tests_lock:
                 self.tests.append(test_result)
-            self.tlm[f"{self.name}_test_cases_ran"] += 1
+            self.telemetry_client.tlm[f"{self.name}_test_cases_ran"] += 1
 
     def _execute_pooled_async(
         self, sequence_name: str, tests_to_execute: list[TestDefinition], pool_size: int
@@ -477,7 +409,7 @@ class TestConductor:
 
             with self.tests_lock:
                 self.tests.append(test_result)
-            self.tlm[f"{self.name}_test_cases_ran"] += 1
+            self.telemetry_client.tlm[f"{self.name}_test_cases_ran"] += 1
 
     def wait_for_completion(self) -> None:
         """
@@ -487,13 +419,8 @@ class TestConductor:
         self.state = STATE.SHUTDOWN
         self.should_stop = True
 
-        # Wait for client manager thread to finish
-        if self.client_manager_thread and self.client_manager_thread.is_alive():
-            self.client_manager_thread.join(timeout=5.0)
-            if self.client_manager_thread.is_alive():
-                self.log_message(
-                    "Warning: client_manager_thread did not stop within timeout"
-                )
+        if not self.telemetry_client.stop():
+            self.log_message("Warning: telemetry thread did not stop within timeout")
 
         # Wait for timeout monitor to finish
         if self.timeout_monitor_thread and self.timeout_monitor_thread.is_alive():
@@ -784,144 +711,16 @@ class TestConductor:
         killed = self.kill_active_tests()
         if killed > 0:
             self.log_message(f"Killed {killed} active test(s)")
-        self._stop_client_manager()
-
-    def _stop_client_manager(self) -> None:
-        """Stop the client manager thread gracefully."""
-        if self.client_manager_thread and self.client_manager_thread.is_alive():
-            self.log_message("Stopping client manager...")
-            # The thread will stop when self.should_stop becomes True
-            # or when status reaches SHUTDOWN
-            self.client_manager_thread.join(timeout=5.0)
-            if self.client_manager_thread.is_alive():
-                self.log_message(
-                    "Warning: Client manager thread did not stop gracefully"
-                )
-            else:
-                self.log_message("Client manager stopped successfully")
+        self.telemetry_client.stop()
 
     def get_current_status(self) -> dict[str, Any]:
-        """Get the current status of test execution."""
-        with self.active_tests_lock:
-            active_tests_snapshot = [
-                {
-                    "name": test_instance.__class__.__name__,
-                    "elapsed_time": (
-                        (sy.TimeStamp.now() - test_range.time_range.start)
-                        / sy.TimeSpan.SECOND
-                        if test_range is not None
-                        else 0
-                    ),
-                }
-                for test_instance, test_range, _ in self.active_tests
-            ]
-
-        with self.tests_lock:
-            completed_tests = len(self.tests)
-            results = [
-                {
-                    "name": result.test_name,
-                    "status": result.status.value,
-                    "duration": (
-                        (result.range.time_range.end - result.range.time_range.start)
-                        / sy.TimeSpan.SECOND
-                        if result.range is not None
-                        and result.range.time_range.end != sy.TimeStamp.MAX
-                        else None
-                    ),
-                    "error": result.error_message,
-                }
-                for result in self.tests
-            ]
-
-        return {
-            "is_running": self.is_running,
-            "total_tests": len(self.test_definitions),
-            "completed_tests": completed_tests,
-            "active_tests": active_tests_snapshot,
-            "results": results,
-        }
+        return self.report_client.get_current_status(self.is_running)
 
     def _get_test_statistics(self) -> dict[str, int]:
-        """Calculate and return test execution statistics."""
-        with self.tests_lock:
-            if not self.tests:
-                return {
-                    "total": 0,
-                    "passed": 0,
-                    "failed": 0,
-                    "killed": 0,
-                    "timeout": 0,
-                    "total_failed": 0,
-                }
-
-            passed = sum(1 for r in self.tests if r.status == STATUS.PASSED)
-            failed = sum(1 for r in self.tests if r.status == STATUS.FAILED)
-            killed = sum(1 for r in self.tests if r.status == STATUS.KILLED)
-            timeout = sum(1 for r in self.tests if r.status == STATUS.TIMEOUT)
-
-            # KILLED and TIMEOUT tests are also considered failed
-            total_failed = failed + killed + timeout
-
-            return {
-                "total": len(self.tests),
-                "passed": passed,
-                "failed": failed,
-                "killed": killed,
-                "timeout": timeout,
-                "total_failed": total_failed,
-            }
+        return self.report_client.get_statistics()
 
     def _print_summary(self) -> None:
-        """Print a summary of test execution results."""
-        with self.tests_lock:
-            if not self.tests:
-                return
-            tests_snapshot = list(self.tests)
-
-        stats = self._get_test_statistics()
-        self._last_stats = stats
-
-        # Individual Summary
-        self.log_message("\n" + "=" * 60, False)
-        for test in tests_snapshot:
-            # Calculate duration if range is finalized
-            if test.range is not None and test.range.time_range.end != sy.TimeStamp.MAX:
-                duration = (
-                    test.range.time_range.end - test.range.time_range.start
-                ) / sy.TimeSpan.SECOND
-                duration_str = f" ({duration:.1f}s)"
-            else:
-                duration_str = ""
-
-            status_symbol = SYMBOLS.get_symbol(test.status)
-            case_parts = str(test).split("/")
-            display_name = (
-                "/".join(case_parts[1:]) if len(case_parts) > 1 else str(test)
-            )
-            self.log_message(f"{status_symbol} {display_name}{duration_str}", False)
-            if test.error_message:
-                self.log_message(f"ERROR: {test.error_message}")
-
-        # Header
-        self.log_message("=" * 60, False)
-        self.log_message("TEST EXECUTION SUMMARY", False)
-
-        # Summary Counts
-        self.log_message("=" * 60, False)
-        self.log_message(f"Total tests: {stats['total']}", False)
-        if self.range is not None:
-            test_time = (
-                sy.TimeStamp.now() - self.range.time_range.start
-            ) / sy.TimeSpan.SECOND
-            self.log_message(f"Total time: {test_time:.1f} s", False)
-        self.log_message(f"Passed: {stats['passed']}", False)
-        self.log_message(
-            f"Failed: {stats['total_failed']} (includes {stats['failed']} failed, {stats['killed']} killed, {stats['timeout']} timeout)",
-            False,
-        )
-        self.log_message("=" * 60, False)
-        self.log_message("\n", False)
+        self.report_client.print_summary(self.range)
 
     def _signal_handler(self, signal_num: int, frame: Any = None) -> None:
         """Handle system signals for graceful shutdown."""
