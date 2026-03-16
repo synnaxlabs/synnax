@@ -26,15 +26,15 @@ from typing import Any, Literal, overload
 
 import synnax as sy
 from synnax.telem import SampleValue
-
-from framework.log_client import LogClient, LogMode, SynnaxChannelSink
-from framework.utils import (
+from xpy import (
     WebSocketErrorFilter,
     ignore_websocket_errors,
     is_websocket_error,
     suppress_websocket_errors,
     validate_and_sanitize_name,
 )
+
+from framework.log_client import LogClient, LogMode, SynnaxChannelSink
 
 # Error filter
 sys.excepthook = ignore_websocket_errors

@@ -16,8 +16,7 @@ from enum import Enum, auto
 from typing import Protocol
 
 import synnax as sy
-
-from framework.utils import is_ci
+from xpy import is_ci
 
 
 class LogMode(Enum):

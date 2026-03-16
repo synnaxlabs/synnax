@@ -10,12 +10,13 @@
 from playwright.sync_api import Locator
 from playwright.sync_api import TimeoutError as PlaywrightTimeoutError
 from playwright.sync_api import expect
+from xpy import rgb_to_hex
 
 from console.context_menu import ContextMenu
 from console.layout import LayoutClient
 from console.notifications import NotificationsClient
 from console.tree import Tree
-from framework.utils import get_results_path, rgb_to_hex
+from framework.utils import get_results_path
 
 
 class RangesClient:
