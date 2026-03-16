@@ -16,6 +16,7 @@ echo "deadcode -test -tags=driver $package_paths"
 # exclude mechanism, so we filter its output. Add entries as grep -v patterns.
 exclude_patterns=(
     "x/go/lsp/protocol/" # Vendored LSP protocol spec with many intentionally unused funcs
+    "x/go/os/file.go"    # Used by windows-only code, invisible to Linux deadcode checker
 )
 
 # Run deadcode once for all packages
