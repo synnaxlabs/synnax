@@ -18,13 +18,7 @@ class BenchResponse(Latency):
         super().setup()
         self.set_manual_timeout(10)
 
-        self.bench_client = sy.Synnax(
-            host=self.synnax_connection.server_address,
-            port=self.synnax_connection.port,
-            username=self.synnax_connection.username,
-            password=self.synnax_connection.password,
-            secure=self.synnax_connection.secure,
-        )
+        self.bench_client = self.synnax_connection.create_client()
 
         self.state_channel = "bench_state"
         self.cmd_channel = "bench_command"

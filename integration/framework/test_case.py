@@ -50,6 +50,15 @@ class SynnaxConnection:
     password: str = "seldon"
     secure: bool = False
 
+    def create_client(self) -> sy.Synnax:
+        return sy.Synnax(
+            host=self.server_address,
+            port=self.port,
+            username=self.username,
+            password=self.password,
+            secure=self.secure,
+        )
+
 
 class STATUS(Enum):
     """Enum representing the status of a test."""
@@ -124,13 +133,7 @@ class TestCase(ABC):
         self.name = validate_and_sanitize_name(name)
         self._status: STATUS = STATUS.INITIALIZING
 
-        self.client = sy.Synnax(
-            host=synnax_connection.server_address,
-            port=synnax_connection.port,
-            username=synnax_connection.username,
-            password=synnax_connection.password,
-            secure=synnax_connection.secure,
-        )
+        self.client = synnax_connection.create_client()
 
         self.log_client = LogClient(
             name=self.name,

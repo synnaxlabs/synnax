@@ -9,11 +9,6 @@
 
 import argparse
 import ctypes
-import fnmatch
-import glob
-import importlib.util
-import itertools
-import json
 import os
 import random
 import signal
@@ -21,16 +16,16 @@ import string
 import sys
 import threading
 import traceback
-from abc import ABC
 from collections.abc import Callable
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from enum import Enum, auto
-from pathlib import Path
-from typing import Any, cast
+from typing import Any
 
 import synnax as sy
 
+from framework.config_client import ConfigClient, Sequence, TestDefinition
 from framework.log_client import LogClient, LogMode, SynnaxChannelSink
+from framework.target_filter import TargetFilter, parse_target
 from framework.test_case import STATUS, SYMBOLS, SynnaxConnection, TestCase
 from framework.utils import validate_and_sanitize_name
 
@@ -64,22 +59,6 @@ class Test:
         return self.test_name
 
 
-@dataclass
-class TestDefinition:
-    """Data class representing a test case definition from the sequence file."""
-
-    case: str
-    name: str | None = None  # Optional custom name for the test case
-    parameters: dict[str, Any | list[Any]] = field(default_factory=dict)
-    matrix: dict[str, list[Any]] | None = None  # Matrix of params to expand
-
-    def __str__(self) -> str:
-        """Return display name for test definition."""
-        if self.name and self.name != self.case.split("/")[-1]:
-            return f"{self.case} ({self.name})"
-        return self.case
-
-
 COLORS: list[str] = [
     "#001833",  # Dark Sky Blue (210°)
     "#003333",  # Dark Cyan (180°)
@@ -94,46 +73,6 @@ COLORS: list[str] = [
     "#180033",  # Dark Purple (270°)
     "#000033",  # Dark Blue (240°)
 ]
-
-
-def parse_target_path(target: str) -> tuple[str, str | None, str | None]:
-    """
-    Parse target path.
-
-    Format: test_file/sequence/case_filter
-
-    Examples:
-        console/general/...        -> ("console", "general", None)
-        console/access/user        -> ("console", "access", "user")
-        console/...                -> ("console", None, None)
-        driver/modbus/...          -> ("driver", "modbus", None)
-
-    Returns:
-        tuple[str, str | None, str | None]: (test_file, sequence_filter, case_filter)
-        - test_file: JSON file name without _tests.json suffix
-        - sequence_filter: None for all sequences, or specific sequence name
-        - case_filter: None for all cases, or substring to match in case path
-    """
-    path = target.lstrip("/")
-    if not path:
-        raise ValueError(f"Target path cannot be empty: {target}")
-
-    parts = path.split("/")
-    test_file = parts[0]
-
-    if not test_file:
-        raise ValueError(f"Test file name cannot be empty: {target}")
-
-    sequence_filter: str | None = None
-    case_filter: str | None = None
-
-    if len(parts) > 1 and parts[1] != "...":
-        sequence_filter = parts[1] if parts[1] else None
-
-    if len(parts) > 2 and parts[2] != "...":
-        case_filter = parts[2] if parts[2] else None
-
-    return test_file, sequence_filter, case_filter
 
 
 class TestConductor:
@@ -165,13 +104,7 @@ class TestConductor:
 
         # Initialize client
         try:
-            self.client = sy.Synnax(
-                host=self.synnax_connection.server_address,
-                port=self.synnax_connection.port,
-                username=self.synnax_connection.username,
-                password=self.synnax_connection.password,
-                secure=self.synnax_connection.secure,
-            )
+            self.client = self.synnax_connection.create_client()
         except Exception as e:
             raise RuntimeError(f"Failed to initialize client: {e}")
 
@@ -193,19 +126,20 @@ class TestConductor:
         except Exception as e:
             raise RuntimeError(f"Failed to create range: {e}")
 
+        self.config_client = ConfigClient(log=self.log_message)
+
         self.state = STATE.INITIALIZING
         self.test_definitions: list[TestDefinition] = []
-        self.sequences: list[dict[str, Any]] = []
+        self.sequences: list[Sequence] = []
         self.timeout_monitor_thread: threading.Thread | None = None
         self.client_manager_thread: threading.Thread | None = None
         self.is_running = False
         self.should_stop = False
-        self.status_callbacks: list[Callable[[Test], None]] = []
+        self.status_callbacks: list[Any] = []
         # Track active tests
         self.active_tests: list[tuple[TestCase, sy.Range, threading.Thread]] = []
         self.active_tests_lock = threading.Lock()
         self.tests_lock = threading.Lock()
-        self.import_lock = threading.Lock()
 
         # Setup signal handlers
         signal.signal(signal.SIGINT, self._signal_handler)
@@ -305,274 +239,16 @@ class TestConductor:
         else:
             self.log_client.raw(message)
 
-    def load_test_sequence(
-        self,
-        sequence: str | list[str] | None = None,
-        sequence_filter: str | None = None,
-        case_filter: str | None = None,
-    ) -> None:
-        """Load test sequence from JSON configuration file(s) or auto-discover test.json files.
-
-        Args:
-            sequence: Path to test sequence JSON file(s) or None for auto-discovery
-            sequence_filter: Optional filter to run only specific sequence by name
-            case_filter: Optional glob pattern to filter test cases
-        """
+    def load(self, target_filter: TargetFilter) -> None:
+        """Load test sequences using the config client."""
         self.state = STATE.LOADING
-
-        # Determine which files to load
-        if sequence is None:
-            test_files = glob.glob("tests/*_tests.json")
-            if not test_files:
-                raise FileNotFoundError(
-                    "No *_tests.json files found for auto-discovery"
-                )
-        elif isinstance(sequence, list):
-            test_files = sequence
-        else:
-            test_files = [sequence]
-
-        # Load all sequences from all files
-        all_sequences = []
-        failed_files = []
-        for test_file in test_files:
-            self.log_message(f"Loading tests from: {test_file}")
-
-            # Simple path resolution - try current dir first, then tests/ dir
-            file_path = Path(test_file)
-            if not file_path.exists():
-                file_path = Path("tests") / test_file
-
-            try:
-                with open(file_path, "r") as f:
-                    file_data = json.load(f)
-                if "sequences" in file_data:
-                    all_sequences.extend(file_data["sequences"])
-            except Exception as e:
-                if isinstance(sequence, list):
-                    self.log_message(f"Warning: Failed to load {test_file}: {e}")
-                    failed_files.append((test_file, str(e)))
-                else:
-                    raise FileNotFoundError(f"Test file not found: {test_file}")
-
-        if failed_files:
-            failed_list = "\n".join(
-                [f"  - {file}: {error}" for file, error in failed_files]
-            )
-            raise FileNotFoundError(
-                f"Failed to load {len(failed_files)} file(s):\n{failed_list}"
-            )
-
-        if not all_sequences:
-            raise FileNotFoundError("No valid sequences found")
-
-        self._process_sequences(all_sequences, sequence_filter, case_filter)
-
-    def _expand_parameters(self, test_def: TestDefinition) -> list[TestDefinition]:
-        """
-        Expand a test definition with parameters into multiple test definitions.
-
-        Parameters can be either single values or lists:
-        - Single value: {"timeout": 2} → 1 test
-        - List value: {"timeout": [2, 4]} → 2 tests
-        - Mixed: {"mode": ["a", "b"], "rate": [100, 200]} → 4 tests
-
-        Example:
-            parameters = {"mode": ["a", "b"], "rate": [100, 200], "fixed": 5}
-            Expands to 4 tests with params:
-            - {"mode": "a", "rate": 100, "fixed": 5}
-            - {"mode": "a", "rate": 200, "fixed": 5}
-            - {"mode": "b", "rate": 100, "fixed": 5}
-            - {"mode": "b", "rate": 200, "fixed": 5}
-        """
-        if not test_def.parameters:
-            # No parameters, return single test
-            return [test_def]
-
-        # Separate parameters into single-value and multi-value
-        single_params = {}
-        multi_params = {}
-
-        for key, value in test_def.parameters.items():
-            if isinstance(value, list):
-                multi_params[key] = value
-            else:
-                single_params[key] = value
-
-        # If no multi-value parameters, return single test
-        if not multi_params:
-            return [test_def]
-
-        # Generate cartesian product of multi-value parameters
-        param_keys = list(multi_params.keys())
-        param_values = [multi_params[key] for key in param_keys]
-        combinations = list(itertools.product(*param_values))
-
-        expanded_tests = []
-        for combo in combinations:
-            # Create parameter dict from combination
-            combo_params = dict(zip(param_keys, combo))
-
-            # Merge single-value params with this combination
-            merged_params = {**single_params, **combo_params}
-
-            # Generate name from multi-value parameters only
-            matrix_suffix = "_".join(str(v) for v in combo)
-            base_name = test_def.name or test_def.case.split("/")[-1]
-            generated_name = f"{base_name}_{matrix_suffix}"
-
-            # Create new test definition
-            expanded_test = TestDefinition(
-                case=test_def.case,
-                name=generated_name,
-                parameters=merged_params,  # Store as single values
-            )
-            expanded_tests.append(expanded_test)
-
-        return expanded_tests
-
-    def _expand_test_classes(self, test_def: TestDefinition) -> list[TestDefinition]:
-        """
-        Expand a test definition into multiple definitions if the file contains multiple TestCase classes.
-
-        If test_def.name is specified, only that specific class will be loaded.
-        Otherwise, all TestCase subclasses in the module will be loaded.
-
-        Returns:
-            List of TestDefinition objects, one per discovered class.
-        """
-        try:
-            test_classes = self._load_test_classes(test_def)
-
-            if len(test_classes) == 1:
-                # Single class - return as-is
-                return [test_def]
-
-            # Multiple classes found - create a TestDefinition for each
-            expanded_defs = []
-            for test_class in test_classes:
-                # Create new test definition with class name
-                expanded_def = TestDefinition(
-                    case=test_def.case,
-                    name=test_class.__name__,  # Use class name as identifier
-                    parameters=test_def.parameters.copy(),
-                    matrix=test_def.matrix,
-                )
-                expanded_defs.append(expanded_def)
-
-            return expanded_defs
-
-        except Exception as e:
-            self.log_message(
-                f"Warning: Failed to expand test classes for {test_def.case}: {e}"
-            )
-            # Return original definition as fallback
-            return [test_def]
-
-    def _process_sequences(
-        self,
-        sequences_array: list[Any],
-        sequence_filter: str | None = None,
-        case_filter: str | None = None,
-    ) -> None:
-        """Process a list of sequences and populate test_definitions and sequences.
-
-        Args:
-            sequences_array: List of sequence definitions from JSON
-            sequence_filter: Optional filter to run only specific sequence by name
-            case_filter: Optional glob pattern to filter test cases
-        """
-        self.test_definitions = []
-        self.sequences = []
-
-        for seq_idx, sequence in enumerate(sequences_array):
-            seq_dict = sequence if isinstance(sequence, dict) else {}
-            seq_name = seq_dict.get("sequence_name", f"Sequence_{seq_idx + 1}")
-            seq_order = seq_dict.get("sequence_order", "sequential").lower()
-            seq_tests = seq_dict.get("tests", [])
-            pool_size = seq_dict.get("pool_size", -1)
-
-            if sequence_filter and seq_name != sequence_filter:
-                continue
-
-            # Create sequence object
-            seq_obj = {
-                "name": seq_name,
-                "order": seq_order,
-                "pool_size": pool_size,
-                "tests": [],
-                "start_idx": len(self.test_definitions),
-            }
-
-            # Load tests for this sequence
-            for test in seq_tests:
-                if case_filter:
-                    case_path = test["case"]
-                    if case_filter not in case_path:
-                        continue
-
-                test_def = TestDefinition(
-                    case=test["case"],
-                    name=test.get("name", None),
-                    parameters=test.get("parameters", {}),
-                    matrix=test.get("matrix", None),
-                )
-
-                # First expand by test classes (file may contain multiple classes)
-                class_expanded_tests = self._expand_test_classes(test_def)
-
-                # Then expand by parameters for each class
-                for class_test_def in class_expanded_tests:
-                    param_expanded_tests = self._expand_parameters(class_test_def)
-                    for expanded_test in param_expanded_tests:
-                        self.test_definitions.append(expanded_test)
-                        seq_obj["tests"].append(expanded_test)
-
-            # Only add sequence if it has tests
-            if seq_obj["tests"]:
-                seq_obj["end_idx"] = len(self.test_definitions)
-                self.sequences.append(seq_obj)
-
-                num_expanded = len(seq_obj["tests"])
-                original_count = len(seq_tests)
-                if case_filter:
-                    self.log_message(
-                        f"Loaded sequence '{seq_name}' with {num_expanded} tests "
-                        f"matching '{case_filter}' ({seq_order})"
-                    )
-                elif num_expanded > original_count:
-                    self.log_message(
-                        f"Loaded sequence '{seq_name}' with {original_count} test definitions, "
-                        f"expanded to {num_expanded} tests ({seq_order})"
-                    )
-                else:
-                    self.log_message(
-                        f"Loaded sequence '{seq_name}' with {original_count} tests ({seq_order})"
-                    )
-
-        if not self.sequences:
-            filter_info = []
-            if sequence_filter:
-                filter_info.append(f"sequence='{sequence_filter}'")
-            if case_filter:
-                filter_info.append(f"case='{case_filter}'")
-            raise ValueError(
-                f"No tests found matching filters: {', '.join(filter_info)}"
-            )
-
-        self.log_message(
-            f"Total: {len(self.test_definitions)} tests across {len(self.sequences)} sequences"
-        )
-
-        # Update telemetry
+        self.sequences, self.test_definitions = self.config_client.load(target_filter)
         self.tlm[f"{self.name}_test_case_count"] = len(self.test_definitions)
 
     def run_sequence(self) -> list[Test]:
         """Execute all tests in the loaded sequence."""
         if not self.test_definitions:
-            raise ValueError(
-                "No test sequence loaded. Call load_test_sequence() first."
-            )
+            raise ValueError("No test sequence loaded. Call load() first.")
 
         self.state = STATE.RUNNING
         self.is_running = True
@@ -598,28 +274,25 @@ class TestConductor:
                 break
 
             self.log_message(
-                f"==== SEQUENCE {seq_idx + 1}/{len(self.sequences)}: {sequence['name']} ===="
+                f"==== SEQUENCE {seq_idx + 1}/{len(self.sequences)}: {sequence.name} ===="
             )
             self.log_message(
-                f"Executing {len(sequence['tests'])} tests with {sequence['order']} order...\n"
+                f"Executing {len(sequence.tests)} tests with {sequence.order} order...\n"
             )
 
-            # Prepare tests for execution (randomize if needed)
-            tests_to_execute = sequence["tests"].copy()
+            tests_to_execute = sequence.tests.copy()
 
-            # Execute tests within this sequence using the prepared test list
-            # This consolidates sequential and random execution into a single path
-            if sequence["order"] == "asynchronous":
+            if sequence.order == "asynchronous":
                 self._execute_sequence_asynchronously(
-                    sequence["name"], tests_to_execute, sequence["pool_size"]
+                    sequence.name, tests_to_execute, sequence.pool_size
                 )
-            else:  # sequential or random (both use the same execution method)
-                if sequence["order"] == "random":
+            else:
+                if sequence.order == "random":
                     random.shuffle(tests_to_execute)
-                    self.log_message(f"Tests randomized for execution")
+                    self.log_message("Tests randomized for execution")
                 self._execute_sequence(tests_to_execute)
 
-            self.log_message(f"Completed sequence '{sequence['name']}'\n")
+            self.log_message(f"Completed sequence '{sequence.name}'\n")
 
         self.is_running = False
         self._print_summary()
@@ -861,136 +534,6 @@ class TestConductor:
             except Exception as e:
                 self.log_message(f"Error in status callback: {e}")
 
-    def _load_test_classes(self, test_def: TestDefinition) -> list[type[TestCase]]:
-        """
-        Dynamically load test class(es) from a case identifier.
-
-        Returns a list of TestCase classes that inherit from TestCase.
-        If a specific class is requested via test_def.name, only that class is returned.
-        Otherwise, all TestCase subclasses in the module are returned.
-        """
-        try:
-            # Parse the case string as a file path (e.g., "console/pages_open_close")
-            case_path = f"tests/{test_def.case}"
-
-            # Extract the module name from the path (last part before .py)
-            module_name = case_path.split("/")[-1]
-
-            # Try different possible file paths
-            current_dir = os.getcwd()
-            script_dir = os.path.dirname(os.path.abspath(__file__))
-
-            # Construct possible paths
-            possible_paths = [
-                os.path.join(script_dir, "..", f"{case_path}.py"),
-                os.path.join(current_dir, f"{case_path}.py"),
-            ]
-
-            # Find the first path that exists
-            file_path = None
-            for path in possible_paths:
-                if os.path.exists(path):
-                    file_path = path
-                    break
-
-            if file_path is None:
-                # Add debug information to help troubleshoot path issues
-                debug_info = f"""
-                Current working directory: {os.getcwd()}
-                Script directory: {os.path.dirname(os.path.abspath(__file__))}
-                Test case: {test_def.case}
-                Module name: {module_name}
-                Tried paths: {possible_paths}
-                """
-                raise FileNotFoundError(
-                    f"Could not find test module for {test_def.case}.\n{debug_info}"
-                )
-
-            script_dir = os.path.dirname(os.path.abspath(__file__))
-            integration_dir = os.path.dirname(script_dir)
-            if integration_dir not in sys.path:
-                sys.path.insert(0, integration_dir)
-
-            # Ensure the integration 'tests' package is registered in sys.modules
-            # so that cross-package imports like 'from tests.driver.sim_daq_case'
-            # resolve to integration/tests/ rather than a shadowed 'tests' package
-            # from another workspace member (e.g. alamos/py/tests/).
-            tests_dir = os.path.join(integration_dir, "tests")
-            if os.path.isdir(tests_dir):
-                import types
-
-                tests_pkg = sys.modules.get("tests")
-                if tests_pkg is None or not hasattr(tests_pkg, "__path__"):
-                    tests_pkg = types.ModuleType("tests")
-                    tests_pkg.__path__ = [tests_dir]
-                    tests_pkg.__package__ = "tests"
-                    sys.modules["tests"] = tests_pkg
-                elif tests_dir not in tests_pkg.__path__:
-                    tests_pkg.__path__.insert(0, tests_dir)
-
-            # Prevent deadlock when multiple threads load modules that share dependencies
-            with self.import_lock:
-                spec = importlib.util.spec_from_file_location(module_name, file_path)
-                if spec is None:
-                    raise ImportError(
-                        f"Cannot create spec for module: {module_name} at {file_path}"
-                    )
-
-                module = importlib.util.module_from_spec(spec)
-                if spec.loader is not None:
-                    spec.loader.exec_module(module)
-
-            # Helper function to check if a class is a valid TestCase subclass
-            def is_valid_test_case(obj: Any) -> bool:
-                try:
-                    return (
-                        isinstance(obj, type)
-                        and not obj.__name__.startswith("_")
-                        and issubclass(obj, TestCase)
-                        and obj is not TestCase
-                        and obj.__module__ == module.__name__
-                        and ABC not in obj.__bases__  # Exclude abstract base classes
-                    )
-                except (AttributeError, TypeError):
-                    return False
-
-            # Find all TestCase subclasses in the module
-            test_classes = [
-                getattr(module, name)
-                for name in dir(module)
-                if is_valid_test_case(getattr(module, name))
-            ]
-
-            if not test_classes:
-                raise AttributeError(f"No TestCase subclass found in {file_path}")
-
-            # If a specific class name is provided, filter to that class
-            if test_def.name:
-                # Try to find class matching the provided name
-                matching_classes = [
-                    cls for cls in test_classes if cls.__name__ == test_def.name
-                ]
-                if matching_classes:
-                    return [matching_classes[0]]
-                # If no exact match, return all classes (name might be for display only)
-
-            return test_classes
-
-        except Exception as e:
-            raise ImportError(
-                f"Failed to load test class(es) from {test_def.case}: {e}\n"
-            )
-
-    def _load_test_class(self, test_def: TestDefinition) -> type[TestCase]:
-        """
-        Dynamically load a single test class from its case identifier.
-
-        This method maintains backward compatibility by returning a single class.
-        If multiple classes are found, returns the first one.
-        """
-        classes = self._load_test_classes(test_def)
-        return classes[0]
-
     def _execute_single_test(self, test_def: TestDefinition) -> Test:
         """Execute a single test case."""
         test = Test(
@@ -1015,8 +558,7 @@ class TestConductor:
 
         test_instance: TestCase | None = None
         try:
-            # Load and instantiate the test class
-            test_class = self._load_test_class(test_def)
+            test_class = self.config_client.load_test_class(test_def)
             test_instance = test_class(
                 synnax_connection=self.synnax_connection,
                 name=test_def.name or test_def.case.split("/")[-1],
@@ -1409,11 +951,28 @@ def main() -> None:
     parser = argparse.ArgumentParser(
         description="Run test sequences",
         epilog="""
-Examples:
-  uv run tc -f channel              Run all tests containing 'channel' (like ginkgo --focus)
-  uv run tc console/...             Run all tests in console_tests.json
-  uv run tc console/general/...     Run all tests in 'general' sequence
-  uv run tc console/general/channel Run tests containing 'channel' in 'general' sequence
+1-part path — run all tests in a file:
+  uv run tc console                 all tests from console_tests.json
+  uv run tc driver                  all tests from driver_tests.json
+
+2-part path — file + case substring filter:
+  uv run tc driver/modbus           driver_tests.json, cases matching "modbus"
+  uv run tc console/label           console_tests.json, cases matching "label"
+  uv run tc arc/lifecycle           arc_tests.json, cases matching "lifecycle"
+
+3-part path — file + sequence filter + case filter:
+  uv run tc console/channel/calc    sequence matching "channel", cases matching "calc"
+  uv run tc arc/simple/...          sequence matching "simple", all cases
+
+-f flag — global case filter across all JSON files:
+  uv run tc -f modbus               all *_tests.json, cases matching "modbus"
+  uv run tc -f channel              all *_tests.json, cases matching "channel"
+
+... wildcard — means "no filter" at that position:
+  uv run tc console/...             same as just "console"
+  uv run tc console/.../calc        sequence=all, case="calc"
+
+All matching is case-insensitive substring.
         """,
         formatter_class=argparse.RawDescriptionHelpFormatter,
     )
@@ -1467,20 +1026,14 @@ Examples:
     )
 
     try:
-        # Determine test file, sequence filter, and case filter
-        sequence_input: str | list[str] | None = None
-        sequence_filter: str | None = None
-        case_filter: str | None = None
-
         if args.target:
-            # Parse Bazel-like target path
-            test_file, sequence_filter, case_filter = parse_target_path(args.target)
-            sequence_input = f"{test_file}_tests.json"
+            target_filter = parse_target(args.target)
         elif args.filter:
-            case_filter = args.filter
-            sequence_input = None
+            target_filter = TargetFilter(case_filter=args.filter)
+        else:
+            target_filter = TargetFilter()
 
-        conductor.load_test_sequence(sequence_input, sequence_filter, case_filter)
+        conductor.load(target_filter)
         results = conductor.run_sequence()
         conductor.wait_for_completion()
 
