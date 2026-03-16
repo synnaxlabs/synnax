@@ -8,10 +8,56 @@
 #  included in the file licenses/APL.txt.
 
 from dataclasses import dataclass
+from enum import Enum, auto
 
 import synnax as sy
 
-from framework.test_case import STATUS
+
+class STATUS(Enum):
+    """Enum representing the status of a test."""
+
+    INITIALIZING = auto()
+    RUNNING = auto()
+    PENDING = auto()
+    PASSED = auto()
+    FAILED = auto()
+    TIMEOUT = auto()
+    KILLED = auto()
+
+
+class SYMBOLS(Enum):
+    PASSED = "\u2705"
+    FAILED = "\u274c"
+    KILLED = "\U0001f480"
+    TIMEOUT = "\u23f0"
+
+    @classmethod
+    def get_symbol(cls, status: STATUS) -> str:
+        """Get symbol for a given status, with fallback to '?' if not found."""
+        try:
+            return cls[status.name].value
+        except (KeyError, AttributeError):
+            return "\u2753"
+
+
+@dataclass
+class SynnaxConnection:
+    """Data class representing the Synnax connection parameters."""
+
+    server_address: str = "localhost"
+    port: int = 9090
+    username: str = "synnax"
+    password: str = "seldon"
+    secure: bool = False
+
+    def create_client(self) -> sy.Synnax:
+        return sy.Synnax(
+            host=self.server_address,
+            port=self.port,
+            username=self.username,
+            password=self.password,
+            secure=self.secure,
+        )
 
 
 @dataclass

@@ -9,7 +9,8 @@
 
 import synnax as sy
 
-from framework.test_case import SynnaxConnection, TestCase
+from framework.models import SynnaxConnection
+from framework.test_case import TestCase
 
 
 class CheckConnectionBasic(TestCase):

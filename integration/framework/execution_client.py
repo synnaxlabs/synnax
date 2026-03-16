@@ -17,8 +17,8 @@ from concurrent.futures import Future
 import synnax as sy
 
 from framework.config_client import ConfigClient, Sequence, TestDefinition
-from framework.models import Test
-from framework.test_case import STATUS, SynnaxConnection, TestCase
+from framework.models import STATUS, SynnaxConnection, Test
+from framework.test_case import TestCase
 
 # Range coloring
 COLORS: list[str] = [

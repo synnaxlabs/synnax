@@ -13,7 +13,7 @@ import synnax as sy
 from xpy import get_random_name
 
 from console.case import ConsoleCase
-from framework.test_case import STATUS
+from framework.models import STATUS
 from tests.driver.sim_daq_case import SimDaqCase
 
 

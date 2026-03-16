@@ -24,11 +24,11 @@ from xpy import validate_and_sanitize_name
 from framework.config_client import ConfigClient, Sequence, TestDefinition
 from framework.execution_client import ExecutionClient
 from framework.log_client import LogClient, LogMode, SynnaxChannelSink
-from framework.models import Test
+from framework.models import SynnaxConnection, Test
 from framework.report_client import ReportClient
 from framework.target_filter import TargetFilter, parse_target
 from framework.telemetry_client import TelemetryClient
-from framework.test_case import SynnaxConnection, TestCase
+from framework.test_case import TestCase
 
 
 class STATE(Enum):

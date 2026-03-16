@@ -14,8 +14,8 @@ from typing import Any
 import synnax as sy
 
 from framework.config_client import TestDefinition
-from framework.models import Test
-from framework.test_case import STATUS, SYMBOLS, TestCase
+from framework.models import STATUS, SYMBOLS, Test
+from framework.test_case import TestCase
 
 
 class ReportClient:
