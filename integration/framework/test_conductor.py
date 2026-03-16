@@ -139,7 +139,6 @@ class TestConductor:
             tests_lock=self.tests_lock,
             active_tests=self.active_tests,
             active_tests_lock=self.active_tests_lock,
-            test_definitions=self.test_definitions,
             log=self.log_message,
             on_status_change=self._notify_status_change,
             on_test_ran=lambda: self.telemetry_client.tlm.__setitem__(

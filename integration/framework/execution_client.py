@@ -56,7 +56,6 @@ class ExecutionClient:
         tests_lock: threading.Lock,
         active_tests: list[tuple[TestCase, sy.Range, threading.Thread]],
         active_tests_lock: threading.Lock,
-        test_definitions: list[TestDefinition],
         log: Callable[[str, bool], None],
         on_status_change: Callable[[Any], None],
         on_test_ran: Callable[[], None],
@@ -69,18 +68,21 @@ class ExecutionClient:
         self._tests_lock = tests_lock
         self._active_tests = active_tests
         self._active_tests_lock = active_tests_lock
-        self._test_definitions = test_definitions
         self._log = log
         self._on_status_change = on_status_change
         self._on_test_ran = on_test_ran
         self.should_stop = False
         self.is_running = False
+        self._total_tests = 0
+        self._tests_offset = 0
         self._timeout_thread: threading.Thread | None = None
 
     def run(self, sequences: list[Sequence]) -> None:
         """Execute all sequences."""
         self.is_running = True
         self.should_stop = False
+        self._total_tests = sum(len(seq.tests) for seq in sequences)
+        self._tests_offset = 0
 
         self._timeout_thread = threading.Thread(
             target=self._timeout_monitor_loop,
@@ -91,7 +93,7 @@ class ExecutionClient:
 
         self._log(
             f"Starting execution of {len(sequences)} sequences "
-            f"with {len(self._test_definitions)} total tests...\n",
+            f"with {self._total_tests} total tests...\n",
             True,
         )
 
@@ -121,6 +123,9 @@ class ExecutionClient:
 
             self._log(f"Completed sequence '{sequence.name}'\n", True)
 
+        if not self.should_stop:
+            self._retry_failed(sequences)
+
         self.is_running = False
 
         if self._timeout_thread is not None and self._timeout_thread.is_alive():
@@ -134,6 +139,40 @@ class ExecutionClient:
         if killed > 0:
             self._log(f"Killed {killed} active test(s)", True)
 
+    def _retry_failed(self, sequences: list[Sequence]) -> None:
+        all_defs: dict[str, TestDefinition] = {}
+        for seq in sequences:
+            for td in seq.tests:
+                key = str(td)
+                all_defs[key] = td
+
+        with self._tests_lock:
+            failed = [
+                t for t in self._tests if t.status in (STATUS.FAILED, STATUS.TIMEOUT)
+            ]
+
+        if not failed:
+            return
+
+        retry_defs: list[TestDefinition] = []
+        for result in failed:
+            key = str(result)
+            if key in all_defs:
+                retry_defs.append(all_defs[key])
+
+        if not retry_defs:
+            return
+
+        self._log(f"==== RETRYING {len(retry_defs)} FAILED TEST(S) ====\n", True)
+
+        with self._tests_lock:
+            for result in failed:
+                self._tests.remove(result)
+
+        self._total_tests = len(retry_defs)
+        self._tests_offset = len(self._tests)
+        self._execute_sequential(retry_defs)
+
     # ----- Sequential execution -----
 
     def _execute_sequential(self, tests: list[TestDefinition]) -> None:
@@ -142,8 +181,8 @@ class ExecutionClient:
                 self._log("Test execution stopped by user request", True)
                 break
 
-            global_idx = len(self._tests) + 1
-            self._log(f"[{global_idx}/{len(self._test_definitions)}] {test_def}", True)
+            global_idx = len(self._tests) - self._tests_offset + 1
+            self._log(f"[{global_idx}/{self._total_tests}] {test_def}", True)
 
             result_container: list[Any] = []
             t = threading.Thread(
@@ -179,8 +218,8 @@ class ExecutionClient:
                 self._log("Test execution stopped by user request", True)
                 break
 
-            global_idx = len(self._tests) + i + 1
-            self._log(f"[{global_idx}/{len(self._test_definitions)}] {test_def}", True)
+            global_idx = len(self._tests) - self._tests_offset + i + 1
+            self._log(f"[{global_idx}/{self._total_tests}] {test_def}", True)
 
             container: list[Any] = []
             t = threading.Thread(
@@ -216,7 +255,7 @@ class ExecutionClient:
         def run_with_semaphore(td: TestDefinition, rc: list[Any], idx: int) -> None:
             semaphore.acquire()
             try:
-                self._log(f"[{idx}/{len(self._test_definitions)}] {td}", True)
+                self._log(f"[{idx}/{self._total_tests}] {td}", True)
                 self._test_runner_thread(td, rc)
             finally:
                 semaphore.release()
@@ -226,7 +265,7 @@ class ExecutionClient:
                 self._log("Test execution stopped by user request", True)
                 break
 
-            global_idx = len(self._tests) + i + 1
+            global_idx = len(self._tests) - self._tests_offset + i + 1
             container: list[Any] = []
             t = threading.Thread(
                 target=run_with_semaphore,
