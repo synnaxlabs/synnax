@@ -11,6 +11,7 @@ package cmd
 
 import (
 	"fmt"
+	"log"
 	"strings"
 
 	"charm.land/lipgloss/v2"
@@ -69,7 +70,12 @@ func printInfo(msg string) {
 	lipgloss.Printf("%s %s\n", sym, msg)
 }
 
-func printDim(msg string) { lipgloss.Println(dimStyle.Render(msg)) }
+func printDim(msg string) {
+	_, err := lipgloss.Println(dimStyle.Render(msg))
+	if err != nil {
+		log.Println(err)
+	}
+}
 
 func printFileWritten(plugin, path string) {
 	p := pluginStyle.Render(plugin)

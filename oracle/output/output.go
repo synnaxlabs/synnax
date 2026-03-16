@@ -12,6 +12,7 @@ package output
 
 import (
 	"fmt"
+	"log"
 
 	"charm.land/lipgloss/v2"
 )
@@ -36,7 +37,10 @@ const symbolArrow = "→"
 func PluginStart(name string) {
 	p := pluginStyle.Render(name)
 	a := dimStyle.Render("generating...")
-	lipgloss.Printf("  %s %s\n", p, a)
+	_, err := lipgloss.Printf("  %s %s\n", p, a)
+	if err != nil {
+		log.Println(err)
+	}
 }
 
 // PluginDone prints a message when a plugin finishes with file count.
@@ -47,7 +51,10 @@ func PluginDone(name string, fileCount int) {
 	if fileCount != 1 {
 		word = "files"
 	}
-	lipgloss.Printf("  %s %s %s %s\n", p, symbolArrow, c, word)
+	_, err := lipgloss.Printf("  %s %s %s %s\n", p, symbolArrow, c, word)
+	if err != nil {
+		log.Println(err)
+	}
 }
 
 // PostWriteStep prints a post-write step in progress.
@@ -59,5 +66,8 @@ func PostWriteStep(tool string, fileCount int, action string) {
 		word = "files"
 	}
 	a := dimStyle.Render(action)
-	lipgloss.Printf("    %s %s %s %s %s\n", t, symbolArrow, a, c, word)
+	_, err := lipgloss.Printf("    %s %s %s %s %s\n", t, symbolArrow, a, c, word)
+	if err != nil {
+		log.Println(err)
+	}
 }
