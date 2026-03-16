@@ -116,7 +116,8 @@ var _ = Describe("Delete", func() {
 							s.Flow(sCtx, confluence.CloseOutputInletsOnExit())
 
 							By("Expecting delete channel to fail because there is an open streamer")
-							Expect(db.DeleteChannel(vChannelKey)).To(Succeed())
+							err := db.DeleteChannel(vChannelKey)
+							Expect(err).ToNot(HaveOccurred())
 
 							By("All other operations should still happen without error")
 							cancel()
@@ -135,7 +136,8 @@ var _ = Describe("Delete", func() {
 							s.Flow(sCtx, confluence.CloseOutputInletsOnExit())
 
 							By("Expecting delete channel to fail because there is an open streamer")
-							Expect(db.DeleteChannel(uChannelKey)).To(Succeed())
+							err := db.DeleteChannel(uChannelKey)
+							Expect(err).ToNot(HaveOccurred())
 
 							By("All other operations should still happen without error")
 							cancel()

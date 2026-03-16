@@ -235,7 +235,8 @@ var _ = Describe("Garbage Collection", Ordered, func() {
 					)).To(Succeed())
 					w := MustSucceed(db.OpenWriter(ctx, domain.WriterConfig{Start: 10 * telem.SecondTS}))
 
-					MustSucceed(w.Write([]byte{10, 11, 12, 13, 14}))
+					_, err := w.Write([]byte{10, 11, 12, 13, 14})
+					Expect(err).ToNot(HaveOccurred())
 
 					// Now, file 1 should be oversize
 					Expect(db.GarbageCollect(ctx)).To(Succeed())
@@ -619,7 +620,8 @@ var _ = Describe("Garbage Collection", Ordered, func() {
 					Expect(i.SeekLE(ctx, 43*telem.SecondTS)).To(BeTrue())
 					r = MustSucceed(i.OpenReader(ctx))
 					b := make([]byte, 2)
-					MustSucceed(r.ReadAt(b, 0))
+					_, err := r.ReadAt(b, 0)
+					Expect(err).ToNot(HaveOccurred())
 					Expect(b).To(Equal([]byte{41, 43}))
 					Expect(r.Close()).To(Succeed())
 					Expect(i.Close()).To(Succeed())

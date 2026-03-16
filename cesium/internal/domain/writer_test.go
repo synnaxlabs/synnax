@@ -33,7 +33,8 @@ func extractPointer(f fs.File) (p struct {
 	length  uint32
 }) {
 	b := make([]byte, 26)
-	MustSucceed(f.Read(b))
+	_, err := f.Read(b)
+	Expect(err).ToNot(HaveOccurred())
 	p.Start = telem.TimeStamp(binary.LittleEndian.Uint64(b[0:8]))
 	p.End = telem.TimeStamp(binary.LittleEndian.Uint64(b[8:16]))
 	p.fileKey = binary.LittleEndian.Uint16(b[16:18])
@@ -434,10 +435,12 @@ var _ = Describe("Writer Behavior", Ordered, func() {
 					modTime := MustSucceed(fs.Stat("index.domain")).ModTime()
 
 					By("Writing some data and committing it right after")
-					MustSucceed(w.Write([]byte{6, 7, 8, 9, 10}))
+					_, err := w.Write([]byte{6, 7, 8, 9, 10})
+					Expect(err).ToNot(HaveOccurred())
 					Expect(w.Commit(ctx, 20*telem.SecondTS+1)).To(Succeed())
 
-					MustSucceed(w.Write([]byte{11, 12, 13, 14, 15}))
+					_, err = w.Write([]byte{11, 12, 13, 14, 15})
+					Expect(err).ToNot(HaveOccurred())
 					Expect(w.Commit(ctx, 25*telem.SecondTS+1)).To(Succeed())
 
 					By("Asserting that the previous commits have not been persisted")
@@ -446,7 +449,8 @@ var _ = Describe("Writer Behavior", Ordered, func() {
 
 					By("Sleeping for some time")
 					time.Sleep(time.Duration(50 * telem.Millisecond))
-					MustSucceed(w.Write([]byte{16, 17, 18, 19, 20}))
+					_, err = w.Write([]byte{16, 17, 18, 19, 20})
+					Expect(err).ToNot(HaveOccurred())
 					Expect(w.Commit(ctx, 30*telem.SecondTS+1)).To(Succeed())
 
 					By("Asserting that the commits will be persisted the next time we use the method after the set time interval")
@@ -468,7 +472,8 @@ var _ = Describe("Writer Behavior", Ordered, func() {
 					w := MustSucceed(db.OpenWriter(ctx, domain.WriterConfig{Start: 10 * telem.SecondTS, AutoIndexPersistInterval: domain.AlwaysIndexPersistOnAutoCommit}))
 
 					By("Writing some data and committing it")
-					MustSucceed(w.Write([]byte{1, 2, 3, 4, 5}))
+					_, err := w.Write([]byte{1, 2, 3, 4, 5})
+					Expect(err).ToNot(HaveOccurred())
 					Expect(w.Commit(ctx, 15*telem.SecondTS+1)).To(Succeed())
 
 					By("Asserting that the previous commit has been persisted")
@@ -479,7 +484,8 @@ var _ = Describe("Writer Behavior", Ordered, func() {
 					Expect(p.length).To(Equal(uint32(5)))
 
 					By("Writing some data and committing it with auto persist right after")
-					MustSucceed(w.Write([]byte{6, 7, 8, 9, 10}))
+					_, err = w.Write([]byte{6, 7, 8, 9, 10})
+					Expect(err).ToNot(HaveOccurred())
 					Expect(w.Commit(ctx, 20*telem.SecondTS+1)).To(Succeed())
 
 					By("Asserting that the previous commit has been persisted")
@@ -490,7 +496,8 @@ var _ = Describe("Writer Behavior", Ordered, func() {
 					Expect(p.length).To(Equal(uint32(10)))
 
 					By("Writing some data and committing it with auto persist right after")
-					MustSucceed(w.Write([]byte{11, 12, 13, 14, 15}))
+					_, err = w.Write([]byte{11, 12, 13, 14, 15})
+					Expect(err).ToNot(HaveOccurred())
 					Expect(w.Commit(ctx, 25*telem.SecondTS+1)).To(Succeed())
 
 					By("Asserting that the previous commits have not been persisted")
@@ -508,11 +515,13 @@ var _ = Describe("Writer Behavior", Ordered, func() {
 					w := MustSucceed(db.OpenWriter(ctx, domain.WriterConfig{Start: 10 * telem.SecondTS, AutoIndexPersistInterval: 10 * telem.Second}))
 
 					By("Writing some data and committing it")
-					MustSucceed(w.Write([]byte{1, 2, 3, 4, 5}))
+					_, err := w.Write([]byte{1, 2, 3, 4, 5})
+					Expect(err).ToNot(HaveOccurred())
 					Expect(w.Commit(ctx, 15*telem.SecondTS+1)).To(Succeed())
 
 					By("Writing some data and committing it")
-					MustSucceed(w.Write([]byte{6, 7, 8, 9, 10}))
+					_, err = w.Write([]byte{6, 7, 8, 9, 10})
+					Expect(err).ToNot(HaveOccurred())
 					Expect(w.Commit(ctx, 20*telem.SecondTS+1)).To(Succeed())
 
 					By("Closing the writer")
@@ -537,11 +546,13 @@ var _ = Describe("Writer Behavior", Ordered, func() {
 					}))
 
 					By("Writing some data and committing it")
-					MustSucceed(w.Write([]byte{1, 2, 3, 4, 5}))
+					_, err := w.Write([]byte{1, 2, 3, 4, 5})
+					Expect(err).ToNot(HaveOccurred())
 					Expect(w.Commit(ctx, 15*telem.SecondTS+1)).To(Succeed())
 
 					By("Writing some data and committing it")
-					MustSucceed(w.Write([]byte{6, 7, 8, 9, 10}))
+					_, err = w.Write([]byte{6, 7, 8, 9, 10})
+					Expect(err).ToNot(HaveOccurred())
 					Expect(w.Commit(ctx, 20*telem.SecondTS+1)).To(Succeed())
 
 					By("Asserting that the commit has been persisted")

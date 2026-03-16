@@ -20,17 +20,11 @@ else
 fi
 
 REBUILD_PATHS=(
-    ".bazelignore"
     ".bazeliskrc"
     ".bazelrc"
-    ".github/workflows/build.synnax.yaml"
-    ".github/workflows/test.integration.yaml"
-    ".gitmodules"
+    ".github/workflows/**"
     "alamos/go/**"
     "alamos/ts/**"
-    "arc/cpp/**"
-    "arc/go/**"
-    "arc/ts/**"
     "aspen/**"
     "cesium/**"
     "client/cpp/**"
@@ -44,6 +38,8 @@ REBUILD_PATHS=(
     "freighter/cpp/**"
     "freighter/go/**"
     "freighter/ts/**"
+    "go.work"
+    "go.work.sum"
     "MODULE.bazel"
     "MODULE.bazel.lock"
     "package.json"
@@ -51,10 +47,11 @@ REBUILD_PATHS=(
     "pnpm-lock.yaml"
     "pnpm-workspace.yaml"
     "turbo.json"
-    "vendor/**"
+    "vendor/mbedtls/**"
+    "vendor/open62541/**"
+    "vendor/wasmtime/**"
     "x/cpp/**"
     "x/go/**"
-    "x/media/**"
     "x/ts/**"
 )
 

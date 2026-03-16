@@ -191,7 +191,8 @@ var _ = Describe("Streamer Behavior", func() {
 					Eventually(func(g Gomega) {
 						g.Eventually(o.Outlet()).Should(Receive(&r))
 						g.Expect(r.Frame.Count()).To(Equal(1))
-						u := MustSucceed(decodeControlUpdate(ctx, r.Frame.SeriesAt(0)))
+						u, err := decodeControlUpdate(ctx, r.Frame.SeriesAt(0))
+						g.Expect(err).ToNot(HaveOccurred())
 						g.Expect(u.Transfers).To(HaveLen(1))
 						first := u.Transfers[0]
 						g.Expect(first.Occurred()).To(BeTrue())

@@ -164,14 +164,16 @@ var _ = Describe("Delete", Ordered, func() {
 					Expect(iter.TimeRange()).To(Equal(cfg.FirstTimeRange))
 					r := MustSucceed(iter.OpenReader(ctx))
 					p := make([]byte, len(cfg.FirstData))
-					MustSucceed(r.ReadAt(p, 0))
+					_, err := r.ReadAt(p, 0)
+					Expect(err).ToNot(HaveOccurred())
 					Expect(p[:len(cfg.FirstData)]).To(Equal(cfg.FirstData))
 					Expect(r.Close()).To(Succeed())
 					Expect(iter.Next()).To(BeTrue())
 					Expect(iter.TimeRange()).To(Equal(cfg.SecondTimeRange))
 					r = MustSucceed(iter.OpenReader(ctx))
 					p = make([]byte, len(cfg.SecondData))
-					MustSucceed(r.ReadAt(p, 0))
+					_, err = r.ReadAt(p, 0)
+					Expect(err).ToNot(HaveOccurred())
 					Expect(p[:len(cfg.SecondData)]).To(Equal(cfg.SecondData))
 					Expect(iter.Close()).To(Succeed())
 					Expect(r.Close()).To(Succeed())
@@ -253,7 +255,8 @@ var _ = Describe("Delete", Ordered, func() {
 					Expect(iter.TimeRange()).To(Equal((10 * telem.SecondTS).Range(12 * telem.SecondTS)))
 					r := MustSucceed(iter.OpenReader(ctx))
 					p := make([]byte, 2)
-					MustSucceed(r.ReadAt(p, 0))
+					_, err := r.ReadAt(p, 0)
+					Expect(err).ToNot(HaveOccurred())
 					Expect(p[:2]).To(Equal([]byte{10, 11}))
 					Expect(r.Close()).To(Succeed())
 
@@ -273,13 +276,15 @@ var _ = Describe("Delete", Ordered, func() {
 					Expect(iter.TimeRange()).To(Equal((10 * telem.SecondTS).Range(20 * telem.SecondTS)))
 					r := MustSucceed(iter.OpenReader(ctx))
 					p := make([]byte, 10)
-					MustSucceed(r.ReadAt(p, 0))
+					_, err := r.ReadAt(p, 0)
+					Expect(err).ToNot(HaveOccurred())
 					Expect(p[:10]).To(Equal([]byte{10, 11, 12, 13, 14, 15, 16, 17, 18, 19}))
 					Expect(r.Close()).To(Succeed())
 
 					Expect(iter.Next()).To(BeTrue())
 					r = MustSucceed(iter.OpenReader(ctx))
-					MustSucceed(r.ReadAt(p, 0))
+					_, err = r.ReadAt(p, 0)
+					Expect(err).ToNot(HaveOccurred())
 					Expect(p[:10]).To(Equal([]byte{20, 21, 22, 23, 24, 25, 26, 27, 28, 29}))
 					Expect(iter.Close()).To(Succeed())
 					Expect(r.Close()).To(Succeed())
@@ -324,7 +329,8 @@ var _ = Describe("Delete", Ordered, func() {
 					Expect(iter.TimeRange()).To(Equal((10 * telem.SecondTS).Range(11 * telem.SecondTS)))
 					r := MustSucceed(iter.OpenReader(ctx))
 					p := make([]byte, 1)
-					MustSucceed(r.ReadAt(p, 0))
+					_, err := r.ReadAt(p, 0)
+					Expect(err).ToNot(HaveOccurred())
 					Expect(p[:1]).To(Equal([]byte{10}))
 					Expect(r.Close()).To(Succeed())
 
@@ -332,7 +338,8 @@ var _ = Describe("Delete", Ordered, func() {
 					Expect(iter.TimeRange()).To(Equal((15 * telem.SecondTS).Range(17 * telem.SecondTS)))
 					r = MustSucceed(iter.OpenReader(ctx))
 					p = make([]byte, 2)
-					MustSucceed(r.ReadAt(p, 0))
+					_, err = r.ReadAt(p, 0)
+					Expect(err).ToNot(HaveOccurred())
 					Expect(p[:2]).To(Equal([]byte{15, 16}))
 					Expect(r.Close()).To(Succeed())
 
@@ -340,7 +347,8 @@ var _ = Describe("Delete", Ordered, func() {
 					Expect(iter.TimeRange()).To(Equal((19 * telem.SecondTS).Range(20 * telem.SecondTS)))
 					r = MustSucceed(iter.OpenReader(ctx))
 					p = make([]byte, 1)
-					MustSucceed(r.ReadAt(p, 0))
+					_, err = r.ReadAt(p, 0)
+					Expect(err).ToNot(HaveOccurred())
 					Expect(p[:1]).To(Equal([]byte{19}))
 					Expect(r.Close()).To(Succeed())
 
@@ -348,7 +356,8 @@ var _ = Describe("Delete", Ordered, func() {
 					Expect(iter.TimeRange()).To(Equal((22 * telem.SecondTS).Range(30 * telem.SecondTS)))
 					r = MustSucceed(iter.OpenReader(ctx))
 					p = make([]byte, 10)
-					MustSucceed(r.ReadAt(p, 0))
+					_, err = r.ReadAt(p, 0)
+					Expect(err).ToNot(HaveOccurred())
 					Expect(p[:10]).To(Equal([]byte{20, 21, 22, 23, 24, 25, 26, 27, 28, 29}))
 					Expect(r.Close()).To(Succeed())
 
@@ -414,12 +423,13 @@ var _ = Describe("Delete", Ordered, func() {
 					})
 
 					It("Should not return an error when the start pointer is 1 greater than the end pointer and the offsets are 0 and full, respectively", func() {
-						Expect(db.Delete(
+						err := db.Delete(
 							ctx,
 							telem.TimeRange{Start: 40 * telem.SecondTS, End: 39 * telem.SecondTS},
 							fixedOffset(0),
 							fixedOffset(10),
-						)).To(Succeed())
+						)
+						Expect(err).ToNot(HaveOccurred())
 					})
 
 					It("Should return errors when the startOffset is after the endOffset for same pointer deletion", func() {

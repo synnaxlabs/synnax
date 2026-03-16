@@ -48,7 +48,8 @@ var _ = Describe("Open", func() {
 
 				It("Should error when numeric folders do not have meta.json file", func() {
 					s := MustSucceed(fs.Sub("sub"))
-					MustSucceed(s.Sub("1"))
+					_, err := s.Sub("1")
+					Expect(err).ToNot(HaveOccurred())
 
 					db, err := cesium.Open(ctx, "", cesium.WithFS(s), cesium.WithInstrumentation(PanicLogger()))
 					Expect(db).To(BeNil())
@@ -70,7 +71,8 @@ var _ = Describe("Open", func() {
 					Expect(db.Close()).To(Succeed())
 
 					db = openDBOnFS(s)
-					ch := MustSucceed(db.RetrieveChannel(ctx, key))
+					ch, err := db.RetrieveChannel(ctx, key)
+					Expect(err).ToNot(HaveOccurred())
 
 					Expect(ch.Key).To(Equal(key))
 					Expect(ch.IsIndex).To(BeTrue())

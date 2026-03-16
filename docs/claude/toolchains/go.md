@@ -12,24 +12,26 @@ Individual Go modules in the monorepo:
 - `/alamos/go/` - Instrumentation and observability
 - `/x/go/` - Shared Go utilities
 
-### Local Module Resolution
+### Go Workspace
 
-Each Go module uses `replace` directives in its `go.mod` to reference sibling modules
-via relative paths. For example, `core/go.mod` contains:
+The repo uses a `go.work` file to manage local module replacements:
 
 ```go
-replace (
-    github.com/synnaxlabs/alamos => ../alamos/go
-    github.com/synnaxlabs/arc => ../arc/go
-    github.com/synnaxlabs/aspen => ../aspen
-    github.com/synnaxlabs/cesium => ../cesium
-    github.com/synnaxlabs/freighter => ../freighter/go
-    github.com/synnaxlabs/x => ../x/go
+go 1.25.4
+
+use (
+    ./alamos/go
+    ./arc/go
+    ./aspen
+    ./cesium
+    ./core
+    ./freighter/go
+    ./freighter/integration
+    ./x/go
 )
 ```
 
-This allows modules to reference each other without publishing. `go.work` and
-`go.work.sum` are gitignored but can be used locally for convenience.
+This allows modules to reference each other without publishing.
 
 ## Development Commands
 
