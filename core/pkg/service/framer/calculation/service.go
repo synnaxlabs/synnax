@@ -257,27 +257,13 @@ func (s *Service) updateGroup(ctx context.Context, key int, mods []compiler.Modu
 			return err
 		}
 	}
-	calculators := make([]*calculator.Calculator, 0, len(mods))
-	for _, m := range mods {
+	calculators := make([]*calculator.Calculator, len(mods))
+	for i, m := range mods {
 		calc, err := s.openOrGetCalculator(ctx, m)
 		if err != nil {
-			s.cfg.L.Error("failed to open calculator",
-				zap.String("channel", m.Channel.Key().String()),
-				zap.Error(err),
-			)
-			s.setStatus(ctx, calculator.Status{
-				Key:         m.Channel.Key().String(),
-				Name:        m.Channel.Name,
-				Variant:     xstatus.VariantError,
-				Message:     fmt.Sprintf("Failed to open calculator for %s", m.Channel.Name),
-				Description: err.Error(),
-			})
-			continue
+			return err
 		}
-		calculators = append(calculators, calc)
-	}
-	if len(calculators) == 0 {
-		return nil
+		calculators[i] = calc
 	}
 	g, err := openGroup(
 		ctx,
@@ -361,6 +347,7 @@ func (s *Service) updateRequests(ctx context.Context, added, removed []channel.K
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
+	graphChanged := len(removed) > 0
 	for _, k := range removed {
 		if err := s.mu.graph.Remove(k); err != nil {
 			return err
@@ -379,12 +366,15 @@ func (s *Service) updateRequests(ctx context.Context, added, removed []channel.K
 				Description: err.Error(),
 			})
 		}
+		graphChanged = true
 	}
 	if len(statuses) > 0 {
 		s.setStatus(ctx, statuses...)
 	}
-	if err := s.rebuildGroups(ctx); err != nil {
-		return err
+	if graphChanged {
+		if err := s.rebuildGroups(ctx); err != nil {
+			return err
+		}
 	}
 	if len(added) > 0 {
 		s.cfg.L.Debug("calculation requests added", zap.Stringers("channels", added))
