@@ -24,20 +24,22 @@ TESTS_DIR="integration/tests"
 EXEMPT="example"
 
 # Matrix definition (single source of truth)
+# Format: "name:target" where target can be comma-separated file prefixes
 MATRIX_ENTRIES=(
-    "arc,control,latency"
-    "console"
-    "driver"
+    "arc:arc,control,latency"
+    "console:console"
+    "driver:driver"
 )
 
 covered=""
 for entry in "${MATRIX_ENTRIES[@]}"; do
-    for prefix in $(echo "$entry" | tr ',' ' '); do
+    target="${entry#*:}"
+    for prefix in $(echo "$target" | tr ',' ' '); do
         covered="$covered $prefix"
     done
 done
 
-# Validate coverage
+# Forward validation: every *_tests.json on disk must be covered
 missing=""
 for file in "$TESTS_DIR"/*_tests.json; do
     [ -f "$file" ] || continue
@@ -58,6 +60,20 @@ if [ -n "$missing" ]; then
     exit 1
 fi
 
+# Reverse validation: every prefix in the matrix must have a *_tests.json file
+invalid=""
+for prefix in $covered; do
+    if [ ! -f "$TESTS_DIR/${prefix}_tests.json" ]; then
+        invalid="$invalid $prefix"
+    fi
+done
+
+if [ -n "$invalid" ]; then
+    echo "::error::Matrix references missing test files:$invalid"
+    echo "Update MATRIX_ENTRIES in integration/scripts/validate_test_coverage.sh"
+    exit 1
+fi
+
 echo "All test files covered:"
 for prefix in $covered; do
     echo "  ✓ ${prefix}_tests.json"
@@ -70,13 +86,14 @@ fi
 json='{"include":['
 first=true
 for entry in "${MATRIX_ENTRIES[@]}"; do
-    name="$entry"
+    name="${entry%%:*}"
+    target="${entry#*:}"
     if [ "$first" = true ]; then
         first=false
     else
         json+=","
     fi
-    json+="{\"name\":\"$name\",\"target\":\"$entry\"}"
+    json+="{\"name\":\"$name\",\"target\":\"$target\"}"
 done
 json+=']}'
 

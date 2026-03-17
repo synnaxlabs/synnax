@@ -164,9 +164,9 @@ class ExecutionClient:
         with self._tests_lock:
             for result in failed:
                 self._tests.remove(result)
+            self._tests_offset = len(self._tests)
 
         self._total_tests = len(retry_defs)
-        self._tests_offset = len(self._tests)
         self._execute_sequential(retry_defs)
 
         with self._tests_lock:
@@ -345,7 +345,10 @@ class ExecutionClient:
                     self._log(f"Warning: Could not finalize range: {e}", True)
 
             if test_instance is not None and test_instance._status != STATUS.KILLED:
-                if test.status in (STATUS.FAILED, STATUS.TIMEOUT):
+                if test.status in (
+                    STATUS.FAILED,
+                    STATUS.TIMEOUT,
+                ) or test_instance._status in (STATUS.FAILED, STATUS.TIMEOUT):
                     test_instance.log_client.dump()
                 else:
                     test_instance.log_client.discard()
