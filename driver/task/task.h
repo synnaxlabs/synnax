@@ -305,7 +305,7 @@ public:
     ):
         rack(std::move(rack)),
         ctx(std::make_shared<
-            SynnaxContext>(client, bus, authority_mirror, rack.key, rt_manager)),
+            SynnaxContext>(client, bus, authority_mirror, this->rack.key, rt_manager)),
         factory(std::move(factory)),
         op_timeout(cfg.op_timeout),
         poll_interval(cfg.poll_interval),

@@ -18,7 +18,6 @@
 #include <mutex>
 #include <shared_mutex>
 #include <unordered_map>
-#include <unordered_set>
 #include <vector>
 
 #include "glog/logging.h"
@@ -106,7 +105,23 @@ public:
         {
             std::shared_lock lock(this->mu);
             if (this->routes.empty()) return;
-            std::unordered_set<Subscription *> delivered;
+            static constexpr size_t INLINE_CAP = 4;
+            Subscription *inline_buf[INLINE_CAP];
+            size_t inline_count = 0;
+            std::vector<Subscription *> overflow;
+            auto already_delivered = [&](Subscription *p) {
+                for (size_t j = 0; j < inline_count; j++)
+                    if (inline_buf[j] == p) return true;
+                for (auto *o: overflow)
+                    if (o == p) return true;
+                return false;
+            };
+            auto mark_delivered = [&](Subscription *p) {
+                if (inline_count < INLINE_CAP)
+                    inline_buf[inline_count++] = p;
+                else
+                    overflow.push_back(p);
+            };
             for (const auto &[key, _]: frame) {
                 auto it = this->routes.find(key);
                 if (it == this->routes.end()) continue;
@@ -116,7 +131,8 @@ public:
                         has_expired = true;
                         continue;
                     }
-                    if (delivered.insert(sub.get()).second) {
+                    if (!already_delivered(sub.get())) {
+                        mark_delivered(sub.get());
                         VLOG(1) << "[bus] routing frame with " << frame.size()
                                 << " channels to subscription";
                         sub->push(frame.shallow_copy());

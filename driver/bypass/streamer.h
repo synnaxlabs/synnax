@@ -32,6 +32,7 @@ class Streamer final : public pipeline::Streamer {
     std::mutex server_mu;
     std::deque<x::telem::Frame> server_frames;
     bool server_done = false;
+    bool closed = false;
     x::errors::Error server_err{x::errors::NIL};
 
     std::mutex notify_mu;
@@ -51,6 +52,8 @@ public:
         this->subscription->set_on_push([this] { this->notify_cv.notify_one(); });
         this->server_thread = std::thread([this] { this->read_server(); });
     }
+
+    ~Streamer() override { this->close(); }
 
     std::pair<x::telem::Frame, x::errors::Error> read() override {
         while (true) {
@@ -85,6 +88,8 @@ public:
     }
 
     x::errors::Error close() override {
+        if (this->closed) return x::errors::NIL;
+        this->closed = true;
         auto err = this->server->close();
         if (this->server_thread.joinable()) this->server_thread.join();
         return err;

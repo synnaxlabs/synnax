@@ -9,7 +9,6 @@
 
 #pragma once
 
-#include <atomic>
 #include <shared_mutex>
 #include <thread>
 #include <unordered_map>
@@ -26,11 +25,18 @@ namespace driver::bypass {
 class AuthorityMirror {
     mutable std::shared_mutex mu;
     std::unordered_map<synnax::channel::Key, x::control::State> states;
+    std::mutex streamer_mu;
     std::unique_ptr<synnax::framer::Streamer> streamer;
     std::shared_ptr<synnax::Synnax> client;
     synnax::channel::Key control_state_key = 0;
     std::thread thread;
-    std::atomic<bool> running{false};
+    x::breaker::Breaker breaker{x::breaker::Config{
+        .name = "authority_mirror",
+        .base_interval = x::telem::SECOND,
+        .max_retries = 50,
+        .scale = 1.2f,
+        .max_interval = 30 * x::telem::SECOND,
+    }};
 
 public:
     AuthorityMirror() = default;
@@ -52,15 +58,18 @@ public:
         );
         this->client = client;
         this->control_state_key = control_state_key;
-        this->running.store(true);
+        this->breaker.start();
         this->thread = std::thread([this] { this->run(); });
         return x::errors::NIL;
     }
 
     /// @brief stops the update thread.
     void stop() {
-        if (!this->running.exchange(false)) return;
-        if (this->streamer) this->streamer->close_send();
+        if (!this->breaker.stop()) return;
+        {
+            std::lock_guard lock(this->streamer_mu);
+            if (this->streamer) this->streamer->close_send();
+        }
         if (this->thread.joinable()) this->thread.join();
     }
 
@@ -154,24 +163,19 @@ public:
 
 private:
     void run() {
-        x::breaker::Breaker breaker({
-            .name = "authority_mirror",
-            .base_interval = x::telem::SECOND,
-            .max_retries = 50,
-            .scale = 1.2f,
-            .max_interval = 30 * x::telem::SECOND,
-        });
-        breaker.start();
-        while (this->running.load() && breaker.running()) {
+        while (this->breaker.running()) {
             auto [frame, err] = this->streamer->read();
             if (err) {
-                auto close_err = this->streamer->close();
-                if (close_err)
-                    LOG(WARNING)
-                        << "[authority_mirror] close error: " << close_err.message();
-                if (!this->running.load()) break;
+                {
+                    std::lock_guard lock(this->streamer_mu);
+                    auto close_err = this->streamer->close();
+                    if (close_err)
+                        LOG(WARNING) << "[authority_mirror] close error: "
+                                     << close_err.message();
+                }
+                if (!this->breaker.running()) break;
                 if (!err.matches(freighter::UNREACHABLE) ||
-                    !breaker.wait(err.message()))
+                    !this->breaker.wait(err.message()))
                     break;
                 auto [s, reopen_err] = this->client->telem.open_streamer(
                     synnax::framer::StreamerConfig{
@@ -179,26 +183,30 @@ private:
                     }
                 );
                 if (reopen_err) {
-                    if (!breaker.wait(reopen_err.message())) break;
+                    if (!this->breaker.wait(reopen_err.message())) break;
                     continue;
                 }
-                this->streamer = std::make_unique<synnax::framer::Streamer>(
-                    std::move(s)
-                );
-                LOG(INFO) << "[authority_mirror] reconnected after transient error";
+                if (!this->breaker.running()) break;
+                {
+                    std::lock_guard lock(this->streamer_mu);
+                    this->streamer = std::make_unique<synnax::framer::Streamer>(
+                        std::move(s)
+                    );
+                }
+                LOG(INFO) << "[authority_mirror] reconnected";
                 continue;
             }
-            breaker.reset();
+            this->breaker.reset();
             for (auto [key, series]: frame) {
                 if (series.data_type() != x::telem::STRING_T) continue;
-                auto json_str = series.at<std::string>(0);
-                x::json::Parser parser(json_str);
-                if (!parser.ok()) continue;
-                auto update = x::control::Update::parse(parser);
-                if (parser.ok()) this->apply(update);
+                for (const auto &json_str: series.strings()) {
+                    x::json::Parser parser(json_str);
+                    if (!parser.ok()) continue;
+                    auto update = x::control::Update::parse(parser);
+                    if (parser.ok()) this->apply(update);
+                }
             }
         }
-        breaker.stop();
     }
 };
 }

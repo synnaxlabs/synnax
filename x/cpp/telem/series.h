@@ -95,9 +95,9 @@ class Series {
     /// If the buffer is shared (use_count > 1), materializes a private copy.
     void ensure_exclusive() const {
         if (this->data_ && this->data_.use_count() > 1) {
-            const auto bs = this->byte_size();
-            auto exclusive = alloc(bs);
-            memcpy(exclusive.get(), this->data_.get(), bs);
+            const auto bc = this->byte_cap();
+            auto exclusive = alloc(bc);
+            memcpy(exclusive.get(), this->data_.get(), this->byte_size());
             this->data_ = std::move(exclusive);
         }
     }
