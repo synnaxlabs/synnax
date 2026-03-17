@@ -39,6 +39,9 @@ struct ID {
     /// the error will have ok() == false.
     [[nodiscard]] static std::pair<ID, x::errors::Error> parse(const std::string &s);
 
+    /// @brief Returns true if both type and key are empty.
+    [[nodiscard]] bool is_zero() const { return type.empty() && key.empty(); }
+
     /// @brief Equality operator.
     bool operator==(const ID &other) const;
 

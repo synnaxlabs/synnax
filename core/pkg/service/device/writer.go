@@ -53,16 +53,18 @@ func resolveStatus(d *Device, provided *Status) *Status {
 	return provided
 }
 
-// Create creates or updates the given device. If parent is non-zero, the device
+// Create creates or updates the given device. If device.Parent is non-zero, the device
 // is parented to that ontology resource; otherwise it defaults to the device's rack.
 // If a status is provided on the device, it will be used instead of the default
 // "unknown" status.
-func (w Writer) Create(ctx context.Context, device Device, parent ontology.ID) error {
+func (w Writer) Create(ctx context.Context, device Device) error {
 	if err := device.Validate(); err != nil {
 		return err
 	}
 	providedStatus := device.Status // Preserve before clearing for gorp
 	device.Status = nil             // Status stored separately, not in gorp
+	parent := device.Parent
+	device.Parent = nil // Parent is not stored in gorp
 	var existing Device
 	err := w.retrieve.
 		WhereKeys(device.Key).
@@ -75,8 +77,8 @@ func (w Writer) Create(ctx context.Context, device Device, parent ontology.ID) e
 	exists := !isNotFound
 
 	parentID := device.Rack.OntologyID()
-	if !parent.IsZero() {
-		parentID = parent
+	if parent != nil && !parent.IsZero() {
+		parentID = *parent
 	}
 
 	if err = gorp.
@@ -87,7 +89,7 @@ func (w Writer) Create(ctx context.Context, device Device, parent ontology.ID) e
 	}
 	// If the device already exists and its rack hasn't changed and no explicit
 	// parent was provided, skip redefining the ontology relationship.
-	if exists && device.Rack == existing.Rack && parent.IsZero() {
+	if exists && device.Rack == existing.Rack && parent == nil {
 		if device.Name != existing.Name {
 			stat := resolveStatus(&device, providedStatus)
 			return w.status.Set(ctx, stat)

@@ -123,7 +123,8 @@ struct ClusterAPI {
     virtual std::pair<synnax::device::Device, x::errors::Error>
     retrieve_device(const std::string &key) = 0;
 
-    virtual x::errors::Error create_device(synnax::device::Device &dev) = 0;
+    virtual x::errors::Error
+    create_devices(std::vector<synnax::device::Device> &devs) = 0;
 
     virtual x::errors::Error
     update_statuses(std::vector<synnax::device::Status> statuses) = 0;
@@ -162,8 +163,9 @@ struct SynnaxClusterAPI final : ClusterAPI {
         );
     }
 
-    x::errors::Error create_device(synnax::device::Device &dev) override {
-        return this->client->devices.create(dev);
+    x::errors::Error
+    create_devices(std::vector<synnax::device::Device> &devs) override {
+        return this->client->devices.create(devs);
     }
 
     x::errors::Error
@@ -517,17 +519,13 @@ public:
 
         if (to_create.empty()) return x::errors::NIL;
 
-        x::errors::Error last_err = x::errors::NIL;
-        for (auto &dev: to_create) {
-            if (const auto create_err = this->client->create_device(dev)) {
-                LOG(WARNING) << this->log_prefix << "failed to create device "
-                             << dev.key << ": " << create_err;
-                last_err = create_err;
-            } else
-                LOG(INFO) << this->log_prefix << "successfully created device "
-                          << dev.key;
+        if (const auto err = this->client->create_devices(to_create)) {
+            LOG(WARNING) << this->log_prefix << "failed to create devices: " << err;
+            return err;
         }
-        return last_err;
+        for (const auto &dev: to_create)
+            LOG(INFO) << this->log_prefix << "successfully created device " << dev.key;
+        return x::errors::NIL;
     }
 
     std::string name() const override { return this->task.name; }

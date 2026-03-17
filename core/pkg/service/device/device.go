@@ -40,6 +40,9 @@ type Device struct {
 	Properties binary.MsgpackEncodedJSON `json:"properties" msgpack:"properties"`
 	// Rack is the rack that the device is in.
 	Rack rack.Key `json:"rack" msgpack:"rack"`
+	// Parent is an optional ontology ID for the parent resource of this device.
+	// If non-zero, the device will be parented to this resource instead of its rack.
+	Parent *ontology.ID `json:"parent" msgpack:"parent"`
 	// Configured sets whether the device has been configured yet.
 	Configured bool `json:"configured" msgpack:"configured"`
 }

@@ -49,54 +49,32 @@ func NewService(cfgs ...config.LayerConfig) (*Service, error) {
 	}, nil
 }
 
-// Device wraps the service-layer Device with an optional Parent ontology ID
-// used during creation to establish parent-child relationships.
-type Device struct {
-	device.Device
-	Parent *ontology.ID `json:"parent" msgpack:"parent"`
-}
-
 type CreateRequest struct {
-	Devices []Device `json:"devices" msgpack:"devices"`
+	Devices []device.Device `json:"devices" msgpack:"devices"`
 }
 
 type CreateResponse struct {
-	Devices []Device `json:"devices" msgpack:"devices"`
+	Devices []device.Device `json:"devices" msgpack:"devices"`
 }
 
 func (s *Service) Create(
 	ctx context.Context,
 	req CreateRequest,
 ) (res CreateResponse, _ error) {
-	svcDevices := make([]device.Device, len(req.Devices))
-	for i, d := range req.Devices {
-		svcDevices[i] = d.Device
-	}
 	if err := s.access.Enforce(ctx, access.Request{
 		Subject: auth.GetSubject(ctx),
 		Action:  access.ActionCreate,
-		Objects: device.OntologyIDsFromDevices(svcDevices),
+		Objects: device.OntologyIDsFromDevices(req.Devices),
 	}); err != nil {
 		return res, err
 	}
 	return res, s.db.WithTx(ctx, func(tx gorp.Tx) error {
 		w := s.device.NewWriter(tx)
 		for i, d := range req.Devices {
-			var parent ontology.ID
-			if d.Parent != nil {
-				parent = *d.Parent
-			}
-			if err := w.Create(ctx, d.Device, parent); err != nil {
+			if err := w.Create(ctx, d); err != nil {
 				return err
 			}
-			req.Devices[i].Device = d.Device
-			// Populate the response parent with the resolved parent ID.
-			// If no explicit parent was provided, the device defaults to its rack.
-			resolvedParent := d.Rack.OntologyID()
-			if d.Parent != nil && !d.Parent.IsZero() {
-				resolvedParent = *d.Parent
-			}
-			req.Devices[i].Parent = &resolvedParent
+			req.Devices[i] = d
 		}
 		res.Devices = req.Devices
 		return nil
@@ -119,7 +97,7 @@ type RetrieveRequest struct {
 }
 
 type RetrieveResponse struct {
-	Devices []Device `json:"devices" msgpack:"devices"`
+	Devices []device.Device `json:"devices" msgpack:"devices"`
 }
 
 func (s *Service) Retrieve(
@@ -192,10 +170,9 @@ func (s *Service) Retrieve(
 		retErr = errors.Skip(retErr, query.ErrNotFound)
 	}
 
-	res.Devices = make([]Device, len(svcDevices))
-	for i, d := range svcDevices {
-		res.Devices[i].Device = d
-		if req.IncludeParent {
+	res.Devices = svcDevices
+	if req.IncludeParent {
+		for i, d := range svcDevices {
 			var parents []ontology.Resource
 			if err := s.ontology.NewRetrieve().
 				WhereIDs(device.OntologyID(d.Key)).

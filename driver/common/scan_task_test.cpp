@@ -157,9 +157,12 @@ public:
         return {synnax::device::Device{}, x::errors::Error("device not found")};
     }
 
-    x::errors::Error create_device(synnax::device::Device &dev) override {
-        created->push_back(dev);
-        created_parents->push_back(dev.parent);
+    x::errors::Error
+    create_devices(std::vector<synnax::device::Device> &devs) override {
+        for (auto &dev: devs) {
+            created->push_back(dev);
+            created_parents->push_back(dev.parent);
+        }
         return x::errors::NIL;
     }
 
