@@ -108,8 +108,7 @@ jobs:
         env:
           PYTHONIOENCODING: utf-8
         run: >-
-          uv run test-conductor --name tc_${{ matrix.name }}_win ${{ matrix.target }}
-          ${{ inputs.flags }}
+          uv run test-conductor --name tc_win ${{ matrix.target || inputs.flags }}
 
       - name: Test Conductor (Unix)
         if: runner.os == 'Linux'
@@ -117,8 +116,7 @@ jobs:
         timeout-minutes: 30
         working-directory: integration
         run: >-
-          uv run test-conductor --name tc_${{ matrix.name }}_unix ${{ matrix.target }}
-          ${{ inputs.flags }}
+          uv run test-conductor --name tc_unix ${{ matrix.target || inputs.flags }}
 
       - name: Upload Test Results
         uses: actions/upload-artifact@v6
