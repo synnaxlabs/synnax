@@ -237,13 +237,12 @@ public:
     std::pair<std::vector<Device>, x::errors::Error>
     retrieve(RetrieveRequest &req) const;
 
-    /// @brief Creates a device in the cluster with an optional parent.
+    /// @brief Creates a device in the cluster. If device.parent is set, it will
+    /// be parented to that ontology resource.
     /// @param device The device to create. Will be updated with the assigned key.
-    /// @param parent Optional ontology ID of the parent resource.
     /// @returns An error if the creation failed.
     [[nodiscard]]
-    x::errors::Error
-    create(Device &device, const ontology::ID &parent = ontology::ID{}) const;
+    x::errors::Error create(Device &device) const;
 
     /// @brief Creates multiple devices in the cluster.
     /// @param devs The devices to create. Will be updated with the assigned keys.

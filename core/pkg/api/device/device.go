@@ -53,7 +53,7 @@ func NewService(cfgs ...config.LayerConfig) (*Service, error) {
 // used during creation to establish parent-child relationships.
 type Device struct {
 	device.Device
-	Parent ontology.ID `json:"parent" msgpack:"parent"`
+	Parent *ontology.ID `json:"parent" msgpack:"parent"`
 }
 
 type CreateRequest struct {
@@ -82,10 +82,21 @@ func (s *Service) Create(
 	return res, s.db.WithTx(ctx, func(tx gorp.Tx) error {
 		w := s.device.NewWriter(tx)
 		for i, d := range req.Devices {
-			if err := w.Create(ctx, d.Device, d.Parent); err != nil {
+			var parent ontology.ID
+			if d.Parent != nil {
+				parent = *d.Parent
+			}
+			if err := w.Create(ctx, d.Device, parent); err != nil {
 				return err
 			}
 			req.Devices[i].Device = d.Device
+			// Populate the response parent with the resolved parent ID.
+			// If no explicit parent was provided, the device defaults to its rack.
+			resolvedParent := d.Device.Rack.OntologyID()
+			if d.Parent != nil && !d.Parent.IsZero() {
+				resolvedParent = *d.Parent
+			}
+			req.Devices[i].Parent = &resolvedParent
 		}
 		res.Devices = req.Devices
 		return nil
@@ -196,7 +207,8 @@ func (s *Service) Retrieve(
 				return RetrieveResponse{}, err
 			}
 			if len(parents) > 0 {
-				res.Devices[i].Parent = parents[0].ID
+				id := parents[0].ID
+			res.Devices[i].Parent = &id
 			}
 		}
 	}

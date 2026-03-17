@@ -50,7 +50,6 @@ import { DefaultContextMenu } from "@/ontology/DefaultContextMenu";
 import {
   type BaseProps,
   type GetResource,
-  resolveHasChildren,
   type TreeContextMenuProps,
   type TreeItemProps,
   type TreeState,
@@ -179,7 +178,7 @@ const Internal = ({ root, emptyContent }: InternalProps): ReactElement => {
           });
           const converted = filtered.map((r) => ({
             key: ontology.idToString(r.id),
-            children: resolveHasChildren(services[r.id.type], r) ? [] : undefined,
+            children: services[r.id.type].hasChildren ? [] : undefined,
           }));
           const ids = new Set(filtered.map((r) => ontology.idToString(r.id)));
           setNodes((prevNodes) => [
@@ -231,7 +230,7 @@ const Internal = ({ root, emptyContent }: InternalProps): ReactElement => {
       });
       const nodes = filtered.map((c) => ({
         key: ontology.idToString(c.id),
-        children: resolveHasChildren(services[c.id.type], c) ? [] : undefined,
+        children: services[c.id.type].hasChildren ? [] : undefined,
       }));
       setNodes(nodes);
     },
@@ -269,10 +268,6 @@ const Internal = ({ root, emptyContent }: InternalProps): ReactElement => {
     setNodes((prevNodes) => {
       let destination: string | null = ontology.idToString(from);
       if (ontology.idsEqual(from, root)) destination = null;
-      const svc = services[to.type];
-      const [resource] = resourceStore.get([ontology.idToString(to)]);
-      const hasChildren =
-        resource != null ? resolveHasChildren(svc, resource) : svc.hasChildren === true;
       const nextNodes = [
         ...Base.setNode({
           tree: Base.deepCopy(prevNodes),
@@ -280,7 +275,7 @@ const Internal = ({ root, emptyContent }: InternalProps): ReactElement => {
           additions: [
             {
               key: ontology.idToString(to),
-              children: hasChildren ? [] : undefined,
+              children: services[to.type].hasChildren ? [] : undefined,
             },
           ],
           throwOnMissing: false,

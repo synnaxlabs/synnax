@@ -46,9 +46,7 @@ export const deviceZ = <
     configured: z.boolean().optional(),
     properties: properties ?? record.nullishToEmpty(),
     status: zod.nullToUndefined(statusZ),
-    // .catch(undefined) is required here because the server sends a zero-value
-    // ontology.ID when no parent is set, which fails idZ validation.
-    parent: ontology.idZ.nullish().catch(undefined),
+    parent: ontology.idZ.nullish(),
   });
 
 export interface Device<

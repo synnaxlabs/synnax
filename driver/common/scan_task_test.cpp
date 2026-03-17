@@ -157,12 +157,9 @@ public:
         return {synnax::device::Device{}, x::errors::Error("device not found")};
     }
 
-    x::errors::Error create_device(
-        synnax::device::Device &dev,
-        const synnax::ontology::ID &parent = {}
-    ) override {
+    x::errors::Error create_device(synnax::device::Device &dev) override {
         created->push_back(dev);
-        created_parents->push_back(parent);
+        created_parents->push_back(dev.parent);
         return x::errors::NIL;
     }
 
@@ -955,7 +952,7 @@ TEST(TestScanTask, TestNoUpdateWhenParentDeviceSame) {
 
     ASSERT_NIL(scan_task.init());
     // First scan establishes the parent state (triggers update since
-    // parent_states is initially empty)
+    // dev_states is initially empty)
     ASSERT_NIL(scan_task.scan());
     EXPECT_EQ(created_devices->size(), 1);
 

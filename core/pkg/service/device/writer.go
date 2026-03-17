@@ -109,15 +109,12 @@ func (w Writer) Create(ctx context.Context, device Device, parent ontology.ID) e
 	); err != nil {
 		return err
 	}
-	if err = w.otg.DefineRelationship(
+	return w.otg.DefineRelationship(
 		ctx,
 		parentID,
 		ontology.RelationshipTypeParentOf,
 		otgID,
-	); err != nil {
-		return err
-	}
-	return nil
+	)
 }
 
 // Delete deletes the device with the given key and its associated status.

@@ -123,10 +123,7 @@ struct ClusterAPI {
     virtual std::pair<synnax::device::Device, x::errors::Error>
     retrieve_device(const std::string &key) = 0;
 
-    virtual x::errors::Error create_device(
-        synnax::device::Device &dev,
-        const synnax::ontology::ID &parent = {}
-    ) = 0;
+    virtual x::errors::Error create_device(synnax::device::Device &dev) = 0;
 
     virtual x::errors::Error
     update_statuses(std::vector<synnax::device::Status> statuses) = 0;
@@ -165,11 +162,8 @@ struct SynnaxClusterAPI final : ClusterAPI {
         );
     }
 
-    x::errors::Error create_device(
-        synnax::device::Device &dev,
-        const synnax::ontology::ID &parent = {}
-    ) override {
-        return this->client->devices.create(dev, parent);
+    x::errors::Error create_device(synnax::device::Device &dev) override {
+        return this->client->devices.create(dev);
     }
 
     x::errors::Error
@@ -203,7 +197,6 @@ class ScanTask final : public task::Task, public pipeline::Base {
     ScannerContext scanner_ctx;
     std::unique_ptr<ClusterAPI> client;
     std::unordered_map<std::string, synnax::device::Device> dev_states;
-    std::unordered_map<std::string, synnax::ontology::ID> parent_states;
     std::string log_prefix;
 
     // Signal monitoring infrastructure
@@ -464,7 +457,6 @@ public:
                 if (iter == this->dev_states.end()) {
                     to_create.push_back(dev);
                     this->dev_states[dev.key] = dev;
-                    this->parent_states[dev.key] = dev.parent;
                     continue;
                 }
                 const auto &remote_dev = iter->second;
@@ -482,11 +474,10 @@ public:
                     needs_update = true;
                 }
 
-                auto prev_parent = this->parent_states[dev.key];
-                if (dev.parent != prev_parent) {
+                if (dev.parent != remote_dev.parent) {
                     VLOG(1) << this->log_prefix << "device parent changed for "
-                            << dev.key << " from '" << prev_parent.string() << "' to '"
-                            << dev.parent.string() << "'";
+                            << dev.key << " from '" << remote_dev.parent.string()
+                            << "' to '" << dev.parent.string() << "'";
                     needs_update = true;
                 }
 
@@ -507,7 +498,6 @@ public:
 
                 dev.status.time = last_available;
                 this->dev_states[dev.key] = dev;
-                this->parent_states[dev.key] = dev.parent;
             }
 
             for (auto &[key, dev]: this->dev_states) {
@@ -529,7 +519,7 @@ public:
 
         x::errors::Error last_err = x::errors::NIL;
         for (auto &dev: to_create) {
-            if (const auto create_err = this->client->create_device(dev, dev.parent)) {
+            if (const auto create_err = this->client->create_device(dev)) {
                 LOG(WARNING) << this->log_prefix << "failed to create device "
                              << dev.key << ": " << create_err;
                 last_err = create_err;

@@ -72,7 +72,9 @@ func apiDeviceToProto(d *apidevice.Device) (*gapi.Device, error) {
 		Make:       d.Make,
 		Model:      d.Model,
 		Configured: d.Configured,
-		Parent:     grpcontology.IDToProto(d.Parent),
+	}
+	if d.Parent != nil {
+		gd.Parent = grpcontology.IDToProto(*d.Parent)
 	}
 	if d.Properties != nil {
 		s, err := structpb.NewStruct(map[string]any(d.Properties))
@@ -102,7 +104,10 @@ func apiDeviceFromProto(d *gapi.Device) (*apidevice.Device, error) {
 			Model:      d.Model,
 			Configured: d.Configured,
 		},
-		Parent: grpcontology.IDFromProto(d.Parent),
+	}
+	if d.Parent != nil {
+		id := grpcontology.IDFromProto(d.Parent)
+		ad.Parent = &id
 	}
 	if d.Properties != nil {
 		ad.Properties = d.Properties.AsMap()
