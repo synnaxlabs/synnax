@@ -154,7 +154,10 @@ class TestConductor:
     def load(self, target_filter: TargetFilter) -> None:
         """Load test sequences using the config client."""
         self.state = STATE.LOADING
-        self.sequences, self.test_definitions = self.config_client.load(target_filter)
+        sequences, new_defs = self.config_client.load(target_filter)
+        self.sequences = sequences
+        self.test_definitions.clear()
+        self.test_definitions.extend(new_defs)
         self.telemetry_client.set_test_case_count(len(self.test_definitions))
 
     def run_sequence(self) -> list[Test]:
@@ -170,10 +173,9 @@ class TestConductor:
 
     def wait_for_completion(self) -> None:
         """Wait for all async processes to complete."""
-        self.state = STATE.SHUTDOWN
+        self.state = STATE.COMPLETED
         self.execution_client.should_stop = True
         self.should_stop = True
-        self.state = STATE.COMPLETED
 
         if not self.telemetry_client.stop():
             self.log_message("Warning: telemetry thread did not stop within timeout")
@@ -205,6 +207,7 @@ class TestConductor:
     def stop_sequence(self) -> None:
         """Stop the entire test sequence execution."""
         self.execution_client.stop()
+        self.should_stop = True
         self.telemetry_client.stop()
 
     @property
