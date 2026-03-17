@@ -70,7 +70,7 @@ fi
 json='{"include":['
 first=true
 for entry in "${MATRIX_ENTRIES[@]}"; do
-    name="${entry%%,*}"
+    name="$entry"
     if [ "$first" = true ]; then
         first=false
     else
