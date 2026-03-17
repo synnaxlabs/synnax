@@ -19,11 +19,10 @@ import {
   type NumberCouple,
   numberCouple,
   signedDimensionsZ,
-  type XY,
-  xyZ,
 } from "@/spatial/base";
 import { direction as dir } from "@/spatial/direction";
 import { type location } from "@/spatial/location";
+import { type XY, xyZ } from "@/spatial/types.gen";
 
 export { type ClientXY as Client, clientXyZ, type XY, xyZ };
 
