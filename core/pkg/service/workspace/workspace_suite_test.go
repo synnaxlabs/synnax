@@ -40,9 +40,7 @@ var (
 )
 
 var _ = BeforeSuite(func() {
-	var err error
 	db = gorp.Wrap(memkv.New())
-	Expect(err).ToNot(HaveOccurred())
 	otg = MustSucceed(ontology.Open(ctx, ontology.Config{
 		EnableSearch: new(false),
 		DB:           db,

@@ -29,19 +29,15 @@ var _ = Describe("storage", func() {
 			cfg     storage.LayerConfig
 		)
 		BeforeEach(func() {
-			var err error
-			tempDir, err = os.MkdirTemp("", "synnax-test")
-			Expect(err).ToNot(HaveOccurred())
+			tempDir = MustSucceed(os.MkdirTemp("", "synnax-test"))
 			cfg = storage.LayerConfig{Dirname: filepath.Join(tempDir, "storage")}
 			ShouldNotLeakGoroutines()
 		})
 		AfterEach(func() { Expect(os.RemoveAll(tempDir)).ToNot(HaveOccurred()) })
 		Describe("Acquiring a lock", func() {
 			It("Should return an error if the lock is already acquired", func() {
-				store, err := storage.OpenLayer(ctx, cfg)
-				Expect(err).NotTo(HaveOccurred())
-				_, err = storage.OpenLayer(ctx, cfg)
-				Expect(err).To(HaveOccurred())
+				store := MustSucceed(storage.OpenLayer(ctx, cfg))
+				Expect(storage.OpenLayer(ctx, cfg)).Error().To(HaveOccurred())
 				Expect(store.Close()).To(Succeed())
 			})
 		})
@@ -53,10 +49,8 @@ var _ = Describe("storage", func() {
 				Describe("Name Directory", func() {
 					It("Should set the correct permissions on the storage directory", func() {
 						cfg.Perm = storage.DefaultLayerConfig.Perm
-						store, err := storage.OpenLayer(ctx, cfg)
-						Expect(err).NotTo(HaveOccurred())
-						stat, err := os.Stat(cfg.Dirname)
-						Expect(err).ToNot(HaveOccurred())
+						store := MustSucceed(storage.OpenLayer(ctx, cfg))
+						stat := MustSucceed(os.Stat(cfg.Dirname))
 						Expect(stat.Mode().Perm()).To(Equal(cfg.Perm))
 						Expect(store.Close()).To(Succeed())
 					})
@@ -81,15 +75,14 @@ var _ = Describe("storage", func() {
 		Describe("In-Memory", func() {
 			It("Should open a memory backed version of storage", func() {
 				cfg.InMemory = new(true)
-				store, err := storage.OpenLayer(ctx, cfg)
-				Expect(err).NotTo(HaveOccurred())
+				store := MustSucceed(storage.OpenLayer(ctx, cfg))
 				Expect(store.Close()).To(Succeed())
 			})
 		})
 	})
 	Describe("ServiceConfig", func() {
 		DescribeTable("Validate", func(
-			spec func(cfg storage.LayerConfig) storage.LayerConfig,
+			spec func(storage.LayerConfig) storage.LayerConfig,
 			contains string,
 		) {
 			iCfg := storage.DefaultLayerConfig

@@ -28,6 +28,20 @@ public:
     void run() override { throw std::out_of_range("test std::exception"); }
 };
 
+class SelfStoppingPipeline final : public Base {
+    std::atomic<int> run_count{0};
+
+public:
+    explicit SelfStoppingPipeline(const x::breaker::Config &config): Base(config) {}
+
+    int runs() const { return this->run_count.load(); }
+
+    void run() override {
+        this->run_count.fetch_add(1);
+        this->stop();
+    }
+};
+
 /// @brief it should catch and handle unknown exceptions in run().
 TEST(BasePipeline, testUnknownExceptionHandling) {
     auto pipeline = ThrowingPipeline(x::breaker::Config{});
@@ -42,5 +56,21 @@ TEST(BasePipeline, testStdExceptionHandling) {
     ASSERT_TRUE(pipeline.start());
     std::this_thread::sleep_for(std::chrono::milliseconds(5));
     ASSERT_TRUE(pipeline.stop());
+}
+
+/// @brief calling start() after run() self-stops must not abort or deadlock.
+/// Before the fix, the old std::thread was still joinable when start() assigned
+/// a new one, triggering std::terminate(). The fix joins the old thread before
+/// restarting the breaker to also prevent the old thread from seeing the new
+/// breaker state and re-entering its loop.
+TEST(BasePipeline, testStartAfterSelfStop) {
+    auto pipeline = SelfStoppingPipeline(x::breaker::Config{});
+    ASSERT_TRUE(pipeline.start());
+    ASSERT_EVENTUALLY_EQ(pipeline.runs(), 1);
+    ASSERT_TRUE(pipeline.start());
+    ASSERT_EVENTUALLY_EQ(pipeline.runs(), 2);
+    ASSERT_TRUE(pipeline.start());
+    ASSERT_EVENTUALLY_EQ(pipeline.runs(), 3);
+    pipeline.stop();
 }
 }

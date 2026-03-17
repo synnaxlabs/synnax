@@ -10,14 +10,14 @@
 package http
 
 import (
-	"github.com/gofiber/fiber/v2"
+	"github.com/gofiber/fiber/v3"
 	"github.com/synnaxlabs/freighter"
 	"github.com/synnaxlabs/x/httputil"
 )
 
 type BindableTransport interface {
 	freighter.Transport
-	BindTo(app *fiber.App)
+	BindTo(*fiber.App)
 }
 
 var streamReporter = freighter.Reporter{
@@ -30,20 +30,16 @@ var unaryReporter = freighter.Reporter{
 	Encodings: httputil.SupportedContentTypes(),
 }
 
-type serverOptions struct {
-	codecResolver httputil.CodecResolver
-}
+type serverOptions struct{ codecResolver httputil.CodecResolver }
 
 type ServerOption func(*serverOptions)
 
 func WithCodecResolver(r httputil.CodecResolver) ServerOption {
-	return func(o *serverOptions) {
-		o.codecResolver = r
-	}
+	return func(o *serverOptions) { o.codecResolver = r }
 }
 
-func newServerOptions(opts []ServerOption) (so serverOptions) {
-	so.codecResolver = httputil.ResolveCodec
+func newServerOptions(opts []ServerOption) serverOptions {
+	so := serverOptions{codecResolver: httputil.ResolveCodec}
 	for _, opt := range opts {
 		opt(&so)
 	}

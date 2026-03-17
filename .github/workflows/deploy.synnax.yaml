@@ -26,8 +26,6 @@ on:
       - freighter/cpp/**
       - freighter/go/**
       - freighter/ts/**
-      - go.work
-      - go.work.sum
       - MODULE.bazel
       - MODULE.bazel.lock
       - package.json
@@ -63,8 +61,6 @@ on:
       - freighter/cpp/**
       - freighter/go/**
       - freighter/ts/**
-      - go.work
-      - go.work.sum
       - MODULE.bazel
       - MODULE.bazel.lock
       - package.json

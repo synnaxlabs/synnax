@@ -17,6 +17,7 @@ members = [
     "synnax-freighter",
     "synnax-test-framework",
     "synnax-workspace",
+    "xpy",
 ]
 
 [[package]]
@@ -1746,6 +1747,7 @@ dependencies = [
     { name = "psutil" },
     { name = "pymodbus" },
     { name = "synnax" },
+    { name = "xpy" },
 ]
 
 [package.dev-dependencies]
@@ -1768,6 +1770,7 @@ requires-dist = [
     { name = "psutil", specifier = ">=7.0.0,<8" },
     { name = "pymodbus", specifier = ">=3.11.4,<4" },
     { name = "synnax", editable = "client/py" },
+    { name = "xpy", editable = "x/py" },
 ]
 
 [package.metadata.requires-dev]
@@ -1943,6 +1946,27 @@ wheels = [
     { url = "https://files.pythonhosted.org/packages/57/54/35a84d0a4d23ea675994104e667ceff49227ce473ba6a59ba2c84f250b74/wrapt-1.17.3-cp313-cp313-win_amd64.whl", hash = "sha256:1f0b2f40cf341ee8cc1a97d51ff50dddb9fcc73241b9143ec74b30fc4f44f6cb", size = 38885, upload-time = "2025-08-12T05:53:08.695Z" },
     { url = "https://files.pythonhosted.org/packages/01/77/66e54407c59d7b02a3c4e0af3783168fff8e5d61def52cda8728439d86bc/wrapt-1.17.3-cp313-cp313-win_arm64.whl", hash = "sha256:7425ac3c54430f5fc5e7b6f41d41e704db073309acfc09305816bc6a0b26bb16", size = 36896, upload-time = "2025-08-12T05:52:55.34Z" },
     { url = "https://files.pythonhosted.org/packages/1f/f6/a933bd70f98e9cf3e08167fc5cd7aaaca49147e48411c0bd5ae701bb2194/wrapt-1.17.3-py3-none-any.whl", hash = "sha256:7171ae35d2c33d326ac19dd8facb1e82e5fd04ef8c6c0e394d7af55a55051c22", size = 23591, upload-time = "2025-08-12T05:53:20.674Z" },
+]
+
+[[package]]
+name = "xpy"
+version = "0.0.1"
+source = { editable = "x/py" }
+
+[package.dev-dependencies]
+dev = [
+    { name = "black" },
+    { name = "isort" },
+    { name = "mypy" },
+]
+
+[package.metadata]
+
+[package.metadata.requires-dev]
+dev = [
+    { name = "black", specifier = ">=26.1.0,<27" },
+    { name = "isort", specifier = ">=7.0.0,<8" },
+    { name = "mypy", specifier = ">=1.19.1,<2" },
 ]
 
 [[package]]
