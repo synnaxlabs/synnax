@@ -163,11 +163,6 @@ class TestCase(ABC):
                         self.STATUS = STATUS.FAILED
                         raise
 
-                # Ensure latest values are flushed — the test may end
-                # before the next iteration.
-                with suppress_websocket_errors():
-                    client.write(self.tlm)
-
         except Exception as e:
             if not is_websocket_error(e):
                 self.log(f"Writer thread error: {e}\n {traceback.format_exc()}")
@@ -177,6 +172,7 @@ class TestCase(ABC):
         finally:
             if client is not None:
                 with suppress_websocket_errors():
+                    client.write(self.tlm)
                     client.close()
 
     def _streamer_loop(self) -> None:
@@ -706,4 +702,3 @@ class TestCase(ABC):
             self._check_expectation()
             self._stop_client()
             self._wait_for_client_completion()
-            self.log_client.close()

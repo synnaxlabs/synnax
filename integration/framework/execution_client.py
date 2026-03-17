@@ -252,8 +252,8 @@ class ExecutionClient:
             True,
         )
         for i, t in enumerate(threads):
-            if t.is_alive():
-                t.join()
+            while t.is_alive():
+                t.join(timeout=1.0)
             self._collect_result(tests[i], futures[i])
 
     # ----- Single test execution -----
@@ -461,6 +461,7 @@ class ExecutionClient:
         for instance in killed_instances:
             self._log(f"--- Logs for {instance.name} ---", True)
             instance.log_client.dump()
+            instance.log_client.close()
             self._log(f"--- End logs for {instance.name} ---", True)
 
         return len(killed_results)

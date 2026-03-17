@@ -326,23 +326,24 @@ class ConfigClient:
                 )
 
             integration_dir = os.path.dirname(script_dir)
-            if integration_dir not in sys.path:
-                sys.path.insert(0, integration_dir)
-
-            tests_dir = os.path.join(integration_dir, "tests")
-            if os.path.isdir(tests_dir):
-                import types
-
-                tests_pkg = sys.modules.get("tests")
-                if tests_pkg is None or not hasattr(tests_pkg, "__path__"):
-                    tests_pkg = types.ModuleType("tests")
-                    tests_pkg.__path__ = [tests_dir]
-                    tests_pkg.__package__ = "tests"
-                    sys.modules["tests"] = tests_pkg
-                elif tests_dir not in tests_pkg.__path__:
-                    tests_pkg.__path__.insert(0, tests_dir)
 
             with self._import_lock:
+                if integration_dir not in sys.path:
+                    sys.path.insert(0, integration_dir)
+
+                tests_dir = os.path.join(integration_dir, "tests")
+                if os.path.isdir(tests_dir):
+                    import types
+
+                    tests_pkg = sys.modules.get("tests")
+                    if tests_pkg is None or not hasattr(tests_pkg, "__path__"):
+                        tests_pkg = types.ModuleType("tests")
+                        tests_pkg.__path__ = [tests_dir]
+                        tests_pkg.__package__ = "tests"
+                        sys.modules["tests"] = tests_pkg
+                    elif tests_dir not in tests_pkg.__path__:
+                        tests_pkg.__path__.insert(0, tests_dir)
+
                 spec = importlib.util.spec_from_file_location(module_name, file_path)
                 if spec is None:
                     raise ImportError(
