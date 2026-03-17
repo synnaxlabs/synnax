@@ -13,7 +13,7 @@ package output
 import (
 	"fmt"
 
-	"github.com/charmbracelet/lipgloss"
+	"charm.land/lipgloss/v2"
 )
 
 var (
@@ -30,12 +30,7 @@ var (
 	dimStyle    = lipgloss.NewStyle().Foreground(dimGray)
 )
 
-const (
-	symbolArrow   = "→"
-	symbolDot     = "·"
-	symbolSpinner = "◌"
-	symbolCheck   = "✓"
-)
+const symbolArrow = "→"
 
 // PluginStart prints a message when a plugin starts generating.
 func PluginStart(name string) {

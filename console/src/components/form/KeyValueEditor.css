@@ -9,9 +9,12 @@
  * included in the file licenses/APL.txt.
  */
 
-.console-task-configure > div .console-http-read-endpoint .console-channel-list {
-    max-width: unset;
-    flex-basis: unset;
-    flex-grow: 0;
-    overflow: visible;
+.console-kv-row {
+    .pluto-btn--ghost {
+        opacity: 0;
+    }
+
+    &:hover .pluto-btn--ghost {
+        opacity: 1;
+    }
 }

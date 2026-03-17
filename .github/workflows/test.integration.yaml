@@ -12,8 +12,9 @@ on:
     paths:
       - .bazeliskrc
       - .bazelrc
-      - .github/workflows/test.integration.yaml
       - .github/workflows/build.synnax.yaml
+      - .github/workflows/test.integration.yaml
+      - .github/workflows/test.integration.worker.yaml
       - alamos/go/**
       - alamos/py/**
       - alamos/ts/**
@@ -30,8 +31,6 @@ on:
       - freighter/go/**
       - freighter/ts/**
       - freighter/py/**
-      - go.work
-      - go.work.sum
       - integration/**
       - MODULE.bazel
       - MODULE.bazel.lock
@@ -90,6 +89,9 @@ jobs:
         ${{ steps.update-outputs.outputs.REF_RUN_ID ||
         steps.set-outputs.outputs.REF_RUN_ID }}
       FLAGS: ${{ steps.set-outputs.outputs.FLAGS }}
+      TEST_MATRIX:
+        ${{ steps.set-outputs.outputs.CUSTOM_MATRIX ||
+        steps.test-matrix.outputs.TEST_MATRIX }}
     steps:
       - name: Checkout Repository
         uses: actions/checkout@v6
@@ -116,6 +118,10 @@ jobs:
         run: |
           echo "FLAGS=${FLAGS}" >> $GITHUB_OUTPUT
           echo "SKIP_BUILD=${SKIP_BUILD}" >> $GITHUB_OUTPUT
+          if [ -n "${FLAGS}" ]; then
+            SAFE_NAME=$(echo "${FLAGS}" | sed 's/[^a-zA-Z0-9_-]/_/g')
+            echo "CUSTOM_MATRIX={\"include\":[{\"name\":\"${SAFE_NAME}\",\"target\":\"\"}]}" >> $GITHUB_OUTPUT
+          fi
           if [ "${SKIP_BUILD}" = "true" ]; then
             if [ -z "${REF_RUN_ID}" ]; then
               echo "Empty REF_RUN_ID. Setting SKIP_BUILD to false."
@@ -145,6 +151,11 @@ jobs:
             echo "REF_RUN_ID=${{ github.run_id }}" >> $GITHUB_OUTPUT
           fi
 
+      - name: Validate Test Coverage
+        if: ${{ steps.set-outputs.outputs.FLAGS == '' }}
+        id: test-matrix
+        run: integration/scripts/validate_test_coverage.sh
+
   build:
     needs: setup
     if: needs.setup.outputs.SKIP_BUILD == 'false'
@@ -163,146 +174,30 @@ jobs:
       version: ${{ needs.setup.outputs.VERSION }}
     secrets: inherit
 
-  deploy-and-test-windows:
-    name: Deploy and Test (windows)
-    timeout-minutes: 40
-    runs-on:
-      - self-hosted
-      - windows-latest
+  test-windows:
+    name: Test (windows)
     needs: [setup, build]
     if:
       ${{ !cancelled() && needs.setup.result == 'success' && (needs.build.result ==
       'success' || needs.build.result == 'skipped') }}
-    steps:
-      - name: Checkout Repository
-        uses: actions/checkout@v6
-        with:
-          clean: false
+    uses: ./.github/workflows/test.integration.worker.yaml
+    with:
+      test_matrix: ${{ needs.setup.outputs.TEST_MATRIX }}
+      ref_run_id: ${{ needs.setup.outputs.REF_RUN_ID }}
+      os: windows-latest
+      flags: ${{ needs.setup.outputs.FLAGS }}
+    secrets: inherit
 
-      - name: Force Quit Existing Synnax Processes (Windows)
-        shell: cmd
-        run: integration/scripts/KillSynnaxProcessesWindows.cmd
-
-      - name: Download and Setup Windows Artifacts
-        shell: cmd
-        env:
-          GH_TOKEN: ${{ github.token }}
-          REF_RUN_ID: ${{ needs.setup.outputs.REF_RUN_ID }}
-        run: integration/scripts/DownloadArtifactsWindows.cmd
-
-      - name: Update Submodules
-        run: git submodule update --init --recursive
-
-      - name: Install uv
-        uses: astral-sh/setup-uv@v7
-
-      - name: Set up Python
-        uses: actions/setup-python@v6
-        with:
-          python-version-file: integration/pyproject.toml
-
-      - name: Install Playwright
-        shell: cmd
-        working-directory: integration
-        run: uv run playwright install --with-deps
-
-      - name: Start Core
-        timeout-minutes: 1
-        shell: powershell
-        env:
-          SYNNAX_LICENSE_KEY: ${{ secrets.SYNNAX_LICENSE_KEY }}
-        run: integration/scripts/StartCoreWindows.ps1
-
-      - name: Test Conductor
-        id: test-conductor
-        timeout-minutes: 40
-        shell: cmd
-        working-directory: integration
-        env:
-          PYTHONIOENCODING: utf-8
-        run: uv run test-conductor --name tc_win ${{ needs.setup.outputs.FLAGS }}
-
-      - name: Upload Test Results
-        uses: actions/upload-artifact@v6
-        if: always()
-        with:
-          name: test-results-windows
-          path: integration/tests/results/*
-          retention-days: 7
-
-      - name: Upload Core Logs
-        uses: actions/upload-artifact@v6
-        if: ${{ failure() || cancelled() }}
-        with:
-          name: core-logs-windows-attempt-${{ github.run_attempt }}
-          path: ~/synnax-data/synnax-core.log
-          retention-days: 7
-
-  deploy-and-test-ubuntu:
-    name: Deploy and Test (ubuntu)
-    timeout-minutes: 40
-    runs-on:
-      - self-hosted
-      - ubuntu-latest
+  test-ubuntu:
+    name: Test (ubuntu)
     needs: [setup, build]
     if:
       ${{ !cancelled() && needs.setup.result == 'success' && (needs.build.result ==
       'success' || needs.build.result == 'skipped') }}
-    steps:
-      - name: Checkout Repository
-        uses: actions/checkout@v6
-        with:
-          clean: false
-
-      - name: Force Quit Existing Synnax Processes
-        continue-on-error: true
-        run: integration/scripts/kill_synnax_processes_unix.sh
-
-      - name: Download and Setup Linux Artifacts
-        env:
-          GH_TOKEN: ${{ github.token }}
-          REF_RUN_ID: ${{ needs.setup.outputs.REF_RUN_ID }}
-        run: integration/scripts/download_artifacts_unix.sh
-
-      - name: Update Submodules
-        run: git submodule update --init --recursive
-
-      - name: Install uv
-        uses: astral-sh/setup-uv@v7
-
-      - name: Set up Python
-        uses: actions/setup-python@v6
-        with:
-          python-version-file: integration/pyproject.toml
-
-      - name: Install Playwright
-        working-directory: integration
-        run: uv run playwright install --with-deps
-
-      - name: Start Core
-        timeout-minutes: 1
-        env:
-          SYNNAX_LICENSE_KEY: ${{ secrets.SYNNAX_LICENSE_KEY }}
-        run: integration/scripts/start_core_unix.sh
-
-      - name: Test Conductor
-        id: test-conductor
-        timeout-minutes: 40
-        working-directory: integration
-        run: uv run test-conductor --name tc_unix ${{ needs.setup.outputs.FLAGS }}
-
-      - name: Upload Test Results
-        uses: actions/upload-artifact@v6
-        if: always()
-        with:
-          name: test-results-linux
-          path: integration/tests/results/*
-          retention-days: 7
-
-      - name: Upload Core Logs
-        uses: actions/upload-artifact@v6
-        if: ${{ failure() || cancelled() }}
-        with:
-          name: core-logs-linux-attempt-${{ github.run_attempt }}
-          path: ~/synnax-data/synnax-core.log
-          retention-days: 7
+    uses: ./.github/workflows/test.integration.worker.yaml
+    with:
+      test_matrix: ${{ needs.setup.outputs.TEST_MATRIX }}
+      ref_run_id: ${{ needs.setup.outputs.REF_RUN_ID }}
+      os: ubuntu-latest
+      flags: ${{ needs.setup.outputs.FLAGS }}
+    secrets: inherit

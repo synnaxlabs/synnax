@@ -9,8 +9,8 @@
 
 import synnax as sy
 from examples.simulators import PressSimDAQ
+from xpy import get_random_name
 
-from framework.utils import get_random_name
 from tests.arc.arc_case import ArcConsoleCase
 
 ARC_LIFECYCLE_SOURCE = """

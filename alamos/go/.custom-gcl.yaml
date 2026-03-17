@@ -1,0 +1,5 @@
+version: "v2.11.3"
+plugins:
+  - module: "github.com/synnaxlabs/x"
+    import: "github.com/synnaxlabs/x/analyzers/mustsucceedlint"
+    path: ../../x/go
