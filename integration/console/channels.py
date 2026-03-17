@@ -460,16 +460,18 @@ class ChannelClient:
         self.hide_channels()
 
     def wait_for_channels(
-        self, names: str | list[str] | tuple[str], timeout: sy.CrudeTimeSpan = 10.0
+        self,
+        names: str | list[str] | tuple[str],
+        timeout: sy.CrudeTimeSpan = 10 * sy.TimeSpan.SECOND,
     ) -> bool:
         """Wait for one or more channels to appear in the console UI.
 
         :param names: The name(s) of the channel(s) to wait for.
-        :param timeout: Maximum time to wait in seconds (default: 10.0).
+        :param timeout: Maximum time to wait.
         :returns: True if all channels exist, False if timeout reached.
         """
         normalized_names = sy.channel.normalize_params(names)
-        timeout_ms = int(timeout * 1000)
+        timeout_ms = int(sy.TimeSpan.from_seconds(timeout) / sy.TimeSpan.MILLISECOND)
 
         self.show_channels()
 
