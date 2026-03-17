@@ -12,5 +12,7 @@
 #include "x/cpp/thread/rt/rt.h"
 
 namespace x::thread::rt {
-std::vector<int> discover_rt_cores() { return {}; }
+std::vector<int> discover_rt_cores() {
+    return {};
+}
 }

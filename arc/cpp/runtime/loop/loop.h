@@ -126,8 +126,7 @@ select_mode(const x::telem::TimeSpan timing_interval, const bool has_intervals) 
     if (timing_interval < timing::HIGH_RATE_THRESHOLD)
         return x::thread::rt::has_support() ? ExecutionMode::RT_EVENT
                                             : ExecutionMode::HIGH_RATE;
-    if (x::thread::rt::has_support() &&
-        timing_interval < 3 * x::telem::MILLISECOND)
+    if (x::thread::rt::has_support() && timing_interval < 3 * x::telem::MILLISECOND)
         return ExecutionMode::RT_EVENT;
     if (timing_interval < timing::HYBRID_THRESHOLD) return ExecutionMode::HYBRID;
     return ExecutionMode::EVENT_DRIVEN;
@@ -291,8 +290,6 @@ struct Loop {
 /// @param rt_handle Optional RT handle from the Manager. When provided, the
 /// loop calls handle->apply() instead of apply_config(config.rt()), and the
 /// handle's allocated core is used for CPU affinity.
-std::pair<std::unique_ptr<Loop>, x::errors::Error> create(
-    const Config &cfg,
-    std::shared_ptr<x::thread::rt::Handle> rt_handle = nullptr
-);
+std::pair<std::unique_ptr<Loop>, x::errors::Error>
+create(const Config &cfg, std::shared_ptr<x::thread::rt::Handle> rt_handle = nullptr);
 }

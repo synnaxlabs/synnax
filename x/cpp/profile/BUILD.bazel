@@ -4,8 +4,8 @@ cc_library(
     name = "profile",
     hdrs = ["profile.h"],
     visibility = ["//visibility:public"],
-    deps = [
-        "@glog",
-        "@gperftools//:cpu_profiler",
-    ],
+    deps = ["@glog"] + select({
+        "@platforms//os:windows": [],
+        "//conditions:default": ["@gperftools//:cpu_profiler"],
+    }),
 )

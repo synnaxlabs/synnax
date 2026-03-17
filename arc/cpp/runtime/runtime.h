@@ -171,10 +171,8 @@ public:
                 this->state->flush_into(out.frame);
                 if (this->cycle_latency_key != 0) {
                     const auto cycle_us = static_cast<float>(
-                        std::chrono::duration_cast<
-                            std::chrono::microseconds>(
-                            std::chrono::steady_clock::now() -
-                            cycle_start
+                        std::chrono::duration_cast<std::chrono::microseconds>(
+                            std::chrono::steady_clock::now() - cycle_start
                         )
                             .count()
                     );
@@ -184,11 +182,9 @@ public:
                     if (cycle_us > this->cycle_latency_max)
                         this->cycle_latency_max = cycle_us;
                     this->cycle_latency_count++;
-                    if (this->cycle_latency_count >=
-                        CYCLE_LATENCY_SAMPLE_INTERVAL) {
-                        const auto avg =
-                            this->cycle_latency_accumulator /
-                            static_cast<float>(this->cycle_latency_count);
+                    if (this->cycle_latency_count >= CYCLE_LATENCY_SAMPLE_INTERVAL) {
+                        const auto avg = this->cycle_latency_accumulator /
+                                         static_cast<float>(this->cycle_latency_count);
                         const auto ts = x::telem::TimeStamp::now();
                         this->latency_avg_buf.detach_buffer();
                         this->latency_avg_buf.write(avg);
@@ -215,8 +211,7 @@ public:
                             this->latency_ts_buf.shallow_copy()
                         );
                         this->cycle_latency_accumulator = 0;
-                        this->cycle_latency_min =
-                            std::numeric_limits<float>::max();
+                        this->cycle_latency_min = std::numeric_limits<float>::max();
                         this->cycle_latency_max = 0;
                         this->cycle_latency_count = 0;
                     }

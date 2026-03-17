@@ -22,8 +22,7 @@
 namespace arc::runtime::loop {
 
 /// @brief Creates a loop and starts it, returning the started loop.
-std::pair<std::unique_ptr<Loop>, x::errors::Error>
-create_and_start(const Config &cfg) {
+std::pair<std::unique_ptr<Loop>, x::errors::Error> create_and_start(const Config &cfg) {
     auto [loop, err] = create(cfg);
     if (err) return {nullptr, err};
     if (auto start_err = loop->start(); start_err) return {nullptr, start_err};

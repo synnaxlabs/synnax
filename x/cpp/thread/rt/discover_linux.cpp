@@ -34,7 +34,8 @@ std::vector<int> parse_cpu_list(const std::string &input) {
         } else {
             const int start = std::stoi(token.substr(0, dash));
             const int end = std::stoi(token.substr(dash + 1));
-            for (int i = start; i <= end; i++) cores.push_back(i);
+            for (int i = start; i <= end; i++)
+                cores.push_back(i);
         }
     }
     return cores;
@@ -58,9 +59,10 @@ std::vector<int> discover_rt_cores() {
     if (hw <= 1) return {};
     const int n = std::min(4, std::max(1, hw / 4));
     std::vector<int> cores;
-    for (int i = hw - n; i < hw; i++) cores.push_back(i);
-    LOG(INFO) << "[rt.manager] no isolated cores, using highest " << n
-              << " of " << hw << " cores";
+    for (int i = hw - n; i < hw; i++)
+        cores.push_back(i);
+    LOG(INFO) << "[rt.manager] no isolated cores, using highest " << n << " of " << hw
+              << " cores";
     return cores;
 }
 }

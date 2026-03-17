@@ -21,8 +21,7 @@ class ManagerImpl {
     std::vector<int> available;
 
 public:
-    explicit ManagerImpl(std::vector<int> cores):
-        all_cores(cores), available(cores) {}
+    explicit ManagerImpl(std::vector<int> cores): all_cores(cores), available(cores) {}
 
     int acquire() {
         std::lock_guard lock(this->mu);
@@ -77,9 +76,13 @@ Handle &Handle::operator=(Handle &&other) noexcept {
     return *this;
 }
 
-Handle::~Handle() { this->release(); }
+Handle::~Handle() {
+    this->release();
+}
 
-void Handle::apply() { apply_config(this->resolved); }
+void Handle::apply() {
+    apply_config(this->resolved);
+}
 
 void Handle::release() {
     if (this->released || this->core == CPU_AFFINITY_NONE) return;
@@ -102,12 +105,15 @@ Handle Manager::allocate(Config cfg) {
     const auto caps = get_capabilities();
     if (caps.mmcss) cfg.use_mmcss = true;
     if (caps.memory_locking) cfg.lock_memory = true;
-    if (core != CPU_AFFINITY_NONE)
-        VLOG(1) << "[rt.manager] allocated core " << core;
+    if (core != CPU_AFFINITY_NONE) VLOG(1) << "[rt.manager] allocated core " << core;
     return Handle(core, std::move(cfg), this->impl);
 }
 
-size_t Manager::available_cores() const { return this->impl->available_count(); }
+size_t Manager::available_cores() const {
+    return this->impl->available_count();
+}
 
-size_t Manager::total_cores() const { return this->impl->total_count(); }
+size_t Manager::total_cores() const {
+    return this->impl->total_count();
+}
 }

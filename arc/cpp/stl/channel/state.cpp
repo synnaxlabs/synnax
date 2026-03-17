@@ -153,7 +153,8 @@ std::vector<std::pair<types::ChannelKey, Series>> State::flush() {
         if (it == this->writes.end() || it->second == nullptr || it->second->empty())
             continue;
         result.push_back(
-            {key, x::mem::make_local_shared<x::telem::Series>(it->second->shallow_copy())}
+            {key,
+             x::mem::make_local_shared<x::telem::Series>(it->second->shallow_copy())}
         );
         it->second->detach_buffer();
         it->second->time_range = x::telem::TimeRange();
@@ -164,13 +165,13 @@ std::vector<std::pair<types::ChannelKey, Series>> State::flush() {
 }
 
 void State::flush_into(x::telem::Frame &out) {
-    for (auto &series_vec : this->reads | std::views::values) {
+    for (auto &series_vec: this->reads | std::views::values) {
         if (series_vec.size() <= 1) continue;
         auto last = std::move(series_vec.back());
         series_vec.clear();
         series_vec.push_back(std::move(last));
     }
-    for (const auto key : this->active_write_keys) {
+    for (const auto key: this->active_write_keys) {
         auto it = this->writes.find(key);
         if (it == this->writes.end() || it->second == nullptr || it->second->empty())
             continue;

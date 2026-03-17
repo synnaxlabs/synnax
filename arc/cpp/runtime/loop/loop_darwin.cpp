@@ -35,7 +35,8 @@ public:
     explicit DarwinLoop(
         Config config,
         std::shared_ptr<x::thread::rt::Handle> rt_handle = nullptr
-    ): config_(std::move(config)), rt_handle_(std::move(rt_handle)) {
+    ):
+        config_(std::move(config)), rt_handle_(std::move(rt_handle)) {
         if (this->config_.lock_memory)
             LOG(WARNING) << "[loop] Memory locking not fully supported on macOS";
     }
@@ -265,10 +266,8 @@ private:
     std::unique_ptr<x::loop::Timer> timer_;
 };
 
-std::pair<std::unique_ptr<Loop>, x::errors::Error> create(
-    const Config &cfg,
-    std::shared_ptr<x::thread::rt::Handle> rt_handle
-) {
+std::pair<std::unique_ptr<Loop>, x::errors::Error>
+create(const Config &cfg, std::shared_ptr<x::thread::rt::Handle> rt_handle) {
     return {std::make_unique<DarwinLoop>(cfg, std::move(rt_handle)), x::errors::NIL};
 }
 

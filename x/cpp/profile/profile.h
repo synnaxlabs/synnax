@@ -9,20 +9,25 @@
 
 #pragma once
 
-#include <atomic>
-#include <csignal>
 #include <string>
 
 #include "glog/logging.h"
 
+#ifndef _WIN32
+#include <atomic>
+#include <csignal>
+
 #include "gperftools/profiler.h"
+#endif
 
 namespace x::profile {
 /// @brief toggles CPU profiling on/off via gperftools. Thread-safe.
 /// Call install() once at startup to register a SIGUSR1 signal handler.
 /// Then send SIGUSR1 to the process to start profiling, and again to stop.
 /// The profile is written to the given output path.
+/// On Windows, all methods are no-ops.
 class Profiler {
+#ifndef _WIN32
     static inline std::atomic<bool> active{false};
     static inline std::string output_path = "/tmp/driver.prof";
 
@@ -60,5 +65,12 @@ private:
         else
             start();
     }
+#else
+public:
+    static void install(const std::string & = "") {}
+    static void start() {}
+    static void stop() {}
+    static bool is_active() { return false; }
+#endif
 };
 }

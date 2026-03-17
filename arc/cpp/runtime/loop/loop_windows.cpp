@@ -28,7 +28,8 @@ public:
     explicit WindowsLoop(
         const Config &config,
         std::shared_ptr<x::thread::rt::Handle> rt_handle = nullptr
-    ): config_(config), rt_handle_(std::move(rt_handle)) {
+    ):
+        config_(config), rt_handle_(std::move(rt_handle)) {
         if (this->config_.lock_memory) {
             LOG(WARNING) << "[loop] Memory locking on Windows requires "
                          << "VirtualLock API (not implemented)";
@@ -270,10 +271,8 @@ private:
     std::unique_ptr<::x::loop::Timer> timer_;
 };
 
-std::pair<std::unique_ptr<Loop>, x::errors::Error> create(
-    const Config &cfg,
-    std::shared_ptr<x::thread::rt::Handle> rt_handle
-) {
+std::pair<std::unique_ptr<Loop>, x::errors::Error>
+create(const Config &cfg, std::shared_ptr<x::thread::rt::Handle> rt_handle) {
     return {std::make_unique<WindowsLoop>(cfg, std::move(rt_handle)), x::errors::NIL};
 }
 

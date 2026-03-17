@@ -153,9 +153,7 @@ public:
     /// @brief Resets all execution state for runtime restart.
     void reset() {
         std::fill(this->changed_flags.begin(), this->changed_flags.end(), 0);
-        std::fill(
-            this->self_changed_flags.begin(), this->self_changed_flags.end(), 0
-        );
+        std::fill(this->self_changed_flags.begin(), this->self_changed_flags.end(), 0);
         this->global_fired_one_shots.clear();
         this->curr_node_ptr = nullptr;
         this->curr_seq_idx = NO_INDEX;

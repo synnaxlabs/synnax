@@ -29,7 +29,8 @@ public:
     explicit LinuxLoop(
         const Config &config,
         std::shared_ptr<x::thread::rt::Handle> rt_handle = nullptr
-    ): config_(config), rt_handle_(std::move(rt_handle)) {}
+    ):
+        config_(config), rt_handle_(std::move(rt_handle)) {}
 
     ~LinuxLoop() override { this->close_fds(); }
 
@@ -309,10 +310,8 @@ private:
     std::unique_ptr<::x::loop::Timer> timer_;
 };
 
-std::pair<std::unique_ptr<Loop>, x::errors::Error> create(
-    const Config &cfg,
-    std::shared_ptr<x::thread::rt::Handle> rt_handle
-) {
+std::pair<std::unique_ptr<Loop>, x::errors::Error>
+create(const Config &cfg, std::shared_ptr<x::thread::rt::Handle> rt_handle) {
     return {std::make_unique<LinuxLoop>(cfg, std::move(rt_handle)), x::errors::NIL};
 }
 
