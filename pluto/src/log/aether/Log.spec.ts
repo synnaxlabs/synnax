@@ -23,7 +23,7 @@ const mockLogSource = (entries: LogEntry[] = []) => ({
   value: vi.fn(() => entries),
   evictedCount: 0,
   cleanup: vi.fn(),
-  onChange: vi.fn(() => () => {}),
+  onChange: vi.fn((_cb: () => void) => () => {}),
   setChannels: vi.fn(),
   setChannelNames: vi.fn(),
   setAliases: vi.fn(),

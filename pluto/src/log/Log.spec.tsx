@@ -15,7 +15,10 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 const mockAetherUse = vi.fn();
 const mockUseRegion = vi.fn(() => vi.fn());
-const mockUseRetrieveMultiple = vi.fn(() => ({ data: null }));
+const mockUseRetrieveMultiple = vi.fn(
+  (_arg?: unknown) =>
+    ({ data: null }) as { data: Array<{ key: number; name: string }> | null },
+);
 const mockUseContextMenu = vi.fn(() => ({
   className: "mock-menu",
   visible: false,
@@ -24,22 +27,22 @@ const mockUseContextMenu = vi.fn(() => ({
 }));
 
 vi.mock("@/aether", () => ({
-  Aether: { use: (...args: unknown[]) => mockAetherUse(...args) },
+  Aether: { use: (a: unknown) => mockAetherUse(a) },
 }));
 
 vi.mock("@/vis/canvas", () => ({
-  Canvas: { useRegion: (...args: unknown[]) => mockUseRegion(...args) },
+  Canvas: { useRegion: () => mockUseRegion() },
 }));
 
 vi.mock("@/channel", () => ({
   Channel: {
-    useRetrieveMultiple: (...args: unknown[]) => mockUseRetrieveMultiple(...args),
+    useRetrieveMultiple: (arg: unknown) => mockUseRetrieveMultiple(arg),
   },
 }));
 
 vi.mock("@/menu", () => ({
   Menu: {
-    useContextMenu: (...args: unknown[]) => mockUseContextMenu(...args),
+    useContextMenu: () => mockUseContextMenu(),
     ContextMenu: ({
       children,
     }: {
