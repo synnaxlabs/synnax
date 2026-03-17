@@ -28,6 +28,7 @@ const ZERO_NAV_STATE: NavState = {
           "device",
           "task",
           "user",
+          "agent",
           "arc",
           "status",
         ],

@@ -11,6 +11,7 @@ import { type ontology } from "@synnaxlabs/client";
 import { Icon } from "@synnaxlabs/pluto";
 
 import { Access } from "@/access";
+import { AgentServices } from "@/agent/services";
 import { ArcServices } from "@/arc/services";
 import { ChannelServices } from "@/channel/services";
 import { GroupServices } from "@/group/services";
@@ -55,6 +56,7 @@ export const SERVICES: Ontology.Services = {
   log: LogServices.ONTOLOGY_SERVICE,
   table: TableServices.ONTOLOGY_SERVICE,
   status: createEmptyService("status", <Icon.Status />),
+  agent: AgentServices.ONTOLOGY_SERVICE,
   arc: ArcServices.ONTOLOGY_SERVICE,
   view: createEmptyService("view"),
   role: Access.Role.ONTOLOGY_SERVICE,

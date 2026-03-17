@@ -16,6 +16,7 @@ import (
 	fnoop "github.com/synnaxlabs/freighter/noop"
 	"github.com/synnaxlabs/synnax/pkg/api"
 	"github.com/synnaxlabs/synnax/pkg/api/access"
+	apiagent "github.com/synnaxlabs/synnax/pkg/api/agent"
 	apiarc "github.com/synnaxlabs/synnax/pkg/api/arc"
 	"github.com/synnaxlabs/synnax/pkg/api/auth"
 	"github.com/synnaxlabs/synnax/pkg/api/channel"
@@ -154,6 +155,12 @@ func NewTransport(channelSvc *distchannel.Service) (api.Transport, []fgrpc.Binda
 
 	// ARC LSP (streaming, not implemented via gRPC yet)
 	a.ArcLSP = fnoop.StreamServer[apiarc.LSPMessage, apiarc.LSPMessage]{}
+
+	// AGENT
+	a.AgentCreate = fnoop.UnaryServer[apiagent.CreateRequest, apiagent.CreateResponse]{}
+	a.AgentSend = fnoop.UnaryServer[apiagent.SendRequest, apiagent.SendResponse]{}
+	a.AgentRetrieve = fnoop.UnaryServer[apiagent.RetrieveRequest, apiagent.RetrieveResponse]{}
+	a.AgentDelete = fnoop.UnaryServer[apiagent.DeleteRequest, types.Nil]{}
 
 	// VIEW
 	a.ViewCreate = fnoop.UnaryServer[view.CreateRequest, view.CreateResponse]{}

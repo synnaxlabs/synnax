@@ -7,6 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { AgentServices } from "@/agent/services";
 import { ArcServices } from "@/arc/services";
 import { ChannelServices } from "@/channel/services";
 import { ClusterServices } from "@/cluster/services";
@@ -41,6 +42,7 @@ export const COMMANDS: Palette.Command[] = [
   ...TableServices.COMMANDS,
   ...UserServices.COMMANDS,
   ...WorkspaceServices.COMMANDS,
+  ...AgentServices.COMMANDS,
   ...ArcServices.COMMANDS,
   ...Status.COMMANDS,
   ...Theme.COMMANDS,

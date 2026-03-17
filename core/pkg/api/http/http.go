@@ -15,6 +15,7 @@ import (
 	fhttp "github.com/synnaxlabs/freighter/http"
 	"github.com/synnaxlabs/synnax/pkg/api"
 	"github.com/synnaxlabs/synnax/pkg/api/access"
+	"github.com/synnaxlabs/synnax/pkg/api/agent"
 	"github.com/synnaxlabs/synnax/pkg/api/arc"
 	"github.com/synnaxlabs/synnax/pkg/api/auth"
 	"github.com/synnaxlabs/synnax/pkg/api/channel"
@@ -181,6 +182,12 @@ func NewTransport(router *fhttp.Router, ch *distchannel.Service) api.Transport {
 		ArcDelete:   fhttp.UnaryServer[arc.DeleteRequest, types.Nil](router, "/api/v1/arc/delete"),
 		ArcRetrieve: fhttp.UnaryServer[arc.RetrieveRequest, arc.RetrieveResponse](router, "/api/v1/arc/retrieve"),
 		ArcLSP:      fhttp.StreamServer[arc.LSPMessage, arc.LSPMessage](router, "/api/v1/arc/lsp"),
+
+		// AGENT
+		AgentCreate:   fhttp.UnaryServer[agent.CreateRequest, agent.CreateResponse](router, "/api/v1/agent/create"),
+		AgentSend:     fhttp.UnaryServer[agent.SendRequest, agent.SendResponse](router, "/api/v1/agent/send"),
+		AgentRetrieve: fhttp.UnaryServer[agent.RetrieveRequest, agent.RetrieveResponse](router, "/api/v1/agent/retrieve"),
+		AgentDelete:   fhttp.UnaryServer[agent.DeleteRequest, types.Nil](router, "/api/v1/agent/delete"),
 
 		// STATUS
 		StatusSet:      fhttp.UnaryServer[status.SetRequest, status.SetResponse](router, "/api/v1/status/set"),

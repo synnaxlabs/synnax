@@ -97,12 +97,14 @@ var schema = zyn.Object(map[string]zyn.Schema{
 	"status_key": zyn.String(),
 	"message":    zyn.String(),
 	"variant":    zyn.String(),
+	"name":       zyn.String().Optional(),
 })
 
 type nodeConfig struct {
 	StatusKey string `json:"status_key"`
 	Message   string `json:"message"`
 	Variant   string `json:"variant"`
+	Name      string `json:"name"`
 }
 
 func (s *statusFactory) Create(ctx context.Context, cfg node.Config) (node.Node, error) {
@@ -121,6 +123,7 @@ func (s *statusFactory) Create(ctx context.Context, cfg node.Config) (node.Node,
 		return nil, err
 	}
 	stat.Key = nodeCfg.StatusKey
+	stat.Name = nodeCfg.Name
 	stat.Message = nodeCfg.Message
 	stat.Variant = xstatus.Variant(nodeCfg.Variant)
 	return &setStatus{ins: cfg.Instrumentation, stat: stat, statusSvc: s.stat}, nil

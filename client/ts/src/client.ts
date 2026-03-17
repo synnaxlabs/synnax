@@ -11,6 +11,7 @@ import { breaker, TimeSpan, TimeStamp, URL } from "@synnaxlabs/x";
 import { z } from "zod";
 
 import { access } from "@/access";
+import { agent } from "@/agent";
 import { arc } from "@/arc";
 import { auth } from "@/auth";
 import { channel } from "@/channel";
@@ -77,6 +78,7 @@ export default class Synnax extends framer.Client {
   readonly devices: device.Client;
   readonly control: control.Client;
   readonly arcs: arc.Client;
+  readonly agents: agent.Client;
   readonly views: view.Client;
   readonly schematics: schematic.Client;
   readonly lineplots: lineplot.Client;
@@ -165,6 +167,7 @@ export default class Synnax extends framer.Client {
     this.racks = new rack.Client(this.transport.unary, this.tasks);
     this.devices = new device.Client(this.transport.unary);
     this.arcs = new arc.Client(this.transport.unary, this.transport.stream);
+    this.agents = new agent.Client(this.transport.unary);
     this.views = new view.Client(this.transport.unary);
     this.schematics = new schematic.Client(this.transport.unary);
     this.lineplots = new lineplot.Client(this.transport.unary);

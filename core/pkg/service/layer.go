@@ -17,6 +17,8 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/distribution"
 	"github.com/synnaxlabs/synnax/pkg/security"
 	"github.com/synnaxlabs/synnax/pkg/service/access/rbac"
+	"github.com/synnaxlabs/synnax/pkg/service/agent"
+	agentllm "github.com/synnaxlabs/synnax/pkg/service/agent/llm"
 	"github.com/synnaxlabs/synnax/pkg/service/arc"
 	arcruntime "github.com/synnaxlabs/synnax/pkg/service/arc/runtime"
 	"github.com/synnaxlabs/synnax/pkg/service/auth"
@@ -62,6 +64,10 @@ type LayerConfig struct {
 	//
 	// [REQUIRED]
 	Storage *storage.Layer
+	// LLM is the configuration for the LLM client used by the agent service.
+	//
+	// [OPTIONAL] - Agent service will be created but LLM features disabled if not set.
+	LLM agentllm.Config
 	// Instrumentation is for logging, tracing, metrics, etc.
 	//
 	// [OPTIONAL] - Defaults to noop instrumentation.
@@ -82,6 +88,7 @@ func (c LayerConfig) Override(other LayerConfig) LayerConfig {
 	c.Distribution = override.Nil(c.Distribution, other.Distribution)
 	c.Security = override.Nil(c.Security, other.Security)
 	c.Storage = override.Nil(c.Storage, other.Storage)
+	c.LLM = c.LLM.Override(other.LLM)
 	return c
 }
 
@@ -133,6 +140,8 @@ type Layer struct {
 	Framer *framer.Service
 	// Arc is used for validating, saving, and executing arc automations.
 	Arc *arc.Service
+	// Agent is for LLM-powered monitoring and alerting via Arc programs.
+	Agent *agent.Service
 	// Metrics is used for collecting host machine metrics and publishing them over channels
 	Metrics *metrics.Service
 	// Status is used for tracking the statuses
@@ -372,6 +381,23 @@ func OpenLayer(ctx context.Context, cfgs ...LayerConfig) (l *Layer, err error) {
 		Factory:         arcFactory,
 		Host:            cfg.Distribution.Cluster,
 	}); !ok(err, l.Driver) {
+		return nil, err
+	}
+	if l.Agent, err = agent.OpenService(
+		ctx,
+		agent.ServiceConfig{
+			Instrumentation: cfg.Child("agent"),
+			DB:              cfg.Distribution.DB,
+			Ontology:        cfg.Distribution.Ontology,
+			Channel:         cfg.Distribution.Channel,
+			Arc:             l.Arc,
+			Task:            l.Task,
+			Framer:          cfg.Distribution.Framer,
+			Signals:         cfg.Distribution.Signals,
+			LLM:             cfg.LLM,
+			RackKey:         l.Driver.RackKey(),
+		},
+	); !ok(err, l.Agent) {
 		return nil, err
 	}
 	return l, nil

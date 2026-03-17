@@ -44,6 +44,7 @@ export const resourceTypeZ = z.enum([
   "schematic_symbol",
   "status",
   "view",
+  "agent",
 ]);
 export type ResourceType = z.infer<typeof resourceTypeZ>;
 

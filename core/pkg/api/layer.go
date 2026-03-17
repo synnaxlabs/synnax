@@ -20,6 +20,7 @@ import (
 	"github.com/synnaxlabs/freighter"
 	"github.com/synnaxlabs/freighter/alamos"
 	"github.com/synnaxlabs/synnax/pkg/api/access"
+	"github.com/synnaxlabs/synnax/pkg/api/agent"
 	"github.com/synnaxlabs/synnax/pkg/api/arc"
 	"github.com/synnaxlabs/synnax/pkg/api/auth"
 	"github.com/synnaxlabs/synnax/pkg/api/channel"
@@ -172,6 +173,11 @@ type Transport struct {
 	ArcDelete   freighter.UnaryServer[arc.DeleteRequest, types.Nil]
 	ArcRetrieve freighter.UnaryServer[arc.RetrieveRequest, arc.RetrieveResponse]
 	ArcLSP      freighter.StreamServer[arc.LSPMessage, arc.LSPMessage]
+	// AGENT
+	AgentCreate   freighter.UnaryServer[agent.CreateRequest, agent.CreateResponse]
+	AgentSend     freighter.UnaryServer[agent.SendRequest, agent.SendResponse]
+	AgentRetrieve freighter.UnaryServer[agent.RetrieveRequest, agent.RetrieveResponse]
+	AgentDelete   freighter.UnaryServer[agent.DeleteRequest, types.Nil]
 	// VIEW
 	ViewCreate   freighter.UnaryServer[view.CreateRequest, view.CreateResponse]
 	ViewRetrieve freighter.UnaryServer[view.RetrieveRequest, view.RetrieveResponse]
@@ -203,6 +209,7 @@ type Layer struct {
 	Device       *device.Service
 	Access       *access.Service
 	Arc          *arc.Service
+	Agent        *agent.Service
 	Status       *status.Service
 	config       config.LayerConfig
 }
@@ -369,6 +376,12 @@ func (l *Layer) BindTo(t Transport) {
 		t.ArcCreate,
 		t.ArcDelete,
 		t.ArcRetrieve,
+
+		// AGENT
+		t.AgentCreate,
+		t.AgentSend,
+		t.AgentRetrieve,
+		t.AgentDelete,
 	)
 
 	// AUTH
@@ -516,6 +529,12 @@ func (l *Layer) BindTo(t Transport) {
 	t.ArcDelete.BindHandler(l.Arc.Delete)
 	t.ArcRetrieve.BindHandler(l.Arc.Retrieve)
 	t.ArcLSP.BindHandler(l.Arc.LSP)
+
+	// AGENT
+	t.AgentCreate.BindHandler(l.Agent.Create)
+	t.AgentSend.BindHandler(l.Agent.Send)
+	t.AgentRetrieve.BindHandler(l.Agent.Retrieve)
+	t.AgentDelete.BindHandler(l.Agent.Delete)
 }
 
 // NewLayer instantiates the server API layer using the provided Configs. This should
@@ -590,6 +609,9 @@ func NewLayer(cfgs ...LayerConfig) (*Layer, error) {
 		return nil, err
 	}
 	if l.Arc, err = arc.NewService(cfg); err != nil {
+		return nil, err
+	}
+	if l.Agent, err = agent.NewService(cfg); err != nil {
 		return nil, err
 	}
 	if l.View, err = view.NewService(cfg); err != nil {

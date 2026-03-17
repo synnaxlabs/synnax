@@ -123,5 +123,7 @@ func GetCoreConfigFromViper(ins alamos.Instrumentation) CoreConfig {
 		enabledIntegrations:  viper.GetStringSlice(FlagEnableIntegrations),
 		disabledIntegrations: viper.GetStringSlice(FlagDisableIntegrations),
 		validateChannelNames: new(!viper.GetBool(FlagDisableChannelNameValidation)),
+		llmAPIKey:            viper.GetString(FlagLLMAPIKey),
+		llmModel:             viper.GetString(FlagLLMModel),
 	}
 }

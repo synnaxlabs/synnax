@@ -11,6 +11,7 @@ import { type PropsWithChildren, type ReactElement } from "react";
 
 import { access } from "@/access/aether";
 import { Aether } from "@/aether";
+import { Agent } from "@/agent";
 import { Alamos } from "@/alamos";
 import { Arc } from "@/arc";
 import { Channel } from "@/channel";
@@ -74,6 +75,7 @@ export interface FluxStore extends Flux.Store {
   [Schematic.Symbol.FLUX_STORE_KEY]: Schematic.Symbol.FluxStore;
   [Group.FLUX_STORE_KEY]: Group.FluxStore;
   [Status.FLUX_STORE_KEY]: Status.FluxStore;
+  [Agent.FLUX_STORE_KEY]: Agent.FluxStore;
   [Arc.FLUX_STORE_KEY]: Arc.FluxStore;
   [LinePlot.FLUX_STORE_KEY]: LinePlot.FluxStore;
   [Log.FLUX_STORE_KEY]: Log.FluxStore;
@@ -105,6 +107,7 @@ export const FLUX_STORE_CONFIG: Flux.StoreConfig<FluxStore> = {
   [Table.FLUX_STORE_KEY]: Table.FLUX_STORE_CONFIG,
   [Schematic.FLUX_STORE_KEY]: Schematic.FLUX_STORE_CONFIG,
   [User.FLUX_STORE_KEY]: User.FLUX_STORE_CONFIG,
+  [Agent.FLUX_STORE_KEY]: Agent.FLUX_STORE_CONFIG,
   [Arc.FLUX_STORE_KEY]: Arc.FLUX_STORE_CONFIG,
   [View.FLUX_STORE_KEY]: View.FLUX_STORE_CONFIG,
   [access.policy.FLUX_STORE_KEY]: access.policy.FLUX_STORE_CONFIG,

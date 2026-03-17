@@ -36,6 +36,8 @@ const (
 	FlagTaskShutdownTimeout          = "task-shutdown-timeout"
 	FlagTaskWorkerCount              = "task-worker-count"
 	FlagDisableChannelNameValidation = "disable-channel-name-validation"
+	FlagLLMAPIKey                    = "llm-api-key"
+	FlagLLMModel                     = "llm-model"
 )
 
 // AddFlags adds the start flags to the given command.
@@ -115,6 +117,8 @@ func AddFlags(cmd *cobra.Command) {
 		"Disable channel name validation (allows special characters, spaces, etc.)",
 	)
 	cmd.Flags().String(FlagDecoded, "", usage)
+	cmd.Flags().String(FlagLLMAPIKey, "", "API key for the LLM provider used by agents")
+	cmd.Flags().String(FlagLLMModel, "", "Model name for the LLM provider used by agents")
 }
 
 var (

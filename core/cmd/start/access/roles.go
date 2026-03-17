@@ -17,6 +17,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/access"
 	"github.com/synnaxlabs/synnax/pkg/service/access/rbac/policy"
 	"github.com/synnaxlabs/synnax/pkg/service/access/rbac/role"
+	"github.com/synnaxlabs/synnax/pkg/service/agent"
 	"github.com/synnaxlabs/synnax/pkg/service/arc"
 	"github.com/synnaxlabs/synnax/pkg/service/device"
 	"github.com/synnaxlabs/synnax/pkg/service/framer"
@@ -55,6 +56,7 @@ var allObjects = []ontology.ID{
 	{Type: device.OntologyType},
 	{Type: task.OntologyType},
 	{Type: table.OntologyType},
+	{Type: agent.OntologyType},
 	{Type: arc.OntologyType},
 	{Type: symbol.OntologyType},
 	{Type: status.OntologyType},
@@ -108,6 +110,7 @@ var (
 				{Type: device.OntologyType},
 				{Type: task.OntologyType},
 				{Type: table.OntologyType},
+				{Type: agent.OntologyType},
 				{Type: arc.OntologyType},
 				{Type: symbol.OntologyType},
 				{Type: status.OntologyType},

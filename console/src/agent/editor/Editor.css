@@ -1,0 +1,272 @@
+/*
+ * Copyright 2026 Synnax Labs, Inc.
+ *
+ * Use of this software is governed by the Business Source License included in the file
+ * licenses/BSL.txt.
+ *
+ * As of the Change Date specified in that file, in accordance with the Business Source
+ * License, use of this software will be governed by the Apache License, Version 2.0,
+ * included in the file licenses/APL.txt.
+ */
+
+.console-agent-editor {
+    height: 100%;
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+}
+
+.console-agent-editor__messages {
+    flex: 1 1 auto;
+    overflow-y: auto;
+    overflow-x: hidden;
+    padding-bottom: 3rem;
+}
+
+.console-agent-editor__message {
+    display: flex;
+    gap: 2rem;
+    padding: 3rem 4rem;
+    align-items: flex-start;
+}
+
+.console-agent-editor__message--agent {
+    background: var(--pluto-gray-l1);
+}
+
+.console-agent-editor__avatar {
+    width: 4rem;
+    height: 4rem;
+    min-width: 4rem;
+    border-radius: var(--pluto-border-radius);
+    border: var(--pluto-border-width) solid var(--pluto-gray-l4);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 2rem;
+    flex-shrink: 0;
+}
+
+.console-agent-editor__avatar--agent {
+    background: var(--pluto-primary-z-10);
+    color: var(--pluto-primary-z);
+    border-color: var(--pluto-primary-z-25);
+}
+
+.console-agent-editor__avatar--user {
+    background: var(--pluto-gray-l2);
+    color: var(--pluto-gray-l8);
+}
+
+.console-agent-editor__body {
+    min-width: 0;
+    max-width: 700px;
+    flex: 1 1 auto;
+}
+
+.console-agent-editor__role {
+    margin-bottom: 0.5rem;
+}
+
+.console-agent-editor__content {
+    word-break: break-word;
+    line-height: var(--pluto-p-line-height);
+    font-size: var(--pluto-p-size);
+    color: var(--pluto-text-color);
+}
+
+.console-agent-editor__content p {
+    margin: 0;
+}
+
+.console-agent-editor__content p + p {
+    margin-top: 1.5rem;
+}
+
+.console-agent-editor__content ul,
+.console-agent-editor__content ol {
+    margin: 1rem 0;
+    padding-left: 4rem;
+}
+
+.console-agent-editor__content li {
+    margin: 0.5rem 0;
+}
+
+.console-agent-editor__content strong {
+    font-weight: 600;
+}
+
+.console-agent-editor__code-block {
+    position: relative;
+    margin: 1.5rem 0;
+}
+
+.console-agent-editor__code-header {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+    background: var(--pluto-gray-l2);
+    border: var(--pluto-border);
+    border-radius: calc(var(--pluto-border-radius) * 2);
+    padding: 0.75rem 2rem;
+    cursor: pointer;
+    user-select: none;
+}
+
+.console-agent-editor__code-header:hover {
+    background: var(--pluto-gray-l3);
+}
+
+.console-agent-editor__code-caret {
+    margin-left: auto;
+    font-size: 1.4rem;
+    color: var(--pluto-gray-l8);
+    transition: transform 0.15s ease;
+    transform: rotate(180deg);
+}
+
+.console-agent-editor__code-caret--expanded {
+    transform: rotate(90deg);
+}
+
+.console-agent-editor__code-block--expanded .console-agent-editor__code-header {
+    border-bottom: none;
+    border-radius: calc(var(--pluto-border-radius) * 2)
+        calc(var(--pluto-border-radius) * 2) 0 0;
+}
+
+.console-agent-editor__code-lang {
+    font-family: var(--pluto-code-font-family);
+}
+
+.console-agent-editor__code-pre {
+    margin: 0;
+    background: var(--pluto-gray-l0);
+    border: var(--pluto-border);
+    border-top: none;
+    border-radius: 0 0 calc(var(--pluto-border-radius) * 2)
+        calc(var(--pluto-border-radius) * 2);
+    padding: 2rem;
+    overflow-x: auto;
+    font-family: var(--pluto-code-font-family);
+    font-size: calc(var(--pluto-p-size) * 0.85);
+    line-height: 1.6;
+    white-space: pre;
+    color: var(--pluto-text-color);
+}
+
+/* Override Shiki's generated <pre> background to match our theme */
+.console-agent-editor__code-pre pre {
+    margin: 0 !important;
+    padding: 0 !important;
+    background: transparent !important;
+    font-family: inherit;
+    font-size: inherit;
+    line-height: inherit;
+}
+
+.console-agent-editor__code-pre code {
+    font-family: inherit;
+    font-size: inherit;
+    line-height: inherit;
+    background: transparent;
+}
+
+.console-agent-editor__message-actions {
+    margin-top: 1rem;
+    opacity: 0;
+    transition: opacity 0.15s ease;
+}
+
+.console-agent-editor__message:hover .console-agent-editor__message-actions {
+    opacity: 1;
+}
+
+.console-agent-editor__content code:not(pre code) {
+    background: var(--pluto-gray-l2);
+    border-radius: var(--pluto-border-radius);
+    padding: 0.25rem 0.75rem;
+    font-family: var(--pluto-code-font-family);
+    font-size: calc(var(--pluto-p-size) * 0.9);
+}
+
+.console-agent-editor__empty {
+    padding: 8rem 4rem;
+}
+
+.console-agent-editor__empty-icon {
+    font-size: 6rem;
+    color: var(--pluto-gray-l7);
+    margin-bottom: 3rem;
+}
+
+.console-agent-editor__chips {
+    margin-top: 3rem;
+    flex-wrap: wrap;
+}
+
+/* Combined bottom panel: input on top, task controls frame below */
+.console-agent-editor__bottom {
+    flex-shrink: 0;
+    margin: 2rem 3rem;
+    overflow: hidden;
+}
+
+.console-agent-editor__bottom .console-task-controls {
+    border-top: none;
+    border-bottom-left-radius: calc(var(--pluto-border-radius) * 3) !important;
+    border-bottom-right-radius: calc(var(--pluto-border-radius) * 3) !important;
+    border-top-left-radius: 0 !important;
+    border-top-right-radius: 0 !important;
+}
+
+.console-agent-editor__input-area {
+    padding: 2rem;
+    border: var(--pluto-border-width) solid var(--pluto-gray-l6);
+    border-radius: calc(var(--pluto-border-radius) * 3);
+    background: var(--pluto-gray-l1);
+    transition: border-color 0.15s ease;
+}
+
+/* When task controls are present, square off the bottom corners of the input area */
+.console-agent-editor__bottom:has(.console-task-controls) .console-agent-editor__input-area {
+    border-bottom-left-radius: 0;
+    border-bottom-right-radius: 0;
+}
+
+.console-agent-editor__input-area:focus-within {
+    border-color: var(--pluto-primary-z);
+}
+
+.console-agent-editor__input-container {
+    position: relative;
+    padding: 1.5rem 2rem;
+    padding-right: 7rem;
+    min-width: 0;
+}
+
+.console-agent-editor__textarea.pluto-input {
+    border: none !important;
+    background: transparent !important;
+    min-height: 3.5rem;
+    max-height: 24rem;
+    padding: 0 !important;
+    box-shadow: none !important;
+}
+
+.console-agent-editor__textarea.pluto-input textarea {
+    white-space: pre-wrap !important;
+    overflow-wrap: break-word;
+    word-wrap: break-word;
+}
+
+.console-agent-editor__send-btn {
+    position: absolute;
+    bottom: 1rem;
+    right: 1rem;
+}
+
+.console-agent-editor__hint {
+    padding: 0.5rem 2rem 0;
+}

@@ -36,6 +36,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/security"
 	"github.com/synnaxlabs/synnax/pkg/security/cert"
 	"github.com/synnaxlabs/synnax/pkg/server"
+	agentllm "github.com/synnaxlabs/synnax/pkg/service/agent/llm"
 	"github.com/synnaxlabs/synnax/pkg/service"
 	"github.com/synnaxlabs/synnax/pkg/service/auth"
 	"github.com/synnaxlabs/synnax/pkg/service/auth/password"
@@ -75,6 +76,8 @@ type CoreConfig struct {
 	taskOpTimeout        time.Duration
 	slowConsumerTimeout  time.Duration
 	taskWorkerCount      uint8
+	llmAPIKey            string
+	llmModel             string
 }
 
 var _ config.Config[CoreConfig] = CoreConfig{}
@@ -127,6 +130,8 @@ func (c CoreConfig) Override(other CoreConfig) CoreConfig {
 		enabledIntegrations:  override.Slice(c.enabledIntegrations, other.enabledIntegrations),
 		disabledIntegrations: override.Slice(c.disabledIntegrations, other.disabledIntegrations),
 		validateChannelNames: override.Nil(c.validateChannelNames, other.validateChannelNames),
+		llmAPIKey:            override.String(c.llmAPIKey, other.llmAPIKey),
+		llmModel:             override.String(c.llmModel, other.llmModel),
 	}
 }
 
@@ -227,6 +232,10 @@ func BootupCore(ctx context.Context, onServerStarted chan struct{}, cfgs ...Core
 		Distribution:    distributionLayer,
 		Security:        securityProvider,
 		Storage:         storageLayer,
+		LLM: agentllm.Config{
+			APIKey: cfg.llmAPIKey,
+			Model:  cfg.llmModel,
+		},
 	}); !ok(err, serviceLayer) {
 		return err
 	}
