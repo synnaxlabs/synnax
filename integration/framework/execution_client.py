@@ -473,6 +473,9 @@ class ExecutionClient:
         with self._tests_lock:
             self._tests.extend(killed_results)
 
+        for _ in killed_results:
+            self._on_test_ran()
+
         for thread in threads_to_terminate:
             self._terminate_thread(thread)
 

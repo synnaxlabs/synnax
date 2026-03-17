@@ -173,11 +173,10 @@ class TestConductor:
         self.state = STATE.SHUTDOWN
         self.execution_client.should_stop = True
         self.should_stop = True
+        self.state = STATE.COMPLETED
 
         if not self.telemetry_client.stop():
             self.log_message("Warning: telemetry thread did not stop within timeout")
-
-        self.state = STATE.COMPLETED
 
     def shutdown(self) -> None:
         """Gracefully shutdown the test conductor and all its processes."""
