@@ -12,21 +12,19 @@
 #include <memory>
 #include <thread>
 
-#include "driver/bypass/authority.h"
 #include "driver/bypass/bypass.h"
 #include "driver/pipeline/control.h"
 
 namespace driver::bypass {
-/// @brief a pipeline Streamer that merges local bus frames with server frames,
-/// filtering by authority. Runs the server read on a background thread so that
-/// both local bus frames and server frames are delivered without blocking each
-/// other. Authority filtering is only applied to local bus frames since server
-/// frames have already been through the server's control system.
+/// @brief a pipeline Streamer that merges local bus frames with server frames.
+/// Runs the server read on a background thread so that both local bus frames
+/// and server frames are delivered without blocking each other. No authority
+/// filtering is applied here; the bypass Writer is responsible for filtering
+/// unauthorized channels before publishing to the bus (matching Cesium's
+/// behavior of stripping unauthorized channels before relaying).
 class Streamer final : public pipeline::Streamer {
     std::unique_ptr<pipeline::Streamer> server;
     std::shared_ptr<Subscription> subscription;
-    AuthorityMirror &authority;
-    x::control::Subject subject;
     std::thread server_thread;
 
     std::mutex server_mu;
@@ -41,14 +39,9 @@ class Streamer final : public pipeline::Streamer {
 public:
     Streamer(
         std::unique_ptr<pipeline::Streamer> server,
-        std::shared_ptr<Subscription> subscription,
-        AuthorityMirror &authority,
-        x::control::Subject subject
+        std::shared_ptr<Subscription> subscription
     ):
-        server(std::move(server)),
-        subscription(std::move(subscription)),
-        authority(authority),
-        subject(std::move(subject)) {
+        server(std::move(server)), subscription(std::move(subscription)) {
         this->subscription->set_on_push([this] { this->notify_cv.notify_one(); });
         this->server_thread = std::thread([this] { this->read_server(); });
     }
@@ -59,13 +52,11 @@ public:
         while (true) {
             x::telem::Frame local;
             while (this->subscription->try_pop(local)) {
-                auto filtered = this->authority.filter(std::move(local), this->subject);
-                if (!filtered.empty()) {
+                if (!local.empty()) {
                     VLOG(1) << "[bus.streamer] delivering local frame with "
-                            << filtered.size() << " channels (bypassed server)";
-                    return {std::move(filtered), x::errors::NIL};
+                            << local.size() << " channels (bypassed server)";
+                    return {std::move(local), x::errors::NIL};
                 }
-                VLOG(1) << "[bus.streamer] local frame filtered out by authority";
             }
             {
                 std::lock_guard lock(this->server_mu);
@@ -122,23 +113,19 @@ private:
 };
 
 /// @brief a StreamerFactory that wraps streamers with bus subscription capability.
+/// Injects the subject's group into exclude_groups for server-side deduplication.
 class StreamerFactory final : public pipeline::StreamerFactory {
     std::shared_ptr<pipeline::StreamerFactory> server;
     Bus &bus;
-    AuthorityMirror &authority;
     x::control::Subject subject;
 
 public:
     StreamerFactory(
         std::shared_ptr<pipeline::StreamerFactory> server,
         Bus &bus,
-        AuthorityMirror &authority,
         x::control::Subject subject
     ):
-        server(std::move(server)),
-        bus(bus),
-        authority(authority),
-        subject(std::move(subject)) {}
+        server(std::move(server)), bus(bus), subject(std::move(subject)) {}
 
     std::pair<std::unique_ptr<pipeline::Streamer>, x::errors::Error>
     open_streamer(synnax::framer::StreamerConfig config) override {
@@ -151,12 +138,7 @@ public:
                 << config.channels.size() << " channels, subject=" << this->subject.name
                 << ", exclude_groups=" << this->subject.group;
         return {
-            std::make_unique<Streamer>(
-                std::move(streamer),
-                std::move(subscription),
-                this->authority,
-                this->subject
-            ),
+            std::make_unique<Streamer>(std::move(streamer), std::move(subscription)),
             x::errors::NIL,
         };
     }

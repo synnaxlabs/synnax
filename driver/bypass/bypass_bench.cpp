@@ -324,8 +324,7 @@ static void BM_EndToEnd(benchmark::State &state) {
         static_cast<void>(writer.write(frame));
         x::telem::Frame local;
         sub->try_pop(local);
-        auto filtered = mirror.filter(std::move(local), subject);
-        benchmark::DoNotOptimize(filtered);
+        benchmark::DoNotOptimize(local);
     }
 
     mock_writes->clear();

@@ -67,24 +67,9 @@ TEST(BusTest, Unsubscribe) {
     ASSERT_FALSE(sub->try_pop(received));
 }
 
-TEST(BusTest, HasSubscribers) {
-    Bus bus;
-    ASSERT_FALSE(bus.has_subscribers({1, 2}));
-    auto sub = bus.subscribe({1});
-    ASSERT_TRUE(bus.has_subscribers({1}));
-    ASSERT_FALSE(bus.has_subscribers({2}));
-    ASSERT_TRUE(bus.has_subscribers({1, 2}));
-    bus.unsubscribe(*sub);
-    ASSERT_FALSE(bus.has_subscribers({1}));
-}
-
 TEST(BusTest, DestroyedSubscriptionExpires) {
     Bus bus;
-    {
-        auto sub = bus.subscribe({1});
-        ASSERT_TRUE(bus.has_subscribers({1}));
-    }
-    ASSERT_FALSE(bus.has_subscribers({1}));
+    { auto sub = bus.subscribe({1}); }
     x::telem::Frame frame;
     frame.emplace(1, x::telem::Series(static_cast<float>(1.0)));
     bus.publish(frame);
@@ -177,10 +162,11 @@ TEST(BusTest, ExpiredEntriesSweptOnPublish) {
     x::telem::Frame frame;
     frame.emplace(1, x::telem::Series(static_cast<float>(1.0)));
     bus.publish(frame);
-    ASSERT_TRUE(bus.has_subscribers({1}));
+    x::telem::Frame received;
+    ASSERT_TRUE(sub2->try_pop(received));
+    ASSERT_EQ(received.size(), 1);
     sub2.reset();
     bus.publish(frame);
-    ASSERT_FALSE(bus.has_subscribers({1}));
 }
 
 TEST(SubscriptionTest, Empty) {

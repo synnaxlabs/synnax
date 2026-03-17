@@ -17,7 +17,7 @@
 #include <memory>
 #include <mutex>
 #include <shared_mutex>
-#include <unordered_map>
+#include <unordered_set>
 #include <vector>
 
 #include "glog/logging.h"
@@ -32,12 +32,13 @@ class Subscription {
     std::condition_variable cv;
     std::deque<x::telem::Frame> queue;
     std::vector<synnax::channel::Key> keys;
+    std::unordered_set<synnax::channel::Key> key_set;
     std::atomic<bool> closed{false};
     std::function<void()> on_push;
 
 public:
     explicit Subscription(std::vector<synnax::channel::Key> keys):
-        keys(std::move(keys)) {}
+        keys(keys), key_set(keys.begin(), keys.end()) {}
 
     Subscription(const Subscription &) = delete;
     Subscription &operator=(const Subscription &) = delete;
@@ -80,6 +81,13 @@ public:
 
     void set_on_push(std::function<void()> fn) { this->on_push = std::move(fn); }
 
+    /// @brief returns true if any key in the frame matches this subscription.
+    bool matches(const x::telem::Frame &frame) const {
+        for (const auto &[key, _]: frame)
+            if (this->key_set.contains(key)) return true;
+        return false;
+    }
+
     void push(x::telem::Frame frame) {
         {
             std::lock_guard lock(this->mu);
@@ -95,8 +103,7 @@ public:
 /// automatically expires its route entries — no explicit unsubscribe required.
 class Bus {
     mutable std::shared_mutex mu;
-    std::unordered_map<synnax::channel::Key, std::vector<std::weak_ptr<Subscription>>>
-        routes;
+    std::vector<std::weak_ptr<Subscription>> subscribers;
 
 public:
     /// @brief publishes a frame to all subscribers with matching channel keys.
@@ -104,39 +111,16 @@ public:
         bool has_expired = false;
         {
             std::shared_lock lock(this->mu);
-            if (this->routes.empty()) return;
-            static constexpr size_t INLINE_CAP = 4;
-            Subscription *inline_buf[INLINE_CAP];
-            size_t inline_count = 0;
-            std::vector<Subscription *> overflow;
-            auto already_delivered = [&](Subscription *p) {
-                for (size_t j = 0; j < inline_count; j++)
-                    if (inline_buf[j] == p) return true;
-                for (auto *o: overflow)
-                    if (o == p) return true;
-                return false;
-            };
-            auto mark_delivered = [&](Subscription *p) {
-                if (inline_count < INLINE_CAP)
-                    inline_buf[inline_count++] = p;
-                else
-                    overflow.push_back(p);
-            };
-            for (const auto &[key, _]: frame) {
-                auto it = this->routes.find(key);
-                if (it == this->routes.end()) continue;
-                for (auto &weak_sub: it->second) {
-                    auto sub = weak_sub.lock();
-                    if (!sub) {
-                        has_expired = true;
-                        continue;
-                    }
-                    if (!already_delivered(sub.get())) {
-                        mark_delivered(sub.get());
-                        VLOG(1) << "[bus] routing frame with " << frame.size()
-                                << " channels to subscription";
-                        sub->push(frame.shallow_copy());
-                    }
+            for (auto &weak_sub: this->subscribers) {
+                auto sub = weak_sub.lock();
+                if (!sub) {
+                    has_expired = true;
+                    continue;
+                }
+                if (sub->matches(frame)) {
+                    VLOG(1) << "[bus] routing frame with " << frame.size()
+                            << " channels to subscription";
+                    sub->push(frame.shallow_copy());
                 }
             }
         }
@@ -148,8 +132,7 @@ public:
     subscribe(const std::vector<synnax::channel::Key> &keys) {
         auto sub = std::make_shared<Subscription>(keys);
         std::unique_lock lock(this->mu);
-        for (const auto key: keys)
-            this->routes[key].push_back(sub);
+        this->subscribers.push_back(sub);
         VLOG(1) << "[bus] new subscription for " << keys.size() << " channels";
         return sub;
     }
@@ -157,56 +140,30 @@ public:
     /// @brief eagerly removes a subscription from the routing table.
     void unsubscribe(const Subscription &sub) {
         std::unique_lock lock(this->mu);
-        for (const auto key: sub.subscribed_keys()) {
-            auto it = this->routes.find(key);
-            if (it == this->routes.end()) continue;
-            auto &vec = it->second;
-            vec.erase(
-                std::remove_if(
-                    vec.begin(),
-                    vec.end(),
-                    [&sub](const std::weak_ptr<Subscription> &w) {
-                        auto locked = w.lock();
-                        return !locked || locked.get() == &sub;
-                    }
-                ),
-                vec.end()
-            );
-            if (vec.empty()) this->routes.erase(it);
-        }
+        this->subscribers.erase(
+            std::remove_if(
+                this->subscribers.begin(),
+                this->subscribers.end(),
+                [&sub](const std::weak_ptr<Subscription> &w) {
+                    auto locked = w.lock();
+                    return !locked || locked.get() == &sub;
+                }
+            ),
+            this->subscribers.end()
+        );
     }
 
 private:
     void sweep_expired() {
         std::unique_lock lock(this->mu);
-        for (auto it = this->routes.begin(); it != this->routes.end();) {
-            auto &vec = it->second;
-            vec.erase(
-                std::remove_if(
-                    vec.begin(),
-                    vec.end(),
-                    [](const std::weak_ptr<Subscription> &w) { return w.expired(); }
-                ),
-                vec.end()
-            );
-            if (vec.empty())
-                it = this->routes.erase(it);
-            else
-                ++it;
-        }
-    }
-
-public:
-    /// @brief checks if any live subscribers exist for any of the given keys.
-    bool has_subscribers(const std::vector<synnax::channel::Key> &keys) const {
-        std::shared_lock lock(this->mu);
-        for (const auto key: keys) {
-            auto it = this->routes.find(key);
-            if (it == this->routes.end()) continue;
-            for (const auto &w: it->second)
-                if (!w.expired()) return true;
-        }
-        return false;
+        this->subscribers.erase(
+            std::remove_if(
+                this->subscribers.begin(),
+                this->subscribers.end(),
+                [](const std::weak_ptr<Subscription> &w) { return w.expired(); }
+            ),
+            this->subscribers.end()
+        );
     }
 };
 }

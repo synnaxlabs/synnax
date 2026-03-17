@@ -29,11 +29,11 @@ TEST(StreamerTests, testStreamBasic) {
     auto now = x::telem::TimeStamp::now();
 
     std::vector channels = {data.key};
-    auto [streamer, sErr] = client.telem.open_streamer(
+    auto streamer = ASSERT_NIL_P(client.telem.open_streamer(
         synnax::framer::StreamerConfig{
             channels,
         }
-    );
+    ));
     auto writer = ASSERT_NIL_P(client.telem.open_writer(
         synnax::framer::WriterConfig{
             channels,
@@ -200,9 +200,9 @@ void test_downsample(
         }
     ));
 
-    auto [streamer, sErr] = client.telem.open_streamer(
+    auto streamer = ASSERT_NIL_P(client.telem.open_streamer(
         synnax::framer::StreamerConfig{channels, downsample_factor}
-    );
+    ));
 
     // Sleep for 5 milliseconds to allow for the streamer to bootstrap.
     std::this_thread::sleep_for(std::chrono::milliseconds(5));

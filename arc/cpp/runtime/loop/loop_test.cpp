@@ -67,14 +67,13 @@ TEST(LoopTest, CreateAndDestroy) {
     config.mode = ExecutionMode::EVENT_DRIVEN;
     config.interval = x::telem::MILLISECOND;
     const auto loop = ASSERT_NIL_P(create(config));
-    // Loop is cleaned up when it goes out of scope
 }
 
 /// @brief Test that Loop wakes up on wake() call (EVENT_DRIVEN mode).
 TEST(LoopTest, Wake_EventDriven) {
     Config config;
     config.mode = ExecutionMode::EVENT_DRIVEN;
-    config.interval = x::telem::TimeSpan(0); // No timer
+    config.interval = x::telem::TimeSpan(0);
 
     const auto loop = ASSERT_NIL_P(create_and_start(config));
 
@@ -86,10 +85,8 @@ TEST(LoopTest, Wake_EventDriven) {
         woke_up.store(true);
     });
 
-    // Give the waiter time to start waiting
     std::this_thread::sleep_for(test_timing::THREAD_STARTUP.chrono());
 
-    // Wake should unblock immediately
     loop->wake();
 
     waiter.join();
@@ -109,7 +106,6 @@ TEST(LoopTest, TimerExpiration) {
     const auto sw = x::telem::Stopwatch();
     loop->wait(breaker);
 
-    // Should have waited approximately 10ms (allow some jitter)
     const auto elapsed = sw.elapsed();
     EXPECT_GE(elapsed, test_timing::TIMER_LOWER_BOUND);
     EXPECT_LE(elapsed, test_timing::TIMER_UPPER_BOUND);
@@ -119,7 +115,7 @@ TEST(LoopTest, TimerExpiration) {
 TEST(LoopTest, BusyWaitMode) {
     Config config;
     config.mode = ExecutionMode::BUSY_WAIT;
-    config.interval = x::telem::TimeSpan(0); // No timer
+    config.interval = x::telem::TimeSpan(0);
 
     const auto loop = ASSERT_NIL_P(create_and_start(config));
 
@@ -154,7 +150,6 @@ TEST(LoopTest, HighRateMode) {
     const auto sw = x::telem::Stopwatch();
     loop->wait(breaker);
 
-    // Should wait approximately 10ms with high-rate timer
     const auto elapsed = sw.elapsed();
     EXPECT_GE(elapsed, test_timing::TIMER_LOWER_BOUND);
     EXPECT_LE(elapsed, test_timing::TIMER_UPPER_BOUND);
@@ -164,8 +159,8 @@ TEST(LoopTest, HighRateMode) {
 TEST(LoopTest, HybridMode) {
     Config config;
     config.mode = ExecutionMode::HYBRID;
-    config.interval = x::telem::TimeSpan(0); // No timer
-    config.spin_duration = 50 * x::telem::MICROSECOND; // 50us spin
+    config.interval = x::telem::TimeSpan(0);
+    config.spin_duration = 50 * x::telem::MICROSECOND;
 
     const auto loop = ASSERT_NIL_P(create_and_start(config));
 
@@ -192,7 +187,6 @@ TEST(LoopTest, MultipleCreateDestroy) {
 
     for (int i = 0; i < 3; i++) {
         const auto loop = ASSERT_NIL_P(create_and_start(config));
-        // Loop is cleaned up when it goes out of scope
     }
 }
 
@@ -211,7 +205,6 @@ TEST(LoopTest, DifferentModes) {
         config.mode = mode;
         config.interval = x::telem::MILLISECOND;
         const auto loop = ASSERT_NIL_P(create_and_start(config));
-        // Loop is cleaned up when it goes out of scope
     }
 }
 
@@ -647,10 +640,6 @@ TEST(WatchTest, WatchAfterSimulatedRestart_Works) {
     EXPECT_TRUE(woke.load());
 }
 
-//
-// Breaker Cancellation Tests
-//
-
 /// @brief BUSY_WAIT mode should exit quickly when breaker stops.
 TEST(BreakerCancellationTest, BreakerStop_BusyWaitExits) {
     Config config;
@@ -719,7 +708,6 @@ TEST(BreakerCancellationTest, EventDriven_ReturnsWithinTimeout) {
     const auto sw = x::telem::Stopwatch();
     loop->wait(breaker);
 
-    // EVENT_DRIVEN uses 100ms timeout, allow some margin
     EXPECT_LE(sw.elapsed(), test_timing::EVENT_DRIVEN_BOUND);
 }
 

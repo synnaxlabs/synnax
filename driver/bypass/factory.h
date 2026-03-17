@@ -38,7 +38,7 @@ inline std::shared_ptr<pipeline::StreamerFactory> make_streamer_factory(
     const x::control::Subject &subject
 ) {
     auto factory = std::make_shared<pipeline::SynnaxStreamerFactory>(ctx->client);
-    if (ctx->bus() == nullptr || ctx->authority_mirror() == nullptr) {
+    if (ctx->bus() == nullptr) {
         VLOG(1) << "[bus] no bus available, using direct server streamer";
         return factory;
     }
@@ -46,11 +46,6 @@ inline std::shared_ptr<pipeline::StreamerFactory> make_streamer_factory(
     if (ctx->rack_key() != 0 && sub.group == 0) sub.group = ctx->rack_key();
     VLOG(1) << "[bus] wrapping streamer factory with bus subscription, subject="
             << sub.name << ", group=" << sub.group;
-    return std::make_shared<StreamerFactory>(
-        factory,
-        *ctx->bus(),
-        *ctx->authority_mirror(),
-        sub
-    );
+    return std::make_shared<StreamerFactory>(factory, *ctx->bus(), sub);
 }
 }
