@@ -9,10 +9,10 @@
 
 #include "gtest/gtest.h"
 
-#include "driver/bus/streamer.h"
+#include "driver/bypass/streamer.h"
 #include "driver/pipeline/mock/pipeline.h"
 
-namespace driver::bus {
+namespace driver::bypass {
 const x::control::Subject TEST_SUBJECT{"test_writer", "tw-1"};
 
 TEST(StreamerTest, DeliversLocalBusFrames) {

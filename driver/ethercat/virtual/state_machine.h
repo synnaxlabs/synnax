@@ -167,7 +167,9 @@ public:
     void set_status_code(ALStatusCode code) { this->status_code = code; }
 
     /// @brief Returns true if in OPERATIONAL state.
-    [[nodiscard]] bool is_operational() const { return this->state == slave::State::OP; }
+    [[nodiscard]] bool is_operational() const {
+        return this->state == slave::State::OP;
+    }
 
 private:
     slave::State state;
@@ -177,26 +179,19 @@ private:
     [[nodiscard]] bool is_valid_transition(slave::State target) const {
         switch (this->state) {
             case slave::State::INIT:
-                return target == slave::State::INIT ||
-                       target == slave::State::PRE_OP ||
+                return target == slave::State::INIT || target == slave::State::PRE_OP ||
                        target == slave::State::BOOT;
             case slave::State::PRE_OP:
-                return target == slave::State::INIT ||
-                       target == slave::State::PRE_OP ||
+                return target == slave::State::INIT || target == slave::State::PRE_OP ||
                        target == slave::State::SAFE_OP;
             case slave::State::SAFE_OP:
-                return target == slave::State::INIT ||
-                       target == slave::State::PRE_OP ||
-                       target == slave::State::SAFE_OP ||
-                       target == slave::State::OP;
+                return target == slave::State::INIT || target == slave::State::PRE_OP ||
+                       target == slave::State::SAFE_OP || target == slave::State::OP;
             case slave::State::OP:
-                return target == slave::State::INIT ||
-                       target == slave::State::PRE_OP ||
-                       target == slave::State::SAFE_OP ||
-                       target == slave::State::OP;
+                return target == slave::State::INIT || target == slave::State::PRE_OP ||
+                       target == slave::State::SAFE_OP || target == slave::State::OP;
             case slave::State::BOOT:
-                return target == slave::State::INIT ||
-                       target == slave::State::BOOT;
+                return target == slave::State::INIT || target == slave::State::BOOT;
             default:
                 return false;
         }

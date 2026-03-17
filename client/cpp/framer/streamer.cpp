@@ -17,7 +17,8 @@ void StreamerConfig::to_proto(api::v1::FrameStreamerRequest &f) const {
     f.set_downsample_factor(this->downsample_factor);
     f.set_enable_experimental_codec(this->enable_experimental_codec);
     f.mutable_exclude_groups()->Add(
-        this->exclude_groups.begin(), this->exclude_groups.end()
+        this->exclude_groups.begin(),
+        this->exclude_groups.end()
     );
 }
 

@@ -12,11 +12,11 @@
 #include <memory>
 #include <thread>
 
-#include "driver/bus/authority.h"
-#include "driver/bus/bus.h"
+#include "driver/bypass/authority.h"
+#include "driver/bypass/bypass.h"
 #include "driver/pipeline/control.h"
 
-namespace driver::bus {
+namespace driver::bypass {
 /// @brief a pipeline Streamer that merges local bus frames with server frames,
 /// filtering by authority. Runs the server read on a background thread so that
 /// both local bus frames and server frames are delivered without blocking each
@@ -24,7 +24,7 @@ namespace driver::bus {
 /// frames have already been through the server's control system.
 class Streamer final : public pipeline::Streamer {
     std::unique_ptr<pipeline::Streamer> server;
-    std::unique_ptr<Subscription> subscription;
+    std::shared_ptr<Subscription> subscription;
     AuthorityMirror &authority;
     x::control::Subject subject;
     std::thread server_thread;
@@ -40,7 +40,7 @@ class Streamer final : public pipeline::Streamer {
 public:
     Streamer(
         std::unique_ptr<pipeline::Streamer> server,
-        std::unique_ptr<Subscription> subscription,
+        std::shared_ptr<Subscription> subscription,
         AuthorityMirror &authority,
         x::control::Subject subject
     ):

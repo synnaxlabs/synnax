@@ -12,6 +12,8 @@
 
 #include "gtest/gtest.h"
 
+#include "x/cpp/xtest/xtest.h"
+
 #include "driver/ethercat/virtual/config.h"
 #include "driver/ethercat/virtual/datagram.h"
 #include "driver/ethercat/virtual/esc.h"
@@ -19,16 +21,27 @@
 #include "driver/ethercat/virtual/object_dictionary.h"
 #include "driver/ethercat/virtual/state_machine.h"
 #include "driver/ethercat/virtual/veth.h"
-#include "x/cpp/xtest/xtest.h"
 
 namespace ethercat::virtual_esc {
 
 TEST(FrameTest, ParseValidEtherCATFrame) {
     std::vector<uint8_t> raw_frame = {
-        0x01, 0x02, 0x03, 0x04, 0x05, 0x06,
-        0x07, 0x08, 0x09, 0x0A, 0x0B, 0x0C,
-        0x88, 0xA4,
-        0x10, 0x10,
+        0x01,
+        0x02,
+        0x03,
+        0x04,
+        0x05,
+        0x06,
+        0x07,
+        0x08,
+        0x09,
+        0x0A,
+        0x0B,
+        0x0C,
+        0x88,
+        0xA4,
+        0x10,
+        0x10,
     };
     Frame frame;
     EXPECT_TRUE(frame.parse(raw_frame));
@@ -38,10 +51,22 @@ TEST(FrameTest, ParseValidEtherCATFrame) {
 
 TEST(FrameTest, RejectNonEtherCATFrame) {
     std::vector<uint8_t> raw_frame = {
-        0x01, 0x02, 0x03, 0x04, 0x05, 0x06,
-        0x07, 0x08, 0x09, 0x0A, 0x0B, 0x0C,
-        0x08, 0x00,
-        0x00, 0x00,
+        0x01,
+        0x02,
+        0x03,
+        0x04,
+        0x05,
+        0x06,
+        0x07,
+        0x08,
+        0x09,
+        0x0A,
+        0x0B,
+        0x0C,
+        0x08,
+        0x00,
+        0x00,
+        0x00,
     };
     Frame frame;
     EXPECT_FALSE(frame.parse(raw_frame));

@@ -26,7 +26,7 @@
 #include "x/cpp/log/log.h"
 #include "x/cpp/thread/rt/rt.h"
 
-namespace driver::bus {
+namespace driver::bypass {
 class Bus;
 class AuthorityMirror;
 }
@@ -104,10 +104,10 @@ public:
         client(std::move(client)) {}
 
     /// @brief returns the local telemetry bus, or nullptr if not available.
-    virtual bus::Bus *bus() { return nullptr; }
+    virtual bypass::Bus *bus() { return nullptr; }
 
     /// @brief returns the authority mirror, or nullptr if not available.
-    virtual bus::AuthorityMirror *authority_mirror() { return nullptr; }
+    virtual bypass::AuthorityMirror *authority_mirror() { return nullptr; }
 
     /// @brief returns the rack key for this driver, used as the group identity
     /// for server-side deduplication filtering.
@@ -141,16 +141,16 @@ public:
 };
 
 class SynnaxContext final : public Context {
-    bus::Bus *bus_ptr;
-    bus::AuthorityMirror *authority_mirror_ptr;
+    bypass::Bus *bus_ptr;
+    bypass::AuthorityMirror *authority_mirror_ptr;
     synnax::rack::Key rack_key_;
     x::thread::rt::Manager *rt_manager_ptr;
 
 public:
     explicit SynnaxContext(
         const std::shared_ptr<synnax::Synnax> &client,
-        bus::Bus *bus_ptr = nullptr,
-        bus::AuthorityMirror *authority_mirror_ptr = nullptr,
+        bypass::Bus *bus_ptr = nullptr,
+        bypass::AuthorityMirror *authority_mirror_ptr = nullptr,
         synnax::rack::Key rack_key = 0,
         x::thread::rt::Manager *rt_manager = nullptr
     ):
@@ -160,9 +160,9 @@ public:
         rack_key_(rack_key),
         rt_manager_ptr(rt_manager) {}
 
-    bus::Bus *bus() override { return this->bus_ptr; }
+    bypass::Bus *bus() override { return this->bus_ptr; }
 
-    bus::AuthorityMirror *authority_mirror() override {
+    bypass::AuthorityMirror *authority_mirror() override {
         return this->authority_mirror_ptr;
     }
 
@@ -299,8 +299,8 @@ public:
         const std::shared_ptr<synnax::Synnax> &client,
         std::unique_ptr<task::Factory> factory,
         const ManagerConfig &cfg = {},
-        bus::Bus *bus = nullptr,
-        bus::AuthorityMirror *authority_mirror = nullptr,
+        bypass::Bus *bus = nullptr,
+        bypass::AuthorityMirror *authority_mirror = nullptr,
         x::thread::rt::Manager *rt_manager = nullptr
     ):
         rack(std::move(rack)),

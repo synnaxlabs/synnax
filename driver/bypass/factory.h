@@ -9,13 +9,13 @@
 
 #pragma once
 
-#include "driver/bus/streamer.h"
-#include "driver/bus/writer.h"
+#include "driver/bypass/streamer.h"
+#include "driver/bypass/writer.h"
 #include "driver/pipeline/acquisition.h"
 #include "driver/pipeline/control.h"
 #include "driver/task/task.h"
 
-namespace driver::bus {
+namespace driver::bypass {
 inline std::shared_ptr<pipeline::WriterFactory>
 make_writer_factory(const std::shared_ptr<task::Context> &ctx) {
     auto factory = std::make_shared<pipeline::SynnaxWriterFactory>(ctx->client);

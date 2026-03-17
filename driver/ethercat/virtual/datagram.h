@@ -59,9 +59,7 @@ public:
     }
 
     /// @brief Returns the index field (used by master to match responses).
-    [[nodiscard]] uint8_t index() const {
-        return this->frame[this->dgram_offset + 1];
-    }
+    [[nodiscard]] uint8_t index() const { return this->frame[this->dgram_offset + 1]; }
 
     /// @brief Returns the address field (interpretation depends on command).
     [[nodiscard]] uint32_t address() const {
@@ -79,7 +77,8 @@ public:
         );
     }
 
-    /// @brief Returns the physical memory offset from address (for APRD/APWR/FPRD/FPWR).
+    /// @brief Returns the physical memory offset from address (for
+    /// APRD/APWR/FPRD/FPWR).
     [[nodiscard]] uint16_t ado() const {
         return static_cast<uint16_t>(
             this->frame[this->dgram_offset + 4] |
@@ -173,7 +172,9 @@ public:
     void decrement_adp() {
         int16_t new_adp = this->adp() - 1;
         this->frame[this->dgram_offset + 2] = static_cast<uint8_t>(new_adp & 0xFF);
-        this->frame[this->dgram_offset + 3] = static_cast<uint8_t>((new_adp >> 8) & 0xFF);
+        this->frame[this->dgram_offset + 3] = static_cast<uint8_t>(
+            (new_adp >> 8) & 0xFF
+        );
     }
 
     /// @brief Returns the total size of this datagram in bytes.

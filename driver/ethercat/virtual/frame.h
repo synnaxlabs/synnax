@@ -83,9 +83,8 @@ struct EthercatHeader {
     /// @brief Writes the header to a buffer.
     void write(std::span<uint8_t> data) const {
         if (data.size() < ETHERCAT_HEADER_SIZE) return;
-        const uint16_t raw = (this->length & 0x07FF) |
-                            ((this->reserved & 0x01) << 11) |
-                            ((this->type & 0x0F) << 12);
+        const uint16_t raw = (this->length & 0x07FF) | ((this->reserved & 0x01) << 11) |
+                             ((this->type & 0x0F) << 12);
         data[0] = static_cast<uint8_t>(raw & 0xFF);
         data[1] = static_cast<uint8_t>(raw >> 8);
     }
@@ -139,7 +138,9 @@ public:
         std::memcpy(tmp, this->eth_header.dest_mac, 6);
         std::memcpy(this->eth_header.dest_mac, this->eth_header.src_mac, 6);
         std::memcpy(this->eth_header.src_mac, tmp, 6);
-        this->eth_header.write(std::span<uint8_t>(this->raw_data.data(), ETHERNET_HEADER_SIZE));
+        this->eth_header.write(
+            std::span<uint8_t>(this->raw_data.data(), ETHERNET_HEADER_SIZE)
+        );
     }
 
     /// @brief Returns the raw frame data for transmission.

@@ -9,14 +9,13 @@
 
 #pragma once
 
-#include <atomic>
 #include <memory>
 
-#include "driver/bus/authority.h"
-#include "driver/bus/bus.h"
+#include "driver/bypass/authority.h"
+#include "driver/bypass/bypass.h"
 #include "driver/pipeline/acquisition.h"
 
-namespace driver::bus {
+namespace driver::bypass {
 /// @brief a pipeline Writer that publishes frames to the local bus before
 /// forwarding to the server. When set_authority is called with an authority
 /// higher than the current holder, the increase is applied directly to the
@@ -25,7 +24,6 @@ namespace driver::bus {
 class Writer final : public pipeline::Writer {
     std::unique_ptr<pipeline::Writer> server;
     Bus &bus;
-    std::atomic<bool> has_routes;
     AuthorityMirror &mirror;
     x::control::Subject subject;
     std::vector<synnax::channel::Key> channels;
@@ -34,24 +32,20 @@ public:
     Writer(
         std::unique_ptr<pipeline::Writer> server,
         Bus &bus,
-        const bool has_routes,
         AuthorityMirror &mirror,
         x::control::Subject subject,
         std::vector<synnax::channel::Key> channels
     ):
         server(std::move(server)),
         bus(bus),
-        has_routes(has_routes),
         mirror(mirror),
         subject(std::move(subject)),
         channels(std::move(channels)) {}
 
     [[nodiscard]] x::errors::Error write(const x::telem::Frame &fr) override {
-        if (this->has_routes.load(std::memory_order_relaxed)) {
-            VLOG(1) << "[bus.writer] publishing frame with " << fr.size()
-                    << " channels to bus";
-            this->bus.publish(fr);
-        }
+        VLOG(1) << "[bus.writer] publishing frame with " << fr.size()
+                << " channels to bus";
+        this->bus.publish(fr);
         return this->server->write(fr);
     }
 
@@ -95,14 +89,12 @@ public:
         if (this->group != 0 && cfg.subject.group == 0) cfg.subject.group = this->group;
         auto [writer, err] = this->server->open_writer(cfg);
         if (err) return {nullptr, err};
-        auto has_routes = this->bus.has_subscribers(cfg.channels);
         VLOG(1) << "[bus.writer_factory] opened writer for " << cfg.channels.size()
-                << " channels, has_routes=" << has_routes << ", group=" << this->group;
+                << " channels, group=" << this->group;
         return {
             std::make_unique<Writer>(
                 std::move(writer),
                 this->bus,
-                has_routes,
                 this->mirror,
                 cfg.subject,
                 cfg.channels

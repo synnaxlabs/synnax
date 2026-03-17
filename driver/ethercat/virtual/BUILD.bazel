@@ -14,7 +14,7 @@ cc_library(
     visibility = ["//driver/ethercat:__pkg__"],
     deps = [
         "//driver/ethercat/slave",
-        "//x/cpp/xerrors",
+        "//x/cpp/errors",
         "@glog",
     ],
 )

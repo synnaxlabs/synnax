@@ -18,7 +18,7 @@
 #include "x/cpp/control/control.h"
 #include "x/cpp/telem/frame.h"
 
-namespace driver::bus {
+namespace driver::bypass {
 /// @brief maintains a local mirror of per-channel authority state by
 /// subscribing to the server's control state channel.
 class AuthorityMirror {

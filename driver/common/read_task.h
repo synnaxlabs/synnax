@@ -9,7 +9,7 @@
 
 #pragma once
 
-#include "driver/bus/factory.h"
+#include "driver/bypass/factory.h"
 #include "driver/common/common.h"
 #include "driver/common/sample_clock.h"
 #include "driver/common/status.h"
@@ -204,7 +204,7 @@ public:
             ctx,
             breaker_cfg,
             std::move(source),
-            bus::make_writer_factory(ctx)
+            bypass::make_writer_factory(ctx)
         ) {}
 
     /// @brief executes the given command on the task.

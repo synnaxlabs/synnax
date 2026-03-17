@@ -123,14 +123,13 @@ struct PDOConfig {
     /// @brief Returns the total bit size of all entries.
     [[nodiscard]] size_t total_bits() const {
         size_t bits = 0;
-        for (const auto& e : this->entries) bits += e.bit_length;
+        for (const auto &e: this->entries)
+            bits += e.bit_length;
         return bits;
     }
 
     /// @brief Returns the total byte size (rounded up).
-    [[nodiscard]] size_t total_bytes() const {
-        return (this->total_bits() + 7) / 8;
-    }
+    [[nodiscard]] size_t total_bytes() const { return (this->total_bits() + 7) / 8; }
 };
 
 /// @brief Object value types supported in the object dictionary.
@@ -142,8 +141,7 @@ using ObjectValue = std::variant<
     int16_t,
     int32_t,
     std::string,
-    std::vector<uint8_t>
->;
+    std::vector<uint8_t>>;
 
 /// @brief Represents an object dictionary entry.
 struct ObjectEntry {
@@ -244,24 +242,26 @@ public:
     /// @brief Returns total input (TxPDO) size in bytes.
     [[nodiscard]] size_t total_tx_pdo_bytes() const {
         size_t total = 0;
-        for (const auto& pdo : this->tx_pdos) total += pdo.total_bytes();
+        for (const auto &pdo: this->tx_pdos)
+            total += pdo.total_bytes();
         return total;
     }
 
     /// @brief Returns total output (RxPDO) size in bytes.
     [[nodiscard]] size_t total_rx_pdo_bytes() const {
         size_t total = 0;
-        for (const auto& pdo : this->rx_pdos) total += pdo.total_bytes();
+        for (const auto &pdo: this->rx_pdos)
+            total += pdo.total_bytes();
         return total;
     }
 
     /// @brief Returns the TxPDO configurations.
-    [[nodiscard]] const std::vector<PDOConfig>& tx_pdo_configs() const {
+    [[nodiscard]] const std::vector<PDOConfig> &tx_pdo_configs() const {
         return this->tx_pdos;
     }
 
     /// @brief Returns the RxPDO configurations.
-    [[nodiscard]] const std::vector<PDOConfig>& rx_pdo_configs() const {
+    [[nodiscard]] const std::vector<PDOConfig> &rx_pdo_configs() const {
         return this->rx_pdos;
     }
 
@@ -291,11 +291,20 @@ private:
         result.resize(4);
         uint32_t value = 0;
         switch (sub_index) {
-            case 1: value = this->vendor_id; break;
-            case 2: value = this->product_code; break;
-            case 3: value = this->revision; break;
-            case 4: value = this->serial; break;
-            default: return std::nullopt;
+            case 1:
+                value = this->vendor_id;
+                break;
+            case 2:
+                value = this->product_code;
+                break;
+            case 3:
+                value = this->revision;
+                break;
+            case 4:
+                value = this->serial;
+                break;
+            default:
+                return std::nullopt;
         }
         std::memcpy(result.data(), &value, 4);
         return result;
@@ -315,7 +324,7 @@ private:
 
     [[nodiscard]] std::optional<std::vector<uint8_t>>
     read_pdo_assign(uint8_t sub_index, bool is_tx) const {
-        const auto& pdos = is_tx ? this->tx_pdos : this->rx_pdos;
+        const auto &pdos = is_tx ? this->tx_pdos : this->rx_pdos;
         std::vector<uint8_t> result;
         if (sub_index == 0) {
             result.push_back(static_cast<uint8_t>(pdos.size()));
@@ -330,11 +339,11 @@ private:
 
     [[nodiscard]] std::optional<std::vector<uint8_t>>
     read_pdo_mapping(uint16_t index, uint8_t sub_index, bool is_tx) const {
-        const auto& pdos = is_tx ? this->tx_pdos : this->rx_pdos;
+        const auto &pdos = is_tx ? this->tx_pdos : this->rx_pdos;
         const uint16_t base = is_tx ? OD_TXPDO_MAPPING : OD_RXPDO_MAPPING;
         const size_t pdo_idx = index - base;
         if (pdo_idx >= pdos.size()) return std::nullopt;
-        const auto& pdo = pdos[pdo_idx];
+        const auto &pdo = pdos[pdo_idx];
         std::vector<uint8_t> result;
         if (sub_index == 0) {
             result.push_back(static_cast<uint8_t>(pdo.entries.size()));
@@ -347,19 +356,22 @@ private:
         return result;
     }
 
-    [[nodiscard]] std::vector<uint8_t> value_to_bytes(const ObjectValue& val) const {
+    [[nodiscard]] std::vector<uint8_t> value_to_bytes(const ObjectValue &val) const {
         std::vector<uint8_t> result;
-        std::visit([&result](const auto& v) {
-            using T = std::decay_t<decltype(v)>;
-            if constexpr (std::is_same_v<T, std::string>) {
-                result.assign(v.begin(), v.end());
-            } else if constexpr (std::is_same_v<T, std::vector<uint8_t>>) {
-                result = v;
-            } else {
-                result.resize(sizeof(T));
-                std::memcpy(result.data(), &v, sizeof(T));
-            }
-        }, val);
+        std::visit(
+            [&result](const auto &v) {
+                using T = std::decay_t<decltype(v)>;
+                if constexpr (std::is_same_v<T, std::string>) {
+                    result.assign(v.begin(), v.end());
+                } else if constexpr (std::is_same_v<T, std::vector<uint8_t>>) {
+                    result = v;
+                } else {
+                    result.resize(sizeof(T));
+                    std::memcpy(result.data(), &v, sizeof(T));
+                }
+            },
+            val
+        );
         return result;
     }
 };

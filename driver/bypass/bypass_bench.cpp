@@ -11,10 +11,10 @@
 #include <vector>
 
 #include "benchmark/benchmark.h"
-#include "driver/bus/authority.h"
-#include "driver/bus/bus.h"
-#include "driver/bus/streamer.h"
-#include "driver/bus/writer.h"
+#include "driver/bypass/authority.h"
+#include "driver/bypass/bypass.h"
+#include "driver/bypass/streamer.h"
+#include "driver/bypass/writer.h"
 #include "driver/pipeline/mock/pipeline.h"
 
 namespace {
@@ -48,7 +48,7 @@ constexpr int NUM_WORKLOADS = 3;
 
 static void BM_BusPublish_NoSubs(benchmark::State &state) {
     const auto &w = WORKLOADS[state.range(0)];
-    driver::bus::Bus bus;
+    driver::bypass::Bus bus;
     auto frame = make_frame(w.channels, w.samples);
     for (auto _: state)
         bus.publish(frame);
@@ -59,7 +59,7 @@ BENCHMARK(BM_BusPublish_NoSubs)->DenseRange(0, NUM_WORKLOADS - 1);
 
 static void BM_BusPublish_1Sub(benchmark::State &state) {
     const auto &w = WORKLOADS[state.range(0)];
-    driver::bus::Bus bus;
+    driver::bypass::Bus bus;
     std::vector<synnax::channel::Key> keys(w.channels);
     for (uint32_t i = 0; i < w.channels; i++)
         keys[i] = i + 1;
@@ -70,7 +70,6 @@ static void BM_BusPublish_1Sub(benchmark::State &state) {
         x::telem::Frame drain;
         while (sub->try_pop(drain)) {}
     }
-    bus.unsubscribe(*sub);
     state.SetBytesProcessed(
         static_cast<int64_t>(state.iterations()) * static_cast<int64_t>(w.total_bytes())
     );
@@ -82,11 +81,11 @@ BENCHMARK(BM_BusPublish_1Sub)->DenseRange(0, NUM_WORKLOADS - 1);
 static void BM_BusPublish_NSubs(benchmark::State &state) {
     const auto num_subs = state.range(0);
     const auto &w = WORKLOADS[2];
-    driver::bus::Bus bus;
+    driver::bypass::Bus bus;
     std::vector<synnax::channel::Key> keys(w.channels);
     for (uint32_t i = 0; i < w.channels; i++)
         keys[i] = i + 1;
-    std::vector<std::unique_ptr<driver::bus::Subscription>> subs;
+    std::vector<std::shared_ptr<driver::bypass::Subscription>> subs;
     for (int i = 0; i < num_subs; i++)
         subs.push_back(bus.subscribe(keys));
     auto frame = make_frame(w.channels, w.samples);
@@ -97,8 +96,6 @@ static void BM_BusPublish_NSubs(benchmark::State &state) {
             while (sub->try_pop(drain)) {}
         }
     }
-    for (auto &sub: subs)
-        bus.unsubscribe(*sub);
     state.SetLabel(w.name);
 }
 
@@ -111,7 +108,7 @@ static void BM_SubscriptionPushPop(benchmark::State &state) {
     std::vector<synnax::channel::Key> keys(w.channels);
     for (uint32_t i = 0; i < w.channels; i++)
         keys[i] = i + 1;
-    driver::bus::Subscription sub(keys);
+    driver::bypass::Subscription sub(keys);
     for (auto _: state) {
         sub.push(make_frame(w.channels, w.samples));
         x::telem::Frame out;
@@ -131,7 +128,7 @@ static void BM_SubscriptionCrossThread(benchmark::State &state) {
     std::vector<synnax::channel::Key> keys(w.channels);
     for (uint32_t i = 0; i < w.channels; i++)
         keys[i] = i + 1;
-    driver::bus::Subscription sub(keys);
+    driver::bypass::Subscription sub(keys);
     std::atomic<bool> done{false};
     std::thread producer([&] {
         while (!done.load(std::memory_order_relaxed))
@@ -154,7 +151,7 @@ BENCHMARK(BM_SubscriptionCrossThread);
 
 static void BM_AuthorityFilter_AllPass(benchmark::State &state) {
     const auto &w = WORKLOADS[state.range(0)];
-    driver::bus::AuthorityMirror mirror;
+    driver::bypass::AuthorityMirror mirror;
     x::control::Subject subject{.name = "bench", .key = "bench-key"};
     auto frame = make_frame(w.channels, w.samples);
     for (auto _: state) {
@@ -171,7 +168,7 @@ BENCHMARK(BM_AuthorityFilter_AllPass)->DenseRange(0, NUM_WORKLOADS - 1);
 
 static void BM_AuthorityFilter_HalfPass(benchmark::State &state) {
     const auto &w = WORKLOADS[state.range(0)];
-    driver::bus::AuthorityMirror mirror;
+    driver::bypass::AuthorityMirror mirror;
     x::control::Subject subject{.name = "bench", .key = "bench-key"};
     x::control::Subject other{.name = "other", .key = "other-key"};
     for (uint32_t ch = 1; ch <= w.channels; ch++) {
@@ -198,7 +195,7 @@ BENCHMARK(BM_AuthorityFilter_HalfPass)->DenseRange(0, NUM_WORKLOADS - 1);
 
 static void BM_AuthorityFilter_NonePass(benchmark::State &state) {
     const auto &w = WORKLOADS[state.range(0)];
-    driver::bus::AuthorityMirror mirror;
+    driver::bypass::AuthorityMirror mirror;
     x::control::Subject subject{.name = "bench", .key = "bench-key"};
     x::control::Subject other{.name = "other", .key = "other-key"};
     for (uint32_t ch = 1; ch <= w.channels; ch++) {
@@ -225,7 +222,7 @@ BENCHMARK(BM_AuthorityFilter_NonePass)->DenseRange(0, NUM_WORKLOADS - 1);
 
 static void BM_AuthorityFilterMove_AllPass(benchmark::State &state) {
     const auto &w = WORKLOADS[state.range(0)];
-    driver::bus::AuthorityMirror mirror;
+    driver::bypass::AuthorityMirror mirror;
     x::control::Subject subject{.name = "bench", .key = "bench-key"};
     for (auto _: state) {
         state.PauseTiming();
@@ -244,7 +241,7 @@ BENCHMARK(BM_AuthorityFilterMove_AllPass)->DenseRange(0, NUM_WORKLOADS - 1);
 
 static void BM_AuthorityFilterMove_HalfPass(benchmark::State &state) {
     const auto &w = WORKLOADS[state.range(0)];
-    driver::bus::AuthorityMirror mirror;
+    driver::bypass::AuthorityMirror mirror;
     x::control::Subject subject{.name = "bench", .key = "bench-key"};
     x::control::Subject other{.name = "other", .key = "other-key"};
     for (uint32_t ch = 1; ch <= w.channels; ch++) {
@@ -273,7 +270,7 @@ BENCHMARK(BM_AuthorityFilterMove_HalfPass)->DenseRange(0, NUM_WORKLOADS - 1);
 
 static void BM_AuthorityFilterMove_NonePass(benchmark::State &state) {
     const auto &w = WORKLOADS[state.range(0)];
-    driver::bus::AuthorityMirror mirror;
+    driver::bypass::AuthorityMirror mirror;
     x::control::Subject subject{.name = "bench", .key = "bench-key"};
     x::control::Subject other{.name = "other", .key = "other-key"};
     for (uint32_t ch = 1; ch <= w.channels; ch++) {
@@ -302,8 +299,8 @@ BENCHMARK(BM_AuthorityFilterMove_NonePass)->DenseRange(0, NUM_WORKLOADS - 1);
 
 static void BM_EndToEnd(benchmark::State &state) {
     const auto &w = WORKLOADS[state.range(0)];
-    driver::bus::Bus bus;
-    driver::bus::AuthorityMirror mirror;
+    driver::bypass::Bus bus;
+    driver::bypass::AuthorityMirror mirror;
     x::control::Subject subject{.name = "bench", .key = "bench-key"};
 
     std::vector<synnax::channel::Key> keys(w.channels);
@@ -318,7 +315,7 @@ static void BM_EndToEnd(benchmark::State &state) {
         synnax::framer::WriterConfig{.channels = keys}
     );
 
-    driver::bus::Writer writer(std::move(server_writer), bus, true);
+    driver::bypass::Writer writer(std::move(server_writer), bus, mirror, subject, keys);
 
     auto sub = bus.subscribe(keys);
 
@@ -331,7 +328,6 @@ static void BM_EndToEnd(benchmark::State &state) {
         benchmark::DoNotOptimize(filtered);
     }
 
-    bus.unsubscribe(*sub);
     mock_writes->clear();
     state.SetBytesProcessed(
         static_cast<int64_t>(state.iterations()) * static_cast<int64_t>(w.total_bytes())

@@ -11,16 +11,17 @@
 
 #include <cstdlib>
 #include <string>
+
 #include <unistd.h>
 
-#include "x/cpp/xerrors/errors.h"
+#include "x/cpp/errors/errors.h"
 
 namespace ethercat::virtual_esc {
 
 /// @brief Checks if a network interface exists.
 /// @param iface The interface name to check.
 /// @return true if the interface exists, false otherwise.
-inline bool interface_exists(const std::string& iface) {
+inline bool interface_exists(const std::string &iface) {
     const std::string path = "/sys/class/net/" + iface;
     return access(path.c_str(), F_OK) == 0;
 }
@@ -47,23 +48,21 @@ public:
     /// @param prefix The prefix for the interface names (default: "ectest").
     ///        The interfaces will be named prefix0 and prefix1.
     explicit VethPair(std::string prefix = "ectest"):
-        prefix(std::move(prefix)),
-        created(false) {}
+        prefix(std::move(prefix)), created(false) {}
 
     ~VethPair() {
         if (this->created) this->destroy();
     }
 
-    VethPair(const VethPair&) = delete;
-    VethPair& operator=(const VethPair&) = delete;
+    VethPair(const VethPair &) = delete;
+    VethPair &operator=(const VethPair &) = delete;
 
-    VethPair(VethPair&& other) noexcept:
-        prefix(std::move(other.prefix)),
-        created(other.created) {
+    VethPair(VethPair &&other) noexcept:
+        prefix(std::move(other.prefix)), created(other.created) {
         other.created = false;
     }
 
-    VethPair& operator=(VethPair&& other) noexcept {
+    VethPair &operator=(VethPair &&other) noexcept {
         if (this != &other) {
             if (this->created) this->destroy();
             this->prefix = std::move(other.prefix);
@@ -75,21 +74,21 @@ public:
 
     /// @brief Creates the veth pair, or uses an existing one if available.
     /// @return An error if creation failed and no existing pair is available.
-    [[nodiscard]] xerrors::Error create() {
-        if (this->created) return xerrors::NIL;
+    [[nodiscard]] x::errors::Error create() {
+        if (this->created) return x::errors::NIL;
         if (interface_exists(this->master_interface()) &&
             interface_exists(this->slave_interface())) {
             this->created = false;
-            return xerrors::NIL;
+            return x::errors::NIL;
         }
         const std::string cmd = "ip link add " + this->master_interface() +
-                               " type veth peer name " + this->slave_interface();
+                                " type veth peer name " + this->slave_interface();
         int ret = std::system(cmd.c_str());
         if (ret != 0) {
-            return xerrors::Error(
+            return x::errors::Error(
                 "virtual_esc.veth",
                 "failed to create veth pair: " + cmd +
-                " (exit code: " + std::to_string(ret) + ")"
+                    " (exit code: " + std::to_string(ret) + ")"
             );
         }
         auto err = this->bring_up(this->master_interface());
@@ -103,7 +102,7 @@ public:
             return err;
         }
         this->created = true;
-        return xerrors::NIL;
+        return x::errors::NIL;
     }
 
     /// @brief Destroys the veth pair.
@@ -114,14 +113,10 @@ public:
     }
 
     /// @brief Returns the master-side interface name.
-    [[nodiscard]] std::string master_interface() const {
-        return this->prefix + "0";
-    }
+    [[nodiscard]] std::string master_interface() const { return this->prefix + "0"; }
 
     /// @brief Returns the slave-side interface name.
-    [[nodiscard]] std::string slave_interface() const {
-        return this->prefix + "1";
-    }
+    [[nodiscard]] std::string slave_interface() const { return this->prefix + "1"; }
 
     /// @brief Returns true if the veth pair has been created.
     [[nodiscard]] bool is_created() const { return this->created; }
@@ -130,31 +125,33 @@ private:
     std::string prefix;
     bool created;
 
-    [[nodiscard]] xerrors::Error bring_up(const std::string& iface) const {
+    [[nodiscard]] x::errors::Error bring_up(const std::string &iface) const {
         const std::string cmd = "ip link set " + iface + " up";
         int ret = std::system(cmd.c_str());
         if (ret != 0) {
-            return xerrors::Error(
+            return x::errors::Error(
                 "virtual_esc.veth",
                 "failed to bring up interface: " + iface +
-                " (exit code: " + std::to_string(ret) + ")"
+                    " (exit code: " + std::to_string(ret) + ")"
             );
         }
-        return xerrors::NIL;
+        return x::errors::NIL;
     }
 
     void destroy_quietly() const {
         const std::string cmd = "ip link delete " + this->master_interface() +
-                               " 2>/dev/null";
+                                " 2>/dev/null";
         std::system(cmd.c_str());
     }
 };
 
-/// @brief Checks if the current process has the required capabilities to create veth pairs,
+/// @brief Checks if the current process has the required capabilities to create veth
+/// pairs,
 ///        or if a pre-existing veth pair with the given prefix is available.
-/// @param prefix The veth pair prefix to check for (e.g., "ecsoem" checks for ecsoem0/ecsoem1).
+/// @param prefix The veth pair prefix to check for (e.g., "ecsoem" checks for
+/// ecsoem0/ecsoem1).
 /// @return true if veth pairs can be created or already exist, false otherwise.
-inline bool can_create_veth(const std::string& prefix = "") {
+inline bool can_create_veth(const std::string &prefix = "") {
     if (geteuid() == 0) return true;
     if (!prefix.empty()) {
         return interface_exists(prefix + "0") && interface_exists(prefix + "1");

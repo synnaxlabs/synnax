@@ -13,9 +13,9 @@
 
 #include "x/cpp/telem/series.h"
 
-#include "driver/bus/bus.h"
+#include "driver/bypass/bypass.h"
 
-namespace driver::bus {
+namespace driver::bypass {
 TEST(BusTest, PublishNoSubscribers) {
     Bus bus;
     x::telem::Frame frame;
@@ -76,6 +76,31 @@ TEST(BusTest, HasSubscribers) {
     ASSERT_TRUE(bus.has_subscribers({1, 2}));
     bus.unsubscribe(*sub);
     ASSERT_FALSE(bus.has_subscribers({1}));
+}
+
+TEST(BusTest, DestroyedSubscriptionExpires) {
+    Bus bus;
+    {
+        auto sub = bus.subscribe({1});
+        ASSERT_TRUE(bus.has_subscribers({1}));
+    }
+    ASSERT_FALSE(bus.has_subscribers({1}));
+    x::telem::Frame frame;
+    frame.emplace(1, x::telem::Series(static_cast<float>(1.0)));
+    bus.publish(frame);
+}
+
+TEST(BusTest, DestroyedSubscriptionDoesNotReceive) {
+    Bus bus;
+    auto sub1 = bus.subscribe({1});
+    auto sub2 = bus.subscribe({1});
+    sub1.reset();
+    x::telem::Frame frame;
+    frame.emplace(1, x::telem::Series(static_cast<float>(1.0)));
+    bus.publish(frame);
+    x::telem::Frame received;
+    ASSERT_TRUE(sub2->try_pop(received));
+    ASSERT_EQ(received.size(), 1);
 }
 
 TEST(BusTest, DeepCopyIsolation) {

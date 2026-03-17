@@ -18,22 +18,23 @@
 #include <thread>
 #include <vector>
 
+#include "x/cpp/errors/errors.h"
+
 #include "driver/ethercat/slave/slave.h"
 #include "driver/ethercat/virtual/config.h"
 #include "driver/ethercat/virtual/datagram.h"
 #include "driver/ethercat/virtual/frame.h"
 #include "driver/ethercat/virtual/object_dictionary.h"
 #include "driver/ethercat/virtual/state_machine.h"
-#include "x/cpp/xerrors/errors.h"
 
 namespace ethercat::virtual_esc {
 
 /// Error codes for Virtual ESC.
-const xerrors::Error BASE_ERROR("virtual_esc");
-const xerrors::Error SOCKET_ERROR = BASE_ERROR.sub("socket");
-const xerrors::Error BIND_ERROR = BASE_ERROR.sub("bind");
-const xerrors::Error RECEIVE_ERROR = BASE_ERROR.sub("receive");
-const xerrors::Error SEND_ERROR = BASE_ERROR.sub("send");
+const x::errors::Error BASE_ERROR("virtual_esc");
+const x::errors::Error SOCKET_ERROR = BASE_ERROR.sub("socket");
+const x::errors::Error BIND_ERROR = BASE_ERROR.sub("bind");
+const x::errors::Error RECEIVE_ERROR = BASE_ERROR.sub("receive");
+const x::errors::Error SEND_ERROR = BASE_ERROR.sub("send");
 
 /// @brief Virtual EtherCAT Slave Controller for testing.
 ///
@@ -58,13 +59,13 @@ public:
 
     ~VirtualESC();
 
-    VirtualESC(const VirtualESC&) = delete;
-    VirtualESC& operator=(const VirtualESC&) = delete;
+    VirtualESC(const VirtualESC &) = delete;
+    VirtualESC &operator=(const VirtualESC &) = delete;
 
     /// @brief Starts the virtual ESC on the specified network interface.
     /// @param interface The network interface name (e.g., "ectest1").
     /// @return An error if the ESC could not be started.
-    [[nodiscard]] xerrors::Error start(const std::string& interface);
+    [[nodiscard]] x::errors::Error start(const std::string &interface);
 
     /// @brief Stops the virtual ESC.
     void stop();
@@ -119,19 +120,19 @@ public:
     }
 
     /// @brief Sets the entire input data buffer.
-    void set_input_data(const std::vector<uint8_t>& data) {
+    void set_input_data(const std::vector<uint8_t> &data) {
         std::lock_guard lock(this->mu);
         const size_t copy_size = std::min(data.size(), this->input_data.size());
         std::memcpy(this->input_data.data(), data.data(), copy_size);
     }
 
     /// @brief Returns the configured station address.
-    [[nodiscard]] uint16_t station_address() const { return this->config.station_address; }
+    [[nodiscard]] uint16_t station_address() const {
+        return this->config.station_address;
+    }
 
     /// @brief Returns the number of frames processed.
-    [[nodiscard]] uint64_t frames_processed() const {
-        return this->frame_count.load();
-    }
+    [[nodiscard]] uint64_t frames_processed() const { return this->frame_count.load(); }
 
 private:
     Config config;
@@ -151,18 +152,18 @@ private:
     std::string iface_name;
 
     void run();
-    void process_frame(Frame& frame);
-    void handle_datagram(Datagram& dgram);
+    void process_frame(Frame &frame);
+    void handle_datagram(Datagram &dgram);
 
-    void handle_broadcast_read(Datagram& dgram);
-    void handle_broadcast_write(Datagram& dgram);
-    void handle_auto_increment_read(Datagram& dgram);
-    void handle_auto_increment_write(Datagram& dgram);
-    void handle_configured_address_read(Datagram& dgram);
-    void handle_configured_address_write(Datagram& dgram);
-    void handle_logical_read(Datagram& dgram);
-    void handle_logical_write(Datagram& dgram);
-    void handle_logical_read_write(Datagram& dgram);
+    void handle_broadcast_read(Datagram &dgram);
+    void handle_broadcast_write(Datagram &dgram);
+    void handle_auto_increment_read(Datagram &dgram);
+    void handle_auto_increment_write(Datagram &dgram);
+    void handle_configured_address_read(Datagram &dgram);
+    void handle_configured_address_write(Datagram &dgram);
+    void handle_logical_read(Datagram &dgram);
+    void handle_logical_write(Datagram &dgram);
+    void handle_logical_read_write(Datagram &dgram);
 
     bool read_register(uint16_t addr, std::span<uint8_t> data);
     bool write_register(uint16_t addr, std::span<const uint8_t> data);

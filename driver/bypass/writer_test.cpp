@@ -9,10 +9,10 @@
 
 #include "gtest/gtest.h"
 
-#include "driver/bus/writer.h"
+#include "driver/bypass/writer.h"
 #include "driver/pipeline/mock/pipeline.h"
 
-namespace driver::bus {
+namespace driver::bypass {
 TEST(WriterTest, PublishesToBusAndForwardsToServer) {
     Bus bus;
     AuthorityMirror mirror;
@@ -30,7 +30,7 @@ TEST(WriterTest, PublishesToBusAndForwardsToServer) {
     ASSERT_EQ(received.size(), 1);
 }
 
-TEST(WriterTest, SkipsBusPublishWhenNoRoutes) {
+TEST(WriterTest, WritesWithNoSubscribers) {
     Bus bus;
     AuthorityMirror mirror;
     auto mock_factory = std::make_shared<pipeline::mock::WriterFactory>();
@@ -41,6 +41,22 @@ TEST(WriterTest, SkipsBusPublishWhenNoRoutes) {
     frame.emplace(1, x::telem::Series(static_cast<float>(42.0)));
     ASSERT_FALSE(writer->write(frame));
     ASSERT_EQ(mock_factory->writes->size(), 1);
+}
+
+TEST(WriterTest, LateSubscriberReceivesFrames) {
+    Bus bus;
+    AuthorityMirror mirror;
+    auto mock_factory = std::make_shared<pipeline::mock::WriterFactory>();
+    WriterFactory factory(mock_factory, bus, 0, mirror);
+    auto [writer, err] = factory.open_writer({.channels = {1}});
+    ASSERT_FALSE(err) << err.message();
+    auto sub = bus.subscribe({1});
+    x::telem::Frame frame;
+    frame.emplace(1, x::telem::Series(static_cast<float>(42.0)));
+    ASSERT_FALSE(writer->write(frame));
+    x::telem::Frame received;
+    ASSERT_TRUE(sub->try_pop(received));
+    ASSERT_EQ(received.size(), 1);
 }
 
 TEST(WriterTest, DelegatesSetAuthority) {

@@ -9,9 +9,9 @@
 
 #include "gtest/gtest.h"
 
-#include "driver/bus/authority.h"
+#include "driver/bypass/authority.h"
 
-namespace driver::bus {
+namespace driver::bypass {
 const x::control::Subject ARC{"arc", "arc-1"};
 const x::control::Subject OPERATOR{"operator", "op-1"};
 

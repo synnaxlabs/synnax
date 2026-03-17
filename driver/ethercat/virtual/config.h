@@ -62,14 +62,16 @@ struct Config {
     /// @brief Returns the total TxPDO size in bytes.
     [[nodiscard]] size_t tx_pdo_bytes() const {
         size_t total = 0;
-        for (const auto& pdo : this->tx_pdos) total += pdo.total_bytes();
+        for (const auto &pdo: this->tx_pdos)
+            total += pdo.total_bytes();
         return total;
     }
 
     /// @brief Returns the total RxPDO size in bytes.
     [[nodiscard]] size_t rx_pdo_bytes() const {
         size_t total = 0;
-        for (const auto& pdo : this->rx_pdos) total += pdo.total_bytes();
+        for (const auto &pdo: this->rx_pdos)
+            total += pdo.total_bytes();
         return total;
     }
 };
