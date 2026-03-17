@@ -9,10 +9,11 @@
 
 import numpy as np
 import synnax as sy
+from xpy import get_random_name
 
 from console.case import ConsoleCase
 from console.plot import Plot
-from framework.utils import assert_link_format, get_random_name
+from framework.utils import assert_link_format
 
 
 class LinePlot(ConsoleCase):

@@ -10,9 +10,9 @@
 from uuid import UUID
 
 import synnax as sy
+from xpy import get_random_name
 
 from console.case import ConsoleCase
-from framework.utils import get_random_name
 
 
 class RangeExplorer(ConsoleCase):

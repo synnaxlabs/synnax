@@ -93,14 +93,7 @@ class WriterOpenCloseStress(TestCase):
 
     def _stress_loop(self) -> None:
         """Rapid open/write/close on shared channels until told to stop."""
-        conn = self.synnax_connection
-        client = sy.Synnax(
-            host=conn.server_address,
-            port=conn.port,
-            username=conn.username,
-            password=conn.password,
-            secure=conn.secure,
-        )
+        client = self.synnax_connection.create_client()
         i = 0
         try:
             while not self._stop.is_set():

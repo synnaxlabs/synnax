@@ -28,7 +28,7 @@ import sys
 from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
-    from framework.test_case import SynnaxConnection
+    from framework.models import SynnaxConnection
 
 
 def run_scripts(
