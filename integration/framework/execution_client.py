@@ -265,8 +265,8 @@ class ExecutionClient:
             result = Test(
                 test_name=test_def.case,
                 name=test_def.display_name,
-                status=STATUS.FAILED,
-                error_message="Unknown error - no result returned",
+                status=STATUS.TIMEOUT,
+                error_message="Test was terminated due to timeout",
             )
 
         with self._tests_lock:
@@ -335,6 +335,7 @@ class ExecutionClient:
                     test_instance.log_client.dump()
                 else:
                     test_instance.log_client.discard()
+                test_instance.log_client.close()
 
             with self._active_tests_lock:
                 self._active_tests[:] = [
@@ -373,6 +374,8 @@ class ExecutionClient:
             sy.sleep(monitor_interval)
 
     def _check_test_timeouts(self) -> None:
+        threads_to_terminate: list[threading.Thread] = []
+
         with self._active_tests_lock:
             if not self._active_tests:
                 return
@@ -390,25 +393,20 @@ class ExecutionClient:
                 if elapsed <= timeout_span:
                     continue
 
-                self._handle_test_timeout(test_instance, elapsed, timeout_span, thread)
+                self._log(
+                    f"{test_instance.name} timeout detected "
+                    f"({elapsed} > {timeout_span})",
+                    True,
+                )
+                test_instance._status = STATUS.TIMEOUT
                 to_remove.append((test_instance, test_range, thread))
+                threads_to_terminate.append(thread)
 
             for item in to_remove:
                 self._active_tests.remove(item)
 
-    def _handle_test_timeout(
-        self,
-        test_instance: TestCase,
-        elapsed: sy.TimeSpan,
-        timeout: sy.TimeSpan,
-        thread: threading.Thread,
-    ) -> None:
-        self._log(
-            f"{test_instance.name} timeout detected ({elapsed} > {timeout})",
-            True,
-        )
-        test_instance._status = STATUS.TIMEOUT
-        self._terminate_thread(thread)
+        for thread in threads_to_terminate:
+            self._terminate_thread(thread)
 
     # ----- Kill / terminate -----
 

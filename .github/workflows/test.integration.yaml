@@ -90,9 +90,8 @@ jobs:
         steps.set-outputs.outputs.REF_RUN_ID }}
       FLAGS: ${{ steps.set-outputs.outputs.FLAGS }}
       TEST_MATRIX:
-        ${{ steps.set-outputs.outputs.FLAGS != '' &&
-        format('{{"include":[{{"name":"{0}","target":""}}]}}',
-        steps.set-outputs.outputs.FLAGS) || steps.test-matrix.outputs.TEST_MATRIX }}
+        ${{ steps.set-outputs.outputs.CUSTOM_MATRIX ||
+        steps.test-matrix.outputs.TEST_MATRIX }}
     steps:
       - name: Checkout Repository
         uses: actions/checkout@v6
@@ -119,6 +118,10 @@ jobs:
         run: |
           echo "FLAGS=${FLAGS}" >> $GITHUB_OUTPUT
           echo "SKIP_BUILD=${SKIP_BUILD}" >> $GITHUB_OUTPUT
+          if [ -n "${FLAGS}" ]; then
+            SAFE_NAME=$(echo "${FLAGS}" | sed 's/[^a-zA-Z0-9_-]/_/g')
+            echo "CUSTOM_MATRIX={\"include\":[{\"name\":\"${SAFE_NAME}\",\"target\":\"\"}]}" >> $GITHUB_OUTPUT
+          fi
           if [ "${SKIP_BUILD}" = "true" ]; then
             if [ -z "${REF_RUN_ID}" ]; then
               echo "Empty REF_RUN_ID. Setting SKIP_BUILD to false."
