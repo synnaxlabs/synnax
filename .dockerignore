@@ -62,8 +62,6 @@ Thumbs.db
 # Config files not needed in build
 *.yaml
 *.yml
-!go.work
-!go.work.sum
 *.json
 !package.json
 *.toml
@@ -80,4 +78,4 @@ Dockerfile
 # - cesium (included)
 # - aspen (included)
 # - arc (included)
-# - go.mod, go.sum, go.work, go.work.sum (included)
+# - go.mod, go.sum (included)

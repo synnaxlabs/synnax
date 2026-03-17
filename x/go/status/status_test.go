@@ -17,6 +17,7 @@ import (
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/x/status"
 	"github.com/synnaxlabs/x/telem"
+	. "github.com/synnaxlabs/x/testutil"
 )
 
 type CustomDetails struct {
@@ -215,8 +216,7 @@ var _ = Describe("Status", func() {
 					Description: "Test description",
 					Time:        telem.TimeStamp(1609459200000000000),
 				}
-				pb, err := status.TranslateToPB(s)
-				Expect(err).ToNot(HaveOccurred())
+				pb := MustSucceed(status.TranslateToPB(s))
 				Expect(pb.Key).To(Equal("test-key"))
 				Expect(pb.Name).To(Equal("Test Status"))
 				Expect(pb.Variant).To(Equal("info"))
@@ -232,8 +232,7 @@ var _ = Describe("Status", func() {
 					Variant: status.VariantError,
 					Details: CustomDetails{Code: 500, Context: "server error"},
 				}
-				pb, err := status.TranslateToPB(s)
-				Expect(err).ToNot(HaveOccurred())
+				pb := MustSucceed(status.TranslateToPB(s))
 				var details CustomDetails
 				Expect(json.Unmarshal([]byte(pb.Details), &details)).To(Succeed())
 				Expect(details.Code).To(Equal(500))
@@ -246,8 +245,7 @@ var _ = Describe("Status", func() {
 					Variant: status.VariantInfo,
 					Details: 42,
 				}
-				pb, err := status.TranslateToPB(s)
-				Expect(err).ToNot(HaveOccurred())
+				pb := MustSucceed(status.TranslateToPB(s))
 				Expect(pb.Details).To(Equal("42"))
 			})
 		})
@@ -263,8 +261,7 @@ var _ = Describe("Status", func() {
 					Time:        1609459200000000000,
 					Details:     "null",
 				}
-				s, err := status.TranslateFromPB[any](pb)
-				Expect(err).ToNot(HaveOccurred())
+				s := MustSucceed(status.TranslateFromPB[any](pb))
 				Expect(s.Key).To(Equal("pb-key"))
 				Expect(s.Name).To(Equal("PB Status"))
 				Expect(s.Variant).To(Equal(status.VariantWarning))
@@ -279,8 +276,7 @@ var _ = Describe("Status", func() {
 					Variant: "error",
 					Details: `{"Code":404,"Context":"not found"}`,
 				}
-				s, err := status.TranslateFromPB[CustomDetails](pb)
-				Expect(err).ToNot(HaveOccurred())
+				s := MustSucceed(status.TranslateFromPB[CustomDetails](pb))
 				Expect(s.Details.Code).To(Equal(404))
 				Expect(s.Details.Context).To(Equal("not found"))
 			})
@@ -291,8 +287,7 @@ var _ = Describe("Status", func() {
 					Variant: "info",
 					Details: "123",
 				}
-				s, err := status.TranslateFromPB[int](pb)
-				Expect(err).ToNot(HaveOccurred())
+				s := MustSucceed(status.TranslateFromPB[int](pb))
 				Expect(s.Details).To(Equal(123))
 			})
 
@@ -318,11 +313,9 @@ var _ = Describe("Status", func() {
 					Time:        telem.TimeStamp(1609459200000000000),
 					Details:     CustomDetails{Code: 200, Context: "ok"},
 				}
-				pb, err := status.TranslateToPB(original)
-				Expect(err).ToNot(HaveOccurred())
+				pb := MustSucceed(status.TranslateToPB(original))
 
-				result, err := status.TranslateFromPB[CustomDetails](pb)
-				Expect(err).ToNot(HaveOccurred())
+				result := MustSucceed(status.TranslateFromPB[CustomDetails](pb))
 				Expect(result.Key).To(Equal(original.Key))
 				Expect(result.Name).To(Equal(original.Name))
 				Expect(result.Variant).To(Equal(original.Variant))

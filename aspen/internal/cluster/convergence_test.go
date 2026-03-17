@@ -24,6 +24,7 @@ import (
 	"github.com/synnaxlabs/x/address"
 	"github.com/synnaxlabs/x/kv/memkv"
 	"github.com/synnaxlabs/x/rand"
+	. "github.com/synnaxlabs/x/testutil"
 )
 
 type newConvergenceVars struct {
@@ -76,7 +77,7 @@ var _ = Describe("Convergence", func() {
 					gossipT := gossipNet.UnaryServer("")
 					pledgeT := pledgeNet.UnaryServer(gossipT.Address)
 					peerAddresses := rand.SubSlice(addresses, values.peerAddrCount)
-					cluster, err := cluster.Open(
+					cluster := MustSucceed(cluster.Open(
 						ctx,
 						cluster.Config{
 							HostAddress: gossipT.Address,
@@ -94,8 +95,7 @@ var _ = Describe("Convergence", func() {
 							},
 							Storage: memkv.New(),
 						},
-					)
-					Expect(err).ToNot(HaveOccurred())
+					))
 					addresses = append(addresses, gossipT.Address)
 					clusters = append(clusters, cluster)
 				}

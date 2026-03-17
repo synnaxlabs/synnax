@@ -89,8 +89,7 @@ var _ = Describe("KV", Ordered, func() {
 		}
 		Expect(rangerSvc.NewWriter(tx).Create(ctx, r)).To(Succeed())
 		Expect(kvSvc.NewWriter(tx).Set(ctx, r.Key, "key", "value")).To(Succeed())
-		value, err := kvSvc.NewReader(tx).Get(ctx, r.Key, "key")
-		Expect(err).ToNot(HaveOccurred())
+		value := MustSucceed(kvSvc.NewReader(tx).Get(ctx, r.Key, "key"))
 		Expect(value).To(Equal("value"))
 	})
 
@@ -123,11 +122,9 @@ var _ = Describe("KV", Ordered, func() {
 			{Key: "key2", Value: "value2"},
 		})).To(Succeed())
 		reader := kvSvc.NewReader(tx)
-		value, err := reader.Get(ctx, r.Key, "key1")
-		Expect(err).ToNot(HaveOccurred())
+		value := MustSucceed(reader.Get(ctx, r.Key, "key1"))
 		Expect(value).To(Equal("value1"))
-		value, err = reader.Get(ctx, r.Key, "key2")
-		Expect(err).ToNot(HaveOccurred())
+		value = MustSucceed(reader.Get(ctx, r.Key, "key2"))
 		Expect(value).To(Equal("value2"))
 	})
 
@@ -143,15 +140,13 @@ var _ = Describe("KV", Ordered, func() {
 		kvW := kvSvc.NewWriter(tx)
 		Expect(kvW.Set(ctx, r.Key, "key1", "value1")).To(Succeed())
 		Expect(kvW.Set(ctx, r.Key, "key2", "value2")).To(Succeed())
-		pairs, err := kvSvc.NewReader(tx).List(ctx, r.Key)
-		Expect(err).ToNot(HaveOccurred())
+		pairs := MustSucceed(kvSvc.NewReader(tx).List(ctx, r.Key))
 		Expect(pairs).To(Equal([]kv.Pair{
 			{Range: r.Key, Key: "key1", Value: "value1"},
 			{Range: r.Key, Key: "key2", Value: "value2"},
 		}))
 		Expect(kvW.Delete(ctx, r.Key, "key1")).To(Succeed())
-		pairs, err = kvSvc.NewReader(tx).List(ctx, r.Key)
-		Expect(err).ToNot(HaveOccurred())
+		pairs = MustSucceed(kvSvc.NewReader(tx).List(ctx, r.Key))
 		Expect(pairs).To(Equal([]kv.Pair{
 			{Range: r.Key, Key: "key2", Value: "value2"},
 		}))

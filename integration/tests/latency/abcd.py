@@ -126,11 +126,16 @@ class Abcd(Latency):
                     self.write_tlm("t_c", t_c)
 
         elif self.mode == "d":
-            # 100Hz for 20 seconds
-            delta_a_b = np.zeros(1000 * self._manual_timeout)
-            delta_b_c = np.zeros(1000 * self._manual_timeout)
-            delta_c_d = np.zeros(1000 * self._manual_timeout)
-            delta_d_a = np.zeros(1000 * self._manual_timeout)
+            # 100Hz for the manual timeout duration
+            timeout_secs = (
+                int(sy.TimeSpan.from_seconds(self._manual_timeout).seconds)
+                if self._manual_timeout is not None
+                else 20
+            )
+            delta_a_b = np.zeros(1000 * timeout_secs)
+            delta_b_c = np.zeros(1000 * timeout_secs)
+            delta_c_d = np.zeros(1000 * timeout_secs)
+            delta_d_a = np.zeros(1000 * timeout_secs)
             idx = 0
 
             while self.should_continue:

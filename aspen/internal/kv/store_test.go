@@ -63,7 +63,7 @@ var _ = Describe("kvStore", func() {
 			wg.Add(1)
 			go func(i int) {
 				defer wg.Done()
-				errs[i] = db.Set(ctx, []byte(fmt.Sprintf("key%d", i)), []byte("v"))
+				errs[i] = db.Set(ctx, fmt.Appendf(nil, "key%d", i), []byte("v"))
 			}(i)
 		}
 		wg.Wait()

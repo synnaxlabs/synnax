@@ -34,7 +34,7 @@ from tests.driver.ni_read import (
     NIDigitalRead,
     NIReadTemperature,
 )
-from tests.driver.opcua_read import OPCUAReadMixed
+from tests.driver.opcua_read import OPCUAReadFloat
 from tests.driver.opcua_write import OPCUAWriteFloat
 from tests.driver.simulator_case import SimulatorCase
 from tests.driver.task import (
@@ -83,13 +83,13 @@ class GrandFinale(SimulatorCase):
                 channels=ModbusReadCoil.create_channels(self.client),
             ),
             opcua.ReadTask(
-                name="GF OPC UA Mixed",
+                name="GF OPC UA Float",
                 device=opcua_device.key,
                 sample_rate=self.SAMPLE_RATE,
                 stream_rate=self.STREAM_RATE,
                 data_saving=True,
                 array_mode=False,
-                channels=OPCUAReadMixed.create_channels(self.client),
+                channels=OPCUAReadFloat.create_channels(self.client),
             ),
         ]
 

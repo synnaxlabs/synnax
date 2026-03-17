@@ -212,7 +212,7 @@ var _ = Describe("Graph", func() {
 			calc := channel.Channel{Name: "calc10", DataType: telem.Int64T, Virtual: true, Expression: "return base8"}
 			Expect(dist.Channel.Create(ctx, &calc)).To(Succeed())
 			Expect(g.Add(ctx, calc)).To(Succeed())
-			Expect(g.Remove(calc.Key())).To(Succeed())
+			Expect(MustSucceed(g.Remove(calc.Key()))).To(BeTrue())
 			grouped := g.CalculateGrouped()
 			Expect(grouped).To(BeEmpty())
 		})
@@ -227,16 +227,16 @@ var _ = Describe("Graph", func() {
 			Expect(dist.Channel.CreateMany(ctx, &calcs)).To(Succeed())
 			Expect(g.Add(ctx, calcs[0])).To(Succeed())
 			Expect(g.Add(ctx, calcs[1])).To(Succeed())
-			Expect(g.Remove(calcs[0].Key())).To(Succeed())
+			Expect(MustSucceed(g.Remove(calcs[0].Key()))).To(BeTrue())
 			grouped := g.CalculateGrouped()
 			Expect(grouped).To(HaveLen(1))
-			Expect(g.Remove(calcs[1].Key())).To(Succeed())
+			Expect(MustSucceed(g.Remove(calcs[1].Key()))).To(BeTrue())
 			grouped = g.CalculateGrouped()
 			Expect(grouped).To(BeEmpty())
 		})
 
-		It("Should not fail to remove non-existent channel", func() {
-			Expect(g.Remove(channel.Key(99999))).To(Succeed())
+		It("Should return false for non-existent channel", func() {
+			Expect(MustSucceed(g.Remove(channel.Key(99999)))).To(BeFalse())
 		})
 	})
 
@@ -248,10 +248,10 @@ var _ = Describe("Graph", func() {
 			Expect(dist.Channel.Create(ctx, &calc)).To(Succeed())
 			Expect(g.Add(ctx, calc)).To(Succeed())
 			Expect(g.Add(ctx, calc)).To(Succeed())
-			Expect(g.Remove(calc.Key())).To(Succeed())
+			Expect(MustSucceed(g.Remove(calc.Key()))).To(BeTrue())
 			grouped := g.CalculateGrouped()
 			Expect(grouped).To(HaveLen(1))
-			Expect(g.Remove(calc.Key())).To(Succeed())
+			Expect(MustSucceed(g.Remove(calc.Key()))).To(BeTrue())
 			grouped = g.CalculateGrouped()
 			Expect(grouped).To(BeEmpty())
 		})
@@ -266,7 +266,7 @@ var _ = Describe("Graph", func() {
 			Expect(g.Add(ctx, calcs[1])).To(Succeed())
 			grouped := g.CalculateGrouped()
 			Expect(grouped[0]).To(HaveLen(2))
-			Expect(g.Remove(calcs[1].Key())).To(Succeed())
+			Expect(MustSucceed(g.Remove(calcs[1].Key()))).To(BeTrue())
 			grouped = g.CalculateGrouped()
 			Expect(grouped).To(BeEmpty())
 		})
@@ -283,10 +283,10 @@ var _ = Describe("Graph", func() {
 			Expect(g.Add(ctx, calcs[2])).To(Succeed())
 			grouped := g.CalculateGrouped()
 			Expect(grouped[0]).To(HaveLen(3))
-			Expect(g.Remove(calcs[1].Key())).To(Succeed())
+			Expect(MustSucceed(g.Remove(calcs[1].Key()))).To(BeTrue())
 			grouped = g.CalculateGrouped()
 			Expect(grouped[0]).To(HaveLen(2))
-			Expect(g.Remove(calcs[2].Key())).To(Succeed())
+			Expect(MustSucceed(g.Remove(calcs[2].Key()))).To(BeTrue())
 			grouped = g.CalculateGrouped()
 			Expect(grouped).To(BeEmpty())
 		})
@@ -300,10 +300,10 @@ var _ = Describe("Graph", func() {
 			Expect(dist.Channel.CreateMany(ctx, &calcs)).To(Succeed())
 			Expect(g.Add(ctx, calcs[0])).To(Succeed())
 			Expect(g.Add(ctx, calcs[1])).To(Succeed())
-			Expect(g.Remove(calcs[1].Key())).To(Succeed())
+			Expect(MustSucceed(g.Remove(calcs[1].Key()))).To(BeTrue())
 			grouped := g.CalculateGrouped()
 			Expect(grouped[0]).To(HaveLen(1))
-			Expect(g.Remove(calcs[0].Key())).To(Succeed())
+			Expect(MustSucceed(g.Remove(calcs[0].Key()))).To(BeTrue())
 			grouped = g.CalculateGrouped()
 			Expect(grouped).To(BeEmpty())
 		})
@@ -343,7 +343,7 @@ var _ = Describe("Graph", func() {
 			Expect(keys).To(HaveLen(1))
 			Expect(keys.Contains(calc.Key())).To(BeTrue())
 
-			Expect(g.Remove(calc.Key())).To(Succeed())
+			Expect(MustSucceed(g.Remove(calc.Key()))).To(BeTrue())
 			keys = g.CalculatedKeys()
 			Expect(keys).To(BeEmpty())
 		})
@@ -410,7 +410,7 @@ var _ = Describe("Graph", func() {
 			baseKeys := g.ConcreteBaseKeys()
 			Expect(baseKeys).To(HaveLen(2))
 
-			Expect(g.Remove(calcs[0].Key())).To(Succeed())
+			Expect(MustSucceed(g.Remove(calcs[0].Key()))).To(BeTrue())
 			baseKeys = g.ConcreteBaseKeys()
 			Expect(baseKeys).To(HaveLen(1))
 			Expect(baseKeys.Contains(bases[1].Key())).To(BeTrue())
@@ -509,10 +509,10 @@ var _ = Describe("Graph", func() {
 			calc.Expression = "return upbase8 * 3"
 			Expect(dist.Channel.Create(ctx, &calc)).To(Succeed())
 			Expect(g.Update(ctx, calc)).To(Succeed())
-			Expect(g.Remove(calc.Key())).To(Succeed())
+			Expect(MustSucceed(g.Remove(calc.Key()))).To(BeTrue())
 			grouped := g.CalculateGrouped()
 			Expect(grouped).To(HaveLen(1))
-			Expect(g.Remove(calc.Key())).To(Succeed())
+			Expect(MustSucceed(g.Remove(calc.Key()))).To(BeTrue())
 			grouped = g.CalculateGrouped()
 			Expect(grouped).To(BeEmpty())
 		})
@@ -601,6 +601,39 @@ var _ = Describe("Graph", func() {
 			calcKeys = g.CalculatedKeys()
 			Expect(calcKeys).To(HaveLen(3))
 			Expect(calcKeys.Contains(calcs[0].Key())).To(BeTrue())
+		})
+	})
+
+	Describe("Error Messages", func() {
+		It("Should include channel name in Add compilation errors", func() {
+			calc := channel.Channel{
+				Name:       "bad_calc_add",
+				DataType:   telem.Int64T,
+				Virtual:    true,
+				Expression: "return invalid_syntax {{",
+			}
+			Expect(dist.Channel.Create(ctx, &calc)).To(Succeed())
+			err := g.Add(ctx, calc)
+			Expect(err).To(HaveOccurred())
+			Expect(err.Error()).To(ContainSubstring("bad_calc_add"))
+		})
+
+		It("Should include channel name in Update compilation errors", func() {
+			bases := []channel.Channel{{Name: "err_base", DataType: telem.Int64T, Virtual: true}}
+			Expect(dist.Channel.CreateMany(ctx, &bases)).To(Succeed())
+			calc := channel.Channel{
+				Name:       "bad_calc_update",
+				DataType:   telem.Int64T,
+				Virtual:    true,
+				Expression: "return err_base * 2",
+			}
+			Expect(dist.Channel.Create(ctx, &calc)).To(Succeed())
+			Expect(g.Add(ctx, calc)).To(Succeed())
+			calc.Expression = "return invalid_syntax {{"
+			Expect(dist.Channel.Create(ctx, &calc)).To(Succeed())
+			err := g.Update(ctx, calc)
+			Expect(err).To(HaveOccurred())
+			Expect(err.Error()).To(ContainSubstring("bad_calc_update"))
 		})
 	})
 })
