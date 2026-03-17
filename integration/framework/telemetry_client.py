@@ -113,3 +113,8 @@ class TelemetryClient:
                 self.tlm[self._ch_uptime] = uptime_value
                 self.tlm[self._ch_state] = self._get_state().value
                 writer.write(self.tlm)
+
+            # Write final state (e.g. COMPLETED / SHUTDOWN) after loop exits
+            self.tlm[self._ch_time] = sy.TimeStamp.now()
+            self.tlm[self._ch_state] = self._get_state().value
+            writer.write(self.tlm)

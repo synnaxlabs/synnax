@@ -266,11 +266,6 @@ class ExecutionClient:
     # ----- Single test execution -----
 
     def _collect_result(self, test_def: TestDefinition, future: Future[Test]) -> None:
-        with self._tests_lock:
-            already_recorded = any(str(r) == str(test_def) for r in self._tests)
-        if already_recorded:
-            return
-
         if future.done():
             result = future.result()
         else:
@@ -282,6 +277,9 @@ class ExecutionClient:
             )
 
         with self._tests_lock:
+            already_recorded = any(str(r) == str(test_def) for r in self._tests)
+            if already_recorded:
+                return
             self._tests.append(result)
         self._on_test_ran()
 
@@ -402,7 +400,7 @@ class ExecutionClient:
                 expected: sy.CrudeTimeSpan | None = getattr(
                     test_instance, "Expected_Timeout", None
                 )
-                if expected is None:
+                if expected is None or test_range is None:
                     continue
 
                 elapsed = sy.TimeStamp.now() - test_range.time_range.start
