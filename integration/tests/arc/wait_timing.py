@@ -35,7 +35,7 @@ MAX_WAIT_DURATION = 4.0
 MIN_WAIT_DURATION = 2.5
 
 
-class ArcWaitTiming(ArcConsoleCase):
+class WaitTiming(ArcConsoleCase):
     """Test that wait{duration=3s} stage transitions complete in ~3 seconds.
 
     Regression test for a bug where wait durations took 5-7 seconds instead of 3.

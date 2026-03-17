@@ -7,6 +7,8 @@ cc_library(
         "//arc/cpp/runtime/loop",
         "//arc/cpp/runtime/node",
         "//arc/cpp/runtime/scheduler",
+        "//arc/cpp/runtime/selector",
+        "//arc/cpp/runtime/stable",
         "//arc/cpp/runtime/state",
         "//arc/cpp/runtime/wasm",
         "//arc/cpp/stl/channel",
