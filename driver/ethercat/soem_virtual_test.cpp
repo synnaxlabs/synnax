@@ -13,11 +13,12 @@
 
 #include "gtest/gtest.h"
 
+#include "x/cpp/xtest/xtest.h"
+
 #include "driver/ethercat/soem/master.h"
 #include "driver/ethercat/virtual/config.h"
 #include "driver/ethercat/virtual/esc.h"
 #include "driver/ethercat/virtual/veth.h"
-#include "x/cpp/xtest/xtest.h"
 
 namespace ethercat {
 
@@ -28,7 +29,8 @@ protected:
     std::unique_ptr<soem::Master> master;
 
     void SetUp() override {
-        if (!virtual_esc::can_create_veth("ecsoem")) GTEST_SKIP() << "requires root privileges or pre-existing veth pair";
+        if (!virtual_esc::can_create_veth("ecsoem"))
+            GTEST_SKIP() << "requires root privileges or pre-existing veth pair";
         this->veth = std::make_unique<virtual_esc::VethPair>("ecsoem");
         auto err = this->veth->create();
         if (err) GTEST_SKIP() << "failed to create veth pair: " << err.message();
