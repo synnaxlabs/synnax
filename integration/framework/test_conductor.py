@@ -103,7 +103,9 @@ class TestConductor:
         self.status_callbacks: list[Any] = []
         self.tests: list[Test] = []
         self.tests_lock = threading.Lock()
-        self.active_tests: list[tuple[TestCase, sy.Range, threading.Thread]] = []
+        self.active_tests: list[
+            tuple[TestDefinition, TestCase, sy.Range, threading.Thread]
+        ] = []
         self.active_tests_lock = threading.Lock()
 
         self.telemetry_client = TelemetryClient(

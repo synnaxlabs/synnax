@@ -48,7 +48,7 @@ class ExecutionClient:
         conductor_range: sy.Range | None,
         tests: list[Test],
         tests_lock: threading.Lock,
-        active_tests: list[tuple[TestCase, sy.Range, threading.Thread]],
+        active_tests: list[tuple[TestDefinition, TestCase, sy.Range, threading.Thread]],
         active_tests_lock: threading.Lock,
         log: Callable[[str, bool], None],
         on_status_change: Callable[[Test], None],
@@ -251,10 +251,17 @@ class ExecutionClient:
             f"Waiting for {len(threads)} tests in sequence '{seq_name}' to complete...",
             True,
         )
-        for i, t in enumerate(threads):
-            while t.is_alive():
-                t.join(timeout=1.0)
-            self._collect_result(tests[i], futures[i])
+        pending = list(zip(threads, futures, tests))
+        while pending:
+            still_pending = []
+            for t, ft, td in pending:
+                if not t.is_alive():
+                    self._collect_result(td, ft)
+                else:
+                    still_pending.append((t, ft, td))
+            pending = still_pending
+            if pending:
+                pending[0][0].join(timeout=1.0)
 
     # ----- Single test execution -----
 
@@ -314,7 +321,9 @@ class ExecutionClient:
 
             current_thread = threading.current_thread()
             with self._active_tests_lock:
-                self._active_tests.append((test_instance, test.range, current_thread))
+                self._active_tests.append(
+                    (test_def, test_instance, test.range, current_thread)
+                )
 
             test.status = STATUS.RUNNING
             self._on_status_change(test)
@@ -344,8 +353,8 @@ class ExecutionClient:
 
             with self._active_tests_lock:
                 self._active_tests[:] = [
-                    (t, tr, th)
-                    for t, tr, th in self._active_tests
+                    (td, t, tr, th)
+                    for td, t, tr, th in self._active_tests
                     if t != test_instance
                 ]
 
@@ -386,7 +395,7 @@ class ExecutionClient:
                 return
 
             to_remove = []
-            for test_instance, test_range, thread in self._active_tests:
+            for _test_def, test_instance, test_range, thread in self._active_tests:
                 expected: sy.CrudeTimeSpan | None = getattr(
                     test_instance, "Expected_Timeout", None
                 )
@@ -404,7 +413,7 @@ class ExecutionClient:
                     True,
                 )
                 test_instance._status = STATUS.TIMEOUT
-                to_remove.append((test_instance, test_range, thread))
+                to_remove.append((_test_def, test_instance, test_range, thread))
                 threads_to_terminate.append(thread)
 
             for item in to_remove:
@@ -424,7 +433,7 @@ class ExecutionClient:
             threads_to_terminate = []
             killed_instances = []
 
-            for test_instance, test_range, thread in self._active_tests:
+            for test_def, test_instance, test_range, thread in self._active_tests:
                 if test_range is None:
                     status = STATUS.KILLED
                     error_msg = "Test was killed (no range available)"
@@ -445,8 +454,8 @@ class ExecutionClient:
                 test_instance._status = status
                 killed_results.append(
                     Test(
-                        test_name=test_instance.name,
-                        name=getattr(test_instance, "custom_name", None),
+                        test_name=test_def.case,
+                        name=test_def.display_name,
                         status=status,
                         error_message=error_msg,
                         range=finalized_range,

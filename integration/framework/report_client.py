@@ -26,7 +26,7 @@ class ReportClient:
         tests: list[Test],
         tests_lock: threading.Lock,
         test_definitions: list[TestDefinition],
-        active_tests: list[tuple[TestCase, sy.Range, threading.Thread]],
+        active_tests: list[tuple[TestDefinition, TestCase, sy.Range, threading.Thread]],
         active_tests_lock: threading.Lock,
         log: Callable[[str, bool], None],
     ) -> None:
@@ -81,7 +81,7 @@ class ReportClient:
                         else 0
                     ),
                 }
-                for test_instance, test_range, _ in self._active_tests
+                for _, test_instance, test_range, _ in self._active_tests
             ]
 
         with self._tests_lock:
