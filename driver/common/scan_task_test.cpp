@@ -1015,15 +1015,15 @@ TEST(TestScanTask, TestUpdateWhenParentDeviceCleared) {
     );
 
     ASSERT_NIL(scan_task.init());
-    // First scan sets parent to chassis-1
+    // First scan has same parent as remote — no update expected
+    ASSERT_NIL(scan_task.scan());
+    ASSERT_EQ(created_devices->size(), 0);
+
+    // Second scan clears the parent — triggers update
     ASSERT_NIL(scan_task.scan());
     ASSERT_EQ(created_devices->size(), 1);
-
-    // Second scan clears the parent
-    ASSERT_NIL(scan_task.scan());
-    ASSERT_EQ(created_devices->size(), 2);
-    EXPECT_EQ(created_devices->at(1).key, "device1");
-    EXPECT_EQ(cluster_api_ptr->created_parents->at(1), synnax::ontology::ID{});
+    EXPECT_EQ(created_devices->at(0).key, "device1");
+    EXPECT_EQ(cluster_api_ptr->created_parents->at(0), synnax::ontology::ID{});
 }
 
 /// @brief it should return expected config values from scanner.

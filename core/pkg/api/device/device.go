@@ -208,7 +208,7 @@ func (s *Service) Retrieve(
 			}
 			if len(parents) > 0 {
 				id := parents[0].ID
-			res.Devices[i].Parent = &id
+				res.Devices[i].Parent = &id
 			}
 		}
 	}
