@@ -1,0 +1,137 @@
+name: Integration Test Run
+
+on:
+  workflow_call:
+    inputs:
+      test_matrix:
+        description: "JSON test matrix (e.g., from validate_test_coverage.sh)"
+        type: string
+        required: true
+      ref_run_id:
+        description: "Reference run ID for downloading build artifacts"
+        type: string
+        required: true
+      os:
+        description: "Runner OS label (e.g., 'windows-latest', 'ubuntu-latest')"
+        type: string
+        required: true
+      flags:
+        description: "Additional flags to pass to test-conductor"
+        type: string
+        required: false
+        default: ""
+
+jobs:
+  run:
+    name: ${{ matrix.name }}
+    timeout-minutes: 30
+    runs-on:
+      - self-hosted
+      - ${{ inputs.os }}
+    strategy:
+      fail-fast: false
+      matrix: ${{ fromJSON(inputs.test_matrix) }}
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v6
+        with:
+          clean: false
+
+      - name: Force Quit Existing Synnax Processes (Windows)
+        if: runner.os == 'Windows'
+        shell: cmd
+        run: integration/scripts/KillSynnaxProcessesWindows.cmd
+
+      - name: Force Quit Existing Synnax Processes (Unix)
+        if: runner.os == 'Linux'
+        continue-on-error: true
+        run: integration/scripts/kill_synnax_processes_unix.sh
+
+      - name: Download and Setup Artifacts (Windows)
+        if: runner.os == 'Windows'
+        shell: cmd
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REF_RUN_ID: ${{ inputs.ref_run_id }}
+        run: integration/scripts/DownloadArtifactsWindows.cmd
+
+      - name: Download and Setup Artifacts (Unix)
+        if: runner.os == 'Linux'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REF_RUN_ID: ${{ inputs.ref_run_id }}
+        run: integration/scripts/download_artifacts_unix.sh
+
+      - name: Update Submodules
+        run: git submodule update --init --recursive
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v7
+
+      - name: Set up Python
+        uses: actions/setup-python@v6
+        with:
+          python-version-file: integration/pyproject.toml
+
+      - name: Install Playwright (Windows)
+        if: runner.os == 'Windows'
+        shell: cmd
+        working-directory: integration
+        run: uv run playwright install --with-deps
+
+      - name: Install Playwright (Unix)
+        if: runner.os == 'Linux'
+        working-directory: integration
+        run: uv run playwright install --with-deps
+
+      - name: Start Core (Windows)
+        if: runner.os == 'Windows'
+        timeout-minutes: 1
+        shell: powershell
+        env:
+          SYNNAX_LICENSE_KEY: ${{ secrets.SYNNAX_LICENSE_KEY }}
+        run: integration/scripts/StartCoreWindows.ps1
+
+      - name: Start Core (Unix)
+        if: runner.os == 'Linux'
+        timeout-minutes: 1
+        env:
+          SYNNAX_LICENSE_KEY: ${{ secrets.SYNNAX_LICENSE_KEY }}
+        run: integration/scripts/start_core_unix.sh
+
+      - name: Test Conductor (Windows)
+        if: runner.os == 'Windows'
+        id: test-conductor-win
+        timeout-minutes: 30
+        shell: cmd
+        working-directory: integration
+        env:
+          PYTHONIOENCODING: utf-8
+        run: >-
+          uv run test-conductor --name tc_win ${{ matrix.target || inputs.flags }}
+
+      - name: Test Conductor (Unix)
+        if: runner.os == 'Linux'
+        id: test-conductor-unix
+        timeout-minutes: 30
+        working-directory: integration
+        run: >-
+          uv run test-conductor --name tc_unix ${{ matrix.target || inputs.flags }}
+
+      - name: Upload Test Results
+        uses: actions/upload-artifact@v6
+        if: always()
+        with:
+          name: test-results-${{ inputs.os }}-${{ matrix.name }}
+          path: integration/tests/results/*
+          retention-days: 7
+
+      - name: Upload Core Logs
+        uses: actions/upload-artifact@v6
+        if: ${{ failure() || cancelled() }}
+        with:
+          name:
+            core-logs-${{ inputs.os }}-${{ matrix.name }}-attempt-${{ github.run_attempt
+            }}
+          path: ~/synnax-data/synnax-core.log
+          retention-days: 7

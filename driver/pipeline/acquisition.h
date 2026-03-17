@@ -222,5 +222,15 @@ public:
         bool err_on_unauthorized = true,
         bool open_eagerly = false
     );
+
+    using Base::start;
+
+    /// @brief starts the pipeline with an updated start timestamp for the writer.
+    /// Use this overload on restart to avoid reusing a stale timestamp from a
+    /// previous run.
+    bool start(const x::telem::TimeStamp &start) {
+        this->writer_config.start = start;
+        return Base::start();
+    }
 };
 }

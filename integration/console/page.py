@@ -10,7 +10,6 @@
 import json
 import os
 import re
-import time
 from typing import Any, Literal, Self, cast
 
 import synnax as sy
@@ -279,10 +278,10 @@ class ConsolePage:
         self.page.mouse.move(start_x, start_y)
         self.page.mouse.down()
         self.page.mouse.move(drop_x, drop_y, steps=10)
-        time.sleep(0.2)
+        sy.sleep(200 * sy.TimeSpan.MILLISECOND)
         self.page.mouse.up()
         # Wait for the UI
-        time.sleep(0.5)
+        sy.sleep(500 * sy.TimeSpan.MILLISECOND)
 
     def get_title(self) -> str:
         """Get the current page title from the Properties tab.

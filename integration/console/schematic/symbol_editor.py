@@ -166,5 +166,5 @@ class SymbolEditor:
         save_btn = self.page.get_by_role("button", name="Create", exact=True)
         if save_btn.count() == 0:
             save_btn = self.page.get_by_role("button", name="Save", exact=True)
-        save_btn.click()
+        save_btn.dispatch_event("click")
         self.wait_for_closed()
