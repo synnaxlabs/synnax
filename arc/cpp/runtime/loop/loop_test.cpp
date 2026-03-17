@@ -235,8 +235,10 @@ TEST(ModeSelectorTest, NeverAutoselectsBusyWait) {
     EXPECT_NE(select_mode(x::telem::TimeSpan(0), true), ExecutionMode::BUSY_WAIT);
 }
 
-TEST(ModeSelectorTest, Boundary_AtOneMs_SelectsHybrid) {
-    EXPECT_EQ(select_mode(x::telem::MILLISECOND, true), ExecutionMode::HYBRID);
+TEST(ModeSelectorTest, Boundary_AtOneMs) {
+    const auto expected = x::thread::rt::has_support() ? ExecutionMode::RT_EVENT
+                                                       : ExecutionMode::HYBRID;
+    EXPECT_EQ(select_mode(x::telem::MILLISECOND, true), expected);
 }
 
 TEST(ModeSelectorTest, Boundary_AtFiveMs_SelectsEventDriven) {
