@@ -3,14 +3,15 @@
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
 //
-// As of the Change Date specified in that file, in accordance with this file, use of
-// this software will be governed by the Apache License, Version 2.0, included in the
-// file licenses/APL.txt.
+// As of the Change Date specified in that file, in accordance with the Business Source
+// License, use of this software will be governed by the Apache License, Version 2.0,
+// included in the file licenses/APL.txt.
 
 package graph
 
 import (
 	"context"
+	"fmt"
 	"sync"
 
 	"github.com/synnaxlabs/alamos"
@@ -246,7 +247,7 @@ func (s *Graph) setNodeStatus(ctx context.Context, key channel.Key, name string,
 		Key:         channel.OntologyID(key).String(),
 		Name:        name,
 		Variant:     xstatus.VariantError,
-		Message:     "failed to analyze calculated channel",
+		Message:     fmt.Sprintf("invalid expression for %s", name),
 		Description: err.Error(),
 		Time:        telem.Now(),
 		Details:     StatusDetails{Channel: key},

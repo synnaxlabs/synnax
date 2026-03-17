@@ -3,9 +3,9 @@
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
 //
-// As of the Change Date specified in that file, in accordance with this file, use of
-// this software will be governed by the Apache License, Version 2.0, included in the
-// file licenses/APL.txt.
+// As of the Change Date specified in that file, in accordance with the Business Source
+// License, use of this software will be governed by the Apache License, Version 2.0,
+// included in the file licenses/APL.txt.
 
 package graph_test
 
@@ -722,7 +722,7 @@ var _ = Describe("Graph", func() {
 
 			s := expectStatus(calc.Key())
 			Expect(s.Variant).To(Equal(xstatus.VariantError))
-			Expect(s.Message).To(Equal("failed to analyze calculated channel"))
+			Expect(s.Message).To(Equal("invalid expression for st_detail"))
 			Expect(s.Description).ToNot(BeEmpty())
 			Expect(s.Details.Channel).To(Equal(calc.Key()))
 			Expect(s.Key).To(Equal(channel.OntologyID(calc.Key()).String()))

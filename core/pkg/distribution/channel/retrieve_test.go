@@ -211,7 +211,7 @@ var _ = Describe("Retrieve", Ordered, func() {
 
 		It("Should return empty when no calculated channels exist in a fresh cluster", func() {
 			freshCluster := mock.ProvisionCluster(ctx, 1)
-			defer freshCluster.Close()
+			defer func() { Expect(freshCluster.Close()).To(Succeed()) }()
 			base := channel.Channel{
 				Virtual:  true,
 				DataType: telem.Float32T,

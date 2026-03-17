@@ -195,7 +195,7 @@ func (s *Service) handleChange(
 				Key:         ch.Key().String(),
 				Name:        ch.Name,
 				Variant:     xstatus.VariantError,
-				Message:     fmt.Sprintf("failed to update calculation for %s", ch),
+				Message:     fmt.Sprintf("failed to compile calculation for %s", ch.Name),
 				Description: err.Error(),
 			})
 		}

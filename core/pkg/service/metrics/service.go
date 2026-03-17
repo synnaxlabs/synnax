@@ -22,7 +22,6 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/distribution/group"
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
-	servicechannel "github.com/synnaxlabs/synnax/pkg/service/channel"
 	"github.com/synnaxlabs/synnax/pkg/service/framer"
 	"github.com/synnaxlabs/synnax/pkg/storage"
 	"github.com/synnaxlabs/x/address"
@@ -49,7 +48,7 @@ type ServiceConfig struct {
 	// Channel is used to create and retrieve metric collection channels.
 	//
 	// [REQUIRED]
-	Channel *servicechannel.Service
+	Channel *channel.Service
 	// Framer is used to write metrics to the metric channels.
 	//
 	// [REQUIRED]
@@ -155,14 +154,14 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (*Service, error) {
 		DataType: telem.TimeStampT,
 		IsIndex:  true,
 	}
-	var metricsChannels []distchannel.Channel
+	var metricsChannels []channel.Channel
 	if err = cfg.DB.WithTx(ctx, func(tx gorp.Tx) error {
 		chWriter := cfg.Channel.NewWriter(tx)
 		if err = chWriter.Create(
 			ctx,
 			&c.idx,
-			servicechannel.RetrieveIfNameExists(),
-			servicechannel.CreateWithoutGroupRelationship(),
+			channel.RetrieveIfNameExists(),
+			channel.CreateWithoutGroupRelationship(),
 		); err != nil {
 			return err
 		}
@@ -175,14 +174,14 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (*Service, error) {
 			return err
 		}
 		metrics := s.createMetrics(namePrefix, c.idx.LocalKey)
-		metricsChannels = lo.Map(metrics, func(m metric, _ int) distchannel.Channel {
+		metricsChannels = lo.Map(metrics, func(m metric, _ int) channel.Channel {
 			return m.ch
 		})
 		if err = chWriter.CreateMany(
 			ctx,
 			&metricsChannels,
-			servicechannel.RetrieveIfNameExists(),
-			servicechannel.CreateWithoutGroupRelationship(),
+			channel.RetrieveIfNameExists(),
+			channel.CreateWithoutGroupRelationship(),
 		); err != nil {
 			return err
 		}
@@ -220,12 +219,12 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (*Service, error) {
 		if err = cfg.Channel.NewWriter(tx).CreateMany(
 			ctx,
 			&calculatedChannels,
-			servicechannel.RetrieveIfNameExists(),
-			servicechannel.CreateWithoutGroupRelationship(),
+			channel.RetrieveIfNameExists(),
+			channel.CreateWithoutGroupRelationship(),
 		); err != nil {
 			return err
 		}
-		if err := s.maybeDefineGroupRelationship(
+		if err = s.maybeDefineGroupRelationship(
 			ctx,
 			tx,
 			distchannel.OntologyIDsFromChannels(calculatedChannels),
