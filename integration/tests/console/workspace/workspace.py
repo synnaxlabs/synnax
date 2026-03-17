@@ -10,13 +10,14 @@
 import json
 
 from playwright.sync_api import TimeoutError as PlaywrightTimeoutError
+from xpy import get_synnax_version
 
 from console.case import ConsoleCase
 from console.log import Log
 from console.plot import Plot
 from console.schematic.schematic import Schematic
 from console.table import Table
-from framework.utils import get_fixture_path, get_results_path, get_synnax_version
+from framework.utils import get_fixture_path, get_results_path
 
 EXPECTED_PAGES = ["Metrics Plot", "Metrics Schematic", "Metrics Log", "Metrics Table"]
 
