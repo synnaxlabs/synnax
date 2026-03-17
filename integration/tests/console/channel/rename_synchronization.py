@@ -21,6 +21,7 @@ Note: Task Configuration Dialog is excluded as it requires hardware devices.
 """
 
 import synnax as sy
+from xpy import get_random_name
 
 from console.case import ConsoleCase
 from console.log import Log
@@ -28,7 +29,6 @@ from console.plot import Plot
 from console.schematic.schematic import Schematic
 from console.schematic.value import Value
 from console.table import Table
-from framework.utils import get_random_name
 
 
 class RenameSynchronization(ConsoleCase):
