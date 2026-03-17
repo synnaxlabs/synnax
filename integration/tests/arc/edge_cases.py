@@ -319,7 +319,7 @@ GUARDED_CASES = [
 ]
 
 
-class ArcEdgeCases(ArcConsoleCase):
+class EdgeCases(ArcConsoleCase):
     """Test channel propagation edge cases at runtime and circular dependency
     detection at configure time. Comprehensive circular/guarded topology
     coverage (mutual, chain, diamond, buried, overlap) is in the Go unit tests

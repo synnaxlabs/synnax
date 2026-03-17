@@ -89,7 +89,7 @@ bb_start_cmd => bang_bang_controller
 """
 
 
-class ArcBangBangAuthority(ArcConsoleCase):
+class BangBangAuthority(ArcConsoleCase):
     """Test that a bang-bang controller with per-channel set_authority correctly
     releases and reclaims authority on both channels symmetrically.
 

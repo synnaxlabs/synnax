@@ -26,6 +26,8 @@
 #include "arc/cpp/runtime/loop/loop.h"
 #include "arc/cpp/runtime/node/factory.h"
 #include "arc/cpp/runtime/scheduler/scheduler.h"
+#include "arc/cpp/runtime/selector/selector.h"
+#include "arc/cpp/runtime/stable/stable.h"
 #include "arc/cpp/runtime/state/state.h"
 #include "arc/cpp/runtime/wasm/factory.h"
 #include "arc/cpp/runtime/wasm/module.h"
@@ -61,6 +63,10 @@ struct Config {
     size_t output_queue_capacity = 1024;
     /// @brief Loop configuration. Fields with default values are auto-selected.
     loop::Config loop;
+    /// @brief Additional node factories provided by the caller (e.g. set_status).
+    /// This allows external code to register custom node types without the
+    /// runtime needing a dedicated config field for each one.
+    std::vector<std::shared_ptr<node::Factory>> factories;
 };
 
 /// @brief callback invoked when a fatal error occurs in the runtime.
@@ -286,6 +292,10 @@ load(const Config &cfg, errors::Handler error_handler = errors::noop_handler) {
     factories.push_back(std::make_shared<wasm::Factory>(mod));
     for (auto &m: stl_modules)
         factories.push_back(m);
+    factories.push_back(std::make_shared<stable::Factory>());
+    factories.push_back(std::make_shared<selector::Factory>());
+    for (const auto &f: cfg.factories)
+        factories.push_back(f);
     node::MultiFactory fact(factories);
 
     std::unordered_map<std::string, std::unique_ptr<node::Node>> nodes;

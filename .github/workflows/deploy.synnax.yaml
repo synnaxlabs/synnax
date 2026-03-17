@@ -198,7 +198,7 @@ jobs:
         uses: actions/checkout@v6
 
       - name: Download Core Binary
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v8
         with:
           name: synnax-core-v${{ needs.setup.outputs.VERSION }}-windows
           path: scripts/
