@@ -112,8 +112,9 @@ public:
         };
     }
 
-    /// @brief filters a frame by copy, keeping only channels where subject holds
-    /// authority or no authority state exists (uncontrolled).
+    /// @brief filters a frame, keeping only channels where subject holds
+    /// authority or no authority state exists (uncontrolled). Series are
+    /// shallow-copied (shared_ptr refcount bump), not deep-copied.
     x::telem::Frame
     filter(const x::telem::Frame &frame, const x::control::Subject &subject) const {
         std::shared_lock lock(this->mu);
@@ -121,7 +122,7 @@ public:
         for (auto [key, series]: frame) {
             auto it = this->states.find(key);
             if (it == this->states.end() || it->second.subject == subject)
-                out.emplace(key, series.deep_copy());
+                out.emplace(key, series.shallow_copy());
         }
         return out;
     }
@@ -150,6 +151,21 @@ public:
                 out.emplace(key, std::move(frame.series->at(i)));
         }
         return out;
+    }
+
+    /// @brief returns true if subject holds authority (or no state exists) for
+    /// every channel in the frame. Used as a fast path to avoid deep-copying when
+    /// the writer is fully authorized.
+    bool all_authorized(
+        const x::telem::Frame &frame,
+        const x::control::Subject &subject
+    ) const {
+        std::shared_lock lock(this->mu);
+        for (auto [key, _]: frame) {
+            auto it = this->states.find(key);
+            if (it != this->states.end() && it->second.subject != subject) return false;
+        }
+        return true;
     }
 
     /// @brief checks if subject holds authority on a specific channel.

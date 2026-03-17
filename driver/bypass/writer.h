@@ -43,11 +43,17 @@ public:
         channels(std::move(channels)) {}
 
     [[nodiscard]] x::errors::Error write(const x::telem::Frame &fr) override {
-        auto filtered = this->mirror.filter(fr, this->subject);
-        if (!filtered.empty()) {
-            VLOG(1) << "[bus.writer] publishing frame with " << filtered.size()
+        if (this->mirror.all_authorized(fr, this->subject)) {
+            VLOG(1) << "[bus.writer] publishing frame with " << fr.size()
                     << " channels to bus";
-            this->bus.publish(filtered);
+            this->bus.publish(fr);
+        } else {
+            auto filtered = this->mirror.filter(fr, this->subject);
+            if (!filtered.empty()) {
+                VLOG(1) << "[bus.writer] publishing filtered frame with "
+                        << filtered.size() << " channels to bus";
+                this->bus.publish(filtered);
+            }
         }
         return this->server->write(fr);
     }

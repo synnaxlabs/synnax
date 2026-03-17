@@ -163,6 +163,9 @@ private:
         alignment(other.alignment) {}
 
     template<typename SourceType, typename TargetType, typename Op>
+#ifdef _MSC_VER
+    __declspec(noinline)
+#endif
     void apply_numeric_op(const TargetType &rhs, Op op) const {
         this->ensure_exclusive();
         auto *data_ptr = reinterpret_cast<SourceType *>(this->data_.get());
@@ -173,6 +176,9 @@ private:
     }
 
     template<typename T, typename Op>
+#ifdef _MSC_VER
+    __declspec(noinline)
+#endif
     void cast_and_apply_numeric_op(const T &rhs, Op op) const {
         const auto dt = this->data_type();
         if (dt == FLOAT64_T)
