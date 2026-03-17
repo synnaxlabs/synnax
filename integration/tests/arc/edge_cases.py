@@ -11,8 +11,8 @@ from dataclasses import dataclass, field
 
 import synnax as sy
 from examples.simulators import PressSimDAQ
+from xpy import get_random_name
 
-from framework.utils import get_random_name
 from tests.arc.arc_case import ArcConsoleCase
 
 # ── Main arc source: channel propagation edge cases (valid, runs at runtime) ──
@@ -319,7 +319,7 @@ GUARDED_CASES = [
 ]
 
 
-class ArcEdgeCases(ArcConsoleCase):
+class EdgeCases(ArcConsoleCase):
     """Test channel propagation edge cases at runtime and circular dependency
     detection at configure time. Comprehensive circular/guarded topology
     coverage (mutual, chain, diamond, buried, overlap) is in the Go unit tests
