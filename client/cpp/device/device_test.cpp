@@ -602,7 +602,8 @@ TEST(DeviceTests, testCreateWithParentOntologyID) {
         .make = "NI",
         .model = "9205",
     };
-    ASSERT_NIL(client.devices.create(module, ontology_id(chassis.key)));
+    module.parent = ontology_id(chassis.key);
+    ASSERT_NIL(client.devices.create(module));
 
     const auto retrieved = ASSERT_NIL_P(client.devices.retrieve(module.key));
     ASSERT_EQ(retrieved.key, module.key);

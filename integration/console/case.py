@@ -23,6 +23,7 @@ from playwright.sync_api import (
 )
 
 from console.console import Console
+from framework.models import STATUS
 from framework.test_case import TestCase
 
 
@@ -105,6 +106,8 @@ class ConsoleCase(TestCase):
         self._cleanup_pages: list[str] = []
 
     def teardown(self) -> None:
+        if self._status == STATUS.FAILED:
+            self.console.screenshot(f"failure_{self.name}_teardown")
         if self._cleanup_pages:
             try:
                 self.console.workspace.delete_pages(self._cleanup_pages)
