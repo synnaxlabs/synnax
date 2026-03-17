@@ -45,6 +45,12 @@ class TelemetryClient:
             self._ch_test_cases_ran: 0,
         }
 
+    def set_test_case_count(self, count: int) -> None:
+        self.tlm[self._ch_test_case_count] = count
+
+    def increment_tests_ran(self) -> None:
+        self.tlm[self._ch_test_cases_ran] = self.tlm[self._ch_test_cases_ran] + 1
+
     def start(self) -> None:
         """Start the telemetry background thread."""
         self._thread = threading.Thread(

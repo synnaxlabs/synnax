@@ -135,8 +135,10 @@ class ConfigClient:
                     file_data = json.load(f)
                 if "sequences" in file_data:
                     all_sequences.extend(file_data["sequences"])
-            except Exception:
+            except FileNotFoundError:
                 raise FileNotFoundError(f"Test file not found: {test_file}")
+            except json.JSONDecodeError as e:
+                raise ValueError(f"Invalid JSON in test file '{test_file}': {e}") from e
 
         if not all_sequences:
             raise FileNotFoundError("No valid sequences found")

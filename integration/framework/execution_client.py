@@ -192,7 +192,8 @@ class ExecutionClient:
                 args=(test_def, future),
             )
             t.start()
-            t.join()
+            while t.is_alive():
+                t.join(timeout=1.0)
 
             self._collect_result(test_def, future)
 
@@ -389,7 +390,7 @@ class ExecutionClient:
                 if elapsed <= timeout_span:
                     continue
 
-                self._handle_test_timeout(test_instance, elapsed, timeout_span)
+                self._handle_test_timeout(test_instance, elapsed, timeout_span, thread)
                 to_remove.append((test_instance, test_range, thread))
 
             for item in to_remove:
@@ -400,12 +401,14 @@ class ExecutionClient:
         test_instance: TestCase,
         elapsed: sy.TimeSpan,
         timeout: sy.TimeSpan,
+        thread: threading.Thread,
     ) -> None:
         self._log(
             f"{test_instance.name} timeout detected ({elapsed} > {timeout})",
             True,
         )
         test_instance._status = STATUS.TIMEOUT
+        self._terminate_thread(thread)
 
     # ----- Kill / terminate -----
 
@@ -499,6 +502,8 @@ class ExecutionClient:
             if res == 0:
                 self._log(f"Warning: Could not terminate thread {thread.name}", True)
             elif res > 1:
-                ctypes.pythonapi.PyThreadState_SetAsyncExc(thread_id, None)
+                ctypes.pythonapi.PyThreadState_SetAsyncExc(
+                    ctypes.c_long(thread_id), None
+                )
         except Exception as e:
             self._log(f"Warning: Failed to force-terminate thread: {e}", True)

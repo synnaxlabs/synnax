@@ -95,7 +95,10 @@ class SynnaxChannelSink:
         )
 
     def emit(self, entry: LogEntry) -> None:
-        self._writer.write(self._channel.key, [entry.message])
+        try:
+            self._writer.write(self._channel.key, [entry.message])
+        except Exception:
+            pass  # Best-effort; do not let logging errors affect test results
 
     def flush(self) -> None:
         pass

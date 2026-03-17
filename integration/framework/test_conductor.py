@@ -124,10 +124,7 @@ class TestConductor:
             active_tests_lock=self.active_tests_lock,
             log=self.log_message,
             on_status_change=self._notify_status_change,
-            on_test_ran=lambda: self.telemetry_client.tlm.__setitem__(
-                self.telemetry_client._ch_test_cases_ran,
-                self.telemetry_client.tlm[self.telemetry_client._ch_test_cases_ran] + 1,
-            ),
+            on_test_ran=self.telemetry_client.increment_tests_ran,
         )
 
         self.report_client = ReportClient(
@@ -156,9 +153,7 @@ class TestConductor:
         """Load test sequences using the config client."""
         self.state = STATE.LOADING
         self.sequences, self.test_definitions = self.config_client.load(target_filter)
-        self.telemetry_client.tlm[self.telemetry_client._ch_test_case_count] = len(
-            self.test_definitions
-        )
+        self.telemetry_client.set_test_case_count(len(self.test_definitions))
 
     def run_sequence(self) -> list[Test]:
         """Execute all tests in the loaded sequence."""
