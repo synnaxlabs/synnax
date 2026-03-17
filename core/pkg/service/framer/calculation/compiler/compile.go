@@ -58,7 +58,10 @@ const (
 	writeKey       = "write"
 )
 
-func preProcess(ctx context.Context, cfg Config) (arc.Program, error) {
+// PreProcess compiles the expression to discover channel references and infer types
+// without building the full execution graph. Used by the compiler internally and by
+// diagnostics to inspect dependencies when compilation fails.
+func PreProcess(ctx context.Context, cfg Config) (arc.Program, error) {
 	outputDataType := types.FromTelem(cfg.Channel.DataType)
 	fn := ir.Function{
 		Key:     calculationKey,
@@ -80,7 +83,7 @@ func Compile(ctx context.Context, cfgs ...Config) (Module, error) {
 	if err != nil {
 		return Module{}, err
 	}
-	preProcessed, err := preProcess(ctx, cfg)
+	preProcessed, err := PreProcess(ctx, cfg)
 	if err != nil {
 		return Module{}, err
 	}
