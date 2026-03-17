@@ -96,10 +96,7 @@ describe("queries", () => {
       expect(result.current.data).toContain(a1.key);
       expect(result.current.data).toContain(a2.key);
 
-      await Promise.all([
-        client.agents.delete(a1.key),
-        client.agents.delete(a2.key),
-      ]);
+      await Promise.all([client.agents.delete(a1.key), client.agents.delete(a2.key)]);
 
       await waitFor(() => {
         expect(result.current.data).not.toContain(a1.key);

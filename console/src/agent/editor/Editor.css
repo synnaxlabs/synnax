@@ -173,13 +173,20 @@
     background: transparent;
 }
 
-.console-agent-editor__message-actions {
-    margin-top: 1rem;
-    opacity: 0;
-    transition: opacity 0.15s ease;
+.console-agent-editor__message {
+    position: relative;
 }
 
-.console-agent-editor__message:hover .console-agent-editor__message-actions {
+.console-agent-editor__message-copy {
+    position: absolute;
+    top: 1.5rem;
+    right: 2rem;
+    opacity: 0;
+    transition: opacity 0.15s ease;
+    color: var(--pluto-gray-l10) !important;
+}
+
+.console-agent-editor__message:hover .console-agent-editor__message-copy {
     opacity: 1;
 }
 
@@ -230,7 +237,8 @@
 }
 
 /* When task controls are present, square off the bottom corners of the input area */
-.console-agent-editor__bottom:has(.console-task-controls) .console-agent-editor__input-area {
+.console-agent-editor__bottom:has(.console-task-controls)
+    .console-agent-editor__input-area {
     border-bottom-left-radius: 0;
     border-bottom-right-radius: 0;
 }

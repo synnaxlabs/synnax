@@ -26,9 +26,7 @@ export const CreateCommand: Palette.Command = ({
         const result = await createModal({});
         if (result == null) return;
         const { agent } = result;
-        placeLayout(
-          createEditor({ key: agent.key, name: agent.name }),
-        );
+        placeLayout(createEditor({ key: agent.key, name: agent.name }));
       }, "Failed to create Agent"),
     [placeLayout, handleError, createModal],
   );

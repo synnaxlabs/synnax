@@ -129,9 +129,7 @@ const markdownComponents = {
   }) => {
     const isBlock = /language-/.test(className ?? "");
     if (isBlock)
-      return (
-        <CodeBlock className={className}>{children as string}</CodeBlock>
-      );
+      return <CodeBlock className={className}>{children as string}</CodeBlock>;
     return <code className={className}>{children}</code>;
   },
 };
@@ -175,12 +173,15 @@ export const Message = ({ message }: MessageProps): ReactElement => {
             </Text.Text>
           )}
         </div>
-        {isAgent && (
-          <div className={CSS.BE("agent-editor", "message-actions")}>
-            <Button.Copy text={message.content} variant="text" size="small" />
-          </div>
-        )}
       </div>
+      {isAgent && (
+        <Button.Copy
+          text={message.content}
+          variant="text"
+          size="small"
+          className={CSS.BE("agent-editor", "message-copy")}
+        />
+      )}
     </div>
   );
 };

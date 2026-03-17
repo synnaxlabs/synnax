@@ -11,7 +11,15 @@ import { sendRequired, type UnaryClient } from "@synnaxlabs/freighter";
 import { array } from "@synnaxlabs/x";
 import { z } from "zod/v4";
 
-import { type Agent, agentZ, type Key, keyZ, type New, newZ, type Params } from "@/agent/payload";
+import {
+  type Agent,
+  agentZ,
+  type Key,
+  keyZ,
+  type New,
+  newZ,
+  type Params,
+} from "@/agent/payload";
 import { checkForMultipleOrNoResults } from "@/util/retrieve";
 
 export const SET_CHANNEL_NAME = "sy_agent_set";
