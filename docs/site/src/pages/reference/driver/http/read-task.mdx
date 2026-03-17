@@ -245,8 +245,8 @@ temperature = client.channels.create(
     retrieve_if_name_exists=True,
 )
 
-status = client.channels.create(
-    name="http_status",
+uptime = client.channels.create(
+    name="http_uptime",
     index=http_time.key,
     data_type=sy.DataType.FLOAT64,
     retrieve_if_name_exists=True,
@@ -274,8 +274,8 @@ task = http.ReadTask(
             path="/api/v1/status",
             fields=[
                 http.ReadField(
-                    pointer="/code",
-                    channel=status.key,
+                    pointer="/uptime",
+                    channel=uptime.key,
                     data_type="float64",
                 ),
             ],
@@ -305,8 +305,8 @@ http_time = client.channels.create(
     retrieve_if_name_exists=True,
 )
 
-state = client.channels.create(
-    name="http_state",
+power = client.channels.create(
+    name="http_power",
     index=http_time.key,
     data_type=sy.DataType.FLOAT64,
     retrieve_if_name_exists=True,
@@ -320,13 +320,13 @@ task = http.ReadTask(
     endpoints=[
         http.ReadEndpoint(
             method="GET",
-            path="/api/v1/status",
+            path="/api/v1/device",
             fields=[
                 http.ReadField(
-                    pointer="/state",
-                    channel=state.key,
+                    pointer="/power",
+                    channel=power.key,
                     data_type="float64",
-                    enum_values={"OFF": 0, "ON": 1, "ERROR": 2},
+                    enum_values={"OFF": 0, "ON": 1},
                 ),
             ],
         ),

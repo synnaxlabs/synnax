@@ -252,7 +252,7 @@ task = http.WriteTask(
     endpoints=[
         http.WriteEndpoint(
             method="POST",
-            path="/api/v1/command",
+            path="/api/v1/control",
             channel=http.ChannelField(
                 pointer="/value",
                 json_type="number",
