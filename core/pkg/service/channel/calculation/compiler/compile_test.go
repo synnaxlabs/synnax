@@ -17,7 +17,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
 	"github.com/synnaxlabs/synnax/pkg/distribution/mock"
 	"github.com/synnaxlabs/synnax/pkg/service/arc"
-	channelcompiler "github.com/synnaxlabs/synnax/pkg/service/channel/calculation/compiler"
+	"github.com/synnaxlabs/synnax/pkg/service/channel/calculation/compiler"
 	"github.com/synnaxlabs/synnax/pkg/service/label"
 	"github.com/synnaxlabs/synnax/pkg/service/rack"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
@@ -99,7 +99,7 @@ var _ = Describe("Compile", func() {
 			Expression: "return base * 2",
 		}
 		Expect(dist.Channel.Create(ctx, &calc)).To(Succeed())
-		mod := MustSucceed(channelcompiler.Compile(ctx, channelcompiler.Config{
+		mod := MustSucceed(compiler.Compile(ctx, compiler.Config{
 			ChannelService: dist.Channel,
 			Channel:        calc,
 			SymbolResolver: arcSvc.NewSymbolResolver(nil),

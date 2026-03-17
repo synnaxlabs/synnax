@@ -17,7 +17,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/distribution/group"
 	"github.com/synnaxlabs/synnax/pkg/service/arc"
 	"github.com/synnaxlabs/synnax/pkg/service/channel/calculation/analyzer"
-	calcgraph "github.com/synnaxlabs/synnax/pkg/service/channel/calculation/graph"
+	graph "github.com/synnaxlabs/synnax/pkg/service/channel/calculation/graph"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
 	"github.com/synnaxlabs/x/config"
 	"github.com/synnaxlabs/x/gorp"
@@ -40,7 +40,7 @@ var (
 	CreateWithoutGroupRelationship              = distchannel.CreateWithoutGroupRelationship
 )
 
-type StatusDetails = calcgraph.StatusDetails
+type StatusDetails = graph.StatusDetails
 
 type ServiceConfig struct {
 	DB           *gorp.DB
@@ -76,7 +76,7 @@ func (c ServiceConfig) Override(other ServiceConfig) ServiceConfig {
 type Service struct {
 	cfg    ServiceConfig
 	Writer Writer
-	graph  *calcgraph.Service
+	graph  *graph.Graph
 }
 
 func OpenService(ctx context.Context, cfgs ...ServiceConfig) (*Service, error) {
@@ -85,7 +85,10 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (*Service, error) {
 		return nil, err
 	}
 	s := &Service{cfg: cfg}
-	if s.graph, err = calcgraph.OpenService(ctx, cfg.Distribution, cfg.Status); err != nil {
+	if s.graph, err = graph.Open(ctx, graph.Config{
+		Channel: cfg.Distribution,
+		Status:  cfg.Status,
+	}); err != nil {
 		return nil, err
 	}
 	s.Writer = s.NewWriter(nil)
@@ -113,6 +116,7 @@ func (s *Service) CountExternalNonVirtual() uint32 {
 
 func (s *Service) NewWriter(tx gorp.Tx) Writer {
 	return Writer{
+		Writer:   s.cfg.Distribution.NewWriter(tx),
 		tx:       gorp.OverrideTx(s.cfg.DB, tx),
 		analyzer: analyzer.New(s.cfg.Arc.NewSymbolResolver(tx)),
 	}

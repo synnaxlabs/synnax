@@ -316,6 +316,7 @@ func OpenLayer(ctx context.Context, cfgs ...LayerConfig) (l *Layer, err error) {
 	}
 	if l.Channel, err = svcchannel.OpenService(ctx, svcchannel.ServiceConfig{
 		Instrumentation: cfg.Child("channel"),
+		Arc:             l.Arc,
 		DB:              cfg.Distribution.DB,
 		Distribution:    cfg.Distribution.Channel,
 		Status:          l.Status,

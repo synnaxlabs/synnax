@@ -19,10 +19,13 @@ import (
 	calcompiler "github.com/synnaxlabs/synnax/pkg/service/channel/calculation/compiler"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
 	"github.com/synnaxlabs/x/change"
+	"github.com/synnaxlabs/x/config"
 	"github.com/synnaxlabs/x/gorp"
 	"github.com/synnaxlabs/x/observe"
+	"github.com/synnaxlabs/x/override"
 	xstatus "github.com/synnaxlabs/x/status"
 	"github.com/synnaxlabs/x/telem"
+	"github.com/synnaxlabs/x/validate"
 )
 
 type StatusDetails struct {
@@ -36,7 +39,7 @@ type node struct {
 	invalid    bool
 }
 
-type Service struct {
+type Graph struct {
 	distribution *channel.Service
 	status       status.Writer[StatusDetails]
 	disconnect   observe.Disconnect
@@ -48,14 +51,40 @@ type Service struct {
 	}
 }
 
-func OpenService(
+type Config struct {
+	Channel *channel.Service
+	Status       *status.Service
+}
+
+var (
+	_ config.Config[Config] = Config{}
+	DefaultConfig = Config{}
+)
+
+func (c Config) Validate() error {
+	v := validate.New("service.channel.calculation.graph")
+	validate.NotNil(v, "channel", c.Channel)
+	validate.NotNil(v, "status", c.Status)
+	return v.Error()
+}
+
+func (c Config) Override(other Config) Config {
+	c.Channel = override.Nil(c.Channel, other.Channel)
+	c.Status = override.Nil(c.Status, other.Status)
+	return c
+}
+
+func Open(
 	ctx context.Context,
-	distribution *channel.Service,
-	statusSvc *status.Service,
-) (*Service, error) {
-	s := &Service{
-		distribution: distribution,
-		status:       status.NewWriter[StatusDetails](statusSvc, nil),
+	cfgs ...Config,
+) (*Graph, error) {
+	cfg, err := config.New(DefaultConfig, cfgs...)
+	if err != nil {
+		return nil, err
+	}
+	s := &Graph{
+		distribution: cfg.Channel,
+		status:       status.NewWriter[StatusDetails](cfg.Status, nil),
 	}
 	s.mu.nodes = make(map[channel.Key]node)
 	s.mu.dependents = make(map[channel.Key]map[channel.Key]struct{})
@@ -63,18 +92,18 @@ func OpenService(
 	if err := s.hydrate(ctx); err != nil {
 		return nil, err
 	}
-	s.disconnect = distribution.NewObservable().OnChange(s.handleChanges)
+	s.disconnect = cfg.Channel.NewObservable().OnChange(s.handleChanges)
 	return s, nil
 }
 
-func (s *Service) Close() error {
+func (s *Graph) Close() error {
 	if s.disconnect != nil {
 		s.disconnect()
 	}
 	return nil
 }
 
-func (s *Service) hydrate(ctx context.Context) error {
+func (s *Graph) hydrate(ctx context.Context) error {
 	var channels []channel.Channel
 	if err := s.distribution.NewRetrieve().Entries(&channels).Exec(ctx, nil); err != nil {
 		return err
@@ -119,7 +148,7 @@ func (s *Service) hydrate(ctx context.Context) error {
 	return nil
 }
 
-func (s *Service) handleChanges(ctx context.Context, reader gorp.TxReader[channel.Key, channel.Channel]) {
+func (s *Graph) handleChanges(ctx context.Context, reader gorp.TxReader[channel.Key, channel.Channel]) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	queued := make(map[channel.Key]struct{})
@@ -151,7 +180,7 @@ func (s *Service) handleChanges(ctx context.Context, reader gorp.TxReader[channe
 	_ = s.reconcileQueued(ctx, nil, queued, unresolvedNames, nil, false)
 }
 
-func (s *Service) setNodeStatus(ctx context.Context, key channel.Key, name string, err error) {
+func (s *Graph) setNodeStatus(ctx context.Context, key channel.Key, name string, err error) {
 	_ = s.status.Set(ctx, &status.Status[StatusDetails]{
 		Key:         channel.OntologyID(key).String(),
 		Name:        name,
@@ -163,11 +192,11 @@ func (s *Service) setNodeStatus(ctx context.Context, key channel.Key, name strin
 	})
 }
 
-func (s *Service) clearNodeStatus(ctx context.Context, key channel.Key) error {
+func (s *Graph) clearNodeStatus(ctx context.Context, key channel.Key) error {
 	return s.status.Delete(ctx, channel.OntologyID(key).String())
 }
 
-func (s *Service) inspectNode(
+func (s *Graph) inspectNode(
 	ctx context.Context,
 	tx gorp.Tx,
 	ch channel.Channel,
@@ -199,7 +228,7 @@ func (s *Service) inspectNode(
 	return nd, err
 }
 
-func (s *Service) reconcileQueued(
+func (s *Graph) reconcileQueued(
 	ctx context.Context,
 	tx gorp.Tx,
 	queued map[channel.Key]struct{},
@@ -250,7 +279,7 @@ func (s *Service) reconcileQueued(
 	return nil
 }
 
-func (s *Service) removeNode(key channel.Key) {
+func (s *Graph) removeNode(key channel.Key) {
 	nd, ok := s.mu.nodes[key]
 	if !ok {
 		return
@@ -270,7 +299,7 @@ func (s *Service) removeNode(key channel.Key) {
 	delete(s.mu.nodes, key)
 }
 
-func (s *Service) upsertNode(node node) {
+func (s *Graph) upsertNode(node node) {
 	s.removeNode(node.Key())
 	upsertNode(s.mu.nodes, s.mu.dependents, s.mu.unresolvedByName, node)
 }
@@ -296,13 +325,13 @@ func upsertNode(
 	}
 }
 
-func (s *Service) enqueueDependents(key channel.Key, queued map[channel.Key]struct{}) {
+func (s *Graph) enqueueDependents(key channel.Key, queued map[channel.Key]struct{}) {
 	for dep := range s.mu.dependents[key] {
 		queued[dep] = struct{}{}
 	}
 }
 
-func (s *Service) enqueueUnresolved(names []string, queued map[channel.Key]struct{}) {
+func (s *Graph) enqueueUnresolved(names []string, queued map[channel.Key]struct{}) {
 	for _, name := range names {
 		for key := range s.mu.unresolvedByName[name] {
 			queued[key] = struct{}{}
