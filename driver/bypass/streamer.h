@@ -76,7 +76,11 @@ public:
                 if (this->server_done) return {x::telem::Frame{}, this->server_err};
             }
             std::unique_lock lock(this->notify_mu);
-            this->notify_cv.wait_for(lock, std::chrono::milliseconds(5));
+            this->notify_cv.wait_for(lock, std::chrono::milliseconds(5), [this] {
+                if (!this->subscription->empty()) return true;
+                std::lock_guard sg(this->server_mu);
+                return !this->server_frames.empty() || this->server_done;
+            });
         }
     }
 

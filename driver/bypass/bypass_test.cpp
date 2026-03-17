@@ -168,4 +168,28 @@ TEST(BusTest, SingleDeliveryPerPublish) {
     ASSERT_TRUE(sub->try_pop(received));
     ASSERT_FALSE(sub->try_pop(received));
 }
+
+TEST(BusTest, ExpiredEntriesSweptOnPublish) {
+    Bus bus;
+    auto sub1 = bus.subscribe({1});
+    auto sub2 = bus.subscribe({1});
+    sub1.reset();
+    x::telem::Frame frame;
+    frame.emplace(1, x::telem::Series(static_cast<float>(1.0)));
+    bus.publish(frame);
+    ASSERT_TRUE(bus.has_subscribers({1}));
+    sub2.reset();
+    bus.publish(frame);
+    ASSERT_FALSE(bus.has_subscribers({1}));
+}
+
+TEST(SubscriptionTest, Empty) {
+    Subscription sub({1});
+    ASSERT_TRUE(sub.empty());
+    sub.push(x::telem::Frame());
+    ASSERT_FALSE(sub.empty());
+    x::telem::Frame out;
+    sub.try_pop(out);
+    ASSERT_TRUE(sub.empty());
+}
 }

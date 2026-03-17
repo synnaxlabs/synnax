@@ -73,6 +73,12 @@ public:
         return this->keys;
     }
 
+    /// @brief returns true if the queue has no pending frames.
+    bool empty() const {
+        std::lock_guard lock(this->mu);
+        return this->queue.empty();
+    }
+
     void set_on_push(std::function<void()> fn) { this->on_push = std::move(fn); }
 
     void push(x::telem::Frame frame) {
@@ -96,22 +102,29 @@ class Bus {
 public:
     /// @brief publishes a frame to all subscribers with matching channel keys.
     void publish(const x::telem::Frame &frame) {
-        std::shared_lock lock(this->mu);
-        if (this->routes.empty()) return;
-        std::unordered_set<Subscription *> delivered;
-        for (const auto &[key, _]: frame) {
-            auto it = this->routes.find(key);
-            if (it == this->routes.end()) continue;
-            for (auto &weak_sub: it->second) {
-                auto sub = weak_sub.lock();
-                if (!sub) continue;
-                if (delivered.insert(sub.get()).second) {
-                    VLOG(1) << "[bus] routing frame with " << frame.size()
-                            << " channels to subscription";
-                    sub->push(frame.shallow_copy());
+        bool has_expired = false;
+        {
+            std::shared_lock lock(this->mu);
+            if (this->routes.empty()) return;
+            std::unordered_set<Subscription *> delivered;
+            for (const auto &[key, _]: frame) {
+                auto it = this->routes.find(key);
+                if (it == this->routes.end()) continue;
+                for (auto &weak_sub: it->second) {
+                    auto sub = weak_sub.lock();
+                    if (!sub) {
+                        has_expired = true;
+                        continue;
+                    }
+                    if (delivered.insert(sub.get()).second) {
+                        VLOG(1) << "[bus] routing frame with " << frame.size()
+                                << " channels to subscription";
+                        sub->push(frame.shallow_copy());
+                    }
                 }
             }
         }
+        if (has_expired) this->sweep_expired();
     }
 
     /// @brief creates a subscription for the given channel keys.
@@ -147,6 +160,27 @@ public:
         }
     }
 
+private:
+    void sweep_expired() {
+        std::unique_lock lock(this->mu);
+        for (auto it = this->routes.begin(); it != this->routes.end();) {
+            auto &vec = it->second;
+            vec.erase(
+                std::remove_if(
+                    vec.begin(),
+                    vec.end(),
+                    [](const std::weak_ptr<Subscription> &w) { return w.expired(); }
+                ),
+                vec.end()
+            );
+            if (vec.empty())
+                it = this->routes.erase(it);
+            else
+                ++it;
+        }
+    }
+
+public:
     /// @brief checks if any live subscribers exist for any of the given keys.
     bool has_subscribers(const std::vector<synnax::channel::Key> &keys) const {
         std::shared_lock lock(this->mu);

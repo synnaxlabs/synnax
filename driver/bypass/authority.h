@@ -15,6 +15,8 @@
 #include <unordered_map>
 
 #include "client/cpp/synnax.h"
+#include "freighter/cpp/freighter.h"
+#include "x/cpp/breaker/breaker.h"
 #include "x/cpp/control/control.h"
 #include "x/cpp/telem/frame.h"
 
@@ -25,6 +27,8 @@ class AuthorityMirror {
     mutable std::shared_mutex mu;
     std::unordered_map<synnax::channel::Key, x::control::State> states;
     std::unique_ptr<synnax::framer::Streamer> streamer;
+    std::shared_ptr<synnax::Synnax> client;
+    synnax::channel::Key control_state_key = 0;
     std::thread thread;
     std::atomic<bool> running{false};
 
@@ -46,6 +50,8 @@ public:
         this->streamer = std::make_unique<synnax::framer::Streamer>(
             std::move(streamer)
         );
+        this->client = client;
+        this->control_state_key = control_state_key;
         this->running.store(true);
         this->thread = std::thread([this] { this->run(); });
         return x::errors::NIL;
@@ -54,7 +60,7 @@ public:
     /// @brief stops the update thread.
     void stop() {
         if (!this->running.exchange(false)) return;
-        this->streamer->close_send();
+        if (this->streamer) this->streamer->close_send();
         if (this->thread.joinable()) this->thread.join();
     }
 
@@ -148,9 +154,41 @@ public:
 
 private:
     void run() {
-        while (this->running.load()) {
+        x::breaker::Breaker breaker({
+            .name = "authority_mirror",
+            .base_interval = x::telem::SECOND,
+            .max_retries = 50,
+            .scale = 1.2f,
+            .max_interval = 30 * x::telem::SECOND,
+        });
+        breaker.start();
+        while (this->running.load() && breaker.running()) {
             auto [frame, err] = this->streamer->read();
-            if (err) break;
+            if (err) {
+                auto close_err = this->streamer->close();
+                if (close_err)
+                    LOG(WARNING)
+                        << "[authority_mirror] close error: " << close_err.message();
+                if (!this->running.load()) break;
+                if (!err.matches(freighter::UNREACHABLE) ||
+                    !breaker.wait(err.message()))
+                    break;
+                auto [s, reopen_err] = this->client->telem.open_streamer(
+                    synnax::framer::StreamerConfig{
+                        .channels = {this->control_state_key},
+                    }
+                );
+                if (reopen_err) {
+                    if (!breaker.wait(reopen_err.message())) break;
+                    continue;
+                }
+                this->streamer = std::make_unique<synnax::framer::Streamer>(
+                    std::move(s)
+                );
+                LOG(INFO) << "[authority_mirror] reconnected after transient error";
+                continue;
+            }
+            breaker.reset();
             for (auto [key, series]: frame) {
                 if (series.data_type() != x::telem::STRING_T) continue;
                 auto json_str = series.at<std::string>(0);
@@ -160,6 +198,7 @@ private:
                 if (parser.ok()) this->apply(update);
             }
         }
+        breaker.stop();
     }
 };
 }
