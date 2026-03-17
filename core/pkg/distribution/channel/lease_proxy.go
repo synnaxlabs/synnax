@@ -242,6 +242,7 @@ func (lp *leaseProxy) createAndUpdateFreeVirtual(
 						c.Expression = ic.Expression
 						c.Operations = ic.Operations
 						c.LocalIndex = ic.LocalIndex
+						c.DataType = ic.DataType
 					}
 					return c, nil
 				}).

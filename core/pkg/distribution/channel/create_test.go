@@ -10,6 +10,7 @@
 package channel_test
 
 import (
+	"context"
 	"fmt"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -478,6 +479,41 @@ var _ = Describe("Create", Ordered, func() {
 			Expect(retrieved.Expression).To(Equal("return channel('sensor1') * 3.0 + 10"))
 			Expect(retrieved.Name).To(Equal(originalName))
 			Expect(retrieved.Key()).To(Equal(originalKey))
+		})
+
+		It("Should update DataType when expression return type changes", func() {
+			// Register a mock analyzer that infers type from the expression
+			mockCluster.Nodes[1].Channel.SetCalculationAnalyzer(
+				func(_ context.Context, expr string) (telem.DataType, error) {
+					if len(expr) > 0 && expr[0] == 'F' {
+						return telem.Float64T, nil
+					}
+					return telem.Float32T, nil
+				},
+			)
+
+			// 1. Create with expression that infers f64
+			calcCh := channel.Channel{
+				Name:       channel.NewRandomName(),
+				Expression: "F64_expression",
+			}
+			Expect(mockCluster.Nodes[1].Channel.Create(ctx, &calcCh)).To(Succeed())
+			Expect(calcCh.DataType).To(Equal(telem.Float64T))
+			originalKey := calcCh.Key()
+
+			// 2. Update expression to one that infers f32
+			calcCh.Expression = "f32_expression"
+			Expect(mockCluster.Nodes[1].Channel.Create(ctx, &calcCh)).To(Succeed())
+
+			// 3. Retrieve from DB and verify DataType was updated
+			var retrieved channel.Channel
+			Expect(mockCluster.Nodes[1].Channel.NewRetrieve().
+				WhereKeys(originalKey).
+				Entry(&retrieved).
+				Exec(ctx, nil)).To(Succeed())
+
+			Expect(retrieved.Expression).To(Equal("f32_expression"))
+			Expect(retrieved.DataType).To(Equal(telem.Float32T))
 		})
 	})
 	Context("Updating a channel", func() {

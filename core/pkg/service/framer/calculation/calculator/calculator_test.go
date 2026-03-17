@@ -1029,7 +1029,7 @@ var _ = Describe("Calculator", Ordered, func() {
 			}}
 			calc := channel.Channel{
 				Name:       channel.NewRandomName(),
-				DataType:   telem.Float64T,
+				DataType:   telem.Float32T,
 				Virtual:    true,
 				Expression: fmt.Sprintf("return 2.0 * %s", base[0].Name),
 			}
@@ -1048,7 +1048,7 @@ var _ = Describe("Calculator", Ordered, func() {
 			of, changed := MustSucceed2(c.Next(ctx, fr, frame.Frame{}))
 			Expect(changed).To(BeTrue())
 			Expect(of.Get(calc.Key()).Series[0]).To(
-				telem.MatchSeriesDataV[float64](20.0, 40.0, 60.0),
+				telem.MatchSeriesDataV[float32](20.0, 40.0, 60.0),
 			)
 			Expect(c.Close()).To(Succeed())
 		})

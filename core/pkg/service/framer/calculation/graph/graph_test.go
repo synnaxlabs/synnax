@@ -602,6 +602,43 @@ var _ = Describe("Graph", func() {
 			Expect(calcKeys).To(HaveLen(3))
 			Expect(calcKeys.Contains(calcs[0].Key())).To(BeTrue())
 		})
+		It("Should recompile downstream calcs when upstream DataType changes", func() {
+			raw := channel.Channel{Name: "cascade_raw", DataType: telem.Float32T, Virtual: true}
+			Expect(dist.Channel.Create(ctx, &raw)).To(Succeed())
+
+			calc1 := channel.Channel{
+				Name:       "cascade_calc1",
+				DataType:   telem.Float32T,
+				Virtual:    true,
+				Expression: "return f32(cascade_raw * 1)",
+			}
+			Expect(dist.Channel.Create(ctx, &calc1)).To(Succeed())
+
+			calc2 := channel.Channel{
+				Name:       "cascade_calc2",
+				DataType:   telem.Float32T,
+				Virtual:    true,
+				Expression: "return cascade_calc1 * 2",
+			}
+			Expect(dist.Channel.Create(ctx, &calc2)).To(Succeed())
+
+			Expect(g.Add(ctx, calc2)).To(Succeed())
+			flat := g.CalculateFlat()
+			Expect(flat).To(HaveLen(2))
+
+			// Update calc1 to return f64 instead of f32
+			calc1.Expression = "return f64(cascade_raw * 1.0)"
+			calc1.DataType = telem.Float64T
+			Expect(dist.Channel.Create(ctx, &calc1)).To(Succeed())
+			err := g.Update(ctx, calc1)
+
+			// The update should trigger recompilation of calc2. Since calc2's
+			// stored DataType is f32 but calc1 now provides f64, the expression
+			// `cascade_calc1 * 2` resolves to f64 which doesn't match calc2's
+			// f32 return type. The graph should surface this as an error.
+			Expect(err).To(HaveOccurred())
+			Expect(err.Error()).To(ContainSubstring("cannot return"))
+		})
 	})
 
 	Describe("Error Messages", func() {

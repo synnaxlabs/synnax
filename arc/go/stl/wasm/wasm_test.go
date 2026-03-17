@@ -688,7 +688,7 @@ var _ = Describe("WASM", func() {
 	Describe("Series Literal Edge Cases", func() {
 		DescribeTable("empty series",
 			func(elemType string, outType types.Type) {
-				expectOutput("empty_series", types.I32(), `{
+				expectOutput("empty_series", types.I64(), `{
 				s series `+elemType+` := []
 				return len(s)
 			}`, stl.SymbolResolver, int32(0))
@@ -894,19 +894,19 @@ var _ = Describe("WASM", func() {
 	Describe("Series Length Operations", func() {
 		DescribeTable("len() function",
 			expectOutput[int32],
-			Entry("empty series", "len_empty", types.I32(), `{
+			Entry("empty series", "len_empty", types.I64(), `{
 				s series f64 := []
 				return len(s)
 			}`, stl.SymbolResolver, int32(0)),
-			Entry("single element", "len_one", types.I32(), `{
+			Entry("single element", "len_one", types.I64(), `{
 				s series f64 := [1.0]
 				return len(s)
 			}`, stl.SymbolResolver, int32(1)),
-			Entry("five elements", "len_five", types.I32(), `{
+			Entry("five elements", "len_five", types.I64(), `{
 				s series f64 := [1.0, 2.0, 3.0, 4.0, 5.0]
 				return len(s)
 			}`, stl.SymbolResolver, int32(5)),
-			Entry("after operation", "len_after_op", types.I32(), `{
+			Entry("after operation", "len_after_op", types.I64(), `{
 				a series f64 := [1.0, 2.0, 3.0]
 				b series f64 := [4.0, 5.0, 6.0]
 				c series f64 := a + b
@@ -918,19 +918,19 @@ var _ = Describe("WASM", func() {
 	Describe("String Operations Extended", func() {
 		DescribeTable("string len() function",
 			expectOutput[int32],
-			Entry("empty string", "len_empty_str", types.I32(), `{
+			Entry("empty string", "len_empty_str", types.I64(), `{
 				return len("")
 			}`, stl.SymbolResolver, int32(0)),
-			Entry("simple string", "len_str", types.I32(), `{
+			Entry("simple string", "len_str", types.I64(), `{
 				return len("hello")
 			}`, stl.SymbolResolver, int32(5)),
-			Entry("concatenated strings", "len_concat", types.I32(), `{
+			Entry("concatenated strings", "len_concat", types.I64(), `{
 				return len("ab" + "cd")
 			}`, stl.SymbolResolver, int32(4)),
-			Entry("triple concatenation", "len_triple", types.I32(), `{
+			Entry("triple concatenation", "len_triple", types.I64(), `{
 				return len("a" + "b" + "c")
 			}`, stl.SymbolResolver, int32(3)),
-			Entry("variable concatenation", "len_var_concat", types.I32(), `{
+			Entry("variable concatenation", "len_var_concat", types.I64(), `{
 				a str := "hello"
 				b str := " world"
 				return len(a + b)

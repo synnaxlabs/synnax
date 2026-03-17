@@ -151,6 +151,24 @@ var _ = Describe("Compile", func() {
 		Expect(mod.StateConfig.Writes.Keys()).To(ContainElement(calc.Key()))
 	})
 
+	It("Should fail when stored DataType does not match expression return type", func() {
+		base := channel.Channel{Name: "stale_base", DataType: telem.Float32T, Virtual: true}
+		Expect(dist.Channel.Create(ctx, &base)).To(Succeed())
+		calc := channel.Channel{
+			Name:       "stale_calc",
+			DataType:   telem.Int64T,
+			Virtual:    true,
+			Expression: "return stale_base * 2",
+		}
+		Expect(dist.Channel.Create(ctx, &calc)).To(Succeed())
+		Expect(calc.DataType).To(Equal(telem.Int64T))
+		Expect(compiler.Compile(ctx, compiler.Config{
+			ChannelService: dist.Channel,
+			Channel:        calc,
+			SymbolResolver: arcSvc.SymbolResolver(),
+		})).Error().To(MatchError(ContainSubstring("cannot return f32 from 'calculation': expected i64")))
+	})
+
 	It("Should fail with invalid expression", func() {
 		calc := channel.Channel{
 			Name:       "calc4",
