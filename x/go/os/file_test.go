@@ -15,20 +15,18 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	xfs "github.com/synnaxlabs/x/io/fs"
 	xos "github.com/synnaxlabs/x/os"
-	. "github.com/synnaxlabs/x/testutil"
 )
 
 var _ = Describe("FileExists", func() {
 	It("Should return true for an existing file", func() {
 		tmp := filepath.Join(GinkgoT().TempDir(), "exists.txt")
-		Expect(os.WriteFile(tmp, []byte("data"), 0644)).To(Succeed())
-		exists := MustSucceed(xos.FileExists(tmp))
-		Expect(exists).To(BeTrue())
+		Expect(os.WriteFile(tmp, []byte("data"), xfs.UserRW|xfs.GroupR|xfs.OtherR)).To(Succeed())
+		Expect(xos.FileExists(tmp)).To(BeTrue())
 	})
 
 	It("Should return false for a non-existent file", func() {
-		exists := MustSucceed(xos.FileExists(filepath.Join(GinkgoT().TempDir(), "no-such-file")))
-		Expect(exists).To(BeFalse())
+		Expect(xos.FileExists(filepath.Join(GinkgoT().TempDir(), "no-such-file"))).To(BeFalse())
 	})
 })
