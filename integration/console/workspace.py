@@ -104,9 +104,7 @@ class WorkspaceClient:
         ).first
         add_btn.wait_for(state="visible", timeout=5000)
         add_btn.dispatch_event("click")
-        layout_selector = self.layout.page.locator(
-            ".console-layout-selector__frame"
-        )
+        layout_selector = self.layout.page.locator(".console-layout-selector__frame")
         # Retry once if the layout selector doesn't appear — on Windows CI
         # the first dispatch can race with notification rendering.
         try:
