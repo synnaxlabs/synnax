@@ -7,10 +7,6 @@
 #  License, use of this software will be governed by the Apache License, Version 2.0,
 #  included in the file licenses/APL.txt.
 
-import time
-from re import S
-from time import time as now
-
 import synnax as sy
 
 from tests.latency.latency import Latency
@@ -22,13 +18,7 @@ class BenchResponse(Latency):
         super().setup()
         self.set_manual_timeout(10)
 
-        self.bench_client = sy.Synnax(
-            host=self.synnax_connection.server_address,
-            port=self.synnax_connection.port,
-            username=self.synnax_connection.username,
-            password=self.synnax_connection.password,
-            secure=self.synnax_connection.secure,
-        )
+        self.bench_client = self.synnax_connection.create_client()
 
         self.state_channel = "bench_state"
         self.cmd_channel = "bench_command"
@@ -59,7 +49,11 @@ class BenchResponse(Latency):
         state_channel: str = self.state_channel
         cmd_channel: str = self.cmd_channel
 
-        timeout = sy.TimeSpan.SECOND * self._manual_timeout
+        timeout = (
+            sy.TimeSpan.from_seconds(self._manual_timeout)
+            if self._manual_timeout is not None
+            else 10 * sy.TimeSpan.SECOND
+        )
         start = sy.TimeStamp.now()
 
         try:

@@ -11,11 +11,12 @@
 
 import synnax as sy
 from playwright.sync_api import TimeoutError as PlaywrightTimeoutError
+from xpy import get_random_name
 
 from console.case import ConsoleCase
 from console.schematic import CustomSymbol, Schematic
 from console.schematic.symbol_toolbar import SymbolToolbar
-from framework.utils import get_fixture_path, get_random_name
+from framework.utils import get_fixture_path
 
 TEST_SYMBOL_SVG = get_fixture_path("test_symbol.svg")
 
