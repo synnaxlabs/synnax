@@ -74,10 +74,10 @@ func (s State[R]) String() string {
 type Transfer[R comparable] struct {
 	// From is the control state before the transfer. If From is nil, the entity
 	// was uncontrolled before the transfer.
-	From *State[R]
+	From *State[R] `json:"from" msgpack:"from"`
 	// To is the control state after the transfer. If To is nil, the entity is
 	// uncontrolled after the transfer.
-	To *State[R]
+	To *State[R] `json:"to" msgpack:"to"`
 }
 
 func (t Transfer[R]) assertValid() {
