@@ -34,6 +34,7 @@ type ControlSubject struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	Key           string                 `protobuf:"bytes,1,opt,name=key,proto3" json:"key,omitempty"`
 	Name          string                 `protobuf:"bytes,2,opt,name=name,proto3" json:"name,omitempty"`
+	Group         uint32                 `protobuf:"varint,3,opt,name=group,proto3" json:"group,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -82,14 +83,22 @@ func (x *ControlSubject) GetName() string {
 	return ""
 }
 
+func (x *ControlSubject) GetGroup() uint32 {
+	if x != nil {
+		return x.Group
+	}
+	return 0
+}
+
 var File_x_go_control_control_proto protoreflect.FileDescriptor
 
 const file_x_go_control_control_proto_rawDesc = "" +
 	"\n" +
-	"\x1ax/go/control/control.proto\x12\acontrol\"6\n" +
+	"\x1ax/go/control/control.proto\x12\acontrol\"L\n" +
 	"\x0eControlSubject\x12\x10\n" +
 	"\x03key\x18\x01 \x01(\tR\x03key\x12\x12\n" +
-	"\x04name\x18\x02 \x01(\tR\x04nameBx\n" +
+	"\x04name\x18\x02 \x01(\tR\x04name\x12\x14\n" +
+	"\x05group\x18\x03 \x01(\rR\x05groupBx\n" +
 	"\vcom.controlB\fControlProtoP\x01Z\x1fgithub.com/synnaxlabs/x/control\xa2\x02\x03CXX\xaa\x02\aControl\xca\x02\aControl\xe2\x02\x13Control\\GPBMetadata\xea\x02\aControlb\x06proto3"
 
 var (

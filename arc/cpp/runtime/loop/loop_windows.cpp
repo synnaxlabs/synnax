@@ -25,7 +25,10 @@ class WindowsLoop final : public Loop {
     static constexpr DWORD MAX_HANDLES = MAXIMUM_WAIT_OBJECTS;
 
 public:
-    explicit WindowsLoop(const Config &config): config_(config) {
+    explicit WindowsLoop(
+        const Config &config,
+        std::shared_ptr<x::thread::rt::Handle> rt_handle = nullptr
+    ): config_(config), rt_handle_(std::move(rt_handle)) {
         if (this->config_.lock_memory) {
             LOG(WARNING) << "[loop] Memory locking on Windows requires "
                          << "VirtualLock API (not implemented)";
@@ -113,10 +116,14 @@ public:
             }
         }
 
-        auto rt_cfg = this->config_.rt();
-        rt_cfg.use_mmcss = true;
-        if (auto err = x::thread::rt::apply_config(rt_cfg); err)
-            LOG(WARNING) << "[loop] Failed to apply RT config: " << err.message();
+        if (!this->rt_handle_) {
+            auto rt_cfg = this->config_.rt();
+            rt_cfg.use_mmcss = true;
+            if (auto err = x::thread::rt::apply_config(rt_cfg); err)
+                LOG(WARNING) << "[loop] failed to apply RT config: " << err.message();
+        } else {
+            this->rt_handle_->apply();
+        }
 
         return x::errors::NIL;
     }
@@ -255,6 +262,7 @@ private:
     }
 
     Config config_;
+    std::shared_ptr<x::thread::rt::Handle> rt_handle_;
     HANDLE wake_event_ = NULL;
     HANDLE timer_event_ = NULL;
     HANDLE watched_handle_ = NULL;
@@ -262,10 +270,11 @@ private:
     std::unique_ptr<::x::loop::Timer> timer_;
 };
 
-std::pair<std::unique_ptr<Loop>, x::errors::Error> create(const Config &cfg) {
-    auto loop = std::make_unique<WindowsLoop>(cfg);
-    if (auto err = loop->start(); err) return {nullptr, err};
-    return {std::move(loop), x::errors::NIL};
+std::pair<std::unique_ptr<Loop>, x::errors::Error> create(
+    const Config &cfg,
+    std::shared_ptr<x::thread::rt::Handle> rt_handle
+) {
+    return {std::make_unique<WindowsLoop>(cfg, std::move(rt_handle)), x::errors::NIL};
 }
 
 }

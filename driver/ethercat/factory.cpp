@@ -129,6 +129,7 @@ std::pair<std::unique_ptr<task::Task>, bool> Factory::configure_task(
     const synnax::task::Task &task
 ) {
     if (task.type.find(INTEGRATION_NAME) != 0) return {nullptr, false};
+    this->pool->set_rt_manager(ctx->rt_manager());
     std::pair<common::ConfigureResult, x::errors::Error> res;
     if (task.type == READ_TASK_TYPE)
         res = this->configure_read(ctx, task);

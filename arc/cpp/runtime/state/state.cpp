@@ -202,6 +202,12 @@ std::vector<std::pair<types::ChannelKey, Series>> State::flush() {
     return result;
 }
 
+void State::flush_into(x::telem::Frame &out) {
+    this->channel->flush_into(out);
+    this->series->clear();
+    this->strings->clear();
+}
+
 void State::reset() {
     this->channel->reset();
     this->strings->reset();

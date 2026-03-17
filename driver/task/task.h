@@ -24,6 +24,12 @@
 #include "x/cpp/breaker/breaker.h"
 #include "x/cpp/json/json.h"
 #include "x/cpp/log/log.h"
+#include "x/cpp/thread/rt/rt.h"
+
+namespace driver::bus {
+class Bus;
+class AuthorityMirror;
+}
 
 namespace driver::task {
 /// @brief A command that can be executed on a task in order to change its state.
@@ -97,6 +103,19 @@ public:
     explicit Context(std::shared_ptr<synnax::Synnax> client):
         client(std::move(client)) {}
 
+    /// @brief returns the local telemetry bus, or nullptr if not available.
+    virtual bus::Bus *bus() { return nullptr; }
+
+    /// @brief returns the authority mirror, or nullptr if not available.
+    virtual bus::AuthorityMirror *authority_mirror() { return nullptr; }
+
+    /// @brief returns the rack key for this driver, used as the group identity
+    /// for server-side deduplication filtering.
+    virtual synnax::rack::Key rack_key() { return 0; }
+
+    /// @brief returns the RT core manager, or nullptr if not available.
+    virtual x::thread::rt::Manager *rt_manager() { return nullptr; }
+
     /// @brief updates the state of the task in the Synnax cluster.
     virtual void set_status(synnax::task::Status &status) = 0;
 };
@@ -104,12 +123,15 @@ public:
 /// @brief a mock context that can be used for testing tasks.
 class MockContext final : public Context {
     std::mutex mu;
+    x::thread::rt::Manager rt_mgr;
 
 public:
     std::vector<synnax::task::Status> statuses{};
 
     explicit MockContext(const std::shared_ptr<synnax::Synnax> &client):
         Context(client) {}
+
+    x::thread::rt::Manager *rt_manager() override { return &this->rt_mgr; }
 
     void set_status(synnax::task::Status &status) override {
         mu.lock();
@@ -119,9 +141,34 @@ public:
 };
 
 class SynnaxContext final : public Context {
+    bus::Bus *bus_ptr;
+    bus::AuthorityMirror *authority_mirror_ptr;
+    synnax::rack::Key rack_key_;
+    x::thread::rt::Manager *rt_manager_ptr;
+
 public:
-    explicit SynnaxContext(const std::shared_ptr<synnax::Synnax> &client):
-        Context(client) {}
+    explicit SynnaxContext(
+        const std::shared_ptr<synnax::Synnax> &client,
+        bus::Bus *bus_ptr = nullptr,
+        bus::AuthorityMirror *authority_mirror_ptr = nullptr,
+        synnax::rack::Key rack_key = 0,
+        x::thread::rt::Manager *rt_manager = nullptr
+    ):
+        Context(client),
+        bus_ptr(bus_ptr),
+        authority_mirror_ptr(authority_mirror_ptr),
+        rack_key_(rack_key),
+        rt_manager_ptr(rt_manager) {}
+
+    bus::Bus *bus() override { return this->bus_ptr; }
+
+    bus::AuthorityMirror *authority_mirror() override {
+        return this->authority_mirror_ptr;
+    }
+
+    synnax::rack::Key rack_key() override { return this->rack_key_; }
+
+    x::thread::rt::Manager *rt_manager() override { return this->rt_manager_ptr; }
 
     void set_status(synnax::task::Status &status) override {
         if (status.time == 0) status.time = x::telem::TimeStamp::now();
@@ -251,10 +298,14 @@ public:
         synnax::rack::Rack rack,
         const std::shared_ptr<synnax::Synnax> &client,
         std::unique_ptr<task::Factory> factory,
-        const ManagerConfig &cfg = {}
+        const ManagerConfig &cfg = {},
+        bus::Bus *bus = nullptr,
+        bus::AuthorityMirror *authority_mirror = nullptr,
+        x::thread::rt::Manager *rt_manager = nullptr
     ):
         rack(std::move(rack)),
-        ctx(std::make_shared<SynnaxContext>(client)),
+        ctx(std::make_shared<
+            SynnaxContext>(client, bus, authority_mirror, rack.key, rt_manager)),
         factory(std::move(factory)),
         op_timeout(cfg.op_timeout),
         poll_interval(cfg.poll_interval),

@@ -49,8 +49,9 @@ func (writerRequestTranslator) Backward(
 		Command: writer.Command(req.Command),
 		Config: writer.Config{
 			ControlSubject: control.Subject{
-				Key:  req.Config.ControlSubject.Key,
-				Name: req.Config.ControlSubject.Name,
+				Key:   req.Config.ControlSubject.Key,
+				Name:  req.Config.ControlSubject.Name,
+				Group: req.Config.ControlSubject.Group,
 			},
 			Keys:  channel.KeysFromUint32(req.Config.Keys),
 			Start: telem.TimeStamp(req.Config.Start),
@@ -73,8 +74,9 @@ func (writerRequestTranslator) Forward(
 ) (*framerv1.WriterRequest, error) {
 	cfg := &framerv1.WriterConfig{
 		ControlSubject: &control.ControlSubject{
-			Key:  req.Config.ControlSubject.Key,
-			Name: req.Config.ControlSubject.Name,
+			Key:   req.Config.ControlSubject.Key,
+			Name:  req.Config.ControlSubject.Name,
+			Group: req.Config.ControlSubject.Group,
 		},
 		Keys:  req.Config.Keys.Uint32(),
 		Start: int64(req.Config.Start),
@@ -217,14 +219,14 @@ func (w relayResponseTranslator) Backward(
 	ctx context.Context,
 	res *framerv1.RelayResponse,
 ) (relay.Response, error) {
-	return relay.Response{Frame: translateFrameForward(res.Frame)}, nil
+	return relay.Response{Frame: translateFrameForward(res.Frame), Group: res.Group}, nil
 }
 
 func (w relayResponseTranslator) Forward(
 	ctx context.Context,
 	res relay.Response,
 ) (*framerv1.RelayResponse, error) {
-	return &framerv1.RelayResponse{Frame: translateFrameBackward(res.Frame)}, nil
+	return &framerv1.RelayResponse{Frame: translateFrameBackward(res.Frame), Group: res.Group}, nil
 }
 
 func translateFrameForward(fr *telem.PBFrame) framer.Frame {

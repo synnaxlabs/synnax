@@ -21,6 +21,15 @@
 
 namespace arc::runtime::loop {
 
+/// @brief Creates a loop and starts it, returning the started loop.
+std::pair<std::unique_ptr<Loop>, x::errors::Error>
+create_and_start(const Config &cfg) {
+    auto [loop, err] = create(cfg);
+    if (err) return {nullptr, err};
+    if (auto start_err = loop->start(); start_err) return {nullptr, start_err};
+    return {std::move(loop), x::errors::NIL};
+}
+
 /// @brief Test timing constants.
 namespace test_timing {
 /// @brief Time to wait for a thread to start waiting before signaling.
@@ -68,7 +77,7 @@ TEST(LoopTest, Wake_EventDriven) {
     config.mode = ExecutionMode::EVENT_DRIVEN;
     config.interval = x::telem::TimeSpan(0); // No timer
 
-    const auto loop = ASSERT_NIL_P(create(config));
+    const auto loop = ASSERT_NIL_P(create_and_start(config));
 
     std::atomic<bool> woke_up{false};
     x::breaker::Breaker breaker;
@@ -94,7 +103,7 @@ TEST(LoopTest, TimerExpiration) {
     config.mode = ExecutionMode::EVENT_DRIVEN;
     config.interval = 10 * x::telem::MILLISECOND;
 
-    const auto loop = ASSERT_NIL_P(create(config));
+    const auto loop = ASSERT_NIL_P(create_and_start(config));
 
     x::breaker::Breaker breaker;
 
@@ -113,7 +122,7 @@ TEST(LoopTest, BusyWaitMode) {
     config.mode = ExecutionMode::BUSY_WAIT;
     config.interval = x::telem::TimeSpan(0); // No timer
 
-    const auto loop = ASSERT_NIL_P(create(config));
+    const auto loop = ASSERT_NIL_P(create_and_start(config));
 
     std::atomic<bool> woke_up{false};
     x::breaker::Breaker breaker;
@@ -139,7 +148,7 @@ TEST(LoopTest, HighRateMode) {
     config.mode = ExecutionMode::HIGH_RATE;
     config.interval = 10 * x::telem::MILLISECOND;
 
-    const auto loop = ASSERT_NIL_P(create(config));
+    const auto loop = ASSERT_NIL_P(create_and_start(config));
 
     x::breaker::Breaker breaker;
 
@@ -159,7 +168,7 @@ TEST(LoopTest, HybridMode) {
     config.interval = x::telem::TimeSpan(0); // No timer
     config.spin_duration = 50 * x::telem::MICROSECOND; // 50us spin
 
-    const auto loop = ASSERT_NIL_P(create(config));
+    const auto loop = ASSERT_NIL_P(create_and_start(config));
 
     std::atomic<bool> woke_up{false};
     x::breaker::Breaker breaker;
@@ -183,7 +192,7 @@ TEST(LoopTest, MultipleCreateDestroy) {
     config.interval = x::telem::MILLISECOND;
 
     for (int i = 0; i < 3; i++) {
-        const auto loop = ASSERT_NIL_P(create(config));
+        const auto loop = ASSERT_NIL_P(create_and_start(config));
         // Loop is cleaned up when it goes out of scope
     }
 }
@@ -202,7 +211,7 @@ TEST(LoopTest, DifferentModes) {
         Config config;
         config.mode = mode;
         config.interval = x::telem::MILLISECOND;
-        const auto loop = ASSERT_NIL_P(create(config));
+        const auto loop = ASSERT_NIL_P(create_and_start(config));
         // Loop is cleaned up when it goes out of scope
     }
 }
@@ -405,7 +414,7 @@ TEST(WatchTest, WatchReturnsTrue_ValidNotifier) {
     config.mode = ExecutionMode::EVENT_DRIVEN;
     config.interval = x::telem::TimeSpan(0);
 
-    const auto loop = ASSERT_NIL_P(create(config));
+    const auto loop = ASSERT_NIL_P(create_and_start(config));
 
     auto notifier = x::notify::create();
     EXPECT_TRUE(loop->watch(*notifier));
@@ -417,7 +426,7 @@ TEST(WatchTest, WatchWakesWait_NotifierSignaled) {
     config.mode = ExecutionMode::EVENT_DRIVEN;
     config.interval = x::telem::TimeSpan(0);
 
-    const auto loop = ASSERT_NIL_P(create(config));
+    const auto loop = ASSERT_NIL_P(create_and_start(config));
 
     auto notifier = x::notify::create();
     ASSERT_TRUE(loop->watch(*notifier));
@@ -445,7 +454,7 @@ TEST(WatchTest, WatchAndWake_BothWork) {
     config.mode = ExecutionMode::EVENT_DRIVEN;
     config.interval = x::telem::TimeSpan(0);
 
-    const auto loop = ASSERT_NIL_P(create(config));
+    const auto loop = ASSERT_NIL_P(create_and_start(config));
 
     auto notifier = x::notify::create();
     ASSERT_TRUE(loop->watch(*notifier));
@@ -480,7 +489,7 @@ TEST(WatchTest, WatchAndTimer_BothWork) {
     config.mode = ExecutionMode::EVENT_DRIVEN;
     config.interval = 50 * x::telem::MILLISECOND;
 
-    const auto loop = ASSERT_NIL_P(create(config));
+    const auto loop = ASSERT_NIL_P(create_and_start(config));
 
     auto notifier = x::notify::create();
     ASSERT_TRUE(loop->watch(*notifier));
@@ -514,7 +523,7 @@ TEST(WatchTest, WatchMultipleNotifiers) {
     config.mode = ExecutionMode::EVENT_DRIVEN;
     config.interval = x::telem::TimeSpan(0);
 
-    const auto loop = ASSERT_NIL_P(create(config));
+    const auto loop = ASSERT_NIL_P(create_and_start(config));
 
     auto notifier1 = x::notify::create();
     auto notifier2 = x::notify::create();
@@ -556,7 +565,7 @@ TEST(WatchTest, WatchSecondNotifierFails_Windows) {
     config.mode = ExecutionMode::EVENT_DRIVEN;
     config.interval = x::telem::TimeSpan(0);
 
-    const auto loop = ASSERT_NIL_P(create(config));
+    const auto loop = ASSERT_NIL_P(create_and_start(config));
 
     auto notifier1 = x::notify::create();
     auto notifier2 = x::notify::create();
@@ -572,7 +581,7 @@ TEST(WatchTest, WatchSameNotifierTwice_Succeeds) {
     config.mode = ExecutionMode::EVENT_DRIVEN;
     config.interval = x::telem::TimeSpan(0);
 
-    const auto loop = ASSERT_NIL_P(create(config));
+    const auto loop = ASSERT_NIL_P(create_and_start(config));
 
     auto notifier = x::notify::create();
     EXPECT_TRUE(loop->watch(*notifier));
@@ -585,7 +594,7 @@ TEST(WatchTest, WatchSameNotifierTwice_StillWakes) {
     config.mode = ExecutionMode::EVENT_DRIVEN;
     config.interval = x::telem::TimeSpan(0);
 
-    const auto loop = ASSERT_NIL_P(create(config));
+    const auto loop = ASSERT_NIL_P(create_and_start(config));
 
     auto notifier = x::notify::create();
     ASSERT_TRUE(loop->watch(*notifier));
@@ -612,7 +621,7 @@ TEST(WatchTest, WatchAfterSimulatedRestart_Works) {
     config.mode = ExecutionMode::EVENT_DRIVEN;
     config.interval = x::telem::TimeSpan(0);
 
-    const auto loop = ASSERT_NIL_P(create(config));
+    const auto loop = ASSERT_NIL_P(create_and_start(config));
 
     auto notifier = x::notify::create();
 
@@ -647,7 +656,7 @@ TEST(BreakerCancellationTest, BreakerStop_BusyWaitExits) {
     config.mode = ExecutionMode::BUSY_WAIT;
     config.interval = x::telem::TimeSpan(0);
 
-    const auto loop = ASSERT_NIL_P(create(config));
+    const auto loop = ASSERT_NIL_P(create_and_start(config));
 
     std::atomic<bool> woke_up{false};
     x::breaker::Breaker breaker;
@@ -675,7 +684,7 @@ TEST(BreakerCancellationTest, BreakerStop_HybridModeExits) {
     config.interval = x::telem::TimeSpan(0);
     config.spin_duration = 50 * x::telem::MICROSECOND;
 
-    const auto loop = ASSERT_NIL_P(create(config));
+    const auto loop = ASSERT_NIL_P(create_and_start(config));
 
     std::atomic<bool> woke_up{false};
     x::breaker::Breaker breaker;
@@ -702,7 +711,7 @@ TEST(BreakerCancellationTest, EventDriven_ReturnsWithinTimeout) {
     config.mode = ExecutionMode::EVENT_DRIVEN;
     config.interval = x::telem::TimeSpan(0);
 
-    const auto loop = ASSERT_NIL_P(create(config));
+    const auto loop = ASSERT_NIL_P(create_and_start(config));
 
     x::breaker::Breaker breaker;
 
@@ -719,7 +728,7 @@ TEST(WakeTest, Wake_UnblocksWait) {
     config.mode = ExecutionMode::EVENT_DRIVEN;
     config.interval = x::telem::TimeSpan(0);
 
-    const auto loop = ASSERT_NIL_P(create(config));
+    const auto loop = ASSERT_NIL_P(create_and_start(config));
 
     std::atomic<bool> woke_up{false};
     x::breaker::Breaker breaker;
@@ -745,7 +754,7 @@ TEST(WakeReasonTest, ReturnsTimerOnTimerFire) {
     config.mode = ExecutionMode::EVENT_DRIVEN;
     config.interval = 10 * x::telem::MILLISECOND;
 
-    const auto loop = ASSERT_NIL_P(create(config));
+    const auto loop = ASSERT_NIL_P(create_and_start(config));
 
     x::breaker::Breaker breaker;
     breaker.start();
@@ -761,7 +770,7 @@ TEST(WakeReasonTest, ReturnsInputOnNotifierSignal) {
     config.mode = ExecutionMode::EVENT_DRIVEN;
     config.interval = x::telem::TimeSpan(0);
 
-    const auto loop = ASSERT_NIL_P(create(config));
+    const auto loop = ASSERT_NIL_P(create_and_start(config));
 
     auto notifier = x::notify::create();
     ASSERT_TRUE(loop->watch(*notifier));
@@ -786,7 +795,7 @@ TEST(WakeReasonTest, DistinguishesTimerFromInputWhenBothConfigured) {
     config.mode = ExecutionMode::EVENT_DRIVEN;
     config.interval = 100 * x::telem::MILLISECOND;
 
-    const auto loop = ASSERT_NIL_P(create(config));
+    const auto loop = ASSERT_NIL_P(create_and_start(config));
 
     auto notifier = x::notify::create();
     ASSERT_TRUE(loop->watch(*notifier));
@@ -816,7 +825,7 @@ TEST(MaxTimeoutTest, EventDriven_WakesAfterMaxTimeout) {
     config.mode = ExecutionMode::EVENT_DRIVEN;
     config.interval = x::telem::TimeSpan(0);
 
-    const auto loop = ASSERT_NIL_P(create(config));
+    const auto loop = ASSERT_NIL_P(create_and_start(config));
 
     x::breaker::Breaker breaker;
 
@@ -835,7 +844,7 @@ TEST(MaxTimeoutTest, EventDriven_MaxTimeoutOverridesLongerInterval) {
     config.mode = ExecutionMode::EVENT_DRIVEN;
     config.interval = 500 * x::telem::MILLISECOND;
 
-    const auto loop = ASSERT_NIL_P(create(config));
+    const auto loop = ASSERT_NIL_P(create_and_start(config));
 
     x::breaker::Breaker breaker;
 
@@ -853,7 +862,7 @@ TEST(MaxTimeoutTest, EventDriven_InputWakesBeforeMaxTimeout) {
     config.mode = ExecutionMode::EVENT_DRIVEN;
     config.interval = x::telem::TimeSpan(0);
 
-    const auto loop = ASSERT_NIL_P(create(config));
+    const auto loop = ASSERT_NIL_P(create_and_start(config));
 
     auto notifier = x::notify::create();
     ASSERT_TRUE(loop->watch(*notifier));
@@ -879,7 +888,7 @@ TEST(MaxTimeoutTest, Hybrid_MaxTimeoutConstrainsBlockPhase) {
     config.interval = x::telem::TimeSpan(0);
     config.spin_duration = 50 * x::telem::MICROSECOND;
 
-    const auto loop = ASSERT_NIL_P(create(config));
+    const auto loop = ASSERT_NIL_P(create_and_start(config));
 
     x::breaker::Breaker breaker;
     breaker.start();

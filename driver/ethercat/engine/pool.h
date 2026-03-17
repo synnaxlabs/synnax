@@ -23,12 +23,19 @@ namespace driver::ethercat::engine {
 /// @brief manages a pool of EtherCAT engines keyed by master identifier.
 class Pool {
     std::unique_ptr<master::Manager> manager;
+    x::thread::rt::Manager *rt_manager;
     mutable std::mutex mu;
     std::unordered_map<std::string, std::shared_ptr<Engine>> engines;
 
 public:
-    /// @brief constructs a pool with the given manager.
-    explicit Pool(std::unique_ptr<master::Manager> manager);
+    /// @brief constructs a pool with the given manager and optional RT manager.
+    explicit Pool(
+        std::unique_ptr<master::Manager> manager,
+        x::thread::rt::Manager *rt_manager = nullptr
+    );
+
+    /// @brief sets the RT manager for core allocation on new engines.
+    void set_rt_manager(x::thread::rt::Manager *mgr);
 
     /// @brief returns all available EtherCAT masters discovered by the manager.
     [[nodiscard]] std::vector<master::Info> enumerate() const;

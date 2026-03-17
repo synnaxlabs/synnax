@@ -9,7 +9,10 @@
 
 #pragma once
 
+#include <memory>
+#include <mutex>
 #include <ostream>
+#include <vector>
 
 #include "x/cpp/errors/errors.h"
 #include "x/cpp/log/log.h"
@@ -204,4 +207,65 @@ errors::Error apply_config(const Config &cfg);
 /// @brief Checks if the platform supports real-time scheduling.
 /// @return true on Linux with appropriate permissions, false on macOS/Windows.
 bool has_support();
+
+/// @brief Discovers isolated or suitable RT cores on the current platform.
+/// On Linux, parses /sys/devices/system/cpu/isolated; falls back to picking
+/// the highest N cores. On other platforms, returns an empty vector.
+std::vector<int> discover_rt_cores();
+
+class ManagerImpl;
+
+/// @brief RAII handle for an allocated RT core. Releasing the handle returns
+/// the core to the Manager's pool. Move-only.
+class Handle {
+    int core;
+    Config resolved;
+    std::weak_ptr<ManagerImpl> impl;
+    bool released;
+
+public:
+    Handle(int core, Config resolved, std::weak_ptr<ManagerImpl> impl);
+
+    Handle(const Handle &) = delete;
+    Handle &operator=(const Handle &) = delete;
+
+    Handle(Handle &&other) noexcept;
+    Handle &operator=(Handle &&other) noexcept;
+
+    ~Handle();
+
+    /// @brief Applies the RT configuration (with the allocated core) to the
+    /// calling thread. Must be called from the thread that should become RT.
+    void apply();
+
+    /// @brief Explicitly releases the allocated core back to the pool.
+    /// Idempotent — safe to call multiple times.
+    void release();
+
+    /// @brief Returns the allocated core number, or CPU_AFFINITY_NONE if
+    /// no core was available.
+    [[nodiscard]] int allocated_core() const { return this->core; }
+};
+
+/// @brief Central RT core manager. Discovers available cores at construction
+/// and hands them out via allocate(). Thread-safe.
+class Manager {
+    std::shared_ptr<ManagerImpl> impl;
+
+public:
+    Manager();
+
+    /// @brief Allocates a core from the pool and returns a Handle with the
+    /// given base config. If no cores are available, returns a Handle with
+    /// CPU_AFFINITY_NONE.
+    /// @param cfg Base RT config — cpu_affinity will be overwritten with
+    /// the allocated core.
+    Handle allocate(Config cfg);
+
+    /// @brief Returns the number of cores still available in the pool.
+    [[nodiscard]] size_t available_cores() const;
+
+    /// @brief Returns the total number of managed cores.
+    [[nodiscard]] size_t total_cores() const;
+};
 }

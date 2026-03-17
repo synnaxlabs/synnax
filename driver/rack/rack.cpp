@@ -7,6 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+#include "x/cpp/profile/profile.h"
 #include "x/cpp/thread/rt/rt.h"
 #include "x/cpp/thread/thread.h"
 
@@ -30,6 +31,7 @@ Rack::~Rack() {
 
 void Rack::run(x::args::Parser &args, const std::function<void()> &on_shutdown) {
     x::thread::set_name("rack");
+    x::profile::Profiler::install();
     LOG(INFO) << x::thread::rt::get_capabilities();
     while (this->breaker.running()) {
         auto [cfg, err] = Config::load(args, this->breaker);
@@ -39,13 +41,31 @@ void Rack::run(x::args::Parser &args, const std::function<void()> &on_shutdown) 
         }
         VLOG(1) << "loaded config. starting task manager";
         if (!this->breaker.running()) return;
+        auto client = cfg.new_client();
+        const auto node_key = cfg.rack.key >> 16;
+        const auto control_ch_name = "sy_node_" + std::to_string(node_key) + "_control";
+        auto [control_ch, ch_err] = client->channels.retrieve(control_ch_name);
+        if (ch_err) {
+            LOG(WARNING) << "failed to retrieve control state channel: " << ch_err
+                         << ". Telemetry bypass disabled.";
+        } else {
+            if (auto mirror_err = this->authority_mirror.start(client, control_ch.key))
+                LOG(WARNING) << "failed to start authority mirror: " << mirror_err
+                             << ". Telemetry bypass disabled.";
+            else
+                VLOG(1) << "authority mirror started on channel " << control_ch_name;
+        }
         this->task_manager = std::make_unique<task::Manager>(
             cfg.rack,
-            cfg.new_client(),
+            client,
             cfg.new_factory(),
-            cfg.manager
+            cfg.manager,
+            &this->bus,
+            &this->authority_mirror,
+            &this->rt_manager
         );
         err = this->task_manager->run([this]() { this->breaker.reset(); });
+        this->authority_mirror.stop();
         if (err && this->should_exit(err, on_shutdown)) return;
     }
     if (this->task_manager != nullptr) this->task_manager->stop();

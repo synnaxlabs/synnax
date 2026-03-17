@@ -61,6 +61,9 @@ struct Config {
     size_t output_queue_capacity = 1024;
     /// @brief Loop configuration. Fields with default values are auto-selected.
     loop::Config loop;
+    /// @brief Optional RT handle from the Manager. When set, the loop uses
+    /// this handle's allocated core instead of auto-selecting one.
+    std::shared_ptr<x::thread::rt::Handle> rt_handle;
 };
 
 /// @brief callback invoked when a fatal error occurs in the runtime.
@@ -77,6 +80,19 @@ class Runtime {
     x::queue::SPSC<Output> outputs;
     std::chrono::steady_clock::time_point start_time_steady_;
     errors::Handler error_handler;
+    types::ChannelKey cycle_latency_key = 0;
+    types::ChannelKey cycle_latency_index_key = 0;
+    types::ChannelKey cycle_latency_min_key = 0;
+    types::ChannelKey cycle_latency_max_key = 0;
+    static constexpr size_t CYCLE_LATENCY_SAMPLE_INTERVAL = 25;
+    float cycle_latency_accumulator = 0;
+    float cycle_latency_min = std::numeric_limits<float>::max();
+    float cycle_latency_max = 0;
+    size_t cycle_latency_count = 0;
+    x::telem::Series latency_avg_buf{x::telem::FLOAT32_T, 1};
+    x::telem::Series latency_min_buf{x::telem::FLOAT32_T, 1};
+    x::telem::Series latency_max_buf{x::telem::FLOAT32_T, 1};
+    x::telem::Series latency_ts_buf{x::telem::TIMESTAMP_T, 1};
 
 public:
     std::vector<types::ChannelKey> read_channels;
@@ -102,10 +118,26 @@ public:
         read_channels(read_channels),
         write_channels(std::move(write_channels)) {}
 
+    void set_cycle_latency_keys(
+        const types::ChannelKey data_key,
+        const types::ChannelKey index_key,
+        const types::ChannelKey min_key,
+        const types::ChannelKey max_key
+    ) {
+        this->cycle_latency_key = data_key;
+        this->cycle_latency_index_key = index_key;
+        this->cycle_latency_min_key = min_key;
+        this->cycle_latency_max_key = max_key;
+    }
+
     void run() {
         this->start_time_steady_ = std::chrono::steady_clock::now();
         x::thread::set_name("runtime");
-        this->loop->start();
+        if (auto err = this->loop->start(); err) {
+            LOG(ERROR) << "[runtime] failed to start loop: " << err.message();
+            this->error_handler(err);
+            return;
+        }
         if (!this->loop->watch(this->inputs.notifier())) {
             LOG(ERROR) << "[runtime] failed to watch input notifier";
             this->error_handler(x::errors::Error("failed to watch input notifier"));
@@ -124,6 +156,7 @@ public:
                 const auto reason = (first && is_timer) ? node::RunReason::TimerTick
                                                         : node::RunReason::ChannelInput;
                 first = false;
+                const auto cycle_start = std::chrono::steady_clock::now();
                 this->state->ingest(frame);
                 const auto now_steady = std::chrono::steady_clock::now();
                 elapsed = x::telem::TimeSpan(
@@ -133,16 +166,62 @@ public:
                         .count()
                 );
                 this->scheduler->next(elapsed, reason);
-                auto writes = this->state->flush();
-                auto changes = this->state->flush_authority_changes();
-                if (!writes.empty() || !changes.empty()) {
-                    Output out;
-                    out.authority_changes = std::move(changes);
-                    if (!writes.empty()) {
-                        out.frame = x::telem::Frame(writes.size());
-                        for (auto &[key, series]: writes)
-                            out.frame.emplace(key, series->deep_copy());
+                Output out;
+                out.authority_changes = this->state->flush_authority_changes();
+                this->state->flush_into(out.frame);
+                if (this->cycle_latency_key != 0) {
+                    const auto cycle_us = static_cast<float>(
+                        std::chrono::duration_cast<
+                            std::chrono::microseconds>(
+                            std::chrono::steady_clock::now() -
+                            cycle_start
+                        )
+                            .count()
+                    );
+                    this->cycle_latency_accumulator += cycle_us;
+                    if (cycle_us < this->cycle_latency_min)
+                        this->cycle_latency_min = cycle_us;
+                    if (cycle_us > this->cycle_latency_max)
+                        this->cycle_latency_max = cycle_us;
+                    this->cycle_latency_count++;
+                    if (this->cycle_latency_count >=
+                        CYCLE_LATENCY_SAMPLE_INTERVAL) {
+                        const auto avg =
+                            this->cycle_latency_accumulator /
+                            static_cast<float>(this->cycle_latency_count);
+                        const auto ts = x::telem::TimeStamp::now();
+                        this->latency_avg_buf.detach_buffer();
+                        this->latency_avg_buf.write(avg);
+                        out.frame.emplace(
+                            this->cycle_latency_key,
+                            this->latency_avg_buf.shallow_copy()
+                        );
+                        this->latency_min_buf.detach_buffer();
+                        this->latency_min_buf.write(this->cycle_latency_min);
+                        out.frame.emplace(
+                            this->cycle_latency_min_key,
+                            this->latency_min_buf.shallow_copy()
+                        );
+                        this->latency_max_buf.detach_buffer();
+                        this->latency_max_buf.write(this->cycle_latency_max);
+                        out.frame.emplace(
+                            this->cycle_latency_max_key,
+                            this->latency_max_buf.shallow_copy()
+                        );
+                        this->latency_ts_buf.detach_buffer();
+                        this->latency_ts_buf.write(ts);
+                        out.frame.emplace(
+                            this->cycle_latency_index_key,
+                            this->latency_ts_buf.shallow_copy()
+                        );
+                        this->cycle_latency_accumulator = 0;
+                        this->cycle_latency_min =
+                            std::numeric_limits<float>::max();
+                        this->cycle_latency_max = 0;
+                        this->cycle_latency_count = 0;
                     }
+                }
+                if (!out.frame.empty() || !out.authority_changes.empty()) {
                     if (!this->outputs.push(std::move(out))) {
                         if (this->outputs.closed()) break;
                         this->error_handler(errors::QUEUE_FULL_OUTPUT);
@@ -308,7 +387,7 @@ load(const Config &cfg, errors::Handler error_handler = errors::noop_handler) {
         tolerance,
         error_handler
     );
-    auto [loop, err] = loop::create(loop_cfg);
+    auto [loop, err] = loop::create(loop_cfg, cfg.rt_handle);
     if (err) return {nullptr, err};
     return {
         std::make_shared<Runtime>(

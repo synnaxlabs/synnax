@@ -7,4 +7,5 @@ option go_package = "github.com/synnaxlabs/x/control";
 message ControlSubject {
   string key = 1;
   string name = 2;
+  uint32 group = 3;
 }

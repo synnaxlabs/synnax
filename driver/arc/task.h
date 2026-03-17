@@ -24,6 +24,7 @@
 #include "arc/cpp/runtime/runtime.h"
 #include "arc/cpp/runtime/state/state.h"
 #include "driver/arc/arc.h"
+#include "driver/bus/factory.h"
 #include "driver/common/common.h"
 #include "driver/common/status.h"
 #include "driver/errors/errors.h"
@@ -133,6 +134,17 @@ public:
     ) {
         auto task = std::unique_ptr<Task>(new Task(task_meta, ctx));
 
+        std::shared_ptr<x::thread::rt::Handle> rt_handle;
+        if (ctx->rt_manager() != nullptr) {
+            x::thread::rt::Config base_rt;
+            base_rt.enabled = true;
+            base_rt.lock_memory = cfg.loop.lock_memory;
+            base_rt.priority = cfg.loop.rt_priority;
+            rt_handle = std::make_shared<x::thread::rt::Handle>(
+                ctx->rt_manager()->allocate(base_rt)
+            );
+        }
+
         const ::arc::runtime::Config runtime_cfg{
             .program = cfg.program,
             .breaker = x::breaker::default_config("arc_runtime"),
@@ -150,6 +162,7 @@ public:
                 return {digests, x::errors::NIL};
             },
             .loop = cfg.loop,
+            .rt_handle = rt_handle,
         };
 
         auto [rt, err] = ::arc::runtime::load(
@@ -167,15 +180,62 @@ public:
 
         task->runtime = std::move(rt);
 
+        if (!task->runtime->write_channels.empty()) {
+            const auto base = task_meta.name + "_cycle_latency";
+            auto resolve = [&](
+                               const std::string &name,
+                               const x::telem::DataType &dt,
+                               synnax::channel::Key index,
+                               bool is_index = false
+                           ) -> std::pair<synnax::channel::Channel, x::errors::Error> {
+                auto [ch, err] = ctx->client->channels.retrieve(name);
+                if (err) return ctx->client->channels.create(name, dt, index, is_index);
+                return {ch, x::errors::NIL};
+            };
+            auto [idx_ch, idx_err] = resolve(
+                base + "_time",
+                x::telem::TIMESTAMP_T,
+                0,
+                true
+            );
+            if (!idx_err) {
+                auto [avg_ch, avg_err] = resolve(
+                    base + "_us",
+                    x::telem::FLOAT32_T,
+                    idx_ch.key
+                );
+                auto [min_ch, min_err] = resolve(
+                    base + "_min_us",
+                    x::telem::FLOAT32_T,
+                    idx_ch.key
+                );
+                auto [max_ch, max_err] = resolve(
+                    base + "_max_us",
+                    x::telem::FLOAT32_T,
+                    idx_ch.key
+                );
+                if (!avg_err && !min_err && !max_err) {
+                    task->runtime->set_cycle_latency_keys(
+                        avg_ch.key,
+                        idx_ch.key,
+                        min_ch.key,
+                        max_ch.key
+                    );
+                    task->runtime->write_channels.push_back(idx_ch.key);
+                    task->runtime->write_channels.push_back(avg_ch.key);
+                    task->runtime->write_channels.push_back(min_ch.key);
+                    task->runtime->write_channels.push_back(max_ch.key);
+                }
+            }
+        }
+
         auto source = std::make_unique<Source>(*task);
         auto sink = std::make_unique<Sink>(*task);
-        if (!writer_factory)
-            writer_factory = std::make_shared<pipeline::SynnaxWriterFactory>(
-                ctx->client
-            );
+        if (!writer_factory) writer_factory = bus::make_writer_factory(ctx);
         if (!streamer_factory)
-            streamer_factory = std::make_shared<pipeline::SynnaxStreamerFactory>(
-                ctx->client
+            streamer_factory = bus::make_streamer_factory(
+                ctx,
+                {task_meta.name, task_meta.name}
             );
         auto initial_authorities = ::arc::runtime::build_authorities(
             cfg.program.authorities,

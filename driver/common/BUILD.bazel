@@ -14,6 +14,7 @@ cc_library(
     ],
     visibility = ["//visibility:public"],
     deps = [
+        "//driver/bus",
         "//driver/errors",
         "//driver/pipeline",
         "//driver/task",

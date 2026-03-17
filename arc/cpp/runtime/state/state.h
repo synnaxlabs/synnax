@@ -186,6 +186,10 @@ public:
     void ingest(const x::telem::Frame &frame);
     std::vector<std::pair<types::ChannelKey, Series>> flush();
 
+    /// @brief flushes channel state directly into the provided frame,
+    /// avoiding intermediate allocations.
+    void flush_into(x::telem::Frame &out);
+
     /// @brief Buffers an authority change request for later flushing.
     /// If channel_key is nullopt, the change applies to all write channels.
     void set_authority(std::optional<types::ChannelKey> channel_key, uint8_t authority);

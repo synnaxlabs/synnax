@@ -143,10 +143,11 @@ private:
     bool started_ = false;
 };
 
-std::pair<std::unique_ptr<Loop>, x::errors::Error> create(const Config &cfg) {
-    auto loop = std::make_unique<PollingLoop>(cfg);
-    if (auto err = loop->start(); err) return {nullptr, err};
-    return {std::move(loop), x::errors::NIL};
+std::pair<std::unique_ptr<Loop>, x::errors::Error> create(
+    const Config &cfg,
+    std::shared_ptr<x::thread::rt::Handle> rt_handle
+) {
+    return {std::make_unique<PollingLoop>(cfg), x::errors::NIL};
 }
 
 }
