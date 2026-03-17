@@ -22,17 +22,9 @@ import (
 	"github.com/synnaxlabs/x/telem"
 )
 
-var _ = Describe("DefaultSymbolResolver", func() {
-	It("Should return a non-empty list of resolvers", func() {
-		resolvers := symbol.DefaultSymbolResolver()
-		Expect(resolvers).ToNot(BeEmpty())
-		Expect(len(resolvers)).To(Equal(14))
-	})
-})
-
-var _ = Describe("CreateResolver", func() {
+var _ = Describe("NewResolver", func() {
 	It("Should resolve an STL symbol", func() {
-		resolver := symbol.CreateResolver(dist.Channel)
+		resolver := symbol.NewResolver(dist.Channel, nil)
 		sym, err := resolver.Resolve(ctx, "set_status")
 		Expect(err).ToNot(HaveOccurred())
 		Expect(sym.Name).To(Equal("set_status"))
@@ -47,7 +39,7 @@ var _ = Describe("CreateResolver", func() {
 		}
 		Expect(dist.Channel.Create(ctx, ch)).To(Succeed())
 
-		resolver := symbol.CreateResolver(dist.Channel)
+		resolver := symbol.NewResolver(dist.Channel, nil)
 		sym, err := resolver.Resolve(ctx, "resolver_test_ch")
 		Expect(err).ToNot(HaveOccurred())
 		Expect(sym.Name).To(Equal("resolver_test_ch"))
@@ -64,7 +56,7 @@ var _ = Describe("CreateResolver", func() {
 		}
 		Expect(dist.Channel.Create(ctx, ch)).To(Succeed())
 
-		resolver := symbol.CreateResolver(dist.Channel)
+		resolver := symbol.NewResolver(dist.Channel, nil)
 		sym, err := resolver.Resolve(ctx, strconv.Itoa(int(ch.Key())))
 		Expect(err).ToNot(HaveOccurred())
 		Expect(sym.Name).To(Equal("resolver_key_test_ch"))
@@ -73,13 +65,13 @@ var _ = Describe("CreateResolver", func() {
 	})
 
 	It("Should return an error for a nonexistent symbol", func() {
-		resolver := symbol.CreateResolver(dist.Channel)
+		resolver := symbol.NewResolver(dist.Channel, nil)
 		_, err := resolver.Resolve(ctx, "does_not_exist_anywhere")
 		Expect(err).To(MatchError(query.ErrNotFound))
 	})
 
 	It("Should use custom resolvers when provided", func() {
-		resolver := symbol.CreateResolver(dist.Channel, symbol.DefaultSymbolResolver()...)
+		resolver := symbol.NewResolver(dist.Channel, nil)
 		sym, err := resolver.Resolve(ctx, "set_status")
 		Expect(err).ToNot(HaveOccurred())
 		Expect(sym.Name).To(Equal("set_status"))

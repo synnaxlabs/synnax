@@ -93,7 +93,7 @@ var _ = Describe("Task", Ordered, func() {
 
 	newGraphFactory := func(g graph.Graph) *runtime.Factory {
 		return newFactoryWith(func(ctx context.Context, key uuid.UUID) (svcarc.Arc, error) {
-			resolver := symbol.CreateResolver(dist.Channel)
+			resolver := symbol.NewResolver(dist.Channel, nil)
 			module, err := arc.CompileGraph(ctx, g, arc.WithResolver(resolver))
 			if err != nil {
 				return svcarc.Arc{}, err
@@ -104,7 +104,7 @@ var _ = Describe("Task", Ordered, func() {
 
 	newTextFactory := func(prof arc.Text) *runtime.Factory {
 		return newFactoryWith(func(_ context.Context, _ uuid.UUID) (svcarc.Arc, error) {
-			resolver := symbol.CreateResolver(dist.Channel)
+			resolver := symbol.NewResolver(dist.Channel, nil)
 			module, err := arc.CompileText(ctx, prof, arc.WithResolver(resolver))
 			if err != nil {
 				return svcarc.Arc{}, err

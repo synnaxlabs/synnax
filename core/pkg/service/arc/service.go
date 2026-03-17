@@ -11,17 +11,12 @@ package arc
 
 import (
 	"context"
-	"fmt"
 	"io"
 
 	"github.com/google/uuid"
 	"github.com/synnaxlabs/alamos"
 	"github.com/synnaxlabs/arc"
-	acontext "github.com/synnaxlabs/arc/analyzer/context"
-	"github.com/synnaxlabs/arc/analyzer/statement"
 	"github.com/synnaxlabs/arc/lsp"
-	"github.com/synnaxlabs/arc/parser"
-	"github.com/synnaxlabs/arc/types"
 	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
 	"github.com/synnaxlabs/synnax/pkg/distribution/signals"
@@ -31,7 +26,6 @@ import (
 	"github.com/synnaxlabs/x/gorp"
 	"github.com/synnaxlabs/x/observe"
 	"github.com/synnaxlabs/x/override"
-	"github.com/synnaxlabs/x/telem"
 	"github.com/synnaxlabs/x/validate"
 )
 
@@ -96,14 +90,14 @@ type Service struct {
 	cfg            ServiceConfig
 }
 
-func (s *Service) SymbolResolver() arc.SymbolResolver {
-	return s.symbolResolver
+func (s *Service) NewSymbolResolver(tx gorp.Tx) arc.SymbolResolver {
+	return symbol.NewResolver(s.cfg.Channel, tx)
 }
 
 func (s *Service) NewLSP() (*lsp.Server, error) {
 	return lsp.New(lsp.Config{
 		Instrumentation: s.cfg.Child("lsp"),
-		GlobalResolver:  s.SymbolResolver(),
+		GlobalResolver:  s.NewSymbolResolver(nil),
 		OnExternalChange: observe.Translator[gorp.TxReader[channel.Key, channel.Channel], struct{}]{
 			Observable: s.cfg.Channel.NewObservable(),
 			Translate: func(
@@ -121,23 +115,6 @@ func (s *Service) Close() error {
 		return s.closer.Close()
 	}
 	return nil
-}
-
-func (s *Service) AnalyzeCalculation(ctx context.Context, expr string) (telem.DataType, error) {
-	t, err := parser.ParseBlock(fmt.Sprintf("{%s}", expr))
-	if err != nil {
-		return telem.UnknownT, err
-	}
-	aCtx := acontext.CreateRoot(
-		ctx,
-		t,
-		s.SymbolResolver(),
-	)
-	dataType := statement.AnalyzeFunctionBody(aCtx)
-	if !aCtx.Diagnostics.Ok() {
-		return telem.UnknownT, aCtx.Diagnostics
-	}
-	return types.ToTelem(dataType), nil
 }
 
 // CompileProgram retrieves an Arc program by key and compiles its Module.
@@ -169,7 +146,6 @@ func OpenService(ctx context.Context, configs ...ServiceConfig) (*Service, error
 		return nil, err
 	}
 	var s = &Service{cfg: cfg}
-	s.symbolResolver = symbol.CreateResolver(cfg.Channel)
 	cfg.Ontology.RegisterService(s)
 	if cfg.Signals != nil {
 		s.closer, err = signals.PublishFromGorp(ctx, s.cfg.Signals, signals.GorpPublisherConfigUUID[Arc](cfg.DB))

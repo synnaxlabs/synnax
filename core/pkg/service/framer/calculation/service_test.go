@@ -39,6 +39,7 @@ import (
 var _ = Describe("Calculation", Ordered, func() {
 	var (
 		c         *calculation.Service
+		arcSvc    *arc.Service
 		dist      mock.Node
 		statusSvc *status.Service
 	)
@@ -133,7 +134,7 @@ var _ = Describe("Calculation", Ordered, func() {
 		DeferCleanup(func() {
 			Expect(taskSvc.Close()).To(Succeed())
 		})
-		arcSvc := MustSucceed(arc.OpenService(ctx, arc.ServiceConfig{
+		arcSvc = MustSucceed(arc.OpenService(ctx, arc.ServiceConfig{
 			Channel:  dist.Channel,
 			Ontology: dist.Ontology,
 			DB:       dist.DB,

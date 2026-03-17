@@ -19,7 +19,8 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/distribution/mock"
 	"github.com/synnaxlabs/synnax/pkg/service/arc"
 	"github.com/synnaxlabs/synnax/pkg/service/framer/calculation/calculator"
-	"github.com/synnaxlabs/synnax/pkg/service/framer/calculation/compiler"
+	channelanalyzer "github.com/synnaxlabs/synnax/pkg/service/channel/calculation/analyzer"
+	"github.com/synnaxlabs/synnax/pkg/service/channel/calculation/compiler"
 	"github.com/synnaxlabs/synnax/pkg/service/label"
 	"github.com/synnaxlabs/synnax/pkg/service/rack"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
@@ -113,7 +114,7 @@ var _ = Describe("Calculator", Ordered, func() {
 		mod := MustSucceed(compiler.Compile(ctx, compiler.Config{
 			ChannelService: dist.Channel,
 			Channel:        *calc,
-			SymbolResolver: arcSvc.SymbolResolver(),
+			SymbolResolver: arcSvc.NewSymbolResolver(nil),
 		}))
 		return MustSucceed(calculator.Open(ctx, calculator.Config{Module: mod}))
 	}
@@ -935,13 +936,14 @@ var _ = Describe("Calculator", Ordered, func() {
 			calc *channel.Channel,
 		) *calculator.Calculator {
 			Expect(dist.Channel.CreateMany(ctx, bases)).To(Succeed())
-			dt := MustSucceed(arcSvc.AnalyzeCalculation(ctx, calc.Expression))
+			dt := MustSucceed(channelanalyzer.New(arcSvc.NewSymbolResolver(nil)).
+				Analyze(ctx, calc.Name, calc.Expression))
 			calc.DataType = dt
 			Expect(dist.Channel.Create(ctx, calc)).To(Succeed())
 			mod := MustSucceed(compiler.Compile(ctx, compiler.Config{
 				ChannelService: dist.Channel,
 				Channel:        *calc,
-				SymbolResolver: arcSvc.SymbolResolver(),
+				SymbolResolver: arcSvc.NewSymbolResolver(nil),
 			}))
 			return MustSucceed(calculator.Open(ctx, calculator.Config{Module: mod}))
 		}
@@ -1038,7 +1040,7 @@ var _ = Describe("Calculator", Ordered, func() {
 			mod := MustSucceed(compiler.Compile(ctx, compiler.Config{
 				ChannelService: dist.Channel,
 				Channel:        calc,
-				SymbolResolver: arcSvc.SymbolResolver(),
+				SymbolResolver: arcSvc.NewSymbolResolver(nil),
 			}))
 			c := MustSucceed(calculator.Open(ctx, calculator.Config{Module: mod}))
 			fr := frame.NewUnary(

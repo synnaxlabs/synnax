@@ -36,7 +36,6 @@ var (
 	DefaultConfig                       = Config{}
 )
 
-// Override implements config.Config.
 func (c Config) Override(other Config) Config {
 	c.Channel = other.Channel
 	c.SymbolResolver = override.Nil(c.SymbolResolver, other.SymbolResolver)
@@ -44,7 +43,6 @@ func (c Config) Override(other Config) Config {
 	return c
 }
 
-// Validate implements config.Config.
 func (c Config) Validate() error {
 	v := validate.New("arc.runtime")
 	validate.NotNil(v, "resolver", c.SymbolResolver)
@@ -58,9 +56,6 @@ const (
 	writeKey       = "write"
 )
 
-// PreProcess compiles the expression to discover channel references and infer types
-// without building the full execution graph. Used by the compiler internally and by
-// diagnostics to inspect dependencies when compilation fails.
 func PreProcess(ctx context.Context, cfg Config) (arc.Program, error) {
 	outputDataType := types.FromTelem(cfg.Channel.DataType)
 	fn := ir.Function{
@@ -109,12 +104,10 @@ func Compile(ctx context.Context, cfgs ...Config) (Module, error) {
 		return item.Type != "none"
 	})
 	if len(cfg.Channel.Operations) == 0 {
-		g.Edges = []graph.Edge{
-			{
-				Source: ir.Handle{Node: calculationKey, Param: ir.DefaultOutputParam},
-				Target: ir.Handle{Node: writeKey, Param: ir.DefaultInputParam},
-			},
-		}
+		g.Edges = []graph.Edge{{
+			Source: ir.Handle{Node: calculationKey, Param: ir.DefaultOutputParam},
+			Target: ir.Handle{Node: writeKey, Param: ir.DefaultInputParam},
+		}}
 	} else {
 		for i, o := range cfg.Channel.Operations {
 			key := fmt.Sprintf("op_%d", i)

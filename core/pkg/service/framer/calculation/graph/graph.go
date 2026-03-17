@@ -18,7 +18,7 @@ import (
 	"github.com/synnaxlabs/alamos"
 	"github.com/synnaxlabs/arc"
 	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
-	"github.com/synnaxlabs/synnax/pkg/service/framer/calculation/compiler"
+	"github.com/synnaxlabs/synnax/pkg/service/channel/calculation/compiler"
 	"github.com/synnaxlabs/x/config"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/override"
@@ -178,11 +178,11 @@ func (g *Graph) recompileDependents(ctx context.Context, changedKey channel.Key)
 	return nil
 }
 
-// collectDependentsTopological returns all channels in the graph that
-// transitively depend on root, ordered so that a channel always appears after
-// all of its own dependencies. This is a simple BFS followed by a reverse-post-
-// order DFS over the subset, which is cheap for the small graphs we operate on
-// (tens to low hundreds of channels).
+// collectDependentsTopological returns all channels in the graph that transitively depend on
+// root, ordered so that a channel always appears after all of its own
+// dependencies. This is a simple BFS followed by a reverse-post-order DFS over
+// the subset, which is cheap for the small graphs we operate on (tens to low
+// hundreds of channels).
 func (g *Graph) collectDependentsTopological(root channel.Key) []channel.Key {
 	// Build the set of all transitive dependents via BFS.
 	dependents := make(set.Set[channel.Key])

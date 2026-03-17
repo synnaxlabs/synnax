@@ -19,8 +19,8 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer"
 	"github.com/synnaxlabs/synnax/pkg/service/arc"
+	"github.com/synnaxlabs/synnax/pkg/service/channel/calculation/compiler"
 	"github.com/synnaxlabs/synnax/pkg/service/framer/calculation/calculator"
-	"github.com/synnaxlabs/synnax/pkg/service/framer/calculation/compiler"
 	"github.com/synnaxlabs/synnax/pkg/service/framer/calculation/graph"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
 	"github.com/synnaxlabs/x/change"
@@ -124,7 +124,7 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (*Service, error) {
 	g, err := graph.New(graph.Config{
 		Instrumentation: cfg.Child("calculation.graph"),
 		Channel:         cfg.Channel,
-		SymbolResolver:  cfg.Arc.SymbolResolver(),
+		SymbolResolver:  cfg.Arc.NewSymbolResolver(nil),
 	})
 	if err != nil {
 		return nil, err
@@ -158,6 +158,7 @@ func (s *Service) setStatus(
 			s.cfg.L.Error("failed to parse channel key from status", zap.Error(err), zap.String("key", st.Key))
 			continue
 		}
+		s.cfg.L.Warn(st.String())
 		statusKey := channel.OntologyID(chKey).String()
 		if err := s.statusWriter.Set(ctx, &Status{
 			Key:         statusKey,

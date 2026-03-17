@@ -17,10 +17,11 @@ import (
 
 	"github.com/samber/lo"
 	"github.com/synnaxlabs/alamos"
-	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
+	distchannel "github.com/synnaxlabs/synnax/pkg/distribution/channel"
 	"github.com/synnaxlabs/synnax/pkg/distribution/cluster"
 	"github.com/synnaxlabs/synnax/pkg/distribution/group"
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
+	servicechannel "github.com/synnaxlabs/synnax/pkg/service/channel"
 	"github.com/synnaxlabs/synnax/pkg/service/framer"
 	"github.com/synnaxlabs/synnax/pkg/storage"
 	"github.com/synnaxlabs/x/address"
@@ -47,7 +48,7 @@ type ServiceConfig struct {
 	// Channel is used to create and retrieve metric collection channels.
 	//
 	// [REQUIRED]
-	Channel *channel.Service
+	Channel *servicechannel.Service
 	// Framer is used to write metrics to the metric channels.
 	//
 	// [REQUIRED]
@@ -148,19 +149,19 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (*Service, error) {
 		interval: cfg.CollectionInterval,
 		stop:     s.stopCollector,
 	}
-	c.idx = channel.Channel{
+	c.idx = distchannel.Channel{
 		Name:     namePrefix + "time",
 		DataType: telem.TimeStampT,
 		IsIndex:  true,
 	}
-	var metricsChannels []channel.Channel
+	var metricsChannels []distchannel.Channel
 	if err := cfg.DB.WithTx(ctx, func(tx gorp.Tx) error {
 		chWriter := cfg.Channel.NewWriter(tx)
 		if err := chWriter.Create(
 			ctx,
 			&c.idx,
-			channel.RetrieveIfNameExists(),
-			channel.CreateWithoutGroupRelationship(),
+			servicechannel.RetrieveIfNameExists(),
+			servicechannel.CreateWithoutGroupRelationship(),
 		); err != nil {
 			return err
 		}
@@ -173,14 +174,14 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (*Service, error) {
 			return err
 		}
 		metrics := s.createMetrics(namePrefix, c.idx.LocalKey)
-		metricsChannels = lo.Map(metrics, func(m metric, _ int) channel.Channel {
+		metricsChannels = lo.Map(metrics, func(m metric, _ int) distchannel.Channel {
 			return m.ch
 		})
 		if err := chWriter.CreateMany(
 			ctx,
 			&metricsChannels,
-			channel.RetrieveIfNameExists(),
-			channel.CreateWithoutGroupRelationship(),
+			servicechannel.RetrieveIfNameExists(),
+			servicechannel.CreateWithoutGroupRelationship(),
 		); err != nil {
 			return err
 		}
@@ -203,7 +204,7 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (*Service, error) {
 		if err := s.maybeDefineGroupRelationship(
 			ctx,
 			tx,
-			channel.OntologyIDsFromChannels(metricsChannels),
+			distchannel.OntologyIDsFromChannels(metricsChannels),
 		); err != nil {
 			return err
 		}
@@ -219,15 +220,15 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (*Service, error) {
 		if err := cfg.Channel.NewWriter(tx).CreateMany(
 			ctx,
 			&calculatedChannels,
-			channel.RetrieveIfNameExists(),
-			channel.CreateWithoutGroupRelationship(),
+			servicechannel.RetrieveIfNameExists(),
+			servicechannel.CreateWithoutGroupRelationship(),
 		); err != nil {
 			return err
 		}
 		if err := s.maybeDefineGroupRelationship(
 			ctx,
 			tx,
-			channel.OntologyIDsFromChannels(calculatedChannels),
+			distchannel.OntologyIDsFromChannels(calculatedChannels),
 		); err != nil {
 			return err
 		}
@@ -239,7 +240,7 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (*Service, error) {
 		ctx,
 		framer.WriterConfig{
 			Keys: append(
-				channel.KeysFromChannels(metricsChannels),
+				distchannel.KeysFromChannels(metricsChannels),
 				c.idx.Key(),
 			),
 			Start:                    telem.Now(),

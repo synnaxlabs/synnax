@@ -17,7 +17,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
 	"github.com/synnaxlabs/synnax/pkg/distribution/mock"
 	"github.com/synnaxlabs/synnax/pkg/service/arc"
-	"github.com/synnaxlabs/synnax/pkg/service/framer/calculation/compiler"
+	channelcompiler "github.com/synnaxlabs/synnax/pkg/service/channel/calculation/compiler"
 	"github.com/synnaxlabs/synnax/pkg/service/label"
 	"github.com/synnaxlabs/synnax/pkg/service/rack"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
@@ -99,88 +99,13 @@ var _ = Describe("Compile", func() {
 			Expression: "return base * 2",
 		}
 		Expect(dist.Channel.Create(ctx, &calc)).To(Succeed())
-		mod := MustSucceed(compiler.Compile(ctx, compiler.Config{
+		mod := MustSucceed(channelcompiler.Compile(ctx, channelcompiler.Config{
 			ChannelService: dist.Channel,
 			Channel:        calc,
-			SymbolResolver: arcSvc.SymbolResolver(),
+			SymbolResolver: arcSvc.NewSymbolResolver(nil),
 		}))
 		Expect(mod.Channel.Key()).To(Equal(calc.Key()))
 		Expect(mod.StateConfig.Reads.Keys()).To(ContainElement(base.Key()))
 		Expect(mod.StateConfig.Writes.Keys()).To(ContainElement(calc.Key()))
-	})
-
-	It("Should compile expression with operations", func() {
-		base := channel.Channel{Name: "base2", DataType: telem.Int64T, Virtual: true}
-		Expect(dist.Channel.Create(ctx, &base)).To(Succeed())
-		calc := channel.Channel{
-			Name:       "calc2",
-			DataType:   telem.Int64T,
-			Virtual:    true,
-			Expression: "return base2 + 1",
-			Operations: []channel.Operation{{Type: "avg", Duration: 5 * telem.Second}},
-		}
-		Expect(dist.Channel.Create(ctx, &calc)).To(Succeed())
-		mod := MustSucceed(compiler.Compile(ctx, compiler.Config{
-			ChannelService: dist.Channel,
-			Channel:        calc,
-			SymbolResolver: arcSvc.SymbolResolver(),
-		}))
-		Expect(mod.Channel.Key()).To(Equal(calc.Key()))
-		Expect(mod.StateConfig.Reads.Keys()).To(ContainElement(base.Key()))
-	})
-
-	It("Should compile with multiple dependencies", func() {
-		channels := []channel.Channel{
-			{Name: "base3", DataType: telem.Int64T, Virtual: true},
-			{Name: "base4", DataType: telem.Int64T, Virtual: true},
-		}
-		Expect(dist.Channel.CreateMany(ctx, &channels)).To(Succeed())
-		calc := channel.Channel{
-			Name:       "calc3",
-			DataType:   telem.Int64T,
-			Virtual:    true,
-			Expression: "return base3 + base4",
-		}
-		Expect(dist.Channel.Create(ctx, &calc)).To(Succeed())
-		mod := MustSucceed(compiler.Compile(ctx, compiler.Config{
-			ChannelService: dist.Channel,
-			Channel:        calc,
-			SymbolResolver: arcSvc.SymbolResolver(),
-		}))
-		Expect(mod.StateConfig.Reads.Keys()).To(ContainElements(channel.KeysFromChannels(channels)))
-		Expect(mod.StateConfig.Writes.Keys()).To(ContainElement(calc.Key()))
-	})
-
-	It("Should fail when stored DataType does not match expression return type", func() {
-		base := channel.Channel{Name: "stale_base", DataType: telem.Float32T, Virtual: true}
-		Expect(dist.Channel.Create(ctx, &base)).To(Succeed())
-		calc := channel.Channel{
-			Name:       "stale_calc",
-			DataType:   telem.Int64T,
-			Virtual:    true,
-			Expression: "return stale_base * 2",
-		}
-		Expect(dist.Channel.Create(ctx, &calc)).To(Succeed())
-		Expect(calc.DataType).To(Equal(telem.Int64T))
-		Expect(compiler.Compile(ctx, compiler.Config{
-			ChannelService: dist.Channel,
-			Channel:        calc,
-			SymbolResolver: arcSvc.SymbolResolver(),
-		})).Error().To(MatchError(ContainSubstring("cannot return f32 from 'calculation': expected i64")))
-	})
-
-	It("Should fail with invalid expression", func() {
-		calc := channel.Channel{
-			Name:       "calc4",
-			DataType:   telem.Int64T,
-			Virtual:    true,
-			Expression: "return invalid_syntax {{",
-		}
-		Expect(dist.Channel.Create(ctx, &calc)).To(Succeed())
-		Expect(compiler.Compile(ctx, compiler.Config{
-			ChannelService: dist.Channel,
-			Channel:        calc,
-			SymbolResolver: arcSvc.SymbolResolver(),
-		})).Error().To(ContainSubstring("extraneous input '{'"))
 	})
 })

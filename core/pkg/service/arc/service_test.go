@@ -26,28 +26,6 @@ import (
 	. "github.com/synnaxlabs/x/testutil"
 )
 
-var _ = Describe("AnalyzeCalculation", func() {
-	It("Should return the data type for a valid integer expression", func() {
-		dataType := MustSucceed(svc.AnalyzeCalculation(ctx, "return 1 + 2"))
-		Expect(dataType).To(Equal(telem.Int64T))
-	})
-
-	It("Should return the data type for a valid float expression", func() {
-		dataType := MustSucceed(svc.AnalyzeCalculation(ctx, "return 1.0 + 2.0"))
-		Expect(dataType).To(Equal(telem.Float64T))
-	})
-
-	It("Should return parser error for invalid expression syntax", func() {
-		Expect(svc.AnalyzeCalculation(ctx, "return 1 +")).
-			Error().To(MatchError(ContainSubstring("mismatched input")))
-	})
-
-	It("Should return diagnostic error for undefined variable", func() {
-		Expect(svc.AnalyzeCalculation(ctx, "return undefined_var + 1")).
-			Error().To(MatchError(ContainSubstring("undefined symbol")))
-	})
-})
-
 var _ = Describe("CompileProgram", func() {
 	It("Should retrieve and compile an Arc with a valid graph", func() {
 		a := arc.Arc{
