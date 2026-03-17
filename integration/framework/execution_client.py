@@ -259,6 +259,11 @@ class ExecutionClient:
     # ----- Single test execution -----
 
     def _collect_result(self, test_def: TestDefinition, future: Future[Test]) -> None:
+        with self._tests_lock:
+            already_recorded = any(str(r) == str(test_def) for r in self._tests)
+        if already_recorded:
+            return
+
         if future.done():
             result = future.result()
         else:
@@ -330,8 +335,8 @@ class ExecutionClient:
                 except RuntimeError as e:
                     self._log(f"Warning: Could not finalize range: {e}", True)
 
-            if test_instance is not None:
-                if test.status in (STATUS.FAILED, STATUS.TIMEOUT, STATUS.KILLED):
+            if test_instance is not None and test_instance._status != STATUS.KILLED:
+                if test.status in (STATUS.FAILED, STATUS.TIMEOUT):
                     test_instance.log_client.dump()
                 else:
                     test_instance.log_client.discard()
