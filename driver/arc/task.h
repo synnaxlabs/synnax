@@ -212,8 +212,9 @@ public:
     }
 
     bool start(const std::string &cmd_key) {
+        const auto start = x::telem::TimeStamp::now();
         const auto runtime_started = this->runtime->start();
-        const auto acq_started = this->acquisition->start();
+        const auto acq_started = this->acquisition->start(start);
         const auto control_started = this->control->start();
         this->state.send_start(cmd_key);
         return acq_started && control_started && runtime_started;

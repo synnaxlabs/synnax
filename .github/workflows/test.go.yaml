@@ -42,10 +42,10 @@ jobs:
       - name: Set up Go
         uses: actions/setup-go@v6
         with:
-          go-version-file: go.work
+          go-version-file: ${{ inputs.directory }}/go.mod
           cache-dependency-path: |
-            go.work.sum
-            **/go.sum
+            ${{ inputs.directory }}/go.mod
+            ${{ inputs.directory }}/go.sum
 
       - name: Check formatting
         if: matrix.fmt
@@ -54,7 +54,7 @@ jobs:
       - name: Lint
         uses: golangci/golangci-lint-action@v9
         with:
-          args: ./${{ inputs.directory }}/...
+          working-directory: ${{ inputs.directory }}
 
       - name: Test
         run: >-

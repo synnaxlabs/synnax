@@ -3,7 +3,6 @@ name: Test - Core
 on:
   pull_request:
     paths:
-      - .custom-gcl.yml
       - .github/workflows/test.core.yaml
       - .github/workflows/test.go.yaml
       - .golangci.yaml
@@ -14,8 +13,6 @@ on:
       - codecov.yaml
       - core/**
       - freighter/go/**
-      - go.work
-      - go.work.sum
       - scripts/check_gofmt.sh
       - x/go/**
   push:
@@ -23,7 +20,6 @@ on:
       - main
       - rc
     paths:
-      - .custom-gcl.yml
       - .github/workflows/test.core.yaml
       - .github/workflows/test.go.yaml
       - .golangci.yaml
@@ -34,8 +30,6 @@ on:
       - codecov.yaml
       - core/**
       - freighter/go/**
-      - go.work
-      - go.work.sum
       - scripts/check_gofmt.sh
       - x/go/**
   workflow_dispatch:
