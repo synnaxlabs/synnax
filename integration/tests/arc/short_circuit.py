@@ -106,7 +106,7 @@ class ChannelCollector:
                         self.data[ch].extend(frame[ch])
 
 
-class ArcShortCircuit(ArcConsoleCase):
+class ShortCircuit(ArcConsoleCase):
     """Test that first-written transition short-circuits later statements."""
 
     arc_source = SHORT_CIRCUIT_SOURCE

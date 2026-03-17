@@ -7,8 +7,6 @@
 #  License, use of this software will be governed by the Apache License, Version 2.0,
 #  included in the file licenses/APL.txt.
 
-import time
-
 import synnax as sy
 from examples.simulators import PressSimDAQ
 
@@ -37,7 +35,7 @@ MAX_WAIT_DURATION = 4.0
 MIN_WAIT_DURATION = 2.5
 
 
-class ArcWaitTiming(ArcConsoleCase):
+class WaitTiming(ArcConsoleCase):
     """Test that wait{duration=3s} stage transitions complete in ~3 seconds.
 
     Regression test for a bug where wait durations took 5-7 seconds instead of 3.
@@ -75,15 +73,14 @@ class ArcWaitTiming(ArcConsoleCase):
 
     def verify_sequence_execution(self) -> None:
         self.log("Waiting for toggle_cmd=1 (stage1 entered)...")
-        self.wait_for_eq("toggle_cmd", 1, timeout=5.0)
-        stage1_time = time.monotonic()
+        self.wait_for_eq("toggle_cmd", 1, timeout=5 * sy.TimeSpan.SECOND)
+        timer = sy.Timer()
         self.log("toggle_cmd=1 observed, starting 3s wait measurement")
 
         self.log("Waiting for toggle_cmd=0 (stage2 entered)...")
-        self.wait_for_eq("toggle_cmd", 0, timeout=8.0)
-        stage2_time = time.monotonic()
+        self.wait_for_eq("toggle_cmd", 0, timeout=8 * sy.TimeSpan.SECOND)
 
-        wait_duration = stage2_time - stage1_time
+        wait_duration = timer.elapsed() / sy.TimeSpan.SECOND
         self.log(f"Wait duration: {wait_duration:.2f}s (expected ~3.0s)")
 
         if wait_duration > MAX_WAIT_DURATION:
