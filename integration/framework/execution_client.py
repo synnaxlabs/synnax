@@ -352,6 +352,9 @@ class ExecutionClient:
                     test_instance.log_client.discard()
                 test_instance.log_client.close()
 
+            if test_instance is not None and test.status == STATUS.RUNNING:
+                test.status = test_instance._status
+
             with self._active_tests_lock:
                 self._active_tests[:] = [
                     (td, t, tr, th)
