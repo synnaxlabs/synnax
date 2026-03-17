@@ -44,6 +44,7 @@ class ReportClient:
                 return {
                     "total": 0,
                     "passed": 0,
+                    "flaky": 0,
                     "failed": 0,
                     "killed": 0,
                     "timeout": 0,
@@ -51,6 +52,7 @@ class ReportClient:
                 }
 
             passed = sum(1 for r in self._tests if r.status == STATUS.PASSED)
+            flaky = sum(1 for r in self._tests if r.status == STATUS.FLAKY)
             failed = sum(1 for r in self._tests if r.status == STATUS.FAILED)
             killed = sum(1 for r in self._tests if r.status == STATUS.KILLED)
             timeout = sum(1 for r in self._tests if r.status == STATUS.TIMEOUT)
@@ -59,6 +61,7 @@ class ReportClient:
             return {
                 "total": len(self._tests),
                 "passed": passed,
+                "flaky": flaky,
                 "failed": failed,
                 "killed": killed,
                 "timeout": timeout,
@@ -148,6 +151,8 @@ class ReportClient:
             seconds = int(test_time_secs % 60)
             self._log(f"Total time: {minutes}m {seconds}s", False)
         self._log(f"Passed: {stats['passed']}", False)
+        if stats["flaky"] > 0:
+            self._log(f"Flaky: {stats['flaky']} (passed on retry)", False)
         self._log(
             f"Failed: {stats['total_failed']} "
             f"(includes {stats['failed']} failed, "

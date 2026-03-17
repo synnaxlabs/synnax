@@ -25,15 +25,14 @@ EXEMPT="example"
 
 # Matrix definition (single source of truth)
 MATRIX_ENTRIES=(
-    "arc:arc"
-    "console:console"
-    "driver:driver,control,latency"
+    "arc,control,latency"
+    "console"
+    "driver"
 )
 
 covered=""
 for entry in "${MATRIX_ENTRIES[@]}"; do
-    target="${entry#*:}"
-    for prefix in $(echo "$target" | tr ',' ' '); do
+    for prefix in $(echo "$entry" | tr ',' ' '); do
         covered="$covered $prefix"
     done
 done
@@ -71,14 +70,13 @@ fi
 json='{"include":['
 first=true
 for entry in "${MATRIX_ENTRIES[@]}"; do
-    name="${entry%%:*}"
-    target="${entry#*:}"
+    name="${entry%%,*}"
     if [ "$first" = true ]; then
         first=false
     else
         json+=","
     fi
-    json+="{\"name\":\"$name\",\"target\":\"$target\"}"
+    json+="{\"name\":\"$name\",\"target\":\"$entry\"}"
 done
 json+=']}'
 

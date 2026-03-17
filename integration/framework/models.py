@@ -20,6 +20,7 @@ class STATUS(Enum):
     RUNNING = auto()
     PENDING = auto()
     PASSED = auto()
+    FLAKY = auto()
     FAILED = auto()
     TIMEOUT = auto()
     KILLED = auto()
@@ -27,6 +28,7 @@ class STATUS(Enum):
 
 class SYMBOLS(Enum):
     PASSED = "\u2705"
+    FLAKY = "\u26a0\ufe0f"
     FAILED = "\u274c"
     KILLED = "\U0001f480"
     TIMEOUT = "\u23f0"

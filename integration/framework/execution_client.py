@@ -159,6 +159,8 @@ class ExecutionClient:
 
         self._log(f"==== RETRYING {len(retry_defs)} FAILED TEST(S) ====\n", True)
 
+        retry_keys = {str(td) for td in retry_defs}
+
         with self._tests_lock:
             for result in failed:
                 self._tests.remove(result)
@@ -166,6 +168,12 @@ class ExecutionClient:
         self._total_tests = len(retry_defs)
         self._tests_offset = len(self._tests)
         self._execute_sequential(retry_defs)
+
+        with self._tests_lock:
+            for test in self._tests:
+                if str(test) in retry_keys and test.status == STATUS.PASSED:
+                    test.status = STATUS.FLAKY
+                    self._on_status_change(test)
 
     # ----- Sequential execution -----
 
@@ -323,9 +331,7 @@ class ExecutionClient:
 
             if test_instance is not None:
                 if test.status in (STATUS.FAILED, STATUS.TIMEOUT, STATUS.KILLED):
-                    self._log(f"--- Logs for {test_def} ---", True)
                     test_instance.log_client.dump()
-                    self._log(f"--- End logs for {test_def} ---", True)
                 else:
                     test_instance.log_client.discard()
 

@@ -91,8 +91,8 @@ jobs:
       FLAGS: ${{ steps.set-outputs.outputs.FLAGS }}
       TEST_MATRIX:
         ${{ steps.set-outputs.outputs.FLAGS != '' &&
-        '{"include":[{"name":"custom","target":""}]}' ||
-        steps.test-matrix.outputs.TEST_MATRIX }}
+        format('{{"include":[{{"name":"{0}","target":""}}]}}',
+        steps.set-outputs.outputs.FLAGS) || steps.test-matrix.outputs.TEST_MATRIX }}
     steps:
       - name: Checkout Repository
         uses: actions/checkout@v6
