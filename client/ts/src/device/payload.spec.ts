@@ -124,13 +124,12 @@ describe("newZ", () => {
     if (result.success) expect(result.data.parent).toBeUndefined();
   });
 
-  it("should coerce an invalid parent to undefined via .catch(undefined)", () => {
+  it("should reject a device with an invalid parent type", () => {
     const result = newZ().safeParse({
       ...VALID_DEVICE,
       parent: { type: "invalid_type", key: "key-1" },
     });
-    expect(result.success).toBe(true);
-    if (result.success) expect(result.data.parent).toBeUndefined();
+    expect(result.success).toBe(false);
   });
 
   it("should still validate make and model with custom schemas", () => {

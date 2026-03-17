@@ -92,7 +92,7 @@ func (s *Service) Create(
 			req.Devices[i].Device = d.Device
 			// Populate the response parent with the resolved parent ID.
 			// If no explicit parent was provided, the device defaults to its rack.
-			resolvedParent := d.Device.Rack.OntologyID()
+			resolvedParent := d.Rack.OntologyID()
 			if d.Parent != nil && !d.Parent.IsZero() {
 				resolvedParent = *d.Parent
 			}
