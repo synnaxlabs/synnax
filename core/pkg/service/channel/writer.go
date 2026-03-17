@@ -40,7 +40,7 @@ func (w Writer) CreateMany(ctx context.Context, channels *[]Channel, opts ...Cre
 		if !ch.IsCalculated() {
 			continue
 		}
-		dt, err := w.analyzer.Analyze(ctx, ch.Name, ch.Expression)
+		dt, err := w.analyzer.Analyze(ctx, ch)
 		if err != nil {
 			return err
 		}

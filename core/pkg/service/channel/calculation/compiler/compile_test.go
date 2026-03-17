@@ -108,4 +108,61 @@ var _ = Describe("Compile", func() {
 		Expect(mod.StateConfig.Reads.Keys()).To(ContainElement(base.Key()))
 		Expect(mod.StateConfig.Writes.Keys()).To(ContainElement(calc.Key()))
 	})
+
+	It("Should compile expression with operations", func() {
+		base := channel.Channel{Name: "base2", DataType: telem.Int64T, Virtual: true}
+		Expect(dist.Channel.Create(ctx, &base)).To(Succeed())
+		calc := channel.Channel{
+			Name:       "calc2",
+			DataType:   telem.Int64T,
+			Virtual:    true,
+			Expression: "return base2 + 1",
+			Operations: []channel.Operation{{Type: "avg", Duration: 5 * telem.Second}},
+		}
+		Expect(dist.Channel.Create(ctx, &calc)).To(Succeed())
+		mod := MustSucceed(compiler.Compile(ctx, compiler.Config{
+			ChannelService: dist.Channel,
+			Channel:        calc,
+			SymbolResolver: arcSvc.NewSymbolResolver(nil),
+		}))
+		Expect(mod.Channel.Key()).To(Equal(calc.Key()))
+		Expect(mod.StateConfig.Reads.Keys()).To(ContainElement(base.Key()))
+	})
+
+	It("Should compile with multiple dependencies", func() {
+		channels := []channel.Channel{
+			{Name: "base3", DataType: telem.Int64T, Virtual: true},
+			{Name: "base4", DataType: telem.Int64T, Virtual: true},
+		}
+		Expect(dist.Channel.CreateMany(ctx, &channels)).To(Succeed())
+		calc := channel.Channel{
+			Name:       "calc3",
+			DataType:   telem.Int64T,
+			Virtual:    true,
+			Expression: "return base3 + base4",
+		}
+		Expect(dist.Channel.Create(ctx, &calc)).To(Succeed())
+		mod := MustSucceed(compiler.Compile(ctx, compiler.Config{
+			ChannelService: dist.Channel,
+			Channel:        calc,
+			SymbolResolver: arcSvc.NewSymbolResolver(nil),
+		}))
+		Expect(mod.StateConfig.Reads.Keys()).To(ContainElements(channel.KeysFromChannels(channels)))
+		Expect(mod.StateConfig.Writes.Keys()).To(ContainElement(calc.Key()))
+	})
+
+	It("Should fail with invalid expression", func() {
+		calc := channel.Channel{
+			Name:       "calc4",
+			DataType:   telem.Int64T,
+			Virtual:    true,
+			Expression: "return invalid_syntax {{",
+		}
+		Expect(dist.Channel.Create(ctx, &calc)).To(Succeed())
+		Expect(compiler.Compile(ctx, compiler.Config{
+			ChannelService: dist.Channel,
+			Channel:        calc,
+			SymbolResolver: arcSvc.NewSymbolResolver(nil),
+		})).Error().To(ContainSubstring("extraneous input '{'"))
+	})
 })

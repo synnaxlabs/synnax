@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-package metrics_test
+package channel_test
 
 import (
 	"context"
@@ -17,8 +17,7 @@ import (
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/synnax/pkg/distribution/mock"
 	"github.com/synnaxlabs/synnax/pkg/service/arc"
-	servicechannel "github.com/synnaxlabs/synnax/pkg/service/channel"
-	"github.com/synnaxlabs/synnax/pkg/service/framer"
+	svcChannel "github.com/synnaxlabs/synnax/pkg/service/channel"
 	"github.com/synnaxlabs/synnax/pkg/service/label"
 	"github.com/synnaxlabs/synnax/pkg/service/rack"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
@@ -27,34 +26,40 @@ import (
 )
 
 var (
-	builder    *mock.Cluster
-	dist       mock.Node
-	framerSvc  *framer.Service
-	channelSvc *servicechannel.Service
+	ctx    context.Context
+	dist   mock.Node
+	svc    *svcChannel.Service
+	arcSvc *arc.Service
 )
 
-func TestMetrics(t *testing.T) {
+func TestChannel(t *testing.T) {
 	RegisterFailHandler(Fail)
-	RunSpecs(t, "Metrics Suite")
+	RunSpecs(t, "Service Channel Suite")
 }
 
 var _ = BeforeSuite(func() {
-	builder = mock.NewCluster()
-	ctx := context.Background()
-	dist = builder.Provision(ctx)
+	ctx = context.Background()
+	distB := mock.NewCluster()
+	dist = distB.Provision(ctx)
 	labelSvc := MustSucceed(label.OpenService(ctx, label.ServiceConfig{
 		DB:       dist.DB,
 		Ontology: dist.Ontology,
 		Group:    dist.Group,
 		Signals:  dist.Signals,
 	}))
+	DeferCleanup(func() {
+		Expect(labelSvc.Close()).To(Succeed())
+	})
 	statusSvc := MustSucceed(status.OpenService(ctx, status.ServiceConfig{
 		DB:       dist.DB,
-		Label:    labelSvc,
-		Ontology: dist.Ontology,
 		Group:    dist.Group,
 		Signals:  dist.Signals,
+		Ontology: dist.Ontology,
+		Label:    labelSvc,
 	}))
+	DeferCleanup(func() {
+		Expect(statusSvc.Close()).To(Succeed())
+	})
 	rackSvc := MustSucceed(rack.OpenService(ctx, rack.ServiceConfig{
 		DB:           dist.DB,
 		Ontology:     dist.Ontology,
@@ -62,6 +67,9 @@ var _ = BeforeSuite(func() {
 		HostProvider: mock.StaticHostKeyProvider(1),
 		Status:       statusSvc,
 	}))
+	DeferCleanup(func() {
+		Expect(rackSvc.Close()).To(Succeed())
+	})
 	taskSvc := MustSucceed(task.OpenService(ctx, task.ServiceConfig{
 		DB:       dist.DB,
 		Ontology: dist.Ontology,
@@ -69,30 +77,30 @@ var _ = BeforeSuite(func() {
 		Rack:     rackSvc,
 		Status:   statusSvc,
 	}))
-	arcSvc := MustSucceed(arc.OpenService(ctx, arc.ServiceConfig{
+	DeferCleanup(func() {
+		Expect(taskSvc.Close()).To(Succeed())
+	})
+	arcSvc = MustSucceed(arc.OpenService(ctx, arc.ServiceConfig{
 		Channel:  dist.Channel,
 		Ontology: dist.Ontology,
 		DB:       dist.DB,
 		Signals:  dist.Signals,
 		Task:     taskSvc,
 	}))
-	framerSvc = MustSucceed(framer.OpenService(ctx, framer.ServiceConfig{
-		Framer:  dist.Framer,
-		Channel: dist.Channel,
-		Arc:     arcSvc,
-		Status:  statusSvc,
-		DB:      dist.DB,
-	}))
-	channelSvc = MustSucceed(servicechannel.OpenService(ctx, servicechannel.ServiceConfig{
+	DeferCleanup(func() {
+		Expect(arcSvc.Close()).To(Succeed())
+	})
+	svc = MustSucceed(svcChannel.OpenService(ctx, svcChannel.ServiceConfig{
 		DB:           dist.DB,
 		Distribution: dist.Channel,
 		Status:       statusSvc,
 		Arc:          arcSvc,
 	}))
+	DeferCleanup(func() {
+		Expect(svc.Close()).To(Succeed())
+	})
 })
 
 var _ = AfterSuite(func() {
-	Expect(channelSvc.Close()).To(Succeed())
-	Expect(framerSvc.Close()).To(Succeed())
-	Expect(builder.Close()).To(Succeed())
+	Expect(dist.Close()).To(Succeed())
 })

@@ -13,6 +13,7 @@ import (
 	"context"
 	"sync"
 
+	"github.com/synnaxlabs/alamos"
 	channel "github.com/synnaxlabs/synnax/pkg/distribution/channel"
 	"github.com/synnaxlabs/synnax/pkg/service/arc/symbol"
 	channelanalyzer "github.com/synnaxlabs/synnax/pkg/service/channel/calculation/analyzer"
@@ -26,6 +27,7 @@ import (
 	xstatus "github.com/synnaxlabs/x/status"
 	"github.com/synnaxlabs/x/telem"
 	"github.com/synnaxlabs/x/validate"
+	"go.uber.org/zap"
 )
 
 type StatusDetails struct {
@@ -40,6 +42,7 @@ type node struct {
 }
 
 type Graph struct {
+	alamos.Instrumentation
 	distribution *channel.Service
 	status       status.Writer[StatusDetails]
 	disconnect   observe.Disconnect
@@ -53,12 +56,13 @@ type Graph struct {
 
 type Config struct {
 	Channel *channel.Service
-	Status       *status.Service
+	Status  *status.Service
+	alamos.Instrumentation
 }
 
 var (
-	_ config.Config[Config] = Config{}
-	DefaultConfig = Config{}
+	_             config.Config[Config] = Config{}
+	DefaultConfig                       = Config{}
 )
 
 func (c Config) Validate() error {
@@ -71,6 +75,7 @@ func (c Config) Validate() error {
 func (c Config) Override(other Config) Config {
 	c.Channel = override.Nil(c.Channel, other.Channel)
 	c.Status = override.Nil(c.Status, other.Status)
+	c.Instrumentation = override.Zero(c.Instrumentation, other.Instrumentation)
 	return c
 }
 
@@ -83,13 +88,14 @@ func Open(
 		return nil, err
 	}
 	s := &Graph{
-		distribution: cfg.Channel,
-		status:       status.NewWriter[StatusDetails](cfg.Status, nil),
+		Instrumentation: cfg.Instrumentation,
+		distribution:    cfg.Channel,
+		status:          status.NewWriter[StatusDetails](cfg.Status, nil),
 	}
 	s.mu.nodes = make(map[channel.Key]node)
 	s.mu.dependents = make(map[channel.Key]map[channel.Key]struct{})
 	s.mu.unresolvedByName = make(map[string]map[channel.Key]struct{})
-	if err := s.hydrate(ctx); err != nil {
+	if err = s.hydrate(ctx); err != nil {
 		return nil, err
 	}
 	s.disconnect = cfg.Channel.NewObservable().OnChange(s.handleChanges)
@@ -105,32 +111,47 @@ func (s *Graph) Close() error {
 
 func (s *Graph) hydrate(ctx context.Context) error {
 	var channels []channel.Channel
-	if err := s.distribution.NewRetrieve().Entries(&channels).Exec(ctx, nil); err != nil {
+	if err := s.distribution.NewRetrieve().WhereCalculated().Entries(&channels).Exec(ctx, nil); err != nil {
 		return err
 	}
+	s.L.Info("hydrating calculated channel graph", zap.Int("count", len(channels)))
 	repairs := make([]channel.Channel, 0)
+	pass := 0
+	invalidCount := 0
 	for {
 		changed := false
+		analyzer := s.newAnalyzer(nil)
 		nextNodes := make(map[channel.Key]node)
 		nextDependents := make(map[channel.Key]map[channel.Key]struct{})
 		nextUnresolved := make(map[string]map[channel.Key]struct{})
+		invalidCount = 0
 		for _, ch := range channels {
-			if !ch.IsCalculated() {
-				continue
-			}
-			nd, err := s.inspectNode(ctx, nil, ch, nil)
+			nd, err := s.inspectNode(ctx, nil, ch, analyzer)
 			if err != nil {
 				s.setNodeStatus(ctx, ch.Key(), ch.Name, err)
+				invalidCount++
+				s.L.Debug("channel expression invalid",
+					zap.Stringer("channel", ch.Key()),
+					zap.String("name", ch.Name),
+					zap.Error(err),
+				)
 			} else {
-				_ = s.clearNodeStatus(ctx, ch.Key())
+				s.clearNodeStatus(ctx, ch.Key())
 			}
 			upsertNode(nextNodes, nextDependents, nextUnresolved, nd)
 			if !nd.invalid && ch.DataType != nd.DataType {
+				s.L.Info("repairing channel DataType",
+					zap.Stringer("channel", ch.Key()),
+					zap.String("name", ch.Name),
+					zap.String("old", string(ch.DataType)),
+					zap.String("new", string(nd.DataType)),
+				)
 				ch.DataType = nd.DataType
 				repairs = append(repairs, ch)
 				changed = true
 			}
 		}
+		pass++
 		if !changed {
 			s.mu.Lock()
 			s.mu.nodes = nextNodes
@@ -139,23 +160,38 @@ func (s *Graph) hydrate(ctx context.Context) error {
 			s.mu.Unlock()
 			break
 		}
+		s.L.Debug("hydration fixpoint pass required another iteration",
+			zap.Int("pass", pass),
+			zap.Int("repairs", len(repairs)),
+		)
 	}
 	if len(repairs) > 0 {
+		s.L.Info("persisting DataType repairs from hydration", zap.Int("count", len(repairs)))
 		if err := s.distribution.NewWriter(nil).CreateMany(ctx, &repairs); err != nil {
 			return err
 		}
 	}
+	s.L.Info("hydration complete",
+		zap.Int("channels", len(channels)),
+		zap.Int("invalid", invalidCount),
+		zap.Int("repairs", len(repairs)),
+		zap.Int("passes", pass),
+	)
 	return nil
 }
 
 func (s *Graph) handleChanges(ctx context.Context, reader gorp.TxReader[channel.Key, channel.Channel]) {
 	s.mu.Lock()
-	defer s.mu.Unlock()
+	analyzer := s.newAnalyzer(nil)
 	queued := make(map[channel.Key]struct{})
 	var unresolvedNames []string
+	var updates []channel.Channel
 	for chg := range reader {
 		ch := chg.Value
 		if chg.Variant == change.VariantDelete {
+			s.L.Debug("channel deleted, removing node and re-inspecting dependents",
+				zap.Stringer("channel", chg.Key),
+			)
 			s.removeNode(chg.Key)
 			if ch.Name != "" {
 				unresolvedNames = append(unresolvedNames, ch.Name)
@@ -164,11 +200,29 @@ func (s *Graph) handleChanges(ctx context.Context, reader gorp.TxReader[channel.
 			continue
 		}
 		if ch.IsCalculated() {
-			node, err := s.inspectNode(ctx, nil, ch, nil)
+			node, err := s.inspectNode(ctx, nil, ch, analyzer)
 			if err != nil {
+				s.L.Info("calculated channel has invalid expression",
+					zap.Stringer("channel", ch.Key()),
+					zap.String("name", ch.Name),
+					zap.Error(err),
+				)
 				s.setNodeStatus(ctx, ch.Key(), ch.Name, err)
 			} else {
-				_ = s.clearNodeStatus(ctx, ch.Key())
+				s.L.Debug("calculated channel inspected",
+					zap.Stringer("channel", ch.Key()),
+					zap.String("name", ch.Name),
+					zap.Stringers("deps", node.deps),
+				)
+				s.clearNodeStatus(ctx, ch.Key())
+			}
+			if !node.invalid && node.DataType != ch.DataType {
+				s.L.Debug("calculated channel DataType changed",
+					zap.Stringer("channel", ch.Key()),
+					zap.String("old", string(ch.DataType)),
+					zap.String("new", string(node.DataType)),
+				)
+				updates = append(updates, node.Channel)
 			}
 			s.upsertNode(node)
 			s.enqueueDependents(ch.Key(), queued)
@@ -177,11 +231,18 @@ func (s *Graph) handleChanges(ctx context.Context, reader gorp.TxReader[channel.
 		s.enqueueDependents(ch.Key(), queued)
 		unresolvedNames = append(unresolvedNames, ch.Name)
 	}
-	_ = s.reconcileQueued(ctx, nil, queued, unresolvedNames, nil, false)
+	updates = append(updates, s.reconcileQueued(ctx, nil, queued, unresolvedNames, nil, analyzer)...)
+	s.mu.Unlock()
+	if len(updates) > 0 {
+		s.L.Info("persisting DataType updates", zap.Int("count", len(updates)))
+		if err := s.distribution.NewWriter(nil).CreateMany(ctx, &updates); err != nil {
+			s.L.Error("failed to persist DataType updates", zap.Error(err))
+		}
+	}
 }
 
 func (s *Graph) setNodeStatus(ctx context.Context, key channel.Key, name string, err error) {
-	_ = s.status.Set(ctx, &status.Status[StatusDetails]{
+	if sErr := s.status.Set(ctx, &status.Status[StatusDetails]{
 		Key:         channel.OntologyID(key).String(),
 		Name:        name,
 		Variant:     xstatus.VariantError,
@@ -189,21 +250,37 @@ func (s *Graph) setNodeStatus(ctx context.Context, key channel.Key, name string,
 		Description: err.Error(),
 		Time:        telem.Now(),
 		Details:     StatusDetails{Channel: key},
-	})
+	}); sErr != nil {
+		s.L.Warn("failed to set error status for channel",
+			zap.Stringer("channel", key),
+			zap.Error(sErr),
+		)
+	}
 }
 
-func (s *Graph) clearNodeStatus(ctx context.Context, key channel.Key) error {
-	return s.status.Delete(ctx, channel.OntologyID(key).String())
+func (s *Graph) clearNodeStatus(ctx context.Context, key channel.Key) {
+	if err := s.status.Delete(ctx, channel.OntologyID(key).String()); err != nil {
+		s.L.Warn("failed to clear status for channel",
+			zap.Stringer("channel", key),
+			zap.Error(err),
+		)
+	}
+}
+
+func (s *Graph) newAnalyzer(tx gorp.Tx) *channelanalyzer.Analyzer {
+	return channelanalyzer.New(symbol.NewResolver(s.distribution, tx))
 }
 
 func (s *Graph) inspectNode(
 	ctx context.Context,
 	tx gorp.Tx,
 	ch channel.Channel,
-	overlayMap map[channel.Key]channel.Channel,
+	analyzer *channelanalyzer.Analyzer,
 ) (node, error) {
-	dt, err := channelanalyzer.New(symbol.NewResolver(s.distribution, tx)).
-		Analyze(ctx, ch.Name, ch.Expression)
+	if analyzer == nil {
+		analyzer = s.newAnalyzer(tx)
+	}
+	dt, err := analyzer.Analyze(ctx, ch)
 	nd := node{Channel: ch}
 	if ch.Key() == 0 {
 		nd.LocalKey = 1
@@ -234,12 +311,15 @@ func (s *Graph) reconcileQueued(
 	queued map[channel.Key]struct{},
 	unresolvedNames []string,
 	overlayMap map[channel.Key]channel.Channel,
-	persist bool,
-) error {
+	analyzer *channelanalyzer.Analyzer,
+) []channel.Channel {
 	if overlayMap == nil {
 		overlayMap = make(map[channel.Key]channel.Channel)
 	}
 	s.enqueueUnresolved(unresolvedNames, queued)
+	if len(queued) > 0 {
+		s.L.Debug("reconciling dependent channels", zap.Int("count", len(queued)))
+	}
 	updates := make([]channel.Channel, 0)
 	for len(queued) > 0 {
 		next := make(map[channel.Key]struct{})
@@ -250,19 +330,34 @@ func (s *Graph) reconcileQueued(
 			}
 			refetched := nd.Channel
 			if err := s.distribution.NewRetrieve().WhereKeys(key).Entry(&refetched).Exec(ctx, tx); err != nil {
+				s.L.Warn("failed to refetch channel during reconciliation",
+					zap.Stringer("channel", key),
+					zap.Error(err),
+				)
 				continue
 			}
-			newNode, err := s.inspectNode(ctx, tx, refetched, overlayMap)
+			newNode, err := s.inspectNode(ctx, tx, refetched, analyzer)
 			oldInvalid := nd.invalid
 			oldType := nd.DataType
 			s.upsertNode(newNode)
 			if err != nil {
+				s.L.Info("dependent channel became invalid after reconciliation",
+					zap.Stringer("channel", key),
+					zap.String("name", refetched.Name),
+					zap.Error(err),
+				)
 				s.setNodeStatus(ctx, key, refetched.Name, err)
 				continue
 			}
-			_ = s.clearNodeStatus(ctx, key)
+			s.clearNodeStatus(ctx, key)
 			if oldInvalid || oldType != newNode.DataType {
-				if persist && oldType != newNode.DataType {
+				if oldType != newNode.DataType {
+					s.L.Debug("dependent channel DataType changed during reconciliation",
+						zap.Stringer("channel", key),
+						zap.String("name", refetched.Name),
+						zap.String("old", string(oldType)),
+						zap.String("new", string(newNode.DataType)),
+					)
 					updates = append(updates, newNode.Channel)
 					overlayMap[key] = newNode.Channel
 				}
@@ -271,12 +366,7 @@ func (s *Graph) reconcileQueued(
 		}
 		queued = next
 	}
-	if persist && len(updates) > 0 {
-		if err := s.distribution.NewWriter(tx).CreateMany(ctx, &updates); err != nil {
-			return err
-		}
-	}
-	return nil
+	return updates
 }
 
 func (s *Graph) removeNode(key channel.Key) {

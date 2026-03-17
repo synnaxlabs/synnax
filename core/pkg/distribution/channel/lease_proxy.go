@@ -31,11 +31,11 @@ import (
 )
 
 type leaseProxy struct {
-	cfg                ServiceConfig
-	leasedCounter      *counter
-	freeCounter        *counter
-	group              group.Group
-	mu                 struct {
+	cfg           ServiceConfig
+	leasedCounter *counter
+	freeCounter   *counter
+	group         group.Group
+	mu            struct {
 		externalNonVirtualSet *set.Integer[Key]
 		sync.RWMutex
 	}

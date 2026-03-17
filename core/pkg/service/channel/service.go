@@ -86,8 +86,9 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (*Service, error) {
 	}
 	s := &Service{cfg: cfg}
 	if s.graph, err = graph.Open(ctx, graph.Config{
-		Channel: cfg.Distribution,
-		Status:  cfg.Status,
+		Channel:         cfg.Distribution,
+		Status:          cfg.Status,
+		Instrumentation: cfg.Child("calculation.graph"),
 	}); err != nil {
 		return nil, err
 	}

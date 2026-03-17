@@ -318,12 +318,10 @@ var _ = Describe("Create", Ordered, func() {
 			}
 			Expect(mockCluster.Nodes[1].Channel.Create(ctx, &calcCh)).To(Succeed())
 
-			// Verify calculated channel properties
 			Expect(calcCh.Leaseholder).To(Equal(cluster.NodeKeyFree))
 			Expect(calcCh.Virtual).To(BeTrue())
 			Expect(calcCh.LocalIndex).ToNot(BeZero())
 
-			// Verify index channel was created
 			indexName := "calculated_temp_time"
 			var indexChannels []channel.Channel
 			err := mockCluster.Nodes[1].Channel.NewRetrieve().

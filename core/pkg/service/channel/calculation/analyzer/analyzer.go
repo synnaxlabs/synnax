@@ -12,6 +12,7 @@ package analyzer
 import (
 	"context"
 	"fmt"
+	"strconv"
 
 	"github.com/synnaxlabs/arc"
 	acontext "github.com/synnaxlabs/arc/analyzer/context"
@@ -19,12 +20,16 @@ import (
 	"github.com/synnaxlabs/arc/parser"
 	"github.com/synnaxlabs/arc/symbol"
 	"github.com/synnaxlabs/arc/types"
+	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
 	"github.com/synnaxlabs/x/telem"
 )
 
 type resolver struct {
 	arc.SymbolResolver
-	temp map[string]symbol.Symbol
+	temp struct {
+		names map[string]*symbol.Symbol
+		keys  map[int]*symbol.Symbol
+	}
 }
 
 type Analyzer struct {
@@ -32,23 +37,28 @@ type Analyzer struct {
 }
 
 func New(symbolResolver arc.SymbolResolver) *Analyzer {
-	return &Analyzer{
-		resolver: &resolver{
-			SymbolResolver: symbolResolver,
-			temp: make(map[string]symbol.Symbol),
-		},
-	}
+	r := &resolver{SymbolResolver: symbolResolver}
+	r.temp.keys = make(map[int]*symbol.Symbol)
+	r.temp.names = make(map[string]*symbol.Symbol)
+	return &Analyzer{resolver: r}
 }
 
 func (r *resolver) Resolve(ctx context.Context, name string) (symbol.Symbol, error) {
-	if s, ok := r.temp[name]; ok {
-		return s, nil
+	i, err := strconv.Atoi(name)
+	if err == nil {
+		if s, ok := r.temp.keys[i]; ok {
+			return *s, nil
+		}
+	} else {
+		if s, ok := r.temp.names[name]; ok {
+			return *s, nil
+		}
 	}
 	return r.SymbolResolver.Resolve(ctx, name)
 }
 
-func (a *Analyzer) Analyze(ctx context.Context, name string, expr string) (telem.DataType, error) {
-	t, err := parser.ParseBlock(fmt.Sprintf("{%s}", expr))
+func (a *Analyzer) Analyze(ctx context.Context, ch channel.Channel) (telem.DataType, error) {
+	t, err := parser.ParseBlock(fmt.Sprintf("{%s}", ch.Expression))
 	if err != nil {
 		return telem.UnknownT, err
 	}
@@ -57,10 +67,16 @@ func (a *Analyzer) Analyze(ctx context.Context, name string, expr string) (telem
 	if !aCtx.Diagnostics.Ok() {
 		return telem.UnknownT, aCtx.Diagnostics
 	}
-	a.resolver.temp[name] = symbol.Symbol{
-		Name: name,
+	s := &symbol.Symbol{
+		Name: ch.Name,
 		Kind: symbol.KindChannel,
 		Type: types.Chan(dataType),
 	}
+	if ch.Key() != 0 {
+		intKey := int(ch.Key())
+		s.ID = intKey
+		a.resolver.temp.keys[intKey] = s
+	}
+	a.resolver.temp.names[s.Name] = s
 	return types.ToTelem(dataType), nil
 }
