@@ -12,6 +12,7 @@
     "build:freighter": "npx turbo build --filter @synnaxlabs/freighter",
     "build:media": "npx turbo build --filter @synnaxlabs/media",
     "build:pluto": "npx turbo build --filter @synnaxlabs/pluto",
+    "build:publish-ts": "npx turbo build --filter @synnaxlabs/pluto --filter @synnaxlabs/drift",
     "build:vite-plugin": "npx turbo build --filter @synnaxlabs/vite-plugin",
     "build:x": "npx turbo build --filter @synnaxlabs/x",
     "format": "prettier --write .",

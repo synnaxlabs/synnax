@@ -9,8 +9,8 @@
 
 import synnax as sy
 from examples.simulators import PressSimDAQ
+from xpy import get_random_name
 
-from framework.utils import get_random_name
 from tests.arc.arc_case import ArcConsoleCase
 
 ARC_LOW_PRIORITY_SOURCE = """
@@ -47,7 +47,7 @@ sequence main {
 """
 
 
-class ArcAuthorityArcVsArc(ArcConsoleCase):
+class AuthorityArcVsArc(ArcConsoleCase):
     """Test that a higher-authority Arc program wins over a lower one,
     and the lower program resumes when the higher one stops writing."""
 

@@ -1134,6 +1134,8 @@ describe("queries", () => {
           rack: rack.key,
           configured: true,
           properties: {},
+          status: undefined,
+          parent: undefined,
         });
       });
 

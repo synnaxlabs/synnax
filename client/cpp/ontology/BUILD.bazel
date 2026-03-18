@@ -6,11 +6,16 @@ cc_library(
     srcs = [
         "id.cpp",
     ],
-    hdrs = ["id.h"],
+    hdrs = [
+        "id.h",
+        "json.gen.h",
+        "proto.gen.h",
+    ],
     visibility = ["//visibility:public"],
     deps = [
+        "//core/pkg/distribution/ontology:ontology_grpc",
         "//x/cpp/errors",
-        "@nlohmann_json//:json",
+        "//x/cpp/json",
     ],
 )
 

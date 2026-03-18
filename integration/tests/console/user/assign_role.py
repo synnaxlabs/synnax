@@ -9,8 +9,9 @@
 
 """Test changing a user's role via Console UI context menu."""
 
+from xpy import get_random_name
+
 from console.case import ConsoleCase
-from framework.utils import get_random_name
 
 
 class UserAssignRole(ConsoleCase):

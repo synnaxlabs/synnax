@@ -133,6 +133,7 @@ type RetrieveRequest struct {
 	Offset         uint32                 `protobuf:"varint,9,opt,name=offset,proto3" json:"offset,omitempty"`
 	IgnoreNotFound bool                   `protobuf:"varint,10,opt,name=ignore_not_found,json=ignoreNotFound,proto3" json:"ignore_not_found,omitempty"`
 	IncludeStatus  bool                   `protobuf:"varint,11,opt,name=include_status,json=includeStatus,proto3" json:"include_status,omitempty"`
+	IncludeParent  bool                   `protobuf:"varint,12,opt,name=include_parent,json=includeParent,proto3" json:"include_parent,omitempty"`
 	unknownFields  protoimpl.UnknownFields
 	sizeCache      protoimpl.SizeCache
 }
@@ -244,6 +245,13 @@ func (x *RetrieveRequest) GetIncludeStatus() bool {
 	return false
 }
 
+func (x *RetrieveRequest) GetIncludeParent() bool {
+	if x != nil {
+		return x.IncludeParent
+	}
+	return false
+}
+
 type RetrieveResponse struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	Devices       []*pb.Device           `protobuf:"bytes,1,rep,name=devices,proto3" json:"devices,omitempty"`
@@ -340,7 +348,7 @@ const file_core_pkg_api_grpc_device_device_proto_rawDesc = "" +
 	"\rCreateRequest\x123\n" +
 	"\adevices\x18\x01 \x03(\v2\x19.service.device.pb.DeviceR\adevices\"E\n" +
 	"\x0eCreateResponse\x123\n" +
-	"\adevices\x18\x01 \x03(\v2\x19.service.device.pb.DeviceR\adevices\"\xb4\x02\n" +
+	"\adevices\x18\x01 \x03(\v2\x19.service.device.pb.DeviceR\adevices\"\xdb\x02\n" +
 	"\x0fRetrieveRequest\x12\x12\n" +
 	"\x04keys\x18\x01 \x03(\tR\x04keys\x12\x14\n" +
 	"\x05names\x18\x02 \x03(\tR\x05names\x12\x14\n" +
@@ -353,7 +361,8 @@ const file_core_pkg_api_grpc_device_device_proto_rawDesc = "" +
 	"\x06offset\x18\t \x01(\rR\x06offset\x12(\n" +
 	"\x10ignore_not_found\x18\n" +
 	" \x01(\bR\x0eignoreNotFound\x12%\n" +
-	"\x0einclude_status\x18\v \x01(\bR\rincludeStatus\"G\n" +
+	"\x0einclude_status\x18\v \x01(\bR\rincludeStatus\x12%\n" +
+	"\x0einclude_parent\x18\f \x01(\bR\rincludeParent\"G\n" +
 	"\x10RetrieveResponse\x123\n" +
 	"\adevices\x18\x01 \x03(\v2\x19.service.device.pb.DeviceR\adevices\"#\n" +
 	"\rDeleteRequest\x12\x12\n" +

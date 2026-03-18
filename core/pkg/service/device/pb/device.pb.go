@@ -18,6 +18,7 @@
 package pb
 
 import (
+	pb1 "github.com/synnaxlabs/synnax/pkg/distribution/ontology/pb"
 	pb "github.com/synnaxlabs/x/status/pb"
 	protoreflect "google.golang.org/protobuf/reflect/protoreflect"
 	protoimpl "google.golang.org/protobuf/runtime/protoimpl"
@@ -114,7 +115,10 @@ type Device struct {
 	// Structure varies by device make and model.
 	Properties *structpb.Struct `protobuf:"bytes,8,opt,name=properties,proto3" json:"properties,omitempty"`
 	// status is the current operational status of the device.
-	Status        *pb.Status `protobuf:"bytes,9,opt,name=status,proto3,oneof" json:"status,omitempty"`
+	Status *pb.Status `protobuf:"bytes,9,opt,name=status,proto3,oneof" json:"status,omitempty"`
+	// parent is an optional parent resource ID for hierarchical device organization (e.g.,
+	// NI chassis containing modules).
+	Parent        *pb1.ID `protobuf:"bytes,10,opt,name=parent,proto3,oneof" json:"parent,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -212,14 +216,21 @@ func (x *Device) GetStatus() *pb.Status {
 	return nil
 }
 
+func (x *Device) GetParent() *pb1.ID {
+	if x != nil {
+		return x.Parent
+	}
+	return nil
+}
+
 var File_core_pkg_service_device_pb_device_proto protoreflect.FileDescriptor
 
 const file_core_pkg_service_device_pb_device_proto_rawDesc = "" +
 	"\n" +
-	"'core/pkg/service/device/pb/device.proto\x12\x11service.device.pb\x1a\x1cgoogle/protobuf/struct.proto\x1a\x1bx/go/status/pb/status.proto\";\n" +
+	"'core/pkg/service/device/pb/device.proto\x12\x11service.device.pb\x1a\x1cgoogle/protobuf/struct.proto\x1a\x1bx/go/status/pb/status.proto\x1a0core/pkg/distribution/ontology/pb/ontology.proto\";\n" +
 	"\rStatusDetails\x12\x12\n" +
 	"\x04rack\x18\x01 \x01(\rR\x04rack\x12\x16\n" +
-	"\x06device\x18\x02 \x01(\tR\x06device\"\x9e\x02\n" +
+	"\x06device\x18\x02 \x01(\tR\x06device\"\xe4\x02\n" +
 	"\x06Device\x12\x10\n" +
 	"\x03key\x18\x01 \x01(\tR\x03key\x12\x12\n" +
 	"\x04rack\x18\x02 \x01(\rR\x04rack\x12\x1a\n" +
@@ -233,8 +244,11 @@ const file_core_pkg_service_device_pb_device_proto_rawDesc = "" +
 	"\n" +
 	"properties\x18\b \x01(\v2\x17.google.protobuf.StructR\n" +
 	"properties\x120\n" +
-	"\x06status\x18\t \x01(\v2\x13.x.status.pb.StatusH\x00R\x06status\x88\x01\x01B\t\n" +
-	"\a_statusB\xbe\x01\n" +
+	"\x06status\x18\t \x01(\v2\x13.x.status.pb.StatusH\x00R\x06status\x88\x01\x01\x129\n" +
+	"\x06parent\x18\n" +
+	" \x01(\v2\x1c.distribution.ontology.pb.IDH\x01R\x06parent\x88\x01\x01B\t\n" +
+	"\a_statusB\t\n" +
+	"\a_parentB\xbe\x01\n" +
 	"\x15com.service.device.pbB\vDeviceProtoP\x01Z2github.com/synnaxlabs/synnax/pkg/service/device/pb\xa2\x02\x03SDP\xaa\x02\x11Service.Device.Pb\xca\x02\x11Service\\Device\\Pb\xe2\x02\x1dService\\Device\\Pb\\GPBMetadata\xea\x02\x13Service::Device::Pbb\x06proto3"
 
 var (
@@ -255,15 +269,17 @@ var file_core_pkg_service_device_pb_device_proto_goTypes = []any{
 	(*Device)(nil),          // 1: service.device.pb.Device
 	(*structpb.Struct)(nil), // 2: google.protobuf.Struct
 	(*pb.Status)(nil),       // 3: x.status.pb.Status
+	(*pb1.ID)(nil),          // 4: distribution.ontology.pb.ID
 }
 var file_core_pkg_service_device_pb_device_proto_depIdxs = []int32{
 	2, // 0: service.device.pb.Device.properties:type_name -> google.protobuf.Struct
 	3, // 1: service.device.pb.Device.status:type_name -> x.status.pb.Status
-	2, // [2:2] is the sub-list for method output_type
-	2, // [2:2] is the sub-list for method input_type
-	2, // [2:2] is the sub-list for extension type_name
-	2, // [2:2] is the sub-list for extension extendee
-	0, // [0:2] is the sub-list for field type_name
+	4, // 2: service.device.pb.Device.parent:type_name -> distribution.ontology.pb.ID
+	3, // [3:3] is the sub-list for method output_type
+	3, // [3:3] is the sub-list for method input_type
+	3, // [3:3] is the sub-list for extension type_name
+	3, // [3:3] is the sub-list for extension extendee
+	0, // [0:3] is the sub-list for field type_name
 }
 
 func init() { file_core_pkg_service_device_pb_device_proto_init() }

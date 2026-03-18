@@ -55,6 +55,7 @@ export const deviceZ = <
     configured: z.boolean().default(false),
     properties: properties ?? record.nullishToEmpty(),
     status: statusZ.optional(),
+    parent: ontology.idZ.optional(),
   });
 export interface Device<
   Properties extends z.ZodType<record.Unknown> = z.ZodType<record.Unknown>,
@@ -70,6 +71,7 @@ export interface Device<
   configured: boolean;
   properties: z.infer<Properties>;
   status?: Status;
+  parent?: ontology.ID;
 }
 
 export interface NewSchemas<

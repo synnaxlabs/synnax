@@ -9,8 +9,9 @@
 
 """Test changing a user's role via drag-drop in the ontology tree."""
 
+from xpy import get_random_name
+
 from console.case import ConsoleCase
-from framework.utils import get_random_name
 
 
 class UserDragToRole(ConsoleCase):

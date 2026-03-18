@@ -7,8 +7,6 @@
 #  License, use of this software will be governed by the Apache License, Version 2.0,
 #  included in the file licenses/APL.txt.
 
-import time
-
 import synnax as sy
 from examples.simulators import LoadCurrentSimDAQ
 
@@ -32,7 +30,7 @@ WAIT_DURATION = 2.0
 TIMING_TOLERANCE = 1.5
 
 
-class ArcLoadCurrent(ArcConsoleCase):
+class LoadCurrent(ArcConsoleCase):
     """Test condition-gated wait timer with stage transition.
 
     Verifies:
@@ -61,31 +59,30 @@ class ArcLoadCurrent(ArcConsoleCase):
         self.log("flag is 1, stage first is active")
 
         self.log("Phase 2: Waiting for load_current > 50 (wait timer starts)...")
-        self.wait_for_gt("load_current", 50, timeout=10)
-        condition_time = time.monotonic()
+        self.wait_for_gt("load_current", 50, timeout=10 * sy.TimeSpan.SECOND)
+        timer = sy.Timer()
         self.log("load_current crossed 50, wait timer should now be running")
 
         self.log("Phase 3: Asserting flag is still 1 (wait has not elapsed yet)...")
-        sy.sleep(0.5)
+        sy.sleep(500 * sy.TimeSpan.MILLISECOND)
         self.wait_for_eq("flag", 1, timeout=0, is_virtual=True)
         self.log("flag remains 1 during wait period")
 
         self.log("Phase 4: Waiting for flag == 0 (stage last entered after 2s wait)...")
-        self.wait_for_eq("flag", 0, timeout=10, is_virtual=True)
-        transition_time = time.monotonic()
+        self.wait_for_eq("flag", 0, timeout=10 * sy.TimeSpan.SECOND, is_virtual=True)
 
-        elapsed = transition_time - condition_time
+        elapsed_secs = timer.elapsed() / sy.TimeSpan.SECOND
         self.log(
-            f"Wait elapsed: {elapsed:.2f}s "
+            f"Wait elapsed: {elapsed_secs:.2f}s "
             f"(expected ~{WAIT_DURATION}s, tolerance {TIMING_TOLERANCE}s)"
         )
 
-        assert elapsed >= WAIT_DURATION - TIMING_TOLERANCE, (
-            f"Wait fired too early: {elapsed:.2f}s < "
+        assert elapsed_secs >= WAIT_DURATION - TIMING_TOLERANCE, (
+            f"Wait fired too early: {elapsed_secs:.2f}s < "
             f"{WAIT_DURATION - TIMING_TOLERANCE:.1f}s"
         )
-        assert elapsed <= WAIT_DURATION + TIMING_TOLERANCE, (
-            f"Wait took too long: {elapsed:.2f}s > "
+        assert elapsed_secs <= WAIT_DURATION + TIMING_TOLERANCE, (
+            f"Wait took too long: {elapsed_secs:.2f}s > "
             f"{WAIT_DURATION + TIMING_TOLERANCE:.1f}s"
         )
 

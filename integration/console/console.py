@@ -14,11 +14,11 @@ from playwright.sync_api import TimeoutError as PlaywrightTimeoutError
 from console.access import AccessClient
 from console.arc import ArcClient
 from console.channels import ChannelClient
+from console.devices import DevicesClient
 from console.docs import DocsClient
 from console.labels import LabelClient
 from console.layout import LayoutClient
 from console.notifications import NotificationsClient
-from console.rack import RackClient
 from console.ranges import RangesClient
 from console.statuses import StatusesClient
 from console.tasks import TaskClient
@@ -43,7 +43,7 @@ class Console:
     labels: LabelClient
     layout: LayoutClient
     notifications: NotificationsClient
-    rack: RackClient
+    devices: DevicesClient
     ranges: RangesClient
     statuses: StatusesClient
     tasks: TaskClient
@@ -57,7 +57,7 @@ class Console:
         self.notifications = NotificationsClient(page)
         self.docs = DocsClient(self.layout)
         self.labels = LabelClient(self.layout)
-        self.rack = RackClient(self.layout)
+        self.devices = DevicesClient(self.layout, self.client)
         self.arc = ArcClient(self.layout)
         self.access = AccessClient(self.layout)
         self.channels = ChannelClient(self.layout, self.client)
