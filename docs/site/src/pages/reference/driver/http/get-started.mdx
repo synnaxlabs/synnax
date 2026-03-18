@@ -31,24 +31,20 @@ that exposes a JSON-based REST API. The HTTP driver is commonly used for:
 - Devices that don't support traditional industrial protocols (OPC UA, Modbus, etc.)
 
 <Note.Note variant="info" className="compact">
-  The HTTP driver extracts values from JSON response bodies using [JSON
-  Pointers](https://datatracker.ietf.org/doc/html/rfc6901) (RFC 6901), and supports
-  Bearer, Basic, and API Key authentication.
+  The HTTP driver supports JSON request and response bodies, and supports Bearer, Basic,
+  and API key authentication.
 </Note.Note>
 
 <Divider.Divider x />
 
 ## Supported HTTP Methods
 
-| Method    | Description                    |
-| --------- | ------------------------------ |
-| `GET`     | Retrieve data from a server    |
-| `POST`    | Send data to a server          |
-| `PUT`     | Replace a resource on a server |
-| `PATCH`   | Partially update a resource    |
-| `DELETE`  | Delete a resource on a server  |
-| `HEAD`    | Retrieve headers only          |
-| `OPTIONS` | Retrieve supported methods     |
+| Method  | Description                    |
+| ------- | ------------------------------ |
+| `GET`   | Retrieve data from a server    |
+| `POST`  | Send data to a server          |
+| `PUT`   | Replace a resource on a server |
+| `PATCH` | Partially update a resource    |
 
 <Divider.Divider x />
 

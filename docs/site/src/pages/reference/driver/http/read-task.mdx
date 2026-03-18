@@ -25,14 +25,14 @@ For task lifecycle management, see the
 
 ## Task Configuration Reference
 
-| Parameter     | Type    | Required | Default | Description                                                                                            |
-| ------------- | ------- | -------- | ------- | ------------------------------------------------------------------------------------------------------ |
-| `name`        | string  | Yes      | -       | Human-readable task name                                                                               |
-| `device`      | string  | Yes      | -       | Key of the HTTP server device                                                                          |
-| `rate`        | number  | Yes      | -       | Polling rate in Hz                                                                                     |
-| `data_saving` | boolean | No       | `true`  | Enable permanent storage in Synnax                                                                     |
-| `auto_start`  | boolean | No       | `false` | Automatically start task after configuration                                                           |
-| `endpoints`   | array   | Yes      | -       | List of endpoint configurations. See [Endpoint Configuration](#endpoint-configuration-reference) below |
+| Parameter     | Type    | Required | Default | Description                                                          |
+| ------------- | ------- | -------- | ------- | -------------------------------------------------------------------- |
+| `name`        | string  | Yes      | -       | Human-readable task name                                             |
+| `device`      | string  | Yes      | -       | Key of the HTTP server device                                        |
+| `rate`        | number  | Yes      | -       | Polling rate in Hz                                                   |
+| `data_saving` | boolean | No       | `true`  | Enable permanent storage in Synnax                                   |
+| `auto_start`  | boolean | No       | `false` | Automatically start task after configuration                         |
+| `endpoints`   | array   | Yes      | -       | List of [endpoint configurations](#endpoint-configuration-reference) |
 
 <Divider.Divider x />
 
@@ -41,14 +41,14 @@ For task lifecycle management, see the
 Each endpoint defines an HTTP request to poll and a set of fields to extract from its
 JSON response.
 
-| Parameter      | Type   | Required | Default | Description                                                                                    |
-| -------------- | ------ | -------- | ------- | ---------------------------------------------------------------------------------------------- |
-| `method`       | string | No       | `"GET"` | HTTP method                                                                                    |
-| `path`         | string | Yes      | -       | URL path relative to the device base URL (e.g., `/api/v1/data`)                                |
-| `headers`      | object | No       | -       | Additional request headers                                                                     |
-| `query_params` | object | No       | -       | Query parameters                                                                               |
-| `body`         | string | No       | -       | Request body (for POST or other methods that accept a body)                                    |
-| `fields`       | array  | Yes      | -       | Fields to extract from the response. See [Field Extraction](#field-extraction-reference) below |
+| Parameter      | Type   | Required | Default | Description                                                        |
+| -------------- | ------ | -------- | ------- | ------------------------------------------------------------------ |
+| `method`       | string | No       | `"GET"` | HTTP method                                                        |
+| `path`         | string | Yes      | -       | URL path relative to the device base URL (e.g., `/api/v1/data`)    |
+| `headers`      | object | No       | -       | Additional request headers                                         |
+| `query_params` | object | No       | -       | Query parameters                                                   |
+| `body`         | string | No       | -       | Request body (for POST or other methods that accept a body)        |
+| `fields`       | array  | Yes      | -       | [Fields to extract](#field-extraction-reference) from the response |
 
 <Divider.Divider x />
 
@@ -66,15 +66,15 @@ For example, given this response:
 
 A pointer of `/temperature` extracts `23.5`, and `/sensors/pressure` extracts `101.3`.
 
-| Parameter          | Type    | Required | Default     | Description                                                                                                                |
-| ------------------ | ------- | -------- | ----------- | -------------------------------------------------------------------------------------------------------------------------- |
-| `pointer`          | string  | Yes      | -           | JSON Pointer path to the value (e.g., `/temperature`)                                                                      |
-| `channel`          | number  | Yes      | -           | Synnax channel key to write the extracted value to                                                                         |
-| `data_type`        | string  | No       | `"float64"` | Data type of the channel                                                                                                   |
-| `name`             | string  | No       | -           | Human-readable name for the field                                                                                          |
-| `enabled`          | boolean | No       | `true`      | Whether this field is active                                                                                               |
-| `timestamp_format` | string  | No       | -           | Timestamp format (required when the channel data type is `TIMESTAMP`). See [Timestamp Handling](#timestamp-handling) below |
-| `enum_values`      | object  | No       | -           | String-to-number mapping for enum fields (e.g., `{"OFF": 0, "ON": 1}`)                                                     |
+| Parameter          | Type    | Required | Default     | Description                                                                                  |
+| ------------------ | ------- | -------- | ----------- | -------------------------------------------------------------------------------------------- |
+| `pointer`          | string  | Yes      | -           | JSON Pointer path to the value (e.g., `/temperature`)                                        |
+| `channel`          | number  | Yes      | -           | Synnax channel key to write the extracted value to                                           |
+| `data_type`        | string  | No       | `"float64"` | Data type of the channel                                                                     |
+| `name`             | string  | No       | -           | Human-readable name for the field                                                            |
+| `enabled`          | boolean | No       | `true`      | Whether this field is active                                                                 |
+| `timestamp_format` | string  | No       | -           | [Timestamp format](#timestamp-handling) (required when the channel data type is `TIMESTAMP`) |
+| `enum_values`      | object  | No       | -           | String-to-number mapping for enum fields (e.g., `{"OFF": 0, "ON": 1}`)                       |
 
 <Details>
 <Text.Text slot="summary" level="p"><Icon.Details /> Enum Values</Text.Text>

@@ -130,7 +130,6 @@ Configure how the driver monitors device health:
 health_check = sy.http.HealthCheck(
     method="GET",
     path="/health",
-    validate_response=True,
     response=sy.http.ExpectedResponse(
         pointer="/status",
         expected_value_type="string",

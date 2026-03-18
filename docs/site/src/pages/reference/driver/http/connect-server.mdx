@@ -46,8 +46,9 @@ following:
 | `health_check` | object  | No       | -       | See [Health Check Configuration](#health-check-configuration) below              |
 
 <Note.Note variant="warning" className="compact">
-  Setting `verify_ssl` to `false` disables certificate validation. This is useful for
-  development and self-signed certificates, but should not be used in production.
+  Setting `verify_ssl` to `false` should be used when the HTTP server does not have a
+  verified SSL certificate, which is common for internal servers not connected to the
+  public internet.
 </Note.Note>
 
 <Divider.Divider x />
@@ -85,7 +86,7 @@ Adds an `Authorization: Bearer <token>` header to every request.
 </Details>
 
 <Details>
-<Text.Text slot="summary" level="p"><Icon.Details /> Basic Auth</Text.Text>
+<Text.Text slot="summary" level="p"><Icon.Details /> Basic (Username + Password)</Text.Text>
 
 Adds an `Authorization: Basic <credentials>` header using Base64-encoded
 `username:password`.
@@ -107,13 +108,13 @@ Adds an `Authorization: Basic <credentials>` header using Base64-encoded
 
 Sends an API key as either a custom header or a query parameter.
 
-| Parameter   | Type   | Required | Default    | Description                                                       |
-| ----------- | ------ | -------- | ---------- | ----------------------------------------------------------------- |
-| `type`      | string | Yes      | -          | `"api_key"`                                                       |
-| `key`       | string | Yes      | -          | The API key value                                                 |
-| `send_as`   | string | No       | `"header"` | How to send the key: `"header"` or `"query_param"`                |
-| `header`    | string | No       | -          | Header name (required when `send_as` is `"header"`)               |
-| `parameter` | string | No       | -          | Query parameter name (required when `send_as` is `"query_param"`) |
+| Parameter   | Type   | Required | Default | Description                                                       |
+| ----------- | ------ | -------- | ------- | ----------------------------------------------------------------- |
+| `type`      | string | Yes      | -       | `"api_key"`                                                       |
+| `key`       | string | Yes      | -       | The API key value                                                 |
+| `send_as`   | string | Yes      | -       | How to send the key: `"header"` or `"query_param"`                |
+| `header`    | string | No       | -       | Header name (required when `send_as` is `"header"`)               |
+| `parameter` | string | No       | -       | Query parameter name (required when `send_as` is `"query_param"`) |
 
 ```json
 { "type": "api_key", "send_as": "header", "header": "X-API-Key", "key": "abc123" }
@@ -135,27 +136,28 @@ settings are optional and configured at the device level.
 <Details>
 <Text.Text slot="summary" level="p"><Icon.Details /> Health Check Parameters</Text.Text>
 
-| Parameter           | Type    | Required | Default     | Description                                                     |
-| ------------------- | ------- | -------- | ----------- | --------------------------------------------------------------- |
-| `method`            | string  | No       | `"GET"`     | HTTP method for the health check (`GET` or `POST`)              |
-| `path`              | string  | No       | `"/health"` | URL path to ping                                                |
-| `headers`           | object  | No       | -           | Additional headers to include                                   |
-| `query_params`      | object  | No       | -           | Query parameters to include                                     |
-| `body`              | string  | No       | -           | Request body (POST only)                                        |
-| `validate_response` | boolean | No       | `false`     | Whether to validate the response body against an expected value |
+| Parameter      | Type   | Required | Default     | Description                                                                   |
+| -------------- | ------ | -------- | ----------- | ----------------------------------------------------------------------------- |
+| `method`       | string | Yes      | -           | HTTP method for the health check (`GET` or `POST`)                            |
+| `path`         | string | No       | `"/health"` | URL path to request                                                           |
+| `headers`      | object | No       | -           | Additional headers to include                                                 |
+| `query_params` | object | No       | -           | Query parameters to include                                                   |
+| `body`         | string | No       | -           | Request body (POST only)                                                      |
+| `response`     | object | No       | -           | Optional [response validation](#response-validation-parameters) configuration |
 
 </Details>
 
 <Details>
 <Text.Text slot="summary" level="p"><Icon.Details /> Response Validation Parameters</Text.Text>
 
-When `validate_response` is `true`, you must also provide a `response` object:
+When a `response` object is provided, the driver validates the response body against an
+expected value:
 
-| Parameter             | Type   | Required | Description                                                       |
-| --------------------- | ------ | -------- | ----------------------------------------------------------------- |
-| `pointer`             | string | Yes      | JSON Pointer into the response body (e.g., `/status`)             |
-| `expected_value_type` | string | Yes      | Type of the expected value: `string`, `number`, `boolean`, `null` |
-| `expected_value`      | any    | Yes      | The expected value at that pointer                                |
+| Parameter             | Type   | Required | Description                                                                                            |
+| --------------------- | ------ | -------- | ------------------------------------------------------------------------------------------------------ |
+| `pointer`             | string | Yes      | [JSON Pointer](https://datatracker.ietf.org/doc/html/rfc6901) into the response body (e.g., `/status`) |
+| `expected_value_type` | string | Yes      | Type of the expected value: `string`, `number`, `boolean`, `null`                                      |
+| `expected_value`      | JSON   | Yes      | The expected value at that pointer                                                                     |
 
 </Details>
 
@@ -243,7 +245,6 @@ device = sy.http.Device(
     health_check=sy.http.HealthCheck(
         method="GET",
         path="/health",
-        validate_response=True,
         response=sy.http.ExpectedResponse(
             pointer="/status",
             expected_value_type="string",

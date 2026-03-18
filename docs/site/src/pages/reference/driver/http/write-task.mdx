@@ -48,15 +48,15 @@ HTTP Write Tasks use **command channels** to send values to HTTP endpoints:
 Each endpoint maps a single Synnax command channel to an HTTP request. When the channel
 receives a value, the driver builds the JSON body and sends the request.
 
-| Parameter      | Type    | Required | Default  | Description                                                                            |
-| -------------- | ------- | -------- | -------- | -------------------------------------------------------------------------------------- |
-| `method`       | string  | No       | `"POST"` | HTTP method (`POST`, `PUT`, `PATCH`, or any method that accepts a body)                |
-| `path`         | string  | Yes      | -        | URL path relative to the device base URL (e.g., `/api/v1/setpoint`)                    |
-| `headers`      | object  | No       | -        | Additional request headers                                                             |
-| `query_params` | object  | No       | -        | Query parameters                                                                       |
-| `enabled`      | boolean | No       | `true`   | Whether this endpoint is active                                                        |
-| `channel`      | object  | Yes      | -        | Command channel field. See [Channel Field](#field-types-reference) below               |
-| `fields`       | array   | No       | `[]`     | Additional static or generated fields. See [Field Types](#field-types-reference) below |
+| Parameter      | Type    | Required | Default  | Description                                                             |
+| -------------- | ------- | -------- | -------- | ----------------------------------------------------------------------- |
+| `method`       | string  | No       | `"POST"` | HTTP method (`POST`, `PUT`, `PATCH`, or any method that accepts a body) |
+| `path`         | string  | Yes      | -        | URL path relative to the device base URL (e.g., `/api/v1/setpoint`)     |
+| `headers`      | object  | No       | -        | Additional request headers                                              |
+| `query_params` | object  | No       | -        | Query parameters                                                        |
+| `enabled`      | boolean | No       | `true`   | Whether this endpoint is active                                         |
+| `channel`      | object  | Yes      | -        | [Command channel field](#field-types-reference) configuration           |
+| `fields`       | array   | No       | `[]`     | Additional [static or generated fields](#field-types-reference)         |
 
 <Divider.Divider x />
 
