@@ -106,14 +106,33 @@ export const WRITE_TYPE = `${PREFIX}_write`;
 
 const jsonTypeZ = z.enum(["number", "string", "boolean"]);
 
-const channelFieldZ = z.object({
-  pointer: json.pointerZ,
-  jsonType: jsonTypeZ,
-  channel: channel.keyZ.default(0),
-  name: z.string().default(""),
-  dataType: DataType.z.default(DataType.FLOAT64),
-  timeFormat: timeFormatZ.optional(),
-});
+const writeEnumEntryZ = z.object({ value: z.number(), label: z.string() });
+
+const channelFieldZ = z
+  .object({
+    pointer: json.pointerZ,
+    jsonType: jsonTypeZ,
+    channel: channel.keyZ.default(0),
+    name: z.string().default(""),
+    dataType: DataType.z.default(DataType.FLOAT64),
+    timeFormat: timeFormatZ.optional(),
+    enumValues: z.array(writeEnumEntryZ).optional(),
+  })
+  .check((ctx) => {
+    const { enumValues } = ctx.value;
+    if (enumValues == null) return;
+    const seen = new Set<number>();
+    enumValues.forEach((entry, i) => {
+      if (seen.has(entry.value))
+        ctx.issues.push({
+          code: "custom",
+          input: ctx.value,
+          message: `Duplicate enum value ${entry.value}`,
+          path: ["enumValues", i, "value"],
+        });
+      else seen.add(entry.value);
+    });
+  });
 
 export interface ChannelField extends z.infer<typeof channelFieldZ> {}
 

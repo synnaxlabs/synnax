@@ -116,6 +116,23 @@ std::pair<WriteTaskConfig, x::errors::Error> WriteTaskConfig::parse(
                 endpoint.channel.time_format = fmt;
         }
 
+        // Parse optional enum values for numeric-to-string mapping.
+        ch_parser.iter("enum_values", [&](x::json::Parser &ev) {
+            auto value = ev.field<x::json::json>("value");
+            auto label = ev.field<std::string>("label");
+            if (!endpoint.channel.enum_values.emplace(value, std::move(label)).second)
+                ev.field_err(
+                    "value",
+                    "duplicate enum value " + value.dump()
+                );
+        });
+        if (!endpoint.channel.enum_values.empty() &&
+            endpoint.channel.json_type != x::json::Type::String)
+            ch_parser.field_err(
+                "enum_values",
+                "enum values are only supported when json_type is 'string'"
+            );
+
         ep.iter("fields", [&](x::json::Parser &fp) {
             const auto type = fp.field<std::string>("type");
             if (type == "static") {
@@ -126,10 +143,7 @@ std::pair<WriteTaskConfig, x::errors::Error> WriteTaskConfig::parse(
                 sf.value = fp.field<x::json::json>("value");
                 const auto sf_ptr_str = sf.pointer.to_string();
                 if (sf.pointer == x::json::json::json_pointer(""))
-                    fp.field_err(
-                        "pointer",
-                        "static field pointer cannot be empty"
-                    );
+                    fp.field_err("pointer", "static field pointer cannot be empty");
                 else if (!all_pointers.insert(sf_ptr_str).second)
                     fp.field_err(
                         "pointer",
@@ -155,10 +169,7 @@ std::pair<WriteTaskConfig, x::errors::Error> WriteTaskConfig::parse(
                 }
                 const auto gf_ptr_str = gf.pointer.to_string();
                 if (gf.pointer == x::json::json::json_pointer(""))
-                    fp.field_err(
-                        "pointer",
-                        "generated field pointer cannot be empty"
-                    );
+                    fp.field_err("pointer", "generated field pointer cannot be empty");
                 else if (!all_pointers.insert(gf_ptr_str).second)
                     fp.field_err(
                         "pointer",
@@ -265,9 +276,12 @@ x::errors::Error WriteTaskSink::write(x::telem::Frame &frame) {
 
         const auto sample_val = series.at(-1);
 
+        const auto *enum_ptr = ep.channel.enum_values.empty() ? nullptr
+                                                              : &ep.channel.enum_values;
         auto [json_val, conv_err] = x::json::from_sample_value(
             sample_val,
-            ep.channel.json_type
+            ep.channel.json_type,
+            enum_ptr
         );
         if (conv_err)
             return {

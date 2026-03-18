@@ -1182,6 +1182,139 @@ TEST(HTTPWriteTask, DeeplyNestedPointer) {
     EXPECT_EQ(body["metadata"]["source"].get<std::string>(), "driver");
 }
 
+/// @brief it should map a numeric channel value to a string label via enum_values.
+TEST(HTTPWriteTask, EnumMappingNumericToString) {
+    mock::Server server(
+        mock::ServerConfig{
+            .routes = {{
+                .method = Method::POST,
+                .path = "/api/control",
+                .status_code = 200,
+                .response_body = R"({"status":"ok"})",
+            }},
+        }
+    );
+    ASSERT_NIL(server.start());
+    x::defer::defer stop_server([&server] { server.stop(); });
+
+    WriteTaskConfig cfg;
+    cfg.device = "test-device";
+    cfg.auto_start = false;
+
+    WriteEndpoint ep;
+    ep.request.method = Method::POST;
+    ep.request.path = "/api/control";
+    ep.request.request_content_type = "application/json";
+    ep.channel.pointer = x::json::json::json_pointer("/state");
+    ep.channel.json_type = x::json::Type::String;
+    ep.channel.channel_key = 1;
+    ep.channel.enum_values = {{1.0, "ON"}, {0.0, "OFF"}};
+
+    cfg.endpoints = {ep};
+    cfg.cmd_keys = {1};
+
+    auto [sink, processor] = make_sink(cfg, server.base_url());
+
+    x::telem::Frame frame;
+    frame.emplace(synnax::channel::Key(1), x::telem::Series(std::vector<double>{1.0}));
+
+    ASSERT_NIL(sink->write(frame));
+
+    auto reqs = server.received_requests();
+    ASSERT_EQ(reqs.size(), 1);
+    auto body = x::json::json::parse(reqs[0].body);
+    EXPECT_EQ(body["state"].get<std::string>(), "ON");
+}
+
+/// @brief when the channel value doesn't match any enum entry, the normal conversion
+/// should be used as a fallback.
+TEST(HTTPWriteTask, EnumMappingUnmatchedFallsThrough) {
+    mock::Server server(
+        mock::ServerConfig{
+            .routes = {{
+                .method = Method::POST,
+                .path = "/api/control",
+                .status_code = 200,
+                .response_body = R"({"status":"ok"})",
+            }},
+        }
+    );
+    ASSERT_NIL(server.start());
+    x::defer::defer stop_server([&server] { server.stop(); });
+
+    WriteTaskConfig cfg;
+    cfg.device = "test-device";
+    cfg.auto_start = false;
+
+    WriteEndpoint ep;
+    ep.request.method = Method::POST;
+    ep.request.path = "/api/control";
+    ep.request.request_content_type = "application/json";
+    ep.channel.pointer = x::json::json::json_pointer("/state");
+    ep.channel.json_type = x::json::Type::String;
+    ep.channel.channel_key = 1;
+    ep.channel.enum_values = {{1.0, "ON"}, {0.0, "OFF"}};
+
+    cfg.endpoints = {ep};
+    cfg.cmd_keys = {1};
+
+    auto [sink, processor] = make_sink(cfg, server.base_url());
+
+    x::telem::Frame frame;
+    frame.emplace(synnax::channel::Key(1), x::telem::Series(std::vector<double>{99.0}));
+
+    ASSERT_NIL(sink->write(frame));
+
+    auto reqs = server.received_requests();
+    ASSERT_EQ(reqs.size(), 1);
+    auto body = x::json::json::parse(reqs[0].body);
+    // Unmatched — falls through to normal string conversion of the double.
+    EXPECT_EQ(body["state"].get<std::string>(), "99");
+}
+
+/// @brief it should fail to parse config when enum_values contains duplicate values.
+TEST(HTTPWriteTask, ParseConfigEnumDuplicateValue) {
+    synnax::task::Task task;
+    task.config = {
+        {"device", "dev-001"},
+        {"endpoints",
+         {{
+             {"method", "POST"},
+             {"path", "/api/data"},
+             {"channel",
+              {{"pointer", "/value"},
+               {"json_type", "string"},
+               {"channel", 1},
+               {"enum_values",
+                {{{"value", 1}, {"label", "ON"}}, {{"value", 1}, {"label", "YES"}}}}}},
+         }}},
+    };
+    auto ctx = std::make_shared<task::MockContext>(nullptr);
+    ASSERT_OCCURRED_AS_P(WriteTaskConfig::parse(ctx, task), x::errors::VALIDATION);
+}
+
+/// @brief it should fail to parse config when enum_values is set with a non-string
+/// json_type.
+TEST(HTTPWriteTask, ParseConfigEnumWithNonStringType) {
+    synnax::task::Task task;
+    task.config = {
+        {"device", "dev-001"},
+        {"endpoints",
+         {{
+             {"method", "POST"},
+             {"path", "/api/data"},
+             {"channel",
+              {{"pointer", "/value"},
+               {"json_type", "number"},
+               {"channel", 1},
+               {"enum_values",
+                {{{"value", 1}, {"label", "ON"}}, {{"value", 0}, {"label", "OFF"}}}}}},
+         }}},
+    };
+    auto ctx = std::make_shared<task::MockContext>(nullptr);
+    ASSERT_OCCURRED_AS_P(WriteTaskConfig::parse(ctx, task), x::errors::VALIDATION);
+}
+
 /// @brief it should skip disabled endpoints and only send to enabled ones.
 TEST(HTTPWriteTask, DisabledEndpointSkipped) {
     mock::Server server(
