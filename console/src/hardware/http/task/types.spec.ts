@@ -503,6 +503,48 @@ describe("HTTP Task Types", () => {
         { parameter: "key", value: "abc" },
       ]);
     });
+
+    it("should reject duplicate header names on a write endpoint", () => {
+      const config = {
+        device: "dev-001",
+        endpoints: [
+          {
+            key: "ep1",
+            method: "POST",
+            path: "/api",
+            headers: [
+              { name: "X-Key", value: "a" },
+              { name: "X-Key", value: "b" },
+            ],
+            channel: { pointer: "/val", jsonType: "number", channel: 1 },
+            fields: [],
+          },
+        ],
+      };
+      const result = WRITE_SCHEMAS.config.safeParse(config);
+      expect(result.success).toBe(false);
+    });
+
+    it("should reject duplicate query parameter names on a write endpoint", () => {
+      const config = {
+        device: "dev-001",
+        endpoints: [
+          {
+            key: "ep1",
+            method: "POST",
+            path: "/api",
+            queryParams: [
+              { parameter: "key", value: "a" },
+              { parameter: "key", value: "b" },
+            ],
+            channel: { pointer: "/val", jsonType: "number", channel: 1 },
+            fields: [],
+          },
+        ],
+      };
+      const result = WRITE_SCHEMAS.config.safeParse(config);
+      expect(result.success).toBe(false);
+    });
   });
 
   describe("write channel field", () => {

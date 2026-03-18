@@ -97,6 +97,17 @@ std::pair<WriteTaskConfig, x::errors::Error> WriteTaskConfig::parse(
                     !endpoint.request.headers.emplace(name, val).second)
                     h.field_err("name", "duplicate header '" + name + "'");
             });
+        if (ep.has("query_params"))
+            ep.iter("query_params", [&](x::json::Parser &qp) {
+                auto param = qp.field<std::string>("parameter");
+                auto val = qp.field<std::string>("value");
+                if (!param.empty() &&
+                    !endpoint.request.query_params.emplace(param, val).second)
+                    qp.field_err(
+                        "parameter",
+                        "duplicate query parameter '" + param + "'"
+                    );
+            });
 
         all_pointers.clear();
 

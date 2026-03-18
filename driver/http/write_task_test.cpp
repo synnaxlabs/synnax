@@ -248,6 +248,70 @@ TEST(HTTPWriteTask, ParseConfigHeaderMissingValueErrors) {
     EXPECT_NE(err3.data.find("value"), std::string::npos);
 }
 
+/// @brief it should fail when a query_params entry is missing the parameter field.
+TEST(HTTPWriteTask, ParseConfigQueryParamMissingParameterErrors) {
+    synnax::task::Task task;
+    task.config = {
+        {"device", "dev-001"},
+        {"endpoints",
+         {{
+             {"method", "POST"},
+             {"path", "/api/data"},
+             {"channel",
+              {{"pointer", "/value"}, {"json_type", "number"}, {"channel", 1}}},
+             {"query_params", {{{"value", "10"}}}},
+         }}},
+    };
+    auto ctx = std::make_shared<task::MockContext>(nullptr);
+    auto [_4, err4] = WriteTaskConfig::parse(ctx, task);
+    ASSERT_TRUE(err4.matches(x::errors::VALIDATION));
+    EXPECT_NE(err4.data.find("parameter"), std::string::npos);
+}
+
+/// @brief it should fail when a query_params entry is missing the value field.
+TEST(HTTPWriteTask, ParseConfigQueryParamMissingValueErrors) {
+    synnax::task::Task task;
+    task.config = {
+        {"device", "dev-001"},
+        {"endpoints",
+         {{
+             {"method", "POST"},
+             {"path", "/api/data"},
+             {"channel",
+              {{"pointer", "/value"}, {"json_type", "number"}, {"channel", 1}}},
+             {"query_params", {{{"parameter", "limit"}}}},
+         }}},
+    };
+    auto ctx = std::make_shared<task::MockContext>(nullptr);
+    auto [_5, err5] = WriteTaskConfig::parse(ctx, task);
+    ASSERT_TRUE(err5.matches(x::errors::VALIDATION));
+    EXPECT_NE(err5.data.find("value"), std::string::npos);
+}
+
+/// @brief it should fail when duplicate query parameter names exist.
+TEST(HTTPWriteTask, ParseConfigDuplicateQueryParamErrors) {
+    synnax::task::Task task;
+    task.config = {
+        {"device", "dev-001"},
+        {"endpoints",
+         {{
+             {"method", "POST"},
+             {"path", "/api/data"},
+             {"channel",
+              {{"pointer", "/value"}, {"json_type", "number"}, {"channel", 1}}},
+             {"query_params",
+              {
+                  {{"parameter", "key"}, {"value", "a"}},
+                  {{"parameter", "key"}, {"value", "b"}},
+              }},
+         }}},
+    };
+    auto ctx = std::make_shared<task::MockContext>(nullptr);
+    auto [_6, err6] = WriteTaskConfig::parse(ctx, task);
+    ASSERT_TRUE(err6.matches(x::errors::VALIDATION));
+    EXPECT_NE(err6.data.find("duplicate query parameter"), std::string::npos);
+}
+
 /// @brief it should POST a numeric channel value to the server.
 TEST(HTTPWriteTask, POSTNumericValue) {
     mock::Server server(
@@ -1487,5 +1551,53 @@ TEST(HTTPWriteTask, EndpointHeaders) {
     auto hdr = reqs[0].headers.find("X-Custom");
     ASSERT_NE(hdr, reqs[0].headers.end());
     EXPECT_EQ(hdr->second, "test-val");
+}
+
+/// @brief it should include per-endpoint query parameters in the HTTP request URL.
+TEST(HTTPWriteTask, EndpointQueryParams) {
+    mock::Server server(
+        mock::ServerConfig{
+            .routes = {{
+                .method = Method::POST,
+                .path = "/api/control",
+                .status_code = 200,
+                .response_body = R"({"status":"ok"})",
+            }},
+        }
+    );
+    ASSERT_NIL(server.start());
+    x::defer::defer stop_server([&server] { server.stop(); });
+
+    WriteTaskConfig cfg;
+    cfg.device = "test-device";
+    cfg.auto_start = false;
+
+    WriteEndpoint ep;
+    ep.request.method = Method::POST;
+    ep.request.path = "/api/control";
+    ep.request.request_content_type = "application/json";
+    ep.request.query_params = {{"key", "abc"}, {"verbose", "true"}};
+    ep.channel.pointer = x::json::json::json_pointer("/value");
+    ep.channel.json_type = x::json::Type::Number;
+    ep.channel.channel_key = 1;
+
+    cfg.endpoints = {ep};
+    cfg.cmd_keys = {1};
+
+    auto [sink, processor] = make_sink(cfg, server.base_url());
+
+    x::telem::Frame frame;
+    frame.emplace(synnax::channel::Key(1), x::telem::Series(std::vector<double>{42.5}));
+
+    ASSERT_NIL(sink->write(frame));
+
+    auto reqs = server.received_requests();
+    ASSERT_EQ(reqs.size(), 1);
+    auto key_param = reqs[0].query_params.find("key");
+    ASSERT_NE(key_param, reqs[0].query_params.end());
+    EXPECT_EQ(key_param->second, "abc");
+    auto verbose_param = reqs[0].query_params.find("verbose");
+    ASSERT_NE(verbose_param, reqs[0].query_params.end());
+    EXPECT_EQ(verbose_param->second, "true");
 }
 }

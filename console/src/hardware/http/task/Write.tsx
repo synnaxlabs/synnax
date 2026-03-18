@@ -453,6 +453,15 @@ const EndpointDetails: FC<{ epKey: string }> = ({ epKey }) => {
           keyPlaceholder="Name"
           valuePlaceholder="Value"
         />
+        <Divider.Divider x />
+        <KeyValueEditor
+          path={`${path}.queryParams`}
+          label="Query parameters"
+          keyField="parameter"
+          className={CSS.B("query-params-kv-editor")}
+          keyPlaceholder="Parameter"
+          valuePlaceholder="Value"
+        />
       </Flex.Box>
       <Divider.Divider x />
       <ChannelFieldSection epPath={path} />
