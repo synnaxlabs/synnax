@@ -108,7 +108,11 @@ func FindConfigDir(file, configFile string) string {
 		if _, err := os.Stat(filepath.Join(dir, configFile)); err == nil {
 			return dir
 		}
-		dir = filepath.Dir(dir)
+		parent := filepath.Dir(dir)
+		if parent == dir {
+			break
+		}
+		dir = parent
 	}
 	return ""
 }
