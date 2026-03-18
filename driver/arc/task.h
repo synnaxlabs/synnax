@@ -163,10 +163,11 @@ public:
                 return {digests, x::errors::NIL};
             },
             .loop = cfg.loop,
+            .factories =
+                {
+                    std::make_shared<::driver::arc::status::Factory>(ctx->client),
+                },
             .rt_handle = rt_handle,
-            .factories = {
-                std::make_shared<::driver::arc::status::Factory>(ctx->client),
-            },
         };
 
         auto [rt, err] = ::arc::runtime::load(

@@ -60,6 +60,7 @@ public:
 
     [[nodiscard]] x::errors::Error
     set_authority(const pipeline::Authorities &authorities) override {
+        if (auto err = authorities.validate()) return err;
         auto keys = authorities.keys;
         if (keys.empty()) keys = this->channels;
         for (size_t i = 0; i < keys.size(); i++) {

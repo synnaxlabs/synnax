@@ -969,4 +969,40 @@ TEST(AcquisitionPipeline, testAuthorityBufferGlobalClearsChannels) {
     ASSERT_EQ(change.authorities.size(), 1);
     EXPECT_EQ(change.authorities[0], 75);
 }
+
+/// @brief validate should return nil for empty authorities.
+TEST(AuthoritiesValidation, EmptyAuthorities) {
+    Authorities auth;
+    ASSERT_NIL(auth.validate());
+}
+
+/// @brief validate should return nil for a single authority (broadcast).
+TEST(AuthoritiesValidation, SingleAuthorityBroadcast) {
+    Authorities auth{.keys = {1, 2, 3}, .authorities = {200}};
+    ASSERT_NIL(auth.validate());
+}
+
+/// @brief validate should return nil when keys and authorities have matching sizes.
+TEST(AuthoritiesValidation, MatchingSizes) {
+    Authorities auth{.keys = {1, 2, 3}, .authorities = {100, 200, 255}};
+    ASSERT_NIL(auth.validate());
+}
+
+/// @brief validate should return nil for a single authority with no keys.
+TEST(AuthoritiesValidation, SingleAuthorityNoKeys) {
+    Authorities auth{.authorities = {200}};
+    ASSERT_NIL(auth.validate());
+}
+
+/// @brief validate should return a validation error when sizes mismatch.
+TEST(AuthoritiesValidation, MismatchedSizes) {
+    Authorities auth{.keys = {1, 2, 3}, .authorities = {100, 200}};
+    ASSERT_OCCURRED_AS(auth.validate(), x::errors::VALIDATION);
+}
+
+/// @brief validate should return a validation error for many authorities with no keys.
+TEST(AuthoritiesValidation, MultipleAuthoritiesNoKeys) {
+    Authorities auth{.authorities = {100, 200}};
+    ASSERT_NIL(auth.validate());
+}
 }

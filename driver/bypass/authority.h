@@ -209,6 +209,16 @@ private:
                         std::move(s)
                     );
                 }
+                if (!this->breaker.running()) {
+                    std::lock_guard lock(this->streamer_mu);
+                    if (this->streamer) {
+                        auto close_err = this->streamer->close();
+                        if (close_err)
+                            LOG(WARNING) << "[authority_mirror] close error: "
+                                         << close_err.message();
+                    }
+                    break;
+                }
                 LOG(INFO) << "[authority_mirror] reconnected";
                 continue;
             }

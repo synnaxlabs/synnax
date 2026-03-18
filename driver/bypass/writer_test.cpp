@@ -300,4 +300,38 @@ TEST(WriterTest, WriteFilterEndToEnd) {
     ASSERT_TRUE(sub->try_pop(received));
     ASSERT_EQ(received.size(), 1);
 }
+
+/// @brief set_authority should return a validation error when the authorities
+/// size does not match the keys size and is not 1.
+TEST(WriterTest, SetAuthorityRejectsMismatchedSizes) {
+    Bus bus;
+    AuthorityMirror mirror;
+    auto mock_factory = std::make_shared<pipeline::mock::WriterFactory>();
+    WriterFactory factory(mock_factory, bus, 0, mirror);
+    auto writer = ASSERT_NIL_P(factory.open_writer({.channels = {1, 2, 3}}));
+    ASSERT_OCCURRED_AS(
+        writer->set_authority({.keys = {1, 2, 3}, .authorities = {100, 200}}),
+        x::errors::VALIDATION
+    );
+}
+
+/// @brief set_authority should accept a single authority broadcast to all keys.
+TEST(WriterTest, SetAuthoritySingleAuthorityBroadcast) {
+    Bus bus;
+    AuthorityMirror mirror;
+    auto mock_factory = std::make_shared<pipeline::mock::WriterFactory>();
+    WriterFactory factory(mock_factory, bus, 0, mirror);
+    auto writer = ASSERT_NIL_P(factory.open_writer({.channels = {1, 2, 3}}));
+    ASSERT_NIL(writer->set_authority({.keys = {1, 2, 3}, .authorities = {200}}));
+}
+
+/// @brief set_authority should accept per-key authorities with matching sizes.
+TEST(WriterTest, SetAuthorityMatchingSizes) {
+    Bus bus;
+    AuthorityMirror mirror;
+    auto mock_factory = std::make_shared<pipeline::mock::WriterFactory>();
+    WriterFactory factory(mock_factory, bus, 0, mirror);
+    auto writer = ASSERT_NIL_P(factory.open_writer({.channels = {1, 2}}));
+    ASSERT_NIL(writer->set_authority({.keys = {1, 2}, .authorities = {100, 200}}));
+}
 }

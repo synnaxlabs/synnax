@@ -82,9 +82,7 @@ class TestStreamer:
     def test_exclude_groups(self, virtual_channel: sy.Channel, client: sy.Synnax):
         """Should filter out frames from a writer whose group matches exclude_groups"""
         group_id = 42
-        with client.open_streamer(
-            virtual_channel.key, exclude_groups=[group_id]
-        ) as s:
+        with client.open_streamer(virtual_channel.key, exclude_groups=[group_id]) as s:
             with client.open_writer(
                 sy.TimeStamp.now(),
                 virtual_channel.key,
@@ -100,9 +98,7 @@ class TestStreamer:
     ):
         """Should deliver frames from a writer whose group does not match
         exclude_groups"""
-        with client.open_streamer(
-            virtual_channel.key, exclude_groups=[99]
-        ) as s:
+        with client.open_streamer(virtual_channel.key, exclude_groups=[99]) as s:
             with client.open_writer(
                 sy.TimeStamp.now(),
                 virtual_channel.key,
@@ -119,9 +115,7 @@ class TestStreamer:
     ):
         """Should deliver frames from a writer with group=0 even if 0 is in
         exclude_groups"""
-        with client.open_streamer(
-            virtual_channel.key, exclude_groups=[0]
-        ) as s:
+        with client.open_streamer(virtual_channel.key, exclude_groups=[0]) as s:
             with client.open_writer(
                 sy.TimeStamp.now(),
                 virtual_channel.key,

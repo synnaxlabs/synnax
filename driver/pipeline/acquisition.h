@@ -20,10 +20,27 @@ struct Authorities {
     /// @brief the channel keys to set authority for. If empty, the authority
     /// applies to all channels on the writer.
     std::vector<synnax::channel::Key> keys;
-    /// @brief the authority levels corresponding to each key.
+    /// @brief the authority levels corresponding to each key. Must contain
+    /// exactly 1 element (broadcast to all keys) or the same number of elements
+    /// as keys.
     std::vector<x::control::Authority> authorities;
 
     [[nodiscard]] bool empty() const { return authorities.empty(); }
+
+    /// @brief returns a validation error if the authorities size is neither 1
+    /// nor equal to the keys size.
+    [[nodiscard]] x::errors::Error validate() const {
+        if (this->authorities.empty()) return x::errors::NIL;
+        if (this->authorities.size() == 1) return x::errors::NIL;
+        if (!this->keys.empty() && this->authorities.size() != this->keys.size())
+            return x::errors::Error(
+                x::errors::VALIDATION,
+                "authorities size (" + std::to_string(this->authorities.size()) +
+                    ") must be 1 or match keys size (" +
+                    std::to_string(this->keys.size()) + ")"
+            );
+        return x::errors::NIL;
+    }
 };
 
 /// @brief an object that reads data from an acquisition computer or another source,

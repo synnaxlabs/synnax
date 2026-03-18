@@ -28,6 +28,7 @@ x::errors::Error SynnaxWriter::write(const x::telem::Frame &fr) {
 }
 
 x::errors::Error SynnaxWriter::set_authority(const Authorities &authorities) {
+    if (auto err = authorities.validate()) return err;
     return this->internal
         .set_authority(authorities.keys, authorities.authorities, false);
 }
@@ -183,6 +184,10 @@ void Acquisition::run() {
         // Apply authority changes before writing the frame so the frame
         // is sent at the correct authority level.
         if (!authorities.empty()) {
+            if (auto err = authorities.validate()) {
+                LOG(ERROR) << "[acquisition] invalid authorities: " << err.message();
+                break;
+            }
             if (writer_opened) {
                 if (auto err = writer->set_authority(authorities)) {
                     LOG(ERROR)
