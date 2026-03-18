@@ -82,6 +82,7 @@ const Loaded: Layout.Renderer = ({ layoutKey, visible }) => {
       telem={t}
       channels={activeChannels}
       showChannelNames={log.showChannelNames}
+      showReceiptTimestamp={log.showReceiptTimestamp}
       timestampPrecision={log.timestampPrecision}
       onDoubleClick={handleDoubleClick}
       emptyContent={

@@ -31,6 +31,7 @@ export const stateZ = z.object({
   timestampPrecision: z.number().min(0).max(3).default(0),
   channelConfigs: z.record(z.string(), channelConfigZ).default({}),
   showChannelNames: z.boolean().default(true),
+  showReceiptTimestamp: z.boolean().default(true),
 });
 
 export type State = z.infer<typeof stateZ>;
@@ -43,6 +44,7 @@ export const ZERO_STATE: State = {
   timestampPrecision: 0,
   channelConfigs: {},
   showChannelNames: true,
+  showReceiptTimestamp: true,
 };
 
 export const sliceStateZ = z.object({

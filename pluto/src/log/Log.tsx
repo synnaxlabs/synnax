@@ -64,6 +64,7 @@ export const Log = ({
   className,
   visible = true,
   showChannelNames = true,
+  showReceiptTimestamp = true,
   timestampPrecision = 0,
   channels = [],
   emptyContent = (
@@ -98,6 +99,7 @@ export const Log = ({
     telem,
     visible,
     showChannelNames,
+    showReceiptTimestamp,
     timestampPrecision,
     channelNames,
     channels,

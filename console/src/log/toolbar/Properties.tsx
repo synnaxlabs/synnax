@@ -13,7 +13,11 @@ import { type ReactElement, useCallback } from "react";
 
 import { useSyncComponent } from "@/log/Log";
 import { useSelectOptional } from "@/log/selectors";
-import { setShowChannelNames, setTimestampPrecision } from "@/log/slice";
+import {
+  setShowChannelNames,
+  setShowReceiptTimestamp,
+  setTimestampPrecision,
+} from "@/log/slice";
 
 export interface PropertiesProps {
   layoutKey: string;
@@ -36,9 +40,22 @@ export const Properties = ({ layoutKey }: PropertiesProps): ReactElement | null 
     [dispatch, layoutKey],
   );
 
+  const handleShowReceiptTimestampChange = useCallback(
+    (v: boolean) =>
+      dispatch(setShowReceiptTimestamp({ key: layoutKey, showReceiptTimestamp: v })),
+    [dispatch, layoutKey],
+  );
+
   if (state == null) return null;
   return (
-    <Flex.Box x style={{ padding: "2rem" }}>
+    <Flex.Box x className="console-log__toolbar-properties">
+      <Input.Item label="Show Receipt Timestamp">
+        <Input.Switch
+          value={state.showReceiptTimestamp}
+          onChange={handleShowReceiptTimestampChange}
+          disabled={!hasEditPermission}
+        />
+      </Input.Item>
       <Input.Item label="Receipt Timestamp Precision">
         <Input.Numeric
           value={state.timestampPrecision}

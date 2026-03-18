@@ -36,6 +36,7 @@ export const logState = z.object({
   empty: z.boolean(),
   visible: z.boolean(),
   showChannelNames: z.boolean().default(true),
+  showReceiptTimestamp: z.boolean().default(true),
   timestampPrecision: z.number().min(0).max(3).default(0),
   channelNames: z.record(z.string(), z.string()).default({}),
   channels: z.array(channelEntryZ).default([]),
@@ -387,12 +388,14 @@ export class Log extends aether.Leaf<typeof logState, InternalState> {
     line: string;
     channelKey: string;
   } {
-    const { showChannelNames } = this.state;
+    const { showChannelNames, showReceiptTimestamp } = this.state;
     const { tsLen, configs } = this.internal;
     const cfg = configs[String(entry.channelKey)];
-    const ts = new TimeStamp(entry.timestamp)
-      .toString("preciseTime", "local")
-      .slice(0, tsLen);
+    const ts = showReceiptTimestamp
+      ? new TimeStamp(entry.timestamp)
+          .toString("preciseTime", "local")
+          .slice(0, tsLen)
+      : "";
     let value = entry.value;
     if (cfg != null && (cfg.precision >= 0 || cfg.notation !== "standard")) {
       const num = parseFloat(value);
@@ -401,9 +404,13 @@ export class Log extends aether.Leaf<typeof logState, InternalState> {
         value = notation.stringifyNumber(num, precision, cfg.notation);
       }
     }
-    const prefix = showChannelNames
-      ? `${ts} [${entry.channelName}]${entry.channelPadding}  `
-      : `${ts}  `;
+    let prefix: string;
+    if (showReceiptTimestamp && showChannelNames)
+      prefix = `${ts} [${entry.channelName}]${entry.channelPadding}  `;
+    else if (showReceiptTimestamp) prefix = `${ts}  `;
+    else if (showChannelNames)
+      prefix = `[${entry.channelName}]${entry.channelPadding}  `;
+    else prefix = "";
     return {
       prefix,
       value,

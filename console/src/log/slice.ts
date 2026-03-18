@@ -50,6 +50,11 @@ export interface SetShowChannelNamesPayload {
   showChannelNames: boolean;
 }
 
+export interface SetShowReceiptTimestampPayload {
+  key: string;
+  showReceiptTimestamp: boolean;
+}
+
 export interface AddChannelPayload {
   key: string;
   channelKey: channel.Key;
@@ -95,6 +100,12 @@ export const { actions, reducer } = createSlice({
     ) => {
       state.logs[payload.key].showChannelNames = payload.showChannelNames;
     },
+    setShowReceiptTimestamp: (
+      state,
+      { payload }: PayloadAction<SetShowReceiptTimestampPayload>,
+    ) => {
+      state.logs[payload.key].showReceiptTimestamp = payload.showReceiptTimestamp;
+    },
     addChannel: (state, { payload }: PayloadAction<AddChannelPayload>) => {
       state.logs[payload.key].channels.push({
         ...ZERO_CHANNEL_CONFIG,
@@ -128,6 +139,7 @@ export const {
   setTimestampPrecision,
   setChannelConfig,
   setShowChannelNames,
+  setShowReceiptTimestamp,
   addChannel,
   removeChannelByIndex,
   setChannelAtIndex,

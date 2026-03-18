@@ -11,6 +11,10 @@
 
 .console-log-toolbar {
     height: 100%;
+    .console-log__toolbar-properties {
+        padding: 2rem;
+        gap: 5rem;
+    }
     .console-log__toolbar-channels {
         padding-top: 2rem;
         padding-bottom: 2rem;

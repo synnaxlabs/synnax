@@ -101,6 +101,7 @@ const LOG_STATE: State = {
   remoteCreated: false,
   timestampPrecision: 0,
   showChannelNames: true,
+  showReceiptTimestamp: true,
 };
 
 const preloadState = (logState: State) => ({
@@ -153,7 +154,18 @@ describe("log/toolbar/Properties", () => {
     renderWithConsole(<Properties layoutKey="test-key" />, {
       preloadedState: preloadState({ ...LOG_STATE, showChannelNames: false }),
     });
-    expect(screen.getByTestId("input-switch").getAttribute("data-checked")).toBe(
+    const label = screen.getByTestId("input-item-show-channel-names");
+    expect(label.querySelector("[data-testid='input-switch']")?.getAttribute("data-checked")).toBe(
+      "false",
+    );
+  });
+
+  it("renders the current showReceiptTimestamp value", () => {
+    renderWithConsole(<Properties layoutKey="test-key" />, {
+      preloadedState: preloadState({ ...LOG_STATE, showReceiptTimestamp: false }),
+    });
+    const label = screen.getByTestId("input-item-show-receipt-timestamp");
+    expect(label.querySelector("[data-testid='input-switch']")?.getAttribute("data-checked")).toBe(
       "false",
     );
   });
@@ -162,11 +174,26 @@ describe("log/toolbar/Properties", () => {
     renderWithConsole(<Properties layoutKey="test-key" />, {
       preloadedState: preloadState(LOG_STATE),
     });
-    fireEvent.click(screen.getByTestId("input-switch"));
+    const label = screen.getByTestId("input-item-show-channel-names");
+    fireEvent.click(label.querySelector("[data-testid='input-switch']")!);
     expect(mockDispatch).toHaveBeenCalledWith(
       expect.objectContaining({
         type: "log/setShowChannelNames",
         payload: { key: "test-key", showChannelNames: false },
+      }),
+    );
+  });
+
+  it("dispatches setShowReceiptTimestamp when toggle is clicked", () => {
+    renderWithConsole(<Properties layoutKey="test-key" />, {
+      preloadedState: preloadState(LOG_STATE),
+    });
+    const label = screen.getByTestId("input-item-show-receipt-timestamp");
+    fireEvent.click(label.querySelector("[data-testid='input-switch']")!);
+    expect(mockDispatch).toHaveBeenCalledWith(
+      expect.objectContaining({
+        type: "log/setShowReceiptTimestamp",
+        payload: { key: "test-key", showReceiptTimestamp: false },
       }),
     );
   });
@@ -179,8 +206,8 @@ describe("log/toolbar/Properties", () => {
     expect(screen.getByTestId("input-numeric").getAttribute("data-disabled")).toBe(
       "true",
     );
-    expect(screen.getByTestId("input-switch").getAttribute("data-disabled")).toBe(
-      "true",
-    );
+    const switches = screen.getAllByTestId("input-switch");
+    for (const sw of switches)
+      expect(sw.getAttribute("data-disabled")).toBe("true");
   });
 });

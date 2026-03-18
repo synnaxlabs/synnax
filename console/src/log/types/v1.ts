@@ -40,6 +40,7 @@ export const ZERO_STATE: State = {
   remoteCreated: false,
   timestampPrecision: 0,
   showChannelNames: true,
+  showReceiptTimestamp: true,
 };
 
 export const sliceStateZ = v0.sliceStateZ.omit({ logs: true, version: true }).extend({
@@ -65,6 +66,7 @@ export const stateMigration = migrate.createMigration<v0.State, State>({
       remoteCreated: state.remoteCreated,
       timestampPrecision: state.timestampPrecision,
       showChannelNames: state.showChannelNames,
+      showReceiptTimestamp: state.showReceiptTimestamp,
       channels,
     };
   },
