@@ -130,7 +130,7 @@ export type GeneratorType = z.infer<typeof generatorTypeZ>;
 
 const staticFieldZ = z.object({
   key: z.string(),
-  pointer: json.pointerZ,
+  pointer: json.pointerZ.min(1, "Pointer cannot be empty"),
   jsonType: jsonTypeZ,
   type: z.literal("static"),
   value: json.primitiveZ,
@@ -138,7 +138,7 @@ const staticFieldZ = z.object({
 
 const generatedFieldZ = z.object({
   key: z.string(),
-  pointer: json.pointerZ,
+  pointer: json.pointerZ.min(1, "Pointer cannot be empty"),
   type: z.literal("generated"),
   generator: generatorTypeZ,
   timeFormat: timeFormatZ.optional(),
@@ -151,16 +151,51 @@ export type WriteField = z.infer<typeof writeFieldZ>;
 const writeMethodZ = z.enum(["POST", "PUT", "PATCH"]);
 export type WriteMethod = z.infer<typeof writeMethodZ>;
 
-const writeEndpointZ = z.object({
-  enabled: z.boolean().default(true),
-  key: z.string(),
-  path: z.string(),
-  method: writeMethodZ,
-  headers: z.record(z.string(), z.string()).optional(),
-  queryParams: z.record(z.string(), z.string()).optional(),
-  channel: channelFieldZ,
-  fields: z.array(writeFieldZ),
-});
+const writeEndpointZ = z
+  .object({
+    enabled: z.boolean().default(true),
+    key: z.string(),
+    path: z.string(),
+    method: writeMethodZ,
+    headers: z.record(z.string(), z.string()).optional(),
+    queryParams: z.record(z.string(), z.string()).optional(),
+    channel: channelFieldZ,
+    fields: z.array(writeFieldZ),
+  })
+  .check((ctx) => {
+    const { value } = ctx;
+    const { channel, fields } = value;
+    const isBarePrimitive = channel.pointer === "";
+    if (isBarePrimitive && fields.length > 0)
+      ctx.issues.push({
+        code: "custom",
+        input: value,
+        message:
+          "An empty channel pointer sends the raw value as the body, so additional fields are not allowed",
+        path: ["channel", "pointer"],
+      });
+    const pointers = new Set<string>();
+    pointers.add(channel.pointer);
+    for (const [i, field] of fields.entries()) {
+      if (field.pointer === "") {
+        ctx.issues.push({
+          code: "custom",
+          input: value,
+          message: "Additional field pointer cannot be empty",
+          path: ["fields", i, "pointer"],
+        });
+        continue;
+      }
+      if (pointers.has(field.pointer))
+        ctx.issues.push({
+          code: "custom",
+          input: value,
+          message: `Pointer "${field.pointer}" is already used by another field`,
+          path: ["fields", i, "pointer"],
+        });
+      else pointers.add(field.pointer);
+    }
+  });
 
 export type WriteEndpoint = z.infer<typeof writeEndpointZ>;
 

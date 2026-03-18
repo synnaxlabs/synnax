@@ -125,7 +125,12 @@ std::pair<WriteTaskConfig, x::errors::Error> WriteTaskConfig::parse(
                 );
                 sf.value = fp.field<x::json::json>("value");
                 const auto sf_ptr_str = sf.pointer.to_string();
-                if (!all_pointers.insert(sf_ptr_str).second)
+                if (sf.pointer == x::json::json::json_pointer(""))
+                    fp.field_err(
+                        "pointer",
+                        "static field pointer cannot be empty"
+                    );
+                else if (!all_pointers.insert(sf_ptr_str).second)
                     fp.field_err(
                         "pointer",
                         "pointer '" + sf_ptr_str + "' is already used"
@@ -149,7 +154,12 @@ std::pair<WriteTaskConfig, x::errors::Error> WriteTaskConfig::parse(
                         gf.time_format = gf_fmt;
                 }
                 const auto gf_ptr_str = gf.pointer.to_string();
-                if (!all_pointers.insert(gf_ptr_str).second)
+                if (gf.pointer == x::json::json::json_pointer(""))
+                    fp.field_err(
+                        "pointer",
+                        "generated field pointer cannot be empty"
+                    );
+                else if (!all_pointers.insert(gf_ptr_str).second)
                     fp.field_err(
                         "pointer",
                         "pointer '" + gf_ptr_str + "' is already used"

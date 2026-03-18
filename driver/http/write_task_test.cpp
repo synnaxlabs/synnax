@@ -137,6 +137,53 @@ TEST(HTTPWriteTask, ParseConfigBarePrimitiveWithAdditionalFields) {
     ASSERT_OCCURRED_AS_P(WriteTaskConfig::parse(ctx, task), x::errors::VALIDATION);
 }
 
+/// @brief it should fail when a static field has an empty pointer.
+TEST(HTTPWriteTask, ParseConfigStaticFieldEmptyPointer) {
+    synnax::task::Task task;
+    task.config = {
+        {"device", "dev-001"},
+        {"endpoints",
+         {{
+             {"method", "POST"},
+             {"path", "/api/data"},
+             {"channel",
+              {{"pointer", "/value"}, {"json_type", "number"}, {"channel", 1}}},
+             {"fields",
+              {{
+                  {"type", "static"},
+                  {"pointer", ""},
+                  {"json_type", "number"},
+                  {"value", 42},
+              }}},
+         }}},
+    };
+    auto ctx = std::make_shared<task::MockContext>(nullptr);
+    ASSERT_OCCURRED_AS_P(WriteTaskConfig::parse(ctx, task), x::errors::VALIDATION);
+}
+
+/// @brief it should fail when a generated field has an empty pointer.
+TEST(HTTPWriteTask, ParseConfigGeneratedFieldEmptyPointer) {
+    synnax::task::Task task;
+    task.config = {
+        {"device", "dev-001"},
+        {"endpoints",
+         {{
+             {"method", "POST"},
+             {"path", "/api/data"},
+             {"channel",
+              {{"pointer", "/value"}, {"json_type", "number"}, {"channel", 1}}},
+             {"fields",
+              {{
+                  {"type", "generated"},
+                  {"pointer", ""},
+                  {"generator", "uuid"},
+              }}},
+         }}},
+    };
+    auto ctx = std::make_shared<task::MockContext>(nullptr);
+    ASSERT_OCCURRED_AS_P(WriteTaskConfig::parse(ctx, task), x::errors::VALIDATION);
+}
+
 /// @brief it should POST a numeric channel value to the server.
 TEST(HTTPWriteTask, POSTNumericValue) {
     mock::Server server(
