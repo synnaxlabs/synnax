@@ -47,7 +47,7 @@ sequence main {
 """
 
 
-class ArcAuthorityArcVsArc(ArcConsoleCase):
+class AuthorityArcVsArc(ArcConsoleCase):
     """Test that a higher-authority Arc program wins over a lower one,
     and the lower program resumes when the higher one stops writing."""
 

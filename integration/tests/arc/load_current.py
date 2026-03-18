@@ -30,7 +30,7 @@ WAIT_DURATION = 2.0
 TIMING_TOLERANCE = 1.5
 
 
-class ArcLoadCurrent(ArcConsoleCase):
+class LoadCurrent(ArcConsoleCase):
     """Test condition-gated wait timer with stage transition.
 
     Verifies:

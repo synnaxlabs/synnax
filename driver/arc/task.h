@@ -24,6 +24,7 @@
 #include "arc/cpp/runtime/runtime.h"
 #include "arc/cpp/runtime/state/state.h"
 #include "driver/arc/arc.h"
+#include "driver/arc/status/status.h"
 #include "driver/bypass/factory.h"
 #include "driver/common/common.h"
 #include "driver/common/status.h"
@@ -163,6 +164,9 @@ public:
             },
             .loop = cfg.loop,
             .rt_handle = rt_handle,
+            .factories = {
+                std::make_shared<::driver::arc::status::Factory>(ctx->client),
+            },
         };
 
         auto [rt, err] = ::arc::runtime::load(

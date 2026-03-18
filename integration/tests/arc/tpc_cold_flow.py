@@ -178,7 +178,7 @@ PHASE_NAMES = {
 }
 
 
-class ArcTPCColdFlow(ArcConsoleCase):
+class TPCColdFlow(ArcConsoleCase):
     """Test Arc TPC cold flow sequence with dataflow-based valve control.
 
     This test simulates a multi-phase rocket engine cold flow test using

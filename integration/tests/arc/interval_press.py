@@ -29,7 +29,7 @@ interval{period=50ms} -> open_press{}
 """
 
 
-class ArcIntervalPress(ArcConsoleCase):
+class IntervalPress(ArcConsoleCase):
     """Test Arc interval-triggered pressure control with hysteresis.
 
     This test demonstrates:
