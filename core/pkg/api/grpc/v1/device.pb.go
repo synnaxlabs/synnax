@@ -44,6 +44,7 @@ type Device struct {
 	Properties    *structpb.Struct       `protobuf:"bytes,8,opt,name=properties,proto3" json:"properties,omitempty"`
 	Configured    bool                   `protobuf:"varint,9,opt,name=configured,proto3" json:"configured,omitempty"`
 	Status        *status.PBStatus       `protobuf:"bytes,10,opt,name=status,proto3" json:"status,omitempty"`
+	Parent        *OntologyID            `protobuf:"bytes,11,opt,name=parent,proto3" json:"parent,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -137,6 +138,13 @@ func (x *Device) GetConfigured() bool {
 func (x *Device) GetStatus() *status.PBStatus {
 	if x != nil {
 		return x.Status
+	}
+	return nil
+}
+
+func (x *Device) GetParent() *OntologyID {
+	if x != nil {
+		return x.Parent
 	}
 	return nil
 }
@@ -242,6 +250,7 @@ type DeviceRetrieveRequest struct {
 	Offset         uint32                 `protobuf:"varint,9,opt,name=offset,proto3" json:"offset,omitempty"`
 	IgnoreNotFound bool                   `protobuf:"varint,10,opt,name=ignore_not_found,json=ignoreNotFound,proto3" json:"ignore_not_found,omitempty"`
 	IncludeStatus  bool                   `protobuf:"varint,11,opt,name=include_status,json=includeStatus,proto3" json:"include_status,omitempty"`
+	IncludeParent  bool                   `protobuf:"varint,12,opt,name=include_parent,json=includeParent,proto3" json:"include_parent,omitempty"`
 	unknownFields  protoimpl.UnknownFields
 	sizeCache      protoimpl.SizeCache
 }
@@ -353,6 +362,13 @@ func (x *DeviceRetrieveRequest) GetIncludeStatus() bool {
 	return false
 }
 
+func (x *DeviceRetrieveRequest) GetIncludeParent() bool {
+	if x != nil {
+		return x.IncludeParent
+	}
+	return false
+}
+
 type DeviceRetrieveResponse struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	Devices       []*Device              `protobuf:"bytes,1,rep,name=devices,proto3" json:"devices,omitempty"`
@@ -445,7 +461,7 @@ var File_core_pkg_api_grpc_v1_device_proto protoreflect.FileDescriptor
 
 const file_core_pkg_api_grpc_v1_device_proto_rawDesc = "" +
 	"\n" +
-	"!core/pkg/api/grpc/v1/device.proto\x12\x06api.v1\x1a\x1bgoogle/protobuf/empty.proto\x1a\x1cgoogle/protobuf/struct.proto\x1a\x18x/go/status/status.proto\"\x8b\x02\n" +
+	"!core/pkg/api/grpc/v1/device.proto\x12\x06api.v1\x1a#core/pkg/api/grpc/v1/ontology.proto\x1a\x1bgoogle/protobuf/empty.proto\x1a\x1cgoogle/protobuf/struct.proto\x1a\x18x/go/status/status.proto\"\xb7\x02\n" +
 	"\x06Device\x12\x10\n" +
 	"\x03key\x18\x01 \x01(\tR\x03key\x12\x12\n" +
 	"\x04name\x18\x02 \x01(\tR\x04name\x12\x12\n" +
@@ -460,11 +476,12 @@ const file_core_pkg_api_grpc_v1_device_proto_rawDesc = "" +
 	"configured\x18\t \x01(\bR\n" +
 	"configured\x12(\n" +
 	"\x06status\x18\n" +
-	" \x01(\v2\x10.status.PBStatusR\x06status\"?\n" +
+	" \x01(\v2\x10.status.PBStatusR\x06status\x12*\n" +
+	"\x06parent\x18\v \x01(\v2\x12.api.v1.OntologyIDR\x06parent\"?\n" +
 	"\x13DeviceCreateRequest\x12(\n" +
 	"\adevices\x18\x01 \x03(\v2\x0e.api.v1.DeviceR\adevices\"@\n" +
 	"\x14DeviceCreateResponse\x12(\n" +
-	"\adevices\x18\x01 \x03(\v2\x0e.api.v1.DeviceR\adevices\"\xba\x02\n" +
+	"\adevices\x18\x01 \x03(\v2\x0e.api.v1.DeviceR\adevices\"\xe1\x02\n" +
 	"\x15DeviceRetrieveRequest\x12\x12\n" +
 	"\x04keys\x18\x01 \x03(\tR\x04keys\x12\x14\n" +
 	"\x05names\x18\x02 \x03(\tR\x05names\x12\x14\n" +
@@ -477,7 +494,8 @@ const file_core_pkg_api_grpc_v1_device_proto_rawDesc = "" +
 	"\x06offset\x18\t \x01(\rR\x06offset\x12(\n" +
 	"\x10ignore_not_found\x18\n" +
 	" \x01(\bR\x0eignoreNotFound\x12%\n" +
-	"\x0einclude_status\x18\v \x01(\bR\rincludeStatus\"B\n" +
+	"\x0einclude_status\x18\v \x01(\bR\rincludeStatus\x12%\n" +
+	"\x0einclude_parent\x18\f \x01(\bR\rincludeParent\"B\n" +
 	"\x16DeviceRetrieveResponse\x12(\n" +
 	"\adevices\x18\x01 \x03(\v2\x0e.api.v1.DeviceR\adevices\")\n" +
 	"\x13DeviceDeleteRequest\x12\x12\n" +
@@ -513,25 +531,27 @@ var file_core_pkg_api_grpc_v1_device_proto_goTypes = []any{
 	(*DeviceDeleteRequest)(nil),    // 5: api.v1.DeviceDeleteRequest
 	(*structpb.Struct)(nil),        // 6: google.protobuf.Struct
 	(*status.PBStatus)(nil),        // 7: status.PBStatus
-	(*emptypb.Empty)(nil),          // 8: google.protobuf.Empty
+	(*OntologyID)(nil),             // 8: api.v1.OntologyID
+	(*emptypb.Empty)(nil),          // 9: google.protobuf.Empty
 }
 var file_core_pkg_api_grpc_v1_device_proto_depIdxs = []int32{
 	6, // 0: api.v1.Device.properties:type_name -> google.protobuf.Struct
 	7, // 1: api.v1.Device.status:type_name -> status.PBStatus
-	0, // 2: api.v1.DeviceCreateRequest.devices:type_name -> api.v1.Device
-	0, // 3: api.v1.DeviceCreateResponse.devices:type_name -> api.v1.Device
-	0, // 4: api.v1.DeviceRetrieveResponse.devices:type_name -> api.v1.Device
-	1, // 5: api.v1.DeviceCreateService.Exec:input_type -> api.v1.DeviceCreateRequest
-	3, // 6: api.v1.DeviceRetrieveService.Exec:input_type -> api.v1.DeviceRetrieveRequest
-	5, // 7: api.v1.DeviceDeleteService.Exec:input_type -> api.v1.DeviceDeleteRequest
-	2, // 8: api.v1.DeviceCreateService.Exec:output_type -> api.v1.DeviceCreateResponse
-	4, // 9: api.v1.DeviceRetrieveService.Exec:output_type -> api.v1.DeviceRetrieveResponse
-	8, // 10: api.v1.DeviceDeleteService.Exec:output_type -> google.protobuf.Empty
-	8, // [8:11] is the sub-list for method output_type
-	5, // [5:8] is the sub-list for method input_type
-	5, // [5:5] is the sub-list for extension type_name
-	5, // [5:5] is the sub-list for extension extendee
-	0, // [0:5] is the sub-list for field type_name
+	8, // 2: api.v1.Device.parent:type_name -> api.v1.OntologyID
+	0, // 3: api.v1.DeviceCreateRequest.devices:type_name -> api.v1.Device
+	0, // 4: api.v1.DeviceCreateResponse.devices:type_name -> api.v1.Device
+	0, // 5: api.v1.DeviceRetrieveResponse.devices:type_name -> api.v1.Device
+	1, // 6: api.v1.DeviceCreateService.Exec:input_type -> api.v1.DeviceCreateRequest
+	3, // 7: api.v1.DeviceRetrieveService.Exec:input_type -> api.v1.DeviceRetrieveRequest
+	5, // 8: api.v1.DeviceDeleteService.Exec:input_type -> api.v1.DeviceDeleteRequest
+	2, // 9: api.v1.DeviceCreateService.Exec:output_type -> api.v1.DeviceCreateResponse
+	4, // 10: api.v1.DeviceRetrieveService.Exec:output_type -> api.v1.DeviceRetrieveResponse
+	9, // 11: api.v1.DeviceDeleteService.Exec:output_type -> google.protobuf.Empty
+	9, // [9:12] is the sub-list for method output_type
+	6, // [6:9] is the sub-list for method input_type
+	6, // [6:6] is the sub-list for extension type_name
+	6, // [6:6] is the sub-list for extension extendee
+	0, // [0:6] is the sub-list for field type_name
 }
 
 func init() { file_core_pkg_api_grpc_v1_device_proto_init() }
@@ -539,6 +559,7 @@ func file_core_pkg_api_grpc_v1_device_proto_init() {
 	if File_core_pkg_api_grpc_v1_device_proto != nil {
 		return
 	}
+	file_core_pkg_api_grpc_v1_ontology_proto_init()
 	type x struct{}
 	out := protoimpl.TypeBuilder{
 		File: protoimpl.DescBuilder{

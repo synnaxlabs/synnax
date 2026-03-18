@@ -537,16 +537,19 @@ class RangesClient:
     def copy_python_code_from_overview(self) -> None:
         """Click the Python code copy button in the range overview."""
         python_btn = self.layout.page.locator("button:has(svg.pluto-icon--python)")
+        python_btn.wait_for(state="visible", timeout=5000)
         python_btn.click(timeout=5000)
 
     def copy_typescript_code_from_overview(self) -> None:
         """Click the TypeScript code copy button in the range overview."""
         ts_btn = self.layout.page.locator("button:has(svg.pluto-icon--typescript)")
+        ts_btn.wait_for(state="visible", timeout=5000)
         ts_btn.click(timeout=5000)
 
     def copy_link_from_overview(self) -> None:
         """Click the copy link button in the range overview."""
         link_btn = self.layout.page.locator("button:has(svg.pluto-icon--link)")
+        link_btn.wait_for(state="visible", timeout=5000)
         link_btn.click(timeout=5000)
 
     def open_csv_download_modal(self) -> None:

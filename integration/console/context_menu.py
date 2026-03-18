@@ -103,12 +103,6 @@ class ContextMenu:
         cnt = option.count()
         vis = option.is_visible() if cnt > 0 else False
         if cnt == 0 or not vis:
-            print(
-                f"[has_option] text={text!r} count={cnt} visible={vis} "
-                f"menu_visible={menu.is_visible()} "
-                f"all_menus={self.page.locator(MENU_SELECTOR).count()}",
-                flush=True,
-            )
             return False
         option_class = option.get_attribute("class") or ""
         return "disabled" not in option_class.lower()

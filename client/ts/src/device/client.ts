@@ -57,6 +57,7 @@ const retrieveRequestZ = z.object({
   limit: z.int().optional(),
   offset: z.int().optional(),
   includeStatus: z.boolean().optional(),
+  includeParent: z.boolean().optional(),
 });
 
 const retrieveResZ = <
@@ -142,7 +143,7 @@ export class Client {
     schemas: DeviceSchemas<Properties, Make, Model>,
   ): Promise<Device<Properties, Make, Model>>;
 
-  async create(device: New): Promise<Device>;
+  async create(device: New, schemas?: DeviceSchemas): Promise<Device>;
 
   async create<
     Properties extends z.ZodType<record.Unknown>,
@@ -153,7 +154,7 @@ export class Client {
     schemas: DeviceSchemas<Properties, Make, Model>,
   ): Promise<Device<Properties, Make, Model>[]>;
 
-  async create(devices: New[]): Promise<Device[]>;
+  async create(devices: New[], schemas?: DeviceSchemas): Promise<Device[]>;
 
   async create(
     devices: New | New[],

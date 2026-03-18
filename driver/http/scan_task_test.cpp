@@ -565,13 +565,13 @@ TEST(HTTPScanTask, ScanMultipleDevices) {
     const auto result = ASSERT_NIL_P(scanner.scan(scan_ctx));
     ASSERT_EQ(result.size(), 2);
 
-    for (const auto &dev: result) {
-        if (dev.key == healthy_dev.key) {
-            EXPECT_EQ(dev.status.variant, x::status::VARIANT_SUCCESS);
-        } else if (dev.key == bad_dev.key) {
-            EXPECT_EQ(dev.status.variant, x::status::VARIANT_WARNING);
+    for (const auto &sd: result) {
+        if (sd.key == healthy_dev.key) {
+            EXPECT_EQ(sd.status.variant, x::status::VARIANT_SUCCESS);
+        } else if (sd.key == bad_dev.key) {
+            EXPECT_EQ(sd.status.variant, x::status::VARIANT_WARNING);
         } else {
-            FAIL() << "Unexpected device key: " << dev.key;
+            FAIL() << "Unexpected device key: " << sd.key;
         }
     }
 
@@ -1029,8 +1029,8 @@ TEST(HTTPScanTask, ScanExecutesHealthChecksInParallel) {
     const auto elapsed = x::telem::TimeStamp::now() - start;
 
     ASSERT_EQ(result.size(), NUM_SERVERS);
-    for (const auto &dev: result)
-        EXPECT_EQ(dev.status.variant, x::status::VARIANT_SUCCESS);
+    for (const auto &sd: result)
+        EXPECT_EQ(sd.status.variant, x::status::VARIANT_SUCCESS);
 
     EXPECT_LT(elapsed, x::telem::MILLISECOND * MAX_PARALLEL_MS)
         << "Scan took " << elapsed.milliseconds()
