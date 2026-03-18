@@ -121,6 +121,7 @@ type ColorSpec = color.Crude | ((t: theming.Theme) => color.Color);
 export class Draw2D {
   readonly canvas: SugaredOffscreenCanvasRenderingContext2D;
   readonly theme: theming.Theme;
+  private charWidthCache: Partial<Record<text.Level, number>> = {};
 
   constructor(canvas: SugaredOffscreenCanvasRenderingContext2D, theme: theming.Theme) {
     this.canvas = canvas;
@@ -386,8 +387,12 @@ export class Draw2D {
   }
 
   measureCharWidth(level: text.Level): number {
+    const cached = this.charWidthCache[level];
+    if (cached != null) return cached;
     this.canvas.font = fontString(this.theme, { level, code: true });
-    return this.canvas.measureText("M").width;
+    const width = this.canvas.measureText("M").width;
+    this.charWidthCache[level] = width;
+    return width;
   }
 
   drawTextInCenter({ box: b, text, level }: DrawTextInCenterProps): void {

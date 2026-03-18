@@ -11,7 +11,7 @@ import { render, screen } from "@testing-library/react";
 import React from "react";
 import { describe, expect, it, vi } from "vitest";
 
-import { type State } from "@/log/types/v0";
+import { type State } from "@/log/types/v1";
 
 const mockDispatch = vi.fn();
 
@@ -225,11 +225,10 @@ import { Channels } from "@/log/toolbar/Channels";
 
 const ZERO_STATE: State = {
   key: "test-key",
-  version: "0.0.0",
+  version: "1.0.0",
   channels: [],
   remoteCreated: false,
   timestampPrecision: 0,
-  channelConfigs: {},
   showChannelNames: true,
 };
 
@@ -249,7 +248,10 @@ describe("log/toolbar/Channels", () => {
   it("renders a row for each active channel", () => {
     vi.mocked(Selectors.useSelectOptional).mockReturnValue({
       ...ZERO_STATE,
-      channels: [10, 20],
+      channels: [
+        { channel: 10, color: "", notation: "standard", precision: -1, alias: "" },
+        { channel: 20, color: "", notation: "standard", precision: -1, alias: "" },
+      ],
     });
     render(<Channels layoutKey="test-key" />);
     expect(screen.getByTestId("channel-select-10")).toBeDefined();
@@ -259,7 +261,9 @@ describe("log/toolbar/Channels", () => {
   it("renders precision and color controls per channel row", () => {
     vi.mocked(Selectors.useSelectOptional).mockReturnValue({
       ...ZERO_STATE,
-      channels: [10],
+      channels: [
+        { channel: 10, color: "", notation: "standard", precision: -1, alias: "" },
+      ],
     });
     render(<Channels layoutKey="test-key" />);
     // One from the ChannelRow, one from the AddChannelRow
@@ -270,7 +274,9 @@ describe("log/toolbar/Channels", () => {
   it("renders a remove button per channel row", () => {
     vi.mocked(Selectors.useSelectOptional).mockReturnValue({
       ...ZERO_STATE,
-      channels: [10],
+      channels: [
+        { channel: 10, color: "", notation: "standard", precision: -1, alias: "" },
+      ],
     });
     render(<Channels layoutKey="test-key" />);
     expect(screen.getByTestId("btn-remove-channel")).toBeDefined();
@@ -279,7 +285,10 @@ describe("log/toolbar/Channels", () => {
   it("always renders the blank add-channel row at the bottom", () => {
     vi.mocked(Selectors.useSelectOptional).mockReturnValue({
       ...ZERO_STATE,
-      channels: [10, 20],
+      channels: [
+        { channel: 10, color: "", notation: "standard", precision: -1, alias: "" },
+        { channel: 20, color: "", notation: "standard", precision: -1, alias: "" },
+      ],
     });
     render(<Channels layoutKey="test-key" />);
     expect(screen.getByTestId("add-channel-select")).toBeDefined();
@@ -289,7 +298,9 @@ describe("log/toolbar/Channels", () => {
     vi.mocked(Pluto.Access.useUpdateGranted).mockReturnValueOnce(false);
     vi.mocked(Selectors.useSelectOptional).mockReturnValue({
       ...ZERO_STATE,
-      channels: [10],
+      channels: [
+        { channel: 10, color: "", notation: "standard", precision: -1, alias: "" },
+      ],
     });
     render(<Channels layoutKey="test-key" />);
     expect(screen.getByTestId("channel-select-10").getAttribute("data-disabled")).toBe(

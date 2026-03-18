@@ -11,7 +11,7 @@ import { channel } from "@synnaxlabs/client";
 import { Log } from "@synnaxlabs/pluto";
 import { z } from "zod";
 
-const VERSION = "0.0.0";
+export const VERSION = "0.0.0";
 
 export const { channelConfigZ } = Log;
 export type ChannelConfig = z.infer<typeof Log.channelConfigZ>;

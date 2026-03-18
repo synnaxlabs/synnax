@@ -25,6 +25,10 @@ export const channelConfigZ = z.object({
   alias: z.string().default(""),
 });
 
+export const channelEntryZ = channelConfigZ.extend({
+  channel: z.number().or(z.string()),
+});
+
 export const logState = z.object({
   region: box.box,
   wheelPos: z.number(),
@@ -33,9 +37,8 @@ export const logState = z.object({
   visible: z.boolean(),
   showChannelNames: z.boolean().default(true),
   timestampPrecision: z.number().min(0).max(3).default(0),
-  channelConfigs: z.record(z.string(), channelConfigZ).default({}),
   channelNames: z.record(z.string(), z.string()).default({}),
-  channels: z.array(z.number().or(z.string())).default([]),
+  channels: z.array(channelEntryZ).default([]),
   telem: telem.logSourceSpecZ.default(telem.noopLogSourceSpec),
   font: text.levelZ.default("p"),
   color: color.colorZ.default(color.ZERO),
@@ -62,7 +65,8 @@ interface InternalState {
   theme: theming.Theme;
   render: render.Context;
   draw2d: Draw2D;
-  telem: telem.LogSource;
+  telem: telem.MemoizedSource<telem.LogSource>;
+  configs: Record<string, z.infer<typeof channelConfigZ>>;
   textColor: color.Color;
   prefixColors: Record<string, color.Color>;
   defaultPrefixColor: color.Color;
@@ -135,11 +139,17 @@ export class Log extends aether.Leaf<typeof logState, InternalState> {
     i.tsLen =
       this.state.timestampPrecision === 0 ? 8 : 9 + this.state.timestampPrecision;
 
+    // Decompose merged channel entries into keys and config map.
+    const channelEntries = this.state.channels;
+    const prevEntries = this.prevState.channels;
+    const channelsChanged = channelEntries !== prevEntries;
+    const channelKeys = channelEntries.map((e) => e.channel);
+    const configs: Record<string, z.infer<typeof channelConfigZ>> = {};
+    for (const entry of channelEntries) configs[String(entry.channel)] = entry;
+
     // Rebuild color caches only when configs or base color changed.
-    const configs = this.state.channelConfigs;
-    const prevConfigs = this.prevState.channelConfigs;
     const colorChanged = !color.equals(this.state.color, this.prevState.color);
-    if (configs !== prevConfigs || colorChanged || i.prefixColors == null) {
+    if (channelsChanged || colorChanged || i.prefixColors == null) {
       i.defaultPrefixColor = muteColor(i.textColor, i.theme);
       i.prefixColors = {};
       i.valueColors = {};
@@ -149,6 +159,7 @@ export class Log extends aether.Leaf<typeof logState, InternalState> {
           i.valueColors[key] = color.construct(cfg.color);
         }
     }
+    i.configs = configs;
 
     // Cache selection highlight colors (theme-dependent).
     i.selectionColor = color.setAlpha(i.theme.colors.primary.z, 0.25);
@@ -158,16 +169,16 @@ export class Log extends aether.Leaf<typeof logState, InternalState> {
 
     // Always call setChannels — the source short-circuits if unchanged.
     // This handles both initial setup (where prevState === state) and subsequent changes.
-    i.telem.setChannels?.(this.state.channels);
+    i.telem.wrapped.setChannels?.(channelKeys);
 
     if (this.state.channelNames !== this.prevState.channelNames)
-      i.telem.setChannelNames?.(this.state.channelNames);
+      i.telem.wrapped.setChannelNames?.(this.state.channelNames);
 
-    if (configs !== prevConfigs) {
+    if (channelsChanged) {
       const aliases: Record<string, string> = {};
       for (const [key, cfg] of Object.entries(configs))
         if (cfg.alias) aliases[key] = cfg.alias;
-      i.telem.setAliases?.(aliases);
+      i.telem.wrapped.setAliases?.(aliases);
     }
 
     const { scrolling, wheelPos } = this.state;
@@ -201,7 +212,7 @@ export class Log extends aether.Leaf<typeof logState, InternalState> {
     this.checkEmpty();
     i.stopListeningTelem?.();
     i.stopListeningTelem = i.telem.onChange(() => {
-      const { evictedCount } = this.internal.telem;
+      const { evictedCount } = this.internal.telem.wrapped;
       this.entries = this.internal.telem.value();
       if (evictedCount > 0) {
         if (this.state.scrolling)
@@ -376,9 +387,9 @@ export class Log extends aether.Leaf<typeof logState, InternalState> {
     line: string;
     channelKey: string;
   } {
-    const { showChannelNames, channelConfigs } = this.state;
-    const { tsLen } = this.internal;
-    const cfg = channelConfigs[String(entry.channelKey)];
+    const { showChannelNames } = this.state;
+    const { tsLen, configs } = this.internal;
+    const cfg = configs[String(entry.channelKey)];
     const ts = new TimeStamp(entry.timestamp)
       .toString("preciseTime", "local")
       .slice(0, tsLen);

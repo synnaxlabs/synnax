@@ -15,7 +15,9 @@ import * as latest from "@/log/types";
 export type State = latest.State;
 export type SliceState = latest.SliceState;
 export type ChannelConfig = latest.ChannelConfig;
+export type ChannelEntry = latest.ChannelEntry;
 export const ZERO_CHANNEL_CONFIG = latest.ZERO_CHANNEL_CONFIG;
+export const ZERO_CHANNEL_ENTRY = latest.ZERO_CHANNEL_ENTRY;
 export const stateZ = latest.stateZ;
 export const ZERO_SLICE_STATE = latest.ZERO_SLICE_STATE;
 export const ZERO_STATE = latest.ZERO_STATE;
@@ -84,12 +86,8 @@ export const { actions, reducer } = createSlice({
     },
     setChannelConfig: (state, { payload }: PayloadAction<SetChannelConfigPayload>) => {
       const logState = state.logs[payload.key];
-      const existing =
-        logState.channelConfigs[String(payload.channelKey)] ?? ZERO_CHANNEL_CONFIG;
-      logState.channelConfigs[String(payload.channelKey)] = {
-        ...existing,
-        ...payload.config,
-      };
+      const entry = logState.channels.find((e) => e.channel === payload.channelKey);
+      if (entry != null) Object.assign(entry, payload.config);
     },
     setShowChannelNames: (
       state,
@@ -98,7 +96,10 @@ export const { actions, reducer } = createSlice({
       state.logs[payload.key].showChannelNames = payload.showChannelNames;
     },
     addChannel: (state, { payload }: PayloadAction<AddChannelPayload>) => {
-      state.logs[payload.key].channels.push(payload.channelKey);
+      state.logs[payload.key].channels.push({
+        ...ZERO_CHANNEL_CONFIG,
+        channel: payload.channelKey,
+      });
     },
     removeChannelByIndex: (
       state,
@@ -110,7 +111,8 @@ export const { actions, reducer } = createSlice({
       state,
       { payload }: PayloadAction<SetChannelAtIndexPayload>,
     ) => {
-      state.logs[payload.key].channels[payload.index] = payload.channelKey;
+      const entry = state.logs[payload.key].channels[payload.index];
+      if (entry != null) entry.channel = payload.channelKey;
     },
     setRemoteCreated: (state, { payload }: PayloadAction<SetRemoteCreatedPayload>) => {
       state.logs[payload.key].remoteCreated = true;

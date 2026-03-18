@@ -315,7 +315,6 @@ describe("log/aether/Log", () => {
       });
       expect(parsed.showChannelNames).toBe(true);
       expect(parsed.timestampPrecision).toBe(0);
-      expect(parsed.channelConfigs).toEqual({});
       expect(parsed.channelNames).toEqual({});
       expect(parsed.channels).toEqual([]);
     });
@@ -327,18 +326,15 @@ describe("log/aether/Log", () => {
         scrolling: false,
         empty: true,
         visible: true,
-        channelConfigs: {
-          "1": { color: "#ff0000", precision: 3 },
-        },
-        channels: [1, 2],
+        channels: [{ channel: 1, color: "#ff0000", precision: 3 }, { channel: 2 }],
         showChannelNames: false,
         timestampPrecision: 2,
       });
       expect(parsed.showChannelNames).toBe(false);
       expect(parsed.timestampPrecision).toBe(2);
-      expect(parsed.channels).toEqual([1, 2]);
-      expect(parsed.channelConfigs["1"].color).toBe("#ff0000");
-      expect(parsed.channelConfigs["1"].precision).toBe(3);
+      expect(parsed.channels).toHaveLength(2);
+      expect(parsed.channels[0].color).toBe("#ff0000");
+      expect(parsed.channels[0].precision).toBe(3);
     });
   });
 
@@ -371,7 +367,7 @@ describe("log/aether/Log", () => {
     it("should call setChannels on telem source", () => {
       const entries = [makeEntry(0)];
       const { source } = setupWithContext(entries, REGION_500, {
-        channels: [1, 2, 3],
+        channels: [{ channel: 1 }, { channel: 2 }, { channel: 3 }],
       });
       expect(source.setChannels).toHaveBeenCalledWith([1, 2, 3]);
     });
@@ -458,10 +454,10 @@ describe("log/aether/Log", () => {
           scrolling: false,
           empty: true,
           visible: true,
-          channelConfigs: {
-            "1": { alias: "Temp" },
-            "2": { alias: "" },
-          },
+          channels: [
+            { channel: 1, alias: "Temp" },
+            { channel: 2, alias: "" },
+          ],
         }),
         type: "log",
         create: () => log,
@@ -948,7 +944,7 @@ describe("log/aether/Log", () => {
         },
       ];
       const { log } = setupWithContext(entries, REGION_500, {
-        channelConfigs: { "1": { precision: 2 } },
+        channels: [{ channel: 1, precision: 2 }],
         selectionStart: 0,
         selectionEnd: 0,
       });
@@ -967,7 +963,7 @@ describe("log/aether/Log", () => {
         },
       ];
       const { log } = setupWithContext(entries, REGION_500, {
-        channelConfigs: { "1": { notation: "scientific", precision: 2 } },
+        channels: [{ channel: 1, notation: "scientific", precision: 2 }],
         selectionStart: 0,
         selectionEnd: 0,
       });
@@ -1026,7 +1022,7 @@ describe("log/aether/Log", () => {
     it("should include color in selectedLines when channel has custom color", () => {
       const entries = Array.from({ length: 5 }, (_, i) => makeEntry(i));
       const { log } = setupWithContext(entries, REGION_500, {
-        channelConfigs: { "1": { color: "#ff0000" } },
+        channels: [{ channel: 1, color: "#ff0000" }],
         selectionStart: 0,
         selectionEnd: 0,
       });
@@ -1145,10 +1141,10 @@ describe("log/aether/Log", () => {
     it("should apply per-channel colors from channelConfigs", () => {
       const entries = [makeEntry(0, 1, "ch1"), makeEntry(1, 2, "ch2")];
       const { log } = setupWithContext(entries, REGION_500, {
-        channelConfigs: {
-          "1": { color: "#ff0000" },
-          "2": { color: "#00ff00" },
-        },
+        channels: [
+          { channel: 1, color: "#ff0000" },
+          { channel: 2, color: "#00ff00" },
+        ],
         selectionStart: 0,
         selectionEnd: 1,
       });

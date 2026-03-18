@@ -23,11 +23,13 @@ import { log } from "@/log/aether";
 import { useMemoDeepEqual } from "@/memo";
 import { Menu } from "@/menu";
 import { Status } from "@/status/base";
-import { type Triggers } from "@/triggers";
+import { Triggers } from "@/triggers";
 import { Canvas } from "@/vis/canvas";
 
 const COPY_FLASH_DURATION_MS = 150;
 const COPY_TRIGGER: Triggers.Trigger = ["Control", "C"];
+const SELECT_ALL_TRIGGER: Triggers.Trigger = ["Control", "A"];
+const ESCAPE_TRIGGER: Triggers.Trigger = ["Escape"];
 
 export interface LogProps
   extends
@@ -63,7 +65,6 @@ export const Log = ({
   visible = true,
   showChannelNames = true,
   timestampPrecision = 0,
-  channelConfigs = {},
   channels = [],
   emptyContent = (
     <Status.Summary center level="h3" variant="disabled" hideIcon>
@@ -75,7 +76,10 @@ export const Log = ({
   ...rest
 }: LogProps): ReactElement | null => {
   const numericChannels = useMemo(
-    () => channels.filter((ch): ch is number => typeof ch === "number" && ch > 0),
+    () =>
+      channels
+        .map((e) => e.channel)
+        .filter((ch): ch is number => typeof ch === "number" && ch > 0),
     [channels],
   );
   const { data: retrievedChannels } = Channel.useRetrieveMultiple({
@@ -95,7 +99,6 @@ export const Log = ({
     visible,
     showChannelNames,
     timestampPrecision,
-    channelConfigs,
     channelNames,
     channels,
   });
@@ -198,37 +201,47 @@ export const Log = ({
     });
   }, [selectedText, selectedLines, setState]);
 
-  useEffect(() => {
-    const handleKeyDown = (e: KeyboardEvent): void => {
-      const target = e.target as HTMLElement;
-      const tag = target.tagName;
-      if (tag === "INPUT" || tag === "TEXTAREA" || target.isContentEditable) return;
-      if (e.key === "Escape") {
+  Triggers.use({
+    triggers: [ESCAPE_TRIGGER],
+    callback: useCallback(
+      ({ stage }: Triggers.UseEvent) => {
+        if (stage !== "start") return;
         setState((s) => ({
           ...s,
           selectionStart: -1,
           selectionEnd: -1,
           selectedText: "",
         }));
-        return;
-      }
-      if (!(e.metaKey || e.ctrlKey)) return;
-      if (e.key === "c" && selectedText.length > 0) {
-        e.preventDefault();
+      },
+      [setState],
+    ),
+  });
+
+  Triggers.use({
+    triggers: [COPY_TRIGGER],
+    callback: useCallback(
+      ({ stage }: Triggers.UseEvent) => {
+        if (stage !== "start" || selectedText.length === 0) return;
         copyToClipboard();
-      } else if (e.key === "a" && entryCount > 0) {
-        // Select All
-        e.preventDefault();
+      },
+      [selectedText, copyToClipboard],
+    ),
+  });
+
+  Triggers.use({
+    triggers: [SELECT_ALL_TRIGGER],
+    callback: useCallback(
+      ({ stage }: Triggers.UseEvent) => {
+        if (stage !== "start" || entryCount === 0) return;
         setState((s) => ({
           ...s,
           selectionStart: 0,
           selectionEnd: entryCount - 1,
         }));
-      }
-    };
-    window.addEventListener("keydown", handleKeyDown);
-    return () => window.removeEventListener("keydown", handleKeyDown);
-  }, [selectedText, entryCount, setState, copyToClipboard]);
+      },
+      [entryCount, setState],
+    ),
+  });
 
   const { className: menuClassName, ...menuProps } = Menu.useContextMenu();
   const hasSelection = selectedText.length > 0;

@@ -88,16 +88,9 @@ class Memoized<V> {
   }
 }
 
-// evictedCount and setChannels only exist on LogSource, not on the generic Source<V>.
-// We cast through `unknown` to reach them because MemoizedSource can't know about
-// LogSource without losing its genericity. Optional chaining keeps this safe at runtime.
-class MemoizedSource<V> extends Memoized<Source<V>> {
-  value(): V {
+export class MemoizedSource<S extends Source<any>> extends Memoized<S> {
+  value(): ReturnType<S["value"]> {
     return this.wrapped.value();
-  }
-
-  get evictedCount(): number {
-    return (this.wrapped as unknown as { evictedCount?: number }).evictedCount ?? 0;
   }
 
   cleanup(): void {
@@ -106,27 +99,6 @@ class MemoizedSource<V> extends Memoized<Source<V>> {
 
   onChange(handler: observe.Handler<void>): destructor.Destructor {
     return this.wrapped.onChange(handler);
-  }
-
-  setChannels(channels: Array<number | string>): void {
-    const src = this.wrapped as unknown as {
-      setChannels?: (channels: Array<number | string>) => void;
-    };
-    src.setChannels?.(channels);
-  }
-
-  setAliases(aliases: Record<string, string>): void {
-    const src = this.wrapped as unknown as {
-      setAliases?: (aliases: Record<string, string>) => void;
-    };
-    src.setAliases?.(aliases);
-  }
-
-  setChannelNames(names: Record<string, string>): void {
-    const src = this.wrapped as unknown as {
-      setChannelNames?: (names: Record<string, string>) => void;
-    };
-    src.setChannelNames?.(names);
   }
 }
 
@@ -140,18 +112,18 @@ class MemoizedSink<V> extends Memoized<Sink<V>> {
   }
 }
 
-export const useSource = <V>(
+export const useSource = <S extends Source<any>>(
   ctx: aether.Context,
   spec: Spec,
-  prev: Source<V>,
+  prev: S | MemoizedSource<S>,
   options?: CreateOptions,
-): MemoizedSource<V> => {
+): MemoizedSource<S> => {
   const prov = useContext(ctx);
   if (prev instanceof MemoizedSource) {
     if (!prev.shouldUpdate(prov, spec)) return prev;
     prev.cleanup?.();
   }
-  return new MemoizedSource<V>(prov.create(spec, options), prov, spec);
+  return new MemoizedSource<S>(prov.create(spec, options), prov, spec);
 };
 
 export const useSink = <V>(

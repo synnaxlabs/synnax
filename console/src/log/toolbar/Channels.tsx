@@ -31,7 +31,6 @@ import {
   removeChannelByIndex,
   setChannelAtIndex,
   setChannelConfig,
-  ZERO_CHANNEL_CONFIG,
 } from "@/log/slice";
 
 const IS_DEV = import.meta.env.DEV;
@@ -197,13 +196,13 @@ export const Channels = ({ layoutKey }: ChannelsProps): ReactElement | null => {
       style={{ overflow: "auto" }}
       className={CSS.BE("log", "toolbar", "channels")}
     >
-      {state.channels.map((ch, i) =>
-        primitive.isZero(ch) ? null : (
+      {state.channels.map((entry, i) =>
+        primitive.isZero(entry.channel) ? null : (
           <ChannelRow
-            key={`${ch}-${i}`}
+            key={`${entry.channel}-${i}`}
             index={i}
-            channelKey={ch}
-            config={state.channelConfigs[String(ch)] ?? ZERO_CHANNEL_CONFIG}
+            channelKey={entry.channel}
+            config={entry}
             onChange={handleChannelChange}
             onConfigChange={handleConfigChange}
             onRemove={handleRemove}

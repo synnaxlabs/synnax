@@ -19,7 +19,10 @@ import {
   ZERO_SLICE_STATE,
   ZERO_STATE,
 } from "@/log/slice";
-import { channelConfigZ, stateZ } from "@/log/types/v0";
+import { channelEntryZ, stateZ } from "@/log/types";
+import { channelConfigZ } from "@/log/types/v0";
+
+const ch = (channel: number) => ({ ...ZERO_CHANNEL_CONFIG, channel });
 
 describe("Log Slice", () => {
   let store: ReturnType<typeof configureStore<StoreState>>;
@@ -59,21 +62,19 @@ describe("Log Slice", () => {
   });
 
   describe("setChannelConfig", () => {
-    it("should create config for a new channel key", () => {
+    it("should update config for a channel entry", () => {
       const key = "log-1";
-      store.dispatch(actions.create({ ...ZERO_STATE, key }));
+      store.dispatch(actions.create({ ...ZERO_STATE, key, channels: [ch(42)] }));
       store.dispatch(
         actions.setChannelConfig({ key, channelKey: 42, config: { color: "#ff0000" } }),
       );
-      expect(store.getState()[SLICE_NAME].logs[key].channelConfigs["42"]).toEqual({
-        ...ZERO_CHANNEL_CONFIG,
-        color: "#ff0000",
-      });
+      const entry = store.getState()[SLICE_NAME].logs[key].channels[0];
+      expect(entry).toEqual({ ...ZERO_CHANNEL_CONFIG, channel: 42, color: "#ff0000" });
     });
 
     it("should merge partial updates into an existing config", () => {
       const key = "log-1";
-      store.dispatch(actions.create({ ...ZERO_STATE, key }));
+      store.dispatch(actions.create({ ...ZERO_STATE, key, channels: [ch(1)] }));
       store.dispatch(
         actions.setChannelConfig({
           key,
@@ -84,7 +85,9 @@ describe("Log Slice", () => {
       store.dispatch(
         actions.setChannelConfig({ key, channelKey: 1, config: { precision: 4 } }),
       );
-      expect(store.getState()[SLICE_NAME].logs[key].channelConfigs["1"]).toEqual({
+      const entry = store.getState()[SLICE_NAME].logs[key].channels[0];
+      expect(entry).toEqual({
+        channel: 1,
         color: "#ff0000",
         notation: "standard",
         precision: 4,
@@ -104,30 +107,37 @@ describe("Log Slice", () => {
   });
 
   describe("addChannel", () => {
-    it("should append a channel to the list", () => {
+    it("should append a channel entry to the list", () => {
       const key = "log-1";
       store.dispatch(actions.create({ ...ZERO_STATE, key }));
       store.dispatch(actions.addChannel({ key, channelKey: 10 }));
       store.dispatch(actions.addChannel({ key, channelKey: 20 }));
-      expect(store.getState()[SLICE_NAME].logs[key].channels).toEqual([10, 20]);
+      const channels = store.getState()[SLICE_NAME].logs[key].channels;
+      expect(channels).toEqual([ch(10), ch(20)]);
     });
   });
 
   describe("removeChannelByIndex", () => {
     it("should remove the channel at the given index", () => {
       const key = "log-1";
-      store.dispatch(actions.create({ ...ZERO_STATE, key, channels: [1, 2, 3] }));
+      store.dispatch(
+        actions.create({ ...ZERO_STATE, key, channels: [ch(1), ch(2), ch(3)] }),
+      );
       store.dispatch(actions.removeChannelByIndex({ key, index: 1 }));
-      expect(store.getState()[SLICE_NAME].logs[key].channels).toEqual([1, 3]);
+      const channels = store.getState()[SLICE_NAME].logs[key].channels;
+      expect(channels).toEqual([ch(1), ch(3)]);
     });
   });
 
   describe("setChannelAtIndex", () => {
-    it("should replace the channel at the given index", () => {
+    it("should replace the channel key at the given index", () => {
       const key = "log-1";
-      store.dispatch(actions.create({ ...ZERO_STATE, key, channels: [1, 2, 3] }));
+      store.dispatch(
+        actions.create({ ...ZERO_STATE, key, channels: [ch(1), ch(2), ch(3)] }),
+      );
       store.dispatch(actions.setChannelAtIndex({ key, index: 1, channelKey: 99 }));
-      expect(store.getState()[SLICE_NAME].logs[key].channels).toEqual([1, 99, 3]);
+      const channels = store.getState()[SLICE_NAME].logs[key].channels;
+      expect(channels).toEqual([ch(1), ch(99), ch(3)]);
     });
   });
 

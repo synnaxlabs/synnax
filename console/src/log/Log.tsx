@@ -58,7 +58,7 @@ const Loaded: Layout.Renderer = ({ layoutKey, visible }) => {
     if (prevName !== name) dispatch(Layout.rename({ key: layoutKey, name }));
   }, [name, prevName, layoutKey]);
 
-  const activeChannels = log.channels.filter((ch) => !primitive.isZero(ch));
+  const activeChannels = log.channels.filter((e) => !primitive.isZero(e.channel));
   const hasChannels = activeChannels.length > 0;
   // Stable spec — channels are passed separately via the `channels` prop so that
   // adding/removing a channel does not destroy and recreate the telem source.
@@ -83,7 +83,6 @@ const Loaded: Layout.Renderer = ({ layoutKey, visible }) => {
       channels={activeChannels}
       showChannelNames={log.showChannelNames}
       timestampPrecision={log.timestampPrecision}
-      channelConfigs={log.channelConfigs}
       onDoubleClick={handleDoubleClick}
       emptyContent={
         <EmptyAction

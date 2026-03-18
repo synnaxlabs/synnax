@@ -136,7 +136,7 @@ vi.mock("@/status/base", () => ({
   },
 }));
 
-vi.mock("@/triggers", () => ({ Triggers: {} }));
+vi.mock("@/triggers", () => ({ Triggers: { use: vi.fn() } }));
 
 vi.mock("@/log/aether", () => ({
   log: {
@@ -156,7 +156,6 @@ const DEFAULT_STATE = {
   visible: true,
   showChannelNames: true,
   timestampPrecision: 0,
-  channelConfigs: {},
   channelNames: {},
   channels: [],
   telem: { type: "noop-log-source", props: {}, variant: "source", valueType: "log" },
@@ -382,17 +381,19 @@ describe("log/Log", () => {
 
   describe("channel name resolution", () => {
     it("should filter numeric channels for retrieval", () => {
-      render(<Log channels={[1, 2, "virtual"]} />);
+      render(
+        <Log channels={[{ channel: 1 }, { channel: 2 }, { channel: "virtual" }]} />,
+      );
       expect(mockUseRetrieveMultiple).toHaveBeenCalledWith({ keys: [1, 2] });
     });
 
     it("should filter out zero channel keys", () => {
-      render(<Log channels={[0, 1, 2]} />);
+      render(<Log channels={[{ channel: 0 }, { channel: 1 }, { channel: 2 }]} />);
       expect(mockUseRetrieveMultiple).toHaveBeenCalledWith({ keys: [1, 2] });
     });
 
     it("should pass empty array when no numeric channels", () => {
-      render(<Log channels={["virtual1", "virtual2"]} />);
+      render(<Log channels={[{ channel: "virtual1" }, { channel: "virtual2" }]} />);
       expect(mockUseRetrieveMultiple).toHaveBeenCalledWith({ keys: [] });
     });
 
@@ -403,7 +404,7 @@ describe("log/Log", () => {
           { key: 2, name: "Pressure" },
         ],
       });
-      render(<Log channels={[1, 2]} />);
+      render(<Log channels={[{ channel: 1 }, { channel: 2 }]} />);
       // Aether.use should be called with channelNames in initialState
       expect(mockAetherUse).toHaveBeenCalled();
       const call = mockAetherUse.mock.calls[0][0];
@@ -433,17 +434,21 @@ describe("log/Log", () => {
       expect(call.initialState.visible).toBe(true);
     });
 
-    it("should pass channelConfigs to aether state", () => {
-      const configs = { "1": { color: "#ff0000" } };
-      render(<Log channelConfigs={configs} />);
+    it("should pass channels with configs to aether state", () => {
+      const channels = [{ channel: 1, color: "#ff0000" }, { channel: 2 }];
+      render(<Log channels={channels} />);
       const call = mockAetherUse.mock.calls[0][0];
-      expect(call.initialState.channelConfigs).toEqual(configs);
+      expect(call.initialState.channels).toEqual(channels);
     });
 
     it("should pass channels to aether state", () => {
-      render(<Log channels={[1, 2, 3]} />);
+      render(<Log channels={[{ channel: 1 }, { channel: 2 }, { channel: 3 }]} />);
       const call = mockAetherUse.mock.calls[0][0];
-      expect(call.initialState.channels).toEqual([1, 2, 3]);
+      expect(call.initialState.channels).toEqual([
+        { channel: 1 },
+        { channel: 2 },
+        { channel: 3 },
+      ]);
     });
   });
 
