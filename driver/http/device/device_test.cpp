@@ -197,7 +197,6 @@ TEST(ConnectionConfigTest, FromJSON) {
         {"timeout_ms", 5000},
         {"verify_ssl", true},
         {"auth", {{"type", "bearer"}, {"token", "abc123"}}},
-        {"headers", {{{"name", "X-Custom"}, {"value", "value"}}}}
     };
     x::json::Parser parser(j);
     ConnectionConfig config(parser);
@@ -207,7 +206,6 @@ TEST(ConnectionConfigTest, FromJSON) {
     EXPECT_TRUE(config.verify_ssl);
     EXPECT_EQ(config.auth.type, "bearer");
     EXPECT_EQ(config.auth.token, "abc123");
-    EXPECT_EQ(config.headers["X-Custom"], "value");
 }
 
 TEST(ConnectionConfigTest, DefaultsApplied) {
@@ -219,7 +217,6 @@ TEST(ConnectionConfigTest, DefaultsApplied) {
     EXPECT_EQ(config.timeout, 100 * x::telem::MILLISECOND);
     EXPECT_TRUE(config.verify_ssl);
     EXPECT_EQ(config.auth.type, "none");
-    EXPECT_TRUE(config.headers.empty());
 }
 
 TEST(ConnectionConfigTest, VerifySSLFalse) {
@@ -308,74 +305,6 @@ TEST(ConnectionConfigTest, EmptyJSONErrors) {
     EXPECT_FALSE(parser.ok());
 }
 
-TEST(ConnectionConfigTest, HeaderEntryMissingNameErrors) {
-    x::json::json j = {
-        {"base_url", "http://localhost"},
-        {"headers", {{{"value", "v"}}}},
-    };
-    x::json::Parser parser(j);
-    ConnectionConfig config(parser);
-    EXPECT_FALSE(parser.ok());
-}
-
-TEST(ConnectionConfigTest, HeaderEntryMissingValueErrors) {
-    x::json::json j = {
-        {"base_url", "http://localhost"},
-        {"headers", {{{"name", "X-Key"}}}},
-    };
-    x::json::Parser parser(j);
-    ConnectionConfig config(parser);
-    EXPECT_FALSE(parser.ok());
-}
-
-TEST(ConnectionConfigTest, QueryParamEntryMissingParameterErrors) {
-    x::json::json j = {
-        {"base_url", "http://localhost"},
-        {"query_params", {{{"value", "10"}}}},
-    };
-    x::json::Parser parser(j);
-    ConnectionConfig config(parser);
-    EXPECT_FALSE(parser.ok());
-}
-
-TEST(ConnectionConfigTest, DuplicateHeaderNameErrors) {
-    x::json::json j = {
-        {"base_url", "http://localhost"},
-        {"headers",
-         {
-             {{"name", "X-Key"}, {"value", "a"}},
-             {{"name", "X-Key"}, {"value", "b"}},
-         }},
-    };
-    x::json::Parser parser(j);
-    ConnectionConfig config(parser);
-    EXPECT_FALSE(parser.ok());
-}
-
-TEST(ConnectionConfigTest, DuplicateQueryParamErrors) {
-    x::json::json j = {
-        {"base_url", "http://localhost"},
-        {"query_params",
-         {
-             {{"parameter", "limit"}, {"value", "10"}},
-             {{"parameter", "limit"}, {"value", "20"}},
-         }},
-    };
-    x::json::Parser parser(j);
-    ConnectionConfig config(parser);
-    EXPECT_FALSE(parser.ok());
-}
-
-TEST(ConnectionConfigTest, QueryParamEntryMissingValueErrors) {
-    x::json::json j = {
-        {"base_url", "http://localhost"},
-        {"query_params", {{{"parameter", "limit"}}}},
-    };
-    x::json::Parser parser(j);
-    ConnectionConfig config(parser);
-    EXPECT_FALSE(parser.ok());
-}
-
 TEST(RetrieveConnectionTest, SecureDefaultBaseURL) {
     auto client = new_test_client();
     auto r = synnax::rack::Rack{.name = "test_rack"};
@@ -442,14 +371,9 @@ TEST(BuildRequestTest, PreservesDoubleSlashInPath) {
     EXPECT_EQ(r.url, "http://example.com//twoslashes");
 }
 
-TEST(BuildRequestTest, MergesConnectionAndRequestHeaders) {
+TEST(BuildRequestTest, IncludesRequestHeaders) {
     auto conn = ConnectionConfig(
-        x::json::Parser(
-            json{
-                {"base_url", "http://example.com"},
-                {"headers", {{{"name", "X-Global"}, {"value", "g"}}}},
-            }
-        )
+        x::json::Parser(json{{"base_url", "http://example.com"}})
     );
     RequestConfig req{
         .method = Method::GET,
@@ -457,18 +381,12 @@ TEST(BuildRequestTest, MergesConnectionAndRequestHeaders) {
         .headers = {{"X-Request", "r"}},
     };
     auto r = build_request(conn, req);
-    EXPECT_EQ(find_header(r.headers, "X-Global"), "X-Global: g");
     EXPECT_EQ(find_header(r.headers, "X-Request"), "X-Request: r");
 }
 
-TEST(BuildRequestTest, MergesConnectionAndRequestQueryParams) {
+TEST(BuildRequestTest, IncludesRequestQueryParams) {
     auto conn = ConnectionConfig(
-        x::json::Parser(
-            json{
-                {"base_url", "http://example.com"},
-                {"query_params", {{{"parameter", "api_key"}, {"value", "secret"}}}},
-            }
-        )
+        x::json::Parser(json{{"base_url", "http://example.com"}})
     );
     RequestConfig req{
         .method = Method::GET,
@@ -476,7 +394,7 @@ TEST(BuildRequestTest, MergesConnectionAndRequestQueryParams) {
         .query_params = {{"limit", "10"}},
     };
     auto r = build_request(conn, req);
-    EXPECT_EQ(r.url, "http://example.com/?api_key=secret&limit=10");
+    EXPECT_EQ(r.url, "http://example.com/?limit=10");
 }
 
 TEST(BuildRequestTest, TestQueryParamsEncoding) {

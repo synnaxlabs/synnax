@@ -9,7 +9,6 @@
 
 #pragma once
 
-#include <map>
 #include <string>
 #include <utility>
 
@@ -80,10 +79,6 @@ struct ConnectionConfig {
     x::telem::TimeSpan timeout;
     /// @brief authentication configuration.
     AuthConfig auth;
-    /// @brief custom headers applied to every request (legacy compat).
-    std::map<std::string, std::string> headers;
-    /// @brief query parameters applied to every request (legacy compat).
-    std::map<std::string, std::string> query_params;
     /// @brief whether to verify SSL certificates.
     bool verify_ssl;
 
@@ -93,23 +88,6 @@ struct ConnectionConfig {
         timeout(parser.field<uint32_t>("timeout_ms", 100) * x::telem::MILLISECOND),
         auth(AuthConfig(parser.optional_child("auth"))),
         verify_ssl(parser.field<bool>("verify_ssl", true)) {
-        if (parser.has("headers"))
-            parser.iter("headers", [&](x::json::Parser &h) {
-                auto name = h.field<std::string>("name");
-                auto val = h.field<std::string>("value");
-                if (!name.empty() && !headers.emplace(name, val).second)
-                    h.field_err("name", "duplicate header '" + name + "'");
-            });
-        if (parser.has("query_params"))
-            parser.iter("query_params", [&](x::json::Parser &qp) {
-                auto param = qp.field<std::string>("parameter");
-                auto val = qp.field<std::string>("value");
-                if (!param.empty() && !query_params.emplace(param, val).second)
-                    qp.field_err(
-                        "parameter",
-                        "duplicate query parameter '" + param + "'"
-                    );
-            });
         if (!base_url.starts_with("http://") && !base_url.starts_with("https://"))
             parser.field_err(
                 "base_url",

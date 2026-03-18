@@ -2476,7 +2476,7 @@ TEST(HTTPReadTask, SampleClockDoesNotAffectData) {
 }
 
 /// @brief it should pass connection-level query parameters to every request.
-TEST(HTTPReadTask, ConnectionLevelQueryParams) {
+TEST(HTTPReadTask, EndpointQueryParams) {
     mock::Server server(
         mock::ServerConfig{
             .routes = {{
@@ -2503,21 +2503,14 @@ TEST(HTTPReadTask, ConnectionLevelQueryParams) {
     ReadEndpoint ep;
     ep.request.method = Method::GET;
     ep.request.path = "/api/data";
+    ep.request.query_params = {{"api_key", "abc123"}, {"format", "json"}};
     ep.body = "";
     ep.fields = {field};
 
     cfg.endpoints = {ep};
     cfg.channels[1] = {.name = "value", .data_type = x::telem::FLOAT64_T, .key = 1};
 
-    auto [source, processor] = make_source(
-        cfg,
-        server.base_url(),
-        x::json::json{
-            {"query_params",
-             {{{"parameter", "api_key"}, {"value", "abc123"}},
-              {{"parameter", "format"}, {"value", "json"}}}}
-        }
-    );
+    auto [source, processor] = make_source(cfg, server.base_url());
 
     auto breaker = x::breaker::Breaker(x::breaker::Config{.name = "test"});
     breaker.start();
