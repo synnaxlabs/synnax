@@ -32,10 +32,15 @@ type resolver struct {
 	}
 }
 
+// Analyzer parses and type-checks calculated channel expressions. It caches
+// previously analyzed channels so that later expressions can reference them by
+// name without hitting the backing symbol resolver.
 type Analyzer struct {
 	resolver *resolver
 }
 
+// New returns an Analyzer that falls back to symbolResolver for symbols not yet
+// in the internal cache.
 func New(symbolResolver arc.SymbolResolver) *Analyzer {
 	r := &resolver{SymbolResolver: symbolResolver}
 	r.temp.keys = make(map[int]*symbol.Symbol)
@@ -57,15 +62,26 @@ func (r *resolver) Resolve(ctx context.Context, name string) (symbol.Symbol, err
 	return r.SymbolResolver.Resolve(ctx, name)
 }
 
-func (a *Analyzer) Analyze(ctx context.Context, ch channel.Channel) (telem.DataType, error) {
+// Result holds the output of a successful analysis.
+type Result struct {
+	// DataType is the inferred return type of the expression.
+	DataType telem.DataType
+	// Deps lists the keys of channels read by the expression.
+	Deps channel.Keys
+}
+
+// Analyze parses the channel's expression, infers its return type, and extracts
+// the set of channel dependencies. The analyzed channel is cached so that
+// subsequent calls can reference it by name or key.
+func (a *Analyzer) Analyze(ctx context.Context, ch channel.Channel) (Result, error) {
 	t, err := parser.ParseBlock(fmt.Sprintf("{%s}", ch.Expression))
 	if err != nil {
-		return telem.UnknownT, err
+		return Result{}, err
 	}
 	aCtx := acontext.CreateRoot(ctx, t, a.resolver)
 	dataType := statement.AnalyzeFunctionBody(aCtx)
 	if !aCtx.Diagnostics.Ok() {
-		return telem.UnknownT, aCtx.Diagnostics
+		return Result{}, aCtx.Diagnostics
 	}
 	s := &symbol.Symbol{
 		Name: ch.Name,
@@ -78,5 +94,12 @@ func (a *Analyzer) Analyze(ctx context.Context, ch channel.Channel) (telem.DataT
 		a.resolver.temp.keys[intKey] = s
 	}
 	a.resolver.temp.names[s.Name] = s
-	return types.ToTelem(dataType), nil
+	var deps channel.Keys
+	funcScope, scopeErr := aCtx.Scope.GetChildByParserRule(t)
+	if scopeErr == nil {
+		for k := range funcScope.Channels.Read {
+			deps = append(deps, channel.Key(k))
+		}
+	}
+	return Result{DataType: types.ToTelem(dataType), Deps: deps}, nil
 }

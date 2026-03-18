@@ -30,15 +30,15 @@ var _ = Describe("Analyze", func() {
 		It("Should infer the correct type for integer literal expressions", func() {
 			a := analyzer.New(symbol.MapResolver{})
 			ch := channel.Channel{Name: "calc", Expression: "return 1 + 2"}
-			dt := MustSucceed(a.Analyze(ctx, ch))
-			Expect(dt).To(Equal(telem.Int64T))
+			res := MustSucceed(a.Analyze(ctx, ch))
+			Expect(res.DataType).To(Equal(telem.Int64T))
 		})
 
 		It("Should infer the correct type for float literal expressions", func() {
 			a := analyzer.New(symbol.MapResolver{})
 			ch := channel.Channel{Name: "calc", Expression: "return 1.0 + 2.0"}
-			dt := MustSucceed(a.Analyze(ctx, ch))
-			Expect(dt).To(Equal(telem.Float64T))
+			res := MustSucceed(a.Analyze(ctx, ch))
+			Expect(res.DataType).To(Equal(telem.Float64T))
 		})
 
 		It("Should infer the correct type when referencing a float32 channel", func() {
@@ -47,8 +47,8 @@ var _ = Describe("Analyze", func() {
 			}
 			a := analyzer.New(r)
 			ch := channel.Channel{Name: "calc", Expression: "return sensor * 2.0"}
-			dt := MustSucceed(a.Analyze(ctx, ch))
-			Expect(dt).To(Equal(telem.Float32T))
+			res := MustSucceed(a.Analyze(ctx, ch))
+			Expect(res.DataType).To(Equal(telem.Float32T))
 		})
 
 		It("Should infer the correct type when referencing an int64 channel", func() {
@@ -57,8 +57,8 @@ var _ = Describe("Analyze", func() {
 			}
 			a := analyzer.New(r)
 			ch := channel.Channel{Name: "calc", Expression: "return sensor + 1"}
-			dt := MustSucceed(a.Analyze(ctx, ch))
-			Expect(dt).To(Equal(telem.Int64T))
+			res := MustSucceed(a.Analyze(ctx, ch))
+			Expect(res.DataType).To(Equal(telem.Int64T))
 		})
 
 		It("Should infer the correct type when referencing multiple channels", func() {
@@ -68,8 +68,65 @@ var _ = Describe("Analyze", func() {
 			}
 			a := analyzer.New(r)
 			ch := channel.Channel{Name: "calc", Expression: "return a + b"}
-			dt := MustSucceed(a.Analyze(ctx, ch))
-			Expect(dt).To(Equal(telem.Float64T))
+			res := MustSucceed(a.Analyze(ctx, ch))
+			Expect(res.DataType).To(Equal(telem.Float64T))
+		})
+	})
+
+	Describe("Deps", func() {
+		It("Should return no deps for a pure literal expression", func() {
+			a := analyzer.New(symbol.MapResolver{})
+			ch := channel.Channel{Name: "calc", Expression: "return 1 + 2"}
+			res := MustSucceed(a.Analyze(ctx, ch))
+			Expect(res.Deps).To(BeEmpty())
+		})
+
+		It("Should return the key of a single referenced channel", func() {
+			r := symbol.MapResolver{
+				"sensor": {Name: "sensor", Kind: symbol.KindChannel, Type: types.Chan(types.F64()), ID: 10},
+			}
+			a := analyzer.New(r)
+			ch := channel.Channel{Name: "calc", Expression: "return sensor * 2.0"}
+			res := MustSucceed(a.Analyze(ctx, ch))
+			Expect(res.Deps).To(ConsistOf(channel.Key(10)))
+		})
+
+		It("Should return keys for multiple referenced channels", func() {
+			r := symbol.MapResolver{
+				"a": {Name: "a", Kind: symbol.KindChannel, Type: types.Chan(types.F64()), ID: 10},
+				"b": {Name: "b", Kind: symbol.KindChannel, Type: types.Chan(types.F64()), ID: 20},
+			}
+			a := analyzer.New(r)
+			ch := channel.Channel{Name: "calc", Expression: "return a + b"}
+			res := MustSucceed(a.Analyze(ctx, ch))
+			Expect(res.Deps).To(ConsistOf(channel.Key(10), channel.Key(20)))
+		})
+
+		It("Should not duplicate a channel referenced multiple times", func() {
+			r := symbol.MapResolver{
+				"sensor": {Name: "sensor", Kind: symbol.KindChannel, Type: types.Chan(types.F64()), ID: 10},
+			}
+			a := analyzer.New(r)
+			ch := channel.Channel{Name: "calc", Expression: "return sensor + sensor"}
+			res := MustSucceed(a.Analyze(ctx, ch))
+			Expect(res.Deps).To(ConsistOf(channel.Key(10)))
+		})
+
+		It("Should resolve deps from the temp cache for previously analyzed channels", func() {
+			a := analyzer.New(symbol.MapResolver{})
+			first := channel.Channel{
+				Name:        "first",
+				Expression:  "return 1.0",
+				Leaseholder: 1,
+				LocalKey:    5,
+			}
+			MustSucceed(a.Analyze(ctx, first))
+			second := channel.Channel{
+				Name:       "second",
+				Expression: "return first + 1.0",
+			}
+			res := MustSucceed(a.Analyze(ctx, second))
+			Expect(res.Deps).To(ConsistOf(first.Key()))
 		})
 	})
 
@@ -89,8 +146,8 @@ var _ = Describe("Analyze", func() {
 				Leaseholder: 1,
 				LocalKey:    2,
 			}
-			dt := MustSucceed(a.Analyze(ctx, calc))
-			Expect(dt).To(Equal(telem.Float64T))
+			res := MustSucceed(a.Analyze(ctx, calc))
+			Expect(res.DataType).To(Equal(telem.Float64T))
 		})
 
 		It("Should cache multiple channels and resolve a chain of dependencies", func() {
@@ -115,8 +172,8 @@ var _ = Describe("Analyze", func() {
 				Leaseholder: 1,
 				LocalKey:    7,
 			}
-			dt := MustSucceed(a.Analyze(ctx, third))
-			Expect(dt).To(Equal(telem.Float64T))
+			res := MustSucceed(a.Analyze(ctx, third))
+			Expect(res.DataType).To(Equal(telem.Float64T))
 		})
 
 		It("Should still resolve by name when the channel has key 0", func() {
@@ -130,8 +187,8 @@ var _ = Describe("Analyze", func() {
 				Name:       "calc",
 				Expression: "return sensor + 1.0",
 			}
-			dt := MustSucceed(a.Analyze(ctx, calc))
-			Expect(dt).To(Equal(telem.Float64T))
+			res := MustSucceed(a.Analyze(ctx, calc))
+			Expect(res.DataType).To(Equal(telem.Float64T))
 		})
 	})
 
@@ -148,20 +205,20 @@ var _ = Describe("Analyze", func() {
 			Expect(a.Analyze(ctx, ch)).Error().To(HaveOccurred())
 		})
 
-		It("Should return telem.UnknownT on parse error", func() {
+		It("Should return zero Result on parse error", func() {
 			a := analyzer.New(symbol.MapResolver{})
 			ch := channel.Channel{Name: "calc", Expression: "return {{invalid"}
-			dt, err := a.Analyze(ctx, ch)
+			res, err := a.Analyze(ctx, ch)
 			Expect(err).To(MatchError(ContainSubstring("extraneous input")))
-			Expect(dt).To(Equal(telem.UnknownT))
+			Expect(res).To(Equal(analyzer.Result{}))
 		})
 
-		It("Should return telem.UnknownT on analysis error", func() {
+		It("Should return zero Result on analysis error", func() {
 			a := analyzer.New(symbol.MapResolver{})
 			ch := channel.Channel{Name: "calc", Expression: "return nonexistent + 1"}
-			dt, err := a.Analyze(ctx, ch)
+			res, err := a.Analyze(ctx, ch)
 			Expect(err).To(HaveOccurred())
-			Expect(dt).To(Equal(telem.UnknownT))
+			Expect(res).To(Equal(analyzer.Result{}))
 		})
 	})
 
@@ -172,8 +229,8 @@ var _ = Describe("Analyze", func() {
 			}
 			a := analyzer.New(r)
 			ch := channel.Channel{Name: "calc", Expression: "return external * 2.0"}
-			dt := MustSucceed(a.Analyze(ctx, ch))
-			Expect(dt).To(Equal(telem.Float64T))
+			res := MustSucceed(a.Analyze(ctx, ch))
+			Expect(res.DataType).To(Equal(telem.Float64T))
 		})
 	})
 })

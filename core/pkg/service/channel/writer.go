@@ -40,11 +40,11 @@ func (w Writer) CreateMany(ctx context.Context, channels *[]Channel, opts ...Cre
 		if !ch.IsCalculated() {
 			continue
 		}
-		dt, err := w.analyzer.Analyze(ctx, ch)
+		result, err := w.analyzer.Analyze(ctx, ch)
 		if err != nil {
 			return err
 		}
-		(*channels)[i].DataType = dt
+		(*channels)[i].DataType = result.DataType
 	}
 	return w.Writer.CreateMany(ctx, channels, opts...)
 }

@@ -936,9 +936,9 @@ var _ = Describe("Calculator", Ordered, func() {
 			calc *channel.Channel,
 		) *calculator.Calculator {
 			Expect(dist.Channel.CreateMany(ctx, bases)).To(Succeed())
-			dt := MustSucceed(channelanalyzer.New(arcSvc.NewSymbolResolver(nil)).
+			res := MustSucceed(channelanalyzer.New(arcSvc.NewSymbolResolver(nil)).
 				Analyze(ctx, *calc))
-			calc.DataType = dt
+			calc.DataType = res.DataType
 			Expect(dist.Channel.Create(ctx, calc)).To(Succeed())
 			mod := MustSucceed(compiler.Compile(ctx, compiler.Config{
 				ChannelService: dist.Channel,

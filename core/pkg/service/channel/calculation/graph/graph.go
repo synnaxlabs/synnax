@@ -18,7 +18,6 @@ import (
 	channel "github.com/synnaxlabs/synnax/pkg/distribution/channel"
 	"github.com/synnaxlabs/synnax/pkg/service/arc/symbol"
 	channelanalyzer "github.com/synnaxlabs/synnax/pkg/service/channel/calculation/analyzer"
-	calcompiler "github.com/synnaxlabs/synnax/pkg/service/channel/calculation/compiler"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
 	"github.com/synnaxlabs/x/change"
 	"github.com/synnaxlabs/x/config"
@@ -31,6 +30,7 @@ import (
 	"go.uber.org/zap"
 )
 
+// StatusDetails is the payload attached to status entries for calculated channels.
 type StatusDetails struct {
 	Channel channel.Key `json:"channel" msgpack:"channel"`
 }
@@ -42,6 +42,9 @@ type node struct {
 	invalid    bool
 }
 
+// Graph tracks all calculated channels, their dependency edges, and their
+// inferred DataTypes. It subscribes to the channel observable and reactively
+// re-inspects affected nodes when channels are created, updated, or deleted.
 type Graph struct {
 	alamos.Instrumentation
 	distribution *channel.Service
@@ -55,9 +58,13 @@ type Graph struct {
 	}
 }
 
+// Config configures a Graph.
 type Config struct {
+	// Channel is the distribution-layer channel service used for retrieval and
+	// observable subscription.
 	Channel *channel.Service
-	Status  *status.Service
+	// Status is used to publish error/clear statuses for calculated channels.
+	Status *status.Service
 	alamos.Instrumentation
 }
 
@@ -80,6 +87,8 @@ func (c Config) Override(other Config) Config {
 	return c
 }
 
+// Open creates a Graph, hydrates it from all existing calculated channels, and
+// subscribes to the channel observable for reactive updates.
 func Open(
 	ctx context.Context,
 	cfgs ...Config,
@@ -103,6 +112,7 @@ func Open(
 	return s, nil
 }
 
+// Close disconnects the graph from the channel observable.
 func (s *Graph) Close() error {
 	if s.disconnect != nil {
 		s.disconnect()
@@ -281,26 +291,14 @@ func (s *Graph) inspectNode(
 	if analyzer == nil {
 		analyzer = s.newAnalyzer(tx)
 	}
-	dt, err := analyzer.Analyze(ctx, ch)
+	result, err := analyzer.Analyze(ctx, ch)
 	nd := node{Channel: ch}
 	if ch.Key() == 0 {
 		nd.LocalKey = 1
 	}
 	if err == nil {
-		nd.DataType = dt
-		prog, preErr := calcompiler.PreProcess(ctx, calcompiler.Config{
-			ChannelService: s.distribution,
-			Channel:        nd.Channel,
-			SymbolResolver: symbol.NewResolver(s.distribution, tx),
-		})
-		if preErr != nil {
-			err = preErr
-		} else if len(prog.Functions) > 0 {
-			nd.deps = make(channel.Keys, 0, len(prog.Functions[0].Channels.Read))
-			for key := range prog.Functions[0].Channels.Read {
-				nd.deps = append(nd.deps, channel.Key(key))
-			}
-		}
+		nd.DataType = result.DataType
+		nd.deps = result.Deps
 	}
 	nd.invalid = err != nil
 	return nd, err
