@@ -20,6 +20,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
 	"github.com/synnaxlabs/synnax/pkg/distribution/mock"
 	graph "github.com/synnaxlabs/synnax/pkg/service/channel/calculation/graph"
+	calcstatus "github.com/synnaxlabs/synnax/pkg/service/channel/calculation/status"
 	"github.com/synnaxlabs/synnax/pkg/service/label"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
 	xstatus "github.com/synnaxlabs/x/status"
@@ -67,20 +68,20 @@ func openGraph() *graph.Graph {
 	return g
 }
 
-func fetchStatus(key channel.Key) (status.Status[graph.StatusDetails], bool) {
-	var statuses []status.Status[graph.StatusDetails]
-	err := status.NewRetrieve[graph.StatusDetails](statusSvc).
+func fetchStatus(key channel.Key) (status.Status[calcstatus.Details], bool) {
+	var statuses []status.Status[calcstatus.Details]
+	err := status.NewRetrieve[calcstatus.Details](statusSvc).
 		WhereKeys(channel.OntologyID(key).String()).
 		Entries(&statuses).
 		Exec(ctx, nil)
 	if err != nil || len(statuses) == 0 {
-		return status.Status[graph.StatusDetails]{}, false
+		return status.Status[calcstatus.Details]{}, false
 	}
 	return statuses[0], true
 }
 
-func expectStatus(key channel.Key) status.Status[graph.StatusDetails] {
-	var result status.Status[graph.StatusDetails]
+func expectStatus(key channel.Key) status.Status[calcstatus.Details] {
+	var result status.Status[calcstatus.Details]
 	Eventually(func() bool {
 		s, ok := fetchStatus(key)
 		if ok && s.Variant == xstatus.VariantError {
@@ -839,7 +840,7 @@ var _ = Describe("Graph", func() {
 			By("Updating to a different broken expression")
 			calc.Expression = "return {{syntax error"
 			Expect(dist.Channel.Create(ctx, &calc)).To(Succeed())
-			var s2 status.Status[graph.StatusDetails]
+			var s2 status.Status[calcstatus.Details]
 			Eventually(func() bool {
 				s, ok := fetchStatus(calc.Key())
 				if ok && s.Description != s1.Description {

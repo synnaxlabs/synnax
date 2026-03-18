@@ -14,14 +14,12 @@ import (
 
 	"github.com/synnaxlabs/alamos"
 	distchannel "github.com/synnaxlabs/synnax/pkg/distribution/channel"
-	"github.com/synnaxlabs/synnax/pkg/distribution/group"
 	"github.com/synnaxlabs/synnax/pkg/service/arc"
 	"github.com/synnaxlabs/synnax/pkg/service/channel/calculation/analyzer"
 	graph "github.com/synnaxlabs/synnax/pkg/service/channel/calculation/graph"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
 	"github.com/synnaxlabs/x/config"
 	"github.com/synnaxlabs/x/gorp"
-	"github.com/synnaxlabs/x/observe"
 	"github.com/synnaxlabs/x/override"
 	"github.com/synnaxlabs/x/validate"
 )
@@ -40,13 +38,16 @@ var (
 	CreateWithoutGroupRelationship              = distchannel.CreateWithoutGroupRelationship
 )
 
-type StatusDetails = graph.StatusDetails
-
+// ServiceConfig configures a channel Service.
 type ServiceConfig struct {
-	DB           *gorp.DB
+	// DB is the underlying database for transactional operations.
+	DB *gorp.DB
+	// Distribution is the distribution-layer channel service.
 	Distribution *distchannel.Service
-	Status       *status.Service
-	Arc          *arc.Service
+	// Status is used to publish error/clear statuses for calculated channels.
+	Status *status.Service
+	// Arc provides symbol resolution for expression analysis.
+	Arc *arc.Service
 	alamos.Instrumentation
 }
 
@@ -73,18 +74,24 @@ func (c ServiceConfig) Override(other ServiceConfig) ServiceConfig {
 	return c
 }
 
+// Service is the top-level channel service. It wraps the distribution-layer
+// channel service and adds calculated channel type inference and dependency
+// tracking.
 type Service struct {
+	*distchannel.Service
 	cfg    ServiceConfig
 	Writer Writer
 	graph  *graph.Graph
 }
 
+// OpenService opens a channel Service, hydrating the calculated channel graph
+// and subscribing to reactive updates.
 func OpenService(ctx context.Context, cfgs ...ServiceConfig) (*Service, error) {
 	cfg, err := config.New(DefaultServiceConfig, cfgs...)
 	if err != nil {
 		return nil, err
 	}
-	s := &Service{cfg: cfg}
+	s := &Service{Service: cfg.Distribution, cfg: cfg}
 	if s.graph, err = graph.Open(ctx, graph.Config{
 		Channel:         cfg.Distribution,
 		Status:          cfg.Status,
@@ -96,6 +103,7 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (*Service, error) {
 	return s, nil
 }
 
+// Close shuts down the calculated channel graph and its observable subscription.
 func (s *Service) Close() error {
 	if s.graph != nil {
 		return s.graph.Close()
@@ -103,18 +111,8 @@ func (s *Service) Close() error {
 	return nil
 }
 
-func (s *Service) Group() group.Group { return s.cfg.Distribution.Group() }
-
-func (s *Service) NewRetrieve() distchannel.Retrieve { return s.cfg.Distribution.NewRetrieve() }
-
-func (s *Service) NewObservable() observe.Observable[gorp.TxReader[Key, Channel]] {
-	return s.cfg.Distribution.NewObservable()
-}
-
-func (s *Service) CountExternalNonVirtual() uint32 {
-	return s.cfg.Distribution.CountExternalNonVirtual()
-}
-
+// NewWriter returns a Writer that infers DataTypes for calculated channels
+// before delegating to the distribution-layer writer.
 func (s *Service) NewWriter(tx gorp.Tx) Writer {
 	return Writer{
 		Writer:   s.cfg.Distribution.NewWriter(tx),
@@ -123,38 +121,47 @@ func (s *Service) NewWriter(tx gorp.Tx) Writer {
 	}
 }
 
+// Create creates a single channel, inferring the DataType for calculated channels.
 func (s *Service) Create(ctx context.Context, ch *Channel, opts ...CreateOption) error {
 	return s.NewWriter(nil).Create(ctx, ch, opts...)
 }
 
+// CreateMany creates multiple channels, inferring DataTypes for calculated channels.
 func (s *Service) CreateMany(ctx context.Context, channels *[]Channel, opts ...CreateOption) error {
 	return s.NewWriter(nil).CreateMany(ctx, channels, opts...)
 }
 
+// Delete deletes a channel by key.
 func (s *Service) Delete(ctx context.Context, key Key, allowInternal bool) error {
 	return s.NewWriter(nil).Delete(ctx, key, allowInternal)
 }
 
+// DeleteMany deletes multiple channels by key.
 func (s *Service) DeleteMany(ctx context.Context, keys []Key, allowInternal bool) error {
 	return s.NewWriter(nil).DeleteMany(ctx, keys, allowInternal)
 }
 
+// DeleteByName deletes a channel by name.
 func (s *Service) DeleteByName(ctx context.Context, name string, allowInternal bool) error {
 	return s.NewWriter(nil).DeleteByName(ctx, name, allowInternal)
 }
 
+// DeleteManyByNames deletes multiple channels by name.
 func (s *Service) DeleteManyByNames(ctx context.Context, names []string, allowInternal bool) error {
 	return s.NewWriter(nil).DeleteManyByNames(ctx, names, allowInternal)
 }
 
+// Rename renames a channel.
 func (s *Service) Rename(ctx context.Context, key Key, newName string, allowInternal bool) error {
 	return s.NewWriter(nil).Rename(ctx, key, newName, allowInternal)
 }
 
+// RenameMany renames multiple channels.
 func (s *Service) RenameMany(ctx context.Context, keys []Key, names []string, allowInternal bool) error {
 	return s.NewWriter(nil).RenameMany(ctx, keys, names, allowInternal)
 }
 
+// MapRename renames channels using an old-name to new-name mapping.
 func (s *Service) MapRename(ctx context.Context, names map[string]string, allowInternal bool) error {
 	return s.NewWriter(nil).MapRename(ctx, names, allowInternal)
 }

@@ -18,22 +18,16 @@ import (
 	channel "github.com/synnaxlabs/synnax/pkg/distribution/channel"
 	"github.com/synnaxlabs/synnax/pkg/service/arc/symbol"
 	channelanalyzer "github.com/synnaxlabs/synnax/pkg/service/channel/calculation/analyzer"
+	calcstatus "github.com/synnaxlabs/synnax/pkg/service/channel/calculation/status"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
 	"github.com/synnaxlabs/x/change"
 	"github.com/synnaxlabs/x/config"
 	"github.com/synnaxlabs/x/gorp"
 	"github.com/synnaxlabs/x/observe"
 	"github.com/synnaxlabs/x/override"
-	xstatus "github.com/synnaxlabs/x/status"
-	"github.com/synnaxlabs/x/telem"
 	"github.com/synnaxlabs/x/validate"
 	"go.uber.org/zap"
 )
-
-// StatusDetails is the payload attached to status entries for calculated channels.
-type StatusDetails struct {
-	Channel channel.Key `json:"channel" msgpack:"channel"`
-}
 
 type node struct {
 	channel.Channel
@@ -48,7 +42,7 @@ type node struct {
 type Graph struct {
 	alamos.Instrumentation
 	distribution *channel.Service
-	status       status.Writer[StatusDetails]
+	status       status.Writer[calcstatus.Details]
 	disconnect   observe.Disconnect
 	mu           struct {
 		nodes            map[channel.Key]node
@@ -100,7 +94,7 @@ func Open(
 	s := &Graph{
 		Instrumentation: cfg.Instrumentation,
 		distribution:    cfg.Channel,
-		status:          status.NewWriter[StatusDetails](cfg.Status, nil),
+		status:          status.NewWriter[calcstatus.Details](cfg.Status, nil),
 	}
 	s.mu.nodes = make(map[channel.Key]node)
 	s.mu.dependents = make(map[channel.Key]map[channel.Key]struct{})
@@ -265,15 +259,8 @@ func (s *Graph) handleChanges(ctx context.Context, reader gorp.TxReader[channel.
 }
 
 func (s *Graph) setNodeStatus(ctx context.Context, key channel.Key, name string, err error) {
-	if sErr := s.status.Set(ctx, &status.Status[StatusDetails]{
-		Key:         channel.OntologyID(key).String(),
-		Name:        name,
-		Variant:     xstatus.VariantError,
-		Message:     fmt.Sprintf("invalid expression for %s", name),
-		Description: err.Error(),
-		Time:        telem.Now(),
-		Details:     StatusDetails{Channel: key},
-	}); sErr != nil {
+	st := calcstatus.Error(key, name, fmt.Sprintf("invalid expression for %s", name), err)
+	if sErr := s.status.Set(ctx, st); sErr != nil {
 		s.L.Warn("failed to set error status for channel",
 			zap.Stringer("channel", key),
 			zap.Error(sErr),
@@ -282,7 +269,7 @@ func (s *Graph) setNodeStatus(ctx context.Context, key channel.Key, name string,
 }
 
 func (s *Graph) clearNodeStatus(ctx context.Context, key channel.Key) {
-	if err := s.status.Delete(ctx, channel.OntologyID(key).String()); err != nil {
+	if err := s.status.Delete(ctx, calcstatus.Key(key)); err != nil {
 		s.L.Warn("failed to clear status for channel",
 			zap.Stringer("channel", key),
 			zap.Error(err),

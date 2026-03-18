@@ -155,3 +155,136 @@ var _ = Describe("NewWriter", func() {
 		Expect(ch.DataType).To(Equal(telem.Int64T))
 	})
 })
+
+var _ = Describe("Service Passthrough", func() {
+	Describe("Group", func() {
+		It("Should return a valid group", func() {
+			g := svc.Group()
+			Expect(g.Key).ToNot(BeZero())
+		})
+	})
+
+	Describe("NewRetrieve", func() {
+		It("Should retrieve a channel created through the service", func() {
+			ch := svcChannel.Channel{
+				Name:     channel.NewRandomName(),
+				DataType: telem.Float64T,
+				Virtual:  true,
+			}
+			Expect(svc.Create(ctx, &ch)).To(Succeed())
+			var retrieved svcChannel.Channel
+			Expect(svc.NewRetrieve().WhereKeys(ch.Key()).Entry(&retrieved).Exec(ctx, nil)).To(Succeed())
+			Expect(retrieved.Name).To(Equal(ch.Name))
+		})
+	})
+
+	Describe("NewObservable", func() {
+		It("Should return a non-nil observable", func() {
+			obs := svc.NewObservable()
+			Expect(obs).ToNot(BeNil())
+		})
+	})
+
+	Describe("CountExternalNonVirtual", func() {
+		It("Should return a count", func() {
+			count := svc.CountExternalNonVirtual()
+			Expect(count).To(BeNumerically(">=", 0))
+		})
+	})
+
+	Describe("Delete", func() {
+		It("Should delete a channel by key", func() {
+			ch := svcChannel.Channel{
+				Name:     channel.NewRandomName(),
+				DataType: telem.Float64T,
+				Virtual:  true,
+			}
+			Expect(svc.Create(ctx, &ch)).To(Succeed())
+			Expect(svc.Delete(ctx, ch.Key(), false)).To(Succeed())
+		})
+	})
+
+	Describe("DeleteMany", func() {
+		It("Should delete multiple channels by key", func() {
+			channels := []svcChannel.Channel{
+				{Name: channel.NewRandomName(), DataType: telem.Float64T, Virtual: true},
+				{Name: channel.NewRandomName(), DataType: telem.Float64T, Virtual: true},
+			}
+			Expect(svc.CreateMany(ctx, &channels)).To(Succeed())
+			keys := []svcChannel.Key{channels[0].Key(), channels[1].Key()}
+			Expect(svc.DeleteMany(ctx, keys, false)).To(Succeed())
+		})
+	})
+
+	Describe("DeleteByName", func() {
+		It("Should delete a channel by name", func() {
+			ch := svcChannel.Channel{
+				Name:     channel.NewRandomName(),
+				DataType: telem.Float64T,
+				Virtual:  true,
+			}
+			Expect(svc.Create(ctx, &ch)).To(Succeed())
+			Expect(svc.DeleteByName(ctx, ch.Name, false)).To(Succeed())
+		})
+	})
+
+	Describe("DeleteManyByNames", func() {
+		It("Should delete multiple channels by name", func() {
+			channels := []svcChannel.Channel{
+				{Name: channel.NewRandomName(), DataType: telem.Float64T, Virtual: true},
+				{Name: channel.NewRandomName(), DataType: telem.Float64T, Virtual: true},
+			}
+			Expect(svc.CreateMany(ctx, &channels)).To(Succeed())
+			names := []string{channels[0].Name, channels[1].Name}
+			Expect(svc.DeleteManyByNames(ctx, names, false)).To(Succeed())
+		})
+	})
+
+	Describe("Rename", func() {
+		It("Should rename a channel", func() {
+			ch := svcChannel.Channel{
+				Name:     channel.NewRandomName(),
+				DataType: telem.Float64T,
+				Virtual:  true,
+			}
+			Expect(svc.Create(ctx, &ch)).To(Succeed())
+			newName := channel.NewRandomName()
+			Expect(svc.Rename(ctx, ch.Key(), newName, false)).To(Succeed())
+			var retrieved svcChannel.Channel
+			Expect(svc.NewRetrieve().WhereKeys(ch.Key()).Entry(&retrieved).Exec(ctx, nil)).To(Succeed())
+			Expect(retrieved.Name).To(Equal(newName))
+		})
+	})
+
+	Describe("RenameMany", func() {
+		It("Should rename multiple channels", func() {
+			channels := []svcChannel.Channel{
+				{Name: channel.NewRandomName(), DataType: telem.Float64T, Virtual: true},
+				{Name: channel.NewRandomName(), DataType: telem.Float64T, Virtual: true},
+			}
+			Expect(svc.CreateMany(ctx, &channels)).To(Succeed())
+			newNames := []string{channel.NewRandomName(), channel.NewRandomName()}
+			keys := []svcChannel.Key{channels[0].Key(), channels[1].Key()}
+			Expect(svc.RenameMany(ctx, keys, newNames, false)).To(Succeed())
+			var r0 svcChannel.Channel
+			Expect(svc.NewRetrieve().WhereKeys(keys[0]).Entry(&r0).Exec(ctx, nil)).To(Succeed())
+			Expect(r0.Name).To(Equal(newNames[0]))
+		})
+	})
+
+	Describe("MapRename", func() {
+		It("Should rename channels via old-to-new name map", func() {
+			ch := svcChannel.Channel{
+				Name:     channel.NewRandomName(),
+				DataType: telem.Float64T,
+				Virtual:  true,
+			}
+			Expect(svc.Create(ctx, &ch)).To(Succeed())
+			newName := channel.NewRandomName()
+			Expect(svc.MapRename(ctx, map[string]string{ch.Name: newName}, false)).To(Succeed())
+			var retrieved svcChannel.Channel
+			Expect(svc.NewRetrieve().WhereKeys(ch.Key()).Entry(&retrieved).Exec(ctx, nil)).To(Succeed())
+			Expect(retrieved.Name).To(Equal(newName))
+		})
+	})
+})

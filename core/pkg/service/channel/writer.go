@@ -17,12 +17,15 @@ import (
 	"github.com/synnaxlabs/x/gorp"
 )
 
+// Writer wraps the distribution-layer channel writer, adding DataType inference
+// for calculated channels before persisting.
 type Writer struct {
 	distchannel.Writer
 	analyzer *analyzer.Analyzer
 	tx       gorp.Tx
 }
 
+// Create creates a single channel, inferring the DataType if it is calculated.
 func (w Writer) Create(ctx context.Context, c *Channel, opts ...CreateOption) error {
 	channels := []Channel{*c}
 	if err := w.CreateMany(ctx, &channels, opts...); err != nil {
@@ -32,6 +35,9 @@ func (w Writer) Create(ctx context.Context, c *Channel, opts ...CreateOption) er
 	return nil
 }
 
+// CreateMany creates multiple channels, inferring DataTypes for any calculated
+// channels in the batch. Channels within the batch may reference each other by
+// name.
 func (w Writer) CreateMany(ctx context.Context, channels *[]Channel, opts ...CreateOption) error {
 	if len(*channels) == 0 {
 		return nil
