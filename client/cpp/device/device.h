@@ -109,6 +109,8 @@ struct Device {
     bool configured = false;
     /// @brief Status information about the device.
     Status status;
+    /// @brief optional parent ontology ID for device hierarchy.
+    ontology::ID parent;
 
     /// @brief returns the key used for creating statuses associated with the task.
     [[nodiscard]] std::string status_key() const {
@@ -145,6 +147,8 @@ map_device_keys(const std::vector<Device> &devices) {
 struct RetrieveOptions {
     /// @brief Whether to include status information in the retrieved devices.
     bool include_status = false;
+    /// @brief Whether to include parent ontology ID in the retrieved devices.
+    bool include_parent = false;
 };
 
 /// @brief Request structure for retrieving devices with various filter options.
@@ -160,6 +164,7 @@ struct RetrieveRequest {
     std::uint32_t offset = 0;
     bool ignore_not_found = false;
     bool include_status = false;
+    bool include_parent = false;
 
     void to_proto(api::v1::DeviceRetrieveRequest &request) const {
         request.set_ignore_not_found(ignore_not_found);
@@ -173,6 +178,7 @@ struct RetrieveRequest {
         request.mutable_racks()->Add(racks.begin(), racks.end());
         request.set_search(search);
         request.set_include_status(include_status);
+        request.set_include_parent(include_parent);
     }
 };
 
@@ -231,7 +237,8 @@ public:
     std::pair<std::vector<Device>, x::errors::Error>
     retrieve(RetrieveRequest &req) const;
 
-    /// @brief Creates a device in the cluster.
+    /// @brief Creates a device in the cluster. If device.parent is set, it will
+    /// be parented to that ontology resource.
     /// @param device The device to create. Will be updated with the assigned key.
     /// @returns An error if the creation failed.
     [[nodiscard]]

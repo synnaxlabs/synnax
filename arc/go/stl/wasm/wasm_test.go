@@ -42,9 +42,7 @@ import (
 var _ = Describe("ConvertConfigValue", func() {
 	DescribeTable("supported numeric and timestamp types",
 		func(v any, expected uint64) {
-			result, err := wasm.ConvertConfigValue(v)
-			Expect(err).ToNot(HaveOccurred())
-			Expect(result).To(Equal(expected))
+			Expect(wasm.ConvertConfigValue(v)).To(Equal(expected))
 		},
 		Entry("int8", int8(1), uint64(1)),
 		Entry("int16", int16(2), uint64(2)),
@@ -2530,15 +2528,15 @@ input_ch -> writer{} -> sink_ch
 			// Set input value to 10.0
 			// First write: 10 * 2 = 20
 			// Second write: 10 * 3 = 30
-			// Both writes go to the same channel - the runtime coalesces them
+			// Both writes go to the same channel - the runtime accumulates them
 			h.SetInput("on_input_ch_0", 0, telem.NewSeriesV[float32](10.0), telem.NewSeriesSecondsTSV(1))
 			h.Execute("writer_0")
 
 			fr, changed := h.ChannelState().Flush(telem.Frame[uint32]{})
 			Expect(changed).To(BeTrue())
-			// The last write (30.0) is the final value
+			// Both writes are preserved in a single output series for the channel.
 			Expect(fr.Get(200).Series).To(HaveLen(1))
-			Expect(fr.Get(200).Series[0]).To(telem.MatchSeriesDataV[float32](30.0))
+			Expect(fr.Get(200).Series[0]).To(telem.MatchSeriesDataV[float32](20.0, 30.0))
 		})
 
 		It("Should handle reading from global channel alias", func() {

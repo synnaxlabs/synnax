@@ -30,7 +30,8 @@ Usage with ConsoleCase:
 
 from examples.simulators.simdaq import SimDAQ
 
-from framework.test_case import SynnaxConnection, TestCase
+from framework.models import SynnaxConnection
+from framework.test_case import TestCase
 
 
 class SimDaqCase(TestCase):

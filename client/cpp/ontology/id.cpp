@@ -49,6 +49,15 @@ std::pair<ID, x::errors::Error> ID::parse(const std::string &s) {
     return {id, x::errors::NIL};
 }
 
+ID ID::from_proto(const api::v1::OntologyID &proto) {
+    return ID{.type = proto.type(), .key = proto.key()};
+}
+
+void ID::to_proto(api::v1::OntologyID *proto) const {
+    proto->set_type(type);
+    proto->set_key(key);
+}
+
 bool ID::operator==(const ID &other) const {
     return type == other.type && key == other.key;
 }

@@ -28,10 +28,11 @@ import (
 )
 
 type Service struct {
-	db     *gorp.DB
-	access *rbac.Service
-	device *device.Service
-	status *status.Service
+	db       *gorp.DB
+	access   *rbac.Service
+	device   *device.Service
+	status   *status.Service
+	ontology *ontology.Ontology
 }
 
 func NewService(cfgs ...config.LayerConfig) (*Service, error) {
@@ -40,16 +41,13 @@ func NewService(cfgs ...config.LayerConfig) (*Service, error) {
 		return nil, err
 	}
 	return &Service{
-		db:     cfg.Distribution.DB,
-		device: cfg.Service.Device,
-		status: cfg.Service.Status,
-		access: cfg.Service.RBAC,
+		db:       cfg.Distribution.DB,
+		device:   cfg.Service.Device,
+		status:   cfg.Service.Status,
+		access:   cfg.Service.RBAC,
+		ontology: cfg.Distribution.Ontology,
 	}, nil
 }
-
-type (
-	Device = device.Device
-)
 
 type CreateRequest struct {
 	Devices []device.Device `json:"devices" msgpack:"devices"`
@@ -72,8 +70,8 @@ func (s *Service) Create(
 	}
 	return res, s.db.WithTx(ctx, func(tx gorp.Tx) error {
 		w := s.device.NewWriter(tx)
-		for _, d := range req.Devices {
-			if err := w.Create(ctx, d); err != nil {
+		for i := range req.Devices {
+			if err := w.Create(ctx, &req.Devices[i]); err != nil {
 				return err
 			}
 		}
@@ -94,6 +92,7 @@ type RetrieveRequest struct {
 	Offset         int        `json:"offset" msgpack:"offset"`
 	IgnoreNotFound bool       `json:"ignore_not_found" msgpack:"ignore_not_found"`
 	IncludeStatus  bool       `json:"include_status" msgpack:"include_status"`
+	IncludeParent  bool       `json:"include_parent" msgpack:"include_parent"`
 }
 
 type RetrieveResponse struct {
@@ -143,30 +142,52 @@ func (s *Service) Retrieve(
 	if hasRacks {
 		q = q.WhereRacks(req.Racks...)
 	}
-	retErr := q.Entries(&res.Devices).Exec(ctx, nil)
+	var svcDevices []device.Device
+	retErr := q.Entries(&svcDevices).Exec(ctx, nil)
 
 	if req.IncludeStatus {
-		statuses := make([]device.Status, 0, len(res.Devices))
+		statuses := make([]device.Status, 0, len(svcDevices))
 		if err := status.NewRetrieve[device.StatusDetails](s.status).
-			WhereKeys(ontology.IDsToKeys(device.OntologyIDsFromDevices(res.Devices))...).
+			WhereKeys(ontology.IDsToKeys(device.OntologyIDsFromDevices(svcDevices))...).
 			Entries(&statuses).
 			Exec(ctx, nil); err != nil {
 			return res, err
 		}
 		for i, stat := range statuses {
-			res.Devices[i].Status = &stat
+			svcDevices[i].Status = &stat
 		}
 	}
 
 	if err := s.access.Enforce(ctx, access.Request{
 		Subject: auth.GetSubject(ctx),
 		Action:  access.ActionRetrieve,
-		Objects: device.OntologyIDsFromDevices(res.Devices),
+		Objects: device.OntologyIDsFromDevices(svcDevices),
 	}); err != nil {
 		return RetrieveResponse{}, err
 	}
 	if retErr != nil && req.IgnoreNotFound {
 		retErr = errors.Skip(retErr, query.ErrNotFound)
+	}
+
+	res.Devices = svcDevices
+	if req.IncludeParent {
+		for i, d := range svcDevices {
+			var parent ontology.Resource
+			err := s.ontology.NewRetrieve().
+				WhereIDs(device.OntologyID(d.Key)).
+				TraverseTo(ontology.ParentsTraverser).
+				Limit(1).
+				ExcludeFieldData(true).
+				Entry(&parent).
+				Exec(ctx, nil)
+			if err != nil {
+				if !errors.Is(err, query.ErrNotFound) {
+					return RetrieveResponse{}, err
+				}
+				continue
+			}
+			res.Devices[i].Parent = &parent.ID
+		}
 	}
 	return res, retErr
 }

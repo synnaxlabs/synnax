@@ -90,6 +90,9 @@ class Scheduler {
     size_t curr_seq_idx = NO_INDEX;
     /// @brief Index of the currently executing stage, or npos if none.
     size_t curr_stage_idx = NO_INDEX;
+    /// @brief Set to true when transition_stage fires during strata execution.
+    /// Used to stop evaluating remaining statements after the first transition.
+    bool transitioned = false;
 
 public:
     /// @brief Constructs a scheduler from an IR program and node implementations.
@@ -146,6 +149,7 @@ public:
         this->curr_node_key.clear();
         this->curr_seq_idx = NO_INDEX;
         this->curr_stage_idx = NO_INDEX;
+        this->transitioned = false;
         for (auto &seq: this->sequences) {
             seq.active_stage_idx = NO_INDEX;
             for (auto &stage: seq.stages)
@@ -189,6 +193,8 @@ private:
     /// @brief Executes all strata, propagating changes between them.
     void execute_strata(const ir::Strata &strata) {
         this->changed.clear();
+        this->transitioned = false;
+        const bool in_stage = this->curr_stage_idx != NO_INDEX;
         bool first_stratum = true;
         for (const auto &stratum: strata) {
             for (const auto &key: stratum) {
@@ -197,6 +203,7 @@ private:
                     this->curr_node_key = key;
                     this->curr_node().node->next(this->ctx);
                 }
+                if (in_stage && this->transitioned) return;
             }
             first_stratum = false;
         }
@@ -270,6 +277,7 @@ private:
         target.fired_one_shots.clear();
         this->reset_strata(target.strata);
         this->sequences[target_seq_idx].active_stage_idx = target_stage_idx;
+        this->transitioned = true;
     }
 };
 }

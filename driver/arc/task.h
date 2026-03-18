@@ -24,6 +24,7 @@
 #include "arc/cpp/runtime/runtime.h"
 #include "arc/cpp/runtime/state/state.h"
 #include "driver/arc/arc.h"
+#include "driver/arc/status/status.h"
 #include "driver/common/common.h"
 #include "driver/common/status.h"
 #include "driver/errors/errors.h"
@@ -150,6 +151,9 @@ public:
                 return {digests, x::errors::NIL};
             },
             .loop = cfg.loop,
+            .factories = {
+                std::make_shared<::driver::arc::status::Factory>(ctx->client),
+            },
         };
 
         auto [rt, err] = ::arc::runtime::load(
@@ -212,8 +216,9 @@ public:
     }
 
     bool start(const std::string &cmd_key) {
+        const auto start = x::telem::TimeStamp::now();
         const auto runtime_started = this->runtime->start();
-        const auto acq_started = this->acquisition->start();
+        const auto acq_started = this->acquisition->start(start);
         const auto control_started = this->control->start();
         this->state.send_start(cmd_key);
         return acq_started && control_started && runtime_started;

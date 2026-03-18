@@ -78,8 +78,7 @@ var _ = Describe("Delete", func() {
 							End:   17 * telem.SecondTS,
 						})).To(Succeed())
 
-						frame, err := dataDB.Read(ctx, telem.TimeRange{Start: 10 * telem.SecondTS, End: 20 * telem.SecondTS})
-						Expect(err).ToNot(HaveOccurred())
+						frame := MustSucceed(dataDB.Read(ctx, telem.TimeRange{Start: 10 * telem.SecondTS, End: 20 * telem.SecondTS}))
 
 						Expect(frame.Count()).To(Equal(2))
 						Expect(frame.SeriesAt(0).TimeRange.End).To(Equal(12 * telem.SecondTS))
@@ -100,8 +99,7 @@ var _ = Describe("Delete", func() {
 						Expect(dataDB.Delete(ctx, (19 * telem.SecondTS).Range(21*telem.SecondTS))).To(Succeed())
 						Expect(dataDB.Delete(ctx, (11 * telem.SecondTS).Range(14*telem.SecondTS))).To(Succeed())
 
-						frame, err := dataDB.Read(ctx, telem.TimeRange{Start: 10 * telem.SecondTS, End: 25 * telem.SecondTS})
-						Expect(err).ToNot(HaveOccurred())
+						frame := MustSucceed(dataDB.Read(ctx, telem.TimeRange{Start: 10 * telem.SecondTS, End: 25 * telem.SecondTS}))
 						Expect(frame.Count()).To(Equal(3))
 
 						Expect(frame.SeriesAt(0).TimeRange.End).To(Equal(10*telem.SecondTS + 1))
@@ -121,8 +119,7 @@ var _ = Describe("Delete", func() {
 							End:   17*telem.SecondTS + 1,
 						})).To(Succeed())
 
-						frame, err := dataDB.Read(ctx, telem.TimeRange{Start: 10 * telem.SecondTS, End: 20 * telem.SecondTS})
-						Expect(err).ToNot(HaveOccurred())
+						frame := MustSucceed(dataDB.Read(ctx, telem.TimeRange{Start: 10 * telem.SecondTS, End: 20 * telem.SecondTS}))
 						Expect(frame.Count()).To(Equal(1))
 
 						Expect(frame.SeriesAt(0).TimeRange.Start).To(Equal(18 * telem.SecondTS))
@@ -139,8 +136,7 @@ var _ = Describe("Delete", func() {
 							End:   20 * telem.SecondTS,
 						})).To(Succeed())
 
-						frame, err := dataDB.Read(ctx, telem.TimeRange{Start: 10 * telem.SecondTS, End: 20 * telem.SecondTS})
-						Expect(err).ToNot(HaveOccurred())
+						frame := MustSucceed(dataDB.Read(ctx, telem.TimeRange{Start: 10 * telem.SecondTS, End: 20 * telem.SecondTS}))
 						Expect(frame.Count()).To(Equal(1))
 
 						Expect(frame.SeriesAt(0).TimeRange.End).To(Equal(13 * telem.SecondTS))
@@ -173,8 +169,7 @@ var _ = Describe("Delete", func() {
 							End:   17 * telem.SecondTS,
 						})).To(Succeed())
 
-						frame, err := indexDB.Read(ctx, telem.TimeRange{Start: 10 * telem.SecondTS, End: 20 * telem.SecondTS})
-						Expect(err).ToNot(HaveOccurred())
+						frame := MustSucceed(indexDB.Read(ctx, telem.TimeRange{Start: 10 * telem.SecondTS, End: 20 * telem.SecondTS}))
 
 						Expect(frame.Count()).To(Equal(2))
 						Expect(frame.SeriesAt(0).TimeRange.End).To(Equal(12 * telem.SecondTS))
@@ -194,8 +189,7 @@ var _ = Describe("Delete", func() {
 							End:   17*telem.SecondTS + 1,
 						})).To(Succeed())
 
-						frame, err := indexDB.Read(ctx, telem.TimeRange{Start: 10 * telem.SecondTS, End: 20 * telem.SecondTS})
-						Expect(err).ToNot(HaveOccurred())
+						frame := MustSucceed(indexDB.Read(ctx, telem.TimeRange{Start: 10 * telem.SecondTS, End: 20 * telem.SecondTS}))
 
 						Expect(frame.Count()).To(Equal(2))
 						Expect(frame.SeriesAt(0).TimeRange.End).To(Equal(12*telem.SecondTS + 1))
@@ -215,8 +209,7 @@ var _ = Describe("Delete", func() {
 							End:   17*telem.SecondTS + 1,
 						})).To(Succeed())
 
-						frame, err := indexDB.Read(ctx, telem.TimeRange{Start: 10 * telem.SecondTS, End: 20 * telem.SecondTS})
-						Expect(err).ToNot(HaveOccurred())
+						frame := MustSucceed(indexDB.Read(ctx, telem.TimeRange{Start: 10 * telem.SecondTS, End: 20 * telem.SecondTS}))
 
 						Expect(frame.Count()).To(Equal(1))
 
@@ -233,8 +226,7 @@ var _ = Describe("Delete", func() {
 							End:   33 * telem.SecondTS,
 						})).To(Succeed())
 
-						frame, err := indexDB.Read(ctx, telem.TimeRange{Start: 10 * telem.SecondTS, End: 20 * telem.SecondTS})
-						Expect(err).ToNot(HaveOccurred())
+						frame := MustSucceed(indexDB.Read(ctx, telem.TimeRange{Start: 10 * telem.SecondTS, End: 20 * telem.SecondTS}))
 
 						Expect(frame.Count()).To(Equal(1))
 						Expect(frame.SeriesAt(0).TimeRange.End).To(Equal(12*telem.SecondTS + 1))
@@ -275,8 +267,7 @@ var _ = Describe("Delete", func() {
 								End:   24 * telem.SecondTS,
 							})).To(Succeed())
 
-							frame, err := dataDB.Read(ctx, telem.TimeRange{Start: 10 * telem.SecondTS, End: 100 * telem.SecondTS})
-							Expect(err).ToNot(HaveOccurred())
+							frame := MustSucceed(dataDB.Read(ctx, telem.TimeRange{Start: 10 * telem.SecondTS, End: 100 * telem.SecondTS}))
 							Expect(frame.Count()).To(Equal(2))
 
 							Expect(frame.SeriesAt(0).TimeRange.End).To(Equal(13*telem.SecondTS + 1))
@@ -294,8 +285,7 @@ var _ = Describe("Delete", func() {
 								End:   20 * telem.SecondTS,
 							})).To(Succeed())
 
-							frame, err := dataDB.Read(ctx, telem.TimeRange{Start: 10 * telem.SecondTS, End: 100 * telem.SecondTS})
-							Expect(err).ToNot(HaveOccurred())
+							frame := MustSucceed(dataDB.Read(ctx, telem.TimeRange{Start: 10 * telem.SecondTS, End: 100 * telem.SecondTS}))
 							Expect(frame.Count()).To(Equal(1))
 
 							Expect(frame.SeriesAt(0).TimeRange.Start).To(Equal(20 * telem.SecondTS))
@@ -312,8 +302,7 @@ var _ = Describe("Delete", func() {
 
 						It("Should delete entire dataDB", func() {
 							Expect(dataDB.Delete(ctx, telem.TimeRangeMax)).To(Succeed())
-							frame, err := dataDB.Read(ctx, telem.TimeRangeMax)
-							Expect(err).ToNot(HaveOccurred())
+							frame := MustSucceed(dataDB.Read(ctx, telem.TimeRangeMax))
 							Expect(frame.Count()).To(Equal(0))
 						})
 					})
@@ -335,8 +324,7 @@ var _ = Describe("Delete", func() {
 								End:   75 * telem.SecondTS,
 							})).To(Succeed())
 
-							frame, err := indexDB.Read(ctx, telem.TimeRange{Start: 10 * telem.SecondTS, End: 100 * telem.SecondTS})
-							Expect(err).ToNot(HaveOccurred())
+							frame := MustSucceed(indexDB.Read(ctx, telem.TimeRange{Start: 10 * telem.SecondTS, End: 100 * telem.SecondTS}))
 							Expect(frame.Count()).To(Equal(6))
 
 							series2 := frame.SeriesAt(2)
@@ -366,8 +354,7 @@ var _ = Describe("Delete", func() {
 								End:   50 * telem.SecondTS,
 							})).To(Succeed())
 
-							frame, err := indexDB.Read(ctx, telem.TimeRange{Start: 10 * telem.SecondTS, End: 100 * telem.SecondTS})
-							Expect(err).ToNot(HaveOccurred())
+							frame := MustSucceed(indexDB.Read(ctx, telem.TimeRange{Start: 10 * telem.SecondTS, End: 100 * telem.SecondTS}))
 							Expect(frame.Count()).To(Equal(6))
 
 							series0 := frame.SeriesAt(0)
@@ -399,8 +386,7 @@ var _ = Describe("Delete", func() {
 								End:   50 * telem.SecondTS,
 							})).To(Succeed())
 
-							frame, err := dataDB.Read(ctx, telem.TimeRange{Start: 10 * telem.SecondTS, End: 100 * telem.SecondTS})
-							Expect(err).ToNot(HaveOccurred())
+							frame := MustSucceed(dataDB.Read(ctx, telem.TimeRange{Start: 10 * telem.SecondTS, End: 100 * telem.SecondTS}))
 							Expect(frame.Count()).To(Equal(6))
 
 							series0Data := telem.UnmarshalSeries[int64](frame.SeriesAt(0))
@@ -462,8 +448,7 @@ var _ = Describe("Delete", func() {
 
 				It("Should delete between two domains", func() {
 					Expect(indexDB.Delete(ctx, telem.TimeRange{Start: 12*telem.SecondTS + 500*telem.MillisecondTS, End: 24 * telem.SecondTS})).To(Succeed())
-					frame, err := indexDB.Read(ctx, telem.TimeRange{Start: 10 * telem.SecondTS, End: 100 * telem.SecondTS})
-					Expect(err).ToNot(HaveOccurred())
+					frame := MustSucceed(indexDB.Read(ctx, telem.TimeRange{Start: 10 * telem.SecondTS, End: 100 * telem.SecondTS}))
 					Expect(frame.Count()).To(Equal(3))
 
 					Expect(frame.SeriesAt(0).TimeRange.End).To(Equal(12*telem.SecondTS + 1))
@@ -478,8 +463,7 @@ var _ = Describe("Delete", func() {
 
 				It("Should delete between multiple domains", func() {
 					Expect(indexDB.Delete(ctx, telem.TimeRange{Start: 12*telem.SecondTS + 500*telem.MillisecondTS, End: 32 * telem.SecondTS})).To(Succeed())
-					frame, err := indexDB.Read(ctx, telem.TimeRange{Start: 10 * telem.SecondTS, End: 100 * telem.SecondTS})
-					Expect(err).ToNot(HaveOccurred())
+					frame := MustSucceed(indexDB.Read(ctx, telem.TimeRange{Start: 10 * telem.SecondTS, End: 100 * telem.SecondTS}))
 					Expect(frame.Count()).To(Equal(2))
 
 					Expect(frame.SeriesAt(0).TimeRange.End).To(Equal(12*telem.SecondTS + 1))
@@ -494,8 +478,7 @@ var _ = Describe("Delete", func() {
 
 				It("Should delete a domain entirely", func() {
 					Expect(indexDB.Delete(ctx, telem.TimeRange{Start: 12*telem.SecondTS + 500*telem.MillisecondTS, End: 25 * telem.SecondTS})).To(Succeed())
-					frame, err := indexDB.Read(ctx, telem.TimeRange{Start: 10 * telem.SecondTS, End: 100 * telem.SecondTS})
-					Expect(err).ToNot(HaveOccurred())
+					frame := MustSucceed(indexDB.Read(ctx, telem.TimeRange{Start: 10 * telem.SecondTS, End: 100 * telem.SecondTS}))
 					Expect(frame.Count()).To(Equal(2))
 
 					Expect(frame.SeriesAt(0).TimeRange.End).To(Equal(12*telem.SecondTS + 1))
@@ -519,8 +502,7 @@ var _ = Describe("Delete", func() {
 				It("Should delete even when the start timestamp is not in bounds of a domain", func() {
 					Expect(indexDB.Delete(ctx, telem.NewRangeSeconds(18, 32))).To(Succeed())
 
-					frame, err := indexDB.Read(ctx, telem.TimeRangeMax)
-					Expect(err).ToNot(HaveOccurred())
+					frame := MustSucceed(indexDB.Read(ctx, telem.TimeRangeMax))
 					Expect(frame.Count()).To(Equal(2))
 
 					series0 := frame.SeriesAt(0)
@@ -676,8 +658,7 @@ var _ = Describe("Delete", func() {
 
 					Expect(indexDB.Delete(ctx, telem.NewRangeSeconds(14, 20))).To(Succeed())
 
-					frame, err := indexDB.Read(ctx, telem.TimeRange{Start: 20 * telem.SecondTS, End: 100 * telem.SecondTS})
-					Expect(err).ToNot(HaveOccurred())
+					frame := MustSucceed(indexDB.Read(ctx, telem.TimeRange{Start: 20 * telem.SecondTS, End: 100 * telem.SecondTS}))
 
 					series0 := frame.SeriesAt(0)
 					Expect(series0.TimeRange.Start).To(Equal(20 * telem.SecondTS))
@@ -922,17 +903,14 @@ var _ = Describe("Delete", func() {
 				It("Should return whether there is data for the given range", func() {
 					Expect(unary.Write(ctx, indexDB, 10*telem.SecondTS, telem.NewSeriesSecondsTSV(10, 11, 12, 13, 14, 15, 16))).To(Succeed())
 					Expect(unary.Write(ctx, dataDB, 10*telem.SecondTS, telem.NewSeriesV[int64](0, 1, 2, 3, 4, 5, 6))).To(Succeed())
-					hasData, err := dataDB.HasDataFor(ctx, (12 * telem.SecondTS).Range(23*telem.SecondTS))
+					hasData := MustSucceed(dataDB.HasDataFor(ctx, (12 * telem.SecondTS).Range(23*telem.SecondTS)))
 					Expect(hasData).To(BeTrue())
-					Expect(err).ToNot(HaveOccurred())
 
-					hasData, err = dataDB.HasDataFor(ctx, (16*telem.SecondTS + 1).Range(25*telem.SecondTS))
+					hasData = MustSucceed(dataDB.HasDataFor(ctx, (16*telem.SecondTS + 1).Range(25*telem.SecondTS)))
 					Expect(hasData).To(BeFalse())
-					Expect(err).ToNot(HaveOccurred())
 
-					hasData, err = dataDB.HasDataFor(ctx, (5 * telem.SecondTS).Range(10*telem.SecondTS))
+					hasData = MustSucceed(dataDB.HasDataFor(ctx, (5 * telem.SecondTS).Range(10*telem.SecondTS)))
 					Expect(hasData).To(BeFalse())
-					Expect(err).ToNot(HaveOccurred())
 				})
 				It("Should return true when there is a writer starting before the given time range", func() {
 					w, _ := MustSucceed2(dataDB.OpenWriter(ctx, unary.WriterConfig{
@@ -940,15 +918,13 @@ var _ = Describe("Delete", func() {
 						Subject: control.Subject{Key: "foo_writer"},
 					}))
 
-					hasData, err := dataDB.HasDataFor(ctx, (12 * telem.SecondTS).Range(23*telem.SecondTS))
+					hasData := MustSucceed(dataDB.HasDataFor(ctx, (12 * telem.SecondTS).Range(23*telem.SecondTS)))
 					Expect(hasData).To(BeTrue())
-					Expect(err).ToNot(HaveOccurred())
 
 					MustSucceed(w.Close())
 
-					hasData, err = dataDB.HasDataFor(ctx, (12 * telem.SecondTS).Range(23*telem.SecondTS))
+					hasData = MustSucceed(dataDB.HasDataFor(ctx, (12 * telem.SecondTS).Range(23*telem.SecondTS)))
 					Expect(hasData).To(BeFalse())
-					Expect(err).ToNot(HaveOccurred())
 				})
 				It("Should return true when there is a writer starting in the middle of the given time range", func() {
 					w, _ := MustSucceed2(dataDB.OpenWriter(ctx, unary.WriterConfig{
@@ -956,15 +932,13 @@ var _ = Describe("Delete", func() {
 						Subject: control.Subject{Key: "foo_writer"},
 					}))
 
-					hasData, err := dataDB.HasDataFor(ctx, (12 * telem.SecondTS).Range(23*telem.SecondTS))
+					hasData := MustSucceed(dataDB.HasDataFor(ctx, (12 * telem.SecondTS).Range(23*telem.SecondTS)))
 					Expect(hasData).To(BeTrue())
-					Expect(err).ToNot(HaveOccurred())
 
 					MustSucceed(w.Close())
 
-					hasData, err = dataDB.HasDataFor(ctx, (12 * telem.SecondTS).Range(23*telem.SecondTS))
+					hasData = MustSucceed(dataDB.HasDataFor(ctx, (12 * telem.SecondTS).Range(23*telem.SecondTS)))
 					Expect(hasData).To(BeFalse())
-					Expect(err).ToNot(HaveOccurred())
 				})
 				It("Should return false when there is a writer starting after the given time range", func() {
 					w, _ := MustSucceed2(dataDB.OpenWriter(ctx, unary.WriterConfig{
@@ -972,9 +946,8 @@ var _ = Describe("Delete", func() {
 						Subject: control.Subject{Key: "foo_writer"},
 					}))
 
-					hasData, err := dataDB.HasDataFor(ctx, (12 * telem.SecondTS).Range(23*telem.SecondTS))
+					hasData := MustSucceed(dataDB.HasDataFor(ctx, (12 * telem.SecondTS).Range(23*telem.SecondTS)))
 					Expect(hasData).To(BeFalse())
-					Expect(err).ToNot(HaveOccurred())
 
 					MustSucceed(w.Close())
 				})

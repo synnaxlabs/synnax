@@ -13,13 +13,13 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/x/httputil"
+	. "github.com/synnaxlabs/x/testutil"
 )
 
 var _ = Describe("Codec", func() {
 	Describe("Determine", func() {
 		It("Should determine the encoder based on a content-type", func() {
-			ecd, err := httputil.ResolveCodec("application/json")
-			Expect(err).ToNot(HaveOccurred())
+			ecd := MustSucceed(httputil.ResolveCodec("application/json"))
 			Expect(ecd.ContentType()).To(Equal("application/json"))
 		})
 		It("Should return an error if the content-type is not supported", func() {

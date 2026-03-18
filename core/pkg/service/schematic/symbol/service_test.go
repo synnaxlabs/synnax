@@ -31,11 +31,10 @@ var _ = Describe("Service", func() {
 				DB:           testDB,
 			}))
 
-			testSvc, err := symbol.OpenService(ctx, symbol.ServiceConfig{
+			testSvc := MustSucceed(symbol.OpenService(ctx, symbol.ServiceConfig{
 				DB:       testDB,
 				Ontology: testOtg,
-			})
-			Expect(err).ToNot(HaveOccurred())
+			}))
 			Expect(testSvc).ToNot(BeNil())
 
 			Expect(testSvc.Close()).To(Succeed())
@@ -54,12 +53,11 @@ var _ = Describe("Service", func() {
 				Ontology: testOtg,
 			}))
 
-			testSvc, err := symbol.OpenService(ctx, symbol.ServiceConfig{
+			testSvc := MustSucceed(symbol.OpenService(ctx, symbol.ServiceConfig{
 				DB:       testDB,
 				Ontology: testOtg,
 				Group:    testGroup,
-			})
-			Expect(err).ToNot(HaveOccurred())
+			}))
 			Expect(testSvc).ToNot(BeNil())
 			Expect(testSvc.Group()).ToNot(BeNil())
 			Expect(testSvc.Group().Name).To(Equal("Schematic Symbols"))
@@ -104,8 +102,7 @@ var _ = Describe("Service", func() {
 				Ontology: testOtg2,
 			}
 
-			testSvc, err := symbol.OpenService(ctx, cfg1, cfg2)
-			Expect(err).ToNot(HaveOccurred())
+			testSvc := MustSucceed(symbol.OpenService(ctx, cfg1, cfg2))
 			// Should use cfg2's values
 			Expect(testSvc.ServiceConfig.DB).To(Equal(testDB2))
 			Expect(testSvc.ServiceConfig.Ontology).To(Equal(testOtg2))
@@ -145,11 +142,10 @@ var _ = Describe("Service", func() {
 				DB:           testDB,
 			}))
 
-			testSvc, err := symbol.OpenService(ctx, symbol.ServiceConfig{
+			testSvc := MustSucceed(symbol.OpenService(ctx, symbol.ServiceConfig{
 				DB:       testDB,
 				Ontology: testOtg,
-			})
-			Expect(err).ToNot(HaveOccurred())
+			}))
 
 			Expect(testSvc.Close()).To(Succeed())
 			// Should be idempotent
