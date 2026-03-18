@@ -139,7 +139,7 @@ class Bus {
     mutable std::shared_mutex mu;
     std::vector<std::weak_ptr<Subscription>> subscribers;
 
-    std::mutex alignment_mu;
+    mutable std::shared_mutex alignment_mu;
     std::unordered_map<synnax::channel::Key, std::unique_ptr<std::atomic<uint64_t>>>
         alignment_counters;
 
@@ -147,7 +147,7 @@ public:
     /// @brief registers channels for alignment tracking. Must be called before
     /// publishing frames containing these channels (typically at writer open).
     void register_channels(const std::vector<synnax::channel::Key> &keys) {
-        std::lock_guard lock(this->alignment_mu);
+        std::unique_lock lock(this->alignment_mu);
         for (auto key: keys) {
             if (this->alignment_counters.find(key) == this->alignment_counters.end())
                 this->alignment_counters.emplace(
@@ -173,6 +173,7 @@ public:
                     continue;
                 }
                 if (!aligned) {
+                    std::shared_lock alm_lock(this->alignment_mu);
                     alignments.resize(frame.size());
                     for (size_t i = 0; i < frame.size(); i++) {
                         auto key = frame.channels->at(i);
