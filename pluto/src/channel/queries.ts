@@ -32,13 +32,11 @@ const PLURAL_RESOURCE_NAME = "channels";
 
 export interface FluxStore extends Flux.UnaryStore<channel.Key, channel.Channel> {}
 
-interface FluxSubStore extends Flux.Store {
+interface FluxSubStore extends Status.FluxSubStore {
   [FLUX_STORE_KEY]: FluxStore;
   [Ranger.RANGE_ALIASES_FLUX_STORE_KEY]: Ranger.AliasFluxStore;
-  [Ontology.RELATIONSHIPS_FLUX_STORE_KEY]: Ontology.RelationshipFluxStore;
   [Ontology.RESOURCES_FLUX_STORE_KEY]: Ontology.ResourceFluxStore;
   [Group.FLUX_STORE_KEY]: Group.FluxStore;
-  [Status.FLUX_STORE_KEY]: Status.FluxStore;
 }
 
 const SET_CHANNEL_LISTENER: Flux.ChannelListener<
@@ -147,7 +145,7 @@ const retrieveSingle = async ({
         query: { key: channel.statusKey(key) },
         detailsSchema: channel.calculationStatusDetailsZ,
       });
-      ch.status = st;
+      ch = client.channels.sugar({ ...ch.payload, status: st });
     } catch (e) {
       if (!(e instanceof NotFoundError)) throw e;
     }
@@ -227,14 +225,18 @@ export const { useRetrieve, useRetrieveStateful, useRetrieveObservable } =
     name: RESOURCE_NAME,
     retrieve: retrieveSingle,
     mountListeners: ({ store, onChange, query: { key, rangeKey }, client }) => {
-      const ch = store.channels.onSet((channel) => {
+      const ch = store.channels.onSet((changed) => {
         if (rangeKey != null) {
           const alias = store.rangeAliases.get(
             ranger.alias.createKey({ range: rangeKey, channel: key }),
           );
-          if (alias != null) channel.alias = alias.alias;
+          if (alias != null) changed.alias = alias.alias;
         }
-        onChange(channel);
+        onChange(
+          state.skipUndefined((p) =>
+            client.channels.sugar({ ...p, ...changed, status: p?.status }),
+          ),
+        );
       }, key);
       const onSetStatus = store.statuses.onSet((st) => {
         const parsed = channel.calculationStatusZ.safeParse(st);

@@ -894,13 +894,16 @@ describe("queries", () => {
         variant: "error",
         message: "invalid expression",
         time: TimeStamp.now(),
+        details: { channel: calc.key },
       });
       const { result } = renderHook(() => Channel.useRetrieve({ key: calc.key }), {
         wrapper,
       });
-      await waitFor(() => expect(result.current.variant).toEqual("success"));
-      expect(result.current.data?.status?.variant).toEqual("error");
-      expect(result.current.data?.status?.message).toEqual("invalid expression");
+      await waitFor(() => {
+        expect(result.current.variant).toEqual("success");
+        expect(result.current.data?.status?.variant).toEqual("error");
+        expect(result.current.data?.status?.message).toEqual("invalid expression");
+      });
     });
 
     it("should retrieve a calculated channel without a status", async () => {
@@ -947,6 +950,7 @@ describe("queries", () => {
           variant: "error",
           message: "broken expression",
           time: TimeStamp.now(),
+          details: { channel: calc.key },
         });
       });
       await waitFor(() => {
