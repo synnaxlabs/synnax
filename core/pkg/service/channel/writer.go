@@ -42,15 +42,17 @@ func (w Writer) CreateMany(ctx context.Context, channels *[]Channel, opts ...Cre
 	if len(*channels) == 0 {
 		return nil
 	}
-	for i, ch := range *channels {
-		if !ch.IsCalculated() {
-			continue
+	if w.analyzer != nil {
+		for i, ch := range *channels {
+			if !ch.IsCalculated() {
+				continue
+			}
+			result, err := w.analyzer.Analyze(ctx, ch)
+			if err != nil {
+				return err
+			}
+			(*channels)[i].DataType = result.DataType
 		}
-		result, err := w.analyzer.Analyze(ctx, ch)
-		if err != nil {
-			return err
-		}
-		(*channels)[i].DataType = result.DataType
 	}
 	return w.Writer.CreateMany(ctx, channels, opts...)
 }

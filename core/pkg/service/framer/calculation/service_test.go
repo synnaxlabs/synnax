@@ -24,7 +24,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/distribution/mock"
 	"github.com/synnaxlabs/synnax/pkg/service/arc"
 	svcchannel "github.com/synnaxlabs/synnax/pkg/service/channel"
-	calcstatus "github.com/synnaxlabs/synnax/pkg/service/channel/calculation/status"
+	channelcalculation "github.com/synnaxlabs/synnax/pkg/service/channel/calculation"
 	"github.com/synnaxlabs/synnax/pkg/service/framer/calculation"
 	"github.com/synnaxlabs/synnax/pkg/service/framer/streamer"
 	"github.com/synnaxlabs/synnax/pkg/service/label"
@@ -519,7 +519,7 @@ var _ = Describe("Calculation", Ordered, func() {
 			Expect(rm.Set(ctx, channel.KeysFromChannels(calcs))).To(Succeed())
 			var st calculation.Status
 			statusKey := channel.OntologyID(calcs[0].Key()).String()
-			Expect(status.NewRetrieve[calcstatus.Details](statusSvc).
+			Expect(status.NewRetrieve[channelcalculation.StatusDetails](statusSvc).
 				WhereKeys(statusKey).
 				Entry(&st).
 				Exec(ctx, nil)).To(Succeed())
@@ -548,7 +548,7 @@ var _ = Describe("Calculation", Ordered, func() {
 			var st calculation.Status
 			statusKey := channel.OntologyID(calcs[0].Key()).String()
 			Eventually(func(g Gomega) {
-				err := status.NewRetrieve[calcstatus.Details](statusSvc).
+				err := status.NewRetrieve[channelcalculation.StatusDetails](statusSvc).
 					WhereKeys(statusKey).
 					Entry(&st).
 					Exec(ctx, nil)
@@ -570,7 +570,7 @@ var _ = Describe("Calculation", Ordered, func() {
 			Expect(rm.Set(ctx, channel.KeysFromChannels(calcs))).To(Succeed())
 			var st calculation.Status
 			statusKey := channel.OntologyID(calcs[0].Key()).String()
-			Expect(status.NewRetrieve[calcstatus.Details](statusSvc).
+			Expect(status.NewRetrieve[channelcalculation.StatusDetails](statusSvc).
 				WhereKeys(statusKey).
 				Entry(&st).
 				Exec(ctx, nil)).To(Succeed())
@@ -590,7 +590,7 @@ var _ = Describe("Calculation", Ordered, func() {
 			Expect(rm.Set(ctx, channel.KeysFromChannels(calcs))).To(Succeed())
 			var st calculation.Status
 			expectedKey := channel.OntologyID(calcs[0].Key()).String()
-			Expect(status.NewRetrieve[calcstatus.Details](statusSvc).
+			Expect(status.NewRetrieve[channelcalculation.StatusDetails](statusSvc).
 				WhereKeys(expectedKey).
 				Entry(&st).
 				Exec(ctx, nil)).To(Succeed())

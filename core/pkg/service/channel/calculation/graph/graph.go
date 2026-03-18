@@ -17,8 +17,8 @@ import (
 	"github.com/synnaxlabs/alamos"
 	channel "github.com/synnaxlabs/synnax/pkg/distribution/channel"
 	"github.com/synnaxlabs/synnax/pkg/service/arc/symbol"
+	"github.com/synnaxlabs/synnax/pkg/service/channel/calculation"
 	channelanalyzer "github.com/synnaxlabs/synnax/pkg/service/channel/calculation/analyzer"
-	calcstatus "github.com/synnaxlabs/synnax/pkg/service/channel/calculation/status"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
 	"github.com/synnaxlabs/x/change"
 	"github.com/synnaxlabs/x/config"
@@ -42,7 +42,7 @@ type node struct {
 type Graph struct {
 	alamos.Instrumentation
 	distribution *channel.Service
-	status       status.Writer[calcstatus.Details]
+	status       status.Writer[calculation.StatusDetails]
 	disconnect   observe.Disconnect
 	mu           struct {
 		nodes            map[channel.Key]node
@@ -94,7 +94,7 @@ func Open(
 	s := &Graph{
 		Instrumentation: cfg.Instrumentation,
 		distribution:    cfg.Channel,
-		status:          status.NewWriter[calcstatus.Details](cfg.Status, nil),
+		status:          status.NewWriter[calculation.StatusDetails](cfg.Status, nil),
 	}
 	s.mu.nodes = make(map[channel.Key]node)
 	s.mu.dependents = make(map[channel.Key]map[channel.Key]struct{})
@@ -129,7 +129,7 @@ func (s *Graph) hydrate(ctx context.Context) error {
 		nextUnresolved map[string]map[channel.Key]struct{}
 	)
 	analyzer := s.newAnalyzer(nil)
-	statuses := make(map[channel.Key]*calcstatus.Status)
+	statuses := make(map[channel.Key]*calculation.Status)
 	for {
 		changed := false
 		nextNodes = make(map[channel.Key]node)
@@ -139,7 +139,7 @@ func (s *Graph) hydrate(ctx context.Context) error {
 		for i, ch := range channels {
 			nd, err := s.inspectNode(ctx, nil, ch, analyzer)
 			if err != nil {
-				statuses[ch.Key()] = calcstatus.FromError(ch.Key(), ch.Name, fmt.Sprintf("invalid expression for %s", ch.Name), err)
+				statuses[ch.Key()] = calculation.StatusFromError(ch.Key(), ch.Name, fmt.Sprintf("invalid expression for %s", ch.Name), err)
 				invalidCount++
 				s.L.Debug("channel expression invalid",
 					zap.Stringer("channel", ch.Key()),
@@ -232,7 +232,7 @@ func (s *Graph) handleChanges(ctx context.Context, reader gorp.TxReader[channel.
 					zap.String("name", ch.Name),
 					zap.Error(err),
 				)
-				s.setNodeStatus(ctx, calcstatus.FromError(ch.Key(), ch.Name, fmt.Sprintf("invalid expression for %s", ch.Name), err))
+				s.setNodeStatus(ctx, calculation.StatusFromError(ch.Key(), ch.Name, fmt.Sprintf("invalid expression for %s", ch.Name), err))
 			} else {
 				s.L.Debug("calculated channel inspected",
 					zap.Stringer("channel", ch.Key()),
@@ -266,7 +266,7 @@ func (s *Graph) handleChanges(ctx context.Context, reader gorp.TxReader[channel.
 	}
 }
 
-func (s *Graph) setNodeStatus(ctx context.Context, st *calcstatus.Status) {
+func (s *Graph) setNodeStatus(ctx context.Context, st *calculation.Status) {
 	if sErr := s.status.Set(ctx, st); sErr != nil {
 		s.L.Warn("failed to set error status for channel",
 			zap.String("key", st.Key),
@@ -276,7 +276,7 @@ func (s *Graph) setNodeStatus(ctx context.Context, st *calcstatus.Status) {
 }
 
 func (s *Graph) clearNodeStatus(ctx context.Context, key channel.Key) {
-	if err := s.status.Delete(ctx, calcstatus.Key(key)); err != nil {
+	if err := s.status.Delete(ctx, calculation.StatusKey(key)); err != nil {
 		s.L.Warn("failed to clear status for channel",
 			zap.Stringer("channel", key),
 			zap.Error(err),
@@ -353,7 +353,7 @@ func (s *Graph) reconcileQueued(
 					zap.String("name", refetched.Name),
 					zap.Error(err),
 				)
-				s.setNodeStatus(ctx, calcstatus.FromError(key, refetched.Name, fmt.Sprintf("invalid expression for %s", refetched.Name), err))
+				s.setNodeStatus(ctx, calculation.StatusFromError(key, refetched.Name, fmt.Sprintf("invalid expression for %s", refetched.Name), err))
 				continue
 			}
 			s.clearNodeStatus(ctx, key)

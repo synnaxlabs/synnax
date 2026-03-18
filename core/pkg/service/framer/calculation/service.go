@@ -19,8 +19,8 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer"
 	"github.com/synnaxlabs/synnax/pkg/service/arc"
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
+	"github.com/synnaxlabs/synnax/pkg/service/channel/calculation"
 	"github.com/synnaxlabs/synnax/pkg/service/channel/calculation/compiler"
-	calcstatus "github.com/synnaxlabs/synnax/pkg/service/channel/calculation/status"
 	"github.com/synnaxlabs/synnax/pkg/service/framer/calculation/calculator"
 	"github.com/synnaxlabs/synnax/pkg/service/framer/calculation/graph"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
@@ -41,7 +41,7 @@ import (
 var legacyStatusChannels = []string{"sy_calculation_status", "sy_calculation_state"}
 
 // Status is an alias for the calculation status type.
-type Status = calcstatus.Status
+type Status = calculation.Status
 
 // ServiceConfig is the configuration for opening the calculation service.
 type ServiceConfig struct {
@@ -107,7 +107,7 @@ type Service struct {
 		groups      map[int]*group
 		sync.Mutex
 	}
-	statusWriter status.Writer[calcstatus.Details]
+	statusWriter status.Writer[calculation.StatusDetails]
 }
 
 // OpenService opens the service with the provided configuration. The service must be closed
@@ -128,7 +128,7 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (*Service, error) {
 
 	s := &Service{
 		cfg:          cfg,
-		statusWriter: status.NewWriter[calcstatus.Details](cfg.Status, nil),
+		statusWriter: status.NewWriter[calculation.StatusDetails](cfg.Status, nil),
 	}
 	s.disconnectFromChannelChanges = cfg.ChannelObservable.OnChange(s.handleChange)
 	s.mu.graph = g
@@ -155,7 +155,7 @@ func (s *Service) setStatus(
 			continue
 		}
 		s.cfg.L.Warn(st.String())
-		statusKey := calcstatus.Key(chKey)
+		statusKey := calculation.StatusKey(chKey)
 		if err = s.statusWriter.Set(ctx, &Status{
 			Key:         statusKey,
 			Name:        st.Name,
@@ -163,7 +163,7 @@ func (s *Service) setStatus(
 			Message:     st.Message,
 			Description: st.Description,
 			Time:        telem.Now(),
-			Details:     calcstatus.Details{Channel: chKey},
+			Details:     calculation.StatusDetails{Channel: chKey},
 		}); err != nil {
 			s.cfg.L.Error("failed to set status", zap.Error(err), zap.String("key", statusKey))
 		}

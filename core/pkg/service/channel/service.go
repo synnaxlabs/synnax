@@ -107,7 +107,7 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (*Service, error) {
 // service without calculated channel features (type inference, dependency tracking).
 // Use OpenService for full functionality.
 func Wrap(dist *distchannel.Service) *Service {
-	return &Service{Service: dist}
+	return &Service{Service: dist, cfg: ServiceConfig{Distribution: dist}}
 }
 
 // Close shuts down the calculated channel graph and its observable subscription.
@@ -119,13 +119,16 @@ func (s *Service) Close() error {
 }
 
 // NewWriter returns a Writer that infers DataTypes for calculated channels
-// before delegating to the distribution-layer writer.
+// before delegating to the distribution-layer writer. If Arc is not configured
+// (e.g. when using Wrap), returns a Writer that delegates directly without
+// type inference.
 func (s *Service) NewWriter(tx gorp.Tx) Writer {
-	return Writer{
-		Writer:   s.cfg.Distribution.NewWriter(tx),
-		tx:       gorp.OverrideTx(s.cfg.DB, tx),
-		analyzer: analyzer.New(s.cfg.Arc.NewSymbolResolver(tx)),
+	w := Writer{Writer: s.cfg.Distribution.NewWriter(tx)}
+	if s.cfg.Arc != nil {
+		w.tx = gorp.OverrideTx(s.cfg.DB, tx)
+		w.analyzer = analyzer.New(s.cfg.Arc.NewSymbolResolver(tx))
 	}
+	return w
 }
 
 // Create creates a single channel, inferring the DataType for calculated channels.

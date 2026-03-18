@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-package status_test
+package calculation_test
 
 import (
 	"errors"
@@ -15,31 +15,31 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
-	"github.com/synnaxlabs/synnax/pkg/service/channel/calculation/status"
+	"github.com/synnaxlabs/synnax/pkg/service/channel/calculation"
 	xstatus "github.com/synnaxlabs/x/status"
 )
 
 var _ = Describe("Status", func() {
-	Describe("Key", func() {
+	Describe("StatusKey", func() {
 		It("Should return a consistent key for a given channel key", func() {
-			k := status.Key(channel.Key(42))
+			k := calculation.StatusKey(channel.Key(42))
 			Expect(k).To(Equal(channel.OntologyID(42).String()))
 		})
 
 		It("Should return different keys for different channel keys", func() {
-			Expect(status.Key(channel.Key(1))).ToNot(Equal(status.Key(channel.Key(2))))
+			Expect(calculation.StatusKey(channel.Key(1))).ToNot(Equal(calculation.StatusKey(channel.Key(2))))
 		})
 	})
 
-	Describe("Error", func() {
+	Describe("StatusFromError", func() {
 		It("Should build a status with the correct fields", func() {
-			st := status.FromError(
+			st := calculation.StatusFromError(
 				channel.Key(42),
 				"my_channel",
 				"expression parse failed",
 				errors.New("unexpected token"),
 			)
-			Expect(st.Key).To(Equal(status.Key(42)))
+			Expect(st.Key).To(Equal(calculation.StatusKey(42)))
 			Expect(st.Name).To(Equal("my_channel"))
 			Expect(st.Variant).To(Equal(xstatus.VariantError))
 			Expect(st.Message).To(Equal("expression parse failed"))

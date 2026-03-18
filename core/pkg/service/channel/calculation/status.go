@@ -7,10 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-// Package status provides shared types and helpers for calculated channel status
-// entries, used by both the channel calculation graph and the framer calculation
-// service.
-package status
+package calculation
 
 import (
 	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
@@ -19,28 +16,28 @@ import (
 	"github.com/synnaxlabs/x/telem"
 )
 
-// Details is the payload attached to status entries for calculated channels.
-type Details struct {
+// StatusDetails is the payload attached to status entries for calculated channels.
+type StatusDetails struct {
 	Channel channel.Key `json:"channel" msgpack:"channel"`
 }
 
 // Status is a calculated channel status entry.
-type Status = svcstatus.Status[Details]
+type Status = svcstatus.Status[StatusDetails]
 
-// Key returns the status key for the given channel key.
-func Key(key channel.Key) string {
+// StatusKey returns the status key for the given channel key.
+func StatusKey(key channel.Key) string {
 	return channel.OntologyID(key).String()
 }
 
-// FromError builds an error status for a calculated channel.
-func FromError(key channel.Key, name string, msg string, err error) *Status {
+// StatusFromError builds an error status for a calculated channel.
+func StatusFromError(key channel.Key, name string, msg string, err error) *Status {
 	return &Status{
-		Key:         Key(key),
+		Key:         StatusKey(key),
 		Name:        name,
 		Variant:     xstatus.VariantError,
 		Message:     msg,
 		Description: err.Error(),
 		Time:        telem.Now(),
-		Details:     Details{Channel: key},
+		Details:     StatusDetails{Channel: key},
 	}
 }

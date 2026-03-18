@@ -137,7 +137,7 @@ const retrieveSingle = async ({
     ch = await client.channels.retrieve(key);
     store.channels.set(ch.key, ch);
   }
-  if (isCalculated(ch.payload)) {
+  if (isCalculated(ch.payload))
     try {
       const st = await Status.retrieveSingle<typeof channel.calculationStatusDetailsZ>({
         store,
@@ -149,7 +149,6 @@ const retrieveSingle = async ({
     } catch (e) {
       if (!(e instanceof NotFoundError)) throw e;
     }
-  }
   if (rangeKey != null) {
     const aliasKey = ranger.alias.createKey({ range: rangeKey, channel: ch.key });
     let alias = store.rangeAliases.get(aliasKey);
