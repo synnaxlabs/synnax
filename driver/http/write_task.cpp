@@ -121,7 +121,8 @@ std::pair<WriteTaskConfig, x::errors::Error> WriteTaskConfig::parse(
         }
 
         // Parse optional enum values for numeric-to-string mapping.
-        ch_parser.iter("enum_values", [&](x::json::Parser &ev) {
+        if (ch_parser.has("enum_values"))
+            ch_parser.iter("enum_values", [&](x::json::Parser &ev) {
             auto value = ev.field<x::json::json>("value");
             auto label = ev.field<std::string>("label");
             if (!endpoint.channel.enum_values.emplace(value, std::move(label)).second)
