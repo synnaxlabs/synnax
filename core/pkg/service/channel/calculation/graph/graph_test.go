@@ -292,6 +292,21 @@ var _ = Describe("Graph", func() {
 				openGraph()
 				Expect(retrieveChannelDataType(calc.Key())).To(Equal(telem.Int64T))
 			})
+
+			It("Should repair a stale DataType during hydration", func() {
+				base := channel.Channel{Name: "hy_rep_base", DataType: telem.Int64T, Virtual: true}
+				Expect(dist.Channel.Create(ctx, &base)).To(Succeed())
+				calc := channel.Channel{
+					Name:       "hy_rep_calc",
+					DataType:   telem.Float32T,
+					Virtual:    true,
+					Expression: "return hy_rep_base + 1",
+				}
+				Expect(dist.Channel.Create(ctx, &calc)).To(Succeed())
+				Expect(retrieveChannelDataType(calc.Key())).To(Equal(telem.Float32T))
+				openGraph()
+				Expect(retrieveChannelDataType(calc.Key())).To(Equal(telem.Int64T))
+			})
 		})
 	})
 

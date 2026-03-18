@@ -126,7 +126,7 @@ func (s *Graph) hydrate(ctx context.Context) error {
 		nextDependents := make(map[channel.Key]map[channel.Key]struct{})
 		nextUnresolved := make(map[string]map[channel.Key]struct{})
 		invalidCount = 0
-		for _, ch := range channels {
+		for i, ch := range channels {
 			nd, err := s.inspectNode(ctx, nil, ch, analyzer)
 			if err != nil {
 				s.setNodeStatus(ctx, ch.Key(), ch.Name, err)
@@ -147,8 +147,8 @@ func (s *Graph) hydrate(ctx context.Context) error {
 					zap.String("old", string(ch.DataType)),
 					zap.String("new", string(nd.DataType)),
 				)
-				ch.DataType = nd.DataType
-				repairs = append(repairs, ch)
+				channels[i].DataType = nd.DataType
+				repairs = append(repairs, channels[i])
 				changed = true
 			}
 		}

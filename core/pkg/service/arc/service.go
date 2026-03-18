@@ -85,9 +85,8 @@ func (c ServiceConfig) Validate() error {
 
 // Service is the primary service for retrieving and modifying arcs from Synnax.
 type Service struct {
-	symbolResolver arc.SymbolResolver
-	closer         io.Closer
-	cfg            ServiceConfig
+	closer io.Closer
+	cfg    ServiceConfig
 }
 
 func (s *Service) NewSymbolResolver(tx gorp.Tx) arc.SymbolResolver {
@@ -125,7 +124,7 @@ func (s *Service) CompileProgram(ctx context.Context, key uuid.UUID) (Arc, error
 	if err != nil {
 		return Arc{}, err
 	}
-	resolverOpt := arc.WithResolver(s.symbolResolver)
+	resolverOpt := arc.WithResolver(s.NewSymbolResolver(nil))
 	if prog.Mode == "text" {
 		prog.Program, err = arc.CompileText(ctx, prog.Text, resolverOpt)
 	} else {
