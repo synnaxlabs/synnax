@@ -11,9 +11,9 @@ package protocol
 
 import (
 	"context"
-	"fmt"
 
 	"github.com/segmentio/encoding/json"
+	"github.com/synnaxlabs/x/errors"
 
 	"go.lsp.dev/jsonrpc2"
 	"go.lsp.dev/pkg/xcontext"
@@ -55,7 +55,7 @@ func CancelHandler(handler jsonrpc2.Handler) jsonrpc2.Handler {
 		case string:
 			canceller(jsonrpc2.NewStringID(id))
 		default:
-			return replyParseError(ctx, reply, fmt.Errorf("request ID %v malformed", id))
+			return replyParseError(ctx, reply, errors.Newf("request ID %v malformed", id))
 		}
 
 		return reply(ctx, nil, nil)
@@ -90,5 +90,5 @@ func notifyCancel(ctx context.Context, conn jsonrpc2.Conn, id jsonrpc2.ID) {
 }
 
 func replyParseError(ctx context.Context, reply jsonrpc2.Replier, err error) error {
-	return reply(ctx, nil, fmt.Errorf("%s: %w", jsonrpc2.ErrParse, err))
+	return reply(ctx, nil, errors.Wrapf(err, "%s", jsonrpc2.ErrParse))
 }

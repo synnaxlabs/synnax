@@ -22,6 +22,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/status"
 	"github.com/synnaxlabs/x/change"
 	"github.com/synnaxlabs/x/config"
+	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/gorp"
 	"github.com/synnaxlabs/x/observe"
 	"github.com/synnaxlabs/x/override"
@@ -297,11 +298,11 @@ func (s *Graph) inspectNode(
 	if analyzer == nil {
 		analyzer = s.newAnalyzer(tx)
 	}
+	if ch.Key() == 0 {
+		return node{}, errors.Newf("channel %q has no key, cannot inspect", ch.Name)
+	}
 	result, err := analyzer.Analyze(ctx, ch)
 	nd := node{Channel: ch}
-	if ch.Key() == 0 {
-		nd.LocalKey = 1
-	}
 	if err == nil {
 		nd.DataType = result.DataType
 		nd.deps = result.Deps
