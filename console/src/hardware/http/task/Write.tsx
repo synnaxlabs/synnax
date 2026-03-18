@@ -563,9 +563,7 @@ const Form: FC<Common.Task.FormProps<WriteSchemas>> = () => {
           <EndpointDetails epKey={selectedEndpoints[0]} />
         ) : (
           <Flex.Box y grow align="center" justify="center">
-            <Text.Text level="small" status="disabled">
-              Select an endpoint to configure
-            </Text.Text>
+            <Text.Text status="disabled">Select an endpoint to configure</Text.Text>
           </Flex.Box>
         )}
       </Flex.Box>
