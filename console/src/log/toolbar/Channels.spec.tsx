@@ -230,6 +230,7 @@ const ZERO_STATE: State = {
   remoteCreated: false,
   timestampPrecision: 0,
   showChannelNames: true,
+  showReceiptTimestamp: true,
 };
 
 describe("log/toolbar/Channels", () => {

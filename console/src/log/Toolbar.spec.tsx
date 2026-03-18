@@ -168,6 +168,7 @@ const ZERO_LOG_STATE: State = {
   remoteCreated: false,
   timestampPrecision: 0,
   showChannelNames: true,
+  showReceiptTimestamp: true,
 };
 
 const LAYOUT_STATE: Layout.State = {
