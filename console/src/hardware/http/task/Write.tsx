@@ -109,8 +109,9 @@ const EnumValuesEditor: FC<{ channelPath: string }> = ({ channelPath }) => (
     path={`${channelPath}.enumValues`}
     label="Enum mappings"
     keyField="label"
-    keyPlaceholder="Label"
+    keyPlaceholder="String (e.g. ON)"
     valueType="number"
+    valueFirst
   />
 );
 

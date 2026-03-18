@@ -21,6 +21,7 @@ export interface KeyValueEditorProps extends Flex.BoxProps {
   keyPlaceholder?: string;
   valuePlaceholder?: string;
   valueType?: "string" | "number";
+  valueFirst?: boolean;
 }
 
 export const KeyValueEditor: FC<KeyValueEditorProps> = ({
@@ -30,6 +31,7 @@ export const KeyValueEditor: FC<KeyValueEditorProps> = ({
   keyPlaceholder = "Key",
   valuePlaceholder = "Value",
   valueType = "string",
+  valueFirst = false,
   ...rest
 }) => {
   const defaultValue = valueType === "number" ? 0 : "";
@@ -75,14 +77,16 @@ export const KeyValueEditor: FC<KeyValueEditorProps> = ({
         </Button.Button>
       </Text.Text>
       <Flex.Box y gap="small">
-        {entries.map((entry, i) => (
-          <Flex.Box x key={i} align="center" gap="small" className={CSS.B("kv-row")}>
+        {entries.map((entry, i) => {
+          const keyInput = (
             <Input.Text
               placeholder={keyPlaceholder}
               value={(entry[keyField] as string) ?? ""}
               onChange={(v) => updateRowKey(i, v)}
             />
-            {valueType === "number" ? (
+          );
+          const valueInput =
+            valueType === "number" ? (
               <Input.Numeric
                 value={entry.value as number}
                 onChange={(v) => updateRowValue(i, v)}
@@ -93,17 +97,28 @@ export const KeyValueEditor: FC<KeyValueEditorProps> = ({
                 value={entry.value as string}
                 onChange={(v) => updateRowValue(i, v)}
               />
-            )}
-            <Button.Button
-              variant="text"
-              ghost
-              size="small"
-              onClick={() => removeRow(i)}
+            );
+          return (
+            <Flex.Box
+              x
+              key={i}
+              align="center"
+              gap="small"
+              className={CSS.B("kv-row")}
             >
-              <Icon.Close />
-            </Button.Button>
-          </Flex.Box>
-        ))}
+              {valueFirst ? valueInput : keyInput}
+              {valueFirst ? keyInput : valueInput}
+              <Button.Button
+                variant="text"
+                ghost
+                size="small"
+                onClick={() => removeRow(i)}
+              >
+                <Icon.Close />
+              </Button.Button>
+            </Flex.Box>
+          );
+        })}
       </Flex.Box>
     </Flex.Box>
   );
