@@ -122,8 +122,8 @@ var _ = Describe("Open", func() {
 		It("Should pass --debug flag when enabled", func() {
 			logger, buffer := newTestLogger()
 			d := openMockDriver(logger, driver.Config{Debug: new(true)})
-			Expect(buffer.String()).To(ContainSubstring("debug mode enabled"))
 			Expect(d.Close()).To(Succeed())
+			Expect(buffer.String()).To(ContainSubstring("debug mode enabled"))
 		})
 	})
 })
