@@ -19,8 +19,8 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer/frame"
 	"github.com/synnaxlabs/synnax/pkg/distribution/mock"
 	"github.com/synnaxlabs/synnax/pkg/service/arc"
+	"github.com/synnaxlabs/synnax/pkg/service/channel/calculation/compiler"
 	"github.com/synnaxlabs/synnax/pkg/service/framer/calculation/calculator"
-	"github.com/synnaxlabs/synnax/pkg/service/framer/calculation/compiler"
 	"github.com/synnaxlabs/x/telem"
 )
 
@@ -87,7 +87,7 @@ func (e *benchEnv) openCalculator(
 	mod, err := compiler.Compile(e.ctx, compiler.Config{
 		ChannelService: e.dist.Channel,
 		Channel:        *calc,
-		SymbolResolver: e.arcSvc.SymbolResolver(),
+		SymbolResolver: e.arcSvc.NewSymbolResolver(nil),
 	})
 	if err != nil {
 		b.Fatalf("failed to compile calculator: %v", err)

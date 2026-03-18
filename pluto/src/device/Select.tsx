@@ -12,7 +12,6 @@ import "@/device/Select.css";
 import { type device } from "@synnaxlabs/client";
 import { type ReactElement } from "react";
 
-import { Breadcrumb } from "@/breadcrumb";
 import { Component } from "@/component";
 import { CSS } from "@/css";
 import { type ListParams, useList } from "@/device/queries";
@@ -26,6 +25,8 @@ import { Text } from "@/text";
 const listItemRenderProp = Component.renderProp(
   ({ itemKey, ...rest }: List.ItemRenderProps<device.Key>) => {
     const item = List.useItem<device.Key, device.Device>(itemKey);
+    if (item == null) return null;
+    const { name, location, status } = item;
     return (
       <Select.ListItem
         itemKey={itemKey}
@@ -35,24 +36,18 @@ const listItemRenderProp = Component.renderProp(
         align="center"
       >
         <Text.Text align="center">
-          <StatusIndicator status={item?.status} />
-          {item?.name}
+          <StatusIndicator status={status} />
+          {name}
         </Text.Text>
-        <Breadcrumb.Breadcrumb
-          level="small"
-          color={9}
-          weight={450}
-          style={{ marginTop: "0.25rem" }}
-          gap="tiny"
-        >
-          {item?.location.split(".").map((segment) => (
-            <Breadcrumb.Segment key={segment}>{segment}</Breadcrumb.Segment>
-          ))}
-        </Breadcrumb.Breadcrumb>
+        <Text.Text level="small" color={9} weight={450} style={LOCATION_STYLE}>
+          {location}
+        </Text.Text>
       </Select.ListItem>
     );
   },
 );
+
+const LOCATION_STYLE = { marginTop: "0.25rem" } as const;
 
 export interface SelectSingleProps
   extends

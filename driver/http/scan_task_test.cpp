@@ -100,8 +100,8 @@ TEST(HTTPScanTask, HealthCheckConfigParsesAllFields) {
     auto j = x::json::json{
         {"method", "POST"},
         {"path", "/api/status"},
-        {"query_params", {{"key", "val"}}},
-        {"headers", {{"X-Custom", "abc"}}},
+        {"query_params", {{{"parameter", "key"}, {"value", "val"}}}},
+        {"headers", {{{"name", "X-Custom"}, {"value", "abc"}}}},
         {"body", R"({"ping": true})"},
         {"response",
          {
@@ -136,6 +136,86 @@ TEST(HTTPScanTask, HealthCheckConfigDefaults) {
     EXPECT_TRUE(hc.request.headers.empty());
     EXPECT_TRUE(hc.body.empty());
     EXPECT_FALSE(hc.expected_response.has_value());
+}
+
+TEST(HTTPScanTask, HealthCheckConfigHeaderMissingNameErrors) {
+    auto j = x::json::json{
+        {"method", "GET"},
+        {"path", "/health"},
+        {"headers", {{{"value", "abc"}}}},
+    };
+    auto parser = x::json::Parser(j);
+    const HealthCheckConfig hc(parser);
+    EXPECT_FALSE(parser.ok());
+    EXPECT_NE(parser.error().data.find("name"), std::string::npos);
+}
+
+TEST(HTTPScanTask, HealthCheckConfigHeaderMissingValueErrors) {
+    auto j = x::json::json{
+        {"method", "GET"},
+        {"path", "/health"},
+        {"headers", {{{"name", "X-Custom"}}}},
+    };
+    auto parser = x::json::Parser(j);
+    const HealthCheckConfig hc(parser);
+    EXPECT_FALSE(parser.ok());
+    EXPECT_NE(parser.error().data.find("value"), std::string::npos);
+}
+
+TEST(HTTPScanTask, HealthCheckConfigQueryParamMissingParameterErrors) {
+    auto j = x::json::json{
+        {"method", "GET"},
+        {"path", "/health"},
+        {"query_params", {{{"value", "10"}}}},
+    };
+    auto parser = x::json::Parser(j);
+    const HealthCheckConfig hc(parser);
+    EXPECT_FALSE(parser.ok());
+    EXPECT_NE(parser.error().data.find("parameter"), std::string::npos);
+}
+
+TEST(HTTPScanTask, HealthCheckConfigDuplicateHeaderErrors) {
+    auto j = x::json::json{
+        {"method", "GET"},
+        {"path", "/health"},
+        {"headers",
+         {
+             {{"name", "X-Key"}, {"value", "a"}},
+             {{"name", "X-Key"}, {"value", "b"}},
+         }},
+    };
+    auto parser = x::json::Parser(j);
+    const HealthCheckConfig hc(parser);
+    EXPECT_FALSE(parser.ok());
+    EXPECT_NE(parser.error().data.find("duplicate header"), std::string::npos);
+}
+
+TEST(HTTPScanTask, HealthCheckConfigDuplicateQueryParamErrors) {
+    auto j = x::json::json{
+        {"method", "GET"},
+        {"path", "/health"},
+        {"query_params",
+         {
+             {{"parameter", "key"}, {"value", "a"}},
+             {{"parameter", "key"}, {"value", "b"}},
+         }},
+    };
+    auto parser = x::json::Parser(j);
+    const HealthCheckConfig hc(parser);
+    EXPECT_FALSE(parser.ok());
+    EXPECT_NE(parser.error().data.find("duplicate query parameter"), std::string::npos);
+}
+
+TEST(HTTPScanTask, HealthCheckConfigQueryParamMissingValueErrors) {
+    auto j = x::json::json{
+        {"method", "GET"},
+        {"path", "/health"},
+        {"query_params", {{{"parameter", "limit"}}}},
+    };
+    auto parser = x::json::Parser(j);
+    const HealthCheckConfig hc(parser);
+    EXPECT_FALSE(parser.ok());
+    EXPECT_NE(parser.error().data.find("value"), std::string::npos);
 }
 
 TEST(HTTPScanTask, HealthCheckConfigMissingMethod) {

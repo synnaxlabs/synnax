@@ -334,7 +334,7 @@ var _ = Describe("Function Analyzer", func() {
 						last_error $= error
 						derivative := (error - last_error) / f32(dt)
 						d := kd * derivative
-						return p + i + d
+						return f64(p + i + d)
 					}
 				`, resolver)
 			})
@@ -379,7 +379,69 @@ var _ = Describe("Function Analyzer", func() {
 					}
 				}`,
 				Equal("function 'dog' must return a value of type f64 on all paths")),
+			Entry("concrete f64 expression returned from f32 function",
+				`func dog(x f64) f32 { return x * 2.0 }`,
+				ContainSubstring("cannot return f64 from 'dog': expected f32")),
+			Entry("concrete f32 expression returned from f64 function",
+				`func dog(x f32) f64 { return x * 2.0 }`,
+				ContainSubstring("cannot return f32 from 'dog': expected f64")),
+			Entry("concrete i64 expression returned from f32 function",
+				`func dog(x i64) f32 { return x * 2 }`,
+				ContainSubstring("cannot return i64 from 'dog': expected f32")),
+			Entry("concrete f64 expression returned from i32 function",
+				`func dog(x f64) i32 { return x * 2.0 }`,
+				ContainSubstring("cannot return f64 from 'dog': expected i32")),
+			Entry("concrete i32 expression returned from f32 function",
+				`func dog(x i32) f32 { return x * 2 }`,
+				ContainSubstring("cannot return i32 from 'dog': expected f32")),
 		)
+
+		It("Should reject f64 channel multiplied by f32 channel", func() {
+			resolver := symbol.MapResolver{
+				"ch_f64": {Name: "ch_f64", Kind: symbol.KindChannel, Type: types.Chan(types.F64()), ID: 1},
+				"ch_f32": {Name: "ch_f32", Kind: symbol.KindChannel, Type: types.Chan(types.F32()), ID: 2},
+			}
+			analyzeExpectError(
+				`func calc() f64 { return ch_f64 * ch_f32 }`,
+				resolver,
+				ContainSubstring("cannot use f64 and f32 in * operation"),
+			)
+		})
+
+		It("Should reject f32 channel multiplied by f64 channel", func() {
+			resolver := symbol.MapResolver{
+				"ch_f32": {Name: "ch_f32", Kind: symbol.KindChannel, Type: types.Chan(types.F32()), ID: 1},
+				"ch_f64": {Name: "ch_f64", Kind: symbol.KindChannel, Type: types.Chan(types.F64()), ID: 2},
+			}
+			ctx := analyzeProgram(`func calc() f64 { return ch_f32 * ch_f64 }`, resolver)
+			Expect(*ctx.Diagnostics).ToNot(BeEmpty())
+			Expect(ctx.Diagnostics.String()).To(ContainSubstring("cannot use f32 and f64 in * operation"))
+		})
+
+		It("Should reject f32 return when literals mask f64 channel in denominator", func() {
+			resolver := symbol.MapResolver{
+				"input_power":    {Name: "input_power", Kind: symbol.KindChannel, Type: types.Chan(types.I64()), ID: 1},
+				"drive_speed_fb": {Name: "drive_speed_fb", Kind: symbol.KindChannel, Type: types.Chan(types.F64()), ID: 2},
+			}
+			ctx := analyzeProgram(
+				`func calc() f32 { return f32(input_power*60)/(2*(3.14159)*(drive_speed_fb)) }`,
+				resolver,
+			)
+			Expect(*ctx.Diagnostics).ToNot(BeEmpty())
+			Expect(ctx.Diagnostics.String()).To(ContainSubstring("cannot use f32 and f64 in / operation"))
+		})
+
+		It("Should reject f32 expression returned from f64 function with channel inputs", func() {
+			resolver := symbol.MapResolver{
+				"input_power":    {Name: "input_power", Kind: symbol.KindChannel, Type: types.Chan(types.I64()), ID: 1},
+				"drive_speed_fb": {Name: "drive_speed_fb", Kind: symbol.KindChannel, Type: types.Chan(types.F32()), ID: 2},
+			}
+			analyzeExpectError(
+				`func calc() f64 { return f32(input_power*60)/(2*(3.14159)*(drive_speed_fb)) }`,
+				resolver,
+				ContainSubstring("cannot return f32 from 'calc': expected f64"),
+			)
+		})
 
 		Context("complete return coverage", func() {
 			It("should accept if-else with returns on all paths", func() {
