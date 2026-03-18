@@ -94,7 +94,7 @@ const beforeSave = async ({
   const protocol = props.secure ? "https://" : "http://";
   const connection = {
     base_url: `${protocol}${host}`,
-    timeout_ms: 5000, // use longer timeout to allow for negotiating SSL handshake
+    timeout_ms: TimeSpan.seconds(5).milliseconds, // use longer timeout to allow for negotiating SSL handshake
     verify_ssl: props.verifySsl,
     auth: props.auth,
   };
