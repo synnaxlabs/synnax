@@ -3609,4 +3609,88 @@ var _ = Describe("Compiler", func() {
 			}`, int32(6)),
 		)
 	})
+
+	Describe("Mixed numeric type channel arithmetic", func() {
+		It("Should compile torque-like expression with i64 and f32 channels", func() {
+			bindMockChannelModule(r, map[string]any{
+				"read_i64": func(_ context.Context, channelID uint32) int64 { return 500 },
+				"read_f32": func(_ context.Context, channelID uint32) float32 { return float32(1000.0) },
+			})
+			resolver := symbol.MapResolver(map[string]symbol.Symbol{
+				"input_power":    {Name: "input_power", Kind: symbol.KindChannel, Type: types.Chan(types.I64()), ID: 1},
+				"drive_speed_fb": {Name: "drive_speed_fb", Kind: symbol.KindChannel, Type: types.Chan(types.F32()), ID: 2},
+			})
+			output := MustSucceed(compileWithHostImports(`
+			func calculation() f32 {
+				return f32(input_power*60)/(2*(3.14159)*(drive_speed_fb))
+			}
+			`, resolver))
+			_, err := r.Instantiate(ctx, output.WASM)
+			Expect(err).ToNot(HaveOccurred())
+		})
+
+		It("Should compile torque-like expression with f64 cast and f64 return", func() {
+			bindMockChannelModule(r, map[string]any{
+				"read_i64": func(_ context.Context, channelID uint32) int64 { return 500 },
+				"read_f64": func(_ context.Context, channelID uint32) float64 { return 1000.0 },
+			})
+			resolver := symbol.MapResolver(map[string]symbol.Symbol{
+				"input_power":    {Name: "input_power", Kind: symbol.KindChannel, Type: types.Chan(types.I64()), ID: 1},
+				"drive_speed_fb": {Name: "drive_speed_fb", Kind: symbol.KindChannel, Type: types.Chan(types.F64()), ID: 2},
+			})
+			output := MustSucceed(compileWithHostImports(`
+			func calculation() f64 {
+				return f64(input_power*60)/(2*(3.14159)*(drive_speed_fb))
+			}
+			`, resolver))
+			mod := MustSucceed(r.Instantiate(ctx, output.WASM))
+			calculation := mod.ExportedFunction("calculation")
+			Expect(calculation).ToNot(BeNil())
+			results := MustSucceed(calculation.Call(ctx))
+			Expect(results).To(HaveLen(1))
+			result := math.Float64frombits(results[0])
+			Expect(result).To(BeNumerically("~", 4.7746, 0.001))
+		})
+
+	})
+
+	Describe("Exact user reproduction from data dump", func() {
+		for _, inputType := range []struct {
+			name string
+			t    types.Type
+		}{
+			{"i64", types.I64()},
+			{"f32", types.F32()},
+			{"f64", types.F64()},
+		} {
+			It(fmt.Sprintf("Torque with input_power_calc_test=%s drive_speed_fb=f32", inputType.name), func() {
+				bindMockChannelModule(r, map[string]any{
+					"read_f32": func(_ context.Context, id uint32) float32 { return float32(1000.0) },
+					"read_f64": func(_ context.Context, id uint32) float64 { return 500.0 },
+					"read_i64": func(_ context.Context, id uint32) int64 { return 500 },
+				})
+				resolver := symbol.MapResolver(map[string]symbol.Symbol{
+					"input_power_calc_test": {
+						Name: "input_power_calc_test",
+						Kind: symbol.KindChannel,
+						Type: types.Chan(inputType.t),
+						ID:   1,
+					},
+					"drive_speed_fb": {
+						Name: "drive_speed_fb",
+						Kind: symbol.KindChannel,
+						Type: types.Chan(types.F32()),
+						ID:   2,
+					},
+				})
+				output := MustSucceed(compileWithHostImports(`
+				func calculation() f64 {
+					return f64(input_power_calc_test*60)/(2*(3.14159)*f64(drive_speed_fb))
+				}
+				`, resolver))
+				_, err := r.Instantiate(ctx, output.WASM)
+				Expect(err).ToNot(HaveOccurred())
+			})
+		}
+	})
 })
