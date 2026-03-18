@@ -89,10 +89,14 @@ std::pair<WriteTaskConfig, x::errors::Error> WriteTaskConfig::parse(
         endpoint.request.method = parse_method(ep, "method");
         endpoint.request.path = ep.field<std::string>("path");
         endpoint.request.request_content_type = "application/json";
-        endpoint.request.headers = ep.field<std::map<std::string, std::string>>(
-            "headers",
-            std::map<std::string, std::string>{}
-        );
+        if (ep.has("headers"))
+            ep.iter("headers", [&](x::json::Parser &h) {
+                auto name = h.field<std::string>("name");
+                auto val = h.field<std::string>("value");
+                if (!name.empty() &&
+                    !endpoint.request.headers.emplace(name, val).second)
+                    h.field_err("name", "duplicate header '" + name + "'");
+            });
 
         all_pointers.clear();
 
@@ -121,10 +125,7 @@ std::pair<WriteTaskConfig, x::errors::Error> WriteTaskConfig::parse(
             auto value = ev.field<x::json::json>("value");
             auto label = ev.field<std::string>("label");
             if (!endpoint.channel.enum_values.emplace(value, std::move(label)).second)
-                ev.field_err(
-                    "value",
-                    "duplicate enum value " + value.dump()
-                );
+                ev.field_err("value", "duplicate enum value " + value.dump());
         });
         if (!endpoint.channel.enum_values.empty() &&
             endpoint.channel.json_type != x::json::Type::String)

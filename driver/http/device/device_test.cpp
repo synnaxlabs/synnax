@@ -197,7 +197,7 @@ TEST(ConnectionConfigTest, FromJSON) {
         {"timeout_ms", 5000},
         {"verify_ssl", true},
         {"auth", {{"type", "bearer"}, {"token", "abc123"}}},
-        {"headers", {{"X-Custom", "value"}}}
+        {"headers", {{{"name", "X-Custom"}, {"value", "value"}}}}
     };
     x::json::Parser parser(j);
     ConnectionConfig config(parser);
@@ -308,6 +308,74 @@ TEST(ConnectionConfigTest, EmptyJSONErrors) {
     EXPECT_FALSE(parser.ok());
 }
 
+TEST(ConnectionConfigTest, HeaderEntryMissingNameErrors) {
+    x::json::json j = {
+        {"base_url", "http://localhost"},
+        {"headers", {{{"value", "v"}}}},
+    };
+    x::json::Parser parser(j);
+    ConnectionConfig config(parser);
+    EXPECT_FALSE(parser.ok());
+}
+
+TEST(ConnectionConfigTest, HeaderEntryMissingValueErrors) {
+    x::json::json j = {
+        {"base_url", "http://localhost"},
+        {"headers", {{{"name", "X-Key"}}}},
+    };
+    x::json::Parser parser(j);
+    ConnectionConfig config(parser);
+    EXPECT_FALSE(parser.ok());
+}
+
+TEST(ConnectionConfigTest, QueryParamEntryMissingParameterErrors) {
+    x::json::json j = {
+        {"base_url", "http://localhost"},
+        {"query_params", {{{"value", "10"}}}},
+    };
+    x::json::Parser parser(j);
+    ConnectionConfig config(parser);
+    EXPECT_FALSE(parser.ok());
+}
+
+TEST(ConnectionConfigTest, DuplicateHeaderNameErrors) {
+    x::json::json j = {
+        {"base_url", "http://localhost"},
+        {"headers",
+         {
+             {{"name", "X-Key"}, {"value", "a"}},
+             {{"name", "X-Key"}, {"value", "b"}},
+         }},
+    };
+    x::json::Parser parser(j);
+    ConnectionConfig config(parser);
+    EXPECT_FALSE(parser.ok());
+}
+
+TEST(ConnectionConfigTest, DuplicateQueryParamErrors) {
+    x::json::json j = {
+        {"base_url", "http://localhost"},
+        {"query_params",
+         {
+             {{"parameter", "limit"}, {"value", "10"}},
+             {{"parameter", "limit"}, {"value", "20"}},
+         }},
+    };
+    x::json::Parser parser(j);
+    ConnectionConfig config(parser);
+    EXPECT_FALSE(parser.ok());
+}
+
+TEST(ConnectionConfigTest, QueryParamEntryMissingValueErrors) {
+    x::json::json j = {
+        {"base_url", "http://localhost"},
+        {"query_params", {{{"parameter", "limit"}}}},
+    };
+    x::json::Parser parser(j);
+    ConnectionConfig config(parser);
+    EXPECT_FALSE(parser.ok());
+}
+
 TEST(RetrieveConnectionTest, SecureDefaultBaseURL) {
     auto client = new_test_client();
     auto r = synnax::rack::Rack{.name = "test_rack"};
@@ -379,7 +447,7 @@ TEST(BuildRequestTest, MergesConnectionAndRequestHeaders) {
         x::json::Parser(
             json{
                 {"base_url", "http://example.com"},
-                {"headers", {{"X-Global", "g"}}},
+                {"headers", {{{"name", "X-Global"}, {"value", "g"}}}},
             }
         )
     );
@@ -398,7 +466,7 @@ TEST(BuildRequestTest, MergesConnectionAndRequestQueryParams) {
         x::json::Parser(
             json{
                 {"base_url", "http://example.com"},
-                {"query_params", {{"api_key", "secret"}}},
+                {"query_params", {{{"parameter", "api_key"}, {"value", "secret"}}}},
             }
         )
     );

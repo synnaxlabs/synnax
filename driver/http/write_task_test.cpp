@@ -184,6 +184,64 @@ TEST(HTTPWriteTask, ParseConfigGeneratedFieldEmptyPointer) {
     ASSERT_OCCURRED_AS_P(WriteTaskConfig::parse(ctx, task), x::errors::VALIDATION);
 }
 
+/// @brief it should fail when a header entry is missing the name field.
+TEST(HTTPWriteTask, ParseConfigHeaderMissingNameErrors) {
+    synnax::task::Task task;
+    task.config = {
+        {"device", "dev-001"},
+        {"endpoints",
+         {{
+             {"method", "POST"},
+             {"path", "/api/data"},
+             {"channel",
+              {{"pointer", "/value"}, {"json_type", "number"}, {"channel", 1}}},
+             {"headers", {{{"value", "abc"}}}},
+         }}},
+    };
+    auto ctx = std::make_shared<task::MockContext>(nullptr);
+    ASSERT_OCCURRED_AS_P(WriteTaskConfig::parse(ctx, task), x::errors::VALIDATION);
+}
+
+/// @brief it should fail when duplicate header names exist.
+TEST(HTTPWriteTask, ParseConfigDuplicateHeaderErrors) {
+    synnax::task::Task task;
+    task.config = {
+        {"device", "dev-001"},
+        {"endpoints",
+         {{
+             {"method", "POST"},
+             {"path", "/api/data"},
+             {"channel",
+              {{"pointer", "/value"}, {"json_type", "number"}, {"channel", 1}}},
+             {"headers",
+              {
+                  {{"name", "X-Key"}, {"value", "a"}},
+                  {{"name", "X-Key"}, {"value", "b"}},
+              }},
+         }}},
+    };
+    auto ctx = std::make_shared<task::MockContext>(nullptr);
+    ASSERT_OCCURRED_AS_P(WriteTaskConfig::parse(ctx, task), x::errors::VALIDATION);
+}
+
+/// @brief it should fail when a header entry is missing the value field.
+TEST(HTTPWriteTask, ParseConfigHeaderMissingValueErrors) {
+    synnax::task::Task task;
+    task.config = {
+        {"device", "dev-001"},
+        {"endpoints",
+         {{
+             {"method", "POST"},
+             {"path", "/api/data"},
+             {"channel",
+              {{"pointer", "/value"}, {"json_type", "number"}, {"channel", 1}}},
+             {"headers", {{{"name", "X-Key"}}}},
+         }}},
+    };
+    auto ctx = std::make_shared<task::MockContext>(nullptr);
+    ASSERT_OCCURRED_AS_P(WriteTaskConfig::parse(ctx, task), x::errors::VALIDATION);
+}
+
 /// @brief it should POST a numeric channel value to the server.
 TEST(HTTPWriteTask, POSTNumericValue) {
     mock::Server server(

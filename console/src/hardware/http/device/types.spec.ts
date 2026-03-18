@@ -293,8 +293,8 @@ describe("HTTP Device Properties", () => {
         healthCheck: {
           method: "GET",
           path: "/health",
-          headers: { Authorization: "Bearer token" },
-          queryParams: { verbose: "true" },
+          headers: [{ name: "Authorization", value: "Bearer token" }],
+          queryParams: [{ parameter: "verbose", value: "true" }],
           validateResponse: false,
         },
       };

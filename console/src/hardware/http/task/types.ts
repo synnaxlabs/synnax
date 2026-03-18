@@ -12,6 +12,13 @@ import { DataType, json } from "@synnaxlabs/x";
 import { z } from "zod";
 
 import { Common } from "@/hardware/common";
+import {
+  checkDuplicateKeys,
+  headersZ,
+  queryParamsZ,
+} from "@/hardware/http/device/types";
+
+export type { HeaderEntry, QueryParamEntry } from "@/hardware/http/device/types";
 
 export const PREFIX = "http";
 
@@ -20,11 +27,24 @@ export type TimeFormat = z.infer<typeof timeFormatZ>;
 
 export const READ_TYPE = `${PREFIX}_read`;
 
+const readEnumEntryZ = z.object({ label: z.string(), value: z.number() });
+export interface ReadEnumEntry extends z.infer<typeof readEnumEntryZ> {}
+
+const v0ReadEnumValuesZ = z.record(z.string(), z.number());
+const v1ReadEnumValuesZ = z.array(readEnumEntryZ);
+const readEnumValuesZ = v1ReadEnumValuesZ.or(
+  v0ReadEnumValuesZ.transform((rec) =>
+    Object.entries(rec).map(([label, value]) => ({ label, value })),
+  ),
+);
+
 const readFieldZ = Common.Task.readChannelZ.extend({
   pointer: json.pointerZ,
   dataType: DataType.z,
   timestampFormat: timeFormatZ.optional(),
-  enumValues: z.record(z.string(), z.number()).optional(),
+  enumValues: readEnumValuesZ
+    .check(checkDuplicateKeys("label", "enum label"))
+    .optional(),
 });
 
 export interface ReadField extends z.infer<typeof readFieldZ> {}
@@ -38,8 +58,8 @@ export const ZERO_READ_FIELD = {
 const baseReadEndpointZ = z.object({
   key: z.string(),
   path: z.string(),
-  headers: z.record(z.string(), z.string()).optional(),
-  queryParams: z.record(z.string(), z.string()).optional(),
+  headers: headersZ.optional(),
+  queryParams: queryParamsZ.optional(),
   fields: z.array(readFieldZ).check(Common.Task.validateReadChannels),
   index: z.string().nullable().default(null),
 });
@@ -176,8 +196,8 @@ const writeEndpointZ = z
     key: z.string(),
     path: z.string(),
     method: writeMethodZ,
-    headers: z.record(z.string(), z.string()).optional(),
-    queryParams: z.record(z.string(), z.string()).optional(),
+    headers: headersZ.optional(),
+    queryParams: queryParamsZ.optional(),
     channel: channelFieldZ,
     fields: z.array(writeFieldZ),
   })

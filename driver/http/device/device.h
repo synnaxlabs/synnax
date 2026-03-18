@@ -92,15 +92,24 @@ struct ConnectionConfig {
         base_url(parser.field<std::string>("base_url")),
         timeout(parser.field<uint32_t>("timeout_ms", 100) * x::telem::MILLISECOND),
         auth(AuthConfig(parser.optional_child("auth"))),
-        headers(parser.field<std::map<std::string, std::string>>(
-            "headers",
-            std::map<std::string, std::string>{}
-        )),
-        query_params(parser.field<std::map<std::string, std::string>>(
-            "query_params",
-            std::map<std::string, std::string>{}
-        )),
         verify_ssl(parser.field<bool>("verify_ssl", true)) {
+        if (parser.has("headers"))
+            parser.iter("headers", [&](x::json::Parser &h) {
+                auto name = h.field<std::string>("name");
+                auto val = h.field<std::string>("value");
+                if (!name.empty() && !headers.emplace(name, val).second)
+                    h.field_err("name", "duplicate header '" + name + "'");
+            });
+        if (parser.has("query_params"))
+            parser.iter("query_params", [&](x::json::Parser &qp) {
+                auto param = qp.field<std::string>("parameter");
+                auto val = qp.field<std::string>("value");
+                if (!param.empty() && !query_params.emplace(param, val).second)
+                    qp.field_err(
+                        "parameter",
+                        "duplicate query parameter '" + param + "'"
+                    );
+            });
         if (!base_url.starts_with("http://") && !base_url.starts_with("https://"))
             parser.field_err(
                 "base_url",

@@ -133,8 +133,8 @@ class TestHTTPReadTask:
                             "key": "ep-1",
                             "method": "GET",
                             "path": "/api/v1/data",
-                            "headers": {"Accept": "application/json"},
-                            "query_params": {"scale": "2.0"},
+                            "headers": [{"name": "Accept", "value": "application/json"}],
+                            "query_params": [{"parameter": "scale", "value": "2.0"}],
                             "fields": [
                                 {
                                     "key": "f-1",
@@ -201,7 +201,7 @@ class TestHTTPReadTask:
                                     "channel": 1234,
                                     "data_type": "float64",
                                     "enabled": True,
-                                    "enum_values": {"OFF": 0, "ON": 1},
+                                    "enum_values": [{"label": "OFF", "value": 0}, {"label": "ON", "value": 1}],
                                 },
                             ],
                         },
@@ -764,13 +764,13 @@ class TestHTTPHealthCheck:
             host="localhost:8080",
             health_check=sy.http.HealthCheck(
                 path="/api/status",
-                headers={"Accept": "application/json"},
+                headers=[sy.http.HeaderEntry(name="Accept", value="application/json")],
             ),
         )
         hc = dev.properties["health_check"]
         assert hc["path"] == "/api/status"
         assert hc["method"] == "GET"
-        assert hc["headers"] == {"Accept": "application/json"}
+        assert hc["headers"] == [{"name": "Accept", "value": "application/json"}]
 
 
 @pytest.mark.http

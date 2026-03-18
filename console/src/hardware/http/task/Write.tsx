@@ -104,103 +104,15 @@ const renderMethodSelect = Component.renderProp(
   ),
 );
 
-interface EnumEntry {
-  value: number;
-  label: string;
-}
-
-const EnumValuesEditor: FC<{ channelPath: string }> = ({ channelPath }) => {
-  const path = `${channelPath}.enumValues`;
-  const { set } = PForm.useContext();
-  const values = PForm.useFieldValue<EnumEntry[] | undefined>(path, {
-    optional: true,
-  });
-  const entries = values ?? [];
-  const isSnapshot = Common.Task.useIsSnapshot();
-
-  const handleAdd = useCallback(() => {
-    set(path, [...entries, { value: 0, label: "" }]);
-  }, [set, path, entries]);
-
-  const handleRemove = useCallback(
-    (idx: number) => {
-      set(
-        path,
-        entries.filter((_, i) => i !== idx),
-      );
-    },
-    [set, path, entries],
-  );
-
-  const handleChangeValue = useCallback(
-    (idx: number, v: number) => {
-      const next = [...entries];
-      next[idx] = { ...next[idx], value: v };
-      set(path, next);
-    },
-    [set, path, entries],
-  );
-
-  const handleChangeLabel = useCallback(
-    (idx: number, l: string) => {
-      const next = [...entries];
-      next[idx] = { ...next[idx], label: l };
-      set(path, next);
-    },
-    [set, path, entries],
-  );
-
-  return (
-    <Flex.Box y gap="small">
-      <Header.Header>
-        <Header.Title weight={500} color={9} level="small">
-          Enum mappings
-        </Header.Title>
-        {!isSnapshot && (
-          <Header.Actions>
-            <Button.Button
-              onClick={handleAdd}
-              variant="text"
-              contrast={2}
-              tooltip="Add enum entry"
-              sharp
-            >
-              <Icon.Add />
-            </Button.Button>
-          </Header.Actions>
-        )}
-      </Header.Header>
-      {entries.map((_, idx) => (
-        <Flex.Box key={idx} x align="center" gap="small">
-          <PForm.NumericField
-            path={`${path}.${idx}.value`}
-            showLabel={false}
-            showHelpText={false}
-            style={NUMERIC_FIELD_STYLE}
-            onChange={(v) => handleChangeValue(idx, v)}
-          />
-          <PForm.TextField
-            path={`${path}.${idx}.label`}
-            showLabel={false}
-            showHelpText={false}
-            grow
-            inputProps={TEXT_FIELD_INPUT_PROPS}
-            onChange={(v) => handleChangeLabel(idx, v)}
-          />
-          {!isSnapshot && (
-            <Button.Button onClick={() => handleRemove(idx)} variant="text" sharp>
-              <Icon.Close />
-            </Button.Button>
-          )}
-        </Flex.Box>
-      ))}
-    </Flex.Box>
-  );
-};
-
-const NUMERIC_FIELD_STYLE = { width: "6rem" } as const;
-
-const TEXT_FIELD_INPUT_PROPS = { placeholder: "Label" } as const;
+const EnumValuesEditor: FC<{ channelPath: string }> = ({ channelPath }) => (
+  <KeyValueEditor
+    path={`${channelPath}.enumValues`}
+    label="Enum mappings"
+    keyField="label"
+    keyPlaceholder="Label"
+    valueType="number"
+  />
+);
 
 const ChannelFieldSection: FC<{ epPath: string; epKey: string }> = ({
   epPath,
@@ -302,9 +214,7 @@ const FieldListItem = (props: List.ItemProps<string> & { epKey: string }) => {
   const fieldType = PForm.useFieldValue<string>(`${path}.type`);
   const jsonType = PForm.useFieldValue<json.PrimitiveType | undefined>(
     `${path}.jsonType`,
-    {
-      optional: true,
-    },
+    { optional: true },
   );
   const generator = PForm.useFieldValue<GeneratorType | undefined>(
     `${path}.generator`,
@@ -523,6 +433,7 @@ const EndpointDetails: FC<{ epKey: string }> = ({ epKey }) => {
         <KeyValueEditor
           path={`${path}.headers`}
           label="Headers"
+          keyField="name"
           className={CSS.B("headers-kv-editor")}
           keyPlaceholder="Name"
           valuePlaceholder="Value"

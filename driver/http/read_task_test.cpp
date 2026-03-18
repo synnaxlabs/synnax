@@ -152,6 +152,172 @@ TEST(HTTPReadTask, ParseConfigDuplicateChannel) {
     ASSERT_OCCURRED_AS_P(ReadTaskConfig::parse(ctx, task), x::errors::VALIDATION);
 }
 
+/// @brief it should fail when a query_params entry is missing the parameter field.
+TEST(HTTPReadTask, ParseConfigQueryParamMissingParameterErrors) {
+    synnax::task::Task task;
+    task.config = {
+        {"device", "dev-001"},
+        {"rate", 1.0},
+        {"endpoints",
+         {{
+             {"method", "GET"},
+             {"path", "/api/data"},
+             {"query_params", {{{"value", "10"}}}},
+             {"fields",
+              {{
+                  {"pointer", "/value"},
+                  {"channel", 1},
+              }}},
+         }}},
+    };
+    auto ctx = std::make_shared<task::MockContext>(nullptr);
+    ASSERT_OCCURRED_AS_P(ReadTaskConfig::parse(ctx, task), x::errors::VALIDATION);
+}
+
+/// @brief it should fail when a query_params entry is missing the value field.
+TEST(HTTPReadTask, ParseConfigQueryParamMissingValueErrors) {
+    synnax::task::Task task;
+    task.config = {
+        {"device", "dev-001"},
+        {"rate", 1.0},
+        {"endpoints",
+         {{
+             {"method", "GET"},
+             {"path", "/api/data"},
+             {"query_params", {{{"parameter", "limit"}}}},
+             {"fields",
+              {{
+                  {"pointer", "/value"},
+                  {"channel", 1},
+              }}},
+         }}},
+    };
+    auto ctx = std::make_shared<task::MockContext>(nullptr);
+    ASSERT_OCCURRED_AS_P(ReadTaskConfig::parse(ctx, task), x::errors::VALIDATION);
+}
+
+/// @brief it should fail when an enum_values entry is missing the label field.
+TEST(HTTPReadTask, ParseConfigEnumValueMissingLabelErrors) {
+    synnax::task::Task task;
+    task.config = {
+        {"device", "dev-001"},
+        {"rate", 1.0},
+        {"endpoints",
+         {{
+             {"method", "GET"},
+             {"path", "/api/data"},
+             {"fields",
+              {{
+                  {"pointer", "/status"},
+                  {"channel", 1},
+                  {"enum_values", {{{"value", 1.0}}}},
+              }}},
+         }}},
+    };
+    auto ctx = std::make_shared<task::MockContext>(nullptr);
+    ASSERT_OCCURRED_AS_P(ReadTaskConfig::parse(ctx, task), x::errors::VALIDATION);
+}
+
+/// @brief it should fail when an enum_values entry is missing the value field.
+TEST(HTTPReadTask, ParseConfigEnumValueMissingValueErrors) {
+    synnax::task::Task task;
+    task.config = {
+        {"device", "dev-001"},
+        {"rate", 1.0},
+        {"endpoints",
+         {{
+             {"method", "GET"},
+             {"path", "/api/data"},
+             {"fields",
+              {{
+                  {"pointer", "/status"},
+                  {"channel", 1},
+                  {"enum_values", {{{"label", "ON"}}}},
+              }}},
+         }}},
+    };
+    auto ctx = std::make_shared<task::MockContext>(nullptr);
+    ASSERT_OCCURRED_AS_P(ReadTaskConfig::parse(ctx, task), x::errors::VALIDATION);
+}
+
+/// @brief it should fail when duplicate header names exist.
+TEST(HTTPReadTask, ParseConfigDuplicateHeaderErrors) {
+    synnax::task::Task task;
+    task.config = {
+        {"device", "dev-001"},
+        {"rate", 1.0},
+        {"endpoints",
+         {{
+             {"method", "GET"},
+             {"path", "/api/data"},
+             {"headers",
+              {
+                  {{"name", "Accept"}, {"value", "text/plain"}},
+                  {{"name", "Accept"}, {"value", "application/json"}},
+              }},
+             {"fields",
+              {{
+                  {"pointer", "/value"},
+                  {"channel", 1},
+              }}},
+         }}},
+    };
+    auto ctx = std::make_shared<task::MockContext>(nullptr);
+    ASSERT_OCCURRED_AS_P(ReadTaskConfig::parse(ctx, task), x::errors::VALIDATION);
+}
+
+/// @brief it should fail when duplicate query parameter names exist.
+TEST(HTTPReadTask, ParseConfigDuplicateQueryParamErrors) {
+    synnax::task::Task task;
+    task.config = {
+        {"device", "dev-001"},
+        {"rate", 1.0},
+        {"endpoints",
+         {{
+             {"method", "GET"},
+             {"path", "/api/data"},
+             {"query_params",
+              {
+                  {{"parameter", "limit"}, {"value", "10"}},
+                  {{"parameter", "limit"}, {"value", "20"}},
+              }},
+             {"fields",
+              {{
+                  {"pointer", "/value"},
+                  {"channel", 1},
+              }}},
+         }}},
+    };
+    auto ctx = std::make_shared<task::MockContext>(nullptr);
+    ASSERT_OCCURRED_AS_P(ReadTaskConfig::parse(ctx, task), x::errors::VALIDATION);
+}
+
+/// @brief it should fail when duplicate enum labels exist in a read field.
+TEST(HTTPReadTask, ParseConfigDuplicateEnumLabelErrors) {
+    synnax::task::Task task;
+    task.config = {
+        {"device", "dev-001"},
+        {"rate", 1.0},
+        {"endpoints",
+         {{
+             {"method", "GET"},
+             {"path", "/api/data"},
+             {"fields",
+              {{
+                  {"pointer", "/status"},
+                  {"channel", 1},
+                  {"enum_values",
+                   {
+                       {{"label", "ON"}, {"value", 1.0}},
+                       {{"label", "ON"}, {"value", 2.0}},
+                   }},
+              }}},
+         }}},
+    };
+    auto ctx = std::make_shared<task::MockContext>(nullptr);
+    ASSERT_OCCURRED_AS_P(ReadTaskConfig::parse(ctx, task), x::errors::VALIDATION);
+}
+
 /// @brief it should extract a numeric field from a single GET endpoint.
 TEST(HTTPReadTask, SingleEndpointGETNumericField) {
     mock::Server server(
@@ -2346,7 +2512,11 @@ TEST(HTTPReadTask, ConnectionLevelQueryParams) {
     auto [source, processor] = make_source(
         cfg,
         server.base_url(),
-        x::json::json{{"query_params", {{"api_key", "abc123"}, {"format", "json"}}}}
+        x::json::json{
+            {"query_params",
+             {{{"parameter", "api_key"}, {"value", "abc123"}},
+              {{"parameter", "format"}, {"value", "json"}}}}
+        }
     );
 
     auto breaker = x::breaker::Breaker(x::breaker::Config{.name = "test"});

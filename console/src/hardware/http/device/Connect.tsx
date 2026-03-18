@@ -356,12 +356,14 @@ export const Connect: Layout.Renderer = ({ layoutKey, onClose }) => {
               <KeyValueEditor
                 path="properties.healthCheck.headers"
                 label="Headers"
+                keyField="name"
                 keyPlaceholder="Name"
                 valuePlaceholder="Value"
               />
               <KeyValueEditor
                 path="properties.healthCheck.queryParams"
                 label="Query parameters"
+                keyField="parameter"
                 keyPlaceholder="Parameter"
                 valuePlaceholder="Value"
               />

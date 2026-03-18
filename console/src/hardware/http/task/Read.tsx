@@ -304,6 +304,7 @@ const FieldList = ({ epKey }: FieldListProps) => {
           <KeyValueEditor
             path={selectedFieldPath}
             label="Enum mapping"
+            keyField="label"
             keyPlaceholder="String (e.g. ON)"
             valueType="number"
           />
@@ -429,6 +430,7 @@ const EndpointDetails: FC<{ epKey: string }> = ({ epKey }) => {
         <KeyValueEditor
           path={`${path}.headers`}
           label="Headers"
+          keyField="name"
           keyPlaceholder="Name"
           valuePlaceholder="Value"
           className={CSS.B("headers-kv-editor")}
@@ -437,6 +439,7 @@ const EndpointDetails: FC<{ epKey: string }> = ({ epKey }) => {
         <KeyValueEditor
           path={`${path}.queryParams`}
           label="Query parameters"
+          keyField="parameter"
           keyPlaceholder="Parameter"
           valuePlaceholder="Value"
           className={CSS.B("query-params-kv-editor")}
