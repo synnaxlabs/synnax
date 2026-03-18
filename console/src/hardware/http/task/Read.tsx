@@ -119,10 +119,11 @@ const FieldListItem = ({ epKey, ...props }: FieldListItemProps) => {
   const { itemKey } = props;
   const path = `config.endpoints.${epKey}.fields.${itemKey}`;
   const fieldChannel = PForm.useFieldValue<number>(`${path}.channel`);
-  const enumValues = PForm.useFieldValue<Record<string, number>>(`${path}.enumValues`, {
-    defaultValue: {},
-  });
-  const enumCount = Object.keys(enumValues).length;
+  const enumValues = PForm.useFieldValue<Record<string, number>[]>(
+    `${path}.enumValues`,
+    { defaultValue: [] },
+  );
+  const enumCount = enumValues.length;
   const enumCountText =
     enumCount === 0 ? "" : `${enumCount} enum${enumCount === 1 ? "" : "s"}`;
   return (
