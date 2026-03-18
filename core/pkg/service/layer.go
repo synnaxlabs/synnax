@@ -21,7 +21,7 @@ import (
 	arcruntime "github.com/synnaxlabs/synnax/pkg/service/arc/runtime"
 	"github.com/synnaxlabs/synnax/pkg/service/auth"
 	"github.com/synnaxlabs/synnax/pkg/service/auth/token"
-	svcchannel "github.com/synnaxlabs/synnax/pkg/service/channel"
+	"github.com/synnaxlabs/synnax/pkg/service/channel"
 	"github.com/synnaxlabs/synnax/pkg/service/device"
 	"github.com/synnaxlabs/synnax/pkg/service/driver"
 	"github.com/synnaxlabs/synnax/pkg/service/framer"
@@ -133,7 +133,7 @@ type Layer struct {
 	// across the cluster.
 	Framer *framer.Service
 	// Channel is the highest-level channel service and owns calculated channel behavior.
-	Channel *svcchannel.Service
+	Channel *channel.Service
 	// Arc is used for validating, saving, and executing arc automations.
 	Arc *arc.Service
 	// Metrics is used for collecting host machine metrics and publishing them over channels
@@ -314,7 +314,7 @@ func OpenLayer(ctx context.Context, cfgs ...LayerConfig) (l *Layer, err error) {
 	); !ok(err, l.Arc) {
 		return nil, err
 	}
-	if l.Channel, err = svcchannel.OpenService(ctx, svcchannel.ServiceConfig{
+	if l.Channel, err = channel.OpenService(ctx, channel.ServiceConfig{
 		Instrumentation: cfg.Child("channel"),
 		Arc:             l.Arc,
 		DB:              cfg.Distribution.DB,
@@ -341,7 +341,7 @@ func OpenLayer(ctx context.Context, cfgs ...LayerConfig) (l *Layer, err error) {
 			DB:              cfg.Distribution.DB,
 			Instrumentation: cfg.Child("framer"),
 			Framer:          cfg.Distribution.Framer,
-			Channel:         cfg.Distribution.Channel,
+			Channel:         l.Channel,
 			Arc:             l.Arc,
 			Status:          l.Status,
 		},
@@ -364,7 +364,7 @@ func OpenLayer(ctx context.Context, cfgs ...LayerConfig) (l *Layer, err error) {
 	}
 	// Create arc task factory for the driver
 	arcFactory, err := arcruntime.NewFactory(arcruntime.FactoryConfig{
-		Channel:    cfg.Distribution.Channel,
+		Channel:    l.Channel,
 		Framer:     cfg.Distribution.Framer,
 		Status:     l.Status,
 		GetProgram: l.Arc.CompileProgram,
@@ -378,7 +378,7 @@ func OpenLayer(ctx context.Context, cfgs ...LayerConfig) (l *Layer, err error) {
 		Rack:            l.Rack,
 		Task:            l.Task,
 		Framer:          cfg.Distribution.Framer,
-		Channel:         cfg.Distribution.Channel,
+		Channel:         l.Channel,
 		Status:          l.Status,
 		Factory:         arcFactory,
 		Host:            cfg.Distribution.Cluster,

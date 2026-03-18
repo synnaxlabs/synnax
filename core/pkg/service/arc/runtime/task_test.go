@@ -28,6 +28,7 @@ import (
 	svcarc "github.com/synnaxlabs/synnax/pkg/service/arc"
 	"github.com/synnaxlabs/synnax/pkg/service/arc/runtime"
 	"github.com/synnaxlabs/synnax/pkg/service/arc/symbol"
+	svcchannel "github.com/synnaxlabs/synnax/pkg/service/channel"
 	"github.com/synnaxlabs/synnax/pkg/service/driver"
 	"github.com/synnaxlabs/synnax/pkg/service/label"
 	"github.com/synnaxlabs/synnax/pkg/service/rack"
@@ -84,7 +85,7 @@ var _ = Describe("Task", Ordered, func() {
 
 	newFactoryWith := func(getModule func(context.Context, uuid.UUID) (svcarc.Arc, error)) *runtime.Factory {
 		return MustSucceed(runtime.NewFactory(runtime.FactoryConfig{
-			Channel:    dist.Channel,
+			Channel:    svcchannel.Wrap(dist.Channel),
 			Framer:     dist.Framer,
 			Status:     statusSvc,
 			GetProgram: getModule,
@@ -218,7 +219,7 @@ var _ = Describe("Task", Ordered, func() {
 	Describe("Factory.ConfigureTask", func() {
 		It("Should return false for non-arc task types", func() {
 			factory := MustSucceed(runtime.NewFactory(runtime.FactoryConfig{
-				Channel: dist.Channel,
+				Channel: svcchannel.Wrap(dist.Channel),
 				Framer:  dist.Framer,
 				Status:  statusSvc,
 				GetProgram: func(context.Context, uuid.UUID) (svcarc.Arc, error) {
@@ -244,7 +245,7 @@ var _ = Describe("Task", Ordered, func() {
 
 		It("Should return error for invalid config JSON", func() {
 			factory := MustSucceed(runtime.NewFactory(runtime.FactoryConfig{
-				Channel:    dist.Channel,
+				Channel:    svcchannel.Wrap(dist.Channel),
 				Framer:     dist.Framer,
 				Status:     statusSvc,
 				GetProgram: func(context.Context, uuid.UUID) (svcarc.Arc, error) { return svcarc.Arc{}, nil },
@@ -262,7 +263,7 @@ var _ = Describe("Task", Ordered, func() {
 
 		It("Should return error when CompileProgram fails", func() {
 			factory := MustSucceed(runtime.NewFactory(runtime.FactoryConfig{
-				Channel:    dist.Channel,
+				Channel:    svcchannel.Wrap(dist.Channel),
 				Framer:     dist.Framer,
 				Status:     statusSvc,
 				GetProgram: moduleNotFoundGetter,
@@ -280,7 +281,7 @@ var _ = Describe("Task", Ordered, func() {
 
 		It("Should set error status when config JSON is invalid", func() {
 			factory := MustSucceed(runtime.NewFactory(runtime.FactoryConfig{
-				Channel:    dist.Channel,
+				Channel:    svcchannel.Wrap(dist.Channel),
 				Framer:     dist.Framer,
 				Status:     statusSvc,
 				GetProgram: func(context.Context, uuid.UUID) (svcarc.Arc, error) { return svcarc.Arc{}, nil },
@@ -304,7 +305,7 @@ var _ = Describe("Task", Ordered, func() {
 
 		It("Should set error status when GetProgram fails", func() {
 			factory := MustSucceed(runtime.NewFactory(runtime.FactoryConfig{
-				Channel:    dist.Channel,
+				Channel:    svcchannel.Wrap(dist.Channel),
 				Framer:     dist.Framer,
 				Status:     statusSvc,
 				GetProgram: moduleNotFoundGetter,

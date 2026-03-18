@@ -129,6 +129,7 @@ func (s *Graph) hydrate(ctx context.Context) error {
 		nextUnresolved map[string]map[channel.Key]struct{}
 	)
 	analyzer := s.newAnalyzer(nil)
+	statuses := make(map[channel.Key]*calcstatus.Status)
 	for {
 		changed := false
 		nextNodes = make(map[channel.Key]node)
@@ -138,7 +139,7 @@ func (s *Graph) hydrate(ctx context.Context) error {
 		for i, ch := range channels {
 			nd, err := s.inspectNode(ctx, nil, ch, analyzer)
 			if err != nil {
-				s.setNodeStatus(ctx, ch.Key(), ch.Name, err)
+				statuses[ch.Key()] = calcstatus.FromError(ch.Key(), ch.Name, fmt.Sprintf("invalid expression for %s", ch.Name), err)
 				invalidCount++
 				s.L.Debug("channel expression invalid",
 					zap.Stringer("channel", ch.Key()),
@@ -146,7 +147,7 @@ func (s *Graph) hydrate(ctx context.Context) error {
 					zap.Error(err),
 				)
 			} else {
-				s.clearNodeStatus(ctx, ch.Key())
+				statuses[ch.Key()] = nil
 			}
 			upsertNode(nextNodes, nextDependents, nextUnresolved, nd)
 			if !nd.invalid && ch.DataType != nd.DataType {
@@ -176,6 +177,13 @@ func (s *Graph) hydrate(ctx context.Context) error {
 			zap.Int("pass", pass),
 			zap.Int("repairs", len(repairs)),
 		)
+	}
+	for key, st := range statuses {
+		if st != nil {
+			s.setNodeStatus(ctx, st)
+		} else {
+			s.clearNodeStatus(ctx, key)
+		}
 	}
 	s.mu.Lock()
 	s.mu.nodes = nextNodes
@@ -224,7 +232,7 @@ func (s *Graph) handleChanges(ctx context.Context, reader gorp.TxReader[channel.
 					zap.String("name", ch.Name),
 					zap.Error(err),
 				)
-				s.setNodeStatus(ctx, ch.Key(), ch.Name, err)
+				s.setNodeStatus(ctx, calcstatus.FromError(ch.Key(), ch.Name, fmt.Sprintf("invalid expression for %s", ch.Name), err))
 			} else {
 				s.L.Debug("calculated channel inspected",
 					zap.Stringer("channel", ch.Key()),
@@ -258,11 +266,10 @@ func (s *Graph) handleChanges(ctx context.Context, reader gorp.TxReader[channel.
 	}
 }
 
-func (s *Graph) setNodeStatus(ctx context.Context, key channel.Key, name string, err error) {
-	st := calcstatus.Error(key, name, fmt.Sprintf("invalid expression for %s", name), err)
+func (s *Graph) setNodeStatus(ctx context.Context, st *calcstatus.Status) {
 	if sErr := s.status.Set(ctx, st); sErr != nil {
 		s.L.Warn("failed to set error status for channel",
-			zap.Stringer("channel", key),
+			zap.String("key", st.Key),
 			zap.Error(sErr),
 		)
 	}
@@ -346,7 +353,7 @@ func (s *Graph) reconcileQueued(
 					zap.String("name", refetched.Name),
 					zap.Error(err),
 				)
-				s.setNodeStatus(ctx, key, refetched.Name, err)
+				s.setNodeStatus(ctx, calcstatus.FromError(key, refetched.Name, fmt.Sprintf("invalid expression for %s", refetched.Name), err))
 				continue
 			}
 			s.clearNodeStatus(ctx, key)

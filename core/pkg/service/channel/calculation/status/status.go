@@ -32,8 +32,8 @@ func Key(key channel.Key) string {
 	return channel.OntologyID(key).String()
 }
 
-// Error builds an error status for a calculated channel.
-func Error(key channel.Key, name string, msg string, err error) *Status {
+// FromError builds an error status for a calculated channel.
+func FromError(key channel.Key, name string, msg string, err error) *Status {
 	return &Status{
 		Key:         Key(key),
 		Name:        name,

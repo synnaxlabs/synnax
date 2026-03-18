@@ -17,7 +17,7 @@ import (
 
 	"github.com/synnaxlabs/alamos"
 	"github.com/synnaxlabs/arc"
-	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
+	"github.com/synnaxlabs/synnax/pkg/service/channel"
 	"github.com/synnaxlabs/synnax/pkg/service/channel/calculation/compiler"
 	"github.com/synnaxlabs/x/config"
 	"github.com/synnaxlabs/x/errors"
@@ -52,6 +52,11 @@ func (c Config) Validate() error {
 	validate.NotNil(v, "channel", c.Channel)
 	validate.NotNil(v, "symbol_resolver", c.SymbolResolver)
 	return v.Error()
+}
+
+type moduleSnapshot struct {
+	key channel.Key
+	old compiler.Module
 }
 
 type channelInfo struct {
@@ -155,6 +160,7 @@ func (g *Graph) recompileDependents(ctx context.Context, changedKey channel.Key)
 		byKey[ch.Key()] = ch
 	}
 
+	snapshots := make([]moduleSnapshot, 0, len(ordered))
 	for _, key := range ordered {
 		ch, ok := byKey[key]
 		if !ok {
@@ -165,14 +171,18 @@ func (g *Graph) recompileDependents(ctx context.Context, changedKey channel.Key)
 			continue
 		}
 		mod, cErr := compiler.Compile(ctx, compiler.Config{
-			ChannelService: g.cfg.Channel,
+			ChannelService: g.cfg.Channel.Service,
 			Channel:        ch,
 			SymbolResolver: g.cfg.SymbolResolver,
 		})
 		if cErr != nil {
+			for _, s := range snapshots {
+				g.channels[s.key].module = s.old
+			}
 			g.logCompileError(ctx, cErr, ch)
 			return errors.Wrapf(cErr, "failed to recompile dependent channel %s", ch)
 		}
+		snapshots = append(snapshots, moduleSnapshot{key: key, old: info.module})
 		info.module = mod
 	}
 	return nil
@@ -245,7 +255,7 @@ func (g *Graph) updateSingle(ctx context.Context, ch channel.Channel, info *chan
 
 	// Recompile with new expression
 	mod, err := compiler.Compile(ctx, compiler.Config{
-		ChannelService: g.cfg.Channel,
+		ChannelService: g.cfg.Channel.Service,
 		Channel:        ch,
 		SymbolResolver: g.cfg.SymbolResolver,
 	})
@@ -492,7 +502,7 @@ func (g *Graph) addInternal(ctx context.Context, ch channel.Channel, explicit bo
 	defer func() { info.processing = false }()
 
 	mod, err := compiler.Compile(ctx, compiler.Config{
-		ChannelService: g.cfg.Channel,
+		ChannelService: g.cfg.Channel.Service,
 		Channel:        ch,
 		SymbolResolver: g.cfg.SymbolResolver,
 	})
@@ -905,7 +915,7 @@ func (g *Graph) fetchDependencyDiagnostics(
 ) []channel.Channel {
 	// Try preProcess to discover channel references from the expression
 	prog, preErr := compiler.PreProcess(ctx, compiler.Config{
-		ChannelService: g.cfg.Channel,
+		ChannelService: g.cfg.Channel.Service,
 		Channel:        ch,
 		SymbolResolver: g.cfg.SymbolResolver,
 	})

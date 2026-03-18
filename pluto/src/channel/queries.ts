@@ -7,7 +7,15 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { channel, DataType, type group, ontology, ranger } from "@synnaxlabs/client";
+import {
+  channel,
+  DataType,
+  type group,
+  isCalculated,
+  NotFoundError,
+  ontology,
+  ranger,
+} from "@synnaxlabs/client";
 import { array, deep, type optional, primitive, TimeSpan } from "@synnaxlabs/x";
 import { z } from "zod";
 
@@ -16,7 +24,7 @@ import { type Group } from "@/group";
 import { Ontology } from "@/ontology";
 import { type Ranger } from "@/ranger";
 import { state } from "@/state";
-import { type Status } from "@/status";
+import { Status } from "@/status";
 
 export const FLUX_STORE_KEY = "channels";
 const RESOURCE_NAME = "channel";
@@ -131,6 +139,19 @@ const retrieveSingle = async ({
     ch = await client.channels.retrieve(key);
     store.channels.set(ch.key, ch);
   }
+  if (isCalculated(ch.payload)) {
+    try {
+      const st = await Status.retrieveSingle<typeof channel.calculationStatusDetailsZ>({
+        store,
+        client,
+        query: { key: channel.statusKey(key) },
+        detailsSchema: channel.calculationStatusDetailsZ,
+      });
+      ch.status = st;
+    } catch (e) {
+      if (!(e instanceof NotFoundError)) throw e;
+    }
+  }
   if (rangeKey != null) {
     const aliasKey = ranger.alias.createKey({ range: rangeKey, channel: ch.key });
     let alias = store.rangeAliases.get(aliasKey);
@@ -215,7 +236,16 @@ export const { useRetrieve, useRetrieveStateful, useRetrieveObservable } =
         }
         onChange(channel);
       }, key);
-      if (rangeKey == null) return ch;
+      const onSetStatus = store.statuses.onSet((st) => {
+        const parsed = channel.calculationStatusZ.safeParse(st);
+        if (!parsed.success) return;
+        onChange(
+          state.skipUndefined((p) =>
+            client.channels.sugar({ ...p, status: parsed.data }),
+          ),
+        );
+      }, channel.statusKey(key));
+      if (rangeKey == null) return [ch, onSetStatus];
       const aliasKey = ranger.alias.createKey({ range: rangeKey, channel: key });
       const onSetAlias = store.rangeAliases.onSet((alias) => {
         if (alias == null) return;
@@ -234,7 +264,7 @@ export const { useRetrieve, useRetrieveStateful, useRetrieveObservable } =
           ),
         aliasKey,
       );
-      return [ch, onSetAlias, onDeleteAlias];
+      return [ch, onSetStatus, onSetAlias, onDeleteAlias];
     },
   });
 

@@ -76,18 +76,18 @@ var _ = BeforeSuite(func() {
 		Signals:  dist.Signals,
 		Task:     taskSvc,
 	}))
-	framerSvc = MustSucceed(framer.OpenService(ctx, framer.ServiceConfig{
-		Framer:  dist.Framer,
-		Channel: dist.Channel,
-		Arc:     arcSvc,
-		Status:  statusSvc,
-		DB:      dist.DB,
-	}))
 	channelSvc = MustSucceed(servicechannel.OpenService(ctx, servicechannel.ServiceConfig{
 		DB:           dist.DB,
 		Distribution: dist.Channel,
 		Status:       statusSvc,
 		Arc:          arcSvc,
+	}))
+	framerSvc = MustSucceed(framer.OpenService(ctx, framer.ServiceConfig{
+		Framer:  dist.Framer,
+		Channel: channelSvc,
+		Arc:     arcSvc,
+		Status:  statusSvc,
+		DB:      dist.DB,
 	}))
 })
 

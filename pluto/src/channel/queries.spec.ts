@@ -7,8 +7,8 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type channel, createTestClient, DataType } from "@synnaxlabs/client";
-import { id } from "@synnaxlabs/x";
+import { channel, createTestClient, DataType } from "@synnaxlabs/client";
+import { id, TimeStamp } from "@synnaxlabs/x";
 import { act, renderHook, waitFor } from "@testing-library/react";
 import { type FC, type PropsWithChildren } from "react";
 import { afterEach, beforeAll, beforeEach, describe, expect, it } from "vitest";
@@ -873,6 +873,85 @@ describe("queries", () => {
       });
       await waitFor(() => {
         expect(result.current.retrieve.data?.name).toEqual(updatedName);
+      });
+    });
+
+    it("should retrieve a calculated channel with its error status", async () => {
+      const source = await client.channels.create({
+        name: id.create(),
+        dataType: DataType.FLOAT32,
+        virtual: true,
+      });
+      const calc = await client.channels.create({
+        name: id.create(),
+        dataType: DataType.FLOAT32,
+        virtual: true,
+        expression: `return ${source.name} * 2`,
+      });
+      await client.statuses.set({
+        key: channel.statusKey(calc.key),
+        name: calc.name,
+        variant: "error",
+        message: "invalid expression",
+        time: TimeStamp.now(),
+      });
+      const { result } = renderHook(() => Channel.useRetrieve({ key: calc.key }), {
+        wrapper,
+      });
+      await waitFor(() => expect(result.current.variant).toEqual("success"));
+      expect(result.current.data?.status?.variant).toEqual("error");
+      expect(result.current.data?.status?.message).toEqual("invalid expression");
+    });
+
+    it("should retrieve a calculated channel without a status", async () => {
+      const source = await client.channels.create({
+        name: id.create(),
+        dataType: DataType.FLOAT32,
+        virtual: true,
+      });
+      const calc = await client.channels.create({
+        name: id.create(),
+        dataType: DataType.FLOAT32,
+        virtual: true,
+        expression: `return ${source.name} * 2`,
+      });
+      const { result } = renderHook(() => Channel.useRetrieve({ key: calc.key }), {
+        wrapper,
+      });
+      await waitFor(() => expect(result.current.variant).toEqual("success"));
+      expect(result.current.data?.status).toBeUndefined();
+    });
+
+    it("should react to status changes on a calculated channel", async () => {
+      const source = await client.channels.create({
+        name: id.create(),
+        dataType: DataType.FLOAT32,
+        virtual: true,
+      });
+      const calc = await client.channels.create({
+        name: id.create(),
+        dataType: DataType.FLOAT32,
+        virtual: true,
+        expression: `return ${source.name} * 2`,
+      });
+      const { result } = renderHook(() => Channel.useRetrieve({ key: calc.key }), {
+        wrapper,
+      });
+      await waitFor(() => expect(result.current.variant).toEqual("success"));
+      expect(result.current.data?.status).toBeUndefined();
+
+      await act(async () => {
+        await client.statuses.set({
+          key: channel.statusKey(calc.key),
+          name: calc.name,
+          variant: "error",
+          message: "broken expression",
+          time: TimeStamp.now(),
+        });
+      });
+      await waitFor(() => {
+        expect(result.current.data?.status?.variant).toEqual("error");
+        expect(result.current.data?.status?.message).toEqual("broken expression");
       });
     });
   });

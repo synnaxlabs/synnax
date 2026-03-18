@@ -23,6 +23,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer/frame"
 	"github.com/synnaxlabs/synnax/pkg/distribution/mock"
 	"github.com/synnaxlabs/synnax/pkg/service/arc"
+	svcchannel "github.com/synnaxlabs/synnax/pkg/service/channel"
 	calcstatus "github.com/synnaxlabs/synnax/pkg/service/channel/calculation/status"
 	"github.com/synnaxlabs/synnax/pkg/service/framer/calculation"
 	"github.com/synnaxlabs/synnax/pkg/service/framer/streamer"
@@ -145,10 +146,11 @@ var _ = Describe("Calculation", Ordered, func() {
 		DeferCleanup(func() {
 			Expect(arcSvc.Close()).To(Succeed())
 		})
+		channelSvc := svcchannel.Wrap(dist.Channel)
 		c = MustSucceed(calculation.OpenService(ctx, calculation.ServiceConfig{
 			DB:                dist.DB,
 			Framer:            dist.Framer,
-			Channel:           dist.Channel,
+			Channel:           channelSvc,
 			ChannelObservable: dist.Channel.NewObservable(),
 			Arc:               arcSvc,
 			Status:            statusSvc,

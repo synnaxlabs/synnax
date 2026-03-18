@@ -3663,7 +3663,6 @@ var _ = Describe("Compiler", func() {
 			{"f32", types.F32()},
 			{"f64", types.F64()},
 		} {
-			inputType := inputType
 			It(fmt.Sprintf("Torque with input_power_calc_test=%s drive_speed_fb=f32", inputType.name), func() {
 				bindMockChannelModule(r, map[string]any{
 					"read_f32": func(_ context.Context, id uint32) float32 { return float32(1000.0) },

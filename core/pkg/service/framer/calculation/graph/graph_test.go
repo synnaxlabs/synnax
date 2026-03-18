@@ -17,6 +17,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
 	"github.com/synnaxlabs/synnax/pkg/distribution/mock"
 	"github.com/synnaxlabs/synnax/pkg/service/arc"
+	svcchannel "github.com/synnaxlabs/synnax/pkg/service/channel"
 	"github.com/synnaxlabs/synnax/pkg/service/framer/calculation/graph"
 	"github.com/synnaxlabs/synnax/pkg/service/label"
 	"github.com/synnaxlabs/synnax/pkg/service/rack"
@@ -92,7 +93,7 @@ var _ = Describe("Graph", func() {
 	var g *graph.Graph
 	BeforeEach(func() {
 		g = MustSucceed(graph.New(graph.Config{
-			Channel:        dist.Channel,
+			Channel:        svcchannel.Wrap(dist.Channel),
 			SymbolResolver: arcSvc.NewSymbolResolver(nil),
 		}))
 	})
@@ -638,6 +639,184 @@ var _ = Describe("Graph", func() {
 			// f32 return type. The graph should surface this as an error.
 			Expect(err).To(HaveOccurred())
 			Expect(err.Error()).To(ContainSubstring("cannot return"))
+		})
+		It("Should cascade recompilation through a three-level chain", func() {
+			raw := channel.Channel{Name: "chain3_raw", DataType: telem.Float64T, Virtual: true}
+			Expect(dist.Channel.Create(ctx, &raw)).To(Succeed())
+
+			calc1 := channel.Channel{
+				Name:       "chain3_c1",
+				DataType:   telem.Float64T,
+				Virtual:    true,
+				Expression: "return chain3_raw + 1.0",
+			}
+			Expect(dist.Channel.Create(ctx, &calc1)).To(Succeed())
+
+			calc2 := channel.Channel{
+				Name:       "chain3_c2",
+				DataType:   telem.Float64T,
+				Virtual:    true,
+				Expression: "return chain3_c1 + 2.0",
+			}
+			Expect(dist.Channel.Create(ctx, &calc2)).To(Succeed())
+
+			calc3 := channel.Channel{
+				Name:       "chain3_c3",
+				DataType:   telem.Float64T,
+				Virtual:    true,
+				Expression: "return chain3_c2 + 3.0",
+			}
+			Expect(dist.Channel.Create(ctx, &calc3)).To(Succeed())
+
+			Expect(g.Add(ctx, calc3)).To(Succeed())
+			Expect(g.CalculateFlat()).To(HaveLen(3))
+
+			// Change calc1 to f32 output. This should cascade through
+			// calc2 and calc3 and fail because calc2 declares f64 return
+			// but calc1 now provides f32.
+			calc1.Expression = "return f32(chain3_raw)"
+			calc1.DataType = telem.Float32T
+			Expect(dist.Channel.Create(ctx, &calc1)).To(Succeed())
+			err := g.Update(ctx, calc1)
+			Expect(err).To(HaveOccurred())
+		})
+		It("Should cascade recompilation through a diamond dependency", func() {
+			raw := channel.Channel{Name: "diamond_raw", DataType: telem.Float64T, Virtual: true}
+			Expect(dist.Channel.Create(ctx, &raw)).To(Succeed())
+
+			left := channel.Channel{
+				Name:       "diamond_left",
+				DataType:   telem.Float64T,
+				Virtual:    true,
+				Expression: "return diamond_raw * 2.0",
+			}
+			Expect(dist.Channel.Create(ctx, &left)).To(Succeed())
+
+			right := channel.Channel{
+				Name:       "diamond_right",
+				DataType:   telem.Float64T,
+				Virtual:    true,
+				Expression: "return diamond_raw * 3.0",
+			}
+			Expect(dist.Channel.Create(ctx, &right)).To(Succeed())
+
+			bottom := channel.Channel{
+				Name:       "diamond_bottom",
+				DataType:   telem.Float64T,
+				Virtual:    true,
+				Expression: "return diamond_left + diamond_right",
+			}
+			Expect(dist.Channel.Create(ctx, &bottom)).To(Succeed())
+
+			Expect(g.Add(ctx, bottom)).To(Succeed())
+			flat := g.CalculateFlat()
+			Expect(flat).To(HaveLen(3))
+
+			// Change left to f32 output. This should cascade to bottom
+			// but not affect right, since right depends on raw, not left.
+			left.Expression = "return f32(diamond_raw)"
+			left.DataType = telem.Float32T
+			Expect(dist.Channel.Create(ctx, &left)).To(Succeed())
+			err := g.Update(ctx, left)
+			Expect(err).To(HaveOccurred())
+
+			// right should still be in the graph unchanged
+			Expect(g.CalculatedKeys().Contains(right.Key())).To(BeTrue())
+		})
+		It("Should not cascade when DataType stays the same", func() {
+			raw := channel.Channel{Name: "nocascade_raw", DataType: telem.Float64T, Virtual: true}
+			Expect(dist.Channel.Create(ctx, &raw)).To(Succeed())
+
+			calc1 := channel.Channel{
+				Name:       "nocascade_c1",
+				DataType:   telem.Float64T,
+				Virtual:    true,
+				Expression: "return nocascade_raw + 1.0",
+			}
+			Expect(dist.Channel.Create(ctx, &calc1)).To(Succeed())
+
+			calc2 := channel.Channel{
+				Name:       "nocascade_c2",
+				DataType:   telem.Float64T,
+				Virtual:    true,
+				Expression: "return nocascade_c1 + 2.0",
+			}
+			Expect(dist.Channel.Create(ctx, &calc2)).To(Succeed())
+
+			Expect(g.Add(ctx, calc2)).To(Succeed())
+			Expect(g.CalculateFlat()).To(HaveLen(2))
+
+			// Change calc1's expression but keep the same DataType.
+			// This should NOT trigger cascade recompilation.
+			calc1.Expression = "return nocascade_raw + 99.0"
+			Expect(dist.Channel.Create(ctx, &calc1)).To(Succeed())
+			Expect(g.Update(ctx, calc1)).To(Succeed())
+			Expect(g.CalculateFlat()).To(HaveLen(2))
+		})
+		It("Should rollback dependent modules on mid-chain compile failure", func() {
+			raw := channel.Channel{Name: "rb_raw", DataType: telem.Float64T, Virtual: true}
+			Expect(dist.Channel.Create(ctx, &raw)).To(Succeed())
+
+			calc1 := channel.Channel{
+				Name:       "rb_c1",
+				DataType:   telem.Float64T,
+				Virtual:    true,
+				Expression: "return rb_raw + 1.0",
+			}
+			Expect(dist.Channel.Create(ctx, &calc1)).To(Succeed())
+
+			// calc2 uses an explicit cast, so it compiles regardless of
+			// calc1's type. Its output is always f64.
+			calc2 := channel.Channel{
+				Name:       "rb_c2",
+				DataType:   telem.Float64T,
+				Virtual:    true,
+				Expression: "return f64(rb_c1)",
+			}
+			Expect(dist.Channel.Create(ctx, &calc2)).To(Succeed())
+
+			// calc3 references both calc1 and calc2 without casting.
+			// When calc1 is f64, this is f64+f64 which works. When calc1
+			// changes to i64, this becomes i64+f64 which fails.
+			calc3 := channel.Channel{
+				Name:       "rb_c3",
+				DataType:   telem.Float64T,
+				Virtual:    true,
+				Expression: "return rb_c1 + rb_c2",
+			}
+			Expect(dist.Channel.Create(ctx, &calc3)).To(Succeed())
+
+			Expect(g.Add(ctx, calc3)).To(Succeed())
+			flat := g.CalculateFlat()
+			Expect(flat).To(HaveLen(3))
+
+			// Save calc2's original WASM bytecode before the cascade.
+			var origWASM []byte
+			for _, mod := range flat {
+				if mod.Channel.Key() == calc2.Key() {
+					origWASM = make([]byte, len(mod.WASM))
+					copy(origWASM, mod.WASM)
+				}
+			}
+			Expect(origWASM).ToNot(BeEmpty())
+
+			// Change calc1 from f64 to i64. This triggers cascade:
+			// calc2 recompiles successfully (explicit cast handles i64),
+			// but calc3 fails (i64 + f64 is a type mismatch).
+			calc1.Expression = "return i64(rb_raw)"
+			calc1.DataType = telem.Int64T
+			Expect(dist.Channel.Create(ctx, &calc1)).To(Succeed())
+			err := g.Update(ctx, calc1)
+			Expect(err).To(HaveOccurred())
+
+			// calc2's module should be rolled back to its original state
+			// since the cascade failed partway through.
+			flat = g.CalculateFlat()
+			for _, mod := range flat {
+				if mod.Channel.Key() == calc2.Key() {
+					Expect(mod.WASM).To(Equal(origWASM))
+				}
+			}
 		})
 	})
 

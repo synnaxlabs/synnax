@@ -33,7 +33,7 @@ var _ = Describe("Status", func() {
 
 	Describe("Error", func() {
 		It("Should build a status with the correct fields", func() {
-			st := status.Error(
+			st := status.FromError(
 				channel.Key(42),
 				"my_channel",
 				"expression parse failed",

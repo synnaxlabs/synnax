@@ -22,9 +22,12 @@ import (
 	. "github.com/synnaxlabs/x/testutil"
 )
 
-var ctx = context.Background()
-
 var _ = Describe("Analyze", func() {
+	var ctx context.Context
+
+	BeforeEach(func() {
+		ctx = context.Background()
+	})
 
 	Describe("Type Inference", func() {
 		It("Should infer the correct type for integer literal expressions", func() {

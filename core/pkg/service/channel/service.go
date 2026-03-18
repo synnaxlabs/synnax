@@ -36,6 +36,8 @@ var (
 	RetrieveIfNameExists                        = distchannel.RetrieveIfNameExists
 	OverwriteIfNameExistsAndDifferentProperties = distchannel.OverwriteIfNameExistsAndDifferentProperties
 	CreateWithoutGroupRelationship              = distchannel.CreateWithoutGroupRelationship
+	ParseKey                                    = distchannel.ParseKey
+	OntologyID                                  = distchannel.OntologyID
 )
 
 // ServiceConfig configures a channel Service.
@@ -79,9 +81,8 @@ func (c ServiceConfig) Override(other ServiceConfig) ServiceConfig {
 // tracking.
 type Service struct {
 	*distchannel.Service
-	cfg    ServiceConfig
-	Writer Writer
-	graph  *graph.Graph
+	cfg   ServiceConfig
+	graph *graph.Graph
 }
 
 // OpenService opens a channel Service, hydrating the calculated channel graph
@@ -99,8 +100,14 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (*Service, error) {
 	}); err != nil {
 		return nil, err
 	}
-	s.Writer = s.NewWriter(nil)
 	return s, nil
+}
+
+// Wrap creates a Service that delegates directly to the distribution-layer channel
+// service without calculated channel features (type inference, dependency tracking).
+// Use OpenService for full functionality.
+func Wrap(dist *distchannel.Service) *Service {
+	return &Service{Service: dist}
 }
 
 // Close shuts down the calculated channel graph and its observable subscription.
