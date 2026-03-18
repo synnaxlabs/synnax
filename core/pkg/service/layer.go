@@ -13,7 +13,6 @@ import (
 	"context"
 	"time"
 
-	"github.com/google/uuid"
 	"github.com/synnaxlabs/alamos"
 	"github.com/synnaxlabs/synnax/pkg/distribution"
 	"github.com/synnaxlabs/synnax/pkg/security"
@@ -42,7 +41,6 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/workspace"
 	"github.com/synnaxlabs/synnax/pkg/storage"
 	"github.com/synnaxlabs/x/config"
-	"github.com/synnaxlabs/x/gorp"
 	xio "github.com/synnaxlabs/x/io"
 	"github.com/synnaxlabs/x/override"
 	"github.com/synnaxlabs/x/service"
@@ -254,30 +252,10 @@ func OpenLayer(ctx context.Context, cfgs ...LayerConfig) (l *Layer, err error) {
 	}); !ok(err, nil) {
 		return nil, err
 	}
-	l.Workspace.RegisterChildDeleter(workspace.ChildDeleter{
-		Type: schematic.OntologyType,
-		Delete: func(ctx context.Context, tx gorp.Tx, keys ...uuid.UUID) error {
-			return l.Schematic.NewWriter(tx).Delete(ctx, keys...)
-		},
-	})
-	l.Workspace.RegisterChildDeleter(workspace.ChildDeleter{
-		Type: lineplot.OntologyType,
-		Delete: func(ctx context.Context, tx gorp.Tx, keys ...uuid.UUID) error {
-			return l.LinePlot.NewWriter(tx).Delete(ctx, keys...)
-		},
-	})
-	l.Workspace.RegisterChildDeleter(workspace.ChildDeleter{
-		Type: log.OntologyType,
-		Delete: func(ctx context.Context, tx gorp.Tx, keys ...uuid.UUID) error {
-			return l.Log.NewWriter(tx).Delete(ctx, keys...)
-		},
-	})
-	l.Workspace.RegisterChildDeleter(workspace.ChildDeleter{
-		Type: table.OntologyType,
-		Delete: func(ctx context.Context, tx gorp.Tx, keys ...uuid.UUID) error {
-			return l.Table.NewWriter(tx).Delete(ctx, keys...)
-		},
-	})
+	l.Workspace.RegisterChildDeleter(l.Schematic)
+	l.Workspace.RegisterChildDeleter(l.LinePlot)
+	l.Workspace.RegisterChildDeleter(l.Log)
+	l.Workspace.RegisterChildDeleter(l.Table)
 	if l.Status, err = status.OpenService(
 		ctx,
 		status.ServiceConfig{

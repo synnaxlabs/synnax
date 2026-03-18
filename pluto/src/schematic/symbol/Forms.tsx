@@ -51,6 +51,13 @@ import { type StateIndicator as BaseStateIndicator } from "@/vis/stateIndicator"
 import { type Toggle } from "@/vis/toggle";
 import { Value } from "@/vis/value";
 
+const SelectTextLevel = ({
+  value,
+  onChange,
+}: Input.Control<Text.Level>): ReactElement => (
+  <Select.Text.Level value={value} onChange={onChange} />
+);
+
 export interface SymbolFormProps extends Pick<Tabs.TabsProps, "actions"> {
   layoutKey?: string;
 }
@@ -1128,9 +1135,7 @@ export const OffPageReferenceForm = ({ layoutKey }: SymbolFormProps): ReactEleme
   return (
     <FormWrapper x align="stretch">
       <Flex.Box x grow align="stretch">
-        <Form.Field<string> path="label.label" label="Label" padHelpText={false} grow>
-          {(p) => <Input.Text selectOnFocus {...p} />}
-        </Form.Field>
+        <Form.TextField path="label.label" label="Label" padHelpText={false} grow />
         <Form.Field<string>
           path="page"
           label="Page"
@@ -1144,10 +1149,28 @@ export const OffPageReferenceForm = ({ layoutKey }: SymbolFormProps): ReactEleme
               value={value}
               onChange={onChange}
               data={pages}
-              resourceName="Workspace schematic"
+              resourceName="workspace schematic"
               emptyContent="No other schematics in this workspace"
               allowNone
             />
+          )}
+        </Form.Field>
+        <Form.Field<boolean>
+          path="dblClickNav"
+          label="Click Mode"
+          padHelpText={false}
+          hideIfNull={false}
+          defaultValue={true}
+        >
+          {({ value, onChange }) => (
+            <Select.Buttons
+              value={value ? "double" : "single"}
+              onChange={(v: string) => onChange(v === "double")}
+              keys={["single", "double"] as const}
+            >
+              <Select.Button itemKey="single">Single</Select.Button>
+              <Select.Button itemKey="double">Double</Select.Button>
+            </Select.Buttons>
           )}
         </Form.Field>
         <Form.Field<Text.Level>
@@ -1156,9 +1179,7 @@ export const OffPageReferenceForm = ({ layoutKey }: SymbolFormProps): ReactEleme
           label="Label Size"
           padHelpText={false}
         >
-          {({ value, onChange }) => (
-            <Select.Text.Level value={value} onChange={onChange} />
-          )}
+          {SelectTextLevel}
         </Form.Field>
         <ColorControl path="color" />
       </Flex.Box>

@@ -13,7 +13,6 @@ import (
 	"context"
 	"testing"
 
-	"github.com/google/uuid"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/synnax/pkg/distribution/group"
@@ -63,22 +62,12 @@ var _ = BeforeSuite(func() {
 		DB:       db,
 		Ontology: otg,
 	}))
-	svc.RegisterChildDeleter(workspace.ChildDeleter{
-		Type: schematic.OntologyType,
-		Delete: func(ctx context.Context, tx gorp.Tx, keys ...uuid.UUID) error {
-			return schematicSvc.NewWriter(tx).Delete(ctx, keys...)
-		},
-	})
+	svc.RegisterChildDeleter(schematicSvc)
 	lineplotSvc = MustSucceed(lineplot.NewService(lineplot.ServiceConfig{
 		DB:       db,
 		Ontology: otg,
 	}))
-	svc.RegisterChildDeleter(workspace.ChildDeleter{
-		Type: lineplot.OntologyType,
-		Delete: func(ctx context.Context, tx gorp.Tx, keys ...uuid.UUID) error {
-			return lineplotSvc.NewWriter(tx).Delete(ctx, keys...)
-		},
-	})
+	svc.RegisterChildDeleter(lineplotSvc)
 	userSvc = MustSucceed(user.OpenService(ctx, user.ServiceConfig{
 		DB:       db,
 		Ontology: otg,

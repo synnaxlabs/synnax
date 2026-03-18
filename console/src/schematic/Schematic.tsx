@@ -84,40 +84,50 @@ export const navigateToLinkedSchematic = async (
   client: { schematics: { retrieve: (arg: { key: string }) => Promise<any> } },
   page: string,
   placeLayout: Layout.Placer,
-  addStatus: Status.Adder,
-  label?: string,
 ): Promise<void> => {
-  try {
-    const s = await client.schematics.retrieve({ key: page });
-    placeLayout(create({ ...s.data, ...s }));
-  } catch {
-    const name = label != null && label.length > 0 ? label : "Referenced schematic";
-    addStatus({
-      variant: "error",
-      message: `Schematic "${name}" not found`,
-    });
-  }
+  const s = await client.schematics.retrieve({ key: page });
+  placeLayout(create({ ...s.data, ...s }));
 };
 
-export interface HandleNodeDoubleClickArgs {
+export interface HandleNodeClickArgs {
   editable: boolean;
   client: { schematics: { retrieve: (arg: { key: string }) => Promise<any> } } | null;
   storeState: StoreState;
   layoutKey: string;
   nodeId: string;
   placeLayout: Layout.Placer;
-  addStatus: Status.Adder;
+  handleError: Status.ErrorHandler;
+  dblClick: boolean;
 }
 
-export const handleNodeDoubleClickAction = (args: HandleNodeDoubleClickArgs): void => {
-  const { editable, client, storeState, layoutKey, nodeId, placeLayout, addStatus } =
-    args;
+export const handleNodeClickAction = (args: HandleNodeClickArgs): void => {
+  const {
+    editable,
+    client,
+    storeState,
+    layoutKey,
+    nodeId,
+    placeLayout,
+    handleError,
+    dblClick,
+  } = args;
   if (editable || client == null) return;
   const props = selectNodeProps(storeState, layoutKey, nodeId);
-  if (props?.key !== "offPageReference" || !props.page) return;
-  const page = props.page as string;
-  const label = (props.label as { label?: string } | undefined)?.label;
-  void navigateToLinkedSchematic(client, page, placeLayout, addStatus, label);
+  if (
+    props?.key !== "offPageReference" ||
+    typeof props.page !== "string" ||
+    props.page.length === 0
+  )
+    return;
+  const dblClickNav = props.dblClickNav !== false;
+  if (dblClick !== dblClickNav) return;
+  const { page } = props;
+  const label = props.label?.label;
+  const name = label != null && label.length > 0 ? label : "Referenced schematic";
+  handleError(
+    () => navigateToLinkedSchematic(client, page, placeLayout),
+    `Schematic "${name}" not found`,
+  );
 };
 
 interface ControlToggleButtonProps {
@@ -235,7 +245,7 @@ export const Loaded: Layout.Renderer = ({ layoutKey, visible }) => {
   const dispatch = useDispatch();
   const store = useStore<RootState>();
   const client = Synnax.use();
-  const addStatus = Status.useAdder();
+  const handleError = Status.useErrorHandler();
   const placeLayout = Layout.usePlacer();
   const syncDispatch = useSyncComponent(layoutKey);
   const selector = useCallback(
@@ -360,18 +370,34 @@ export const Loaded: Layout.Renderer = ({ layoutKey, visible }) => {
     );
   }, [windowKey, state.editable, syncDispatch]);
 
-  const handleNodeDoubleClick = useCallback(
+  const handleNodeClick = useCallback(
     (_event: React.MouseEvent, node: { id: string }) =>
-      handleNodeDoubleClickAction({
+      handleNodeClickAction({
         editable: state.editable,
         client,
         storeState: store.getState(),
         layoutKey,
         nodeId: node.id,
         placeLayout,
-        addStatus,
+        handleError,
+        dblClick: false,
       }),
-    [state.editable, client, store, layoutKey, placeLayout, addStatus],
+    [state.editable, client, store, layoutKey, placeLayout, handleError],
+  );
+
+  const handleNodeDoubleClick = useCallback(
+    (_event: React.MouseEvent, node: { id: string }) =>
+      handleNodeClickAction({
+        editable: state.editable,
+        client,
+        storeState: store.getState(),
+        layoutKey,
+        nodeId: node.id,
+        placeLayout,
+        handleError,
+        dblClick: true,
+      }),
+    [state.editable, client, store, layoutKey, placeLayout, handleError],
   );
 
   const [legendPosition, setLegendPosition] = useState<sticky.XY>(
@@ -467,6 +493,7 @@ export const Loaded: Layout.Renderer = ({ layoutKey, visible }) => {
           editable={canEdit}
           triggers={triggers}
           onDoubleClick={handleDoubleClick}
+          onNodeClick={handleNodeClick}
           onNodeDoubleClick={handleNodeDoubleClick}
           fitViewOnResize={state.fitViewOnResize}
           setFitViewOnResize={handleSetFitViewOnResize}

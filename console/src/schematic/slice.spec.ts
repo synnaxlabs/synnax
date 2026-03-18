@@ -12,7 +12,7 @@ import { type Diagram } from "@synnaxlabs/pluto";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import {
-  handleNodeDoubleClickAction,
+  handleNodeClickAction,
   navigateToLinkedSchematic,
 } from "@/schematic/Schematic";
 import { selectNodeProps } from "@/schematic/selectors";
@@ -646,13 +646,11 @@ describe("Schematic Slice", () => {
         schematics: { retrieve: vi.fn().mockResolvedValue(mockSchematic) },
       };
       const placeLayout = vi.fn();
-      const addStatus = vi.fn();
 
-      await navigateToLinkedSchematic(client, "target-key", placeLayout, addStatus);
+      await navigateToLinkedSchematic(client, "target-key", placeLayout);
 
       expect(client.schematics.retrieve).toHaveBeenCalledWith({ key: "target-key" });
       expect(placeLayout).toHaveBeenCalledTimes(1);
-      expect(addStatus).not.toHaveBeenCalled();
     });
 
     it("should pass schematic data and metadata to placeLayout", async () => {
@@ -666,77 +664,30 @@ describe("Schematic Slice", () => {
         schematics: { retrieve: vi.fn().mockResolvedValue(mockSchematic) },
       };
       const placeLayout = vi.fn();
-      const addStatus = vi.fn();
 
-      await navigateToLinkedSchematic(client, "page-key", placeLayout, addStatus);
+      await navigateToLinkedSchematic(client, "page-key", placeLayout);
 
       const arg = placeLayout.mock.calls[0][0];
       expect(arg).toBeDefined();
-      expect(addStatus).not.toHaveBeenCalled();
     });
 
-    it("should show user-friendly error with label when retrieval fails", async () => {
+    it("should throw when retrieval fails", async () => {
       const client = {
         schematics: {
           retrieve: vi.fn().mockRejectedValue(new Error("not found")),
         },
       };
       const placeLayout = vi.fn();
-      const addStatus = vi.fn();
 
-      await navigateToLinkedSchematic(
-        client,
-        "deleted-key",
-        placeLayout,
-        addStatus,
-        "My Schematic",
-      );
+      await expect(
+        navigateToLinkedSchematic(client, "bad-key", placeLayout),
+      ).rejects.toThrow("not found");
 
       expect(placeLayout).not.toHaveBeenCalled();
-      expect(addStatus).toHaveBeenCalledWith({
-        variant: "error",
-        message: 'Schematic "My Schematic" not found',
-      });
-    });
-
-    it("should use fallback name when label is not provided", async () => {
-      const client = {
-        schematics: {
-          retrieve: vi.fn().mockRejectedValue(new Error("not found")),
-        },
-      };
-      const placeLayout = vi.fn();
-      const addStatus = vi.fn();
-
-      await navigateToLinkedSchematic(client, "bad-key", placeLayout, addStatus);
-
-      expect(placeLayout).not.toHaveBeenCalled();
-      expect(addStatus).toHaveBeenCalledWith({
-        variant: "error",
-        message: 'Schematic "Referenced schematic" not found',
-      });
-    });
-
-    it("should use fallback name when label is empty string", async () => {
-      const client = {
-        schematics: {
-          retrieve: vi.fn().mockRejectedValue(new Error("not found")),
-        },
-      };
-      const placeLayout = vi.fn();
-      const addStatus = vi.fn();
-
-      await navigateToLinkedSchematic(client, "bad-key", placeLayout, addStatus, "");
-
-      expect(placeLayout).not.toHaveBeenCalled();
-      expect(addStatus).toHaveBeenCalledWith({
-        variant: "error",
-        message: 'Schematic "Referenced schematic" not found',
-      });
     });
   });
 
-  describe("handleNodeDoubleClickAction", () => {
+  describe("handleNodeClickAction", () => {
     const schematicKey = "dblclick-test";
 
     beforeEach(() => {
@@ -753,19 +704,20 @@ describe("Schematic Slice", () => {
         }),
       );
       const placeLayout = vi.fn();
-      const addStatus = vi.fn();
+      const handleError = vi.fn();
       const client = {
         schematics: { retrieve: vi.fn().mockResolvedValue({}) },
       };
 
-      handleNodeDoubleClickAction({
+      handleNodeClickAction({
         editable: true,
         client,
         storeState: store.getState(),
         layoutKey: schematicKey,
         nodeId: "opr-1",
         placeLayout,
-        addStatus,
+        handleError,
+        dblClick: true,
       });
 
       expect(client.schematics.retrieve).not.toHaveBeenCalled();
@@ -782,16 +734,17 @@ describe("Schematic Slice", () => {
         }),
       );
       const placeLayout = vi.fn();
-      const addStatus = vi.fn();
+      const handleError = vi.fn();
 
-      handleNodeDoubleClickAction({
+      handleNodeClickAction({
         editable: false,
         client: null,
         storeState: store.getState(),
         layoutKey: schematicKey,
         nodeId: "opr-1",
         placeLayout,
-        addStatus,
+        handleError,
+        dblClick: true,
       });
 
       expect(placeLayout).not.toHaveBeenCalled();
@@ -807,19 +760,20 @@ describe("Schematic Slice", () => {
         }),
       );
       const placeLayout = vi.fn();
-      const addStatus = vi.fn();
+      const handleError = vi.fn();
       const client = {
         schematics: { retrieve: vi.fn().mockResolvedValue({}) },
       };
 
-      handleNodeDoubleClickAction({
+      handleNodeClickAction({
         editable: false,
         client,
         storeState: store.getState(),
         layoutKey: schematicKey,
         nodeId: "valve-1",
         placeLayout,
-        addStatus,
+        handleError,
+        dblClick: true,
       });
 
       expect(client.schematics.retrieve).not.toHaveBeenCalled();
@@ -835,19 +789,20 @@ describe("Schematic Slice", () => {
         }),
       );
       const placeLayout = vi.fn();
-      const addStatus = vi.fn();
+      const handleError = vi.fn();
       const client = {
         schematics: { retrieve: vi.fn().mockResolvedValue({}) },
       };
 
-      handleNodeDoubleClickAction({
+      handleNodeClickAction({
         editable: false,
         client,
         storeState: store.getState(),
         layoutKey: schematicKey,
         nodeId: "opr-empty",
         placeLayout,
-        addStatus,
+        handleError,
+        dblClick: true,
       });
 
       expect(client.schematics.retrieve).not.toHaveBeenCalled();
@@ -855,19 +810,20 @@ describe("Schematic Slice", () => {
 
     it("should do nothing for a non-existent node", () => {
       const placeLayout = vi.fn();
-      const addStatus = vi.fn();
+      const handleError = vi.fn();
       const client = {
         schematics: { retrieve: vi.fn().mockResolvedValue({}) },
       };
 
-      handleNodeDoubleClickAction({
+      handleNodeClickAction({
         editable: false,
         client,
         storeState: store.getState(),
         layoutKey: schematicKey,
         nodeId: "nonexistent",
         placeLayout,
-        addStatus,
+        handleError,
+        dblClick: true,
       });
 
       expect(client.schematics.retrieve).not.toHaveBeenCalled();
@@ -888,24 +844,160 @@ describe("Schematic Slice", () => {
       );
       const mockSchematic = { key: "target-page-key", data: {}, name: "Target" };
       const placeLayout = vi.fn();
-      const addStatus = vi.fn();
+      const handleError = vi.fn();
       const client = {
         schematics: { retrieve: vi.fn().mockResolvedValue(mockSchematic) },
       };
 
-      handleNodeDoubleClickAction({
+      handleNodeClickAction({
         editable: false,
         client,
         storeState: store.getState(),
         layoutKey: schematicKey,
         nodeId: "opr-valid",
         placeLayout,
-        addStatus,
+        handleError,
+        dblClick: true,
       });
 
-      expect(client.schematics.retrieve).toHaveBeenCalledWith({
-        key: "target-page-key",
+      expect(handleError).toHaveBeenCalledTimes(1);
+      expect(handleError).toHaveBeenCalledWith(
+        expect.any(Function),
+        'Schematic "Go to Target" not found',
+      );
+    });
+
+    it("should navigate on single click when dblClickNav is false", () => {
+      store.dispatch(
+        actions.addElement({
+          key: schematicKey,
+          elKey: "opr-single",
+          props: {
+            key: "offPageReference",
+            page: "target-page-key",
+            label: { label: "Single Click" },
+            dblClickNav: false,
+          },
+          node: { position: { x: 0, y: 0 } },
+        }),
+      );
+      const placeLayout = vi.fn();
+      const handleError = vi.fn();
+      const client = {
+        schematics: { retrieve: vi.fn().mockResolvedValue({}) },
+      };
+
+      handleNodeClickAction({
+        editable: false,
+        client,
+        storeState: store.getState(),
+        layoutKey: schematicKey,
+        nodeId: "opr-single",
+        placeLayout,
+        handleError,
+        dblClick: false,
       });
+
+      expect(handleError).toHaveBeenCalledTimes(1);
+    });
+
+    it("should not navigate on double click when dblClickNav is false", () => {
+      store.dispatch(
+        actions.addElement({
+          key: schematicKey,
+          elKey: "opr-single2",
+          props: {
+            key: "offPageReference",
+            page: "target-page-key",
+            dblClickNav: false,
+          },
+          node: { position: { x: 0, y: 0 } },
+        }),
+      );
+      const placeLayout = vi.fn();
+      const handleError = vi.fn();
+      const client = {
+        schematics: { retrieve: vi.fn().mockResolvedValue({}) },
+      };
+
+      handleNodeClickAction({
+        editable: false,
+        client,
+        storeState: store.getState(),
+        layoutKey: schematicKey,
+        nodeId: "opr-single2",
+        placeLayout,
+        handleError,
+        dblClick: true,
+      });
+
+      expect(handleError).not.toHaveBeenCalled();
+    });
+
+    it("should not navigate on single click when dblClickNav is true", () => {
+      store.dispatch(
+        actions.addElement({
+          key: schematicKey,
+          elKey: "opr-dbl",
+          props: {
+            key: "offPageReference",
+            page: "target-page-key",
+            dblClickNav: true,
+          },
+          node: { position: { x: 0, y: 0 } },
+        }),
+      );
+      const placeLayout = vi.fn();
+      const handleError = vi.fn();
+      const client = {
+        schematics: { retrieve: vi.fn().mockResolvedValue({}) },
+      };
+
+      handleNodeClickAction({
+        editable: false,
+        client,
+        storeState: store.getState(),
+        layoutKey: schematicKey,
+        nodeId: "opr-dbl",
+        placeLayout,
+        handleError,
+        dblClick: false,
+      });
+
+      expect(handleError).not.toHaveBeenCalled();
+    });
+
+    it("should navigate on double click when dblClickNav is true", () => {
+      store.dispatch(
+        actions.addElement({
+          key: schematicKey,
+          elKey: "opr-dbl-nav",
+          props: {
+            key: "offPageReference",
+            page: "target-page-key",
+            dblClickNav: true,
+          },
+          node: { position: { x: 0, y: 0 } },
+        }),
+      );
+      const placeLayout = vi.fn();
+      const handleError = vi.fn();
+      const client = {
+        schematics: { retrieve: vi.fn().mockResolvedValue({}) },
+      };
+
+      handleNodeClickAction({
+        editable: false,
+        client,
+        storeState: store.getState(),
+        layoutKey: schematicKey,
+        nodeId: "opr-dbl-nav",
+        placeLayout,
+        handleError,
+        dblClick: true,
+      });
+
+      expect(handleError).toHaveBeenCalledTimes(1);
     });
   });
 });

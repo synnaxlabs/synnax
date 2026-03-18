@@ -186,6 +186,7 @@ export interface DiagramProps
       | "fitViewOptions"
       | "snapGrid"
       | "snapToGrid"
+      | "onNodeClick"
       | "onNodeDoubleClick"
     > {
   triggers?: BaseViewport.UseTriggers;

@@ -266,8 +266,31 @@
 .pluto-symbol__container:not(.pluto--editable) .pluto-arrow.pluto--linked {
     cursor: pointer;
 
+    &:hover .wrapper {
+        filter: url("#goo") brightness(1.5);
+    }
+
     &:hover .outline {
-        opacity: 0.8;
+        mask-image: linear-gradient(
+            90deg,
+            black 0%,
+            black 55%,
+            rgba(0, 0, 0, 0.4) 60%,
+            rgba(0, 0, 0, 0.4) 100%
+        );
+        mask-size: 400% 100%;
+        mask-repeat: no-repeat;
+        mask-position: 100% 0;
+        animation: off-page-flow 1.5s ease-out forwards;
+    }
+}
+
+@keyframes off-page-flow {
+    0% {
+        mask-position: 100% 0;
+    }
+    100% {
+        mask-position: 0% 0;
     }
 }
 

@@ -21,12 +21,14 @@ import (
 
 // ChildDeleter deletes child resources of a specific type from a workspace.
 // Each deleter is associated with an ontology type, and only receives keys
-// that match that type during cascade deletion.
-type ChildDeleter struct {
-	// Type is the ontology type this deleter handles.
-	Type ontology.Type
-	// Delete removes the resources with the given keys.
-	Delete func(ctx context.Context, tx gorp.Tx, keys ...uuid.UUID) error
+// that match that type during cascade deletion. Services like schematic.Service,
+// lineplot.Service, etc. should implement this interface.
+type ChildDeleter interface {
+	// Type returns the ontology type this deleter handles.
+	Type() ontology.Type
+	// DeleteChildren removes the resources with the given keys within the
+	// provided transaction.
+	DeleteChildren(ctx context.Context, tx gorp.Tx, keys ...uuid.UUID) error
 }
 
 type Writer struct {
@@ -140,11 +142,11 @@ func (w Writer) deleteChildren(ctx context.Context, key uuid.UUID) error {
 	// Children with no registered deleter are silently skipped. Ensure a
 	// ChildDeleter is registered for every type that can be a workspace child.
 	for _, deleter := range w.childDeleters {
-		keys, ok := byType[deleter.Type]
+		keys, ok := byType[deleter.Type()]
 		if !ok || len(keys) == 0 {
 			continue
 		}
-		if err := deleter.Delete(ctx, w.tx, keys...); err != nil {
+		if err := deleter.DeleteChildren(ctx, w.tx, keys...); err != nil {
 			return err
 		}
 	}
