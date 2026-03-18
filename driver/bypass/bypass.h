@@ -81,16 +81,12 @@ public:
 
     void set_on_push(std::function<void()> fn) { this->on_push = std::move(fn); }
 
-    /// @brief returns true if any key in the frame matches this subscription.
-    bool matches(const x::telem::Frame &frame) const {
-        for (const auto &[key, _]: frame)
-            if (this->key_set.contains(key)) return true;
-        return false;
-    }
-
-    /// @brief filters and pushes a frame, keeping only channels in this
-    /// subscription. Uses a fast path when all channels already match.
-    void filter_and_push(const x::telem::Frame &frame) {
+    /// @brief filters, applies alignment, and pushes a frame.
+    /// Returns true if any channel matched (frame was delivered).
+    bool filter_and_push(
+        const x::telem::Frame &frame,
+        const std::vector<x::telem::Alignment> &alignments
+    ) {
         bool all_match = true;
         for (const auto &[key, _]: frame) {
             if (!this->key_set.contains(key)) {
@@ -99,14 +95,26 @@ public:
             }
         }
         if (all_match) {
-            this->push(frame.shallow_copy());
-            return;
+            auto copy = frame.shallow_copy();
+            for (size_t i = 0; i < copy.size(); i++)
+                copy.series->at(i).alignment = alignments[i];
+            this->push(std::move(copy));
+            return true;
         }
         x::telem::Frame filtered;
-        for (const auto &[key, series]: frame)
-            if (this->key_set.contains(key))
-                filtered.emplace(key, series.shallow_copy());
-        if (!filtered.empty()) this->push(std::move(filtered));
+        bool any_match = false;
+        for (size_t i = 0; i < frame.size(); i++) {
+            auto key = frame.channels->at(i);
+            if (this->key_set.contains(key)) {
+                auto s = frame.series->at(i).shallow_copy();
+                s.alignment = alignments[i];
+                filtered.emplace(key, std::move(s));
+                any_match = true;
+            }
+        }
+        if (!any_match) return false;
+        this->push(std::move(filtered));
+        return true;
     }
 
     void push(x::telem::Frame frame) {
@@ -150,22 +158,11 @@ public:
     }
 
     /// @brief publishes a frame to all subscribers with matching channel keys.
-    /// Assigns monotonically increasing alignment to each series before delivery.
+    /// Alignment is computed lazily (only if a subscriber matches) and applied
+    /// during the per-subscriber copy that filter_and_push already performs.
     void publish(const x::telem::Frame &frame) {
-        auto aligned = frame.shallow_copy();
-        for (size_t i = 0; i < aligned.size(); i++) {
-            auto key = aligned.channels->at(i);
-            auto it = this->alignment_counters.find(key);
-            if (it != this->alignment_counters.end()) {
-                auto &counter = *it->second;
-                const auto samples = aligned.series->at(i).size();
-                const auto base = counter.fetch_add(
-                    samples > 0 ? samples : 1,
-                    std::memory_order_relaxed
-                );
-                aligned.series->at(i).alignment = x::telem::Alignment(base);
-            }
-        }
+        thread_local std::vector<x::telem::Alignment> alignments;
+        bool aligned = false;
         bool has_expired = false;
         {
             std::shared_lock lock(this->mu);
@@ -175,10 +172,26 @@ public:
                     has_expired = true;
                     continue;
                 }
-                if (sub->matches(aligned)) {
-                    VLOG(1) << "[bus] routing frame with " << aligned.size()
+                if (!aligned) {
+                    alignments.resize(frame.size());
+                    for (size_t i = 0; i < frame.size(); i++) {
+                        auto key = frame.channels->at(i);
+                        auto it = this->alignment_counters.find(key);
+                        if (it != this->alignment_counters.end()) {
+                            auto &counter = *it->second;
+                            const auto samples = frame.series->at(i).size();
+                            alignments[i] = x::telem::Alignment(counter.fetch_add(
+                                samples > 0 ? samples : 1,
+                                std::memory_order_relaxed
+                            ));
+                        } else
+                            alignments[i] = x::telem::Alignment(0);
+                    }
+                    aligned = true;
+                }
+                if (sub->filter_and_push(frame, alignments)) {
+                    VLOG(1) << "[bus] routing frame with " << frame.size()
                             << " channels to subscription";
-                    sub->filter_and_push(aligned);
                 }
             }
         }
