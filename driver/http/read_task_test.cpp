@@ -171,7 +171,9 @@ TEST(HTTPReadTask, ParseConfigQueryParamMissingParameterErrors) {
          }}},
     };
     auto ctx = std::make_shared<task::MockContext>(nullptr);
-    ASSERT_OCCURRED_AS_P(ReadTaskConfig::parse(ctx, task), x::errors::VALIDATION);
+    auto [_, err] = ReadTaskConfig::parse(ctx, task);
+    ASSERT_TRUE(err.matches(x::errors::VALIDATION));
+    EXPECT_NE(err.data.find("parameter"), std::string::npos);
 }
 
 /// @brief it should fail when a query_params entry is missing the value field.
@@ -193,7 +195,9 @@ TEST(HTTPReadTask, ParseConfigQueryParamMissingValueErrors) {
          }}},
     };
     auto ctx = std::make_shared<task::MockContext>(nullptr);
-    ASSERT_OCCURRED_AS_P(ReadTaskConfig::parse(ctx, task), x::errors::VALIDATION);
+    auto [_, err] = ReadTaskConfig::parse(ctx, task);
+    ASSERT_TRUE(err.matches(x::errors::VALIDATION));
+    EXPECT_NE(err.data.find("value"), std::string::npos);
 }
 
 /// @brief it should fail when an enum_values entry is missing the label field.
@@ -215,7 +219,9 @@ TEST(HTTPReadTask, ParseConfigEnumValueMissingLabelErrors) {
          }}},
     };
     auto ctx = std::make_shared<task::MockContext>(nullptr);
-    ASSERT_OCCURRED_AS_P(ReadTaskConfig::parse(ctx, task), x::errors::VALIDATION);
+    auto [_1, err1] = ReadTaskConfig::parse(ctx, task);
+    ASSERT_TRUE(err1.matches(x::errors::VALIDATION));
+    EXPECT_NE(err1.data.find("label"), std::string::npos);
 }
 
 /// @brief it should fail when an enum_values entry is missing the value field.
@@ -237,7 +243,9 @@ TEST(HTTPReadTask, ParseConfigEnumValueMissingValueErrors) {
          }}},
     };
     auto ctx = std::make_shared<task::MockContext>(nullptr);
-    ASSERT_OCCURRED_AS_P(ReadTaskConfig::parse(ctx, task), x::errors::VALIDATION);
+    auto [_2, err2] = ReadTaskConfig::parse(ctx, task);
+    ASSERT_TRUE(err2.matches(x::errors::VALIDATION));
+    EXPECT_NE(err2.data.find("value"), std::string::npos);
 }
 
 /// @brief it should fail when duplicate header names exist.
@@ -263,7 +271,9 @@ TEST(HTTPReadTask, ParseConfigDuplicateHeaderErrors) {
          }}},
     };
     auto ctx = std::make_shared<task::MockContext>(nullptr);
-    ASSERT_OCCURRED_AS_P(ReadTaskConfig::parse(ctx, task), x::errors::VALIDATION);
+    auto [_3, err3] = ReadTaskConfig::parse(ctx, task);
+    ASSERT_TRUE(err3.matches(x::errors::VALIDATION));
+    EXPECT_NE(err3.data.find("duplicate header"), std::string::npos);
 }
 
 /// @brief it should fail when duplicate query parameter names exist.
@@ -289,7 +299,9 @@ TEST(HTTPReadTask, ParseConfigDuplicateQueryParamErrors) {
          }}},
     };
     auto ctx = std::make_shared<task::MockContext>(nullptr);
-    ASSERT_OCCURRED_AS_P(ReadTaskConfig::parse(ctx, task), x::errors::VALIDATION);
+    auto [_4, err4] = ReadTaskConfig::parse(ctx, task);
+    ASSERT_TRUE(err4.matches(x::errors::VALIDATION));
+    EXPECT_NE(err4.data.find("duplicate query parameter"), std::string::npos);
 }
 
 /// @brief it should fail when duplicate enum labels exist in a read field.
@@ -315,7 +327,9 @@ TEST(HTTPReadTask, ParseConfigDuplicateEnumLabelErrors) {
          }}},
     };
     auto ctx = std::make_shared<task::MockContext>(nullptr);
-    ASSERT_OCCURRED_AS_P(ReadTaskConfig::parse(ctx, task), x::errors::VALIDATION);
+    auto [_5, err5] = ReadTaskConfig::parse(ctx, task);
+    ASSERT_TRUE(err5.matches(x::errors::VALIDATION));
+    EXPECT_NE(err5.data.find("duplicate enum label"), std::string::npos);
 }
 
 /// @brief it should extract a numeric field from a single GET endpoint.
@@ -3132,6 +3146,56 @@ TEST(HTTPReadTask, POSTSetsContentTypeJSON) {
     auto ct = reqs[0].headers.find("Content-Type");
     ASSERT_NE(ct, reqs[0].headers.end());
     EXPECT_EQ(ct->second, "application/json");
+}
+
+/// @brief it should include per-endpoint headers in the HTTP request.
+TEST(HTTPReadTask, EndpointHeaders) {
+    mock::Server server(
+        mock::ServerConfig{
+            .routes = {{
+                .method = Method::GET,
+                .path = "/api/data",
+                .status_code = 200,
+                .response_body = R"({"value": 1.0})",
+            }},
+        }
+    );
+    ASSERT_NIL(server.start());
+    x::defer::defer stop_server([&server] { server.stop(); });
+
+    ReadTaskConfig cfg;
+    cfg.device = "test-device";
+    cfg.data_saving = false;
+    cfg.auto_start = false;
+    cfg.rate = x::telem::Rate(10000);
+
+    ReadField field;
+    field.pointer = x::json::json::json_pointer("/value");
+    field.channel_key = 1;
+
+    ReadEndpoint ep;
+    ep.request.method = Method::GET;
+    ep.request.path = "/api/data";
+    ep.request.headers = {{"Accept", "application/json"}};
+    ep.fields = {field};
+
+    cfg.endpoints = {ep};
+    cfg.channels[1] = {.name = "value", .data_type = x::telem::FLOAT64_T, .key = 1};
+
+    auto [source, processor] = make_source(cfg, server.base_url());
+
+    auto breaker = x::breaker::Breaker(x::breaker::Config{.name = "test"});
+    breaker.start();
+    x::telem::Frame fr;
+    auto res = source->read(breaker, fr);
+    breaker.stop();
+    ASSERT_NIL(res.error);
+
+    auto reqs = server.received_requests();
+    ASSERT_EQ(reqs.size(), 1);
+    auto accept = reqs[0].headers.find("Accept");
+    ASSERT_NE(accept, reqs[0].headers.end());
+    EXPECT_EQ(accept->second, "application/json");
 }
 
 }

@@ -199,7 +199,9 @@ TEST(HTTPWriteTask, ParseConfigHeaderMissingNameErrors) {
          }}},
     };
     auto ctx = std::make_shared<task::MockContext>(nullptr);
-    ASSERT_OCCURRED_AS_P(WriteTaskConfig::parse(ctx, task), x::errors::VALIDATION);
+    auto [_1, err1] = WriteTaskConfig::parse(ctx, task);
+    ASSERT_TRUE(err1.matches(x::errors::VALIDATION));
+    EXPECT_NE(err1.data.find("name"), std::string::npos);
 }
 
 /// @brief it should fail when duplicate header names exist.
@@ -221,7 +223,9 @@ TEST(HTTPWriteTask, ParseConfigDuplicateHeaderErrors) {
          }}},
     };
     auto ctx = std::make_shared<task::MockContext>(nullptr);
-    ASSERT_OCCURRED_AS_P(WriteTaskConfig::parse(ctx, task), x::errors::VALIDATION);
+    auto [_2, err2] = WriteTaskConfig::parse(ctx, task);
+    ASSERT_TRUE(err2.matches(x::errors::VALIDATION));
+    EXPECT_NE(err2.data.find("duplicate header"), std::string::npos);
 }
 
 /// @brief it should fail when a header entry is missing the value field.
@@ -239,7 +243,9 @@ TEST(HTTPWriteTask, ParseConfigHeaderMissingValueErrors) {
          }}},
     };
     auto ctx = std::make_shared<task::MockContext>(nullptr);
-    ASSERT_OCCURRED_AS_P(WriteTaskConfig::parse(ctx, task), x::errors::VALIDATION);
+    auto [_3, err3] = WriteTaskConfig::parse(ctx, task);
+    ASSERT_TRUE(err3.matches(x::errors::VALIDATION));
+    EXPECT_NE(err3.data.find("value"), std::string::npos);
 }
 
 /// @brief it should POST a numeric channel value to the server.
@@ -1436,5 +1442,50 @@ TEST(HTTPWriteTask, DisabledEndpointSkipped) {
     EXPECT_EQ(reqs[0].path, "/api/active");
     auto body = x::json::json::parse(reqs[0].body);
     EXPECT_NEAR(body["value"].get<double>(), 10.0, 0.001);
+}
+
+/// @brief it should include per-endpoint headers in the HTTP request.
+TEST(HTTPWriteTask, EndpointHeaders) {
+    mock::Server server(
+        mock::ServerConfig{
+            .routes = {{
+                .method = Method::POST,
+                .path = "/api/control",
+                .status_code = 200,
+                .response_body = R"({"status":"ok"})",
+            }},
+        }
+    );
+    ASSERT_NIL(server.start());
+    x::defer::defer stop_server([&server] { server.stop(); });
+
+    WriteTaskConfig cfg;
+    cfg.device = "test-device";
+    cfg.auto_start = false;
+
+    WriteEndpoint ep;
+    ep.request.method = Method::POST;
+    ep.request.path = "/api/control";
+    ep.request.request_content_type = "application/json";
+    ep.request.headers = {{"X-Custom", "test-val"}};
+    ep.channel.pointer = x::json::json::json_pointer("/value");
+    ep.channel.json_type = x::json::Type::Number;
+    ep.channel.channel_key = 1;
+
+    cfg.endpoints = {ep};
+    cfg.cmd_keys = {1};
+
+    auto [sink, processor] = make_sink(cfg, server.base_url());
+
+    x::telem::Frame frame;
+    frame.emplace(synnax::channel::Key(1), x::telem::Series(std::vector<double>{42.5}));
+
+    ASSERT_NIL(sink->write(frame));
+
+    auto reqs = server.received_requests();
+    ASSERT_EQ(reqs.size(), 1);
+    auto hdr = reqs[0].headers.find("X-Custom");
+    ASSERT_NE(hdr, reqs[0].headers.end());
+    EXPECT_EQ(hdr->second, "test-val");
 }
 }
