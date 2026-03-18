@@ -9,6 +9,7 @@ cc_library(
     hdrs = ["id.h"],
     visibility = ["//visibility:public"],
     deps = [
+        "//core/pkg/api/grpc/v1:api_grpc",
         "//x/cpp/errors",
         "@nlohmann_json//:json",
     ],

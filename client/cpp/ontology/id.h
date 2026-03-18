@@ -16,6 +16,8 @@
 
 #include "x/cpp/errors/errors.h"
 
+#include "core/pkg/api/grpc/v1/ontology.pb.h"
+
 namespace synnax::ontology {
 /// @brief An ontology ID is a composite identifier consisting of a type and key.
 /// The type represents the resource type (e.g., "channel", "user", "group"),
@@ -41,6 +43,12 @@ struct ID {
 
     /// @brief Returns true if both type and key are empty.
     [[nodiscard]] bool is_zero() const { return type.empty() && key.empty(); }
+
+    /// @brief Constructs an ID from its protobuf representation.
+    static ID from_proto(const api::v1::OntologyID &proto);
+
+    /// @brief Serializes the ID to its protobuf representation.
+    void to_proto(api::v1::OntologyID *proto) const;
 
     /// @brief Equality operator.
     bool operator==(const ID &other) const;

@@ -70,11 +70,10 @@ func (s *Service) Create(
 	}
 	return res, s.db.WithTx(ctx, func(tx gorp.Tx) error {
 		w := s.device.NewWriter(tx)
-		for i, d := range req.Devices {
-			if err := w.Create(ctx, d); err != nil {
+		for i := range req.Devices {
+			if err := w.Create(ctx, &req.Devices[i]); err != nil {
 				return err
 			}
-			req.Devices[i] = d
 		}
 		res.Devices = req.Devices
 		return nil
@@ -173,20 +172,21 @@ func (s *Service) Retrieve(
 	res.Devices = svcDevices
 	if req.IncludeParent {
 		for i, d := range svcDevices {
-			var parents []ontology.Resource
-			if err := s.ontology.NewRetrieve().
+			var parent ontology.Resource
+			err := s.ontology.NewRetrieve().
 				WhereIDs(device.OntologyID(d.Key)).
 				TraverseTo(ontology.ParentsTraverser).
 				Limit(1).
 				ExcludeFieldData(true).
-				Entries(&parents).
-				Exec(ctx, nil); err != nil {
-				return RetrieveResponse{}, err
+				Entry(&parent).
+				Exec(ctx, nil)
+			if err != nil {
+				if !errors.Is(err, query.ErrNotFound) {
+					return RetrieveResponse{}, err
+				}
+				continue
 			}
-			if len(parents) > 0 {
-				id := parents[0].ID
-				res.Devices[i].Parent = &id
-			}
+			res.Devices[i].Parent = &parent.ID
 		}
 	}
 	return res, retErr

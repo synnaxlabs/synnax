@@ -127,12 +127,7 @@ std::pair<Device, x::errors::Error> Device::from_proto(const api::v1::Device &de
         d.properties = v;
     }
     d.configured = device.configured();
-    if (device.has_parent()) {
-        d.parent = ontology::ID{
-            .type = device.parent().type(),
-            .key = device.parent().key(),
-        };
-    }
+    if (device.has_parent()) d.parent = ontology::ID::from_proto(device.parent());
     if (device.has_status()) {
         auto [s, err] = Status::from_proto(device.status());
         if (err) return {d, err};
@@ -151,11 +146,7 @@ void Device::to_proto(api::v1::Device *device) const {
     x::json::to_struct(properties, device->mutable_properties());
     device->set_configured(configured);
     if (!status.is_zero()) status.to_proto(device->mutable_status());
-    if (!parent.is_zero()) {
-        auto *p = device->mutable_parent();
-        p->set_type(parent.type);
-        p->set_key(parent.key);
-    }
+    if (!parent.is_zero()) parent.to_proto(device->mutable_parent());
 }
 
 Device Device::parse(x::json::Parser &parser) {

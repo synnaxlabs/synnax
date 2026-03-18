@@ -697,11 +697,17 @@ TEST(DeviceTests, testBulkCreateMixedParents) {
     const std::vector devices = {standalone, module};
     ASSERT_NIL(client.devices.create(devices));
 
-    const auto rs = ASSERT_NIL_P(client.devices.retrieve(standalone.key));
+    const auto rs = ASSERT_NIL_P(
+        client.devices.retrieve(standalone.key, {.include_parent = true})
+    );
     ASSERT_EQ(rs.key, standalone.key);
-    ASSERT_TRUE(rs.parent.is_zero());
+    ASSERT_FALSE(rs.parent.is_zero());
 
-    const auto rm = ASSERT_NIL_P(client.devices.retrieve(module.key));
+    const auto rm = ASSERT_NIL_P(
+        client.devices.retrieve(module.key, {.include_parent = true})
+    );
     ASSERT_EQ(rm.key, module.key);
+    ASSERT_FALSE(rm.parent.is_zero());
+    ASSERT_EQ(rm.parent, ontology_id(chassis.key));
 }
 }
