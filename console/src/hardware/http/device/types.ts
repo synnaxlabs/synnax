@@ -78,10 +78,55 @@ export const ZERO_AUTH_CONFIGS: Record<AuthType, AuthConfig> = {
   basic: { type: "basic", username: "", password: "" },
 };
 
+export const headerEntryZ = z.object({ name: z.string(), value: z.string() });
+export interface HeaderEntry extends z.infer<typeof headerEntryZ> {}
+
+export const queryParamEntryZ = z.object({ parameter: z.string(), value: z.string() });
+export interface QueryParamEntry extends z.infer<typeof queryParamEntryZ> {}
+
+export const checkDuplicateKeys =
+  (keyField: string, label: string) =>
+  (ctx: { value: Record<string, unknown>[] | undefined; issues: unknown[] }) => {
+    if (ctx.value == null) return;
+    const seen = new Set<unknown>();
+    ctx.value.forEach((entry, i) => {
+      const k = entry[keyField];
+      if (k === "") return;
+      if (seen.has(k))
+        ctx.issues.push({
+          code: "custom",
+          input: ctx.value,
+          message: `Duplicate ${label} "${String(k)}"`,
+          path: [i, keyField],
+        });
+      else seen.add(k);
+    });
+  };
+
+const v0HeadersZ = z.record(z.string(), z.string());
+const v1HeadersZ = z.array(headerEntryZ);
+export const headersZ: z.ZodType<HeaderEntry[]> = v1HeadersZ
+  .or(
+    v0HeadersZ.transform((rec) =>
+      Object.entries(rec).map(([name, value]) => ({ name, value })),
+    ),
+  )
+  .check(checkDuplicateKeys("name", "header"));
+
+const v0QueryParamsZ = z.record(z.string(), z.string());
+const v1QueryParamsZ = z.array(queryParamEntryZ);
+export const queryParamsZ: z.ZodType<QueryParamEntry[]> = v1QueryParamsZ
+  .or(
+    v0QueryParamsZ.transform((rec) =>
+      Object.entries(rec).map(([parameter, value]) => ({ parameter, value })),
+    ),
+  )
+  .check(checkDuplicateKeys("parameter", "query parameter"));
+
 const sharedHealthCheckZ = z.object({
   path: z.string(),
-  headers: z.record(z.string(), z.string()).optional(),
-  queryParams: z.record(z.string(), z.string()).optional(),
+  headers: headersZ.optional(),
+  queryParams: queryParamsZ.optional(),
 });
 
 const noValidateHealthCheckZ = sharedHealthCheckZ.extend({
