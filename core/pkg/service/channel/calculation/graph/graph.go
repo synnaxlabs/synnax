@@ -129,12 +129,17 @@ func (s *Graph) hydrate(ctx context.Context) error {
 	repairs := make([]channel.Channel, 0)
 	pass := 0
 	invalidCount := 0
+	var (
+		nextNodes      map[channel.Key]node
+		nextDependents map[channel.Key]map[channel.Key]struct{}
+		nextUnresolved map[string]map[channel.Key]struct{}
+	)
+	analyzer := s.newAnalyzer(nil)
 	for {
 		changed := false
-		analyzer := s.newAnalyzer(nil)
-		nextNodes := make(map[channel.Key]node)
-		nextDependents := make(map[channel.Key]map[channel.Key]struct{})
-		nextUnresolved := make(map[string]map[channel.Key]struct{})
+		nextNodes = make(map[channel.Key]node)
+		nextDependents = make(map[channel.Key]map[channel.Key]struct{})
+		nextUnresolved = make(map[string]map[channel.Key]struct{})
 		invalidCount = 0
 		for i, ch := range channels {
 			nd, err := s.inspectNode(ctx, nil, ch, analyzer)
@@ -164,11 +169,13 @@ func (s *Graph) hydrate(ctx context.Context) error {
 		}
 		pass++
 		if !changed {
-			s.mu.Lock()
-			s.mu.nodes = nextNodes
-			s.mu.dependents = nextDependents
-			s.mu.unresolvedByName = nextUnresolved
-			s.mu.Unlock()
+			break
+		}
+		if pass > len(channels)+1 {
+			s.L.Warn("hydration fixpoint did not converge, breaking",
+				zap.Int("pass", pass),
+				zap.Int("channels", len(channels)),
+			)
 			break
 		}
 		s.L.Debug("hydration fixpoint pass required another iteration",
@@ -176,6 +183,11 @@ func (s *Graph) hydrate(ctx context.Context) error {
 			zap.Int("repairs", len(repairs)),
 		)
 	}
+	s.mu.Lock()
+	s.mu.nodes = nextNodes
+	s.mu.dependents = nextDependents
+	s.mu.unresolvedByName = nextUnresolved
+	s.mu.Unlock()
 	if len(repairs) > 0 {
 		s.L.Info("persisting DataType repairs from hydration", zap.Int("count", len(repairs)))
 		if err := s.distribution.NewWriter(nil).CreateMany(ctx, &repairs); err != nil {
@@ -299,6 +311,8 @@ func (s *Graph) inspectNode(
 	if err == nil {
 		nd.DataType = result.DataType
 		nd.deps = result.Deps
+	} else {
+		nd.unresolved = result.Unresolved
 	}
 	nd.invalid = err != nil
 	return nd, err

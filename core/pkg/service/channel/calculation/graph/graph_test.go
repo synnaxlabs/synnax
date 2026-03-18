@@ -307,6 +307,36 @@ var _ = Describe("Graph", func() {
 				openGraph()
 				Expect(retrieveChannelDataType(calc.Key())).To(Equal(telem.Int64T))
 			})
+
+			It("Should repair cascaded DataType when a dependent has a lower key than its dependency", func() {
+				base := channel.Channel{Name: "hy_ooo_base", DataType: telem.Int64T, Virtual: true}
+				Expect(dist.Channel.Create(ctx, &base)).To(Succeed())
+
+				calc2 := channel.Channel{
+					Name:       "hy_ooo_c2",
+					DataType:   telem.Float32T,
+					Virtual:    true,
+					Expression: "return hy_ooo_c1 + 1",
+				}
+				Expect(dist.Channel.Create(ctx, &calc2)).To(Succeed())
+
+				calc1 := channel.Channel{
+					Name:       "hy_ooo_c1",
+					DataType:   telem.Float32T,
+					Virtual:    true,
+					Expression: "return hy_ooo_base + 1",
+				}
+				Expect(dist.Channel.Create(ctx, &calc1)).To(Succeed())
+
+				Expect(calc2.Key()).To(BeNumerically("<", calc1.Key()))
+				Expect(retrieveChannelDataType(calc1.Key())).To(Equal(telem.Float32T))
+				Expect(retrieveChannelDataType(calc2.Key())).To(Equal(telem.Float32T))
+
+				openGraph()
+
+				Expect(retrieveChannelDataType(calc1.Key())).To(Equal(telem.Int64T))
+				Expect(retrieveChannelDataType(calc2.Key())).To(Equal(telem.Int64T))
+			})
 		})
 	})
 
@@ -675,8 +705,8 @@ var _ = Describe("Graph", func() {
 			})
 		})
 
-		Context("unresolvedByName Gap", func() {
-			It("Should NOT auto-fix a broken calc when the missing dependency is created", func() {
+		Context("Unresolved Name Auto-Heal", func() {
+			It("Should auto-fix a broken calc when the missing dependency is created", func() {
 				openGraph()
 				calc := channel.Channel{
 					Name: "rc_unres_calc", DataType: telem.Int64T, Virtual: true,
@@ -689,13 +719,49 @@ var _ = Describe("Graph", func() {
 				dep := channel.Channel{Name: "rc_unres_missing", DataType: telem.Int64T, Virtual: true}
 				Expect(dist.Channel.Create(ctx, &dep)).To(Succeed())
 
-				By("Verifying calc is NOT auto-fixed because unresolvedByName is never populated")
-				expectStatus(calc.Key())
-
-				By("Explicitly updating the calc to trigger re-inspection")
-				calc.Expression = "return rc_unres_missing * 2"
-				Expect(dist.Channel.Create(ctx, &calc)).To(Succeed())
+				By("Verifying calc is auto-fixed")
 				eventuallyExpectNoStatus(calc.Key())
+			})
+
+			It("Should auto-fix multiple calcs waiting on the same missing name", func() {
+				openGraph()
+				calc1 := channel.Channel{
+					Name: "rc_unres_multi_c1", DataType: telem.Int64T, Virtual: true,
+					Expression: "return rc_unres_shared_dep + 1",
+				}
+				calc2 := channel.Channel{
+					Name: "rc_unres_multi_c2", DataType: telem.Int64T, Virtual: true,
+					Expression: "return rc_unres_shared_dep * 2",
+				}
+				Expect(dist.Channel.Create(ctx, &calc1)).To(Succeed())
+				Expect(dist.Channel.Create(ctx, &calc2)).To(Succeed())
+				expectStatus(calc1.Key())
+				expectStatus(calc2.Key())
+
+				By("Creating the shared missing dependency")
+				dep := channel.Channel{Name: "rc_unres_shared_dep", DataType: telem.Int64T, Virtual: true}
+				Expect(dist.Channel.Create(ctx, &dep)).To(Succeed())
+
+				By("Both calcs should auto-heal")
+				eventuallyExpectNoStatus(calc1.Key())
+				eventuallyExpectNoStatus(calc2.Key())
+			})
+
+			It("Should auto-fix a chain where a missing base is created", func() {
+				openGraph()
+				calc1 := channel.Channel{
+					Name: "rc_unres_chain_c1", DataType: telem.Int64T, Virtual: true,
+					Expression: "return rc_unres_chain_base + 1",
+				}
+				Expect(dist.Channel.Create(ctx, &calc1)).To(Succeed())
+				expectStatus(calc1.Key())
+
+				By("Creating the missing base")
+				base := channel.Channel{Name: "rc_unres_chain_base", DataType: telem.Int64T, Virtual: true}
+				Expect(dist.Channel.Create(ctx, &base)).To(Succeed())
+
+				By("calc1 should auto-heal")
+				eventuallyExpectNoStatus(calc1.Key())
 			})
 		})
 

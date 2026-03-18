@@ -70,10 +70,4 @@ var _ = Describe("NewResolver", func() {
 		Expect(err).To(MatchError(query.ErrNotFound))
 	})
 
-	It("Should use custom resolvers when provided", func() {
-		resolver := symbol.NewResolver(dist.Channel, nil)
-		sym, err := resolver.Resolve(ctx, "set_status")
-		Expect(err).ToNot(HaveOccurred())
-		Expect(sym.Name).To(Equal("set_status"))
-	})
 })

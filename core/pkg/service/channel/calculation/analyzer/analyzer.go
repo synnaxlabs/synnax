@@ -21,6 +21,9 @@ import (
 	"github.com/synnaxlabs/arc/symbol"
 	"github.com/synnaxlabs/arc/types"
 	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
+	"github.com/synnaxlabs/x/errors"
+	"github.com/synnaxlabs/x/query"
+	"github.com/synnaxlabs/x/set"
 	"github.com/synnaxlabs/x/telem"
 )
 
@@ -30,6 +33,7 @@ type resolver struct {
 		names map[string]*symbol.Symbol
 		keys  map[int]*symbol.Symbol
 	}
+	unresolved set.Set[string]
 }
 
 // Analyzer parses and type-checks calculated channel expressions. It caches
@@ -59,21 +63,29 @@ func (r *resolver) Resolve(ctx context.Context, name string) (symbol.Symbol, err
 			return *s, nil
 		}
 	}
-	return r.SymbolResolver.Resolve(ctx, name)
+	sym, resolveErr := r.SymbolResolver.Resolve(ctx, name)
+	if errors.Is(resolveErr, query.ErrNotFound) {
+		r.unresolved.Add(name)
+	}
+	return sym, resolveErr
 }
 
-// Result holds the output of a successful analysis.
+// Result holds the output of an analysis. On error, Unresolved may be populated
+// even though DataType and Deps are zero-valued.
 type Result struct {
 	// DataType is the inferred return type of the expression.
 	DataType telem.DataType
 	// Deps lists the keys of channels read by the expression.
 	Deps channel.Keys
+	// Unresolved lists symbol names that could not be resolved during analysis.
+	Unresolved []string
 }
 
 // Analyze parses the channel's expression, infers its return type, and extracts
 // the set of channel dependencies. The analyzed channel is cached so that
 // subsequent calls can reference it by name or key.
 func (a *Analyzer) Analyze(ctx context.Context, ch channel.Channel) (Result, error) {
+	a.resolver.unresolved = make(set.Set[string])
 	t, err := parser.ParseBlock(fmt.Sprintf("{%s}", ch.Expression))
 	if err != nil {
 		return Result{}, err
@@ -81,7 +93,7 @@ func (a *Analyzer) Analyze(ctx context.Context, ch channel.Channel) (Result, err
 	aCtx := acontext.CreateRoot(ctx, t, a.resolver)
 	dataType := statement.AnalyzeFunctionBody(aCtx)
 	if !aCtx.Diagnostics.Ok() {
-		return Result{}, aCtx.Diagnostics
+		return Result{Unresolved: a.resolver.unresolved.Keys()}, aCtx.Diagnostics
 	}
 	s := &symbol.Symbol{
 		Name: ch.Name,

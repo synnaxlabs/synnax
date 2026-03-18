@@ -202,7 +202,9 @@ var _ = Describe("Analyze", func() {
 		It("Should return an error for an undefined channel reference", func() {
 			a := analyzer.New(symbol.MapResolver{})
 			ch := channel.Channel{Name: "calc", Expression: "return nonexistent + 1"}
-			Expect(a.Analyze(ctx, ch)).Error().To(HaveOccurred())
+			res, err := a.Analyze(ctx, ch)
+			Expect(err).To(MatchError(ContainSubstring("undefined symbol")))
+			Expect(res.Unresolved).To(ConsistOf("nonexistent"))
 		})
 
 		It("Should return zero Result on parse error", func() {
@@ -213,12 +215,13 @@ var _ = Describe("Analyze", func() {
 			Expect(res).To(Equal(analyzer.Result{}))
 		})
 
-		It("Should return zero Result on analysis error", func() {
+		It("Should return unresolved names on analysis error", func() {
 			a := analyzer.New(symbol.MapResolver{})
 			ch := channel.Channel{Name: "calc", Expression: "return nonexistent + 1"}
 			res, err := a.Analyze(ctx, ch)
-			Expect(err).To(HaveOccurred())
-			Expect(res).To(Equal(analyzer.Result{}))
+			Expect(err).To(MatchError(ContainSubstring("undefined symbol")))
+			Expect(res.DataType).To(Equal(telem.UnknownT))
+			Expect(res.Unresolved).To(ConsistOf("nonexistent"))
 		})
 	})
 
