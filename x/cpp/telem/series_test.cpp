@@ -1962,6 +1962,23 @@ TEST(SeriesShallowCopy, StringSeries) {
     ASSERT_EQ(strings[1], "world");
 }
 
+/// @brief shallow copy of a variable-size series should preserve byte_cap.
+TEST(SeriesShallowCopy, StringSeriesPreservesByteCap) {
+    auto original = Series(STRING_T, 128);
+    auto copy = original.shallow_copy();
+    ASSERT_EQ(copy.byte_cap(), original.byte_cap());
+    ASSERT_EQ(copy.byte_cap(), 128);
+}
+
+/// @brief shallow copy of a JSON series with explicit capacity should preserve
+/// byte_cap.
+TEST(SeriesShallowCopy, JSONSeriesPreservesByteCap) {
+    auto original = Series(JSON_T, 256);
+    auto copy = original.shallow_copy();
+    ASSERT_EQ(copy.byte_cap(), original.byte_cap());
+    ASSERT_EQ(copy.byte_cap(), 256);
+}
+
 /// @brief shallow copy of a JSON series should share the buffer.
 TEST(SeriesShallowCopy, JSONSeries) {
     auto original = Series(

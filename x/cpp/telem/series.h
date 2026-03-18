@@ -157,6 +157,7 @@ private:
         data_type_(other.data_type_),
         cap_(other.cap_),
         cached_byte_size(other.cached_byte_size),
+        cached_byte_cap(other.cached_byte_cap),
         size_(other.size_),
         data_(other.data_),
         time_range(other.time_range),

@@ -30,7 +30,7 @@ class Streamer final : public pipeline::Streamer {
     std::mutex server_mu;
     std::deque<x::telem::Frame> server_frames;
     bool server_done = false;
-    bool closed = false;
+    std::atomic<bool> closed{false};
     x::errors::Error server_err{x::errors::NIL};
 
     std::mutex notify_mu;
@@ -79,8 +79,10 @@ public:
     }
 
     x::errors::Error close() override {
-        if (this->closed) return x::errors::NIL;
-        this->closed = true;
+        bool expected = false;
+        if (!this->closed.compare_exchange_strong(expected, true))
+            return x::errors::NIL;
+        this->subscription->set_on_push(nullptr);
         auto err = this->server->close();
         if (this->server_thread.joinable()) this->server_thread.join();
         return err;
