@@ -1003,7 +1003,9 @@ var _ = Describe("Graph", func() {
 				}
 				Expect(dist.Channel.Create(ctx, &calc)).To(Succeed())
 			}
-			expectNoStatus(calc.Key())
+			calc.Expression = "return cc_rapid_base + 1"
+			Expect(dist.Channel.Create(ctx, &calc)).To(Succeed())
+			eventuallyExpectNoStatus(calc.Key())
 		})
 	})
 
