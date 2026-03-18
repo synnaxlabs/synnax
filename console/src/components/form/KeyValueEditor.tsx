@@ -10,43 +10,46 @@
 import "@/components/form/KeyValueEditor.css";
 
 import { Button, Flex, Form, Icon, Input, Text } from "@synnaxlabs/pluto";
-import { type FC } from "react";
 
 import { CSS } from "@/css";
 
-export interface KeyValueEditorProps extends Flex.BoxProps {
+export type Entry<K extends string, V extends string | number> = {
+  [k in K]: string;
+} & { value: V };
+
+export interface KeyValueEditorProps<K extends string, V extends string | number>
+  extends Flex.BoxProps {
   path: string;
   label: string;
-  keyField?: string;
+  keyField: K;
   keyPlaceholder?: string;
   valuePlaceholder?: string;
-  valueType?: "string" | "number";
+  valueType?: V extends number ? "number" : "string";
   valueFirst?: boolean;
 }
 
-export const KeyValueEditor: FC<KeyValueEditorProps> = ({
+export const KeyValueEditor = <K extends string, V extends string | number>({
   path,
   label,
-  keyField = "key",
+  keyField,
   keyPlaceholder = "Key",
   valuePlaceholder = "Value",
-  valueType = "string",
+  valueType,
   valueFirst = false,
   ...rest
-}) => {
-  const defaultValue = valueType === "number" ? 0 : "";
+}: KeyValueEditorProps<K, V>): React.ReactElement => {
+  const vt = valueType ?? "string";
+  const defaultValue: V = (vt === "number" ? 0 : "") as V;
   const { set } = Form.useContext();
-  const value = Form.useFieldValue<Record<string, string | number>[]>(path, {
-    defaultValue: [],
-  });
+  const value = Form.useFieldValue<Entry<K, V>[]>(path, { defaultValue: [] });
 
-  const entries: Record<string, string | number>[] = value;
+  const entries = value;
 
-  const setFormValue = (arr: Record<string, string | number>[]) =>
+  const setFormValue = (arr: Entry<K, V>[]) =>
     set(path, arr.length > 0 ? arr : undefined);
 
   const addRow = () =>
-    setFormValue([...entries, { [keyField]: "", value: defaultValue }]);
+    setFormValue([...entries, { [keyField]: "", value: defaultValue } as Entry<K, V>]);
 
   const updateRowKey = (i: number, k: string) => {
     const updated = [...entries];
@@ -54,7 +57,7 @@ export const KeyValueEditor: FC<KeyValueEditorProps> = ({
     setFormValue(updated);
   };
 
-  const updateRowValue = (i: number, v: string | number) => {
+  const updateRowValue = (i: number, v: V) => {
     const updated = [...entries];
     updated[i] = { ...updated[i], value: v };
     setFormValue(updated);
@@ -81,31 +84,25 @@ export const KeyValueEditor: FC<KeyValueEditorProps> = ({
           const keyInput = (
             <Input.Text
               placeholder={keyPlaceholder}
-              value={(entry[keyField] as string) ?? ""}
+              value={entry[keyField]}
               onChange={(v) => updateRowKey(i, v)}
             />
           );
           const valueInput =
-            valueType === "number" ? (
+            vt === "number" ? (
               <Input.Numeric
                 value={entry.value as number}
-                onChange={(v) => updateRowValue(i, v)}
+                onChange={(v) => updateRowValue(i, v as V)}
               />
             ) : (
               <Input.Text
                 placeholder={valuePlaceholder}
                 value={entry.value as string}
-                onChange={(v) => updateRowValue(i, v)}
+                onChange={(v) => updateRowValue(i, v as V)}
               />
             );
           return (
-            <Flex.Box
-              x
-              key={i}
-              align="center"
-              gap="small"
-              className={CSS.B("kv-row")}
-            >
+            <Flex.Box x key={i} align="center" gap="small" className={CSS.B("kv-row")}>
               {valueFirst ? valueInput : keyInput}
               {valueFirst ? keyInput : valueInput}
               <Button.Button
