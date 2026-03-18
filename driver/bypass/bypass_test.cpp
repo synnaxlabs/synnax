@@ -169,6 +169,115 @@ TEST(BusTest, ExpiredEntriesSweptOnPublish) {
     bus.publish(frame);
 }
 
+TEST(BusTest, DeliveredFrameContainsOnlySubscribedChannels) {
+    Bus bus;
+    auto sub = bus.subscribe({1, 3});
+    x::telem::Frame frame;
+    frame.emplace(1, x::telem::Series(static_cast<float>(10.0)));
+    frame.emplace(2, x::telem::Series(static_cast<float>(20.0)));
+    frame.emplace(3, x::telem::Series(static_cast<float>(30.0)));
+    bus.publish(frame);
+    x::telem::Frame received;
+    ASSERT_TRUE(sub->try_pop(received));
+    ASSERT_EQ(received.size(), 2);
+    ASSERT_EQ(received.at<float>(1, 0), 10.0f);
+    ASSERT_EQ(received.at<float>(3, 0), 30.0f);
+}
+
+TEST(BusTest, DeliveredFramePassthroughWhenAllChannelsMatch) {
+    Bus bus;
+    auto sub = bus.subscribe({1, 2});
+    x::telem::Frame frame;
+    frame.emplace(1, x::telem::Series(static_cast<float>(10.0)));
+    frame.emplace(2, x::telem::Series(static_cast<float>(20.0)));
+    bus.publish(frame);
+    x::telem::Frame received;
+    ASSERT_TRUE(sub->try_pop(received));
+    ASSERT_EQ(received.size(), 2);
+}
+
+TEST(BusTest, DeliveredFrameFiltersExtraChannelsMultipleSubscribers) {
+    Bus bus;
+    auto sub1 = bus.subscribe({1});
+    auto sub2 = bus.subscribe({2});
+    x::telem::Frame frame;
+    frame.emplace(1, x::telem::Series(static_cast<float>(10.0)));
+    frame.emplace(2, x::telem::Series(static_cast<float>(20.0)));
+    frame.emplace(3, x::telem::Series(static_cast<float>(30.0)));
+    bus.publish(frame);
+    x::telem::Frame r1, r2;
+    ASSERT_TRUE(sub1->try_pop(r1));
+    ASSERT_EQ(r1.size(), 1);
+    ASSERT_EQ(r1.at<float>(1, 0), 10.0f);
+    ASSERT_TRUE(sub2->try_pop(r2));
+    ASSERT_EQ(r2.size(), 1);
+    ASSERT_EQ(r2.at<float>(2, 0), 20.0f);
+}
+
+TEST(BusTest, PublishAssignsIncreasingAlignmentPerChannel) {
+    Bus bus;
+    bus.register_channels({1, 2});
+    auto sub = bus.subscribe({1, 2});
+    for (int i = 0; i < 3; i++) {
+        x::telem::Frame frame;
+        frame.emplace(1, x::telem::Series(static_cast<float>(i)));
+        frame.emplace(2, x::telem::Series(static_cast<float>(i)));
+        bus.publish(frame);
+    }
+    uint64_t prev_1 = 0, prev_2 = 0;
+    bool first = true;
+    for (int i = 0; i < 3; i++) {
+        x::telem::Frame r;
+        ASSERT_TRUE(sub->try_pop(r));
+        ASSERT_EQ(r.size(), 2);
+        auto a1 = r.series->at(0).alignment.uint64();
+        auto a2 = r.series->at(1).alignment.uint64();
+        if (!first) {
+            EXPECT_GT(a1, prev_1) << "channel 1 alignment did not increase at i=" << i;
+            EXPECT_GT(a2, prev_2) << "channel 2 alignment did not increase at i=" << i;
+        }
+        prev_1 = a1;
+        prev_2 = a2;
+        first = false;
+    }
+}
+
+TEST(BusTest, PublishAlignmentAdvancesBySeriesSize) {
+    Bus bus;
+    bus.register_channels({1});
+    auto sub = bus.subscribe({1});
+    auto multi = x::telem::Series(x::telem::FLOAT32_T, 3);
+    multi.write(1.0f);
+    multi.write(2.0f);
+    multi.write(3.0f);
+    x::telem::Frame frame;
+    frame.emplace(1, std::move(multi));
+    bus.publish(frame);
+
+    x::telem::Frame r1;
+    ASSERT_TRUE(sub->try_pop(r1));
+    auto first_alignment = r1.series->at(0).alignment.uint64();
+
+    x::telem::Frame frame2;
+    frame2.emplace(1, x::telem::Series(static_cast<float>(4.0)));
+    bus.publish(frame2);
+
+    x::telem::Frame r2;
+    ASSERT_TRUE(sub->try_pop(r2));
+    EXPECT_GE(r2.series->at(0).alignment.uint64(), first_alignment + 3);
+}
+
+TEST(BusTest, PublishAlignmentUnregisteredChannelLeftAtZero) {
+    Bus bus;
+    auto sub = bus.subscribe({1});
+    x::telem::Frame frame;
+    frame.emplace(1, x::telem::Series(static_cast<float>(1.0)));
+    bus.publish(frame);
+    x::telem::Frame r;
+    ASSERT_TRUE(sub->try_pop(r));
+    EXPECT_EQ(r.series->at(0).alignment.uint64(), 0);
+}
+
 TEST(SubscriptionTest, Empty) {
     Subscription sub({1});
     ASSERT_TRUE(sub.empty());

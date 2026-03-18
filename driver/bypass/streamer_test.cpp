@@ -125,4 +125,41 @@ TEST(StreamerTest, DoesNotInjectExcludeGroupsWhenGroupIsZero) {
     streamer->close_send();
     ASSERT_NIL(streamer->close());
 }
+
+TEST(StreamerTest, CloseWithoutPriorCloseSendShutsDownCleanly) {
+    Bus bus;
+    auto reads = std::make_shared<std::vector<x::telem::Frame>>();
+    auto mock_factory = pipeline::mock::simple_streamer_factory({1}, reads);
+    StreamerFactory factory(mock_factory, bus, TEST_SUBJECT);
+    auto streamer = ASSERT_NIL_P(factory.open_streamer({.channels = {1}}));
+    ASSERT_NIL(streamer->close());
+}
+
+TEST(StreamerTest, DoubleCloseIsIdempotent) {
+    Bus bus;
+    auto reads = std::make_shared<std::vector<x::telem::Frame>>();
+    auto mock_factory = pipeline::mock::simple_streamer_factory({1}, reads);
+    StreamerFactory factory(mock_factory, bus, TEST_SUBJECT);
+    auto streamer = ASSERT_NIL_P(factory.open_streamer({.channels = {1}}));
+    streamer->close_send();
+    ASSERT_NIL(streamer->close());
+    ASSERT_NIL(streamer->close());
+}
+
+TEST(StreamerTest, PropagatesServerErrorThroughClose) {
+    Bus bus;
+    auto reads = std::make_shared<std::vector<x::telem::Frame>>();
+    auto read_errors = std::make_shared<std::vector<x::errors::Error>>();
+    read_errors->push_back(freighter::UNREACHABLE);
+    auto mock_factory = std::make_shared<pipeline::mock::StreamerFactory>(
+        std::vector<x::errors::Error>{},
+        std::make_shared<std::vector<pipeline::mock::StreamerConfig>>(std::vector{
+            pipeline::mock::StreamerConfig{reads, read_errors, x::errors::NIL}
+        })
+    );
+    StreamerFactory factory(mock_factory, bus, TEST_SUBJECT);
+    auto streamer = ASSERT_NIL_P(factory.open_streamer({.channels = {1}}));
+    ASSERT_OCCURRED_AS_P(streamer->read(), freighter::UNREACHABLE);
+    ASSERT_OCCURRED_AS(streamer->close(), freighter::UNREACHABLE);
+}
 }

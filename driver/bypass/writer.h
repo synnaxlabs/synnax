@@ -97,6 +97,7 @@ public:
     open_writer(const synnax::framer::WriterConfig &config) override {
         auto cfg = config;
         if (this->group != 0 && cfg.subject.group == 0) cfg.subject.group = this->group;
+        this->bus.register_channels(cfg.channels);
         auto [writer, err] = this->server->open_writer(cfg);
         if (err) return {nullptr, err};
         VLOG(1) << "[bus.writer_factory] opened writer for " << cfg.channels.size()

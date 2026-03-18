@@ -88,6 +88,27 @@ public:
         return false;
     }
 
+    /// @brief filters and pushes a frame, keeping only channels in this
+    /// subscription. Uses a fast path when all channels already match.
+    void filter_and_push(const x::telem::Frame &frame) {
+        bool all_match = true;
+        for (const auto &[key, _]: frame) {
+            if (!this->key_set.contains(key)) {
+                all_match = false;
+                break;
+            }
+        }
+        if (all_match) {
+            this->push(frame.shallow_copy());
+            return;
+        }
+        x::telem::Frame filtered;
+        for (const auto &[key, series]: frame)
+            if (this->key_set.contains(key))
+                filtered.emplace(key, series.shallow_copy());
+        if (!filtered.empty()) this->push(std::move(filtered));
+    }
+
     void push(x::telem::Frame frame) {
         {
             std::lock_guard lock(this->mu);
@@ -101,13 +122,50 @@ public:
 /// @brief process-wide frame router that delivers frames by channel key.
 /// Subscriptions are tracked via weak_ptr so that destroying a subscription
 /// automatically expires its route entries — no explicit unsubscribe required.
+///
+/// The Bus assigns monotonically increasing alignment to each series before
+/// delivery, fulfilling the role that Cesium plays on the server path.
+/// Channels must be registered via register_channels before publishing.
+/// Registration locks; the publish hot path uses only atomic fetch_add.
 class Bus {
     mutable std::shared_mutex mu;
     std::vector<std::weak_ptr<Subscription>> subscribers;
 
+    std::mutex alignment_mu;
+    std::unordered_map<synnax::channel::Key, std::unique_ptr<std::atomic<uint64_t>>>
+        alignment_counters;
+
 public:
+    /// @brief registers channels for alignment tracking. Must be called before
+    /// publishing frames containing these channels (typically at writer open).
+    void register_channels(const std::vector<synnax::channel::Key> &keys) {
+        std::lock_guard lock(this->alignment_mu);
+        for (auto key: keys) {
+            if (this->alignment_counters.find(key) == this->alignment_counters.end())
+                this->alignment_counters.emplace(
+                    key,
+                    std::make_unique<std::atomic<uint64_t>>(0)
+                );
+        }
+    }
+
     /// @brief publishes a frame to all subscribers with matching channel keys.
+    /// Assigns monotonically increasing alignment to each series before delivery.
     void publish(const x::telem::Frame &frame) {
+        auto aligned = frame.shallow_copy();
+        for (size_t i = 0; i < aligned.size(); i++) {
+            auto key = aligned.channels->at(i);
+            auto it = this->alignment_counters.find(key);
+            if (it != this->alignment_counters.end()) {
+                auto &counter = *it->second;
+                const auto samples = aligned.series->at(i).size();
+                const auto base = counter.fetch_add(
+                    samples > 0 ? samples : 1,
+                    std::memory_order_relaxed
+                );
+                aligned.series->at(i).alignment = x::telem::Alignment(base);
+            }
+        }
         bool has_expired = false;
         {
             std::shared_lock lock(this->mu);
@@ -117,10 +175,10 @@ public:
                     has_expired = true;
                     continue;
                 }
-                if (sub->matches(frame)) {
-                    VLOG(1) << "[bus] routing frame with " << frame.size()
+                if (sub->matches(aligned)) {
+                    VLOG(1) << "[bus] routing frame with " << aligned.size()
                             << " channels to subscription";
-                    sub->push(frame.shallow_copy());
+                    sub->filter_and_push(aligned);
                 }
             }
         }

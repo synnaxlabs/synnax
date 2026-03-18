@@ -12,6 +12,8 @@
 #include <memory>
 #include <thread>
 
+#include "freighter/cpp/freighter.h"
+
 #include "driver/bypass/bypass.h"
 #include "driver/pipeline/control.h"
 
@@ -83,9 +85,9 @@ public:
         if (!this->closed.compare_exchange_strong(expected, true))
             return x::errors::NIL;
         this->subscription->set_on_push(nullptr);
-        auto err = this->server->close();
+        this->server->close_send();
         if (this->server_thread.joinable()) this->server_thread.join();
-        return err;
+        return this->server_err.skip({freighter::EOF_ERR, freighter::STREAM_CLOSED});
     }
 
     void close_send() override { this->server->close_send(); }

@@ -923,4 +923,5 @@ TEST(ChannelStateTest, WriteValue_MultipleWritesSameKeyPreservedInFlush) {
     EXPECT_EQ(result[0].second->at<float>(0), 1.0f);
     EXPECT_EQ(result[0].second->at<float>(1), 2.0f);
 }
+
 }
