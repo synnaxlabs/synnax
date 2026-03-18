@@ -133,7 +133,9 @@ class TestHTTPReadTask:
                             "key": "ep-1",
                             "method": "GET",
                             "path": "/api/v1/data",
-                            "headers": [{"name": "Accept", "value": "application/json"}],
+                            "headers": [
+                                {"name": "Accept", "value": "application/json"}
+                            ],
                             "query_params": [{"parameter": "scale", "value": "2.0"}],
                             "fields": [
                                 {
@@ -201,7 +203,10 @@ class TestHTTPReadTask:
                                     "channel": 1234,
                                     "data_type": "float64",
                                     "enabled": True,
-                                    "enum_values": [{"label": "OFF", "value": 0}, {"label": "ON", "value": 1}],
+                                    "enum_values": [
+                                        {"label": "OFF", "value": 0},
+                                        {"label": "ON", "value": 1},
+                                    ],
                                 },
                             ],
                         },
