@@ -133,7 +133,7 @@ class Symbol(ABC):
     def click(self) -> None:
         """Click the symbol to select it."""
         self.locator.wait_for(state="visible", timeout=5000)
-        self.locator.dispatch_event("click")
+        self.layout.click(self.locator)
 
     def meta_click(self) -> None:
         """Click the symbol with the platform-appropriate modifier key (Cmd/Ctrl) held down."""
