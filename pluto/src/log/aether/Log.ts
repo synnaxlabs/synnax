@@ -402,7 +402,7 @@ export class Log extends aether.Leaf<typeof logState, InternalState> {
       }
     }
     const prefix = showChannelNames
-      ? `${ts}  [${entry.channelName}]${entry.channelPadding}  `
+      ? `${ts} [${entry.channelName}]${entry.channelPadding}  `
       : `${ts}  `;
     return {
       prefix,

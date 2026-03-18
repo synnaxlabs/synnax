@@ -218,17 +218,6 @@ export const Log = ({
   });
 
   Triggers.use({
-    triggers: [COPY_TRIGGER],
-    callback: useCallback(
-      ({ stage }: Triggers.UseEvent) => {
-        if (stage !== "start" || selectedText.length === 0) return;
-        copyToClipboard();
-      },
-      [selectedText, copyToClipboard],
-    ),
-  });
-
-  Triggers.use({
     triggers: [SELECT_ALL_TRIGGER],
     callback: useCallback(
       ({ stage }: Triggers.UseEvent) => {
@@ -274,6 +263,7 @@ export const Log = ({
     <Menu.ContextMenu className={menuClassName} menu={menuContent} {...menuProps}>
       <div
         ref={resizeRef}
+        tabIndex={0}
         className={CSS(CSS.B("log"), className)}
         onWheel={(e) => {
           setState((s) => ({
@@ -285,6 +275,28 @@ export const Log = ({
         onMouseDown={handleMouseDown}
         onMouseMove={handleMouseMove}
         onMouseUp={handleMouseUp}
+        onCopy={(e) => {
+          if (selectedText.length === 0) return;
+          e.preventDefault();
+          e.clipboardData.setData("text/plain", selectedText);
+          const lines = selectedLines.map((l) => {
+            const escaped = l.text
+              .replace(/&/g, "&amp;")
+              .replace(/</g, "&lt;")
+              .replace(/>/g, "&gt;");
+            if (l.color.length === 0) return escaped;
+            return `<span style="color: ${l.color}">${escaped}</span>`;
+          });
+          e.clipboardData.setData(
+            "text/html",
+            `<pre style="font-family: monospace">${lines.join("\n")}</pre>`,
+          );
+          setState((s) => ({ ...s, copyFlash: true }));
+          setTimeout(
+            () => setState((s) => ({ ...s, copyFlash: false })),
+            COPY_FLASH_DURATION_MS,
+          );
+        }}
         onContextMenu={menuProps.open}
         {...rest}
       >
