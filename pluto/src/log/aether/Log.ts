@@ -392,9 +392,7 @@ export class Log extends aether.Leaf<typeof logState, InternalState> {
     const { tsLen, configs } = this.internal;
     const cfg = configs[String(entry.channelKey)];
     const ts = showReceiptTimestamp
-      ? new TimeStamp(entry.timestamp)
-          .toString("preciseTime", "local")
-          .slice(0, tsLen)
+      ? new TimeStamp(entry.timestamp).toString("preciseTime", "local").slice(0, tsLen)
       : "";
     let value = entry.value;
     if (cfg != null && (cfg.precision >= 0 || cfg.notation !== "standard")) {

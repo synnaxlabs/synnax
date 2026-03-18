@@ -155,9 +155,9 @@ describe("log/toolbar/Properties", () => {
       preloadedState: preloadState({ ...LOG_STATE, showChannelNames: false }),
     });
     const label = screen.getByTestId("input-item-show-channel-names");
-    expect(label.querySelector("[data-testid='input-switch']")?.getAttribute("data-checked")).toBe(
-      "false",
-    );
+    expect(
+      label.querySelector("[data-testid='input-switch']")?.getAttribute("data-checked"),
+    ).toBe("false");
   });
 
   it("renders the current showReceiptTimestamp value", () => {
@@ -165,9 +165,9 @@ describe("log/toolbar/Properties", () => {
       preloadedState: preloadState({ ...LOG_STATE, showReceiptTimestamp: false }),
     });
     const label = screen.getByTestId("input-item-show-receipt-timestamp");
-    expect(label.querySelector("[data-testid='input-switch']")?.getAttribute("data-checked")).toBe(
-      "false",
-    );
+    expect(
+      label.querySelector("[data-testid='input-switch']")?.getAttribute("data-checked"),
+    ).toBe("false");
   });
 
   it("dispatches setShowChannelNames when toggle is clicked", () => {
@@ -207,7 +207,6 @@ describe("log/toolbar/Properties", () => {
       "true",
     );
     const switches = screen.getAllByTestId("input-switch");
-    for (const sw of switches)
-      expect(sw.getAttribute("data-disabled")).toBe("true");
+    for (const sw of switches) expect(sw.getAttribute("data-disabled")).toBe("true");
   });
 });
