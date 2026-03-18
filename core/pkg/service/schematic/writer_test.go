@@ -53,6 +53,16 @@ var _ = Describe("Writer", func() {
 		})
 	})
 
+	Describe("Service Delete", func() {
+		It("Should delete a Schematic via the service", func() {
+			s := schematic.Schematic{Name: "test", Data: "data"}
+			Expect(svc.NewWriter(tx).Create(ctx, ws.Key, &s)).To(Succeed())
+			Expect(svc.Delete(ctx, tx, s.Key)).To(Succeed())
+			var res schematic.Schematic
+			Expect(gorp.NewRetrieve[uuid.UUID, schematic.Schematic]().
+				WhereKeys(s.Key).Entry(&res).Exec(ctx, tx)).ToNot(Succeed())
+		})
+	})
 	Describe("Copy", func() {
 		It("Should copy a Schematic with a new name under the same workspace", func() {
 			s := schematic.Schematic{Name: "test", Data: "data"}

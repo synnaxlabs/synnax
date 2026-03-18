@@ -28,6 +28,16 @@ var _ = Describe("Writer", func() {
 			Expect(plot.Key).ToNot(Equal(uuid.Nil))
 		})
 	})
+	Describe("Service Delete", func() {
+		It("Should delete a LinePlot via the service", func() {
+			plot := lineplot.LinePlot{Name: "test", Data: "data"}
+			Expect(svc.NewWriter(tx).Create(ctx, ws.Key, &plot)).To(Succeed())
+			Expect(svc.Delete(ctx, tx, plot.Key)).To(Succeed())
+			var res lineplot.LinePlot
+			Expect(gorp.NewRetrieve[uuid.UUID, lineplot.LinePlot]().
+				WhereKeys(plot.Key).Entry(&res).Exec(ctx, tx)).ToNot(Succeed())
+		})
+	})
 	Describe("Update", func() {
 		It("Should rename a LinePlot", func() {
 			plot := lineplot.LinePlot{Name: "test", Data: "data"}
