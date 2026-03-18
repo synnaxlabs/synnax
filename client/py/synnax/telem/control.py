@@ -28,3 +28,4 @@ CrudeAuthority = int | Authority
 class Subject(BaseModel):
     name: str
     key: str
+    group: int = 0

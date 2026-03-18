@@ -468,8 +468,11 @@ public:
         return *this;
     }
 
-    /// @brief returns a raw pointer to the underlying buffer backing the series. This
-    /// buffer is only safe for use through the lifetime of the series.
+    /// @brief returns a raw pointer to the underlying buffer. This pointer is only
+    /// valid for the lifetime of the Series. If this Series was created via
+    /// shallow_copy(), writing through this pointer will corrupt other copies.
+    /// Use write(), set(), or other mutation methods instead, which handle
+    /// copy-on-write automatically.
     [[nodiscard]] std::byte *data() const { return this->data_.get(); }
 
     /// @brief allocates a series with the given data type and capacity. If the data
@@ -1424,6 +1427,7 @@ public:
     /// @brief returns a shallow copy that shares the underlying data buffer.
     /// The copy is safe to read concurrently. If either copy is mutated,
     /// ensure_exclusive() materializes a private copy first (copy-on-write).
+    /// Not thread-safe for concurrent mutation of the same Series instance.
     [[nodiscard]] Series shallow_copy() const { return {*this, ShallowTag{}}; }
 
     void clear() {

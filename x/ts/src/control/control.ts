@@ -25,11 +25,13 @@ export const AUTHORITY_BOUNDS: bounds.Bounds<Authority> = {
 export const subjectZ = z.object({
   name: z.string(),
   key: z.string(),
+  group: z.int().default(0),
 });
 
 export interface Subject {
   name: string;
   key: string;
+  group: number;
 }
 
 export const stateZ = <R extends z.ZodType>(resource: R) =>
