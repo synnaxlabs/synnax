@@ -93,7 +93,7 @@ func (t *taskImpl) start(ctx context.Context) (err error) {
 		return nil
 	}
 	drt := dataRuntime{}
-	stateCfg, err := NewStateConfig(ctx, t.factoryCfg.Channel, t.prog.Program)
+	stateCfg, err := NewStateConfig(ctx, t.factoryCfg.Channel.Service, t.prog.Program)
 	if err != nil {
 		t.setStatus(status.VariantError, false, err.Error())
 		return err
