@@ -26,9 +26,9 @@ import (
 type ChildDeleter interface {
 	// Type returns the ontology type this deleter handles.
 	Type() ontology.Type
-	// DeleteChildren removes the resources with the given keys within the
+	// Delete removes the resources with the given keys within the
 	// provided transaction.
-	DeleteChildren(ctx context.Context, tx gorp.Tx, keys ...uuid.UUID) error
+	Delete(ctx context.Context, tx gorp.Tx, keys ...uuid.UUID) error
 }
 
 type Writer struct {
@@ -142,11 +142,11 @@ func (w Writer) deleteChildren(ctx context.Context, key uuid.UUID) error {
 	// Children with no registered deleter are silently skipped. Ensure a
 	// ChildDeleter is registered for every type that can be a workspace child.
 	for _, deleter := range w.childDeleters {
-		keys, ok := byType[deleter.Type()]
-		if !ok || len(keys) == 0 {
+		keys := byType[deleter.Type()]
+		if len(keys) == 0 {
 			continue
 		}
-		if err := deleter.DeleteChildren(ctx, w.tx, keys...); err != nil {
+		if err := deleter.Delete(ctx, w.tx, keys...); err != nil {
 			return err
 		}
 	}

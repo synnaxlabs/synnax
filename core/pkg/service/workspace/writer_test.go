@@ -13,6 +13,7 @@ import (
 	"github.com/google/uuid"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
 	"github.com/synnaxlabs/synnax/pkg/service/lineplot"
 	"github.com/synnaxlabs/synnax/pkg/service/schematic"
 	"github.com/synnaxlabs/synnax/pkg/service/workspace"
@@ -73,6 +74,37 @@ var _ = Describe("Writer", func() {
 			var res schematic.Schematic
 			Expect(gorp.NewRetrieve[uuid.UUID, schematic.Schematic]().WhereKeys(s1.Key).Entry(&res).Exec(ctx, tx)).ToNot(Succeed())
 			Expect(gorp.NewRetrieve[uuid.UUID, schematic.Schematic]().WhereKeys(s2.Key).Entry(&res).Exec(ctx, tx)).ToNot(Succeed())
+		})
+		It("Should cascade delete schematics inside a group under a workspace", func() {
+			ws := workspace.Workspace{Name: "group_cascade", Author: author.Key}
+			Expect(svc.NewWriter(tx).Create(ctx, &ws)).To(Succeed())
+
+			g, err := groupSvc.NewWriter(tx).Create(ctx, "test_group", workspace.OntologyID(ws.Key))
+			Expect(err).ToNot(HaveOccurred())
+
+			s := schematic.Schematic{Name: "nested_schematic", Data: "{}"}
+			Expect(schematicSvc.NewWriter(tx).Create(ctx, ws.Key, &s)).To(Succeed())
+			// Re-parent the schematic under the group instead of the workspace
+			Expect(otg.NewWriter(tx).DeleteRelationship(
+				ctx,
+				workspace.OntologyID(ws.Key),
+				ontology.RelationshipTypeParentOf,
+				schematic.OntologyID(s.Key),
+			)).To(Succeed())
+			Expect(otg.NewWriter(tx).DefineRelationship(
+				ctx,
+				ontology.ID{Type: "group", Key: g.Key.String()},
+				ontology.RelationshipTypeParentOf,
+				schematic.OntologyID(s.Key),
+			)).To(Succeed())
+
+			Expect(svc.NewWriter(tx).Delete(ctx, ws.Key)).To(Succeed())
+
+			// The schematic is a grandchild (workspace -> group -> schematic),
+			// so it should still exist since deleteChildren only traverses
+			// direct children.
+			var sRes schematic.Schematic
+			Expect(gorp.NewRetrieve[uuid.UUID, schematic.Schematic]().WhereKeys(s.Key).Entry(&sRes).Exec(ctx, tx)).To(Succeed())
 		})
 		It("Should cascade delete mixed resource types", func() {
 			ws := workspace.Workspace{Name: "mixed_cascade", Author: author.Key}

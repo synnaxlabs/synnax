@@ -410,8 +410,11 @@ class SchematicLifecycle(ConsoleCase):
         schematic.fit_view()
         self._dblclick_node(page, f"Go to {names[1]}")
 
-        # Arrive at crackle, create off-page ref pointing to pop, navigate
+        # Arrive at crackle, assert navigation succeeded
         self.console.layout.wait_for_tab(names[1])
+        assert self.console.layout.get_tab(
+            names[1]
+        ).is_visible(), f"Expected to navigate to '{names[1]}'"
         self.console.layout.get_tab(names[1]).click()
         schematic = Schematic.from_open_page(self.console.layout, self.client, names[1])
         ref2 = OffPageReference(label=f"Go to {names[2]}", page_name=names[2])
@@ -420,8 +423,11 @@ class SchematicLifecycle(ConsoleCase):
         schematic.fit_view()
         self._dblclick_node(page, f"Go to {names[2]}")
 
-        # Arrive at pop, create off-page ref pointing back to snap, navigate
+        # Arrive at pop, assert navigation succeeded
         self.console.layout.wait_for_tab(names[2])
+        assert self.console.layout.get_tab(
+            names[2]
+        ).is_visible(), f"Expected to navigate to '{names[2]}'"
         self.console.layout.get_tab(names[2]).click()
         schematic = Schematic.from_open_page(self.console.layout, self.client, names[2])
         ref3 = OffPageReference(label=f"Go to {names[0]}", page_name=names[0])

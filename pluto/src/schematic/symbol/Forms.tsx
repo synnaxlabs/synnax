@@ -1160,7 +1160,7 @@ export const OffPageReferenceForm = ({ layoutKey }: SymbolFormProps): ReactEleme
           label="Click Mode"
           padHelpText={false}
           hideIfNull={false}
-          defaultValue={true}
+          defaultValue
         >
           {({ value, onChange }) => (
             <Select.Buttons

@@ -967,6 +967,122 @@ describe("Schematic Slice", () => {
       expect(handleError).not.toHaveBeenCalled();
     });
 
+    it("should use fallback error name when label is missing", () => {
+      store.dispatch(
+        actions.addElement({
+          key: schematicKey,
+          elKey: "opr-no-label",
+          props: {
+            key: "offPageReference",
+            page: "target-page-key",
+          },
+          node: { position: { x: 0, y: 0 } },
+        }),
+      );
+      const placeLayout = vi.fn();
+      const handleError = vi.fn();
+      const client = {
+        schematics: { retrieve: vi.fn().mockResolvedValue({}) },
+      };
+
+      handleNodeClickAction({
+        editable: false,
+        client,
+        storeState: store.getState(),
+        layoutKey: schematicKey,
+        nodeId: "opr-no-label",
+        placeLayout,
+        handleError,
+        dblClick: true,
+      });
+
+      expect(handleError).toHaveBeenCalledWith(
+        expect.any(Function),
+        'Schematic "Referenced schematic" not found',
+      );
+    });
+
+    it("should use fallback error name when label is empty string", () => {
+      store.dispatch(
+        actions.addElement({
+          key: schematicKey,
+          elKey: "opr-empty-label",
+          props: {
+            key: "offPageReference",
+            page: "target-page-key",
+            label: { label: "" },
+          },
+          node: { position: { x: 0, y: 0 } },
+        }),
+      );
+      const placeLayout = vi.fn();
+      const handleError = vi.fn();
+      const client = {
+        schematics: { retrieve: vi.fn().mockResolvedValue({}) },
+      };
+
+      handleNodeClickAction({
+        editable: false,
+        client,
+        storeState: store.getState(),
+        layoutKey: schematicKey,
+        nodeId: "opr-empty-label",
+        placeLayout,
+        handleError,
+        dblClick: true,
+      });
+
+      expect(handleError).toHaveBeenCalledWith(
+        expect.any(Function),
+        'Schematic "Referenced schematic" not found',
+      );
+    });
+
+    it("should default to double click when dblClickNav is undefined", () => {
+      store.dispatch(
+        actions.addElement({
+          key: schematicKey,
+          elKey: "opr-default",
+          props: {
+            key: "offPageReference",
+            page: "target-page-key",
+          },
+          node: { position: { x: 0, y: 0 } },
+        }),
+      );
+      const placeLayout = vi.fn();
+      const handleError = vi.fn();
+      const client = {
+        schematics: { retrieve: vi.fn().mockResolvedValue({}) },
+      };
+
+      handleNodeClickAction({
+        editable: false,
+        client,
+        storeState: store.getState(),
+        layoutKey: schematicKey,
+        nodeId: "opr-default",
+        placeLayout,
+        handleError,
+        dblClick: false,
+      });
+
+      expect(handleError).not.toHaveBeenCalled();
+
+      handleNodeClickAction({
+        editable: false,
+        client,
+        storeState: store.getState(),
+        layoutKey: schematicKey,
+        nodeId: "opr-default",
+        placeLayout,
+        handleError,
+        dblClick: true,
+      });
+
+      expect(handleError).toHaveBeenCalledTimes(1);
+    });
+
     it("should navigate on double click when dblClickNav is true", () => {
       store.dispatch(
         actions.addElement({

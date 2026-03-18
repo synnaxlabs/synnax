@@ -67,8 +67,8 @@ func NewService(cfgs ...ServiceConfig) (*Service, error) {
 	return s, nil
 }
 
-// DeleteChildren implements workspace.ChildDeleter.
-func (s *Service) DeleteChildren(ctx context.Context, tx gorp.Tx, keys ...uuid.UUID) error {
+// Delete implements workspace.ChildDeleter.
+func (s *Service) Delete(ctx context.Context, tx gorp.Tx, keys ...uuid.UUID) error {
 	return s.NewWriter(tx).Delete(ctx, keys...)
 }
 

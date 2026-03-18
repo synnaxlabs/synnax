@@ -35,6 +35,7 @@ var (
 	ctx          = context.Background()
 	db           *gorp.DB
 	otg          *ontology.Ontology
+	groupSvc     *group.Service
 	svc          *workspace.Service
 	schematicSvc *schematic.Service
 	lineplotSvc  *lineplot.Service
@@ -49,29 +50,30 @@ var _ = BeforeSuite(func() {
 		EnableSearch: new(false),
 		DB:           db,
 	}))
-	g := MustSucceed(group.OpenService(ctx, group.ServiceConfig{
+	groupSvc = MustSucceed(group.OpenService(ctx, group.ServiceConfig{
+		DB:       db,
+		Ontology: otg,
+	}))
+	schematicSvc = MustSucceed(schematic.OpenService(ctx, schematic.ServiceConfig{
+		DB:       db,
+		Ontology: otg,
+	}))
+	lineplotSvc = MustSucceed(lineplot.NewService(lineplot.ServiceConfig{
 		DB:       db,
 		Ontology: otg,
 	}))
 	svc = MustSucceed(workspace.OpenService(ctx, workspace.ServiceConfig{
 		DB:       db,
 		Ontology: otg,
-		Group:    g,
+		Group:    groupSvc,
+		ChildDeleters: []workspace.ChildDeleter{
+			schematicSvc, lineplotSvc,
+		},
 	}))
-	schematicSvc = MustSucceed(schematic.OpenService(ctx, schematic.ServiceConfig{
-		DB:       db,
-		Ontology: otg,
-	}))
-	svc.RegisterChildDeleter(schematicSvc)
-	lineplotSvc = MustSucceed(lineplot.NewService(lineplot.ServiceConfig{
-		DB:       db,
-		Ontology: otg,
-	}))
-	svc.RegisterChildDeleter(lineplotSvc)
 	userSvc = MustSucceed(user.OpenService(ctx, user.ServiceConfig{
 		DB:       db,
 		Ontology: otg,
-		Group:    g,
+		Group:    groupSvc,
 	}))
 	author.Username = "test"
 	Expect(userSvc.NewWriter(nil).Create(ctx, &author)).To(Succeed())

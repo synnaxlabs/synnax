@@ -25,10 +25,11 @@ import (
 
 // ServiceConfig is the configuration for creating a Service.
 type ServiceConfig struct {
-	Signals  *signals.Provider
-	DB       *gorp.DB
-	Ontology *ontology.Ontology
-	Group    *group.Service
+	Signals       *signals.Provider
+	DB            *gorp.DB
+	Ontology      *ontology.Ontology
+	Group         *group.Service
+	ChildDeleters []ChildDeleter
 }
 
 var (
@@ -42,6 +43,7 @@ func (c ServiceConfig) Override(other ServiceConfig) ServiceConfig {
 	c.Ontology = override.Nil(c.Ontology, other.Ontology)
 	c.Group = override.Nil(c.Group, other.Group)
 	c.Signals = override.Nil(c.Signals, other.Signals)
+	c.ChildDeleters = override.Nil(c.ChildDeleters, other.ChildDeleters)
 	return c
 }
 
@@ -58,7 +60,6 @@ type Service struct {
 	cfg             ServiceConfig
 	shutdownSignals io.Closer
 	group           group.Group
-	childDeleters   []ChildDeleter
 }
 
 func OpenService(ctx context.Context, configs ...ServiceConfig) (*Service, error) {
@@ -87,13 +88,6 @@ func OpenService(ctx context.Context, configs ...ServiceConfig) (*Service, error
 
 func (s *Service) Close() error { return s.shutdownSignals.Close() }
 
-// RegisterChildDeleter registers a deleter that will be called when a
-// workspace is deleted. This allows child services (schematics, line plots,
-// etc.) to clean up their records without circular imports.
-func (s *Service) RegisterChildDeleter(d ChildDeleter) {
-	s.childDeleters = append(s.childDeleters, d)
-}
-
 func (s *Service) NewWriter(tx gorp.Tx) Writer {
 	tx = gorp.OverrideTx(s.cfg.DB, tx)
 	return Writer{
@@ -101,7 +95,7 @@ func (s *Service) NewWriter(tx gorp.Tx) Writer {
 		otg:           s.cfg.Ontology.NewWriter(tx),
 		otgR:          s.cfg.Ontology,
 		group:         s.group,
-		childDeleters: s.childDeleters,
+		childDeleters: s.cfg.ChildDeleters,
 	}
 }
 
