@@ -101,7 +101,7 @@ TEST(RTConfigTest, HasRTSupportReturns) {
 }
 
 TEST(RTCapabilitiesTest, GetCapabilities) {
-    auto caps = get_capabilities();
+    auto caps = capabilities();
     (void) caps.priority_scheduling;
     (void) caps.deadline_scheduling;
     (void) caps.time_constraint;

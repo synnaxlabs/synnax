@@ -101,7 +101,7 @@ type StreamWriter = confluence.Segment[WriterRequest, WriterResponse]
 type streamWriter struct {
 	confluence.UnarySink[WriterRequest]
 	confluence.AbstractUnarySource[WriterResponse]
-	relay           confluence.Inlet[relayFrame]
+	relay           confluence.Inlet[relayResponse]
 	accumulatedErr  error
 	errSent         bool
 	virtual         *virtualWriter
@@ -263,7 +263,7 @@ func (w *streamWriter) write(ctx context.Context, req WriterRequest) error {
 		}
 	}
 	if w.Mode.Stream() {
-		w.relay.Inlet() <- relayFrame{
+		w.relay.Inlet() <- relayResponse{
 			frame: req.Frame.ExcludeKeys(excludeUnauthorized),
 			group: w.ControlSubject.Group,
 		}

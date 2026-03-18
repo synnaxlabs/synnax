@@ -32,7 +32,7 @@ Rack::~Rack() {
 void Rack::run(x::args::Parser &args, const std::function<void()> &on_shutdown) {
     x::thread::set_name("rack");
     x::profile::Profiler::install();
-    LOG(INFO) << x::thread::rt::get_capabilities();
+    LOG(INFO) << x::thread::rt::capabilities();
     while (this->breaker.running()) {
         auto [cfg, err] = Config::load(args, this->breaker);
         if (err) {

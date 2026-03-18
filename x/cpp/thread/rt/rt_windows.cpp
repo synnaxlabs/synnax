@@ -105,7 +105,7 @@ void apply_thread_priority(int priority) {
 }
 }
 
-Capabilities get_capabilities() {
+Capabilities capabilities() {
     static Capabilities caps = [] {
         Capabilities c;
         c.priority_scheduling = {true, true};
@@ -126,7 +126,7 @@ std::string Capabilities::permissions_guidance() const {
 }
 
 bool has_support() {
-    return get_capabilities().any();
+    return capabilities().any();
 }
 
 errors::Error apply_config(const Config &cfg) {

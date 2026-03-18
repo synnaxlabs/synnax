@@ -182,7 +182,7 @@ void apply_sched_fifo(int priority) {
 }
 }
 
-Capabilities get_capabilities() {
+Capabilities capabilities() {
     static Capabilities caps = [] {
         Capabilities c;
         c.priority_scheduling = {true, test_sched_fifo()};
@@ -217,7 +217,7 @@ std::string Capabilities::permissions_guidance() const {
 }
 
 bool has_support() {
-    return get_capabilities().any();
+    return capabilities().any();
 }
 
 errors::Error apply_config(const Config &cfg) {

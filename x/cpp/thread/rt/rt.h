@@ -9,7 +9,7 @@
 
 #pragma once
 
-#include <memory>
+#include <functional>
 #include <mutex>
 #include <ostream>
 #include <vector>
@@ -120,7 +120,7 @@ struct Capabilities {
 };
 
 /// @brief Queries platform RT capabilities (cached after first call).
-Capabilities get_capabilities();
+Capabilities capabilities();
 
 /// @brief Configuration for real-time thread properties.
 struct Config {
@@ -213,18 +213,16 @@ bool has_support();
 /// the highest N cores. On other platforms, returns an empty vector.
 std::vector<int> discover_rt_cores();
 
-class ManagerImpl;
-
 /// @brief RAII handle for an allocated RT core. Releasing the handle returns
 /// the core to the Manager's pool. Move-only.
 class Handle {
     int core;
     Config resolved;
-    std::weak_ptr<ManagerImpl> impl;
+    std::function<void(int)> release_fn;
     bool released;
 
 public:
-    Handle(int core, Config resolved, std::weak_ptr<ManagerImpl> impl);
+    Handle(int core, Config resolved, std::function<void(int)> release_fn);
 
     Handle(const Handle &) = delete;
     Handle &operator=(const Handle &) = delete;
@@ -239,7 +237,7 @@ public:
     void apply();
 
     /// @brief Explicitly releases the allocated core back to the pool.
-    /// Idempotent — safe to call multiple times.
+    /// Idempotent, safe to call multiple times.
     void release();
 
     /// @brief Returns the allocated core number, or CPU_AFFINITY_NONE if
@@ -250,7 +248,11 @@ public:
 /// @brief Central RT core manager. Discovers available cores at construction
 /// and hands them out via allocate(). Thread-safe.
 class Manager {
-    std::shared_ptr<ManagerImpl> impl;
+    mutable std::mutex mu;
+    std::vector<int> all_cores;
+    std::vector<int> available;
+
+    void release_core(int core);
 
 public:
     Manager();
@@ -258,7 +260,7 @@ public:
     /// @brief Allocates a core from the pool and returns a Handle with the
     /// given base config. If no cores are available, returns a Handle with
     /// CPU_AFFINITY_NONE.
-    /// @param cfg Base RT config — cpu_affinity will be overwritten with
+    /// @param cfg Base RT config, cpu_affinity will be overwritten with
     /// the allocated core.
     Handle allocate(Config cfg);
 

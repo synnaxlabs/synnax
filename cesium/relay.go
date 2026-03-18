@@ -22,14 +22,14 @@ import (
 	"github.com/synnaxlabs/x/validate"
 )
 
-type relayFrame struct {
+type relayResponse struct {
 	frame Frame
 	group uint32
 }
 
 type relay struct {
-	delta      *confluence.DynamicDeltaMultiplier[relayFrame]
-	inlet      confluence.Inlet[relayFrame]
+	delta      *confluence.DynamicDeltaMultiplier[relayResponse]
+	inlet      confluence.Inlet[relayResponse]
 	bufferSize int
 }
 
@@ -71,11 +71,11 @@ func openRelay(
 	ins alamos.Instrumentation,
 	cfg DBStreamingConfig,
 ) *relay {
-	delta := confluence.NewDynamicDeltaMultiplier[relayFrame](
+	delta := confluence.NewDynamicDeltaMultiplier[relayResponse](
 		cfg.SlowConsumerTimeout,
 		ins,
 	)
-	writes := confluence.NewStream[relayFrame](cfg.BufferSize)
+	writes := confluence.NewStream[relayResponse](cfg.BufferSize)
 	delta.InFrom(writes)
 	delta.Flow(
 		sCtx,
@@ -86,8 +86,8 @@ func openRelay(
 	return &relay{delta: delta, inlet: writes}
 }
 
-func (r *relay) connect() (confluence.Outlet[relayFrame], func()) {
-	frames := confluence.NewStream[relayFrame](r.bufferSize)
+func (r *relay) connect() (confluence.Outlet[relayResponse], func()) {
+	frames := confluence.NewStream[relayResponse](r.bufferSize)
 	frames.SetInletAddress(address.Newf("%s_storage", address.Rand().String()))
 	r.delta.Connect(frames)
 	return frames, func() {

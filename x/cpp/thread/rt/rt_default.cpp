@@ -12,7 +12,7 @@
 #include "x/cpp/thread/rt/rt.h"
 
 namespace x::thread::rt {
-Capabilities get_capabilities() {
+Capabilities capabilities() {
     return {};
 }
 

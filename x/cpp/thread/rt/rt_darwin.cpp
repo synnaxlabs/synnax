@@ -93,7 +93,7 @@ void apply_precedence(mach_port_t thread_port, int priority) {
 }
 }
 
-Capabilities get_capabilities() {
+Capabilities capabilities() {
     return {
         .priority_scheduling = {true, true},
         .deadline_scheduling = {false, false},
@@ -109,7 +109,7 @@ std::string Capabilities::permissions_guidance() const {
 }
 
 bool has_support() {
-    return get_capabilities().any();
+    return capabilities().any();
 }
 
 errors::Error apply_config(const Config &cfg) {
