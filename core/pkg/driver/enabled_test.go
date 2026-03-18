@@ -30,7 +30,7 @@ func newTestLogger() (*alamos.Logger, *bytes.Buffer) {
 	buffer := &bytes.Buffer{}
 	core := zapcore.NewCore(
 		zapcore.NewJSONEncoder(zap.NewDevelopmentEncoderConfig()),
-		zapcore.AddSync(buffer),
+		zapcore.Lock(zapcore.AddSync(buffer)),
 		zapcore.DebugLevel,
 	)
 	logger := MustSucceed(alamos.NewLogger(alamos.LoggerConfig{
