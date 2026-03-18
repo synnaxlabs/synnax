@@ -18,7 +18,9 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/distribution/group"
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
 	"github.com/synnaxlabs/synnax/pkg/service/lineplot"
+	"github.com/synnaxlabs/synnax/pkg/service/log"
 	"github.com/synnaxlabs/synnax/pkg/service/schematic"
+	"github.com/synnaxlabs/synnax/pkg/service/table"
 	"github.com/synnaxlabs/synnax/pkg/service/user"
 	"github.com/synnaxlabs/synnax/pkg/service/workspace"
 	"github.com/synnaxlabs/x/gorp"
@@ -39,6 +41,8 @@ var (
 	svc          *workspace.Service
 	schematicSvc *schematic.Service
 	lineplotSvc  *lineplot.Service
+	logSvc       *log.Service
+	tableSvc     *table.Service
 	userSvc      *user.Service
 	author       user.User
 	tx           gorp.Tx
@@ -62,12 +66,20 @@ var _ = BeforeSuite(func() {
 		DB:       db,
 		Ontology: otg,
 	}))
+	logSvc = MustSucceed(log.NewService(log.ServiceConfig{
+		DB:       db,
+		Ontology: otg,
+	}))
+	tableSvc = MustSucceed(table.NewService(table.ServiceConfig{
+		DB:       db,
+		Ontology: otg,
+	}))
 	svc = MustSucceed(workspace.OpenService(ctx, workspace.ServiceConfig{
 		DB:       db,
 		Ontology: otg,
 		Group:    groupSvc,
 		ChildDeleters: []workspace.ChildDeleter{
-			schematicSvc, lineplotSvc,
+			schematicSvc, lineplotSvc, logSvc, tableSvc,
 		},
 	}))
 	userSvc = MustSucceed(user.OpenService(ctx, user.ServiceConfig{

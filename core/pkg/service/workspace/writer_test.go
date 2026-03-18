@@ -15,9 +15,12 @@ import (
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
 	"github.com/synnaxlabs/synnax/pkg/service/lineplot"
+	"github.com/synnaxlabs/synnax/pkg/service/log"
 	"github.com/synnaxlabs/synnax/pkg/service/schematic"
+	"github.com/synnaxlabs/synnax/pkg/service/table"
 	"github.com/synnaxlabs/synnax/pkg/service/workspace"
 	"github.com/synnaxlabs/x/gorp"
+	. "github.com/synnaxlabs/x/testutil"
 )
 
 var _ = Describe("Writer", func() {
@@ -79,8 +82,7 @@ var _ = Describe("Writer", func() {
 			ws := workspace.Workspace{Name: "group_cascade", Author: author.Key}
 			Expect(svc.NewWriter(tx).Create(ctx, &ws)).To(Succeed())
 
-			g, err := groupSvc.NewWriter(tx).Create(ctx, "test_group", workspace.OntologyID(ws.Key))
-			Expect(err).ToNot(HaveOccurred())
+			g := MustSucceed(groupSvc.NewWriter(tx).Create(ctx, "test_group", workspace.OntologyID(ws.Key)))
 
 			s := schematic.Schematic{Name: "nested_schematic", Data: "{}"}
 			Expect(schematicSvc.NewWriter(tx).Create(ctx, ws.Key, &s)).To(Succeed())
@@ -122,6 +124,40 @@ var _ = Describe("Writer", func() {
 			Expect(gorp.NewRetrieve[uuid.UUID, schematic.Schematic]().WhereKeys(s.Key).Entry(&sRes).Exec(ctx, tx)).ToNot(Succeed())
 			var lpRes lineplot.LinePlot
 			Expect(gorp.NewRetrieve[uuid.UUID, lineplot.LinePlot]().WhereKeys(lp.Key).Entry(&lpRes).Exec(ctx, tx)).ToNot(Succeed())
+		})
+		It("Should cascade delete all four child resource types", func() {
+			ws := workspace.Workspace{Name: "all_types_cascade", Author: author.Key}
+			Expect(svc.NewWriter(tx).Create(ctx, &ws)).To(Succeed())
+
+			s := schematic.Schematic{Name: "schematic", Data: "{}"}
+			Expect(schematicSvc.NewWriter(tx).Create(ctx, ws.Key, &s)).To(Succeed())
+
+			lp := lineplot.LinePlot{Name: "lineplot", Data: "{}"}
+			Expect(lineplotSvc.NewWriter(tx).Create(ctx, ws.Key, &lp)).To(Succeed())
+
+			lg := log.Log{Name: "log", Data: "{}"}
+			Expect(logSvc.NewWriter(tx).Create(ctx, ws.Key, &lg)).To(Succeed())
+
+			tb := table.Table{Name: "table", Data: "{}"}
+			Expect(tableSvc.NewWriter(tx).Create(ctx, ws.Key, &tb)).To(Succeed())
+
+			Expect(svc.NewWriter(tx).Delete(ctx, ws.Key)).To(Succeed())
+
+			var sRes schematic.Schematic
+			Expect(gorp.NewRetrieve[uuid.UUID, schematic.Schematic]().WhereKeys(s.Key).Entry(&sRes).Exec(ctx, tx)).ToNot(Succeed())
+			var lpRes lineplot.LinePlot
+			Expect(gorp.NewRetrieve[uuid.UUID, lineplot.LinePlot]().WhereKeys(lp.Key).Entry(&lpRes).Exec(ctx, tx)).ToNot(Succeed())
+			var lgRes log.Log
+			Expect(gorp.NewRetrieve[uuid.UUID, log.Log]().WhereKeys(lg.Key).Entry(&lgRes).Exec(ctx, tx)).ToNot(Succeed())
+			var tbRes table.Table
+			Expect(gorp.NewRetrieve[uuid.UUID, table.Table]().WhereKeys(tb.Key).Entry(&tbRes).Exec(ctx, tx)).ToNot(Succeed())
+		})
+		It("Should delete a workspace with no children", func() {
+			ws := workspace.Workspace{Name: "empty_workspace", Author: author.Key}
+			Expect(svc.NewWriter(tx).Create(ctx, &ws)).To(Succeed())
+			Expect(svc.NewWriter(tx).Delete(ctx, ws.Key)).To(Succeed())
+			var res workspace.Workspace
+			Expect(gorp.NewRetrieve[uuid.UUID, workspace.Workspace]().WhereKeys(ws.Key).Entry(&res).Exec(ctx, tx)).ToNot(Succeed())
 		})
 	})
 })
