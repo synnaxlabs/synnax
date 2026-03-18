@@ -13,21 +13,15 @@ import { offPageReferenceTooltip } from "@/schematic/symbol/Symbols";
 
 describe("offPageReferenceTooltip", () => {
   it("should return double-click tooltip by default", () => {
-    expect(offPageReferenceTooltip("page-key")).toBe(
-      "Double-click to navigate",
-    );
+    expect(offPageReferenceTooltip("page-key")).toBe("Double-click to navigate");
   });
 
   it("should return double-click tooltip when dblClickNav is true", () => {
-    expect(offPageReferenceTooltip("page-key", true)).toBe(
-      "Double-click to navigate",
-    );
+    expect(offPageReferenceTooltip("page-key", true)).toBe("Double-click to navigate");
   });
 
   it("should return single-click tooltip when dblClickNav is false", () => {
-    expect(offPageReferenceTooltip("page-key", false)).toBe(
-      "Single-click to navigate",
-    );
+    expect(offPageReferenceTooltip("page-key", false)).toBe("Single-click to navigate");
   });
 
   it("should return undefined when page is undefined", () => {
