@@ -28,11 +28,10 @@ import (
 // method. If no transaction is provided, the writer will execute operations directly on
 // the database.
 type Writer struct {
-	tx       gorp.Tx
-	otg      ontology.Writer
-	group    group.Group
-	status   status.Writer[StatusDetails]
-	retrieve Retrieve
+	tx     gorp.Tx
+	otg    ontology.Writer
+	group  group.Group
+	status status.Writer[StatusDetails]
 }
 
 func resolveStatus(d *Device, provided *Status) *Status {
@@ -66,7 +65,8 @@ func (w Writer) Create(ctx context.Context, device Device) error {
 	parent := device.Parent
 	device.Parent = nil // Parent is not stored in gorp
 	var existing Device
-	err := w.retrieve.
+	err := gorp.
+		NewRetrieve[string, Device]().
 		WhereKeys(device.Key).
 		Entry(&existing).
 		Exec(ctx, w.tx)

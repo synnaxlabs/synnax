@@ -146,11 +146,10 @@ func (s *Service) RootGroup() group.Group { return s.group }
 func (s *Service) NewWriter(tx gorp.Tx) Writer {
 	tx = gorp.OverrideTx(s.cfg.DB, tx)
 	return Writer{
-		tx:       tx,
-		otg:      s.cfg.Ontology.NewWriter(tx),
-		group:    s.group,
-		status:   status.NewWriter[StatusDetails](s.cfg.Status, tx),
-		retrieve: s.NewRetrieve(),
+		tx:     tx,
+		otg:    s.cfg.Ontology.NewWriter(tx),
+		group:  s.group,
+		status: status.NewWriter[StatusDetails](s.cfg.Status, tx),
 	}
 }
 
