@@ -212,10 +212,7 @@ const singleRetrieveArgsZ = z.union([
     .object({ name: z.string(), includeStatus: z.boolean().optional() })
     .transform(({ name, includeStatus }) => ({ names: [name], includeStatus })),
   z
-    .object({
-      type: z.string(),
-      rack: rackKeyZ.optional(),
-    })
+    .object({ type: z.string(), rack: rackKeyZ.optional() })
     .transform(({ type, rack }) => ({ types: [type], rack })),
 ]);
 export type RetrieveSingleParams = z.input<typeof singleRetrieveArgsZ>;
