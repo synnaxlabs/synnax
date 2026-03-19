@@ -74,7 +74,6 @@ def _assert_driver_rejects_value(
 
     Opens the status streamer before writing to avoid missing events on slow runners.
     """
-    from synnax.task.payload import Status
 
     channels = client.channels.retrieve(cmd_keys)
     index_keys = list({ch.index for ch in channels if ch.index != 0})
@@ -104,7 +103,7 @@ def _assert_driver_rejects_value(
             if "sy_status_set" not in frame:
                 continue
             for raw in frame["sy_status_set"]:
-                status = Status.model_validate(raw)
+                status = sy.task.Status.model_validate(raw)
                 if status.details is None or status.details.task != task_key:
                     continue
                 if status.variant in ("warning", "error"):
