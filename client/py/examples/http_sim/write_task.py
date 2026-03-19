@@ -13,13 +13,13 @@ the HTTP driver.
 
 Before running this example:
 1. Start the mock HTTP server:
-   uv run python examples/http/server.py
+   uv run python examples/http_sim/server.py
 
 2. Connect the HTTP device in Synnax:
-   uv run python examples/http/connect_server.py
+   uv run python examples/http_sim/connect_server.py
 
 3. Run this script:
-   uv run python examples/http/write_task.py
+   uv run python examples/http_sim/write_task.py
 
 The mock server accepts PUT /api/v1/setpoint with body:
     {"value": 42.0}
