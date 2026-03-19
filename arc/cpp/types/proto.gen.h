@@ -14,7 +14,7 @@
 #include <utility>
 
 #include "x/cpp/errors/errors.h"
-#include "x/cpp/json/value.h"
+#include "x/cpp/json/json.h"
 #include "x/cpp/pb/pb.h"
 
 #include "arc/cpp/types/json.gen.h"
@@ -100,7 +100,7 @@ inline ::arc::types::pb::Param Param::to_proto() const {
     ::arc::types::pb::Param pb;
     pb.set_name(this->name);
     *pb.mutable_type() = this->type.to_proto();
-    *pb.mutable_value() = x::json::to_value(this->value).first;
+    pb.set_value(this->value.dump());
     return pb;
 }
 
@@ -113,11 +113,7 @@ Param::from_proto(const ::arc::types::pb::Param &pb) {
         if (err) return {{}, err};
         cpp.type = v;
     }
-    {
-        auto [v, err] = x::json::from_value(pb.value());
-        if (err) return {{}, err};
-        cpp.value = v;
-    }
+    cpp.value = x::json::json::parse(pb.value(), nullptr, false);
     return {cpp, x::errors::NIL};
 }
 

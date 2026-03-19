@@ -201,6 +201,14 @@ func validateType[T antlr.ParserRuleContext, N antlr.ParserRuleContext](
 				ctx.Diagnostics.Add(diagnostics.Error(err, ctx.AST))
 				return
 			}
+			// When the first operand is a literal (type variable) and we encounter
+			// a concrete type, adopt it so subsequent operands are checked against
+			// the concrete type rather than the permissive constraint. Without this,
+			// `1000.0 - f32_ch + f64_ch` would pass because both f32 and f64
+			// individually satisfy FloatConstraint, even though f32 != f64.
+			if firstType.Kind == basetypes.KindVariable && nextType.Kind != basetypes.KindVariable {
+				firstType = nextType
+			}
 		} else {
 			// Unit compatibility is already validated above by units.ValidateBinaryOp
 			if !types.Compatible(firstType, nextType) {
@@ -377,6 +385,21 @@ func analyzePostfix(ctx context.Context[parser.IPostfixExpressionContext]) {
 		}
 		if scope.Kind == symbol.KindFunction {
 			validateFunctionCall(ctx, scope.Type, funcName, funcCalls[0])
+			callerFn, fnErr := ctx.Scope.ClosestAncestorOfKind(symbol.KindFunction)
+			if fnErr != nil && !errors.Is(fnErr, query.ErrNotFound) {
+				ctx.Diagnostics.Add(diagnostics.Error(fnErr, ctx.AST))
+				return
+			}
+			if callerFn != nil {
+				argChannels := buildArgChannels(ctx, scope, funcCalls[0])
+				propagateChannelsWithArgMap(callerFn, scope, argChannels)
+				*ctx.CallEdges = append(*ctx.CallEdges, context.CallEdge{
+					Caller:      callerFn,
+					Callee:      scope,
+					CallSite:    ctx.AST,
+					ArgChannels: argChannels,
+				})
+			}
 		} else {
 			ctx.Diagnostics.Add(diagnostics.Errorf(
 				funcCalls[0], "cannot call non-function %s of type %s", funcName, scope.Type,
@@ -504,6 +527,104 @@ func analyzePrimary(ctx context.Context[parser.IPrimaryExpressionContext]) {
 			}
 		}
 	}
+}
+
+// buildArgChannels extracts channel argument mappings for chan-typed parameters at a
+// function call site. Maps are keyed by parameter index (position in the callee's
+// input list) so the mapping is valid even when the callee hasn't been fully analyzed
+// yet (forward references). The param index is resolved to a symbol ID during
+// propagation, when all scopes are guaranteed to exist.
+func buildArgChannels(
+	ctx context.Context[parser.IPostfixExpressionContext],
+	callee *symbol.Scope,
+	funcCall parser.IFunctionCallSuffixContext,
+) map[int]context.ChannelMapping {
+	argList := funcCall.ArgumentList()
+	if argList == nil {
+		return nil
+	}
+	args := argList.AllExpression()
+	var argChannels map[int]context.ChannelMapping
+	for i, param := range callee.Type.Inputs {
+		if param.Type.Kind != basetypes.KindChan || i >= len(args) {
+			continue
+		}
+		channelID, channelName, ok := resolveChannelArg(ctx, args[i])
+		if !ok {
+			continue
+		}
+		if argChannels == nil {
+			argChannels = make(map[int]context.ChannelMapping)
+		}
+		argChannels[i] = context.ChannelMapping{
+			ChannelID:   channelID,
+			ChannelName: channelName,
+		}
+	}
+	return argChannels
+}
+
+// resolveChannelArg extracts the channel ID and name from an argument expression.
+func resolveChannelArg(
+	ctx context.Context[parser.IPostfixExpressionContext],
+	expr parser.IExpressionContext,
+) (uint32, string, bool) {
+	primary := parser.GetPrimaryExpression(expr)
+	if primary == nil || primary.IDENTIFIER() == nil {
+		return 0, "", false
+	}
+	sym, err := ctx.Scope.Resolve(ctx, primary.IDENTIFIER().GetText())
+	if err != nil || sym.Type.Kind != basetypes.KindChan {
+		return 0, "", false
+	}
+	sourceID := uint32(sym.ID)
+	if sym.SourceID != nil {
+		sourceID = uint32(*sym.SourceID)
+	}
+	return sourceID, sym.Name, true
+}
+
+// propagateChannelsWithArgMap copies callee channel accesses to the caller, remapping
+// any accesses through chan-typed parameters to the actual channel IDs from the call
+// site arguments. This is used during inline propagation at the call site.
+// If the callee hasn't been fully analyzed yet (forward reference), inputScopes will
+// be empty and no remapping occurs. The post-pass handles that case.
+func propagateChannelsWithArgMap(
+	caller, callee *symbol.Scope,
+	argChannels map[int]context.ChannelMapping,
+) {
+	paramMap := ResolveArgChannels(callee, argChannels)
+	for id, name := range callee.Channels.Read {
+		if mapping, ok := paramMap[int(id)]; ok {
+			caller.Channels.Read[mapping.ChannelID] = mapping.ChannelName
+		} else {
+			caller.Channels.Read[id] = name
+		}
+	}
+	for id, name := range callee.Channels.Write {
+		if mapping, ok := paramMap[int(id)]; ok {
+			caller.Channels.Write[mapping.ChannelID] = mapping.ChannelName
+		} else {
+			caller.Channels.Write[id] = name
+		}
+	}
+}
+
+func ResolveArgChannels(
+	callee *symbol.Scope,
+	argChannels map[int]context.ChannelMapping,
+) map[int]context.ChannelMapping {
+	if len(argChannels) == 0 {
+		return nil
+	}
+	inputScopes := callee.FilterChildrenByKind(symbol.KindInput)
+	resolved := make(map[int]context.ChannelMapping, len(argChannels))
+	for paramIdx, mapping := range argChannels {
+		if paramIdx < len(inputScopes) {
+			resolved[inputScopes[paramIdx].ID] = mapping
+		}
+	}
+	return resolved
 }
 
 func isValidCast(source, target basetypes.Type) bool {

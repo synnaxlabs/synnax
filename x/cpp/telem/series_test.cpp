@@ -1713,4 +1713,53 @@ TEST(SeriesOperators, NegationChainedWithOperations) {
     ASSERT_DOUBLE_EQ(result.at<double>(1), 3.0);
     ASSERT_DOUBLE_EQ(result.at<double>(2), 3.0);
 }
+
+TEST(SeriesClear, NumericClear) {
+    auto s = Series(std::vector<int32_t>{1, 2, 3});
+    ASSERT_EQ(s.size(), 3);
+    ASSERT_FALSE(s.empty());
+    s.clear();
+    ASSERT_EQ(s.size(), 0);
+    ASSERT_TRUE(s.empty());
+    ASSERT_EQ(s.byte_size(), 0);
+}
+
+TEST(SeriesClear, StringClearResetsSize) {
+    auto s = Series(std::vector<std::string>{"hello", "world"}, STRING_T);
+    ASSERT_EQ(s.size(), 2);
+    ASSERT_GT(s.byte_size(), 0);
+    s.clear();
+    ASSERT_EQ(s.size(), 0);
+    ASSERT_TRUE(s.empty());
+    ASSERT_EQ(s.byte_size(), 0);
+}
+
+TEST(SeriesClear, StringClearReturnsEmptyStrings) {
+    auto s = Series(std::vector<std::string>{"hello", "world"}, STRING_T);
+    ASSERT_EQ(s.strings().size(), 2);
+    s.clear();
+    ASSERT_EQ(s.strings().size(), 0);
+}
+
+TEST(SeriesClear, JsonClearResetsSize) {
+    auto s = Series(std::vector<std::string>{R"({"a":1})", R"({"b":2})"}, JSON_T);
+    ASSERT_EQ(s.size(), 2);
+    ASSERT_GT(s.byte_size(), 0);
+    s.clear();
+    ASSERT_EQ(s.size(), 0);
+    ASSERT_TRUE(s.empty());
+    ASSERT_EQ(s.byte_size(), 0);
+    ASSERT_EQ(s.strings().size(), 0);
+}
+
+TEST(SeriesClear, ClearedStringSeriesCanBeRebuilt) {
+    auto s = Series(std::vector<std::string>{"old_a", "old_b"}, STRING_T);
+    s.clear();
+    auto rebuilt = Series(std::vector<std::string>{"new"}, STRING_T);
+    auto merged = s.strings();
+    auto incoming = rebuilt.strings();
+    merged.insert(merged.end(), incoming.begin(), incoming.end());
+    ASSERT_EQ(merged.size(), 1);
+    ASSERT_EQ(merged[0], "new");
+}
 }

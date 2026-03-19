@@ -15,6 +15,7 @@ from typing import Any, Generic, TypeAlias, TypeVar
 
 from pydantic import BaseModel, Field
 
+from synnax import ontology
 from synnax import rack as rack_
 from synnax import status as status_
 from synnax.ontology.payload import ID
@@ -55,6 +56,8 @@ class Device(BaseModel):
         properties: Contains device-specific configuration properties stored as JSON.
             Structure varies by device make and model.
         status: Is the current operational status of the device.
+        parent: Is an optional parent resource ID for hierarchical device
+            organization (e.g., NI chassis containing modules).
     """
 
     key: Key
@@ -66,6 +69,7 @@ class Device(BaseModel):
     configured: bool = Field(default=False)
     properties: dict[str, Any]
     status: Status | None = None
+    parent: ontology.ID | None = None
 
     def __hash__(self) -> int:
         return hash(self.key)

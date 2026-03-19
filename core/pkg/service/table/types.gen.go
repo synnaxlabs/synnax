@@ -16,6 +16,7 @@ import (
 	"github.com/synnaxlabs/x/binary"
 )
 
+// Key is a unique identifier for a table, represented as a UUID.
 type Key = uuid.UUID
 
 // Table is a tabular data display component for viewing structured telemetry data.

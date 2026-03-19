@@ -42,7 +42,7 @@ func SchematicFromPB(_ context.Context, pb *Schematic) (schematic.Schematic, err
 	var err error
 	parsedKey, err := uuid.Parse(pb.Key)
 	if err != nil {
-		return r, err
+		return schematic.Schematic{}, err
 	}
 	r.Key = schematic.Key(parsedKey)
 	r.Data = pb.Data.AsMap()

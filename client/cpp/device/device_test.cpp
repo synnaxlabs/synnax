@@ -569,4 +569,99 @@ TEST(DeviceTests, testDeviceStatusKey) {
     const auto d = Device{.key = "cat"};
     ASSERT_EQ(device::status_key(d), "device:cat");
 }
+
+TEST(DeviceTests, testCreateWithParentOntologyID) {
+    const auto client = new_test_client();
+    auto r = rack::Rack{.name = "test_rack"};
+    ASSERT_NIL(client.racks.create(r));
+    const auto rand = std::to_string(gen_rand_device());
+    auto chassis = Device{
+        .key = "chassis_" + rand,
+        .rack = r.key,
+        .location = "slot_0",
+        .make = "NI",
+        .model = "cDAQ-9178",
+        .name = "chassis_" + rand,
+        .properties = {{"is_chassis", true}},
+    };
+    ASSERT_NIL(client.devices.create(chassis));
+    auto chassis_otg = synnax::ontology::ID{"device", chassis.key};
+    auto module = Device{
+        .key = "module_" + rand,
+        .rack = r.key,
+        .location = "slot_1",
+        .make = "NI",
+        .model = "NI-9205",
+        .name = "module_" + rand,
+        .properties = {{"is_chassis", false}},
+        .parent = chassis_otg,
+    };
+    ASSERT_NIL(client.devices.create(module));
+    const auto retrieved = ASSERT_NIL_P(client.devices.retrieve(module.key));
+    ASSERT_EQ(retrieved.key, module.key);
+    ASSERT_EQ(retrieved.name, module.name);
+}
+
+TEST(DeviceTests, testCreateMultipleDevicesWithParent) {
+    const auto client = new_test_client();
+    auto r = rack::Rack{.name = "test_rack"};
+    ASSERT_NIL(client.racks.create(r));
+    const auto rand = std::to_string(gen_rand_device());
+    auto chassis = Device{
+        .key = "chassis_multi_" + rand,
+        .rack = r.key,
+        .location = "slot_0",
+        .make = "NI",
+        .model = "cDAQ-9178",
+        .name = "chassis_multi_" + rand,
+        .properties = {{"is_chassis", true}},
+    };
+    ASSERT_NIL(client.devices.create(chassis));
+    auto chassis_otg = synnax::ontology::ID{"device", chassis.key};
+    auto mod1 = Device{
+        .key = "mod1_" + rand,
+        .rack = r.key,
+        .location = "slot_1",
+        .make = "NI",
+        .model = "NI-9205",
+        .name = "mod1_" + rand,
+        .properties = {{"is_chassis", false}},
+        .parent = chassis_otg,
+    };
+    auto mod2 = Device{
+        .key = "mod2_" + rand,
+        .rack = r.key,
+        .location = "slot_2",
+        .make = "NI",
+        .model = "NI-9264",
+        .name = "mod2_" + rand,
+        .properties = {{"is_chassis", false}},
+        .parent = chassis_otg,
+    };
+    ASSERT_NIL(client.devices.create(mod1));
+    ASSERT_NIL(client.devices.create(mod2));
+    const auto retrieved = ASSERT_NIL_P(
+        client.devices.retrieve(std::vector<std::string>{mod1.key, mod2.key})
+    );
+    ASSERT_EQ(retrieved.size(), 2);
+}
+
+TEST(DeviceTests, testCreateDeviceDefaultsParentToRack) {
+    const auto client = new_test_client();
+    auto r = rack::Rack{.name = "test_rack"};
+    ASSERT_NIL(client.racks.create(r));
+    const auto rand = std::to_string(gen_rand_device());
+    auto d = Device{
+        .key = "no_parent_" + rand,
+        .rack = r.key,
+        .location = "test_location",
+        .make = "test_make",
+        .model = "test_model",
+        .name = "no_parent_device_" + rand,
+        .properties = {{"test", "properties"}},
+    };
+    ASSERT_NIL(client.devices.create(d));
+    const auto retrieved = ASSERT_NIL_P(client.devices.retrieve(d.key));
+    ASSERT_EQ(retrieved.key, d.key);
+}
 }

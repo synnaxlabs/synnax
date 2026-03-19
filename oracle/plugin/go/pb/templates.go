@@ -49,25 +49,6 @@ import (
 {{- end}}
 )
 {{- end}}
-{{- if gt (len .DistinctPrimitives) 0}}
-
-// convertAnyForPB converts distinct primitive types to their underlying primitive types
-// so that structpb.NewValue() can handle them. This handles custom type aliases like
-// telem.TimeSpan (int64), telem.Rate (float64), etc.
-func convertAnyForPB(v any) any {
-	if v == nil {
-		return nil
-	}
-	switch val := v.(type) {
-{{- range .DistinctPrimitives}}
-	case {{.GoType}}:
-		return {{.PrimitiveType}}(val)
-{{- end}}
-	default:
-		return v
-	}
-}
-{{- end}}
 {{range .Translators}}
 
 // {{.Name}}ToPB converts {{.GoTypeShort}} to {{.PBTypeShort}}.
@@ -128,6 +109,7 @@ func {{.Name}}FromPB({{if .UsesContext}}ctx{{else}}_{{end}} context.Context, pb 
 	if pb == nil {
 		return r, nil
 	}
+{{- $goType := .GoType}}
 {{- $needsErr := false}}
 {{- range .ErrorFields}}{{if .HasBackwardError}}{{$needsErr = true}}{{end}}{{end}}
 {{- if $needsErr}}
@@ -138,13 +120,13 @@ func {{.Name}}FromPB({{if .UsesContext}}ctx{{else}}_{{end}} context.Context, pb 
 {{- if .BackwardCast}}
 	parsed{{.GoName}}, err := {{.BackwardExpr}}
 	if err != nil {
-		return r, err
+		return {{$goType}}{}, err
 	}
 	r.{{.GoName}} = {{.BackwardCast}}(parsed{{.GoName}})
 {{- else}}
 	r.{{.GoName}}, err = {{.BackwardExpr}}
 	if err != nil {
-		return r, err
+		return {{$goType}}{}, err
 	}
 {{- end}}
 {{- else}}
@@ -172,7 +154,7 @@ func {{.Name}}FromPB({{if .UsesContext}}ctx{{else}}_{{end}} context.Context, pb 
 {{- if .IsOptionalStruct}}
 		val, err := {{.BackwardExpr}}
 		if err != nil {
-			return r, err
+			return {{$goType}}{}, err
 		}
 {{- if .BackwardCast}}
 		r.{{.GoName}} = {{.BackwardCast}}(&val)
@@ -321,6 +303,7 @@ func {{.Name}}FromPB{{if .TypeParams}}[{{range $i, $tp := .TypeParams}}{{if $i}}
 	if pb == nil {
 		return r, nil
 	}
+{{- $goType := .GoType}}
 {{- $needsErr := false}}
 {{- range .TypeParamFields}}{{$needsErr = true}}{{end}}
 {{- range .ErrorFields}}{{if .HasBackwardError}}{{$needsErr = true}}{{end}}{{end}}
@@ -330,7 +313,7 @@ func {{.Name}}FromPB{{if .TypeParams}}[{{range $i, $tp := .TypeParams}}{{if $i}}
 {{- range .TypeParamFields}}
 	r.{{.GoName}}, err = {{.BackwardExpr}}
 	if err != nil {
-		return r, err
+		return {{$goType}}{}, err
 	}
 {{- end}}
 {{- range .ErrorFields}}
@@ -338,13 +321,13 @@ func {{.Name}}FromPB{{if .TypeParams}}[{{range $i, $tp := .TypeParams}}{{if $i}}
 {{- if .BackwardCast}}
 	parsed{{.GoName}}, err := {{.BackwardExpr}}
 	if err != nil {
-		return r, err
+		return {{$goType}}{}, err
 	}
 	r.{{.GoName}} = {{.BackwardCast}}(parsed{{.GoName}})
 {{- else}}
 	r.{{.GoName}}, err = {{.BackwardExpr}}
 	if err != nil {
-		return r, err
+		return {{$goType}}{}, err
 	}
 {{- end}}
 {{- else}}
@@ -372,7 +355,7 @@ func {{.Name}}FromPB{{if .TypeParams}}[{{range $i, $tp := .TypeParams}}{{if $i}}
 {{- if .IsOptionalStruct}}
 		val, err := {{.BackwardExpr}}
 		if err != nil {
-			return r, err
+			return {{$goType}}{}, err
 		}
 {{- if .BackwardCast}}
 		r.{{.GoName}} = {{.BackwardCast}}(&val)

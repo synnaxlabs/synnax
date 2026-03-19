@@ -7,46 +7,25 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-@ts output "client/ts/src/ontology"
+@ts output  "client/ts/src/ontology"
+@py output  "client/py/synnax/ontology"
+@go output  "core/pkg/distribution/ontology"
+@cpp output "client/cpp/ontology"
+@pb
 
-ResourceType enum {
-    label            = "label"
-    log              = "log"
-    builtin          = "builtin"
-    cluster          = "cluster"
-    channel          = "channel"
-    node             = "node"
-    group            = "group"
-    range            = "range"
-    framer           = "framer"
-    range_alias      = "range-alias"
-    user             = "user"
-    workspace        = "workspace"
-    schematic        = "schematic"
-    lineplot         = "lineplot"
-    rack             = "rack"
-    device           = "device"
-    task             = "task"
-    policy           = "policy"
-    role             = "role"
-    table            = "table"
-    arc              = "arc"
-    schematic_symbol = "schematic_symbol"
-    status           = "status"
-    view             = "view"
-
-    @doc value """
-        is the type of a resource in the Synnax ontology system. Each resource
-        type represents a distinct kind of entity that can have relationships
-        with other resources.
-    """
+Type string {
+    @doc value "is the type of the resource."
+    @go omit
+    @cpp omit
+    @ts omit
+    @py omit
 }
 
 ID struct {
-    type ResourceType {
+    type Type   {
         @doc value "is the type of the resource."
     }
-    key  string       {
+    key  string {
         @doc value "is the unique key identifying the resource within its type."
     }
 
@@ -55,16 +34,19 @@ ID struct {
         of its type and key.
     """
     @ts omit
+    @go omit
+    @cpp omit
+    @py omit
 }
 
 Resource struct {
-    id   ID     {
+    id   ID      {
         @doc value "is the unique identifier for this resource."
     }
-    name string {
+    name string  {
         @doc value "is a human-readable name for the resource."
     }
-    data json?  {
+    data record? {
         @doc value "is optional metadata associated with the resource."
     }
 
@@ -73,6 +55,10 @@ Resource struct {
         optional metadata.
     """
     @ts omit
+    @go omit
+    @cpp omit
+    @py omit
+    @pb omit
 }
 
 Relationship struct {
@@ -91,4 +77,8 @@ Relationship struct {
         system.
     """
     @ts omit
+    @go omit
+    @cpp omit
+    @py omit
+    @pb omit
 }

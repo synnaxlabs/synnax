@@ -38,7 +38,7 @@ func AliasFromPB(_ context.Context, pb *Alias) (alias.Alias, error) {
 	var err error
 	parsedRange, err := uuid.Parse(pb.Range)
 	if err != nil {
-		return r, err
+		return alias.Alias{}, err
 	}
 	r.Range = ranger.Key(parsedRange)
 	r.Channel = channel.Key(pb.Channel)

@@ -11,8 +11,13 @@
 
 package control
 
-type Authority = uint8
+// Authority is a numeric value (0-255) representing the level of control authority a
+// subject has over a resource. Higher values indicate greater authority. The maximum
+// value of 255 represents absolute authority.
+type Authority uint8
 
+// Concurrency defines whether a resource can have multiple subjects acting on it at
+// once.
 type Concurrency uint8
 
 //go:generate stringer -type=Concurrency

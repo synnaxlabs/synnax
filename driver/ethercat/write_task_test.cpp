@@ -433,6 +433,44 @@ TEST_F(EtherCATWriteTest, SinkWritesDataToEngine) {
     ASSERT_NIL(sink.stop());
 }
 
+/// @brief when a frame contains multiple samples for a channel, only the last
+/// sample should be written to hardware.
+TEST_F(EtherCATWriteTest, SinkLastWriteWins) {
+    auto cmd_ch = ASSERT_NIL_P(this->client->channels.create(
+        make_unique_channel_name("cmd"),
+        x::telem::INT16_T,
+        this->index_channel.key,
+        false
+    ));
+
+    auto cfg = this->create_base_config();
+    cfg["channels"].push_back(
+        this->create_automatic_output_channel_config(cmd_ch.key, "control_word")
+    );
+
+    auto parser = x::json::Parser(cfg);
+    WriteTaskConfig task_cfg(this->client, parser);
+    ASSERT_NIL(parser.error());
+
+    auto sink = WriteTaskSink(this->engine, std::move(task_cfg));
+    ASSERT_NIL(sink.start());
+
+    x::telem::Series series(x::telem::INT16_T, 3);
+    series.write(static_cast<int16_t>(0x1111));
+    series.write(static_cast<int16_t>(0x2222));
+    series.write(static_cast<int16_t>(0x3333));
+    x::telem::Frame frame(cmd_ch.key, std::move(series));
+
+    ASSERT_NIL(sink.write(frame));
+
+    ASSERT_EVENTUALLY_EQ(
+        this->mock_master->get_output<int16_t>(0),
+        static_cast<int16_t>(0x3333)
+    );
+
+    ASSERT_NIL(sink.stop());
+}
+
 TEST_F(EtherCATWriteTest, SinkWritesMultipleChannels) {
     auto ch1 = ASSERT_NIL_P(this->client->channels.create(
         make_unique_channel_name("ch1"),

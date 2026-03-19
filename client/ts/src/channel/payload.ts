@@ -15,9 +15,11 @@ import {
   keyZ,
   type Name,
   nameZ,
+  ontologyID,
   type Payload,
   payloadZ,
 } from "@/channel/types.gen";
+import { ontology } from "@/ontology";
 
 export type Keys = Key[];
 export type KeyOrName = Key | Name;
@@ -49,3 +51,6 @@ export const escapeInvalidName = (name: string, changeEmptyToUnderscore = false)
   if (result[0].match(/^\d/)) result = `_${result}`;
   return result;
 };
+
+export const statusKey = (channel: Key): string =>
+  ontology.idToString(ontologyID(channel));

@@ -16,8 +16,12 @@ import (
 	"github.com/synnaxlabs/x/status"
 )
 
+// Key is a composite identifier for a task. The high 32 bits contain the rack key, and
+// the low 32 bits contain the local task key within that rack.
 type Key uint64
 
+// Status is task-specific status information including execution state and
+// task-specific data.
 type Status = status.Status[StatusDetails]
 
 // StatusDetails contains task-specific status details including execution state.

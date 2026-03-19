@@ -14,6 +14,7 @@ package pb
 import (
 	"context"
 	"encoding/json"
+	ontologypb "github.com/synnaxlabs/synnax/pkg/distribution/ontology/pb"
 	"github.com/synnaxlabs/synnax/pkg/service/device"
 	"github.com/synnaxlabs/synnax/pkg/service/rack"
 	"github.com/synnaxlabs/x/status"
@@ -95,6 +96,13 @@ func DeviceToPB(
 			return nil, err
 		}
 	}
+	if r.Parent != nil {
+		var err error
+		pb.Parent, err = ontologypb.IDToPB(ctx, *r.Parent)
+		if err != nil {
+			return nil, err
+		}
+	}
 	return pb, nil
 }
 
@@ -118,9 +126,16 @@ func DeviceFromPB(
 	if pb.Status != nil {
 		val, err := statuspb.StatusFromPB[device.StatusDetails](ctx, pb.Status, StatusDetailsFromPBAny)
 		if err != nil {
-			return r, err
+			return device.Device{}, err
 		}
 		r.Status = (*device.Status)(&val)
+	}
+	if pb.Parent != nil {
+		val, err := ontologypb.IDFromPB(ctx, pb.Parent)
+		if err != nil {
+			return device.Device{}, err
+		}
+		r.Parent = &val
 	}
 	return r, nil
 }

@@ -13,7 +13,6 @@ import (
 	"context"
 	"go/types"
 
-	"github.com/google/uuid"
 	"github.com/synnaxlabs/synnax/pkg/api/auth"
 	"github.com/synnaxlabs/synnax/pkg/api/config"
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
@@ -101,7 +100,7 @@ type RetrieveRequest struct {
 	Keys []string `json:"keys" msgpack:"keys"`
 	// HasLabels retrieves statuses that are labeled by one or more labels with the
 	// given keys.
-	HasLabels []uuid.UUID `json:"has_labels" msgpack:"has_labels"`
+	HasLabels []label.Key `json:"has_labels" msgpack:"has_labels"`
 	// Limit is the maximum number of statuses to retrieve.
 	Limit int `json:"limit" msgpack:"limit"`
 	// Offset is the number of statuses to skip.

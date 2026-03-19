@@ -76,7 +76,6 @@ _COPY_ENDPOINT = "/task/copy"
 
 _TASK_STATE_CHANNEL = "sy_status_set"
 _TASK_CMD_CHANNEL = "sy_task_cmd"
-_list = list
 
 
 class BaseConfig(BaseModel):
@@ -258,6 +257,9 @@ class Task:
                     ):
                         return status
                 except ValidationError:
+                    # The status channel carries statuses for all tasks and
+                    # racks. Rack statuses have a different schema, so
+                    # validation failures are expected and should be skipped.
                     continue
 
 
@@ -455,6 +457,9 @@ class Client:
                 try:
                     status = Status.model_validate(frame[_TASK_STATE_CHANNEL][0])
                 except ValidationError:
+                    # The status channel carries statuses for all tasks and
+                    # racks. Rack statuses have a different schema, so
+                    # validation failures are expected and should be skipped.
                     continue
                 if status.details is None or status.details.task != task.key:
                     continue

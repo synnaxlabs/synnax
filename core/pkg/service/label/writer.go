@@ -58,7 +58,7 @@ func (w Writer) CreateMany(
 // not return an error if the label does not exist.
 func (w Writer) Delete(
 	ctx context.Context,
-	k uuid.UUID,
+	k Key,
 ) (err error) {
 	if err = w.table.NewDelete().WhereKeys(k).Exec(ctx, w.tx); err != nil {
 		return
@@ -69,7 +69,7 @@ func (w Writer) Delete(
 // DeleteMany removes multiple labels from the database and ontology.
 func (w Writer) DeleteMany(
 	ctx context.Context,
-	ks []uuid.UUID,
+	ks []Key,
 ) (err error) {
 	for _, k := range ks {
 		if err = w.Delete(ctx, k); err != nil {
@@ -84,7 +84,7 @@ func (w Writer) DeleteMany(
 func (w Writer) Label(
 	ctx context.Context,
 	target ontology.ID,
-	labels []uuid.UUID,
+	labels []Key,
 ) error {
 	for _, label := range labels {
 		if err := w.otg.DefineRelationship(ctx, target, OntologyRelationshipTypeLabeledBy, OntologyID(label)); err != nil {
@@ -102,12 +102,12 @@ func (w Writer) Clear(
 	return w.otg.DeleteOutgoingRelationshipsOfType(ctx, target, OntologyRelationshipTypeLabeledBy)
 }
 
-// Removelabel.Label removes a set of labels from the target resource. Removelabel.Label is idempotent,
+// RemoveLabel removes a set of labels from the target resource. RemoveLabel is idempotent,
 // and will not return an error if the target resource does not have the specified labels.
 func (w Writer) RemoveLabel(
 	ctx context.Context,
 	target ontology.ID,
-	labels []uuid.UUID,
+	labels []Key,
 ) error {
 	for _, label := range labels {
 		if err := w.otg.DeleteRelationship(ctx, target, OntologyRelationshipTypeLabeledBy, OntologyID(label)); err != nil {

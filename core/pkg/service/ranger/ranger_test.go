@@ -318,7 +318,7 @@ var _ = Describe("Ranger", Ordered, func() {
 			}
 			Expect(svc.NewWriter(tx).Create(ctx, r1)).To(Succeed())
 			Expect(svc.NewWriter(tx).Create(ctx, r2)).To(Succeed())
-			Expect(labelSvc.NewWriter(tx).Label(ctx, r1.OntologyID(), []uuid.UUID{l.Key})).To(Succeed())
+			Expect(labelSvc.NewWriter(tx).Label(ctx, r1.OntologyID(), []label.Key{l.Key})).To(Succeed())
 			var results []ranger.Range
 			Expect(svc.NewRetrieve().WhereHasLabels(l.Key).Entries(&results).Exec(ctx, tx)).To(Succeed())
 			Expect(results).To(HaveLen(1))

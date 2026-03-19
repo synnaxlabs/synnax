@@ -22,7 +22,23 @@ Follow these scripts in order:
 If you don't have a real OPC UA server, start the included test server:
 
 ```bash
-uv run python examples/opcua/server.py
+uv run python -m examples.opcua.server
+```
+
+To start a TLS-encrypted server (Basic256Sha256, port 4842):
+
+```bash
+uv run python -m examples.opcua.server --tls
+```
+
+To start a TLS-encrypted server with username/password authentication (port 4843):
+
+```python
+from examples.opcua import OPCUATLSAuthSim
+import synnax as sy
+
+sim = OPCUATLSAuthSim(rate=50 * sy.Rate.HZ)
+sim.start()
 ```
 
 This server simulates:
@@ -33,10 +49,57 @@ This server simulates:
 - **Boolean variables** (my_bool_0, my_bool_1): Square wave patterns
 - **Command variables** (command_0, command_1, command_2): Writable float values
 
-The server runs on `opc.tcp://127.0.0.1:4841/` by default and prints node IDs on
-startup.
+The server runs on `opc.tcp://127.0.0.1:4841/` by default (port 4842 with `--tls`, port
+4843 for TLS with username/password) and prints node IDs on startup.
 
-### 2. Connect Your OPC UA Server
+### 2. Connect from the Console
+
+If you're connecting to the test servers manually from the Synnax Console (Server >
+Connect), use these settings:
+
+#### Plain (No Encryption)
+
+| Field           | Value                       |
+| --------------- | --------------------------- |
+| Name            | OPC UA Server               |
+| Endpoint        | `opc.tcp://127.0.0.1:4841/` |
+| Username        | _(leave blank)_             |
+| Password        | _(leave blank)_             |
+| Security Mode   | None                        |
+| Security Policy | None                        |
+
+#### TLS (Encryption Only)
+
+| Field           | Value                       |
+| --------------- | --------------------------- |
+| Name            | OPC UA TLS Server           |
+| Endpoint        | `opc.tcp://127.0.0.1:4842/` |
+| Username        | _(leave blank)_             |
+| Password        | _(leave blank)_             |
+| Security Mode   | Sign And Encrypt            |
+| Security Policy | Basic 256-bit with SHA-256  |
+
+Certificates are auto-generated under `examples/opcua/certificates/` when the server
+starts. The driver needs these files to connect:
+
+- `server-certificate.der`
+- `client-certificate.der`
+- `client-private-key.pem`
+
+#### TLS + Username/Password
+
+| Field           | Value                       |
+| --------------- | --------------------------- |
+| Name            | OPC UA TLS Auth Server      |
+| Endpoint        | `opc.tcp://127.0.0.1:4843/` |
+| Username        | `testuser`                  |
+| Password        | `testpass`                  |
+| Security Mode   | Sign And Encrypt            |
+| Security Policy | Basic 256-bit with SHA-256  |
+
+Uses the same auto-generated certificates as the TLS server above.
+
+### 3. Connect Your OPC UA Server (Script)
 
 Register your OPC UA server with Synnax:
 
@@ -44,24 +107,40 @@ Register your OPC UA server with Synnax:
 uv run python examples/opcua/connect_server.py
 ```
 
+To connect a TLS-encrypted server (Basic256Sha256, port 4842):
+
+```bash
+uv run python examples/opcua/connect_server.py --tls
+```
+
+To connect a TLS-encrypted server with username/password auth (port 4843):
+
+```bash
+uv run python examples/opcua/connect_server.py --tls-auth
+```
+
 This script will:
 
 - Check if the server is already registered
 - Register the server with the embedded Synnax rack
-- Set up the server configuration
+- Set up the server configuration (including security settings and credentials)
 
 **Configuration**: Edit the constants at the top of `connect_server.py` to match your
 server:
 
-- `DEVICE_NAME`: A friendly name for your OPC UA server
-- `ENDPOINT`: OPC UA endpoint URL (e.g., `opc.tcp://127.0.0.1:4841/`)
+- `PLAIN_DEVICE_NAME` / `TLS_DEVICE_NAME` / `TLS_AUTH_DEVICE_NAME`: Friendly names for
+  your OPC UA servers
+- `PLAIN_ENDPOINT` / `TLS_ENDPOINT` / `TLS_AUTH_ENDPOINT`: OPC UA endpoint URLs
+- `TLS_AUTH_USERNAME` / `TLS_AUTH_PASSWORD`: Credentials for username/password auth
 
-### 3. Read Float Data from OPC UA Nodes
+### 4. Read Float Data from OPC UA Nodes
 
 Read scalar float values from the server:
 
 ```bash
 uv run python examples/opcua/read_task.py
+uv run python examples/opcua/read_task.py --tls
+uv run python examples/opcua/read_task.py --tls-auth
 ```
 
 This example:
@@ -74,14 +153,16 @@ This example:
 **What you'll see**: Real-time sine wave values from my_float_0 and my_float_1.
 
 **Node IDs**: The example uses node IDs like `NS=2;I=8` to identify OPC UA variables.
-These IDs are printed by `server_extended.py` on startup.
+These IDs are printed by `server.py` on startup.
 
-### 4. Read Array Data from OPC UA Nodes
+### 5. Read Array Data from OPC UA Nodes
 
 Read array data in high-performance array mode:
 
 ```bash
 uv run python examples/opcua/read_task_array.py
+uv run python examples/opcua/read_task_array.py --tls
+uv run python examples/opcua/read_task_array.py --tls-auth
 ```
 
 This example:
@@ -97,12 +178,14 @@ This example:
 **Array mode**: More efficient for high-rate data when the OPC UA server provides data
 in array format with consistent size.
 
-### 5. Read Boolean Data from OPC UA Nodes
+### 6. Read Boolean Data from OPC UA Nodes
 
 Read boolean (digital) values from the server:
 
 ```bash
 uv run python examples/opcua/read_task_boolean.py
+uv run python examples/opcua/read_task_boolean.py --tls
+uv run python examples/opcua/read_task_boolean.py --tls-auth
 ```
 
 This example:
@@ -116,12 +199,14 @@ This example:
 
 **Note**: Boolean data is stored as UINT8 in Synnax (0 for False, 1 for True).
 
-### 6. Write Commands to OPC UA Nodes
+### 7. Write Commands to OPC UA Nodes
 
 Send commands to writable OPC UA nodes:
 
 ```bash
 uv run python examples/opcua/write_task.py
+uv run python examples/opcua/write_task.py --tls
+uv run python examples/opcua/write_task.py --tls-auth
 ```
 
 This example:
@@ -136,12 +221,14 @@ verify values were received.
 **Important**: Update the node IDs in `write_task.py` with the actual values printed by
 your server.
 
-### 7. Delete Server (Cleanup)
+### 8. Delete Server (Cleanup)
 
 When finished, remove the server registration:
 
 ```bash
 uv run python examples/opcua/delete_server.py
+uv run python examples/opcua/delete_server.py --tls
+uv run python examples/opcua/delete_server.py --tls-auth
 ```
 
 This will remove the server and all associated tasks from Synnax.
@@ -232,8 +319,40 @@ OPC UA supports various security policies:
 - **Aes128-Sha256-RsaOaep**: High security
 - **Aes256-Sha256-RsaPss**: Highest security
 
-**Note**: The current examples use `SecurityPolicy.None` for simplicity. For production
-deployments, configure security in `device_props()`.
+### TLS Test Server
+
+The included test server supports TLS encryption via the `OPCUATLSSim` class, which runs
+on port 4842 with `Basic256Sha256_SignAndEncrypt`. Self-signed certificates for both
+server and client are generated automatically under `examples/opcua/certificates/`.
+
+```python
+from examples.opcua import OPCUATLSSim
+
+sim = OPCUATLSSim()
+sim.start()   # Starts TLS server on opc.tcp://127.0.0.1:4842/
+sim.stop()
+```
+
+### TLS Test Server with Username/Password
+
+The `OPCUATLSAuthSim` class adds username/password authentication on top of TLS
+encryption. It runs on port 4843 with `Basic256Sha256_SignAndEncrypt` and requires
+credentials (`testuser` / `testpass`).
+
+```python
+from examples.opcua import OPCUATLSAuthSim
+
+sim = OPCUATLSAuthSim()
+sim.start()   # Starts on opc.tcp://127.0.0.1:4843/
+sim.stop()
+```
+
+All three server variants expose the same full set of variables (floats, bools, arrays,
+commands, timestamps).
+
+**Note**: The default `OPCUASim` uses no encryption for simplicity. For production
+deployments, configure security mode, policy, and credentials when registering the
+device.
 
 ## Sample Rates
 

@@ -12,13 +12,17 @@
 package device
 
 import (
+	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
 	"github.com/synnaxlabs/synnax/pkg/service/rack"
 	"github.com/synnaxlabs/x/binary"
 	"github.com/synnaxlabs/x/status"
 )
 
+// Status is device-specific status information including operational state and device
+// identification.
 type Status = status.Status[StatusDetails]
 
+// Key is the device's serial number, used as its unique identifier.
 type Key = string
 
 // StatusDetails contains device-specific status details identifying the device and its
@@ -54,4 +58,7 @@ type Device struct {
 	Properties binary.MsgpackEncodedJSON `json:"properties" msgpack:"properties"`
 	// Status is the current operational status of the device.
 	Status *Status `json:"status,omitempty" msgpack:"status,omitempty"`
+	// Parent is an optional parent resource ID for hierarchical device organization (e.g.,
+	// NI chassis containing modules).
+	Parent *ontology.ID `json:"parent,omitempty" msgpack:"parent,omitempty"`
 }

@@ -10,11 +10,13 @@
 #pragma once
 
 #include <string>
+#include <utility>
 #include <vector>
 
-#include "nlohmann/json.hpp"
-
 #include "x/cpp/errors/errors.h"
+#include "x/cpp/json/json.h"
+
+#include "core/pkg/distribution/ontology/pb/ontology.pb.h"
 
 namespace synnax::ontology {
 /// @brief An ontology ID is a composite identifier consisting of a type and key.
@@ -38,6 +40,23 @@ struct ID {
     /// @returns A pair containing the parsed ID and an error. If parsing fails,
     /// the error will have ok() == false.
     [[nodiscard]] static std::pair<ID, x::errors::Error> parse(const std::string &s);
+
+    /// @brief Returns true if both type and key are empty.
+    [[nodiscard]] bool is_zero() const { return type.empty() && key.empty(); }
+
+    /// @brief Parses an ID from a JSON parser.
+    static ID parse(x::json::Parser parser);
+
+    /// @brief Serializes the ID to JSON.
+    [[nodiscard]] x::json::json to_json() const;
+
+    /// @brief Constructs an ID from its protobuf representation.
+    using proto_type = ::distribution::ontology::pb::ID;
+    static std::pair<ID, x::errors::Error>
+    from_proto(const ::distribution::ontology::pb::ID &pb);
+
+    /// @brief Serializes the ID to its protobuf representation.
+    [[nodiscard]] ::distribution::ontology::pb::ID to_proto() const;
 
     /// @brief Equality operator.
     bool operator==(const ID &other) const;

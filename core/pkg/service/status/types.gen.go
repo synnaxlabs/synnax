@@ -15,4 +15,5 @@ import (
 	gostatus "github.com/synnaxlabs/x/status"
 )
 
+// Status is a server-side status type alias for Go services.
 type Status[Details any] = gostatus.Status[Details]

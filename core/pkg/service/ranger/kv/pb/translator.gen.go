@@ -37,7 +37,7 @@ func PairFromPB(_ context.Context, pb *Pair) (kv.Pair, error) {
 	var err error
 	parsedRange, err := uuid.Parse(pb.Range)
 	if err != nil {
-		return r, err
+		return kv.Pair{}, err
 	}
 	r.Range = ranger.Key(parsedRange)
 	r.Key = pb.Key

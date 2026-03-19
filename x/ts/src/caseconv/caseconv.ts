@@ -17,6 +17,26 @@ import { type record } from "@/record";
  */
 const PRESERVE_CASE_SYMBOL = "synnax.caseconv.preserveCase";
 
+interface ZodDef extends z.core.$ZodTypeDef {
+  innerType?: z.core.SomeType;
+  options?: readonly z.core.SomeType[];
+  in?: z.core.SomeType;
+  out?: z.core.SomeType;
+  element?: z.core.SomeType;
+  shape?: Record<string, z.ZodType>;
+}
+
+interface ZodInternals extends z.core.$ZodTypeInternals {
+  def: ZodDef;
+}
+
+interface ZodSchema extends z.core.$ZodType {
+  [PRESERVE_CASE_SYMBOL]?: boolean;
+  _zod: ZodInternals;
+  shape?: Record<string, z.ZodType>;
+  sourceType?: () => { shape?: Record<string, z.ZodType> } | undefined;
+}
+
 /**
  * Marks a Zod schema to prevent case conversion of its keys and nested content.
  * Use this for schemas where keys are semantic values (like OPC UA NodeIds or Modbus channel keys)
@@ -33,7 +53,7 @@ const PRESERVE_CASE_SYMBOL = "synnax.caseconv.preserveCase";
  * });
  */
 export const preserveCase = <T extends z.ZodType>(schema: T): T => {
-  (schema as any)[PRESERVE_CASE_SYMBOL] = true;
+  (schema as ZodSchema)[PRESERVE_CASE_SYMBOL] = true;
   return schema;
 };
 
@@ -48,7 +68,8 @@ const hasPreserveCaseMarker = (schema: unknown): boolean => {
   // Direct marker check
   if (PRESERVE_CASE_SYMBOL in schema) return true;
 
-  const def = (schema as any)._zod?.def ?? (schema as any).def;
+  const s = schema as ZodSchema;
+  const def: ZodDef | undefined = s._zod?.def;
   if (def == null) return false;
 
   // Traverse through wrappers with innerType (optional, nullable, default, catch)
@@ -71,11 +92,11 @@ const hasPreserveCaseMarker = (schema: unknown): boolean => {
  * Returns undefined if the schema is not an array or is undefined.
  */
 const getArrayElementSchema = (
-  schema: z.ZodType | undefined,
+  schema: z.ZodType | z.core.SomeType | undefined,
 ): z.ZodType | undefined => {
   if (schema == null) return undefined;
-  const def = (schema as any).def;
-  if (def?.type === "array" && def.element != null) return def.element;
+  const def = (schema as ZodSchema)._zod?.def;
+  if (def?.type === "array" && def.element != null) return def.element as z.ZodType;
   // Handle union types that may contain arrays (e.g., nullishToEmpty)
   if (def?.type === "union" && Array.isArray(def.options))
     for (const option of def.options) {
@@ -92,24 +113,24 @@ const getArrayElementSchema = (
  * to find the inner object schema's shape. Returns null for non-object schemas.
  */
 const getSchemaShape = (
-  schema: z.ZodType | undefined,
+  schema: z.ZodType | z.core.SomeType | undefined,
 ): Record<string, z.ZodType> | null => {
   if (schema == null) return null;
-  const s = schema as any;
+  const s = schema as ZodSchema;
   if (s.shape != null) return s.shape;
   if (typeof s.sourceType === "function") {
     const st = s.sourceType();
     if (st?.shape != null) return st.shape;
   }
-  const def = s._zod?.def ?? s.def;
+  const def = s._zod?.def;
   if (def == null) return null;
   if (def.innerType != null) return getSchemaShape(def.innerType);
-  if (def.type === "union" && Array.isArray(def.options)) {
+  if (def.type === "union" && Array.isArray(def.options))
     for (const option of def.options) {
       const result = getSchemaShape(option);
       if (result != null) return result;
     }
-  }
+
   if (def.type === "pipe") return getSchemaShape(def.in) ?? getSchemaShape(def.out);
   return null;
 };
@@ -134,7 +155,7 @@ const createConverter = (
   f: (v: string) => string,
 ): (<V>(obj: V, opt?: Options) => V) => {
   const converter = <V>(obj: V, opt: Options = defaultOptions): V => {
-    if (typeof obj === "string") return f(obj) as any;
+    if (typeof obj === "string") return f(obj) as V;
     if (Array.isArray(obj)) {
       const elementSchema = getArrayElementSchema(opt.schema);
       const elemOpt: Options = {

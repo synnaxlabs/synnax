@@ -117,7 +117,7 @@ type (
 		Keys          []uuid.UUID     `json:"keys" msgpack:"keys"`
 		Names         []string        `json:"names" msgpack:"names"`
 		SearchTerm    string          `json:"search_term" msgpack:"search_term"`
-		HasLabels     []uuid.UUID     `json:"has_labels" msgpack:"has_labels"`
+		HasLabels     []label.Key     `json:"has_labels" msgpack:"has_labels"`
 		OverlapsWith  telem.TimeRange `json:"overlaps_with" msgpack:"overlaps_with"`
 		Limit         int             `json:"limit" msgpack:"limit"`
 		Offset        int             `json:"offset" msgpack:"offset"`

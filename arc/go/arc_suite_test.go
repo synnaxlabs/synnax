@@ -23,7 +23,7 @@ var _ = BeforeEach(func() {
 	ctx = context.Background()
 })
 
-func TestGo(t *testing.T) {
+func TestArc(t *testing.T) {
 	RegisterFailHandler(Fail)
-	RunSpecs(t, "Go Suite")
+	RunSpecs(t, "Arc Suite")
 }

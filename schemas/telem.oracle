@@ -76,6 +76,7 @@ TimeRange struct {
 
 TimeRangeBounded = TimeRange {
     @doc value "is a TimeRange alias used for type-safety in contexts requiring bounded time ranges."
+    @go omit
     @ts omit
     @cpp omit
     @py omit

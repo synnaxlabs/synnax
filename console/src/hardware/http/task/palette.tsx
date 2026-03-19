@@ -11,14 +11,25 @@ import { task } from "@synnaxlabs/client";
 import { Access, Icon } from "@synnaxlabs/pluto";
 
 import { READ_LAYOUT } from "@/hardware/http/task/Read";
+import { WRITE_LAYOUT } from "@/hardware/http/task/Write";
 import { Palette } from "@/palette";
+
+const useVisible = () => Access.useCreateGranted(task.TYPE_ONTOLOGY_ID);
 
 const CreateReadCommand = Palette.createSimpleCommand({
   key: "http_create_read_task",
   name: "Create an HTTP Read Task",
   icon: <Icon.Logo.HTTP />,
   layout: READ_LAYOUT,
-  useVisible: () => Access.useCreateGranted(task.TYPE_ONTOLOGY_ID),
+  useVisible,
 });
 
-export const COMMANDS = [CreateReadCommand];
+const CreateWriteCommand = Palette.createSimpleCommand({
+  key: "http_create_write_task",
+  name: "Create an HTTP Write Task",
+  icon: <Icon.Logo.HTTP />,
+  layout: WRITE_LAYOUT,
+  useVisible,
+});
+
+export const COMMANDS = [CreateReadCommand, CreateWriteCommand];

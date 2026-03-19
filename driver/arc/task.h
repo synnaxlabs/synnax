@@ -18,12 +18,13 @@
 #include "x/cpp/json/json.h"
 #include "x/cpp/uuid/uuid.h"
 
-#include "arc/cpp/module/module.h"
+#include "arc/cpp/program/program.h"
 #include "arc/cpp/runtime/errors/errors.h"
 #include "arc/cpp/runtime/loop/loop.h"
 #include "arc/cpp/runtime/runtime.h"
 #include "arc/cpp/runtime/state/state.h"
 #include "driver/arc/arc.h"
+#include "driver/arc/status/status.h"
 #include "driver/common/common.h"
 #include "driver/common/status.h"
 #include "driver/errors/errors.h"
@@ -35,13 +36,13 @@ namespace driver::arc {
 /// @brief configuration for an arc runtime task.
 struct TaskConfig : common::BaseTaskConfig {
     x::uuid::UUID arc_key;
-    ::arc::module::Module module;
+    ::arc::program::Program program;
     ::arc::runtime::loop::Config loop;
 
     TaskConfig(TaskConfig &&other) noexcept:
         BaseTaskConfig(std::move(other)),
         arc_key(std::move(other.arc_key)),
-        module(std::move(other.module)),
+        program(std::move(other.program)),
         loop(std::move(other.loop)) {}
 
     TaskConfig(const TaskConfig &) = delete;
@@ -61,9 +62,9 @@ struct TaskConfig : common::BaseTaskConfig {
             synnax::arc::RetrieveOptions{.compile = true}
         );
         if (arc_err) return {std::move(cfg), arc_err};
-        if (!arc_data.module.has_value())
+        if (!arc_data.program.has_value())
             return {std::move(cfg), x::errors::Error("arc module not compiled")};
-        cfg.module = *arc_data.module;
+        cfg.program = *arc_data.program;
         return {std::move(cfg), x::errors::NIL};
     }
 };
@@ -134,7 +135,7 @@ public:
         auto task = std::unique_ptr<Task>(new Task(task_meta, ctx));
 
         const ::arc::runtime::Config runtime_cfg{
-            .mod = cfg.module,
+            .program = cfg.program,
             .breaker = x::breaker::default_config("arc_runtime"),
             .retrieve_channels = [client = ctx->client](
                                      const std::vector<::arc::types::ChannelKey> &keys
@@ -150,6 +151,9 @@ public:
                 return {digests, x::errors::NIL};
             },
             .loop = cfg.loop,
+            .factories = {
+                std::make_shared<::driver::arc::status::Factory>(ctx->client),
+            },
         };
 
         auto [rt, err] = ::arc::runtime::load(
@@ -178,7 +182,7 @@ public:
                 ctx->client
             );
         auto initial_authorities = ::arc::runtime::build_authorities(
-            cfg.module.authorities,
+            cfg.program.authorities,
             task->runtime->write_channels
         );
         task->acquisition = std::make_unique<pipeline::Acquisition>(
@@ -197,7 +201,8 @@ public:
             std::move(source),
             x::breaker::default_config("arc_acquisition"),
             "arc_acquisition",
-            /* err_on_unauthorized */ false
+            /* err_on_unauthorized */ false,
+            /* open_eagerly */ true
         );
         task->control = std::make_unique<pipeline::Control>(
             streamer_factory,
@@ -211,8 +216,9 @@ public:
     }
 
     bool start(const std::string &cmd_key) {
+        const auto start = x::telem::TimeStamp::now();
         const auto runtime_started = this->runtime->start();
-        const auto acq_started = this->acquisition->start();
+        const auto acq_started = this->acquisition->start(start);
         const auto control_started = this->control->start();
         this->state.send_start(cmd_key);
         return acq_started && control_started && runtime_started;

@@ -9,8 +9,6 @@ on:
       - alamos/go/**
       - cesium/**
       - codecov.yaml
-      - go.work
-      - go.work.sum
       - scripts/check_gofmt.sh
       - x/go/**
   push:
@@ -24,8 +22,6 @@ on:
       - alamos/go/**
       - cesium/**
       - codecov.yaml
-      - go.work
-      - go.work.sum
       - scripts/check_gofmt.sh
       - x/go/**
   workflow_dispatch:

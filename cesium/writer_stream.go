@@ -103,6 +103,7 @@ type streamWriter struct {
 	confluence.AbstractUnarySource[WriterResponse]
 	relay           confluence.Inlet[Frame]
 	accumulatedErr  error
+	errSent         bool
 	virtual         *virtualWriter
 	updateDBControl func(ctx context.Context, u ControlUpdate) error
 	internal        []*idxWriter
@@ -216,11 +217,15 @@ func (w *streamWriter) maybeSendRes(
 	res := WriterResponse{Command: req.Command, SeqNum: req.SeqNum, End: end, Authorized: true}
 	if w.accumulatedErr != nil && errors.Is(w.accumulatedErr, xcontrol.ErrUnauthorized) {
 		w.accumulatedErr = nil
+		w.errSent = false
 		res.Authorized = false
 	}
 	res.Err = w.accumulatedErr
-	if res.Err == nil && req.Command == WriterCommandWrite && !*w.Sync {
+	if req.Command == WriterCommandWrite && !*w.Sync && (res.Err == nil || w.errSent) {
 		return nil
+	}
+	if res.Err != nil {
+		w.errSent = true
 	}
 	return signal.SendUnderContext(ctx, w.Out.Inlet(), res)
 }
@@ -340,6 +345,13 @@ type idxWriter struct {
 	// writingToIdx is true when the Write is writing to the index channel. This is
 	// typically true, which allows us to avoid unnecessary lookups.
 	writingToIdx bool
+	// hasUncommittedData tracks whether new data has been written since the last
+	// successful commit. This prevents stale commits when a control transfer
+	// advances the domain writer's prevCommit beyond this writer's highWaterMark.
+	hasUncommittedData bool
+	// lastCommitEnd stores the end timestamp from the last successful commit,
+	// returned when Commit is called with no new data to commit.
+	lastCommitEnd telem.TimeStamp
 }
 
 func (w *idxWriter) write(
@@ -383,16 +395,23 @@ func (w *idxWriter) write(
 		if !incrementedSampleCount {
 			w.sampleCount = int64(alignment.SampleIndex()) + series.Len()
 			incrementedSampleCount = true
+			w.hasUncommittedData = true
 		}
 		series.Alignment = alignment
 		fr.SetRawSeriesAt(i, series)
+	}
+	// When write returns ErrUnauthorized, the caller (streamWriter.write) skips
+	// auto-commit via continue, so we must reset hasUncommittedData here to prevent
+	// a stale commit when the writer regains control.
+	if errors.Is(accumulatedErr, xcontrol.ErrUnauthorized) {
+		w.hasUncommittedData = false
 	}
 	return fr, accumulatedErr
 }
 
 func (w *idxWriter) Commit(ctx context.Context) (telem.TimeStamp, error) {
-	if w.sampleCount == 0 {
-		return w.start, nil
+	if w.sampleCount == 0 || !w.hasUncommittedData {
+		return w.lastCommitEnd, nil
 	}
 	end, err := w.resolveCommitEnd(ctx)
 	if err != nil {
@@ -402,6 +421,15 @@ func (w *idxWriter) Commit(ctx context.Context) (telem.TimeStamp, error) {
 	end.Lower++
 	for _, chW := range w.internal {
 		err = errors.Join(err, chW.CommitWithEnd(ctx, end.Lower))
+	}
+	if err == nil {
+		w.lastCommitEnd = end.Lower
+	}
+	// Reset on ErrUnauthorized as well: after a control transfer, the new controller
+	// may advance prevCommit, making any future commit with this writer's stale
+	// highWaterMark invalid.
+	if err == nil || errors.Is(err, xcontrol.ErrUnauthorized) {
+		w.hasUncommittedData = false
 	}
 	return end.Lower, err
 }

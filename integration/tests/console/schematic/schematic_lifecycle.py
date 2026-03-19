@@ -11,11 +11,12 @@ import uuid
 from typing import Any
 
 import synnax as sy
+from x import get_random_name
 
 from console.case import ConsoleCase
 from console.schematic import SCHEMATIC_VERSION, Button
 from console.schematic.schematic import Schematic
-from framework.utils import assert_link_format, get_random_name
+from framework.utils import assert_link_format
 
 
 def assert_exported_json(exported: dict[str, Any]) -> None:
@@ -154,7 +155,7 @@ class SchematicLifecycle(ConsoleCase):
 
         entries = schematic.get_control_legend_entries()
         assert len(entries) > 0, "Control legend should have at least one entry"
-        assert schematic.page_name in entries, (
+        assert any(schematic.page_name in e for e in entries), (
             f"Expected writer '{schematic.page_name}' in control legend!\n"
             f"Actual entries: {entries}"
         )

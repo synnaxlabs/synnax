@@ -19,12 +19,9 @@ import (
 	"github.com/synnaxlabs/x/config"
 	"github.com/synnaxlabs/x/gorp"
 	"github.com/synnaxlabs/x/override"
-	"github.com/synnaxlabs/x/telem"
 	"github.com/synnaxlabs/x/types"
 	"github.com/synnaxlabs/x/validate"
 )
-
-type CalculationAnalyzer = func(ctx context.Context, expr string) (telem.DataType, error)
 
 // Service is the central entity for managing channels within Synnax's distribution
 // layer. It provides facilities for creating and retrieving channels.
@@ -36,10 +33,6 @@ type Service struct {
 	otg   *ontology.Ontology
 	group group.Group
 	table *gorp.Table[Key, Channel]
-}
-
-func (s *Service) SetCalculationAnalyzer(analyzer CalculationAnalyzer) {
-	s.proxy.analyzeCalculation = analyzer
 }
 
 type IntOverflowChecker = func(types.Uint20) error

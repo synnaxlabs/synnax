@@ -16,6 +16,7 @@ import (
 	"github.com/synnaxlabs/x/binary"
 )
 
+// Key is a unique identifier for a log, represented as a UUID.
 type Key = uuid.UUID
 
 // Log is a timestamped event and message logging component. Logs display chronological

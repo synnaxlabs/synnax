@@ -240,14 +240,15 @@ public:
     /// Note that this function will still accumulate an error if the path is found
     /// but the value is not of the expected type.
     /// @param path The JSON path to the value.
-    /// @param default_value The default value to return if the path is not found.
-    /// @returns The value at the path, or default_value if not found.
+    /// @param default_value The default value to return if the path is not found or
+    /// null.
+    /// @returns The value at the path, or default_value if not found or null.
     template<typename T>
     T field(const std::string &path, const T &default_value) {
         if (noop) return default_value;
 
         const auto iter = config.find(path);
-        if (iter == config.end()) return default_value;
+        if (iter == config.end() || iter->is_null()) return default_value;
         return get<T>(path, iter);
     }
 

@@ -191,7 +191,7 @@ func TaskFromPB(
 	if pb.Status != nil {
 		val, err := statuspb.StatusFromPB[task.StatusDetails](ctx, pb.Status, StatusDetailsFromPBAny)
 		if err != nil {
-			return r, err
+			return task.Task{}, err
 		}
 		r.Status = (*task.Status)(&val)
 	}

@@ -14,9 +14,9 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/synnaxlabs/alamos"
-	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer"
 	"github.com/synnaxlabs/synnax/pkg/service/arc"
+	"github.com/synnaxlabs/synnax/pkg/service/channel"
 	"github.com/synnaxlabs/synnax/pkg/service/driver"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
 	"github.com/synnaxlabs/synnax/pkg/service/task"
@@ -40,8 +40,8 @@ type TaskConfig struct {
 	AutoStart bool `json:"auto_start"`
 }
 
-// GetModuleFunc retrieves an Arc with its compiled Module by key.
-type GetModuleFunc func(ctx context.Context, key uuid.UUID) (arc.Arc, error)
+// GetProgramFunc retrieves an Arc with its compiled Program by key.
+type GetProgramFunc func(ctx context.Context, key uuid.UUID) (arc.Arc, error)
 
 // FactoryConfig is the configuration for creating an Arc factory.
 type FactoryConfig struct {
@@ -54,9 +54,9 @@ type FactoryConfig struct {
 	// Status is used for Arc graph nodes (set_status) to update statuses.
 	// [REQUIRED]
 	Status *status.Service
-	// GetModule retrieves an Arc with its compiled Module by key.
+	// GetProgram retrieves an Arc with its compiled Program by key.
 	// [REQUIRED]
-	GetModule GetModuleFunc
+	GetProgram GetProgramFunc
 	alamos.Instrumentation
 }
 
@@ -70,7 +70,7 @@ func (c FactoryConfig) Override(other FactoryConfig) FactoryConfig {
 	c.Channel = override.Nil(c.Channel, other.Channel)
 	c.Framer = override.Nil(c.Framer, other.Framer)
 	c.Status = override.Nil(c.Status, other.Status)
-	c.GetModule = override.Nil(c.GetModule, other.GetModule)
+	c.GetProgram = override.Nil(c.GetProgram, other.GetProgram)
 	return c
 }
 
@@ -79,7 +79,7 @@ func (c FactoryConfig) Validate() error {
 	validate.NotNil(v, "channel", c.Channel)
 	validate.NotNil(v, "framer", c.Framer)
 	validate.NotNil(v, "status", c.Status)
-	validate.NotNil(v, "get_module", c.GetModule)
+	validate.NotNil(v, "get_program", c.GetProgram)
 	return v.Error()
 }
 
@@ -112,7 +112,7 @@ func (f *Factory) ConfigureTask(
 		f.setConfigStatus(ctx, t, xstatus.VariantError, err.Error())
 		return nil, true, err
 	}
-	prog, err := f.cfg.GetModule(ctx, cfg.ArcKey)
+	prog, err := f.cfg.GetProgram(ctx, cfg.ArcKey)
 	if err != nil {
 		f.setConfigStatus(ctx, t, xstatus.VariantError, err.Error())
 		return nil, true, err

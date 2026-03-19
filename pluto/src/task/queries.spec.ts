@@ -237,6 +237,7 @@ describe("queries", () => {
         details: {
           task: testTask.key,
           running: false,
+          data: {},
         },
       });
 
@@ -329,6 +330,7 @@ describe("queries", () => {
         details: {
           task: testTask.key,
           running: true,
+          data: {},
         },
       });
 
@@ -394,11 +396,8 @@ describe("queries", () => {
       });
       await waitFor(() => expect(result.current.variant).toEqual("success"));
 
-      const errorStatusDataZ = z.object({ error: z.string() });
-      // eslint-disable-next-line @typescript-eslint/no-unused-vars
-      const errorStatusDetailsZ = task.statusDetailsZ(errorStatusDataZ);
-
-      const newStatus = status.create<typeof errorStatusDetailsZ>({
+      const _errorStatusDetailsZ = task.statusDetailsZ(z.object({ error: z.string() }));
+      const newStatus = status.create<typeof _errorStatusDetailsZ>({
         key: task.statusKey(testTask.key),
         variant: "error",
         message: "Task failed",
@@ -965,13 +964,13 @@ describe("queries", () => {
         config: {},
       });
 
-      const statusDataSchema = z.object({ errorCode: z.number().optional() });
+      const statusData = z.object({ errorCode: z.number().optional() });
 
       const useForm = Task.createForm({
         schemas: {
           type: z.literal("testType"),
           config: z.object({}),
-          statusData: statusDataSchema.nullish(),
+          statusData: statusData.nullish(),
         },
         initialValues: {
           key: testTask.key,
@@ -987,10 +986,10 @@ describe("queries", () => {
 
       await waitFor(() => expect(result.current.variant).toEqual("success"));
 
-      const errorStatusDataZ = z.object({ errorCode: z.number() });
-      // eslint-disable-next-line @typescript-eslint/no-unused-vars
-      const errorStatusDetailsZ = task.statusDetailsZ(errorStatusDataZ);
-      const taskStatus: task.Status = status.create<typeof errorStatusDetailsZ>({
+      const _errorStatusDetailsZ = task.statusDetailsZ(
+        z.object({ errorCode: z.number() }),
+      );
+      const taskStatus: task.Status = status.create<typeof _errorStatusDetailsZ>({
         key: task.statusKey(testTask.key),
         variant: "error",
         message: "Task error",
@@ -1007,7 +1006,7 @@ describe("queries", () => {
 
       await waitFor(() => {
         const status =
-          result.current.form.get<task.Status<typeof statusDataSchema>>("status").value;
+          result.current.form.get<task.Status<typeof statusData>>("status").value;
         expect(status?.variant).toEqual("error");
         expect(status?.message).toEqual("Task error");
         expect(status?.details.data?.errorCode).toEqual(500);
@@ -1100,13 +1099,13 @@ describe("queries", () => {
         config: {},
       });
 
-      const statusDataSchema = z.object({ errorCode: z.number().optional() });
+      const statusData = z.object({ errorCode: z.number().optional() });
 
       const useForm = Task.createForm({
         schemas: {
           type: z.literal("testType"),
           config: z.object({}),
-          statusData: statusDataSchema.nullish(),
+          statusData: statusData.nullish(),
         },
         initialValues: {
           key: testTask.key,
@@ -1122,10 +1121,10 @@ describe("queries", () => {
 
       await waitFor(() => expect(result.current.variant).toEqual("success"));
       expect(result.current.form.get("name").touched).toBe(false);
-      const errorStatusDataZ = z.object({ errorCode: z.number() });
-      // eslint-disable-next-line @typescript-eslint/no-unused-vars
-      const errorStatusDetailsZ = task.statusDetailsZ(errorStatusDataZ);
-      const taskStatus: task.Status = status.create<typeof errorStatusDetailsZ>({
+      const _errorStatusDetailsZ = task.statusDetailsZ(
+        z.object({ errorCode: z.number() }),
+      );
+      const taskStatus: task.Status = status.create<typeof _errorStatusDetailsZ>({
         key: task.statusKey(testTask.key),
         variant: "error",
         message: "Task error from server",
@@ -1142,7 +1141,7 @@ describe("queries", () => {
 
       await waitFor(() => {
         const statusField =
-          result.current.form.get<task.Status<typeof statusDataSchema>>("status").value;
+          result.current.form.get<task.Status<typeof statusData>>("status").value;
         expect(statusField?.variant).toEqual("error");
       });
       expect(result.current.form.get("status").touched).toBe(false);
@@ -1380,8 +1379,8 @@ describe("queries", () => {
         config: complexConfig,
       });
 
-      const typeSchema = z.literal("complexType");
-      const configSchema = z.object({
+      const type = z.literal("complexType");
+      const config = z.object({
         connection: z.object({
           host: z.string(),
           port: z.number(),
@@ -1392,11 +1391,11 @@ describe("queries", () => {
           retryCount: z.number(),
         }),
       });
-      const statusDataSchema = z.any();
+      const statusData = z.any();
       const schemas = {
-        type: typeSchema,
-        config: configSchema,
-        statusData: statusDataSchema,
+        type,
+        config,
+        statusData,
       };
 
       const useForm = Task.createForm({
@@ -1430,13 +1429,9 @@ describe("queries", () => {
 
       await waitFor(
         async () => {
-          const updatedTask = await client.tasks.retrieve({
+          const updatedTask = await client.tasks.retrieve<typeof schemas>({
             key: testTask.key,
-            schemas: {
-              type: typeSchema,
-              config: configSchema,
-              statusData: statusDataSchema,
-            },
+            schemas,
           });
           expect(updatedTask.config.connection.port).toEqual(9090);
         },

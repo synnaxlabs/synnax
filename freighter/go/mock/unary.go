@@ -12,6 +12,7 @@ package mock
 import (
 	"context"
 	"go/types"
+	"sync"
 
 	"github.com/synnaxlabs/freighter"
 	"github.com/synnaxlabs/x/address"
@@ -33,20 +34,26 @@ type UnaryServer[RQ, RS freighter.Payload] struct {
 	Address address.Address
 	// Handler is the handler that is called when a request is received.
 	Handler func(context.Context, RQ) (RS, error)
+	mu      sync.RWMutex
 	freighter.Reporter
 	freighter.MiddlewareCollector
 }
 
 // BindHandler implements the freighter.Unary interface.
 func (u *UnaryServer[RQ, RS]) BindHandler(handler func(context.Context, RQ) (RS, error)) {
+	u.mu.Lock()
+	defer u.mu.Unlock()
 	u.Handler = handler
 }
 
 func (u *UnaryServer[RQ, RS]) exec(ctx freighter.Context, req RQ) (res RS, oMD freighter.Context, err error) {
+	u.mu.RLock()
+	h := u.Handler
+	u.mu.RUnlock()
 	oMD, err = u.Exec(
 		ctx,
 		freighter.FinalizerFunc(func(ctx freighter.Context) (oCtx freighter.Context, err error) {
-			res, err = u.Handler(ctx, req)
+			res, err = h(ctx, req)
 			return freighter.Context{
 				Context:  ctx,
 				Target:   u.Address,
@@ -89,7 +96,13 @@ func (u *UnaryClient[RQ, RS]) Send(
 				handler = u.server.exec
 			} else if u.Network != nil {
 				route, ok := u.Network.resolveUnaryTarget(target)
-				if !ok || route.Handler == nil {
+				if !ok {
+					return oMD, address.NewTargetNotFoundError(target)
+				}
+				route.mu.RLock()
+				hasHandler := route.Handler != nil
+				route.mu.RUnlock()
+				if !hasHandler {
 					return oMD, address.NewTargetNotFoundError(target)
 				}
 				handler = route.exec

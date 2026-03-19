@@ -578,7 +578,7 @@ func (p *Plugin) generatePrimitiveConversion(
 	case "data_type":
 		return fmt.Sprintf("%s(this->%s.to_proto())", pbSetter, cppFieldName),
 			fmt.Sprintf("cpp.%s = x::telem::DataType::from_proto(pb.%s());", cppFieldName, pbAccessorName)
-	case "json":
+	case "record":
 		data.includes.addInternal("x/cpp/json/struct.h")
 		if isOptional {
 			forward = fmt.Sprintf("if (this->%s.has_value()) *pb.mutable_%s() = x::json::to_struct(*this->%s).first", cppFieldName, pbAccessorName, cppFieldName)
@@ -597,21 +597,15 @@ func (p *Plugin) generatePrimitiveConversion(
 		}
 		return forward, backward
 	case "any":
-		data.includes.addInternal("x/cpp/json/value.h")
+		data.includes.addInternal("x/cpp/json/json.h")
 		if isOptional {
-			forward = fmt.Sprintf("if (this->%s.has_value()) *pb.mutable_%s() = x::json::to_value(*this->%s).first", cppFieldName, pbAccessorName, cppFieldName)
+			forward = fmt.Sprintf("if (this->%s.has_value()) pb.set_%s((*this->%s).dump())", cppFieldName, pbAccessorName, cppFieldName)
 			backward = fmt.Sprintf(`if (pb.has_%s()) {
-        auto [v, err] = x::json::from_value(pb.%s());
-        if (err) return {{}, err};
-        cpp.%s = v;
-    }`, pbAccessorName, pbAccessorName, cppFieldName)
+        cpp.%s = x::json::json::parse(pb.%s(), nullptr, false);
+    }`, pbAccessorName, cppFieldName, pbAccessorName)
 		} else {
-			forward = fmt.Sprintf("*pb.mutable_%s() = x::json::to_value(this->%s).first", pbAccessorName, cppFieldName)
-			backward = fmt.Sprintf(`{
-        auto [v, err] = x::json::from_value(pb.%s());
-        if (err) return {{}, err};
-        cpp.%s = v;
-    }`, pbAccessorName, cppFieldName)
+			forward = fmt.Sprintf("pb.set_%s(this->%s.dump())", pbAccessorName, cppFieldName)
+			backward = fmt.Sprintf("cpp.%s = x::json::json::parse(pb.%s(), nullptr, false);", cppFieldName, pbAccessorName)
 		}
 		return forward, backward
 	case "bytes":

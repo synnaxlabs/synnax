@@ -15,6 +15,7 @@ import (
 	"github.com/google/uuid"
 )
 
+// Key is a unique identifier for a user, represented as a UUID.
 type Key = uuid.UUID
 
 // User is an account entity representing a person accessing the Synnax system. Users

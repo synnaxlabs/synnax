@@ -7,13 +7,11 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-#include <sstream>
-
 #include "client/cpp/ontology/id.h"
 
 namespace synnax::ontology {
 std::string ID::string() const {
-    return type + ":" + key;
+    return this->type + ":" + this->key;
 }
 
 std::pair<ID, x::errors::Error> ID::parse(const std::string &s) {
@@ -43,14 +41,40 @@ std::pair<ID, x::errors::Error> ID::parse(const std::string &s) {
                 "[ontology] - failed to parse id '" + s + "': type is empty"
             )
         };
-    const auto type = s.substr(0, colon_pos);
-    const auto key = s.substr(colon_pos + 1);
-    ID id{.type = type, .key = key};
-    return {id, x::errors::NIL};
+    return {
+        ID{.type = s.substr(0, colon_pos), .key = s.substr(colon_pos + 1)},
+        x::errors::NIL
+    };
+}
+
+ID ID::parse(x::json::Parser parser) {
+    return ID{
+        .type = parser.field<std::string>("type"),
+        .key = parser.field<std::string>("key"),
+    };
+}
+
+x::json::json ID::to_json() const {
+    x::json::json j;
+    j["type"] = this->type;
+    j["key"] = this->key;
+    return j;
+}
+
+std::pair<ID, x::errors::Error>
+ID::from_proto(const ::distribution::ontology::pb::ID &pb) {
+    return {ID{.type = pb.type(), .key = pb.key()}, x::errors::NIL};
+}
+
+::distribution::ontology::pb::ID ID::to_proto() const {
+    ::distribution::ontology::pb::ID pb;
+    pb.set_type(this->type);
+    pb.set_key(this->key);
+    return pb;
 }
 
 bool ID::operator==(const ID &other) const {
-    return type == other.type && key == other.key;
+    return this->type == other.type && this->key == other.key;
 }
 
 bool ID::operator!=(const ID &other) const {

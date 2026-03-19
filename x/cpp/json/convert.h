@@ -9,6 +9,9 @@
 
 #pragma once
 
+#include <map>
+#include <string>
+
 #include <nlohmann/json.hpp>
 
 #include "x/cpp/errors/errors.h"
@@ -37,18 +40,31 @@ enum class TimeFormat {
 /// string is unknown.
 std::pair<TimeFormat, errors::Error> parse_time_format(const std::string &str);
 
+/// @brief a mapping from string values to numeric values for enum-style conversion
+/// (read direction: JSON string → Synnax number).
+using EnumMap = std::map<std::string, double>;
+
+/// @brief a mapping from numeric JSON values to string labels for enum-style conversion
+/// (write direction: Synnax number → JSON string).
+using ReverseEnumMap = std::map<nlohmann::json, std::string>;
+
 /// @brief converts a JSON value to a SampleValue of the given target DataType.
 /// Inspects the JSON value's type at runtime to determine the conversion path.
 /// @param value the JSON value to convert.
 /// @param target the Synnax DataType to convert to.
 /// @param time_format the expected time format for TIMESTAMP_T conversions. Ignored
 /// when the target type is not TIMESTAMP_T.
+/// @param enum_values optional mapping of string values to numbers. When non-null and
+/// the JSON value is a string targeting a numeric type, the map is checked first. If
+/// the string is found, the mapped numeric value is used; otherwise normal conversion
+/// applies.
 /// @returns the converted SampleValue and errors::NIL, or a zero SampleValue and one of
 /// CONVERSION_ERROR if an issue occurred while trying to convert the value.
 std::pair<telem::SampleValue, errors::Error> to_sample_value(
     const nlohmann::json &value,
     const telem::DataType &target,
-    TimeFormat time_format = TimeFormat::ISO8601
+    TimeFormat time_format = TimeFormat::ISO8601,
+    const EnumMap *enum_values = nullptr
 );
 
 /// @brief returns true if a JSON value can at least sometimes be converted to the given
@@ -64,9 +80,16 @@ enum class Type { Number, String, Boolean };
 /// @brief converts a SampleValue to a JSON value of the given target type.
 /// @param value the SampleValue to convert.
 /// @param target the JSON type to convert to.
+/// @param enum_values optional reverse enum mapping. When non-null and the target type
+/// is String, the value is first converted to a JSON number and compared against each
+/// entry. If a match is found, the corresponding label is returned as a JSON string;
+/// otherwise normal conversion applies.
 /// @returns the JSON value and nil, or an empty JSON value and an error if unsupported.
-std::pair<nlohmann::json, errors::Error>
-from_sample_value(const telem::SampleValue &value, Type target);
+std::pair<nlohmann::json, errors::Error> from_sample_value(
+    const telem::SampleValue &value,
+    Type target,
+    const ReverseEnumMap *enum_values = nullptr
+);
 
 /// @brief checks at config time whether a DataType can be converted to the given JSON
 /// Type.

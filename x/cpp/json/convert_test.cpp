@@ -1600,6 +1600,89 @@ TEST(FromSampleValue, TimeStampToBooleanError) {
     );
 }
 
+TEST(FromSampleValue, EnumMatchFloat64) {
+    const x::json::ReverseEnumMap enums = {{1.0, "ON"}, {0.0, "OFF"}};
+    const auto result = ASSERT_NIL_P(
+        x::json::from_sample_value(
+            x::telem::SampleValue(1.0),
+            x::json::Type::String,
+            &enums
+        )
+    );
+    ASSERT_EQ(result, json("ON"));
+}
+
+TEST(FromSampleValue, EnumMatchZeroFloat64) {
+    const x::json::ReverseEnumMap enums = {{1.0, "ON"}, {0.0, "OFF"}};
+    const auto result = ASSERT_NIL_P(
+        x::json::from_sample_value(
+            x::telem::SampleValue(0.0),
+            x::json::Type::String,
+            &enums
+        )
+    );
+    ASSERT_EQ(result, json("OFF"));
+}
+
+TEST(FromSampleValue, EnumMatchUint8) {
+    const x::json::ReverseEnumMap enums = {{1, "ON"}, {0, "OFF"}};
+    const auto result = ASSERT_NIL_P(
+        x::json::from_sample_value(
+            x::telem::SampleValue(uint8_t(1)),
+            x::json::Type::String,
+            &enums
+        )
+    );
+    ASSERT_EQ(result, json("ON"));
+}
+
+TEST(FromSampleValue, EnumMatchInt64) {
+    const x::json::ReverseEnumMap enums = {{2, "HIGH"}, {1, "MEDIUM"}, {0, "LOW"}};
+    const auto result = ASSERT_NIL_P(
+        x::json::from_sample_value(
+            x::telem::SampleValue(int64_t(2)),
+            x::json::Type::String,
+            &enums
+        )
+    );
+    ASSERT_EQ(result, json("HIGH"));
+}
+
+TEST(FromSampleValue, EnumNoMatchFallsThrough) {
+    const x::json::ReverseEnumMap enums = {{1.0, "ON"}, {0.0, "OFF"}};
+    const auto result = ASSERT_NIL_P(
+        x::json::from_sample_value(
+            x::telem::SampleValue(99.0),
+            x::json::Type::String,
+            &enums
+        )
+    );
+    ASSERT_EQ(result, json("99"));
+}
+
+TEST(FromSampleValue, EnumIgnoredForNonStringTarget) {
+    const x::json::ReverseEnumMap enums = {{1.0, "ON"}, {0.0, "OFF"}};
+    const auto result = ASSERT_NIL_P(
+        x::json::from_sample_value(
+            x::telem::SampleValue(1.0),
+            x::json::Type::Number,
+            &enums
+        )
+    );
+    ASSERT_EQ(result, json(1.0));
+}
+
+TEST(FromSampleValue, EnumNullptrBehavesNormally) {
+    const auto result = ASSERT_NIL_P(
+        x::json::from_sample_value(
+            x::telem::SampleValue(1.0),
+            x::json::Type::String,
+            nullptr
+        )
+    );
+    ASSERT_EQ(result, json("1"));
+}
+
 // ==================== from_timestamp ====================
 
 TEST(FromTimestamp, UnixNanosecond) {
@@ -2045,4 +2128,61 @@ TEST(ZeroValue, String) {
 
 TEST(ZeroValue, Boolean) {
     ASSERT_EQ(x::json::zero_value(x::json::Type::Boolean), false);
+}
+
+// ==================== EnumMap ====================
+
+TEST(ToSampleValueEnum, StringToFloat64ViaEnum) {
+    x::json::EnumMap enums = {{"ON", 1.0}, {"OFF", 0.0}};
+    const auto sv = ASSERT_NIL_P(
+        x::json::to_sample_value(json("ON"), x::telem::FLOAT64_T, {}, &enums)
+    );
+    ASSERT_EQ(std::get<double>(sv), 1.0);
+}
+
+TEST(ToSampleValueEnum, StringToUint8ViaEnum) {
+    x::json::EnumMap enums = {{"ON", 1.0}, {"OFF", 0.0}};
+    const auto sv = ASSERT_NIL_P(
+        x::json::to_sample_value(json("OFF"), x::telem::UINT8_T, {}, &enums)
+    );
+    ASSERT_EQ(std::get<uint8_t>(sv), 0);
+}
+
+TEST(ToSampleValueEnum, StringToInt32ViaEnum) {
+    x::json::EnumMap enums = {{"AUTO", 0}, {"MANUAL", 1}, {"STANDBY", 2}};
+    const auto sv = ASSERT_NIL_P(
+        x::json::to_sample_value(json("STANDBY"), x::telem::INT32_T, {}, &enums)
+    );
+    ASSERT_EQ(std::get<int32_t>(sv), 2);
+}
+
+TEST(ToSampleValueEnum, StringNotInEnumFallsBackToNumericParsing) {
+    x::json::EnumMap enums = {{"ON", 1.0}, {"OFF", 0.0}};
+    const auto sv = ASSERT_NIL_P(
+        x::json::to_sample_value(json("42"), x::telem::FLOAT64_T, {}, &enums)
+    );
+    ASSERT_EQ(std::get<double>(sv), 42.0);
+}
+
+TEST(ToSampleValueEnum, StringNotInEnumAndNotNumericFails) {
+    x::json::EnumMap enums = {{"ON", 1.0}, {"OFF", 0.0}};
+    ASSERT_OCCURRED_AS_P(
+        x::json::to_sample_value(json("UNKNOWN"), x::telem::FLOAT64_T, {}, &enums),
+        x::json::CONVERSION_ERROR
+    );
+}
+
+TEST(ToSampleValueEnum, NullEnumMapUsesNormalConversion) {
+    const auto sv = ASSERT_NIL_P(
+        x::json::to_sample_value(json("42"), x::telem::FLOAT64_T, {}, nullptr)
+    );
+    ASSERT_EQ(std::get<double>(sv), 42.0);
+}
+
+TEST(ToSampleValueEnum, NumberBypassesEnumMap) {
+    x::json::EnumMap enums = {{"ON", 1.0}, {"OFF", 0.0}};
+    const auto sv = ASSERT_NIL_P(
+        x::json::to_sample_value(json(99), x::telem::INT32_T, {}, &enums)
+    );
+    ASSERT_EQ(std::get<int32_t>(sv), 99);
 }

@@ -96,8 +96,7 @@ var _ = Describe("Garbage collection", Ordered, func() {
 
 					By("Checking the resulting file size")
 					Eventually(func(g Gomega) uint32 {
-						i, err := fs.Stat(path.Join(channelKeyToPath(basic) + "/1.domain"))
-						g.Expect(err).ToNot(HaveOccurred())
+						i := MustSucceed(fs.Stat(path.Join(channelKeyToPath(basic) + "/1.domain")))
 						return uint32(i.Size())
 					}).Should(Equal(uint32(42 * telem.Int64T.Density())))
 				})
@@ -150,8 +149,7 @@ var _ = Describe("Garbage collection", Ordered, func() {
 					Expect(db.DeleteTimeRange(ctx, []cesium.ChannelKey{basic}, (20 * telem.SecondTS).Range(50*telem.SecondTS))).To(Succeed())
 
 					Consistently(func(g Gomega) uint32 {
-						i, err := fs.Stat(path.Join(channelKeyToPath(basic) + "/1.domain"))
-						g.Expect(err).ToNot(HaveOccurred())
+						i := MustSucceed(fs.Stat(path.Join(channelKeyToPath(basic) + "/1.domain")))
 						return uint32(i.Size())
 					}).Should(Equal(uint32(90 * telem.Int64T.Density())))
 
@@ -160,8 +158,7 @@ var _ = Describe("Garbage collection", Ordered, func() {
 
 					By("Checking the resulting file size")
 					Eventually(func(g Gomega) uint32 {
-						i, err := fs.Stat(path.Join(channelKeyToPath(basic) + "/1.domain"))
-						g.Expect(err).ToNot(HaveOccurred())
+						i := MustSucceed(fs.Stat(path.Join(channelKeyToPath(basic) + "/1.domain")))
 						return uint32(i.Size())
 					}).Should(Equal(uint32(54 * telem.Int64T.Density())))
 
@@ -230,8 +227,7 @@ var _ = Describe("Garbage collection", Ordered, func() {
 					// File 5 should be garbage collected (5 * 8 > 39).
 
 					Consistently(func(g Gomega) uint32 {
-						i, err := fs.Stat(path.Join(channelKeyToPath(basic) + "/2.domain"))
-						g.Expect(err).ToNot(HaveOccurred())
+						i := MustSucceed(fs.Stat(path.Join(channelKeyToPath(basic) + "/2.domain")))
 						return uint32(i.Size())
 					}).Should(Equal(uint32(10 * telem.Int64T.Density())))
 

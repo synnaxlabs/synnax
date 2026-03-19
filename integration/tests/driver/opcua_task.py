@@ -24,15 +24,7 @@ class OPCUAReadTaskCase(SimulatorCase, ReadTaskCase):
     sim_classes = [OPCUASim]
     SAMPLE_RATE = 50 * sy.Rate.HZ
     array_mode: bool = False
-    array_size: int = 50
-
-    def setup(self) -> None:
-        self.sims = {
-            OPCUASim.device_name: OPCUASim(
-                rate=self.SAMPLE_RATE, array_size=self.array_size
-            )
-        }
-        super().setup()
+    array_size: int = 5
 
     @staticmethod
     @abstractmethod

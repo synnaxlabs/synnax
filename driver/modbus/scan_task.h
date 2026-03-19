@@ -16,12 +16,9 @@
 
 #include "glog/logging.h"
 
-#include "client/cpp/synnax.h"
 #include "x/cpp/json/json.h"
-#include "x/cpp/telem/telem.h"
 
 #include "driver/common/scan_task.h"
-#include "driver/common/status.h"
 #include "driver/modbus/device/device.h"
 #include "driver/modbus/modbus.h"
 #include "driver/task/task.h"

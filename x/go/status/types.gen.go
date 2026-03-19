@@ -16,6 +16,7 @@ import (
 	"github.com/synnaxlabs/x/telem"
 )
 
+// Variant is the severity or type of a status message.
 type Variant string
 
 const (
@@ -31,11 +32,11 @@ const (
 // platform. Statuses support different severity variants and can carry
 // component-specific details.
 type Status[Details any] struct {
-	// Key is a unique identifier for this status, automatically generated if not provided.
+	// Key is a unique identifier for this status, auto-generated if not provided.
 	Key string `json:"key" msgpack:"key"`
 	// Name is an optional human-readable name for the status.
 	Name string `json:"name" msgpack:"name"`
-	// Variant is the severity or type of the status: success, info, warning, error,
+	// Variant indicates the severity of the status. One of success, info, warning, error,
 	// loading, or disabled.
 	Variant Variant `json:"variant" msgpack:"variant"`
 	// Message is the main message text describing the status.

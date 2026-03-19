@@ -3,6 +3,7 @@ pnpm-lock.yaml
 pnpm-workspace.yaml
 *.mod
 *.rs
+compile_commands.json
 *.lock
 
 # Docker files

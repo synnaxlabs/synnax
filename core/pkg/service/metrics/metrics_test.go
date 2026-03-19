@@ -37,7 +37,7 @@ var _ = Describe("Metrics", func() {
 	Describe("Service Creation", func() {
 		It("Should create a service with valid configuration", func() {
 			svc := MustSucceed(metrics.OpenService(ctx, metrics.ServiceConfig{
-				Channel:            dist.Channel,
+				Channel:            channelSvc,
 				Group:              dist.Group,
 				Ontology:           dist.Ontology,
 				Framer:             framerSvc,
@@ -57,28 +57,28 @@ var _ = Describe("Metrics", func() {
 		})
 		It("Should fail with missing Framer service", func() {
 			Expect(metrics.OpenService(ctx, metrics.ServiceConfig{
-				Channel:      dist.Channel,
+				Channel:      channelSvc,
 				HostProvider: dist.Cluster,
 				Storage:      dist.Storage,
 			})).Error().To(MatchError(ContainSubstring("framer: must be non-nil")))
 		})
 		It("Should fail with missing HostProvider", func() {
 			Expect(metrics.OpenService(ctx, metrics.ServiceConfig{
-				Channel: dist.Channel,
+				Channel: channelSvc,
 				Framer:  framerSvc,
 				Storage: dist.Storage,
 			})).Error().To(MatchError(ContainSubstring("host_provider: must be non-nil")))
 		})
 		It("Should fail with missing Storage", func() {
 			Expect(metrics.OpenService(ctx, metrics.ServiceConfig{
-				Channel:      dist.Channel,
+				Channel:      channelSvc,
 				Framer:       framerSvc,
 				HostProvider: dist.Cluster,
 			})).Error().To(MatchError(ContainSubstring("storage: must be non-nil")))
 		})
 		It("Should apply default collection interval", func() {
 			cfg := metrics.DefaultServiceConfig.Override(metrics.ServiceConfig{
-				Channel:      dist.Channel,
+				Channel:      channelSvc,
 				Framer:       framerSvc,
 				HostProvider: dist.Cluster,
 				Storage:      dist.Storage,
@@ -93,7 +93,7 @@ var _ = Describe("Metrics", func() {
 		)
 		JustBeforeEach(func() {
 			svc = MustSucceed(metrics.OpenService(ctx, metrics.ServiceConfig{
-				Channel:            dist.Channel,
+				Channel:            channelSvc,
 				Group:              dist.Group,
 				Ontology:           dist.Ontology,
 				Framer:             framerSvc,
@@ -181,7 +181,7 @@ var _ = Describe("Metrics", func() {
 		})
 		It("Should reuse existing channels", func() {
 			svc2 := MustSucceed(metrics.OpenService(ctx, metrics.ServiceConfig{
-				Channel:            dist.Channel,
+				Channel:            channelSvc,
 				Group:              dist.Group,
 				Ontology:           dist.Ontology,
 				Framer:             framerSvc,
@@ -206,7 +206,7 @@ var _ = Describe("Metrics", func() {
 		It("Should not re-attach a channel to the metrics group if it was moved to a different group", func() {
 			names := getNames(dist.Cluster.HostKey())
 			svc := MustSucceed(metrics.OpenService(ctx, metrics.ServiceConfig{
-				Channel:            dist.Channel,
+				Channel:            channelSvc,
 				Group:              dist.Group,
 				Ontology:           dist.Ontology,
 				Framer:             framerSvc,
@@ -259,7 +259,7 @@ var _ = Describe("Metrics", func() {
 			Expect(svc.Close()).To(Succeed())
 
 			svc = MustSucceed(metrics.OpenService(ctx, metrics.ServiceConfig{
-				Channel:            dist.Channel,
+				Channel:            channelSvc,
 				Group:              dist.Group,
 				Ontology:           dist.Ontology,
 				Framer:             framerSvc,
@@ -285,7 +285,7 @@ var _ = Describe("Metrics", func() {
 		It("Should attach channels to the metrics group if they have no group relationship", func() {
 			names := getNames(dist.Cluster.HostKey())
 			svc := MustSucceed(metrics.OpenService(ctx, metrics.ServiceConfig{
-				Channel:            dist.Channel,
+				Channel:            channelSvc,
 				Group:              dist.Group,
 				Ontology:           dist.Ontology,
 				Framer:             framerSvc,
@@ -327,7 +327,7 @@ var _ = Describe("Metrics", func() {
 			Expect(svc.Close()).To(Succeed())
 
 			svc = MustSucceed(metrics.OpenService(ctx, metrics.ServiceConfig{
-				Channel:            dist.Channel,
+				Channel:            channelSvc,
 				Group:              dist.Group,
 				Ontology:           dist.Ontology,
 				Framer:             framerSvc,
@@ -383,7 +383,7 @@ var _ = Describe("Metrics", func() {
 			Expect(w.Close()).To(Succeed())
 
 			svc = MustSucceed(metrics.OpenService(ctx, metrics.ServiceConfig{
-				Channel:            dist.Channel,
+				Channel:            channelSvc,
 				Group:              dist.Group,
 				Ontology:           dist.Ontology,
 				DB:                 dist.DB,

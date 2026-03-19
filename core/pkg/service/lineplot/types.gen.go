@@ -16,6 +16,7 @@ import (
 	"github.com/synnaxlabs/x/binary"
 )
 
+// Key is a unique identifier for a line plot, represented as a UUID.
 type Key = uuid.UUID
 
 // LinePlot is a time-series visualization component for plotting telemetry data. Line

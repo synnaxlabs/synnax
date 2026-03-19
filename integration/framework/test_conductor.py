@@ -8,31 +8,27 @@
 #  included in the file licenses/APL.txt.
 
 import argparse
-import ctypes
-import fnmatch
-import glob
-import importlib.util
-import itertools
-import json
-import logging
 import os
 import random
 import signal
 import string
 import sys
 import threading
-import traceback
-from abc import ABC
 from collections.abc import Callable
-from dataclasses import dataclass, field
 from enum import Enum, auto
-from pathlib import Path
-from typing import Any, cast
+from typing import Any
 
 import synnax as sy
+from x import validate_and_sanitize_name
 
-from framework.test_case import STATUS, SYMBOLS, SynnaxConnection, TestCase
-from framework.utils import is_ci, validate_and_sanitize_name
+from framework.config_client import ConfigClient, Sequence, TestDefinition
+from framework.execution_client import ExecutionClient
+from framework.log_client import LogClient, LogMode, SynnaxChannelSink
+from framework.models import SynnaxConnection, Test
+from framework.report_client import ReportClient
+from framework.target_filter import TargetFilter, parse_target
+from framework.telemetry_client import TelemetryClient
+from framework.test_case import TestCase
 
 
 class STATE(Enum):
@@ -45,95 +41,6 @@ class STATE(Enum):
     ERROR = auto()
     SHUTDOWN = auto()
     COMPLETED = auto()
-
-
-@dataclass
-class Test:
-    """Data class to store test execution results."""
-
-    test_name: str
-    status: STATUS
-    name: str | None = None  # Custom name from test definition
-    error_message: str | None = None
-    range: sy.Range | None = None
-
-    def __str__(self) -> str:
-        """Return display name for test result."""
-        if self.name and self.name != self.test_name.split("/")[-1]:
-            return f"{self.test_name} ({self.name})"
-        return self.test_name
-
-
-@dataclass
-class TestDefinition:
-    """Data class representing a test case definition from the sequence file."""
-
-    case: str
-    name: str | None = None  # Optional custom name for the test case
-    parameters: dict[str, Any | list[Any]] = field(default_factory=dict)
-    matrix: dict[str, list[Any]] | None = None  # Matrix of params to expand
-
-    def __str__(self) -> str:
-        """Return display name for test definition."""
-        if self.name and self.name != self.case.split("/")[-1]:
-            return f"{self.case} ({self.name})"
-        return self.case
-
-
-COLORS: list[str] = [
-    "#001833",  # Dark Sky Blue (210°)
-    "#003333",  # Dark Cyan (180°)
-    "#003318",  # Dark Spring Green (150°)
-    "#223322",  # Dark Green (120°)
-    "#183318",  # Dark Lime (90°)
-    "#333300",  # Dark Yellow (60°)
-    "#331800",  # Dark Orange (30°)
-    "#330000",  # Dark Red (0°)
-    "#330018",  # Dark Rose (330°)
-    "#330033",  # Dark Magenta (300°)
-    "#180033",  # Dark Purple (270°)
-    "#000033",  # Dark Blue (240°)
-]
-
-
-def parse_target_path(target: str) -> tuple[str, str | None, str | None]:
-    """
-    Parse target path.
-
-    Format: test_file/sequence/case_filter
-
-    Examples:
-        console/general/...        -> ("console", "general", None)
-        console/access/user        -> ("console", "access", "user")
-        console/...                -> ("console", None, None)
-        driver/modbus/...          -> ("driver", "modbus", None)
-
-    Returns:
-        tuple[str, str | None, str | None]: (test_file, sequence_filter, case_filter)
-        - test_file: JSON file name without _tests.json suffix
-        - sequence_filter: None for all sequences, or specific sequence name
-        - case_filter: None for all cases, or substring to match in case path
-    """
-    path = target.lstrip("/")
-    if not path:
-        raise ValueError(f"Target path cannot be empty: {target}")
-
-    parts = path.split("/")
-    test_file = parts[0]
-
-    if not test_file:
-        raise ValueError(f"Test file name cannot be empty: {target}")
-
-    sequence_filter: str | None = None
-    case_filter: str | None = None
-
-    if len(parts) > 1 and parts[1] != "...":
-        sequence_filter = parts[1] if parts[1] else None
-
-    if len(parts) > 2 and parts[2] != "...":
-        case_filter = parts[2] if parts[2] else None
-
-    return test_file, sequence_filter, case_filter
 
 
 class TestConductor:
@@ -157,9 +64,6 @@ class TestConductor:
         else:
             self.name = validate_and_sanitize_name(str(name).lower())
 
-        # Configure logging for real-time output in CI
-        self._setup_logging()
-
         # Use provided connection or create default
         if synnax_connection is None:
             self.synnax_connection = SynnaxConnection()
@@ -168,15 +72,17 @@ class TestConductor:
 
         # Initialize client
         try:
-            self.client = sy.Synnax(
-                host=self.synnax_connection.server_address,
-                port=self.synnax_connection.port,
-                username=self.synnax_connection.username,
-                password=self.synnax_connection.password,
-                secure=self.synnax_connection.secure,
-            )
+            self.client = self.synnax_connection.create_client()
         except Exception as e:
             raise RuntimeError(f"Failed to initialize client: {e}")
+
+        self.log_client = LogClient(
+            name=self.name,
+            mode=LogMode.REALTIME,
+            persistent_sinks=[
+                SynnaxChannelSink(self.client, f"{self.name}_log"),
+            ],
+        )
 
         # Initialize range
         self.range: sy.Range | None = None
@@ -188,707 +94,103 @@ class TestConductor:
         except Exception as e:
             raise RuntimeError(f"Failed to create range: {e}")
 
+        self.config_client = ConfigClient(log=self.log_message)
+
         self.state = STATE.INITIALIZING
         self.test_definitions: list[TestDefinition] = []
-        self.sequences: list[dict[str, Any]] = []
-        self.timeout_monitor_thread: threading.Thread | None = None
-        self.client_manager_thread: threading.Thread | None = None
-        self.is_running = False
+        self.sequences: list[Sequence] = []
         self.should_stop = False
-        self.status_callbacks: list[Callable[[Test], None]] = []
-        # Track active tests
-        self.active_tests: list[tuple[TestCase, sy.Range, threading.Thread]] = []
-        self.active_tests_lock = threading.Lock()
+        self.status_callbacks: list[Any] = []
+        self.tests: list[Test] = []
         self.tests_lock = threading.Lock()
-        self.import_lock = threading.Lock()
+        self.active_tests: list[
+            tuple[TestDefinition, TestCase, sy.Range, threading.Thread]
+        ] = []
+        self.active_tests_lock = threading.Lock()
 
-        # Setup signal handlers
+        self.telemetry_client = TelemetryClient(
+            client=self.client,
+            name=self.name,
+            get_state=lambda: self.state,
+            get_should_stop=lambda: self.should_stop,
+        )
+
+        self.execution_client = ExecutionClient(
+            config_client=self.config_client,
+            synnax_connection=self.synnax_connection,
+            client=self.client,
+            conductor_range=self.range,
+            tests=self.tests,
+            tests_lock=self.tests_lock,
+            active_tests=self.active_tests,
+            active_tests_lock=self.active_tests_lock,
+            log=self.log_message,
+            on_status_change=self._notify_status_change,
+            on_test_ran=self.telemetry_client.increment_tests_ran,
+        )
+
+        self.report_client = ReportClient(
+            tests=self.tests,
+            tests_lock=self.tests_lock,
+            test_definitions=self.test_definitions,
+            active_tests=self.active_tests,
+            active_tests_lock=self.active_tests_lock,
+            log=self.log_message,
+        )
+
         signal.signal(signal.SIGINT, self._signal_handler)
         signal.signal(signal.SIGTERM, self._signal_handler)
 
-        # Start client manager
-        self._start_client_manager_async()
-        sy.sleep(1)  # Allow client manager to start
-
-    def _start_client_manager_async(self) -> None:
-        """Start client manager in separate daemon thread."""
-        self.client_manager_thread = threading.Thread(
-            target=self._client_manager, daemon=True, name=f"{self.name}_client_manager"
-        )
-        self.client_manager_thread.start()
-        self.log_message("Client manager started (async)")
-
-    def _client_manager(self) -> None:
-        """Manage telemetry channels and writer for test conductor."""
-        loop = sy.Loop(sy.Rate.HZ * 5)
-
-        # Create telemetry channels
-        time = self.client.channels.create(
-            name=f"{self.name}_time",
-            data_type=sy.DataType.TIMESTAMP,
-            is_index=True,
-            retrieve_if_name_exists=True,
-        )
-
-        uptime = self.client.channels.create(
-            name=f"{self.name}_uptime",
-            data_type=sy.DataType.UINT32,
-            index=time.key,
-            retrieve_if_name_exists=True,
-        )
-
-        state = self.client.channels.create(
-            name=f"{self.name}_state",
-            data_type=sy.DataType.UINT8,
-            index=time.key,
-            retrieve_if_name_exists=True,
-        )
-
-        test_case_count = self.client.channels.create(
-            name=f"{self.name}_test_case_count",
-            data_type=sy.DataType.UINT32,
-            index=time.key,
-            retrieve_if_name_exists=True,
-        )
-
-        test_cases_ran = self.client.channels.create(
-            name=f"{self.name}_test_cases_ran",
-            data_type=sy.DataType.UINT32,
-            index=time.key,
-            retrieve_if_name_exists=True,
-        )
-
-        # Initialize telemetry
-        start_time = sy.TimeStamp.now()
-        self.tlm = {
-            f"{self.name}_time": start_time,
-            f"{self.name}_uptime": 0,
-            f"{self.name}_state": STATE.INITIALIZING.value,
-            f"{self.name}_test_case_count": 0,
-            f"{self.name}_test_cases_ran": 0,
-        }
-
-        # Open telemetry writer
-        with self.client.open_writer(
-            start=start_time,
-            channels=[time, uptime, state, test_case_count, test_cases_ran],
-            name=self.name,
-        ) as writer:
-            writer.write(self.tlm)  # Write initial state
-
-            while loop.wait() and not self.should_stop:
-                now = sy.TimeStamp.now()
-                uptime_value = (now - start_time) / 1e9
-
-                # Update telemetry
-                self.tlm[f"{self.name}_time"] = now
-                self.tlm[f"{self.name}_uptime"] = uptime_value
-                self.tlm[f"{self.name}_state"] = self.state.value
-                writer.write(self.tlm)
-
-                # Check for shutdown
-                if self.state in [STATE.SHUTDOWN, STATE.COMPLETED]:
-                    self.state = STATE.COMPLETED
-                    self.tlm[f"{self.name}_state"] = self.state.value
-                    writer.write(self.tlm)
-                    break
-
-    def _setup_logging(self) -> None:
-        """Configure logging for real-time output in CI environments."""
-        # Check if running in CI environment
-        ci_environment = is_ci()
-
-        # Force unbuffered output in CI environments
-        if ci_environment:
-            if hasattr(sys.stdout, "reconfigure"):
-                sys.stdout.reconfigure(line_buffering=True)
-
-        # Create logger for this test conductor (don't configure root logger)
-        self.logger = logging.getLogger(self.name)
-        self.logger.setLevel(logging.INFO)
-
-        # Remove any existing handlers to avoid duplicates
-        for handler in self.logger.handlers[:]:
-            self.logger.removeHandler(handler)
-
-        # Add single handler
-        handler = logging.StreamHandler(sys.stdout)
-        handler.setLevel(logging.INFO)
-        formatter = logging.Formatter("%(message)s")
-        handler.setFormatter(formatter)
-        self.logger.addHandler(handler)
-
-        # Prevent propagation to root logger to avoid duplicate output
-        self.logger.propagate = False
-
-        # Force immediate flush for real-time output in CI
-        for handler in self.logger.handlers:
-            if hasattr(handler, "stream") and hasattr(handler.stream, "flush"):
-
-                def make_flush(h: Any) -> Callable[[], None]:
-                    return lambda: h.stream.flush()
-
-                setattr(handler, "flush", make_flush(handler))
-
-        if ci_environment:
-            self.logger.info("CI environment detected - enabling real-time logging")
+        self.telemetry_client.start()
+        sy.sleep(1)
 
     def log_message(self, message: str, use_name: bool = True) -> None:
-        """Log message with real-time output using logging module."""
-        now = sy.TimeStamp.now()
-        timestamp = now.datetime().strftime("%H:%M:%S.%f")[:-4]
+        """Log message with real-time output."""
         if use_name:
-            self.logger.info(f"{timestamp} | {self.name} > {message}")
+            self.log_client.info(message)
         else:
-            self.logger.info(message)
+            self.log_client.raw(message)
 
-        # Force flush to ensure immediate output in CI
-        for handler in self.logger.handlers:
-            if hasattr(handler, "flush"):
-                handler.flush()
-
-    def load_test_sequence(
-        self,
-        sequence: str | list[str] | None = None,
-        sequence_filter: str | None = None,
-        case_filter: str | None = None,
-    ) -> None:
-        """Load test sequence from JSON configuration file(s) or auto-discover test.json files.
-
-        Args:
-            sequence: Path to test sequence JSON file(s) or None for auto-discovery
-            sequence_filter: Optional filter to run only specific sequence by name
-            case_filter: Optional glob pattern to filter test cases
-        """
+    def load(self, target_filter: TargetFilter) -> None:
+        """Load test sequences using the config client."""
         self.state = STATE.LOADING
-
-        # Determine which files to load
-        if sequence is None:
-            test_files = glob.glob("tests/*_tests.json")
-            if not test_files:
-                raise FileNotFoundError(
-                    "No *_tests.json files found for auto-discovery"
-                )
-        elif isinstance(sequence, list):
-            test_files = sequence
-        else:
-            test_files = [sequence]
-
-        # Load all sequences from all files
-        all_sequences = []
-        failed_files = []
-        for test_file in test_files:
-            self.log_message(f"Loading tests from: {test_file}")
-
-            # Simple path resolution - try current dir first, then tests/ dir
-            file_path = Path(test_file)
-            if not file_path.exists():
-                file_path = Path("tests") / test_file
-
-            try:
-                with open(file_path, "r") as f:
-                    file_data = json.load(f)
-                if "sequences" in file_data:
-                    all_sequences.extend(file_data["sequences"])
-            except Exception as e:
-                if isinstance(sequence, list):
-                    self.log_message(f"Warning: Failed to load {test_file}: {e}")
-                    failed_files.append((test_file, str(e)))
-                else:
-                    raise FileNotFoundError(f"Test file not found: {test_file}")
-
-        if failed_files:
-            failed_list = "\n".join(
-                [f"  - {file}: {error}" for file, error in failed_files]
-            )
-            raise FileNotFoundError(
-                f"Failed to load {len(failed_files)} file(s):\n{failed_list}"
-            )
-
-        if not all_sequences:
-            raise FileNotFoundError("No valid sequences found")
-
-        self._process_sequences(all_sequences, sequence_filter, case_filter)
-
-    def _expand_parameters(self, test_def: TestDefinition) -> list[TestDefinition]:
-        """
-        Expand a test definition with parameters into multiple test definitions.
-
-        Parameters can be either single values or lists:
-        - Single value: {"timeout": 2} → 1 test
-        - List value: {"timeout": [2, 4]} → 2 tests
-        - Mixed: {"mode": ["a", "b"], "rate": [100, 200]} → 4 tests
-
-        Example:
-            parameters = {"mode": ["a", "b"], "rate": [100, 200], "fixed": 5}
-            Expands to 4 tests with params:
-            - {"mode": "a", "rate": 100, "fixed": 5}
-            - {"mode": "a", "rate": 200, "fixed": 5}
-            - {"mode": "b", "rate": 100, "fixed": 5}
-            - {"mode": "b", "rate": 200, "fixed": 5}
-        """
-        if not test_def.parameters:
-            # No parameters, return single test
-            return [test_def]
-
-        # Separate parameters into single-value and multi-value
-        single_params = {}
-        multi_params = {}
-
-        for key, value in test_def.parameters.items():
-            if isinstance(value, list):
-                multi_params[key] = value
-            else:
-                single_params[key] = value
-
-        # If no multi-value parameters, return single test
-        if not multi_params:
-            return [test_def]
-
-        # Generate cartesian product of multi-value parameters
-        param_keys = list(multi_params.keys())
-        param_values = [multi_params[key] for key in param_keys]
-        combinations = list(itertools.product(*param_values))
-
-        expanded_tests = []
-        for combo in combinations:
-            # Create parameter dict from combination
-            combo_params = dict(zip(param_keys, combo))
-
-            # Merge single-value params with this combination
-            merged_params = {**single_params, **combo_params}
-
-            # Generate name from multi-value parameters only
-            matrix_suffix = "_".join(str(v) for v in combo)
-            base_name = test_def.name or test_def.case.split("/")[-1]
-            generated_name = f"{base_name}_{matrix_suffix}"
-
-            # Create new test definition
-            expanded_test = TestDefinition(
-                case=test_def.case,
-                name=generated_name,
-                parameters=merged_params,  # Store as single values
-            )
-            expanded_tests.append(expanded_test)
-
-        return expanded_tests
-
-    def _expand_test_classes(self, test_def: TestDefinition) -> list[TestDefinition]:
-        """
-        Expand a test definition into multiple definitions if the file contains multiple TestCase classes.
-
-        If test_def.name is specified, only that specific class will be loaded.
-        Otherwise, all TestCase subclasses in the module will be loaded.
-
-        Returns:
-            List of TestDefinition objects, one per discovered class.
-        """
-        try:
-            test_classes = self._load_test_classes(test_def)
-
-            if len(test_classes) == 1:
-                # Single class - return as-is
-                return [test_def]
-
-            # Multiple classes found - create a TestDefinition for each
-            expanded_defs = []
-            for test_class in test_classes:
-                # Create new test definition with class name
-                expanded_def = TestDefinition(
-                    case=test_def.case,
-                    name=test_class.__name__,  # Use class name as identifier
-                    parameters=test_def.parameters.copy(),
-                    matrix=test_def.matrix,
-                )
-                expanded_defs.append(expanded_def)
-
-            return expanded_defs
-
-        except Exception as e:
-            self.log_message(
-                f"Warning: Failed to expand test classes for {test_def.case}: {e}"
-            )
-            # Return original definition as fallback
-            return [test_def]
-
-    def _process_sequences(
-        self,
-        sequences_array: list[Any],
-        sequence_filter: str | None = None,
-        case_filter: str | None = None,
-    ) -> None:
-        """Process a list of sequences and populate test_definitions and sequences.
-
-        Args:
-            sequences_array: List of sequence definitions from JSON
-            sequence_filter: Optional filter to run only specific sequence by name
-            case_filter: Optional glob pattern to filter test cases
-        """
-        self.test_definitions = []
-        self.sequences = []
-
-        for seq_idx, sequence in enumerate(sequences_array):
-            seq_dict = sequence if isinstance(sequence, dict) else {}
-            seq_name = seq_dict.get("sequence_name", f"Sequence_{seq_idx + 1}")
-            seq_order = seq_dict.get("sequence_order", "sequential").lower()
-            seq_tests = seq_dict.get("tests", [])
-            pool_size = seq_dict.get("pool_size", -1)
-
-            if sequence_filter and seq_name != sequence_filter:
-                continue
-
-            # Create sequence object
-            seq_obj = {
-                "name": seq_name,
-                "order": seq_order,
-                "pool_size": pool_size,
-                "tests": [],
-                "start_idx": len(self.test_definitions),
-            }
-
-            # Load tests for this sequence
-            for test in seq_tests:
-                if case_filter:
-                    case_path = test["case"]
-                    if case_filter not in case_path:
-                        continue
-
-                test_def = TestDefinition(
-                    case=test["case"],
-                    name=test.get("name", None),
-                    parameters=test.get("parameters", {}),
-                    matrix=test.get("matrix", None),
-                )
-
-                # First expand by test classes (file may contain multiple classes)
-                class_expanded_tests = self._expand_test_classes(test_def)
-
-                # Then expand by parameters for each class
-                for class_test_def in class_expanded_tests:
-                    param_expanded_tests = self._expand_parameters(class_test_def)
-                    for expanded_test in param_expanded_tests:
-                        self.test_definitions.append(expanded_test)
-                        seq_obj["tests"].append(expanded_test)
-
-            # Only add sequence if it has tests
-            if seq_obj["tests"]:
-                seq_obj["end_idx"] = len(self.test_definitions)
-                self.sequences.append(seq_obj)
-
-                num_expanded = len(seq_obj["tests"])
-                original_count = len(seq_tests)
-                if case_filter:
-                    self.log_message(
-                        f"Loaded sequence '{seq_name}' with {num_expanded} tests "
-                        f"matching '{case_filter}' ({seq_order})"
-                    )
-                elif num_expanded > original_count:
-                    self.log_message(
-                        f"Loaded sequence '{seq_name}' with {original_count} test definitions, "
-                        f"expanded to {num_expanded} tests ({seq_order})"
-                    )
-                else:
-                    self.log_message(
-                        f"Loaded sequence '{seq_name}' with {original_count} tests ({seq_order})"
-                    )
-
-        if not self.sequences:
-            filter_info = []
-            if sequence_filter:
-                filter_info.append(f"sequence='{sequence_filter}'")
-            if case_filter:
-                filter_info.append(f"case='{case_filter}'")
-            raise ValueError(
-                f"No tests found matching filters: {', '.join(filter_info)}"
-            )
-
-        self.log_message(
-            f"Total: {len(self.test_definitions)} tests across {len(self.sequences)} sequences"
-        )
-
-        # Update telemetry
-        self.tlm[f"{self.name}_test_case_count"] = len(self.test_definitions)
+        sequences, new_defs = self.config_client.load(target_filter)
+        self.sequences = sequences
+        self.test_definitions.clear()
+        self.test_definitions.extend(new_defs)
+        self.telemetry_client.set_test_case_count(len(self.test_definitions))
 
     def run_sequence(self) -> list[Test]:
         """Execute all tests in the loaded sequence."""
         if not self.test_definitions:
-            raise ValueError(
-                "No test sequence loaded. Call load_test_sequence() first."
-            )
+            raise ValueError("No test sequence loaded. Call load() first.")
 
         self.state = STATE.RUNNING
-        self.is_running = True
-        self.should_stop = False
-        self.tests: list[Test] = []
-
-        # Start timeout monitoring
-        self.timeout_monitor_thread = threading.Thread(
-            target=self._timeout_monitor_thread,
-            args=(1.0,),  # Check every 1 second
-            daemon=True,
-        )
-        self.timeout_monitor_thread.start()
-
-        self.log_message(
-            f"Starting execution of {len(self.sequences)} sequences with {len(self.test_definitions)} total tests...\n"
-        )
-
-        # Execute sequences linearly (one after another)
-        for seq_idx, sequence in enumerate(self.sequences):
-            if self.should_stop:
-                self.log_message("Test execution stopped by user request")
-                break
-
-            self.log_message(
-                f"==== SEQUENCE {seq_idx + 1}/{len(self.sequences)}: {sequence['name']} ===="
-            )
-            self.log_message(
-                f"Executing {len(sequence['tests'])} tests with {sequence['order']} order...\n"
-            )
-
-            # Prepare tests for execution (randomize if needed)
-            tests_to_execute = sequence["tests"].copy()
-
-            # Execute tests within this sequence using the prepared test list
-            # This consolidates sequential and random execution into a single path
-            if sequence["order"] == "asynchronous":
-                self._execute_sequence_asynchronously(
-                    sequence["name"], tests_to_execute, sequence["pool_size"]
-                )
-            else:  # sequential or random (both use the same execution method)
-                if sequence["order"] == "random":
-                    random.shuffle(tests_to_execute)
-                    self.log_message(f"Tests randomized for execution")
-                self._execute_sequence(tests_to_execute)
-
-            self.log_message(f"Completed sequence '{sequence['name']}'\n")
-
-        self.is_running = False
+        self.tests.clear()
+        self.execution_client.run(self.sequences)
         self._print_summary()
         return self.tests
 
-    def _execute_sequence(self, tests_to_execute: list[TestDefinition]) -> None:
-        """Execute tests in a sequence one after another."""
-        for test_def in tests_to_execute:
-            if self.should_stop:
-                self.log_message("Test execution stopped by user request")
-                break
-
-            # Calculate global test index
-            global_test_idx = len(self.tests) + 1
-            self.log_message(
-                f"[{global_test_idx}/{len(self.test_definitions)}] ==== {test_def} ===="
-            )
-
-            # Run test in separate thread
-            result_container: list[Test] = []
-            test_thread = threading.Thread(
-                target=self._test_runner_thread, args=(test_def, result_container)
-            )
-
-            test_thread.start()
-            test_thread.join()
-
-            # Get test result
-            if result_container:
-                test_result = result_container[0]
-            else:
-                test_result = Test(
-                    test_name=test_def.case,
-                    name=test_def.name or test_def.case.split("/")[-1],
-                    status=STATUS.FAILED,
-                    error_message="Unknown error - no result returned",
-                )
-
-            with self.tests_lock:
-                self.tests.append(test_result)
-            self.tlm[f"{self.name}_test_cases_ran"] += 1
-
-    def _execute_sequence_asynchronously(
-        self,
-        sequence_name: str,
-        tests_to_execute: list[TestDefinition],
-        pool_size: int = -1,
-    ) -> None:
-        """Execute tests in a sequence with optional concurrency limit.
-
-        Args:
-            sequence_name: Name of the sequence being executed
-            tests_to_execute: List of test definitions to execute
-            pool_size: Maximum number of concurrent tests. If -1 or greater than
-                      the number of tests, all tests run concurrently.
-        """
-        # If pool_size is -1 or >= number of tests, use unlimited concurrency
-        if pool_size <= 0 or pool_size >= len(tests_to_execute):
-            self._execute_unlimited_async(sequence_name, tests_to_execute)
-        else:
-            self._execute_pooled_async(sequence_name, tests_to_execute, pool_size)
-
-    def _execute_unlimited_async(
-        self, sequence_name: str, tests_to_execute: list[TestDefinition]
-    ) -> None:
-        """Execute all tests concurrently without limit."""
-        test_threads = []
-        test_containers = []
-
-        for i, test_def in enumerate(tests_to_execute):
-            if self.should_stop:
-                self.log_message("Test execution stopped by user request")
-                break
-
-            # Calculate global test index - each test gets a unique index
-            global_test_idx = len(self.tests) + i + 1
-            self.log_message(
-                f"[{global_test_idx}/{len(self.test_definitions)}] ==== {test_def} ===="
-            )
-
-            # Create result container and thread for each test
-            result_container: list[Test] = []
-            test_thread = threading.Thread(
-                target=self._test_runner_thread, args=(test_def, result_container)
-            )
-
-            test_threads.append(test_thread)
-            test_containers.append(result_container)
-
-            # Start the test thread
-            test_thread.start()
-
-        # Wait for all tests in this sequence to complete
-        self.log_message(
-            f"Waiting for {len(test_threads)} tests in sequence '{sequence_name}' to complete..."
-        )
-        for i, test_thread in enumerate(test_threads):
-            if test_thread.is_alive():
-                test_thread.join()
-
-            # Get test result
-            if test_containers[i]:
-                test_result = test_containers[i][0]
-            else:
-                test_result = Test(
-                    test_name=tests_to_execute[i].case,
-                    name=tests_to_execute[i].name,
-                    status=STATUS.FAILED,
-                    error_message="Unknown error - no result returned",
-                )
-
-            with self.tests_lock:
-                self.tests.append(test_result)
-            self.tlm[f"{self.name}_test_cases_ran"] += 1
-
-    def _execute_pooled_async(
-        self, sequence_name: str, tests_to_execute: list[TestDefinition], pool_size: int
-    ) -> None:
-        """Execute tests with a limited concurrency pool.
-
-        Args:
-            sequence_name: Name of the sequence being executed
-            tests_to_execute: List of test definitions to execute
-            pool_size: Maximum number of concurrent tests
-        """
-        self.log_message(
-            f"Running tests with pool size of {pool_size} (max {pool_size} concurrent tests)..."
-        )
-
-        semaphore = threading.Semaphore(pool_size)
-        test_threads = []
-        test_containers = []
-
-        def run_with_semaphore(
-            test_def: TestDefinition, result_container: list[Test], test_idx: int
-        ) -> None:
-            """Wrapper to run test with semaphore control."""
-            semaphore.acquire()
-            try:
-                self.log_message(
-                    f"[{test_idx}/{len(self.test_definitions)}] ==== {test_def} ===="
-                )
-                self._test_runner_thread(test_def, result_container)
-            finally:
-                semaphore.release()
-
-        # Create and start all threads (semaphore will control execution)
-        for i, test_def in enumerate(tests_to_execute):
-            if self.should_stop:
-                self.log_message("Test execution stopped by user request")
-                break
-
-            global_test_idx = len(self.tests) + i + 1
-            result_container: list[Test] = []
-            test_thread = threading.Thread(
-                target=run_with_semaphore,
-                args=(test_def, result_container, global_test_idx),
-            )
-
-            test_threads.append(test_thread)
-            test_containers.append(result_container)
-
-            test_thread.start()
-
-        self.log_message(
-            f"Waiting for {len(test_threads)} tests in sequence '{sequence_name}' to complete..."
-        )
-        for i, test_thread in enumerate(test_threads):
-            if test_thread.is_alive():
-                test_thread.join()
-
-            # Get test result
-            if test_containers[i]:
-                test_result = test_containers[i][0]
-            else:
-                test_result = Test(
-                    test_name=tests_to_execute[i].case,
-                    name=tests_to_execute[i].name,
-                    status=STATUS.FAILED,
-                    error_message="Unknown error - no result returned",
-                )
-
-            with self.tests_lock:
-                self.tests.append(test_result)
-            self.tlm[f"{self.name}_test_cases_ran"] += 1
-
     def wait_for_completion(self) -> None:
-        """
-        Wait for all async processes to complete before allowing main to exit.
-        This ensures proper cleanup and prevents premature termination.
-        """
-        self.state = STATE.SHUTDOWN
+        """Wait for all async processes to complete."""
+        self.state = STATE.COMPLETED
+        self.execution_client.should_stop = True
         self.should_stop = True
 
-        # Wait for client manager thread to finish
-        if self.client_manager_thread and self.client_manager_thread.is_alive():
-            self.client_manager_thread.join(timeout=5.0)
-            if self.client_manager_thread.is_alive():
-                self.log_message(
-                    "Warning: client_manager_thread did not stop within timeout"
-                )
-
-        # Wait for timeout monitor to finish
-        if self.timeout_monitor_thread and self.timeout_monitor_thread.is_alive():
-            self.timeout_monitor_thread.join(timeout=5.0)
-            if self.timeout_monitor_thread.is_alive():
-                self.log_message(
-                    "Warning: timeout_monitor_thread did not stop within timeout"
-                )
-
-        self.state = STATE.COMPLETED
+        if not self.telemetry_client.stop():
+            self.log_message("Warning: telemetry thread did not stop within timeout")
 
     def shutdown(self) -> None:
-        """
-        Gracefully shutdown the test conductor and all its processes.
-        """
+        """Gracefully shutdown the test conductor and all its processes."""
         self.log_message("\nShut down initiated...")
         self.state = STATE.SHUTDOWN
         self.should_stop = True
 
-        killed = self.kill_active_tests()
-        if killed > 0:
-            self.log_message(f"Killed {killed} active test(s)")
-
+        self.execution_client.stop()
         self.wait_for_completion()
 
         self.log_message("Shutdown complete\n")
+        self.log_client.close()
 
     def add_status_callback(self, callback: Callable[[Test], None]) -> None:
         """Add a callback function to be called when test status changes."""
@@ -902,502 +204,24 @@ class TestConductor:
             except Exception as e:
                 self.log_message(f"Error in status callback: {e}")
 
-    def _load_test_classes(self, test_def: TestDefinition) -> list[type[TestCase]]:
-        """
-        Dynamically load test class(es) from a case identifier.
-
-        Returns a list of TestCase classes that inherit from TestCase.
-        If a specific class is requested via test_def.name, only that class is returned.
-        Otherwise, all TestCase subclasses in the module are returned.
-        """
-        try:
-            # Parse the case string as a file path (e.g., "console/pages_open_close")
-            case_path = f"tests/{test_def.case}"
-
-            # Extract the module name from the path (last part before .py)
-            module_name = case_path.split("/")[-1]
-
-            # Try different possible file paths
-            current_dir = os.getcwd()
-            script_dir = os.path.dirname(os.path.abspath(__file__))
-
-            # Construct possible paths
-            possible_paths = [
-                os.path.join(script_dir, "..", f"{case_path}.py"),
-                os.path.join(current_dir, f"{case_path}.py"),
-            ]
-
-            # Find the first path that exists
-            file_path = None
-            for path in possible_paths:
-                if os.path.exists(path):
-                    file_path = path
-                    break
-
-            if file_path is None:
-                # Add debug information to help troubleshoot path issues
-                debug_info = f"""
-                Current working directory: {os.getcwd()}
-                Script directory: {os.path.dirname(os.path.abspath(__file__))}
-                Test case: {test_def.case}
-                Module name: {module_name}
-                Tried paths: {possible_paths}
-                """
-                raise FileNotFoundError(
-                    f"Could not find test module for {test_def.case}.\n{debug_info}"
-                )
-
-            script_dir = os.path.dirname(os.path.abspath(__file__))
-            integration_dir = os.path.dirname(script_dir)
-            if integration_dir not in sys.path:
-                sys.path.insert(0, integration_dir)
-
-            # Ensure the integration 'tests' package is registered in sys.modules
-            # so that cross-package imports like 'from tests.driver.sim_daq_case'
-            # resolve to integration/tests/ rather than a shadowed 'tests' package
-            # from another workspace member (e.g. alamos/py/tests/).
-            tests_dir = os.path.join(integration_dir, "tests")
-            if os.path.isdir(tests_dir):
-                import types
-
-                tests_pkg = sys.modules.get("tests")
-                if tests_pkg is None or not hasattr(tests_pkg, "__path__"):
-                    tests_pkg = types.ModuleType("tests")
-                    tests_pkg.__path__ = [tests_dir]
-                    tests_pkg.__package__ = "tests"
-                    sys.modules["tests"] = tests_pkg
-                elif tests_dir not in tests_pkg.__path__:
-                    tests_pkg.__path__.insert(0, tests_dir)
-
-            # Prevent deadlock when multiple threads load modules that share dependencies
-            with self.import_lock:
-                spec = importlib.util.spec_from_file_location(module_name, file_path)
-                if spec is None:
-                    raise ImportError(
-                        f"Cannot create spec for module: {module_name} at {file_path}"
-                    )
-
-                module = importlib.util.module_from_spec(spec)
-                if spec.loader is not None:
-                    spec.loader.exec_module(module)
-
-            # Helper function to check if a class is a valid TestCase subclass
-            def is_valid_test_case(obj: Any) -> bool:
-                try:
-                    return (
-                        isinstance(obj, type)
-                        and not obj.__name__.startswith("_")
-                        and issubclass(obj, TestCase)
-                        and obj is not TestCase
-                        and obj.__module__ == module.__name__
-                        and ABC not in obj.__bases__  # Exclude abstract base classes
-                    )
-                except (AttributeError, TypeError):
-                    return False
-
-            # Find all TestCase subclasses in the module
-            test_classes = [
-                getattr(module, name)
-                for name in dir(module)
-                if is_valid_test_case(getattr(module, name))
-            ]
-
-            if not test_classes:
-                raise AttributeError(f"No TestCase subclass found in {file_path}")
-
-            # If a specific class name is provided, filter to that class
-            if test_def.name:
-                # Try to find class matching the provided name
-                matching_classes = [
-                    cls for cls in test_classes if cls.__name__ == test_def.name
-                ]
-                if matching_classes:
-                    return [matching_classes[0]]
-                # If no exact match, return all classes (name might be for display only)
-
-            return test_classes
-
-        except Exception as e:
-            raise ImportError(
-                f"Failed to load test class(es) from {test_def.case}: {e}\n"
-            )
-
-    def _load_test_class(self, test_def: TestDefinition) -> type[TestCase]:
-        """
-        Dynamically load a single test class from its case identifier.
-
-        This method maintains backward compatibility by returning a single class.
-        If multiple classes are found, returns the first one.
-        """
-        classes = self._load_test_classes(test_def)
-        return classes[0]
-
-    def _execute_single_test(self, test_def: TestDefinition) -> Test:
-        """Execute a single test case."""
-        test = Test(
-            test_name=test_def.case,
-            name=test_def.name or test_def.case.split("/")[-1],
-            status=STATUS.PENDING,
-        )
-
-        # Get color for this test based on its index
-        test_index = len(self.tests)
-        color = COLORS[test_index % len(COLORS)]
-
-        # Create range for this test case (MAX = in progress)
-        if self.range is not None:
-            test.range = self.range.create_child_range(
-                name=test.name or test.test_name,
-                time_range=sy.TimeRange(start=sy.TimeStamp.now(), end=sy.TimeStamp.MAX),
-                color=color,
-            )
-        else:
-            test.range = None
-
-        try:
-            # Load and instantiate the test class
-            test_class = self._load_test_class(test_def)
-            test_instance = test_class(
-                synnax_connection=self.synnax_connection,
-                name=test_def.name or test_def.case.split("/")[-1],
-                **test_def.parameters,
-            )
-
-            # Track test for timeout monitoring
-            current_thread = threading.current_thread()
-            with self.active_tests_lock:
-                self.active_tests.append((test_instance, test.range, current_thread))
-
-            test.status = STATUS.RUNNING
-            self._notify_status_change(test)
-
-            # Execute the test
-            test_instance.execute()
-            test.status = test_instance._status
-
-        except Exception as e:
-            test.status = STATUS.FAILED
-            test.error_message = str(e)
-            self.log_message(f"{test_def.case} FAILED: {e}")
-
-            self.log_message(f"Traceback: {traceback.format_exc()}")
-
-        finally:
-            if test.range is not None:
-                try:
-                    test.range = self._finalize_range(test.range)
-                except RuntimeError as e:
-                    self.log_message(f"Warning: Could not finalize range: {e}")
-
-            # Clean up test tracking
-            with self.active_tests_lock:
-                self.active_tests = [
-                    (test, test_range, thread)
-                    for test, test_range, thread in self.active_tests
-                    if test != test_instance
-                ]
-
-            self._notify_status_change(test)
-
-        return test
-
-    def _finalize_range(self, test_range: sy.Range) -> sy.Range:
-        """Finalize a test range by updating its end time."""
-        try:
-            return self.client.ranges.create(
-                key=test_range.key,
-                name=test_range.name,
-                time_range=sy.TimeRange(
-                    start=test_range.time_range.start,
-                    end=sy.TimeStamp.now(),
-                ),
-            )
-        except Exception as e:
-            self.logger.error(f"Error: Failed to finalize range: {e}")
-            raise RuntimeError(
-                f"Failed to finalize range '{test_range.name}': {e}"
-            ) from e
-
-    def _test_runner_thread(
-        self, test_def: TestDefinition, result_container: list[Test]
-    ) -> None:
-        """Thread function for running a single test."""
-        result = self._execute_single_test(test_def)
-        result_container.append(result)
-
-    def _timeout_monitor_thread(self, monitor_interval: float = 0.5) -> None:
-        """Monitor test execution for timeout violations."""
-        while self.is_running and not self.should_stop:
-            self._check_test_timeouts()
-            sy.sleep(monitor_interval)
-
-    def _check_test_timeouts(self) -> None:
-        """Check all active tests for timeout violations."""
-        with self.active_tests_lock:
-            if not self.active_tests:
-                return
-
-            tests_to_remove = []
-            for test_instance, test_range, thread in self.active_tests:
-                expected_timeout = getattr(test_instance, "Expected_Timeout", -1)
-                if expected_timeout <= 0:
-                    continue
-
-                elapsed_time = (
-                    sy.TimeStamp.now() - test_range.time_range.start
-                ) / sy.TimeSpan.SECOND
-                if elapsed_time <= expected_timeout:
-                    continue
-
-                self._handle_test_timeout(test_instance, test_range, elapsed_time)
-                tests_to_remove.append((test_instance, test_range, thread))
-
-            for test_tuple in tests_to_remove:
-                self.active_tests.remove(test_tuple)
-
-    def _handle_test_timeout(
-        self, test_instance: TestCase, test_range: sy.Range, elapsed_time: float
-    ) -> None:
-        """Handle a single test timeout."""
-        expected_timeout = getattr(test_instance, "Expected_Timeout", -1)
-        self.log_message(
-            f"{test_instance.name} timeout detected ({elapsed_time:.1f}s > {expected_timeout}s)"
-        )
-        test_instance._status = STATUS.TIMEOUT
-
-    def _determine_kill_status(
-        self, test_instance: TestCase, test_range: sy.Range
-    ) -> tuple[STATUS, str]:
-        """Determine if a test should be marked as TIMEOUT or KILLED."""
-        elapsed_time = (
-            sy.TimeStamp.now() - test_range.time_range.start
-        ) / sy.TimeSpan.SECOND
-        expected_timeout = getattr(test_instance, "Expected_Timeout", -1)
-
-        if expected_timeout > 0 and elapsed_time > expected_timeout:
-            self.log_message(
-                f"Test {test_instance.name} exceeded timeout ({expected_timeout}s)"
-            )
-            return STATUS.TIMEOUT, f"Test exceeded timeout ({expected_timeout}s)"
-
-        self.log_message(f"Test {test_instance.name} was manually killed")
-        return STATUS.KILLED, "Test was manually killed"
-
-    def _terminate_thread(self, thread: threading.Thread) -> None:
-        """Force terminate a thread using ctypes."""
-        thread.join(timeout=0.1)
-        if not thread.is_alive():
-            return
-
-        try:
-            thread_id = thread.ident
-            if thread_id is None:
-                return
-
-            res = ctypes.pythonapi.PyThreadState_SetAsyncExc(
-                ctypes.c_long(thread_id), ctypes.py_object(SystemExit)
-            )
-            if res == 0:
-                self.log_message(f"Warning: Could not terminate thread {thread.name}")
-            elif res > 1:
-                # Revert if it affected multiple threads
-                ctypes.pythonapi.PyThreadState_SetAsyncExc(thread_id, None)
-        except Exception as e:
-            self.log_message(f"Warning: Failed to force-terminate thread: {e}")
-
-    def kill_active_tests(self) -> int:
-        """Kill all active tests by terminating their threads."""
-        with self.active_tests_lock:
-            if not self.active_tests:
-                return 0
-
-            killed_test_results = []
-            threads_to_terminate = []
-
-            for test_instance, test_range, thread in self.active_tests:
-                if test_range is None:
-                    status = STATUS.KILLED
-                    error_msg = "Test was killed (no range available)"
-                    finalized_range = None
-                else:
-                    status, error_msg = self._determine_kill_status(
-                        test_instance, test_range
-                    )
-                    try:
-                        finalized_range = self._finalize_range(test_range)
-                    except RuntimeError as e:
-                        self.log_message(
-                            f"Warning: Could not finalize range for killed test: {e}"
-                        )
-                        finalized_range = test_range  # Keep original range with end=MAX
-
-                test_instance._status = status
-                test_result = Test(
-                    test_name=test_instance.name,
-                    name=getattr(test_instance, "custom_name", None),
-                    status=status,
-                    error_message=error_msg,
-                    range=finalized_range,
-                )
-                killed_test_results.append(test_result)
-                threads_to_terminate.append(thread)
-
-            self.active_tests = []
-
-        with self.tests_lock:
-            self.tests.extend(killed_test_results)
-
-        # Terminate threads outside the lock
-        for thread in threads_to_terminate:
-            self._terminate_thread(thread)
-
-        return len(killed_test_results)
-
     def stop_sequence(self) -> None:
         """Stop the entire test sequence execution."""
-        self.log_message("Stopping test sequence...")
+        self.execution_client.stop()
         self.should_stop = True
-        killed = self.kill_active_tests()
-        if killed > 0:
-            self.log_message(f"Killed {killed} active test(s)")
-        self._stop_client_manager()
+        self.telemetry_client.stop()
 
-    def _stop_client_manager(self) -> None:
-        """Stop the client manager thread gracefully."""
-        if self.client_manager_thread and self.client_manager_thread.is_alive():
-            self.log_message("Stopping client manager...")
-            # The thread will stop when self.should_stop becomes True
-            # or when status reaches SHUTDOWN
-            self.client_manager_thread.join(timeout=5.0)
-            if self.client_manager_thread.is_alive():
-                self.log_message(
-                    "Warning: Client manager thread did not stop gracefully"
-                )
-            else:
-                self.log_message("Client manager stopped successfully")
+    @property
+    def is_running(self) -> bool:
+        return self.execution_client.is_running
 
     def get_current_status(self) -> dict[str, Any]:
-        """Get the current status of test execution."""
-        with self.active_tests_lock:
-            active_tests_snapshot = [
-                {
-                    "name": test_instance.__class__.__name__,
-                    "elapsed_time": (
-                        (sy.TimeStamp.now() - test_range.time_range.start)
-                        / sy.TimeSpan.SECOND
-                        if test_range is not None
-                        else 0
-                    ),
-                }
-                for test_instance, test_range, _ in self.active_tests
-            ]
-
-        with self.tests_lock:
-            completed_tests = len(self.tests)
-            results = [
-                {
-                    "name": result.test_name,
-                    "status": result.status.value,
-                    "duration": (
-                        (result.range.time_range.end - result.range.time_range.start)
-                        / sy.TimeSpan.SECOND
-                        if result.range is not None
-                        and result.range.time_range.end != sy.TimeStamp.MAX
-                        else None
-                    ),
-                    "error": result.error_message,
-                }
-                for result in self.tests
-            ]
-
-        return {
-            "is_running": self.is_running,
-            "total_tests": len(self.test_definitions),
-            "completed_tests": completed_tests,
-            "active_tests": active_tests_snapshot,
-            "results": results,
-        }
+        return self.report_client.get_current_status(self.execution_client.is_running)
 
     def _get_test_statistics(self) -> dict[str, int]:
-        """Calculate and return test execution statistics."""
-        with self.tests_lock:
-            if not self.tests:
-                return {
-                    "total": 0,
-                    "passed": 0,
-                    "failed": 0,
-                    "killed": 0,
-                    "timeout": 0,
-                    "total_failed": 0,
-                }
-
-            passed = sum(1 for r in self.tests if r.status == STATUS.PASSED)
-            failed = sum(1 for r in self.tests if r.status == STATUS.FAILED)
-            killed = sum(1 for r in self.tests if r.status == STATUS.KILLED)
-            timeout = sum(1 for r in self.tests if r.status == STATUS.TIMEOUT)
-
-            # KILLED and TIMEOUT tests are also considered failed
-            total_failed = failed + killed + timeout
-
-            return {
-                "total": len(self.tests),
-                "passed": passed,
-                "failed": failed,
-                "killed": killed,
-                "timeout": timeout,
-                "total_failed": total_failed,
-            }
+        return self.report_client.get_statistics()
 
     def _print_summary(self) -> None:
-        """Print a summary of test execution results."""
-        with self.tests_lock:
-            if not self.tests:
-                return
-            tests_snapshot = list(self.tests)
-
-        stats = self._get_test_statistics()
-        self._last_stats = stats
-
-        # Individual Summary
-        self.log_message("\n" + "=" * 60, False)
-        for test in tests_snapshot:
-            # Calculate duration if range is finalized
-            if test.range is not None and test.range.time_range.end != sy.TimeStamp.MAX:
-                duration = (
-                    test.range.time_range.end - test.range.time_range.start
-                ) / sy.TimeSpan.SECOND
-                duration_str = f" ({duration:.1f}s)"
-            else:
-                duration_str = ""
-
-            status_symbol = SYMBOLS.get_symbol(test.status)
-            case_parts = str(test).split("/")
-            display_name = (
-                "/".join(case_parts[1:]) if len(case_parts) > 1 else str(test)
-            )
-            self.log_message(f"{status_symbol} {display_name}{duration_str}", False)
-            if test.error_message:
-                self.log_message(f"ERROR: {test.error_message}")
-
-        # Header
-        self.log_message("=" * 60, False)
-        self.log_message("TEST EXECUTION SUMMARY", False)
-
-        # Summary Counts
-        self.log_message("=" * 60, False)
-        self.log_message(f"Total tests: {stats['total']}", False)
-        if self.range is not None:
-            test_time = (
-                sy.TimeStamp.now() - self.range.time_range.start
-            ) / sy.TimeSpan.SECOND
-            self.log_message(f"Total time: {test_time:.1f} s", False)
-        self.log_message(f"Passed: {stats['passed']}", False)
-        self.log_message(
-            f"Failed: {stats['total_failed']} (includes {stats['failed']} failed, {stats['killed']} killed, {stats['timeout']} timeout)",
-            False,
-        )
-        self.log_message("=" * 60, False)
-        self.log_message("\n", False)
+        self.report_client.print_summary(self.range)
 
     def _signal_handler(self, signal_num: int, frame: Any = None) -> None:
         """Handle system signals for graceful shutdown."""
@@ -1427,11 +251,28 @@ def main() -> None:
     parser = argparse.ArgumentParser(
         description="Run test sequences",
         epilog="""
-Examples:
-  uv run tc -f channel              Run all tests containing 'channel' (like ginkgo --focus)
-  uv run tc console/...             Run all tests in console_tests.json
-  uv run tc console/general/...     Run all tests in 'general' sequence
-  uv run tc console/general/channel Run tests containing 'channel' in 'general' sequence
+1-part path — run all tests in a file:
+  uv run tc console                 all tests from console_tests.json
+  uv run tc driver                  all tests from driver_tests.json
+
+2-part path — file + case substring filter:
+  uv run tc driver/modbus           driver_tests.json, cases matching "modbus"
+  uv run tc console/label           console_tests.json, cases matching "label"
+  uv run tc arc/lifecycle           arc_tests.json, cases matching "lifecycle"
+
+3-part path — file + sequence filter + case filter:
+  uv run tc console/channel/calc    sequence matching "channel", cases matching "calc"
+  uv run tc arc/simple/...          sequence matching "simple", all cases
+
+-f flag — global case filter across all JSON files:
+  uv run tc -f modbus               all *_tests.json, cases matching "modbus"
+  uv run tc -f channel              all *_tests.json, cases matching "channel"
+
+... wildcard — means "no filter" at that position:
+  uv run tc console/...             same as just "console"
+  uv run tc console/.../calc        sequence=all, case="calc"
+
+All matching is case-insensitive substring.
         """,
         formatter_class=argparse.RawDescriptionHelpFormatter,
     )
@@ -1485,20 +326,14 @@ Examples:
     )
 
     try:
-        # Determine test file, sequence filter, and case filter
-        sequence_input: str | list[str] | None = None
-        sequence_filter: str | None = None
-        case_filter: str | None = None
-
         if args.target:
-            # Parse Bazel-like target path
-            test_file, sequence_filter, case_filter = parse_target_path(args.target)
-            sequence_input = f"{test_file}_tests.json"
+            target_filter = parse_target(args.target)
         elif args.filter:
-            case_filter = args.filter
-            sequence_input = None
+            target_filter = TargetFilter(case_filter=args.filter)
+        else:
+            target_filter = TargetFilter()
 
-        conductor.load_test_sequence(sequence_input, sequence_filter, case_filter)
+        conductor.load(target_filter)
         results = conductor.run_sequence()
         conductor.wait_for_completion()
 

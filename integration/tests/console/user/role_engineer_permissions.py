@@ -10,9 +10,9 @@
 """Test that Engineer role has full access except user management."""
 
 import synnax as sy
+from x import get_random_name
 
 from console.case import ConsoleCase
-from framework.utils import get_random_name
 
 
 class RoleEngineerPermissions(ConsoleCase):

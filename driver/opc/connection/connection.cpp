@@ -172,7 +172,6 @@ configure_encryption(const Config &cfg, const std::shared_ptr<UA_Client> &client
 
     const std::string uri = SECURITY_URI_BASE + cfg.security_policy;
     client_config->securityPolicyUri = UA_STRING_ALLOC(uri.c_str());
-    client_config->authSecurityPolicyUri = UA_STRING_ALLOC(uri.c_str());
 
     std::string app_uri = app_uri_from_cert(cfg.client_cert);
     if (app_uri.empty()) app_uri = "urn:synnax.opcua.client";
@@ -203,7 +202,6 @@ configure_encryption(const Config &cfg, const std::shared_ptr<UA_Client> &client
     if (e_err != UA_STATUSCODE_GOOD) {
         // Clean up the strings we allocated before the failure
         UA_String_clear(&client_config->securityPolicyUri);
-        UA_String_clear(&client_config->authSecurityPolicyUri);
         UA_String_clear(&client_config->clientDescription.applicationUri);
 
         LOG(ERROR) << "[opc.scanner] Failed to configure encryption: "
@@ -277,15 +275,16 @@ connect(const Config &cfg, std::string log_prefix) {
     config->logging->log = custom_logger;
     config->logging->context = &log_prefix;
 
-    // Use configured timeouts if provided, otherwise use production defaults
+    // Use configured timeouts if provided, otherwise use production defaults.
+    // Short defaults prevent one unresponsive PLC from tying up worker threads.
     config->secureChannelLifeTime = cfg.secure_channel_lifetime_ms > 0
                                       ? cfg.secure_channel_lifetime_ms
-                                      : 7200000; // Default: 2 hours
+                                      : 600000; // Default: 10 minutes
     config->requestedSessionTimeout = cfg.session_timeout_ms > 0
                                         ? cfg.session_timeout_ms
-                                        : 14400000; // Default: 4 hours
+                                        : 1200000; // Default: 20 minutes
     config->timeout = cfg.client_timeout_ms > 0 ? cfg.client_timeout_ms
-                                                : 7200000; // Default: 2 hours
+                                                : 5000; // Default: 5 seconds
 
     if (const auto enc_err = configure_encryption(cfg, client))
         return {nullptr, enc_err};

@@ -20,9 +20,4 @@ export const nullToUndefined = <Z extends z.ZodType>(
   schema
     .nullable()
     .transform((s) => (s === null ? undefined : s))
-    .optional() as z.ZodOptional<
-    z.ZodPipe<
-      z.ZodNullable<Z>,
-      z.ZodTransform<Awaited<z.infer<Z>> | undefined, z.infer<Z> | null>
-    >
-  >;
+    .optional();

@@ -75,6 +75,20 @@ func InferRelational(ctx context.Context[parser.IRelationalExpressionContext]) t
 	return types.Type{}
 }
 
+func inferBinaryType(elemType, nextElem types.Type) (types.Type, bool) {
+	if elemType.Kind == types.KindVariable && nextElem.Kind != types.KindVariable {
+		elemType = nextElem
+	}
+	// Only early-return on incompatibility when both types are concrete.
+	// When either is a type variable (literal), we must keep iterating
+	// to discover later concrete types that determine the actual type.
+	bothConcrete := elemType.Kind != types.KindVariable && nextElem.Kind != types.KindVariable
+	if bothConcrete && !Compatible(elemType, nextElem) {
+		return elemType, true
+	}
+	return elemType, false
+}
+
 func InferAdditive(ctx context.Context[parser.IAdditiveExpressionContext]) types.Type {
 	multiplicatives := ctx.AST.AllMultiplicativeExpression()
 	if len(multiplicatives) == 0 {
@@ -82,31 +96,33 @@ func InferAdditive(ctx context.Context[parser.IAdditiveExpressionContext]) types
 	}
 	if len(multiplicatives) > 1 {
 		firstType := InferMultiplicative(context.Child(ctx, multiplicatives[0]))
-		// Track if any operand is a series - if so, result is a series
 		isSeries := firstType.Kind == types.KindSeries
-		// Use series element type when available, as it's more concrete than scalar type variables
 		elemType := firstType.Unwrap()
 
 		for i := 1; i < len(multiplicatives); i++ {
 			nextType := InferMultiplicative(context.Child(ctx, multiplicatives[i]))
 			if nextType.Kind == types.KindSeries {
 				isSeries = true
-				// Prefer series element type over scalar type variable
 				nextElem := nextType.Unwrap()
 				if nextElem.Kind != types.KindVariable {
 					elemType = nextElem
 				}
-				if !Compatible(elemType, nextElem) {
+				bothConcrete := elemType.Kind != types.KindVariable && nextElem.Kind != types.KindVariable
+				if bothConcrete && !Compatible(elemType, nextElem) {
 					if isSeries {
 						return types.Series(elemType)
 					}
 					return elemType
 				}
-			} else if !Compatible(elemType, nextType.Unwrap()) {
-				if isSeries {
-					return types.Series(elemType)
+			} else {
+				var earlyReturn bool
+				elemType, earlyReturn = inferBinaryType(elemType, nextType.Unwrap())
+				if earlyReturn {
+					if isSeries {
+						return types.Series(elemType)
+					}
+					return elemType
 				}
-				return elemType
 			}
 		}
 		if isSeries {
@@ -124,29 +140,31 @@ func InferMultiplicative(ctx context.Context[parser.IMultiplicativeExpressionCon
 	}
 	if len(powers) > 1 {
 		firstType := InferPower(context.Child(ctx, powers[0]))
-		// Track if any operand is a series - if so, result is a series
 		isSeries := firstType.Kind == types.KindSeries
-		// Use series element type when available, as it's more concrete than scalar type variables
 		elemType := firstType.Unwrap()
 
 		for i := 1; i < len(powers); i++ {
 			nextType := InferPower(context.Child(ctx, powers[i]))
 			if nextType.Kind == types.KindSeries {
 				isSeries = true
-				// Prefer series element type over scalar type variable
 				nextElem := nextType.Unwrap()
 				if nextElem.Kind != types.KindVariable {
 					elemType = nextElem
 				}
-				if !Compatible(elemType, nextElem) {
+				bothConcrete := elemType.Kind != types.KindVariable && nextElem.Kind != types.KindVariable
+				if bothConcrete && !Compatible(elemType, nextElem) {
 					resultType := lo.Ternary(isSeries, types.Series(elemType), elemType)
 					ctx.TypeMap[ctx.AST] = resultType
 					return resultType
 				}
-			} else if !Compatible(elemType, nextType.Unwrap()) {
-				resultType := lo.Ternary(isSeries, types.Series(elemType), elemType)
-				ctx.TypeMap[ctx.AST] = resultType
-				return resultType
+			} else {
+				var earlyReturn bool
+				elemType, earlyReturn = inferBinaryType(elemType, nextType.Unwrap())
+				if earlyReturn {
+					resultType := lo.Ternary(isSeries, types.Series(elemType), elemType)
+					ctx.TypeMap[ctx.AST] = resultType
+					return resultType
+				}
 			}
 		}
 		resultType := lo.Ternary(isSeries, types.Series(elemType), elemType)

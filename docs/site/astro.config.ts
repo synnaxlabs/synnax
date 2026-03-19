@@ -32,6 +32,14 @@ export default defineConfig({
     },
   },
   redirects: {
+    "/guides/comparison/performance/one-billion-rows": "/blog/one-billion-rows",
+    "/guides/get-started/installation": "/reference/installation",
+    "/guides/": "/reference/",
+    "/guides/get-started": "/reference/",
+    "/guides/analyst": "/reference/",
+    "/guides/sys-admin": "/reference/",
+    "/guides/operations": "/reference/",
+    "/guides/comparison": "/reference/",
     "/reference/device-drivers/standalone": "/reference/driver/installation",
     "/reference/console/clusters": "/reference/console/cores",
     // Python client redirects

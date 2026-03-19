@@ -9,6 +9,7 @@
 
 import { type device } from "@synnaxlabs/client";
 import { migrate } from "@synnaxlabs/x";
+import z from "zod";
 
 import * as v0 from "@/hardware/opc/device/types/v0";
 import * as v1 from "@/hardware/opc/device/types/v1";
@@ -51,6 +52,7 @@ export type AnyProperties = v0.Properties | v1.Properties;
 export const SCHEMAS = {
   properties: propertiesZ,
   make: makeZ,
+  model: z.string(),
 } as const satisfies device.DeviceSchemas<typeof propertiesZ, typeof makeZ>;
 
 export const migrateProperties = migrate.migrator<AnyProperties, v1.Properties>({

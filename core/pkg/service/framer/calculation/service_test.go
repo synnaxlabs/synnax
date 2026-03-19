@@ -12,6 +12,7 @@ package calculation_test
 import (
 	"context"
 	"fmt"
+	"go/types"
 	"time"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -23,6 +24,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer/frame"
 	"github.com/synnaxlabs/synnax/pkg/distribution/mock"
 	"github.com/synnaxlabs/synnax/pkg/service/arc"
+	svcchannel "github.com/synnaxlabs/synnax/pkg/service/channel"
 	"github.com/synnaxlabs/synnax/pkg/service/framer/calculation"
 	"github.com/synnaxlabs/synnax/pkg/service/framer/streamer"
 	"github.com/synnaxlabs/synnax/pkg/service/label"
@@ -39,6 +41,7 @@ import (
 var _ = Describe("Calculation", Ordered, func() {
 	var (
 		c         *calculation.Service
+		arcSvc    *arc.Service
 		dist      mock.Node
 		statusSvc *status.Service
 	)
@@ -133,7 +136,7 @@ var _ = Describe("Calculation", Ordered, func() {
 		DeferCleanup(func() {
 			Expect(taskSvc.Close()).To(Succeed())
 		})
-		arcSvc := MustSucceed(arc.OpenService(ctx, arc.ServiceConfig{
+		arcSvc = MustSucceed(arc.OpenService(ctx, arc.ServiceConfig{
 			Channel:  dist.Channel,
 			Ontology: dist.Ontology,
 			DB:       dist.DB,
@@ -143,10 +146,11 @@ var _ = Describe("Calculation", Ordered, func() {
 		DeferCleanup(func() {
 			Expect(arcSvc.Close()).To(Succeed())
 		})
+		channelSvc := svcchannel.Wrap(dist.Channel)
 		c = MustSucceed(calculation.OpenService(ctx, calculation.ServiceConfig{
 			DB:                dist.DB,
 			Framer:            dist.Framer,
-			Channel:           dist.Channel,
+			Channel:           channelSvc,
 			ChannelObservable: dist.Channel.NewObservable(),
 			Arc:               arcSvc,
 			Status:            statusSvc,
@@ -515,7 +519,7 @@ var _ = Describe("Calculation", Ordered, func() {
 			Expect(rm.Set(ctx, channel.KeysFromChannels(calcs))).To(Succeed())
 			var st calculation.Status
 			statusKey := channel.OntologyID(calcs[0].Key()).String()
-			Expect(status.NewRetrieve[calculation.StatusDetails](statusSvc).
+			Expect(status.NewRetrieve[types.Nil](statusSvc).
 				WhereKeys(statusKey).
 				Entry(&st).
 				Exec(ctx, nil)).To(Succeed())
@@ -544,7 +548,7 @@ var _ = Describe("Calculation", Ordered, func() {
 			var st calculation.Status
 			statusKey := channel.OntologyID(calcs[0].Key()).String()
 			Eventually(func(g Gomega) {
-				err := status.NewRetrieve[calculation.StatusDetails](statusSvc).
+				err := status.NewRetrieve[types.Nil](statusSvc).
 					WhereKeys(statusKey).
 					Entry(&st).
 					Exec(ctx, nil)
@@ -553,26 +557,7 @@ var _ = Describe("Calculation", Ordered, func() {
 			}).Should(Succeed())
 			Expect(rm.Close(ctx)).To(Succeed())
 		})
-		Specify("Should include channel key in status details", func() {
-			calcs := []channel.Channel{{
-				Name:        channel.NewRandomName(),
-				DataType:    telem.Int64T,
-				Virtual:     true,
-				Leaseholder: cluster.NodeKeyFree,
-				Expression:  "invalid expression",
-			}}
-			Expect(dist.Channel.CreateMany(ctx, &calcs)).To(Succeed())
-			rm := c.OpenRequestManager()
-			Expect(rm.Set(ctx, channel.KeysFromChannels(calcs))).To(Succeed())
-			var st calculation.Status
-			statusKey := channel.OntologyID(calcs[0].Key()).String()
-			Expect(status.NewRetrieve[calculation.StatusDetails](statusSvc).
-				WhereKeys(statusKey).
-				Entry(&st).
-				Exec(ctx, nil)).To(Succeed())
-			Expect(st.Details.Channel).To(Equal(calcs[0].Key()))
-			Expect(rm.Close(ctx)).To(Succeed())
-		})
+
 		Specify("Should use channel ontology ID as status key", func() {
 			calcs := []channel.Channel{{
 				Name:        channel.NewRandomName(),
@@ -586,7 +571,7 @@ var _ = Describe("Calculation", Ordered, func() {
 			Expect(rm.Set(ctx, channel.KeysFromChannels(calcs))).To(Succeed())
 			var st calculation.Status
 			expectedKey := channel.OntologyID(calcs[0].Key()).String()
-			Expect(status.NewRetrieve[calculation.StatusDetails](statusSvc).
+			Expect(status.NewRetrieve[types.Nil](statusSvc).
 				WhereKeys(expectedKey).
 				Entry(&st).
 				Exec(ctx, nil)).To(Succeed())
@@ -623,8 +608,7 @@ var _ = Describe("Calculation", Ordered, func() {
 			Expect(dist.Channel.Create(ctx, &calcs[0])).To(Succeed())
 
 			Eventually(func(g Gomega) {
-				_, err := w.Write(frame.NewUnary(baseCh.Key(), telem.NewSeriesV[int64](1, 2)))
-				g.Expect(err).NotTo(HaveOccurred())
+				MustSucceed(w.Write(frame.NewUnary(baseCh.Key(), telem.NewSeriesV[int64](1, 2))))
 				g.Eventually(sOutlet.Outlet(), 1*time.Second).Should(Receive(&res))
 				g.Expect(res.Frame.KeysSlice()).To(Equal([]channel.Key{calcCh.Key()}))
 				g.Expect(res.Frame.Get(calcCh.Key()).Series[0]).To(telem.MatchSeriesDataV[int64](3, 6))
@@ -665,8 +649,7 @@ var _ = Describe("Calculation", Ordered, func() {
 			Expect(dist.Channel.Create(ctx, &calcs[0])).To(Succeed())
 
 			Expect(func(g Gomega) {
-				_, err := w.Write(frame.NewUnary(baseCh2.Key(), telem.NewSeriesV[int64](1, 2)))
-				g.Expect(err).NotTo(HaveOccurred())
+				MustSucceed(w.Write(frame.NewUnary(baseCh2.Key(), telem.NewSeriesV[int64](1, 2))))
 				g.Eventually(sOutlet.Outlet(), 1*time.Second).Should(Receive(&res))
 				g.Expect(res.Frame.KeysSlice()).To(Equal([]channel.Key{calcCh.Key()}))
 				g.Expect(res.Frame.Get(calcCh.Key()).Series[0]).To(telem.MatchSeriesDataV[int64](3, 6))

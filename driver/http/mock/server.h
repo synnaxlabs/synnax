@@ -34,6 +34,9 @@ struct Route {
     std::string content_type = "application/json";
     /// @brief delay before responding.
     x::telem::TimeSpan delay;
+    /// @brief if non-empty, respond with a redirect to this URL instead of the
+    /// configured body. status_code should be 301, 302, 307, etc.
+    std::string redirect_to;
 };
 
 /// @brief a received request logged by the mock server.
@@ -84,6 +87,9 @@ public:
 
     /// @brief returns all requests received by the server.
     [[nodiscard]] std::vector<ReceivedRequest> received_requests() const;
+
+    /// @brief clears all recorded requests.
+    void clear_requests();
 
 private:
     struct Impl;

@@ -14,8 +14,6 @@ on:
       - core/**
       - freighter/go/**
       - freighter/py/**
-      - go.work
-      - go.work.sum
       - pyproject.toml
       - uv.lock
       - uv.toml
@@ -36,8 +34,6 @@ on:
       - core/**
       - freighter/go/**
       - freighter/py/**
-      - go.work
-      - go.work.sum
       - pyproject.toml
       - uv.lock
       - uv.toml
@@ -90,17 +86,23 @@ jobs:
         uses: actions/checkout@v6
 
       - name: Login to Github Container registry
-        uses: docker/login-action@v3
+        uses: docker/login-action@v4
         with:
           registry: ghcr.io
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v3
+        uses: docker/setup-buildx-action@v4
+
+      - name: Extract Go version
+        id: go-version
+        run:
+          echo "GO_VERSION=$(grep '^go ' core/go.mod | awk '{print $2}')" >>
+          $GITHUB_OUTPUT
 
       - name: Build and push Core on current
-        uses: docker/build-push-action@v6
+        uses: docker/build-push-action@v7
         with:
           context: .
           file: core/Dockerfile
@@ -109,6 +111,7 @@ jobs:
           tags: ghcr.io/synnaxlabs/synnax:${{ github.sha }}
           cache-from: type=gha,scope=synnax-docker-cache
           cache-to: type=inline
+          build-args: GO_VERSION=${{ steps.go-version.outputs.GO_VERSION }}
 
       - name: Start Core on current branch
         id: start_current

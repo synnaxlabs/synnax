@@ -23,6 +23,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
 	"github.com/synnaxlabs/synnax/pkg/service/access"
 	"github.com/synnaxlabs/synnax/pkg/service/access/rbac"
+	servicechannel "github.com/synnaxlabs/synnax/pkg/service/channel"
 	"github.com/synnaxlabs/synnax/pkg/service/ranger"
 	"github.com/synnaxlabs/synnax/pkg/service/ranger/alias"
 	xconfig "github.com/synnaxlabs/x/config"
@@ -36,7 +37,7 @@ import (
 type Service struct {
 	db       *gorp.DB
 	access   *rbac.Service
-	internal *channel.Service
+	internal *servicechannel.Service
 	ranger   *ranger.Service
 	alias    *alias.Service
 }
@@ -48,7 +49,7 @@ func NewService(cfgs ...config.LayerConfig) (*Service, error) {
 	}
 	return &Service{
 		access:   cfg.Service.RBAC,
-		internal: cfg.Distribution.Channel,
+		internal: cfg.Service.Channel,
 		ranger:   cfg.Service.Ranger,
 		alias:    cfg.Service.Alias,
 		db:       cfg.Distribution.DB,

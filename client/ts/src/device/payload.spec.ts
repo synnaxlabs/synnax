@@ -108,6 +108,30 @@ describe("newZ", () => {
     expect(result.properties).toEqual(VALID_DEVICE.properties);
   });
 
+  it("should accept a device with an optional parent ontology ID", () => {
+    const result = newZ().safeParse({
+      ...VALID_DEVICE,
+      parent: { type: "rack", key: "rack-1" },
+    });
+    expect(result.success).toBe(true);
+    if (result.success)
+      expect(result.data.parent).toEqual({ type: "rack", key: "rack-1" });
+  });
+
+  it("should accept a device without a parent", () => {
+    const result = newZ().safeParse(VALID_DEVICE);
+    expect(result.success).toBe(true);
+    if (result.success) expect(result.data.parent).toBeUndefined();
+  });
+
+  it("should reject a device with an invalid parent type", () => {
+    const result = newZ().safeParse({
+      ...VALID_DEVICE,
+      parent: { type: "invalid_type", key: "key-1" },
+    });
+    expect(result.success).toBe(false);
+  });
+
   it("should still validate make and model with custom schemas", () => {
     const makeZ = z.literal("ni");
     const result = newZ({ make: makeZ }).safeParse(VALID_DEVICE);

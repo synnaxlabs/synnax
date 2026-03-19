@@ -116,7 +116,17 @@ Factory → {Read|Write|Scan}Task → Source/Sink → Device API
 
 - Analog/digital read
 - Analog/digital write
-- Scanner
+- Scanner (with chassis/module hierarchy resolution)
+
+**Chassis/Module Hierarchy:**
+
+The NI scanner discovers CompactDAQ chassis and their installed modules using NISysCfg
+link properties (`ConnectsToLinkName` / `ProvidesLinkName`). The scan uses a two-pass
+algorithm: first collect all devices and build a link-name-to-chassis-key map, then
+resolve each module's parent via that map. Chassis are sorted before modules to ensure
+parents are created first. The `synnax::device::Device` struct includes a `parent`
+ontology ID field. When the parent changes between scan cycles, the scan task re-sends
+the device create request with the appropriate `parent` ontology ID.
 
 **Error Handling:**
 
@@ -125,7 +135,7 @@ Factory → {Read|Write|Scan}Task → Source/Sink → Device API
 
 **Platform Support:**
 
-- Windows, Linux, NI Linux RT
+- Windows, Linux, NI Linux Real-Time
 
 ### Modbus TCP/IP (`/driver/modbus/`)
 
@@ -156,7 +166,7 @@ Factory → {Read|Write|Scan}Task → Source/Sink → Device API
 
 **Platform:**
 
-- ❌ **Excluded on NI Linux RT** via Bazel `select()`
+- ❌ **Excluded on NI Linux Real-Time** via Bazel `select()`
 
 ### OPC UA (`/driver/opc/`)
 
@@ -276,6 +286,27 @@ linkopts = select({
 })
 ```
 
+## Device Hierarchy (Parent-Child Relationships)
+
+Devices support parent-child relationships via the ontology. The device create API
+accepts an optional `parent` ontology ID (e.g., `"device:SERIAL123"`) that atomically
+creates both the device and the `ParentOf` relationship in a single transaction. When no
+parent is provided, the device defaults to being parented under its rack.
+
+**How it works:**
+
+- The device create endpoint (`core/pkg/service/device/writer.go`) accepts an optional
+  `parent ontology.ID`. If non-zero, the device is parented to that resource; otherwise
+  it defaults to the device's rack.
+- The `synnax::device::Device` struct includes a `parent` ontology ID field. The common
+  scan task (`driver/common/scan_task.h`) tracks parent changes between cycles and
+  re-creates devices when the parent changes.
+- The Console uses a make-based dispatch (`console/src/hardware/device/make.tsx`) to
+  determine if a device node should be expandable (e.g., NI checks `is_chassis` in
+  device properties).
+
+**Currently used by:** NI integration (cDAQ chassis with swappable modules).
+
 ## Key Architectural Patterns
 
 1. **Factory Pattern**: Each integration provides a factory for task creation
@@ -289,7 +320,7 @@ linkopts = select({
 ## Common Gotchas
 
 - **SDK Requirements**: LabJack LJM, NI-DAQmx must be installed
-- **Modbus on NI Linux RT**: Excluded via Bazel config
+- **Modbus on NI Linux Real-Time**: Excluded via Bazel config
 - **Platform-specific code**: Use Bazel `select()` mechanism
 - **Connection pooling**: Modbus and OPC UA share connections, LabJack/NI don't
 - **Blocking operations**: Minimize in real-time acquisition loops

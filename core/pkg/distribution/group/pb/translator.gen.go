@@ -35,7 +35,7 @@ func GroupFromPB(_ context.Context, pb *Group) (group.Group, error) {
 	var err error
 	parsedKey, err := uuid.Parse(pb.Key)
 	if err != nil {
-		return r, err
+		return group.Group{}, err
 	}
 	r.Key = group.Key(parsedKey)
 	r.Name = pb.Name

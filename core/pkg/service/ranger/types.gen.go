@@ -17,6 +17,7 @@ import (
 	"github.com/synnaxlabs/x/telem"
 )
 
+// Key is a unique identifier for a range, represented as a UUID.
 type Key = uuid.UUID
 
 // Range is a user-defined region of time in the Synnax cluster. Ranges act as a method

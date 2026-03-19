@@ -20,6 +20,7 @@ import (
 	gotypes "go/types"
 )
 
+// Status is channel-specific status information.
 type Status = status.Status[gotypes.Nil]
 
 // Channel is a logical collection of samples emitted by or representing values from a
