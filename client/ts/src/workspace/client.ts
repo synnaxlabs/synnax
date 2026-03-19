@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { sendRequired, type UnaryClient } from "@synnaxlabs/freighter";
-import { array, record } from "@synnaxlabs/x";
+import { array, caseconv, record } from "@synnaxlabs/x";
 import { z } from "zod";
 
 import { keyZ as userKeyZ } from "@/user/types.gen";
@@ -33,7 +33,7 @@ const createReqZ = z.object({ workspaces: newZ.array() });
 const renameReqZ = z.object({ key: keyZ, name: z.string() });
 const setLayoutReqZ = z.object({
   key: keyZ,
-  layout: record.unknownZ(),
+  layout: caseconv.preserveCase(record.unknownZ()),
 });
 const deleteReqZ = z.object({ keys: keyZ.array() });
 
