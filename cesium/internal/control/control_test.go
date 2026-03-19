@@ -842,8 +842,7 @@ var _ = Describe("Control", func() {
 						sch2, _ := MustSucceed2(innerC.OpenGate(sch2Cfg))
 
 						// Arc should be in control (highest authority)
-						_, err := arc.Authorize()
-						Expect(err).ToNot(HaveOccurred())
+						MustSucceed(arc.Authorize())
 
 						// Schematic 1 takes then releases absolute
 						sch1.SetAuthority(xcontrol.AuthorityAbsolute)

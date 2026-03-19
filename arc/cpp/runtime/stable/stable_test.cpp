@@ -44,34 +44,34 @@ struct TestSetup {
 
 private:
     static ir::IR build_ir(const int64_t duration_ns) {
-        ir::Param source_output;
+        types::Param source_output;
         source_output.name = ir::default_output_param;
-        source_output.type = types::Type(types::Kind::U8);
+        source_output.type = types::Type{.kind = types::Kind::U8};
 
         ir::Node source_node;
         source_node.key = "source";
         source_node.type = "producer";
-        source_node.outputs.params.push_back(source_output);
+        source_node.outputs.push_back(source_output);
 
-        ir::Param stable_input;
+        types::Param stable_input;
         stable_input.name = ir::default_input_param;
-        stable_input.type = types::Type(types::Kind::U8);
+        stable_input.type = types::Type{.kind = types::Kind::U8};
 
-        ir::Param stable_output;
+        types::Param stable_output;
         stable_output.name = ir::default_output_param;
-        stable_output.type = types::Type(types::Kind::U8);
+        stable_output.type = types::Type{.kind = types::Kind::U8};
 
-        ir::Param duration_param;
+        types::Param duration_param;
         duration_param.name = "duration";
-        duration_param.type = types::Type(types::Kind::I64);
+        duration_param.type = types::Type{.kind = types::Kind::I64};
         duration_param.value = duration_ns;
 
         ir::Node stable_node;
         stable_node.key = "stable";
         stable_node.type = "stable_for";
-        stable_node.inputs.params.push_back(stable_input);
-        stable_node.outputs.params.push_back(stable_output);
-        stable_node.config.params.push_back(duration_param);
+        stable_node.inputs.push_back(stable_input);
+        stable_node.outputs.push_back(stable_output);
+        stable_node.config.push_back(duration_param);
 
         ir::Edge edge;
         edge.source = ir::Handle("source", ir::default_output_param);
