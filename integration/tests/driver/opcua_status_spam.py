@@ -10,7 +10,6 @@
 from collections.abc import Generator
 
 import synnax as sy
-from synnax.task.payload import Status
 
 from tests.driver.opcua_read import OPCUAReadArray
 
@@ -18,11 +17,13 @@ RATE_LIMIT_SECONDS = 5
 RATE_LIMIT = RATE_LIMIT_SECONDS * sy.TimeSpan.SECOND
 
 
-def _warnings_for_task(frame: sy.Frame, task_key: int) -> Generator[Status, None, None]:
+def _warnings_for_task(
+    frame: sy.Frame, task_key: int
+) -> Generator[sy.task.Status, None, None]:
     if "sy_status_set" not in frame:
         return
     for i in range(len(frame["sy_status_set"])):
-        status = Status.model_validate(frame["sy_status_set"][i])
+        status = sy.task.Status.model_validate(frame["sy_status_set"][i])
         if (
             status.details is not None
             and status.details.task == task_key
