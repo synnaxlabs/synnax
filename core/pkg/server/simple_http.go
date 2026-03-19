@@ -49,7 +49,7 @@ func (h *SimpleHTTPBranch) Routing() (i BranchRouting) {
 }
 
 // Init implements Branch.
-func (h *SimpleHTTPBranch) Init(_ BranchContext) {
+func (h *SimpleHTTPBranch) Init(BranchContext) {
 	h.server = &http.Server{Handler: h.handler}
 }
 

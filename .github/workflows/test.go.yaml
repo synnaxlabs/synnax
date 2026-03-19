@@ -8,7 +8,9 @@ on:
         required: true
         type: string
       ginkgo_flags:
-        description: Additional flags to pass to Ginkgo (e.g., --race, --fail-on-empty)
+        description:
+          Additional flags to pass to Ginkgo (e.g., -p, --randomize-all,
+          --fail-on-empty)
         required: false
         type: string
         default: ""
@@ -59,8 +61,8 @@ jobs:
       - name: Test
         run: >-
           go run github.com/onsi/ginkgo/v2/ginkgo -r --randomize-suites
-          --fail-on-pending --cover --coverprofile=cover.out --keep-going --trace
-          --github-output --race ${{ inputs.ginkgo_flags }}
+          --fail-on-pending --keep-going --cover --coverprofile=cover.out --race --trace
+          --github-output ${{ inputs.ginkgo_flags }}
         working-directory: ${{ inputs.directory }}
 
       - name: Upload coverage

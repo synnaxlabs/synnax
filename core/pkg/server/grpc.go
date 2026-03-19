@@ -45,9 +45,7 @@ func (g *GRPCBranch) Init(ctx BranchContext) {
 }
 
 // Serve implements Branch.
-func (g *GRPCBranch) Serve(ctx BranchContext) error {
-	return g.server.Serve(ctx.Lis)
-}
+func (g *GRPCBranch) Serve(ctx BranchContext) error { return g.server.Serve(ctx.Lis) }
 
 // Stop implements Branch.
 func (g *GRPCBranch) Stop() {

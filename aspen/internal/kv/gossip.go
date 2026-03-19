@@ -67,8 +67,8 @@ type operationServer struct {
 }
 
 func newOperationServer(cfg Config, s *kvStore) *operationServer {
-	// BindHandler is deferred to kv.Open so the handler isn't callable until
-	// plumber has finished wiring the pipeline outlets.
+	// BindHandler is deferred to kv.Open so the handler isn't callable until plumber
+	// has finished wiring the pipeline outlets.
 	return &operationServer{Config: cfg, store: s}
 }
 
@@ -125,8 +125,8 @@ type feedbackReceiver struct {
 }
 
 func newFeedbackReceiver(cfg Config) *feedbackReceiver {
-	// BindHandler is deferred to kv.Open so the handler isn't callable until
-	// plumber has finished wiring the pipeline outlets.
+	// BindHandler is deferred to kv.Open so the handler isn't callable until plumber
+	// has finished wiring the pipeline outlets.
 	return &feedbackReceiver{Config: cfg}
 }
 

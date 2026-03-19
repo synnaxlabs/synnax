@@ -75,8 +75,8 @@ type BranchRouting struct {
 	Policy RoutingPolicy
 }
 
-// Branch represents a sub-server of the main server, which process requests that
-// match a specific pattern.
+// Branch represents a sub-server of the main server, which process requests that match
+// a specific pattern.
 type Branch interface {
 	// Key is a human-readable key that identifies this branch.
 	Key() string
@@ -85,11 +85,11 @@ type Branch interface {
 	// Init initializes the branch, creating any underlying servers and binding
 	// transports. Init is called synchronously before Serve, ensuring that the
 	// branch is fully initialized before any goroutines are launched.
-	Init(ctx BranchContext)
-	// Serve starts the branch and should block until the branch exits abnormally
-	// or is stopped by calling Stop. Init must be called before Serve.
-	Serve(ctx BranchContext) error
-	// Stop stops the branch gracefully. Stop is safe to call even if Init has
-	// not been called.
+	Init(BranchContext)
+	// Serve starts the branch and should block until the branch exits abnormally or is
+	// stopped by calling Stop. Init must be called before Serve.
+	Serve(BranchContext) error
+	// Stop stops the branch gracefully. Stop is safe to call even if Init has not been
+	// called.
 	Stop()
 }

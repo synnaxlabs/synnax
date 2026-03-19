@@ -267,8 +267,8 @@ func Open(ctx context.Context, cfgs ...Config) (*DB, error) {
 		Capacity:     chanBuffer,
 	}.MustRoute(pipe)
 	newRecoveryServer(cfg)
-	// Bind RPC handlers after routing so outlets are wired before any
-	// incoming gossip message can invoke the handler.
+	// Bind RPC handlers after routing so outlets are wired before any incoming gossip
+	// message can invoke the handler.
 	cfg.BatchTransportServer.BindHandler(opServer.handle)
 	cfg.FeedbackTransportServer.BindHandler(fbReceiver.handle)
 	pipe.Flow(
