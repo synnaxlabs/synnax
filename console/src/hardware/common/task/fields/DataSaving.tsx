@@ -10,5 +10,5 @@
 import { Form } from "@synnaxlabs/pluto";
 
 export const DataSaving = () => (
-  <Form.SwitchField label="Data Saving" path="config.dataSaving" />
+  <Form.SwitchField label="Data saving" path="config.dataSaving" />
 );

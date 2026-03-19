@@ -100,20 +100,24 @@ export type NewStatus<Data extends z.ZodType = z.ZodNever> = z.infer<
 >;
 
 export interface PayloadSchemas<
-  Type extends z.ZodType<string> = z.ZodString,
+  Type extends z.ZodType<string> = z.ZodType<string>,
   Config extends z.ZodType<record.Unknown> = z.ZodType<record.Unknown>,
-  StatusData extends z.ZodType = z.ZodNever,
+  StatusData extends z.ZodType = z.ZodType,
 > {
-  type?: Type;
-  config?: Config;
-  statusData?: StatusData;
+  type: Type;
+  config: Config;
+  statusData: StatusData;
 }
 
 export const payloadZ = <
   Type extends z.ZodType<string> = z.ZodString,
   Config extends z.ZodType<record.Unknown> = z.ZodType<record.Unknown>,
   StatusData extends z.ZodType = z.ZodNever,
->({ type, config, statusData }: PayloadSchemas<Type, Config, StatusData> = {}) =>
+>({
+  type,
+  config,
+  statusData,
+}: Partial<PayloadSchemas<Type, Config, StatusData>> = {}) =>
   z.object({
     key: keyZ,
     name: z.string(),
@@ -123,50 +127,42 @@ export const payloadZ = <
     snapshot: z.boolean().optional(),
     status: status.statusZ({ details: statusDetailsZ(statusData) }).optional(),
   });
-export interface Payload<
-  Type extends z.ZodType<string> = z.ZodString,
-  Config extends z.ZodType<record.Unknown> = z.ZodType<record.Unknown>,
-  StatusData extends z.ZodType = z.ZodNever,
-> {
+export interface Payload<S extends PayloadSchemas = PayloadSchemas> {
   key: Key;
   name: string;
-  type: z.infer<Type>;
-  config: z.infer<Config>;
+  type: z.infer<S["type"]>;
+  config: z.infer<S["config"]>;
   internal?: boolean;
   snapshot?: boolean;
-  status?: Status<StatusData>;
+  status?: Status<S["statusData"]>;
 }
 
 export interface NewSchemas<
-  Type extends z.ZodType<string> = z.ZodString,
+  Type extends z.ZodType<string> = z.ZodType<string>,
   Config extends z.ZodType<record.Unknown> = z.ZodType<record.Unknown>,
-  StatusData extends z.ZodType = z.ZodNever,
+  StatusData extends z.ZodType = z.ZodType,
 > {
-  type?: Type;
-  config?: Config;
-  statusData?: StatusData;
+  type: Type;
+  config: Config;
+  statusData: StatusData;
 }
 
 export const newZ = <
   Type extends z.ZodType<string> = z.ZodString,
   Config extends z.ZodType<record.Unknown> = z.ZodType<record.Unknown>,
   StatusData extends z.ZodType = z.ZodNever,
->({ type, config, statusData }: NewSchemas<Type, Config, StatusData> = {}) =>
+>({ type, config, statusData }: Partial<NewSchemas<Type, Config, StatusData>> = {}) =>
   payloadZ({ type, config, statusData })
     .omit({ internal: true, snapshot: true, status: true })
     .partial({ key: true })
     .extend({
       status: status.newZ({ details: newStatusDetailsZ(statusData) }).optional(),
     });
-export type New<
-  Type extends z.ZodType<string> = z.ZodString,
-  Config extends z.ZodType<record.Unknown> = z.ZodType<record.Unknown>,
-  StatusData extends z.ZodType = z.ZodNever,
-> = optional.Optional<
-  Omit<Payload<Type, Config, StatusData>, "internal" | "snapshot" | "status">,
+export type New<S extends NewSchemas = NewSchemas> = optional.Optional<
+  Omit<Payload<S>, "internal" | "snapshot" | "status">,
   "key"
 > & {
-  status?: NewStatus<StatusData>;
+  status?: NewStatus<S["statusData"]>;
 };
 
 export const ontologyID = ontology.createIDFactory<Key>("task");

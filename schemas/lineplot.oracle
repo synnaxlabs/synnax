@@ -23,7 +23,7 @@ LinePlot struct {
     name string {
         @doc value "is a human-readable name for the line plot."
     }
-    data json   {
+    data record {
         @doc value        """
             is the line plot configuration including channel references, axis
             settings, and display options.

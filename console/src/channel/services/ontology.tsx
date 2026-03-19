@@ -16,11 +16,13 @@ import {
   Icon,
   Menu as PMenu,
   type Schematic as PSchematic,
+  Status,
   telem,
   Text,
+  Tooltip,
   Tree,
 } from "@synnaxlabs/pluto";
-import { primitive, type record } from "@synnaxlabs/x";
+import { primitive, type record, status } from "@synnaxlabs/x";
 import { useCallback, useMemo } from "react";
 
 import { Channel } from "@/channel";
@@ -292,6 +294,7 @@ export const Item = ({ id, resource, icon: _, ...rest }: Ontology.TreeItemProps)
   if (primitive.isNonZero(res?.alias)) name = res?.alias;
   const data = resource.data as channel.Payload;
   const DataTypeIcon = PChannel.resolveIcon(data);
+  const statusVariant = status.keepVariants(res?.status?.variant, ["error", "warning"]);
   return (
     <Tree.Item {...rest}>
       <DataTypeIcon color={10} />
@@ -305,6 +308,14 @@ export const Item = ({ id, resource, icon: _, ...rest }: Ontology.TreeItemProps)
         disabled={!allowRename(resource)}
         onChange
       />
+      {statusVariant != null && (
+        <Tooltip.Dialog location="right">
+          <Status.Summary variant={statusVariant} hideIcon level="small" weight={450}>
+            {res?.status?.message ?? ""}
+          </Status.Summary>
+          <Status.Indicator variant={statusVariant} />
+        </Tooltip.Dialog>
+      )}
       {data.virtual && <Icon.Virtual color={8} />}
     </Tree.Item>
   );

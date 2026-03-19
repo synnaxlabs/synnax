@@ -712,7 +712,7 @@ func defaultValueForPrimitive(primitive string) string {
 		return "x::telem::TimeSpan(0)"
 	case "time_range", "time_range_bounded":
 		return "x::telem::TimeRange{}"
-	case "json":
+	case "record":
 		return "x::json::json::object_t{}"
 	case "bytes":
 		return "{}"

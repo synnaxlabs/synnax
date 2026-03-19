@@ -52,7 +52,7 @@ AllTypes struct {
 	n timestamp
 	o timespan
 	p time_range
-	q json
+	q record
 	r bytes
 }
 `
@@ -117,7 +117,7 @@ const MapTypeTemplate = `
 Config struct {
 	settings map[string]string
 	counts map[string]int32
-	metadata map[string]json
+	metadata map[string]record
 }
 `
 
@@ -178,7 +178,7 @@ Container struct<T> {
 const GenericWithConstraintTemplate = `
 %s
 
-Wrapper struct<T extends json> {
+Wrapper struct<T extends record> {
 	value T
 	min T
 	max T

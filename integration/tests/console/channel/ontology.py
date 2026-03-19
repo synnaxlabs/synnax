@@ -7,8 +7,9 @@
 #  License, use of this software will be governed by the Apache License, Version 2.0,
 #  included in the file licenses/APL.txt.
 
+from x import get_random_name
+
 from console.case import ConsoleCase
-from framework.utils import get_random_name
 
 METRICS_GROUP = "Metrics"
 METRICS_PREFIX = "sy_node_1_metrics"

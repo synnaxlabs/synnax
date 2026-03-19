@@ -98,7 +98,7 @@ func ChannelFromPB(ctx context.Context, pb *Channel) (channel.Channel, error) {
 	var err error
 	r.Operations, err = OperationsFromPB(ctx, pb.Operations)
 	if err != nil {
-		return r, err
+		return channel.Channel{}, err
 	}
 	r.Name = channel.Name(pb.Name)
 	r.Leaseholder = cluster.NodeKey(pb.Leaseholder)

@@ -23,6 +23,36 @@ var _ = Describe("Set", func() {
 		s = make(set.Set[int])
 	})
 
+	Describe("New", func() {
+		It("should create a set from a slice", func() {
+			s = set.New(1, 2, 3)
+			Expect(len(s)).To(Equal(3))
+			Expect(s.Contains(1)).To(BeTrue())
+			Expect(s.Contains(2)).To(BeTrue())
+			Expect(s.Contains(3)).To(BeTrue())
+		})
+		It("should create a set from a single entry", func() {
+			s = set.New(1)
+			Expect(len(s)).To(Equal(1))
+			Expect(s.Contains(1)).To(BeTrue())
+			Expect(s.Contains(2)).To(BeFalse())
+		})
+		It("should skip duplicate entries", func() {
+			s = set.New(1, 2, 3, 2, 1)
+			Expect(len(s)).To(Equal(3))
+			Expect(s.Contains(1)).To(BeTrue())
+			Expect(s.Contains(2)).To(BeTrue())
+			Expect(s.Contains(3)).To(BeTrue())
+		})
+		It("should return an empty set when no entries are provided", func() {
+			s = set.New[int]()
+			Expect(len(s)).To(Equal(0))
+			Expect(s.Contains(1)).To(BeFalse())
+			Expect(s.Contains(2)).To(BeFalse())
+			Expect(s.Contains(3)).To(BeFalse())
+		})
+	})
+
 	Describe("Add", func() {
 		It("should add elements to the set", func() {
 			s.Add(1, 2, 3)

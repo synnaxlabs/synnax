@@ -13,7 +13,7 @@
 @cpp output "x/cpp/control"
 @pb
 
-Authority = uint8 {
+Authority uint8 {
     @doc value """
         is a numeric value (0-255) representing the level of control authority a
         subject has over a resource. Higher values indicate greater authority.

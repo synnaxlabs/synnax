@@ -78,12 +78,12 @@ func (r *recoveryServer) recoverPeer(
 		op.Variant = dig.Variant
 
 		if op.Variant == change.VariantSet {
-			v, closer, err := r.Engine.Get(ctx, dig.Key)
-			if err != nil {
-				return err
+			v, closer, getErr := r.Engine.Get(ctx, dig.Key)
+			if getErr != nil {
+				return getErr
 			}
 			op.Value = bytes.Clone(v)
-			if err := closer.Close(); err != nil {
+			if err = closer.Close(); err != nil {
 				return err
 			}
 		}

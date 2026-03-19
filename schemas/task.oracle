@@ -24,7 +24,7 @@ Key uint64 {
     @ts to_string
 }
 
-StatusDetails struct<Data? = json> {
+StatusDetails struct<Data? = record> {
     task    Key     {
         @doc value "is the key of the task this status pertains to."
     }
@@ -42,13 +42,13 @@ StatusDetails struct<Data? = json> {
     @ts concrete_types
 }
 
-Status<Data? = json> = status.Status<StatusDetails<Data>> {
+Status<Data? = record> = status.Status<StatusDetails<Data>> {
     @doc value """
         is task-specific status information including execution state and task-specific data.
     """
 }
 
-NewStatusDetails struct<Data? = json> {
+NewStatusDetails struct<Data? = record> {
     task    Key?    {
         @doc value "is an optional task key."
     }
@@ -70,7 +70,7 @@ NewStatusDetails struct<Data? = json> {
     @cpp omit
 }
 
-NewStatus<Data? = json> = status.New<NewStatusDetails<Data>> {
+NewStatus<Data? = record> = status.New<NewStatusDetails<Data>> {
     @doc value "contains parameters for creating a new task status."
     @go omit
     @pb omit
@@ -80,8 +80,8 @@ NewStatus<Data? = json> = status.New<NewStatusDetails<Data>> {
 
 Task struct<
     Type extends string = string,
-    Config extends json = json,
-    StatusData? = json
+    Config extends record = record,
+    StatusData? = record
 > {
     key      Key                  {
         @doc value "is the composite identifier for this task."
@@ -120,12 +120,17 @@ Task struct<
     @ts {
         name "Payload"
         concrete_types
+        coalesce_type_params
     }
     @ontology type "task"
     @py name       "Payload"
 }
 
-New struct<Type extends string = string, Config extends json = json, StatusData? = json> extends Task<Type, Config, StatusData> {
+New struct<
+    Type extends string = string,
+    Config extends record = record,
+    StatusData? = record
+> extends Task<Type, Config, StatusData> {
     -internal
     -snapshot
     key    Key?                   {
@@ -142,6 +147,7 @@ New struct<Type extends string = string, Config extends json = json, StatusData?
     @ts {
         use_input
         concrete_types
+        coalesce_type_params
     }
     @go omit
     @pb omit
@@ -150,16 +156,16 @@ New struct<Type extends string = string, Config extends json = json, StatusData?
 }
 
 Command struct {
-    task Key    {
+    task Key     {
         @doc value "is the key of the target task."
     }
-    type string {
+    type string  {
         @doc value "is the command type (e.g., 'start', 'stop', 'configure')."
     }
-    key  string {
+    key  string  {
         @doc value "is a unique identifier for this command instance."
     }
-    args json?  {
+    args record? {
         @doc value        "contains optional arguments for the command."
         @ts preserve_case
     }

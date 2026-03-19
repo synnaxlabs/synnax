@@ -23,6 +23,8 @@ func (s Subject) String() string {
 	return fmt.Sprintf("<%s>", s.Key)
 }
 
+// String implements fmt.Stringer to print out a nice representation of the control
+// state.
 func (s State[R]) String() string {
 	return fmt.Sprintf(
 		"%s with authority %v over %v",

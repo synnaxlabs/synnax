@@ -22,7 +22,7 @@
 #include "x/cpp/uuid/uuid.h"
 
 #include "arc/cpp/graph/types.gen.h"
-#include "arc/cpp/module/types.gen.h"
+#include "arc/cpp/program/types.gen.h"
 #include "arc/cpp/text/types.gen.h"
 #include "core/pkg/service/arc/pb/arc.pb.h"
 
@@ -67,9 +67,9 @@ struct Arc {
     ::arc::graph::Graph graph;
     /// @brief text is the text-based Arc source code.
     ::arc::text::Text text;
-    /// @brief module is the compiled module output including IR and WebAssembly
+    /// @brief program is the compiled module output including IR and WebAssembly
     /// bytecode.
-    std::optional<::arc::module::Module> module;
+    std::optional<::arc::program::Program> program;
     /// @brief status is the current execution status of the module.
     std::optional<Status> status;
 

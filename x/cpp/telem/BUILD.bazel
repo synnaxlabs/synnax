@@ -5,6 +5,7 @@ cc_library(
     name = "telem",
     srcs = [
         "frame.cpp",
+        "series.cpp",
     ],
     hdrs = [
         "clock_skew.h",

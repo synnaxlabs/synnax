@@ -19,16 +19,12 @@ import { getOpenPort } from "@/hardware/labjack/task/getOpenPort";
 import { FORMS } from "@/hardware/labjack/task/InputChannelForms";
 import { SelectInputChannelTypeField } from "@/hardware/labjack/task/SelectInputChannelTypeField";
 import {
-  AI_CHANNEL_TYPE,
-  DI_CHANNEL_TYPE,
   INPUT_CHANNEL_SCHEMAS,
   type InputChannel,
   type InputChannelType,
   READ_SCHEMAS,
   READ_TYPE,
-  readConfigZ,
-  type readStatusDataZ,
-  type readTypeZ,
+  type ReadSchemas,
   ZERO_INPUT_CHANNEL,
   ZERO_INPUT_CHANNELS,
   ZERO_READ_PAYLOAD,
@@ -83,7 +79,7 @@ const ChannelListItem = ({ onTare, deviceModel, ...rest }: ChannelListItemProps)
   const type = PForm.useFieldValue<InputChannelType>(`${path}.type`);
   const isSnapshot = Common.Task.useIsSnapshot();
   const isRunning = Common.Task.useIsRunning();
-  const hasTareButton = channel !== 0 && type === AI_CHANNEL_TYPE && !isSnapshot;
+  const hasTareButton = channel !== 0 && type === "AI" && !isSnapshot;
   const canTare = enabled && isRunning;
   const renderedPort = getRenderedPort(port, deviceModel, type);
   return (
@@ -185,17 +181,14 @@ const getOpenChannel = (
   };
 };
 
-type ChannelsFormProps = {
+interface ChannelsFormProps {
   device: Device.Device;
-};
+}
 
-const isChannelTareable = <C extends InputChannel>(channel: C) =>
-  channel.type === AI_CHANNEL_TYPE;
+const isChannelTareable = (channel: InputChannel) => channel.type === "AI";
 
 const ChannelsForm = ({ device }: ChannelsFormProps) => {
-  const [tare, allowTare, handleTare] = Common.Task.useTare<InputChannel>({
-    isChannelTareable: isChannelTareable<InputChannel>,
-  });
+  const [tare, allowTare, handleTare] = Common.Task.useTare({ isChannelTareable });
   const createChannel = useCallback(
     (channels: InputChannel[], channelKeyToCopy?: string) =>
       getOpenChannel(channels, device, channelKeyToCopy),
@@ -225,9 +218,7 @@ const ChannelsForm = ({ device }: ChannelsFormProps) => {
   );
 };
 
-const Form: FC<
-  Common.Task.FormProps<typeof readTypeZ, typeof readConfigZ, typeof readStatusDataZ>
-> = (props) => {
+const Form: FC<Common.Task.FormProps<ReadSchemas>> = (props) => {
   const isSnapshot = Common.Task.useIsSnapshot();
   return (
     <Common.Device.Provider
@@ -240,19 +231,19 @@ const Form: FC<
   );
 };
 
-const getInitialValues: Common.Task.GetInitialValues<
-  typeof readTypeZ,
-  typeof readConfigZ,
-  typeof readStatusDataZ
-> = ({ deviceKey, config }) => {
-  const cfg = config != null ? readConfigZ.parse(config) : ZERO_READ_PAYLOAD.config;
+const getInitialValues: Common.Task.GetInitialValues<ReadSchemas> = ({
+  deviceKey,
+  config,
+}) => {
+  const cfg =
+    config != null ? READ_SCHEMAS.config.parse(config) : ZERO_READ_PAYLOAD.config;
   return {
     ...ZERO_READ_PAYLOAD,
     config: { ...cfg, device: deviceKey ?? cfg.device },
   };
 };
 
-const onConfigure: Common.Task.OnConfigure<typeof readConfigZ> = async (
+const onConfigure: Common.Task.OnConfigure<ReadSchemas["config"]> = async (
   client,
   config,
 ) => {
@@ -301,7 +292,7 @@ const onConfigure: Common.Task.OnConfigure<typeof readConfigZ> = async (
       const channels = await client.channels.create(
         toCreate.map((c) => ({
           name: primitive.isNonZero(c.name) ? c.name : `${identifier}_${c.port}`,
-          dataType: c.type === DI_CHANNEL_TYPE ? "uint8" : "float32",
+          dataType: c.type === "DI" ? "uint8" : "float32",
           index: dev.properties.readIndex,
         })),
       );
@@ -326,7 +317,7 @@ export const Read = Common.Task.wrapForm({
   Properties,
   Form,
   schemas: READ_SCHEMAS,
-  type: READ_TYPE,
+  type: "labjack_read",
   getInitialValues,
   onConfigure,
 });

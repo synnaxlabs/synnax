@@ -37,9 +37,8 @@ export {
   X_LOCATIONS,
   type XLocation,
   xLocationZ,
-  type XY,
-  xyZ,
   Y_LOCATIONS,
   type YLocation,
   yLocationZ,
 } from "@/spatial/base";
+export { type XY, xyZ } from "@/spatial/types.gen";

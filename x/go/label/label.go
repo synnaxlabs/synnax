@@ -10,14 +10,13 @@
 package label
 
 import (
-	"github.com/google/uuid"
 	"github.com/synnaxlabs/x/gorp"
 )
 
-var _ gorp.Entry[uuid.UUID] = Label{}
+var _ gorp.Entry[Key] = Label{}
 
 // GorpKey implements gorp.Entry.
-func (l Label) GorpKey() uuid.UUID { return l.Key }
+func (l Label) GorpKey() Key { return l.Key }
 
 // SetOptions implements gorp.Entry.
 func (l Label) SetOptions() []any { return nil }

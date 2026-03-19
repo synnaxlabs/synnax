@@ -11,6 +11,8 @@
 
 package spatial
 
+// OuterLocation is a position indicator for elements anchored to the outer edge of a
+// container. Used for orientation and positioning of UI elements.
 type OuterLocation string
 
 const (

@@ -13,6 +13,7 @@ import { array, zod } from "@synnaxlabs/x";
 import { z } from "zod";
 
 import { types } from "@/arc/types";
+
 export enum EdgeKind {
   unspecified = 0,
   continuous = 1,

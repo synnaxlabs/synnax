@@ -132,6 +132,7 @@ class Symbol(ABC):
 
     def click(self) -> None:
         """Click the symbol to select it."""
+        self.locator.wait_for(state="visible", timeout=5000)
         self.layout.click(self.locator)
 
     def meta_click(self) -> None:

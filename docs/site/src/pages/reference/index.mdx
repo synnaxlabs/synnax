@@ -1,30 +1,65 @@
 ---
-title: "Reference"
+title: "Get Started"
 layout: "@/layouts/Reference.astro"
 showBreadcrumb: false
 ---
 
-import { Divider, Note } from "@synnaxlabs/pluto";
+import { Divider, Icon } from "@synnaxlabs/pluto";
+import Bento from "@/components/bento/Bento.astro";
+import BentoItem from "@/components/bento/BentoItem.astro";
 import { mdxOverrides } from "@/components/mdxOverrides";
 export const components = mdxOverrides;
 
-These pages contain reference documentation for each Synnax component. Use the
-navigation bar on the left to find specific topics, or see the table below to find a
-specific component.
+Synnax is a sensor data platform that handles everything from collecting measurements
+off your hardware to storing, visualizing, and acting on them in real time. Connect your
+devices, build dashboards, and write control sequences, all from a single tool.
+
+Whether you're running a test stand, commissioning a new system, or automating a
+production line, [get started by installing Synnax](/reference/installation).
 
 <Divider.Divider x />
 
-## Components
-
-Synnax is composed of several components. An overview of these components and essential
-concepts for working with Synnax can be found in our
-[concepts](/reference/concepts/overview) page.
-
-| Component                                                     | Description                                                                                                |
-| ------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------- |
-| [Core](/reference/core/quick-start)                           | A horizontally scalable time-series database that provides long term storage and real-time data streaming. |
-| [Console](/reference/console/get-started)                     | A desktop application for data-visualization, instrumentation management, and manual hardware operations.  |
-| [Python client](/reference/python-client/get-started)         | Our Python library for interacting with a Synnax Core.                                                     |
-| [TypeScript client](/reference/typescript-client/get-started) | Our TypeScript library for interacting with a Synnax Core.                                                 |
-| [Control](/reference/control/get-started)                     | Automate control of hardware systems using control sequences.                                              |
-| [Driver](/reference/driver/get-started)                       | A program for communicating with data acquisition and control devices.                                     |
+<Bento>
+  <BentoItem
+    href="/reference/installation"
+    title="Installation"
+    description="Install the Synnax Core and Console on your machine."
+  >
+    <Icon.Bolt slot="graphic" />
+  </BentoItem>
+  <BentoItem
+    href="/reference/concepts/overview"
+    title="Concepts"
+    description="Learn how Synnax organizes data using channels, ranges, and workspaces."
+  >
+    <Icon.Reference slot="graphic" />
+  </BentoItem>
+  <BentoItem
+    href="/reference/driver/get-started"
+    title="Acquire Data"
+    description="Connect NI, LabJack, EtherCAT, OPC UA, and Modbus devices."
+  >
+    <Icon.Device slot="graphic" />
+  </BentoItem>
+  <BentoItem
+    href="/reference/console/get-started"
+    title="Visualize and Operate"
+    description="Build dashboards for real-time monitoring and manual hardware control."
+  >
+    <Icon.Visualize slot="graphic" />
+  </BentoItem>
+  <BentoItem
+    href="/reference/control/get-started"
+    title="Automate Control"
+    description="Write control sequences to automate hardware operations."
+  >
+    <Icon.Control slot="graphic" />
+  </BentoItem>
+  <BentoItem
+    href="/reference/client/quick-start"
+    title="Client Libraries"
+    description="Read, write, and stream data with the Python or TypeScript client."
+  >
+    <Icon.Terminal slot="graphic" />
+  </BentoItem>
+</Bento>

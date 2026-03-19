@@ -17,10 +17,9 @@
 #include "x/cpp/telem/telem.h"
 #include "x/cpp/test/test.h"
 
-#include "arc/cpp/runtime/wasm/bindings.h"
 #include "arc/cpp/runtime/wasm/module.h"
 
-using namespace arc::runtime::wasm;
+namespace arc::runtime::wasm {
 
 namespace {
 std::mt19937 gen_rand = random_generator("Module Tests");
@@ -31,28 +30,24 @@ std::string random_name(const std::string &prefix) {
 }
 
 /// @brief Compiles an Arc program via the Synnax client.
-arc::module::Module
-compile_arc(const synnax::Synnax &client, const std::string &source) {
-    synnax::arc::Arc arc{
-        .name = random_name("test_arc"),
-        .text = ::arc::text::Text(source)
-    };
+program::Program compile_arc(const synnax::Synnax &client, const std::string &source) {
+    synnax::arc::Arc arc{.name = random_name("test_arc"), .text = text::Text(source)};
     if (const auto create_err = client.arcs.create(arc))
         throw std::runtime_error("Failed to create arc: " + create_err.message());
 
     auto [compiled, err] = client.arcs.retrieve_by_key(arc.key, {.compile = true});
     if (err) throw std::runtime_error("Failed to compile arc: " + err.message());
-    if (!compiled.module.has_value())
-        throw std::runtime_error("Compiled arc has no module");
-    return *compiled.module;
+    if (!compiled.program.has_value())
+        throw std::runtime_error("Compiled arc has no program");
+    return *compiled.program;
 }
 }
 
 /// @brief Module::open returns error for empty WASM bytes.
 TEST(ModuleOpenTest, ReturnsErrorForEmptyWasmBytes) {
-    arc::module::Module mod;
+    program::Program mod;
     mod.wasm = {};
-    const ModuleConfig cfg{.module = mod};
+    const ModuleConfig cfg{.program = mod};
     const auto [module, err] = Module::open(cfg);
     ASSERT_TRUE(err.matches(x::errors::VALIDATION));
     ASSERT_NE(err.message().find("empty"), std::string::npos);
@@ -60,9 +55,9 @@ TEST(ModuleOpenTest, ReturnsErrorForEmptyWasmBytes) {
 
 /// @brief Module::open returns error for invalid WASM bytes.
 TEST(ModuleOpenTest, ReturnsErrorForInvalidWasmBytes) {
-    arc::module::Module mod;
+    program::Program mod;
     mod.wasm = {0x00, 0x01, 0x02, 0x03};
-    const ModuleConfig cfg{.module = mod};
+    const ModuleConfig cfg{.program = mod};
     const auto [module, err] = Module::open(cfg);
     ASSERT_TRUE(err.matches(x::errors::VALIDATION));
     ASSERT_NE(err.message().find("compile"), std::string::npos);
@@ -84,7 +79,7 @@ func double(val f32) f32 {
     const auto mod = compile_arc(client, source);
     ASSERT_FALSE(mod.wasm.empty());
 
-    const ModuleConfig cfg{.module = mod};
+    const ModuleConfig cfg{.program = mod};
     const auto module = ASSERT_NIL_P(Module::open(cfg));
     ASSERT_NE(module, nullptr);
 }
@@ -102,8 +97,8 @@ func double(val f32) f32 {
 }
 )" + ch.name + " -> double{}";
 
-    const auto mod = compile_arc(client, source);
-    const ModuleConfig cfg{.module = mod};
+    const auto prog = compile_arc(client, source);
+    const ModuleConfig cfg{.program = prog};
     auto module = ASSERT_NIL_P(Module::open(cfg));
 
     auto [func, func_err] = module->func("nonexistent");
@@ -123,10 +118,10 @@ func double(val f32) f32 {
 }
 )" + ch.name + " -> double{}";
 
-    const auto mod = compile_arc(client, source);
-    const ModuleConfig cfg{.module = mod};
-    auto module = ASSERT_NIL_P(Module::open(cfg));
-    ASSERT_NIL_P(module->func("double"));
+    const auto program = compile_arc(client, source);
+    const ModuleConfig cfg{.program = program};
+    const auto mod = ASSERT_NIL_P(Module::open(cfg));
+    ASSERT_NIL_P(mod->func("double"));
 }
 
 /// @brief Function::call executes and returns results.
@@ -142,8 +137,8 @@ func double(val f32) f32 {
 }
 )" + ch.name + " -> double{}";
 
-    const auto mod = compile_arc(client, source);
-    const ModuleConfig cfg{.module = mod};
+    const auto program = compile_arc(client, source);
+    const ModuleConfig cfg{.program = program};
     auto module = ASSERT_NIL_P(Module::open(cfg));
     auto func = ASSERT_NIL_P(module->func("double"));
 
@@ -307,4 +302,5 @@ TEST(SampleFromBitsTest, HandlesTimestamp) {
     arc::types::Type ts_type{.kind = arc::types::Kind::I64, .unit = ns_unit};
     const auto ts_sample = sample_from_bits(1000000000, ts_type);
     EXPECT_EQ(std::get<x::telem::TimeStamp>(ts_sample).nanoseconds(), 1000000000);
+}
 }

@@ -15,9 +15,10 @@
 
 #include "x/cpp/errors/errors.h"
 
-#include "arc/cpp/module/module.h"
+#include "arc/cpp/program/program.h"
 #include "arc/cpp/runtime/errors/errors.h"
-#include "arc/cpp/runtime/wasm/bindings.h"
+#include "arc/cpp/stl/stl.h"
+#include "arc/cpp/stl/str/state.h"
 #include "arc/cpp/types/types.h"
 #include "wasmtime.hh"
 
@@ -161,8 +162,9 @@ const auto BASE_ERROR = errors::BASE.sub("wasm");
 const auto INITIALIZATION_ERROR = BASE_ERROR.sub("initialization");
 
 struct ModuleConfig {
-    module::Module module;
-    std::shared_ptr<Bindings> bindings;
+    program::Program program;
+    std::vector<std::shared_ptr<stl::Module>> modules;
+    std::shared_ptr<stl::str::State> strings;
     std::uint32_t stack_size = 2 * 1024 * 1024; // 2MB (Wasmtime default)
     std::uint32_t host_managed_heap_size = 10 * 1024 * 1024; // 10MB
 };
@@ -193,7 +195,7 @@ public:
 
     static std::pair<std::shared_ptr<Module>, x::errors::Error>
     open(const ModuleConfig &cfg) {
-        if (cfg.module.wasm.empty())
+        if (cfg.program.wasm.empty())
             return {
                 nullptr,
                 x::errors::Error(x::errors::VALIDATION, "wasm bytes are empty")
@@ -202,7 +204,7 @@ public:
         wasmtime::Engine engine;
         wasmtime::Store store(engine);
 
-        auto &wasm_bytes = const_cast<std::vector<uint8_t> &>(cfg.module.wasm);
+        auto &wasm_bytes = const_cast<std::vector<uint8_t> &>(cfg.program.wasm);
         auto mod_result = wasmtime::Module::compile(
             engine,
             wasmtime::Span<uint8_t>(wasm_bytes.data(), wasm_bytes.size())
@@ -219,8 +221,26 @@ public:
             };
         }
         const auto mod = mod_result.ok();
-        const auto imports = create_imports(store, cfg.bindings);
-        auto instance = wasmtime::Instance::create(store, mod, imports).unwrap();
+
+        wasmtime::Linker linker(engine);
+        for (auto &m: cfg.modules)
+            m->bind_to(linker, store);
+
+        auto inst_result = linker.instantiate(store, mod);
+        if (!inst_result) {
+            auto trap_err = inst_result.err();
+            auto msg = trap_err.message();
+            return {
+                nullptr,
+                x::errors::Error(
+                    INITIALIZATION_ERROR,
+                    "failed to instantiate module: " +
+                        std::string(msg.data(), msg.size())
+                )
+            };
+        }
+        auto instance = inst_result.ok();
+
         const auto mem_opt = instance.get(store, "memory");
         if (!mem_opt)
             return {
@@ -250,10 +270,8 @@ public:
             std::move(mem),
             std::move(instance)
         );
-        if (cfg.bindings != nullptr) {
-            cfg.bindings->set_memory(&module->memory);
-            cfg.bindings->set_store(&module->store);
-        }
+        for (auto &m: module->cfg.modules)
+            m->set_wasm_context(&module->store, &module->memory);
         return {module, x::errors::NIL};
     }
 
@@ -294,9 +312,24 @@ public:
             config_count(config.size()),
             base(base) {
             this->args.resize(config.size() + inputs.size(), wasmtime::Val(0));
-            for (size_t i = 0; i < config.size(); i++)
-                if (!config[i].value.is_null())
-                    this->args[i] = json_to_wasm(config[i].value, config[i].type);
+            for (size_t i = 0; i < config.size(); i++) {
+                if (config[i].value.is_null()) continue;
+                if (config[i].value.is_string()) {
+                    // String config params get a stable handle created once at
+                    // configure time — not cleared by flush(), no per-call refresh.
+                    // bindings is always non-null in production; the null branch is
+                    // only reachable in tests that construct a Module without WASM
+                    // host bindings, where args[i] stays 0 (unused).
+                    const auto &s = config[i].value.get<std::string>();
+                    if (module.cfg.strings != nullptr)
+                        this->args[i] = wasmtime::Val(
+                            static_cast<int32_t>(module.cfg.strings->create_config(s))
+                        );
+                    continue;
+                }
+                auto sv = types::to_sample_value(config[i].value, config[i].type);
+                if (sv.has_value()) this->args[i] = sample_to_wasm(*sv, config[i].type);
+            }
             uint32_t offset = base + 8;
             for (const auto &param: outputs) {
                 this->offsets.push_back(offset);
@@ -380,11 +413,11 @@ public:
                 x::errors::Error(x::errors::VALIDATION, "export is not a function")
             };
 
-        const auto &func = this->cfg.module.function(name);
+        const auto &func = this->cfg.program.function(name);
 
         uint32_t base = 0;
-        if (const auto base_it = this->cfg.module.output_memory_bases.find(name);
-            base_it != this->cfg.module.output_memory_bases.end()) {
+        if (const auto base_it = this->cfg.program.output_memory_bases.find(name);
+            base_it != this->cfg.program.output_memory_bases.end()) {
             base = base_it->second;
         }
 

@@ -12,12 +12,12 @@ from re import search as re_search
 from playwright.sync_api import Locator
 from playwright.sync_api import TimeoutError as PlaywrightTimeoutError
 from playwright.sync_api import expect
+from x import rgb_to_hex
 
 from console.context_menu import ContextMenu
 from console.layout import LayoutClient
 from console.notifications import NotificationsClient
 from console.tree import Tree
-from framework.utils import rgb_to_hex
 
 _MODAL_SELECTOR = ".console-label__edit"
 _LABEL_ITEM_SELECTOR = ".console-label__list-item"

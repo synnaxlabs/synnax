@@ -22,7 +22,7 @@ Node struct {
     type     string     {
         @doc value "is the function type being instantiated."
     }
-    config   json       {
+    config   record       {
         @doc value "contains configuration parameter values as a JSON object."
     }
     position spatial.XY {

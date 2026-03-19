@@ -40,9 +40,7 @@ const DELETE_ARC_LISTENER: Flux.ChannelListener<FluxSubStore, typeof arc.keyZ> =
 };
 
 export const FLUX_STORE_CONFIG: Flux.UnaryStoreConfig<FluxSubStore, arc.Key, arc.Arc> =
-  {
-    listeners: [SET_ARC_LISTENER, DELETE_ARC_LISTENER],
-  };
+  { listeners: [SET_ARC_LISTENER, DELETE_ARC_LISTENER] };
 
 export interface FluxSubStore extends Flux.Store {
   [FLUX_STORE_KEY]: FluxStore;
@@ -147,16 +145,9 @@ export interface CreateParams extends arc.New {
   rack?: rack.Key;
 }
 
-export const taskStatusDataZ = z.null().or(z.undefined());
-export type TaskStatusData = z.infer<typeof taskStatusDataZ>;
 const TASK_TYPE = "arc";
-export const taskTypeZ = z.literal(TASK_TYPE);
-export type TaskType = z.infer<typeof taskTypeZ>;
-export const taskConfigZ = z.object({
-  arcKey: z.string(),
-});
 
-export interface TaskConfig extends z.infer<typeof taskConfigZ> {}
+const taskStatusDataZ = z.null().or(z.undefined());
 
 const configuringStatus = (taskKey: task.Key): task.Status<typeof taskStatusDataZ> =>
   status.create<ReturnType<typeof task.statusDetailsZ<typeof taskStatusDataZ>>>({
@@ -164,22 +155,14 @@ const configuringStatus = (taskKey: task.Key): task.Status<typeof taskStatusData
     name: "Configuring task",
     variant: "loading",
     message: "Configuring task...",
-    details: {
-      task: taskKey,
-      running: false,
-      data: undefined,
-    },
+    details: { task: taskKey, running: false, data: undefined },
   });
 
-const TASK_SCHEMAS: task.PayloadSchemas<
-  typeof taskTypeZ,
-  typeof taskConfigZ,
-  typeof taskStatusDataZ
-> = {
-  type: taskTypeZ,
-  config: taskConfigZ,
+const TASK_SCHEMAS = {
+  type: z.literal(TASK_TYPE),
+  config: z.object({ arcKey: z.string() }),
   statusData: taskStatusDataZ,
-};
+} as const satisfies task.Schemas;
 
 export const { useUpdate: useCreate } = Flux.createUpdate<
   CreateParams,
@@ -312,11 +295,7 @@ export const retrieveTask = async ({
     taskKey = children[0].id.key;
   }
 
-  return await Task.retrieveSingle({
-    store,
-    client,
-    query: { key: taskKey },
-  });
+  return await Task.retrieveSingle({ store, client, query: { key: taskKey } });
 };
 
 export const { useRetrieve: useRetrieveTask } = Flux.createRetrieve<
@@ -385,7 +364,7 @@ export const { useRetrieve: useRetrieveTask } = Flux.createRetrieve<
         if (cachedRel == null) return;
         const taskStatusKey = task.statusKey(cachedRel.to.key);
         if (status.key !== taskStatusKey) return;
-        const parsed = task.statusZ(z.null().or(z.undefined())).safeParse(status);
+        const parsed = task.statusZ(z.unknown()).safeParse(status);
         if (!parsed.success) return;
         onChange((prev) => {
           if (prev == null) return prev;

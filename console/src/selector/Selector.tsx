@@ -43,7 +43,13 @@ export const Selector = ({
   const handleError = Status.useErrorHandler();
   return (
     <Eraser.Eraser>
-      <Flex.Box className={CSS.BE("layout-selector", "frame")} gap="large" wrap center>
+      <Flex.Box
+        className={CSS.BE("layout-selector", "frame")}
+        gap="large"
+        align="center"
+        grow
+        full
+      >
         <Text.Text level="h4" color={10} weight={400}>
           {text}
         </Text.Text>

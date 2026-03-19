@@ -29,5 +29,5 @@ Color struct {
 
     @doc value "is an RGBA color with RGB as 0-255 and alpha as 0-1."
     @ts omit
-    @py name   "Payload"
+    @py omit
 }

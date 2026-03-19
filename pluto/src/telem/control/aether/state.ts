@@ -63,6 +63,8 @@ export class StateProvider extends aether.Composite<
 
   /** Tracks the colors we assign to a particular control subject. */
   private readonly colors = new Map<string, color.Color>();
+  /** Tracks user-specified color overrides from the legend UI. */
+  private readonly colorOverrides = new Map<string, color.Color>();
 
   /** Tracks the current control state for each channel and allows us to access it */
   private tracker?: control.StateTracker;
@@ -120,6 +122,22 @@ export class StateProvider extends aether.Composite<
     return this.obs.onChange(cb);
   }
 
+  setColorOverrides(overrides: Record<string, string>): void {
+    const entries = Object.entries(overrides);
+    if (
+      entries.length === this.colorOverrides.size &&
+      entries.every(([k, v]) => {
+        const existing = this.colorOverrides.get(k);
+        return existing != null && color.equals(existing, v);
+      })
+    )
+      return;
+    this.colorOverrides.clear();
+    for (const [key, value] of entries)
+      this.colorOverrides.set(key, color.construct(value));
+    this.obs.notify([]);
+  }
+
   get(key: channel.Key): SugaredState | undefined;
 
   get(keys: channel.Key[]): SugaredState[];
@@ -139,7 +157,10 @@ export class StateProvider extends aether.Composite<
     if (s == null) return undefined;
     return {
       ...s,
-      subjectColor: this.colors.get(s.subject.key) ?? this.internal.defaultColor,
+      subjectColor:
+        this.colorOverrides.get(s.subject.key) ??
+        this.colors.get(s.subject.key) ??
+        this.internal.defaultColor,
     };
   }
 

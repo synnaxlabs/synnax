@@ -19,6 +19,7 @@ import (
 	"github.com/synnaxlabs/aspen/internal/cluster/gossip"
 	"github.com/synnaxlabs/aspen/internal/node"
 	"github.com/synnaxlabs/x/signal"
+	. "github.com/synnaxlabs/x/testutil"
 )
 
 var _ = Describe("Cluster Mock", func() {
@@ -28,11 +29,9 @@ var _ = Describe("Cluster Mock", func() {
 			builder := clustermock.NewBuilder(cfg)
 			ctx, cancel := signal.Isolated()
 			defer cancel()
-			c1, err := builder.New(ctx, cfg)
-			Expect(err).ToNot(HaveOccurred())
+			c1 := MustSucceed(builder.New(ctx, cfg))
 			Expect(c1.HostKey()).To(Equal(node.Key(1)))
-			c2, err := builder.New(ctx, cfg)
-			Expect(err).ToNot(HaveOccurred())
+			c2 := MustSucceed(builder.New(ctx, cfg))
 			Expect(c2.HostKey()).To(Equal(node.Key(2)))
 			Expect(c2.Nodes()).To(HaveLen(2))
 		})

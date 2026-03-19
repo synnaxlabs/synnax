@@ -24,8 +24,8 @@
 
 #include "arc/cpp/graph/json.gen.h"
 #include "arc/cpp/graph/proto.gen.h"
-#include "arc/cpp/module/json.gen.h"
-#include "arc/cpp/module/proto.gen.h"
+#include "arc/cpp/program/json.gen.h"
+#include "arc/cpp/program/proto.gen.h"
 #include "arc/cpp/text/json.gen.h"
 #include "arc/cpp/text/proto.gen.h"
 #include "core/pkg/service/arc/pb/arc.pb.h"
@@ -72,7 +72,7 @@ inline ::service::arc::pb::Arc Arc::to_proto() const {
     pb.set_mode(ModeToPB(this->mode));
     *pb.mutable_graph() = this->graph.to_proto();
     *pb.mutable_text() = this->text.to_proto();
-    if (this->module.has_value()) *pb.mutable_module() = this->module->to_proto();
+    if (this->program.has_value()) *pb.mutable_program() = this->program->to_proto();
     if (this->status.has_value()) *pb.mutable_status() = this->status->to_proto();
     return pb;
 }
@@ -97,10 +97,10 @@ Arc::from_proto(const ::service::arc::pb::Arc &pb) {
         if (err) return {{}, err};
         cpp.text = v;
     }
-    if (pb.has_module()) {
-        auto [v, err] = ::arc::module::Module::from_proto(pb.module());
+    if (pb.has_program()) {
+        auto [v, err] = ::arc::program::Program::from_proto(pb.program());
         if (err) return {{}, err};
-        cpp.module = v;
+        cpp.program = v;
     }
     if (pb.has_status()) {
         auto [v, err] = Status::from_proto(pb.status());

@@ -14,12 +14,13 @@ import (
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/arc/analyzer"
 	acontext "github.com/synnaxlabs/arc/analyzer/context"
-	"github.com/synnaxlabs/arc/compiler/bindings"
 	"github.com/synnaxlabs/arc/compiler/context"
+	"github.com/synnaxlabs/arc/compiler/resolve"
 	"github.com/synnaxlabs/arc/compiler/statement"
 	. "github.com/synnaxlabs/arc/compiler/testutil"
 	. "github.com/synnaxlabs/arc/compiler/wasm"
 	"github.com/synnaxlabs/arc/parser"
+	"github.com/synnaxlabs/arc/stl"
 	"github.com/synnaxlabs/arc/symbol"
 	"github.com/synnaxlabs/arc/types"
 	. "github.com/synnaxlabs/x/testutil"
@@ -30,7 +31,7 @@ func compile(source string) []byte {
 	aCtx := acontext.CreateRoot(bCtx, stmt, nil)
 	analyzer.AnalyzeStatement(aCtx)
 	Expect(aCtx.Diagnostics.Ok()).To(BeTrue())
-	ctx := context.CreateRoot(bCtx, aCtx.Scope, aCtx.TypeMap, true)
+	ctx := context.CreateRoot(bCtx, aCtx.Scope, aCtx.TypeMap, nil)
 	Expect(MustSucceed(statement.Compile(context.Child(ctx, stmt)))).To(BeFalse())
 	return ctx.Writer.Bytes()
 }
@@ -40,7 +41,7 @@ func compileBlock(source string) []byte {
 	aCtx := acontext.CreateRoot(bCtx, block, nil)
 	analyzer.AnalyzeBlock(aCtx)
 	Expect(aCtx.Diagnostics.Ok()).To(BeTrue())
-	ctx := context.CreateRoot(bCtx, aCtx.Scope, aCtx.TypeMap, true)
+	ctx := context.CreateRoot(bCtx, aCtx.Scope, aCtx.TypeMap, nil)
 	diverged := MustSucceed(statement.CompileBlock(context.Child(ctx, block)))
 	Expect(diverged).To(BeFalse())
 	return ctx.Writer.Bytes()
@@ -98,15 +99,14 @@ var _ = Describe("Statement Compiler", func() {
 			aCtx := acontext.CreateRoot(bCtx, stmt, nil)
 			analyzer.AnalyzeStatement(aCtx)
 			Expect(aCtx.Diagnostics.Ok()).To(BeTrue())
-			ctx := context.CreateRoot(bCtx, aCtx.Scope, aCtx.TypeMap, false)
+			ctx := context.CreateRoot(bCtx, aCtx.Scope, aCtx.TypeMap, resolve.NewResolver(stl.SymbolResolver))
 			diverged := MustSucceed(statement.Compile(context.Child(ctx, stmt)))
 			Expect(diverged).To(BeFalse())
 
-			stateLoadIdx := ctx.Imports.StateLoad["i64"]
-			Expect(ctx.Writer.Bytes()).To(MatchOpcodes(
+			Expect(FinalizeContext(ctx)).To(MatchOpcodes(
 				OpI32Const, int32(0), // var ID (first stateful var)
 				OpI64Const, int64(0), // init value
-				OpCall, uint64(stateLoadIdx),
+				OpCall, uint32(0),
 				OpLocalSet, 0, // store in local
 			))
 		})
@@ -116,15 +116,14 @@ var _ = Describe("Statement Compiler", func() {
 			aCtx := acontext.CreateRoot(bCtx, stmt, nil)
 			analyzer.AnalyzeStatement(aCtx)
 			Expect(aCtx.Diagnostics.Ok()).To(BeTrue())
-			ctx := context.CreateRoot(bCtx, aCtx.Scope, aCtx.TypeMap, false)
+			ctx := context.CreateRoot(bCtx, aCtx.Scope, aCtx.TypeMap, resolve.NewResolver(stl.SymbolResolver))
 			diverged := MustSucceed(statement.Compile(context.Child(ctx, stmt)))
 			Expect(diverged).To(BeFalse())
 
-			stateLoadIdx := ctx.Imports.StateLoad["i64"]
-			Expect(ctx.Writer.Bytes()).To(MatchOpcodes(
+			Expect(FinalizeContext(ctx)).To(MatchOpcodes(
 				OpI32Const, int32(0), // var ID
 				OpI64Const, int64(0), // init value
-				OpCall, uint64(stateLoadIdx),
+				OpCall, uint32(0),
 				OpLocalSet, 0, // store in local
 			))
 		})
@@ -137,24 +136,22 @@ var _ = Describe("Statement Compiler", func() {
 			aCtx := acontext.CreateRoot(bCtx, block, nil)
 			analyzer.AnalyzeBlock(aCtx)
 			Expect(aCtx.Diagnostics.Ok()).To(BeTrue())
-			ctx := context.CreateRoot(bCtx, aCtx.Scope, aCtx.TypeMap, false)
+			ctx := context.CreateRoot(bCtx, aCtx.Scope, aCtx.TypeMap, resolve.NewResolver(stl.SymbolResolver))
 			diverged := MustSucceed(statement.CompileBlock(context.Child(ctx, block)))
 			Expect(diverged).To(BeFalse())
 
-			stateLoadIdx := ctx.Imports.StateLoad["i64"]
-			stateStoreIdx := ctx.Imports.StateStore["i64"]
-			Expect(ctx.Writer.Bytes()).To(MatchOpcodes(
+			Expect(FinalizeContext(ctx)).To(MatchOpcodes(
 				// Declaration: count $= 0
 				OpI32Const, int32(0), // var ID
 				OpI64Const, int64(0), // init value
-				OpCall, uint64(stateLoadIdx),
+				OpCall, uint32(0),
 				OpLocalSet, 0, // store in local
 				// Assignment: count = 5
 				OpI64Const, int64(5), // new value
 				OpLocalSet, 0, // store temporarily
 				OpI32Const, int32(0), // var ID
 				OpLocalGet, 0, // get value back
-				OpCall, uint64(stateStoreIdx),
+				OpCall, uint32(1),
 			))
 		})
 
@@ -166,21 +163,20 @@ var _ = Describe("Statement Compiler", func() {
 			aCtx := acontext.CreateRoot(bCtx, block, nil)
 			analyzer.AnalyzeBlock(aCtx)
 			Expect(aCtx.Diagnostics.Ok()).To(BeTrue())
-			ctx := context.CreateRoot(bCtx, aCtx.Scope, aCtx.TypeMap, false)
+			ctx := context.CreateRoot(bCtx, aCtx.Scope, aCtx.TypeMap, resolve.NewResolver(stl.SymbolResolver))
 			diverged := MustSucceed(statement.CompileBlock(context.Child(ctx, block)))
 			Expect(diverged).To(BeFalse())
 
-			stateLoadIdx := ctx.Imports.StateLoad["i64"]
-			Expect(ctx.Writer.Bytes()).To(MatchOpcodes(
+			Expect(FinalizeContext(ctx)).To(MatchOpcodes(
 				// Declaration: count $= 0
 				OpI32Const, int32(0), // var ID
 				OpI64Const, int64(0), // init value
-				OpCall, uint64(stateLoadIdx),
+				OpCall, uint32(0),
 				OpLocalSet, 0, // store in local
 				// Expression: count + 1
 				OpI32Const, int32(0), // var ID
 				OpI64Const, int64(0), // dummy init value
-				OpCall, uint64(stateLoadIdx),
+				OpCall, uint32(0),
 				OpI64Const, int64(1), // literal 1
 				OpI64Add,      // count + 1
 				OpLocalSet, 1, // store in x's local
@@ -196,29 +192,28 @@ var _ = Describe("Statement Compiler", func() {
 			aCtx := acontext.CreateRoot(bCtx, block, nil)
 			analyzer.AnalyzeBlock(aCtx)
 			Expect(aCtx.Diagnostics.Ok()).To(BeTrue())
-			ctx := context.CreateRoot(bCtx, aCtx.Scope, aCtx.TypeMap, false)
+			ctx := context.CreateRoot(bCtx, aCtx.Scope, aCtx.TypeMap, resolve.NewResolver(stl.SymbolResolver))
 			diverged := MustSucceed(statement.CompileBlock(context.Child(ctx, block)))
 			Expect(diverged).To(BeFalse())
 
-			stateLoadIdx := ctx.Imports.StateLoad["i64"]
-			Expect(ctx.Writer.Bytes()).To(MatchOpcodes(
+			Expect(FinalizeContext(ctx)).To(MatchOpcodes(
 				// Declaration: a $= 10
 				OpI32Const, int32(0), // var ID for a
 				OpI64Const, int64(10), // init value
-				OpCall, uint64(stateLoadIdx),
+				OpCall, uint32(0),
 				OpLocalSet, 0, // store in a's local
 				// Declaration: b $= 20
 				OpI32Const, int32(1), // var ID for b
 				OpI64Const, int64(20), // init value
-				OpCall, uint64(stateLoadIdx),
+				OpCall, uint32(0),
 				OpLocalSet, 1, // store in b's local
 				// Expression: a + b
 				OpI32Const, int32(0), // var ID for a
 				OpI64Const, int64(0), // dummy init value
-				OpCall, uint64(stateLoadIdx),
+				OpCall, uint32(0),
 				OpI32Const, int32(1), // var ID for b
 				OpI64Const, int64(0), // dummy init value
-				OpCall, uint64(stateLoadIdx),
+				OpCall, uint32(0),
 				OpI64Add,      // a + b
 				OpLocalSet, 2, // store in c's local
 			))
@@ -229,15 +224,14 @@ var _ = Describe("Statement Compiler", func() {
 			aCtx := acontext.CreateRoot(bCtx, stmt, nil)
 			analyzer.AnalyzeStatement(aCtx)
 			Expect(aCtx.Diagnostics.Ok()).To(BeTrue())
-			ctx := context.CreateRoot(bCtx, aCtx.Scope, aCtx.TypeMap, false)
+			ctx := context.CreateRoot(bCtx, aCtx.Scope, aCtx.TypeMap, resolve.NewResolver(stl.SymbolResolver))
 			diverged := MustSucceed(statement.Compile(context.Child(ctx, stmt)))
 			Expect(diverged).To(BeFalse())
 
-			stateLoadIdx := ctx.Imports.StateLoad["f64"]
-			Expect(ctx.Writer.Bytes()).To(MatchOpcodes(
+			Expect(FinalizeContext(ctx)).To(MatchOpcodes(
 				OpI32Const, int32(0), // var ID
 				OpF64Const, 20.5, // init value
-				OpCall, uint64(stateLoadIdx),
+				OpCall, uint32(0),
 				OpLocalSet, 0, // store in local
 			))
 		})
@@ -250,16 +244,14 @@ var _ = Describe("Statement Compiler", func() {
 			aCtx := acontext.CreateRoot(bCtx, block, nil)
 			analyzer.AnalyzeBlock(aCtx)
 			Expect(aCtx.Diagnostics.Ok()).To(BeTrue())
-			ctx := context.CreateRoot(bCtx, aCtx.Scope, aCtx.TypeMap, false)
+			ctx := context.CreateRoot(bCtx, aCtx.Scope, aCtx.TypeMap, resolve.NewResolver(stl.SymbolResolver))
 			diverged := MustSucceed(statement.CompileBlock(context.Child(ctx, block)))
 			Expect(diverged).To(BeFalse())
 
-			stateLoadIdx := ctx.Imports.StateLoad["i64"]
-			stateStoreIdx := ctx.Imports.StateStore["i64"]
-			Expect(ctx.Writer.Bytes()).To(MatchOpcodes(
+			Expect(FinalizeContext(ctx)).To(MatchOpcodes(
 				OpI32Const, int32(0),
 				OpI64Const, int64(10),
-				OpCall, uint64(stateLoadIdx),
+				OpCall, uint32(0),
 				OpLocalSet, 0,
 
 				OpLocalGet, 0,
@@ -268,7 +260,7 @@ var _ = Describe("Statement Compiler", func() {
 				OpLocalSet, 0,
 				OpI32Const, int32(0),
 				OpLocalGet, 0,
-				OpCall, uint64(stateStoreIdx),
+				OpCall, uint32(1),
 			))
 		})
 
@@ -280,16 +272,14 @@ var _ = Describe("Statement Compiler", func() {
 			aCtx := acontext.CreateRoot(bCtx, block, nil)
 			analyzer.AnalyzeBlock(aCtx)
 			Expect(aCtx.Diagnostics.Ok()).To(BeTrue())
-			ctx := context.CreateRoot(bCtx, aCtx.Scope, aCtx.TypeMap, false)
+			ctx := context.CreateRoot(bCtx, aCtx.Scope, aCtx.TypeMap, resolve.NewResolver(stl.SymbolResolver))
 			diverged := MustSucceed(statement.CompileBlock(context.Child(ctx, block)))
 			Expect(diverged).To(BeFalse())
 
-			stateLoadIdx := ctx.Imports.StateLoad["f64"]
-			stateStoreIdx := ctx.Imports.StateStore["f64"]
-			Expect(ctx.Writer.Bytes()).To(MatchOpcodes(
+			Expect(FinalizeContext(ctx)).To(MatchOpcodes(
 				OpI32Const, int32(0),
 				OpF64Const, 100.0,
-				OpCall, uint64(stateLoadIdx),
+				OpCall, uint32(0),
 				OpLocalSet, 0,
 
 				OpLocalGet, 0,
@@ -298,7 +288,7 @@ var _ = Describe("Statement Compiler", func() {
 				OpLocalSet, 0,
 				OpI32Const, int32(0),
 				OpLocalGet, 0,
-				OpCall, uint64(stateStoreIdx),
+				OpCall, uint32(1),
 			))
 		})
 
@@ -311,16 +301,14 @@ var _ = Describe("Statement Compiler", func() {
 			aCtx := acontext.CreateRoot(bCtx, block, nil)
 			analyzer.AnalyzeBlock(aCtx)
 			Expect(aCtx.Diagnostics.Ok()).To(BeTrue())
-			ctx := context.CreateRoot(bCtx, aCtx.Scope, aCtx.TypeMap, false)
+			ctx := context.CreateRoot(bCtx, aCtx.Scope, aCtx.TypeMap, resolve.NewResolver(stl.SymbolResolver))
 			diverged := MustSucceed(statement.CompileBlock(context.Child(ctx, block)))
 			Expect(diverged).To(BeFalse())
 
-			stateLoadIdx := ctx.Imports.StateLoad["i32"]
-			stateStoreIdx := ctx.Imports.StateStore["i32"]
-			Expect(ctx.Writer.Bytes()).To(MatchOpcodes(
+			Expect(FinalizeContext(ctx)).To(MatchOpcodes(
 				OpI32Const, int32(0),
 				OpI32Const, int32(1),
-				OpCall, uint64(stateLoadIdx),
+				OpCall, uint32(0),
 				OpLocalSet, 0,
 
 				OpLocalGet, 0,
@@ -329,7 +317,7 @@ var _ = Describe("Statement Compiler", func() {
 				OpLocalSet, 0,
 				OpI32Const, int32(0),
 				OpLocalGet, 0,
-				OpCall, uint64(stateStoreIdx),
+				OpCall, uint32(1),
 
 				OpLocalGet, 0,
 				OpI32Const, int32(3),
@@ -337,7 +325,7 @@ var _ = Describe("Statement Compiler", func() {
 				OpLocalSet, 0,
 				OpI32Const, int32(0),
 				OpLocalGet, 0,
-				OpCall, uint64(stateStoreIdx),
+				OpCall, uint32(1),
 			))
 		})
 	})
@@ -672,12 +660,12 @@ var _ = Describe("Statement Compiler", func() {
 			aCtx := acontext.CreateRoot(bCtx, block, nil)
 			analyzer.AnalyzeBlock(aCtx)
 			Expect(aCtx.Diagnostics.Ok()).To(BeTrue())
-			ctx := context.CreateRoot(bCtx, aCtx.Scope, aCtx.TypeMap, false)
+			ctx := context.CreateRoot(bCtx, aCtx.Scope, aCtx.TypeMap, resolve.NewResolver(stl.SymbolResolver))
 			diverged := MustSucceed(statement.CompileBlock(context.Child(ctx, block)))
 			Expect(diverged).To(BeFalse())
-			sLit = uint64(ctx.Imports.StringFromLiteral)
-			sConcat = uint64(ctx.Imports.StringConcat)
-			return ctx.Writer.Bytes()
+			sLit = uint64(0)
+			sConcat = uint64(1)
+			return FinalizeContext(ctx)
 		}
 
 		It("Should compile string += with string literal", func() {
@@ -848,22 +836,16 @@ var _ = Describe("Statement Compiler", func() {
 			analyzer.AnalyzeBlock(aCtx)
 			Expect(aCtx.Diagnostics.Ok()).To(BeTrue(), aCtx.Diagnostics.String())
 
-			ctx := context.CreateRoot(bCtx, aCtx.Scope, aCtx.TypeMap, false)
+			ctx := context.CreateRoot(bCtx, aCtx.Scope, aCtx.TypeMap, resolve.NewResolver(stl.SymbolResolver))
 			diverged := MustSucceed(statement.CompileBlock(context.Child(ctx, block)))
 			Expect(diverged).To(BeFalse())
-
-			// Get the import indices we need to verify
-			seriesCreateIdx := ctx.Imports.SeriesCreateEmpty[types.I64().String()]
-			seriesSetElementIdx := ctx.Imports.SeriesSetElement[types.I64().String()]
 
 			// Verify that bytecode contains correct sequence for indexed assignment:
 			// 1. Create series and store in local
 			// 2. For indexed assignment: get local, push index, push value, call set_element
-			bytecode := ctx.Writer.Bytes()
+			bytecode := FinalizeContext(ctx)
 
 			Expect(bytecode).To(ContainSubstring(string([]byte{byte(OpLocalGet)})))
-			Expect(seriesCreateIdx).ToNot(Equal(uint32(0)))
-			Expect(seriesSetElementIdx).ToNot(Equal(uint32(0)))
 		})
 	})
 
@@ -880,28 +862,25 @@ var _ = Describe("Statement Compiler", func() {
 			analyzer.AnalyzeBlock(aCtx)
 			Expect(aCtx.Diagnostics.Ok()).To(BeTrue(), aCtx.Diagnostics.String())
 
-			ctx := context.CreateRoot(bCtx, aCtx.Scope, aCtx.TypeMap, false)
+			ctx := context.CreateRoot(bCtx, aCtx.Scope, aCtx.TypeMap, resolve.NewResolver(stl.SymbolResolver))
 			diverged := MustSucceed(statement.CompileBlock(context.Child(ctx, block)))
 			Expect(diverged).To(BeFalse())
 
-			seriesCreateIdx := ctx.Imports.SeriesCreateEmpty[types.I64().String()]
-			seriesSetIdx := ctx.Imports.SeriesSetElement[types.I64().String()]
-
-			Expect(ctx.Writer.Bytes()).To(MatchOpcodes(
+			Expect(FinalizeContext(ctx)).To(MatchOpcodes(
 				// a := 5
 				OpI64Const, int64(5),
 				OpLocalSet, 0,
 				// x := [a, 12.0] - create series[i64] with 2 elements
 				OpI32Const, int32(2),
-				OpCall, uint64(seriesCreateIdx),
+				OpCall, uint32(0),
 				// set element 0 = a
 				OpI32Const, int32(0),
 				OpLocalGet, 0,
-				OpCall, uint64(seriesSetIdx),
+				OpCall, uint32(1),
 				// set element 1 = 12 (12.0 coerced to i64)
 				OpI32Const, int32(1),
 				OpI64Const, int64(12),
-				OpCall, uint64(seriesSetIdx),
+				OpCall, uint32(1),
 				// store series in x
 				OpLocalSet, 1,
 			))
@@ -919,28 +898,25 @@ var _ = Describe("Statement Compiler", func() {
 			analyzer.AnalyzeBlock(aCtx)
 			Expect(aCtx.Diagnostics.Ok()).To(BeTrue(), aCtx.Diagnostics.String())
 
-			ctx := context.CreateRoot(bCtx, aCtx.Scope, aCtx.TypeMap, false)
+			ctx := context.CreateRoot(bCtx, aCtx.Scope, aCtx.TypeMap, resolve.NewResolver(stl.SymbolResolver))
 			diverged := MustSucceed(statement.CompileBlock(context.Child(ctx, block)))
 			Expect(diverged).To(BeFalse())
 
-			seriesCreateIdx := ctx.Imports.SeriesCreateEmpty[types.F64().String()]
-			seriesSetIdx := ctx.Imports.SeriesSetElement[types.F64().String()]
-
-			Expect(ctx.Writer.Bytes()).To(MatchOpcodes(
+			Expect(FinalizeContext(ctx)).To(MatchOpcodes(
 				// a := 12.0
 				OpF64Const, float64(12.0),
 				OpLocalSet, 0,
 				// x := [a, 5] - create series[f64] with 2 elements
 				OpI32Const, int32(2),
-				OpCall, uint64(seriesCreateIdx),
+				OpCall, uint32(0),
 				// set element 0 = a
 				OpI32Const, int32(0),
 				OpLocalGet, 0,
-				OpCall, uint64(seriesSetIdx),
+				OpCall, uint32(1),
 				// set element 1 = 5.0 (5 coerced to f64)
 				OpI32Const, int32(1),
 				OpF64Const, float64(5),
-				OpCall, uint64(seriesSetIdx),
+				OpCall, uint32(1),
 				// store series in x
 				OpLocalSet, 1,
 			))
@@ -959,14 +935,11 @@ var _ = Describe("Statement Compiler", func() {
 			analyzer.AnalyzeBlock(aCtx)
 			Expect(aCtx.Diagnostics.Ok()).To(BeTrue(), aCtx.Diagnostics.String())
 
-			ctx := context.CreateRoot(bCtx, aCtx.Scope, aCtx.TypeMap, false)
+			ctx := context.CreateRoot(bCtx, aCtx.Scope, aCtx.TypeMap, resolve.NewResolver(stl.SymbolResolver))
 			diverged := MustSucceed(statement.CompileBlock(context.Child(ctx, block)))
 			Expect(diverged).To(BeFalse())
 
-			seriesCreateIdx := ctx.Imports.SeriesCreateEmpty[types.I64().String()]
-			seriesSetIdx := ctx.Imports.SeriesSetElement[types.I64().String()]
-
-			Expect(ctx.Writer.Bytes()).To(MatchOpcodes(
+			Expect(FinalizeContext(ctx)).To(MatchOpcodes(
 				// a := 5
 				OpI64Const, int64(5),
 				OpLocalSet, 0,
@@ -975,19 +948,19 @@ var _ = Describe("Statement Compiler", func() {
 				OpLocalSet, 1,
 				// x := [a, b, 15.0] - create series[i64] with 3 elements
 				OpI32Const, int32(3),
-				OpCall, uint64(seriesCreateIdx),
+				OpCall, uint32(0),
 				// set element 0 = a
 				OpI32Const, int32(0),
 				OpLocalGet, 0,
-				OpCall, uint64(seriesSetIdx),
+				OpCall, uint32(1),
 				// set element 1 = b
 				OpI32Const, int32(1),
 				OpLocalGet, 1,
-				OpCall, uint64(seriesSetIdx),
+				OpCall, uint32(1),
 				// set element 2 = 15 (15.0 coerced to i64)
 				OpI32Const, int32(2),
 				OpI64Const, int64(15),
-				OpCall, uint64(seriesSetIdx),
+				OpCall, uint32(1),
 				// store series in x
 				OpLocalSet, 2,
 			))
@@ -995,7 +968,7 @@ var _ = Describe("Statement Compiler", func() {
 	})
 
 	Describe("Channel Operations", func() {
-		compileWithChannels := func(source string, resolver symbol.Resolver) ([]byte, *bindings.ImportIndex) {
+		compileWithChannels := func(source string, resolver symbol.Resolver) []byte {
 			block := MustSucceed(parser.ParseBlock("{" + source + "}"))
 			aCtx := acontext.CreateRoot(bCtx, block, resolver)
 			fnScope := MustSucceed(aCtx.Scope.Add(aCtx, symbol.Symbol{
@@ -1008,10 +981,10 @@ var _ = Describe("Statement Compiler", func() {
 			aCtx.Scope = fn
 			analyzer.AnalyzeBlock(aCtx)
 			Expect(aCtx.Diagnostics.Ok()).To(BeTrue(), aCtx.Diagnostics.String())
-			ctx := context.CreateRoot(bCtx, aCtx.Scope, aCtx.TypeMap, false)
+			ctx := context.CreateRoot(bCtx, aCtx.Scope, aCtx.TypeMap, resolve.NewResolver(stl.SymbolResolver))
 			diverged := MustSucceed(statement.CompileBlock(context.Child(ctx, block)))
 			Expect(diverged).To(BeFalse())
-			return ctx.Writer.Bytes(), ctx.Imports
+			return FinalizeContext(ctx)
 		}
 
 		Describe("Channel Writes", func() {
@@ -1026,11 +999,10 @@ var _ = Describe("Statement Compiler", func() {
 						},
 					}
 					source := "test_ch = " + valueCode
-					bytecode, imports := compileWithChannels(source, resolver)
-					writeIdx := imports.ChannelWrite[typeName]
+					bytecode := compileWithChannels(source, resolver)
 					expected := []any{OpI32Const, int32(100)}
 					expected = append(expected, expectedValueOps...)
-					expected = append(expected, OpCall, uint64(writeIdx))
+					expected = append(expected, OpCall, uint32(0))
 					Expect(bytecode).To(MatchOpcodes(expected...))
 				},
 				Entry("i8", "i8", types.I8(), "42", OpI32Const, int32(42)),
@@ -1054,13 +1026,12 @@ var _ = Describe("Statement Compiler", func() {
 						ID:   200,
 					},
 				}
-				bytecode, imports := compileWithChannels("f64_ch = 3.14159", resolver)
-				writeIdx := imports.ChannelWrite["f64"]
+				bytecode := compileWithChannels("f64_ch = 3.14159", resolver)
 
 				Expect(bytecode).To(MatchOpcodes(
 					OpI32Const, int32(200), // channel ID
 					OpF64Const, float64(3.14159), // value
-					OpCall, uint64(writeIdx), // channel_write_f64
+					OpCall, uint32(0), // channel_write_f64
 				))
 			})
 
@@ -1073,13 +1044,12 @@ var _ = Describe("Statement Compiler", func() {
 						ID:   300,
 					},
 				}
-				bytecode, imports := compileWithChannels("f32_ch = 2.718", resolver)
-				writeIdx := imports.ChannelWrite["f32"]
+				bytecode := compileWithChannels("f32_ch = 2.718", resolver)
 
 				Expect(bytecode).To(MatchOpcodes(
 					OpI32Const, int32(300), // channel ID
 					OpF32Const, float32(2.718), // value
-					OpCall, uint64(writeIdx), // channel_write_f32
+					OpCall, uint32(0), // channel_write_f32
 				))
 			})
 
@@ -1092,11 +1062,10 @@ var _ = Describe("Statement Compiler", func() {
 						ID:   400,
 					},
 				}
-				bytecode, imports := compileWithChannels(`
+				bytecode := compileWithChannels(`
 					x i32 := 42
 					output_ch = x
 				`, resolver)
-				writeIdx := imports.ChannelWrite["i32"]
 
 				Expect(bytecode).To(MatchOpcodes(
 					// x := 42
@@ -1105,7 +1074,7 @@ var _ = Describe("Statement Compiler", func() {
 					// output_ch = x
 					OpI32Const, int32(400), // channel ID
 					OpLocalGet, 0, // get x
-					OpCall, uint64(writeIdx), // channel_write_i32
+					OpCall, uint32(0), // channel_write_i32
 				))
 			})
 
@@ -1118,12 +1087,11 @@ var _ = Describe("Statement Compiler", func() {
 						ID:   500,
 					},
 				}
-				bytecode, imports := compileWithChannels(`
+				bytecode := compileWithChannels(`
 					a i64 := 10
 					b i64 := 20
 					result_ch = a + b
 				`, resolver)
-				writeIdx := imports.ChannelWrite["i64"]
 
 				Expect(bytecode).To(MatchOpcodes(
 					// a := 10
@@ -1136,8 +1104,8 @@ var _ = Describe("Statement Compiler", func() {
 					OpI32Const, int32(500), // channel ID pushed first
 					OpLocalGet, 0, // a
 					OpLocalGet, 1, // b
-					OpI64Add,                 // a + b
-					OpCall, uint64(writeIdx), // channel_write_i64
+					OpI64Add,          // a + b
+					OpCall, uint32(0), // channel_write_i64
 				))
 			})
 
@@ -1156,22 +1124,20 @@ var _ = Describe("Statement Compiler", func() {
 						ID:   700,
 					},
 				}
-				bytecode, imports := compileWithChannels(`
+				bytecode := compileWithChannels(`
 					ch1 = 100
 					ch2 = 3.14
 				`, resolver)
-				writeI32Idx := imports.ChannelWrite["i32"]
-				writeF64Idx := imports.ChannelWrite["f64"]
 
 				Expect(bytecode).To(MatchOpcodes(
 					// ch1 = 100
 					OpI32Const, int32(600),
 					OpI32Const, int32(100),
-					OpCall, uint64(writeI32Idx),
+					OpCall, uint32(0),
 					// ch2 = 3.14
 					OpI32Const, int32(700),
 					OpF64Const, float64(3.14),
-					OpCall, uint64(writeF64Idx),
+					OpCall, uint32(1),
 				))
 			})
 		})
@@ -1186,14 +1152,13 @@ var _ = Describe("Statement Compiler", func() {
 						ID:   100,
 					},
 				}
-				bytecode, imports := compileWithChannels(`
+				bytecode := compileWithChannels(`
 					x f64 := sensor
 				`, resolver)
-				readIdx := imports.ChannelRead["f64"]
 
 				Expect(bytecode).To(MatchOpcodes(
 					OpI32Const, int32(100), // channel ID
-					OpCall, uint64(readIdx), // channel_read_f64
+					OpCall, uint32(0), // channel_read_f64
 					OpLocalSet, 0, // store in x
 				))
 			})
@@ -1209,12 +1174,11 @@ var _ = Describe("Statement Compiler", func() {
 						},
 					}
 					source := "x " + typeName + " := test_ch"
-					bytecode, imports := compileWithChannels(source, resolver)
-					readIdx := imports.ChannelRead[typeName]
+					bytecode := compileWithChannels(source, resolver)
 
 					Expect(bytecode).To(MatchOpcodes(
 						OpI32Const, int32(100), // channel ID
-						OpCall, uint64(readIdx), // channel_read_<type>
+						OpCall, uint32(0), // channel_read_<type>
 						OpLocalSet, 0, // store in local
 					))
 				},
@@ -1239,11 +1203,10 @@ var _ = Describe("Statement Compiler", func() {
 						ID:   200,
 					},
 				}
-				bytecode, imports := compileWithChannels(`
+				bytecode := compileWithChannels(`
 					threshold f64 := 100.0
 					result f64 := pressure * 2.0
 				`, resolver)
-				readIdx := imports.ChannelRead["f64"]
 
 				Expect(bytecode).To(MatchOpcodes(
 					// threshold := 100.0
@@ -1251,7 +1214,7 @@ var _ = Describe("Statement Compiler", func() {
 					OpLocalSet, 0,
 					// result := pressure * 2.0
 					OpI32Const, int32(200), // channel ID
-					OpCall, uint64(readIdx), // channel_read_f64
+					OpCall, uint32(0), // channel_read_f64
 					OpF64Const, float64(2.0),
 					OpF64Mul,
 					OpLocalSet, 1,
@@ -1267,13 +1230,12 @@ var _ = Describe("Statement Compiler", func() {
 						ID:   300,
 					},
 				}
-				bytecode, imports := compileWithChannels(`
+				bytecode := compileWithChannels(`
 					x i32 := 0
 					if temp > 100 {
 						x = 1
 					}
 				`, resolver)
-				readIdx := imports.ChannelRead["i32"]
 
 				Expect(bytecode).To(MatchOpcodes(
 					// x := 0
@@ -1281,7 +1243,7 @@ var _ = Describe("Statement Compiler", func() {
 					OpLocalSet, 0,
 					// if temp > 100
 					OpI32Const, int32(300), // channel ID
-					OpCall, uint64(readIdx), // channel_read_i32
+					OpCall, uint32(0), // channel_read_i32
 					OpI32Const, int32(100),
 					OpI32GtS,
 					OpIf, BlockTypeEmpty,
@@ -1307,16 +1269,15 @@ var _ = Describe("Statement Compiler", func() {
 						ID:   500,
 					},
 				}
-				bytecode, imports := compileWithChannels(`
+				bytecode := compileWithChannels(`
 					sum i32 := ch1 + ch2
 				`, resolver)
-				readIdx := imports.ChannelRead["i32"]
 
 				Expect(bytecode).To(MatchOpcodes(
 					OpI32Const, int32(400), // ch1 ID
-					OpCall, uint64(readIdx), // channel_read_i32
+					OpCall, uint32(0), // channel_read_i32
 					OpI32Const, int32(500), // ch2 ID
-					OpCall, uint64(readIdx), // channel_read_i32
+					OpCall, uint32(0), // channel_read_i32
 					OpI32Add,
 					OpLocalSet, 0,
 				))
@@ -1333,12 +1294,11 @@ var _ = Describe("Statement Compiler", func() {
 						ID:   100,
 					},
 				}
-				bytecode, imports := compileWithChannels(`
+				bytecode := compileWithChannels(`
 					local_ref := sensor
 					value f64 := 0.0
 					value = local_ref
 				`, resolver)
-				readIdx := imports.ChannelRead["f64"]
 
 				Expect(bytecode).To(MatchOpcodes(
 					// local_ref := sensor (stores channel ID in local)
@@ -1349,7 +1309,7 @@ var _ = Describe("Statement Compiler", func() {
 					OpLocalSet, 1,
 					// value = local_ref (get channel ID from local, read channel)
 					OpLocalGet, 0,
-					OpCall, uint64(readIdx),
+					OpCall, uint32(0),
 					OpLocalSet, 1,
 				))
 			})
@@ -1363,14 +1323,11 @@ var _ = Describe("Statement Compiler", func() {
 						ID:   100,
 					},
 				}
-				bytecode, imports := compileWithChannels(`
+				bytecode := compileWithChannels(`
 					local_ref := sensor
 					value f64 $= 0.0
 					value = local_ref
 				`, resolver)
-				readIdx := imports.ChannelRead["f64"]
-				stateLoadIdx := imports.StateLoad["f64"]
-				stateStoreIdx := imports.StateStore["f64"]
 
 				Expect(bytecode).To(MatchOpcodes(
 					// local_ref := sensor (stores channel ID)
@@ -1379,15 +1336,15 @@ var _ = Describe("Statement Compiler", func() {
 					// value f64 $= 0.0 (state ID = 1 because local_ref takes slot 0)
 					OpI32Const, int32(1),
 					OpF64Const, float64(0.0),
-					OpCall, uint64(stateLoadIdx),
+					OpCall, uint32(0),
 					OpLocalSet, 1,
 					// value = local_ref (read channel via alias, store + persist)
 					OpLocalGet, 0,
-					OpCall, uint64(readIdx),
+					OpCall, uint32(1),
 					OpLocalSet, 1,
 					OpI32Const, int32(1),
 					OpLocalGet, 1,
-					OpCall, uint64(stateStoreIdx),
+					OpCall, uint32(2),
 				))
 			})
 
@@ -1400,12 +1357,11 @@ var _ = Describe("Statement Compiler", func() {
 						ID:   200,
 					},
 				}
-				bytecode, imports := compileWithChannels(`
+				bytecode := compileWithChannels(`
 					ref := int_ch
 					result i32 := 0
 					result = ref
 				`, resolver)
-				readIdx := imports.ChannelRead["i32"]
 
 				Expect(bytecode).To(MatchOpcodes(
 					// ref := int_ch (stores channel ID)
@@ -1416,7 +1372,7 @@ var _ = Describe("Statement Compiler", func() {
 					OpLocalSet, 1,
 					// result = ref (get channel ID, read, store)
 					OpLocalGet, 0,
-					OpCall, uint64(readIdx),
+					OpCall, uint32(0),
 					OpLocalSet, 1,
 				))
 			})
@@ -1436,12 +1392,10 @@ var _ = Describe("Statement Compiler", func() {
 						ID:   200,
 					},
 				}
-				bytecode, imports := compileWithChannels(`
+				bytecode := compileWithChannels(`
 					sensor_ref := sensor
 					output_ch = sensor_ref
 				`, resolver)
-				readIdx := imports.ChannelRead["f64"]
-				writeIdx := imports.ChannelWrite["f64"]
 
 				Expect(bytecode).To(MatchOpcodes(
 					// sensor_ref := sensor (stores channel ID)
@@ -1450,8 +1404,8 @@ var _ = Describe("Statement Compiler", func() {
 					// output_ch = sensor_ref (push output ID, read alias, write)
 					OpI32Const, int32(200),
 					OpLocalGet, 0,
-					OpCall, uint64(readIdx),
-					OpCall, uint64(writeIdx),
+					OpCall, uint32(0),
+					OpCall, uint32(1),
 				))
 			})
 
@@ -1464,12 +1418,11 @@ var _ = Describe("Statement Compiler", func() {
 						ID:   100,
 					},
 				}
-				bytecode, imports := compileWithChannels(`
+				bytecode := compileWithChannels(`
 					ref := sensor
 					value f64 := 0.0
 					if ref > 100.0 { value = ref }
 				`, resolver)
-				readIdx := imports.ChannelRead["f64"]
 
 				Expect(bytecode).To(MatchOpcodes(
 					// ref := sensor (stores channel ID)
@@ -1480,13 +1433,13 @@ var _ = Describe("Statement Compiler", func() {
 					OpLocalSet, 1,
 					// if ref > 100.0
 					OpLocalGet, 0,
-					OpCall, uint64(readIdx),
+					OpCall, uint32(0),
 					OpF64Const, float64(100.0),
 					OpF64Gt,
 					OpIf, BlockTypeEmpty,
 					// value = ref
 					OpLocalGet, 0,
-					OpCall, uint64(readIdx),
+					OpCall, uint32(0),
 					OpLocalSet, 1,
 					OpEnd,
 				))
@@ -1509,23 +1462,21 @@ var _ = Describe("Statement Compiler", func() {
 						ID:   200,
 					},
 				}
-				bytecode, imports := compileWithChannels(`
+				bytecode := compileWithChannels(`
 					output_ch = input_ch * 2.0
 				`, resolver)
-				readIdx := imports.ChannelRead["f64"]
-				writeIdx := imports.ChannelWrite["f64"]
 
 				Expect(bytecode).To(MatchOpcodes(
 					// Push output channel ID first (before expression)
 					OpI32Const, int32(200),
 					// Read from input_ch
 					OpI32Const, int32(100),
-					OpCall, uint64(readIdx),
+					OpCall, uint32(0),
 					// Multiply by 2.0
 					OpF64Const, float64(2.0),
 					OpF64Mul,
 					// Write to output_ch
-					OpCall, uint64(writeIdx),
+					OpCall, uint32(1),
 				))
 			})
 
@@ -1544,28 +1495,118 @@ var _ = Describe("Statement Compiler", func() {
 						ID:   200,
 					},
 				}
-				bytecode, imports := compileWithChannels(`
+				bytecode := compileWithChannels(`
 					if sensor > 50 {
 						alarm = 1
 					}
 				`, resolver)
-				readIdx := imports.ChannelRead["i32"]
-				writeIdx := imports.ChannelWrite["i32"]
 
 				Expect(bytecode).To(MatchOpcodes(
 					// if sensor > 50
 					OpI32Const, int32(100),
-					OpCall, uint64(readIdx),
+					OpCall, uint32(0),
 					OpI32Const, int32(50),
 					OpI32GtS,
 					OpIf, BlockTypeEmpty,
 					// alarm = 1
 					OpI32Const, int32(200),
 					OpI32Const, int32(1),
-					OpCall, uint64(writeIdx),
+					OpCall, uint32(1),
 					OpEnd,
 				))
 			})
+		})
+	})
+
+	Describe("Chan-typed Input Parameter Operations", func() {
+		compileWithChanInput := func(source string, inputName string, inputType types.Type) []byte {
+			block := MustSucceed(parser.ParseBlock("{" + source + "}"))
+			aCtx := acontext.CreateRoot(bCtx, block, nil)
+			fnScope := MustSucceed(aCtx.Scope.Add(aCtx, symbol.Symbol{
+				Name: "testFunc",
+				Kind: symbol.KindFunction,
+			}))
+			Expect(fnScope).ToNot(BeNil())
+			fnScope.Channels = types.NewChannels()
+			fn := MustSucceed(aCtx.Scope.Resolve(aCtx, "testFunc"))
+			aCtx.Scope = fn
+			MustSucceed(aCtx.Scope.Add(aCtx, symbol.Symbol{
+				Name: inputName,
+				Kind: symbol.KindInput,
+				Type: inputType,
+			}))
+			analyzer.AnalyzeBlock(aCtx)
+			Expect(aCtx.Diagnostics.Ok()).To(BeTrue(), aCtx.Diagnostics.String())
+			ctx := context.CreateRoot(bCtx, aCtx.Scope, aCtx.TypeMap, resolve.NewResolver(stl.SymbolResolver))
+			diverged := MustSucceed(statement.CompileBlock(context.Child(ctx, block)))
+			Expect(diverged).To(BeFalse())
+			return FinalizeContext(ctx)
+		}
+
+		It("Should compile f32 channel write through chan-typed input param", func() {
+			bytecode := compileWithChanInput(
+				`ch = 77.0`,
+				"ch", types.Chan(types.F32()),
+			)
+			Expect(bytecode).To(MatchOpcodes(
+				OpLocalGet, 0,
+				OpF32Const, float32(77.0),
+				OpCall, uint32(0),
+			))
+		})
+
+		It("Should compile f64 channel write through chan-typed input param", func() {
+			bytecode := compileWithChanInput(
+				`ch = 3.14`,
+				"ch", types.Chan(types.F64()),
+			)
+			Expect(bytecode).To(MatchOpcodes(
+				OpLocalGet, 0,
+				OpF64Const, float64(3.14),
+				OpCall, uint32(0),
+			))
+		})
+
+		It("Should compile i32 channel write through chan-typed input param", func() {
+			bytecode := compileWithChanInput(
+				`ch = 42`,
+				"ch", types.Chan(types.I32()),
+			)
+			Expect(bytecode).To(MatchOpcodes(
+				OpLocalGet, 0,
+				OpI32Const, int32(42),
+				OpCall, uint32(0),
+			))
+		})
+
+		It("Should compile channel read from chan-typed input param", func() {
+			bytecode := compileWithChanInput(
+				`x f32 := ch`,
+				"ch", types.Chan(types.F32()),
+			)
+			Expect(bytecode).To(MatchOpcodes(
+				OpLocalGet, 0,
+				OpCall, uint32(0),
+				OpLocalSet, 1,
+			))
+		})
+
+		It("Should compile read and write through chan-typed input param", func() {
+			bytecode := compileWithChanInput(
+				`value f64 := ch
+				ch = value * 2.0`,
+				"ch", types.Chan(types.F64()),
+			)
+			Expect(bytecode).To(MatchOpcodes(
+				OpLocalGet, 0,
+				OpCall, uint32(0),
+				OpLocalSet, 1,
+				OpLocalGet, 0,
+				OpLocalGet, 1,
+				OpF64Const, float64(2.0),
+				OpF64Mul,
+				OpCall, uint32(1),
+			))
 		})
 	})
 })

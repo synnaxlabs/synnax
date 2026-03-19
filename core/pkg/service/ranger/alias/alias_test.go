@@ -106,8 +106,7 @@ var _ = Describe("Alias", Ordered, func() {
 				Entry(&ch).
 				Exec(ctx, tx)).To(Succeed())
 			Expect(aliasSvc.NewWriter(tx).Set(ctx, r.Key, ch.Key(), "Alias")).To(Succeed())
-			a, err := aliasSvc.NewReader(tx).Retrieve(ctx, r.Key, ch.Key())
-			Expect(err).ToNot(HaveOccurred())
+			a := MustSucceed(aliasSvc.NewReader(tx).Retrieve(ctx, r.Key, ch.Key()))
 			Expect(a).To(Equal("Alias"))
 		})
 
@@ -150,8 +149,7 @@ var _ = Describe("Alias", Ordered, func() {
 				},
 			}
 			Expect(rangerSvc.NewWriter(tx).CreateWithParent(ctx, &r, parent.OntologyID())).To(Succeed())
-			a, err := aliasSvc.NewReader(tx).Retrieve(ctx, r.Key, ch.Key())
-			Expect(err).ToNot(HaveOccurred())
+			a := MustSucceed(aliasSvc.NewReader(tx).Retrieve(ctx, r.Key, ch.Key()))
 			Expect(a).To(Equal("Alias"))
 		})
 	})
@@ -192,8 +190,7 @@ var _ = Describe("Alias", Ordered, func() {
 				Entry(&ch).
 				Exec(ctx, tx)).To(Succeed())
 			Expect(aliasSvc.NewWriter(tx).Set(ctx, r.Key, ch.Key(), "Alias")).To(Succeed())
-			resolved, err := aliasSvc.NewReader(tx).Resolve(ctx, r.Key, "Alias")
-			Expect(err).ToNot(HaveOccurred())
+			resolved := MustSucceed(aliasSvc.NewReader(tx).Resolve(ctx, r.Key, "Alias"))
 			Expect(resolved).To(Equal(ch.Key()))
 		})
 
@@ -237,8 +234,7 @@ var _ = Describe("Alias", Ordered, func() {
 				},
 			}
 			Expect(rangerSvc.NewWriter(tx).CreateWithParent(ctx, &r, parent.OntologyID())).To(Succeed())
-			resolved, err := aliasSvc.NewReader(tx).Resolve(ctx, r.Key, "Alias")
-			Expect(err).ToNot(HaveOccurred())
+			resolved := MustSucceed(aliasSvc.NewReader(tx).Resolve(ctx, r.Key, "Alias"))
 			Expect(resolved).To(Equal(ch.Key()))
 		})
 
@@ -305,8 +301,7 @@ var _ = Describe("Alias", Ordered, func() {
 				Entry(&ch).
 				Exec(ctx, tx)).To(Succeed())
 			Expect(aliasSvc.NewWriter(tx).Set(ctx, r.Key, ch.Key(), "Alias")).To(Succeed())
-			aliases, err := aliasSvc.NewReader(tx).List(ctx, r.Key)
-			Expect(err).ToNot(HaveOccurred())
+			aliases := MustSucceed(aliasSvc.NewReader(tx).List(ctx, r.Key))
 			Expect(aliases).To(HaveKeyWithValue(ch.Key(), "Alias"))
 		})
 
@@ -332,8 +327,7 @@ var _ = Describe("Alias", Ordered, func() {
 				},
 			}
 			Expect(rangerSvc.NewWriter(tx).CreateWithParent(ctx, &r, parent.OntologyID())).To(Succeed())
-			aliases, err := aliasSvc.NewReader(tx).List(ctx, r.Key)
-			Expect(err).ToNot(HaveOccurred())
+			aliases := MustSucceed(aliasSvc.NewReader(tx).List(ctx, r.Key))
 			Expect(aliases).To(HaveKeyWithValue(ch.Key(), "Alias"))
 		})
 	})

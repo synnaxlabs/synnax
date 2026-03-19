@@ -8,22 +8,15 @@
 // included in the file licenses/APL.txt.
 
 import { Device } from "@/hardware/labjack/device";
-import {
-  AI_CHANNEL_TYPE,
-  AO_CHANNEL_TYPE,
-  type ChannelType,
-  DI_CHANNEL_TYPE,
-  DO_CHANNEL_TYPE,
-  TC_CHANNEL_TYPE,
-} from "@/hardware/labjack/task/types";
+import { type ChannelType } from "@/hardware/labjack/task/types";
 
 const CHANNEL_TO_PORT_MAP = {
-  [AI_CHANNEL_TYPE]: Device.AI_PORT_TYPE,
-  [AO_CHANNEL_TYPE]: Device.AO_PORT_TYPE,
-  [DI_CHANNEL_TYPE]: Device.DI_PORT_TYPE,
-  [DO_CHANNEL_TYPE]: Device.DO_PORT_TYPE,
-  [TC_CHANNEL_TYPE]: Device.AI_PORT_TYPE,
-} as const;
+  AI: Device.AI_PORT_TYPE,
+  AO: Device.AO_PORT_TYPE,
+  DI: Device.DI_PORT_TYPE,
+  DO: Device.DO_PORT_TYPE,
+  TC: Device.AI_PORT_TYPE,
+} as const satisfies Record<ChannelType, Device.PortType>;
 
 export type ConvertChannelTypeToPortType = typeof CHANNEL_TO_PORT_MAP;
 

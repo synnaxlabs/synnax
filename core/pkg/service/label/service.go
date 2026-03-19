@@ -13,7 +13,6 @@ import (
 	"context"
 	"io"
 
-	"github.com/google/uuid"
 	"github.com/synnaxlabs/synnax/pkg/distribution/group"
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
 	"github.com/synnaxlabs/synnax/pkg/distribution/signals"
@@ -74,7 +73,7 @@ func (c ServiceConfig) Override(other ServiceConfig) ServiceConfig {
 type Service struct {
 	cfg     ServiceConfig
 	signals io.Closer
-	table   *gorp.Table[uuid.UUID, Label]
+	table   *gorp.Table[Key, Label]
 }
 
 // OpenService opens a new label service using the provided configuration. If error
@@ -85,7 +84,7 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (*Service, error) {
 	if err != nil {
 		return nil, err
 	}
-	table, err := gorp.OpenTable[uuid.UUID, Label](ctx, cfg.DB)
+	table, err := gorp.OpenTable[Key, Label](ctx, cfg.DB)
 	if err != nil {
 		return nil, err
 	}
@@ -113,7 +112,7 @@ func (s *Service) Close() error {
 func (s *Service) NewRetrieve() Retrieve {
 	return Retrieve{
 		baseTx: s.cfg.DB,
-		gorp:   gorp.NewRetrieve[uuid.UUID, Label](),
+		gorp:   gorp.NewRetrieve[Key, Label](),
 		otg:    s.cfg.Ontology,
 	}
 }

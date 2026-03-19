@@ -23,7 +23,7 @@ Schematic struct {
     name     string {
         @doc value "is a human-readable name for the schematic."
     }
-    data     json   {
+    data     record {
         @doc value        """
             is the schematic content including symbols, connections, and layout
             configuration.

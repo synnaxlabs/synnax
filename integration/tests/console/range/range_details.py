@@ -10,9 +10,9 @@
 import json
 
 import synnax as sy
+from x import get_random_name
 
 from console.case import ConsoleCase
-from framework.utils import get_random_name
 
 NI_ANALOG_READ_CONFIG = {
     "autoStart": False,

@@ -9,8 +9,6 @@
 
 import { z } from "zod";
 
-import { caseconv } from "@/caseconv";
-
 /**
  * Zod schema for validating record keys. Can be either a string or number.
  */
@@ -151,13 +149,9 @@ export const omit = <T, K extends keyof T>(obj: T, ...keys: K[]): Omit<T, K> => 
  * - undefined → {}
  * - {} → {}
  * - {data} → {data}
- *
- * @param preserveCase - If true, marks the record schema to preserve key casing
- *   during case conversion. Use this when record keys are semantic values
- *   (like OPC UA NodeIds or Modbus channel keys) rather than property names.
  */
-export const nullishToEmpty = (preserveCase: boolean = false): z.ZodType<Unknown> =>
+export const nullishToEmpty = (): z.ZodType<Unknown> =>
   z.union([
     z.union([z.null(), z.undefined()]).transform<Unknown>(() => ({})),
-    preserveCase ? caseconv.preserveCase(unknownZ()) : unknownZ(),
+    unknownZ(),
   ]);

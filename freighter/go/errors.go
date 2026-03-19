@@ -33,10 +33,10 @@ const (
 )
 
 func encodeErr(_ context.Context, err error) (errors.Payload, bool) {
-	if errors.Is(err, EOF) {
+	if errors.CheapIs(err, EOF) {
 		return errors.Payload{Type: eofErrorType, Data: err.Error()}, true
 	}
-	if errors.Is(err, ErrStreamClosed) {
+	if errors.CheapIs(err, ErrStreamClosed) {
 		return errors.Payload{Type: streamClosedErrorType, Data: err.Error()}, true
 	}
 	return errors.Payload{}, false

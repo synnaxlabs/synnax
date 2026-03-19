@@ -122,11 +122,11 @@ func StateFromPB[R any](
 	var err error
 	r.Resource, err = translateR(ctx, pb.Resource)
 	if err != nil {
-		return r, err
+		return control.State[R]{}, err
 	}
 	r.Subject, err = SubjectFromPB(ctx, pb.Subject)
 	if err != nil {
-		return r, err
+		return control.State[R]{}, err
 	}
 	r.Authority = control.Authority(pb.Authority)
 	return r, nil

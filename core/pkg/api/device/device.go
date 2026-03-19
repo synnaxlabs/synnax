@@ -28,10 +28,11 @@ import (
 )
 
 type Service struct {
-	db     *gorp.DB
-	access *rbac.Service
-	device *device.Service
-	status *status.Service
+	db       *gorp.DB
+	access   *rbac.Service
+	device   *device.Service
+	status   *status.Service
+	ontology *ontology.Ontology
 }
 
 func NewService(cfgs ...config.LayerConfig) (*Service, error) {
@@ -40,10 +41,11 @@ func NewService(cfgs ...config.LayerConfig) (*Service, error) {
 		return nil, err
 	}
 	return &Service{
-		db:     cfg.Distribution.DB,
-		device: cfg.Service.Device,
-		status: cfg.Service.Status,
-		access: cfg.Service.RBAC,
+		db:       cfg.Distribution.DB,
+		device:   cfg.Service.Device,
+		status:   cfg.Service.Status,
+		access:   cfg.Service.RBAC,
+		ontology: cfg.Distribution.Ontology,
 	}, nil
 }
 
@@ -69,8 +71,8 @@ func (s *Service) Create(
 	}
 	return res, s.db.WithTx(ctx, func(tx gorp.Tx) error {
 		w := s.device.NewWriter(tx)
-		for _, d := range req.Devices {
-			if err := w.Create(ctx, d); err != nil {
+		for i := range req.Devices {
+			if err := w.Create(ctx, &req.Devices[i]); err != nil {
 				return err
 			}
 		}
@@ -91,6 +93,7 @@ type RetrieveRequest struct {
 	Offset         int        `json:"offset" msgpack:"offset"`
 	IgnoreNotFound bool       `json:"ignore_not_found" msgpack:"ignore_not_found"`
 	IncludeStatus  bool       `json:"include_status" msgpack:"include_status"`
+	IncludeParent  bool       `json:"include_parent" msgpack:"include_parent"`
 }
 
 type RetrieveResponse struct {
@@ -164,6 +167,26 @@ func (s *Service) Retrieve(
 	}
 	if retErr != nil && req.IgnoreNotFound {
 		retErr = errors.Skip(retErr, query.ErrNotFound)
+	}
+	if req.IncludeParent {
+		for i, d := range res.Devices {
+			var parent ontology.Resource
+			err := s.ontology.NewRetrieve().
+				WhereIDs(device.OntologyID(d.Key)).
+				TraverseTo(ontology.ParentsTraverser).
+				Limit(1).
+				ExcludeFieldData(true).
+				Entry(&parent).
+				Exec(ctx, nil)
+			if err != nil {
+				if !errors.Is(err, query.ErrNotFound) {
+					return RetrieveResponse{}, err
+				}
+				continue
+			}
+			pid := ontology.ID(parent.ID)
+			res.Devices[i].Parent = &pid
+		}
 	}
 	return res, retErr
 }

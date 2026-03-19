@@ -231,11 +231,7 @@ describe("caseconv wrapper traversal performance", () => {
 
   // Union traversal (like nullishToEmpty)
   const unionSchema = z.object({
-    data: record.nullishToEmpty(true),
-  });
-
-  const unionSchemaNoPreserve = z.object({
-    data: record.nullishToEmpty(false),
+    data: record.nullishToEmpty(),
   });
 
   const dataInput = { data: { key_one: 1, key_two: 2 } };
@@ -264,12 +260,8 @@ describe("caseconv wrapper traversal performance", () => {
     caseconv.snakeToCamel(dataInput, { schema: deeplyNested });
   });
 
-  bench("union with preserveCase (nullishToEmpty)", () => {
+  bench("union (nullishToEmpty)", () => {
     caseconv.snakeToCamel(dataInput, { schema: unionSchema });
-  });
-
-  bench("union without preserveCase", () => {
-    caseconv.snakeToCamel(dataInput, { schema: unionSchemaNoPreserve });
   });
 
   bench("no schema (baseline)", () => {

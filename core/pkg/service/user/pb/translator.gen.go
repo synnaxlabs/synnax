@@ -38,7 +38,7 @@ func UserFromPB(_ context.Context, pb *User) (user.User, error) {
 	var err error
 	parsedKey, err := uuid.Parse(pb.Key)
 	if err != nil {
-		return r, err
+		return user.User{}, err
 	}
 	r.Key = user.Key(parsedKey)
 	r.Username = pb.Username

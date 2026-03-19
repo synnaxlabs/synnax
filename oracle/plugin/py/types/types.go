@@ -831,6 +831,7 @@ func typeToPython(
 		return "Any"
 	}
 
+	pyName := getPyName(resolved)
 	switch resolved.Form.(type) {
 	case resolution.StructForm:
 		if resolved.Namespace != data.Namespace {
@@ -839,9 +840,9 @@ func typeToPython(
 				outputPath = resolved.Namespace
 			}
 			modulePath := toPythonModulePath(outputPath)
-			return addCrossNamespaceImport(modulePath, resolved.Name, data)
+			return addCrossNamespaceImport(modulePath, pyName, data)
 		}
-		return resolved.Name
+		return pyName
 
 	case resolution.EnumForm:
 		if resolved.Namespace != data.Namespace {
@@ -850,9 +851,9 @@ func typeToPython(
 				outputPath = resolved.Namespace
 			}
 			modulePath := toPythonModulePath(outputPath)
-			return addCrossNamespaceImport(modulePath, resolved.Name, data)
+			return addCrossNamespaceImport(modulePath, pyName, data)
 		}
-		return resolved.Name
+		return pyName
 
 	case resolution.DistinctForm:
 		if resolved.Namespace != data.Namespace {
@@ -861,9 +862,9 @@ func typeToPython(
 				outputPath = resolved.Namespace
 			}
 			modulePath := toPythonModulePath(outputPath)
-			return addCrossNamespaceImport(modulePath, resolved.Name, data)
+			return addCrossNamespaceImport(modulePath, pyName, data)
 		}
-		return resolved.Name
+		return pyName
 
 	case resolution.AliasForm:
 		if resolved.Namespace != data.Namespace {
@@ -872,9 +873,9 @@ func typeToPython(
 				outputPath = resolved.Namespace
 			}
 			modulePath := toPythonModulePath(outputPath)
-			return addCrossNamespaceImport(modulePath, resolved.Name, data)
+			return addCrossNamespaceImport(modulePath, pyName, data)
 		}
-		return resolved.Name
+		return pyName
 
 	default:
 		data.imports.addTyping("Any")
@@ -1224,10 +1225,15 @@ func hasTypeParams(params []typeParamData) bool {
 	return len(params) > 0
 }
 
+func toScreamingSnake(s string) string {
+	return strings.ToUpper(lo.SnakeCase(s))
+}
+
 var templateFuncs = template.FuncMap{
 	"title":                 lo.Capitalize,
 	"join":                  strings.Join,
 	"upper":                 strings.ToUpper,
+	"screamingSnake":        toScreamingSnake,
 	"formatGoogleDocstring": formatGoogleDocstring,
 	"hasDocumentation":      hasDocumentation,
 	"genericArg":            genericArg,
@@ -1286,7 +1292,7 @@ class {{ .Name }}(IntEnum):
 {{- $enumName := .Name }}
 {{- range .Values }}
 
-{{ upper $enumName }}_{{ upper .Name }}: Literal["{{ .Value }}"] = "{{ .Value }}"
+{{ screamingSnake $enumName }}_{{ upper .Name }}: Literal["{{ .Value }}"] = "{{ .Value }}"
 {{- end }}
 
 

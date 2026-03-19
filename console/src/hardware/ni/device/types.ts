@@ -68,4 +68,5 @@ export interface New extends device.New<typeof propertiesZ, typeof makeZ> {}
 export const SCHEMAS = {
   properties: propertiesZ,
   make: makeZ,
+  model: z.string(),
 } as const satisfies device.DeviceSchemas<typeof propertiesZ, typeof makeZ>;

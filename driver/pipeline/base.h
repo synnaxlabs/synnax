@@ -53,6 +53,7 @@ public:
     /// start() since the pipeline was last stopped.
     /// @returns false otherwise.
     virtual bool start() {
+        if (!this->breaker.running() && this->thread.joinable()) this->thread.join();
         if (!this->breaker.start()) return false;
         this->thread = std::thread(&Base::run_internal, this);
         return true;

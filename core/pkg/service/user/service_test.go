@@ -87,14 +87,12 @@ var _ = Describe("User", Ordered, func() {
 	Describe("Retrieve", func() {
 		It("Should retrieve a user by its key", func() {
 			var u user.User
-			err := svc.NewRetrieve().WhereKeys(users[0].Key).Entry(&u).Exec(ctx, nil)
-			Expect(err).ToNot(HaveOccurred())
+			Expect(svc.NewRetrieve().WhereKeys(users[0].Key).Entry(&u).Exec(ctx, nil)).To(Succeed())
 			Expect(u).To(Equal(users[0]))
 		})
 		It("Should retrieve multiple users by keys", func() {
 			var ret []user.User
-			err := svc.NewRetrieve().WhereKeys(users[0].Key, users[1].Key).Entries(&ret).Exec(ctx, nil)
-			Expect(err).ToNot(HaveOccurred())
+			Expect(svc.NewRetrieve().WhereKeys(users[0].Key, users[1].Key).Entries(&ret).Exec(ctx, nil)).To(Succeed())
 			Expect(ret).To(ConsistOf(users[0], users[1]))
 		})
 		It("Should return an error if the user does not exist", func() {
@@ -103,14 +101,12 @@ var _ = Describe("User", Ordered, func() {
 		})
 		It("Should retrieve a user by its username", func() {
 			var user user.User
-			err := svc.NewRetrieve().WhereUsernames(users[0].Username).Entry(&user).Exec(ctx, nil)
-			Expect(err).ToNot(HaveOccurred())
+			Expect(svc.NewRetrieve().WhereUsernames(users[0].Username).Entry(&user).Exec(ctx, nil)).To(Succeed())
 			Expect(user).To(Equal(users[0]))
 		})
 		It("Should retrieve multiple users by usernames", func() {
 			var ret []user.User
-			err := svc.NewRetrieve().WhereUsernames(users[0].Username, users[1].Username).Entries(&ret).Exec(ctx, nil)
-			Expect(err).ToNot(HaveOccurred())
+			Expect(svc.NewRetrieve().WhereUsernames(users[0].Username, users[1].Username).Entries(&ret).Exec(ctx, nil)).To(Succeed())
 			Expect(ret).To(ConsistOf(users[0], users[1]))
 		})
 		It("Should return an error if the user does not exist", func() {

@@ -97,7 +97,7 @@ func RackFromPB(ctx context.Context, pb *Rack) (rack.Rack, error) {
 	if pb.Status != nil {
 		val, err := statuspb.StatusFromPB[rack.StatusDetails](ctx, pb.Status, StatusDetailsFromPBAny)
 		if err != nil {
-			return r, err
+			return rack.Rack{}, err
 		}
 		r.Status = (*rack.Status)(&val)
 	}

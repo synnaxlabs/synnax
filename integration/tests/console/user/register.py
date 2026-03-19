@@ -9,8 +9,9 @@
 
 """Test user registration via Console UI."""
 
+from x import get_random_name
+
 from console.case import ConsoleCase
-from framework.utils import get_random_name
 
 
 class UserRegister(ConsoleCase):
