@@ -70,7 +70,7 @@ def create_app(auth_type: str = "none") -> Flask:
     # Shared mutable state — write endpoints modify, read endpoints reflect.
     state: dict = {
         "setpoint": 22.5,
-        "power": "OFF",
+        "power": "Off",
         "mode": "AUTO",
         "config": {},
     }
@@ -266,7 +266,7 @@ def create_app(auth_type: str = "none") -> Flask:
     def api_control() -> tuple[Response, int]:
         """Accept control commands that update device state.
 
-        Expected body: {"power": "ON"|"OFF", "mode": "AUTO"|"MANUAL"|"STANDBY"}
+        Expected body: {"power": "On"|"Off", "mode": "AUTO"|"MANUAL"|"STANDBY"}
         Any fields present are applied to state; missing fields are unchanged.
         Readable via GET /api/v1/device.
         """

@@ -23,6 +23,8 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer/frame"
 	"github.com/synnaxlabs/synnax/pkg/distribution/mock"
 	"github.com/synnaxlabs/synnax/pkg/service/arc"
+	svcchannel "github.com/synnaxlabs/synnax/pkg/service/channel"
+	channelcalculation "github.com/synnaxlabs/synnax/pkg/service/channel/calculation"
 	"github.com/synnaxlabs/synnax/pkg/service/framer/calculation"
 	"github.com/synnaxlabs/synnax/pkg/service/framer/streamer"
 	"github.com/synnaxlabs/synnax/pkg/service/label"
@@ -39,6 +41,7 @@ import (
 var _ = Describe("Calculation", Ordered, func() {
 	var (
 		c         *calculation.Service
+		arcSvc    *arc.Service
 		dist      mock.Node
 		statusSvc *status.Service
 	)
@@ -133,7 +136,7 @@ var _ = Describe("Calculation", Ordered, func() {
 		DeferCleanup(func() {
 			Expect(taskSvc.Close()).To(Succeed())
 		})
-		arcSvc := MustSucceed(arc.OpenService(ctx, arc.ServiceConfig{
+		arcSvc = MustSucceed(arc.OpenService(ctx, arc.ServiceConfig{
 			Channel:  dist.Channel,
 			Ontology: dist.Ontology,
 			DB:       dist.DB,
@@ -143,10 +146,11 @@ var _ = Describe("Calculation", Ordered, func() {
 		DeferCleanup(func() {
 			Expect(arcSvc.Close()).To(Succeed())
 		})
+		channelSvc := svcchannel.Wrap(dist.Channel)
 		c = MustSucceed(calculation.OpenService(ctx, calculation.ServiceConfig{
 			DB:                dist.DB,
 			Framer:            dist.Framer,
-			Channel:           dist.Channel,
+			Channel:           channelSvc,
 			ChannelObservable: dist.Channel.NewObservable(),
 			Arc:               arcSvc,
 			Status:            statusSvc,
@@ -515,7 +519,7 @@ var _ = Describe("Calculation", Ordered, func() {
 			Expect(rm.Set(ctx, channel.KeysFromChannels(calcs))).To(Succeed())
 			var st calculation.Status
 			statusKey := channel.OntologyID(calcs[0].Key()).String()
-			Expect(status.NewRetrieve[calculation.StatusDetails](statusSvc).
+			Expect(status.NewRetrieve[channelcalculation.StatusDetails](statusSvc).
 				WhereKeys(statusKey).
 				Entry(&st).
 				Exec(ctx, nil)).To(Succeed())
@@ -544,7 +548,7 @@ var _ = Describe("Calculation", Ordered, func() {
 			var st calculation.Status
 			statusKey := channel.OntologyID(calcs[0].Key()).String()
 			Eventually(func(g Gomega) {
-				err := status.NewRetrieve[calculation.StatusDetails](statusSvc).
+				err := status.NewRetrieve[channelcalculation.StatusDetails](statusSvc).
 					WhereKeys(statusKey).
 					Entry(&st).
 					Exec(ctx, nil)
@@ -566,7 +570,7 @@ var _ = Describe("Calculation", Ordered, func() {
 			Expect(rm.Set(ctx, channel.KeysFromChannels(calcs))).To(Succeed())
 			var st calculation.Status
 			statusKey := channel.OntologyID(calcs[0].Key()).String()
-			Expect(status.NewRetrieve[calculation.StatusDetails](statusSvc).
+			Expect(status.NewRetrieve[channelcalculation.StatusDetails](statusSvc).
 				WhereKeys(statusKey).
 				Entry(&st).
 				Exec(ctx, nil)).To(Succeed())
@@ -586,7 +590,7 @@ var _ = Describe("Calculation", Ordered, func() {
 			Expect(rm.Set(ctx, channel.KeysFromChannels(calcs))).To(Succeed())
 			var st calculation.Status
 			expectedKey := channel.OntologyID(calcs[0].Key()).String()
-			Expect(status.NewRetrieve[calculation.StatusDetails](statusSvc).
+			Expect(status.NewRetrieve[channelcalculation.StatusDetails](statusSvc).
 				WhereKeys(expectedKey).
 				Entry(&st).
 				Exec(ctx, nil)).To(Succeed())

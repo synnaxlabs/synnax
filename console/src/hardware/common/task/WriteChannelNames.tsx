@@ -37,14 +37,14 @@ export const WriteChannelNames = ({
       {...rest}
       channel={cmdChannel}
       id={getChannelNameID(itemKey, "cmd")}
-      defaultName="No Command Channel"
+      defaultName="No command channel"
       namePath={cmdNamePath}
     />
     <ChannelName
       {...rest}
       channel={stateChannel}
       className={CSS.B("state-channel")}
-      defaultName="No State Channel"
+      defaultName="No state channel"
       namePath={stateNamePath}
       id={getChannelNameID(itemKey, "state")}
     />

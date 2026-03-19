@@ -179,6 +179,56 @@ var _ = Describe("Retrieve", Ordered, func() {
 		})
 
 	})
+	Describe("WhereCalculated", func() {
+		It("Should only return calculated channels", func() {
+			base := channel.Channel{
+				Virtual:  true,
+				DataType: telem.Float32T,
+				Name:     "wc_base",
+			}
+			calc := channel.Channel{
+				Virtual:    true,
+				DataType:   telem.Float32T,
+				Name:       "wc_calc",
+				Expression: "return wc_base * 2",
+			}
+			channels := []channel.Channel{base, calc}
+			Expect(mockCluster.Nodes[1].Channel.NewWriter(nil).CreateMany(ctx, &channels)).To(Succeed())
+
+			var results []channel.Channel
+			Expect(mockCluster.Nodes[1].Channel.
+				NewRetrieve().
+				WhereCalculated().
+				Entries(&results).
+				Exec(ctx, nil)).To(Succeed())
+			for _, ch := range results {
+				Expect(ch.IsCalculated()).To(BeTrue())
+			}
+			Expect(results).To(ContainElement(
+				HaveField("Name", Equal("wc_calc")),
+			))
+		})
+
+		It("Should return empty when no calculated channels exist in a fresh cluster", func() {
+			freshCluster := mock.ProvisionCluster(ctx, 1)
+			defer func() { Expect(freshCluster.Close()).To(Succeed()) }()
+			base := channel.Channel{
+				Virtual:  true,
+				DataType: telem.Float32T,
+				Name:     "wc_only_base",
+			}
+			Expect(freshCluster.Nodes[1].Channel.NewWriter(nil).CreateMany(ctx, &[]channel.Channel{base})).To(Succeed())
+
+			var results []channel.Channel
+			Expect(freshCluster.Nodes[1].Channel.
+				NewRetrieve().
+				WhereCalculated().
+				Entries(&results).
+				Exec(ctx, nil)).To(Succeed())
+			Expect(results).To(BeEmpty())
+		})
+	})
+
 	Describe("Exists", func() {
 		It("Should return true if a channel exists", func() {
 			created := []channel.Channel{
