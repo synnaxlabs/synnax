@@ -1,0 +1,282 @@
+---
+layout: "@/layouts/Reference.astro"
+title: "HTTP Write Task"
+description: "Learn how to send commands to HTTP endpoints with Synnax."
+prev: "Read Task"
+prevURL: "/reference/driver/http/read-task"
+---
+
+import { Divider, Note, Icon, Text } from "@synnaxlabs/pluto";
+import { Video, Image } from "@/components/media/Media";
+import { Fragment } from "react";
+import Details from "@/components/details/Details.astro";
+import { Client } from "@/components/client";
+import { mdxOverrides } from "@/components/mdxOverrides";
+export const components = mdxOverrides;
+
+For task lifecycle management, see the
+[Task Basics](/reference/driver/task-basics#how-to) page.
+
+<Divider.Divider x />
+
+## How Commands Work
+
+HTTP Write Tasks use **command channels** to send values to HTTP endpoints:
+
+- When a value is written to a command channel, the driver sends an HTTP request to the
+  corresponding endpoint.
+- The channel value is placed in the JSON request body at a location specified by a JSON
+  Pointer.
+- Each endpoint has exactly one command channel that drives it, plus optional static and
+  generated fields that are included in every request.
+
+<Divider.Divider x />
+
+## Task Configuration Reference
+
+| Parameter    | Type    | Required | Default | Description                                                                                            |
+| ------------ | ------- | -------- | ------- | ------------------------------------------------------------------------------------------------------ |
+| `name`       | string  | Yes      | -       | Human-readable task name                                                                               |
+| `device`     | string  | Yes      | -       | Key of the HTTP server device                                                                          |
+| `auto_start` | boolean | No       | `false` | Automatically start task after configuration                                                           |
+| `endpoints`  | array   | Yes      | -       | List of endpoint configurations. See [Endpoint Configuration](#endpoint-configuration-reference) below |
+
+<Divider.Divider x />
+
+## Endpoint Configuration Reference
+
+Each endpoint maps a single Synnax command channel to an HTTP request. When the channel
+receives a value, the driver builds the JSON body and sends the request.
+
+| Parameter      | Type    | Required | Default  | Description                                                             |
+| -------------- | ------- | -------- | -------- | ----------------------------------------------------------------------- |
+| `method`       | string  | No       | `"POST"` | HTTP method (`POST`, `PUT`, `PATCH`, or any method that accepts a body) |
+| `path`         | string  | Yes      | -        | URL path relative to the device base URL (e.g., `/api/v1/setpoint`)     |
+| `headers`      | object  | No       | -        | Additional request headers                                              |
+| `query_params` | object  | No       | -        | Query parameters                                                        |
+| `enabled`      | boolean | No       | `true`   | Whether this endpoint is active                                         |
+| `channel`      | object  | Yes      | -        | [Command channel field](#field-types-reference) configuration           |
+| `fields`       | array   | No       | `[]`     | Additional [static or generated fields](#field-types-reference)         |
+
+<Divider.Divider x />
+
+## Field Types Reference
+
+The request body is constructed from three types of fields, each placed at a JSON
+Pointer location in the body.
+
+<Details>
+<Text.Text slot="summary" level="p"><Icon.Details /> Channel Field (required)</Text.Text>
+
+The channel field is the primary field on each endpoint. Its value comes from a Synnax
+command channel — when a value is written to the channel, the driver places it in the
+request body at the specified pointer.
+
+| Parameter   | Type   | Required | Default     | Description                                              |
+| ----------- | ------ | -------- | ----------- | -------------------------------------------------------- |
+| `pointer`   | string | Yes      | -           | JSON Pointer where the value goes (e.g., `/value`)       |
+| `json_type` | string | No       | `"number"`  | JSON type to serialize as: `number`, `string`, `boolean` |
+| `channel`   | number | Yes      | -           | Synnax command channel key                               |
+| `data_type` | string | No       | `"float64"` | Data type of the channel                                 |
+
+```python
+http.ChannelField(
+    pointer="/value",
+    json_type="number",
+    channel=setpoint_cmd.key,
+)
+```
+
+</Details>
+
+<Details>
+<Text.Text slot="summary" level="p"><Icon.Details /> Static Fields</Text.Text>
+
+Static fields have a fixed value that is included in every request. Use these for
+constant metadata like source identifiers or action types.
+
+| Parameter   | Type   | Required | Description                                         |
+| ----------- | ------ | -------- | --------------------------------------------------- |
+| `pointer`   | string | Yes      | JSON Pointer where the value goes (e.g., `/source`) |
+| `json_type` | string | Yes      | JSON type: `number`, `string`, `boolean`            |
+| `value`     | any    | Yes      | The fixed value to include                          |
+
+```python
+http.StaticField(
+    pointer="/source",
+    json_type="string",
+    value="synnax",
+)
+```
+
+</Details>
+
+<Details>
+<Text.Text slot="summary" level="p"><Icon.Details /> Generated Fields</Text.Text>
+
+Generated fields produce a new value for each request. Two generator types are
+supported:
+
+| Parameter     | Type   | Required | Default     | Description                                                                                               |
+| ------------- | ------ | -------- | ----------- | --------------------------------------------------------------------------------------------------------- |
+| `pointer`     | string | Yes      | -           | JSON Pointer where the value goes (e.g., `/request_id`)                                                   |
+| `generator`   | string | Yes      | -           | Generator type: `uuid` or `timestamp`                                                                     |
+| `time_format` | string | No       | `"iso8601"` | Timestamp format (only for `timestamp` generator): `iso8601`, `unix_sec`, `unix_ms`, `unix_us`, `unix_ns` |
+
+```python
+# UUID generator - produces a unique ID per request
+http.GeneratedField(
+    pointer="/request_id",
+    generator="uuid",
+)
+
+# Timestamp generator - produces current time per request
+http.GeneratedField(
+    pointer="/timestamp",
+    generator="timestamp",
+    time_format="iso8601",
+)
+```
+
+</Details>
+
+<Divider.Divider x />
+
+## How-To
+
+<Client.Tabs client:load exclude={["typescript", "cpp"]}>
+  <Fragment slot="console">
+
+<Video client:only="react" id="device-drivers/http/write-task/write" />
+
+  </Fragment>
+  <Fragment slot="python">
+
+<Details open>
+<Text.Text slot="summary" level="p"><Icon.Play /> Configure and run task</Text.Text>
+
+```python
+import synnax as sy
+from synnax import http
+
+client = sy.Synnax()
+
+# Retrieve the HTTP device
+dev = client.devices.retrieve(name="My HTTP Server")
+
+# Create a command time index
+http_cmd_time = client.channels.create(
+    name="http_cmd_time",
+    is_index=True,
+    data_type=sy.DataType.TIMESTAMP,
+    retrieve_if_name_exists=True,
+)
+
+# Create a command channel
+setpoint_cmd = client.channels.create(
+    name="http_setpoint_cmd",
+    index=http_cmd_time.key,
+    data_type=sy.DataType.FLOAT64,
+    retrieve_if_name_exists=True,
+)
+
+# Create the write task
+task = http.WriteTask(
+    name="HTTP Write Task",
+    device=dev.key,
+    endpoints=[
+        http.WriteEndpoint(
+            method="PUT",
+            path="/api/v1/setpoint",
+            channel=http.ChannelField(
+                pointer="/value",
+                json_type="number",
+                channel=setpoint_cmd.key,
+            ),
+        ),
+    ],
+)
+
+# Configure the task with Synnax
+client.tasks.configure(task)
+
+# Start task and send commands
+with task.run():
+    with client.open_writer(
+        start=sy.TimeStamp.now(),
+        channels=[http_cmd_time.key, setpoint_cmd.key],
+        enable_auto_commit=True,
+    ) as writer:
+        writer.write({
+            http_cmd_time.key: sy.TimeStamp.now(),
+            setpoint_cmd.key: 42.0,
+        })
+        writer.commit()
+```
+
+</Details>
+
+<Details>
+<Text.Text slot="summary" level="p"><Icon.Play /> Use static and generated fields</Text.Text>
+
+```python
+import synnax as sy
+from synnax import http
+
+client = sy.Synnax()
+dev = client.devices.retrieve(name="My HTTP Server")
+
+http_cmd_time = client.channels.create(
+    name="http_cmd_time",
+    is_index=True,
+    data_type=sy.DataType.TIMESTAMP,
+    retrieve_if_name_exists=True,
+)
+
+setpoint_cmd = client.channels.create(
+    name="http_setpoint_cmd",
+    index=http_cmd_time.key,
+    data_type=sy.DataType.FLOAT64,
+    retrieve_if_name_exists=True,
+)
+
+# Each request body will contain:
+# {
+#   "value": <channel value>,
+#   "source": "synnax",
+#   "request_id": "<generated uuid>"
+# }
+task = http.WriteTask(
+    name="HTTP Write Task",
+    device=dev.key,
+    endpoints=[
+        http.WriteEndpoint(
+            method="POST",
+            path="/api/v1/control",
+            channel=http.ChannelField(
+                pointer="/value",
+                json_type="number",
+                channel=setpoint_cmd.key,
+            ),
+            fields=[
+                http.StaticField(
+                    pointer="/source",
+                    json_type="string",
+                    value="synnax",
+                ),
+                http.GeneratedField(
+                    pointer="/request_id",
+                    generator="uuid",
+                ),
+            ],
+        ),
+    ],
+)
+
+client.tasks.configure(task)
+```
+
+</Details>
+
+  </Fragment>
+</Client.Tabs>

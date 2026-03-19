@@ -351,7 +351,8 @@ export const createForm = <
 ) =>
   Flux.createForm<FormQuery, typeof formSchema, FluxSubStore>({
     name: RESOURCE_NAME,
-    schema: formSchema,
+    schema:
+      schemas != null ? (device.deviceZ(schemas) as typeof formSchema) : formSchema,
     initialValues: {
       key: "",
       rack: 0,

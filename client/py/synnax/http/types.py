@@ -55,8 +55,7 @@ class HealthCheck(BaseModel):
     :param headers: Optional headers to include.
     :param query_params: Optional query parameters.
     :param body: Optional request body (POST only).
-    :param validate_response: Whether to validate the response body.
-    :param response: Expected response config (required when validate_response is True).
+    :param response: Optional response validation config.
     """
 
     method: str = "GET"
@@ -64,7 +63,6 @@ class HealthCheck(BaseModel):
     headers: list[HeaderEntry] | None = None
     query_params: list[QueryParamEntry] | None = None
     body: str | None = None
-    validate_response: bool = False
     response: ExpectedResponse | None = None
 
 
