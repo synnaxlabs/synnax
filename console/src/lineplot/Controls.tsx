@@ -18,6 +18,7 @@ import { Controls as Base } from "@/components";
 import { CSS } from "@/css";
 import { Layout } from "@/layout";
 import {
+  useSelect,
   useSelectControlState,
   useSelectMeasureMode,
   useSelectViewportMode,
@@ -26,6 +27,7 @@ import {
   type ClickMode,
   setControlState,
   setMeasureMode,
+  setRangeAnnotationsVisible,
   setViewport,
   setViewportMode,
 } from "@/lineplot/slice";
@@ -36,6 +38,7 @@ export interface ControlsProps {
 
 export const Controls = ({ layoutKey }: ControlsProps): ReactElement => {
   const control = useSelectControlState(layoutKey);
+  const plot = useSelect(layoutKey);
   const { layoutKey: vis } = Layout.useSelectActiveMosaicTabState();
   const mode = useSelectViewportMode(layoutKey);
   const measureMode = useSelectMeasureMode(layoutKey);
@@ -61,10 +64,14 @@ export const Controls = ({ layoutKey }: ControlsProps): ReactElement => {
     dispatch(setControlState({ key: layoutKey, state: { hold } }));
   };
 
+  const handleAnnotationsVisibilityChange = (visible: boolean): void => {
+    dispatch(setRangeAnnotationsVisible({ key: layoutKey, visible }));
+  };
+
   const triggers = useMemo(() => Viewport.DEFAULT_TRIGGERS[mode], [mode]);
 
   return (
-    <Base>
+    <Base className={CSS(plot.annotations.visible && CSS.BM("controls", "annotations-visible"))}>
       <Flex.Box x gap="small">
         <Viewport.SelectMode
           value={mode}
@@ -93,6 +100,15 @@ export const Controls = ({ layoutKey }: ControlsProps): ReactElement => {
           tooltipLocation={location.BOTTOM_LEFT}
         >
           <Icon.Tooltip />
+        </Button.Toggle>
+        <Button.Toggle
+          value={plot.annotations.visible}
+          onChange={handleAnnotationsVisibilityChange}
+          size="small"
+          tooltip={`${plot.annotations.visible ? "Hide" : "Show"} range annotations`}
+          tooltipLocation={location.BOTTOM_LEFT}
+        >
+          <Icon.Range />
         </Button.Toggle>
         <Button.Toggle
           value={control.clickMode != null}

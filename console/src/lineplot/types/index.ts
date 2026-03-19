@@ -15,6 +15,8 @@ import * as v1 from "@/lineplot/types/v1";
 import * as v2 from "@/lineplot/types/v2";
 import * as v3 from "@/lineplot/types/v3";
 import * as v4 from "@/lineplot/types/v4";
+import * as v5 from "@/lineplot/types/v5";
+import * as v6 from "@/lineplot/types/v6";
 
 export const titleStateZ = v0.titleStateZ;
 export type TitleState = v0.TitleState;
@@ -62,9 +64,13 @@ export const rangesStateZ = v0.rangesStateZ;
 export type RangesState = v0.RangesState;
 export const ZERO_RANGES_STATE = v0.ZERO_RANGES_STATE;
 
-export const stateZ = v4.stateZ;
-export type State = v4.State;
-export const ZERO_STATE = v4.ZERO_STATE;
+export const annotationsStateZ = v5.annotationsStateZ;
+export type AnnotationsState = v5.AnnotationsState;
+export const ZERO_ANNOTATIONS_STATE = v5.ZERO_ANNOTATIONS_STATE;
+
+export const stateZ = v6.stateZ;
+export type State = v6.State;
+export const ZERO_STATE = v6.ZERO_STATE;
 
 export const toolbarTabZ = v0.toolbarTabZ;
 export type ToolbarTab = v0.ToolbarTab;
@@ -80,23 +86,34 @@ export const controlStateZ = v0.controlStateZ;
 export type ControlState = v0.ControlState;
 export const ZERO_CONTROL_STATE = v0.ZERO_CONTROL_SATE;
 
-export const sliceStateZ = v4.sliceStateZ;
-export type SliceState = v4.SliceState;
-export const ZERO_SLICE_STATE = v4.ZERO_SLICE_STATE;
+export const sliceStateZ = v6.sliceStateZ;
+export type SliceState = v6.SliceState;
+export const ZERO_SLICE_STATE = v6.ZERO_SLICE_STATE;
 
-export type AnyState = v0.State | v1.State | v2.State | v3.State | v4.State;
+export type AnyState =
+  | v0.State
+  | v1.State
+  | v2.State
+  | v3.State
+  | v4.State
+  | v5.State
+  | v6.State;
 export type AnySliceState =
   | v0.SliceState
   | v1.SliceState
   | v2.SliceState
   | v3.SliceState
-  | v4.SliceState;
+  | v4.SliceState
+  | v5.SliceState
+  | v6.SliceState;
 
 export const STATE_MIGRATIONS: migrate.Migrations = {
   [v0.VERSION]: v1.stateMigration,
   [v1.VERSION]: v2.stateMigration,
   [v2.VERSION]: v3.stateMigration,
   [v3.VERSION]: v4.stateMigration,
+  [v4.VERSION]: v5.stateMigration,
+  [v5.VERSION]: v6.stateMigration,
 };
 
 export const migrateState = migrate.migrator<AnyState, State>({
@@ -110,6 +127,7 @@ export const SLICE_MIGRATIONS: migrate.Migrations = {
   [v1.VERSION]: v2.sliceMigration,
   [v2.VERSION]: v3.sliceMigration,
   [v3.VERSION]: v4.sliceMigration,
+  [v4.VERSION]: v5.sliceMigration,
 };
 
 export const migrateSlice = migrate.migrator<AnySliceState, SliceState>({
@@ -119,5 +137,5 @@ export const migrateSlice = migrate.migrator<AnySliceState, SliceState>({
 });
 
 export const anyStateZ = z
-  .union([v4.stateZ, v3.stateZ, v2.stateZ, v1.stateZ, v0.stateZ])
+  .union([v5.stateZ, v4.stateZ, v3.stateZ, v2.stateZ, v1.stateZ, v0.stateZ])
   .transform((state) => migrateState(state));

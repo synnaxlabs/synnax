@@ -443,6 +443,7 @@ const Loaded: Layout.Renderer = ({ layoutKey, focused, visible }) => {
   };
 
   const rangeProviderProps: Channel.LinePlotProps["rangeProviderProps"] = {
+    visible: vis.annotations.visible,
     menu: (props) => <RangeAnnotationContextMenu lines={propsLines} range={props} />,
   };
 

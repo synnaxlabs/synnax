@@ -37,6 +37,7 @@ export const selectedStateZ = ranger.payloadZ.extend({
 export type SelectedState = z.infer<typeof selectedStateZ>;
 
 export const providerStateZ = z.object({
+  visible: z.boolean().optional().default(true),
   cursor: xy.xy.or(z.null()),
   hovered: selectedStateZ.or(z.null()),
   count: z.number(),
@@ -116,6 +117,7 @@ export class Provider extends aether.Leaf<typeof providerStateZ, InternalState> 
   }
 
   render(props: ProviderProps): void {
+    if (this.state.visible === false) return;
     const { dataToDecimalScale, region, viewport, timeRange } = props;
     this.fetchInitial(timeRange);
     const { draw, ranges } = this.internal;
@@ -161,7 +163,7 @@ export class Provider extends aether.Leaf<typeof providerStateZ, InternalState> 
           { x: startPos, y: box.top(region) - 1 },
           { x: endPos, y: box.bottom(region) - 1 },
         ),
-        backgroundColor: color.setAlpha(c, 0.2),
+        backgroundColor: color.setAlpha(c, 0.1),
         bordered: false,
       });
       const titleRegion = box.construct(

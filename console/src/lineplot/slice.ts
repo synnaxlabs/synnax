@@ -40,6 +40,7 @@ export type RuleState = latest.RuleState;
 export type RulesState = latest.RulesState;
 export type ChannelsState = latest.ChannelsState;
 export type RangesState = latest.RangesState;
+export type AnnotationsState = latest.AnnotationsState;
 export type State = latest.State;
 export type ToolbarTab = latest.ToolbarTab;
 export type ToolbarState = latest.ToolbarState;
@@ -170,6 +171,11 @@ export interface SetRemoteCreatedPayload {
 export interface SetMeasureModePayload {
   key: string;
   mode: measure.Mode;
+}
+
+export interface SetRangeAnnotationsVisiblePayload {
+  key: string;
+  visible: boolean;
 }
 
 export const typedLineKeyToString = (key: TypedLineKey): string =>
@@ -369,6 +375,12 @@ export const { actions, reducer } = createSlice({
     setMeasureMode: (state, { payload }: PayloadAction<SetMeasureModePayload>) => {
       state.plots[payload.key].measure.mode = payload.mode;
     },
+    setRangeAnnotationsVisible: (
+      state,
+      { payload }: PayloadAction<SetRangeAnnotationsVisiblePayload>,
+    ) => {
+      state.plots[payload.key].annotations.visible = payload.visible;
+    },
   },
 });
 
@@ -392,6 +404,7 @@ export const {
   setRemoteCreated,
   setSelection,
   setMeasureMode,
+  setRangeAnnotationsVisible,
   create: internalCreate,
 } = actions;
 
