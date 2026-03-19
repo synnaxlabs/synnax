@@ -89,10 +89,25 @@ std::pair<WriteTaskConfig, x::errors::Error> WriteTaskConfig::parse(
         endpoint.request.method = parse_method(ep, "method");
         endpoint.request.path = ep.field<std::string>("path");
         endpoint.request.request_content_type = "application/json";
-        endpoint.request.headers = ep.field<std::map<std::string, std::string>>(
-            "headers",
-            std::map<std::string, std::string>{}
-        );
+        if (ep.has("headers"))
+            ep.iter("headers", [&](x::json::Parser &h) {
+                auto name = h.field<std::string>("name");
+                auto val = h.field<std::string>("value");
+                if (!name.empty() &&
+                    !endpoint.request.headers.emplace(name, val).second)
+                    h.field_err("name", "duplicate header '" + name + "'");
+            });
+        if (ep.has("query_params"))
+            ep.iter("query_params", [&](x::json::Parser &qp) {
+                auto param = qp.field<std::string>("parameter");
+                auto val = qp.field<std::string>("value");
+                if (!param.empty() &&
+                    !endpoint.request.query_params.emplace(param, val).second)
+                    qp.field_err(
+                        "parameter",
+                        "duplicate query parameter '" + param + "'"
+                    );
+            });
 
         all_pointers.clear();
 
@@ -116,6 +131,22 @@ std::pair<WriteTaskConfig, x::errors::Error> WriteTaskConfig::parse(
                 endpoint.channel.time_format = fmt;
         }
 
+        // Parse optional enum values for numeric-to-string mapping.
+        if (ch_parser.has("enum_values"))
+            ch_parser.iter("enum_values", [&](x::json::Parser &ev) {
+                auto value = ev.field<x::json::json>("value");
+                auto label = ev.field<std::string>("label");
+                if (!endpoint.channel.enum_values.emplace(value, std::move(label))
+                         .second)
+                    ev.field_err("value", "duplicate enum value " + value.dump());
+            });
+        if (!endpoint.channel.enum_values.empty() &&
+            endpoint.channel.json_type != x::json::Type::String)
+            ch_parser.field_err(
+                "enum_values",
+                "enum values are only supported when json_type is 'string'"
+            );
+
         ep.iter("fields", [&](x::json::Parser &fp) {
             const auto type = fp.field<std::string>("type");
             if (type == "static") {
@@ -125,7 +156,9 @@ std::pair<WriteTaskConfig, x::errors::Error> WriteTaskConfig::parse(
                 );
                 sf.value = fp.field<x::json::json>("value");
                 const auto sf_ptr_str = sf.pointer.to_string();
-                if (!all_pointers.insert(sf_ptr_str).second)
+                if (sf.pointer == x::json::json::json_pointer(""))
+                    fp.field_err("pointer", "static field pointer cannot be empty");
+                else if (!all_pointers.insert(sf_ptr_str).second)
                     fp.field_err(
                         "pointer",
                         "pointer '" + sf_ptr_str + "' is already used"
@@ -149,7 +182,9 @@ std::pair<WriteTaskConfig, x::errors::Error> WriteTaskConfig::parse(
                         gf.time_format = gf_fmt;
                 }
                 const auto gf_ptr_str = gf.pointer.to_string();
-                if (!all_pointers.insert(gf_ptr_str).second)
+                if (gf.pointer == x::json::json::json_pointer(""))
+                    fp.field_err("pointer", "generated field pointer cannot be empty");
+                else if (!all_pointers.insert(gf_ptr_str).second)
                     fp.field_err(
                         "pointer",
                         "pointer '" + gf_ptr_str + "' is already used"
@@ -255,9 +290,12 @@ x::errors::Error WriteTaskSink::write(x::telem::Frame &frame) {
 
         const auto sample_val = series.at(-1);
 
+        const auto *enum_ptr = ep.channel.enum_values.empty() ? nullptr
+                                                              : &ep.channel.enum_values;
         auto [json_val, conv_err] = x::json::from_sample_value(
             sample_val,
-            ep.channel.json_type
+            ep.channel.json_type,
+            enum_ptr
         );
         if (conv_err)
             return {

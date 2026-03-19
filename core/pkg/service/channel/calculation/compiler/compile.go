@@ -25,10 +25,14 @@ import (
 	"github.com/synnaxlabs/x/validate"
 )
 
+// Config configures a calculation compilation.
 type Config struct {
+	// SymbolResolver resolves channel names and STL symbols during compilation.
 	SymbolResolver arc.SymbolResolver
+	// ChannelService is used to look up channel metadata for the state config.
 	ChannelService *channel.Service
-	Channel        channel.Channel
+	// Channel is the calculated channel whose expression will be compiled.
+	Channel channel.Channel
 }
 
 var (
@@ -36,7 +40,6 @@ var (
 	DefaultConfig                       = Config{}
 )
 
-// Override implements config.Config.
 func (c Config) Override(other Config) Config {
 	c.Channel = other.Channel
 	c.SymbolResolver = override.Nil(c.SymbolResolver, other.SymbolResolver)
@@ -44,7 +47,6 @@ func (c Config) Override(other Config) Config {
 	return c
 }
 
-// Validate implements config.Config.
 func (c Config) Validate() error {
 	v := validate.New("arc.runtime")
 	validate.NotNil(v, "resolver", c.SymbolResolver)
@@ -58,9 +60,8 @@ const (
 	writeKey       = "write"
 )
 
-// PreProcess compiles the expression to discover channel references and infer types
-// without building the full execution graph. Used by the compiler internally and by
-// diagnostics to inspect dependencies when compilation fails.
+// PreProcess compiles the channel's expression to discover channel references
+// and infer output types without building the full execution graph.
 func PreProcess(ctx context.Context, cfg Config) (arc.Program, error) {
 	outputDataType := types.FromTelem(cfg.Channel.DataType)
 	fn := ir.Function{
@@ -72,12 +73,20 @@ func PreProcess(ctx context.Context, cfg Config) (arc.Program, error) {
 	return arc.CompileGraph(ctx, g, arc.WithResolver(cfg.SymbolResolver))
 }
 
+// Module is the compiled output for a single calculated channel, ready for
+// execution by the framer's calculator runtime.
 type Module struct {
+	// StateConfig describes the channels read and written by this calculation.
 	StateConfig runtime.ExtendedStateConfig
+	// Program is the compiled Arc program containing WASM bytecode.
 	arc.Program
+	// Channel is the calculated channel this module was compiled for.
 	Channel channel.Channel
 }
 
+// Compile builds a full execution Module for the given calculated channel. The
+// module includes WASM bytecode, an execution graph with operation nodes, and a
+// state config mapping channel keys to read/write slots.
 func Compile(ctx context.Context, cfgs ...Config) (Module, error) {
 	cfg, err := config.New(DefaultConfig, cfgs...)
 	if err != nil {
@@ -109,12 +118,10 @@ func Compile(ctx context.Context, cfgs ...Config) (Module, error) {
 		return item.Type != "none"
 	})
 	if len(cfg.Channel.Operations) == 0 {
-		g.Edges = []graph.Edge{
-			{
-				Source: ir.Handle{Node: calculationKey, Param: ir.DefaultOutputParam},
-				Target: ir.Handle{Node: writeKey, Param: ir.DefaultInputParam},
-			},
-		}
+		g.Edges = []graph.Edge{{
+			Source: ir.Handle{Node: calculationKey, Param: ir.DefaultOutputParam},
+			Target: ir.Handle{Node: writeKey, Param: ir.DefaultInputParam},
+		}}
 	} else {
 		for i, o := range cfg.Channel.Operations {
 			key := fmt.Sprintf("op_%d", i)

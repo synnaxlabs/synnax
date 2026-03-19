@@ -248,6 +248,26 @@ var _ = Describe("Type Inference", func() {
 			})
 		})
 
+		Context("literals between concrete channel types", func() {
+			It("should infer f64 when concrete f64 channel follows two literals", func() {
+				// 2 * 3.14159 * pressure where pressure is f64
+				// InferMultiplicative should NOT early-return on the two literals
+				// and should discover the f64 from pressure
+				t := inferExprType(bCtx, testResolver, "2*(3.14159)*(pressure)")
+				Expect(t.Kind).To(Equal(types.KindF64))
+			})
+
+			It("should infer f32 when concrete f32 channel follows two literals", func() {
+				t := inferExprType(bCtx, testResolver, "2*(3.14159)*(temp_sensor)")
+				Expect(t.Kind).To(Equal(types.KindF32))
+			})
+
+			It("should infer i64 when concrete i64 channel follows two literals", func() {
+				t := inferExprType(bCtx, testResolver, "2*3*(i64_ch)")
+				Expect(t.Kind).To(Equal(types.KindI64))
+			})
+		})
+
 		Context("literal-left across mixed additive and multiplicative", func() {
 			It("should infer f32 for literal / f32 channel (multiplicative within additive)", func() {
 				t := inferExprType(bCtx, testResolver, "1000.0 / temp_sensor + 1")

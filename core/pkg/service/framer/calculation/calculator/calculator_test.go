@@ -18,8 +18,9 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer/frame"
 	"github.com/synnaxlabs/synnax/pkg/distribution/mock"
 	"github.com/synnaxlabs/synnax/pkg/service/arc"
+	channelanalyzer "github.com/synnaxlabs/synnax/pkg/service/channel/calculation/analyzer"
+	"github.com/synnaxlabs/synnax/pkg/service/channel/calculation/compiler"
 	"github.com/synnaxlabs/synnax/pkg/service/framer/calculation/calculator"
-	"github.com/synnaxlabs/synnax/pkg/service/framer/calculation/compiler"
 	"github.com/synnaxlabs/synnax/pkg/service/label"
 	"github.com/synnaxlabs/synnax/pkg/service/rack"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
@@ -113,7 +114,7 @@ var _ = Describe("Calculator", Ordered, func() {
 		mod := MustSucceed(compiler.Compile(ctx, compiler.Config{
 			ChannelService: dist.Channel,
 			Channel:        *calc,
-			SymbolResolver: arcSvc.SymbolResolver(),
+			SymbolResolver: arcSvc.NewSymbolResolver(nil),
 		}))
 		return MustSucceed(calculator.Open(ctx, calculator.Config{Module: mod}))
 	}
@@ -935,13 +936,14 @@ var _ = Describe("Calculator", Ordered, func() {
 			calc *channel.Channel,
 		) *calculator.Calculator {
 			Expect(dist.Channel.CreateMany(ctx, bases)).To(Succeed())
-			dt := MustSucceed(arcSvc.AnalyzeCalculation(ctx, calc.Expression))
-			calc.DataType = dt
+			res := MustSucceed(channelanalyzer.New(arcSvc.NewSymbolResolver(nil)).
+				Analyze(ctx, *calc))
+			calc.DataType = res.DataType
 			Expect(dist.Channel.Create(ctx, calc)).To(Succeed())
 			mod := MustSucceed(compiler.Compile(ctx, compiler.Config{
 				ChannelService: dist.Channel,
 				Channel:        *calc,
-				SymbolResolver: arcSvc.SymbolResolver(),
+				SymbolResolver: arcSvc.NewSymbolResolver(nil),
 			}))
 			return MustSucceed(calculator.Open(ctx, calculator.Config{Module: mod}))
 		}
@@ -1029,7 +1031,7 @@ var _ = Describe("Calculator", Ordered, func() {
 			}}
 			calc := channel.Channel{
 				Name:       channel.NewRandomName(),
-				DataType:   telem.Float64T,
+				DataType:   telem.Float32T,
 				Virtual:    true,
 				Expression: fmt.Sprintf("return 2.0 * %s", base[0].Name),
 			}
@@ -1038,7 +1040,7 @@ var _ = Describe("Calculator", Ordered, func() {
 			mod := MustSucceed(compiler.Compile(ctx, compiler.Config{
 				ChannelService: dist.Channel,
 				Channel:        calc,
-				SymbolResolver: arcSvc.SymbolResolver(),
+				SymbolResolver: arcSvc.NewSymbolResolver(nil),
 			}))
 			c := MustSucceed(calculator.Open(ctx, calculator.Config{Module: mod}))
 			fr := frame.NewUnary(
@@ -1048,7 +1050,7 @@ var _ = Describe("Calculator", Ordered, func() {
 			of, changed := MustSucceed2(c.Next(ctx, fr, frame.Frame{}))
 			Expect(changed).To(BeTrue())
 			Expect(of.Get(calc.Key()).Series[0]).To(
-				telem.MatchSeriesDataV[float64](20.0, 40.0, 60.0),
+				telem.MatchSeriesDataV[float32](20.0, 40.0, 60.0),
 			)
 			Expect(c.Close()).To(Succeed())
 		})
