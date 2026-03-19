@@ -21,6 +21,7 @@
 #include "arc/cpp/stl/channel/state.h"
 #include "arc/cpp/stl/stl.h"
 #include "arc/cpp/stl/str/state.h"
+#include "arc/cpp/types/types.h"
 
 namespace arc::stl::channel {
 
@@ -145,7 +146,18 @@ public:
     std::pair<std::unique_ptr<runtime::node::Node>, x::errors::Error>
     create(runtime::node::Config &&cfg) override {
         if (!this->handles(cfg.node.type)) return {nullptr, x::errors::NOT_FOUND};
-        auto channel_key = cfg.node.config["channel"].value.get<types::ChannelKey>();
+        const auto &ch_param = cfg.node.config["channel"];
+        auto ch_sv = types::to_sample_value(ch_param.value, ch_param.type);
+        if (!ch_sv.has_value())
+            return {
+                nullptr,
+                x::errors::Error(
+                    x::errors::VALIDATION,
+                    std::string(cfg.node.type) +
+                        " node missing required channel parameter"
+                )
+            };
+        auto channel_key = x::telem::cast<types::ChannelKey>(*ch_sv);
         if (cfg.node.type == "on")
             return {
                 std::make_unique<On>(std::move(cfg.state), channel_key),

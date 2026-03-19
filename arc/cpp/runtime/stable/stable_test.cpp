@@ -131,7 +131,7 @@ TEST(StableForTest, DoesNotEmitBeforeDuration) {
     TestSetup setup(x::telem::SECOND.nanoseconds());
     x::telem::TimeStamp current_time(0);
     StableFor node(
-        StableForConfig(setup.ir.nodes[1].config),
+        ASSERT_NIL_P(StableForConfig::create(setup.ir.nodes[1].config)),
         setup.make_stable_node(),
         make_now(current_time)
     );
@@ -157,7 +157,7 @@ TEST(StableForTest, EmitsWhenStableForDuration) {
     TestSetup setup(x::telem::SECOND.nanoseconds());
     x::telem::TimeStamp current_time(0);
     StableFor node(
-        StableForConfig(setup.ir.nodes[1].config),
+        ASSERT_NIL_P(StableForConfig::create(setup.ir.nodes[1].config)),
         setup.make_stable_node(),
         make_now(current_time)
     );
@@ -197,7 +197,7 @@ TEST(StableForTest, ResetsTimerOnValueChange) {
     TestSetup setup(x::telem::SECOND.nanoseconds());
     x::telem::TimeStamp current_time(0);
     StableFor node(
-        StableForConfig(setup.ir.nodes[1].config),
+        ASSERT_NIL_P(StableForConfig::create(setup.ir.nodes[1].config)),
         setup.make_stable_node(),
         make_now(current_time)
     );
@@ -238,7 +238,7 @@ TEST(StableForTest, DoesNotEmitSameValueTwice) {
     TestSetup setup(x::telem::SECOND.nanoseconds());
     x::telem::TimeStamp current_time(0);
     StableFor node(
-        StableForConfig(setup.ir.nodes[1].config),
+        ASSERT_NIL_P(StableForConfig::create(setup.ir.nodes[1].config)),
         setup.make_stable_node(),
         make_now(current_time)
     );
@@ -266,7 +266,7 @@ TEST(StableForTest, EmitsDifferentValueAfterStablePeriod) {
     TestSetup setup(x::telem::SECOND.nanoseconds());
     x::telem::TimeStamp current_time(0);
     StableFor node(
-        StableForConfig(setup.ir.nodes[1].config),
+        ASSERT_NIL_P(StableForConfig::create(setup.ir.nodes[1].config)),
         setup.make_stable_node(),
         make_now(current_time)
     );
@@ -303,7 +303,7 @@ TEST(StableForTest, HandlesMultipleValuesInSingleInput) {
     TestSetup setup(x::telem::SECOND.nanoseconds());
     x::telem::TimeStamp current_time(0);
     StableFor node(
-        StableForConfig(setup.ir.nodes[1].config),
+        ASSERT_NIL_P(StableForConfig::create(setup.ir.nodes[1].config)),
         setup.make_stable_node(),
         make_now(current_time)
     );
@@ -332,7 +332,7 @@ TEST(StableForTest, ResetClearsState) {
     TestSetup setup(x::telem::SECOND.nanoseconds());
     x::telem::TimeStamp current_time(0);
     StableFor node(
-        StableForConfig(setup.ir.nodes[1].config),
+        ASSERT_NIL_P(StableForConfig::create(setup.ir.nodes[1].config)),
         setup.make_stable_node(),
         make_now(current_time)
     );
@@ -358,7 +358,7 @@ TEST(StableForTest, HandlesEmptyInput) {
     TestSetup setup(x::telem::SECOND.nanoseconds());
     x::telem::TimeStamp current_time(x::telem::SECOND.nanoseconds());
     StableFor node(
-        StableForConfig(setup.ir.nodes[1].config),
+        ASSERT_NIL_P(StableForConfig::create(setup.ir.nodes[1].config)),
         setup.make_stable_node(),
         make_now(current_time)
     );
@@ -375,7 +375,7 @@ TEST(StableForTest, IsOutputTruthyDelegatesToState) {
     TestSetup setup(x::telem::SECOND.nanoseconds());
     x::telem::TimeStamp current_time(0);
     StableFor node(
-        StableForConfig(setup.ir.nodes[1].config),
+        ASSERT_NIL_P(StableForConfig::create(setup.ir.nodes[1].config)),
         setup.make_stable_node(),
         make_now(current_time)
     );
@@ -398,7 +398,7 @@ TEST(StableForTest, HandlesSameValueRepeatedInInput) {
     TestSetup setup(x::telem::SECOND.nanoseconds());
     x::telem::TimeStamp current_time(0);
     StableFor node(
-        StableForConfig(setup.ir.nodes[1].config),
+        ASSERT_NIL_P(StableForConfig::create(setup.ir.nodes[1].config)),
         setup.make_stable_node(),
         make_now(current_time)
     );
@@ -426,7 +426,7 @@ TEST(StableForTest, ResetAllowsSameValueToEmitAgain) {
     TestSetup setup(x::telem::SECOND.nanoseconds());
     x::telem::TimeStamp current_time(0);
     StableFor node(
-        StableForConfig(setup.ir.nodes[1].config),
+        ASSERT_NIL_P(StableForConfig::create(setup.ir.nodes[1].config)),
         setup.make_stable_node(),
         make_now(current_time)
     );

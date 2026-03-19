@@ -20,6 +20,7 @@
 
 #include "arc/cpp/runtime/node/factory.h"
 #include "arc/cpp/runtime/node/node.h"
+#include "arc/cpp/types/types.h"
 
 namespace driver::arc::status {
 
@@ -61,11 +62,18 @@ public:
     std::pair<std::unique_ptr<::arc::runtime::node::Node>, x::errors::Error>
     create(::arc::runtime::node::Config &&cfg) override {
         if (!this->handles(cfg.node.type)) return {nullptr, x::errors::NOT_FOUND};
+        const auto get_str = [&](const std::string &key) -> std::string {
+            const auto &p = cfg.node.config[key];
+            auto sv = ::arc::types::to_sample_value(p.value, p.type);
+            if (!sv.has_value()) return "";
+            const auto *s = std::get_if<std::string>(&*sv);
+            return s != nullptr ? *s : "";
+        };
         x::status::Status<> info{
-            .key = cfg.node.config["status_key"].value.get<std::string>(),
-            .name = cfg.node.config["name"].value.get<std::string>(),
-            .variant = cfg.node.config["variant"].value.get<std::string>(),
-            .message = cfg.node.config["message"].value.get<std::string>(),
+            .key = get_str("status_key"),
+            .name = get_str("name"),
+            .variant = get_str("variant"),
+            .message = get_str("message"),
             .time = x::telem::TimeStamp::now(),
         };
         return {

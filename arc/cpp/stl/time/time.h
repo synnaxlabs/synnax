@@ -19,6 +19,7 @@
 #include "arc/cpp/runtime/loop/loop.h"
 #include "arc/cpp/runtime/node/node.h"
 #include "arc/cpp/stl/stl.h"
+#include "arc/cpp/types/types.h"
 
 namespace arc::stl::time {
 
@@ -46,9 +47,22 @@ inline x::telem::TimeSpan calculate_tolerance(
 struct IntervalConfig {
     x::telem::TimeSpan interval;
 
-    explicit IntervalConfig(const types::Params &params) {
-        const auto interval_ns = params["period"].value.get<std::int64_t>();
-        this->interval = x::telem::TimeSpan(interval_ns);
+    static std::pair<IntervalConfig, x::errors::Error>
+    create(const types::Params &params) {
+        const auto &param = params["period"];
+        auto sv = types::to_sample_value(param.value, param.type);
+        if (!sv.has_value())
+            return {
+                {},
+                x::errors::Error(
+                    x::errors::VALIDATION,
+                    "interval node missing required period parameter"
+                )
+            };
+        return {
+            {.interval = x::telem::TimeSpan(x::telem::cast<std::int64_t>(*sv))},
+            x::errors::NIL
+        };
     }
 };
 
@@ -95,9 +109,21 @@ public:
 struct WaitConfig {
     x::telem::TimeSpan duration;
 
-    explicit WaitConfig(const types::Params &params) {
-        const auto duration_ns = params["duration"].value.get<std::int64_t>();
-        this->duration = x::telem::TimeSpan(duration_ns);
+    static std::pair<WaitConfig, x::errors::Error> create(const types::Params &params) {
+        const auto &param = params["duration"];
+        auto sv = types::to_sample_value(param.value, param.type);
+        if (!sv.has_value())
+            return {
+                {},
+                x::errors::Error(
+                    x::errors::VALIDATION,
+                    "wait node missing required duration parameter"
+                )
+            };
+        return {
+            {.duration = x::telem::TimeSpan(x::telem::cast<std::int64_t>(*sv))},
+            x::errors::NIL
+        };
     }
 };
 
@@ -160,7 +186,8 @@ public:
     std::pair<std::unique_ptr<runtime::node::Node>, x::errors::Error>
     create(runtime::node::Config &&cfg) override {
         if (cfg.node.type == "interval") {
-            IntervalConfig node_cfg(cfg.node.config);
+            auto [node_cfg, err] = IntervalConfig::create(cfg.node.config);
+            if (err) return {nullptr, err};
             this->update_base_interval(node_cfg.interval);
             return {
                 std::make_unique<Interval>(node_cfg, std::move(cfg.state)),
@@ -168,7 +195,8 @@ public:
             };
         }
         if (cfg.node.type == "wait") {
-            WaitConfig node_cfg(cfg.node.config);
+            auto [node_cfg, err] = WaitConfig::create(cfg.node.config);
+            if (err) return {nullptr, err};
             this->update_base_interval(node_cfg.duration);
             return {
                 std::make_unique<Wait>(node_cfg, std::move(cfg.state)),

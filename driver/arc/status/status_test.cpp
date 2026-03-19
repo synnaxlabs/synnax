@@ -44,17 +44,23 @@ x::status::Status<> make_status() {
     ::arc::ir::Node node;
     node.key = "status";
     node.type = "set_status";
+    ::arc::types::Type str_type;
+    str_type.kind = ::arc::types::Kind::String;
     ::arc::types::Param key_param;
     key_param.name = "status_key";
+    key_param.type = str_type;
     key_param.value = std::string("test_key");
     ::arc::types::Param name_param;
     name_param.name = "name";
+    name_param.type = str_type;
     name_param.value = std::string("Test Status");
     ::arc::types::Param variant_param;
     variant_param.name = "variant";
+    variant_param.type = str_type;
     variant_param.value = std::string("warning");
     ::arc::types::Param message_param;
     message_param.name = "message";
+    message_param.type = str_type;
     message_param.value = std::string("Test message");
     node.config = ::arc::types::Params{
         key_param,

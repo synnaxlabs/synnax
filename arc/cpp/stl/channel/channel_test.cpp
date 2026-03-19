@@ -42,6 +42,7 @@ TEST(ChannelModuleTest, CreateSourceNode) {
 
     types::Param channel_config;
     channel_config.name = "channel";
+    channel_config.type.kind = types::Kind::U32;
     channel_config.value = static_cast<uint32_t>(10);
     ir_node.config.push_back(channel_config);
 
@@ -71,6 +72,7 @@ TEST(ChannelModuleTest, CreateSinkNode) {
 
     types::Param channel_config;
     channel_config.name = "channel";
+    channel_config.type.kind = types::Kind::U32;
     channel_config.value = static_cast<uint32_t>(10);
     ir_node.config.push_back(channel_config);
 
@@ -95,6 +97,7 @@ TEST(ChannelModuleTest, UnknownNodeType) {
 
     types::Param channel_config;
     channel_config.name = "channel";
+    channel_config.type.kind = types::Kind::U32;
     channel_config.value = static_cast<uint32_t>(10);
     ir_node.config.push_back(channel_config);
 
@@ -133,6 +136,7 @@ TEST(OnTest, NextReadsChannelData) {
 
     types::Param channel_config;
     channel_config.name = "channel";
+    channel_config.type.kind = types::Kind::U32;
     channel_config.value = static_cast<uint32_t>(10);
     ir_node.config.push_back(channel_config);
 
@@ -186,6 +190,7 @@ TEST(OnTest, NextHandlesChannelWithoutIndex) {
 
     types::Param channel_config;
     channel_config.name = "channel";
+    channel_config.type.kind = types::Kind::U32;
     channel_config.value = static_cast<uint32_t>(20);
     ir_node.config.push_back(channel_config);
 
@@ -234,6 +239,7 @@ TEST(OnTest, NextReturnsEarlyOnEmptyChannel) {
 
     types::Param channel_config;
     channel_config.name = "channel";
+    channel_config.type.kind = types::Kind::U32;
     channel_config.value = static_cast<uint32_t>(999);
     ir_node.config.push_back(channel_config);
 
@@ -268,6 +274,7 @@ TEST(OnTest, NextHandlesMultipleSeries) {
 
     types::Param channel_config;
     channel_config.name = "channel";
+    channel_config.type.kind = types::Kind::U32;
     channel_config.value = static_cast<uint32_t>(10);
     ir_node.config.push_back(channel_config);
 
@@ -332,6 +339,7 @@ TEST(OnTest, NextSkipsOnIndexCountMismatch) {
 
     types::Param channel_config;
     channel_config.name = "channel";
+    channel_config.type.kind = types::Kind::U32;
     channel_config.value = static_cast<uint32_t>(10);
     ir_node.config.push_back(channel_config);
 
@@ -383,6 +391,7 @@ TEST(OnTest, NextSkipsOnAlignmentMismatch) {
 
     types::Param channel_config;
     channel_config.name = "channel";
+    channel_config.type.kind = types::Kind::U32;
     channel_config.value = static_cast<uint32_t>(30);
     ir_node.config.push_back(channel_config);
 
@@ -431,6 +440,7 @@ TEST(OnTest, NextCallsMarkChanged) {
 
     types::Param channel_config;
     channel_config.name = "channel";
+    channel_config.type.kind = types::Kind::U32;
     channel_config.value = static_cast<uint32_t>(10);
     ir_node.config.push_back(channel_config);
 
@@ -486,6 +496,7 @@ TEST(WriteTest, NextWritesDataWhenInputAvailable) {
 
     types::Param channel_config;
     channel_config.name = "channel";
+    channel_config.type.kind = types::Kind::U32;
     channel_config.value = static_cast<uint32_t>(100);
     sink_node.config.push_back(channel_config);
 
@@ -559,6 +570,7 @@ TEST(WriteTest, NextRespectsRefreshInputsGuard) {
 
     types::Param channel_config;
     channel_config.name = "channel";
+    channel_config.type.kind = types::Kind::U32;
     channel_config.value = static_cast<uint32_t>(100);
     sink_node.config.push_back(channel_config);
 
@@ -611,6 +623,7 @@ TEST(WriteTest, NextSkipsEmptyInput) {
 
     types::Param channel_config;
     channel_config.name = "channel";
+    channel_config.type.kind = types::Kind::U32;
     channel_config.value = static_cast<uint32_t>(100);
     sink_node.config.push_back(channel_config);
 
@@ -674,6 +687,7 @@ TEST(WriteTest, NextHandlesSequentialWrites) {
 
     types::Param channel_config;
     channel_config.name = "channel";
+    channel_config.type.kind = types::Kind::U32;
     channel_config.value = static_cast<uint32_t>(100);
     sink_node.config.push_back(channel_config);
 
@@ -749,6 +763,7 @@ TEST(IntegrationTest, SourceToSinkFlow) {
 
     types::Param read_channel;
     read_channel.name = "channel";
+    read_channel.type.kind = types::Kind::U32;
     read_channel.value = static_cast<uint32_t>(1);
     read_node.config.push_back(read_channel);
 
@@ -763,6 +778,7 @@ TEST(IntegrationTest, SourceToSinkFlow) {
 
     types::Param write_channel;
     write_channel.name = "channel";
+    write_channel.type.kind = types::Kind::U32;
     write_channel.value = static_cast<uint32_t>(3);
     write_node.config.push_back(write_channel);
 

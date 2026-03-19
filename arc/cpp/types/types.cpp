@@ -238,14 +238,17 @@ to_sample_value(const x::json::json &value, const Type &type) {
         case Kind::I32:
             return value.is_number() ? std::optional(value.get<int32_t>())
                                      : std::nullopt;
-        case Kind::I64:
-            if (type.is_timestamp()) {
-                return value.is_number()
-                         ? std::optional(x::telem::TimeStamp(value.get<int64_t>()))
-                         : std::nullopt;
-            }
-            return value.is_number() ? std::optional(value.get<int64_t>())
-                                     : std::nullopt;
+        case Kind::I64: {
+            int64_t v = 0;
+            if (value.is_number())
+                v = value.get<int64_t>();
+            else if (value.is_string())
+                v = std::stoll(value.get<std::string>());
+            else
+                return std::nullopt;
+            if (type.is_timestamp()) return x::telem::TimeStamp(v);
+            return v;
+        }
         case Kind::U8:
             return value.is_number()
                      ? std::optional(static_cast<uint8_t>(value.get<unsigned>()))
@@ -258,8 +261,10 @@ to_sample_value(const x::json::json &value, const Type &type) {
             return value.is_number() ? std::optional(value.get<uint32_t>())
                                      : std::nullopt;
         case Kind::U64:
-            return value.is_number() ? std::optional(value.get<uint64_t>())
-                                     : std::nullopt;
+            if (value.is_number()) return value.get<uint64_t>();
+            if (value.is_string())
+                return static_cast<uint64_t>(std::stoull(value.get<std::string>()));
+            return std::nullopt;
         case Kind::F32:
             return value.is_number() ? std::optional(value.get<float>()) : std::nullopt;
         case Kind::F64:
