@@ -26,7 +26,7 @@ export interface ChannelNameProps extends optional.Optional<
 
 export const ChannelName = ({
   channel,
-  defaultName = "No Channel",
+  defaultName = "No channel",
   className,
   namePath,
   ...rest

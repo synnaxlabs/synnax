@@ -17,7 +17,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
 	"github.com/synnaxlabs/synnax/pkg/distribution/mock"
 	"github.com/synnaxlabs/synnax/pkg/service/arc"
-	"github.com/synnaxlabs/synnax/pkg/service/framer/calculation/compiler"
+	"github.com/synnaxlabs/synnax/pkg/service/channel/calculation/compiler"
 	"github.com/synnaxlabs/synnax/pkg/service/label"
 	"github.com/synnaxlabs/synnax/pkg/service/rack"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
@@ -102,7 +102,7 @@ var _ = Describe("Compile", func() {
 		mod := MustSucceed(compiler.Compile(ctx, compiler.Config{
 			ChannelService: dist.Channel,
 			Channel:        calc,
-			SymbolResolver: arcSvc.SymbolResolver(),
+			SymbolResolver: arcSvc.NewSymbolResolver(nil),
 		}))
 		Expect(mod.Channel.Key()).To(Equal(calc.Key()))
 		Expect(mod.StateConfig.Reads.Keys()).To(ContainElement(base.Key()))
@@ -123,7 +123,7 @@ var _ = Describe("Compile", func() {
 		mod := MustSucceed(compiler.Compile(ctx, compiler.Config{
 			ChannelService: dist.Channel,
 			Channel:        calc,
-			SymbolResolver: arcSvc.SymbolResolver(),
+			SymbolResolver: arcSvc.NewSymbolResolver(nil),
 		}))
 		Expect(mod.Channel.Key()).To(Equal(calc.Key()))
 		Expect(mod.StateConfig.Reads.Keys()).To(ContainElement(base.Key()))
@@ -145,7 +145,7 @@ var _ = Describe("Compile", func() {
 		mod := MustSucceed(compiler.Compile(ctx, compiler.Config{
 			ChannelService: dist.Channel,
 			Channel:        calc,
-			SymbolResolver: arcSvc.SymbolResolver(),
+			SymbolResolver: arcSvc.NewSymbolResolver(nil),
 		}))
 		Expect(mod.StateConfig.Reads.Keys()).To(ContainElements(channel.KeysFromChannels(channels)))
 		Expect(mod.StateConfig.Writes.Keys()).To(ContainElement(calc.Key()))
@@ -162,7 +162,7 @@ var _ = Describe("Compile", func() {
 		Expect(compiler.Compile(ctx, compiler.Config{
 			ChannelService: dist.Channel,
 			Channel:        calc,
-			SymbolResolver: arcSvc.SymbolResolver(),
+			SymbolResolver: arcSvc.NewSymbolResolver(nil),
 		})).Error().To(ContainSubstring("extraneous input '{'"))
 	})
 })

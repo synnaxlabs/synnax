@@ -9,7 +9,6 @@
 
 #pragma once
 
-#include <map>
 #include <string>
 #include <utility>
 
@@ -80,10 +79,6 @@ struct ConnectionConfig {
     x::telem::TimeSpan timeout;
     /// @brief authentication configuration.
     AuthConfig auth;
-    /// @brief custom headers applied to every request (legacy compat).
-    std::map<std::string, std::string> headers;
-    /// @brief query parameters applied to every request (legacy compat).
-    std::map<std::string, std::string> query_params;
     /// @brief whether to verify SSL certificates.
     bool verify_ssl;
 
@@ -92,14 +87,6 @@ struct ConnectionConfig {
         base_url(parser.field<std::string>("base_url")),
         timeout(parser.field<uint32_t>("timeout_ms", 100) * x::telem::MILLISECOND),
         auth(AuthConfig(parser.optional_child("auth"))),
-        headers(parser.field<std::map<std::string, std::string>>(
-            "headers",
-            std::map<std::string, std::string>{}
-        )),
-        query_params(parser.field<std::map<std::string, std::string>>(
-            "query_params",
-            std::map<std::string, std::string>{}
-        )),
         verify_ssl(parser.field<bool>("verify_ssl", true)) {
         if (!base_url.starts_with("http://") && !base_url.starts_with("https://"))
             parser.field_err(
