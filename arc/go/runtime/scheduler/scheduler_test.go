@@ -1268,7 +1268,7 @@ var _ = Describe("Scheduler", func() {
 	Describe("Error Handling", func() {
 		It("Should pass errors to error handler", func() {
 			nodeA := mock("A")
-			testErr := errors.Newf("test error")
+			testErr := errors.New("test error")
 			nodeA.ErrorOnNext(testErr)
 
 			prog := testutil.NewIRBuilder().
@@ -1291,7 +1291,7 @@ var _ = Describe("Scheduler", func() {
 			nodeB := mock("B")
 
 			nodeA.OnNext = func(ctx node.Context) {
-				ctx.ReportError(errors.Newf("error from A"))
+				ctx.ReportError(errors.New("error from A"))
 				ctx.MarkChanged("output")
 			}
 
@@ -1309,7 +1309,7 @@ var _ = Describe("Scheduler", func() {
 
 		It("Should return normally after error", func() {
 			nodeA := mock("A")
-			nodeA.ErrorOnNext(errors.Newf("node error"))
+			nodeA.ErrorOnNext(errors.New("node error"))
 
 			prog := testutil.NewIRBuilder().
 				Node("A").

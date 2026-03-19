@@ -364,7 +364,7 @@ var _ = Describe("StateConfig", Ordered, func() {
 				`, virtCh.Name),
 			}
 
-			resolver := symbol.CreateResolver(dist.Channel)
+			resolver := symbol.NewResolver(dist.Channel, nil)
 			compiled := MustSucceed(arc.CompileText(ctx, prog, arc.WithResolver(resolver)))
 
 			cfg := MustSucceed(runtime.NewStateConfig(ctx, dist.Channel, compiled))
@@ -402,7 +402,7 @@ var _ = Describe("StateConfig", Ordered, func() {
 				`, valveCh.Name, triggerCh.Name),
 			}
 
-			resolver := symbol.CreateResolver(dist.Channel)
+			resolver := symbol.NewResolver(dist.Channel, nil)
 			compiled := MustSucceed(arc.CompileText(ctx, prog, arc.WithResolver(resolver)))
 
 			cfg := MustSucceed(runtime.NewStateConfig(ctx, dist.Channel, compiled))

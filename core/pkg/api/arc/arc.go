@@ -147,7 +147,7 @@ func (s *Service) Retrieve(ctx context.Context, req RetrieveRequest) (res Retrie
 	// Compile Arcs to modules if requested
 	if req.Compile {
 		for i := range res.Arcs {
-			if err = s.compileArc(ctx, &res.Arcs[i]); err != nil {
+			if err = s.compile(ctx, &res.Arcs[i]); err != nil {
 				return RetrieveResponse{}, err
 			}
 		}
@@ -178,21 +178,21 @@ func (s *Service) LSP(ctx context.Context, stream freighter.ServerStream[LSPMess
 	})
 }
 
-// compileArc compiles the Arc text to a module containing IR and WASM bytecode.
+// compile compiles the Arc text to a module containing IR and WASM bytecode.
 // Returns an error if parsing, analysis, or compilation fails.
-func (s *Service) compileArc(ctx context.Context, arc *Arc) error {
+func (s *Service) compile(ctx context.Context, arc *Arc) error {
 	// Step 1: Parse the Arc text
 	parsed, diag := arctext.Parse(arc.Text)
 	if diag != nil && !diag.Ok() {
 		return CompileError{Diagnostics: diag.Error()}
 	}
 	// Step 2: Analyze the parsed text to produce IR
-	ir, diag := arctext.Analyze(ctx, parsed, s.internal.SymbolResolver())
+	ir, diag := arctext.Analyze(ctx, parsed, s.internal.NewSymbolResolver(nil))
 	if diag != nil && !diag.Ok() {
 		return CompileError{Diagnostics: diag.Error()}
 	}
 	// Step 3: Compile IR to WebAssembly module
-	mod, err := arctext.Compile(ctx, ir, compiler.WithHostSymbols(s.internal.SymbolResolver()))
+	mod, err := arctext.Compile(ctx, ir, compiler.WithHostSymbols(s.internal.NewSymbolResolver(nil)))
 	if err != nil {
 		return err
 	}
