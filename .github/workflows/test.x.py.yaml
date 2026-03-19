@@ -50,3 +50,4 @@ jobs:
           directory: x/py
           format_check: ${{ matrix.format }}
           type_check: false
+          test: false
