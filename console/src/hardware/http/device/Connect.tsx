@@ -341,6 +341,7 @@ export const Connect: Layout.Renderer = ({ layoutKey, onClose }) => {
                 </Form.Field>
                 <Form.TextField
                   grow
+                  required
                   path="properties.healthCheck.path"
                   label="Path"
                   inputProps={HEALTH_PATH_INPUT_PROPS}
