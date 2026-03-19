@@ -12,6 +12,7 @@ package graph_test
 import (
 	"context"
 	"fmt"
+	"go/types"
 	"sync"
 	"time"
 
@@ -19,7 +20,6 @@ import (
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
 	"github.com/synnaxlabs/synnax/pkg/distribution/mock"
-	"github.com/synnaxlabs/synnax/pkg/service/channel/calculation"
 	graph "github.com/synnaxlabs/synnax/pkg/service/channel/calculation/graph"
 	"github.com/synnaxlabs/synnax/pkg/service/label"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
@@ -68,20 +68,20 @@ func openGraph() *graph.Graph {
 	return g
 }
 
-func fetchStatus(key channel.Key) (status.Status[calculation.StatusDetails], bool) {
-	var statuses []status.Status[calculation.StatusDetails]
-	err := status.NewRetrieve[calculation.StatusDetails](statusSvc).
+func fetchStatus(key channel.Key) (status.Status[types.Nil], bool) {
+	var statuses []status.Status[types.Nil]
+	err := status.NewRetrieve[types.Nil](statusSvc).
 		WhereKeys(channel.OntologyID(key).String()).
 		Entries(&statuses).
 		Exec(ctx, nil)
 	if err != nil || len(statuses) == 0 {
-		return status.Status[calculation.StatusDetails]{}, false
+		return status.Status[types.Nil]{}, false
 	}
 	return statuses[0], true
 }
 
-func expectStatus(key channel.Key) status.Status[calculation.StatusDetails] {
-	var result status.Status[calculation.StatusDetails]
+func expectStatus(key channel.Key) status.Status[types.Nil] {
+	var result status.Status[types.Nil]
 	Eventually(func() bool {
 		s, ok := fetchStatus(key)
 		if ok && s.Variant == xstatus.VariantError {
@@ -806,7 +806,6 @@ var _ = Describe("Graph", func() {
 			Expect(s.Variant).To(Equal(xstatus.VariantError))
 			Expect(s.Message).To(Equal("invalid expression for st_detail"))
 			Expect(s.Description).ToNot(BeEmpty())
-			Expect(s.Details.Channel).To(Equal(calc.Key()))
 			Expect(s.Key).To(Equal(channel.OntologyID(calc.Key()).String()))
 			Expect(s.Name).To(Equal("st_detail"))
 		})
@@ -840,7 +839,7 @@ var _ = Describe("Graph", func() {
 			By("Updating to a different broken expression")
 			calc.Expression = "return {{syntax error"
 			Expect(dist.Channel.Create(ctx, &calc)).To(Succeed())
-			var s2 status.Status[calculation.StatusDetails]
+			var s2 status.Status[types.Nil]
 			Eventually(func() bool {
 				s, ok := fetchStatus(calc.Key())
 				if ok && s.Description != s1.Description {
