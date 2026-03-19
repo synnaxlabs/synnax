@@ -13,6 +13,7 @@ from synnax.ni.types import (
     AIAccelChan,
     AIAccelChargeChan,
     AIBridgeChan,
+    AIChan,
     AIChargeChan,
     AICurrentChan,
     AICurrentRMSChan,
@@ -45,6 +46,7 @@ from synnax.ni.types import (
     AnalogReadTaskConfig,
     AnalogWriteConfig,
     AnalogWriteTask,
+    AOChan,
     AOCurrentChan,
     AOFuncGenChan,
     AOVoltageChan,
@@ -54,6 +56,7 @@ from synnax.ni.types import (
     BaseCIChan,
     CIAngularPositionChan,
     CIAngularVelocityChan,
+    CIChan,
     CIDutyCycleChan,
     CIEdgeCountChan,
     CIFrequencyChan,
@@ -82,6 +85,7 @@ from synnax.ni.types import (
 )
 
 __all__ = [
+    "AIChan",
     "AIAccel4WireDCVoltageChan",
     "AIAccelChan",
     "AIAccelChargeChan",
@@ -118,6 +122,7 @@ __all__ = [
     "AnalogReadTaskConfig",
     "AnalogWriteConfig",
     "AnalogWriteTask",
+    "AOChan",
     "AOCurrentChan",
     "AOFuncGenChan",
     "AOVoltageChan",
@@ -125,6 +130,7 @@ __all__ = [
     "BaseAOChan",
     "BaseChan",
     "BaseCIChan",
+    "CIChan",
     "CIAngularPositionChan",
     "CIAngularVelocityChan",
     "CIDutyCycleChan",
