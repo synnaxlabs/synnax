@@ -17,13 +17,13 @@ Before running this example:
 1. Start the Synnax Driver (if not already running).
 
 2. Start the mock HTTP server:
-   uv run python examples/http/server.py
+   uv run python examples/http_sim/server.py
 
 3. Login to Synnax (if not already logged in):
    uv run sy login
 
 4. Run this script:
-   uv run python examples/http/connect_server.py
+   uv run python examples/http_sim/connect_server.py
 
 Configuration:
     Modify the constants below to match your HTTP server.
