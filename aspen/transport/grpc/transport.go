@@ -338,16 +338,18 @@ func (t Transport) Configure(sCtx signal.Context, addr address.Address, external
 	if err != nil {
 		return err
 	}
-	sCtx.Go(func(ctx context.Context) (err error) {
+	sCtx.Go(func(ctx context.Context) error {
+		errC := make(chan error, 1)
 		go func() {
-			err = server.Serve(lis)
+			errC <- server.Serve(lis)
 		}()
-		if err != nil {
-			return err
-		}
 		defer server.Stop()
-		<-ctx.Done()
-		return ctx.Err()
+		select {
+		case err := <-errC:
+			return err
+		case <-ctx.Done():
+			return ctx.Err()
+		}
 	},
 		signal.CancelOnFail(),
 		signal.WithRetryOnPanic(),

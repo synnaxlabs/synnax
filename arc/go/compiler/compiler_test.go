@@ -3625,8 +3625,7 @@ var _ = Describe("Compiler", func() {
 				return f32(input_power*60)/(2*(3.14159)*(drive_speed_fb))
 			}
 			`, resolver))
-			_, err := r.Instantiate(ctx, output.WASM)
-			Expect(err).ToNot(HaveOccurred())
+			MustSucceed(r.Instantiate(ctx, output.WASM))
 		})
 
 		It("Should compile torque-like expression with f64 cast and f64 return", func() {
@@ -3688,8 +3687,7 @@ var _ = Describe("Compiler", func() {
 					return f64(input_power_calc_test*60)/(2*(3.14159)*f64(drive_speed_fb))
 				}
 				`, resolver))
-				_, err := r.Instantiate(ctx, output.WASM)
-				Expect(err).ToNot(HaveOccurred())
+				MustSucceed(r.Instantiate(ctx, output.WASM))
 			})
 		}
 	})
