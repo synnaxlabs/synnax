@@ -12,7 +12,6 @@ from synnax.channel.payload import (
     Key,
     NormalizedKeyResult,
     NormalizedNameResult,
-    Operation,
     Params,
     has_params,
     normalize_params,
