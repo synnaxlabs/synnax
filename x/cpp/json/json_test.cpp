@@ -1660,6 +1660,17 @@ TEST(testConfig, testToArrayWithPrimitives) {
     EXPECT_EQ(arr[2], 3);
 }
 
+/// @brief it should return the default value when a field is null.
+TEST(testConfig, testFieldWithDefaultReturnsDefaultOnNull) {
+    const json j = {{"name", "test"}, {"args", nullptr}};
+    Parser parser(j);
+    const auto name = parser.field<std::string>("name");
+    const auto args = parser.field<json::object_t>("args", json::object_t{});
+    EXPECT_TRUE(parser.ok());
+    EXPECT_EQ(name, "test");
+    EXPECT_TRUE(args.empty());
+}
+
 TEST(testConfig, testMonostate) {
     const json j = {{"data", "ignored"}};
     Parser parser(j);
