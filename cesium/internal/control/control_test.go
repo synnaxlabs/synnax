@@ -858,7 +858,7 @@ var _ = Describe("Control", func() {
 						Expect(t.To.Subject.Key).To(Equal("arc"),
 							fmt.Sprintf("iteration %d: control went to %s instead of arc", i, t.To.Subject.Key))
 
-						_, err = arc.Authorize()
+						_, err := arc.Authorize()
 						Expect(err).ToNot(HaveOccurred(),
 							fmt.Sprintf("iteration %d: arc should be authorized", i))
 						_, err = sch1.Authorize()
