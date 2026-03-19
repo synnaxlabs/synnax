@@ -9,7 +9,7 @@
 
 """Test user login and logout via Console UI."""
 
-from xpy import get_random_name
+from x import get_random_name
 
 from console.case import ConsoleCase
 
