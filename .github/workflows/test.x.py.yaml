@@ -5,7 +5,6 @@ on:
     paths:
       - .github/actions/test-python/**
       - .github/workflows/test.x.py.yaml
-      - codecov.yaml
       - pyproject.toml
       - uv.lock
       - uv.toml
@@ -17,7 +16,6 @@ on:
     paths:
       - .github/actions/test-python/**
       - .github/workflows/test.x.py.yaml
-      - codecov.yaml
       - pyproject.toml
       - uv.lock
       - uv.toml
@@ -42,8 +40,6 @@ jobs:
               ${{ (github.ref != 'refs/heads/main' && github.base_ref != 'main') &&
               'windows-latest' }}
     runs-on: ${{ matrix.os }}
-    env:
-      CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
     steps:
       - name: Checkout repository
         uses: actions/checkout@v6
