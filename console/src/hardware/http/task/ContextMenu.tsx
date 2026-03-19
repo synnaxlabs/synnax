@@ -16,16 +16,29 @@ export interface ContextMenuProps {
   keys: string[];
   onDelete: (keys: string[]) => void;
   onDuplicate?: (keys: string[]) => void;
+  onRename?: (key: string) => void;
 }
 
-export const ContextMenu = ({ keys, onDuplicate, onDelete }: ContextMenuProps) => {
+export const ContextMenu = ({
+  keys,
+  onDuplicate,
+  onDelete,
+  onRename,
+}: ContextMenuProps) => {
   const isSnapshot = Common.Task.useIsSnapshot();
   const canAct = keys.length > 0;
   const canDuplicate = onDuplicate != null;
+  const canRename = onRename != null && keys.length === 1;
   return (
     <PMenu.Menu level="small">
       {!isSnapshot && canAct && (
         <>
+          {canRename && (
+            <PMenu.Item itemKey="rename" onClick={() => onRename(keys[0])}>
+              <Icon.Rename />
+              Rename
+            </PMenu.Item>
+          )}
           {canDuplicate && (
             <PMenu.Item itemKey="duplicate" onClick={() => onDuplicate?.(keys)}>
               <Icon.Copy />

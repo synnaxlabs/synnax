@@ -97,6 +97,7 @@
 @container (max-width: 600px) {
     .console-task-controls {
         flex-direction: column !important;
+        flex-shrink: 0;
         overflow: hidden;
 
         .console-task-status__time-stamp {

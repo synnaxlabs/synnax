@@ -94,7 +94,7 @@ const beforeSave = async ({
   const protocol = props.secure ? "https://" : "http://";
   const connection = {
     base_url: `${protocol}${host}`,
-    timeout_ms: props.timeoutMs,
+    timeout_ms: TimeSpan.seconds(5).milliseconds, // use longer timeout to allow for negotiating SSL handshake
     verify_ssl: props.verifySsl,
     auth: props.auth,
   };
@@ -356,12 +356,14 @@ export const Connect: Layout.Renderer = ({ layoutKey, onClose }) => {
               <KeyValueEditor
                 path="properties.healthCheck.headers"
                 label="Headers"
+                keyField="name"
                 keyPlaceholder="Name"
                 valuePlaceholder="Value"
               />
               <KeyValueEditor
                 path="properties.healthCheck.queryParams"
                 label="Query parameters"
+                keyField="parameter"
                 keyPlaceholder="Parameter"
                 valuePlaceholder="Value"
               />
