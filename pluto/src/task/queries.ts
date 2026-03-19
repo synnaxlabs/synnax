@@ -88,18 +88,18 @@ export const retrieveSingle = async <S extends task.Schemas = task.Schemas>({
   if ("key" in query && query.key != null) {
     const cached = store.tasks.get(query.key.toString());
     if (cached != null) {
-      const tsk = cached as unknown as task.Task<S>;
+      const tsk = cached as task.Task<S>;
       const detailsSchema = task.statusDetailsZ(schemas?.statusData ?? z.unknown());
-      tsk.status = (await Status.retrieveSingle<typeof detailsSchema>({
+      tsk.status = await Status.retrieveSingle({
         store,
         client,
         query: { key: task.statusKey(query.key.toString()) },
         detailsSchema,
-      })) as task.Status<typeof detailsSchema>;
+      });
       return tsk;
     }
   }
-  const tsk = await client.tasks.retrieve<S>({ ...BASE_QUERY, ...query, schemas });
+  const tsk = await client.tasks.retrieve({ ...BASE_QUERY, ...query, schemas });
   store.tasks.set(tsk.key.toString(), tsk);
   if (tsk.status != null) store.statuses.set(tsk.status);
   return tsk;
@@ -108,7 +108,7 @@ export const retrieveSingle = async <S extends task.Schemas = task.Schemas>({
 export const createRetrieve = <S extends task.Schemas = task.Schemas>(schemas?: S) =>
   Flux.createRetrieve<RetrieveQuery, task.Task<S> | null, FluxSubStore>({
     name: RESOURCE_NAME,
-    retrieve: async (args) => await retrieveSingle<S>({ ...args, schemas }),
+    retrieve: async (args) => await retrieveSingle({ ...args, schemas }),
     mountListeners: ({ store, query, onChange, client }) => {
       if (!("key" in query) || query.key == null) return [];
       return [
@@ -245,7 +245,7 @@ export const createForm = <S extends task.Schemas = task.Schemas>({
   schemas,
   initialValues,
 }: CreateFormParams<S>) => {
-  const schema = createFormSchema<S>(schemas);
+  const schema = createFormSchema(schemas);
   const actualInitialValues = taskToFormValues(initialValues);
   return Flux.createForm<FormQuery, FormSchema<S>, FluxSubStore>({
     name: RESOURCE_NAME,
@@ -257,7 +257,7 @@ export const createForm = <S extends task.Schemas = task.Schemas>({
         reset,
       } = args;
       if (key == null) return;
-      const task = await retrieveSingle<S>({ ...args, query: { key } });
+      const task = await retrieveSingle({ ...args, query: { key }, schemas });
       reset(taskToFormValues(task.payload));
     },
     update: async ({ client, store, ...form }) => {
