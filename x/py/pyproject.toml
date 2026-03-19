@@ -1,5 +1,5 @@
 [project]
-name = "xpy"
+name = "x"
 version = "0.0.1"
 description = "Shared Python utilities for the Synnax monorepo"
 requires-python = ">=3.12,<4"
@@ -7,7 +7,7 @@ dependencies = []
 classifiers = ["Private :: Do Not Upload"]
 
 [dependency-groups]
-dev = ["black>=26.1.0,<27", "isort>=7.0.0,<8", "mypy>=1.19.1,<2"]
+dev = ["black>=26.1.0,<27", "isort>=8.0.1,<9", "mypy>=1.19.1,<2"]
 
 [tool.isort]
 profile = "black"

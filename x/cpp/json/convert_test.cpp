@@ -1600,6 +1600,89 @@ TEST(FromSampleValue, TimeStampToBooleanError) {
     );
 }
 
+TEST(FromSampleValue, EnumMatchFloat64) {
+    const x::json::ReverseEnumMap enums = {{1.0, "ON"}, {0.0, "OFF"}};
+    const auto result = ASSERT_NIL_P(
+        x::json::from_sample_value(
+            x::telem::SampleValue(1.0),
+            x::json::Type::String,
+            &enums
+        )
+    );
+    ASSERT_EQ(result, json("ON"));
+}
+
+TEST(FromSampleValue, EnumMatchZeroFloat64) {
+    const x::json::ReverseEnumMap enums = {{1.0, "ON"}, {0.0, "OFF"}};
+    const auto result = ASSERT_NIL_P(
+        x::json::from_sample_value(
+            x::telem::SampleValue(0.0),
+            x::json::Type::String,
+            &enums
+        )
+    );
+    ASSERT_EQ(result, json("OFF"));
+}
+
+TEST(FromSampleValue, EnumMatchUint8) {
+    const x::json::ReverseEnumMap enums = {{1, "ON"}, {0, "OFF"}};
+    const auto result = ASSERT_NIL_P(
+        x::json::from_sample_value(
+            x::telem::SampleValue(uint8_t(1)),
+            x::json::Type::String,
+            &enums
+        )
+    );
+    ASSERT_EQ(result, json("ON"));
+}
+
+TEST(FromSampleValue, EnumMatchInt64) {
+    const x::json::ReverseEnumMap enums = {{2, "HIGH"}, {1, "MEDIUM"}, {0, "LOW"}};
+    const auto result = ASSERT_NIL_P(
+        x::json::from_sample_value(
+            x::telem::SampleValue(int64_t(2)),
+            x::json::Type::String,
+            &enums
+        )
+    );
+    ASSERT_EQ(result, json("HIGH"));
+}
+
+TEST(FromSampleValue, EnumNoMatchFallsThrough) {
+    const x::json::ReverseEnumMap enums = {{1.0, "ON"}, {0.0, "OFF"}};
+    const auto result = ASSERT_NIL_P(
+        x::json::from_sample_value(
+            x::telem::SampleValue(99.0),
+            x::json::Type::String,
+            &enums
+        )
+    );
+    ASSERT_EQ(result, json("99"));
+}
+
+TEST(FromSampleValue, EnumIgnoredForNonStringTarget) {
+    const x::json::ReverseEnumMap enums = {{1.0, "ON"}, {0.0, "OFF"}};
+    const auto result = ASSERT_NIL_P(
+        x::json::from_sample_value(
+            x::telem::SampleValue(1.0),
+            x::json::Type::Number,
+            &enums
+        )
+    );
+    ASSERT_EQ(result, json(1.0));
+}
+
+TEST(FromSampleValue, EnumNullptrBehavesNormally) {
+    const auto result = ASSERT_NIL_P(
+        x::json::from_sample_value(
+            x::telem::SampleValue(1.0),
+            x::json::Type::String,
+            nullptr
+        )
+    );
+    ASSERT_EQ(result, json("1"));
+}
+
 // ==================== from_timestamp ====================
 
 TEST(FromTimestamp, UnixNanosecond) {

@@ -9,7 +9,7 @@
 
 """Test logging out via user badge dropdown."""
 
-from xpy import get_random_name
+from x import get_random_name
 
 from console.case import ConsoleCase
 

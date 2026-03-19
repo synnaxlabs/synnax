@@ -10,7 +10,7 @@
 import json
 
 from playwright.sync_api import TimeoutError as PlaywrightTimeoutError
-from xpy import get_synnax_version
+from x import get_synnax_version
 
 from console.case import ConsoleCase
 from console.log import Log

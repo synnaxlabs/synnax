@@ -14,10 +14,10 @@ import (
 	"fmt"
 	"strings"
 
+	"github.com/synnaxlabs/x/errors"
+	"github.com/synnaxlabs/x/zyn"
 	"github.com/vmihailenco/msgpack/v5"
 	"github.com/vmihailenco/msgpack/v5/msgpcode"
-
-	"github.com/synnaxlabs/x/zyn"
 )
 
 // Schema is a zyn schema for parsing a color.
@@ -58,17 +58,17 @@ func FromHex(s string) (Color, error) {
 	case 6:
 		_, err := fmt.Sscanf(s, "%02x%02x%02x", &r, &g, &b)
 		if err != nil {
-			return Color{}, fmt.Errorf("invalid hex color: %q", s)
+			return Color{}, errors.Newf("invalid hex color: %q", s)
 		}
 		return Color{R: r, G: g, B: b, A: 1}, nil
 	case 8:
 		_, err := fmt.Sscanf(s, "%02x%02x%02x%02x", &r, &g, &b, &a)
 		if err != nil {
-			return Color{}, fmt.Errorf("invalid hex color: %q", s)
+			return Color{}, errors.Newf("invalid hex color: %q", s)
 		}
 		return Color{R: r, G: g, B: b, A: float64(a) / 255}, nil
 	default:
-		return Color{}, fmt.Errorf("invalid hex color length: %q", s)
+		return Color{}, errors.Newf("invalid hex color length: %q", s)
 	}
 }
 
@@ -127,7 +127,7 @@ func (c *Color) UnmarshalJSON(data []byte) error {
 	type colorAlias Color
 	var obj colorAlias
 	if err := json.Unmarshal(data, &obj); err != nil {
-		return fmt.Errorf("cannot unmarshal color from: %s", string(data))
+		return errors.Newf("cannot unmarshal color from: %s", string(data))
 	}
 	*c = Color(obj)
 	return nil
@@ -173,7 +173,7 @@ func (c *Color) DecodeMsgpack(dec *msgpack.Decoder) error {
 			return err
 		}
 		if arrLen < 3 || arrLen > 4 {
-			return fmt.Errorf("invalid color array length: %d", arrLen)
+			return errors.Newf("invalid color array length: %d", arrLen)
 		}
 		r, err := dec.DecodeUint8()
 		if err != nil {

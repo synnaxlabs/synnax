@@ -17,13 +17,13 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer/frame"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer/writer"
 	"github.com/synnaxlabs/synnax/pkg/distribution/group"
 	"github.com/synnaxlabs/synnax/pkg/distribution/mock"
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
+	"github.com/synnaxlabs/synnax/pkg/service/channel"
 	"github.com/synnaxlabs/synnax/pkg/service/driver"
 	"github.com/synnaxlabs/synnax/pkg/service/label"
 	"github.com/synnaxlabs/synnax/pkg/service/rack"
@@ -240,7 +240,7 @@ var _ = Describe("Driver", Ordered, func() {
 			HostProvider: mock.StaticHostKeyProvider(1),
 			Status:       statusSvc,
 		}))
-		channelSvc = dist.Channel
+		channelSvc = channel.Wrap(dist.Channel)
 		framerSvc = dist.Framer
 		taskService = MustSucceed(task.OpenService(ctx, task.ServiceConfig{
 			DB:       dist.DB,
@@ -248,7 +248,7 @@ var _ = Describe("Driver", Ordered, func() {
 			Group:    dist.Group,
 			Rack:     rackService,
 			Status:   statusSvc,
-			Channel:  channelSvc,
+			Channel:  dist.Channel,
 		}))
 
 		DeferCleanup(func() {

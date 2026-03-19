@@ -30,6 +30,20 @@ class ExpectedResponse(BaseModel):
     expected_value: str | float | int | bool | None
 
 
+class HeaderEntry(BaseModel):
+    """A single header entry."""
+
+    name: str
+    value: str
+
+
+class QueryParamEntry(BaseModel):
+    """A single query parameter entry."""
+
+    parameter: str
+    value: str
+
+
 class HealthCheck(BaseModel):
     """Health check configuration for an HTTP device.
 
@@ -47,11 +61,18 @@ class HealthCheck(BaseModel):
 
     method: str = "GET"
     path: str = "/health"
-    headers: dict[str, str] | None = None
-    query_params: dict[str, str] | None = None
+    headers: list[HeaderEntry] | None = None
+    query_params: list[QueryParamEntry] | None = None
     body: str | None = None
     validate_response: bool = False
     response: ExpectedResponse | None = None
+
+
+class ReadEnumEntry(BaseModel):
+    """A single read enum mapping entry."""
+
+    label: str
+    value: float
 
 
 class ReadField(BaseModel):
@@ -66,7 +87,7 @@ class ReadField(BaseModel):
     name: str = ""
     timestamp_format: str | None = None
     """Timestamp format: 'iso8601', 'unix_sec', 'unix_ms', 'unix_us', 'unix_ns'."""
-    enum_values: dict[str, float] | None = None
+    enum_values: list[ReadEnumEntry] | None = None
     """String-to-number mappings for enum fields."""
 
     def __init__(self, **data: Any) -> None:
@@ -83,8 +104,8 @@ class ReadEndpoint(BaseModel):
     """HTTP method: 'GET' or 'POST'."""
     path: str
     """URL path relative to the device base URL (e.g., '/api/v1/data')."""
-    headers: dict[str, str] | None = None
-    query_params: dict[str, str] | None = None
+    headers: list[HeaderEntry] | None = None
+    query_params: list[QueryParamEntry] | None = None
     body: str | None = None
     """Request body (only for POST)."""
     fields: list[ReadField] = []
@@ -114,6 +135,13 @@ class WriteTaskConfig(task.BaseConfig):
     endpoints: list["WriteEndpoint"]
 
 
+class WriteEnumEntry(BaseModel):
+    """A single write enum mapping entry."""
+
+    value: float
+    label: str
+
+
 class ChannelField(BaseModel):
     """Configuration for mapping a Synnax channel value into an HTTP request body."""
 
@@ -125,6 +153,7 @@ class ChannelField(BaseModel):
     name: str = ""
     data_type: str = "float64"
     time_format: str | None = None
+    enum_values: list[WriteEnumEntry] | None = None
 
 
 class StaticField(BaseModel):
@@ -170,8 +199,8 @@ class WriteEndpoint(BaseModel):
     """HTTP method: 'POST', 'PUT', 'PATCH'."""
     path: str
     """URL path relative to the device base URL."""
-    headers: dict[str, str] | None = None
-    query_params: dict[str, str] | None = None
+    headers: list[HeaderEntry] | None = None
+    query_params: list[QueryParamEntry] | None = None
     channel: ChannelField
     """The Synnax channel whose values drive requests to this endpoint."""
     fields: list[WriteField] = []

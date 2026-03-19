@@ -9,7 +9,7 @@
 
 """Test changing a user's role via Console UI context menu."""
 
-from xpy import get_random_name
+from x import get_random_name
 
 from console.case import ConsoleCase
 

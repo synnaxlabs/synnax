@@ -17,7 +17,7 @@ members = [
     "synnax-freighter",
     "synnax-test-framework",
     "synnax-workspace",
-    "xpy",
+    "x",
 ]
 
 [[package]]
@@ -1630,7 +1630,7 @@ wheels = [
 
 [[package]]
 name = "synnax"
-version = "0.53.0"
+version = "0.53.1"
 source = { editable = "client/py" }
 dependencies = [
     { name = "alamos" },
@@ -1747,7 +1747,7 @@ dependencies = [
     { name = "psutil" },
     { name = "pymodbus" },
     { name = "synnax" },
-    { name = "xpy" },
+    { name = "x" },
 ]
 
 [package.dev-dependencies]
@@ -1770,7 +1770,7 @@ requires-dist = [
     { name = "psutil", specifier = ">=7.2.2,<8" },
     { name = "pymodbus", specifier = ">=3.12.1,<4" },
     { name = "synnax", editable = "client/py" },
-    { name = "xpy", editable = "x/py" },
+    { name = "x", editable = "x/py" },
 ]
 
 [package.metadata.requires-dev]
@@ -1949,7 +1949,7 @@ wheels = [
 ]
 
 [[package]]
-name = "xpy"
+name = "x"
 version = "0.0.1"
 source = { editable = "x/py" }
 
@@ -1965,7 +1965,7 @@ dev = [
 [package.metadata.requires-dev]
 dev = [
     { name = "black", specifier = ">=26.1.0,<27" },
-    { name = "isort", specifier = ">=7.0.0,<8" },
+    { name = "isort", specifier = ">=8.0.1,<9" },
     { name = "mypy", specifier = ">=1.19.1,<2" },
 ]
 

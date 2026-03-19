@@ -7,20 +7,14 @@
 #  License, use of this software will be governed by the Apache License, Version 2.0,
 #  included in the file licenses/APL.txt.
 
-"""Shared Python utilities for the Synnax monorepo.
+"""Shared Python utilities for the Synnax monorepo."""
 
-This package is named `xpy` instead of `x` to avoid conflicts with Python's
-single-letter import resolution. Other languages use `x` directly (Go imports
-`github.com/synnaxlabs/x`, TS publishes `@synnaxlabs/x`) because they have
-namespace scoping. Python does not, and `import x` is too likely to collide.
-"""
-
-from xpy.color import rgb_to_hex
-from xpy.env import is_ci
-from xpy.os import get_cpu_cores, get_machine_info, get_memory_info
-from xpy.strings import get_random_name, validate_and_sanitize_name
-from xpy.version import get_synnax_version
-from xpy.websocket import (
+from x.color import rgb_to_hex
+from x.env import is_ci
+from x.os import get_cpu_cores, get_machine_info, get_memory_info
+from x.strings import get_random_name, validate_and_sanitize_name
+from x.version import get_synnax_version
+from x.websocket import (
     WEBSOCKET_ERROR_PATTERNS,
     WebSocketErrorFilter,
     ignore_websocket_errors,
