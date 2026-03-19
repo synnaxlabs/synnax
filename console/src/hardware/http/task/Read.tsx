@@ -119,10 +119,11 @@ const FieldListItem = ({ epKey, ...props }: FieldListItemProps) => {
   const { itemKey } = props;
   const path = `config.endpoints.${epKey}.fields.${itemKey}`;
   const fieldChannel = PForm.useFieldValue<number>(`${path}.channel`);
-  const enumValues = PForm.useFieldValue<Record<string, number>>(`${path}.enumValues`, {
-    defaultValue: {},
-  });
-  const enumCount = Object.keys(enumValues).length;
+  const enumValues = PForm.useFieldValue<Record<string, number>[]>(
+    `${path}.enumValues`,
+    { defaultValue: [] },
+  );
+  const enumCount = enumValues.length;
   const enumCountText =
     enumCount === 0 ? "" : `${enumCount} enum${enumCount === 1 ? "" : "s"}`;
   return (
@@ -304,6 +305,7 @@ const FieldList = ({ epKey }: FieldListProps) => {
           <KeyValueEditor
             path={selectedFieldPath}
             label="Enum mapping"
+            keyField="label"
             keyPlaceholder="String (e.g. ON)"
             valueType="number"
           />
@@ -429,6 +431,7 @@ const EndpointDetails: FC<{ epKey: string }> = ({ epKey }) => {
         <KeyValueEditor
           path={`${path}.headers`}
           label="Headers"
+          keyField="name"
           keyPlaceholder="Name"
           valuePlaceholder="Value"
           className={CSS.B("headers-kv-editor")}
@@ -437,6 +440,7 @@ const EndpointDetails: FC<{ epKey: string }> = ({ epKey }) => {
         <KeyValueEditor
           path={`${path}.queryParams`}
           label="Query parameters"
+          keyField="parameter"
           keyPlaceholder="Parameter"
           valuePlaceholder="Value"
           className={CSS.B("query-params-kv-editor")}

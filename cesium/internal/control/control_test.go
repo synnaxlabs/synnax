@@ -813,6 +813,64 @@ var _ = Describe("Control", func() {
 
 		})
 
+		Describe("Authority Transfer With SetAuthority", func() {
+			Context("Arc at authority 200, two schematics at authority 1, schematics take/release absolute control sequentially", func() {
+				It("Should always transfer control back to the highest-authority gate (Arc) when releasing absolute", func() {
+					for i := range 50 {
+						By(fmt.Sprintf("Iteration %d", i))
+						innerC := MustSucceed(control.New[testResource](control.Config{
+							Concurrency: xcontrol.ConcurrencyExclusive,
+						}))
+
+						arcCfg, _ := baseConfig(1)
+						arcCfg.Subject.Key = "arc"
+						arcCfg.Subject.Name = "arc"
+						arcCfg.Authority = 200
+						arc, t := MustSucceed2(innerC.OpenGate(arcCfg))
+						Expect(t.IsAcquire()).To(BeTrue())
+
+						sch1Cfg, _ := baseConfig(1)
+						sch1Cfg.Subject.Key = "schematic-1"
+						sch1Cfg.Subject.Name = "schematic-1"
+						sch1Cfg.Authority = 1
+						sch1, _ := MustSucceed2(innerC.OpenGate(sch1Cfg))
+
+						sch2Cfg, _ := baseConfig(1)
+						sch2Cfg.Subject.Key = "schematic-2"
+						sch2Cfg.Subject.Name = "schematic-2"
+						sch2Cfg.Authority = 1
+						sch2, _ := MustSucceed2(innerC.OpenGate(sch2Cfg))
+
+						// Arc should be in control (highest authority)
+						_, err := arc.Authorize()
+						Expect(err).ToNot(HaveOccurred())
+
+						// Schematic 1 takes then releases absolute
+						sch1.SetAuthority(xcontrol.AuthorityAbsolute)
+						t = sch1.SetAuthority(1)
+						Expect(t.Occurred()).To(BeTrue())
+						Expect(t.To.Subject.Key).To(Equal("arc"))
+
+						// Schematic 2 takes then releases absolute -
+						// this is the critical step where the bug manifests
+						sch2.SetAuthority(xcontrol.AuthorityAbsolute)
+						t = sch2.SetAuthority(1)
+						Expect(t.Occurred()).To(BeTrue())
+						Expect(t.To.Subject.Key).To(Equal("arc"),
+							fmt.Sprintf("iteration %d: control went to %s instead of arc", i, t.To.Subject.Key))
+
+						_, err = arc.Authorize()
+						Expect(err).ToNot(HaveOccurred(),
+							fmt.Sprintf("iteration %d: arc should be authorized", i))
+						_, err = sch1.Authorize()
+						Expect(err).To(HaveOccurredAs(xcontrol.ErrUnauthorized))
+						_, err = sch2.Authorize()
+						Expect(err).To(HaveOccurredAs(xcontrol.ErrUnauthorized))
+					}
+				})
+			})
+		})
+
 		Describe("PeekResource", func() {
 			It("Should allow the caller to peek at a gate's resource without being controlled", func() {
 				cfg1, _ := baseConfig(12)

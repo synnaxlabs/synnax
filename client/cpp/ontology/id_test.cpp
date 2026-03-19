@@ -125,6 +125,30 @@ TEST(OntologyID, testIDsToStrings) {
     EXPECT_EQ(strs[2], "user:admin");
 }
 
+/// @brief it should return true for a default-constructed (empty) ID.
+TEST(OntologyID, testIsZeroDefault) {
+    const ID id{};
+    EXPECT_TRUE(id.is_zero());
+}
+
+/// @brief it should return false for an ID with type and key.
+TEST(OntologyID, testIsZeroNonEmpty) {
+    const ID id{.type = "channel", .key = "42"};
+    EXPECT_FALSE(id.is_zero());
+}
+
+/// @brief it should return false when only type is set.
+TEST(OntologyID, testIsZeroPartialType) {
+    const ID id{.type = "channel", .key = ""};
+    EXPECT_FALSE(id.is_zero());
+}
+
+/// @brief it should return false when only key is set.
+TEST(OntologyID, testIsZeroPartialKey) {
+    const ID id{.type = "", .key = "42"};
+    EXPECT_FALSE(id.is_zero());
+}
+
 /// @brief it should verify ROOT_ID constant.
 TEST(OntologyID, testRootIDConstant) {
     EXPECT_EQ(ROOT_ID.type, "builtin");

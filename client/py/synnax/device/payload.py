@@ -47,6 +47,7 @@ class Device(BaseModel):
     configured: bool = False
     properties: dict[str, Any] = {}
     status: Status | None = None
+    parent: ontology.ID | None = None
 
     @property
     def ontology_id(self) -> ontology.ID:

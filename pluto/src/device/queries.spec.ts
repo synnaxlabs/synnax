@@ -1134,6 +1134,7 @@ describe("queries", () => {
           configured: true,
           properties: {},
           status: undefined,
+          parent: undefined,
         });
       });
 

@@ -33,10 +33,25 @@ std::pair<ReadTaskConfig, x::errors::Error> ReadTaskConfig::parse(
         ReadEndpoint endpoint;
         endpoint.request.method = parse_method(ep, "method");
         endpoint.request.path = ep.field<std::string>("path");
-        endpoint.request.query_params = ep.field<std::map<std::string, std::string>>(
-            "query_params",
-            std::map<std::string, std::string>{}
-        );
+        if (ep.has("headers"))
+            ep.iter("headers", [&](x::json::Parser &h) {
+                auto name = h.field<std::string>("name");
+                auto val = h.field<std::string>("value");
+                if (!name.empty() &&
+                    !endpoint.request.headers.emplace(name, val).second)
+                    h.field_err("name", "duplicate header '" + name + "'");
+            });
+        if (ep.has("query_params"))
+            ep.iter("query_params", [&](x::json::Parser &qp) {
+                auto param = qp.field<std::string>("parameter");
+                auto val = qp.field<std::string>("value");
+                if (!param.empty() &&
+                    !endpoint.request.query_params.emplace(param, val).second)
+                    qp.field_err(
+                        "parameter",
+                        "duplicate query parameter '" + param + "'"
+                    );
+            });
         endpoint.body = ep.field<std::string>("body", "");
 
         size_t enabled_field_count = 0;
@@ -57,10 +72,13 @@ std::pair<ReadTaskConfig, x::errors::Error> ReadTaskConfig::parse(
                     field.time_format = fmt;
             }
 
-            field.enum_values = fp.field<x::json::EnumMap>(
-                "enum_values",
-                x::json::EnumMap{}
-            );
+            if (fp.has("enum_values"))
+                fp.iter("enum_values", [&](x::json::Parser &ev) {
+                    auto label = ev.field<std::string>("label");
+                    auto val = ev.field<double>("value");
+                    if (!label.empty() && !field.enum_values.emplace(label, val).second)
+                        ev.field_err("label", "duplicate enum label '" + label + "'");
+                });
 
             if (!field_keys.insert(field.channel_key).second)
                 fp.field_err(

@@ -12,7 +12,7 @@ from dataclasses import dataclass
 
 import synnax as sy
 from examples.opcua import OPCUASim
-from xpy import get_random_name
+from x import get_random_name
 
 from console.case import ConsoleCase
 from console.task_page import TaskPage

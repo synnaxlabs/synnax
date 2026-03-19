@@ -137,6 +137,181 @@ TEST(HTTPWriteTask, ParseConfigBarePrimitiveWithAdditionalFields) {
     ASSERT_OCCURRED_AS_P(WriteTaskConfig::parse(ctx, task), x::errors::VALIDATION);
 }
 
+/// @brief it should fail when a static field has an empty pointer.
+TEST(HTTPWriteTask, ParseConfigStaticFieldEmptyPointer) {
+    synnax::task::Task task;
+    task.config = {
+        {"device", "dev-001"},
+        {"endpoints",
+         {{
+             {"method", "POST"},
+             {"path", "/api/data"},
+             {"channel",
+              {{"pointer", "/value"}, {"json_type", "number"}, {"channel", 1}}},
+             {"fields",
+              {{
+                  {"type", "static"},
+                  {"pointer", ""},
+                  {"json_type", "number"},
+                  {"value", 42},
+              }}},
+         }}},
+    };
+    auto ctx = std::make_shared<task::MockContext>(nullptr);
+    ASSERT_OCCURRED_AS_P(WriteTaskConfig::parse(ctx, task), x::errors::VALIDATION);
+}
+
+/// @brief it should fail when a generated field has an empty pointer.
+TEST(HTTPWriteTask, ParseConfigGeneratedFieldEmptyPointer) {
+    synnax::task::Task task;
+    task.config = {
+        {"device", "dev-001"},
+        {"endpoints",
+         {{
+             {"method", "POST"},
+             {"path", "/api/data"},
+             {"channel",
+              {{"pointer", "/value"}, {"json_type", "number"}, {"channel", 1}}},
+             {"fields",
+              {{
+                  {"type", "generated"},
+                  {"pointer", ""},
+                  {"generator", "uuid"},
+              }}},
+         }}},
+    };
+    auto ctx = std::make_shared<task::MockContext>(nullptr);
+    ASSERT_OCCURRED_AS_P(WriteTaskConfig::parse(ctx, task), x::errors::VALIDATION);
+}
+
+/// @brief it should fail when a header entry is missing the name field.
+TEST(HTTPWriteTask, ParseConfigHeaderMissingNameErrors) {
+    synnax::task::Task task;
+    task.config = {
+        {"device", "dev-001"},
+        {"endpoints",
+         {{
+             {"method", "POST"},
+             {"path", "/api/data"},
+             {"channel",
+              {{"pointer", "/value"}, {"json_type", "number"}, {"channel", 1}}},
+             {"headers", {{{"value", "abc"}}}},
+         }}},
+    };
+    auto ctx = std::make_shared<task::MockContext>(nullptr);
+    auto [_1, err1] = WriteTaskConfig::parse(ctx, task);
+    ASSERT_TRUE(err1.matches(x::errors::VALIDATION));
+    EXPECT_NE(err1.data.find("name"), std::string::npos);
+}
+
+/// @brief it should fail when duplicate header names exist.
+TEST(HTTPWriteTask, ParseConfigDuplicateHeaderErrors) {
+    synnax::task::Task task;
+    task.config = {
+        {"device", "dev-001"},
+        {"endpoints",
+         {{
+             {"method", "POST"},
+             {"path", "/api/data"},
+             {"channel",
+              {{"pointer", "/value"}, {"json_type", "number"}, {"channel", 1}}},
+             {"headers",
+              {
+                  {{"name", "X-Key"}, {"value", "a"}},
+                  {{"name", "X-Key"}, {"value", "b"}},
+              }},
+         }}},
+    };
+    auto ctx = std::make_shared<task::MockContext>(nullptr);
+    auto [_2, err2] = WriteTaskConfig::parse(ctx, task);
+    ASSERT_TRUE(err2.matches(x::errors::VALIDATION));
+    EXPECT_NE(err2.data.find("duplicate header"), std::string::npos);
+}
+
+/// @brief it should fail when a header entry is missing the value field.
+TEST(HTTPWriteTask, ParseConfigHeaderMissingValueErrors) {
+    synnax::task::Task task;
+    task.config = {
+        {"device", "dev-001"},
+        {"endpoints",
+         {{
+             {"method", "POST"},
+             {"path", "/api/data"},
+             {"channel",
+              {{"pointer", "/value"}, {"json_type", "number"}, {"channel", 1}}},
+             {"headers", {{{"name", "X-Key"}}}},
+         }}},
+    };
+    auto ctx = std::make_shared<task::MockContext>(nullptr);
+    auto [_3, err3] = WriteTaskConfig::parse(ctx, task);
+    ASSERT_TRUE(err3.matches(x::errors::VALIDATION));
+    EXPECT_NE(err3.data.find("value"), std::string::npos);
+}
+
+/// @brief it should fail when a query_params entry is missing the parameter field.
+TEST(HTTPWriteTask, ParseConfigQueryParamMissingParameterErrors) {
+    synnax::task::Task task;
+    task.config = {
+        {"device", "dev-001"},
+        {"endpoints",
+         {{
+             {"method", "POST"},
+             {"path", "/api/data"},
+             {"channel",
+              {{"pointer", "/value"}, {"json_type", "number"}, {"channel", 1}}},
+             {"query_params", {{{"value", "10"}}}},
+         }}},
+    };
+    auto ctx = std::make_shared<task::MockContext>(nullptr);
+    auto [_4, err4] = WriteTaskConfig::parse(ctx, task);
+    ASSERT_TRUE(err4.matches(x::errors::VALIDATION));
+    EXPECT_NE(err4.data.find("parameter"), std::string::npos);
+}
+
+/// @brief it should fail when a query_params entry is missing the value field.
+TEST(HTTPWriteTask, ParseConfigQueryParamMissingValueErrors) {
+    synnax::task::Task task;
+    task.config = {
+        {"device", "dev-001"},
+        {"endpoints",
+         {{
+             {"method", "POST"},
+             {"path", "/api/data"},
+             {"channel",
+              {{"pointer", "/value"}, {"json_type", "number"}, {"channel", 1}}},
+             {"query_params", {{{"parameter", "limit"}}}},
+         }}},
+    };
+    auto ctx = std::make_shared<task::MockContext>(nullptr);
+    auto [_5, err5] = WriteTaskConfig::parse(ctx, task);
+    ASSERT_TRUE(err5.matches(x::errors::VALIDATION));
+    EXPECT_NE(err5.data.find("value"), std::string::npos);
+}
+
+/// @brief it should fail when duplicate query parameter names exist.
+TEST(HTTPWriteTask, ParseConfigDuplicateQueryParamErrors) {
+    synnax::task::Task task;
+    task.config = {
+        {"device", "dev-001"},
+        {"endpoints",
+         {{
+             {"method", "POST"},
+             {"path", "/api/data"},
+             {"channel",
+              {{"pointer", "/value"}, {"json_type", "number"}, {"channel", 1}}},
+             {"query_params",
+              {
+                  {{"parameter", "key"}, {"value", "a"}},
+                  {{"parameter", "key"}, {"value", "b"}},
+              }},
+         }}},
+    };
+    auto ctx = std::make_shared<task::MockContext>(nullptr);
+    auto [_6, err6] = WriteTaskConfig::parse(ctx, task);
+    ASSERT_TRUE(err6.matches(x::errors::VALIDATION));
+    EXPECT_NE(err6.data.find("duplicate query parameter"), std::string::npos);
+}
+
 /// @brief it should POST a numeric channel value to the server.
 TEST(HTTPWriteTask, POSTNumericValue) {
     mock::Server server(
@@ -1135,6 +1310,139 @@ TEST(HTTPWriteTask, DeeplyNestedPointer) {
     EXPECT_EQ(body["metadata"]["source"].get<std::string>(), "driver");
 }
 
+/// @brief it should map a numeric channel value to a string label via enum_values.
+TEST(HTTPWriteTask, EnumMappingNumericToString) {
+    mock::Server server(
+        mock::ServerConfig{
+            .routes = {{
+                .method = Method::POST,
+                .path = "/api/control",
+                .status_code = 200,
+                .response_body = R"({"status":"ok"})",
+            }},
+        }
+    );
+    ASSERT_NIL(server.start());
+    x::defer::defer stop_server([&server] { server.stop(); });
+
+    WriteTaskConfig cfg;
+    cfg.device = "test-device";
+    cfg.auto_start = false;
+
+    WriteEndpoint ep;
+    ep.request.method = Method::POST;
+    ep.request.path = "/api/control";
+    ep.request.request_content_type = "application/json";
+    ep.channel.pointer = x::json::json::json_pointer("/state");
+    ep.channel.json_type = x::json::Type::String;
+    ep.channel.channel_key = 1;
+    ep.channel.enum_values = {{1.0, "ON"}, {0.0, "OFF"}};
+
+    cfg.endpoints = {ep};
+    cfg.cmd_keys = {1};
+
+    auto [sink, processor] = make_sink(cfg, server.base_url());
+
+    x::telem::Frame frame;
+    frame.emplace(synnax::channel::Key(1), x::telem::Series(std::vector<double>{1.0}));
+
+    ASSERT_NIL(sink->write(frame));
+
+    auto reqs = server.received_requests();
+    ASSERT_EQ(reqs.size(), 1);
+    auto body = x::json::json::parse(reqs[0].body);
+    EXPECT_EQ(body["state"].get<std::string>(), "ON");
+}
+
+/// @brief when the channel value doesn't match any enum entry, the normal conversion
+/// should be used as a fallback.
+TEST(HTTPWriteTask, EnumMappingUnmatchedFallsThrough) {
+    mock::Server server(
+        mock::ServerConfig{
+            .routes = {{
+                .method = Method::POST,
+                .path = "/api/control",
+                .status_code = 200,
+                .response_body = R"({"status":"ok"})",
+            }},
+        }
+    );
+    ASSERT_NIL(server.start());
+    x::defer::defer stop_server([&server] { server.stop(); });
+
+    WriteTaskConfig cfg;
+    cfg.device = "test-device";
+    cfg.auto_start = false;
+
+    WriteEndpoint ep;
+    ep.request.method = Method::POST;
+    ep.request.path = "/api/control";
+    ep.request.request_content_type = "application/json";
+    ep.channel.pointer = x::json::json::json_pointer("/state");
+    ep.channel.json_type = x::json::Type::String;
+    ep.channel.channel_key = 1;
+    ep.channel.enum_values = {{1.0, "ON"}, {0.0, "OFF"}};
+
+    cfg.endpoints = {ep};
+    cfg.cmd_keys = {1};
+
+    auto [sink, processor] = make_sink(cfg, server.base_url());
+
+    x::telem::Frame frame;
+    frame.emplace(synnax::channel::Key(1), x::telem::Series(std::vector<double>{99.0}));
+
+    ASSERT_NIL(sink->write(frame));
+
+    auto reqs = server.received_requests();
+    ASSERT_EQ(reqs.size(), 1);
+    auto body = x::json::json::parse(reqs[0].body);
+    // Unmatched — falls through to normal string conversion of the double.
+    EXPECT_EQ(body["state"].get<std::string>(), "99");
+}
+
+/// @brief it should fail to parse config when enum_values contains duplicate values.
+TEST(HTTPWriteTask, ParseConfigEnumDuplicateValue) {
+    synnax::task::Task task;
+    task.config = {
+        {"device", "dev-001"},
+        {"endpoints",
+         {{
+             {"method", "POST"},
+             {"path", "/api/data"},
+             {"channel",
+              {{"pointer", "/value"},
+               {"json_type", "string"},
+               {"channel", 1},
+               {"enum_values",
+                {{{"value", 1}, {"label", "ON"}}, {{"value", 1}, {"label", "YES"}}}}}},
+         }}},
+    };
+    auto ctx = std::make_shared<task::MockContext>(nullptr);
+    ASSERT_OCCURRED_AS_P(WriteTaskConfig::parse(ctx, task), x::errors::VALIDATION);
+}
+
+/// @brief it should fail to parse config when enum_values is set with a non-string
+/// json_type.
+TEST(HTTPWriteTask, ParseConfigEnumWithNonStringType) {
+    synnax::task::Task task;
+    task.config = {
+        {"device", "dev-001"},
+        {"endpoints",
+         {{
+             {"method", "POST"},
+             {"path", "/api/data"},
+             {"channel",
+              {{"pointer", "/value"},
+               {"json_type", "number"},
+               {"channel", 1},
+               {"enum_values",
+                {{{"value", 1}, {"label", "ON"}}, {{"value", 0}, {"label", "OFF"}}}}}},
+         }}},
+    };
+    auto ctx = std::make_shared<task::MockContext>(nullptr);
+    ASSERT_OCCURRED_AS_P(WriteTaskConfig::parse(ctx, task), x::errors::VALIDATION);
+}
+
 /// @brief it should skip disabled endpoints and only send to enabled ones.
 TEST(HTTPWriteTask, DisabledEndpointSkipped) {
     mock::Server server(
@@ -1198,5 +1506,98 @@ TEST(HTTPWriteTask, DisabledEndpointSkipped) {
     EXPECT_EQ(reqs[0].path, "/api/active");
     auto body = x::json::json::parse(reqs[0].body);
     EXPECT_NEAR(body["value"].get<double>(), 10.0, 0.001);
+}
+
+/// @brief it should include per-endpoint headers in the HTTP request.
+TEST(HTTPWriteTask, EndpointHeaders) {
+    mock::Server server(
+        mock::ServerConfig{
+            .routes = {{
+                .method = Method::POST,
+                .path = "/api/control",
+                .status_code = 200,
+                .response_body = R"({"status":"ok"})",
+            }},
+        }
+    );
+    ASSERT_NIL(server.start());
+    x::defer::defer stop_server([&server] { server.stop(); });
+
+    WriteTaskConfig cfg;
+    cfg.device = "test-device";
+    cfg.auto_start = false;
+
+    WriteEndpoint ep;
+    ep.request.method = Method::POST;
+    ep.request.path = "/api/control";
+    ep.request.request_content_type = "application/json";
+    ep.request.headers = {{"X-Custom", "test-val"}};
+    ep.channel.pointer = x::json::json::json_pointer("/value");
+    ep.channel.json_type = x::json::Type::Number;
+    ep.channel.channel_key = 1;
+
+    cfg.endpoints = {ep};
+    cfg.cmd_keys = {1};
+
+    auto [sink, processor] = make_sink(cfg, server.base_url());
+
+    x::telem::Frame frame;
+    frame.emplace(synnax::channel::Key(1), x::telem::Series(std::vector<double>{42.5}));
+
+    ASSERT_NIL(sink->write(frame));
+
+    auto reqs = server.received_requests();
+    ASSERT_EQ(reqs.size(), 1);
+    auto hdr = reqs[0].headers.find("X-Custom");
+    ASSERT_NE(hdr, reqs[0].headers.end());
+    EXPECT_EQ(hdr->second, "test-val");
+}
+
+/// @brief it should include per-endpoint query parameters in the HTTP request URL.
+TEST(HTTPWriteTask, EndpointQueryParams) {
+    mock::Server server(
+        mock::ServerConfig{
+            .routes = {{
+                .method = Method::POST,
+                .path = "/api/control",
+                .status_code = 200,
+                .response_body = R"({"status":"ok"})",
+            }},
+        }
+    );
+    ASSERT_NIL(server.start());
+    x::defer::defer stop_server([&server] { server.stop(); });
+
+    WriteTaskConfig cfg;
+    cfg.device = "test-device";
+    cfg.auto_start = false;
+
+    WriteEndpoint ep;
+    ep.request.method = Method::POST;
+    ep.request.path = "/api/control";
+    ep.request.request_content_type = "application/json";
+    ep.request.query_params = {{"key", "abc"}, {"verbose", "true"}};
+    ep.channel.pointer = x::json::json::json_pointer("/value");
+    ep.channel.json_type = x::json::Type::Number;
+    ep.channel.channel_key = 1;
+
+    cfg.endpoints = {ep};
+    cfg.cmd_keys = {1};
+
+    auto [sink, processor] = make_sink(cfg, server.base_url());
+
+    x::telem::Frame frame;
+    frame.emplace(synnax::channel::Key(1), x::telem::Series(std::vector<double>{42.5}));
+
+    ASSERT_NIL(sink->write(frame));
+
+    auto reqs = server.received_requests();
+    ASSERT_EQ(reqs.size(), 1);
+    auto key_param = reqs[0].query_params.find("key");
+    ASSERT_NE(key_param, reqs[0].query_params.end());
+    EXPECT_EQ(key_param->second, "abc");
+    auto verbose_param = reqs[0].query_params.find("verbose");
+    ASSERT_NE(verbose_param, reqs[0].query_params.end());
+    EXPECT_EQ(verbose_param->second, "true");
 }
 }

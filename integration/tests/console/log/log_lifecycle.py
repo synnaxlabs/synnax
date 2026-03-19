@@ -9,7 +9,7 @@
 
 import synnax as sy
 from playwright.sync_api import TimeoutError as PlaywrightTimeoutError
-from xpy import get_random_name
+from x import get_random_name
 
 from console.case import ConsoleCase
 from console.log import Log

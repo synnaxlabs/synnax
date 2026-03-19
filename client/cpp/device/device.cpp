@@ -36,6 +36,7 @@ Client::retrieve(const std::string &key, const RetrieveOptions &options) const {
     auto req = api::v1::DeviceRetrieveRequest();
     req.add_keys(key);
     req.set_include_status(options.include_status);
+    req.set_include_parent(options.include_parent);
     auto [res, err] = device_retrieve_client->send("/device/retrieve", req);
     if (err) return {Device(), err};
     if (res.devices_size() == 0)
@@ -58,6 +59,7 @@ std::pair<std::vector<Device>, x::errors::Error> Client::retrieve(
     RetrieveRequest req;
     req.keys = keys;
     req.include_status = options.include_status;
+    req.include_parent = options.include_parent;
     return retrieve(req);
 }
 
@@ -79,7 +81,8 @@ Client::retrieve(RetrieveRequest &req) const {
 
 x::errors::Error Client::create(Device &device) const {
     auto req = api::v1::DeviceCreateRequest();
-    device.to_proto(req.add_devices());
+    auto *proto_dev = req.add_devices();
+    device.to_proto(proto_dev);
     auto [res, err] = device_create_client->send("/device/create", req);
     if (err) return err;
     if (res.devices_size() == 0) return errors::unexpected_missing_error("device");
@@ -124,6 +127,7 @@ std::pair<Device, x::errors::Error> Device::from_proto(const api::v1::Device &de
         d.properties = v;
     }
     d.configured = device.configured();
+    if (device.has_parent()) d.parent = ontology::ID::from_proto(device.parent());
     if (device.has_status()) {
         auto [s, err] = Status::from_proto(device.status());
         if (err) return {d, err};
@@ -142,6 +146,7 @@ void Device::to_proto(api::v1::Device *device) const {
     x::json::to_struct(properties, device->mutable_properties());
     device->set_configured(configured);
     if (!status.is_zero()) status.to_proto(device->mutable_status());
+    if (!parent.is_zero()) parent.to_proto(device->mutable_parent());
 }
 
 Device Device::parse(x::json::Parser &parser) {

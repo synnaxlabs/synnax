@@ -11,7 +11,7 @@
 
 Only integration-specific helpers belong here (fixture paths, results paths,
 assertion helpers, etc.). General-purpose utilities (OS info, string helpers,
-WebSocket handling, color conversion, etc.) belong in the ``xpy`` package
+WebSocket handling, color conversion, etc.) belong in the ``x`` package
 located at ``x/py/``.
 """
 

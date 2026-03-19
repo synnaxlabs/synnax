@@ -19,7 +19,7 @@ from enum import Enum, auto
 from typing import Any
 
 import synnax as sy
-from xpy import validate_and_sanitize_name
+from x import validate_and_sanitize_name
 
 from framework.config_client import ConfigClient, Sequence, TestDefinition
 from framework.execution_client import ExecutionClient

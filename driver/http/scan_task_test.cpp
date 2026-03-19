@@ -100,8 +100,8 @@ TEST(HTTPScanTask, HealthCheckConfigParsesAllFields) {
     auto j = x::json::json{
         {"method", "POST"},
         {"path", "/api/status"},
-        {"query_params", {{"key", "val"}}},
-        {"headers", {{"X-Custom", "abc"}}},
+        {"query_params", {{{"parameter", "key"}, {"value", "val"}}}},
+        {"headers", {{{"name", "X-Custom"}, {"value", "abc"}}}},
         {"body", R"({"ping": true})"},
         {"response",
          {
@@ -136,6 +136,86 @@ TEST(HTTPScanTask, HealthCheckConfigDefaults) {
     EXPECT_TRUE(hc.request.headers.empty());
     EXPECT_TRUE(hc.body.empty());
     EXPECT_FALSE(hc.expected_response.has_value());
+}
+
+TEST(HTTPScanTask, HealthCheckConfigHeaderMissingNameErrors) {
+    auto j = x::json::json{
+        {"method", "GET"},
+        {"path", "/health"},
+        {"headers", {{{"value", "abc"}}}},
+    };
+    auto parser = x::json::Parser(j);
+    const HealthCheckConfig hc(parser);
+    EXPECT_FALSE(parser.ok());
+    EXPECT_NE(parser.error().data.find("name"), std::string::npos);
+}
+
+TEST(HTTPScanTask, HealthCheckConfigHeaderMissingValueErrors) {
+    auto j = x::json::json{
+        {"method", "GET"},
+        {"path", "/health"},
+        {"headers", {{{"name", "X-Custom"}}}},
+    };
+    auto parser = x::json::Parser(j);
+    const HealthCheckConfig hc(parser);
+    EXPECT_FALSE(parser.ok());
+    EXPECT_NE(parser.error().data.find("value"), std::string::npos);
+}
+
+TEST(HTTPScanTask, HealthCheckConfigQueryParamMissingParameterErrors) {
+    auto j = x::json::json{
+        {"method", "GET"},
+        {"path", "/health"},
+        {"query_params", {{{"value", "10"}}}},
+    };
+    auto parser = x::json::Parser(j);
+    const HealthCheckConfig hc(parser);
+    EXPECT_FALSE(parser.ok());
+    EXPECT_NE(parser.error().data.find("parameter"), std::string::npos);
+}
+
+TEST(HTTPScanTask, HealthCheckConfigDuplicateHeaderErrors) {
+    auto j = x::json::json{
+        {"method", "GET"},
+        {"path", "/health"},
+        {"headers",
+         {
+             {{"name", "X-Key"}, {"value", "a"}},
+             {{"name", "X-Key"}, {"value", "b"}},
+         }},
+    };
+    auto parser = x::json::Parser(j);
+    const HealthCheckConfig hc(parser);
+    EXPECT_FALSE(parser.ok());
+    EXPECT_NE(parser.error().data.find("duplicate header"), std::string::npos);
+}
+
+TEST(HTTPScanTask, HealthCheckConfigDuplicateQueryParamErrors) {
+    auto j = x::json::json{
+        {"method", "GET"},
+        {"path", "/health"},
+        {"query_params",
+         {
+             {{"parameter", "key"}, {"value", "a"}},
+             {{"parameter", "key"}, {"value", "b"}},
+         }},
+    };
+    auto parser = x::json::Parser(j);
+    const HealthCheckConfig hc(parser);
+    EXPECT_FALSE(parser.ok());
+    EXPECT_NE(parser.error().data.find("duplicate query parameter"), std::string::npos);
+}
+
+TEST(HTTPScanTask, HealthCheckConfigQueryParamMissingValueErrors) {
+    auto j = x::json::json{
+        {"method", "GET"},
+        {"path", "/health"},
+        {"query_params", {{{"parameter", "limit"}}}},
+    };
+    auto parser = x::json::Parser(j);
+    const HealthCheckConfig hc(parser);
+    EXPECT_FALSE(parser.ok());
+    EXPECT_NE(parser.error().data.find("value"), std::string::npos);
 }
 
 TEST(HTTPScanTask, HealthCheckConfigMissingMethod) {
@@ -565,13 +645,13 @@ TEST(HTTPScanTask, ScanMultipleDevices) {
     const auto result = ASSERT_NIL_P(scanner.scan(scan_ctx));
     ASSERT_EQ(result.size(), 2);
 
-    for (const auto &dev: result) {
-        if (dev.key == healthy_dev.key) {
-            EXPECT_EQ(dev.status.variant, x::status::VARIANT_SUCCESS);
-        } else if (dev.key == bad_dev.key) {
-            EXPECT_EQ(dev.status.variant, x::status::VARIANT_WARNING);
+    for (const auto &sd: result) {
+        if (sd.key == healthy_dev.key) {
+            EXPECT_EQ(sd.status.variant, x::status::VARIANT_SUCCESS);
+        } else if (sd.key == bad_dev.key) {
+            EXPECT_EQ(sd.status.variant, x::status::VARIANT_WARNING);
         } else {
-            FAIL() << "Unexpected device key: " << dev.key;
+            FAIL() << "Unexpected device key: " << sd.key;
         }
     }
 
@@ -1029,8 +1109,8 @@ TEST(HTTPScanTask, ScanExecutesHealthChecksInParallel) {
     const auto elapsed = x::telem::TimeStamp::now() - start;
 
     ASSERT_EQ(result.size(), NUM_SERVERS);
-    for (const auto &dev: result)
-        EXPECT_EQ(dev.status.variant, x::status::VARIANT_SUCCESS);
+    for (const auto &sd: result)
+        EXPECT_EQ(sd.status.variant, x::status::VARIANT_SUCCESS);
 
     EXPECT_LT(elapsed, x::telem::MILLISECOND * MAX_PARALLEL_MS)
         << "Scan took " << elapsed.milliseconds()

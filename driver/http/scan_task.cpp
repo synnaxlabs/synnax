@@ -36,7 +36,7 @@ common::ScannerConfig Scanner::config() const {
 std::pair<std::vector<synnax::device::Device>, x::errors::Error>
 Scanner::scan(const common::ScannerContext &scan_ctx) {
     std::vector<synnax::device::Device> devices_out;
-    if (scan_ctx.devices == nullptr) return {devices_out, x::errors::NIL};
+    if (scan_ctx.devices == nullptr) return {{}, x::errors::NIL};
 
     // Phase 1: build all requests, setting status immediately for devices that
     // fail config parsing.

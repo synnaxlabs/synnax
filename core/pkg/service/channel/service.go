@@ -1,0 +1,177 @@
+// Copyright 2026 Synnax Labs, Inc.
+//
+// Use of this software is governed by the Business Source License included in the file
+// licenses/BSL.txt.
+//
+// As of the Change Date specified in that file, in accordance with the Business Source
+// License, use of this software will be governed by the Apache License, Version 2.0,
+// included in the file licenses/APL.txt.
+
+package channel
+
+import (
+	"context"
+
+	"github.com/synnaxlabs/alamos"
+	distchannel "github.com/synnaxlabs/synnax/pkg/distribution/channel"
+	"github.com/synnaxlabs/synnax/pkg/service/arc"
+	"github.com/synnaxlabs/synnax/pkg/service/channel/calculation/analyzer"
+	graph "github.com/synnaxlabs/synnax/pkg/service/channel/calculation/graph"
+	"github.com/synnaxlabs/synnax/pkg/service/status"
+	"github.com/synnaxlabs/x/config"
+	"github.com/synnaxlabs/x/gorp"
+	"github.com/synnaxlabs/x/override"
+	"github.com/synnaxlabs/x/validate"
+)
+
+type (
+	Key          = distchannel.Key
+	Keys         = distchannel.Keys
+	Channel      = distchannel.Channel
+	Operation    = distchannel.Operation
+	CreateOption = distchannel.CreateOption
+)
+
+var (
+	RetrieveIfNameExists                        = distchannel.RetrieveIfNameExists
+	OverwriteIfNameExistsAndDifferentProperties = distchannel.OverwriteIfNameExistsAndDifferentProperties
+	CreateWithoutGroupRelationship              = distchannel.CreateWithoutGroupRelationship
+	ParseKey                                    = distchannel.ParseKey
+	OntologyID                                  = distchannel.OntologyID
+)
+
+// ServiceConfig configures a channel Service.
+type ServiceConfig struct {
+	// DB is the underlying database for transactional operations.
+	DB *gorp.DB
+	// Distribution is the distribution-layer channel service.
+	Distribution *distchannel.Service
+	// Status is used to publish error/clear statuses for calculated channels.
+	Status *status.Service
+	// Arc provides symbol resolution for expression analysis.
+	Arc *arc.Service
+	alamos.Instrumentation
+}
+
+var (
+	_                    config.Config[ServiceConfig] = ServiceConfig{}
+	DefaultServiceConfig                              = ServiceConfig{}
+)
+
+func (c ServiceConfig) Validate() error {
+	v := validate.New("service.channel")
+	validate.NotNil(v, "db", c.DB)
+	validate.NotNil(v, "distribution", c.Distribution)
+	validate.NotNil(v, "status", c.Status)
+	validate.NotNil(v, "arc", c.Arc)
+	return v.Error()
+}
+
+func (c ServiceConfig) Override(other ServiceConfig) ServiceConfig {
+	c.Instrumentation = override.Zero(c.Instrumentation, other.Instrumentation)
+	c.DB = override.Nil(c.DB, other.DB)
+	c.Distribution = override.Nil(c.Distribution, other.Distribution)
+	c.Status = override.Nil(c.Status, other.Status)
+	c.Arc = override.Nil(c.Arc, other.Arc)
+	return c
+}
+
+// Service is the top-level channel service. It wraps the distribution-layer
+// channel service and adds calculated channel type inference and dependency
+// tracking.
+type Service struct {
+	*distchannel.Service
+	cfg   ServiceConfig
+	graph *graph.Graph
+}
+
+// OpenService opens a channel Service, hydrating the calculated channel graph
+// and subscribing to reactive updates.
+func OpenService(ctx context.Context, cfgs ...ServiceConfig) (*Service, error) {
+	cfg, err := config.New(DefaultServiceConfig, cfgs...)
+	if err != nil {
+		return nil, err
+	}
+	s := &Service{Service: cfg.Distribution, cfg: cfg}
+	if s.graph, err = graph.Open(ctx, graph.Config{
+		Channel:         cfg.Distribution,
+		Status:          cfg.Status,
+		Instrumentation: cfg.Child("calculation.graph"),
+	}); err != nil {
+		return nil, err
+	}
+	return s, nil
+}
+
+// Wrap creates a Service that delegates directly to the distribution-layer channel
+// service without calculated channel features (type inference, dependency tracking).
+// Use OpenService for full functionality.
+func Wrap(dist *distchannel.Service) *Service {
+	return &Service{Service: dist, cfg: ServiceConfig{Distribution: dist}}
+}
+
+// Close shuts down the calculated channel graph and its observable subscription.
+func (s *Service) Close() error {
+	if s.graph != nil {
+		return s.graph.Close()
+	}
+	return nil
+}
+
+// NewWriter returns a Writer that infers DataTypes for calculated channels
+// before delegating to the distribution-layer writer. If Arc is not configured
+// (e.g. when using Wrap), returns a Writer that delegates directly without
+// type inference.
+func (s *Service) NewWriter(tx gorp.Tx) Writer {
+	w := Writer{Writer: s.cfg.Distribution.NewWriter(tx)}
+	if s.cfg.Arc != nil {
+		w.tx = gorp.OverrideTx(s.cfg.DB, tx)
+		w.analyzer = analyzer.New(s.cfg.Arc.NewSymbolResolver(tx))
+	}
+	return w
+}
+
+// Create creates a single channel, inferring the DataType for calculated channels.
+func (s *Service) Create(ctx context.Context, ch *Channel, opts ...CreateOption) error {
+	return s.NewWriter(nil).Create(ctx, ch, opts...)
+}
+
+// CreateMany creates multiple channels, inferring DataTypes for calculated channels.
+func (s *Service) CreateMany(ctx context.Context, channels *[]Channel, opts ...CreateOption) error {
+	return s.NewWriter(nil).CreateMany(ctx, channels, opts...)
+}
+
+// Delete deletes a channel by key.
+func (s *Service) Delete(ctx context.Context, key Key, allowInternal bool) error {
+	return s.NewWriter(nil).Delete(ctx, key, allowInternal)
+}
+
+// DeleteMany deletes multiple channels by key.
+func (s *Service) DeleteMany(ctx context.Context, keys []Key, allowInternal bool) error {
+	return s.NewWriter(nil).DeleteMany(ctx, keys, allowInternal)
+}
+
+// DeleteByName deletes a channel by name.
+func (s *Service) DeleteByName(ctx context.Context, name string, allowInternal bool) error {
+	return s.NewWriter(nil).DeleteByName(ctx, name, allowInternal)
+}
+
+// DeleteManyByNames deletes multiple channels by name.
+func (s *Service) DeleteManyByNames(ctx context.Context, names []string, allowInternal bool) error {
+	return s.NewWriter(nil).DeleteManyByNames(ctx, names, allowInternal)
+}
+
+// Rename renames a channel.
+func (s *Service) Rename(ctx context.Context, key Key, newName string, allowInternal bool) error {
+	return s.NewWriter(nil).Rename(ctx, key, newName, allowInternal)
+}
+
+// RenameMany renames multiple channels.
+func (s *Service) RenameMany(ctx context.Context, keys []Key, names []string, allowInternal bool) error {
+	return s.NewWriter(nil).RenameMany(ctx, keys, names, allowInternal)
+}
+
+// MapRename renames channels using an old-name to new-name mapping.
+func (s *Service) MapRename(ctx context.Context, names map[string]string, allowInternal bool) error {
+	return s.NewWriter(nil).MapRename(ctx, names, allowInternal)
+}

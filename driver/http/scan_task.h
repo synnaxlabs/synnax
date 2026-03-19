@@ -60,16 +60,25 @@ struct HealthCheckConfig {
         request{
             .method = parse_method(parser, "method"),
             .path = parser.field<std::string>("path"),
-            .query_params = parser.field<std::map<std::string, std::string>>(
-                "query_params",
-                std::map<std::string, std::string>{}
-            ),
-            .headers = parser.field<std::map<std::string, std::string>>(
-                "headers",
-                std::map<std::string, std::string>{}
-            ),
         },
         body(parser.field<std::string>("body", "")) {
+        if (parser.has("query_params"))
+            parser.iter("query_params", [&](x::json::Parser &qp) {
+                auto param = qp.field<std::string>("parameter");
+                auto val = qp.field<std::string>("value");
+                if (!param.empty() && !request.query_params.emplace(param, val).second)
+                    qp.field_err(
+                        "parameter",
+                        "duplicate query parameter '" + param + "'"
+                    );
+            });
+        if (parser.has("headers"))
+            parser.iter("headers", [&](x::json::Parser &h) {
+                auto name = h.field<std::string>("name");
+                auto val = h.field<std::string>("value");
+                if (!name.empty() && !request.headers.emplace(name, val).second)
+                    h.field_err("name", "duplicate header '" + name + "'");
+            });
         auto resp = parser.optional_child("response");
         if (resp.ok()) expected_response.emplace(ExpectedResponseConfig(resp));
     }
