@@ -128,6 +128,7 @@ export const SLICE_MIGRATIONS: migrate.Migrations = {
   [v2.VERSION]: v3.sliceMigration,
   [v3.VERSION]: v4.sliceMigration,
   [v4.VERSION]: v5.sliceMigration,
+  [v5.VERSION]: v6.sliceMigration,
 };
 
 export const migrateSlice = migrate.migrator<AnySliceState, SliceState>({
@@ -137,5 +138,5 @@ export const migrateSlice = migrate.migrator<AnySliceState, SliceState>({
 });
 
 export const anyStateZ = z
-  .union([v5.stateZ, v4.stateZ, v3.stateZ, v2.stateZ, v1.stateZ, v0.stateZ])
+  .union([v6.stateZ, v5.stateZ, v4.stateZ, v3.stateZ, v2.stateZ, v1.stateZ, v0.stateZ])
   .transform((state) => migrateState(state));

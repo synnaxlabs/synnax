@@ -56,6 +56,8 @@ export interface ContextValue {
   setViewport: (viewport: Viewport.UseEvent) => void;
   addViewportHandler: (handler: Viewport.UseHandler) => destructor.Destructor;
   setHold: (hold: boolean) => void;
+  highlightedSubGroup: string | null;
+  setHighlightedSubGroup: (key: string | null) => void;
 }
 
 const [Context, useContext] = context.create<ContextValue>({
@@ -89,9 +91,15 @@ export const useGridEntry = (meta: grid.Region, component: string): CSSPropertie
   return { gridArea };
 };
 
+export interface SubGroup {
+  key: string;
+  name: string;
+}
+
 export interface LineSpec {
   key: string;
   legendGroup: string;
+  subGroup?: SubGroup;
   color: color.Crude;
   label: string;
   visible: boolean;
@@ -134,6 +142,9 @@ export const LinePlot = ({
   ...rest
 }: LinePlotProps): ReactElement => {
   const [lines, setLines] = useState<LineState>([]);
+  const [highlightedSubGroup, setHighlightedSubGroup] = useState<string | null>(
+    null,
+  );
 
   const memoProps = useMemoDeepEqual({ clearOverScan, hold, visible });
 
@@ -245,6 +256,8 @@ export const LinePlot = ({
       setViewport,
       addViewportHandler,
       setHold,
+      highlightedSubGroup,
+      setHighlightedSubGroup,
       id,
     }),
     [
@@ -257,6 +270,7 @@ export const LinePlot = ({
       setViewport,
       addViewportHandler,
       setHold,
+      highlightedSubGroup,
     ],
   );
 

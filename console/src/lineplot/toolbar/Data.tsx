@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { type channel } from "@synnaxlabs/client";
-import { Flex } from "@synnaxlabs/pluto";
+import { Flex, Input } from "@synnaxlabs/pluto";
 import { type CSSProperties, type ReactElement, useCallback } from "react";
 import { useDispatch } from "react-redux";
 
@@ -18,7 +18,7 @@ import {
   SelectMultipleAxesInputItem,
 } from "@/lineplot/SelectAxis";
 import { useSelect } from "@/lineplot/selectors";
-import { setRanges, setXChannel, setYChannels } from "@/lineplot/slice";
+import { setAlign, setRanges, setXChannel, setYChannels } from "@/lineplot/slice";
 import { Range } from "@/range";
 
 const SELECT_PROPS = { location: "top" } as const;
@@ -66,6 +66,13 @@ export const Data = ({ layoutKey }: DataProps): ReactElement => {
     dispatch(setRanges({ key: layoutKey, axisKey: key, ranges: value }));
   };
 
+  const handleAlignChange = useCallback(
+    (value: boolean): void => {
+      dispatch(setAlign({ key: layoutKey, align: value }));
+    },
+    [dispatch, layoutKey],
+  );
+
   return (
     <Flex.Box style={{ padding: "2rem" }} full="x">
       <SelectMultipleAxesInputItem
@@ -89,6 +96,9 @@ export const Data = ({ layoutKey }: DataProps): ReactElement => {
           value={vis.ranges.x1}
           grow
         />
+        <Input.Item label="Align Ranges" padHelpText={false} x>
+          <Input.Switch value={vis.align} onChange={handleAlignChange} />
+        </Input.Item>
         <SelectAxisInputItem
           axis="x1"
           style={SELECT_X_STYLE}

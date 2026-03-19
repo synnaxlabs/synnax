@@ -159,7 +159,6 @@ const Loaded: Layout.Renderer = ({ layoutKey, focused, visible }) => {
   const windowKey = useSelectWindowKey() as string;
   const { name } = Layout.useSelectRequired(layoutKey);
   const vis = useSelect(layoutKey);
-  const prevVis = usePrevious(vis);
   const ranges = useSelectRanges(layoutKey);
   const client = Synnax.use();
   const dispatch = useDispatch();
@@ -241,12 +240,12 @@ const Loaded: Layout.Renderer = ({ layoutKey, focused, visible }) => {
     const axis = vis.axes.axes.x1;
     const axisKey = axis.key as XAxisKey;
     const key = vis.channels[axisKey];
-    const prevKey = prevVis?.channels[axisKey];
-    if (client == null || key === prevKey) return;
-    let newType: axis.TickType = "time";
+    if (client == null) return;
+    let newType: axis.TickType = vis.align ? "relativeTime" : "time";
     if (primitive.isNonZero(key)) {
       const ch = await client.channels.retrieve(key);
-      if (!ch.dataType.equals(DataType.TIMESTAMP)) newType = "linear";
+      if (!ch.dataType.equals(DataType.TIMESTAMP))
+        newType = vis.align ? "relativeTime" : "linear";
     }
     if (axis.type === newType) return;
     syncDispatch(
@@ -257,7 +256,7 @@ const Loaded: Layout.Renderer = ({ layoutKey, focused, visible }) => {
         triggerRender: true,
       }),
     );
-  }, [vis.channels.x1]);
+  }, [vis.channels.x1, vis.align]);
 
   const propsLines = buildLines(vis, ranges);
   const axes = useMemo(() => buildAxes(vis), [vis.axes.renderTrigger]);

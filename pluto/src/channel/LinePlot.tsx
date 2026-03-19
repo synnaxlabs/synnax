@@ -56,6 +56,9 @@ export interface BaseLineProps {
   label?: string;
   downsample?: number;
   downsampleMode?: telem.DownsampleMode;
+  timeOffset?: number;
+  subGroup?: { key: string; name: string };
+  subGroupIndex?: number;
 }
 
 export interface StaticLineProps extends BaseLineProps {
@@ -307,7 +310,7 @@ interface YAxisProps extends Pick<
   axis: AxisProps;
 }
 
-const lineKey = ({ channels: { x, y } }: LineProps): string => `${x ?? 0}-${y}`;
+const lineKey = (l: LineProps): string => l.key;
 
 const YAxis = ({
   lines,

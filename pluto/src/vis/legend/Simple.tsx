@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { type optional } from "@synnaxlabs/x";
-import { type ReactElement, useState } from "react";
+import { type PropsWithChildren, type ReactElement, useState } from "react";
 
 import { type Theming } from "@/theming";
 import { Container, type ContainerProps } from "@/vis/legend/Container";
@@ -24,6 +24,7 @@ export interface SimpleProps extends Omit<
   onPositionChange?: ContainerProps["onChange"];
   allowVisibleChange?: boolean;
   background?: Theming.Shade;
+  highlightedSubGroupIndex?: number;
 }
 
 export const Simple = ({
@@ -33,8 +34,10 @@ export const Simple = ({
   onPositionChange,
   allowVisibleChange = true,
   background = 1,
+  highlightedSubGroupIndex,
+  children,
   ...rest
-}: SimpleProps): ReactElement | null => {
+}: PropsWithChildren<SimpleProps>): ReactElement | null => {
   const [pickerVisible, setPickerVisible] = useState(false);
   if (data.length === 0) return null;
   return (
@@ -54,7 +57,9 @@ export const Simple = ({
         allowVisibleChange={allowVisibleChange}
         background={background}
         entryProps={entryProps}
+        highlightedSubGroupIndex={highlightedSubGroupIndex}
       />
+      {children}
     </Container>
   );
 };

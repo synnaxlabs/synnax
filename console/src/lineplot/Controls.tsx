@@ -71,7 +71,11 @@ export const Controls = ({ layoutKey }: ControlsProps): ReactElement => {
   const triggers = useMemo(() => Viewport.DEFAULT_TRIGGERS[mode], [mode]);
 
   return (
-    <Base className={CSS(plot.annotations.visible && CSS.BM("controls", "annotations-visible"))}>
+    <Base
+      className={CSS(
+        plot.annotations.visible && CSS.BM("controls", "annotations-visible"),
+      )}
+    >
       <Flex.Box x gap="small">
         <Viewport.SelectMode
           value={mode}

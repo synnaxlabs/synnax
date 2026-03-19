@@ -98,7 +98,13 @@ def log(aut: sy.Controller, msg: str):
     )
 
 
+_test_number = 0
+
+
 def execute_auto(params: TPCParameters, wait_for_confirm: bool = False) -> sy.Range:
+    global _test_number
+    _test_number += 1
+    test_number = _test_number
     def run_tpc(auto: sy.Controller):
         pressure = auto[FUEL_TANK_PT]
         one_open = auto[TPC_CMD_ACK]
@@ -126,7 +132,7 @@ def execute_auto(params: TPCParameters, wait_for_confirm: bool = False) -> sy.Ra
             log(ctrl, "Starting TPC Test")
         try:
             parent_rng = client.ranges.create(
-                name="TPC Test",
+                name=f"TPC Test {test_number}",
                 time_range=sy.TimeRange(sy.TimeStamp.now(), sy.TimeStamp.now()),
             )
             log(ctrl, "Starting TPC Test. Setting initial system state.")
@@ -168,7 +174,7 @@ def execute_auto(params: TPCParameters, wait_for_confirm: bool = False) -> sy.Ra
 
             dual_press_end = sy.TimeStamp.now()
             parent_rng.create_child_range(
-                name=f"Setup",
+                name=f"Setup {test_number}",
                 time_range=sy.TimeRange(dual_press_start, dual_press_end),
                 color="#D81E5B",
             )
@@ -203,7 +209,7 @@ def execute_auto(params: TPCParameters, wait_for_confirm: bool = False) -> sy.Ra
 
             press_tank_end = sy.TimeStamp.now()
             parent_rng.create_child_range(
-                name=f"Pressurization",
+                name=f"Pressurization {test_number}",
                 time_range=sy.TimeRange(press_tank_start, press_tank_end),
                 color="#1E90FF",
             )
@@ -217,7 +223,7 @@ def execute_auto(params: TPCParameters, wait_for_confirm: bool = False) -> sy.Ra
             log(ctrl, "Test complete. Safeing System")
 
             rng = parent_rng.create_child_range(
-                name=f"Test",
+                name=f"Test {test_number}",
                 time_range=sy.TimeRange(start, sy.TimeStamp.now()),
                 color="#bada55",
             )

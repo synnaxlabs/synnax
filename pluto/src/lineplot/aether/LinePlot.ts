@@ -130,7 +130,13 @@ export class LinePlot
   }
 
   private renderTooltips(region: box.Box, canvases: render.CanvasVariant[]): void {
-    const p = { findByXDecimal: this.findByXDecimal.bind(this), region, canvases };
+    const xAxisTickType = this.axes[0]?.state.type ?? "time";
+    const p = {
+      findByXDecimal: this.findByXDecimal.bind(this),
+      region,
+      canvases,
+      xAxisTickType,
+    };
     this.tooltips.forEach((t) => t.render(p));
   }
 
