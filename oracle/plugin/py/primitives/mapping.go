@@ -29,7 +29,7 @@ var Mappings = map[string]primitives.Mapping{
 	"uint64":  {TargetType: "int"},
 	"float32": {TargetType: "float"},
 	"float64": {TargetType: "float"},
-	"json":    {TargetType: "dict[str, Any]", Imports: []primitives.Import{{Category: "typing", Name: "Any"}}},
+	"record":  {TargetType: "dict[str, Any]", Imports: []primitives.Import{{Category: "typing", Name: "Any"}}},
 	"bytes":   {TargetType: "bytes"},
 	"any":     {TargetType: "Any", Imports: []primitives.Import{{Category: "typing", Name: "Any"}}},
 	"nil":     {TargetType: "None"},

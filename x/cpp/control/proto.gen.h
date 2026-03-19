@@ -54,7 +54,7 @@ inline ::x::control::pb::State State<R>::to_proto() const {
         else
             *pb.mutable_resource() = x::json::to_any(this->resource.to_json());
     }
-    pb.set_authority(this->authority);
+    pb.set_authority(static_cast<uint32_t>(this->authority));
     return pb;
 }
 
@@ -85,7 +85,7 @@ State<R>::from_proto(const ::x::control::pb::State &pb) {
                 cpp.resource = R::parse(x::json::Parser(val));
         }
     }
-    cpp.authority = pb.authority();
+    cpp.authority = Authority(pb.authority());
     return {cpp, x::errors::NIL};
 }
 

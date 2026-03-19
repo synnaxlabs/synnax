@@ -104,6 +104,7 @@ func (retrieveRequestTranslator) Forward(_ context.Context, req device.RetrieveR
 		Offset:         uint32(req.Offset),
 		IgnoreNotFound: req.IgnoreNotFound,
 		IncludeStatus:  req.IncludeStatus,
+		IncludeParent:  req.IncludeParent,
 	}, nil
 }
 
@@ -120,6 +121,7 @@ func (retrieveRequestTranslator) Backward(_ context.Context, req *RetrieveReques
 		Offset:         int(req.Offset),
 		IgnoreNotFound: req.IgnoreNotFound,
 		IncludeStatus:  req.IncludeStatus,
+		IncludeParent:  req.IncludeParent,
 	}, nil
 }
 

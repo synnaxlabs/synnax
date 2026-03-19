@@ -208,7 +208,7 @@ var _ = Describe("C++ Types Plugin", func() {
 				Entry("uint64", "uint64", "std::uint64_t field = 0;"),
 				Entry("float32", "float32", "float field = 0;"),
 				Entry("float64", "float64", "double field = 0;"),
-				Entry("json", "json", "x::json::json::object_t field;"),
+				Entry("record", "record", "x::json::json::object_t field;"),
 			)
 		})
 
@@ -372,13 +372,13 @@ var _ = Describe("C++ Types Plugin", func() {
 			Expect(content).To(ContainSubstring(`std::optional<std::vector<std::string>> tags;`))
 		})
 
-		It("Should handle json type", func() {
+		It("Should handle record type", func() {
 			source := `
 				@cpp output "client/cpp/task"
 
 				Task struct {
 					key uint64
-					config json
+					config record
 				}
 			`
 			table, diag := analyzer.AnalyzeSource(ctx, source, "task", loader)

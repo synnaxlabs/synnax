@@ -192,7 +192,11 @@ export class TimeStamp
 
   private toISOString(tzInfo: TZInfo = "UTC"): string {
     if (tzInfo === "UTC") return this.date().toISOString();
-    return this.sub(TimeStamp.utcOffset).date().toISOString();
+    const d = this.date();
+    const offset = new TimeSpan(
+      BigInt(d.getTimezoneOffset()) * TimeStamp.MINUTE.valueOf(),
+    );
+    return this.sub(offset).date().toISOString();
   }
 
   private timeString(milliseconds: boolean = false, tzInfo: TZInfo = "UTC"): string {
@@ -398,13 +402,18 @@ export class TimeStamp
     return Number(this.valueOf());
   }
 
-  /** @returns the integer year that the timestamp corresponds to. */
+  /** @returns the integer year that the timestamp corresponds to in UTC. */
   get year(): number {
     return this.date().getUTCFullYear();
   }
 
+  /** @returns the integer year that the timestamp corresponds to in local time. */
+  get localYear(): number {
+    return this.date().getFullYear();
+  }
+
   /**
-   * @returns a copy of the timestamp with the year changed.
+   * @returns a copy of the timestamp with the year changed in UTC.
    * @param year the value to set the year to.
    */
   setYear(year: number): TimeStamp {
@@ -413,13 +422,30 @@ export class TimeStamp
     return new TimeStamp(d);
   }
 
-  /** @returns the integer month that the timestamp corresponds to with its year. */
+  /**
+   * @returns a copy of the timestamp with the year changed in local time.
+   * @param year the value to set the year to.
+   */
+  setLocalYear(year: number): TimeStamp {
+    const d = this.date();
+    d.setFullYear(year);
+    return new TimeStamp(d);
+  }
+
+  /** @returns the integer month that the timestamp corresponds to within its year in
+   * UTC. */
   get month(): number {
     return this.date().getUTCMonth();
   }
 
+  /** @returns the integer month that the timestamp corresponds to within its year in
+   * local time. */
+  get localMonth(): number {
+    return this.date().getMonth();
+  }
+
   /**
-   * @returns a copy of the timestamp with the month changed.
+   * @returns a copy of the timestamp with the month changed in UTC.
    * @param month the value to set the month to.
    */
   setMonth(month: number): TimeStamp {
@@ -428,18 +454,45 @@ export class TimeStamp
     return new TimeStamp(d);
   }
 
-  /** @returns the integer day that the timestamp corresponds to within its month. */
+  /**
+   * @returns a copy of the timestamp with the month changed in local time.
+   * @param month the value to set the month to.
+   */
+  setLocalMonth(month: number): TimeStamp {
+    const d = this.date();
+    d.setMonth(month);
+    return new TimeStamp(d);
+  }
+
+  /** @returns the integer day that the timestamp corresponds to within its month in
+   * UTC. */
   get day(): number {
     return this.date().getUTCDate();
   }
 
+  /** @returns the integer day that the timestamp corresponds to within its month in
+   * local time. */
+  get localDay(): number {
+    return this.date().getDate();
+  }
+
   /**
-   * @returns a copy of the timestamp with the day changed.
+   * @returns a copy of the timestamp with the day changed in UTC.
    * @param day the value the set the day to.
    */
   setDay(day: number): TimeStamp {
     const d = this.date();
     d.setUTCDate(day);
+    return new TimeStamp(d);
+  }
+
+  /**
+   * @returns a copy of the timestamp with the day changed in local time.
+   * @param day the value to set the day to.
+   */
+  setLocalDay(day: number): TimeStamp {
+    const d = this.date();
+    d.setDate(day);
     return new TimeStamp(d);
   }
 
@@ -451,7 +504,8 @@ export class TimeStamp
   }
 
   /**
-   * @returns the integer hour that the timestamp corresponds to within its day in local time.
+   * @returns the integer hour that the timestamp corresponds to within its day in local
+   * time.
    */
   get localHour(): number {
     return this.date().getHours();
@@ -477,13 +531,20 @@ export class TimeStamp
     return new TimeStamp(d);
   }
 
-  /** @returns the integer minute that the timestamp corresponds to within its hour. */
+  /** @returns the integer minute that the timestamp corresponds to within its hour in
+   * UTC. */
   get minute(): number {
     return this.date().getUTCMinutes();
   }
 
+  /** @returns the integer minute that the timestamp corresponds to within its hour in
+   * local time. */
+  get localMinute(): number {
+    return this.date().getMinutes();
+  }
+
   /**
-   * @returns a copy of the timestamp with the minute changed.
+   * @returns a copy of the timestamp with the minute changed in UTC.
    * @param minute the value to set the minute to.
    */
   setMinute(minute: number): TimeStamp {
@@ -493,15 +554,33 @@ export class TimeStamp
   }
 
   /**
+   * @returns a copy of the timestamp with the minute changed in local time.
+   * @param minute the value to set the minute to.
+   */
+  setLocalMinute(minute: number): TimeStamp {
+    const d = this.date();
+    d.setMinutes(minute);
+    return new TimeStamp(d);
+  }
+
+  /**
    * @returns the integer second that the timestamp corresponds to within its
-   * minute.
+   * minute in UTC.
    */
   get second(): number {
     return this.date().getUTCSeconds();
   }
 
   /**
-   * @returns a copy of the timestamp with the second changed.
+   * @returns the integer second that the timestamp corresponds to within its minute in
+   * local time.
+   */
+  get localSecond(): number {
+    return this.date().getSeconds();
+  }
+
+  /**
+   * @returns a copy of the timestamp with the second changed in UTC.
    * @param second the value to set the second to.
    */
   setSecond(second: number): TimeStamp {
@@ -511,20 +590,48 @@ export class TimeStamp
   }
 
   /**
+   * @returns a copy of the timestamp with the second changed in local time.
+   * @param second the value to set the second to.
+   */
+  setLocalSecond(second: number): TimeStamp {
+    const d = this.date();
+    d.setSeconds(second);
+    return new TimeStamp(d);
+  }
+
+  /**
    * @returns the integer millisecond that the timestamp corresponds to within its
-   * second.
+   * second in UTC.
    */
   get millisecond(): number {
     return this.date().getUTCMilliseconds();
   }
 
   /**
-   * @returns a copy of the timestamp with the milliseconds changed.
+   * @returns the integer millisecond that the timestamp corresponds to within its
+   * second in local time.
+   */
+  get localMillisecond(): number {
+    return this.date().getMilliseconds();
+  }
+
+  /**
+   * @returns a copy of the timestamp with the milliseconds changed in UTC.
    * @param millisecond the value to set the millisecond to.
    */
   setMillisecond(millisecond: number): TimeStamp {
     const d = this.date();
     d.setUTCMilliseconds(millisecond);
+    return new TimeStamp(d);
+  }
+
+  /**
+   * @returns a copy of the timestamp with the milliseconds changed in local time.
+   * @param millisecond the value to set the millisecond to.
+   */
+  setLocalMillisecond(millisecond: number): TimeStamp {
+    const d = this.date();
+    d.setMilliseconds(millisecond);
     return new TimeStamp(d);
   }
 
@@ -1766,7 +1873,11 @@ export class DataType
    * @example DataType.INT32.isVariable // false
    */
   get isVariable(): boolean {
-    return this.equals(DataType.JSON) || this.equals(DataType.STRING);
+    return (
+      this.equals(DataType.JSON) ||
+      this.equals(DataType.STRING) ||
+      this.equals(DataType.BYTES)
+    );
   }
 
   /**
@@ -1899,8 +2010,6 @@ export class DataType
   static readonly UINT16 = new DataType("uint16");
   /** Represents a 8-bit unsigned integer value. */
   static readonly UINT8 = new DataType("uint8");
-  /** Represents a boolean value. Stored as a 8-bit unsigned integer. */
-  static readonly BOOLEAN = new DataType("boolean");
   /** Represents a 64-bit unix epoch. */
   static readonly TIMESTAMP = new DataType("timestamp");
   /** Represents a UUID data type. */
@@ -1911,6 +2020,9 @@ export class DataType
   /** Represents a JSON data type. JSON has an unknown density, and is separated by a
    * newline character. */
   static readonly JSON = new DataType("json");
+  /** Represents a bytes data type for arbitrary byte arrays. Bytes have an unknown
+   * density, and are separated by a newline character. */
+  static readonly BYTES = new DataType("bytes");
 
   private static readonly ARRAY_CONSTRUCTORS: Map<string, TypedArrayConstructor> =
     new Map<string, TypedArrayConstructor>([
@@ -1928,6 +2040,7 @@ export class DataType
       [DataType.STRING.toString(), Uint8Array],
       [DataType.JSON.toString(), Uint8Array],
       [DataType.UUID.toString(), Uint8Array],
+      [DataType.BYTES.toString(), Uint8Array],
     ]);
 
   private static readonly ARRAY_CONSTRUCTOR_DATA_TYPES: Map<string, DataType> = new Map<
@@ -1961,25 +2074,27 @@ export class DataType
     [DataType.STRING.toString(), Density.UNKNOWN],
     [DataType.JSON.toString(), Density.UNKNOWN],
     [DataType.UUID.toString(), Density.BIT128],
+    [DataType.BYTES.toString(), Density.UNKNOWN],
   ]);
 
   /** All the data types. */
   static readonly ALL = [
     DataType.UNKNOWN,
-    DataType.FLOAT64,
-    DataType.FLOAT32,
-    DataType.INT64,
-    DataType.INT32,
-    DataType.INT16,
-    DataType.INT8,
-    DataType.UINT64,
-    DataType.UINT32,
-    DataType.UINT16,
     DataType.UINT8,
+    DataType.UINT16,
+    DataType.UINT32,
+    DataType.UINT64,
+    DataType.INT8,
+    DataType.INT16,
+    DataType.INT32,
+    DataType.INT64,
+    DataType.FLOAT32,
+    DataType.FLOAT64,
     DataType.TIMESTAMP,
     DataType.UUID,
     DataType.STRING,
     DataType.JSON,
+    DataType.BYTES,
   ];
 
   private static readonly SHORT_STRINGS = new Map<string, string>([
@@ -1993,11 +2108,11 @@ export class DataType
     [DataType.INT64.toString(), "i64"],
     [DataType.FLOAT32.toString(), "f32"],
     [DataType.FLOAT64.toString(), "f64"],
-    [DataType.BOOLEAN.toString(), "bool"],
     [DataType.TIMESTAMP.toString(), "ts"],
     [DataType.UUID.toString(), "uuid"],
     [DataType.STRING.toString(), "str"],
     [DataType.JSON.toString(), "json"],
+    [DataType.BYTES.toString(), "bytes"],
   ]);
 
   static readonly BIG_INT_TYPES = [DataType.INT64, DataType.UINT64, DataType.TIMESTAMP];

@@ -18,7 +18,7 @@ export const createIngester =
   (configSchema: z.ZodType, zeroLayout: Layout): Import.FileIngester =>
   (data: unknown, { layout, placeLayout, store, client }) => {
     const config = configSchema.parse(data);
-    if (!Access.updateGranted({ id: task.TYPE_ONTOLOGY_ID, store, client }))
+    if (!Access.createGranted({ id: task.TYPE_ONTOLOGY_ID, store, client }))
       throw new Error("You do not have permission to import tasks");
     placeLayout({ ...zeroLayout, ...layout, key: layout.key, args: { config } });
   };

@@ -17,11 +17,13 @@ export const VERSION = "1.0.0";
 export const legendStateZ = z.object({
   visible: z.boolean(),
   position: sticky.xy,
+  colors: z.record(z.string(), z.string()).default({}),
 });
 export interface LegendState extends z.infer<typeof legendStateZ> {}
 const ZERO_LEGEND_STATE: LegendState = {
   visible: true,
   position: { x: 50, y: 50, units: { x: "px", y: "px" } },
+  colors: {},
 };
 
 export const stateZ = v0.stateZ

@@ -98,11 +98,11 @@ func (Variant) EnumDescriptor() ([]byte, []int) {
 // component-specific details.
 type Status struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
-	// key is a unique identifier for this status, automatically generated if not provided.
+	// key is a unique identifier for this status, auto-generated if not provided.
 	Key string `protobuf:"bytes,1,opt,name=key,proto3" json:"key,omitempty"`
 	// name is an optional human-readable name for the status.
 	Name string `protobuf:"bytes,2,opt,name=name,proto3" json:"name,omitempty"`
-	// variant is the severity or type of the status: success, info, warning, error,
+	// variant indicates the severity of the status. One of success, info, warning, error,
 	// loading, or disabled.
 	Variant Variant `protobuf:"varint,3,opt,name=variant,proto3,enum=x.status.pb.Variant" json:"variant,omitempty"`
 	// message is the main message text describing the status.

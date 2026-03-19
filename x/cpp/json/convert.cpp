@@ -305,7 +305,8 @@ telem::SampleValue number_to_timestamp(const double v, TimeFormat time_format) {
 telem::SampleValue convert(
     const nlohmann::json &value,
     const telem::DataType &target,
-    TimeFormat time_format
+    TimeFormat time_format,
+    const EnumMap *enum_values
 ) {
     if (target == telem::TIMESTAMP_T) {
         if (value.is_number())
@@ -332,8 +333,14 @@ telem::SampleValue convert(
     if (value.is_number_integer())
         return number_to_numeric(value.get<int64_t>(), target);
     if (value.is_number()) return number_to_numeric(value.get<double>(), target);
-    if (value.is_string())
-        return string_to_numeric(value.get_ref<const std::string &>(), target);
+    if (value.is_string()) {
+        const auto &str = value.get_ref<const std::string &>();
+        if (enum_values != nullptr) {
+            auto it = enum_values->find(str);
+            if (it != enum_values->end()) return number_to_numeric(it->second, target);
+        }
+        return string_to_numeric(str, target);
+    }
 
     throw std::runtime_error("");
 }
@@ -343,10 +350,11 @@ telem::SampleValue convert(
 std::pair<telem::SampleValue, errors::Error> to_sample_value(
     const nlohmann::json &value,
     const telem::DataType &target,
-    TimeFormat time_format
+    TimeFormat time_format,
+    const EnumMap *enum_values
 ) {
     try {
-        return {convert(value, target, time_format), errors::NIL};
+        return {convert(value, target, time_format, enum_values), errors::NIL};
     } catch (const std::exception &e) {
         auto msg = std::string("cannot convert ") + value.dump() + " to " +
                    target.name();
@@ -368,10 +376,14 @@ bool check_to_sample_value(const telem::DataType &target) {
            target == telem::TIMESTAMP_T || target == telem::STRING_T;
 }
 
-std::pair<nlohmann::json, errors::Error>
-from_sample_value(const telem::SampleValue &value, Type target) {
+std::pair<nlohmann::json, errors::Error> from_sample_value(
+    const telem::SampleValue &value,
+    Type target,
+    const ReverseEnumMap *enum_values
+) {
     return std::visit(
-        [target](const auto &v) -> std::pair<nlohmann::json, errors::Error> {
+        [target,
+         enum_values](const auto &v) -> std::pair<nlohmann::json, errors::Error> {
             using T = std::decay_t<decltype(v)>;
             if constexpr (std::is_same_v<T, std::string>) {
                 if (target == Type::String) return {nlohmann::json(v), errors::NIL};
@@ -379,6 +391,11 @@ from_sample_value(const telem::SampleValue &value, Type target) {
             } else if constexpr (std::is_same_v<T, telem::TimeStamp>) {
                 return {nlohmann::json(), CONVERSION_ERROR};
             } else {
+                if (enum_values != nullptr && target == Type::String) {
+                    if (const auto it = enum_values->find(nlohmann::json(v));
+                        it != enum_values->end())
+                        return {nlohmann::json(it->second), errors::NIL};
+                }
                 switch (target) {
                     case Type::Number:
                         return {nlohmann::json(v), errors::NIL};

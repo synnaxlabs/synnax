@@ -18,8 +18,9 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer/frame"
 	"github.com/synnaxlabs/synnax/pkg/distribution/mock"
 	"github.com/synnaxlabs/synnax/pkg/service/arc"
+	channelanalyzer "github.com/synnaxlabs/synnax/pkg/service/channel/calculation/analyzer"
+	"github.com/synnaxlabs/synnax/pkg/service/channel/calculation/compiler"
 	"github.com/synnaxlabs/synnax/pkg/service/framer/calculation/calculator"
-	"github.com/synnaxlabs/synnax/pkg/service/framer/calculation/compiler"
 	"github.com/synnaxlabs/synnax/pkg/service/label"
 	"github.com/synnaxlabs/synnax/pkg/service/rack"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
@@ -96,7 +97,6 @@ var _ = Describe("Calculator", Ordered, func() {
 			Expect(dist.Channel.CreateMany(ctx, indexes)).To(Succeed())
 		}
 		if bases != nil {
-
 			for i, channel := range *bases {
 				if channel.Virtual {
 					continue
@@ -114,7 +114,7 @@ var _ = Describe("Calculator", Ordered, func() {
 		mod := MustSucceed(compiler.Compile(ctx, compiler.Config{
 			ChannelService: dist.Channel,
 			Channel:        *calc,
-			SymbolResolver: arcSvc.SymbolResolver(),
+			SymbolResolver: arcSvc.NewSymbolResolver(nil),
 		}))
 		return MustSucceed(calculator.Open(ctx, calculator.Config{Module: mod}))
 	}
@@ -765,6 +765,53 @@ var _ = Describe("Calculator", Ordered, func() {
 		Expect(o.Get(calc.Key()).Series[0]).To(telem.MatchSeriesDataV[int64](35))
 	})
 
+	It("Should correctly chain multiple operations", func() {
+		idx := []channel.Channel{{
+			Name:     channel.NewRandomName(),
+			DataType: telem.TimeStampT,
+			IsIndex:  true,
+		}}
+		base := []channel.Channel{{
+			Name:     channel.NewRandomName(),
+			DataType: telem.Int64T,
+		}}
+		calc := channel.Channel{
+			Name:       channel.NewRandomName(),
+			DataType:   telem.Int64T,
+			Virtual:    true,
+			Expression: fmt.Sprintf("return %s", base[0].Name),
+			Operations: []channel.Operation{
+				{
+					Type:     "avg",
+					Duration: 3 * telem.Second,
+				},
+				{
+					Type:     "avg",
+					Duration: 6 * telem.Second,
+				},
+			},
+		}
+		c := open(&idx, &base, &calc)
+
+		d := telem.NewSeriesV[int64](10, 20, 30)
+		i := telem.NewSeriesSecondsTSV(1, 2, 3)
+		d.Alignment = telem.NewAlignment(1, 0)
+		i.Alignment = d.Alignment
+		fr := frame.NewMulti(
+			[]channel.Key{idx[0].Key(), base[0].Key()},
+			[]telem.Series{i, d},
+		)
+		o, changed := MustSucceed2(c.Next(ctx, fr, frame.Frame{}))
+		Expect(changed).To(BeTrue())
+		// The first avg (3s window) should produce output, and that output
+		// should flow into the second avg (6s window). If the operations
+		// are not correctly chained, the second avg never receives data
+		// and the calculator produces no output.
+		Expect(o.Get(calc.Key()).Series).ToNot(BeEmpty())
+
+		Expect(c.Close()).To(Succeed())
+	})
+
 	Describe("Group", func() {
 
 		It("Should aggregate ReadFrom keys from all calculators", func() {
@@ -880,6 +927,132 @@ var _ = Describe("Calculator", Ordered, func() {
 				Expect(output.Get(c1.Key()).Series[0]).To(telem.MatchSeriesDataV[int64](11, 21))
 				Expect(output.Get(c2.Key()).Series[0]).To(telem.MatchSeriesDataV[int64](22, 42))
 			}
+		})
+	})
+
+	Describe("Leading Literal Type Coercion", func() {
+		openWithInferredType := func(
+			bases *[]channel.Channel,
+			calc *channel.Channel,
+		) *calculator.Calculator {
+			Expect(dist.Channel.CreateMany(ctx, bases)).To(Succeed())
+			res := MustSucceed(channelanalyzer.New(arcSvc.NewSymbolResolver(nil)).
+				Analyze(ctx, *calc))
+			calc.DataType = res.DataType
+			Expect(dist.Channel.Create(ctx, calc)).To(Succeed())
+			mod := MustSucceed(compiler.Compile(ctx, compiler.Config{
+				ChannelService: dist.Channel,
+				Channel:        *calc,
+				SymbolResolver: arcSvc.NewSymbolResolver(nil),
+			}))
+			return MustSucceed(calculator.Open(ctx, calculator.Config{Module: mod}))
+		}
+
+		Specify("Float literal * f32 channel should infer f32 and produce correct results", func() {
+			base := []channel.Channel{{
+				Name:     channel.NewRandomName(),
+				DataType: telem.Float32T,
+				Virtual:  true,
+			}}
+			calc := channel.Channel{
+				Name:       channel.NewRandomName(),
+				Virtual:    true,
+				Expression: fmt.Sprintf("return 2.0 * %s", base[0].Name),
+			}
+			c := openWithInferredType(&base, &calc)
+			Expect(calc.DataType).To(Equal(telem.Float32T))
+			fr := frame.NewUnary(
+				base[0].Key(),
+				telem.NewSeriesV[float32](10.0, 20.0, 30.0),
+			)
+			of, changed := MustSucceed2(c.Next(ctx, fr, frame.Frame{}))
+			Expect(changed).To(BeTrue())
+			Expect(of.Get(calc.Key()).Series[0]).To(
+				telem.MatchSeriesDataV[float32](20.0, 40.0, 60.0),
+			)
+			Expect(c.Close()).To(Succeed())
+		})
+
+		Specify("Integer literal - f32 channel should infer f32 and produce correct results", func() {
+			base := []channel.Channel{{
+				Name:     channel.NewRandomName(),
+				DataType: telem.Float32T,
+				Virtual:  true,
+			}}
+			calc := channel.Channel{
+				Name:       channel.NewRandomName(),
+				Virtual:    true,
+				Expression: fmt.Sprintf("return 1000 - %s", base[0].Name),
+			}
+			c := openWithInferredType(&base, &calc)
+			Expect(calc.DataType).To(Equal(telem.Float32T))
+			fr := frame.NewUnary(
+				base[0].Key(),
+				telem.NewSeriesV[float32](10.0, 20.0),
+			)
+			of, changed := MustSucceed2(c.Next(ctx, fr, frame.Frame{}))
+			Expect(changed).To(BeTrue())
+			Expect(of.Get(calc.Key()).Series[0]).To(
+				telem.MatchSeriesDataV[float32](990.0, 980.0),
+			)
+			Expect(c.Close()).To(Succeed())
+		})
+
+		Specify("Float literal / f32 channel should infer f32 and produce correct results", func() {
+			base := []channel.Channel{{
+				Name:     channel.NewRandomName(),
+				DataType: telem.Float32T,
+				Virtual:  true,
+			}}
+			calc := channel.Channel{
+				Name:       channel.NewRandomName(),
+				Virtual:    true,
+				Expression: fmt.Sprintf("return 1000.0 / %s", base[0].Name),
+			}
+			c := openWithInferredType(&base, &calc)
+			Expect(calc.DataType).To(Equal(telem.Float32T))
+			fr := frame.NewUnary(
+				base[0].Key(),
+				telem.NewSeriesV[float32](10.0, 20.0),
+			)
+			of, changed := MustSucceed2(c.Next(ctx, fr, frame.Frame{}))
+			Expect(changed).To(BeTrue())
+			Expect(of.Get(calc.Key()).Series[0]).To(
+				telem.MatchSeriesDataV[float32](100.0, 50.0),
+			)
+			Expect(c.Close()).To(Succeed())
+		})
+
+		Specify("Stale f64 output type from old inference with f32 channel and leading literal", func() {
+			base := []channel.Channel{{
+				Name:     channel.NewRandomName(),
+				DataType: telem.Float32T,
+				Virtual:  true,
+			}}
+			calc := channel.Channel{
+				Name:       channel.NewRandomName(),
+				DataType:   telem.Float32T,
+				Virtual:    true,
+				Expression: fmt.Sprintf("return 2.0 * %s", base[0].Name),
+			}
+			Expect(dist.Channel.CreateMany(ctx, &base)).To(Succeed())
+			Expect(dist.Channel.Create(ctx, &calc)).To(Succeed())
+			mod := MustSucceed(compiler.Compile(ctx, compiler.Config{
+				ChannelService: dist.Channel,
+				Channel:        calc,
+				SymbolResolver: arcSvc.NewSymbolResolver(nil),
+			}))
+			c := MustSucceed(calculator.Open(ctx, calculator.Config{Module: mod}))
+			fr := frame.NewUnary(
+				base[0].Key(),
+				telem.NewSeriesV[float32](10.0, 20.0, 30.0),
+			)
+			of, changed := MustSucceed2(c.Next(ctx, fr, frame.Frame{}))
+			Expect(changed).To(BeTrue())
+			Expect(of.Get(calc.Key()).Series[0]).To(
+				telem.MatchSeriesDataV[float32](20.0, 40.0, 60.0),
+			)
+			Expect(c.Close()).To(Succeed())
 		})
 	})
 })

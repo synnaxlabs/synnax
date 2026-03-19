@@ -507,8 +507,7 @@ var _ = Describe("Writer Behavior", func() {
 								By("Asserting that the telemetry has been persisted")
 								f := MustSucceed(fs.Open(channelKeyToPath(index1)+"/index.domain", os.O_RDONLY))
 								buf := make([]byte, 26)
-								_, err := f.ReadAt(buf, 0)
-								Expect(err).ToNot(HaveOccurred())
+								MustSucceed(f.ReadAt(buf, 0))
 								Expect(f.Close()).To(Succeed())
 								Expect(binary.LittleEndian.Uint64(buf[0:8])).To(Equal(uint64(10 * telem.SecondTS)))
 								Expect(binary.LittleEndian.Uint64(buf[8:16])).To(Equal(uint64(12*telem.SecondTS + 1)))
@@ -516,8 +515,7 @@ var _ = Describe("Writer Behavior", func() {
 
 								f = MustSucceed(fs.Open(channelKeyToPath(basic1)+"/index.domain", os.O_RDONLY))
 								buf = make([]byte, 26)
-								_, err = f.ReadAt(buf, 0)
-								Expect(err).ToNot(HaveOccurred())
+								MustSucceed(f.ReadAt(buf, 0))
 								Expect(f.Close()).To(Succeed())
 								Expect(binary.LittleEndian.Uint64(buf[0:8])).To(Equal(uint64(10 * telem.SecondTS)))
 								Expect(binary.LittleEndian.Uint64(buf[8:16])).To(Equal(uint64(12*telem.SecondTS + 1)))
@@ -595,16 +593,14 @@ var _ = Describe("Writer Behavior", func() {
 
 								f := MustSucceed(fs.Open(channelKeyToPath(index1)+"/index.domain", os.O_RDONLY))
 								buf := make([]byte, 26)
-								_, err := f.Read(buf)
-								Expect(err).ToNot(HaveOccurred())
+								MustSucceed(f.Read(buf))
 								Expect(f.Close()).To(Succeed())
 								Expect(binary.LittleEndian.Uint64(buf[8:16])).To(Equal(uint64(33*telem.SecondTS + 1)))
 								Expect(binary.LittleEndian.Uint32(buf[22:26])).To(Equal(uint32(80)))
 
 								f = MustSucceed(fs.Open(channelKeyToPath(basic1)+"/index.domain", os.O_RDONLY))
 								buf = make([]byte, 26)
-								_, err = f.Read(buf)
-								Expect(err).ToNot(HaveOccurred())
+								MustSucceed(f.Read(buf))
 								Expect(f.Close()).To(Succeed())
 								Expect(binary.LittleEndian.Uint64(buf[8:16])).To(Equal(uint64(33*telem.SecondTS + 1)))
 								Expect(binary.LittleEndian.Uint32(buf[22:26])).To(Equal(uint32(80)))
@@ -1498,6 +1494,93 @@ var _ = Describe("Writer Behavior", func() {
 			})
 
 			Describe("Regressions", func() {
+				Specify("Auto-commit with multiple index groups should not fail after control transfer", func() {
+					var (
+						vlv1CmdTime = GenerateChannelKey()
+						vlv1Cmd     = GenerateChannelKey()
+						vlv2CmdTime = GenerateChannelKey()
+						vlv2Cmd     = GenerateChannelKey()
+					)
+
+					By("Creating two valve command channels with separate indexes")
+					Expect(db.CreateChannel(
+						ctx,
+						cesium.Channel{Key: vlv1CmdTime, Name: "vlv_1_cmd_time", DataType: telem.TimeStampT, IsIndex: true},
+						cesium.Channel{Key: vlv1Cmd, Name: "vlv_1_cmd", DataType: telem.Uint8T, Index: vlv1CmdTime},
+						cesium.Channel{Key: vlv2CmdTime, Name: "vlv_2_cmd_time", DataType: telem.TimeStampT, IsIndex: true},
+						cesium.Channel{Key: vlv2Cmd, Name: "vlv_2_cmd", DataType: telem.Uint8T, Index: vlv2CmdTime},
+					)).To(Succeed())
+
+					By("Opening the schematic writer with auto-commit on both valves")
+					schematic := MustSucceed(db.OpenWriter(ctx, cesium.WriterConfig{
+						ControlSubject: control.Subject{
+							Name: "schematic",
+							Key:  "schematic",
+						},
+						Channels:                 []cesium.ChannelKey{vlv1CmdTime, vlv1Cmd, vlv2CmdTime, vlv2Cmd},
+						Start:                    10 * telem.SecondTS,
+						Authorities:              []control.Authority{control.Authority(100)},
+						AutoIndexPersistInterval: cesium.AlwaysIndexPersistOnAutoCommit,
+					}))
+
+					By("Toggling both valves from the schematic")
+					MustSucceed(schematic.Write(telem.MultiFrame(
+						[]cesium.ChannelKey{vlv1CmdTime, vlv1Cmd, vlv2CmdTime, vlv2Cmd},
+						[]telem.Series{
+							telem.NewSeriesSecondsTSV(10),
+							telem.NewSeriesV[uint8](1),
+							telem.NewSeriesSecondsTSV(10),
+							telem.NewSeriesV[uint8](1),
+						},
+					)))
+					// Commit is synchronous, so this ensures the async auto-commit
+					// from the first write is fully processed before the arc opens.
+					MustSucceed(schematic.Commit())
+
+					By("Opening the arc automation writer with higher authority")
+					arc := MustSucceed(db.OpenWriter(ctx, cesium.WriterConfig{
+						ControlSubject: control.Subject{
+							Name: "arc",
+							Key:  "arc",
+						},
+						Channels:                 []cesium.ChannelKey{vlv1CmdTime, vlv1Cmd, vlv2CmdTime, vlv2Cmd},
+						Start:                    10 * telem.SecondTS,
+						Authorities:              []control.Authority{control.Authority(200)},
+						AutoIndexPersistInterval: cesium.AlwaysIndexPersistOnAutoCommit,
+					}))
+
+					By("Toggling both valves from the arc automation")
+					MustSucceed(arc.Write(telem.MultiFrame(
+						[]cesium.ChannelKey{vlv1CmdTime, vlv1Cmd, vlv2CmdTime, vlv2Cmd},
+						[]telem.Series{
+							telem.NewSeriesSecondsTSV(20),
+							telem.NewSeriesV[uint8](0),
+							telem.NewSeriesSecondsTSV(20),
+							telem.NewSeriesV[uint8](0),
+						},
+					)))
+
+					By("Stopping the arc automation")
+					Expect(arc.Close()).To(Succeed())
+
+					By("Toggling only vlv1 from the schematic - this should not fail")
+					MustSucceed(schematic.Write(telem.MultiFrame(
+						[]cesium.ChannelKey{vlv1CmdTime, vlv1Cmd},
+						[]telem.Series{
+							telem.NewSeriesSecondsTSV(30),
+							telem.NewSeriesV[uint8](1),
+						},
+					)))
+
+					Expect(schematic.Close()).To(Succeed())
+
+					By("Verifying the data was written correctly")
+					f := MustSucceed(db.Read(ctx, telem.TimeRangeMax, vlv1Cmd))
+					Expect(f.Get(vlv1Cmd).Len()).To(Equal(int64(3)))
+					f = MustSucceed(db.Read(ctx, telem.TimeRangeMax, vlv2Cmd))
+					Expect(f.Get(vlv2Cmd).Len()).To(Equal(int64(2)))
+				})
+
 				Specify("High Throughput, Single-Sample Writes, Auto-Commit Enabled", func() {
 					var (
 						index1 = GenerateChannelKey()

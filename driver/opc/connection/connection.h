@@ -10,6 +10,8 @@
 #pragma once
 
 /// std
+#include <chrono>
+#include <condition_variable>
 #include <mutex>
 #include <string>
 #include <unordered_map>
@@ -153,16 +155,37 @@ private:
         bool in_use;
     };
 
+    /// @brief Per-endpoint circuit breaker state. Tracks consecutive
+    /// connection failures and enforces a cooldown period after
+    /// BREAKER_THRESHOLD failures to prevent session exhaustion.
+    struct BreakerState {
+        int consecutive_failures = 0;
+        std::chrono::steady_clock::time_point cooldown_until{};
+        /// @brief True while a thread is actively connecting. Other
+        /// threads wait on connect_cv instead of creating parallel
+        /// connections that could exhaust the server's session table.
+        bool connecting = false;
+    };
+
+    static constexpr int BREAKER_THRESHOLD = 3;
+    static constexpr std::chrono::milliseconds BREAKER_COOLDOWN{5000};
+
     mutable std::mutex mutex_;
+    /// @brief notified when a connecting thread finishes, waking threads
+    /// that are waiting for a reusable connection.
+    std::condition_variable connect_cv;
     std::unordered_map<std::string, std::vector<Entry>> connections_;
+    std::unordered_map<std::string, BreakerState> breakers;
 
     void release(const std::string &key, std::shared_ptr<UA_Client> client);
 
-    /// @brief Performs connection maintenance via run_iterate and verifies session
-    /// state.
-    /// @param client The OPC UA client to maintain.
-    /// @param log_prefix Prefix for log messages.
-    /// @return NIL on success, error if maintenance failed or session deactivated.
+    /// @brief collects stale (non-activated) connections under the lock,
+    /// then sends CloseSession outside the lock to free server-side
+    /// session slots that would otherwise be orphaned.
+    void cleanup_stale_entries(const std::string &key, const std::string &log_prefix);
+
+    /// @brief Performs connection maintenance via run_iterate and verifies
+    /// session state.
     x::errors::Error run_iterate_checked(
         const std::shared_ptr<UA_Client> &client,
         const std::string &log_prefix

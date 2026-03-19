@@ -27,7 +27,7 @@ Workspace struct {
     author uuid?  {
         @doc value "is the UUID of the user who created this workspace."
     }
-    layout json   {
+    layout record {
         @doc value        """
             is the mosaic tree structure that defines how visualizations are
             arranged. Contains tab layout, split configurations, and window

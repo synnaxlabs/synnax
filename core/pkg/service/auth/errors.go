@@ -41,19 +41,19 @@ const (
 )
 
 func encode(_ context.Context, err error) (errors.Payload, bool) {
-	if errors.Is(err, InvalidToken) {
+	if errors.CheapIs(err, InvalidToken) {
 		return errors.Payload{Type: invalidTokenType, Data: err.Error()}, true
 	}
-	if errors.Is(err, InvalidCredentials) {
+	if errors.CheapIs(err, InvalidCredentials) {
 		return errors.Payload{Type: invalidCredentialsType, Data: err.Error()}, true
 	}
-	if errors.Is(err, ExpiredToken) {
+	if errors.CheapIs(err, ExpiredToken) {
 		return errors.Payload{Type: expiredTokenType, Data: err.Error()}, true
 	}
-	if errors.Is(err, RepeatedUsername) {
+	if errors.CheapIs(err, RepeatedUsername) {
 		return errors.Payload{Type: repeatedUsernameType, Data: err.Error()}, true
 	}
-	if errors.Is(err, Error) {
+	if errors.CheapIs(err, Error) {
 		return errors.Payload{Type: errorType, Data: err.Error()}, true
 	}
 	return errors.Payload{}, false

@@ -14,23 +14,3 @@ message ID {
   // key is the unique key identifying the resource within its type.
   string key = 2;
 }
-
-// Resource is a resource in the ontology system with its identifier, name, and optional
-// metadata.
-message Resource {
-  // id is the unique identifier for this resource.
-  ID id = 1;
-  // name is a human-readable name for the resource.
-  string name = 2;
-}
-
-// Relationship is a directional relationship between two resources in the ontology
-// system.
-message Relationship {
-  // from is the source resource of the relationship.
-  ID from = 1;
-  // type is the type of relationship (e.g., 'parent_of', 'owns').
-  string type = 2;
-  // to is the target resource of the relationship.
-  ID to = 3;
-}

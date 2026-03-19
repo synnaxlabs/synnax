@@ -91,11 +91,11 @@ func EdgeFromPB(ctx context.Context, pb *Edge) (ir.Edge, error) {
 	var err error
 	r.Source, err = HandleFromPB(ctx, pb.Source)
 	if err != nil {
-		return r, err
+		return ir.Edge{}, err
 	}
 	r.Target, err = HandleFromPB(ctx, pb.Target)
 	if err != nil {
-		return r, err
+		return ir.Edge{}, err
 	}
 	r.Kind = EdgeKindFromPB(pb.Kind)
 	return r, nil
@@ -197,7 +197,7 @@ func SequenceFromPB(ctx context.Context, pb *Sequence) (ir.Sequence, error) {
 	var err error
 	r.Stages, err = StagesFromPB(ctx, pb.Stages)
 	if err != nil {
-		return r, err
+		return ir.Sequence{}, err
 	}
 	r.Key = pb.Key
 	return r, nil
@@ -315,23 +315,23 @@ func FunctionFromPB(ctx context.Context, pb *Function) (ir.Function, error) {
 	var err error
 	r.Body, err = BodyFromPB(ctx, pb.Body)
 	if err != nil {
-		return r, err
+		return ir.Function{}, err
 	}
 	r.Config, err = typespb.ParamsFromPB(ctx, pb.Config)
 	if err != nil {
-		return r, err
+		return ir.Function{}, err
 	}
 	r.Inputs, err = typespb.ParamsFromPB(ctx, pb.Inputs)
 	if err != nil {
-		return r, err
+		return ir.Function{}, err
 	}
 	r.Outputs, err = typespb.ParamsFromPB(ctx, pb.Outputs)
 	if err != nil {
-		return r, err
+		return ir.Function{}, err
 	}
 	r.Channels, err = typespb.ChannelsFromPB(ctx, pb.Channels)
 	if err != nil {
-		return r, err
+		return ir.Function{}, err
 	}
 	r.Key = pb.Key
 	return r, nil
@@ -401,19 +401,19 @@ func NodeFromPB(ctx context.Context, pb *Node) (ir.Node, error) {
 	var err error
 	r.Config, err = typespb.ParamsFromPB(ctx, pb.Config)
 	if err != nil {
-		return r, err
+		return ir.Node{}, err
 	}
 	r.Inputs, err = typespb.ParamsFromPB(ctx, pb.Inputs)
 	if err != nil {
-		return r, err
+		return ir.Node{}, err
 	}
 	r.Outputs, err = typespb.ParamsFromPB(ctx, pb.Outputs)
 	if err != nil {
-		return r, err
+		return ir.Node{}, err
 	}
 	r.Channels, err = typespb.ChannelsFromPB(ctx, pb.Channels)
 	if err != nil {
-		return r, err
+		return ir.Node{}, err
 	}
 	r.Key = pb.Key
 	r.Type = pb.Type
@@ -549,23 +549,23 @@ func IRFromPB(ctx context.Context, pb *IR) (ir.IR, error) {
 	var err error
 	r.Functions, err = FunctionsFromPB(ctx, pb.Functions)
 	if err != nil {
-		return r, err
+		return ir.IR{}, err
 	}
 	r.Nodes, err = NodesFromPB(ctx, pb.Nodes)
 	if err != nil {
-		return r, err
+		return ir.IR{}, err
 	}
 	r.Edges, err = EdgesFromPB(ctx, pb.Edges)
 	if err != nil {
-		return r, err
+		return ir.IR{}, err
 	}
 	r.Sequences, err = SequencesFromPB(ctx, pb.Sequences)
 	if err != nil {
-		return r, err
+		return ir.IR{}, err
 	}
 	r.Authorities, err = AuthoritiesFromPB(ctx, pb.Authorities)
 	if err != nil {
-		return r, err
+		return ir.IR{}, err
 	}
 	r.Strata = lo.Map(pb.Strata, func(w *StratumWrapper, _ int) []string { return w.Values })
 	return r, nil

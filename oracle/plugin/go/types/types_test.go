@@ -198,7 +198,7 @@ var _ = Describe("Go Types Plugin", func() {
 				Entry("uint64", "uint64", "Field uint64"),
 				Entry("float32", "float32", "Field float32"),
 				Entry("float64", "float64", "Field float64"),
-				Entry("json", "json", "Field binary.MsgpackEncodedJSON"),
+				Entry("record", "record", "Field binary.MsgpackEncodedJSON"),
 				Entry("bytes", "bytes", "Field []byte"),
 			)
 
@@ -208,7 +208,7 @@ var _ = Describe("Go Types Plugin", func() {
 
 					AllTypes struct {
 						a uuid
-						b json
+						b record
 					}
 				`
 				resp := MustGenerate(ctx, source, "test", loader, goPlugin)
@@ -483,6 +483,32 @@ var _ = Describe("Go Types Plugin", func() {
 				Expect(content).To(ContainSubstring(`//go:generate stringer -type=Priority`))
 			})
 
+			It("Should generate doc comments on enums", func() {
+				source := `
+				@go output "core/direction"
+
+				Direction enum {
+					north = "north"
+					south = "south"
+
+					@doc value "indicates a compass direction."
+				}
+			`
+				table, diag := analyzer.AnalyzeSource(ctx, source, "direction", loader)
+				Expect(diag.Ok()).To(BeTrue())
+
+				req := &plugin.Request{
+					Resolutions: table,
+				}
+
+				resp, err := goPlugin.Generate(req)
+				Expect(err).To(BeNil())
+
+				content := string(resp.Files[0].Content)
+				Expect(content).To(ContainSubstring(`// Direction indicates a compass direction.`))
+				Expect(content).To(ContainSubstring(`type Direction string`))
+			})
+
 		})
 
 		Context("map types", func() {
@@ -541,7 +567,7 @@ var _ = Describe("Go Types Plugin", func() {
 				source := `
 				@go output "core/container"
 
-				Container struct<D extends json> {
+				Container struct<D extends record> {
 					data D
 					name string
 				}
@@ -610,6 +636,52 @@ var _ = Describe("Go Types Plugin", func() {
 				// Stratum should be an alias to []string, not just string
 				Expect(content).To(ContainSubstring(`type Stratum = []string`))
 				Expect(content).NotTo(ContainSubstring(`type Stratum = string`))
+			})
+
+			It("Should generate doc comments on distinct type defs", func() {
+				source := `
+				@go output "core/control"
+
+				Authority uint8 {
+					@doc value "is a numeric value representing control authority."
+				}
+			`
+				table, diag := analyzer.AnalyzeSource(ctx, source, "control", loader)
+				Expect(diag.Ok()).To(BeTrue())
+
+				req := &plugin.Request{
+					Resolutions: table,
+				}
+
+				resp, err := goPlugin.Generate(req)
+				Expect(err).To(BeNil())
+
+				content := string(resp.Files[0].Content)
+				Expect(content).To(ContainSubstring(`// Authority is a numeric value representing control authority.`))
+				Expect(content).To(ContainSubstring(`type Authority uint8`))
+			})
+
+			It("Should generate doc comments on type aliases", func() {
+				source := `
+				@go output "core/label"
+
+				Key = uuid {
+					@doc value "is the unique identifier for the label."
+				}
+			`
+				table, diag := analyzer.AnalyzeSource(ctx, source, "label", loader)
+				Expect(diag.Ok()).To(BeTrue())
+
+				req := &plugin.Request{
+					Resolutions: table,
+				}
+
+				resp, err := goPlugin.Generate(req)
+				Expect(err).To(BeNil())
+
+				content := string(resp.Files[0].Content)
+				Expect(content).To(ContainSubstring(`// Key is the unique identifier for the label.`))
+				Expect(content).To(ContainSubstring(`type Key =`))
 			})
 
 		})
@@ -864,7 +936,7 @@ var _ = Describe("Go Types Plugin", func() {
 					message string
 				}
 
-				Status struct<D extends json> {
+				Status struct<D extends record> {
 					variant int32
 					data D
 				}
@@ -894,12 +966,12 @@ var _ = Describe("Go Types Plugin", func() {
 				source := `
 				@go output "core/status"
 
-				Status struct<D extends json> {
+				Status struct<D extends record> {
 					variant int32
 					data D
 				}
 
-				RackStatus struct<D extends json> extends Status<D> {
+				RackStatus struct<D extends record> extends Status<D> {
 					timestamp int64
 				}
 			`
@@ -1417,7 +1489,7 @@ var _ = Describe("Go Types Plugin", func() {
 
 					Param struct {
 						name string
-						value json?
+						value record?
 					}
 
 					Params Param[]

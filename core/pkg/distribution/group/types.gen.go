@@ -15,6 +15,7 @@ import (
 	"github.com/google/uuid"
 )
 
+// Key is a unique identifier for a group, represented as a UUID.
 type Key = uuid.UUID
 
 // Group is a named collection container for organizing related resources. Groups

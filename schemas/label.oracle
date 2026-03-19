@@ -56,9 +56,23 @@ New struct extends Label {
 }
 
 GoSVCLabel = Label {
-    @doc value "is a server-side label type alias for Go services."
+    @doc value """
+        is a tagging and categorization entity with a name and associated color.
+        Labels can be attached to resources like ranges for organization and
+        filtering.
+    """
     @go output "core/pkg/service/label"
     @go name   "Label"
     @ts omit
     @py omit
+    @cpp omit
+}
+
+GOSVCKey = Key {
+    @doc value "is a unique identifier for a label, represented as a UUID."
+    @go output "core/pkg/service/label"
+    @go name   "Key"
+    @ts omit
+    @py omit
+    @cpp omit
 }

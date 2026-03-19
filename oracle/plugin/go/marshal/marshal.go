@@ -382,7 +382,7 @@ func (b *codeBuilder) processHardOptional(
 
 	// Hard optional json/any: these map to nilable Go types (interface{}/map),
 	// no pointer wrapping needed.
-	if prim, ok := actual.Form.(resolution.PrimitiveForm); ok && (prim.Name == "json" || prim.Name == "any") {
+	if prim, ok := actual.Form.(resolution.PrimitiveForm); ok && (prim.Name == "record" || prim.Name == "any") {
 		b.marshalLines = append(b.marshalLines,
 			ind+fmt.Sprintf("if %s != nil {", getPath),
 			ind+"\tbuf = append(buf, 1)",
@@ -856,7 +856,7 @@ func (b *codeBuilder) processLeaf(
 			ind+"data = data[16:]",
 		)
 
-	case "json", "any":
+	case "record", "any":
 		b.estSize += 64
 		b.needsJSON = true
 		b.marshalLines = append(b.marshalLines,
@@ -1103,7 +1103,7 @@ func (b *codeBuilder) goTypeName(typ resolution.Type) (string, error) {
 			return "uuid.UUID", nil
 		case "bytes":
 			return "[]byte", nil
-		case "json", "any":
+		case "record", "any":
 			return "interface{}", nil
 		default:
 			return "", fmt.Errorf("unsupported primitive type for goTypeName: %s", prim.Name)

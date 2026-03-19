@@ -47,7 +47,7 @@ var _ = Describe("StateConfig", Ordered, func() {
 			}
 			Expect(dist.Channel.Create(ctx, ch)).To(Succeed())
 
-			module := arc.Module{
+			prog := arc.Program{
 				IR: ir.IR{
 					Nodes: []ir.Node{
 						{
@@ -61,12 +61,12 @@ var _ = Describe("StateConfig", Ordered, func() {
 				},
 			}
 
-			cfg := MustSucceed(runtime.NewStateConfig(ctx, dist.Channel, module))
+			cfg := MustSucceed(runtime.NewStateConfig(ctx, dist.Channel, prog))
 			Expect(cfg.Reads.Contains(ch.Key())).To(BeTrue())
 			Expect(cfg.Writes.Contains(ch.Key())).To(BeFalse())
-			Expect(cfg.State.ChannelDigests).To(HaveLen(1))
-			Expect(cfg.State.ChannelDigests[0].Key).To(Equal(uint32(ch.Key())))
-			Expect(cfg.State.ChannelDigests[0].DataType).To(Equal(telem.Float32T))
+			Expect(cfg.ChannelDigests).To(HaveLen(1))
+			Expect(cfg.ChannelDigests[0].Key).To(Equal(uint32(ch.Key())))
+			Expect(cfg.ChannelDigests[0].DataType).To(Equal(telem.Float32T))
 		})
 
 		It("Should add channels from write nodes to writes set", func() {
@@ -77,7 +77,7 @@ var _ = Describe("StateConfig", Ordered, func() {
 			}
 			Expect(dist.Channel.Create(ctx, ch)).To(Succeed())
 
-			module := arc.Module{
+			prog := arc.Program{
 				IR: ir.IR{
 					Nodes: []ir.Node{
 						{
@@ -91,7 +91,7 @@ var _ = Describe("StateConfig", Ordered, func() {
 				},
 			}
 
-			cfg := MustSucceed(runtime.NewStateConfig(ctx, dist.Channel, module))
+			cfg := MustSucceed(runtime.NewStateConfig(ctx, dist.Channel, prog))
 			Expect(cfg.Writes.Contains(ch.Key())).To(BeTrue())
 			Expect(cfg.Reads.Contains(ch.Key())).To(BeFalse())
 		})
@@ -104,7 +104,7 @@ var _ = Describe("StateConfig", Ordered, func() {
 			}
 			Expect(dist.Channel.Create(ctx, ch)).To(Succeed())
 
-			module := arc.Module{
+			prog := arc.Program{
 				IR: ir.IR{
 					Nodes: []ir.Node{
 						{
@@ -118,7 +118,7 @@ var _ = Describe("StateConfig", Ordered, func() {
 				},
 			}
 
-			cfg := MustSucceed(runtime.NewStateConfig(ctx, dist.Channel, module))
+			cfg := MustSucceed(runtime.NewStateConfig(ctx, dist.Channel, prog))
 			Expect(cfg.Writes.Contains(ch.Key())).To(BeTrue())
 			Expect(cfg.Reads.Contains(ch.Key())).To(BeFalse())
 		})
@@ -140,7 +140,7 @@ var _ = Describe("StateConfig", Ordered, func() {
 			}
 			Expect(dist.Channel.Create(ctx, dataCh)).To(Succeed())
 
-			module := arc.Module{
+			prog := arc.Program{
 				IR: ir.IR{
 					Nodes: []ir.Node{
 						{
@@ -154,10 +154,10 @@ var _ = Describe("StateConfig", Ordered, func() {
 				},
 			}
 
-			cfg := MustSucceed(runtime.NewStateConfig(ctx, dist.Channel, module))
+			cfg := MustSucceed(runtime.NewStateConfig(ctx, dist.Channel, prog))
 			Expect(cfg.Reads.Contains(dataCh.Key())).To(BeTrue())
 			Expect(cfg.Reads.Contains(indexCh.Key())).To(BeTrue())
-			Expect(cfg.State.ChannelDigests).To(HaveLen(2))
+			Expect(cfg.ChannelDigests).To(HaveLen(2))
 		})
 
 		It("Should track index channels for writes", func() {
@@ -177,7 +177,7 @@ var _ = Describe("StateConfig", Ordered, func() {
 			}
 			Expect(dist.Channel.Create(ctx, dataCh)).To(Succeed())
 
-			module := arc.Module{
+			prog := arc.Program{
 				IR: ir.IR{
 					Nodes: []ir.Node{
 						{
@@ -191,7 +191,7 @@ var _ = Describe("StateConfig", Ordered, func() {
 				},
 			}
 
-			cfg := MustSucceed(runtime.NewStateConfig(ctx, dist.Channel, module))
+			cfg := MustSucceed(runtime.NewStateConfig(ctx, dist.Channel, prog))
 			Expect(cfg.Writes.Contains(dataCh.Key())).To(BeTrue())
 			Expect(cfg.Writes.Contains(indexCh.Key())).To(BeTrue())
 		})
@@ -211,7 +211,7 @@ var _ = Describe("StateConfig", Ordered, func() {
 			}
 			Expect(dist.Channel.Create(ctx, writeCh)).To(Succeed())
 
-			module := arc.Module{
+			prog := arc.Program{
 				IR: ir.IR{
 					Nodes: []ir.Node{
 						{
@@ -226,10 +226,10 @@ var _ = Describe("StateConfig", Ordered, func() {
 				},
 			}
 
-			cfg := MustSucceed(runtime.NewStateConfig(ctx, dist.Channel, module))
+			cfg := MustSucceed(runtime.NewStateConfig(ctx, dist.Channel, prog))
 			Expect(cfg.Reads.Contains(readCh.Key())).To(BeTrue())
 			Expect(cfg.Writes.Contains(writeCh.Key())).To(BeTrue())
-			Expect(cfg.State.ChannelDigests).To(HaveLen(2))
+			Expect(cfg.ChannelDigests).To(HaveLen(2))
 		})
 
 		It("Should handle multiple nodes with overlapping channels", func() {
@@ -240,7 +240,7 @@ var _ = Describe("StateConfig", Ordered, func() {
 			}
 			Expect(dist.Channel.Create(ctx, sharedCh)).To(Succeed())
 
-			module := arc.Module{
+			prog := arc.Program{
 				IR: ir.IR{
 					Nodes: []ir.Node{
 						{
@@ -261,26 +261,26 @@ var _ = Describe("StateConfig", Ordered, func() {
 				},
 			}
 
-			cfg := MustSucceed(runtime.NewStateConfig(ctx, dist.Channel, module))
+			cfg := MustSucceed(runtime.NewStateConfig(ctx, dist.Channel, prog))
 			Expect(cfg.Reads.Contains(sharedCh.Key())).To(BeTrue())
-			Expect(cfg.State.ChannelDigests).To(HaveLen(1))
+			Expect(cfg.ChannelDigests).To(HaveLen(1))
 		})
 
 		It("Should handle empty module", func() {
-			module := arc.Module{
+			prog := arc.Program{
 				IR: ir.IR{
 					Nodes: []ir.Node{},
 				},
 			}
 
-			cfg := MustSucceed(runtime.NewStateConfig(ctx, dist.Channel, module))
+			cfg := MustSucceed(runtime.NewStateConfig(ctx, dist.Channel, prog))
 			Expect(cfg.Reads).To(HaveLen(0))
 			Expect(cfg.Writes).To(HaveLen(0))
-			Expect(cfg.State.ChannelDigests).To(HaveLen(0))
+			Expect(cfg.ChannelDigests).To(HaveLen(0))
 		})
 
 		It("Should handle module with nodes that have no channels", func() {
-			module := arc.Module{
+			prog := arc.Program{
 				IR: ir.IR{
 					Nodes: []ir.Node{
 						{
@@ -292,14 +292,14 @@ var _ = Describe("StateConfig", Ordered, func() {
 				},
 			}
 
-			cfg := MustSucceed(runtime.NewStateConfig(ctx, dist.Channel, module))
+			cfg := MustSucceed(runtime.NewStateConfig(ctx, dist.Channel, prog))
 			Expect(cfg.Reads).To(HaveLen(0))
 			Expect(cfg.Writes).To(HaveLen(0))
-			Expect(cfg.State.ChannelDigests).To(HaveLen(0))
+			Expect(cfg.ChannelDigests).To(HaveLen(0))
 		})
 
 		It("Should return error when channel retrieval fails", func() {
-			module := arc.Module{
+			prog := arc.Program{
 				IR: ir.IR{
 					Nodes: []ir.Node{
 						{
@@ -313,7 +313,7 @@ var _ = Describe("StateConfig", Ordered, func() {
 				},
 			}
 
-			_, err := runtime.NewStateConfig(ctx, dist.Channel, module)
+			_, err := runtime.NewStateConfig(ctx, dist.Channel, prog)
 			Expect(err).To(HaveOccurred())
 		})
 
@@ -326,7 +326,7 @@ var _ = Describe("StateConfig", Ordered, func() {
 			}
 			Expect(dist.Channel.Create(ctx, virtualCh)).To(Succeed())
 
-			module := arc.Module{
+			prog := arc.Program{
 				IR: ir.IR{
 					Nodes: []ir.Node{
 						{
@@ -340,9 +340,9 @@ var _ = Describe("StateConfig", Ordered, func() {
 				},
 			}
 
-			cfg := MustSucceed(runtime.NewStateConfig(ctx, dist.Channel, module))
+			cfg := MustSucceed(runtime.NewStateConfig(ctx, dist.Channel, prog))
 			Expect(cfg.Reads.Contains(virtualCh.Key())).To(BeTrue())
-			Expect(cfg.State.ChannelDigests).To(HaveLen(1))
+			Expect(cfg.ChannelDigests).To(HaveLen(1))
 		})
 
 		It("Should handle interval-triggered function with stateful variable writing to channel", func() {
@@ -364,16 +364,16 @@ var _ = Describe("StateConfig", Ordered, func() {
 				`, virtCh.Name),
 			}
 
-			resolver := symbol.CreateResolver(dist.Channel)
-			module := MustSucceed(arc.CompileText(ctx, prog, arc.WithResolver(resolver)))
+			resolver := symbol.NewResolver(dist.Channel, nil)
+			compiled := MustSucceed(arc.CompileText(ctx, prog, arc.WithResolver(resolver)))
 
-			cfg := MustSucceed(runtime.NewStateConfig(ctx, dist.Channel, module))
+			cfg := MustSucceed(runtime.NewStateConfig(ctx, dist.Channel, compiled))
 			Expect(cfg.Reads).To(HaveLen(0))
 			Expect(cfg.Writes.Contains(virtCh.Key())).To(BeTrue())
 			Expect(cfg.Writes).To(HaveLen(1))
-			Expect(cfg.State.ChannelDigests).To(HaveLen(1))
-			Expect(cfg.State.ChannelDigests[0].Key).To(Equal(uint32(virtCh.Key())))
-			Expect(cfg.State.ChannelDigests[0].DataType).To(Equal(telem.Float32T))
+			Expect(cfg.ChannelDigests).To(HaveLen(1))
+			Expect(cfg.ChannelDigests[0].Key).To(Equal(uint32(virtCh.Key())))
+			Expect(cfg.ChannelDigests[0].DataType).To(Equal(telem.Float32T))
 		})
 
 		It("Should add dynamic set_authority channel to writes even if never written to", func() {
@@ -402,10 +402,10 @@ var _ = Describe("StateConfig", Ordered, func() {
 				`, valveCh.Name, triggerCh.Name),
 			}
 
-			resolver := symbol.CreateResolver(dist.Channel)
-			module := MustSucceed(arc.CompileText(ctx, prog, arc.WithResolver(resolver)))
+			resolver := symbol.NewResolver(dist.Channel, nil)
+			compiled := MustSucceed(arc.CompileText(ctx, prog, arc.WithResolver(resolver)))
 
-			cfg := MustSucceed(runtime.NewStateConfig(ctx, dist.Channel, module))
+			cfg := MustSucceed(runtime.NewStateConfig(ctx, dist.Channel, compiled))
 			Expect(cfg.Writes.Contains(valveCh.Key())).To(BeTrue(),
 				"channel referenced only in set_authority config should be in writes")
 		})
@@ -418,7 +418,7 @@ var _ = Describe("StateConfig", Ordered, func() {
 			}
 			Expect(dist.Channel.Create(ctx, authOnlyCh)).To(Succeed())
 
-			module := arc.Module{
+			prog := arc.Program{
 				IR: ir.IR{
 					Authorities: ir.Authorities{
 						Channels: map[uint32]uint8{
@@ -429,10 +429,10 @@ var _ = Describe("StateConfig", Ordered, func() {
 				},
 			}
 
-			cfg := MustSucceed(runtime.NewStateConfig(ctx, dist.Channel, module))
+			cfg := MustSucceed(runtime.NewStateConfig(ctx, dist.Channel, prog))
 			Expect(cfg.Writes.Contains(authOnlyCh.Key())).To(BeTrue())
-			Expect(cfg.State.ChannelDigests).To(HaveLen(1))
-			Expect(cfg.State.ChannelDigests[0].Key).To(Equal(uint32(authOnlyCh.Key())))
+			Expect(cfg.ChannelDigests).To(HaveLen(1))
+			Expect(cfg.ChannelDigests[0].Key).To(Equal(uint32(authOnlyCh.Key())))
 		})
 
 		It("Should build complete config with complex module", func() {
@@ -467,7 +467,7 @@ var _ = Describe("StateConfig", Ordered, func() {
 			}
 			Expect(dist.Channel.Create(ctx, writeCh)).To(Succeed())
 
-			module := arc.Module{
+			prog := arc.Program{
 				IR: ir.IR{
 					Nodes: []ir.Node{
 						{
@@ -494,14 +494,14 @@ var _ = Describe("StateConfig", Ordered, func() {
 				},
 			}
 
-			cfg := MustSucceed(runtime.NewStateConfig(ctx, dist.Channel, module))
+			cfg := MustSucceed(runtime.NewStateConfig(ctx, dist.Channel, prog))
 			Expect(cfg.Reads.Contains(readCh1.Key())).To(BeTrue())
 			Expect(cfg.Reads.Contains(readCh2.Key())).To(BeTrue())
 			Expect(cfg.Reads.Contains(indexCh.Key())).To(BeTrue())
 			Expect(cfg.Writes.Contains(readCh1.Key())).To(BeTrue())
 			Expect(cfg.Writes.Contains(writeCh.Key())).To(BeTrue())
 			Expect(cfg.Writes.Contains(indexCh.Key())).To(BeTrue())
-			Expect(cfg.State.ChannelDigests).To(HaveLen(4))
+			Expect(cfg.ChannelDigests).To(HaveLen(4))
 		})
 	})
 })

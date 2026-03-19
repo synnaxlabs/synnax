@@ -13,7 +13,6 @@
 #include "client/cpp/channel/channel.h"
 #include "client/cpp/channel/proto.gen.h"
 #include "client/cpp/errors/errors.h"
-#include "freighter/cpp/freighter.h"
 #include "x/cpp/errors/errors.h"
 
 namespace synnax::channel {

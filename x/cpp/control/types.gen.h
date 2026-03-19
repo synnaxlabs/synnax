@@ -59,7 +59,7 @@ struct State {
     R resource;
     /// @brief authority is the level of control authority the subject has over the
     /// resource.
-    Authority authority;
+    Authority authority = 0;
 
     static State parse(x::json::Parser parser);
     [[nodiscard]] x::json::json to_json() const;

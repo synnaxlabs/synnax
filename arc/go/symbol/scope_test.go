@@ -306,6 +306,22 @@ var _ = Describe("Scope", func() {
 			Expect(err).To(HaveOccurred())
 			Expect(err).To(MatchError(ContainSubstring("undefined symbol: undefined")))
 		})
+		It("Should skip internal symbols from global resolver", func() {
+			globalResolver := symbol.MapResolver{
+				"host_fn": symbol.Symbol{Name: "host_fn", Kind: symbol.KindFunction, Type: types.F64(), Internal: true},
+			}
+			rootScope := symbol.CreateRootScope(globalResolver)
+			Expect(rootScope.Resolve(bCtx, "host_fn")).Error().To(MatchError(ContainSubstring("undefined symbol: host_fn")))
+		})
+		It("Should resolve non-internal symbols from global resolver alongside internal ones", func() {
+			globalResolver := symbol.MapResolver{
+				"host_fn": symbol.Symbol{Name: "host_fn", Kind: symbol.KindFunction, Type: types.F64(), Internal: true},
+				"user_fn": symbol.Symbol{Name: "user_fn", Kind: symbol.KindFunction, Type: types.F64()},
+			}
+			rootScope := symbol.CreateRootScope(globalResolver)
+			resolved := MustSucceed(rootScope.Resolve(bCtx, "user_fn"))
+			Expect(resolved.Name).To(Equal("user_fn"))
+		})
 	})
 
 	Describe("Search", func() {
@@ -374,6 +390,27 @@ var _ = Describe("Scope", func() {
 			Expect(barScope).ToNot(BeNil())
 			scopes := MustSucceed(rootScope.Search(bCtx, ""))
 			Expect(scopes).To(HaveLen(2))
+		})
+		It("Should skip internal symbols from global resolver", func() {
+			globalResolver := symbol.MapResolver{
+				"element_add": symbol.Symbol{Name: "element_add", Kind: symbol.KindFunction, Type: types.F64(), Internal: true},
+				"len":         symbol.Symbol{Name: "len", Kind: symbol.KindFunction, Type: types.F64()},
+			}
+			rootScope := symbol.CreateRootScope(globalResolver)
+			scopes := MustSucceed(rootScope.Search(bCtx, ""))
+			Expect(scopes).To(HaveLen(1))
+			Expect(scopes[0].Name).To(Equal("len"))
+		})
+		It("Should skip all internal symbols when searching by prefix", func() {
+			globalResolver := symbol.MapResolver{
+				"element_add": symbol.Symbol{Name: "element_add", Kind: symbol.KindFunction, Type: types.F64(), Internal: true},
+				"element_sub": symbol.Symbol{Name: "element_sub", Kind: symbol.KindFunction, Type: types.F64(), Internal: true},
+				"element_len": symbol.Symbol{Name: "element_len", Kind: symbol.KindFunction, Type: types.F64()},
+			}
+			rootScope := symbol.CreateRootScope(globalResolver)
+			scopes := MustSucceed(rootScope.Search(bCtx, "element"))
+			Expect(scopes).To(HaveLen(1))
+			Expect(scopes[0].Name).To(Equal("element_len"))
 		})
 	})
 

@@ -20,7 +20,6 @@ package pb
 import (
 	protoreflect "google.golang.org/protobuf/reflect/protoreflect"
 	protoimpl "google.golang.org/protobuf/runtime/protoimpl"
-	structpb "google.golang.org/protobuf/types/known/structpb"
 	reflect "reflect"
 	sync "sync"
 	unsafe "unsafe"
@@ -382,7 +381,7 @@ type Param struct {
 	// type is the parameter type.
 	Type *Type `protobuf:"bytes,2,opt,name=type,proto3" json:"type,omitempty"`
 	// value is an optional default value.
-	Value         *structpb.Value `protobuf:"bytes,3,opt,name=value,proto3" json:"value,omitempty"`
+	Value         []byte `protobuf:"bytes,3,opt,name=value,proto3" json:"value,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -431,7 +430,7 @@ func (x *Param) GetType() *Type {
 	return nil
 }
 
-func (x *Param) GetValue() *structpb.Value {
+func (x *Param) GetValue() []byte {
 	if x != nil {
 		return x.Value
 	}
@@ -672,7 +671,7 @@ var File_arc_go_types_pb_types_proto protoreflect.FileDescriptor
 
 const file_arc_go_types_pb_types_proto_rawDesc = "" +
 	"\n" +
-	"\x1barc/go/types/pb/types.proto\x12\farc.types.pb\x1a\x1cgoogle/protobuf/struct.proto\"\x9d\x01\n" +
+	"\x1barc/go/types/pb/types.proto\x12\farc.types.pb\"\x9d\x01\n" +
 	"\x12FunctionProperties\x12+\n" +
 	"\x06inputs\x18\x01 \x03(\v2\x13.arc.types.pb.ParamR\x06inputs\x12-\n" +
 	"\aoutputs\x18\x02 \x03(\v2\x13.arc.types.pb.ParamR\aoutputs\x12+\n" +
@@ -691,11 +690,11 @@ const file_arc_go_types_pb_types_proto_rawDesc = "" +
 	"\x0echan_direction\x18\t \x01(\x0e2\x1b.arc.types.pb.ChanDirectionR\rchanDirectionB\a\n" +
 	"\x05_elemB\a\n" +
 	"\x05_unitB\r\n" +
-	"\v_constraint\"q\n" +
+	"\v_constraint\"Y\n" +
 	"\x05Param\x12\x12\n" +
 	"\x04name\x18\x01 \x01(\tR\x04name\x12&\n" +
-	"\x04type\x18\x02 \x01(\v2\x12.arc.types.pb.TypeR\x04type\x12,\n" +
-	"\x05value\x18\x03 \x01(\v2\x16.google.protobuf.ValueR\x05value\"\xec\x01\n" +
+	"\x04type\x18\x02 \x01(\v2\x12.arc.types.pb.TypeR\x04type\x12\x14\n" +
+	"\x05value\x18\x03 \x01(\fR\x05value\"\xec\x01\n" +
 	"\bChannels\x124\n" +
 	"\x04read\x18\x01 \x03(\v2 .arc.types.pb.Channels.ReadEntryR\x04read\x127\n" +
 	"\x05write\x18\x02 \x03(\v2!.arc.types.pb.Channels.WriteEntryR\x05write\x1a7\n" +
@@ -779,7 +778,6 @@ var file_arc_go_types_pb_types_proto_goTypes = []any{
 	(*Unit)(nil),               // 7: arc.types.pb.Unit
 	nil,                        // 8: arc.types.pb.Channels.ReadEntry
 	nil,                        // 9: arc.types.pb.Channels.WriteEntry
-	(*structpb.Value)(nil),     // 10: google.protobuf.Value
 }
 var file_arc_go_types_pb_types_proto_depIdxs = []int32{
 	4,  // 0: arc.types.pb.FunctionProperties.inputs:type_name -> arc.types.pb.Param
@@ -794,15 +792,14 @@ var file_arc_go_types_pb_types_proto_depIdxs = []int32{
 	3,  // 9: arc.types.pb.Type.constraint:type_name -> arc.types.pb.Type
 	1,  // 10: arc.types.pb.Type.chan_direction:type_name -> arc.types.pb.ChanDirection
 	3,  // 11: arc.types.pb.Param.type:type_name -> arc.types.pb.Type
-	10, // 12: arc.types.pb.Param.value:type_name -> google.protobuf.Value
-	8,  // 13: arc.types.pb.Channels.read:type_name -> arc.types.pb.Channels.ReadEntry
-	9,  // 14: arc.types.pb.Channels.write:type_name -> arc.types.pb.Channels.WriteEntry
-	6,  // 15: arc.types.pb.Unit.dimensions:type_name -> arc.types.pb.Dimensions
-	16, // [16:16] is the sub-list for method output_type
-	16, // [16:16] is the sub-list for method input_type
-	16, // [16:16] is the sub-list for extension type_name
-	16, // [16:16] is the sub-list for extension extendee
-	0,  // [0:16] is the sub-list for field type_name
+	8,  // 12: arc.types.pb.Channels.read:type_name -> arc.types.pb.Channels.ReadEntry
+	9,  // 13: arc.types.pb.Channels.write:type_name -> arc.types.pb.Channels.WriteEntry
+	6,  // 14: arc.types.pb.Unit.dimensions:type_name -> arc.types.pb.Dimensions
+	15, // [15:15] is the sub-list for method output_type
+	15, // [15:15] is the sub-list for method input_type
+	15, // [15:15] is the sub-list for extension type_name
+	15, // [15:15] is the sub-list for extension extendee
+	0,  // [0:15] is the sub-list for field type_name
 }
 
 func init() { file_arc_go_types_pb_types_proto_init() }

@@ -15,7 +15,7 @@ import (
 	"github.com/antlr4-go/antlr/v4"
 	"github.com/synnaxlabs/oracle/parser"
 	xlsp "github.com/synnaxlabs/x/lsp"
-	"go.lsp.dev/protocol"
+	"github.com/synnaxlabs/x/lsp/protocol"
 )
 
 const (
@@ -48,7 +48,7 @@ var primitiveTypes = map[string]bool{
 	"uint8": true, "uint16": true, "uint32": true, "uint64": true,
 	"float32": true, "float64": true,
 	"timestamp": true, "timespan": true, "time_range": true,
-	"json": true, "bytes": true,
+	"record": true, "bytes": true,
 }
 
 func (s *Server) SemanticTokensFull(_ context.Context, params *protocol.SemanticTokensParams) (*protocol.SemanticTokens, error) {

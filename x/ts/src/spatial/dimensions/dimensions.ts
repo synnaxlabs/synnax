@@ -15,8 +15,8 @@ import {
   numberCouple,
   type SignedDimensions,
   signedDimensionsZ,
-  xyZ,
 } from "@/spatial/base";
+import { xyZ } from "@/spatial/types.gen";
 
 export { type Dimensions, dimensionsZ, type SignedDimensions, signedDimensionsZ };
 

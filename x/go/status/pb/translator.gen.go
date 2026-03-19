@@ -99,11 +99,11 @@ func StatusFromPB[Details any](
 	var err error
 	r.Details, err = translateDetails(ctx, pb.Details)
 	if err != nil {
-		return r, err
+		return status.Status[Details]{}, err
 	}
 	r.Labels, err = labelpb.LabelsFromPB(ctx, pb.Labels)
 	if err != nil {
-		return r, err
+		return status.Status[Details]{}, err
 	}
 	r.Key = pb.Key
 	r.Name = pb.Name

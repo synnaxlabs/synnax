@@ -10,15 +10,11 @@
 import { Select } from "@synnaxlabs/pluto";
 import { type record } from "@synnaxlabs/x";
 
-import {
-  AO_CHANNEL_TYPE,
-  DO_CHANNEL_TYPE,
-  type OutputChannelType,
-} from "@/hardware/labjack/task/types";
+import { type OutputChannelType } from "@/hardware/labjack/task/types";
 
 export interface OutputChannelTypeEntry extends record.KeyedNamed<OutputChannelType> {}
 
-const DATA: OutputChannelType[] = [AO_CHANNEL_TYPE, DO_CHANNEL_TYPE];
+const DATA: OutputChannelType[] = ["AO", "DO"];
 
 export interface SelectOutputChannelTypeProps extends Omit<
   Select.ButtonsProps<OutputChannelType>,
@@ -27,9 +23,9 @@ export interface SelectOutputChannelTypeProps extends Omit<
 
 export const SelectOutputChannelType = (props: SelectOutputChannelTypeProps) => (
   <Select.Buttons {...props} keys={DATA}>
-    <Select.Button itemKey={AO_CHANNEL_TYPE} style={{ borderRadius: 0 }}>
+    <Select.Button itemKey="AO" style={{ borderRadius: 0 }}>
       Analog
     </Select.Button>
-    <Select.Button itemKey={DO_CHANNEL_TYPE}>Digital</Select.Button>
+    <Select.Button itemKey="DO">Digital</Select.Button>
   </Select.Buttons>
 );

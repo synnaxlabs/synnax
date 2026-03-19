@@ -734,14 +734,14 @@ var _ = Describe("Go PB Plugin", func() {
 			})
 		})
 
-		Context("json field conversion", func() {
-			It("Should handle json fields with structpb", func() {
+		Context("record field conversion", func() {
+			It("Should handle record fields with structpb", func() {
 				source := `
 					@go output "core/test"
 					@pb
 
 					Test struct {
-						data json
+						data record
 					}
 				`
 				resp := MustGenerate(ctx, source, "test", loader, pbPlugin)
@@ -753,7 +753,7 @@ var _ = Describe("Go PB Plugin", func() {
 		})
 
 		Context("any field conversion", func() {
-			It("Should handle any fields with structpb", func() {
+			It("Should handle any fields with json.Marshal", func() {
 				source := `
 					@go output "core/test"
 					@pb
@@ -765,8 +765,8 @@ var _ = Describe("Go PB Plugin", func() {
 				resp := MustGenerate(ctx, source, "test", loader, pbPlugin)
 
 				ExpectContent(resp, "translator.gen.go").
-					ToContain("structpb.NewValue").
-					ToContain("pb.Value.AsInterface()")
+					ToContain("json.Marshal").
+					ToContain("json.Unmarshal")
 			})
 		})
 	})
@@ -845,13 +845,13 @@ var _ = Describe("Go PB Plugin", func() {
 				ToContain("types.Uint20(pb.Value)")
 		})
 
-		It("Should convert json field with structpb import", func() {
+		It("Should convert record field with structpb import", func() {
 			source := `
 				@go output "core/test"
 				@pb
 
 				Test struct {
-					metadata json
+					metadata record
 				}
 			`
 			resp := MustGenerate(ctx, source, "test", loader, pbPlugin)

@@ -10,10 +10,11 @@
 import random
 
 import synnax as sy
+from x import get_random_name
 
 from console.case import ConsoleCase
 from console.plot import Plot
-from framework.utils import assert_link_format, get_random_name
+from framework.utils import assert_link_format
 
 SRC_CH = "channel_lifecycle_uptime"
 

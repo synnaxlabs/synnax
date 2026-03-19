@@ -16,10 +16,6 @@ I have verified that, when released, the following packages will not conflict wi
 - [ ] [`alamos/ts`](https://www.npmjs.com/package/@synnaxlabs/alamos)
 - [ ] [`client/py`](https://pypi.org/project/synnax/)
 - [ ] [`client/ts`](https://www.npmjs.com/package/@synnaxlabs/client)
-- [ ] [`configs/eslint`](https://www.npmjs.com/package/eslint-config-synnaxlabs)
-- [ ] [`configs/stylelint`](https://www.npmjs.com/package/stylelint-config-synnaxlabs)
-- [ ] [`configs/ts`](https://www.npmjs.com/package/@synnaxlabs/tsconfig)
-- [ ] [`configs/vite`](https://www.npmjs.com/package/@synnaxlabs/vite-plugin)
 - [ ] [`console`](https://github.com/synnaxlabs/synnax/releases)
 - [ ] [`core`](https://github.com/synnaxlabs/synnax/releases)
 - [ ] [`drift`](https://www.npmjs.com/package/@synnaxlabs/drift)
@@ -132,19 +128,6 @@ I can successfully:
   - [ ] See the user avatar and username in the top-right corner after logging in.
   - [ ] Click the user badge to open the logout menu.
 
-### Devices
-
-I can successfully:
-
-- **Resources Toolbar**
-  - [ ] See a device's state get updated.
-  - **Context Menu**
-    - [ ] Group devices.
-    - [ ] Configure an unconfigured device.
-    - [ ] Change the identifier on a configured device.
-    - [ ] Rename a device.
-    - [ ] Delete a device.
-
 ### Layout
 
 I can successfully:
@@ -253,16 +236,6 @@ I can successfully:
 - [ ] Change a user's username and log in with the new username.
 - [ ] Change a user's role and verify their permissions change accordingly.
 
-### Arc
-
-I can successfully:
-
-- **Arc Toolbar**
-  - [ ] Toggle Arc toolbar visibility with "A" keyboard shortcut
-
-- **Arc Editor**
-  - [ ] Create an alarm automation that changes statuses and includes the following blocks: channel source, constant, comparison, stable for, select, and status change.
-
 ### Version
 
 I can successfully:
@@ -333,65 +306,12 @@ I can successfully:
 I can successfully:
 
 - [ ] Enable and disable NI integration when starting the server.
-- [x] Recognize and connect to an NI device locally. (driver_ni_digital_write.py)
-- [ ] Recognize and connect to NI devices over the network.
-- [x] Recognize and connect to physical and simulated devices. (driver_ni_digital_write.py)
-- [ ] Disconnect a physical device while a task is running without causing faults.
-- [ ] Ignore chassis and view devices connected to it.
-- [ ] Run the Driver without NI-DAQmx and System Configuration libraries installed.
-- [ ] Receive feedback when trying to create an NI task on a machine lacking the necessary libraries.
-- **Handle invalid device configurations and receive meaningful feedback:**
-  - [ ] Invalid ports.
-  - [ ] Incorrect task type for devices.
-  - [ ] Out-of-range values.
-  - [ ] Multiple tasks using the same channel.
+- [ ] View a chassis and it's child devices.
 - [ ] Shut down the driver without errors during embedded operation.
-- [ ] Run various tasks on a single device.
-- [ ] Run multiple tasks across multiple devices concurrently.
-- **Reliable data streaming at the following sample rates:**
-  - [ ] 1 Hz
-  - [ ] 10 Hz
-  - [ ] 100 Hz
-  - [ ] 1 kHz
-  - [ ] 5 kHz
-- **Configure the following stream rates:**
-  - [ ] 1 Hz
-  - [ ] 10 Hz
-  - [ ] 30 Hz
-- **Analog Read Task**
-  - [ ] Plot live data.
-  - [ ] Tare data.
-  - [ ] Handle device disconnection during active tasks with appropriate feedback.
-  - [ ] Start multiple tasks at different times and view live data.
-  - [ ] Enable and disable data saving.
-  - [ ] Enabled auto-start, and ensure that the task automatically starts after configuration.
-  - [ ] Ensure no lag between sensor input and Core data recording.
-  - [ ] Configure and run an analog read task for the following channels:
-    - [ ] Current (NI-9203)
-    - [ ] Resistance (NI-9219)
-    - [ ] RTD (NI-9217)
-      - [ ] All RTD types and resistance configurations.
-    - [ ] Built-in temperature sensor (USB-6289)
-    - [ ] Thermocouple (NI-9211A)
-      - [ ] All thermocouple types and CJC options.
-    - [ ] Voltage (USB-6000)
-      - **Terminal configurations:**
-        - [ ] Default (USB-6000)
-        - [ ] Reference Single-Ended (USB-6000)
-        - [ ] Non-Referenced Single-Ended (NI-9206)
-        - [ ] Differential (NI-9206)
-        - [ ] Pseudo-Differential (NI-9234)
-  - **Apply the following scales:**
-    - [ ] Linear
-    - [ ] Map
 - **Digital Read Task**
   - [ ] Plot live data.
-  - [ ] Stop, start, and reconfigure tasks.
-  - [ ] Enable and disable data saving.
 - **Digital Write Task**
   - [ ] Perform control actions using a schematic.
-  - [ ] Stop, start, and reconfigure tasks.
-  - [ ] Handle device disconnection during active tasks with appropriate feedback.
   - **Configure response time for specified state rates:**
     - [ ] 1 Hz (visible delay)
     - [ ] 20 Hz (near-instant response)
@@ -402,7 +322,6 @@ I can successfully:
 
 - [ ] Enable and disable OPC UA integration when starting the server.
 - [ ] Connect to and read data from a physical device.
-- [ ] Connect to an encrypted OPC UA server (Write and Read).
 
 ### Modbus
 

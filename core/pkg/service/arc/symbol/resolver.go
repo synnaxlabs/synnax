@@ -15,21 +15,18 @@ import (
 
 	"github.com/samber/lo"
 	"github.com/synnaxlabs/arc"
-	"github.com/synnaxlabs/arc/runtime/authority"
-	"github.com/synnaxlabs/arc/runtime/constant"
-	"github.com/synnaxlabs/arc/runtime/op"
-	"github.com/synnaxlabs/arc/runtime/selector"
-	"github.com/synnaxlabs/arc/runtime/stable"
-	"github.com/synnaxlabs/arc/runtime/stat"
-	"github.com/synnaxlabs/arc/runtime/telem"
-	"github.com/synnaxlabs/arc/runtime/time"
+	"github.com/synnaxlabs/arc/stl"
 	"github.com/synnaxlabs/arc/symbol"
 	"github.com/synnaxlabs/arc/types"
 	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
-	"github.com/synnaxlabs/synnax/pkg/service/arc/status"
+	arcstatus "github.com/synnaxlabs/synnax/pkg/service/arc/status"
+	"github.com/synnaxlabs/x/gorp"
 )
 
-type channelResolver struct{ *channel.Service }
+type channelResolver struct {
+	channelSvc *channel.Service
+	tx         gorp.Tx
+}
 
 var _ arc.SymbolResolver = (*channelResolver)(nil)
 
@@ -45,13 +42,13 @@ func channelToSymbol(ch channel.Channel) symbol.Symbol {
 func (r *channelResolver) Resolve(ctx context.Context, name string) (arc.Symbol, error) {
 	key, err := strconv.Atoi(name)
 	ch := channel.Channel{}
-	q := r.NewRetrieve().Entry(&ch)
+	q := r.channelSvc.NewRetrieve().Entry(&ch)
 	if err == nil {
 		q = q.WhereKeys(channel.Key(key))
 	} else {
 		q = q.WhereNames(name)
 	}
-	if err = q.Exec(ctx, nil); err != nil {
+	if err = q.Exec(ctx, r.tx); err != nil {
 		return arc.Symbol{}, err
 	}
 	return channelToSymbol(ch), nil
@@ -59,10 +56,10 @@ func (r *channelResolver) Resolve(ctx context.Context, name string) (arc.Symbol,
 
 func (r *channelResolver) Search(ctx context.Context, name string) ([]arc.Symbol, error) {
 	var results []channel.Channel
-	if err := r.NewRetrieve().
+	if err := r.channelSvc.NewRetrieve().
 		WhereInternal(false).
 		Search(name).
-		Entries(&results).Exec(ctx, nil); err != nil {
+		Entries(&results).Exec(ctx, r.tx); err != nil {
 		return nil, err
 	}
 	return lo.Map(results, func(item channel.Channel, index int) arc.Symbol {
@@ -70,17 +67,12 @@ func (r *channelResolver) Search(ctx context.Context, name string) ([]arc.Symbol
 	}), nil
 }
 
-func CreateResolver(channelSvc *channel.Service) arc.SymbolResolver {
-	return symbol.CompoundResolver{
-		constant.SymbolResolver,
-		op.SymbolResolver,
-		selector.SymbolResolver,
-		stable.SymbolResolver,
-		status.SymbolResolver,
-		authority.SymbolResolver,
-		telem.SymbolResolver,
-		stat.SymbolResolver,
-		time.SymbolResolver,
-		&channelResolver{Service: channelSvc},
-	}
+func NewResolver(channelSvc *channel.Service, tx gorp.Tx) arc.SymbolResolver {
+	resolvers := make(symbol.CompoundResolver, len(stl.SymbolResolver))
+	copy(resolvers, stl.SymbolResolver)
+	return append(
+		resolvers,
+		arcstatus.SymbolResolver,
+		&channelResolver{channelSvc: channelSvc, tx: tx},
+	)
 }

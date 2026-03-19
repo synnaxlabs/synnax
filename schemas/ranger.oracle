@@ -52,7 +52,7 @@ Range struct {
     @pb
     @cpp name   "Base"
     @ts name    "Base"
-    @py name    "Payload"
+    @py name    "Base"
 }
 
 APIRange struct extends Range {
@@ -77,6 +77,7 @@ APIRange struct extends Range {
     @go name       "Range"
     @pb name       "Range"
     @ontology type "range"
+    @py name       "Payload"
     @cpp name      "Range"
     @cpp methods   "ranger::kv::Client kv"
     @cpp includes  "client/cpp/ranger/kv/kv.h"

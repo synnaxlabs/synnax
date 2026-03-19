@@ -22,7 +22,6 @@
 #include "freighter/cpp/freighter.h"
 #include "x/cpp/errors/errors.h"
 #include "x/cpp/json/json.h"
-#include "x/cpp/json/struct.h"
 #include "x/cpp/status/status.h"
 
 #include "core/pkg/api/grpc/task/task.pb.h"

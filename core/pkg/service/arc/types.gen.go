@@ -14,15 +14,18 @@ package arc
 import (
 	"github.com/google/uuid"
 	"github.com/synnaxlabs/arc/graph"
-	"github.com/synnaxlabs/arc/module"
+	"github.com/synnaxlabs/arc/program"
 	"github.com/synnaxlabs/arc/text"
 	"github.com/synnaxlabs/x/status"
 )
 
+// Status is the status of an Arc module including execution state.
 type Status = status.Status[StatusDetails]
 
+// Key is a unique identifier for an Arc module.
 type Key = uuid.UUID
 
+// Mode specifies whether an Arc module uses text-based or graph-based representation.
 type Mode string
 
 const (
@@ -50,8 +53,8 @@ type Arc struct {
 	Graph graph.Graph `json:"graph" msgpack:"graph"`
 	// Text is the text-based Arc source code.
 	Text text.Text `json:"text" msgpack:"text"`
-	// Module is the compiled module output including IR and WebAssembly bytecode.
-	Module *module.Module `json:"module,omitempty" msgpack:"module,omitempty"`
+	// Program is the compiled module output including IR and WebAssembly bytecode.
+	Program *program.Program `json:"program,omitempty" msgpack:"program,omitempty"`
 	// Status is the current execution status of the module.
 	Status *Status `json:"status,omitempty" msgpack:"status,omitempty"`
 }

@@ -23,7 +23,7 @@ from synnax.ontology.payload import ID
 Key: TypeAlias = UUID
 
 
-class Payload(BaseModel):
+class Base(BaseModel):
     """Is a user-defined region of time in the Synnax cluster. Ranges act as a
     method for labeling and categorizing telemetry data within specific time
     periods.
@@ -46,7 +46,7 @@ class Payload(BaseModel):
         return hash(self.key)
 
 
-class APIRange(Payload):
+class Payload(Base):
     """Is a range with additional relationships for hierarchical organization
     and metadata. This is the primary type exposed through the API.
 
@@ -58,7 +58,7 @@ class APIRange(Payload):
     """
 
     labels: list[label.Label] | None = None
-    parent: APIRange | None = None
+    parent: Payload | None = None
 
     def __hash__(self) -> int:
         return hash(self.key)

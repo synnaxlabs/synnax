@@ -12,7 +12,7 @@ package lsp
 import (
 	"strings"
 
-	"go.lsp.dev/protocol"
+	"github.com/synnaxlabs/x/lsp/protocol"
 )
 
 // PositionToOffset converts an LSP line/character position to a byte offset
@@ -40,7 +40,7 @@ func PositionToOffset(content string, pos protocol.Position) int {
 func IsFullReplacement(
 	change protocol.TextDocumentContentChangeEvent,
 ) bool {
-	return change.Range == (protocol.Range{}) && change.RangeLength == 0
+	return change.Range == nil
 }
 
 // ApplyIncrementalChange splices a single incremental change into the
@@ -49,6 +49,9 @@ func ApplyIncrementalChange(
 	content string,
 	change protocol.TextDocumentContentChangeEvent,
 ) string {
+	if change.Range == nil {
+		return change.Text
+	}
 	start := PositionToOffset(content, change.Range.Start)
 	end := PositionToOffset(content, change.Range.End)
 	var b strings.Builder

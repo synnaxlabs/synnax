@@ -10,21 +10,15 @@
 import { Form } from "@synnaxlabs/pluto";
 import { type record } from "@synnaxlabs/x";
 
-import {
-  COIL_INPUT_TYPE,
-  DISCRETE_INPUT_TYPE,
-  HOLDING_REGISTER_INPUT_TYPE,
-  type InputChannelType,
-  REGISTER_INPUT_TYPE,
-} from "@/hardware/modbus/task/types";
+import { type InputChannelType } from "@/hardware/modbus/task/types";
 
 export interface InputChannelTypeEntry extends record.KeyedNamed<InputChannelType> {}
 
 const DATA: InputChannelTypeEntry[] = [
-  { key: COIL_INPUT_TYPE, name: "Coil" },
-  { key: DISCRETE_INPUT_TYPE, name: "Discrete" },
-  { key: HOLDING_REGISTER_INPUT_TYPE, name: "Holding Register" },
-  { key: REGISTER_INPUT_TYPE, name: "Register" },
+  { key: "coil_input", name: "Coil" },
+  { key: "discrete_input", name: "Discrete" },
+  { key: "holding_register_input", name: "Holding Register" },
+  { key: "register_input", name: "Register" },
 ];
 
 export interface SelectInputChannelTypeFieldProps extends Omit<

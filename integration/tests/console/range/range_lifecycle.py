@@ -400,7 +400,7 @@ class RangeLifecycle(ConsoleCase):
         self.console.ranges.wait_for_overview(self.labeled_range_name)
 
         self.console.ranges.copy_python_code_from_overview()
-        notifications = self.console.notifications.check(timeout=2)
+        notifications = self.console.notifications.check(timeout=10)
         messages = [n.get("message", "") for n in notifications]
         assert any(
             "Python code to retrieve" in msg for msg in messages

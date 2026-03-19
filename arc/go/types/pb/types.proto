@@ -4,8 +4,6 @@ syntax = "proto3";
 
 package arc.types.pb;
 
-import "google/protobuf/struct.proto";
-
 option go_package = "github.com/synnaxlabs/arc/types/pb";
 
 // Kind is the type category for Arc's type system, including primitives, compound
@@ -82,7 +80,7 @@ message Param {
   // type is the parameter type.
   Type type = 2;
   // value is an optional default value.
-  google.protobuf.Value value = 3;
+  bytes value = 3;
 }
 
 // Channels contains channel declarations for reading from and writing to Synnax

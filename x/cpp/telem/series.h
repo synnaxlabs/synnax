@@ -1393,7 +1393,10 @@ public:
     /// avoid accidental deep copies.
     [[nodiscard]] Series deep_copy() const { return {*this}; }
 
-    void clear() { this->size_ = 0; }
+    void clear() {
+        this->size_ = 0;
+        if (this->data_type().is_variable()) this->cached_byte_size = 0;
+    }
 
     void resize(size_t new_size) {
         if (this->data_type().is_variable()) {
@@ -1593,24 +1596,4 @@ struct MultiSeries {
     [[nodiscard]] size_t size() const { return series.size(); }
 };
 
-// ==================== Protobuf translators ====================
-
-inline ::x::telem::pb::Series Series::to_proto() const {
-    ::x::telem::pb::Series pb;
-    *pb.mutable_time_range() = this->time_range.to_proto();
-    pb.set_data_type(this->data_type_.name());
-    pb.set_data(this->data_.get(), byte_size());
-    pb.set_alignment(this->alignment.uint64());
-    return pb;
 }
-
-inline std::pair<Series, x::errors::Error>
-Series::from_proto(const ::x::telem::pb::Series &pb) {
-    auto [tr, err] = TimeRange::from_proto(pb.time_range());
-    if (err) return {Series(UNKNOWN_T, 0), err};
-    return {Series(pb, tr), x::errors::NIL};
-}
-
-}
-
-#include "x/cpp/telem/proto.gen.h"

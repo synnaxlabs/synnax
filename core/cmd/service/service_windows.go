@@ -24,6 +24,7 @@ import (
 	cmdinst "github.com/synnaxlabs/synnax/cmd/instrumentation"
 	cmdstart "github.com/synnaxlabs/synnax/cmd/start"
 	"github.com/synnaxlabs/x/errors"
+	xos "github.com/synnaxlabs/x/os"
 	"github.com/synnaxlabs/x/set"
 	signal "github.com/synnaxlabs/x/signal"
 	"go.uber.org/zap"
@@ -57,7 +58,16 @@ var configKeysToExclude = set.FromSlice([]string{"auto-start", "delayed-start"})
 // WriteConfig writes the current viper configuration to the config file.
 // This captures all the core configuration flags set during service installation,
 // excluding service-specific flags like auto-start and delayed-start.
+// If a config file already exists, it is preserved to avoid overwriting
+// user-customized settings during reinstallation.
 func WriteConfig() error {
+	exists, err := xos.FileExists(ConfigPath())
+	if err != nil {
+		return err
+	}
+	if exists {
+		return nil
+	}
 	dir := ConfigDir()
 	if err := os.MkdirAll(dir, 0755); err != nil {
 		return err
@@ -263,13 +273,13 @@ func stateToString(state svc.State) string {
 	}
 }
 
-func status() (StatusInfo, error) {
+func status() (_ StatusInfo, err error) {
 	info := StatusInfo{
 		ConfigPath: ConfigPath(),
 	}
 
 	// Try to read config file for paths
-	if _, err := os.Stat(info.ConfigPath); err == nil {
+	if _, err = os.Stat(info.ConfigPath); err == nil {
 		v := viper.New()
 		v.SetConfigFile(info.ConfigPath)
 		if err := v.ReadInConfig(); err != nil {
@@ -287,14 +297,24 @@ func status() (StatusInfo, error) {
 	if err != nil {
 		return info, errors.Wrap(err, "failed to connect to service manager")
 	}
-	defer m.Disconnect()
+	defer func() {
+		err = errors.Combine(
+			err,
+			errors.Wrap(m.Disconnect(), "failed to disconnect from service manager"),
+		)
+	}()
 
 	s, err := m.OpenService(name)
 	if err != nil {
 		// Service not installed
 		return info, nil
 	}
-	defer s.Close()
+	defer func() {
+		err = errors.Combine(
+			err,
+			errors.Wrapf(s.Close(), "failed to close %s handle", name),
+		)
+	}()
 
 	info.Installed = true
 

@@ -19,6 +19,8 @@ import (
 
 	"github.com/synnaxlabs/x/gorp"
 
+	ontology "github.com/synnaxlabs/synnax/pkg/distribution/ontology"
+
 	rack "github.com/synnaxlabs/synnax/pkg/service/rack"
 
 	label "github.com/synnaxlabs/x/label"
@@ -53,7 +55,9 @@ const (
 	DeviceFieldStatusLabelsElemColorG = 19
 	DeviceFieldStatusLabelsElemColorB = 20
 	DeviceFieldStatusLabelsElemColorA = 21
-	DeviceFieldCount                  = 22
+	DeviceFieldParentType             = 22
+	DeviceFieldParentKey              = 23
+	DeviceFieldCount                  = 24
 )
 
 type deviceCodec struct{}
@@ -62,7 +66,7 @@ func (deviceCodec) Marshal(
 	_ context.Context,
 	s Device,
 ) ([]byte, error) {
-	buf := make([]byte, 0, 492)
+	buf := make([]byte, 0, 556)
 	buf = binary.BigEndian.AppendUint32(buf, uint32(len(s.Key)))
 	buf = append(buf, s.Key...)
 	buf = binary.BigEndian.AppendUint32(buf, uint32(s.Rack))
@@ -118,6 +122,15 @@ func (deviceCodec) Marshal(
 		} else {
 			buf = append(buf, 0)
 		}
+	} else {
+		buf = append(buf, 0)
+	}
+	if s.Parent != nil {
+		buf = append(buf, 1)
+		buf = binary.BigEndian.AppendUint32(buf, uint32(len((*s.Parent).Type)))
+		buf = append(buf, (*s.Parent).Type...)
+		buf = binary.BigEndian.AppendUint32(buf, uint32(len((*s.Parent).Key)))
+		buf = append(buf, (*s.Parent).Key...)
 	} else {
 		buf = append(buf, 0)
 	}
@@ -243,6 +256,25 @@ func (deviceCodec) Unmarshal(
 			data = data[1:]
 		}
 		r.Status = &_ov1
+	} else {
+		data = data[1:]
+	}
+	if data[0] == 1 {
+		data = data[1:]
+		var _ov4 ontology.ID
+		{
+			_n := binary.BigEndian.Uint32(data[:4])
+			data = data[4:]
+			_ov4.Type = ontology.Type(data[:_n])
+			data = data[_n:]
+		}
+		{
+			_n := binary.BigEndian.Uint32(data[:4])
+			data = data[4:]
+			_ov4.Key = string(data[:_n])
+			data = data[_n:]
+		}
+		r.Parent = &_ov4
 	} else {
 		data = data[1:]
 	}

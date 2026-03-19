@@ -13,6 +13,11 @@ import { z } from "zod";
 import { caseconv } from "@/caseconv";
 import { record } from "@/record";
 
+// Recursive record type for accessing case-converted results in tests.
+// Case conversion changes key names, so we can't use the original type.
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+type R = Record<string, any>;
+
 describe("caseconv", () => {
   describe("snakeToCamel", () => {
     describe("strings", () => {
@@ -183,7 +188,7 @@ describe("caseconv", () => {
           },
         };
 
-        const result = caseconv.snakeToCamel(input, { schema }) as any;
+        const result = caseconv.snakeToCamel(input, { schema }) as R;
 
         expect(result.read).toBeDefined();
         expect(result.read.index).toBe(0);
@@ -206,7 +211,7 @@ describe("caseconv", () => {
           },
         };
 
-        const result = caseconv.snakeToCamel(input, { schema }) as any;
+        const result = caseconv.snakeToCamel(input, { schema }) as R;
 
         expect(result.data["ns=2;s=Test"]).toBeDefined();
         expect(result.data["ns=2;s=Test"].value_name).toBe(42);
@@ -234,7 +239,7 @@ describe("caseconv", () => {
           },
         };
 
-        const result = caseconv.snakeToCamel(input, { schema }) as any;
+        const result = caseconv.snakeToCamel(input, { schema }) as R;
 
         expect(result.normalProp).toBe("test");
         expect(result.normal_prop).toBeUndefined();
@@ -256,7 +261,7 @@ describe("caseconv", () => {
           },
         };
 
-        const result = caseconv.snakeToCamel(input) as any;
+        const result = caseconv.snakeToCamel(input) as R;
 
         expect(result.read.channels["ns=2;s=Temperature"]).toBe(123);
         expect(result.read.channels.holdingRegisterInput).toBe(456);
@@ -310,7 +315,7 @@ describe("caseconv", () => {
           },
         };
 
-        const result = caseconv.snakeToCamel(input, { schema }) as any;
+        const result = caseconv.snakeToCamel(input, { schema }) as R;
         expect(result.channels["ns=2;s=ArrayChannel"]).toEqual([1, 2, 3]);
       });
 
@@ -333,7 +338,7 @@ describe("caseconv", () => {
           },
         };
 
-        const result = caseconv.snakeToCamel(input, { schema }) as any;
+        const result = caseconv.snakeToCamel(input, { schema }) as R;
         expect(result.outer.inner.deep_value).toBe(42);
         expect(result.outer.inner.deepValue).toBeUndefined();
       });
@@ -361,7 +366,7 @@ describe("caseconv", () => {
           },
         };
 
-        const result = caseconv.snakeToCamel(input, { schema }) as any;
+        const result = caseconv.snakeToCamel(input, { schema }) as R;
         expect(result.read.channels.holding_register_input).toBe(123);
         expect(result.write.channels.coil_output).toBe(456);
       });
@@ -379,7 +384,7 @@ describe("caseconv", () => {
           },
         };
 
-        const result = caseconv.snakeToCamel(input, { schema }) as any;
+        const result = caseconv.snakeToCamel(input, { schema }) as R;
         expect(result.channels["holding_register_input-100-float32"]).toBe(123);
         expect(result.channels["register_input-200"]).toBe(456);
         expect(result.channels["coil_input-5"]).toBe(789);
@@ -395,7 +400,7 @@ describe("caseconv", () => {
         });
         type Schema = z.infer<typeof schema>;
         const v: Schema = { values: [{ data: { One: 1 } }] };
-        const result = caseconv.snakeToCamel(v, { schema }) as any;
+        const result = caseconv.snakeToCamel(v, { schema });
         expect(result.values[0].data.One).toBe(1);
       });
 
@@ -420,7 +425,7 @@ describe("caseconv", () => {
             },
           ],
         };
-        const result = caseconv.snakeToCamel(input, { schema }) as any;
+        const result = caseconv.snakeToCamel(input, { schema }) as R;
         expect(result.items[0].data.camelCaseKey).toBe("value1");
         expect(result.items[0].data.PascalCaseKey).toBe("value2");
         expect(result.items[0].data.snake_case_key).toBe("value3");
@@ -428,9 +433,9 @@ describe("caseconv", () => {
     });
 
     describe("complex schema compositions (regression tests)", () => {
-      it("should preserve case through record.nullishToEmpty", () => {
+      it("should case-convert record keys through record.nullishToEmpty", () => {
         const schema = z.object({
-          channels: record.nullishToEmpty(true),
+          channels: record.nullishToEmpty(),
         });
 
         const input = {
@@ -440,10 +445,9 @@ describe("caseconv", () => {
           },
         };
 
-        const result = caseconv.snakeToCamel(input, { schema }) as any;
+        const result = caseconv.snakeToCamel(input, { schema }) as R;
         expect(result.channels["ns=2;s=Temperature"]).toBe(123);
-        expect(result.channels.holding_register_input).toBe(456);
-        expect(result.channels.holdingRegisterInput).toBeUndefined();
+        expect(result.channels.holdingRegisterInput).toBe(456);
       });
 
       it("should preserve case through optional wrapper", () => {
@@ -458,7 +462,7 @@ describe("caseconv", () => {
           },
         };
 
-        const result = caseconv.snakeToCamel(input, { schema }) as any;
+        const result = caseconv.snakeToCamel(input, { schema }) as R;
         expect(result.channels["ns=2;s=Test"]).toBe(123);
         expect(result.channels.snake_case_key).toBe(456);
         expect(result.channels.snakeCaseKey).toBeUndefined();
@@ -475,7 +479,7 @@ describe("caseconv", () => {
           },
         };
 
-        const result = caseconv.snakeToCamel(input, { schema }) as any;
+        const result = caseconv.snakeToCamel(input, { schema }) as R;
         expect(result.channels.my_channel_key).toBe(789);
         expect(result.channels.myChannelKey).toBeUndefined();
       });
@@ -491,7 +495,7 @@ describe("caseconv", () => {
           },
         };
 
-        const result = caseconv.snakeToCamel(input, { schema }) as any;
+        const result = caseconv.snakeToCamel(input, { schema }) as R;
         expect(result.channels.default_test_key).toBe(100);
         expect(result.channels.defaultTestKey).toBeUndefined();
       });
@@ -507,7 +511,7 @@ describe("caseconv", () => {
           },
         };
 
-        const result = caseconv.snakeToCamel(input, { schema }) as any;
+        const result = caseconv.snakeToCamel(input, { schema }) as R;
         expect(result.channels.catch_test_key).toBe(200);
         expect(result.channels.catchTestKey).toBeUndefined();
       });
@@ -525,7 +529,7 @@ describe("caseconv", () => {
           },
         };
 
-        const result = caseconv.snakeToCamel(input, { schema }) as any;
+        const result = caseconv.snakeToCamel(input, { schema }) as R;
         expect(result.channels.transform_test_key).toBe(300);
         expect(result.channels.transformTestKey).toBeUndefined();
       });
@@ -545,19 +549,19 @@ describe("caseconv", () => {
           },
         };
 
-        const result = caseconv.snakeToCamel(input, { schema }) as any;
+        const result = caseconv.snakeToCamel(input, { schema }) as R;
         expect(result.channels.deeply_wrapped_key).toBe(400);
         expect(result.channels.deeplyWrappedKey).toBeUndefined();
       });
 
-      it("should preserve case with record.nullishToEmpty in nested object", () => {
+      it("should case-convert record keys with record.nullishToEmpty in nested object", () => {
         const schema = z.object({
           read: z.object({
             index: z.number(),
-            channels: record.nullishToEmpty(true),
+            channels: record.nullishToEmpty(),
           }),
           write: z.object({
-            channels: record.nullishToEmpty(true),
+            channels: record.nullishToEmpty(),
           }),
         });
 
@@ -576,27 +580,25 @@ describe("caseconv", () => {
           },
         };
 
-        const result = caseconv.snakeToCamel(input, { schema }) as any;
+        const result = caseconv.snakeToCamel(input, { schema }) as R;
         expect(result.read.index).toBe(0);
         expect(result.read.channels["ns=2;s=ReadChannel"]).toBe(123);
-        expect(result.read.channels.holding_register_input).toBe(456);
-        expect(result.read.channels.holdingRegisterInput).toBeUndefined();
-        expect(result.write.channels.coil_output).toBe(789);
-        expect(result.write.channels.coilOutput).toBeUndefined();
+        expect(result.read.channels.holdingRegisterInput).toBe(456);
+        expect(result.write.channels.coilOutput).toBe(789);
       });
 
       it("should handle null values with record.nullishToEmpty", () => {
         const schema = z.object({
-          channels: record.nullishToEmpty(true),
+          channels: record.nullishToEmpty(),
         });
 
         const inputNull = { channels: null };
         const inputUndefined = { channels: undefined };
 
-        const resultNull = caseconv.snakeToCamel(inputNull, { schema }) as any;
+        const resultNull = caseconv.snakeToCamel(inputNull, { schema });
         const resultUndefined = caseconv.snakeToCamel(inputUndefined, {
           schema,
-        }) as any;
+        });
 
         // null/undefined should pass through (transform happens at validation time)
         expect(resultNull.channels).toBeNull();
@@ -626,7 +628,7 @@ describe("caseconv", () => {
             },
           ],
         };
-        const result = caseconv.camelToSnake(input, { schema }) as any;
+        const result = caseconv.camelToSnake(input, { schema }) as R;
         expect(result.items[0].data.camelCaseKey).toBe("value1");
         expect(result.items[0].data.PascalCaseKey).toBe("value2");
         expect(result.items[0].data.snake_case_key).toBe("value3");
@@ -655,7 +657,7 @@ describe("caseconv", () => {
             },
           ],
         };
-        const encoded = caseconv.camelToSnake(input, { schema: createReqZ }) as any;
+        const encoded = caseconv.camelToSnake(input, { schema: createReqZ }) as R;
         expect(encoded.line_plots[0].data.myCustomKey).toBe(123);
         expect(encoded.line_plots[0].data.AnotherKey.nested_value).toBe(456);
         expect(encoded.line_plots[0].data.my_custom_key).toBeUndefined();
@@ -685,7 +687,7 @@ describe("caseconv", () => {
         };
         const decoded = caseconv.snakeToCamel(response, {
           schema: retrieveResZ,
-        }) as any;
+        }) as R;
         expect(decoded.linePlots[0].data.myCustomKey).toBe(123);
         expect(decoded.linePlots[0].data.AnotherKey.nested_value).toBe(456);
         expect(decoded.linePlots[0].data.my_custom_key).toBeUndefined();

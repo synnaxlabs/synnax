@@ -6,6 +6,7 @@ proto_library(
     srcs = ["pb/device.proto"],
     visibility = ["//visibility:public"],
     deps = [
+        "//core/pkg/distribution/ontology:ontology_proto",
         "//x/go/status:status_proto",
         "@protobuf//:struct_proto",
     ],
@@ -17,6 +18,7 @@ cpp_grpc_library(
     protos = [":device_proto"],
     visibility = ["//visibility:public"],
     deps = [
+        "//core/pkg/distribution/ontology:ontology_grpc",
         "//x/go/status:status_grpc",
     ],
 )

@@ -56,9 +56,6 @@ export type Order = z.infer<typeof orderZ>;
 
 // XY
 
-export const xyZ = z.object({ x: z.number(), y: z.number() });
-export type XY = z.infer<typeof xyZ>;
-
 export const clientXyZ = z.object({ clientX: z.number(), clientY: z.number() });
 export type ClientXY = z.infer<typeof clientXyZ>;
 

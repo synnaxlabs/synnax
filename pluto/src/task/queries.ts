@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { ontology, type rack, task } from "@synnaxlabs/client";
-import { array, type optional, type record, TimeStamp } from "@synnaxlabs/x";
+import { array, type optional, TimeStamp } from "@synnaxlabs/x";
 import { z } from "zod";
 
 import { Flux } from "@/flux";
@@ -77,69 +77,44 @@ export type RetrieveQuery = task.RetrieveSingleParams;
 
 const BASE_QUERY: Partial<RetrieveQuery> = { includeStatus: true };
 
-export const retrieveSingle = async <
-  Type extends z.ZodLiteral<string> = z.ZodLiteral<string>,
-  Config extends z.ZodType<record.Unknown> = z.ZodType<record.Unknown>,
-  StatusData extends z.ZodType = z.ZodNever,
->({
+export const retrieveSingle = async <S extends task.Schemas = task.Schemas>({
   query,
   schemas,
   client,
   store,
 }: Flux.RetrieveParams<RetrieveQuery, FluxSubStore> & {
-  schemas?: task.PayloadSchemas<Type, Config, StatusData>;
-}): Promise<task.Task<Type, Config, StatusData>> => {
+  schemas?: S;
+}): Promise<task.Task<S>> => {
   if ("key" in query && query.key != null) {
     const cached = store.tasks.get(query.key.toString());
     if (cached != null) {
-      const tsk = cached as unknown as task.Task<Type, Config, StatusData>;
+      const tsk = cached as unknown as task.Task<S>;
       const detailsSchema = task.statusDetailsZ(schemas?.statusData ?? z.unknown());
-      tsk.status = (await Status.retrieveSingle<typeof detailsSchema>({
+      tsk.status = await Status.retrieveSingle({
         store,
         client,
         query: { key: task.statusKey(query.key.toString()) },
         detailsSchema,
-      })) as task.Status<typeof detailsSchema>;
+      });
       return tsk;
     }
   }
-  const tsk =
-    schemas != null
-      ? await client.tasks.retrieve({
-          ...BASE_QUERY,
-          ...query,
-          schemas,
-        })
-      : await client.tasks.retrieve({
-          ...BASE_QUERY,
-          ...query,
-        });
+  const tsk = await client.tasks.retrieve({ ...BASE_QUERY, ...query, schemas });
   store.tasks.set(tsk.key.toString(), tsk as unknown as task.Task);
   if (tsk.status != null) store.statuses.set(tsk.status);
-  return tsk as task.Task<Type, Config, StatusData>;
+  return tsk;
 };
 
-export const createRetrieve = <
-  Type extends z.ZodLiteral<string> = z.ZodLiteral<string>,
-  Config extends z.ZodType<record.Unknown> = z.ZodType<record.Unknown>,
-  StatusData extends z.ZodType = z.ZodNever,
->(
-  schemas?: task.PayloadSchemas<Type, Config, StatusData>,
-) =>
-  Flux.createRetrieve<
-    RetrieveQuery,
-    task.Task<Type, Config, StatusData> | null,
-    FluxSubStore
-  >({
+export const createRetrieve = <S extends task.Schemas = task.Schemas>(schemas?: S) =>
+  Flux.createRetrieve<RetrieveQuery, task.Task<S> | null, FluxSubStore>({
     name: RESOURCE_NAME,
-    retrieve: async (args) =>
-      await retrieveSingle<Type, Config, StatusData>({ ...args, schemas }),
+    retrieve: async (args) => await retrieveSingle({ ...args, schemas }),
     mountListeners: ({ store, query, onChange, client }) => {
       if (!("key" in query) || query.key == null) return [];
       return [
         store.tasks.onSet((task) => {
           if ("key" in query && query.key != null && task.key === query.key)
-            onChange(task as unknown as task.Task<Type, Config, StatusData>);
+            onChange(task as unknown as task.Task<S>);
         }, query.key.toString()),
         store.statuses.onSet(
           (status) => {
@@ -148,10 +123,7 @@ export const createRetrieve = <
               .parse(status);
             onChange((prev) => {
               if (prev == null) return null;
-              return client.tasks.sugar({
-                ...prev.payload,
-                status: parsed,
-              }) as unknown as task.Task<Type, Config, StatusData>;
+              return client.tasks.sugar({ ...prev.payload, status: parsed });
             });
           },
           task.statusKey(query.key as task.Key),
@@ -172,8 +144,8 @@ export const useList = Flux.createList<ListQuery, task.Key, task.Task, FluxSubSt
     const tasks = store.tasks.list();
     return tasks.map((t) => {
       const status = store.statuses.get(task.statusKey(t.key.toString()));
-      const tsk = t as task.Task;
-      tsk.status = status as unknown as task.Status;
+      const tsk: task.Task = t;
+      tsk.status = status as task.Status<z.ZodUnknown>;
       return tsk;
     });
   },
@@ -204,13 +176,9 @@ export const useList = Flux.createList<ListQuery, task.Key, task.Task, FluxSubSt
   ],
 });
 
-const createFormSchema = <
-  Type extends z.ZodLiteral<string> = z.ZodLiteral<string>,
-  Config extends z.ZodType<record.Unknown> = z.ZodType<record.Unknown>,
-  StatusData extends z.ZodType = z.ZodNever,
->(
-  schemas: task.PayloadSchemas<Type, Config, StatusData>,
-): FormSchema<Type, Config, StatusData> =>
+const createFormSchema = <S extends task.Schemas = task.Schemas>(
+  schemas: S,
+): FormSchema<S> =>
   z.object({
     key: task.keyZ.optional(),
     name: z.string(),
@@ -219,36 +187,26 @@ const createFormSchema = <
     snapshot: z.boolean(),
     config: schemas.config,
     status: task.statusZ(schemas.statusData).optional().nullable(),
-  }) as unknown as FormSchema<Type, Config, StatusData>;
+  }) as unknown as FormSchema<S>;
 
-export type FormSchema<
-  Type extends z.ZodLiteral<string> = z.ZodLiteral<string>,
-  Config extends z.ZodType<record.Unknown> = z.ZodType<record.Unknown>,
-  StatusData extends z.ZodType = z.ZodNever,
-> = z.ZodType<{
+export interface FormSchema<S extends task.Schemas = task.Schemas> extends z.ZodType<{
   key?: task.Key;
   name: string;
   rackKey: rack.Key;
-  type: z.infer<Type>;
+  type: z.infer<S["type"]>;
   snapshot: boolean;
-  config: z.infer<Config>;
-  status?: task.Status<StatusData> | null;
-}>;
+  config: z.infer<S["config"]>;
+  status?: task.Status<S["statusData"]>;
+}> {}
 
-export interface CreateFormParams<
-  Type extends z.ZodLiteral<string> = z.ZodLiteral<string>,
-  Config extends z.ZodType<record.Unknown> = z.ZodType<record.Unknown>,
-  StatusData extends z.ZodType = z.ZodNever,
-> {
-  schemas: task.PayloadSchemas<Type, Config, StatusData>;
-  initialValues: InitialValues<Type, Config, StatusData>;
+export interface CreateFormParams<S extends task.Schemas = task.Schemas> {
+  schemas: S;
+  initialValues: InitialValues<S>;
 }
 
 export interface InitialValues<
-  Type extends z.ZodLiteral<string> = z.ZodLiteral<string>,
-  Config extends z.ZodType<record.Unknown> = z.ZodType<record.Unknown>,
-  StatusData extends z.ZodType = z.ZodNever,
-> extends optional.Optional<task.Payload<Type, Config, StatusData>, "key"> {
+  S extends task.Schemas = task.Schemas,
+> extends optional.Optional<task.Payload<S>, "key"> {
   key?: task.Key;
 }
 
@@ -256,13 +214,9 @@ export interface FormQuery {
   key?: task.Key;
 }
 
-const taskToFormValues = <
-  Type extends z.ZodLiteral<string> = z.ZodLiteral<string>,
-  Config extends z.ZodType<record.Unknown> = z.ZodType<record.Unknown>,
-  StatusData extends z.ZodType = z.ZodNever,
->(
-  t: InitialValues<Type, Config, StatusData>,
-): z.infer<FormSchema<Type, Config, StatusData>> => ({
+const taskToFormValues = <S extends task.Schemas = task.Schemas>(
+  t: InitialValues<S>,
+): z.infer<FormSchema<S>> => ({
   key: t.key,
   name: t.name,
   rackKey: t.key == null ? 0 : task.rackKey(t.key),
@@ -272,17 +226,11 @@ const taskToFormValues = <
   snapshot: t.snapshot ?? false,
 });
 
-const RESET_OPTIONS: Form.SetOptions = {
-  markTouched: false,
-};
+const RESET_OPTIONS: Form.SetOptions = { markTouched: false };
 
-const resetFormValues = <
-  Type extends z.ZodLiteral<string> = z.ZodLiteral<string>,
-  Config extends z.ZodType<record.Unknown> = z.ZodType<record.Unknown>,
-  StatusData extends z.ZodType = z.ZodNever,
->(
-  set: Form.UseReturn<FormSchema<Type, Config, StatusData>>["set"],
-  payload: task.Payload<Type, Config, StatusData>,
+const resetFormValues = <S extends task.Schemas = task.Schemas>(
+  set: Form.UseReturn<FormSchema<S>>["set"],
+  payload: task.Payload<S>,
 ) => {
   const values = taskToFormValues(payload);
   set("key", values.key, RESET_OPTIONS);
@@ -293,65 +241,55 @@ const resetFormValues = <
   set("snapshot", values.snapshot, RESET_OPTIONS);
 };
 
-export const createForm = <
-  Type extends z.ZodLiteral<string> = z.ZodLiteral<string>,
-  Config extends z.ZodType<record.Unknown> = z.ZodType<record.Unknown>,
-  StatusData extends z.ZodType = z.ZodNever,
->({
+export const createForm = <S extends task.Schemas = task.Schemas>({
   schemas,
   initialValues,
-}: CreateFormParams<Type, Config, StatusData>) => {
-  const schema = createFormSchema<Type, Config, StatusData>(schemas);
-  const actualInitialValues = taskToFormValues<Type, Config, StatusData>(initialValues);
-  return Flux.createForm<FormQuery, FormSchema<Type, Config, StatusData>, FluxSubStore>(
-    {
-      name: RESOURCE_NAME,
-      schema,
-      initialValues: actualInitialValues,
-      retrieve: async (args): Promise<void> => {
-        const {
-          query: { key },
-          reset,
-        } = args;
-        if (key == null) return;
-        const task = await retrieveSingle<Type, Config, StatusData>({
-          ...args,
-          query: { key },
-          schemas,
-        });
-        reset(taskToFormValues(task.payload));
-      },
-      update: async ({ client, store, ...form }) => {
-        const value = form.value();
-        const rack = await client.racks.retrieve({ key: value.rackKey });
-        const task = await rack.createTask<Type, Config, StatusData>(
-          {
-            key: value.key,
-            name: value.name,
-            type: value.type,
-            config: value.config,
-            status: value.status as task.NewStatus<StatusData>,
-          },
-          schemas,
-        );
-        store.tasks.set(task as unknown as task.Task);
-        resetFormValues(form.set, task.payload);
-        form.setCurrentStateAsInitialValues();
-      },
-      mountListeners: ({ store, get, set }) => [
-        store.tasks.onSet((task) => {
-          const prevKey = get<string>("key", { optional: true })?.value;
-          if (prevKey == null || prevKey !== task.key) return;
-          resetFormValues(set, task.payload);
-        }),
-        store.statuses.onSet((status) => {
-          const prevKey = get<string>("key", { optional: true })?.value;
-          if (prevKey == null || status.key !== task.statusKey(prevKey)) return;
-          set("status", task.statusZ(z.unknown()).parse(status), RESET_OPTIONS);
-        }),
-      ],
+}: CreateFormParams<S>) => {
+  const schema = createFormSchema(schemas);
+  const actualInitialValues = taskToFormValues(initialValues);
+  return Flux.createForm<FormQuery, FormSchema<S>, FluxSubStore>({
+    name: RESOURCE_NAME,
+    schema,
+    initialValues: actualInitialValues,
+    retrieve: async (args): Promise<void> => {
+      const {
+        query: { key },
+        reset,
+      } = args;
+      if (key == null) return;
+      const task = await retrieveSingle({ ...args, query: { key }, schemas });
+      reset(taskToFormValues(task.payload));
     },
-  );
+    update: async ({ client, store, ...form }) => {
+      const value = form.value();
+      const rack = await client.racks.retrieve({ key: value.rackKey });
+      const task = await rack.createTask(
+        {
+          key: value.key,
+          name: value.name,
+          type: value.type,
+          config: value.config,
+          status: value.status as task.NewStatus<S["statusData"]>,
+        },
+        schemas,
+      );
+      store.tasks.set(task as unknown as Omit<task.Task, "status">);
+      resetFormValues(form.set, task.payload);
+      form.setCurrentStateAsInitialValues();
+    },
+    mountListeners: ({ store, get, set }) => [
+      store.tasks.onSet((task) => {
+        const prevKey = get<string>("key", { optional: true })?.value;
+        if (prevKey == null || prevKey !== task.key) return;
+        resetFormValues(set, task.payload);
+      }),
+      store.statuses.onSet((status) => {
+        const prevKey = get<string>("key", { optional: true })?.value;
+        if (prevKey == null || status.key !== task.statusKey(prevKey)) return;
+        set("status", task.statusZ(z.unknown()).parse(status), RESET_OPTIONS);
+      }),
+    ],
+  });
 };
 
 export type DeleteParams = task.Key | task.Key[];

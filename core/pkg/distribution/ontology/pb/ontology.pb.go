@@ -88,127 +88,6 @@ func (x *ID) GetKey() string {
 	return ""
 }
 
-// Resource is a resource in the ontology system with its identifier, name, and optional
-// metadata.
-type Resource struct {
-	state protoimpl.MessageState `protogen:"open.v1"`
-	// id is the unique identifier for this resource.
-	Id *ID `protobuf:"bytes,1,opt,name=id,proto3" json:"id,omitempty"`
-	// name is a human-readable name for the resource.
-	Name          string `protobuf:"bytes,2,opt,name=name,proto3" json:"name,omitempty"`
-	unknownFields protoimpl.UnknownFields
-	sizeCache     protoimpl.SizeCache
-}
-
-func (x *Resource) Reset() {
-	*x = Resource{}
-	mi := &file_core_pkg_distribution_ontology_pb_ontology_proto_msgTypes[1]
-	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-	ms.StoreMessageInfo(mi)
-}
-
-func (x *Resource) String() string {
-	return protoimpl.X.MessageStringOf(x)
-}
-
-func (*Resource) ProtoMessage() {}
-
-func (x *Resource) ProtoReflect() protoreflect.Message {
-	mi := &file_core_pkg_distribution_ontology_pb_ontology_proto_msgTypes[1]
-	if x != nil {
-		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-		if ms.LoadMessageInfo() == nil {
-			ms.StoreMessageInfo(mi)
-		}
-		return ms
-	}
-	return mi.MessageOf(x)
-}
-
-// Deprecated: Use Resource.ProtoReflect.Descriptor instead.
-func (*Resource) Descriptor() ([]byte, []int) {
-	return file_core_pkg_distribution_ontology_pb_ontology_proto_rawDescGZIP(), []int{1}
-}
-
-func (x *Resource) GetId() *ID {
-	if x != nil {
-		return x.Id
-	}
-	return nil
-}
-
-func (x *Resource) GetName() string {
-	if x != nil {
-		return x.Name
-	}
-	return ""
-}
-
-// Relationship is a directional relationship between two resources in the ontology
-// system.
-type Relationship struct {
-	state protoimpl.MessageState `protogen:"open.v1"`
-	// from is the source resource of the relationship.
-	From *ID `protobuf:"bytes,1,opt,name=from,proto3" json:"from,omitempty"`
-	// type is the type of relationship (e.g., 'parent_of', 'owns').
-	Type string `protobuf:"bytes,2,opt,name=type,proto3" json:"type,omitempty"`
-	// to is the target resource of the relationship.
-	To            *ID `protobuf:"bytes,3,opt,name=to,proto3" json:"to,omitempty"`
-	unknownFields protoimpl.UnknownFields
-	sizeCache     protoimpl.SizeCache
-}
-
-func (x *Relationship) Reset() {
-	*x = Relationship{}
-	mi := &file_core_pkg_distribution_ontology_pb_ontology_proto_msgTypes[2]
-	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-	ms.StoreMessageInfo(mi)
-}
-
-func (x *Relationship) String() string {
-	return protoimpl.X.MessageStringOf(x)
-}
-
-func (*Relationship) ProtoMessage() {}
-
-func (x *Relationship) ProtoReflect() protoreflect.Message {
-	mi := &file_core_pkg_distribution_ontology_pb_ontology_proto_msgTypes[2]
-	if x != nil {
-		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-		if ms.LoadMessageInfo() == nil {
-			ms.StoreMessageInfo(mi)
-		}
-		return ms
-	}
-	return mi.MessageOf(x)
-}
-
-// Deprecated: Use Relationship.ProtoReflect.Descriptor instead.
-func (*Relationship) Descriptor() ([]byte, []int) {
-	return file_core_pkg_distribution_ontology_pb_ontology_proto_rawDescGZIP(), []int{2}
-}
-
-func (x *Relationship) GetFrom() *ID {
-	if x != nil {
-		return x.From
-	}
-	return nil
-}
-
-func (x *Relationship) GetType() string {
-	if x != nil {
-		return x.Type
-	}
-	return ""
-}
-
-func (x *Relationship) GetTo() *ID {
-	if x != nil {
-		return x.To
-	}
-	return nil
-}
-
 var File_core_pkg_distribution_ontology_pb_ontology_proto protoreflect.FileDescriptor
 
 const file_core_pkg_distribution_ontology_pb_ontology_proto_rawDesc = "" +
@@ -216,14 +95,7 @@ const file_core_pkg_distribution_ontology_pb_ontology_proto_rawDesc = "" +
 	"0core/pkg/distribution/ontology/pb/ontology.proto\x12\x18distribution.ontology.pb\"*\n" +
 	"\x02ID\x12\x12\n" +
 	"\x04type\x18\x01 \x01(\tR\x04type\x12\x10\n" +
-	"\x03key\x18\x02 \x01(\tR\x03key\"L\n" +
-	"\bResource\x12,\n" +
-	"\x02id\x18\x01 \x01(\v2\x1c.distribution.ontology.pb.IDR\x02id\x12\x12\n" +
-	"\x04name\x18\x02 \x01(\tR\x04name\"\x82\x01\n" +
-	"\fRelationship\x120\n" +
-	"\x04from\x18\x01 \x01(\v2\x1c.distribution.ontology.pb.IDR\x04from\x12\x12\n" +
-	"\x04type\x18\x02 \x01(\tR\x04type\x12,\n" +
-	"\x02to\x18\x03 \x01(\v2\x1c.distribution.ontology.pb.IDR\x02toB\xea\x01\n" +
+	"\x03key\x18\x02 \x01(\tR\x03keyB\xea\x01\n" +
 	"\x1ccom.distribution.ontology.pbB\rOntologyProtoP\x01Z9github.com/synnaxlabs/synnax/pkg/distribution/ontology/pb\xa2\x02\x03DOP\xaa\x02\x18Distribution.Ontology.Pb\xca\x02\x18Distribution\\Ontology\\Pb\xe2\x02$Distribution\\Ontology\\Pb\\GPBMetadata\xea\x02\x1aDistribution::Ontology::Pbb\x06proto3"
 
 var (
@@ -238,21 +110,16 @@ func file_core_pkg_distribution_ontology_pb_ontology_proto_rawDescGZIP() []byte 
 	return file_core_pkg_distribution_ontology_pb_ontology_proto_rawDescData
 }
 
-var file_core_pkg_distribution_ontology_pb_ontology_proto_msgTypes = make([]protoimpl.MessageInfo, 3)
+var file_core_pkg_distribution_ontology_pb_ontology_proto_msgTypes = make([]protoimpl.MessageInfo, 1)
 var file_core_pkg_distribution_ontology_pb_ontology_proto_goTypes = []any{
-	(*ID)(nil),           // 0: distribution.ontology.pb.ID
-	(*Resource)(nil),     // 1: distribution.ontology.pb.Resource
-	(*Relationship)(nil), // 2: distribution.ontology.pb.Relationship
+	(*ID)(nil), // 0: distribution.ontology.pb.ID
 }
 var file_core_pkg_distribution_ontology_pb_ontology_proto_depIdxs = []int32{
-	0, // 0: distribution.ontology.pb.Resource.id:type_name -> distribution.ontology.pb.ID
-	0, // 1: distribution.ontology.pb.Relationship.from:type_name -> distribution.ontology.pb.ID
-	0, // 2: distribution.ontology.pb.Relationship.to:type_name -> distribution.ontology.pb.ID
-	3, // [3:3] is the sub-list for method output_type
-	3, // [3:3] is the sub-list for method input_type
-	3, // [3:3] is the sub-list for extension type_name
-	3, // [3:3] is the sub-list for extension extendee
-	0, // [0:3] is the sub-list for field type_name
+	0, // [0:0] is the sub-list for method output_type
+	0, // [0:0] is the sub-list for method input_type
+	0, // [0:0] is the sub-list for extension type_name
+	0, // [0:0] is the sub-list for extension extendee
+	0, // [0:0] is the sub-list for field type_name
 }
 
 func init() { file_core_pkg_distribution_ontology_pb_ontology_proto_init() }
@@ -266,7 +133,7 @@ func file_core_pkg_distribution_ontology_pb_ontology_proto_init() {
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_core_pkg_distribution_ontology_pb_ontology_proto_rawDesc), len(file_core_pkg_distribution_ontology_pb_ontology_proto_rawDesc)),
 			NumEnums:      0,
-			NumMessages:   3,
+			NumMessages:   1,
 			NumExtensions: 0,
 			NumServices:   0,
 		},

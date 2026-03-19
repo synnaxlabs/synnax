@@ -14,6 +14,7 @@ package ontology
 import (
 	"context"
 	"encoding/binary"
+	"encoding/json"
 
 	"github.com/synnaxlabs/x/gorp"
 )
@@ -24,7 +25,8 @@ const (
 	ResourceFieldIDType = 0
 	ResourceFieldIDKey  = 1
 	ResourceFieldName   = 2
-	ResourceFieldCount  = 3
+	ResourceFieldData   = 3
+	ResourceFieldCount  = 4
 )
 
 type resourceCodec struct{}
@@ -33,13 +35,21 @@ func (resourceCodec) Marshal(
 	_ context.Context,
 	s Resource,
 ) ([]byte, error) {
-	buf := make([]byte, 0, 96)
+	buf := make([]byte, 0, 160)
 	buf = binary.BigEndian.AppendUint32(buf, uint32(len(s.ID.Type)))
 	buf = append(buf, s.ID.Type...)
 	buf = binary.BigEndian.AppendUint32(buf, uint32(len(s.ID.Key)))
 	buf = append(buf, s.ID.Key...)
 	buf = binary.BigEndian.AppendUint32(buf, uint32(len(s.Name)))
 	buf = append(buf, s.Name...)
+	{
+		_jb, _je := json.Marshal(s.Data)
+		if _je != nil {
+			return nil, _je
+		}
+		buf = binary.BigEndian.AppendUint32(buf, uint32(len(_jb)))
+		buf = append(buf, _jb...)
+	}
 	return buf, nil
 }
 
@@ -64,6 +74,14 @@ func (resourceCodec) Unmarshal(
 		_n := binary.BigEndian.Uint32(data[:4])
 		data = data[4:]
 		r.Name = string(data[:_n])
+		data = data[_n:]
+	}
+	{
+		_n := binary.BigEndian.Uint32(data[:4])
+		data = data[4:]
+		if err := json.Unmarshal(data[:_n], &r.Data); err != nil {
+			return r, err
+		}
 		data = data[_n:]
 	}
 	return r, nil

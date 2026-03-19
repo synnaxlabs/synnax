@@ -61,15 +61,15 @@ func (g *operationClient) send(_ context.Context, sync TxRequest) (TxRequest, bo
 
 type operationServer struct {
 	confluence.NopFlow
-	store store
+	store *kvStore
 	confluence.AbstractUnarySource[TxRequest]
 	Config
 }
 
-func newOperationServer(cfg Config, s store) source {
-	or := &operationServer{Config: cfg, store: s}
-	or.BatchTransportServer.BindHandler(or.handle)
-	return or
+func newOperationServer(cfg Config, s *kvStore) *operationServer {
+	// BindHandler is deferred to kv.Open so the handler isn't callable until plumber
+	// has finished wiring the pipeline outlets.
+	return &operationServer{Config: cfg, store: s}
 }
 
 func (g *operationServer) handle(ctx context.Context, req TxRequest) (TxRequest, error) {
@@ -124,10 +124,10 @@ type feedbackReceiver struct {
 	Config
 }
 
-func newFeedbackReceiver(cfg Config) source {
-	fr := &feedbackReceiver{Config: cfg}
-	fr.FeedbackTransportServer.BindHandler(fr.handle)
-	return fr
+func newFeedbackReceiver(cfg Config) *feedbackReceiver {
+	// BindHandler is deferred to kv.Open so the handler isn't callable until plumber
+	// has finished wiring the pipeline outlets.
+	return &feedbackReceiver{Config: cfg}
 }
 
 func (f *feedbackReceiver) handle(ctx context.Context, msg FeedbackMessage) (types.Nil, error) {

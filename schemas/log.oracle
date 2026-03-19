@@ -23,7 +23,7 @@ Log struct {
     name string {
         @doc value "is a human-readable name for the log."
     }
-    data json   {
+    data record {
         @doc value        """
             is the log configuration including message formatting, filtering
             rules, and display options.

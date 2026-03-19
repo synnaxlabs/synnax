@@ -15,17 +15,6 @@ import { Device } from "@/hardware/ni/device";
 import { CustomScaleForm } from "@/hardware/ni/task/CustomScaleForm";
 import { MinMaxValueFields } from "@/hardware/ni/task/MinMaxValueFields";
 import {
-  CI_DUTY_CYCLE_CHAN_TYPE,
-  CI_EDGE_COUNT_CHAN_TYPE,
-  CI_FREQUENCY_CHAN_TYPE,
-  CI_PERIOD_CHAN_TYPE,
-  CI_POSITION_ANGULAR_CHAN_TYPE,
-  CI_POSITION_LINEAR_CHAN_TYPE,
-  CI_PULSE_WIDTH_CHAN_TYPE,
-  CI_SEMI_PERIOD_CHAN_TYPE,
-  CI_TWO_EDGE_SEP_CHAN_TYPE,
-  CI_VELOCITY_ANGULAR_CHAN_TYPE,
-  CI_VELOCITY_LINEAR_CHAN_TYPE,
   type CIAngularVelocityUnits,
   type CIChannelType,
   type CICountDirection,
@@ -473,7 +462,7 @@ const useZIndexFieldsDisabled = (prefix: string) => {
 };
 
 const CHANNEL_FORMS: Record<CIChannelType, FC<FormProps>> = {
-  [CI_FREQUENCY_CHAN_TYPE]: ({ prefix }) => {
+  ci_frequency: ({ prefix }) => {
     const { showMeasTime, showDivisor } = useMeasMethodVisibility(prefix);
     return (
       <>
@@ -502,7 +491,7 @@ const CHANNEL_FORMS: Record<CIChannelType, FC<FormProps>> = {
       </>
     );
   },
-  [CI_EDGE_COUNT_CHAN_TYPE]: ({ prefix }: FormProps) => (
+  ci_edge_count: ({ prefix }: FormProps) => (
     <>
       <Flex.Box x>
         <ActiveEdgeField path={prefix} grow />
@@ -514,7 +503,7 @@ const CHANNEL_FORMS: Record<CIChannelType, FC<FormProps>> = {
       </Flex.Box>
     </>
   ),
-  [CI_PERIOD_CHAN_TYPE]: ({ prefix }: FormProps) => {
+  ci_period: ({ prefix }: FormProps) => {
     const { showMeasTime, showDivisor } = useMeasMethodVisibility(prefix);
     return (
       <>
@@ -543,7 +532,7 @@ const CHANNEL_FORMS: Record<CIChannelType, FC<FormProps>> = {
       </>
     );
   },
-  [CI_PULSE_WIDTH_CHAN_TYPE]: ({ prefix }: FormProps) => (
+  ci_pulse_width: ({ prefix }: FormProps) => (
     <>
       <MinMaxValueFields path={prefix} />
       <Divider.Divider x padded="bottom" />
@@ -558,7 +547,7 @@ const CHANNEL_FORMS: Record<CIChannelType, FC<FormProps>> = {
       <CustomScaleForm prefix={prefix} />
     </>
   ),
-  [CI_SEMI_PERIOD_CHAN_TYPE]: ({ prefix }: FormProps) => (
+  ci_semi_period: ({ prefix }: FormProps) => (
     <>
       <MinMaxValueFields path={prefix} />
       <Divider.Divider x padded="bottom" />
@@ -567,7 +556,7 @@ const CHANNEL_FORMS: Record<CIChannelType, FC<FormProps>> = {
       <CustomScaleForm prefix={prefix} />
     </>
   ),
-  [CI_TWO_EDGE_SEP_CHAN_TYPE]: ({ prefix }: FormProps) => (
+  ci_two_edge_sep: ({ prefix }: FormProps) => (
     <>
       <MinMaxValueFields path={prefix} />
       <Divider.Divider x padded="bottom" />
@@ -581,7 +570,7 @@ const CHANNEL_FORMS: Record<CIChannelType, FC<FormProps>> = {
       <CustomScaleForm prefix={prefix} />
     </>
   ),
-  [CI_VELOCITY_LINEAR_CHAN_TYPE]: ({ prefix }: FormProps) => (
+  ci_velocity_linear: ({ prefix }: FormProps) => (
     <>
       <MinMaxValueFields path={prefix} />
       <Divider.Divider x padded="bottom" />
@@ -600,7 +589,7 @@ const CHANNEL_FORMS: Record<CIChannelType, FC<FormProps>> = {
       <CustomScaleForm prefix={prefix} />
     </>
   ),
-  [CI_VELOCITY_ANGULAR_CHAN_TYPE]: ({ prefix }: FormProps) => (
+  ci_velocity_angular: ({ prefix }: FormProps) => (
     <>
       <MinMaxValueFields path={prefix} />
       <Divider.Divider x padded="bottom" />
@@ -619,7 +608,7 @@ const CHANNEL_FORMS: Record<CIChannelType, FC<FormProps>> = {
       <CustomScaleForm prefix={prefix} />
     </>
   ),
-  [CI_POSITION_LINEAR_CHAN_TYPE]: ({ prefix }: FormProps) => {
+  ci_position_linear: ({ prefix }: FormProps) => {
     const zIndexFieldsDisabled = useZIndexFieldsDisabled(prefix);
     return (
       <>
@@ -646,7 +635,7 @@ const CHANNEL_FORMS: Record<CIChannelType, FC<FormProps>> = {
       </>
     );
   },
-  [CI_POSITION_ANGULAR_CHAN_TYPE]: ({ prefix }: FormProps) => {
+  ci_position_angular: ({ prefix }: FormProps) => {
     const zIndexFieldsDisabled = useZIndexFieldsDisabled(prefix);
     return (
       <>
@@ -673,7 +662,7 @@ const CHANNEL_FORMS: Record<CIChannelType, FC<FormProps>> = {
       </>
     );
   },
-  [CI_DUTY_CYCLE_CHAN_TYPE]: ({ prefix }: FormProps) => (
+  ci_duty_cycle: ({ prefix }: FormProps) => (
     <>
       <MinMaxValueFields path={prefix} />
       <Divider.Divider x padded="bottom" />

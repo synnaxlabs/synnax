@@ -19,7 +19,7 @@ package pb
 
 import (
 	pb "github.com/synnaxlabs/arc/graph/pb"
-	pb2 "github.com/synnaxlabs/arc/module/pb"
+	pb2 "github.com/synnaxlabs/arc/program/pb"
 	pb1 "github.com/synnaxlabs/arc/text/pb"
 	pb3 "github.com/synnaxlabs/x/status/pb"
 	protoreflect "google.golang.org/protobuf/reflect/protoreflect"
@@ -144,8 +144,8 @@ type Arc struct {
 	Graph *pb.Graph `protobuf:"bytes,4,opt,name=graph,proto3" json:"graph,omitempty"`
 	// text is the text-based Arc source code.
 	Text *pb1.Text `protobuf:"bytes,5,opt,name=text,proto3" json:"text,omitempty"`
-	// module is the compiled module output including IR and WebAssembly bytecode.
-	Module *pb2.Module `protobuf:"bytes,6,opt,name=module,proto3,oneof" json:"module,omitempty"`
+	// program is the compiled module output including IR and WebAssembly bytecode.
+	Program *pb2.Program `protobuf:"bytes,6,opt,name=program,proto3,oneof" json:"program,omitempty"`
 	// status is the current execution status of the module.
 	Status        *pb3.Status `protobuf:"bytes,7,opt,name=status,proto3,oneof" json:"status,omitempty"`
 	unknownFields protoimpl.UnknownFields
@@ -217,9 +217,9 @@ func (x *Arc) GetText() *pb1.Text {
 	return nil
 }
 
-func (x *Arc) GetModule() *pb2.Module {
+func (x *Arc) GetProgram() *pb2.Program {
 	if x != nil {
-		return x.Module
+		return x.Program
 	}
 	return nil
 }
@@ -235,18 +235,19 @@ var File_core_pkg_service_arc_pb_arc_proto protoreflect.FileDescriptor
 
 const file_core_pkg_service_arc_pb_arc_proto_rawDesc = "" +
 	"\n" +
-	"!core/pkg/service/arc/pb/arc.proto\x12\x0eservice.arc.pb\x1a\x1barc/go/graph/pb/graph.proto\x1a\x1darc/go/module/pb/module.proto\x1a\x19arc/go/text/pb/text.proto\x1a\x1bx/go/status/pb/status.proto\")\n" +
+	"!core/pkg/service/arc/pb/arc.proto\x12\x0eservice.arc.pb\x1a\x1barc/go/graph/pb/graph.proto\x1a\x19arc/go/text/pb/text.proto\x1a\x1farc/go/program/pb/program.proto\x1a\x1bx/go/status/pb/status.proto\")\n" +
 	"\rStatusDetails\x12\x18\n" +
-	"\arunning\x18\x01 \x01(\bR\arunning\"\xa3\x02\n" +
+	"\arunning\x18\x01 \x01(\bR\arunning\"\xa8\x02\n" +
 	"\x03Arc\x12\x10\n" +
 	"\x03key\x18\x01 \x01(\tR\x03key\x12\x12\n" +
 	"\x04name\x18\x02 \x01(\tR\x04name\x12(\n" +
 	"\x04mode\x18\x03 \x01(\x0e2\x14.service.arc.pb.ModeR\x04mode\x12)\n" +
 	"\x05graph\x18\x04 \x01(\v2\x13.arc.graph.pb.GraphR\x05graph\x12%\n" +
-	"\x04text\x18\x05 \x01(\v2\x11.arc.text.pb.TextR\x04text\x122\n" +
-	"\x06module\x18\x06 \x01(\v2\x15.arc.module.pb.ModuleH\x00R\x06module\x88\x01\x01\x120\n" +
-	"\x06status\x18\a \x01(\v2\x13.x.status.pb.StatusH\x01R\x06status\x88\x01\x01B\t\n" +
-	"\a_moduleB\t\n" +
+	"\x04text\x18\x05 \x01(\v2\x11.arc.text.pb.TextR\x04text\x126\n" +
+	"\aprogram\x18\x06 \x01(\v2\x17.arc.program.pb.ProgramH\x00R\aprogram\x88\x01\x01\x120\n" +
+	"\x06status\x18\a \x01(\v2\x13.x.status.pb.StatusH\x01R\x06status\x88\x01\x01B\n" +
+	"\n" +
+	"\b_programB\t\n" +
 	"\a_status*%\n" +
 	"\x04Mode\x12\r\n" +
 	"\tMODE_TEXT\x10\x00\x12\x0e\n" +
@@ -274,14 +275,14 @@ var file_core_pkg_service_arc_pb_arc_proto_goTypes = []any{
 	(*Arc)(nil),           // 2: service.arc.pb.Arc
 	(*pb.Graph)(nil),      // 3: arc.graph.pb.Graph
 	(*pb1.Text)(nil),      // 4: arc.text.pb.Text
-	(*pb2.Module)(nil),    // 5: arc.module.pb.Module
+	(*pb2.Program)(nil),   // 5: arc.program.pb.Program
 	(*pb3.Status)(nil),    // 6: x.status.pb.Status
 }
 var file_core_pkg_service_arc_pb_arc_proto_depIdxs = []int32{
 	0, // 0: service.arc.pb.Arc.mode:type_name -> service.arc.pb.Mode
 	3, // 1: service.arc.pb.Arc.graph:type_name -> arc.graph.pb.Graph
 	4, // 2: service.arc.pb.Arc.text:type_name -> arc.text.pb.Text
-	5, // 3: service.arc.pb.Arc.module:type_name -> arc.module.pb.Module
+	5, // 3: service.arc.pb.Arc.program:type_name -> arc.program.pb.Program
 	6, // 4: service.arc.pb.Arc.status:type_name -> x.status.pb.Status
 	5, // [5:5] is the sub-list for method output_type
 	5, // [5:5] is the sub-list for method input_type

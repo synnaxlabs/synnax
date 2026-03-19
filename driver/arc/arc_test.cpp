@@ -1948,9 +1948,9 @@ TEST(ArcTests, testStaticAuthorityConfig) {
         arc::Task::create(task_meta, ctx, task_cfg, mock_writer, mock_streamer)
     );
 
-    ASSERT_TRUE(task_cfg.module.authorities.default_.has_value())
+    ASSERT_TRUE(task_cfg.program.authorities.default_.has_value())
         << "IR AuthorityConfig.default_ should be set from 'authority 200'";
-    EXPECT_EQ(*task_cfg.module.authorities.default_, 200);
+    EXPECT_EQ(*task_cfg.program.authorities.default_, 200);
 
     task->start("test_start");
     ASSERT_EVENTUALLY_GE(mock_writer->writer_opens.load(std::memory_order_acquire), 1);
@@ -2042,10 +2042,10 @@ TEST(ArcTests, testPerChannelAuthorityConfig) {
     auto parser = x::json::Parser(task_meta.config);
     auto task_cfg = ASSERT_NIL_P(arc::TaskConfig::parse(client, parser));
 
-    ASSERT_TRUE(task_cfg.module.authorities.default_.has_value());
-    EXPECT_EQ(*task_cfg.module.authorities.default_, 100);
-    ASSERT_EQ(task_cfg.module.authorities.channels.count(out_a_ch.key), 1);
-    EXPECT_EQ(task_cfg.module.authorities.channels.at(out_a_ch.key), 200);
+    ASSERT_TRUE(task_cfg.program.authorities.default_.has_value());
+    EXPECT_EQ(*task_cfg.program.authorities.default_, 100);
+    ASSERT_EQ(task_cfg.program.authorities.channels.count(out_a_ch.key), 1);
+    EXPECT_EQ(task_cfg.program.authorities.channels.at(out_a_ch.key), 200);
 
     auto mock_writer = std::make_shared<pipeline::mock::WriterFactory>();
 
@@ -2602,6 +2602,87 @@ TEST(ArcErrorHandling, WriterFailurePropagatesErrorStatus) {
 
     // Explicit stop to join pipeline threads (stopped_with_err calls stop from within
     // the acquisition thread which skips the thread join).
+    task->stop("test_stop", true);
+}
+
+TEST(ArcTests, testWriterOpensEagerlyBeforeFirstFrame) {
+    auto client = std::make_shared<synnax::Synnax>(new_test_client());
+
+    auto input_idx_name = make_unique_channel_name("eager_input_idx");
+    auto input_name = make_unique_channel_name("eager_input");
+    auto output_idx_name = make_unique_channel_name("eager_output_idx");
+    auto output_name = make_unique_channel_name("eager_output");
+
+    auto input_idx = synnax::channel::Channel{
+        .name = input_idx_name,
+        .data_type = x::telem::TIMESTAMP_T,
+        .is_index = true,
+    };
+    ASSERT_NIL(client->channels.create(input_idx));
+    auto output_idx = synnax::channel::Channel{
+        .name = output_idx_name,
+        .data_type = x::telem::TIMESTAMP_T,
+        .is_index = true,
+    };
+    ASSERT_NIL(client->channels.create(output_idx));
+
+    auto input_ch = synnax::channel::Channel{
+        .name = input_name,
+        .data_type = x::telem::FLOAT32_T,
+        .index = input_idx.key,
+    };
+    auto output_ch = synnax::channel::Channel{
+        .name = output_name,
+        .data_type = x::telem::FLOAT32_T,
+        .index = output_idx.key,
+    };
+    ASSERT_NIL(client->channels.create(input_ch));
+    ASSERT_NIL(client->channels.create(output_ch));
+
+    synnax::arc::Arc arc_prog{.name = make_unique_channel_name("eager_open_test")};
+    arc_prog.text = ::arc::text::Text(
+        "func calc(val f32) f32 {\n"
+        "    return val * 2\n"
+        "}\n" +
+        input_name + " -> calc{} -> " + output_name + "\n"
+    );
+    ASSERT_NIL(client->arcs.create(arc_prog));
+
+    auto rack = ASSERT_NIL_P(
+        client->racks.create(make_unique_channel_name("arc_eager_rack"))
+    );
+
+    synnax::task::Task task_meta{
+        .key = synnax::task::create_key(rack.key, 0),
+        .name = "arc_eager_open_test",
+        .type = "arc_runtime",
+    };
+    nlohmann::json cfg{{"arc_key", arc_prog.key.to_string()}};
+    task_meta.config = cfg;
+
+    auto parser = x::json::Parser(task_meta.config);
+    auto task_cfg = ASSERT_NIL_P(arc::TaskConfig::parse(client, parser));
+
+    auto mock_writer = std::make_shared<pipeline::mock::WriterFactory>();
+
+    auto empty_input_frames = std::make_shared<std::vector<x::telem::Frame>>();
+    auto mock_streamer = pipeline::mock::simple_streamer_factory(
+        {input_idx.key, input_ch.key},
+        empty_input_frames
+    );
+
+    auto ctx = std::make_shared<task::MockContext>(client);
+
+    auto task = ASSERT_NIL_P(
+        arc::Task::create(task_meta, ctx, task_cfg, mock_writer, mock_streamer)
+    );
+
+    task->start("test_start");
+
+    ASSERT_EVENTUALLY_GE(mock_writer->writer_opens.load(std::memory_order_acquire), 1);
+    ASSERT_EQ(mock_writer->writes->size(), 0)
+        << "Writer should open before any frames are produced";
+
     task->stop("test_stop", true);
 }
 }

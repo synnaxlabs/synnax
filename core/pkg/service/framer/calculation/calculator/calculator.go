@@ -13,35 +13,50 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/synnaxlabs/arc/runtime/constant"
 	"github.com/synnaxlabs/arc/runtime/node"
-	"github.com/synnaxlabs/arc/runtime/op"
 	"github.com/synnaxlabs/arc/runtime/scheduler"
-	"github.com/synnaxlabs/arc/runtime/selector"
-	"github.com/synnaxlabs/arc/runtime/stable"
-	"github.com/synnaxlabs/arc/runtime/stat"
-	"github.com/synnaxlabs/arc/runtime/state"
-	ntelem "github.com/synnaxlabs/arc/runtime/telem"
-	"github.com/synnaxlabs/arc/runtime/wasm"
+	stlchannel "github.com/synnaxlabs/arc/stl/channel"
+	"github.com/synnaxlabs/arc/stl/constant"
+	stlerrors "github.com/synnaxlabs/arc/stl/errors"
+	stlmath "github.com/synnaxlabs/arc/stl/math"
+	stlop "github.com/synnaxlabs/arc/stl/op"
+	"github.com/synnaxlabs/arc/stl/selector"
+	"github.com/synnaxlabs/arc/stl/series"
+	"github.com/synnaxlabs/arc/stl/stable"
+	"github.com/synnaxlabs/arc/stl/stat"
+	"github.com/synnaxlabs/arc/stl/stateful"
+	stlstrings "github.com/synnaxlabs/arc/stl/strings"
+	"github.com/synnaxlabs/arc/stl/wasm"
 	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer/frame"
 	arcruntime "github.com/synnaxlabs/synnax/pkg/service/arc/runtime"
-	"github.com/synnaxlabs/synnax/pkg/service/framer/calculation/compiler"
+	"github.com/synnaxlabs/synnax/pkg/service/channel/calculation/compiler"
 	"github.com/synnaxlabs/x/config"
+	"github.com/synnaxlabs/x/errors"
+	xio "github.com/synnaxlabs/x/io"
 	"github.com/synnaxlabs/x/override"
 	"github.com/synnaxlabs/x/telem"
 	"github.com/synnaxlabs/x/validate"
+	"github.com/tetratelabs/wazero"
 )
+
+type calcState struct {
+	nodes   *node.ProgramState
+	channel *stlchannel.ProgramState
+	series  *series.ProgramState
+	strings *stlstrings.ProgramState
+}
 
 // Calculator is an engine for executing expressions and operations in calculated
 // channels.
 type Calculator struct {
-	state     *state.State
+	state     calcState
 	scheduler *scheduler.Scheduler
 	cfg       Config
 	stateCfg  arcruntime.ExtendedStateConfig
 	start     telem.TimeStamp
+	closer    xio.MultiCloser
 }
 
 type Config struct {
@@ -74,57 +89,104 @@ func (c Config) Validate() error {
 func Open(
 	ctx context.Context,
 	cfgs ...Config,
-) (*Calculator, error) {
+) (_ *Calculator, err error) {
 	cfg, err := config.New(DefaultConfig, cfgs...)
 	if err != nil {
 		return nil, err
 	}
 
-	progState := state.New(cfg.Module.StateConfig.State)
-	telemFactory := ntelem.NewTelemFactory()
-	selectFactory := selector.NewFactory()
-	constantFactory := constant.NewFactory()
-	opFactory := op.NewFactory()
-	stableFactory := stable.NewFactory(stable.FactoryConfig{})
-	wasmMod, err := wasm.OpenModule(ctx, wasm.ModuleConfig{
-		Module: cfg.Module.Module,
-	})
+	var cs calcState
+	cs.channel = stlchannel.NewProgramState(cfg.Module.StateConfig.ChannelDigests)
+	cs.series = series.NewProgramState()
+	cs.strings = stlstrings.NewProgramState()
+
+	channelMod, err := stlchannel.NewModule(ctx, cs.channel, cs.strings, nil)
 	if err != nil {
 		return nil, err
 	}
-	wasmFactory, err := wasm.NewFactory(wasmMod)
-	if err != nil {
-		return nil, err
+
+	f := node.CompoundFactory{
+		channelMod,
+		selector.NewModule(),
+		constant.NewModule(),
+		stlop.NewModule(),
+		stable.NewModule(),
+		&stat.Module{},
 	}
-	f := node.MultiFactory{
-		opFactory,
-		telemFactory,
-		selectFactory,
-		constantFactory,
-		stableFactory,
-		wasmFactory,
-		stat.Factory,
+
+	var closers xio.MultiCloser
+	defer func() {
+		if err != nil {
+			err = errors.Join(err, closers.Close())
+		}
+	}()
+
+	if len(cfg.Module.WASM) > 0 {
+		var statefulMod *stateful.Module
+		var stringsMod *stlstrings.Module
+		var errorsMod *stlerrors.Module
+		wasmRT := wazero.NewRuntimeWithConfig(ctx, wazero.NewRuntimeConfigCompiler())
+		closers = append(closers, xio.CloserFunc(func() error {
+			return wasmRT.Close(ctx)
+		}))
+		if statefulMod, err = stateful.NewModule(ctx, cs.series, cs.strings, wasmRT); err != nil {
+			return nil, err
+		}
+		if _, err = series.NewModule(ctx, cs.series, wasmRT); err != nil {
+			return nil, err
+		}
+		if stringsMod, err = stlstrings.NewModule(ctx, cs.strings, wasmRT, nil); err != nil {
+			return nil, err
+		}
+		if _, err = stlmath.NewModule(ctx, wasmRT); err != nil {
+			return nil, err
+		}
+		if errorsMod, err = stlerrors.NewModule(ctx, nil, wasmRT); err != nil {
+			return nil, err
+		}
+
+		guest, guestErr := wasmRT.Instantiate(ctx, cfg.Module.WASM)
+		if guestErr != nil {
+			return nil, guestErr
+		}
+		stringsMod.SetMemory(guest.Memory())
+		errorsMod.SetMemory(guest.Memory())
+		closers = append(closers,
+			xio.CloserFunc(func() error { return guest.Close(ctx) }),
+		)
+		f = append(f, &wasm.Module{
+			Module:        guest,
+			Memory:        guest.Memory(),
+			Strings:       cs.strings,
+			NodeKeySetter: statefulMod,
+		})
 	}
+
+	cs.nodes = node.New(cfg.Module.StateConfig.IR)
 	nodes := make(map[string]node.Node)
 	for _, irNode := range cfg.Module.Nodes {
-		n, err := f.Create(ctx, node.Config{
-			Node:   irNode,
-			Module: cfg.Module.Module,
-			State:  progState.Node(irNode.Key),
+		n, nodeErr := f.Create(ctx, node.Config{
+			Node:    irNode,
+			Program: cfg.Module.Program,
+			State:   cs.nodes.Node(irNode.Key),
 		})
-		if err != nil {
-			return nil, err
+		if nodeErr != nil {
+			return nil, nodeErr
 		}
 		nodes[irNode.Key] = n
 	}
 
 	sched := scheduler.New(cfg.Module.IR, nodes, 0)
-	return &Calculator{
+	c := &Calculator{
 		cfg:       cfg,
 		scheduler: sched,
-		state:     progState,
+		state:     cs,
 		stateCfg:  cfg.Module.StateConfig,
-	}, nil
+		closer:    closers,
+		start:     telem.Now(),
+	}
+	closers = nil
+	return c, nil
 }
 
 func (c *Calculator) WriteTo() channel.Keys {
@@ -166,7 +228,7 @@ func (c *Calculator) Next(
 	input,
 	output framer.Frame,
 ) (framer.Frame, bool, error) {
-	c.state.Ingest(input.ToStorage())
+	c.state.channel.Ingest(input.ToStorage())
 	var (
 		ofr         = output.ToStorage()
 		currChanged bool
@@ -174,7 +236,13 @@ func (c *Calculator) Next(
 	)
 	for {
 		c.scheduler.Next(ctx, telem.Since(c.start), node.ReasonChannelInput)
-		ofr, currChanged = c.state.Flush(ofr)
+		ofr, currChanged = c.state.channel.Flush(ofr)
+		// Series and strings must be cleared after every flush, not just at the end
+		// of the loop. On each iteration the scheduler may create new series/string
+		// handles via WASM; if we don't clear them before the next iteration, stale
+		// handles accumulate and the counter keeps growing.
+		c.state.series.Clear()
+		c.state.strings.Clear()
 		if !currChanged {
 			break
 		}
@@ -183,7 +251,7 @@ func (c *Calculator) Next(
 	// ClearReads must run unconditionally, not just when changed is true. Otherwise,
 	// when a required input channel never sends data, consumed series accumulate
 	// indefinitely in channel.reads.
-	c.state.ClearReads()
+	c.state.channel.ClearReads()
 	if !changed {
 		return output, false, nil
 	}
@@ -191,5 +259,5 @@ func (c *Calculator) Next(
 }
 
 func (c *Calculator) Close() error {
-	return nil
+	return c.closer.Close()
 }

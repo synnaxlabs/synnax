@@ -45,6 +45,9 @@ logs/
 *.out
 build/
 testdata/**
+go.work
+go.work.sum
+custom-gcl
 
 # |||| RUST ||||
 

@@ -47,10 +47,10 @@ describe("Task", async () => {
       expect(m.config).toStrictEqual(config);
     });
     it("should create a task with a custom status", async () => {
-      const customStatus: task.NewStatus = {
+      const customStatus = {
         key: "",
         name: "",
-        variant: "success",
+        variant: "success" as const,
         message: "Custom task status",
         description: "Task is running",
         time: TimeStamp.now(),
@@ -530,15 +530,17 @@ describe("Task", async () => {
   });
 
   describe("with schemas", () => {
-    const typeSchema = z.literal("sensor_task");
-    const configSchema = z.object({
-      sampleRate: z.number(),
-      channels: z.array(z.string()),
-      enabled: z.boolean(),
-    });
-    const statusDataSchema = z.object({
-      samplesCollected: z.number().optional(),
-    });
+    const schemas = {
+      type: z.literal("sensor_task"),
+      config: z.object({
+        sampleRate: z.number(),
+        channels: z.array(z.string()),
+        enabled: z.boolean(),
+      }),
+      statusData: z.object({
+        samplesCollected: z.number().optional(),
+      }),
+    };
 
     it("should create and retrieve a task with typed config", async () => {
       const config = {
@@ -552,7 +554,7 @@ describe("Task", async () => {
           type: "sensor_task",
           config,
         },
-        { type: typeSchema, config: configSchema, statusData: statusDataSchema },
+        schemas,
       );
       expect(t.config.sampleRate).toBe(1000);
       expect(t.config.channels).toEqual(["ch1", "ch2"]);
@@ -560,11 +562,7 @@ describe("Task", async () => {
 
       const retrieved = await client.tasks.retrieve({
         key: t.key,
-        schemas: {
-          type: typeSchema,
-          config: configSchema,
-          statusData: statusDataSchema,
-        },
+        schemas,
       });
       expect(retrieved.config.sampleRate).toBe(1000);
       expect(retrieved.config.channels).toEqual(["ch1", "ch2"]);
@@ -578,7 +576,7 @@ describe("Task", async () => {
           type: "sensor_task",
           config: { sampleRate: 100, channels: ["a"], enabled: true },
         },
-        { type: typeSchema, config: configSchema, statusData: statusDataSchema },
+        schemas,
       );
       const t2 = await testRack.createTask(
         {
@@ -586,16 +584,12 @@ describe("Task", async () => {
           type: "sensor_task",
           config: { sampleRate: 200, channels: ["b", "c"], enabled: false },
         },
-        { type: typeSchema, config: configSchema, statusData: statusDataSchema },
+        schemas,
       );
 
       const retrieved = await client.tasks.retrieve({
         keys: [t1.key, t2.key],
-        schemas: {
-          type: typeSchema,
-          config: configSchema,
-          statusData: statusDataSchema,
-        },
+        schemas,
       });
       expect(retrieved).toHaveLength(2);
       expect(retrieved[0].config.sampleRate).toBe(100);
@@ -610,24 +604,23 @@ describe("Task", async () => {
           type: "sensor_task",
           config: { sampleRate: 500, channels: ["x"], enabled: true },
         },
-        { type: typeSchema, config: configSchema, statusData: statusDataSchema },
+        schemas,
       );
 
       const retrieved = await client.tasks.retrieve({
         name: uniqueName,
-        schemas: {
-          type: typeSchema,
-          config: configSchema,
-          statusData: statusDataSchema,
-        },
+        schemas,
       });
       expect(retrieved.name).toBe(uniqueName);
       expect(retrieved.config.sampleRate).toBe(500);
     });
 
     it("should retrieve task by type with schemas", async () => {
-      const customType = z.literal("unique_type_test");
-      const simpleConfig = z.object({ value: z.number() });
+      const customSchemas = {
+        type: z.literal("unique_type_test"),
+        config: z.object({ value: z.number() }),
+        statusData: z.unknown(),
+      };
 
       await testRack.createTask(
         {
@@ -635,13 +628,13 @@ describe("Task", async () => {
           type: "unique_type_test",
           config: { value: 42 },
         },
-        { type: customType, config: simpleConfig, statusData: z.unknown() },
+        customSchemas,
       );
 
       const retrieved = await client.tasks.retrieve({
         type: "unique_type_test",
         rack: testRack.key,
-        schemas: { type: customType, config: simpleConfig, statusData: z.unknown() },
+        schemas: customSchemas,
       });
       expect(retrieved.type).toBe("unique_type_test");
       expect(retrieved.config.value).toBe(42);

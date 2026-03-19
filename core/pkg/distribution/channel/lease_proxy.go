@@ -31,13 +31,12 @@ import (
 )
 
 type leaseProxy struct {
-	cfg                ServiceConfig
-	leasedCounter      *counter
-	freeCounter        *counter
-	analyzeCalculation CalculationAnalyzer
-	group              group.Group
-	table              *gorp.Table[Key, Channel]
-	mu                 struct {
+	cfg           ServiceConfig
+	leasedCounter *counter
+	freeCounter   *counter
+	group         group.Group
+	table         *gorp.Table[Key, Channel]
+	mu            struct {
 		externalNonVirtualSet *set.Integer[Key]
 		sync.RWMutex
 	}
@@ -144,14 +143,6 @@ func (lp *leaseProxy) create(ctx context.Context, tx gorp.Tx, _channels *[]Chann
 			}
 			channels[i].Leaseholder = cluster.NodeKeyFree
 			channels[i].Virtual = true
-			if lp.analyzeCalculation != nil {
-				dt, err := lp.analyzeCalculation(ctx, ch.Expression)
-				if err != nil {
-					return err
-				}
-				channels[i].DataType = dt
-			}
-			// Perform analysis on calculated channels.
 		} else if ch.LocalKey != 0 {
 			channels[i].LocalKey = 0
 		}
@@ -244,6 +235,7 @@ func (lp *leaseProxy) createAndUpdateFreeVirtual(
 						c.Expression = ic.Expression
 						c.Operations = ic.Operations
 						c.LocalIndex = ic.LocalIndex
+						c.DataType = ic.DataType
 					}
 					return c, nil
 				}).

@@ -13,7 +13,7 @@ import (
 	"context"
 	"strings"
 
-	"go.lsp.dev/protocol"
+	"github.com/synnaxlabs/x/lsp/protocol"
 )
 
 var hoverDocs = map[string]string{
@@ -85,7 +85,7 @@ import "schema/core/label"
 	"timestamp":  "**timestamp**\n\nPoint in time with nanosecond precision.",
 	"timespan":   "**timespan**\n\nDuration or elapsed time.",
 	"time_range": "**time_range**\n\nTime range with start and end timestamps.",
-	"json":       "**json**\n\nArbitrary JSON data.",
+	"record":     "**record**\n\nUntyped key-value record (map of string to any).",
 	"bytes":      "**bytes**\n\nByte array / binary data.",
 
 	"id":        "**domain id**\n\nMarks this field as the primary key for the struct.",

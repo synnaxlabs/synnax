@@ -11,8 +11,12 @@
 
 package types
 
+// Params is a collection of named, typed parameters for function inputs, outputs, or
+// configuration.
 type Params []Param
 
+// Kind is the type category for Arc's type system, including primitives, compound
+// types, and meta-types.
 type Kind uint8
 
 //go:generate stringer -type=Kind
@@ -42,6 +46,7 @@ const (
 	KindStage
 )
 
+// ChanDirection indicates read/write direction for channel-typed config parameters.
 type ChanDirection uint8
 
 //go:generate stringer -type=ChanDirection

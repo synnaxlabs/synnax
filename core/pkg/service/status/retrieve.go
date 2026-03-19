@@ -13,7 +13,6 @@ import (
 	"context"
 	"strings"
 
-	"github.com/google/uuid"
 	"github.com/samber/lo"
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
 	"github.com/synnaxlabs/synnax/pkg/service/label"
@@ -71,14 +70,14 @@ func (r Retrieve[D]) WhereKeyPrefix(prefix string) Retrieve[D] {
 	return r
 }
 
-func (r Retrieve[D]) WhereHasLabels(matchLabels ...uuid.UUID) Retrieve[D] {
+func (r Retrieve[D]) WhereHasLabels(matchLabels ...xlabel.Key) Retrieve[D] {
 	r.gorp = r.gorp.Where(func(ctx gorp.Context, s *Status[D]) (bool, error) {
 		labels, err := r.label.RetrieveFor(ctx, OntologyID(s.Key), ctx.Tx)
 		if err != nil {
 			return false, err
 		}
-		labelKeys := lo.Map(labels, func(l xlabel.Label, _ int) uuid.UUID { return l.Key })
-		return lo.ContainsBy(labelKeys, func(l uuid.UUID) bool {
+		labelKeys := lo.Map(labels, func(l xlabel.Label, _ int) xlabel.Key { return l.Key })
+		return lo.ContainsBy(labelKeys, func(l xlabel.Key) bool {
 			return lo.Contains(matchLabels, l)
 		}), nil
 	})

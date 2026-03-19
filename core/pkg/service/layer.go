@@ -21,6 +21,7 @@ import (
 	arcruntime "github.com/synnaxlabs/synnax/pkg/service/arc/runtime"
 	"github.com/synnaxlabs/synnax/pkg/service/auth"
 	"github.com/synnaxlabs/synnax/pkg/service/auth/token"
+	"github.com/synnaxlabs/synnax/pkg/service/channel"
 	"github.com/synnaxlabs/synnax/pkg/service/device"
 	"github.com/synnaxlabs/synnax/pkg/service/driver"
 	"github.com/synnaxlabs/synnax/pkg/service/framer"
@@ -132,6 +133,8 @@ type Layer struct {
 	// Framer is for reading, writing, and streaming frames of telemetry from channels
 	// across the cluster.
 	Framer *framer.Service
+	// Channel is the highest-level channel service and owns calculated channel behavior.
+	Channel *channel.Service
 	// Arc is used for validating, saving, and executing arc automations.
 	Arc *arc.Service
 	// Metrics is used for collecting host machine metrics and publishing them over channels
@@ -149,7 +152,7 @@ type Layer struct {
 // Close shuts down the service layer, returning any error encountered.
 func (l *Layer) Close() error { return l.closer.Close() }
 
-// Open opens the service layer using the provided configurations. Later configurations
+// OpenLayer opens the service layer using the provided configurations. Later configurations
 // override the fields set in previous ones. If the configuration is invalid, or
 // any services fail to open, Open returns a nil layer and an error. If the returned
 // error is nil, the Layer must be closed by calling Close after use.
@@ -328,6 +331,15 @@ func OpenLayer(ctx context.Context, cfgs ...LayerConfig) (l *Layer, err error) {
 	); !ok(err, l.Arc) {
 		return nil, err
 	}
+	if l.Channel, err = channel.OpenService(ctx, channel.ServiceConfig{
+		Instrumentation: cfg.Child("channel"),
+		Arc:             l.Arc,
+		DB:              cfg.Distribution.DB,
+		Distribution:    cfg.Distribution.Channel,
+		Status:          l.Status,
+	}); !ok(err, l.Channel) {
+		return nil, err
+	}
 	if l.View, err = view.OpenService(
 		ctx,
 		view.ServiceConfig{
@@ -340,14 +352,13 @@ func OpenLayer(ctx context.Context, cfgs ...LayerConfig) (l *Layer, err error) {
 	); !ok(err, l.View) {
 		return nil, err
 	}
-	cfg.Distribution.Channel.SetCalculationAnalyzer(l.Arc.AnalyzeCalculation)
 	if l.Framer, err = framer.OpenService(
 		ctx,
 		framer.ServiceConfig{
 			DB:              cfg.Distribution.DB,
 			Instrumentation: cfg.Child("framer"),
 			Framer:          cfg.Distribution.Framer,
-			Channel:         cfg.Distribution.Channel,
+			Channel:         l.Channel,
 			Arc:             l.Arc,
 			Status:          l.Status,
 		},
@@ -360,7 +371,7 @@ func OpenLayer(ctx context.Context, cfgs ...LayerConfig) (l *Layer, err error) {
 			DB:              cfg.Distribution.DB,
 			Instrumentation: cfg.Child("metrics"),
 			Framer:          l.Framer,
-			Channel:         cfg.Distribution.Channel,
+			Channel:         l.Channel,
 			HostProvider:    cfg.Distribution.Cluster,
 			Storage:         cfg.Storage,
 			Group:           cfg.Distribution.Group,
@@ -370,10 +381,10 @@ func OpenLayer(ctx context.Context, cfgs ...LayerConfig) (l *Layer, err error) {
 	}
 	// Create arc task factory for the driver
 	arcFactory, err := arcruntime.NewFactory(arcruntime.FactoryConfig{
-		Channel:   cfg.Distribution.Channel,
-		Framer:    cfg.Distribution.Framer,
-		Status:    l.Status,
-		GetModule: l.Arc.CompileModule,
+		Channel:    l.Channel,
+		Framer:     cfg.Distribution.Framer,
+		Status:     l.Status,
+		GetProgram: l.Arc.CompileProgram,
 	})
 	if !ok(err, nil) {
 		return nil, err
@@ -384,7 +395,7 @@ func OpenLayer(ctx context.Context, cfgs ...LayerConfig) (l *Layer, err error) {
 		Rack:            l.Rack,
 		Task:            l.Task,
 		Framer:          cfg.Distribution.Framer,
-		Channel:         cfg.Distribution.Channel,
+		Channel:         l.Channel,
 		Status:          l.Status,
 		Factory:         arcFactory,
 		Host:            cfg.Distribution.Cluster,

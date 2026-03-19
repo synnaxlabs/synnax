@@ -24,13 +24,13 @@ from synnax.x import control
 
 Key: TypeAlias = int
 
-OPERATIONTYPE_MIN: Literal["min"] = "min"
+OPERATION_TYPE_MIN: Literal["min"] = "min"
 
-OPERATIONTYPE_MAX: Literal["max"] = "max"
+OPERATION_TYPE_MAX: Literal["max"] = "max"
 
-OPERATIONTYPE_AVG: Literal["avg"] = "avg"
+OPERATION_TYPE_AVG: Literal["avg"] = "avg"
 
-OPERATIONTYPE_NONE: Literal["none"] = "none"
+OPERATION_TYPE_NONE: Literal["none"] = "none"
 
 
 OperationType = Literal["min", "max", "avg", "none"]

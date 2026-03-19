@@ -19,10 +19,10 @@ Note: Task Configuration Dialog is excluded as it requires hardware devices.
 """
 
 import synnax as sy
+from x import get_random_name
 
 from console.case import ConsoleCase
 from console.plot import Plot
-from framework.utils import get_random_name
 
 
 class AliasSynchronization(ConsoleCase):

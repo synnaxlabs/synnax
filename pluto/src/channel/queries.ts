@@ -7,7 +7,15 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { channel, DataType, type group, ontology, ranger } from "@synnaxlabs/client";
+import {
+  channel,
+  DataType,
+  type group,
+  isCalculated,
+  NotFoundError,
+  ontology,
+  ranger,
+} from "@synnaxlabs/client";
 import { array, deep, type optional, primitive, TimeSpan } from "@synnaxlabs/x";
 import { z } from "zod";
 
@@ -16,7 +24,7 @@ import { type Group } from "@/group";
 import { Ontology } from "@/ontology";
 import { type Ranger } from "@/ranger";
 import { state } from "@/state";
-import { type Status } from "@/status";
+import { Status } from "@/status";
 
 export const FLUX_STORE_KEY = "channels";
 const RESOURCE_NAME = "channel";
@@ -24,13 +32,11 @@ const PLURAL_RESOURCE_NAME = "channels";
 
 export interface FluxStore extends Flux.UnaryStore<channel.Key, channel.Channel> {}
 
-interface FluxSubStore extends Flux.Store {
+interface FluxSubStore extends Status.FluxSubStore {
   [FLUX_STORE_KEY]: FluxStore;
   [Ranger.RANGE_ALIASES_FLUX_STORE_KEY]: Ranger.AliasFluxStore;
-  [Ontology.RELATIONSHIPS_FLUX_STORE_KEY]: Ontology.RelationshipFluxStore;
   [Ontology.RESOURCES_FLUX_STORE_KEY]: Ontology.ResourceFluxStore;
   [Group.FLUX_STORE_KEY]: Group.FluxStore;
-  [Status.FLUX_STORE_KEY]: Status.FluxStore;
 }
 
 const SET_CHANNEL_LISTENER: Flux.ChannelListener<
@@ -132,6 +138,18 @@ const retrieveSingle = async ({
     ch = await client.channels.retrieve(key);
     store.channels.set(ch.key, ch);
   }
+  if (isCalculated(ch.payload))
+    try {
+      const st = await Status.retrieveSingle<typeof channel.statusZ>({
+        store,
+        client,
+        query: { key: channel.statusKey(key) },
+        detailsSchema: channel.statusZ,
+      });
+      ch = client.channels.sugar({ ...ch.payload, status: st });
+    } catch (e) {
+      if (!(e instanceof NotFoundError)) throw e;
+    }
   if (rangeKey != null) {
     const aliasKey = ranger.alias.createKey({ range: rangeKey, channel: ch.key });
     let alias = store.rangeAliases.get(aliasKey);
@@ -207,16 +225,29 @@ export const { useRetrieve, useRetrieveStateful, useRetrieveObservable } =
     name: RESOURCE_NAME,
     retrieve: retrieveSingle,
     mountListeners: ({ store, onChange, query: { key, rangeKey }, client }) => {
-      const ch = store.channels.onSet((channel) => {
+      const ch = store.channels.onSet((changed) => {
         if (rangeKey != null) {
           const alias = store.rangeAliases.get(
             ranger.alias.createKey({ range: rangeKey, channel: key }),
           );
-          if (alias != null) channel.alias = alias.alias;
+          if (alias != null) changed.alias = alias.alias;
         }
-        onChange(channel);
+        onChange(
+          state.skipUndefined((p) =>
+            client.channels.sugar({ ...p, ...changed, status: p?.status }),
+          ),
+        );
       }, key);
-      if (rangeKey == null) return ch;
+      const onSetStatus = store.statuses.onSet((st) => {
+        const parsed = channel.statusZ.safeParse(st);
+        if (!parsed.success) return;
+        onChange(
+          state.skipUndefined((p) =>
+            client.channels.sugar({ ...p, status: parsed.data }),
+          ),
+        );
+      }, channel.statusKey(key));
+      if (rangeKey == null) return [ch, onSetStatus];
       const aliasKey = ranger.alias.createKey({ range: rangeKey, channel: key });
       const onSetAlias = store.rangeAliases.onSet((alias) => {
         if (alias == null) return;
@@ -235,7 +266,7 @@ export const { useRetrieve, useRetrieveStateful, useRetrieveObservable } =
           ),
         aliasKey,
       );
-      return [ch, onSetAlias, onDeleteAlias];
+      return [ch, onSetStatus, onSetAlias, onDeleteAlias];
     },
   });
 

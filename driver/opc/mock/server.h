@@ -13,6 +13,7 @@
 #pragma once
 
 #include <atomic>
+#include <chrono>
 #include <string>
 #include <thread>
 
@@ -20,6 +21,9 @@
 #include "glog/logging.h"
 #include "open62541/server.h"
 #include "open62541/server_config_default.h"
+
+/// module
+#include "x/cpp/telem/telem.h"
 
 #include "driver/opc/types/types.h"
 
@@ -108,6 +112,7 @@ struct TestNode {
 struct ServerConfig {
     std::vector<TestNode> test_nodes;
     std::uint16_t port = 4840; // Default OPC UA port
+    std::uint16_t max_sessions = 0; // 0 = unlimited (open62541 default)
 
     // Create default test nodes for comprehensive testing
     static ServerConfig create_default() {
@@ -289,6 +294,10 @@ public:
     std::atomic<bool> running{false};
     std::atomic<bool> ready{false};
     std::thread thread;
+    /// @brief artificial delay injected before each server iterate cycle.
+    /// Used in tests to simulate a slow server (e.g. network-unreachable PLC).
+    /// Zero means no delay.
+    x::telem::TimeSpan probe_delay{};
 
     explicit Server(const ServerConfig &cfg): cfg(cfg) {}
 
@@ -325,8 +334,9 @@ public:
     void run() {
         UA_Server *server = UA_Server_new();
         auto server_config = UA_Server_getConfig(server);
-        server_config->maxSessionTimeout = 3600000;
         UA_ServerConfig_setMinimal(server_config, cfg.port, nullptr);
+        server_config->maxSessionTimeout = 3600000;
+        if (cfg.max_sessions > 0) server_config->maxSessions = cfg.max_sessions;
 
         for (const auto &node: cfg.test_nodes) {
             UA_VariableAttributes attr = UA_VariableAttributes_default;
@@ -384,8 +394,13 @@ public:
 
         ready = true;
 
-        while (running.load())
+        while (running.load()) {
+            if (probe_delay.nanoseconds() > 0)
+                std::this_thread::sleep_for(
+                    std::chrono::nanoseconds(probe_delay.nanoseconds())
+                );
             UA_Server_run_iterate(server, true);
+        }
 
         ready = false;
         UA_Server_run_shutdown(server);

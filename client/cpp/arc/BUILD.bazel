@@ -1,3 +1,6 @@
+load("@rules_cc//cc:cc_library.bzl", "cc_library")
+load("@rules_cc//cc:cc_test.bzl", "cc_test")
+
 cc_library(
     name = "arc",
     srcs = [
@@ -13,7 +16,7 @@ cc_library(
     deps = [
         "//x/cpp/pb",
         "//arc/cpp/graph",
-        "//arc/cpp/module",
+        "//arc/cpp/program",
         "//arc/cpp/text",
         "//client/cpp/errors",
         "//client/cpp/ontology",

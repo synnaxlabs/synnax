@@ -66,7 +66,8 @@ export class JSONCodec implements Codec {
   }
 
   encodeString(payload: unknown, schema?: z.ZodType): string {
-    const caseConverted = caseconv.camelToSnake(payload, { schema });
+    const parsed = schema != null ? schema.parse(payload) : payload;
+    const caseConverted = caseconv.camelToSnake(parsed ?? {}, { schema });
     return JSON.stringify(caseConverted, (_, v) => {
       if (ArrayBuffer.isView(v)) return Array.from(v as Uint8Array);
       if (typeof v === "bigint") return v.toString();

@@ -47,16 +47,16 @@ func RangeFromPB(ctx context.Context, pb *Range) (ranger.Range, error) {
 	var err error
 	parsedKey, err := uuid.Parse(pb.Key)
 	if err != nil {
-		return r, err
+		return ranger.Range{}, err
 	}
 	r.Key = ranger.Key(parsedKey)
 	r.TimeRange, err = telempb.TimeRangeFromPB(ctx, pb.TimeRange)
 	if err != nil {
-		return r, err
+		return ranger.Range{}, err
 	}
 	r.Color, err = colorpb.ColorFromPB(ctx, pb.Color)
 	if err != nil {
-		return r, err
+		return ranger.Range{}, err
 	}
 	r.Name = pb.Name
 	return r, nil

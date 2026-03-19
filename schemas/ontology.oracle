@@ -7,48 +7,18 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-@ts output "client/ts/src/ontology"
-@go output "core/pkg/distribution/ontology"
+@ts output  "client/ts/src/ontology"
+@py output  "client/py/synnax/ontology"
+@go output  "core/pkg/distribution/ontology"
+@cpp output "client/cpp/ontology"
 @pb
 
-ResourceType enum {
-    label            = "label"
-    log              = "log"
-    builtin          = "builtin"
-    cluster          = "cluster"
-    channel          = "channel"
-    node             = "node"
-    group            = "group"
-    range            = "range"
-    framer           = "framer"
-    range_alias      = "range-alias"
-    user             = "user"
-    workspace        = "workspace"
-    schematic        = "schematic"
-    lineplot         = "lineplot"
-    rack             = "rack"
-    device           = "device"
-    task             = "task"
-    policy           = "policy"
-    role             = "role"
-    table            = "table"
-    arc              = "arc"
-    schematic_symbol = "schematic_symbol"
-    status           = "status"
-    view             = "view"
-
-    @doc value """
-        is the type of a resource in the Synnax ontology system. Each resource
-        type represents a distinct kind of entity that can have relationships
-        with other resources.
-    """
-    @go omit
-    @pb omit
-}
-
 Type string {
+    @doc value "is the type of the resource."
     @go omit
+    @cpp omit
     @ts omit
+    @py omit
 }
 
 RelationshipType string {
@@ -70,14 +40,20 @@ ID struct {
     """
     @go omit
     @ts omit
+    @go omit
+    @cpp omit
+    @py omit
 }
 
 Resource struct {
-    id   ID     {
+    id   ID      {
         @doc value "is the unique identifier for this resource."
     }
-    name string {
+    name string  {
         @doc value "is a human-readable name for the resource."
+    }
+    data record? {
+        @doc value "is optional metadata associated with the resource."
     }
 
     @doc value  """
@@ -87,6 +63,10 @@ Resource struct {
     @go omit
     @go marshal
     @ts omit
+    @go omit
+    @cpp omit
+    @py omit
+    @pb omit
 }
 
 Relationship struct {
@@ -107,4 +87,8 @@ Relationship struct {
     @go omit
     @go marshal
     @ts omit
+    @go omit
+    @cpp omit
+    @py omit
+    @pb omit
 }

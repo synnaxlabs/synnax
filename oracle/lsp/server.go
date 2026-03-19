@@ -23,8 +23,8 @@ import (
 	"github.com/synnaxlabs/oracle/resolution"
 	"github.com/synnaxlabs/x/diagnostics"
 	xlsp "github.com/synnaxlabs/x/lsp"
+	"github.com/synnaxlabs/x/lsp/protocol"
 	"go.lsp.dev/jsonrpc2"
-	"go.lsp.dev/protocol"
 	"go.uber.org/zap"
 )
 

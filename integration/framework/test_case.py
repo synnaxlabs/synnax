@@ -13,69 +13,29 @@ import warnings
 warnings.filterwarnings("ignore", message=".*keepalive ping.*")
 warnings.filterwarnings("ignore", message=".*timed out while closing connection.*")
 
-import logging
 import sys
 import threading
 import traceback
 from abc import ABC, abstractmethod
-from collections import deque
 from collections.abc import Callable
-from dataclasses import dataclass
-from enum import Enum, auto
-from pathlib import Path
 from typing import Any, Literal, overload
 
 import synnax as sy
-
-from framework.utils import (
+from synnax.telem import SampleValue
+from x import (
     WebSocketErrorFilter,
     ignore_websocket_errors,
-    is_ci,
     is_websocket_error,
+    suppress_websocket_errors,
     validate_and_sanitize_name,
 )
+
+from framework.log_client import LogClient, LogMode, SynnaxChannelSink
+from framework.models import STATUS, SYMBOLS, SynnaxConnection
 
 # Error filter
 sys.excepthook = ignore_websocket_errors
 sys.stderr = WebSocketErrorFilter()
-
-
-@dataclass
-class SynnaxConnection:
-    """Data class representing the Synnax connection parameters."""
-
-    server_address: str = "localhost"
-    port: int = 9090
-    username: str = "synnax"
-    password: str = "seldon"
-    secure: bool = False
-
-
-class STATUS(Enum):
-    """Enum representing the status of a test."""
-
-    INITIALIZING = auto()
-    RUNNING = auto()
-    PENDING = auto()
-    PASSED = auto()
-    FAILED = auto()
-    TIMEOUT = auto()
-    KILLED = auto()
-
-
-class SYMBOLS(Enum):
-    PASSED = "✅"
-    FAILED = "❌"
-    KILLED = "💀"
-    TIMEOUT = "⏰"
-
-    @classmethod
-    def get_symbol(cls, status: STATUS) -> str:
-        """Get symbol for a given status, with fallback to '?' if not found."""
-        try:
-            return cls[status.name].value
-        except (KeyError, AttributeError):
-            return "❓"
 
 
 class TestCase(ABC):
@@ -94,15 +54,13 @@ class TestCase(ABC):
     """
 
     # Configuration constants
-    DEFAULT_READ_TIMEOUT: int = 1
-    DEFAULT_LOOP_RATE: float = 0.2  # 5 Hz
-    WEBSOCKET_RETRY_DELAY: float = 0.5  # s
-    MAX_CLEANUP_RETRIES: int = 3
-    CLIENT_THREAD_START_DELAY: int = 1
-    DEFAULT_TIMEOUT_LIMIT: int = -1
-    DEFAULT_MANUAL_TIMEOUT: int = -1
+    DEFAULT_READ_TIMEOUT: sy.CrudeTimeSpan = 1 * sy.TimeSpan.SECOND
+    DEFAULT_LOOP_RATE: sy.CrudeTimeSpan = 200 * sy.TimeSpan.MILLISECOND
+    WEBSOCKET_RETRY_DELAY: sy.CrudeTimeSpan = 500 * sy.TimeSpan.MILLISECOND
+    DEFAULT_TIMEOUT_LIMIT: sy.CrudeTimeSpan | None = None
+    DEFAULT_MANUAL_TIMEOUT: sy.CrudeTimeSpan | None = None
 
-    logger: logging.Logger
+    log_client: LogClient
     frame_in: sy.Frame | None
 
     def __init__(
@@ -112,31 +70,35 @@ class TestCase(ABC):
         name: str,
         **params: Any,
     ) -> None:
-        self.synnax_connection = synnax_connection
-
         """Initialize test case with Synnax server connection."""
+        self.synnax_connection = synnax_connection
         self.params = params
         self.start_time: sy.TimeStamp = sy.TimeStamp.now()
-        self._timeout_limit: int = self.DEFAULT_TIMEOUT_LIMIT  # -1 = no timeout
-        self._manual_timeout: int = self.DEFAULT_MANUAL_TIMEOUT
-        self.read_frame: dict[str, int | float] | None = None
-        self.read_timeout = self.DEFAULT_READ_TIMEOUT
+        self._timeout_limit: sy.CrudeTimeSpan | None = self.DEFAULT_TIMEOUT_LIMIT
+        self._manual_timeout: sy.CrudeTimeSpan | None = self.DEFAULT_MANUAL_TIMEOUT
+        self.read_frame: dict[str, int | float | str] | None = None
+        self.read_timeout: sy.CrudeTimeSpan = self.DEFAULT_READ_TIMEOUT
 
         self.name = validate_and_sanitize_name(name)
-
-        self._setup_logging()
         self._status: STATUS = STATUS.INITIALIZING
 
-        self.client = sy.Synnax(
-            host=synnax_connection.server_address,
-            port=synnax_connection.port,
-            username=synnax_connection.username,
-            password=synnax_connection.password,
-            secure=synnax_connection.secure,
+        # Cache channel name strings
+        self._ch_time = f"{self.name}_time"
+        self._ch_uptime = f"{self.name}_uptime"
+        self._ch_state = f"{self.name}_state"
+        self._ch_log = f"{self.name}_log"
+
+        self.client = synnax_connection.create_client()
+
+        self.log_client = LogClient(
+            name=self.name,
+            mode=LogMode.BUFFERED,
+            persistent_sinks=[
+                SynnaxChannelSink(self.client, self._ch_log),
+            ],
         )
 
         self.loop = sy.Loop(self.DEFAULT_LOOP_RATE)
-        self.client_thread = None
         self.writer_thread: threading.Thread = threading.Thread()
         self.streamer_thread: threading.Thread = threading.Thread()
         self._auto_pass: bool = False
@@ -146,57 +108,20 @@ class TestCase(ABC):
         self.subscribed_channels: set[str] = set()
 
         self.time_index = self.client.channels.create(
-            name=f"{self.name}_time",
+            name=self._ch_time,
             data_type=sy.DataType.TIMESTAMP,
             is_index=True,
             retrieve_if_name_exists=True,
         )
 
         self.tlm = {
-            f"{self.name}_time": sy.TimeStamp.now(),
+            self._ch_time: sy.TimeStamp.now(),
         }
 
         self.add_channel(name="uptime", data_type=sy.DataType.UINT32, initial_value=0)
         self.add_channel(
             name="state", data_type=sy.DataType.UINT8, initial_value=self._status.value
         )
-
-    def _setup_logging(self) -> None:
-        """Setup logging for real-time output (same approach as TestConductor)."""
-        # Check if running in CI environment
-        ci_environment = is_ci()
-
-        # Force unbuffered output in CI environments
-        if ci_environment:
-            if hasattr(sys.stdout, "reconfigure"):
-                sys.stdout.reconfigure(line_buffering=True)
-
-        # Create logger for this test case (don't configure root logger)
-        self.logger = logging.getLogger(self.name)
-        self.logger.setLevel(logging.INFO)
-
-        # Remove any existing handlers to avoid duplicates
-        for handler in self.logger.handlers[:]:
-            self.logger.removeHandler(handler)
-
-        # Add single handler
-        handler = logging.StreamHandler(sys.stdout)
-        handler.setLevel(logging.INFO)
-        formatter = logging.Formatter("%(message)s")
-        handler.setFormatter(formatter)
-        self.logger.addHandler(handler)
-
-        # Prevent propagation to root logger to avoid duplicate output
-        self.logger.propagate = False
-
-        # Force immediate flush for real-time output in CI
-        for handler in self.logger.handlers:
-            if hasattr(handler, "stream") and hasattr(handler.stream, "flush"):
-
-                def make_flush(h: Any) -> Callable[[], None]:
-                    return lambda: h.stream.flush()
-
-                setattr(handler, "flush", make_flush(handler))
 
     def _writer_loop(self) -> None:
         """Writer thread that writes telemetry at consistent interval."""
@@ -211,24 +136,22 @@ class TestCase(ABC):
             )
 
             while not self.should_stop:
-                """
-                # Update telemetry
-                """
-
                 now = sy.TimeStamp.now()
-                uptime_value = (now - self.start_time) / 1e9
-                self.tlm[f"{self.name}_time"] = now
-                self.tlm[f"{self.name}_uptime"] = uptime_value
-                self.tlm[f"{self.name}_state"] = self._status.value
+                elapsed = now - self.start_time
+                uptime_seconds = elapsed / sy.TimeSpan.SECOND
+                self.tlm[self._ch_time] = now
+                self.tlm[self._ch_uptime] = uptime_seconds
+                self.tlm[self._ch_state] = self._status.value
 
-                # Check for timeout
-                if self._timeout_limit > 0 and uptime_value > self._timeout_limit:
-                    self.log(f"Timeout at {uptime_value}s")
+                if (
+                    self._timeout_limit is not None
+                    and elapsed > sy.TimeSpan.from_seconds(self._timeout_limit)
+                ):
+                    self.log(f"Timeout at {uptime_seconds:.1f}s")
                     self.STATUS = STATUS.TIMEOUT
 
-                # Check for completion due to failure
                 if self._status.value >= STATUS.FAILED.value:
-                    self.tlm[f"{self.name}_state"] = self._status.value
+                    self.tlm[self._ch_state] = self._status.value
                     self._should_stop = True
 
                 try:
@@ -238,32 +161,19 @@ class TestCase(ABC):
                         sy.sleep(self.WEBSOCKET_RETRY_DELAY)
                     else:
                         self.STATUS = STATUS.FAILED
-                        raise e
-
-                # Final write attempt for redundancy
-                try:
-                    client.write(self.tlm)
-                except:
-                    pass
+                        raise
 
         except Exception as e:
-            if is_websocket_error(e):
-                pass
-            else:
+            if not is_websocket_error(e):
                 self.log(f"Writer thread error: {e}\n {traceback.format_exc()}")
                 self.STATUS = STATUS.FAILED
-                raise e
+                raise
 
         finally:
-            # Cleanup writer
-            try:
-                if "client" in locals() and client:
+            if client is not None:
+                with suppress_websocket_errors():
+                    client.write(self.tlm)
                     client.close()
-            except Exception as cleanup_error:
-                if is_websocket_error(cleanup_error):
-                    pass
-                else:
-                    self.log(f"Writer cleanup error: {cleanup_error}")
 
     def _streamer_loop(self) -> None:
         """Streamer thread that reads data on demand with timeout."""
@@ -280,7 +190,6 @@ class TestCase(ABC):
 
             while not self._should_stop:
                 try:
-                    # Read data on demand with timeout (not tied to loop.wait())
                     self.frame_in = streamer.read(self.read_timeout)
                     if self.frame_in is not None:
                         for key, value in self.frame_in.items():
@@ -294,34 +203,19 @@ class TestCase(ABC):
                         break
 
         except Exception as e:
-            if is_websocket_error(e):
-                pass
-            else:
+            if not is_websocket_error(e):
                 self.log(f"Streamer thread error: {e}\n {traceback.format_exc()}")
                 self.STATUS = STATUS.FAILED
-                raise e
+                raise
 
         finally:
-            # Cleanup streamer
-            try:
-                if "streamer" in locals() and streamer:
+            if streamer is not None:
+                with suppress_websocket_errors():
                     streamer.close()
-            except Exception as cleanup_error:
-                if is_websocket_error(cleanup_error):
-                    pass
-                else:
-                    self.log(f"Streamer cleanup error: {cleanup_error}")
 
     def log(self, message: str) -> None:
-        """Log a message to the console with real-time output."""
-        now = sy.TimeStamp.now()
-        timestamp = now.datetime().strftime("%H:%M:%S.%f")[:-4]
-        self.logger.info(f"{timestamp} | {self.name} > {message}")
-
-        # Force flush to ensure immediate output in CI
-        for handler in self.logger.handlers:
-            if hasattr(handler, "flush"):
-                handler.flush()
+        """Log a message. Buffered by default; dumped by conductor on failure."""
+        self.log_client.info(message)
 
     def _start_client_threads(self) -> None:
         # Start writer thread (writes telemetry at consistent interval)
@@ -332,45 +226,33 @@ class TestCase(ABC):
         self.streamer_thread = threading.Thread(target=self._streamer_loop, daemon=True)
         self.streamer_thread.start()
 
+    def _join_thread(
+        self, thread: threading.Thread, label: str, timeout: float = 5
+    ) -> None:
+        """Join a thread with timeout, logging a warning if it doesn't stop."""
+        if thread.is_alive():
+            thread.join(timeout=timeout)
+            if thread.is_alive():
+                self.log(f"Warning: {label} thread did not stop within timeout")
+
     def _stop_client(self) -> None:
         """Stop client threads and wait for completion."""
         if self.is_running:
             self._should_stop = True
             self.is_running = False
+            self._join_thread(self.streamer_thread, "streamer")
+            self._join_thread(self.writer_thread, "writer")
 
-            # Stop streamer thread
-            if self.streamer_thread and self.streamer_thread.is_alive():
-                self.streamer_thread.join(timeout=5.0)
-                if self.streamer_thread.is_alive():
-                    self.log("Warning: streamer thread did not stop within timeout")
-
-            # Stop writer thread
-            if self.writer_thread.is_alive():
-                self.writer_thread.join(timeout=5.0)
-                if self.writer_thread.is_alive():
-                    self.log("Warning: writer thread did not stop within timeout")
-
-        # All done? All done.
         if self._status == STATUS.PENDING:
             self.STATUS = STATUS.PASSED
 
-    def _wait_for_client_completion(self, timeout: float = 5.0) -> None:
+    def _wait_for_client_completion(
+        self, timeout: sy.CrudeTimeSpan = 5 * sy.TimeSpan.SECOND
+    ) -> None:
         """Wait for client threads to complete."""
-        # Wait for streamer thread
-        if self.streamer_thread.is_alive():
-            self.streamer_thread.join(timeout=timeout)
-            if self.streamer_thread.is_alive():
-                self.log(
-                    "Warning: streamer thread still alive after wait_for_client_completion"
-                )
-
-        # Wait for writer thread
-        if self.writer_thread.is_alive():
-            self.writer_thread.join(timeout=timeout)
-            if self.writer_thread.is_alive():
-                self.log(
-                    "Warning: writer thread still alive after wait_for_client_completion"
-                )
+        timeout_secs = sy.TimeSpan.to_seconds(timeout)
+        self._join_thread(self.streamer_thread, "streamer", timeout_secs)
+        self._join_thread(self.writer_thread, "writer", timeout_secs)
 
     def _check_expectation(self) -> None:
         """Check if test met expected outcome and handle failures gracefully."""
@@ -385,7 +267,12 @@ class TestCase(ABC):
         elif self._status == STATUS.FAILED:
             self.log(f"FAILED ({status_symbol})")
         elif self._status == STATUS.TIMEOUT:
-            self.log(f"TIMEOUT ({status_symbol}): {self._timeout_limit} seconds")
+            limit_str = (
+                sy.TimeSpan.from_seconds(self._timeout_limit)
+                if self._timeout_limit is not None
+                else "N/A"
+            )
+            self.log(f"TIMEOUT ({status_symbol}): {limit_str}")
         elif self._status == STATUS.KILLED:
             self.log(f"KILLED ({status_symbol})")
 
@@ -423,24 +310,28 @@ class TestCase(ABC):
         self.tlm[tlm_name] = initial_value
 
     def subscribe(
-        self, channels: str | list[str], timeout: sy.TimeSpan | None = 10
+        self,
+        channels: str | list[str],
+        timeout: sy.CrudeTimeSpan = 10 * sy.TimeSpan.SECOND,
     ) -> None:
-        """
-        Subscribe to channels.
+        """Subscribe to channels.
+
         Can take either a single channel name or a list of channels.
-        Timeout is the time (s) to wait for the channels to be initialized.
+
+        :param channels: Channel name(s) to subscribe to.
+        :param timeout: Maximum time to wait for channels to be initialized.
         """
-        self.log(f"Subscribing to channels: {channels} ({timeout}s timeout)")
+        timeout_span = sy.TimeSpan.from_seconds(timeout)
+        self.log(f"Subscribing to channels: {channels} ({timeout_span} timeout)")
 
         client = self.client
         time_start = sy.TimeStamp.now()
-        timeout_ns = timeout * sy.TimeSpan.SECOND
         found = False
 
         while self.loop.wait():
             time_now = sy.TimeStamp.now()
             elapsed = time_now - time_start
-            if elapsed > timeout_ns:
+            if elapsed > timeout_span:
                 break
 
             try:
@@ -468,11 +359,9 @@ class TestCase(ABC):
             self.subscribed_channels.add(channels)
         elif isinstance(channels, list):
             self.subscribed_channels.update(channels)
-        return None
 
     def setup(self) -> None:
         """Load configs, add channels, subscribe to channels, etc."""
-        return None
 
     def auto_pass(self, msg: str) -> None:
         """Set the auto pass flag. Include reason for passing."""
@@ -491,8 +380,7 @@ class TestCase(ABC):
         pass
 
     def write_tlm(self, channel: str, value: Any = None) -> None:
-        """Write values to telemetry dictionary. Can take single key-value or dict of multiple channels."""
-        # if isinstance(channel, self.tlm.keys()):
+        """Write values to telemetry dictionary."""
         self.tlm[channel] = value
 
     @overload
@@ -503,16 +391,17 @@ class TestCase(ABC):
     @overload
     def read_tlm(self, key: str, default: int | float) -> int | float: ...
 
+    @overload
+    def read_tlm(self, key: str, default: str) -> str: ...
+
     def read_tlm(
-        self, key: str, default: int | float | None = None
-    ) -> int | float | None:
+        self, key: str, default: int | float | str | None = None
+    ) -> int | float | str | None:
         try:
             if self.read_frame is not None:
-                value = self.read_frame.get(key, default)
-                return value
-            else:
-                return default
-        except:
+                return self.read_frame.get(key, default)
+            return default
+        except Exception:
             return default
 
     def get_value(self, channel_name: str) -> float | None:
@@ -535,15 +424,15 @@ class TestCase(ABC):
 
             return None
 
-        except:
+        except Exception:
             raise RuntimeError(f'Could not get value for channel "{channel_name}"')
 
     def _wait_for_condition(
         self,
         channel_name: str,
-        condition: Callable[[Any], bool],
+        condition: Callable[[SampleValue], bool],
         condition_desc: str,
-        timeout: float = 5.0,
+        timeout: sy.CrudeTimeSpan = 5 * sy.TimeSpan.SECOND,
         is_virtual: bool = False,
     ) -> None:
         """Base method for waiting on a channel value condition.
@@ -551,14 +440,12 @@ class TestCase(ABC):
         The condition is always checked at least once before the timeout is evaluated,
         so timeout=0 can be used for immediate assertions without waiting.
 
-        Args:
-            channel_name: Name of the channel to read
-            condition: Function that takes a value and returns True when condition is met
-            condition_desc: Human-readable description of condition (e.g., "== 1", "> 27")
-            timeout: Maximum time to wait in seconds (default: 5.0). Use 0 for immediate
-                check without waiting.
-            is_virtual: If True, read from subscribed telemetry (read_tlm).
-                       If False, read from database (get_value). Default: False.
+        :param channel_name: Name of the channel to read.
+        :param condition: Function that takes a value and returns True when met.
+        :param condition_desc: Human-readable description (e.g., "== 1", "> 27").
+        :param timeout: Maximum time to wait. Use 0 for immediate check.
+        :param is_virtual: If True, read from subscribed telemetry (read_tlm).
+            If False, read from database (get_value).
         """
         timer = sy.Timer()
         timeout_span = sy.TimeSpan.from_seconds(timeout)
@@ -583,14 +470,14 @@ class TestCase(ABC):
         self.fail(
             f"Timeout waiting for {channel_name} {condition_desc}!\n"
             f"Actual: {actual_value}\n"
-            f"Timeout: {timeout}s"
+            f"Timeout: {timeout_span}"
         )
 
     def wait_for_eq(
         self,
         channel_name: str,
-        expected: Any,
-        timeout: float = 5.0,
+        expected: SampleValue,
+        timeout: sy.CrudeTimeSpan = 5 * sy.TimeSpan.SECOND,
         is_virtual: bool = False,
     ) -> None:
         """Wait for channel value == expected."""
@@ -602,7 +489,7 @@ class TestCase(ABC):
         self,
         channel_name: str,
         threshold: float | int,
-        timeout: float = 5.0,
+        timeout: sy.CrudeTimeSpan = 5 * sy.TimeSpan.SECOND,
         is_virtual: bool = False,
     ) -> None:
         """Wait for channel value > threshold."""
@@ -614,7 +501,7 @@ class TestCase(ABC):
         self,
         channel_name: str,
         threshold: float | int,
-        timeout: float = 5.0,
+        timeout: sy.CrudeTimeSpan = 5 * sy.TimeSpan.SECOND,
         is_virtual: bool = False,
     ) -> None:
         """Wait for channel value >= threshold."""
@@ -630,7 +517,7 @@ class TestCase(ABC):
         self,
         channel_name: str,
         threshold: float | int,
-        timeout: float = 5.0,
+        timeout: sy.CrudeTimeSpan = 5 * sy.TimeSpan.SECOND,
         is_virtual: bool = False,
     ) -> None:
         """Wait for channel value < threshold."""
@@ -642,7 +529,7 @@ class TestCase(ABC):
         self,
         channel_name: str,
         threshold: float | int,
-        timeout: float = 5.0,
+        timeout: sy.CrudeTimeSpan = 5 * sy.TimeSpan.SECOND,
         is_virtual: bool = False,
     ) -> None:
         """Wait for channel value <= threshold."""
@@ -658,8 +545,9 @@ class TestCase(ABC):
         self,
         channel_name: str,
         target: float,
-        tolerance: float = 0.5,
-        timeout: float = 5.0,
+        *,
+        tolerance: float,
+        timeout: sy.CrudeTimeSpan = 5 * sy.TimeSpan.SECOND,
         is_virtual: bool = False,
     ) -> None:
         """Wait for channel value to be within tolerance of target."""
@@ -670,29 +558,6 @@ class TestCase(ABC):
             timeout,
             is_virtual,
         )
-
-    @overload
-    def get_state(
-        self, key: str, default: Literal[None] = None
-    ) -> int | float | None: ...
-
-    @overload
-    def get_state(self, key: str, default: int | float) -> int | float: ...
-
-    def get_state(
-        self, key: str, default: int | float | None = None
-    ) -> int | float | None:
-        """
-        Easily get state of this object.
-
-        - self.name + "state"
-        - self.name + "time"
-        - self.name + "uptime"
-        """
-
-        name_ch = self.name + "_" + key
-        value = self.tlm.get(name_ch, default)
-        return value
 
     @property
     def name(self) -> str:
@@ -718,7 +583,7 @@ class TestCase(ABC):
             # Update telemetry if client thread is running
             if hasattr(self, "tlm") and self.is_client_running():
                 try:
-                    self.tlm[f"{self.name}_state"] = value.value
+                    self.tlm[self._ch_state] = value.value
                 except Exception as e:
                     raise RuntimeError(f"Failed to set status: {e}")
         else:
@@ -727,106 +592,68 @@ class TestCase(ABC):
     @property
     def uptime(self) -> float:
         """Get the uptime of the test case."""
-        return float(self.tlm.get(f"{self.name}_uptime", -1))
+        return float(self.tlm.get(self._ch_uptime, -1))
 
     @property
     def time(self) -> float:
         """Get the uptime of the test case."""
-        return float(self.tlm.get(f"{self.name}_time", -1))
+        return float(self.tlm.get(self._ch_time, -1))
 
     @property
     def state(self) -> float:
         """Get the state of the test case."""
-        return float(self.tlm.get(f"{self.name}_state", -1))
+        return float(self.tlm.get(self._ch_state, -1))
 
     @property
-    def manual_timeout(self) -> int:
+    def manual_timeout(self) -> sy.CrudeTimeSpan | None:
         """Get the manual timeout of the test case."""
         return self._manual_timeout
 
     @property
     def should_stop(self) -> bool:
         self.loop.wait()  # Rate limit checks to avoid busy loops
-        condition_1 = self._manual_timeout >= 0 and self.uptime > self._manual_timeout
-        condition_2 = self._should_stop
-
-        return condition_1 or condition_2
+        timed_out = self._manual_timeout is not None and sy.TimeStamp.since(
+            self.start_time
+        ) > sy.TimeSpan.from_seconds(self._manual_timeout)
+        return timed_out or self._should_stop
 
     @property
     def should_continue(self) -> bool:
         return not self.should_stop
 
-    def wait_for_tlm_stale(self, buffer_size: int = 5) -> bool:
-        """
-        Wait for all subscribed channels to be Stale (inactive).
-        Requires the last buffer_size frames to be identical.
-        """
-        self.log("Waiting for all channels to be stale (inactive)")
-
-        # Buffer to store the last n vals arrays
-        vals_buffer: deque[Any] = deque(maxlen=buffer_size)
-
-        while self.should_continue:
-            vals_now = []
-            for ch in self.subscribed_channels:
-                vals_now.append(self.read_tlm(ch))
-
-            # Add current values to buffer
-            vals_buffer.append(vals_now)
-
-            # Check if buffer is full and all entries are identical
-            if len(vals_buffer) == buffer_size:
-                first_vals = vals_buffer[0]
-                if all(vals == first_vals for vals in vals_buffer):
-                    self.log(
-                        f"All channels are stale (last {buffer_size} frames identical)"
-                    )
-                    return True
-
-        raise TimeoutError("Some Channels remain active")
-
-    def set_manual_timeout(self, value: int) -> None:
+    def set_manual_timeout(self, value: sy.CrudeTimeSpan) -> None:
         """Set the manual timeout of the test case."""
         self._manual_timeout = value
-        self.log(f"Manual timeout set ({value}s)")
+        self.log(f"Manual timeout set ({sy.TimeSpan.from_seconds(value)})")
 
     def configure(
         self,
-        read_timeout: int | None = None,
-        loop_rate: float | None = None,
-        timeout_limit: int | None = None,
-        manual_timeout: int | None = None,
+        read_timeout: sy.CrudeTimeSpan | None = None,
+        loop_rate: sy.CrudeTimeSpan | None = None,
+        timeout_limit: sy.CrudeTimeSpan | None = None,
+        manual_timeout: sy.CrudeTimeSpan | None = None,
     ) -> None:
         """Configure test case parameters.
 
-        Args:
-            read_timeout: Timeout for synnax client read operations (default: 1)
-            loop_rate: Synnax Client Loop frequency in Hz (default: 1)
-            timeout_limit: Maximum execution time before failure (default: -1, no limit)
-            manual_timeout: Manual timeout for test termination (default: -1, no limit)
+        :param read_timeout: Timeout for synnax client read operations.
+        :param loop_rate: Synnax Client Loop interval.
+        :param timeout_limit: Maximum execution time before failure.
+        :param manual_timeout: Manual timeout for test termination.
         """
-        params = {}
+        log_parts: list[str] = []
         if read_timeout is not None:
-            self._read_timeout = read_timeout
-            params["read_timeout"] = read_timeout
-
+            self.read_timeout = read_timeout
+            log_parts.append(f"read_timeout={read_timeout}")
         if loop_rate is not None:
             self.loop = sy.Loop(loop_rate)
-            params["loop_rate"] = self.loop
-
+            log_parts.append(f"loop_rate={loop_rate}")
         if timeout_limit is not None:
             self._timeout_limit = timeout_limit
-            params["timeout_limit"] = timeout_limit
-
+            log_parts.append(f"timeout_limit={timeout_limit}")
         if manual_timeout is not None:
             self._manual_timeout = manual_timeout
-            params["manual_timeout"] = manual_timeout
-
-        log_params = {
-            k: (f"{v.interval}" if isinstance(v, sy.Loop) else v)
-            for k, v in params.items()
-        }
-        self.log(f"Configured with: {log_params}")
+            log_parts.append(f"manual_timeout={manual_timeout}")
+        self.log(f"Configured with: {', '.join(log_parts)}")
 
     def is_client_running(self) -> bool:
         """Check if client threads are running."""
@@ -834,33 +661,11 @@ class TestCase(ABC):
         writer_running = self.writer_thread.is_alive()
         return bool(streamer_running or writer_running)
 
-    def get_client_status(self) -> str:
-        """Get client thread status."""
-        streamer_status = "Not started"
-        writer_status = "Not started"
-
-        if self.streamer_thread:
-            streamer_status = (
-                "Running" if self.streamer_thread.is_alive() else "Stopped"
-            )
-
-        if self.writer_thread:
-            writer_status = "Running" if self.writer_thread.is_alive() else "Stopped"
-
-        return f"Streamer: {streamer_status}, Writer: {writer_status}"
-
-    def get_streamer_status(self) -> str:
-        """Get streamer thread status."""
-        return "Running" if self.streamer_thread.is_alive() else "Stopped"
-
-    def get_writer_status(self) -> str:
-        """Get writer thread status."""
-        return "Running" if self.writer_thread.is_alive() else "Stopped"
-
     def fail(self, message: str | None = None) -> None:
         if message is not None:
             self.log(f"FAILED: {message}")
         self.STATUS = STATUS.FAILED
+        raise RuntimeError(message or "Test failed")
 
     def execute(self) -> None:
         """Execute complete test lifecycle: setup -> run -> teardown."""
@@ -886,9 +691,7 @@ class TestCase(ABC):
             # PASSED set in _check_expectation()
 
         except Exception as e:
-            if is_websocket_error(e):
-                pass
-            else:
+            if not is_websocket_error(e):
                 self.STATUS = STATUS.FAILED
                 self.log(f"EXCEPTION: {e}\n{traceback.format_exc()}")
         finally:

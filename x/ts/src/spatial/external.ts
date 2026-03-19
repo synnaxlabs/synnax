@@ -15,4 +15,5 @@ export * from "@/spatial/location";
 export * from "@/spatial/scale";
 export * as spatial from "@/spatial/spatial";
 export * from "@/spatial/sticky";
+export * from "@/spatial/types.gen";
 export * from "@/spatial/xy";

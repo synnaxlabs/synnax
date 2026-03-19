@@ -17,6 +17,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
 	"github.com/synnaxlabs/synnax/pkg/distribution/mock"
 	"github.com/synnaxlabs/synnax/pkg/service/arc"
+	svcchannel "github.com/synnaxlabs/synnax/pkg/service/channel"
 	"github.com/synnaxlabs/synnax/pkg/service/framer/calculation/graph"
 	"github.com/synnaxlabs/synnax/pkg/service/label"
 	"github.com/synnaxlabs/synnax/pkg/service/rack"
@@ -92,8 +93,8 @@ var _ = Describe("Graph", func() {
 	var g *graph.Graph
 	BeforeEach(func() {
 		g = MustSucceed(graph.New(graph.Config{
-			Channel:        dist.Channel,
-			SymbolResolver: arcSvc.SymbolResolver(),
+			Channel:        svcchannel.Wrap(dist.Channel),
+			SymbolResolver: arcSvc.NewSymbolResolver(nil),
 		}))
 	})
 	Describe("Add", func() {
@@ -212,7 +213,7 @@ var _ = Describe("Graph", func() {
 			calc := channel.Channel{Name: "calc10", DataType: telem.Int64T, Virtual: true, Expression: "return base8"}
 			Expect(dist.Channel.Create(ctx, &calc)).To(Succeed())
 			Expect(g.Add(ctx, calc)).To(Succeed())
-			Expect(g.Remove(calc.Key())).To(Succeed())
+			Expect(MustSucceed(g.Remove(calc.Key()))).To(BeTrue())
 			grouped := g.CalculateGrouped()
 			Expect(grouped).To(BeEmpty())
 		})
@@ -227,16 +228,16 @@ var _ = Describe("Graph", func() {
 			Expect(dist.Channel.CreateMany(ctx, &calcs)).To(Succeed())
 			Expect(g.Add(ctx, calcs[0])).To(Succeed())
 			Expect(g.Add(ctx, calcs[1])).To(Succeed())
-			Expect(g.Remove(calcs[0].Key())).To(Succeed())
+			Expect(MustSucceed(g.Remove(calcs[0].Key()))).To(BeTrue())
 			grouped := g.CalculateGrouped()
 			Expect(grouped).To(HaveLen(1))
-			Expect(g.Remove(calcs[1].Key())).To(Succeed())
+			Expect(MustSucceed(g.Remove(calcs[1].Key()))).To(BeTrue())
 			grouped = g.CalculateGrouped()
 			Expect(grouped).To(BeEmpty())
 		})
 
-		It("Should not fail to remove non-existent channel", func() {
-			Expect(g.Remove(channel.Key(99999))).To(Succeed())
+		It("Should return false for non-existent channel", func() {
+			Expect(MustSucceed(g.Remove(channel.Key(99999)))).To(BeFalse())
 		})
 	})
 
@@ -248,10 +249,10 @@ var _ = Describe("Graph", func() {
 			Expect(dist.Channel.Create(ctx, &calc)).To(Succeed())
 			Expect(g.Add(ctx, calc)).To(Succeed())
 			Expect(g.Add(ctx, calc)).To(Succeed())
-			Expect(g.Remove(calc.Key())).To(Succeed())
+			Expect(MustSucceed(g.Remove(calc.Key()))).To(BeTrue())
 			grouped := g.CalculateGrouped()
 			Expect(grouped).To(HaveLen(1))
-			Expect(g.Remove(calc.Key())).To(Succeed())
+			Expect(MustSucceed(g.Remove(calc.Key()))).To(BeTrue())
 			grouped = g.CalculateGrouped()
 			Expect(grouped).To(BeEmpty())
 		})
@@ -266,7 +267,7 @@ var _ = Describe("Graph", func() {
 			Expect(g.Add(ctx, calcs[1])).To(Succeed())
 			grouped := g.CalculateGrouped()
 			Expect(grouped[0]).To(HaveLen(2))
-			Expect(g.Remove(calcs[1].Key())).To(Succeed())
+			Expect(MustSucceed(g.Remove(calcs[1].Key()))).To(BeTrue())
 			grouped = g.CalculateGrouped()
 			Expect(grouped).To(BeEmpty())
 		})
@@ -283,10 +284,10 @@ var _ = Describe("Graph", func() {
 			Expect(g.Add(ctx, calcs[2])).To(Succeed())
 			grouped := g.CalculateGrouped()
 			Expect(grouped[0]).To(HaveLen(3))
-			Expect(g.Remove(calcs[1].Key())).To(Succeed())
+			Expect(MustSucceed(g.Remove(calcs[1].Key()))).To(BeTrue())
 			grouped = g.CalculateGrouped()
 			Expect(grouped[0]).To(HaveLen(2))
-			Expect(g.Remove(calcs[2].Key())).To(Succeed())
+			Expect(MustSucceed(g.Remove(calcs[2].Key()))).To(BeTrue())
 			grouped = g.CalculateGrouped()
 			Expect(grouped).To(BeEmpty())
 		})
@@ -300,10 +301,10 @@ var _ = Describe("Graph", func() {
 			Expect(dist.Channel.CreateMany(ctx, &calcs)).To(Succeed())
 			Expect(g.Add(ctx, calcs[0])).To(Succeed())
 			Expect(g.Add(ctx, calcs[1])).To(Succeed())
-			Expect(g.Remove(calcs[1].Key())).To(Succeed())
+			Expect(MustSucceed(g.Remove(calcs[1].Key()))).To(BeTrue())
 			grouped := g.CalculateGrouped()
 			Expect(grouped[0]).To(HaveLen(1))
-			Expect(g.Remove(calcs[0].Key())).To(Succeed())
+			Expect(MustSucceed(g.Remove(calcs[0].Key()))).To(BeTrue())
 			grouped = g.CalculateGrouped()
 			Expect(grouped).To(BeEmpty())
 		})
@@ -343,7 +344,7 @@ var _ = Describe("Graph", func() {
 			Expect(keys).To(HaveLen(1))
 			Expect(keys.Contains(calc.Key())).To(BeTrue())
 
-			Expect(g.Remove(calc.Key())).To(Succeed())
+			Expect(MustSucceed(g.Remove(calc.Key()))).To(BeTrue())
 			keys = g.CalculatedKeys()
 			Expect(keys).To(BeEmpty())
 		})
@@ -410,7 +411,7 @@ var _ = Describe("Graph", func() {
 			baseKeys := g.ConcreteBaseKeys()
 			Expect(baseKeys).To(HaveLen(2))
 
-			Expect(g.Remove(calcs[0].Key())).To(Succeed())
+			Expect(MustSucceed(g.Remove(calcs[0].Key()))).To(BeTrue())
 			baseKeys = g.ConcreteBaseKeys()
 			Expect(baseKeys).To(HaveLen(1))
 			Expect(baseKeys.Contains(bases[1].Key())).To(BeTrue())
@@ -509,10 +510,10 @@ var _ = Describe("Graph", func() {
 			calc.Expression = "return upbase8 * 3"
 			Expect(dist.Channel.Create(ctx, &calc)).To(Succeed())
 			Expect(g.Update(ctx, calc)).To(Succeed())
-			Expect(g.Remove(calc.Key())).To(Succeed())
+			Expect(MustSucceed(g.Remove(calc.Key()))).To(BeTrue())
 			grouped := g.CalculateGrouped()
 			Expect(grouped).To(HaveLen(1))
-			Expect(g.Remove(calc.Key())).To(Succeed())
+			Expect(MustSucceed(g.Remove(calc.Key()))).To(BeTrue())
 			grouped = g.CalculateGrouped()
 			Expect(grouped).To(BeEmpty())
 		})
@@ -601,6 +602,254 @@ var _ = Describe("Graph", func() {
 			calcKeys = g.CalculatedKeys()
 			Expect(calcKeys).To(HaveLen(3))
 			Expect(calcKeys.Contains(calcs[0].Key())).To(BeTrue())
+		})
+		It("Should recompile downstream calcs when upstream DataType changes", func() {
+			raw := channel.Channel{Name: "cascade_raw", DataType: telem.Float32T, Virtual: true}
+			Expect(dist.Channel.Create(ctx, &raw)).To(Succeed())
+
+			calc1 := channel.Channel{
+				Name:       "cascade_calc1",
+				DataType:   telem.Float32T,
+				Virtual:    true,
+				Expression: "return f32(cascade_raw * 1)",
+			}
+			Expect(dist.Channel.Create(ctx, &calc1)).To(Succeed())
+
+			calc2 := channel.Channel{
+				Name:       "cascade_calc2",
+				DataType:   telem.Float32T,
+				Virtual:    true,
+				Expression: "return cascade_calc1 * 2",
+			}
+			Expect(dist.Channel.Create(ctx, &calc2)).To(Succeed())
+
+			Expect(g.Add(ctx, calc2)).To(Succeed())
+			flat := g.CalculateFlat()
+			Expect(flat).To(HaveLen(2))
+
+			// Update calc1 to return f64 instead of f32
+			calc1.Expression = "return f64(cascade_raw * 1.0)"
+			calc1.DataType = telem.Float64T
+			Expect(dist.Channel.Create(ctx, &calc1)).To(Succeed())
+			err := g.Update(ctx, calc1)
+
+			// The update should trigger recompilation of calc2. Since calc2's
+			// stored DataType is f32 but calc1 now provides f64, the expression
+			// `cascade_calc1 * 2` resolves to f64 which doesn't match calc2's
+			// f32 return type. The graph should surface this as an error.
+			Expect(err).To(HaveOccurred())
+			Expect(err.Error()).To(ContainSubstring("cannot return"))
+		})
+		It("Should cascade recompilation through a three-level chain", func() {
+			raw := channel.Channel{Name: "chain3_raw", DataType: telem.Float64T, Virtual: true}
+			Expect(dist.Channel.Create(ctx, &raw)).To(Succeed())
+
+			calc1 := channel.Channel{
+				Name:       "chain3_c1",
+				DataType:   telem.Float64T,
+				Virtual:    true,
+				Expression: "return chain3_raw + 1.0",
+			}
+			Expect(dist.Channel.Create(ctx, &calc1)).To(Succeed())
+
+			calc2 := channel.Channel{
+				Name:       "chain3_c2",
+				DataType:   telem.Float64T,
+				Virtual:    true,
+				Expression: "return chain3_c1 + 2.0",
+			}
+			Expect(dist.Channel.Create(ctx, &calc2)).To(Succeed())
+
+			calc3 := channel.Channel{
+				Name:       "chain3_c3",
+				DataType:   telem.Float64T,
+				Virtual:    true,
+				Expression: "return chain3_c2 + 3.0",
+			}
+			Expect(dist.Channel.Create(ctx, &calc3)).To(Succeed())
+
+			Expect(g.Add(ctx, calc3)).To(Succeed())
+			Expect(g.CalculateFlat()).To(HaveLen(3))
+
+			// Change calc1 to f32 output. This should cascade through
+			// calc2 and calc3 and fail because calc2 declares f64 return
+			// but calc1 now provides f32.
+			calc1.Expression = "return f32(chain3_raw)"
+			calc1.DataType = telem.Float32T
+			Expect(dist.Channel.Create(ctx, &calc1)).To(Succeed())
+			err := g.Update(ctx, calc1)
+			Expect(err).To(HaveOccurred())
+		})
+		It("Should cascade recompilation through a diamond dependency", func() {
+			raw := channel.Channel{Name: "diamond_raw", DataType: telem.Float64T, Virtual: true}
+			Expect(dist.Channel.Create(ctx, &raw)).To(Succeed())
+
+			left := channel.Channel{
+				Name:       "diamond_left",
+				DataType:   telem.Float64T,
+				Virtual:    true,
+				Expression: "return diamond_raw * 2.0",
+			}
+			Expect(dist.Channel.Create(ctx, &left)).To(Succeed())
+
+			right := channel.Channel{
+				Name:       "diamond_right",
+				DataType:   telem.Float64T,
+				Virtual:    true,
+				Expression: "return diamond_raw * 3.0",
+			}
+			Expect(dist.Channel.Create(ctx, &right)).To(Succeed())
+
+			bottom := channel.Channel{
+				Name:       "diamond_bottom",
+				DataType:   telem.Float64T,
+				Virtual:    true,
+				Expression: "return diamond_left + diamond_right",
+			}
+			Expect(dist.Channel.Create(ctx, &bottom)).To(Succeed())
+
+			Expect(g.Add(ctx, bottom)).To(Succeed())
+			flat := g.CalculateFlat()
+			Expect(flat).To(HaveLen(3))
+
+			// Change left to f32 output. This should cascade to bottom
+			// but not affect right, since right depends on raw, not left.
+			left.Expression = "return f32(diamond_raw)"
+			left.DataType = telem.Float32T
+			Expect(dist.Channel.Create(ctx, &left)).To(Succeed())
+			err := g.Update(ctx, left)
+			Expect(err).To(HaveOccurred())
+
+			// right should still be in the graph unchanged
+			Expect(g.CalculatedKeys().Contains(right.Key())).To(BeTrue())
+		})
+		It("Should not cascade when DataType stays the same", func() {
+			raw := channel.Channel{Name: "nocascade_raw", DataType: telem.Float64T, Virtual: true}
+			Expect(dist.Channel.Create(ctx, &raw)).To(Succeed())
+
+			calc1 := channel.Channel{
+				Name:       "nocascade_c1",
+				DataType:   telem.Float64T,
+				Virtual:    true,
+				Expression: "return nocascade_raw + 1.0",
+			}
+			Expect(dist.Channel.Create(ctx, &calc1)).To(Succeed())
+
+			calc2 := channel.Channel{
+				Name:       "nocascade_c2",
+				DataType:   telem.Float64T,
+				Virtual:    true,
+				Expression: "return nocascade_c1 + 2.0",
+			}
+			Expect(dist.Channel.Create(ctx, &calc2)).To(Succeed())
+
+			Expect(g.Add(ctx, calc2)).To(Succeed())
+			Expect(g.CalculateFlat()).To(HaveLen(2))
+
+			// Change calc1's expression but keep the same DataType.
+			// This should NOT trigger cascade recompilation.
+			calc1.Expression = "return nocascade_raw + 99.0"
+			Expect(dist.Channel.Create(ctx, &calc1)).To(Succeed())
+			Expect(g.Update(ctx, calc1)).To(Succeed())
+			Expect(g.CalculateFlat()).To(HaveLen(2))
+		})
+		It("Should rollback dependent modules on mid-chain compile failure", func() {
+			raw := channel.Channel{Name: "rb_raw", DataType: telem.Float64T, Virtual: true}
+			Expect(dist.Channel.Create(ctx, &raw)).To(Succeed())
+
+			calc1 := channel.Channel{
+				Name:       "rb_c1",
+				DataType:   telem.Float64T,
+				Virtual:    true,
+				Expression: "return rb_raw + 1.0",
+			}
+			Expect(dist.Channel.Create(ctx, &calc1)).To(Succeed())
+
+			// calc2 uses an explicit cast, so it compiles regardless of
+			// calc1's type. Its output is always f64.
+			calc2 := channel.Channel{
+				Name:       "rb_c2",
+				DataType:   telem.Float64T,
+				Virtual:    true,
+				Expression: "return f64(rb_c1)",
+			}
+			Expect(dist.Channel.Create(ctx, &calc2)).To(Succeed())
+
+			// calc3 references both calc1 and calc2 without casting.
+			// When calc1 is f64, this is f64+f64 which works. When calc1
+			// changes to i64, this becomes i64+f64 which fails.
+			calc3 := channel.Channel{
+				Name:       "rb_c3",
+				DataType:   telem.Float64T,
+				Virtual:    true,
+				Expression: "return rb_c1 + rb_c2",
+			}
+			Expect(dist.Channel.Create(ctx, &calc3)).To(Succeed())
+
+			Expect(g.Add(ctx, calc3)).To(Succeed())
+			flat := g.CalculateFlat()
+			Expect(flat).To(HaveLen(3))
+
+			// Save calc2's original WASM bytecode before the cascade.
+			var origWASM []byte
+			for _, mod := range flat {
+				if mod.Channel.Key() == calc2.Key() {
+					origWASM = make([]byte, len(mod.WASM))
+					copy(origWASM, mod.WASM)
+				}
+			}
+			Expect(origWASM).ToNot(BeEmpty())
+
+			// Change calc1 from f64 to i64. This triggers cascade:
+			// calc2 recompiles successfully (explicit cast handles i64),
+			// but calc3 fails (i64 + f64 is a type mismatch).
+			calc1.Expression = "return i64(rb_raw)"
+			calc1.DataType = telem.Int64T
+			Expect(dist.Channel.Create(ctx, &calc1)).To(Succeed())
+			err := g.Update(ctx, calc1)
+			Expect(err).To(HaveOccurred())
+
+			// calc2's module should be rolled back to its original state
+			// since the cascade failed partway through.
+			flat = g.CalculateFlat()
+			for _, mod := range flat {
+				if mod.Channel.Key() == calc2.Key() {
+					Expect(mod.WASM).To(Equal(origWASM))
+				}
+			}
+		})
+	})
+
+	Describe("Error Messages", func() {
+		It("Should include channel name in Add compilation errors", func() {
+			calc := channel.Channel{
+				Name:       "bad_calc_add",
+				DataType:   telem.Int64T,
+				Virtual:    true,
+				Expression: "return invalid_syntax {{",
+			}
+			Expect(dist.Channel.Create(ctx, &calc)).To(Succeed())
+			err := g.Add(ctx, calc)
+			Expect(err).To(HaveOccurred())
+			Expect(err.Error()).To(ContainSubstring("bad_calc_add"))
+		})
+
+		It("Should include channel name in Update compilation errors", func() {
+			bases := []channel.Channel{{Name: "err_base", DataType: telem.Int64T, Virtual: true}}
+			Expect(dist.Channel.CreateMany(ctx, &bases)).To(Succeed())
+			calc := channel.Channel{
+				Name:       "bad_calc_update",
+				DataType:   telem.Int64T,
+				Virtual:    true,
+				Expression: "return err_base * 2",
+			}
+			Expect(dist.Channel.Create(ctx, &calc)).To(Succeed())
+			Expect(g.Add(ctx, calc)).To(Succeed())
+			calc.Expression = "return invalid_syntax {{"
+			Expect(dist.Channel.Create(ctx, &calc)).To(Succeed())
+			err := g.Update(ctx, calc)
+			Expect(err).To(HaveOccurred())
+			Expect(err.Error()).To(ContainSubstring("bad_calc_update"))
 		})
 	})
 })

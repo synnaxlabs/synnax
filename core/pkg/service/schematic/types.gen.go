@@ -16,6 +16,7 @@ import (
 	"github.com/synnaxlabs/x/binary"
 )
 
+// Key is a unique identifier for a schematic, represented as a UUID.
 type Key = uuid.UUID
 
 // Schematic is a visual diagram editor component for drawing system schematics, control

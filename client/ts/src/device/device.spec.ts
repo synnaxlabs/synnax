@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { id, TimeStamp, unique } from "@synnaxlabs/x";
+import { id, record, TimeStamp, unique } from "@synnaxlabs/x";
 import { beforeAll, describe, expect, it } from "vitest";
 import { z } from "zod";
 
@@ -364,10 +364,14 @@ describe("Device", async () => {
     });
 
     describe("with schemas", () => {
-      const propertiesSchema = z.object({
-        rate: z.number(),
-        channels: z.array(z.string()),
-      });
+      const schemas = {
+        properties: z.object({
+          rate: z.number(),
+          channels: z.array(z.string()),
+        }),
+        make: z.string(),
+        model: z.string(),
+      };
 
       it("should create and retrieve with typed properties", async () => {
         const d = await client.devices.create(
@@ -380,22 +384,25 @@ describe("Device", async () => {
             model: "pxi-6281",
             properties: { rate: 1000, channels: ["ai0", "ai1"] },
           },
-          { properties: propertiesSchema },
+          schemas,
         );
         expect(d.properties.rate).toBe(1000);
         expect(d.properties.channels).toEqual(["ai0", "ai1"]);
 
         const retrieved = await client.devices.retrieve({
           key: d.key,
-          schemas: { properties: propertiesSchema },
+          schemas,
         });
         expect(retrieved.properties.rate).toBe(1000);
         expect(retrieved.properties.channels).toEqual(["ai0", "ai1"]);
       });
 
       it("should create and retrieve with typed make and model", async () => {
-        const makeSchema = z.literal("labjack");
-        const modelSchema = z.enum(["t7", "t4", "t8"]);
+        const makeModelSchemas = {
+          properties: record.unknownZ(),
+          make: z.literal("labjack"),
+          model: z.enum(["t7", "t4", "t8"]),
+        };
 
         const d = await client.devices.create(
           {
@@ -407,7 +414,7 @@ describe("Device", async () => {
             model: "t7",
             properties: {},
           },
-          { make: makeSchema, model: modelSchema },
+          makeModelSchemas,
         );
         expect(d.make).toBe("labjack");
         expect(d.model).toBe("t7");
@@ -424,7 +431,7 @@ describe("Device", async () => {
             model: "pxi",
             properties: { rate: 100, channels: ["ch1"] },
           },
-          { properties: propertiesSchema },
+          schemas,
         );
         const d2 = await client.devices.create(
           {
@@ -436,12 +443,12 @@ describe("Device", async () => {
             model: "pxi",
             properties: { rate: 200, channels: ["ch2", "ch3"] },
           },
-          { properties: propertiesSchema },
+          schemas,
         );
 
         const retrieved = await client.devices.retrieve({
           keys: [d1.key, d2.key],
-          schemas: { properties: propertiesSchema },
+          schemas,
         });
         expect(retrieved).toHaveLength(2);
         expect(retrieved[0].properties.rate).toBe(100);

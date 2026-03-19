@@ -7,7 +7,7 @@ proto_library(
     visibility = ["//visibility:public"],
     deps = [
         "//arc/go/graph:graph_proto",
-        "//arc/go/module:module_proto",
+        "//arc/go/program:program_proto",
         "//arc/go/text:text_proto",
         "//x/go/status:status_proto",
     ],
@@ -20,7 +20,7 @@ cpp_grpc_library(
     visibility = ["//visibility:public"],
     deps = [
         "//arc/go/graph:graph_grpc",
-        "//arc/go/module:module_grpc",
+        "//arc/go/program:program_grpc",
         "//arc/go/text:text_grpc",
         "//x/go/status:status_grpc",
     ],

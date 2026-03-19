@@ -9,7 +9,7 @@
 
 import "schemas/spatial"
 
-@ts output "client/ts/src/workspace/schematic/symbol"
+@ts output "client/ts/src/schematic/symbol"
 
 Key = uuid {
     @doc value "is a unique identifier for a schematic symbol."
