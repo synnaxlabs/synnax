@@ -1964,7 +1964,7 @@ wheels = [
 
 [[package]]
 name = "x"
-version = "0.0.1"
+version = "0.0.0"
 source = { editable = "x/py" }
 
 [package.dev-dependencies]
@@ -1978,7 +1978,7 @@ dev = [
 
 [package.metadata.requires-dev]
 dev = [
-    { name = "black", specifier = ">=26.1.0,<27" },
+    { name = "black", specifier = ">=26.3.1,<27" },
     { name = "isort", specifier = ">=8.0.1,<9" },
     { name = "mypy", specifier = ">=1.19.1,<2" },
 ]
