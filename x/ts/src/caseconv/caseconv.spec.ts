@@ -15,7 +15,6 @@ import { record } from "@/record";
 
 // Recursive record type for accessing case-converted results in tests.
 // Case conversion changes key names, so we can't use the original type.
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
 type R = Record<string, any>;
 
 describe("caseconv", () => {
