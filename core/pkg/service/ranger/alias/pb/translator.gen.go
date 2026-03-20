@@ -12,7 +12,6 @@
 package pb
 
 import (
-	"context"
 	"github.com/google/uuid"
 	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
 	"github.com/synnaxlabs/synnax/pkg/service/ranger"
@@ -20,7 +19,7 @@ import (
 )
 
 // AliasToPB converts Alias to Alias.
-func AliasToPB(_ context.Context, r alias.Alias) (*Alias, error) {
+func AliasToPB(r alias.Alias) (*Alias, error) {
 	pb := &Alias{
 		Channel: uint32(r.Channel),
 		Alias:   r.Alias,
@@ -30,7 +29,7 @@ func AliasToPB(_ context.Context, r alias.Alias) (*Alias, error) {
 }
 
 // AliasFromPB converts Alias to Alias.
-func AliasFromPB(_ context.Context, pb *Alias) (alias.Alias, error) {
+func AliasFromPB(pb *Alias) (alias.Alias, error) {
 	var r alias.Alias
 	if pb == nil {
 		return r, nil
@@ -46,12 +45,12 @@ func AliasFromPB(_ context.Context, pb *Alias) (alias.Alias, error) {
 	return r, nil
 }
 
-// AliassToPB converts a slice of Alias to Alias.
-func AliassToPB(ctx context.Context, rs []alias.Alias) ([]*Alias, error) {
+// AliasesToPB converts a slice of Alias to Alias.
+func AliasesToPB(rs []alias.Alias) ([]*Alias, error) {
 	result := make([]*Alias, len(rs))
 	for i := range rs {
 		var err error
-		result[i], err = AliasToPB(ctx, rs[i])
+		result[i], err = AliasToPB(rs[i])
 		if err != nil {
 			return nil, err
 		}
@@ -59,12 +58,12 @@ func AliassToPB(ctx context.Context, rs []alias.Alias) ([]*Alias, error) {
 	return result, nil
 }
 
-// AliassFromPB converts a slice of Alias to Alias.
-func AliassFromPB(ctx context.Context, pbs []*Alias) ([]alias.Alias, error) {
+// AliasesFromPB converts a slice of Alias to Alias.
+func AliasesFromPB(pbs []*Alias) ([]alias.Alias, error) {
 	result := make([]alias.Alias, len(pbs))
 	for i, pb := range pbs {
 		var err error
-		result[i], err = AliasFromPB(ctx, pb)
+		result[i], err = AliasFromPB(pb)
 		if err != nil {
 			return nil, err
 		}

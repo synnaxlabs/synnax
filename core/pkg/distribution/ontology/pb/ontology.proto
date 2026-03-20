@@ -6,11 +6,39 @@ package distribution.ontology.pb;
 
 option go_package = "github.com/synnaxlabs/synnax/pkg/distribution/ontology/pb";
 
+// ResourceType is the type of the resource.
+enum ResourceType {
+  RESOURCE_TYPE_ARC = 0;
+  RESOURCE_TYPE_BUILTIN = 1;
+  RESOURCE_TYPE_CHANNEL = 2;
+  RESOURCE_TYPE_CLUSTER = 3;
+  RESOURCE_TYPE_DEVICE = 4;
+  RESOURCE_TYPE_FRAMER = 5;
+  RESOURCE_TYPE_GROUP = 6;
+  RESOURCE_TYPE_LABEL = 7;
+  RESOURCE_TYPE_LINEPLOT = 8;
+  RESOURCE_TYPE_LOG = 9;
+  RESOURCE_TYPE_NODE = 10;
+  RESOURCE_TYPE_POLICY = 11;
+  RESOURCE_TYPE_RACK = 12;
+  RESOURCE_TYPE_RANGE = 13;
+  RESOURCE_TYPE_RANGE_ALIAS = 14;
+  RESOURCE_TYPE_ROLE = 15;
+  RESOURCE_TYPE_SCHEMATIC = 16;
+  RESOURCE_TYPE_SCHEMATIC_SYMBOL = 17;
+  RESOURCE_TYPE_STATUS = 18;
+  RESOURCE_TYPE_TABLE = 19;
+  RESOURCE_TYPE_TASK = 20;
+  RESOURCE_TYPE_USER = 21;
+  RESOURCE_TYPE_VIEW = 22;
+  RESOURCE_TYPE_WORKSPACE = 23;
+}
+
 // ID is a unique identifier for a resource in the ontology system, composed of its type
 // and key.
 message ID {
   // type is the type of the resource.
-  string type = 1;
+  ResourceType type = 1;
   // key is the unique key identifying the resource within its type.
   string key = 2;
 }

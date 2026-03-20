@@ -32,7 +32,8 @@ std::pair<Writer, x::errors::Error> Client::open_writer(const WriterConfig &cfg)
     if (err) return {Writer(), err};
     grpc::framer::WriterRequest req;
     req.set_command(OPEN);
-    cfg.to_proto(req.mutable_config());
+    if (const auto cfg_err = cfg.to_proto(req.mutable_config()))
+        return {Writer(), cfg_err};
     if (!net_writer->send(req).ok()) net_writer->close_send();
     auto [_, res_exc] = net_writer->receive();
     auto writer = Writer(std::move(net_writer), cfg, codec);
@@ -42,8 +43,10 @@ std::pair<Writer, x::errors::Error> Client::open_writer(const WriterConfig &cfg)
 Writer::Writer(std::unique_ptr<WriterStream> s, WriterConfig cfg, const Codec &codec):
     cfg(std::move(cfg)), codec(codec), stream(std::move(s)) {}
 
-void WriterConfig::to_proto(grpc::framer::WriterConfig *f) const {
-    *f->mutable_control_subject() = this->subject.to_proto();
+x::errors::Error WriterConfig::to_proto(grpc::framer::WriterConfig *f) const {
+    auto [pb, pb_err] = this->subject.to_proto();
+    if (pb_err) return pb_err;
+    *f->mutable_control_subject() = pb;
     f->set_start(this->start.nanoseconds());
     f->mutable_authorities()->Add(this->authorities.begin(), this->authorities.end());
     f->mutable_keys()->Add(this->channels.begin(), this->channels.end());
@@ -51,6 +54,7 @@ void WriterConfig::to_proto(grpc::framer::WriterConfig *f) const {
     f->set_enable_auto_commit(this->enable_auto_commit);
     f->set_auto_index_persist_interval(this->auto_index_persist_interval.nanoseconds());
     f->set_err_on_unauthorized(this->err_on_unauthorized);
+    return x::errors::NIL;
 }
 
 x::errors::Error Writer::write(const x::telem::Frame &fr) {
@@ -85,7 +89,7 @@ x::errors::Error Writer::set_authority(
     const WriterConfig config{.channels = keys, .authorities = authorities};
     grpc::framer::WriterRequest req;
     req.set_command(SET_AUTHORITY);
-    config.to_proto(req.mutable_config());
+    if (const auto cfg_err = config.to_proto(req.mutable_config())) return cfg_err;
     return this->exec(req, ack).second;
 }
 

@@ -105,6 +105,27 @@ NowFn make_now(x::telem::TimeStamp &current_time) {
 }
 }
 
+TEST(StableForConfigTest, CreatesConfigFromValidParams) {
+    types::Param duration_param;
+    duration_param.name = "duration";
+    duration_param.type = types::Type{.kind = types::Kind::I64};
+    duration_param.value = x::telem::SECOND.nanoseconds();
+    types::Params params;
+    params.push_back(duration_param);
+    const auto cfg = ASSERT_NIL_P(StableForConfig::create(params));
+    EXPECT_EQ(cfg.duration, x::telem::SECOND);
+}
+
+TEST(StableForConfigTest, ReturnsErrorForNullDuration) {
+    types::Param duration_param;
+    duration_param.name = "duration";
+    duration_param.type = types::Type{.kind = types::Kind::I64};
+    duration_param.value = nullptr;
+    types::Params params;
+    params.push_back(duration_param);
+    ASSERT_OCCURRED_AS_P(StableForConfig::create(params), x::errors::VALIDATION);
+}
+
 TEST(StableForFactoryTest, ReturnsNotFoundForWrongType) {
     TestSetup setup(x::telem::SECOND.nanoseconds());
     auto ir_node = setup.ir.nodes[1];

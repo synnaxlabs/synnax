@@ -32,7 +32,8 @@ struct Program : public ::arc::ir::IR, public ::arc::compiler::Output {
     [[nodiscard]] x::json::json to_json() const;
 
     using proto_type = ::arc::program::pb::Program;
-    [[nodiscard]] ::arc::program::pb::Program to_proto() const;
+    [[nodiscard]] std::pair<::arc::program::pb::Program, x::errors::Error>
+    to_proto() const;
     static std::pair<Program, x::errors::Error>
     from_proto(const ::arc::program::pb::Program &pb);
 };

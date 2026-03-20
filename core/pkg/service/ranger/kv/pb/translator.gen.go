@@ -12,14 +12,13 @@
 package pb
 
 import (
-	"context"
 	"github.com/google/uuid"
 	"github.com/synnaxlabs/synnax/pkg/service/ranger"
 	"github.com/synnaxlabs/synnax/pkg/service/ranger/kv"
 )
 
 // PairToPB converts Pair to Pair.
-func PairToPB(_ context.Context, r kv.Pair) (*Pair, error) {
+func PairToPB(r kv.Pair) (*Pair, error) {
 	pb := &Pair{
 		Key:   r.Key,
 		Value: r.Value,
@@ -29,7 +28,7 @@ func PairToPB(_ context.Context, r kv.Pair) (*Pair, error) {
 }
 
 // PairFromPB converts Pair to Pair.
-func PairFromPB(_ context.Context, pb *Pair) (kv.Pair, error) {
+func PairFromPB(pb *Pair) (kv.Pair, error) {
 	var r kv.Pair
 	if pb == nil {
 		return r, nil
@@ -46,11 +45,11 @@ func PairFromPB(_ context.Context, pb *Pair) (kv.Pair, error) {
 }
 
 // PairsToPB converts a slice of Pair to Pair.
-func PairsToPB(ctx context.Context, rs []kv.Pair) ([]*Pair, error) {
+func PairsToPB(rs []kv.Pair) ([]*Pair, error) {
 	result := make([]*Pair, len(rs))
 	for i := range rs {
 		var err error
-		result[i], err = PairToPB(ctx, rs[i])
+		result[i], err = PairToPB(rs[i])
 		if err != nil {
 			return nil, err
 		}
@@ -59,11 +58,11 @@ func PairsToPB(ctx context.Context, rs []kv.Pair) ([]*Pair, error) {
 }
 
 // PairsFromPB converts a slice of Pair to Pair.
-func PairsFromPB(ctx context.Context, pbs []*Pair) ([]kv.Pair, error) {
+func PairsFromPB(pbs []*Pair) ([]kv.Pair, error) {
 	result := make([]kv.Pair, len(pbs))
 	for i, pb := range pbs {
 		var err error
-		result[i], err = PairFromPB(ctx, pb)
+		result[i], err = PairFromPB(pb)
 		if err != nil {
 			return nil, err
 		}

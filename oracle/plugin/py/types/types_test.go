@@ -520,7 +520,7 @@ var _ = Describe("Python Types Plugin", func() {
 			Expect(content).To(ContainSubstring(`email: str`))
 		})
 
-		It("Should handle field override to make it optional with type ignore", func() {
+		It("Should inline parent fields when child makes required fields optional", func() {
 			source := `
 				@py output "out"
 
@@ -544,9 +544,62 @@ var _ = Describe("Python Types Plugin", func() {
 			Expect(err).To(BeNil())
 
 			content := string(resp.Files[0].Content)
-			// Child should override name to be optional with type ignore comment
+			// Child should be standalone (no inheritance) since it overrides
+			// a required parent field as optional
+			Expect(content).To(ContainSubstring(`class Child(BaseModel):`))
+			Expect(content).To(ContainSubstring(`name: str | None = None`))
+			Expect(content).To(ContainSubstring(`age: int`))
+			Expect(content).NotTo(ContainSubstring(`type: ignore`))
+		})
+		It("Should inline all parent fields when multiple fields are overridden as optional", func() {
+			source := `
+				@py output "out"
+
+				Parent struct {
+					key uuid
+					name string
+					leaseholder uint12
+					is_index bool
+				}
+
+				Child struct extends Parent {
+					key uuid?
+					leaseholder uint12?
+					is_index bool?
+					extra string
+				}
+			`
+			resp := MustGenerate(ctx, source, "test", loader, typesPlugin)
+			content := MustContentOf(resp, "types_gen.py")
+			// Child should be standalone with all fields inlined
+			Expect(content).To(ContainSubstring(`class Child(BaseModel):`))
+			Expect(content).To(ContainSubstring(`key: UUID | None = None`))
+			Expect(content).To(ContainSubstring(`name: str`))
+			Expect(content).To(ContainSubstring(`leaseholder: int | None = None`))
+			Expect(content).To(ContainSubstring(`is_index: bool | None = None`))
+			Expect(content).To(ContainSubstring(`extra: str`))
+			Expect(content).NotTo(ContainSubstring(`type: ignore`))
+		})
+		It("Should still inherit when child only adds fields without overriding", func() {
+			source := `
+				@py output "out"
+
+				Parent struct {
+					name string
+					age int32
+				}
+
+				Child struct extends Parent {
+					email string
+					active bool
+				}
+			`
+			resp := MustGenerate(ctx, source, "test", loader, typesPlugin)
+			content := MustContentOf(resp, "types_gen.py")
 			Expect(content).To(ContainSubstring(`class Child(Parent):`))
-			Expect(content).To(ContainSubstring(`name: str | None = None  # type: ignore[assignment]`))
+			Expect(content).To(ContainSubstring(`email: str`))
+			Expect(content).To(ContainSubstring(`active: bool`))
+			Expect(content).NotTo(ContainSubstring(`type: ignore`))
 		})
 		It("Should generate multiple inheritance for multiple extends", func() {
 			source := `

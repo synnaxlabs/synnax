@@ -12,12 +12,11 @@
 package pb
 
 import (
-	"context"
 	"github.com/synnaxlabs/x/color"
 )
 
 // ColorToPB converts Color to Color.
-func ColorToPB(_ context.Context, r color.Color) (*Color, error) {
+func ColorToPB(r color.Color) (*Color, error) {
 	pb := &Color{
 		R: uint32(r.R),
 		G: uint32(r.G),
@@ -28,7 +27,7 @@ func ColorToPB(_ context.Context, r color.Color) (*Color, error) {
 }
 
 // ColorFromPB converts Color to Color.
-func ColorFromPB(_ context.Context, pb *Color) (color.Color, error) {
+func ColorFromPB(pb *Color) (color.Color, error) {
 	var r color.Color
 	if pb == nil {
 		return r, nil
@@ -41,11 +40,11 @@ func ColorFromPB(_ context.Context, pb *Color) (color.Color, error) {
 }
 
 // ColorsToPB converts a slice of Color to Color.
-func ColorsToPB(ctx context.Context, rs []color.Color) ([]*Color, error) {
+func ColorsToPB(rs []color.Color) ([]*Color, error) {
 	result := make([]*Color, len(rs))
 	for i := range rs {
 		var err error
-		result[i], err = ColorToPB(ctx, rs[i])
+		result[i], err = ColorToPB(rs[i])
 		if err != nil {
 			return nil, err
 		}
@@ -54,11 +53,11 @@ func ColorsToPB(ctx context.Context, rs []color.Color) ([]*Color, error) {
 }
 
 // ColorsFromPB converts a slice of Color to Color.
-func ColorsFromPB(ctx context.Context, pbs []*Color) ([]color.Color, error) {
+func ColorsFromPB(pbs []*Color) ([]color.Color, error) {
 	result := make([]color.Color, len(pbs))
 	for i, pb := range pbs {
 		var err error
-		result[i], err = ColorFromPB(ctx, pb)
+		result[i], err = ColorFromPB(pb)
 		if err != nil {
 			return nil, err
 		}

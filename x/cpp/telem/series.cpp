@@ -12,17 +12,17 @@
 
 namespace x::telem {
 
-::x::telem::pb::Series Series::to_proto() const {
-    ::x::telem::pb::Series pb;
-    *pb.mutable_time_range() = this->time_range.to_proto();
+pb::Series Series::to_proto() const {
+    pb::Series pb;
+    auto [tr, err] = this->time_range.to_proto();
+    *pb.mutable_time_range() = tr;
     pb.set_data_type(this->data_type_.name());
     pb.set_data(this->data_.get(), byte_size());
     pb.set_alignment(this->alignment.uint64());
     return pb;
 }
 
-std::pair<Series, x::errors::Error>
-Series::from_proto(const ::x::telem::pb::Series &pb) {
+std::pair<Series, x::errors::Error> Series::from_proto(const pb::Series &pb) {
     auto [tr, err] = TimeRange::from_proto(pb.time_range());
     if (err) return {Series(UNKNOWN_T, 0), err};
     return {Series(pb, tr), x::errors::NIL};

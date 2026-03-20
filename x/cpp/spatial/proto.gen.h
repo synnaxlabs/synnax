@@ -22,11 +22,11 @@
 
 namespace x::spatial {
 
-inline ::x::spatial::pb::XY XY::to_proto() const {
+inline std::pair<::x::spatial::pb::XY, x::errors::Error> XY::to_proto() const {
     ::x::spatial::pb::XY pb;
     pb.set_x(this->x);
     pb.set_y(this->y);
-    return pb;
+    return {pb, x::errors::NIL};
 }
 
 inline std::pair<XY, x::errors::Error> XY::from_proto(const ::x::spatial::pb::XY &pb) {

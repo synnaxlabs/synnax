@@ -70,32 +70,32 @@ var (
 	_ grpc.Translator[apitask.CopyResponse, *CopyResponse]         = copyResponseTranslator{}
 )
 
-func (createRequestTranslator) Forward(ctx context.Context, req apitask.CreateRequest) (*CreateRequest, error) {
-	tasks, err := taskpb.TasksToPB(ctx, req.Tasks)
+func (createRequestTranslator) Forward(_ context.Context, req apitask.CreateRequest) (*CreateRequest, error) {
+	tasks, err := taskpb.TasksToPB(req.Tasks)
 	if err != nil {
 		return nil, err
 	}
 	return &CreateRequest{Tasks: tasks}, nil
 }
 
-func (createRequestTranslator) Backward(ctx context.Context, req *CreateRequest) (apitask.CreateRequest, error) {
-	tasks, err := taskpb.TasksFromPB(ctx, req.Tasks)
+func (createRequestTranslator) Backward(_ context.Context, req *CreateRequest) (apitask.CreateRequest, error) {
+	tasks, err := taskpb.TasksFromPB(req.Tasks)
 	if err != nil {
 		return apitask.CreateRequest{}, err
 	}
 	return apitask.CreateRequest{Tasks: tasks}, nil
 }
 
-func (createResponseTranslator) Forward(ctx context.Context, res apitask.CreateResponse) (*CreateResponse, error) {
-	tasks, err := taskpb.TasksToPB(ctx, res.Tasks)
+func (createResponseTranslator) Forward(_ context.Context, res apitask.CreateResponse) (*CreateResponse, error) {
+	tasks, err := taskpb.TasksToPB(res.Tasks)
 	if err != nil {
 		return nil, err
 	}
 	return &CreateResponse{Tasks: tasks}, nil
 }
 
-func (createResponseTranslator) Backward(ctx context.Context, res *CreateResponse) (apitask.CreateResponse, error) {
-	tasks, err := taskpb.TasksFromPB(ctx, res.Tasks)
+func (createResponseTranslator) Backward(_ context.Context, res *CreateResponse) (apitask.CreateResponse, error) {
+	tasks, err := taskpb.TasksFromPB(res.Tasks)
 	if err != nil {
 		return apitask.CreateResponse{}, err
 	}
@@ -122,16 +122,16 @@ func (retrieveRequestTranslator) Backward(_ context.Context, req *RetrieveReques
 	}, nil
 }
 
-func (retrieveResponseTranslator) Forward(ctx context.Context, res apitask.RetrieveResponse) (*RetrieveResponse, error) {
-	tasks, err := taskpb.TasksToPB(ctx, res.Tasks)
+func (retrieveResponseTranslator) Forward(_ context.Context, res apitask.RetrieveResponse) (*RetrieveResponse, error) {
+	tasks, err := taskpb.TasksToPB(res.Tasks)
 	if err != nil {
 		return nil, err
 	}
 	return &RetrieveResponse{Tasks: tasks}, nil
 }
 
-func (retrieveResponseTranslator) Backward(ctx context.Context, res *RetrieveResponse) (apitask.RetrieveResponse, error) {
-	tasks, err := taskpb.TasksFromPB(ctx, res.Tasks)
+func (retrieveResponseTranslator) Backward(_ context.Context, res *RetrieveResponse) (apitask.RetrieveResponse, error) {
+	tasks, err := taskpb.TasksFromPB(res.Tasks)
 	if err != nil {
 		return apitask.RetrieveResponse{}, err
 	}
@@ -162,16 +162,16 @@ func (copyRequestTranslator) Backward(_ context.Context, req *CopyRequest) (apit
 	}, nil
 }
 
-func (copyResponseTranslator) Forward(ctx context.Context, res apitask.CopyResponse) (*CopyResponse, error) {
-	t, err := taskpb.TaskToPB(ctx, res.Task)
+func (copyResponseTranslator) Forward(_ context.Context, res apitask.CopyResponse) (*CopyResponse, error) {
+	t, err := taskpb.TaskToPB(res.Task)
 	if err != nil {
 		return nil, err
 	}
 	return &CopyResponse{Task: t}, nil
 }
 
-func (copyResponseTranslator) Backward(ctx context.Context, res *CopyResponse) (apitask.CopyResponse, error) {
-	t, err := taskpb.TaskFromPB(ctx, res.Task)
+func (copyResponseTranslator) Backward(_ context.Context, res *CopyResponse) (apitask.CopyResponse, error) {
+	t, err := taskpb.TaskFromPB(res.Task)
 	if err != nil {
 		return apitask.CopyResponse{}, err
 	}

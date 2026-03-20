@@ -23,15 +23,25 @@
 
 namespace arc::types {
 
-inline ::arc::types::pb::FunctionProperties FunctionProperties::to_proto() const {
+inline std::pair<::arc::types::pb::FunctionProperties, x::errors::Error>
+FunctionProperties::to_proto() const {
     ::arc::types::pb::FunctionProperties pb;
-    for (const auto &item: this->inputs)
-        *pb.add_inputs() = item.to_proto();
-    for (const auto &item: this->outputs)
-        *pb.add_outputs() = item.to_proto();
-    for (const auto &item: this->config)
-        *pb.add_config() = item.to_proto();
-    return pb;
+    for (const auto &item: this->inputs) {
+        auto [v, err] = item.to_proto();
+        if (err) return {{}, err};
+        *pb.add_inputs() = v;
+    }
+    for (const auto &item: this->outputs) {
+        auto [v, err] = item.to_proto();
+        if (err) return {{}, err};
+        *pb.add_outputs() = v;
+    }
+    for (const auto &item: this->config) {
+        auto [v, err] = item.to_proto();
+        if (err) return {{}, err};
+        *pb.add_config() = v;
+    }
+    return {pb, x::errors::NIL};
 }
 
 inline std::pair<FunctionProperties, x::errors::Error>
@@ -46,24 +56,44 @@ FunctionProperties::from_proto(const ::arc::types::pb::FunctionProperties &pb) {
     return {cpp, x::errors::NIL};
 }
 
-inline ::arc::types::pb::Type Type::to_proto() const {
+inline std::pair<::arc::types::pb::Type, x::errors::Error> Type::to_proto() const {
     ::arc::types::pb::Type pb;
-    for (const auto &item: this->inputs)
-        *pb.add_inputs() = item.to_proto();
-    for (const auto &item: this->outputs)
-        *pb.add_outputs() = item.to_proto();
-    for (const auto &item: this->config)
-        *pb.add_config() = item.to_proto();
+    for (const auto &item: this->inputs) {
+        auto [v, err] = item.to_proto();
+        if (err) return {{}, err};
+        *pb.add_inputs() = v;
+    }
+    for (const auto &item: this->outputs) {
+        auto [v, err] = item.to_proto();
+        if (err) return {{}, err};
+        *pb.add_outputs() = v;
+    }
+    for (const auto &item: this->config) {
+        auto [v, err] = item.to_proto();
+        if (err) return {{}, err};
+        *pb.add_config() = v;
+    }
     pb.set_kind(static_cast<::arc::types::pb::Kind>(this->kind));
     pb.set_name(this->name);
-    if (this->elem.has_value()) *pb.mutable_elem() = this->elem->to_proto();
-    if (this->unit.has_value()) *pb.mutable_unit() = this->unit->to_proto();
-    if (this->constraint.has_value())
-        *pb.mutable_constraint() = this->constraint->to_proto();
+    if (this->elem.has_value()) {
+        auto [v, err] = this->elem->to_proto();
+        if (err) return {{}, err};
+        *pb.mutable_elem() = v;
+    }
+    if (this->unit.has_value()) {
+        auto [v, err] = this->unit->to_proto();
+        if (err) return {{}, err};
+        *pb.mutable_unit() = v;
+    }
+    if (this->constraint.has_value()) {
+        auto [v, err] = this->constraint->to_proto();
+        if (err) return {{}, err};
+        *pb.mutable_constraint() = v;
+    }
     pb.set_chan_direction(
         static_cast<::arc::types::pb::ChanDirection>(this->chan_direction)
     );
-    return pb;
+    return {pb, x::errors::NIL};
 }
 
 inline std::pair<Type, x::errors::Error>
@@ -96,12 +126,16 @@ Type::from_proto(const ::arc::types::pb::Type &pb) {
     return {cpp, x::errors::NIL};
 }
 
-inline ::arc::types::pb::Param Param::to_proto() const {
+inline std::pair<::arc::types::pb::Param, x::errors::Error> Param::to_proto() const {
     ::arc::types::pb::Param pb;
     pb.set_name(this->name);
-    *pb.mutable_type() = this->type.to_proto();
+    {
+        auto [v, err] = this->type.to_proto();
+        if (err) return {{}, err};
+        *pb.mutable_type() = v;
+    }
     pb.set_value(this->value.dump());
-    return pb;
+    return {pb, x::errors::NIL};
 }
 
 inline std::pair<Param, x::errors::Error>
@@ -117,13 +151,14 @@ Param::from_proto(const ::arc::types::pb::Param &pb) {
     return {cpp, x::errors::NIL};
 }
 
-inline ::arc::types::pb::Channels Channels::to_proto() const {
+inline std::pair<::arc::types::pb::Channels, x::errors::Error>
+Channels::to_proto() const {
     ::arc::types::pb::Channels pb;
     for (const auto &[k, v]: this->read)
         (*pb.mutable_read())[k] = v;
     for (const auto &[k, v]: this->write)
         (*pb.mutable_write())[k] = v;
-    return pb;
+    return {pb, x::errors::NIL};
 }
 
 inline std::pair<Channels, x::errors::Error>
@@ -136,7 +171,8 @@ Channels::from_proto(const ::arc::types::pb::Channels &pb) {
     return {cpp, x::errors::NIL};
 }
 
-inline ::arc::types::pb::Dimensions Dimensions::to_proto() const {
+inline std::pair<::arc::types::pb::Dimensions, x::errors::Error>
+Dimensions::to_proto() const {
     ::arc::types::pb::Dimensions pb;
     pb.set_length(this->length);
     pb.set_mass(this->mass);
@@ -146,7 +182,7 @@ inline ::arc::types::pb::Dimensions Dimensions::to_proto() const {
     pb.set_angle(this->angle);
     pb.set_count(this->count);
     pb.set_data(this->data);
-    return pb;
+    return {pb, x::errors::NIL};
 }
 
 inline std::pair<Dimensions, x::errors::Error>
@@ -163,12 +199,16 @@ Dimensions::from_proto(const ::arc::types::pb::Dimensions &pb) {
     return {cpp, x::errors::NIL};
 }
 
-inline ::arc::types::pb::Unit Unit::to_proto() const {
+inline std::pair<::arc::types::pb::Unit, x::errors::Error> Unit::to_proto() const {
     ::arc::types::pb::Unit pb;
-    *pb.mutable_dimensions() = this->dimensions.to_proto();
+    {
+        auto [v, err] = this->dimensions.to_proto();
+        if (err) return {{}, err};
+        *pb.mutable_dimensions() = v;
+    }
     pb.set_scale(this->scale);
     pb.set_name(this->name);
-    return pb;
+    return {pb, x::errors::NIL};
 }
 
 inline std::pair<Unit, x::errors::Error>

@@ -94,11 +94,11 @@ func (t frameWriterRequestTranslator) Forward(
 	ctx context.Context,
 	msg apifra.WriterRequest,
 ) (*WriterRequest, error) {
-	frm, err := telempb.FrameToPB[channel.Key](ctx, msg.Frame.Frame)
+	frm, err := telempb.FrameToPB[channel.Key](msg.Frame.Frame)
 	if err != nil {
 		return nil, err
 	}
-	subj, err := controlpb.SubjectToPB(ctx, msg.Config.ControlSubject)
+	subj, err := controlpb.SubjectToPB(msg.Config.ControlSubject)
 	if err != nil {
 		return nil, err
 	}
@@ -131,12 +131,12 @@ func (t frameWriterRequestTranslator) Backward(
 		return
 	}
 	r.Command = writer.Command(msg.Command)
-	frm, err := telempb.FrameFromPB[channel.Key](ctx, msg.Frame)
+	frm, err := telempb.FrameFromPB[channel.Key](msg.Frame)
 	if err != nil {
 		return r, err
 	}
 	if msg.Config != nil {
-		subj, err := controlpb.SubjectFromPB(ctx, msg.Config.ControlSubject)
+		subj, err := controlpb.SubjectFromPB(msg.Config.ControlSubject)
 		if err != nil {
 			return apifra.WriterRequest{}, err
 		}
@@ -163,7 +163,7 @@ func (t frameWriterRequestTranslator) Backward(
 }
 
 func (t frameWriterResponseTranslator) Forward(
-	ctx context.Context,
+	_ context.Context,
 	msg apifra.WriterResponse,
 ) (*WriterResponse, error) {
 	return &WriterResponse{
@@ -174,7 +174,7 @@ func (t frameWriterResponseTranslator) Forward(
 }
 
 func (t frameWriterResponseTranslator) Backward(
-	ctx context.Context,
+	_ context.Context,
 	msg *WriterResponse,
 ) (apifra.WriterResponse, error) {
 	return apifra.WriterResponse{
@@ -185,10 +185,10 @@ func (t frameWriterResponseTranslator) Backward(
 }
 
 func (t frameIteratorRequestTranslator) Forward(
-	ctx context.Context,
+	_ context.Context,
 	msg apifra.IteratorRequest,
 ) (*IteratorRequest, error) {
-	tr, err := telempb.TimeRangeToPB(ctx, msg.Bounds)
+	tr, err := telempb.TimeRangeToPB(msg.Bounds)
 	if err != nil {
 		return nil, err
 	}
@@ -203,10 +203,10 @@ func (t frameIteratorRequestTranslator) Forward(
 }
 
 func (t frameIteratorRequestTranslator) Backward(
-	ctx context.Context,
+	_ context.Context,
 	msg *IteratorRequest,
 ) (apifra.IteratorRequest, error) {
-	tr, err := telempb.TimeRangeFromPB(ctx, msg.Range)
+	tr, err := telempb.TimeRangeFromPB(msg.Range)
 	if err != nil {
 		return apifra.IteratorRequest{}, err
 	}
@@ -224,7 +224,7 @@ func (t frameIteratorResponseTranslator) Forward(
 	ctx context.Context,
 	msg apifra.IteratorResponse,
 ) (*IteratorResponse, error) {
-	frm, err := telempb.FrameToPB(ctx, msg.Frame.Frame)
+	frm, err := telempb.FrameToPB(msg.Frame.Frame)
 	if err != nil {
 		return nil, err
 	}
@@ -243,7 +243,7 @@ func (t frameIteratorResponseTranslator) Backward(
 	ctx context.Context,
 	msg *IteratorResponse,
 ) (apifra.IteratorResponse, error) {
-	frm, err := telempb.FrameFromPB[channel.Key](ctx, msg.Frame)
+	frm, err := telempb.FrameFromPB[channel.Key](msg.Frame)
 	if err != nil {
 		return apifra.IteratorResponse{}, err
 	}
@@ -259,7 +259,7 @@ func (t frameIteratorResponseTranslator) Backward(
 }
 
 func (t frameStreamerRequestTranslator) Forward(
-	ctx context.Context,
+	_ context.Context,
 	msg apifra.StreamerRequest,
 ) (*StreamerRequest, error) {
 	return &StreamerRequest{
@@ -295,7 +295,7 @@ func (t frameStreamerResponseTranslator) Forward(
 		}
 		return &StreamerResponse{Buffer: buf}, nil
 	}
-	frm, err := telempb.FrameToPB(ctx, msg.Frame.Frame)
+	frm, err := telempb.FrameToPB(msg.Frame.Frame)
 	if err != nil {
 		return nil, err
 	}
@@ -303,10 +303,10 @@ func (t frameStreamerResponseTranslator) Forward(
 }
 
 func (t frameStreamerResponseTranslator) Backward(
-	ctx context.Context,
+	_ context.Context,
 	msg *StreamerResponse,
 ) (apifra.StreamerResponse, error) {
-	tr, err := telempb.FrameFromPB[channel.Key](ctx, msg.Frame)
+	tr, err := telempb.FrameFromPB[channel.Key](msg.Frame)
 	if err != nil {
 		return apifra.StreamerResponse{}, nil
 	}
@@ -314,10 +314,10 @@ func (t frameStreamerResponseTranslator) Backward(
 }
 
 func (t frameDeleteRequestTranslator) Forward(
-	ctx context.Context,
+	_ context.Context,
 	msg apifra.DeleteRequest,
 ) (*DeleteRequest, error) {
-	tr, err := telempb.TimeRangeToPB(ctx, msg.Bounds)
+	tr, err := telempb.TimeRangeToPB(msg.Bounds)
 	if err != nil {
 		return nil, err
 	}
@@ -325,10 +325,10 @@ func (t frameDeleteRequestTranslator) Forward(
 }
 
 func (t frameDeleteRequestTranslator) Backward(
-	ctx context.Context,
+	_ context.Context,
 	msg *DeleteRequest,
 ) (apifra.DeleteRequest, error) {
-	tr, err := telempb.TimeRangeFromPB(ctx, msg.Bounds)
+	tr, err := telempb.TimeRangeFromPB(msg.Bounds)
 	if err != nil {
 		return apifra.DeleteRequest{}, nil
 	}

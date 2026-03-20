@@ -31,7 +31,7 @@ std::string random_name(const std::string &prefix) {
 
 /// @brief Compiles an Arc program via the Synnax client.
 program::Program compile_arc(const synnax::Synnax &client, const std::string &source) {
-    synnax::arc::Arc arc{.name = random_name("test_arc"), .text = text::Text(source)};
+    synnax::arc::Arc arc{.name = random_name("test_arc"), .mode = synnax::arc::MODE_TEXT, .text = text::Text(source)};
     if (const auto create_err = client.arcs.create(arc))
         throw std::runtime_error("Failed to create arc: " + create_err.message());
 
@@ -302,5 +302,77 @@ TEST(SampleFromBitsTest, HandlesTimestamp) {
     arc::types::Type ts_type{.kind = arc::types::Kind::I64, .unit = ns_unit};
     const auto ts_sample = sample_from_bits(1000000000, ts_type);
     EXPECT_EQ(std::get<x::telem::TimeStamp>(ts_sample).nanoseconds(), 1000000000);
+}
+
+TEST(SampleToWasmTypedTest, ConvertsF64) {
+    arc::types::Type type{.kind = arc::types::Kind::F64};
+    const auto result = sample_to_wasm(x::telem::SampleValue(3.14), type);
+    EXPECT_DOUBLE_EQ(result.f64(), 3.14);
+}
+
+TEST(SampleToWasmTypedTest, ConvertsF32) {
+    arc::types::Type type{.kind = arc::types::Kind::F32};
+    const auto result = sample_to_wasm(x::telem::SampleValue(3.14), type);
+    EXPECT_FLOAT_EQ(result.f32(), 3.14f);
+}
+
+TEST(SampleToWasmTypedTest, ConvertsI64) {
+    arc::types::Type type{.kind = arc::types::Kind::I64};
+    const auto result = sample_to_wasm(x::telem::SampleValue(123456789.0), type);
+    EXPECT_EQ(result.i64(), 123456789);
+}
+
+TEST(SampleToWasmTypedTest, ConvertsU64) {
+    arc::types::Type type{.kind = arc::types::Kind::U64};
+    const auto result = sample_to_wasm(x::telem::SampleValue(999.0), type);
+    EXPECT_EQ(result.i64(), 999);
+}
+
+TEST(SampleToWasmTypedTest, ConvertsI32Default) {
+    arc::types::Type type{.kind = arc::types::Kind::I32};
+    const auto result = sample_to_wasm(x::telem::SampleValue(42.0), type);
+    EXPECT_EQ(result.i32(), 42);
+}
+
+TEST(JsonToWasmTest, ConvertsF64) {
+    x::json::json val = 3.14;
+    arc::types::Type type{.kind = arc::types::Kind::F64};
+    const auto result = json_to_wasm(val, type);
+    EXPECT_DOUBLE_EQ(result.f64(), 3.14);
+}
+
+TEST(JsonToWasmTest, ConvertsF32) {
+    x::json::json val = 3.14;
+    arc::types::Type type{.kind = arc::types::Kind::F32};
+    const auto result = json_to_wasm(val, type);
+    EXPECT_FLOAT_EQ(result.f32(), 3.14f);
+}
+
+TEST(JsonToWasmTest, ConvertsI64) {
+    x::json::json val = 123456789;
+    arc::types::Type type{.kind = arc::types::Kind::I64};
+    const auto result = json_to_wasm(val, type);
+    EXPECT_EQ(result.i64(), 123456789);
+}
+
+TEST(JsonToWasmTest, ConvertsU64) {
+    x::json::json val = 999;
+    arc::types::Type type{.kind = arc::types::Kind::U64};
+    const auto result = json_to_wasm(val, type);
+    EXPECT_EQ(result.i64(), 999);
+}
+
+TEST(JsonToWasmTest, ConvertsI32Default) {
+    x::json::json val = 42;
+    arc::types::Type type{.kind = arc::types::Kind::I32};
+    const auto result = json_to_wasm(val, type);
+    EXPECT_EQ(result.i32(), 42);
+}
+
+TEST(JsonToWasmTest, ReturnsZeroForNull) {
+    x::json::json val = nullptr;
+    arc::types::Type type{.kind = arc::types::Kind::I32};
+    const auto result = json_to_wasm(val, type);
+    EXPECT_EQ(result.i32(), 0);
 }
 }

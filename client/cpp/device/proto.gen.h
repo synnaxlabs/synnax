@@ -27,11 +27,12 @@
 
 namespace synnax::device {
 
-inline ::service::device::pb::StatusDetails StatusDetails::to_proto() const {
+inline std::pair<::service::device::pb::StatusDetails, x::errors::Error>
+StatusDetails::to_proto() const {
     ::service::device::pb::StatusDetails pb;
     pb.set_rack(static_cast<uint32_t>(this->rack));
     pb.set_device(this->device);
-    return pb;
+    return {pb, x::errors::NIL};
 }
 
 inline std::pair<StatusDetails, x::errors::Error>
@@ -42,7 +43,8 @@ StatusDetails::from_proto(const ::service::device::pb::StatusDetails &pb) {
     return {cpp, x::errors::NIL};
 }
 
-inline ::service::device::pb::Device Device::to_proto() const {
+inline std::pair<::service::device::pb::Device, x::errors::Error>
+Device::to_proto() const {
     ::service::device::pb::Device pb;
     pb.set_key(this->key);
     pb.set_rack(static_cast<uint32_t>(this->rack));
@@ -52,9 +54,17 @@ inline ::service::device::pb::Device Device::to_proto() const {
     pb.set_name(this->name);
     pb.set_configured(this->configured);
     *pb.mutable_properties() = x::json::to_struct(this->properties).first;
-    if (this->status.has_value()) *pb.mutable_status() = this->status->to_proto();
-    if (this->parent.has_value()) *pb.mutable_parent() = this->parent->to_proto();
-    return pb;
+    if (this->status.has_value()) {
+        auto [v, err] = this->status->to_proto();
+        if (err) return {{}, err};
+        *pb.mutable_status() = v;
+    }
+    if (this->parent.has_value()) {
+        auto [v, err] = this->parent->to_proto();
+        if (err) return {{}, err};
+        *pb.mutable_parent() = v;
+    }
+    return {pb, x::errors::NIL};
 }
 
 inline std::pair<Device, x::errors::Error>

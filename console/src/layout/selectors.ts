@@ -312,7 +312,6 @@ export const useSelectHauling = (): Haul.DraggingState =>
   useMemoSelect(selectHauling, []);
 
 export const selectColorContext = (state: StoreState): Color.ContextState => {
-  console.log(getUntracked(state));
   const rawContext = selectSliceState(state).colorContext;
   return Color.contextStateZ.parse(rawContext);
 };

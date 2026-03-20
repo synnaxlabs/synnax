@@ -12,14 +12,13 @@
 package pb
 
 import (
-	"context"
 	"github.com/google/uuid"
 	"github.com/synnaxlabs/synnax/pkg/service/log"
 	"google.golang.org/protobuf/types/known/structpb"
 )
 
 // LogToPB converts Log to Log.
-func LogToPB(_ context.Context, r log.Log) (*Log, error) {
+func LogToPB(r log.Log) (*Log, error) {
 	dataVal, err := structpb.NewStruct(r.Data)
 	if err != nil {
 		return nil, err
@@ -33,7 +32,7 @@ func LogToPB(_ context.Context, r log.Log) (*Log, error) {
 }
 
 // LogFromPB converts Log to Log.
-func LogFromPB(_ context.Context, pb *Log) (log.Log, error) {
+func LogFromPB(pb *Log) (log.Log, error) {
 	var r log.Log
 	if pb == nil {
 		return r, nil
@@ -50,11 +49,11 @@ func LogFromPB(_ context.Context, pb *Log) (log.Log, error) {
 }
 
 // LogsToPB converts a slice of Log to Log.
-func LogsToPB(ctx context.Context, rs []log.Log) ([]*Log, error) {
+func LogsToPB(rs []log.Log) ([]*Log, error) {
 	result := make([]*Log, len(rs))
 	for i := range rs {
 		var err error
-		result[i], err = LogToPB(ctx, rs[i])
+		result[i], err = LogToPB(rs[i])
 		if err != nil {
 			return nil, err
 		}
@@ -63,11 +62,11 @@ func LogsToPB(ctx context.Context, rs []log.Log) ([]*Log, error) {
 }
 
 // LogsFromPB converts a slice of Log to Log.
-func LogsFromPB(ctx context.Context, pbs []*Log) ([]log.Log, error) {
+func LogsFromPB(pbs []*Log) ([]log.Log, error) {
 	result := make([]log.Log, len(pbs))
 	for i, pb := range pbs {
 		var err error
-		result[i], err = LogFromPB(ctx, pb)
+		result[i], err = LogFromPB(pb)
 		if err != nil {
 			return nil, err
 		}

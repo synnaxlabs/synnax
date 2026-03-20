@@ -44,7 +44,8 @@ struct Subject {
     [[nodiscard]] x::json::json to_json() const;
 
     using proto_type = ::x::control::pb::Subject;
-    [[nodiscard]] ::x::control::pb::Subject to_proto() const;
+    [[nodiscard]] std::pair<::x::control::pb::Subject, x::errors::Error>
+    to_proto() const;
     static std::pair<Subject, x::errors::Error>
     from_proto(const ::x::control::pb::Subject &pb);
 };
@@ -65,7 +66,7 @@ struct State {
     [[nodiscard]] x::json::json to_json() const;
 
     using proto_type = ::x::control::pb::State;
-    [[nodiscard]] ::x::control::pb::State to_proto() const;
+    [[nodiscard]] std::pair<::x::control::pb::State, x::errors::Error> to_proto() const;
     static std::pair<State, x::errors::Error>
     from_proto(const ::x::control::pb::State &pb);
 };

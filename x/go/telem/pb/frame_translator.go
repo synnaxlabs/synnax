@@ -10,8 +10,6 @@
 package pb
 
 import (
-	"context"
-
 	"github.com/synnaxlabs/x/telem"
 	"github.com/synnaxlabs/x/types"
 	xunsafe "github.com/synnaxlabs/x/unsafe"
@@ -19,10 +17,9 @@ import (
 
 // FrameToPB converts telem.Frame to protobuf Frame using provided key converter.
 func FrameToPB[Key types.SizedNumeric](
-	ctx context.Context,
 	r telem.Frame[Key],
 ) (*Frame, error) {
-	seriesVal, err := SeriessToPB(ctx, r.SeriesSlice())
+	seriesVal, err := SeriessToPB(r.SeriesSlice())
 	if err != nil {
 		return nil, err
 	}
@@ -35,13 +32,12 @@ func FrameToPB[Key types.SizedNumeric](
 
 // FrameFromPB converts protobuf Frame to telem.Frame using provided key converter.
 func FrameFromPB[Key types.SizedNumeric](
-	ctx context.Context,
 	pb *Frame,
 ) (telem.Frame[Key], error) {
 	if pb == nil {
 		return telem.Frame[Key]{}, nil
 	}
-	series, err := SeriessFromPB(ctx, pb.Series)
+	series, err := SeriessFromPB(pb.Series)
 	if err != nil {
 		return telem.Frame[Key]{}, err
 	}
@@ -49,8 +45,8 @@ func FrameFromPB[Key types.SizedNumeric](
 }
 
 // SeriesToPB converts Series to Series.
-func SeriesToPB(ctx context.Context, r telem.Series) (*Series, error) {
-	timeRangeVal, err := TimeRangeToPB(ctx, r.TimeRange)
+func SeriesToPB(r telem.Series) (*Series, error) {
+	timeRangeVal, err := TimeRangeToPB(r.TimeRange)
 	if err != nil {
 		return nil, err
 	}
@@ -64,13 +60,13 @@ func SeriesToPB(ctx context.Context, r telem.Series) (*Series, error) {
 }
 
 // SeriesFromPB converts Series to Series.
-func SeriesFromPB(ctx context.Context, pb *Series) (telem.Series, error) {
+func SeriesFromPB(pb *Series) (telem.Series, error) {
 	var r telem.Series
 	if pb == nil {
 		return r, nil
 	}
 	var err error
-	r.TimeRange, err = TimeRangeFromPB(ctx, pb.TimeRange)
+	r.TimeRange, err = TimeRangeFromPB(pb.TimeRange)
 	if err != nil {
 		return r, err
 	}
@@ -81,11 +77,11 @@ func SeriesFromPB(ctx context.Context, pb *Series) (telem.Series, error) {
 }
 
 // SeriessToPB converts a slice of Series to Series.
-func SeriessToPB(ctx context.Context, rs []telem.Series) ([]*Series, error) {
+func SeriessToPB(rs []telem.Series) ([]*Series, error) {
 	result := make([]*Series, len(rs))
 	for i := range rs {
 		var err error
-		result[i], err = SeriesToPB(ctx, rs[i])
+		result[i], err = SeriesToPB(rs[i])
 		if err != nil {
 			return nil, err
 		}
@@ -94,11 +90,11 @@ func SeriessToPB(ctx context.Context, rs []telem.Series) ([]*Series, error) {
 }
 
 // SeriessFromPB converts a slice of Series to Series.
-func SeriessFromPB(ctx context.Context, pbs []*Series) ([]telem.Series, error) {
+func SeriessFromPB(pbs []*Series) ([]telem.Series, error) {
 	result := make([]telem.Series, len(pbs))
 	for i, pb := range pbs {
 		var err error
-		result[i], err = SeriesFromPB(ctx, pb)
+		result[i], err = SeriesFromPB(pb)
 		if err != nil {
 			return nil, err
 		}

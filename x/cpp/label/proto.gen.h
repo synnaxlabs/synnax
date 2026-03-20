@@ -24,12 +24,16 @@
 
 namespace x::label {
 
-inline ::x::label::pb::Label Label::to_proto() const {
+inline std::pair<::x::label::pb::Label, x::errors::Error> Label::to_proto() const {
     ::x::label::pb::Label pb;
     pb.set_key(this->key.to_string());
     pb.set_name(this->name);
-    *pb.mutable_color() = this->color.to_proto();
-    return pb;
+    {
+        auto [v, err] = this->color.to_proto();
+        if (err) return {{}, err};
+        *pb.mutable_color() = v;
+    }
+    return {pb, x::errors::NIL};
 }
 
 inline std::pair<Label, x::errors::Error>

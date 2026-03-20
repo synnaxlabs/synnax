@@ -57,7 +57,7 @@ struct Handle {
     [[nodiscard]] x::json::json to_json() const;
 
     using proto_type = ::arc::ir::pb::Handle;
-    [[nodiscard]] ::arc::ir::pb::Handle to_proto() const;
+    [[nodiscard]] std::pair<::arc::ir::pb::Handle, x::errors::Error> to_proto() const;
     static std::pair<Handle, x::errors::Error>
     from_proto(const ::arc::ir::pb::Handle &pb);
     [[nodiscard]] std::string to_string() const;
@@ -73,7 +73,7 @@ struct Body {
     [[nodiscard]] x::json::json to_json() const;
 
     using proto_type = ::arc::ir::pb::Body;
-    [[nodiscard]] ::arc::ir::pb::Body to_proto() const;
+    [[nodiscard]] std::pair<::arc::ir::pb::Body, x::errors::Error> to_proto() const;
     static std::pair<Body, x::errors::Error> from_proto(const ::arc::ir::pb::Body &pb);
 };
 
@@ -97,7 +97,7 @@ struct Node {
     [[nodiscard]] x::json::json to_json() const;
 
     using proto_type = ::arc::ir::pb::Node;
-    [[nodiscard]] ::arc::ir::pb::Node to_proto() const;
+    [[nodiscard]] std::pair<::arc::ir::pb::Node, x::errors::Error> to_proto() const;
     static std::pair<Node, x::errors::Error> from_proto(const ::arc::ir::pb::Node &pb);
     [[nodiscard]] std::string to_string() const;
     [[nodiscard]] std::string to_string_with_prefix(const std::string &prefix) const;
@@ -116,7 +116,8 @@ struct Authorities {
     [[nodiscard]] x::json::json to_json() const;
 
     using proto_type = ::arc::ir::pb::Authorities;
-    [[nodiscard]] ::arc::ir::pb::Authorities to_proto() const;
+    [[nodiscard]] std::pair<::arc::ir::pb::Authorities, x::errors::Error>
+    to_proto() const;
     static std::pair<Authorities, x::errors::Error>
     from_proto(const ::arc::ir::pb::Authorities &pb);
 };
@@ -195,7 +196,7 @@ struct Function {
     [[nodiscard]] x::json::json to_json() const;
 
     using proto_type = ::arc::ir::pb::Function;
-    [[nodiscard]] ::arc::ir::pb::Function to_proto() const;
+    [[nodiscard]] std::pair<::arc::ir::pb::Function, x::errors::Error> to_proto() const;
     static std::pair<Function, x::errors::Error>
     from_proto(const ::arc::ir::pb::Function &pb);
     [[nodiscard]] std::string to_string() const;
@@ -267,7 +268,7 @@ struct Edge {
     [[nodiscard]] x::json::json to_json() const;
 
     using proto_type = ::arc::ir::pb::Edge;
-    [[nodiscard]] ::arc::ir::pb::Edge to_proto() const;
+    [[nodiscard]] std::pair<::arc::ir::pb::Edge, x::errors::Error> to_proto() const;
     static std::pair<Edge, x::errors::Error> from_proto(const ::arc::ir::pb::Edge &pb);
     [[nodiscard]] std::string to_string() const;
     friend std::ostream &operator<<(std::ostream &os, const Edge &e);
@@ -287,7 +288,7 @@ struct Stage {
     [[nodiscard]] x::json::json to_json() const;
 
     using proto_type = ::arc::ir::pb::Stage;
-    [[nodiscard]] ::arc::ir::pb::Stage to_proto() const;
+    [[nodiscard]] std::pair<::arc::ir::pb::Stage, x::errors::Error> to_proto() const;
     static std::pair<Stage, x::errors::Error>
     from_proto(const ::arc::ir::pb::Stage &pb);
     [[nodiscard]] std::string to_string() const;
@@ -460,7 +461,7 @@ struct Sequence {
     [[nodiscard]] x::json::json to_json() const;
 
     using proto_type = ::arc::ir::pb::Sequence;
-    [[nodiscard]] ::arc::ir::pb::Sequence to_proto() const;
+    [[nodiscard]] std::pair<::arc::ir::pb::Sequence, x::errors::Error> to_proto() const;
     static std::pair<Sequence, x::errors::Error>
     from_proto(const ::arc::ir::pb::Sequence &pb);
     [[nodiscard]] const Stage &operator[](size_t idx) const;
@@ -541,7 +542,7 @@ struct IR {
     [[nodiscard]] x::json::json to_json() const;
 
     using proto_type = ::arc::ir::pb::IR;
-    [[nodiscard]] ::arc::ir::pb::IR to_proto() const;
+    [[nodiscard]] std::pair<::arc::ir::pb::IR, x::errors::Error> to_proto() const;
     static std::pair<IR, x::errors::Error> from_proto(const ::arc::ir::pb::IR &pb);
     [[nodiscard]] const Node &node(const std::string &key) const;
     [[nodiscard]] const Function &function(const std::string &key) const;

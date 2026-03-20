@@ -9,24 +9,32 @@
 
 from __future__ import annotations
 
-from typing import Any
+from typing import Any, cast
 
 from pydantic import BaseModel
 
+from synnax.ontology.types_gen import ResourceType
+
 
 class ID(BaseModel):
-    key: str | None = ""
-    type: str | None = ""
+    key: str
+    type: ResourceType
 
-    def __init__(self, key: CrudeID | None = None, type: str | None = None):
+    def __init__(
+        self,
+        key: CrudeID | None = None,
+        type: ResourceType | None = None,
+    ):
         if isinstance(key, ID):
             super().__init__(key=key.key, type=key.type)
         elif isinstance(key, tuple):
             key, type = key
             super().__init__(key=key, type=type)
         elif type is None and key is not None:
-            type, key = key.split(":")
-            super().__init__(key=key, type=type)
+            type_str, key = key.split(":")
+            # cast satisfies mypy; pydantic validates the value against
+            # the ResourceType literal at runtime.
+            super().__init__(key=key, type=cast(ResourceType, type_str))
         else:
             super().__init__(key=key, type=type)
 

@@ -59,10 +59,10 @@ var (
 )
 
 func (t setRequestTranslator) Forward(
-	ctx context.Context,
+	_ context.Context,
 	msg apistatus.SetRequest,
 ) (*SetRequest, error) {
-	statuses, err := statuspb.StatussToPB(ctx, msg.Statuses, statuspb.AnyToPBAny)
+	statuses, err := statuspb.StatusesToPB(msg.Statuses, statuspb.AnyToPBAny)
 	if err != nil {
 		return nil, err
 	}
@@ -70,7 +70,7 @@ func (t setRequestTranslator) Forward(
 }
 
 func (t setRequestTranslator) Backward(
-	ctx context.Context,
+	_ context.Context,
 	msg *SetRequest,
 ) (apistatus.SetRequest, error) {
 	var parent ontology.ID
@@ -81,7 +81,7 @@ func (t setRequestTranslator) Backward(
 			return apistatus.SetRequest{}, err
 		}
 	}
-	statuses, err := statuspb.StatussFromPB(ctx, msg.Statuses, statuspb.AnyFromPBAny)
+	statuses, err := statuspb.StatusesFromPB(msg.Statuses, statuspb.AnyFromPBAny)
 	if err != nil {
 		return apistatus.SetRequest{}, err
 	}
@@ -89,10 +89,10 @@ func (t setRequestTranslator) Backward(
 }
 
 func (t setResponseTranslator) Forward(
-	ctx context.Context,
+	_ context.Context,
 	msg apistatus.SetResponse,
 ) (*SetResponse, error) {
-	statuses, err := statuspb.StatussToPB(ctx, msg.Statuses, statuspb.AnyToPBAny)
+	statuses, err := statuspb.StatusesToPB(msg.Statuses, statuspb.AnyToPBAny)
 	if err != nil {
 		return nil, err
 	}
@@ -100,10 +100,10 @@ func (t setResponseTranslator) Forward(
 }
 
 func (t setResponseTranslator) Backward(
-	ctx context.Context,
+	_ context.Context,
 	msg *SetResponse,
 ) (apistatus.SetResponse, error) {
-	statuses, err := statuspb.StatussFromPB(ctx, msg.Statuses, statuspb.AnyFromPBAny)
+	statuses, err := statuspb.StatusesFromPB(msg.Statuses, statuspb.AnyFromPBAny)
 	if err != nil {
 		return apistatus.SetResponse{}, err
 	}
@@ -153,10 +153,10 @@ func (t retrieveRequestTranslator) Backward(
 }
 
 func (t retrieveResponseTranslator) Forward(
-	ctx context.Context,
+	_ context.Context,
 	msg apistatus.RetrieveResponse,
 ) (*RetrieveResponse, error) {
-	statuses, err := statuspb.StatussToPB(ctx, msg.Statuses, statuspb.AnyToPBAny)
+	statuses, err := statuspb.StatusesToPB(msg.Statuses, statuspb.AnyToPBAny)
 	if err != nil {
 		return nil, err
 	}
@@ -164,10 +164,10 @@ func (t retrieveResponseTranslator) Forward(
 }
 
 func (t retrieveResponseTranslator) Backward(
-	ctx context.Context,
+	_ context.Context,
 	msg *RetrieveResponse,
 ) (apistatus.RetrieveResponse, error) {
-	statuses, err := statuspb.StatussFromPB(ctx, msg.Statuses, statuspb.AnyFromPBAny)
+	statuses, err := statuspb.StatusesFromPB(msg.Statuses, statuspb.AnyFromPBAny)
 	if err != nil {
 		return apistatus.RetrieveResponse{}, err
 	}

@@ -59,6 +59,33 @@ type (
 	SearchRequest = search.Request
 )
 
+const (
+	TypeArc             = resource.TypeArc
+	TypeBuiltin         = resource.TypeBuiltin
+	TypeChannel         = resource.TypeChannel
+	TypeCluster         = resource.TypeCluster
+	TypeDevice          = resource.TypeDevice
+	TypeFramer          = resource.TypeFramer
+	TypeGroup           = resource.TypeGroup
+	TypeLabel           = resource.TypeLabel
+	TypeLineplot        = resource.TypeLineplot
+	TypeLog             = resource.TypeLog
+	TypeNode            = resource.TypeNode
+	TypePolicy          = resource.TypePolicy
+	TypeRack            = resource.TypeRack
+	TypeRange           = resource.TypeRange
+	TypeRangeAlias      = resource.TypeRangeAlias
+	TypeRole            = resource.TypeRole
+	TypeSchematic       = resource.TypeSchematic
+	TypeSchematicSymbol = resource.TypeSchematicSymbol
+	TypeStatus          = resource.TypeStatus
+	TypeTable           = resource.TypeTable
+	TypeTask            = resource.TypeTask
+	TypeUser            = resource.TypeUser
+	TypeView            = resource.TypeView
+	TypeWorkspace       = resource.TypeWorkspace
+)
+
 func ParseID(key string) (ID, error) { return resource.ParseID(key) }
 
 func ResourceIDs(resources []Resource) []ID { return resource.IDs(resources) }

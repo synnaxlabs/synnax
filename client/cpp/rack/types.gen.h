@@ -40,7 +40,8 @@ struct StatusDetails {
     [[nodiscard]] x::json::json to_json() const;
 
     using proto_type = ::service::rack::pb::StatusDetails;
-    [[nodiscard]] ::service::rack::pb::StatusDetails to_proto() const;
+    [[nodiscard]] std::pair<::service::rack::pb::StatusDetails, x::errors::Error>
+    to_proto() const;
     static std::pair<StatusDetails, x::errors::Error>
     from_proto(const ::service::rack::pb::StatusDetails &pb);
 };
@@ -68,7 +69,8 @@ struct Rack {
     [[nodiscard]] x::json::json to_json() const;
 
     using proto_type = ::service::rack::pb::Rack;
-    [[nodiscard]] ::service::rack::pb::Rack to_proto() const;
+    [[nodiscard]] std::pair<::service::rack::pb::Rack, x::errors::Error>
+    to_proto() const;
     static std::pair<Rack, x::errors::Error>
     from_proto(const ::service::rack::pb::Rack &pb);
     task::Client tasks;

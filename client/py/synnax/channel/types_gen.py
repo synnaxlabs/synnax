@@ -11,7 +11,6 @@
 
 from __future__ import annotations
 
-from enum import IntEnum
 from typing import Literal, TypeAlias
 
 from pydantic import BaseModel, Field
@@ -34,12 +33,6 @@ OPERATION_TYPE_NONE: Literal["none"] = "none"
 
 
 OperationType = Literal["min", "max", "avg", "none"]
-
-
-class Concurrency(IntEnum):
-    exclusive = 0
-    shared = 1
-
 
 Name: TypeAlias = str
 
@@ -113,39 +106,48 @@ class Payload(BaseModel):
         return hash(self.key)
 
 
-class New(Payload):
+class New(BaseModel):
     """Contains parameters for creating a new channel. Most fields are optional
     and will be assigned default values by Synnax.
 
     Attributes:
         key: Is an optional key for the channel. If not provided, one will be
             automatically assigned.
+        name: Is the human-readable channel name.
         leaseholder: Is an optional leaseholder node. If not provided, Synnax will assign one.
-        index: Is the channel used to index this channel's values, associating
-            each value with a timestamp. If zero, the channel's data will be
-            indexed using its rate.
+        data_type: Is the data type of samples stored in this channel (e.g., Float64,
+            Int32, TimeStamp).
         is_index: Should be set to true to create an index channel. Index channels
             must have int64 values (TIMESTAMP data type) written in ascending
             order.
-        internal: Should be set to true to create a system channel hidden from normal
-            user queries.
+        index: Is the channel used to index this channel's values, associating
+            each value with a timestamp. If zero, the channel's data will be
+            indexed using its rate.
+        alias: Is an optional alternate name for the channel within a specific context.
         virtual: Should be set to true to create a streaming-only channel that does
             not persist data.
+        internal: Should be set to true to create a system channel hidden from normal
+            user queries.
         expression: Is an Arc expression for creating a calculated channel.
         operations: Contains aggregation operations to apply to the channel data.
         concurrency: Sets the policy for concurrent writes. Only virtual channels can
             have shared concurrency.
+        status: Is the current operational status of the channel.
     """
 
-    key: Key | None = None  # type: ignore[assignment]
-    leaseholder: int | None = None  # type: ignore[assignment]
-    index: Key | None = None  # type: ignore[assignment]
-    is_index: bool | None = None  # type: ignore[assignment]
-    internal: bool | None = None  # type: ignore[assignment]
-    virtual: bool | None = None  # type: ignore[assignment]
-    expression: str | None = None  # type: ignore[assignment]
+    key: Key | None = None
+    name: Name
+    leaseholder: int | None = None
+    data_type: telem.DataType
+    is_index: bool | None = None
+    index: Key | None = None
+    alias: str | None = None
+    virtual: bool | None = None
+    internal: bool | None = None
+    expression: str | None = None
     operations: list[Operation] | None = None
     concurrency: control.Concurrency | None = None
+    status: Status | None = None
 
 
 ONTOLOGY_TYPE = ID(type="channel")

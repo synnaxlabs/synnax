@@ -540,11 +540,10 @@ public:
     [[nodiscard]] x::json::json to_json() const;
 
     /// @brief converts the TimeRange to protobuf representation.
-    ::x::telem::pb::TimeRange to_proto() const;
+    std::pair<pb::TimeRange, x::errors::Error> to_proto() const;
 
     /// @brief constructs a TimeRange from protobuf representation.
-    static std::pair<TimeRange, x::errors::Error>
-    from_proto(const ::x::telem::pb::TimeRange &pb);
+    static std::pair<TimeRange, x::errors::Error> from_proto(const pb::TimeRange &pb);
 };
 
 /// @brief A stopwatch for measuring elapsed time using a monotonic clock.

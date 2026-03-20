@@ -30,12 +30,6 @@ export const OPERATION_TYPES = ["min", "max", "avg", "none"] as const;
 export const operationTypeZ = z.enum(OPERATION_TYPES);
 export type OperationType = z.infer<typeof operationTypeZ>;
 
-export enum Concurrency {
-  exclusive = 0,
-  shared = 1,
-}
-export const concurrencyZ = z.enum(Concurrency);
-
 /**
  * Operation defines an aggregation operation applied to channel data. Operations
  * calculate min, max, or average values over a time duration or triggered

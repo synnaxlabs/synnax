@@ -25,14 +25,15 @@
 
 namespace synnax::task {
 
-inline ::service::task::pb::StatusDetails StatusDetails::to_proto() const {
+inline std::pair<::service::task::pb::StatusDetails, x::errors::Error>
+StatusDetails::to_proto() const {
     ::service::task::pb::StatusDetails pb;
     pb.set_task(static_cast<uint64_t>(this->task));
     pb.set_running(this->running);
     pb.set_cmd(this->cmd);
     if (this->data.has_value())
         *pb.mutable_data() = x::json::to_struct(*this->data).first;
-    return pb;
+    return {pb, x::errors::NIL};
 }
 
 inline std::pair<StatusDetails, x::errors::Error>
@@ -49,7 +50,7 @@ StatusDetails::from_proto(const ::service::task::pb::StatusDetails &pb) {
     return {cpp, x::errors::NIL};
 }
 
-inline ::service::task::pb::Task Task::to_proto() const {
+inline std::pair<::service::task::pb::Task, x::errors::Error> Task::to_proto() const {
     ::service::task::pb::Task pb;
     pb.set_key(static_cast<uint64_t>(this->key));
     pb.set_name(this->name);
@@ -57,8 +58,12 @@ inline ::service::task::pb::Task Task::to_proto() const {
     *pb.mutable_config() = x::json::to_struct(this->config).first;
     pb.set_internal(this->internal);
     pb.set_snapshot(this->snapshot);
-    if (this->status.has_value()) *pb.mutable_status() = this->status->to_proto();
-    return pb;
+    if (this->status.has_value()) {
+        auto [v, err] = this->status->to_proto();
+        if (err) return {{}, err};
+        *pb.mutable_status() = v;
+    }
+    return {pb, x::errors::NIL};
 }
 
 inline std::pair<Task, x::errors::Error>
@@ -82,13 +87,14 @@ Task::from_proto(const ::service::task::pb::Task &pb) {
     return {cpp, x::errors::NIL};
 }
 
-inline ::service::task::pb::Command Command::to_proto() const {
+inline std::pair<::service::task::pb::Command, x::errors::Error>
+Command::to_proto() const {
     ::service::task::pb::Command pb;
     pb.set_task(static_cast<uint64_t>(this->task));
     pb.set_type(this->type);
     pb.set_key(this->key);
     *pb.mutable_args() = x::json::to_struct(this->args).first;
-    return pb;
+    return {pb, x::errors::NIL};
 }
 
 inline std::pair<Command, x::errors::Error>

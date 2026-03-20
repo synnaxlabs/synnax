@@ -25,11 +25,12 @@
 
 namespace x::control {
 
-inline ::x::control::pb::Subject Subject::to_proto() const {
+inline std::pair<::x::control::pb::Subject, x::errors::Error>
+Subject::to_proto() const {
     ::x::control::pb::Subject pb;
     pb.set_key(this->key);
     pb.set_name(this->name);
-    return pb;
+    return {pb, x::errors::NIL};
 }
 
 inline std::pair<Subject, x::errors::Error>
@@ -41,9 +42,13 @@ Subject::from_proto(const ::x::control::pb::Subject &pb) {
 }
 
 template<typename R>
-inline ::x::control::pb::State State<R>::to_proto() const {
+inline std::pair<::x::control::pb::State, x::errors::Error> State<R>::to_proto() const {
     ::x::control::pb::State pb;
-    *pb.mutable_subject() = this->subject.to_proto();
+    {
+        auto [v, err] = this->subject.to_proto();
+        if (err) return {{}, err};
+        *pb.mutable_subject() = v;
+    }
     if constexpr (std::is_same_v<R, x::json::json>) {
         *pb.mutable_resource() = x::json::to_any(this->resource);
     } else {
@@ -55,7 +60,7 @@ inline ::x::control::pb::State State<R>::to_proto() const {
             *pb.mutable_resource() = x::json::to_any(this->resource.to_json());
     }
     pb.set_authority(static_cast<uint32_t>(this->authority));
-    return pb;
+    return {pb, x::errors::NIL};
 }
 
 template<typename R>

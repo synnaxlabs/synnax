@@ -331,6 +331,30 @@ describe("record", () => {
     });
   });
 
+  describe("nullishToEmpty", () => {
+    it("should coerce null to empty object", () => {
+      expect(record.nullishToEmpty().parse(null)).toEqual({});
+    });
+
+    it("should coerce undefined to empty object", () => {
+      expect(record.nullishToEmpty().parse(undefined)).toEqual({});
+    });
+
+    it("should pass through empty object", () => {
+      expect(record.nullishToEmpty().parse({})).toEqual({});
+    });
+
+    it("should pass through object with data", () => {
+      const obj = { a: 1, b: "hello", c: true };
+      expect(record.nullishToEmpty().parse(obj)).toEqual(obj);
+    });
+
+    it("should pass through object with nested values", () => {
+      const obj = { nested: { key: "value" }, arr: [1, 2, 3] };
+      expect(record.nullishToEmpty().parse(obj)).toEqual(obj);
+    });
+  });
+
   describe("omit", () => {
     type Object = { [key: string]: number };
     it("should return the object if no keys are provided", () =>

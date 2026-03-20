@@ -638,14 +638,22 @@ func (p *Plugin) generateStructConversion(
 
 	cppType := p.typeRefToCppForTranslator(typeRef, data)
 	if isOptional {
-		forward = fmt.Sprintf("if (this->%s.has_value()) *pb.mutable_%s() = this->%s->to_proto()", cppFieldName, pbAccessorName, cppFieldName)
+		forward = fmt.Sprintf(`if (this->%s.has_value()) {
+        auto [v, err] = this->%s->to_proto();
+        if (err) return {{}, err};
+        *pb.mutable_%s() = v;
+    }`, cppFieldName, cppFieldName, pbAccessorName)
 		backward = fmt.Sprintf(`if (pb.has_%s()) {
         auto [v, err] = %s::from_proto(pb.%s());
         if (err) return {{}, err};
         cpp.%s = v;
     }`, pbAccessorName, cppType, pbAccessorName, cppFieldName)
 	} else {
-		forward = fmt.Sprintf("*pb.mutable_%s() = this->%s.to_proto()", pbAccessorName, cppFieldName)
+		forward = fmt.Sprintf(`{
+        auto [v, err] = this->%s.to_proto();
+        if (err) return {{}, err};
+        *pb.mutable_%s() = v;
+    }`, cppFieldName, pbAccessorName)
 		backward = fmt.Sprintf(`{
         auto [v, err] = %s::from_proto(pb.%s());
         if (err) return {{}, err};
@@ -783,8 +791,17 @@ func (p *Plugin) generateEnumConversion(
 		forward = fmt.Sprintf("%s(static_cast<%s::%s>(this->%s))", pbSetter, pbNamespace, enumName, cppFieldName)
 		backward = fmt.Sprintf("cpp.%s = static_cast<%s>(pb.%s());", cppFieldName, cppEnumType, pbAccessorName)
 	} else {
-		forward = fmt.Sprintf("%s(%sToPB(this->%s))", pbSetter, enumName, cppFieldName)
-		backward = fmt.Sprintf("cpp.%s = %sFromPB(pb.%s());", cppFieldName, enumName, pbAccessorName)
+		funcName := toSnakeCase(enumName)
+		forward = fmt.Sprintf(`{
+        auto [v, err] = %s_to_pb(this->%s);
+        if (err) return {{}, err};
+        %s(v);
+    }`, funcName, cppFieldName, pbSetter)
+		backward = fmt.Sprintf(`{
+        auto [v, err] = %s_from_pb(pb.%s());
+        if (err) return {{}, err};
+        cpp.%s = v;
+    }`, funcName, pbAccessorName, cppFieldName)
 	}
 
 	return forward, backward
@@ -871,14 +888,22 @@ func (p *Plugin) generateAliasConversion(
 			}
 		}
 		if isOptional {
-			forward = fmt.Sprintf("if (this->%s.has_value()) *pb.mutable_%s() = this->%s->to_proto()", cppFieldName, pbAccessorName, cppFieldName)
+			forward = fmt.Sprintf(`if (this->%s.has_value()) {
+        auto [v, err] = this->%s->to_proto();
+        if (err) return {{}, err};
+        *pb.mutable_%s() = v;
+    }`, cppFieldName, cppFieldName, pbAccessorName)
 			backward = fmt.Sprintf(`if (pb.has_%s()) {
         auto [v, err] = %s::from_proto(pb.%s());
         if (err) return {{}, err};
         cpp.%s = v;
     }`, pbAccessorName, cppType, pbAccessorName, cppFieldName)
 		} else {
-			forward = fmt.Sprintf("*pb.mutable_%s() = this->%s.to_proto()", pbAccessorName, cppFieldName)
+			forward = fmt.Sprintf(`{
+        auto [v, err] = this->%s.to_proto();
+        if (err) return {{}, err};
+        *pb.mutable_%s() = v;
+    }`, cppFieldName, pbAccessorName)
 			backward = fmt.Sprintf(`{
         auto [v, err] = %s::from_proto(pb.%s());
         if (err) return {{}, err};
@@ -941,7 +966,11 @@ func (p *Plugin) generateArrayElementConversion(
 					}
 				}
 				elemCppType := p.typeRefToCppForTranslator(elemType, data)
-				forward = fmt.Sprintf("for (const auto& item : this->%s) *pb.add_%s() = item.to_proto()", cppFieldName, pbAccessorName)
+				forward = fmt.Sprintf(`for (const auto& item : this->%s) {
+        auto [v, err] = item.to_proto();
+        if (err) return {{}, err};
+        *pb.add_%s() = v;
+    }`, cppFieldName, pbAccessorName)
 				backward = fmt.Sprintf("if (auto err = x::pb::from_proto_repeated<%s>(cpp.%s, pb.%s())) return {{}, err};", elemCppType, cppFieldName, pbAccessorName)
 				return forward, backward
 			}
@@ -1107,13 +1136,11 @@ func (p *Plugin) processEnumForTranslation(
 		})
 	}
 
-	firstPBValue := fmt.Sprintf("%s_%s", toScreamingSnake(e.Name), toScreamingSnake(form.Values[0].Name))
 	return &enumTranslatorData{
 		Name:        e.Name,
+		FuncName:    toSnakeCase(e.Name),
 		PBNamespace: pbNamespace,
 		Values:      values,
-		PBDefault:   firstPBValue,
-		CppDefault:  fmt.Sprintf("%s_%s", toScreamingSnake(e.Name), toScreamingSnake(form.Values[0].Name)),
 	}
 }
 
@@ -1346,9 +1373,8 @@ type fieldTranslatorData struct {
 
 type enumTranslatorData struct {
 	Name        string
+	FuncName    string
 	PBNamespace string
-	PBDefault   string
-	CppDefault  string
 	Values      []enumValueTranslatorData
 }
 
