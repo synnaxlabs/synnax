@@ -17,6 +17,6 @@ message Table {
   // name is a human-readable name for the table.
   string name = 2;
   // data is the table configuration including column definitions, channel references, and
-// formatting options.
+  // formatting options.
   google.protobuf.Struct data = 3;
 }

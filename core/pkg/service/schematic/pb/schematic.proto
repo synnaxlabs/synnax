@@ -17,7 +17,7 @@ message Schematic {
   // name is a human-readable name for the schematic.
   string name = 2;
   // data is the schematic content including symbols, connections, and layout
-// configuration.
+  // configuration.
   google.protobuf.Struct data = 3;
   // snapshot indicates whether this schematic represents a saved snapshot state.
   bool snapshot = 4;

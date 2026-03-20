@@ -18,6 +18,6 @@ message User {
   // last_name is the user's last name.
   string last_name = 4;
   // root_user is true if this is a root/admin user with full system access. Root users
-// cannot be deleted.
+  // cannot be deleted.
   bool root_user = 5;
 }

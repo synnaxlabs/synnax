@@ -30,7 +30,7 @@ message Task {
   // name is a human-readable name for the task.
   string name = 2;
   // type is the task type (e.g., 'modbus_read', 'labjack_write', 'opc_scan'). Determines
-// which hardware integration handles the task.
+  // which hardware integration handles the task.
   string type = 3;
   // config is task-specific configuration stored as JSON. Structure varies by task type.
   google.protobuf.Struct config = 4;

@@ -4,9 +4,9 @@ syntax = "proto3";
 
 package arc.graph.pb;
 
+import "arc/go/ir/pb/ir.proto";
 import "google/protobuf/struct.proto";
 import "x/go/spatial/pb/spatial.proto";
-import "arc/go/ir/pb/ir.proto";
 
 option go_package = "github.com/synnaxlabs/arc/graph/pb";
 
