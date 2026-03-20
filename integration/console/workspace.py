@@ -103,12 +103,18 @@ class WorkspaceClient:
             ".console-mosaic > .pluto-tabs-selector .pluto-tabs-selector__actions button:has(.pluto-icon--add)"
         ).first
         add_btn.wait_for(state="visible", timeout=5000)
-        add_btn.click(force=True)
-
-        self.layout.page.locator(".console-layout-selector__frame").wait_for(
-            state="visible", timeout=15000
-        )
-        self.layout.page.get_by_role("button", name=page_type).first.click()
+        add_btn.dispatch_event("click")
+        layout_selector = self.layout.page.locator(".console-layout-selector__frame")
+        # Retry once if the layout selector doesn't appear — on Windows CI
+        # the first dispatch can race with notification rendering.
+        try:
+            layout_selector.wait_for(state="visible", timeout=5000)
+        except PlaywrightTimeoutError:
+            add_btn.dispatch_event("click")
+            layout_selector.wait_for(state="visible", timeout=15000)
+        type_btn = self.layout.page.get_by_role("button", name=page_type).first
+        type_btn.wait_for(state="visible", timeout=5000)
+        type_btn.click()
 
         return self._handle_new_page(page_type, page_name)
 

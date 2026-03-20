@@ -627,8 +627,7 @@ var _ = Describe("Calculation", Ordered, func() {
 			Expect(dist.Channel.Create(ctx, &calcs[0])).To(Succeed())
 
 			Eventually(func(g Gomega) {
-				_, err := w.Write(frame.NewUnary(baseCh.Key(), telem.NewSeriesV[int64](1, 2)))
-				g.Expect(err).NotTo(HaveOccurred())
+				MustSucceed(w.Write(frame.NewUnary(baseCh.Key(), telem.NewSeriesV[int64](1, 2))))
 				g.Eventually(sOutlet.Outlet(), 1*time.Second).Should(Receive(&res))
 				g.Expect(res.Frame.KeysSlice()).To(Equal([]channel.Key{calcCh.Key()}))
 				g.Expect(res.Frame.Get(calcCh.Key()).Series[0]).To(telem.MatchSeriesDataV[int64](3, 6))
@@ -669,8 +668,7 @@ var _ = Describe("Calculation", Ordered, func() {
 			Expect(dist.Channel.Create(ctx, &calcs[0])).To(Succeed())
 
 			Expect(func(g Gomega) {
-				_, err := w.Write(frame.NewUnary(baseCh2.Key(), telem.NewSeriesV[int64](1, 2)))
-				g.Expect(err).NotTo(HaveOccurred())
+				MustSucceed(w.Write(frame.NewUnary(baseCh2.Key(), telem.NewSeriesV[int64](1, 2))))
 				g.Eventually(sOutlet.Outlet(), 1*time.Second).Should(Receive(&res))
 				g.Expect(res.Frame.KeysSlice()).To(Equal([]channel.Key{calcCh.Key()}))
 				g.Expect(res.Frame.Get(calcCh.Key()).Series[0]).To(telem.MatchSeriesDataV[int64](3, 6))

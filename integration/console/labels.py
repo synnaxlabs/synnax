@@ -12,7 +12,7 @@ from re import search as re_search
 from playwright.sync_api import Locator
 from playwright.sync_api import TimeoutError as PlaywrightTimeoutError
 from playwright.sync_api import expect
-from xpy import rgb_to_hex
+from x import rgb_to_hex
 
 from console.context_menu import ContextMenu
 from console.layout import LayoutClient

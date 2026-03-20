@@ -60,7 +60,7 @@ jobs:
           clean: false
 
       - name: Setup Bazel
-        uses: bazel-contrib/setup-bazel@0.15.0
+        uses: bazel-contrib/setup-bazel@0.18.0
         with:
           bazelisk-cache: false
           disk-cache: false

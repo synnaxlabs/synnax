@@ -2,6 +2,7 @@ syntax = "proto3";
 
 package api.v1;
 
+import "core/pkg/api/grpc/v1/ontology.proto";
 import "google/protobuf/empty.proto";
 import "google/protobuf/struct.proto";
 import "x/go/status/status.proto";
@@ -30,6 +31,7 @@ message Device {
   google.protobuf.Struct properties = 8;
   bool configured = 9;
   status.PBStatus status = 10;
+  OntologyID parent = 11;
 }
 
 message DeviceCreateRequest {
@@ -52,6 +54,7 @@ message DeviceRetrieveRequest {
   uint32 offset = 9;
   bool ignore_not_found = 10;
   bool include_status = 11;
+  bool include_parent = 12;
 }
 
 message DeviceRetrieveResponse {

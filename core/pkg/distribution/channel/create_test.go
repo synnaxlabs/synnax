@@ -116,8 +116,7 @@ var _ = Describe("Create", Ordered, func() {
 				Expect(mockCluster.Nodes[1].Channel.Create(ctx, ch3)).To(Succeed())
 				Expect(ch3.Key().Leaseholder()).To(Equal(aspen.NodeKey(2)))
 				Eventually(func(g Gomega) {
-					channels, err := mockCluster.Nodes[2].Storage.TS.RetrieveChannels(ctx, ch3.Key().StorageKey())
-					g.Expect(err).ToNot(HaveOccurred())
+					channels := MustSucceed(mockCluster.Nodes[2].Storage.TS.RetrieveChannels(ctx, ch3.Key().StorageKey()))
 					g.Expect(channels).To(HaveLen(1))
 					g.Expect(channels[0].DataType).To(Equal(telem.JSONT))
 					g.Expect(channels[0].Virtual).To(BeTrue())
@@ -287,8 +286,7 @@ var _ = Describe("Create", Ordered, func() {
 				Expect(newCh.Key()).To(Equal(originalKey))
 
 				var resChannels []channel.Channel
-				err := mockCluster.Nodes[1].Channel.NewRetrieve().WhereKeys(originalKey).Entries(&resChannels).Exec(ctx, nil)
-				Expect(err).ToNot(HaveOccurred())
+				Expect(mockCluster.Nodes[1].Channel.NewRetrieve().WhereKeys(originalKey).Entries(&resChannels).Exec(ctx, nil)).To(Succeed())
 				Expect(resChannels).To(HaveLen(1))
 				Expect(resChannels[0].IsIndex).To(BeTrue())
 				Expect(resChannels[0].DataType).To(Equal(telem.TimeStampT))
@@ -324,11 +322,10 @@ var _ = Describe("Create", Ordered, func() {
 
 			indexName := "calculated_temp_time"
 			var indexChannels []channel.Channel
-			err := mockCluster.Nodes[1].Channel.NewRetrieve().
+			Expect(mockCluster.Nodes[1].Channel.NewRetrieve().
 				WhereNames(indexName).
 				Entries(&indexChannels).
-				Exec(ctx, nil)
-			Expect(err).ToNot(HaveOccurred())
+				Exec(ctx, nil)).To(Succeed())
 			Expect(indexChannels).To(HaveLen(1))
 
 			indexCh := indexChannels[0]
@@ -413,11 +410,10 @@ var _ = Describe("Create", Ordered, func() {
 
 			// Verify auto-created index channels exist for calculated channels
 			var indexChannels []channel.Channel
-			err := mockCluster.Nodes[1].Channel.NewRetrieve().
+			Expect(mockCluster.Nodes[1].Channel.NewRetrieve().
 				WhereNames("calculated1_time", "calculated2_time").
 				Entries(&indexChannels).
-				Exec(ctx, nil)
-			Expect(err).ToNot(HaveOccurred())
+				Exec(ctx, nil)).To(Succeed())
 			Expect(indexChannels).To(HaveLen(2))
 		})
 
@@ -433,11 +429,10 @@ var _ = Describe("Create", Ordered, func() {
 			// Verify index is also internal
 			indexName := "internal_calculated_time"
 			var indexChannels []channel.Channel
-			err := mockCluster.Nodes[1].Channel.NewRetrieve().
+			Expect(mockCluster.Nodes[1].Channel.NewRetrieve().
 				WhereNames(indexName).
 				Entries(&indexChannels).
-				Exec(ctx, nil)
-			Expect(err).ToNot(HaveOccurred())
+				Exec(ctx, nil)).To(Succeed())
 			Expect(indexChannels).To(HaveLen(1))
 			Expect(indexChannels[0].Internal).To(BeTrue())
 		})
@@ -468,11 +463,10 @@ var _ = Describe("Create", Ordered, func() {
 
 			// 5. Retrieve and verify expression updated, other fields preserved
 			var retrieved channel.Channel
-			err := mockCluster.Nodes[1].Channel.NewRetrieve().
+			Expect(mockCluster.Nodes[1].Channel.NewRetrieve().
 				WhereKeys(originalKey).
 				Entry(&retrieved).
-				Exec(ctx, nil)
-			Expect(err).ToNot(HaveOccurred())
+				Exec(ctx, nil)).To(Succeed())
 			Expect(retrieved.Expression).To(Equal("return channel('sensor1') * 3.0 + 10"))
 			Expect(retrieved.Name).To(Equal(originalName))
 			Expect(retrieved.Key()).To(Equal(originalKey))
@@ -529,8 +523,7 @@ var _ = Describe("Create", Ordered, func() {
 			Expect(ch.Name).To(Equal(newName))
 
 			var resChannels []channel.Channel
-			err := mockCluster.Nodes[1].Channel.NewRetrieve().WhereKeys(ch.Key()).Entries(&resChannels).Exec(ctx, nil)
-			Expect(err).ToNot(HaveOccurred())
+			Expect(mockCluster.Nodes[1].Channel.NewRetrieve().WhereKeys(ch.Key()).Entries(&resChannels).Exec(ctx, nil)).To(Succeed())
 			Expect(resChannels).To(HaveLen(1))
 			Expect(resChannels[0].Name).To(Equal(newName))
 		})
@@ -564,8 +557,7 @@ var _ = Describe("Create", Ordered, func() {
 				Expect(nonVirtualCh.Key()).ToNot(Equal(originalKey))
 
 				var resChannels []channel.Channel
-				err := mockCluster.Nodes[1].Channel.NewRetrieve().WhereKeys(originalKey, nonVirtualCh.Key()).Entries(&resChannels).Exec(ctx, nil)
-				Expect(err).ToNot(HaveOccurred())
+				Expect(mockCluster.Nodes[1].Channel.NewRetrieve().WhereKeys(originalKey, nonVirtualCh.Key()).Entries(&resChannels).Exec(ctx, nil)).To(Succeed())
 				Expect(resChannels).To(HaveLen(2))
 
 				Expect(resChannels[0].Name).To(Equal("NonVirtual"))

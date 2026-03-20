@@ -10,6 +10,7 @@
 import { record, status, zod } from "@synnaxlabs/x";
 import { z } from "zod";
 
+import { ontology } from "@/ontology";
 import { keyZ as rackKeyZ } from "@/rack/payload";
 
 export const keyZ = z.string();
@@ -45,6 +46,7 @@ export const deviceZ = <
     configured: z.boolean().optional(),
     properties: properties ?? record.nullishToEmpty(),
     status: zod.nullToUndefined(statusZ),
+    parent: zod.nullToUndefined(ontology.idZ),
   });
 
 export interface Device<

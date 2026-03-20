@@ -14,7 +14,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/gofiber/fiber/v2"
+	"github.com/gofiber/fiber/v3"
 	"github.com/synnaxlabs/alamos"
 	"github.com/synnaxlabs/freighter"
 	"github.com/synnaxlabs/x/config"
@@ -38,12 +38,14 @@ type RouterConfig struct {
 var _ config.Config[RouterConfig] = RouterConfig{}
 
 // Validate implements config.Config.
-func (r RouterConfig) Validate() error { return nil }
+func (RouterConfig) Validate() error { return nil }
 
 // Override implements config.Config.
 func (r RouterConfig) Override(other RouterConfig) RouterConfig {
 	r.Instrumentation = override.Zero(r.Instrumentation, other.Instrumentation)
-	r.StreamWriteDeadline = override.Numeric(r.StreamWriteDeadline, other.StreamWriteDeadline)
+	r.StreamWriteDeadline = override.Numeric(
+		r.StreamWriteDeadline, other.StreamWriteDeadline,
+	)
 	return r
 }
 
@@ -80,7 +82,7 @@ var _ BindableTransport = (*Router)(nil)
 
 // BindTo binds the router and all of its routes to the given fiber app.
 func (r *Router) BindTo(app *fiber.App) {
-	app.Hooks().OnShutdown(func() error {
+	app.Hooks().OnPostShutdown(func(error) error {
 		// Cancel all streams and wait for them to close.
 		r.cancelStreams()
 		r.streamWg.Wait()
@@ -95,9 +97,7 @@ func (r *Router) BindTo(app *fiber.App) {
 	}
 }
 
-func (r *Router) Report() alamos.Report {
-	return alamos.Report{}
-}
+func (*Router) Report() alamos.Report { return alamos.Report{} }
 
 func (r *Router) Use(middleware ...freighter.Middleware) {
 	for _, route := range r.routes {
@@ -137,7 +137,11 @@ func StreamServer[RQ, RS freighter.Payload](
 	return s
 }
 
-func UnaryServer[RQ, RS freighter.Payload](r *Router, path string, opts ...ServerOption) freighter.UnaryServer[RQ, RS] {
+func UnaryServer[RQ, RS freighter.Payload](
+	r *Router,
+	path string,
+	opts ...ServerOption,
+) freighter.UnaryServer[RQ, RS] {
 	us := &unaryServer[RQ, RS]{
 		serverOptions: newServerOptions(opts),
 		Reporter:      unaryReporter,

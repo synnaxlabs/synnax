@@ -576,4 +576,138 @@ TEST(DeviceTests, testParseFromJSONDefaults) {
     ASSERT_EQ(x::json::json(d.properties), x::json::json::object());
     ASSERT_EQ(d.configured, false);
 }
+
+/// @brief it should create a device with a parent ontology ID.
+TEST(DeviceTests, testCreateWithParentOntologyID) {
+    const auto client = new_test_client();
+    auto r = rack::Rack{.name = "test_rack"};
+    ASSERT_NIL(client.racks.create(r));
+    const auto rand = std::to_string(gen_rand_device());
+
+    auto chassis = Device{
+        .key = "pd-chassis-" + rand,
+        .name = "chassis",
+        .rack = r.key,
+        .location = "slot-0",
+        .make = "NI",
+        .model = "cDAQ-9178",
+    };
+    ASSERT_NIL(client.devices.create(chassis));
+
+    auto module = Device{
+        .key = "pd-module-" + rand,
+        .name = "module",
+        .rack = r.key,
+        .location = "slot-1",
+        .make = "NI",
+        .model = "9205",
+    };
+    module.parent = ontology_id(chassis.key);
+    ASSERT_NIL(client.devices.create(module));
+
+    const auto retrieved = ASSERT_NIL_P(client.devices.retrieve(module.key));
+    ASSERT_EQ(retrieved.key, module.key);
+}
+
+/// @brief it should create multiple devices with parent relationships in bulk.
+TEST(DeviceTests, testBulkCreateWithParentOntologyID) {
+    const auto client = new_test_client();
+    auto r = rack::Rack{.name = "test_rack"};
+    ASSERT_NIL(client.racks.create(r));
+    const auto rand = std::to_string(gen_rand_device());
+
+    // Create chassis first so it exists for parenting.
+    auto chassis = Device{
+        .key = "bulk-chassis-" + rand,
+        .name = "bulk chassis",
+        .rack = r.key,
+        .location = "slot-0",
+        .make = "NI",
+        .model = "cDAQ-9178",
+    };
+    ASSERT_NIL(client.devices.create(chassis));
+
+    // Bulk-create two modules parented to the chassis.
+    auto mod1 = Device{
+        .key = "bulk-mod1-" + rand,
+        .name = "module 1",
+        .rack = r.key,
+        .location = "slot-1",
+        .make = "NI",
+        .model = "9205",
+        .parent = ontology_id(chassis.key),
+    };
+    auto mod2 = Device{
+        .key = "bulk-mod2-" + rand,
+        .name = "module 2",
+        .rack = r.key,
+        .location = "slot-2",
+        .make = "NI",
+        .model = "9264",
+        .parent = ontology_id(chassis.key),
+    };
+    const std::vector modules = {mod1, mod2};
+    ASSERT_NIL(client.devices.create(modules));
+
+    const auto r1 = ASSERT_NIL_P(client.devices.retrieve(mod1.key));
+    ASSERT_EQ(r1.key, mod1.key);
+    ASSERT_EQ(r1.name, "module 1");
+
+    const auto r2 = ASSERT_NIL_P(client.devices.retrieve(mod2.key));
+    ASSERT_EQ(r2.key, mod2.key);
+    ASSERT_EQ(r2.name, "module 2");
+}
+
+/// @brief it should bulk-create a mix of devices with and without parents.
+TEST(DeviceTests, testBulkCreateMixedParents) {
+    const auto client = new_test_client();
+    auto r = rack::Rack{.name = "test_rack"};
+    ASSERT_NIL(client.racks.create(r));
+    const auto rand = std::to_string(gen_rand_device());
+
+    // Create chassis first.
+    auto chassis = Device{
+        .key = "mix-chassis-" + rand,
+        .name = "mix chassis",
+        .rack = r.key,
+        .location = "slot-0",
+        .make = "NI",
+        .model = "cDAQ-9178",
+    };
+    ASSERT_NIL(client.devices.create(chassis));
+
+    // Bulk-create: one standalone device (no parent) and one module (with parent).
+    auto standalone = Device{
+        .key = "mix-standalone-" + rand,
+        .name = "standalone device",
+        .rack = r.key,
+        .location = "loc-1",
+        .make = "NI",
+        .model = "USB-6001",
+    };
+    auto module = Device{
+        .key = "mix-module-" + rand,
+        .name = "child module",
+        .rack = r.key,
+        .location = "slot-1",
+        .make = "NI",
+        .model = "9205",
+        .parent = ontology_id(chassis.key),
+    };
+    const std::vector devices = {standalone, module};
+    ASSERT_NIL(client.devices.create(devices));
+
+    const auto rs = ASSERT_NIL_P(
+        client.devices.retrieve(standalone.key, {.include_parent = true})
+    );
+    ASSERT_EQ(rs.key, standalone.key);
+    ASSERT_FALSE(rs.parent.is_zero());
+
+    const auto rm = ASSERT_NIL_P(
+        client.devices.retrieve(module.key, {.include_parent = true})
+    );
+    ASSERT_EQ(rm.key, module.key);
+    ASSERT_FALSE(rm.parent.is_zero());
+    ASSERT_EQ(rm.parent, ontology_id(chassis.key));
+}
 }

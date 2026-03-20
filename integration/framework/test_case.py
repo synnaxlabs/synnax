@@ -22,7 +22,7 @@ from typing import Any, Literal, overload
 
 import synnax as sy
 from synnax.telem import SampleValue
-from xpy import (
+from x import (
     WebSocketErrorFilter,
     ignore_websocket_errors,
     is_websocket_error,
