@@ -23,7 +23,6 @@ import (
 	"github.com/synnaxlabs/x/zyn"
 )
 
-
 // OntologyID returns the unique ID to identify the status within the Synnax ontology.
 func OntologyID(k string) ontology.ID { return ontology.ID{Type: ontology.TypeStatus, Key: k} }
 

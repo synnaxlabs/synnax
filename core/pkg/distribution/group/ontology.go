@@ -24,7 +24,6 @@ import (
 	"github.com/synnaxlabs/x/zyn"
 )
 
-
 func OntologyID(key uuid.UUID) ontology.ID {
 	return ontology.ID{Type: ontology.TypeGroup, Key: key.String()}
 }

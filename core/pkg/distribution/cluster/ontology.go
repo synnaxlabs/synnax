@@ -28,7 +28,6 @@ import (
 	"go.uber.org/zap"
 )
 
-
 // NodeOntologyID returns a unique identifier for a Node to use within a resource
 // Ontology.
 func NodeOntologyID(key NodeKey) ontology.ID {

@@ -26,7 +26,6 @@ import (
 	"github.com/synnaxlabs/x/zyn"
 )
 
-
 // OntologyID returns the unique ID to identify the range within the Synnax ontology.
 func OntologyID(k uuid.UUID) ontology.ID {
 	return ontology.ID{Type: ontology.TypeRange, Key: k.String()}

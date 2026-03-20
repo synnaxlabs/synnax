@@ -23,7 +23,6 @@ import (
 	"github.com/synnaxlabs/x/zyn"
 )
 
-
 // OntologyID constructs a unique ontology.ID for the Role with the given key.
 func OntologyID(k uuid.UUID) ontology.ID {
 	return ontology.ID{Type: ontology.TypeRole, Key: k.String()}

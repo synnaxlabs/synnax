@@ -24,7 +24,6 @@ import (
 	"github.com/synnaxlabs/x/zyn"
 )
 
-
 // OntologyID returns a unique ID for the view with the given key within the Synnax
 // ontology.
 func OntologyID(keys uuid.UUID) ontology.ID {

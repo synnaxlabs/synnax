@@ -24,7 +24,6 @@ import (
 	"github.com/synnaxlabs/x/zyn"
 )
 
-
 // OntologyID returns unique identifier for the lineplot within the ontology.
 func OntologyID(k uuid.UUID) ontology.ID {
 	return ontology.ID{Type: ontology.TypeLineplot, Key: k.String()}

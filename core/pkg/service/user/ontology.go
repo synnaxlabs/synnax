@@ -24,7 +24,6 @@ import (
 	"github.com/synnaxlabs/x/zyn"
 )
 
-
 // OntologyID returns a unique identifier for a User for use within a resource ontology.
 func OntologyID(key uuid.UUID) ontology.ID {
 	return ontology.ID{Type: ontology.TypeUser, Key: key.String()}

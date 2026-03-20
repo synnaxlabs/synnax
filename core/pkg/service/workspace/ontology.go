@@ -24,7 +24,6 @@ import (
 	"github.com/synnaxlabs/x/zyn"
 )
 
-
 func OntologyID(k uuid.UUID) ontology.ID {
 	return ontology.ID{Type: ontology.TypeWorkspace, Key: k.String()}
 }

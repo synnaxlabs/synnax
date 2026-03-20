@@ -24,7 +24,6 @@ import (
 	"github.com/synnaxlabs/x/zyn"
 )
 
-
 func OntologyID(k Key) ontology.ID {
 	return ontology.ID{Type: ontology.TypeRack, Key: k.String()}
 }

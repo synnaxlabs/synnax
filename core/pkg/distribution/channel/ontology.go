@@ -23,7 +23,6 @@ import (
 	"github.com/synnaxlabs/x/zyn"
 )
 
-
 // OntologyID returns the ontology.ID for the specified channel.
 func (c Channel) OntologyID() ontology.ID { return OntologyID(c.Key()) }
 

@@ -25,7 +25,6 @@ import (
 	"github.com/synnaxlabs/x/zyn"
 )
 
-
 // LabelsOntologyTraverser is an ontology.Traverser that allows the caller to traverse
 // an ontology.Retrieve query to find all the labels for a particular resource. Pass
 // this traverser to ontology.Retrieve.TraverseTo.

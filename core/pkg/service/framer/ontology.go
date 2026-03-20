@@ -15,7 +15,6 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
 )
 
-
 // OntologyID returns a unique identifier for a Channel for use within a resource
 // ontology.
 func OntologyID(k channel.Key) ontology.ID {

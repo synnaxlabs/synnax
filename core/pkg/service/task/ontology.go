@@ -24,7 +24,6 @@ import (
 	"github.com/synnaxlabs/x/zyn"
 )
 
-
 func OntologyID(k Key) ontology.ID {
 	return ontology.ID{Type: ontology.TypeTask, Key: k.String()}
 }
