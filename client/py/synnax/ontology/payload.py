@@ -17,7 +17,7 @@ from synnax.ontology.types_gen import ResourceType
 
 
 class ID(BaseModel):
-    key: str
+    key: str | None = ""
     type: ResourceType
 
     def __init__(

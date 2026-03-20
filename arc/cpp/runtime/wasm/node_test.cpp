@@ -42,7 +42,10 @@ std::string random_name(const std::string &prefix) {
 /// @brief Compiles an Arc program via the Synnax client.
 arc::program::Program
 compile_arc(const synnax::Synnax &client, const std::string &source) {
-    auto arc = synnax::arc::Arc{.name = random_name("test_arc"), .mode = synnax::arc::MODE_TEXT};
+    auto arc = synnax::arc::Arc{
+        .name = random_name("test_arc"),
+        .mode = synnax::arc::MODE_TEXT
+    };
     arc.text.raw = source;
     if (const auto create_err = client.arcs.create(arc))
         throw std::runtime_error("Failed to create arc: " + create_err.message());
