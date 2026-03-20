@@ -44,12 +44,6 @@ void Frame::ensure_reserved(const size_t size) {
     if (this->channels == nullptr || this->series == nullptr) this->reserve(size);
 }
 
-void Frame::add(const std::uint32_t &chan, Series &ser) {
-    this->ensure_reserved(1);
-    this->channels->push_back(chan);
-    this->series->push_back(std::move(ser));
-}
-
 void Frame::emplace(const std::uint32_t &chan, Series &&ser) {
     this->ensure_reserved(1);
     this->channels->push_back(chan);

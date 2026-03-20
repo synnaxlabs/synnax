@@ -9,7 +9,11 @@
 
 package pluralize
 
-import "strings"
+import (
+	"strings"
+
+	"github.com/synnaxlabs/x/set"
+)
 
 var irregulars = map[string]string{
 	"child":     "children",
@@ -29,55 +33,55 @@ var irregulars = map[string]string{
 	"appendix":  "appendices",
 }
 
-// irregularPlurals is the reverse map for already-plural detection.
-var irregularPlurals map[string]bool
+// irregularPlurals is the reverse set for already-plural detection.
+var irregularPlurals set.Set[string]
 
 func init() {
-	irregularPlurals = make(map[string]bool, len(irregulars))
+	irregularPlurals = make(set.Set[string], len(irregulars))
 	for _, v := range irregulars {
-		irregularPlurals[v] = true
+		irregularPlurals.Add(v)
 	}
 }
 
-var uncountable = map[string]bool{
-	"sheep":    true,
-	"fish":     true,
-	"series":   true,
-	"species":  true,
-	"data":     true,
-	"metadata": true,
-	"info":     true,
-	"software": true,
-	"hardware": true,
-	"firmware": true,
-	"deer":     true,
-	"moose":    true,
-	"aircraft": true,
-}
+var uncountable = set.New(
+	"sheep",
+	"fish",
+	"series",
+	"species",
+	"data",
+	"metadata",
+	"info",
+	"software",
+	"hardware",
+	"firmware",
+	"deer",
+	"moose",
+	"aircraft",
+)
 
-// words ending in consonant+o that take -es
-var oEsWords = map[string]bool{
-	"hero":    true,
-	"potato":  true,
-	"tomato":  true,
-	"echo":    true,
-	"torpedo": true,
-	"veto":    true,
-	"volcano": true,
-}
+// oEsWords are words ending in consonant+o that take -es.
+var oEsWords = set.New(
+	"hero",
+	"potato",
+	"tomato",
+	"echo",
+	"torpedo",
+	"veto",
+	"volcano",
+)
 
-// words ending in f that change to -ves
-var fVesWords = map[string]bool{
-	"leaf":  true,
-	"shelf": true,
-	"half":  true,
-	"wolf":  true,
-	"calf":  true,
-	"loaf":  true,
-	"thief": true,
-	"self":  true,
-	"elf":   true,
-}
+// fVesWords are words ending in f that change to -ves.
+var fVesWords = set.New(
+	"leaf",
+	"shelf",
+	"half",
+	"wolf",
+	"calf",
+	"loaf",
+	"thief",
+	"self",
+	"elf",
+)
 
 // String returns the plural form of the given word. It handles common English
 // pluralization rules including irregular forms, uncountable words, and
@@ -89,11 +93,11 @@ func String(name string) string {
 
 	lower := strings.ToLower(name)
 
-	if uncountable[lower] {
+	if uncountable.Contains(lower) {
 		return name
 	}
 
-	if irregularPlurals[lower] {
+	if irregularPlurals.Contains(lower) {
 		return name
 	}
 
@@ -109,7 +113,7 @@ func String(name string) string {
 		base := name[:len(name)-2]
 		return base + matchSuffixCase(name, "ves")
 	}
-	if fVesWords[lower] {
+	if fVesWords.Contains(lower) {
 		base := name[:len(name)-1]
 		return base + matchSuffixCase(name, "ves")
 	}
@@ -118,7 +122,7 @@ func String(name string) string {
 		return name + matchSuffixCase(name, "zes")
 	}
 
-	if oEsWords[lower] {
+	if oEsWords.Contains(lower) {
 		return name + matchSuffixCase(name, "es")
 	}
 

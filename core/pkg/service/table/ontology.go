@@ -24,11 +24,10 @@ import (
 	"github.com/synnaxlabs/x/zyn"
 )
 
-const OntologyType ontology.Type = "table"
 
 // OntologyID returns unique identifier for the table within the ontology.
 func OntologyID(k uuid.UUID) ontology.ID {
-	return ontology.ID{Type: OntologyType, Key: k.String()}
+	return ontology.ID{Type: ontology.TypeTable, Key: k.String()}
 }
 
 // OntologyIDs returns unique identifiers for the tables within the ontology.
@@ -53,7 +52,7 @@ var _ ontology.Service = (*Service)(nil)
 
 type change = xchange.Change[uuid.UUID, Table]
 
-func (s *Service) Type() ontology.Type { return OntologyType }
+func (s *Service) Type() ontology.Type { return ontology.TypeTable }
 
 // Schema implements ontology.Service.
 func (s *Service) Schema() zyn.Schema { return schema }

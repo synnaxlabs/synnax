@@ -18,9 +18,9 @@ import (
 	"google.golang.org/protobuf/types/known/structpb"
 )
 
-// AnyFromPBAny converts *anypb.Any to any for use with Status[any].
-// It handles both JSON objects (structpb.Struct) and typed protos.
-// For typed protos, it uses protojson to convert to a JSON-compatible map.
+// AnyFromPBAny converts *anypb.Any to any. It handles both JSON objects
+// (structpb.Struct) and typed protos. For typed protos, it uses protojson to
+// convert to a JSON-compatible map.
 func AnyFromPBAny(a *anypb.Any) (any, error) {
 	if a == nil {
 		return nil, nil
@@ -54,8 +54,9 @@ func AnyFromPBAny(a *anypb.Any) (any, error) {
 	return result, nil
 }
 
-// AnyToPBAny converts any to *anypb.Any for use with Status[any].
-// It wraps values in structpb.Struct since status details are always objects.
+// AnyToPBAny converts any to *anypb.Any. It wraps values in structpb.Struct
+// for JSON objects, passes through proto.Message and *anypb.Any directly, and
+// falls back to JSON marshaling for other types.
 func AnyToPBAny(v any) (*anypb.Any, error) {
 	if v == nil {
 		return nil, nil

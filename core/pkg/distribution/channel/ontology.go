@@ -23,7 +23,6 @@ import (
 	"github.com/synnaxlabs/x/zyn"
 )
 
-const OntologyType ontology.Type = "channel"
 
 // OntologyID returns the ontology.ID for the specified channel.
 func (c Channel) OntologyID() ontology.ID { return OntologyID(c.Key()) }
@@ -31,7 +30,7 @@ func (c Channel) OntologyID() ontology.ID { return OntologyID(c.Key()) }
 // OntologyID returns a unique identifier for a Channel for use within a resource
 // ontology.
 func OntologyID(k Key) ontology.ID {
-	return ontology.ID{Type: OntologyType, Key: k.String()}
+	return ontology.ID{Type: ontology.TypeChannel, Key: k.String()}
 }
 
 // OntologyIDs returns the ontology.ID for each key.
@@ -80,7 +79,7 @@ var _ ontology.Service = (*Service)(nil)
 
 type change = xchange.Change[Key, Channel]
 
-func (s *Service) Type() ontology.Type { return OntologyType }
+func (s *Service) Type() ontology.Type { return ontology.TypeChannel }
 
 // Schema implements ontology.Service.
 func (s *Service) Schema() zyn.Schema { return schema }

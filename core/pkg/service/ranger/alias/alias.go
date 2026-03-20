@@ -53,12 +53,9 @@ func (a Alias) GorpKey() string { return gorpKey(a.Range, a.Channel) }
 // SetOptions implements gorp.Entry.
 func (a Alias) SetOptions() []any { return nil }
 
-// OntologyType is the type used to identify aliases in the ontology.
-const OntologyType ontology.Type = "range-alias"
-
 // OntologyID returns the ontology ID for an alias.
 func OntologyID(r uuid.UUID, ch channel.Key) ontology.ID {
-	return ontology.ID{Type: OntologyType, Key: gorpKey(r, ch)}
+	return ontology.ID{Type: ontology.TypeRangeAlias, Key: gorpKey(r, ch)}
 }
 
 // OntologyIDs returns ontology IDs for multiple aliases.

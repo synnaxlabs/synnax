@@ -157,7 +157,7 @@ func (s *Service) RetrieveParentKey(
 	if err := s.cfg.Ontology.NewRetrieve().
 		WhereIDs(OntologyID(key)).
 		TraverseTo(ontology.ParentsTraverser).
-		WhereTypes(OntologyType).
+		WhereTypes(ontology.TypeRange).
 		ExcludeFieldData(true).
 		Entries(&resources).
 		Exec(ctx, tx); err != nil {

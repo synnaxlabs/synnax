@@ -25,7 +25,6 @@ import (
 	"github.com/synnaxlabs/x/zyn"
 )
 
-const OntologyType ontology.Type = "label"
 
 // LabelsOntologyTraverser is an ontology.Traverser that allows the caller to traverse
 // an ontology.Retrieve query to find all the labels for a particular resource. Pass
@@ -39,7 +38,7 @@ var LabelsOntologyTraverser = ontology.Traverser{
 
 // OntologyID constructs a unique ontology.ID for the label with the given key.
 func OntologyID(k Key) ontology.ID {
-	return ontology.ID{Type: OntologyType, Key: k.String()}
+	return ontology.ID{Type: ontology.TypeLabel, Key: k.String()}
 }
 
 // OntologyIDs constructs a slice of unique ontology.IDs for the labels with the given
@@ -77,7 +76,7 @@ func newResource(l Label) ontology.Resource {
 
 type change = xchange.Change[Key, Label]
 
-func (s *Service) Type() ontology.Type { return OntologyType }
+func (s *Service) Type() ontology.Type { return ontology.TypeLabel }
 
 // Schema implements ontology.Service.
 func (s *Service) Schema() zyn.Schema { return schema }

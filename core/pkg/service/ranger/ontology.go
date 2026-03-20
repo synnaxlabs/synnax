@@ -26,11 +26,10 @@ import (
 	"github.com/synnaxlabs/x/zyn"
 )
 
-const OntologyType ontology.Type = "range"
 
 // OntologyID returns the unique ID to identify the range within the Synnax ontology.
 func OntologyID(k uuid.UUID) ontology.ID {
-	return ontology.ID{Type: OntologyType, Key: k.String()}
+	return ontology.ID{Type: ontology.TypeRange, Key: k.String()}
 }
 
 // OntologyIDs converts a slice of keys to a slice of ontology IDs.
@@ -69,7 +68,7 @@ var _ ontology.Service = (*Service)(nil)
 
 type change = xchange.Change[uuid.UUID, Range]
 
-func (s *Service) Type() ontology.Type { return OntologyType }
+func (s *Service) Type() ontology.Type { return ontology.TypeRange }
 
 // Schema implements ontology.Service.
 func (s *Service) Schema() zyn.Schema { return schema }

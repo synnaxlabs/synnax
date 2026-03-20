@@ -23,10 +23,9 @@ import (
 	"github.com/synnaxlabs/x/zyn"
 )
 
-const OntologyType ontology.Type = "status"
 
 // OntologyID returns the unique ID to identify the status within the Synnax ontology.
-func OntologyID(k string) ontology.ID { return ontology.ID{Type: OntologyType, Key: k} }
+func OntologyID(k string) ontology.ID { return ontology.ID{Type: ontology.TypeStatus, Key: k} }
 
 // OntologyIDs converts a slice of keys to a slice of ontology IDs.
 func OntologyIDs(keys []string) []ontology.ID {
@@ -55,7 +54,7 @@ var _ ontology.Service = (*Service)(nil)
 
 type change = xchange.Change[string, Status[any]]
 
-func (s *Service) Type() ontology.Type { return OntologyType }
+func (s *Service) Type() ontology.Type { return ontology.TypeStatus }
 
 // Schema implements ontology.Service.
 func (s *Service) Schema() zyn.Schema { return schema }

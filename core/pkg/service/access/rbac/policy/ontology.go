@@ -24,11 +24,10 @@ import (
 	"github.com/synnaxlabs/x/zyn"
 )
 
-const OntologyType ontology.Type = "policy"
 
 // OntologyID constructs a unique ontology.ID for the Policy with the given key.
 func OntologyID(k uuid.UUID) ontology.ID {
-	return ontology.ID{Type: OntologyType, Key: k.String()}
+	return ontology.ID{Type: ontology.TypePolicy, Key: k.String()}
 }
 
 // OntologyIDs constructs a slice of unique ontology.IDs for the Policys with the given
@@ -67,7 +66,7 @@ func newResource(p Policy) ontology.Resource {
 
 type change = xchange.Change[uuid.UUID, Policy]
 
-func (s *Service) Type() ontology.Type { return OntologyType }
+func (s *Service) Type() ontology.Type { return ontology.TypePolicy }
 
 // Schema implements ontology.Service.
 func (s *Service) Schema() zyn.Schema { return schema }

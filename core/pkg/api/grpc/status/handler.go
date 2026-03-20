@@ -20,6 +20,7 @@ import (
 	apistatus "github.com/synnaxlabs/synnax/pkg/api/status"
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
 	"github.com/synnaxlabs/synnax/pkg/service/label"
+	xpb "github.com/synnaxlabs/x/pb"
 	statuspb "github.com/synnaxlabs/x/status/pb"
 	"google.golang.org/protobuf/types/known/emptypb"
 )
@@ -62,7 +63,7 @@ func (t setRequestTranslator) Forward(
 	_ context.Context,
 	msg apistatus.SetRequest,
 ) (*SetRequest, error) {
-	statuses, err := statuspb.StatusesToPB(msg.Statuses, statuspb.AnyToPBAny)
+	statuses, err := statuspb.StatusesToPB(msg.Statuses, xpb.AnyToPBAny)
 	if err != nil {
 		return nil, err
 	}
@@ -81,7 +82,7 @@ func (t setRequestTranslator) Backward(
 			return apistatus.SetRequest{}, err
 		}
 	}
-	statuses, err := statuspb.StatusesFromPB(msg.Statuses, statuspb.AnyFromPBAny)
+	statuses, err := statuspb.StatusesFromPB(msg.Statuses, xpb.AnyFromPBAny)
 	if err != nil {
 		return apistatus.SetRequest{}, err
 	}
@@ -92,7 +93,7 @@ func (t setResponseTranslator) Forward(
 	_ context.Context,
 	msg apistatus.SetResponse,
 ) (*SetResponse, error) {
-	statuses, err := statuspb.StatusesToPB(msg.Statuses, statuspb.AnyToPBAny)
+	statuses, err := statuspb.StatusesToPB(msg.Statuses, xpb.AnyToPBAny)
 	if err != nil {
 		return nil, err
 	}
@@ -103,7 +104,7 @@ func (t setResponseTranslator) Backward(
 	_ context.Context,
 	msg *SetResponse,
 ) (apistatus.SetResponse, error) {
-	statuses, err := statuspb.StatusesFromPB(msg.Statuses, statuspb.AnyFromPBAny)
+	statuses, err := statuspb.StatusesFromPB(msg.Statuses, xpb.AnyFromPBAny)
 	if err != nil {
 		return apistatus.SetResponse{}, err
 	}
@@ -156,7 +157,7 @@ func (t retrieveResponseTranslator) Forward(
 	_ context.Context,
 	msg apistatus.RetrieveResponse,
 ) (*RetrieveResponse, error) {
-	statuses, err := statuspb.StatusesToPB(msg.Statuses, statuspb.AnyToPBAny)
+	statuses, err := statuspb.StatusesToPB(msg.Statuses, xpb.AnyToPBAny)
 	if err != nil {
 		return nil, err
 	}
@@ -167,7 +168,7 @@ func (t retrieveResponseTranslator) Backward(
 	_ context.Context,
 	msg *RetrieveResponse,
 ) (apistatus.RetrieveResponse, error) {
-	statuses, err := statuspb.StatusesFromPB(msg.Statuses, statuspb.AnyFromPBAny)
+	statuses, err := statuspb.StatusesFromPB(msg.Statuses, xpb.AnyFromPBAny)
 	if err != nil {
 		return apistatus.RetrieveResponse{}, err
 	}
