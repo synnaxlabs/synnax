@@ -45,22 +45,23 @@ namespace {{.Namespace}} {
 {{- range .EnumTranslators}}
 {{$enum := .}}
 
-inline {{.PBNamespace}}::{{.Name}} {{.Name}}ToPB(const std::string& cpp) {
+inline std::pair<{{.PBNamespace}}::{{.Name}}, x::errors::Error> {{.FuncName}}_to_pb(const std::string& cpp) {
     static const std::unordered_map<std::string, {{.PBNamespace}}::{{.Name}}> kMap = {
 {{- range .Values}}
         {{lbrace}}{{.CppValue}}, {{$enum.PBNamespace}}::{{.PBValue}}},
 {{- end}}
     };
     auto it = kMap.find(cpp);
-    return it != kMap.end() ? it->second : {{.PBNamespace}}::{{.PBDefault}};
+    if (it == kMap.end()) return {{lbrace}}{{lbrace}}}, x::errors::Error("unrecognized {{.Name}} value: " + cpp)};
+    return {it->second, x::errors::NIL};
 }
 
-inline std::string {{.Name}}FromPB({{.PBNamespace}}::{{.Name}} pb) {
+inline std::pair<std::string, x::errors::Error> {{.FuncName}}_from_pb({{.PBNamespace}}::{{.Name}} pb) {
     switch (pb) {
 {{- range .Values}}
-    case {{$enum.PBNamespace}}::{{.PBValue}}: return {{.CppValue}};
+    case {{$enum.PBNamespace}}::{{.PBValue}}: return {{lbrace}}{{.CppValue}}, x::errors::NIL};
 {{- end}}
-    default: return {{.CppDefault}};
+    default: return {{lbrace}}"", x::errors::Error("unrecognized {{.Name}} protobuf value")};
     }
 }
 {{- end}}
@@ -68,7 +69,7 @@ inline std::string {{.Name}}FromPB({{.PBNamespace}}::{{.Name}} pb) {
 {{- if .IsGeneric}}
 
 template <typename {{.TypeParamNames}}>
-inline {{.PBNamespace}}::{{.PBName}} {{.CppName}}<{{.TypeParamNames}}>::to_proto() const {
+inline std::pair<{{.PBNamespace}}::{{.PBName}}, x::errors::Error> {{.CppName}}<{{.TypeParamNames}}>::to_proto() const {
     {{.PBNamespace}}::{{.PBName}} pb;
 {{- range .Fields}}
 {{- if .IsGenericField}}
@@ -81,7 +82,7 @@ inline {{.PBNamespace}}::{{.PBName}} {{.CppName}}<{{.TypeParamNames}}>::to_proto
     {{.ForwardExpr}}{{if needsSemicolon .ForwardExpr}};{{end}}
 {{- end}}
 {{- end}}
-    return pb;
+    return {pb, x::errors::NIL};
 }
 
 template <typename {{.TypeParamNames}}>
@@ -104,12 +105,12 @@ inline std::pair<{{.CppName}}<{{.TypeParamNames}}>, x::errors::Error> {{.CppName
 }
 {{- else if .HasExtends}}
 
-inline {{.PBNamespace}}::{{.PBName}} {{.CppName}}::to_proto() const {
+inline std::pair<{{.PBNamespace}}::{{.PBName}}, x::errors::Error> {{.CppName}}::to_proto() const {
     {{.PBNamespace}}::{{.PBName}} pb;
 {{- range .AllFields}}
     {{.ForwardExpr}}{{if needsSemicolon .ForwardExpr}};{{end}}
 {{- end}}
-    return pb;
+    return {pb, x::errors::NIL};
 }
 
 inline std::pair<{{.CppName}}, x::errors::Error> {{.CppName}}::from_proto(
@@ -123,12 +124,12 @@ inline std::pair<{{.CppName}}, x::errors::Error> {{.CppName}}::from_proto(
 }
 {{- else}}
 
-inline {{.PBNamespace}}::{{.PBName}} {{.CppName}}::to_proto() const {
+inline std::pair<{{.PBNamespace}}::{{.PBName}}, x::errors::Error> {{.CppName}}::to_proto() const {
     {{.PBNamespace}}::{{.PBName}} pb;
 {{- range .Fields}}
     {{.ForwardExpr}}{{if needsSemicolon .ForwardExpr}};{{end}}
 {{- end}}
-    return pb;
+    return {pb, x::errors::NIL};
 }
 
 inline std::pair<{{.CppName}}, x::errors::Error> {{.CppName}}::from_proto(
@@ -144,14 +145,18 @@ inline std::pair<{{.CppName}}, x::errors::Error> {{.CppName}}::from_proto(
 {{- end}}
 {{- range .ArrayWrappers}}
 
-inline {{.PBNamespace}}::{{.PBName}} {{.CppName}}::to_proto() const {
+inline std::pair<{{.PBNamespace}}::{{.PBName}}, x::errors::Error> {{.CppName}}::to_proto() const {
     {{.PBNamespace}}::{{.PBName}} pb;
 {{- if .ElementNeedsConvert}}
-    for (const auto& item : *this) *pb.add_values() = item.to_proto();
+    for (const auto& item : *this) {
+        auto [v, err] = item.to_proto();
+        if (err) return {{lbrace}}{{lbrace}}}, err};
+        *pb.add_values() = v;
+    }
 {{- else}}
     for (const auto& item : *this) pb.add_values(item);
 {{- end}}
-    return pb;
+    return {pb, x::errors::NIL};
 }
 
 inline std::pair<{{.CppName}}, x::errors::Error> {{.CppName}}::from_proto(

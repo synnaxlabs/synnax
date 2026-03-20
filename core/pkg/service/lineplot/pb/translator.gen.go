@@ -12,14 +12,13 @@
 package pb
 
 import (
-	"context"
 	"github.com/google/uuid"
 	"github.com/synnaxlabs/synnax/pkg/service/lineplot"
 	"google.golang.org/protobuf/types/known/structpb"
 )
 
 // LinePlotToPB converts LinePlot to LinePlot.
-func LinePlotToPB(_ context.Context, r lineplot.LinePlot) (*LinePlot, error) {
+func LinePlotToPB(r lineplot.LinePlot) (*LinePlot, error) {
 	dataVal, err := structpb.NewStruct(r.Data)
 	if err != nil {
 		return nil, err
@@ -33,7 +32,7 @@ func LinePlotToPB(_ context.Context, r lineplot.LinePlot) (*LinePlot, error) {
 }
 
 // LinePlotFromPB converts LinePlot to LinePlot.
-func LinePlotFromPB(_ context.Context, pb *LinePlot) (lineplot.LinePlot, error) {
+func LinePlotFromPB(pb *LinePlot) (lineplot.LinePlot, error) {
 	var r lineplot.LinePlot
 	if pb == nil {
 		return r, nil
@@ -50,11 +49,11 @@ func LinePlotFromPB(_ context.Context, pb *LinePlot) (lineplot.LinePlot, error) 
 }
 
 // LinePlotsToPB converts a slice of LinePlot to LinePlot.
-func LinePlotsToPB(ctx context.Context, rs []lineplot.LinePlot) ([]*LinePlot, error) {
+func LinePlotsToPB(rs []lineplot.LinePlot) ([]*LinePlot, error) {
 	result := make([]*LinePlot, len(rs))
 	for i := range rs {
 		var err error
-		result[i], err = LinePlotToPB(ctx, rs[i])
+		result[i], err = LinePlotToPB(rs[i])
 		if err != nil {
 			return nil, err
 		}
@@ -63,11 +62,11 @@ func LinePlotsToPB(ctx context.Context, rs []lineplot.LinePlot) ([]*LinePlot, er
 }
 
 // LinePlotsFromPB converts a slice of LinePlot to LinePlot.
-func LinePlotsFromPB(ctx context.Context, pbs []*LinePlot) ([]lineplot.LinePlot, error) {
+func LinePlotsFromPB(pbs []*LinePlot) ([]lineplot.LinePlot, error) {
 	result := make([]lineplot.LinePlot, len(pbs))
 	for i, pb := range pbs {
 		var err error
-		result[i], err = LinePlotFromPB(ctx, pb)
+		result[i], err = LinePlotFromPB(pb)
 		if err != nil {
 			return nil, err
 		}

@@ -64,7 +64,7 @@ struct Status {
     [[nodiscard]] x::json::json to_json() const;
 
     using proto_type = ::x::status::pb::Status;
-    [[nodiscard]] ::x::status::pb::Status to_proto() const;
+    [[nodiscard]] std::pair<::x::status::pb::Status, x::errors::Error> to_proto() const;
     static std::pair<Status, x::errors::Error>
     from_proto(const ::x::status::pb::Status &pb);
 };

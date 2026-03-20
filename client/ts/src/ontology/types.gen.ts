@@ -11,5 +11,31 @@
 
 import { z } from "zod";
 
-export const typeZ = z.string();
-export type Type = z.infer<typeof typeZ>;
+export const RESOURCE_TYPES = [
+  "arc",
+  "builtin",
+  "channel",
+  "cluster",
+  "device",
+  "framer",
+  "group",
+  "label",
+  "lineplot",
+  "log",
+  "node",
+  "policy",
+  "rack",
+  "range",
+  "range-alias",
+  "role",
+  "schematic",
+  "schematic_symbol",
+  "status",
+  "table",
+  "task",
+  "user",
+  "view",
+  "workspace",
+] as const;
+export const resourceTypeZ = z.enum(RESOURCE_TYPES);
+export type ResourceType = z.infer<typeof resourceTypeZ>;

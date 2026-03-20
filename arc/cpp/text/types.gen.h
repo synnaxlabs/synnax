@@ -32,7 +32,7 @@ struct Text {
     [[nodiscard]] x::json::json to_json() const;
 
     using proto_type = ::arc::text::pb::Text;
-    [[nodiscard]] ::arc::text::pb::Text to_proto() const;
+    [[nodiscard]] std::pair<::arc::text::pb::Text, x::errors::Error> to_proto() const;
     static std::pair<Text, x::errors::Error>
     from_proto(const ::arc::text::pb::Text &pb);
 };

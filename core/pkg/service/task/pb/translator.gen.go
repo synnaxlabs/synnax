@@ -12,7 +12,6 @@
 package pb
 
 import (
-	"context"
 	"encoding/json"
 	"github.com/synnaxlabs/synnax/pkg/service/task"
 	"github.com/synnaxlabs/x/status"
@@ -23,7 +22,7 @@ import (
 )
 
 // CommandToPB converts Command to Command.
-func CommandToPB(_ context.Context, r task.Command) (*Command, error) {
+func CommandToPB(r task.Command) (*Command, error) {
 	argsVal, err := structpb.NewStruct(r.Args)
 	if err != nil {
 		return nil, err
@@ -38,7 +37,7 @@ func CommandToPB(_ context.Context, r task.Command) (*Command, error) {
 }
 
 // CommandFromPB converts Command to Command.
-func CommandFromPB(_ context.Context, pb *Command) (task.Command, error) {
+func CommandFromPB(pb *Command) (task.Command, error) {
 	var r task.Command
 	if pb == nil {
 		return r, nil
@@ -51,11 +50,11 @@ func CommandFromPB(_ context.Context, pb *Command) (task.Command, error) {
 }
 
 // CommandsToPB converts a slice of Command to Command.
-func CommandsToPB(ctx context.Context, rs []task.Command) ([]*Command, error) {
+func CommandsToPB(rs []task.Command) ([]*Command, error) {
 	result := make([]*Command, len(rs))
 	for i := range rs {
 		var err error
-		result[i], err = CommandToPB(ctx, rs[i])
+		result[i], err = CommandToPB(rs[i])
 		if err != nil {
 			return nil, err
 		}
@@ -64,11 +63,11 @@ func CommandsToPB(ctx context.Context, rs []task.Command) ([]*Command, error) {
 }
 
 // CommandsFromPB converts a slice of Command to Command.
-func CommandsFromPB(ctx context.Context, pbs []*Command) ([]task.Command, error) {
+func CommandsFromPB(pbs []*Command) ([]task.Command, error) {
 	result := make([]task.Command, len(pbs))
 	for i, pb := range pbs {
 		var err error
-		result[i], err = CommandFromPB(ctx, pb)
+		result[i], err = CommandFromPB(pb)
 		if err != nil {
 			return nil, err
 		}
@@ -78,7 +77,6 @@ func CommandsFromPB(ctx context.Context, pbs []*Command) ([]task.Command, error)
 
 // StatusDetailsToPB converts StatusDetails to StatusDetails using provided type converters.
 func StatusDetailsToPB(
-	_ context.Context,
 	r task.StatusDetails,
 ) (*StatusDetails, error) {
 	pb := &StatusDetails{
@@ -98,7 +96,6 @@ func StatusDetailsToPB(
 
 // StatusDetailsFromPB converts StatusDetails to StatusDetails using provided type converters.
 func StatusDetailsFromPB(
-	_ context.Context,
 	pb *StatusDetails,
 ) (task.StatusDetails, error) {
 	var r task.StatusDetails
@@ -114,15 +111,14 @@ func StatusDetailsFromPB(
 	return r, nil
 }
 
-// StatusDetailssToPB converts a slice of StatusDetails to StatusDetails.
-func StatusDetailssToPB(
-	ctx context.Context,
+// StatusDetailsListToPB converts a slice of StatusDetails to StatusDetails.
+func StatusDetailsListToPB(
 	rs []task.StatusDetails,
 ) ([]*StatusDetails, error) {
 	result := make([]*StatusDetails, len(rs))
 	for i := range rs {
 		var err error
-		result[i], err = StatusDetailsToPB(ctx, rs[i])
+		result[i], err = StatusDetailsToPB(rs[i])
 		if err != nil {
 			return nil, err
 		}
@@ -130,15 +126,14 @@ func StatusDetailssToPB(
 	return result, nil
 }
 
-// StatusDetailssFromPB converts a slice of StatusDetails to StatusDetails.
-func StatusDetailssFromPB(
-	ctx context.Context,
+// StatusDetailsListFromPB converts a slice of StatusDetails to StatusDetails.
+func StatusDetailsListFromPB(
 	pbs []*StatusDetails,
 ) ([]task.StatusDetails, error) {
 	result := make([]task.StatusDetails, len(pbs))
 	for i, pb := range pbs {
 		var err error
-		result[i], err = StatusDetailsFromPB(ctx, pb)
+		result[i], err = StatusDetailsFromPB(pb)
 		if err != nil {
 			return nil, err
 		}
@@ -148,7 +143,6 @@ func StatusDetailssFromPB(
 
 // TaskToPB converts Task to Task using provided type converters.
 func TaskToPB(
-	ctx context.Context,
 	r task.Task,
 ) (*Task, error) {
 	configVal, err := structpb.NewStruct(r.Config)
@@ -165,7 +159,7 @@ func TaskToPB(
 	}
 	if r.Status != nil {
 		var err error
-		pb.Status, err = statuspb.StatusToPB[task.StatusDetails](ctx, (status.Status[task.StatusDetails])(*r.Status), StatusDetailsToPBAny)
+		pb.Status, err = statuspb.StatusToPB[task.StatusDetails]((status.Status[task.StatusDetails])(*r.Status), StatusDetailsToPBAny)
 		if err != nil {
 			return nil, err
 		}
@@ -175,7 +169,6 @@ func TaskToPB(
 
 // TaskFromPB converts Task to Task using provided type converters.
 func TaskFromPB(
-	ctx context.Context,
 	pb *Task,
 ) (task.Task, error) {
 	var r task.Task
@@ -189,7 +182,7 @@ func TaskFromPB(
 	r.Internal = pb.Internal
 	r.Snapshot = pb.Snapshot
 	if pb.Status != nil {
-		val, err := statuspb.StatusFromPB[task.StatusDetails](ctx, pb.Status, StatusDetailsFromPBAny)
+		val, err := statuspb.StatusFromPB[task.StatusDetails](pb.Status, StatusDetailsFromPBAny)
 		if err != nil {
 			return task.Task{}, err
 		}
@@ -200,13 +193,12 @@ func TaskFromPB(
 
 // TasksToPB converts a slice of Task to Task.
 func TasksToPB(
-	ctx context.Context,
 	rs []task.Task,
 ) ([]*Task, error) {
 	result := make([]*Task, len(rs))
 	for i := range rs {
 		var err error
-		result[i], err = TaskToPB(ctx, rs[i])
+		result[i], err = TaskToPB(rs[i])
 		if err != nil {
 			return nil, err
 		}
@@ -216,13 +208,12 @@ func TasksToPB(
 
 // TasksFromPB converts a slice of Task to Task.
 func TasksFromPB(
-	ctx context.Context,
 	pbs []*Task,
 ) ([]task.Task, error) {
 	result := make([]task.Task, len(pbs))
 	for i, pb := range pbs {
 		var err error
-		result[i], err = TaskFromPB(ctx, pb)
+		result[i], err = TaskFromPB(pb)
 		if err != nil {
 			return nil, err
 		}
@@ -232,8 +223,8 @@ func TasksFromPB(
 
 // StatusDetailsToPBAny converts StatusDetails to *anypb.Any for use with generic translators.
 // It wraps the value in structpb.Struct (JSON) for cross-language compatibility.
-func StatusDetailsToPBAny(ctx context.Context, v task.StatusDetails) (*anypb.Any, error) {
-	pb, err := StatusDetailsToPB(ctx, v)
+func StatusDetailsToPBAny(v task.StatusDetails) (*anypb.Any, error) {
+	pb, err := StatusDetailsToPB(v)
 	if err != nil {
 		return nil, err
 	}
@@ -251,14 +242,14 @@ func StatusDetailsToPBAny(ctx context.Context, v task.StatusDetails) (*anypb.Any
 
 // StatusDetailsFromPBAny converts *anypb.Any to StatusDetails for use with generic translators.
 // It handles both typed protos and JSON (google.protobuf.Struct) for cross-language compatibility.
-func StatusDetailsFromPBAny(ctx context.Context, a *anypb.Any) (task.StatusDetails, error) {
+func StatusDetailsFromPBAny(a *anypb.Any) (task.StatusDetails, error) {
 	if a == nil {
 		return task.StatusDetails{}, nil
 	}
 	// First try typed proto
 	var pb StatusDetails
 	if err := a.UnmarshalTo(&pb); err == nil {
-		return StatusDetailsFromPB(ctx, &pb)
+		return StatusDetailsFromPB(&pb)
 	}
 	// Fall back to JSON (structpb.Struct) for cross-language compatibility
 	var s structpb.Struct

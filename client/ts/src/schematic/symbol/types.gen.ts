@@ -14,10 +14,6 @@ import { z } from "zod";
 
 import { ontology } from "@/ontology";
 
-export const OUTER_LOCATIONS = ["top", "right", "bottom", "left"] as const;
-export const outerLocationZ = z.enum(OUTER_LOCATIONS);
-export type OuterLocation = z.infer<typeof outerLocationZ>;
-
 /**
  * Region is a visual styling area within a symbol state, targeting specific SVG
  * elements for dynamic coloring.

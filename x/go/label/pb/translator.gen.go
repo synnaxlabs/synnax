@@ -12,15 +12,14 @@
 package pb
 
 import (
-	"context"
 	"github.com/google/uuid"
 	colorpb "github.com/synnaxlabs/x/color/pb"
 	"github.com/synnaxlabs/x/label"
 )
 
 // LabelToPB converts Label to Label.
-func LabelToPB(ctx context.Context, r label.Label) (*Label, error) {
-	colorVal, err := colorpb.ColorToPB(ctx, r.Color)
+func LabelToPB(r label.Label) (*Label, error) {
+	colorVal, err := colorpb.ColorToPB(r.Color)
 	if err != nil {
 		return nil, err
 	}
@@ -33,7 +32,7 @@ func LabelToPB(ctx context.Context, r label.Label) (*Label, error) {
 }
 
 // LabelFromPB converts Label to Label.
-func LabelFromPB(ctx context.Context, pb *Label) (label.Label, error) {
+func LabelFromPB(pb *Label) (label.Label, error) {
 	var r label.Label
 	if pb == nil {
 		return r, nil
@@ -44,7 +43,7 @@ func LabelFromPB(ctx context.Context, pb *Label) (label.Label, error) {
 		return label.Label{}, err
 	}
 	r.Key = label.Key(parsedKey)
-	r.Color, err = colorpb.ColorFromPB(ctx, pb.Color)
+	r.Color, err = colorpb.ColorFromPB(pb.Color)
 	if err != nil {
 		return label.Label{}, err
 	}
@@ -53,11 +52,11 @@ func LabelFromPB(ctx context.Context, pb *Label) (label.Label, error) {
 }
 
 // LabelsToPB converts a slice of Label to Label.
-func LabelsToPB(ctx context.Context, rs []label.Label) ([]*Label, error) {
+func LabelsToPB(rs []label.Label) ([]*Label, error) {
 	result := make([]*Label, len(rs))
 	for i := range rs {
 		var err error
-		result[i], err = LabelToPB(ctx, rs[i])
+		result[i], err = LabelToPB(rs[i])
 		if err != nil {
 			return nil, err
 		}
@@ -66,11 +65,11 @@ func LabelsToPB(ctx context.Context, rs []label.Label) ([]*Label, error) {
 }
 
 // LabelsFromPB converts a slice of Label to Label.
-func LabelsFromPB(ctx context.Context, pbs []*Label) ([]label.Label, error) {
+func LabelsFromPB(pbs []*Label) ([]label.Label, error) {
 	result := make([]label.Label, len(pbs))
 	for i, pb := range pbs {
 		var err error
-		result[i], err = LabelFromPB(ctx, pb)
+		result[i], err = LabelFromPB(pb)
 		if err != nil {
 			return nil, err
 		}

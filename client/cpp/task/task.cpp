@@ -126,7 +126,9 @@ std::pair<std::vector<Task>, x::errors::Error> Client::retrieve_by_type(
 x::errors::Error Client::create(Task &task) const {
     if (task.key == 0 && this->rack != 0) task.key = create_key(this->rack, 0);
     auto req = grpc::task::CreateRequest();
-    *req.add_tasks() = task.to_proto();
+    auto [pb, pb_err] = task.to_proto();
+    if (pb_err) return pb_err;
+    *req.add_tasks() = pb;
     auto [res, err] = task_create_client->send("/task/create", req);
     if (err) return err;
     if (res.tasks_size() == 0) return errors::unexpected_missing_error("task");

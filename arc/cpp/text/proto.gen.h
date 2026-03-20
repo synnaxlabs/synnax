@@ -22,10 +22,10 @@
 
 namespace arc::text {
 
-inline ::arc::text::pb::Text Text::to_proto() const {
+inline std::pair<::arc::text::pb::Text, x::errors::Error> Text::to_proto() const {
     ::arc::text::pb::Text pb;
     pb.set_raw(this->raw);
-    return pb;
+    return {pb, x::errors::NIL};
 }
 
 inline std::pair<Text, x::errors::Error>

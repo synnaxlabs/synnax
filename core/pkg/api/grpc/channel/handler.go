@@ -58,10 +58,10 @@ var (
 )
 
 func (t createRequestTranslator) Forward(
-	ctx context.Context,
+	_ context.Context,
 	msg apichannel.CreateRequest,
 ) (*CreateRequest, error) {
-	channels, err := entitypb.ChannelsToPB(ctx, msg.Channels)
+	channels, err := entitypb.ChannelsToPB(msg.Channels)
 	if err != nil {
 		return nil, err
 	}
@@ -72,10 +72,10 @@ func (t createRequestTranslator) Forward(
 }
 
 func (t createRequestTranslator) Backward(
-	ctx context.Context,
+	_ context.Context,
 	msg *CreateRequest,
 ) (apichannel.CreateRequest, error) {
-	channels, err := entitypb.ChannelsFromPB(ctx, msg.Channels)
+	channels, err := entitypb.ChannelsFromPB(msg.Channels)
 	if err != nil {
 		return apichannel.CreateRequest{}, err
 	}
@@ -86,10 +86,10 @@ func (t createRequestTranslator) Backward(
 }
 
 func (t createResponseTranslator) Forward(
-	ctx context.Context,
+	_ context.Context,
 	msg apichannel.CreateResponse,
 ) (*CreateResponse, error) {
-	channels, err := entitypb.ChannelsToPB(ctx, msg.Channels)
+	channels, err := entitypb.ChannelsToPB(msg.Channels)
 	if err != nil {
 		return nil, err
 	}
@@ -97,10 +97,10 @@ func (t createResponseTranslator) Forward(
 }
 
 func (t createResponseTranslator) Backward(
-	ctx context.Context,
+	_ context.Context,
 	msg *CreateResponse,
 ) (apichannel.CreateResponse, error) {
-	channels, err := entitypb.ChannelsFromPB(ctx, msg.Channels)
+	channels, err := entitypb.ChannelsFromPB(msg.Channels)
 	if err != nil {
 		return apichannel.CreateResponse{}, err
 	}
@@ -132,10 +132,10 @@ func (t retrieveRequestTranslator) Backward(
 }
 
 func (t retrieveResponseTranslator) Forward(
-	ctx context.Context,
+	_ context.Context,
 	msg apichannel.RetrieveResponse,
 ) (*RetrieveResponse, error) {
-	channels, err := entitypb.ChannelsToPB(ctx, msg.Channels)
+	channels, err := entitypb.ChannelsToPB(msg.Channels)
 	if err != nil {
 		return nil, err
 	}
@@ -143,10 +143,10 @@ func (t retrieveResponseTranslator) Forward(
 }
 
 func (t retrieveResponseTranslator) Backward(
-	ctx context.Context,
+	_ context.Context,
 	msg *RetrieveResponse,
 ) (apichannel.RetrieveResponse, error) {
-	channels, err := entitypb.ChannelsFromPB(ctx, msg.Channels)
+	channels, err := entitypb.ChannelsFromPB(msg.Channels)
 	if err != nil {
 		return apichannel.RetrieveResponse{}, err
 	}

@@ -12,14 +12,13 @@
 package pb
 
 import (
-	"context"
 	"github.com/google/uuid"
 	"github.com/synnaxlabs/synnax/pkg/service/table"
 	"google.golang.org/protobuf/types/known/structpb"
 )
 
 // TableToPB converts Table to Table.
-func TableToPB(_ context.Context, r table.Table) (*Table, error) {
+func TableToPB(r table.Table) (*Table, error) {
 	dataVal, err := structpb.NewStruct(r.Data)
 	if err != nil {
 		return nil, err
@@ -33,7 +32,7 @@ func TableToPB(_ context.Context, r table.Table) (*Table, error) {
 }
 
 // TableFromPB converts Table to Table.
-func TableFromPB(_ context.Context, pb *Table) (table.Table, error) {
+func TableFromPB(pb *Table) (table.Table, error) {
 	var r table.Table
 	if pb == nil {
 		return r, nil
@@ -50,11 +49,11 @@ func TableFromPB(_ context.Context, pb *Table) (table.Table, error) {
 }
 
 // TablesToPB converts a slice of Table to Table.
-func TablesToPB(ctx context.Context, rs []table.Table) ([]*Table, error) {
+func TablesToPB(rs []table.Table) ([]*Table, error) {
 	result := make([]*Table, len(rs))
 	for i := range rs {
 		var err error
-		result[i], err = TableToPB(ctx, rs[i])
+		result[i], err = TableToPB(rs[i])
 		if err != nil {
 			return nil, err
 		}
@@ -63,11 +62,11 @@ func TablesToPB(ctx context.Context, rs []table.Table) ([]*Table, error) {
 }
 
 // TablesFromPB converts a slice of Table to Table.
-func TablesFromPB(ctx context.Context, pbs []*Table) ([]table.Table, error) {
+func TablesFromPB(pbs []*Table) ([]table.Table, error) {
 	result := make([]table.Table, len(pbs))
 	for i, pb := range pbs {
 		var err error
-		result[i], err = TableFromPB(ctx, pb)
+		result[i], err = TableFromPB(pb)
 		if err != nil {
 			return nil, err
 		}

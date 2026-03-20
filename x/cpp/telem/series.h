@@ -575,8 +575,7 @@ public:
     /// @brief constructs a series from its protobuf representation.
     /// @param pb the protobuf representation to convert from.
     /// @return a pair containing the series and any error that occurred.
-    static std::pair<Series, x::errors::Error>
-    from_proto(const ::x::telem::pb::Series &pb);
+    static std::pair<Series, x::errors::Error> from_proto(const pb::Series &pb);
 
     /// @brief constructs the series from the given JSON value.
     explicit Series(const json::json &value): Series(value.dump(), JSON_T) {}
@@ -624,7 +623,7 @@ public:
 
 private:
     /// @brief private constructor for protobuf deserialization
-    explicit Series(const ::x::telem::pb::Series &pb, const TimeRange &tr):
+    explicit Series(const pb::Series &pb, const TimeRange &tr):
         data_type_(pb.data_type()),
         cap_(0),
         cached_byte_size(pb.data().size()),
@@ -876,7 +875,7 @@ public:
 
     /// @brief converts the series to its protobuf representation.
     /// @return the protobuf representation of the series.
-    [[nodiscard]] ::x::telem::pb::Series to_proto() const;
+    [[nodiscard]] pb::Series to_proto() const;
 
     /// @brief returns the data as a vector of strings. This method can only be used
     /// if the data type is STRING or JSON.

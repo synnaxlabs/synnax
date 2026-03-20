@@ -59,32 +59,32 @@ var (
 	_ grpc.Translator[apirack.DeleteRequest, *DeleteRequest]       = deleteRequestTranslator{}
 )
 
-func (createRequestTranslator) Forward(ctx context.Context, req apirack.CreateRequest) (*CreateRequest, error) {
-	racks, err := rackpb.RacksToPB(ctx, req.Racks)
+func (createRequestTranslator) Forward(_ context.Context, req apirack.CreateRequest) (*CreateRequest, error) {
+	racks, err := rackpb.RacksToPB(req.Racks)
 	if err != nil {
 		return nil, err
 	}
 	return &CreateRequest{Racks: racks}, nil
 }
 
-func (createRequestTranslator) Backward(ctx context.Context, req *CreateRequest) (apirack.CreateRequest, error) {
-	racks, err := rackpb.RacksFromPB(ctx, req.Racks)
+func (createRequestTranslator) Backward(_ context.Context, req *CreateRequest) (apirack.CreateRequest, error) {
+	racks, err := rackpb.RacksFromPB(req.Racks)
 	if err != nil {
 		return apirack.CreateRequest{}, err
 	}
 	return apirack.CreateRequest{Racks: racks}, nil
 }
 
-func (createResponseTranslator) Forward(ctx context.Context, res apirack.CreateResponse) (*CreateResponse, error) {
-	racks, err := rackpb.RacksToPB(ctx, res.Racks)
+func (createResponseTranslator) Forward(_ context.Context, res apirack.CreateResponse) (*CreateResponse, error) {
+	racks, err := rackpb.RacksToPB(res.Racks)
 	if err != nil {
 		return nil, err
 	}
 	return &CreateResponse{Racks: racks}, nil
 }
 
-func (createResponseTranslator) Backward(ctx context.Context, res *CreateResponse) (apirack.CreateResponse, error) {
-	racks, err := rackpb.RacksFromPB(ctx, res.Racks)
+func (createResponseTranslator) Backward(_ context.Context, res *CreateResponse) (apirack.CreateResponse, error) {
+	racks, err := rackpb.RacksFromPB(res.Racks)
 	if err != nil {
 		return apirack.CreateResponse{}, err
 	}
@@ -105,16 +105,16 @@ func (retrieveRequestTranslator) Backward(_ context.Context, req *RetrieveReques
 	}, nil
 }
 
-func (retrieveResponseTranslator) Forward(ctx context.Context, res apirack.RetrieveResponse) (*RetrieveResponse, error) {
-	racks, err := rackpb.RacksToPB(ctx, res.Racks)
+func (retrieveResponseTranslator) Forward(_ context.Context, res apirack.RetrieveResponse) (*RetrieveResponse, error) {
+	racks, err := rackpb.RacksToPB(res.Racks)
 	if err != nil {
 		return nil, err
 	}
 	return &RetrieveResponse{Racks: racks}, nil
 }
 
-func (retrieveResponseTranslator) Backward(ctx context.Context, res *RetrieveResponse) (apirack.RetrieveResponse, error) {
-	racks, err := rackpb.RacksFromPB(ctx, res.Racks)
+func (retrieveResponseTranslator) Backward(_ context.Context, res *RetrieveResponse) (apirack.RetrieveResponse, error) {
+	racks, err := rackpb.RacksFromPB(res.Racks)
 	if err != nil {
 		return apirack.RetrieveResponse{}, err
 	}

@@ -27,6 +27,7 @@ from collections.abc import Callable
 import nidaqmx.system
 import nisyscfg
 import synnax as sy
+from pydantic import ValidationError
 
 from tests.driver.ni_read import NIDigitalRead, NIReadCurrentVoltage
 from tests.driver.ni_write import NIDigitalWrite
@@ -107,7 +108,10 @@ def _wait_for_device_status(
         if "sy_status_set" not in frame:
             continue
         for raw in frame["sy_status_set"]:
-            s = sy.task.Status.model_validate(raw)
+            try:
+                s = sy.task.Status.model_validate(raw)
+            except ValidationError:
+                continue
             if device_key and s.key != f"device:{device_key}":
                 continue
             if device_name and s.name != device_name:

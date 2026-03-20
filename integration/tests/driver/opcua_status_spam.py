@@ -10,6 +10,7 @@
 from collections.abc import Generator
 
 import synnax as sy
+from pydantic import ValidationError
 
 from tests.driver.opcua_read import OPCUAReadArray
 
@@ -23,7 +24,10 @@ def _warnings_for_task(
     if "sy_status_set" not in frame:
         return
     for i in range(len(frame["sy_status_set"])):
-        status = sy.task.Status.model_validate(frame["sy_status_set"][i])
+        try:
+            status = sy.task.Status.model_validate(frame["sy_status_set"][i])
+        except ValidationError:
+            continue
         if (
             status.details is not None
             and status.details.task == task_key

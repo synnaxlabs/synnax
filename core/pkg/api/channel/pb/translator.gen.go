@@ -12,7 +12,6 @@
 package pb
 
 import (
-	"context"
 	"github.com/synnaxlabs/synnax/pkg/api/channel"
 	distributionchannel "github.com/synnaxlabs/synnax/pkg/distribution/channel"
 	channelpb "github.com/synnaxlabs/synnax/pkg/distribution/channel/pb"
@@ -25,8 +24,12 @@ import (
 )
 
 // ChannelToPB converts Channel to Channel.
-func ChannelToPB(ctx context.Context, r channel.Channel) (*Channel, error) {
-	operationsVal, err := channelpb.OperationsToPB(ctx, r.Operations)
+func ChannelToPB(r channel.Channel) (*Channel, error) {
+	operationsVal, err := channelpb.OperationsToPB(r.Operations)
+	if err != nil {
+		return nil, err
+	}
+	concurrencyVal, err := controlpb.ConcurrencyToPB(r.Concurrency)
 	if err != nil {
 		return nil, err
 	}
@@ -41,12 +44,12 @@ func ChannelToPB(ctx context.Context, r channel.Channel) (*Channel, error) {
 		Virtual:     r.Virtual,
 		Internal:    r.Internal,
 		Expression:  r.Expression,
-		Concurrency: controlpb.ConcurrencyToPB(r.Concurrency),
 		Operations:  operationsVal,
+		Concurrency: concurrencyVal,
 	}
 	if r.Status != nil {
 		var err error
-		pb.Status, err = statuspb.StatusToPB[gotypes.Nil](ctx, (status.Status[gotypes.Nil])(*r.Status), nil)
+		pb.Status, err = statuspb.StatusToPB[gotypes.Nil]((status.Status[gotypes.Nil])(*r.Status), nil)
 		if err != nil {
 			return nil, err
 		}
@@ -55,13 +58,17 @@ func ChannelToPB(ctx context.Context, r channel.Channel) (*Channel, error) {
 }
 
 // ChannelFromPB converts Channel to Channel.
-func ChannelFromPB(ctx context.Context, pb *Channel) (channel.Channel, error) {
+func ChannelFromPB(pb *Channel) (channel.Channel, error) {
 	var r channel.Channel
 	if pb == nil {
 		return r, nil
 	}
 	var err error
-	r.Operations, err = channelpb.OperationsFromPB(ctx, pb.Operations)
+	r.Operations, err = channelpb.OperationsFromPB(pb.Operations)
+	if err != nil {
+		return channel.Channel{}, err
+	}
+	r.Concurrency, err = controlpb.ConcurrencyFromPB(pb.Concurrency)
 	if err != nil {
 		return channel.Channel{}, err
 	}
@@ -75,9 +82,8 @@ func ChannelFromPB(ctx context.Context, pb *Channel) (channel.Channel, error) {
 	r.Virtual = pb.Virtual
 	r.Internal = pb.Internal
 	r.Expression = pb.Expression
-	r.Concurrency = controlpb.ConcurrencyFromPB(pb.Concurrency)
 	if pb.Status != nil {
-		val, err := statuspb.StatusFromPB[gotypes.Nil](ctx, pb.Status, nil)
+		val, err := statuspb.StatusFromPB[gotypes.Nil](pb.Status, nil)
 		if err != nil {
 			return channel.Channel{}, err
 		}
@@ -87,11 +93,11 @@ func ChannelFromPB(ctx context.Context, pb *Channel) (channel.Channel, error) {
 }
 
 // ChannelsToPB converts a slice of Channel to Channel.
-func ChannelsToPB(ctx context.Context, rs []channel.Channel) ([]*Channel, error) {
+func ChannelsToPB(rs []channel.Channel) ([]*Channel, error) {
 	result := make([]*Channel, len(rs))
 	for i := range rs {
 		var err error
-		result[i], err = ChannelToPB(ctx, rs[i])
+		result[i], err = ChannelToPB(rs[i])
 		if err != nil {
 			return nil, err
 		}
@@ -100,11 +106,11 @@ func ChannelsToPB(ctx context.Context, rs []channel.Channel) ([]*Channel, error)
 }
 
 // ChannelsFromPB converts a slice of Channel to Channel.
-func ChannelsFromPB(ctx context.Context, pbs []*Channel) ([]channel.Channel, error) {
+func ChannelsFromPB(pbs []*Channel) ([]channel.Channel, error) {
 	result := make([]channel.Channel, len(pbs))
 	for i, pb := range pbs {
 		var err error
-		result[i], err = ChannelFromPB(ctx, pb)
+		result[i], err = ChannelFromPB(pb)
 		if err != nil {
 			return nil, err
 		}

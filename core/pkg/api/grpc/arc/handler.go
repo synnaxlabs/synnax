@@ -57,10 +57,10 @@ var (
 )
 
 func (t createRequestTranslator) Forward(
-	ctx context.Context,
+	_ context.Context,
 	msg apiarc.CreateRequest,
 ) (*CreateRequest, error) {
-	arcs, err := pb.ArcsToPB(ctx, msg.Arcs)
+	arcs, err := pb.ArcsToPB(msg.Arcs)
 	if err != nil {
 		return nil, err
 	}
@@ -68,10 +68,10 @@ func (t createRequestTranslator) Forward(
 }
 
 func (t createRequestTranslator) Backward(
-	ctx context.Context,
+	_ context.Context,
 	msg *CreateRequest,
 ) (apiarc.CreateRequest, error) {
-	arcs, err := pb.ArcsFromPB(ctx, msg.Arcs)
+	arcs, err := pb.ArcsFromPB(msg.Arcs)
 	if err != nil {
 		return apiarc.CreateResponse{}, err
 	}
@@ -79,10 +79,10 @@ func (t createRequestTranslator) Backward(
 }
 
 func (t createResponseTranslator) Forward(
-	ctx context.Context,
+	_ context.Context,
 	msg apiarc.CreateResponse,
 ) (*CreateResponse, error) {
-	pbArcs, err := pb.ArcsToPB(ctx, msg.Arcs)
+	pbArcs, err := pb.ArcsToPB(msg.Arcs)
 	if err != nil {
 		return nil, err
 	}
@@ -90,10 +90,10 @@ func (t createResponseTranslator) Forward(
 }
 
 func (t createResponseTranslator) Backward(
-	ctx context.Context,
+	_ context.Context,
 	msg *CreateResponse,
 ) (apiarc.CreateResponse, error) {
-	arcs, err := pb.ArcsFromPB(ctx, msg.Arcs)
+	arcs, err := pb.ArcsFromPB(msg.Arcs)
 	if err != nil {
 		return apiarc.CreateResponse{}, nil
 	}
@@ -140,10 +140,10 @@ func (t retrieveRequestTranslator) Backward(
 }
 
 func (t retrieveResponseTranslator) Forward(
-	ctx context.Context,
+	_ context.Context,
 	msg apiarc.RetrieveResponse,
 ) (*RetrieveResponse, error) {
-	arcs, err := pb.ArcsToPB(ctx, msg.Arcs)
+	arcs, err := pb.ArcsToPB(msg.Arcs)
 	if err != nil {
 		return nil, err
 	}
@@ -151,10 +151,10 @@ func (t retrieveResponseTranslator) Forward(
 }
 
 func (t retrieveResponseTranslator) Backward(
-	ctx context.Context,
+	_ context.Context,
 	msg *RetrieveResponse,
 ) (apiarc.RetrieveResponse, error) {
-	arcs, err := pb.ArcsFromPB(ctx, msg.Arcs)
+	arcs, err := pb.ArcsFromPB(msg.Arcs)
 	if err != nil {
 		return apiarc.RetrieveResponse{}, err
 	}

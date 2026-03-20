@@ -27,13 +27,17 @@
 
 namespace arc::graph {
 
-inline ::arc::graph::pb::Node Node::to_proto() const {
+inline std::pair<::arc::graph::pb::Node, x::errors::Error> Node::to_proto() const {
     ::arc::graph::pb::Node pb;
     pb.set_key(this->key);
     pb.set_type(this->type);
     *pb.mutable_config() = x::json::to_struct(this->config).first;
-    *pb.mutable_position() = this->position.to_proto();
-    return pb;
+    {
+        auto [v, err] = this->position.to_proto();
+        if (err) return {{}, err};
+        *pb.mutable_position() = v;
+    }
+    return {pb, x::errors::NIL};
 }
 
 inline std::pair<Node, x::errors::Error>
@@ -54,11 +58,16 @@ Node::from_proto(const ::arc::graph::pb::Node &pb) {
     return {cpp, x::errors::NIL};
 }
 
-inline ::arc::graph::pb::Viewport Viewport::to_proto() const {
+inline std::pair<::arc::graph::pb::Viewport, x::errors::Error>
+Viewport::to_proto() const {
     ::arc::graph::pb::Viewport pb;
-    *pb.mutable_position() = this->position.to_proto();
+    {
+        auto [v, err] = this->position.to_proto();
+        if (err) return {{}, err};
+        *pb.mutable_position() = v;
+    }
     pb.set_zoom(this->zoom);
-    return pb;
+    return {pb, x::errors::NIL};
 }
 
 inline std::pair<Viewport, x::errors::Error>
@@ -73,16 +82,29 @@ Viewport::from_proto(const ::arc::graph::pb::Viewport &pb) {
     return {cpp, x::errors::NIL};
 }
 
-inline ::arc::graph::pb::Graph Graph::to_proto() const {
+inline std::pair<::arc::graph::pb::Graph, x::errors::Error> Graph::to_proto() const {
     ::arc::graph::pb::Graph pb;
-    *pb.mutable_viewport() = this->viewport.to_proto();
-    for (const auto &item: this->functions)
-        *pb.add_functions() = item.to_proto();
-    for (const auto &item: this->edges)
-        *pb.add_edges() = item.to_proto();
-    for (const auto &item: this->nodes)
-        *pb.add_nodes() = item.to_proto();
-    return pb;
+    {
+        auto [v, err] = this->viewport.to_proto();
+        if (err) return {{}, err};
+        *pb.mutable_viewport() = v;
+    }
+    for (const auto &item: this->functions) {
+        auto [v, err] = item.to_proto();
+        if (err) return {{}, err};
+        *pb.add_functions() = v;
+    }
+    for (const auto &item: this->edges) {
+        auto [v, err] = item.to_proto();
+        if (err) return {{}, err};
+        *pb.add_edges() = v;
+    }
+    for (const auto &item: this->nodes) {
+        auto [v, err] = item.to_proto();
+        if (err) return {{}, err};
+        *pb.add_nodes() = v;
+    }
+    return {pb, x::errors::NIL};
 }
 
 inline std::pair<Graph, x::errors::Error>

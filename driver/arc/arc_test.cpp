@@ -174,7 +174,7 @@ TEST(ArcTests, testCalcDoubling) {
     ASSERT_NIL(client->channels.create(input_ch));
     ASSERT_NIL(client->channels.create(output_ch));
 
-    synnax::arc::Arc arc_prog{.name = make_unique_channel_name("calc_test")};
+    synnax::arc::Arc arc_prog{.name = make_unique_channel_name("calc_test"), .mode = synnax::arc::MODE_TEXT};
     arc_prog.text = ::arc::text::Text(
         "func calc(val f32) f32 {\n"
         "    return val * 2\n"
@@ -276,7 +276,7 @@ TEST(ArcTests, testBasicSequence) {
     ASSERT_NIL(client->channels.create(valve_cmd_ch));
 
     // Create Arc program with the sequence
-    synnax::arc::Arc arc_prog{.name = make_unique_channel_name("sequence_test")};
+    synnax::arc::Arc arc_prog{.name = make_unique_channel_name("sequence_test"), .mode = synnax::arc::MODE_TEXT};
     arc_prog.text = ::arc::text::Text(
         "sequence main {\n"
         "    stage run {\n"
@@ -396,7 +396,7 @@ TEST(ArcTests, testOneShotTruthiness) {
     ASSERT_NIL(client->channels.create(valve_cmd_ch));
 
     // Create Arc program with a sequence triggered by one-shot edge
-    synnax::arc::Arc arc_prog{.name = make_unique_channel_name("truthiness_test")};
+    synnax::arc::Arc arc_prog{.name = make_unique_channel_name("truthiness_test"), .mode = synnax::arc::MODE_TEXT};
     arc_prog.text = ::arc::text::Text(
         "sequence main {\n"
         "    stage run {\n"
@@ -563,7 +563,7 @@ TEST(ArcTests, testTwoStageSequenceWithTransition) {
     // Create Arc program with a two-stage sequence
     // Stage "pressurize": outputs 1, transitions to "idle" when pressure > 50
     // Stage "idle": outputs 0 (terminal stage)
-    synnax::arc::Arc arc_prog{.name = make_unique_channel_name("two_stage_test")};
+    synnax::arc::Arc arc_prog{.name = make_unique_channel_name("two_stage_test"), .mode = synnax::arc::MODE_TEXT};
     arc_prog.text = ::arc::text::Text(
         "sequence main {\n"
         "    stage pressurize {\n"
@@ -755,7 +755,7 @@ TEST(ArcErrorHandling, WasmTrapTriggersFatalError) {
     ASSERT_NIL(client->channels.create(input_ch));
     ASSERT_NIL(client->channels.create(output_ch));
 
-    synnax::arc::Arc arc_prog{.name = make_unique_channel_name("trap_test")};
+    synnax::arc::Arc arc_prog{.name = make_unique_channel_name("trap_test"), .mode = synnax::arc::MODE_TEXT};
     arc_prog.text = ::arc::text::Text(
         "func divide_by_zero(val i32) i32 { return val / 0 }\n" + input_name +
         " -> divide_by_zero{} -> " + output_name + "\n"
@@ -854,7 +854,7 @@ TEST(ArcErrorHandling, RestartAfterWasmTrap) {
     ASSERT_NIL(client->channels.create(input_ch));
     ASSERT_NIL(client->channels.create(output_ch));
 
-    synnax::arc::Arc arc_prog{.name = make_unique_channel_name("restart_trap_test")};
+    synnax::arc::Arc arc_prog{.name = make_unique_channel_name("restart_trap_test"), .mode = synnax::arc::MODE_TEXT};
     arc_prog.text = ::arc::text::Text(
         "func maybe_trap(val i32) i32 {\n"
         "    if val == 0 { return 1 / val }\n"
@@ -986,7 +986,7 @@ TEST(ArcErrorHandling, MultipleErrorRecoveryCycles) {
     ASSERT_NIL(client->channels.create(input_ch));
     ASSERT_NIL(client->channels.create(output_ch));
 
-    synnax::arc::Arc arc_prog{.name = make_unique_channel_name("multi_cycle_test")};
+    synnax::arc::Arc arc_prog{.name = make_unique_channel_name("multi_cycle_test"), .mode = synnax::arc::MODE_TEXT};
     arc_prog.text = ::arc::text::Text(
         "func double(val f32) f32 { return val * 2 }\n" + input_name +
         " -> double{} -> " + output_name + "\n"
@@ -1095,7 +1095,7 @@ TEST(ArcStatusVerification, StartStatusHasCorrectVariantAndRunning) {
     ASSERT_NIL(client->channels.create(input_ch));
     ASSERT_NIL(client->channels.create(output_ch));
 
-    synnax::arc::Arc arc_prog{.name = make_unique_channel_name("status_verify_test")};
+    synnax::arc::Arc arc_prog{.name = make_unique_channel_name("status_verify_test"), .mode = synnax::arc::MODE_TEXT};
     arc_prog.text = ::arc::text::Text(
         "func pass(val f32) f32 { return val }\n" + input_name + " -> pass{} -> " +
         output_name + "\n"
@@ -1208,7 +1208,7 @@ TEST(ArcEdgeCases, RapidStartStop) {
     ASSERT_NIL(client->channels.create(input_ch));
     ASSERT_NIL(client->channels.create(output_ch));
 
-    synnax::arc::Arc arc_prog{.name = make_unique_channel_name("rapid_test")};
+    synnax::arc::Arc arc_prog{.name = make_unique_channel_name("rapid_test"), .mode = synnax::arc::MODE_TEXT};
     arc_prog.text = ::arc::text::Text(
         "func pass(val f32) f32 { return val }\n" + input_name + " -> pass{} -> " +
         output_name + "\n"
@@ -1300,7 +1300,7 @@ TEST(ArcEdgeCases, StopWithoutStart) {
     ASSERT_NIL(client->channels.create(input_ch));
     ASSERT_NIL(client->channels.create(output_ch));
 
-    synnax::arc::Arc arc_prog{.name = make_unique_channel_name("nostart_test")};
+    synnax::arc::Arc arc_prog{.name = make_unique_channel_name("nostart_test"), .mode = synnax::arc::MODE_TEXT};
     arc_prog.text = ::arc::text::Text(
         "func pass(val f32) f32 { return val }\n" + input_name + " -> pass{} -> " +
         output_name + "\n"
@@ -1405,7 +1405,7 @@ TEST(ArcTests, testChannelConfigParam) {
     ASSERT_NIL(client->channels.create(output_ch));
 
     // Arc program: function with channel-typed config param
-    synnax::arc::Arc arc_prog{.name = make_unique_channel_name("cfg_ch_test")};
+    synnax::arc::Arc arc_prog{.name = make_unique_channel_name("cfg_ch_test"), .mode = synnax::arc::MODE_TEXT};
     arc_prog.text = ::arc::text::Text(
         "func read_data{ch chan f32}(trigger u8) f32 {\n"
         "    return ch + f32(0.0)\n"
@@ -1548,7 +1548,7 @@ TEST(ArcTests, testChannelConfigParamReadWrite) {
     // Arc program mimicking count_rising:
     // counter_ch is a WRITE config param (channel_write_f32)
     // max_ch is a READ config param (channel_read_f32)
-    synnax::arc::Arc arc_prog{.name = make_unique_channel_name("crw_test")};
+    synnax::arc::Arc arc_prog{.name = make_unique_channel_name("crw_test"), .mode = synnax::arc::MODE_TEXT};
     arc_prog.text = ::arc::text::Text(
         "func count_rising_test{counter_ch chan f32, max_ch chan f32}(input u8) {\n"
         "    prev u8 $= input\n"
@@ -1681,7 +1681,7 @@ TEST(ArcEdgeCases, DoubleStart) {
     ASSERT_NIL(client->channels.create(input_ch));
     ASSERT_NIL(client->channels.create(output_ch));
 
-    synnax::arc::Arc arc_prog{.name = make_unique_channel_name("double_start_test")};
+    synnax::arc::Arc arc_prog{.name = make_unique_channel_name("double_start_test"), .mode = synnax::arc::MODE_TEXT};
     arc_prog.text = ::arc::text::Text(
         "func pass(val f32) f32 { return val }\n" + input_name + " -> pass{} -> " +
         output_name + "\n"
@@ -1775,7 +1775,7 @@ TEST(ArcTests, testRestartResetsState) {
     ASSERT_NIL(client->channels.create(input_ch));
     ASSERT_NIL(client->channels.create(output_ch));
 
-    synnax::arc::Arc arc_prog{.name = make_unique_channel_name("restart_test")};
+    synnax::arc::Arc arc_prog{.name = make_unique_channel_name("restart_test"), .mode = synnax::arc::MODE_TEXT};
     arc_prog.text = ::arc::text::Text(
         "func counter(trigger i64) i64 {\n"
         "    count $= 0\n"
@@ -1899,7 +1899,7 @@ TEST(ArcTests, testStaticAuthorityConfig) {
     ASSERT_NIL(client->channels.create(input_ch));
     ASSERT_NIL(client->channels.create(output_ch));
 
-    synnax::arc::Arc arc_prog{.name = make_unique_channel_name("auth_test")};
+    synnax::arc::Arc arc_prog{.name = make_unique_channel_name("auth_test"), .mode = synnax::arc::MODE_TEXT};
     arc_prog.text = ::arc::text::Text(
         "authority 200\n"
         "func calc(val f32) f32 {\n"
@@ -2011,7 +2011,7 @@ TEST(ArcTests, testPerChannelAuthorityConfig) {
     };
     ASSERT_NIL(client->channels.create(out_b_ch));
 
-    synnax::arc::Arc arc_prog{.name = make_unique_channel_name("pca_test")};
+    synnax::arc::Arc arc_prog{.name = make_unique_channel_name("pca_test"), .mode = synnax::arc::MODE_TEXT};
     arc_prog.text = ::arc::text::Text(
         "authority (\n"
         "    100\n"
@@ -2126,7 +2126,7 @@ TEST(ArcTests, testDynamicSetAuthorityInSequence) {
     };
     ASSERT_NIL(client->channels.create(valve_cmd_ch));
 
-    synnax::arc::Arc arc_prog{.name = make_unique_channel_name("dyn_auth_test")};
+    synnax::arc::Arc arc_prog{.name = make_unique_channel_name("dyn_auth_test"), .mode = synnax::arc::MODE_TEXT};
     arc_prog.text = ::arc::text::Text(
         "sequence main {\n"
         "    stage run {\n"
@@ -2228,7 +2228,7 @@ TEST(ArcTests, testDynamicPerChannelSetAuthority) {
     };
     ASSERT_NIL(client->channels.create(valve_cmd_ch));
 
-    synnax::arc::Arc arc_prog{.name = make_unique_channel_name("dpc_auth_test")};
+    synnax::arc::Arc arc_prog{.name = make_unique_channel_name("dpc_auth_test"), .mode = synnax::arc::MODE_TEXT};
     arc_prog.text = ::arc::text::Text(
         "sequence main {\n"
         "    stage run {\n"
@@ -2334,7 +2334,7 @@ TEST(ArcTests, testSetAuthorityWithCalcInTopLevelFlow) {
     };
     ASSERT_NIL(client->channels.create(output_ch));
 
-    synnax::arc::Arc arc_prog{.name = make_unique_channel_name("auth_calc_test")};
+    synnax::arc::Arc arc_prog{.name = make_unique_channel_name("auth_calc_test"), .mode = synnax::arc::MODE_TEXT};
     arc_prog.text = ::arc::text::Text(
         "func double(val u8) u8 {\n"
         "    return val * 2\n"
@@ -2444,7 +2444,7 @@ TEST(ArcTests, testWriterOpensWithErrOnUnauthorizedFalse) {
     ASSERT_NIL(client->channels.create(input_ch));
     ASSERT_NIL(client->channels.create(output_ch));
 
-    synnax::arc::Arc arc_prog{.name = make_unique_channel_name("eou_test")};
+    synnax::arc::Arc arc_prog{.name = make_unique_channel_name("eou_test"), .mode = synnax::arc::MODE_TEXT};
     arc_prog.text = ::arc::text::Text(
         "func calc(val f32) f32 {\n"
         "    return val * 2\n"
@@ -2536,7 +2536,7 @@ TEST(ArcErrorHandling, WriterFailurePropagatesErrorStatus) {
     ASSERT_NIL(client->channels.create(input_ch));
     ASSERT_NIL(client->channels.create(output_ch));
 
-    synnax::arc::Arc arc_prog{.name = make_unique_channel_name("writer_fail_test")};
+    synnax::arc::Arc arc_prog{.name = make_unique_channel_name("writer_fail_test"), .mode = synnax::arc::MODE_TEXT};
     arc_prog.text = ::arc::text::Text(
         "func double(val i32) i32 { return val * 2 }\n" + input_name +
         " -> double{} -> " + output_name + "\n"
@@ -2639,7 +2639,7 @@ TEST(ArcTests, testWriterOpensEagerlyBeforeFirstFrame) {
     ASSERT_NIL(client->channels.create(input_ch));
     ASSERT_NIL(client->channels.create(output_ch));
 
-    synnax::arc::Arc arc_prog{.name = make_unique_channel_name("eager_open_test")};
+    synnax::arc::Arc arc_prog{.name = make_unique_channel_name("eager_open_test"), .mode = synnax::arc::MODE_TEXT};
     arc_prog.text = ::arc::text::Text(
         "func calc(val f32) f32 {\n"
         "    return val * 2\n"

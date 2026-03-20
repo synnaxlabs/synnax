@@ -12,13 +12,13 @@
 package pb
 
 import (
-	"context"
 	"encoding/json"
 	"github.com/google/uuid"
 	graphpb "github.com/synnaxlabs/arc/graph/pb"
 	programpb "github.com/synnaxlabs/arc/program/pb"
 	textpb "github.com/synnaxlabs/arc/text/pb"
 	"github.com/synnaxlabs/synnax/pkg/service/arc"
+	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/status"
 	statuspb "github.com/synnaxlabs/x/status/pb"
 	"google.golang.org/protobuf/encoding/protojson"
@@ -27,7 +27,7 @@ import (
 )
 
 // StatusDetailsToPB converts StatusDetails to StatusDetails.
-func StatusDetailsToPB(_ context.Context, r arc.StatusDetails) (*StatusDetails, error) {
+func StatusDetailsToPB(r arc.StatusDetails) (*StatusDetails, error) {
 	pb := &StatusDetails{
 		Running: r.Running,
 	}
@@ -35,7 +35,7 @@ func StatusDetailsToPB(_ context.Context, r arc.StatusDetails) (*StatusDetails, 
 }
 
 // StatusDetailsFromPB converts StatusDetails to StatusDetails.
-func StatusDetailsFromPB(_ context.Context, pb *StatusDetails) (arc.StatusDetails, error) {
+func StatusDetailsFromPB(pb *StatusDetails) (arc.StatusDetails, error) {
 	var r arc.StatusDetails
 	if pb == nil {
 		return r, nil
@@ -44,12 +44,12 @@ func StatusDetailsFromPB(_ context.Context, pb *StatusDetails) (arc.StatusDetail
 	return r, nil
 }
 
-// StatusDetailssToPB converts a slice of StatusDetails to StatusDetails.
-func StatusDetailssToPB(ctx context.Context, rs []arc.StatusDetails) ([]*StatusDetails, error) {
+// StatusDetailsListToPB converts a slice of StatusDetails to StatusDetails.
+func StatusDetailsListToPB(rs []arc.StatusDetails) ([]*StatusDetails, error) {
 	result := make([]*StatusDetails, len(rs))
 	for i := range rs {
 		var err error
-		result[i], err = StatusDetailsToPB(ctx, rs[i])
+		result[i], err = StatusDetailsToPB(rs[i])
 		if err != nil {
 			return nil, err
 		}
@@ -57,12 +57,12 @@ func StatusDetailssToPB(ctx context.Context, rs []arc.StatusDetails) ([]*StatusD
 	return result, nil
 }
 
-// StatusDetailssFromPB converts a slice of StatusDetails to StatusDetails.
-func StatusDetailssFromPB(ctx context.Context, pbs []*StatusDetails) ([]arc.StatusDetails, error) {
+// StatusDetailsListFromPB converts a slice of StatusDetails to StatusDetails.
+func StatusDetailsListFromPB(pbs []*StatusDetails) ([]arc.StatusDetails, error) {
 	result := make([]arc.StatusDetails, len(pbs))
 	for i, pb := range pbs {
 		var err error
-		result[i], err = StatusDetailsFromPB(ctx, pb)
+		result[i], err = StatusDetailsFromPB(pb)
 		if err != nil {
 			return nil, err
 		}
@@ -71,32 +71,36 @@ func StatusDetailssFromPB(ctx context.Context, pbs []*StatusDetails) ([]arc.Stat
 }
 
 // ArcToPB converts Arc to Arc.
-func ArcToPB(ctx context.Context, r arc.Arc) (*Arc, error) {
-	graphVal, err := graphpb.GraphToPB(ctx, r.Graph)
+func ArcToPB(r arc.Arc) (*Arc, error) {
+	modeVal, err := ModeToPB(r.Mode)
 	if err != nil {
 		return nil, err
 	}
-	textVal, err := textpb.TextToPB(ctx, r.Text)
+	graphVal, err := graphpb.GraphToPB(r.Graph)
+	if err != nil {
+		return nil, err
+	}
+	textVal, err := textpb.TextToPB(r.Text)
 	if err != nil {
 		return nil, err
 	}
 	pb := &Arc{
 		Name:  r.Name,
-		Mode:  ModeToPB(r.Mode),
 		Key:   r.Key.String(),
+		Mode:  modeVal,
 		Graph: graphVal,
 		Text:  textVal,
 	}
 	if r.Program != nil {
 		var err error
-		pb.Program, err = programpb.ProgramToPB(ctx, *r.Program)
+		pb.Program, err = programpb.ProgramToPB(*r.Program)
 		if err != nil {
 			return nil, err
 		}
 	}
 	if r.Status != nil {
 		var err error
-		pb.Status, err = statuspb.StatusToPB[arc.StatusDetails](ctx, (status.Status[arc.StatusDetails])(*r.Status), StatusDetailsToPBAny)
+		pb.Status, err = statuspb.StatusToPB[arc.StatusDetails]((status.Status[arc.StatusDetails])(*r.Status), StatusDetailsToPBAny)
 		if err != nil {
 			return nil, err
 		}
@@ -105,7 +109,7 @@ func ArcToPB(ctx context.Context, r arc.Arc) (*Arc, error) {
 }
 
 // ArcFromPB converts Arc to Arc.
-func ArcFromPB(ctx context.Context, pb *Arc) (arc.Arc, error) {
+func ArcFromPB(pb *Arc) (arc.Arc, error) {
 	var r arc.Arc
 	if pb == nil {
 		return r, nil
@@ -116,25 +120,28 @@ func ArcFromPB(ctx context.Context, pb *Arc) (arc.Arc, error) {
 		return arc.Arc{}, err
 	}
 	r.Key = arc.Key(parsedKey)
-	r.Graph, err = graphpb.GraphFromPB(ctx, pb.Graph)
+	r.Mode, err = ModeFromPB(pb.Mode)
 	if err != nil {
 		return arc.Arc{}, err
 	}
-	r.Text, err = textpb.TextFromPB(ctx, pb.Text)
+	r.Graph, err = graphpb.GraphFromPB(pb.Graph)
+	if err != nil {
+		return arc.Arc{}, err
+	}
+	r.Text, err = textpb.TextFromPB(pb.Text)
 	if err != nil {
 		return arc.Arc{}, err
 	}
 	r.Name = pb.Name
-	r.Mode = ModeFromPB(pb.Mode)
 	if pb.Program != nil {
-		val, err := programpb.ProgramFromPB(ctx, pb.Program)
+		val, err := programpb.ProgramFromPB(pb.Program)
 		if err != nil {
 			return arc.Arc{}, err
 		}
 		r.Program = &val
 	}
 	if pb.Status != nil {
-		val, err := statuspb.StatusFromPB[arc.StatusDetails](ctx, pb.Status, StatusDetailsFromPBAny)
+		val, err := statuspb.StatusFromPB[arc.StatusDetails](pb.Status, StatusDetailsFromPBAny)
 		if err != nil {
 			return arc.Arc{}, err
 		}
@@ -144,11 +151,11 @@ func ArcFromPB(ctx context.Context, pb *Arc) (arc.Arc, error) {
 }
 
 // ArcsToPB converts a slice of Arc to Arc.
-func ArcsToPB(ctx context.Context, rs []arc.Arc) ([]*Arc, error) {
+func ArcsToPB(rs []arc.Arc) ([]*Arc, error) {
 	result := make([]*Arc, len(rs))
 	for i := range rs {
 		var err error
-		result[i], err = ArcToPB(ctx, rs[i])
+		result[i], err = ArcToPB(rs[i])
 		if err != nil {
 			return nil, err
 		}
@@ -157,11 +164,11 @@ func ArcsToPB(ctx context.Context, rs []arc.Arc) ([]*Arc, error) {
 }
 
 // ArcsFromPB converts a slice of Arc to Arc.
-func ArcsFromPB(ctx context.Context, pbs []*Arc) ([]arc.Arc, error) {
+func ArcsFromPB(pbs []*Arc) ([]arc.Arc, error) {
 	result := make([]arc.Arc, len(pbs))
 	for i, pb := range pbs {
 		var err error
-		result[i], err = ArcFromPB(ctx, pb)
+		result[i], err = ArcFromPB(pb)
 		if err != nil {
 			return nil, err
 		}
@@ -170,33 +177,33 @@ func ArcsFromPB(ctx context.Context, pbs []*Arc) ([]arc.Arc, error) {
 }
 
 // ModeToPB converts arc.Mode to Mode.
-func ModeToPB(v arc.Mode) Mode {
+func ModeToPB(v arc.Mode) (Mode, error) {
 	switch v {
 	case arc.ModeText:
-		return Mode_MODE_TEXT
+		return Mode_MODE_TEXT, nil
 	case arc.ModeGraph:
-		return Mode_MODE_GRAPH
+		return Mode_MODE_GRAPH, nil
 	default:
-		return Mode_MODE_TEXT
+		return 0, errors.Newf("unrecognized arc.Mode value: %v", v)
 	}
 }
 
 // ModeFromPB converts Mode to arc.Mode.
-func ModeFromPB(v Mode) arc.Mode {
+func ModeFromPB(v Mode) (arc.Mode, error) {
 	switch v {
 	case Mode_MODE_TEXT:
-		return arc.ModeText
+		return arc.ModeText, nil
 	case Mode_MODE_GRAPH:
-		return arc.ModeGraph
+		return arc.ModeGraph, nil
 	default:
-		return arc.ModeText
+		return arc.Mode(""), errors.Newf("unrecognized Mode value: %v", v)
 	}
 }
 
 // StatusDetailsToPBAny converts StatusDetails to *anypb.Any for use with generic translators.
 // It wraps the value in structpb.Struct (JSON) for cross-language compatibility.
-func StatusDetailsToPBAny(ctx context.Context, v arc.StatusDetails) (*anypb.Any, error) {
-	pb, err := StatusDetailsToPB(ctx, v)
+func StatusDetailsToPBAny(v arc.StatusDetails) (*anypb.Any, error) {
+	pb, err := StatusDetailsToPB(v)
 	if err != nil {
 		return nil, err
 	}
@@ -214,14 +221,14 @@ func StatusDetailsToPBAny(ctx context.Context, v arc.StatusDetails) (*anypb.Any,
 
 // StatusDetailsFromPBAny converts *anypb.Any to StatusDetails for use with generic translators.
 // It handles both typed protos and JSON (google.protobuf.Struct) for cross-language compatibility.
-func StatusDetailsFromPBAny(ctx context.Context, a *anypb.Any) (arc.StatusDetails, error) {
+func StatusDetailsFromPBAny(a *anypb.Any) (arc.StatusDetails, error) {
 	if a == nil {
 		return arc.StatusDetails{}, nil
 	}
 	// First try typed proto
 	var pb StatusDetails
 	if err := a.UnmarshalTo(&pb); err == nil {
-		return StatusDetailsFromPB(ctx, &pb)
+		return StatusDetailsFromPB(&pb)
 	}
 	// Fall back to JSON (structpb.Struct) for cross-language compatibility
 	var s structpb.Struct

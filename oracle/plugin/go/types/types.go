@@ -182,6 +182,10 @@ func resolveGoImportPath(outputPath, repoRoot string) string {
 }
 
 func processEnum(e resolution.Type) enumData {
+	name := getGoName(e)
+	if name == "" {
+		name = e.Name
+	}
 	form := e.Form.(resolution.EnumForm)
 	values := make([]enumValueData, 0, len(form.Values))
 	for _, v := range form.Values {
@@ -201,7 +205,7 @@ func processEnum(e resolution.Type) enumData {
 		}
 	}
 	return enumData{
-		Name:        e.Name,
+		Name:        name,
 		Doc:         doc.Get(e.Domains),
 		Values:      values,
 		IsIntEnum:   form.IsIntEnum,

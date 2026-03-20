@@ -10,7 +10,6 @@
 import { UnexpectedError } from "@synnaxlabs/client";
 import { type Drift, selectWindow, selectWindowKey } from "@synnaxlabs/drift";
 import { Color, type Haul, type Mosaic, Theming } from "@synnaxlabs/pluto";
-import { getUntracked } from "proxy-memoize";
 
 import { selectByKey, selectByKeys, useMemoSelect } from "@/hooks";
 import {
@@ -312,7 +311,6 @@ export const useSelectHauling = (): Haul.DraggingState =>
   useMemoSelect(selectHauling, []);
 
 export const selectColorContext = (state: StoreState): Color.ContextState => {
-  console.log(getUntracked(state));
   const rawContext = selectSliceState(state).colorContext;
   return Color.contextStateZ.parse(rawContext);
 };

@@ -67,10 +67,10 @@ var (
 )
 
 func (t createRequestTranslator) Forward(
-	ctx context.Context,
+	_ context.Context,
 	r apiranger.CreateRequest,
 ) (*CreateRequest, error) {
-	ranges, err := pb.RangesToPB(ctx, r.Ranges)
+	ranges, err := pb.RangesToPB(r.Ranges)
 	if err != nil {
 		return nil, err
 	}
@@ -78,10 +78,10 @@ func (t createRequestTranslator) Forward(
 }
 
 func (t createRequestTranslator) Backward(
-	ctx context.Context,
+	_ context.Context,
 	r *CreateRequest,
 ) (apiranger.CreateRequest, error) {
-	ranges, err := pb.RangesFromPB(ctx, r.Ranges)
+	ranges, err := pb.RangesFromPB(r.Ranges)
 	if err != nil {
 		return apiranger.CreateRequest{}, nil
 	}
@@ -89,10 +89,10 @@ func (t createRequestTranslator) Backward(
 }
 
 func (t createResponseTranslator) Forward(
-	ctx context.Context,
+	_ context.Context,
 	r apiranger.CreateResponse,
 ) (*CreateResponse, error) {
-	ranges, err := pb.RangesToPB(ctx, r.Ranges)
+	ranges, err := pb.RangesToPB(r.Ranges)
 	if err != nil {
 		return nil, err
 	}
@@ -100,10 +100,10 @@ func (t createResponseTranslator) Forward(
 }
 
 func (t createResponseTranslator) Backward(
-	ctx context.Context,
+	_ context.Context,
 	r *CreateResponse,
 ) (apiranger.CreateResponse, error) {
-	ranges, err := pb.RangesFromPB(ctx, r.Ranges)
+	ranges, err := pb.RangesFromPB(r.Ranges)
 	if err != nil {
 		return apiranger.CreateResponse{}, nil
 	}
@@ -137,10 +137,10 @@ func (t retrieveRequestTranslator) Backward(
 }
 
 func (t retrieveResponseTranslator) Forward(
-	ctx context.Context,
+	_ context.Context,
 	r apiranger.RetrieveResponse,
 ) (*RetrieveResponse, error) {
-	ranges, err := pb.RangesToPB(ctx, r.Ranges)
+	ranges, err := pb.RangesToPB(r.Ranges)
 	if err != nil {
 		return nil, err
 	}
@@ -148,10 +148,10 @@ func (t retrieveResponseTranslator) Forward(
 }
 
 func (t retrieveResponseTranslator) Backward(
-	ctx context.Context,
+	_ context.Context,
 	r *RetrieveResponse,
 ) (apiranger.RetrieveResponse, error) {
-	ranges, err := pb.RangesFromPB(ctx, r.Ranges)
+	ranges, err := pb.RangesFromPB(r.Ranges)
 	if err != nil {
 		return apiranger.RetrieveResponse{}, nil
 	}

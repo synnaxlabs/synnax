@@ -90,6 +90,31 @@ TEST(ChannelModuleTest, CreateSinkNode) {
     EXPECT_NE(node, nullptr);
 }
 
+TEST(ChannelModuleTest, ReturnsErrorForNullChannelParam) {
+    ir::Node ir_node;
+    ir_node.key = "source";
+    ir_node.type = "on";
+
+    types::Param channel_config;
+    channel_config.name = "channel";
+    channel_config.type.kind = types::Kind::U32;
+    channel_config.value = nullptr;
+    ir_node.config.push_back(channel_config);
+
+    ir::IR ir;
+    ir.nodes.push_back(ir_node);
+
+    runtime::state::Config cfg{.ir = ir, .channels = {}};
+    runtime::state::State s(cfg, runtime::errors::noop_handler);
+
+    channel::Module module(nullptr, nullptr);
+    auto state_node = ASSERT_NIL_P(s.node("source"));
+    ASSERT_OCCURRED_AS_P(
+        module.create(runtime::node::Config(ir, ir_node, std::move(state_node))),
+        x::errors::VALIDATION
+    );
+}
+
 TEST(ChannelModuleTest, UnknownNodeType) {
     ir::Node ir_node;
     ir_node.key = "unknown";

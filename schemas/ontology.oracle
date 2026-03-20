@@ -13,12 +13,35 @@
 @cpp output "client/cpp/ontology"
 @pb
 
-Type string {
+ResourceType enum {
+    arc              = "arc"
+    builtin          = "builtin"
+    channel          = "channel"
+    cluster          = "cluster"
+    device           = "device"
+    framer           = "framer"
+    group            = "group"
+    label            = "label"
+    lineplot         = "lineplot"
+    log              = "log"
+    node             = "node"
+    policy           = "policy"
+    rack             = "rack"
+    range            = "range"
+    range_alias      = "range-alias"
+    role             = "role"
+    schematic        = "schematic"
+    schematic_symbol = "schematic_symbol"
+    status           = "status"
+    table            = "table"
+    task             = "task"
+    user             = "user"
+    view             = "view"
+    workspace        = "workspace"
+
     @doc value "is the type of the resource."
-    @go omit
-    @cpp omit
-    @ts omit
-    @py omit
+    @go output "core/pkg/distribution/ontology/internal/resource"
+    @go name   "Type"
 }
 
 RelationshipType string {
@@ -27,10 +50,10 @@ RelationshipType string {
 }
 
 ID struct {
-    type Type   {
+    type ResourceType {
         @doc value "is the type of the resource."
     }
-    key  string {
+    key  string       {
         @doc value "is the unique key identifying the resource within its type."
     }
 

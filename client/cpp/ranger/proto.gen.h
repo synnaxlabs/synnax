@@ -29,13 +29,22 @@
 
 namespace synnax::ranger {
 
-inline ::service::ranger::pb::Range Base::to_proto() const {
+inline std::pair<::service::ranger::pb::Range, x::errors::Error>
+Base::to_proto() const {
     ::service::ranger::pb::Range pb;
     pb.set_key(this->key.to_string());
     pb.set_name(this->name);
-    *pb.mutable_time_range() = this->time_range.to_proto();
-    *pb.mutable_color() = this->color.to_proto();
-    return pb;
+    {
+        auto [v, err] = this->time_range.to_proto();
+        if (err) return {{}, err};
+        *pb.mutable_time_range() = v;
+    }
+    {
+        auto [v, err] = this->color.to_proto();
+        if (err) return {{}, err};
+        *pb.mutable_color() = v;
+    }
+    return {pb, x::errors::NIL};
 }
 
 inline std::pair<Base, x::errors::Error>
@@ -60,16 +69,31 @@ Base::from_proto(const ::service::ranger::pb::Range &pb) {
     return {cpp, x::errors::NIL};
 }
 
-inline ::api::ranger::pb::Range Range::to_proto() const {
+inline std::pair<::api::ranger::pb::Range, x::errors::Error> Range::to_proto() const {
     ::api::ranger::pb::Range pb;
     pb.set_key(this->key.to_string());
     pb.set_name(this->name);
-    *pb.mutable_time_range() = this->time_range.to_proto();
-    *pb.mutable_color() = this->color.to_proto();
-    for (const auto &item: this->labels)
-        *pb.add_labels() = item.to_proto();
-    if (this->parent.has_value()) *pb.mutable_parent() = this->parent->to_proto();
-    return pb;
+    {
+        auto [v, err] = this->time_range.to_proto();
+        if (err) return {{}, err};
+        *pb.mutable_time_range() = v;
+    }
+    {
+        auto [v, err] = this->color.to_proto();
+        if (err) return {{}, err};
+        *pb.mutable_color() = v;
+    }
+    for (const auto &item: this->labels) {
+        auto [v, err] = item.to_proto();
+        if (err) return {{}, err};
+        *pb.add_labels() = v;
+    }
+    if (this->parent.has_value()) {
+        auto [v, err] = this->parent->to_proto();
+        if (err) return {{}, err};
+        *pb.mutable_parent() = v;
+    }
+    return {pb, x::errors::NIL};
 }
 
 inline std::pair<Range, x::errors::Error>

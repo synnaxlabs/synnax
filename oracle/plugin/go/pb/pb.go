@@ -208,8 +208,6 @@ func (p *Plugin) generateFile(
 		generatedAnyHelpers:   make(map[string]bool),
 	}
 
-	data.imports.AddExternal("context")
-
 	parentImportPath, err := resolveGoImportPath(parentGoPath, req.RepoRoot)
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to resolve parent package import")
@@ -263,6 +261,10 @@ func (p *Plugin) generateFile(
 		if enumTranslator != nil {
 			data.EnumTranslators = append(data.EnumTranslators, *enumTranslator)
 		}
+	}
+
+	if len(data.EnumTranslators) > 0 {
+		data.imports.AddExternal("github.com/synnaxlabs/x/errors")
 	}
 
 	for _, td := range typeDefs {
@@ -335,9 +337,6 @@ func (p *Plugin) processStructForTranslation(
 		}
 	}
 
-	translator.UsesContext = fieldUsesContext(translator.Fields) ||
-		fieldUsesContext(translator.ErrorFields) ||
-		fieldUsesContext(translator.OptionalFields)
 	return translator, nil
 }
 
@@ -468,11 +467,6 @@ func (p *Plugin) processGenericStructForTranslation(
 		}
 	}
 
-	translator.UsesContext = fieldUsesContext(translator.Fields) ||
-		fieldUsesContext(translator.ErrorFields) ||
-		fieldUsesContext(translator.OptionalFields) ||
-		fieldUsesContext(translator.TypeParamFields)
-
 	return translator, nil
 }
 
@@ -520,8 +514,8 @@ func (p *Plugin) processGenericFieldForTranslation(
 		paramName := typeRef.TypeParam.Name
 		converterFunc := fmt.Sprintf("translate%s", paramName)
 
-		forwardExpr := fmt.Sprintf("%s(ctx, %s)", converterFunc, goFieldName)
-		backwardExpr := fmt.Sprintf("%s(ctx, %s)", converterFunc, pbFieldName)
+		forwardExpr := fmt.Sprintf("%s(%s)", converterFunc, goFieldName)
+		backwardExpr := fmt.Sprintf("%s(%s)", converterFunc, pbFieldName)
 
 		return fieldTranslatorData{
 			GoName:           goName,
@@ -856,7 +850,7 @@ func (p *Plugin) generateFieldConversion(
 
 	if _, isEnum := resolved.Form.(resolution.EnumForm); isEnum {
 		f, b := p.generateEnumConversion(typeRef, resolved, data, goFieldName, pbFieldName)
-		return f, b, "", false, false
+		return f, b, "", true, true
 	}
 
 	if form, isDistinct := resolved.Form.(resolution.DistinctForm); isDistinct {
@@ -1009,12 +1003,12 @@ func (p *Plugin) generateStructConversion(
 	translatorPrefix, translatorStructName := p.resolvePBTranslatorInfo(actualStruct, data)
 
 	if isHardOptional {
-		return fmt.Sprintf("%s%sToPB(ctx, *%s)", translatorPrefix, translatorStructName, goField),
-			fmt.Sprintf("%s%sFromPB(ctx, %s)", translatorPrefix, translatorStructName, pbField), "", true
+		return fmt.Sprintf("%s%sToPB(*%s)", translatorPrefix, translatorStructName, goField),
+			fmt.Sprintf("%s%sFromPB(%s)", translatorPrefix, translatorStructName, pbField), "", true
 	}
 
-	return fmt.Sprintf("%s%sToPB(ctx, %s)", translatorPrefix, translatorStructName, goField),
-		fmt.Sprintf("%s%sFromPB(ctx, %s)", translatorPrefix, translatorStructName, pbField), "", true
+	return fmt.Sprintf("%s%sToPB(%s)", translatorPrefix, translatorStructName, goField),
+		fmt.Sprintf("%s%sFromPB(%s)", translatorPrefix, translatorStructName, pbField), "", true
 }
 
 func (p *Plugin) generateGenericStructConversion(
@@ -1084,19 +1078,19 @@ func (p *Plugin) generateGenericStructConversion(
 	}
 	if isHardOptional {
 		if genericGoType != "" {
-			forward = fmt.Sprintf("%s%sToPB%s(ctx, (%s)(*%s), %s)", translatorPrefix, structName, typeArgsStr, genericGoType, goField, forwardArgs)
+			forward = fmt.Sprintf("%s%sToPB%s((%s)(*%s), %s)", translatorPrefix, structName, typeArgsStr, genericGoType, goField, forwardArgs)
 		} else {
-			forward = fmt.Sprintf("%s%sToPB%s(ctx, *%s, %s)", translatorPrefix, structName, typeArgsStr, goField, forwardArgs)
+			forward = fmt.Sprintf("%s%sToPB%s(*%s, %s)", translatorPrefix, structName, typeArgsStr, goField, forwardArgs)
 		}
-		backward = fmt.Sprintf("%s%sFromPB%s(ctx, %s, %s)", translatorPrefix, structName, typeArgsStr, pbField, backwardArgs)
+		backward = fmt.Sprintf("%s%sFromPB%s(%s, %s)", translatorPrefix, structName, typeArgsStr, pbField, backwardArgs)
 		backwardCast = fmt.Sprintf("(*%s.%s)", data.parentAlias, aliasGoName)
 	} else {
 		if genericGoType != "" {
-			forward = fmt.Sprintf("%s%sToPB%s(ctx, (%s)(%s), %s)", translatorPrefix, structName, typeArgsStr, genericGoType, goField, forwardArgs)
+			forward = fmt.Sprintf("%s%sToPB%s((%s)(%s), %s)", translatorPrefix, structName, typeArgsStr, genericGoType, goField, forwardArgs)
 		} else {
-			forward = fmt.Sprintf("%s%sToPB%s(ctx, %s, %s)", translatorPrefix, structName, typeArgsStr, goField, forwardArgs)
+			forward = fmt.Sprintf("%s%sToPB%s(%s, %s)", translatorPrefix, structName, typeArgsStr, goField, forwardArgs)
 		}
-		backward = fmt.Sprintf("%s%sFromPB%s(ctx, %s, %s)", translatorPrefix, structName, typeArgsStr, pbField, backwardArgs)
+		backward = fmt.Sprintf("%s%sFromPB%s(%s, %s)", translatorPrefix, structName, typeArgsStr, pbField, backwardArgs)
 	}
 
 	return forward, backward, backwardCast, true
@@ -1275,8 +1269,8 @@ func (p *Plugin) generateArrayConversion(
 		if _, isStruct := elemResolved.Form.(resolution.StructForm); isStruct {
 			translatorPrefix, translatorStructName := p.resolvePBTranslatorInfo(elemResolved, data)
 
-			return fmt.Sprintf("%s%ssToPB(ctx, %s)", translatorPrefix, translatorStructName, goField),
-				fmt.Sprintf("%s%ssFromPB(ctx, %s)", translatorPrefix, translatorStructName, pbField),
+			return fmt.Sprintf("%s%sToPB(%s)", translatorPrefix, pluralizeDistinct(translatorStructName), goField),
+				fmt.Sprintf("%s%sFromPB(%s)", translatorPrefix, pluralizeDistinct(translatorStructName), pbField),
 				true, true
 		}
 	}
@@ -1331,15 +1325,19 @@ func (p *Plugin) generateEnumTranslator(
 		return nil
 	}
 
+	goName := getGoName(*enumRef)
+	if goName == "" {
+		goName = enumRef.Name
+	}
+
 	values := make([]enumValueTranslatorData, 0, len(form.Values))
-	var goDefault string
 
 	goAlias := data.parentAlias
 
-	for i, v := range form.Values {
-		valueName := naming.ToPascalCase(v.Name)
+	for _, v := range form.Values {
+		valueName := toPascalCase(v.Name)
 
-		goValue := fmt.Sprintf("%s.%s%s", goAlias, enumRef.Name, valueName)
+		goValue := fmt.Sprintf("%s.%s%s", goAlias, goName, valueName)
 
 		enumPrefix := toScreamingSnake(enumRef.Name) + "_"
 		pbValueName := fmt.Sprintf("%s_%s%s", enumRef.Name, enumPrefix, toScreamingSnake(v.Name))
@@ -1348,21 +1346,14 @@ func (p *Plugin) generateEnumTranslator(
 			GoValue: goValue,
 			PBValue: pbValueName,
 		})
-
-		if i == 0 {
-			goDefault = goValue
-		}
 	}
-
-	pbDefault := values[0].PBValue
 
 	return &enumTranslatorData{
 		Name:      enumRef.Name,
-		GoType:    fmt.Sprintf("%s.%s", goAlias, enumRef.Name),
+		GoType:    fmt.Sprintf("%s.%s", goAlias, goName),
 		PBType:    enumRef.Name,
+		IsIntEnum: form.IsIntEnum,
 		Values:    values,
-		PBDefault: pbDefault,
-		GoDefault: goDefault,
 	}
 }
 
@@ -1532,15 +1523,6 @@ func toScreamingSnake(s string) string {
 	return strings.ToUpper(lo.SnakeCase(s))
 }
 
-func fieldUsesContext(fields []fieldTranslatorData) bool {
-	for _, f := range fields {
-		if strings.Contains(f.ForwardExpr, "ctx") || strings.Contains(f.BackwardExpr, "ctx") {
-			return true
-		}
-	}
-	return false
-}
-
 func isStructType(typeRef resolution.TypeRef, table *resolution.Table) bool {
 	resolved, ok := typeRef.Resolve(table)
 	if !ok {
@@ -1598,7 +1580,6 @@ type translatorData struct {
 	// ErrorFields holds fields with error-returning conversions.
 	ErrorFields    []fieldTranslatorData
 	OptionalFields []fieldTranslatorData
-	UsesContext    bool
 }
 
 // fieldTranslatorData holds data for a single field translation.
@@ -1638,8 +1619,7 @@ type enumTranslatorData struct {
 	Name      string
 	GoType    string
 	PBType    string
-	PBDefault string
-	GoDefault string
+	IsIntEnum bool
 	Values    []enumValueTranslatorData
 }
 
@@ -1669,7 +1649,6 @@ type genericTranslatorData struct {
 	// TypeParamFields holds fields that use type parameters and need error handling.
 	TypeParamFields []fieldTranslatorData
 	OptionalFields  []fieldTranslatorData
-	UsesContext     bool
 }
 
 // typeParamData holds data for a type parameter in a generic translator.

@@ -12,12 +12,11 @@
 package pb
 
 import (
-	"context"
 	"github.com/synnaxlabs/arc/text"
 )
 
 // TextToPB converts Text to Text.
-func TextToPB(_ context.Context, r text.Text) (*Text, error) {
+func TextToPB(r text.Text) (*Text, error) {
 	pb := &Text{
 		Raw: r.Raw,
 	}
@@ -25,7 +24,7 @@ func TextToPB(_ context.Context, r text.Text) (*Text, error) {
 }
 
 // TextFromPB converts Text to Text.
-func TextFromPB(_ context.Context, pb *Text) (text.Text, error) {
+func TextFromPB(pb *Text) (text.Text, error) {
 	var r text.Text
 	if pb == nil {
 		return r, nil
@@ -35,11 +34,11 @@ func TextFromPB(_ context.Context, pb *Text) (text.Text, error) {
 }
 
 // TextsToPB converts a slice of Text to Text.
-func TextsToPB(ctx context.Context, rs []text.Text) ([]*Text, error) {
+func TextsToPB(rs []text.Text) ([]*Text, error) {
 	result := make([]*Text, len(rs))
 	for i := range rs {
 		var err error
-		result[i], err = TextToPB(ctx, rs[i])
+		result[i], err = TextToPB(rs[i])
 		if err != nil {
 			return nil, err
 		}
@@ -48,11 +47,11 @@ func TextsToPB(ctx context.Context, rs []text.Text) ([]*Text, error) {
 }
 
 // TextsFromPB converts a slice of Text to Text.
-func TextsFromPB(ctx context.Context, pbs []*Text) ([]text.Text, error) {
+func TextsFromPB(pbs []*Text) ([]text.Text, error) {
 	result := make([]text.Text, len(pbs))
 	for i, pb := range pbs {
 		var err error
-		result[i], err = TextFromPB(ctx, pb)
+		result[i], err = TextFromPB(pb)
 		if err != nil {
 			return nil, err
 		}

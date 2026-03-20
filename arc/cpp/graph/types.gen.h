@@ -44,7 +44,7 @@ struct Node {
     [[nodiscard]] x::json::json to_json() const;
 
     using proto_type = ::arc::graph::pb::Node;
-    [[nodiscard]] ::arc::graph::pb::Node to_proto() const;
+    [[nodiscard]] std::pair<::arc::graph::pb::Node, x::errors::Error> to_proto() const;
     static std::pair<Node, x::errors::Error>
     from_proto(const ::arc::graph::pb::Node &pb);
 };
@@ -60,7 +60,8 @@ struct Viewport {
     [[nodiscard]] x::json::json to_json() const;
 
     using proto_type = ::arc::graph::pb::Viewport;
-    [[nodiscard]] ::arc::graph::pb::Viewport to_proto() const;
+    [[nodiscard]] std::pair<::arc::graph::pb::Viewport, x::errors::Error>
+    to_proto() const;
     static std::pair<Viewport, x::errors::Error>
     from_proto(const ::arc::graph::pb::Viewport &pb);
 };
@@ -132,7 +133,7 @@ struct Graph {
     [[nodiscard]] x::json::json to_json() const;
 
     using proto_type = ::arc::graph::pb::Graph;
-    [[nodiscard]] ::arc::graph::pb::Graph to_proto() const;
+    [[nodiscard]] std::pair<::arc::graph::pb::Graph, x::errors::Error> to_proto() const;
     static std::pair<Graph, x::errors::Error>
     from_proto(const ::arc::graph::pb::Graph &pb);
 };

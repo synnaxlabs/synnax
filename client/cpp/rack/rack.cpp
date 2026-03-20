@@ -51,7 +51,9 @@ Client::retrieve(grpc::rack::RetrieveRequest &req, const std::string &query) con
 
 x::errors::Error Client::create(Rack &rack) const {
     auto req = grpc::rack::CreateRequest();
-    *req.add_racks() = rack.to_proto();
+    auto [pb, pb_err] = rack.to_proto();
+    if (pb_err) return pb_err;
+    *req.add_racks() = pb;
     auto [res, err] = rack_create_client->send("/rack/create", req);
     if (err) return err;
     if (res.racks_size() == 0) return errors::unexpected_missing_error("rack");

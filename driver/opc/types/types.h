@@ -23,14 +23,14 @@
 
 namespace driver::opc::types {
 struct Node {
-    ::x::telem::DataType data_type;
+    x::telem::DataType data_type;
     std::string node_class;
     std::string name;
     std::string node_id;
     bool is_array;
 
     Node(
-        const ::x::telem::DataType &data_type,
+        const x::telem::DataType &data_type,
         const std::string &name,
         const std::string &node_id,
         const std::string &node_class,
@@ -43,7 +43,7 @@ struct Node {
         is_array(is_array) {}
 
     explicit Node(x::json::Parser &p):
-        data_type(::x::telem::DataType(p.field<std::string>("data_type"))),
+        data_type(x::telem::DataType(p.field<std::string>("data_type"))),
         name(p.field<std::string>("name")),
         node_id(p.field<std::string>("node_id")),
         is_array(p.field<bool>("is_array", false)) {}
@@ -223,7 +223,7 @@ public:
     }
 
     x::errors::Error
-    add_value(const UA_NodeId &node_id, const ::x::telem::Series &series);
+    add_value(const UA_NodeId &node_id, const x::telem::Series &series);
 
     UA_WriteRequest build() const {
         UA_WriteRequest req;

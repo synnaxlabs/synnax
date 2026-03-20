@@ -12,14 +12,13 @@
 package pb
 
 import (
-	"context"
 	"github.com/google/uuid"
 	"github.com/synnaxlabs/synnax/pkg/service/schematic"
 	"google.golang.org/protobuf/types/known/structpb"
 )
 
 // SchematicToPB converts Schematic to Schematic.
-func SchematicToPB(_ context.Context, r schematic.Schematic) (*Schematic, error) {
+func SchematicToPB(r schematic.Schematic) (*Schematic, error) {
 	dataVal, err := structpb.NewStruct(r.Data)
 	if err != nil {
 		return nil, err
@@ -34,7 +33,7 @@ func SchematicToPB(_ context.Context, r schematic.Schematic) (*Schematic, error)
 }
 
 // SchematicFromPB converts Schematic to Schematic.
-func SchematicFromPB(_ context.Context, pb *Schematic) (schematic.Schematic, error) {
+func SchematicFromPB(pb *Schematic) (schematic.Schematic, error) {
 	var r schematic.Schematic
 	if pb == nil {
 		return r, nil
@@ -52,11 +51,11 @@ func SchematicFromPB(_ context.Context, pb *Schematic) (schematic.Schematic, err
 }
 
 // SchematicsToPB converts a slice of Schematic to Schematic.
-func SchematicsToPB(ctx context.Context, rs []schematic.Schematic) ([]*Schematic, error) {
+func SchematicsToPB(rs []schematic.Schematic) ([]*Schematic, error) {
 	result := make([]*Schematic, len(rs))
 	for i := range rs {
 		var err error
-		result[i], err = SchematicToPB(ctx, rs[i])
+		result[i], err = SchematicToPB(rs[i])
 		if err != nil {
 			return nil, err
 		}
@@ -65,11 +64,11 @@ func SchematicsToPB(ctx context.Context, rs []schematic.Schematic) ([]*Schematic
 }
 
 // SchematicsFromPB converts a slice of Schematic to Schematic.
-func SchematicsFromPB(ctx context.Context, pbs []*Schematic) ([]schematic.Schematic, error) {
+func SchematicsFromPB(pbs []*Schematic) ([]schematic.Schematic, error) {
 	result := make([]schematic.Schematic, len(pbs))
 	for i, pb := range pbs {
 		var err error
-		result[i], err = SchematicFromPB(ctx, pb)
+		result[i], err = SchematicFromPB(pb)
 		if err != nil {
 			return nil, err
 		}

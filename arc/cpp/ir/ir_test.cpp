@@ -19,7 +19,7 @@ namespace arc::ir {
 /// @brief it should correctly round-trip Handle through protobuf
 TEST(IRTest, testHandleProtobufRoundTrip) {
     const Handle original("node1", "param1");
-    const auto pb = original.to_proto();
+    const auto pb = ASSERT_NIL_P(original.to_proto());
     const auto reconstructed = ASSERT_NIL_P(Handle::from_proto(pb));
     ASSERT_EQ(reconstructed.node, "node1");
     ASSERT_EQ(reconstructed.param, "param1");
@@ -30,7 +30,7 @@ TEST(IRTest, testEdgeProtobufRoundTrip) {
     Handle src("src_node", "output");
     Handle tgt("tgt_node", "input");
     Edge original(src, tgt);
-    const auto pb = original.to_proto();
+    const auto pb = ASSERT_NIL_P(original.to_proto());
     const auto reconstructed = ASSERT_NIL_P(Edge::from_proto(pb));
     ASSERT_EQ(reconstructed.source.node, "src_node");
     ASSERT_EQ(reconstructed.source.param, "output");
@@ -44,7 +44,7 @@ TEST(IRTest, testChannelsProtobufRoundTrip) {
     original.read[1] = "channel_a";
     original.read[2] = "channel_b";
     original.write[3] = "channel_c";
-    const auto pb = original.to_proto();
+    const auto pb = ASSERT_NIL_P(original.to_proto());
     const auto reconstructed = ASSERT_NIL_P(types::Channels::from_proto(pb));
     ASSERT_EQ(reconstructed.read.size(), 2);
     ASSERT_EQ(reconstructed.read.at(1), "channel_a");
@@ -59,7 +59,7 @@ TEST(IRTest, testParamProtobufRoundTrip) {
     original.name = "test_param";
     original.type.kind = types::Kind::F64;
     original.value = 42.5;
-    const auto pb = original.to_proto();
+    const auto pb = ASSERT_NIL_P(original.to_proto());
     const auto reconstructed = ASSERT_NIL_P(types::Param::from_proto(pb));
     ASSERT_EQ(reconstructed.name, "test_param");
     ASSERT_EQ(reconstructed.type.kind, types::Kind::F64);
@@ -86,7 +86,7 @@ TEST(IRTest, testIRProtobufRoundTrip) {
     original.strata.push_back({"a"});
     original.strata.push_back({"b", "c"});
 
-    const auto pb = original.to_proto();
+    const auto pb = ASSERT_NIL_P(original.to_proto());
     const auto reconstructed = ASSERT_NIL_P(IR::from_proto(pb));
     ASSERT_EQ(reconstructed.functions.size(), 1);
     ASSERT_EQ(reconstructed.functions[0].key, "test_func");

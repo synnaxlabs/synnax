@@ -24,10 +24,11 @@
 
 namespace synnax::rack {
 
-inline ::service::rack::pb::StatusDetails StatusDetails::to_proto() const {
+inline std::pair<::service::rack::pb::StatusDetails, x::errors::Error>
+StatusDetails::to_proto() const {
     ::service::rack::pb::StatusDetails pb;
     pb.set_rack(static_cast<uint32_t>(this->rack));
-    return pb;
+    return {pb, x::errors::NIL};
 }
 
 inline std::pair<StatusDetails, x::errors::Error>
@@ -37,14 +38,18 @@ StatusDetails::from_proto(const ::service::rack::pb::StatusDetails &pb) {
     return {cpp, x::errors::NIL};
 }
 
-inline ::service::rack::pb::Rack Rack::to_proto() const {
+inline std::pair<::service::rack::pb::Rack, x::errors::Error> Rack::to_proto() const {
     ::service::rack::pb::Rack pb;
     pb.set_key(static_cast<uint32_t>(this->key));
     pb.set_name(this->name);
     pb.set_task_counter(this->task_counter);
     pb.set_embedded(this->embedded);
-    if (this->status.has_value()) *pb.mutable_status() = this->status->to_proto();
-    return pb;
+    if (this->status.has_value()) {
+        auto [v, err] = this->status->to_proto();
+        if (err) return {{}, err};
+        *pb.mutable_status() = v;
+    }
+    return {pb, x::errors::NIL};
 }
 
 inline std::pair<Rack, x::errors::Error>

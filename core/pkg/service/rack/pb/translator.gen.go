@@ -12,7 +12,6 @@
 package pb
 
 import (
-	"context"
 	"encoding/json"
 	"github.com/synnaxlabs/synnax/pkg/service/rack"
 	"github.com/synnaxlabs/x/status"
@@ -23,7 +22,7 @@ import (
 )
 
 // StatusDetailsToPB converts StatusDetails to StatusDetails.
-func StatusDetailsToPB(_ context.Context, r rack.StatusDetails) (*StatusDetails, error) {
+func StatusDetailsToPB(r rack.StatusDetails) (*StatusDetails, error) {
 	pb := &StatusDetails{
 		Rack: uint32(r.Rack),
 	}
@@ -31,7 +30,7 @@ func StatusDetailsToPB(_ context.Context, r rack.StatusDetails) (*StatusDetails,
 }
 
 // StatusDetailsFromPB converts StatusDetails to StatusDetails.
-func StatusDetailsFromPB(_ context.Context, pb *StatusDetails) (rack.StatusDetails, error) {
+func StatusDetailsFromPB(pb *StatusDetails) (rack.StatusDetails, error) {
 	var r rack.StatusDetails
 	if pb == nil {
 		return r, nil
@@ -40,12 +39,12 @@ func StatusDetailsFromPB(_ context.Context, pb *StatusDetails) (rack.StatusDetai
 	return r, nil
 }
 
-// StatusDetailssToPB converts a slice of StatusDetails to StatusDetails.
-func StatusDetailssToPB(ctx context.Context, rs []rack.StatusDetails) ([]*StatusDetails, error) {
+// StatusDetailsListToPB converts a slice of StatusDetails to StatusDetails.
+func StatusDetailsListToPB(rs []rack.StatusDetails) ([]*StatusDetails, error) {
 	result := make([]*StatusDetails, len(rs))
 	for i := range rs {
 		var err error
-		result[i], err = StatusDetailsToPB(ctx, rs[i])
+		result[i], err = StatusDetailsToPB(rs[i])
 		if err != nil {
 			return nil, err
 		}
@@ -53,12 +52,12 @@ func StatusDetailssToPB(ctx context.Context, rs []rack.StatusDetails) ([]*Status
 	return result, nil
 }
 
-// StatusDetailssFromPB converts a slice of StatusDetails to StatusDetails.
-func StatusDetailssFromPB(ctx context.Context, pbs []*StatusDetails) ([]rack.StatusDetails, error) {
+// StatusDetailsListFromPB converts a slice of StatusDetails to StatusDetails.
+func StatusDetailsListFromPB(pbs []*StatusDetails) ([]rack.StatusDetails, error) {
 	result := make([]rack.StatusDetails, len(pbs))
 	for i, pb := range pbs {
 		var err error
-		result[i], err = StatusDetailsFromPB(ctx, pb)
+		result[i], err = StatusDetailsFromPB(pb)
 		if err != nil {
 			return nil, err
 		}
@@ -67,7 +66,7 @@ func StatusDetailssFromPB(ctx context.Context, pbs []*StatusDetails) ([]rack.Sta
 }
 
 // RackToPB converts Rack to Rack.
-func RackToPB(ctx context.Context, r rack.Rack) (*Rack, error) {
+func RackToPB(r rack.Rack) (*Rack, error) {
 	pb := &Rack{
 		Key:         uint32(r.Key),
 		Name:        r.Name,
@@ -76,7 +75,7 @@ func RackToPB(ctx context.Context, r rack.Rack) (*Rack, error) {
 	}
 	if r.Status != nil {
 		var err error
-		pb.Status, err = statuspb.StatusToPB[rack.StatusDetails](ctx, (status.Status[rack.StatusDetails])(*r.Status), StatusDetailsToPBAny)
+		pb.Status, err = statuspb.StatusToPB[rack.StatusDetails]((status.Status[rack.StatusDetails])(*r.Status), StatusDetailsToPBAny)
 		if err != nil {
 			return nil, err
 		}
@@ -85,7 +84,7 @@ func RackToPB(ctx context.Context, r rack.Rack) (*Rack, error) {
 }
 
 // RackFromPB converts Rack to Rack.
-func RackFromPB(ctx context.Context, pb *Rack) (rack.Rack, error) {
+func RackFromPB(pb *Rack) (rack.Rack, error) {
 	var r rack.Rack
 	if pb == nil {
 		return r, nil
@@ -95,7 +94,7 @@ func RackFromPB(ctx context.Context, pb *Rack) (rack.Rack, error) {
 	r.TaskCounter = pb.TaskCounter
 	r.Embedded = pb.Embedded
 	if pb.Status != nil {
-		val, err := statuspb.StatusFromPB[rack.StatusDetails](ctx, pb.Status, StatusDetailsFromPBAny)
+		val, err := statuspb.StatusFromPB[rack.StatusDetails](pb.Status, StatusDetailsFromPBAny)
 		if err != nil {
 			return rack.Rack{}, err
 		}
@@ -105,11 +104,11 @@ func RackFromPB(ctx context.Context, pb *Rack) (rack.Rack, error) {
 }
 
 // RacksToPB converts a slice of Rack to Rack.
-func RacksToPB(ctx context.Context, rs []rack.Rack) ([]*Rack, error) {
+func RacksToPB(rs []rack.Rack) ([]*Rack, error) {
 	result := make([]*Rack, len(rs))
 	for i := range rs {
 		var err error
-		result[i], err = RackToPB(ctx, rs[i])
+		result[i], err = RackToPB(rs[i])
 		if err != nil {
 			return nil, err
 		}
@@ -118,11 +117,11 @@ func RacksToPB(ctx context.Context, rs []rack.Rack) ([]*Rack, error) {
 }
 
 // RacksFromPB converts a slice of Rack to Rack.
-func RacksFromPB(ctx context.Context, pbs []*Rack) ([]rack.Rack, error) {
+func RacksFromPB(pbs []*Rack) ([]rack.Rack, error) {
 	result := make([]rack.Rack, len(pbs))
 	for i, pb := range pbs {
 		var err error
-		result[i], err = RackFromPB(ctx, pb)
+		result[i], err = RackFromPB(pb)
 		if err != nil {
 			return nil, err
 		}
@@ -132,8 +131,8 @@ func RacksFromPB(ctx context.Context, pbs []*Rack) ([]rack.Rack, error) {
 
 // StatusDetailsToPBAny converts StatusDetails to *anypb.Any for use with generic translators.
 // It wraps the value in structpb.Struct (JSON) for cross-language compatibility.
-func StatusDetailsToPBAny(ctx context.Context, v rack.StatusDetails) (*anypb.Any, error) {
-	pb, err := StatusDetailsToPB(ctx, v)
+func StatusDetailsToPBAny(v rack.StatusDetails) (*anypb.Any, error) {
+	pb, err := StatusDetailsToPB(v)
 	if err != nil {
 		return nil, err
 	}
@@ -151,14 +150,14 @@ func StatusDetailsToPBAny(ctx context.Context, v rack.StatusDetails) (*anypb.Any
 
 // StatusDetailsFromPBAny converts *anypb.Any to StatusDetails for use with generic translators.
 // It handles both typed protos and JSON (google.protobuf.Struct) for cross-language compatibility.
-func StatusDetailsFromPBAny(ctx context.Context, a *anypb.Any) (rack.StatusDetails, error) {
+func StatusDetailsFromPBAny(a *anypb.Any) (rack.StatusDetails, error) {
 	if a == nil {
 		return rack.StatusDetails{}, nil
 	}
 	// First try typed proto
 	var pb StatusDetails
 	if err := a.UnmarshalTo(&pb); err == nil {
-		return StatusDetailsFromPB(ctx, &pb)
+		return StatusDetailsFromPB(&pb)
 	}
 	// Fall back to JSON (structpb.Struct) for cross-language compatibility
 	var s structpb.Struct

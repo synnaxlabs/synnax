@@ -86,7 +86,9 @@ Client::retrieve(RetrieveRequest &req) const {
 
 x::errors::Error Client::create(Device &device) const {
     auto req = grpc::device::CreateRequest();
-    *req.add_devices() = device.to_proto();
+    auto [pb, pb_err] = device.to_proto();
+    if (pb_err) return pb_err;
+    *req.add_devices() = pb;
     auto [res, err] = device_create_client->send("/device/create", req);
     if (err) return err;
     if (res.devices_size() == 0) return errors::unexpected_missing_error("device");
@@ -97,8 +99,11 @@ x::errors::Error Client::create(Device &device) const {
 x::errors::Error Client::create(const std::vector<Device> &devs) const {
     auto req = grpc::device::CreateRequest();
     req.mutable_devices()->Reserve(static_cast<int>(devs.size()));
-    for (const auto &device: devs)
-        *req.add_devices() = device.to_proto();
+    for (const auto &device: devs) {
+        auto [pb, pb_err] = device.to_proto();
+        if (pb_err) return pb_err;
+        *req.add_devices() = pb;
+    }
     auto [res, err] = device_create_client->send("/device/create", req);
     return err;
 }
