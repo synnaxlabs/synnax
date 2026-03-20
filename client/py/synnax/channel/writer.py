@@ -18,8 +18,8 @@ from synnax.channel.payload import (
     Payload,
     normalize_params,
 )
-from synnax.channel.types_gen import New
 from synnax.channel.retrieve import CacheRetriever
+from synnax.channel.types_gen import New
 
 
 class _CreateRequest(BaseModel):
