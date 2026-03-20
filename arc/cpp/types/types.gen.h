@@ -78,7 +78,8 @@ struct Channels {
     [[nodiscard]] x::json::json to_json() const;
 
     using proto_type = ::arc::types::pb::Channels;
-    [[nodiscard]] ::arc::types::pb::Channels to_proto() const;
+    [[nodiscard]] std::pair<::arc::types::pb::Channels, x::errors::Error>
+    to_proto() const;
     static std::pair<Channels, x::errors::Error>
     from_proto(const ::arc::types::pb::Channels &pb);
     [[nodiscard]] std::string to_string() const;
@@ -109,7 +110,8 @@ struct Dimensions {
     [[nodiscard]] x::json::json to_json() const;
 
     using proto_type = ::arc::types::pb::Dimensions;
-    [[nodiscard]] ::arc::types::pb::Dimensions to_proto() const;
+    [[nodiscard]] std::pair<::arc::types::pb::Dimensions, x::errors::Error>
+    to_proto() const;
     static std::pair<Dimensions, x::errors::Error>
     from_proto(const ::arc::types::pb::Dimensions &pb);
     bool operator==(const Dimensions &other) const;
@@ -130,7 +132,7 @@ struct Unit {
     [[nodiscard]] x::json::json to_json() const;
 
     using proto_type = ::arc::types::pb::Unit;
-    [[nodiscard]] ::arc::types::pb::Unit to_proto() const;
+    [[nodiscard]] std::pair<::arc::types::pb::Unit, x::errors::Error> to_proto() const;
     static std::pair<Unit, x::errors::Error>
     from_proto(const ::arc::types::pb::Unit &pb);
     bool operator==(const Unit &other) const;
@@ -205,7 +207,8 @@ struct FunctionProperties {
     [[nodiscard]] x::json::json to_json() const;
 
     using proto_type = ::arc::types::pb::FunctionProperties;
-    [[nodiscard]] ::arc::types::pb::FunctionProperties to_proto() const;
+    [[nodiscard]] std::pair<::arc::types::pb::FunctionProperties, x::errors::Error>
+    to_proto() const;
     static std::pair<FunctionProperties, x::errors::Error>
     from_proto(const ::arc::types::pb::FunctionProperties &pb);
 };
@@ -231,7 +234,7 @@ struct Type : public FunctionProperties {
     [[nodiscard]] x::json::json to_json() const;
 
     using proto_type = ::arc::types::pb::Type;
-    [[nodiscard]] ::arc::types::pb::Type to_proto() const;
+    [[nodiscard]] std::pair<::arc::types::pb::Type, x::errors::Error> to_proto() const;
     static std::pair<Type, x::errors::Error>
     from_proto(const ::arc::types::pb::Type &pb);
     [[nodiscard]] size_t density() const;
@@ -255,7 +258,7 @@ struct Param {
     [[nodiscard]] x::json::json to_json() const;
 
     using proto_type = ::arc::types::pb::Param;
-    [[nodiscard]] ::arc::types::pb::Param to_proto() const;
+    [[nodiscard]] std::pair<::arc::types::pb::Param, x::errors::Error> to_proto() const;
     static std::pair<Param, x::errors::Error>
     from_proto(const ::arc::types::pb::Param &pb);
     [[nodiscard]] std::string to_string() const;

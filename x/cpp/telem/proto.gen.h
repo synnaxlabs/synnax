@@ -22,15 +22,15 @@
 
 namespace x::telem {
 
-inline ::x::telem::pb::TimeRange TimeRange::to_proto() const {
-    ::x::telem::pb::TimeRange pb;
+inline std::pair<pb::TimeRange, x::errors::Error> TimeRange::to_proto() const {
+    pb::TimeRange pb;
     pb.set_start(this->start.to_proto());
     pb.set_end(this->end.to_proto());
-    return pb;
+    return {pb, x::errors::NIL};
 }
 
 inline std::pair<TimeRange, x::errors::Error>
-TimeRange::from_proto(const ::x::telem::pb::TimeRange &pb) {
+TimeRange::from_proto(const pb::TimeRange &pb) {
     TimeRange cpp;
     cpp.start = TimeStamp::from_proto(pb.start());
     cpp.end = TimeStamp::from_proto(pb.end());

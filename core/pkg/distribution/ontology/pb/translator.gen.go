@@ -12,36 +12,44 @@
 package pb
 
 import (
-	"context"
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
+	"github.com/synnaxlabs/x/errors"
 )
 
 // IDToPB converts ID to ID.
-func IDToPB(_ context.Context, r ontology.ID) (*ID, error) {
+func IDToPB(r ontology.ID) (*ID, error) {
+	typeVal, err := ResourceTypeToPB(r.Type)
+	if err != nil {
+		return nil, err
+	}
 	pb := &ID{
-		Type: string(r.Type),
 		Key:  r.Key,
+		Type: typeVal,
 	}
 	return pb, nil
 }
 
 // IDFromPB converts ID to ID.
-func IDFromPB(_ context.Context, pb *ID) (ontology.ID, error) {
+func IDFromPB(pb *ID) (ontology.ID, error) {
 	var r ontology.ID
 	if pb == nil {
 		return r, nil
 	}
-	r.Type = ontology.Type(pb.Type)
+	var err error
+	r.Type, err = ResourceTypeFromPB(pb.Type)
+	if err != nil {
+		return ontology.ID{}, err
+	}
 	r.Key = pb.Key
 	return r, nil
 }
 
-// IDsToPB converts a slice of ID to ID.
-func IDsToPB(ctx context.Context, rs []ontology.ID) ([]*ID, error) {
+// IDSToPB converts a slice of ID to ID.
+func IDSToPB(rs []ontology.ID) ([]*ID, error) {
 	result := make([]*ID, len(rs))
 	for i := range rs {
 		var err error
-		result[i], err = IDToPB(ctx, rs[i])
+		result[i], err = IDToPB(rs[i])
 		if err != nil {
 			return nil, err
 		}
@@ -49,15 +57,127 @@ func IDsToPB(ctx context.Context, rs []ontology.ID) ([]*ID, error) {
 	return result, nil
 }
 
-// IDsFromPB converts a slice of ID to ID.
-func IDsFromPB(ctx context.Context, pbs []*ID) ([]ontology.ID, error) {
+// IDSFromPB converts a slice of ID to ID.
+func IDSFromPB(pbs []*ID) ([]ontology.ID, error) {
 	result := make([]ontology.ID, len(pbs))
 	for i, pb := range pbs {
 		var err error
-		result[i], err = IDFromPB(ctx, pb)
+		result[i], err = IDFromPB(pb)
 		if err != nil {
 			return nil, err
 		}
 	}
 	return result, nil
+}
+
+// ResourceTypeToPB converts ontology.Type to ResourceType.
+func ResourceTypeToPB(v ontology.Type) (ResourceType, error) {
+	switch v {
+	case ontology.TypeArc:
+		return ResourceType_RESOURCE_TYPE_ARC, nil
+	case ontology.TypeBuiltin:
+		return ResourceType_RESOURCE_TYPE_BUILTIN, nil
+	case ontology.TypeChannel:
+		return ResourceType_RESOURCE_TYPE_CHANNEL, nil
+	case ontology.TypeCluster:
+		return ResourceType_RESOURCE_TYPE_CLUSTER, nil
+	case ontology.TypeDevice:
+		return ResourceType_RESOURCE_TYPE_DEVICE, nil
+	case ontology.TypeFramer:
+		return ResourceType_RESOURCE_TYPE_FRAMER, nil
+	case ontology.TypeGroup:
+		return ResourceType_RESOURCE_TYPE_GROUP, nil
+	case ontology.TypeLabel:
+		return ResourceType_RESOURCE_TYPE_LABEL, nil
+	case ontology.TypeLineplot:
+		return ResourceType_RESOURCE_TYPE_LINEPLOT, nil
+	case ontology.TypeLog:
+		return ResourceType_RESOURCE_TYPE_LOG, nil
+	case ontology.TypeNode:
+		return ResourceType_RESOURCE_TYPE_NODE, nil
+	case ontology.TypePolicy:
+		return ResourceType_RESOURCE_TYPE_POLICY, nil
+	case ontology.TypeRack:
+		return ResourceType_RESOURCE_TYPE_RACK, nil
+	case ontology.TypeRange:
+		return ResourceType_RESOURCE_TYPE_RANGE, nil
+	case ontology.TypeRangeAlias:
+		return ResourceType_RESOURCE_TYPE_RANGE_ALIAS, nil
+	case ontology.TypeRole:
+		return ResourceType_RESOURCE_TYPE_ROLE, nil
+	case ontology.TypeSchematic:
+		return ResourceType_RESOURCE_TYPE_SCHEMATIC, nil
+	case ontology.TypeSchematicSymbol:
+		return ResourceType_RESOURCE_TYPE_SCHEMATIC_SYMBOL, nil
+	case ontology.TypeStatus:
+		return ResourceType_RESOURCE_TYPE_STATUS, nil
+	case ontology.TypeTable:
+		return ResourceType_RESOURCE_TYPE_TABLE, nil
+	case ontology.TypeTask:
+		return ResourceType_RESOURCE_TYPE_TASK, nil
+	case ontology.TypeUser:
+		return ResourceType_RESOURCE_TYPE_USER, nil
+	case ontology.TypeView:
+		return ResourceType_RESOURCE_TYPE_VIEW, nil
+	case ontology.TypeWorkspace:
+		return ResourceType_RESOURCE_TYPE_WORKSPACE, nil
+	default:
+		return 0, errors.Newf("unrecognized ontology.Type value: %v", v)
+	}
+}
+
+// ResourceTypeFromPB converts ResourceType to ontology.Type.
+func ResourceTypeFromPB(v ResourceType) (ontology.Type, error) {
+	switch v {
+	case ResourceType_RESOURCE_TYPE_ARC:
+		return ontology.TypeArc, nil
+	case ResourceType_RESOURCE_TYPE_BUILTIN:
+		return ontology.TypeBuiltin, nil
+	case ResourceType_RESOURCE_TYPE_CHANNEL:
+		return ontology.TypeChannel, nil
+	case ResourceType_RESOURCE_TYPE_CLUSTER:
+		return ontology.TypeCluster, nil
+	case ResourceType_RESOURCE_TYPE_DEVICE:
+		return ontology.TypeDevice, nil
+	case ResourceType_RESOURCE_TYPE_FRAMER:
+		return ontology.TypeFramer, nil
+	case ResourceType_RESOURCE_TYPE_GROUP:
+		return ontology.TypeGroup, nil
+	case ResourceType_RESOURCE_TYPE_LABEL:
+		return ontology.TypeLabel, nil
+	case ResourceType_RESOURCE_TYPE_LINEPLOT:
+		return ontology.TypeLineplot, nil
+	case ResourceType_RESOURCE_TYPE_LOG:
+		return ontology.TypeLog, nil
+	case ResourceType_RESOURCE_TYPE_NODE:
+		return ontology.TypeNode, nil
+	case ResourceType_RESOURCE_TYPE_POLICY:
+		return ontology.TypePolicy, nil
+	case ResourceType_RESOURCE_TYPE_RACK:
+		return ontology.TypeRack, nil
+	case ResourceType_RESOURCE_TYPE_RANGE:
+		return ontology.TypeRange, nil
+	case ResourceType_RESOURCE_TYPE_RANGE_ALIAS:
+		return ontology.TypeRangeAlias, nil
+	case ResourceType_RESOURCE_TYPE_ROLE:
+		return ontology.TypeRole, nil
+	case ResourceType_RESOURCE_TYPE_SCHEMATIC:
+		return ontology.TypeSchematic, nil
+	case ResourceType_RESOURCE_TYPE_SCHEMATIC_SYMBOL:
+		return ontology.TypeSchematicSymbol, nil
+	case ResourceType_RESOURCE_TYPE_STATUS:
+		return ontology.TypeStatus, nil
+	case ResourceType_RESOURCE_TYPE_TABLE:
+		return ontology.TypeTable, nil
+	case ResourceType_RESOURCE_TYPE_TASK:
+		return ontology.TypeTask, nil
+	case ResourceType_RESOURCE_TYPE_USER:
+		return ontology.TypeUser, nil
+	case ResourceType_RESOURCE_TYPE_VIEW:
+		return ontology.TypeView, nil
+	case ResourceType_RESOURCE_TYPE_WORKSPACE:
+		return ontology.TypeWorkspace, nil
+	default:
+		return ontology.Type(""), errors.Newf("unrecognized ResourceType value: %v", v)
+	}
 }

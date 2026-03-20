@@ -79,7 +79,7 @@ TEST(StatusTest, TestProtobufRoundTrip) {
         .details = json::json{{"field1", "hello"}, {"field2", 42}},
         .labels = {},
     };
-    const auto pb = original.to_proto();
+    const auto pb = ASSERT_NIL_P(original.to_proto());
     ASSERT_EQ(pb.key(), "test-key");
     ASSERT_EQ(pb.name(), "Test Status");
     ASSERT_EQ(pb.message(), "test message");

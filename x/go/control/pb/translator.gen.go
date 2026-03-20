@@ -12,13 +12,13 @@
 package pb
 
 import (
-	"context"
 	"github.com/synnaxlabs/x/control"
+	"github.com/synnaxlabs/x/errors"
 	"google.golang.org/protobuf/types/known/anypb"
 )
 
 // SubjectToPB converts Subject to Subject.
-func SubjectToPB(_ context.Context, r control.Subject) (*Subject, error) {
+func SubjectToPB(r control.Subject) (*Subject, error) {
 	pb := &Subject{
 		Key:  r.Key,
 		Name: r.Name,
@@ -27,7 +27,7 @@ func SubjectToPB(_ context.Context, r control.Subject) (*Subject, error) {
 }
 
 // SubjectFromPB converts Subject to Subject.
-func SubjectFromPB(_ context.Context, pb *Subject) (control.Subject, error) {
+func SubjectFromPB(pb *Subject) (control.Subject, error) {
 	var r control.Subject
 	if pb == nil {
 		return r, nil
@@ -38,11 +38,11 @@ func SubjectFromPB(_ context.Context, pb *Subject) (control.Subject, error) {
 }
 
 // SubjectsToPB converts a slice of Subject to Subject.
-func SubjectsToPB(ctx context.Context, rs []control.Subject) ([]*Subject, error) {
+func SubjectsToPB(rs []control.Subject) ([]*Subject, error) {
 	result := make([]*Subject, len(rs))
 	for i := range rs {
 		var err error
-		result[i], err = SubjectToPB(ctx, rs[i])
+		result[i], err = SubjectToPB(rs[i])
 		if err != nil {
 			return nil, err
 		}
@@ -51,11 +51,11 @@ func SubjectsToPB(ctx context.Context, rs []control.Subject) ([]*Subject, error)
 }
 
 // SubjectsFromPB converts a slice of Subject to Subject.
-func SubjectsFromPB(ctx context.Context, pbs []*Subject) ([]control.Subject, error) {
+func SubjectsFromPB(pbs []*Subject) ([]control.Subject, error) {
 	result := make([]control.Subject, len(pbs))
 	for i, pb := range pbs {
 		var err error
-		result[i], err = SubjectFromPB(ctx, pb)
+		result[i], err = SubjectFromPB(pb)
 		if err != nil {
 			return nil, err
 		}
@@ -64,40 +64,39 @@ func SubjectsFromPB(ctx context.Context, pbs []*Subject) ([]control.Subject, err
 }
 
 // ConcurrencyToPB converts control.Concurrency to Concurrency.
-func ConcurrencyToPB(v control.Concurrency) Concurrency {
+func ConcurrencyToPB(v control.Concurrency) (Concurrency, error) {
 	switch v {
 	case control.ConcurrencyExclusive:
-		return Concurrency_CONCURRENCY_EXCLUSIVE
+		return Concurrency_CONCURRENCY_EXCLUSIVE, nil
 	case control.ConcurrencyShared:
-		return Concurrency_CONCURRENCY_SHARED
+		return Concurrency_CONCURRENCY_SHARED, nil
 	default:
-		return Concurrency_CONCURRENCY_EXCLUSIVE
+		return 0, errors.Newf("unrecognized control.Concurrency value: %v", v)
 	}
 }
 
 // ConcurrencyFromPB converts Concurrency to control.Concurrency.
-func ConcurrencyFromPB(v Concurrency) control.Concurrency {
+func ConcurrencyFromPB(v Concurrency) (control.Concurrency, error) {
 	switch v {
 	case Concurrency_CONCURRENCY_EXCLUSIVE:
-		return control.ConcurrencyExclusive
+		return control.ConcurrencyExclusive, nil
 	case Concurrency_CONCURRENCY_SHARED:
-		return control.ConcurrencyShared
+		return control.ConcurrencyShared, nil
 	default:
-		return control.ConcurrencyExclusive
+		return 0, errors.Newf("unrecognized Concurrency value: %v", v)
 	}
 }
 
 // StateToPB converts State to State using provided type converters.
 func StateToPB[R any](
-	ctx context.Context,
 	r control.State[R],
-	translateR func(context.Context, R) (*anypb.Any, error),
+	translateR func(R) (*anypb.Any, error),
 ) (*State, error) {
-	resourceAny, err := translateR(ctx, r.Resource)
+	resourceAny, err := translateR(r.Resource)
 	if err != nil {
 		return nil, err
 	}
-	subjectVal, err := SubjectToPB(ctx, r.Subject)
+	subjectVal, err := SubjectToPB(r.Subject)
 	if err != nil {
 		return nil, err
 	}
@@ -111,20 +110,19 @@ func StateToPB[R any](
 
 // StateFromPB converts State to State using provided type converters.
 func StateFromPB[R any](
-	ctx context.Context,
 	pb *State,
-	translateR func(context.Context, *anypb.Any) (R, error),
+	translateR func(*anypb.Any) (R, error),
 ) (control.State[R], error) {
 	var r control.State[R]
 	if pb == nil {
 		return r, nil
 	}
 	var err error
-	r.Resource, err = translateR(ctx, pb.Resource)
+	r.Resource, err = translateR(pb.Resource)
 	if err != nil {
 		return control.State[R]{}, err
 	}
-	r.Subject, err = SubjectFromPB(ctx, pb.Subject)
+	r.Subject, err = SubjectFromPB(pb.Subject)
 	if err != nil {
 		return control.State[R]{}, err
 	}
@@ -134,14 +132,13 @@ func StateFromPB[R any](
 
 // StatesToPB converts a slice of State to State.
 func StatesToPB[R any](
-	ctx context.Context,
 	rs []control.State[R],
-	translateR func(context.Context, R) (*anypb.Any, error),
+	translateR func(R) (*anypb.Any, error),
 ) ([]*State, error) {
 	result := make([]*State, len(rs))
 	for i := range rs {
 		var err error
-		result[i], err = StateToPB(ctx, rs[i], translateR)
+		result[i], err = StateToPB(rs[i], translateR)
 		if err != nil {
 			return nil, err
 		}
@@ -151,14 +148,13 @@ func StatesToPB[R any](
 
 // StatesFromPB converts a slice of State to State.
 func StatesFromPB[R any](
-	ctx context.Context,
 	pbs []*State,
-	translateR func(context.Context, *anypb.Any) (R, error),
+	translateR func(*anypb.Any) (R, error),
 ) ([]control.State[R], error) {
 	result := make([]control.State[R], len(pbs))
 	for i, pb := range pbs {
 		var err error
-		result[i], err = StateFromPB(ctx, pb, translateR)
+		result[i], err = StateFromPB(pb, translateR)
 		if err != nil {
 			return nil, err
 		}

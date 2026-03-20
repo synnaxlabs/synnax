@@ -32,30 +32,35 @@
 
 namespace synnax::arc {
 
-inline ::service::arc::pb::Mode ModeToPB(const std::string &cpp) {
+inline std::pair<::service::arc::pb::Mode, x::errors::Error>
+mode_to_pb(const std::string &cpp) {
     static const std::unordered_map<std::string, ::service::arc::pb::Mode> kMap = {
         {MODE_TEXT, ::service::arc::pb::MODE_TEXT},
         {MODE_GRAPH, ::service::arc::pb::MODE_GRAPH},
     };
     auto it = kMap.find(cpp);
-    return it != kMap.end() ? it->second : ::service::arc::pb::MODE_TEXT;
+    if (it == kMap.end())
+        return {{}, x::errors::Error("unrecognized Mode value: " + cpp)};
+    return {it->second, x::errors::NIL};
 }
 
-inline std::string ModeFromPB(::service::arc::pb::Mode pb) {
+inline std::pair<std::string, x::errors::Error>
+mode_from_pb(::service::arc::pb::Mode pb) {
     switch (pb) {
         case ::service::arc::pb::MODE_TEXT:
-            return MODE_TEXT;
+            return {MODE_TEXT, x::errors::NIL};
         case ::service::arc::pb::MODE_GRAPH:
-            return MODE_GRAPH;
+            return {MODE_GRAPH, x::errors::NIL};
         default:
-            return MODE_TEXT;
+            return {"", x::errors::Error("unrecognized Mode protobuf value")};
     }
 }
 
-inline ::service::arc::pb::StatusDetails StatusDetails::to_proto() const {
+inline std::pair<::service::arc::pb::StatusDetails, x::errors::Error>
+StatusDetails::to_proto() const {
     ::service::arc::pb::StatusDetails pb;
     pb.set_running(this->running);
-    return pb;
+    return {pb, x::errors::NIL};
 }
 
 inline std::pair<StatusDetails, x::errors::Error>
@@ -65,16 +70,36 @@ StatusDetails::from_proto(const ::service::arc::pb::StatusDetails &pb) {
     return {cpp, x::errors::NIL};
 }
 
-inline ::service::arc::pb::Arc Arc::to_proto() const {
+inline std::pair<::service::arc::pb::Arc, x::errors::Error> Arc::to_proto() const {
     ::service::arc::pb::Arc pb;
     pb.set_key(this->key.to_string());
     pb.set_name(this->name);
-    pb.set_mode(ModeToPB(this->mode));
-    *pb.mutable_graph() = this->graph.to_proto();
-    *pb.mutable_text() = this->text.to_proto();
-    if (this->program.has_value()) *pb.mutable_program() = this->program->to_proto();
-    if (this->status.has_value()) *pb.mutable_status() = this->status->to_proto();
-    return pb;
+    {
+        auto [v, err] = mode_to_pb(this->mode);
+        if (err) return {{}, err};
+        pb.set_mode(v);
+    }
+    {
+        auto [v, err] = this->graph.to_proto();
+        if (err) return {{}, err};
+        *pb.mutable_graph() = v;
+    }
+    {
+        auto [v, err] = this->text.to_proto();
+        if (err) return {{}, err};
+        *pb.mutable_text() = v;
+    }
+    if (this->program.has_value()) {
+        auto [v, err] = this->program->to_proto();
+        if (err) return {{}, err};
+        *pb.mutable_program() = v;
+    }
+    if (this->status.has_value()) {
+        auto [v, err] = this->status->to_proto();
+        if (err) return {{}, err};
+        *pb.mutable_status() = v;
+    }
+    return {pb, x::errors::NIL};
 }
 
 inline std::pair<Arc, x::errors::Error>
@@ -86,7 +111,11 @@ Arc::from_proto(const ::service::arc::pb::Arc &pb) {
         cpp.key = v;
     }
     cpp.name = pb.name();
-    cpp.mode = ModeFromPB(pb.mode());
+    {
+        auto [v, err] = mode_from_pb(pb.mode());
+        if (err) return {{}, err};
+        cpp.mode = v;
+    }
     {
         auto [v, err] = ::arc::graph::Graph::from_proto(pb.graph());
         if (err) return {{}, err};

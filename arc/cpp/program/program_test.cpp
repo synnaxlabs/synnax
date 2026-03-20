@@ -28,7 +28,7 @@ TEST(ProgramTest, testProgramProtobufRoundTrip) {
     original.output_memory_bases["output1"] = 1024;
     original.output_memory_bases["output2"] = 2048;
 
-    const auto pb = original.to_proto();
+    const auto pb = ASSERT_NIL_P(original.to_proto());
     const auto reconstructed = ASSERT_NIL_P(Program::from_proto(pb));
 
     ASSERT_EQ(reconstructed.nodes.size(), 1);

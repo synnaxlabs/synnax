@@ -46,7 +46,8 @@ struct StatusDetails {
     [[nodiscard]] x::json::json to_json() const;
 
     using proto_type = ::service::task::pb::StatusDetails;
-    [[nodiscard]] ::service::task::pb::StatusDetails to_proto() const;
+    [[nodiscard]] std::pair<::service::task::pb::StatusDetails, x::errors::Error>
+    to_proto() const;
     static std::pair<StatusDetails, x::errors::Error>
     from_proto(const ::service::task::pb::StatusDetails &pb);
 };
@@ -66,7 +67,8 @@ struct Command {
     [[nodiscard]] x::json::json to_json() const;
 
     using proto_type = ::service::task::pb::Command;
-    [[nodiscard]] ::service::task::pb::Command to_proto() const;
+    [[nodiscard]] std::pair<::service::task::pb::Command, x::errors::Error>
+    to_proto() const;
     static std::pair<Command, x::errors::Error>
     from_proto(const ::service::task::pb::Command &pb);
 };
@@ -98,7 +100,8 @@ struct Task {
     [[nodiscard]] x::json::json to_json() const;
 
     using proto_type = ::service::task::pb::Task;
-    [[nodiscard]] ::service::task::pb::Task to_proto() const;
+    [[nodiscard]] std::pair<::service::task::pb::Task, x::errors::Error>
+    to_proto() const;
     static std::pair<Task, x::errors::Error>
     from_proto(const ::service::task::pb::Task &pb);
 };

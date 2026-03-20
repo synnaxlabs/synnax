@@ -12,7 +12,6 @@
 package pb
 
 import (
-	"context"
 	"github.com/google/uuid"
 	"github.com/synnaxlabs/synnax/pkg/api/ranger"
 	serviceranger "github.com/synnaxlabs/synnax/pkg/service/ranger"
@@ -22,16 +21,16 @@ import (
 )
 
 // RangeToPB converts Range to Range.
-func RangeToPB(ctx context.Context, r ranger.Range) (*Range, error) {
-	timeRangeVal, err := telempb.TimeRangeToPB(ctx, r.TimeRange)
+func RangeToPB(r ranger.Range) (*Range, error) {
+	timeRangeVal, err := telempb.TimeRangeToPB(r.TimeRange)
 	if err != nil {
 		return nil, err
 	}
-	colorVal, err := colorpb.ColorToPB(ctx, r.Color)
+	colorVal, err := colorpb.ColorToPB(r.Color)
 	if err != nil {
 		return nil, err
 	}
-	labelsVal, err := labelpb.LabelsToPB(ctx, r.Labels)
+	labelsVal, err := labelpb.LabelsToPB(r.Labels)
 	if err != nil {
 		return nil, err
 	}
@@ -44,7 +43,7 @@ func RangeToPB(ctx context.Context, r ranger.Range) (*Range, error) {
 	}
 	if r.Parent != nil {
 		var err error
-		pb.Parent, err = RangeToPB(ctx, *r.Parent)
+		pb.Parent, err = RangeToPB(*r.Parent)
 		if err != nil {
 			return nil, err
 		}
@@ -53,7 +52,7 @@ func RangeToPB(ctx context.Context, r ranger.Range) (*Range, error) {
 }
 
 // RangeFromPB converts Range to Range.
-func RangeFromPB(ctx context.Context, pb *Range) (ranger.Range, error) {
+func RangeFromPB(pb *Range) (ranger.Range, error) {
 	var r ranger.Range
 	if pb == nil {
 		return r, nil
@@ -64,21 +63,21 @@ func RangeFromPB(ctx context.Context, pb *Range) (ranger.Range, error) {
 		return ranger.Range{}, err
 	}
 	r.Key = serviceranger.Key(parsedKey)
-	r.TimeRange, err = telempb.TimeRangeFromPB(ctx, pb.TimeRange)
+	r.TimeRange, err = telempb.TimeRangeFromPB(pb.TimeRange)
 	if err != nil {
 		return ranger.Range{}, err
 	}
-	r.Color, err = colorpb.ColorFromPB(ctx, pb.Color)
+	r.Color, err = colorpb.ColorFromPB(pb.Color)
 	if err != nil {
 		return ranger.Range{}, err
 	}
-	r.Labels, err = labelpb.LabelsFromPB(ctx, pb.Labels)
+	r.Labels, err = labelpb.LabelsFromPB(pb.Labels)
 	if err != nil {
 		return ranger.Range{}, err
 	}
 	r.Name = pb.Name
 	if pb.Parent != nil {
-		val, err := RangeFromPB(ctx, pb.Parent)
+		val, err := RangeFromPB(pb.Parent)
 		if err != nil {
 			return ranger.Range{}, err
 		}
@@ -88,11 +87,11 @@ func RangeFromPB(ctx context.Context, pb *Range) (ranger.Range, error) {
 }
 
 // RangesToPB converts a slice of Range to Range.
-func RangesToPB(ctx context.Context, rs []ranger.Range) ([]*Range, error) {
+func RangesToPB(rs []ranger.Range) ([]*Range, error) {
 	result := make([]*Range, len(rs))
 	for i := range rs {
 		var err error
-		result[i], err = RangeToPB(ctx, rs[i])
+		result[i], err = RangeToPB(rs[i])
 		if err != nil {
 			return nil, err
 		}
@@ -101,11 +100,11 @@ func RangesToPB(ctx context.Context, rs []ranger.Range) ([]*Range, error) {
 }
 
 // RangesFromPB converts a slice of Range to Range.
-func RangesFromPB(ctx context.Context, pbs []*Range) ([]ranger.Range, error) {
+func RangesFromPB(pbs []*Range) ([]ranger.Range, error) {
 	result := make([]ranger.Range, len(pbs))
 	for i, pb := range pbs {
 		var err error
-		result[i], err = RangeFromPB(ctx, pb)
+		result[i], err = RangeFromPB(pb)
 		if err != nil {
 			return nil, err
 		}

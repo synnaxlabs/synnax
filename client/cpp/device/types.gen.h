@@ -42,7 +42,8 @@ struct StatusDetails {
     [[nodiscard]] x::json::json to_json() const;
 
     using proto_type = ::service::device::pb::StatusDetails;
-    [[nodiscard]] ::service::device::pb::StatusDetails to_proto() const;
+    [[nodiscard]] std::pair<::service::device::pb::StatusDetails, x::errors::Error>
+    to_proto() const;
     static std::pair<StatusDetails, x::errors::Error>
     from_proto(const ::service::device::pb::StatusDetails &pb);
 };
@@ -85,7 +86,8 @@ struct Device {
     [[nodiscard]] x::json::json to_json() const;
 
     using proto_type = ::service::device::pb::Device;
-    [[nodiscard]] ::service::device::pb::Device to_proto() const;
+    [[nodiscard]] std::pair<::service::device::pb::Device, x::errors::Error>
+    to_proto() const;
     static std::pair<Device, x::errors::Error>
     from_proto(const ::service::device::pb::Device &pb);
 };

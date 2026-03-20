@@ -12,12 +12,12 @@
 package pb
 
 import (
-	"context"
+	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/spatial"
 )
 
 // XYToPB converts XY to XY.
-func XYToPB(_ context.Context, r spatial.XY) (*XY, error) {
+func XYToPB(r spatial.XY) (*XY, error) {
 	pb := &XY{
 		X: r.X,
 		Y: r.Y,
@@ -26,7 +26,7 @@ func XYToPB(_ context.Context, r spatial.XY) (*XY, error) {
 }
 
 // XYFromPB converts XY to XY.
-func XYFromPB(_ context.Context, pb *XY) (spatial.XY, error) {
+func XYFromPB(pb *XY) (spatial.XY, error) {
 	var r spatial.XY
 	if pb == nil {
 		return r, nil
@@ -37,11 +37,11 @@ func XYFromPB(_ context.Context, pb *XY) (spatial.XY, error) {
 }
 
 // XYsToPB converts a slice of XY to XY.
-func XYsToPB(ctx context.Context, rs []spatial.XY) ([]*XY, error) {
+func XYsToPB(rs []spatial.XY) ([]*XY, error) {
 	result := make([]*XY, len(rs))
 	for i := range rs {
 		var err error
-		result[i], err = XYToPB(ctx, rs[i])
+		result[i], err = XYToPB(rs[i])
 		if err != nil {
 			return nil, err
 		}
@@ -50,11 +50,11 @@ func XYsToPB(ctx context.Context, rs []spatial.XY) ([]*XY, error) {
 }
 
 // XYsFromPB converts a slice of XY to XY.
-func XYsFromPB(ctx context.Context, pbs []*XY) ([]spatial.XY, error) {
+func XYsFromPB(pbs []*XY) ([]spatial.XY, error) {
 	result := make([]spatial.XY, len(pbs))
 	for i, pb := range pbs {
 		var err error
-		result[i], err = XYFromPB(ctx, pb)
+		result[i], err = XYFromPB(pb)
 		if err != nil {
 			return nil, err
 		}
@@ -63,33 +63,33 @@ func XYsFromPB(ctx context.Context, pbs []*XY) ([]spatial.XY, error) {
 }
 
 // OuterLocationToPB converts spatial.OuterLocation to OuterLocation.
-func OuterLocationToPB(v spatial.OuterLocation) OuterLocation {
+func OuterLocationToPB(v spatial.OuterLocation) (OuterLocation, error) {
 	switch v {
 	case spatial.OuterLocationTop:
-		return OuterLocation_OUTER_LOCATION_TOP
+		return OuterLocation_OUTER_LOCATION_TOP, nil
 	case spatial.OuterLocationRight:
-		return OuterLocation_OUTER_LOCATION_RIGHT
+		return OuterLocation_OUTER_LOCATION_RIGHT, nil
 	case spatial.OuterLocationBottom:
-		return OuterLocation_OUTER_LOCATION_BOTTOM
+		return OuterLocation_OUTER_LOCATION_BOTTOM, nil
 	case spatial.OuterLocationLeft:
-		return OuterLocation_OUTER_LOCATION_LEFT
+		return OuterLocation_OUTER_LOCATION_LEFT, nil
 	default:
-		return OuterLocation_OUTER_LOCATION_TOP
+		return 0, errors.Newf("unrecognized spatial.OuterLocation value: %v", v)
 	}
 }
 
 // OuterLocationFromPB converts OuterLocation to spatial.OuterLocation.
-func OuterLocationFromPB(v OuterLocation) spatial.OuterLocation {
+func OuterLocationFromPB(v OuterLocation) (spatial.OuterLocation, error) {
 	switch v {
 	case OuterLocation_OUTER_LOCATION_TOP:
-		return spatial.OuterLocationTop
+		return spatial.OuterLocationTop, nil
 	case OuterLocation_OUTER_LOCATION_RIGHT:
-		return spatial.OuterLocationRight
+		return spatial.OuterLocationRight, nil
 	case OuterLocation_OUTER_LOCATION_BOTTOM:
-		return spatial.OuterLocationBottom
+		return spatial.OuterLocationBottom, nil
 	case OuterLocation_OUTER_LOCATION_LEFT:
-		return spatial.OuterLocationLeft
+		return spatial.OuterLocationLeft, nil
 	default:
-		return spatial.OuterLocationTop
+		return spatial.OuterLocation(""), errors.Newf("unrecognized OuterLocation value: %v", v)
 	}
 }

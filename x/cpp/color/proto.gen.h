@@ -22,13 +22,13 @@
 
 namespace x::color {
 
-inline ::x::color::pb::Color Color::to_proto() const {
+inline std::pair<::x::color::pb::Color, x::errors::Error> Color::to_proto() const {
     ::x::color::pb::Color pb;
     pb.set_r(this->r);
     pb.set_g(this->g);
     pb.set_b(this->b);
     pb.set_a(this->a);
-    return pb;
+    return {pb, x::errors::NIL};
 }
 
 inline std::pair<Color, x::errors::Error>

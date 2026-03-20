@@ -39,7 +39,8 @@ struct Output {
     [[nodiscard]] x::json::json to_json() const;
 
     using proto_type = ::arc::compiler::pb::Output;
-    [[nodiscard]] ::arc::compiler::pb::Output to_proto() const;
+    [[nodiscard]] std::pair<::arc::compiler::pb::Output, x::errors::Error>
+    to_proto() const;
     static std::pair<Output, x::errors::Error>
     from_proto(const ::arc::compiler::pb::Output &pb);
 };

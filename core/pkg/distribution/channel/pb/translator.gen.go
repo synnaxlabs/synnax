@@ -12,41 +12,49 @@
 package pb
 
 import (
-	"context"
 	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
 	"github.com/synnaxlabs/synnax/pkg/distribution/cluster"
 	controlpb "github.com/synnaxlabs/x/control/pb"
+	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/telem"
 )
 
 // OperationToPB converts Operation to Operation.
-func OperationToPB(_ context.Context, r channel.Operation) (*Operation, error) {
+func OperationToPB(r channel.Operation) (*Operation, error) {
+	typeVal, err := OperationTypeToPB(r.Type)
+	if err != nil {
+		return nil, err
+	}
 	pb := &Operation{
-		Type:         OperationTypeToPB(r.Type),
 		ResetChannel: uint32(r.ResetChannel),
 		Duration:     int64(r.Duration),
+		Type:         typeVal,
 	}
 	return pb, nil
 }
 
 // OperationFromPB converts Operation to Operation.
-func OperationFromPB(_ context.Context, pb *Operation) (channel.Operation, error) {
+func OperationFromPB(pb *Operation) (channel.Operation, error) {
 	var r channel.Operation
 	if pb == nil {
 		return r, nil
 	}
-	r.Type = OperationTypeFromPB(pb.Type)
+	var err error
+	r.Type, err = OperationTypeFromPB(pb.Type)
+	if err != nil {
+		return channel.Operation{}, err
+	}
 	r.ResetChannel = channel.Key(pb.ResetChannel)
 	r.Duration = telem.TimeSpan(pb.Duration)
 	return r, nil
 }
 
 // OperationsToPB converts a slice of Operation to Operation.
-func OperationsToPB(ctx context.Context, rs []channel.Operation) ([]*Operation, error) {
+func OperationsToPB(rs []channel.Operation) ([]*Operation, error) {
 	result := make([]*Operation, len(rs))
 	for i := range rs {
 		var err error
-		result[i], err = OperationToPB(ctx, rs[i])
+		result[i], err = OperationToPB(rs[i])
 		if err != nil {
 			return nil, err
 		}
@@ -55,11 +63,11 @@ func OperationsToPB(ctx context.Context, rs []channel.Operation) ([]*Operation, 
 }
 
 // OperationsFromPB converts a slice of Operation to Operation.
-func OperationsFromPB(ctx context.Context, pbs []*Operation) ([]channel.Operation, error) {
+func OperationsFromPB(pbs []*Operation) ([]channel.Operation, error) {
 	result := make([]channel.Operation, len(pbs))
 	for i, pb := range pbs {
 		var err error
-		result[i], err = OperationFromPB(ctx, pb)
+		result[i], err = OperationFromPB(pb)
 		if err != nil {
 			return nil, err
 		}
@@ -68,8 +76,12 @@ func OperationsFromPB(ctx context.Context, pbs []*Operation) ([]channel.Operatio
 }
 
 // ChannelToPB converts Channel to Channel.
-func ChannelToPB(ctx context.Context, r channel.Channel) (*Channel, error) {
-	operationsVal, err := OperationsToPB(ctx, r.Operations)
+func ChannelToPB(r channel.Channel) (*Channel, error) {
+	concurrencyVal, err := controlpb.ConcurrencyToPB(r.Concurrency)
+	if err != nil {
+		return nil, err
+	}
+	operationsVal, err := OperationsToPB(r.Operations)
 	if err != nil {
 		return nil, err
 	}
@@ -81,22 +93,26 @@ func ChannelToPB(ctx context.Context, r channel.Channel) (*Channel, error) {
 		LocalKey:    uint32(r.LocalKey),
 		LocalIndex:  uint32(r.LocalIndex),
 		Virtual:     r.Virtual,
-		Concurrency: controlpb.ConcurrencyToPB(r.Concurrency),
 		Internal:    r.Internal,
 		Expression:  r.Expression,
+		Concurrency: concurrencyVal,
 		Operations:  operationsVal,
 	}
 	return pb, nil
 }
 
 // ChannelFromPB converts Channel to Channel.
-func ChannelFromPB(ctx context.Context, pb *Channel) (channel.Channel, error) {
+func ChannelFromPB(pb *Channel) (channel.Channel, error) {
 	var r channel.Channel
 	if pb == nil {
 		return r, nil
 	}
 	var err error
-	r.Operations, err = OperationsFromPB(ctx, pb.Operations)
+	r.Concurrency, err = controlpb.ConcurrencyFromPB(pb.Concurrency)
+	if err != nil {
+		return channel.Channel{}, err
+	}
+	r.Operations, err = OperationsFromPB(pb.Operations)
 	if err != nil {
 		return channel.Channel{}, err
 	}
@@ -107,18 +123,17 @@ func ChannelFromPB(ctx context.Context, pb *Channel) (channel.Channel, error) {
 	r.LocalKey = channel.LocalKey(pb.LocalKey)
 	r.LocalIndex = channel.LocalKey(pb.LocalIndex)
 	r.Virtual = pb.Virtual
-	r.Concurrency = controlpb.ConcurrencyFromPB(pb.Concurrency)
 	r.Internal = pb.Internal
 	r.Expression = pb.Expression
 	return r, nil
 }
 
 // ChannelsToPB converts a slice of Channel to Channel.
-func ChannelsToPB(ctx context.Context, rs []channel.Channel) ([]*Channel, error) {
+func ChannelsToPB(rs []channel.Channel) ([]*Channel, error) {
 	result := make([]*Channel, len(rs))
 	for i := range rs {
 		var err error
-		result[i], err = ChannelToPB(ctx, rs[i])
+		result[i], err = ChannelToPB(rs[i])
 		if err != nil {
 			return nil, err
 		}
@@ -127,11 +142,11 @@ func ChannelsToPB(ctx context.Context, rs []channel.Channel) ([]*Channel, error)
 }
 
 // ChannelsFromPB converts a slice of Channel to Channel.
-func ChannelsFromPB(ctx context.Context, pbs []*Channel) ([]channel.Channel, error) {
+func ChannelsFromPB(pbs []*Channel) ([]channel.Channel, error) {
 	result := make([]channel.Channel, len(pbs))
 	for i, pb := range pbs {
 		var err error
-		result[i], err = ChannelFromPB(ctx, pb)
+		result[i], err = ChannelFromPB(pb)
 		if err != nil {
 			return nil, err
 		}
@@ -140,33 +155,33 @@ func ChannelsFromPB(ctx context.Context, pbs []*Channel) ([]channel.Channel, err
 }
 
 // OperationTypeToPB converts channel.OperationType to OperationType.
-func OperationTypeToPB(v channel.OperationType) OperationType {
+func OperationTypeToPB(v channel.OperationType) (OperationType, error) {
 	switch v {
 	case channel.OperationTypeMin:
-		return OperationType_OPERATION_TYPE_MIN
+		return OperationType_OPERATION_TYPE_MIN, nil
 	case channel.OperationTypeMax:
-		return OperationType_OPERATION_TYPE_MAX
+		return OperationType_OPERATION_TYPE_MAX, nil
 	case channel.OperationTypeAvg:
-		return OperationType_OPERATION_TYPE_AVG
+		return OperationType_OPERATION_TYPE_AVG, nil
 	case channel.OperationTypeNone:
-		return OperationType_OPERATION_TYPE_NONE
+		return OperationType_OPERATION_TYPE_NONE, nil
 	default:
-		return OperationType_OPERATION_TYPE_MIN
+		return 0, errors.Newf("unrecognized channel.OperationType value: %v", v)
 	}
 }
 
 // OperationTypeFromPB converts OperationType to channel.OperationType.
-func OperationTypeFromPB(v OperationType) channel.OperationType {
+func OperationTypeFromPB(v OperationType) (channel.OperationType, error) {
 	switch v {
 	case OperationType_OPERATION_TYPE_MIN:
-		return channel.OperationTypeMin
+		return channel.OperationTypeMin, nil
 	case OperationType_OPERATION_TYPE_MAX:
-		return channel.OperationTypeMax
+		return channel.OperationTypeMax, nil
 	case OperationType_OPERATION_TYPE_AVG:
-		return channel.OperationTypeAvg
+		return channel.OperationTypeAvg, nil
 	case OperationType_OPERATION_TYPE_NONE:
-		return channel.OperationTypeNone
+		return channel.OperationTypeNone, nil
 	default:
-		return channel.OperationTypeMin
+		return channel.OperationType(""), errors.Newf("unrecognized OperationType value: %v", v)
 	}
 }

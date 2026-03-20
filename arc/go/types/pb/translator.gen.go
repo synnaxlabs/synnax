@@ -12,22 +12,22 @@
 package pb
 
 import (
-	"context"
 	"encoding/json"
 	"github.com/synnaxlabs/arc/types"
+	"github.com/synnaxlabs/x/errors"
 )
 
 // FunctionPropertiesToPB converts FunctionProperties to FunctionProperties.
-func FunctionPropertiesToPB(ctx context.Context, r types.FunctionProperties) (*FunctionProperties, error) {
-	inputsVal, err := ParamsToPB(ctx, r.Inputs)
+func FunctionPropertiesToPB(r types.FunctionProperties) (*FunctionProperties, error) {
+	inputsVal, err := ParamsToPB(r.Inputs)
 	if err != nil {
 		return nil, err
 	}
-	outputsVal, err := ParamsToPB(ctx, r.Outputs)
+	outputsVal, err := ParamsToPB(r.Outputs)
 	if err != nil {
 		return nil, err
 	}
-	configVal, err := ParamsToPB(ctx, r.Config)
+	configVal, err := ParamsToPB(r.Config)
 	if err != nil {
 		return nil, err
 	}
@@ -40,33 +40,33 @@ func FunctionPropertiesToPB(ctx context.Context, r types.FunctionProperties) (*F
 }
 
 // FunctionPropertiesFromPB converts FunctionProperties to FunctionProperties.
-func FunctionPropertiesFromPB(ctx context.Context, pb *FunctionProperties) (types.FunctionProperties, error) {
+func FunctionPropertiesFromPB(pb *FunctionProperties) (types.FunctionProperties, error) {
 	var r types.FunctionProperties
 	if pb == nil {
 		return r, nil
 	}
 	var err error
-	r.Inputs, err = ParamsFromPB(ctx, pb.Inputs)
+	r.Inputs, err = ParamsFromPB(pb.Inputs)
 	if err != nil {
 		return types.FunctionProperties{}, err
 	}
-	r.Outputs, err = ParamsFromPB(ctx, pb.Outputs)
+	r.Outputs, err = ParamsFromPB(pb.Outputs)
 	if err != nil {
 		return types.FunctionProperties{}, err
 	}
-	r.Config, err = ParamsFromPB(ctx, pb.Config)
+	r.Config, err = ParamsFromPB(pb.Config)
 	if err != nil {
 		return types.FunctionProperties{}, err
 	}
 	return r, nil
 }
 
-// FunctionPropertiessToPB converts a slice of FunctionProperties to FunctionProperties.
-func FunctionPropertiessToPB(ctx context.Context, rs []types.FunctionProperties) ([]*FunctionProperties, error) {
+// FunctionPropertiesListToPB converts a slice of FunctionProperties to FunctionProperties.
+func FunctionPropertiesListToPB(rs []types.FunctionProperties) ([]*FunctionProperties, error) {
 	result := make([]*FunctionProperties, len(rs))
 	for i := range rs {
 		var err error
-		result[i], err = FunctionPropertiesToPB(ctx, rs[i])
+		result[i], err = FunctionPropertiesToPB(rs[i])
 		if err != nil {
 			return nil, err
 		}
@@ -74,12 +74,12 @@ func FunctionPropertiessToPB(ctx context.Context, rs []types.FunctionProperties)
 	return result, nil
 }
 
-// FunctionPropertiessFromPB converts a slice of FunctionProperties to FunctionProperties.
-func FunctionPropertiessFromPB(ctx context.Context, pbs []*FunctionProperties) ([]types.FunctionProperties, error) {
+// FunctionPropertiesListFromPB converts a slice of FunctionProperties to FunctionProperties.
+func FunctionPropertiesListFromPB(pbs []*FunctionProperties) ([]types.FunctionProperties, error) {
 	result := make([]types.FunctionProperties, len(pbs))
 	for i, pb := range pbs {
 		var err error
-		result[i], err = FunctionPropertiesFromPB(ctx, pb)
+		result[i], err = FunctionPropertiesFromPB(pb)
 		if err != nil {
 			return nil, err
 		}
@@ -88,44 +88,52 @@ func FunctionPropertiessFromPB(ctx context.Context, pbs []*FunctionProperties) (
 }
 
 // TypeToPB converts Type to Type.
-func TypeToPB(ctx context.Context, r types.Type) (*Type, error) {
-	inputsVal, err := ParamsToPB(ctx, r.Inputs)
+func TypeToPB(r types.Type) (*Type, error) {
+	inputsVal, err := ParamsToPB(r.Inputs)
 	if err != nil {
 		return nil, err
 	}
-	outputsVal, err := ParamsToPB(ctx, r.Outputs)
+	outputsVal, err := ParamsToPB(r.Outputs)
 	if err != nil {
 		return nil, err
 	}
-	configVal, err := ParamsToPB(ctx, r.Config)
+	configVal, err := ParamsToPB(r.Config)
+	if err != nil {
+		return nil, err
+	}
+	kindVal, err := KindToPB(r.Kind)
+	if err != nil {
+		return nil, err
+	}
+	chanDirectionVal, err := ChanDirectionToPB(r.ChanDirection)
 	if err != nil {
 		return nil, err
 	}
 	pb := &Type{
-		Kind:          KindToPB(r.Kind),
 		Name:          r.Name,
-		ChanDirection: ChanDirectionToPB(r.ChanDirection),
 		Inputs:        inputsVal,
 		Outputs:       outputsVal,
 		Config:        configVal,
+		Kind:          kindVal,
+		ChanDirection: chanDirectionVal,
 	}
 	if r.Elem != nil {
 		var err error
-		pb.Elem, err = TypeToPB(ctx, *r.Elem)
+		pb.Elem, err = TypeToPB(*r.Elem)
 		if err != nil {
 			return nil, err
 		}
 	}
 	if r.Unit != nil {
 		var err error
-		pb.Unit, err = UnitToPB(ctx, *r.Unit)
+		pb.Unit, err = UnitToPB(*r.Unit)
 		if err != nil {
 			return nil, err
 		}
 	}
 	if r.Constraint != nil {
 		var err error
-		pb.Constraint, err = TypeToPB(ctx, *r.Constraint)
+		pb.Constraint, err = TypeToPB(*r.Constraint)
 		if err != nil {
 			return nil, err
 		}
@@ -134,43 +142,49 @@ func TypeToPB(ctx context.Context, r types.Type) (*Type, error) {
 }
 
 // TypeFromPB converts Type to Type.
-func TypeFromPB(ctx context.Context, pb *Type) (types.Type, error) {
+func TypeFromPB(pb *Type) (types.Type, error) {
 	var r types.Type
 	if pb == nil {
 		return r, nil
 	}
 	var err error
-	r.Inputs, err = ParamsFromPB(ctx, pb.Inputs)
+	r.Inputs, err = ParamsFromPB(pb.Inputs)
 	if err != nil {
 		return types.Type{}, err
 	}
-	r.Outputs, err = ParamsFromPB(ctx, pb.Outputs)
+	r.Outputs, err = ParamsFromPB(pb.Outputs)
 	if err != nil {
 		return types.Type{}, err
 	}
-	r.Config, err = ParamsFromPB(ctx, pb.Config)
+	r.Config, err = ParamsFromPB(pb.Config)
 	if err != nil {
 		return types.Type{}, err
 	}
-	r.Kind = KindFromPB(pb.Kind)
+	r.Kind, err = KindFromPB(pb.Kind)
+	if err != nil {
+		return types.Type{}, err
+	}
+	r.ChanDirection, err = ChanDirectionFromPB(pb.ChanDirection)
+	if err != nil {
+		return types.Type{}, err
+	}
 	r.Name = pb.Name
-	r.ChanDirection = ChanDirectionFromPB(pb.ChanDirection)
 	if pb.Elem != nil {
-		val, err := TypeFromPB(ctx, pb.Elem)
+		val, err := TypeFromPB(pb.Elem)
 		if err != nil {
 			return types.Type{}, err
 		}
 		r.Elem = &val
 	}
 	if pb.Unit != nil {
-		val, err := UnitFromPB(ctx, pb.Unit)
+		val, err := UnitFromPB(pb.Unit)
 		if err != nil {
 			return types.Type{}, err
 		}
 		r.Unit = &val
 	}
 	if pb.Constraint != nil {
-		val, err := TypeFromPB(ctx, pb.Constraint)
+		val, err := TypeFromPB(pb.Constraint)
 		if err != nil {
 			return types.Type{}, err
 		}
@@ -180,11 +194,11 @@ func TypeFromPB(ctx context.Context, pb *Type) (types.Type, error) {
 }
 
 // TypesToPB converts a slice of Type to Type.
-func TypesToPB(ctx context.Context, rs []types.Type) ([]*Type, error) {
+func TypesToPB(rs []types.Type) ([]*Type, error) {
 	result := make([]*Type, len(rs))
 	for i := range rs {
 		var err error
-		result[i], err = TypeToPB(ctx, rs[i])
+		result[i], err = TypeToPB(rs[i])
 		if err != nil {
 			return nil, err
 		}
@@ -193,11 +207,11 @@ func TypesToPB(ctx context.Context, rs []types.Type) ([]*Type, error) {
 }
 
 // TypesFromPB converts a slice of Type to Type.
-func TypesFromPB(ctx context.Context, pbs []*Type) ([]types.Type, error) {
+func TypesFromPB(pbs []*Type) ([]types.Type, error) {
 	result := make([]types.Type, len(pbs))
 	for i, pb := range pbs {
 		var err error
-		result[i], err = TypeFromPB(ctx, pb)
+		result[i], err = TypeFromPB(pb)
 		if err != nil {
 			return nil, err
 		}
@@ -206,8 +220,8 @@ func TypesFromPB(ctx context.Context, pbs []*Type) ([]types.Type, error) {
 }
 
 // ParamToPB converts Param to Param.
-func ParamToPB(ctx context.Context, r types.Param) (*Param, error) {
-	typeVal, err := TypeToPB(ctx, r.Type)
+func ParamToPB(r types.Param) (*Param, error) {
+	typeVal, err := TypeToPB(r.Type)
 	if err != nil {
 		return nil, err
 	}
@@ -224,13 +238,13 @@ func ParamToPB(ctx context.Context, r types.Param) (*Param, error) {
 }
 
 // ParamFromPB converts Param to Param.
-func ParamFromPB(ctx context.Context, pb *Param) (types.Param, error) {
+func ParamFromPB(pb *Param) (types.Param, error) {
 	var r types.Param
 	if pb == nil {
 		return r, nil
 	}
 	var err error
-	r.Type, err = TypeFromPB(ctx, pb.Type)
+	r.Type, err = TypeFromPB(pb.Type)
 	if err != nil {
 		return types.Param{}, err
 	}
@@ -240,11 +254,11 @@ func ParamFromPB(ctx context.Context, pb *Param) (types.Param, error) {
 }
 
 // ParamsToPB converts a slice of Param to Param.
-func ParamsToPB(ctx context.Context, rs []types.Param) ([]*Param, error) {
+func ParamsToPB(rs []types.Param) ([]*Param, error) {
 	result := make([]*Param, len(rs))
 	for i := range rs {
 		var err error
-		result[i], err = ParamToPB(ctx, rs[i])
+		result[i], err = ParamToPB(rs[i])
 		if err != nil {
 			return nil, err
 		}
@@ -253,11 +267,11 @@ func ParamsToPB(ctx context.Context, rs []types.Param) ([]*Param, error) {
 }
 
 // ParamsFromPB converts a slice of Param to Param.
-func ParamsFromPB(ctx context.Context, pbs []*Param) ([]types.Param, error) {
+func ParamsFromPB(pbs []*Param) ([]types.Param, error) {
 	result := make([]types.Param, len(pbs))
 	for i, pb := range pbs {
 		var err error
-		result[i], err = ParamFromPB(ctx, pb)
+		result[i], err = ParamFromPB(pb)
 		if err != nil {
 			return nil, err
 		}
@@ -266,7 +280,7 @@ func ParamsFromPB(ctx context.Context, pbs []*Param) ([]types.Param, error) {
 }
 
 // ChannelsToPB converts Channels to Channels.
-func ChannelsToPB(_ context.Context, r types.Channels) (*Channels, error) {
+func ChannelsToPB(r types.Channels) (*Channels, error) {
 	pb := &Channels{
 		Read:  r.Read,
 		Write: r.Write,
@@ -275,7 +289,7 @@ func ChannelsToPB(_ context.Context, r types.Channels) (*Channels, error) {
 }
 
 // ChannelsFromPB converts Channels to Channels.
-func ChannelsFromPB(_ context.Context, pb *Channels) (types.Channels, error) {
+func ChannelsFromPB(pb *Channels) (types.Channels, error) {
 	var r types.Channels
 	if pb == nil {
 		return r, nil
@@ -285,12 +299,12 @@ func ChannelsFromPB(_ context.Context, pb *Channels) (types.Channels, error) {
 	return r, nil
 }
 
-// ChannelssToPB converts a slice of Channels to Channels.
-func ChannelssToPB(ctx context.Context, rs []types.Channels) ([]*Channels, error) {
+// ChannelsListToPB converts a slice of Channels to Channels.
+func ChannelsListToPB(rs []types.Channels) ([]*Channels, error) {
 	result := make([]*Channels, len(rs))
 	for i := range rs {
 		var err error
-		result[i], err = ChannelsToPB(ctx, rs[i])
+		result[i], err = ChannelsToPB(rs[i])
 		if err != nil {
 			return nil, err
 		}
@@ -298,12 +312,12 @@ func ChannelssToPB(ctx context.Context, rs []types.Channels) ([]*Channels, error
 	return result, nil
 }
 
-// ChannelssFromPB converts a slice of Channels to Channels.
-func ChannelssFromPB(ctx context.Context, pbs []*Channels) ([]types.Channels, error) {
+// ChannelsListFromPB converts a slice of Channels to Channels.
+func ChannelsListFromPB(pbs []*Channels) ([]types.Channels, error) {
 	result := make([]types.Channels, len(pbs))
 	for i, pb := range pbs {
 		var err error
-		result[i], err = ChannelsFromPB(ctx, pb)
+		result[i], err = ChannelsFromPB(pb)
 		if err != nil {
 			return nil, err
 		}
@@ -312,7 +326,7 @@ func ChannelssFromPB(ctx context.Context, pbs []*Channels) ([]types.Channels, er
 }
 
 // DimensionsToPB converts Dimensions to Dimensions.
-func DimensionsToPB(_ context.Context, r types.Dimensions) (*Dimensions, error) {
+func DimensionsToPB(r types.Dimensions) (*Dimensions, error) {
 	pb := &Dimensions{
 		Length:      int32(r.Length),
 		Mass:        int32(r.Mass),
@@ -327,7 +341,7 @@ func DimensionsToPB(_ context.Context, r types.Dimensions) (*Dimensions, error) 
 }
 
 // DimensionsFromPB converts Dimensions to Dimensions.
-func DimensionsFromPB(_ context.Context, pb *Dimensions) (types.Dimensions, error) {
+func DimensionsFromPB(pb *Dimensions) (types.Dimensions, error) {
 	var r types.Dimensions
 	if pb == nil {
 		return r, nil
@@ -343,12 +357,12 @@ func DimensionsFromPB(_ context.Context, pb *Dimensions) (types.Dimensions, erro
 	return r, nil
 }
 
-// DimensionssToPB converts a slice of Dimensions to Dimensions.
-func DimensionssToPB(ctx context.Context, rs []types.Dimensions) ([]*Dimensions, error) {
+// DimensionsListToPB converts a slice of Dimensions to Dimensions.
+func DimensionsListToPB(rs []types.Dimensions) ([]*Dimensions, error) {
 	result := make([]*Dimensions, len(rs))
 	for i := range rs {
 		var err error
-		result[i], err = DimensionsToPB(ctx, rs[i])
+		result[i], err = DimensionsToPB(rs[i])
 		if err != nil {
 			return nil, err
 		}
@@ -356,12 +370,12 @@ func DimensionssToPB(ctx context.Context, rs []types.Dimensions) ([]*Dimensions,
 	return result, nil
 }
 
-// DimensionssFromPB converts a slice of Dimensions to Dimensions.
-func DimensionssFromPB(ctx context.Context, pbs []*Dimensions) ([]types.Dimensions, error) {
+// DimensionsListFromPB converts a slice of Dimensions to Dimensions.
+func DimensionsListFromPB(pbs []*Dimensions) ([]types.Dimensions, error) {
 	result := make([]types.Dimensions, len(pbs))
 	for i, pb := range pbs {
 		var err error
-		result[i], err = DimensionsFromPB(ctx, pb)
+		result[i], err = DimensionsFromPB(pb)
 		if err != nil {
 			return nil, err
 		}
@@ -370,8 +384,8 @@ func DimensionssFromPB(ctx context.Context, pbs []*Dimensions) ([]types.Dimensio
 }
 
 // UnitToPB converts Unit to Unit.
-func UnitToPB(ctx context.Context, r types.Unit) (*Unit, error) {
-	dimensionsVal, err := DimensionsToPB(ctx, r.Dimensions)
+func UnitToPB(r types.Unit) (*Unit, error) {
+	dimensionsVal, err := DimensionsToPB(r.Dimensions)
 	if err != nil {
 		return nil, err
 	}
@@ -384,13 +398,13 @@ func UnitToPB(ctx context.Context, r types.Unit) (*Unit, error) {
 }
 
 // UnitFromPB converts Unit to Unit.
-func UnitFromPB(ctx context.Context, pb *Unit) (types.Unit, error) {
+func UnitFromPB(pb *Unit) (types.Unit, error) {
 	var r types.Unit
 	if pb == nil {
 		return r, nil
 	}
 	var err error
-	r.Dimensions, err = DimensionsFromPB(ctx, pb.Dimensions)
+	r.Dimensions, err = DimensionsFromPB(pb.Dimensions)
 	if err != nil {
 		return types.Unit{}, err
 	}
@@ -400,11 +414,11 @@ func UnitFromPB(ctx context.Context, pb *Unit) (types.Unit, error) {
 }
 
 // UnitsToPB converts a slice of Unit to Unit.
-func UnitsToPB(ctx context.Context, rs []types.Unit) ([]*Unit, error) {
+func UnitsToPB(rs []types.Unit) ([]*Unit, error) {
 	result := make([]*Unit, len(rs))
 	for i := range rs {
 		var err error
-		result[i], err = UnitToPB(ctx, rs[i])
+		result[i], err = UnitToPB(rs[i])
 		if err != nil {
 			return nil, err
 		}
@@ -413,11 +427,11 @@ func UnitsToPB(ctx context.Context, rs []types.Unit) ([]*Unit, error) {
 }
 
 // UnitsFromPB converts a slice of Unit to Unit.
-func UnitsFromPB(ctx context.Context, pbs []*Unit) ([]types.Unit, error) {
+func UnitsFromPB(pbs []*Unit) ([]types.Unit, error) {
 	result := make([]types.Unit, len(pbs))
 	for i, pb := range pbs {
 		var err error
-		result[i], err = UnitFromPB(ctx, pb)
+		result[i], err = UnitFromPB(pb)
 		if err != nil {
 			return nil, err
 		}
@@ -426,133 +440,133 @@ func UnitsFromPB(ctx context.Context, pbs []*Unit) ([]types.Unit, error) {
 }
 
 // KindToPB converts types.Kind to Kind.
-func KindToPB(v types.Kind) Kind {
+func KindToPB(v types.Kind) (Kind, error) {
 	switch v {
 	case types.KindInvalid:
-		return Kind_KIND_INVALID
+		return Kind_KIND_INVALID, nil
 	case types.KindU8:
-		return Kind_KIND_U_8
+		return Kind_KIND_U_8, nil
 	case types.KindU16:
-		return Kind_KIND_U_16
+		return Kind_KIND_U_16, nil
 	case types.KindU32:
-		return Kind_KIND_U_32
+		return Kind_KIND_U_32, nil
 	case types.KindU64:
-		return Kind_KIND_U_64
+		return Kind_KIND_U_64, nil
 	case types.KindI8:
-		return Kind_KIND_I_8
+		return Kind_KIND_I_8, nil
 	case types.KindI16:
-		return Kind_KIND_I_16
+		return Kind_KIND_I_16, nil
 	case types.KindI32:
-		return Kind_KIND_I_32
+		return Kind_KIND_I_32, nil
 	case types.KindI64:
-		return Kind_KIND_I_64
+		return Kind_KIND_I_64, nil
 	case types.KindF32:
-		return Kind_KIND_F_32
+		return Kind_KIND_F_32, nil
 	case types.KindF64:
-		return Kind_KIND_F_64
+		return Kind_KIND_F_64, nil
 	case types.KindString:
-		return Kind_KIND_STRING
+		return Kind_KIND_STRING, nil
 	case types.KindChan:
-		return Kind_KIND_CHAN
+		return Kind_KIND_CHAN, nil
 	case types.KindSeries:
-		return Kind_KIND_SERIES
+		return Kind_KIND_SERIES, nil
 	case types.KindVariable:
-		return Kind_KIND_VARIABLE
+		return Kind_KIND_VARIABLE, nil
 	case types.KindNumericConstant:
-		return Kind_KIND_NUMERIC_CONSTANT
+		return Kind_KIND_NUMERIC_CONSTANT, nil
 	case types.KindIntegerConstant:
-		return Kind_KIND_INTEGER_CONSTANT
+		return Kind_KIND_INTEGER_CONSTANT, nil
 	case types.KindFloatConstant:
-		return Kind_KIND_FLOAT_CONSTANT
+		return Kind_KIND_FLOAT_CONSTANT, nil
 	case types.KindExactIntegerFloatConstant:
-		return Kind_KIND_EXACT_INTEGER_FLOAT_CONSTANT
+		return Kind_KIND_EXACT_INTEGER_FLOAT_CONSTANT, nil
 	case types.KindFunction:
-		return Kind_KIND_FUNCTION
+		return Kind_KIND_FUNCTION, nil
 	case types.KindSequence:
-		return Kind_KIND_SEQUENCE
+		return Kind_KIND_SEQUENCE, nil
 	case types.KindStage:
-		return Kind_KIND_STAGE
+		return Kind_KIND_STAGE, nil
 	default:
-		return Kind_KIND_INVALID
+		return 0, errors.Newf("unrecognized types.Kind value: %v", v)
 	}
 }
 
 // KindFromPB converts Kind to types.Kind.
-func KindFromPB(v Kind) types.Kind {
+func KindFromPB(v Kind) (types.Kind, error) {
 	switch v {
 	case Kind_KIND_INVALID:
-		return types.KindInvalid
+		return types.KindInvalid, nil
 	case Kind_KIND_U_8:
-		return types.KindU8
+		return types.KindU8, nil
 	case Kind_KIND_U_16:
-		return types.KindU16
+		return types.KindU16, nil
 	case Kind_KIND_U_32:
-		return types.KindU32
+		return types.KindU32, nil
 	case Kind_KIND_U_64:
-		return types.KindU64
+		return types.KindU64, nil
 	case Kind_KIND_I_8:
-		return types.KindI8
+		return types.KindI8, nil
 	case Kind_KIND_I_16:
-		return types.KindI16
+		return types.KindI16, nil
 	case Kind_KIND_I_32:
-		return types.KindI32
+		return types.KindI32, nil
 	case Kind_KIND_I_64:
-		return types.KindI64
+		return types.KindI64, nil
 	case Kind_KIND_F_32:
-		return types.KindF32
+		return types.KindF32, nil
 	case Kind_KIND_F_64:
-		return types.KindF64
+		return types.KindF64, nil
 	case Kind_KIND_STRING:
-		return types.KindString
+		return types.KindString, nil
 	case Kind_KIND_CHAN:
-		return types.KindChan
+		return types.KindChan, nil
 	case Kind_KIND_SERIES:
-		return types.KindSeries
+		return types.KindSeries, nil
 	case Kind_KIND_VARIABLE:
-		return types.KindVariable
+		return types.KindVariable, nil
 	case Kind_KIND_NUMERIC_CONSTANT:
-		return types.KindNumericConstant
+		return types.KindNumericConstant, nil
 	case Kind_KIND_INTEGER_CONSTANT:
-		return types.KindIntegerConstant
+		return types.KindIntegerConstant, nil
 	case Kind_KIND_FLOAT_CONSTANT:
-		return types.KindFloatConstant
+		return types.KindFloatConstant, nil
 	case Kind_KIND_EXACT_INTEGER_FLOAT_CONSTANT:
-		return types.KindExactIntegerFloatConstant
+		return types.KindExactIntegerFloatConstant, nil
 	case Kind_KIND_FUNCTION:
-		return types.KindFunction
+		return types.KindFunction, nil
 	case Kind_KIND_SEQUENCE:
-		return types.KindSequence
+		return types.KindSequence, nil
 	case Kind_KIND_STAGE:
-		return types.KindStage
+		return types.KindStage, nil
 	default:
-		return types.KindInvalid
+		return 0, errors.Newf("unrecognized Kind value: %v", v)
 	}
 }
 
 // ChanDirectionToPB converts types.ChanDirection to ChanDirection.
-func ChanDirectionToPB(v types.ChanDirection) ChanDirection {
+func ChanDirectionToPB(v types.ChanDirection) (ChanDirection, error) {
 	switch v {
 	case types.ChanDirectionNone:
-		return ChanDirection_CHAN_DIRECTION_NONE
+		return ChanDirection_CHAN_DIRECTION_NONE, nil
 	case types.ChanDirectionRead:
-		return ChanDirection_CHAN_DIRECTION_READ
+		return ChanDirection_CHAN_DIRECTION_READ, nil
 	case types.ChanDirectionWrite:
-		return ChanDirection_CHAN_DIRECTION_WRITE
+		return ChanDirection_CHAN_DIRECTION_WRITE, nil
 	default:
-		return ChanDirection_CHAN_DIRECTION_NONE
+		return 0, errors.Newf("unrecognized types.ChanDirection value: %v", v)
 	}
 }
 
 // ChanDirectionFromPB converts ChanDirection to types.ChanDirection.
-func ChanDirectionFromPB(v ChanDirection) types.ChanDirection {
+func ChanDirectionFromPB(v ChanDirection) (types.ChanDirection, error) {
 	switch v {
 	case ChanDirection_CHAN_DIRECTION_NONE:
-		return types.ChanDirectionNone
+		return types.ChanDirectionNone, nil
 	case ChanDirection_CHAN_DIRECTION_READ:
-		return types.ChanDirectionRead
+		return types.ChanDirectionRead, nil
 	case ChanDirection_CHAN_DIRECTION_WRITE:
-		return types.ChanDirectionWrite
+		return types.ChanDirectionWrite, nil
 	default:
-		return types.ChanDirectionNone
+		return 0, errors.Newf("unrecognized ChanDirection value: %v", v)
 	}
 }

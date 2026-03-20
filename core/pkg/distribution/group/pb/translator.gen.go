@@ -12,13 +12,12 @@
 package pb
 
 import (
-	"context"
 	"github.com/google/uuid"
 	"github.com/synnaxlabs/synnax/pkg/distribution/group"
 )
 
 // GroupToPB converts Group to Group.
-func GroupToPB(_ context.Context, r group.Group) (*Group, error) {
+func GroupToPB(r group.Group) (*Group, error) {
 	pb := &Group{
 		Name: r.Name,
 		Key:  r.Key.String(),
@@ -27,7 +26,7 @@ func GroupToPB(_ context.Context, r group.Group) (*Group, error) {
 }
 
 // GroupFromPB converts Group to Group.
-func GroupFromPB(_ context.Context, pb *Group) (group.Group, error) {
+func GroupFromPB(pb *Group) (group.Group, error) {
 	var r group.Group
 	if pb == nil {
 		return r, nil
@@ -43,11 +42,11 @@ func GroupFromPB(_ context.Context, pb *Group) (group.Group, error) {
 }
 
 // GroupsToPB converts a slice of Group to Group.
-func GroupsToPB(ctx context.Context, rs []group.Group) ([]*Group, error) {
+func GroupsToPB(rs []group.Group) ([]*Group, error) {
 	result := make([]*Group, len(rs))
 	for i := range rs {
 		var err error
-		result[i], err = GroupToPB(ctx, rs[i])
+		result[i], err = GroupToPB(rs[i])
 		if err != nil {
 			return nil, err
 		}
@@ -56,11 +55,11 @@ func GroupsToPB(ctx context.Context, rs []group.Group) ([]*Group, error) {
 }
 
 // GroupsFromPB converts a slice of Group to Group.
-func GroupsFromPB(ctx context.Context, pbs []*Group) ([]group.Group, error) {
+func GroupsFromPB(pbs []*Group) ([]group.Group, error) {
 	result := make([]group.Group, len(pbs))
 	for i, pb := range pbs {
 		var err error
-		result[i], err = GroupFromPB(ctx, pb)
+		result[i], err = GroupFromPB(pb)
 		if err != nil {
 			return nil, err
 		}

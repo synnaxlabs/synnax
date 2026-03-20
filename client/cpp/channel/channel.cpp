@@ -18,7 +18,9 @@
 namespace synnax::channel {
 x::errors::Error Client::create(Channel &channel) const {
     auto req = grpc::channel::CreateRequest();
-    *req.add_channels() = channel.to_proto();
+    auto [pb, pb_err] = channel.to_proto();
+    if (pb_err) return pb_err;
+    *req.add_channels() = pb;
     auto [res, err] = create_client->send("/channel/create", req);
     if (err) return err;
     if (res.channels_size() == 0) return errors::unexpected_missing_error("channel");
@@ -61,8 +63,11 @@ std::pair<Channel, x::errors::Error> Client::create(
 x::errors::Error Client::create(std::vector<Channel> &channels) const {
     auto req = grpc::channel::CreateRequest();
     req.mutable_channels()->Reserve(static_cast<int>(channels.size()));
-    for (const auto &ch: channels)
-        *req.add_channels() = ch.to_proto();
+    for (const auto &ch: channels) {
+        auto [pb, pb_err] = ch.to_proto();
+        if (pb_err) return pb_err;
+        *req.add_channels() = pb;
+    }
     auto [res, exc] = create_client->send("/channel/create", req);
     if (exc) return exc;
     for (auto i = 0; i < res.channels_size(); i++) {

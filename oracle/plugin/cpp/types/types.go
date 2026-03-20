@@ -1428,7 +1428,7 @@ struct {{$td.Name}} : private std::vector<{{$td.ElementType}}> {
 {{- if $td.HasProto}}
 
     using proto_type = {{$td.ProtoType}};
-    [[nodiscard]] {{$td.ProtoType}} to_proto() const;
+    [[nodiscard]] std::pair<{{$td.ProtoType}}, x::errors::Error> to_proto() const;
     static std::pair<{{$td.Name}}, x::errors::Error> from_proto(const {{$td.ProtoType}}& pb);
 {{- end}}
 {{- if $td.Methods}}
@@ -1472,7 +1472,7 @@ using {{$td.Name}} = {{$td.CppType}};
 {{- if $s.HasProto}}
 
     using proto_type = {{$s.ProtoType}};
-    [[nodiscard]] {{$s.ProtoType}} to_proto() const;
+    [[nodiscard]] std::pair<{{$s.ProtoType}}, x::errors::Error> to_proto() const;
     static std::pair<{{$s.Name}}, x::errors::Error> from_proto(const {{$s.ProtoType}}& pb);
 {{- end}}
 {{- if $s.Methods}}

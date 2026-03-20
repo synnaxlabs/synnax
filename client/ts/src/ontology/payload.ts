@@ -10,6 +10,10 @@
 import { array, type change, primitive, record } from "@synnaxlabs/x";
 import { z } from "zod";
 
+import { RESOURCE_TYPES, type ResourceType, resourceTypeZ } from "@/ontology/types.gen";
+
+export { RESOURCE_TYPES, type ResourceType, resourceTypeZ };
+
 export type ResourceChange = change.Change<ID, Resource>;
 export interface ResourceSet extends change.Set<ID, Resource> {}
 export interface ResourceDelete extends change.Delete<ID, Resource> {}
@@ -18,34 +22,6 @@ export interface RelationshipSet extends change.Set<Relationship, undefined> {}
 export interface RelationshipDelete extends change.Delete<Relationship, undefined> {}
 
 export interface RelationshipDelete extends change.Delete<Relationship, undefined> {}
-
-export const resourceTypeZ = z.enum([
-  "label",
-  "log",
-  "builtin",
-  "cluster",
-  "channel",
-  "node",
-  "group",
-  "range",
-  "framer",
-  "range-alias",
-  "user",
-  "workspace",
-  "schematic",
-  "lineplot",
-  "rack",
-  "device",
-  "task",
-  "policy",
-  "role",
-  "table",
-  "arc",
-  "schematic_symbol",
-  "status",
-  "view",
-]);
-export type ResourceType = z.infer<typeof resourceTypeZ>;
 
 const stringIDZ = z.string().transform((v) => {
   const [type, key] = v.split(":");

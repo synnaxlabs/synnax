@@ -62,7 +62,8 @@ struct Operation {
     [[nodiscard]] x::json::json to_json() const;
 
     using proto_type = ::distribution::channel::pb::Operation;
-    [[nodiscard]] ::distribution::channel::pb::Operation to_proto() const;
+    [[nodiscard]] std::pair<::distribution::channel::pb::Operation, x::errors::Error>
+    to_proto() const;
     static std::pair<Operation, x::errors::Error>
     from_proto(const ::distribution::channel::pb::Operation &pb);
 };
@@ -123,7 +124,8 @@ struct Channel {
     [[nodiscard]] x::json::json to_json() const;
 
     using proto_type = ::api::channel::pb::Channel;
-    [[nodiscard]] ::api::channel::pb::Channel to_proto() const;
+    [[nodiscard]] std::pair<::api::channel::pb::Channel, x::errors::Error>
+    to_proto() const;
     static std::pair<Channel, x::errors::Error>
     from_proto(const ::api::channel::pb::Channel &pb);
 };

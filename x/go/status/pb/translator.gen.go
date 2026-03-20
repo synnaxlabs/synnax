@@ -12,7 +12,7 @@
 package pb
 
 import (
-	"context"
+	"github.com/synnaxlabs/x/errors"
 	labelpb "github.com/synnaxlabs/x/label/pb"
 	"github.com/synnaxlabs/x/status"
 	"github.com/synnaxlabs/x/telem"
@@ -20,67 +20,70 @@ import (
 )
 
 // VariantToPB converts status.Variant to Variant.
-func VariantToPB(v status.Variant) Variant {
+func VariantToPB(v status.Variant) (Variant, error) {
 	switch v {
 	case status.VariantSuccess:
-		return Variant_VARIANT_SUCCESS
+		return Variant_VARIANT_SUCCESS, nil
 	case status.VariantInfo:
-		return Variant_VARIANT_INFO
+		return Variant_VARIANT_INFO, nil
 	case status.VariantWarning:
-		return Variant_VARIANT_WARNING
+		return Variant_VARIANT_WARNING, nil
 	case status.VariantError:
-		return Variant_VARIANT_ERROR
+		return Variant_VARIANT_ERROR, nil
 	case status.VariantLoading:
-		return Variant_VARIANT_LOADING
+		return Variant_VARIANT_LOADING, nil
 	case status.VariantDisabled:
-		return Variant_VARIANT_DISABLED
+		return Variant_VARIANT_DISABLED, nil
 	default:
-		return Variant_VARIANT_SUCCESS
+		return 0, errors.Newf("unrecognized status.Variant value: %v", v)
 	}
 }
 
 // VariantFromPB converts Variant to status.Variant.
-func VariantFromPB(v Variant) status.Variant {
+func VariantFromPB(v Variant) (status.Variant, error) {
 	switch v {
 	case Variant_VARIANT_SUCCESS:
-		return status.VariantSuccess
+		return status.VariantSuccess, nil
 	case Variant_VARIANT_INFO:
-		return status.VariantInfo
+		return status.VariantInfo, nil
 	case Variant_VARIANT_WARNING:
-		return status.VariantWarning
+		return status.VariantWarning, nil
 	case Variant_VARIANT_ERROR:
-		return status.VariantError
+		return status.VariantError, nil
 	case Variant_VARIANT_LOADING:
-		return status.VariantLoading
+		return status.VariantLoading, nil
 	case Variant_VARIANT_DISABLED:
-		return status.VariantDisabled
+		return status.VariantDisabled, nil
 	default:
-		return status.VariantSuccess
+		return status.Variant(""), errors.Newf("unrecognized Variant value: %v", v)
 	}
 }
 
 // StatusToPB converts Status to Status using provided type converters.
 func StatusToPB[Details any](
-	ctx context.Context,
 	r status.Status[Details],
-	translateDetails func(context.Context, Details) (*anypb.Any, error),
+	translateDetails func(Details) (*anypb.Any, error),
 ) (*Status, error) {
-	detailsAny, err := translateDetails(ctx, r.Details)
+	detailsAny, err := translateDetails(r.Details)
 	if err != nil {
 		return nil, err
 	}
-	labelsVal, err := labelpb.LabelsToPB(ctx, r.Labels)
+	variantVal, err := VariantToPB(r.Variant)
+	if err != nil {
+		return nil, err
+	}
+	labelsVal, err := labelpb.LabelsToPB(r.Labels)
 	if err != nil {
 		return nil, err
 	}
 	pb := &Status{
 		Key:         r.Key,
 		Name:        r.Name,
-		Variant:     VariantToPB(r.Variant),
 		Message:     r.Message,
 		Description: r.Description,
 		Time:        int64(r.Time),
 		Details:     detailsAny,
+		Variant:     variantVal,
 		Labels:      labelsVal,
 	}
 	return pb, nil
@@ -88,42 +91,43 @@ func StatusToPB[Details any](
 
 // StatusFromPB converts Status to Status using provided type converters.
 func StatusFromPB[Details any](
-	ctx context.Context,
 	pb *Status,
-	translateDetails func(context.Context, *anypb.Any) (Details, error),
+	translateDetails func(*anypb.Any) (Details, error),
 ) (status.Status[Details], error) {
 	var r status.Status[Details]
 	if pb == nil {
 		return r, nil
 	}
 	var err error
-	r.Details, err = translateDetails(ctx, pb.Details)
+	r.Details, err = translateDetails(pb.Details)
 	if err != nil {
 		return status.Status[Details]{}, err
 	}
-	r.Labels, err = labelpb.LabelsFromPB(ctx, pb.Labels)
+	r.Variant, err = VariantFromPB(pb.Variant)
+	if err != nil {
+		return status.Status[Details]{}, err
+	}
+	r.Labels, err = labelpb.LabelsFromPB(pb.Labels)
 	if err != nil {
 		return status.Status[Details]{}, err
 	}
 	r.Key = pb.Key
 	r.Name = pb.Name
-	r.Variant = VariantFromPB(pb.Variant)
 	r.Message = pb.Message
 	r.Description = pb.Description
 	r.Time = telem.TimeStamp(pb.Time)
 	return r, nil
 }
 
-// StatussToPB converts a slice of Status to Status.
-func StatussToPB[Details any](
-	ctx context.Context,
+// StatusesToPB converts a slice of Status to Status.
+func StatusesToPB[Details any](
 	rs []status.Status[Details],
-	translateDetails func(context.Context, Details) (*anypb.Any, error),
+	translateDetails func(Details) (*anypb.Any, error),
 ) ([]*Status, error) {
 	result := make([]*Status, len(rs))
 	for i := range rs {
 		var err error
-		result[i], err = StatusToPB(ctx, rs[i], translateDetails)
+		result[i], err = StatusToPB(rs[i], translateDetails)
 		if err != nil {
 			return nil, err
 		}
@@ -131,16 +135,15 @@ func StatussToPB[Details any](
 	return result, nil
 }
 
-// StatussFromPB converts a slice of Status to Status.
-func StatussFromPB[Details any](
-	ctx context.Context,
+// StatusesFromPB converts a slice of Status to Status.
+func StatusesFromPB[Details any](
 	pbs []*Status,
-	translateDetails func(context.Context, *anypb.Any) (Details, error),
+	translateDetails func(*anypb.Any) (Details, error),
 ) ([]status.Status[Details], error) {
 	result := make([]status.Status[Details], len(pbs))
 	for i, pb := range pbs {
 		var err error
-		result[i], err = StatusFromPB(ctx, pb, translateDetails)
+		result[i], err = StatusFromPB(pb, translateDetails)
 		if err != nil {
 			return nil, err
 		}

@@ -29,7 +29,8 @@
 
 namespace x::status {
 
-inline ::x::status::pb::Variant VariantToPB(const std::string &cpp) {
+inline std::pair<::x::status::pb::Variant, x::errors::Error>
+variant_to_pb(const std::string &cpp) {
     static const std::unordered_map<std::string, ::x::status::pb::Variant> kMap = {
         {VARIANT_SUCCESS, ::x::status::pb::VARIANT_SUCCESS},
         {VARIANT_INFO, ::x::status::pb::VARIANT_INFO},
@@ -39,34 +40,42 @@ inline ::x::status::pb::Variant VariantToPB(const std::string &cpp) {
         {VARIANT_DISABLED, ::x::status::pb::VARIANT_DISABLED},
     };
     auto it = kMap.find(cpp);
-    return it != kMap.end() ? it->second : ::x::status::pb::VARIANT_SUCCESS;
+    if (it == kMap.end())
+        return {{}, x::errors::Error("unrecognized Variant value: " + cpp)};
+    return {it->second, x::errors::NIL};
 }
 
-inline std::string VariantFromPB(::x::status::pb::Variant pb) {
+inline std::pair<std::string, x::errors::Error>
+variant_from_pb(::x::status::pb::Variant pb) {
     switch (pb) {
         case ::x::status::pb::VARIANT_SUCCESS:
-            return VARIANT_SUCCESS;
+            return {VARIANT_SUCCESS, x::errors::NIL};
         case ::x::status::pb::VARIANT_INFO:
-            return VARIANT_INFO;
+            return {VARIANT_INFO, x::errors::NIL};
         case ::x::status::pb::VARIANT_WARNING:
-            return VARIANT_WARNING;
+            return {VARIANT_WARNING, x::errors::NIL};
         case ::x::status::pb::VARIANT_ERROR:
-            return VARIANT_ERROR;
+            return {VARIANT_ERROR, x::errors::NIL};
         case ::x::status::pb::VARIANT_LOADING:
-            return VARIANT_LOADING;
+            return {VARIANT_LOADING, x::errors::NIL};
         case ::x::status::pb::VARIANT_DISABLED:
-            return VARIANT_DISABLED;
+            return {VARIANT_DISABLED, x::errors::NIL};
         default:
-            return VARIANT_SUCCESS;
+            return {"", x::errors::Error("unrecognized Variant protobuf value")};
     }
 }
 
 template<typename Details>
-inline ::x::status::pb::Status Status<Details>::to_proto() const {
+inline std::pair<::x::status::pb::Status, x::errors::Error>
+Status<Details>::to_proto() const {
     ::x::status::pb::Status pb;
     pb.set_key(this->key);
     pb.set_name(this->name);
-    pb.set_variant(VariantToPB(this->variant));
+    {
+        auto [v, err] = variant_to_pb(this->variant);
+        if (err) return {{}, err};
+        pb.set_variant(v);
+    }
     pb.set_message(this->message);
     pb.set_description(this->description);
     pb.set_time(this->time.to_proto());
@@ -80,9 +89,12 @@ inline ::x::status::pb::Status Status<Details>::to_proto() const {
         else
             *pb.mutable_details() = x::json::to_any(this->details.to_json());
     }
-    for (const auto &item: this->labels)
-        *pb.add_labels() = item.to_proto();
-    return pb;
+    for (const auto &item: this->labels) {
+        auto [v, err] = item.to_proto();
+        if (err) return {{}, err};
+        *pb.add_labels() = v;
+    }
+    return {pb, x::errors::NIL};
 }
 
 template<typename Details>
@@ -91,7 +103,11 @@ Status<Details>::from_proto(const ::x::status::pb::Status &pb) {
     Status<Details> cpp;
     cpp.key = pb.key();
     cpp.name = pb.name();
-    cpp.variant = VariantFromPB(pb.variant());
+    {
+        auto [v, err] = variant_from_pb(pb.variant());
+        if (err) return {{}, err};
+        cpp.variant = v;
+    }
     cpp.message = pb.message();
     cpp.description = pb.description();
     cpp.time = ::x::telem::TimeStamp::from_proto(pb.time());

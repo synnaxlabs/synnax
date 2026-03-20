@@ -39,7 +39,7 @@ struct XY {
     [[nodiscard]] x::json::json to_json() const;
 
     using proto_type = ::x::spatial::pb::XY;
-    [[nodiscard]] ::x::spatial::pb::XY to_proto() const;
+    [[nodiscard]] std::pair<::x::spatial::pb::XY, x::errors::Error> to_proto() const;
     static std::pair<XY, x::errors::Error> from_proto(const ::x::spatial::pb::XY &pb);
 };
 }

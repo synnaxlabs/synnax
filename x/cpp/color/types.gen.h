@@ -38,7 +38,7 @@ struct Color {
     [[nodiscard]] x::json::json to_json() const;
 
     using proto_type = ::x::color::pb::Color;
-    [[nodiscard]] ::x::color::pb::Color to_proto() const;
+    [[nodiscard]] std::pair<::x::color::pb::Color, x::errors::Error> to_proto() const;
     static std::pair<Color, x::errors::Error>
     from_proto(const ::x::color::pb::Color &pb);
 };

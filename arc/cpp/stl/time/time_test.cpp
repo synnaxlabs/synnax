@@ -76,6 +76,48 @@ private:
     }
 };
 
+TEST(IntervalConfigTest, CreatesConfigFromValidParams) {
+    types::Param period_param;
+    period_param.name = "period";
+    period_param.type = types::Type{.kind = types::Kind::I64};
+    period_param.value = x::telem::SECOND.nanoseconds();
+    types::Params params;
+    params.push_back(period_param);
+    const auto cfg = ASSERT_NIL_P(IntervalConfig::create(params));
+    EXPECT_EQ(cfg.interval, x::telem::SECOND);
+}
+
+TEST(IntervalConfigTest, ReturnsErrorForNullPeriod) {
+    types::Param period_param;
+    period_param.name = "period";
+    period_param.type = types::Type{.kind = types::Kind::I64};
+    period_param.value = nullptr;
+    types::Params params;
+    params.push_back(period_param);
+    ASSERT_OCCURRED_AS_P(IntervalConfig::create(params), x::errors::VALIDATION);
+}
+
+TEST(WaitConfigTest, CreatesConfigFromValidParams) {
+    types::Param duration_param;
+    duration_param.name = "duration";
+    duration_param.type = types::Type{.kind = types::Kind::I64};
+    duration_param.value = x::telem::SECOND.nanoseconds();
+    types::Params params;
+    params.push_back(duration_param);
+    const auto cfg = ASSERT_NIL_P(WaitConfig::create(params));
+    EXPECT_EQ(cfg.duration, x::telem::SECOND);
+}
+
+TEST(WaitConfigTest, ReturnsErrorForNullDuration) {
+    types::Param duration_param;
+    duration_param.name = "duration";
+    duration_param.type = types::Type{.kind = types::Kind::I64};
+    duration_param.value = nullptr;
+    types::Params params;
+    params.push_back(duration_param);
+    ASSERT_OCCURRED_AS_P(WaitConfig::create(params), x::errors::VALIDATION);
+}
+
 /// @brief Test that module returns NOT_FOUND for non-time node types.
 TEST(TimeModuleTest, ReturnsNotFoundForWrongType) {
     TestSetup setup("interval", "period", x::telem::SECOND.nanoseconds());

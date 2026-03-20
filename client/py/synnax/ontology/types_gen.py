@@ -11,6 +11,80 @@
 
 from __future__ import annotations
 
-from typing import TypeAlias
+from typing import Literal
 
-Type: TypeAlias = str
+RESOURCE_TYPE_ARC: Literal["arc"] = "arc"
+
+RESOURCE_TYPE_BUILTIN: Literal["builtin"] = "builtin"
+
+RESOURCE_TYPE_CHANNEL: Literal["channel"] = "channel"
+
+RESOURCE_TYPE_CLUSTER: Literal["cluster"] = "cluster"
+
+RESOURCE_TYPE_DEVICE: Literal["device"] = "device"
+
+RESOURCE_TYPE_FRAMER: Literal["framer"] = "framer"
+
+RESOURCE_TYPE_GROUP: Literal["group"] = "group"
+
+RESOURCE_TYPE_LABEL: Literal["label"] = "label"
+
+RESOURCE_TYPE_LINEPLOT: Literal["lineplot"] = "lineplot"
+
+RESOURCE_TYPE_LOG: Literal["log"] = "log"
+
+RESOURCE_TYPE_NODE: Literal["node"] = "node"
+
+RESOURCE_TYPE_POLICY: Literal["policy"] = "policy"
+
+RESOURCE_TYPE_RACK: Literal["rack"] = "rack"
+
+RESOURCE_TYPE_RANGE: Literal["range"] = "range"
+
+RESOURCE_TYPE_RANGE_ALIAS: Literal["range-alias"] = "range-alias"
+
+RESOURCE_TYPE_ROLE: Literal["role"] = "role"
+
+RESOURCE_TYPE_SCHEMATIC: Literal["schematic"] = "schematic"
+
+RESOURCE_TYPE_SCHEMATIC_SYMBOL: Literal["schematic_symbol"] = "schematic_symbol"
+
+RESOURCE_TYPE_STATUS: Literal["status"] = "status"
+
+RESOURCE_TYPE_TABLE: Literal["table"] = "table"
+
+RESOURCE_TYPE_TASK: Literal["task"] = "task"
+
+RESOURCE_TYPE_USER: Literal["user"] = "user"
+
+RESOURCE_TYPE_VIEW: Literal["view"] = "view"
+
+RESOURCE_TYPE_WORKSPACE: Literal["workspace"] = "workspace"
+
+
+ResourceType = Literal[
+    "arc",
+    "builtin",
+    "channel",
+    "cluster",
+    "device",
+    "framer",
+    "group",
+    "label",
+    "lineplot",
+    "log",
+    "node",
+    "policy",
+    "rack",
+    "range",
+    "range-alias",
+    "role",
+    "schematic",
+    "schematic_symbol",
+    "status",
+    "table",
+    "task",
+    "user",
+    "view",
+    "workspace",
+]

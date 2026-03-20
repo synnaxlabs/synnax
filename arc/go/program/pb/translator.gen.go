@@ -12,31 +12,30 @@
 package pb
 
 import (
-	"context"
 	"github.com/samber/lo"
 	irpb "github.com/synnaxlabs/arc/ir/pb"
 	"github.com/synnaxlabs/arc/program"
 )
 
 // ProgramToPB converts Program to Program.
-func ProgramToPB(ctx context.Context, r program.Program) (*Program, error) {
-	functionsVal, err := irpb.FunctionsToPB(ctx, r.Functions)
+func ProgramToPB(r program.Program) (*Program, error) {
+	functionsVal, err := irpb.FunctionsToPB(r.Functions)
 	if err != nil {
 		return nil, err
 	}
-	nodesVal, err := irpb.NodesToPB(ctx, r.Nodes)
+	nodesVal, err := irpb.NodesToPB(r.Nodes)
 	if err != nil {
 		return nil, err
 	}
-	edgesVal, err := irpb.EdgesToPB(ctx, r.Edges)
+	edgesVal, err := irpb.EdgesToPB(r.Edges)
 	if err != nil {
 		return nil, err
 	}
-	sequencesVal, err := irpb.SequencesToPB(ctx, r.Sequences)
+	sequencesVal, err := irpb.SequencesToPB(r.Sequences)
 	if err != nil {
 		return nil, err
 	}
-	authoritiesVal, err := irpb.AuthoritiesToPB(ctx, r.Authorities)
+	authoritiesVal, err := irpb.AuthoritiesToPB(r.Authorities)
 	if err != nil {
 		return nil, err
 	}
@@ -54,29 +53,29 @@ func ProgramToPB(ctx context.Context, r program.Program) (*Program, error) {
 }
 
 // ProgramFromPB converts Program to Program.
-func ProgramFromPB(ctx context.Context, pb *Program) (program.Program, error) {
+func ProgramFromPB(pb *Program) (program.Program, error) {
 	var r program.Program
 	if pb == nil {
 		return r, nil
 	}
 	var err error
-	r.Functions, err = irpb.FunctionsFromPB(ctx, pb.Functions)
+	r.Functions, err = irpb.FunctionsFromPB(pb.Functions)
 	if err != nil {
 		return program.Program{}, err
 	}
-	r.Nodes, err = irpb.NodesFromPB(ctx, pb.Nodes)
+	r.Nodes, err = irpb.NodesFromPB(pb.Nodes)
 	if err != nil {
 		return program.Program{}, err
 	}
-	r.Edges, err = irpb.EdgesFromPB(ctx, pb.Edges)
+	r.Edges, err = irpb.EdgesFromPB(pb.Edges)
 	if err != nil {
 		return program.Program{}, err
 	}
-	r.Sequences, err = irpb.SequencesFromPB(ctx, pb.Sequences)
+	r.Sequences, err = irpb.SequencesFromPB(pb.Sequences)
 	if err != nil {
 		return program.Program{}, err
 	}
-	r.Authorities, err = irpb.AuthoritiesFromPB(ctx, pb.Authorities)
+	r.Authorities, err = irpb.AuthoritiesFromPB(pb.Authorities)
 	if err != nil {
 		return program.Program{}, err
 	}
@@ -87,11 +86,11 @@ func ProgramFromPB(ctx context.Context, pb *Program) (program.Program, error) {
 }
 
 // ProgramsToPB converts a slice of Program to Program.
-func ProgramsToPB(ctx context.Context, rs []program.Program) ([]*Program, error) {
+func ProgramsToPB(rs []program.Program) ([]*Program, error) {
 	result := make([]*Program, len(rs))
 	for i := range rs {
 		var err error
-		result[i], err = ProgramToPB(ctx, rs[i])
+		result[i], err = ProgramToPB(rs[i])
 		if err != nil {
 			return nil, err
 		}
@@ -100,11 +99,11 @@ func ProgramsToPB(ctx context.Context, rs []program.Program) ([]*Program, error)
 }
 
 // ProgramsFromPB converts a slice of Program to Program.
-func ProgramsFromPB(ctx context.Context, pbs []*Program) ([]program.Program, error) {
+func ProgramsFromPB(pbs []*Program) ([]program.Program, error) {
 	result := make([]program.Program, len(pbs))
 	for i, pb := range pbs {
 		var err error
-		result[i], err = ProgramFromPB(ctx, pb)
+		result[i], err = ProgramFromPB(pb)
 		if err != nil {
 			return nil, err
 		}

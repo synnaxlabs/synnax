@@ -57,12 +57,12 @@ var (
 	_ grpc.Translator[apikv.DeleteRequest, *DeleteRequest] = (*deleteRequestTranslator)(nil)
 )
 
-func translatePairsForward(ctx context.Context, p []svckv.Pair) ([]*kvpb.Pair, error) {
-	return kvpb.PairsToPB(ctx, p)
+func translatePairsForward(p []svckv.Pair) ([]*kvpb.Pair, error) {
+	return kvpb.PairsToPB(p)
 }
 
-func translatePairsBackward(ctx context.Context, p []*kvpb.Pair) ([]svckv.Pair, error) {
-	return kvpb.PairsFromPB(ctx, p)
+func translatePairsBackward(p []*kvpb.Pair) ([]svckv.Pair, error) {
+	return kvpb.PairsFromPB(p)
 }
 
 func (t getRequestTranslator) Forward(
@@ -87,10 +87,10 @@ func (t getRequestTranslator) Backward(
 }
 
 func (t getResponseTranslator) Forward(
-	ctx context.Context,
+	_ context.Context,
 	r apikv.GetResponse,
 ) (*GetResponse, error) {
-	pairs, err := translatePairsForward(ctx, r.Pairs)
+	pairs, err := translatePairsForward(r.Pairs)
 	if err != nil {
 		return nil, err
 	}
@@ -98,10 +98,10 @@ func (t getResponseTranslator) Forward(
 }
 
 func (t getResponseTranslator) Backward(
-	ctx context.Context,
+	_ context.Context,
 	r *GetResponse,
 ) (apikv.GetResponse, error) {
-	pairs, err := translatePairsBackward(ctx, r.Pairs)
+	pairs, err := translatePairsBackward(r.Pairs)
 	if err != nil {
 		return apikv.GetResponse{}, err
 	}
@@ -109,10 +109,10 @@ func (t getResponseTranslator) Backward(
 }
 
 func (t setRequestTranslator) Forward(
-	ctx context.Context,
+	_ context.Context,
 	r apikv.SetRequest,
 ) (*SetRequest, error) {
-	pairs, err := translatePairsForward(ctx, r.Pairs)
+	pairs, err := translatePairsForward(r.Pairs)
 	if err != nil {
 		return nil, err
 	}
@@ -120,10 +120,10 @@ func (t setRequestTranslator) Forward(
 }
 
 func (t setRequestTranslator) Backward(
-	ctx context.Context,
+	_ context.Context,
 	r *SetRequest,
 ) (apikv.SetRequest, error) {
-	pairs, err := translatePairsBackward(ctx, r.Pairs)
+	pairs, err := translatePairsBackward(r.Pairs)
 	if err != nil {
 		return apikv.SetRequest{}, err
 	}
