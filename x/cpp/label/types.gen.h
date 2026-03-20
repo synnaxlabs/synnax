@@ -43,7 +43,7 @@ struct Label {
     [[nodiscard]] x::json::json to_json() const;
 
     using proto_type = ::x::label::pb::Label;
-    [[nodiscard]] ::x::label::pb::Label to_proto() const;
+    [[nodiscard]] std::pair<::x::label::pb::Label, x::errors::Error> to_proto() const;
     static std::pair<Label, x::errors::Error>
     from_proto(const ::x::label::pb::Label &pb);
 };

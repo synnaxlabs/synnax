@@ -62,7 +62,9 @@ public:
     template<typename Details = x::json::json>
     [[nodiscard]] x::errors::Error set(x::status::Status<Details> &status) const {
         grpc::status::SetRequest req;
-        *req.add_statuses() = status.to_proto();
+        auto [pb, pb_err] = status.to_proto();
+        if (pb_err) return pb_err;
+        *req.add_statuses() = pb;
         auto [res, err] = this->set_client->send("/status/set", req);
         if (err) return err;
         if (res.statuses_size() == 0) return errors::unexpected_missing_error("status");
@@ -86,8 +88,11 @@ public:
     set(std::vector<x::status::Status<Details>> &statuses) const {
         grpc::status::SetRequest req;
         req.mutable_statuses()->Reserve(static_cast<int>(statuses.size()));
-        for (const auto &s: statuses)
-            *req.add_statuses() = s.to_proto();
+        for (const auto &s: statuses) {
+            auto [pb, pb_err] = s.to_proto();
+            if (pb_err) return pb_err;
+            *req.add_statuses() = pb;
+        }
         auto [res, err] = this->set_client->send("/status/set", req);
         if (err) return err;
         for (int i = 0; i < res.statuses_size(); i++) {

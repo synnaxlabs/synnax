@@ -27,8 +27,8 @@
 
 namespace synnax::channel {
 
-inline ::distribution::channel::pb::OperationType
-OperationTypeToPB(const std::string &cpp) {
+inline std::pair<::distribution::channel::pb::OperationType, x::errors::Error>
+operation_type_to_pb(const std::string &cpp) {
     static const std::
         unordered_map<std::string, ::distribution::channel::pb::OperationType>
             kMap = {
@@ -38,43 +38,55 @@ OperationTypeToPB(const std::string &cpp) {
                 {OPERATION_TYPE_NONE, ::distribution::channel::pb::OPERATION_TYPE_NONE},
             };
     auto it = kMap.find(cpp);
-    return it != kMap.end() ? it->second
-                            : ::distribution::channel::pb::OPERATION_TYPE_MIN;
+    if (it == kMap.end())
+        return {{}, x::errors::Error("unrecognized OperationType value: " + cpp)};
+    return {it->second, x::errors::NIL};
 }
 
-inline std::string OperationTypeFromPB(::distribution::channel::pb::OperationType pb) {
+inline std::pair<std::string, x::errors::Error>
+operation_type_from_pb(::distribution::channel::pb::OperationType pb) {
     switch (pb) {
         case ::distribution::channel::pb::OPERATION_TYPE_MIN:
-            return OPERATION_TYPE_MIN;
+            return {OPERATION_TYPE_MIN, x::errors::NIL};
         case ::distribution::channel::pb::OPERATION_TYPE_MAX:
-            return OPERATION_TYPE_MAX;
+            return {OPERATION_TYPE_MAX, x::errors::NIL};
         case ::distribution::channel::pb::OPERATION_TYPE_AVG:
-            return OPERATION_TYPE_AVG;
+            return {OPERATION_TYPE_AVG, x::errors::NIL};
         case ::distribution::channel::pb::OPERATION_TYPE_NONE:
-            return OPERATION_TYPE_NONE;
+            return {OPERATION_TYPE_NONE, x::errors::NIL};
         default:
-            return OPERATION_TYPE_MIN;
+            return {"", x::errors::Error("unrecognized OperationType protobuf value")};
     }
 }
 
-inline ::distribution::channel::pb::Operation Operation::to_proto() const {
+inline std::pair<::distribution::channel::pb::Operation, x::errors::Error>
+Operation::to_proto() const {
     ::distribution::channel::pb::Operation pb;
-    pb.set_type(OperationTypeToPB(this->type));
+    {
+        auto [v, err] = operation_type_to_pb(this->type);
+        if (err) return {{}, err};
+        pb.set_type(v);
+    }
     pb.set_reset_channel(static_cast<uint32_t>(this->reset_channel));
     pb.set_duration(this->duration.to_proto());
-    return pb;
+    return {pb, x::errors::NIL};
 }
 
 inline std::pair<Operation, x::errors::Error>
 Operation::from_proto(const ::distribution::channel::pb::Operation &pb) {
     Operation cpp;
-    cpp.type = OperationTypeFromPB(pb.type());
+    {
+        auto [v, err] = operation_type_from_pb(pb.type());
+        if (err) return {{}, err};
+        cpp.type = v;
+    }
     cpp.reset_channel = Key(pb.reset_channel());
     cpp.duration = ::x::telem::TimeSpan::from_proto(pb.duration());
     return {cpp, x::errors::NIL};
 }
 
-inline ::api::channel::pb::Channel Channel::to_proto() const {
+inline std::pair<::api::channel::pb::Channel, x::errors::Error>
+Channel::to_proto() const {
     ::api::channel::pb::Channel pb;
     pb.set_key(static_cast<uint32_t>(this->key));
     pb.set_name(this->name);
@@ -86,11 +98,18 @@ inline ::api::channel::pb::Channel Channel::to_proto() const {
     pb.set_virtual_(this->is_virtual);
     pb.set_internal(this->internal);
     pb.set_expression(this->expression);
-    for (const auto &item: this->operations)
-        *pb.add_operations() = item.to_proto();
+    for (const auto &item: this->operations) {
+        auto [v, err] = item.to_proto();
+        if (err) return {{}, err};
+        *pb.add_operations() = v;
+    }
     pb.set_concurrency(static_cast<::x::control::pb::Concurrency>(this->concurrency));
-    if (this->status.has_value()) *pb.mutable_status() = this->status->to_proto();
-    return pb;
+    if (this->status.has_value()) {
+        auto [v, err] = this->status->to_proto();
+        if (err) return {{}, err};
+        *pb.mutable_status() = v;
+    }
+    return {pb, x::errors::NIL};
 }
 
 inline std::pair<Channel, x::errors::Error>

@@ -12,14 +12,14 @@
 package pb
 
 import (
-	"context"
 	"github.com/samber/lo"
 	"github.com/synnaxlabs/arc/ir"
 	typespb "github.com/synnaxlabs/arc/types/pb"
+	"github.com/synnaxlabs/x/errors"
 )
 
 // HandleToPB converts Handle to Handle.
-func HandleToPB(_ context.Context, r ir.Handle) (*Handle, error) {
+func HandleToPB(r ir.Handle) (*Handle, error) {
 	pb := &Handle{
 		Node:  r.Node,
 		Param: r.Param,
@@ -28,7 +28,7 @@ func HandleToPB(_ context.Context, r ir.Handle) (*Handle, error) {
 }
 
 // HandleFromPB converts Handle to Handle.
-func HandleFromPB(_ context.Context, pb *Handle) (ir.Handle, error) {
+func HandleFromPB(pb *Handle) (ir.Handle, error) {
 	var r ir.Handle
 	if pb == nil {
 		return r, nil
@@ -39,11 +39,11 @@ func HandleFromPB(_ context.Context, pb *Handle) (ir.Handle, error) {
 }
 
 // HandlesToPB converts a slice of Handle to Handle.
-func HandlesToPB(ctx context.Context, rs []ir.Handle) ([]*Handle, error) {
+func HandlesToPB(rs []ir.Handle) ([]*Handle, error) {
 	result := make([]*Handle, len(rs))
 	for i := range rs {
 		var err error
-		result[i], err = HandleToPB(ctx, rs[i])
+		result[i], err = HandleToPB(rs[i])
 		if err != nil {
 			return nil, err
 		}
@@ -52,11 +52,11 @@ func HandlesToPB(ctx context.Context, rs []ir.Handle) ([]*Handle, error) {
 }
 
 // HandlesFromPB converts a slice of Handle to Handle.
-func HandlesFromPB(ctx context.Context, pbs []*Handle) ([]ir.Handle, error) {
+func HandlesFromPB(pbs []*Handle) ([]ir.Handle, error) {
 	result := make([]ir.Handle, len(pbs))
 	for i, pb := range pbs {
 		var err error
-		result[i], err = HandleFromPB(ctx, pb)
+		result[i], err = HandleFromPB(pb)
 		if err != nil {
 			return nil, err
 		}
@@ -65,48 +65,55 @@ func HandlesFromPB(ctx context.Context, pbs []*Handle) ([]ir.Handle, error) {
 }
 
 // EdgeToPB converts Edge to Edge.
-func EdgeToPB(ctx context.Context, r ir.Edge) (*Edge, error) {
-	sourceVal, err := HandleToPB(ctx, r.Source)
+func EdgeToPB(r ir.Edge) (*Edge, error) {
+	sourceVal, err := HandleToPB(r.Source)
 	if err != nil {
 		return nil, err
 	}
-	targetVal, err := HandleToPB(ctx, r.Target)
+	targetVal, err := HandleToPB(r.Target)
+	if err != nil {
+		return nil, err
+	}
+	kindVal, err := EdgeKindToPB(r.Kind)
 	if err != nil {
 		return nil, err
 	}
 	pb := &Edge{
-		Kind:   EdgeKindToPB(r.Kind),
 		Source: sourceVal,
 		Target: targetVal,
+		Kind:   kindVal,
 	}
 	return pb, nil
 }
 
 // EdgeFromPB converts Edge to Edge.
-func EdgeFromPB(ctx context.Context, pb *Edge) (ir.Edge, error) {
+func EdgeFromPB(pb *Edge) (ir.Edge, error) {
 	var r ir.Edge
 	if pb == nil {
 		return r, nil
 	}
 	var err error
-	r.Source, err = HandleFromPB(ctx, pb.Source)
+	r.Source, err = HandleFromPB(pb.Source)
 	if err != nil {
 		return ir.Edge{}, err
 	}
-	r.Target, err = HandleFromPB(ctx, pb.Target)
+	r.Target, err = HandleFromPB(pb.Target)
 	if err != nil {
 		return ir.Edge{}, err
 	}
-	r.Kind = EdgeKindFromPB(pb.Kind)
+	r.Kind, err = EdgeKindFromPB(pb.Kind)
+	if err != nil {
+		return ir.Edge{}, err
+	}
 	return r, nil
 }
 
 // EdgesToPB converts a slice of Edge to Edge.
-func EdgesToPB(ctx context.Context, rs []ir.Edge) ([]*Edge, error) {
+func EdgesToPB(rs []ir.Edge) ([]*Edge, error) {
 	result := make([]*Edge, len(rs))
 	for i := range rs {
 		var err error
-		result[i], err = EdgeToPB(ctx, rs[i])
+		result[i], err = EdgeToPB(rs[i])
 		if err != nil {
 			return nil, err
 		}
@@ -115,11 +122,11 @@ func EdgesToPB(ctx context.Context, rs []ir.Edge) ([]*Edge, error) {
 }
 
 // EdgesFromPB converts a slice of Edge to Edge.
-func EdgesFromPB(ctx context.Context, pbs []*Edge) ([]ir.Edge, error) {
+func EdgesFromPB(pbs []*Edge) ([]ir.Edge, error) {
 	result := make([]ir.Edge, len(pbs))
 	for i, pb := range pbs {
 		var err error
-		result[i], err = EdgeFromPB(ctx, pb)
+		result[i], err = EdgeFromPB(pb)
 		if err != nil {
 			return nil, err
 		}
@@ -128,7 +135,7 @@ func EdgesFromPB(ctx context.Context, pbs []*Edge) ([]ir.Edge, error) {
 }
 
 // StageToPB converts Stage to Stage.
-func StageToPB(_ context.Context, r ir.Stage) (*Stage, error) {
+func StageToPB(r ir.Stage) (*Stage, error) {
 	pb := &Stage{
 		Key:    r.Key,
 		Nodes:  r.Nodes,
@@ -138,7 +145,7 @@ func StageToPB(_ context.Context, r ir.Stage) (*Stage, error) {
 }
 
 // StageFromPB converts Stage to Stage.
-func StageFromPB(_ context.Context, pb *Stage) (ir.Stage, error) {
+func StageFromPB(pb *Stage) (ir.Stage, error) {
 	var r ir.Stage
 	if pb == nil {
 		return r, nil
@@ -150,11 +157,11 @@ func StageFromPB(_ context.Context, pb *Stage) (ir.Stage, error) {
 }
 
 // StagesToPB converts a slice of Stage to Stage.
-func StagesToPB(ctx context.Context, rs []ir.Stage) ([]*Stage, error) {
+func StagesToPB(rs []ir.Stage) ([]*Stage, error) {
 	result := make([]*Stage, len(rs))
 	for i := range rs {
 		var err error
-		result[i], err = StageToPB(ctx, rs[i])
+		result[i], err = StageToPB(rs[i])
 		if err != nil {
 			return nil, err
 		}
@@ -163,11 +170,11 @@ func StagesToPB(ctx context.Context, rs []ir.Stage) ([]*Stage, error) {
 }
 
 // StagesFromPB converts a slice of Stage to Stage.
-func StagesFromPB(ctx context.Context, pbs []*Stage) ([]ir.Stage, error) {
+func StagesFromPB(pbs []*Stage) ([]ir.Stage, error) {
 	result := make([]ir.Stage, len(pbs))
 	for i, pb := range pbs {
 		var err error
-		result[i], err = StageFromPB(ctx, pb)
+		result[i], err = StageFromPB(pb)
 		if err != nil {
 			return nil, err
 		}
@@ -176,8 +183,8 @@ func StagesFromPB(ctx context.Context, pbs []*Stage) ([]ir.Stage, error) {
 }
 
 // SequenceToPB converts Sequence to Sequence.
-func SequenceToPB(ctx context.Context, r ir.Sequence) (*Sequence, error) {
-	stagesVal, err := StagesToPB(ctx, r.Stages)
+func SequenceToPB(r ir.Sequence) (*Sequence, error) {
+	stagesVal, err := StagesToPB(r.Stages)
 	if err != nil {
 		return nil, err
 	}
@@ -189,13 +196,13 @@ func SequenceToPB(ctx context.Context, r ir.Sequence) (*Sequence, error) {
 }
 
 // SequenceFromPB converts Sequence to Sequence.
-func SequenceFromPB(ctx context.Context, pb *Sequence) (ir.Sequence, error) {
+func SequenceFromPB(pb *Sequence) (ir.Sequence, error) {
 	var r ir.Sequence
 	if pb == nil {
 		return r, nil
 	}
 	var err error
-	r.Stages, err = StagesFromPB(ctx, pb.Stages)
+	r.Stages, err = StagesFromPB(pb.Stages)
 	if err != nil {
 		return ir.Sequence{}, err
 	}
@@ -204,11 +211,11 @@ func SequenceFromPB(ctx context.Context, pb *Sequence) (ir.Sequence, error) {
 }
 
 // SequencesToPB converts a slice of Sequence to Sequence.
-func SequencesToPB(ctx context.Context, rs []ir.Sequence) ([]*Sequence, error) {
+func SequencesToPB(rs []ir.Sequence) ([]*Sequence, error) {
 	result := make([]*Sequence, len(rs))
 	for i := range rs {
 		var err error
-		result[i], err = SequenceToPB(ctx, rs[i])
+		result[i], err = SequenceToPB(rs[i])
 		if err != nil {
 			return nil, err
 		}
@@ -217,11 +224,11 @@ func SequencesToPB(ctx context.Context, rs []ir.Sequence) ([]*Sequence, error) {
 }
 
 // SequencesFromPB converts a slice of Sequence to Sequence.
-func SequencesFromPB(ctx context.Context, pbs []*Sequence) ([]ir.Sequence, error) {
+func SequencesFromPB(pbs []*Sequence) ([]ir.Sequence, error) {
 	result := make([]ir.Sequence, len(pbs))
 	for i, pb := range pbs {
 		var err error
-		result[i], err = SequenceFromPB(ctx, pb)
+		result[i], err = SequenceFromPB(pb)
 		if err != nil {
 			return nil, err
 		}
@@ -230,7 +237,7 @@ func SequencesFromPB(ctx context.Context, pbs []*Sequence) ([]ir.Sequence, error
 }
 
 // BodyToPB converts Body to Body.
-func BodyToPB(_ context.Context, r ir.Body) (*Body, error) {
+func BodyToPB(r ir.Body) (*Body, error) {
 	pb := &Body{
 		Raw: r.Raw,
 	}
@@ -238,7 +245,7 @@ func BodyToPB(_ context.Context, r ir.Body) (*Body, error) {
 }
 
 // BodyFromPB converts Body to Body.
-func BodyFromPB(_ context.Context, pb *Body) (ir.Body, error) {
+func BodyFromPB(pb *Body) (ir.Body, error) {
 	var r ir.Body
 	if pb == nil {
 		return r, nil
@@ -247,12 +254,12 @@ func BodyFromPB(_ context.Context, pb *Body) (ir.Body, error) {
 	return r, nil
 }
 
-// BodysToPB converts a slice of Body to Body.
-func BodysToPB(ctx context.Context, rs []ir.Body) ([]*Body, error) {
+// BodiesToPB converts a slice of Body to Body.
+func BodiesToPB(rs []ir.Body) ([]*Body, error) {
 	result := make([]*Body, len(rs))
 	for i := range rs {
 		var err error
-		result[i], err = BodyToPB(ctx, rs[i])
+		result[i], err = BodyToPB(rs[i])
 		if err != nil {
 			return nil, err
 		}
@@ -260,12 +267,12 @@ func BodysToPB(ctx context.Context, rs []ir.Body) ([]*Body, error) {
 	return result, nil
 }
 
-// BodysFromPB converts a slice of Body to Body.
-func BodysFromPB(ctx context.Context, pbs []*Body) ([]ir.Body, error) {
+// BodiesFromPB converts a slice of Body to Body.
+func BodiesFromPB(pbs []*Body) ([]ir.Body, error) {
 	result := make([]ir.Body, len(pbs))
 	for i, pb := range pbs {
 		var err error
-		result[i], err = BodyFromPB(ctx, pb)
+		result[i], err = BodyFromPB(pb)
 		if err != nil {
 			return nil, err
 		}
@@ -274,24 +281,24 @@ func BodysFromPB(ctx context.Context, pbs []*Body) ([]ir.Body, error) {
 }
 
 // FunctionToPB converts Function to Function.
-func FunctionToPB(ctx context.Context, r ir.Function) (*Function, error) {
-	bodyVal, err := BodyToPB(ctx, r.Body)
+func FunctionToPB(r ir.Function) (*Function, error) {
+	bodyVal, err := BodyToPB(r.Body)
 	if err != nil {
 		return nil, err
 	}
-	configVal, err := typespb.ParamsToPB(ctx, r.Config)
+	configVal, err := typespb.ParamsToPB(r.Config)
 	if err != nil {
 		return nil, err
 	}
-	inputsVal, err := typespb.ParamsToPB(ctx, r.Inputs)
+	inputsVal, err := typespb.ParamsToPB(r.Inputs)
 	if err != nil {
 		return nil, err
 	}
-	outputsVal, err := typespb.ParamsToPB(ctx, r.Outputs)
+	outputsVal, err := typespb.ParamsToPB(r.Outputs)
 	if err != nil {
 		return nil, err
 	}
-	channelsVal, err := typespb.ChannelsToPB(ctx, r.Channels)
+	channelsVal, err := typespb.ChannelsToPB(r.Channels)
 	if err != nil {
 		return nil, err
 	}
@@ -307,29 +314,29 @@ func FunctionToPB(ctx context.Context, r ir.Function) (*Function, error) {
 }
 
 // FunctionFromPB converts Function to Function.
-func FunctionFromPB(ctx context.Context, pb *Function) (ir.Function, error) {
+func FunctionFromPB(pb *Function) (ir.Function, error) {
 	var r ir.Function
 	if pb == nil {
 		return r, nil
 	}
 	var err error
-	r.Body, err = BodyFromPB(ctx, pb.Body)
+	r.Body, err = BodyFromPB(pb.Body)
 	if err != nil {
 		return ir.Function{}, err
 	}
-	r.Config, err = typespb.ParamsFromPB(ctx, pb.Config)
+	r.Config, err = typespb.ParamsFromPB(pb.Config)
 	if err != nil {
 		return ir.Function{}, err
 	}
-	r.Inputs, err = typespb.ParamsFromPB(ctx, pb.Inputs)
+	r.Inputs, err = typespb.ParamsFromPB(pb.Inputs)
 	if err != nil {
 		return ir.Function{}, err
 	}
-	r.Outputs, err = typespb.ParamsFromPB(ctx, pb.Outputs)
+	r.Outputs, err = typespb.ParamsFromPB(pb.Outputs)
 	if err != nil {
 		return ir.Function{}, err
 	}
-	r.Channels, err = typespb.ChannelsFromPB(ctx, pb.Channels)
+	r.Channels, err = typespb.ChannelsFromPB(pb.Channels)
 	if err != nil {
 		return ir.Function{}, err
 	}
@@ -338,11 +345,11 @@ func FunctionFromPB(ctx context.Context, pb *Function) (ir.Function, error) {
 }
 
 // FunctionsToPB converts a slice of Function to Function.
-func FunctionsToPB(ctx context.Context, rs []ir.Function) ([]*Function, error) {
+func FunctionsToPB(rs []ir.Function) ([]*Function, error) {
 	result := make([]*Function, len(rs))
 	for i := range rs {
 		var err error
-		result[i], err = FunctionToPB(ctx, rs[i])
+		result[i], err = FunctionToPB(rs[i])
 		if err != nil {
 			return nil, err
 		}
@@ -351,11 +358,11 @@ func FunctionsToPB(ctx context.Context, rs []ir.Function) ([]*Function, error) {
 }
 
 // FunctionsFromPB converts a slice of Function to Function.
-func FunctionsFromPB(ctx context.Context, pbs []*Function) ([]ir.Function, error) {
+func FunctionsFromPB(pbs []*Function) ([]ir.Function, error) {
 	result := make([]ir.Function, len(pbs))
 	for i, pb := range pbs {
 		var err error
-		result[i], err = FunctionFromPB(ctx, pb)
+		result[i], err = FunctionFromPB(pb)
 		if err != nil {
 			return nil, err
 		}
@@ -364,20 +371,20 @@ func FunctionsFromPB(ctx context.Context, pbs []*Function) ([]ir.Function, error
 }
 
 // NodeToPB converts Node to Node.
-func NodeToPB(ctx context.Context, r ir.Node) (*Node, error) {
-	configVal, err := typespb.ParamsToPB(ctx, r.Config)
+func NodeToPB(r ir.Node) (*Node, error) {
+	configVal, err := typespb.ParamsToPB(r.Config)
 	if err != nil {
 		return nil, err
 	}
-	inputsVal, err := typespb.ParamsToPB(ctx, r.Inputs)
+	inputsVal, err := typespb.ParamsToPB(r.Inputs)
 	if err != nil {
 		return nil, err
 	}
-	outputsVal, err := typespb.ParamsToPB(ctx, r.Outputs)
+	outputsVal, err := typespb.ParamsToPB(r.Outputs)
 	if err != nil {
 		return nil, err
 	}
-	channelsVal, err := typespb.ChannelsToPB(ctx, r.Channels)
+	channelsVal, err := typespb.ChannelsToPB(r.Channels)
 	if err != nil {
 		return nil, err
 	}
@@ -393,25 +400,25 @@ func NodeToPB(ctx context.Context, r ir.Node) (*Node, error) {
 }
 
 // NodeFromPB converts Node to Node.
-func NodeFromPB(ctx context.Context, pb *Node) (ir.Node, error) {
+func NodeFromPB(pb *Node) (ir.Node, error) {
 	var r ir.Node
 	if pb == nil {
 		return r, nil
 	}
 	var err error
-	r.Config, err = typespb.ParamsFromPB(ctx, pb.Config)
+	r.Config, err = typespb.ParamsFromPB(pb.Config)
 	if err != nil {
 		return ir.Node{}, err
 	}
-	r.Inputs, err = typespb.ParamsFromPB(ctx, pb.Inputs)
+	r.Inputs, err = typespb.ParamsFromPB(pb.Inputs)
 	if err != nil {
 		return ir.Node{}, err
 	}
-	r.Outputs, err = typespb.ParamsFromPB(ctx, pb.Outputs)
+	r.Outputs, err = typespb.ParamsFromPB(pb.Outputs)
 	if err != nil {
 		return ir.Node{}, err
 	}
-	r.Channels, err = typespb.ChannelsFromPB(ctx, pb.Channels)
+	r.Channels, err = typespb.ChannelsFromPB(pb.Channels)
 	if err != nil {
 		return ir.Node{}, err
 	}
@@ -421,11 +428,11 @@ func NodeFromPB(ctx context.Context, pb *Node) (ir.Node, error) {
 }
 
 // NodesToPB converts a slice of Node to Node.
-func NodesToPB(ctx context.Context, rs []ir.Node) ([]*Node, error) {
+func NodesToPB(rs []ir.Node) ([]*Node, error) {
 	result := make([]*Node, len(rs))
 	for i := range rs {
 		var err error
-		result[i], err = NodeToPB(ctx, rs[i])
+		result[i], err = NodeToPB(rs[i])
 		if err != nil {
 			return nil, err
 		}
@@ -434,11 +441,11 @@ func NodesToPB(ctx context.Context, rs []ir.Node) ([]*Node, error) {
 }
 
 // NodesFromPB converts a slice of Node to Node.
-func NodesFromPB(ctx context.Context, pbs []*Node) ([]ir.Node, error) {
+func NodesFromPB(pbs []*Node) ([]ir.Node, error) {
 	result := make([]ir.Node, len(pbs))
 	for i, pb := range pbs {
 		var err error
-		result[i], err = NodeFromPB(ctx, pb)
+		result[i], err = NodeFromPB(pb)
 		if err != nil {
 			return nil, err
 		}
@@ -447,7 +454,7 @@ func NodesFromPB(ctx context.Context, pbs []*Node) ([]ir.Node, error) {
 }
 
 // AuthoritiesToPB converts Authorities to Authorities.
-func AuthoritiesToPB(_ context.Context, r ir.Authorities) (*Authorities, error) {
+func AuthoritiesToPB(r ir.Authorities) (*Authorities, error) {
 	pb := &Authorities{}
 	if r.Default != nil {
 		v := uint32(*r.Default)
@@ -463,7 +470,7 @@ func AuthoritiesToPB(_ context.Context, r ir.Authorities) (*Authorities, error) 
 }
 
 // AuthoritiesFromPB converts Authorities to Authorities.
-func AuthoritiesFromPB(_ context.Context, pb *Authorities) (ir.Authorities, error) {
+func AuthoritiesFromPB(pb *Authorities) (ir.Authorities, error) {
 	var r ir.Authorities
 	if pb == nil {
 		return r, nil
@@ -481,12 +488,12 @@ func AuthoritiesFromPB(_ context.Context, pb *Authorities) (ir.Authorities, erro
 	return r, nil
 }
 
-// AuthoritiessToPB converts a slice of Authorities to Authorities.
-func AuthoritiessToPB(ctx context.Context, rs []ir.Authorities) ([]*Authorities, error) {
+// AuthoritiesListToPB converts a slice of Authorities to Authorities.
+func AuthoritiesListToPB(rs []ir.Authorities) ([]*Authorities, error) {
 	result := make([]*Authorities, len(rs))
 	for i := range rs {
 		var err error
-		result[i], err = AuthoritiesToPB(ctx, rs[i])
+		result[i], err = AuthoritiesToPB(rs[i])
 		if err != nil {
 			return nil, err
 		}
@@ -494,12 +501,12 @@ func AuthoritiessToPB(ctx context.Context, rs []ir.Authorities) ([]*Authorities,
 	return result, nil
 }
 
-// AuthoritiessFromPB converts a slice of Authorities to Authorities.
-func AuthoritiessFromPB(ctx context.Context, pbs []*Authorities) ([]ir.Authorities, error) {
+// AuthoritiesListFromPB converts a slice of Authorities to Authorities.
+func AuthoritiesListFromPB(pbs []*Authorities) ([]ir.Authorities, error) {
 	result := make([]ir.Authorities, len(pbs))
 	for i, pb := range pbs {
 		var err error
-		result[i], err = AuthoritiesFromPB(ctx, pb)
+		result[i], err = AuthoritiesFromPB(pb)
 		if err != nil {
 			return nil, err
 		}
@@ -508,24 +515,24 @@ func AuthoritiessFromPB(ctx context.Context, pbs []*Authorities) ([]ir.Authoriti
 }
 
 // IRToPB converts IR to IR.
-func IRToPB(ctx context.Context, r ir.IR) (*IR, error) {
-	functionsVal, err := FunctionsToPB(ctx, r.Functions)
+func IRToPB(r ir.IR) (*IR, error) {
+	functionsVal, err := FunctionsToPB(r.Functions)
 	if err != nil {
 		return nil, err
 	}
-	nodesVal, err := NodesToPB(ctx, r.Nodes)
+	nodesVal, err := NodesToPB(r.Nodes)
 	if err != nil {
 		return nil, err
 	}
-	edgesVal, err := EdgesToPB(ctx, r.Edges)
+	edgesVal, err := EdgesToPB(r.Edges)
 	if err != nil {
 		return nil, err
 	}
-	sequencesVal, err := SequencesToPB(ctx, r.Sequences)
+	sequencesVal, err := SequencesToPB(r.Sequences)
 	if err != nil {
 		return nil, err
 	}
-	authoritiesVal, err := AuthoritiesToPB(ctx, r.Authorities)
+	authoritiesVal, err := AuthoritiesToPB(r.Authorities)
 	if err != nil {
 		return nil, err
 	}
@@ -541,29 +548,29 @@ func IRToPB(ctx context.Context, r ir.IR) (*IR, error) {
 }
 
 // IRFromPB converts IR to IR.
-func IRFromPB(ctx context.Context, pb *IR) (ir.IR, error) {
+func IRFromPB(pb *IR) (ir.IR, error) {
 	var r ir.IR
 	if pb == nil {
 		return r, nil
 	}
 	var err error
-	r.Functions, err = FunctionsFromPB(ctx, pb.Functions)
+	r.Functions, err = FunctionsFromPB(pb.Functions)
 	if err != nil {
 		return ir.IR{}, err
 	}
-	r.Nodes, err = NodesFromPB(ctx, pb.Nodes)
+	r.Nodes, err = NodesFromPB(pb.Nodes)
 	if err != nil {
 		return ir.IR{}, err
 	}
-	r.Edges, err = EdgesFromPB(ctx, pb.Edges)
+	r.Edges, err = EdgesFromPB(pb.Edges)
 	if err != nil {
 		return ir.IR{}, err
 	}
-	r.Sequences, err = SequencesFromPB(ctx, pb.Sequences)
+	r.Sequences, err = SequencesFromPB(pb.Sequences)
 	if err != nil {
 		return ir.IR{}, err
 	}
-	r.Authorities, err = AuthoritiesFromPB(ctx, pb.Authorities)
+	r.Authorities, err = AuthoritiesFromPB(pb.Authorities)
 	if err != nil {
 		return ir.IR{}, err
 	}
@@ -571,12 +578,12 @@ func IRFromPB(ctx context.Context, pb *IR) (ir.IR, error) {
 	return r, nil
 }
 
-// IRsToPB converts a slice of IR to IR.
-func IRsToPB(ctx context.Context, rs []ir.IR) ([]*IR, error) {
+// IRSToPB converts a slice of IR to IR.
+func IRSToPB(rs []ir.IR) ([]*IR, error) {
 	result := make([]*IR, len(rs))
 	for i := range rs {
 		var err error
-		result[i], err = IRToPB(ctx, rs[i])
+		result[i], err = IRToPB(rs[i])
 		if err != nil {
 			return nil, err
 		}
@@ -584,12 +591,12 @@ func IRsToPB(ctx context.Context, rs []ir.IR) ([]*IR, error) {
 	return result, nil
 }
 
-// IRsFromPB converts a slice of IR to IR.
-func IRsFromPB(ctx context.Context, pbs []*IR) ([]ir.IR, error) {
+// IRSFromPB converts a slice of IR to IR.
+func IRSFromPB(pbs []*IR) ([]ir.IR, error) {
 	result := make([]ir.IR, len(pbs))
 	for i, pb := range pbs {
 		var err error
-		result[i], err = IRFromPB(ctx, pb)
+		result[i], err = IRFromPB(pb)
 		if err != nil {
 			return nil, err
 		}
@@ -598,29 +605,29 @@ func IRsFromPB(ctx context.Context, pbs []*IR) ([]ir.IR, error) {
 }
 
 // EdgeKindToPB converts ir.EdgeKind to EdgeKind.
-func EdgeKindToPB(v ir.EdgeKind) EdgeKind {
+func EdgeKindToPB(v ir.EdgeKind) (EdgeKind, error) {
 	switch v {
 	case ir.EdgeKindUnspecified:
-		return EdgeKind_EDGE_KIND_UNSPECIFIED
+		return EdgeKind_EDGE_KIND_UNSPECIFIED, nil
 	case ir.EdgeKindContinuous:
-		return EdgeKind_EDGE_KIND_CONTINUOUS
+		return EdgeKind_EDGE_KIND_CONTINUOUS, nil
 	case ir.EdgeKindOneShot:
-		return EdgeKind_EDGE_KIND_ONE_SHOT
+		return EdgeKind_EDGE_KIND_ONE_SHOT, nil
 	default:
-		return EdgeKind_EDGE_KIND_UNSPECIFIED
+		return 0, errors.Newf("unrecognized ir.EdgeKind value: %v", v)
 	}
 }
 
 // EdgeKindFromPB converts EdgeKind to ir.EdgeKind.
-func EdgeKindFromPB(v EdgeKind) ir.EdgeKind {
+func EdgeKindFromPB(v EdgeKind) (ir.EdgeKind, error) {
 	switch v {
 	case EdgeKind_EDGE_KIND_UNSPECIFIED:
-		return ir.EdgeKindUnspecified
+		return ir.EdgeKindUnspecified, nil
 	case EdgeKind_EDGE_KIND_CONTINUOUS:
-		return ir.EdgeKindContinuous
+		return ir.EdgeKindContinuous, nil
 	case EdgeKind_EDGE_KIND_ONE_SHOT:
-		return ir.EdgeKindOneShot
+		return ir.EdgeKindOneShot, nil
 	default:
-		return ir.EdgeKindUnspecified
+		return 0, errors.Newf("unrecognized EdgeKind value: %v", v)
 	}
 }

@@ -46,7 +46,7 @@ func (WriterRequestTranslator) Backward(
 	ctx context.Context,
 	req *WriterRequest,
 ) (writer.Request, error) {
-	fr, err := translateFrameForward(ctx, req.Frame)
+	fr, err := translateFrameForward(req.Frame)
 	if err != nil {
 		return writer.Request{}, err
 	}
@@ -76,7 +76,7 @@ func (WriterRequestTranslator) Forward(
 	ctx context.Context,
 	req writer.Request,
 ) (*WriterRequest, error) {
-	subject, err := controlpb.SubjectToPB(ctx, req.Config.ControlSubject)
+	subject, err := controlpb.SubjectToPB(req.Config.ControlSubject)
 	if err != nil {
 		return nil, err
 	}
@@ -96,7 +96,7 @@ func (WriterRequestTranslator) Forward(
 	if req.Config.EnableAutoCommit != nil {
 		cfg.EnableAutoCommit = *req.Config.EnableAutoCommit
 	}
-	fr, err := translateFrameBackward(ctx, req.Frame)
+	fr, err := translateFrameBackward(req.Frame)
 	if err != nil {
 		return nil, err
 	}
@@ -144,7 +144,7 @@ func (IteratorRequestTranslator) Backward(
 	ctx context.Context,
 	req *IteratorRequest,
 ) (iterator.Request, error) {
-	bounds, err := telempb.TimeRangeFromPB(ctx, req.Bounds)
+	bounds, err := telempb.TimeRangeFromPB(req.Bounds)
 	if err != nil {
 		return iterator.Request{}, err
 	}
@@ -164,7 +164,7 @@ func (IteratorRequestTranslator) Forward(
 	ctx context.Context,
 	req iterator.Request,
 ) (*IteratorRequest, error) {
-	bounds, err := telempb.TimeRangeToPB(ctx, req.Bounds)
+	bounds, err := telempb.TimeRangeToPB(req.Bounds)
 	if err != nil {
 		return nil, err
 	}
@@ -186,7 +186,7 @@ func (IteratorResponseTranslator) Backward(
 	ctx context.Context,
 	res *IteratorResponse,
 ) (iterator.Response, error) {
-	fr, err := translateFrameForward(ctx, res.Frame)
+	fr, err := translateFrameForward(res.Frame)
 	if err != nil {
 		return iterator.Response{}, err
 	}
@@ -206,7 +206,7 @@ func (IteratorResponseTranslator) Forward(
 	ctx context.Context,
 	res iterator.Response,
 ) (*IteratorResponse, error) {
-	fr, err := translateFrameBackward(ctx, res.Frame)
+	fr, err := translateFrameBackward(res.Frame)
 	if err != nil {
 		return nil, err
 	}
@@ -243,7 +243,7 @@ func (w RelayResponseTranslator) Backward(
 	ctx context.Context,
 	res *RelayResponse,
 ) (relay.Response, error) {
-	fr, err := translateFrameForward(ctx, res.Frame)
+	fr, err := translateFrameForward(res.Frame)
 	if err != nil {
 		return relay.Response{}, err
 	}
@@ -254,23 +254,23 @@ func (w RelayResponseTranslator) Forward(
 	ctx context.Context,
 	res relay.Response,
 ) (*RelayResponse, error) {
-	fr, err := translateFrameBackward(ctx, res.Frame)
+	fr, err := translateFrameBackward(res.Frame)
 	if err != nil {
 		return nil, err
 	}
 	return &RelayResponse{Frame: fr}, nil
 }
 
-func translateFrameForward(ctx context.Context, fr *telempb.Frame) (framer.Frame, error) {
-	telemFr, err := telempb.FrameFromPB[channel.Key](ctx, fr)
+func translateFrameForward(fr *telempb.Frame) (framer.Frame, error) {
+	telemFr, err := telempb.FrameFromPB[channel.Key](fr)
 	if err != nil {
 		return framer.Frame{}, err
 	}
 	return frame.Frame{Frame: telemFr}, nil
 }
 
-func translateFrameBackward(ctx context.Context, fr framer.Frame) (*telempb.Frame, error) {
-	return telempb.FrameToPB(ctx, fr.Frame)
+func translateFrameBackward(fr framer.Frame) (*telempb.Frame, error) {
+	return telempb.FrameToPB(fr.Frame)
 }
 
 type DeleteRequestTranslator struct{}
@@ -279,7 +279,7 @@ func (r DeleteRequestTranslator) Forward(
 	ctx context.Context,
 	msg deleter.Request,
 ) (*DeleteRequest, error) {
-	bounds, err := telempb.TimeRangeToPB(ctx, msg.Bounds)
+	bounds, err := telempb.TimeRangeToPB(msg.Bounds)
 	if err != nil {
 		return nil, err
 	}
@@ -294,7 +294,7 @@ func (r DeleteRequestTranslator) Backward(
 	ctx context.Context,
 	msg *DeleteRequest,
 ) (deleter.Request, error) {
-	bounds, err := telempb.TimeRangeFromPB(ctx, msg.Bounds)
+	bounds, err := telempb.TimeRangeFromPB(msg.Bounds)
 	if err != nil {
 		return deleter.Request{}, err
 	}

@@ -56,7 +56,8 @@ struct ID {
     from_proto(const ::distribution::ontology::pb::ID &pb);
 
     /// @brief Serializes the ID to its protobuf representation.
-    [[nodiscard]] ::distribution::ontology::pb::ID to_proto() const;
+    [[nodiscard]] std::pair<::distribution::ontology::pb::ID, x::errors::Error>
+    to_proto() const;
 
     /// @brief Equality operator.
     bool operator==(const ID &other) const;

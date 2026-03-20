@@ -12,7 +12,6 @@
 package pb
 
 import (
-	"context"
 	"github.com/synnaxlabs/arc/graph"
 	irpb "github.com/synnaxlabs/arc/ir/pb"
 	spatialpb "github.com/synnaxlabs/x/spatial/pb"
@@ -20,12 +19,12 @@ import (
 )
 
 // NodeToPB converts Node to Node.
-func NodeToPB(ctx context.Context, r graph.Node) (*Node, error) {
+func NodeToPB(r graph.Node) (*Node, error) {
 	configVal, err := structpb.NewStruct(r.Config)
 	if err != nil {
 		return nil, err
 	}
-	positionVal, err := spatialpb.XYToPB(ctx, r.Position)
+	positionVal, err := spatialpb.XYToPB(r.Position)
 	if err != nil {
 		return nil, err
 	}
@@ -39,14 +38,14 @@ func NodeToPB(ctx context.Context, r graph.Node) (*Node, error) {
 }
 
 // NodeFromPB converts Node to Node.
-func NodeFromPB(ctx context.Context, pb *Node) (graph.Node, error) {
+func NodeFromPB(pb *Node) (graph.Node, error) {
 	var r graph.Node
 	if pb == nil {
 		return r, nil
 	}
 	var err error
 	r.Config = pb.Config.AsMap()
-	r.Position, err = spatialpb.XYFromPB(ctx, pb.Position)
+	r.Position, err = spatialpb.XYFromPB(pb.Position)
 	if err != nil {
 		return graph.Node{}, err
 	}
@@ -56,11 +55,11 @@ func NodeFromPB(ctx context.Context, pb *Node) (graph.Node, error) {
 }
 
 // NodesToPB converts a slice of Node to Node.
-func NodesToPB(ctx context.Context, rs []graph.Node) ([]*Node, error) {
+func NodesToPB(rs []graph.Node) ([]*Node, error) {
 	result := make([]*Node, len(rs))
 	for i := range rs {
 		var err error
-		result[i], err = NodeToPB(ctx, rs[i])
+		result[i], err = NodeToPB(rs[i])
 		if err != nil {
 			return nil, err
 		}
@@ -69,11 +68,11 @@ func NodesToPB(ctx context.Context, rs []graph.Node) ([]*Node, error) {
 }
 
 // NodesFromPB converts a slice of Node to Node.
-func NodesFromPB(ctx context.Context, pbs []*Node) ([]graph.Node, error) {
+func NodesFromPB(pbs []*Node) ([]graph.Node, error) {
 	result := make([]graph.Node, len(pbs))
 	for i, pb := range pbs {
 		var err error
-		result[i], err = NodeFromPB(ctx, pb)
+		result[i], err = NodeFromPB(pb)
 		if err != nil {
 			return nil, err
 		}
@@ -82,8 +81,8 @@ func NodesFromPB(ctx context.Context, pbs []*Node) ([]graph.Node, error) {
 }
 
 // ViewportToPB converts Viewport to Viewport.
-func ViewportToPB(ctx context.Context, r graph.Viewport) (*Viewport, error) {
-	positionVal, err := spatialpb.XYToPB(ctx, r.Position)
+func ViewportToPB(r graph.Viewport) (*Viewport, error) {
+	positionVal, err := spatialpb.XYToPB(r.Position)
 	if err != nil {
 		return nil, err
 	}
@@ -95,13 +94,13 @@ func ViewportToPB(ctx context.Context, r graph.Viewport) (*Viewport, error) {
 }
 
 // ViewportFromPB converts Viewport to Viewport.
-func ViewportFromPB(ctx context.Context, pb *Viewport) (graph.Viewport, error) {
+func ViewportFromPB(pb *Viewport) (graph.Viewport, error) {
 	var r graph.Viewport
 	if pb == nil {
 		return r, nil
 	}
 	var err error
-	r.Position, err = spatialpb.XYFromPB(ctx, pb.Position)
+	r.Position, err = spatialpb.XYFromPB(pb.Position)
 	if err != nil {
 		return graph.Viewport{}, err
 	}
@@ -110,11 +109,11 @@ func ViewportFromPB(ctx context.Context, pb *Viewport) (graph.Viewport, error) {
 }
 
 // ViewportsToPB converts a slice of Viewport to Viewport.
-func ViewportsToPB(ctx context.Context, rs []graph.Viewport) ([]*Viewport, error) {
+func ViewportsToPB(rs []graph.Viewport) ([]*Viewport, error) {
 	result := make([]*Viewport, len(rs))
 	for i := range rs {
 		var err error
-		result[i], err = ViewportToPB(ctx, rs[i])
+		result[i], err = ViewportToPB(rs[i])
 		if err != nil {
 			return nil, err
 		}
@@ -123,11 +122,11 @@ func ViewportsToPB(ctx context.Context, rs []graph.Viewport) ([]*Viewport, error
 }
 
 // ViewportsFromPB converts a slice of Viewport to Viewport.
-func ViewportsFromPB(ctx context.Context, pbs []*Viewport) ([]graph.Viewport, error) {
+func ViewportsFromPB(pbs []*Viewport) ([]graph.Viewport, error) {
 	result := make([]graph.Viewport, len(pbs))
 	for i, pb := range pbs {
 		var err error
-		result[i], err = ViewportFromPB(ctx, pb)
+		result[i], err = ViewportFromPB(pb)
 		if err != nil {
 			return nil, err
 		}
@@ -136,20 +135,20 @@ func ViewportsFromPB(ctx context.Context, pbs []*Viewport) ([]graph.Viewport, er
 }
 
 // GraphToPB converts Graph to Graph.
-func GraphToPB(ctx context.Context, r graph.Graph) (*Graph, error) {
-	viewportVal, err := ViewportToPB(ctx, r.Viewport)
+func GraphToPB(r graph.Graph) (*Graph, error) {
+	viewportVal, err := ViewportToPB(r.Viewport)
 	if err != nil {
 		return nil, err
 	}
-	functionsVal, err := irpb.FunctionsToPB(ctx, r.Functions)
+	functionsVal, err := irpb.FunctionsToPB(r.Functions)
 	if err != nil {
 		return nil, err
 	}
-	edgesVal, err := irpb.EdgesToPB(ctx, r.Edges)
+	edgesVal, err := irpb.EdgesToPB(r.Edges)
 	if err != nil {
 		return nil, err
 	}
-	nodesVal, err := NodesToPB(ctx, r.Nodes)
+	nodesVal, err := NodesToPB(r.Nodes)
 	if err != nil {
 		return nil, err
 	}
@@ -163,25 +162,25 @@ func GraphToPB(ctx context.Context, r graph.Graph) (*Graph, error) {
 }
 
 // GraphFromPB converts Graph to Graph.
-func GraphFromPB(ctx context.Context, pb *Graph) (graph.Graph, error) {
+func GraphFromPB(pb *Graph) (graph.Graph, error) {
 	var r graph.Graph
 	if pb == nil {
 		return r, nil
 	}
 	var err error
-	r.Viewport, err = ViewportFromPB(ctx, pb.Viewport)
+	r.Viewport, err = ViewportFromPB(pb.Viewport)
 	if err != nil {
 		return graph.Graph{}, err
 	}
-	r.Functions, err = irpb.FunctionsFromPB(ctx, pb.Functions)
+	r.Functions, err = irpb.FunctionsFromPB(pb.Functions)
 	if err != nil {
 		return graph.Graph{}, err
 	}
-	r.Edges, err = irpb.EdgesFromPB(ctx, pb.Edges)
+	r.Edges, err = irpb.EdgesFromPB(pb.Edges)
 	if err != nil {
 		return graph.Graph{}, err
 	}
-	r.Nodes, err = NodesFromPB(ctx, pb.Nodes)
+	r.Nodes, err = NodesFromPB(pb.Nodes)
 	if err != nil {
 		return graph.Graph{}, err
 	}
@@ -189,11 +188,11 @@ func GraphFromPB(ctx context.Context, pb *Graph) (graph.Graph, error) {
 }
 
 // GraphsToPB converts a slice of Graph to Graph.
-func GraphsToPB(ctx context.Context, rs []graph.Graph) ([]*Graph, error) {
+func GraphsToPB(rs []graph.Graph) ([]*Graph, error) {
 	result := make([]*Graph, len(rs))
 	for i := range rs {
 		var err error
-		result[i], err = GraphToPB(ctx, rs[i])
+		result[i], err = GraphToPB(rs[i])
 		if err != nil {
 			return nil, err
 		}
@@ -202,11 +201,11 @@ func GraphsToPB(ctx context.Context, rs []graph.Graph) ([]*Graph, error) {
 }
 
 // GraphsFromPB converts a slice of Graph to Graph.
-func GraphsFromPB(ctx context.Context, pbs []*Graph) ([]graph.Graph, error) {
+func GraphsFromPB(pbs []*Graph) ([]graph.Graph, error) {
 	result := make([]graph.Graph, len(pbs))
 	for i, pb := range pbs {
 		var err error
-		result[i], err = GraphFromPB(ctx, pb)
+		result[i], err = GraphFromPB(pb)
 		if err != nil {
 			return nil, err
 		}

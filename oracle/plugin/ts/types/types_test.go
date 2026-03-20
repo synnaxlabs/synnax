@@ -1705,6 +1705,30 @@ var _ = Describe("TS Types Plugin", func() {
 						`status.statusCodeZ`,
 					)
 			})
+
+			It("Should not generate a local copy of cross-namespace enum", func() {
+				source := `
+					import "schemas/status"
+
+					@ts output "client/ts/src/task"
+
+					Task struct {
+						key uuid
+						code status.StatusCode
+					}
+				`
+				resp := MustGenerate(ctx, source, "task", loader, typesPlugin)
+				ExpectContent(resp, "types.gen.ts").
+					ToContain(
+						`import { status } from`,
+						`status.statusCodeZ`,
+					).
+					ToNotContain(
+						`STATUS_CODES`,
+						`statusCodeZ = z.enum`,
+						`type StatusCode = z.infer`,
+					)
+			})
 		})
 
 		Context("same-package cross-namespace reference", func() {

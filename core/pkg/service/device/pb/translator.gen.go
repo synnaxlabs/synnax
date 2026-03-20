@@ -12,7 +12,6 @@
 package pb
 
 import (
-	"context"
 	"encoding/json"
 	ontologypb "github.com/synnaxlabs/synnax/pkg/distribution/ontology/pb"
 	"github.com/synnaxlabs/synnax/pkg/service/device"
@@ -25,7 +24,7 @@ import (
 )
 
 // StatusDetailsToPB converts StatusDetails to StatusDetails.
-func StatusDetailsToPB(_ context.Context, r device.StatusDetails) (*StatusDetails, error) {
+func StatusDetailsToPB(r device.StatusDetails) (*StatusDetails, error) {
 	pb := &StatusDetails{
 		Rack:   uint32(r.Rack),
 		Device: r.Device,
@@ -34,7 +33,7 @@ func StatusDetailsToPB(_ context.Context, r device.StatusDetails) (*StatusDetail
 }
 
 // StatusDetailsFromPB converts StatusDetails to StatusDetails.
-func StatusDetailsFromPB(_ context.Context, pb *StatusDetails) (device.StatusDetails, error) {
+func StatusDetailsFromPB(pb *StatusDetails) (device.StatusDetails, error) {
 	var r device.StatusDetails
 	if pb == nil {
 		return r, nil
@@ -44,12 +43,12 @@ func StatusDetailsFromPB(_ context.Context, pb *StatusDetails) (device.StatusDet
 	return r, nil
 }
 
-// StatusDetailssToPB converts a slice of StatusDetails to StatusDetails.
-func StatusDetailssToPB(ctx context.Context, rs []device.StatusDetails) ([]*StatusDetails, error) {
+// StatusDetailsListToPB converts a slice of StatusDetails to StatusDetails.
+func StatusDetailsListToPB(rs []device.StatusDetails) ([]*StatusDetails, error) {
 	result := make([]*StatusDetails, len(rs))
 	for i := range rs {
 		var err error
-		result[i], err = StatusDetailsToPB(ctx, rs[i])
+		result[i], err = StatusDetailsToPB(rs[i])
 		if err != nil {
 			return nil, err
 		}
@@ -57,12 +56,12 @@ func StatusDetailssToPB(ctx context.Context, rs []device.StatusDetails) ([]*Stat
 	return result, nil
 }
 
-// StatusDetailssFromPB converts a slice of StatusDetails to StatusDetails.
-func StatusDetailssFromPB(ctx context.Context, pbs []*StatusDetails) ([]device.StatusDetails, error) {
+// StatusDetailsListFromPB converts a slice of StatusDetails to StatusDetails.
+func StatusDetailsListFromPB(pbs []*StatusDetails) ([]device.StatusDetails, error) {
 	result := make([]device.StatusDetails, len(pbs))
 	for i, pb := range pbs {
 		var err error
-		result[i], err = StatusDetailsFromPB(ctx, pb)
+		result[i], err = StatusDetailsFromPB(pb)
 		if err != nil {
 			return nil, err
 		}
@@ -72,7 +71,6 @@ func StatusDetailssFromPB(ctx context.Context, pbs []*StatusDetails) ([]device.S
 
 // DeviceToPB converts Device to Device using provided type converters.
 func DeviceToPB(
-	ctx context.Context,
 	r device.Device,
 ) (*Device, error) {
 	propertiesVal, err := structpb.NewStruct(r.Properties)
@@ -91,14 +89,14 @@ func DeviceToPB(
 	}
 	if r.Status != nil {
 		var err error
-		pb.Status, err = statuspb.StatusToPB[device.StatusDetails](ctx, (status.Status[device.StatusDetails])(*r.Status), StatusDetailsToPBAny)
+		pb.Status, err = statuspb.StatusToPB[device.StatusDetails]((status.Status[device.StatusDetails])(*r.Status), StatusDetailsToPBAny)
 		if err != nil {
 			return nil, err
 		}
 	}
 	if r.Parent != nil {
 		var err error
-		pb.Parent, err = ontologypb.IDToPB(ctx, *r.Parent)
+		pb.Parent, err = ontologypb.IDToPB(*r.Parent)
 		if err != nil {
 			return nil, err
 		}
@@ -108,7 +106,6 @@ func DeviceToPB(
 
 // DeviceFromPB converts Device to Device using provided type converters.
 func DeviceFromPB(
-	ctx context.Context,
 	pb *Device,
 ) (device.Device, error) {
 	var r device.Device
@@ -124,14 +121,14 @@ func DeviceFromPB(
 	r.Name = pb.Name
 	r.Configured = pb.Configured
 	if pb.Status != nil {
-		val, err := statuspb.StatusFromPB[device.StatusDetails](ctx, pb.Status, StatusDetailsFromPBAny)
+		val, err := statuspb.StatusFromPB[device.StatusDetails](pb.Status, StatusDetailsFromPBAny)
 		if err != nil {
 			return device.Device{}, err
 		}
 		r.Status = (*device.Status)(&val)
 	}
 	if pb.Parent != nil {
-		val, err := ontologypb.IDFromPB(ctx, pb.Parent)
+		val, err := ontologypb.IDFromPB(pb.Parent)
 		if err != nil {
 			return device.Device{}, err
 		}
@@ -142,13 +139,12 @@ func DeviceFromPB(
 
 // DevicesToPB converts a slice of Device to Device.
 func DevicesToPB(
-	ctx context.Context,
 	rs []device.Device,
 ) ([]*Device, error) {
 	result := make([]*Device, len(rs))
 	for i := range rs {
 		var err error
-		result[i], err = DeviceToPB(ctx, rs[i])
+		result[i], err = DeviceToPB(rs[i])
 		if err != nil {
 			return nil, err
 		}
@@ -158,13 +154,12 @@ func DevicesToPB(
 
 // DevicesFromPB converts a slice of Device to Device.
 func DevicesFromPB(
-	ctx context.Context,
 	pbs []*Device,
 ) ([]device.Device, error) {
 	result := make([]device.Device, len(pbs))
 	for i, pb := range pbs {
 		var err error
-		result[i], err = DeviceFromPB(ctx, pb)
+		result[i], err = DeviceFromPB(pb)
 		if err != nil {
 			return nil, err
 		}
@@ -174,8 +169,8 @@ func DevicesFromPB(
 
 // StatusDetailsToPBAny converts StatusDetails to *anypb.Any for use with generic translators.
 // It wraps the value in structpb.Struct (JSON) for cross-language compatibility.
-func StatusDetailsToPBAny(ctx context.Context, v device.StatusDetails) (*anypb.Any, error) {
-	pb, err := StatusDetailsToPB(ctx, v)
+func StatusDetailsToPBAny(v device.StatusDetails) (*anypb.Any, error) {
+	pb, err := StatusDetailsToPB(v)
 	if err != nil {
 		return nil, err
 	}
@@ -193,14 +188,14 @@ func StatusDetailsToPBAny(ctx context.Context, v device.StatusDetails) (*anypb.A
 
 // StatusDetailsFromPBAny converts *anypb.Any to StatusDetails for use with generic translators.
 // It handles both typed protos and JSON (google.protobuf.Struct) for cross-language compatibility.
-func StatusDetailsFromPBAny(ctx context.Context, a *anypb.Any) (device.StatusDetails, error) {
+func StatusDetailsFromPBAny(a *anypb.Any) (device.StatusDetails, error) {
 	if a == nil {
 		return device.StatusDetails{}, nil
 	}
 	// First try typed proto
 	var pb StatusDetails
 	if err := a.UnmarshalTo(&pb); err == nil {
-		return StatusDetailsFromPB(ctx, &pb)
+		return StatusDetailsFromPB(&pb)
 	}
 	// Fall back to JSON (structpb.Struct) for cross-language compatibility
 	var s structpb.Struct

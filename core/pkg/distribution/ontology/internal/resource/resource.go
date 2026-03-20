@@ -20,10 +20,6 @@ import (
 	"github.com/synnaxlabs/x/zyn"
 )
 
-// Type is the type of a specific Resource. This type should be unique for each service
-// in the ontology.
-type Type string
-
 // String implements fmt.Stringer.
 func (t Type) String() string { return string(t) }
 

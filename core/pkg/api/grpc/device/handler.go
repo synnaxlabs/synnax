@@ -59,32 +59,32 @@ var (
 	_ grpc.Translator[device.DeleteRequest, *DeleteRequest]       = deleteRequestTranslator{}
 )
 
-func (createRequestTranslator) Forward(ctx context.Context, req device.CreateRequest) (*CreateRequest, error) {
-	devices, err := pb.DevicesToPB(ctx, req.Devices)
+func (createRequestTranslator) Forward(_ context.Context, req device.CreateRequest) (*CreateRequest, error) {
+	devices, err := pb.DevicesToPB(req.Devices)
 	if err != nil {
 		return nil, err
 	}
 	return &CreateRequest{Devices: devices}, nil
 }
 
-func (createRequestTranslator) Backward(ctx context.Context, req *CreateRequest) (device.CreateRequest, error) {
-	devices, err := pb.DevicesFromPB(ctx, req.Devices)
+func (createRequestTranslator) Backward(_ context.Context, req *CreateRequest) (device.CreateRequest, error) {
+	devices, err := pb.DevicesFromPB(req.Devices)
 	if err != nil {
 		return device.CreateRequest{}, err
 	}
 	return device.CreateRequest{Devices: devices}, nil
 }
 
-func (createResponseTranslator) Forward(ctx context.Context, res device.CreateResponse) (*CreateResponse, error) {
-	devices, err := pb.DevicesToPB(ctx, res.Devices)
+func (createResponseTranslator) Forward(_ context.Context, res device.CreateResponse) (*CreateResponse, error) {
+	devices, err := pb.DevicesToPB(res.Devices)
 	if err != nil {
 		return nil, err
 	}
 	return &CreateResponse{Devices: devices}, nil
 }
 
-func (createResponseTranslator) Backward(ctx context.Context, res *CreateResponse) (device.CreateResponse, error) {
-	devices, err := pb.DevicesFromPB(ctx, res.Devices)
+func (createResponseTranslator) Backward(_ context.Context, res *CreateResponse) (device.CreateResponse, error) {
+	devices, err := pb.DevicesFromPB(res.Devices)
 	if err != nil {
 		return device.CreateResponse{}, err
 	}
@@ -125,16 +125,16 @@ func (retrieveRequestTranslator) Backward(_ context.Context, req *RetrieveReques
 	}, nil
 }
 
-func (retrieveResponseTranslator) Forward(ctx context.Context, res device.RetrieveResponse) (*RetrieveResponse, error) {
-	devices, err := pb.DevicesToPB(ctx, res.Devices)
+func (retrieveResponseTranslator) Forward(_ context.Context, res device.RetrieveResponse) (*RetrieveResponse, error) {
+	devices, err := pb.DevicesToPB(res.Devices)
 	if err != nil {
 		return nil, err
 	}
 	return &RetrieveResponse{Devices: devices}, nil
 }
 
-func (retrieveResponseTranslator) Backward(ctx context.Context, res *RetrieveResponse) (device.RetrieveResponse, error) {
-	devices, err := pb.DevicesFromPB(ctx, res.Devices)
+func (retrieveResponseTranslator) Backward(_ context.Context, res *RetrieveResponse) (device.RetrieveResponse, error) {
+	devices, err := pb.DevicesFromPB(res.Devices)
 	if err != nil {
 		return device.RetrieveResponse{}, err
 	}

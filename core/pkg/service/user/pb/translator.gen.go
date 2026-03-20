@@ -12,13 +12,12 @@
 package pb
 
 import (
-	"context"
 	"github.com/google/uuid"
 	"github.com/synnaxlabs/synnax/pkg/service/user"
 )
 
 // UserToPB converts User to User.
-func UserToPB(_ context.Context, r user.User) (*User, error) {
+func UserToPB(r user.User) (*User, error) {
 	pb := &User{
 		Username:  r.Username,
 		FirstName: r.FirstName,
@@ -30,7 +29,7 @@ func UserToPB(_ context.Context, r user.User) (*User, error) {
 }
 
 // UserFromPB converts User to User.
-func UserFromPB(_ context.Context, pb *User) (user.User, error) {
+func UserFromPB(pb *User) (user.User, error) {
 	var r user.User
 	if pb == nil {
 		return r, nil
@@ -49,11 +48,11 @@ func UserFromPB(_ context.Context, pb *User) (user.User, error) {
 }
 
 // UsersToPB converts a slice of User to User.
-func UsersToPB(ctx context.Context, rs []user.User) ([]*User, error) {
+func UsersToPB(rs []user.User) ([]*User, error) {
 	result := make([]*User, len(rs))
 	for i := range rs {
 		var err error
-		result[i], err = UserToPB(ctx, rs[i])
+		result[i], err = UserToPB(rs[i])
 		if err != nil {
 			return nil, err
 		}
@@ -62,11 +61,11 @@ func UsersToPB(ctx context.Context, rs []user.User) ([]*User, error) {
 }
 
 // UsersFromPB converts a slice of User to User.
-func UsersFromPB(ctx context.Context, pbs []*User) ([]user.User, error) {
+func UsersFromPB(pbs []*User) ([]user.User, error) {
 	result := make([]user.User, len(pbs))
 	for i, pb := range pbs {
 		var err error
-		result[i], err = UserFromPB(ctx, pb)
+		result[i], err = UserFromPB(pb)
 		if err != nil {
 			return nil, err
 		}

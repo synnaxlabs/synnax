@@ -44,15 +44,23 @@ class Base(BaseModel):
         return hash(self.key)
 
 
-class Role(Base):
+class Role(BaseModel):
     """Contains parameters for creating a new role.
 
     Attributes:
         key: Is an optional key for the role. If not provided, one will be
             automatically assigned.
+        name: Is a human-readable name for the role (e.g., 'Administrator',
+            'Engineer').
+        description: Is an optional description explaining what permissions the role
+            provides.
+        internal: Is true if this is a built-in system role that cannot be deleted.
     """
 
-    key: Key | None = None  # type: ignore[assignment]
+    key: Key | None = None
+    name: str
+    description: str | None = None
+    internal: bool | None = None
 
 
 ONTOLOGY_TYPE = ID(type="role")

@@ -10,12 +10,14 @@ cc_library(
         "id.h",
         "json.gen.h",
         "proto.gen.h",
+        "types.gen.h",
     ],
     visibility = ["//visibility:public"],
     deps = [
         "//core/pkg/distribution/ontology:ontology_grpc",
         "//x/cpp/errors",
         "//x/cpp/json",
+        "//x/cpp/pb",
     ],
 )
 

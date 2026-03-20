@@ -12,12 +12,11 @@
 package pb
 
 import (
-	"context"
 	"github.com/synnaxlabs/arc/compiler"
 )
 
 // OutputToPB converts Output to Output.
-func OutputToPB(_ context.Context, r compiler.Output) (*Output, error) {
+func OutputToPB(r compiler.Output) (*Output, error) {
 	pb := &Output{
 		Wasm:              r.WASM,
 		OutputMemoryBases: r.OutputMemoryBases,
@@ -26,7 +25,7 @@ func OutputToPB(_ context.Context, r compiler.Output) (*Output, error) {
 }
 
 // OutputFromPB converts Output to Output.
-func OutputFromPB(_ context.Context, pb *Output) (compiler.Output, error) {
+func OutputFromPB(pb *Output) (compiler.Output, error) {
 	var r compiler.Output
 	if pb == nil {
 		return r, nil
@@ -37,11 +36,11 @@ func OutputFromPB(_ context.Context, pb *Output) (compiler.Output, error) {
 }
 
 // OutputsToPB converts a slice of Output to Output.
-func OutputsToPB(ctx context.Context, rs []compiler.Output) ([]*Output, error) {
+func OutputsToPB(rs []compiler.Output) ([]*Output, error) {
 	result := make([]*Output, len(rs))
 	for i := range rs {
 		var err error
-		result[i], err = OutputToPB(ctx, rs[i])
+		result[i], err = OutputToPB(rs[i])
 		if err != nil {
 			return nil, err
 		}
@@ -50,11 +49,11 @@ func OutputsToPB(ctx context.Context, rs []compiler.Output) ([]*Output, error) {
 }
 
 // OutputsFromPB converts a slice of Output to Output.
-func OutputsFromPB(ctx context.Context, pbs []*Output) ([]compiler.Output, error) {
+func OutputsFromPB(pbs []*Output) ([]compiler.Output, error) {
 	result := make([]compiler.Output, len(pbs))
 	for i, pb := range pbs {
 		var err error
-		result[i], err = OutputFromPB(ctx, pb)
+		result[i], err = OutputFromPB(pb)
 		if err != nil {
 			return nil, err
 		}

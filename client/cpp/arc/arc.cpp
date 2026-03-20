@@ -31,7 +31,9 @@ Client::Client(
 
 x::errors::Error Client::create(Arc &arc) const {
     auto req = grpc::arc::CreateRequest();
-    *req.add_arcs() = arc.to_proto();
+    auto [pb, pb_err] = arc.to_proto();
+    if (pb_err) return pb_err;
+    *req.add_arcs() = pb;
     auto [res, err] = create_client->send(CREATE_ENDPOINT, req);
     if (err) return err;
     if (res.arcs_size() == 0) return errors::unexpected_missing_error("arc");
@@ -46,8 +48,11 @@ x::errors::Error Client::create(Arc &arc) const {
 x::errors::Error Client::create(std::vector<Arc> &arcs) const {
     auto req = grpc::arc::CreateRequest();
     req.mutable_arcs()->Reserve(static_cast<int>(arcs.size()));
-    for (const auto &arc: arcs)
-        *req.add_arcs() = arc.to_proto();
+    for (const auto &arc: arcs) {
+        auto [pb, pb_err] = arc.to_proto();
+        if (pb_err) return pb_err;
+        *req.add_arcs() = pb;
+    }
 
     auto [res, err] = create_client->send(CREATE_ENDPOINT, req);
     if (err) return err;
@@ -62,7 +67,7 @@ x::errors::Error Client::create(std::vector<Arc> &arcs) const {
 }
 
 std::pair<Arc, x::errors::Error> Client::create(const std::string &name) const {
-    Arc arc{.name = name};
+    Arc arc{.name = name, .mode = MODE_TEXT};
     auto err = create(arc);
     return {arc, err};
 }

@@ -12,12 +12,11 @@
 package pb
 
 import (
-	"context"
 	"github.com/synnaxlabs/x/telem"
 )
 
 // TimeRangeToPB converts TimeRange to TimeRange.
-func TimeRangeToPB(_ context.Context, r telem.TimeRange) (*TimeRange, error) {
+func TimeRangeToPB(r telem.TimeRange) (*TimeRange, error) {
 	pb := &TimeRange{
 		Start: int64(r.Start),
 		End:   int64(r.End),
@@ -26,7 +25,7 @@ func TimeRangeToPB(_ context.Context, r telem.TimeRange) (*TimeRange, error) {
 }
 
 // TimeRangeFromPB converts TimeRange to TimeRange.
-func TimeRangeFromPB(_ context.Context, pb *TimeRange) (telem.TimeRange, error) {
+func TimeRangeFromPB(pb *TimeRange) (telem.TimeRange, error) {
 	var r telem.TimeRange
 	if pb == nil {
 		return r, nil
@@ -37,11 +36,11 @@ func TimeRangeFromPB(_ context.Context, pb *TimeRange) (telem.TimeRange, error) 
 }
 
 // TimeRangesToPB converts a slice of TimeRange to TimeRange.
-func TimeRangesToPB(ctx context.Context, rs []telem.TimeRange) ([]*TimeRange, error) {
+func TimeRangesToPB(rs []telem.TimeRange) ([]*TimeRange, error) {
 	result := make([]*TimeRange, len(rs))
 	for i := range rs {
 		var err error
-		result[i], err = TimeRangeToPB(ctx, rs[i])
+		result[i], err = TimeRangeToPB(rs[i])
 		if err != nil {
 			return nil, err
 		}
@@ -50,11 +49,11 @@ func TimeRangesToPB(ctx context.Context, rs []telem.TimeRange) ([]*TimeRange, er
 }
 
 // TimeRangesFromPB converts a slice of TimeRange to TimeRange.
-func TimeRangesFromPB(ctx context.Context, pbs []*TimeRange) ([]telem.TimeRange, error) {
+func TimeRangesFromPB(pbs []*TimeRange) ([]telem.TimeRange, error) {
 	result := make([]telem.TimeRange, len(pbs))
 	for i, pb := range pbs {
 		var err error
-		result[i], err = TimeRangeFromPB(ctx, pb)
+		result[i], err = TimeRangeFromPB(pb)
 		if err != nil {
 			return nil, err
 		}

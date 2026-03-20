@@ -10,7 +10,6 @@
 package pb
 
 import (
-	"context"
 	"encoding/json"
 
 	"google.golang.org/protobuf/encoding/protojson"
@@ -22,7 +21,7 @@ import (
 // AnyFromPBAny converts *anypb.Any to any for use with Status[any].
 // It handles both JSON objects (structpb.Struct) and typed protos.
 // For typed protos, it uses protojson to convert to a JSON-compatible map.
-func AnyFromPBAny(_ context.Context, a *anypb.Any) (any, error) {
+func AnyFromPBAny(a *anypb.Any) (any, error) {
 	if a == nil {
 		return nil, nil
 	}
@@ -57,7 +56,7 @@ func AnyFromPBAny(_ context.Context, a *anypb.Any) (any, error) {
 
 // AnyToPBAny converts any to *anypb.Any for use with Status[any].
 // It wraps values in structpb.Struct since status details are always objects.
-func AnyToPBAny(_ context.Context, v any) (*anypb.Any, error) {
+func AnyToPBAny(v any) (*anypb.Any, error) {
 	if v == nil {
 		return nil, nil
 	}

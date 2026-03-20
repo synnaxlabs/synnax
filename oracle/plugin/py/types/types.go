@@ -436,7 +436,6 @@ func processStruct(
 		}
 
 		if allParentsValid {
-			sd.HasExtends = true
 			// Get all parent fields for comparison (first parent wins on conflict)
 			parentFields := make([]resolution.Field, 0)
 			seenFields := make(map[string]bool)
@@ -450,6 +449,76 @@ func processStruct(
 				}
 			}
 
+			// Check if any child field would create a type incompatibility
+			// (overriding a required parent field as optional). If so, we
+			// inline all fields instead of using inheritance to avoid
+			// type: ignore comments.
+			hasTypeConflict := false
+			for _, field := range form.Fields {
+				if field.IsOptional || field.IsHardOptional {
+					for _, pf := range parentFields {
+						if pf.Name == field.Name && !pf.IsOptional && !pf.IsHardOptional {
+							hasTypeConflict = true
+							break
+						}
+					}
+				}
+				if hasTypeConflict {
+					break
+				}
+			}
+
+			if hasTypeConflict {
+				// Inline all fields from parents and child into a standalone class
+				sd.HasExtends = false
+				sd.ExtendsNames = nil
+				childFieldsByName := make(map[string]resolution.Field)
+				for _, f := range form.Fields {
+					childFieldsByName[f.Name] = f
+				}
+				omittedSet := make(map[string]bool)
+				for _, name := range form.OmittedFields {
+					omittedSet[name] = true
+				}
+
+				sd.Fields = make([]fieldData, 0, len(parentFields)+len(form.Fields))
+				addedFields := make(map[string]bool)
+
+				// Add parent fields, using child overrides where they exist
+				for _, pf := range parentFields {
+					if omittedSet[pf.Name] {
+						continue
+					}
+					if childField, ok := childFieldsByName[pf.Name]; ok {
+						fd := processField(childField, table, data, keyFields, form.OmittedFields)
+						sd.Fields = append(sd.Fields, fd)
+						if key.HasKey(childField) {
+							sd.KeyField = childField.Name
+						}
+					} else {
+						fd := processField(pf, table, data, keyFields, form.OmittedFields)
+						sd.Fields = append(sd.Fields, fd)
+						if key.HasKey(pf) {
+							sd.KeyField = pf.Name
+						}
+					}
+					addedFields[pf.Name] = true
+				}
+				// Add child-only fields that aren't in the parent
+				for _, field := range form.Fields {
+					if addedFields[field.Name] {
+						continue
+					}
+					fd := processField(field, table, data, keyFields, form.OmittedFields)
+					sd.Fields = append(sd.Fields, fd)
+					if key.HasKey(field) {
+						sd.KeyField = field.Name
+					}
+				}
+				return sd
+			}
+
+			sd.HasExtends = true
 			// For extends, only include child's own fields (not inherited)
 			// Pass OmittedFields so excluded fields get Field(exclude=True)
 			sd.Fields = make([]fieldData, 0, len(form.Fields)+len(form.OmittedFields))
@@ -457,14 +526,6 @@ func processStruct(
 			for _, field := range form.Fields {
 				redefinedFields[field.Name] = true
 				fd := processField(field, table, data, keyFields, form.OmittedFields)
-				if field.IsOptional || field.IsHardOptional {
-					for _, pf := range parentFields {
-						if pf.Name == field.Name && !pf.IsOptional && !pf.IsHardOptional {
-							fd.TypeIgnore = true
-							break
-						}
-					}
-				}
 				sd.Fields = append(sd.Fields, fd)
 				// Check if this field has @key annotation for __hash__ generation
 				if key.HasKey(field) {
@@ -1162,7 +1223,6 @@ type fieldData struct {
 	IsOptional     bool
 	IsHardOptional bool
 	IsArray        bool
-	TypeIgnore     bool
 }
 
 type enumData struct {
@@ -1328,7 +1388,7 @@ class {{ .PyName }}({{ range $i, $n := .ExtendsNames }}{{ if $i }}, {{ end }}{{ 
 {{- end }}
 {{- if or .Fields .KeyField }}
 {{- range .Fields }}
-    {{ .Name }}: {{ .PyType }}{{ .Default }}{{ if .TypeIgnore }}  # type: ignore[assignment]{{ end }}
+    {{ .Name }}: {{ .PyType }}{{ .Default }}
 {{- end }}
 {{- if .KeyField }}
 

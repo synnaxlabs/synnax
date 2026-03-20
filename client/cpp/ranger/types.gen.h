@@ -54,7 +54,8 @@ struct Base {
     [[nodiscard]] x::json::json to_json() const;
 
     using proto_type = ::service::ranger::pb::Range;
-    [[nodiscard]] ::service::ranger::pb::Range to_proto() const;
+    [[nodiscard]] std::pair<::service::ranger::pb::Range, x::errors::Error>
+    to_proto() const;
     static std::pair<Base, x::errors::Error>
     from_proto(const ::service::ranger::pb::Range &pb);
 };
@@ -75,7 +76,8 @@ struct Range : public Base {
     [[nodiscard]] x::json::json to_json() const;
 
     using proto_type = ::api::ranger::pb::Range;
-    [[nodiscard]] ::api::ranger::pb::Range to_proto() const;
+    [[nodiscard]] std::pair<::api::ranger::pb::Range, x::errors::Error>
+    to_proto() const;
     static std::pair<Range, x::errors::Error>
     from_proto(const ::api::ranger::pb::Range &pb);
     ranger::kv::Client kv;

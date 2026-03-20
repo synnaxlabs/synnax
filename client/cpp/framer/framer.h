@@ -301,7 +301,7 @@ struct WriterConfig {
 
 private:
     /// @brief binds the configuration fields to it's protobuf representation.
-    void to_proto(grpc::framer::WriterConfig *f) const;
+    [[nodiscard]] x::errors::Error to_proto(grpc::framer::WriterConfig *f) const;
 
     friend class Client;
 

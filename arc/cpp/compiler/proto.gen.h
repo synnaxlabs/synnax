@@ -22,12 +22,13 @@
 
 namespace arc::compiler {
 
-inline ::arc::compiler::pb::Output Output::to_proto() const {
+inline std::pair<::arc::compiler::pb::Output, x::errors::Error>
+Output::to_proto() const {
     ::arc::compiler::pb::Output pb;
     pb.set_wasm(this->wasm.data(), this->wasm.size());
     for (const auto &[k, v]: this->output_memory_bases)
         (*pb.mutable_output_memory_bases())[k] = v;
-    return pb;
+    return {pb, x::errors::NIL};
 }
 
 inline std::pair<Output, x::errors::Error>

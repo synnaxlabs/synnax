@@ -77,7 +77,8 @@ x::errors::Error Client::create(std::vector<Range> &ranges) const {
     auto req = grpc::ranger::CreateRequest();
     req.mutable_ranges()->Reserve(ranges.size());
     for (const auto &range: ranges) {
-        auto proto_range = range.to_proto();
+        auto [proto_range, proto_err] = range.to_proto();
+        if (proto_err) return proto_err;
         *req.add_ranges() = proto_range;
     }
     auto [res, err] = create_client->send("/range/create", req);
@@ -93,7 +94,8 @@ x::errors::Error Client::create(std::vector<Range> &ranges) const {
 
 x::errors::Error Client::create(Range &range) const {
     auto req = grpc::ranger::CreateRequest();
-    auto proto_range = range.to_proto();
+    auto [proto_range, pb_err] = range.to_proto();
+    if (pb_err) return pb_err;
     *req.add_ranges() = proto_range;
     auto [res, err] = create_client->send("/range/create", req);
     if (err) return err;

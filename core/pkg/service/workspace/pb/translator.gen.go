@@ -12,14 +12,13 @@
 package pb
 
 import (
-	"context"
 	"github.com/google/uuid"
 	"github.com/synnaxlabs/synnax/pkg/service/workspace"
 	"google.golang.org/protobuf/types/known/structpb"
 )
 
 // WorkspaceToPB converts Workspace to Workspace.
-func WorkspaceToPB(_ context.Context, r workspace.Workspace) (*Workspace, error) {
+func WorkspaceToPB(r workspace.Workspace) (*Workspace, error) {
 	layoutVal, err := structpb.NewStruct(r.Layout)
 	if err != nil {
 		return nil, err
@@ -34,7 +33,7 @@ func WorkspaceToPB(_ context.Context, r workspace.Workspace) (*Workspace, error)
 }
 
 // WorkspaceFromPB converts Workspace to Workspace.
-func WorkspaceFromPB(_ context.Context, pb *Workspace) (workspace.Workspace, error) {
+func WorkspaceFromPB(pb *Workspace) (workspace.Workspace, error) {
 	var r workspace.Workspace
 	if pb == nil {
 		return r, nil
@@ -55,11 +54,11 @@ func WorkspaceFromPB(_ context.Context, pb *Workspace) (workspace.Workspace, err
 }
 
 // WorkspacesToPB converts a slice of Workspace to Workspace.
-func WorkspacesToPB(ctx context.Context, rs []workspace.Workspace) ([]*Workspace, error) {
+func WorkspacesToPB(rs []workspace.Workspace) ([]*Workspace, error) {
 	result := make([]*Workspace, len(rs))
 	for i := range rs {
 		var err error
-		result[i], err = WorkspaceToPB(ctx, rs[i])
+		result[i], err = WorkspaceToPB(rs[i])
 		if err != nil {
 			return nil, err
 		}
@@ -68,11 +67,11 @@ func WorkspacesToPB(ctx context.Context, rs []workspace.Workspace) ([]*Workspace
 }
 
 // WorkspacesFromPB converts a slice of Workspace to Workspace.
-func WorkspacesFromPB(ctx context.Context, pbs []*Workspace) ([]workspace.Workspace, error) {
+func WorkspacesFromPB(pbs []*Workspace) ([]workspace.Workspace, error) {
 	result := make([]workspace.Workspace, len(pbs))
 	for i, pb := range pbs {
 		var err error
-		result[i], err = WorkspaceFromPB(ctx, pb)
+		result[i], err = WorkspaceFromPB(pb)
 		if err != nil {
 			return nil, err
 		}

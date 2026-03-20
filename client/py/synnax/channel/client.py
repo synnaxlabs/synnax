@@ -298,7 +298,7 @@ class Client:
         :returns: The created channels.
         """
 
-        _channels: list[Payload]
+        _channels: list[Payload | New]
         if channels is None:
             if is_index and data_type == DataType.UNKNOWN:
                 data_type = DataType.TIMESTAMP

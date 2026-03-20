@@ -46,7 +46,7 @@ func (c CreateMessageTranslator) Forward(
 	ctx context.Context,
 	msg channel.CreateMessage,
 ) (*CreateMessage, error) {
-	channels, err := ChannelsToPB(ctx, msg.Channels)
+	channels, err := ChannelsToPB(msg.Channels)
 	if err != nil {
 		return nil, err
 	}
@@ -60,7 +60,7 @@ func (c CreateMessageTranslator) Backward(
 	ctx context.Context,
 	msg *CreateMessage,
 ) (channel.CreateMessage, error) {
-	channels, err := ChannelsFromPB(ctx, msg.Channels)
+	channels, err := ChannelsFromPB(msg.Channels)
 	if err != nil {
 		return channel.CreateMessage{}, err
 	}

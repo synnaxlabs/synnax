@@ -25,26 +25,43 @@
 
 namespace arc::program {
 
-inline ::arc::program::pb::Program Program::to_proto() const {
+inline std::pair<::arc::program::pb::Program, x::errors::Error>
+Program::to_proto() const {
     ::arc::program::pb::Program pb;
-    for (const auto &item: this->functions)
-        *pb.add_functions() = item.to_proto();
-    for (const auto &item: this->nodes)
-        *pb.add_nodes() = item.to_proto();
-    for (const auto &item: this->edges)
-        *pb.add_edges() = item.to_proto();
+    for (const auto &item: this->functions) {
+        auto [v, err] = item.to_proto();
+        if (err) return {{}, err};
+        *pb.add_functions() = v;
+    }
+    for (const auto &item: this->nodes) {
+        auto [v, err] = item.to_proto();
+        if (err) return {{}, err};
+        *pb.add_nodes() = v;
+    }
+    for (const auto &item: this->edges) {
+        auto [v, err] = item.to_proto();
+        if (err) return {{}, err};
+        *pb.add_edges() = v;
+    }
     for (const auto &item: this->strata) {
         auto *wrapper = pb.add_strata();
         for (const auto &v: item)
             wrapper->add_values(v);
     }
-    for (const auto &item: this->sequences)
-        *pb.add_sequences() = item.to_proto();
-    *pb.mutable_authorities() = this->authorities.to_proto();
+    for (const auto &item: this->sequences) {
+        auto [v, err] = item.to_proto();
+        if (err) return {{}, err};
+        *pb.add_sequences() = v;
+    }
+    {
+        auto [v, err] = this->authorities.to_proto();
+        if (err) return {{}, err};
+        *pb.mutable_authorities() = v;
+    }
     pb.set_wasm(this->wasm.data(), this->wasm.size());
     for (const auto &[k, v]: this->output_memory_bases)
         (*pb.mutable_output_memory_bases())[k] = v;
-    return pb;
+    return {pb, x::errors::NIL};
 }
 
 inline std::pair<Program, x::errors::Error>

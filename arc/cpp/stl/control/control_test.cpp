@@ -71,6 +71,19 @@ runtime::node::Context make_context() {
     };
 }
 
+TEST(SetAuthorityModuleTest, ReturnsErrorForNullAuthorityValue) {
+    TestSetup setup(100, 42);
+    auto ir_node = setup.ir.nodes[0];
+    for (auto &p: ir_node.config)
+        if (p.name == "value") p.value = nullptr;
+
+    authority::Module module(setup.state);
+    ASSERT_OCCURRED_AS_P(
+        module.create(runtime::node::Config(setup.ir, ir_node, setup.make_node())),
+        x::errors::VALIDATION
+    );
+}
+
 TEST(SetAuthorityModuleTest, ReturnsNotFoundForWrongType) {
     TestSetup setup(100, 42);
     auto ir_node = setup.ir.nodes[0];
