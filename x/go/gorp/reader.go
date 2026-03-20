@@ -39,11 +39,11 @@ type Reader[K Key, E Entry[K]] struct {
 // that the Reader only access to the entries provided as the type arguments
 // to this function. The following example reads from a DB:
 //
-//	r := gor.WrapReader[MyKey, MyEntry](db)
+//	r := gorp.WrapReader[MyKey, MyEntry](db)
 //
 // The next example reads from a Tx:
 //
-//	r := gor.WrapReader[MyKey, MyEntry](tx)
+//	r := gorp.WrapReader[MyKey, MyEntry](tx)
 func WrapReader[K Key, E Entry[K]](base BaseReader) *Reader[K, E] {
 	return &Reader[K, E]{BaseReader: base, keyCodec: newKeyCodec[K, E]()}
 }

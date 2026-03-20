@@ -41,8 +41,7 @@ var _ = Describe("Tx", Ordered, func() {
 				Expect(tx.Set(ctx, k, []byte("value"))).To(Succeed())
 				return err
 			})).To(MatchError(err))
-			_, _, err = db.Get(ctx, k)
-			Expect(err).To(MatchError(query.ErrNotFound))
+			Expect(db.Get(ctx, k)).Error().To(MatchError(query.ErrNotFound))
 		})
 	})
 })

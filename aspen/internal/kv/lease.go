@@ -67,7 +67,7 @@ func (la *leaseAllocator) getLease(ctx context.Context, key []byte) (node.Key, e
 	if err != nil {
 		return 0, err
 	}
-	return digest.Leaseholder, err
+	return digest.Leaseholder, nil
 }
 
 type leaseProxy struct {
