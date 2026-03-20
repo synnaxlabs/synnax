@@ -25,7 +25,7 @@ type int8Entry struct {
 	Data string
 }
 
-func (e int8Entry) GorpKey() int8    { return e.ID }
+func (e int8Entry) GorpKey() int8     { return e.ID }
 func (e int8Entry) SetOptions() []any { return nil }
 
 type int16Entry struct {
@@ -33,7 +33,7 @@ type int16Entry struct {
 	Data string
 }
 
-func (e int16Entry) GorpKey() int16   { return e.ID }
+func (e int16Entry) GorpKey() int16    { return e.ID }
 func (e int16Entry) SetOptions() []any { return nil }
 
 type int64Entry struct {
@@ -41,7 +41,7 @@ type int64Entry struct {
 	Data string
 }
 
-func (e int64Entry) GorpKey() int64   { return e.ID }
+func (e int64Entry) GorpKey() int64    { return e.ID }
 func (e int64Entry) SetOptions() []any { return nil }
 
 type uint8Entry struct {
@@ -49,7 +49,7 @@ type uint8Entry struct {
 	Data string
 }
 
-func (e uint8Entry) GorpKey() uint8   { return e.ID }
+func (e uint8Entry) GorpKey() uint8    { return e.ID }
 func (e uint8Entry) SetOptions() []any { return nil }
 
 type uint16Entry struct {
@@ -57,7 +57,7 @@ type uint16Entry struct {
 	Data string
 }
 
-func (e uint16Entry) GorpKey() uint16  { return e.ID }
+func (e uint16Entry) GorpKey() uint16   { return e.ID }
 func (e uint16Entry) SetOptions() []any { return nil }
 
 type uint32Entry struct {
@@ -65,7 +65,7 @@ type uint32Entry struct {
 	Data string
 }
 
-func (e uint32Entry) GorpKey() uint32  { return e.ID }
+func (e uint32Entry) GorpKey() uint32   { return e.ID }
 func (e uint32Entry) SetOptions() []any { return nil }
 
 type uint64Entry struct {
@@ -73,7 +73,7 @@ type uint64Entry struct {
 	Data string
 }
 
-func (e uint64Entry) GorpKey() uint64  { return e.ID }
+func (e uint64Entry) GorpKey() uint64   { return e.ID }
 func (e uint64Entry) SetOptions() []any { return nil }
 
 type stringEntry struct {
@@ -81,7 +81,7 @@ type stringEntry struct {
 	Data string
 }
 
-func (e stringEntry) GorpKey() string  { return e.ID }
+func (e stringEntry) GorpKey() string   { return e.ID }
 func (e stringEntry) SetOptions() []any { return nil }
 
 var _ = Describe("KeyCodec", func() {
