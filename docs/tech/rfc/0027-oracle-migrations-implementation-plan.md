@@ -154,6 +154,7 @@ This was originally part of Phase 4 in the old plan, but was done early since th
   - Removed `ParentAlias`, `ParentPath`, `ParentImportPath` from template data structs
 
 - **15 `codec.gen.go` files regenerated** via `oracle sync` in parent packages:
+
   ```
   core/pkg/service/{arc,device,lineplot,log,rack,ranger,schematic,table,task,user,workspace}/codec.gen.go
   core/pkg/distribution/{group,ontology}/codec.gen.go
@@ -256,36 +257,36 @@ codec-only MVP):
 
 13 services have full `OpenTable` wiring with `Codec` + `Migrations`:
 
-| Service | OpenTable wiring |
-|---------|-----------------|
-| arc | `ArcMigrations(cfg.Codec)` |
-| device | `DeviceMigrations(cfg.Codec)` |
-| lineplot | `LinePlotMigrations(cfg.Codec)` |
-| log | `LogMigrations(cfg.Codec)` |
-| rack | `RackMigrations(cfg.Codec)` |
-| ranger | `RangeMigrations(cfg.Codec)` |
-| schematic | `SchematicMigrations(cfg.Codec)` |
-| table | `TableMigrations(cfg.Codec)` |
-| task | `TaskMigrations(cfg.Codec)` |
-| user | `UserMigrations(cfg.Codec)` |
-| workspace | `WorkspaceMigrations(cfg.Codec)` |
-| group (distribution) | `GroupMigrations(cfg.Codec)` |
+| Service                 | OpenTable wiring                  |
+| ----------------------- | --------------------------------- |
+| arc                     | `ArcMigrations(cfg.Codec)`        |
+| device                  | `DeviceMigrations(cfg.Codec)`     |
+| lineplot                | `LinePlotMigrations(cfg.Codec)`   |
+| log                     | `LogMigrations(cfg.Codec)`        |
+| rack                    | `RackMigrations(cfg.Codec)`       |
+| ranger                  | `RangeMigrations(cfg.Codec)`      |
+| schematic               | `SchematicMigrations(cfg.Codec)`  |
+| table                   | `TableMigrations(cfg.Codec)`      |
+| task                    | `TaskMigrations(cfg.Codec)`       |
+| user                    | `UserMigrations(cfg.Codec)`       |
+| workspace               | `WorkspaceMigrations(cfg.Codec)`  |
+| group (distribution)    | `GroupMigrations(cfg.Codec)`      |
 | ontology (distribution) | inline `NewCodecTransition` calls |
 
 ### What's remaining
 
 8 services have bare `OpenTable` calls (no Codec, no Migrations). Each needs evaluation:
 
-| Service | File | Needs codec? |
-|---------|------|-------------|
-| `access/rbac/policy` | `policy/service.go:63` | Needs `.oracle` schema + codec + migration |
-| `access/rbac/role` | `role/service.go:75` | Needs `.oracle` schema + codec + migration |
-| `auth` (SecureCredentials) | `auth/kv.go:32` | Needs `.oracle` schema + codec + migration |
-| `ranger/alias` | `alias/service.go:84` | Needs `.oracle` schema + codec + migration |
-| `ranger/kv` (Pair) | `kv/service.go:64` | Needs `.oracle` schema + codec + migration |
-| `schematic/symbol` | `symbol/service.go:83` | Needs `.oracle` schema + codec + migration |
-| `view` | `view/service.go:86` | Needs `.oracle` schema + codec + migration |
-| `distribution/channel` | `channel/service.go:97` | Needs `.oracle` schema + codec + migration |
+| Service                    | File                    | Needs codec?                               |
+| -------------------------- | ----------------------- | ------------------------------------------ |
+| `access/rbac/policy`       | `policy/service.go:63`  | Needs `.oracle` schema + codec + migration |
+| `access/rbac/role`         | `role/service.go:75`    | Needs `.oracle` schema + codec + migration |
+| `auth` (SecureCredentials) | `auth/kv.go:32`         | Needs `.oracle` schema + codec + migration |
+| `ranger/alias`             | `alias/service.go:84`   | Needs `.oracle` schema + codec + migration |
+| `ranger/kv` (Pair)         | `kv/service.go:64`      | Needs `.oracle` schema + codec + migration |
+| `schematic/symbol`         | `symbol/service.go:83`  | Needs `.oracle` schema + codec + migration |
+| `view`                     | `view/service.go:86`    | Needs `.oracle` schema + codec + migration |
+| `distribution/channel`     | `channel/service.go:97` | Needs `.oracle` schema + codec + migration |
 
 ### What to build
 
@@ -320,9 +321,9 @@ codec-only MVP):
 `Migration` interface.
 
 **What was built previously (ranger)**: Ranger's `rangeGroupsMigration` already
-implements the `gorp.Migration` interface directly (`core/pkg/service/ranger/migrate.go`)
-and is passed to `OpenTable` alongside the generated codec transition migration. This was
-done as part of Phase 4.
+implements the `gorp.Migration` interface directly
+(`core/pkg/service/ranger/migrate.go`) and is passed to `OpenTable` alongside the
+generated codec transition migration. This was done as part of Phase 4.
 
 ### What to build
 
@@ -415,9 +416,9 @@ thorough unit testing.
    ) Migration
    ```
 
-   When `inputCodec` is nil, decode using `cfg.Codec` (DB's msgpack). When
-   `outputCodec` is nil, encode using `cfg.Codec`. This preserves backward
-   compatibility — existing `TypedMigration` callers in tests just pass nil for both.
+   When `inputCodec` is nil, decode using `cfg.Codec` (DB's msgpack). When `outputCodec`
+   is nil, encode using `cfg.Codec`. This preserves backward compatibility — existing
+   `TypedMigration` callers in tests just pass nil for both.
 
 2. **Schema diff engine** (`oracle/plugin/migrate/diff/`):
    - Compare two `resolution.Table`s (old snapshot vs. current)
@@ -608,6 +609,7 @@ Phase 8: Test Infrastructure (can start anytime after Phase 1)
     `inputCodec`/`outputCodec` parameters (nil → fallback to msgpack) will be added when
     schema migrations need version-specific frozen codecs. For the MVP codec transition,
     `NewCodecTransition` handles everything.
-11. **Generated migration function pattern** — `{Type}Migrations(codec Codec[T])
-    []Migration` rather than `All() []Migration`. The codec is passed as a parameter to
-    avoid circular imports and to allow `NewCodecTransition` to use it directly.
+11. **Generated migration function pattern** —
+    `{Type}Migrations(codec Codec[T]) []Migration` rather than `All() []Migration`. The
+    codec is passed as a parameter to avoid circular imports and to allow
+    `NewCodecTransition` to use it directly.

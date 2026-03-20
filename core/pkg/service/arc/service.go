@@ -155,7 +155,7 @@ func OpenService(ctx context.Context, configs ...ServiceConfig) (*Service, error
 		DB:    cfg.DB,
 		Codec: cfg.Codec,
 		Migrations: []gorp.Migration{
-			gorp.NewCodecTransition[uuid.UUID, Arc]("msgpack_to_protobuf", cfg.Codec),
+			gorp.NewCodecTransition[uuid.UUID, Arc]("msgpack_to_binary", cfg.Codec),
 		},
 	})
 	if err != nil {

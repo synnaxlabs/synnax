@@ -98,7 +98,7 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (*Service, error) {
 		DB:    cfg.DB,
 		Codec: cfg.Codec,
 		Migrations: []gorp.Migration{
-			gorp.NewCodecTransition[uuid.UUID, Range]("msgpack_to_protobuf", cfg.Codec),
+			gorp.NewCodecTransition[uuid.UUID, Range]("msgpack_to_binary", cfg.Codec),
 			newRangeGroupsMigration(cfg),
 		},
 	})
