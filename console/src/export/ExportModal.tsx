@@ -236,6 +236,21 @@ const buildExportRequest = (checked: Set<string>): ExportSycRequest => {
       case "workspace":
         (request.workspace_keys ??= []).push(resourceKey);
         break;
+      case "user":
+        (request.user_keys ??= []).push(resourceKey);
+        break;
+      case "device":
+        (request.device_keys ??= []).push(resourceKey);
+        break;
+      case "task":
+        (request.task_keys ??= []).push(resourceKey);
+        break;
+      case "range":
+        (request.range_keys ??= []).push(resourceKey);
+        break;
+      case "channel":
+        (request.channel_keys ??= []).push(resourceKey);
+        break;
     }
   }
   return request;

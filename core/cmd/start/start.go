@@ -263,6 +263,11 @@ func BootupCore(ctx context.Context, onServerStarted chan struct{}, cfgs ...Core
 		Table:     serviceLayer.Table,
 		Arc:       serviceLayer.Arc,
 		Log:       serviceLayer.Log,
+		User:      serviceLayer.User,
+		Device:    serviceLayer.Device,
+		Task:      serviceLayer.Task,
+		Ranger:    serviceLayer.Ranger,
+		Channel:   serviceLayer.Channel,
 	})
 	exportTransport := apiexport.NewTransport(exportSvc, serviceLayer.Token, serviceLayer.RBAC)
 

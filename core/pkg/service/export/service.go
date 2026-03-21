@@ -19,12 +19,18 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/samber/lo"
+	distchannel "github.com/synnaxlabs/synnax/pkg/distribution/channel"
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
 	"github.com/synnaxlabs/synnax/pkg/service/arc"
+	"github.com/synnaxlabs/synnax/pkg/service/channel"
+	"github.com/synnaxlabs/synnax/pkg/service/device"
 	"github.com/synnaxlabs/synnax/pkg/service/lineplot"
 	"github.com/synnaxlabs/synnax/pkg/service/log"
+	"github.com/synnaxlabs/synnax/pkg/service/ranger"
 	"github.com/synnaxlabs/synnax/pkg/service/schematic"
 	"github.com/synnaxlabs/synnax/pkg/service/table"
+	"github.com/synnaxlabs/synnax/pkg/service/task"
+	"github.com/synnaxlabs/synnax/pkg/service/user"
 	"github.com/synnaxlabs/synnax/pkg/service/workspace"
 )
 
@@ -37,6 +43,11 @@ type ServiceConfig struct {
 	Table     *table.Service
 	Arc       *arc.Service
 	Log       *log.Service
+	User      *user.Service
+	Device    *device.Service
+	Task      *task.Service
+	Ranger    *ranger.Service
+	Channel   *channel.Service
 }
 
 // Service provides functionality for exporting Synnax data into .syc archives.
@@ -51,8 +62,13 @@ func NewService(cfg ServiceConfig) *Service {
 
 // Request specifies which resources to include in the export.
 type Request struct {
-	WorkspaceKeys []uuid.UUID `json:"workspace_keys"`
-	Path          string      `json:"path"`
+	WorkspaceKeys []uuid.UUID        `json:"workspace_keys"`
+	UserKeys      []uuid.UUID        `json:"user_keys"`
+	DeviceKeys    []string           `json:"device_keys"`
+	TaskKeys      []task.Key         `json:"task_keys"`
+	RangeKeys     []uuid.UUID        `json:"range_keys"`
+	ChannelKeys   []distchannel.Key  `json:"channel_keys"`
+	Path          string             `json:"path"`
 }
 
 // Export writes a .syc archive (ZIP format) to the provided writer containing all
@@ -68,6 +84,41 @@ func (s *Service) Export(ctx context.Context, req Request, w io.Writer) error {
 			return err
 		}
 		sections = append(sections, "workspaces")
+	}
+
+	if len(req.UserKeys) > 0 {
+		if err := s.exportUsers(ctx, req, zw); err != nil {
+			return err
+		}
+		sections = append(sections, "users")
+	}
+
+	if len(req.DeviceKeys) > 0 {
+		if err := s.exportDevices(ctx, req, zw); err != nil {
+			return err
+		}
+		sections = append(sections, "devices")
+	}
+
+	if len(req.TaskKeys) > 0 {
+		if err := s.exportTasks(ctx, req, zw); err != nil {
+			return err
+		}
+		sections = append(sections, "tasks")
+	}
+
+	if len(req.RangeKeys) > 0 {
+		if err := s.exportRanges(ctx, req, zw); err != nil {
+			return err
+		}
+		sections = append(sections, "ranges")
+	}
+
+	if len(req.ChannelKeys) > 0 {
+		if err := s.exportChannels(ctx, req, zw); err != nil {
+			return err
+		}
+		sections = append(sections, "channels")
 	}
 
 	return s.writeManifest(zw, sections)
@@ -229,6 +280,126 @@ func (s *Service) exportWorkspaceChildren(
 		}
 	}
 
+	return nil
+}
+
+func (s *Service) exportUsers(
+	ctx context.Context,
+	req Request,
+	zw *zip.Writer,
+) error {
+	var users []user.User
+	if err := s.cfg.User.NewRetrieve().
+		WhereKeys(req.UserKeys...).
+		Entries(&users).
+		Exec(ctx, nil); err != nil {
+		return err
+	}
+	for _, u := range users {
+		if err := writeJSON(
+			zw,
+			fmt.Sprintf("users/%s.json", u.Key),
+			newUser(u),
+		); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func (s *Service) exportDevices(
+	ctx context.Context,
+	req Request,
+	zw *zip.Writer,
+) error {
+	var devices []device.Device
+	if err := s.cfg.Device.NewRetrieve().
+		WhereKeys(req.DeviceKeys...).
+		Entries(&devices).
+		Exec(ctx, nil); err != nil {
+		return err
+	}
+	for _, d := range devices {
+		if err := writeJSON(
+			zw,
+			fmt.Sprintf("devices/%s.json", d.Key),
+			newDevice(d),
+		); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func (s *Service) exportTasks(
+	ctx context.Context,
+	req Request,
+	zw *zip.Writer,
+) error {
+	var tasks []task.Task
+	if err := s.cfg.Task.NewRetrieve().
+		WhereKeys(req.TaskKeys...).
+		Entries(&tasks).
+		Exec(ctx, nil); err != nil {
+		return err
+	}
+	for _, t := range tasks {
+		if err := writeJSON(
+			zw,
+			fmt.Sprintf("tasks/%d.json", t.Key),
+			newTask(t),
+		); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func (s *Service) exportRanges(
+	ctx context.Context,
+	req Request,
+	zw *zip.Writer,
+) error {
+	var ranges []ranger.Range
+	if err := s.cfg.Ranger.NewRetrieve().
+		WhereKeys(req.RangeKeys...).
+		Entries(&ranges).
+		Exec(ctx, nil); err != nil {
+		return err
+	}
+	for _, r := range ranges {
+		if err := writeJSON(
+			zw,
+			fmt.Sprintf("ranges/%s.json", r.Key),
+			newRange(r),
+		); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func (s *Service) exportChannels(
+	ctx context.Context,
+	req Request,
+	zw *zip.Writer,
+) error {
+	var channels []distchannel.Channel
+	if err := s.cfg.Channel.NewRetrieve().
+		WhereKeys(req.ChannelKeys...).
+		Entries(&channels).
+		Exec(ctx, nil); err != nil {
+		return err
+	}
+	for _, c := range channels {
+		if err := writeJSON(
+			zw,
+			fmt.Sprintf("channels/%d.json", c.Key()),
+			newChannel(c),
+		); err != nil {
+			return err
+		}
+	}
 	return nil
 }
 

@@ -17,11 +17,21 @@ import (
 	"github.com/synnaxlabs/arc/graph"
 	"github.com/synnaxlabs/arc/program"
 	"github.com/synnaxlabs/arc/text"
+	"github.com/synnaxlabs/x/binary"
+	"github.com/synnaxlabs/x/color"
+	"github.com/synnaxlabs/x/telem"
+	distchannel "github.com/synnaxlabs/synnax/pkg/distribution/channel"
+	"github.com/synnaxlabs/synnax/pkg/distribution/cluster"
 	"github.com/synnaxlabs/synnax/pkg/service/arc"
+	"github.com/synnaxlabs/synnax/pkg/service/device"
 	"github.com/synnaxlabs/synnax/pkg/service/lineplot"
 	"github.com/synnaxlabs/synnax/pkg/service/log"
+	"github.com/synnaxlabs/synnax/pkg/service/rack"
+	"github.com/synnaxlabs/synnax/pkg/service/ranger"
 	"github.com/synnaxlabs/synnax/pkg/service/schematic"
 	"github.com/synnaxlabs/synnax/pkg/service/table"
+	"github.com/synnaxlabs/synnax/pkg/service/task"
+	"github.com/synnaxlabs/synnax/pkg/service/user"
 	"github.com/synnaxlabs/synnax/pkg/service/workspace"
 )
 
@@ -138,4 +148,109 @@ func newLog(l log.Log) Log {
 		data = json.RawMessage("{}")
 	}
 	return Log{Name: l.Name, Key: l.Key, Data: data}
+}
+
+// User is the exported representation of a user (no credentials).
+type User struct {
+	Key       uuid.UUID `json:"key"`
+	Username  string    `json:"username"`
+	FirstName string    `json:"first_name"`
+	LastName  string    `json:"last_name"`
+}
+
+func newUser(u user.User) User {
+	return User{
+		Key:       u.Key,
+		Username:  u.Username,
+		FirstName: u.FirstName,
+		LastName:  u.LastName,
+	}
+}
+
+// Device is the exported representation of a hardware device.
+type Device struct {
+	Key        string                `json:"key"`
+	Name       string                `json:"name"`
+	Make       string                `json:"make"`
+	Model      string                `json:"model"`
+	Location   string                `json:"location"`
+	Properties binary.MsgpackEncodedJSON `json:"properties"`
+	Rack       rack.Key              `json:"rack"`
+	Configured bool                  `json:"configured"`
+}
+
+func newDevice(d device.Device) Device {
+	return Device{
+		Key:        d.Key,
+		Name:       d.Name,
+		Make:       d.Make,
+		Model:      d.Model,
+		Location:   d.Location,
+		Properties: d.Properties,
+		Rack:       d.Rack,
+		Configured: d.Configured,
+	}
+}
+
+// Task is the exported representation of a task (driver or arc).
+type Task struct {
+	Key      task.Key                  `json:"key"`
+	Name     string                    `json:"name"`
+	Type     string                    `json:"type"`
+	Config   binary.MsgpackEncodedJSON `json:"config"`
+	Internal bool                      `json:"internal"`
+}
+
+func newTask(t task.Task) Task {
+	return Task{
+		Key:      t.Key,
+		Name:     t.Name,
+		Type:     t.Type,
+		Config:   t.Config,
+		Internal: t.Internal,
+	}
+}
+
+// Range is the exported representation of a time range.
+type Range struct {
+	Key       uuid.UUID       `json:"key"`
+	Name      string          `json:"name"`
+	Color     color.Color     `json:"color"`
+	TimeRange telem.TimeRange `json:"time_range"`
+}
+
+func newRange(r ranger.Range) Range {
+	return Range{
+		Key:       r.Key,
+		Name:      r.Name,
+		Color:     r.Color,
+		TimeRange: r.TimeRange,
+	}
+}
+
+// Channel is the exported representation of a channel (metadata only, no data).
+type Channel struct {
+	Key         distchannel.Key    `json:"key"`
+	Name        string             `json:"name"`
+	DataType    telem.DataType     `json:"data_type"`
+	IsIndex     bool               `json:"is_index"`
+	Index       distchannel.Key    `json:"index"`
+	Leaseholder cluster.NodeKey    `json:"leaseholder"`
+	Virtual     bool               `json:"virtual"`
+	Internal    bool               `json:"internal"`
+	Expression  string             `json:"expression"`
+}
+
+func newChannel(c distchannel.Channel) Channel {
+	return Channel{
+		Key:         c.Key(),
+		Name:        c.Name,
+		DataType:    c.DataType,
+		IsIndex:     c.IsIndex,
+		Index:       c.Index(),
+		Leaseholder: c.Leaseholder,
+		Virtual:     c.Virtual,
+		Internal:    c.Internal,
+		Expression:  c.Expression,
+	}
 }

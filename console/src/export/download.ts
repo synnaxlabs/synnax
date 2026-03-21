@@ -16,6 +16,11 @@ import { downloadStream } from "@/runtime/download";
 
 export interface ExportSycRequest {
   workspace_keys?: string[];
+  user_keys?: string[];
+  device_keys?: string[];
+  task_keys?: string[];
+  range_keys?: string[];
+  channel_keys?: string[];
 }
 
 export interface DownloadSycParams {

@@ -18,11 +18,15 @@ import (
 	"github.com/synnaxlabs/alamos"
 	"github.com/synnaxlabs/freighter"
 	fhttp "github.com/synnaxlabs/freighter/http"
+	distchannel "github.com/synnaxlabs/synnax/pkg/distribution/channel"
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
 	"github.com/synnaxlabs/synnax/pkg/service/access"
 	"github.com/synnaxlabs/synnax/pkg/service/access/rbac"
 	"github.com/synnaxlabs/synnax/pkg/service/auth/token"
+	"github.com/synnaxlabs/synnax/pkg/service/device"
 	svcexport "github.com/synnaxlabs/synnax/pkg/service/export"
+	"github.com/synnaxlabs/synnax/pkg/service/ranger"
+	"github.com/synnaxlabs/synnax/pkg/service/task"
 	"github.com/synnaxlabs/synnax/pkg/service/user"
 	"github.com/synnaxlabs/synnax/pkg/service/workspace"
 )
@@ -107,9 +111,26 @@ func (t *Transport) handle(c fiber.Ctx) error {
 }
 
 func ontologyIDsFromRequest(req svcexport.Request) []ontology.ID {
-	ids := make([]ontology.ID, 0, len(req.WorkspaceKeys))
-	for _, key := range req.WorkspaceKeys {
-		ids = append(ids, workspace.OntologyID(key))
+	ids := make([]ontology.ID, 0,
+		len(req.WorkspaceKeys)+len(req.UserKeys)+len(req.DeviceKeys)+
+			len(req.TaskKeys)+len(req.RangeKeys)+len(req.ChannelKeys))
+	for _, k := range req.WorkspaceKeys {
+		ids = append(ids, workspace.OntologyID(k))
+	}
+	for _, k := range req.UserKeys {
+		ids = append(ids, user.OntologyID(k))
+	}
+	for _, k := range req.DeviceKeys {
+		ids = append(ids, device.OntologyID(k))
+	}
+	for _, k := range req.TaskKeys {
+		ids = append(ids, task.OntologyID(k))
+	}
+	for _, k := range req.RangeKeys {
+		ids = append(ids, ranger.OntologyID(k))
+	}
+	for _, k := range req.ChannelKeys {
+		ids = append(ids, distchannel.OntologyID(k))
 	}
 	return ids
 }
