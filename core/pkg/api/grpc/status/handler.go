@@ -15,7 +15,6 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/synnaxlabs/freighter/grpc"
-
 	"github.com/synnaxlabs/synnax/pkg/api"
 	apistatus "github.com/synnaxlabs/synnax/pkg/api/status"
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
