@@ -28,6 +28,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/api"
 	grpcapi "github.com/synnaxlabs/synnax/pkg/api/grpc"
 	httpapi "github.com/synnaxlabs/synnax/pkg/api/http"
+	apiexport "github.com/synnaxlabs/synnax/pkg/api/export"
 	"github.com/synnaxlabs/synnax/pkg/console"
 	"github.com/synnaxlabs/synnax/pkg/distribution"
 	channeltransport "github.com/synnaxlabs/synnax/pkg/distribution/transport/grpc/channel"
@@ -37,6 +38,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/security/cert"
 	"github.com/synnaxlabs/synnax/pkg/server"
 	"github.com/synnaxlabs/synnax/pkg/service"
+	svcexport "github.com/synnaxlabs/synnax/pkg/service/export"
 	"github.com/synnaxlabs/synnax/pkg/service/auth"
 	"github.com/synnaxlabs/synnax/pkg/service/auth/password"
 	"github.com/synnaxlabs/synnax/pkg/storage"
@@ -252,6 +254,18 @@ func BootupCore(ctx context.Context, onServerStarted chan struct{}, cfgs ...Core
 		return err
 	}
 
+	// Configure the export service.
+	exportSvc := svcexport.NewService(svcexport.ServiceConfig{
+		Ontology:  distributionLayer.Ontology,
+		Workspace: serviceLayer.Workspace,
+		LinePlot:  serviceLayer.LinePlot,
+		Schematic: serviceLayer.Schematic,
+		Table:     serviceLayer.Table,
+		Arc:       serviceLayer.Arc,
+		Log:       serviceLayer.Log,
+	})
+	exportTransport := apiexport.NewTransport(exportSvc, serviceLayer.Token, serviceLayer.RBAC)
+
 	// Configure the HTTP Layer AspenTransport.
 	r := http.NewRouter(http.RouterConfig{
 		Instrumentation:     cfg.Instrumentation,
@@ -267,7 +281,7 @@ func BootupCore(ctx context.Context, onServerStarted chan struct{}, cfgs ...Core
 		server.Config{
 			Branches: []server.Branch{
 				&server.SecureHTTPBranch{
-					Transports: []http.BindableTransport{r, console.NewService()},
+					Transports: []http.BindableTransport{r, console.NewService(), exportTransport},
 				},
 				&server.GRPCBranch{Transports: slices.Concat(
 					grpcAPITrans,

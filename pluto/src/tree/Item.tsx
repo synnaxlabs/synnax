@@ -55,7 +55,7 @@ export const Item = <K extends record.Key, E extends Button.ElementType = "div">
       // Cast rest props - TS can't prove remaining props match after destructuring tree-specific ones
       {...(rest as Select.ListItemProps<K, Button.ElementType>)}
     >
-      {hasChildren && (
+      {hasChildren ? (
         <Caret.Animated
           className={CSS.BE("tree", "expansion-indicator")}
           key="caret"
@@ -63,6 +63,8 @@ export const Item = <K extends record.Key, E extends Button.ElementType = "div">
           enabledLoc="bottom"
           disabledLoc="right"
         />
+      ) : (
+        <div className={CSS.BE("tree", "expansion-indicator-spacer")} />
       )}
       {children}
       {loading && <Icon.Loading />}

@@ -11,6 +11,7 @@ import { ArcServices } from "@/arc/services";
 import { ChannelServices } from "@/channel/services";
 import { ClusterServices } from "@/cluster/services";
 import { Docs } from "@/docs";
+import { Export } from "@/export";
 import { Hardware } from "@/hardware";
 import { Import } from "@/import";
 import { LabelServices } from "@/label/services";
@@ -30,6 +31,7 @@ export const COMMANDS: Palette.Command[] = [
   ...ChannelServices.COMMANDS,
   ...ClusterServices.COMMANDS,
   ...Docs.COMMANDS,
+  ...Export.COMMANDS,
   ...Hardware.COMMANDS,
   ...Import.COMMANDS,
   ...LabelServices.COMMANDS,

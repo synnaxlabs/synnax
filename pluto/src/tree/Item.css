@@ -36,6 +36,10 @@
             height: 2.5rem;
         }
 
+        & .pluto-tree__expansion-indicator-spacer {
+            width: 0.5rem;
+        }
+
         & .pluto-icon:not(.pluto-tree__expansion-indicator) {
             color: var(--pluto-gray-l10);
         }
