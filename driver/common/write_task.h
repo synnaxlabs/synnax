@@ -9,7 +9,7 @@
 
 #pragma once
 
-#include "driver/bypass/factory.h"
+#include "driver/bypass/pipeline/factory.h"
 #include "driver/common/status.h"
 #include "driver/errors/errors.h"
 #include "driver/pipeline/acquisition.h"
@@ -226,8 +226,8 @@ public:
             ctx,
             breaker_cfg,
             std::move(sink),
-            bypass::make_writer_factory(ctx),
-            bypass::make_streamer_factory(ctx, {task.name, task.name})
+            bypass::pipeline::create_writer_factory(ctx),
+            bypass::pipeline::create_streamer_factory(ctx, {task.name, task.name})
         ) {}
 
     /// @brief implements task::Task to execute the provided command on the task.

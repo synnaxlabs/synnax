@@ -15,13 +15,13 @@ namespace driver::ethercat::engine {
 
 Pool::Pool(
     std::unique_ptr<master::Manager> manager,
-    x::thread::rt::Manager *rt_manager
+    std::shared_ptr<x::thread::rt::Manager> rt_manager
 ):
-    manager(std::move(manager)), rt_manager(rt_manager) {}
+    manager(std::move(manager)), rt_manager(std::move(rt_manager)) {}
 
-void Pool::set_rt_manager(x::thread::rt::Manager *mgr) {
+void Pool::set_rt_manager(std::shared_ptr<x::thread::rt::Manager> mgr) {
     std::lock_guard lock(this->mu);
-    this->rt_manager = mgr;
+    this->rt_manager = std::move(mgr);
 }
 
 std::vector<master::Info> Pool::enumerate() const {

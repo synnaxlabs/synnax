@@ -11,10 +11,10 @@
 #include <vector>
 
 #include "benchmark/benchmark.h"
-#include "driver/bypass/authority.h"
 #include "driver/bypass/bypass.h"
-#include "driver/bypass/streamer.h"
-#include "driver/bypass/writer.h"
+#include "driver/bypass/pipeline/streamer.h"
+#include "driver/bypass/pipeline/writer.h"
+#include "driver/control/state.h"
 #include "driver/pipeline/mock/pipeline.h"
 
 namespace {
@@ -151,11 +151,11 @@ BENCHMARK(BM_SubscriptionCrossThread);
 
 static void BM_AuthorityFilter_AllPass(benchmark::State &state) {
     const auto &w = WORKLOADS[state.range(0)];
-    driver::bypass::AuthorityMirror mirror;
+    driver::control::States states;
     x::control::Subject subject{.name = "bench", .key = "bench-key"};
     auto frame = make_frame(w.channels, w.samples);
     for (auto _: state) {
-        auto filtered = mirror.filter(frame, subject);
+        auto filtered = states.filter(frame, subject);
         benchmark::DoNotOptimize(filtered);
     }
     state.SetBytesProcessed(
@@ -168,7 +168,7 @@ BENCHMARK(BM_AuthorityFilter_AllPass)->DenseRange(0, NUM_WORKLOADS - 1);
 
 static void BM_AuthorityFilter_HalfPass(benchmark::State &state) {
     const auto &w = WORKLOADS[state.range(0)];
-    driver::bypass::AuthorityMirror mirror;
+    driver::control::States states;
     x::control::Subject subject{.name = "bench", .key = "bench-key"};
     x::control::Subject other{.name = "other", .key = "other-key"};
     for (uint32_t ch = 1; ch <= w.channels; ch++) {
@@ -180,12 +180,12 @@ static void BM_AuthorityFilter_HalfPass(benchmark::State &state) {
                     .to = x::control::State{.resource = ch, .subject = other},
                 }
             );
-            mirror.apply(update);
+            states.apply(update);
         }
     }
     auto frame = make_frame(w.channels, w.samples);
     for (auto _: state) {
-        auto filtered = mirror.filter(frame, subject);
+        auto filtered = states.filter(frame, subject);
         benchmark::DoNotOptimize(filtered);
     }
     state.SetLabel(w.name);
@@ -195,7 +195,7 @@ BENCHMARK(BM_AuthorityFilter_HalfPass)->DenseRange(0, NUM_WORKLOADS - 1);
 
 static void BM_AuthorityFilter_NonePass(benchmark::State &state) {
     const auto &w = WORKLOADS[state.range(0)];
-    driver::bypass::AuthorityMirror mirror;
+    driver::control::States states;
     x::control::Subject subject{.name = "bench", .key = "bench-key"};
     x::control::Subject other{.name = "other", .key = "other-key"};
     for (uint32_t ch = 1; ch <= w.channels; ch++) {
@@ -206,11 +206,11 @@ static void BM_AuthorityFilter_NonePass(benchmark::State &state) {
                 .to = x::control::State{.resource = ch, .subject = other},
             }
         );
-        mirror.apply(update);
+        states.apply(update);
     }
     auto frame = make_frame(w.channels, w.samples);
     for (auto _: state) {
-        auto filtered = mirror.filter(frame, subject);
+        auto filtered = states.filter(frame, subject);
         benchmark::DoNotOptimize(filtered);
     }
     state.SetLabel(w.name);
@@ -222,13 +222,13 @@ BENCHMARK(BM_AuthorityFilter_NonePass)->DenseRange(0, NUM_WORKLOADS - 1);
 
 static void BM_AuthorityFilterMove_AllPass(benchmark::State &state) {
     const auto &w = WORKLOADS[state.range(0)];
-    driver::bypass::AuthorityMirror mirror;
+    driver::control::States states;
     x::control::Subject subject{.name = "bench", .key = "bench-key"};
     for (auto _: state) {
         state.PauseTiming();
         auto frame = make_frame(w.channels, w.samples);
         state.ResumeTiming();
-        auto filtered = mirror.filter(std::move(frame), subject);
+        auto filtered = states.filter(std::move(frame), subject);
         benchmark::DoNotOptimize(filtered);
     }
     state.SetBytesProcessed(
@@ -241,7 +241,7 @@ BENCHMARK(BM_AuthorityFilterMove_AllPass)->DenseRange(0, NUM_WORKLOADS - 1);
 
 static void BM_AuthorityFilterMove_HalfPass(benchmark::State &state) {
     const auto &w = WORKLOADS[state.range(0)];
-    driver::bypass::AuthorityMirror mirror;
+    driver::control::States states;
     x::control::Subject subject{.name = "bench", .key = "bench-key"};
     x::control::Subject other{.name = "other", .key = "other-key"};
     for (uint32_t ch = 1; ch <= w.channels; ch++) {
@@ -253,14 +253,14 @@ static void BM_AuthorityFilterMove_HalfPass(benchmark::State &state) {
                     .to = x::control::State{.resource = ch, .subject = other},
                 }
             );
-            mirror.apply(update);
+            states.apply(update);
         }
     }
     for (auto _: state) {
         state.PauseTiming();
         auto frame = make_frame(w.channels, w.samples);
         state.ResumeTiming();
-        auto filtered = mirror.filter(std::move(frame), subject);
+        auto filtered = states.filter(std::move(frame), subject);
         benchmark::DoNotOptimize(filtered);
     }
     state.SetLabel(w.name);
@@ -270,7 +270,7 @@ BENCHMARK(BM_AuthorityFilterMove_HalfPass)->DenseRange(0, NUM_WORKLOADS - 1);
 
 static void BM_AuthorityFilterMove_NonePass(benchmark::State &state) {
     const auto &w = WORKLOADS[state.range(0)];
-    driver::bypass::AuthorityMirror mirror;
+    driver::control::States states;
     x::control::Subject subject{.name = "bench", .key = "bench-key"};
     x::control::Subject other{.name = "other", .key = "other-key"};
     for (uint32_t ch = 1; ch <= w.channels; ch++) {
@@ -281,13 +281,13 @@ static void BM_AuthorityFilterMove_NonePass(benchmark::State &state) {
                 .to = x::control::State{.resource = ch, .subject = other},
             }
         );
-        mirror.apply(update);
+        states.apply(update);
     }
     for (auto _: state) {
         state.PauseTiming();
         auto frame = make_frame(w.channels, w.samples);
         state.ResumeTiming();
-        auto filtered = mirror.filter(std::move(frame), subject);
+        auto filtered = states.filter(std::move(frame), subject);
         benchmark::DoNotOptimize(filtered);
     }
     state.SetLabel(w.name);
@@ -299,8 +299,8 @@ BENCHMARK(BM_AuthorityFilterMove_NonePass)->DenseRange(0, NUM_WORKLOADS - 1);
 
 static void BM_EndToEnd(benchmark::State &state) {
     const auto &w = WORKLOADS[state.range(0)];
-    driver::bypass::Bus bus;
-    driver::bypass::AuthorityMirror mirror;
+    auto bus = std::make_shared<driver::bypass::Bus>();
+    auto states = std::make_shared<driver::control::States>();
     x::control::Subject subject{.name = "bench", .key = "bench-key"};
 
     std::vector<synnax::channel::Key> keys(w.channels);
@@ -315,9 +315,14 @@ static void BM_EndToEnd(benchmark::State &state) {
         synnax::framer::WriterConfig{.channels = keys}
     );
 
-    driver::bypass::Writer writer(std::move(server_writer), bus, mirror, subject, keys);
+    driver::bypass::pipeline::Writer writer(
+        std::move(server_writer),
+        bus,
+        states,
+        synnax::framer::WriterConfig{.channels = keys, .subject = subject}
+    );
 
-    auto sub = bus.subscribe(keys);
+    auto sub = bus->subscribe(keys);
 
     auto frame = make_frame(w.channels, w.samples);
     for (auto _: state) {

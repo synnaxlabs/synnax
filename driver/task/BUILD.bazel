@@ -8,6 +8,8 @@ cc_library(
     visibility = ["//visibility:public"],
     deps = [
         "//client/cpp:synnax",
+        "//driver/bypass",
+        "//driver/control",
         "//x/cpp/breaker",
         "//x/cpp/json",
         "//x/cpp/log",

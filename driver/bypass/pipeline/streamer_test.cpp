@@ -11,21 +11,21 @@
 
 #include "x/cpp/test/test.h"
 
-#include "driver/bypass/streamer.h"
+#include "driver/bypass/pipeline/streamer.h"
 #include "driver/pipeline/mock/pipeline.h"
 
-namespace driver::bypass {
+namespace driver::bypass::pipeline {
 const x::control::Subject TEST_SUBJECT{"test_writer", "tw-1"};
 
 TEST(StreamerTest, DeliversLocalBusFrames) {
-    Bus bus;
+    auto bus = std::make_shared<Bus>();
     auto reads = std::make_shared<std::vector<x::telem::Frame>>();
-    auto mock_factory = pipeline::mock::simple_streamer_factory({1}, reads);
+    auto mock_factory = ::driver::pipeline::mock::simple_streamer_factory({1}, reads);
     StreamerFactory factory(mock_factory, bus, TEST_SUBJECT);
     auto streamer = ASSERT_NIL_P(factory.open_streamer({.channels = {1}}));
     x::telem::Frame local_frame;
     local_frame.emplace(1, x::telem::Series(static_cast<float>(42.0)));
-    bus.publish(local_frame);
+    bus->publish(local_frame);
     auto frame = ASSERT_NIL_P(streamer->read());
     ASSERT_EQ(frame.size(), 1);
     streamer->close_send();
@@ -33,12 +33,12 @@ TEST(StreamerTest, DeliversLocalBusFrames) {
 }
 
 TEST(StreamerTest, DeliversServerFrames) {
-    Bus bus;
+    auto bus = std::make_shared<Bus>();
     auto reads = std::make_shared<std::vector<x::telem::Frame>>();
     x::telem::Frame server_frame;
     server_frame.emplace(1, x::telem::Series(static_cast<float>(99.0)));
     reads->push_back(std::move(server_frame));
-    auto mock_factory = pipeline::mock::simple_streamer_factory({1}, reads);
+    auto mock_factory = ::driver::pipeline::mock::simple_streamer_factory({1}, reads);
     StreamerFactory factory(mock_factory, bus, TEST_SUBJECT);
     auto streamer = ASSERT_NIL_P(factory.open_streamer({.channels = {1}}));
     auto frame = ASSERT_NIL_P(streamer->read());
@@ -48,14 +48,14 @@ TEST(StreamerTest, DeliversServerFrames) {
 }
 
 TEST(StreamerTest, DeliversLocalFramesRegardlessOfAuthority) {
-    Bus bus;
+    auto bus = std::make_shared<Bus>();
     auto reads = std::make_shared<std::vector<x::telem::Frame>>();
-    auto mock_factory = pipeline::mock::simple_streamer_factory({1}, reads);
+    auto mock_factory = ::driver::pipeline::mock::simple_streamer_factory({1}, reads);
     StreamerFactory factory(mock_factory, bus, TEST_SUBJECT);
     auto streamer = ASSERT_NIL_P(factory.open_streamer({.channels = {1}}));
     x::telem::Frame local_frame;
     local_frame.emplace(1, x::telem::Series(static_cast<float>(42.0)));
-    bus.publish(local_frame);
+    bus->publish(local_frame);
     auto frame = ASSERT_NIL_P(streamer->read());
     ASSERT_EQ(frame.size(), 1);
     streamer->close_send();
@@ -63,9 +63,9 @@ TEST(StreamerTest, DeliversLocalFramesRegardlessOfAuthority) {
 }
 
 TEST(StreamerTest, CloseSendDelegatesToServer) {
-    Bus bus;
+    auto bus = std::make_shared<Bus>();
     auto reads = std::make_shared<std::vector<x::telem::Frame>>();
-    auto mock_factory = pipeline::mock::simple_streamer_factory({1}, reads);
+    auto mock_factory = ::driver::pipeline::mock::simple_streamer_factory({1}, reads);
     StreamerFactory factory(mock_factory, bus, TEST_SUBJECT);
     auto streamer = ASSERT_NIL_P(factory.open_streamer({.channels = {1}}));
     streamer->close_send();
@@ -73,10 +73,10 @@ TEST(StreamerTest, CloseSendDelegatesToServer) {
 }
 
 TEST(StreamerTest, PropagatesOpenError) {
-    Bus bus;
-    auto mock_factory = std::make_shared<pipeline::mock::StreamerFactory>(
+    auto bus = std::make_shared<Bus>();
+    auto mock_factory = std::make_shared<::driver::pipeline::mock::StreamerFactory>(
         std::vector<x::errors::Error>{x::errors::VALIDATION},
-        std::make_shared<std::vector<pipeline::mock::StreamerConfig>>()
+        std::make_shared<std::vector<::driver::pipeline::mock::StreamerConfig>>()
     );
     StreamerFactory factory(mock_factory, bus, TEST_SUBJECT);
     ASSERT_OCCURRED_AS_P(
@@ -86,16 +86,18 @@ TEST(StreamerTest, PropagatesOpenError) {
 }
 
 TEST(StreamerTest, InjectsExcludeGroupsFromSubjectGroup) {
-    Bus bus;
+    auto bus = std::make_shared<Bus>();
     const x::control::Subject grouped_subject{"grouped_writer", "gw-1", 42};
     auto reads = std::make_shared<std::vector<x::telem::Frame>>();
     x::telem::Frame server_frame;
     server_frame.emplace(1, x::telem::Series(static_cast<float>(99.0)));
     reads->push_back(std::move(server_frame));
-    auto mock_factory = std::make_shared<pipeline::mock::StreamerFactory>(
+    auto mock_factory = std::make_shared<::driver::pipeline::mock::StreamerFactory>(
         std::vector<x::errors::Error>{},
-        std::make_shared<std::vector<pipeline::mock::StreamerConfig>>(
-            std::vector{pipeline::mock::StreamerConfig{reads, {}, x::errors::NIL}}
+        std::make_shared<std::vector<::driver::pipeline::mock::StreamerConfig>>(
+            std::vector{
+                ::driver::pipeline::mock::StreamerConfig{reads, {}, x::errors::NIL}
+            }
         )
     );
     StreamerFactory factory(mock_factory, bus, grouped_subject);
@@ -107,16 +109,18 @@ TEST(StreamerTest, InjectsExcludeGroupsFromSubjectGroup) {
 }
 
 TEST(StreamerTest, DoesNotInjectExcludeGroupsWhenGroupIsZero) {
-    Bus bus;
+    auto bus = std::make_shared<Bus>();
     const x::control::Subject no_group_subject{"no_group", "ng-1", 0};
     auto reads = std::make_shared<std::vector<x::telem::Frame>>();
     x::telem::Frame server_frame;
     server_frame.emplace(1, x::telem::Series(static_cast<float>(99.0)));
     reads->push_back(std::move(server_frame));
-    auto mock_factory = std::make_shared<pipeline::mock::StreamerFactory>(
+    auto mock_factory = std::make_shared<::driver::pipeline::mock::StreamerFactory>(
         std::vector<x::errors::Error>{},
-        std::make_shared<std::vector<pipeline::mock::StreamerConfig>>(
-            std::vector{pipeline::mock::StreamerConfig{reads, {}, x::errors::NIL}}
+        std::make_shared<std::vector<::driver::pipeline::mock::StreamerConfig>>(
+            std::vector{
+                ::driver::pipeline::mock::StreamerConfig{reads, {}, x::errors::NIL}
+            }
         )
     );
     StreamerFactory factory(mock_factory, bus, no_group_subject);
@@ -127,18 +131,18 @@ TEST(StreamerTest, DoesNotInjectExcludeGroupsWhenGroupIsZero) {
 }
 
 TEST(StreamerTest, CloseWithoutPriorCloseSendShutsDownCleanly) {
-    Bus bus;
+    auto bus = std::make_shared<Bus>();
     auto reads = std::make_shared<std::vector<x::telem::Frame>>();
-    auto mock_factory = pipeline::mock::simple_streamer_factory({1}, reads);
+    auto mock_factory = ::driver::pipeline::mock::simple_streamer_factory({1}, reads);
     StreamerFactory factory(mock_factory, bus, TEST_SUBJECT);
     auto streamer = ASSERT_NIL_P(factory.open_streamer({.channels = {1}}));
     ASSERT_NIL(streamer->close());
 }
 
 TEST(StreamerTest, DoubleCloseIsIdempotent) {
-    Bus bus;
+    auto bus = std::make_shared<Bus>();
     auto reads = std::make_shared<std::vector<x::telem::Frame>>();
-    auto mock_factory = pipeline::mock::simple_streamer_factory({1}, reads);
+    auto mock_factory = ::driver::pipeline::mock::simple_streamer_factory({1}, reads);
     StreamerFactory factory(mock_factory, bus, TEST_SUBJECT);
     auto streamer = ASSERT_NIL_P(factory.open_streamer({.channels = {1}}));
     streamer->close_send();
@@ -147,14 +151,15 @@ TEST(StreamerTest, DoubleCloseIsIdempotent) {
 }
 
 TEST(StreamerTest, PropagatesServerErrorThroughClose) {
-    Bus bus;
+    auto bus = std::make_shared<Bus>();
     auto reads = std::make_shared<std::vector<x::telem::Frame>>();
     auto read_errors = std::make_shared<std::vector<x::errors::Error>>();
     read_errors->push_back(freighter::UNREACHABLE);
-    auto mock_factory = std::make_shared<pipeline::mock::StreamerFactory>(
+    auto mock_factory = std::make_shared<::driver::pipeline::mock::StreamerFactory>(
         std::vector<x::errors::Error>{},
-        std::make_shared<std::vector<pipeline::mock::StreamerConfig>>(std::vector{
-            pipeline::mock::StreamerConfig{reads, read_errors, x::errors::NIL}
+        std::make_shared<
+            std::vector<::driver::pipeline::mock::StreamerConfig>>(std::vector{
+            ::driver::pipeline::mock::StreamerConfig{reads, read_errors, x::errors::NIL}
         })
     );
     StreamerFactory factory(mock_factory, bus, TEST_SUBJECT);

@@ -17,15 +17,15 @@
 #include "driver/bypass/bypass.h"
 #include "driver/pipeline/control.h"
 
-namespace driver::bypass {
+namespace driver::bypass::pipeline {
 /// @brief a pipeline Streamer that merges local bus frames with server frames.
 /// Runs the server read on a background thread so that both local bus frames
 /// and server frames are delivered without blocking each other. No authority
 /// filtering is applied here; the bypass Writer is responsible for filtering
 /// unauthorized channels before publishing to the bus (matching Cesium's
 /// behavior of stripping unauthorized channels before relaying).
-class Streamer final : public pipeline::Streamer {
-    std::unique_ptr<pipeline::Streamer> server;
+class Streamer final : public ::driver::pipeline::Streamer {
+    std::unique_ptr<::driver::pipeline::Streamer> server;
     std::shared_ptr<Subscription> subscription;
     std::thread server_thread;
 
@@ -40,7 +40,7 @@ class Streamer final : public pipeline::Streamer {
 
 public:
     Streamer(
-        std::unique_ptr<pipeline::Streamer> server,
+        std::unique_ptr<::driver::pipeline::Streamer> server,
         std::shared_ptr<Subscription> subscription
     ):
         server(std::move(server)), subscription(std::move(subscription)) {
@@ -118,26 +118,26 @@ private:
 
 /// @brief a StreamerFactory that wraps streamers with bus subscription capability.
 /// Injects the subject's group into exclude_groups for server-side deduplication.
-class StreamerFactory final : public pipeline::StreamerFactory {
-    std::shared_ptr<pipeline::StreamerFactory> server;
-    Bus &bus;
+class StreamerFactory final : public ::driver::pipeline::StreamerFactory {
+    std::shared_ptr<::driver::pipeline::StreamerFactory> server;
+    std::shared_ptr<Bus> bus;
     x::control::Subject subject;
 
 public:
     StreamerFactory(
-        std::shared_ptr<pipeline::StreamerFactory> server,
-        Bus &bus,
+        std::shared_ptr<::driver::pipeline::StreamerFactory> server,
+        const std::shared_ptr<Bus> &bus,
         x::control::Subject subject
     ):
         server(std::move(server)), bus(bus), subject(std::move(subject)) {}
 
-    std::pair<std::unique_ptr<pipeline::Streamer>, x::errors::Error>
+    std::pair<std::unique_ptr<::driver::pipeline::Streamer>, x::errors::Error>
     open_streamer(synnax::framer::StreamerConfig config) override {
         if (this->subject.group != 0)
             config.exclude_groups.push_back(this->subject.group);
         auto [streamer, err] = this->server->open_streamer(config);
         if (err) return {nullptr, err};
-        auto subscription = this->bus.subscribe(config.channels);
+        auto subscription = this->bus->subscribe(config.channels);
         VLOG(1) << "[bus.streamer_factory] opened streamer for "
                 << config.channels.size() << " channels, subject=" << this->subject.name
                 << ", exclude_groups=" << this->subject.group;

@@ -26,10 +26,6 @@
 #ifndef SYNNAX_NILINUXRT
 #include "driver/modbus/modbus.h"
 #endif
-#include "x/cpp/thread/rt/rt.h"
-
-#include "driver/bypass/authority.h"
-#include "driver/bypass/bypass.h"
 #include "driver/common/sample_clock.h"
 #include "driver/ethercat/ethercat.h"
 #include "driver/http/http.h"
@@ -213,9 +209,6 @@ x::errors::Error clear_persisted_state();
 class Rack {
     std::thread run_thread;
     std::unique_ptr<task::Manager> task_manager;
-    bypass::Bus bus;
-    bypass::AuthorityMirror authority_mirror;
-    x::thread::rt::Manager rt_manager;
     x::breaker::Breaker breaker = x::breaker::Breaker({
         .name = "driver",
         .base_interval = x::telem::SECOND,

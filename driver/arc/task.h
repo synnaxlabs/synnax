@@ -25,7 +25,7 @@
 #include "arc/cpp/runtime/state/state.h"
 #include "driver/arc/arc.h"
 #include "driver/arc/status/status.h"
-#include "driver/bypass/factory.h"
+#include "driver/bypass/pipeline/factory.h"
 #include "driver/common/common.h"
 #include "driver/common/status.h"
 #include "driver/errors/errors.h"
@@ -187,9 +187,10 @@ public:
 
         auto source = std::make_unique<Source>(*task);
         auto sink = std::make_unique<Sink>(*task);
-        if (!writer_factory) writer_factory = bypass::make_writer_factory(ctx);
+        if (!writer_factory)
+            writer_factory = bypass::pipeline::create_writer_factory(ctx);
         if (!streamer_factory)
-            streamer_factory = bypass::make_streamer_factory(
+            streamer_factory = bypass::pipeline::create_streamer_factory(
                 ctx,
                 {task_meta.name, task_meta.name}
             );

@@ -26,10 +26,8 @@
 #include "x/cpp/log/log.h"
 #include "x/cpp/thread/rt/rt.h"
 
-namespace driver::bypass {
-class Bus;
-class AuthorityMirror;
-}
+#include "driver/bypass/bypass.h"
+#include "driver/control/state.h"
 
 namespace driver::task {
 /// @brief A command that can be executed on a task in order to change its state.
@@ -104,17 +102,17 @@ public:
         client(std::move(client)) {}
 
     /// @brief returns the local telemetry bus, or nullptr if not available.
-    virtual bypass::Bus *bus() { return nullptr; }
+    virtual std::shared_ptr<bypass::Bus> bus() { return nullptr; }
 
-    /// @brief returns the authority mirror, or nullptr if not available.
-    virtual bypass::AuthorityMirror *authority_mirror() { return nullptr; }
+    /// @brief returns the shared control authority states.
+    virtual std::shared_ptr<control::States> control_states() { return nullptr; }
 
     /// @brief returns the rack key for this driver, used as the group identity
     /// for server-side deduplication filtering.
     virtual synnax::rack::Key rack_key() { return 0; }
 
-    /// @brief returns the RT core manager, or nullptr if not available.
-    virtual x::thread::rt::Manager *rt_manager() { return nullptr; }
+    /// @brief returns the RT core manager;
+    virtual std::shared_ptr<x::thread::rt::Manager> rt_manager() { return nullptr; }
 
     /// @brief updates the state of the task in the Synnax cluster.
     virtual void set_status(synnax::task::Status &status) = 0;
@@ -123,7 +121,7 @@ public:
 /// @brief a mock context that can be used for testing tasks.
 class MockContext final : public Context {
     std::mutex mu;
-    x::thread::rt::Manager rt_mgr;
+    std::shared_ptr<x::thread::rt::Manager> rt_mgr;
 
 public:
     std::vector<synnax::task::Status> statuses{};
@@ -131,7 +129,9 @@ public:
     explicit MockContext(const std::shared_ptr<synnax::Synnax> &client):
         Context(client) {}
 
-    x::thread::rt::Manager *rt_manager() override { return &this->rt_mgr; }
+    std::shared_ptr<x::thread::rt::Manager> rt_manager() override {
+        return this->rt_mgr;
+    }
 
     void set_status(synnax::task::Status &status) override {
         mu.lock();
@@ -141,34 +141,36 @@ public:
 };
 
 class SynnaxContext final : public Context {
-    bypass::Bus *bus_ptr;
-    bypass::AuthorityMirror *authority_mirror_ptr;
+    std::shared_ptr<bypass::Bus> bus_;
+    std::shared_ptr<control::States> control_states_;
     synnax::rack::Key rack_key_;
-    x::thread::rt::Manager *rt_manager_ptr;
+    std::shared_ptr<x::thread::rt::Manager> rt_manager_;
 
 public:
     explicit SynnaxContext(
         const std::shared_ptr<synnax::Synnax> &client,
-        bypass::Bus *bus_ptr = nullptr,
-        bypass::AuthorityMirror *authority_mirror_ptr = nullptr,
-        synnax::rack::Key rack_key = 0,
-        x::thread::rt::Manager *rt_manager = nullptr
+        const std::shared_ptr<bypass::Bus> &bus = nullptr,
+        const std::shared_ptr<control::States> &control_states = nullptr,
+        const synnax::rack::Key rack_key = 0,
+        const std::shared_ptr<x::thread::rt::Manager> &rt_manager = nullptr
     ):
         Context(client),
-        bus_ptr(bus_ptr),
-        authority_mirror_ptr(authority_mirror_ptr),
+        bus_(bus),
+        control_states_(control_states),
         rack_key_(rack_key),
-        rt_manager_ptr(rt_manager) {}
+        rt_manager_(rt_manager) {}
 
-    bypass::Bus *bus() override { return this->bus_ptr; }
+    std::shared_ptr<bypass::Bus> bus() override { return this->bus_; }
 
-    bypass::AuthorityMirror *authority_mirror() override {
-        return this->authority_mirror_ptr;
+    std::shared_ptr<control::States> control_states() override {
+        return this->control_states_;
     }
 
     synnax::rack::Key rack_key() override { return this->rack_key_; }
 
-    x::thread::rt::Manager *rt_manager() override { return this->rt_manager_ptr; }
+    std::shared_ptr<x::thread::rt::Manager> rt_manager() override {
+        return this->rt_manager_;
+    }
 
     void set_status(synnax::task::Status &status) override {
         if (status.time == 0) status.time = x::telem::TimeStamp::now();
@@ -297,15 +299,18 @@ public:
     Manager(
         synnax::rack::Rack rack,
         const std::shared_ptr<synnax::Synnax> &client,
-        std::unique_ptr<task::Factory> factory,
-        const ManagerConfig &cfg = {},
-        bypass::Bus *bus = nullptr,
-        bypass::AuthorityMirror *authority_mirror = nullptr,
-        x::thread::rt::Manager *rt_manager = nullptr
+        std::unique_ptr<Factory> factory,
+        const ManagerConfig &cfg = {}
     ):
         rack(std::move(rack)),
-        ctx(std::make_shared<
-            SynnaxContext>(client, bus, authority_mirror, this->rack.key, rt_manager)),
+        control_states_(std::make_shared<control::States>()),
+        ctx(std::make_shared<SynnaxContext>(
+            client,
+            std::make_shared<bypass::Bus>(),
+            this->control_states_,
+            this->rack.key,
+            std::make_shared<x::thread::rt::Manager>()
+        )),
         factory(std::move(factory)),
         op_timeout(cfg.op_timeout),
         poll_interval(cfg.poll_interval),
@@ -322,6 +327,8 @@ public:
 private:
     /// @brief the rack this manager belongs to.
     synnax::rack::Rack rack;
+    /// @brief shared control authority states, fed by the manager's streamer.
+    std::shared_ptr<control::States> control_states_;
     /// @brief shared context passed to all tasks.
     std::shared_ptr<Context> ctx;
     /// @brief creates device-specific tasks.
@@ -384,6 +391,7 @@ private:
         synnax::channel::Channel task_set;
         synnax::channel::Channel task_delete;
         synnax::channel::Channel task_cmd;
+        synnax::channel::Channel control_state;
     } channels;
 
     /// @brief returns true if the task belongs to a different rack.

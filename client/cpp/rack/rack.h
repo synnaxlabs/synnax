@@ -63,8 +63,8 @@ inline std::vector<ontology::ID> ontology_ids(const std::vector<rack::Key> &keys
 /// @brief Extracts the node ID from a rack key.
 /// @param key The rack key.
 /// @returns The node ID portion of the rack key.
-inline std::uint16_t rack_key_node(const rack::Key key) {
-    return key >> 12;
+inline std::uint16_t rack_key_node(const Key key) {
+    return key >> 16;
 }
 
 /// @brief Specific status details for racks.

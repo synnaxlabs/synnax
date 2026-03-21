@@ -107,4 +107,17 @@ TEST(RackTests, testStreamOutput) {
     oss << r;
     ASSERT_EQ(oss.str(), "my_rack (12345)");
 }
+
+TEST(RackTests, testRackKeyNode) {
+    ASSERT_EQ(rack_key_node(65538), 1);
+}
+
+TEST(RackTests, testRackKeyNodeZero) {
+    ASSERT_EQ(rack_key_node(0), 0);
+}
+
+TEST(RackTests, testRackKeyNodeHighBits) {
+    const Key key = static_cast<Key>(0xFFFF) << 16;
+    ASSERT_EQ(rack_key_node(key), 0xFFFF);
+}
 }

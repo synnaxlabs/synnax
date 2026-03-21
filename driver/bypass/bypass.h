@@ -149,7 +149,7 @@ public:
     void register_channels(const std::vector<synnax::channel::Key> &keys) {
         std::unique_lock lock(this->alignment_mu);
         for (auto key: keys) {
-            if (this->alignment_counters.find(key) == this->alignment_counters.end())
+            if (!this->alignment_counters.contains(key))
                 this->alignment_counters.emplace(
                     key,
                     std::make_unique<std::atomic<uint64_t>>(0)
@@ -212,28 +212,20 @@ public:
     /// @brief eagerly removes a subscription from the routing table.
     void unsubscribe(const Subscription &sub) {
         std::unique_lock lock(this->mu);
-        this->subscribers.erase(
-            std::remove_if(
-                this->subscribers.begin(),
-                this->subscribers.end(),
-                [&sub](const std::weak_ptr<Subscription> &w) {
-                    auto locked = w.lock();
-                    return !locked || locked.get() == &sub;
-                }
-            ),
-            this->subscribers.end()
-        );
+        std::erase_if(this->subscribers, [&sub](const std::weak_ptr<Subscription> &w) {
+            auto locked = w.lock();
+            return !locked || locked.get() == &sub;
+        });
     }
 
 private:
     void sweep_expired() {
         std::unique_lock lock(this->mu);
         this->subscribers.erase(
-            std::remove_if(
-                this->subscribers.begin(),
-                this->subscribers.end(),
+            std::ranges::remove_if(
+                this->subscribers,
                 [](const std::weak_ptr<Subscription> &w) { return w.expired(); }
-            ),
+            ).begin(),
             this->subscribers.end()
         );
     }

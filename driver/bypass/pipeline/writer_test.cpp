@@ -11,16 +11,16 @@
 
 #include "x/cpp/test/test.h"
 
-#include "driver/bypass/writer.h"
+#include "driver/bypass/pipeline/writer.h"
 #include "driver/pipeline/mock/pipeline.h"
 
-namespace driver::bypass {
+namespace driver::bypass::pipeline {
 TEST(WriterTest, PublishesToBusAndForwardsToServer) {
-    Bus bus;
-    AuthorityMirror mirror;
-    auto sub = bus.subscribe({1});
-    auto mock_factory = std::make_shared<pipeline::mock::WriterFactory>();
-    WriterFactory factory(mock_factory, bus, 0, mirror);
+    auto bus = std::make_shared<Bus>();
+    auto states = std::make_shared<control::States>();
+    auto sub = bus->subscribe({1});
+    auto mock_factory = std::make_shared<::driver::pipeline::mock::WriterFactory>();
+    WriterFactory factory(mock_factory, bus, states, 0);
     auto writer = ASSERT_NIL_P(factory.open_writer({.channels = {1}}));
     x::telem::Frame frame;
     frame.emplace(1, x::telem::Series(static_cast<float>(42.0)));
@@ -32,10 +32,10 @@ TEST(WriterTest, PublishesToBusAndForwardsToServer) {
 }
 
 TEST(WriterTest, WritesWithNoSubscribers) {
-    Bus bus;
-    AuthorityMirror mirror;
-    auto mock_factory = std::make_shared<pipeline::mock::WriterFactory>();
-    WriterFactory factory(mock_factory, bus, 0, mirror);
+    auto bus = std::make_shared<Bus>();
+    auto states = std::make_shared<control::States>();
+    auto mock_factory = std::make_shared<::driver::pipeline::mock::WriterFactory>();
+    WriterFactory factory(mock_factory, bus, states, 0);
     auto writer = ASSERT_NIL_P(factory.open_writer({.channels = {1}}));
     x::telem::Frame frame;
     frame.emplace(1, x::telem::Series(static_cast<float>(42.0)));
@@ -44,12 +44,12 @@ TEST(WriterTest, WritesWithNoSubscribers) {
 }
 
 TEST(WriterTest, LateSubscriberReceivesFrames) {
-    Bus bus;
-    AuthorityMirror mirror;
-    auto mock_factory = std::make_shared<pipeline::mock::WriterFactory>();
-    WriterFactory factory(mock_factory, bus, 0, mirror);
+    auto bus = std::make_shared<Bus>();
+    auto states = std::make_shared<control::States>();
+    auto mock_factory = std::make_shared<::driver::pipeline::mock::WriterFactory>();
+    WriterFactory factory(mock_factory, bus, states, 0);
     auto writer = ASSERT_NIL_P(factory.open_writer({.channels = {1}}));
-    auto sub = bus.subscribe({1});
+    auto sub = bus->subscribe({1});
     x::telem::Frame frame;
     frame.emplace(1, x::telem::Series(static_cast<float>(42.0)));
     ASSERT_NIL(writer->write(frame));
@@ -59,50 +59,50 @@ TEST(WriterTest, LateSubscriberReceivesFrames) {
 }
 
 TEST(WriterTest, DelegatesSetAuthority) {
-    Bus bus;
-    AuthorityMirror mirror;
-    auto mock_factory = std::make_shared<pipeline::mock::WriterFactory>();
-    WriterFactory factory(mock_factory, bus, 0, mirror);
+    auto bus = std::make_shared<Bus>();
+    auto states = std::make_shared<control::States>();
+    auto mock_factory = std::make_shared<::driver::pipeline::mock::WriterFactory>();
+    WriterFactory factory(mock_factory, bus, states, 0);
     auto writer = ASSERT_NIL_P(factory.open_writer({.channels = {1}}));
-    pipeline::Authorities auth{.keys = {1}, .authorities = {200}};
+    ::driver::pipeline::Authorities auth{.keys = {1}, .authorities = {200}};
     ASSERT_NIL(writer->set_authority(auth));
     ASSERT_EQ(mock_factory->authority_changes->size(), 1);
 }
 
 TEST(WriterTest, DelegatesClose) {
-    Bus bus;
-    AuthorityMirror mirror;
-    auto mock_factory = std::make_shared<pipeline::mock::WriterFactory>();
-    WriterFactory factory(mock_factory, bus, 0, mirror);
+    auto bus = std::make_shared<Bus>();
+    auto states = std::make_shared<control::States>();
+    auto mock_factory = std::make_shared<::driver::pipeline::mock::WriterFactory>();
+    WriterFactory factory(mock_factory, bus, states, 0);
     auto writer = ASSERT_NIL_P(factory.open_writer({.channels = {1}}));
     ASSERT_NIL(writer->close());
 }
 
 TEST(WriterTest, PropagatesOpenError) {
-    Bus bus;
-    AuthorityMirror mirror;
-    auto mock_factory = std::make_shared<pipeline::mock::WriterFactory>(
+    auto bus = std::make_shared<Bus>();
+    auto states = std::make_shared<control::States>();
+    auto mock_factory = std::make_shared<::driver::pipeline::mock::WriterFactory>(
         std::make_shared<std::vector<x::telem::Frame>>(),
         std::vector<x::errors::Error>{x::errors::VALIDATION}
     );
-    WriterFactory factory(mock_factory, bus, 0, mirror);
+    WriterFactory factory(mock_factory, bus, states, 0);
     ASSERT_OCCURRED_AS_P(factory.open_writer({.channels = {1}}), x::errors::VALIDATION);
 }
 
 TEST(WriterTest, InjectsGroupIntoWriterConfig) {
-    Bus bus;
-    AuthorityMirror mirror;
-    auto mock_factory = std::make_shared<pipeline::mock::WriterFactory>();
-    WriterFactory factory(mock_factory, bus, 77, mirror);
+    auto bus = std::make_shared<Bus>();
+    auto states = std::make_shared<control::States>();
+    auto mock_factory = std::make_shared<::driver::pipeline::mock::WriterFactory>();
+    WriterFactory factory(mock_factory, bus, states, 77);
     auto writer = ASSERT_NIL_P(factory.open_writer({.channels = {1}}));
     ASSERT_EQ(mock_factory->config.subject.group, 77);
 }
 
 TEST(WriterTest, DoesNotOverrideExistingGroup) {
-    Bus bus;
-    AuthorityMirror mirror;
-    auto mock_factory = std::make_shared<pipeline::mock::WriterFactory>();
-    WriterFactory factory(mock_factory, bus, 77, mirror);
+    auto bus = std::make_shared<Bus>();
+    auto states = std::make_shared<control::States>();
+    auto mock_factory = std::make_shared<::driver::pipeline::mock::WriterFactory>();
+    WriterFactory factory(mock_factory, bus, states, 77);
     auto writer = ASSERT_NIL_P(factory.open_writer({
         .channels = {1},
         .subject = x::control::Subject{"w", "w", 99},
@@ -111,70 +111,71 @@ TEST(WriterTest, DoesNotOverrideExistingGroup) {
 }
 
 TEST(WriterTest, DoesNotInjectGroupWhenZero) {
-    Bus bus;
-    AuthorityMirror mirror;
-    auto mock_factory = std::make_shared<pipeline::mock::WriterFactory>();
-    WriterFactory factory(mock_factory, bus, 0, mirror);
+    auto bus = std::make_shared<Bus>();
+    auto states = std::make_shared<control::States>();
+    auto mock_factory = std::make_shared<::driver::pipeline::mock::WriterFactory>();
+    WriterFactory factory(mock_factory, bus, states, 0);
     auto writer = ASSERT_NIL_P(factory.open_writer({.channels = {1}}));
     ASSERT_EQ(mock_factory->config.subject.group, 0);
 }
 
 TEST(WriterTest, SetAuthorityIncreaseUpdatesMirror) {
-    Bus bus;
-    AuthorityMirror mirror;
-    auto mock_factory = std::make_shared<pipeline::mock::WriterFactory>();
-    WriterFactory factory(mock_factory, bus, 0, mirror);
+    auto bus = std::make_shared<Bus>();
+    auto states = std::make_shared<control::States>();
+    auto mock_factory = std::make_shared<::driver::pipeline::mock::WriterFactory>();
+    WriterFactory factory(mock_factory, bus, states, 0);
     auto writer = ASSERT_NIL_P(factory.open_writer({
         .channels = {1, 2},
         .subject = x::control::Subject{"arc", "arc-1"},
     }));
     ASSERT_NIL(writer->set_authority({.keys = {1, 2}, .authorities = {200}}));
-    ASSERT_TRUE(mirror.is_authorized(1, {"arc", "arc-1"}));
-    ASSERT_TRUE(mirror.is_authorized(2, {"arc", "arc-1"}));
+    ASSERT_TRUE(states->is_authorized(1, {"arc", "arc-1"}));
+    ASSERT_TRUE(states->is_authorized(2, {"arc", "arc-1"}));
 }
 
 TEST(WriterTest, SetAuthorityDecreaseDoesNotUpdateMirror) {
-    Bus bus;
-    AuthorityMirror mirror;
+    auto bus = std::make_shared<Bus>();
+    auto states = std::make_shared<control::States>();
     const x::control::Subject arc{"arc", "arc-1"};
     const x::control::Subject op{"operator", "op-1"};
-    mirror.apply_increase(op, 1, 200);
-    auto mock_factory = std::make_shared<pipeline::mock::WriterFactory>();
-    WriterFactory factory(mock_factory, bus, 0, mirror);
+    states->apply_increase(op, 1, 200);
+    auto mock_factory = std::make_shared<::driver::pipeline::mock::WriterFactory>();
+    WriterFactory factory(mock_factory, bus, states, 0);
     auto writer = ASSERT_NIL_P(factory.open_writer({
         .channels = {1},
         .subject = arc,
     }));
     ASSERT_NIL(writer->set_authority({.keys = {1}, .authorities = {100}}));
-    ASSERT_TRUE(mirror.is_authorized(1, op));
-    ASSERT_FALSE(mirror.is_authorized(1, arc));
+    ASSERT_TRUE(states->is_authorized(1, op));
+    ASSERT_FALSE(states->is_authorized(1, arc));
 }
 
 TEST(WriterTest, SetAuthorityGlobalKeysExpandsToWriterChannels) {
-    Bus bus;
-    AuthorityMirror mirror;
-    auto mock_factory = std::make_shared<pipeline::mock::WriterFactory>();
-    WriterFactory factory(mock_factory, bus, 0, mirror);
+    auto bus = std::make_shared<Bus>();
+    auto states = std::make_shared<control::States>();
+    auto mock_factory = std::make_shared<::driver::pipeline::mock::WriterFactory>();
+    WriterFactory factory(mock_factory, bus, states, 0);
     auto writer = ASSERT_NIL_P(factory.open_writer({
         .channels = {1, 2, 3},
         .subject = x::control::Subject{"arc", "arc-1"},
     }));
     ASSERT_NIL(writer->set_authority({.keys = {}, .authorities = {255}}));
-    ASSERT_TRUE(mirror.is_authorized(1, {"arc", "arc-1"}));
-    ASSERT_TRUE(mirror.is_authorized(2, {"arc", "arc-1"}));
-    ASSERT_TRUE(mirror.is_authorized(3, {"arc", "arc-1"}));
+    ASSERT_TRUE(states->is_authorized(1, {"arc", "arc-1"}));
+    ASSERT_TRUE(states->is_authorized(2, {"arc", "arc-1"}));
+    ASSERT_TRUE(states->is_authorized(3, {"arc", "arc-1"}));
 }
 
 TEST(WriterTest, SetAuthorityIncreaseEndToEnd) {
-    Bus bus;
-    AuthorityMirror mirror;
+    auto bus = std::make_shared<Bus>();
+    auto states = std::make_shared<control::States>();
     const x::control::Subject hotfire{"hotfire", "hf-1"};
     const x::control::Subject abort_sub{"abort", "abort-1"};
 
-    mirror.apply_increase(hotfire, 1, 200);
+    states->apply_increase(hotfire, 1, 200);
 
-    auto mock_writer_factory = std::make_shared<pipeline::mock::WriterFactory>();
-    WriterFactory writer_factory(mock_writer_factory, bus, 0, mirror);
+    auto mock_writer_factory = std::make_shared<
+        ::driver::pipeline::mock::WriterFactory>();
+    WriterFactory writer_factory(mock_writer_factory, bus, states, 0);
     auto writer = ASSERT_NIL_P(writer_factory.open_writer({
         .channels = {1},
         .subject = abort_sub,
@@ -182,29 +183,29 @@ TEST(WriterTest, SetAuthorityIncreaseEndToEnd) {
 
     x::telem::Frame hotfire_frame;
     hotfire_frame.emplace(1, x::telem::Series(static_cast<float>(1.0)));
-    auto filtered_before = mirror.filter(hotfire_frame, hotfire);
+    auto filtered_before = states->filter(hotfire_frame, hotfire);
     ASSERT_EQ(filtered_before.size(), 1);
 
     ASSERT_NIL(writer->set_authority({.keys = {1}, .authorities = {255}}));
 
-    auto filtered_after = mirror.filter(hotfire_frame, hotfire);
+    auto filtered_after = states->filter(hotfire_frame, hotfire);
     ASSERT_TRUE(filtered_after.empty());
 
     x::telem::Frame abort_frame;
     abort_frame.emplace(1, x::telem::Series(static_cast<float>(0.0)));
-    auto abort_filtered = mirror.filter(abort_frame, abort_sub);
+    auto abort_filtered = states->filter(abort_frame, abort_sub);
     ASSERT_EQ(abort_filtered.size(), 1);
 }
 
 TEST(WriterTest, WriteFiltersUnauthorizedChannelsFromBus) {
-    Bus bus;
-    AuthorityMirror mirror;
+    auto bus = std::make_shared<Bus>();
+    auto states = std::make_shared<control::States>();
     const x::control::Subject arc{"arc", "arc-1"};
     const x::control::Subject other{"other", "other-1"};
-    mirror.apply_increase(other, 1, 200);
-    auto sub = bus.subscribe({1, 2});
-    auto mock_factory = std::make_shared<pipeline::mock::WriterFactory>();
-    WriterFactory factory(mock_factory, bus, 0, mirror);
+    states->apply_increase(other, 1, 200);
+    auto sub = bus->subscribe({1, 2});
+    auto mock_factory = std::make_shared<::driver::pipeline::mock::WriterFactory>();
+    WriterFactory factory(mock_factory, bus, states, 0);
     auto writer = ASSERT_NIL_P(factory.open_writer({
         .channels = {1, 2},
         .subject = arc,
@@ -221,14 +222,14 @@ TEST(WriterTest, WriteFiltersUnauthorizedChannelsFromBus) {
 }
 
 TEST(WriterTest, WritePublishesNothingToBusWhenFullyUnauthorized) {
-    Bus bus;
-    AuthorityMirror mirror;
+    auto bus = std::make_shared<Bus>();
+    auto states = std::make_shared<control::States>();
     const x::control::Subject arc{"arc", "arc-1"};
     const x::control::Subject other{"other", "other-1"};
-    mirror.apply_increase(other, 1, 200);
-    auto sub = bus.subscribe({1});
-    auto mock_factory = std::make_shared<pipeline::mock::WriterFactory>();
-    WriterFactory factory(mock_factory, bus, 0, mirror);
+    states->apply_increase(other, 1, 200);
+    auto sub = bus->subscribe({1});
+    auto mock_factory = std::make_shared<::driver::pipeline::mock::WriterFactory>();
+    WriterFactory factory(mock_factory, bus, states, 0);
     auto writer = ASSERT_NIL_P(factory.open_writer({
         .channels = {1},
         .subject = arc,
@@ -242,11 +243,11 @@ TEST(WriterTest, WritePublishesNothingToBusWhenFullyUnauthorized) {
 }
 
 TEST(WriterTest, WriteStillPublishesWhenNoAuthorityState) {
-    Bus bus;
-    AuthorityMirror mirror;
-    auto sub = bus.subscribe({1});
-    auto mock_factory = std::make_shared<pipeline::mock::WriterFactory>();
-    WriterFactory factory(mock_factory, bus, 0, mirror);
+    auto bus = std::make_shared<Bus>();
+    auto states = std::make_shared<control::States>();
+    auto sub = bus->subscribe({1});
+    auto mock_factory = std::make_shared<::driver::pipeline::mock::WriterFactory>();
+    WriterFactory factory(mock_factory, bus, states, 0);
     auto writer = ASSERT_NIL_P(factory.open_writer({
         .channels = {1},
         .subject = x::control::Subject{"arc", "arc-1"},
@@ -260,14 +261,14 @@ TEST(WriterTest, WriteStillPublishesWhenNoAuthorityState) {
 }
 
 TEST(WriterTest, WriteFilterEndToEnd) {
-    Bus bus;
-    AuthorityMirror mirror;
+    auto bus = std::make_shared<Bus>();
+    auto states = std::make_shared<control::States>();
     const x::control::Subject hotfire{"hotfire", "hf-1"};
     const x::control::Subject abort_sub{"abort", "abort-1"};
 
-    auto sub = bus.subscribe({1});
-    auto mock_factory = std::make_shared<pipeline::mock::WriterFactory>();
-    WriterFactory factory(mock_factory, bus, 0, mirror);
+    auto sub = bus->subscribe({1});
+    auto mock_factory = std::make_shared<::driver::pipeline::mock::WriterFactory>();
+    WriterFactory factory(mock_factory, bus, states, 0);
 
     auto hf_writer = ASSERT_NIL_P(factory.open_writer({
         .channels = {1},
@@ -304,10 +305,10 @@ TEST(WriterTest, WriteFilterEndToEnd) {
 /// @brief set_authority should return a validation error when the authorities
 /// size does not match the keys size and is not 1.
 TEST(WriterTest, SetAuthorityRejectsMismatchedSizes) {
-    Bus bus;
-    AuthorityMirror mirror;
-    auto mock_factory = std::make_shared<pipeline::mock::WriterFactory>();
-    WriterFactory factory(mock_factory, bus, 0, mirror);
+    auto bus = std::make_shared<Bus>();
+    auto states = std::make_shared<control::States>();
+    auto mock_factory = std::make_shared<::driver::pipeline::mock::WriterFactory>();
+    WriterFactory factory(mock_factory, bus, states, 0);
     auto writer = ASSERT_NIL_P(factory.open_writer({.channels = {1, 2, 3}}));
     ASSERT_OCCURRED_AS(
         writer->set_authority({.keys = {1, 2, 3}, .authorities = {100, 200}}),
@@ -317,20 +318,20 @@ TEST(WriterTest, SetAuthorityRejectsMismatchedSizes) {
 
 /// @brief set_authority should accept a single authority broadcast to all keys.
 TEST(WriterTest, SetAuthoritySingleAuthorityBroadcast) {
-    Bus bus;
-    AuthorityMirror mirror;
-    auto mock_factory = std::make_shared<pipeline::mock::WriterFactory>();
-    WriterFactory factory(mock_factory, bus, 0, mirror);
+    auto bus = std::make_shared<Bus>();
+    auto states = std::make_shared<control::States>();
+    auto mock_factory = std::make_shared<::driver::pipeline::mock::WriterFactory>();
+    WriterFactory factory(mock_factory, bus, states, 0);
     auto writer = ASSERT_NIL_P(factory.open_writer({.channels = {1, 2, 3}}));
     ASSERT_NIL(writer->set_authority({.keys = {1, 2, 3}, .authorities = {200}}));
 }
 
 /// @brief set_authority should accept per-key authorities with matching sizes.
 TEST(WriterTest, SetAuthorityMatchingSizes) {
-    Bus bus;
-    AuthorityMirror mirror;
-    auto mock_factory = std::make_shared<pipeline::mock::WriterFactory>();
-    WriterFactory factory(mock_factory, bus, 0, mirror);
+    auto bus = std::make_shared<Bus>();
+    auto states = std::make_shared<control::States>();
+    auto mock_factory = std::make_shared<::driver::pipeline::mock::WriterFactory>();
+    WriterFactory factory(mock_factory, bus, states, 0);
     auto writer = ASSERT_NIL_P(factory.open_writer({.channels = {1, 2}}));
     ASSERT_NIL(writer->set_authority({.keys = {1, 2}, .authorities = {100, 200}}));
 }
