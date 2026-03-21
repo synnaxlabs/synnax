@@ -20,6 +20,7 @@ import (
 	"github.com/synnaxlabs/oracle/domain/key"
 	"github.com/synnaxlabs/oracle/domain/omit"
 	"github.com/synnaxlabs/oracle/domain/ontology"
+	"github.com/synnaxlabs/oracle/domain/validation"
 	"github.com/synnaxlabs/oracle/exec"
 	"github.com/synnaxlabs/oracle/plugin"
 	"github.com/synnaxlabs/oracle/plugin/cpp/keywords"
@@ -791,12 +792,31 @@ func (p *Plugin) processField(field resolution.Field, entry resolution.Type, dat
 	}
 	cppFieldName = keywords.Escape(cppFieldName)
 
+	defaultValue := cppDefaultValue(cppType, underlyingPrimitive)
+	if validateDomain, ok := field.Domains["validate"]; ok {
+		rules := validation.Parse(validateDomain)
+		if rules.Default != nil && rules.Default.Kind == resolution.ValueKindIdent {
+			if ev, ok := validation.ResolveEnumVariant(rules.Default.IdentValue, field.Type, data.table); ok {
+				variantName := toPascalCase(ev.Variant.Name)
+				enumName := ev.Type.Name
+				if ev.Type.Namespace != data.rawNs {
+					targetOutputPath := enum.FindOutputPath(ev.Type, data.table, "cpp")
+					if targetOutputPath != "" {
+						ns := deriveNamespace(targetOutputPath)
+						enumName = fmt.Sprintf("::%s::%s", ns, enumName)
+					}
+				}
+				defaultValue = fmt.Sprintf("%s::%s", enumName, variantName)
+			}
+		}
+	}
+
 	return fieldData{
 		Name:         cppFieldName,
 		CppType:      cppType,
 		Doc:          doc.Get(field.Domains),
 		IsSelfRef:    isSelfRef,
-		DefaultValue: cppDefaultValue(cppType, underlyingPrimitive),
+		DefaultValue: defaultValue,
 	}
 }
 
