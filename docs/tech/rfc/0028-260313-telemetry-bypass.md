@@ -33,9 +33,9 @@ data through the server means every sample is persisted, every client sees the s
 stream, and authority conflicts are resolved in one place. For observability workloads
 and low-frequency control (sub-10Hz), this design works well.
 
-The problem emerges at higher control rates. A 1kHz control loop has a 1ms budget per
+The problem emerges at higher control rates. A 1 kHz control loop has a 1 ms budget per
 cycle. The server round-trip consumes a significant and variable portion of that budget,
-leaving insufficient headroom for the control logic itself. At 10kHz, the budget drops
+leaving insufficient headroom for the control logic itself. At 10 kHz, the budget drops
 to 100 microseconds, making the round-trip untenable.
 
 ## 2.1 - Sources of Non-Determinism
@@ -49,7 +49,7 @@ times.
 The Arc WASM runtime executes inside the Synnax server, which is a Go process. Go's
 garbage collector runs concurrently but still introduces stop-the-world pauses on the
 order of hundreds of microseconds to low milliseconds. These pauses are invisible to the
-Arc program and occur at unpredictable intervals. A control loop running at 1kHz cannot
+Arc program and occur at unpredictable intervals. A control loop running at 1 kHz cannot
 tolerate a 500-microsecond GC pause mid-cycle.
 
 ### 2.1.1 - Go Goroutine Scheduling
@@ -100,15 +100,15 @@ control intelligence lives in the server, not alongside the hardware.
 
 ### 2.2.0 - High-Frequency PID Control
 
-A pressure regulation loop running at 1kHz reads a pressure transducer, computes a PID
-output, and commands a proportional valve. The 1ms cycle budget leaves no room for a
+A pressure regulation loop running at 1 kHz reads a pressure transducer, computes a PID
+output, and commands a proportional valve. The 1 ms cycle budget leaves no room for a
 server round-trip. The control law must execute locally on the driver with direct access
 to the sensor frame and direct output to the valve command.
 
 ### 2.2.1 - Safety Interlocks
 
 An abort sequence monitors multiple sensors and must respond within a bounded time
-window (e.g., close a valve within 5ms of detecting an overpressure condition). The
+window (e.g., close a valve within 5 ms of detecting an overpressure condition). The
 non-deterministic tail latency of the server pipeline makes it unsuitable for
 safety-critical response times. The interlock logic must execute with worst-case
 guarantees that only a local execution path can provide.
@@ -858,16 +858,16 @@ Full path: `bus::Writer::write` -> `Bus::publish` -> `Subscription` ->
 
 ## 7.3 - Cost Breakdown (large_acq, 480KB)
 
-The end-to-end time of ~72us breaks down as:
+The end-to-end time of ~72 µs breaks down as:
 
-| Component                                 | Cost  | % of total |
-| ----------------------------------------- | ----- | ---------- |
-| deep_copy in Bus::publish                 | ~13us | 18%        |
-| deep_copy in mock server writer           | ~13us | 18%        |
-| deep_copy in AuthorityMirror::filter      | ~13us | 18%        |
-| Frame construction (make_frame in mock)   | ~13us | 18%        |
-| Mutex + deque + hash map + dedup overhead | ~2us  | 3%         |
-| Measurement overhead / other              | ~18us | 25%        |
+| Component                                 | Cost   | % of total |
+| ----------------------------------------- | ------ | ---------- |
+| deep_copy in Bus::publish                 | ~13 µs | 18%        |
+| deep_copy in mock server writer           | ~13 µs | 18%        |
+| deep_copy in AuthorityMirror::filter      | ~13 µs | 18%        |
+| Frame construction (make_frame in mock)   | ~13 µs | 18%        |
+| Mutex + deque + hash map + dedup overhead | ~2 µs  | 3%         |
+| Measurement overhead / other              | ~18 µs | 25%        |
 
 The three deep_copy operations account for roughly 54% of the measured end-to-end time.
 In production, the mock server writer's deep_copy is replaced by protobuf serialization
@@ -891,7 +891,7 @@ The fix adds a move overload `filter(Frame&&, Subject)` that:
 `bus::Streamer::read()` now calls `filter(std::move(local), subject)` instead of
 `filter(local, subject)`.
 
-### Results (large_acq, 480KB)
+### Results (large_acq, 480 kB)
 
 Authority filter comparison:
 
@@ -901,9 +901,9 @@ Authority filter comparison:
 | Half pass | 6,945     | 1,572     | 4.4x    |
 | None pass | 120       | 120\*     | 1x      |
 
-\*Move benchmark shows ~1,117ns due to PauseTiming/ResumeTiming harness overhead (frame
+\*Move benchmark shows ~1,117 ns due to PauseTiming/ResumeTiming harness overhead (frame
 must be reconstructed each iteration since the move consumes it). The actual filter
-logic for none-pass is ~120ns in both cases.
+logic for none-pass is ~120 ns in both cases.
 
 End-to-end comparison:
 
@@ -913,22 +913,22 @@ End-to-end comparison:
 | medium (40KB)     | 8,009       | 5,981      | -25%        |
 | large_acq (480KB) | 72,093      | 58,938     | -18%        |
 
-The large_acq improvement of ~14us matches the predicted ~13us savings from eliminating
-one deep_copy. The small_cmd improvement is proportionally larger because the filter's
-per-channel overhead (hash map lookups, frame construction) was a larger fraction of the
-total cost at small sizes.
+The large_acq improvement of ~14 µs matches the predicted ~13 µs savings from
+eliminating one deep_copy. The small_cmd improvement is proportionally larger because
+the filter's per-channel overhead (hash map lookups, frame construction) was a larger
+fraction of the total cost at small sizes.
 
 ### Updated Cost Breakdown (large_acq, 480KB, after move filter)
 
-| Component                                 | Cost     | % of total     |
-| ----------------------------------------- | -------- | -------------- |
-| deep_copy in Bus::publish                 | ~13us    | 22%            |
-| deep_copy in mock server writer           | ~13us    | 22%            |
-| ~~deep_copy in AuthorityMirror::filter~~  | ~~13us~~ | **eliminated** |
-| Move in AuthorityMirror::filter           | ~1us     | 2%             |
-| Frame construction (make_frame in mock)   | ~13us    | 22%            |
-| Mutex + deque + hash map + dedup overhead | ~2us     | 3%             |
-| Measurement overhead / other              | ~17us    | 29%            |
+| Component                                 | Cost      | % of total     |
+| ----------------------------------------- | --------- | -------------- |
+| deep_copy in Bus::publish                 | ~13 µs    | 22%            |
+| deep_copy in mock server writer           | ~13 µs    | 22%            |
+| ~~deep_copy in AuthorityMirror::filter~~  | ~~13 µs~~ | **eliminated** |
+| Move in AuthorityMirror::filter           | ~1 µs     | 2%             |
+| Frame construction (make_frame in mock)   | ~13 µs    | 22%            |
+| Mutex + deque + hash map + dedup overhead | ~2 µs     | 3%             |
+| Measurement overhead / other              | ~17 µs    | 29%            |
 
 ## 7.5 - Optimization: Copy-on-Write Series Data
 
@@ -960,54 +960,54 @@ returning 1).
 
 Series copy comparison:
 
-| Size  | deep_copy (ns) | shallow_copy (ns) | Speedup |
-| ----- | -------------- | ----------------- | ------- |
-| 32B   | 55             | 3.8               | 14x     |
-| 16KB  | 507            | 3.8               | 133x    |
-| 64KB  | 1,367          | 3.8               | 360x    |
-| 480KB | 8,366          | 3.8               | 2,200x  |
+| Size   | deep_copy (ns) | shallow_copy (ns) | Speedup |
+| ------ | -------------- | ----------------- | ------- |
+| 3 2B   | 55             | 3.8               | 14x     |
+| 16 kB  | 507            | 3.8               | 133x    |
+| 64 kB  | 1,367          | 3.8               | 360x    |
+| 480 kB | 8,366          | 3.8               | 2,200x  |
 
 Frame copy comparison:
 
-| Workload          | deep_copy (ns) | shallow_copy (ns) | Speedup |
-| ----------------- | -------------- | ----------------- | ------- |
-| single_f64 (8B)   | 135            | 87                | 1.6x    |
-| small_cmd (10B)   | 651            | 127               | 5x      |
-| medium (40KB)     | 1,480          | 127               | 12x     |
-| large_acq (480KB) | 12,831         | 230               | 56x     |
+| Workload           | deep_copy (ns) | shallow_copy (ns) | Speedup |
+| ------------------ | -------------- | ----------------- | ------- |
+| single_f64 (8 B)   | 135            | 87                | 1.6x    |
+| small_cmd (10 B)   | 651            | 127               | 5x      |
+| medium (40 kB)     | 1,480          | 127               | 12x     |
+| large_acq (480 kB) | 12,831         | 230               | 56x     |
 
 Bus publish with 1 subscriber:
 
-| Workload          | deep_copy (ns) | shallow_copy (ns) | Speedup |
-| ----------------- | -------------- | ----------------- | ------- |
-| small_cmd (10B)   | 574            | 273               | 2.1x    |
-| medium (40KB)     | 1,535          | 277               | 5.5x    |
-| large_acq (480KB) | 12,913         | 473               | **27x** |
+| Workload           | deep_copy (ns) | shallow_copy (ns) | Speedup |
+| ------------------ | -------------- | ----------------- | ------- |
+| small_cmd (10 B)   | 574            | 273               | 2.1x    |
+| medium (40 kB)     | 1,535          | 277               | 5.5x    |
+| large_acq (480 kB) | 12,913         | 473               | **27x** |
 
 End-to-end comparison (all optimizations combined):
 
-| Workload          | Baseline (ns) | Final (ns) | Improvement |
-| ----------------- | ------------- | ---------- | ----------- |
-| small_cmd (10B)   | 1,834         | 866        | **-53%**    |
-| medium (40KB)     | 8,009         | 5,379      | **-33%**    |
-| large_acq (480KB) | 72,093        | 48,168     | **-33%**    |
+| Workload           | Baseline (ns) | Final (ns) | Improvement |
+| ------------------ | ------------- | ---------- | ----------- |
+| small_cmd (10 B)   | 1,834         | 866        | **-53%**    |
+| medium (40 kB)     | 8,009         | 5,379      | **-33%**    |
+| large_acq (480 kB) | 72,093        | 48,168     | **-33%**    |
 
-### Final Cost Breakdown (large_acq, 480KB)
+### Final Cost Breakdown (large_acq, 480 kB)
 
-| Component                                 | Cost     | % of total     |
-| ----------------------------------------- | -------- | -------------- |
-| ~~deep_copy in Bus::publish~~             | ~~13us~~ | **eliminated** |
-| shallow_copy in Bus::publish              | ~0.5us   | 1%             |
-| deep_copy in mock server writer           | ~13us    | 27%            |
-| Move in AuthorityMirror::filter           | ~1us     | 2%             |
-| Frame construction (make_frame in mock)   | ~13us    | 27%            |
-| Mutex + deque + hash map + dedup overhead | ~2us     | 4%             |
-| Measurement overhead / other              | ~19us    | 39%            |
+| Component                                 | Cost      | % of total     |
+| ----------------------------------------- | --------- | -------------- |
+| ~~deep_copy in Bus::publish~~             | ~~13 µs~~ | **eliminated** |
+| shallow_copy in Bus::publish              | ~0.5 µs   | 1%             |
+| deep_copy in mock server writer           | ~13 µs    | 27%            |
+| Move in AuthorityMirror::filter           | ~1 µs     | 2%             |
+| Frame construction (make_frame in mock)   | ~13 µs    | 27%            |
+| Mutex + deque + hash map + dedup overhead | ~2 µs     | 4%             |
+| Measurement overhead / other              | ~19 µs    | 39%            |
 
 In production, the mock server writer's deep_copy is replaced by protobuf serialization
-(comparable cost). The bus-specific overhead is now ~1.5us total (shallow_copy + move
-filter + routing), down from ~26us at baseline. The bus adds less than 0.2% overhead to
-a 1ms control loop budget.
+(comparable cost). The bus-specific overhead is now ~1.5 µs total (shallow_copy + move
+filter + routing), down from ~26 µs at baseline. The bus adds less than 0.2% overhead to
+a 1 ms control loop budget.
 
 ## 7.6 - Remaining Bottlenecks
 
@@ -1017,16 +1017,16 @@ construction overhead in the benchmark harness. Neither is present in the produc
 path.
 
 In production, the only remaining significant cost is protobuf serialization for the
-server write (~13us for large frames). This is unavoidable since data must reach the
+server write (~13 µs for large frames). This is unavoidable since data must reach the
 server for persistence and relay. It runs on the acquisition pipeline thread and does
 not block the local bus delivery path.
 
 Non-targets (confirmed by data, not worth optimizing):
 
-- **Mutex/lock overhead**: ~200ns combined. Not a bottleneck.
+- **Mutex/lock overhead**: ~200 ns combined. Not a bottleneck.
 - **Hash map routing**: Sub-microsecond. Not a bottleneck.
 - **unordered_set dedup**: Negligible. Not a bottleneck.
-- **CV wake-up latency**: ~11us wall, but this is OS scheduler cost. Not addressable in
+- **CV wake-up latency**: ~11 µs wall, but this is OS scheduler cost. Not addressable in
   user-space code (and only matters for cross-thread latency, not throughput).
 
 ## 7.6 - Platform Considerations
@@ -1037,7 +1037,7 @@ core). Expected differences on target platforms:
 - **x86_64 Linux** (server deployments): Similar or slightly better memcpy throughput
   due to AVX/AVX-512 on modern Xeon/EPYC. Relative rankings unchanged.
 - **ARM64 NI Linux Real-Time** (cRIO): Significantly lower memory bandwidth and smaller
-  caches. The 480KB large_acq frame exceeds typical embedded L2 sizes, so deep_copy
+  caches. The 480 kB large_acq frame exceeds typical embedded L2 sizes, so deep_copy
   costs will be 2-5x higher. This makes the copy elimination optimizations even more
   impactful on the primary real-time target.
 - **x86_64 Windows** (lab workstations): Comparable to Linux x86_64. CRT allocator may
@@ -1065,7 +1065,7 @@ knowledge of per-channel authority.
 **Filter 2 (client-side, fine):** The `AuthorityMirror` filter on the bus streamer drops
 local bus frames for channels where the consumer's subject does not hold authority. This
 is the local replacement for Cesium's control gate. It is eventually consistent with a
-staleness window of 1-5ms on loopback.
+staleness window of 1-5 ms on loopback.
 
 These two filters are not coordinated. Together they can block all delivery paths during
 an authority transition.
@@ -1093,9 +1093,9 @@ The authority hierarchy is: Abort (255) > Manual Override (200) > Nominal Hotfir
 
 #### Scenario A: Abort During Nominal Operation
 
-The most safety-critical scenario. The hotfire sequence is running at 1kHz. The abort
+The most safety-critical scenario. The hotfire sequence is running at 1 kHz. The abort
 listener detects an overpressure condition and must close all valves within a bounded
-time window (e.g., 5ms).
+time window (e.g., 5 ms).
 
 ```
 T=0    Abort Listener detects overpressure
@@ -1117,14 +1117,14 @@ T=5    AuthorityMirror receives update from relay, applies transfer
        Valve finally closes
 ```
 
-Between T=1 and T=5 (1-5ms on loopback):
+Between T=1 and T=5 (1-5 ms on loopback):
 
 - The abort listener's commands are rejected by the stale authority filter.
 - The hotfire sequence's commands continue reaching hardware.
 - The valve stays open during an overpressure condition.
 - The server path cannot help because `ExcludeGroups` blocks all same-rack frames.
 
-For a rocket engine test stand, 1-5ms of continued fuel flow during an overpressure
+For a rocket engine test stand, 1-5 ms of continued fuel flow during an overpressure
 event can mean the difference between a controlled shutdown and a catastrophic failure.
 
 #### Scenario B: Operator Takeover During Nominal Operation
@@ -1217,12 +1217,12 @@ brief conflicting commands rather than a complete blockout.
 
 ### 8.0.3 - Severity
 
-The staleness window is 1-5ms on a co-located deployment and 10-50ms on a multi-node
+The staleness window is 1-5 ms on a co-located deployment and 10-50 ms on a multi-node
 deployment. Its duration depends on:
 
 - Digest writer goroutine scheduling (~microseconds)
 - Relay fan-out (~microseconds)
-- Network/loopback transport (50-200us loopback, 1-50ms remote)
+- Network/loopback transport (50-200 µs loopback, 1-50 ms remote)
 - JSON parsing and mirror lock acquisition (~microseconds)
 
 The impact during this window ranges from annoying (brief conflicting commands during
@@ -1333,7 +1333,7 @@ hotfire's commands are now filtered out. Zero latency between authority change a
 correct command.
 
 **Scenario B (Operator takeover):** The operator is remote, so the authority change
-originates from outside the driver. The mirror updates via the relay path with 1-5ms
+originates from outside the driver. The mirror updates via the relay path with 1-5 ms
 staleness. During this window, the hotfire's commands may still pass through the bus.
 This scenario is unchanged from the baseline and requires server-initiated mirror
 notifications to fully address (see Section 8.1.5).
@@ -1351,9 +1351,9 @@ abort's higher authority at the server's control gate takes precedence.
 `apply_increase` computes `255 > anything` which is always true. The mirror is correct
 before the next frame.
 
-**Idempotent with relay.** When the server's relay update arrives 1-5ms later, `apply()`
-overwrites with the same state. No conflict because the relay carries the authoritative
-transfer which matches what was optimistically applied.
+**Idempotent with relay.** When the server's relay update arrives 1-5 ms later,
+`apply()` overwrites with the same state. No conflict because the relay carries the
+authoritative transfer which matches what was optimistically applied.
 
 **Decreases are safe.** `apply_increase` is a no-op when incoming authority <= current.
 The server handles decreases and the relay corrects the mirror. No optimistic update is
@@ -1364,13 +1364,13 @@ equal authority does not trigger an update. This matches the server's behavior w
 earlier gate wins ties.
 
 **Rare edge case: two tasks set authority=255 simultaneously.** Both think they won
-locally. The relay corrects the loser within 1-5ms. This is strictly better than the
+locally. The relay corrects the loser within 1-5 ms. This is strictly better than the
 baseline where both are stale for the full window.
 
 ### 8.1.5 - Future Improvement: Server-Initiated Mirror Notifications
 
 Scenario B reveals a gap: when a remote controller takes authority, local mirrors learn
-about it through the relay path with 1-5ms of staleness. During this window, the old
+about it through the relay path with 1-5 ms of staleness. During this window, the old
 local controller's commands leak through the bus.
 
 A future improvement could have the server push authority notifications directly to
@@ -1386,7 +1386,7 @@ fully addressed by the short-circuit fix.
 An earlier design made `set_authority` synchronous (`ack=true`), waiting for the
 server's response before returning. The response would carry the authority transfer, and
 the driver would apply it to the mirror directly. This adds one network round-trip per
-authority change (~100-500us on loopback).
+authority change (~100-500 µs on loopback).
 
 The short-circuit approach is preferred because it adds zero latency, requires no
 protocol changes (no need to extend `FrameWriterResponse` with transfer details), and
