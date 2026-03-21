@@ -12,7 +12,7 @@ from uuid import UUID
 from freighter import Empty, UnaryClient, send_required
 from pydantic import BaseModel
 
-from synnax.group.payload import Group
+from synnax.group.types_gen import Group
 from synnax.ontology.payload import ID, CrudeID
 
 

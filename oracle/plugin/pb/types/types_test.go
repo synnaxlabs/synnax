@@ -173,13 +173,13 @@ var _ = Describe("Plugin", func() {
 				ExpectContent(resp, "test.proto").ToContain("string key = 1;")
 			})
 
-			It("Should map json to google.protobuf.Struct", func() {
+			It("Should map record to google.protobuf.Struct", func() {
 				source := `
 					@go output "core/pkg/api/grpc/v1"
 					@pb
 
 					Test struct {
-						data json
+						data record
 					}
 				`
 				resp := MustGenerate(ctx, source, "test", loader, p)
@@ -327,7 +327,7 @@ var _ = Describe("Plugin", func() {
 			Expect(content).To(ContainSubstring("map<string, string> settings = 1;"))
 		})
 
-		It("Should import google.protobuf.Struct for json type", func() {
+		It("Should import google.protobuf.Struct for record type", func() {
 			table := resolution.NewTable()
 			Expect(table.Add(resolution.Type{
 				Name:          "Config",
@@ -335,7 +335,7 @@ var _ = Describe("Plugin", func() {
 				QualifiedName: "config.Config",
 				Form: resolution.StructForm{
 					Fields: []resolution.Field{
-						{Name: "data", Type: resolution.TypeRef{Name: "json"}},
+						{Name: "data", Type: resolution.TypeRef{Name: "record"}},
 					},
 				},
 				Domains: pbDomains("core/pkg/api/grpc/v1"),
@@ -481,7 +481,7 @@ var _ = Describe("Plugin", func() {
 					}
 
 					InternalState struct {
-						cache json
+						cache record
 						@pb omit
 					}
 				`

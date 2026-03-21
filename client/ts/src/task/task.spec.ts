@@ -9,6 +9,7 @@
 
 import { TimeStamp } from "@synnaxlabs/x";
 import { beforeAll, describe, expect, it } from "vitest";
+import { z } from "zod";
 
 import { ontology } from "@/ontology";
 import { task } from "@/task";
@@ -46,17 +47,20 @@ describe("Task", async () => {
       expect(m.config).toStrictEqual(config);
     });
     it("should create a task with a custom status", async () => {
+      const customStatus = {
+        key: "",
+        name: "",
+        variant: "success" as const,
+        message: "Custom task status",
+        description: "Task is running",
+        time: TimeStamp.now(),
+        details: { running: true, data: { customData: true } },
+      };
       const m = await testRack.createTask({
         name: "task-with-status",
         config: { test: true },
         type: "ni",
-        status: {
-          variant: "success",
-          message: "Custom task status",
-          description: "Task is running",
-          time: TimeStamp.now(),
-          details: { running: true, data: { customData: true } },
-        },
+        status: customStatus,
       });
       expect(m.key).not.toHaveLength(0);
       const retrieved = await client.tasks.retrieve({
@@ -78,8 +82,10 @@ describe("Task", async () => {
         config: { a: "dog" },
         type: "ni",
       });
+      // Exclude status, internal, snapshot when updating - these have different input/output types
+      const { status: _, internal: __, snapshot: ___, ...taskFields } = m;
       const updated = await client.tasks.create({
-        ...m,
+        ...taskFields,
         name: "updated",
       });
       expect(updated.name).toBe("updated");
@@ -119,7 +125,7 @@ describe("Task", async () => {
           key: ontology.idToString(task.ontologyID(t.key)),
           name: "test",
           variant: "success",
-          details: { task: t.key, running: false, data: {} },
+          details: { task: t.key, running: false, data: undefined },
           message: "test",
           time: TimeStamp.now(),
         };
@@ -520,6 +526,118 @@ describe("Task", async () => {
       await expect(t.executeCommandSync({ type: "test", timeout: 0 })).rejects.toThrow(
         "timed out",
       );
+    });
+  });
+
+  describe("with schemas", () => {
+    const schemas = {
+      type: z.literal("sensor_task"),
+      config: z.object({
+        sampleRate: z.number(),
+        channels: z.array(z.string()),
+        enabled: z.boolean(),
+      }),
+      statusData: z.object({
+        samplesCollected: z.number().optional(),
+      }),
+    };
+
+    it("should create and retrieve a task with typed config", async () => {
+      const config = {
+        sampleRate: 1000,
+        channels: ["ch1", "ch2"],
+        enabled: true,
+      };
+      const t = await testRack.createTask(
+        {
+          name: "typed-config-task",
+          type: "sensor_task",
+          config,
+        },
+        schemas,
+      );
+      expect(t.config.sampleRate).toBe(1000);
+      expect(t.config.channels).toEqual(["ch1", "ch2"]);
+      expect(t.config.enabled).toBe(true);
+
+      const retrieved = await client.tasks.retrieve({
+        key: t.key,
+        schemas,
+      });
+      expect(retrieved.config.sampleRate).toBe(1000);
+      expect(retrieved.config.channels).toEqual(["ch1", "ch2"]);
+      expect(retrieved.type).toBe("sensor_task");
+    });
+
+    it("should retrieve multiple tasks with schemas", async () => {
+      const t1 = await testRack.createTask(
+        {
+          name: "multi-schema-1",
+          type: "sensor_task",
+          config: { sampleRate: 100, channels: ["a"], enabled: true },
+        },
+        schemas,
+      );
+      const t2 = await testRack.createTask(
+        {
+          name: "multi-schema-2",
+          type: "sensor_task",
+          config: { sampleRate: 200, channels: ["b", "c"], enabled: false },
+        },
+        schemas,
+      );
+
+      const retrieved = await client.tasks.retrieve({
+        keys: [t1.key, t2.key],
+        schemas,
+      });
+      expect(retrieved).toHaveLength(2);
+      expect(retrieved[0].config.sampleRate).toBe(100);
+      expect(retrieved[1].config.sampleRate).toBe(200);
+    });
+
+    it("should retrieve task by name with schemas", async () => {
+      const uniqueName = `schema-name-test-${Date.now()}`;
+      await testRack.createTask(
+        {
+          name: uniqueName,
+          type: "sensor_task",
+          config: { sampleRate: 500, channels: ["x"], enabled: true },
+        },
+        schemas,
+      );
+
+      const retrieved = await client.tasks.retrieve({
+        name: uniqueName,
+        schemas,
+      });
+      expect(retrieved.name).toBe(uniqueName);
+      expect(retrieved.config.sampleRate).toBe(500);
+    });
+
+    it("should retrieve task by type with schemas", async () => {
+      const customSchemas = {
+        type: z.literal("unique_type_test"),
+        config: z.object({ value: z.number() }),
+        statusData: z.unknown(),
+      };
+
+      await testRack.createTask(
+        {
+          name: "type-filter-test",
+          type: "unique_type_test",
+          config: { value: 42 },
+        },
+        customSchemas,
+      );
+
+      const retrieved = await client.tasks.retrieve({
+        type: "unique_type_test",
+        rack: testRack.key,
+        schemas: customSchemas,
+      });
+      expect(retrieved.type).toBe("unique_type_test");
+      expect(retrieved.config.value).toBe(42);
     });
   });
 });

@@ -112,8 +112,13 @@ export const formSchema = arc.newZ.extend({
 
 export const ZERO_FORM_VALUES: z.infer<typeof formSchema> = {
   name: "",
-  version: "0.0.0",
-  graph: { nodes: [], edges: [] },
+  mode: "text",
+  graph: {
+    nodes: [],
+    edges: [],
+    viewport: { position: { x: 0, y: 0 }, zoom: 1 },
+    functions: [],
+  },
   text: { raw: "" },
 };
 
@@ -359,7 +364,7 @@ export const { useRetrieve: useRetrieveTask } = Flux.createRetrieve<
         if (cachedRel == null) return;
         const taskStatusKey = task.statusKey(cachedRel.to.key);
         if (status.key !== taskStatusKey) return;
-        const parsed = task.statusZ(z.null().or(z.undefined())).safeParse(status);
+        const parsed = task.statusZ(z.unknown()).safeParse(status);
         if (!parsed.success) return;
         onChange((prev) => {
           if (prev == null) return prev;

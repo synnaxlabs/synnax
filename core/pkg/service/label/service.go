@@ -13,7 +13,6 @@ import (
 	"context"
 	"io"
 
-	"github.com/google/uuid"
 	"github.com/synnaxlabs/synnax/pkg/distribution/group"
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
 	"github.com/synnaxlabs/synnax/pkg/distribution/signals"
@@ -107,7 +106,7 @@ func (s *Service) Close() error {
 func (s *Service) NewRetrieve() Retrieve {
 	return Retrieve{
 		baseTx: s.cfg.DB,
-		gorp:   gorp.NewRetrieve[uuid.UUID, Label](),
+		gorp:   gorp.NewRetrieve[Key, Label](),
 		otg:    s.cfg.Ontology,
 	}
 }

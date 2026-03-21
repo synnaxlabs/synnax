@@ -9,3 +9,4 @@
 
 export * from "@/group/client";
 export * from "@/group/payload";
+export * from "@/group/types.gen";

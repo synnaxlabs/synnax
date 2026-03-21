@@ -9,7 +9,16 @@
 
 import z from "zod";
 
-export const nullableZ = <Z extends z.ZodType>(item: Z) =>
+/**
+ * For required arrays: coerces null/undefined to empty array [].
+ * Use when the array must always be present and iterable.
+ *
+ * - null → []
+ * - undefined → []
+ * - [] → []
+ * - [items] → [items]
+ */
+export const nullishToEmpty = <Z extends z.ZodType>(item: Z) =>
   z.union([
     z.union([z.null(), z.undefined()]).transform<z.infer<Z>[]>(() => []),
     item.array(),

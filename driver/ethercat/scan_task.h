@@ -72,7 +72,7 @@ public:
 
     /// @brief handles EtherCAT-specific commands.
     bool exec(
-        task::Command &cmd,
+        synnax::task::Command &cmd,
         const synnax::task::Task &task,
         const std::shared_ptr<task::Context> &ctx
     ) override;
@@ -105,7 +105,7 @@ private:
     generate_slave_key(const slave::Properties &slave, const std::string &master_key);
 
     /// @brief handles the test_interface command.
-    void test_interface(const task::Command &cmd) const;
+    void test_interface(const synnax::task::Command &cmd) const;
 };
 
 }

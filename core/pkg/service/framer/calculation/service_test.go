@@ -12,6 +12,7 @@ package calculation_test
 import (
 	"context"
 	"fmt"
+	"go/types"
 	"time"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -24,7 +25,6 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/distribution/mock"
 	"github.com/synnaxlabs/synnax/pkg/service/arc"
 	svcchannel "github.com/synnaxlabs/synnax/pkg/service/channel"
-	channelcalculation "github.com/synnaxlabs/synnax/pkg/service/channel/calculation"
 	"github.com/synnaxlabs/synnax/pkg/service/framer/calculation"
 	"github.com/synnaxlabs/synnax/pkg/service/framer/streamer"
 	"github.com/synnaxlabs/synnax/pkg/service/label"
@@ -519,7 +519,7 @@ var _ = Describe("Calculation", Ordered, func() {
 			Expect(rm.Set(ctx, channel.KeysFromChannels(calcs))).To(Succeed())
 			var st calculation.Status
 			statusKey := channel.OntologyID(calcs[0].Key()).String()
-			Expect(status.NewRetrieve[channelcalculation.StatusDetails](statusSvc).
+			Expect(status.NewRetrieve[types.Nil](statusSvc).
 				WhereKeys(statusKey).
 				Entry(&st).
 				Exec(ctx, nil)).To(Succeed())
@@ -548,7 +548,7 @@ var _ = Describe("Calculation", Ordered, func() {
 			var st calculation.Status
 			statusKey := channel.OntologyID(calcs[0].Key()).String()
 			Eventually(func(g Gomega) {
-				err := status.NewRetrieve[channelcalculation.StatusDetails](statusSvc).
+				err := status.NewRetrieve[types.Nil](statusSvc).
 					WhereKeys(statusKey).
 					Entry(&st).
 					Exec(ctx, nil)
@@ -557,26 +557,7 @@ var _ = Describe("Calculation", Ordered, func() {
 			}).Should(Succeed())
 			Expect(rm.Close(ctx)).To(Succeed())
 		})
-		Specify("Should include channel key in status details", func() {
-			calcs := []channel.Channel{{
-				Name:        channel.NewRandomName(),
-				DataType:    telem.Int64T,
-				Virtual:     true,
-				Leaseholder: cluster.NodeKeyFree,
-				Expression:  "invalid expression",
-			}}
-			Expect(dist.Channel.CreateMany(ctx, &calcs)).To(Succeed())
-			rm := c.OpenRequestManager()
-			Expect(rm.Set(ctx, channel.KeysFromChannels(calcs))).To(Succeed())
-			var st calculation.Status
-			statusKey := channel.OntologyID(calcs[0].Key()).String()
-			Expect(status.NewRetrieve[channelcalculation.StatusDetails](statusSvc).
-				WhereKeys(statusKey).
-				Entry(&st).
-				Exec(ctx, nil)).To(Succeed())
-			Expect(st.Details.Channel).To(Equal(calcs[0].Key()))
-			Expect(rm.Close(ctx)).To(Succeed())
-		})
+
 		Specify("Should use channel ontology ID as status key", func() {
 			calcs := []channel.Channel{{
 				Name:        channel.NewRandomName(),
@@ -590,7 +571,7 @@ var _ = Describe("Calculation", Ordered, func() {
 			Expect(rm.Set(ctx, channel.KeysFromChannels(calcs))).To(Succeed())
 			var st calculation.Status
 			expectedKey := channel.OntologyID(calcs[0].Key()).String()
-			Expect(status.NewRetrieve[channelcalculation.StatusDetails](statusSvc).
+			Expect(status.NewRetrieve[types.Nil](statusSvc).
 				WhereKeys(expectedKey).
 				Entry(&st).
 				Exec(ctx, nil)).To(Succeed())

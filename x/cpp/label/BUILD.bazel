@@ -1,0 +1,19 @@
+cc_library(
+    name = "label",
+    hdrs = [
+        "json.gen.h",
+        "label.h",
+        "proto.gen.h",
+        "types.gen.h",
+    ],
+    visibility = ["//visibility:public"],
+    deps = [
+        "//x/cpp/color",
+        "//x/cpp/errors",
+        "//x/cpp/json",
+        "//x/cpp/pb",
+        "//x/cpp/uuid",
+        "//x/go/color:color_grpc",
+        "//x/go/label:label_grpc",
+    ],
+)

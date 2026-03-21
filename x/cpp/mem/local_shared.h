@@ -154,5 +154,4 @@ template<typename T, typename... Args>
 local_shared<T> make_local_shared(Args &&...args) {
     return local_shared<T>(std::forward<Args>(args)...);
 }
-
 }
