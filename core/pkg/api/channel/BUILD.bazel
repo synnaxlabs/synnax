@@ -1,4 +1,4 @@
-load("@rules_proto//proto:defs.bzl", "proto_library")
+load("@protobuf//bazel:proto_library.bzl", "proto_library")
 load("@rules_proto_grpc_cpp//:defs.bzl", "cpp_grpc_library")
 
 proto_library(
@@ -8,7 +8,7 @@ proto_library(
     deps = [
         "//core/pkg/distribution/channel:channel_proto",
         "//x/go/control:control_proto",
-        "//x/go/status:status_proto"
+        "//x/go/status:status_proto",
     ],
 )
 
@@ -20,6 +20,6 @@ cpp_grpc_library(
     deps = [
         "//core/pkg/distribution/channel:channel_grpc",
         "//x/go/control:control_grpc",
-        "//x/go/status:status_grpc"
+        "//x/go/status:status_grpc",
     ],
 )
