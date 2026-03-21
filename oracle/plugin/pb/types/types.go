@@ -76,10 +76,10 @@ func (p *Plugin) PostWrite(files []string) error {
 	}
 	// buf format -w and buf generate don't accept file arguments - they operate
 	// on the entire directory. Run both without file arguments from the repo root.
-	if err := exec.OnFiles(bufFormatCmd, nil, repoRoot); err != nil {
+	if err := exec.OnFiles(bufGenerateCmd, nil, repoRoot); err != nil {
 		return err
 	}
-	return exec.OnFiles(bufGenerateCmd, nil, repoRoot)
+	return exec.OnFiles(bufFormatCmd, nil, repoRoot)
 }
 
 func (p *Plugin) Generate(req *plugin.Request) (*plugin.Response, error) {

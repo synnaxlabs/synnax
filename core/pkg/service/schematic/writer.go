@@ -69,7 +69,7 @@ func (w Writer) findParentWorkspace(ctx context.Context, key uuid.UUID) (uuid.UU
 	if err := w.otg.NewRetrieve().
 		WhereIDs(OntologyID(key)).
 		TraverseTo(ontology.ParentsTraverser).
-		WhereTypes(workspace.OntologyType).
+		WhereTypes(ontology.TypeWorkspace).
 		Entries(&res).
 		Exec(ctx, w.tx); err != nil {
 		return uuid.Nil, false, err
@@ -139,7 +139,7 @@ func (w Writer) Copy(
 func (w Writer) SetData(
 	ctx context.Context,
 	key uuid.UUID,
-	data string,
+	data map[string]any,
 ) error {
 	return gorp.NewUpdate[uuid.UUID, Schematic]().WhereKeys(key).
 		ChangeErr(func(_ gorp.Context, s Schematic) (Schematic, error) {

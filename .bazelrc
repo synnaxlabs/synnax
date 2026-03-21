@@ -24,6 +24,7 @@ build:macos --cpu=darwin_arm64
 build:macos --cxxopt=-std=c++23
 build:macos --host_cxxopt=-std=c++23
 build:macos --copt=-Werror
+build:macos --copt=-Wreorder-init-list
 # Hide symbols to prevent collisions with libraries loaded dynamically at runtime
 # (LabJack bundles an incompatible legacy gRPC version).
 build:macos --copt=-fvisibility=hidden

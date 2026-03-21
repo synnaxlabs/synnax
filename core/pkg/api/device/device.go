@@ -49,13 +49,14 @@ func NewService(cfgs ...config.LayerConfig) (*Service, error) {
 	}, nil
 }
 
-type CreateRequest struct {
-	Devices []device.Device `json:"devices" msgpack:"devices"`
-}
-
-type CreateResponse struct {
-	Devices []device.Device `json:"devices" msgpack:"devices"`
-}
+type (
+	CreateRequest struct {
+		Devices []device.Device `json:"devices" msgpack:"devices"`
+	}
+	CreateResponse struct {
+		Devices []device.Device `json:"devices" msgpack:"devices"`
+	}
+)
 
 func (s *Service) Create(
 	ctx context.Context,
@@ -142,36 +143,33 @@ func (s *Service) Retrieve(
 	if hasRacks {
 		q = q.WhereRacks(req.Racks...)
 	}
-	var svcDevices []device.Device
-	retErr := q.Entries(&svcDevices).Exec(ctx, nil)
+	retErr := q.Entries(&res.Devices).Exec(ctx, nil)
 
 	if req.IncludeStatus {
-		statuses := make([]device.Status, 0, len(svcDevices))
+		statuses := make([]device.Status, 0, len(res.Devices))
 		if err := status.NewRetrieve[device.StatusDetails](s.status).
-			WhereKeys(ontology.IDsToKeys(device.OntologyIDsFromDevices(svcDevices))...).
+			WhereKeys(ontology.IDsToKeys(device.OntologyIDsFromDevices(res.Devices))...).
 			Entries(&statuses).
 			Exec(ctx, nil); err != nil {
 			return res, err
 		}
 		for i, stat := range statuses {
-			svcDevices[i].Status = &stat
+			res.Devices[i].Status = &stat
 		}
 	}
 
 	if err := s.access.Enforce(ctx, access.Request{
 		Subject: auth.GetSubject(ctx),
 		Action:  access.ActionRetrieve,
-		Objects: device.OntologyIDsFromDevices(svcDevices),
+		Objects: device.OntologyIDsFromDevices(res.Devices),
 	}); err != nil {
 		return RetrieveResponse{}, err
 	}
 	if retErr != nil && req.IgnoreNotFound {
 		retErr = errors.Skip(retErr, query.ErrNotFound)
 	}
-
-	res.Devices = svcDevices
 	if req.IncludeParent {
-		for i, d := range svcDevices {
+		for i, d := range res.Devices {
 			var parent ontology.Resource
 			err := s.ontology.NewRetrieve().
 				WhereIDs(device.OntologyID(d.Key)).
@@ -186,7 +184,8 @@ func (s *Service) Retrieve(
 				}
 				continue
 			}
-			res.Devices[i].Parent = &parent.ID
+			pid := ontology.ID(parent.ID)
+			res.Devices[i].Parent = &pid
 		}
 	}
 	return res, retErr

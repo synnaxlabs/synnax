@@ -53,8 +53,8 @@ type calcState struct {
 type Calculator struct {
 	state     calcState
 	scheduler *scheduler.Scheduler
-	stateCfg  arcruntime.ExtendedStateConfig
 	cfg       Config
+	stateCfg  arcruntime.ExtendedStateConfig
 	start     telem.TimeStamp
 	closer    xio.MultiCloser
 }

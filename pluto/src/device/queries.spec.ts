@@ -809,6 +809,7 @@ describe("queries", () => {
         make: "ni",
         model: "dog",
         properties: { cat: "dog" },
+        configured: true,
       };
       await act(async () => {
         await result.current.updateAsync(dev);
@@ -1169,7 +1170,11 @@ describe("queries", () => {
         const rack = await client.racks.create({
           name: "test custom props rack",
         });
-        const useForm = Device.createForm({ properties: customPropertiesZ });
+        const useForm = Device.createForm({
+          properties: customPropertiesZ,
+          make: z.string(),
+          model: z.string(),
+        });
         const { result } = renderHook(() => useForm({ query: { key: "" } }), {
           wrapper,
         });
@@ -1299,6 +1304,159 @@ describe("queries", () => {
 
         const msg = result.current.form.get("name").status.message;
         expect(msg).toEqual("Name is required");
+      });
+    });
+  });
+
+  describe("with schemas", () => {
+    const propertiesSchema = z.object({
+      sampleRate: z.number(),
+      channels: z.record(z.string(), z.number()),
+    });
+    const makeSchema = z.literal("custom_make");
+    const modelSchema = z.string();
+    const schemas = {
+      properties: propertiesSchema,
+      make: makeSchema,
+      model: modelSchema,
+    };
+
+    describe("createRetrieve", () => {
+      it("should retrieve a device with typed properties", async () => {
+        const rack = await client.racks.create({ name: "schema-test-rack" });
+        const dev = await client.devices.create(
+          {
+            key: id.create(),
+            name: "schema-test-device",
+            rack: rack.key,
+            location: "test",
+            make: "custom_make",
+            model: "test",
+            properties: { sampleRate: 1000, channels: { ai0: 1, ai1: 2 } },
+          },
+          schemas,
+        );
+
+        const { useRetrieve } = Device.createRetrieve(schemas);
+        const { result } = renderHook(() => useRetrieve({ key: dev.key }), { wrapper });
+
+        await waitFor(() => expect(result.current.variant).toEqual("success"));
+        expect(result.current.data?.properties.sampleRate).toBe(1000);
+        expect(result.current.data?.properties.channels).toEqual({ ai0: 1, ai1: 2 });
+        expect(result.current.data?.make).toBe("custom_make");
+      });
+
+      it("should update typed device when properties change", async () => {
+        const rack = await client.racks.create({ name: "schema-update-rack" });
+        const dev = await client.devices.create(
+          {
+            key: id.create(),
+            name: "schema-update-device",
+            rack: rack.key,
+            location: "test",
+            make: "custom_make",
+            model: "test",
+            properties: { sampleRate: 100, channels: {} },
+          },
+          schemas,
+        );
+
+        const { useRetrieve } = Device.createRetrieve(schemas);
+        const { result } = renderHook(() => useRetrieve({ key: dev.key }), { wrapper });
+
+        await waitFor(() => expect(result.current.variant).toEqual("success"));
+        expect(result.current.data?.properties.sampleRate).toBe(100);
+
+        await act(async () => {
+          await client.devices.create(
+            {
+              ...dev,
+              properties: { sampleRate: 500, channels: { ch1: 10 } },
+            },
+            schemas,
+          );
+        });
+
+        await waitFor(() => {
+          expect(result.current.data?.properties.sampleRate).toBe(500);
+          expect(result.current.data?.properties.channels).toEqual({ ch1: 10 });
+        });
+      });
+    });
+
+    describe("createCreate", () => {
+      it("should create a device with typed properties", async () => {
+        const rack = await client.racks.create({ name: "schema-create-rack" });
+        const { useUpdate } = Device.createCreate(schemas);
+        const { result } = renderHook(() => useUpdate(), { wrapper });
+
+        const key = id.create();
+        await act(async () => {
+          await result.current.updateAsync({
+            key,
+            rack: rack.key,
+            location: "test",
+            name: "created-with-schema",
+            make: "custom_make",
+            model: "test",
+            properties: { sampleRate: 2000, channels: { x: 5 } },
+            configured: true,
+          });
+        });
+
+        expect(result.current.variant).toEqual("success");
+
+        const retrieved = await client.devices.retrieve({
+          key,
+          schemas,
+        });
+        expect(retrieved.properties.sampleRate).toBe(2000);
+        expect(retrieved.properties.channels).toEqual({ x: 5 });
+      });
+    });
+
+    describe("createForm", () => {
+      it("should load and save device with typed properties", async () => {
+        const rack = await client.racks.create({ name: "schema-form-rack" });
+        const dev = await client.devices.create(
+          {
+            key: id.create(),
+            name: "schema-form-device",
+            rack: rack.key,
+            location: "test",
+            make: "custom_make",
+            model: "test",
+            properties: { sampleRate: 300, channels: { a: 1 } },
+          },
+          schemas,
+        );
+
+        const useForm = Device.createForm(schemas);
+        const { result } = renderHook(() => useForm({ query: { key: dev.key } }), {
+          wrapper,
+        });
+
+        await waitFor(() => {
+          expect(result.current.form.value().name).toBe("schema-form-device");
+        });
+
+        expect(result.current.form.value().properties).toEqual({
+          sampleRate: 300,
+          channels: { a: 1 },
+        });
+
+        act(() => {
+          result.current.form.set("name", "updated-schema-device");
+        });
+
+        await act(async () => {
+          result.current.save();
+        });
+
+        await waitFor(() => expect(result.current.variant).toBe("success"));
+
+        const retrieved = await client.devices.retrieve({ key: dev.key });
+        expect(retrieved.name).toBe("updated-schema-device");
       });
     });
   });

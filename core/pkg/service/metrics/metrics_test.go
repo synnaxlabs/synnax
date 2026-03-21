@@ -19,7 +19,6 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/distribution/cluster"
 	distFramer "github.com/synnaxlabs/synnax/pkg/distribution/framer"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer/frame"
-	"github.com/synnaxlabs/synnax/pkg/distribution/group"
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
 	"github.com/synnaxlabs/synnax/pkg/service/framer"
 	"github.com/synnaxlabs/synnax/pkg/service/metrics"
@@ -249,7 +248,7 @@ var _ = Describe("Metrics", func() {
 			Expect(dist.Ontology.NewRetrieve().
 				WhereIDs(cpuChannel.OntologyID()).
 				TraverseTo(ontology.ParentsTraverser).
-				WhereTypes(group.OntologyType).
+				WhereTypes(ontology.TypeGroup).
 				Entries(&parents).
 				Exec(ctx, nil),
 			).To(Succeed())
@@ -273,7 +272,7 @@ var _ = Describe("Metrics", func() {
 			Expect(dist.Ontology.NewRetrieve().
 				WhereIDs(cpuChannel.OntologyID()).
 				TraverseTo(ontology.ParentsTraverser).
-				WhereTypes(group.OntologyType).
+				WhereTypes(ontology.TypeGroup).
 				Entries(&parentsAfterReopen).
 				Exec(ctx, nil),
 			).To(Succeed())
@@ -318,7 +317,7 @@ var _ = Describe("Metrics", func() {
 			Expect(dist.Ontology.NewRetrieve().
 				WhereIDs(memChannel.OntologyID()).
 				TraverseTo(ontology.ParentsTraverser).
-				WhereTypes(group.OntologyType).
+				WhereTypes(ontology.TypeGroup).
 				Entries(&parentsBefore).
 				Exec(ctx, nil),
 			).To(Succeed())
@@ -341,7 +340,7 @@ var _ = Describe("Metrics", func() {
 			Expect(dist.Ontology.NewRetrieve().
 				WhereIDs(memChannel.OntologyID()).
 				TraverseTo(ontology.ParentsTraverser).
-				WhereTypes(group.OntologyType).
+				WhereTypes(ontology.TypeGroup).
 				Entries(&parentsAfterReopen).
 				Exec(ctx, nil),
 			).To(Succeed())

@@ -11,21 +11,10 @@
 package kv
 
 import (
-	"github.com/google/uuid"
 	"github.com/synnaxlabs/x/gorp"
 )
 
 const keySeparator = "<--->"
-
-// Pair is a unique, key-value pair tied directly to a specific range.
-type Pair struct {
-	// Key is the key of the key-value pair.
-	Key string `json:"key" msgpack:"key"`
-	// Value is the value of the key-value pair.
-	Value string `json:"value" msgpack:"value"`
-	// Range is the range that the key-value pair belongs to.
-	Range uuid.UUID `json:"range" msgpack:"range"`
-}
 
 var _ gorp.Entry[string] = Pair{}
 
@@ -34,3 +23,5 @@ func (k Pair) GorpKey() string { return k.Range.String() + keySeparator + k.Key 
 
 // SetOptions implements gorp.Entry.
 func (k Pair) SetOptions() []any { return nil }
+
+func (k Pair) CustomTypeName() string { return "KVPair" }

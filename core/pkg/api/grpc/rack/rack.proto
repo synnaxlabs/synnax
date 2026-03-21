@@ -1,0 +1,50 @@
+// Copyright 2025 Synnax Labs, Inc.
+//
+// Use of this software is governed by the Business Source License included in the file
+// licenses/BSL.txt.
+//
+// As of the Change Date specified in that file, in accordance with the Business Source
+// License, use of this software will be governed by the Apache License, Version 2.0,
+// included in the file licenses/APL.txt.
+
+syntax = "proto3";
+
+package grpc.rack;
+
+import "core/pkg/service/rack/pb/rack.proto";
+import "google/protobuf/empty.proto";
+
+option go_package = "github.com/synnaxlabs/synnax/pkg/api/grpc/rack";
+
+service RackCreateService {
+  rpc Exec(CreateRequest) returns (CreateResponse);
+}
+
+service RackRetrieveService {
+  rpc Exec(RetrieveRequest) returns (RetrieveResponse);
+}
+
+service RackDeleteService {
+  rpc Exec(DeleteRequest) returns (google.protobuf.Empty);
+}
+
+message CreateRequest {
+  repeated service.rack.pb.Rack racks = 1;
+}
+
+message CreateResponse {
+  repeated service.rack.pb.Rack racks = 1;
+}
+
+message RetrieveRequest {
+  repeated uint32 keys = 1;
+  repeated string names = 2;
+}
+
+message RetrieveResponse {
+  repeated service.rack.pb.Rack racks = 1;
+}
+
+message DeleteRequest {
+  repeated uint32 keys = 1;
+}

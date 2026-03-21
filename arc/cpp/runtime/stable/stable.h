@@ -20,15 +20,29 @@
 #include "arc/cpp/runtime/node/factory.h"
 #include "arc/cpp/runtime/node/node.h"
 #include "arc/cpp/runtime/state/state.h"
+#include "arc/cpp/types/types.h"
 
 namespace arc::runtime::stable {
 
 struct StableForConfig {
     x::telem::TimeSpan duration;
 
-    explicit StableForConfig(const ir::Params &params) {
-        const auto duration_ns = params["duration"].get<std::int64_t>();
-        this->duration = x::telem::TimeSpan(duration_ns);
+    static std::pair<StableForConfig, x::errors::Error>
+    create(const types::Params &params) {
+        const auto &param = params["duration"];
+        auto sv = types::to_sample_value(param.value, param.type);
+        if (!sv.has_value())
+            return {
+                {},
+                x::errors::Error(
+                    x::errors::VALIDATION,
+                    "stable_for node missing required duration parameter"
+                )
+            };
+        return {
+            {.duration = x::telem::TimeSpan(x::telem::cast<std::int64_t>(*sv))},
+            x::errors::NIL
+        };
     }
 };
 
@@ -112,7 +126,8 @@ public:
     std::pair<std::unique_ptr<node::Node>, x::errors::Error>
     create(node::Config &&cfg) override {
         if (!this->handles(cfg.node.type)) return {nullptr, x::errors::NOT_FOUND};
-        StableForConfig node_cfg(cfg.node.config);
+        auto [node_cfg, err] = StableForConfig::create(cfg.node.config);
+        if (err) return {nullptr, err};
         return {
             std::make_unique<StableFor>(node_cfg, std::move(cfg.state)),
             x::errors::NIL

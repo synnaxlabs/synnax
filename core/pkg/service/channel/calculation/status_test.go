@@ -44,7 +44,6 @@ var _ = Describe("Status", func() {
 			Expect(st.Variant).To(Equal(xstatus.VariantError))
 			Expect(st.Message).To(Equal("expression parse failed"))
 			Expect(st.Description).To(Equal("unexpected token"))
-			Expect(st.Details.Channel).To(Equal(channel.Key(42)))
 			Expect(st.Time).ToNot(BeZero())
 		})
 	})

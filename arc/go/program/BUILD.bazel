@@ -3,7 +3,7 @@ load("@rules_proto_grpc_cpp//:defs.bzl", "cpp_grpc_library")
 
 proto_library(
     name = "program_proto",
-    srcs = ["program.proto"],
+    srcs = ["pb/program.proto"],
     visibility = ["//visibility:public"],
     deps = [
         "//arc/go/ir:ir_proto",

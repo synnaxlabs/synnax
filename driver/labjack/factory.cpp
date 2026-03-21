@@ -91,7 +91,7 @@ bool Factory::check_health(
 ) const {
     if (this->dev_manager != nullptr) return true;
     synnax::task::Status status{
-        .key = task.status_key(),
+        .key = synnax::task::status_key(task),
         .name = task.name,
         .variant = x::status::VARIANT_ERROR,
         .message = NO_LIBS_MSG,

@@ -119,21 +119,23 @@ func (s *Service) Close() error {
 // CompileProgram retrieves an Arc program by key and compiles its Module.
 // The returned Arc has its Module field populated with the compiled module.
 func (s *Service) CompileProgram(ctx context.Context, key uuid.UUID) (Arc, error) {
-	var prog Arc
-	err := s.NewRetrieve().WhereKeys(key).Entry(&prog).Exec(ctx, nil)
+	var entry Arc
+	err := s.NewRetrieve().WhereKeys(key).Entry(&entry).Exec(ctx, nil)
 	if err != nil {
 		return Arc{}, err
 	}
 	resolverOpt := arc.WithResolver(s.NewSymbolResolver(nil))
-	if prog.Mode == "text" {
-		prog.Program, err = arc.CompileText(ctx, prog.Text, resolverOpt)
+	var prog arc.Program
+	if entry.Mode == "text" {
+		prog, err = arc.CompileText(ctx, entry.Text, resolverOpt)
 	} else {
-		prog.Program, err = arc.CompileGraph(ctx, prog.Graph, resolverOpt)
+		prog, err = arc.CompileGraph(ctx, entry.Graph, resolverOpt)
 	}
 	if err != nil {
 		return Arc{}, err
 	}
-	return prog, nil
+	entry.Program = &prog
+	return entry, nil
 }
 
 // OpenService instantiates a new Arc service using the provided configurations. Each

@@ -3,7 +3,7 @@ load("@rules_proto_grpc_cpp//:defs.bzl", "cpp_grpc_library")
 
 proto_library(
     name = "graph_proto",
-    srcs = ["graph.proto"],
+    srcs = ["pb/graph.proto"],
     visibility = ["//visibility:public"],
     deps = [
         "//arc/go/ir:ir_proto",

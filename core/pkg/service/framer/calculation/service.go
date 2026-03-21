@@ -12,6 +12,7 @@ package calculation
 import (
 	"context"
 	"fmt"
+	"go/types"
 	"sync"
 
 	"github.com/samber/lo"
@@ -107,7 +108,7 @@ type Service struct {
 		groups      map[int]*group
 		sync.Mutex
 	}
-	statusWriter status.Writer[calculation.StatusDetails]
+	statusWriter status.Writer[types.Nil]
 }
 
 // OpenService opens the service with the provided configuration. The service must be closed
@@ -128,7 +129,7 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (*Service, error) {
 
 	s := &Service{
 		cfg:          cfg,
-		statusWriter: status.NewWriter[calculation.StatusDetails](cfg.Status, nil),
+		statusWriter: status.NewWriter[types.Nil](cfg.Status, nil),
 	}
 	s.disconnectFromChannelChanges = cfg.ChannelObservable.OnChange(s.handleChange)
 	s.mu.graph = g
@@ -163,7 +164,6 @@ func (s *Service) setStatus(
 			Message:     st.Message,
 			Description: st.Description,
 			Time:        telem.Now(),
-			Details:     calculation.StatusDetails{Channel: chKey},
 		}); err != nil {
 			s.cfg.L.Error("failed to set status", zap.Error(err), zap.String("key", statusKey))
 		}

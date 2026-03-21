@@ -35,7 +35,7 @@ type Config struct {
 // handle the given type.
 type Factory interface {
 	// Create constructs a node from the given configuration.
-	// Returns query.NotFound if this factory cannot handle cfg.Node.Type.
+	// Returns query.ErrNotFound if this factory cannot handle cfg.Node.Type.
 	Create(ctx context.Context, cfg Config) (Node, error)
 }
 

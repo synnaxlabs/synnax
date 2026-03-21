@@ -9,65 +9,6 @@
 
 #pragma once
 
-#include <iomanip>
-#include <ostream>
-#include <sstream>
-#include <string>
-#include <vector>
-
-#include "arc/cpp/ir/ir.h"
-#include "arc/go/program/arc/go/program/program.pb.h"
-
-namespace arc::program {
-struct Program : ir::IR {
-    std::vector<uint8_t> wasm;
-    std::map<std::string, uint32_t> output_memory_bases;
-
-    explicit Program(const v1::program::PBProgram &pb): IR(pb.ir()) {
-        this->wasm.assign(pb.wasm().begin(), pb.wasm().end());
-        for (const auto &[key, value]: pb.output_memory_bases())
-            this->output_memory_bases[key] = value;
-    }
-
-    void to_proto(v1::program::PBProgram *pb) const {
-        IR::to_proto(pb->mutable_ir());
-        pb->set_wasm(wasm.data(), wasm.size());
-        auto *bases_map = pb->mutable_output_memory_bases();
-        for (const auto &[key, value]: output_memory_bases)
-            (*bases_map)[key] = value;
-    }
-
-    Program() = default;
-
-    /// @brief Returns a human-readable string representation of the program.
-    [[nodiscard]] std::string to_string() const {
-        std::ostringstream ss;
-        ss << "Arc Program\n";
-
-        const bool has_content = !functions.empty() || !nodes.empty() ||
-                                 !edges.empty() || !strata.empty() ||
-                                 !sequences.empty();
-
-        ss << ir::tree_prefix(!has_content) << wasm_summary() << "\n";
-        if (has_content) ss << IR::to_string_with_prefix("");
-        return ss.str();
-    }
-
-    friend std::ostream &operator<<(std::ostream &os, const Program &m) {
-        return os << m.to_string();
-    }
-
-private:
-    /// @brief Returns a summary of the WASM bytecode.
-    [[nodiscard]] std::string wasm_summary() const {
-        if (wasm.empty()) return "WASM: (none)";
-        std::ostringstream ss;
-        ss << "WASM: " << wasm.size() << " bytes (sha256: ";
-        ss << std::hex << std::setfill('0');
-        for (size_t i = 0; i < std::min(static_cast<size_t>(4), wasm.size()); ++i)
-            ss << std::setw(2) << static_cast<int>(wasm[i]);
-        ss << "...)";
-        return ss.str();
-    }
-};
-}
+#include "arc/cpp/program/json.gen.h"
+#include "arc/cpp/program/proto.gen.h"
+#include "arc/cpp/program/types.gen.h"

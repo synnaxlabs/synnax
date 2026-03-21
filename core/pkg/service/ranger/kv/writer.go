@@ -29,10 +29,7 @@ func (w Writer) Set(ctx context.Context, rng uuid.UUID, key, value string) error
 }
 
 // SetMany sets multiple key-value pairs on the specified range.
-func (w Writer) SetMany(ctx context.Context, rng uuid.UUID, pairs []Pair) error {
-	for i := range pairs {
-		pairs[i].Range = rng
-	}
+func (w Writer) SetMany(ctx context.Context, pairs []Pair) error {
 	return gorp.NewCreate[string, Pair]().Entries(&pairs).Exec(ctx, w.tx)
 }
 

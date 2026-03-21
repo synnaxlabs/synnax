@@ -53,7 +53,7 @@ const retrieveArgsZ = z.union([keyRetrieveRequestZ, listRetrieveArgsZ]);
 
 export type RetrieveArgs = z.input<typeof retrieveArgsZ>;
 
-const retrieveResZ = z.object({ policies: array.nullableZ(policyZ) });
+const retrieveResZ = z.object({ policies: array.nullishToEmpty(policyZ) });
 
 const singleCreateArgsZ = newZ.transform((p) => ({ policies: [p] }));
 export type SingleCreateArgs = z.input<typeof singleCreateArgsZ>;

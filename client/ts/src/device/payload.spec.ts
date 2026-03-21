@@ -10,7 +10,7 @@
 import { describe, expect, it } from "vitest";
 import { z } from "zod";
 
-import { deviceZ, newZ } from "@/device/payload";
+import { deviceZ, newZ } from "@/device/types.gen";
 
 const VALID_DEVICE = {
   key: "dev-1",
@@ -20,7 +20,7 @@ const VALID_DEVICE = {
   model: "pxi-6281",
   location: "Lab1",
   properties: { rate: 10 },
-  status: null,
+  status: undefined,
 };
 
 describe("deviceZ", () => {

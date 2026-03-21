@@ -191,7 +191,7 @@ const handleListParentRelationshipSet = async (
     store.ranges.set(rel.from.key, parent);
     onChange(rel.to.key, (prev) => {
       if (prev == null) return prev;
-      return client.ranges.sugarOne({ ...prev, parent });
+      return client.ranges.sugarOne({ ...prev, parent: parent.payload });
     });
   }
 };
@@ -367,7 +367,7 @@ export const { useRetrieve, useRetrieveObservable } = Flux.createRetrieve<
         store.ranges.set(relationship.from.key, parent);
         onChange((prev) => {
           if (prev == null) return prev;
-          return client.ranges.sugarOne({ ...prev, parent });
+          return client.ranges.sugarOne({ ...prev, parent: parent.payload });
         });
       }
     }, key),
@@ -390,7 +390,9 @@ export const { useRetrieve, useRetrieveObservable } = Flux.createRetrieve<
       });
       if (isParentChange)
         return onChange(
-          state.skipUndefined((p) => client.ranges.sugarOne({ ...p, parent: null })),
+          state.skipUndefined((p) =>
+            client.ranges.sugarOne({ ...p, parent: undefined }),
+          ),
         );
     }),
   ],
@@ -456,7 +458,7 @@ export const {
               state.skipUndefined((prev) =>
                 prev.map((r) => {
                   if (r.key !== key) return r;
-                  return client.ranges.sugarOne({ ...r, parent });
+                  return client.ranges.sugarOne({ ...r, parent: parent.payload });
                 }),
               ),
             );
@@ -489,7 +491,7 @@ export const {
               state.skipUndefined((prev) =>
                 prev.map((r) => {
                   if (r.key !== key) return r;
-                  return client.ranges.sugarOne({ ...r, parent: null });
+                  return client.ranges.sugarOne({ ...r, parent: undefined });
                 }),
               ),
             );
@@ -548,7 +550,7 @@ export const useForm = Flux.createForm<FormQuery, typeof formSchema, FluxSubStor
       rollbacks,
       data: { id: rng.ontologyID, labels: value.labels },
     });
-    let parent: ranger.Payload | null = null;
+    let parent: ranger.Payload | undefined;
     if (primitive.isNonZero(parentKey))
       parent = (await retrieveSingle({ client, store, query: { key: parentKey } }))
         .payload;
@@ -698,7 +700,7 @@ const deleteKVPairChannelValueZ = z
   .transform(([range, key]) => ({ key, range }));
 
 const SET_KV_LISTENER: Flux.ChannelListener<FluxSubStore, typeof ranger.kv.pairZ> = {
-  channel: ranger.kv.SET_CHANNEL,
+  channel: ranger.kv.SET_CHANNEL_NAME,
   schema: ranger.kv.pairZ,
   onChange: ({ store, changed }) => {
     store.rangeKV.set(ranger.kv.createPairKey(changed), changed);
@@ -709,7 +711,7 @@ const DELETE_KV_LISTENER: Flux.ChannelListener<
   FluxSubStore,
   typeof deleteKVPairChannelValueZ
 > = {
-  channel: ranger.kv.DELETE_CHANNEL,
+  channel: ranger.kv.DELETE_CHANNEL_NAME,
   schema: deleteKVPairChannelValueZ,
   onChange: ({ store, changed }) =>
     store.rangeKV.delete(ranger.kv.createPairKey(changed)),

@@ -66,6 +66,7 @@ export const FLUX_STORE_CONFIG: Flux.UnaryStoreConfig<
 };
 
 export const formSchema = channel.newZ
+  .required({ expression: true })
   .extend({
     name: channel.nameZ,
     dataType: DataType.z.transform((v) => v.toString()),
@@ -139,11 +140,11 @@ const retrieveSingle = async ({
   }
   if (isCalculated(ch.payload))
     try {
-      const st = await Status.retrieveSingle<typeof channel.calculationStatusDetailsZ>({
+      const st = await Status.retrieveSingle<typeof channel.statusZ>({
         store,
         client,
         query: { key: channel.statusKey(key) },
-        detailsSchema: channel.calculationStatusDetailsZ,
+        detailsSchema: channel.statusZ,
       });
       ch = client.channels.sugar({ ...ch.payload, status: st });
     } catch (e) {
@@ -238,7 +239,7 @@ export const { useRetrieve, useRetrieveStateful, useRetrieveObservable } =
         );
       }, key);
       const onSetStatus = store.statuses.onSet((st) => {
-        const parsed = channel.calculationStatusZ.safeParse(st);
+        const parsed = channel.statusZ.safeParse(st);
         if (!parsed.success) return;
         onChange(
           state.skipUndefined((p) =>

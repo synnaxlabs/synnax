@@ -976,7 +976,7 @@ var _ = Describe("Statement Compiler", func() {
 				Kind: symbol.KindFunction,
 			}))
 			Expect(fnScope).ToNot(BeNil())
-			fnScope.Channels = symbol.NewChannels()
+			fnScope.Channels = types.NewChannels()
 			fn := MustSucceed(aCtx.Scope.Resolve(aCtx, "testFunc"))
 			aCtx.Scope = fn
 			analyzer.AnalyzeBlock(aCtx)
@@ -1527,7 +1527,7 @@ var _ = Describe("Statement Compiler", func() {
 				Kind: symbol.KindFunction,
 			}))
 			Expect(fnScope).ToNot(BeNil())
-			fnScope.Channels = symbol.NewChannels()
+			fnScope.Channels = types.NewChannels()
 			fn := MustSucceed(aCtx.Scope.Resolve(aCtx, "testFunc"))
 			aCtx.Scope = fn
 			MustSucceed(aCtx.Scope.Add(aCtx, symbol.Symbol{
