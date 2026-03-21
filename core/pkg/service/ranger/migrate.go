@@ -58,7 +58,7 @@ func (s *Service) migrateRangeGroups(ctx context.Context, tx gorp.Tx) error {
 		NewRetrieve().
 		WhereIDs(topLevelGroup.OntologyID()).
 		TraverseTo(ontology.ChildrenTraverser).
-		WhereTypes(group.OntologyType).
+		WhereTypes(ontology.TypeGroup).
 		Entries(&groups).
 		Exec(ctx, tx); err != nil {
 		return err
@@ -84,7 +84,7 @@ func (s *Service) migrateRangeGroups(ctx context.Context, tx gorp.Tx) error {
 			NewRetrieve().
 			WhereIDs(g.ID).
 			TraverseTo(ontology.ChildrenTraverser).
-			WhereTypes(OntologyType).
+			WhereTypes(ontology.TypeRange).
 			Entries(&childRanges).
 			Exec(ctx, tx); err != nil {
 			return err

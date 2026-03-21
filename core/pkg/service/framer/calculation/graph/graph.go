@@ -12,12 +12,13 @@ package graph
 import (
 	"context"
 	"fmt"
+	"slices"
 	"strings"
 
 	"github.com/synnaxlabs/alamos"
 	"github.com/synnaxlabs/arc"
-	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
-	"github.com/synnaxlabs/synnax/pkg/service/framer/calculation/compiler"
+	"github.com/synnaxlabs/synnax/pkg/service/channel"
+	"github.com/synnaxlabs/synnax/pkg/service/channel/calculation/compiler"
 	"github.com/synnaxlabs/x/config"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/override"
@@ -53,9 +54,14 @@ func (c Config) Validate() error {
 	return v.Error()
 }
 
+type moduleSnapshot struct {
+	key channel.Key
+	old compiler.Module
+}
+
 type channelInfo struct {
-	calcDeps      []channel.Key
 	module        compiler.Module
+	calcDeps      []channel.Key
 	groupID       int
 	explicitCount int
 	depCount      int
@@ -109,12 +115,134 @@ func (g *Graph) Add(ctx context.Context, ch channel.Channel) error {
 
 // Update recompiles a channel with a new expression and updates its dependencies and group assignment.
 // Preserves reference counts - use this when a channel's calculation changes but the same users are still requesting it.
+// If the channel's DataType changes, all downstream channels that depend on it are recompiled
+// in topological order.
 func (g *Graph) Update(ctx context.Context, ch channel.Channel) error {
 	info, err := g.getChannelInfo(ch.Key())
 	if err != nil {
 		return err
 	}
 
+	oldDataType := info.module.Channel.DataType
+
+	if err := g.updateSingle(ctx, ch, info); err != nil {
+		return err
+	}
+
+	if oldDataType == info.module.Channel.DataType {
+		return nil
+	}
+
+	g.L.Debug("channel DataType changed, recompiling dependents",
+		zap.String("channel", ch.Key().String()),
+		zap.String("old_type", string(oldDataType)),
+		zap.String("new_type", string(info.module.Channel.DataType)),
+	)
+	return g.recompileDependents(ctx, ch.Key())
+}
+
+// recompileDependents collects all transitive dependents of changedKey, fetches
+// them in a single batch, then recompiles each in topological order (parents
+// before children). If a recompilation changes a channel's DataType, its own
+// dependents are already in the ordered list and will be recompiled in turn.
+func (g *Graph) recompileDependents(ctx context.Context, changedKey channel.Key) error {
+	ordered := g.collectDependentsTopological(changedKey)
+	if len(ordered) == 0 {
+		return nil
+	}
+
+	fetched, err := g.fetchChannels(ctx, ordered)
+	if err != nil {
+		return errors.Wrap(err, "failed to fetch dependent channels for recompilation")
+	}
+	byKey := make(map[channel.Key]channel.Channel, len(fetched))
+	for _, ch := range fetched {
+		byKey[ch.Key()] = ch
+	}
+
+	snapshots := make([]moduleSnapshot, 0, len(ordered))
+	for _, key := range ordered {
+		ch, ok := byKey[key]
+		if !ok {
+			continue
+		}
+		info := g.channels[key]
+		if info == nil {
+			continue
+		}
+		mod, cErr := compiler.Compile(ctx, compiler.Config{
+			ChannelService: g.cfg.Channel.Service,
+			Channel:        ch,
+			SymbolResolver: g.cfg.SymbolResolver,
+		})
+		if cErr != nil {
+			for _, s := range snapshots {
+				g.channels[s.key].module = s.old
+			}
+			g.logCompileError(ctx, cErr, ch)
+			return errors.Wrapf(cErr, "failed to recompile dependent channel %s", ch)
+		}
+		snapshots = append(snapshots, moduleSnapshot{key: key, old: info.module})
+		info.module = mod
+	}
+	return nil
+}
+
+// collectDependentsTopological returns all channels in the graph that transitively depend on
+// root, ordered so that a channel always appears after all of its own
+// dependencies. This is a simple BFS followed by a reverse-post-order DFS over
+// the subset, which is cheap for the small graphs we operate on (tens to low
+// hundreds of channels).
+func (g *Graph) collectDependentsTopological(root channel.Key) []channel.Key {
+	// Build the set of all transitive dependents via BFS.
+	dependents := make(set.Set[channel.Key])
+	queue := []channel.Key{root}
+	for len(queue) > 0 {
+		current := queue[0]
+		queue = queue[1:]
+		for key, info := range g.channels {
+			if dependents.Contains(key) {
+				continue
+			}
+			if slices.Contains(info.calcDeps, current) {
+				dependents.Add(key)
+				queue = append(queue, key)
+			}
+		}
+	}
+	if len(dependents) == 0 {
+		return nil
+	}
+
+	// Topological sort via DFS post-order over the dependent subset.
+	visited := make(set.Set[channel.Key])
+	var ordered []channel.Key
+	var visit func(channel.Key)
+	visit = func(key channel.Key) {
+		if visited.Contains(key) {
+			return
+		}
+		visited.Add(key)
+		info := g.channels[key]
+		if info == nil {
+			return
+		}
+		for _, dep := range info.calcDeps {
+			if dependents.Contains(dep) {
+				visit(dep)
+			}
+		}
+		ordered = append(ordered, key)
+	}
+	for key := range dependents {
+		visit(key)
+	}
+	return ordered
+}
+
+// updateSingle recompiles a single channel and updates its dependencies and group
+// assignment without cascading to dependents.
+func (g *Graph) updateSingle(ctx context.Context, ch channel.Channel, info *channelInfo) error {
 	// Store current state
 	oldExplicitCount := info.explicitCount
 	oldDepCount := info.depCount
@@ -127,7 +255,7 @@ func (g *Graph) Update(ctx context.Context, ch channel.Channel) error {
 
 	// Recompile with new expression
 	mod, err := compiler.Compile(ctx, compiler.Config{
-		ChannelService: g.cfg.Channel,
+		ChannelService: g.cfg.Channel.Service,
 		Channel:        ch,
 		SymbolResolver: g.cfg.SymbolResolver,
 	})
@@ -374,7 +502,7 @@ func (g *Graph) addInternal(ctx context.Context, ch channel.Channel, explicit bo
 	defer func() { info.processing = false }()
 
 	mod, err := compiler.Compile(ctx, compiler.Config{
-		ChannelService: g.cfg.Channel,
+		ChannelService: g.cfg.Channel.Service,
 		Channel:        ch,
 		SymbolResolver: g.cfg.SymbolResolver,
 	})
@@ -787,7 +915,7 @@ func (g *Graph) fetchDependencyDiagnostics(
 ) []channel.Channel {
 	// Try preProcess to discover channel references from the expression
 	prog, preErr := compiler.PreProcess(ctx, compiler.Config{
-		ChannelService: g.cfg.Channel,
+		ChannelService: g.cfg.Channel.Service,
 		Channel:        ch,
 		SymbolResolver: g.cfg.SymbolResolver,
 	})

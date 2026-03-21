@@ -332,7 +332,7 @@ var _ = Describe("Analyzer", func() {
 					f telem.timestamp
 					g telem.timespan
 					h telem.time_range
-					i json
+					i record
 					j bytes
 				}
 			`
@@ -671,7 +671,7 @@ var _ = Describe("Analyzer", func() {
 
 		It("Should extend generic struct with type arguments", func() {
 			source := `
-				Status struct<D extends json> {
+				Status struct<D extends record> {
 					variant int32
 					data D
 				}
@@ -1107,7 +1107,7 @@ var _ = Describe("Analyzer", func() {
 			source := `
 				Param struct {
 					name string
-					value json?
+					value record?
 				}
 
 				Params Param[]
@@ -1216,7 +1216,7 @@ var _ = Describe("Analyzer", func() {
 			source := `
 				Task struct<
 					Type extends string = string,
-					Config extends json = json
+					Config extends record = record
 				> {
 					name   string
 					type   Type
@@ -1260,14 +1260,14 @@ var _ = Describe("Analyzer", func() {
 			Expect(configField.Type.TypeParam).NotTo(BeNil(), "config field TypeParam should not be nil")
 			Expect(configField.Type.TypeParam.Name).To(Equal("Config"))
 			Expect(configField.Type.TypeParam.Constraint).NotTo(BeNil())
-			Expect(configField.Type.TypeParam.Constraint.Name).To(Equal("json"))
+			Expect(configField.Type.TypeParam.Constraint.Name).To(Equal("record"))
 		})
 
 		It("Should preserve type params in UnifiedFields for generic structs", func() {
 			source := `
 				Task struct<
 					Type extends string = string,
-					Config extends json = json
+					Config extends record = record
 				> {
 					name   string
 					type   Type
@@ -1310,7 +1310,7 @@ var _ = Describe("Analyzer", func() {
 		It("Should parse map type", func() {
 			source := `
 				Config struct {
-					settings Map<string, json>
+					settings Map<string, record>
 				}
 			`
 			table, diag := analyzer.AnalyzeSource(ctx, source, "test", loader)
@@ -1322,7 +1322,7 @@ var _ = Describe("Analyzer", func() {
 			Expect(settingsField.Type.Name).To(Equal("Map"))
 			Expect(settingsField.Type.TypeArgs).To(HaveLen(2))
 			Expect(settingsField.Type.TypeArgs[0].Name).To(Equal("string"))
-			Expect(settingsField.Type.TypeArgs[1].Name).To(Equal("json"))
+			Expect(settingsField.Type.TypeArgs[1].Name).To(Equal("record"))
 		})
 	})
 

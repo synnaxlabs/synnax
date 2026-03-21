@@ -1,0 +1,21 @@
+load("@rules_proto//proto:defs.bzl", "proto_library")
+load("@rules_proto_grpc_cpp//:defs.bzl", "cpp_grpc_library")
+
+proto_library(
+    name = "rack_proto",
+    srcs = ["pb/rack.proto"],
+    visibility = ["//visibility:public"],
+    deps = [
+        "//x/go/status:status_proto",
+    ],
+)
+
+cpp_grpc_library(
+    name = "rack_grpc",
+    output_mode = "NO_PREFIX",
+    protos = [":rack_proto"],
+    visibility = ["//visibility:public"],
+    deps = [
+        "//x/go/status:status_grpc",
+    ],
+)

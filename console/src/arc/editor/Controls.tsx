@@ -42,7 +42,6 @@ export const Controls = ({ state }: ControlsProps) => {
       name,
       key: state.key,
       text: state.text,
-      version: "0.0.0",
       graph: translateGraphToServer(state.graph),
       mode: state.mode,
       rack: selectedRack,

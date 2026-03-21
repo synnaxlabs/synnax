@@ -10,4 +10,5 @@
 export * from "@/channel/client";
 export * from "@/channel/payload";
 export * from "@/channel/retriever";
+export * from "@/channel/types.gen";
 export * from "@/channel/writer";

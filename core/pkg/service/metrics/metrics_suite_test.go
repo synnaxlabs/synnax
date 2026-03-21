@@ -17,6 +17,7 @@ import (
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/synnax/pkg/distribution/mock"
 	"github.com/synnaxlabs/synnax/pkg/service/arc"
+	servicechannel "github.com/synnaxlabs/synnax/pkg/service/channel"
 	"github.com/synnaxlabs/synnax/pkg/service/framer"
 	"github.com/synnaxlabs/synnax/pkg/service/label"
 	"github.com/synnaxlabs/synnax/pkg/service/rack"
@@ -26,9 +27,10 @@ import (
 )
 
 var (
-	builder   *mock.Cluster
-	dist      mock.Node
-	framerSvc *framer.Service
+	builder    *mock.Cluster
+	dist       mock.Node
+	framerSvc  *framer.Service
+	channelSvc *servicechannel.Service
 )
 
 func TestMetrics(t *testing.T) {
@@ -74,9 +76,15 @@ var _ = BeforeSuite(func() {
 		Signals:  dist.Signals,
 		Task:     taskSvc,
 	}))
+	channelSvc = MustSucceed(servicechannel.OpenService(ctx, servicechannel.ServiceConfig{
+		DB:           dist.DB,
+		Distribution: dist.Channel,
+		Status:       statusSvc,
+		Arc:          arcSvc,
+	}))
 	framerSvc = MustSucceed(framer.OpenService(ctx, framer.ServiceConfig{
 		Framer:  dist.Framer,
-		Channel: dist.Channel,
+		Channel: channelSvc,
 		Arc:     arcSvc,
 		Status:  statusSvc,
 		DB:      dist.DB,
@@ -84,6 +92,7 @@ var _ = BeforeSuite(func() {
 })
 
 var _ = AfterSuite(func() {
+	Expect(channelSvc.Close()).To(Succeed())
 	Expect(framerSvc.Close()).To(Succeed())
 	Expect(builder.Close()).To(Succeed())
 })

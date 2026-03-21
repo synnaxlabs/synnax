@@ -316,12 +316,10 @@ var _ = Describe("Create", Ordered, func() {
 			}
 			Expect(mockCluster.Nodes[1].Channel.Create(ctx, &calcCh)).To(Succeed())
 
-			// Verify calculated channel properties
 			Expect(calcCh.Leaseholder).To(Equal(cluster.NodeKeyFree))
 			Expect(calcCh.Virtual).To(BeTrue())
 			Expect(calcCh.LocalIndex).ToNot(BeZero())
 
-			// Verify index channel was created
 			indexName := "calculated_temp_time"
 			var indexChannels []channel.Channel
 			Expect(mockCluster.Nodes[1].Channel.NewRetrieve().
@@ -472,6 +470,32 @@ var _ = Describe("Create", Ordered, func() {
 			Expect(retrieved.Expression).To(Equal("return channel('sensor1') * 3.0 + 10"))
 			Expect(retrieved.Name).To(Equal(originalName))
 			Expect(retrieved.Key()).To(Equal(originalKey))
+		})
+
+		It("Should preserve the caller-provided DataType when expression return type changes", func() {
+			calcCh := channel.Channel{
+				Name:       channel.NewRandomName(),
+				DataType:   telem.Float64T,
+				Expression: "F64_expression",
+			}
+			Expect(mockCluster.Nodes[1].Channel.Create(ctx, &calcCh)).To(Succeed())
+			Expect(calcCh.DataType).To(Equal(telem.Float64T))
+			originalKey := calcCh.Key()
+
+			// 2. Update expression and explicitly provide the new DataType
+			calcCh.Expression = "f32_expression"
+			calcCh.DataType = telem.Float32T
+			Expect(mockCluster.Nodes[1].Channel.Create(ctx, &calcCh)).To(Succeed())
+
+			// 3. Retrieve from DB and verify DataType was updated
+			var retrieved channel.Channel
+			Expect(mockCluster.Nodes[1].Channel.NewRetrieve().
+				WhereKeys(originalKey).
+				Entry(&retrieved).
+				Exec(ctx, nil)).To(Succeed())
+
+			Expect(retrieved.Expression).To(Equal("f32_expression"))
+			Expect(retrieved.DataType).To(Equal(telem.Float32T))
 		})
 	})
 	Context("Updating a channel", func() {

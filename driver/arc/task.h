@@ -36,7 +36,7 @@
 namespace driver::arc {
 /// @brief configuration for an arc runtime task.
 struct TaskConfig : common::BaseTaskConfig {
-    std::string arc_key;
+    x::uuid::UUID arc_key;
     ::arc::program::Program program;
     ::arc::runtime::loop::Config loop;
 
@@ -51,21 +51,21 @@ struct TaskConfig : common::BaseTaskConfig {
 
     explicit TaskConfig(x::json::Parser &parser):
         BaseTaskConfig(parser),
-        arc_key(parser.field<std::string>("arc_key")),
+        arc_key(parser.field<x::uuid::UUID>("arc_key")),
         loop(parser) {}
 
     static std::pair<TaskConfig, x::errors::Error>
     parse(const std::shared_ptr<synnax::Synnax> &client, x::json::Parser &parser) {
         auto cfg = TaskConfig(parser);
         if (!parser.ok()) return {std::move(cfg), parser.error()};
-        auto [arc_key, key_err] = x::uuid::UUID::parse(cfg.arc_key);
-        if (key_err) return {std::move(cfg), key_err};
         auto [arc_data, arc_err] = client->arcs.retrieve_by_key(
-            arc_key,
+            cfg.arc_key,
             synnax::arc::RetrieveOptions{.compile = true}
         );
         if (arc_err) return {std::move(cfg), arc_err};
-        cfg.program = ::arc::program::Program(arc_data.program);
+        if (!arc_data.program.has_value())
+            return {std::move(cfg), x::errors::Error("arc module not compiled")};
+        cfg.program = *arc_data.program;
         return {std::move(cfg), x::errors::NIL};
     }
 };
@@ -206,8 +206,8 @@ public:
                 .authorities = std::move(initial_authorities),
                 .subject =
                     x::control::Subject{
-                        .name = task_meta.name,
                         .key = std::to_string(task_meta.key),
+                        .name = task_meta.name,
                     },
                 .mode = common::data_saving_writer_mode(cfg.data_saving),
             },
@@ -246,7 +246,7 @@ public:
         return control_stopped && acq_stopped && runtime_stopped;
     }
 
-    void exec(task::Command &cmd) override {
+    void exec(synnax::task::Command &cmd) override {
         if (cmd.type == "start")
             this->start(cmd.key);
         else if (cmd.type == "stop")

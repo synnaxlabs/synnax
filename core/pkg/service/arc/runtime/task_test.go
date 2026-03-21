@@ -28,6 +28,7 @@ import (
 	svcarc "github.com/synnaxlabs/synnax/pkg/service/arc"
 	"github.com/synnaxlabs/synnax/pkg/service/arc/runtime"
 	"github.com/synnaxlabs/synnax/pkg/service/arc/symbol"
+	svcchannel "github.com/synnaxlabs/synnax/pkg/service/channel"
 	"github.com/synnaxlabs/synnax/pkg/service/driver"
 	"github.com/synnaxlabs/synnax/pkg/service/label"
 	"github.com/synnaxlabs/synnax/pkg/service/rack"
@@ -84,7 +85,7 @@ var _ = Describe("Task", Ordered, func() {
 
 	newFactoryWith := func(getModule func(context.Context, uuid.UUID) (svcarc.Arc, error)) *runtime.Factory {
 		return MustSucceed(runtime.NewFactory(runtime.FactoryConfig{
-			Channel:    dist.Channel,
+			Channel:    svcchannel.Wrap(dist.Channel),
 			Framer:     dist.Framer,
 			Status:     statusSvc,
 			GetProgram: getModule,
@@ -93,23 +94,23 @@ var _ = Describe("Task", Ordered, func() {
 
 	newGraphFactory := func(g graph.Graph) *runtime.Factory {
 		return newFactoryWith(func(ctx context.Context, key uuid.UUID) (svcarc.Arc, error) {
-			resolver := symbol.CreateResolver(dist.Channel)
+			resolver := symbol.NewResolver(dist.Channel, nil)
 			module, err := arc.CompileGraph(ctx, g, arc.WithResolver(resolver))
 			if err != nil {
 				return svcarc.Arc{}, err
 			}
-			return svcarc.Arc{Key: key, Name: "test-arc", Graph: g, Program: module}, nil
+			return svcarc.Arc{Key: key, Name: "test-arc", Graph: g, Program: &module}, nil
 		})
 	}
 
 	newTextFactory := func(prof arc.Text) *runtime.Factory {
 		return newFactoryWith(func(_ context.Context, _ uuid.UUID) (svcarc.Arc, error) {
-			resolver := symbol.CreateResolver(dist.Channel)
+			resolver := symbol.NewResolver(dist.Channel, nil)
 			module, err := arc.CompileText(ctx, prof, arc.WithResolver(resolver))
 			if err != nil {
 				return svcarc.Arc{}, err
 			}
-			return svcarc.Arc{Key: uuid.New(), Name: "test-arc", Text: prof, Program: module}, nil
+			return svcarc.Arc{Key: uuid.New(), Name: "test-arc", Text: prof, Program: &module}, nil
 		})
 	}
 
@@ -218,7 +219,7 @@ var _ = Describe("Task", Ordered, func() {
 	Describe("Factory.ConfigureTask", func() {
 		It("Should return false for non-arc task types", func() {
 			factory := MustSucceed(runtime.NewFactory(runtime.FactoryConfig{
-				Channel: dist.Channel,
+				Channel: svcchannel.Wrap(dist.Channel),
 				Framer:  dist.Framer,
 				Status:  statusSvc,
 				GetProgram: func(context.Context, uuid.UUID) (svcarc.Arc, error) {
@@ -242,9 +243,9 @@ var _ = Describe("Task", Ordered, func() {
 			Expect(t).ToNot(BeNil())
 		})
 
-		It("Should return error for invalid config JSON", func() {
+		It("Should return error for invalid config", func() {
 			factory := MustSucceed(runtime.NewFactory(runtime.FactoryConfig{
-				Channel:    dist.Channel,
+				Channel:    svcchannel.Wrap(dist.Channel),
 				Framer:     dist.Framer,
 				Status:     statusSvc,
 				GetProgram: func(context.Context, uuid.UUID) (svcarc.Arc, error) { return svcarc.Arc{}, nil },
@@ -262,7 +263,7 @@ var _ = Describe("Task", Ordered, func() {
 
 		It("Should return error when CompileProgram fails", func() {
 			factory := MustSucceed(runtime.NewFactory(runtime.FactoryConfig{
-				Channel:    dist.Channel,
+				Channel:    svcchannel.Wrap(dist.Channel),
 				Framer:     dist.Framer,
 				Status:     statusSvc,
 				GetProgram: moduleNotFoundGetter,
@@ -278,9 +279,9 @@ var _ = Describe("Task", Ordered, func() {
 			Expect(t).To(BeNil())
 		})
 
-		It("Should set error status when config JSON is invalid", func() {
+		It("Should set error status when config is invalid", func() {
 			factory := MustSucceed(runtime.NewFactory(runtime.FactoryConfig{
-				Channel:    dist.Channel,
+				Channel:    svcchannel.Wrap(dist.Channel),
 				Framer:     dist.Framer,
 				Status:     statusSvc,
 				GetProgram: func(context.Context, uuid.UUID) (svcarc.Arc, error) { return svcarc.Arc{}, nil },
@@ -304,7 +305,7 @@ var _ = Describe("Task", Ordered, func() {
 
 		It("Should set error status when GetProgram fails", func() {
 			factory := MustSucceed(runtime.NewFactory(runtime.FactoryConfig{
-				Channel:    dist.Channel,
+				Channel:    svcchannel.Wrap(dist.Channel),
 				Framer:     dist.Framer,
 				Status:     statusSvc,
 				GetProgram: moduleNotFoundGetter,

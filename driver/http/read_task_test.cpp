@@ -152,6 +152,186 @@ TEST(HTTPReadTask, ParseConfigDuplicateChannel) {
     ASSERT_OCCURRED_AS_P(ReadTaskConfig::parse(ctx, task), x::errors::VALIDATION);
 }
 
+/// @brief it should fail when a query_params entry is missing the parameter field.
+TEST(HTTPReadTask, ParseConfigQueryParamMissingParameterErrors) {
+    synnax::task::Task task;
+    task.config = {
+        {"device", "dev-001"},
+        {"rate", 1.0},
+        {"endpoints",
+         {{
+             {"method", "GET"},
+             {"path", "/api/data"},
+             {"query_params", {{{"value", "10"}}}},
+             {"fields",
+              {{
+                  {"pointer", "/value"},
+                  {"channel", 1},
+              }}},
+         }}},
+    };
+    auto ctx = std::make_shared<task::MockContext>(nullptr);
+    auto [_, err] = ReadTaskConfig::parse(ctx, task);
+    ASSERT_TRUE(err.matches(x::errors::VALIDATION));
+    EXPECT_NE(err.data.find("parameter"), std::string::npos);
+}
+
+/// @brief it should fail when a query_params entry is missing the value field.
+TEST(HTTPReadTask, ParseConfigQueryParamMissingValueErrors) {
+    synnax::task::Task task;
+    task.config = {
+        {"device", "dev-001"},
+        {"rate", 1.0},
+        {"endpoints",
+         {{
+             {"method", "GET"},
+             {"path", "/api/data"},
+             {"query_params", {{{"parameter", "limit"}}}},
+             {"fields",
+              {{
+                  {"pointer", "/value"},
+                  {"channel", 1},
+              }}},
+         }}},
+    };
+    auto ctx = std::make_shared<task::MockContext>(nullptr);
+    auto [_, err] = ReadTaskConfig::parse(ctx, task);
+    ASSERT_TRUE(err.matches(x::errors::VALIDATION));
+    EXPECT_NE(err.data.find("value"), std::string::npos);
+}
+
+/// @brief it should fail when an enum_values entry is missing the label field.
+TEST(HTTPReadTask, ParseConfigEnumValueMissingLabelErrors) {
+    synnax::task::Task task;
+    task.config = {
+        {"device", "dev-001"},
+        {"rate", 1.0},
+        {"endpoints",
+         {{
+             {"method", "GET"},
+             {"path", "/api/data"},
+             {"fields",
+              {{
+                  {"pointer", "/status"},
+                  {"channel", 1},
+                  {"enum_values", {{{"value", 1.0}}}},
+              }}},
+         }}},
+    };
+    auto ctx = std::make_shared<task::MockContext>(nullptr);
+    auto [_1, err1] = ReadTaskConfig::parse(ctx, task);
+    ASSERT_TRUE(err1.matches(x::errors::VALIDATION));
+    EXPECT_NE(err1.data.find("label"), std::string::npos);
+}
+
+/// @brief it should fail when an enum_values entry is missing the value field.
+TEST(HTTPReadTask, ParseConfigEnumValueMissingValueErrors) {
+    synnax::task::Task task;
+    task.config = {
+        {"device", "dev-001"},
+        {"rate", 1.0},
+        {"endpoints",
+         {{
+             {"method", "GET"},
+             {"path", "/api/data"},
+             {"fields",
+              {{
+                  {"pointer", "/status"},
+                  {"channel", 1},
+                  {"enum_values", {{{"label", "ON"}}}},
+              }}},
+         }}},
+    };
+    auto ctx = std::make_shared<task::MockContext>(nullptr);
+    auto [_2, err2] = ReadTaskConfig::parse(ctx, task);
+    ASSERT_TRUE(err2.matches(x::errors::VALIDATION));
+    EXPECT_NE(err2.data.find("value"), std::string::npos);
+}
+
+/// @brief it should fail when duplicate header names exist.
+TEST(HTTPReadTask, ParseConfigDuplicateHeaderErrors) {
+    synnax::task::Task task;
+    task.config = {
+        {"device", "dev-001"},
+        {"rate", 1.0},
+        {"endpoints",
+         {{
+             {"method", "GET"},
+             {"path", "/api/data"},
+             {"headers",
+              {
+                  {{"name", "Accept"}, {"value", "text/plain"}},
+                  {{"name", "Accept"}, {"value", "application/json"}},
+              }},
+             {"fields",
+              {{
+                  {"pointer", "/value"},
+                  {"channel", 1},
+              }}},
+         }}},
+    };
+    auto ctx = std::make_shared<task::MockContext>(nullptr);
+    auto [_3, err3] = ReadTaskConfig::parse(ctx, task);
+    ASSERT_TRUE(err3.matches(x::errors::VALIDATION));
+    EXPECT_NE(err3.data.find("duplicate header"), std::string::npos);
+}
+
+/// @brief it should fail when duplicate query parameter names exist.
+TEST(HTTPReadTask, ParseConfigDuplicateQueryParamErrors) {
+    synnax::task::Task task;
+    task.config = {
+        {"device", "dev-001"},
+        {"rate", 1.0},
+        {"endpoints",
+         {{
+             {"method", "GET"},
+             {"path", "/api/data"},
+             {"query_params",
+              {
+                  {{"parameter", "limit"}, {"value", "10"}},
+                  {{"parameter", "limit"}, {"value", "20"}},
+              }},
+             {"fields",
+              {{
+                  {"pointer", "/value"},
+                  {"channel", 1},
+              }}},
+         }}},
+    };
+    auto ctx = std::make_shared<task::MockContext>(nullptr);
+    auto [_4, err4] = ReadTaskConfig::parse(ctx, task);
+    ASSERT_TRUE(err4.matches(x::errors::VALIDATION));
+    EXPECT_NE(err4.data.find("duplicate query parameter"), std::string::npos);
+}
+
+/// @brief it should fail when duplicate enum labels exist in a read field.
+TEST(HTTPReadTask, ParseConfigDuplicateEnumLabelErrors) {
+    synnax::task::Task task;
+    task.config = {
+        {"device", "dev-001"},
+        {"rate", 1.0},
+        {"endpoints",
+         {{
+             {"method", "GET"},
+             {"path", "/api/data"},
+             {"fields",
+              {{
+                  {"pointer", "/status"},
+                  {"channel", 1},
+                  {"enum_values",
+                   {
+                       {{"label", "ON"}, {"value", 1.0}},
+                       {{"label", "ON"}, {"value", 2.0}},
+                   }},
+              }}},
+         }}},
+    };
+    auto ctx = std::make_shared<task::MockContext>(nullptr);
+    auto [_5, err5] = ReadTaskConfig::parse(ctx, task);
+    ASSERT_TRUE(err5.matches(x::errors::VALIDATION));
+    EXPECT_NE(err5.data.find("duplicate enum label"), std::string::npos);
+}
+
 /// @brief it should extract a numeric field from a single GET endpoint.
 TEST(HTTPReadTask, SingleEndpointGETNumericField) {
     mock::Server server(
@@ -190,11 +370,11 @@ TEST(HTTPReadTask, SingleEndpointGETNumericField) {
     cfg.endpoints = {ep};
 
     cfg.channels[1] = {
+        .key = 1,
         .name = "temperature",
         .data_type = x::telem::FLOAT64_T,
-        .key = 1,
     };
-    cfg.channels[2] = {.name = "humidity", .data_type = x::telem::FLOAT64_T, .key = 2};
+    cfg.channels[2] = {.key = 2, .name = "humidity", .data_type = x::telem::FLOAT64_T};
 
     auto [source, processor] = make_source(cfg, server.base_url());
 
@@ -244,7 +424,7 @@ TEST(HTTPReadTask, NestedJSONPointerPaths) {
 
     cfg.endpoints = {ep};
 
-    cfg.channels[1] = {.name = "sensor_0", .data_type = x::telem::FLOAT64_T, .key = 1};
+    cfg.channels[1] = {.key = 1, .name = "sensor_0", .data_type = x::telem::FLOAT64_T};
 
     auto [source, processor] = make_source(cfg, server.base_url());
 
@@ -291,7 +471,7 @@ TEST(HTTPReadTask, MissingJSONFieldWarning) {
 
     cfg.endpoints = {ep};
 
-    cfg.channels[1] = {.name = "missing", .data_type = x::telem::FLOAT64_T, .key = 1};
+    cfg.channels[1] = {.key = 1, .name = "missing", .data_type = x::telem::FLOAT64_T};
 
     auto [source, processor] = make_source(cfg, server.base_url());
 
@@ -339,7 +519,7 @@ TEST(HTTPReadTask, ServerErrorOn5xxWarning) {
 
     cfg.endpoints = {ep};
 
-    cfg.channels[1] = {.name = "val", .data_type = x::telem::FLOAT64_T, .key = 1};
+    cfg.channels[1] = {.key = 1, .name = "val", .data_type = x::telem::FLOAT64_T};
 
     auto [source, processor] = make_source(cfg, server.base_url());
 
@@ -390,7 +570,7 @@ TEST(HTTPReadTask, CriticalErrorOn4xxWarning) {
 
     cfg.endpoints = {ep};
 
-    cfg.channels[1] = {.name = "val", .data_type = x::telem::FLOAT64_T, .key = 1};
+    cfg.channels[1] = {.key = 1, .name = "val", .data_type = x::telem::FLOAT64_T};
 
     auto [source, processor] = make_source(cfg, server.base_url());
 
@@ -449,9 +629,9 @@ TEST(HTTPReadTask, TypeConversions) {
 
     cfg.endpoints = {ep};
 
-    cfg.channels[1] = {.name = "active", .data_type = x::telem::UINT8_T, .key = 1};
-    cfg.channels[2] = {.name = "label", .data_type = x::telem::STRING_T, .key = 2};
-    cfg.channels[3] = {.name = "count", .data_type = x::telem::INT32_T, .key = 3};
+    cfg.channels[1] = {.key = 1, .name = "active", .data_type = x::telem::UINT8_T};
+    cfg.channels[2] = {.key = 2, .name = "label", .data_type = x::telem::STRING_T};
+    cfg.channels[3] = {.key = 3, .name = "count", .data_type = x::telem::INT32_T};
 
     auto [source, processor] = make_source(cfg, server.base_url());
 
@@ -508,9 +688,9 @@ TEST(HTTPReadTask, StringField) {
 
     cfg.endpoints = {ep};
 
-    cfg.channels[1] = {.name = "name", .data_type = x::telem::STRING_T, .key = 1};
-    cfg.channels[2] = {.name = "status", .data_type = x::telem::STRING_T, .key = 2};
-    cfg.channels[3] = {.name = "value", .data_type = x::telem::FLOAT64_T, .key = 3};
+    cfg.channels[1] = {.key = 1, .name = "name", .data_type = x::telem::STRING_T};
+    cfg.channels[2] = {.key = 2, .name = "status", .data_type = x::telem::STRING_T};
+    cfg.channels[3] = {.key = 3, .name = "value", .data_type = x::telem::FLOAT64_T};
 
     auto [source, processor] = make_source(cfg, server.base_url());
 
@@ -559,7 +739,7 @@ TEST(HTTPReadTask, DecimalToIntegerWarns) {
     ep.fields = {field};
 
     cfg.endpoints = {ep};
-    cfg.channels[1] = {.name = "count", .data_type = x::telem::INT32_T, .key = 1};
+    cfg.channels[1] = {.key = 1, .name = "count", .data_type = x::telem::INT32_T};
 
     auto [source, processor] = make_source(cfg, server.base_url());
 
@@ -606,7 +786,7 @@ TEST(HTTPReadTask, NegativeForUnsignedWarns) {
     ep.fields = {field};
 
     cfg.endpoints = {ep};
-    cfg.channels[1] = {.name = "count", .data_type = x::telem::UINT32_T, .key = 1};
+    cfg.channels[1] = {.key = 1, .name = "count", .data_type = x::telem::UINT32_T};
 
     auto [source, processor] = make_source(cfg, server.base_url());
 
@@ -655,7 +835,7 @@ TEST(HTTPReadTask, SoftwareTimingIndex) {
     cfg.endpoints = {ep};
 
     cfg.channels[1] =
-        {.name = "value", .data_type = x::telem::FLOAT64_T, .key = 1, .index = 100};
+        {.key = 1, .name = "value", .data_type = x::telem::FLOAT64_T, .index = 100};
     cfg.software_timed_indexes[100] = 0;
 
     auto [source, processor] = make_source(cfg, server.base_url());
@@ -712,11 +892,11 @@ TEST(HTTPReadTask, ExplicitIndexFieldTimestamp) {
     cfg.endpoints = {ep};
 
     cfg.channels[1] =
-        {.name = "value", .data_type = x::telem::FLOAT64_T, .key = 1, .index = 100};
+        {.key = 1, .name = "value", .data_type = x::telem::FLOAT64_T, .index = 100};
     cfg.channels[100] = {
+        .key = 100,
         .name = "time",
         .data_type = x::telem::TIMESTAMP_T,
-        .key = 100,
         .is_index = true,
     };
     // No index_sources needed — index channel is an explicit field.
@@ -786,8 +966,8 @@ TEST(HTTPReadTask, MultipleEndpoints) {
 
     cfg.endpoints = {ep1, ep2};
 
-    cfg.channels[1] = {.name = "temp", .data_type = x::telem::FLOAT64_T, .key = 1};
-    cfg.channels[2] = {.name = "pressure", .data_type = x::telem::FLOAT64_T, .key = 2};
+    cfg.channels[1] = {.key = 1, .name = "temp", .data_type = x::telem::FLOAT64_T};
+    cfg.channels[2] = {.key = 2, .name = "pressure", .data_type = x::telem::FLOAT64_T};
 
     auto [source, processor] = make_source(cfg, server.base_url());
 
@@ -835,7 +1015,7 @@ TEST(HTTPReadTask, POSTWithBody) {
 
     cfg.endpoints = {ep};
 
-    cfg.channels[1] = {.name = "result", .data_type = x::telem::FLOAT64_T, .key = 1};
+    cfg.channels[1] = {.key = 1, .name = "result", .data_type = x::telem::FLOAT64_T};
 
     auto [source, processor] = make_source(cfg, server.base_url());
 
@@ -870,11 +1050,11 @@ protected:
         };
         synnax::device::Device dev{
             .key = device_key,
-            .name = "HTTP Read Test Device",
             .rack = rack.key,
             .location = "localhost:0",
             .make = "http",
             .model = "HTTP Device",
+            .name = "HTTP Read Test Device",
             .properties = props.get<x::json::json::object_t>(),
         };
         ASSERT_NIL(client->devices.create(dev));
@@ -1173,7 +1353,7 @@ TEST(HTTPReadTask, RepeatedReads) {
 
     cfg.endpoints = {ep};
 
-    cfg.channels[1] = {.name = "value", .data_type = x::telem::FLOAT64_T, .key = 1};
+    cfg.channels[1] = {.key = 1, .name = "value", .data_type = x::telem::FLOAT64_T};
 
     auto [source, processor] = make_source(cfg, server.base_url());
 
@@ -1235,11 +1415,11 @@ TEST(HTTPReadTask, DisabledFieldsSkipped) {
     cfg.endpoints = {ep};
 
     cfg.channels[1] = {
+        .key = 1,
         .name = "temperature",
         .data_type = x::telem::FLOAT64_T,
-        .key = 1
     };
-    cfg.channels[3] = {.name = "pressure", .data_type = x::telem::FLOAT64_T, .key = 3};
+    cfg.channels[3] = {.key = 3, .name = "pressure", .data_type = x::telem::FLOAT64_T};
 
     auto [source, processor] = make_source(cfg, server.base_url());
 
@@ -1280,9 +1460,9 @@ TEST(HTTPReadTask, DisabledFieldsExcludedFromWriterConfig) {
 
     cfg.endpoints = {ep};
     cfg.channels[1] = {
+        .key = 1,
         .name = "temperature",
         .data_type = x::telem::FLOAT64_T,
-        .key = 1
     };
 
     auto conn_parser = x::json::Parser(
@@ -1438,8 +1618,8 @@ TEST(HTTPReadTask, MiddleEndpointAllFieldsDisabledSkipped) {
 
     cfg.endpoints = {ep1, ep3};
 
-    cfg.channels[1] = {.name = "temp", .data_type = x::telem::FLOAT64_T, .key = 1};
-    cfg.channels[3] = {.name = "pressure", .data_type = x::telem::FLOAT64_T, .key = 3};
+    cfg.channels[1] = {.key = 1, .name = "temp", .data_type = x::telem::FLOAT64_T};
+    cfg.channels[3] = {.key = 3, .name = "pressure", .data_type = x::telem::FLOAT64_T};
 
     auto [source, processor] = make_source(cfg, server.base_url());
 
@@ -1495,9 +1675,9 @@ TEST(HTTPReadTask, DisabledFieldMissingPointerNoError) {
     cfg.endpoints = {ep};
 
     cfg.channels[1] = {
+        .key = 1,
         .name = "temperature",
         .data_type = x::telem::FLOAT64_T,
-        .key = 1
     };
 
     auto [source, processor] = make_source(cfg, server.base_url());
@@ -1547,7 +1727,7 @@ TEST(HTTPReadTask, HTTPSReadSingleEndpoint) {
     ep.fields = {field};
 
     cfg.endpoints = {ep};
-    cfg.channels[1] = {.name = "value", .data_type = x::telem::FLOAT64_T, .key = 1};
+    cfg.channels[1] = {.key = 1, .name = "value", .data_type = x::telem::FLOAT64_T};
 
     auto [source, processor] = make_source(cfg, server.base_url());
 
@@ -1615,8 +1795,8 @@ TEST(HTTPReadTask, HTTPSMultipleEndpoints) {
     ep2.fields = {pressure_field};
 
     cfg.endpoints = {ep1, ep2};
-    cfg.channels[1] = {.name = "temp", .data_type = x::telem::FLOAT64_T, .key = 1};
-    cfg.channels[2] = {.name = "pressure", .data_type = x::telem::FLOAT64_T, .key = 2};
+    cfg.channels[1] = {.key = 1, .name = "temp", .data_type = x::telem::FLOAT64_T};
+    cfg.channels[2] = {.key = 2, .name = "pressure", .data_type = x::telem::FLOAT64_T};
 
     auto [source, processor] = make_source(cfg, server.base_url());
 
@@ -1666,7 +1846,7 @@ TEST(HTTPReadTask, HTTPSRepeatedReads) {
     ep.fields = {field};
 
     cfg.endpoints = {ep};
-    cfg.channels[1] = {.name = "value", .data_type = x::telem::FLOAT64_T, .key = 1};
+    cfg.channels[1] = {.key = 1, .name = "value", .data_type = x::telem::FLOAT64_T};
 
     auto [source, processor] = make_source(cfg, server.base_url());
 
@@ -1717,7 +1897,7 @@ TEST(HTTPReadTask, HTTPSPOSTWithBody) {
     ep.fields = {field};
 
     cfg.endpoints = {ep};
-    cfg.channels[1] = {.name = "result", .data_type = x::telem::FLOAT64_T, .key = 1};
+    cfg.channels[1] = {.key = 1, .name = "result", .data_type = x::telem::FLOAT64_T};
 
     auto [source, processor] = make_source(cfg, server.base_url());
 
@@ -1765,7 +1945,7 @@ TEST(HTTPReadTask, TransportErrorTimeoutWarning) {
     ep.fields = {field};
 
     cfg.endpoints = {ep};
-    cfg.channels[1] = {.name = "val", .data_type = x::telem::FLOAT64_T, .key = 1};
+    cfg.channels[1] = {.key = 1, .name = "val", .data_type = x::telem::FLOAT64_T};
 
     auto [source, processor] = make_source(
         cfg,
@@ -1837,8 +2017,8 @@ TEST(HTTPReadTask, TransportErrorPartialTimeout) {
     ep2.fields = {slow_field};
 
     cfg.endpoints = {ep1, ep2};
-    cfg.channels[1] = {.name = "fast", .data_type = x::telem::FLOAT64_T, .key = 1};
-    cfg.channels[2] = {.name = "slow", .data_type = x::telem::FLOAT64_T, .key = 2};
+    cfg.channels[1] = {.key = 1, .name = "fast", .data_type = x::telem::FLOAT64_T};
+    cfg.channels[2] = {.key = 2, .name = "slow", .data_type = x::telem::FLOAT64_T};
 
     auto [source, processor] = make_source(
         cfg,
@@ -1910,8 +2090,8 @@ TEST(HTTPReadTask, PartialFailureFirstEndpoint5xx) {
     ep2.fields = {field2};
 
     cfg.endpoints = {ep1, ep2};
-    cfg.channels[1] = {.name = "error_msg", .data_type = x::telem::STRING_T, .key = 1};
-    cfg.channels[2] = {.name = "value", .data_type = x::telem::FLOAT64_T, .key = 2};
+    cfg.channels[1] = {.key = 1, .name = "error_msg", .data_type = x::telem::STRING_T};
+    cfg.channels[2] = {.key = 2, .name = "value", .data_type = x::telem::FLOAT64_T};
 
     auto [source, processor] = make_source(cfg, server.base_url());
 
@@ -1981,8 +2161,8 @@ TEST(HTTPReadTask, PartialFailureSecondEndpointCritical4xx) {
     ep2.fields = {field2};
 
     cfg.endpoints = {ep1, ep2};
-    cfg.channels[1] = {.name = "value", .data_type = x::telem::FLOAT64_T, .key = 1};
-    cfg.channels[2] = {.name = "error_msg", .data_type = x::telem::STRING_T, .key = 2};
+    cfg.channels[1] = {.key = 1, .name = "value", .data_type = x::telem::FLOAT64_T};
+    cfg.channels[2] = {.key = 2, .name = "error_msg", .data_type = x::telem::STRING_T};
 
     auto [source, processor] = make_source(cfg, server.base_url());
 
@@ -2053,8 +2233,8 @@ TEST(HTTPReadTask, PartialFailureMissingFieldInSecondEndpoint) {
     ep2.fields = {pressure_field};
 
     cfg.endpoints = {ep1, ep2};
-    cfg.channels[1] = {.name = "temp", .data_type = x::telem::FLOAT64_T, .key = 1};
-    cfg.channels[2] = {.name = "pressure", .data_type = x::telem::FLOAT64_T, .key = 2};
+    cfg.channels[1] = {.key = 1, .name = "temp", .data_type = x::telem::FLOAT64_T};
+    cfg.channels[2] = {.key = 2, .name = "pressure", .data_type = x::telem::FLOAT64_T};
 
     auto [source, processor] = make_source(cfg, server.base_url());
 
@@ -2121,8 +2301,8 @@ TEST(HTTPReadTask, PartialFailureInvalidJSONInOneEndpoint) {
     ep2.fields = {field2};
 
     cfg.endpoints = {ep1, ep2};
-    cfg.channels[1] = {.name = "value", .data_type = x::telem::FLOAT64_T, .key = 1};
-    cfg.channels[2] = {.name = "data", .data_type = x::telem::FLOAT64_T, .key = 2};
+    cfg.channels[1] = {.key = 1, .name = "value", .data_type = x::telem::FLOAT64_T};
+    cfg.channels[2] = {.key = 2, .name = "data", .data_type = x::telem::FLOAT64_T};
 
     auto [source, processor] = make_source(cfg, server.base_url());
 
@@ -2189,9 +2369,9 @@ TEST(HTTPReadTask, PartialFailureTypeConversionError) {
     ep2.fields = {field2};
 
     cfg.endpoints = {ep1, ep2};
-    cfg.channels[1] = {.name = "value", .data_type = x::telem::FLOAT64_T, .key = 1};
+    cfg.channels[1] = {.key = 1, .name = "value", .data_type = x::telem::FLOAT64_T};
     // INT32_T will fail on 3.7 (decimal truncation) — produces warning.
-    cfg.channels[2] = {.name = "count", .data_type = x::telem::INT32_T, .key = 2};
+    cfg.channels[2] = {.key = 2, .name = "count", .data_type = x::telem::INT32_T};
 
     auto [source, processor] = make_source(cfg, server.base_url());
 
@@ -2240,7 +2420,7 @@ TEST(HTTPReadTask, SampleClockRegulatesRate) {
     ep.fields = {field};
 
     cfg.endpoints = {ep};
-    cfg.channels[1] = {.name = "value", .data_type = x::telem::FLOAT64_T, .key = 1};
+    cfg.channels[1] = {.key = 1, .name = "value", .data_type = x::telem::FLOAT64_T};
 
     auto [source, processor] = make_source(cfg, server.base_url());
 
@@ -2293,7 +2473,7 @@ TEST(HTTPReadTask, SampleClockDoesNotAffectData) {
     ep.fields = {field};
 
     cfg.endpoints = {ep};
-    cfg.channels[1] = {.name = "value", .data_type = x::telem::FLOAT64_T, .key = 1};
+    cfg.channels[1] = {.key = 1, .name = "value", .data_type = x::telem::FLOAT64_T};
 
     auto [source, processor] = make_source(cfg, server.base_url());
 
@@ -2310,7 +2490,7 @@ TEST(HTTPReadTask, SampleClockDoesNotAffectData) {
 }
 
 /// @brief it should pass connection-level query parameters to every request.
-TEST(HTTPReadTask, ConnectionLevelQueryParams) {
+TEST(HTTPReadTask, EndpointQueryParams) {
     mock::Server server(
         mock::ServerConfig{
             .routes = {{
@@ -2337,17 +2517,14 @@ TEST(HTTPReadTask, ConnectionLevelQueryParams) {
     ReadEndpoint ep;
     ep.request.method = Method::GET;
     ep.request.path = "/api/data";
+    ep.request.query_params = {{"api_key", "abc123"}, {"format", "json"}};
     ep.body = "";
     ep.fields = {field};
 
     cfg.endpoints = {ep};
-    cfg.channels[1] = {.name = "value", .data_type = x::telem::FLOAT64_T, .key = 1};
+    cfg.channels[1] = {.key = 1, .name = "value", .data_type = x::telem::FLOAT64_T};
 
-    auto [source, processor] = make_source(
-        cfg,
-        server.base_url(),
-        x::json::json{{"query_params", {{"api_key", "abc123"}, {"format", "json"}}}}
-    );
+    auto [source, processor] = make_source(cfg, server.base_url());
 
     auto breaker = x::breaker::Breaker(x::breaker::Config{.name = "test"});
     breaker.start();
@@ -2410,19 +2587,19 @@ TEST(HTTPReadTask, EnumValuesMapStringsToNumbers) {
     cfg.endpoints = {ep};
 
     cfg.channels[1] = {
+        .key = 1,
         .name = "power",
         .data_type = x::telem::FLOAT64_T,
-        .key = 1,
     };
     cfg.channels[2] = {
+        .key = 2,
         .name = "mode",
         .data_type = x::telem::INT32_T,
-        .key = 2,
     };
     cfg.channels[3] = {
+        .key = 3,
         .name = "temperature",
         .data_type = x::telem::FLOAT64_T,
-        .key = 3,
     };
 
     auto [source, processor] = make_source(cfg, server.base_url());
@@ -2475,9 +2652,9 @@ TEST(HTTPReadTask, EnumValuesMissingKeyWarns) {
     cfg.endpoints = {ep};
 
     cfg.channels[1] = {
+        .key = 1,
         .name = "power",
         .data_type = x::telem::FLOAT64_T,
-        .key = 1,
     };
 
     auto [source, processor] = make_source(cfg, server.base_url());
@@ -2527,9 +2704,9 @@ TEST(HTTPReadTask, EnumValuesEmptyMapFallsBackToNumericParsing) {
     cfg.endpoints = {ep};
 
     cfg.channels[1] = {
+        .key = 1,
         .name = "value",
         .data_type = x::telem::FLOAT64_T,
-        .key = 1,
     };
 
     auto [source, processor] = make_source(cfg, server.base_url());
@@ -2584,11 +2761,11 @@ TEST(HTTPReadTask, SamplingGroupAtomicityMissingPointer) {
     cfg.endpoints = {ep};
     // Both channels share the same index — same sampling group.
     cfg.channels[1] =
-        {.name = "temp", .data_type = x::telem::FLOAT64_T, .key = 1, .index = 10};
+        {.key = 1, .name = "temp", .data_type = x::telem::FLOAT64_T, .index = 10};
     cfg.channels[2] = {
+        .key = 2,
         .name = "humidity",
         .data_type = x::telem::FLOAT64_T,
-        .key = 2,
         .index = 10,
     };
     cfg.software_timed_indexes[10] = 0;
@@ -2644,10 +2821,10 @@ TEST(HTTPReadTask, SamplingGroupAtomicityConversionError) {
 
     cfg.endpoints = {ep};
     cfg.channels[1] =
-        {.name = "temp", .data_type = x::telem::FLOAT64_T, .key = 1, .index = 10};
+        {.key = 1, .name = "temp", .data_type = x::telem::FLOAT64_T, .index = 10};
     // INT32_T will fail on 3.7 — conversion error.
     cfg.channels[2] =
-        {.name = "count", .data_type = x::telem::INT32_T, .key = 2, .index = 10};
+        {.key = 2, .name = "count", .data_type = x::telem::INT32_T, .index = 10};
     cfg.software_timed_indexes[10] = 0;
 
     auto [source, processor] = make_source(cfg, server.base_url());
@@ -2707,17 +2884,17 @@ TEST(HTTPReadTask, SamplingGroupIndependentOnSameEndpoint) {
 
     cfg.endpoints = {ep};
     cfg.channels[1] =
-        {.name = "temp", .data_type = x::telem::FLOAT64_T, .key = 1, .index = 10};
+        {.key = 1, .name = "temp", .data_type = x::telem::FLOAT64_T, .index = 10};
     cfg.channels[2] = {
+        .key = 2,
         .name = "humidity",
         .data_type = x::telem::FLOAT64_T,
-        .key = 2,
         .index = 10,
     };
     cfg.channels[3] = {
+        .key = 3,
         .name = "pressure",
         .data_type = x::telem::FLOAT64_T,
-        .key = 3,
         .index = 20,
     };
     cfg.software_timed_indexes[10] = 0;
@@ -2792,8 +2969,8 @@ TEST(HTTPReadTask, SamplingGroupIndependentAcrossEndpoints) {
     ep2.fields = {pressure_field};
 
     cfg.endpoints = {ep1, ep2};
-    cfg.channels[1] = {.name = "temp", .data_type = x::telem::FLOAT64_T, .key = 1};
-    cfg.channels[2] = {.name = "pressure", .data_type = x::telem::FLOAT64_T, .key = 2};
+    cfg.channels[1] = {.key = 1, .name = "temp", .data_type = x::telem::FLOAT64_T};
+    cfg.channels[2] = {.key = 2, .name = "pressure", .data_type = x::telem::FLOAT64_T};
 
     auto [source, processor] = make_source(cfg, server.base_url());
 
@@ -2843,7 +3020,7 @@ TEST(HTTPReadTask, SamplingGroupFailureNoIndexTimestamp) {
 
     cfg.endpoints = {ep};
     cfg.channels[1] =
-        {.name = "temp", .data_type = x::telem::FLOAT64_T, .key = 1, .index = 10};
+        {.key = 1, .name = "temp", .data_type = x::telem::FLOAT64_T, .index = 10};
     cfg.software_timed_indexes[10] = 0;
 
     auto [source, processor] = make_source(cfg, server.base_url());
@@ -2898,10 +3075,10 @@ TEST(HTTPReadTask, SamplingGroupPartialIndexTimestamp) {
     cfg.endpoints = {ep};
     // Group A: temp with index 10 — will succeed.
     cfg.channels[1] =
-        {.name = "temp", .data_type = x::telem::FLOAT64_T, .key = 1, .index = 10};
+        {.key = 1, .name = "temp", .data_type = x::telem::FLOAT64_T, .index = 10};
     // Group B: count with index 20 — conversion will fail.
     cfg.channels[2] =
-        {.name = "count", .data_type = x::telem::FLOAT64_T, .key = 2, .index = 20};
+        {.key = 2, .name = "count", .data_type = x::telem::FLOAT64_T, .index = 20};
     cfg.software_timed_indexes[10] = 0;
     cfg.software_timed_indexes[20] = 0;
 
@@ -2953,7 +3130,7 @@ TEST(HTTPReadTask, POSTSetsContentTypeJSON) {
     ep.fields = {field};
 
     cfg.endpoints = {ep};
-    cfg.channels[1] = {.name = "value", .data_type = x::telem::FLOAT64_T, .key = 1};
+    cfg.channels[1] = {.key = 1, .name = "value", .data_type = x::telem::FLOAT64_T};
 
     auto [source, processor] = make_source(cfg, server.base_url());
 
@@ -2969,6 +3146,56 @@ TEST(HTTPReadTask, POSTSetsContentTypeJSON) {
     auto ct = reqs[0].headers.find("Content-Type");
     ASSERT_NE(ct, reqs[0].headers.end());
     EXPECT_EQ(ct->second, "application/json");
+}
+
+/// @brief it should include per-endpoint headers in the HTTP request.
+TEST(HTTPReadTask, EndpointHeaders) {
+    mock::Server server(
+        mock::ServerConfig{
+            .routes = {{
+                .method = Method::GET,
+                .path = "/api/data",
+                .status_code = 200,
+                .response_body = R"({"value": 1.0})",
+            }},
+        }
+    );
+    ASSERT_NIL(server.start());
+    x::defer::defer stop_server([&server] { server.stop(); });
+
+    ReadTaskConfig cfg;
+    cfg.device = "test-device";
+    cfg.data_saving = false;
+    cfg.auto_start = false;
+    cfg.rate = x::telem::Rate(10000);
+
+    ReadField field;
+    field.pointer = x::json::json::json_pointer("/value");
+    field.channel_key = 1;
+
+    ReadEndpoint ep;
+    ep.request.method = Method::GET;
+    ep.request.path = "/api/data";
+    ep.request.headers = {{"Accept", "application/json"}};
+    ep.fields = {field};
+
+    cfg.endpoints = {ep};
+    cfg.channels[1] = {.key = 1, .name = "value", .data_type = x::telem::FLOAT64_T};
+
+    auto [source, processor] = make_source(cfg, server.base_url());
+
+    auto breaker = x::breaker::Breaker(x::breaker::Config{.name = "test"});
+    breaker.start();
+    x::telem::Frame fr;
+    auto res = source->read(breaker, fr);
+    breaker.stop();
+    ASSERT_NIL(res.error);
+
+    auto reqs = server.received_requests();
+    ASSERT_EQ(reqs.size(), 1);
+    auto accept = reqs[0].headers.find("Accept");
+    ASSERT_NE(accept, reqs[0].headers.end());
+    EXPECT_EQ(accept->second, "application/json");
 }
 
 }

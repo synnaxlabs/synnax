@@ -24,12 +24,10 @@ import (
 	"github.com/synnaxlabs/x/zyn"
 )
 
-const OntologyType ontology.Type = "view"
-
 // OntologyID returns a unique ID for the view with the given key within the Synnax
 // ontology.
 func OntologyID(keys uuid.UUID) ontology.ID {
-	return ontology.ID{Type: OntologyType, Key: keys.String()}
+	return ontology.ID{Type: ontology.TypeView, Key: keys.String()}
 }
 
 // OntologyIDs returns the ontology IDs for the given keys.
@@ -68,7 +66,7 @@ var _ ontology.Service = (*Service)(nil)
 
 type change = xchange.Change[uuid.UUID, View]
 
-func (s *Service) Type() ontology.Type { return OntologyType }
+func (s *Service) Type() ontology.Type { return ontology.TypeView }
 
 func (s *Service) Schema() zyn.Schema { return schema }
 

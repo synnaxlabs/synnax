@@ -11,6 +11,8 @@ cc_library(
         "//arc/cpp/runtime/state",
         "//arc/cpp/stl",
         "//x/cpp/errors",
+        "//x/cpp/mem",
+        "//x/cpp/telem",
     ],
 )
 

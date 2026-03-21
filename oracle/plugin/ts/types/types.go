@@ -595,6 +595,12 @@ func (p *Plugin) processStruct(entry resolution.Type, table *resolution.Table, d
 		for _, tp := range aliasForm.TypeParams {
 			sd.TypeParams = append(sd.TypeParams, p.processTypeParam(tp, table, data))
 		}
+		for _, tp := range sd.TypeParams {
+			if tp.IsJSON || strings.Contains(tp.Constraint, "record.") || strings.Contains(tp.Default, "record.") {
+				addXImport(data, xImport{name: "record", submodule: "record"})
+				break
+			}
+		}
 		sd.AllParamsOptional = true
 		for _, tp := range sd.TypeParams {
 			if !tp.HasDefault {
@@ -646,6 +652,8 @@ func (p *Plugin) processStruct(entry resolution.Type, table *resolution.Table, d
 				sd.Handwritten = true
 			case "concrete_types":
 				sd.ConcreteTypes = true
+			case "coalesce_type_params":
+				sd.CoalesceTypeParams = true
 			case "name":
 				if len(expr.Values) > 0 {
 					sd.TSName = expr.Values[0].StringValue
@@ -658,6 +666,12 @@ func (p *Plugin) processStruct(entry resolution.Type, table *resolution.Table, d
 	}
 	for _, tp := range form.TypeParams {
 		sd.TypeParams = append(sd.TypeParams, p.processTypeParam(tp, table, data))
+	}
+	for _, tp := range sd.TypeParams {
+		if tp.IsJSON || strings.Contains(tp.Constraint, "record.") || strings.Contains(tp.Default, "record.") {
+			addXImport(data, xImport{name: "record", submodule: "record"})
+			break
+		}
 	}
 
 	sd.AllParamsOptional = true
@@ -751,6 +765,9 @@ func (p *Plugin) processStruct(entry resolution.Type, table *resolution.Table, d
 			if sd.ConcreteTypes && len(sd.PartialFields) > 0 {
 				addXImport(data, xImport{name: "optional", submodule: "optional"})
 			}
+			if sd.CoalesceTypeParams {
+				computeCoalescedTypes(&sd)
+			}
 			return sd
 		}
 	}
@@ -771,14 +788,23 @@ func (p *Plugin) processStruct(entry resolution.Type, table *resolution.Table, d
 		if sd.ConcreteTypes && field.Type.IsTypeParam() &&
 			field.Type.TypeParam != nil &&
 			optionalTypeParams[field.Type.TypeParam.Name] {
+			tp := field.Type.TypeParam
+			effectiveRef := tp.Constraint
+			if effectiveRef == nil && tp.Default != nil && !tp.Optional {
+				effectiveRef = tp.Default
+			}
 			sd.ConditionalFields = append(sd.ConditionalFields, conditionalFieldData{
-				Field:         fd,
-				TypeParamName: field.Type.TypeParam.Name,
-				NeverType:     "z.ZodNever",
+				Field:              fd,
+				TypeParamName:      field.Type.TypeParam.Name,
+				NeverType:          "z.ZodNever",
+				FallbackSchemaType: fallbackSchemaTypeForConstraint(effectiveRef, table),
 			})
 		} else {
 			sd.BaseFields = append(sd.BaseFields, fd)
 		}
+	}
+	if sd.CoalesceTypeParams {
+		computeCoalescedTypes(&sd)
 	}
 	return sd
 }
@@ -842,11 +868,40 @@ func sameBaseType(a, b resolution.TypeRef) bool {
 	return true
 }
 
+func computeCoalescedTypes(sd *structData) {
+	for i := range sd.Fields {
+		sd.Fields[i].CoalescedTSType = coalesceTSType(sd.Fields[i].TSType, sd.TypeParams)
+	}
+	for i := range sd.BaseFields {
+		sd.BaseFields[i].CoalescedTSType = coalesceTSType(sd.BaseFields[i].TSType, sd.TypeParams)
+	}
+	for i := range sd.ExtendFields {
+		sd.ExtendFields[i].CoalescedTSType = coalesceTSType(sd.ExtendFields[i].TSType, sd.TypeParams)
+	}
+	for i := range sd.ConditionalFields {
+		sd.ConditionalFields[i].Field.CoalescedTSType = coalesceTSType(sd.ConditionalFields[i].Field.TSType, sd.TypeParams)
+	}
+}
+
+func coalesceTSType(tsType string, typeParams []typeParamData) string {
+	sorted := make([]typeParamData, len(typeParams))
+	copy(sorted, typeParams)
+	sort.Slice(sorted, func(i, j int) bool {
+		return len(sorted[i].Name) > len(sorted[j].Name)
+	})
+	result := tsType
+	for _, tp := range sorted {
+		result = strings.ReplaceAll(result, tp.Name, `S["`+lo.CamelCase(tp.Name)+`"]`)
+	}
+	return result
+}
+
 func (p *Plugin) processTypeParam(tp resolution.TypeParam, table *resolution.Table, data *templateData) typeParamData {
 	tpd := typeParamData{Name: tp.Name, Constraint: "z.ZodType"}
 	if tp.Constraint != nil {
-		if resolution.IsPrimitive(tp.Constraint.Name) && tp.Constraint.Name == "json" {
+		if resolution.IsPrimitive(tp.Constraint.Name) && tp.Constraint.Name == "record" {
 			tpd.IsJSON = true
+			tpd.Constraint = "z.ZodType<record.Unknown>"
 		}
 		if resolution.IsPrimitive(tp.Constraint.Name) && tp.Constraint.Name == "string" {
 			tpd.Constraint = "z.ZodType<string>"
@@ -859,7 +914,11 @@ func (p *Plugin) processTypeParam(tp resolution.TypeParam, table *resolution.Tab
 			}
 		}
 	}
-	if tp.Default != nil {
+	if tp.Optional {
+		tpd.HasDefault = true
+		tpd.Default = "z.ZodNever"
+		tpd.DefaultValue = "z.unknown()"
+	} else if tp.Default != nil {
 		tpd.HasDefault = true
 		// Handle enum defaults
 		resolved, ok := tp.Default.Resolve(table)
@@ -876,10 +935,6 @@ func (p *Plugin) processTypeParam(tp resolution.TypeParam, table *resolution.Tab
 			tpd.Default = defaultToTS(tp.Default.Name)
 			tpd.DefaultValue = defaultValueToTS(tp.Default.Name)
 		}
-	} else if tp.Optional {
-		tpd.HasDefault = true
-		tpd.Default = "z.ZodNever"
-		tpd.DefaultValue = "z.unknown()"
 	}
 	return tpd
 }
@@ -906,7 +961,7 @@ var typeParamMappings = map[string]typeParamMapping{
 	"uuid":      {zodType: "z.ZodString", zodValue: "z.string()"},
 	"timestamp": {zodType: "z.ZodNumber", zodValue: "z.number()"},
 	"timespan":  {zodType: "z.ZodNumber", zodValue: "z.number()"},
-	"json":      {zodType: "z.ZodType", zodValue: "record.nullishToEmpty()"},
+	"record":    {zodType: "z.ZodType<record.Unknown>", zodValue: "record.nullishToEmpty()"},
 }
 
 func defaultToTS(rawType string) string {
@@ -925,7 +980,7 @@ func defaultValueToTS(rawType string) string {
 
 func fallbackForConstraint(constraint *resolution.TypeRef, table *resolution.Table) string {
 	if constraint == nil {
-		return "z.unknown()"
+		return "z.unknown().optional()"
 	}
 	resolved, ok := constraint.Resolve(table)
 	if ok {
@@ -934,6 +989,22 @@ func fallbackForConstraint(constraint *resolution.TypeRef, table *resolution.Tab
 		}
 	}
 	return defaultValueToTS(constraint.Name)
+}
+
+func fallbackSchemaTypeForConstraint(constraint *resolution.TypeRef, table *resolution.Table) string {
+	if constraint == nil {
+		return "z.ZodOptional<z.ZodUnknown>"
+	}
+	resolved, ok := constraint.Resolve(table)
+	if ok {
+		if _, isEnum := resolved.Form.(resolution.EnumForm); isEnum {
+			return "typeof " + lo.CamelCase(resolved.Name) + "Z"
+		}
+	}
+	if m, ok := typeParamMappings[constraint.Name]; ok {
+		return m.zodType
+	}
+	return "z.ZodType"
 }
 
 func isSelfReference(t resolution.TypeRef, parent resolution.Type) bool {
@@ -1058,7 +1129,7 @@ func (p *Plugin) processField(field resolution.Field, parentType resolution.Type
 	}
 	isAnyOptional := field.IsOptional || field.IsHardOptional
 	typeOverride := getFieldTypeOverride(field, "ts")
-	isJSON := field.Type.Name == "json" || typeOverride == "json"
+	isJSON := field.Type.Name == "record" || typeOverride == "record"
 	if isArray {
 		if isAnyOptional {
 			addXImport(data, xImport{name: "zod", submodule: "zod"})
@@ -1080,7 +1151,9 @@ func (p *Plugin) processField(field resolution.Field, parentType resolution.Type
 			fd.ZodSchemaType = "typeof record.nullishToEmpty()"
 		}
 	} else if isAnyOptional {
-		fd.ZodType += ".optional()"
+		if !field.Type.IsTypeParam() {
+			fd.ZodType += ".optional()"
+		}
 		fd.ZodSchemaType = fmt.Sprintf("z.ZodOptional<%s>", fd.ZodSchemaType)
 	}
 	if hasPreserveCase(field) {
@@ -1222,7 +1295,7 @@ func primitiveToTSType(name string) string {
 		"uint", "uint8", "uint16", "uint32", "uint64",
 		"float32", "float64":
 		return "number"
-	case "json":
+	case "record":
 		return "unknown"
 	default:
 		return "unknown"
@@ -1239,10 +1312,14 @@ func (p *Plugin) typeRefToZodInternal(typeRef *resolution.TypeRef, table *resolu
 			return paramName
 		}
 		if typeRef.TypeParam.Default != nil || typeRef.TypeParam.Optional {
-			if typeRef.TypeParam.Constraint != nil && typeRef.TypeParam.Constraint.Name == "json" {
+			effectiveRef := typeRef.TypeParam.Constraint
+			if effectiveRef == nil && typeRef.TypeParam.Default != nil && !typeRef.TypeParam.Optional {
+				effectiveRef = typeRef.TypeParam.Default
+			}
+			if effectiveRef != nil && effectiveRef.Name == "record" {
 				addXImport(data, xImport{name: "record", submodule: "record"})
 			}
-			return fmt.Sprintf("%s ?? %s", paramName, fallbackForConstraint(typeRef.TypeParam.Constraint, table))
+			return fmt.Sprintf("%s ?? %s", paramName, fallbackForConstraint(effectiveRef, table))
 		}
 		return paramName
 	}
@@ -1274,17 +1351,26 @@ func (p *Plugin) typeRefToZodInternal(typeRef *resolution.TypeRef, table *resolu
 	case resolution.StructForm:
 		schemaName := lo.CamelCase(domain.GetName(resolved, "ts")) + "Z"
 		if form.IsGeneric() {
-			if len(typeRef.TypeArgs) > 0 {
-				args := make([]string, len(typeRef.TypeArgs))
-				for i, arg := range typeRef.TypeArgs {
-					args[i] = p.typeRefToZodInternal(&arg, table, data, true)
+			nonNilArgs := make([]struct {
+				index int
+				value string
+			}, 0, len(typeRef.TypeArgs))
+			for i, arg := range typeRef.TypeArgs {
+				if arg.Name == "nil" {
+					continue
 				}
+				nonNilArgs = append(nonNilArgs, struct {
+					index int
+					value string
+				}{i, p.typeRefToZodInternal(&arg, table, data, true)})
+			}
+			if len(nonNilArgs) > 0 {
 				if len(form.TypeParams) == 1 {
-					schemaName = fmt.Sprintf("%s(%s)", schemaName, args[0])
+					schemaName = fmt.Sprintf("%s(%s)", schemaName, nonNilArgs[0].value)
 				} else {
-					namedArgs := make([]string, len(typeRef.TypeArgs))
-					for i, arg := range args {
-						namedArgs[i] = fmt.Sprintf("%s: %s", lo.CamelCase(form.TypeParams[i].Name), arg)
+					namedArgs := make([]string, len(nonNilArgs))
+					for i, arg := range nonNilArgs {
+						namedArgs[i] = fmt.Sprintf("%s: %s", lo.CamelCase(form.TypeParams[arg.index].Name), arg.value)
 					}
 					schemaName = fmt.Sprintf("%s({%s})", schemaName, strings.Join(namedArgs, ", "))
 				}
@@ -1467,7 +1553,7 @@ var primitiveTSTypes = map[string]string{
 	"uint8": "number", "uint12": "number", "uint16": "number", "uint20": "number", "uint32": "number", "uint64": "number",
 	"float32": "number", "float64": "number",
 	"timestamp": "TimeStamp", "timespan": "TimeSpan", "data_type": "DataType",
-	"json": "unknown", "bytes": "Uint8Array",
+	"record": "unknown", "bytes": "Uint8Array",
 }
 
 func primitiveToTS(primitive string) string {
@@ -1508,7 +1594,7 @@ var primitiveZodTypes = map[string]primitiveMapping{
 	"time_range":         {schema: "TimeRange.z", xImports: []xImport{{name: "TimeRange", submodule: "telem"}}},
 	"time_range_bounded": {schema: "TimeRange.boundedZ", xImports: []xImport{{name: "TimeRange", submodule: "telem"}}},
 	"data_type":          {schema: "DataType.z", xImports: []xImport{{name: "DataType", submodule: "telem"}}},
-	"json":               {schema: "record.unknownZ().or(z.string().transform((s) => JSON.parse(s)))", xImports: []xImport{{name: "record", submodule: "record"}}},
+	"record":             {schema: "record.unknownZ().or(z.string().transform((s) => JSON.parse(s)))", xImports: []xImport{{name: "record", submodule: "record"}}},
 	"bytes":              {schema: "z.instanceof(Uint8Array)"},
 }
 
@@ -1536,7 +1622,7 @@ var primitiveZodSchemaTypes = map[string]string{
 	"time_range":         "typeof TimeRange.z",
 	"time_range_bounded": "typeof TimeRange.boundedZ",
 	"data_type":          "typeof DataType.z",
-	"json":               "z.ZodType",
+	"record":             "z.ZodType",
 	"bytes":              "z.ZodType<Uint8Array>",
 }
 
@@ -1638,7 +1724,7 @@ func addXImport(data *templateData, imp xImport) {
 }
 
 func primitiveToZod(primitive string, data *templateData) string {
-	if primitive == "json" {
+	if primitive == "record" {
 		addXImport(data, xImport{name: "record", submodule: "record"})
 		return "record.unknownZ()"
 	}
@@ -1739,9 +1825,21 @@ func (p *Plugin) applyValidation(zodType string, domain resolution.Domain, typeR
 				addXImport(data, xImport{name: "id", submodule: "id"})
 				zodType = fmt.Sprintf("%s.default(() => id.create())", zodType)
 			}
+			if ev, ok := validation.ResolveEnumVariant(rules.Default.IdentValue, typeRef, table); ok {
+				zodType = fmt.Sprintf("%s.default(%s)", zodType, p.enumVariantToTS(ev, data))
+			}
 		}
 	}
 	return validationResult{ZodType: zodType, HasDefault: hasDefault}
+}
+
+func (p *Plugin) enumVariantToTS(ev validation.EnumVariant, data *templateData) string {
+	enumName := domain.GetName(ev.Type, "ts")
+	variantRef := fmt.Sprintf("%s.%s", enumName, ev.Variant.Name)
+	if ev.Type.Namespace != data.Namespace {
+		variantRef = fmt.Sprintf("%s.%s", ev.Type.Namespace, variantRef)
+	}
+	return variantRef
 }
 
 type templateData struct {
@@ -1863,6 +1961,7 @@ type structData struct {
 	IsSingleParam           bool
 	IsGeneric               bool
 	ConcreteTypes           bool
+	CoalesceTypeParams      bool
 }
 
 type extendsParentInfo struct {
@@ -1879,14 +1978,16 @@ type typeParamData struct {
 
 type fieldData struct {
 	Name, TSName, ZodType, TSType, ZodSchemaType   string
+	CoalescedTSType                                string
 	Doc                                            string
 	IsOptional, IsHardOptional, IsArray, IsSelfRef bool
 }
 
 type conditionalFieldData struct {
-	TypeParamName string
-	NeverType     string
-	Field         fieldData
+	TypeParamName      string
+	NeverType          string
+	FallbackSchemaType string
+	Field              fieldData
 }
 
 type enumData struct {
@@ -1930,7 +2031,7 @@ export type {{ .TSName }} = z.infer<typeof {{ .TSName | camelCase }}Z>;
 {{- end }}
 {{- range .Enums }}
 
-{{- if .IsIntEnum }}
+{{ if .IsIntEnum }}
 export enum {{ .Name }} {
 {{- range $i, $v := .Values }}
   {{ $v.Name }} = {{ $v.IntValue }},
@@ -1972,9 +2073,9 @@ export type {{ .TSName }}<{{ range $i, $p := .TypeParams }}{{ $p.Name }} extends
 {{- end }}
 {{- else }}
 
-export interface {{ .TSName }}Schemas<{{ range $i, $p := .TypeParams }}{{ if $i }}, {{ end }}{{ $p.Name }} extends {{ $p.Constraint }}{{ if $p.HasDefault }} = {{ $p.Default }}{{ end }}{{ end }}> {
+export interface {{ .TSName }}Schemas<{{ range $i, $p := .TypeParams }}{{ if $i }}, {{ end }}{{ $p.Name }} extends {{ $p.Constraint }}{{ if $p.HasDefault }} = {{ $p.Constraint }}{{ end }}{{ end }}> {
 {{- range $i, $p := .TypeParams }}
-  {{ $p.Name | camelCase }}{{ if $p.HasDefault }}?{{ end }}: {{ $p.Name }};
+  {{ $p.Name | camelCase }}: {{ $p.Name }};
 {{- end }}
 }
 
@@ -1982,7 +2083,7 @@ export const {{ camelCase .TSName }}Z = <{{ range $i, $p := .TypeParams }}{{ if 
 {{- range $i, $p := .TypeParams }}
   {{ $p.Name | camelCase }},
 {{- end }}
-}: {{ .TSName }}Schemas<{{ range $i, $p := .TypeParams }}{{ if $i }}, {{ end }}{{ $p.Name }}{{ end }}>{{ if .AllParamsOptional }} = {}{{ end }}) =>
+}: Partial<{{ .TSName }}Schemas<{{ range $i, $p := .TypeParams }}{{ if $i }}, {{ end }}{{ $p.Name }}{{ end }}>>{{ if .AllParamsOptional }} = {}{{ end }}) =>
   {{ .AliasOf }};
 {{- if $.GenerateTypes }}
 export type {{ .TSName }}<{{ range $i, $p := .TypeParams }}{{ if $i }}, {{ end }}{{ $p.Name }} extends {{ $p.Constraint }}{{ if $p.HasDefault }} = {{ $p.Default }}{{ end }}{{ end }}> = z.{{ if .UseInput }}input{{ else }}infer{{ end }}<
@@ -2005,13 +2106,14 @@ export interface {{ .TSName }} extends z.{{ if .UseInput }}input{{ else }}infer{
 {{- if .IsSingleParam }}
 {{- if and .ConcreteTypes .ConditionalFields }}
 
-export type {{ .TSName }}ZodObject<{{ range $i, $p := .TypeParams }}{{ $p.Name }} extends {{ $p.Constraint }}{{ if $p.HasDefault }} = {{ $p.Default }}{{ end }}{{ end }}> = z.ZodObject<
-  {
+export type {{ .TSName }}ZodObject<{{ range $i, $p := .TypeParams }}{{ $p.Name }} extends {{ $p.Constraint }}{{ if $p.HasDefault }} = {{ $p.Default }}{{ end }}{{ end }}> = z.ZodObject<{
 {{- range .BaseFields }}
     {{ .TSName }}: {{ .ZodSchemaType }};
 {{- end }}
-  }{{ range .ConditionalFields }} & ([{{ .TypeParamName }}] extends [{{ .NeverType }}] ? {} : { {{ .Field.TSName }}: {{ .TypeParamName }} }){{ end }}
->;
+{{- range .ConditionalFields }}
+    {{ .Field.TSName }}: [{{ .TypeParamName }}] extends [{{ .NeverType }}] ? {{ .FallbackSchemaType }} : {{ .TypeParamName }};
+{{- end }}
+}>;
 
 export interface {{ .TSName }}ZFunction {
   <{{ range $i, $p := .TypeParams }}{{ $p.Name }} extends {{ $p.Constraint }}{{ end }}>(
@@ -2063,27 +2165,28 @@ export const {{ camelCase .TSName }}Z = <{{ range $i, $p := .TypeParams }}{{ $p.
 {{- end }}
 {{- else }}
 
-export interface {{ .TSName }}Schemas<{{ range $i, $p := .TypeParams }}{{ if $i }}, {{ end }}{{ $p.Name }} extends {{ $p.Constraint }}{{ if $p.HasDefault }} = {{ $p.Default }}{{ end }}{{ end }}> {
+export interface {{ .TSName }}Schemas<{{ range $i, $p := .TypeParams }}{{ if $i }}, {{ end }}{{ $p.Name }} extends {{ $p.Constraint }}{{ if $p.HasDefault }} = {{ $p.Constraint }}{{ end }}{{ end }}> {
 {{- range $i, $p := .TypeParams }}
-  {{ $p.Name | camelCase }}{{ if $p.HasDefault }}?{{ end }}: {{ $p.Name }};
+  {{ $p.Name | camelCase }}: {{ $p.Name }};
 {{- end }}
 }
 {{- if and .ConcreteTypes .ConditionalFields }}
 
-export type {{ .TSName }}ZodObject<{{ range $i, $p := .TypeParams }}{{ if $i }}, {{ end }}{{ $p.Name }} extends {{ $p.Constraint }}{{ if $p.HasDefault }} = {{ $p.Default }}{{ end }}{{ end }}> = z.ZodObject<
-  {
+export type {{ .TSName }}ZodObject<{{ range $i, $p := .TypeParams }}{{ if $i }}, {{ end }}{{ $p.Name }} extends {{ $p.Constraint }}{{ if $p.HasDefault }} = {{ $p.Default }}{{ end }}{{ end }}> = z.ZodObject<{
 {{- range .BaseFields }}
     {{ .TSName }}: {{ .ZodSchemaType }};
 {{- end }}
-  }{{ range .ConditionalFields }} & ([{{ .TypeParamName }}] extends [{{ .NeverType }}] ? {} : { {{ .Field.TSName }}: {{ .TypeParamName }} }){{ end }}
->;
+{{- range .ConditionalFields }}
+    {{ .Field.TSName }}: [{{ .TypeParamName }}] extends [{{ .NeverType }}] ? {{ .FallbackSchemaType }} : {{ .TypeParamName }};
+{{- end }}
+}>;
 
 export interface {{ .TSName }}ZFunction {
   <{{ range $i, $p := .TypeParams }}{{ if $i }}, {{ end }}{{ $p.Name }} extends {{ $p.Constraint }}{{ if not $p.HasDefault }}{{ else if $p.Default }} = {{ $p.Default }}{{ end }}{{ end }}>(
     args: { {{ range $i, $p := .TypeParams }}{{ if $i }}; {{ end }}{{ $p.Name | camelCase }}{{ if $p.HasDefault }}?{{ end }}: {{ $p.Name }}{{ end }} }
   ): {{ .TSName }}ZodObject<{{ range $i, $p := .TypeParams }}{{ if $i }}, {{ end }}{{ $p.Name }}{{ end }}>;
   <{{ range $i, $p := .TypeParams }}{{ if $i }}, {{ end }}{{ $p.Name }} extends {{ $p.Constraint }}{{ if $p.HasDefault }} = {{ $p.Default }}{{ end }}{{ end }}>(
-    args?: {{ .TSName }}Schemas<{{ range $i, $p := .TypeParams }}{{ if $i }}, {{ end }}{{ $p.Name }}{{ end }}>
+    args?: Partial<{{ .TSName }}Schemas<{{ range $i, $p := .TypeParams }}{{ if $i }}, {{ end }}{{ $p.Name }}{{ end }}>>
   ): {{ .TSName }}ZodObject<{{ range $i, $p := .TypeParams }}{{ if $i }}, {{ end }}{{ $p.Name }}{{ end }}>;
 }
 
@@ -2091,14 +2194,14 @@ export const {{ camelCase .TSName }}Z: {{ .TSName }}ZFunction = <{{ range $i, $p
 {{- range $i, $p := .TypeParams }}
   {{ $p.Name | camelCase }},
 {{- end }}
-}: {{ .TSName }}Schemas<{{ range $i, $p := .TypeParams }}{{ if $i }}, {{ end }}{{ $p.Name }}{{ end }}> = {} as {{ .TSName }}Schemas<{{ range $i, $p := .TypeParams }}{{ if $i }}, {{ end }}{{ $p.Name }}{{ end }}>) =>
+}: Partial<{{ .TSName }}Schemas<{{ range $i, $p := .TypeParams }}{{ if $i }}, {{ end }}{{ $p.Name }}{{ end }}>> = {}) =>
 {{- else }}
 
 export const {{ camelCase .TSName }}Z = <{{ range $i, $p := .TypeParams }}{{ if $i }}, {{ end }}{{ $p.Name }} extends {{ $p.Constraint }}{{ if $p.HasDefault }} = {{ $p.Default }}{{ end }}{{ end }}>({
 {{- range $i, $p := .TypeParams }}
   {{ $p.Name | camelCase }},
 {{- end }}
-}: {{ .TSName }}Schemas<{{ range $i, $p := .TypeParams }}{{ if $i }}, {{ end }}{{ $p.Name }}{{ end }}>{{ if .AllParamsOptional }} = {}{{ end }}) =>
+}: Partial<{{ .TSName }}Schemas<{{ range $i, $p := .TypeParams }}{{ if $i }}, {{ end }}{{ $p.Name }}{{ end }}>>{{ if .AllParamsOptional }} = {}{{ end }}) =>
 {{- end }}
 {{- if .HasExtends }}
   {{ range $i, $p := .ExtendsParents }}{{ if $i }}.extend({{ end }}{{ $p.Name }}({{ if $p.IsGeneric }}{ {{ range $j, $a := $p.SchemaArgs }}{{ if $j }}, {{ end }}{{ $a }}{{ end }} }{{ end }}){{ if $i }}.shape){{ end }}{{ end }}
@@ -2138,24 +2241,48 @@ export const {{ camelCase .TSName }}Z = <{{ range $i, $p := .TypeParams }}{{ if 
 {{- if $.GenerateTypes }}
 {{- if .ConcreteTypes }}
 {{- if .HasExtends }}
+{{- if .CoalesceTypeParams }}
+export type {{ .TSName }}<S extends {{ .TSName }}Schemas = {{ .TSName }}Schemas> = {{ if .PartialFields }}optional.Optional<{{ end }}{{ if .OmittedFields }}Omit<{{ end }}{{ .ExtendsTypeName }}<S>{{ if .OmittedFields }}, {{ range $i, $f := .OmittedFields }}{{ if $i }} | {{ end }}"{{ $f }}"{{ end }}>{{ end }}{{ if .PartialFields }}, {{ range $i, $f := .PartialFields }}{{ if $i }} | {{ end }}"{{ $f.TSName }}"{{ end }}>{{ end }}{{ if .ExtendFields }} & {
+{{- range .ExtendFields }}
+  {{ .TSName }}{{ if or .IsOptional .IsHardOptional }}?{{ end }}: {{ .CoalescedTSType }}{{ if .IsArray }}[]{{ end }};
+{{- end }}
+}{{ end }};
+{{- else }}
 export type {{ .TSName }}<{{ range $i, $p := .TypeParams }}{{ if $i }}, {{ end }}{{ $p.Name }} extends {{ $p.Constraint }}{{ if $p.HasDefault }} = {{ $p.Default }}{{ end }}{{ end }}> = {{ if .PartialFields }}optional.Optional<{{ end }}{{ if .OmittedFields }}Omit<{{ end }}{{ .ExtendsTypeName }}<{{ range $i, $p := .TypeParams }}{{ if $i }}, {{ end }}{{ $p.Name }}{{ end }}>{{ if .OmittedFields }}, {{ range $i, $f := .OmittedFields }}{{ if $i }} | {{ end }}"{{ $f }}"{{ end }}>{{ end }}{{ if .PartialFields }}, {{ range $i, $f := .PartialFields }}{{ if $i }} | {{ end }}"{{ $f.TSName }}"{{ end }}>{{ end }}{{ if .ExtendFields }} & {
 {{- range .ExtendFields }}
   {{ .TSName }}{{ if or .IsOptional .IsHardOptional }}?{{ end }}: {{ .TSType }}{{ if .IsArray }}[]{{ end }};
 {{- end }}
 }{{ end }};
+{{- end }}
 {{- else }}
 {{- if .ConditionalFields }}
+{{- if .CoalesceTypeParams }}
+export type {{ .TSName }}<S extends {{ .TSName }}Schemas = {{ .TSName }}Schemas> = {
+{{- range .BaseFields }}
+  {{ .TSName }}{{ if or .IsOptional .IsHardOptional }}?{{ end }}: {{ .CoalescedTSType }}{{ if .IsArray }}[]{{ end }};
+{{- end }}
+}{{ range .ConditionalFields }} & ([S["{{ .TypeParamName | camelCase }}"]] extends [{{ .NeverType }}] ? {} : { {{ .Field.TSName }}: {{ .Field.CoalescedTSType }}{{ if .Field.IsArray }}[]{{ end }} }){{ end }};
+{{- else }}
 export type {{ .TSName }}<{{ range $i, $p := .TypeParams }}{{ if $i }}, {{ end }}{{ $p.Name }} extends {{ $p.Constraint }}{{ if $p.HasDefault }} = {{ $p.Default }}{{ end }}{{ end }}> = {
 {{- range .BaseFields }}
   {{ .TSName }}{{ if or .IsOptional .IsHardOptional }}?{{ end }}: {{ .TSType }}{{ if .IsArray }}[]{{ end }};
 {{- end }}
 }{{ range .ConditionalFields }} & ([{{ .TypeParamName }}] extends [{{ .NeverType }}] ? {} : { {{ .Field.TSName }}: {{ .Field.TSType }}{{ if .Field.IsArray }}[]{{ end }} }){{ end }};
+{{- end }}
+{{- else }}
+{{- if .CoalesceTypeParams }}
+export interface {{ .TSName }}<S extends {{ .TSName }}Schemas = {{ .TSName }}Schemas> {
+{{- range .Fields }}
+  {{ .TSName }}{{ if or .IsOptional .IsHardOptional }}?{{ end }}: {{ .CoalescedTSType }}{{ if .IsArray }}[]{{ end }};
+{{- end }}
+}
 {{- else }}
 export interface {{ .TSName }}<{{ range $i, $p := .TypeParams }}{{ if $i }}, {{ end }}{{ $p.Name }} extends {{ $p.Constraint }}{{ if $p.HasDefault }} = {{ $p.Default }}{{ end }}{{ end }}> {
 {{- range .Fields }}
   {{ .TSName }}{{ if or .IsOptional .IsHardOptional }}?{{ end }}: {{ .TSType }}{{ if .IsArray }}[]{{ end }};
 {{- end }}
 }
+{{- end }}
 {{- end }}
 {{- end }}
 {{- else }}

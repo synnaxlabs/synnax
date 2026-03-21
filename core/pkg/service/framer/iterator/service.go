@@ -15,10 +15,10 @@ import (
 
 	"github.com/samber/lo"
 	"github.com/synnaxlabs/alamos"
-	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer/iterator"
 	"github.com/synnaxlabs/synnax/pkg/service/arc"
+	"github.com/synnaxlabs/synnax/pkg/service/channel"
 	"github.com/synnaxlabs/synnax/pkg/service/framer/calculation/calculator"
 	"github.com/synnaxlabs/synnax/pkg/service/framer/calculation/graph"
 	"github.com/synnaxlabs/x/address"
@@ -188,7 +188,7 @@ func (s *Service) newCalculationTransform(ctx context.Context, cfg *Config) (*ca
 	// Use allocator to resolve dependencies and get topological order
 	calcGraph, err := graph.New(graph.Config{
 		Channel:        s.cfg.Channel,
-		SymbolResolver: s.cfg.Arc.SymbolResolver(),
+		SymbolResolver: s.cfg.Arc.NewSymbolResolver(nil),
 	})
 	if err != nil {
 		return nil, err

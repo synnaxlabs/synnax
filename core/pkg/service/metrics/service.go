@@ -17,10 +17,11 @@ import (
 
 	"github.com/samber/lo"
 	"github.com/synnaxlabs/alamos"
-	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
+	distchannel "github.com/synnaxlabs/synnax/pkg/distribution/channel"
 	"github.com/synnaxlabs/synnax/pkg/distribution/cluster"
 	"github.com/synnaxlabs/synnax/pkg/distribution/group"
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
+	"github.com/synnaxlabs/synnax/pkg/service/channel"
 	"github.com/synnaxlabs/synnax/pkg/service/framer"
 	"github.com/synnaxlabs/synnax/pkg/storage"
 	"github.com/synnaxlabs/x/address"
@@ -154,9 +155,9 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (*Service, error) {
 		IsIndex:  true,
 	}
 	var metricsChannels []channel.Channel
-	if err := cfg.DB.WithTx(ctx, func(tx gorp.Tx) error {
+	if err = cfg.DB.WithTx(ctx, func(tx gorp.Tx) error {
 		chWriter := cfg.Channel.NewWriter(tx)
-		if err := chWriter.Create(
+		if err = chWriter.Create(
 			ctx,
 			&c.idx,
 			channel.RetrieveIfNameExists(),
@@ -176,7 +177,7 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (*Service, error) {
 		metricsChannels = lo.Map(metrics, func(m metric, _ int) channel.Channel {
 			return m.ch
 		})
-		if err := chWriter.CreateMany(
+		if err = chWriter.CreateMany(
 			ctx,
 			&metricsChannels,
 			channel.RetrieveIfNameExists(),
@@ -187,7 +188,7 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (*Service, error) {
 		// delete any existing relationships between the parent Channels group and the
 		// metrics channels
 		for _, ch := range metricsChannels {
-			if err := otgWriter.DeleteRelationship(
+			if err = otgWriter.DeleteRelationship(
 				ctx,
 				cfg.Channel.Group().OntologyID(),
 				ontology.RelationshipTypeParentOf,
@@ -200,23 +201,22 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (*Service, error) {
 			metrics[i].ch = ch
 		}
 		c.metrics = metrics
-		if err := s.maybeDefineGroupRelationship(
+		if err = s.maybeDefineGroupRelationship(
 			ctx,
 			tx,
-			channel.OntologyIDsFromChannels(metricsChannels),
+			distchannel.OntologyIDsFromChannels(metricsChannels),
 		); err != nil {
 			return err
 		}
-
 		return nil
 	}); err != nil {
 		return nil, err
 	}
 	// Do this in a separate transaction otherwise the Arc analyzer won't parse the
 	// calculated channel expressions.
-	if err := cfg.DB.WithTx(ctx, func(tx gorp.Tx) error {
+	if err = cfg.DB.WithTx(ctx, func(tx gorp.Tx) error {
 		calculatedChannels := createCalculatedMetrics(namePrefix)
-		if err := cfg.Channel.NewWriter(tx).CreateMany(
+		if err = cfg.Channel.NewWriter(tx).CreateMany(
 			ctx,
 			&calculatedChannels,
 			channel.RetrieveIfNameExists(),
@@ -224,10 +224,10 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (*Service, error) {
 		); err != nil {
 			return err
 		}
-		if err := s.maybeDefineGroupRelationship(
+		if err = s.maybeDefineGroupRelationship(
 			ctx,
 			tx,
-			channel.OntologyIDsFromChannels(calculatedChannels),
+			distchannel.OntologyIDsFromChannels(calculatedChannels),
 		); err != nil {
 			return err
 		}
@@ -239,7 +239,7 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (*Service, error) {
 		ctx,
 		framer.WriterConfig{
 			Keys: append(
-				channel.KeysFromChannels(metricsChannels),
+				distchannel.KeysFromChannels(metricsChannels),
 				c.idx.Key(),
 			),
 			Start:                    telem.Now(),
@@ -295,7 +295,7 @@ func (s *Service) maybeDefineGroupRelationship(
 		if err := s.cfg.Ontology.NewRetrieve().
 			WhereIDs(chID).
 			TraverseTo(ontology.ParentsTraverser).
-			WhereTypes(group.OntologyType).
+			WhereTypes(ontology.TypeGroup).
 			Entries(&parents).
 			Exec(ctx, tx); err != nil {
 			return err

@@ -100,6 +100,14 @@ func (r Retrieve) WhereNotDataTypes(dataTypes ...telem.DataType) Retrieve {
 	return r
 }
 
+// WhereCalculated filters for channels that have a non-empty Expression field.
+func (r Retrieve) WhereCalculated() Retrieve {
+	r.gorp.Where(func(_ gorp.Context, ch *Channel) (bool, error) {
+		return ch.IsCalculated(), nil
+	})
+	return r
+}
+
 // WhereNames filters for channels whose Key attribute matches the provided name.
 func (r Retrieve) WhereNames(names ...string) Retrieve {
 	matchers := make([]func(string) bool, len(names))
@@ -134,7 +142,7 @@ func (r Retrieve) Offset(offset int) Retrieve { r.gorp.Offset(offset); return r 
 func (r Retrieve) Exec(ctx context.Context, tx gorp.Tx) error {
 	if r.searchTerm != "" {
 		ids, err := r.otg.SearchIDs(ctx, ontology.SearchRequest{
-			Type: OntologyType,
+			Type: ontology.TypeChannel,
 			Term: r.searchTerm,
 		})
 		if err != nil {

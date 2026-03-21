@@ -130,7 +130,6 @@ export const ONTOLOGY_SERVICE: Ontology.Service = {
   ...Ontology.NOOP_SERVICE,
   type: "device",
   icon,
-  hasChildren: false,
   TreeContextMenu,
   Item,
 };

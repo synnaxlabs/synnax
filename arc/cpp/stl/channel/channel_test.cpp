@@ -31,19 +31,20 @@ runtime::node::Context make_context(bool *changed = nullptr) {
 }
 
 TEST(ChannelModuleTest, CreateSourceNode) {
-    ir::Param output_param;
+    types::Param output_param;
     output_param.name = ir::default_output_param;
-    output_param.type = types::Type(types::Kind::F32);
+    output_param.type.kind = types::Kind::F32;
 
     ir::Node ir_node;
     ir_node.key = "source";
     ir_node.type = "on";
-    ir_node.outputs.params.push_back(output_param);
+    ir_node.outputs.push_back(output_param);
 
-    ir::Param channel_config;
+    types::Param channel_config;
     channel_config.name = "channel";
+    channel_config.type.kind = types::Kind::U32;
     channel_config.value = static_cast<uint32_t>(10);
-    ir_node.config.params.push_back(channel_config);
+    ir_node.config.push_back(channel_config);
 
     ir::IR ir;
     ir.nodes.push_back(ir_node);
@@ -60,19 +61,20 @@ TEST(ChannelModuleTest, CreateSourceNode) {
 }
 
 TEST(ChannelModuleTest, CreateSinkNode) {
-    ir::Param input_param;
+    types::Param input_param;
     input_param.name = ir::default_input_param;
-    input_param.type = types::Type(types::Kind::F32);
+    input_param.type.kind = types::Kind::F32;
 
     ir::Node ir_node;
     ir_node.key = "sink";
     ir_node.type = "write";
-    ir_node.inputs.params.push_back(input_param);
+    ir_node.inputs.push_back(input_param);
 
-    ir::Param channel_config;
+    types::Param channel_config;
     channel_config.name = "channel";
+    channel_config.type.kind = types::Kind::U32;
     channel_config.value = static_cast<uint32_t>(10);
-    ir_node.config.params.push_back(channel_config);
+    ir_node.config.push_back(channel_config);
 
     ir::IR ir;
     ir.nodes.push_back(ir_node);
@@ -88,15 +90,41 @@ TEST(ChannelModuleTest, CreateSinkNode) {
     EXPECT_NE(node, nullptr);
 }
 
+TEST(ChannelModuleTest, ReturnsErrorForNullChannelParam) {
+    ir::Node ir_node;
+    ir_node.key = "source";
+    ir_node.type = "on";
+
+    types::Param channel_config;
+    channel_config.name = "channel";
+    channel_config.type.kind = types::Kind::U32;
+    channel_config.value = nullptr;
+    ir_node.config.push_back(channel_config);
+
+    ir::IR ir;
+    ir.nodes.push_back(ir_node);
+
+    runtime::state::Config cfg{.ir = ir, .channels = {}};
+    runtime::state::State s(cfg, runtime::errors::noop_handler);
+
+    channel::Module module(nullptr, nullptr);
+    auto state_node = ASSERT_NIL_P(s.node("source"));
+    ASSERT_OCCURRED_AS_P(
+        module.create(runtime::node::Config(ir, ir_node, std::move(state_node))),
+        x::errors::VALIDATION
+    );
+}
+
 TEST(ChannelModuleTest, UnknownNodeType) {
     ir::Node ir_node;
     ir_node.key = "unknown";
     ir_node.type = "unknown_type";
 
-    ir::Param channel_config;
+    types::Param channel_config;
     channel_config.name = "channel";
+    channel_config.type.kind = types::Kind::U32;
     channel_config.value = static_cast<uint32_t>(10);
-    ir_node.config.params.push_back(channel_config);
+    ir_node.config.push_back(channel_config);
 
     ir::IR ir;
     ir.nodes.push_back(ir_node);
@@ -122,19 +150,20 @@ TEST(ChannelModuleTest, HandlesOnAndWrite) {
 }
 
 TEST(OnTest, NextReadsChannelData) {
-    ir::Param output_param;
+    types::Param output_param;
     output_param.name = ir::default_output_param;
-    output_param.type = types::Type(types::Kind::F32);
+    output_param.type.kind = types::Kind::F32;
 
     ir::Node ir_node;
     ir_node.key = "source";
     ir_node.type = "on";
-    ir_node.outputs.params.push_back(output_param);
+    ir_node.outputs.push_back(output_param);
 
-    ir::Param channel_config;
+    types::Param channel_config;
     channel_config.name = "channel";
+    channel_config.type.kind = types::Kind::U32;
     channel_config.value = static_cast<uint32_t>(10);
-    ir_node.config.params.push_back(channel_config);
+    ir_node.config.push_back(channel_config);
 
     ir::IR ir;
     ir.nodes.push_back(ir_node);
@@ -175,19 +204,20 @@ TEST(OnTest, NextReadsChannelData) {
 }
 
 TEST(OnTest, NextHandlesChannelWithoutIndex) {
-    ir::Param output_param;
+    types::Param output_param;
     output_param.name = ir::default_output_param;
-    output_param.type = types::Type(types::Kind::I32);
+    output_param.type.kind = types::Kind::I32;
 
     ir::Node ir_node;
     ir_node.key = "source";
     ir_node.type = "on";
-    ir_node.outputs.params.push_back(output_param);
+    ir_node.outputs.push_back(output_param);
 
-    ir::Param channel_config;
+    types::Param channel_config;
     channel_config.name = "channel";
+    channel_config.type.kind = types::Kind::U32;
     channel_config.value = static_cast<uint32_t>(20);
-    ir_node.config.params.push_back(channel_config);
+    ir_node.config.push_back(channel_config);
 
     ir::IR ir;
     ir.nodes.push_back(ir_node);
@@ -223,19 +253,20 @@ TEST(OnTest, NextHandlesChannelWithoutIndex) {
 }
 
 TEST(OnTest, NextReturnsEarlyOnEmptyChannel) {
-    ir::Param output_param;
+    types::Param output_param;
     output_param.name = ir::default_output_param;
-    output_param.type = types::Type(types::Kind::F32);
+    output_param.type.kind = types::Kind::F32;
 
     ir::Node ir_node;
     ir_node.key = "source";
     ir_node.type = "on";
-    ir_node.outputs.params.push_back(output_param);
+    ir_node.outputs.push_back(output_param);
 
-    ir::Param channel_config;
+    types::Param channel_config;
     channel_config.name = "channel";
+    channel_config.type.kind = types::Kind::U32;
     channel_config.value = static_cast<uint32_t>(999);
-    ir_node.config.params.push_back(channel_config);
+    ir_node.config.push_back(channel_config);
 
     ir::IR ir;
     ir.nodes.push_back(ir_node);
@@ -257,19 +288,20 @@ TEST(OnTest, NextReturnsEarlyOnEmptyChannel) {
 }
 
 TEST(OnTest, NextHandlesMultipleSeries) {
-    ir::Param output_param;
+    types::Param output_param;
     output_param.name = ir::default_output_param;
-    output_param.type = types::Type(types::Kind::F32);
+    output_param.type.kind = types::Kind::F32;
 
     ir::Node ir_node;
     ir_node.key = "source";
     ir_node.type = "on";
-    ir_node.outputs.params.push_back(output_param);
+    ir_node.outputs.push_back(output_param);
 
-    ir::Param channel_config;
+    types::Param channel_config;
     channel_config.name = "channel";
+    channel_config.type.kind = types::Kind::U32;
     channel_config.value = static_cast<uint32_t>(10);
-    ir_node.config.params.push_back(channel_config);
+    ir_node.config.push_back(channel_config);
 
     ir::IR ir;
     ir.nodes.push_back(ir_node);
@@ -321,19 +353,20 @@ TEST(OnTest, NextHandlesMultipleSeries) {
 }
 
 TEST(OnTest, NextSkipsOnIndexCountMismatch) {
-    ir::Param output_param;
+    types::Param output_param;
     output_param.name = ir::default_output_param;
-    output_param.type = types::Type(types::Kind::F32);
+    output_param.type.kind = types::Kind::F32;
 
     ir::Node ir_node;
     ir_node.key = "source";
     ir_node.type = "on";
-    ir_node.outputs.params.push_back(output_param);
+    ir_node.outputs.push_back(output_param);
 
-    ir::Param channel_config;
+    types::Param channel_config;
     channel_config.name = "channel";
+    channel_config.type.kind = types::Kind::U32;
     channel_config.value = static_cast<uint32_t>(10);
-    ir_node.config.params.push_back(channel_config);
+    ir_node.config.push_back(channel_config);
 
     ir::IR ir;
     ir.nodes.push_back(ir_node);
@@ -372,19 +405,20 @@ TEST(OnTest, NextSkipsOnIndexCountMismatch) {
 }
 
 TEST(OnTest, NextSkipsOnAlignmentMismatch) {
-    ir::Param output_param;
+    types::Param output_param;
     output_param.name = ir::default_output_param;
-    output_param.type = types::Type(types::Kind::F64);
+    output_param.type.kind = types::Kind::F64;
 
     ir::Node ir_node;
     ir_node.key = "source";
     ir_node.type = "on";
-    ir_node.outputs.params.push_back(output_param);
+    ir_node.outputs.push_back(output_param);
 
-    ir::Param channel_config;
+    types::Param channel_config;
     channel_config.name = "channel";
+    channel_config.type.kind = types::Kind::U32;
     channel_config.value = static_cast<uint32_t>(30);
-    ir_node.config.params.push_back(channel_config);
+    ir_node.config.push_back(channel_config);
 
     ir::IR ir;
     ir.nodes.push_back(ir_node);
@@ -420,19 +454,20 @@ TEST(OnTest, NextSkipsOnAlignmentMismatch) {
 }
 
 TEST(OnTest, NextCallsMarkChanged) {
-    ir::Param output_param;
+    types::Param output_param;
     output_param.name = ir::default_output_param;
-    output_param.type = types::Type(types::Kind::F32);
+    output_param.type.kind = types::Kind::F32;
 
     ir::Node ir_node;
     ir_node.key = "source";
     ir_node.type = "on";
-    ir_node.outputs.params.push_back(output_param);
+    ir_node.outputs.push_back(output_param);
 
-    ir::Param channel_config;
+    types::Param channel_config;
     channel_config.name = "channel";
+    channel_config.type.kind = types::Kind::U32;
     channel_config.value = static_cast<uint32_t>(10);
-    ir_node.config.params.push_back(channel_config);
+    ir_node.config.push_back(channel_config);
 
     ir::IR ir;
     ir.nodes.push_back(ir_node);
@@ -466,28 +501,29 @@ TEST(OnTest, NextCallsMarkChanged) {
 }
 
 TEST(WriteTest, NextWritesDataWhenInputAvailable) {
-    ir::Param upstream_output;
+    types::Param upstream_output;
     upstream_output.name = ir::default_output_param;
-    upstream_output.type = types::Type(types::Kind::F32);
+    upstream_output.type.kind = types::Kind::F32;
 
     ir::Node upstream_node;
     upstream_node.key = "upstream";
     upstream_node.type = "producer";
-    upstream_node.outputs.params.push_back(upstream_output);
+    upstream_node.outputs.push_back(upstream_output);
 
-    ir::Param sink_input;
+    types::Param sink_input;
     sink_input.name = ir::default_input_param;
-    sink_input.type = types::Type(types::Kind::F32);
+    sink_input.type.kind = types::Kind::F32;
 
     ir::Node sink_node;
     sink_node.key = "sink";
     sink_node.type = "write";
-    sink_node.inputs.params.push_back(sink_input);
+    sink_node.inputs.push_back(sink_input);
 
-    ir::Param channel_config;
+    types::Param channel_config;
     channel_config.name = "channel";
+    channel_config.type.kind = types::Kind::U32;
     channel_config.value = static_cast<uint32_t>(100);
-    sink_node.config.params.push_back(channel_config);
+    sink_node.config.push_back(channel_config);
 
     ir::Edge edge;
     edge.source = ir::Handle("upstream", ir::default_output_param);
@@ -539,28 +575,29 @@ TEST(WriteTest, NextWritesDataWhenInputAvailable) {
 }
 
 TEST(WriteTest, NextRespectsRefreshInputsGuard) {
-    ir::Param upstream_output;
+    types::Param upstream_output;
     upstream_output.name = ir::default_output_param;
-    upstream_output.type = types::Type(types::Kind::F32);
+    upstream_output.type.kind = types::Kind::F32;
 
     ir::Node upstream_node;
     upstream_node.key = "upstream";
     upstream_node.type = "producer";
-    upstream_node.outputs.params.push_back(upstream_output);
+    upstream_node.outputs.push_back(upstream_output);
 
-    ir::Param sink_input;
+    types::Param sink_input;
     sink_input.name = ir::default_input_param;
-    sink_input.type = types::Type(types::Kind::F32);
+    sink_input.type.kind = types::Kind::F32;
 
     ir::Node sink_node;
     sink_node.key = "sink";
     sink_node.type = "write";
-    sink_node.inputs.params.push_back(sink_input);
+    sink_node.inputs.push_back(sink_input);
 
-    ir::Param channel_config;
+    types::Param channel_config;
     channel_config.name = "channel";
+    channel_config.type.kind = types::Kind::U32;
     channel_config.value = static_cast<uint32_t>(100);
-    sink_node.config.params.push_back(channel_config);
+    sink_node.config.push_back(channel_config);
 
     ir::Edge edge;
     edge.source = ir::Handle("upstream", ir::default_output_param);
@@ -591,28 +628,29 @@ TEST(WriteTest, NextRespectsRefreshInputsGuard) {
 }
 
 TEST(WriteTest, NextSkipsEmptyInput) {
-    ir::Param upstream_output;
+    types::Param upstream_output;
     upstream_output.name = ir::default_output_param;
-    upstream_output.type = types::Type(types::Kind::F32);
+    upstream_output.type.kind = types::Kind::F32;
 
     ir::Node upstream_node;
     upstream_node.key = "upstream";
     upstream_node.type = "producer";
-    upstream_node.outputs.params.push_back(upstream_output);
+    upstream_node.outputs.push_back(upstream_output);
 
-    ir::Param sink_input;
+    types::Param sink_input;
     sink_input.name = ir::default_input_param;
-    sink_input.type = types::Type(types::Kind::F32);
+    sink_input.type.kind = types::Kind::F32;
 
     ir::Node sink_node;
     sink_node.key = "sink";
     sink_node.type = "write";
-    sink_node.inputs.params.push_back(sink_input);
+    sink_node.inputs.push_back(sink_input);
 
-    ir::Param channel_config;
+    types::Param channel_config;
     channel_config.name = "channel";
+    channel_config.type.kind = types::Kind::U32;
     channel_config.value = static_cast<uint32_t>(100);
-    sink_node.config.params.push_back(channel_config);
+    sink_node.config.push_back(channel_config);
 
     ir::Edge edge;
     edge.source = ir::Handle("upstream", ir::default_output_param);
@@ -654,28 +692,29 @@ TEST(WriteTest, NextSkipsEmptyInput) {
 }
 
 TEST(WriteTest, NextHandlesSequentialWrites) {
-    ir::Param upstream_output;
+    types::Param upstream_output;
     upstream_output.name = ir::default_output_param;
-    upstream_output.type = types::Type(types::Kind::F32);
+    upstream_output.type.kind = types::Kind::F32;
 
     ir::Node upstream_node;
     upstream_node.key = "upstream";
     upstream_node.type = "producer";
-    upstream_node.outputs.params.push_back(upstream_output);
+    upstream_node.outputs.push_back(upstream_output);
 
-    ir::Param sink_input;
+    types::Param sink_input;
     sink_input.name = ir::default_input_param;
-    sink_input.type = types::Type(types::Kind::F32);
+    sink_input.type.kind = types::Kind::F32;
 
     ir::Node sink_node;
     sink_node.key = "sink";
     sink_node.type = "write";
-    sink_node.inputs.params.push_back(sink_input);
+    sink_node.inputs.push_back(sink_input);
 
-    ir::Param channel_config;
+    types::Param channel_config;
     channel_config.name = "channel";
+    channel_config.type.kind = types::Kind::U32;
     channel_config.value = static_cast<uint32_t>(100);
-    sink_node.config.params.push_back(channel_config);
+    sink_node.config.push_back(channel_config);
 
     ir::Edge edge;
     edge.source = ir::Handle("upstream", ir::default_output_param);
@@ -738,33 +777,35 @@ TEST(WriteTest, NextHandlesSequentialWrites) {
 }
 
 TEST(IntegrationTest, SourceToSinkFlow) {
-    ir::Param read_output;
+    types::Param read_output;
     read_output.name = ir::default_output_param;
-    read_output.type = types::Type(types::Kind::I32);
+    read_output.type.kind = types::Kind::I32;
 
     ir::Node read_node;
     read_node.key = "read";
     read_node.type = "on";
-    read_node.outputs.params.push_back(read_output);
+    read_node.outputs.push_back(read_output);
 
-    ir::Param read_channel;
+    types::Param read_channel;
     read_channel.name = "channel";
+    read_channel.type.kind = types::Kind::U32;
     read_channel.value = static_cast<uint32_t>(1);
-    read_node.config.params.push_back(read_channel);
+    read_node.config.push_back(read_channel);
 
-    ir::Param write_input;
+    types::Param write_input;
     write_input.name = ir::default_input_param;
-    write_input.type = types::Type(types::Kind::I32);
+    write_input.type.kind = types::Kind::I32;
 
     ir::Node write_node;
     write_node.key = "write";
     write_node.type = "write";
-    write_node.inputs.params.push_back(write_input);
+    write_node.inputs.push_back(write_input);
 
-    ir::Param write_channel;
+    types::Param write_channel;
     write_channel.name = "channel";
+    write_channel.type.kind = types::Kind::U32;
     write_channel.value = static_cast<uint32_t>(3);
-    write_node.config.params.push_back(write_channel);
+    write_node.config.push_back(write_channel);
 
     ir::Edge edge;
     edge.source = ir::Handle("read", ir::default_output_param);

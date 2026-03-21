@@ -22,7 +22,7 @@ func high_bang{
     upper_deadband f32,
     abort_threshold f32
 }() u8 {
-    state $= 0
+    state u8 $= 0
     if sensor > (set_point + upper_deadband) {
         state = 0
     } else if sensor < (set_point - lower_deadband) {
@@ -41,7 +41,7 @@ func low_bang{
     upper_deadband f32,
     abort_threshold f32
 }() u8 {
-    state $= 0
+    state u8 $= 0
     if sensor < (set_point - lower_deadband) {
         state = 1
     } else if sensor > (set_point + upper_deadband) {

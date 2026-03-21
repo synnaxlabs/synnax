@@ -154,13 +154,16 @@ func (r *region[R]) update(g *Gate[R], auth control.Authority) (t Transfer) {
 	if g == r.curr {
 		t.From = g.state()
 		t.From.Authority = prevAuth
+		// Iterate all gates to find the best candidate, not just the first match,
+		// since map iteration order is non-deterministic.
 		for existingGate := range r.gates {
 			if r.shouldBeInControl(existingGate) {
 				r.curr = existingGate
-				t.From = g.state()
-				t.To = existingGate.state()
-				return t
 			}
+		}
+		if r.curr != g {
+			t.To = r.curr.state()
+			return t
 		}
 		// No transfer happened, gate remains in control.
 		t.To = g.state()

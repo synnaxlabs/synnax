@@ -38,6 +38,8 @@ struct ChannelField {
     synnax::channel::Key channel_key;
     /// @brief if the channel data type is TIMESTAMP, the output format.
     std::optional<x::json::TimeFormat> time_format;
+    /// @brief optional enum mapping from numeric channel values to string labels.
+    x::json::ReverseEnumMap enum_values;
 };
 
 /// @brief generator type for generated fields.

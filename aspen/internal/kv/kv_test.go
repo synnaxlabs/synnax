@@ -13,6 +13,7 @@ import (
 	"context"
 	"fmt"
 	"slices"
+	"sync"
 	"sync/atomic"
 	"time"
 
@@ -201,7 +202,7 @@ var _ = Describe("txn", func() {
 			}, cluster.Config{}))
 			Expect(kv1.Set(ctx, []byte("key"), []byte("value"))).To(Succeed())
 			Eventually(func() int {
-				return len(builder.OpNet.Entries)
+				return builder.OpNet.EntryCount()
 			}).
 				WithPolling(250 * time.Millisecond).
 				WithTimeout(500 * time.Millisecond).
@@ -213,12 +214,17 @@ var _ = Describe("txn", func() {
 		It("Should allow for a caller to listen to key-value changes", func() {
 			kv := MustSucceed(builder.New(ctx, kv.Config{}, cluster.Config{}))
 			Expect(kv).ToNot(BeNil())
+			var mu sync.Mutex
 			var accumulated []xkv.Change
 			kv.OnChange(func(ctx context.Context, r xkv.TxReader) {
+				mu.Lock()
+				defer mu.Unlock()
 				accumulated = slices.Collect(r)
 			})
 			Expect(kv.Set(ctx, []byte("key"), []byte("value"))).To(Succeed())
 			Eventually(func(g Gomega) {
+				mu.Lock()
+				defer mu.Unlock()
 				g.Expect(accumulated).To(HaveLen(1))
 				g.Expect(accumulated[0].Value).To(Equal([]byte("value")))
 			}).Should(Succeed())

@@ -41,10 +41,9 @@ void Rack::run(x::args::Parser &args, const std::function<void()> &on_shutdown) 
         }
         VLOG(1) << "loaded config. starting task manager";
         if (!this->breaker.running()) return;
-        auto client = cfg.new_client();
         this->task_manager = std::make_unique<task::Manager>(
             cfg.rack,
-            client,
+            cfg.new_client(),
             cfg.new_factory(),
             cfg.manager
         );

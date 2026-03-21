@@ -131,8 +131,9 @@ public:
 
 /// @brief a write task that can write to both digital and analog output channels,
 /// and communicate their state back to Synnax.
-class WriteTask final : public task::Task {
-    class WrappedSink final : public pipeline::Sink, public pipeline::Source {
+class WriteTask final : public driver::task::Task {
+    class WrappedSink final : public driver::pipeline::Sink,
+                              public driver::pipeline::Source {
     public:
         /// @brief the parent write task.
         WriteTask &p;
@@ -180,10 +181,10 @@ class WriteTask final : public task::Task {
     std::shared_ptr<WrappedSink> sink;
     /// @brief the pipeline used to receive commands from Synnax and write them to
     /// the device.
-    pipeline::Control cmd_write_pipe;
+    driver::pipeline::Control cmd_write_pipe;
     /// @brief the pipeline used to receive state changes from the device and write
     /// to Synnax.
-    pipeline::Acquisition state_write_pipe;
+    driver::pipeline::Acquisition state_write_pipe;
 
 public:
     /// @brief base constructor that takes in pipeline factories to allow the
@@ -193,8 +194,8 @@ public:
         const std::shared_ptr<task::Context> &ctx,
         const x::breaker::Config &breaker_cfg,
         std::unique_ptr<Sink> sink,
-        const std::shared_ptr<pipeline::WriterFactory> &writer_factory,
-        const std::shared_ptr<pipeline::StreamerFactory> &streamer_factory
+        const std::shared_ptr<driver::pipeline::WriterFactory> &writer_factory,
+        const std::shared_ptr<driver::pipeline::StreamerFactory> &streamer_factory
     ):
         state(ctx, task),
         sink(std::make_shared<WrappedSink>(*this, std::move(sink))),
@@ -230,15 +231,16 @@ public:
             bypass::pipeline::create_streamer_factory(ctx, {task.name, task.name})
         ) {}
 
-    /// @brief implements task::Task to execute the provided command on the task.
-    void exec(task::Command &cmd) override {
+    /// @brief implements driver::task::Task to execute the provided command on the
+    /// task.
+    void exec(synnax::task::Command &cmd) override {
         if (cmd.type == "start")
             this->start(cmd.key);
         else if (cmd.type == "stop")
             this->stop(cmd.key, true);
     }
 
-    /// @brief implements task::Task to stop the task.
+    /// @brief implements driver::task::Task to stop the task.
     void stop(const bool will_reconfigure) override {
         this->stop("", !will_reconfigure);
     }
@@ -272,7 +274,7 @@ public:
         return sink_started;
     }
 
-    /// @brief implements task::Task to return the task's name.
+    /// @brief implements driver::task::Task to return the task's name.
     std::string name() const override { return this->state.task.name; }
 };
 }

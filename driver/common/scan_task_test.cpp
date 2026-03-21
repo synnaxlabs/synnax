@@ -128,6 +128,7 @@ class MockClusterAPI : public ClusterAPI {
 public:
     std::shared_ptr<std::vector<synnax::device::Device>> remote;
     std::shared_ptr<std::vector<synnax::device::Device>> created;
+    std::shared_ptr<std::vector<synnax::ontology::ID>> created_parents;
     std::vector<std::vector<synnax::device::Status>> propagated_statuses;
     std::shared_ptr<pipeline::mock::StreamerFactory> streamer_factory;
     std::vector<synnax::channel::Channel> signal_channels;
@@ -136,7 +137,9 @@ public:
         const std::shared_ptr<std::vector<synnax::device::Device>> &remote_,
         const std::shared_ptr<std::vector<synnax::device::Device>> &created_
     ):
-        remote(remote_), created(created_) {}
+        remote(remote_),
+        created(created_),
+        created_parents(std::make_shared<std::vector<synnax::ontology::ID>>()) {}
 
     std::pair<std::vector<synnax::device::Device>, x::errors::Error>
     retrieve_devices(const synnax::rack::Key &rack, const std::string &make) override {
@@ -156,7 +159,10 @@ public:
 
     x::errors::Error
     create_devices(std::vector<synnax::device::Device> &devs) override {
-        created->insert(created->end(), devs.begin(), devs.end());
+        for (auto &dev: devs) {
+            created->push_back(dev);
+            created_parents->push_back(dev.parent.value_or(synnax::ontology::ID{}));
+        }
         return x::errors::NIL;
     }
 
@@ -182,7 +188,7 @@ public:
 class MockScannerWithSignals final : public Scanner {
 public:
     ScannerConfig scanner_config;
-    std::vector<task::Command> exec_commands;
+    std::vector<synnax::task::Command> exec_commands;
     bool exec_return_value = false;
     std::mutex mu;
 
@@ -216,7 +222,7 @@ public:
     }
 
     bool exec(
-        task::Command &cmd,
+        synnax::task::Command &cmd,
         const synnax::task::Task &,
         const std::shared_ptr<task::Context> &
     ) override {
@@ -704,17 +710,19 @@ TEST(TestScanTask, TestStatePropagation) {
     dev1.key = "device1";
     dev1.name = "Device 1";
     dev1.rack = 1;
-    dev1.status.key = dev1.status_key();
-    dev1.status.variant = x::status::VARIANT_SUCCESS;
-    dev1.status.details.rack = 1;
+    dev1.status = synnax::device::Status{};
+    dev1.status->key = synnax::device::status_key(dev1);
+    dev1.status->variant = x::status::VARIANT_SUCCESS;
+    dev1.status->details.rack = 1;
 
     synnax::device::Device dev2;
     dev2.key = "device2";
     dev2.name = "Device 2";
     dev2.rack = 2;
-    dev2.status.key = dev2.status_key();
-    dev2.status.variant = x::status::VARIANT_WARNING;
-    dev2.status.details.rack = 2;
+    dev2.status = synnax::device::Status{};
+    dev2.status->key = synnax::device::status_key(dev2);
+    dev2.status->variant = x::status::VARIANT_WARNING;
+    dev2.status->details.rack = 2;
 
     // First scan will find both devices, second scan only dev1
     std::vector<std::vector<synnax::device::Device>> devices = {{dev1, dev2}, {dev1}};
@@ -822,14 +830,209 @@ TEST(TestScanTask, testCustomCommandDelegation) {
     );
 
     // Execute a custom command that should be delegated to the scanner
-    task::Command cmd(task.key, "custom_command", nlohmann::json{{"arg", "value"}});
-    cmd.key = "test_cmd";
+    synnax::task::Command cmd{
+        .task = task.key,
+        .type = "custom_command",
+        .key = "test_cmd",
+        .args = x::json::json{{"arg", "value"}}
+    };
     scan_task.exec(cmd);
 
     // Verify the scanner received the command
     ASSERT_EQ(scanner_ptr->exec_commands.size(), 1);
     EXPECT_EQ(scanner_ptr->exec_commands[0].type, "custom_command");
     EXPECT_EQ(scanner_ptr->exec_commands[0].key, "test_cmd");
+}
+
+/// @brief it should update when parent changes.
+TEST(TestScanTask, TestUpdateWhenParentDeviceChanges) {
+    synnax::device::Device dev1;
+    dev1.key = "device1";
+    dev1.name = "Device 1";
+    dev1.rack = 1;
+    dev1.location = "slot-1";
+
+    synnax::device::Device dev1_with_parent = dev1;
+    dev1_with_parent.parent = synnax::device::ontology_id("chassis-1");
+
+    // Scanner returns the device with a parent ontology ID
+    std::vector<std::vector<synnax::device::Device>> devices = {{dev1_with_parent}};
+    auto scanner = std::make_unique<MockScanner>(
+        devices,
+        std::vector<x::errors::Error>{},
+        std::vector<x::errors::Error>{},
+        std::vector<x::errors::Error>{}
+    );
+
+    auto remote_devices = std::make_shared<std::vector<synnax::device::Device>>();
+    remote_devices->push_back(dev1);
+
+    auto created_devices = std::make_shared<std::vector<synnax::device::Device>>();
+    auto cluster_api = std::make_unique<MockClusterAPI>(
+        remote_devices,
+        created_devices
+    );
+    auto cluster_api_ptr = cluster_api.get();
+
+    auto ctx = std::make_shared<task::MockContext>(nullptr);
+
+    synnax::task::Task task;
+    task.key = 12345;
+    task.name = "Test Scan Task";
+
+    x::breaker::Config breaker_config;
+    x::telem::Rate scan_rate = x::telem::HERTZ * 1;
+
+    ScanTask scan_task(
+        std::move(scanner),
+        ctx,
+        task,
+        breaker_config,
+        scan_rate,
+        std::move(cluster_api)
+    );
+
+    ASSERT_NIL(scan_task.init());
+    ASSERT_NIL(scan_task.scan());
+
+    ASSERT_EQ(created_devices->size(), 1);
+    EXPECT_EQ(created_devices->at(0).key, "device1");
+    ASSERT_EQ(cluster_api_ptr->created_parents->size(), 1);
+    EXPECT_EQ(
+        cluster_api_ptr->created_parents->at(0),
+        synnax::device::ontology_id("chassis-1")
+    );
+}
+
+/// @brief it should not update when parent stays the same.
+TEST(TestScanTask, TestNoUpdateWhenParentDeviceSame) {
+    synnax::device::Device dev1;
+    dev1.key = "device1";
+    dev1.name = "Device 1";
+    dev1.rack = 1;
+    dev1.location = "slot-1";
+
+    synnax::device::Device dev1_scanned = dev1;
+    dev1_scanned.name = "scanner_name";
+    dev1_scanned.properties = x::json::json::object();
+    dev1_scanned.configured = false;
+
+    const auto parent_id = synnax::device::ontology_id("chassis-1");
+    dev1_scanned.parent = parent_id;
+
+    // Two scans: first establishes parent state, second should see no change
+    std::vector<std::vector<synnax::device::Device>> devices = {
+        {dev1_scanned},
+        {dev1_scanned}
+    };
+    auto scanner = std::make_unique<MockScanner>(
+        devices,
+        std::vector<x::errors::Error>{},
+        std::vector<x::errors::Error>{},
+        std::vector<x::errors::Error>{}
+    );
+
+    auto remote_devices = std::make_shared<std::vector<synnax::device::Device>>();
+    remote_devices->push_back(dev1);
+
+    auto created_devices = std::make_shared<std::vector<synnax::device::Device>>();
+    auto cluster_api = std::make_unique<MockClusterAPI>(
+        remote_devices,
+        created_devices
+    );
+
+    auto ctx = std::make_shared<task::MockContext>(nullptr);
+
+    synnax::task::Task task;
+    task.key = 12345;
+    task.name = "Test Scan Task";
+
+    x::breaker::Config breaker_config;
+    x::telem::Rate scan_rate = x::telem::HERTZ * 1;
+
+    ScanTask scan_task(
+        std::move(scanner),
+        ctx,
+        task,
+        breaker_config,
+        scan_rate,
+        std::move(cluster_api)
+    );
+
+    ASSERT_NIL(scan_task.init());
+    // First scan establishes the parent state (triggers update since
+    // dev_states is initially empty)
+    ASSERT_NIL(scan_task.scan());
+    EXPECT_EQ(created_devices->size(), 1);
+
+    // Second scan with same parent should not trigger another update
+    ASSERT_NIL(scan_task.scan());
+    EXPECT_EQ(created_devices->size(), 1);
+}
+
+/// @brief it should update when parent is cleared.
+TEST(TestScanTask, TestUpdateWhenParentDeviceCleared) {
+    synnax::device::Device dev1;
+    dev1.key = "device1";
+    dev1.name = "Device 1";
+    dev1.rack = 1;
+    dev1.location = "slot-1";
+
+    synnax::device::Device dev1_no_parent = dev1;
+
+    const auto parent_id = synnax::device::ontology_id("chassis-1");
+    dev1.parent = parent_id;
+
+    // First scan establishes parent, second scan clears it
+    std::vector<std::vector<synnax::device::Device>> devices = {
+        {dev1},
+        {dev1_no_parent}
+    };
+    auto scanner = std::make_unique<MockScanner>(
+        devices,
+        std::vector<x::errors::Error>{},
+        std::vector<x::errors::Error>{},
+        std::vector<x::errors::Error>{}
+    );
+
+    auto remote_devices = std::make_shared<std::vector<synnax::device::Device>>();
+    remote_devices->push_back(dev1);
+
+    auto created_devices = std::make_shared<std::vector<synnax::device::Device>>();
+    auto cluster_api = std::make_unique<MockClusterAPI>(
+        remote_devices,
+        created_devices
+    );
+    auto cluster_api_ptr = cluster_api.get();
+
+    auto ctx = std::make_shared<task::MockContext>(nullptr);
+
+    synnax::task::Task task;
+    task.key = 12345;
+    task.name = "Test Scan Task";
+
+    x::breaker::Config breaker_config;
+    x::telem::Rate scan_rate = x::telem::HERTZ * 1;
+
+    ScanTask scan_task(
+        std::move(scanner),
+        ctx,
+        task,
+        breaker_config,
+        scan_rate,
+        std::move(cluster_api)
+    );
+
+    ASSERT_NIL(scan_task.init());
+    // First scan has same parent as remote — no update expected
+    ASSERT_NIL(scan_task.scan());
+    ASSERT_EQ(created_devices->size(), 0);
+
+    // Second scan clears the parent — triggers update
+    ASSERT_NIL(scan_task.scan());
+    ASSERT_EQ(created_devices->size(), 1);
+    EXPECT_EQ(created_devices->at(0).key, "device1");
+    EXPECT_EQ(cluster_api_ptr->created_parents->at(0), synnax::ontology::ID{});
 }
 
 /// @brief it should return expected config values from scanner.

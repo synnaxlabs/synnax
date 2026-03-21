@@ -66,9 +66,9 @@ func (kg *keyGenerator) entry(seqName, stageName string) string {
 }
 
 type nodeResult struct {
+	node   ir.Node
 	input  ir.Handle
 	output ir.Handle
-	node   ir.Node
 }
 
 func newNodeResult(node ir.Node, inputParam, outputParam string) nodeResult {
@@ -175,7 +175,7 @@ func buildChannelReadNode(name string, sym *symbol.Scope, kg *keyGenerator) (nod
 	n := ir.Node{
 		Key:      nodeKey,
 		Type:     "on",
-		Channels: symbol.NewChannels(),
+		Channels: types.NewChannels(),
 		Config:   types.Params{{Name: "channel", Type: sym.Type, Value: chKey}},
 		Outputs:  types.Params{{Name: ir.DefaultOutputParam, Type: sym.Type.Unwrap()}},
 	}
@@ -189,7 +189,7 @@ func buildChannelWriteNode(name string, sym *symbol.Scope, kg *keyGenerator) (no
 	n := ir.Node{
 		Key:      nodeKey,
 		Type:     "write",
-		Channels: symbol.NewChannels(),
+		Channels: types.NewChannels(),
 		Config:   types.Params{{Name: "channel", Type: sym.Type, Value: chKey}},
 		Inputs:   types.Params{{Name: ir.DefaultInputParam, Type: sym.Type.Unwrap()}},
 	}
@@ -206,7 +206,7 @@ func buildGlobalConstantNode(
 	n := ir.Node{
 		Key:      key,
 		Type:     "constant",
-		Channels: symbol.NewChannels(),
+		Channels: types.NewChannels(),
 		Config:   types.Params{{Name: "value", Type: sym.Type, Value: sym.DefaultValue}},
 		Outputs:  types.Params{{Name: ir.DefaultOutputParam, Type: sym.Type}},
 	}
@@ -290,7 +290,7 @@ func analyzeExpression(
 		n := ir.Node{
 			Key:      key,
 			Type:     "constant",
-			Channels: symbol.NewChannels(),
+			Channels: types.NewChannels(),
 			Config:   types.Params{{Name: "value", Type: outputType, Value: parsedValue.Value}},
 			Outputs:  types.Params{{Name: ir.DefaultOutputParam, Type: outputType}},
 		}
@@ -380,11 +380,11 @@ func Analyze(
 type flowChainProcessor struct {
 	kg                 *keyGenerator
 	prevNode           *ir.Node
+	ctx                acontext.Context[parser.IFlowStatementContext]
 	prevOutput         ir.Handle
 	nodes              []ir.Node
 	edges              []ir.Edge
 	additionalTriggers []nodeResult
-	ctx                acontext.Context[parser.IFlowStatementContext]
 	totalFlowNodes     int
 	currentIndex       int
 	lastOpIndex        int
@@ -577,7 +577,7 @@ func extractConfigValues(
 				return nil, false
 			}
 			channelKey := uint32(sym.ID)
-			node.Channels.ResolveConfigChannel(fnSym, paramName, channelKey, sym.Name)
+			symbol.ResolveConfigChannel(&node.Channels, fnSym, paramName, channelKey, sym.Name)
 			return channelKey, true
 		}
 
@@ -768,7 +768,7 @@ func analyzeStage(
 	entryNode := ir.Node{
 		Key:      kg.entry(seqName, stageName),
 		Type:     stage.EntryNodeName,
-		Channels: symbol.NewChannels(),
+		Channels: types.NewChannels(),
 		Inputs:   stage.EntryNodeInputs,
 	}
 	nodes = append(nodes, entryNode)

@@ -337,8 +337,7 @@ func analyzeReturnStatement(ctx context.Context[parser.IReturnStatementContext])
 				}
 			} else {
 				isLiteral := isLiteralExpression(context.Child(ctx, returnExpr))
-				useLiteralRules := isLiteral || (actualReturnType.IsNumeric() && expectedReturnType.IsNumeric())
-				if useLiteralRules {
+				if isLiteral {
 					if !atypes.LiteralAssignmentCompatible(expectedReturnType, actualReturnType) {
 						ctx.Diagnostics.Add(diagnostics.Errorf(ctx.AST,
 							"cannot return %s from '%s': expected %s",

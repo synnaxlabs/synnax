@@ -13,6 +13,7 @@ import (
 	"context"
 	"go/types"
 
+	"github.com/synnaxlabs/synnax/pkg/api/auth"
 	"github.com/synnaxlabs/synnax/pkg/api/config"
 	"github.com/synnaxlabs/synnax/pkg/distribution/cluster"
 	"github.com/synnaxlabs/synnax/pkg/version"
@@ -32,20 +33,7 @@ func NewService(cfgs ...config.LayerConfig) (*Service, error) {
 	return &Service{cluster: cfg.Distribution.Cluster}, nil
 }
 
-// ClusterInfo is general information about the cluster and node that the request was
-// sent to.
-type ClusterInfo struct {
-	// ClusterKey is the key of the cluster.
-	ClusterKey string `json:"cluster_key" msgpack:"cluster_key"`
-	// NodeVersion is the current version of the Synnax Core being used.
-	NodeVersion string `json:"node_version" msgpack:"node_version"`
-	// NodeKey is the key of the node in the cluster that the request was sent to.
-	NodeKey cluster.NodeKey `json:"node_key" msgpack:"node_key"`
-	// NodeTime is the time of the node that the request was sent to.
-	NodeTime telem.TimeStamp `json:"node_time" msgpack:"node_time"`
-}
-
-type CheckResponse = ClusterInfo
+type CheckResponse = auth.ClusterInfo
 
 func (s *Service) Check(
 	context.Context,

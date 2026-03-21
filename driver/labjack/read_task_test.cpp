@@ -154,11 +154,11 @@ TEST(TestReadTaskConfigParse, testBasicReadTaskConfigParse) {
     auto rack = ASSERT_NIL_P(client->racks.create("cat"));
     auto dev = synnax::device::Device{
         .key = "230227d9-02aa-47e4-b370-0d590add1bc1",
-        .name = "my_device",
         .rack = rack.key,
         .location = "dev1",
         .make = "labjack",
         .model = "T7",
+        .name = "my_device",
     };
     ASSERT_NIL(client->devices.create(dev));
 
@@ -226,11 +226,11 @@ TEST(TestReadTaskConfigParse, testInvalidChannelTypeInConfig) {
     auto rack = ASSERT_NIL_P(client->racks.create("cat"));
     auto dev = synnax::device::Device{
         .key = "230227d9-02aa-47e4-b370-0d590add1bc1",
-        .name = "my_device",
         .rack = rack.key,
         .location = "dev1",
         .make = "labjack",
         .model = "T7",
+        .name = "my_device",
     };
     ASSERT_NIL(client->devices.create(dev));
 
@@ -264,11 +264,11 @@ TEST(TestReadTaskConfigParse, testLabJackDriverSetsAutoCommitTrue) {
     auto rack = ASSERT_NIL_P(client->racks.create("test_rack"));
     auto dev = synnax::device::Device{
         .key = "230227d9-02aa-47e4-b370-0d590add1bc1",
-        .name = "test_device",
         .rack = rack.key,
         .location = "dev1",
         .make = "labjack",
         .model = "T7",
+        .name = "test_device",
     };
     ASSERT_NIL(client->devices.create(dev));
     auto ch = ASSERT_NIL_P(client->channels.create(

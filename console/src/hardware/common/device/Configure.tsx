@@ -73,8 +73,8 @@ const Internal = <
     configured: true,
     name: methods.get<string>("name").value,
     properties: {
-      ...deep.copy(initialProperties),
-      ...device.properties,
+      ...(deep.copy(initialProperties) as record.Unknown),
+      ...(device.properties as record.Unknown),
       identifier: methods.get<string>("identifier").value,
     },
   });

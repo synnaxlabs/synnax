@@ -11,7 +11,7 @@ from dataclasses import dataclass, field
 
 import synnax as sy
 from examples.simulators import PressSimDAQ
-from xpy import get_random_name
+from x import get_random_name
 
 from tests.arc.arc_case import ArcConsoleCase
 

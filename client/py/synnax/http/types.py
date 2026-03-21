@@ -14,7 +14,6 @@ from pydantic import BaseModel
 
 from synnax import channel as channel_
 from synnax import device, task
-from synnax.task.payload import Payload
 
 MAKE = "http"
 MODEL = "HTTP server"
@@ -28,6 +27,20 @@ class ExpectedResponse(BaseModel):
     expected_value_type: str
     """Type of the expected value: 'string', 'number', 'boolean', 'null'."""
     expected_value: str | float | int | bool | None
+
+
+class HeaderEntry(BaseModel):
+    """A single header entry."""
+
+    name: str
+    value: str
+
+
+class QueryParamEntry(BaseModel):
+    """A single query parameter entry."""
+
+    parameter: str
+    value: str
 
 
 class HealthCheck(BaseModel):
@@ -47,11 +60,18 @@ class HealthCheck(BaseModel):
 
     method: str = "GET"
     path: str = "/health"
-    headers: dict[str, str] | None = None
-    query_params: dict[str, str] | None = None
+    headers: list[HeaderEntry] | None = None
+    query_params: list[QueryParamEntry] | None = None
     body: str | None = None
     validate_response: bool = False
     response: ExpectedResponse | None = None
+
+
+class ReadEnumEntry(BaseModel):
+    """A single read enum mapping entry."""
+
+    label: str
+    value: float
 
 
 class ReadField(BaseModel):
@@ -66,7 +86,7 @@ class ReadField(BaseModel):
     name: str = ""
     timestamp_format: str | None = None
     """Timestamp format: 'iso8601', 'unix_sec', 'unix_ms', 'unix_us', 'unix_ns'."""
-    enum_values: dict[str, float] | None = None
+    enum_values: list[ReadEnumEntry] | None = None
     """String-to-number mappings for enum fields."""
 
     def __init__(self, **data: Any) -> None:
@@ -83,8 +103,8 @@ class ReadEndpoint(BaseModel):
     """HTTP method: 'GET' or 'POST'."""
     path: str
     """URL path relative to the device base URL (e.g., '/api/v1/data')."""
-    headers: dict[str, str] | None = None
-    query_params: dict[str, str] | None = None
+    headers: list[HeaderEntry] | None = None
+    query_params: list[QueryParamEntry] | None = None
     body: str | None = None
     """Request body (only for POST)."""
     fields: list[ReadField] = []
@@ -114,6 +134,13 @@ class WriteTaskConfig(task.BaseConfig):
     endpoints: list["WriteEndpoint"]
 
 
+class WriteEnumEntry(BaseModel):
+    """A single write enum mapping entry."""
+
+    value: float
+    label: str
+
+
 class ChannelField(BaseModel):
     """Configuration for mapping a Synnax channel value into an HTTP request body."""
 
@@ -125,6 +152,7 @@ class ChannelField(BaseModel):
     name: str = ""
     data_type: str = "float64"
     time_format: str | None = None
+    enum_values: list[WriteEnumEntry] | None = None
 
 
 class StaticField(BaseModel):
@@ -170,8 +198,8 @@ class WriteEndpoint(BaseModel):
     """HTTP method: 'POST', 'PUT', 'PATCH'."""
     path: str
     """URL path relative to the device base URL."""
-    headers: dict[str, str] | None = None
-    query_params: dict[str, str] | None = None
+    headers: list[HeaderEntry] | None = None
+    query_params: list[QueryParamEntry] | None = None
     channel: ChannelField
     """The Synnax channel whose values drive requests to this endpoint."""
     fields: list[WriteField] = []
@@ -226,7 +254,7 @@ class ReadTask(task.StarterStopperMixin, task.JSONConfigMixin, task.Protocol):
             endpoints=endpoints if endpoints is not None else [],
         )
 
-    def to_payload(self) -> Payload:
+    def to_payload(self) -> task.Payload:
         pld = self._internal.to_payload()
         pld.config = self.config.model_dump(exclude_none=True)
         return pld
@@ -282,7 +310,7 @@ class WriteTask(task.StarterStopperMixin, task.JSONConfigMixin, task.Protocol):
             endpoints=endpoints if endpoints is not None else [],
         )
 
-    def to_payload(self) -> Payload:
+    def to_payload(self) -> task.Payload:
         pld = self._internal.to_payload()
         pld.config = self.config.model_dump(exclude_none=True)
         return pld

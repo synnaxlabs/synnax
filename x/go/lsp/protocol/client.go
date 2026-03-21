@@ -12,9 +12,9 @@ package protocol
 import (
 	"bytes"
 	"context"
-	"fmt"
 
 	"github.com/segmentio/encoding/json"
+	"github.com/synnaxlabs/x/errors"
 	"go.uber.org/zap"
 
 	"go.lsp.dev/jsonrpc2"
@@ -198,7 +198,7 @@ func clientDispatch(ctx context.Context, client Client, reply jsonrpc2.Replier, 
 		defer logger.Debug(MethodWorkspaceWorkspaceFolders, zap.Error(err))
 
 		if len(req.Params()) > 0 {
-			return true, reply(ctx, nil, fmt.Errorf("expected no params: %w", jsonrpc2.ErrInvalidParams))
+			return true, reply(ctx, nil, errors.Wrap(jsonrpc2.ErrInvalidParams, "expected no params"))
 		}
 
 		resp, err := client.WorkspaceFolders(ctx)

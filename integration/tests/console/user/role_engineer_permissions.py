@@ -10,7 +10,7 @@
 """Test that Engineer role has full access except user management."""
 
 import synnax as sy
-from xpy import get_random_name
+from x import get_random_name
 
 from console.case import ConsoleCase
 

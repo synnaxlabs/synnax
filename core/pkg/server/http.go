@@ -43,18 +43,22 @@ func (*SecureHTTPBranch) Routing() BranchRouting {
 // Key implements Branch.
 func (*SecureHTTPBranch) Key() string { return "http" }
 
-// Serve implements Branch.
-func (b *SecureHTTPBranch) Serve(ctx BranchContext) error {
+// Init implements Branch.
+func (b *SecureHTTPBranch) Init(ctx BranchContext) {
 	b.internal = fiber.New(b.getConfig(ctx))
 	b.maybeRouteDebugUtil(ctx)
 	b.internal.Use(cors.New(cors.Config{AllowOrigins: []string{"*"}}))
 	for _, t := range b.Transports {
 		t.BindTo(b.internal)
 	}
+}
+
+// Serve implements Branch.
+func (b *SecureHTTPBranch) Serve(ctx BranchContext) error {
 	return b.internal.Listener(ctx.Lis, fiber.ListenConfig{DisableStartupMessage: true})
 }
 
-// Stop	implements Branch. Stop is safe to call even if Serve has not been called.
+// Stop implements Branch.
 func (b *SecureHTTPBranch) Stop() {
 	if b.internal != nil {
 		_ = b.internal.Shutdown()

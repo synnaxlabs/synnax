@@ -15,39 +15,12 @@ import (
 	"go.uber.org/zap"
 )
 
-// Subject is digest-style information about a subject that is attempting to control a
-// particular resource.
-type Subject struct {
-	// Key is the key of the subject. This should be unique when compared to all other
-	// subjects attempting to control the same resource.
-	Key string `json:"key" msgpack:"key"`
-	// Name is a pretty name for the subject.
-	Name string `json:"name" msgpack:"name"`
-	// Group is an optional identifier shared by multiple subjects that belong to the
-	// same logical group (e.g. all writers from the same driver rack). Streamers can
-	// use this to exclude frames from their own group.
-	Group uint32 `json:"group" msgpack:"group"`
-}
-
 // String implements fmt.Stringer to nicely print out information about the subject.
 func (s Subject) String() string {
 	if s.Name != "" {
 		return fmt.Sprintf("[%s]<%s>", s.Name, s.Key)
 	}
 	return fmt.Sprintf("<%s>", s.Key)
-}
-
-// State represents the control state of a subject over a resource with a particular
-// authority. It is used to indicate the states of several subjects who are contending
-// over a particular resource.
-type State[R comparable] struct {
-	// Resource is the resource under control.
-	Resource R `json:"resource" msgpack:"resource"`
-	// Subject is the subject controlling (or attempting to control) the resource.
-	Subject Subject `json:"subject" msgpack:"subject"`
-	// Authority is the authority that the subject has over the resource. A higher
-	// authority means a higher precedence over a subject with a lower Authority.
-	Authority Authority `json:"authority" msgpack:"authority"`
 }
 
 // String implements fmt.Stringer to print out a nice representation of the control
