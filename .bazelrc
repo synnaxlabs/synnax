@@ -3,6 +3,11 @@
 # See https://github.com/rules-proto-grpc/rules_proto_grpc/issues/390 for info
 common --enable_bzlmod=true --enable_workspace=false --noincompatible_disallow_ctx_resolve_tools  --define=protobuf_allow_msvc=true
 
+# Bazel 9 enables --incompatible_strict_action_env by default, which restricts PATH
+# to /bin:/usr/bin:/usr/local/bin. Pass through the host PATH so tools like cmake
+# (installed via Homebrew at /opt/homebrew/bin) are available in genrules.
+build --action_env=PATH
+
 # Enable platform-specific configs
 build --enable_platform_specific_config
 
