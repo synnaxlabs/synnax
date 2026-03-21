@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-package export_test
+package backup_test
 
 import (
 	"context"
@@ -19,7 +19,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/distribution/group"
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
 	"github.com/synnaxlabs/synnax/pkg/service"
-	"github.com/synnaxlabs/synnax/pkg/service/export"
+	"github.com/synnaxlabs/synnax/pkg/service/backup"
 	"github.com/synnaxlabs/synnax/pkg/service/lineplot"
 	"github.com/synnaxlabs/synnax/pkg/service/log"
 	"github.com/synnaxlabs/synnax/pkg/service/schematic"
@@ -31,16 +31,16 @@ import (
 	. "github.com/synnaxlabs/x/testutil"
 )
 
-func TestExport(t *testing.T) {
+func TestBackup(t *testing.T) {
 	RegisterFailHandler(Fail)
-	RunSpecs(t, "Export Suite")
+	RunSpecs(t, "Backup Suite")
 }
 
 var (
 	ctx        = context.Background()
 	db         *gorp.DB
 	otg        *ontology.Ontology
-	svc        *export.Service
+	svc        *backup.Service
 	svcLayer   *service.Layer
 	testAuthor user.User
 )
@@ -61,7 +61,7 @@ var _ = BeforeSuite(func() {
 		Ontology: otg,
 		Group:    g,
 	}))
-	testAuthor = user.User{Username: "test_export_user"}
+	testAuthor = user.User{Username: "test_backup_user"}
 	Expect(userSvc.NewWriter(nil).Create(ctx, &testAuthor)).To(Succeed())
 
 	svcLayer = &service.Layer{
@@ -90,7 +90,7 @@ var _ = BeforeSuite(func() {
 		})),
 	}
 
-	svc = export.NewService(export.ServiceConfig{
+	svc = backup.NewService(backup.ServiceConfig{
 		Service:      svcLayer,
 		Distribution: &distribution.Layer{Ontology: otg},
 	})

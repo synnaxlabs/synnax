@@ -14,7 +14,7 @@ import { URL } from "@synnaxlabs/x";
 import { type Cluster } from "@/cluster/slice";
 import { downloadStream } from "@/runtime/download";
 
-export interface ExportSycRequest {
+export interface BackupExportRequest {
   workspace_keys?: string[];
   user_keys?: string[];
   device_keys?: string[];
@@ -23,21 +23,21 @@ export interface ExportSycRequest {
   channel_keys?: string[];
 }
 
-export interface DownloadSycParams {
+export interface DownloadBackupParams {
   client: Client;
   cluster: Cluster;
-  request: ExportSycRequest;
+  request: BackupExportRequest;
   addStatus: Status.Adder;
   onDownloadStart?: () => void;
 }
 
-export const downloadSyc = async ({
+export const downloadBackup = async ({
   client,
   cluster,
   request,
   addStatus,
   onDownloadStart,
-}: DownloadSycParams): Promise<void> => {
+}: DownloadBackupParams): Promise<void> => {
   if (!client.auth.authenticated)
     throw new Error("Client is not authenticated");
 
@@ -67,8 +67,8 @@ export const downloadSyc = async ({
 
   await downloadStream({
     stream,
-    name: "export",
-    extension: "syc",
+    name: "backup",
+    extension: "sy",
     addStatus,
     onDownloadStart,
   });

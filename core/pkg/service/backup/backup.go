@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-package export
+package backup
 
 import (
 	"encoding/json"
@@ -16,17 +16,14 @@ import (
 	"github.com/google/uuid"
 	distchannel "github.com/synnaxlabs/synnax/pkg/distribution/channel"
 	"github.com/synnaxlabs/synnax/pkg/distribution/cluster"
-	"github.com/synnaxlabs/synnax/pkg/service/lineplot"
-	"github.com/synnaxlabs/synnax/pkg/service/log"
 	"github.com/synnaxlabs/synnax/pkg/service/schematic"
-	"github.com/synnaxlabs/synnax/pkg/service/table"
 	"github.com/synnaxlabs/synnax/pkg/service/workspace"
 	"github.com/synnaxlabs/x/telem"
 )
 
 const Version = "1.0.0"
 
-// Manifest describes the contents and metadata of a .syc export archive.
+// Manifest describes the contents and metadata of a .sy backup archive.
 type Manifest struct {
 	Version   string    `json:"version"`
 	CreatedAt time.Time `json:"created_at"`
@@ -51,7 +48,7 @@ func newWorkspace(ws workspace.Workspace) Workspace {
 	}
 }
 
-// DataVisualization is the exported representation of a visualization that stores
+// DataVisualization is the backup representation of a visualization that stores
 // its configuration as a JSON string (line plots, tables, logs).
 type DataVisualization struct {
 	Name string          `json:"name"`
@@ -59,16 +56,8 @@ type DataVisualization struct {
 	Data json.RawMessage `json:"data"`
 }
 
-func newDataVisualizationFromLinePlot(lp lineplot.LinePlot) DataVisualization {
-	return DataVisualization{Name: lp.Name, Key: lp.Key, Data: rawJSON(lp.Data)}
-}
-
-func newDataVisualizationFromTable(t table.Table) DataVisualization {
-	return DataVisualization{Name: t.Name, Key: t.Key, Data: rawJSON(t.Data)}
-}
-
-func newDataVisualizationFromLog(l log.Log) DataVisualization {
-	return DataVisualization{Name: l.Name, Key: l.Key, Data: rawJSON(l.Data)}
+func newDataVisualization(name string, key uuid.UUID, data string) DataVisualization {
+	return DataVisualization{Name: name, Key: key, Data: rawJSON(data)}
 }
 
 // Schematic wraps schematic.Schematic with json.RawMessage for Data.

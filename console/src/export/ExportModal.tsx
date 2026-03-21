@@ -34,7 +34,7 @@ import {
 } from "react";
 
 import { Cluster } from "@/cluster";
-import { downloadSyc,type ExportSycRequest } from "@/export/download";
+import { downloadBackup, type BackupExportRequest } from "@/export/download";
 import { type CheckedState, useCheckedState } from "@/export/useCheckedState";
 import { type Layout } from "@/layout";
 import { Modals } from "@/modals";
@@ -225,7 +225,7 @@ const CheckboxItem = ({
   );
 };
 
-const TYPE_TO_FIELD: Partial<Record<string, keyof ExportSycRequest>> = {
+const TYPE_TO_FIELD: Partial<Record<string, keyof BackupExportRequest>> = {
   workspace: "workspace_keys",
   user: "user_keys",
   device: "device_keys",
@@ -234,8 +234,8 @@ const TYPE_TO_FIELD: Partial<Record<string, keyof ExportSycRequest>> = {
   channel: "channel_keys",
 };
 
-const buildExportRequest = (checked: Set<string>): ExportSycRequest => {
-  const request: ExportSycRequest = {};
+const buildExportRequest = (checked: Set<string>): BackupExportRequest => {
+  const request: BackupExportRequest = {};
   for (const key of checked) {
     if (key.startsWith("section:") || key.startsWith("group:")) continue;
     const id = ontology.idZ.safeParse(key);
@@ -420,8 +420,8 @@ export const ExportModal = (_: Layout.RendererProps): ReactElement => {
   );
 
   return (
-    <Flex.Box y style={{ height: "100%" }}>
-      <Flex.Box y grow style={{ padding: "1rem", overflow: "auto" }}>
+    <Flex.Box y style={{ height: "100%", overflow: "hidden" }}>
+      <Flex.Box y grow style={{ padding: "1rem", overflow: "auto", minHeight: 0 }}>
         <Tree.Tree<string, ontology.Resource>
           {...treeProps}
           showRules
@@ -441,7 +441,7 @@ export const ExportModal = (_: Layout.RendererProps): ReactElement => {
               if (client == null || cluster == null) return;
               const request = buildExportRequest(checkedState.checked);
               handleError(
-                () => downloadSyc({ client, cluster, request, addStatus }),
+                () => downloadBackup({ client, cluster, request, addStatus }),
                 "Failed to export",
               );
             }}

@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-package export_test
+package backup_test
 
 import (
 	"archive/zip"
@@ -18,7 +18,7 @@ import (
 	"github.com/google/uuid"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	"github.com/synnaxlabs/synnax/pkg/service/export"
+	"github.com/synnaxlabs/synnax/pkg/service/backup"
 	"github.com/synnaxlabs/synnax/pkg/service/lineplot"
 	"github.com/synnaxlabs/synnax/pkg/service/log"
 	"github.com/synnaxlabs/synnax/pkg/service/schematic"
@@ -27,7 +27,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/workspace"
 )
 
-var _ = Describe("Export", func() {
+var _ = Describe("Backup", func() {
 	Describe("Workspace Export", func() {
 		var ws workspace.Workspace
 
@@ -41,13 +41,13 @@ var _ = Describe("Export", func() {
 		})
 
 		It("Should export a workspace with its metadata", func() {
-			r := exportAndOpen(export.Request{WorkspaceKeys: []uuid.UUID{ws.Key}})
+			r := exportAndOpen(backup.ExportRequest{WorkspaceKeys: []uuid.UUID{ws.Key}})
 
-			manifest := readJSON[export.Manifest](r, "manifest.json")
-			Expect(manifest.Version).To(Equal(export.Version))
+			manifest := readJSON[backup.Manifest](r, "manifest.json")
+			Expect(manifest.Version).To(Equal(backup.Version))
 			Expect(manifest.Sections).To(ContainElement("workspaces"))
 
-			exported := readJSON[export.Workspace](r, "workspaces/"+ws.Key.String()+".json")
+			exported := readJSON[backup.Workspace](r, "workspaces/"+ws.Key.String()+".json")
 			Expect(exported.Name).To(Equal("Test Workspace"))
 			Expect(exported.Key).To(Equal(ws.Key))
 			Expect(json.Valid(exported.Layout)).To(BeTrue())
@@ -57,8 +57,8 @@ var _ = Describe("Export", func() {
 			lp := lineplot.LinePlot{Name: "Test LP", Data: `{"channels":[1,2,3]}`}
 			Expect(svcLayer.LinePlot.NewWriter(nil).Create(ctx, ws.Key, &lp)).To(Succeed())
 
-			r := exportAndOpen(export.Request{WorkspaceKeys: []uuid.UUID{ws.Key}})
-			exported := readJSON[export.DataVisualization](r,
+			r := exportAndOpen(backup.ExportRequest{WorkspaceKeys: []uuid.UUID{ws.Key}})
+			exported := readJSON[backup.DataVisualization](r,
 				"workspaces/"+ws.Key.String()+"/lineplots/"+lp.Key.String()+".json")
 			Expect(exported.Name).To(Equal("Test LP"))
 			Expect(json.Valid(exported.Data)).To(BeTrue())
@@ -68,8 +68,8 @@ var _ = Describe("Export", func() {
 			s := schematic.Schematic{Name: "Test Schematic", Data: `{"nodes":[]}`}
 			Expect(svcLayer.Schematic.NewWriter(nil).Create(ctx, ws.Key, &s)).To(Succeed())
 
-			r := exportAndOpen(export.Request{WorkspaceKeys: []uuid.UUID{ws.Key}})
-			exported := readJSON[export.Schematic](r,
+			r := exportAndOpen(backup.ExportRequest{WorkspaceKeys: []uuid.UUID{ws.Key}})
+			exported := readJSON[backup.Schematic](r,
 				"workspaces/"+ws.Key.String()+"/schematics/"+s.Key.String()+".json")
 			Expect(exported.Name).To(Equal("Test Schematic"))
 		})
@@ -78,8 +78,8 @@ var _ = Describe("Export", func() {
 			t := table.Table{Name: "Test Table", Data: `{"columns":["a"]}`}
 			Expect(svcLayer.Table.NewWriter(nil).Create(ctx, ws.Key, &t)).To(Succeed())
 
-			r := exportAndOpen(export.Request{WorkspaceKeys: []uuid.UUID{ws.Key}})
-			exported := readJSON[export.DataVisualization](r,
+			r := exportAndOpen(backup.ExportRequest{WorkspaceKeys: []uuid.UUID{ws.Key}})
+			exported := readJSON[backup.DataVisualization](r,
 				"workspaces/"+ws.Key.String()+"/tables/"+t.Key.String()+".json")
 			Expect(exported.Name).To(Equal("Test Table"))
 		})
@@ -88,8 +88,8 @@ var _ = Describe("Export", func() {
 			l := log.Log{Name: "Test Log", Data: `{"entries":[]}`}
 			Expect(svcLayer.Log.NewWriter(nil).Create(ctx, ws.Key, &l)).To(Succeed())
 
-			r := exportAndOpen(export.Request{WorkspaceKeys: []uuid.UUID{ws.Key}})
-			exported := readJSON[export.DataVisualization](r,
+			r := exportAndOpen(backup.ExportRequest{WorkspaceKeys: []uuid.UUID{ws.Key}})
+			exported := readJSON[backup.DataVisualization](r,
 				"workspaces/"+ws.Key.String()+"/logs/"+l.Key.String()+".json")
 			Expect(exported.Name).To(Equal("Test Log"))
 		})
@@ -97,26 +97,36 @@ var _ = Describe("Export", func() {
 
 	Describe("User Export", func() {
 		It("Should export users directly", func() {
-			r := exportAndOpen(export.Request{UserKeys: []uuid.UUID{testAuthor.Key}})
+			r := exportAndOpen(backup.ExportRequest{UserKeys: []uuid.UUID{testAuthor.Key}})
 
-			manifest := readJSON[export.Manifest](r, "manifest.json")
+			manifest := readJSON[backup.Manifest](r, "manifest.json")
 			Expect(manifest.Sections).To(ContainElement("users"))
 
 			exported := readJSON[user.User](r, "users/"+testAuthor.Key.String()+".json")
-			Expect(exported.Username).To(Equal("test_export_user"))
+			Expect(exported.Username).To(Equal("test_backup_user"))
+		})
+	})
+
+	Describe("Error Handling", func() {
+		It("Should return an error for a nonexistent workspace key", func() {
+			var buf bytes.Buffer
+			err := svc.Export(ctx, backup.ExportRequest{
+				WorkspaceKeys: []uuid.UUID{uuid.New()},
+			}, &buf)
+			Expect(err).To(HaveOccurred())
 		})
 	})
 
 	Describe("Empty Export", func() {
 		It("Should produce a valid archive with no keys", func() {
-			r := exportAndOpen(export.Request{})
-			manifest := readJSON[export.Manifest](r, "manifest.json")
+			r := exportAndOpen(backup.ExportRequest{})
+			manifest := readJSON[backup.Manifest](r, "manifest.json")
 			Expect(manifest.Sections).To(BeEmpty())
 		})
 	})
 })
 
-func exportAndOpen(req export.Request) *zip.Reader {
+func exportAndOpen(req backup.ExportRequest) *zip.Reader {
 	var buf bytes.Buffer
 	ExpectWithOffset(1, svc.Export(ctx, req, &buf)).To(Succeed())
 	r, err := zip.NewReader(bytes.NewReader(buf.Bytes()), int64(buf.Len()))
