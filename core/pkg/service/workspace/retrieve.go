@@ -13,6 +13,7 @@ import (
 	"context"
 
 	"github.com/google/uuid"
+	"github.com/samber/lo"
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
 	"github.com/synnaxlabs/x/gorp"
 )
@@ -41,6 +42,13 @@ func (r Retrieve) Entry(ws *Workspace) Retrieve {
 
 func (r Retrieve) Entries(wss *[]Workspace) Retrieve {
 	r.gorp = r.gorp.Entries(wss)
+	return r
+}
+
+func (r Retrieve) WhereNames(names ...string) Retrieve {
+	r.gorp = r.gorp.Where(func(_ gorp.Context, ws *Workspace) (bool, error) {
+		return lo.Contains(names, ws.Name), nil
+	})
 	return r
 }
 
