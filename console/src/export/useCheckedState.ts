@@ -15,7 +15,6 @@ export interface CheckedState {
   toggle: (key: string, nodes: Tree.Node[]) => void;
   isChecked: (key: string) => boolean;
   isIndeterminate: (key: string, nodes: Tree.Node[]) => boolean;
-  reconcile: (nodes: Tree.Node[]) => void;
 }
 
 const descendantKeys = (node: Tree.Node): string[] =>
@@ -67,7 +66,9 @@ export const useCheckedState = (): CheckedState => {
       if (checked.has(key)) return false;
       const node = Tree.findNode({ tree: nodes, key });
       if (node == null || isLeaf(node)) return false;
-      const leafKeys = Tree.getDescendants(node).filter(isLeaf).map((n) => n.key);
+      const leafKeys = Tree.getDescendants(node)
+        .filter(isLeaf)
+        .map((n) => n.key);
       if (leafKeys.length === 0) return false;
       const checkedCount = leafKeys.filter((k) => checked.has(k)).length;
       return checkedCount > 0 && checkedCount < leafKeys.length;
@@ -75,22 +76,5 @@ export const useCheckedState = (): CheckedState => {
     [checked],
   );
 
-  const reconcile = useCallback((nodes: Tree.Node[]) => {
-    setChecked((prev) => {
-      const next = new Set(prev);
-      let changed = false;
-      for (const key of prev) {
-        const node = Tree.findNode({ tree: nodes, key });
-        if (node == null) continue;
-        for (const dk of descendantKeys(node))
-          if (!next.has(dk)) {
-            next.add(dk);
-            changed = true;
-          }
-      }
-      return changed ? next : prev;
-    });
-  }, []);
-
-  return { checked, toggle, isChecked, isIndeterminate, reconcile };
+  return { checked, toggle, isChecked, isIndeterminate };
 };

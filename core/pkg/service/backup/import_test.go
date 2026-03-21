@@ -43,9 +43,9 @@ func buildArchive(manifest backup.Manifest, files map[string]any) []byte {
 
 var _ = Describe("Import", func() {
 	Describe("Analyze", func() {
-		It("Should classify new workspaces as new", func() {
+		It("Should classify same-key workspaces as identical", func() {
 			ws := workspace.Workspace{
-				Name:   "Analyze New WS",
+				Name:   "Analyze Identical WS",
 				Layout: `{"key":"test"}`,
 				Author: testAuthor.Key,
 			}
@@ -67,8 +67,8 @@ var _ = Describe("Import", func() {
 				}
 			}
 			Expect(wsItems).To(HaveLen(1))
-			Expect(wsItems[0].Name).To(Equal("Analyze New WS"))
-			Expect(wsItems[0].Status).To(Equal(backup.StatusConflict))
+			Expect(wsItems[0].Name).To(Equal("Analyze Identical WS"))
+			Expect(wsItems[0].Status).To(Equal(backup.StatusIdentical))
 		})
 
 		It("Should classify workspaces without matches as new", func() {

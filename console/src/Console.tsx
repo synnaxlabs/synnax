@@ -65,6 +65,7 @@ const LAYOUT_RENDERERS: Record<string, Layout.Renderer> = {
   ...Docs.LAYOUTS,
   ...Export.LAYOUTS,
   ...Hardware.LAYOUTS,
+  ...Import.LAYOUTS,
   ...Label.LAYOUTS,
   ...Layouts.LAYOUTS,
   ...LinePlot.LAYOUTS,

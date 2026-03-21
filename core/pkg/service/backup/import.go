@@ -11,6 +11,7 @@ package backup
 
 import (
 	"archive/zip"
+	"bytes"
 	"context"
 	"encoding/json"
 	"fmt"
@@ -21,6 +22,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/samber/lo"
 	distchannel "github.com/synnaxlabs/synnax/pkg/distribution/channel"
+	"github.com/synnaxlabs/synnax/pkg/distribution/group"
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
 	"github.com/synnaxlabs/synnax/pkg/service/device"
 	"github.com/synnaxlabs/synnax/pkg/service/lineplot"
@@ -82,6 +84,7 @@ func (s *Service) Import(ctx context.Context, r io.ReaderAt, size int64, req Imp
 	}
 	var resp ImportResponse
 	channelRemap := make(map[distchannel.Key]distchannel.Key)
+	userRemap := make(map[uuid.UUID]uuid.UUID)
 
 	if lo.Contains(manifest.Sections, "channels") {
 		if err := s.importChannels(ctx, zr, req, channelRemap, &resp); err != nil {
@@ -94,7 +97,7 @@ func (s *Service) Import(ctx context.Context, r io.ReaderAt, size int64, req Imp
 		}
 	}
 	if lo.Contains(manifest.Sections, "users") {
-		if err := s.importUsers(ctx, zr, req, &resp); err != nil {
+		if err := s.importUsers(ctx, zr, req, userRemap, &resp); err != nil {
 			return resp, err
 		}
 	}
@@ -109,7 +112,7 @@ func (s *Service) Import(ctx context.Context, r io.ReaderAt, size int64, req Imp
 		}
 	}
 	if lo.Contains(manifest.Sections, "workspaces") {
-		if err := s.importWorkspaces(ctx, zr, req, channelRemap, &resp); err != nil {
+		if err := s.importWorkspaces(ctx, zr, req, channelRemap, userRemap, &resp); err != nil {
 			return resp, err
 		}
 	}
@@ -132,13 +135,46 @@ func (s *Service) analyzeChannels(ctx context.Context, zr *zip.Reader) ([]Analys
 		}
 	}
 	existingByName := lo.KeyBy(existing, func(c distchannel.Channel) string { return c.Name })
+
+	// Build a set of all channel keys present in the archive so we can detect
+	// data channels whose index channel was not included in the export.
+	archiveKeys := make(map[distchannel.Key]bool, len(channels))
+	for _, ch := range channels {
+		archiveKeys[ch.Key] = true
+	}
+
 	items := make([]AnalysisItem, 0, len(channels))
 	for _, ch := range channels {
 		item := AnalysisItem{
 			Type:       "channel",
 			Name:       ch.Name,
 			ArchiveKey: fmt.Sprintf("%d", ch.Key),
+			DataType:   ch.DataType,
+			ParentName: ch.Group,
 		}
+		// A non-virtual, non-index channel requires its index channel. If the
+		// index is not in the archive AND doesn't already exist on this system,
+		// the channel cannot be imported.
+		if !ch.IsIndex && !ch.Virtual && ch.Index != 0 {
+			_, indexInArchive := archiveKeys[ch.Index]
+			_, indexExists := existingByName[ch.Name]
+			// Check if the index channel exists on the system by key
+			if !indexInArchive {
+				var indexChannels []distchannel.Channel
+				if err := s.cfg.Distribution.Channel.NewRetrieve().
+					WhereKeys(ch.Index).Entries(&indexChannels).Exec(ctx, nil); err == nil {
+					indexExists = len(indexChannels) > 0
+				}
+			}
+			if !indexInArchive && !indexExists {
+				item.Status = StatusNew
+				item.Disabled = true
+				item.Details = "index channel not included in archive"
+				items = append(items, item)
+				continue
+			}
+		}
+
 		if ex, ok := existingByName[ch.Name]; ok {
 			item.ExistingKey = fmt.Sprintf("%d", ex.Key())
 			if ch.DataType == ex.DataType && ch.IsIndex == ex.IsIndex && ch.Virtual == ex.Virtual {
@@ -192,7 +228,21 @@ func (s *Service) analyzeWorkspaces(ctx context.Context, zr *zip.Reader) ([]Anal
 		}
 		if ex, ok := existingByName[ws.Name]; ok {
 			item.ExistingKey = ex.Key.String()
-			item.Status = StatusConflict
+			keyMatch := ex.Key == ws.Key
+			layoutMatch := compactJSON(ex.Layout) == compactJSON(string(ws.Layout))
+			if keyMatch && layoutMatch {
+				item.Status = StatusIdentical
+			} else {
+				item.Status = StatusConflict
+				var diffs []string
+				if !keyMatch {
+					diffs = append(diffs, "different key")
+				}
+				if !layoutMatch {
+					diffs = append(diffs, "layout differs")
+				}
+				item.Details = strings.Join(diffs, "; ")
+			}
 		} else {
 			item.Status = StatusNew
 		}
@@ -232,27 +282,68 @@ func (s *Service) analyzeWorkspaceChildren(
 		if len(parts) != 2 {
 			continue
 		}
-		childType := parts[0]
-		name, err := readChildName(f)
+		childType := singularType(parts[0])
+		archiveChild, err := readZipFile[DataVisualization](f)
 		if err != nil {
 			return nil, err
 		}
 		archiveKey := strings.TrimSuffix(parts[1], ".json")
 		item := AnalysisItem{
-			Type:       singularType(childType),
-			Name:       name,
+			Type:       childType,
+			Name:       archiveChild.Name,
 			ArchiveKey: archiveKey,
 			ParentName: ws.Name,
 		}
-		childID := childMapKey(name, singularType(childType))
-		if _, ok := existingChildren[childID]; ok {
-			item.Status = StatusConflict
+		childID := childMapKey(archiveChild.Name, childType)
+		if existingKey, ok := existingChildren[childID]; ok {
+			existingData, err := s.getChildData(ctx, childType, existingKey)
+			if err != nil {
+				item.Status = StatusConflict
+				item.Details = fmt.Sprintf("could not retrieve existing: %v", err)
+			} else if compactJSON(string(archiveChild.Data)) == compactJSON(existingData) {
+				item.Status = StatusIdentical
+			} else {
+				item.Status = StatusConflict
+				item.Details = "data differs"
+			}
+			item.ExistingKey = existingKey.String()
 		} else {
 			item.Status = StatusNew
 		}
 		items = append(items, item)
 	}
 	return items, nil
+}
+
+// getChildData retrieves the Data field of a workspace child by type and key.
+func (s *Service) getChildData(ctx context.Context, childType string, key uuid.UUID) (string, error) {
+	switch childType {
+	case "lineplot":
+		var entries []lineplot.LinePlot
+		if err := s.cfg.Service.LinePlot.NewRetrieve().WhereKeys(key).Entries(&entries).Exec(ctx, nil); err != nil || len(entries) == 0 {
+			return "", errors.New("not found")
+		}
+		return entries[0].Data, nil
+	case "schematic":
+		var entries []schematic.Schematic
+		if err := s.cfg.Service.Schematic.NewRetrieve().WhereKeys(key).Entries(&entries).Exec(ctx, nil); err != nil || len(entries) == 0 {
+			return "", errors.New("not found")
+		}
+		return entries[0].Data, nil
+	case "table":
+		var entries []table.Table
+		if err := s.cfg.Service.Table.NewRetrieve().WhereKeys(key).Entries(&entries).Exec(ctx, nil); err != nil || len(entries) == 0 {
+			return "", errors.New("not found")
+		}
+		return entries[0].Data, nil
+	case "log":
+		var entries []log.Log
+		if err := s.cfg.Service.Log.NewRetrieve().WhereKeys(key).Entries(&entries).Exec(ctx, nil); err != nil || len(entries) == 0 {
+			return "", errors.New("not found")
+		}
+		return entries[0].Data, nil
+	}
+	return "", errors.Newf("unknown child type %q", childType)
 }
 
 // getWorkspaceChildKeys returns a map of "name:type" → UUID key for all
@@ -350,15 +441,26 @@ func (s *Service) analyzeDevices(ctx context.Context, zr *zip.Reader) ([]Analysi
 	if err != nil {
 		return nil, err
 	}
+	// Retrieve all existing devices that match by name OR location.
 	names := lo.Map(devices, func(d device.Device, _ int) string { return d.Name })
-	var existing []device.Device
+	locations := lo.FilterMap(devices, func(d device.Device, _ int) (string, bool) {
+		return d.Location, d.Location != ""
+	})
+	var byName, byLocation []device.Device
 	if len(names) > 0 {
 		if err := s.cfg.Service.Device.NewRetrieve().
-			WhereNames(names...).Entries(&existing).Exec(ctx, nil); err != nil {
-			return nil, errors.Wrap(err, "failed to retrieve existing devices")
+			WhereNames(names...).Entries(&byName).Exec(ctx, nil); err != nil {
+			return nil, errors.Wrap(err, "failed to retrieve existing devices by name")
 		}
 	}
-	existingByName := lo.KeyBy(existing, func(d device.Device) string { return d.Name })
+	if len(locations) > 0 {
+		if err := s.cfg.Service.Device.NewRetrieve().
+			WhereLocations(locations...).Entries(&byLocation).Exec(ctx, nil); err != nil {
+			return nil, errors.Wrap(err, "failed to retrieve existing devices by location")
+		}
+	}
+	existingByName := lo.KeyBy(byName, func(d device.Device) string { return d.Name })
+	existingByLocation := lo.KeyBy(byLocation, func(d device.Device) string { return d.Location })
 	items := make([]AnalysisItem, 0, len(devices))
 	for _, d := range devices {
 		item := AnalysisItem{
@@ -366,9 +468,41 @@ func (s *Service) analyzeDevices(ctx context.Context, zr *zip.Reader) ([]Analysi
 			Name:       d.Name,
 			ArchiveKey: d.Key,
 		}
-		if ex, ok := existingByName[d.Name]; ok {
+		// Match by name first, then by location.
+		ex, nameMatch := existingByName[d.Name]
+		if !nameMatch && d.Location != "" {
+			if locMatch, ok := existingByLocation[d.Location]; ok {
+				ex = locMatch
+				nameMatch = true
+			}
+		}
+		if nameMatch {
 			item.ExistingKey = ex.Key
-			item.Status = StatusConflict
+			var diffs []string
+			if ex.Name != d.Name {
+				diffs = append(diffs, fmt.Sprintf("name: %s vs %s", ex.Name, d.Name))
+			}
+			if ex.Make != d.Make {
+				diffs = append(diffs, fmt.Sprintf("make: %s vs %s", ex.Make, d.Make))
+			}
+			if ex.Model != d.Model {
+				diffs = append(diffs, fmt.Sprintf("model: %s vs %s", ex.Model, d.Model))
+			}
+			if ex.Location != d.Location {
+				diffs = append(diffs, fmt.Sprintf("location: %s vs %s", ex.Location, d.Location))
+			}
+			// Compare only the "connection" key from properties — the "read"
+			// and "write" keys contain volatile channel mappings set by the
+			// driver when tasks are configured.
+			if !jsonEqual(ex.Properties["connection"], d.Properties["connection"]) {
+				diffs = append(diffs, "connection config differs")
+			}
+			if len(diffs) == 0 {
+				item.Status = StatusIdentical
+			} else {
+				item.Status = StatusConflict
+				item.Details = strings.Join(diffs, "; ")
+			}
 		} else {
 			item.Status = StatusNew
 		}
@@ -400,7 +534,19 @@ func (s *Service) analyzeTasks(ctx context.Context, zr *zip.Reader) ([]AnalysisI
 		}
 		if ex, ok := existingByName[t.Name]; ok {
 			item.ExistingKey = fmt.Sprintf("%d", ex.Key)
-			item.Status = StatusConflict
+			if ex.Type == t.Type && jsonEqual(ex.Config, t.Config) {
+				item.Status = StatusIdentical
+			} else {
+				item.Status = StatusConflict
+				var diffs []string
+				if ex.Type != t.Type {
+					diffs = append(diffs, fmt.Sprintf("type: %s vs %s", ex.Type, t.Type))
+				}
+				if !jsonEqual(ex.Config, t.Config) {
+					diffs = append(diffs, "config differs")
+				}
+				item.Details = strings.Join(diffs, "; ")
+			}
 		} else {
 			item.Status = StatusNew
 		}
@@ -432,7 +578,19 @@ func (s *Service) analyzeRanges(ctx context.Context, zr *zip.Reader) ([]Analysis
 		}
 		if ex, ok := existingByName[r.Name]; ok {
 			item.ExistingKey = ex.Key.String()
-			item.Status = StatusConflict
+			if ex.TimeRange == r.TimeRange && ex.Color == r.Color {
+				item.Status = StatusIdentical
+			} else {
+				item.Status = StatusConflict
+				var diffs []string
+				if ex.TimeRange != r.TimeRange {
+					diffs = append(diffs, "time range differs")
+				}
+				if ex.Color != r.Color {
+					diffs = append(diffs, "color differs")
+				}
+				item.Details = strings.Join(diffs, "; ")
+			}
 		} else {
 			item.Status = StatusNew
 		}
@@ -454,15 +612,52 @@ func (s *Service) importChannels(
 	if err != nil {
 		return err
 	}
-	for _, ch := range channels {
+	// Sort: index channels first so their remapped keys are available when
+	// we process data channels that reference them.
+	indexChannels := lo.Filter(channels, func(c Channel, _ int) bool { return c.IsIndex })
+	dataChannels := lo.Filter(channels, func(c Channel, _ int) bool { return !c.IsIndex })
+	ordered := append(indexChannels, dataChannels...)
+
+	// Build a set of archive keys for index resolution.
+	archiveKeys := make(map[distchannel.Key]bool, len(ordered))
+	for _, ch := range ordered {
+		archiveKeys[ch.Key] = true
+	}
+
+	for _, ch := range ordered {
 		archiveKey := fmt.Sprintf("%d", ch.Key)
 		policy := req.PolicyFor(archiveKey)
+
+		// Skip non-virtual data channels whose index channel is not available
+		// (neither in the archive nor already on this system via remap).
+		if !ch.IsIndex && !ch.Virtual && ch.Index != 0 {
+			_, indexInArchive := archiveKeys[ch.Index]
+			_, indexRemapped := remap[ch.Index]
+			if !indexInArchive && !indexRemapped {
+				// Check if the index channel already exists on this system.
+				var indexChannels []distchannel.Channel
+				if err := s.cfg.Distribution.Channel.NewRetrieve().
+					WhereKeys(ch.Index).Entries(&indexChannels).Exec(ctx, nil); err != nil || len(indexChannels) == 0 {
+					resp.Skipped++
+					continue
+				}
+			}
+		}
 
 		newCh := distchannel.Channel{
 			Name:     ch.Name,
 			DataType: ch.DataType,
 			IsIndex:  ch.IsIndex,
 			Virtual:  ch.Virtual,
+		}
+		// For non-index channels, resolve their index channel key through
+		// the remap table, then extract the LocalKey portion.
+		if !ch.IsIndex && ch.Index != 0 {
+			resolvedIndex := ch.Index
+			if remapped, ok := remap[ch.Index]; ok {
+				resolvedIndex = remapped
+			}
+			newCh.LocalIndex = resolvedIndex.LocalKey()
 		}
 		var opts []distchannel.CreateOption
 		switch policy {
@@ -479,15 +674,51 @@ func (s *Service) importChannels(
 		if newKey != ch.Key {
 			remap[ch.Key] = newKey
 		}
-		if policy == PolicySkip && newKey == ch.Key {
-			resp.Skipped++
+		if newKey == ch.Key && policy == PolicySkip {
+			// Channel already existed with same key — it's identical, not skipped.
+			resp.Identical++
 		} else if newKey != ch.Key {
 			resp.Imported++
 		} else {
 			resp.Replaced++
 		}
+
+		// Move channel to its custom group if one was specified in the archive.
+		if ch.Group != "" {
+			if err := s.moveChannelToGroup(ctx, newKey, ch.Group); err != nil {
+				return errors.Wrapf(err, "failed to assign channel %q to group %q", ch.Name, ch.Group)
+			}
+		}
 	}
 	return nil
+}
+
+// moveChannelToGroup creates (or retrieves) a named group under the default
+// "Channels" root group and moves the channel's ontology relationship to it.
+func (s *Service) moveChannelToGroup(ctx context.Context, channelKey distchannel.Key, groupName string) error {
+	channelsGroup := s.cfg.Distribution.Channel.Group()
+	g, err := s.cfg.Distribution.Group.CreateOrRetrieve(ctx, groupName, group.OntologyID(channelsGroup.Key))
+	if err != nil {
+		return err
+	}
+	otgWriter := s.cfg.Distribution.Ontology.NewWriter(nil)
+	channelID := distchannel.OntologyID(channelKey)
+	// Remove from the default "Channels" group.
+	if err := otgWriter.DeleteRelationship(
+		ctx,
+		group.OntologyID(channelsGroup.Key),
+		ontology.RelationshipTypeParentOf,
+		channelID,
+	); err != nil {
+		return err
+	}
+	// Add to the custom group.
+	return otgWriter.DefineRelationship(
+		ctx,
+		group.OntologyID(g.Key),
+		ontology.RelationshipTypeParentOf,
+		channelID,
+	)
 }
 
 func (s *Service) importRanges(
@@ -509,7 +740,11 @@ func (s *Service) importRanges(
 		}
 		if len(existing) > 0 {
 			if policy == PolicySkip {
-				resp.Skipped++
+				if existing[0].TimeRange == r.TimeRange && existing[0].Color == r.Color {
+					resp.Identical++
+				} else {
+					resp.Skipped++
+				}
 				continue
 			}
 			// Replace: delete existing, then create new with same name.
@@ -532,6 +767,7 @@ func (s *Service) importUsers(
 	ctx context.Context,
 	zr *zip.Reader,
 	req ImportRequest,
+	userRemap map[uuid.UUID]uuid.UUID,
 	resp *ImportResponse,
 ) error {
 	users, err := readArchiveSection[user.User](zr, "users/")
@@ -539,20 +775,26 @@ func (s *Service) importUsers(
 		return err
 	}
 	for _, u := range users {
+		archiveKey := u.Key
 		var existing []user.User
 		if err := s.cfg.Service.User.NewRetrieve().
 			WhereUsernames(u.Username).Entries(&existing).Exec(ctx, nil); err != nil {
 			return errors.Wrapf(err, "failed to check existing user %q", u.Username)
 		}
 		if len(existing) > 0 {
-			// Users are always skipped when they already exist — replacing a user
-			// (credentials, key, etc.) is not a safe import operation.
-			resp.Skipped++
+			// Users are always kept as-is when they already exist.
+			if archiveKey != existing[0].Key {
+				userRemap[archiveKey] = existing[0].Key
+			}
+			resp.Identical++
 			continue
 		}
 		u.Key = uuid.Nil
 		if err := s.cfg.Service.User.NewWriter(nil).Create(ctx, &u); err != nil {
 			return errors.Wrapf(err, "failed to import user %q", u.Username)
+		}
+		if u.Key != archiveKey {
+			userRemap[archiveKey] = u.Key
 		}
 		resp.Imported++
 	}
@@ -578,7 +820,14 @@ func (s *Service) importDevices(
 		}
 		if len(existing) > 0 {
 			if policy == PolicySkip {
-				resp.Skipped++
+				ex := existing[0]
+				if ex.Make == d.Make && ex.Model == d.Model &&
+					ex.Location == d.Location && ex.Name == d.Name &&
+					jsonEqual(ex.Properties["connection"], d.Properties["connection"]) {
+					resp.Identical++
+				} else {
+					resp.Skipped++
+				}
 				continue
 			}
 			// Replace: use existing device key so Create upserts.
@@ -613,7 +862,11 @@ func (s *Service) importTasks(
 		}
 		if len(existing) > 0 {
 			if policy == PolicySkip {
-				resp.Skipped++
+				if existing[0].Type == t.Type && jsonEqual(existing[0].Config, t.Config) {
+					resp.Identical++
+				} else {
+					resp.Skipped++
+				}
 				continue
 			}
 			// Replace: delete existing, then create new with same name.
@@ -624,7 +877,7 @@ func (s *Service) importTasks(
 		} else {
 			resp.Imported++
 		}
-		t.Key = 0
+		t.Key = task.NewKey(s.cfg.Service.Rack.EmbeddedKey, 0)
 		if err := s.cfg.Service.Task.NewWriter(nil).Create(ctx, &t); err != nil {
 			return errors.Wrapf(err, "failed to import task %q", t.Name)
 		}
@@ -637,6 +890,7 @@ func (s *Service) importWorkspaces(
 	zr *zip.Reader,
 	req ImportRequest,
 	channelRemap map[distchannel.Key]distchannel.Key,
+	userRemap map[uuid.UUID]uuid.UUID,
 	resp *ImportResponse,
 ) error {
 	workspaces, err := readArchiveSection[Workspace](zr, "workspaces/")
@@ -650,10 +904,32 @@ func (s *Service) importWorkspaces(
 			WhereNames(ws.Name).Entries(&existing).Exec(ctx, nil); err != nil {
 			return errors.Wrapf(err, "failed to check existing workspace %q", ws.Name)
 		}
+		// Resolve the workspace author through the user remap table.
+		// If the author isn't in the remap and doesn't exist on this system,
+		// fall back to the first available user.
+		author := ws.Author
+		if remapped, ok := userRemap[author]; ok {
+			author = remapped
+		} else {
+			var authorUsers []user.User
+			if err := s.cfg.Service.User.NewRetrieve().
+				WhereKeys(author).Entries(&authorUsers).Exec(ctx, nil); err != nil || len(authorUsers) == 0 {
+				// Author doesn't exist — use the first user on this system.
+				var allUsers []user.User
+				if err := s.cfg.Service.User.NewRetrieve().
+					Entries(&allUsers).Exec(ctx, nil); err == nil && len(allUsers) > 0 {
+					author = allUsers[0].Key
+				}
+			}
+		}
 		var targetKey uuid.UUID
 		if len(existing) > 0 {
 			if policy == PolicySkip {
-				resp.Skipped++
+				if compactJSON(existing[0].Layout) == compactJSON(string(ws.Layout)) {
+					resp.Identical++
+				} else {
+					resp.Skipped++
+				}
 				targetKey = existing[0].Key
 			} else {
 				targetKey = existing[0].Key
@@ -668,7 +944,7 @@ func (s *Service) importWorkspaces(
 			newWS := workspace.Workspace{
 				Name:   ws.Name,
 				Layout: string(ws.Layout),
-				Author: ws.Author,
+				Author: author,
 			}
 			if err := s.cfg.Service.Workspace.NewWriter(nil).Create(ctx, &newWS); err != nil {
 				return errors.Wrapf(err, "failed to import workspace %q", ws.Name)
@@ -787,7 +1063,12 @@ func (s *Service) importDataViz(
 	mapKey := childMapKey(dv.Name, childType)
 	if existingKey, exists := existingChildren[mapKey]; exists {
 		if policy == PolicySkip {
-			resp.Skipped++
+			existingData, _ := s.getChildData(ctx, childType, existingKey)
+			if compactJSON(string(data)) == compactJSON(existingData) {
+				resp.Identical++
+			} else {
+				resp.Skipped++
+			}
 			return nil
 		}
 		if err := setData(existingKey, string(data)); err != nil {
@@ -872,6 +1153,28 @@ func readArchiveSection[T any](zr *zip.Reader, prefix string) ([]T, error) {
 		}
 	}
 	return items, nil
+}
+
+// jsonEqual compares two values by marshaling them to compact JSON. This handles
+// map[string]any comparisons where reflect.DeepEqual may fail due to numeric
+// type differences (float64 vs int).
+func jsonEqual(a, b any) bool {
+	aj, err1 := json.Marshal(a)
+	bj, err2 := json.Marshal(b)
+	if err1 != nil || err2 != nil {
+		return false
+	}
+	return compactJSON(string(aj)) == compactJSON(string(bj))
+}
+
+// compactJSON removes formatting differences (whitespace, indentation) from a
+// JSON string so two semantically equal JSON values compare as equal.
+func compactJSON(s string) string {
+	var buf bytes.Buffer
+	if err := json.Compact(&buf, []byte(s)); err != nil {
+		return s
+	}
+	return buf.String()
 }
 
 // readZipFile decodes a single ZIP file entry as JSON.

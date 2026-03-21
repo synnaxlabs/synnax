@@ -22,6 +22,7 @@ import (
 	"github.com/samber/lo"
 	distchannel "github.com/synnaxlabs/synnax/pkg/distribution/channel"
 	"github.com/synnaxlabs/synnax/pkg/distribution"
+	"github.com/synnaxlabs/synnax/pkg/distribution/group"
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
 	"github.com/synnaxlabs/synnax/pkg/service"
 	"github.com/synnaxlabs/synnax/pkg/service/arc"
@@ -321,8 +322,28 @@ func (s *Service) exportChannels(ctx context.Context, keys []distchannel.Key, zw
 	if err := s.cfg.Service.Channel.NewRetrieve().WhereKeys(keys...).Entries(&channels).Exec(ctx, nil); err != nil {
 		return errors.Wrap(err, "failed to retrieve channels")
 	}
+	// Look up the parent group for each channel via the ontology.
+	channelGroups := make(map[distchannel.Key]string, len(channels))
 	for _, c := range channels {
-		if err := writeJSON(zw, fmt.Sprintf(ChannelPath, c.Key()), newChannel(c)); err != nil {
+		var parents []ontology.Resource
+		if err := s.cfg.Distribution.Ontology.NewRetrieve().
+			WhereIDs(distchannel.OntologyID(c.Key())).
+			TraverseTo(ontology.ParentsTraverser).
+			Entries(&parents).
+			Exec(ctx, nil); err != nil {
+			continue
+		}
+		for _, p := range parents {
+			if p.ID.Type == group.OntologyType && p.Name != "Channels" {
+				channelGroups[c.Key()] = p.Name
+				break
+			}
+		}
+	}
+	for _, c := range channels {
+		ch := newChannel(c)
+		ch.Group = channelGroups[c.Key()]
+		if err := writeJSON(zw, fmt.Sprintf(ChannelPath, c.Key()), ch); err != nil {
 			return err
 		}
 	}

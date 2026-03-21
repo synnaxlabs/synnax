@@ -18,9 +18,9 @@ export interface BackupExportRequest {
   workspace_keys?: string[];
   user_keys?: string[];
   device_keys?: string[];
-  task_keys?: string[];
+  task_keys?: number[];
   range_keys?: string[];
-  channel_keys?: string[];
+  channel_keys?: number[];
 }
 
 export interface DownloadBackupParams {
@@ -67,7 +67,7 @@ export const downloadBackup = async ({
 
   await downloadStream({
     stream,
-    name: "backup",
+    name: "synnax",
     extension: "sy",
     addStatus,
     onDownloadStart,

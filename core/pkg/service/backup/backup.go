@@ -90,6 +90,9 @@ type Channel struct {
 	Virtual     bool            `json:"virtual"`
 	Internal    bool            `json:"internal"`
 	Expression  string          `json:"expression"`
+	// Group is the name of the ontology group this channel belongs to.
+	// Empty if the channel is in the default "Channels" group.
+	Group string `json:"group,omitempty"`
 }
 
 func newChannel(c distchannel.Channel) Channel {
@@ -128,6 +131,12 @@ type AnalysisItem struct {
 	ExistingKey string         `json:"existing_key,omitempty"`
 	Details     string         `json:"details,omitempty"`
 	ParentName  string         `json:"parent_name,omitempty"`
+	// DataType is the channel data type (only populated for channel items).
+	DataType telem.DataType `json:"data_type,omitempty"`
+	// Disabled is true when the item cannot be imported (e.g., a non-virtual
+	// data channel whose index channel is not in the archive). The UI should
+	// grey out and prevent selection of disabled items.
+	Disabled bool `json:"disabled,omitempty"`
 }
 
 // AnalyzeResponse is returned by the analyze endpoint with a session ID
@@ -155,10 +164,11 @@ func (r ImportRequest) PolicyFor(archiveKey string) ConflictPolicy {
 
 // ImportResponse summarizes the results of an import operation.
 type ImportResponse struct {
-	Imported int      `json:"imported"`
-	Skipped  int      `json:"skipped"`
-	Replaced int      `json:"replaced"`
-	Errors   []string `json:"errors"`
+	Imported  int      `json:"imported"`
+	Skipped   int      `json:"skipped"`
+	Replaced  int      `json:"replaced"`
+	Identical int      `json:"identical"`
+	Errors    []string `json:"errors"`
 }
 
 // OntologyIDsFromAnalysis builds ontology IDs from an analyze response so the

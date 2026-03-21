@@ -8,8 +8,11 @@
 // included in the file licenses/APL.txt.
 
 import { Icon } from "@synnaxlabs/pluto";
+import { useCallback } from "react";
 
 import { useImport } from "@/import/import";
+import { IMPORT_LAYOUT } from "@/import/ImportModal";
+import { Layout } from "@/layout";
 import { Palette } from "@/palette";
 
 export const ImportCommand: Palette.Command = (listProps) => {
@@ -27,4 +30,19 @@ ImportCommand.key = "import";
 ImportCommand.commandName = "Import component(s)";
 ImportCommand.sortOrder = -1;
 
-export const COMMANDS = [ImportCommand];
+export const ImportSynnaxCommand: Palette.Command = (listProps) => {
+  const placer = Layout.usePlacer();
+  const handleSelect = useCallback(() => placer(IMPORT_LAYOUT), [placer]);
+  return (
+    <Palette.CommandListItem
+      {...listProps}
+      name="Import Synnax"
+      icon={<Icon.Import />}
+      onSelect={handleSelect}
+    />
+  );
+};
+ImportSynnaxCommand.key = "import-synnax";
+ImportSynnaxCommand.commandName = "Import Synnax";
+
+export const COMMANDS = [ImportCommand, ImportSynnaxCommand];

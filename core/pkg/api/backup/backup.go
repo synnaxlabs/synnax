@@ -60,7 +60,10 @@ func NewTransport(
 }
 
 // Close stops the session cleanup goroutine.
-func (t *Transport) Close() { t.sessions.cancel() }
+func (t *Transport) Close() error {
+	t.sessions.cancel()
+	return nil
+}
 
 // BindTo registers the backup endpoints on the Fiber app.
 func (t *Transport) BindTo(app *fiber.App) {
@@ -124,7 +127,7 @@ func (t *Transport) handleExport(c fiber.Ctx) error {
 	}
 
 	c.Set("Content-Type", "application/zip")
-	c.Set("Content-Disposition", "attachment; filename=\"backup.sy\"")
+	c.Set("Content-Disposition", "attachment; filename=\"synnax.sy\"")
 	return t.internal.Export(c.Context(), httpReq.ExportRequest, c.Response().BodyWriter())
 }
 
@@ -138,15 +141,19 @@ func (t *Transport) handleAnalyze(c fiber.Ctx) error {
 		return c.Status(fiber.StatusBadRequest).
 			JSON(fiber.Map{"error": "empty request body"})
 	}
+	// Copy the body — Fiber reuses the underlying buffer after the handler
+	// returns, so the session store must hold an independent copy.
+	bodyCopy := make([]byte, len(body))
+	copy(bodyCopy, body)
 
-	reader := bytes.NewReader(body)
-	resp, err := t.internal.Analyze(c.Context(), reader, int64(len(body)))
+	reader := bytes.NewReader(bodyCopy)
+	resp, err := t.internal.Analyze(c.Context(), reader, int64(len(bodyCopy)))
 	if err != nil {
 		return c.Status(fiber.StatusInternalServerError).
 			JSON(fiber.Map{"error": err.Error()})
 	}
 
-	sessionID := t.sessions.save(body)
+	sessionID := t.sessions.save(bodyCopy)
 	resp.SessionID = sessionID
 	return c.JSON(resp)
 }

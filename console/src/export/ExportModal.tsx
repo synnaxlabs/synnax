@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type channel, ontology } from "@synnaxlabs/client";
+import { type channel, ontology, type Synnax as Client } from "@synnaxlabs/client";
 import {
   Button,
   Channel,
@@ -17,24 +17,18 @@ import {
   Icon,
   List,
   Nav,
-  Ontology,
+  type Ontology,
   Status,
   Synnax,
   Text,
   Tree,
   useAsyncEffect,
-  useCombinedStateAndRef,
 } from "@synnaxlabs/pluto";
-import {
-  type ReactElement,
-  useCallback,
-  useRef,
-  useState,
-  useSyncExternalStore,
-} from "react";
+import { type ReactElement, useCallback, useState } from "react";
 
 import { Cluster } from "@/cluster";
-import { downloadBackup, type BackupExportRequest } from "@/export/download";
+import { IndeterminateCheckbox } from "@/components/IndeterminateCheckbox";
+import { type BackupExportRequest, downloadBackup } from "@/export/download";
 import { type CheckedState, useCheckedState } from "@/export/useCheckedState";
 import { type Layout } from "@/layout";
 import { Modals } from "@/modals";
@@ -57,6 +51,8 @@ interface SectionConfig {
   key: string;
   label: string;
   icon: ReactElement;
+  /** If set, find resources of this type directly under root instead of a named group */
+  rootType?: ontology.ResourceType;
 }
 
 const SECTIONS: SectionConfig[] = [
@@ -64,21 +60,14 @@ const SECTIONS: SectionConfig[] = [
   { key: "section:users", label: "Users", icon: <Icon.User /> },
   { key: "section:devices", label: "Devices", icon: <Icon.Device /> },
   { key: "section:tasks", label: "Tasks", icon: <Icon.Task /> },
-  { key: "section:ranges", label: "Ranges", icon: <Icon.Range /> },
+  { key: "section:ranges", label: "Ranges", icon: <Icon.Range />, rootType: "range" },
   { key: "section:channels", label: "Channels", icon: <Icon.Channel /> },
 ];
 
+const SELECT_ALL_KEY = "select-all";
 const SECTION_MAP = new Map(SECTIONS.map((s) => [s.key, s]));
-
 const isSection = (key: string): boolean => key.startsWith("section:");
-
-const INITIAL_NODES: Tree.Node[] = SECTIONS.map((s) => ({
-  key: s.key,
-  children: [],
-}));
-
-const SECTION_PREFIX = "section:";
-const CHANNELS_SECTION_KEY = `${SECTION_PREFIX}channels`;
+const CHANNELS_SECTION_KEY = "section:channels";
 
 const resolveResourceIcon = (
   id: ontology.ID,
@@ -94,74 +83,43 @@ const resolveResourceIcon = (
   );
 };
 
-interface IndeterminateCheckboxProps {
-  checked: boolean;
-  indeterminate: boolean;
-  onChange: () => void;
-}
-
-const IndeterminateCheckbox = ({
-  checked,
-  indeterminate,
-  onChange,
-}: IndeterminateCheckboxProps): ReactElement => {
-  const ref = useCallback(
-    (el: HTMLInputElement | null) => {
-      if (el != null) el.indeterminate = indeterminate;
-    },
-    [indeterminate],
-  );
-  return (
-    <input
-      type="checkbox"
-      ref={ref}
-      checked={checked}
-      onChange={onChange}
-      onClick={(e) => e.stopPropagation()}
-      style={{ marginRight: "0.25rem" }}
-    />
-  );
-};
 
 interface CheckboxItemProps extends Tree.ItemProps<string> {
   nodes: Tree.Node[];
   checkedState: CheckedState;
   services: ReturnType<typeof useServices>;
-  loadingRef: React.RefObject<string | false>;
-  loadingListeners: React.RefObject<Set<() => void>>;
   channelCount: number;
-  onCheck: (key: string) => void;
 }
 
 const CheckboxItem = ({
   nodes,
   checkedState,
   services,
-  loadingRef,
-  loadingListeners,
   channelCount,
-  onCheck,
   ...props
 }: CheckboxItemProps): ReactElement | null => {
   const { itemKey } = props;
-  const { isChecked, isIndeterminate, checked } = checkedState;
+  const { isChecked, isIndeterminate, toggle, checked } = checkedState;
   const itemChecked = isChecked(itemKey);
   const indeterminate = isIndeterminate(itemKey, nodes);
   const handleToggle = useCallback(
-    () => onCheck(itemKey),
-    [onCheck, itemKey],
+    () => toggle(itemKey, nodes),
+    [toggle, itemKey, nodes],
   );
 
-  const loading = useSyncExternalStore<boolean>(
-    useCallback(
-      (cb) => {
-        loadingListeners.current.add(cb);
-        return () => loadingListeners.current.delete(cb);
-      },
-      [loadingListeners],
-    ),
-    useCallback(() => loadingRef.current === itemKey, [itemKey, loadingRef]),
-  );
+  if (itemKey === SELECT_ALL_KEY)
+    return (
+      <Tree.Item {...props}>
+        <IndeterminateCheckbox
+          checked={itemChecked}
+          indeterminate={indeterminate}
+          onChange={handleToggle}
+        />
+        <Text.Text level="small" weight={500} style={{ userSelect: "none" }}>
+          Synnax
+        </Text.Text>
+      </Tree.Item>
+    );
 
   const section = SECTION_MAP.get(itemKey);
   if (section != null) {
@@ -172,11 +130,14 @@ const CheckboxItem = ({
       const descendants =
         sectionNode != null ? Tree.getDescendants(sectionNode) : [];
       selectedCount = descendants.filter(
-        (n) => n.key !== itemKey && !n.key.startsWith("group:") && checked.has(n.key),
+        (n) =>
+          n.key !== itemKey &&
+          !n.key.startsWith("group:") &&
+          checked.has(n.key),
       ).length;
     }
     return (
-      <Tree.Item {...props} loading={loading}>
+      <Tree.Item {...props}>
         <IndeterminateCheckbox
           checked={itemChecked}
           indeterminate={indeterminate}
@@ -207,7 +168,7 @@ const CheckboxItem = ({
   if (resource == null) return null;
 
   return (
-    <Tree.Item {...props} loading={loading}>
+    <Tree.Item {...props}>
       <IndeterminateCheckbox
         checked={itemChecked}
         indeterminate={indeterminate}
@@ -234,23 +195,58 @@ const TYPE_TO_FIELD: Partial<Record<string, keyof BackupExportRequest>> = {
   channel: "channel_keys",
 };
 
+const NUMERIC_FIELDS = new Set<string>(["task_keys", "channel_keys"]);
+
 const buildExportRequest = (checked: Set<string>): BackupExportRequest => {
   const request: BackupExportRequest = {};
   for (const key of checked) {
-    if (key.startsWith("section:") || key.startsWith("group:")) continue;
+    if (key === SELECT_ALL_KEY || key.startsWith("section:") || key.startsWith("group:"))
+      continue;
     const id = ontology.idZ.safeParse(key);
     if (!id.success) continue;
     const field = TYPE_TO_FIELD[id.data.type];
-    if (field != null) (request[field] ??= []).push(id.data.key);
+    if (field == null) continue;
+    const arr = (request[field] ??= []) as Array<string | number>;
+    arr.push(NUMERIC_FIELDS.has(field) ? Number(id.data.key) : id.data.key);
   }
   return request;
 };
 
+/** Recursively fetch all children of an ontology ID and build tree nodes. */
+const fetchTreeRecursive = async (
+  client: Client,
+  parentID: ontology.ID,
+  resourceStore: Flux.UnaryStore<string, ontology.Resource>,
+  services: Record<string, Service>,
+): Promise<Tree.Node[]> => {
+  const children = await client.ontology.retrieveChildren(parentID);
+  const filtered = children.filter((r) => {
+    const svc = services[r.id.type];
+    return svc.visible == null || svc.visible(r);
+  });
+  filtered.forEach((r) => resourceStore.set(r));
+
+  const nodes: Tree.Node[] = [];
+  for (const r of filtered) {
+    const svc = services[r.id.type];
+    let childNodes: Tree.Node[] | undefined;
+    if (svc.hasChildren)
+      childNodes = await fetchTreeRecursive(
+        client,
+        r.id,
+        resourceStore,
+        services,
+      );
+    nodes.push({
+      key: ontology.idToString(r.id),
+      children: childNodes,
+    });
+  }
+  return nodes;
+};
+
 export const ExportModal = (_: Layout.RendererProps): ReactElement => {
   const services = useServices();
-  const [nodes, setNodes] = useCombinedStateAndRef<Tree.Node[]>(
-    () => Tree.deepCopy(INITIAL_NODES),
-  );
   const resourceStore = Flux.useStore<Ontology.FluxSubStore>().resources;
   const client = Synnax.use();
   const cluster = Cluster.useSelect();
@@ -258,16 +254,11 @@ export const ExportModal = (_: Layout.RendererProps): ReactElement => {
   const addStatus = Status.useAdder();
   const checkedState = useCheckedState();
 
-  const loadingRef = useRef<string | false>(false);
-  const loadingListenersRef = useRef(new Set<() => void>());
-  const groupMapRef = useRef(new Map<string, ontology.ID>());
+  const [nodes, setNodes] = useState<Tree.Node[]>([]);
   const [channelCount, setChannelCount] = useState(0);
+  const [loading, setLoading] = useState(true);
 
-  const setLoading = useCallback((key: string | false) => {
-    loadingRef.current = key;
-    loadingListenersRef.current.forEach((cb) => cb());
-  }, []);
-
+  // Load the full tree on mount
   useAsyncEffect(async () => {
     if (client == null) return;
     try {
@@ -276,104 +267,39 @@ export const ExportModal = (_: Layout.RendererProps): ReactElement => {
         client.channels.retrieve({ internal: false }),
       ]);
       rootChildren.forEach((r) => resourceStore.set(r));
-      for (const section of SECTIONS) {
-        const group = rootChildren.find((r) => r.name === section.label);
-        if (group != null) groupMapRef.current.set(section.key, group.id);
-      }
       setChannelCount(channels.length);
+
+      const sectionNodes: Tree.Node[] = [];
+      for (const section of SECTIONS) {
+        let children: Tree.Node[] = [];
+        if (section.rootType != null) {
+          // Resources without a parent group (e.g., ranges) — query by type
+          const items = await client.ontology.retrieve({
+            types: [section.rootType],
+          });
+          items.forEach((r) => resourceStore.set(r));
+          children = items.map((r) => ({
+            key: ontology.idToString(r.id),
+          }));
+        } else {
+          const group = rootChildren.find((r) => r.name === section.label);
+          if (group != null)
+            children = await fetchTreeRecursive(
+              client,
+              group.id,
+              resourceStore,
+              services,
+            );
+        }
+        sectionNodes.push({ key: section.key, children });
+      }
+      setNodes([{ key: SELECT_ALL_KEY, children: sectionNodes }]);
     } catch (e) {
       handleError(e);
+    } finally {
+      setLoading(false);
     }
   }, [client]);
-
-  const retrieveChildren = Ontology.useRetrieveObservableChildren({
-    onChange: useCallback(
-      ({ data: resources, variant }, { id }) => {
-        if (variant === "success") {
-          const filtered = resources.filter((r) => {
-            const svc = services[r.id.type];
-            return svc.visible == null || svc.visible(r);
-          });
-          const converted = filtered.map((r) => ({
-            key: ontology.idToString(r.id),
-            children: services[r.id.type].hasChildren ? [] : undefined,
-          }));
-          const ids = new Set(filtered.map((r) => ontology.idToString(r.id)));
-          const parentStr = ontology.idToString(id);
-          let treeParent = parentStr;
-          for (const [sectionKey, groupID] of groupMapRef.current.entries())
-            if (ontology.idToString(groupID) === parentStr) {
-              treeParent = sectionKey;
-              break;
-            }
-
-          setNodes((prev) => {
-            const next = [
-              ...Tree.updateNodeChildren({
-                tree: prev,
-                parent: treeParent,
-                updater: (prevChildren) => [
-                  ...prevChildren.filter(({ key }) => !ids.has(key)),
-                  ...converted,
-                ],
-              }),
-            ];
-            checkedState.reconcile(next);
-            return next;
-          });
-        }
-        setLoading(false);
-      },
-      [services, setLoading],
-    ),
-  });
-
-  const handleExpand = useCallback(
-    ({ action, clicked }: Tree.HandleExpandProps) => {
-      if (action !== "expand") return;
-      if (isSection(clicked)) {
-        const groupID = groupMapRef.current.get(clicked);
-        if (groupID != null) {
-          setLoading(clicked);
-          retrieveChildren.retrieve({ id: groupID });
-        }
-        return;
-      }
-      const clickedID = ontology.idZ.parse(clicked);
-      setLoading(clicked);
-      retrieveChildren.retrieve({ id: clickedID });
-    },
-    [retrieveChildren, setLoading],
-  );
-
-  const fetchNodeChildren = useCallback(
-    (key: string) => {
-      if (isSection(key)) {
-        const groupID = groupMapRef.current.get(key);
-        if (groupID != null) retrieveChildren.retrieve({ id: groupID });
-      } else {
-        const id = ontology.idZ.parse(key);
-        retrieveChildren.retrieve({ id });
-      }
-    },
-    [retrieveChildren],
-  );
-
-  const handleCheck = useCallback(
-    (key: string) => {
-      checkedState.toggle(key, nodes);
-      const wasChecked = checkedState.checked.has(key);
-      if (wasChecked) return;
-      // Toggling ON — fetch unloaded children so they can be checked via reconcile
-      const node = Tree.findNode({ tree: nodes, key });
-      if (node == null) return;
-      const toFetch = Tree.getDescendants(node).filter(
-        (n) => n.children != null && n.children.length === 0,
-      );
-      for (const n of toFetch) fetchNodeChildren(n.key);
-    },
-    [checkedState, nodes, fetchNodeChildren],
-  );
 
   const sort = useCallback(
     (a: Tree.Node, b: Tree.Node) => {
@@ -393,10 +319,10 @@ export const ExportModal = (_: Layout.RendererProps): ReactElement => {
 
   const treeProps = Tree.use({
     nodes,
-    onExpand: handleExpand,
     selected,
     onSelectedChange: setSelected,
     sort,
+    initialExpanded: [SELECT_ALL_KEY],
   });
 
   const subscribe = useCallback(
@@ -411,10 +337,7 @@ export const ExportModal = (_: Layout.RendererProps): ReactElement => {
         nodes={nodes}
         checkedState={checkedState}
         services={services}
-        loadingRef={loadingRef}
-        loadingListeners={loadingListenersRef}
         channelCount={channelCount}
-        onCheck={handleCheck}
       />
     ),
   );
@@ -422,20 +345,33 @@ export const ExportModal = (_: Layout.RendererProps): ReactElement => {
   return (
     <Flex.Box y style={{ height: "100%", overflow: "hidden" }}>
       <Flex.Box y grow style={{ padding: "1rem", overflow: "auto", minHeight: 0 }}>
-        <Tree.Tree<string, ontology.Resource>
-          {...treeProps}
-          showRules
-          subscribe={subscribe}
-          getItem={resourceStore.get.bind(resourceStore)}
-        >
-          {renderItem}
-        </Tree.Tree>
+        {loading ? (
+          <Flex.Box y grow justify="center" align="center">
+            <Icon.Loading style={{ fontSize: "2rem" }} />
+            <Text.Text level="p" style={{ marginTop: "0.5rem" }}>
+              Loading resources...
+            </Text.Text>
+          </Flex.Box>
+        ) : (
+          <Tree.Tree<string, ontology.Resource>
+            {...treeProps}
+            showRules
+            subscribe={subscribe}
+            getItem={resourceStore.get.bind(resourceStore)}
+          >
+            {renderItem}
+          </Tree.Tree>
+        )}
       </Flex.Box>
       <Modals.BottomNavBar>
         <Nav.Bar.End>
           <Button.Button
             variant="filled"
-            disabled={checkedState.checked.size === 0 || client == null || cluster == null}
+            disabled={
+              checkedState.checked.size === 0 ||
+              client == null ||
+              cluster == null
+            }
             trigger={Triggers.SAVE}
             onClick={() => {
               if (client == null || cluster == null) return;

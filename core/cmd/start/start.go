@@ -260,6 +260,9 @@ func BootupCore(ctx context.Context, onServerStarted chan struct{}, cfgs ...Core
 		Distribution: distributionLayer,
 	})
 	exportTransport := apibackup.NewTransport(exportSvc, serviceLayer.Token, serviceLayer.RBAC)
+	if !ok(nil, exportTransport) {
+		return err
+	}
 
 	// Configure the HTTP Layer AspenTransport.
 	r := http.NewRouter(http.RouterConfig{
