@@ -596,15 +596,21 @@ const ResultsStep = ({ results }: ResultsStepProps): ReactElement => (
         </Text.Text>
       </Flex.Box>
       <Flex.Box y align="center">
+        <Text.Text level="h3">{results.replaced}</Text.Text>
+        <Text.Text level="small" style={{ color: "var(--pluto-gray-l7)" }}>
+          Replaced
+        </Text.Text>
+      </Flex.Box>
+      <Flex.Box y align="center">
         <Text.Text level="h3">{results.skipped}</Text.Text>
         <Text.Text level="small" style={{ color: "var(--pluto-gray-l7)" }}>
           Skipped
         </Text.Text>
       </Flex.Box>
       <Flex.Box y align="center">
-        <Text.Text level="h3">{results.replaced}</Text.Text>
+        <Text.Text level="h3">{results.identical}</Text.Text>
         <Text.Text level="small" style={{ color: "var(--pluto-gray-l7)" }}>
-          Replaced
+          Identical
         </Text.Text>
       </Flex.Box>
     </Flex.Box>
@@ -692,7 +698,9 @@ export const ImportModal = (_: Layout.RendererProps): ReactElement => {
           onOverrideChange={handleOverrideChange}
         />
       )}
-      {step === "results" && results != null && <ResultsStep results={results} />}
+      {step === "results" && results != null && (
+        <ResultsStep results={results} />
+      )}
       {step === "review" && (
         <Modals.BottomNavBar>
           <Nav.Bar.End>

@@ -495,7 +495,12 @@ func (s *Service) analyzeDevices(ctx context.Context, zr *zip.Reader) ([]Analysi
 			// and "write" keys contain volatile channel mappings set by the
 			// driver when tasks are configured.
 			if !jsonEqual(ex.Properties["connection"], d.Properties["connection"]) {
-				diffs = append(diffs, "connection config differs")
+				changedKeys := jsonDiffKeys(ex.Properties["connection"], d.Properties["connection"])
+				if len(changedKeys) > 0 {
+					diffs = append(diffs, fmt.Sprintf("connection: %s changed", strings.Join(changedKeys, ", ")))
+				} else {
+					diffs = append(diffs, "connection config differs")
+				}
 			}
 			if len(diffs) == 0 {
 				item.Status = StatusIdentical
@@ -534,7 +539,14 @@ func (s *Service) analyzeTasks(ctx context.Context, zr *zip.Reader) ([]AnalysisI
 		}
 		if ex, ok := existingByName[t.Name]; ok {
 			item.ExistingKey = fmt.Sprintf("%d", ex.Key)
-			if ex.Type == t.Type && jsonEqual(ex.Config, t.Config) {
+			// Compare task configs excluding volatile fields (channels and
+			// device are set by the driver, not user-configured).
+			stableConfigEqual := jsonEqualExcluding(
+				map[string]any(ex.Config),
+				map[string]any(t.Config),
+				"channels", "device",
+			)
+			if ex.Type == t.Type && stableConfigEqual {
 				item.Status = StatusIdentical
 			} else {
 				item.Status = StatusConflict
@@ -542,8 +554,17 @@ func (s *Service) analyzeTasks(ctx context.Context, zr *zip.Reader) ([]AnalysisI
 				if ex.Type != t.Type {
 					diffs = append(diffs, fmt.Sprintf("type: %s vs %s", ex.Type, t.Type))
 				}
-				if !jsonEqual(ex.Config, t.Config) {
-					diffs = append(diffs, "config differs")
+				if !stableConfigEqual {
+					changed := jsonDiffKeysExcluding(
+						map[string]any(ex.Config),
+						map[string]any(t.Config),
+						"channels", "device",
+					)
+					if len(changed) > 0 {
+						diffs = append(diffs, fmt.Sprintf("config: %s changed", strings.Join(changed, ", ")))
+					} else {
+						diffs = append(diffs, "config differs")
+					}
 				}
 				item.Details = strings.Join(diffs, "; ")
 			}
@@ -644,6 +665,12 @@ func (s *Service) importChannels(
 			}
 		}
 
+		// Check if channel already exists before creating.
+		var existingChannels []distchannel.Channel
+		_ = s.cfg.Distribution.Channel.NewRetrieve().
+			WhereNames(ch.Name).Entries(&existingChannels).Exec(ctx, nil)
+		alreadyExists := len(existingChannels) > 0
+
 		newCh := distchannel.Channel{
 			Name:     ch.Name,
 			DataType: ch.DataType,
@@ -674,13 +701,12 @@ func (s *Service) importChannels(
 		if newKey != ch.Key {
 			remap[ch.Key] = newKey
 		}
-		if newKey == ch.Key && policy == PolicySkip {
-			// Channel already existed with same key — it's identical, not skipped.
-			resp.Identical++
-		} else if newKey != ch.Key {
+		if !alreadyExists {
 			resp.Imported++
-		} else {
+		} else if policy == PolicyReplace {
 			resp.Replaced++
+		} else {
+			resp.Identical++
 		}
 
 		// Move channel to its custom group if one was specified in the archive.
@@ -862,7 +888,11 @@ func (s *Service) importTasks(
 		}
 		if len(existing) > 0 {
 			if policy == PolicySkip {
-				if existing[0].Type == t.Type && jsonEqual(existing[0].Config, t.Config) {
+				if existing[0].Type == t.Type && jsonEqualExcluding(
+				map[string]any(existing[0].Config),
+				map[string]any(t.Config),
+				"channels", "device",
+			) {
 					resp.Identical++
 				} else {
 					resp.Skipped++
@@ -1040,7 +1070,7 @@ func (s *Service) importWorkspaceChildren(
 // importDataViz is the shared logic for importing lineplots, tables, and logs
 // (all stored as DataVisualization in the archive).
 func (s *Service) importDataViz(
-	_ context.Context,
+	ctx context.Context,
 	f *zip.File,
 	_ uuid.UUID,
 	childType string,
@@ -1106,7 +1136,12 @@ func (s *Service) importSchematicViz(
 	mapKey := childMapKey(sch.Name, "schematic")
 	if existingKey, exists := existingChildren[mapKey]; exists {
 		if policy == PolicySkip {
-			resp.Skipped++
+			existingData, _ := s.getChildData(ctx, "schematic", existingKey)
+			if compactJSON(string(data)) == compactJSON(existingData) {
+				resp.Identical++
+			} else {
+				resp.Skipped++
+			}
 			return nil
 		}
 		if err := s.cfg.Service.Schematic.NewWriter(nil).SetData(ctx, existingKey, string(data)); err != nil {
@@ -1165,6 +1200,93 @@ func jsonEqual(a, b any) bool {
 		return false
 	}
 	return compactJSON(string(aj)) == compactJSON(string(bj))
+}
+
+// jsonDiffKeys compares two values as JSON objects and returns the top-level
+// keys that differ. If either value is not a JSON object, it returns nil.
+func jsonDiffKeys(a, b any) []string {
+	aMap, aOk := toStringMap(a)
+	bMap, bOk := toStringMap(b)
+	if !aOk || !bOk {
+		return nil
+	}
+	allKeys := make(map[string]bool)
+	for k := range aMap {
+		allKeys[k] = true
+	}
+	for k := range bMap {
+		allKeys[k] = true
+	}
+	var diffs []string
+	for k := range allKeys {
+		if !jsonEqual(aMap[k], bMap[k]) {
+			diffs = append(diffs, k)
+		}
+	}
+	return diffs
+}
+
+func toStringMap(v any) (map[string]any, bool) {
+	if m, ok := v.(map[string]any); ok {
+		return m, true
+	}
+	b, err := json.Marshal(v)
+	if err != nil {
+		return nil, false
+	}
+	var m map[string]any
+	if err := json.Unmarshal(b, &m); err != nil {
+		return nil, false
+	}
+	return m, true
+}
+
+// jsonEqualExcluding compares two maps as JSON, ignoring the specified keys.
+func jsonEqualExcluding(a, b map[string]any, exclude ...string) bool {
+	ac := copyMapExcluding(a, exclude)
+	bc := copyMapExcluding(b, exclude)
+	return jsonEqual(ac, bc)
+}
+
+// jsonDiffKeysExcluding returns the top-level keys that differ between two maps,
+// ignoring the specified keys.
+func jsonDiffKeysExcluding(a, b map[string]any, exclude ...string) []string {
+	ex := make(map[string]bool, len(exclude))
+	for _, k := range exclude {
+		ex[k] = true
+	}
+	var diffs []string
+	for k, av := range a {
+		if ex[k] {
+			continue
+		}
+		if bv, ok := b[k]; !ok || !jsonEqual(av, bv) {
+			diffs = append(diffs, k)
+		}
+	}
+	for k := range b {
+		if ex[k] {
+			continue
+		}
+		if _, ok := a[k]; !ok {
+			diffs = append(diffs, k)
+		}
+	}
+	return diffs
+}
+
+func copyMapExcluding(m map[string]any, exclude []string) map[string]any {
+	ex := make(map[string]bool, len(exclude))
+	for _, k := range exclude {
+		ex[k] = true
+	}
+	result := make(map[string]any, len(m))
+	for k, v := range m {
+		if !ex[k] {
+			result[k] = v
+		}
+	}
+	return result
 }
 
 // compactJSON removes formatting differences (whitespace, indentation) from a

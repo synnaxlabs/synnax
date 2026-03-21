@@ -40,8 +40,9 @@ export interface ImportRequest {
 
 export interface ImportResponse {
   imported: number;
-  skipped: number;
   replaced: number;
+  skipped: number;
+  identical: number;
   errors: string[];
 }
 

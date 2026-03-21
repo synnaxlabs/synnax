@@ -229,8 +229,8 @@ var _ = Describe("Import", func() {
 				DefaultPolicy: backup.PolicySkip,
 			})
 			Expect(err).ToNot(HaveOccurred())
-			// 1 workspace skipped (existing) + 1 lineplot imported
-			Expect(resp.Skipped).To(Equal(1))
+			// 1 workspace identical (existing, same layout) + 1 lineplot imported
+			Expect(resp.Identical).To(Equal(1))
 			Expect(resp.Imported).To(Equal(1))
 		})
 
@@ -279,7 +279,7 @@ var _ = Describe("Import", func() {
 				DefaultPolicy: backup.PolicySkip,
 			})
 			Expect(err).ToNot(HaveOccurred())
-			Expect(resp.Skipped).To(Equal(1))
+			Expect(resp.Identical).To(Equal(1))
 		})
 	})
 
