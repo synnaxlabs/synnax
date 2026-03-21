@@ -225,33 +225,23 @@ const CheckboxItem = ({
   );
 };
 
+const TYPE_TO_FIELD: Partial<Record<string, keyof ExportSycRequest>> = {
+  workspace: "workspace_keys",
+  user: "user_keys",
+  device: "device_keys",
+  task: "task_keys",
+  range: "range_keys",
+  channel: "channel_keys",
+};
+
 const buildExportRequest = (checked: Set<string>): ExportSycRequest => {
   const request: ExportSycRequest = {};
   for (const key of checked) {
     if (key.startsWith("section:") || key.startsWith("group:")) continue;
     const id = ontology.idZ.safeParse(key);
     if (!id.success) continue;
-    const { type, key: resourceKey } = id.data;
-    switch (type) {
-      case "workspace":
-        (request.workspace_keys ??= []).push(resourceKey);
-        break;
-      case "user":
-        (request.user_keys ??= []).push(resourceKey);
-        break;
-      case "device":
-        (request.device_keys ??= []).push(resourceKey);
-        break;
-      case "task":
-        (request.task_keys ??= []).push(resourceKey);
-        break;
-      case "range":
-        (request.range_keys ??= []).push(resourceKey);
-        break;
-      case "channel":
-        (request.channel_keys ??= []).push(resourceKey);
-        break;
-    }
+    const field = TYPE_TO_FIELD[id.data.type];
+    if (field != null) (request[field] ??= []).push(id.data.key);
   }
   return request;
 };

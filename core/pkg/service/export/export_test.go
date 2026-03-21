@@ -23,188 +23,120 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/log"
 	"github.com/synnaxlabs/synnax/pkg/service/schematic"
 	"github.com/synnaxlabs/synnax/pkg/service/table"
+	"github.com/synnaxlabs/synnax/pkg/service/user"
 	"github.com/synnaxlabs/synnax/pkg/service/workspace"
 )
 
 var _ = Describe("Export", func() {
-	var ws workspace.Workspace
-
-	BeforeEach(func() {
-		ws = workspace.Workspace{
-			Name:   "Test Workspace",
-			Layout: `{"key":"test"}`,
-			Author: testAuthor.Key,
-		}
-		Expect(workspaceSvc.NewWriter(nil).Create(ctx, &ws)).To(Succeed())
-	})
-
 	Describe("Workspace Export", func() {
+		var ws workspace.Workspace
+
+		BeforeEach(func() {
+			ws = workspace.Workspace{
+				Name:   "Test Workspace",
+				Layout: `{"key":"test"}`,
+				Author: testAuthor.Key,
+			}
+			Expect(svcLayer.Workspace.NewWriter(nil).Create(ctx, &ws)).To(Succeed())
+		})
+
 		It("Should export a workspace with its metadata", func() {
-			var buf bytes.Buffer
-			req := export.Request{WorkspaceKeys: []uuid.UUID{ws.Key}}
-			Expect(svc.Export(ctx, req, &buf)).To(Succeed())
+			r := exportAndOpen(export.Request{WorkspaceKeys: []uuid.UUID{ws.Key}})
 
-			r, err := zip.NewReader(bytes.NewReader(buf.Bytes()), int64(buf.Len()))
-			Expect(err).ToNot(HaveOccurred())
-
-			manifestFile := findFile(r, "manifest.json")
-			Expect(manifestFile).ToNot(BeNil())
-
-			var manifest export.Manifest
-			Expect(json.NewDecoder(
-				mustOpen(manifestFile),
-			).Decode(&manifest)).To(Succeed())
+			manifest := readJSON[export.Manifest](r, "manifest.json")
 			Expect(manifest.Version).To(Equal(export.Version))
 			Expect(manifest.Sections).To(ContainElement("workspaces"))
 
-			wsFile := findFile(r, "workspaces/"+ws.Key.String()+".json")
-			Expect(wsFile).ToNot(BeNil())
-
-			var exportedWS export.Workspace
-			Expect(json.NewDecoder(
-				mustOpen(wsFile),
-			).Decode(&exportedWS)).To(Succeed())
-			Expect(exportedWS.Name).To(Equal("Test Workspace"))
-			Expect(exportedWS.Key).To(Equal(ws.Key))
-			Expect(exportedWS.Author).To(Equal(testAuthor.Key))
-			Expect(json.Valid(exportedWS.Layout)).To(BeTrue())
+			exported := readJSON[export.Workspace](r, "workspaces/"+ws.Key.String()+".json")
+			Expect(exported.Name).To(Equal("Test Workspace"))
+			Expect(exported.Key).To(Equal(ws.Key))
+			Expect(json.Valid(exported.Layout)).To(BeTrue())
 		})
 
 		It("Should export child line plots", func() {
-			lp := lineplot.LinePlot{
-				Name: "Test Line Plot",
-				Data: `{"channels":[1,2,3]}`,
-			}
-			Expect(lineplotSvc.NewWriter(nil).Create(ctx, ws.Key, &lp)).To(Succeed())
+			lp := lineplot.LinePlot{Name: "Test LP", Data: `{"channels":[1,2,3]}`}
+			Expect(svcLayer.LinePlot.NewWriter(nil).Create(ctx, ws.Key, &lp)).To(Succeed())
 
-			var buf bytes.Buffer
-			req := export.Request{WorkspaceKeys: []uuid.UUID{ws.Key}}
-			Expect(svc.Export(ctx, req, &buf)).To(Succeed())
-
-			r, err := zip.NewReader(bytes.NewReader(buf.Bytes()), int64(buf.Len()))
-			Expect(err).ToNot(HaveOccurred())
-
-			path := "workspaces/" + ws.Key.String() + "/lineplots/" + lp.Key.String() + ".json"
-			lpFile := findFile(r, path)
-			Expect(lpFile).ToNot(BeNil())
-
-			var exportedLP export.LinePlot
-			Expect(json.NewDecoder(
-				mustOpen(lpFile),
-			).Decode(&exportedLP)).To(Succeed())
-			Expect(exportedLP.Name).To(Equal("Test Line Plot"))
-			Expect(json.Valid(exportedLP.Data)).To(BeTrue())
+			r := exportAndOpen(export.Request{WorkspaceKeys: []uuid.UUID{ws.Key}})
+			exported := readJSON[export.DataVisualization](r,
+				"workspaces/"+ws.Key.String()+"/lineplots/"+lp.Key.String()+".json")
+			Expect(exported.Name).To(Equal("Test LP"))
+			Expect(json.Valid(exported.Data)).To(BeTrue())
 		})
 
 		It("Should export child schematics", func() {
-			s := schematic.Schematic{
-				Name: "Test Schematic",
-				Data: `{"nodes":[]}`,
-			}
-			Expect(schematicSvc.NewWriter(nil).Create(ctx, ws.Key, &s)).To(Succeed())
+			s := schematic.Schematic{Name: "Test Schematic", Data: `{"nodes":[]}`}
+			Expect(svcLayer.Schematic.NewWriter(nil).Create(ctx, ws.Key, &s)).To(Succeed())
 
-			var buf bytes.Buffer
-			req := export.Request{WorkspaceKeys: []uuid.UUID{ws.Key}}
-			Expect(svc.Export(ctx, req, &buf)).To(Succeed())
-
-			r, err := zip.NewReader(bytes.NewReader(buf.Bytes()), int64(buf.Len()))
-			Expect(err).ToNot(HaveOccurred())
-
-			path := "workspaces/" + ws.Key.String() + "/schematics/" + s.Key.String() + ".json"
-			sFile := findFile(r, path)
-			Expect(sFile).ToNot(BeNil())
-
-			var exportedS export.Schematic
-			Expect(json.NewDecoder(
-				mustOpen(sFile),
-			).Decode(&exportedS)).To(Succeed())
-			Expect(exportedS.Name).To(Equal("Test Schematic"))
-			Expect(json.Valid(exportedS.Data)).To(BeTrue())
+			r := exportAndOpen(export.Request{WorkspaceKeys: []uuid.UUID{ws.Key}})
+			exported := readJSON[export.Schematic](r,
+				"workspaces/"+ws.Key.String()+"/schematics/"+s.Key.String()+".json")
+			Expect(exported.Name).To(Equal("Test Schematic"))
 		})
 
 		It("Should export child tables", func() {
-			t := table.Table{
-				Name: "Test Table",
-				Data: `{"columns":["a","b"]}`,
-			}
-			Expect(tableSvc.NewWriter(nil).Create(ctx, ws.Key, &t)).To(Succeed())
+			t := table.Table{Name: "Test Table", Data: `{"columns":["a"]}`}
+			Expect(svcLayer.Table.NewWriter(nil).Create(ctx, ws.Key, &t)).To(Succeed())
 
-			var buf bytes.Buffer
-			req := export.Request{WorkspaceKeys: []uuid.UUID{ws.Key}}
-			Expect(svc.Export(ctx, req, &buf)).To(Succeed())
-
-			r, err := zip.NewReader(bytes.NewReader(buf.Bytes()), int64(buf.Len()))
-			Expect(err).ToNot(HaveOccurred())
-
-			path := "workspaces/" + ws.Key.String() + "/tables/" + t.Key.String() + ".json"
-			tFile := findFile(r, path)
-			Expect(tFile).ToNot(BeNil())
-
-			var exportedT export.Table
-			Expect(json.NewDecoder(
-				mustOpen(tFile),
-			).Decode(&exportedT)).To(Succeed())
-			Expect(exportedT.Name).To(Equal("Test Table"))
-			Expect(json.Valid(exportedT.Data)).To(BeTrue())
+			r := exportAndOpen(export.Request{WorkspaceKeys: []uuid.UUID{ws.Key}})
+			exported := readJSON[export.DataVisualization](r,
+				"workspaces/"+ws.Key.String()+"/tables/"+t.Key.String()+".json")
+			Expect(exported.Name).To(Equal("Test Table"))
 		})
 
 		It("Should export child logs", func() {
-			l := log.Log{
-				Name: "Test Log",
-				Data: `{"entries":[]}`,
-			}
-			Expect(logSvc.NewWriter(nil).Create(ctx, ws.Key, &l)).To(Succeed())
+			l := log.Log{Name: "Test Log", Data: `{"entries":[]}`}
+			Expect(svcLayer.Log.NewWriter(nil).Create(ctx, ws.Key, &l)).To(Succeed())
 
-			var buf bytes.Buffer
-			req := export.Request{WorkspaceKeys: []uuid.UUID{ws.Key}}
-			Expect(svc.Export(ctx, req, &buf)).To(Succeed())
-
-			r, err := zip.NewReader(bytes.NewReader(buf.Bytes()), int64(buf.Len()))
-			Expect(err).ToNot(HaveOccurred())
-
-			path := "workspaces/" + ws.Key.String() + "/logs/" + l.Key.String() + ".json"
-			lFile := findFile(r, path)
-			Expect(lFile).ToNot(BeNil())
-
-			var exportedL export.Log
-			Expect(json.NewDecoder(
-				mustOpen(lFile),
-			).Decode(&exportedL)).To(Succeed())
-			Expect(exportedL.Name).To(Equal("Test Log"))
-			Expect(json.Valid(exportedL.Data)).To(BeTrue())
+			r := exportAndOpen(export.Request{WorkspaceKeys: []uuid.UUID{ws.Key}})
+			exported := readJSON[export.DataVisualization](r,
+				"workspaces/"+ws.Key.String()+"/logs/"+l.Key.String()+".json")
+			Expect(exported.Name).To(Equal("Test Log"))
 		})
+	})
 
-		It("Should produce a valid archive with no workspace keys", func() {
-			var buf bytes.Buffer
-			req := export.Request{}
-			Expect(svc.Export(ctx, req, &buf)).To(Succeed())
+	Describe("User Export", func() {
+		It("Should export users directly", func() {
+			r := exportAndOpen(export.Request{UserKeys: []uuid.UUID{testAuthor.Key}})
 
-			r, err := zip.NewReader(bytes.NewReader(buf.Bytes()), int64(buf.Len()))
-			Expect(err).ToNot(HaveOccurred())
+			manifest := readJSON[export.Manifest](r, "manifest.json")
+			Expect(manifest.Sections).To(ContainElement("users"))
 
-			manifestFile := findFile(r, "manifest.json")
-			Expect(manifestFile).ToNot(BeNil())
+			exported := readJSON[user.User](r, "users/"+testAuthor.Key.String()+".json")
+			Expect(exported.Username).To(Equal("test_export_user"))
+		})
+	})
 
-			var manifest export.Manifest
-			Expect(json.NewDecoder(
-				mustOpen(manifestFile),
-			).Decode(&manifest)).To(Succeed())
+	Describe("Empty Export", func() {
+		It("Should produce a valid archive with no keys", func() {
+			r := exportAndOpen(export.Request{})
+			manifest := readJSON[export.Manifest](r, "manifest.json")
 			Expect(manifest.Sections).To(BeEmpty())
 		})
 	})
 })
 
-func findFile(r *zip.Reader, name string) *zip.File {
-	for _, f := range r.File {
-		if f.Name == name {
-			return f
-		}
-	}
-	return nil
+func exportAndOpen(req export.Request) *zip.Reader {
+	var buf bytes.Buffer
+	ExpectWithOffset(1, svc.Export(ctx, req, &buf)).To(Succeed())
+	r, err := zip.NewReader(bytes.NewReader(buf.Bytes()), int64(buf.Len()))
+	ExpectWithOffset(1, err).ToNot(HaveOccurred())
+	return r
 }
 
-func mustOpen(f *zip.File) io.ReadCloser {
+func readJSON[T any](r *zip.Reader, name string) T {
+	var f *zip.File
+	for _, candidate := range r.File {
+		if candidate.Name == name {
+			f = candidate
+			break
+		}
+	}
+	ExpectWithOffset(1, f).ToNot(BeNil(), "file not found in archive: %s", name)
 	rc, err := f.Open()
 	ExpectWithOffset(1, err).ToNot(HaveOccurred())
-	return rc
+	defer func(rc io.ReadCloser) { _ = rc.Close() }(rc)
+	var v T
+	ExpectWithOffset(1, json.NewDecoder(rc).Decode(&v)).To(Succeed())
+	return v
 }

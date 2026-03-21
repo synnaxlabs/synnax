@@ -15,9 +15,10 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"github.com/synnaxlabs/synnax/pkg/distribution"
 	"github.com/synnaxlabs/synnax/pkg/distribution/group"
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
-	"github.com/synnaxlabs/synnax/pkg/service/arc"
+	"github.com/synnaxlabs/synnax/pkg/service"
 	"github.com/synnaxlabs/synnax/pkg/service/export"
 	"github.com/synnaxlabs/synnax/pkg/service/lineplot"
 	"github.com/synnaxlabs/synnax/pkg/service/log"
@@ -36,17 +37,12 @@ func TestExport(t *testing.T) {
 }
 
 var (
-	ctx          = context.Background()
-	db           *gorp.DB
-	otg          *ontology.Ontology
-	svc          *export.Service
-	workspaceSvc *workspace.Service
-	lineplotSvc  *lineplot.Service
-	schematicSvc *schematic.Service
-	tableSvc     *table.Service
-	arcSvc       *arc.Service
-	logSvc       *log.Service
-	testAuthor   user.User
+	ctx        = context.Background()
+	db         *gorp.DB
+	otg        *ontology.Ontology
+	svc        *export.Service
+	svcLayer   *service.Layer
+	testAuthor user.User
 )
 
 var _ = BeforeSuite(func() {
@@ -59,6 +55,7 @@ var _ = BeforeSuite(func() {
 		DB:       db,
 		Ontology: otg,
 	}))
+
 	userSvc := MustSucceed(user.OpenService(ctx, user.ServiceConfig{
 		DB:       db,
 		Ontology: otg,
@@ -67,36 +64,35 @@ var _ = BeforeSuite(func() {
 	testAuthor = user.User{Username: "test_export_user"}
 	Expect(userSvc.NewWriter(nil).Create(ctx, &testAuthor)).To(Succeed())
 
-	workspaceSvc = MustSucceed(workspace.OpenService(ctx, workspace.ServiceConfig{
-		DB:       db,
-		Ontology: otg,
-		Group:    g,
-	}))
-	lineplotSvc = MustSucceed(lineplot.NewService(lineplot.ServiceConfig{
-		DB:       db,
-		Ontology: otg,
-	}))
-	schematicSvc = MustSucceed(schematic.OpenService(ctx, schematic.ServiceConfig{
-		DB:       db,
-		Ontology: otg,
-		Group:    g,
-	}))
-	tableSvc = MustSucceed(table.NewService(table.ServiceConfig{
-		DB:       db,
-		Ontology: otg,
-	}))
-	logSvc = MustSucceed(log.NewService(log.ServiceConfig{
-		DB:       db,
-		Ontology: otg,
-	}))
+	svcLayer = &service.Layer{
+		User: userSvc,
+		Workspace: MustSucceed(workspace.OpenService(ctx, workspace.ServiceConfig{
+			DB:       db,
+			Ontology: otg,
+			Group:    g,
+		})),
+		LinePlot: MustSucceed(lineplot.NewService(lineplot.ServiceConfig{
+			DB:       db,
+			Ontology: otg,
+		})),
+		Schematic: MustSucceed(schematic.OpenService(ctx, schematic.ServiceConfig{
+			DB:       db,
+			Ontology: otg,
+			Group:    g,
+		})),
+		Table: MustSucceed(table.NewService(table.ServiceConfig{
+			DB:       db,
+			Ontology: otg,
+		})),
+		Log: MustSucceed(log.NewService(log.ServiceConfig{
+			DB:       db,
+			Ontology: otg,
+		})),
+	}
 
 	svc = export.NewService(export.ServiceConfig{
-		Ontology:  otg,
-		Workspace: workspaceSvc,
-		LinePlot:  lineplotSvc,
-		Schematic: schematicSvc,
-		Table:     tableSvc,
-		Log:       logSvc,
+		Service:      svcLayer,
+		Distribution: &distribution.Layer{Ontology: otg},
 	})
 })
 

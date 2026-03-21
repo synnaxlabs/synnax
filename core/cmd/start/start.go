@@ -256,18 +256,8 @@ func BootupCore(ctx context.Context, onServerStarted chan struct{}, cfgs ...Core
 
 	// Configure the export service.
 	exportSvc := svcexport.NewService(svcexport.ServiceConfig{
-		Ontology:  distributionLayer.Ontology,
-		Workspace: serviceLayer.Workspace,
-		LinePlot:  serviceLayer.LinePlot,
-		Schematic: serviceLayer.Schematic,
-		Table:     serviceLayer.Table,
-		Arc:       serviceLayer.Arc,
-		Log:       serviceLayer.Log,
-		User:      serviceLayer.User,
-		Device:    serviceLayer.Device,
-		Task:      serviceLayer.Task,
-		Ranger:    serviceLayer.Ranger,
-		Channel:   serviceLayer.Channel,
+		Service:      serviceLayer,
+		Distribution: distributionLayer,
 	})
 	exportTransport := apiexport.NewTransport(exportSvc, serviceLayer.Token, serviceLayer.RBAC)
 

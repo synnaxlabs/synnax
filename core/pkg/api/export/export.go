@@ -70,15 +70,18 @@ func (t *Transport) handle(c fiber.Ctx) error {
 			JSON(fiber.Map{"error": "invalid token"})
 	}
 
-	var req svcexport.Request
-	if err := json.Unmarshal(c.Body(), &req); err != nil {
+	var httpReq struct {
+		svcexport.Request
+		Path string `json:"path"`
+	}
+	if err := json.Unmarshal(c.Body(), &httpReq); err != nil {
 		return c.Status(fiber.StatusBadRequest).
 			JSON(fiber.Map{"error": "invalid request body"})
 	}
 
 	// Enforce RBAC — same pattern as every other API service handler.
 	subject := user.OntologyID(userKey)
-	objects := ontologyIDsFromRequest(req)
+	objects := ontologyIDsFromRequest(httpReq.Request)
 	if err := t.access.Enforce(c.Context(), access.Request{
 		Subject: subject,
 		Action:  access.ActionRetrieve,
@@ -89,25 +92,25 @@ func (t *Transport) handle(c fiber.Ctx) error {
 	}
 
 	// Local mode: write to a file on the server's filesystem.
-	if req.Path != "" {
-		f, err := os.Create(req.Path)
+	if httpReq.Path != "" {
+		f, err := os.Create(httpReq.Path)
 		if err != nil {
 			return c.Status(fiber.StatusInternalServerError).
 				JSON(fiber.Map{"error": "failed to create file: " + err.Error()})
 		}
 		defer f.Close()
-		if err := t.internal.Export(c.Context(), req, f); err != nil {
-			os.Remove(req.Path)
+		if err := t.internal.Export(c.Context(), httpReq.Request, f); err != nil {
+			os.Remove(httpReq.Path)
 			return c.Status(fiber.StatusInternalServerError).
 				JSON(fiber.Map{"error": err.Error()})
 		}
-		return c.JSON(fiber.Map{"path": req.Path})
+		return c.JSON(fiber.Map{"path": httpReq.Path})
 	}
 
 	// Network mode: stream the ZIP as the HTTP response.
 	c.Set("Content-Type", "application/zip")
 	c.Set("Content-Disposition", "attachment; filename=\"export.syc\"")
-	return t.internal.Export(c.Context(), req, c.Response().BodyWriter())
+	return t.internal.Export(c.Context(), httpReq.Request, c.Response().BodyWriter())
 }
 
 func ontologyIDsFromRequest(req svcexport.Request) []ontology.ID {
