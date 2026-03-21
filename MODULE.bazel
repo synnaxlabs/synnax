@@ -15,8 +15,8 @@ bazel_dep(name = "openssl", version = "3.5.5.bcr.1")
 
 single_version_override(
     module_name = "cpp-httplib",
-    patches = ["//patches:cpp-httplib-add-load.patch"],
     patch_strip = 1,
+    patches = ["//patches:cpp-httplib-add-load.patch"],
 )
 
 bazel_dep(name = "hedron_compile_commands", dev_dependency = True)
