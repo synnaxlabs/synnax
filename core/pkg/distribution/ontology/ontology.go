@@ -107,6 +107,8 @@ type Ontology struct {
 	search               struct{ *search.Index }
 	registrar            serviceRegistrar
 	disconnectObservers  []observe.Disconnect
+	resourceTable        *gorp.Table[string, Resource]
+	relationshipTable    *gorp.Table[[]byte, Relationship]
 }
 
 type Config struct {
@@ -143,11 +145,21 @@ func Open(ctx context.Context, configs ...Config) (*Ontology, error) {
 	if err != nil {
 		return nil, err
 	}
+	resourceTable, err := gorp.OpenTable[string, Resource](ctx, cfg.DB)
+	if err != nil {
+		return nil, err
+	}
+	relationshipTable, err := gorp.OpenTable[[]byte, Relationship](ctx, cfg.DB)
+	if err != nil {
+		return nil, err
+	}
 	o := &Ontology{
 		Config:               cfg,
 		ResourceObserver:     observe.New[iter.Seq[Change]](),
 		RelationshipObserver: gorp.Observe[[]byte, Relationship](cfg.DB),
 		registrar:            serviceRegistrar{TypeBuiltIn: &builtinService{}},
+		resourceTable:        resourceTable,
+		relationshipTable:    relationshipTable,
 	}
 
 	if err = o.NewRetrieve().WhereIDs(RootID).Exec(ctx, cfg.DB); errors.Is(err, query.ErrNotFound) {
@@ -327,5 +339,5 @@ func (o *Ontology) Close() error {
 	for _, d := range o.disconnectObservers {
 		d()
 	}
-	return nil
+	return errors.Join(o.resourceTable.Close(), o.relationshipTable.Close())
 }

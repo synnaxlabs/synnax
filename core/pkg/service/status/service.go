@@ -19,6 +19,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/distribution/signals"
 	"github.com/synnaxlabs/synnax/pkg/service/label"
 	"github.com/synnaxlabs/x/config"
+	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/gorp"
 	"github.com/synnaxlabs/x/override"
 	"github.com/synnaxlabs/x/validate"
@@ -71,6 +72,7 @@ func (c ServiceConfig) Validate() error {
 type Service struct {
 	cfg             ServiceConfig
 	shutdownSignals io.Closer
+	table           *gorp.Table[string, Status[any]]
 	group           group.Group
 }
 
@@ -82,11 +84,15 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (*Service, error) {
 	if err != nil {
 		return nil, err
 	}
+	table, err := gorp.OpenTable[string, Status[any]](ctx, cfg.DB)
+	if err != nil {
+		return nil, err
+	}
 	g, err := cfg.Group.CreateOrRetrieve(ctx, "Statuses", ontology.RootID)
 	if err != nil {
 		return nil, err
 	}
-	s := &Service{cfg: cfg, group: g}
+	s := &Service{cfg: cfg, table: table, group: g}
 	cfg.Ontology.RegisterService(s)
 	if cfg.Signals == nil {
 		return s, nil
@@ -108,10 +114,11 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (*Service, error) {
 // is not safe to call concurrently with any other Service methods (including Writer(s)
 // and Retrieve(s)).
 func (s *Service) Close() error {
+	var err error
 	if s.shutdownSignals != nil {
-		return s.shutdownSignals.Close()
+		err = s.shutdownSignals.Close()
 	}
-	return nil
+	return errors.Join(err, s.table.Close())
 }
 
 // NewWriter opens a new Writer to create, update, and delete statuses. If tx is not

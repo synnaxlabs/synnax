@@ -18,6 +18,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
 	"github.com/synnaxlabs/synnax/pkg/distribution/signals"
 	"github.com/synnaxlabs/x/config"
+	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/gorp"
 	"github.com/synnaxlabs/x/override"
 	"github.com/synnaxlabs/x/validate"
@@ -66,6 +67,7 @@ func (c ServiceConfig) Validate() error {
 type Service struct {
 	cfg             ServiceConfig
 	shutdownSignals io.Closer
+	table           *gorp.Table[uuid.UUID, User]
 }
 
 // OpenService opens a new Service with the given context ctx and configurations configs.
@@ -75,7 +77,11 @@ func OpenService(ctx context.Context, configs ...ServiceConfig) (*Service, error
 		return nil, err
 	}
 
-	s := &Service{cfg: cfg}
+	table, err := gorp.OpenTable[uuid.UUID, User](ctx, cfg.DB)
+	if err != nil {
+		return nil, err
+	}
+	s := &Service{cfg: cfg, table: table}
 	cfg.Ontology.RegisterService(s)
 
 	if cfg.Signals != nil {
@@ -121,8 +127,9 @@ func (s *Service) UsernameExists(ctx context.Context, username string) (bool, er
 
 // Close closes the service and stops any signal publishing.
 func (s *Service) Close() error {
-	if s.shutdownSignals == nil {
-		return nil
+	var err error
+	if s.shutdownSignals != nil {
+		err = s.shutdownSignals.Close()
 	}
-	return s.shutdownSignals.Close()
+	return errors.Join(err, s.table.Close())
 }
