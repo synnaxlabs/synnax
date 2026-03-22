@@ -13,13 +13,13 @@ the HTTP driver.
 
 Before running this example:
 1. Start the mock HTTP server:
-   uv run python examples/http/server.py
+   uv run python examples/http_sim/server.py
 
 2. Connect the HTTP device in Synnax:
-   uv run python examples/http/connect_server.py
+   uv run python examples/http_sim/connect_server.py
 
 3. Run this script:
-   uv run python examples/http/read_task.py
+   uv run python examples/http_sim/read_task.py
 
 The mock server exposes GET /api/v1/data returning:
     {"temperature": 23.5, "pressure": 101.3, "humidity": 45.0}

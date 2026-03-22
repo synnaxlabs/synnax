@@ -1240,5 +1240,48 @@ ChannelStatus = status.Status<nil>
 					)
 			})
 		})
+
+		Context("enum variant defaults", func() {
+			It("Should generate default for same-namespace enum variant", func() {
+				source := `
+					@py output "out"
+
+					Mode enum {
+						automatic = 0
+						manual    = 1
+					}
+
+					Config struct {
+						mode Mode @validate default ModeAutomatic
+					}
+				`
+				resp := MustGenerate(ctx, source, "config", loader, typesPlugin)
+				ExpectContent(resp, "types_gen.py").
+					ToContain(`mode: Mode = Field(default=Mode.automatic)`)
+			})
+
+			It("Should generate default for cross-namespace enum variant", func() {
+				loader.Add("schemas/control", `
+					@py output "client/py/synnax/x/control"
+
+					Concurrency enum {
+						exclusive = 0
+						shared    = 1
+					}
+				`)
+				source := `
+					import "schemas/control"
+
+					@py output "client/py/synnax/channel"
+
+					Channel struct {
+						concurrency control.Concurrency @validate default control.ConcurrencyExclusive
+					}
+				`
+				resp := MustGenerate(ctx, source, "channel", loader, typesPlugin)
+				ExpectContent(resp, "types_gen.py").
+					ToContain(`concurrency: control.Concurrency = Field(default=control.Concurrency.exclusive)`)
+			})
+		})
 	})
 })

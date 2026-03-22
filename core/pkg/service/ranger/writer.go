@@ -170,7 +170,7 @@ func (w Writer) Delete(ctx context.Context, key uuid.UUID) error {
 	}
 	keys := lo.FilterMap(children, func(r ontology.Resource, _ int) (string, bool) {
 		// Don't delete anything that's not a child range
-		if r.ID.Type != OntologyType {
+		if r.ID.Type != ontology.TypeRange {
 			return "", false
 		}
 		return r.ID.Key, true

@@ -142,7 +142,7 @@ func (r Retrieve) Offset(offset int) Retrieve { r.gorp = r.gorp.Offset(offset); 
 func (r Retrieve) Exec(ctx context.Context, tx gorp.Tx) error {
 	if r.searchTerm != "" {
 		ids, err := r.otg.SearchIDs(ctx, ontology.SearchRequest{
-			Type: OntologyType,
+			Type: ontology.TypeChannel,
 			Term: r.searchTerm,
 		})
 		if err != nil {

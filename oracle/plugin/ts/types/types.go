@@ -1825,9 +1825,21 @@ func (p *Plugin) applyValidation(zodType string, domain resolution.Domain, typeR
 				addXImport(data, xImport{name: "id", submodule: "id"})
 				zodType = fmt.Sprintf("%s.default(() => id.create())", zodType)
 			}
+			if ev, ok := validation.ResolveEnumVariant(rules.Default.IdentValue, typeRef, table); ok {
+				zodType = fmt.Sprintf("%s.default(%s)", zodType, p.enumVariantToTS(ev, data))
+			}
 		}
 	}
 	return validationResult{ZodType: zodType, HasDefault: hasDefault}
+}
+
+func (p *Plugin) enumVariantToTS(ev validation.EnumVariant, data *templateData) string {
+	enumName := domain.GetName(ev.Type, "ts")
+	variantRef := fmt.Sprintf("%s.%s", enumName, ev.Variant.Name)
+	if ev.Type.Namespace != data.Namespace {
+		variantRef = fmt.Sprintf("%s.%s", ev.Type.Namespace, variantRef)
+	}
+	return variantRef
 }
 
 type templateData struct {
