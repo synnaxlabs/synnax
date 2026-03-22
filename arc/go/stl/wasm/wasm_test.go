@@ -2770,7 +2770,7 @@ input_ch -> count_local{} -> sink_ch
 		Describe("Range loops", func() {
 			DescribeTable("should compute correct sums",
 				expectOutput[int64],
-				Entry("1-arg range","range1", types.I64(), `{
+				Entry("1-arg range", "range1", types.I64(), `{
 					sum i64 := 0
 					for i := range(5) {
 						sum = sum + i
