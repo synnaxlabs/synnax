@@ -176,13 +176,17 @@ var _ = Describe("txn", func() {
 
 		It("Should delete a key written directly to the engine without a digest", func() {
 			engine := memkv.New()
-			kv := MustSucceed(builder.New(ctx, kv.Config{Engine: engine}, cluster.Config{}))
-			Expect(engine.Set(ctx, []byte("direct-key"), []byte("direct-value"))).To(Succeed())
+			kv := MustSucceed(
+				builder.New(ctx, kv.Config{Engine: engine}, cluster.Config{}),
+			)
+			Expect(engine.Set(ctx, []byte("direct-key"), []byte("direct-value"))).
+				To(Succeed())
 			v, closer := MustSucceed2(kv.Get(ctx, []byte("direct-key")))
 			Expect(v).To(Equal([]byte("direct-value")))
 			Expect(closer.Close()).To(Succeed())
 			Expect(kv.Delete(ctx, []byte("direct-key"))).To(Succeed())
-			Expect(kv.Get(ctx, []byte("direct-key"))).Error().To(MatchError(query.ErrNotFound))
+			Expect(kv.Get(ctx, []byte("direct-key"))).Error().
+				To(MatchError(query.ErrNotFound))
 		})
 
 		Describe("Peer Leaseholder", func() {
@@ -313,8 +317,8 @@ var _ = Describe("txn", func() {
 			}).Should(Succeed())
 			Expect(kv1.Delete(ctx, []byte("key"))).To(Succeed())
 			Eventually(func(g Gomega) {
-				_, _, err := kv2.Get(ctx, []byte("key"))
-				g.Expect(err).To(MatchError(query.ErrNotFound))
+				g.Expect(kv2.Get(ctx, []byte("key"))).Error().
+					To(MatchError(query.ErrNotFound))
 			}).Should(Succeed())
 		})
 

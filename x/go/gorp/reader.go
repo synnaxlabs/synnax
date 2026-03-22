@@ -24,19 +24,19 @@ import (
 	"github.com/synnaxlabs/x/types"
 )
 
-// Reader wraps a key-value reader to provide a strongly typed interface for
-// reading entries from the DB. Reader only accesses entries that match
-// its type arguments. Reader is NOT safe for concurrent use.
+// Reader wraps a key-value reader to provide a strongly typed interface for reading
+// entries from the DB. Reader only accesses entries that match its type arguments.
+// Reader is NOT safe for concurrent use.
 type Reader[K Key, E Entry[K]] struct {
 	keyCodec *keyCodec[K, E]
 	// BaseReader is the underlying key-value reader that the Reader is wrapping.
 	BaseReader
 }
 
-// WrapReader wraps the given key-value reader to provide a strongly
-// typed interface for reading entries from the DB. It's important to note
-// that the Reader only access to the entries provided as the type arguments
-// to this function. The following example reads from a DB:
+// WrapReader wraps the given key-value reader to provide a strongly typed interface for
+// reading entries from the DB. It's important to note that the Reader only access to
+// the entries provided as the type arguments to this function. The following example
+// reads from a DB:
 //
 //	r := gorp.WrapReader[MyKey, MyEntry](db)
 //
