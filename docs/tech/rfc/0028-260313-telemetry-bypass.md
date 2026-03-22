@@ -316,10 +316,10 @@ zero for non-bypassed tasks.
 
 ### 4.0.1 - Subscriptions
 
-The bus uses queue-based subscriptions rather than virtual callbacks. A `Subscription` is
-a shared object that holds an unbounded deque of frames, filtered to the channel keys the
-subscriber declared interest in. The bus pushes frames into the subscription's queue. The
-consumer pulls them out on its own thread, at its own pace.
+The bus uses queue-based subscriptions rather than virtual callbacks. A `Subscription`
+is a shared object that holds an unbounded deque of frames, filtered to the channel keys
+the subscriber declared interest in. The bus pushes frames into the subscription's
+queue. The consumer pulls them out on its own thread, at its own pace.
 
 ```cpp
 class Subscription {
@@ -355,10 +355,10 @@ expires its route entries during the next publish cycle. No explicit unsubscribe
 required, though an eager `unsubscribe()` method exists for immediate cleanup.
 
 The publisher's thread and consumer's thread are fully decoupled. The push side appends
-to the deque under a mutex (effectively instantaneous), so the bus never blocks on a slow
-consumer. The consumer controls its own read cadence via `try_pop` (polling) or `pop`
-(blocking with condition variable). The queue is unbounded, so a consumer that falls
-behind accumulates memory rather than blocking the publisher.
+to the deque under a mutex (effectively instantaneous), so the bus never blocks on a
+slow consumer. The consumer controls its own read cadence via `try_pop` (polling) or
+`pop` (blocking with condition variable). The queue is unbounded, so a consumer that
+falls behind accumulates memory rather than blocking the publisher.
 
 ## 4.1 - Factory Wrapping
 
@@ -505,11 +505,11 @@ public:
 
 When the streamer opens, it subscribes to the bus for the command channel keys and
 injects its group into `ExcludeGroups` on the server streamer. On each `read()`, it
-checks the bus subscription first (non-blocking). If a locally routed frame is available,
-it is returned immediately without waiting for the server. If no local frame is
-available, the streamer falls back to the server path. Server-side group exclusion
-(Section 4.3) prevents duplicate delivery of frames that were already routed via the bus.
-This is the short circuit: locally routed commands skip the server round-trip.
+checks the bus subscription first (non-blocking). If a locally routed frame is
+available, it is returned immediately without waiting for the server. If no local frame
+is available, the streamer falls back to the server path. Server-side group exclusion
+(Section 4.3) prevents duplicate delivery of frames that were already routed via the
+bus. This is the short circuit: locally routed commands skip the server round-trip.
 
 ### 4.1.2 - Injection Point
 
@@ -608,17 +608,16 @@ public:
 
 The `States` instance receives control updates through two paths:
 
-1. **Relay path**: The control pipeline's streamer subscribes to
-   `sy_node_{N}_control`. On first read, the distribution layer's
-   `controlStateSender` injects the full current state automatically. On subsequent
-   reads, incremental `Transfer` updates arrive as JSON-encoded string series. The
-   pipeline feeds these to `States::apply(Series)`, which parses the JSON and updates
-   the map.
+1. **Relay path**: The control pipeline's streamer subscribes to `sy_node_{N}_control`.
+   On first read, the distribution layer's `controlStateSender` injects the full current
+   state automatically. On subsequent reads, incremental `Transfer` updates arrive as
+   JSON-encoded string series. The pipeline feeds these to `States::apply(Series)`,
+   which parses the JSON and updates the map.
 
 2. **Short-circuit path**: When the bypass `Writer` calls `set_authority` with an
    authority strictly greater than the current holder's, it calls
-   `States::apply_increase` directly, updating the mirror before the request reaches
-   the server (see Section 8.1).
+   `States::apply_increase` directly, updating the mirror before the request reaches the
+   server (see Section 8.1).
 
 Readers (`filter`, `all_authorized`) acquire a shared lock, so filtering does not block
 on updates and updates do not block on filtering.
@@ -690,8 +689,8 @@ command twice.
 Deduplication is handled server-side through a group exclusion mechanism. Each writer
 carries a `ControlSubject.Group` field (a `uint32` identifying the writer's origin). The
 bypass `WriterFactory` injects the rack's key as the group identity for all writers it
-creates. When Cesium relays a frame to the distribution layer, it tags the frame with the
-writer's group:
+creates. When Cesium relays a frame to the distribution layer, it tags the frame with
+the writer's group:
 
 ```go
 // cesium/writer_stream.go
@@ -701,8 +700,8 @@ w.relay.Inlet() <- relayResponse{
 }
 ```
 
-The group field propagates through the relay's `Response` type and into the protobuf wire
-format (`RelayResponse.group`).
+The group field propagates through the relay's `Response` type and into the protobuf
+wire format (`RelayResponse.group`).
 
 ### 4.3.1 - Streamer Exclusion
 
@@ -726,8 +725,8 @@ if r.Group != 0 && slices.Contains(s.cfg.ExcludeGroups, r.Group) {
 ```
 
 Frames originating from the same rack are dropped before they ever reach the driver's
-server streamer. The bus already delivered them locally. Frames from other groups (remote
-Console, other drivers) pass through normally.
+server streamer. The bus already delivered them locally. Frames from other groups
+(remote Console, other drivers) pass through normally.
 
 ### 4.3.2 - Why Server-Side Exclusion
 
@@ -742,9 +741,9 @@ appearance/disappearance mid-stream. Server-side exclusion avoids all of this.
 
 ## 4.4 - Route Discovery
 
-The bus learns which channel keys are locally routable through factory registration. When
-the `WriterFactory` opens a writer, it calls `bus->register_channels(keys)` to set up
-alignment tracking for the writer's channel keys. When the `StreamerFactory` opens a
+The bus learns which channel keys are locally routable through factory registration.
+When the `WriterFactory` opens a writer, it calls `bus->register_channels(keys)` to set
+up alignment tracking for the writer's channel keys. When the `StreamerFactory` opens a
 streamer, it calls `bus->subscribe(keys)` to create a subscription for the streamer's
 channel keys. The bus delivers frames to every subscription whose key set overlaps with
 the published frame.
@@ -757,8 +756,8 @@ Registration follows task lifecycle:
 2. Pipeline starts. `WriterFactory` opens a writer, registering channels for alignment
    tracking. `StreamerFactory` opens a streamer, creating a subscription.
 3. Bus delivers frames from publishers to matching subscriptions by channel key overlap.
-4. Task stops. Pipeline stops. The subscription's `shared_ptr` is destroyed, and the
-   bus automatically expires the `weak_ptr` during the next publish cycle.
+4. Task stops. Pipeline stops. The subscription's `shared_ptr` is destroyed, and the bus
+   automatically expires the `weak_ptr` during the next publish cycle.
 
 The bus does not maintain an explicit routing table. Instead, it iterates over all live
 subscriptions on each publish, checking key overlap via each subscription's
@@ -807,8 +806,9 @@ entirely local. Authority filtering happens at publish time in the Writer (steps
 When an Arc runtime writes to a channel whose hardware is on a different driver, no bus
 subscriber exists for that channel key. The bus `publish()` delivers to zero
 subscriptions (11 ns constant cost). The frame flows through the server path only:
-server writer -> distribution layer -> remote driver's streamer -> remote Sink. Real-time
-guarantees are naturally relaxed for these channels. No special handling is needed.
+server writer -> distribution layer -> remote driver's streamer -> remote Sink.
+Real-time guarantees are naturally relaxed for these channels. No special handling is
+needed.
 
 ### 4.5.2 - Operator Takeover
 
@@ -830,32 +830,32 @@ When an operator takes control of a channel via Console with higher authority:
 
 ## 5.0 - New Components
 
-| Component                    | Location                    | Description                                          |
-| ---------------------------- | --------------------------- | ---------------------------------------------------- |
-| `Bus`                        | `driver/bypass/bypass.h`    | Process-wide frame router with alignment assignment  |
-| `Subscription`               | `driver/bypass/bypass.h`    | Queue-based subscription with key filtering          |
-| `bypass::pipeline::Writer`   | `driver/bypass/pipeline/`   | Wraps `Writer`, publishes to bus with auth filtering |
-| `bypass::pipeline::Streamer` | `driver/bypass/pipeline/`   | Merges bus and server frames via background thread   |
-| `WriterFactory`              | `driver/bypass/pipeline/`   | Wraps `WriterFactory`, injects group + alignment     |
-| `StreamerFactory`            | `driver/bypass/pipeline/`   | Wraps `StreamerFactory`, injects group exclusion     |
-| `control::States`            | `driver/control/state.h`    | Local authority mirror with short-circuit updates    |
-| `x::control::State`          | `x/cpp/control/control.h`   | Control state type (matches JSON wire format)        |
-| `x::control::Transfer`       | `x/cpp/control/control.h`   | Control transfer type                                |
-| `x::control::Update`         | `x/cpp/control/control.h`   | Batch of transfers with JSON parsing                 |
+| Component                    | Location                  | Description                                          |
+| ---------------------------- | ------------------------- | ---------------------------------------------------- |
+| `Bus`                        | `driver/bypass/bypass.h`  | Process-wide frame router with alignment assignment  |
+| `Subscription`               | `driver/bypass/bypass.h`  | Queue-based subscription with key filtering          |
+| `bypass::pipeline::Writer`   | `driver/bypass/pipeline/` | Wraps `Writer`, publishes to bus with auth filtering |
+| `bypass::pipeline::Streamer` | `driver/bypass/pipeline/` | Merges bus and server frames via background thread   |
+| `WriterFactory`              | `driver/bypass/pipeline/` | Wraps `WriterFactory`, injects group + alignment     |
+| `StreamerFactory`            | `driver/bypass/pipeline/` | Wraps `StreamerFactory`, injects group exclusion     |
+| `control::States`            | `driver/control/state.h`  | Local authority mirror with short-circuit updates    |
+| `x::control::State`          | `x/cpp/control/control.h` | Control state type (matches JSON wire format)        |
+| `x::control::Transfer`       | `x/cpp/control/control.h` | Control transfer type                                |
+| `x::control::Update`         | `x/cpp/control/control.h` | Batch of transfers with JSON parsing                 |
 
 ## 5.1 - Modified Components
 
-| Component                          | Change                                                            |
-| ---------------------------------- | ----------------------------------------------------------------- |
-| `task::Context`                    | Add `bus` and `states` members                                    |
-| `common::ReadTask`                 | Wrap `WriterFactory` with bypass `WriterFactory`                  |
-| `common::WriteTask`                | Wrap both factories with bypass versions                          |
-| `rack`                             | Create `Bus` and `control::States` at startup, pass to context    |
-| `StreamerConfig` (Go + C++ + proto)| Add `ExcludeGroups` field                                         |
-| `WriterConfig` (Go + C++ + proto)  | Add `ControlSubject.Group` field                                  |
-| `Cesium relay`                     | Tag relayed frames with writer's group                            |
-| `relay::Streamer`                  | Filter frames by `ExcludeGroups` before delivery                  |
-| `x::telem::Series`                 | `shared_ptr` data for copy-on-write, `shallow_copy()` method      |
+| Component                           | Change                                                         |
+| ----------------------------------- | -------------------------------------------------------------- |
+| `task::Context`                     | Add `bus` and `states` members                                 |
+| `common::ReadTask`                  | Wrap `WriterFactory` with bypass `WriterFactory`               |
+| `common::WriteTask`                 | Wrap both factories with bypass versions                       |
+| `rack`                              | Create `Bus` and `control::States` at startup, pass to context |
+| `StreamerConfig` (Go + C++ + proto) | Add `ExcludeGroups` field                                      |
+| `WriterConfig` (Go + C++ + proto)   | Add `ControlSubject.Group` field                               |
+| `Cesium relay`                      | Tag relayed frames with writer's group                         |
+| `relay::Streamer`                   | Filter frames by `ExcludeGroups` before delivery               |
+| `x::telem::Series`                  | `shared_ptr` data for copy-on-write, `shallow_copy()` method   |
 
 ## 5.2 - Unchanged Components
 
@@ -983,7 +983,7 @@ The end-to-end time of ~72 µs breaks down as:
 | ----------------------------------------- | ------ | ---------- |
 | deep_copy in Bus::publish                 | ~13 µs | 18%        |
 | deep_copy in mock server writer           | ~13 µs | 18%        |
-| deep_copy in `control::States`::filter      | ~13 µs | 18%        |
+| deep_copy in `control::States`::filter    | ~13 µs | 18%        |
 | Frame construction (make_frame in mock)   | ~13 µs | 18%        |
 | Mutex + deque + hash map + dedup overhead | ~2 µs  | 3%         |
 | Measurement overhead / other              | ~18 µs | 25%        |
@@ -1039,15 +1039,15 @@ fraction of the total cost at small sizes.
 
 ### Updated Cost Breakdown (large_acq, 480KB, after move filter)
 
-| Component                                 | Cost      | % of total     |
-| ----------------------------------------- | --------- | -------------- |
-| deep_copy in Bus::publish                 | ~13 µs    | 22%            |
-| deep_copy in mock server writer           | ~13 µs    | 22%            |
-| ~~deep_copy in `control::States`::filter~~  | ~~13 µs~~ | **eliminated** |
-| Move in `control::States`::filter           | ~1 µs     | 2%             |
-| Frame construction (make_frame in mock)   | ~13 µs    | 22%            |
-| Mutex + deque + hash map + dedup overhead | ~2 µs     | 3%             |
-| Measurement overhead / other              | ~17 µs    | 29%            |
+| Component                                  | Cost      | % of total     |
+| ------------------------------------------ | --------- | -------------- |
+| deep_copy in Bus::publish                  | ~13 µs    | 22%            |
+| deep_copy in mock server writer            | ~13 µs    | 22%            |
+| ~~deep_copy in `control::States`::filter~~ | ~~13 µs~~ | **eliminated** |
+| Move in `control::States`::filter          | ~1 µs     | 2%             |
+| Frame construction (make_frame in mock)    | ~13 µs    | 22%            |
+| Mutex + deque + hash map + dedup overhead  | ~2 µs     | 3%             |
+| Measurement overhead / other               | ~17 µs    | 29%            |
 
 ## 7.5 - Optimization: Copy-on-Write Series Data
 
@@ -1118,7 +1118,7 @@ End-to-end comparison (all optimizations combined):
 | ~~deep_copy in Bus::publish~~             | ~~13 µs~~ | **eliminated** |
 | shallow_copy in Bus::publish              | ~0.5 µs   | 1%             |
 | deep_copy in mock server writer           | ~13 µs    | 27%            |
-| Move in `control::States`::filter           | ~1 µs     | 2%             |
+| Move in `control::States`::filter         | ~1 µs     | 2%             |
 | Frame construction (make_frame in mock)   | ~13 µs    | 27%            |
 | Mutex + deque + hash map + dedup overhead | ~2 µs     | 4%             |
 | Measurement overhead / other              | ~19 µs    | 39%            |
@@ -1399,9 +1399,10 @@ server. Decreases must wait for the server's relay update.
 ### 8.1.1 - The Fix
 
 When the bypass Writer's `set_authority` is called, apply the authority change directly
-to `control::States` for any channel where the new authority is strictly greater than the
-current holder's. Then forward the request to the server as before (fire-and-forget).
-The state update happens in the same function call, before `set_authority` returns.
+to `control::States` for any channel where the new authority is strictly greater than
+the current holder's. Then forward the request to the server as before
+(fire-and-forget). The state update happens in the same function call, before
+`set_authority` returns.
 
 The timeline becomes:
 
@@ -1430,8 +1431,8 @@ are needed.
 2. **Bypass `Writer` holds `control::States` reference.** The Writer is constructed with
    a `shared_ptr<control::States>`, the `WriterConfig` (which carries the subject and
    channel keys). When `set_authority` is called with empty keys (meaning "all
-   channels"), the Writer expands to the config's full channel list. For each channel, it
-   calls `apply_increase` before forwarding the request to the server.
+   channels"), the Writer expands to the config's full channel list. For each channel,
+   it calls `apply_increase` before forwarding the request to the server.
 
 3. **Bypass `WriterFactory` threads `control::States`.** The factory accepts a
    `shared_ptr<control::States>` and passes it through to each Writer it creates.
@@ -1502,11 +1503,11 @@ nodes). The 1-5 ms staleness for remote-initiated transitions comes from the rel
 not from missing notification infrastructure.
 
 The short-circuit `apply_increase` (Section 8.1.1) eliminates staleness for the critical
-case: locally initiated authority increases (abort). Remote-initiated transitions are less
-time-sensitive because the remote controller's commands arrive via the server path
-(unaffected by `ExcludeGroups`), so hardware receives the correct commands even while the
-local mirror is stale. The only consequence is a brief window of conflicting commands from
-the old local controller, which resolves when the mirror catches up.
+case: locally initiated authority increases (abort). Remote-initiated transitions are
+less time-sensitive because the remote controller's commands arrive via the server path
+(unaffected by `ExcludeGroups`), so hardware receives the correct commands even while
+the local mirror is stale. The only consequence is a brief window of conflicting
+commands from the old local controller, which resolves when the mirror catches up.
 
 ### 8.1.6 - Alternative Considered: Synchronous Server Round-Trip
 
