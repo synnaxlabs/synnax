@@ -11,8 +11,15 @@
 #include <thread>
 
 #include "glog/logging.h"
-#include <timeapi.h>
 #include <windows.h>
+
+// timeBeginPeriod/timeEndPeriod from winmm.lib. We declare them manually
+// instead of including <timeapi.h> because WIN32_LEAN_AND_MEAN (set by the
+// build) excludes multimedia headers and their transitive type dependencies.
+extern "C" {
+__declspec(dllimport) UINT WINAPI timeBeginPeriod(UINT uPeriod);
+__declspec(dllimport) UINT WINAPI timeEndPeriod(UINT uPeriod);
+}
 
 #include "x/cpp/loop/loop.h"
 #include "x/cpp/telem/telem.h"
