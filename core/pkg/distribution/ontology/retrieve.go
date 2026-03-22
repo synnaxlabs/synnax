@@ -344,5 +344,8 @@ func (r Retrieve) traverseByScan(
 			}
 			return false, nil
 		}).Exec(ctx, tx)
-	return nextIDs, err
+	if err != nil {
+		return nil, err
+	}
+	return nextIDs, nil
 }

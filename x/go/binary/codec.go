@@ -36,7 +36,7 @@ func sugarEncodingErr(value any, base error) error {
 	}
 	val := reflect.ValueOf(value)
 	main := errors.Wrapf(ErrEncode, "failed to encode value: kind=%s, type=%s, value=%+v", val.Kind(), val.Type(), value)
-	return errors.Combine(main, base)
+	return errors.WithStack(errors.Combine(main, base))
 }
 
 // sugarDecodingErr adds additional context to decoding errors.

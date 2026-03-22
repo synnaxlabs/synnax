@@ -23,8 +23,7 @@ import (
 var _ = Describe("Any", func() {
 	Describe("AnyToPBAny", func() {
 		It("Should return nil for nil input", func() {
-			result, err := pb.AnyToPBAny(nil)
-			Expect(err).ToNot(HaveOccurred())
+			result := MustSucceed(pb.AnyToPBAny(nil))
 			Expect(result).To(BeNil())
 		})
 
@@ -58,8 +57,7 @@ var _ = Describe("Any", func() {
 
 	Describe("AnyFromPBAny", func() {
 		It("Should return nil for nil input", func() {
-			result, err := pb.AnyFromPBAny(nil)
-			Expect(err).ToNot(HaveOccurred())
+			result := MustSucceed(pb.AnyFromPBAny(nil))
 			Expect(result).To(BeNil())
 		})
 
@@ -81,8 +79,7 @@ var _ = Describe("Any", func() {
 				TypeUrl: "type.googleapis.com/unknown.Type",
 				Value:   []byte{1, 2, 3},
 			}
-			result, err := pb.AnyFromPBAny(packed)
-			Expect(err).ToNot(HaveOccurred())
+			result := MustSucceed(pb.AnyFromPBAny(packed))
 			Expect(result).To(BeNil())
 		})
 	})

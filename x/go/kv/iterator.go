@@ -9,9 +9,7 @@
 
 package kv
 
-import (
-	"github.com/synnaxlabs/x/binary"
-)
+import "bytes"
 
 type IteratorOptions struct {
 	LowerBound []byte
@@ -68,7 +66,7 @@ func IterPrefix(prefix []byte) IteratorOptions {
 }
 
 func prefixUpperBound(lower []byte) []byte {
-	upper := binary.MakeCopy(lower)
+	upper := bytes.Clone(lower)
 	for i := len(upper) - 1; i >= 0; i-- {
 		upper[i] = upper[i] + 1
 		if upper[i] != 0 {
