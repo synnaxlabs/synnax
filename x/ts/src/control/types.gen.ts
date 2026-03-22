@@ -31,6 +31,11 @@ export const subjectZ = z.object({
   key: z.string(),
   /** name is a human-readable name for the subject. */
   name: z.string(),
+  /**
+   * group optional identifier shared by subjects from the same logical group
+   * (e.g.) all writers from the same driver rack.
+   */
+  group: z.uint32().optional(),
 });
 export interface Subject extends z.infer<typeof subjectZ> {}
 

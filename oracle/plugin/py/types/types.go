@@ -27,6 +27,7 @@ import (
 	"github.com/synnaxlabs/oracle/plugin/enum"
 	"github.com/synnaxlabs/oracle/plugin/framework"
 	"github.com/synnaxlabs/oracle/plugin/output"
+	"github.com/synnaxlabs/oracle/plugin/py/keywords"
 	pyprimitives "github.com/synnaxlabs/oracle/plugin/py/primitives"
 	"github.com/synnaxlabs/oracle/resolution"
 )
@@ -174,9 +175,17 @@ func generatePyFile(
 				TypeDef:   processTypeDef(typ, table, data),
 			})
 		case resolution.StructForm:
+			sd := processStruct(typ, table, data, keyFields)
+			for _, f := range sd.Fields {
+				if f.Alias != "" {
+					sd.HasKeywordAlias = true
+					data.imports.addPydantic("ConfigDict")
+					break
+				}
+			}
 			data.SortedDecls = append(data.SortedDecls, sortedDeclData{
 				IsStruct: true,
-				Struct:   processStruct(typ, table, data, keyFields),
+				Struct:   sd,
 			})
 		}
 	}
@@ -632,12 +641,16 @@ func processField(
 	keyFields []keyFieldData,
 	excludedFields []string,
 ) fieldData {
+	escapedName := keywords.Escape(field.Name)
 	fd := fieldData{
-		Name:           field.Name,
+		Name:           escapedName,
 		Doc:            doc.Get(field.Domains),
 		IsOptional:     field.IsOptional,
 		IsHardOptional: field.IsHardOptional,
 		IsArray:        field.Type.Name == "Array",
+	}
+	if escapedName != field.Name {
+		fd.Alias = field.Name
 	}
 
 	baseType := typeToPython(field.Type, table, data)
@@ -663,7 +676,7 @@ func processField(
 		fd.PyType = fd.PyType + " | None"
 	}
 
-	fd.Default = buildDefault(field, fieldConstraints, data)
+	fd.Default = buildDefault(field, fieldConstraints, fd.Alias, data)
 
 	return fd
 }
@@ -671,6 +684,7 @@ func processField(
 func buildDefault(
 	field resolution.Field,
 	constraints []string,
+	alias string,
 	data *templateData,
 ) string {
 	isAnyOptional := field.IsOptional || field.IsHardOptional
@@ -681,6 +695,10 @@ func buildDefault(
 		constraints = lo.Filter(constraints, func(c string, _ int) bool {
 			return !strings.HasPrefix(c, "default=")
 		})
+	}
+
+	if alias != "" {
+		constraints = append(constraints, fmt.Sprintf("alias=\"%s\"", alias))
 	}
 
 	hasConstraints := len(constraints) > 0
@@ -920,7 +938,20 @@ func typeToPython(
 				outputPath = resolved.Namespace
 			}
 			modulePath := toPythonModulePath(outputPath)
-			return addCrossNamespaceImport(modulePath, pyName, data)
+			pyName = addCrossNamespaceImport(modulePath, pyName, data)
+		}
+		if len(typeRef.TypeArgs) > 0 {
+			structForm := resolved.Form.(resolution.StructForm)
+			var args []string
+			for i, arg := range typeRef.TypeArgs {
+				if i < len(structForm.TypeParams) && structForm.TypeParams[i].HasDefault() {
+					continue
+				}
+				args = append(args, typeToPython(arg, table, data))
+			}
+			if len(args) > 0 {
+				return fmt.Sprintf("%s[%s]", pyName, strings.Join(args, ", "))
+			}
 		}
 		return pyName
 
@@ -1220,22 +1251,24 @@ type typeVarData struct {
 }
 
 type structData struct {
-	Name         string
-	Doc          string
-	PyName       string
-	AliasOf      string
-	KeyField     string
-	Fields       []fieldData
-	TypeParams   []typeParamData
-	ExtendsNames []string
-	Skip         bool
-	IsAlias      bool
-	IsGeneric    bool
-	HasExtends   bool
+	Name            string
+	Doc             string
+	PyName          string
+	AliasOf         string
+	KeyField        string
+	Fields          []fieldData
+	TypeParams      []typeParamData
+	ExtendsNames    []string
+	Skip            bool
+	IsAlias         bool
+	IsGeneric       bool
+	HasExtends      bool
+	HasKeywordAlias bool
 }
 
 type fieldData struct {
 	Name           string
+	Alias          string
 	Doc            string
 	PyType         string
 	Default        string
@@ -1405,6 +1438,9 @@ class {{ .PyName }}({{ range $i, $n := .ExtendsNames }}{{ if $i }}, {{ end }}{{ 
 {{- if hasDocumentation . }}
 {{ formatGoogleDocstring . }}
 {{- end }}
+{{- if .HasKeywordAlias }}
+    model_config = ConfigDict(populate_by_name=True)
+{{ end }}
 {{- if or .Fields .KeyField }}
 {{- range .Fields }}
     {{ .Name }}: {{ .PyType }}{{ .Default }}
@@ -1424,6 +1460,9 @@ class {{ .PyName }}(BaseModel, Generic[{{ range $i, $p := .TypeParams }}{{ if $i
 {{- if hasDocumentation . }}
 {{ formatGoogleDocstring . }}
 {{- end }}
+{{- if .HasKeywordAlias }}
+    model_config = ConfigDict(populate_by_name=True)
+{{ end }}
 {{- range .Fields }}
     {{ .Name }}: {{ .PyType }}{{ .Default }}
 {{- end }}
@@ -1439,6 +1478,9 @@ class {{ .PyName }}(BaseModel):
 {{- if hasDocumentation . }}
 {{ formatGoogleDocstring . }}
 {{- end }}
+{{- if .HasKeywordAlias }}
+    model_config = ConfigDict(populate_by_name=True)
+{{ end }}
 {{- range .Fields }}
     {{ .Name }}: {{ .PyType }}{{ .Default }}
 {{- end }}

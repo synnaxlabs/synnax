@@ -152,7 +152,7 @@ BENCHMARK(BM_SubscriptionCrossThread);
 static void BM_AuthorityFilter_AllPass(benchmark::State &state) {
     const auto &w = WORKLOADS[state.range(0)];
     driver::control::States states;
-    x::control::Subject subject{.name = "bench", .key = "bench-key"};
+    x::control::Subject subject{.key = "bench-key", .name = "bench"};
     auto frame = make_frame(w.channels, w.samples);
     for (auto _: state) {
         auto filtered = states.filter(frame, subject);
@@ -169,15 +169,18 @@ BENCHMARK(BM_AuthorityFilter_AllPass)->DenseRange(0, NUM_WORKLOADS - 1);
 static void BM_AuthorityFilter_HalfPass(benchmark::State &state) {
     const auto &w = WORKLOADS[state.range(0)];
     driver::control::States states;
-    x::control::Subject subject{.name = "bench", .key = "bench-key"};
-    x::control::Subject other{.name = "other", .key = "other-key"};
+    x::control::Subject subject{.key = "bench-key", .name = "bench"};
+    x::control::Subject other{.key = "other-key", .name = "other"};
     for (uint32_t ch = 1; ch <= w.channels; ch++) {
         if (ch % 2 == 0) {
-            x::control::Update update;
+            x::control::Update<synnax::channel::Key> update;
             update.transfers.push_back(
-                x::control::Transfer{
+                x::control::Transfer<synnax::channel::Key>{
                     .from = std::nullopt,
-                    .to = x::control::State{.resource = ch, .subject = other},
+                    .to = x::control::State<synnax::channel::Key>{
+                        .subject = other,
+                        .resource = ch
+                    },
                 }
             );
             states.apply(update);
@@ -196,14 +199,17 @@ BENCHMARK(BM_AuthorityFilter_HalfPass)->DenseRange(0, NUM_WORKLOADS - 1);
 static void BM_AuthorityFilter_NonePass(benchmark::State &state) {
     const auto &w = WORKLOADS[state.range(0)];
     driver::control::States states;
-    x::control::Subject subject{.name = "bench", .key = "bench-key"};
-    x::control::Subject other{.name = "other", .key = "other-key"};
+    x::control::Subject subject{.key = "bench-key", .name = "bench"};
+    x::control::Subject other{.key = "other-key", .name = "other"};
     for (uint32_t ch = 1; ch <= w.channels; ch++) {
-        x::control::Update update;
+        x::control::Update<synnax::channel::Key> update;
         update.transfers.push_back(
-            x::control::Transfer{
+            x::control::Transfer<synnax::channel::Key>{
                 .from = std::nullopt,
-                .to = x::control::State{.resource = ch, .subject = other},
+                .to = x::control::State<synnax::channel::Key>{
+                    .subject = other,
+                    .resource = ch
+                },
             }
         );
         states.apply(update);
@@ -223,7 +229,7 @@ BENCHMARK(BM_AuthorityFilter_NonePass)->DenseRange(0, NUM_WORKLOADS - 1);
 static void BM_AuthorityFilterMove_AllPass(benchmark::State &state) {
     const auto &w = WORKLOADS[state.range(0)];
     driver::control::States states;
-    x::control::Subject subject{.name = "bench", .key = "bench-key"};
+    x::control::Subject subject{.key = "bench-key", .name = "bench"};
     for (auto _: state) {
         state.PauseTiming();
         auto frame = make_frame(w.channels, w.samples);
@@ -242,15 +248,18 @@ BENCHMARK(BM_AuthorityFilterMove_AllPass)->DenseRange(0, NUM_WORKLOADS - 1);
 static void BM_AuthorityFilterMove_HalfPass(benchmark::State &state) {
     const auto &w = WORKLOADS[state.range(0)];
     driver::control::States states;
-    x::control::Subject subject{.name = "bench", .key = "bench-key"};
-    x::control::Subject other{.name = "other", .key = "other-key"};
+    x::control::Subject subject{.key = "bench-key", .name = "bench"};
+    x::control::Subject other{.key = "other-key", .name = "other"};
     for (uint32_t ch = 1; ch <= w.channels; ch++) {
         if (ch % 2 == 0) {
-            x::control::Update update;
+            x::control::Update<synnax::channel::Key> update;
             update.transfers.push_back(
-                x::control::Transfer{
+                x::control::Transfer<synnax::channel::Key>{
                     .from = std::nullopt,
-                    .to = x::control::State{.resource = ch, .subject = other},
+                    .to = x::control::State<synnax::channel::Key>{
+                        .subject = other,
+                        .resource = ch
+                    },
                 }
             );
             states.apply(update);
@@ -271,14 +280,17 @@ BENCHMARK(BM_AuthorityFilterMove_HalfPass)->DenseRange(0, NUM_WORKLOADS - 1);
 static void BM_AuthorityFilterMove_NonePass(benchmark::State &state) {
     const auto &w = WORKLOADS[state.range(0)];
     driver::control::States states;
-    x::control::Subject subject{.name = "bench", .key = "bench-key"};
-    x::control::Subject other{.name = "other", .key = "other-key"};
+    x::control::Subject subject{.key = "bench-key", .name = "bench"};
+    x::control::Subject other{.key = "other-key", .name = "other"};
     for (uint32_t ch = 1; ch <= w.channels; ch++) {
-        x::control::Update update;
+        x::control::Update<synnax::channel::Key> update;
         update.transfers.push_back(
-            x::control::Transfer{
+            x::control::Transfer<synnax::channel::Key>{
                 .from = std::nullopt,
-                .to = x::control::State{.resource = ch, .subject = other},
+                .to = x::control::State<synnax::channel::Key>{
+                    .subject = other,
+                    .resource = ch
+                },
             }
         );
         states.apply(update);
@@ -301,7 +313,7 @@ static void BM_EndToEnd(benchmark::State &state) {
     const auto &w = WORKLOADS[state.range(0)];
     auto bus = std::make_shared<driver::bypass::Bus>();
     auto states = std::make_shared<driver::control::States>();
-    x::control::Subject subject{.name = "bench", .key = "bench-key"};
+    x::control::Subject subject{.key = "bench-key", .name = "bench"};
 
     std::vector<synnax::channel::Key> keys(w.channels);
     for (uint32_t i = 0; i < w.channels; i++)

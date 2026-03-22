@@ -12,9 +12,9 @@
 from __future__ import annotations
 
 from enum import IntEnum
-from typing import Generic, TypeAlias, TypeVar
+from typing import Any, Generic, TypeAlias, TypeVar
 
-from pydantic import BaseModel
+from pydantic import BaseModel, ConfigDict, Field
 
 Authority: TypeAlias = int
 
@@ -34,10 +34,13 @@ class Subject(BaseModel):
     Attributes:
         key: Is a unique identifier for the subject.
         name: Is a human-readable name for the subject.
+        group: Optional identifier shared by subjects from the same logical group
+            (e.g.) all writers from the same driver rack.
     """
 
     key: str
     name: str
+    group: int | None = None
 
 
 class State(BaseModel, Generic[R]):
@@ -53,3 +56,30 @@ class State(BaseModel, Generic[R]):
     subject: Subject
     resource: R
     authority: Authority
+
+
+class Transfer(BaseModel, Generic[R]):
+    """Represents a transfer of control over a resource. It is represented as a
+    transition from one state to another over the same resource. A transfer between
+    resources that are different ill result in a panic when any transfer methods
+    are called.
+
+    If From is nil, the entity was uncontrolled before the transfer. If To is nil, the
+    resource is uncontrolled after the transfer.
+
+    If both From and To are nil, no transfer occurred. If both From and To are not nil,
+    and From.Subject != To.Subject, a transfer occurred.
+
+    Attributes:
+        from_: The previous authority holder. Null on initial acquire.
+        to: The new authority holder. Null on release.
+    """
+
+    model_config = ConfigDict(populate_by_name=True)
+
+    from_: State[R] | None = Field(default=None, alias="from")
+    to: State[R] | None = None
+
+
+class Update(BaseModel, Generic[R]):
+    transfers: list[Transfer[R]]

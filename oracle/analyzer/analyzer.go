@@ -739,7 +739,7 @@ func resolveTypeRef(c *analysisCtx, currentType *resolution.Type, ref *resolutio
 		}
 	}
 
-	if resolution.IsPrimitive(name) && len(parts) == 1 {
+	if (resolution.IsPrimitive(name) || resolution.IsConstraint(name)) && len(parts) == 1 {
 		ref.Name = name
 	} else if typ, ok := c.table.Lookup(ns, name); ok {
 		ref.Name = typ.QualifiedName

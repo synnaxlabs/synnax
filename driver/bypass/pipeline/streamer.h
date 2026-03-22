@@ -87,7 +87,7 @@ public:
         this->subscription->set_on_push(nullptr);
         this->server->close_send();
         if (this->server_thread.joinable()) this->server_thread.join();
-        return this->server_err.skip({freighter::EOF_ERR, freighter::STREAM_CLOSED});
+        return this->server_err.skip({freighter::ERR_EOF, freighter::STREAM_CLOSED});
     }
 
     void close_send() override { this->server->close_send(); }

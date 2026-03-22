@@ -21,7 +21,8 @@ namespace driver::control {
 /// @brief maintains a local mirror of per-channel authority state.
 class States {
     mutable std::shared_mutex mu;
-    std::unordered_map<synnax::channel::Key, x::control::State> states;
+    std::unordered_map<synnax::channel::Key, x::control::State<synnax::channel::Key>>
+        states;
 
 public:
     States() = default;
@@ -30,7 +31,7 @@ public:
     States &operator=(const States &) = delete;
 
     /// @brief applies a control update directly (for testing without a streamer).
-    void apply(const x::control::Update &update) {
+    void apply(const x::control::Update<synnax::channel::Key> &update) {
         std::unique_lock lock(this->mu);
         for (const auto &transfer: update.transfers) {
             if (transfer.to.has_value()) {
@@ -50,7 +51,7 @@ public:
         for (const auto &json_str: series.strings()) {
             x::json::Parser parser(json_str);
             if (!parser.ok()) continue;
-            auto update = x::control::Update::parse(parser);
+            auto update = x::control::Update<synnax::channel::Key>::parse(parser);
             if (parser.ok()) this->apply(update);
         }
     }
@@ -69,9 +70,9 @@ public:
         std::unique_lock lock(this->mu);
         auto it = this->states.find(channel);
         if (it != this->states.end() && it->second.authority >= authority) return;
-        this->states[channel] = x::control::State{
-            .resource = channel,
+        this->states[channel] = x::control::State<synnax::channel::Key>{
             .subject = subject,
+            .resource = channel,
             .authority = authority,
         };
     }

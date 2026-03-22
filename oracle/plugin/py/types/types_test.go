@@ -987,6 +987,49 @@ var _ = Describe("Python Types Plugin", func() {
 						`task_key: UUID`,
 					)
 			})
+			It("Should propagate type args to fields referencing generic structs", func() {
+				source := `
+					@py output "out"
+
+					State struct<R> {
+						resource R
+					}
+
+					Transfer struct<R> {
+						from_ State<R>??
+						to   State<R>??
+					}
+
+					Update struct<R> {
+						transfers Transfer<R>[]
+					}
+				`
+				resp := MustGenerate(ctx, source, "api", loader, typesPlugin)
+				ExpectContent(resp, "types_gen.py").
+					ToContain(
+						`from_: State[R] | None`,
+						`to: State[R] | None`,
+						`transfers: list[Transfer[R]]`,
+					)
+			})
+
+			It("Should skip defaulted type args for non-generic structs", func() {
+				source := `
+					@py output "out"
+
+					Details struct<D? = record> {
+						data D
+					}
+
+					Task struct {
+						details Details
+					}
+				`
+				resp := MustGenerate(ctx, source, "api", loader, typesPlugin)
+				ExpectContent(resp, "types_gen.py").
+					ToContain(`details: Details`).
+					ToNotContain(`Details[`)
+			})
 		})
 
 		Context("cross-namespace references", func() {
@@ -1060,6 +1103,45 @@ var _ = Describe("Python Types Plugin", func() {
 					ToContain(
 						`from synnax import status as status_`,
 						`status: status_.StatusInfo`,
+					)
+			})
+		})
+
+		Context("reserved keywords", func() {
+			It("Should escape Python reserved keyword field names with alias", func() {
+				source := `
+					@py output "out"
+
+					Transfer struct {
+						from string??
+						to string??
+					}
+				`
+				resp := MustGenerate(ctx, source, "control", loader, typesPlugin)
+				ExpectContent(resp, "types_gen.py").
+					ToContain(
+						`from pydantic import BaseModel, Field, ConfigDict`,
+						`model_config = ConfigDict(populate_by_name=True)`,
+						`from_: str | None = Field(default=None, alias="from")`,
+						`to: str | None = None`,
+					)
+			})
+
+			It("Should escape required keyword field", func() {
+				source := `
+					@py output "out"
+
+					Example struct {
+						from string
+						name string
+					}
+				`
+				resp := MustGenerate(ctx, source, "example", loader, typesPlugin)
+				ExpectContent(resp, "types_gen.py").
+					ToContain(
+						`from_: str = Field(alias="from")`,
+						`name: str`,
+						`model_config = ConfigDict(populate_by_name=True)`,
 					)
 			})
 		})

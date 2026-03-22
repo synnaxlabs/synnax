@@ -248,7 +248,7 @@ func (w RelayResponseTranslator) Backward(
 	if err != nil {
 		return relay.Response{}, err
 	}
-	return relay.Response{Frame: fr, Grop: res.Group}, nil
+	return relay.Response{Frame: fr, Group: res.Group}, nil
 }
 
 func (w RelayResponseTranslator) Forward(

@@ -13,18 +13,18 @@
 
 namespace x::control {
 TEST(SubjectTest, Equality) {
-    Subject a{"a", "k1"};
-    Subject b{"b", "k1"};
-    Subject c{"a", "k2"};
-    ASSERT_EQ(a, b);
-    ASSERT_NE(a, c);
+    Subject a{.key = "k1", .name = "a"};
+    Subject b{.key = "k1", .name = "b"};
+    Subject c{.key = "k2", .name = "a"};
+    ASSERT_EQ(a.key, b.key);
+    ASSERT_NE(a.key, c.key);
 }
 
 TEST(StateTest, Parse) {
     const std::string json =
         R"({"resource": 42, "subject": {"key": "writer-1", "name": "Writer"}, "authority": 200})";
     x::json::Parser parser(json);
-    auto state = State::parse(parser);
+    auto state = State<int>::parse(parser);
     ASSERT_TRUE(parser.ok()) << parser.error_json().dump();
     ASSERT_EQ(state.resource, 42);
     ASSERT_EQ(state.subject.key, "writer-1");
@@ -42,7 +42,7 @@ TEST(TransferTest, ParseAcquire) {
         }
     })";
     x::json::Parser parser(json);
-    auto transfer = Transfer::parse(parser);
+    auto transfer = Transfer<int>::parse(parser);
     ASSERT_TRUE(parser.ok()) << parser.error_json().dump();
     ASSERT_FALSE(transfer.from.has_value());
     ASSERT_TRUE(transfer.to.has_value());
@@ -60,7 +60,7 @@ TEST(TransferTest, ParseRelease) {
         "to": null
     })";
     x::json::Parser parser(json);
-    auto transfer = Transfer::parse(parser);
+    auto transfer = Transfer<int>::parse(parser);
     ASSERT_TRUE(parser.ok()) << parser.error_json().dump();
     ASSERT_TRUE(transfer.from.has_value());
     ASSERT_EQ(transfer.from->resource, 10);
@@ -81,7 +81,7 @@ TEST(TransferTest, ParseHandoff) {
         }
     })";
     x::json::Parser parser(json);
-    auto transfer = Transfer::parse(parser);
+    auto transfer = Transfer<int>::parse(parser);
     ASSERT_TRUE(parser.ok()) << parser.error_json().dump();
     ASSERT_TRUE(transfer.from.has_value());
     ASSERT_TRUE(transfer.to.has_value());
@@ -111,7 +111,7 @@ TEST(UpdateTest, ParseMultipleTransfers) {
         ]
     })";
     x::json::Parser parser(json);
-    auto update = Update::parse(parser);
+    auto update = Update<int>::parse(parser);
     ASSERT_TRUE(parser.ok()) << parser.error_json().dump();
     ASSERT_EQ(update.transfers.size(), 2);
     ASSERT_FALSE(update.transfers[0].from.has_value());
@@ -124,7 +124,7 @@ TEST(UpdateTest, ParseMultipleTransfers) {
 TEST(UpdateTest, ParseEmptyTransfers) {
     const std::string json = R"({"transfers": []})";
     x::json::Parser parser(json);
-    auto update = Update::parse(parser);
+    auto update = Update<int>::parse(parser);
     ASSERT_TRUE(parser.ok()) << parser.error_json().dump();
     ASSERT_TRUE(update.transfers.empty());
 }

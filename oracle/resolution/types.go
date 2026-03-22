@@ -42,6 +42,15 @@ var NumberPrimitives = map[string]bool{
 	"float32": true, "float64": true,
 }
 
+// Constraints is the set of built-in constraint-only type names recognized by Oracle.
+// These are valid as type parameter constraints but cannot be used as field types.
+var Constraints = map[string]bool{
+	"comparable": true,
+}
+
+// IsConstraint returns true if the name is a built-in constraint-only type.
+func IsConstraint(name string) bool { return Constraints[name] }
+
 // IsStringPrimitive checks if the primitive is a string-like type.
 func IsStringPrimitive(name string) bool { return StringPrimitives[name] }
 

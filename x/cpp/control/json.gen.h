@@ -11,8 +11,10 @@
 
 #pragma once
 
+#include <cstdint>
 #include <string>
 #include <type_traits>
+#include <vector>
 
 #include "x/cpp/control/types.gen.h"
 #include "x/cpp/json/json.h"
@@ -23,6 +25,7 @@ inline Subject Subject::parse(x::json::Parser parser) {
     return Subject{
         .key = parser.field<std::string>("key"),
         .name = parser.field<std::string>("name"),
+        .group = parser.field<std::uint32_t>("group", 0),
     };
 }
 
@@ -30,6 +33,7 @@ inline x::json::json Subject::to_json() const {
     x::json::json j;
     j["key"] = this->key;
     j["name"] = this->name;
+    j["group"] = this->group;
     return j;
 }
 
@@ -53,6 +57,36 @@ x::json::json State<R>::to_json() const {
     else
         j["resource"] = this->resource.to_json();
     j["authority"] = this->authority;
+    return j;
+}
+
+template<typename R>
+Transfer<R> Transfer<R>::parse(x::json::Parser parser) {
+    return Transfer<R>{
+        .from = parser.field<std::optional<State<R>>>("from"),
+        .to = parser.field<std::optional<State<R>>>("to"),
+    };
+}
+
+template<typename R>
+x::json::json Transfer<R>::to_json() const {
+    x::json::json j;
+    if (this->from.has_value()) j["from"] = this->from->to_json();
+    if (this->to.has_value()) j["to"] = this->to->to_json();
+    return j;
+}
+
+template<typename R>
+Update<R> Update<R>::parse(x::json::Parser parser) {
+    return Update<R>{
+        .transfers = parser.field<std::vector<Transfer<R>>>("transfers"),
+    };
+}
+
+template<typename R>
+x::json::json Update<R>::to_json() const {
+    x::json::json j;
+    j["transfers"] = x::json::to_array(this->transfers);
     return j;
 }
 

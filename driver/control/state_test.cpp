@@ -12,8 +12,8 @@
 #include "driver/control/state.h"
 
 namespace driver::control {
-const x::control::Subject ARC{"arc", "arc-1"};
-const x::control::Subject OPERATOR{"operator", "op-1"};
+const x::control::Subject ARC{.key = "arc-1", .name = "arc"};
+const x::control::Subject OPERATOR{.key = "op-1", .name = "operator"};
 
 TEST(StatesTest, AuthorizedWhenNoState) {
     States states;
@@ -23,10 +23,16 @@ TEST(StatesTest, AuthorizedWhenNoState) {
 TEST(StatesTest, AcquireTransfer) {
     States states;
     states.apply(
-        {.transfers = {{
-             .from = std::nullopt,
-             .to = x::control::State{.resource = 1, .subject = ARC, .authority = 200},
-         }}}
+        x::control::Update<synnax::channel::Key>{
+            .transfers = {{
+                .from = std::nullopt,
+                .to = x::control::State<synnax::channel::Key>{
+                    .subject = ARC,
+                    .resource = 1,
+                    .authority = 200
+                },
+            }}
+        }
     );
     ASSERT_TRUE(states.is_authorized(1, ARC));
     ASSERT_FALSE(states.is_authorized(1, OPERATOR));
@@ -35,17 +41,27 @@ TEST(StatesTest, AcquireTransfer) {
 TEST(StatesTest, ReleaseTransfer) {
     States states;
     states.apply(
-        {.transfers = {{
-             .from = std::nullopt,
-             .to = x::control::State{.resource = 1, .subject = ARC, .authority = 200},
-         }}}
+        x::control::Update<synnax::channel::Key>{
+            .transfers = {{
+                .from = std::nullopt,
+                .to = x::control::State<synnax::channel::Key>{
+                    .subject = ARC,
+                    .resource = 1,
+                    .authority = 200
+                },
+            }}
+        }
     );
     ASSERT_FALSE(states.is_authorized(1, OPERATOR));
     states.apply(
-        {.transfers = {{
-             .from = x::control::State{.resource = 1, .subject = ARC, .authority = 200},
-             .to = std::nullopt,
-         }}}
+        x::control::Update<synnax::channel::Key>{
+            .transfers = {{
+                .from = x::control::State<
+                    synnax::channel::
+                        Key>{.subject = ARC, .resource = 1, .authority = 200},
+                .to = std::nullopt,
+            }}
+        }
     );
     ASSERT_TRUE(states.is_authorized(1, OPERATOR));
 }
@@ -53,20 +69,30 @@ TEST(StatesTest, ReleaseTransfer) {
 TEST(StatesTest, HandoffTransfer) {
     States states;
     states.apply(
-        {.transfers = {{
-             .from = std::nullopt,
-             .to = x::control::State{.resource = 1, .subject = ARC, .authority = 200},
-         }}}
+        x::control::Update<synnax::channel::Key>{
+            .transfers = {{
+                .from = std::nullopt,
+                .to = x::control::State<synnax::channel::Key>{
+                    .subject = ARC,
+                    .resource = 1,
+                    .authority = 200
+                },
+            }}
+        }
     );
     states.apply(
-        {.transfers = {{
-             .from = x::control::State{.resource = 1, .subject = ARC, .authority = 200},
-             .to = x::control::State{
-                 .resource = 1,
-                 .subject = OPERATOR,
-                 .authority = 250
-             },
-         }}}
+        x::control::Update<synnax::channel::Key>{
+            .transfers = {{
+                .from = x::control::State<
+                    synnax::channel::
+                        Key>{.subject = ARC, .resource = 1, .authority = 200},
+                .to = x::control::State<synnax::channel::Key>{
+                    .subject = OPERATOR,
+                    .resource = 1,
+                    .authority = 250
+                },
+            }}
+        }
     );
     ASSERT_FALSE(states.is_authorized(1, ARC));
     ASSERT_TRUE(states.is_authorized(1, OPERATOR));
@@ -75,10 +101,16 @@ TEST(StatesTest, HandoffTransfer) {
 TEST(StatesTest, FilterKeepsAuthorized) {
     States states;
     states.apply(
-        {.transfers = {{
-             .from = std::nullopt,
-             .to = x::control::State{.resource = 1, .subject = ARC, .authority = 200},
-         }}}
+        x::control::Update<synnax::channel::Key>{
+            .transfers = {{
+                .from = std::nullopt,
+                .to = x::control::State<synnax::channel::Key>{
+                    .subject = ARC,
+                    .resource = 1,
+                    .authority = 200
+                },
+            }}
+        }
     );
     x::telem::Frame frame;
     frame.emplace(1, x::telem::Series(static_cast<float>(42.0)));
@@ -90,14 +122,16 @@ TEST(StatesTest, FilterKeepsAuthorized) {
 TEST(StatesTest, FilterRemovesUnauthorized) {
     States states;
     states.apply(
-        {.transfers = {{
-             .from = std::nullopt,
-             .to = x::control::State{
-                 .resource = 1,
-                 .subject = OPERATOR,
-                 .authority = 250
-             },
-         }}}
+        x::control::Update<synnax::channel::Key>{
+            .transfers = {{
+                .from = std::nullopt,
+                .to = x::control::State<synnax::channel::Key>{
+                    .subject = OPERATOR,
+                    .resource = 1,
+                    .authority = 250
+                },
+            }}
+        }
     );
     x::telem::Frame frame;
     frame.emplace(1, x::telem::Series(static_cast<float>(42.0)));
@@ -109,14 +143,16 @@ TEST(StatesTest, FilterRemovesUnauthorized) {
 TEST(StatesTest, FilterAllUnauthorized) {
     States states;
     states.apply(
-        {.transfers = {{
-             .from = std::nullopt,
-             .to = x::control::State{
-                 .resource = 1,
-                 .subject = OPERATOR,
-                 .authority = 250
-             },
-         }}}
+        x::control::Update<synnax::channel::Key>{
+            .transfers = {{
+                .from = std::nullopt,
+                .to = x::control::State<synnax::channel::Key>{
+                    .subject = OPERATOR,
+                    .resource = 1,
+                    .authority = 250
+                },
+            }}
+        }
     );
     x::telem::Frame frame;
     frame.emplace(1, x::telem::Series(static_cast<float>(42.0)));
@@ -127,10 +163,16 @@ TEST(StatesTest, FilterAllUnauthorized) {
 TEST(StatesTest, MoveFilterAllPass) {
     States states;
     states.apply(
-        {.transfers = {{
-             .from = std::nullopt,
-             .to = x::control::State{.resource = 1, .subject = ARC, .authority = 200},
-         }}}
+        x::control::Update<synnax::channel::Key>{
+            .transfers = {{
+                .from = std::nullopt,
+                .to = x::control::State<synnax::channel::Key>{
+                    .subject = ARC,
+                    .resource = 1,
+                    .authority = 200
+                },
+            }}
+        }
     );
     x::telem::Frame frame;
     frame.emplace(1, x::telem::Series(static_cast<float>(42.0)));
@@ -144,14 +186,16 @@ TEST(StatesTest, MoveFilterAllPass) {
 TEST(StatesTest, MoveFilterPartialPass) {
     States states;
     states.apply(
-        {.transfers = {{
-             .from = std::nullopt,
-             .to = x::control::State{
-                 .resource = 1,
-                 .subject = OPERATOR,
-                 .authority = 250
-             },
-         }}}
+        x::control::Update<synnax::channel::Key>{
+            .transfers = {{
+                .from = std::nullopt,
+                .to = x::control::State<synnax::channel::Key>{
+                    .subject = OPERATOR,
+                    .resource = 1,
+                    .authority = 250
+                },
+            }}
+        }
     );
     x::telem::Frame frame;
     frame.emplace(1, x::telem::Series(static_cast<float>(42.0)));
@@ -164,14 +208,16 @@ TEST(StatesTest, MoveFilterPartialPass) {
 TEST(StatesTest, MoveFilterNonePass) {
     States states;
     states.apply(
-        {.transfers = {{
-             .from = std::nullopt,
-             .to = x::control::State{
-                 .resource = 1,
-                 .subject = OPERATOR,
-                 .authority = 250
-             },
-         }}}
+        x::control::Update<synnax::channel::Key>{
+            .transfers = {{
+                .from = std::nullopt,
+                .to = x::control::State<synnax::channel::Key>{
+                    .subject = OPERATOR,
+                    .resource = 1,
+                    .authority = 250
+                },
+            }}
+        }
     );
     x::telem::Frame frame;
     frame.emplace(1, x::telem::Series(static_cast<float>(42.0)));
@@ -269,7 +315,8 @@ TEST(StatesTest, ApplyFromSeriesRelease) {
 TEST(StatesTest, ApplyFromSeriesIgnoresInvalidJson) {
     States states;
     auto series = x::telem::Series(
-        std::vector<std::string>{"not valid json"}, x::telem::STRING_T
+        std::vector<std::string>{"not valid json"},
+        x::telem::STRING_T
     );
     states.apply(series);
     ASSERT_TRUE(states.is_authorized(1, ARC));
@@ -290,7 +337,8 @@ TEST(StatesTest, ApplyFromSeriesMultipleUpdates) {
     const std::string json2 =
         R"({"transfers":[{"to":{"resource":2,"subject":{"key":"op-1","name":"operator"},"authority":250}}]})";
     auto series = x::telem::Series(
-        std::vector<std::string>{json1, json2}, x::telem::STRING_T
+        std::vector<std::string>{json1, json2},
+        x::telem::STRING_T
     );
     states.apply(series);
     ASSERT_TRUE(states.is_authorized(1, ARC));

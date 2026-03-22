@@ -22,6 +22,9 @@ message Subject {
   string key = 1;
   // name is a human-readable name for the subject.
   string name = 2;
+  // group optional identifier shared by subjects from the same logical group (e.g.) all
+  // writers from the same driver rack.
+  uint32 group = 3;
 }
 
 // State represents the state of control over a resource at a point in time, capturing
@@ -33,4 +36,24 @@ message State {
   google.protobuf.Any resource = 2;
   // authority is the level of control authority the subject has over the resource.
   uint32 authority = 3;
+}
+
+// Transfer represents a transfer of control over a resource. It is represented as a
+// transition from one state to another over the same resource. A transfer between
+// resources that are different ill result in a panic when any transfer methods are
+// called.
+//
+// If From is nil, the entity was uncontrolled before the transfer. If To is nil, the
+// resource is uncontrolled after the transfer.
+//
+// If both From and To are nil, no transfer occurred. If both From and To are not nil,
+// and From.Subject != To.Subject, a transfer occurred.
+message Transfer {
+  // from the previous authority holder. Null on initial acquire.
+  optional State from = 1;
+  // to the new authority holder. Null on release.
+  optional State to = 2;
+}
+message Update {
+  repeated Transfer transfers = 1;
 }

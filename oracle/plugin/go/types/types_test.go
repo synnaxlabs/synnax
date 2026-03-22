@@ -587,6 +587,30 @@ var _ = Describe("Go Types Plugin", func() {
 				Expect(content).To(ContainSubstring(`Data D`))
 			})
 
+			It("Should generate generic struct with comparable constraint", func() {
+				source := `
+				@go output "core/container"
+
+				Container struct<K extends comparable> {
+					key K
+					name string
+				}
+			`
+				table, diag := analyzer.AnalyzeSource(ctx, source, "container", loader)
+				Expect(diag.Ok()).To(BeTrue())
+
+				req := &plugin.Request{
+					Resolutions: table,
+				}
+
+				resp, err := goPlugin.Generate(req)
+				Expect(err).To(BeNil())
+
+				content := string(resp.Files[0].Content)
+				Expect(content).To(ContainSubstring(`type Container[K comparable] struct {`))
+				Expect(content).To(ContainSubstring(`Key K`))
+			})
+
 		})
 
 		Context("type aliases", func() {

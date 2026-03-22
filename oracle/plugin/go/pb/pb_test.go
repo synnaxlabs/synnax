@@ -446,6 +446,52 @@ var _ = Describe("Go PB Plugin", func() {
 				ExpectContent(resp, "translator.gen.go").
 					ToContain("google.golang.org/protobuf/types/known/anypb")
 			})
+
+			It("Should propagate comparable constraint to translator functions", func() {
+				source := `
+					@go output "core/control"
+					@pb
+
+					State struct<R> {
+						resource R
+					}
+
+					Transfer struct<R extends comparable> {
+						from State<R>??
+						to   State<R>??
+					}
+				`
+				resp := MustGenerate(ctx, source, "control", loader, pbPlugin)
+
+				ExpectContent(resp, "translator.gen.go").
+					ToContain("func TransferToPB[R comparable](").
+					ToContain("func TransferFromPB[R comparable](").
+					ToContain("func TransfersToPB[R comparable](").
+					ToContain("func TransfersFromPB[R comparable](").
+					ToContain("StateToPB[R]").
+					ToContain("StateFromPB[R]").
+					ToContain("translateR")
+			})
+
+			It("Should forward type param args for array fields of generic structs", func() {
+				source := `
+					@go output "core/control"
+					@pb
+
+					Transfer struct<R extends comparable> {
+						key uuid
+					}
+
+					Update struct<R extends comparable> {
+						transfers Transfer<R>[]
+					}
+				`
+				resp := MustGenerate(ctx, source, "control", loader, pbPlugin)
+
+				ExpectContent(resp, "translator.gen.go").
+					ToContain("TransfersToPB[R](r.Transfers, translateR)").
+					ToContain("TransfersFromPB[R](pb.Transfers, translateR)")
+			})
 		})
 
 		Context("naming conventions", func() {
