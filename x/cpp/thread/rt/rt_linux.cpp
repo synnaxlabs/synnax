@@ -220,7 +220,7 @@ bool has_support() {
     return capabilities().any();
 }
 
-errors::Error apply_config(const Config &cfg) {
+void apply_config(const Config &cfg) {
     // Set CPU affinity before scheduler policy — SCHED_DEADLINE rejects
     // affinity changes after the policy is applied on RT kernels.
     int target_cpu = cfg.cpu_affinity;
@@ -257,6 +257,16 @@ errors::Error apply_config(const Config &cfg) {
             VLOG(1) << "[xthread] set timer slack to 1ns";
     }
 
+    // mlockall is process-wide: it pins every page (current and future) in
+    // physical RAM so that RT threads never hit page faults. MCL_FUTURE means
+    // all future allocations from any thread (including non-RT ones like
+    // logging, networking, task management) also get pinned. This is acceptable
+    // because the driver is a purpose-built process with a bounded memory
+    // footprint. The main cost is thread stacks (~8 MB each, fully faulted in),
+    // but the driver creates a fixed number of threads, so total locked memory
+    // stays predictable. If the driver's memory usage grows significantly,
+    // consider switching to MCL_CURRENT only (locks code/libraries without
+    // pinning future allocations) plus targeted mlock() on RT-specific buffers.
     if (cfg.lock_memory) {
         if (mlockall(MCL_CURRENT | MCL_FUTURE) == -1)
             LOG(WARNING) << "[xthread] Failed to lock memory: " << strerror(errno)
@@ -264,7 +274,5 @@ errors::Error apply_config(const Config &cfg) {
         else
             VLOG(1) << "[xthread] Locked memory pages";
     }
-
-    return errors::NIL;
 }
 }

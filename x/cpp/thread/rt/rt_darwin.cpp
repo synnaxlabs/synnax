@@ -112,7 +112,7 @@ bool has_support() {
     return capabilities().any();
 }
 
-errors::Error apply_config(const Config &cfg) {
+void apply_config(const Config &cfg) {
     const mach_port_t thread_port = pthread_mach_thread_np(pthread_self());
 
     if (cfg.enabled) {
@@ -153,7 +153,5 @@ errors::Error apply_config(const Config &cfg) {
 
     if (cfg.lock_memory)
         LOG(WARNING) << "[xthread] Memory locking not fully supported on macOS";
-
-    return errors::NIL;
 }
 }

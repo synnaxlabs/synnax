@@ -129,16 +129,14 @@ public:
     }
 
     void push(x::telem::Frame frame) {
-        std::function<void()> callback;
         {
             std::lock_guard lock(this->mu);
             while (this->queue.size() >= this->cap)
                 this->queue.pop_front();
             this->queue.push_back(std::move(frame));
-            callback = this->on_push;
+            this->cv.notify_one();
+            if (this->on_push) this->on_push();
         }
-        this->cv.notify_one();
-        if (callback) callback();
     }
 };
 

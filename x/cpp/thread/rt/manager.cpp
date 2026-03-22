@@ -91,7 +91,10 @@ Handle Manager::allocate(Config cfg) {
     if (caps.mmcss) cfg.use_mmcss = true;
     if (caps.memory_locking) cfg.lock_memory = true;
     if (core != CPU_AFFINITY_NONE) VLOG(1) << "[rt.manager] allocated core " << core;
-    return Handle(core, std::move(cfg), [this](int c) { this->release_core(c); });
+    auto weak = weak_from_this();
+    return Handle(core, std::move(cfg), [weak](int c) {
+        if (auto mgr = weak.lock()) mgr->release_core(c);
+    });
 }
 
 size_t Manager::available_cores() const {

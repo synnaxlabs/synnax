@@ -108,9 +108,7 @@ public:
         }
 
         if (!this->rt_handle_) {
-            if (auto err = x::thread::rt::apply_config(this->config_.rt()); err)
-                LOG(WARNING) << "[arc.loop] failed to apply RT config: "
-                             << err.message();
+            x::thread::rt::apply_config(this->config_.rt());
         } else {
             this->rt_handle_->apply();
         }

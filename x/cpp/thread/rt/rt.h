@@ -10,11 +10,11 @@
 #pragma once
 
 #include <functional>
+#include <memory>
 #include <mutex>
 #include <ostream>
 #include <vector>
 
-#include "x/cpp/errors/errors.h"
 #include "x/cpp/log/log.h"
 #include "x/cpp/telem/telem.h"
 
@@ -196,12 +196,12 @@ struct Config {
     }
 };
 
-/// @brief Applies real-time configuration to the current thread.
+/// @brief Applies real-time configuration to the current thread on a
+/// best-effort basis. Individual failures (e.g. missing CAP_SYS_NICE for
+/// SCHED_FIFO) are logged as warnings but do not prevent the thread from
+/// running at normal priority.
 /// @param cfg The RT configuration to apply.
-/// @return errors::NIL on success, or an error describing what failed.
-/// @note On platforms without RT scheduling support (macOS, Windows),
-/// this function logs warnings but does not return errors.
-errors::Error apply_config(const Config &cfg);
+void apply_config(const Config &cfg);
 
 /// @brief DEPRECATED: Use get_rt_capabilities().any() instead.
 /// @brief Checks if the platform supports real-time scheduling.
@@ -247,7 +247,9 @@ public:
 
 /// @brief Central RT core manager. Discovers available cores at construction
 /// and hands them out via allocate(). Thread-safe.
-class Manager {
+/// Must be constructed via std::make_shared so that allocate() can capture
+/// a weak_ptr for safe release callbacks.
+class Manager : public std::enable_shared_from_this<Manager> {
     mutable std::mutex mu;
     std::vector<int> all_cores;
     std::vector<int> available;

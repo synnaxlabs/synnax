@@ -129,7 +129,7 @@ bool has_support() {
     return capabilities().any();
 }
 
-errors::Error apply_config(const Config &cfg) {
+void apply_config(const Config &cfg) {
     if (cfg.enabled) {
         bool used_mmcss = false;
         if (cfg.use_mmcss) used_mmcss = apply_mmcss();
@@ -147,7 +147,5 @@ errors::Error apply_config(const Config &cfg) {
 
     if (cfg.lock_memory)
         LOG(WARNING) << "[xthread] Memory locking on Windows requires VirtualLock API";
-
-    return errors::NIL;
 }
 }
