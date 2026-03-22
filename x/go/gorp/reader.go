@@ -10,7 +10,6 @@
 package gorp
 
 import (
-	"bytes"
 	"context"
 	"fmt"
 	"io"
@@ -98,7 +97,7 @@ type IterOptions struct {
 
 // OpenIterator opens a new Iterator over the entries in the Reader.
 func (r Reader[K, E]) OpenIterator(opts IterOptions) (iter *Iterator[E], err error) {
-	prefixedKey := append(bytes.Clone(r.keyCodec.prefix), opts.prefix...)
+	prefixedKey := append(r.keyCodec.prefix, opts.prefix...)
 	base, err := r.BaseReader.OpenIterator(kv.IterPrefix(prefixedKey))
 	return WrapIterator[E](base, r), err
 }
