@@ -34,9 +34,6 @@ public:
         std::shared_ptr<x::thread::rt::Manager> rt_manager = nullptr
     );
 
-    /// @brief sets the RT manager for core allocation on new engines.
-    void set_rt_manager(std::shared_ptr<x::thread::rt::Manager> mgr);
-
     /// @brief returns all available EtherCAT masters discovered by the manager.
     [[nodiscard]] std::vector<master::Info> enumerate() const;
 

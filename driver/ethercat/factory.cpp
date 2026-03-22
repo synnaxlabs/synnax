@@ -61,10 +61,14 @@ std::unique_ptr<master::Manager> default_manager() {
     return std::make_unique<soem::Manager>();
 }
 
-Factory::Factory(): pool(std::make_shared<engine::Pool>(default_manager())) {}
+Factory::Factory(std::shared_ptr<x::thread::rt::Manager> rt_manager):
+    pool(std::make_shared<engine::Pool>(default_manager(), std::move(rt_manager))) {}
 
-Factory::Factory(std::unique_ptr<master::Manager> manager):
-    pool(std::make_shared<engine::Pool>(std::move(manager))) {}
+Factory::Factory(
+    std::unique_ptr<master::Manager> manager,
+    std::shared_ptr<x::thread::rt::Manager> rt_manager
+):
+    pool(std::make_shared<engine::Pool>(std::move(manager), std::move(rt_manager))) {}
 
 std::pair<common::ConfigureResult, x::errors::Error> Factory::configure_read(
     const std::shared_ptr<task::Context> &ctx,
@@ -129,7 +133,6 @@ std::pair<std::unique_ptr<task::Task>, bool> Factory::configure_task(
     const synnax::task::Task &task
 ) {
     if (task.type.find(INTEGRATION_NAME) != 0) return {nullptr, false};
-    this->pool->set_rt_manager(ctx->rt_manager());
     std::pair<common::ConfigureResult, x::errors::Error> res;
     if (task.type == READ_TASK_TYPE)
         res = this->configure_read(ctx, task);

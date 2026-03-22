@@ -41,10 +41,11 @@ void Rack::run(x::args::Parser &args, const std::function<void()> &on_shutdown) 
         }
         VLOG(1) << "loaded config. starting task manager";
         if (!this->breaker.running()) return;
+        auto rt_manager = std::make_shared<x::thread::rt::Manager>();
         this->task_manager = std::make_unique<task::Manager>(
             cfg.rack,
             cfg.new_client(),
-            cfg.new_factory(),
+            cfg.new_factory(rt_manager),
             cfg.manager
         );
         err = this->task_manager->run([this]() { this->breaker.reset(); });

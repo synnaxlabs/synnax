@@ -26,6 +26,10 @@
 #include "x/cpp/telem/frame.h"
 
 namespace driver::bypass {
+/// @brief maximum number of frames buffered per subscription before the
+/// oldest frames are dropped to make room for new ones.
+constexpr size_t QUEUE_CAP = 2048;
+
 /// @brief a subscription to frames on a set of channel keys.
 class Subscription {
     mutable std::mutex mu;
@@ -35,10 +39,14 @@ class Subscription {
     std::unordered_set<synnax::channel::Key> key_set;
     std::atomic<bool> closed{false};
     std::function<void()> on_push;
+    size_t cap;
 
 public:
-    explicit Subscription(std::vector<synnax::channel::Key> keys):
-        keys(keys), key_set(keys.begin(), keys.end()) {}
+    explicit Subscription(
+        std::vector<synnax::channel::Key> keys,
+        size_t cap = QUEUE_CAP
+    ):
+        keys(keys), key_set(keys.begin(), keys.end()), cap(cap) {}
 
     Subscription(const Subscription &) = delete;
     Subscription &operator=(const Subscription &) = delete;
@@ -79,7 +87,10 @@ public:
         return this->queue.empty();
     }
 
-    void set_on_push(std::function<void()> fn) { this->on_push = std::move(fn); }
+    void set_on_push(std::function<void()> fn) {
+        std::lock_guard lock(this->mu);
+        this->on_push = std::move(fn);
+    }
 
     /// @brief filters, applies alignment, and pushes a frame.
     /// Returns true if any channel matched (frame was delivered).
@@ -118,12 +129,16 @@ public:
     }
 
     void push(x::telem::Frame frame) {
+        std::function<void()> callback;
         {
             std::lock_guard lock(this->mu);
+            while (this->queue.size() >= this->cap)
+                this->queue.pop_front();
             this->queue.push_back(std::move(frame));
+            callback = this->on_push;
         }
         this->cv.notify_one();
-        if (this->on_push) this->on_push();
+        if (callback) callback();
     }
 };
 

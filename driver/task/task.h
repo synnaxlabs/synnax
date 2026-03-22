@@ -24,7 +24,6 @@
 #include "x/cpp/breaker/breaker.h"
 #include "x/cpp/json/json.h"
 #include "x/cpp/log/log.h"
-#include "x/cpp/thread/rt/rt.h"
 
 #include "driver/bypass/bypass.h"
 #include "driver/control/state.h"
@@ -76,9 +75,6 @@ public:
     /// for server-side deduplication filtering.
     virtual synnax::rack::Key rack_key() { return 0; }
 
-    /// @brief returns the RT core manager;
-    virtual std::shared_ptr<x::thread::rt::Manager> rt_manager() { return nullptr; }
-
     /// @brief updates the state of the task in the Synnax cluster.
     virtual void set_status(synnax::task::Status &status) = 0;
 };
@@ -86,17 +82,12 @@ public:
 /// @brief a mock context that can be used for testing tasks.
 class MockContext final : public Context {
     std::mutex mu;
-    std::shared_ptr<x::thread::rt::Manager> rt_mgr;
 
 public:
     std::vector<synnax::task::Status> statuses{};
 
     explicit MockContext(const std::shared_ptr<synnax::Synnax> &client):
         Context(client) {}
-
-    std::shared_ptr<x::thread::rt::Manager> rt_manager() override {
-        return this->rt_mgr;
-    }
 
     void set_status(synnax::task::Status &status) override {
         mu.lock();
@@ -109,21 +100,18 @@ class SynnaxContext final : public Context {
     std::shared_ptr<bypass::Bus> bus_;
     std::shared_ptr<control::States> control_states_;
     synnax::rack::Key rack_key_;
-    std::shared_ptr<x::thread::rt::Manager> rt_manager_;
 
 public:
     explicit SynnaxContext(
         const std::shared_ptr<synnax::Synnax> &client,
         const std::shared_ptr<bypass::Bus> &bus = nullptr,
         const std::shared_ptr<control::States> &control_states = nullptr,
-        const synnax::rack::Key rack_key = 0,
-        const std::shared_ptr<x::thread::rt::Manager> &rt_manager = nullptr
+        const synnax::rack::Key rack_key = 0
     ):
         Context(client),
         bus_(bus),
         control_states_(control_states),
-        rack_key_(rack_key),
-        rt_manager_(rt_manager) {}
+        rack_key_(rack_key) {}
 
     std::shared_ptr<bypass::Bus> bus() override { return this->bus_; }
 
@@ -132,10 +120,6 @@ public:
     }
 
     synnax::rack::Key rack_key() override { return this->rack_key_; }
-
-    std::shared_ptr<x::thread::rt::Manager> rt_manager() override {
-        return this->rt_manager_;
-    }
 
     void set_status(synnax::task::Status &status) override {
         if (status.time == 0) status.time = x::telem::TimeStamp::now();
@@ -273,8 +257,7 @@ public:
             client,
             std::make_shared<bypass::Bus>(),
             this->control_states_,
-            this->rack.key,
-            std::make_shared<x::thread::rt::Manager>()
+            this->rack.key
         )),
         factory(std::move(factory)),
         op_timeout(cfg.op_timeout),

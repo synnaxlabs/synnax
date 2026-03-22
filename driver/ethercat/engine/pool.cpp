@@ -19,11 +19,6 @@ Pool::Pool(
 ):
     manager(std::move(manager)), rt_manager(std::move(rt_manager)) {}
 
-void Pool::set_rt_manager(std::shared_ptr<x::thread::rt::Manager> mgr) {
-    std::lock_guard lock(this->mu);
-    this->rt_manager = std::move(mgr);
-}
-
 std::vector<master::Info> Pool::enumerate() const {
     if (this->manager == nullptr) return {};
     return this->manager->enumerate();

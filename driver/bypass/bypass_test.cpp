@@ -325,4 +325,35 @@ TEST(SubscriptionTest, Empty) {
     sub.try_pop(out);
     ASSERT_TRUE(sub.empty());
 }
+
+TEST(SubscriptionTest, DropsOldestWhenFull) {
+    Subscription sub({1}, 3);
+    for (int i = 0; i < 5; i++) {
+        x::telem::Frame frame;
+        frame.emplace(1, x::telem::Series(static_cast<float>(i)));
+        sub.push(std::move(frame));
+    }
+    x::telem::Frame r;
+    ASSERT_TRUE(sub.try_pop(r));
+    ASSERT_EQ(r.at<float>(1, 0), 2.0f);
+    ASSERT_TRUE(sub.try_pop(r));
+    ASSERT_EQ(r.at<float>(1, 0), 3.0f);
+    ASSERT_TRUE(sub.try_pop(r));
+    ASSERT_EQ(r.at<float>(1, 0), 4.0f);
+    ASSERT_FALSE(sub.try_pop(r));
+}
+
+TEST(SubscriptionTest, QueueStaysAtCapacity) {
+    Subscription sub({1}, 3);
+    for (int i = 0; i < 100; i++) {
+        x::telem::Frame frame;
+        frame.emplace(1, x::telem::Series(static_cast<float>(i)));
+        sub.push(std::move(frame));
+    }
+    int count = 0;
+    x::telem::Frame r;
+    while (sub.try_pop(r))
+        count++;
+    ASSERT_EQ(count, 3);
+}
 }
