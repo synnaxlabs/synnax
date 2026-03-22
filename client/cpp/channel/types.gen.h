@@ -116,7 +116,7 @@ struct Channel {
     /// @brief concurrency sets the policy for concurrent writes to the channel's data.
     /// Only
     /// virtual channels can have a policy of shared concurrency.
-    ::x::control::Concurrency concurrency;
+    ::x::control::Concurrency concurrency = ::x::control::Concurrency::Exclusive;
     /// @brief status is the current operational status of the channel.
     std::optional<Status> status;
 

@@ -111,7 +111,7 @@ func (r Retrieve[K, E]) WhereKeys(keys ...K) Retrieve[K, E] {
 // Entries binds a slice that the Params will fill results into. Repeated calls to Entry
 // or Entries will override all previous calls to Entries or Entry.
 func (r Retrieve[K, E]) Entries(entries *[]E) Retrieve[K, E] {
-	r.entries = multipleEntries[K, E](entries)
+	r.entries = multipleEntries(entries)
 	return r
 }
 
@@ -119,7 +119,7 @@ func (r Retrieve[K, E]) Entries(entries *[]E) Retrieve[K, E] {
 // or Entries will override All previous calls to Entries or Entry. If  isMultiple results
 // are returned by the query, entry will be set to the last result.
 func (r Retrieve[K, E]) Entry(entry *E) Retrieve[K, E] {
-	r.entries = singleEntry[K, E](entry)
+	r.entries = singleEntry(entry)
 	return r
 }
 
@@ -139,7 +139,7 @@ func (r Retrieve[K, E]) Exec(ctx context.Context, tx Tx) error {
 func (r Retrieve[K, E]) Exists(ctx context.Context, tx Tx) (bool, error) {
 	if r.HasWhereKeys() {
 		e := make([]E, 0, len(*r.keys))
-		r.entries = multipleEntries[K, E](&e)
+		r.entries = multipleEntries(&e)
 		if err := r.execKeys(ctx, tx); errors.Skip(err, query.ErrNotFound) != nil {
 			return false, err
 		}
@@ -161,7 +161,7 @@ func (r Retrieve[K, E]) Count(ctx context.Context, tx Tx) (count int, err error)
 	if r.HasWhereKeys() {
 		// For key-based queries, we can optimize by only retrieving the keys
 		e := make([]E, 0, len(*r.keys))
-		r.entries = multipleEntries[K, E](&e)
+		r.entries = multipleEntries(&e)
 		if err := r.execKeys(ctx, tx); err != nil && !errors.Is(err, query.ErrNotFound) {
 			return 0, err
 		}

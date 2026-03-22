@@ -19,7 +19,7 @@ import (
 func FrameToPB[Key types.SizedNumeric](
 	r telem.Frame[Key],
 ) (*Frame, error) {
-	seriesVal, err := SeriessToPB(r.SeriesSlice())
+	seriesVal, err := ManySeriesToPB(r.SeriesSlice())
 	if err != nil {
 		return nil, err
 	}
@@ -37,7 +37,7 @@ func FrameFromPB[Key types.SizedNumeric](
 	if pb == nil {
 		return telem.Frame[Key]{}, nil
 	}
-	series, err := SeriessFromPB(pb.Series)
+	series, err := ManySeriesFromPB(pb.Series)
 	if err != nil {
 		return telem.Frame[Key]{}, err
 	}
@@ -76,8 +76,8 @@ func SeriesFromPB(pb *Series) (telem.Series, error) {
 	return r, nil
 }
 
-// SeriessToPB converts a slice of Series to Series.
-func SeriessToPB(rs []telem.Series) ([]*Series, error) {
+// ManySeriesToPB converts a slice of telem.Series to protobuf Series.
+func ManySeriesToPB(rs []telem.Series) ([]*Series, error) {
 	result := make([]*Series, len(rs))
 	for i := range rs {
 		var err error
@@ -89,8 +89,8 @@ func SeriessToPB(rs []telem.Series) ([]*Series, error) {
 	return result, nil
 }
 
-// SeriessFromPB converts a slice of Series to Series.
-func SeriessFromPB(pbs []*Series) ([]telem.Series, error) {
+// ManySeriesFromPB converts a slice of protobuf Series to telem.Series.
+func ManySeriesFromPB(pbs []*Series) ([]telem.Series, error) {
 	result := make([]telem.Series, len(pbs))
 	for i, pb := range pbs {
 		var err error

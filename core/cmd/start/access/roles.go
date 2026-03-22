@@ -10,58 +10,38 @@
 package access
 
 import (
-	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
-	"github.com/synnaxlabs/synnax/pkg/distribution/cluster"
-	"github.com/synnaxlabs/synnax/pkg/distribution/group"
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
 	"github.com/synnaxlabs/synnax/pkg/service/access"
 	"github.com/synnaxlabs/synnax/pkg/service/access/rbac/policy"
 	"github.com/synnaxlabs/synnax/pkg/service/access/rbac/role"
-	"github.com/synnaxlabs/synnax/pkg/service/arc"
-	"github.com/synnaxlabs/synnax/pkg/service/device"
-	"github.com/synnaxlabs/synnax/pkg/service/framer"
-	"github.com/synnaxlabs/synnax/pkg/service/label"
-	"github.com/synnaxlabs/synnax/pkg/service/lineplot"
-	"github.com/synnaxlabs/synnax/pkg/service/log"
-	"github.com/synnaxlabs/synnax/pkg/service/rack"
-	"github.com/synnaxlabs/synnax/pkg/service/ranger"
-	"github.com/synnaxlabs/synnax/pkg/service/ranger/alias"
-	"github.com/synnaxlabs/synnax/pkg/service/schematic"
-	"github.com/synnaxlabs/synnax/pkg/service/schematic/symbol"
-	"github.com/synnaxlabs/synnax/pkg/service/status"
-	"github.com/synnaxlabs/synnax/pkg/service/table"
-	"github.com/synnaxlabs/synnax/pkg/service/task"
-	"github.com/synnaxlabs/synnax/pkg/service/user"
-	"github.com/synnaxlabs/synnax/pkg/service/view"
-	"github.com/synnaxlabs/synnax/pkg/service/workspace"
 )
 
 // allObjects is the complete list of ontology types used for permission definitions.
 var allObjects = []ontology.ID{
-	{Type: label.OntologyType},
-	{Type: log.OntologyType},
-	{Type: cluster.OntologyType},
-	{Type: cluster.OntologyTypeNode},
-	{Type: channel.OntologyType},
-	{Type: group.OntologyType},
-	{Type: ranger.OntologyType},
-	{Type: framer.OntologyType},
-	{Type: alias.OntologyType},
-	{Type: user.OntologyType},
-	{Type: workspace.OntologyType},
-	{Type: schematic.OntologyType},
-	{Type: lineplot.OntologyType},
-	{Type: rack.OntologyType},
-	{Type: device.OntologyType},
-	{Type: task.OntologyType},
-	{Type: table.OntologyType},
-	{Type: arc.OntologyType},
-	{Type: symbol.OntologyType},
-	{Type: status.OntologyType},
-	{Type: role.OntologyType},
-	{Type: policy.OntologyType},
+	{Type: ontology.TypeLabel},
+	{Type: ontology.TypeLog},
+	{Type: ontology.TypeCluster},
+	{Type: ontology.TypeNode},
+	{Type: ontology.TypeChannel},
+	{Type: ontology.TypeGroup},
+	{Type: ontology.TypeRange},
+	{Type: ontology.TypeFramer},
+	{Type: ontology.TypeRangeAlias},
+	{Type: ontology.TypeUser},
+	{Type: ontology.TypeWorkspace},
+	{Type: ontology.TypeSchematic},
+	{Type: ontology.TypeLineplot},
+	{Type: ontology.TypeRack},
+	{Type: ontology.TypeDevice},
+	{Type: ontology.TypeTask},
+	{Type: ontology.TypeTable},
+	{Type: ontology.TypeArc},
+	{Type: ontology.TypeSchematicSymbol},
+	{Type: ontology.TypeStatus},
+	{Type: ontology.TypeRole},
+	{Type: ontology.TypePolicy},
 	{Type: ontology.TypeBuiltIn},
-	{Type: view.OntologyType},
+	{Type: ontology.TypeView},
 }
 
 // Owner role - Full control of deployment, including user registration and security.
@@ -92,26 +72,26 @@ var (
 		{
 			Name: "Engineer Edit Access",
 			Objects: []ontology.ID{
-				{Type: label.OntologyType},
-				{Type: log.OntologyType},
-				{Type: cluster.OntologyType},
-				{Type: cluster.OntologyTypeNode},
-				{Type: channel.OntologyType},
-				{Type: group.OntologyType},
-				{Type: ranger.OntologyType},
-				{Type: framer.OntologyType},
-				{Type: alias.OntologyType},
-				{Type: workspace.OntologyType},
-				{Type: schematic.OntologyType},
-				{Type: lineplot.OntologyType},
-				{Type: rack.OntologyType},
-				{Type: device.OntologyType},
-				{Type: task.OntologyType},
-				{Type: table.OntologyType},
-				{Type: arc.OntologyType},
-				{Type: symbol.OntologyType},
-				{Type: status.OntologyType},
-				{Type: view.OntologyType},
+				{Type: ontology.TypeLabel},
+				{Type: ontology.TypeLog},
+				{Type: ontology.TypeCluster},
+				{Type: ontology.TypeNode},
+				{Type: ontology.TypeChannel},
+				{Type: ontology.TypeGroup},
+				{Type: ontology.TypeRange},
+				{Type: ontology.TypeFramer},
+				{Type: ontology.TypeRangeAlias},
+				{Type: ontology.TypeWorkspace},
+				{Type: ontology.TypeSchematic},
+				{Type: ontology.TypeLineplot},
+				{Type: ontology.TypeRack},
+				{Type: ontology.TypeDevice},
+				{Type: ontology.TypeTask},
+				{Type: ontology.TypeTable},
+				{Type: ontology.TypeArc},
+				{Type: ontology.TypeSchematicSymbol},
+				{Type: ontology.TypeStatus},
+				{Type: ontology.TypeView},
 			},
 			Actions:  access.AllActions,
 			Internal: true,
@@ -119,9 +99,9 @@ var (
 		{
 			Name: "Engineer View Access",
 			Objects: []ontology.ID{
-				{Type: user.OntologyType},
-				{Type: role.OntologyType},
-				{Type: policy.OntologyType},
+				{Type: ontology.TypeUser},
+				{Type: ontology.TypeRole},
+				{Type: ontology.TypePolicy},
 			},
 			Actions:  []access.Action{access.ActionRetrieve},
 			Internal: true,
@@ -141,8 +121,8 @@ var (
 		{
 			Name: "Operator Edit Access",
 			Objects: []ontology.ID{
-				{Type: framer.OntologyType},
-				{Type: ranger.OntologyType},
+				{Type: ontology.TypeFramer},
+				{Type: ontology.TypeRange},
 			},
 			Actions:  access.AllActions,
 			Internal: true,

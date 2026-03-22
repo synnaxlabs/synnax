@@ -69,7 +69,5 @@ func (w *Writer[K, E]) set(ctx context.Context, entry E) error {
 }
 
 func (w *Writer[K, E]) delete(ctx context.Context, key K) error {
-	// NOTE: We need to be careful with this operation in the future.
-	// Because we aren't copying prefix, we're modifying the underlying slice.
 	return w.BaseWriter.Delete(ctx, w.keyCodec.encode(key))
 }

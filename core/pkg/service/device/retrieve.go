@@ -103,7 +103,7 @@ func (r Retrieve) execSearch(ctx context.Context) (Retrieve, error) {
 		return r, nil
 	}
 	ids, err := r.otg.SearchIDs(ctx, ontology.SearchRequest{
-		Type: OntologyType,
+		Type: ontology.TypeDevice,
 		Term: r.searchTerm,
 	})
 	if err != nil {

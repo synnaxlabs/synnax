@@ -112,7 +112,7 @@ export const payloadZ = z.object({
    * concurrency sets the policy for concurrent writes to the channel's data. Only
    * virtual channels can have a policy of shared concurrency.
    */
-  concurrency: control.concurrencyZ.optional(),
+  concurrency: control.concurrencyZ.default(control.Concurrency.exclusive).optional(),
   /** status is the current operational status of the channel. */
   status: statusZ.optional(),
 });

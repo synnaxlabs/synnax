@@ -136,7 +136,7 @@ var _ ontology.Service = (*Service)(nil)
 type change = xchange.Change[string, Alias]
 
 // Type implements ontology.Service.
-func (s *Service) Type() ontology.Type { return OntologyType }
+func (s *Service) Type() ontology.Type { return ontology.TypeRangeAlias }
 
 // Schema implements ontology.Service.
 func (s *Service) Schema() zyn.Schema { return schema }

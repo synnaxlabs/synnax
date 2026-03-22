@@ -12,10 +12,19 @@ package gorp
 import (
 	"bytes"
 	"encoding/binary"
+	"reflect"
 	"unsafe"
 
 	"github.com/synnaxlabs/x/types"
 	"go.uber.org/zap"
+)
+
+type keyKind int
+
+const (
+	keyKindFixed keyKind = iota
+	keyKindString
+	keyKindBytes
 )
 
 // Key is a unique key for an entry of a particular type.
@@ -176,14 +185,19 @@ type keyCodec[K Key, E Entry[K]] struct {
 	prefix  []byte
 	keySize int
 	buf     []byte
+	kind    keyKind
 }
 
 func newKeyCodec[K Key, E Entry[K]]() *keyCodec[K, E] {
 	c := &keyCodec[K, E]{prefix: []byte(magicPrefix + types.Name[E]())}
 	var zero K
-	switch any(zero).(type) {
-	case string, []byte:
+	switch reflect.TypeOf(zero).Kind() {
+	case reflect.String:
+		c.kind = keyKindString
+	case reflect.Slice:
+		c.kind = keyKindBytes
 	default:
+		c.kind = keyKindFixed
 		c.keySize = int(unsafe.Sizeof(zero))
 		c.buf = make([]byte, len(c.prefix)+c.keySize)
 		copy(c.buf, c.prefix)
@@ -192,20 +206,21 @@ func newKeyCodec[K Key, E Entry[K]]() *keyCodec[K, E] {
 }
 
 func (k *keyCodec[K, E]) encode(key K) []byte {
-	if k.keySize > 0 {
+	switch k.kind {
+	case keyKindFixed:
 		k.putBigEndian(k.buf[len(k.prefix):], key)
 		return k.buf
-	}
-	switch v := any(key).(type) {
-	case string:
-		out := make([]byte, len(k.prefix)+len(v))
+	case keyKindString:
+		s := *(*string)(unsafe.Pointer(&key))
+		out := make([]byte, len(k.prefix)+len(s))
 		copy(out, k.prefix)
-		copy(out[len(k.prefix):], v)
+		copy(out[len(k.prefix):], s)
 		return out
-	case []byte:
-		out := make([]byte, len(k.prefix)+len(v))
+	case keyKindBytes:
+		b := *(*[]byte)(unsafe.Pointer(&key))
+		out := make([]byte, len(k.prefix)+len(b))
 		copy(out, k.prefix)
-		copy(out[len(k.prefix):], v)
+		copy(out[len(k.prefix):], b)
 		return out
 	default:
 		panic("unreachable")
@@ -214,15 +229,15 @@ func (k *keyCodec[K, E]) encode(key K) []byte {
 
 func (k *keyCodec[K, E]) decode(b []byte) K {
 	b = b[len(k.prefix):]
-	if k.keySize > 0 {
+	switch k.kind {
+	case keyKindFixed:
 		return k.getBigEndian(b)
-	}
-	var zero K
-	switch any(zero).(type) {
-	case string:
-		return any(string(b)).(K)
-	case []byte:
-		return any(bytes.Clone(b)).(K)
+	case keyKindString:
+		s := string(b)
+		return *(*K)(unsafe.Pointer(&s))
+	case keyKindBytes:
+		c := bytes.Clone(b)
+		return *(*K)(unsafe.Pointer(&c))
 	default:
 		panic("unreachable")
 	}
@@ -232,7 +247,8 @@ func (k *keyCodec[K, E]) matchPrefix(prefix []byte, key K) bool {
 	if len(prefix) == 0 {
 		return true
 	}
-	if k.keySize > 0 {
+	switch k.kind {
+	case keyKindFixed:
 		if len(prefix) > k.keySize {
 			return false
 		}
@@ -243,12 +259,12 @@ func (k *keyCodec[K, E]) matchPrefix(prefix []byte, key K) bool {
 			}
 		}
 		return true
-	}
-	switch v := any(key).(type) {
-	case string:
-		return len(v) >= len(prefix) && string(prefix) == v[:len(prefix)]
-	case []byte:
-		return bytes.HasPrefix(v, prefix)
+	case keyKindString:
+		s := *(*string)(unsafe.Pointer(&key))
+		return len(s) >= len(prefix) && string(prefix) == s[:len(prefix)]
+	case keyKindBytes:
+		b := *(*[]byte)(unsafe.Pointer(&key))
+		return bytes.HasPrefix(b, prefix)
 	default:
 		panic("unreachable")
 	}

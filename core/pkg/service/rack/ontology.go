@@ -24,10 +24,8 @@ import (
 	"github.com/synnaxlabs/x/zyn"
 )
 
-const OntologyType ontology.Type = "rack"
-
 func OntologyID(k Key) ontology.ID {
-	return ontology.ID{Type: OntologyType, Key: k.String()}
+	return ontology.ID{Type: ontology.TypeRack, Key: k.String()}
 }
 
 func OntologyIDs(keys []Key) []ontology.ID {
@@ -68,7 +66,7 @@ func newResource(r Rack) ontology.Resource {
 
 type change = xchange.Change[Key, Rack]
 
-func (s *Service) Type() ontology.Type { return OntologyType }
+func (s *Service) Type() ontology.Type { return ontology.TypeRack }
 
 // Schema implements ontology.Service.
 func (s *Service) Schema() zyn.Schema { return schema }

@@ -75,7 +75,7 @@ func (s *Service) Create(ctx context.Context, req CreateRequest) (CreateResponse
 	if err := s.access.Enforce(ctx, access.Request{
 		Subject: auth.GetSubject(ctx),
 		Action:  access.ActionCreate,
-		Objects: []ontology.ID{{Type: user.OntologyType}},
+		Objects: []ontology.ID{{Type: ontology.TypeUser}},
 	}); err != nil {
 		return CreateResponse{}, err
 	}

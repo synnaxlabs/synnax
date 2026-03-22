@@ -773,9 +773,28 @@ func collectValidation(
 				data.imports.addUUID("uuid4")
 				constraints = append(constraints, "default_factory=lambda: str(uuid4())")
 			}
+			if ev, ok := validation.ResolveEnumVariant(rules.Default.IdentValue, typeRef, table); ok {
+				variantRef := enumVariantToPython(ev, table, data)
+				constraints = append(constraints, fmt.Sprintf("default=%s", variantRef))
+			}
 		}
 	}
 	return constraints
+}
+
+func enumVariantToPython(ev validation.EnumVariant, table *resolution.Table, data *templateData) string {
+	enumName := domain.GetName(ev.Type, "py")
+	variantRef := fmt.Sprintf("%s.%s", enumName, ev.Variant.Name)
+	if ev.Type.Namespace != data.Namespace {
+		outputPath := enum.FindOutputPath(ev.Type, table, "py")
+		if outputPath == "" {
+			outputPath = ev.Type.Namespace
+		}
+		modulePath := toPythonModulePath(outputPath)
+		qualifiedEnum := addCrossNamespaceImport(modulePath, enumName, data)
+		variantRef = fmt.Sprintf("%s.%s", qualifiedEnum, ev.Variant.Name)
+	}
+	return variantRef
 }
 
 // isUUIDType checks if a type reference is or resolves to the uuid primitive type.

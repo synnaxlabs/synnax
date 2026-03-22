@@ -88,7 +88,7 @@ func (w Writer) deleteChildTasks(ctx context.Context, key uuid.UUID) error {
 	if err := w.otg.NewRetrieve().
 		WhereIDs(OntologyID(key)).
 		TraverseTo(ontology.ChildrenTraverser).
-		WhereTypes(task.OntologyType).
+		WhereTypes(ontology.TypeTask).
 		Entries(&children).
 		ExcludeFieldData(true).
 		Exec(ctx, w.tx); err != nil && !errors.Is(err, query.ErrNotFound) {

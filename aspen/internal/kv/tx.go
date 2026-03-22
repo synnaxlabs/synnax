@@ -10,6 +10,7 @@
 package kv
 
 import (
+	"bytes"
 	"context"
 	"fmt"
 	"slices"
@@ -18,7 +19,6 @@ import (
 	"github.com/samber/lo"
 	"github.com/synnaxlabs/alamos"
 	"github.com/synnaxlabs/aspen/internal/node"
-	"github.com/synnaxlabs/x/binary"
 	"github.com/synnaxlabs/x/change"
 	"github.com/synnaxlabs/x/errors"
 	xiter "github.com/synnaxlabs/x/iter"
@@ -97,7 +97,7 @@ func (b *tx) applyOp(ctx context.Context, op Operation) error {
 			return err
 		}
 	}
-	op.Key = binary.MakeCopy(op.Key)
+	op.Key = bytes.Clone(op.Key)
 	b.digests = append(b.digests, op.Digest())
 	return nil
 }
@@ -115,7 +115,7 @@ func (b *tx) toRequests(ctx context.Context) ([]TxRequest, error) {
 			if err != nil {
 				return nil, err
 			}
-			op.Value = binary.MakeCopy(v)
+			op.Value = bytes.Clone(v)
 			if err = closer.Close(); err != nil {
 				return nil, err
 			}

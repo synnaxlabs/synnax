@@ -24,10 +24,8 @@ import (
 	"github.com/synnaxlabs/x/zyn"
 )
 
-const OntologyType ontology.Type = "group"
-
 func OntologyID(key uuid.UUID) ontology.ID {
-	return ontology.ID{Type: OntologyType, Key: key.String()}
+	return ontology.ID{Type: ontology.TypeGroup, Key: key.String()}
 }
 
 func OntologyIDs(keys []uuid.UUID) []ontology.ID {
@@ -40,7 +38,7 @@ func newResource(g Group) ontology.Resource {
 
 type change = xchange.Change[uuid.UUID, Group]
 
-func (s *Service) Type() ontology.Type { return OntologyType }
+func (s *Service) Type() ontology.Type { return ontology.TypeGroup }
 
 func (s *Service) Schema() zyn.Schema { return schema }
 

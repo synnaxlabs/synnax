@@ -84,6 +84,16 @@ type stringEntry struct {
 func (e stringEntry) GorpKey() string   { return e.ID }
 func (e stringEntry) SetOptions() []any { return nil }
 
+type namedStringKey string
+
+type namedStringEntry struct {
+	ID   namedStringKey
+	Data string
+}
+
+func (e namedStringEntry) GorpKey() namedStringKey { return e.ID }
+func (e namedStringEntry) SetOptions() []any       { return nil }
+
 var _ = Describe("KeyCodec", func() {
 	var (
 		ctx context.Context
@@ -418,6 +428,36 @@ var _ = Describe("KeyCodec", func() {
 
 			Expect(tx.Commit(ctx)).To(Succeed())
 			Expect(setKey).To(Equal(int16(-500)))
+		})
+	})
+
+	Describe("Named string key types", func() {
+		It("Should create, retrieve, and delete entries with a named string key", func() {
+			entries := []namedStringEntry{
+				{ID: "alpha", Data: "first"},
+				{ID: "beta", Data: "second"},
+			}
+			Expect(gorp.NewCreate[namedStringKey, namedStringEntry]().
+				Entries(&entries).Exec(ctx, tx)).To(Succeed())
+
+			var res []namedStringEntry
+			Expect(gorp.NewRetrieve[namedStringKey, namedStringEntry]().
+				WhereKeys(namedStringKey("alpha")).
+				Entries(&res).
+				Exec(ctx, tx)).To(Succeed())
+			Expect(res).To(HaveLen(1))
+			Expect(res[0].Data).To(Equal("first"))
+
+			Expect(gorp.NewDelete[namedStringKey, namedStringEntry]().
+				WhereKeys(namedStringKey("alpha")).
+				Exec(ctx, tx)).To(Succeed())
+
+			var res2 []namedStringEntry
+			Expect(gorp.NewRetrieve[namedStringKey, namedStringEntry]().
+				Entries(&res2).
+				Exec(ctx, tx)).To(Succeed())
+			Expect(res2).To(HaveLen(1))
+			Expect(res2[0].ID).To(Equal(namedStringKey("beta")))
 		})
 	})
 

@@ -24,10 +24,8 @@ import (
 	"github.com/synnaxlabs/x/zyn"
 )
 
-const OntologyType ontology.Type = "task"
-
 func OntologyID(k Key) ontology.ID {
-	return ontology.ID{Type: OntologyType, Key: k.String()}
+	return ontology.ID{Type: ontology.TypeTask, Key: k.String()}
 }
 
 func OntologyIDs(keys []Key) []ontology.ID {
@@ -65,7 +63,7 @@ func newResource(t Task) ontology.Resource {
 
 type change = xchange.Change[Key, Task]
 
-func (s *Service) Type() ontology.Type { return OntologyType }
+func (s *Service) Type() ontology.Type { return ontology.TypeTask }
 
 // Schema implements ontology.Service.
 func (s *Service) Schema() zyn.Schema { return schema }
