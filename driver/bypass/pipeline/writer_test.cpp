@@ -9,6 +9,7 @@
 
 #include "gtest/gtest.h"
 
+#include "freighter/cpp/freighter.h"
 #include "x/cpp/test/test.h"
 
 #include "driver/bypass/pipeline/writer.h"
@@ -300,6 +301,61 @@ TEST(WriterTest, WriteFilterEndToEnd) {
     ASSERT_NIL(ab_writer->write(ab_frame));
     ASSERT_TRUE(sub->try_pop(received));
     ASSERT_EQ(received.size(), 1);
+}
+
+TEST(WriterTest, WriteErrorPropagatesFromServer) {
+    auto bus = std::make_shared<Bus>();
+    auto states = std::make_shared<control::States>();
+    auto sub = bus->subscribe({1});
+    auto mock_factory = std::make_shared<::driver::pipeline::mock::WriterFactory>(
+        std::make_shared<std::vector<x::telem::Frame>>(),
+        std::vector<x::errors::Error>{},
+        std::vector<x::errors::Error>{},
+        std::vector<int>{0}
+    );
+    WriterFactory factory(mock_factory, bus, states, 0);
+    auto writer = ASSERT_NIL_P(factory.open_writer({.channels = {1}}));
+    x::telem::Frame frame;
+    frame.emplace(1, x::telem::Series(static_cast<float>(42.0)));
+    ASSERT_OCCURRED_AS(writer->write(frame), x::errors::VALIDATION);
+    x::telem::Frame received;
+    ASSERT_TRUE(sub->try_pop(received));
+    ASSERT_EQ(received.size(), 1);
+}
+
+TEST(WriterTest, CloseErrorPropagatesFromServer) {
+    auto bus = std::make_shared<Bus>();
+    auto states = std::make_shared<control::States>();
+    auto mock_factory = std::make_shared<::driver::pipeline::mock::WriterFactory>(
+        std::make_shared<std::vector<x::telem::Frame>>(),
+        std::vector<x::errors::Error>{},
+        std::vector<x::errors::Error>{freighter::UNREACHABLE}
+    );
+    WriterFactory factory(mock_factory, bus, states, 0);
+    auto writer = ASSERT_NIL_P(factory.open_writer({.channels = {1}}));
+    ASSERT_OCCURRED_AS(writer->close(), freighter::UNREACHABLE);
+}
+
+TEST(WriterTest, SetAuthorityErrorPropagatesFromServer) {
+    auto bus = std::make_shared<Bus>();
+    auto states = std::make_shared<control::States>();
+    auto mock_factory = std::make_shared<::driver::pipeline::mock::WriterFactory>(
+        std::make_shared<std::vector<x::telem::Frame>>(),
+        std::vector<x::errors::Error>{},
+        std::vector<x::errors::Error>{},
+        std::vector<int>{},
+        std::vector<x::errors::Error>{freighter::UNREACHABLE}
+    );
+    WriterFactory factory(mock_factory, bus, states, 0);
+    auto writer = ASSERT_NIL_P(factory.open_writer({
+        .channels = {1},
+        .subject = x::control::Subject{"arc", "arc-1"},
+    }));
+    ASSERT_OCCURRED_AS(
+        writer->set_authority({.keys = {1}, .authorities = {200}}),
+        freighter::UNREACHABLE
+    );
+    ASSERT_TRUE(states->is_authorized(1, {"arc", "arc-1"}));
 }
 
 /// @brief set_authority should return a validation error when the authorities

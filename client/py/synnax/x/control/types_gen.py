@@ -15,8 +15,9 @@ from enum import IntEnum
 from typing import Any, Generic, TypeAlias, TypeVar
 
 from pydantic import BaseModel, ConfigDict, Field
+from x.types import Uint8, Uint32
 
-Authority: TypeAlias = int
+Authority: TypeAlias = Uint8
 
 
 class Concurrency(IntEnum):
@@ -40,7 +41,7 @@ class Subject(BaseModel):
 
     key: str
     name: str
-    group: int | None = None
+    group: Uint32 | None = None
 
 
 class State(BaseModel, Generic[R]):

@@ -195,13 +195,6 @@ void State::ingest(const x::telem::Frame &frame) {
     this->channel->ingest(frame);
 }
 
-std::vector<std::pair<types::ChannelKey, Series>> State::flush() {
-    auto result = this->channel->flush();
-    this->series->clear();
-    this->strings->clear();
-    return result;
-}
-
 void State::flush_into(x::telem::Frame &out) {
     this->channel->flush_into(out);
     this->series->clear();

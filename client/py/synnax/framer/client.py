@@ -30,7 +30,7 @@ from synnax.telem import (
     TimeRange,
     TimeSpan,
 )
-from synnax.telem.control import Authority, CrudeAuthority
+from synnax.x.control import Authority, CrudeAuthority
 
 ontology_type = ontology.ID(type="framer")
 

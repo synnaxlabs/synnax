@@ -23,6 +23,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer/writer"
 	"github.com/synnaxlabs/synnax/pkg/distribution/mock"
 	"github.com/synnaxlabs/x/confluence"
+	"github.com/synnaxlabs/x/control"
 	"github.com/synnaxlabs/x/query"
 	"github.com/synnaxlabs/x/signal"
 	"github.com/synnaxlabs/x/telem"
@@ -121,6 +122,121 @@ var _ = Describe("Writer", func() {
 			))
 			Expect(err).To(HaveOccurredAs(validate.ErrValidation))
 			Expect(writer.Close()).To(HaveOccurredAs(validate.ErrValidation))
+		})
+	})
+
+	Describe("Free Write Group Propagation", Ordered, func() {
+		It("Should propagate the writer's group to the streamer response", func() {
+			s := freeWriterScenario()
+			defer func() { Expect(s.closer.Close()).To(Succeed()) }()
+			streamer := MustSucceed(s.dist.Framer.NewStreamer(ctx, framer.StreamerConfig{
+				Keys:        s.keys,
+				SendOpenAck: new(true),
+			}))
+			_, out := confluence.Attach(streamer, 10)
+			sCtx, cancel := signal.WithCancel(ctx)
+			defer cancel()
+			streamer.Flow(sCtx)
+			var res framer.StreamerResponse
+			Eventually(out.Outlet()).Should(Receive(&res))
+			w := MustSucceed(s.dist.Framer.OpenWriter(ctx, writer.Config{
+				Keys:           s.keys,
+				Start:          10 * telem.SecondTS,
+				Sync:           new(true),
+				ControlSubject: control.Subject{Group: 42},
+			}))
+			Expect(w.Write(frame.NewMulti(
+				s.keys,
+				[]telem.Series{
+					telem.NewSeriesV[int64](1, 2, 3),
+					telem.NewSeriesV[int64](3, 4, 5),
+					telem.NewSeriesV[int64](5, 6, 7),
+				},
+			))).To(BeTrue())
+			Eventually(out.Outlet()).Should(Receive(&res))
+			Expect(res.Group).To(Equal(uint32(42)))
+			Expect(w.Close()).To(Succeed())
+		})
+		It("Should set group to zero when the writer has no group", func() {
+			s := freeWriterScenario()
+			defer func() { Expect(s.closer.Close()).To(Succeed()) }()
+			streamer := MustSucceed(s.dist.Framer.NewStreamer(ctx, framer.StreamerConfig{
+				Keys:        s.keys,
+				SendOpenAck: new(true),
+			}))
+			_, out := confluence.Attach(streamer, 10)
+			sCtx, cancel := signal.WithCancel(ctx)
+			defer cancel()
+			streamer.Flow(sCtx)
+			var res framer.StreamerResponse
+			Eventually(out.Outlet()).Should(Receive(&res))
+			w := MustSucceed(s.dist.Framer.OpenWriter(ctx, writer.Config{
+				Keys:  s.keys,
+				Start: 10 * telem.SecondTS,
+				Sync:  new(true),
+			}))
+			Expect(w.Write(frame.NewMulti(
+				s.keys,
+				[]telem.Series{
+					telem.NewSeriesV[int64](1, 2, 3),
+					telem.NewSeriesV[int64](3, 4, 5),
+					telem.NewSeriesV[int64](5, 6, 7),
+				},
+			))).To(BeTrue())
+			Eventually(out.Outlet()).Should(Receive(&res))
+			Expect(res.Group).To(Equal(uint32(0)))
+			Expect(w.Close()).To(Succeed())
+		})
+	})
+
+	Describe("Free Write Group Isolation", Ordered, func() {
+		It("Should propagate distinct groups from different writers", func() {
+			s := freeWriterScenario()
+			defer func() { Expect(s.closer.Close()).To(Succeed()) }()
+			streamer := MustSucceed(s.dist.Framer.NewStreamer(ctx, framer.StreamerConfig{
+				Keys:        s.keys,
+				SendOpenAck: new(true),
+			}))
+			_, out := confluence.Attach(streamer, 10)
+			sCtx, cancel := signal.WithCancel(ctx)
+			defer cancel()
+			streamer.Flow(sCtx)
+			var res framer.StreamerResponse
+			Eventually(out.Outlet()).Should(Receive(&res))
+			w1 := MustSucceed(s.dist.Framer.OpenWriter(ctx, writer.Config{
+				Keys:           s.keys,
+				Start:          10 * telem.SecondTS,
+				Sync:           new(true),
+				ControlSubject: control.Subject{Group: 10},
+			}))
+			w2 := MustSucceed(s.dist.Framer.OpenWriter(ctx, writer.Config{
+				Keys:           s.keys,
+				Start:          10 * telem.SecondTS,
+				Sync:           new(true),
+				ControlSubject: control.Subject{Group: 20},
+			}))
+			Expect(w1.Write(frame.NewMulti(
+				s.keys,
+				[]telem.Series{
+					telem.NewSeriesV[int64](1, 2, 3),
+					telem.NewSeriesV[int64](3, 4, 5),
+					telem.NewSeriesV[int64](5, 6, 7),
+				},
+			))).To(BeTrue())
+			Eventually(out.Outlet()).Should(Receive(&res))
+			Expect(res.Group).To(Equal(uint32(10)))
+			Expect(w2.Write(frame.NewMulti(
+				s.keys,
+				[]telem.Series{
+					telem.NewSeriesV[int64](8, 9, 10),
+					telem.NewSeriesV[int64](11, 12, 13),
+					telem.NewSeriesV[int64](14, 15, 16),
+				},
+			))).To(BeTrue())
+			Eventually(out.Outlet()).Should(Receive(&res))
+			Expect(res.Group).To(Equal(uint32(20)))
+			Expect(w1.Close()).To(Succeed())
+			Expect(w2.Close()).To(Succeed())
 		})
 	})
 

@@ -38,7 +38,7 @@ public:
     ):
         config_(std::move(config)), rt_handle_(std::move(rt_handle)) {
         if (this->config_.lock_memory)
-            LOG(WARNING) << "[loop] Memory locking not fully supported on macOS";
+            LOG(WARNING) << "[arc.loop] Memory locking not fully supported on macOS";
     }
 
     ~DarwinLoop() override { this->close_fds(); }
@@ -69,7 +69,7 @@ public:
         if (this->kqueue_fd_ != -1) return x::errors::NIL;
 
         if (this->config_.mode == ExecutionMode::RT_EVENT)
-            VLOG(1) << "[loop] RT_EVENT on macOS uses software timer";
+            VLOG(1) << "[arc.loop] RT_EVENT on macOS uses software timer";
 
         // Create kqueue for event multiplexing
         this->kqueue_fd_ = kqueue();
@@ -109,7 +109,8 @@ public:
 
         if (!this->rt_handle_) {
             if (auto err = x::thread::rt::apply_config(this->config_.rt()); err)
-                LOG(WARNING) << "[loop] failed to apply RT config: " << err.message();
+                LOG(WARNING) << "[arc.loop] failed to apply RT config: "
+                             << err.message();
         } else {
             this->rt_handle_->apply();
         }
@@ -132,7 +133,7 @@ public:
         EV_SET(&kev, fd, EVFILT_READ, EV_ADD | EV_CLEAR, 0, 0, nullptr);
 
         if (kevent(this->kqueue_fd_, &kev, 1, nullptr, 0, nullptr) == -1) {
-            LOG(ERROR) << "[loop] Failed to watch notifier fd " << fd << ": "
+            LOG(ERROR) << "[arc.loop] Failed to watch notifier fd " << fd << ": "
                        << strerror(errno);
             return false;
         }
@@ -155,7 +156,7 @@ private:
     x::errors::Error setup_kqueue_timer() {
         const uint64_t interval_ms = this->config_.interval.milliseconds();
         if (interval_ms == 0)
-            LOG(WARNING) << "[loop] Interval too small for kqueue timer "
+            LOG(WARNING) << "[arc.loop] Interval too small for kqueue timer "
                          << "(<1ms), using 1ms";
 
         struct kevent kev;
@@ -186,7 +187,7 @@ private:
             const int n = kevent(this->kqueue_fd_, nullptr, 0, events, 8, &timeout);
             if (n > 0) return this->classify_events(events, n);
             if (n == -1 && errno != EINTR && errno != EBADF) {
-                LOG(ERROR) << "[loop] kevent error: " << strerror(errno);
+                LOG(ERROR) << "[arc.loop] kevent error: " << strerror(errno);
                 return WakeReason::Shutdown;
             }
             // Prevent starvation of breaker-stopping threads. yield() over
@@ -239,7 +240,8 @@ private:
 
         if (n > 0) return this->classify_events(events, n);
         if (n == 0) return WakeReason::Timeout;
-        if (errno != EINTR) LOG(ERROR) << "[loop] kevent error: " << strerror(errno);
+        if (errno != EINTR)
+            LOG(ERROR) << "[arc.loop] kevent error: " << strerror(errno);
         return WakeReason::Shutdown;
     }
 
@@ -266,9 +268,9 @@ private:
     std::unique_ptr<x::loop::Timer> timer_;
 };
 
-std::pair<std::unique_ptr<Loop>, x::errors::Error>
+std::unique_ptr<Loop>
 create(const Config &cfg, std::shared_ptr<x::thread::rt::Handle> rt_handle) {
-    return {std::make_unique<DarwinLoop>(cfg, std::move(rt_handle)), x::errors::NIL};
+    return std::make_unique<DarwinLoop>(cfg, std::move(rt_handle));
 }
 
 }

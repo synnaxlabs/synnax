@@ -1067,6 +1067,8 @@ func primitiveToPython(primitive string, data *templateData) string {
 			data.imports.addUUID(imp.Name)
 		case "typing":
 			data.imports.addTyping(imp.Name)
+		case "x":
+			data.imports.addX(imp.Name)
 		case "synnax":
 			data.imports.addSynnax(imp.Name)
 		}
@@ -1081,6 +1083,7 @@ type importManager struct {
 	typing     []string
 	enum       []string
 	pydantic   []string
+	x          []string
 	synnax     []string
 	// ontology holds imports from synnax.ontology.payload.
 	ontology []string
@@ -1120,6 +1123,11 @@ func (m *importManager) addEnum(name string) {
 func (m *importManager) addPydantic(name string) {
 	if !lo.Contains(m.pydantic, name) {
 		m.pydantic = append(m.pydantic, name)
+	}
+}
+func (m *importManager) addX(name string) {
+	if !lo.Contains(m.x, name) {
+		m.x = append(m.x, name)
 	}
 }
 func (m *importManager) addSynnax(name string) {
@@ -1224,6 +1232,7 @@ func (d *templateData) UUIDImports() []string     { return d.imports.uuid }
 func (d *templateData) TypingImports() []string   { return d.imports.typing }
 func (d *templateData) EnumImports() []string     { return d.imports.enum }
 func (d *templateData) PydanticImports() []string { return d.imports.pydantic }
+func (d *templateData) XImports() []string        { return d.imports.x }
 func (d *templateData) SynnaxImports() []string   { return d.imports.synnax }
 func (d *templateData) OntologyImports() []string { return d.imports.ontology }
 
@@ -1366,6 +1375,9 @@ from enum import {{ join .EnumImports ", " }}
 {{- end }}
 {{- if .PydanticImports }}
 from pydantic import {{ join .PydanticImports ", " }}
+{{- end }}
+{{- if .XImports }}
+from x.types import {{ join .XImports ", " }}
 {{- end }}
 {{- if .SynnaxImports }}
 from synnax.telem import {{ join .SynnaxImports ", " }}

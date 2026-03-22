@@ -14,6 +14,7 @@ from __future__ import annotations
 from typing import Literal, TypeAlias
 
 from pydantic import BaseModel, Field
+from x.types import Uint12, Uint32
 
 from synnax import cluster
 from synnax import status as status_
@@ -21,7 +22,7 @@ from synnax import telem
 from synnax.ontology.payload import ID
 from synnax.x import control
 
-Key: TypeAlias = int
+Key: TypeAlias = Uint32
 
 OPERATION_TYPE_MIN: Literal["min"] = "min"
 
@@ -137,7 +138,7 @@ class New(BaseModel):
 
     key: Key | None = None
     name: Name
-    leaseholder: int | None = None
+    leaseholder: Uint12 | None = None
     data_type: telem.DataType
     is_index: bool | None = None
     index: Key | None = None

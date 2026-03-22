@@ -37,7 +37,7 @@ Subject struct {
     }
     group uint32? {
         @doc value """
-            optional identifier shared by subjects from the same logical group 
+            optional identifier shared by subjects from the same logical group
             (e.g.) all writers from the same driver rack.
         """
     }
@@ -80,10 +80,10 @@ Transfer struct<R extends comparable> {
     represents a transfer of control over a resource. It is represented as a
     transition from one state to another over the same resource. A transfer between
     resources that are different ill result in a panic when any transfer methods
-    are called. 
+    are called.
 
     If From is nil, the entity was uncontrolled before the transfer. If To is nil, the
-    resource is uncontrolled after the transfer.    
+    resource is uncontrolled after the transfer.
 
     If both From and To are nil, no transfer occurred. If both From and To are not nil,
     and From.Subject != To.Subject, a transfer occurred.

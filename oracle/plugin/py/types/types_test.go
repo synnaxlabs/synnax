@@ -124,7 +124,7 @@ var _ = Describe("Python Types Plugin", func() {
 						`class User(BaseModel):`,
 						`key: UUID`,
 						`name: str`,
-						`age: int`,
+						`age: Int32`,
 						`active: bool`,
 					)
 			})
@@ -185,7 +185,7 @@ var _ = Describe("Python Types Plugin", func() {
 			content := string(resp.Files[0].Content)
 			Expect(content).To(ContainSubstring(`from pydantic import BaseModel, Field`))
 			Expect(content).To(ContainSubstring(`name: str = Field(min_length=1, max_length=255)`))
-			Expect(content).To(ContainSubstring(`age: int = Field(ge=0, le=150)`))
+			Expect(content).To(ContainSubstring(`age: Int32 = Field(ge=0, le=150)`))
 		})
 
 		It("Should generate IntEnum for integer enums", func() {
@@ -299,14 +299,14 @@ var _ = Describe("Python Types Plugin", func() {
 				Entry("uuid", "uuid", "UUID"),
 				Entry("string", "string", "str"),
 				Entry("bool", "bool", "bool"),
-				Entry("int8", "int8", "int"),
-				Entry("int16", "int16", "int"),
-				Entry("int32", "int32", "int"),
-				Entry("int64", "int64", "int"),
-				Entry("uint8", "uint8", "int"),
-				Entry("uint16", "uint16", "int"),
-				Entry("uint32", "uint32", "int"),
-				Entry("uint64", "uint64", "int"),
+				Entry("int8", "int8", "Int8"),
+				Entry("int16", "int16", "Int16"),
+				Entry("int32", "int32", "Int32"),
+				Entry("int64", "int64", "Int64"),
+				Entry("uint8", "uint8", "Uint8"),
+				Entry("uint16", "uint16", "Uint16"),
+				Entry("uint32", "uint32", "Uint32"),
+				Entry("uint64", "uint64", "Uint64"),
 				Entry("float32", "float32", "float"),
 				Entry("float64", "float64", "float"),
 				Entry("record", "record", "dict[str, Any]"),
@@ -446,7 +446,7 @@ var _ = Describe("Python Types Plugin", func() {
 
 			content := string(resp.Files[0].Content)
 			Expect(content).To(ContainSubstring(`enabled: bool = Field(default=False)`))
-			Expect(content).To(ContainSubstring(`retries: int = Field(default=3)`))
+			Expect(content).To(ContainSubstring(`retries: Int32 = Field(default=3)`))
 		})
 
 		It("Should wrap int defaults in distinct type constructor", func() {
@@ -513,7 +513,7 @@ var _ = Describe("Python Types Plugin", func() {
 			// Parent should be a regular class
 			Expect(content).To(ContainSubstring(`class Parent(BaseModel):`))
 			Expect(content).To(ContainSubstring(`name: str`))
-			Expect(content).To(ContainSubstring(`age: int`))
+			Expect(content).To(ContainSubstring(`age: Int32`))
 
 			// Child should inherit from Parent
 			Expect(content).To(ContainSubstring(`class Child(Parent):`))
@@ -548,7 +548,7 @@ var _ = Describe("Python Types Plugin", func() {
 			// a required parent field as optional
 			Expect(content).To(ContainSubstring(`class Child(BaseModel):`))
 			Expect(content).To(ContainSubstring(`name: str | None = None`))
-			Expect(content).To(ContainSubstring(`age: int`))
+			Expect(content).To(ContainSubstring(`age: Int32`))
 			Expect(content).NotTo(ContainSubstring(`type: ignore`))
 		})
 		It("Should inline all parent fields when multiple fields are overridden as optional", func() {
@@ -575,7 +575,7 @@ var _ = Describe("Python Types Plugin", func() {
 			Expect(content).To(ContainSubstring(`class Child(BaseModel):`))
 			Expect(content).To(ContainSubstring(`key: UUID | None = None`))
 			Expect(content).To(ContainSubstring(`name: str`))
-			Expect(content).To(ContainSubstring(`leaseholder: int | None = None`))
+			Expect(content).To(ContainSubstring(`leaseholder: Uint12 | None = None`))
 			Expect(content).To(ContainSubstring(`is_index: bool | None = None`))
 			Expect(content).To(ContainSubstring(`extra: str`))
 			Expect(content).NotTo(ContainSubstring(`type: ignore`))
@@ -931,7 +931,7 @@ var _ = Describe("Python Types Plugin", func() {
 						`T = TypeVar("T")`,
 						`class Response(BaseModel, Generic[T]):`,
 						`data: T`,
-						`status: int`,
+						`status: Int32`,
 					)
 			})
 

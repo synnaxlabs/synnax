@@ -22,7 +22,7 @@ const reqZ = z.object({
   keys: z.number().array(),
   downsampleFactor: z.int(),
   throttleRate: Rate.z.optional(),
-  excludeGroups: z.number().array().optional(),
+  excludeGroups: z.uint32().array().optional(),
 });
 
 /**
@@ -51,7 +51,7 @@ const intermediateStreamerConfigZ = z.object({
   useHighPerformanceCodec: z.boolean().default(true),
   /** excludeGroups sets writer group IDs whose frames should be filtered out by the
    server. Used for telemetry bypass deduplication. */
-  excludeGroups: z.number().array().default([]),
+  excludeGroups: z.uint32().array().default([]),
 });
 
 export const streamerConfigZ = intermediateStreamerConfigZ.or(

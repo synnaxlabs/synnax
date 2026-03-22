@@ -110,8 +110,8 @@ TEST(AcquisitionPipeline, testUnreachableUnauthorized) {
         }
     );
     ASSERT_TRUE(pipeline.start());
-    ASSERT_EVENTUALLY_EQ(writes->size(), 0);
-    ASSERT_TRUE(pipeline.stop());
+    ASSERT_EVENTUALLY_TRUE(!pipeline.running());
+    pipeline.stop();
     ASSERT_EQ(writes->size(), 0);
 }
 
@@ -166,7 +166,7 @@ TEST(AcquisitionPipeline, testWriteRetryUnauthorized) {
     ASSERT_TRUE(pipeline.start());
     ASSERT_EVENTUALLY_GE(mock_factory->writer_opens.load(std::memory_order_acquire), 1);
     ASSERT_EQ(source->stopped_err, x::errors::UNAUTHORIZED);
-    ASSERT_TRUE(pipeline.stop());
+    ASSERT_FALSE(pipeline.stop());
 }
 
 /// @brief it should not restart the pipeline if it has already been started.
@@ -968,6 +968,32 @@ TEST(AcquisitionPipeline, testAuthorityBufferGlobalClearsChannels) {
     EXPECT_TRUE(change.keys.empty());
     ASSERT_EQ(change.authorities.size(), 1);
     EXPECT_EQ(change.authorities[0], 75);
+}
+
+TEST(AcquisitionPipeline, testInvalidAuthoritiesStopsPipeline) {
+    auto writes = std::make_shared<std::vector<x::telem::Frame>>();
+    const auto mock_factory = std::make_shared<mock::WriterFactory>(writes);
+
+    Authorities invalid_auth{
+        .keys = {1, 2, 3},
+        .authorities = {100, 200},
+    };
+    const auto source = std::make_shared<AuthoritySource>(
+        x::telem::TimeStamp::now(),
+        invalid_auth
+    );
+
+    auto pipe = Acquisition(
+        mock_factory,
+        synnax::framer::WriterConfig(),
+        source,
+        x::breaker::Config()
+    );
+
+    ASSERT_TRUE(pipe.start());
+    ASSERT_EVENTUALLY_TRUE(!pipe.running());
+    pipe.stop();
+    EXPECT_TRUE(mock_factory->authority_changes->empty());
 }
 
 /// @brief validate should return nil for empty authorities.

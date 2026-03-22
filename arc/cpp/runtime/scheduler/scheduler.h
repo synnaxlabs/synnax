@@ -238,7 +238,7 @@ private:
 
     /// @brief Reports an error from a node to the error handler.
     void report_error(const x::errors::Error &e) {
-        LOG(ERROR) << "[arc] node encountered error: " << e;
+        LOG(ERROR) << "[arc.scheduler] node encountered error: " << e;
         this->error_handler(e);
     }
 

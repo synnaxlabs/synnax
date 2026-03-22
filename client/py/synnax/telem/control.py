@@ -7,25 +7,7 @@
 #  License, use of this software will be governed by the Apache License, Version 2.0,
 #  included in the file licenses/APL.txt.
 
-from __future__ import annotations
+# Backwards compatibility re-exports. Canonical definitions live in synnax.x.control.
+from synnax.x.control import Authority, CrudeAuthority, Subject
 
-from pydantic import BaseModel
-
-
-class Authority(int):
-    ABSOLUTE: Authority
-    """Absolute authority. No other subject can take control of this entity while it is
-    active."""
-    DEFAULT: Authority
-
-
-Authority.ABSOLUTE = Authority(255)
-Authority.DEFAULT = Authority(1)
-
-CrudeAuthority = int | Authority
-
-
-class Subject(BaseModel):
-    name: str
-    key: str
-    group: int = 0
+__all__ = ["Authority", "CrudeAuthority", "Subject"]

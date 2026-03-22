@@ -130,6 +130,71 @@ TEST(StreamerTest, DoesNotInjectExcludeGroupsWhenGroupIsZero) {
     ASSERT_NIL(streamer->close());
 }
 
+TEST(StreamerTest, ServerErrorDuringActiveReading) {
+    auto bus = std::make_shared<Bus>();
+    auto reads = std::make_shared<std::vector<x::telem::Frame>>();
+    x::telem::Frame valid_frame;
+    valid_frame.emplace(1, x::telem::Series(static_cast<float>(99.0)));
+    reads->push_back(std::move(valid_frame));
+    reads->push_back(x::telem::Frame());
+    auto read_errors = std::make_shared<std::vector<x::errors::Error>>();
+    read_errors->push_back(x::errors::NIL);
+    read_errors->push_back(freighter::UNREACHABLE);
+    auto mock_factory = std::make_shared<::driver::pipeline::mock::StreamerFactory>(
+        std::vector<x::errors::Error>{},
+        std::make_shared<
+            std::vector<::driver::pipeline::mock::StreamerConfig>>(std::vector{
+            ::driver::pipeline::mock::StreamerConfig{reads, read_errors, x::errors::NIL}
+        })
+    );
+    StreamerFactory factory(mock_factory, bus, TEST_SUBJECT);
+    auto streamer = ASSERT_NIL_P(factory.open_streamer({.channels = {1}}));
+    auto first = ASSERT_NIL_P(streamer->read());
+    ASSERT_EQ(first.size(), 1);
+    ASSERT_OCCURRED_AS_P(streamer->read(), freighter::UNREACHABLE);
+    ASSERT_OCCURRED_AS(streamer->close(), freighter::UNREACHABLE);
+}
+
+TEST(StreamerTest, ReadWakesOnLocalPushNotification) {
+    auto bus = std::make_shared<Bus>();
+    auto reads = std::make_shared<std::vector<x::telem::Frame>>();
+    auto mock_factory = ::driver::pipeline::mock::simple_streamer_factory({1}, reads);
+    StreamerFactory factory(mock_factory, bus, TEST_SUBJECT);
+    auto streamer = ASSERT_NIL_P(factory.open_streamer({.channels = {1}}));
+    std::thread publisher([&bus] {
+        std::this_thread::sleep_for(std::chrono::milliseconds(1));
+        x::telem::Frame frame;
+        frame.emplace(1, x::telem::Series(static_cast<float>(77.0)));
+        bus->publish(frame);
+    });
+    auto frame = ASSERT_NIL_P(streamer->read());
+    ASSERT_EQ(frame.size(), 1);
+    publisher.join();
+    streamer->close_send();
+    ASSERT_NIL(streamer->close());
+}
+
+TEST(StreamerTest, LocalFramesTakePriorityOverServerFrames) {
+    auto bus = std::make_shared<Bus>();
+    auto reads = std::make_shared<std::vector<x::telem::Frame>>();
+    x::telem::Frame server_frame;
+    server_frame.emplace(1, x::telem::Series(static_cast<float>(1.0)));
+    reads->push_back(std::move(server_frame));
+    auto mock_factory = ::driver::pipeline::mock::simple_streamer_factory({1}, reads);
+    StreamerFactory factory(mock_factory, bus, TEST_SUBJECT);
+    auto streamer = ASSERT_NIL_P(factory.open_streamer({.channels = {1}}));
+    std::this_thread::sleep_for(std::chrono::milliseconds(10));
+    x::telem::Frame local_frame;
+    local_frame.emplace(1, x::telem::Series(static_cast<float>(2.0)));
+    bus->publish(local_frame);
+    auto first = ASSERT_NIL_P(streamer->read());
+    ASSERT_EQ(first.at<float>(1, 0), 2.0f);
+    auto second = ASSERT_NIL_P(streamer->read());
+    ASSERT_EQ(second.at<float>(1, 0), 1.0f);
+    streamer->close_send();
+    ASSERT_NIL(streamer->close());
+}
+
 TEST(StreamerTest, CloseWithoutPriorCloseSendShutsDownCleanly) {
     auto bus = std::make_shared<Bus>();
     auto reads = std::make_shared<std::vector<x::telem::Frame>>();

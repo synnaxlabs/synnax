@@ -12,8 +12,26 @@ package control
 import (
 	"fmt"
 
+	"github.com/synnaxlabs/x/override"
+	"github.com/synnaxlabs/x/validate"
 	"go.uber.org/zap"
 )
+
+// Override implements config.Config, setting any zero-valued fields on s to the
+// corresponding values from other.
+func (s Subject) Override(other Subject) Subject {
+	s.Name = override.String(s.Name, other.Name)
+	s.Key = override.String(s.Key, other.Key)
+	s.Group = override.Numeric(s.Group, other.Group)
+	return s
+}
+
+// Validate validates the Subject, ensuring that the Key is non-empty.
+func (s Subject) Validate() error {
+	v := validate.New("control.subject")
+	validate.NotEmptyString(v, "key", s.Key)
+	return v.Error()
+}
 
 // String implements fmt.Stringer to nicely print out information about the subject.
 func (s Subject) String() string {

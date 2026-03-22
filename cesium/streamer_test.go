@@ -226,10 +226,10 @@ var _ = Describe("Streamer Behavior", func() {
 					defer cancel()
 					r.Flow(sCtx, confluence.CloseOutputInletsOnExit())
 
-					MustSucceed(w.Write(telem.MultiFrame(
+					Expect(w.Write(telem.MultiFrame(
 						[]cesium.ChannelKey{groupCh},
 						[]telem.Series{telem.NewSeriesV[int64](1, 2, 3)},
-					)))
+					))).To(BeTrue())
 					var res cesium.StreamerResponse
 					Eventually(o.Outlet()).Should(Receive(&res))
 					Expect(res.Group).To(Equal(uint32(42)))
@@ -257,10 +257,10 @@ var _ = Describe("Streamer Behavior", func() {
 					defer cancel()
 					r.Flow(sCtx, confluence.CloseOutputInletsOnExit())
 
-					MustSucceed(w.Write(telem.MultiFrame(
+					Expect(w.Write(telem.MultiFrame(
 						[]cesium.ChannelKey{noGroupCh},
 						[]telem.Series{telem.NewSeriesV[int64](4, 5, 6)},
-					)))
+					))).To(BeTrue())
 					var res cesium.StreamerResponse
 					Eventually(o.Outlet()).Should(Receive(&res))
 					Expect(res.Group).To(Equal(uint32(0)))

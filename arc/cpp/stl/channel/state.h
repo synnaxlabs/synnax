@@ -96,8 +96,6 @@ public:
 
     void write_series(types::ChannelKey key, const Series &data, const Series &time);
 
-    std::vector<std::pair<types::ChannelKey, Series>> flush();
-
     /// @brief flushes read and write state directly into the provided frame,
     /// avoiding intermediate allocations.
     void flush_into(x::telem::Frame &out);

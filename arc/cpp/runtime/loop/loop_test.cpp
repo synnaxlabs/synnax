@@ -23,8 +23,7 @@ namespace arc::runtime::loop {
 
 /// @brief Creates a loop and starts it, returning the started loop.
 std::pair<std::unique_ptr<Loop>, x::errors::Error> create_and_start(const Config &cfg) {
-    auto [loop, err] = create(cfg);
-    if (err) return {nullptr, err};
+    auto loop = create(cfg);
     if (auto start_err = loop->start(); start_err) return {nullptr, start_err};
     return {std::move(loop), x::errors::NIL};
 }
@@ -57,7 +56,7 @@ TEST(LoopTest, Create) {
     config.mode = ExecutionMode::EVENT_DRIVEN;
     config.interval = x::telem::MILLISECOND;
 
-    const auto loop = ASSERT_NIL_P(create(config));
+    const auto loop = create(config);
     ASSERT_NE(loop, nullptr);
 }
 
@@ -66,7 +65,7 @@ TEST(LoopTest, CreateAndDestroy) {
     Config config;
     config.mode = ExecutionMode::EVENT_DRIVEN;
     config.interval = x::telem::MILLISECOND;
-    const auto loop = ASSERT_NIL_P(create(config));
+    const auto loop = create(config);
 }
 
 /// @brief Test that Loop wakes up on wake() call (EVENT_DRIVEN mode).

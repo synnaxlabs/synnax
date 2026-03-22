@@ -27,19 +27,19 @@ class PollingLoop final : public Loop {
 public:
     explicit PollingLoop(const Config &config): config_(config) {
         if (this->config_.rt_priority > 0) {
-            LOG(WARNING) << "[loop] RT priority not supported in polling mode";
+            LOG(WARNING) << "[arc.loop] RT priority not supported in polling mode";
         }
         if (this->config_.cpu_affinity >= 0) {
-            LOG(WARNING) << "[loop] CPU affinity not supported in polling mode";
+            LOG(WARNING) << "[arc.loop] CPU affinity not supported in polling mode";
         }
         if (this->config_.lock_memory) {
-            LOG(WARNING) << "[loop] Memory locking not supported in polling mode";
+            LOG(WARNING) << "[arc.loop] Memory locking not supported in polling mode";
         }
 
         if (this->config_.mode == ExecutionMode::RT_EVENT ||
             this->config_.mode == ExecutionMode::EVENT_DRIVEN ||
             this->config_.mode == ExecutionMode::HYBRID) {
-            LOG(INFO) << "[loop] Falling back to HIGH_RATE mode for "
+            LOG(INFO) << "[arc.loop] Falling back to HIGH_RATE mode for "
                       << "unsupported execution mode in polling implementation";
         }
     }
@@ -116,7 +116,7 @@ public:
     bool watch(x::notify::Notifier &notifier) override {
         static bool warned = false;
         if (!warned) {
-            LOG(WARNING) << "[loop] watch() not supported in polling mode; "
+            LOG(WARNING) << "[arc.loop] watch() not supported in polling mode; "
                          << "external notifiers will not wake wait()";
             warned = true;
         }
@@ -143,9 +143,9 @@ private:
     bool started_ = false;
 };
 
-std::pair<std::unique_ptr<Loop>, x::errors::Error>
+std::unique_ptr<Loop>
 create(const Config &cfg, std::shared_ptr<x::thread::rt::Handle> rt_handle) {
-    return {std::make_unique<PollingLoop>(cfg), x::errors::NIL};
+    return std::make_unique<PollingLoop>(cfg);
 }
 
 }

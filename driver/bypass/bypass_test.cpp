@@ -278,6 +278,44 @@ TEST(BusTest, PublishAlignmentUnregisteredChannelLeftAtZero) {
     EXPECT_EQ(r.series->at(0).alignment.uint64(), 0);
 }
 
+TEST(BusTest, ConcurrentPublishAndSubscribeLifecycle) {
+    Bus bus;
+    bus.register_channels({1, 2, 3});
+    auto persistent_sub = bus.subscribe({1, 2, 3});
+    constexpr int num_publishers = 4;
+    constexpr int num_subscribers = 4;
+    constexpr int frames_per_publisher = 50;
+    std::vector<std::thread> threads;
+    for (int p = 0; p < num_publishers; p++) {
+        threads.emplace_back([&bus] {
+            for (int i = 0; i < frames_per_publisher; i++) {
+                x::telem::Frame frame;
+                frame.emplace(1, x::telem::Series(static_cast<float>(i)));
+                frame.emplace(2, x::telem::Series(static_cast<float>(i)));
+                bus.publish(frame);
+            }
+        });
+    }
+    for (int s = 0; s < num_subscribers; s++) {
+        threads.emplace_back([&bus] {
+            auto sub = bus.subscribe({1});
+            for (int i = 0; i < 10; i++) {
+                x::telem::Frame r;
+                sub->try_pop(r);
+                std::this_thread::sleep_for(std::chrono::microseconds(100));
+            }
+            bus.unsubscribe(*sub);
+        });
+    }
+    for (auto &t: threads)
+        t.join();
+    int received = 0;
+    x::telem::Frame r;
+    while (persistent_sub->try_pop(r))
+        received++;
+    ASSERT_EQ(received, num_publishers * frames_per_publisher);
+}
+
 TEST(SubscriptionTest, Empty) {
     Subscription sub({1});
     ASSERT_TRUE(sub.empty());

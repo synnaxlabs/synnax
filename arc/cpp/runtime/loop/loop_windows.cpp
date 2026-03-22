@@ -31,7 +31,7 @@ public:
     ):
         config_(config), rt_handle_(std::move(rt_handle)) {
         if (this->config_.lock_memory) {
-            LOG(WARNING) << "[loop] Memory locking on Windows requires "
+            LOG(WARNING) << "[arc.loop] Memory locking on Windows requires "
                          << "VirtualLock API (not implemented)";
         }
     }
@@ -121,7 +121,8 @@ public:
             auto rt_cfg = this->config_.rt();
             rt_cfg.use_mmcss = true;
             if (auto err = x::thread::rt::apply_config(rt_cfg); err)
-                LOG(WARNING) << "[loop] failed to apply RT config: " << err.message();
+                LOG(WARNING) << "[arc.loop] failed to apply RT config: "
+                             << err.message();
         } else {
             this->rt_handle_->apply();
         }
@@ -137,11 +138,11 @@ public:
     bool watch(x::notify::Notifier &notifier) override {
         auto *handle = static_cast<HANDLE>(notifier.native_handle());
         if (handle == nullptr) {
-            LOG(ERROR) << "[loop] Notifier has no native handle";
+            LOG(ERROR) << "[arc.loop] Notifier has no native handle";
             return false;
         }
         if (this->watched_handle_ != NULL && this->watched_handle_ != handle) {
-            LOG(ERROR) << "[loop] Only one external notifier can be watched";
+            LOG(ERROR) << "[arc.loop] Only one external notifier can be watched";
             return false;
         }
         this->watched_handle_ = handle;
@@ -176,7 +177,7 @@ private:
             if (result < WAIT_OBJECT_0 + count)
                 return this->classify_result(result, handles);
             if (result == WAIT_FAILED) {
-                LOG(ERROR) << "[loop] WaitForMultipleObjects failed: "
+                LOG(ERROR) << "[arc.loop] WaitForMultipleObjects failed: "
                            << GetLastError();
                 return WakeReason::Shutdown;
             }
@@ -208,7 +209,8 @@ private:
         const DWORD result = WaitForMultipleObjects(count, handles, FALSE, timeout_ms);
         if (result == WAIT_TIMEOUT) return WakeReason::Timeout;
         if (result == WAIT_FAILED) {
-            LOG(ERROR) << "[loop] WaitForMultipleObjects failed: " << GetLastError();
+            LOG(ERROR) << "[arc.loop] WaitForMultipleObjects failed: "
+                       << GetLastError();
             return WakeReason::Shutdown;
         }
         return this->classify_result(result, handles);
@@ -271,9 +273,9 @@ private:
     std::unique_ptr<::x::loop::Timer> timer_;
 };
 
-std::pair<std::unique_ptr<Loop>, x::errors::Error>
+std::unique_ptr<Loop>
 create(const Config &cfg, std::shared_ptr<x::thread::rt::Handle> rt_handle) {
-    return {std::make_unique<WindowsLoop>(cfg, std::move(rt_handle)), x::errors::NIL};
+    return std::make_unique<WindowsLoop>(cfg, std::move(rt_handle));
 }
 
 }

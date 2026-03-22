@@ -28,7 +28,6 @@ x::errors::Error SynnaxWriter::write(const x::telem::Frame &fr) {
 }
 
 x::errors::Error SynnaxWriter::set_authority(const Authorities &authorities) {
-    if (auto err = authorities.validate()) return err;
     return this->internal
         .set_authority(authorities.keys, authorities.authorities, false);
 }
@@ -118,6 +117,7 @@ void Acquisition::run() {
             LOG(ERROR) << "[acquisition] failed to eagerly open writer: "
                        << writer_err.message();
             this->source->stopped_with_err(writer_err);
+            this->breaker.stop();
             return;
         }
         writer = std::move(writer_i);
@@ -221,6 +221,7 @@ void Acquisition::run() {
         this->source->stopped_with_err(source_err);
     else if (writer_err)
         this->source->stopped_with_err(writer_err);
+    this->breaker.stop();
     VLOG(1) << "[acquisition] acquisition thread stopped";
 }
 }
