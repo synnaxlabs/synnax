@@ -11,8 +11,8 @@
 #include <thread>
 
 #include "glog/logging.h"
-#include <windows.h>
 #include <timeapi.h>
+#include <windows.h>
 
 #include "x/cpp/loop/loop.h"
 #include "x/cpp/telem/telem.h"
