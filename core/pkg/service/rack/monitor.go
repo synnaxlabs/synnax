@@ -116,7 +116,7 @@ func (m *monitor) checkAlive(ctx context.Context) error {
 		return err
 	}
 	for _, stat := range statuses {
-		m.Notify(ctx, Status(stat))
+		m.Notify(ctx, stat)
 	}
 	return nil
 }
