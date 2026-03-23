@@ -63,7 +63,7 @@
     "@synnaxlabs/eslint-config": "workspace:^",
     "@synnaxlabs/stylelint-config": "workspace:^",
     "@synnaxlabs/tsconfig": "workspace:^",
-    "@tauri-apps/cli": "^2.9.6",
+    "@tauri-apps/cli": "^2.10.1",
     "@testing-library/react": "catalog:",
     "@types/node": "catalog:",
     "@types/pluralize": "catalog:",
