@@ -10,6 +10,8 @@
 package channel_test
 
 import (
+	"encoding/json"
+
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
@@ -17,8 +19,10 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
 	"github.com/synnaxlabs/synnax/pkg/storage/ts"
 	"github.com/synnaxlabs/x/math"
+	"github.com/synnaxlabs/x/telem"
 	. "github.com/synnaxlabs/x/testutil"
 	"github.com/synnaxlabs/x/validate"
+	"github.com/vmihailenco/msgpack/v5"
 )
 
 var _ = Describe("Channel Tests", func() {
@@ -175,6 +179,119 @@ var _ = Describe("Channel Tests", func() {
 				Expect(added).To(Equal(channel.Keys{1}))
 				Expect(removed).To(Equal(channel.Keys{4}))
 			})
+		})
+	})
+	Describe("UnmarshalJSON", func() {
+		It("Should unmarshal a channel with the leaseholder field", func() {
+			data := []byte(`{"name":"test","leaseholder":5,"data_type":"float32","local_key":1}`)
+			var c channel.Channel
+			Expect(json.Unmarshal(data, &c)).To(Succeed())
+			Expect(c.Name).To(Equal(channel.Name("test")))
+			Expect(c.Leaseholder).To(Equal(cluster.NodeKey(5)))
+			Expect(c.LocalKey).To(Equal(channel.LocalKey(1)))
+		})
+		It("Should fall back to node_id when leaseholder is absent", func() {
+			data := []byte(`{"name":"test","node_id":7,"local_key":2}`)
+			var c channel.Channel
+			Expect(json.Unmarshal(data, &c)).To(Succeed())
+			Expect(c.Leaseholder).To(Equal(cluster.NodeKey(7)))
+		})
+		It("Should prefer leaseholder over node_id when both are present", func() {
+			data := []byte(`{"leaseholder":3,"node_id":9,"local_key":1}`)
+			var c channel.Channel
+			Expect(json.Unmarshal(data, &c)).To(Succeed())
+			Expect(c.Leaseholder).To(Equal(cluster.NodeKey(3)))
+		})
+		It("Should return an error for invalid JSON", func() {
+			Expect(json.Unmarshal([]byte(`not json`), &channel.Channel{})).To(HaveOccurred())
+		})
+	})
+	Describe("Operation DecodeMsgpack", func() {
+		It("Should decode an operation with new lowercase msgpack fields", func() {
+			original := channel.Operation{
+				Type:         channel.OperationTypeAvg,
+				ResetChannel: 42,
+				Duration:     5000000000,
+			}
+			data := MustSucceed(msgpack.Marshal(original))
+			var decoded channel.Operation
+			Expect(msgpack.Unmarshal(data, &decoded)).To(Succeed())
+			Expect(decoded.Type).To(Equal(channel.OperationTypeAvg))
+			Expect(decoded.ResetChannel).To(Equal(channel.Key(42)))
+			Expect(decoded.Duration).To(Equal(telem.TimeSpan(5000000000)))
+		})
+		It("Should decode legacy uppercase Go field names", func() {
+			legacy := struct {
+				Type         string
+				ResetChannel uint32
+				Duration     int64
+			}{
+				Type:         "max",
+				ResetChannel: 10,
+				Duration:     1000000000,
+			}
+			data := MustSucceed(msgpack.Marshal(legacy))
+			var decoded channel.Operation
+			Expect(msgpack.Unmarshal(data, &decoded)).To(Succeed())
+			Expect(decoded.Type).To(Equal(channel.OperationTypeMax))
+			Expect(decoded.ResetChannel).To(Equal(channel.Key(10)))
+			Expect(decoded.Duration).To(Equal(telem.TimeSpan(1000000000)))
+		})
+		It("Should decode a channel with legacy operations embedded", func() {
+			legacy := map[string]any{
+				"name":        "fuel_tc_avg",
+				"leaseholder": 1,
+				"local_key":   5,
+				"operations": []map[string]any{
+					{
+						"Type":         "avg",
+						"ResetChannel": 0,
+						"Duration":     0,
+					},
+				},
+			}
+			data := MustSucceed(msgpack.Marshal(legacy))
+			var c channel.Channel
+			Expect(msgpack.Unmarshal(data, &c)).To(Succeed())
+			Expect(c.Operations).To(HaveLen(1))
+			Expect(c.Operations[0].Type).To(Equal(channel.OperationTypeAvg))
+		})
+	})
+	Describe("DecodeMsgpack", func() {
+		It("Should decode a channel with the leaseholder field", func() {
+			original := channel.Channel{
+				Name:        "test",
+				Leaseholder: 5,
+				LocalKey:    1,
+				DataType:    "float32",
+			}
+			data := MustSucceed(msgpack.Marshal(original))
+			var c channel.Channel
+			Expect(msgpack.Unmarshal(data, &c)).To(Succeed())
+			Expect(c.Name).To(Equal(channel.Name("test")))
+			Expect(c.Leaseholder).To(Equal(cluster.NodeKey(5)))
+			Expect(c.LocalKey).To(Equal(channel.LocalKey(1)))
+		})
+		It("Should fall back to node_id when leaseholder is absent", func() {
+			data := MustSucceed(msgpack.Marshal(map[string]any{
+				"name":    "test",
+				"node_id": 7,
+			}))
+			var c channel.Channel
+			Expect(msgpack.Unmarshal(data, &c)).To(Succeed())
+			Expect(c.Leaseholder).To(Equal(cluster.NodeKey(7)))
+		})
+		It("Should prefer leaseholder over node_id when both are present", func() {
+			data := MustSucceed(msgpack.Marshal(map[string]any{
+				"leaseholder": 3,
+				"node_id":     9,
+			}))
+			var c channel.Channel
+			Expect(msgpack.Unmarshal(data, &c)).To(Succeed())
+			Expect(c.Leaseholder).To(Equal(cluster.NodeKey(3)))
+		})
+		It("Should return an error for invalid msgpack", func() {
+			Expect(msgpack.Unmarshal([]byte{0xff}, &channel.Channel{})).To(HaveOccurred())
 		})
 	})
 	Describe("Equal", func() {

@@ -222,10 +222,11 @@ APIChannel struct {
         """
     }
     concurrency control.Concurrency? {
-        @doc value """
+        @doc value        """
             sets the policy for concurrent writes to the channel's data. Only
             virtual channels can have a policy of shared concurrency.
         """
+        @validate default control.ConcurrencyExclusive
     }
     status      Status??             {
         @doc value "is the current operational status of the channel."

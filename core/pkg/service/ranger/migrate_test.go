@@ -142,7 +142,7 @@ var _ = Describe("Migrate", func() {
 		Expect(otg.NewRetrieve().
 			WhereIDs(parentRange.OntologyID()).
 			TraverseTo(ontology.ChildrenTraverser).
-			WhereTypes(ranger.OntologyType).
+			WhereTypes(ontology.TypeRange).
 			Entries(&children).
 			Exec(ctx, nil)).To(Succeed())
 		var childNames []string

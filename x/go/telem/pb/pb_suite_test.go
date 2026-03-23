@@ -7,11 +7,16 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-package binary
+package pb_test
 
-// MakeCopy returns a copy of the given byte slice.
-func MakeCopy(bytes []byte) []byte {
-	copied := make([]byte, len(bytes))
-	copy(copied, bytes)
-	return copied
+import (
+	"testing"
+
+	. "github.com/onsi/ginkgo/v2"
+	. "github.com/onsi/gomega"
+)
+
+func TestPB(t *testing.T) {
+	RegisterFailHandler(Fail)
+	RunSpecs(t, "Telem PB Suite")
 }

@@ -2099,5 +2099,48 @@ var _ = Describe("TS Types Plugin", func() {
 					ToContain(`import { telem } from "@synnaxlabs/x"`)
 			})
 		})
+
+		Context("enum variant defaults", func() {
+			It("Should generate default for same-namespace enum variant", func() {
+				source := `
+					@ts output "out"
+
+					Mode enum {
+						automatic = 0
+						manual    = 1
+					}
+
+					Config struct {
+						mode Mode @validate default ModeAutomatic
+					}
+				`
+				resp := MustGenerate(ctx, source, "config", loader, typesPlugin)
+				ExpectContent(resp, "types.gen.ts").
+					ToContain(`mode: modeZ.default(Mode.automatic)`)
+			})
+
+			It("Should generate default for cross-namespace enum variant", func() {
+				loader.Add("schemas/control", `
+					@ts output "x/ts/src/control"
+
+					Concurrency enum {
+						exclusive = 0
+						shared    = 1
+					}
+				`)
+				source := `
+					import "schemas/control"
+
+					@ts output "client/ts/src/channel"
+
+					Channel struct {
+						concurrency control.Concurrency @validate default control.ConcurrencyExclusive
+					}
+				`
+				resp := MustGenerate(ctx, source, "channel", loader, typesPlugin)
+				ExpectContent(resp, "types.gen.ts").
+					ToContain(`concurrency: control.concurrencyZ.default(control.Concurrency.exclusive)`)
+			})
+		})
 	})
 })

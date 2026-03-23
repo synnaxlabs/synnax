@@ -364,7 +364,7 @@ var _ = Describe("Retrieve", func() {
 		})
 
 		It("Should work with Limit when using single type prefix matching", func() {
-			for i := 0; i < 5; i++ {
+			for i := range 5 {
 				Expect(w.DefineResource(ctx, newSampleType("limit-type-"+strconv.Itoa(i)))).To(Succeed())
 			}
 			var r []ontology.Resource
@@ -378,7 +378,7 @@ var _ = Describe("Retrieve", func() {
 		})
 
 		It("Should work with Limit when using multiple types filter", func() {
-			for i := 0; i < 5; i++ {
+			for i := range 5 {
 				Expect(w.DefineResource(ctx, newSampleType("limit-multi-"+strconv.Itoa(i)))).To(Succeed())
 			}
 			var r []ontology.Resource

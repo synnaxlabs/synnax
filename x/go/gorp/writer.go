@@ -13,8 +13,8 @@ import (
 	"context"
 )
 
-// Writer wraps a key-value writer to provide a strongly typed interface for
-// writing entries to the DB. Writer is NOT safe for concurrent use.
+// Writer wraps a key-value writer to provide a strongly typed interface for writing
+// entries to the DB. Writer is NOT safe for concurrent use.
 type Writer[K Key, E Entry[K]] struct {
 	BaseWriter
 	keyCodec *keyCodec[K, E]
@@ -69,7 +69,5 @@ func (w *Writer[K, E]) set(ctx context.Context, entry E) error {
 }
 
 func (w *Writer[K, E]) delete(ctx context.Context, key K) error {
-	// NOTE: We need to be careful with this operation in the future.
-	// Because we aren't copying prefix, we're modifying the underlying slice.
 	return w.BaseWriter.Delete(ctx, w.keyCodec.encode(key))
 }

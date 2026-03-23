@@ -185,7 +185,9 @@ func OpenLayer(ctx context.Context, cfgs ...LayerConfig) (l *Layer, err error) {
 	}
 
 	var authKV *auth.KV
-	if authKV, err = auth.OpenKV(ctx, cfg.Distribution.DB); !ok(err, authKV) {
+	if authKV, err = auth.OpenKV(ctx, auth.KVConfig{
+		DB: cfg.Distribution.DB,
+	}); !ok(err, authKV) {
 		return nil, err
 	}
 	l.Auth = authKV

@@ -20,6 +20,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
 	"github.com/synnaxlabs/synnax/pkg/storage/ts"
 	"github.com/synnaxlabs/x/errors"
+	"github.com/synnaxlabs/x/telem"
 	"github.com/synnaxlabs/x/unsafe"
 	"github.com/synnaxlabs/x/validate"
 	"github.com/vmihailenco/msgpack/v5"
@@ -87,7 +88,7 @@ func KeysFromOntologyIDs(ids []ontology.ID) (keys Keys, err error) {
 	keys = make(Keys, 0, len(ids))
 	var key Key
 	for _, id := range ids {
-		if id.Type == OntologyType {
+		if id.Type == ontology.TypeChannel {
 			key, err = ParseKey(id.Key)
 			if err != nil {
 				return
@@ -246,6 +247,34 @@ func (c *Channel) UnmarshalJSON(data []byte) error {
 			return err
 		}
 		c.Leaseholder = legacy.NodeID
+	}
+	return nil
+}
+
+// DecodeMsgpack implements msgpack.CustomDecoder, supporting both legacy uppercase
+// Go field names (e.g. "Type", "ResetChannel", "Duration") and new lowercase msgpack
+// tag names for backward compatibility.
+func (o *Operation) DecodeMsgpack(dec *msgpack.Decoder) error {
+	type alias Operation
+	raw, err := dec.DecodeRaw()
+	if err != nil {
+		return err
+	}
+	if err = msgpack.Unmarshal(raw, (*alias)(o)); err != nil {
+		return err
+	}
+	if len(o.Type) == 0 {
+		var legacy struct {
+			Type         OperationType
+			ResetChannel Key
+			Duration     telem.TimeSpan
+		}
+		if err = msgpack.Unmarshal(raw, &legacy); err != nil {
+			return err
+		}
+		o.Type = legacy.Type
+		o.ResetChannel = legacy.ResetChannel
+		o.Duration = legacy.Duration
 	}
 	return nil
 }

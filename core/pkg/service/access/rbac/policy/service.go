@@ -17,6 +17,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
 	"github.com/synnaxlabs/synnax/pkg/distribution/signals"
 	"github.com/synnaxlabs/x/config"
+	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/gorp"
 	"github.com/synnaxlabs/x/override"
 	"github.com/synnaxlabs/x/validate"
@@ -79,10 +80,11 @@ func OpenService(ctx context.Context, configs ...ServiceConfig) (*Service, error
 }
 
 func (s *Service) Close() error {
-	if s.signals == nil {
-		return nil
+	var err error
+	if s.signals != nil {
+		err = s.signals.Close()
 	}
-	return s.signals.Close()
+	return errors.Join(err, s.table.Close())
 }
 
 func (s *Service) NewWriter(tx gorp.Tx, allowInternal bool) Writer {

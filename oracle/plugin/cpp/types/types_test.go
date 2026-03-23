@@ -1421,5 +1421,51 @@ var _ = Describe("C++ Types Plugin", func() {
 					)
 			})
 		})
+
+		Context("enum variant defaults", func() {
+			It("Should generate default for same-namespace enum variant", func() {
+				source := `
+					@cpp output "out"
+					@pb
+
+					Mode enum {
+						automatic = 0
+						manual    = 1
+					}
+
+					Config struct {
+						mode Mode @validate default ModeAutomatic
+					}
+				`
+				resp := MustGenerate(ctx, source, "config", loader, cppPlugin)
+				ExpectContent(resp, "types.gen.h").
+					ToContain(`Mode mode = Mode::Automatic`)
+			})
+
+			It("Should generate default for cross-namespace enum variant", func() {
+				loader.Add("schemas/control", `
+					@cpp output "x/cpp/control"
+					@pb
+
+					Concurrency enum {
+						exclusive = 0
+						shared    = 1
+					}
+				`)
+				source := `
+					import "schemas/control"
+
+					@cpp output "client/cpp/channel"
+					@pb
+
+					Channel struct {
+						concurrency control.Concurrency @validate default control.ConcurrencyExclusive
+					}
+				`
+				resp := MustGenerate(ctx, source, "channel", loader, cppPlugin)
+				ExpectContent(resp, "types.gen.h").
+					ToContain(`::x::control::Concurrency concurrency = ::x::control::Concurrency::Exclusive`)
+			})
+		})
 	})
 })

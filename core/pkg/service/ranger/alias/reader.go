@@ -151,7 +151,7 @@ func (r Reader) Search(
 ) ([]channel.Key, error) {
 	ids, err := r.otg.SearchIDs(
 		ctx,
-		ontology.SearchRequest{Term: term, Type: OntologyType},
+		ontology.SearchRequest{Term: term, Type: ontology.TypeRangeAlias},
 	)
 	if err != nil {
 		return nil, err

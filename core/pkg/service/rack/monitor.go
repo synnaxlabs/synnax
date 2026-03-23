@@ -94,7 +94,7 @@ func (m *monitor) checkAlive(ctx context.Context) error {
 			continue
 		}
 		timeSinceAlive := telem.TimeSpan(now - state.lastUpdated)
-		stat := status.Status[StatusDetails]{
+		stat := Status{
 			Key:         OntologyID(r.Key).String(),
 			Name:        r.Name,
 			Variant:     xstatus.VariantWarning,
@@ -116,7 +116,7 @@ func (m *monitor) checkAlive(ctx context.Context) error {
 		return err
 	}
 	for _, stat := range statuses {
-		m.Notify(ctx, Status(stat))
+		m.Notify(ctx, stat)
 	}
 	return nil
 }
@@ -125,7 +125,7 @@ func (m *monitor) handleChange(ctx context.Context, t gorp.TxReader[string, stat
 	m.mu.Lock()
 	defer m.mu.Unlock()
 	for ch := range t {
-		if !strings.HasPrefix(ch.Key, string(OntologyType)) {
+		if !strings.HasPrefix(ch.Key, string(ontology.TypeRack)) {
 			continue
 		}
 		key, err := parseKeyFromOntologyIDString(ch.Key)

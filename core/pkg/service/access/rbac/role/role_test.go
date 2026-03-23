@@ -183,7 +183,7 @@ var _ = Describe("Writer", func() {
 				ExcludeFieldData(true).
 				TraverseTo(ontology.ParentsTraverser).
 				ExcludeFieldData(true).
-				WhereTypes(role.OntologyType).
+				WhereTypes(ontology.TypeRole).
 				Entries(&parents).
 				Exec(ctx, tx)).To(Succeed())
 			Expect(parents).To(HaveLen(1))
@@ -200,7 +200,7 @@ var _ = Describe("Writer", func() {
 				ExcludeFieldData(true).
 				TraverseTo(ontology.ParentsTraverser).
 				ExcludeFieldData(true).
-				WhereTypes(role.OntologyType).
+				WhereTypes(ontology.TypeRole).
 				Entries(&parents).
 				Exec(ctx, tx)).To(Succeed())
 			Expect(parents).To(HaveLen(1))
@@ -230,7 +230,7 @@ var _ = Describe("Writer", func() {
 			Expect(otg.NewRetrieve().
 				WhereIDs(subject).
 				TraverseTo(ontology.ParentsTraverser).
-				WhereTypes(role.OntologyType).
+				WhereTypes(ontology.TypeRole).
 				Entries(&parents).
 				Exec(ctx, tx)).To(Succeed())
 			Expect(parents).To(BeEmpty())
@@ -244,7 +244,7 @@ var _ = Describe("Writer", func() {
 			Expect(otg.NewRetrieve().
 				WhereIDs(subject).
 				TraverseTo(ontology.ParentsTraverser).
-				WhereTypes(role.OntologyType).
+				WhereTypes(ontology.TypeRole).
 				Entries(&parents).
 				Exec(ctx, tx)).To(Succeed())
 			Expect(parents).To(BeEmpty())
@@ -403,7 +403,7 @@ var _ = Describe("Ontology Integration", func() {
 
 	Describe("Type", func() {
 		It("Should return correct ontology type", func() {
-			Expect(svc.Type()).To(Equal(role.OntologyType))
+			Expect(svc.Type()).To(Equal(ontology.TypeRole))
 		})
 	})
 

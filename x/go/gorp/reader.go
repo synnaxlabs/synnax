@@ -10,7 +10,6 @@
 package gorp
 
 import (
-	"bytes"
 	"context"
 	"fmt"
 	"io"
@@ -25,9 +24,9 @@ import (
 	"github.com/synnaxlabs/x/types"
 )
 
-// Reader wraps a key-value reader to provide a strongly typed interface for
-// reading entries from the DB. Reader only accesses entries that match
-// its type arguments. Reader is NOT safe for concurrent use.
+// Reader wraps a key-value reader to provide a strongly typed interface for reading
+// entries from the DB. Reader only accesses entries that match its type arguments.
+// Reader is NOT safe for concurrent use.
 type Reader[K Key, E Entry[K]] struct {
 	keyCodec *keyCodec[K, E]
 	codec    Codec[E]
@@ -35,16 +34,16 @@ type Reader[K Key, E Entry[K]] struct {
 	BaseReader
 }
 
-// WrapReader wraps the given key-value reader to provide a strongly
-// typed interface for reading entries from the DB. It's important to note
-// that the Reader only access to the entries provided as the type arguments
-// to this function. The following example reads from a DB:
+// WrapReader wraps the given key-value reader to provide a strongly typed interface for
+// reading entries from the DB. It's important to note that the Reader only access to
+// the entries provided as the type arguments to this function. The following example
+// reads from a DB:
 //
-//	r := gor.WrapReader[MyKey, MyEntry](db)
+//	r := gorp.WrapReader[MyKey, MyEntry](db)
 //
 // The next example reads from a Tx:
 //
-//	r := gor.WrapReader[MyKey, MyEntry](tx)
+//	r := gorp.WrapReader[MyKey, MyEntry](tx)
 func WrapReader[K Key, E Entry[K]](base BaseReader) *Reader[K, E] {
 	return &Reader[K, E]{BaseReader: base, keyCodec: newKeyCodec[K, E]()}
 }
@@ -107,7 +106,7 @@ type IterOptions struct {
 
 // OpenIterator opens a new Iterator over the entries in the Reader.
 func (r Reader[K, E]) OpenIterator(opts IterOptions) (iter *Iterator[E], err error) {
-	prefixedKey := append(bytes.Clone(r.keyCodec.prefix), opts.prefix...)
+	prefixedKey := append(r.keyCodec.prefix, opts.prefix...)
 	base, err := r.BaseReader.OpenIterator(kv.IterPrefix(prefixedKey))
 	return wrapIterator[E](base, r, r.codec), err
 }
