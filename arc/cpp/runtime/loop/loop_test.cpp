@@ -62,6 +62,41 @@ TEST(LoopTest, Create) {
     ASSERT_NE(loop, nullptr);
 }
 
+/// @brief Test that create() returns a loop that is not yet started.
+TEST(LoopTest, CreateReturnsUnstartedLoop) {
+    Config config;
+    config.mode = ExecutionMode::EVENT_DRIVEN;
+    config.interval = x::telem::TimeSpan(0);
+
+    auto loop = create(config);
+    ASSERT_NE(loop, nullptr);
+
+    x::breaker::Breaker breaker;
+    breaker.start();
+    const auto reason = loop->wait(breaker, 10 * x::telem::MILLISECOND);
+    EXPECT_EQ(reason, WakeReason::Shutdown);
+}
+
+/// @brief Test that start() can be called from a different thread than create().
+TEST(LoopTest, StartOnDifferentThread) {
+    Config config;
+    config.mode = ExecutionMode::EVENT_DRIVEN;
+    config.interval = x::telem::TimeSpan(0);
+
+    auto loop = create(config);
+    ASSERT_NE(loop, nullptr);
+
+    std::atomic<bool> started{false};
+    x::errors::Error start_err;
+    std::thread t([&] {
+        start_err = loop->start();
+        started = true;
+    });
+    t.join();
+    EXPECT_TRUE(started.load());
+    EXPECT_FALSE(start_err) << start_err.message();
+}
+
 /// @brief Test that Loop can be created and destroyed.
 TEST(LoopTest, CreateAndDestroy) {
     Config config;
@@ -224,6 +259,12 @@ TEST(ModeSelectorTest, ModerateRate_SelectsHybrid) {
     EXPECT_EQ(select_mode(3 * x::telem::MILLISECOND, true), ExecutionMode::HYBRID);
 }
 
+TEST(ModeSelectorTest, BetweenOneAndThreeMs_DependsOnRTSupport) {
+    const auto expected = x::thread::rt::has_support() ? ExecutionMode::RT_EVENT
+                                                       : ExecutionMode::HYBRID;
+    EXPECT_EQ(select_mode(2 * x::telem::MILLISECOND, true), expected);
+}
+
 TEST(ModeSelectorTest, LowRate_SelectsEventDriven) {
     EXPECT_EQ(
         select_mode(10 * x::telem::MILLISECOND, true),
@@ -236,8 +277,10 @@ TEST(ModeSelectorTest, NeverAutoselectsBusyWait) {
     EXPECT_NE(select_mode(x::telem::TimeSpan(0), true), ExecutionMode::BUSY_WAIT);
 }
 
-TEST(ModeSelectorTest, Boundary_AtOneMs_SelectsHybrid) {
-    EXPECT_EQ(select_mode(x::telem::MILLISECOND, true), ExecutionMode::HYBRID);
+TEST(ModeSelectorTest, Boundary_AtOneMs) {
+    const auto expected = x::thread::rt::has_support() ? ExecutionMode::RT_EVENT
+                                                       : ExecutionMode::HYBRID;
+    EXPECT_EQ(select_mode(x::telem::MILLISECOND, true), expected);
 }
 
 TEST(ModeSelectorTest, Boundary_AtFiveMs_SelectsEventDriven) {
