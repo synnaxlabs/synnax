@@ -93,7 +93,7 @@ func (t *taskImpl) start(ctx context.Context) (err error) {
 		return nil
 	}
 	drt := dataRuntime{}
-	stateCfg, err := NewStateConfig(ctx, t.factoryCfg.Channel.Service, t.prog.Program)
+	stateCfg, err := NewStateConfig(ctx, t.factoryCfg.Channel.Service, *t.prog.Program)
 	if err != nil {
 		t.setStatus(status.VariantError, false, err.Error())
 		return err
@@ -191,7 +191,7 @@ func (t *taskImpl) start(ctx context.Context) (err error) {
 	for _, irNode := range t.prog.Program.Nodes {
 		n, nodeErr := f.Create(ctx, node.Config{
 			Node:    irNode,
-			Program: t.prog.Program,
+			Program: *t.prog.Program,
 			State:   drt.state.nodes.Node(irNode.Key),
 		})
 		if nodeErr != nil {

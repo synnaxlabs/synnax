@@ -2,7 +2,15 @@ load("@rules_cc//cc:cc_library.bzl", "cc_library")
 
 cc_library(
     name = "control",
-    hdrs = ["control.h"],
+    hdrs = [
+        "control.h",
+        "json.gen.h",
+        "proto.gen.h",
+        "types.gen.h",
+    ],
     visibility = ["//visibility:public"],
-    deps = [],
+    deps = [
+        "//x/cpp/pb",
+        "//x/go/control:control_grpc",
+    ],
 )

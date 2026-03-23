@@ -17,7 +17,14 @@ from synnax.task.client import (
     StarterStopperMixin,
     Task,
 )
-from synnax.task.payload import Payload, Status, StatusDetails
+from synnax.task.types_gen import (
+    ONTOLOGY_TYPE,
+    Key,
+    Payload,
+    Status,
+    StatusDetails,
+    ontology_id,
+)
 from synnax.util.deprecation import deprecated_getattr
 
 _DEPRECATED = {
@@ -34,10 +41,13 @@ __getattr__ = deprecated_getattr(__name__, _DEPRECATED, globals())
 
 __all__ = [
     "Client",
+    "Key",
     "Task",
     "Payload",
     "Status",
     "StatusDetails",
+    "ONTOLOGY_TYPE",
+    "ontology_id",
     "BaseConfig",
     "BaseReadConfig",
     "BaseWriteConfig",

@@ -61,8 +61,8 @@ func (p *Plugin) Check(req *plugin.Request) error { return nil }
 var postWriter = &exec.PostWriter{
 	ConfigFile: "pyproject.toml",
 	Commands: [][]string{
-		{"poetry", "run", "isort"},
-		{"poetry", "run", "black"},
+		{"uv", "run", "isort"},
+		{"uv", "run", "black"},
 	},
 }
 
@@ -245,11 +245,11 @@ func processEnum(typ resolution.Type, data *templateData) enumData {
 func processTypeDef(typ resolution.Type, table *resolution.Table, data *templateData) typeDefData {
 	switch form := typ.Form.(type) {
 	case resolution.DistinctForm:
-		data.imports.addTyping("NewType")
+		data.imports.addTyping("TypeAlias")
 		return typeDefData{
 			Name:       typ.Name,
 			BaseType:   typeDefBaseToPython(form.Base, typ.Namespace, table, data),
-			IsDistinct: true,
+			IsDistinct: false,
 		}
 	case resolution.AliasForm:
 		// For alias types, use typeRefToPythonAlias to properly handle struct references
@@ -261,8 +261,8 @@ func processTypeDef(typ resolution.Type, table *resolution.Table, data *template
 			IsDistinct: false,
 		}
 	default:
-		data.imports.addTyping("NewType")
-		return typeDefData{Name: typ.Name, BaseType: "Any", IsDistinct: true}
+		data.imports.addTyping("TypeAlias")
+		return typeDefData{Name: typ.Name, BaseType: "Any", IsDistinct: false}
 	}
 }
 
@@ -436,7 +436,6 @@ func processStruct(
 		}
 
 		if allParentsValid {
-			sd.HasExtends = true
 			// Get all parent fields for comparison (first parent wins on conflict)
 			parentFields := make([]resolution.Field, 0)
 			seenFields := make(map[string]bool)
@@ -450,13 +449,84 @@ func processStruct(
 				}
 			}
 
+			// Check if any child field would create a type incompatibility
+			// (overriding a required parent field as optional). If so, we
+			// inline all fields instead of using inheritance to avoid
+			// type: ignore comments.
+			hasTypeConflict := false
+			for _, field := range form.Fields {
+				if field.IsOptional || field.IsHardOptional {
+					for _, pf := range parentFields {
+						if pf.Name == field.Name && !pf.IsOptional && !pf.IsHardOptional {
+							hasTypeConflict = true
+							break
+						}
+					}
+				}
+				if hasTypeConflict {
+					break
+				}
+			}
+
+			if hasTypeConflict {
+				// Inline all fields from parents and child into a standalone class
+				sd.HasExtends = false
+				sd.ExtendsNames = nil
+				childFieldsByName := make(map[string]resolution.Field)
+				for _, f := range form.Fields {
+					childFieldsByName[f.Name] = f
+				}
+				omittedSet := make(map[string]bool)
+				for _, name := range form.OmittedFields {
+					omittedSet[name] = true
+				}
+
+				sd.Fields = make([]fieldData, 0, len(parentFields)+len(form.Fields))
+				addedFields := make(map[string]bool)
+
+				// Add parent fields, using child overrides where they exist
+				for _, pf := range parentFields {
+					if omittedSet[pf.Name] {
+						continue
+					}
+					if childField, ok := childFieldsByName[pf.Name]; ok {
+						fd := processField(childField, table, data, keyFields, form.OmittedFields)
+						sd.Fields = append(sd.Fields, fd)
+						if key.HasKey(childField) {
+							sd.KeyField = childField.Name
+						}
+					} else {
+						fd := processField(pf, table, data, keyFields, form.OmittedFields)
+						sd.Fields = append(sd.Fields, fd)
+						if key.HasKey(pf) {
+							sd.KeyField = pf.Name
+						}
+					}
+					addedFields[pf.Name] = true
+				}
+				// Add child-only fields that aren't in the parent
+				for _, field := range form.Fields {
+					if addedFields[field.Name] {
+						continue
+					}
+					fd := processField(field, table, data, keyFields, form.OmittedFields)
+					sd.Fields = append(sd.Fields, fd)
+					if key.HasKey(field) {
+						sd.KeyField = field.Name
+					}
+				}
+				return sd
+			}
+
+			sd.HasExtends = true
 			// For extends, only include child's own fields (not inherited)
 			// Pass OmittedFields so excluded fields get Field(exclude=True)
 			sd.Fields = make([]fieldData, 0, len(form.Fields)+len(form.OmittedFields))
 			redefinedFields := make(map[string]bool)
 			for _, field := range form.Fields {
 				redefinedFields[field.Name] = true
-				sd.Fields = append(sd.Fields, processField(field, table, data, keyFields, form.OmittedFields))
+				fd := processField(field, table, data, keyFields, form.OmittedFields)
+				sd.Fields = append(sd.Fields, fd)
 				// Check if this field has @key annotation for __hash__ generation
 				if key.HasKey(field) {
 					sd.KeyField = field.Name
@@ -681,6 +751,9 @@ func collectValidation(
 			if isUUIDType(typeRef, table) && rules.Default.IntValue == 0 {
 				data.imports.addUUID("UUID")
 				constraints = append(constraints, "default=UUID(int=0)")
+			} else if wrapper := resolveDistinctWrapper(typeRef, table, data); wrapper != "" {
+				// Wrap int defaults in the distinct type constructor (e.g., TimeSpan(0))
+				constraints = append(constraints, fmt.Sprintf("default=%s(%d)", wrapper, rules.Default.IntValue))
 			} else {
 				constraints = append(constraints, fmt.Sprintf("default=%d", rules.Default.IntValue))
 			}
@@ -700,9 +773,28 @@ func collectValidation(
 				data.imports.addUUID("uuid4")
 				constraints = append(constraints, "default_factory=lambda: str(uuid4())")
 			}
+			if ev, ok := validation.ResolveEnumVariant(rules.Default.IdentValue, typeRef, table); ok {
+				variantRef := enumVariantToPython(ev, table, data)
+				constraints = append(constraints, fmt.Sprintf("default=%s", variantRef))
+			}
 		}
 	}
 	return constraints
+}
+
+func enumVariantToPython(ev validation.EnumVariant, table *resolution.Table, data *templateData) string {
+	enumName := domain.GetName(ev.Type, "py")
+	variantRef := fmt.Sprintf("%s.%s", enumName, ev.Variant.Name)
+	if ev.Type.Namespace != data.Namespace {
+		outputPath := enum.FindOutputPath(ev.Type, table, "py")
+		if outputPath == "" {
+			outputPath = ev.Type.Namespace
+		}
+		modulePath := toPythonModulePath(outputPath)
+		qualifiedEnum := addCrossNamespaceImport(modulePath, enumName, data)
+		variantRef = fmt.Sprintf("%s.%s", qualifiedEnum, ev.Variant.Name)
+	}
+	return variantRef
 }
 
 // isUUIDType checks if a type reference is or resolves to the uuid primitive type.
@@ -723,6 +815,23 @@ func isUUIDType(typeRef resolution.TypeRef, table *resolution.Table) bool {
 		return form.Target.Name == "uuid"
 	}
 	return false
+}
+
+// resolveDistinctWrapper returns the Python type name for a distinct type that wraps
+// a primitive, or empty string if the type is not a distinct wrapper. This is used to
+// wrap default values in the constructor (e.g., TimeSpan(0) instead of just 0).
+func resolveDistinctWrapper(typeRef resolution.TypeRef, table *resolution.Table, data *templateData) string {
+	if resolution.IsPrimitive(typeRef.Name) {
+		return ""
+	}
+	resolved, ok := typeRef.Resolve(table)
+	if !ok {
+		return ""
+	}
+	if _, isDistinct := resolved.Form.(resolution.DistinctForm); !isDistinct {
+		return ""
+	}
+	return typeToPython(typeRef, table, data)
 }
 
 // isTimeStampType checks if a type reference is or resolves to a TimeStamp type.
@@ -802,6 +911,7 @@ func typeToPython(
 		return "Any"
 	}
 
+	pyName := getPyName(resolved)
 	switch resolved.Form.(type) {
 	case resolution.StructForm:
 		if resolved.Namespace != data.Namespace {
@@ -810,9 +920,9 @@ func typeToPython(
 				outputPath = resolved.Namespace
 			}
 			modulePath := toPythonModulePath(outputPath)
-			return addCrossNamespaceImport(modulePath, resolved.Name, data)
+			return addCrossNamespaceImport(modulePath, pyName, data)
 		}
-		return resolved.Name
+		return pyName
 
 	case resolution.EnumForm:
 		if resolved.Namespace != data.Namespace {
@@ -821,9 +931,9 @@ func typeToPython(
 				outputPath = resolved.Namespace
 			}
 			modulePath := toPythonModulePath(outputPath)
-			return addCrossNamespaceImport(modulePath, resolved.Name, data)
+			return addCrossNamespaceImport(modulePath, pyName, data)
 		}
-		return resolved.Name
+		return pyName
 
 	case resolution.DistinctForm:
 		if resolved.Namespace != data.Namespace {
@@ -832,9 +942,9 @@ func typeToPython(
 				outputPath = resolved.Namespace
 			}
 			modulePath := toPythonModulePath(outputPath)
-			return addCrossNamespaceImport(modulePath, resolved.Name, data)
+			return addCrossNamespaceImport(modulePath, pyName, data)
 		}
-		return resolved.Name
+		return pyName
 
 	case resolution.AliasForm:
 		if resolved.Namespace != data.Namespace {
@@ -843,9 +953,9 @@ func typeToPython(
 				outputPath = resolved.Namespace
 			}
 			modulePath := toPythonModulePath(outputPath)
-			return addCrossNamespaceImport(modulePath, resolved.Name, data)
+			return addCrossNamespaceImport(modulePath, pyName, data)
 		}
-		return resolved.Name
+		return pyName
 
 	default:
 		data.imports.addTyping("Any")
@@ -1069,7 +1179,7 @@ type typeDefData struct {
 	Name string
 	// BaseType is the Python base type (e.g., "int", "str").
 	BaseType string
-	// IsDistinct indicates whether to use NewType (true) or TypeAlias (false).
+	// IsDistinct indicates whether to use NewType (true) or TypeAlias (false). Currently always false.
 	IsDistinct bool
 }
 
@@ -1194,10 +1304,15 @@ func hasTypeParams(params []typeParamData) bool {
 	return len(params) > 0
 }
 
+func toScreamingSnake(s string) string {
+	return strings.ToUpper(lo.SnakeCase(s))
+}
+
 var templateFuncs = template.FuncMap{
 	"title":                 lo.Capitalize,
 	"join":                  strings.Join,
 	"upper":                 strings.ToUpper,
+	"screamingSnake":        toScreamingSnake,
 	"formatGoogleDocstring": formatGoogleDocstring,
 	"hasDocumentation":      hasDocumentation,
 	"genericArg":            genericArg,
@@ -1256,7 +1371,7 @@ class {{ .Name }}(IntEnum):
 {{- $enumName := .Name }}
 {{- range .Values }}
 
-{{ upper $enumName }}_{{ upper .Name }}: Literal["{{ .Value }}"] = "{{ .Value }}"
+{{ screamingSnake $enumName }}_{{ upper .Name }}: Literal["{{ .Value }}"] = "{{ .Value }}"
 {{- end }}
 
 

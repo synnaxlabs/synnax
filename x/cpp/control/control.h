@@ -11,19 +11,9 @@
 
 #include <string>
 
-#include "x/go/control/x/go/control/control.pb.h"
+#include "x/cpp/control/proto.gen.h"
+#include "x/cpp/control/types.gen.h"
 
 namespace x::control {
-using Authority = std::uint8_t;
 constexpr Authority AUTHORITY_ABSOLUTE = 255;
-
-struct Subject {
-    std::string name;
-    std::string key;
-
-    void to_proto(::control::ControlSubject *s) const {
-        s->set_name(name);
-        s->set_key(key);
-    }
-};
 }

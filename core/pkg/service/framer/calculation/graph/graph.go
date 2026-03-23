@@ -60,8 +60,8 @@ type moduleSnapshot struct {
 }
 
 type channelInfo struct {
-	calcDeps      []channel.Key
 	module        compiler.Module
+	calcDeps      []channel.Key
 	groupID       int
 	explicitCount int
 	depCount      int

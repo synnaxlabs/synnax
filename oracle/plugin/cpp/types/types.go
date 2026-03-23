@@ -20,8 +20,10 @@ import (
 	"github.com/synnaxlabs/oracle/domain/key"
 	"github.com/synnaxlabs/oracle/domain/omit"
 	"github.com/synnaxlabs/oracle/domain/ontology"
+	"github.com/synnaxlabs/oracle/domain/validation"
 	"github.com/synnaxlabs/oracle/exec"
 	"github.com/synnaxlabs/oracle/plugin"
+	"github.com/synnaxlabs/oracle/plugin/cpp/keywords"
 	cppprimitives "github.com/synnaxlabs/oracle/plugin/cpp/primitives"
 	"github.com/synnaxlabs/oracle/plugin/domain"
 	"github.com/synnaxlabs/oracle/plugin/enum"
@@ -788,13 +790,33 @@ func (p *Plugin) processField(field resolution.Field, entry resolution.Type, dat
 	if cppFieldName == field.Name {
 		cppFieldName = toSnakeCase(field.Name)
 	}
+	cppFieldName = keywords.Escape(cppFieldName)
+
+	defaultValue := cppDefaultValue(cppType, underlyingPrimitive)
+	if validateDomain, ok := field.Domains["validate"]; ok {
+		rules := validation.Parse(validateDomain)
+		if rules.Default != nil && rules.Default.Kind == resolution.ValueKindIdent {
+			if ev, ok := validation.ResolveEnumVariant(rules.Default.IdentValue, field.Type, data.table); ok {
+				variantName := toPascalCase(ev.Variant.Name)
+				enumName := ev.Type.Name
+				if ev.Type.Namespace != data.rawNs {
+					targetOutputPath := enum.FindOutputPath(ev.Type, data.table, "cpp")
+					if targetOutputPath != "" {
+						ns := deriveNamespace(targetOutputPath)
+						enumName = fmt.Sprintf("::%s::%s", ns, enumName)
+					}
+				}
+				defaultValue = fmt.Sprintf("%s::%s", enumName, variantName)
+			}
+		}
+	}
 
 	return fieldData{
 		Name:         cppFieldName,
 		CppType:      cppType,
 		Doc:          doc.Get(field.Domains),
 		IsSelfRef:    isSelfRef,
-		DefaultValue: cppDefaultValue(cppType, underlyingPrimitive),
+		DefaultValue: defaultValue,
 	}
 }
 
@@ -1426,7 +1448,7 @@ struct {{$td.Name}} : private std::vector<{{$td.ElementType}}> {
 {{- if $td.HasProto}}
 
     using proto_type = {{$td.ProtoType}};
-    [[nodiscard]] {{$td.ProtoType}} to_proto() const;
+    [[nodiscard]] std::pair<{{$td.ProtoType}}, x::errors::Error> to_proto() const;
     static std::pair<{{$td.Name}}, x::errors::Error> from_proto(const {{$td.ProtoType}}& pb);
 {{- end}}
 {{- if $td.Methods}}
@@ -1470,7 +1492,7 @@ using {{$td.Name}} = {{$td.CppType}};
 {{- if $s.HasProto}}
 
     using proto_type = {{$s.ProtoType}};
-    [[nodiscard]] {{$s.ProtoType}} to_proto() const;
+    [[nodiscard]] std::pair<{{$s.ProtoType}}, x::errors::Error> to_proto() const;
     static std::pair<{{$s.Name}}, x::errors::Error> from_proto(const {{$s.ProtoType}}& pb);
 {{- end}}
 {{- if $s.Methods}}

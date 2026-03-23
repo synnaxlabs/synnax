@@ -28,7 +28,7 @@ TEST(TestTaskStateHandler, testStartCommunication) {
     handler.send_start("cmd_key");
     ASSERT_GE(ctx->statuses.size(), 1);
     const auto first = ctx->statuses[0];
-    EXPECT_EQ(first.key, task.status_key());
+    EXPECT_EQ(first.key, synnax::task::status_key(task));
     EXPECT_EQ(first.details.cmd, "cmd_key");
     EXPECT_EQ(first.name, "task1");
     EXPECT_EQ(first.details.task, task.key);
@@ -40,7 +40,7 @@ TEST(TestTaskStateHandler, testStartCommunication) {
     handler.send_start("cmd_key");
     ASSERT_GE(ctx->statuses.size(), 2);
     const auto second = ctx->statuses[1];
-    EXPECT_EQ(second.key, task.status_key());
+    EXPECT_EQ(second.key, synnax::task::status_key(task));
     EXPECT_EQ(second.details.cmd, "cmd_key");
     EXPECT_EQ(second.name, "task1");
     EXPECT_EQ(second.details.task, task.key);
@@ -125,7 +125,7 @@ TEST(TestTaskStateHandler, testSendError) {
     handler.send_error(x::errors::Error(x::errors::VALIDATION, "fatal runtime error"));
     ASSERT_GE(ctx->statuses.size(), 1);
     const auto first = ctx->statuses[0];
-    EXPECT_EQ(first.key, task.status_key());
+    EXPECT_EQ(first.key, synnax::task::status_key(task));
     EXPECT_EQ(first.name, "task1");
     EXPECT_EQ(first.details.task, task.key);
     EXPECT_EQ(first.variant, x::status::VARIANT_ERROR);
@@ -150,7 +150,7 @@ TEST(TestTaskStateHandler, testStopCommunication) {
     handler.send_stop("cmd_key");
     ASSERT_GE(ctx->statuses.size(), 1);
     const auto first = ctx->statuses[0];
-    EXPECT_EQ(first.key, task.status_key());
+    EXPECT_EQ(first.key, synnax::task::status_key(task));
     EXPECT_EQ(first.details.cmd, "cmd_key");
     EXPECT_EQ(first.details.task, task.key);
     EXPECT_EQ(first.variant, x::status::VARIANT_SUCCESS);
@@ -161,7 +161,7 @@ TEST(TestTaskStateHandler, testStopCommunication) {
     handler.send_stop("cmd_key");
     ASSERT_GE(ctx->statuses.size(), 2);
     const auto second = ctx->statuses[1];
-    EXPECT_EQ(second.key, task.status_key());
+    EXPECT_EQ(second.key, synnax::task::status_key(task));
     EXPECT_EQ(second.details.cmd, "cmd_key");
     EXPECT_EQ(second.details.task, task.key);
     EXPECT_EQ(second.variant, x::status::VARIANT_ERROR);

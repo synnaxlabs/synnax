@@ -35,6 +35,7 @@
     { "name": "vendor", "path": "../vendor" },
     { "name": "x/cpp", "path": "../x/cpp" },
     { "name": "x/go", "path": "../x/go" },
+    { "name": "x/py", "path": "../x/py" },
     { "name": "x/ts", "path": "../x/ts" }
   ],
   "settings": {

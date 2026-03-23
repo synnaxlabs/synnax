@@ -20,6 +20,7 @@ import sys
 from abc import abstractmethod
 
 import synnax as sy
+from pydantic import ValidationError
 
 from framework.test_case import TestCase
 
@@ -167,7 +168,6 @@ def _assert_no_task_errors(
     drain_timeout: sy.TimeSpan = 2 * sy.TimeSpan.SECOND,
 ) -> None:
     """Stream task status briefly and fail if warnings/errors were emitted."""
-    from synnax.task.payload import Status
 
     prefix = f"{task_name}: " if task_name else ""
     with client.open_streamer(["sy_status_set"]) as streamer:
@@ -179,7 +179,10 @@ def _assert_no_task_errors(
             if "sy_status_set" not in frame:
                 continue
             for raw in frame["sy_status_set"]:
-                status = Status.model_validate(raw)
+                try:
+                    status = sy.task.Status.model_validate(raw)
+                except ValidationError:
+                    continue
                 if status.details is None or status.details.task != task_key:
                     continue
                 if status.variant in ("warning", "error"):

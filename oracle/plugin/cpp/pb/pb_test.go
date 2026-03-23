@@ -213,7 +213,7 @@ var _ = Describe("C++ PB Plugin", func() {
 		})
 
 		Context("optional struct fields", func() {
-			It("Should use has_value() and mutable_* for optional structs", func() {
+			It("Should use has_value() and mutable_* for optional structs with error propagation", func() {
 				source := `
 					@cpp output "client/cpp/types"
 					@pb output "core/pkg/service/types/pb"
@@ -232,10 +232,10 @@ var _ = Describe("C++ PB Plugin", func() {
 
 				ExpectContent(resp, "proto.gen.h").
 					ToContain(
-						// Forward: check has_value() and use mutable_*
+						// Forward: check has_value(), call to_proto(), propagate error
 						"if (this->unit.has_value())",
-						"*pb.mutable_unit()",
 						"this->unit->to_proto()",
+						"*pb.mutable_unit() = v",
 						// Backward: check has_* and use inline error handling
 						"if (pb.has_unit())",
 						"Unit::from_proto(pb.unit())",
@@ -315,7 +315,7 @@ var _ = Describe("C++ PB Plugin", func() {
 		})
 
 		Context("enum handling", func() {
-			It("Should generate enum translator functions for string enums", func() {
+			It("Should generate string enum translators that return errors", func() {
 				source := `
 					@cpp output "client/cpp/status"
 					@pb output "core/pkg/service/status/pb"
@@ -333,15 +333,43 @@ var _ = Describe("C++ PB Plugin", func() {
 
 				ExpectContent(resp, "proto.gen.h").
 					ToContain(
-						"VariantToPB",
-						"VariantFromPB",
-						// Should use static unordered_map for O(1) lookup
+						"variant_to_pb",
+						"variant_from_pb",
 						"static const std::unordered_map",
 						"kMap.find(cpp)",
+						// Should return pair with error type
+						"x::errors::Error",
 					)
 			})
 
-			It("Should use static_cast for int enums", func() {
+			It("Should return error for unrecognized string enum values", func() {
+				source := `
+					@cpp output "client/cpp/status"
+					@pb output "core/pkg/service/status/pb"
+
+					Variant enum {
+						success = "success"
+						error = "error"
+					}
+
+					Status struct {
+						variant Variant
+					}
+				`
+				resp := MustGenerate(ctx, source, "status", loader, pbPlugin)
+				content := MustContentOf(resp, "proto.gen.h")
+
+				// ToPB should not silently return a default for unknown values
+				Expect(content).ToNot(ContainSubstring(
+					"it->second : ",
+				))
+				// FromPB should not silently return a default in the switch default case
+				Expect(content).ToNot(MatchRegexp(
+					`default: return "`,
+				))
+			})
+
+			It("Should return error for unrecognized int enum values", func() {
 				source := `
 					@cpp output "client/cpp/status"
 					@pb output "core/pkg/service/status/pb"
@@ -356,16 +384,61 @@ var _ = Describe("C++ PB Plugin", func() {
 					}
 				`
 				resp := MustGenerate(ctx, source, "status", loader, pbPlugin)
+				content := MustContentOf(resp, "proto.gen.h")
 
-				ExpectContent(resp, "proto.gen.h").
-					ToContain(
-						"static_cast<",
-					)
+				// Int enum struct field backward conversion should check for errors
+				Expect(content).To(ContainSubstring("x::errors::Error"))
+			})
+
+			It("Should propagate string enum errors in struct from_proto", func() {
+				source := `
+					@cpp output "client/cpp/status"
+					@pb output "core/pkg/service/status/pb"
+
+					Variant enum {
+						success = "success"
+						error = "error"
+					}
+
+					Status struct {
+						variant Variant
+					}
+				`
+				resp := MustGenerate(ctx, source, "status", loader, pbPlugin)
+				content := MustContentOf(resp, "proto.gen.h")
+
+				// from_proto should check for errors from enum conversion
+				Expect(content).To(ContainSubstring("variant_from_pb"))
+				Expect(content).To(ContainSubstring("if (err)"))
+			})
+
+			It("Should propagate string enum errors in struct to_proto", func() {
+				source := `
+					@cpp output "client/cpp/status"
+					@pb output "core/pkg/service/status/pb"
+
+					Variant enum {
+						success = "success"
+						error = "error"
+					}
+
+					Status struct {
+						variant Variant
+					}
+				`
+				resp := MustGenerate(ctx, source, "status", loader, pbPlugin)
+				content := MustContentOf(resp, "proto.gen.h")
+
+				// to_proto should return pair and check for errors from enum conversion
+				Expect(content).To(ContainSubstring("std::pair<"))
+				Expect(content).To(ContainSubstring("to_proto() const"))
+				Expect(content).To(ContainSubstring("variant_to_pb"))
+				Expect(content).To(ContainSubstring("return {pb, x::errors::NIL}"))
 			})
 		})
 
 		Context("any type handling", func() {
-			It("Should use x::json::to_value/from_value for any type fields", func() {
+			It("Should use json dump/parse for any type fields", func() {
 				source := `
 					@cpp output "client/cpp/types"
 					@pb output "core/pkg/service/types/pb"
@@ -379,15 +452,8 @@ var _ = Describe("C++ PB Plugin", func() {
 
 				ExpectContent(resp, "proto.gen.h").
 					ToContain(
-						// Forward: use mutable_* and to_value
-						"*pb.mutable_value() = x::json::to_value(this->value).first",
-						// Backward: use inline error handling with from_value
-						"x::json::from_value(pb.value())",
-						"if (err) return {{}, err}",
-					).
-					ToNotContain(
-						// Should NOT use set_value for any type
-						"pb.set_value(",
+						"pb.set_value(this->value.dump())",
+						"x::json::json::parse(pb.value()",
 					)
 			})
 
@@ -405,12 +471,10 @@ var _ = Describe("C++ PB Plugin", func() {
 
 				ExpectContent(resp, "proto.gen.h").
 					ToContain(
-						// Forward: check has_value() for hard optional
 						"if (this->value.has_value())",
-						"*pb.mutable_value() = x::json::to_value(*this->value).first",
-						// Backward: check has_* and use inline error handling
+						"(*this->value).dump()",
 						"if (pb.has_value())",
-						"x::json::from_value(pb.value())",
+						"x::json::json::parse(pb.value()",
 					)
 			})
 		})
@@ -423,7 +487,7 @@ var _ = Describe("C++ PB Plugin", func() {
 
 					Config struct {
 						name string
-						metadata json
+						metadata record
 					}
 				`
 				resp := MustGenerate(ctx, source, "types", loader, pbPlugin)
@@ -559,8 +623,10 @@ var _ = Describe("C++ PB Plugin", func() {
 
 				ExpectContent(resp, "proto.gen.h").
 					ToContain(
-						// Regular struct array should use normal pattern
-						"for (const auto& item : this->nodes) *pb.add_nodes() = item.to_proto()",
+						// Regular struct array should use error-handling pattern
+						"for (const auto& item : this->nodes)",
+						"item.to_proto()",
+						"*pb.add_nodes() = v",
 						// Nested array should use wrapper pattern
 						"for (const auto& item : this->strata)",
 						"auto* wrapper = pb.add_strata()",
@@ -694,13 +760,13 @@ var _ = Describe("C++ PB Plugin", func() {
 		})
 
 		Context("json field conversion", func() {
-			It("Should include json struct header for json fields", func() {
+			It("Should include json struct header for record fields", func() {
 				source := `
 					@cpp output "client/cpp/types"
 					@pb output "core/pkg/service/types/pb"
 
 					Config struct {
-						data json
+						data record
 					}
 				`
 				resp := MustGenerate(ctx, source, "types", loader, pbPlugin)
@@ -709,13 +775,13 @@ var _ = Describe("C++ PB Plugin", func() {
 					ToContain("x::json")
 			})
 
-			It("Should handle optional json fields with has_value check", func() {
+			It("Should handle optional record fields with has_value check", func() {
 				source := `
 					@cpp output "client/cpp/types"
 					@pb output "core/pkg/service/types/pb"
 
 					Config struct {
-						data json??
+						data record??
 					}
 				`
 				resp := MustGenerate(ctx, source, "types", loader, pbPlugin)

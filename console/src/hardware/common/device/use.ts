@@ -31,7 +31,7 @@ import { type z } from "zod";
  * @template MO - The device model type.
  */
 export const use = <
-  Properties extends z.ZodType<record.Unknown> = typeof record.unknownZ,
+  Properties extends z.ZodType<record.Unknown> = z.ZodType<record.Unknown>,
   Make extends z.ZodType<string> = z.ZodString,
   Model extends z.ZodType<string> = z.ZodString,
 >(

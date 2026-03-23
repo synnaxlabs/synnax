@@ -11,6 +11,7 @@
 #include <string>
 #include <unordered_map>
 
+#include "driver/common/scan_task.h"
 #include "driver/ni/scan_task.h"
 #include "errors/errors.h"
 
@@ -103,7 +104,7 @@ Scanner::parse_device(NISysCfgResourceHandle resource) const {
     if (is_simulated) dev.key = dev.resource_name;
 
     dev.status = synnax::device::Status{
-        .key = dev.status_key(),
+        .key = synnax::device::status_key(dev),
         .name = dev.name,
         .variant = x::status::VARIANT_SUCCESS,
         .message = "Device present",
