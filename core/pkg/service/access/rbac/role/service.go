@@ -18,6 +18,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
 	"github.com/synnaxlabs/synnax/pkg/distribution/signals"
 	"github.com/synnaxlabs/x/config"
+	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/gorp"
 	"github.com/synnaxlabs/x/override"
 	"github.com/synnaxlabs/x/validate"
@@ -56,15 +57,17 @@ func (c ServiceConfig) Validate() error {
 type Service struct {
 	cfg     ServiceConfig
 	signals io.Closer
+	table   *gorp.Table[uuid.UUID, Role]
 	group   group.Group
 	table   *gorp.Table[uuid.UUID, Role]
 }
 
 func (s *Service) Close() error {
+	var err error
 	if s.signals != nil {
-		return s.signals.Close()
+		err = s.signals.Close()
 	}
-	return nil
+	return errors.Join(err, s.table.Close())
 }
 
 func OpenService(ctx context.Context, configs ...ServiceConfig) (*Service, error) {

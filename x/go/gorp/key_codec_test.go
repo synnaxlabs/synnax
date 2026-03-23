@@ -25,64 +25,64 @@ type int8Entry struct {
 	Data string
 }
 
-func (e int8Entry) GorpKey() int8     { return e.ID }
-func (e int8Entry) SetOptions() []any { return nil }
+func (e int8Entry) GorpKey() int8   { return e.ID }
+func (int8Entry) SetOptions() []any { return nil }
 
 type int16Entry struct {
 	ID   int16
 	Data string
 }
 
-func (e int16Entry) GorpKey() int16    { return e.ID }
-func (e int16Entry) SetOptions() []any { return nil }
+func (e int16Entry) GorpKey() int16  { return e.ID }
+func (int16Entry) SetOptions() []any { return nil }
 
 type int64Entry struct {
 	ID   int64
 	Data string
 }
 
-func (e int64Entry) GorpKey() int64    { return e.ID }
-func (e int64Entry) SetOptions() []any { return nil }
+func (e int64Entry) GorpKey() int64  { return e.ID }
+func (int64Entry) SetOptions() []any { return nil }
 
 type uint8Entry struct {
 	ID   uint8
 	Data string
 }
 
-func (e uint8Entry) GorpKey() uint8    { return e.ID }
-func (e uint8Entry) SetOptions() []any { return nil }
+func (e uint8Entry) GorpKey() uint8  { return e.ID }
+func (uint8Entry) SetOptions() []any { return nil }
 
 type uint16Entry struct {
 	ID   uint16
 	Data string
 }
 
-func (e uint16Entry) GorpKey() uint16   { return e.ID }
-func (e uint16Entry) SetOptions() []any { return nil }
+func (e uint16Entry) GorpKey() uint16 { return e.ID }
+func (uint16Entry) SetOptions() []any { return nil }
 
 type uint32Entry struct {
 	ID   uint32
 	Data string
 }
 
-func (e uint32Entry) GorpKey() uint32   { return e.ID }
-func (e uint32Entry) SetOptions() []any { return nil }
+func (e uint32Entry) GorpKey() uint32 { return e.ID }
+func (uint32Entry) SetOptions() []any { return nil }
 
 type uint64Entry struct {
 	ID   uint64
 	Data string
 }
 
-func (e uint64Entry) GorpKey() uint64   { return e.ID }
-func (e uint64Entry) SetOptions() []any { return nil }
+func (e uint64Entry) GorpKey() uint64 { return e.ID }
+func (uint64Entry) SetOptions() []any { return nil }
 
 type stringEntry struct {
 	ID   string
 	Data string
 }
 
-func (e stringEntry) GorpKey() string   { return e.ID }
-func (e stringEntry) SetOptions() []any { return nil }
+func (e stringEntry) GorpKey() string { return e.ID }
+func (stringEntry) SetOptions() []any { return nil }
 
 type namedStringKey string
 
@@ -92,7 +92,7 @@ type namedStringEntry struct {
 }
 
 func (e namedStringEntry) GorpKey() namedStringKey { return e.ID }
-func (e namedStringEntry) SetOptions() []any       { return nil }
+func (namedStringEntry) SetOptions() []any         { return nil }
 
 var _ = Describe("KeyCodec", func() {
 	var (
@@ -399,7 +399,7 @@ var _ = Describe("KeyCodec", func() {
 
 			var deletedKey uint64
 			gorp.Observe[uint64, uint64Entry](db).OnChange(
-				func(ctx context.Context, r gorp.TxReader[uint64, uint64Entry]) {
+				func(_ context.Context, r gorp.TxReader[uint64, uint64Entry]) {
 					for ch := range r {
 						deletedKey = ch.Key
 					}
@@ -419,7 +419,7 @@ var _ = Describe("KeyCodec", func() {
 
 			var setKey int16
 			gorp.Observe[int16, int16Entry](db).OnChange(
-				func(ctx context.Context, r gorp.TxReader[int16, int16Entry]) {
+				func(_ context.Context, r gorp.TxReader[int16, int16Entry]) {
 					for ch := range r {
 						setKey = ch.Key
 					}

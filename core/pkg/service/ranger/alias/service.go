@@ -20,6 +20,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/distribution/signals"
 	xchange "github.com/synnaxlabs/x/change"
 	"github.com/synnaxlabs/x/config"
+	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/gorp"
 	xiter "github.com/synnaxlabs/x/iter"
 	"github.com/synnaxlabs/x/observe"
@@ -71,6 +72,7 @@ func (c ServiceConfig) Override(other ServiceConfig) ServiceConfig {
 // Service is the main entry point for managing channel aliases on ranges.
 type Service struct {
 	shutdownSignals io.Closer
+	table           *gorp.Table[string, Alias]
 	cfg             ServiceConfig
 	table           *gorp.Table[string, Alias]
 }
@@ -103,10 +105,11 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (*Service, error) {
 
 // Close closes the service and releases any resources.
 func (s *Service) Close() error {
+	var err error
 	if s.shutdownSignals != nil {
-		return s.shutdownSignals.Close()
+		err = s.shutdownSignals.Close()
 	}
-	return nil
+	return errors.Join(err, s.table.Close())
 }
 
 // NewWriter opens a new Writer to create and delete aliases.

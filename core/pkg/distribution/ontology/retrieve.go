@@ -90,7 +90,7 @@ func (r Retrieve) WhereTypes(types ...Type) Retrieve {
 	if len(types) == 1 {
 		c.Retrieve = c.WherePrefix([]byte(types[0].String()))
 	} else {
-		c.Retrieve = c.Where(func(ctx gorp.Context, r *Resource) (bool, error) {
+		c.Retrieve = c.Where(func(_ gorp.Context, r *Resource) (bool, error) {
 			return lo.Contains(types, r.ID.Type), nil
 		})
 	}
@@ -216,7 +216,8 @@ func (r Retrieve) Exec(ctx context.Context, tx gorp.Tx) error {
 		} else {
 			// For intermediate clauses that don't have user-bound entries, we need to
 			// bind a temporary slice so gorp can store the query results. Without this,
-			// gorp.Retrieve.Replace/Add silently drops results when entries aren't bound.
+			// gorp.Retrieve.Replace/Add silently drops results when entries aren't
+			// bound.
 			if !atLast && !entriesBound {
 				cls.Retrieve = cls.Entries(&[]Resource{})
 			}
@@ -249,7 +250,8 @@ func (r Retrieve) Exec(ctx context.Context, tx gorp.Tx) error {
 }
 
 func canSkipExec(q clause, entriesBound, atLast bool) bool {
-	return !entriesBound && !atLast && q.HasWhereKeys() && !q.HasFilters() && !q.HasLimit() && !q.HasOffset()
+	return !entriesBound && !atLast && q.HasWhereKeys() &&
+		!q.HasFilters() && !q.HasLimit() && !q.HasOffset()
 }
 
 func (r Retrieve) retrieveEntities(
@@ -346,7 +348,7 @@ func (r Retrieve) traverseByScan(
 	)
 	err := r.relationshipTable.NewRetrieve().
 		Entries(&relationships).
-		Where(func(ctx gorp.Context, rel *Relationship) (bool, error) {
+		Where(func(_ gorp.Context, rel *Relationship) (bool, error) {
 			for _, id := range ids {
 				res := Resource{ID: id}
 				if traverse.Filter(&res, rel) {
@@ -354,8 +356,7 @@ func (r Retrieve) traverseByScan(
 				}
 			}
 			return false, nil
-		}).Exec(ctx, tx)
-	if err != nil {
+		}).Exec(ctx, tx); err != nil {
 		return nil, err
 	}
 	return nextIDs, nil

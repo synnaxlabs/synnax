@@ -18,6 +18,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
 	"github.com/synnaxlabs/synnax/pkg/distribution/signals"
 	"github.com/synnaxlabs/x/config"
+	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/gorp"
 	"github.com/synnaxlabs/x/override"
 	"github.com/synnaxlabs/x/validate"
@@ -84,7 +85,7 @@ func OpenService(ctx context.Context, configs ...ServiceConfig) (*Service, error
 	cfg.Ontology.RegisterService(s)
 
 	if cfg.Signals != nil {
-		cdcS, err := signals.PublishFromGorp[uuid.UUID, User](
+		cdcS, err := signals.PublishFromGorp(
 			ctx,
 			cfg.Signals,
 			signals.GorpPublisherConfigUUID[User](cfg.DB),
@@ -127,8 +128,9 @@ func (s *Service) UsernameExists(ctx context.Context, username string) (bool, er
 
 // Close closes the service and stops any signal publishing.
 func (s *Service) Close() error {
-	if s.shutdownSignals == nil {
-		return nil
+	var err error
+	if s.shutdownSignals != nil {
+		err = s.shutdownSignals.Close()
 	}
-	return s.shutdownSignals.Close()
+	return errors.Join(err, s.table.Close())
 }
