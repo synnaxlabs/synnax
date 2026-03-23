@@ -23,8 +23,7 @@ import (
 var _ = Describe("Any", func() {
 	Describe("AnyToPBAny", func() {
 		It("Should return nil for nil input", func() {
-			result := MustSucceed(pb.AnyToPBAny(nil))
-			Expect(result).To(BeNil())
+			Expect(pb.AnyToPBAny(nil)).To(BeNil())
 		})
 
 		It("Should pass through an existing *anypb.Any", func() {
@@ -57,8 +56,7 @@ var _ = Describe("Any", func() {
 
 	Describe("AnyFromPBAny", func() {
 		It("Should return nil for nil input", func() {
-			result := MustSucceed(pb.AnyFromPBAny(nil))
-			Expect(result).To(BeNil())
+			Expect(pb.AnyFromPBAny(nil)).To(BeNil())
 		})
 
 		It("Should unpack a structpb.Struct to a map", func() {
@@ -79,8 +77,7 @@ var _ = Describe("Any", func() {
 				TypeUrl: "type.googleapis.com/unknown.Type",
 				Value:   []byte{1, 2, 3},
 			}
-			result := MustSucceed(pb.AnyFromPBAny(packed))
-			Expect(result).To(BeNil())
+			Expect(pb.AnyFromPBAny(packed)).To(BeNil())
 		})
 	})
 
