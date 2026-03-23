@@ -12,7 +12,7 @@ package keywords
 import "github.com/synnaxlabs/x/set"
 
 // Reserved contains all Python reserved keywords.
-var Reserved = set.New[string](
+var Reserved = set.New(
 	"False", "None", "True", "and", "as",
 	"assert", "async", "await", "break", "class",
 	"continue", "def", "del", "elif", "else",
