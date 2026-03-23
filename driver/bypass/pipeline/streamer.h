@@ -27,6 +27,7 @@ namespace driver::bypass::pipeline {
 class Streamer final : public ::driver::pipeline::Streamer {
     std::unique_ptr<::driver::pipeline::Streamer> server;
     std::shared_ptr<Subscription> subscription;
+    std::shared_ptr<Bus> bus;
     std::thread server_thread;
 
     std::mutex server_mu;
@@ -41,9 +42,12 @@ class Streamer final : public ::driver::pipeline::Streamer {
 public:
     Streamer(
         std::unique_ptr<::driver::pipeline::Streamer> server,
-        std::shared_ptr<Subscription> subscription
+        std::shared_ptr<Subscription> subscription,
+        std::shared_ptr<Bus> bus
     ):
-        server(std::move(server)), subscription(std::move(subscription)) {
+        server(std::move(server)),
+        subscription(std::move(subscription)),
+        bus(std::move(bus)) {
         this->subscription->set_on_push([this] { this->notify_cv.notify_one(); });
         this->server_thread = std::thread([this] { this->read_server(); });
     }
@@ -106,6 +110,7 @@ private:
                 return;
             }
             if (!frame.empty()) {
+                this->bus->advance_alignments(frame);
                 {
                     std::lock_guard lock(this->server_mu);
                     this->server_frames.push_back(std::move(frame));
@@ -142,7 +147,11 @@ public:
                 << config.channels.size() << " channels, subject=" << this->subject.name
                 << ", exclude_groups=" << this->subject.group;
         return {
-            std::make_unique<Streamer>(std::move(streamer), std::move(subscription)),
+            std::make_unique<Streamer>(
+                std::move(streamer),
+                std::move(subscription),
+                this->bus
+            ),
             x::errors::NIL,
         };
     }

@@ -54,6 +54,9 @@ message Transfer {
   // to the new authority holder. Null on release.
   optional State to = 2;
 }
+
+// Update represents a batch of control transfers that occurred atomically.
 message Update {
+  // transfers is the list of control transfers that occurred in this update.
   repeated Transfer transfers = 1;
 }

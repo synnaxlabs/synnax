@@ -215,6 +215,39 @@ TEST(StreamerTest, DoubleCloseIsIdempotent) {
     ASSERT_NIL(streamer->close());
 }
 
+TEST(StreamerTest, ServerFramesAdvanceBusAlignment) {
+    auto bus = std::make_shared<Bus>();
+    bus->register_channels({1});
+
+    auto reads = std::make_shared<std::vector<x::telem::Frame>>();
+    x::telem::Frame server_frame;
+    auto server_series = x::telem::Series(static_cast<float>(99.0));
+    server_series.alignment = x::telem::Alignment(5000);
+    server_frame.emplace(1, std::move(server_series));
+    reads->push_back(std::move(server_frame));
+    auto mock_factory = ::driver::pipeline::mock::simple_streamer_factory({1}, reads);
+    StreamerFactory factory(mock_factory, bus, TEST_SUBJECT);
+    auto streamer = ASSERT_NIL_P(factory.open_streamer({.channels = {1}}));
+
+    // The background thread reads the server frame and advances counters
+    // immediately. Give it a moment to process before publishing a local
+    // frame, verifying that the counter is advanced eagerly (not lazily
+    // when the server frame is consumed via read()).
+    std::this_thread::sleep_for(std::chrono::milliseconds(50));
+
+    x::telem::Frame bus_frame;
+    bus_frame.emplace(1, x::telem::Series(static_cast<float>(1.0)));
+    bus->publish(bus_frame);
+    auto local = ASSERT_NIL_P(streamer->read());
+    auto local_alignment = local.series->at(0).alignment.uint64();
+    EXPECT_GT(local_alignment, 5000)
+        << "bus alignment should exceed server alignment even "
+        << "before server frame is consumed, got " << local_alignment;
+
+    streamer->close_send();
+    ASSERT_NIL(streamer->close());
+}
+
 TEST(StreamerTest, PropagatesCoreErrorThroughClose) {
     auto bus = std::make_shared<Bus>();
     auto reads = std::make_shared<std::vector<x::telem::Frame>>();

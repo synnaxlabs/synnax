@@ -316,6 +316,100 @@ TEST(BusTest, ConcurrentPublishAndSubscribeLifecycle) {
     ASSERT_EQ(received, num_publishers * frames_per_publisher);
 }
 
+TEST(BusTest, AdvanceAlignmentUpdatesCounter) {
+    Bus bus;
+    bus.register_channels({1});
+    auto sub = bus.subscribe({1});
+
+    x::telem::Frame external;
+    auto s = x::telem::Series(static_cast<float>(1.0));
+    s.alignment = x::telem::Alignment(500);
+    external.emplace(1, std::move(s));
+    bus.advance_alignments(external);
+
+    x::telem::Frame frame;
+    frame.emplace(1, x::telem::Series(static_cast<float>(2.0)));
+    bus.publish(frame);
+
+    x::telem::Frame received;
+    ASSERT_TRUE(sub->try_pop(received));
+    EXPECT_GE(received.series->at(0).alignment.uint64(), 501);
+}
+
+TEST(BusTest, AdvanceAlignmentDoesNotDecrease) {
+    Bus bus;
+    bus.register_channels({1});
+    auto sub = bus.subscribe({1});
+
+    auto multi = x::telem::Series(x::telem::FLOAT32_T, 100);
+    for (int i = 0; i < 100; i++)
+        multi.write(static_cast<float>(i));
+    x::telem::Frame big;
+    big.emplace(1, std::move(multi));
+    bus.publish(big);
+    x::telem::Frame r1;
+    ASSERT_TRUE(sub->try_pop(r1));
+    auto after_publish = r1.series->at(0).alignment.uint64();
+
+    x::telem::Frame external;
+    auto s = x::telem::Series(static_cast<float>(1.0));
+    s.alignment = x::telem::Alignment(5);
+    external.emplace(1, std::move(s));
+    bus.advance_alignments(external);
+
+    x::telem::Frame frame2;
+    frame2.emplace(1, x::telem::Series(static_cast<float>(3.0)));
+    bus.publish(frame2);
+    x::telem::Frame r2;
+    ASSERT_TRUE(sub->try_pop(r2));
+    EXPECT_GE(r2.series->at(0).alignment.uint64(), after_publish + 100);
+}
+
+TEST(BusTest, AdvanceAlignmentSkipsUnregisteredChannels) {
+    Bus bus;
+    bus.register_channels({1});
+
+    x::telem::Frame external;
+    auto s = x::telem::Series(static_cast<float>(1.0));
+    s.alignment = x::telem::Alignment(999);
+    external.emplace(99, std::move(s));
+    bus.advance_alignments(external);
+}
+
+TEST(BusTest, AdvanceAlignmentConcurrentWithPublish) {
+    Bus bus;
+    bus.register_channels({1});
+    auto sub = bus.subscribe({1});
+
+    constexpr int iterations = 200;
+    std::thread advancer([&bus] {
+        for (int i = 0; i < iterations; i++) {
+            x::telem::Frame ext;
+            auto s = x::telem::Series(static_cast<float>(1.0));
+            s.alignment = x::telem::Alignment(static_cast<uint64_t>(i) * 10);
+            ext.emplace(1, std::move(s));
+            bus.advance_alignments(ext);
+        }
+    });
+    std::thread publisher([&bus] {
+        for (int i = 0; i < iterations; i++) {
+            x::telem::Frame frame;
+            frame.emplace(1, x::telem::Series(static_cast<float>(i)));
+            bus.publish(frame);
+        }
+    });
+    advancer.join();
+    publisher.join();
+
+    uint64_t prev = 0;
+    x::telem::Frame r;
+    while (sub->try_pop(r)) {
+        auto a = r.series->at(0).alignment.uint64();
+        EXPECT_GE(a, prev) << "alignment decreased: " << a << " < " << prev;
+        prev = a;
+    }
+}
+
 TEST(SubscriptionTest, Empty) {
     Subscription sub({1});
     ASSERT_TRUE(sub.empty());

@@ -103,8 +103,10 @@ struct Transfer {
     from_proto(const ::x::control::pb::Transfer &pb);
 };
 
+/// @brief Update represents a batch of control transfers that occurred atomically.
 template<typename R>
 struct Update {
+    /// @brief transfers is the list of control transfers that occurred in this update.
     std::vector<Transfer<R>> transfers;
 
     static Update parse(x::json::Parser parser);

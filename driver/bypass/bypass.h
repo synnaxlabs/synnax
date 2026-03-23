@@ -147,7 +147,9 @@ public:
 /// The Bus assigns monotonically increasing alignment to each series before delivery,
 /// fulfilling the role that Cesium plays on the server path. Channels must be
 /// registered via register_channels before publishing. Registration locks; the publish
-/// hot path uses only atomic fetch_add.
+/// hot path uses only atomic fetch_add. When externally-aligned frames (e.g. from
+/// Cesium) are observed, callers must invoke advance_alignments to keep the counters
+/// ahead of externally-assigned values.
 class Bus {
     mutable std::shared_mutex mu;
     std::vector<std::weak_ptr<Subscription>> subscribers;
@@ -210,6 +212,31 @@ public:
             }
         }
         if (has_expired) this->sweep_expired();
+    }
+
+    /// @brief advances alignment counters so they are at least as high as
+    /// the alignments carried by the given frame. This ensures that
+    /// subsequent bus-assigned alignments will be monotonically past any
+    /// externally-assigned (e.g. Cesium) alignments observed by the caller.
+    void advance_alignments(const x::telem::Frame &frame) {
+        std::shared_lock lock(this->alignment_mu);
+        for (size_t i = 0; i < frame.size(); i++) {
+            const auto key = frame.channels->at(i);
+            const auto it = this->alignment_counters.find(key);
+            if (it == this->alignment_counters.end()) continue;
+            auto &counter = *it->second;
+            const auto &s = frame.series->at(i);
+            const auto target = s.alignment.uint64() + (s.size() > 0 ? s.size() : 1);
+            auto current = counter.load(std::memory_order_relaxed);
+            while (current < target) {
+                if (counter.compare_exchange_weak(
+                        current,
+                        target,
+                        std::memory_order_relaxed
+                    ))
+                    break;
+            }
+        }
     }
 
     /// @brief creates a subscription for the given channel keys.

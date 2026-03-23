@@ -92,7 +92,10 @@ Transfer struct<R extends comparable> {
 }
 
 Update struct<R extends comparable> {
-    transfers Transfer<R>[]
+    transfers Transfer<R>[] {
+        @doc value "is the list of control transfers that occurred in this update."
+    }
 
+    @doc value "represents a batch of control transfers that occurred atomically."
     @ts omit
 }

@@ -276,9 +276,11 @@ func (x *Transfer) GetTo() *State {
 	return nil
 }
 
+// Update represents a batch of control transfers that occurred atomically.
 type Update struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
-	Transfers     []*Transfer            `protobuf:"bytes,1,rep,name=transfers,proto3" json:"transfers,omitempty"`
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// transfers is the list of control transfers that occurred in this update.
+	Transfers     []*Transfer `protobuf:"bytes,1,rep,name=transfers,proto3" json:"transfers,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }

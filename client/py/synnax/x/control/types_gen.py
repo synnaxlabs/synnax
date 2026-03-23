@@ -82,4 +82,10 @@ class Transfer(BaseModel, Generic[R]):
 
 
 class Update(BaseModel, Generic[R]):
+    """Represents a batch of control transfers that occurred atomically.
+
+    Attributes:
+        transfers: Is the list of control transfers that occurred in this update.
+    """
+
     transfers: list[Transfer[R]]
