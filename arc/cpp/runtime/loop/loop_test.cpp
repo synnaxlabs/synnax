@@ -75,6 +75,7 @@ TEST(LoopTest, CreateReturnsUnstartedLoop) {
     breaker.start();
     const auto reason = loop->wait(breaker, 10 * x::telem::MILLISECOND);
     EXPECT_EQ(reason, WakeReason::Shutdown);
+    breaker.stop();
 }
 
 /// @brief Test that start() can be called from a different thread than create().
