@@ -346,7 +346,7 @@ func (r Retrieve) traverseByScan(
 		nextIDs       = make([]ID, 0, len(ids)*4)
 		relationships []Relationship
 	)
-	err := r.relationshipTable.NewRetrieve().
+	if err := r.relationshipTable.NewRetrieve().
 		Entries(&relationships).
 		Where(func(_ gorp.Context, rel *Relationship) (bool, error) {
 			for _, id := range ids {

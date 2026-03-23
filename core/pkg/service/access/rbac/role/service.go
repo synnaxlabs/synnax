@@ -57,7 +57,6 @@ func (c ServiceConfig) Validate() error {
 type Service struct {
 	cfg     ServiceConfig
 	signals io.Closer
-	table   *gorp.Table[uuid.UUID, Role]
 	group   group.Group
 	table   *gorp.Table[uuid.UUID, Role]
 }

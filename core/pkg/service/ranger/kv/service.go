@@ -52,7 +52,6 @@ func (c ServiceConfig) Override(other ServiceConfig) ServiceConfig {
 // Service is the main entry point for managing key-value pairs on ranges.
 type Service struct {
 	shutdownSignals io.Closer
-	table           *gorp.Table[string, Pair]
 	cfg             ServiceConfig
 	table           *gorp.Table[string, Pair]
 }

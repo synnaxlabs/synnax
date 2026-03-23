@@ -74,7 +74,6 @@ type Service struct {
 	shutdownSignals io.Closer
 	table           *gorp.Table[string, Alias]
 	cfg             ServiceConfig
-	table           *gorp.Table[string, Alias]
 }
 
 // OpenService opens a new alias.Service with the provided configuration.
