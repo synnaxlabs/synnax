@@ -1658,6 +1658,7 @@ dependencies = [
     { name = "rich" },
     { name = "synnax-freighter" },
     { name = "urllib3" },
+    { name = "x" },
 ]
 
 [package.dev-dependencies]
@@ -1688,6 +1689,7 @@ requires-dist = [
     { name = "rich", specifier = ">=14.3.3,<15" },
     { name = "synnax-freighter", editable = "freighter/py" },
     { name = "urllib3", specifier = ">=2.6.3,<3" },
+    { name = "x", editable = "x/py" },
 ]
 
 [package.metadata.requires-dev]

@@ -77,8 +77,8 @@ class Scheduler {
     node::Context ctx;
     /// @brief Maps node keys to dense indices for flag arrays.
     std::unordered_map<std::string, size_t> node_index;
-    /// @brief Flag array indicating which nodes need execution in the current
-    /// stratum pass.
+    /// @brief Flag array indicating which nodes need execution in the current stratum
+    /// pass.
     std::vector<uint8_t> changed_flags;
     /// @brief Flag array for nodes that requested re-execution on the next cycle.
     std::vector<uint8_t> self_changed_flags;
@@ -87,8 +87,8 @@ class Scheduler {
     x::telem::TimeSpan next_deadline_ = x::telem::TimeSpan::max();
     /// @brief One-shot edges that have fired in global strata (never reset).
     std::unordered_set<ir::Edge> global_fired_one_shots;
-    /// @brief Pointer to the key of the currently executing node (points into
-    /// strata string vectors which are immutable after construction).
+    /// @brief Pointer to the key of the currently executing node (points into strata
+    /// string vectors which are immutable after construction).
     const std::string *curr_node_ptr = nullptr;
     /// @brief Index of the currently executing sequence, or npos if global.
     size_t curr_seq_idx = NO_INDEX;

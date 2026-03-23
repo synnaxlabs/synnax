@@ -38,7 +38,7 @@ Subject struct {
     group uint32? {
         @doc value """
             optional identifier shared by subjects from the same logical group
-            (e.g.) all writers from the same driver rack.
+            (e.g.) all writers from the same Driver rack.
         """
     }
 
@@ -79,7 +79,7 @@ Transfer struct<R extends comparable> {
     @doc value """
     represents a transfer of control over a resource. It is represented as a
     transition from one state to another over the same resource. A transfer between
-    resources that are different ill result in a panic when any transfer methods
+    resources that are different will result in a panic when any transfer methods
     are called.
 
     If From is nil, the entity was uncontrolled before the transfer. If To is nil, the

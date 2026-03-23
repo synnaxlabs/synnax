@@ -100,8 +100,8 @@ bool apply_deadline_scheduler(const Config &cfg) {
     return false;
 }
 
-/// @brief builds a hex affinity mask string that excludes the given cores.
-/// For example, on an 8-core system excluding core 7: "7f" (bits 0-6 set).
+/// @brief builds a hex affinity mask string that excludes the given cores. For example,
+/// on an 8-core system excluding core 7: "7f" (bits 0-6 set).
 std::string build_exclusion_mask(const std::set<int> &excluded_cores, int num_cpus) {
     std::vector<uint8_t> bytes((num_cpus + 7) / 8, 0);
     for (int i = 0; i < num_cpus; i++) {
@@ -119,8 +119,8 @@ std::string build_exclusion_mask(const std::set<int> &excluded_cores, int num_cp
     return result.empty() ? "0" : result;
 }
 
-/// @brief migrates IRQs off the specified cores by writing to
-/// /proc/irq/*/smp_affinity. Requires root or CAP_SYS_NICE.
+/// @brief migrates IRQs off the specified cores by writing to /proc/irq/*/smp_affinity.
+/// Requires root or CAP_SYS_NICE.
 void migrate_irqs(const std::set<int> &cores) {
     const auto num_cpus = static_cast<int>(std::thread::hardware_concurrency());
     if (num_cpus <= 1) return;
@@ -164,8 +164,8 @@ void migrate_irqs(const std::set<int> &cores) {
                 << " IRQs (some are CPU-bound)";
 }
 
-/// @brief tracks which cores have had IRQs migrated off them so we only
-/// do it once per core across multiple apply_config calls.
+/// @brief tracks which cores have had IRQs migrated off them so we only do it once per
+/// core across multiple apply_config calls.
 std::set<int> &migrated_cores() {
     static std::set<int> cores;
     return cores;
@@ -221,8 +221,8 @@ bool has_support() {
 }
 
 void apply_config(const Config &cfg) {
-    // Set CPU affinity before scheduler policy — SCHED_DEADLINE rejects
-    // affinity changes after the policy is applied on RT kernels.
+    // Set CPU affinity before scheduler policy — SCHED_DEADLINE rejects affinity
+    // changes after the policy is applied on RT kernels.
     int target_cpu = cfg.cpu_affinity;
     if (target_cpu == CPU_AFFINITY_AUTO) {
         const auto n = std::thread::hardware_concurrency();
@@ -257,16 +257,15 @@ void apply_config(const Config &cfg) {
             VLOG(1) << "[xthread] set timer slack to 1ns";
     }
 
-    // mlockall is process-wide: it pins every page (current and future) in
-    // physical RAM so that RT threads never hit page faults. MCL_FUTURE means
-    // all future allocations from any thread (including non-RT ones like
-    // logging, networking, task management) also get pinned. This is acceptable
-    // because the driver is a purpose-built process with a bounded memory
-    // footprint. The main cost is thread stacks (~8 MB each, fully faulted in),
-    // but the driver creates a fixed number of threads, so total locked memory
-    // stays predictable. If the driver's memory usage grows significantly,
-    // consider switching to MCL_CURRENT only (locks code/libraries without
-    // pinning future allocations) plus targeted mlock() on RT-specific buffers.
+    // mlockall is process-wide: it pins every page (current and future) in physical RAM
+    // so that RT threads never hit page faults. MCL_FUTURE means all future allocations
+    // from any thread (including non-RT ones like logging, networking, task management)
+    // also get pinned. This is acceptable because the driver is a purpose-built process
+    // with a bounded memory footprint. The main cost is thread stacks (~8 MB each,
+    // fully faulted in), but the driver creates a fixed number of threads, so total
+    // locked memory stays predictable. If the driver's memory usage grows
+    // significantly, consider switching to MCL_CURRENT only (locks code/libraries
+    // without pinning future allocations) plus targeted mlock() on RT-specific buffers.
     if (cfg.lock_memory) {
         if (mlockall(MCL_CURRENT | MCL_FUTURE) == -1)
             LOG(WARNING) << "[xthread] Failed to lock memory: " << strerror(errno)

@@ -16,7 +16,7 @@
 #include "driver/pipeline/mock/pipeline.h"
 
 namespace driver::bypass::pipeline {
-TEST(WriterTest, PublishesToBusAndForwardsToServer) {
+TEST(WriterTest, PublishesToBusAndForwardsToCore) {
     auto bus = std::make_shared<Bus>();
     auto states = std::make_shared<control::States>();
     auto sub = bus->subscribe({1});
@@ -303,7 +303,7 @@ TEST(WriterTest, WriteFilterEndToEnd) {
     ASSERT_EQ(received.size(), 1);
 }
 
-TEST(WriterTest, WriteErrorPropagatesFromServer) {
+TEST(WriterTest, WriteErrorPropagatesFromCore) {
     auto bus = std::make_shared<Bus>();
     auto states = std::make_shared<control::States>();
     auto sub = bus->subscribe({1});
@@ -323,7 +323,7 @@ TEST(WriterTest, WriteErrorPropagatesFromServer) {
     ASSERT_EQ(received.size(), 1);
 }
 
-TEST(WriterTest, CloseErrorPropagatesFromServer) {
+TEST(WriterTest, CloseErrorPropagatesFromCore) {
     auto bus = std::make_shared<Bus>();
     auto states = std::make_shared<control::States>();
     auto mock_factory = std::make_shared<::driver::pipeline::mock::WriterFactory>(
@@ -336,7 +336,7 @@ TEST(WriterTest, CloseErrorPropagatesFromServer) {
     ASSERT_OCCURRED_AS(writer->close(), freighter::UNREACHABLE);
 }
 
-TEST(WriterTest, SetAuthorityErrorPropagatesFromServer) {
+TEST(WriterTest, SetAuthorityErrorPropagatesFromCore) {
     auto bus = std::make_shared<Bus>();
     auto states = std::make_shared<control::States>();
     auto mock_factory = std::make_shared<::driver::pipeline::mock::WriterFactory>(
@@ -358,8 +358,8 @@ TEST(WriterTest, SetAuthorityErrorPropagatesFromServer) {
     ASSERT_TRUE(states->is_authorized(1, {"arc", "arc-1"}));
 }
 
-/// @brief set_authority should return a validation error when the authorities
-/// size does not match the keys size and is not 1.
+/// @brief set_authority should return a validation error when the authorities size does
+/// not match the keys size and is not 1.
 TEST(WriterTest, SetAuthorityRejectsMismatchedSizes) {
     auto bus = std::make_shared<Bus>();
     auto states = std::make_shared<control::States>();

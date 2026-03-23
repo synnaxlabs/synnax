@@ -10,7 +10,6 @@
 #pragma once
 
 #include <shared_mutex>
-#include <thread>
 #include <unordered_map>
 
 #include "client/cpp/synnax.h"
@@ -56,12 +55,11 @@ public:
         }
     }
 
-    /// @brief optimistically applies an authority increase for a single channel.
-    /// If the incoming authority is strictly greater than the current holder's,
-    /// the mirror is updated immediately. Equal or lower authority is ignored,
-    /// matching the server's position-based tiebreak (earlier gate wins ties).
-    /// This is safe because the relay will eventually overwrite with the
-    /// authoritative state from the server.
+    /// @brief optimistically applies an authority increase for a single channel. If the
+    /// incoming authority is strictly greater than the current holder's, the mirror is
+    /// updated immediately. Equal or lower authority is ignored, matching the Core's
+    /// position-based tiebreak (earlier gate wins ties). This is safe because the relay
+    /// will eventually overwrite with the authoritative state from the Core.
     void apply_increase(
         const x::control::Subject &subject,
         synnax::channel::Key channel,
@@ -77,9 +75,9 @@ public:
         };
     }
 
-    /// @brief filters a frame, keeping only channels where subject holds
-    /// authority or no authority state exists (uncontrolled). Series are
-    /// shallow-copied (shared_ptr refcount bump), not deep-copied.
+    /// @brief filters a frame, keeping only channels where subject holds authority or
+    /// no authority state exists (uncontrolled). Series are shallow copied (shared_ptr
+    /// refcount bump), not deep-copied.
     x::telem::Frame
     filter(const x::telem::Frame &frame, const x::control::Subject &subject) const {
         std::shared_lock lock(this->mu);
@@ -93,8 +91,8 @@ public:
     }
 
     /// @brief filters a frame by move, keeping only channels where subject holds
-    /// authority or no authority state exists (uncontrolled). Takes ownership of
-    /// the input frame and moves passing series instead of copying them.
+    /// authority or no authority state exists (uncontrolled). Takes ownership of the
+    /// input frame and moves passing series instead of copying them.
     x::telem::Frame
     filter(x::telem::Frame &&frame, const x::control::Subject &subject) const {
         std::shared_lock lock(this->mu);
@@ -118,9 +116,9 @@ public:
         return out;
     }
 
-    /// @brief returns true if subject holds authority (or no state exists) for
-    /// every channel in the frame. Used as a fast path to avoid deep-copying when
-    /// the writer is fully authorized.
+    /// @brief returns true if subject holds authority (or no state exists) for every
+    /// channel in the frame. Used as a fast path to avoid deep copying when the writer
+    /// is fully authorized.
     bool all_authorized(
         const x::telem::Frame &frame,
         const x::control::Subject &subject

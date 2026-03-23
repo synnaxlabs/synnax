@@ -13,9 +13,9 @@
 #include "glog/logging.h"
 #include <windows.h>
 
-// timeBeginPeriod/timeEndPeriod from winmm.lib. We declare them manually
-// instead of including <timeapi.h> because WIN32_LEAN_AND_MEAN (set by the
-// build) excludes multimedia headers and their transitive type dependencies.
+// timeBeginPeriod/timeEndPeriod from winmm.lib. We declare them manually instead of
+// including <timeapi.h> because WIN32_LEAN_AND_MEAN (set by the build) excludes
+// multimedia headers and their transitive type dependencies.
 extern "C" {
 __declspec(dllimport) UINT WINAPI timeBeginPeriod(UINT uPeriod);
 __declspec(dllimport) UINT WINAPI timeEndPeriod(UINT uPeriod);
@@ -125,11 +125,11 @@ public:
     }
 
 private:
-    // Try CREATE_WAITABLE_TIMER_HIGH_RESOLUTION first for sub-millisecond
-    // precision without global side effects. Falls back to a standard timer
-    // with timeBeginPeriod(1) on pre-Windows 10 1803 systems. Both use
-    // one-shot re-arming instead of periodic mode because the periodic
-    // lPeriod parameter doesn't benefit from the high-resolution mechanism.
+    // Try CREATE_WAITABLE_TIMER_HIGH_RESOLUTION first for sub-millisecond precision
+    // without global side effects. Falls back to a standard timer with
+    // timeBeginPeriod(1) on pre-Windows 10 1803 systems. Both use one-shot re-arming
+    // instead of periodic mode because the periodic lPeriod parameter doesn't benefit
+    // from the high-resolution mechanism.
     x::errors::Error create_waitable_timer() {
         this->timer_event_ = CreateWaitableTimerExW(
             NULL,

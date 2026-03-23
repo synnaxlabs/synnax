@@ -96,8 +96,8 @@ public:
 
     void write_series(types::ChannelKey key, const Series &data, const Series &time);
 
-    /// @brief flushes read and write state directly into the provided frame,
-    /// avoiding intermediate allocations.
+    /// @brief flushes read and write state directly into the provided frame, avoiding
+    /// intermediate allocations.
     void flush_into(x::telem::Frame &out);
 
     void reset();

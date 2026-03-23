@@ -50,7 +50,7 @@ const intermediateStreamerConfigZ = z.object({
    as opposed to the standard JSON encoding mechanisms for frames. */
   useHighPerformanceCodec: z.boolean().default(true),
   /** excludeGroups sets writer group IDs whose frames should be filtered out by the
-   server. Used for telemetry bypass deduplication. */
+   Core. Used for telemetry bypass deduplication. */
   excludeGroups: z.uint32().array().default([]),
 });
 

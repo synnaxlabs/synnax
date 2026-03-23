@@ -125,7 +125,7 @@ var _ = Describe("Writer", func() {
 		})
 	})
 
-	Describe("Free Write Group Propagation", Ordered, func() {
+	Describe("Free Write Group Propagation", func() {
 		It("Should propagate the writer's group to the streamer response", func() {
 			s := freeWriterScenario()
 			defer func() { Expect(s.closer.Close()).To(Succeed()) }()
@@ -189,7 +189,7 @@ var _ = Describe("Writer", func() {
 		})
 	})
 
-	Describe("Free Write Group Isolation", Ordered, func() {
+	Describe("Free Write Group Isolation", func() {
 		It("Should propagate distinct groups from different writers", func() {
 			s := freeWriterScenario()
 			defer func() { Expect(s.closer.Close()).To(Succeed()) }()

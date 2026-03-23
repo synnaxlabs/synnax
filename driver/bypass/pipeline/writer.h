@@ -16,11 +16,10 @@
 #include "driver/pipeline/acquisition.h"
 
 namespace driver::bypass::pipeline {
-/// @brief a pipeline Writer that publishes frames to the local bus before
-/// forwarding to the server. When set_authority is called with an authority
-/// higher than the current holder, the increase is applied directly to the
-/// control::States before forwarding to the server, eliminating the staleness
-/// window for authority increases.
+/// @brief a pipeline Writer that publishes frames to the local bus before forwarding to
+/// the Core. When set_authority is called with an authority higher than the current
+/// holder, the increase is applied directly to the control::States before forwarding to
+/// the Core, eliminating the staleness window for authority increases.
 class Writer final : public ::driver::pipeline::Writer {
     std::unique_ptr<::driver::pipeline::Writer> server;
     std::shared_ptr<Bus> bus;
@@ -72,9 +71,9 @@ public:
     [[nodiscard]] x::errors::Error close() override { return this->server->close(); }
 };
 
-/// @brief a WriterFactory that wraps writers with bus publish capability.
-/// Injects the group identity into writer configs for server-side deduplication
-/// and threads control::States into writers for short-circuit authority updates.
+/// @brief a WriterFactory that wraps writers with bus publish capability. Injects the
+/// group identity into writer configs for Core-side deduplication and threads
+/// control::States into writers for short-circuit authority updates.
 class WriterFactory final : public ::driver::pipeline::WriterFactory {
     std::shared_ptr<::driver::pipeline::WriterFactory> server;
     std::shared_ptr<Bus> bus;

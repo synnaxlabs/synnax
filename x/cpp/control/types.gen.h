@@ -42,7 +42,7 @@ struct Subject {
     /// @brief name is a human-readable name for the subject.
     std::string name;
     /// @brief group optional identifier shared by subjects from the same logical group
-    /// (e.g.) all writers from the same driver rack.
+    /// (e.g.) all writers from the same Driver rack.
     std::uint32_t group = 0;
 
     static Subject parse(x::json::Parser parser);
@@ -78,7 +78,7 @@ struct State {
 
 /// @brief Transfer represents a transfer of control over a resource. It is represented
 /// as a transition from one state to another over the same resource. A transfer between
-/// resources that are different ill result in a panic when any transfer methods are
+/// resources that are different will result in a panic when any transfer methods are
 /// called.
 ///
 /// If From is nil, the entity was uncontrolled before the transfer. If To is nil, the

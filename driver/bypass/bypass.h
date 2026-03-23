@@ -22,12 +22,12 @@
 
 #include "glog/logging.h"
 
-#include "client/cpp/channel/channel.h"
+#include "client/cpp/channel/types.gen.h"
 #include "x/cpp/telem/frame.h"
 
 namespace driver::bypass {
-/// @brief maximum number of frames buffered per subscription before the
-/// oldest frames are dropped to make room for new ones.
+/// @brief maximum number of frames buffered per subscription before the oldest frames
+/// are dropped to make room for new ones.
 constexpr size_t QUEUE_CAP = 2048;
 
 /// @brief a subscription to frames on a set of channel keys.
@@ -92,8 +92,8 @@ public:
         this->on_push = std::move(fn);
     }
 
-    /// @brief filters, applies alignment, and pushes a frame.
-    /// Returns true if any channel matched (frame was delivered).
+    /// @brief filters, applies alignment, and pushes a frame. Returns true if any
+    /// channel matched (frame was delivered).
     bool filter_and_push(
         const x::telem::Frame &frame,
         const std::vector<x::telem::Alignment> &alignments
@@ -140,14 +140,14 @@ public:
     }
 };
 
-/// @brief process-wide frame router that delivers frames by channel key.
-/// Subscriptions are tracked via weak_ptr so that destroying a subscription
-/// automatically expires its route entries — no explicit unsubscribe required.
+/// @brief process-wide frame router that delivers frames by channel key. Subscriptions
+/// are tracked via weak_ptr so that destroying a subscription automatically expires its
+/// route entries — no explicit unsubscribe required.
 ///
-/// The Bus assigns monotonically increasing alignment to each series before
-/// delivery, fulfilling the role that Cesium plays on the server path.
-/// Channels must be registered via register_channels before publishing.
-/// Registration locks; the publish hot path uses only atomic fetch_add.
+/// The Bus assigns monotonically increasing alignment to each series before delivery,
+/// fulfilling the role that Cesium plays on the server path. Channels must be
+/// registered via register_channels before publishing. Registration locks; the publish
+/// hot path uses only atomic fetch_add.
 class Bus {
     mutable std::shared_mutex mu;
     std::vector<std::weak_ptr<Subscription>> subscribers;
@@ -171,8 +171,8 @@ public:
     }
 
     /// @brief publishes a frame to all subscribers with matching channel keys.
-    /// Alignment is computed lazily (only if a subscriber matches) and applied
-    /// during the per-subscriber copy that filter_and_push already performs.
+    /// Alignment is computed lazily (only if a subscriber matches) and applied during
+    /// the per-subscriber copy that filter_and_push already performs.
     void publish(const x::telem::Frame &frame) {
         thread_local std::vector<x::telem::Alignment> alignments;
         bool aligned = false;

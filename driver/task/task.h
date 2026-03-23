@@ -71,8 +71,8 @@ public:
     /// @brief returns the shared control authority states.
     virtual std::shared_ptr<control::States> control_states() { return nullptr; }
 
-    /// @brief returns the rack key for this driver, used as the group identity
-    /// for server-side deduplication filtering.
+    /// @brief returns the rack key for this driver, used as the group identity for
+    /// Core-side deduplication filtering.
     virtual synnax::rack::Key rack_key() { return 0; }
 
     /// @brief updates the state of the task in the Synnax cluster.

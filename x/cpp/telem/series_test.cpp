@@ -1763,8 +1763,6 @@ TEST(SeriesClear, ClearedStringSeriesCanBeRebuilt) {
     ASSERT_EQ(merged[0], "new");
 }
 
-////////////////////// Shallow Copy / Copy-on-Write //////////////////////
-
 /// @brief shallow_copy should produce a series with identical data.
 TEST(SeriesShallowCopy, ReadsMatchOriginal) {
     auto original = Series(std::vector<float>{1.0f, 2.0f, 3.0f});
@@ -2032,8 +2030,6 @@ TEST(SeriesShallowCopy, ValuesReturnsCorrectData) {
     ASSERT_EQ(vals[1], 20);
     ASSERT_EQ(vals[2], 30);
 }
-
-////////////////////// detach_buffer //////////////////////
 
 /// @brief detach_buffer should allocate a new buffer when shared.
 TEST(SeriesDetachBuffer, AllocatesNewBufferWhenShared) {

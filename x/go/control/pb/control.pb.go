@@ -90,7 +90,7 @@ type Subject struct {
 	// name is a human-readable name for the subject.
 	Name string `protobuf:"bytes,2,opt,name=name,proto3" json:"name,omitempty"`
 	// group optional identifier shared by subjects from the same logical group (e.g.) all
-	// writers from the same driver rack.
+	// writers from the same Driver rack.
 	Group         uint32 `protobuf:"varint,3,opt,name=group,proto3" json:"group,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
@@ -214,7 +214,7 @@ func (x *State) GetAuthority() uint32 {
 
 // Transfer represents a transfer of control over a resource. It is represented as a
 // transition from one state to another over the same resource. A transfer between
-// resources that are different ill result in a panic when any transfer methods are
+// resources that are different will result in a panic when any transfer methods are
 // called.
 //
 // If From is nil, the entity was uncontrolled before the transfer. If To is nil, the

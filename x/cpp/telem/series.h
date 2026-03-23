@@ -84,15 +84,15 @@ class Series {
     /// materializes a private copy before any mutation.
     mutable std::shared_ptr<std::byte[]> data_;
 
-    /// @brief allocates an uninitialized shared byte buffer. Callers always
-    /// overwrite the buffer immediately (memcpy, write, etc.), so
-    /// zero-initialization is unnecessary overhead.
+    /// @brief allocates an uninitialized shared byte buffer. Callers always overwrite
+    /// the buffer immediately (memcpy, write, etc.), so zero-initialization is
+    /// unnecessary overhead.
     static std::shared_ptr<std::byte[]> alloc(size_t byte_size) {
         return std::shared_ptr<std::byte[]>(new std::byte[byte_size]);
     }
 
-    /// @brief ensures this Series has exclusive ownership of its data buffer.
-    /// If the buffer is shared (use_count > 1), materializes a private copy.
+    /// @brief ensures this Series has exclusive ownership of its data buffer. If the
+    /// buffer is shared (use_count > 1), materializes a private copy.
     void ensure_exclusive() const {
         if (this->data_ && this->data_.use_count() > 1) {
             const auto bc = this->byte_cap();
@@ -473,9 +473,9 @@ public:
 
     /// @brief returns a raw pointer to the underlying buffer. This pointer is only
     /// valid for the lifetime of the Series. If this Series was created via
-    /// shallow_copy(), writing through this pointer will corrupt other copies.
-    /// Use write(), set(), or other mutation methods instead, which handle
-    /// copy-on-write automatically.
+    /// shallow_copy(), writing through this pointer will corrupt other copies. Use
+    /// write(), set(), or other mutation methods instead, which handle copy-on-write
+    /// automatically.
     [[nodiscard]] std::byte *data() const { return this->data_.get(); }
 
     /// @brief allocates a series with the given data type and capacity. If the data
@@ -1439,10 +1439,10 @@ public:
     /// avoid accidental deep copies.
     [[nodiscard]] Series deep_copy() const { return {*this}; }
 
-    /// @brief returns a shallow copy that shares the underlying data buffer.
-    /// The copy is safe to read concurrently. If either copy is mutated,
-    /// ensure_exclusive() materializes a private copy first (copy-on-write).
-    /// Not thread-safe for concurrent mutation of the same Series instance.
+    /// @brief returns a shallow copy that shares the underlying data buffer. The copy
+    /// is safe to read concurrently. If either copy is mutated, ensure_exclusive()
+    /// materializes a private copy first (copy-on-write). Not thread-safe for
+    /// concurrent mutation of the same Series instance.
     [[nodiscard]] Series shallow_copy() const { return {*this, ShallowTag{}}; }
 
     void clear() {
@@ -1450,9 +1450,9 @@ public:
         if (this->data_type().is_variable()) this->cached_byte_size = 0;
     }
 
-    /// @brief detaches the data buffer for reuse after a shallow_copy. If the
-    /// buffer is shared (use_count > 1), allocates a fresh buffer of the same
-    /// capacity. Resets size to 0 while preserving capacity.
+    /// @brief detaches the data buffer for reuse after a shallow_copy. If the buffer is
+    /// shared (use_count > 1), allocates a fresh buffer of the same capacity. Resets
+    /// size to 0 while preserving capacity.
     void detach_buffer() {
         const auto bc = this->byte_cap();
         if (this->data_ && this->data_.use_count() > 1) {

@@ -196,10 +196,9 @@ struct Config {
     }
 };
 
-/// @brief Applies real-time configuration to the current thread on a
-/// best-effort basis. Individual failures (e.g. missing CAP_SYS_NICE for
-/// SCHED_FIFO) are logged as warnings but do not prevent the thread from
-/// running at normal priority.
+/// @brief Applies real-time configuration to the current thread on a best-effort basis.
+/// Individual failures (e.g. missing CAP_SYS_NICE for SCHED_FIFO) are logged as
+/// warnings but do not prevent the thread from running at normal priority.
 /// @param cfg The RT configuration to apply.
 void apply_config(const Config &cfg);
 
@@ -208,13 +207,13 @@ void apply_config(const Config &cfg);
 /// @return true on Linux with appropriate permissions, false on macOS/Windows.
 bool has_support();
 
-/// @brief Discovers isolated or suitable RT cores on the current platform.
-/// On Linux, parses /sys/devices/system/cpu/isolated; falls back to picking
-/// the highest N cores. On other platforms, returns an empty vector.
+/// @brief Discovers isolated or suitable RT cores on the current platform. On Linux,
+/// parses /sys/devices/system/cpu/isolated; falls back to picking the highest N cores.
+/// On other platforms, returns an empty vector.
 std::vector<int> discover_rt_cores();
 
-/// @brief RAII handle for an allocated RT core. Releasing the handle returns
-/// the core to the Manager's pool. Move-only.
+/// @brief RAII handle for an allocated RT core. Releasing the handle returns the core
+/// to the Manager's pool. Move-only.
 class Handle {
     int core;
     Config resolved;
@@ -232,23 +231,22 @@ public:
 
     ~Handle();
 
-    /// @brief Applies the RT configuration (with the allocated core) to the
-    /// calling thread. Must be called from the thread that should become RT.
+    /// @brief Applies the RT configuration (with the allocated core) to the calling
+    /// thread. Must be called from the thread that should become RT.
     void apply();
 
-    /// @brief Explicitly releases the allocated core back to the pool.
-    /// Idempotent, safe to call multiple times.
+    /// @brief Explicitly releases the allocated core back to the pool. Idempotent, safe
+    /// to call multiple times.
     void release();
 
-    /// @brief Returns the allocated core number, or CPU_AFFINITY_NONE if
-    /// no core was available.
+    /// @brief Returns the allocated core number, or CPU_AFFINITY_NONE if no core was
+    /// available.
     [[nodiscard]] int allocated_core() const { return this->core; }
 };
 
-/// @brief Central RT core manager. Discovers available cores at construction
-/// and hands them out via allocate(). Thread-safe.
-/// Must be constructed via std::make_shared so that allocate() can capture
-/// a weak_ptr for safe release callbacks.
+/// @brief Central RT core manager. Discovers available cores at construction and hands
+/// them out via allocate(). Thread-safe. Must be constructed via std::make_shared so
+/// that allocate() can capture a weak_ptr for safe release callbacks.
 class Manager : public std::enable_shared_from_this<Manager> {
     mutable std::mutex mu;
     std::vector<int> all_cores;
@@ -259,11 +257,10 @@ class Manager : public std::enable_shared_from_this<Manager> {
 public:
     Manager();
 
-    /// @brief Allocates a core from the pool and returns a Handle with the
-    /// given base config. If no cores are available, returns a Handle with
-    /// CPU_AFFINITY_NONE.
-    /// @param cfg Base RT config, cpu_affinity will be overwritten with
-    /// the allocated core.
+    /// @brief Allocates a core from the pool and returns a Handle with the given base
+    /// config. If no cores are available, returns a Handle with CPU_AFFINITY_NONE.
+    /// @param cfg Base RT config, cpu_affinity will be overwritten with the allocated
+    /// core.
     Handle allocate(Config cfg);
 
     /// @brief Returns the number of cores still available in the pool.

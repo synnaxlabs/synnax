@@ -310,7 +310,7 @@ class Client:
         :param throttle_rate: The throttle rate in Hz to limit the rate of frames sent
         to the client. Defaults to 0 (no throttling).
         :param exclude_groups: Writer group IDs whose frames should be filtered out by
-        the server. Used for telemetry bypass deduplication.
+        the Core. Used for telemetry bypass deduplication.
         """
         adapter = ReadFrameAdapter(self.__channels)
         adapter.update(channels)

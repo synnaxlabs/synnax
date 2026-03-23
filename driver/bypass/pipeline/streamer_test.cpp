@@ -32,7 +32,7 @@ TEST(StreamerTest, DeliversLocalBusFrames) {
     ASSERT_NIL(streamer->close());
 }
 
-TEST(StreamerTest, DeliversServerFrames) {
+TEST(StreamerTest, DeliversCoreFrames) {
     auto bus = std::make_shared<Bus>();
     auto reads = std::make_shared<std::vector<x::telem::Frame>>();
     x::telem::Frame server_frame;
@@ -62,7 +62,7 @@ TEST(StreamerTest, DeliversLocalFramesRegardlessOfAuthority) {
     ASSERT_NIL(streamer->close());
 }
 
-TEST(StreamerTest, CloseSendDelegatesToServer) {
+TEST(StreamerTest, CloseSendDelegatesToCore) {
     auto bus = std::make_shared<Bus>();
     auto reads = std::make_shared<std::vector<x::telem::Frame>>();
     auto mock_factory = ::driver::pipeline::mock::simple_streamer_factory({1}, reads);
@@ -130,7 +130,7 @@ TEST(StreamerTest, DoesNotInjectExcludeGroupsWhenGroupIsZero) {
     ASSERT_NIL(streamer->close());
 }
 
-TEST(StreamerTest, ServerErrorDuringActiveReading) {
+TEST(StreamerTest, CoreErrorDuringActiveReading) {
     auto bus = std::make_shared<Bus>();
     auto reads = std::make_shared<std::vector<x::telem::Frame>>();
     x::telem::Frame valid_frame;
@@ -174,7 +174,7 @@ TEST(StreamerTest, ReadWakesOnLocalPushNotification) {
     ASSERT_NIL(streamer->close());
 }
 
-TEST(StreamerTest, LocalFramesTakePriorityOverServerFrames) {
+TEST(StreamerTest, LocalFramesTakePriorityOverCoreFrames) {
     auto bus = std::make_shared<Bus>();
     auto reads = std::make_shared<std::vector<x::telem::Frame>>();
     x::telem::Frame server_frame;
@@ -215,7 +215,7 @@ TEST(StreamerTest, DoubleCloseIsIdempotent) {
     ASSERT_NIL(streamer->close());
 }
 
-TEST(StreamerTest, PropagatesServerErrorThroughClose) {
+TEST(StreamerTest, PropagatesCoreErrorThroughClose) {
     auto bus = std::make_shared<Bus>();
     auto reads = std::make_shared<std::vector<x::telem::Frame>>();
     auto read_errors = std::make_shared<std::vector<x::errors::Error>>();

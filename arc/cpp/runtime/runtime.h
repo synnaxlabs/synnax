@@ -67,8 +67,8 @@ struct Config {
     /// This allows external code to register custom node types without the
     /// runtime needing a dedicated config field for each one.
     std::vector<std::shared_ptr<node::Factory>> factories;
-    /// @brief Optional RT handle from the Manager. When set, the loop uses
-    /// this handle's allocated core instead of auto-selecting one.
+    /// @brief Optional RT handle from the Manager. When set, the loop uses this
+    /// handle's allocated core instead of auto-selecting one.
     std::shared_ptr<x::thread::rt::Handle> rt_handle;
 };
 

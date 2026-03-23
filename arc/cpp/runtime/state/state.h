@@ -184,8 +184,8 @@ public:
     );
     std::pair<Node, x::errors::Error> node(const std::string &key);
     void ingest(const x::telem::Frame &frame);
-    /// @brief flushes channel state directly into the provided frame,
-    /// avoiding intermediate allocations.
+    /// @brief flushes channel state directly into the provided frame, avoiding
+    /// intermediate allocations.
     void flush_into(x::telem::Frame &out);
 
     /// @brief Buffers an authority change request for later flushing.

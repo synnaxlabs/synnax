@@ -12,7 +12,6 @@
 
 #include "benchmark/benchmark.h"
 #include "driver/bypass/bypass.h"
-#include "driver/bypass/pipeline/streamer.h"
 #include "driver/bypass/pipeline/writer.h"
 #include "driver/control/state.h"
 #include "driver/pipeline/mock/pipeline.h"

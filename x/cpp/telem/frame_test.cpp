@@ -536,8 +536,6 @@ TEST(FrameTests, testMoveAssignmentToEmpty) {
     ASSERT_EQ(f2.series->at(0).at<float>(2), 3.0f);
 }
 
-////////////////////// Shallow Copy //////////////////////
-
 /// @brief shallow_copy should produce a frame with identical channel keys and data.
 TEST(FrameShallowCopy, ReadsMatchOriginal) {
     auto f = Frame(2);

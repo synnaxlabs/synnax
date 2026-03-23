@@ -18,12 +18,12 @@
 #include "driver/pipeline/control.h"
 
 namespace driver::bypass::pipeline {
-/// @brief a pipeline Streamer that merges local bus frames with server frames.
-/// Runs the server read on a background thread so that both local bus frames
-/// and server frames are delivered without blocking each other. No authority
-/// filtering is applied here; the bypass Writer is responsible for filtering
-/// unauthorized channels before publishing to the bus (matching Cesium's
-/// behavior of stripping unauthorized channels before relaying).
+/// @brief a pipeline Streamer that merges local bus frames with Core frames. Runs the
+/// Core read on a background thread so that both local bus frames and Core frames are
+/// delivered without blocking each other. No authority filtering is applied here; the
+/// bypass Writer is responsible for filtering unauthorized channels before publishing
+/// to the bus (matching Cesium's behavior of stripping unauthorized channels before
+/// relaying).
 class Streamer final : public ::driver::pipeline::Streamer {
     std::unique_ptr<::driver::pipeline::Streamer> server;
     std::shared_ptr<Subscription> subscription;
@@ -56,7 +56,7 @@ public:
             while (this->subscription->try_pop(local)) {
                 if (!local.empty()) {
                     VLOG(1) << "[bus.streamer] delivering local frame with "
-                            << local.size() << " channels (bypassed server)";
+                            << local.size() << " channels (bypassed Core)";
                     return {std::move(local), x::errors::NIL};
                 }
             }
@@ -65,7 +65,7 @@ public:
                 if (!this->server_frames.empty()) {
                     auto frame = std::move(this->server_frames.front());
                     this->server_frames.pop_front();
-                    VLOG(1) << "[bus.streamer] delivering server frame with "
+                    VLOG(1) << "[bus.streamer] delivering Core frame with "
                             << frame.size() << " channels";
                     return {std::move(frame), x::errors::NIL};
                 }
@@ -117,7 +117,7 @@ private:
 };
 
 /// @brief a StreamerFactory that wraps streamers with bus subscription capability.
-/// Injects the subject's group into exclude_groups for server-side deduplication.
+/// Injects the subject's group into exclude_groups for Core-side deduplication.
 class StreamerFactory final : public ::driver::pipeline::StreamerFactory {
     std::shared_ptr<::driver::pipeline::StreamerFactory> server;
     std::shared_ptr<Bus> bus;

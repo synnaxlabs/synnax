@@ -33,7 +33,7 @@ export const subjectZ = z.object({
   name: z.string(),
   /**
    * group optional identifier shared by subjects from the same logical group
-   * (e.g.) all writers from the same driver rack.
+   * (e.g.) all writers from the same Driver rack.
    */
   group: z.uint32().optional(),
 });

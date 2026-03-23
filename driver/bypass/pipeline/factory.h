@@ -22,7 +22,7 @@ create_writer_factory(const std::shared_ptr<task::Context> &ctx) {
         ctx->client
     );
     if (ctx->bus() == nullptr) {
-        VLOG(1) << "[bypass] no bus available, using direct server writer";
+        VLOG(1) << "[bypass] no bus available, using direct Core writer";
         return factory;
     }
     VLOG(1) << "[bypass] wrapping writer factory with bus publish, group="
@@ -43,7 +43,7 @@ inline std::shared_ptr<::driver::pipeline::StreamerFactory> create_streamer_fact
         ctx->client
     );
     if (ctx->bus() == nullptr) {
-        VLOG(1) << "[bypass] no bus available, using direct server streamer";
+        VLOG(1) << "[bypass] no bus available, using direct Core streamer";
         return factory;
     }
     auto sub = subject;

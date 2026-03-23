@@ -149,8 +149,8 @@ public:
     int downsample_factor = 1;
     /// @brief enable experimental high-performance codec for the writer.
     bool enable_experimental_codec = true;
-    /// @brief writer group IDs whose frames should be filtered out by the server.
-    /// Used for telemetry bypass deduplication.
+    /// @brief writer group IDs whose frames should be filtered out by the server. Used
+    /// for telemetry bypass deduplication.
     std::vector<std::uint32_t> exclude_groups;
 
 private:
