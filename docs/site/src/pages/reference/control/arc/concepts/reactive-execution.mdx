@@ -48,8 +48,8 @@ You declare how data flows through your system, and Arc handles the scheduling:
 tank_pressure -> scale{factor=2.0} -> pressure_display
 ```
 
-No loops. No polling. When `tank_pressure` receives new data, Arc automatically runs
-`scale` and updates `pressure_display`.
+No polling. No manual scheduling. When `tank_pressure` receives new data, Arc
+automatically runs `scale` and updates `pressure_display`.
 
 <Divider.Divider x />
 
@@ -118,33 +118,42 @@ errors.
 
 <Divider.Divider x />
 
-## No Loops
+## Stages and Functions
 
-Arc doesn't have `for` or `while` loops. This is intentional.
+Arc programs have two kinds of code, and they serve different purposes.
 
-Instead of:
-
-```python
-# Traditional approach (not Arc)
-while True:
-    value = read_sensor()
-    if value > threshold:
-        trigger_alarm()
-    sleep(0.1)
-```
-
-You write:
+**Stage bodies** wire your system together. They declare which channels feed which
+functions, and under what conditions the program should transition between stages. This
+is the reactive part of Arc. You don't write loops or conditionals here. You describe
+data flow:
 
 ```arc
-// Arc approach
-sensor > threshold -> trigger_alarm{}
+stage pressurize {
+    1 -> valve_cmd,
+    tank_pressure -> controller{} -> throttle,
+    tank_pressure > 500 => next
+}
 ```
 
-The runtime handles the "loop". Your code just declares what should happen when data
-arrives.
+**Function bodies** do the actual computation. They run once each time the reactive
+system triggers them, and they support the same control flow you'd expect from any
+programming language: variables, `if`/`else`, and
+[`for` loops](/reference/control/arc/reference/loops):
 
-For computations that need to accumulate values over time, use
-[stateful variables](/reference/control/arc/concepts/stateful-variables).
+```arc
+func find_max(readings series f64) f64 {
+    peak f64 := 0.0
+    for x := readings {
+        if x > peak {
+            peak = x
+        }
+    }
+    return peak
+}
+```
+
+This separation is what keeps Arc programs predictable. The reactive layer handles
+timing, ordering, and consistency. Functions handle the math.
 
 <Divider.Divider x />
 

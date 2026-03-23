@@ -499,6 +499,9 @@ func add(a i32, b i32) i32 {
 			Entry("sequence", "sequence main {}", uint32(lsp.SemanticTokenTypeKeyword)),
 			Entry("stage", "stage first {}", uint32(lsp.SemanticTokenTypeKeyword)),
 			Entry("next", "next foo", uint32(lsp.SemanticTokenTypeKeyword)),
+			Entry("for", "for i {}", uint32(lsp.SemanticTokenTypeKeyword)),
+			Entry("break", "break", uint32(lsp.SemanticTokenTypeKeyword)),
+			Entry("continue", "continue", uint32(lsp.SemanticTokenTypeKeyword)),
 		)
 
 		DescribeTable("Types",

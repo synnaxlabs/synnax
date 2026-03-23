@@ -114,22 +114,26 @@ func toggle(trigger u8) u8 {
 
 <Divider.Divider x />
 
-## Stateful Variables Replace Loops
+## Loops vs. Stateful Variables
 
-Since Arc doesn't have loops, stateful variables are how you implement iterative
-algorithms. Instead of looping until a condition is met, you update state each execution
-and let the reactive model handle the iteration.
+Arc gives you two ways to work with repeated data, and they serve different purposes.
 
-Traditional approach (not Arc):
+**[`for` loops](/reference/control/arc/reference/loops)** process data you already have.
+If a function receives a series, a loop can walk through it in a single execution:
 
-```python
-total = 0
-for reading in readings:
-    total += reading
-average = total / len(readings)
+```arc
+func batch_average(data series f64) f64 {
+    sum f64 := 0.0
+    for x := data {
+        sum = sum + x
+    }
+    return sum / f64(len(data))
+}
 ```
 
-Arc approach:
+**Stateful variables** accumulate data across executions. The reactive model calls your
+function once per incoming value, and stateful variables carry the running totals
+between calls:
 
 ```arc
 func running_average(value f64) f64 {
@@ -141,8 +145,8 @@ func running_average(value f64) f64 {
 }
 ```
 
-The function executes once per incoming value, accumulating the total and count across
-executions.
+Use `for` loops for batch processing within a single function call. Use stateful
+variables for streaming computations that build up over time.
 
 <Divider.Divider x />
 

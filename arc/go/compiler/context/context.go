@@ -41,10 +41,10 @@ type Context[ASTNode antlr.ParserRuleContext] struct {
 	Outputs          types.Params
 	Hint             types.Type
 	OutputMemoryBase uint32
-	// LoopDepth tracks current block nesting depth for label computation.
-	LoopDepth int
-	// LoopStack tracks active loops for break/continue label resolution.
-	LoopStack []LoopEntry
+	// blockDepth tracks the current WASM block nesting depth for label computation.
+	blockDepth int
+	// loopStack tracks active loops for break/continue label resolution.
+	loopStack []LoopEntry
 }
 
 func Child[P, ASTNode antlr.ParserRuleContext](ctx Context[P], node ASTNode) Context[ASTNode] {
@@ -59,11 +59,12 @@ func Child[P, ASTNode antlr.ParserRuleContext](ctx Context[P], node ASTNode) Con
 		Hint:             ctx.Hint,
 		Outputs:          ctx.Outputs,
 		OutputMemoryBase: ctx.OutputMemoryBase,
-		WriterID:         ctx.WriterID,
-		LoopDepth:        ctx.LoopDepth,
-		LoopStack:        ctx.LoopStack,
+		WriterID:   ctx.WriterID,
+		blockDepth: ctx.blockDepth,
+		loopStack:  ctx.loopStack,
 	}
 }
+
 func (c Context[AstNode]) WithHint(hint types.Type) Context[AstNode] {
 	c.Hint = hint
 	return c
@@ -72,6 +73,37 @@ func (c Context[AstNode]) WithHint(hint types.Type) Context[AstNode] {
 func (c Context[AstNode]) WithScope(scope *symbol.Scope) Context[AstNode] {
 	c.Scope = scope
 	return c
+}
+
+// EnterBlock returns a new context with an incremented block depth. This should
+// be called whenever a WASM block, loop, or if instruction is emitted.
+func (c Context[ASTNode]) EnterBlock() Context[ASTNode] {
+	c.blockDepth++
+	return c
+}
+
+// BlockDepth returns the current WASM block nesting depth.
+func (c Context[ASTNode]) BlockDepth() int {
+	return c.blockDepth
+}
+
+// EnterLoop returns a new context with the given loop entry pushed onto the
+// loop stack. The stack is copied so the caller's context is not affected.
+func (c Context[ASTNode]) EnterLoop(entry LoopEntry) Context[ASTNode] {
+	copied := make([]LoopEntry, len(c.loopStack)+1)
+	copy(copied, c.loopStack)
+	copied[len(c.loopStack)] = entry
+	c.loopStack = copied
+	return c
+}
+
+// CurrentLoop returns the innermost loop entry and true, or a zero value and
+// false if there is no enclosing loop.
+func (c Context[ASTNode]) CurrentLoop() (LoopEntry, bool) {
+	if len(c.loopStack) == 0 {
+		return LoopEntry{}, false
+	}
+	return c.loopStack[len(c.loopStack)-1], true
 }
 
 func (c Context[ASTNode]) WithNewWriter() Context[ASTNode] {

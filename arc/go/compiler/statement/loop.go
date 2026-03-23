@@ -170,16 +170,14 @@ func compileForRange(
 
 	// block $break
 	ctx.Writer.WriteBlock(wasm.BlockTypeEmpty)
-	loopCtx.LoopDepth++
-	breakDepth := loopCtx.LoopDepth
+	loopCtx = loopCtx.EnterBlock()
+	breakDepth := loopCtx.BlockDepth()
 
 	// loop $loop_header
 	ctx.Writer.WriteLoop(wasm.BlockTypeEmpty)
-	loopCtx.LoopDepth++
+	loopCtx = loopCtx.EnterBlock()
 
-	// exit condition
 	if stepExpr != nil {
-		// Direction-aware: check step sign at runtime
 		ctx.Writer.WriteLocalGet(stepIdx)
 		emitZero(ctx.Writer, loopVarType)
 		if err = ctx.Writer.WriteBinaryOpInferred(">", loopVarType); err != nil {
@@ -210,17 +208,16 @@ func compileForRange(
 
 	// block $continue — continue lands at end of this block, before increment
 	ctx.Writer.WriteBlock(wasm.BlockTypeEmpty)
-	loopCtx.LoopDepth++
-	continueDepth := loopCtx.LoopDepth
+	loopCtx = loopCtx.EnterBlock()
+	continueDepth := loopCtx.BlockDepth()
 
-	loopCtx.LoopStack = append(loopCtx.LoopStack, context.LoopEntry{
+	bodyCtx := loopCtx.EnterLoop(context.LoopEntry{
 		BreakDepth:    breakDepth,
 		ContinueDepth: continueDepth,
 	})
 
-	// body
 	if block := ctx.AST.Block(); block != nil {
-		if _, err = CompileBlock(context.Child(loopCtx, block)); err != nil {
+		if _, err = CompileBlock(context.Child(bodyCtx, block)); err != nil {
 			return err
 		}
 	}
@@ -228,7 +225,6 @@ func compileForRange(
 	// end block $continue
 	ctx.Writer.WriteEnd()
 
-	// increment: i = i + step
 	ctx.Writer.WriteLocalGet(loopVarIdx)
 	if stepExpr != nil {
 		ctx.Writer.WriteLocalGet(stepIdx)
@@ -288,45 +284,38 @@ func compileForSeriesIteration(
 	elemIdx := elemSym.ID
 	elemType := elemSym.Type
 
-	// Compile the iterable expression (series handle)
 	if _, err = expression.Compile(context.Child(loopCtx, expr)); err != nil {
 		return err
 	}
 	ctx.Writer.WriteLocalSet(handleIdx)
 
-	// len = series.len(handle)
 	ctx.Writer.WriteLocalGet(handleIdx)
 	ctx.Resolver.EmitSeriesLen(ctx.Writer, ctx.WriterID)
-	// series.len returns i64, wrap to i32
 	ctx.Writer.WriteOpcode(wasm.OpI32WrapI64)
 	ctx.Writer.WriteLocalSet(lenIdx)
 
-	// idx = 0
 	ctx.Writer.WriteI32Const(0)
 	ctx.Writer.WriteLocalSet(idxIdx)
 
 	// block $break
 	ctx.Writer.WriteBlock(wasm.BlockTypeEmpty)
-	loopCtx.LoopDepth++
-	breakDepth := loopCtx.LoopDepth
+	loopCtx = loopCtx.EnterBlock()
+	breakDepth := loopCtx.BlockDepth()
 
 	// loop $loop_header
 	ctx.Writer.WriteLoop(wasm.BlockTypeEmpty)
-	loopCtx.LoopDepth++
+	loopCtx = loopCtx.EnterBlock()
 
-	// exit condition: idx >= len => br $break
 	ctx.Writer.WriteLocalGet(idxIdx)
 	ctx.Writer.WriteLocalGet(lenIdx)
 	ctx.Writer.WriteOpcode(wasm.OpI32GeS)
 	ctx.Writer.WriteBrIf(1)
 
-	// elem = series.index(handle, idx)
 	ctx.Writer.WriteLocalGet(handleIdx)
 	ctx.Writer.WriteLocalGet(idxIdx)
 	ctx.Resolver.EmitSeriesIndex(ctx.Writer, ctx.WriterID, elemType)
 	ctx.Writer.WriteLocalSet(elemIdx)
 
-	// If two-ident form, set index variable
 	if indexName != "" {
 		indexSym, err := loopScope.Resolve(ctx, indexName)
 		if err != nil {
@@ -338,17 +327,16 @@ func compileForSeriesIteration(
 
 	// block $continue — continue lands at end of this block, before increment
 	ctx.Writer.WriteBlock(wasm.BlockTypeEmpty)
-	loopCtx.LoopDepth++
-	continueDepth := loopCtx.LoopDepth
+	loopCtx = loopCtx.EnterBlock()
+	continueDepth := loopCtx.BlockDepth()
 
-	loopCtx.LoopStack = append(loopCtx.LoopStack, context.LoopEntry{
+	bodyCtx := loopCtx.EnterLoop(context.LoopEntry{
 		BreakDepth:    breakDepth,
 		ContinueDepth: continueDepth,
 	})
 
-	// body
 	if block := ctx.AST.Block(); block != nil {
-		if _, err = CompileBlock(context.Child(loopCtx, block)); err != nil {
+		if _, err = CompileBlock(context.Child(bodyCtx, block)); err != nil {
 			return err
 		}
 	}
@@ -356,7 +344,6 @@ func compileForSeriesIteration(
 	// end block $continue
 	ctx.Writer.WriteEnd()
 
-	// idx++
 	ctx.Writer.WriteLocalGet(idxIdx)
 	ctx.Writer.WriteI32Const(1)
 	ctx.Writer.WriteOpcode(wasm.OpI32Add)
@@ -386,29 +373,27 @@ func compileForCondition(
 
 	// block $break
 	ctx.Writer.WriteBlock(wasm.BlockTypeEmpty)
-	loopCtx.LoopDepth++
-	breakDepth := loopCtx.LoopDepth
+	loopCtx = loopCtx.EnterBlock()
+	breakDepth := loopCtx.BlockDepth()
 
 	// loop $continue
 	ctx.Writer.WriteLoop(wasm.BlockTypeEmpty)
-	loopCtx.LoopDepth++
-	continueDepth := loopCtx.LoopDepth
+	loopCtx = loopCtx.EnterBlock()
+	continueDepth := loopCtx.BlockDepth()
 
-	loopCtx.LoopStack = append(loopCtx.LoopStack, context.LoopEntry{
+	bodyCtx := loopCtx.EnterLoop(context.LoopEntry{
 		BreakDepth:    breakDepth,
 		ContinueDepth: continueDepth,
 	})
 
-	// condition
-	if _, err = expression.Compile(context.Child(loopCtx, expr)); err != nil {
+	if _, err = expression.Compile(context.Child(bodyCtx, expr)); err != nil {
 		return err
 	}
 	ctx.Writer.WriteI32Eqz()
 	ctx.Writer.WriteBrIf(1) // br to $break if condition is false
 
-	// body
 	if block := ctx.AST.Block(); block != nil {
-		if _, err = CompileBlock(context.Child(loopCtx, block)); err != nil {
+		if _, err = CompileBlock(context.Child(bodyCtx, block)); err != nil {
 			return err
 		}
 	}
@@ -436,22 +421,21 @@ func compileForInfinite(
 
 	// block $break
 	ctx.Writer.WriteBlock(wasm.BlockTypeEmpty)
-	loopCtx.LoopDepth++
-	breakDepth := loopCtx.LoopDepth
+	loopCtx = loopCtx.EnterBlock()
+	breakDepth := loopCtx.BlockDepth()
 
 	// loop $continue
 	ctx.Writer.WriteLoop(wasm.BlockTypeEmpty)
-	loopCtx.LoopDepth++
-	continueDepth := loopCtx.LoopDepth
+	loopCtx = loopCtx.EnterBlock()
+	continueDepth := loopCtx.BlockDepth()
 
-	loopCtx.LoopStack = append(loopCtx.LoopStack, context.LoopEntry{
+	bodyCtx := loopCtx.EnterLoop(context.LoopEntry{
 		BreakDepth:    breakDepth,
 		ContinueDepth: continueDepth,
 	})
 
-	// body
 	if block := ctx.AST.Block(); block != nil {
-		if _, err = CompileBlock(context.Child(loopCtx, block)); err != nil {
+		if _, err = CompileBlock(context.Child(bodyCtx, block)); err != nil {
 			return err
 		}
 	}
@@ -471,11 +455,11 @@ func compileForInfinite(
 func compileBreakStatement(
 	ctx context.Context[parser.IBreakStatementContext],
 ) error {
-	if len(ctx.LoopStack) == 0 {
+	entry, ok := ctx.CurrentLoop()
+	if !ok {
 		return errors.New("break outside loop")
 	}
-	entry := ctx.LoopStack[len(ctx.LoopStack)-1]
-	label := uint32(ctx.LoopDepth - entry.BreakDepth)
+	label := uint32(ctx.BlockDepth() - entry.BreakDepth)
 	ctx.Writer.WriteBr(label)
 	return nil
 }
@@ -483,11 +467,11 @@ func compileBreakStatement(
 func compileContinueStatement(
 	ctx context.Context[parser.IContinueStatementContext],
 ) error {
-	if len(ctx.LoopStack) == 0 {
+	entry, ok := ctx.CurrentLoop()
+	if !ok {
 		return errors.New("continue outside loop")
 	}
-	entry := ctx.LoopStack[len(ctx.LoopStack)-1]
-	label := uint32(ctx.LoopDepth - entry.ContinueDepth)
+	label := uint32(ctx.BlockDepth() - entry.ContinueDepth)
 	ctx.Writer.WriteBr(label)
 	return nil
 }
