@@ -133,8 +133,8 @@ func compilePostfix(ctx context.Context[parser.IPostfixExpressionContext]) (type
 	primary := ctx.AST.PrimaryExpression()
 	funcCalls := ctx.AST.AllFunctionCallSuffix()
 
-	if len(funcCalls) > 0 && primary.IDENTIFIER() != nil {
-		funcName := primary.IDENTIFIER().GetText()
+	funcName := parser.PrimaryName(primary)
+	if len(funcCalls) > 0 && funcName != "" {
 		if funcName != "true" && funcName != "false" {
 			// len() and now() are language-level builtins that require compiler
 			// dispatch rather than normal function resolution:
@@ -285,6 +285,9 @@ func compileIndexOrSlice(
 func compilePrimary(ctx context.Context[parser.IPrimaryExpressionContext]) (types.Type, error) {
 	if lit := ctx.AST.Literal(); lit != nil {
 		return compileLiteral(context.Child(ctx, lit))
+	}
+	if qid := ctx.AST.QualifiedIdentifier(); qid != nil {
+		return compileIdentifier(ctx, parser.QualifiedName(qid))
 	}
 	if id := ctx.AST.IDENTIFIER(); id != nil {
 		text := id.GetText()

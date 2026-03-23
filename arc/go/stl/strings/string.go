@@ -23,6 +23,7 @@ var SymbolResolver = &symbol.ModuleResolver{
 	Members: symbol.MapResolver{
 		"from_literal": {
 			Name: "from_literal",
+			Kind: symbol.KindFunction,
 			Type: types.Function(types.FunctionProperties{
 				Inputs:  types.Params{{Name: "ptr", Type: types.I32()}, {Name: "len", Type: types.I32()}},
 				Outputs: types.Params{{Name: "handle", Type: types.I32()}},
@@ -30,6 +31,7 @@ var SymbolResolver = &symbol.ModuleResolver{
 		},
 		"concat": {
 			Name: "concat",
+			Kind: symbol.KindFunction,
 			Type: types.Function(types.FunctionProperties{
 				Inputs:  types.Params{{Name: "a", Type: types.I32()}, {Name: "b", Type: types.I32()}},
 				Outputs: types.Params{{Name: "result", Type: types.I32()}},
@@ -37,6 +39,7 @@ var SymbolResolver = &symbol.ModuleResolver{
 		},
 		"equal": {
 			Name: "equal",
+			Kind: symbol.KindFunction,
 			Type: types.Function(types.FunctionProperties{
 				Inputs:  types.Params{{Name: "a", Type: types.I32()}, {Name: "b", Type: types.I32()}},
 				Outputs: types.Params{{Name: "result", Type: types.I32()}},
@@ -44,6 +47,7 @@ var SymbolResolver = &symbol.ModuleResolver{
 		},
 		"len": {
 			Name: "len",
+			Kind: symbol.KindFunction,
 			Type: types.Function(types.FunctionProperties{
 				Inputs:  types.Params{{Name: "handle", Type: types.I32()}},
 				Outputs: types.Params{{Name: "length", Type: types.I64()}},

@@ -104,6 +104,7 @@ var SymbolResolver = &symbol.ModuleResolver{
 	Members: symbol.MapResolver{
 		"load": {
 			Name: "load",
+			Kind: symbol.KindFunction,
 			Type: types.Function(types.FunctionProperties{
 				Inputs:  types.Params{{Name: "id", Type: types.I32()}, {Name: "init", Type: types.Variable("T", &numConstraint)}},
 				Outputs: types.Params{{Name: "value", Type: types.Variable("T", &numConstraint)}},
@@ -111,12 +112,14 @@ var SymbolResolver = &symbol.ModuleResolver{
 		},
 		"store": {
 			Name: "store",
+			Kind: symbol.KindFunction,
 			Type: types.Function(types.FunctionProperties{
 				Inputs: types.Params{{Name: "id", Type: types.I32()}, {Name: "value", Type: types.Variable("T", &numConstraint)}},
 			}),
 		},
 		"load_series": {
 			Name: "load_series",
+			Kind: symbol.KindFunction,
 			Type: types.Function(types.FunctionProperties{
 				Inputs:  types.Params{{Name: "id", Type: types.I32()}, {Name: "init", Type: types.I32()}},
 				Outputs: types.Params{{Name: "handle", Type: types.I32()}},
@@ -124,6 +127,7 @@ var SymbolResolver = &symbol.ModuleResolver{
 		},
 		"store_series": {
 			Name: "store_series",
+			Kind: symbol.KindFunction,
 			Type: types.Function(types.FunctionProperties{
 				Inputs: types.Params{{Name: "id", Type: types.I32()}, {Name: "handle", Type: types.I32()}},
 			}),

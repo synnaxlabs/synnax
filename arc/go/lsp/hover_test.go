@@ -16,6 +16,7 @@ import (
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/arc/lsp"
 	. "github.com/synnaxlabs/arc/lsp/testutil"
+	"github.com/synnaxlabs/arc/stl"
 	"github.com/synnaxlabs/arc/symbol"
 	"github.com/synnaxlabs/arc/types"
 	"github.com/synnaxlabs/x/lsp/protocol"
@@ -480,6 +481,33 @@ func add(a i32, b i32) i32 {
 			Expect(hover).ToNot(BeNil())
 			Expect(hover.Contents.Value).To(ContainSubstring("myGlobal"))
 			Expect(hover.Contents.Value).To(ContainSubstring("i32"))
+		})
+	})
+
+	Describe("Qualified Module Identifiers", func() {
+		It("Should provide hover for qualified module function", func() {
+			server = MustSucceed(lsp.New(lsp.Config{
+				GlobalResolver: stl.SymbolResolver,
+			}))
+			server.SetClient(&MockClient{})
+
+			content := "func test() i64 {\n    return time.now()\n}"
+			OpenArcDocument(server, ctx, uri, content)
+			hover := Hover(server, ctx, uri, 1, 14)
+			Expect(hover).ToNot(BeNil())
+			Expect(hover.Contents.Value).To(ContainSubstring("now"))
+		})
+
+		It("Should not provide hover for invalid module prefix", func() {
+			server = MustSucceed(lsp.New(lsp.Config{
+				GlobalResolver: stl.SymbolResolver,
+			}))
+			server.SetClient(&MockClient{})
+
+			content := "func test() {\n    fake.nonexistent()\n}"
+			OpenArcDocument(server, ctx, uri, content)
+			hover := Hover(server, ctx, uri, 1, 10)
+			Expect(hover).To(BeNil())
 		})
 	})
 

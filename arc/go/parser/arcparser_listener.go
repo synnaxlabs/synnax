@@ -1,12 +1,3 @@
-// Copyright 2026 Synnax Labs, Inc.
-//
-// Use of this software is governed by the Business Source License included in the file
-// licenses/BSL.txt.
-//
-// As of the Change Date specified in that file, in accordance with the Business Source
-// License, use of this software will be governed by the Apache License, Version 2.0,
-// included in the file licenses/APL.txt.
-
 // Code generated from ArcParser.g4 by ANTLR 4.13.2. DO NOT EDIT.
 
 package parser // ArcParser
@@ -93,6 +84,9 @@ type ArcParserListener interface {
 
 	// EnterFunction is called when entering the function production.
 	EnterFunction(c *FunctionContext)
+
+	// EnterQualifiedIdentifier is called when entering the qualifiedIdentifier production.
+	EnterQualifiedIdentifier(c *QualifiedIdentifierContext)
 
 	// EnterConfigValues is called when entering the configValues production.
 	EnterConfigValues(c *ConfigValuesContext)
@@ -300,6 +294,9 @@ type ArcParserListener interface {
 
 	// ExitFunction is called when exiting the function production.
 	ExitFunction(c *FunctionContext)
+
+	// ExitQualifiedIdentifier is called when exiting the qualifiedIdentifier production.
+	ExitQualifiedIdentifier(c *QualifiedIdentifierContext)
 
 	// ExitConfigValues is called when exiting the configValues production.
 	ExitConfigValues(c *ConfigValuesContext)

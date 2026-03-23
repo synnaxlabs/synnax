@@ -16,6 +16,7 @@ import (
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/arc/lsp"
 	. "github.com/synnaxlabs/arc/lsp/testutil"
+	"github.com/synnaxlabs/arc/stl"
 	"github.com/synnaxlabs/arc/symbol"
 	"github.com/synnaxlabs/arc/types"
 	"github.com/synnaxlabs/x/lsp/protocol"
@@ -615,6 +616,36 @@ var _ = Describe("Completion", func() {
 			Expect(completions).ToNot(BeNil())
 
 			Expect(HasCompletion(completions.Items, "vent_vlv_cmd")).To(BeTrue(), "Should suggest 'vent_vlv_cmd' matching prefix 'v'")
+		})
+	})
+
+	Describe("Module Qualified Completion", func() {
+		It("Should return module member completions for 'math.' prefix", func() {
+			server = MustSucceed(lsp.New(lsp.Config{
+				GlobalResolver: stl.SymbolResolver,
+			}))
+			server.SetClient(&MockClient{})
+
+			content := "func test() {\n    math.p\n}"
+			OpenArcDocument(server, ctx, uri, content)
+
+			completions := Completion(server, ctx, uri, 1, 10)
+			Expect(completions).ToNot(BeNil())
+			Expect(HasCompletion(completions.Items, "pow")).To(BeTrue())
+		})
+
+		It("Should return all members for bare 'math.' prefix", func() {
+			server = MustSucceed(lsp.New(lsp.Config{
+				GlobalResolver: stl.SymbolResolver,
+			}))
+			server.SetClient(&MockClient{})
+
+			content := "func test() {\n    math.\n}"
+			OpenArcDocument(server, ctx, uri, content)
+
+			completions := Completion(server, ctx, uri, 1, 9)
+			Expect(completions).ToNot(BeNil())
+			Expect(HasCompletion(completions.Items, "pow")).To(BeTrue())
 		})
 	})
 })
