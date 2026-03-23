@@ -17,9 +17,9 @@ cc_library(
         "//arc/cpp/stl/series:state",
         "//arc/cpp/stl/stateful:state",
         "//arc/cpp/stl/str:state",
-        "//x/cpp/telem",
         "//x/cpp/errors",
         "//x/cpp/mem",
+        "//x/cpp/telem",
         "@glog",
     ],
 )

@@ -24,8 +24,8 @@ cc_library(
         "//arc/cpp/stl/stateful",
         "//arc/cpp/stl/str",
         "//arc/cpp/stl/time",
-        "//x/cpp/thread",
         "//x/cpp/control",
+        "//x/cpp/thread",
     ],
 )
 
