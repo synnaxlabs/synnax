@@ -44,6 +44,8 @@ build:linux --cxxopt=-fvisibility-inlines-hidden
 
 # Allow protobuf deprecation warnings without treating them as errors
 build:linux --copt=-Wno-error=deprecated-declarations
+# GoogleTest 1.17 headers trigger sign-compare in test compilation units
+build:linux --copt=-Wno-sign-compare
 
 # Allow sequence-point warnings without treating them as errors
 # (wasmtime headers use storage++ in pack expansion which triggers this)
