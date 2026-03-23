@@ -16,6 +16,7 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/x/binary"
+	"github.com/synnaxlabs/x/errors"
 	. "github.com/synnaxlabs/x/testutil"
 	"github.com/vmihailenco/msgpack/v5"
 )
@@ -63,6 +64,33 @@ var _ = Describe("Codec", func() {
 			Expect(msg).To(ContainSubstring("kind=struct, type=binary_test.custom"))
 		},
 			// Explicit exclusion of Gob because it can encode arbitrary go types
+			Entry("JSON", &binary.JSONCodec{}),
+			Entry("MsgPack", &binary.MsgPackCodec{}),
+		)
+	})
+	Describe("Stack Traces", func() {
+		DescribeTable("Encoding errors should include a stack trace",
+			func(codec binary.Codec) {
+				_, err := codec.Encode(ctx, make(chan int))
+				Expect(err).To(HaveOccurred())
+				stack := errors.GetStackTrace(err)
+				Expect(stack.String()).ToNot(BeEmpty())
+				Expect(stack.String()).To(ContainSubstring(".go"))
+			},
+			Entry("Gob", &binary.GobCodec{}),
+			Entry("JSON", &binary.JSONCodec{}),
+			Entry("MsgPack", &binary.MsgPackCodec{}),
+		)
+		DescribeTable("Decoding errors should include a stack trace",
+			func(codec binary.Codec) {
+				var d toEncode
+				err := codec.Decode(ctx, []byte("invalid"), &d)
+				Expect(err).To(HaveOccurred())
+				stack := errors.GetStackTrace(err)
+				Expect(stack.String()).ToNot(BeEmpty())
+				Expect(stack.String()).To(ContainSubstring(".go"))
+			},
+			Entry("Gob", &binary.GobCodec{}),
 			Entry("JSON", &binary.JSONCodec{}),
 			Entry("MsgPack", &binary.MsgPackCodec{}),
 		)
