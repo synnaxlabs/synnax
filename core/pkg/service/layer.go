@@ -182,7 +182,9 @@ func OpenLayer(ctx context.Context, cfgs ...LayerConfig) (l *Layer, err error) {
 		return nil, err
 	}
 
-	if l.Auth, err = auth.OpenKV(ctx, cfg.Distribution.DB); !ok(err, nil) {
+	if l.Auth, err = auth.OpenKV(ctx, auth.KVConfig{
+		DB: cfg.Distribution.DB,
+	}); !ok(err, nil) {
 		return nil, err
 	}
 	if l.Token, err = token.NewService(token.ServiceConfig{
